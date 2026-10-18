@@ -37,6 +37,7 @@
 | 工具 | 能力 |
 |---|---|
 | `read` | `read` |
+| `grep` | `read`；复用文件真实路径作用域，只执行固定检索程序与参数 |
 | `write`、`edit` | `write` |
 | `bash` | `exec` |
 | `message_send` | 无；发往本次运行来源以外需要 `message`（调用前判定） |

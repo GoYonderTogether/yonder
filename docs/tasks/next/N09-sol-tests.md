@@ -35,3 +35,8 @@
 
 尚未开始。
 
+
+### N00 前置探测（2026-10-18）
+
+- pi 1.3.0 模型目录包含 openai/gpt-6.1-sol。使用当前 core/dist Runtime、本项目授权凭据与 /tmp 隔离 home 发起真实请求：session=2、status=done、text=yonder-sol-ready，input=167/output=8。未调用工具；这不是安装版或 N09 测试任务已通过。
+- 准备脚本首次误从 runtime/index 导入 openDatabase，模型请求尚未发出即失败；修正为 runtime/db 后真实请求通过。临时证据 /tmp/yonder-sol-probe.json。

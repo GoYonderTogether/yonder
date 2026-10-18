@@ -85,7 +85,7 @@ bindings: [ … ]                   # 见 02 §2
 - 内核工具 `task_run({ preset, task })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
 - 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；能力 = 预设 ∩ `capabilities`，插件应当传入它代表的外部调用方被允许的能力。
-- 有 parent 的预设会话继承父会话的 cwd，env 默认继承父会话；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。没有 agent 工作区，不读取 SYSTEM.md 或工作区上下文贡献；system 保留框架、home/插件 skill 索引和 instructions。预设的有效能力、cwd、env 存在 pi 的 `yonder.session` 文档中供恢复使用，不增加 Yonder 转录或会话表字段。
+- 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取 SYSTEM.md 或工作区上下文贡献；system 保留框架、home/插件 skill 索引和 instructions。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
 ## 5. 提示词组装
 
@@ -103,10 +103,10 @@ bindings: [ … ]                   # 见 02 §2
 
 ### 5.3 `<turn>` 块
 
-每个唤醒运行的入站事件都带一个：
+每个提交的事件都带一个，run/write 都标明原事件 id/type；以下只示意既有消息正文格式：
 
 ```
-<turn time="2026-10-18T14:03:00+08:00" channel="qq-main" kind="group" conv="conv:qq-main:g:7788">
+<turn id="事件id" type="message.in" time="2026-10-18T14:03:00+08:00" channel="qq-main" kind="group" conv="conv:qq-main:g:7788">
 from: 阿明 (acct:qq-main:10001, known: person:aming)
 attachment: 报价单.pdf (application/pdf, 120 KB) file:///…/报价单.pdf
 notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --from 0.1.0 --to 0.1.1
@@ -116,6 +116,8 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 - `attachment:` 每个附件一行。模型支持图片输入时，图片附件不列在这里，而是由内核读取后作为图片块放进同一条用户消息（超出模型 `inputLimits` 的仍按附件列出）；其余附件只列出，由工具处理。`http(s)` 地址由内核下载到 `<home>/.yonder/attachments/` 后改写为 `file://`。
 - `notice:` 只在会话的 `version` 与当前版本不同时出现一次（09 §4）。
 - 以 `wake: write` 写入的消息只带 `from` 与 `attachment` 行，不带时间以外的环境信息。
+- id/type 对 write 同样保留；message.in/session.input 继续使用 text 与附件，其他事件将完整 data JSON 序列化为正文。插件负责原生事实，内核不识别 release 或卡片专用字段。外部名称、附件名按字符串转义为单行，不能通过换行或标记制造框架边界；原事件保持不变（10 §3.1）。
+- 提示词、环境、能力与投递均使用本次运行配置；新选中的上下文文件在配置发布前完成必要 scaffold。版本只在输入真正提交后确认，准备失败不能吞掉 notice。
 
 ### 5.4 SYSTEM.md 模板
 

@@ -1,6 +1,6 @@
 # 07 运行时：与 pi 的对接
 
-> 本文每一项都已在 T00 用 `@earendil-works/pi-durable@1.3.0`、`pi-ai@1.3.0`、`chord@1.3.0` 和真实模型 `openai/gpt-6-luna` 验证。
+> T00 验证了 pi 1.3.0 的基础接口；本轮新增配置、上限与恢复契约由 N 任务验证，不能把 T00 的证据扩张为全部新功能已通过。
 
 ## 1. 对接边界
 
@@ -22,7 +22,7 @@
 |---|---|
 | 一个 home | 一个 `Harness`（`Harness.open(storage, { models, registry, settings, env, onReport })`） |
 | 会话 | 一个 conversation（`harness.createConversation({ ownership: { kind: 'ownerless' }, agent, init })`）；Yonder 元数据存在 `y_sessions`，并在 conversation 文档 `yonder.session`（`defineDoc`，`scope: 'conversation'`）中存 `{ agent, profile }`，由 `init` 在创建的同一次提交里写入 |
-| 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })`。每次唤醒运行前，按当前的 `agent.yaml`／预设重新计算，与已存的不同才提交 |
+| 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })`；实际开始运行时取配置并固定，运行内模型/权限/env/提示/投递使用同一份。排队输入在开始时取新配置，恢复的已开始运行沿用原配置（10 §4） |
 | 框架段、`SYSTEM.md`、上下文贡献 | 扩展 `yonder.core` 的 `section`，按 03 §5.1 的顺序；section 用 `input.read.snapshot(SessionDoc, input.conversationId, ctx)` 读 `yonder.session` |
 | 插件工具与钩子 | 每个插件一个扩展 `plugin:<id>`，配置档选用的插件才进入 `extensions`。SDK 的 `Tool`（04 §3.2）转为 `defineTool({ name, description, parameters, execute })`：`ToolResult.text`/`images` → `output` 的文字与图片块，`isError` 原样；`ToolContext` 由 `yonder.session`、本次运行的能力、`api.env`、触发事件和 chord `context.abortSignal` 组成。SDK 的 `Hook` 转为 `hook(ToolTask | GenerationTask, …)`，`ToolCall` 取自 pi 的 `{ id, name, arguments }` |
 | 安全钩子、上限钩子 | 扩展 `yonder.core` 的 `hook(ToolTask, …)` 与 `hook(GenerationTask, …)`，`yonder.core` 最先安装 |
@@ -33,6 +33,10 @@
 | 执行环境 | `HarnessOptions.env({ conversationId, cwd, read })`，按 `yonder.session` 找到配置档的 `env`，本机为 `new NodeExecutionEnv({ cwd })` |
 | 用量 | conversation 文档 `pi.usage`（`UsageDoc`，按 `provider/model` 累计）；运行前后各取一次 `harness.snapshot(UsageDoc, id)`，差值记入 `run.end` |
 | 流式 | `watchEvents(harness, conversationId, ctx)`：`message_update` 的 `changes` 含 `text_delta`，`tool_execution_start` / `tool_execution_end` 给出工具起止；内核据此生成 06 §3 的片段 |
+
+### 3.1 恢复与唯一事实来源
+
+事件落库与 pi 提交使用稳定关联，pi 的 entry/submission/回答关系是运行事实；Yonder 只保存必要的事件关联及配置快照，不复制转录或建第二条队列。启动时先恢复关联与终结观察，再调用调度恢复；Harness.open 本身不等于已开始调度。活跃观察者及时释放，终结和投递按 10 §3 执行。相同事件到同一会话不能因重启被重复提交。
 
 ## 4. 工具暴露
 
@@ -46,12 +50,12 @@
 
 | 上限（配置档 `limits` 的键） | 默认 | 手段 |
 |---|---|---|
-| 每次运行的模型轮数（`maxTurns`） | 100 | `GenerationTask.afterResponse` 计数；达到上限后，本轮每个工具调用的 `ToolTask.afterTool` 返回原结果加 `control: { terminate: true }`，运行不再请求模型 |
+| 每次运行的模型轮数（`maxTurns`） | 100 | 按真实模型轮次计数，达到上限禁止下一轮请求；拒绝/无效工具不绕过，不依赖 afterTool 一定被调用 |
 | 每次运行的墙钟时间（`maxMinutes`） | 30 | 内核计时，到时调用 `conversation.abort()` |
-| 连续相同的工具调用（同名且参数相同；`repeatBlock`、`repeatStop`） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | 第 3、4 次：`beforeTool` 返回 `{ block: 原因 }`；第 5 次：`afterTool` 加 `terminate` |
+| 连续相同的工具调用（同名且参数相同；`repeatBlock`、`repeatStop`） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | repeatBlock 起阻止；达到 repeatStop 时在该次副作用执行前终止 |
 
 - 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`，并按 06 §2 向来源说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
-- 计数保存在内存里，按运行计；进程重启后重新计数。
+- 已开始运行的配置、计数和终止原因按 pi 扩展记录恢复，不让重启重新获得无限预算。取消传播到模型、工具、渲染和附件 IO；排队等待与模型运行时间分开。具体有限预算与恢复行为见 10 §3–4。
 - 上下文：使用 pi-durable 的自动压缩。`yonder.yaml` 的 `compaction`（`enabled`、`reserveTokens`、`keepRecentTokens`、`backgroundTokens`）原样传给 settings。按模型的差异来自模型自己的 `contextWindow`（§6.1，内置模型用 `modelOverrides` 改）。供应商报"上下文过长"时由 pi-durable 压缩后重试一次。不设人为的小上下文上限。
 - 单个工具结果过长时的截断使用 pi-durable 自带的截断；供应商重试使用 settings 的 `retry`。
 
@@ -104,4 +108,4 @@ pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message_se
 
 ## 8. 本地控制接口
 
-运行中的 harness 在 `<home>/.yonder/control.sock`（Windows 用命名管道）提供本地接口，CLI 的会话、身份、事件查询类命令与停止进程都经由它；没有运行中的进程时，查询类命令以只读方式直接打开存储。协议是一行一个 JSON 请求、一行一个 JSON 响应。`yonder chat` 不经过它，而是连接 channel-cli 插件自己的套接字（09 §2）。
+运行中的 harness 在 `<home>/.yonder/control.sock` 提供本地接口，CLI 的会话、身份、事件查询类命令与停止进程都经由它；没有运行中的进程时，查询类命令以只读方式直接打开存储。协议是一行一个 JSON 请求、一行一个 JSON 响应。`yonder chat` 不经过它，而是连接 channel-cli 插件自己的套接字（09 §2）。当前验收平台为 macOS，Windows 命名管道以后定义并验证。

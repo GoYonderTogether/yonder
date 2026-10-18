@@ -34,6 +34,8 @@
 
 共八个：`channels`、`tools`、`contexts`、`triggers`、`envs`、`hooks`、`presets`、`skills`。下面的 TypeScript 就是 `@yonder/sdk` 导出的类型，字段不多不少。
 
+提供者实例配置剥离用于选择提供者的 type 后再校验并传给 create。缺凭据或外部服务未就绪由官方插件返回可诊断状态，不因该依赖终止其他渠道；不提供任意插件代码的进程隔离保证。
+
 ### 3.1 channels — 收发消息
 
 ```ts
@@ -47,9 +49,9 @@ interface Channel {
   kinds: string[];                     // 会产生的 message.in kind，如 ['dm','group']
   output: { stream: boolean; attachments: boolean };
   start(io: ChannelIO): Promise<void>;
-  stop(): Promise<void>;
-  send(target: Ref, msg: OutMessage): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
-  stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string): Promise<Delivery>;   // output.stream 为真时必须实现
+  stop(signal?: AbortSignal): Promise<void>;
+  send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
+  stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string, signal?: AbortSignal): Promise<Delivery>;   // output.stream 为真时必须实现
 }
 interface ChannelIO {
   emit(e: EventInput): Promise<YEvent>;
@@ -110,6 +112,7 @@ interface RenderContext {
   session: string;
   workspace: { read(path: string): Promise<string | undefined> };   // 相对工作区根；不存在返回 undefined
   event?: YEvent;                      // 仅 placement: turn，当前入站事件
+  signal?: AbortSignal;                // 本次有限渲染预算；外部 IO 应响应
 }
 ```
 
@@ -218,7 +221,7 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 
 ## 8. 留给以后的能力用哪个接口
 
-0.1 不实现下列能力，但接口已经在上面。做的时候只写插件，不改内核。
+下表是扩展槽的归属。当前批准的官方插件按 11 实现；其余能力仅保留扩展入口。具体供应商能力写插件，只有规范已批准且现有公共契约确实不足的部分才修改 SDK/共享内核。
 
 | 能力 | 用到的接口 | 做法 |
 |---|---|---|

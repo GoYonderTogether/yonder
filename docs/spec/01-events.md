@@ -21,6 +21,8 @@ interface YEvent {
 插件写入事件时交给内核的是 `EventInput = Pick<YEvent, 'type' | 'parent' | 'from' | 'conv' | 'data'>`，`id`、`ts`、`routes` 由内核填。
 渠道插件需要的额外信息一律放进 `data`。
 
+进入模型的事件由统一输入准备入口呈现 id、type；message.in/session.input 使用正文与附件，插件自定义事件的完整 data 以 JSON 作为本轮正文，不要求包含 text。外部数据不进入 system，不授予权限，原事件不变；具体格式见 03 §5.3 和 10 §3.1。
+
 ## 2. 引用 Ref
 
 引用是指向实体的字符串，形如 `<种类>:<…>`。所有插件在存储涉及实体的记录时**必须**用引用标注实体，这是跨渠道、跨 agent 能互相查到的前提。
@@ -47,7 +49,7 @@ interface YEvent {
 | `run.end` | 内核 | `agent:` | 第一个输入事件的 `conv` | 见 §3.2 |
 | `session.open` | 内核 | `agent:` | — | `{ session, mode, key, profile }` |
 | `session.close` | 内核 | `agent:` | — | `{ session, reason }` |
-| `session.input` | 内核 | 调用方：`agent:` / `plugin:` | — | `{ session, text }`：经会话接口直接提交给预设会话的输入（02 §5） |
+| `session.input` | 内核 | 调用方：`agent:` / `plugin:` | — | `{ session, text, attachments? }`：经会话接口直接提交给预设会话的输入（02 §5）；parent 只能是上游事件 id，父会话留在会话元数据 |
 | `identity.link` | 内核 | 执行者 | — | `{ account, person, linked: boolean }` |
 | `config.reload` | 内核 | — | — | `{ file, ok, errors? }` |
 

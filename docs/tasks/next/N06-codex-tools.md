@@ -34,3 +34,9 @@ Yonder 读取获准桌面应用并完成可逆动作；一条真实 hosted searc
 
 尚未开始。
 
+
+### N00 前置探测（2026-10-18）
+
+- 宿主 cua.getState 成功返回实际应用/浏览器清单，没有前台交互；尚未通过 Yonder/插件调用。
+- 现有 Codex 登录下，codex --search exec --json --ephemeral --sandbox read-only --model gpt-6-luna 实际完成一次 native web_search，结果返回公开官方文档 URL；临时证据 /tmp/yonder-hosted-search-probe.jsonl。进程退出码 0，伴随既有 chronicle/SessionEnd 配置警告，不是搜索失败。
+- 两项仅证明已有宿主入口可调用；安装版 Yonder 的真实接线和授权边界仍属 N06。
