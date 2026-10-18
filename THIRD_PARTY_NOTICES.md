@@ -46,3 +46,13 @@ SOFTWARE.
 ## Codex 呈现参考
 
 `packages/cli/src/message-presentation.ts` 的紧凑行首标记、正文缩进及背景混合规则参考 [openai/codex rust-v0.160.1 messages.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/history_cell/messages.rs)、[style.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/style.rs) 的设计；没有复制其 Rust 代码或运行时。实际内容渲染仍调用上述 MIT pi 组件。
+
+## 官方插件及正文处理依赖
+
+- BrowserSkill：适配 Tencent/BrowserSkill `f9b180bccbc79bd507d1ce292901170ca66e2abf`；安装指引核对 `d9a78aed47874459ae1e44523a597e42dd9acf99`。MIT，Copyright (c) 2026 Tencent。取用模块和完整许可证随包保留在 [NOTICE](plugins/browser-skill/NOTICE.md)、[LICENSE](plugins/browser-skill/LICENSE.browser-skill)。不打包浏览器引擎。
+- 飞书：协议实现参考 OpenClaw `cafa09e50556e08c2a04a670f16ac815482c5489` 与 Hermes Agent `66605471e9f0b0832abbefaf625ce08e948ca540`，均为 MIT；模块归属见 [NOTICE](plugins/channel-feishu/NOTICE.md)，原文保留在 [OpenClaw LICENSE](plugins/channel-feishu/LICENSE.openclaw)、[Hermes LICENSE](plugins/channel-feishu/LICENSE.hermes)。正式依赖 `@larksuiteoapi/node-sdk@1.74.0`（MIT），许可证由 npm 包自带。
+- Web 正文处理：`@mozilla/readability@0.6.0`（Apache-2.0）、`linkedom@0.18.13`（ISC）、`turndown@7.2.4`（MIT）、开发类型 `@types/turndown@5.0.6`（MIT）。使用 npm 原包及自带许可证；固定参考和取用边界见 [SOURCES](plugins/web-tools/SOURCES.md)。AI-Being 无已发现许可证，未直接复制其源码。
+- GitHub 仅使用 `gh` 的固定 argv 调用外部已安装程序；参考项目与模块见 [包说明](plugins/channel-github/README.md)，不复制其运行系统。
+- Codex Computer Use / hosted search 只通过外部已安装的 Codex app-server 连接；没有复制、重分发其私有插件或凭据。
+
+新增插件源码由实际实现者提供，不因引用上游设计而宣称其授权、协议或真实使用已通过。

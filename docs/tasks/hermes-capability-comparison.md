@@ -12,7 +12,7 @@
 
 Hermes 参考为本机 `hermes-agent-latest` 的固定快照 `0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0`。比较的是功能覆盖，不表示本次实际运行验收过 Hermes。
 
-Yonder 主仓库已提交基线 `f9662ad`；U05 正在同一工作区修改终端，尚未交接。独立安装版仍是 0.1.4，来源 `99b019776ff891a0c4ab3403ae9d487d739ebf3d`，不能把开发分支当成日用版本。
+原核对时 Yonder 主仓库已提交基线为 `f9662ad`，U05 当时尚未交接；其后以 `3d31601` 交接，当前实现结果见末节。独立安装版仍是 0.1.4，来源 `99b019776ff891a0c4ab3403ae9d487d739ebf3d`，不能把开发分支当成日用版本。
 
 源码、安装和真实使用分开记：
 
@@ -96,3 +96,15 @@ Yonder 主仓库已提交基线 `f9662ad`；U05 正在同一工作区修改终�
 - Hermes 功能说明：[工具](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools)、[委派](https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation)、[Skills](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)、[记忆](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory)、[MCP](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)、[cron](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron)、[飞书](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/feishu)。固定源码优先用于复现本次比较。
 - Yonder 实时源码：[SDK](../../packages/sdk/src/types.ts)、[runtime](../../packages/core/src/runtime/)、[sessions](../../packages/core/src/sessions/index.ts)、[观察流](../../packages/core/src/runtime/terminal.ts)、[Skills](../../packages/core/src/skills/index.ts)、[插件加载](../../packages/core/src/plugins/index.ts)、[MCP](../../plugins/channel-mcp/src/operations.ts)、[CLI](../../packages/cli/src/index.ts)。
 - N05 未提交工作树：`/Users/zoran/.codex/worktrees/yonder-maintainer/yonder-harness`，基于 `29bc8ec`；不能整文件覆盖现有 TUI。N06/N07 的提交在各自工作树，尚未集成到主线发行内容，见实施计划 C2。
+
+## C6 更新：源码实现与验收分开
+
+本表前述现状列保留原审查快照。C0–C6 已接收 U05，并对 H01–H13、H20/H21/H24/H25/H26 实现本轮规定的功能体、调用方及打包接线；当前统一为**实现未验收**，不能将构建通过改写成 Hermes 同等功能完整度或真实使用通过。没有新增测试、运行测试或安装。
+
+- H02/H03/H04/H11/H12：D29 原生回执、恢复前置、唯一终结、实际输入来源/权限/附件、父子与统一被动观察接线。
+- H05/H06/H07：本地 Skills/插件管理、models/inspect、来源与有效配置查询。
+- H08/H09/H10/H20/H21：BrowserSkill、Codex 桌面/hosted search、grep、Tavily Search/Extract/Fetch。
+- H13/H24/H25/H26：GitHub issue/PR/Release/operator、飞书消息/多媒体/普通与流式卡片功能体。
+- H01：保留 U05 呈现与 U01 任务语义，接本轮管理与观察；视觉验收未新增。
+
+实际 build/typecheck、贡献及已知问题见 [实施记录](capability-completion-plan.md)，具体命令和验收缺口见 [操作说明](capability-completion-usage.md)。H14–H19/H22/H23 与“不做”项保持原取舍，没有借本轮扩大范围。

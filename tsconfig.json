@@ -1,11 +1,38 @@
 {
 	"files": [],
 	"references": [
-		{ "path": "packages/sdk" },
-		{ "path": "packages/core" },
-		{ "path": "packages/cli" },
-		{ "path": "plugins/channel-cli" },
-		{ "path": "plugins/context-files" },
-		{ "path": "plugins/channel-mcp" }
+		{
+			"path": "packages/sdk"
+		},
+		{
+			"path": "packages/core"
+		},
+		{
+			"path": "packages/cli"
+		},
+		{
+			"path": "plugins/channel-cli"
+		},
+		{
+			"path": "plugins/context-files"
+		},
+		{
+			"path": "plugins/channel-mcp"
+		},
+		{
+			"path": "plugins/codex-tools"
+		},
+		{
+			"path": "plugins/browser-skill"
+		},
+		{
+			"path": "plugins/web-tools"
+		},
+		{
+			"path": "plugins/channel-github"
+		},
+		{
+			"path": "plugins/channel-feishu"
+		}
 	]
 }

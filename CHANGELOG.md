@@ -4,6 +4,11 @@
 
 ### Added
 
+- C0–C6 源码实现未验收：本地插件/Skills 管理、models/inspect、CLI 附件、共用会话观察及 MCP 被动观察。
+- 官方 BrowserSkill、Codex Computer Use/hosted search、Tavily Search/Extract/Fetch、GitHub issue/PR/Release/operator、飞书流式卡片与多媒体插件纳入 workspace。
+- D29 原生结束回执与恢复接线、唯一运行终结、投递未知状态、真实 grep 和图片规范化；保留原生 pi 队列及 TUI 交互。
+- 本轮仅构建与类型检查；无新增/运行测试、安装切换、外部发送或发布。
+
 - TTY 默认任务聊天、显式渠道/会话目标、plain/JSONL、sessions open/submit 与中英文 shell/斜杠命令说明。
 - zsh/bash/fish 补全脚本，动态候选只读查询当前 home，不修改 shell 配置。
 

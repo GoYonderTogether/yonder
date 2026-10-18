@@ -12,7 +12,12 @@
 		"packages/cli",
 		"plugins/channel-cli",
 		"plugins/context-files",
-		"plugins/channel-mcp"
+		"plugins/channel-mcp",
+		"plugins/codex-tools",
+		"plugins/browser-skill",
+		"plugins/web-tools",
+		"plugins/channel-github",
+		"plugins/channel-feishu"
 	],
 	"scripts": {
 		"postinstall": "node scripts/apply-pi-patch.mjs",

@@ -15,14 +15,14 @@
 - 🟢 [N02](N02-mcp.md) MCP 已实现，开发版真实 Luna 检查通过，安装版复验挂 N03｜Codex｜N01。
 - 🟢 [N03](N03-install-agents.md) 独立安装、阶段更新、常驻服务、Luna/Sol 与两个真实 agent 已验证｜Codex｜N02。
 - 🟢 [N04](N04-first-repair.md) Luna 首个自主修复已提交、整合、安装及真实转换复验｜Yonder，Codex 审查｜N03。
-- 🟡 [N05](N05-recovery.md) 部分实现未提交，旧工作树已暂停；D29 已批准，待在 TUI 新基线上逐项移植｜Yonder 已写，Codex 负责整合｜原依赖 N04。
-- 🟡 [N06](N06-codex-tools.md) 插件源码已提交 e067930，尚未整合/安装；不算安装版桌面或搜索通过｜Yonder｜原依赖 N03。
-- 🟡 [N07](N07-browser.md) 插件源码已提交 2d79782，尚未整合/安装；扩展连接仍阻塞真实页面验收｜Yonder｜原依赖 N03。
-- ⚪ [N08](N08-coding-web.md) grep/Bash、Tavily、Web Fetch｜Yonder｜N03；不依赖 hosted search 或浏览器。
-- ⚪ [N09](N09-sol-tests.md) Sol 已真实可用；补测试留后轮，已知源码缺陷归 C1/C3｜原验收保留｜不再作为新计划中 N10/N12 源码开发的测试门槛。
-- ⚪ [N10](N10-github.md) issue→设计→commit→PR→Codex 合并｜Yonder｜N09。
-- ⚪ [N11](N11-release-update.md) 发布事件与 operator 安装更新｜Yonder｜N10。
-- ⚪ [N12](N12-feishu.md) 飞书完整渠道开发｜Yonder｜N09；不等 GitHub 发布链。
+- 🟡 [N05](N05-recovery.md) D29 恢复/唯一终结已移植接线，实现未验收｜Yonder 旧草稿，Codex 整合。
+- 🟡 [N06](N06-codex-tools.md) Codex 桌面/hosted search 插件已整合，实现未验收｜Yonder 原实现，Sol A 补齐。
+- 🟡 [N07](N07-browser.md) BrowserSkill 七工具/引导已整合，实现未验收｜Yonder 原实现，Sol B 补齐。
+- 🟡 [N08](N08-coding-web.md) grep/Tavily/Fetch 已接线，Bash 复用 pi，实现未验收｜主 agent + Sol C。
+- ⚪ [N09](N09-sol-tests.md) 补测试/真实组合验收留后轮；已知共享缺口已在 C1/C3 实现，尚无本轮运行证据。
+- 🟡 [N10](N10-github.md) issue/comment/PR 功能体及渠道已实现，整链未验收｜Sol A。
+- 🟡 [N11](N11-release-update.md) Release 事件/服务外 operator 更新已实现，未验收｜Sol A。
+- 🟡 [N12](N12-feishu.md) 飞书完整渠道功能体已实现，未验收｜Sol B。
 - ⚪ [N13](N13-feishu-live.md) Computer Use 验证真实飞书矩阵｜Yonder 执行，Codex 观察｜N12、N06 桌面能力、已安装飞书包与真实授权。
 - ⚪ [N14](N14-acceptance.md) 整条自维护链与全部剩余验收｜Yonder + Codex｜N01–N13 各能力验收；任何未通过项保留。
 
@@ -48,7 +48,7 @@
 
 每项已列负责人、依赖、规范、允许路径和验证入口。实现结束追加：变化、实际命令/结果、event/session/model/commit/PR、未完成项。原始失败和跳过计数不删除。
 
-## 2026-10-18 进度核查与 Sol 并行派工
+## 历史：2026-10-18 进度核查与 Sol 并行派工
 
 用户已批准开发使用 `openai/gpt-6.1-sol`。安装版 maintainer 默认模型已改为 Sol，保留 main 聊天 Luna；`config.reload` 事件 `01M57MDKP74RM6S54VWK3X4FSC` 确认校验成功。doctor ok；真实服务仍在独立安装目录运行，核查时版本 0.1.4、pid 11455。
 
@@ -97,3 +97,7 @@ yonder events --type run.end --from agent:maintainer --limit 100 --json
 
 - N06 方案 13:57:29Z 完成，N07 方案 13:58:06Z 完成；两条原生 run.end 均为 done、实际模型 `openai/gpt-6.1-sol`。Codex 已阅读完整方案并收敛额外策略框架、模型门禁与个人路径；13:59 分别放行两个插件的产品实现，仍使用原会话510/526。hosted search沿用已验证Luna，与开发模型Sol分开。
 - N05 Sol 新真实场景 1 passed / 1 skipped（旧场景有意未重跑），发现失败终结后的原生回执缺口。用户随后明确批准最小原生回执；设计先提交 `29bc8ec`（D29、07、10），再放行会话35实现。当前不再因这一设计决定等待用户；全部三条线已进入产品实现。源码、安装版及真实验收仍分别记结果。
+
+## C6 当前交付
+
+C0–C6 实现轮结束，构建/类型检查通过，无新增/运行测试；源码实现未验收，未更新日用安装。当前操作入口及下一轮验收见 [操作说明](../capability-completion-usage.md)，不使用下方历史 CLI 限制描述当前源码。原历史命令/失败/跳过不删除。
