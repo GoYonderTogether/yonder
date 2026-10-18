@@ -73,3 +73,22 @@ R5 前置真实缺陷：相同授权 REST issues 请求带 since=1970-01-01T00:0
 最后一次完整回归：`YONDER_TEST_REAL=1 YONDER_TEST_LAUNCHD=1 YONDER_TEST_AUTH=<Yonder自有授权> agent-network run -- npm test`，**29 files passed / 98 tests passed / 0 failed / 0 skipped**，日志 /tmp/yonder-r6-final-tests.log。原97/97是新增父子取消回归前的历史结果；旧失败不删除。build/typecheck通过；完整lint 0 errors / 56 warnings / 1 info（新回归使用项目既有非空断言风格增加5条warning），日志 /tmp/yonder-r6-final-lint.log；未禁用规则或新增绕过。CLI帮助的socket聚焦4/4通过，日志事实见前文。
 
 R0–R3源码、现场三处根因修复及Yonder自主PR已落地。本轮剩余不是以“全绿”掩盖的完成项：R4全部客户端/TUI/恢复矩阵未齐；R5正式Release和operator更新通知尚待策略授权及实际验证；R6因此仅交付已完成源码/检查/独立安装事实，不能宣布全系统最终验收。用户审核后再恢复依赖其授权的部分，不自行扩大范围或持续例行审查。
+
+## 安装交接：0.1.2026101804
+
+实际独立安装 source `/Users/zoran/.yonder-harness/versions/0.1.2026101804`，唯一 tag `v0.1.2026101804` → `8fe6435eacac819b782b03732ff6238c86af515e`。真实 update 再次干净 clone/npm ci/原生补丁/TypeScript与Swift构建通过，实际控制面 version/commit/home 一致，ready=true，PID70049；菜单栏登录项 running/PID70080。旧版本和标签保留。图标进程/登录项不是菜单点击或重新登录验收。
+
+安装版04在临时独立home重新加载旧数据后，父子取消现场脚本再次通过：父117、子132，子2026-10-18T20:49:21.912Z关闭，真实 native run-end 投影；非仅开发源码测试通过。临时home服务已停止，故障/结果文件保留 `/tmp/yonder-r4-cancel-result.json`，生产服务继续运行。未触碰原维护工作树的未合并历史修改；自主任务的干净工作树仅快进到已审核04，维护工作说明已标明issue#1完成，防止硬编码重做旧任务。
+
+用户入口：`/Users/zoran/.local/bin/yonder` 已作为稳定 launcher 的符号链接创建，未覆盖文件或改shell配置。可用命令：
+
+```sh
+yonder chat --channel cli --home /Users/zoran/.local/share/yonder-harness/home
+yonder sessions list --home /Users/zoran/.local/share/yonder-harness/home --json
+yonder sessions show 1336 --home /Users/zoran/.local/share/yonder-harness/home --json
+yonder service info --home /Users/zoran/.local/share/yonder-harness/home --json
+```
+
+第一条与默认 main/Luna 交互，选用已配置官方工具；不带channel的 `chat` 则使用原生default独立任务预设。历史会话1336是本次真实自主维修，不是新的测试请求。没有正式Release、自动更新或主人身份映射的成功声明；策略与客户端未完成项见前文。源码交接后的记录提交仅更新文档，不移动安装tag。
+
+只读 `yonder update --check --json` 已实际执行，最新正式Release接口返回HTTP404，命令正确失败并显示真实原因；当前尚未创建正式Release，没有把本地tag或磁盘版本当成最新正式发布。按钮本身仍未点击验收。
