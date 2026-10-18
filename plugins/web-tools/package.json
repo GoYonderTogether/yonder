@@ -1,0 +1,39 @@
+{
+	"name": "@yonder/plugin-web-tools",
+	"version": "0.1.4",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.1.4",
+		"@mozilla/readability": "0.6.0",
+		"linkedom": "0.18.13",
+		"turndown": "7.2.4"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "web-tools",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"tools": [
+				"search",
+				"extract",
+				"fetch"
+			]
+		}
+	},
+	"devDependencies": {
+		"@types/turndown": "5.0.6"
+	}
+}
