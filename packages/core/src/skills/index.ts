@@ -26,6 +26,7 @@ export interface SkillsReport { skills: SkillInfo[]; issues: SkillIssue[]; index
 interface CreateSkillsOptions {
 	home: string;
 	pluginDirs: string[];
+	pluginSources?: ReadonlyMap<string, string>;
 	workspace?: (session: RuntimeSessionConfig) => { files: WorkspaceFiles; root: string; location: string; env: ExecutionEnv } | undefined;
 	onIssue?: (issue: SkillIssue) => void;
 }
@@ -55,7 +56,7 @@ async function discover(source: SkillFiles): Promise<Array<{ file: string; direc
 	return result;
 }
 
-function frontmatter(text: string): { name: string; description: string; disableModelInvocation: boolean } {
+export function parseSkillFrontmatter(text: string): { name: string; description: string; disableModelInvocation: boolean } {
 	const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(text);
 	if (!match) throw new Error("缺少 YAML frontmatter");
 	const data: unknown = parse(match[1]!);
@@ -69,13 +70,13 @@ function frontmatter(text: string): { name: string; description: string; disable
 const escapeXml = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
 const compare = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 
-export function createSkills({ home, pluginDirs, workspace, onIssue }: CreateSkillsOptions) {
+export function createSkills({ home, pluginDirs, pluginSources, workspace, onIssue }: CreateSkillsOptions) {
 	const sourceFor = (session: RuntimeSessionConfig): SkillFiles[] => {
 		const workspaceSource = workspace?.(session);
 		return [
 			...(workspaceSource ? [{ ...workspaceSource, base: "skills", source: "workspace" as const }] : []),
 			{ root: home, base: "skills", source: "home", location: "home", files: hostFiles(home) },
-			...pluginDirs.map(directory => ({ root: directory, base: ".", source: `plugin:${directory}` as const, location: directory, files: hostFiles(directory) })),
+			...pluginDirs.map(directory => ({ root: directory, base: ".", source: `plugin:${pluginSources?.get(directory) ?? "unknown"}` as const, location: directory, files: hostFiles(directory) })),
 		];
 	};
 
@@ -87,7 +88,7 @@ export function createSkills({ home, pluginDirs, workspace, onIssue }: CreateSki
 			for (const found of await discover(source)) {
 				const fullFile = join(source.root, found.file);
 				try {
-					const parsed = frontmatter(await source.files.readFile(found.file));
+					const parsed = parseSkillFrontmatter(await source.files.readFile(found.file));
 					const selected = (session.resolved.skills ?? ["*"]).some(pattern => matchesGlob(pattern, parsed.name));
 					const directory = resolve(source.root, found.directory);
 					const entry: SkillEntry = {
@@ -118,10 +119,7 @@ export function createSkills({ home, pluginDirs, workspace, onIssue }: CreateSki
 		return { ...report, skills: report.skills.map(({ directory: _directory, relativeDirectory: _relativeDirectory, file: _file, files: _files, env: _env, ...skill }) => skill) };
 	}
 
-	async function view(session: RuntimeSessionConfig, name: string, path?: string): Promise<ToolResult> {
-		const report = await inspectInternal(session);
-		const skill = report.skills.find(candidate => candidate.name === name && !candidate.shadowed && candidate.selected);
-		if (!skill) throw new Error(`未找到当前配置档选中的 skill：${name}`);
+	async function readSkill(skill: SkillEntry, path?: string): Promise<ToolResult> {
 		const target = resolve(skill.directory, path ?? "SKILL.md");
 		if (!inside(resolve(skill.directory), target)) throw new Error("skill_view 路径超出 skill 目录");
 		const canonicalRoot = skill.env ? await canonicalPath(skill.env, skill.directory) : await realpath(skill.directory);
@@ -131,7 +129,22 @@ export function createSkills({ home, pluginDirs, workspace, onIssue }: CreateSki
 		return { text: `Skill directory: ${canonicalRoot}\nLocation: ${skill.location}\n\n${content}` };
 	}
 
-	return { inspect, index: async (session: RuntimeSessionConfig) => (await inspectInternal(session)).index, view };
+	async function view(session: RuntimeSessionConfig, name: string, path?: string): Promise<ToolResult> {
+		const report = await inspectInternal(session);
+		const skill = report.skills.find(candidate => candidate.name === name && !candidate.shadowed && candidate.selected);
+		if (!skill) throw new Error(`未找到当前配置档选中的 skill：${name}`);
+		return readSkill(skill, path);
+	}
+	async function show(session: RuntimeSessionConfig, name: string) {
+		const report = await inspectInternal(session);
+		const winner = report.skills.find(candidate => candidate.name === name && !candidate.shadowed);
+		if (!winner) throw new Error(`未找到 skill：${name}`);
+		const { files: _files, env: _env, relativeDirectory: _relative, file: _file, ...skill } = winner;
+		return { skill, shadowed: report.skills.filter(candidate => candidate.name === name && candidate.shadowed).map(({ files: _f, env: _e, relativeDirectory: _r, file: _p, ...info }) => info), content: (await readSkill(winner)).text };
+	}
+	return { inspect, show, index: async (session: RuntimeSessionConfig) => (await inspectInternal(session)).index, view };
 }
 
 export type Skills = ReturnType<typeof createSkills>;
+
+export { addLocalSkill, removeLocalSkill, type LocalSkillsTarget } from "./manage.js";
