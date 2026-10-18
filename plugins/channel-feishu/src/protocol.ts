@@ -104,6 +104,10 @@ export function parseContent(type: string, raw: string): Parsed {
 			? post
 			: Object.values(post).find((v) => Array.isArray(object(v).content));
 		walk(type === "post" ? (locale ?? post) : body);
+		if (type === "post") {
+			walk(body.files);
+			if (post !== body) walk(post.files);
+		}
 	} else if (type === "image") add(body.image_key, "image");
 	else if (["file", "audio", "media", "video"].includes(type)) {
 		add(

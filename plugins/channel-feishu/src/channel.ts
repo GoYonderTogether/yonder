@@ -179,7 +179,13 @@ export class FeishuChannel implements Channel {
 		const senderId = string(object(sender.sender_id).open_id),
 			chat = string(message.chat_id),
 			messageId = string(message.message_id);
-		if (!senderId || !chat || !messageId || typeof message.content !== "string")
+		if (
+			!senderId ||
+			!chat ||
+			!messageId ||
+			typeof message.content !== "string" ||
+			!["p2p", "group"].includes(string(message.chat_type))
+		)
 			return Promise.reject(new Error("Malformed Feishu message identity"));
 		if (sender.sender_type !== "user" || senderId === this.botId || !this.allowed(senderId, chat))
 			return Promise.resolve();
