@@ -3,13 +3,14 @@ import { dirname, isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import type { Context } from "@earendil-works/chord";
-import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
+import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
 import {
 	AgentDoc,
 	type AgentEvent,
 	type ConversationId,
 	createRegistry,
 	defineDoc,
+	defineDocFamily,
 	defineExtension,
 	defineTool,
 	type Extension,
@@ -73,6 +74,23 @@ const SessionDoc = defineDoc({
 });
 const cid = (id: string) => Number(id) as ConversationId;
 const emptyUsage = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
+const RunDoc = defineDocFamily({
+	kind: "yonder.run",
+	version: 1,
+	family: true,
+	scope: "conversation",
+	history: "latest",
+	fork: "initial",
+	initial: (_seed: null) => ({
+		config: "",
+		started: 0,
+		turns: 0,
+		previous: "",
+		repeats: 0,
+		reason: null as string | null,
+		usageBefore: emptyUsage(),
+	}),
+});
 const capabilityMap: Record<string, Capability[]> = {
 	read: ["read"],
 	write: ["write"],
@@ -100,13 +118,14 @@ function fromResult(value: ToolExecutionResult): ToolResult {
 interface RunState {
 	usageBefore: RuntimeRun["usage"];
 	id: string;
+	session: string;
+	config: RuntimeSessionConfig;
 	turns: number;
 	previous?: { name: string; args: unknown };
 	repeats: number;
 	reason?: string;
 	inputs: Set<string>;
 	timer: ReturnType<typeof setTimeout>;
-	limits: RuntimeSessionConfig["resolved"]["limits"];
 }
 export class Runtime {
 	private harness!: Harness;
@@ -114,7 +133,7 @@ export class Runtime {
 	private extensions = new Map<string, Extension>();
 	private tools = new Map<string, ToolRegistration>();
 	private capabilities = new Map<string, Capability[]>(Object.entries(capabilityMap));
-	private configured = new Map<string, string>();
+	private configured = new Map<string, RuntimeSessionConfig>();
 	private states = new Map<string, RunState>();
 	private submissions = new Map<string, { event?: RuntimeInput["event"]; run?: RunState; runId?: string }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
@@ -134,10 +153,13 @@ export class Runtime {
 				models: runtime.models,
 				registry: runtime.registry,
 				settings: { ...(options.config.compaction ? { compaction: options.config.compaction } : {}) },
+				beforeAgent: (target, context) => runtime.prepareRun(String(target.conversationId), context),
 				env: async (target) => {
 					const doc = await target.read.snapshot(SessionDoc, target.conversationId, C);
 					if (!doc) throw new Error("Missing yonder.session");
-					const config = await options.resolveSession(String(target.conversationId));
+					const config =
+						runtime.currentConfig(String(target.conversationId)) ??
+						(await options.resolveSession(String(target.conversationId)));
 					return runtime.environment(config);
 				},
 				...(options.onReport ? { onReport: options.onReport } : {}),
@@ -152,42 +174,91 @@ export class Runtime {
 		if (!env) throw new Error(`Unknown execution environment: ${config.resolved.env}`);
 		return env;
 	}
-	private async context(id: string, signal?: AbortSignal): Promise<ToolContext> {
-		const config = await this.options.resolveSession(id);
+	private async context(id: string, context: Context): Promise<ToolContext> {
+		const config = this.currentConfig(id) ?? (await this.options.resolveSession(id));
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		const input = live?.run?.inputs.map((value) => this.submissions.get(String(value))?.event).find(Boolean);
 		return {
 			agent: config.agent,
 			profile: config.profile,
 			session: id,
-			capabilities: config.resolved.capabilities,
+			capabilities: [...config.resolved.capabilities],
 			env: this.environment(config),
 			...(input ? { event: input } : {}),
-			signal: signal ?? new AbortController().signal,
+			signal: context.abortSignal!,
 		};
+	}
+	currentConfig(id: string): RuntimeSessionConfig | undefined {
+		return this.configured.get(id);
+	}
+	async sessionConfig(id: string): Promise<RuntimeSessionConfig> {
+		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
+		return (live?.run ? this.currentConfig(id) : undefined) ?? this.options.resolveSession(id);
+	}
+	private async prepareRun(session: string, context: Context): Promise<void> {
+		const live = await this.harness.snapshot(LiveDoc, cid(session), context);
+		if (!live?.run) return;
+		const id = String(live.run.inputs[0]);
+		if (this.states.has(id)) return;
+		const saved = await this.harness.snapshot(RunDoc, cid(session), id, context);
+		const started = saved?.started || Date.now();
+		const config: RuntimeSessionConfig = saved?.config
+			? JSON.parse(saved.config)
+			: structuredClone(await this.options.resolveSession(session));
+		const usageBefore = saved?.config ? saved.usageBefore : await this.usage(session);
+		if (!saved?.config) {
+			await this.applyConfiguration(session, config);
+			await this.harness.commit(async (tx) => {
+				Object.assign(await tx.doc(RunDoc, cid(session), id, null), {
+					config: JSON.stringify(config),
+					started,
+					usageBefore,
+				});
+			}, context);
+		}
+		this.configured.set(session, config);
+		const state: RunState = {
+			id,
+			session,
+			config,
+			usageBefore,
+			turns: saved?.turns ?? 0,
+			repeats: saved?.repeats ?? 0,
+			...(saved?.previous ? { previous: JSON.parse(saved.previous) } : {}),
+			...(saved?.reason ? { reason: saved.reason } : {}),
+			inputs: new Set(),
+			timer: setTimeout(
+				() => {
+					void this.abortRun(state, "maxMinutes").catch(this.options.onReport ?? (() => {}));
+				},
+				Math.max(0, started + config.resolved.limits.maxMinutes * 60000 - Date.now()),
+			),
+		};
+		state.timer.unref();
+		this.states.set(id, state);
+	}
+	private async saveRun(state: RunState): Promise<void> {
+		await this.harness.commit(async (tx) => {
+			Object.assign(await tx.doc(RunDoc, cid(state.session), state.id, null), {
+				turns: state.turns,
+				previous: state.previous ? JSON.stringify(state.previous) : "",
+				repeats: state.repeats,
+				reason: state.reason ?? null,
+			});
+		}, C);
+	}
+	private async abortRun(state: RunState, reason: string): Promise<void> {
+		const live = await this.harness.snapshot(LiveDoc, cid(state.session), C);
+		if (String(live?.run?.inputs[0]) !== state.id) return;
+		state.reason ??= reason;
+		await this.saveRun(state);
+		if (live?.run) await this.harness.abortTask(live.run.taskId, C);
 	}
 	private async runState(api: HookApi, context: Context): Promise<RunState> {
 		const live = await api.snapshot(LiveDoc, api.conversationId, context);
 		const id = String(live?.run?.inputs[0] ?? api.taskId);
-		let state = this.states.get(id);
-		if (!state) {
-			const config = await this.options.resolveSession(String(api.conversationId));
-			state = {
-				usageBefore: await this.usage(String(api.conversationId)),
-				id,
-				turns: 0,
-				repeats: 0,
-				inputs: new Set(),
-				limits: structuredClone(config.resolved.limits),
-				timer: setTimeout(() => {
-					const current = this.states.get(id);
-					if (current) current.reason = "maxMinutes";
-					void this.abort(String(api.conversationId)).catch(this.options.onReport ?? (() => {}));
-				}, config.resolved.limits.maxMinutes * 60000),
-			};
-			state.timer.unref();
-			this.states.set(id, state);
-		}
+		const state = this.states.get(id);
+		if (!state) throw new Error(`Missing active run ${id}`);
 		for (const input of live?.run?.inputs ?? []) {
 			const metadata = this.submissions.get(String(input));
 			if (metadata) {
@@ -197,13 +268,12 @@ export class Runtime {
 		}
 		return state;
 	}
-	private async stop(api: HookApi, context: Context, state: RunState, reason: string): Promise<never> {
-		state.reason ??= reason;
+	private async stop(context: Context, state: RunState, reason: string): Promise<never> {
 		const signal = context.abortSignal!;
 		signal.throwIfAborted();
 		const stopped = once(signal, "abort");
 		// Abort must run outside this hook: abort() joins the invocation being stopped.
-		void this.abort(String(api.conversationId)).catch(this.options.onReport ?? (() => {}));
+		void this.abortRun(state, reason).catch(this.options.onReport ?? (() => {}));
 		await stopped;
 		throw signal.reason;
 	}
@@ -215,8 +285,11 @@ export class Runtime {
 					"yonder",
 					async (input, context) => {
 						await input.read.snapshot(SessionDoc, input.conversationId, context);
-						const config = await this.options.resolveSession(String(input.conversationId));
-						return (await this.options.sections?.({ ...config, id: String(input.conversationId) }))?.join("\n\n");
+						const config = this.currentConfig(String(input.conversationId));
+						if (!config) throw new Error("Missing active configuration");
+						return (
+							await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)
+						)?.join("\n\n");
 					},
 					{ tag: false },
 				),
@@ -225,12 +298,14 @@ export class Runtime {
 				hook(GenerationTask, {
 					beforeRequest: async (_request, api, context) => {
 						const state = await this.runState(api, context);
-						if (state.turns >= state.limits.maxTurns) await this.stop(api, context, state, "maxTurns");
+						if (state.reason) await this.stop(context, state, state.reason);
+						if (state.turns >= state.config.resolved.limits.maxTurns) await this.stop(context, state, "maxTurns");
 						state.turns++;
+						await this.saveRun(state);
 					},
 					afterTools: async (_assistant, _results, api, context) => {
 						const state = await this.runState(api, context);
-						if (state.turns >= state.limits.maxTurns) await this.stop(api, context, state, "maxTurns");
+						if (state.turns >= state.config.resolved.limits.maxTurns) await this.stop(context, state, "maxTurns");
 					},
 				}),
 				hook(ToolTask, {
@@ -239,9 +314,11 @@ export class Runtime {
 						const callKey = { name: call.name, args: call.arguments };
 						state.repeats = isDeepStrictEqual(callKey, state.previous) ? state.repeats + 1 : 1;
 						state.previous = structuredClone(callKey);
-						if (state.repeats >= state.limits.repeatStop) await this.stop(api, context, state, "repeatStop");
-						if (state.repeats >= state.limits.repeatBlock) return { block: "相同工具调用已重复，请换一种方法。" };
-						const config = await this.options.resolveSession(String(api.conversationId));
+						await this.saveRun(state);
+						if (state.repeats >= state.config.resolved.limits.repeatStop) await this.stop(context, state, "repeatStop");
+						if (state.repeats >= state.config.resolved.limits.repeatBlock)
+							return { block: "相同工具调用已重复，请换一种方法。" };
+						const config = state.config;
 						const denied = await this.toolDenied(
 							call.name,
 							call.arguments as JsonObject,
@@ -286,7 +363,7 @@ export class Runtime {
 				deferred: true,
 				...(tool.name === "task_run" ? { replay: "safe" as const } : {}),
 				execute: async (args, api, context) => {
-					const ctx = await this.context(String(api.conversationId), context.abortSignal);
+					const ctx = await this.context(String(api.conversationId), context);
 					this.toolInvocations.set(ctx, { api, context });
 					return toResult(await tool.execute(args, ctx));
 				},
@@ -302,7 +379,7 @@ export class Runtime {
 					beforeTool: async (call, api, context) => {
 						const result = await plugin.beforeTool?.(
 							{ id: call.id, name: call.name, args: call.arguments },
-							await this.context(String(api.conversationId), context.abortSignal),
+							await this.context(String(api.conversationId), context),
 						);
 						return result
 							? "block" in result
@@ -314,17 +391,14 @@ export class Runtime {
 						const replacement = await plugin.afterTool?.(
 							{ id: call.id, name: call.name, args: call.arguments },
 							fromResult(result),
-							await this.context(String(api.conversationId), context.abortSignal),
+							await this.context(String(api.conversationId), context),
 						);
 						return replacement ? { ...result, ...toResult(replacement.result) } : undefined;
 					},
 				}),
 				hook(GenerationTask, {
 					beforeRequest: async (request, api, context) =>
-						plugin.beforeRequest?.(
-							[...request.messages],
-							await this.context(String(api.conversationId), context.abortSignal),
-						),
+						plugin.beforeRequest?.([...request.messages], await this.context(String(api.conversationId), context)),
 				}),
 			]),
 		});
@@ -354,7 +428,7 @@ export class Runtime {
 		if (!config.resolved.capabilities.includes("exec")) {
 			const rel = relative(cwd, target);
 			if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
-				const ctx = await this.contextForAttachment(session);
+				const ctx = await this.contextForAttachment(session, context);
 				const allowed = name === "read" && ctx.some((a) => a === target);
 				if (!allowed) return "文件路径超出当前工作区。";
 			}
@@ -366,14 +440,14 @@ export class Runtime {
 					return `受保护文件需要 ${file.capability} 能力。`;
 			}
 	}
-	private async contextForAttachment(session: string): Promise<string[]> {
-		const ctx = await this.context(session);
+	private async contextForAttachment(session: string, context: Context): Promise<string[]> {
+		const ctx = await this.context(session, context);
 		const attachments = (ctx.event?.data as { attachments?: Array<{ uri: string }> } | undefined)?.attachments ?? [];
 		const paths: string[] = [];
 		for (const attachment of attachments) {
 			const path = attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri;
 			if (!isAbsolute(path)) continue;
-			const canonical = await ctx.env.canonicalPath(path, C);
+			const canonical = await ctx.env.canonicalPath(path, context);
 			if (canonical.ok) paths.push(canonical.value);
 		}
 		return paths;
@@ -421,8 +495,11 @@ export class Runtime {
 		this.configured.delete(id);
 	}
 	async configure(id: string): Promise<void> {
-		const config = await this.options.resolveSession(id),
-			profile = config.resolved;
+		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return;
+		await this.applyConfiguration(id, await this.options.resolveSession(id));
+	}
+	private async applyConfiguration(id: string, config: RuntimeSessionConfig): Promise<void> {
+		const profile = config.resolved;
 		const selected = ["yonder.core", "yonder.files", "yonder.tools", ...profile.plugins.map((id) => `plugin:${id}`)];
 		const available = [...this.tools.values()].filter((t) => {
 			const extension = [...this.extensions.values()].find((e) => e.tools?.includes(t));
@@ -447,17 +524,6 @@ export class Runtime {
 			}
 		}
 		const tools = [...new Set([...offered, ...deferred])];
-		const fingerprint = JSON.stringify({
-			profile: config.profile,
-			model: profile.model,
-			thinking: profile.thinking,
-			selected,
-			tools: tools.map((t) => t.name),
-			offered: offered.map((t) => t.name),
-			instructions: profile.instructions,
-			cwd: config.cwd,
-		});
-		if (this.configured.get(id) === fingerprint) return;
 		const conversation = await this.conversation(id);
 		const model = {
 			provider: profile.model.slice(0, profile.model.indexOf("/")),
@@ -495,7 +561,7 @@ export class Runtime {
 			await conversation.commit(async (tx) => {
 				Object.assign(await tx.doc(SessionDoc, cid(id)), { agent: config.agent, profile: config.profile });
 			}, C);
-		this.configured.set(id, fingerprint);
+		this.configured.set(id, config);
 	}
 	private async conversation(id: string) {
 		const value = await this.harness.conversation(cid(id), C);
@@ -503,10 +569,10 @@ export class Runtime {
 		return value;
 	}
 	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
-		await this.configure(id);
 		const conversation = await this.conversation(id);
 		const config = await this.options.resolveSession(id),
 			env = this.environment(config);
+		const preparation = withAbortSignal(AbortSignal.timeout(Math.ceil(config.resolved.limits.maxMinutes * 60000)), C);
 		const content: Array<{ type: "text"; text: string } | { type: "image"; mimeType: string; data: string }> = [
 			{ type: "text", text: input.text },
 		];
@@ -518,7 +584,7 @@ export class Runtime {
 							getOrThrow(
 								await env.readBinaryFile(
 									attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri,
-									C,
+									preparation,
 								),
 							),
 						).toString("base64");
@@ -581,6 +647,7 @@ export class Runtime {
 			const answerId = done.status === "done" ? done.answer : undefined;
 			const answer = answerId ? await this.harness.commit((tx) => tx.entry(answerId), C) : undefined;
 			return {
+				...(state ? { config: state.config } : {}),
 				runId: state?.id ?? String(done.answer ?? submission.id),
 				status: state?.reason
 					? "limit"
@@ -703,7 +770,6 @@ export class Runtime {
 			return created.id;
 		}, context);
 		const input = await initialize(String(child));
-		await this.configure(String(child));
 		const handle = await api.conversation(child, context);
 		if (!handle) throw new Error("Child conversation is missing");
 		// Invocation-bound submit preserves pi task ownership and idempotent task request IDs.
@@ -726,6 +792,7 @@ export class Runtime {
 		for (const key of Object.keys(usage) as Array<keyof typeof usage>)
 			usage[key] = after[key] - (state?.usageBefore ?? before)[key];
 		return {
+			...(state ? { config: state.config } : {}),
 			runId: state?.id ?? String(done.answer ?? submission.id),
 			status: state?.reason ? "limit" : done.status === "done" ? "done" : "aborted",
 			text:

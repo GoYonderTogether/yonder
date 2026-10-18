@@ -11,7 +11,7 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
-import type { Runtime, RuntimeRun } from "../runtime/index.js";
+import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 
@@ -70,11 +70,11 @@ class OutputQueue implements AsyncIterable<OutputPart> {
 	}
 }
 interface StreamState {
-	event: YEvent;
 	target: string;
 	channel: Channel;
 	queue: OutputQueue;
 	gate: ReplyText;
+	signal: AbortSignal;
 	delivery?: Promise<Delivery>;
 }
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -89,19 +89,19 @@ export function createDelivery(options: DeliveryOptions) {
 	const completed = new Set<string>();
 	const streams = new Map<string, StreamState>();
 	const active = new Map<string, string>();
-	const binding = (session: SessionInfo, event: YEvent): Binding | undefined => {
+	const binding = (session: SessionInfo, event: YEvent, config?: RuntimeSessionConfig): Binding | undefined => {
 		const route = event.routes?.find((route) => route.agent === session.agent && route.session === session.id);
 		return session.agent
-			? agents.get(session.agent)?.bindings.find((binding) => binding.id === route?.binding)
+			? (config?.bindings ?? agents.get(session.agent)?.bindings)?.find((binding) => binding.id === route?.binding)
 			: undefined;
 	};
-	const sourceEvents = (session: SessionInfo, events: YEvent[]) => {
+	const sourceEvents = (session: SessionInfo, events: YEvent[], config: RuntimeSessionConfig) => {
 		const seen = new Set<string>();
 		return events.filter((event) => {
 			if (
 				!event.conv ||
 				!channels.has(channelId(event.conv) ?? "") ||
-				(binding(session, event)?.reply ?? "auto") !== "auto" ||
+				(binding(session, event, config)?.reply ?? "auto") !== "auto" ||
 				seen.has(event.conv)
 			)
 				return false;
@@ -134,11 +134,12 @@ export function createDelivery(options: DeliveryOptions) {
 	async function resolveTarget(
 		request: MessageRequest,
 		agent?: string | null,
+		config?: RuntimeSessionConfig,
 	): Promise<{ target: string; channel: Channel }> {
 		let target = request.to;
 		if (target === "owner") {
 			if (!agent) throw new Error("预设会话没有 owner；请指定 person:、acct: 或 conv: 目标。");
-			const owner = agents.get(agent)?.owner;
+			const owner = config ? config.owner : agents.get(agent)?.owner;
 			if (!owner) throw new Error(`Agent ${agent} 没有 owner`);
 			target = owner;
 		}
@@ -164,16 +165,22 @@ export function createDelivery(options: DeliveryOptions) {
 		request: MessageRequest,
 		session?: SessionInfo,
 		parent?: string,
+		config?: RuntimeSessionConfig,
+		signal: AbortSignal = AbortSignal.timeout(60000),
 	): Promise<Delivery> {
 		let target = request.to,
 			delivery: Delivery;
 		try {
-			const resolved = await resolveTarget(request, session?.agent);
+			const resolved = await resolveTarget(request, session?.agent, config);
 			target = resolved.target;
-			delivery = await resolved.channel.send(target, {
-				text: request.text,
-				...(request.attachments ? { attachments: request.attachments } : {}),
-			});
+			delivery = await resolved.channel.send(
+				target,
+				{
+					text: request.text,
+					...(request.attachments ? { attachments: request.attachments } : {}),
+				},
+				signal,
+			);
 		} catch (error) {
 			delivery = { ok: false, error: message(error) };
 		}
@@ -190,14 +197,27 @@ export function createDelivery(options: DeliveryOptions) {
 	function onStart(session: SessionInfo, event: YEvent, waiter: boolean): ((part: OutputPart) => void) | undefined {
 		const key = `${session.id}\0${event.id}`;
 		if (!active.has(session.id)) active.set(session.id, key);
-		const selected = binding(session, event),
-			target = event.conv;
-		if (waiter || !target || !selected?.stream || (selected.reply ?? "auto") !== "auto") return;
-		const channel = channels.get(channelId(target) ?? "");
-		if (!channel?.output.stream || !channel.stream) return;
-		const state: StreamState = { event, target, channel, queue: new OutputQueue(), gate: new ReplyText() };
-		streams.set(key, state);
+		const target = event.conv;
+		if (waiter || !target) return;
+		let state: StreamState | undefined;
 		return (part) => {
+			if (!state) {
+				const config = options.runtime().currentConfig(session.id);
+				if (!config) return;
+				const selected = binding(session, event, config);
+				if (!selected?.stream || (selected.reply ?? "auto") !== "auto") return;
+				const channel = channels.get(channelId(target) ?? "");
+				if (!channel?.output.stream || !channel.stream) return;
+				state = {
+					target,
+					channel,
+					queue: new OutputQueue(),
+					gate: new ReplyText(),
+					signal: AbortSignal.timeout(Math.ceil(config.resolved.limits.maxMinutes * 60000) + 60000),
+				};
+				streams.set(key, state);
+			}
+			const channel = state.channel;
 			const current = active.get(session.id);
 			if (current && current !== key) return;
 			if (part.type === "final") return;
@@ -208,10 +228,11 @@ export function createDelivery(options: DeliveryOptions) {
 			}
 			if (!state.delivery) {
 				active.set(session.id, key);
+				const stream = state;
 				state.delivery = Promise.resolve()
 					.then(
 						() =>
-							channel.stream?.(target, state.queue, (event.data as { msgId?: string }).msgId) ?? {
+							channel.stream?.(target, stream.queue, (event.data as { msgId?: string }).msgId, stream.signal) ?? {
 								ok: false,
 								error: "渠道不支持流式",
 							},
@@ -225,12 +246,13 @@ export function createDelivery(options: DeliveryOptions) {
 		const runKey = `${session.id}\0${run.runId}`;
 		if (completed.has(runKey)) return;
 		completed.add(runKey);
+		const profile = run.config ?? (await sessions.resolveSession(session.id));
 		const actualInputs = inputs.length
 			? inputs
 			: (await Promise.all(run.inputs.map((id) => store.events.get(id)))).filter((event): event is YEvent => !!event);
 		const first = actualInputs[0],
-			sources = sourceEvents(session, actualInputs),
-			firstBinding = first ? binding(session, first) : undefined;
+			sources = sourceEvents(session, actualInputs, profile),
+			firstBinding = first ? binding(session, first, profile) : undefined;
 		let replied: RunEndData["replied"] = "none";
 		const text = run.text.trim();
 		let targets: YEvent[] = [];
@@ -255,6 +277,7 @@ export function createDelivery(options: DeliveryOptions) {
 					},
 					session,
 					first?.id,
+					profile,
 				);
 			}
 		}
@@ -268,7 +291,11 @@ export function createDelivery(options: DeliveryOptions) {
 			if (state && event.id === first?.id) {
 				state.delivery ??= Promise.resolve()
 					.then(
-						() => state.channel.stream?.(state.target, state.queue, replyTo) ?? { ok: false, error: "渠道不支持流式" },
+						() =>
+							state.channel.stream?.(state.target, state.queue, replyTo, AbortSignal.timeout(60000)) ?? {
+								ok: false,
+								error: "渠道不支持流式",
+							},
 					)
 					.catch((error) => ({ ok: false, error: message(error) }));
 				state.queue.push({ type: "final", text: finalText });
@@ -279,7 +306,11 @@ export function createDelivery(options: DeliveryOptions) {
 				if (!channel) continue;
 				let delivery: Delivery;
 				try {
-					delivery = await channel.send(target, { text: finalText, ...(replyTo ? { replyTo } : {}) });
+					delivery = await channel.send(
+						target,
+						{ text: finalText, ...(replyTo ? { replyTo } : {}) },
+						AbortSignal.timeout(60000),
+					);
 				} catch (error) {
 					delivery = { ok: false, error: message(error) };
 				}
@@ -303,7 +334,6 @@ export function createDelivery(options: DeliveryOptions) {
 				);
 			}
 		}
-		const profile = await sessions.resolveSession(session.id);
 		await store.events.record({
 			type: "run.end",
 			...(fromSession(session) ? { from: fromSession(session) as string } : {}),
@@ -332,13 +362,20 @@ export function createDelivery(options: DeliveryOptions) {
 			if (!session) throw new Error("当前会话不存在。");
 			let target: string;
 			try {
-				target = (await resolveTarget(request, ctx.agent)).target;
+				target = (await resolveTarget(request, ctx.agent, options.runtime().currentConfig(ctx.session))).target;
 			} catch (error) {
 				return { ok: false, error: message(error) };
 			}
 			if (target !== ctx.event?.conv && !ctx.capabilities.includes("message"))
 				return { ok: false, error: "发往本次运行来源以外需要 message 能力。" };
-			return send(fromSession(session), request, session, ctx.event?.id);
+			return send(
+				fromSession(session),
+				request,
+				session,
+				ctx.event?.id,
+				options.runtime().currentConfig(ctx.session),
+				ctx.signal,
+			);
 		},
 	};
 }

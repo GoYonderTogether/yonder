@@ -33,7 +33,7 @@ export interface PromptOptions {
 	home: string;
 	version: string;
 	contexts: Map<string, ContextContribution>;
-	workspace(session: RuntimeSessionConfig): WorkspaceFiles;
+	workspace(session: RuntimeSessionConfig, signal?: AbortSignal): WorkspaceFiles;
 	identity: IdentityAPI;
 	models: Models;
 	setVersion(id: string, version: string): Promise<void>;
@@ -64,7 +64,7 @@ async function contributions(
 	event?: YEvent,
 ): Promise<string[]> {
 	if (!session.agent) return [];
-	const context = renderContext(session, options.workspace(session), event, options.signal);
+	const context = renderContext(session, options.workspace(session, options.signal), event, options.signal);
 	const sections: string[] = [];
 	for (const id of session.resolved.contexts) {
 		options.signal?.throwIfAborted();
@@ -97,7 +97,7 @@ export async function systemSections(
 	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "signal">,
 ): Promise<string[]> {
 	const sections = [framework(session)];
-	if (session.agent) sections.push(await options.workspace(session).readFile("SYSTEM.md"));
+	if (session.agent) sections.push(await options.workspace(session, options.signal).readFile("SYSTEM.md"));
 	const skills = await options.skillIndex?.(session);
 	if (skills) sections.push(skills);
 	return [...sections, ...(await contributions(session, "system", options))];

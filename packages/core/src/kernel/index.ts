@@ -74,14 +74,20 @@ function inspectionServices(home: string, config: YonderConfig, log: KernelLog):
 	};
 }
 
-function filesFor(home: string, config: YonderConfig, plugins: LoadedPlugins, agent: string): WorkspaceFiles {
+function filesFor(
+	home: string,
+	config: YonderConfig,
+	plugins: LoadedPlugins,
+	agent: string,
+	signal?: AbortSignal,
+): WorkspaceFiles {
 	const entry = config.agents?.find((item) => item.id === agent);
 	if (!entry) throw new Error(`Unknown agent: ${agent}`);
 	const cwd = resolve(home, entry.workspace);
-	if (!entry.env || entry.env === "local") return workspaceFiles(localEnvironment(cwd));
+	if (!entry.env || entry.env === "local") return workspaceFiles(localEnvironment(cwd), signal);
 	const environment = plugins.envs.get(entry.env);
 	if (!environment) throw new Error(`Unknown workspace environment: ${entry.env}`);
-	const files = workspaceFiles(environment);
+	const files = workspaceFiles(environment, signal);
 	return {
 		readFile: (path) => files.readFile(resolve(cwd, path)),
 		writeFile: (path, text) => files.writeFile(resolve(cwd, path), text),
@@ -389,7 +395,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			home,
 			version: packageVersion,
 			contexts: loaded.contexts,
-			workspace: (session) => filesFor(home, config, loaded, session.agent ?? ""),
+			workspace: (session, signal) => filesFor(home, config, loaded, session.agent ?? "", signal),
 			identity: store.identity(),
 			models: services.models,
 			setVersion: store.sessions.setVersion,
@@ -439,7 +445,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
 			prepareInput: input,
 		});
-		tools.push(createSkillTool(skills, sessions.resolveSession));
+		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
 			db,
 			home,
@@ -454,7 +460,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 					.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 				return { ...session, protectedFiles };
 			},
-			sections: (session) => systemSections(session, promptOptions),
+			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
 			onReport: report,
 		});
 		watcher = await watchConfig({

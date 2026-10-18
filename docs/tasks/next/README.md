@@ -7,8 +7,8 @@
 ## 任务清单（列出的均为硬依赖）
 
 - 🟢 [N00](N00-contracts.md) 设计锁定与旧规范对齐｜Codex｜无依赖。
-- 🟡 [N01](N01-runtime-foundation.md) 部分修正已验证；按已批准 D28 完成配置边界适配｜Codex｜N00。
-- ⚪ [N02](N02-mcp.md) MCP 控制插件｜Codex｜N01。
+- 🟢 [N01](N01-runtime-foundation.md) 基础边界已实现并检查；恢复/输入组合缺口挂 N05/N09｜Codex｜N00。
+- 🟡 [N02](N02-mcp.md) MCP 控制插件｜Codex｜N01。
 - ⚪ [N03](N03-install-agents.md) 独立安装、常驻服务、两个真实 agent｜Codex｜N02。
 - ⚪ [N04](N04-first-repair.md) Luna 完成首个真实修复｜Yonder，Codex 审查｜N03。
 - ⚪ [N05](N05-recovery.md) 持久输入、运行恢复和投递归属｜Yonder，Codex 主持架构｜N04。

@@ -14,6 +14,7 @@
 		"plugins/context-files"
 	],
 	"scripts": {
+		"postinstall": "node scripts/apply-pi-patch.mjs",
 		"build": "tsc -b",
 		"typecheck": "tsc -b --noEmit",
 		"test": "vitest run --exclude '**/dist/**'",

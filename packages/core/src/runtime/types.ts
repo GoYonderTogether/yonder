@@ -1,5 +1,5 @@
 import type { Attachment, Capability, ExecutionEnv, Hook, OutputPart, RunEndData, Tool, YEvent } from "@yonder/sdk";
-import type { ResolvedProfile, YonderConfig } from "../config/index.js";
+import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js";
 import type { Db } from "./db.js";
 export interface RuntimeSessionConfig {
 	agent: string | null;
@@ -7,6 +7,8 @@ export interface RuntimeSessionConfig {
 	cwd: string;
 	resolved: ResolvedProfile;
 	protectedFiles?: Array<{ path: string; capability: Capability }>;
+	bindings?: Binding[];
+	owner?: string;
 }
 export interface RuntimeOptions {
 	db: Db;
@@ -16,7 +18,7 @@ export interface RuntimeOptions {
 	tools?: Tool[];
 	envs?: Map<string, ExecutionEnv>;
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
-	sections?(session: RuntimeSessionConfig & { id: string }): Promise<string[]>;
+	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
 	onReport?(error: unknown): void;
 }
 export interface RuntimeInput {
@@ -35,6 +37,7 @@ export interface RuntimeRun {
 	reason?: string;
 	usage: RunEndData["usage"];
 	inputs: string[];
+	config?: RuntimeSessionConfig;
 }
 
 export interface RuntimeSessionState {

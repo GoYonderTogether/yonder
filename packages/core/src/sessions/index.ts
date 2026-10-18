@@ -50,7 +50,7 @@ export function createSessions({ store, agents, homePresets, pluginPresets, home
 		const selected = agent.profiles[row.profile];
 		if (!selected) throw new Error(`Unknown profile ${row.profile} for agent ${row.agent}`);
 		const { cwd, env } = workspace(row.agent);
-		return { agent: row.agent, profile: row.profile, cwd, resolved: resolveProfile(selected, agent.defaults, env) };
+		return { agent: row.agent, profile: row.profile, cwd, resolved: resolveProfile(selected, agent.defaults, env), bindings: agent.bindings, owner: agent.owner };
 	}
 
 	async function createAgentSession(agentId: string, profileName: string, key: string, mode: SessionInfo["mode"]) {
@@ -137,8 +137,8 @@ export function createSessions({ store, agents, homePresets, pluginPresets, home
 			const parent = request.parent ? await store.sessions.get(request.parent) : undefined;
 			if (request.parent && !parent) throw new Error(`Unknown parent session: ${request.parent}`);
 			const parentState = parent ? await runtime().sessionState(parent.id) : undefined;
-			const parentProfile = parent ? await resolveSession(parent.id) : undefined;
-			const baseEnv = parentState?.env ?? parentProfile?.resolved.env ?? "local";
+			const parentProfile = parent ? await runtime().sessionConfig(parent.id) : undefined;
+			const baseEnv = parentProfile?.resolved.env ?? parentState?.env ?? "local";
 			const env = selected.env ?? baseEnv;
 			const cwd = parentState?.cwd ?? parentProfile?.cwd ?? home;
 			const presetCapabilities = resolveProfile(selected, {}, env).capabilities;
