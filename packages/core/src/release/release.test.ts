@@ -12,6 +12,7 @@ import {
 	releaseInfo,
 	selectChangelog,
 	servicePlist,
+	statusPlist,
 } from "./index.js";
 
 test("release parsing, real docs and local launcher/plist files need no harness home", async () => {
@@ -36,7 +37,14 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 		expect(text).toContain("&apos;");
 		expect(text.match(/<key>PATH<\/key>|<key>YONDER_INSTALL<\/key>|<key>YONDER_HOME<\/key>/gu) ?? []).toHaveLength(3);
 		expect(await readFile(wrapper, "utf8")).toContain(process.execPath);
-		if (process.platform === "darwin") execFileSync("plutil", ["-lint", "--", plist]);
+		if (process.platform === "darwin") {
+			execFileSync("plutil", ["-lint", "--", plist]);
+			const icon = statusPlist(directory, directory);
+			await writeFile(plist, icon);
+			execFileSync("plutil", ["-lint", "--", plist]);
+			expect(icon).toContain("<key>KeepAlive</key><false/>");
+			expect(icon).toContain("YonderStatus.app/Contents/MacOS/YonderStatus");
+		}
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}

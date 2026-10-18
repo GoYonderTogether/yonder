@@ -76,7 +76,7 @@ export default definePlugin({
 										clients.delete(mcp);
 										void mcp.close().catch((error) => api.log.error("MCP close failed", { error: String(error) }));
 									});
-									const transport = new StreamableHTTPServerTransport({ enableJsonResponse: true });
+									const transport = new StreamableHTTPServerTransport({});
 									// SDK 1.32.1's optional onclose declaration differs under exactOptionalPropertyTypes.
 									await mcp.connect(transport as Transport);
 									await transport.handleRequest(request, response);

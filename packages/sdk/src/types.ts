@@ -142,8 +142,13 @@ export interface SessionsAPI {
 		capabilities?: Capability[];
 		close?: "run-end" | "manual";
 	}): Promise<SessionInfo>;
-	// biome-ignore lint/suspicious/noConfusingVoidType: Preserve the frozen SessionsAPI contract in 02-sessions.md.
-	submit(id: string, input: Input, opts?: { wait?: boolean; busy?: "followup" | "steer" }): Promise<RunResult | void>;
+	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" }): Promise<RunResult>;
+	submit(id: string, input: Input, opts: { wait?: false; busy?: "followup" | "steer" }): Promise<InputReceipt>;
+	submit(
+		id: string,
+		input: Input,
+		opts?: { wait?: boolean; busy?: "followup" | "steer" },
+	): Promise<RunResult | InputReceipt>;
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;
 	transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
@@ -165,12 +170,17 @@ export interface Input {
 	text: string;
 	attachments?: Attachment[];
 }
+export interface InputReceipt {
+	event: string;
+	session: string;
+}
 export interface RunResult {
 	agent: string | null;
 	session: string;
 	status: "done" | "error" | "aborted" | "limit";
 	text: string;
 	reason?: string;
+	attachments?: Attachment[];
 }
 export interface TranscriptItem {
 	id: number;
@@ -236,6 +246,7 @@ export interface OutMessage {
 }
 export interface Delivery {
 	ok: boolean;
+	uncertain?: boolean;
 	id?: string;
 	error?: string;
 }
@@ -265,6 +276,7 @@ export interface ToolContext {
 }
 export interface ToolResult {
 	text: string;
+	attachments?: Attachment[];
 	images?: Array<{ mime: string; data: string }>;
 	isError?: boolean;
 }
@@ -336,13 +348,16 @@ export interface PluginAPI {
 		on(type: string, handler: (e: YEvent) => void | Promise<void>): void;
 	};
 	messages: {
-		send(m: {
-			to: Ref;
-			via?: string;
-			text: string;
-			attachments?: Attachment[];
-			signal?: AbortSignal;
-		}): Promise<Delivery>;
+		send(
+			m: {
+				to: Ref;
+				via?: string;
+				text: string;
+				attachments?: Attachment[];
+				signal?: AbortSignal;
+			},
+			ctx?: ToolContext,
+		): Promise<Delivery>;
 	};
 	credentials: { get(name: string): Promise<Credential | undefined> };
 	sessions: SessionsAPI;

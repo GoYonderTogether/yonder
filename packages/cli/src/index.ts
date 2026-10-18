@@ -7,8 +7,9 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import type { LoginInteraction } from "@yonder/core";
 import {
-	compareVersions,
 	attachmentFromPath,
+	checkRelease,
+	compareVersions,
 	initHome,
 	inspectHome,
 	inspectSkills,
@@ -65,7 +66,8 @@ const releaseUsage: Record<string, string> = {
 	changelog: "Usage: yonder changelog [--from <version>] [--to <version>]",
 	docs: "Usage: yonder docs [path] [--list]",
 	update: "Usage: yonder update [--to <tag>|latest] [--repo <url>]",
-	service: "Usage: yonder service install --home <dir> | uninstall | start | stop | restart | status",
+	service:
+		"Usage: yonder service install --home <dir> | uninstall | start | stop | restart | status | info --home <dir>",
 };
 function namedOptions(args: string[], allowed: string[], usage: string): Record<string, string> {
 	const values: Record<string, string> = {};
@@ -316,6 +318,7 @@ async function run(args: string[]): Promise<number> {
 		return print(readDocs(paths[0], list), options.json);
 	}
 	if (command === "update") {
+		if (rest.length === 1 && rest[0] === "--check") return print(checkRelease(), options.json);
 		const args = rest[0] === "latest" ? rest.slice(1) : rest;
 		const flags = namedOptions(args, ["--to", "--repo"], releaseUsage.update ?? "");
 		if (rest[0] === "latest" && flags["--to"]) throw new UsageError(releaseUsage.update);
@@ -340,6 +343,8 @@ async function run(args: string[]): Promise<number> {
 	}
 	if (command === "service") {
 		const action = rest[0];
+		if (action === "info" && rest.length === 1)
+			return print(requestControl(homeFor(options), { method: "service.info" }), options.json);
 		if (
 			rest.length !== 1 ||
 			!action ||
@@ -518,6 +523,10 @@ async function run(args: string[]): Promise<number> {
 						return kernel.terminal.queued(requiredParam(params, "id"));
 					case "terminal.dequeue":
 						return kernel.terminal.queued(requiredParam(params, "id"), true);
+					case "service.info": {
+						const info = await releaseInfo(home);
+						return { version: info.version, commit: info.origin?.commit ?? null, home, pid: process.pid, ready: true };
+					}
 					case "terminal.info":
 						return kernel.terminal.info(requiredParam(params, "id"));
 					case "sessions.open": {

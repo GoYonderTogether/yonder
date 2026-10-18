@@ -20,6 +20,13 @@ export interface RuntimeOptions {
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
 	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
 	readEvent?(id: string): Promise<YEvent | undefined>;
+	prepareInput?(
+		id: string,
+		event: YEvent,
+		config: RuntimeSessionConfig,
+		wake: "run" | "write",
+		signal?: AbortSignal,
+	): Promise<RuntimeInput>;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
 	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
 	onReport?(error: unknown): void;
@@ -35,6 +42,8 @@ export interface RuntimeInput {
 	requestId?: string;
 }
 export interface RuntimeRun {
+	session?: string;
+	attachments?: Attachment[];
 	runId: string;
 	status: RunEndData["status"];
 	text: string;

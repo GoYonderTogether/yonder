@@ -5,7 +5,7 @@ import { getMarkdownTheme, UserMessageComponent } from "@earendil-works/pi-codin
 import { stripTerminalSequences, Text, visibleWidth } from "@earendil-works/pi-tui";
 import { expect, test } from "vitest";
 import { MessagePresentation } from "./message-presentation.js";
-import { sameDirectory } from "./terminal.js";
+import { hideReplyMarker, sameDirectory } from "./terminal.js";
 
 test("current-folder session filter accepts real directory aliases and keeps other paths separate", () => {
 	const root = mkdtempSync(join(tmpdir(), "yonder-cwd-"));
@@ -41,4 +41,13 @@ test("inline markers share the content row and native outer padding becomes one 
 	).toEqual(["", " • 测试对话", "   身份标识紧贴正文"]);
 	for (const width of [1, 4, 12, 40])
 		expect(user.render(width).every((line) => visibleWidth(line) <= width)).toBe(true);
+});
+
+test("NO_REPLY prefixes are hidden only while streaming", () => {
+	for (const text of ["N", "NO", "NO_", "NO_REPL"]) {
+		expect(hideReplyMarker(text, true)).toBe(true);
+		expect(hideReplyMarker(text, false)).toBe(false);
+	}
+	expect(hideReplyMarker(" NO_REPLY ", false)).toBe(true);
+	expect(hideReplyMarker("NO_REPLY means no message", false)).toBe(false);
 });

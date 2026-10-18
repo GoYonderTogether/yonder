@@ -2,8 +2,6 @@ import { readFile } from "node:fs/promises";
 import { findPackageJSON } from "node:module";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
-import { Errors } from "typebox/value";
 import type {
 	Channel,
 	ChannelIO,
@@ -19,10 +17,13 @@ import type {
 	Preset,
 	SessionsAPI,
 	Tool,
+	ToolContext,
 	Trigger,
 	TSchema,
 	YEvent,
 } from "@yonder/sdk";
+import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
+import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
@@ -30,7 +31,7 @@ export type KernelServices = Omit<
 	Pick<PluginAPI, "events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "models" | "log">,
 	"messages" | "sessions"
 > & {
-	messages: { send(message: PluginMessage, pluginId: string): Promise<Delivery> };
+	messages: { send(message: PluginMessage, pluginId: string, ctx?: ToolContext): Promise<Delivery> };
 	sessions: Omit<SessionsAPI, "submit"> & {
 		submit(
 			id: string,
@@ -138,7 +139,9 @@ export async function loadPlugins(
 		const plugin = loaded.default as PluginModule;
 		if (typeof plugin?.setup !== "function")
 			throw new Error(`${manifest.id}: entry default export must provide setup(api)`);
-		if (plugin.configSchema) validateConfig(manifest.id, "plugin config", plugin.configSchema, entry.config);
+		const pluginConfig =
+			entry.config ?? ((plugin.configSchema as { type?: string } | undefined)?.type === "object" ? {} : undefined);
+		if (plugin.configSchema) validateConfig(manifest.id, "plugin config", plugin.configSchema, pluginConfig);
 
 		const { api: registrationsApi, registrations } = createRegistrationCollector();
 		let settingUp = true;
@@ -168,7 +171,7 @@ export async function loadPlugins(
 		};
 		const api: PluginAPI = {
 			id: manifest.id,
-			config: entry.config,
+			config: pluginConfig,
 			log: {
 				info: (message, data) => services.log.info(message, { ...data, plugin: manifest.id }),
 				warn: (message, data) => services.log.warn(message, { ...data, plugin: manifest.id }),
@@ -184,9 +187,9 @@ export async function loadPlugins(
 			skills: register("skills", registrationsApi.skills.register),
 			events,
 			messages: {
-				send: (message) => {
+				send: (message, ctx) => {
 					denySetupWrite("messages.send");
-					return services.messages.send(message, manifest.id);
+					return services.messages.send(message, manifest.id, ctx);
 				},
 			},
 			credentials: services.credentials,
@@ -197,7 +200,7 @@ export async function loadPlugins(
 					denySetupWrite("sessions.open");
 					return services.sessions.open(request);
 				},
-				submit: (id, input, options) => {
+				submit: ((id, input, options) => {
 					denySetupWrite("sessions.submit");
 					return services.sessions.submit(
 						id,
@@ -208,7 +211,7 @@ export async function loadPlugins(
 						},
 						manifest.id,
 					);
-				},
+				}) as SessionsAPI["submit"],
 				abort: (id) => {
 					denySetupWrite("sessions.abort");
 					return services.sessions.abort(id);

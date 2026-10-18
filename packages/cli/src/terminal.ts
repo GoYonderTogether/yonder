@@ -71,6 +71,9 @@ export const chatCommands = [
 ];
 
 /** Compare existing local directory aliases without treating missing/remote paths as the same folder. */
+export const hideReplyMarker = (text: string, streaming: boolean) =>
+	Boolean(text.trim()) && (streaming ? "NO_REPLY".startsWith(text.trim()) : text.trim() === "NO_REPLY");
+
 export function sameDirectory(left: string, right: string): boolean {
 	if (left === right) return true;
 	try {
@@ -124,6 +127,9 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	let loader: InstanceType<typeof WorkingStatusIndicator> | undefined;
 	let channelSocket: Socket | undefined;
 	const observers = new Map<string, { close(): void }>();
+	const disconnected = new Set<string>();
+	const watching = new Map<string, Promise<void>>();
+	let viewEpoch = 0;
 	const entries = new Map<string, Component>();
 	const live = new Map<string, AssistantMessageComponent>();
 	const tools = new Map<string, CompactToolExecution>();
@@ -256,7 +262,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		editor.setAutocompleteProvider(new CommandAutocomplete(chatCommands, info?.config.cwd ?? home));
 	const refresh = async (id = info?.session.id) => {
 		if (id) {
-			info = await call<Info>("terminal.info", { id });
+			const epoch = viewEpoch;
+			const next = await call<Info>("terminal.info", { id });
+			if (epoch !== viewEpoch || info?.session.id !== id) return;
+			info = next;
 			title();
 			autocomplete();
 			editor.borderColor = theme.getThinkingBorderColor(info.config.resolved.thinking);
@@ -306,11 +315,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 				.filter((block) => block.type === "text")
 				.map((block) => block.text)
 				.join("\n");
-			if (
-				!message.content.some((block) => block.type === "toolCall") &&
-				text.trim() &&
-				"NO_REPLY".startsWith(text.trim())
-			)
+			if (!message.content.some((block) => block.type === "toolCall") && hideReplyMarker(text, streaming ?? false))
 				return;
 			lastAssistantText = text;
 			let component = (id === "live" ? live.get(session) : entries.get(key)) as AssistantMessageComponent | undefined;
@@ -339,6 +344,11 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	const receive = (session: string, packet: unknown) => {
 		const envelope = packet as { type: string; update?: TerminalUpdate; error?: string };
 		if (envelope.type === "disconnected") {
+			const observer = observers.get(session);
+			observers.delete(session);
+			observer?.close();
+			disconnected.add(session);
+			setRunning(false, session);
 			notice(`连接已断开 / Disconnected: ${envelope.error}. yonder chat --session ${session}`, true);
 			return;
 		}
@@ -365,7 +375,9 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		} else if (update.type === "state") setRunning(update.running ?? false, session);
 		else if (update.type === "inbox") {
 			guarded(async () => {
+				const epoch = viewEpoch;
 				const items = await call<Array<{ mode: string; text: string }>>("terminal.queued", { id: session });
+				if (epoch !== viewEpoch || info?.session.id !== session) return;
 				pending.clear();
 				if (items.length) pending.addChild(new Spacer(1));
 				for (const item of items)
@@ -394,19 +406,39 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			void refresh(session).catch((error) => notice(String(error), true));
 		} else if (update.type === "error") notice(update.error ?? "Error", true);
 	};
-	const watch = async (id: string) => {
+	const watch = async (id: string): Promise<void> => {
 		if (observers.has(id)) return;
-		info = await call<Info>("terminal.info", { id });
-		speakers.set(id, info.session.agent ?? "AI");
-		const observation = await observeControl(home, { method: "sessions.watch", params: { id } }, (value) =>
-			receive(id, value),
-		);
-		observers.set(id, observation);
-		info = observation.result as Info;
-		title();
-		autocomplete();
+		const existing = watching.get(id);
+		if (existing) return existing;
+		const pendingWatch = (async () => {
+			const epoch = viewEpoch;
+			const next = await call<Info>("terminal.info", { id });
+			if (epoch !== viewEpoch) return;
+			speakers.set(id, next.session.agent ?? "AI");
+			const observation = await observeControl(home, { method: "sessions.watch", params: { id } }, (value) => {
+				if (epoch === viewEpoch) receive(id, value);
+			});
+			if (epoch !== viewEpoch) {
+				observation.close();
+				return;
+			}
+			observers.set(id, observation);
+			disconnected.delete(id);
+			if (!info || target.session === id) info = observation.result as Info;
+			title();
+			autocomplete();
+		})();
+		watching.set(id, pendingWatch);
+		try {
+			await pendingWatch;
+		} finally {
+			if (watching.get(id) === pendingWatch) watching.delete(id);
+		}
 	};
 	const disconnect = () => {
+		viewEpoch++;
+		disconnected.clear();
+		watching.clear();
 		for (const observer of observers.values()) observer.close();
 		observers.clear();
 		channelSocket?.destroy();
@@ -520,6 +552,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		socket.setEncoding("utf8");
 		const lines = createInterface({ input: socket, crlfDelay: Infinity });
 		lines.on("line", (line) => {
+			if (channelSocket !== socket) return;
 			try {
 				const packet = JSON.parse(line) as { type: string; event?: YEvent; message?: string };
 				if (packet.type === "accepted" && packet.event) {
@@ -600,9 +633,15 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		}
 		if (name === "skills") {
 			if (!info) throw new Error("请先选择实际会话 / Select a session first");
-			await refresh();
+			const ids = [...new Set([...observers.keys(), ...disconnected])];
+			const id = ids.length > 1 ? await choose("查看会话技能 / Session skills", ids) : info.session.id;
+			if (!id) return;
+			const epoch = viewEpoch;
+			const selected = await call<Info>("terminal.info", { id });
+			if (epoch !== viewEpoch) return;
 			notice(
-				info.skills.skills.map((skill) => `${skill.name} · ${skill.description}`).join("\n") || "无技能 / No skills",
+				selected.skills.skills.map((skill) => `${skill.name} · ${skill.description}`).join("\n") ||
+					"无技能 / No skills",
 			);
 			return;
 		}
@@ -626,6 +665,12 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		throw new Error(`未知命令 / Unknown command: /${name}`);
 	};
 	const submit = async (text: string, busy: "steer" | "followup") => {
+		if (disconnected.size) {
+			await Promise.all([...disconnected].map(watch));
+			throw new Error(
+				"观察连接已恢复；请核对历史后再次提交，未自动重发 / Reconnected; inspect history before submitting again",
+			);
+		}
 		if (target.channel) {
 			if (!channelSocket || channelSocket.destroyed) throw new Error("渠道未连接 / Channel disconnected");
 			channelSocket.write(`\u001e${JSON.stringify({ type: "input", text })}\n`);
@@ -633,10 +678,12 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		}
 		if (!info) {
 			opening ??= (async () => {
+				const epoch = viewEpoch;
 				const session = await call<SessionInfo>("sessions.open", {
 					preset: target.preset ?? "default",
 					close: "manual",
 				});
+				if (epoch !== viewEpoch) throw new Error(`已创建会话 ${session.id}，当前目标已切换；未提交输入`);
 				target = { session: session.id };
 				await watch(session.id);
 			})();

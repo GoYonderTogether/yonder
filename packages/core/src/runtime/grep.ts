@@ -1,6 +1,6 @@
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
-import { Type } from "typebox";
 import type { Tool } from "@yonder/sdk";
+import { Type } from "typebox";
 
 export function createGrepTool(): Tool {
 	return {

@@ -163,9 +163,12 @@ export function createDelivery(options: DeliveryOptions) {
 			data: { target, method, ...(session ? { session } : {}), ...(runId ? { runId } : {}) },
 		});
 	}
-	async function unknown(id: string, error: unknown): Promise<Delivery> {
-		await store.events.record({ type: "message.unknown", data: { attempt: id, reason: message(error) } });
-		return { ok: false, error: `发送结果未知：${message(error)}；不会自动重发` };
+	async function unknown(id: string, error: unknown, partial?: Delivery): Promise<Delivery> {
+		await store.events.record({
+			type: "message.unknown",
+			data: { attempt: id, reason: message(error), ...(partial?.id ? { id: partial.id } : {}) },
+		});
+		return { ...partial, ok: false, uncertain: true, error: `发送结果未知：${message(error)}；不会自动重发` };
 	}
 	async function send(
 		from: string | undefined,
@@ -194,6 +197,7 @@ export function createDelivery(options: DeliveryOptions) {
 		} catch (error) {
 			return unknown(id, error);
 		}
+		if (!delivery.ok && delivery.uncertain) return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
 		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id);
 		return delivery;
 	}
@@ -236,10 +240,18 @@ export function createDelivery(options: DeliveryOptions) {
 				state.delivery = (async () => {
 					await ready;
 					const id = await attempt(target, "stream", session.id, event.id, runId);
-					if (!id) return { ok: false, error: "发送结果未知：该运行已有渠道尝试，不自动重新开流" };
+					if (!id) return { ok: false, uncertain: true, error: "该运行已有渠道尝试，不自动重新开流" };
 					stream.attempt = id;
 					try {
-						return await channel.stream!(target, stream.queue, (event.data as { msgId?: string }).msgId, stream.signal);
+						const delivered = await channel.stream!(
+							target,
+							stream.queue,
+							(event.data as { msgId?: string }).msgId,
+							stream.signal,
+						);
+						return !delivered.ok && delivered.uncertain
+							? unknown(id, delivered.error ?? "渠道未确认结果", delivered)
+							: delivered;
 					} catch (error) {
 						return unknown(id, error);
 					}
@@ -348,7 +360,7 @@ export function createDelivery(options: DeliveryOptions) {
 					if (state.delivery) {
 						const delivered = await state.delivery;
 						// Thrown channel results already have an unknown receipt, not a false confirmation.
-						if (!delivered.error?.startsWith("发送结果未知："))
+						if (!delivered.uncertain)
 							await record(
 								fromSession(session),
 								state.target,
@@ -376,6 +388,11 @@ export function createDelivery(options: DeliveryOptions) {
 			return send(`plugin:${pluginId}`, request, undefined, undefined, undefined, request.signal);
 		},
 		async sendTool(ctx: ToolContext, request: MessageRequest): Promise<Delivery> {
+			try {
+				await options.runtime().authorizeAttachments(ctx, request.attachments);
+			} catch (error) {
+				return { ok: false, error: message(error) };
+			}
 			const session = await store.sessions.get(ctx.session);
 			if (!session) throw new Error("当前会话不存在。");
 			const config = options.runtime().currentConfig(ctx.session);

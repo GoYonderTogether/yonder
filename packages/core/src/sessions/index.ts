@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import type { Capability, Input, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
+import type { Capability, Input, InputReceipt, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
 import { type AgentConfig, type ResolvedProfile, resolveProfile, type YonderConfig } from "../config/index.js";
-import type { Runtime, RuntimeInput, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
+import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 
 interface CreateSessionsOptions {
@@ -14,7 +14,6 @@ interface CreateSessionsOptions {
 	config: YonderConfig;
 	version: string;
 	runtime: () => Runtime;
-	prepareInput?: (session: SessionInfo, event: YEvent) => RuntimeInput | Promise<RuntimeInput>;
 	onRun?: (session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean) => void | Promise<void>;
 	onReport?: (error: unknown) => void;
 }
@@ -28,7 +27,6 @@ export function createSessions({
 	config,
 	version,
 	runtime,
-	prepareInput,
 	onRun,
 	onReport = () => {},
 }: CreateSessionsOptions) {
@@ -131,19 +129,37 @@ export function createSessions({
 		});
 	}
 
+	async function failInput(session: SessionInfo, event: YEvent, error: unknown): Promise<RunResult> {
+		onReport(error);
+		const reason = error instanceof Error ? error.message : String(error);
+		if (!(await runtime().admitted(session.id, event.id)))
+			await onRun?.(
+				session,
+				{
+					runId: `error:${event.id}`,
+					status: "error",
+					text: "",
+					reason,
+					usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+					inputs: [event.id],
+				},
+				[event],
+				(event.data as { waiting?: boolean }).waiting === true,
+			);
+		return { agent: session.agent, session: session.id, status: "error", text: "", reason };
+	}
 	async function submitTaskEvent(session: SessionInfo, event: YEvent): Promise<RunResult> {
 		try {
 			const data = event.data as Input & { busy?: "followup" | "steer" };
-			const prepared = await prepareInput?.(session, event);
 			if (closing.has(session.id) || (await store.sessions.get(session.id))?.closed)
-				throw new Error(`Session closed during input preparation: ${session.id}`);
+				throw new Error(`Session closed before admission: ${session.id}`);
 			const run = await runtime().submit(session.id, {
-				...(prepared ?? { text: data.text }),
-				event: prepared?.event ?? event,
+				text: data.text,
+				event,
 				wake: "run",
 				busy: data.busy ?? "followup",
 				requestId: `event:${event.id}`,
-				attachments: prepared?.attachments ?? data.attachments ?? [],
+				attachments: data.attachments ?? [],
 			});
 			return {
 				agent: session.agent,
@@ -151,25 +167,10 @@ export function createSessions({
 				status: run.status,
 				text: run.text,
 				...(run.reason ? { reason: run.reason } : {}),
+				...(run.attachments?.length ? { attachments: run.attachments } : {}),
 			};
 		} catch (error) {
-			onReport(error);
-			const reason = error instanceof Error ? error.message : String(error);
-			if (!(await runtime().admitted(session.id, event.id)))
-				await onRun?.(
-					session,
-					{
-						runId: `error:${event.id}`,
-						status: "error",
-						text: "",
-						reason,
-						usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
-						inputs: [event.id],
-					},
-					[event],
-					(event.data as { waiting?: boolean }).waiting === true,
-				);
-			return { agent: session.agent, session: session.id, status: "error", text: "", reason };
+			return failInput(session, event, error);
 		}
 	}
 	async function runTask(
@@ -179,7 +180,7 @@ export function createSessions({
 		busy?: "followup" | "steer",
 		accepted?: (event: string) => void,
 		from?: string,
-	): Promise<RunResult | void> {
+	): Promise<RunResult | InputReceipt> {
 		const session = await store.sessions.get(id);
 		if (!session || session.mode !== "task" || session.closed || closing.has(id))
 			throw new Error(`Not an open task session: ${id}`);
@@ -198,6 +199,7 @@ export function createSessions({
 		const run = submitTaskEvent(session, event);
 		if (wait) return run;
 		void run.catch(onReport);
+		return { event: event.id, session: id };
 	}
 	async function recover(): Promise<Array<() => void>> {
 		const pending: Array<() => void> = [];
@@ -280,7 +282,8 @@ export function createSessions({
 			});
 			return withPolicy(session);
 		},
-		submit: (id, input, options) => runTask(id, input, options?.wait === true, options?.busy),
+		submit: ((id, input, options) =>
+			runTask(id, input, options?.wait === true, options?.busy)) as SessionsAPI["submit"],
 		abort: async (id) => {
 			await runtime().abort(id);
 		},
@@ -312,9 +315,9 @@ export function createSessions({
 		closeSession,
 		getPreset: preset,
 		version,
-		submitAccepted(id: string, input: Input, busy?: "followup" | "steer"): Promise<{ event: string }> {
+		submitAccepted(id: string, input: Input, busy?: "followup" | "steer"): Promise<InputReceipt> {
 			return new Promise((resolve, reject) => {
-				void runTask(id, input, false, busy, (event) => resolve({ event })).catch(reject);
+				void runTask(id, input, false, busy, (event) => resolve({ event, session: id })).catch(reject);
 			});
 		},
 	};

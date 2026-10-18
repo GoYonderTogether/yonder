@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { expect, test } from "vitest";
-import { stringify } from "yaml";
+import { parse, stringify } from "yaml";
 import { parseAgentConfig } from "../config/index.js";
-import { initHome, inspectHome, offlineQuery, openKernel } from "./index.js";
+import { initHome, inspectHome, manageHome, offlineQuery, openKernel } from "./index.js";
 
 test("initialize, inspect, start, stop and query a real empty home", async () => {
 	const home = await mkdtemp("/tmp/yonder-kernel-");
@@ -82,3 +82,46 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 		await rm(home, { recursive: true, force: true });
 	}
 }, 30000);
+
+test("offline inspection uses the common tool policy and includes preset plugin references", async () => {
+	const home = await mkdtemp("/tmp/yonder-inspect-");
+	try {
+		await initHome(home);
+		const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
+		config.plugins.push({ use: "@yonder/plugin-browser-skill" });
+		await writeFile(`${home}/yonder.yaml`, stringify(config));
+		await writeFile(
+			`${home}/presets/browser.yaml`,
+			stringify({
+				schema: 1,
+				description: "Browser maintenance",
+				plugins: ["browser-skill"],
+				model: "openai/gpt-6-luna",
+			}),
+		);
+		const file = `${home}/agents/main/agent.yaml`;
+		const agent = parse(await readFile(file, "utf8"));
+		agent.profiles.owner = { capabilities: ["read"], tools: { offer: ["read"], search: ["task_run"] } };
+		await writeFile(file, stringify(agent));
+		const report = (await manageHome(home, { action: "inspect" })) as {
+			tools: Array<{ name: string; exposure: string }>;
+		};
+		expect(report.tools).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ name: "read", exposure: "offer" }),
+				expect.objectContaining({ name: "task_run", exposure: "search" }),
+				expect.objectContaining({ name: "tool_search", exposure: "offer" }),
+				expect.objectContaining({ name: "bash", exposure: "capability-denied" }),
+			]),
+		);
+		const plugin = (await manageHome(home, { action: "plugins.show", id: "browser-skill" })) as {
+			selectedBy: string[];
+		};
+		expect(plugin.selectedBy).toContain("preset:browser");
+		config.plugins.push({ use: "/no-such-yonder-plugin" });
+		await writeFile(`${home}/yonder.yaml`, stringify(config));
+		expect(await manageHome(home, { action: "models.list" })).toHaveProperty("models");
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});

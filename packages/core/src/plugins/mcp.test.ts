@@ -69,7 +69,9 @@ async function setup(real = false) {
 		assert(port);
 		const url = new URL(`http://127.0.0.1:${port}/mcp`);
 		await client.connect(
-			new StreamableHTTPClientTransport(url, { requestInit: { headers: { Authorization: `Bearer ${token}` } } }) as Transport,
+			new StreamableHTTPClientTransport(url, {
+				requestInit: { headers: { Authorization: `Bearer ${token}` } },
+			}) as Transport,
 		);
 		const call = (name: string, args: Record<string, unknown> = {}) =>
 			client.callTool({ name: `channel-mcp_${name}`, arguments: args });
@@ -84,7 +86,20 @@ test("standard MCP client discovers native APIs and rejects forged identities, f
 	const connection = await setup();
 	try {
 		const names = (await connection.client.listTools()).tools.map((tool) => tool.name);
-		expect(names).toHaveLength(18);
+		expect(names).toHaveLength(19);
+		expect(names).toContain("channel-mcp_sessions_watch");
+		const session = data(await connection.call("sessions_open", { preset: "default", close: "manual" }));
+		const progress: string[] = [];
+		const observed = data(
+			await connection.client.callTool(
+				{ name: "channel-mcp_sessions_watch", arguments: { id: session.id, milliseconds: 100 } },
+				undefined,
+				{ onprogress: (update) => progress.push(update.message ?? "") },
+			),
+		);
+		expect(observed.updates[0].type).toBe("snapshot");
+		expect(progress.some((update) => JSON.parse(update).type === "snapshot")).toBe(true);
+		await connection.call("sessions_close", { id: session.id });
 		expect(names.some((name) => /credentials|login|services/u.test(name))).toBe(false);
 		const event = data(
 			await connection.call("events_emit", {

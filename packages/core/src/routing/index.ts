@@ -5,7 +5,6 @@ import type { Sessions } from "../sessions/index.js";
 import { newEvent, type Store } from "../store/index.js";
 
 type Wake = "run" | "write";
-type PreparedInput = RuntimeInput;
 interface RoutedRun {
 	agent: string;
 	session: string;
@@ -16,7 +15,6 @@ interface CreateRouterOptions {
 	sessions: Sessions;
 	runtime: () => Runtime;
 	agents: Map<string, AgentConfig>;
-	prepareInput?: (session: SessionInfo, event: YEvent, wake: Wake) => PreparedInput | Promise<PreparedInput>;
 	onStart?: (
 		session: SessionInfo,
 		event: YEvent,
@@ -79,7 +77,6 @@ export function createRouter({
 	sessions,
 	runtime,
 	agents,
-	prepareInput,
 	onStart,
 	onRun,
 	onReport = () => {},
@@ -119,29 +116,25 @@ export function createRouter({
 				try {
 					const session = await store.sessions.get(routed.session);
 					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
-					const prepared = await prepareInput?.(session, event, routed.wake);
 					const data = event.data as { text?: string; attachments?: RuntimeInput["attachments"] };
 					const waiter = event.routes?.find((route) => route.session === session.id)?.waiting ?? false;
 					const startedOutput = routed.wake === "run" ? onStart?.(session, event, waiter) : undefined;
 					const output = (part: OutputPart, runId?: string) => {
-						prepared?.onOutput?.(part);
 						try {
 							startedOutput?.(part, runId);
 						} catch (error) {
 							report(error);
 						}
 					};
-					const source = prepared ?? { text: data.text ?? "" };
-					const attachments = source.attachments ?? data.attachments;
+					const attachments = data.attachments;
 					const input: RuntimeInput = {
-						text: source.text,
-						...(source.version ? { version: source.version } : {}),
-						event: prepared?.event ?? event,
+						text: data.text ?? "",
+						event,
 						wake: routed.wake,
 						busy: event.routes?.find((route) => route.session === session.id)?.busy ?? "followup",
 						...(attachments ? { attachments } : {}),
 						requestId: `event:${event.id}`,
-						...(source.onOutput || startedOutput ? { onOutput: output } : {}),
+						...(startedOutput ? { onOutput: output } : {}),
 					};
 					await runtime().submit(session.id, input);
 				} catch (error) {

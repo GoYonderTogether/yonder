@@ -4,6 +4,7 @@ import { watchEvents } from "@earendil-works/pi-durable";
 
 /** JSON-only view of native facts. No pi runtime object crosses the control boundary. */
 import type { SessionUpdate as TerminalUpdate } from "@yonder/sdk";
+
 export type { SessionUpdate as TerminalUpdate } from "@yonder/sdk";
 
 export async function observeTerminal(harness: Harness, id: string, send: (update: TerminalUpdate) => Promise<void>) {

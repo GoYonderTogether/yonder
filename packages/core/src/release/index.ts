@@ -21,6 +21,10 @@ import { fileURLToPath } from "node:url";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const label = "dev.yonder.harness";
+const statusLabel = "dev.yonder.harness.status";
+const statusPlistPath = () => join(homedir(), "Library/LaunchAgents", `${statusLabel}.plist`);
+const statusExecutable = (install: string) =>
+	join(install, "current/packages/macos/dist/YonderStatus.app/Contents/MacOS/YonderStatus");
 const plistPath = () => join(homedir(), "Library/LaunchAgents", `${label}.plist`);
 const installPath = () => resolve(process.env.YONDER_INSTALL ?? join(homedir(), ".yonder-harness"));
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
@@ -67,6 +71,22 @@ export async function releaseInfo(home?: string) {
 		home: home ?? null,
 		origin: existsSync(originFile) ? JSON.parse(await readFile(originFile, "utf8")) : null,
 	};
+}
+export async function checkRelease() {
+	const root = await manifest();
+	const repository = typeof root.repository === "string" ? root.repository : root.repository?.url;
+	if (!repository) throw new Error("Repository is not configured");
+	const url = new URL(repository);
+	const match = /^\/([\w.-]+)\/([\w.-]+?)(?:\.git)?\/?$/.exec(url.pathname);
+	if (url.hostname !== "github.com" || !match)
+		throw new Error("Update checks require the configured GitHub repository");
+	const release = JSON.parse(
+		(await command("gh", ["api", `repos/${match[1]}/${match[2]}/releases/latest`])).stdout,
+	) as { tag_name: string; html_url: string; draft: boolean; prerelease: boolean };
+	if (release.draft || release.prerelease) throw new Error("Latest release is not a formal release");
+	const latest = normalizeVersion(release.tag_name),
+		current = (await manifest(join(sourceRoot, "packages/cli"))).version;
+	return { current, latest, updateAvailable: compareVersions(latest, current) > 0, url: release.html_url };
 }
 export async function readDocs(path?: string, list = false): Promise<string | string[]> {
 	const root = await realpath(join(sourceRoot, "docs"));
@@ -198,6 +218,15 @@ ${pair("StandardErrorPath", join(home, ".yonder/logs/harness.log"))}
 <key>EnvironmentVariables</key><dict>${pair("PATH", path)}${pair("YONDER_INSTALL", install)}${pair("YONDER_HOME", home)}</dict>
 </dict></plist>\n`;
 }
+export function statusPlist(install: string, home: string): string {
+	const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
+	return `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
+${pair("Label", statusLabel)}<key>ProgramArguments</key><array><string>${xml(statusExecutable(install))}</string></array>
+<key>RunAtLoad</key><true/><key>KeepAlive</key><false/>
+${pair("StandardOutPath", join(home, ".yonder/logs/status.log"))}${pair("StandardErrorPath", join(home, ".yonder/logs/status.log"))}
+<key>EnvironmentVariables</key><dict>${pair("PATH", runtimePath(install))}${pair("YONDER_INSTALL", install)}${pair("YONDER_HOME", home)}</dict>
+</dict></plist>\n`;
+}
 export type ServiceAction = "install" | "uninstall" | "start" | "stop" | "restart" | "status";
 export async function manageService(action: ServiceAction, options: { home?: string } = {}) {
 	if (process.platform !== "darwin")
@@ -211,12 +240,18 @@ export async function manageService(action: ServiceAction, options: { home?: str
 			install = installPath();
 		await access(join(home, "yonder.yaml"));
 		await access(join(install, "bin/yonder"));
+		await access(statusExecutable(install));
 		await mkdir(dirname(plistPath()), { recursive: true });
 		await mkdir(join(home, ".yonder/logs"), { recursive: true });
 		if (await loaded()) await command("launchctl", ["bootout", service]);
 		await writeFile(plistPath(), servicePlist(install, home), { mode: 0o600 });
 		await command("launchctl", ["bootstrap", domain(), plistPath()]);
 		installed = { home, install, plist: plistPath() };
+		const statusService = `${domain()}/${statusLabel}`;
+		if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code === 0)
+			await command("launchctl", ["bootout", statusService]);
+		await writeFile(statusPlistPath(), statusPlist(install, home), { mode: 0o600 });
+		await command("launchctl", ["bootstrap", domain(), statusPlistPath()]);
 	} else if (action === "status") {
 		const status = await command("launchctl", ["print", service], { allowFailure: true });
 		return {
@@ -232,6 +267,10 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		};
 	} else if (action === "uninstall") {
 		if (await loaded()) await command("launchctl", ["bootout", service]);
+		const statusService = `${domain()}/${statusLabel}`;
+		if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code === 0)
+			await command("launchctl", ["bootout", statusService]);
+		await rm(statusPlistPath(), { force: true });
 		if (installed) await rm(installed.plist);
 		return { installed: false, loaded: false };
 	} else {
@@ -241,6 +280,17 @@ export async function manageService(action: ServiceAction, options: { home?: str
 			if (running) await command("launchctl", ["bootout", service]);
 		} else if (running) await command("launchctl", ["kickstart", ...(action === "restart" ? ["-k"] : []), service]);
 		else await command("launchctl", ["bootstrap", domain(), installed.plist]);
+		if (action === "start" && existsSync(statusPlistPath())) {
+			const statusService = `${domain()}/${statusLabel}`;
+			if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code !== 0)
+				await command("launchctl", ["bootstrap", domain(), statusPlistPath()]);
+			else await command("launchctl", ["kickstart", statusService]);
+		} else if (action === "restart") {
+			const statusService = `${domain()}/${statusLabel}`;
+			const state = await command("launchctl", ["print", statusService], { allowFailure: true });
+			if (state.code === 0 && /^\s*pid = \d+$/mu.test(state.stdout))
+				await command("launchctl", ["kickstart", "-k", statusService]);
+		}
 	}
 	return {
 		installed: true,

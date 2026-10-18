@@ -1,20 +1,20 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Capability, Level, Preset, Profile } from "@yonder/sdk";
 import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import {
-	AgentSchema,
-	PresetSchema,
-	YonderSchema,
 	type AgentConfig,
+	AgentSchema,
 	type Binding,
+	PresetSchema,
 	type YonderConfig,
+	YonderSchema,
 } from "./schema.js";
 
-export type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 export { watchConfig } from "./reload.js";
+export type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 
 export interface WorkspaceFiles {
 	readFile(path: string): Promise<string>;

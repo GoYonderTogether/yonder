@@ -1,9 +1,9 @@
-import { mkdir, readFile, writeFile, rename, rm, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { EventQuery, Models, Preset, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { parseDocument, stringify } from "yaml";
-import { randomUUID } from "node:crypto";
 import {
 	type AgentConfig,
 	loadAgentConfig,
@@ -23,6 +23,7 @@ import { openDatabase } from "../runtime/db.js";
 import {
 	credentialPath,
 	FileCredentials,
+	inspectToolCatalog,
 	localEnvironment,
 	Runtime,
 	type RuntimeSessionConfig,
@@ -30,7 +31,7 @@ import {
 } from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
 import { createSessions } from "../sessions/index.js";
-import { addLocalSkill, removeLocalSkill, createSkills } from "../skills/index.js";
+import { addLocalSkill, createSkills, removeLocalSkill } from "../skills/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
 import { createSkillTool } from "../tools/skill-view.js";
@@ -174,7 +175,27 @@ export interface ManagementRequest {
 }
 export async function manageHome(home: string, request: ManagementRequest, running?: LoadedPlugins): Promise<unknown> {
 	const config = await loadYonderConfig(home);
+	if (request.action === "skills.add" || request.action === "skills.remove") {
+		const entry = request.agent ? config.agents?.find((item) => item.id === request.agent) : undefined;
+		if (request.agent && !entry) throw new Error(`Unknown agent: ${request.agent}`);
+		if (entry?.env && entry.env !== "local") throw new Error("Local skill management requires a local workspace");
+		const target = { home, ...(entry ? { workspace: resolve(home, entry.workspace) } : {}) };
+		return request.action === "skills.add"
+			? addLocalSkill(request.source ?? "", target)
+			: removeLocalSkill(request.id ?? "", target);
+	}
 	const services = inspectionServices(home, config, () => {});
+	if (request.action === "models.list")
+		return {
+			source: "configured/native catalog; access not verified",
+			models: services.models.getModels().map((model) => ({
+				provider: model.provider,
+				id: model.id,
+				name: model.name,
+				contextWindow: model.contextWindow,
+				input: model.input,
+			})),
+		};
 	const loaded = await loadPlugins(home, config, services);
 	const agents = await loadAgents(home, config, loaded);
 	const selectedAgent = () => {
@@ -182,30 +203,18 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 		if (!value) throw new Error(`Unknown agent: ${request.agent}`);
 		return value;
 	};
-	if (request.action === "models.list")
-		return {
-			source: "configured/native catalog; access not verified",
-			models: services.models
-				.getModels()
-				.map((model) => ({
-					provider: model.provider,
-					id: model.id,
-					name: model.name,
-					contextWindow: model.contextWindow,
-					input: model.input,
-				})),
-		};
 	if (request.action === "inspect") {
 		const session = profileFor(home, config, selectedAgent(), request.profile);
 		const { instructions: _instructions, ...profile } = session.resolved;
 		return {
-			source: "next-run configuration",
+			source: "disk configuration; runtime acceptance not implied",
 			agent: session.agent,
 			profile: session.profile,
 			configurationFile: join(session.cwd, "agent.yaml"),
 			cwd: session.cwd,
 			...profile,
 			plugins: profile.plugins,
+			tools: inspectToolCatalog(session, loaded.tools),
 			registeredPluginTools: [...loaded.tools].flatMap(([plugin, tools]) =>
 				tools.map((tool) => ({ plugin, name: tool.name, capabilities: tool.capabilities })),
 			),
@@ -217,33 +226,36 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 			profileFor(home, config, selectedAgent(), request.profile),
 			request.id ?? "",
 		);
-	if (request.action === "skills.add" || request.action === "skills.remove") {
-		const entry = request.agent ? config.agents?.find((item) => item.id === request.agent) : undefined;
-		if (request.agent && !entry) throw new Error(`Unknown agent: ${request.agent}`);
-		if (entry?.env && entry.env !== "local") throw new Error("Local skill management requires a local workspace");
-		const target = { home, ...(entry ? { workspace: resolve(home, entry.workspace) } : {}) };
-		return request.action === "skills.add"
-			? addLocalSkill(request.source ?? "", target)
-			: removeLocalSkill(request.id ?? "", target);
-	}
 	if (request.action === "plugins.list" || request.action === "plugins.show") {
+		const presets = new Map([...loaded.presets, ...(await loadPresets(home))]);
 		const result = (loaded.info ?? []).map((info) => ({
 			...info,
 			source: "configured; setup validated",
 			runtimeLoaded: running ? (running.info ?? []).some((item) => item.id === info.id) : null,
-			selectedBy: [...agents.values()].flatMap((agent) =>
-				Object.keys(agent.profiles)
-					.filter((profile) => {
-						const selected = resolveProfile(agent.profiles[profile]!, agent.defaults);
-						return (
-							selected.plugins.includes(info.id) ||
-							selected.contexts.some((id) =>
+			selectedBy: [
+				...[...presets]
+					.filter(
+						([, preset]) =>
+							resolveProfile(preset).plugins.includes(info.id) ||
+							resolveProfile(preset).contexts.some((id) =>
 								((info.contributes as { contexts?: string[] }).contexts ?? []).includes(id),
-							)
-						);
-					})
-					.map((profile) => `${agent.id}/${profile}`),
-			),
+							),
+					)
+					.map(([id]) => `preset:${id}`),
+				...[...agents.values()].flatMap((agent) =>
+					Object.keys(agent.profiles)
+						.filter((profile) => {
+							const selected = resolveProfile(agent.profiles[profile]!, agent.defaults);
+							return (
+								selected.plugins.includes(info.id) ||
+								selected.contexts.some((id) =>
+									((info.contributes as { contexts?: string[] }).contexts ?? []).includes(id),
+								)
+							);
+						})
+						.map((profile) => `${agent.id}/${profile}`),
+				),
+			],
 			instances: [
 				...[...loaded.channels.keys()]
 					.filter((id) =>
@@ -557,7 +569,10 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				query: (query) => store.events.query(query),
 				on: unavailable,
 			},
-			messages: { send: (request, pluginId) => delivery.sendPlugin(pluginId, request) },
+			messages: {
+				send: (request, pluginId, ctx) =>
+					ctx ? delivery.sendTool(ctx, request) : delivery.sendPlugin(pluginId, request),
+			},
 			sessions: {
 				list: (filter) => sessions.api.list(filter),
 				get: (id) => sessions.api.get(id),
@@ -612,8 +627,6 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			setVersion: store.sessions.setVersion,
 			skillIndex: skills.index,
 		};
-		const input = async (row: SessionInfo, event: YEvent, wake: "run" | "write" = "run") =>
-			prepareInput(row, await sessions.resolveSession(row.id), event, wake, promptOptions);
 		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
 			const session = await store.sessions.get(id);
 			if (!session) throw new Error(`Missing runtime session: ${id}`);
@@ -636,7 +649,6 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			config,
 			version: packageVersion,
 			runtime: realRuntime,
-			prepareInput: input,
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
 		});
@@ -653,7 +665,6 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			sessions,
 			runtime: realRuntime,
 			agents,
-			prepareInput: input,
 			onStart: delivery.onStart,
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
@@ -667,7 +678,6 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			ask: router.ask,
 			getPreset: sessions.getPreset,
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
-			prepareInput: input,
 		});
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
@@ -678,6 +688,11 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			tools,
 			envs: loaded.envs,
 			readEvent: store.events.get,
+			prepareInput: async (id, event, config, wake, signal) => {
+				const row = await store.sessions.get(id);
+				if (!row) throw new Error(`Unknown session: ${id}`);
+				return prepareInput(row, config, event, wake, { ...promptOptions, ...(signal ? { signal } : {}) });
+			},
 			onAdmitted: async (id, input) => {
 				if (input.version) await store.sessions.setVersion(id, input.version);
 			},
@@ -738,10 +753,9 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				if (request.action !== "inspect") return result;
 				const agent = agents.get(request.agent ?? "main");
 				if (!agent) throw new Error("Unknown agent");
-				const next = profileFor(home, config, agent, request.profile);
 				return {
 					...(result as object),
-					tools: realRuntime().describeTools(next),
+					tools: (result as { tools: unknown }).tools,
 					runningSnapshots: (await store.sessions.list({ agent: agent.id, open: true })).flatMap((session) => {
 						const snapshot = realRuntime().currentConfig(session.id);
 						return snapshot

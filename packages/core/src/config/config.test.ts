@@ -3,7 +3,8 @@ import { matchesGlob, parseAgentConfig, resolveProfile } from "./index.js";
 
 describe("config basics", () => {
 	it("validates an agent and resolves profile overrides", () => {
-		const agent = parseAgentConfig(`schema: 1
+		const agent = parseAgentConfig(
+			`schema: 1
 id: main
 name: Main
 owner: person:owner
@@ -18,7 +19,10 @@ profiles:
     tools: { offer: [custom] }
     limits: { maxTurns: 20 }
 bindings: []
-`, "agents/main/agent.yaml", "main");
+`,
+			"agents/main/agent.yaml",
+			"main",
+		);
 		const profile = resolveProfile(agent.profiles.guest!, agent.defaults, "local");
 		expect(profile.contexts).toEqual(["one"]);
 		expect(profile.tools).toEqual({ offer: ["custom"], search: ["find"] });

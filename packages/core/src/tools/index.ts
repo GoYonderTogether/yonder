@@ -1,11 +1,22 @@
 import { randomUUID } from "node:crypto";
-import type { AskResult, EventInput, Preset, SessionInfo, Tool, ToolContext, ToolResult, YEvent } from "@yonder/sdk";
+import type {
+	AskResult,
+	Attachment,
+	EventInput,
+	Preset,
+	SessionInfo,
+	Tool,
+	ToolContext,
+	ToolResult,
+	YEvent,
+} from "@yonder/sdk";
 import { Type } from "typebox";
 import { type AgentConfig, resolveProfile } from "../config/index.js";
 import type { DeliveryService } from "../delivery/index.js";
 import type { Runtime, RuntimeInput } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+import { coreToolCapabilities } from "./catalog.js";
 
 interface CoreToolsOptions {
 	store: Store;
@@ -16,7 +27,6 @@ interface CoreToolsOptions {
 	ask(input: EventInput): Promise<AskResult>;
 	getPreset(id: string): Preset | undefined;
 	presets?: () => Preset[];
-	prepareInput?(session: SessionInfo, event: YEvent): Promise<RuntimeInput>;
 }
 const result = (value: unknown): ToolResult => ({ text: typeof value === "string" ? value : JSON.stringify(value) });
 const fail = (error: unknown): ToolResult => ({
@@ -56,7 +66,8 @@ async function withSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> 
 
 export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const { store, agents, sessions, runtime, delivery, ask, getPreset } = options;
-	const tool = (definition: Tool): Tool => ({
+	const tool = (definition: Omit<Tool, "capabilities">): Tool => ({
+		capabilities: coreToolCapabilities[definition.name]!,
 		...definition,
 		execute: async (args, ctx) => {
 			try {
@@ -74,6 +85,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		childId: string,
 		presetId: string,
 		task: string,
+		attachments: Attachment[] | undefined,
 		ctx: ToolContext,
 	): Promise<{ session: SessionInfo; event: YEvent; input: RuntimeInput }> {
 		const selected = getPreset(presetId);
@@ -122,10 +134,16 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			type: "session.input",
 			...(ctx.agent ? { from: `agent:${ctx.agent}` } : {}),
 			...(ctx.event ? { parent: ctx.event.id } : {}),
-			data: { session: childId, text: task, waiting: true, busy: "followup", taskOwned: true },
+			data: {
+				session: childId,
+				text: task,
+				waiting: true,
+				busy: "followup",
+				taskOwned: true,
+				...(attachments?.length ? { attachments } : {}),
+			},
 		});
-		const prepared = await options.prepareInput?.(session, event);
-		return { session, event, input: prepared ?? { text: task, event } };
+		return { session, event, input: { text: task, event, ...(attachments ? { attachments } : {}) } };
 	}
 	return [
 		tool({
@@ -137,7 +155,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				text: Type.String(),
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),
-			capabilities: [],
 			execute: async (args, ctx) => {
 				const sent = await delivery.sendTool(ctx, args as Parameters<DeliveryService["sendTool"]>[1]);
 				return { ...result(sent), ...(!sent.ok ? { isError: true } : {}) };
@@ -147,7 +164,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			name: "agent_ask",
 			description: "通过目标 agent 的绑定提交问题并等待它的答复。",
 			parameters: schema({ agent: text(), text: text() }),
-			capabilities: ["message"],
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "message");
 				if (!ctx.agent) throw new Error("预设会话没有 agent 身份，不能调用 agent_ask。");
@@ -186,16 +202,30 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "task_run",
 			description: `使用预设完成专门任务并返回结果。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
-			parameters: schema({ preset: text(), task: text() }),
-			capabilities: [],
+			parameters: schema({ preset: text(), task: text(), attachments: Type.Optional(Type.Array(attachmentSchema)) }),
 			execute: async (args, ctx) => {
-				const request = args as { preset: string; task: string };
+				const request = args as { preset: string; task: string; attachments?: Attachment[] };
+				await runtime().authorizeAttachments(ctx, request.attachments);
 				if (!getPreset(request.preset)) throw new Error(`未知预设：${request.preset}`);
-				const run = await runtime().runTask(
-					ctx,
-					async (childId) => (await taskInput(childId, request.preset, request.task, ctx)).input,
-				);
-				return { ...result(run.text || run.reason || run.status), ...(run.status === "done" ? {} : { isError: true }) };
+				const run = await runtime().runTask(ctx, async (childId) => {
+					try {
+						return (await taskInput(childId, request.preset, request.task, request.attachments, ctx)).input;
+					} catch (error) {
+						if (await store.sessions.get(childId)) await sessions.closeSession(childId, "admission-error");
+						throw error;
+					}
+				});
+				return {
+					...result({
+						session: run.session,
+						status: run.status,
+						text: run.text,
+						...(run.reason ? { reason: run.reason } : {}),
+						...(run.attachments?.length ? { attachments: run.attachments } : {}),
+					}),
+					...(run.attachments?.length ? { attachments: run.attachments } : {}),
+					...(run.status === "done" ? {} : { isError: true }),
+				};
 			},
 		}),
 		tool({
@@ -213,7 +243,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				),
 				open: Type.Optional(Type.Boolean()),
 			}),
-			capabilities: ["admin"],
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "admin");
 				const filter = args as { agent?: string; mode?: SessionInfo["mode"]; open?: boolean };
@@ -233,7 +262,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				from: Type.Optional(Type.Integer({ minimum: 0 })),
 				limit: Type.Optional(Type.Integer({ minimum: 1 })),
 			}),
-			capabilities: ["admin"],
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "admin");
 				const request = args as { session: string; from?: number; limit?: number };
@@ -252,7 +280,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			name: "identity_lookup",
 			description: "查询本轮发送者的关联账号和会话；查询其他引用需要 admin，其他 agent 的信息需要 cross-agent。",
 			parameters: schema({ ref: Type.Optional(text()) }),
-			capabilities: ["read"],
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "read");
 				const ref = (args as { ref?: string }).ref ?? ctx.event?.from;
@@ -291,7 +318,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			name: "identity_link",
 			description: "显式关联账号与人，或解除关联；写入 identity.link 事件。",
 			parameters: schema({ account: text(), person: Type.Optional(text()), linked: Type.Optional(Type.Boolean()) }),
-			capabilities: ["admin"],
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "admin");
 				const request = args as { account: string; person?: string; linked?: boolean };

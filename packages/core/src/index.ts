@@ -5,13 +5,14 @@ export {
 	initHome,
 	inspectHome,
 	inspectSkills,
-	manageHome,
 	loginProvider,
+	manageHome,
 	offlineQuery,
 	openKernel,
 	packageVersion,
 } from "./kernel/index.js";
 export {
+	checkRelease,
 	compareVersions,
 	manageService,
 	readChangelog,

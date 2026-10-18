@@ -34,11 +34,12 @@ import {
 	watchEvents,
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
+import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import { createCodingTools, DEFAULT_IMAGE_LIMITS, type ImageProcessor } from "@earendil-works/pi-durable/tools";
-import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import type {
+	Attachment,
 	Capability,
 	ExecutionEnv,
 	Hook,
@@ -50,13 +51,16 @@ import type {
 	TranscriptItem,
 } from "@yonder/sdk";
 import { matchesGlob } from "../config/index.js";
+import { coreToolCapabilities } from "../tools/catalog.js";
+import { imageMime } from "./attachments.js";
 import { loginWithType } from "./auth.js";
 import { credentialPath, FileCredentials } from "./credentials.js";
 import { localEnvironment } from "./env.js";
-import { buildModels } from "./models.js";
 import { createGrepTool } from "./grep.js";
-import { imageMime } from "./attachments.js";
+import { buildModels } from "./models.js";
+
 export { attachmentFromPath } from "./attachments.js";
+
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptItem } from "./transcript.js";
 import type { RuntimeInput, RuntimeOptions, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "./types.js";
@@ -110,7 +114,9 @@ const RunDoc = defineDocFamily({
 		previous: "",
 		repeats: 0,
 		reason: null as string | null,
+		error: null as string | null,
 		usageBefore: emptyUsage(),
+		toolTasks: [] as number[],
 	}),
 });
 const capabilityMap: Record<string, Capability[]> = {
@@ -120,15 +126,61 @@ const capabilityMap: Record<string, Capability[]> = {
 	bash: ["exec"],
 	tool_search: [],
 };
+type CatalogTool = { name: string; capabilities: Capability[]; plugin?: string };
+function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTool[]) {
+	const tools = catalog.map((tool) => {
+		const missing = tool.capabilities.filter((capability) => !config.resolved.capabilities.includes(capability));
+		const selected = !tool.plugin || config.resolved.plugins.includes(tool.plugin);
+		return {
+			...tool,
+			missing,
+			exposure: !selected
+				? "plugin-not-selected"
+				: missing.length
+					? "capability-denied"
+					: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name))
+						? "offer"
+						: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name))
+							? "search"
+							: "not-selected",
+		};
+	});
+	const search = tools.find((tool) => tool.name === "tool_search");
+	if (search)
+		search.exposure = tools.some((tool) => tool.name !== "tool_search" && tool.exposure === "search")
+			? "offer"
+			: "not-selected";
+	return tools;
+}
+export function inspectToolCatalog(config: RuntimeSessionConfig, plugins: Map<string, Tool[]>) {
+	return describeCatalog(config, [
+		...(createCodingTools().tools ?? []).map((tool) => ({
+			name: tool.name,
+			capabilities: capabilityMap[tool.name] ?? [],
+		})),
+		...[
+			...Object.entries(coreToolCapabilities),
+			["grep", ["read"]] as [string, Capability[]],
+			["tool_search", []] as [string, Capability[]],
+		].map(([name, capabilities]) => ({ name, capabilities })),
+		...[...plugins].flatMap(([plugin, tools]) =>
+			tools.map((tool) => ({ name: tool.name, capabilities: tool.capabilities, plugin })),
+		),
+	]);
+}
 const toResult = (value: ToolResult): ToolExecutionResult => ({
 	output: [
 		{ type: "text", text: value.text },
 		...(value.images ?? []).map((image) => ({ type: "image" as const, mimeType: image.mime, data: image.data })),
 	],
 	isError: value.isError ?? false,
+	...(value.attachments?.length ? { details: { attachments: JSON.parse(JSON.stringify(value.attachments)) } } : {}),
 });
 function fromResult(value: ToolExecutionResult): ToolResult {
 	return {
+		...((value.details as { attachments?: Attachment[] } | undefined)?.attachments
+			? { attachments: (value.details as unknown as { attachments: Attachment[] }).attachments }
+			: {}),
 		text: (value.output ?? [])
 			.filter((b) => b.type === "text")
 			.map((b) => b.text)
@@ -138,6 +190,8 @@ function fromResult(value: ToolExecutionResult): ToolResult {
 	};
 }
 interface RunState {
+	error?: string;
+	toolTasks: number[];
 	usageBefore: RuntimeRun["usage"];
 	id: string;
 	session: string;
@@ -154,7 +208,8 @@ export class Runtime {
 	private restoring = false;
 	private images?: Promise<ImageProcessor>;
 	private imageProcessor(): Promise<ImageProcessor> {
-		return (this.images ??= createNodePhotonImages());
+		this.images ??= createNodePhotonImages();
+		return this.images;
 	}
 	private storage!: SqliteStorage;
 	private finishing = new Map<string, Promise<RuntimeRun>>();
@@ -232,7 +287,10 @@ export class Runtime {
 		const live = await this.harness.snapshot(LiveDoc, cid(session), context);
 		if (!live?.run) return;
 		const id = String(live.run.inputs[0]);
-		if (this.states.has(id)) return;
+		if (this.states.has(id)) {
+			if (!this.restoring) await this.preparePlacedInputs(session, this.states.get(id)!.config, context);
+			return;
+		}
 		const saved = await this.harness.snapshot(RunDoc, cid(session), id, context);
 		const started = saved?.started || Date.now();
 		const config: RuntimeSessionConfig = saved?.config
@@ -255,15 +313,18 @@ export class Runtime {
 			session,
 			config,
 			usageBefore,
+			toolTasks: [...(saved?.toolTasks ?? [])],
 			turns: saved?.turns ?? 0,
 			repeats: saved?.repeats ?? 0,
 			...(saved?.previous ? { previous: JSON.parse(saved.previous) } : {}),
 			...(saved?.reason ? { reason: saved.reason } : {}),
+			...(saved?.error ? { error: saved.error } : {}),
 			timer: undefined,
 			deadline: started + config.resolved.limits.maxMinutes * 60000,
 		};
 		if (!this.restoring) this.armTimer(state);
 		this.states.set(id, state);
+		if (!this.restoring) await this.preparePlacedInputs(session, config, context);
 	}
 	private armTimer(state: RunState): void {
 		state.timer = setTimeout(
@@ -278,16 +339,18 @@ export class Runtime {
 		await this.harness.commit(async (tx) => {
 			Object.assign(await tx.doc(RunDoc, cid(state.session), state.id, null), {
 				turns: state.turns,
+				toolTasks: state.toolTasks,
 				previous: state.previous ? JSON.stringify(state.previous) : "",
 				repeats: state.repeats,
 				reason: state.reason ?? null,
+				error: state.error ?? null,
 			});
 		}, C);
 	}
 	private async abortRun(state: RunState, reason: string): Promise<void> {
 		const live = await this.harness.snapshot(LiveDoc, cid(state.session), C);
 		if (String(live?.run?.inputs[0]) !== state.id) return;
-		state.reason ??= reason;
+		if (!state.error) state.reason ??= reason;
 		await this.saveRun(state);
 		if (live?.run) await this.harness.abortTask(live.run.taskId, C);
 	}
@@ -299,7 +362,8 @@ export class Runtime {
 
 		return state;
 	}
-	private async stop(context: Context, state: RunState, reason: string): Promise<never> {
+	private async stop(context: Context, state: RunState, reason: string, error = false): Promise<never> {
+		if (error) state.error = reason;
 		const signal = context.abortSignal!;
 		signal.throwIfAborted();
 		const stopped = once(signal, "abort");
@@ -340,7 +404,12 @@ export class Runtime {
 								Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],
 							);
 						if (images.length && !model?.input.includes("image"))
-							throw new Error("Current model cannot accept images already in conversation history");
+							await this.stop(
+								context,
+								state,
+								"Current model cannot accept images already in conversation history",
+								true,
+							);
 						if (
 							images.length > (limits?.images?.maxPerRequest ?? Infinity) ||
 							request.messages.some(
@@ -350,10 +419,18 @@ export class Runtime {
 										(limits?.images?.maxPerMessage ?? Infinity),
 							)
 						)
-							throw new Error("Conversation image count exceeds the current model's input limit; history was retained");
+							await this.stop(
+								context,
+								state,
+								"Conversation image count exceeds the current model's input limit; history was retained",
+								true,
+							);
 						if (Buffer.byteLength(JSON.stringify(request.messages)) > (limits?.maxRequestBytes ?? Infinity))
-							throw new Error(
+							await this.stop(
+								context,
+								state,
 								"Conversation input exceeds the current model's request byte limit; history was retained",
+								true,
 							);
 						state.turns++;
 						await this.saveRun(state);
@@ -366,6 +443,7 @@ export class Runtime {
 				hook(ToolTask, {
 					beforeTool: async (call, api, context) => {
 						const state = await this.runState(api, context);
+						if (!state.toolTasks.includes(api.taskId)) state.toolTasks.push(api.taskId);
 						const callKey = { name: call.name, args: call.arguments };
 						state.repeats = isDeepStrictEqual(callKey, state.previous) ? state.repeats + 1 : 1;
 						state.previous = structuredClone(callKey);
@@ -423,7 +501,11 @@ export class Runtime {
 				execute: async (args, api, context) => {
 					const ctx = await this.context(String(api.conversationId), context);
 					this.toolInvocations.set(ctx, { api, context });
-					return toResult(await tool.execute(args, ctx));
+					try {
+						return toResult(await tool.execute(args, ctx));
+					} finally {
+						this.toolInvocations.delete(ctx);
+					}
 				},
 			});
 			this.tools.set(tool.name, registration);
@@ -460,6 +542,22 @@ export class Runtime {
 				}),
 			]),
 		});
+	}
+	async authorizeAttachments(ctx: ToolContext, attachments: Attachment[] = []): Promise<void> {
+		const invocation = this.toolInvocations.get(ctx);
+		if (!invocation) throw new Error("需要真实运行中的工具调用上下文。");
+		ctx.signal.throwIfAborted();
+		if (!attachments.length) return;
+		const config = this.currentConfig(ctx.session);
+		if (!config) throw new Error("当前运行配置不存在。");
+		if (ctx.env.id !== "node:local") throw new Error("渠道附件暂不支持远程执行环境。");
+		for (const attachment of attachments) {
+			if (!attachment.uri.startsWith("file:")) throw new Error("发送附件必须是可验证的本地文件 URI。");
+			const path = fileURLToPath(attachment.uri);
+			const denied = await this.toolDenied("read", { path }, config, invocation.context, ctx.session);
+			if (denied) throw new Error(denied);
+			getOrThrow(await ctx.env.canonicalPath(path, invocation.context));
+		}
 	}
 	private async toolDenied(
 		name: string,
@@ -560,30 +658,17 @@ export class Runtime {
 		this.configured.delete(id);
 	}
 	describeTools(config: RuntimeSessionConfig) {
-		return [...this.tools.values()].map((tool) => {
-			const extension = [...this.extensions.values()].find((item) => item.tools?.includes(tool));
-			const plugin = extension?.name.startsWith("plugin:") ? extension.name.slice(7) : undefined;
-			const missing = (this.capabilities.get(tool.name) ?? []).filter(
-				(capability) => !config.resolved.capabilities.includes(capability),
-			);
-			const selected = !plugin || config.resolved.plugins.includes(plugin);
-			const offered = config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name));
-			const deferred = config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name));
-			return {
-				name: tool.name,
-				capabilities: this.capabilities.get(tool.name) ?? [],
-				exposure: !selected
-					? "plugin-not-selected"
-					: missing.length
-						? "capability-denied"
-						: offered
-							? "offer"
-							: deferred
-								? "search"
-								: "not-selected",
-				missing,
-			};
-		});
+		return describeCatalog(
+			config,
+			[...this.tools.values()].map((tool) => {
+				const extension = [...this.extensions.values()].find((item) => item.tools?.includes(tool));
+				return {
+					name: tool.name,
+					capabilities: this.capabilities.get(tool.name) ?? [],
+					...(extension?.name.startsWith("plugin:") ? { plugin: extension.name.slice(7) } : {}),
+				};
+			}),
+		);
 	}
 	async configure(id: string): Promise<void> {
 		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return;
@@ -592,27 +677,14 @@ export class Runtime {
 	private async applyConfiguration(id: string, config: RuntimeSessionConfig): Promise<void> {
 		const profile = config.resolved;
 		const selected = ["yonder.core", "yonder.files", "yonder.tools", ...profile.plugins.map((id) => `plugin:${id}`)];
-		const available = [...this.tools.values()].filter((t) => {
-			const extension = [...this.extensions.values()].find((e) => e.tools?.includes(t));
-			return (
-				extension &&
-				selected.includes(extension.name) &&
-				(this.capabilities.get(t.name) ?? []).every((c) => profile.capabilities.includes(c))
-			);
-		});
-		const offered = available.filter((t) => profile.tools.offer.some((pattern) => matchesGlob(pattern, t.name)));
-		const deferred = available.filter(
-			(t) => profile.tools.search.some((pattern) => matchesGlob(pattern, t.name)) && !offered.includes(t),
-		);
+		const exposure = this.describeTools(config);
+		const offered = exposure.filter((tool) => tool.exposure === "offer").map((tool) => this.tools.get(tool.name)!);
+		const deferred = exposure.filter((tool) => tool.exposure === "search").map((tool) => this.tools.get(tool.name)!);
 		if (deferred.length) {
-			const search = [...this.extensions.values()].find((e) => e.tools?.some((t) => t.name === "tool_search"));
-			if (search) {
-				selected.push(search.name);
-				for (const t of search.tools ?? []) {
-					available.push(t);
-					offered.push(t);
-				}
-			}
+			const search = [...this.extensions.values()].find((extension) =>
+				extension.tools?.some((tool) => tool.name === "tool_search"),
+			);
+			if (search) selected.push(search.name);
 		}
 		const tools = [...new Set([...offered, ...deferred])];
 		const conversation = await this.conversation(id);
@@ -659,10 +731,14 @@ export class Runtime {
 		if (!value) throw new Error(`Unknown conversation: ${id}`);
 		return value;
 	}
-	private async inputContent(id: string, input: RuntimeInput) {
-		const config = await this.options.resolveSession(id),
-			env = this.environment(config);
-		const preparation = withAbortSignal(AbortSignal.timeout(Math.ceil(config.resolved.limits.maxMinutes * 60000)), C);
+	private async inputContent(
+		config: RuntimeSessionConfig,
+		input: RuntimeInput,
+		preparation: Context,
+		remainingImages = Infinity,
+		remainingBytes = Infinity,
+	) {
+		const env = this.environment(config);
 		const content: Array<{ type: "text"; text: string } | { type: "image"; mimeType: string; data: string }> = [
 			{ type: "text", text: input.text },
 		];
@@ -686,7 +762,9 @@ export class Runtime {
 					resize = model?.inputLimits?.images?.resize;
 				actual.set(attachment.uri, { mime: mime ?? attachment.mime, bytes: bytes.byteLength });
 				const image =
-					mime && model?.input.includes("image") && count < (model.inputLimits?.images?.maxPerMessage ?? Infinity)
+					mime &&
+					model?.input.includes("image") &&
+					count < Math.min(remainingImages, model.inputLimits?.images?.maxPerMessage ?? Infinity)
 						? await (await this.imageProcessor()).prepare(bytes, mime, {
 								maxWidth: resize?.maxWidth ?? DEFAULT_IMAGE_LIMITS.maxWidth,
 								maxHeight: resize?.maxHeight ?? DEFAULT_IMAGE_LIMITS.maxHeight,
@@ -694,13 +772,16 @@ export class Runtime {
 							})
 						: undefined;
 				preparation.abortSignal?.throwIfAborted();
-				if (image) {
+				if (
+					image &&
+					Buffer.byteLength(JSON.stringify(content)) + Buffer.byteLength(image.data) + 128 <= remainingBytes
+				) {
 					content.push({ type: "image", mimeType: image.mimeType, data: image.data });
 					count++;
 				} else
 					content.push({
 						type: "text",
-						text: `attachment: ${attachment.name ?? attachment.uri} (${mime ?? attachment.mime}, ${bytes.byteLength} bytes); image could not be supplied within this model's input limits`,
+						text: `attachment: ${attachment.name ?? attachment.kind} ${attachment.uri} (${mime ?? attachment.mime}, ${bytes.byteLength} bytes); image could not be supplied within this model's input limits`,
 					});
 			}
 
@@ -713,24 +794,77 @@ export class Runtime {
 		}
 		return content;
 	}
+	private async preparePlacedInputs(session: string, config: RuntimeSessionConfig, context: Context): Promise<void> {
+		const conversation = await this.conversation(session);
+		let view = await conversation.context(context);
+		const prepared = new Set(
+			view.entries
+				.filter((entry) => entry.kind === "yonder.prepared")
+				.map((entry) => (entry.data as { target: number }).target),
+		);
+		for (const entry of view.entries) {
+			const data = entry.data as
+				| { raw?: boolean; event?: string; wake?: "run" | "write"; attachments?: Attachment[] }
+				| undefined;
+			if (entry.kind !== "yonder.message" || !data?.raw || prepared.has(entry.id)) continue;
+			const event = data.event ? await this.options.readEvent?.(data.event) : undefined;
+			if (data.event && !event) throw new Error(`Missing input event: ${data.event}`);
+			const input =
+				event && this.options.prepareInput
+					? await this.options.prepareInput(session, event, config, data.wake ?? "run", context.abortSignal)
+					: { text: textOf(entry), ...(event ? { event } : {}), attachments: data.attachments ?? [] };
+			const slash = config.resolved.model.indexOf("/");
+			const model = this.models.getModel(config.resolved.model.slice(0, slash), config.resolved.model.slice(slash + 1));
+			const images = view.messages.flatMap((message) =>
+				Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],
+			).length;
+			const content = await this.inputContent(
+				config,
+				input,
+				context,
+				(model?.inputLimits?.images?.maxPerRequest ?? Infinity) - images,
+				(model?.inputLimits?.maxRequestBytes ?? Infinity) - Buffer.byteLength(JSON.stringify(view.messages)),
+			);
+			await this.harness.commit(async (tx) => {
+				await tx.appendEntry(cid(session), {
+					kind: "yonder.prepared",
+					data: JSON.parse(
+						JSON.stringify({
+							target: entry.id,
+							event: data.event,
+							attachments:
+								(input.event?.data as { attachments?: Attachment[] } | undefined)?.attachments ??
+								input.attachments ??
+								[],
+						}),
+					),
+					edits: [
+						{ target: entry.id, action: "replace", messages: [{ role: "user", content, timestamp: Date.now() }] },
+					],
+				});
+			}, context);
+			await this.options.onAdmitted?.(session, input);
+			view = await conversation.context(context);
+		}
+	}
 	private inputEntry(input: RuntimeInput) {
 		return {
 			kind: "yonder.message",
-			data: input.event
-				? (JSON.parse(
-						JSON.stringify({
-							event: input.event.id,
-							attachments: (input.event.data as { attachments?: unknown[] }).attachments ?? [],
-						}),
-					) as JsonObject)
-				: {},
+			data: JSON.parse(
+				JSON.stringify({
+					raw: true,
+					event: input.event?.id,
+					wake: input.wake ?? "run",
+					attachments: input.attachments ?? [],
+				}),
+			) as JsonObject,
 		};
 	}
 	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
 		const conversation = await this.conversation(id);
 		const requestId = input.event ? `event:${input.event.id}` : input.requestId;
 		const existing = requestId ? await this.storage.submissionByRequest(cid(id), requestId, C) : undefined;
-		const content = existing ? [] : await this.inputContent(id, input);
+		const content = [{ type: "text" as const, text: input.text }];
 		let stream = input.onOutput ? await watchEvents(this.harness, cid(id), C) : undefined;
 		let submission: Submission | undefined;
 		let submitted!: () => void;
@@ -945,34 +1079,60 @@ export class Runtime {
 			return created.id;
 		}, context);
 		const input = await initialize(String(child));
-		const handle = await api.conversation(child, context);
-		if (!handle) throw new Error("Child conversation is missing");
-		// Invocation-bound submit preserves pi task ownership and idempotent task request IDs.
-		const prior = await api.commit((tx) => tx.submissionByRequest(child, `task:${api.taskId}`), context);
-		const submission = await handle.submit(
-			{
-				type: "input",
-				content: prior ? [] : await this.inputContent(String(child), input),
-				requestId: `task:${api.taskId}`,
-				entry: this.inputEntry(input),
-			},
-			context,
-		);
-		await this.attachSubmission(submission, input.event, String(child));
 		try {
-			await this.options.onAdmitted?.(String(child), input);
+			const handle = await api.conversation(child, context);
+			if (!handle) throw new Error("Child conversation is missing");
+			// Invocation-bound submit preserves pi task ownership and idempotent task request IDs.
+			const submission = await handle.submit(
+				{
+					type: "input",
+					content: [{ type: "text", text: input.text }],
+					requestId: `task:${api.taskId}`,
+					entry: this.inputEntry(input),
+				},
+				context,
+			);
+			await this.attachSubmission(submission, input.event, String(child));
+			try {
+				await this.options.onAdmitted?.(String(child), input);
+			} catch (error) {
+				this.options.onReport?.(error);
+			}
+			const done = await submission.wait(context);
+			return this.settledRun(String(child), done);
 		} catch (error) {
-			this.options.onReport?.(error);
+			if (input.event && !(await this.admitted(String(child), input.event.id)))
+				await this.options.onRun?.(String(child), {
+					runId: `error:${input.event.id}`,
+					session: String(child),
+					status: "error",
+					text: "",
+					reason: error instanceof Error ? error.message : String(error),
+					usage: emptyUsage(),
+					inputs: [input.event.id],
+				});
+			throw error;
 		}
-		const done = await submission.wait(context);
-		return this.settledRun(String(child), done);
 	}
 	private async sources(ids: readonly number[]): Promise<import("@yonder/sdk").YEvent[]> {
 		const events: import("@yonder/sdk").YEvent[] = [];
 		for (const id of ids) {
 			const record = await this.storage.submission(id as import("@earendil-works/pi-durable").SubmissionId, C);
 			const entry = record?.entry ? await this.harness.commit((tx) => tx.entry(record.entry!), C) : undefined;
-			const data = entry?.data as { event?: string; attachments?: import("@yonder/sdk").Attachment[] } | undefined;
+			let data = entry?.data as { event?: string; attachments?: import("@yonder/sdk").Attachment[] } | undefined;
+			if (entry) {
+				// ponytail: native scan by target; add an upstream lookup only if long-session cost is measurable.
+				const history = await this.storage.scanEntries(
+					{ conversationId: entry.conversationId, minEntryId: entry.id },
+					Number.MAX_SAFE_INTEGER,
+					undefined,
+					C,
+				);
+				const prepared = history.items.find(
+					(item) => item.kind === "yonder.prepared" && (item.data as { target?: number })?.target === entry.id,
+				);
+				if (prepared) data = prepared.data as typeof data;
+			}
 			const event =
 				(data?.event ? await this.options.readEvent?.(data.event) : undefined) ??
 				this.submissions.get(String(id))?.event;
@@ -1005,10 +1165,29 @@ export class Runtime {
 			const answer =
 				settlement.status === "done" ? await this.harness.commit((tx) => tx.entry(settlement.answer), C) : undefined;
 			const inputs = (await this.sources(receipt.inputs)).map((event) => event.id);
+			const entries = await this.storage.scanEntries(
+				{ conversationId: cid(session) },
+				Number.MAX_SAFE_INTEGER,
+				undefined,
+				C,
+			);
+			const attachments = entries.items.flatMap((entry) =>
+				(entry.model ?? []).flatMap((message) =>
+					message.role === "toolResult" &&
+					entry.byTaskId !== undefined &&
+					(saved.toolTasks ?? []).includes(entry.byTaskId)
+						? ((message.details as { attachments?: Attachment[] } | undefined)?.attachments ?? [])
+						: [],
+				),
+			);
 			const run: RuntimeRun = {
 				runId: key,
+				session,
+				...(attachments.length ? { attachments } : {}),
 				config,
-				...submissionOutcome(settlement, saved.reason ?? undefined),
+				...(saved.error
+					? { status: "error" as const, reason: saved.error }
+					: submissionOutcome(settlement, saved.reason ?? undefined)),
 				text: textOf(answer),
 				inputs,
 				usage,

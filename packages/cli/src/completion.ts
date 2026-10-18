@@ -1,7 +1,7 @@
 const commands =
 	"init login doctor start stop chat sessions events identity skills plugins models inspect version changelog docs update service completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --attachment --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -32,7 +32,7 @@ _yonder() {
     plugins) (( CURRENT == 3 )) && { compadd list show add remove; return; };;
     models) (( CURRENT == 3 )) && { compadd list; return; };;
     skills) (( CURRENT == 3 )) && { compadd show add remove; return; };;
-    service) (( CURRENT == 3 )) && { compadd install uninstall start stop restart status; return; };;
+    service) (( CURRENT == 3 )) && { compadd install uninstall start stop restart status info; return; };;
     identity) (( CURRENT == 3 )) && { compadd lookup link unlink person; return; };;
     completion) compadd zsh bash fish; return;;
   esac
@@ -72,7 +72,7 @@ _yonder() {
       plugins) choices='list show add remove';;
       models) choices='list';;
       skills) choices='show add remove';;
-      service) choices='install uninstall start stop restart status';;
+      service) choices='install uninstall start stop restart status info';;
       identity) choices='lookup link unlink person';;
       completion) choices='zsh bash fish';;
     esac
@@ -101,7 +101,7 @@ complete -c yonder -n '__fish_seen_subcommand_from plugins' -a 'list show add re
 complete -c yonder -n '__fish_seen_subcommand_from models' -a 'list'
 complete -c yonder -n '__fish_seen_subcommand_from skills' -a 'show add remove'
 complete -c yonder -l attachment -r -F -d '本地附件 · Local attachment'
-complete -c yonder -n '__fish_seen_subcommand_from service' -a 'install uninstall start stop restart status' -d '服务操作 · Service action'
+complete -c yonder -n '__fish_seen_subcommand_from service' -a 'install uninstall start stop restart status info' -d '服务操作 · Service action'
 complete -c yonder -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish'
 complete -c yonder -l home -r -a '(__fish_complete_directories)' -d '数据目录 · Home'
 complete -c yonder -l session -r -a '(__yonder_values sessions)' -d '会话 · Session'
