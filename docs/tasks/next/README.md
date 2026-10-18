@@ -10,8 +10,8 @@
 - 🟢 [N01](N01-runtime-foundation.md) 基础边界已实现并检查；恢复/输入组合缺口挂 N05/N09｜Codex｜N00。
 - 🟢 [N02](N02-mcp.md) MCP 已实现，开发版真实 Luna 检查通过，安装版复验挂 N03｜Codex｜N01。
 - 🟢 [N03](N03-install-agents.md) 独立安装、阶段更新、常驻服务、Luna/Sol 与两个真实 agent 已验证｜Codex｜N02。
-- 🟡 [N04](N04-first-repair.md) Luna 首个真实修复：只读方案阶段｜Yonder，Codex 审查｜N03。
-- ⚪ [N05](N05-recovery.md) 持久输入、运行恢复和投递归属｜Yonder，Codex 主持架构｜N04。
+- 🟢 [N04](N04-first-repair.md) Luna 首个自主修复已提交、整合、安装及真实转换复验｜Yonder，Codex 审查｜N03。
+- 🟡 [N05](N05-recovery.md) 持久输入、运行恢复和投递归属：原生关联核对｜Yonder，Codex 主持架构｜N04。
 - ⚪ [N06](N06-codex-tools.md) Computer Use 与 hosted search 本机连接｜Codex 连接，Yonder 插件实现｜N03；N00 可提前试通。
 - ⚪ [N07](N07-browser.md) BrowserSkill 默认插件与安装引导｜Yonder｜N03；引导可用系统打开 URL。
 - ⚪ [N08](N08-coding-web.md) grep/Bash、Tavily、Web Fetch｜Yonder｜N03；不依赖 hosted search 或浏览器。
