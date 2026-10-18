@@ -5,6 +5,7 @@
 ## 1. 对接边界
 
 - 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`、`@earendil-works/chord`。版本**锁定到精确版本**，升级单独成一个变更。
+- pi-durable 1.3.0 使用本仓库可审核的最小补丁（D28）：调度器解析 agent/model 前调用宿主 `beforeAgent`；单运行 abort 由 pi 原生 final 边界接续排队输入。补丁来源为 npm 1.3.0、官方 `earendil-works/pi/packages/durable`；保留版权，不复制运行循环。安装时应用固定补丁，版本或补丁不匹配直接报错，不静默跳过。
 - 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。唯一例外：`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。
 - pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
 - 不使用 pi 的 coding-agent（CLI、界面、它的会话文件和配置格式）。
@@ -51,11 +52,12 @@
 | 上限（配置档 `limits` 的键） | 默认 | 手段 |
 |---|---|---|
 | 每次运行的模型轮数（`maxTurns`） | 100 | 按真实模型轮次计数，达到上限禁止下一轮请求；拒绝/无效工具不绕过，不依赖 afterTool 一定被调用 |
-| 每次运行的墙钟时间（`maxMinutes`） | 30 | 内核计时，到时调用 `conversation.abort()` |
+| 每次运行的墙钟时间（`maxMinutes`） | 30 | 内核计时，到时中止 pi 当前 generation task；排队输入继续由原生边界处理 |
 | 连续相同的工具调用（同名且参数相同；`repeatBlock`、`repeatStop`） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | repeatBlock 起阻止；达到 repeatStop 时在该次副作用执行前终止 |
 
 - 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`，并按 06 §2 向来源说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
 - 已开始运行的配置、计数和终止原因按 pi 扩展记录恢复，不让重启重新获得无限预算。取消传播到模型、工具、渲染和附件 IO；排队等待与模型运行时间分开。具体有限预算与恢复行为见 10 §3–4。
+- `beforeAgent` 只在原生调度调用中使用；runtime 以 pi 本轮第一条 submission 为身份，在选择模型前固定配置并启动预算，同轮后续工具/模型请求读取该快照。它不为只读查看启动任务。限额只中止本轮；用户显式会话 abort 仍使用 `conversation.abort()`，同时撤销该会话排队输入。
 - 上下文：使用 pi-durable 的自动压缩。`yonder.yaml` 的 `compaction`（`enabled`、`reserveTokens`、`keepRecentTokens`、`backgroundTokens`）原样传给 settings。按模型的差异来自模型自己的 `contextWindow`（§6.1，内置模型用 `modelOverrides` 改）。供应商报"上下文过长"时由 pi-durable 压缩后重试一次。不设人为的小上下文上限。
 - 单个工具结果过长时的截断使用 pi-durable 自带的截断；供应商重试使用 settings 的 `retry`。
 

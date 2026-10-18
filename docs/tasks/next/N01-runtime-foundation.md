@@ -1,6 +1,6 @@
 # N01 配置一致性、运行终止与事件呈现
 
-**状态**：部分实现并验证；运行配置边界阻塞，等待依赖适配方案裁定。N02 尚未开工。
+**状态**：进行中；用户已批准最小原生边界适配，先记录 D28 后实施。N02 尚未开工。
 
 **负责人**：Codex。
 
@@ -17,6 +17,7 @@
 - packages/core/src/delivery/index.ts
 - packages/core/src/config/、packages/core/src/kernel/index.ts 的配置接线
 - 对应 T03/T05/T07/T09/T11 结果与检查
+- 用户追加批准的依赖适配：package.json 的 postinstall、patches/pi-durable-1.3.0.patch、scripts/apply-pi-patch.mjs；设计方限本次 D28 对应的 07 运行时条款与决策记录
 
 本任务文件、任务总表和必要 CHANGELOG 记录可更新；冻结功能文档仅 N00 的设计方可按批准修改。
 
@@ -38,7 +39,7 @@ build/typecheck；真实 Luna 运行、配置下一轮生效、工具被拒仍�
 - **真实证据**：2026-10-18，直接调用当前构建的 Runtime；session `2`，第一轮 run `10` 由 Luna 调用 `bash`，工具执行期间修改配置并提交排队输入，第二轮 run `15`。原生转录里的 assistant 模型依次是 `gpt-6-luna`、`gpt-6.1-sol`、`gpt-6.1-sol`。第一轮回答为 `first-complete`，第二轮为 `second-complete`；第一轮已经中途换模型。这是缺陷复现成功，不是配置一致性验收通过。
 - **接口事实**：pi-durable 1.3.0 的 `GenerationTask.prepare` 先解析 agent/model，再构造 env 和 sections；`beforeRequest` 已在模型选择之后。`onYield` 能准备后续边界，但无法覆盖错误、取消和边界间的重载。`HarnessOptions` 没有对应启动回调，内置 GenerationTask 也不能被扩展替换。npm 当前发布版本仍为 1.3.0，官方源码入口为 `earendil-works/pi` 的 `packages/durable`。
 - **设计裁定点**：建议给固定版本 pi 增加一个有限、可审核的适配补丁，在调度器选择 agent/model 之前调用宿主，再由 runtime 按原生第一条 submission 固定/恢复本轮配置。保留原生队列、模型循环和转录；不覆盖内置任务、不造第二套队列、不用模型别名绕过选择。
-- **拟调整路径**：`package.json` 增加安装接线，拟新增 `patches/pi-durable-1.3.0.patch` 与 `scripts/apply-pi-patch.mjs`，runtime 使用该回调并补对应检查。补丁限定为调度器解析 agent 前的宿主回调，以及单运行终止后原生排队输入的收尾；不新增第三方依赖。先在设计记录中明确补丁来源/固定版本，再实施。功能承诺保持 10 §4。用户尚未答复这处依赖设计调整，当前未修改依赖、创建补丁或修改冻结规范。
+- **已批准路径**：`package.json` 的安装接线、新增 `patches/pi-durable-1.3.0.patch` 与 `scripts/apply-pi-patch.mjs`、runtime 与相关检查。用户明确批准最小原生回调并要求继续设计执行，设计记录见 D28。补丁限定为调度器解析 agent 前的宿主回调，以及单运行终止后原生排队输入的收尾；不新增第三方依赖。功能承诺保持 10 §4。
 - **同一收尾边界的缺口**：当前限额通过原生 `conversation.abort()` 停止；该接口按 pi 契约也撤销排队输入。单运行限额与显式会话 abort 仍需分清，后续原生边界适配必须验证排队输入的处置。不能把本次两个单运行检查扩大为完整队列验收。
 
 ### I-N01-02：现有类型检查脚本失败
