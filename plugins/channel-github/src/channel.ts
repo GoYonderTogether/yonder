@@ -216,7 +216,7 @@ export class GithubChannel implements Channel {
 	async send(
 		target: string,
 		message: { text: string; attachments?: unknown[] },
-		signal = new AbortController().signal,
+		signal: AbortSignal = new AbortController().signal,
 	) {
 		try {
 			const prefix = `conv:${this.id}:${this.config.repository}:issue:`;
