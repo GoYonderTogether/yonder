@@ -29,9 +29,18 @@ Codex 先完整追踪本项目和参考模块，在本任务记录运行事实�
 
 ## 问题
 
-待实现时记录。当前没有运行通过的声明。
+- Codex 在等待 N03 登录确认期间，已追踪本项目 kernel → router/sessions → runtime → delivery：路由事件落库后异步提交，但普通输入没有固定 requestId；崩溃后的“已落库／已提交”关联尚未补齐。
+- runtime 的 states/submissions 仅在内存中关联实际输入；runState/context 从这些 Map 取来源，重启会丢失，steer 输入也不能仅以 dispatch 当前事件代表。N01 的 RunDoc 已保存配置与上限，但未完成来源恢复和终态收尾。
+- router.handledRuns 与 delivery.completed 都用长期 Set 去重；既重复持有状态，也不能提供跨重启凭据。run.end 目前在等待渠道结束后记录，混淆模型完成与送达，应按冻结契约分开。
+- waiter 当前被折叠为整轮布尔值，会把一条 ask 的抑制扩大到其他来源；stream active 也在输入到达时占用，而非跟随 pi 实际运行。应按本轮实际 inputs 逐个判定来源，再按目标去重。
 
 ## 结果
 
 尚未开始。
+
+### Codex 实施前核对（未交付最终方案）
+
+- 原生 pi-durable 1.3.0 已有“打开后暂停调度”的 Harness、inspect、submission、事务 submissionByRequest/scanSubmissions 与显式 resume；无需为启动恢复再加原生回调或第二条队列。首次 submit/wait 会启用调度，恢复必须在此之前完成。
+- 事实边界拟收敛为：y_events 保存输入与路由；pi submission/entry/LiveDoc 保存接纳、放入、实际运行来源和回答；既有 RunDoc 保存开始时配置与上限；单一终结入口记录 run.end 并释放活跃观察者；渠道只记录送达结果，未知发送不静默重试。具体持久关联与发送前后断点需完成参考模块阅读后确定。
+- 已完整阅读 OpenCode 当前快照 packages/core/src/session/execution.ts 与 execution/restart.ts：借鉴持久 claim、恢复先于新执行和外部副作用非 exactly-once；不搬入它的 Effect、Job、协调器或重试预算。其余参考链尚未完整读完，不把这份核对称为最终架构方案，也尚未让 Yonder 开始 N05。
 
