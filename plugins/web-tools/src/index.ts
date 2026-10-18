@@ -129,6 +129,8 @@ export default definePlugin({
 					document.head.prepend(base);
 					if (document.querySelector('input[type="password"]') || /\/(login|signin|sign-in)(\/|$)/i.test(url.pathname)) throw new Error(`LOGIN_REQUIRED: ${url.href}; use BrowserSkill with an authorized login`);
 					for (const node of document.querySelectorAll("script,style,noscript,template")) node.remove();
+					const visible = document.body.textContent?.trim() ?? "";
+					if (visible.length < 200 && /enable javascript|javascript (?:is )?required|loading[. …]*$|加载中|请.*javascript/i.test(visible)) throw new Error(`JS_CONTENT_UNAVAILABLE: ${url.href}; use explicit Tavily extract`);
 					const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0]).parse();
 					if (!article?.textContent?.trim()) throw new Error(`ARTICLE_UNAVAILABLE: ${url.href}; JS pages may use explicit Tavily extract`);
 					title = article.title ?? undefined;
