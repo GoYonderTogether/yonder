@@ -118,11 +118,8 @@ export class GithubChannel implements Channel {
 				this.self = login(await this.client.get("user", signal));
 				if (!this.self) throw new Error("Authenticated GitHub login unavailable; run gh auth login --web");
 				let latest = Date.parse(this.cursor.since);
-				const since = encodeURIComponent(this.cursor.since);
-				for await (const page of this.client.pages(
-					`issues?state=all&sort=updated&direction=asc&since=${since}`,
-					signal,
-				)) {
+				const since = latest > 0 ? `&since=${encodeURIComponent(this.cursor.since)}` : "";
+				for await (const page of this.client.pages(`issues?state=all&sort=updated&direction=asc${since}`, signal)) {
 					for (const issue of page) {
 						const updated = Date.parse(String(issue.updated_at));
 						if (!Number.isFinite(updated)) throw new Error("GitHub issue omitted updated_at");

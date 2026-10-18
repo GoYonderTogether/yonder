@@ -46,3 +46,5 @@ R4 独立安装、launchd/菜单真实状态和界面证据、安装版 Yonder M
 - 1204：真实 skill_view→诊断→195df83d 后台 session ywge→example.com→observe→PNG screenshot→stop/list；资源释放成功。1217：Tavily search/extract 成功，fetch source=http-get/truncated=false；Tavily 原生提取表格日期缺失如实报告，不改写成全保真。1230：codex-tools_search 返回 native webSearch 1 item/14 text_result，内部 Luna thread 01a150aa-b6f0-7d03-ab29-ffb599030e61，turn 01a150aa-c1e4-7122-b08f-7d48e04cfacb。1243：channel-feishu_status connected/botIdentityKnown=true。
 - 以上是具体基本场景通过，不代替完整 R4 多媒体/取消/父子/恢复/TUI 等矩阵。旧 u05-c0-c6 自动化在明确删除授权后返回 not_found，已无等待任务。
 - 新实现漏接：飞书普通消息工具描述支持回复，但未提供 replyTo；现沿用 OutMessage 已有字段接入 SDK/共同发送/工具，不绕开投递权限。聚焦协议检查 6/6、typecheck 通过；尚未安装此源码差异。
+
+R5 前置真实缺陷：相同授权 REST issues 请求带 since=1970-01-01T00:00:00.000Z 返回 []；仅去掉首次 since 参数即返回 issue #1。插件原先 ready 但未发事件。首次全量扫描不带增量水位；已有有效水位仍保留原参数和同秒边界，旧 epoch 游标无需改数据即可继续。最小回归在原首次扫描/重启检查增加初始参数断言，不增加另一同步器。

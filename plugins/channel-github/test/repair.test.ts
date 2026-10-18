@@ -296,6 +296,7 @@ describe("issue source protocol", () => {
 			await c.stop();
 		};
 		await run();
+		expect(paths.find((path) => path.includes("/issues?"))).not.toContain("since=");
 		expect(vi.mocked(io.emit).mock.calls.map(([event]) => event.data?.msgId)).toEqual([
 			"issue:1",
 			"comment:112",
