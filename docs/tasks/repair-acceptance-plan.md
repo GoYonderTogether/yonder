@@ -114,14 +114,14 @@
 - 只有对应证据满足才将该项从“实现未验收”改为通过。缺外部条件时明确哪些已可用、哪些未闭环，不宣称全系统验收完成。
 - 交付用户后停止开发；不自行扩展远程执行、记忆引擎、cron、通用 MCP 客户端、自动 PR 合并、更多渠道或其他 Hermes 功能。
 
-## 本次等待审核的内容
-
-- 是否按 R0→R1/R2→R3→R4→R5→R6 推进，以及 D1–D4 推荐方向。
-- 下一轮才开放补测试/运行测试、独立安装和真实验收；具体外部账号/会话和推送发布权限按最终批准范围执行。
-- 三路 Sol 并行仅为后续实施安排，本次审查未委派、未执行。
-
 ## 本次执行记录
 
 R0：D34 与 spec/02/03/04/06/11/13 更新，14 固定用户追加的原生状态栏/安装/日期 patch 版本边界。三路只写允许路径，共享 SDK/core/CLI/release 和根文件仍主 agent 独占；状态栏由主 agent在核心检查后串行实施。原“本次等待审核”段落是前次提案历史，普通任务不再重复询问授权。
 
 A 补充约定：现有控制面增加只读 service.info，返回本进程 version/commit/home/pid/ready；runner 用它核对实际运行，不只检查磁盘 current。返回字段由主 agent接线。B 普通消息工具、A 评论工具统一 api.messages.send(request, ctx)，取消/传输不确定用 uncertain:true。C 的 Skills 路径单写。
+
+R1 输入边界已确认：现有 beforeAgent 足够。在 pi 放置原始输入后、解析实际 agent 之前，按本轮已保存配置准备上下文/附件；复用 pi 原生不可变 ContextEdit 记录一次 materialization，原始事件/输入条目保留，恢复读取同一原生记录。没有增加 pi 补丁、准备队列或第二转录。
+
+R3 现有检查接线修复：TypeScript 7 的引用项目不能通过 build --noEmit 检查，typecheck 改为原生 tsc -b --force（完整诊断并生成引用所需声明，不跳过诊断）。整仓 lint 实报的 config/runtime/skills/browser/context-files 既有格式与 import 排序在原文件修正，另给 BrowserSkill 已用的 version 标量补显式类型；无行为重构、无 lint 禁用。
+
+R1/R2 已实现；R3 安装候选 0.1.2026101801，构建/类型检查通过，完整 92/92 测试通过、0 跳过，lint 0 errors/51 warnings/1 info。失败原始计数、运行边界实际修复与 R4 交接见 [主路结果](repair-main-result.md)。真实安装与外部矩阵尚未通过。用户追加开发/生产飞书 bot 分离，详见 spec/14。
