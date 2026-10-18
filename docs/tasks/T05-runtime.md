@@ -31,4 +31,20 @@
 
 ## 问题
 
-（无）
+- 第一轮未执行本任务全部真实模型验收：OpenAI 兼容端点、图片识别、只读强制调用、重复调用上限、热重载下一次运行、task 子会话与用量均留第二轮核验；最终默认 Luna 启动检查由主 agent 统一执行。
+- pi 的 `beforeTool` 拦截不调用 `afterTool`；重复第 5 次不再 block，执行结果加 terminate。`maxTurns` 与被安全钩子／重复钩子拦截工具同时出现时的精确截止行为尚未验收，需第二轮核实。
+- `onOutput` 输出 pi text/tool/error 片段；`NO_REPLY` 起始增量暂存、最终片段与只投递一次由 T09 组装。
+- 插件环境实例的 cwd 隔离、运行中配置热重载时环境稳定性、steer 新附件的读取授权，尚未做组合验收。
+
+
+## 结果
+
+第一轮：已实现（待验收），不代表全部验收通过。
+
+- `runtime/index.ts` 打开同一 Db 连接上的 `pi_` storage 和 Harness；持久化 `yonder.session`，提供 create/configure/submit/abort/transcript/usage、sessionState/setSessionState；使用 pi 模型循环、队列、转录与压缩。
+- `credentials.ts` 复制 pi 1.3.0 异步锁及存取语义，提供 CredentialStore 与只读 get，OAuth 刷新由 pi 在 modify 锁内完成。`models.ts` 与 `model-schema.ts` 注册全部 builtin provider，按协议表支持配置供应商、字段缺省和模型叠加；保留 builtin OAuth。复制来源与 MIT 声明登记于 `THIRD_PARTY_NOTICES.md`。
+- 内置 yonder.core 段插槽、安全／上限钩子；SDK 工具／钩子适配、能力过滤与 deferred tool search。内置 task_run 设 replay safe，经 ToolExecutionApi 创建 task-owned conversation，并以 task requestId 幂等驱动。
+- `env.ts` 提供 localEnvironment 与 WorkspaceFiles 适配。services.resolve 每次读取当前凭据；login 使用每个 home 固定 device UUID。
+- 实际检查：`npx tsc -b packages/core --pretty false` 在 runtime 完成时通过；并行 T07 接线后遇到 sessions/index.ts 的可选 attachments 类型错误，已交 T07 负责人修正。
+- `npx vitest run packages/core/src/runtime/runtime.test.ts`：1 个文件通过、1 个测试通过。真实 SQLite 会话创建、配置、write 输入、转录、零用量、关闭与恢复；实际临时目录 IO；凭据并发锁与 0600；内置 OAuth 保留、modelOverrides 与兼容 provider 缺省字段。未发起模型请求。
+- `npx biome check --write` 仅检查本任务 7 个源码／测试文件：通过，无警告。完整任务原验收条目全部保留第二轮。
