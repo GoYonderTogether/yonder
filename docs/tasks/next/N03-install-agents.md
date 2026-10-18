@@ -45,5 +45,6 @@
 - 使用安装版 init 创建 /Users/zoran/.local/share/yonder-harness/home（0700）。保留 main CLI 入口，加入 maintainer（默认 Luna，另设独立 Sol 会话配置档）和 operator（read/message，更新工具待 N11）；维护工作树分支 zoran/yonder-maintainer 已切到 v0.1.2。MCP 实例 control 仅回环 19110，固定账号 acct:control:codex 关联 owner，随机凭据仅写入此 home。
 - service install/status 成功，首次 pid=6919；stop/status 显示 loaded:false；start/status 显示 running/pid=7179。服务执行安装 bin/yonder，home 与源码独立；plist 未写凭据，未改其他应用服务。
 - 标准 MCP Client 连接真实常驻安装版，发现 18 工具；stop→start 后重新连接 sessions_list 成功，当前尚无模型会话。客户端证据 /tmp/yonder-n03-tools.json、/tmp/yonder-n03-sessions-after-start.json。
-- 后续仍需：服务外阶段更新、独立登录、main/maintainer/operator 的实际模型/工具及后台 PATH 验证，event/session/model 将随真实运行补记。
+- 由服务外的 0.1.2 安装版实际执行 update --repo /Users/zoran/Documents/yonder-harness --to 0.1.3 --home /Users/zoran/.local/share/yonder-harness/home：构建、新版 doctor、切换与服务重启成功，返回 updated:true。0.1.3 来源 commit=3a154973c958218fd4bccbf8775bf02d91b26119，服务 running/pid=8465，current 实际路径 /Users/zoran/.yonder-harness/versions/0.1.3。MCP 握手由 0.1.2 变为 0.1.3，发现 18 工具且 sessions_list 成功。再次更新同版本返回 updated:false；当前保留 0.1.1/0.1.2/0.1.3，home 未替换。证据 /tmp/yonder-n03-install-013.json、/tmp/yonder-n03-tools-013.json、/tmp/yonder-n03-sessions-013.json。
+- 后续仍需：用户完成浏览器最终授权后，执行 main/maintainer/operator 的实际模型/工具及后台 PATH 验证，event/session/model 将随真实运行补记。当前 home 仅有 mcp-control API key，未复制其他 OAuth，不能把安装/MCP 通过算作模型可用。
 
