@@ -21,8 +21,8 @@
 	],
 	"scripts": {
 		"postinstall": "node scripts/apply-pi-patch.mjs",
-		"build": "tsc -b",
-		"typecheck": "tsc -b --noEmit",
+		"build": "tsc -b && node scripts/build-macos.mjs",
+		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"lint": "biome check ."
 	},
@@ -33,5 +33,5 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/zoran-xc/yonder-harness",
-	"version": "0.1.4"
+	"version": "0.1.2026101801"
 }

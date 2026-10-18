@@ -10,15 +10,17 @@ const files = [
 export default definePlugin({
 	setup(api) {
 		for (const [id, path, title, description] of files) {
-			api.contexts.register(defineContext({
-				id,
-				placement: "system",
-				files: [{ path, scaffold: true, template: `# ${title}\n\n${description}\n` }],
-				async render(context) {
-					const content = await context.workspace.read(path);
-					return content?.trim() ? content : undefined;
-				},
-			}));
+			api.contexts.register(
+				defineContext({
+					id,
+					placement: "system",
+					files: [{ path, scaffold: true, template: `# ${title}\n\n${description}\n` }],
+					async render(context) {
+						const content = await context.workspace.read(path);
+						return content?.trim() ? content : undefined;
+					},
+				}),
+			);
 		}
 	},
 });

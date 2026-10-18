@@ -1,13 +1,21 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.2026101801]
 
-### Added
+### 本轮修复与安装
+
+- 运行开始时准备输入和图片；普通发送共用文件权限与结构化未知回执。
+- SDK/CLI/MCP 共享接纳身份，子任务保留显式附件、会话和原生产物；MCP 进度走标准 SSE。
+- 修复插件默认配置、Skills 导入、有效工具检查、TUI 断连与 NO_REPLY 完成态。
+- macOS 原生状态栏和独立 launchd 登录项；只读检查正式 Release，退出停止服务。日期版本保留原有 X.Y.Z 安装协议。
+- R0–R6 检查/独立安装/外部验收以任务结果为准，未测项目不算通过。
+
+### 前轮功能体
 
 - C0–C6 源码实现未验收：本地插件/Skills 管理、models/inspect、CLI 附件、共用会话观察及 MCP 被动观察。
 - 官方 BrowserSkill、Codex Computer Use/hosted search、Tavily Search/Extract/Fetch、GitHub issue/PR/Release/operator、飞书流式卡片与多媒体插件纳入 workspace。
 - D29 原生结束回执与恢复接线、唯一运行终结、投递未知状态、真实 grep 和图片规范化；保留原生 pi 队列及 TUI 交互。
-- 本轮仅构建与类型检查；无新增/运行测试、安装切换、外部发送或发布。
+- C0–C6 实施阶段当时仅构建与类型检查；该阶段没有运行测试或执行安装切换、外部发送、发布。
 
 - TTY 默认任务聊天、显式渠道/会话目标、plain/JSONL、sessions open/submit 与中英文 shell/斜杠命令说明。
 - zsh/bash/fish 补全脚本，动态候选只读查询当前 home，不修改 shell 配置。
