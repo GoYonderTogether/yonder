@@ -1,4 +1,4 @@
-import { readFile, readdir, realpath } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { ExecutionEnv, ToolResult } from "@yonder/sdk";
 import { parse } from "yaml";
@@ -260,4 +260,4 @@ export function createSkills({ home, pluginDirs, pluginSources, workspace, onIss
 
 export type Skills = ReturnType<typeof createSkills>;
 
-export { addLocalSkill, removeLocalSkill, type LocalSkillsTarget } from "./manage.js";
+export { addLocalSkill, type LocalSkillsTarget, removeLocalSkill } from "./manage.js";

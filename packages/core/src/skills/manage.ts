@@ -1,4 +1,4 @@
-import { cp, lstat, mkdir, readFile, readdir, realpath, rm } from "node:fs/promises";
+import { cp, lstat, mkdir, readdir, readFile, realpath, rm } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { parseSkillFrontmatter } from "./index.js";
 
@@ -39,7 +39,13 @@ export async function addLocalSkill(
 	if (directory === origin || directory.startsWith(`${origin}${sep}`)) throw new Error("导入目标不能位于来源内");
 	await mkdir(directory); // Exclusive claim: existing names are never overwritten.
 	try {
-		await cp(origin, directory, { recursive: true, force: false, errorOnExist: true, dereference: false });
+		for (const entry of await readdir(origin))
+			await cp(join(origin, entry), join(directory, entry), {
+				recursive: true,
+				force: false,
+				errorOnExist: true,
+				dereference: false,
+			});
 	} catch (error) {
 		await rm(directory, { recursive: true, force: true });
 		throw error;
