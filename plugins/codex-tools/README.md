@@ -6,7 +6,8 @@ driver. It reuses the existing Codex login without reading/exporting credentials
 
 ## Requirements and selection
 
-- macOS with `codex` and `agent-network` executable on the harness process PATH.
+- macOS with `codex` executable on the harness process PATH. The plugin starts
+  `codex app-server` directly and inherits the host process network environment.
 - Existing official Codex Computer Use plugin/service for desktop tools. The plugin
   does not install/copy proprietary programs or reload shared MCP services.
 - Existing Codex account with hosted web search access. Search uses `gpt-6-luna`;

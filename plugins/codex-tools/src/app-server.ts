@@ -36,9 +36,8 @@ export class AppServer {
 	private exited: Promise<void>;
 	private constructor(cwd: string) {
 		this.cwd = cwd;
-		const network = executable("agent-network");
 		const codex = executable("codex");
-		this.child = spawn(network, ["run", "--", codex, "app-server"], { cwd, stdio: ["pipe", "pipe", "ignore"] });
+		this.child = spawn(codex, ["app-server"], { cwd, stdio: ["pipe", "pipe", "ignore"] });
 		this.exited = new Promise((resolve) => {
 			this.child.once("exit", (code, signal) => {
 				this.fail(new Error(`app-server exited (${code ?? signal})`));
