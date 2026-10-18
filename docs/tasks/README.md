@@ -19,7 +19,7 @@
 | [T10](T10-first-plugins.md) | channel-cli 与 context-files 插件 | T02 | 已实现（待验收） |
 | [T11](T11-cli.md) | CLI 与本地控制接口（完成后 CLI 可用） | T07 T09 T10 | 已实现（待验收） |
 | [T13](T13-skills.md) | skill 发现、索引与 `skill_view` | T08 T09 T11 | 已实现（待验收） |
-| [T14](T14-release.md) | 安装、更新、服务、版本通知 | T11 T13 | 进行中 |
+| [T14](T14-release.md) | 安装、更新、服务、版本通知 | T11 T13 | 已实现（待验收） |
 | [T12](T12-acceptance.md) | 0.1 端到端验收 | 以上全部 | 待做 |
 
 状态：待做、进行中、已实现（待验收）、阻塞、完成。**已实现不是验收通过**；原验收条目全部保留到第二轮。
@@ -78,3 +78,11 @@ plugins/
 `@yonder/sdk` 只以 `import type` 重新导出 pi-ai 的 `Message`、`Models`、`Credential`，pi-durable 的 `ExecutionEnv` 与 typebox 的 `TSchema`（T02）；除此之外，pi 的包只出现在 `packages/core/src/runtime/`。插件只依赖 `@yonder/sdk`（04 §1）。
 
 工具链（T01 已装）：Node ≥ 22.19、TypeScript 7（`tsc -b` 项目引用）、npm workspaces、vitest、Biome；`yaml` 由 T03 引入。
+
+## 第一轮交接（到 T14）
+
+- T02–T14 实现轮已结束；T12 保持待做，等待用户审核后再启动第二轮。全部包 build/typecheck 通过；未执行全量测试与全仓 lint。工序 0 之后冻结设计文档无变化。
+- 真实最小闭环：CLI 初始化与启动 → 默认 openai/gpt-6-luna → bash/pwd → 回复 CLI → 在线会话/事件查询 → 停止；记录见 [T11](T11-cli.md)。开发 home 保留在被忽略的 `.yonder/home`。
+- 已知可复现问题：停止后 CLI 离线查询的 readline/ENOENT 错误；真实对话只观察到 final，流式过程未验证。记录见 [T11](T11-cli.md)。
+- 重点复核：运行上限、执行环境/附件组合见 [T05](T05-runtime.md)、[T08](T08-prompt.md)；steer 来源权限、投递与恢复组合见 [T09](T09-delivery.md)；正式安装、升级回滚与服务实际操作见 [T14](T14-release.md)。
+- 用户追加品牌任务：可控登录名称提示、CLI 提示与两份 README 已统一 Yonder Harness；OAuth 授权页最终显示未重新登录核验。底层技术标识和版权归属未改名。

@@ -10,3 +10,12 @@ export {
 	openKernel,
 	packageVersion,
 } from "./kernel/index.js";
+
+export {
+	compareVersions,
+	manageService,
+	readChangelog,
+	readDocs,
+	releaseInfo,
+	updateRelease,
+} from "./release/index.js";

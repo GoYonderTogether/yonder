@@ -8,14 +8,20 @@ import { pathToFileURL } from "node:url";
 import { inspect } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
+	compareVersions,
 	initHome,
 	inspectHome,
 	inspectSkills,
 	loginProvider,
+	manageService,
 	offlineQuery,
 	openKernel,
+	readChangelog,
+	readDocs,
+	releaseInfo,
 	requestControl,
 	serveControl,
+	updateRelease,
 } from "@yonder/core";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 
@@ -32,12 +38,48 @@ Commands:
   events                          Query events
   identity lookup|link|unlink|person  Manage identities
   skills [--agent <id>] [--profile <name>]  List skills
-  version                         Show version (T14)
-  changelog|docs|update           Release commands (T14)
-  service                         Service commands (T14)
+  version                         Show version, installation and home
+  changelog [--from <v>] [--to <v>]  Read release notes
+  docs [path] [--list]             Read installed documentation
+  update [--to <tag>|latest] [--repo <url>]  Install or update
+  service install|uninstall|start|stop|restart|status  Manage the macOS service
 `;
 
 const skillsUsage = "Usage: yonder skills [--agent <id>] [--profile <name>]";
+const releaseUsage: Record<string, string> = {
+	version: "Usage: yonder version",
+	changelog: "Usage: yonder changelog [--from <version>] [--to <version>]",
+	docs: "Usage: yonder docs [path] [--list]",
+	update: "Usage: yonder update [--to <tag>|latest] [--repo <url>]",
+	service: "Usage: yonder service install --home <dir> | uninstall | start | stop | restart | status",
+};
+function namedOptions(args: string[], allowed: string[], usage: string): Record<string, string> {
+	const values: Record<string, string> = {};
+	for (let index = 0; index < args.length; index++) {
+		const key = args[index],
+			value = args[++index];
+		if (!key || !allowed.includes(key) || !value || value.startsWith("--") || values[key] !== undefined)
+			throw new UsageError(usage);
+		values[key] = value;
+	}
+	return values;
+}
+function optionalHome(options: Options): string | undefined {
+	return options.home
+		? resolve(options.home)
+		: env.YONDER_HOME
+			? resolve(env.YONDER_HOME)
+			: existsYonder(cwd())
+				? resolve(cwd())
+				: undefined;
+}
+function loginMessage(message: string): string {
+	return message.replace(
+		"an unfinished login in another pi session or by the Codex CLI",
+		"another unfinished login process",
+	);
+}
+
 type Options = { json: boolean; help: boolean; home?: string; rest: string[] };
 function parseGlobal(args: string[]): Options {
 	let json = false;
@@ -72,7 +114,7 @@ async function print(value: Promise<unknown>, json: boolean) {
 	return 0;
 }
 function fail(error: unknown, json: boolean, code = 1): number {
-	const message = error instanceof Error ? error.message : String(error);
+	const message = loginMessage(error instanceof Error ? error.message : String(error));
 	stderr.write(`${message}\n`);
 	if (json) output({ error: message }, true);
 	return code;
@@ -164,16 +206,81 @@ async function chat(home: string, instance: string, json: boolean) {
 
 async function run(args: string[]): Promise<number> {
 	if (args.length === 0 || args[0] === "--help" || args[0] === "help") {
-		stdout.write(usage);
+		output(usage, args.includes("--json"));
 		return 0;
 	}
 	const options = parseGlobal(args);
 	const [command, ...rest] = options.rest;
 	if (options.help) {
-		stdout.write(command === "skills" ? `${skillsUsage}\n` : usage);
+		output(command === "skills" ? skillsUsage : (releaseUsage[command ?? ""] ?? usage), options.json);
 		return 0;
 	}
 	if (!command) throw new UsageError(usage);
+	if (command === "version") {
+		if (rest.length) throw new UsageError(releaseUsage.version);
+		return print(releaseInfo(optionalHome(options)), options.json);
+	}
+	if (command === "changelog") {
+		const flags = namedOptions(rest, ["--from", "--to"], releaseUsage.changelog ?? "");
+		for (const value of Object.values(flags))
+			try {
+				compareVersions(value, "0.0.0");
+			} catch {
+				throw new UsageError("Versions must use X.Y.Z or vX.Y.Z");
+			}
+		return print(readChangelog(flags["--from"], flags["--to"]), options.json);
+	}
+	if (command === "docs") {
+		const list = rest.includes("--list"),
+			paths = rest.filter((value) => value !== "--list");
+		if (
+			paths.length > 1 ||
+			paths.some((value) => value.startsWith("-")) ||
+			rest.filter((value) => value === "--list").length > 1
+		)
+			throw new UsageError(releaseUsage.docs);
+		return print(readDocs(paths[0], list), options.json);
+	}
+	if (command === "update") {
+		const args = rest[0] === "latest" ? rest.slice(1) : rest;
+		const flags = namedOptions(args, ["--to", "--repo"], releaseUsage.update ?? "");
+		if (rest[0] === "latest" && flags["--to"]) throw new UsageError(releaseUsage.update);
+		const to = rest[0] === "latest" ? "latest" : flags["--to"];
+		if (to && to !== "latest")
+			try {
+				compareVersions(to, "0.0.0");
+			} catch {
+				throw new UsageError("Release tags must use vX.Y.Z");
+			}
+		const home = optionalHome(options),
+			repo = flags["--repo"];
+		return print(
+			updateRelease({
+				...(to ? { to } : {}),
+				...(repo ? { repo } : {}),
+				...(home ? { home } : {}),
+				onProgress: (stage) => stderr.write(`${stage}\n`),
+			}),
+			options.json,
+		);
+	}
+	if (command === "service") {
+		const action = rest[0];
+		if (
+			rest.length !== 1 ||
+			!action ||
+			!["install", "uninstall", "start", "stop", "restart", "status"].includes(action)
+		)
+			throw new UsageError(releaseUsage.service);
+		return print(
+			manageService(
+				action as Parameters<typeof manageService>[0],
+				action === "install" ? { home: homeFor(options) } : {},
+			),
+			options.json,
+		);
+	}
+
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
@@ -204,7 +311,16 @@ async function run(args: string[]): Promise<number> {
 				}
 			},
 			notify(event) {
-				stderr.write(`${JSON.stringify(event)}\n`);
+				if (event.type === "auth_url") {
+					stderr.write(`Yonder Harness sign-in: ${event.url}\n`);
+					if (event.instructions) stderr.write(`${loginMessage(event.instructions)}\n`);
+				} else if (event.type === "device_code")
+					stderr.write(`Yonder Harness sign-in: ${event.verificationUri}\nCode: ${event.userCode}\n`);
+				else {
+					stderr.write(`${loginMessage(event.message)}\n`);
+					if (event.type === "info")
+						for (const link of event.links ?? []) stderr.write(`${link.label ? `${link.label}: ` : ""}${link.url}\n`);
+				}
 			},
 		};
 		await loginProvider(home, provider, interaction);
@@ -416,7 +532,7 @@ async function run(args: string[]): Promise<number> {
 			);
 		throw new UsageError("Usage: yonder identity lookup <ref>|link <acct> <person>|unlink <acct>|person <id> <name>");
 	}
-	throw new UsageError(`Command not implemented in this task: ${command}`);
+	throw new UsageError(`Unknown command: ${command}; run yonder help`);
 }
 
 export async function main(args = process.argv.slice(2)) {
