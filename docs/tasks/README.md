@@ -14,7 +14,7 @@
 | [T05](T05-runtime.md) | pi 适配层：模型、凭据、会话、钩子、上限 | T00 T03 T04 | 已实现（待验收） |
 | [T06](T06-plugins.md) | 插件加载 | T02 T03 T10 | 已实现（待验收） |
 | [T07](T07-routing.md) | 绑定解析与会话管理 | T04 T05 T06 | 进行中 |
-| [T08](T08-prompt.md) | 提示词组装 | T05 T06 T10 | 进行中 |
+| [T08](T08-prompt.md) | 提示词组装 | T05 T06 T10 | 已实现（待验收） |
 | [T09](T09-delivery.md) | 投递与内置工具 | T07 T08 T10 | 待做 |
 | [T10](T10-first-plugins.md) | channel-cli 与 context-files 插件 | T02 | 已实现（待验收） |
 | [T11](T11-cli.md) | CLI 与本地控制接口（完成后 CLI 可用） | T07 T09 T10 | 待做 |
