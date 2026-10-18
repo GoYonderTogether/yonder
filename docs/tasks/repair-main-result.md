@@ -31,3 +31,9 @@
 R4 独立安装、launchd/菜单真实状态和界面证据、安装版 Yonder MCP 并行/父子实际维修、浏览器/CUA/Search/Tavily/飞书真实矩阵；R5 issue→Yonder/Sol→PR→Codex 审核合并→正式 Release→operator 更新。原 N09/N13/N14、T/U 验收未覆盖项仍保留，92 项通过不冲抵它们。
 
 当前获准资源：BrowserSkill Chrome 195df83d（zoran主账号）连接正常；用户已提供生产人生管家应用和指定收发会话，secret 已通过受信任程序保存至 Vaultwarden 自动化库，仅记录引用，不入仓库。用户追加：开发验收员用于 home-dev，人生管家用于生产 home；允许飞书测试账号私聊/群聊/创建群及 Chrome 后台配置。开发 bot secret 与 GitHub 插件专用凭据尚未取得；现有 GitHub 仓库已只读确认 private/main，Tavily 自动化凭据引用已找到。
+
+## R4 安装现场问题（继续执行）
+
+候选 cec2d38 已经从本地唯一 tag 干净 clone/npm ci/build 安装到独立 versions，实际控制面返回正确 commit/版本/home/PID、ready=true，doctor 通过。随后 service install 重装同一现有服务时，bootout 返回但旧进程/注册尚在退出，紧接 bootstrap 报原生 5；未用 root 绕过。只读确认服务已经卸载后用原 start 恢复，控制面再次就绪。共享修复：bootout 后在同一安装/停止入口等待已知旧 PID 和 launchd 注册都退出，再进入下一操作；30s 是本机实际服务停止确认预算，只读观察状态，不重发 bootstrap、不新增监督器或重试机制。将以真实临时 launchd job 和现有安装入口复验，日期子版本递增，不移动已安装标签。
+
+真实 macOS 临时 launchd job 检查通过：release.test.ts 1 file / 2 passed，其中真实 job 确认停止后重新 bootstrap 成功；实际生产控制面再次返回 0.1.2026101801/cec2d38、ready=true。新安装候选递增为 0.1.2026101802，旧 tag 保留。

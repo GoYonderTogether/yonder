@@ -182,6 +182,28 @@ function command(
 		});
 	});
 }
+export async function unloadService(service: string): Promise<void> {
+	const before = await command("launchctl", ["print", service], { allowFailure: true });
+	if (before.code !== 0) return;
+	const pid = Number(/^\s*pid = (\d+)$/mu.exec(before.stdout)?.[1]);
+	await command("launchctl", ["bootout", service]);
+	const deadline = Date.now() + 30_000;
+	while (true) {
+		let alive = false;
+		if (pid) {
+			try {
+				process.kill(pid, 0);
+				alive = true;
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+			}
+		}
+		const registered = (await command("launchctl", ["print", service], { allowFailure: true })).code === 0;
+		if (!alive && !registered) return;
+		if (Date.now() >= deadline) throw new Error(`launchd service has not finished stopping: ${service}`);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+}
 interface ServiceInstallation {
 	home: string;
 	install: string;
@@ -243,13 +265,13 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		await access(statusExecutable(install));
 		await mkdir(dirname(plistPath()), { recursive: true });
 		await mkdir(join(home, ".yonder/logs"), { recursive: true });
-		if (await loaded()) await command("launchctl", ["bootout", service]);
+		if (await loaded()) await unloadService(service);
 		await writeFile(plistPath(), servicePlist(install, home), { mode: 0o600 });
 		await command("launchctl", ["bootstrap", domain(), plistPath()]);
 		installed = { home, install, plist: plistPath() };
 		const statusService = `${domain()}/${statusLabel}`;
 		if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code === 0)
-			await command("launchctl", ["bootout", statusService]);
+			await unloadService(statusService);
 		await writeFile(statusPlistPath(), statusPlist(install, home), { mode: 0o600 });
 		await command("launchctl", ["bootstrap", domain(), statusPlistPath()]);
 	} else if (action === "status") {
@@ -266,10 +288,10 @@ export async function manageService(action: ServiceAction, options: { home?: str
 				: {}),
 		};
 	} else if (action === "uninstall") {
-		if (await loaded()) await command("launchctl", ["bootout", service]);
+		if (await loaded()) await unloadService(service);
 		const statusService = `${domain()}/${statusLabel}`;
 		if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code === 0)
-			await command("launchctl", ["bootout", statusService]);
+			await unloadService(statusService);
 		await rm(statusPlistPath(), { force: true });
 		if (installed) await rm(installed.plist);
 		return { installed: false, loaded: false };
@@ -277,7 +299,7 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		if (!installed) throw new Error("Yonder Harness service is not installed");
 		const running = await loaded();
 		if (action === "stop") {
-			if (running) await command("launchctl", ["bootout", service]);
+			if (running) await unloadService(service);
 		} else if (running) await command("launchctl", ["kickstart", ...(action === "restart" ? ["-k"] : []), service]);
 		else await command("launchctl", ["bootstrap", domain(), installed.plist]);
 		if (action === "start" && existsSync(statusPlistPath())) {
