@@ -5,7 +5,7 @@
 ## 1. 对接边界
 
 - 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`、`@earendil-works/chord`。版本**锁定到精确版本**，升级单独成一个变更。
-- pi-durable 1.3.0 使用本仓库可审核的最小补丁（D28）：调度器解析 agent/model 前调用宿主 `beforeAgent`；单运行 abort 由 pi 原生 final 边界接续排队输入。补丁来源为 npm 1.3.0、官方 `earendil-works/pi/packages/durable`；保留版权，不复制运行循环。安装时应用固定补丁，版本或补丁不匹配直接报错，不静默跳过。
+- pi-durable 1.3.0 使用本仓库可审核的最小补丁（D28、D29）：调度器解析 agent/model 前调用宿主 `beforeAgent`；单运行 abort 由 pi 原生 final 边界接续排队输入；运行终结在同一原生事务保存运行回执。补丁来源为 npm 1.3.0、官方 `earendil-works/pi/packages/durable`；保留版权，不复制运行循环。安装时应用固定补丁，版本或补丁不匹配直接报错，不静默跳过。
 - 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。唯一例外：`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。
 - pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
 - 不使用 pi 的 coding-agent（CLI、界面、它的会话文件和配置格式）。
@@ -32,12 +32,14 @@
 | `busy` | `followup` → `whenBusy: 'followUp'`；`steer` → `whenBusy: 'steer'`（插进当前工具轮之后，与本次运行同一个回答） |
 | `task_run` | 子会话：工具声明 `replay: 'safe'`，在 `api.commit` 里先按 `tx.scanConversations({ ownerTaskId: api.taskId }, 1)` 找已有子会话，否则 `tx.createConversation({ ownership: { kind: 'task', taskId: api.taskId } })`；输入带 `requestId: task:<taskId>`。发起方中止时子会话一并中止 |
 | 执行环境 | `HarnessOptions.env({ conversationId, cwd, read })`，按 `yonder.session` 找到配置档的 `env`，本机为 `new NodeExecutionEnv({ cwd })` |
-| 用量 | conversation 文档 `pi.usage`（`UsageDoc`，按 `provider/model` 累计）；运行前后各取一次 `harness.snapshot(UsageDoc, id)`，差值记入 `run.end` |
+| 用量 | conversation 文档 `pi.usage`（`UsageDoc`，按 `provider/model` 累计）；开始快照与原生运行回执中的结束快照之差记入 `run.end`，不在等待结果返回后读取可能已含 successor 的最新总量 |
 | 流式 | `watchEvents(harness, conversationId, ctx)`：`message_update` 的 `changes` 含 `text_delta`，`tool_execution_start` / `tool_execution_end` 给出工具起止；内核据此生成 06 §3 的片段 |
 
 ### 3.1 恢复与唯一事实来源
 
-事件落库与 pi 提交使用稳定关联，pi 的 entry/submission/回答关系是运行事实；Yonder 只保存必要的事件关联及配置快照，不复制转录或建第二条队列。启动时先恢复关联与终结观察，再调用调度恢复；Harness.open 本身不等于已开始调度。活跃观察者及时释放，终结和投递按 10 §3 执行。相同事件到同一会话不能因重启被重复提交。
+事件落库与 pi 提交使用稳定关联，pi 的 entry/submission/回答关系及原生运行回执是运行事实；Yonder 只保存必要的事件关联及配置快照，不复制转录或建第二条队列。启动时先恢复关联与终结观察，再调用调度恢复；Harness.open 本身不等于已开始调度。活跃观察者及时释放，终结和投递按 10 §3 执行。相同事件到同一会话不能因重启被重复提交。
+
+原生运行回执按 conversation 与该轮第一条实际 submission 标识，每轮只保存一份：实际 inputs、原生 settlement（回答引用或失败原因/详情）与结束时 usage 快照。回执与该轮 submissions 终结在同一原生事务中写入，然后清除旧 run、接续 successor；正常回答、中止、模型失败与 scheduler 故障使用同一终结点。回执只供读取和恢复，不调度、不重试、不保存对话正文；开始配置与预算仍由既有 Yonder RunDoc 保存。没有回执的旧历史如无法由已有事实确定，明确报告不可确定，不猜分组或重放副作用。
 
 ## 4. 工具暴露
 
