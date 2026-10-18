@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { findPackageJSON } from "node:module";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
 import { Errors } from "typebox/value";
 import type {
@@ -10,6 +10,7 @@ import type {
 	ContextContribution,
 	Delivery,
 	EnvProvider,
+	EventInput,
 	ExecutionEnv,
 	Hook,
 	PluginAPI,
@@ -44,27 +45,27 @@ export interface LoadedPlugins {
 type Lifecycle = { pluginId: string; stop(): Promise<void> };
 type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
 
+function pluginEvent(id: string, event: EventInput, channel?: string): EventInput {
+	if (event.type === "message.in" && channel) {
+		if (!event.from?.startsWith(`acct:${channel}:`) || !event.conv?.startsWith(`conv:${channel}:`) || "target" in event.data)
+			throw new Error(`${id}: message.in must use its own channel and cannot specify target`);
+	} else if (!event.type.startsWith(`${id}.`) || event.type.length === id.length + 1)
+		throw new Error(`${id}: event type must start with ${id}.`);
+	return event;
+}
+
 async function pluginDirectory(home: string, use: string): Promise<string> {
 	if (isAbsolute(use) || use.startsWith(".")) return resolve(home, use);
 	const homeParent = pathToFileURL(join(home, "yonder-loader.mjs")).href;
-	let entry: string;
+	let manifest: string | undefined;
 	try {
-		entry = import.meta.resolve(use, homeParent);
-	} catch {
-		entry = import.meta.resolve(use);
+		manifest = findPackageJSON(use, homeParent);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ERR_MODULE_NOT_FOUND") throw error;
+		manifest = findPackageJSON(use, import.meta.url);
 	}
-	let directory = dirname(fileURLToPath(entry));
-	while (true) {
-		try {
-			const pkg = JSON.parse(await readFile(join(directory, "package.json"), "utf8")) as { yonder?: unknown };
-			if (pkg.yonder) return directory;
-		} catch {
-			// Keep walking from the resolved entry to its package root.
-		}
-		const parent = dirname(directory);
-		if (parent === directory) throw new Error(`Cannot find plugin package root for ${use}`);
-		directory = parent;
-	}
+	if (!manifest) throw new Error(`Cannot find plugin package root for ${use}`);
+	return dirname(manifest);
 }
 
 function validateConfig(pluginId: string, label: string, schema: TSchema, value: unknown): void {
@@ -89,6 +90,7 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 	const envProviders = new Map<string, { pluginId: string; provider: EnvProvider }>();
 	const triggers: Array<{ pluginId: string; trigger: Trigger }> = [];
 	const listeners: Listener[] = [];
+	const observations = new Map<string, Promise<void>>();
 	const started: Lifecycle[] = [];
 	const pluginIds = new Set<string>();
 	const contributionOwners = new Map<string, string>();
@@ -124,11 +126,11 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		const events: PluginAPI["events"] = {
 			emit: (event) => {
 				denySetupWrite("events.emit");
-				return services.events.emit(event);
+				return services.events.emit(pluginEvent(manifest.id, event));
 			},
 			ask: (event) => {
 				denySetupWrite("events.ask");
-				return services.events.ask(event);
+				return services.events.ask(pluginEvent(manifest.id, event));
 			},
 			query: (query) => services.events.query(query),
 			on: (type, handler) => {
@@ -280,11 +282,12 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		async start(io) {
 			try {
 				for (const [id, channel] of channels) {
-					await channel.start(io);
-					started.push({ pluginId: channelProviders.get(config.channels?.[id]?.type ?? "")?.pluginId ?? "", stop: () => channel.stop() });
+					const owner = channelProviders.get(config.channels![id]!.type)!.pluginId;
+					await channel.start({ emit: event => io.emit(pluginEvent(owner, event, id)), ask: event => io.ask(pluginEvent(owner, event, id)) });
+					started.push({ pluginId: owner, stop: () => channel.stop() });
 				}
 				for (const { pluginId, trigger } of triggers) {
-					await trigger.start({ emit: io.emit });
+					await trigger.start({ emit: event => io.emit(pluginEvent(pluginId, event)) });
 					started.push({ pluginId, stop: () => trigger.stop() });
 				}
 			} catch (error) {
@@ -294,14 +297,17 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		},
 		stop,
 		async observe(event) {
-			for (const listener of listeners) {
-				if (listener.type !== event.type && !(listener.type.endsWith(".*") && event.type.startsWith(listener.type.slice(0, -1)))) continue;
-				try {
-					await listener.handler(event);
-				} catch (error) {
-					services.log.error("Plugin event observer failed", { plugin: listener.pluginId, type: event.type, error: String(error) });
-				}
-			}
+			await Promise.all([...pluginIds].map(pluginId => {
+				const next = (observations.get(pluginId) ?? Promise.resolve()).then(async () => {
+					for (const listener of listeners) {
+						if (listener.pluginId !== pluginId || (listener.type !== event.type && !(listener.type.endsWith(".*") && event.type.startsWith(listener.type.slice(0, -1))))) continue;
+						try { await listener.handler(structuredClone(event)); }
+						catch (error) { services.log.error("Plugin event observer failed", { plugin: pluginId, type: event.type, error: String(error) }); }
+					}
+				});
+				observations.set(pluginId, next);
+				return next;
+			}));
 		},
 	} satisfies LoadedPlugins;
 }
