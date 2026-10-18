@@ -381,9 +381,46 @@ async function run(args: string[]): Promise<number> {
 			return closing;
 		};
 		try {
-			control = await serveControl(home, async (request) => {
+			control = await serveControl(home, async (request, connection) => {
 				const params = (request.params ?? {}) as Record<string, unknown>;
 				switch (request.method) {
+					case "terminal.presets":
+						return kernel.terminal.presets();
+					case "terminal.channels":
+						return kernel.terminal.channels();
+					case "terminal.info":
+						return kernel.terminal.info(requiredParam(params, "id"));
+					case "sessions.open": {
+						const policy = params.close;
+						if (policy !== undefined && policy !== "manual" && policy !== "run-end")
+							throw new Error("Invalid close policy");
+						return kernel.sessions.open({
+							preset: requiredParam(params, "preset"),
+							...(policy ? { close: policy } : {}),
+						});
+					}
+					case "sessions.submit": {
+						const busy = params.busy;
+						if (busy !== undefined && busy !== "followup" && busy !== "steer") throw new Error("Invalid busy mode");
+						return kernel.terminal.submit(requiredParam(params, "id"), { text: requiredParam(params, "text") }, busy);
+					}
+					case "sessions.watch": {
+						const id = requiredParam(params, "id");
+						const info = await kernel.terminal.info(id);
+						const dispose = await kernel.terminal.observe(id, async (update) =>
+							connection.send({ type: "update", session: id, update }),
+						);
+						if (connection.signal.aborted) await dispose();
+						else
+							connection.signal.addEventListener(
+								"abort",
+								() => {
+									void dispose();
+								},
+								{ once: true },
+							);
+						return info;
+					}
 					case "sessions.list":
 						return kernel.sessions.list((params.filter ?? {}) as Parameters<typeof kernel.sessions.list>[0]);
 					case "sessions.show": {

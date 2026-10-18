@@ -220,6 +220,20 @@ export async function initHome(home: string, owner = "owner") {
 		identity: { persons: [{ id: owner, name: owner, accounts: ["acct:cli:local"] }] },
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
+	await mkdir(join(home, "presets"), { recursive: true });
+	await writeFile(
+		join(home, "presets/default.yaml"),
+		stringify({
+			schema: 1,
+			description: "独立任务 · Standalone task",
+			model: "openai/gpt-6-luna",
+			level: "standard",
+			tools: { offer: ["*"] },
+			plugins: [],
+			contexts: [],
+		}),
+		{ flag: "wx" },
+	);
 	const agent: AgentConfig = {
 		schema: 1,
 		id: "main",
@@ -319,6 +333,10 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 	try {
 		const config = await loadYonderConfig(home);
 		db = await openDatabase(join(home, ".yonder/state.db"));
+		const terminalEnds = new Map<
+			string,
+			Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>
+		>();
 		const agents = new Map<string, AgentConfig>();
 		const store = await createStore(
 			db,
@@ -326,6 +344,10 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			false,
 			(event) => {
 				void plugins?.observe(event).catch(report);
+				if (event.type === "run.end") {
+					const id = String((event.data as { session?: string }).session ?? "");
+					for (const send of terminalEnds.get(id) ?? []) void send({ type: "end", event }).catch(report);
+				}
 			},
 		);
 		const realRuntime = () => {
@@ -494,7 +516,62 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		});
 		await loaded.start(router);
 		log("info", "Yonder Harness started", { home, version: packageVersion });
-		return { sessions: sessions.api, events: { query: store.events.query }, identity: store.identity(), close };
+		return {
+			sessions: sessions.api,
+			events: { query: store.events.query },
+			identity: store.identity(),
+			close,
+			terminal: {
+				presets: () =>
+					[...new Map([...loaded.presets, ...homePresets]).values()].map((preset) => ({
+						id: preset.id,
+						description: preset.description,
+						...resolveProfile(preset),
+					})),
+				channels: () =>
+					Object.entries(config.channels ?? {})
+						.filter(([, channel]) => channel.type === "cli")
+						.map(([id]) => ({
+							id,
+							agents: [...agents.values()]
+								.filter((agent) =>
+									agent.bindings.some(
+										(binding) => !binding.match.channel || [binding.match.channel].flat().includes(id),
+									),
+								)
+								.map((agent) => ({ id: agent.id, name: agent.name })),
+						})),
+				submit: sessions.submitAccepted,
+				async info(id: string) {
+					const session = await sessions.api.get(id);
+					if (!session) throw new Error(`Unknown session: ${id}`);
+					return {
+						session,
+						config: await realRuntime().sessionConfig(id),
+						state: await realRuntime().sessionState(id),
+						usage: await realRuntime().usage(id),
+						skills: await skills.inspect(await realRuntime().sessionConfig(id)),
+					};
+				},
+				async observe(id: string, send: Parameters<Runtime["observe"]>[1]) {
+					const listeners = terminalEnds.get(id) ?? new Set();
+					listeners.add(send);
+					terminalEnds.set(id, listeners);
+					try {
+						const dispose = await realRuntime().observe(id, send);
+						return async () => {
+							listeners.delete(send);
+							if (!listeners.size) terminalEnds.delete(id);
+							await dispose();
+						};
+					} catch (error) {
+						listeners.delete(send);
+						if (!listeners.size) terminalEnds.delete(id);
+						throw error;
+					}
+				},
+			},
+		};
 	} catch (error) {
 		await close();
 		throw error;

@@ -116,14 +116,20 @@ export type Preset = Profile & { id: string; description: string };
 export interface SessionsAPI {
 	list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
 	get(id: string): Promise<SessionInfo | undefined>;
-	open(req: { preset: string; parent?: string; capabilities?: Capability[] }): Promise<SessionInfo>;
+	open(req: {
+		preset: string;
+		parent?: string;
+		capabilities?: Capability[];
+		close?: "run-end" | "manual";
+	}): Promise<SessionInfo>;
 	// biome-ignore lint/suspicious/noConfusingVoidType: Preserve the frozen SessionsAPI contract in 02-sessions.md.
-	submit(id: string, input: Input, opts?: { wait?: boolean }): Promise<RunResult | void>;
+	submit(id: string, input: Input, opts?: { wait?: boolean; busy?: "followup" | "steer" }): Promise<RunResult | void>;
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;
 	transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
 }
 export interface SessionInfo {
+	close?: "run-end" | "manual";
 	id: string;
 	agent: string | null;
 	profile: string;

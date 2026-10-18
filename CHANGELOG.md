@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 可续聊任务的手动关闭策略、原生 steer/followup 输入与终端只读消息/工具观察控制接口。
+
 ## [0.1.4]
 
 - Yonder maintainer（Luna）自主修复 task_run 的失败状态与原因丢失；普通提交与子任务共用终态转换。

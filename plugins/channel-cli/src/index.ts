@@ -39,7 +39,8 @@ const channelProvider = (api: PluginAPI) => defineChannel({
 					void (async () => {
 						for await (const text of lines) {
 							try {
-								await io?.emit({ type: "message.in", from: account, conv: conversation, data: { kind: "dm", text } });
+								const event = await io?.emit({ type: "message.in", from: account, conv: conversation, data: { kind: "dm", text } });
+								if (event) await write(socket, { type: "accepted", event });
 							} catch (error) {
 								await write(socket, { type: "error", message: error instanceof Error ? error.message : String(error) });
 							}

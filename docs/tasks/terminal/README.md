@@ -5,8 +5,8 @@
 | 任务 | 依赖 | 状态 |
 |---|---|---|
 | [U00](U00-freeze.md) 规范批准与来源冻结 | — | 完成 |
-| [U01](U01-sessions-control.md) 可续聊任务与真实控制面 | U00 | 待做 |
-| [U02](U02-pi-ui.md) 原生 pi 界面接线 | U01 | 待做 |
+| [U01](U01-sessions-control.md) 可续聊任务与真实控制面 | U00 | 完成 |
+| [U02](U02-pi-ui.md) 原生 pi 界面接线 | U01 | 进行中 |
 | [U03](U03-cli-completion.md) 系统命令与 shell 补全 | U01 U02 | 待做 |
 | [U04](U04-live-acceptance.md) 真实终端与模型验收 | U01 U02 U03 | 待做 |
 

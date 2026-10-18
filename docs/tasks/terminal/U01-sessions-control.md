@@ -16,4 +16,6 @@
 
 ## 结果
 
-待执行。
+完成：manual 关闭策略持久化在原生扩展文档，SessionsAPI 暴露实际策略；显式 task 支持原生 busy；控制接口新增真实预设/渠道/会话信息、接纳事件与专用只读观察连接。观察复用原生消息/工具/运行事件，断开仅清理观察者；channel-cli 返回真实接纳事件/路由。
+
+验证：npm run build 通过；真实模型与控制/离线检查 3 files passed、5 tests passed（首次原始结果，22.45s）。Luna 实际执行 bash/pwd、连续追问并跨 kernel 重启保留上下文，manual 显式关闭后拒绝提交。不是日用安装验收。定向 Biome 无错误，保留 4 项既有/契约类型警告。

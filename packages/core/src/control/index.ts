@@ -8,7 +8,11 @@ export interface ControlRequest {
 	params?: unknown;
 }
 
-export type ControlHandler = (request: ControlRequest) => Promise<unknown>;
+export interface ControlConnection {
+	signal: AbortSignal;
+	send(value: unknown): Promise<void>;
+}
+export type ControlHandler = (request: ControlRequest, connection: ControlConnection) => Promise<unknown>;
 
 function socketPath(home: string) {
 	return join(home, ".yonder", "control.sock");
@@ -28,7 +32,29 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 	const path = socketPath(home);
 	await mkdir(join(home, ".yonder"), { recursive: true });
 	await rm(path, { force: true });
+	const clients = new Set<Socket>();
 	const server: Server = createServer((socket) => {
+		clients.add(socket);
+		const controller = new AbortController();
+		socket.once("close", () => {
+			clients.delete(socket);
+			controller.abort();
+		});
+		socket.on("error", () => socket.destroy());
+		let sending = Promise.resolve();
+		const enqueue = (value: unknown) => {
+			sending = sending.then(() => write(socket, value));
+			return sending;
+		};
+		let ready = false;
+		const buffered: unknown[] = [];
+		const connection: ControlConnection = {
+			signal: controller.signal,
+			async send(value) {
+				if (!ready) buffered.push(value);
+				else await enqueue(value);
+			},
+		};
 		socket.setEncoding("utf8");
 		const lines = createInterface({ input: socket, crlfDelay: Infinity });
 		void (async () => {
@@ -36,7 +62,11 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 				try {
 					const request = JSON.parse(line) as ControlRequest;
 					if (!request || typeof request.method !== "string") throw new Error("invalid control request");
-					await write(socket, { ok: true, result: await handler(request) });
+					const result = await handler(request, connection);
+					await enqueue({ ok: true, result });
+					for (const value of buffered.splice(0)) void enqueue(value);
+					ready = true;
+					await sending;
 				} catch (error) {
 					await write(socket, { ok: false, error: message(error) });
 				}
@@ -52,6 +82,7 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 	});
 	return {
 		async close() {
+			for (const client of clients) client.destroy();
 			if (server.listening)
 				await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 			await rm(path, { force: true });
@@ -88,6 +119,51 @@ export function requestControl(home: string, request: ControlRequest): Promise<u
 		});
 		socket.once("close", () => {
 			if (!settled) fail(new Error("control connection closed without a response"));
+		});
+	});
+}
+
+/** A dedicated read-only stream; disconnect only releases the server observer. */
+export function observeControl(
+	home: string,
+	request: ControlRequest,
+	receive: (value: unknown) => void,
+): Promise<{ result: unknown; close(): void }> {
+	return new Promise((resolve, reject) => {
+		const socket = createConnection(socketPath(home));
+		socket.setEncoding("utf8");
+		const lines = createInterface({ input: socket, crlfDelay: Infinity });
+		let ready = false;
+		let closed = false;
+		const fail = (error: Error) => {
+			if (!ready) reject(error);
+			else if (!closed) receive({ type: "disconnected", error: error.message });
+			socket.destroy();
+		};
+		socket.on("error", fail);
+		lines.on("error", fail);
+		socket.once("connect", () => socket.write(`${JSON.stringify(request)}\n`));
+		lines.on("line", (line) => {
+			try {
+				const value = JSON.parse(line);
+				if (!ready) {
+					if (!value.ok) throw new Error(value.error ?? "subscription failed");
+					ready = true;
+					resolve({
+						result: value.result,
+						close() {
+							closed = true;
+							lines.close();
+							socket.destroy();
+						},
+					});
+				} else receive(value);
+			} catch (error) {
+				fail(error instanceof Error ? error : new Error(String(error)));
+			}
+		});
+		socket.once("close", () => {
+			if (!closed) fail(new Error("control stream disconnected"));
 		});
 	});
 }

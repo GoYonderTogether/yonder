@@ -49,12 +49,14 @@ import { loginWithType } from "./auth.js";
 import { credentialPath, FileCredentials } from "./credentials.js";
 import { localEnvironment } from "./env.js";
 import { buildModels } from "./models.js";
+import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptItem } from "./transcript.js";
 import type { RuntimeInput, RuntimeOptions, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "./types.js";
 
 export { type LoginInteraction, loginProvider } from "./auth.js";
 export { credentialPath, FileCredentials } from "./credentials.js";
 export { canonicalPath, localEnvironment, workspaceFiles } from "./env.js";
+export type { TerminalUpdate } from "./terminal.js";
 export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
 
@@ -70,6 +72,7 @@ const SessionDoc = defineDoc({
 		cwd: "",
 		env: "local",
 		capabilities: null as Capability[] | null,
+		close: "run-end" as "run-end" | "manual",
 	}),
 });
 const cid = (id: string) => Number(id) as ConversationId;
@@ -470,6 +473,7 @@ export class Runtime {
 		cwd: string;
 		env?: string;
 		capabilities?: Capability[];
+		close?: "run-end" | "manual";
 	}): Promise<string> {
 		const conversation = await this.harness.createConversation(
 			{
@@ -481,6 +485,7 @@ export class Runtime {
 						cwd: meta.cwd,
 						env: meta.env ?? "local",
 						capabilities: meta.capabilities ?? null,
+						close: meta.close ?? "run-end",
 					});
 				},
 			},
@@ -494,6 +499,7 @@ export class Runtime {
 		return {
 			agent: state.agent,
 			profile: state.profile,
+			close: state.close ?? "run-end",
 			cwd: state.cwd,
 			env: state.env,
 			...(state.capabilities ? { capabilities: [...state.capabilities] } : {}),
@@ -735,6 +741,9 @@ export class Runtime {
 	}
 	async abort(id: string): Promise<void> {
 		await (await this.conversation(id)).abort(C);
+	}
+	async observe(id: string, send: (update: TerminalUpdate) => Promise<void>) {
+		return observeTerminal(this.harness, id, send);
 	}
 	async transcript(id: string, range: { from?: number; limit?: number } = {}): Promise<TranscriptItem[]> {
 		const page = await (await this.conversation(id)).entries(

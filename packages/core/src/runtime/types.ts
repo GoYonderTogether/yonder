@@ -41,6 +41,7 @@ export interface RuntimeRun {
 }
 
 export interface RuntimeSessionState {
+	close?: "run-end" | "manual";
 	agent: string | null;
 	profile: string;
 	cwd: string;
