@@ -32,9 +32,12 @@
 
 ## 问题
 
-- 安装器尚未执行已冻结的来源记录与移除 .git，已定位在 updateRelease 的构建→改名处修复；version 增加 origin 资料。按既有规范补实现，没有新建安装系统。
+- 安装器原来未执行已冻结的来源记录与移除 .git，已在 updateRelease 的构建→改名处修复；version 增加 origin 资料。按既有规范补实现，没有新建安装系统。
+- 0.1.1 实际安装成功，但 wrapper 经 current 软链接运行时 CLI 的 import.meta.url 与 argv 比较不相等，导致 version/help 静默退出。修复为比较实际入口路径；保留软链接启动回归检查，用新的 0.1.2 安装，不覆盖旧标签。
 
 ## 结果
 
-尚未开始。
+- 本地标签 v0.1.1 指向 3ccb0cd；从服务外执行 update --repo /Users/zoran/Documents/yonder-harness --to 0.1.1，返回 updated:true。安装目录 /Users/zoran/.yonder-harness，current 指向 versions/0.1.1。未推送标签或创建 GitHub Release。
+- 独立维护源码工作树已创建并附加：/Users/zoran/.codex/worktrees/yonder-maintainer/yonder-harness，起点 v0.1.1。尚未向模型下发任务。
+- 真实 home、独立登录、常驻服务、实际模型与阶段更新验证继续进行。
 

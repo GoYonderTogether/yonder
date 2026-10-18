@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { createConnection } from "node:net";
 import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
@@ -550,6 +550,6 @@ export async function main(args = process.argv.slice(2)) {
 	}
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
 	process.exitCode = await main();
 }

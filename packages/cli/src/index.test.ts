@@ -1,8 +1,21 @@
-import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+
+test("CLI runs through the installed current symlink", async () => {
+	const directory = await mkdtemp("/tmp/yonder-entry-");
+	try {
+		const entry = join(directory, "current");
+		await symlink(resolve("packages/cli/dist/index.js"), entry);
+		const result = JSON.parse(execFileSync(process.execPath, [entry, "version", "--json"], { encoding: "utf8" }));
+		expect(result.version).toBeTruthy();
+		expect(result.source).toBe(resolve("."));
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
 
 test("chat preserves JSONL final after progress and exits when the server disconnects", async () => {
 	const home = await mkdtemp("/tmp/ychat-");
