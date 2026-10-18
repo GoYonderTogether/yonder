@@ -1,6 +1,6 @@
 # 08 配置
 
-配置用 YAML。每个文件顶层有 `schema: <整数>`，内核拒绝未来版本，对过去版本给出迁移命令。
+配置用 YAML。每个配置文件顶层有 `schema: <整数>`，当前仅支持 1；其他版本拒绝，并说明需要对应版本的迁移说明。0.1 没有旧格式，不增加未定义的迁移命令。
 
 ## 1. home 目录
 
@@ -46,7 +46,7 @@ models:
       models:
         - { id: deepseek-flash, reasoning: true, contextWindow: 1048576, maxTokens: 393216, compat: { thinkingFormat: deepseek } }
 
-services: [ … ]                          # 07 §6.3
+services: []                             # 非对话服务配置见 07 §6.3
 
 envs:
   local: { type: local }

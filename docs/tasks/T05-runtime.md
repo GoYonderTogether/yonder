@@ -1,10 +1,10 @@
 # T05 pi 适配层
 
 **依据**
-- `docs/spec/07-runtime.md:1-107`（全文）
-- `docs/spec/05-security.md:33-69`（判定点、内置工具能力、执行环境）
-- `docs/spec/03-agents.md:60-86`（配置档、预设与子会话的能力交集）、`101-116`（`<turn>` 块与图片附件）
-- `docs/spec/04-plugins.md:68-97`（SDK `Tool`）、`136-150`（SDK `Hook`）
+- `docs/spec/07-runtime.md`（全文）
+- `docs/spec/05-security.md`（判定点、内置工具能力、执行环境）
+- `docs/spec/03-agents.md`（配置档、预设与子会话的能力交集）、`101-116`（`<turn>` 块与图片附件）
+- `docs/spec/04-plugins.md`（SDK `Tool`）、`136-150`（SDK `Hook`）
 
 **路径**：`packages/core/src/runtime/`（唯一 import pi 的目录）、根目录 `THIRD_PARTY_NOTICES.md`
 

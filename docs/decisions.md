@@ -43,3 +43,11 @@
 **D20 插件能观察事件、能发消息，但不能拦截路由。** 记忆、审批、工作流插件都需要 `events.on` 与 `messages.send`；拦截会让"谁处理了这条消息"不可追溯，所以不提供。
 
 **D21 安装与更新：按 git 标签在本机构建，`current` 符号链接切换，launchd 拉起。** 不依赖发布到 npm 的流程，私有仓库也能用；回滚就是切回旧目录。更新后每个会话在下一次输入的 `<turn>` 里收到一行内部通知，agent 用 `yonder changelog` 了解变化。代价：每台机器都要有 node、npm 与 git 凭据。
+
+**D22 工序 0 补齐接口后冻结设计。** 渠道注册 ChannelProvider；send 接受 conv/acct 目标并由渠道处理私聊；全局插件发送必须指定 person/acct/conv，不猜 owner；services.resolve 异步读取当前凭据。agent_ask 用内部消息的 data.target 限定目标，仍走绑定；不加第二套路由规则。流式目标只通过 final 完成最终投递，其他目标用 send；NO_REPLY 起始增量暂存。理由：消除会造成各实现者自行发明协议的空白。代价：0.1 发布前修订 SDK 草案，无旧版兼容层。
+
+**D23 默认能启动，并兑现已有文件作用域。** 默认模型 openai/gpt-6-luna；03 §3 明列默认值，init 显式使用 bypass 和全部可用工具。预设 cwd/env 继承父会话，无父会话使用 home/local；不生成预设人设。无 exec 的文件工具按真实路径限制 cwd 与本轮附件；有 exec 不宣称文件隔离。setup 无网络/定时器是插件契约，只拒绝 PluginAPI 的 setup 副作用，不引入沙箱。理由：完整现有承诺，不另加安全层。
+
+**D24 安装入口与服务闭环。** 创建/查询安装的命令不要求已有 home；start/chat 的 JSON 是逐行输出，login 只在 stderr 交互。service start/restart 在未加载时 bootstrap；wrapper 与服务保存最小 PATH，使后台 agent 能找到 yonder/node/npm/git。理由：无 home 首次安装和 stop→start 必须可执行，不增加新命令或安装器。
+
+**D25 两轮完成 0.1（2026-10-18 用户批准）。** 第一轮按 tasks/README 连续实现全部任务到 T14，仅做构建、类型和必要最小检查，问题记录不扩围；任务标已实现待验收。第二轮经用户审核后再讨论设计修订、补齐所有原验收与修 bug、执行 T12。原功能范围和架构不变量不变；不把缺凭据、未测或已知问题算作通过。主 agent 统一提交和共享文件，最多三个实现 agent 分目录并行；第一轮不发布或覆盖日用环境。

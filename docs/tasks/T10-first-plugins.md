@@ -1,6 +1,6 @@
 # T10 第一批插件：channel-cli 与 context-files
 
-**依据**：`docs/spec/04-plugins.md:37-119`（渠道提供者与上下文贡献）、`docs/spec/03-agents.md:29-41`、`docs/spec/06-delivery.md:30-43`、`docs/spec/09-cli-release.md:14-35`（`chat` 命令）
+**依据**：`docs/spec/04-plugins.md`（渠道提供者与上下文贡献）、`docs/spec/03-agents.md`、`docs/spec/06-delivery.md`、`docs/spec/09-cli-release.md`（`chat` 命令）
 
 **路径**：`plugins/channel-cli/`、`plugins/context-files/`
 
@@ -13,7 +13,7 @@
 - 贡献 `agents-md`、`user-md`、`soul-md`、`memory-md`，分别对应工作区的 `AGENTS.md`、`USER.md`、`SOUL.md`、`MEMORY.md`，`placement: system`，文件存在且非空时渲染其内容。
 - 模板只含标题和一行说明这个文件用来写什么，不含示例内容。
 
-**验收**：两个插件通过 `checkPlugin`；context-files 只在被选中时出现在 system 中；channel-cli 用真实套接字测试收发与"只接受一个客户端"。
+**验收**：两个插件通过 `checkPlugin`；channel-cli 用真实套接字测试收发与"只接受一个客户端"。context-files 只在被选中时出现在 system 中的集成验收归 T08/T12，不阻塞插件独立实现。
 
 ## 问题
 

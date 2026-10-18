@@ -5,9 +5,10 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 ## 1. 约定
 
 - **非交互**：除 `login`、`chat` 外不读标准输入、不提问；缺参数就报错并给出用法。
-- **`--json`**：每个命令都支持，输出一个 JSON 值（列表命令输出数组）；不带时输出给人看的文本。
+- **`--json`**：每个命令都支持。有限命令输出一个 JSON 值（列表输出数组）；持续的 `start`、`chat` 输出一行一个 JSON 值（JSON Lines）。`login` 的交互提示走 stderr，stdout 只输出最终结果。不带时输出给人看的文本。
 - **退出码**：0 成功；1 失败（stderr 一行原因；带 `--json` 时 stdout 输出 `{ "error": "…" }`）；2 用法错误。
 - **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 报错。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
+- `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 当前目录解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装 plist 取得 home。
 - **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令。
 - **CLI 是管理面**：能运行它就能改配置、身份与会话（05 §3）。
 
@@ -15,7 +16,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 | 命令 | 作用 | 任务 |
 |---|---|---|
-| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`（`SYSTEM.md` 模板、`agent.yaml`：CLI 私聊绑定到主会话，配置档 `bypass`）；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local` | T11 |
+| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载两款内置插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、contexts `[agents-md, user-md]`、plugins `[context-files]`；CLI owner 私聊绑定到主会话且 stream 开启；生成 SYSTEM.md 与所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local` | T11 |
 | `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 | T11 |
 | `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 | T11 |
 | `start` | 前台运行 harness：持锁、开控制接口、日志写标准输出 | T11 |
@@ -44,6 +45,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 - 安装目录放代码，home 放数据，两者分开；一个安装可以服务多个 home。
 - 首次安装：在任意一份已构建的源码里运行 `node packages/cli/dist/index.js update --to <tag|latest>`，它创建安装目录；然后把 `<install>/bin` 加进 `PATH`。
+- wrapper 将安装 bin、安装时 node 所在目录加到 PATH 前面；保留安装时的 PATH 供后台进程使用，使本机 agent 能运行 yonder、node、npm、git。凭据不写入 wrapper 或服务环境。
 
 ## 4. 更新
 
@@ -73,6 +75,7 @@ agent 在 bash 里运行 `yonder update` 时，重启会中断这次 bash 调用
 ## 6. 后台服务（macOS）
 
 - `service install`：写 `~/Library/LaunchAgents/dev.yonder.harness.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。
-- `start` / `stop` / `restart` / `status` / `uninstall` 分别对应 `launchctl kickstart`、`bootout`、`kickstart -k`、`print`、`bootout` 后删除 plist。
+- `start`：已加载用 `launchctl kickstart`，未加载但 plist 存在用 `bootstrap`；`stop` 用 `bootout`，保留 plist；`restart` 对已加载服务用 `kickstart -k`，未加载时用 `bootstrap`；`status` 用 `print`；`uninstall` 卸载已加载服务后删除 plist。
+- plist 的 EnvironmentVariables 仅保存 PATH、YONDER_INSTALL、YONDER_HOME；PATH 含安装 bin、安装时 node 所在目录及安装时 PATH。服务验证必须包含 stop → start，以及从后台 agent 调用 yonder docs、node、npm、git。
 - 进程异常退出由 launchd 拉起；pi-durable 在重新打开时继续未完成的运行。
 - Linux（systemd 用户单元）以后做，命令不变。

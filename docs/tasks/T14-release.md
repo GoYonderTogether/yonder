@@ -1,15 +1,15 @@
 # T14 安装、更新、服务与版本通知
 
-**依据**：`docs/spec/09-cli-release.md:1-78`（全文）、`docs/spec/02-sessions.md:3-19`（会话的 `version`）、`docs/spec/03-agents.md:101-116`（`notice` 行）
+**依据**：`docs/spec/09-cli-release.md`（全文）、`docs/spec/02-sessions.md`（会话的 `version`）、`docs/spec/03-agents.md`（`notice` 行）
 
-**路径**：`packages/cli/`、`packages/core/src/release/`、根目录 `CHANGELOG.md`、根 `package.json`（`repository` 字段）
+**路径**：`packages/cli/`、`packages/core/src/release/`、根目录 `CHANGELOG.md`、根 `package.json`（`repository` 字段）、`README.md`、`README.zh-CN.md`
 
 **必须**
 - 09 §2 表中任务列为 T14 的命令：`version`、`changelog`、`docs`、`update`、`service`。
 - `update`：严格按 09 §4 的七步，包括失败时不切换、保留 3 个版本、首次安装创建安装目录与 `bin/yonder`（写入安装时的 node 绝对路径）。
 - `service`：09 §6 的 launchd 实现。
 - 版本通知：确认 T08 已按 09 §4.1 生成 `notice` 行；本任务补上更新后的端到端测试。
-- 新建 `CHANGELOG.md`，`## [Unreleased]` 记录 T01 起已完成任务对外可见的变化；根 `package.json` 加 `repository`（`https://github.com/zoran-xc/yonder-harness`）。
+- 整理 `CHANGELOG.md` 的 `## [Unreleased]`；根 `package.json` 加 `repository`（`https://github.com/zoran-xc/yonder-harness`）；两份 README 写明安装、初始化、登录、运行、更新和插件开发入口，不把第一轮实现称为完整验收。
 
 **禁止**：在真实仓库上创建或推送标签；修改用户已有的 launchd 服务以外的系统设置。
 

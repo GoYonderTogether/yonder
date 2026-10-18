@@ -41,6 +41,8 @@ type OutputPart =
 
 内核从 pi-durable 的事件流生成这些片段，只发给开始本次运行的那条输入的来源。渠道可以只用 `final`（例如 QQ 只发一条），也可以全部渲染（例如飞书卡片）。
 
+同一个目标最终只投递一次：已启动 stream 的目标通过 `final` 完成，不再调用 send；其他目标用 send。stream 的 Delivery 同样写 message.out。过程文字是进度，最终文字以 final 为准；CLI 不重复打印已经显示的相同文字。为避免显示控制标记，内核暂存仍可能构成 `NO_REPLY` 的起始增量，确认不是该标记后继续输出；已经显示的正常过程不撤回。`reply: none` 或有等待者时不启动渠道流式。
+
 ## 4. 告诉模型的规则（框架段内容）
 
 框架段（03 §5.2）用几句话说明：
@@ -62,7 +64,8 @@ message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string,
 - 发往本次运行的来源不需要额外能力；发往其他地方需要 `message` 能力（05 §1）。
 - `to` 是人（`owner` 或 `person:`）时：有 `via` 就用这个人在该渠道的账号；没有 `via` 就用这个人最近活跃的账号。找不到账号时以错误结果返回给模型。
 - 每次发送写一条 `message.out` 事件，`delivery` 记录渠道返回的结果。
-- 插件用 `api.messages.send`，参数与规则相同，`message.out` 的 `from` 是 `plugin:<id>`。
+- 插件用 `api.messages.send`，只接受显式的 `person:`、`acct:`、`conv:` 目标，不接受 `owner`（全局插件不属于某个 agent）；插件可信，不受模型的能力过滤，`message.out` 的 `from` 是 `plugin:<id>`。
+- 人解析成账号后，将 `acct:` 交给对应渠道的 send，由渠道投递到该账号的私聊；不得用该账号最近发言的群作为替代。message.out 的 conv 仅在目标为 conv: 时填写，账号目标保存在 data 的可选 `to: Ref` 中。
 - 富消息（卡片等）由渠道插件以自己的工具提供，例如 `feishu_send_card`。
 
 ## 6. agent 之间
@@ -71,7 +74,7 @@ message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string,
 agent_ask({ agent: string, text: string })   // 需要 message 能力
 ```
 
-- 内核在内部渠道 `agent` 上写一条 `message.in`：`from = acct:agent:<发起方>`，`conv = conv:agent:<发起方>`，`kind: agent`，`parent` 指向发起方本次运行的触发事件。
+- 内核在内部渠道 `agent` 上写一条 `message.in`：`from = acct:agent:<发起方>`，`conv = conv:agent:<发起方>`，`kind: agent`，`data.target` 为指定目标，`parent` 指向发起方本次运行的触发事件。无 agent 身份的预设会话不能调用 agent_ask。
 - 目标 agent 的绑定决定收不收、进哪个会话、用哪个配置档。没有命中时，工具返回错误"目标 agent 不接收你的消息"。
 - 这是 `events.ask`：目标的回复作为工具结果返回给发起方，不会再作为消息发回，因此不会来回循环。
 - 形成环时拒绝：沿 `parent` 追溯，若目标 agent 已在这条 `agent` 渠道调用链上，返回错误。

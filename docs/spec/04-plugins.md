@@ -48,7 +48,7 @@ interface Channel {
   output: { stream: boolean; attachments: boolean };
   start(io: ChannelIO): Promise<void>;
   stop(): Promise<void>;
-  send(conv: Ref, msg: OutMessage): Promise<Delivery>;
+  send(target: Ref, msg: OutMessage): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
   stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string): Promise<Delivery>;   // output.stream 为真时必须实现
 }
 interface ChannelIO {
@@ -163,7 +163,7 @@ interface PluginAPI {
   id: string;
   config: unknown;                     // 它在 yonder.yaml 里的 config 段，已按 configSchema 校验
   log: { info(msg: string, data?: object): void; warn(msg: string, data?: object): void; error(msg: string, data?: object): void };
-  channels: { register(c: Channel): void };
+  channels: { register(c: ChannelProvider): void };
   tools: { register(t: Tool): void };
   contexts: { register(c: ContextContribution): void };
   triggers: { register(t: Trigger): void };
@@ -177,11 +177,11 @@ interface PluginAPI {
     query(q: EventQuery): Promise<EventPage>;                            // 01 §4
     on(type: string, handler: (e: YEvent) => void | Promise<void>): void;   // type 可为 'prefix.*'；见下
   };
-  messages: { send(m: { to: 'owner' | Ref; via?: string; text: string; attachments?: Attachment[] }): Promise<Delivery> };   // 06 §5
+  messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[] }): Promise<Delivery> };   // 全局插件无 owner；传 person:/acct:/conv:，06 §5
   credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
   identity: IdentityAPI;               // 02 §4.4
-  services: { resolve(capability: string): ServiceEndpoint | undefined };                      // 07 §6.3
+  services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };            // 每次读取当前凭据，07 §6.3
   models: Models;                      // pi-ai 的模型集合，纯类型重新导出
   paths: { data: string };             // <home>/.yonder/plugins/<id>/
 }
@@ -191,17 +191,20 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 - `events.on`：事件写入并完成路由之后调用，只观察、不能拦截或修改；同一插件内按事件顺序逐个调用，处理器抛错只记日志。只能在 `setup` 里注册，收到的是进程启动之后写入的事件（之前的用 `query`）。
 - `Credential` 是 pi 的凭据类型（`{ type: 'api_key', key, env? } | { type: 'oauth', … }`），由 `@yonder/sdk` 以纯类型重新导出。
 - entry 的默认导出是 `PluginModule`。`definePlugin(m)` 原样返回 `m`，只做类型约束；`defineChannel`、`defineTool`、`defineContext`、`defineTrigger`、`defineHook` 同理。
+- `defineChannel` 约束 `ChannelProvider`。插件发送使用显式目标，不把全局插件关联到某个默认 agent。
 - `Preset` 的字段见 03 §4。
 - 插件**禁止**直接打开内核的 SQLite 表或 pi-durable 的存储。
 
 ## 5. 生命周期
 
-1. **加载**：读清单 → 检查 `apiVersion` → 导入 entry → 调用 `setup(api)`。`setup` 只能注册，不能联网、不能开定时器、不能发事件。
-2. **检查**：比对声明与注册；按 `configSchema` 校验插件配置。
+1. **加载**：读清单 → 检查 `apiVersion` → 导入 entry → 按 `configSchema` 校验插件配置 → 调用 `setup(api)`。`setup` 只能注册，不能联网、不能开定时器、不能发事件。
+2. **检查**：比对声明与注册。
 3. **启动**：按 `yonder.yaml` 的 `channels`、`envs` 用提供者创建实例（先按 `configSchema` 校验实例配置），再调用渠道与触发器的 `start`。
 4. **停止**：反向调用 `stop`。
 
 插件代码不热重载。插件配置变更需要重启；`agent.yaml`、`presets/` 热重载（08 §3）。
+
+setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝通过 PluginAPI 发事件、发消息或修改会话/身份。0.1 不拦截 Node 全局网络或定时器，不增加插件沙箱。包名从 home 或当前安装的依赖解析，本地插件目录相对 home；内置 local 环境不需要插件。checkPlugin 与加载器共用注册检查规则。
 
 ## 6. 版本
 

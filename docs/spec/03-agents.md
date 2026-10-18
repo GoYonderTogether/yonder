@@ -76,6 +76,8 @@ bindings: [ … ]                   # 见 02 §2
 
 未写的字段取 `defaults`，再取内核默认。
 
+内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools` 与 `limits` 按键覆盖。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
+
 ## 4. 预设与临时会话
 
 预设是不属于任何 agent 的配置档，放在 `<home>/presets/<id>.yaml`（`id` 取文件名），或由插件贡献（04 §3.7）。字段同 §3，另加必填的 `description`（一句话，会出现在 `task_run` 工具说明里）。SDK 类型：`Preset = Profile & { id: string; description: string }`，`Profile` 即 §3 的字段表。
@@ -83,6 +85,7 @@ bindings: [ … ]                   # 见 02 §2
 - 内核工具 `task_run({ preset, task })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
 - 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；能力 = 预设 ∩ `capabilities`，插件应当传入它代表的外部调用方被允许的能力。
+- 有 parent 的预设会话继承父会话的 cwd，env 默认继承父会话；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。没有 agent 工作区，不读取 SYSTEM.md 或工作区上下文贡献；system 保留框架、home/插件 skill 索引和 instructions。预设的有效能力、cwd、env 存在 pi 的 `yonder.session` 文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
 ## 5. 提示词组装
 

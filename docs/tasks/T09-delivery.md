@@ -1,12 +1,12 @@
 # T09 投递与内置工具
 
 **依据**
-- `docs/spec/06-delivery.md:1-81`（全文）
-- `docs/spec/05-security.md:33-53`（内置工具能力表）
-- `docs/spec/03-agents.md:79-86`（`task_run`）
-- `docs/spec/02-sessions.md:135-199`（身份查询、会话接口）
-- `docs/spec/01-events.md:41-88`（`message.out`、`run.end`）
-- `docs/spec/07-runtime.md:43-57`（上限结束时的说明）
+- `docs/spec/06-delivery.md`（全文）
+- `docs/spec/05-security.md`（内置工具能力表）
+- `docs/spec/03-agents.md`（`task_run`）
+- `docs/spec/02-sessions.md`（身份查询、会话接口）
+- `docs/spec/01-events.md`（`message.out`、`run.end`）
+- `docs/spec/07-runtime.md`（上限结束时的说明）
 
 **路径**：`packages/core/src/delivery/`、`packages/core/src/tools/`
 

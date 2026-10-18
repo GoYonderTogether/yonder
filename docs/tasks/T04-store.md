@@ -1,9 +1,9 @@
 # T04 存储：事件、会话元数据、身份
 
 **依据**
-- `docs/spec/01-events.md:1-114`（全文）
-- `docs/spec/02-sessions.md:3-19`（`y_sessions` 字段）、`98-113`（§3 路由结果）、`114-165`（§4 身份）
-- `docs/spec/07-runtime.md:13-18`（§2 存储）
+- `docs/spec/01-events.md`（全文）
+- `docs/spec/02-sessions.md`（`y_sessions` 字段）、`98-113`（§3 路由结果）、`114-165`（§4 身份）
+- `docs/spec/07-runtime.md`（§2 存储）
 
 **路径**：`packages/core/src/store/`、`packages/core/src/runtime/db.ts`
 

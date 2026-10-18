@@ -43,7 +43,7 @@ interface YEvent {
 | type | 谁写 | from | conv | data |
 |---|---|---|---|---|
 | `message.in` | 渠道 | `acct:` 发送者 | 所在会话 | 见 §3.1 |
-| `message.out` | 内核 | `agent:` 或 `plugin:` | 目标会话 | `{ text, attachments?, session?, delivery: { ok, id?, error? } }`；插件经 `api.messages.send` 发送时没有 `session` |
+| `message.out` | 内核 | `agent:` 或 `plugin:` | 目标为 conv: 时填写 | `{ text, attachments?, session?, to?, delivery: { ok, id?, error? } }`；`to` 记录账号或会话目标，插件发送时没有 `session` |
 | `run.end` | 内核 | `agent:` | 第一个输入事件的 `conv` | 见 §3.2 |
 | `session.open` | 内核 | `agent:` | — | `{ session, mode, key, profile }` |
 | `session.close` | 内核 | `agent:` | — | `{ session, reason }` |
@@ -64,6 +64,7 @@ interface YEvent {
   msgId?: string;          // 渠道原生消息 id
   replyTo?: string;        // 被回复的渠道原生消息 id
   name?: string;           // 发送者当前显示名（用于提示词与身份表）
+  target?: string;         // 仅内核 agent 渠道使用：agent_ask 指定的目标 agent id
 }
 interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string; uri: string; name?: string; bytes?: number }
 ```

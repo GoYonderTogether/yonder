@@ -1,5 +1,9 @@
 # T12 0.1 端到端验收
 
+**轮次**：第二轮，第一轮到 T14 后由用户审核问题再开始。
+
+**路径**：`packages/cli/test/`（真实端到端检查）、本文件、`CHANGELOG.md`；发现的实现修复归对应 T 任务路径。
+
 **依据**：`docs/architecture.md:52-64`（不变量）及各任务的验收。
 
 **在一个由 `yonder init` 生成、`yonder update` 安装的 home 里，用真实模型完成并记录**

@@ -96,7 +96,7 @@ services:
 interface ServiceEndpoint { id: string; protocol: string; baseUrl: string; apiKey?: string; models: string[]; voices?: string[] }
 ```
 
-`api.services.resolve('asr')` 按 `services` 的顺序返回第一个声明了该能力的服务（`models`、`voices` 取自该能力，`apiKey` 取自 `credential` 指向的凭据），没有则返回 `undefined`。
+`await api.services.resolve('asr')` 按 `services` 的顺序返回第一个声明了该能力的服务（`models`、`voices` 取自该能力，`apiKey` 取自 `credential` 指向的当前 api_key 凭据），没有则返回 `undefined`；不缓存凭据。
 
 ## 7. 模型能看到的工具结果
 

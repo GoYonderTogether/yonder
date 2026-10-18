@@ -1,10 +1,10 @@
 # T13 skill：发现、索引与 `skill_view`
 
 **依据**
-- `docs/spec/03-agents.md:121-151`（§6 Skill）、`89-96`（system 第 ③ 段）、`60-78`（配置档 `skills`）
-- `docs/spec/04-plugins.md:155-158`（`skills` 槽）
-- `docs/spec/05-security.md:33-53`（`skill_view` 不需要能力）
-- `docs/spec/09-cli-release.md:14-35`（`yonder skills`）
+- `docs/spec/03-agents.md`（§6 Skill）、`89-96`（system 第 ③ 段）、`60-78`（配置档 `skills`）
+- `docs/spec/04-plugins.md`（`skills` 槽）
+- `docs/spec/05-security.md`（`skill_view` 不需要能力）
+- `docs/spec/09-cli-release.md`（`yonder skills`）
 
 **路径**：`packages/core/src/skills/`、`packages/core/src/tools/`（`skill_view`）、`packages/core/src/prompt/`（只接入第 ③ 段）、`packages/cli/`（`skills` 命令与 `doctor` 的 skill 检查）
 

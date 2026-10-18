@@ -1,10 +1,10 @@
 # T08 提示词组装
 
 **依据**
-- `docs/spec/03-agents.md:87-120`（§5 全部）、`29-41`（工作区内容与自动生成）
-- `docs/spec/04-plugins.md:98-119`（§3.3 上下文贡献）
-- `docs/spec/06-delivery.md:44-55`（框架段要讲的规则）
-- `docs/spec/09-cli-release.md:62-67`（版本通知）
+- `docs/spec/03-agents.md`（§5 全部）、`29-41`（工作区内容与自动生成）
+- `docs/spec/04-plugins.md`（§3.3 上下文贡献）
+- `docs/spec/06-delivery.md`（框架段要讲的规则）
+- `docs/spec/09-cli-release.md`（版本通知）
 
 **路径**：`packages/core/src/prompt/`
 
@@ -17,7 +17,7 @@
 
 **禁止**：在 system 中放时间或其他每次变化的内容；虚构人设或示例对话。
 
-**验收**：同样输入渲染两次逐字相同；未选中的贡献不被调用（计数断言）；`<turn>` 块快照测试（含附件、通知、write 形式）；框架段词数测试。
+**验收**：同样输入渲染两次逐字相同；T10 的 context-files 仅在选中时进入 system，未选中的贡献不被调用（计数断言）；`<turn>` 块快照测试（含附件、通知、write 形式）；框架段词数测试。
 
 ## 问题
 

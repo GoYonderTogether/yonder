@@ -1,10 +1,10 @@
 # T07 绑定解析与会话管理
 
 **依据**
-- `docs/spec/02-sessions.md:1-113`（会话、绑定、加载时校验、路由结果）、`125-134`（§4.2 相对关系）、`166-199`（§5 会话接口）
-- `docs/spec/01-events.md:41-88`（`message.in`、`session.*`、`run.end`）
-- `docs/spec/06-delivery.md:68-78`（内部渠道 `agent`）
-- `docs/spec/08-config.md:78-105`（QQ 示例）
+- `docs/spec/02-sessions.md`（会话、绑定、加载时校验、路由结果）、`125-134`（§4.2 相对关系）、`166-199`（§5 会话接口）
+- `docs/spec/01-events.md`（`message.in`、`session.*`、`run.end`）
+- `docs/spec/06-delivery.md`（内部渠道 `agent`）
+- `docs/spec/08-config.md`（QQ 示例）
 
 **路径**：`packages/core/src/routing/`、`packages/core/src/sessions/`
 

@@ -1,13 +1,13 @@
 # T02 SDK 类型与契约测试
 
 **依据**
-- `docs/spec/04-plugins.md:1-215`（插件槽、`Tool`、`ChannelProvider`、`PluginAPI`、`PluginModule`、契约测试）
-- `docs/spec/01-events.md:3-109`（`YEvent`、`EventInput`、引用、内核事件 data、`EventQuery`/`EventPage`）
-- `docs/spec/02-sessions.md:98-113`（`Route`）、`145-199`（`IdentityAPI` 与会话接口的类型）
-- `docs/spec/03-agents.md:60-86`（`Profile` 字段、`Preset`）、`121-151`（skill 格式，供 `checkPlugin`）
-- `docs/spec/05-security.md:5-32`（能力与级别）
-- `docs/spec/06-delivery.md:30-43`（`OutputPart`）
-- `docs/spec/07-runtime.md:77-100`（`ServiceEndpoint`）
+- `docs/spec/04-plugins.md`（插件槽、`Tool`、`ChannelProvider`、`PluginAPI`、`PluginModule`、契约测试）
+- `docs/spec/01-events.md`（`YEvent`、`EventInput`、引用、内核事件 data、`EventQuery`/`EventPage`）
+- `docs/spec/02-sessions.md`（`Route`）、`145-199`（`IdentityAPI` 与会话接口的类型）
+- `docs/spec/03-agents.md`（`Profile` 字段、`Preset`）、`121-151`（skill 格式，供 `checkPlugin`）
+- `docs/spec/05-security.md`（能力与级别）
+- `docs/spec/06-delivery.md`（`OutputPart`）
+- `docs/spec/07-runtime.md`（`ServiceEndpoint`）
 
 **路径**：`packages/sdk/`
 
