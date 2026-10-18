@@ -18,6 +18,7 @@ import {
 	Harness,
 	type HookApi,
 	hook,
+	InboxDoc,
 	type JsonObject,
 	LiveDoc,
 	type Submission,
@@ -742,6 +743,28 @@ export class Runtime {
 	async abort(id: string): Promise<void> {
 		await (await this.conversation(id)).abort(C);
 	}
+	async queued(id: string, withdraw = false) {
+		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
+		const result: Array<{ id: string; mode: string; text: string; event?: string }> = [];
+		for (const item of inbox?.items ?? []) {
+			if (item.mode === "write") continue;
+			if (withdraw && (await this.harness.abortSubmission(item.id, C, cid(id))) !== "aborted") continue;
+			const content =
+				typeof item.content === "string"
+					? item.content
+					: item.content
+							.filter((block) => block.type === "text")
+							.map((block) => block.text)
+							.join("\n");
+			const event =
+				item.entry?.data && typeof item.entry.data === "object" && "event" in item.entry.data
+					? String(item.entry.data.event)
+					: undefined;
+			result.push({ id: String(item.id), mode: item.mode, text: content, ...(event ? { event } : {}) });
+		}
+		return result;
+	}
+
 	async observe(id: string, send: (update: TerminalUpdate) => Promise<void>) {
 		return observeTerminal(this.harness, id, send);
 	}

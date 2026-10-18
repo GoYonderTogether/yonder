@@ -33,3 +33,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## 原生 pi 终端界面 1.3.0
+
+- 精确依赖 `@earendil-works/pi-tui@1.3.0`、`@earendil-works/pi-coding-agent@1.3.0`，来源 `earendil-works/pi` tag `v1.3.0`，沿用上述 MIT 许可证和版权。
+- `packages/cli/src/pi-native.ts` 仅加载同包的 UI helper：`modes/interactive/chat-viewport.js`、`tui-renderer.js`、`theme/theme.js`、`components/status-indicator.js`、`core/keybindings.js`、`core/tools/renderers/index.js`。默认布局、主题、键位和工具渲染直接使用上游代码。
+- `packages/cli/src/vendor/pi-footer.ts` 提取自该 npm 包 source map 中原始 `packages/coding-agent/src/modes/interactive/components/footer.ts`；只将 AgentSession/SessionManager 数据访问换为实际 Yonder 控制面快照，移除 Yonder 未使用的实验/虚拟模型分支。原有行布局、宽度处理、统计格式、样式和模型对齐渲染保留。无 pi 会话文件、模型循环或第二 runtime。
+- `terminal.ts` 直接使用上游 CustomEditor、AssistantMessageComponent、UserMessageComponent、ToolExecutionComponent、SessionSelectorComponent、ExtensionSelectorComponent 与 ExtensionEditorComponent；数据与动作接 Yonder。会话删除改为明确拒绝并提示 `/close`，保留历史。

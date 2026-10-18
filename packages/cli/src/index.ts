@@ -388,6 +388,10 @@ async function run(args: string[]): Promise<number> {
 						return kernel.terminal.presets();
 					case "terminal.channels":
 						return kernel.terminal.channels();
+					case "terminal.queued":
+						return kernel.terminal.queued(requiredParam(params, "id"));
+					case "terminal.dequeue":
+						return kernel.terminal.queued(requiredParam(params, "id"), true);
 					case "terminal.info":
 						return kernel.terminal.info(requiredParam(params, "id"));
 					case "sessions.open": {

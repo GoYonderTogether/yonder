@@ -523,11 +523,26 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			close,
 			terminal: {
 				presets: () =>
-					[...new Map([...loaded.presets, ...homePresets]).values()].map((preset) => ({
-						id: preset.id,
-						description: preset.description,
-						...resolveProfile(preset),
-					})),
+					[...new Map([...loaded.presets, ...homePresets]).values()].map((preset) => {
+						const profile = resolveProfile(preset),
+							slash = profile.model.indexOf("/");
+						const model = services.models.getModel(profile.model.slice(0, slash), profile.model.slice(slash + 1));
+						return {
+							id: preset.id,
+							description: preset.description,
+							...profile,
+							...(model
+								? {
+										modelInfo: {
+											id: model.id,
+											provider: model.provider,
+											contextWindow: model.contextWindow,
+											reasoning: model.reasoning,
+										},
+									}
+								: {}),
+						};
+					}),
 				channels: () =>
 					Object.entries(config.channels ?? {})
 						.filter(([, channel]) => channel.type === "cli")
@@ -542,12 +557,41 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 								.map((agent) => ({ id: agent.id, name: agent.name })),
 						})),
 				submit: sessions.submitAccepted,
+				async queued(id: string, withdraw = false) {
+					return Promise.all(
+						(await realRuntime().queued(id, withdraw)).map(async (item) => {
+							const event = item.event ? await store.events.get(item.event) : undefined;
+							const text = (event?.data as { text?: string } | undefined)?.text;
+							return { ...item, text: text ?? item.text };
+						}),
+					);
+				},
 				async info(id: string) {
 					const session = await sessions.api.get(id);
 					if (!session) throw new Error(`Unknown session: ${id}`);
 					return {
 						session,
 						config: await realRuntime().sessionConfig(id),
+						model: (() => {
+							const ref = (
+								session.agent
+									? resolveProfile(
+											agents.get(session.agent)?.profiles[session.profile] ?? {},
+											agents.get(session.agent)?.defaults,
+										)
+									: resolveProfile(homePresets.get(session.profile) ?? loaded.presets.get(session.profile) ?? {})
+							).model;
+							const slash = ref.indexOf("/");
+							const model = services.models.getModel(ref.slice(0, slash), ref.slice(slash + 1));
+							return model
+								? {
+										id: model.id,
+										provider: model.provider,
+										contextWindow: model.contextWindow,
+										reasoning: model.reasoning,
+									}
+								: undefined;
+						})(),
 						state: await realRuntime().sessionState(id),
 						usage: await realRuntime().usage(id),
 						skills: await skills.inspect(await realRuntime().sessionConfig(id)),
