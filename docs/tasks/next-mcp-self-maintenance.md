@@ -1,6 +1,8 @@
 # 本机自维护与官方插件实施计划（合并版）
 
-**状态：2026-10-18 用户已授权补齐并启动。** 本轮合并 MCP、自维护、真实安装、版本管理、BrowserSkill、Computer Use、grep/Bash/Web、Tavily、GitHub 与飞书全部要求。正式任务目录见 [next/README.md](next/README.md)。
+**原 N 轮计划，保留需求来源；当前不据此自动派工。** 2026-10-18 最新要求是先等 TUI、收敛方案交用户审核，再开发。最新范围见 [Hermes 对比](hermes-capability-comparison.md) 与 [13 草案](../spec/13-capability-completion.md)，最新编排见 [能力补齐计划](capability-completion-plan.md)，尚未批准。
+
+原计划合并 MCP、自维护、真实安装、版本管理、BrowserSkill、Computer Use、grep/Bash/Web、Tavily、GitHub 与飞书全部要求，曾于 2026-10-18 获准启动。原任务目录见 [next/README.md](next/README.md)。下述顺序/检查为原方案历史，不覆盖用户本次不写/不跑测试及先审核的要求。
 
 本轮新增及修订功能以 [10 本机运行与项目自维护](../spec/10-local-maintenance.md) 和 [11 官方插件与常规工具](../spec/11-official-plugins.md) 为准；N00 对齐旧条款后记录冻结 commit。plan 和任务只安排实现，不另写一份功能规格，原验收继续有效。
 
@@ -24,9 +26,12 @@
 - 已安装版本、运行 home 和开发源码分开。N03 建立阶段安装流程；N04–N13 的成果在成为运行依赖前，由 Codex 按 10 §2.1 执行安装与真实调用，N11 更新闭环通过后交 operator。记录在产生成果的任务内，不能以源码检查替代安装证据。
 - 使用最新参考材料前更新仓库，再固定实际 commit；上游变化不自动修改已经冻结的功能。
 
-## 当前进度
+## 当前进度（纠正原“全部未开始”记录）
 
 - 🟢 第一轮源码审查与局部修复已有记录，见 [审查报告](review-first-pass.md)。
 - 🟢 本轮功能与 N00–N14 计划已合并，审核缺口已补齐并获准启动。
 - 🟢 参考仓库已更新并记录固定快照；[来源与本机探测](next/reference-sources.md) 明确区分已读、待核验与未运行。
-- ⚪ N00–N14 尚未开始实现；真实安装、新增插件、GitHub/飞书授权与部署未执行。
+- 🟢 N00–N04 已有阶段结果；独立安装版 0.1.4、真实 Luna/Sol 与一个自主修复已有记录。
+- 🟡 N05 有未提交部分；N06/N07 各有独立源码提交，尚未整合安装；Browser 扩展连接仍有阻塞。
+- 🟡 U01–U04 有源码/隔离终端结果，U05 进行中；这些不等于日用安装已更新。
+- ⚪ N08、N09 全量验收、GitHub/Release/operator 自动更新、飞书实现与真实矩阵仍未完成。最新逐项状态以 Hermes 对比为准。

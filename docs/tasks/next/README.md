@@ -1,28 +1,30 @@
 # 下一阶段实施任务
 
-**状态：2026-10-18 用户已授权补齐并启动，先执行 N00。** 本轮功能以 [10](../../spec/10-local-maintenance.md)、[11](../../spec/11-official-plugins.md) 为准。这里不定义功能。原 T00–T14 保留，N 任务引用其原验收，不能用新编号清掉历史失败或跳过。
+**当前工位：暂停后续 N 派工，先等 U05 和新计划审核。** 2026-10-18 最新要求见 [能力补齐计划](../capability-completion-plan.md)、[Hermes 对比](../hermes-capability-comparison.md)、[13 草案](../../spec/13-capability-completion.md)。拟改为多路 sub agent 的实现轮，不新增或运行测试；尚未放行。以下保留原 N 需求、依赖与结果，不能用新编号清掉历史失败或跳过。
+
+原 N 轮于 2026-10-18 获批，功能以 [10](../../spec/10-local-maintenance.md)、[11](../../spec/11-official-plugins.md) 为准。新计划只调整后续编排；原功能与最终验收继续保留。
 
 参考更新和本机只读状态见 [reference-sources.md](reference-sources.md)。它记录证据，不新增需求。
 
-## 任务清单（列出的均为硬依赖）
+## 原任务清单（新编排待审，非当前派工指令）
 
 - 🟢 [N00](N00-contracts.md) 设计锁定与旧规范对齐｜Codex｜无依赖。
 - 🟢 [N01](N01-runtime-foundation.md) 基础边界已实现并检查；恢复/输入组合缺口挂 N05/N09｜Codex｜N00。
 - 🟢 [N02](N02-mcp.md) MCP 已实现，开发版真实 Luna 检查通过，安装版复验挂 N03｜Codex｜N01。
 - 🟢 [N03](N03-install-agents.md) 独立安装、阶段更新、常驻服务、Luna/Sol 与两个真实 agent 已验证｜Codex｜N02。
 - 🟢 [N04](N04-first-repair.md) Luna 首个自主修复已提交、整合、安装及真实转换复验｜Yonder，Codex 审查｜N03。
-- 🟡 [N05](N05-recovery.md) 持久输入、运行恢复和投递归属：原生关联核对｜Yonder，Codex 主持架构｜N04。
-- 🟡 [N06](N06-codex-tools.md) Computer Use 与 hosted search 本机连接｜Codex 连接，Yonder 插件实现｜N03；N00 可提前试通。
-- 🟡 [N07](N07-browser.md) BrowserSkill 默认插件与安装引导｜Yonder｜N03；引导可用系统打开 URL。
+- 🟡 [N05](N05-recovery.md) 部分实现未提交，旧工作树已暂停；D29 已批准，待在 TUI 新基线上逐项移植｜Yonder 已写，Codex 负责整合｜原依赖 N04。
+- 🟡 [N06](N06-codex-tools.md) 插件源码已提交 e067930，尚未整合/安装；不算安装版桌面或搜索通过｜Yonder｜原依赖 N03。
+- 🟡 [N07](N07-browser.md) 插件源码已提交 2d79782，尚未整合/安装；扩展连接仍阻塞真实页面验收｜Yonder｜原依赖 N03。
 - ⚪ [N08](N08-coding-web.md) grep/Bash、Tavily、Web Fetch｜Yonder｜N03；不依赖 hosted search 或浏览器。
-- ⚪ [N09](N09-sol-tests.md) Sol 接入、补测试与原契约缺陷修复｜Yonder｜N05、Sol 实际可用；不等 N06–N08。
+- ⚪ [N09](N09-sol-tests.md) Sol 已真实可用；补测试留后轮，已知源码缺陷拟归 C1/C3｜原验收保留｜不再作为新计划中 N10/N12 源码开发的测试门槛；待批准。
 - ⚪ [N10](N10-github.md) issue→设计→commit→PR→Codex 合并｜Yonder｜N09。
 - ⚪ [N11](N11-release-update.md) 发布事件与 operator 安装更新｜Yonder｜N10。
 - ⚪ [N12](N12-feishu.md) 飞书完整渠道开发｜Yonder｜N09；不等 GitHub 发布链。
 - ⚪ [N13](N13-feishu-live.md) Computer Use 验证真实飞书矩阵｜Yonder 执行，Codex 观察｜N12、N06 桌面能力、已安装飞书包与真实授权。
 - ⚪ [N14](N14-acceptance.md) 整条自维护链与全部剩余验收｜Yonder + Codex｜N01–N13 各能力验收；任何未通过项保留。
 
-## 执行与检查
+## 原执行与检查规则（本轮实现方式调整待审核）
 
 1. 用户已授权本轮实施。N00 先统一新旧规范并记录冻结 commit，随后按依赖连续推进；不重复请求整轮或普通任务批准。后续实现者不能修改功能规范。
 2. 每项读取其功能依据、现有源码、相关调用者与失败路径，再实现；涉及参考项目时记录固定 commit/模块。
