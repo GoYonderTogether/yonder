@@ -93,7 +93,7 @@ function parseGlobal(args: string[]): Options {
 		else if (arg === "--help") help = true;
 		else if (arg === "--home") {
 			home = args[++i];
-			if (!home) throw new UsageError("--home requires a directory");
+			if (!home || home.startsWith("--")) throw new UsageError("--home requires a directory");
 		} else if (arg.startsWith("--home=")) {
 			home = arg.slice("--home=".length);
 			if (!home) throw new UsageError("--home requires a directory");
@@ -158,7 +158,7 @@ async function chat(home: string, instance: string, json: boolean) {
 	const socket = createConnection(join(home, ".yonder", "plugins", "channel-cli", `${instance}.sock`));
 	socket.setEncoding("utf8");
 	const lines = createInterface({ input: socket, crlfDelay: Infinity });
-	const terminal = createInterface({ input: stdin, output: stdout, terminal: stdin.isTTY });
+	const terminal = createInterface({ input: stdin, output: json ? stderr : stdout, terminal: stdin.isTTY });
 	let streamed = "";
 	const fromOutput = (part: OutputPart | { type: "message"; text: string } | { type: "error"; message: string }) => {
 		if (part.type === "text") {
@@ -166,10 +166,11 @@ async function chat(home: string, instance: string, json: boolean) {
 			if (json) output(part, true);
 			else stdout.write(part.delta);
 		} else if (part.type === "final") {
-			if (!streamed) {
-				if (json) output(part, true);
-				else if (part.text) stdout.write(`${part.text}\n`);
-			} else if (!json) stdout.write("\n");
+			if (json) output(part, true);
+			else {
+				if (streamed) stdout.write("\n");
+				if (part.text && part.text !== streamed) stdout.write(`${part.text}\n`);
+			}
 			streamed = "";
 		} else if (part.type === "message") output(part.text, json);
 		else if (part.type === "tool") {
@@ -191,13 +192,18 @@ async function chat(home: string, instance: string, json: boolean) {
 		await new Promise<void>((resolve, reject) => {
 			socket.once("connect", resolve);
 			socket.once("error", reject);
+			lines.once("error", reject);
 		});
+		socket.once("close", () => terminal.close());
 		for await (const line of terminal) {
 			if (socket.destroyed) break;
 			socket.write(`${line}\n`);
 		}
-		socket.end();
-		await new Promise<void>((resolve) => socket.once("close", resolve));
+		if (!socket.destroyed) {
+			const closed = new Promise<void>((resolve) => socket.once("close", resolve));
+			socket.end();
+			await closed;
+		}
 	} finally {
 		terminal.close();
 		socket.destroy();
@@ -432,6 +438,7 @@ async function run(args: string[]): Promise<number> {
 		const instance = channelIndex >= 0 ? rest[channelIndex + 1] : "cli";
 		if (
 			!instance ||
+			(channelIndex < 0 && rest.length !== 0) ||
 			rest.some((value) => value.startsWith("-") && value !== "--channel") ||
 			(channelIndex >= 0 && rest.length !== 2)
 		)

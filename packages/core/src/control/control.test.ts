@@ -24,3 +24,9 @@ test("control socket exchanges one JSON line and returns handler errors", async 
 		await server.close();
 	}
 });
+
+test("missing control socket rejects normally so CLI can use offline queries", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yctl-"));
+	homes.push(home);
+	await expect(requestControl(home, { method: "sessions.list" })).rejects.toMatchObject({ code: "ENOENT" });
+});

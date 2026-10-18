@@ -19,6 +19,7 @@ import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } f
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
 import {
+	credentialPath,
 	FileCredentials,
 	localEnvironment,
 	Runtime,
@@ -41,7 +42,7 @@ const unavailable = (): never => {
 };
 
 function credentialsAndModels(home: string, config: YonderConfig) {
-	const credentials = new FileCredentials(resolve(home, config.credentials ?? ".yonder/auth.json"));
+	const credentials = new FileCredentials(credentialPath(home, config.credentials));
 	return { credentials, models: buildModels(credentials, config.models?.providers) };
 }
 
@@ -187,12 +188,11 @@ function configurationErrors(
 				const supported = id === "agent" ? ["agent"] : plugins.channels.get(id)?.kinds;
 				if (!supported) {
 					errors.push(`${agent.id}/${binding.id}: unknown channel ${id}`);
-					continue;
 				}
-				for (const kind of kinds)
-					if (!supported.includes(kind))
-						errors.push(`${agent.id}/${binding.id}: channel ${id} does not declare kind ${kind}`);
 			}
+			for (const kind of kinds)
+				if (!ids.some((id) => (id === "agent" ? ["agent"] : plugins.channels.get(id)?.kinds)?.includes(kind)))
+					errors.push(`${agent.id}/${binding.id}: no selected channel declares kind ${kind}`);
 		}
 	}
 	return errors;
@@ -280,7 +280,6 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 	const unlock = await lockfile.lock(home, {
 		realpath: false,
 		lockfilePath: join(home, ".yonder/lock"),
-		onCompromised: report,
 	});
 	let runtime: Runtime | undefined;
 	let plugins: LoadedPlugins | undefined;
@@ -361,10 +360,10 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			await scaffoldWorkspace(filesFor(home, config, loaded, agent.id), selected, loaded.contexts);
 		}
 		for (const person of config.identity?.persons ?? []) {
+			if (await store.identity().person(`person:${person.id}`)) continue;
 			await store.identity().createPerson(person);
 			for (const account of person.accounts ?? [])
-				if ((await store.identity().account(account))?.person !== `person:${person.id}`)
-					await store.identity().link(account, `person:${person.id}`);
+				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
 		}
 		const homePresets = await loadPresets(home);
 		const skills = skillsFor(home, config, loaded, log);

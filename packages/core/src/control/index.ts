@@ -73,6 +73,7 @@ export function requestControl(home: string, request: ControlRequest): Promise<u
 		socket.once("error", fail);
 		socket.once("connect", () => socket.write(`${JSON.stringify(request)}\n`));
 		const lines = createInterface({ input: socket, crlfDelay: Infinity });
+		lines.once("error", fail);
 		lines.once("line", (line) => {
 			if (settled) return;
 			settled = true;

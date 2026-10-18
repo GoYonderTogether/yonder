@@ -15,6 +15,14 @@
 
 ## 问题
 
+### 源码审查（2026-10-18）
+
+已修复本任务原记的离线 ENOENT：readline 错误现在正常传给离线回退。修复 CLI JSONL 污染、final 被过程文字吞掉和服务端断开不退出；补参数边界。初始化身份不覆盖已有解绑/改名，kind 按所选渠道并集校验，失锁不再只记录后继续运行。定向检查 3 文件、4 测试通过。真实 Luna 流式在 T05 定向检查通过，完整 CLI 多渠道与恢复仍未验收；OAuth 授权页展示和 Windows 命名管道仍未核验/实现。
+
+完整证据、未完成项和设计问题见 [第一轮源码审查](review-first-pass.md)。本节不替代原定验收；任务保持原状态。
+
+### 第一轮原记录
+
 - 真实进程 stop 后，CLI `sessions show 2 --json` 触发 readline Interface 未捕获的 socket ENOENT，离线回退未到达；core 的直接只读查询及转录检查通过。按首轮规则记录，第二轮修复 CLI 连接错误传播。
 
 - Windows 命名管道尚未实现：规范未定义命名规则；当前 macOS 使用 Unix socket。
