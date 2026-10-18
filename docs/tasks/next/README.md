@@ -88,3 +88,8 @@ yonder events --type run.end --from agent:maintainer --limit 100 --json
 ```
 
 以上 PATH 只影响当前终端，不改用户 shell 配置。`sessions show` 返回会话及默认一页原生转录（最多 100 条），不是完整长历史；MCP `sessions_transcript` 支持 `from` 原生 entry ID/`limit` 分页。CLI `chat` 当前进入 main，不支持 `--agent` 或继续指定 session；维护输入使用 MCP conversation 绑定。无 CLI task status 或历史翻页命令，不虚构。显式 `yonder sessions abort <id> --json` 会真正中止该会话，不能用来查看进度。
+
+### 并行方案结果与 N05 解阻
+
+- N06 方案 13:57:29Z 完成，N07 方案 13:58:06Z 完成；两条原生 run.end 均为 done、实际模型 `openai/gpt-6.1-sol`。Codex 已阅读完整方案并收敛额外策略框架、模型门禁与个人路径；13:59 分别放行两个插件的产品实现，仍使用原会话510/526。hosted search沿用已验证Luna，与开发模型Sol分开。
+- N05 Sol 新真实场景 1 passed / 1 skipped（旧场景有意未重跑），发现失败终结后的原生回执缺口。用户随后明确批准最小原生回执；设计先提交 `29bc8ec`（D29、07、10），再放行会话35实现。当前不再因这一设计决定等待用户；全部三条线已进入产品实现。源码、安装版及真实验收仍分别记结果。
