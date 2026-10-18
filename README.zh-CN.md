@@ -6,7 +6,7 @@ Yonder Harness 是本机 Agent 运行时：把收到的事件路由到 Agent 与
 
 模型访问与持久化 Agent 会话使用 pi（`pi-ai`、`pi-durable`）作为依赖。产品名称是 Yonder Harness；pi 是底层依赖及上游来源。
 
-> **状态：** 正在执行 N00–N14。独立安装、launchd 启停和 MCP 控制连接已在本机验证；独立 home 的模型登录待最终授权，真实 agent 维护闭环与 T12 完整验收尚未完成。证据见 [N03](docs/tasks/next/N03-install-agents.md)。
+> **状态：** 正在执行 N00–N14。独立安装与登录、阶段更新、launchd 启停、Luna/Sol 真实工具和 MCP 中止已在本机验证；自主维护闭环与 T12 完整验收尚未完成。证据见 [N03](docs/tasks/next/N03-install-agents.md)。
 
 ## 从源码运行
 

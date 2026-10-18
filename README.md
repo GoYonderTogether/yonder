@@ -6,7 +6,7 @@ Yonder Harness is a local agent runtime. It routes incoming events to agents and
 
 The runtime uses pi (`pi-ai` and `pi-durable`) as dependencies for model access and durable agent sessions. The product is Yonder Harness; pi is an underlying dependency and upstream source.
 
-> **Status:** N00–N14 implementation is in progress. Separate installation, launchd stop/start, and MCP connectivity have been verified locally. The separate home's model login awaits final consent; autonomous maintenance and full T12 acceptance remain pending. See [N03](docs/tasks/next/N03-install-agents.md) for evidence.
+> **Status:** N00–N14 implementation is in progress. Separate installation and login, staged updates, launchd stop/start, real Luna/Sol tools, and explicit MCP abort have been verified locally. Autonomous maintenance and full T12 acceptance remain pending. See [N03](docs/tasks/next/N03-install-agents.md) for evidence.
 
 ## Run from source
 

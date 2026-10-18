@@ -40,3 +40,7 @@
 
 - pi 1.3.0 模型目录包含 openai/gpt-6.1-sol。使用当前 core/dist Runtime、本项目授权凭据与 /tmp 隔离 home 发起真实请求：session=2、status=done、text=yonder-sol-ready，input=167/output=8。未调用工具；这不是安装版或 N09 测试任务已通过。
 - 准备脚本首次误从 runtime/index 导入 openDatabase，模型请求尚未发出即失败；修正为 runtime/db 后真实请求通过。临时证据 /tmp/yonder-sol-probe.json。
+
+### N03 安装版模型检查（2026-10-18）
+
+- 独立 home 完成独立 OAuth 后，通过安装版 0.1.3 的 MCP 输入 01M57G0KZYRYDVJ4W80056S6K0，maintainer 的 sol 配置档会话 35 实际调用 bash，工具输出 yonder-sol-installed-ready，原生 run.end 的 model=openai/gpt-6.1-sol/status=done。证据 /tmp/yonder-n03-sol-transcript.json；对应来源 commit=3a154973c958218fd4bccbf8775bf02d91b26119。Sol 在 Yonder 内可用；N09 全部测试仍未开始。

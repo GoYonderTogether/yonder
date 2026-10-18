@@ -1,6 +1,6 @@
 # N04 Luna 首个真实自主修复
 
-**状态**：已批准，待实施；先完成 N00 对齐与冻结。
+**状态**：进行中；N03 通过，向安装版 Yonder maintainer（Luna）下发只读方案，Codex 审查后再放行修改。
 
 **负责人**：Yonder maintainer（Luna）；Codex 下发与审查。
 

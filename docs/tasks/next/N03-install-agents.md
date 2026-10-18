@@ -1,6 +1,6 @@
 # N03 独立安装与两个常驻 agent
 
-**状态**：进行中；N02 的开发构建 MCP/Luna 检查通过，开始独立安装。
+**状态**：完成；独立安装、阶段更新、常驻服务、独立登录、Luna/Sol 工具与 MCP 中止均有真实证据。完整 T12 与恢复故障矩阵仍由 N05/N09/N14 验收。
 
 **负责人**：Codex。
 
@@ -35,7 +35,9 @@
 - 安装器原来未执行已冻结的来源记录与移除 .git，已在 updateRelease 的构建→改名处修复；version 增加 origin 资料。按既有规范补实现，没有新建安装系统。
 - 0.1.1 实际安装成功，但 wrapper 经 current 软链接运行时 CLI 的 import.meta.url 与 argv 比较不相等，导致 version/help 静默退出。修复为比较实际入口路径；保留软链接启动回归检查，用新的 0.1.2 安装，不覆盖旧标签。
 - 首次 operator 配置同时设置 level 与 capabilities，被 doctor 按契约拒绝；删除 level，仅保留 read/message 能力后 doctor ok:true/errors:[]。不是核心源码缺陷。
-- 独立登录已到浏览器最终授权页，等待用户点击 Continue；尚无此 home 的 openai OAuth，不能进行默认模型与两个 agent 的真实模型验收。
+- 独立登录最初停在浏览器最终授权页；用户完成 Continue 后 login 返回 ok:true/provider:openai，此 home 独立保存 OAuth（auth.json 0600），未复制其他 home 的 OAuth。
+- main 第一次文字摘要漏写 home 路径末尾 /home；原生 bash 输出正确。重启后同会话按工具 JSON 返回正确路径。记录为模型摘要错误，没有为此增加程序分支或校验层。
+- 第一次中止请求被自动审核拒绝：审核认为尚未确认工具启动。补查时该 30 秒任务已经自然完成，未对空闲会话补 abort。第二次使用独立标记，先证实事件路由到 session=2、工具实际启动且无 run.end，再显式 abort 成功；没有绕过自动审核。
 
 ## 结果
 
@@ -46,5 +48,10 @@
 - service install/status 成功，首次 pid=6919；stop/status 显示 loaded:false；start/status 显示 running/pid=7179。服务执行安装 bin/yonder，home 与源码独立；plist 未写凭据，未改其他应用服务。
 - 标准 MCP Client 连接真实常驻安装版，发现 18 工具；stop→start 后重新连接 sessions_list 成功，当前尚无模型会话。客户端证据 /tmp/yonder-n03-tools.json、/tmp/yonder-n03-sessions-after-start.json。
 - 由服务外的 0.1.2 安装版实际执行 update --repo /Users/zoran/Documents/yonder-harness --to 0.1.3 --home /Users/zoran/.local/share/yonder-harness/home：构建、新版 doctor、切换与服务重启成功，返回 updated:true。0.1.3 来源 commit=3a154973c958218fd4bccbf8775bf02d91b26119，服务 running/pid=8465，current 实际路径 /Users/zoran/.yonder-harness/versions/0.1.3。MCP 握手由 0.1.2 变为 0.1.3，发现 18 工具且 sessions_list 成功。再次更新同版本返回 updated:false；当前保留 0.1.1/0.1.2/0.1.3，home 未替换。证据 /tmp/yonder-n03-install-013.json、/tmp/yonder-n03-tools-013.json、/tmp/yonder-n03-sessions-013.json。
-- 后续仍需：用户完成浏览器最终授权后，执行 main/maintainer/operator 的实际模型/工具及后台 PATH 验证，event/session/model 将随真实运行补记。当前 home 仅有 mcp-control API key，未复制其他 OAuth，不能把安装/MCP 通过算作模型可用。
+- 安装版 main：session=2，输入 01M57FYR92Z34VJPYXWWMYSPDW，run.end 模型 openai/gpt-6-luna/status:done。真实 bash 的 cwd=/Users/zoran/.local/share/yonder-harness/home/agents/main、yonder=/Users/zoran/.yonder-harness/bin/yonder、home=/Users/zoran/.local/share/yonder-harness/home；docs --list、node v24.21.0、npm 11.19.0、git 2.56.0 全部成功。以转录中的工具输出为证，不以模型摘要为证。
+- maintainer：session=52，输入 01M57G0VAZGNT4QXYCNR6G29G4，Luna/status:done；实际读取独立工作树（158d29a）与安装来源（3a15497），正确区分。operator：session=19，输入 01M57G0FAKRBS9BBW17JG8FCS1，Luna/status:done，执行 read 并报告 read/message 与 N11 未接通边界；规则已去掉无关源码维护指令。
+- Sol：session=35（独立 persistent 配置档），输入 01M57G0KZYRYDVJ4W80056S6K0，run.end 模型 openai/gpt-6.1-sol/status:done；转录证明实际 bash 输出 yonder-sol-installed-ready。不是 Codex 子 agent 或自报模型名。
+- 四次运行全部结束后 service stop→start，pid=9482；MCP 重新连接后的输入 01M57G3XWVKNBJDW2E3T84CAM0 仍路由 session=2，并再次真实调用 yonder version 成功。输入 01M57G7E4AEWVK1MWW8CY6H2SP 的 bash 已实际启动后，通过 sessions_abort 明确中止；run.end=01M57G8VCGXESAWHTVVPCTNMPV，status:aborted/reason:aborted。两个临时启动标记已清理。
+- 持久证据保存在真实 home 的原生事件/会话/转录；临时客户端副本 /tmp/yonder-n03-{main,maintainer,operator,sol,continue}-result.json、/tmp/yonder-n03-main-transcript.json、/tmp/yonder-n03-sol-transcript.json、/tmp/yonder-n03-run-ends-final.json。MCP 等待取消已在 N02 真实客户端检验；本阶段另验证安装版实际中止。
+- 本任务由 Codex 完成安装接线、配置与验收；这些模型调用属于安装版 Yonder 的真实运行，尚不是它自主修复或提交 PR。默认 main 已可通过安装版 yonder chat --home /Users/zoran/.local/share/yonder-harness/home 使用，首次自主修复转 N04。
 
