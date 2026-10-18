@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- SQLite 事件、会话元数据和跨渠道身份存储；与 pi 共用连接。
 - SDK 类型、引用函数与插件契约检查，提供渠道、工具、上下文、环境及其他插件槽。
 - npm workspace、TypeScript 工具链和 SDK/core/CLI/两个插件的包骨架。
 

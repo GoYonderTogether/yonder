@@ -9,14 +9,14 @@
 | [T00](T00-pi-spike.md) | 验证 pi 能力，把结论写回规范 | — | 完成 |
 | [T01](T01-scaffold.md) | 仓库骨架与工具链 | T00 | 完成 |
 | [T02](T02-sdk.md) | SDK 类型与契约测试 | T01 | 已实现（待验收） |
-| [T03](T03-config.md) | 配置加载、校验、热重载 | T02 | 待做 |
-| [T04](T04-store.md) | 事件、会话元数据、身份的存储 | T02 | 待做 |
+| [T03](T03-config.md) | 配置加载、校验、热重载 | T02 | 进行中 |
+| [T04](T04-store.md) | 事件、会话元数据、身份的存储 | T02 | 已实现（待验收） |
 | [T05](T05-runtime.md) | pi 适配层：模型、凭据、会话、钩子、上限 | T00 T03 T04 | 待做 |
 | [T06](T06-plugins.md) | 插件加载 | T02 T03 T10 | 待做 |
 | [T07](T07-routing.md) | 绑定解析与会话管理 | T04 T05 T06 | 待做 |
 | [T08](T08-prompt.md) | 提示词组装 | T05 T06 T10 | 待做 |
 | [T09](T09-delivery.md) | 投递与内置工具 | T07 T08 T10 | 待做 |
-| [T10](T10-first-plugins.md) | channel-cli 与 context-files 插件 | T02 | 待做 |
+| [T10](T10-first-plugins.md) | channel-cli 与 context-files 插件 | T02 | 进行中 |
 | [T11](T11-cli.md) | CLI 与本地控制接口（完成后 CLI 可用） | T07 T09 T10 | 待做 |
 | [T13](T13-skills.md) | skill 发现、索引与 `skill_view` | T08 T09 T11 | 待做 |
 | [T14](T14-release.md) | 安装、更新、服务、版本通知 | T11 T13 | 待做 |
