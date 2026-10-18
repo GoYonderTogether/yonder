@@ -27,9 +27,9 @@
 		"entry": "./dist/index.js",
 		"contributes": {
 			"tools": [
-				"search",
-				"extract",
-				"fetch"
+				"web-tools_search",
+				"web-tools_extract",
+				"web-tools_fetch"
 			]
 		}
 	},

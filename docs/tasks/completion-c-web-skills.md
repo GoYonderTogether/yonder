@@ -22,3 +22,7 @@
 - 独立工作树未安装 node_modules。Web 使用临时 tsconfig 映射主仓 SDK/Node 类型和 AI-Being 已装提取库类型，strict/noEmit 独立检查通过；未改变仓库编译配置。Skills 同法检查因缺 yaml/typebox/pi/chord 依赖未通过，未标为成功。根项目 build/typecheck 交主 agent 统一组装。
 - CLI/control、插件目录映射、根依赖与公共导出由主 agent 接线；本 lane 不修改 loader/kernel/SDK/CLI/根文件。
 - 真实 Tavily、中文/时效/域限制、GET/JS/login/取消矩阵及管理实际运行，全部未测，留下一轮。
+
+## 注册接线修正
+
+主 agent 组装发现清单短名与实际注册全名不一致。对照 SDK `checkRegistrations` 的原规则（逐项比较实际 tool.name 与清单，不自动加前缀），已将 web-tools 清单改为 `web-tools_search`、`web-tools_extract`、`web-tools_fetch`。仅源码核对与清单修正，未运行测试或外部调用。
