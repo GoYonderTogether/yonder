@@ -10,7 +10,17 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./testing": {
+			"types": "./dist/testing.d.ts",
+			"import": "./dist/testing.js"
 		}
+	},
+	"dependencies": {
+		"@earendil-works/pi-ai": "1.3.0",
+		"@earendil-works/pi-durable": "1.3.0",
+		"typebox": "1.3.27",
+		"yaml": "2.9.1"
 	},
 	"files": [
 		"dist"

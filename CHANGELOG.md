@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- SDK 类型、引用函数与插件契约检查，提供渠道、工具、上下文、环境及其他插件槽。
 - npm workspace、TypeScript 工具链和 SDK/core/CLI/两个插件的包骨架。
 
 ### Changed

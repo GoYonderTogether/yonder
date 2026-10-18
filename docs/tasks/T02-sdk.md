@@ -28,3 +28,11 @@
 ## 问题
 
 （无）
+
+## 结果（第一轮，已实现待验收）
+
+- 导出冻结规范的 SDK 类型、八种内核事件 data、六个原样返回的 define 辅助函数和 Ref 构造/解析函数；pi 与 typebox 均为纯类型引用。
+- 实现 `@yonder/sdk/testing` 的 `checkPlugin`；加载器可复用 `readPluginManifest`、`createRegistrationCollector`、`checkRegistrations`，共用清单、贡献、工具与 skill 检查，不重复执行 setup。检查器仅登记贡献，不运行渠道或模型。
+- 依赖精确声明为 pi-ai/pi-durable `1.3.0`、typebox `1.3.27`、yaml `2.9.1`。yaml 用于规范要求的 skill frontmatter 解析；锁文件由主 agent 统一更新。
+- 实际检查：`npm run build`、`npm run typecheck` 通过；`npx vitest run packages/sdk/test/contracts.test.ts` 为 1 文件、1 测试通过；定点 `npx biome check --write packages/sdk/src packages/sdk/test packages/sdk/package.json` 通过。首次构建发现 ExecutionEnv 不从 pi-durable 根入口导出，已改为其 `/env` 纯类型入口；首次 lint 的格式和导入顺序已修正。
+- 未测：原验收全部异常夹具、完整测试与全仓 lint 留第二轮；本轮最小检查覆盖引用合法/非法输入、define 原样返回、真实插件加载和声明缺项错误。未调用模型，无设计偏离。
