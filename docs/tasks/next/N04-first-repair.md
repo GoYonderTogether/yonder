@@ -46,3 +46,10 @@ pi-durable 1.3.0 安装依赖核对：`dist/types.d.ts`、`dist/harness/types.d.
 
 未执行根 typecheck（既有 TS6310 留 N09）、全量测试、真实模型或安装版 MCP 场景；未读取或输出凭据。未创建 PR、未更新服务。
 
+### Codex 源码审查与阶段安装
+
+- 只读方案输入 01M57GB7R32SVG1SA5BECBT5K7；补齐参考/依赖路径后的核对输入 01M57GK7YN6KYWRFG782ZE4MYQ；放行实现输入 01M57GQT7SXQKT81V6FK8DC7J8。均由安装版 0.1.3 的 maintainer 会话 52、openai/gpt-6-luna 执行。
+- Yonder 实际完成源码、检查及本地 commit=13ea8d447c3934863508eec6f75a3973446019b2；Codex 阅读四文件 diff、断言与原生工具转录后快进整合，没有代写修复。生产代码共用现有语义的单一转换，没有新依赖、配置、公共接口或模型执行机制。MCP 原始证据 /tmp/yonder-n04-{design,design2,implement}-result.json、/tmp/yonder-n04-implementation-transcript.json。
+- 第一份只读方案未完成参考/依赖核对，原因是导航缺少本机检出路径、工作树尚未安装依赖；Codex 提供准确路径后由同一 Yonder 补读，没有伪称首次已完成。一次全 home find 超时，后续限制为指定参考目录。实现提交标题为英文，与本次要求的中文提交格式不符；代码与检查归属不受影响，未由 Codex 改写其提交冒充自主结果。
+- 准备唯一版本 0.1.4 进入独立安装版；安装版真实 task_run 的失败、中止、限额验证尚未开始。
+
