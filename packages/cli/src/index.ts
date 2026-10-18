@@ -10,6 +10,7 @@ import type { LoginInteraction } from "@yonder/core";
 import {
 	initHome,
 	inspectHome,
+	inspectSkills,
 	loginProvider,
 	offlineQuery,
 	openKernel,
@@ -30,22 +31,24 @@ Commands:
   sessions list|show|abort|close  Inspect and manage sessions
   events                          Query events
   identity lookup|link|unlink|person  Manage identities
-  skills                          List skills (T13)
+  skills [--agent <id>] [--profile <name>]  List skills
   version                         Show version (T14)
   changelog|docs|update           Release commands (T14)
   service                         Service commands (T14)
 `;
 
-type Options = { json: boolean; home?: string; rest: string[] };
+const skillsUsage = "Usage: yonder skills [--agent <id>] [--profile <name>]";
+type Options = { json: boolean; help: boolean; home?: string; rest: string[] };
 function parseGlobal(args: string[]): Options {
 	let json = false;
+	let help = false;
 	let home: string | undefined;
 	const rest: string[] = [];
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
 		if (arg === undefined) continue;
 		if (arg === "--json") json = true;
-		else if (arg === "--help") throw new HelpRequested();
+		else if (arg === "--help") help = true;
 		else if (arg === "--home") {
 			home = args[++i];
 			if (!home) throw new UsageError("--home requires a directory");
@@ -54,9 +57,8 @@ function parseGlobal(args: string[]): Options {
 			if (!home) throw new UsageError("--home requires a directory");
 		} else rest.push(arg);
 	}
-	return { json, ...(home ? { home } : {}), rest };
+	return { json, help, ...(home ? { home } : {}), rest };
 }
-class HelpRequested extends Error {}
 class UsageError extends Error {}
 function output(value: unknown, json: boolean) {
 	stdout.write(
@@ -71,8 +73,8 @@ async function print(value: Promise<unknown>, json: boolean) {
 }
 function fail(error: unknown, json: boolean, code = 1): number {
 	const message = error instanceof Error ? error.message : String(error);
+	stderr.write(`${message}\n`);
 	if (json) output({ error: message }, true);
-	else stderr.write(`${message}\n`);
 	return code;
 }
 function homeFor(options: Options, init = false, target?: string): string {
@@ -165,22 +167,13 @@ async function run(args: string[]): Promise<number> {
 		stdout.write(usage);
 		return 0;
 	}
-	let options: Options;
-	try {
-		options = parseGlobal(args);
-	} catch (error) {
-		if (error instanceof HelpRequested) {
-			stdout.write(usage);
-			return 0;
-		}
-		throw error;
-	}
+	const options = parseGlobal(args);
 	const [command, ...rest] = options.rest;
-	if (!command) throw new UsageError(usage);
-	if (rest.includes("--help")) {
-		stdout.write(`${usage}\n${command} usage varies by subcommand.\n`);
+	if (options.help) {
+		stdout.write(command === "skills" ? `${skillsUsage}\n` : usage);
 		return 0;
 	}
+	if (!command) throw new UsageError(usage);
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
@@ -221,8 +214,27 @@ async function run(args: string[]): Promise<number> {
 	if (command === "doctor") {
 		if (rest.length) throw new UsageError("Usage: yonder doctor");
 		const result = await inspectHome(homeFor(options));
-		output(result, options.json);
+		if (options.json) output(result, true);
+		else {
+			output(result.ok ? "Doctor: passed" : "Doctor: issues found", false);
+			for (const issue of result.errors) stdout.write(`ERROR: ${issue}\n`);
+			for (const warning of result.warnings) stdout.write(`WARNING: ${warning}\n`);
+		}
 		return result.ok ? 0 : 1;
+	}
+	if (command === "skills") {
+		let agent = "main";
+		let profile: string | undefined;
+		for (let i = 0; i < rest.length; i++) {
+			const option = rest[i];
+			const value = rest[i + 1];
+			if ((option !== "--agent" && option !== "--profile") || !value || value.startsWith("--"))
+				throw new UsageError(skillsUsage);
+			if (option === "--agent") agent = value;
+			else profile = value;
+			i++;
+		}
+		return print(inspectSkills(homeFor(options), agent, profile), options.json);
 	}
 	if (command === "start") {
 		if (rest.length) throw new UsageError("Usage: yonder start");

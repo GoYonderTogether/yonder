@@ -6,6 +6,8 @@ import type { WorkspaceFiles } from "../config/index.js";
 export function localEnvironment(cwd: string): ExecutionEnv {
 	return new NodeExecutionEnv({ cwd });
 }
+export const canonicalPath = async (env: ExecutionEnv, path: string): Promise<string> =>
+	getOrThrow(await env.canonicalPath(path, BACKGROUND_CONTEXT));
 export function workspaceFiles(env: ExecutionEnv): WorkspaceFiles {
 	return {
 		readFile: async (path) => getOrThrow(await env.readTextFile(path, BACKGROUND_CONTEXT)),

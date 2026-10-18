@@ -51,7 +51,7 @@ import type { RuntimeInput, RuntimeOptions, RuntimeRun, RuntimeSessionConfig, Ru
 
 export { type LoginInteraction, loginProvider } from "./auth.js";
 export { FileCredentials } from "./credentials.js";
-export { localEnvironment, workspaceFiles } from "./env.js";
+export { canonicalPath, localEnvironment, workspaceFiles } from "./env.js";
 export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
 

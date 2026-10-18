@@ -19,6 +19,16 @@
 
 **验收**：工作区 skill 遮蔽同名 home skill；不合法的 skill 不加载并给出原因；索引两次渲染逐字相同；`skills: []` 时无索引；`readonly` 配置档能用 `skill_view`；真实模型：home 里一个 skill 要求回答时附上它规定的标记，模型读取后照做；agent 被要求自己写一个 skill 后，下一次运行的索引里出现它。
 
+## 结果
+
+- 实现工作区、home 与插件目录的递归 skill 发现；按来源优先级处理同名遮蔽，校验 YAML frontmatter，并报告无效 skill。
+- 实现配置档通配选择、`disable-model-invocation` 索引过滤、按名称确定性生成 system 索引、字符数除以 4 的 token 估算，以及 `skill_view` 的选中范围与真实路径目录检查。
+- `SkillsReport` 提供 skill 来源、遮蔽、选择、索引状态、估算 token 与问题列表；`skill_view` 不声明能力。
+- 检查：`npx tsc -p packages/core/tsconfig.json --noEmit`、`npm run build` 均通过；`npx vitest run packages/core/src/skills/skills.test.ts` 通过（1 项，覆盖工作区遮蔽 home、稳定索引、文件读取与越界拒绝）。
+- 未执行真实模型与完整验收，留第二轮。
+
 ## 问题
 
 （无）
+
+- 主 agent 接线：索引进入 system 第③段，skill_view 注册到运行时，CLI skills/doctor 读取同一报告；全部包构建通过。CLI 错误输出补齐 stderr 与 --json 两路。真实模型读写 skill 留第二轮。

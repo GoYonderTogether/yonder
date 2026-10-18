@@ -18,11 +18,19 @@ import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins
 import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "../prompt/index.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
-import { FileCredentials, localEnvironment, Runtime, workspaceFiles } from "../runtime/index.js";
+import {
+	FileCredentials,
+	localEnvironment,
+	Runtime,
+	type RuntimeSessionConfig,
+	workspaceFiles,
+} from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
 import { createSessions } from "../sessions/index.js";
+import { createSkills } from "../skills/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
+import { createSkillTool } from "../tools/skill-view.js";
 
 export type KernelLog = (level: "info" | "warn" | "error", message: string, data?: object) => void;
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
@@ -92,6 +100,59 @@ async function loadAgents(
 		agents.set(entry.id, await loadAgentConfig(filesFor(home, config, plugins, entry.id), entry.id));
 	}
 	return agents;
+}
+
+function skillsFor(home: string, config: YonderConfig, plugins: LoadedPlugins, log: KernelLog) {
+	return createSkills({
+		home,
+		pluginDirs: plugins.skillDirs,
+		onIssue: (issue) => log("warn", `${issue.path}: ${issue.message}`),
+		workspace: (session) => {
+			if (!session.agent) return;
+			const entry = config.agents?.find((entry) => entry.id === session.agent);
+			if (!entry) throw new Error(`Unknown agent: ${session.agent}`);
+			const root = resolve(home, entry.workspace);
+			const env = !entry.env || entry.env === "local" ? localEnvironment(root) : plugins.envs.get(entry.env);
+			if (!env) throw new Error(`Unknown workspace environment: ${entry.env}`);
+			return {
+				files: filesFor(home, config, plugins, session.agent),
+				root,
+				location: `workspace:${entry.env ?? "local"}`,
+				env,
+			};
+		},
+	});
+}
+
+function profileFor(
+	home: string,
+	config: YonderConfig,
+	agent: AgentConfig,
+	profile = agent.defaultProfile,
+): RuntimeSessionConfig {
+	const selected = agent.profiles[profile];
+	if (!selected) throw new Error(`Unknown profile: ${agent.id}/${profile}`);
+	const entry = config.agents?.find((entry) => entry.id === agent.id);
+	if (!entry) throw new Error(`Unknown agent: ${agent.id}`);
+	return {
+		agent: agent.id,
+		profile,
+		cwd: resolve(home, entry.workspace),
+		resolved: resolveProfile(selected, agent.defaults, entry.env),
+	};
+}
+
+export async function inspectSkills(home: string, agent = "main", profile?: string) {
+	const config = await loadYonderConfig(home);
+	const plugins = await loadPlugins(
+		home,
+		config,
+		inspectionServices(home, config, () => {}),
+	);
+	const agents = await loadAgents(home, config, plugins);
+	const selected = agents.get(agent);
+	if (!selected) throw new Error(`Unknown agent: ${agent}`);
+	return skillsFor(home, config, plugins, () => {}).inspect(profileFor(home, config, selected, profile));
 }
 
 function configurationErrors(
@@ -189,7 +250,22 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 		const agents = await loadAgents(home, config, plugins);
 		await loadPresets(home);
 		const errors = configurationErrors(config, agents, plugins, services.models);
-		return { ok: errors.length === 0, errors, warnings };
+		const skills = skillsFor(home, config, plugins, () => {});
+		for (const agent of agents.values())
+			for (const profile of Object.keys(agent.profiles)) {
+				const report = await skills.inspect(profileFor(home, config, agent, profile));
+				warnings.push(...report.issues.map((issue) => `${issue.path}: ${issue.message}`));
+				warnings.push(
+					...report.skills
+						.filter((skill) => skill.shadowed)
+						.map((skill) => `${skill.name}: ${skill.source} shadowed by ${skill.shadowedBy}`),
+				);
+				if (report.estimatedTokens > 4000)
+					warnings.push(
+						`${agent.id}/${profile}: skill index exceeds 4000 estimated tokens (${report.estimatedTokens})`,
+					);
+			}
+		return { ok: errors.length === 0, errors, warnings: [...new Set(warnings)] };
 	} catch (error) {
 		return { ok: false, errors: [message(error)], warnings };
 	}
@@ -291,6 +367,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 					await store.identity().link(account, `person:${person.id}`);
 		}
 		const homePresets = await loadPresets(home);
+		const skills = skillsFor(home, config, loaded, log);
 		const promptOptions: PromptOptions = {
 			home,
 			version: packageVersion,
@@ -299,6 +376,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			identity: store.identity(),
 			models: services.models,
 			setVersion: store.sessions.setVersion,
+			skillIndex: skills.index,
 		};
 		const input = async (row: SessionInfo, event: YEvent, wake: "run" | "write" = "run") =>
 			prepareInput(row, await sessions.resolveSession(row.id), event, wake, promptOptions);
@@ -344,6 +422,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
 			prepareInput: input,
 		});
+		tools.push(createSkillTool(skills, sessions.resolveSession));
 		runtime = await Runtime.open({
 			db,
 			home,

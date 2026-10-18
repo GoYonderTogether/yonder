@@ -15,6 +15,8 @@
 
 ## 问题
 
+- 真实进程 stop 后，CLI `sessions show 2 --json` 触发 readline Interface 未捕获的 socket ENOENT，离线回退未到达；core 的直接只读查询及转录检查通过。按首轮规则记录，第二轮修复 CLI 连接错误传播。
+
 - Windows 命名管道尚未实现：规范未定义命名规则；当前 macOS 使用 Unix socket。
 - 本次真实 CLI 对话只观察到 final，未观察到 text/tool 过程片段；默认回复可用，流式过程留第二轮定位。
 - Unix socket 受 macOS 路径长度限制；系统长临时目录首次启动检查返回 EINVAL。最小检查改用 /tmp 短路径；沙箱 EPERM 经授权运行本地 socket 后通过。
