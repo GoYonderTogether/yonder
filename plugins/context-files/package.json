@@ -1,0 +1,29 @@
+{
+	"name": "@yonder/plugin-context-files",
+	"version": "0.1.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.1.0"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "context-files",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"contexts": []
+		}
+	}
+}

@@ -1,0 +1,10 @@
+{
+	"files": [],
+	"references": [
+		{ "path": "packages/sdk" },
+		{ "path": "packages/core" },
+		{ "path": "packages/cli" },
+		{ "path": "plugins/channel-cli" },
+		{ "path": "plugins/context-files" }
+	]
+}
