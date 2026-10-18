@@ -57,7 +57,7 @@ bindings:
 		const wasSubmitted = new Promise<void>(resolve => { submitDone = resolve; });
 		submitted = () => { if (++submits === 2) submitDone(); };
 		const event = await router.emit({ type: "message.in", from: "acct:cli:owner", conv: "conv:cli:room", data: { kind: "group", text: "hello" } });
-		const cron = await router.emit({ type: "trigger-cron.fired", data: {} });
+		const cron = await router.emit({ type: "trigger-cron.fired", from: "plugin:trigger-cron", data: {} });
 		await wasSubmitted;
 		expect(event.routes).toEqual([{ agent: "main", binding: "first", session: "42", wake: "write" }]);
 		expect(cron.routes).toEqual([{ agent: "main", binding: "cron", session: "43", wake: "run" }]);

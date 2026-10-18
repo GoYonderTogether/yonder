@@ -31,7 +31,7 @@ async function matches(binding: Binding, event: YEvent, agent: AgentConfig, stor
 	const data = event.data as { kind?: unknown; mentioned?: unknown; target?: unknown };
 	if (match.kind && (event.type !== "message.in" || !asArray(match.kind)!.includes(String(data.kind ?? "")))) return false;
 	if (match.from) {
-		if (!event.from) return false;
+		if (!event.from?.startsWith("acct:")) return false;
 		const expected = asArray(match.from)!;
 		const account = await store.identity().account(event.from);
 		const relation = !account?.person ? "stranger" : account.person === agent.owner ? "owner" : "known";
@@ -152,7 +152,7 @@ export function createRouter({ store, sessions, runtime, agents, prepareInput, o
 				continue;
 			}
 			const profile = binding.profile ?? agent.defaultProfile;
-			const person = event.from ? (await store.identity().account(event.from))?.person : undefined;
+			const person = event.from?.startsWith("acct:") ? (await store.identity().account(event.from))?.person : undefined;
 			const { mode, key } = sessionKey(binding, event, person);
 			const ensured = await sessions.ensureAgent(agent.id, profile, key, mode);
 			if (ensured.profileMismatch) {

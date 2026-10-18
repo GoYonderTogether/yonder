@@ -31,6 +31,14 @@
 
 ## 问题
 
+### 源码审查（2026-10-18）
+
+修复 plugin 来源被当成账号查身份及关系 match 的问题；与 T06 定向检查 2 文件、3 测试通过。尚有事件落库到提交之间的恢复缺口、完成去重归属、预设输入因果/附件/环境问题，见 R1–R7。会话与恢复跨模块方案尚未实施。
+
+完整证据、未完成项和设计问题见 [第一轮源码审查](review-first-pass.md)。本节不替代原定验收；任务保持原状态。
+
+### 第一轮原记录
+
 - 首次 build 曾被 T09 并行实现的 `packages/core/src/delivery/index.ts:94` 类型错误阻断：`Promise<Delivery | { ok: false; error: string }> | undefined` 不能赋给 `Promise<Delivery>`（`exactOptionalPropertyTypes`）。
 
 - 后续接线：T09 完成后核心构建通过；以上保留首次诊断，阻塞已解除。
