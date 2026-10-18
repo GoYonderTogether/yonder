@@ -1,6 +1,6 @@
 # T01 仓库骨架
 
-**依据**：`docs/tasks/README.md`（仓库布局一节）、`docs/spec/07-runtime.md:3-8`（§1）、`docs/spec/04-plugins.md:9-30`（§2 清单格式）
+**依据**：`docs/tasks/README.md`（仓库布局一节）、`docs/spec/07-runtime.md:5-11`（§1）、`docs/spec/04-plugins.md:9-30`（§2 清单格式）
 
 **路径**：根目录配置文件、`packages/*/`、`plugins/*/` 的空骨架。
 

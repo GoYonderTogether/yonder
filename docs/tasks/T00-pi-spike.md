@@ -33,3 +33,29 @@
 ## 问题
 
 （无）
+
+## 结果
+
+版本：`@earendil-works/pi-durable@1.3.0`、`pi-ai@1.3.0`、`chord@1.3.0`；Node 24.21（直接运行 `.ts`）。模型 `openai/gpt-6-luna`（ChatGPT 登录），另用 `deepseek/deepseek-flash` 验证按配置接入。脚本在 `spike/`，已删除。
+
+| # | 结论 | 用到的 API |
+|---|---|---|
+| 1 | 成立。ChatGPT 用内置 `openai` 供应商的 OAuth；把 `expires` 改成过去后自动刷新并写回文件，access 与 refresh 都被轮换。DeepSeek 用 `createProvider` + `envApiKeyAuth` + `openAICompletionsApi` 按配置接入 | `createModels({ credentials })`、`openaiProvider()`、`provider.auth.oauth.login(…, { getDeviceId })` |
+| 2 | 成立。同一文件、同一连接上 `pi_*` 表与 `y_probe` 共存，pi 提交后宿主行仍在 | `openNodeSqliteDatabase`、`SqliteStorage.open(db, { prefix: 'pi_' })` |
+| 3 | 成立。`tools=[read,bash]`、`modelTools=[read]` 时模型只看到 read，bash 仍可被工具调用；`instructions`、`cwd` 生效 | `createConversation({ agent })`、`conversation.agent()` |
+| 4 | 成立 | `defineDoc`、`init`、section 内 `input.read.snapshot(Doc, conversationId, ctx)` |
+| 5 | 成立。`write` 带 `model` 后，下一次运行模型能答出其中内容 | `submit({ type: 'write', entry: { kind, data, model } })` |
+| 6 | 成立。`steer` 并入当前运行、与它共享同一个回答；`followUp` 在之后单独回答。取值是 `followUp`（驼峰） | `whenBusy` |
+| 7 | 成立。`beforeTool` 的 `block` 原因原样到达模型；`abort()` 结束运行，输入为 `unanswered`/`aborted`。钩子没有直接结束运行的返回值，改用 `afterTool` 返回 `control.terminate`（验证：运行在第 3 次后停止，状态 `done`，最终文字为空）。两种手段都写进 07 §5 | `hook(ToolTask, { beforeTool, afterTool })`、`conversation.abort()` |
+| 8 | 成立 | `deferred: true`、`createToolSearchExtension()` |
+| 9 | 成立。发起方 `abort` 后子会话没有存活任务；工具响应 `context.abortSignal` 时中止耗时 11 ms，不响应时要等工具自己结束 | `tx.createConversation({ ownership: { kind: 'task', taskId } })`、`api.conversation()` |
+| 10 | 成立。把 luna 的 `contextWindow` 改为 9000 后自动产生 `pi.compaction`。**规范更正**：pi-durable 的 `compaction` 设置没有 `modelOverrides`，`modelOverrides` 属于 `models.json` 的供应商层，用来改模型的 `contextWindow` | settings `compaction`、`pi.compaction` 条目 |
+| 11 | 成立。`pi.usage` 按 `provider/model` 累计，运行前后取快照即得增量 | `harness.snapshot(UsageDoc, id)` |
+| 12 | 成立。有 `message_update`（文字增量）与 `tool_execution_start/end` | `watchEvents()` |
+| 13 | 成立。read/write/edit/bash 在指定 `cwd` 下工作 | `NodeExecutionEnv({ cwd })`、`createCodingTools()` |
+
+**写回规范**：`07-runtime.md` 按以上结论重写（存储共用连接、映射表的确切 API、运行上限的结束手段、模型组装规则、凭据与 ChatGPT 登录、`device-id`），不再有"由 T00 确定"。连带更新：测试模型名改为 `openai/gpt-6-luna`（AGENTS.md、decisions D9、tasks/README、T05、03、08）；08 的 home 目录加 `device-id`；T01/T04/T05/T11 的行号与说明；T04 增加 `runtime/db.ts`；decisions 新增 D11、D12。
+
+**偏离规范之处**：无。
+
+**凭据处理**：Yonder 用自己的凭据文件，单独登录 ChatGPT；只复制了 deepseek、siliconflow 两个 API key；没有读写 `~/.ai-being` 中三份配置以外的内容。

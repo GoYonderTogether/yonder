@@ -47,7 +47,7 @@ name: 小远
 owner: person:zoran
 defaultProfile: owner
 defaults:                         # 所有配置档的默认值，配置档可逐项覆盖
-  model: chatgpt/gpt-6-luna
+  model: openai/gpt-6-luna
   contexts: [agents-md, user-md]  # 上下文贡献 id，按顺序
   plugins: [context-files]        # 这个 agent 用哪些插件的工具与钩子
 profiles:

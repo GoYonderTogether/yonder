@@ -1,36 +1,42 @@
 # 07 运行时：与 pi 的对接
 
+> 本文每一项都已在 T00 用 `@earendil-works/pi-durable@1.3.0`、`pi-ai@1.3.0`、`chord@1.3.0` 和真实模型 `openai/gpt-6-luna` 验证。
+
 ## 1. 对接边界
 
-- 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`（及其要求的 `@earendil-works/chord`）。版本**锁定到精确版本**，升级单独成一个变更。
+- 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`、`@earendil-works/chord`。版本**锁定到精确版本**，升级单独成一个变更。
 - 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。
 - pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
 - 不使用 pi 的 coding-agent（CLI、界面、它的会话文件和配置格式）。
+- pi 的每个异步调用都带 chord 的 `Context`；取消看 `context.abortSignal`。工具与钩子**必须**响应它，否则中止要等工具自己结束。
 
 ## 2. 存储
 
-- 一个 home 一个 SQLite 文件：`<home>/.yonder/state.db`。pi-durable 的表用前缀 `pi_`，Yonder 的表用前缀 `y_`。
-- 若同一文件共享不可行（T00 验证），退回两个文件：`pi.db` 与 `yonder.db`，其余不变。
+- 一个 home 一个 SQLite 文件：`<home>/.yonder/state.db`，用 Node 内置 `node:sqlite`。
+- 打开方式：`openNodeSqliteDatabase(path)` 得到一个连接，pi 用 `SqliteStorage.open(db, { prefix: 'pi_' })`；Yonder 的 `y_` 表**用同一个连接对象**读写（它为所有操作排队）。**禁止**对同一文件再开第二个连接。runtime 目录向内核导出这个连接的 Yonder 接口（`exec / run / get / all / transaction`）。
 - 一个 home 同一时间只由一个 harness 进程打开（pi-durable 不做跨进程锁；Yonder 用 `<home>/.yonder/lock` 文件保证）。CLI 的其他命令通过本地控制接口（§8）与运行中的进程交互。
 
 ## 3. 映射
 
 | Yonder | pi-durable |
 |---|---|
-| 一个 home | 一个 `Harness` |
-| 会话 | 一个 conversation；Yonder 元数据存在 `y_sessions`，并在 conversation 的自定义文档 `yonder.session` 中存 `{ agent, profile }`，供提示词片段读取 |
+| 一个 home | 一个 `Harness`（`Harness.open(storage, { models, registry, settings, env, onReport })`） |
+| 会话 | 一个 conversation（`harness.createConversation({ ownership: { kind: 'ownerless' }, agent, init })`）；Yonder 元数据存在 `y_sessions`，并在 conversation 文档 `yonder.session`（`defineDoc`，`scope: 'conversation'`）中存 `{ agent, profile }`，由 `init` 在创建的同一次提交里写入 |
 | 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })` |
-| 框架段、`SYSTEM.md`、上下文贡献 | 扩展 `yonder.core` 的 sections，按 03 §5.1 的顺序 |
+| 框架段、`SYSTEM.md`、上下文贡献 | 扩展 `yonder.core` 的 `section`，按 03 §5.1 的顺序；section 用 `input.read.snapshot(SessionDoc, input.conversationId, ctx)` 读 `yonder.session` |
 | 插件工具 | 每个插件一个扩展 `plugin:<id>`，配置档选用的插件才进入 `extensions` |
-| 安全钩子、上限钩子 | 扩展 `yonder.core` 的 hooks，最先执行 |
+| 安全钩子、上限钩子 | 扩展 `yonder.core` 的 `hook(ToolTask, …)` 与 `hook(GenerationTask, …)`，`yonder.core` 最先安装 |
 | `wake: run` | `submit({ type: 'input', content, entry: { kind: 'yonder.message', data: { event } }, whenBusy })` |
-| `wake: write` | `submit({ type: 'write', entry: { kind: 'yonder.message', data, model: [用户消息] } })`，让模型之后能看到旁观到的消息；T00 验证 `model` 字段的写法 |
-| `task.run` | pi-durable 子会话模式：在工具的 `api.commit` 里创建由该工具任务拥有的 conversation |
-| 用量 | conversation 文档 `pi.usage`；`run.end` 记录本次运行的增量 |
+| `wake: write` | `submit({ type: 'write', entry: { kind: 'yonder.message', data: { event }, model: [{ role: 'user', content, timestamp }] } })`。下一次运行模型能看到；会话忙时排到下一个边界 |
+| `busy` | `followup` → `whenBusy: 'followUp'`；`steer` → `whenBusy: 'steer'`（插进当前工具轮之后，与本次运行同一个回答） |
+| `task.run` | 子会话：工具声明 `replay: 'safe'`，在 `api.commit` 里先按 `tx.scanConversations({ ownerTaskId: api.taskId }, 1)` 找已有子会话，否则 `tx.createConversation({ ownership: { kind: 'task', taskId: api.taskId } })`；输入带 `requestId: task:<taskId>`。发起方中止时子会话一并中止 |
+| 执行环境 | `HarnessOptions.env({ conversationId, cwd, read })`，按 `yonder.session` 找到配置档的 `env`，本机为 `new NodeExecutionEnv({ cwd })` |
+| 用量 | conversation 文档 `pi.usage`（`UsageDoc`，按 `provider/model` 累计）；运行前后各取一次 `harness.snapshot(UsageDoc, id)`，差值记入 `run.end` |
+| 流式 | `watchEvents(harness, conversationId, ctx)`：`message_update` 的 `changes` 含 `text_delta`，`tool_execution_start` / `tool_execution_end` 给出工具起止；内核据此生成 06 §3 的片段 |
 
 ## 4. 工具暴露
 
-- 配置档 `tools.offer` → `modelTools`（定义常驻）；`tools.search` → 在 `tools` 中但不在 `modelTools` 中，由 pi-durable 的 tool-search 按需加载。
+- 配置档 `tools.offer` → `modelTools`（定义常驻）；`tools.search` → 工具在 `tools` 中、定义带 `deferred: true`、不在 `modelTools` 中，并选用 pi-durable 的 `createToolSearchExtension()`；模型调用 `tool_search` 后由 pi 写入 `modelTools.add`。
 - 两者都先经过能力过滤（05 §3）。
 - 弱模型或语音场景用少量 `offer`；工具多的常驻 agent 用 `search`；编码场景以 `bash` 为主、命令用法写进上下文。三种方式都只是配置，内核不区分场景。
 
@@ -38,32 +44,34 @@
 
 运行上限内置在内核，因为"运行一定会结束"是框架的保证（架构不变量 7）。默认值宽松，按配置档可调；更细的防护（例如语义级的重复检测）写成钩子插件。
 
-| 上限 | 默认 | 触发后 |
+| 上限 | 默认 | 手段 |
 |---|---|---|
-| 每次运行的模型轮数 | 100 | 结束运行，`run.end.status = limit` |
-| 每次运行的墙钟时间 | 30 分钟 | 同上 |
-| 连续相同的工具调用（同名且参数相同） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | 同上 |
+| 每次运行的模型轮数 | 100 | `GenerationTask.afterResponse` 计数；达到上限后，本轮每个工具调用的 `ToolTask.afterTool` 返回原结果加 `control: { terminate: true }`，运行不再请求模型 |
+| 每次运行的墙钟时间 | 30 分钟 | 内核计时，到时调用 `conversation.abort()` |
+| 连续相同的工具调用（同名且参数相同） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | 第 3、4 次：`beforeTool` 返回 `{ block: 原因 }`；第 5 次：`afterTool` 加 `terminate` |
 
-- 结束运行时，若会话有 `origin`，向来源发一句说明停在了哪里，并记在 `run.end.data.reason`。
-- 上下文：使用 pi-durable 的自动压缩，`yonder.yaml` 的 `compaction` 原样传给 pi-durable 的 settings，含按模型的 `modelOverrides`。供应商报"上下文过长"时由 pi-durable 压缩后重试。不设人为的小上下文上限。
-- 单个工具结果过长时的截断使用 pi-durable 自带的截断。
-- 供应商重试使用 pi-durable 的 `retry` 设置。
-- 结束一次运行的具体手段（钩子返回值或 `conversation.abort()`）由 T00 确定后写回本节。
+- 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`；若会话有 `origin`，向来源发一句说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
+- 计数保存在内存里，按运行计；进程重启后重新计数。
+- 上下文：使用 pi-durable 的自动压缩。`yonder.yaml` 的 `compaction`（`enabled`、`reserveTokens`、`keepRecentTokens`、`backgroundTokens`）原样传给 settings。按模型的差异来自模型自己的 `contextWindow`（§6.1，内置模型用 `modelOverrides` 改）。供应商报"上下文过长"时由 pi-durable 压缩后重试一次。不设人为的小上下文上限。
+- 单个工具结果过长时的截断使用 pi-durable 自带的截断；供应商重试使用 settings 的 `retry`。
 
 ## 6. 模型、凭据与服务
 
 ### 6.1 模型
 
-`yonder.yaml` 的 `models.providers` **原样**采用 pi 的 `models.json` 结构（`baseUrl`、`api`、`models[]`、`compat`、`headers`、`authHeader`），由 pi-ai 的 `createProvider` 构建。pi-ai 内置的供应商也可直接引用。任何 OpenAI 兼容、Anthropic 兼容的端点都只靠配置接入，**禁止**为单个供应商写适配代码。
-
-模型引用写作 `provider/modelId`，例如 `chatgpt/gpt-6-luna`、`deepseek/deepseek-flash`。
+- 启动时注册 pi-ai 的全部内置供应商（`builtinProviders()`）。内置模型直接引用，例如 `openai/gpt-6-luna`。
+- `yonder.yaml` 的 `models.providers` **原样**采用 pi 的 `models.json` 结构（`baseUrl`、`api`、`headers`、`authHeader`、`compat`、`models[]`、`modelOverrides`），语义与 pi 相同：
+  - id 与内置供应商相同：在内置供应商上叠加——沿用它的鉴权（含 OAuth）与模型目录，`baseUrl`/`headers`/`compat` 覆盖，`models` 新增或替换同 id 模型，`modelOverrides` 按模型 id 改字段（例如 `contextWindow`）。
+  - 其他 id：新建供应商，`createProvider({ id, auth: { apiKey: envApiKeyAuth(id, []) }, models, api })`；`api` 按名字取 pi-ai 的 `api/<api>.lazy` 实现（一张"协议名 → 实现"表，按协议而非按厂商）；模型缺省的字段取 pi `models.json` 的默认值。
+- 任何 OpenAI 兼容、Anthropic 兼容的端点都只靠配置接入，**禁止**为单个供应商写适配代码。
+- 模型引用写作 `provider/modelId`。
 
 ### 6.2 凭据
 
-- 凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`。
-- 实现 pi-ai 的 `CredentialStore`：读、列、`modify`（串行化读改写，含跨进程文件锁）、删。若 pi 已有可复用的文件实现，按 MIT 复制并在 `THIRD_PARTY_NOTICES` 记录。
-- ChatGPT 订阅登录是唯一需要专门流程的情况，使用 pi-ai 自带的 OAuth 供应商；`yonder login <provider>` 调用 pi-ai 的 `login`。
-- 注意：OAuth 刷新会轮换 refresh token。与其他程序（例如 AI-Being）共用一份登录时，必须指向**同一个**凭据文件并使用同一套锁，或各自单独登录；不能各自复制一份。
+- 凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），键是供应商 id；路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`，权限 `0600`。密钥只放在这里，不写进 `yonder.yaml`。
+- 实现 pi-ai 的 `CredentialStore`（`read`、`list`、`modify`、`delete`），复制 pi coding-agent 的 `FileAuthStorageBackend`（`proper-lockfile` 文件锁，MIT）并在 `THIRD_PARTY_NOTICES` 记录。OAuth 刷新在 `modify` 里进行并写回文件。
+- ChatGPT 订阅：使用 pi-ai 内置 `openai` 供应商的 "Sign in with ChatGPT" OAuth。`yonder login <provider>` 调用 `provider.auth.oauth.login(interaction, { getDeviceId })`，`getDeviceId` 返回本 home 固定的 UUID（存于 `<home>/.yonder/device-id`，首次登录时生成）。
+- OAuth 刷新会轮换 refresh token（T00 已验证）。**禁止**复制其他程序的 OAuth 凭据；每个 Yonder home 单独登录。API key 可以复制。
 
 ### 6.3 非对话服务
 
@@ -85,7 +93,7 @@ services:
 
 ## 7. 模型能看到的工具结果
 
-pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message.send`、`task.run`、`session.*`、`identity.*`）的结果必须简短、结构化，失败时给出可执行的原因。
+pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message.send`、`task.run`、`session.*`、`identity.*`）的结果必须简短、结构化，失败时给出可执行的原因。被 `beforeTool` 拦下的调用，模型看到的是 `Tool call blocked: <原因>`。
 
 ## 8. 本地控制接口
 

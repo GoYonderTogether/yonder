@@ -12,6 +12,7 @@
   .yonder/              运行状态，不进版本库
     state.db            事件、会话、身份、pi-durable 存储
     auth.json           凭据（默认位置）
+    device-id           本 home 的固定 UUID，OAuth 登录用（07 §6.2）
     plugins/<id>/       插件私有数据
     lock  control.sock
 ```
@@ -79,7 +80,7 @@ name: 小远
 owner: person:zoran
 defaultProfile: guest
 defaults:
-  model: chatgpt/gpt-6-luna
+  model: openai/gpt-6-luna
   contexts: [agents-md, user-md]
   plugins: [context-files, qq]
 profiles:
