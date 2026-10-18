@@ -12,8 +12,8 @@
 - 🟢 [N03](N03-install-agents.md) 独立安装、阶段更新、常驻服务、Luna/Sol 与两个真实 agent 已验证｜Codex｜N02。
 - 🟢 [N04](N04-first-repair.md) Luna 首个自主修复已提交、整合、安装及真实转换复验｜Yonder，Codex 审查｜N03。
 - 🟡 [N05](N05-recovery.md) 持久输入、运行恢复和投递归属：原生关联核对｜Yonder，Codex 主持架构｜N04。
-- ⚪ [N06](N06-codex-tools.md) Computer Use 与 hosted search 本机连接｜Codex 连接，Yonder 插件实现｜N03；N00 可提前试通。
-- ⚪ [N07](N07-browser.md) BrowserSkill 默认插件与安装引导｜Yonder｜N03；引导可用系统打开 URL。
+- 🟡 [N06](N06-codex-tools.md) Computer Use 与 hosted search 本机连接｜Codex 连接，Yonder 插件实现｜N03；N00 可提前试通。
+- 🟡 [N07](N07-browser.md) BrowserSkill 默认插件与安装引导｜Yonder｜N03；引导可用系统打开 URL。
 - ⚪ [N08](N08-coding-web.md) grep/Bash、Tavily、Web Fetch｜Yonder｜N03；不依赖 hosted search 或浏览器。
 - ⚪ [N09](N09-sol-tests.md) Sol 接入、补测试与原契约缺陷修复｜Yonder｜N05、Sol 实际可用；不等 N06–N08。
 - ⚪ [N10](N10-github.md) issue→设计→commit→PR→Codex 合并｜Yonder｜N09。
@@ -43,3 +43,48 @@
 ## 任务记录格式
 
 每项已列负责人、依赖、规范、允许路径和验证入口。实现结束追加：变化、实际命令/结果、event/session/model/commit/PR、未完成项。原始失败和跳过计数不删除。
+
+## 2026-10-18 进度核查与 Sol 并行派工
+
+用户已批准开发使用 `openai/gpt-6.1-sol`。安装版 maintainer 默认模型已改为 Sol，保留 main 聊天 Luna；`config.reload` 事件 `01M57MDKP74RM6S54VWK3X4FSC` 确认校验成功。doctor ok；真实服务仍在独立安装目录运行，核查时版本 0.1.4、pid 11455。
+
+### 实际慢点（America/Caracas）
+
+- N04 两次只读方案分别约 115 秒、66 秒；第一次遗漏准确参考 checkout/依赖路径，Codex 补齐后继续。实现约 238 秒，已经产生真实修复 commit `13ea8d4` 并安装。
+- N04 安装版检查分别约 41 秒、53 秒；首次故障注入假设有误（pi 忽略 section 渲染异常），保留失败，第二次只重跑未通过场景，以必需配置解析失败验证真实 faulted。不是反复重做已通过功能。
+- N05 第一次只读核对 09:02:18–09:09:54，约 456 秒；关联检查任务 09:18:21–09:29:27，约 666 秒，真实 Luna 检查本身约 24 秒。任务阅读、生成/修正检查和编译占其余部分；不能把总耗时都归为模型调用。
+- N05 09:29 已完成后，Codex 未及时接续派工，至 09:47 核实前约 18 分钟没有新增开发产出。期间宿主探测不等于产品实现；该延迟归 Codex 调度。此前也未使用 N06/N07 的独立并行条件。
+- 同步 MCP 客户端曾因 HTTP headers 超时退出，但原生任务继续并完成；已通过事件/转录找回，没有重发。长任务现用 `events_emit` 接纳后查原生结果，不新造任务状态机。
+
+### 当前三个原生会话
+
+同一真实 maintainer 的三个独立持久会话，各自独立工作树，不是新建 Codex 子 agent。此次证明会话并行；不把它冒充 `task_run` 父子并行的完整验收。
+
+- **N05 / session 35 / Sol**：`zoran/yonder-maintainer`；MCP 输入 `01M57MHT1E7J7QJNH0KGFHHVJC`。交接 Luna 已通过证据，只补非成功无 answer 的恢复分组和 successor 快照边界；暂限检查与任务文档，待 Codex 审查最终改法。
+- **N06 / session 510 / Sol**：`zoran/yonder-codex-tools`；输入 `01M57MJ2Z1RA08GR92ASB5PWNH`。只负责 `plugins/codex-tools/` 与 N06 任务，复用已验证 app-server 桌面和受限 hosted search 连接，先完成具体方案供 Codex 审查。
+- **N07 / session 526 / Sol**：`zoran/yonder-browser`；输入 `01M57MJAK04VHDQDJZ1P0Q2T3P`。只负责 `plugins/browser-skill/` 与 N07 任务，复用 bsk 与上游适配，先完成具体方案供 Codex 审查。
+
+13:52:29Z 与 13:52:37Z 分别接纳 N06/N07；之后两会话转录均有实际工具结果且原生 entry ID 交错，确认并行运行。最终模型身份与检查结论仍以各自 run.end/转录为准。公共 workspace、锁文件、版权记录、阶段安装由 Codex 依次整合，运行中的服务不被开发会话更新。
+
+### 已测与未测
+
+N03 已验证独立安装/登录、真实 Luna/Sol 工具调用、服务重启后续聊、明确 abort、CLI 输入与流式回复。N04 已验证共享结果转换及真实 done/error/limit/aborted；N05 原生检查 1 test passed，但产品恢复链未完成。N06 宿主应用清单与 native hosted search 已成功；N07 宿主 doctor 8/8、Agent Window 导航/观察/释放已成功。这些宿主结果不计作 Yonder 插件完成。N08、N09 全量验收、GitHub、发布更新和飞书真实矩阵仍待实施。
+
+### 可用 CLI 与当前限制
+
+```sh
+export PATH="$HOME/.yonder-harness/bin:$PATH"
+export YONDER_HOME="$HOME/.local/share/yonder-harness/home"
+yonder version --json
+yonder service status --json
+yonder doctor --json
+yonder chat
+yonder sessions list --agent maintainer --open --json
+yonder sessions show 35 --json
+yonder sessions show 510 --json
+yonder sessions show 526 --json
+yonder events --type message.in --conv conv:control:maintainer-n06 --limit 20 --json
+yonder events --type run.end --from agent:maintainer --limit 100 --json
+```
+
+以上 PATH 只影响当前终端，不改用户 shell 配置。`sessions show` 返回会话及默认一页原生转录（最多 100 条），不是完整长历史；MCP `sessions_transcript` 支持 `from` 原生 entry ID/`limit` 分页。CLI `chat` 当前进入 main，不支持 `--agent` 或继续指定 session；维护输入使用 MCP conversation 绑定。无 CLI task status 或历史翻页命令，不虚构。显式 `yonder sessions abort <id> --json` 会真正中止该会话，不能用来查看进度。
