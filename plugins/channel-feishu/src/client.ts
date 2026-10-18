@@ -63,18 +63,26 @@ export class FeishuApi {
 		return Buffer.concat(buffers);
 	}
 	private async json(response: Response, operation: string): Promise<ObjectValue> {
-		if (!response.ok) {
-			await response.body?.cancel().catch(() => {});
+		let result: ObjectValue;
+		try {
+			result = object(JSON.parse((await this.bytes(response, 2 * 1024 * 1024)).toString("utf8")));
+		} catch (error) {
+			if (response.ok) throw error;
 			throw new FeishuRequestError(`Feishu ${operation}: HTTP ${response.status}`, response.status >= 500);
 		}
-		const result = object(JSON.parse((await this.bytes(response, 2 * 1024 * 1024)).toString("utf8")));
+		if (!response.ok && typeof result.code !== "number")
+			throw new FeishuRequestError(`Feishu ${operation}: HTTP ${response.status}`, response.status >= 500);
 		if (typeof result.code !== "number") throw new Error(`Feishu ${operation}: malformed response code`);
-		if (result.code !== 0) {
+		if (!response.ok || result.code !== 0) {
 			const violations = object(result.error).permission_violations;
 			const scopes = Array.isArray(violations) ? violations.map((v) => string(object(v).subject)).filter(Boolean) : [];
 			throw new FeishuRequestError(
-				`Feishu ${operation}: code=${String(result.code)}${scopes.length ? `; required permissions=${scopes.join(",")}` : ""}; check application scopes, publication and tenant access`,
-				false,
+				this.safe(
+					new Error(
+						`Feishu ${operation}: ${response.ok ? "" : `HTTP ${response.status}; `}code=${String(result.code)}${scopes.length ? `; required permissions=${scopes.join(",")}` : ""}${result.code !== 0 ? "; check application scopes, publication and tenant access" : ""}`,
+					),
+				),
+				!response.ok && response.status >= 500,
 			);
 		}
 		return result;

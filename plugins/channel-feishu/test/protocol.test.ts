@@ -33,6 +33,113 @@ describe("Feishu protocol receipts (no network or model)", () => {
 			await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({ uncertain: true });
 		}
 	});
+	it("preserves HTTP, native code and explicit permission subjects on non-2xx platform errors", async () => {
+		const client = new FeishuApi(config, api());
+		const raw = vi.spyOn(client, "raw");
+		for (const status of [400, 403, 503]) {
+			raw.mockResolvedValueOnce(
+				Response.json(
+					{
+						code: 99991672,
+						msg: "Access denied",
+						error: {
+							permission_violations: [
+								{ type: "action", subject: "im:chat.members:read" },
+								{ type: "action", subject: "im:chat:readonly" },
+							],
+						},
+					},
+					{ status },
+				),
+			);
+			await expect(
+				client.request("/im/v1/chats/chat/members?member_id_type=open_id", "POST", {}),
+			).rejects.toMatchObject({
+				message: `Feishu /im/v1/chats/chat/members: HTTP ${status}; code=99991672; required permissions=im:chat.members:read,im:chat:readonly; check application scopes, publication and tenant access`,
+				uncertain: status >= 500,
+			});
+		}
+		expect(raw).toHaveBeenCalledTimes(3);
+		raw.mockResolvedValueOnce(Response.json({ code: 0, data: { items: [] } }));
+		await expect(client.request("/im/v1/messages")).resolves.toEqual({ code: 0, data: { items: [] } });
+		expect(raw).toHaveBeenCalledTimes(4);
+	});
+	it("retains HTTP diagnostics without trusting malformed or success-shaped error bodies", async () => {
+		const client = new FeishuApi(config, api());
+		const raw = vi.spyOn(client, "raw");
+		for (const status of [400, 503]) {
+			for (const body of ["", "<html>gateway error</html>", "null", '{"code":"99991672"}', '{"data":{}}']) {
+				raw.mockResolvedValueOnce(new Response(body, { status }));
+				await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+					message: `Feishu /im/v1/messages: HTTP ${status}`,
+					uncertain: status >= 500,
+				});
+			}
+		}
+		raw.mockResolvedValueOnce(Response.json({ code: 0 }, { status: 400 }));
+		await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+			message: "Feishu /im/v1/messages: HTTP 400; code=0",
+			uncertain: false,
+		});
+		expect(raw).toHaveBeenCalledTimes(11);
+	});
+	it("bounds non-2xx reads and retains HTTP when the body cannot be read", async () => {
+		const client = new FeishuApi(config, api());
+		for (const status of [400, 503]) {
+			const cancel = vi.fn();
+			const body = new ReadableStream<Uint8Array>({
+				start(controller) {
+					controller.enqueue(new Uint8Array(2 * 1024 * 1024 + 1));
+				},
+				cancel,
+			});
+			vi.spyOn(client, "raw").mockResolvedValueOnce(new Response(body, { status }));
+			await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+				message: `Feishu /im/v1/messages: HTTP ${status}`,
+				uncertain: status >= 500,
+			});
+			expect(cancel).toHaveBeenCalledTimes(1);
+			const broken = new ReadableStream<Uint8Array>({
+				start(controller) {
+					controller.error(new Error("untrusted body failure"));
+				},
+			});
+			vi.spyOn(client, "raw").mockResolvedValueOnce(new Response(broken, { status }));
+			await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+				message: `Feishu /im/v1/messages: HTTP ${status}`,
+				uncertain: status >= 500,
+			});
+		}
+	});
+	it("redacts credentials from permission subjects and never includes raw platform objects", async () => {
+		const base = api();
+		base.credentials = { get: vi.fn(async () => ({ type: "api_key" as const, key: "protocol-secret" })) };
+		const client = new FeishuApi(config, base);
+		const fetch = vi
+			.spyOn(globalThis, "fetch")
+			.mockResolvedValueOnce(Response.json({ code: 0, tenant_access_token: "protocol-token", expire: 7200 }))
+			.mockResolvedValueOnce(
+				Response.json(
+					{
+						code: 99991672,
+						msg: "protocol-secret protocol-token untrusted-message",
+						request: { app_secret: "protocol-secret" },
+						error: { permission_violations: [{ subject: "im:message protocol-secret protocol-token" }] },
+					},
+					{ status: 400 },
+				),
+			);
+		try {
+			await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+				message:
+					"Feishu /im/v1/messages: HTTP 400; code=99991672; required permissions=im:message [redacted] [redacted]; check application scopes, publication and tenant access",
+				uncertain: false,
+			});
+			expect(fetch).toHaveBeenCalledTimes(2);
+		} finally {
+			fetch.mockRestore();
+		}
+	});
 	it("keeps uncertainty and the last confirmed native message id", async () => {
 		const channel = new FeishuChannel("test", { ...config, textChunkBytes: 256 }, api());
 		vi.spyOn(channel, "rawSend")
