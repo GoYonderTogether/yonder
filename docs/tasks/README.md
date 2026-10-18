@@ -83,7 +83,7 @@ plugins/
 
 **2026-10-18 审查补充**：主 agent 已亲自对照全部规范阅读生产源码与测试，修复了局部实现问题，未改冻结设计。完整的已修复项、尚未修复项、架构与插件清单、设计缺口、原始验证结果见 [第一轮源码审查](review-first-pass.md)。以下保留的是第一轮交接时的历史状态；离线 ENOENT 和单次工具流式缺口现已修复。T12 仍待做，不据此放行日用安装。
 
-用户追加的全部要求已合并为 [下一阶段实施计划（待审核）](next-mcp-self-maintenance.md) 与 [N00–N14 任务](next/README.md)。功能仅写在新阶段 [10](../spec/10-local-maintenance.md)、[11](../spec/11-official-plugins.md) 草案，审核后冻结；覆盖真实安装、自维护、MCP、BrowserSkill、Computer Use、grep/Bash、hosted search/Tavily、GitHub 发布更新与飞书。当前未启动新增插件开发，原 T12 状态与验收继续保留。
+用户追加的全部要求已合并为 [下一阶段实施计划](next-mcp-self-maintenance.md) 与 [N00–N14 任务](next/README.md)，并于 2026-10-18 授权补齐审核缺口后启动。本轮功能写在 [10](../spec/10-local-maintenance.md)、[11](../spec/11-official-plugins.md)，由 N00 统一受影响旧条款并记录冻结 commit；覆盖真实安装、自维护、MCP、BrowserSkill、Computer Use、grep/Bash、hosted search/Tavily、GitHub 发布更新与飞书。此授权允许按依赖连续实施，原 T12 状态、失败与验收继续保留；新增插件尚未据此宣称实现。
 
 - T02–T14 实现轮已结束；T12 保持待做，等待用户审核后再启动第二轮。全部包 build/typecheck 通过；未执行全量测试与全仓 lint。工序 0 之后冻结设计文档无变化。
 - 真实最小闭环：CLI 初始化与启动 → 默认 openai/gpt-6-luna → bash/pwd → 回复 CLI → 在线会话/事件查询 → 停止；记录见 [T11](T11-cli.md)。开发 home 保留在被忽略的 `.yonder/home`。

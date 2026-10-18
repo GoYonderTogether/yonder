@@ -1,10 +1,10 @@
 # N08 grep、Bash、Tavily 与 Web Fetch
 
-**状态**：待审核，尚未实现。
+**状态**：已批准，待实施；先完成 N00 对齐与冻结。
 
 **负责人**：Yonder maintainer；Codex 审查核心适配。
 
-**依赖**：N07。
+**依赖**：N03。不依赖 BrowserSkill、Computer Use 或 hosted search。
 
 **功能依据**：11 §5；原 05/07 的文件与工具约束。完整条款见 [10](../../spec/10-local-maintenance.md)、[11](../../spec/11-official-plugins.md)，本任务不定义新功能。
 
@@ -19,11 +19,11 @@
 
 ## 实现安排
 
-复用 pi Bash，增加真正只读 grep，移植 Web 工具并接通 Tavily Search/Extract；Codex hosted search 沿用 N06。
+复用 pi Bash，增加真正只读 grep，移植 Web 工具并接通 Tavily Search/Extract；按 10 §2.1 安装后由 Yonder 调用。hosted search 独立归 N06，当前任务不等待它。
 
 ## 验证与交付
 
-实际文件检索与路径边界、Bash 取消/退出码/输出；真实 Tavily 搜索和 Extract、文章读取/登录提示；与 hosted search 分别记录。
+实际文件检索与路径边界、Bash 取消/退出码/输出；真实 Tavily 搜索和 Extract、文章读取/登录提示。保留安装版调用证据，hosted search 的结果引用 N06，不作为本任务通过条件。
 
 记录实际命令、event/session/model、commit/PR 与失败/跳过；Yonder 和 Codex 的贡献分开归属。
 

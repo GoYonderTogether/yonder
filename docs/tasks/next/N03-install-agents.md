@@ -1,6 +1,6 @@
 # N03 独立安装与两个常驻 agent
 
-**状态**：待审核，尚未实现。
+**状态**：已批准，待实施；先完成 N00 对齐与冻结。
 
 **负责人**：Codex。
 
@@ -20,11 +20,13 @@
 
 ## 实现安排
 
-从已审核材料实际安装，建立 maintainer/operator 与源码任务工作树绑定；配置、登录、服务启动后经 MCP 使用安装版。
+按 10 §2.1 从已审核本地标签实际安装，建立 maintainer/operator 与源码任务工作树绑定，保留默认 main 的用户交互入口；配置、独立登录、服务启动后经 MCP 使用安装版。完成一次由服务外部发起的阶段更新，后续由 Codex 复用此流程直到 N11 operator 接手。
+
+使用本项目凭据验证 Luna 和用户指定 Sol 的实际 provider/model ID，Sol 结果写回 N09；缺模型或授权不冒充成功，也不阻塞可独立完成的 Luna 场景。
 
 ## 验证与交付
 
-记录 executable realpath/version/commit/home/pid；独立于开发 cwd 启动，真实 Luna 调工具并返回；服务停止/启动后继续会话。
+记录 executable realpath/version/commit/home/pid；独立于开发 cwd 启动，真实 Luna 调工具并返回，默认 main 可供用户交互；服务停止/启动后继续会话。对两个不同已审核本地版本验证切换后 MCP 调用来自目标安装版，同版本不更新如实记录；重启前没有仍在执行的维护任务。
 
 记录实际命令、event/session/model、commit/PR 与失败/跳过；Yonder 和 Codex 的贡献分开归属。
 

@@ -1,6 +1,6 @@
 # 11 官方插件与常规工具
 
-**状态：待审核，批准后与 10 一起冻结。** 此处固定功能；具体顺序、文件和执行者仅写任务计划。
+**状态：2026-10-18 用户已授权补齐方案并启动实施。** 与 10 一起由 N00 对齐旧规范并记录冻结 commit。此处固定功能；具体顺序、文件和执行者仅写任务计划。
 
 ## 1. 插件归属与内核边界
 
@@ -26,7 +26,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 
 ## 3. 本机 Codex 工具与 Computer Use
 
-一个 `codex-tools` 插件承接同一 Codex app-server 的本机连接，用于 Computer Use 与 hosted web search，避免为两项能力各复制一套 app-server 客户端。它不替代 Yonder 的 pi 模型循环。
+一个 `codex-tools` 插件优先复用同一 Codex app-server 的本机连接，用于 Computer Use 与 hosted web search；桌面采用下述替代后端时只接一种桌面实现。它不替代 Yonder 的 pi 模型循环。功能及后端选择规则先冻结，实际后端须有可调用证据后才能记为选定。
 
 ### 3.1 桌面能力
 
@@ -43,6 +43,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 使用有界搜索任务，限制其用途为搜索；结果包含实际来源链接、所用模型和可确认的 native webSearch 调用。不能只返回一段无搜索记录的模型回答。
 - 无登录、权限或可用工具时报告具体未就绪；Tavily 是同轮明确支持的另一搜索入口，不把失败悄悄变成另一个供应商的成功。
 - hosted search 的账号访问需要真实测试；不能因为 pi 能使用某个 OpenAI 模型，就推断它也能直接调用 hosted web_search。
+- 保留 hosted search 的接通目标并尽早试通。无登录、权限或接口不可用时，该能力单独记阻塞，继续 BrowserSkill、Tavily、测试和渠道等独立工作；不得以 Tavily 成功代记 hosted search 通过。若实际不可行，带证据提交范围决定，不由实现者删除目标或宣称整轮完成。
 - 验收：Yonder 发起一次当前信息搜索并取得 native 搜索记录及可打开来源；对照 Tavily 的真实结果分别记证据。
 
 ## 4. BrowserSkill 默认浏览器能力

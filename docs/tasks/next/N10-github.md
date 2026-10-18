@@ -1,6 +1,6 @@
 # N10 GitHub issue 到 PR 与 Codex 合并
 
-**状态**：待审核，尚未实现。
+**状态**：已批准，待实施；先完成 N00 对齐与冻结。
 
 **负责人**：Yonder maintainer 开发；Codex 授权接线、发 issue、审查合并。
 
@@ -19,7 +19,7 @@
 
 ## 实现安排
 
-Yonder 开发 GitHub 插件，经用户浏览器授权后接真实 issue；完成一项真实维修和 PR，Codex 亲自审核后合并。
+Yonder 开发 GitHub 插件，经用户浏览器授权，按 10 §2.1 安装启用后接真实 issue；完成一项真实维修和 PR，Codex 亲自审核后合并。浏览器授权可用 gh/系统打开 URL，不依赖 N06/N07。
 
 ## 验证与交付
 

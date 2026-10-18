@@ -1,6 +1,6 @@
 # N04 Luna 首个真实自主修复
 
-**状态**：待审核，尚未实现。
+**状态**：已批准，待实施；先完成 N00 对齐与冻结。
 
 **负责人**：Yonder maintainer（Luna）；Codex 下发与审查。
 
@@ -19,11 +19,11 @@
 
 ## 实现安排
 
-经 MCP 下发一个明确任务，Yonder 自己读相关源码、比较参考模块、形成方案并完成修改和 commit；Codex 审查归因与结果。
+经 MCP 下发一个明确任务，Yonder 自己读相关源码、比较参考模块、形成方案并完成修改和 commit；Codex 审查归因与结果，再按 10 §2.1 安装修复版，供后续任务使用。
 
 ## 验证与交付
 
-保留输入事件、会话、模型、工具转录和 commit；检查 error/aborted/limit 的真实映射及原因，不把 Codex 代写算作自主实现。
+保留输入事件、会话、模型、工具转录和 commit；检查 error/aborted/limit 的真实映射及原因，安装后经 MCP 复核对应行为与版本。不把 Codex 代写或仅源码检查算作安装版自主修复完成。
 
 记录实际命令、event/session/model、commit/PR 与失败/跳过；Yonder 和 Codex 的贡献分开归属。
 
