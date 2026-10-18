@@ -16,7 +16,7 @@
 	"scripts": {
 		"build": "tsc -b",
 		"typecheck": "tsc -b --noEmit",
-		"test": "vitest run --passWithNoTests",
+		"test": "vitest run --exclude '**/dist/**'",
 		"lint": "biome check ."
 	},
 	"devDependencies": {
