@@ -11,7 +11,8 @@
 		"packages/core",
 		"packages/cli",
 		"plugins/channel-cli",
-		"plugins/context-files"
+		"plugins/context-files",
+		"plugins/channel-mcp"
 	],
 	"scripts": {
 		"postinstall": "node scripts/apply-pi-patch.mjs",

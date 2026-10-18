@@ -8,8 +8,8 @@
 
 - 🟢 [N00](N00-contracts.md) 设计锁定与旧规范对齐｜Codex｜无依赖。
 - 🟢 [N01](N01-runtime-foundation.md) 基础边界已实现并检查；恢复/输入组合缺口挂 N05/N09｜Codex｜N00。
-- 🟡 [N02](N02-mcp.md) MCP 控制插件｜Codex｜N01。
-- ⚪ [N03](N03-install-agents.md) 独立安装、常驻服务、两个真实 agent｜Codex｜N02。
+- 🟢 [N02](N02-mcp.md) MCP 已实现，开发版真实 Luna 检查通过，安装版复验挂 N03｜Codex｜N01。
+- 🟡 [N03](N03-install-agents.md) 独立安装、常驻服务、两个真实 agent｜Codex｜N02。
 - ⚪ [N04](N04-first-repair.md) Luna 完成首个真实修复｜Yonder，Codex 审查｜N03。
 - ⚪ [N05](N05-recovery.md) 持久输入、运行恢复和投递归属｜Yonder，Codex 主持架构｜N04。
 - ⚪ [N06](N06-codex-tools.md) Computer Use 与 hosted search 本机连接｜Codex 连接，Yonder 插件实现｜N03；N00 可提前试通。

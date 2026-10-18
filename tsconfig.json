@@ -5,6 +5,7 @@
 		{ "path": "packages/core" },
 		{ "path": "packages/cli" },
 		{ "path": "plugins/channel-cli" },
-		{ "path": "plugins/context-files" }
+		{ "path": "plugins/context-files" },
+		{ "path": "plugins/channel-mcp" }
 	]
 }
