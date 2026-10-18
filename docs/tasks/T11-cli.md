@@ -31,3 +31,7 @@
 - 实际检查：CLI/core 构建通过；最小控制 socket 测试 1 项通过；只读 SQLite 转录测试 1 项通过；init/doctor/open/close/offline 最小检查首次失败 1 项（长路径），第二次失败 1 项（沙箱），获准监听后 1 项通过；非法参数退出码 2。未执行全量测试。
 - 真实模型：开发 home `.yonder/home` 初始化、doctor、start、chat 已运行；会话 2 使用 `openai/gpt-6-luna`，实际调用 bash/pwd，回复当前目录；run.end.status=done、replied=source。CLI 在线查到转录和事件，随后 Ctrl-D 与 stop 正常退出。保留开发 home 与真实对话供审核。
 - 凭据通过 yonder.yaml 的 credentials 引用本项目已授权的 `.yonder/auth.json`；未复制凭据。首次 OAuth 登录和完整 T11 验收留第二轮。
+
+### 用户追加：产品身份
+
+- OAuth 登录的 `agentName` 已统一为 `Yonder Harness`。已核对 pi-ai 1.3.0 将其传为 `agent_name_hint`；未改 OAuth client ID、scope、回调协议或第三方源码。授权页最终显示由服务端决定，本轮未重新登录核验。底层 pi 包名、持久化标识、许可证与技术来源保留真实名称。

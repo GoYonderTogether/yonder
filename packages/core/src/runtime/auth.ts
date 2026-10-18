@@ -16,7 +16,7 @@ export async function loginWithType(
 	interaction: LoginInteraction,
 ): Promise<void> {
 	await models.login(provider, type, interaction, {
-		agentName: "Yonder",
+		agentName: "Yonder Harness",
 		getDeviceId: () => {
 			const file = resolve(home, ".yonder/device-id");
 			if (existsSync(file)) return readFileSync(file, "utf8").trim();

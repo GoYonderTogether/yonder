@@ -17,4 +17,5 @@
 - npm workspace、TypeScript 工具链和 SDK/core/CLI/两个插件的包骨架。
 
 ### Changed
+- 登录请求中的产品名称提示统一为 Yonder Harness；保留底层依赖与版权的准确名称。
 - 0.1 接口补齐默认配置、定向 agent 调用、渠道投递与安装服务约定；按两轮计划先实现、后完整验收。
