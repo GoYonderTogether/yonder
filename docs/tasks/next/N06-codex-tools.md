@@ -1,6 +1,6 @@
 # N06 Computer Use 与 hosted search 连接
 
-**状态**：已批准，待实施；先完成 N00 对齐与冻结。
+**状态**：Codex 已验证官方 app-server 的桌面 MCP 发现与实际应用清单读取；Yonder 适配待 N03 独立登录完成。
 
 **负责人**：Codex 核实本机连接；Yonder maintainer 实现适配。
 
@@ -33,6 +33,13 @@ Yonder 读取获准桌面应用并完成可逆动作；一条真实 hosted searc
 ## 结果
 
 尚未开始。
+
+### 本机原生连接探测（2026-10-18，Codex 执行）
+
+- 使用当前 codex-cli 0.160.1 的官方 generate-json-schema 核对协议；独立 app-server initialize → ephemeral thread/start → mcpServerStatus/list(detail:full)，发现 cua_repl.js/js_reset。没有复制专有程序、OAuth 或修改全局 Codex 配置。
+- 同一连接调用 mcpServer/tool/call(server:cua_repl, tool:js, code:await cua.getState())，isError:false，返回真实本机应用清单。可调用后端为既有官方 CUA；未开发备用桌面驱动。证据 /tmp/yonder-n06-appserver.json、/tmp/yonder-n06-cua-call.json。线程 01a14ef4-a62a-7421-8e4e-206c53b3dab3；只读调用，没有模型请求。
+- 原生 getState 的应用清单成功，浏览器部分报告 Missing required Codex turn metadata: session_id, turn_id。这不是浏览器已接通的证明；默认浏览器仍由 N07 的 BrowserSkill 完成。Yonder 的实际应用读取、截图与可逆动作尚未执行。
+- 对未产生 rollout 的 ephemeral 线程执行 thread/archive 返回 no rollout found；关闭了本次 app-server 子进程，没有残留常驻探测进程。实现时直接释放这种临时连接，不把 archive 错误伪装成功。
 
 
 ### N00 前置探测（2026-10-18）
