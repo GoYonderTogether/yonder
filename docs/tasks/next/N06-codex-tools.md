@@ -117,3 +117,10 @@ Yonder 读取获准桌面应用并完成可逆动作；一条真实 hosted searc
 - 宿主 cua.getState 成功返回实际应用/浏览器清单，没有前台交互；尚未通过 Yonder/插件调用。
 - 现有 Codex 登录下，codex --search exec --json --ephemeral --sandbox read-only --model gpt-6-luna 实际完成一次 native web_search，结果返回公开官方文档 URL；临时证据 /tmp/yonder-hosted-search-probe.jsonl。进程退出码 0，伴随既有 chronicle/SessionEnd 配置警告，不是搜索失败。
 - 两项仅证明已有宿主入口可调用；安装版 Yonder 的真实接线和授权边界仍属 N06。
+
+### C2 接收补齐（2026-10-18，Codex Sol）
+
+- 复用原 Yonder 提交 e067930，保留其测试文件及全部历史证据，本轮未运行或新增测试。
+- 完整阅读 app-server 传输、CUA 图片转换、运行生命周期及 hosted search 调用链；补明确状态分类、空 JS 拒绝及 native 来源 HTTP(S) 校验/去重。保持单一官方桌面后端，不读取 OAuth。
+- 图片通过 SDK images 原字段传递；取消搜索走原生 interrupt，桌面未知副作用不自动重放；run.end/stop 释放本轮拥有的连接。
+- 状态：实现未验收。本轮没有模型、桌面、搜索或授权真实调用。原 Yonder 提交及其原检查记录保留，不冒充本轮验证。根 workspace/lock/project references 交主 agent 接线。

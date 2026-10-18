@@ -4,10 +4,18 @@ import { AppServer } from "./app-server.js";
 import { computerCall, computerStatus, desktopThread } from "./computer-use.js";
 import { hostedSearch } from "./search.js";
 
+function failureState(error: unknown): string {
+ const message = error instanceof Error ? error.message : String(error);
+ if (/Program missing|ENOENT/i.test(message)) return "program-missing";
+ if (/Accessibility|Screen Recording|permission denied|not authorized/i.test(message)) return "permission-not-authorized";
+ if (/login|unauthorized|authentication|401/i.test(message)) return "login-required";
+ if (/MCP unavailable|installation\/service|app-server exited|stdout closed/i.test(message)) return "service-unavailable";
+ return "call-failed";
+}
 const empty = Type.Object({}, { additionalProperties: false });
 const js = Type.Object(
 	{
-		code: Type.String(),
+		code: Type.String({ minLength: 1 }),
 		title: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
 		timeout_ms: Type.Optional(Type.Integer({ minimum: 1, maximum: 2_147_478_647 })),
 	},
@@ -87,7 +95,7 @@ export default definePlugin({
 				}
 				return {
 					isError: true,
-					text: `Codex app-server: ${error instanceof Error ? error.message : String(error)}. Connection released; CUA actions may already have taken effect. Do not replay: read fresh state before acting. If the native error reports Accessibility/Screen Recording denial, grant the requested permission in macOS System Settings and read state again; no alternate driver is used.${cleanup}`,
+					text: `Codex app-server [${signal.aborted ? "cancelled" : failureState(error)}]: ${error instanceof Error ? error.message : String(error)}. Connection released; CUA actions may already have taken effect. Do not replay: read fresh state before acting. If the native error reports Accessibility/Screen Recording denial, grant the requested permission in macOS System Settings and read state again; no alternate driver is used.${cleanup}`,
 				};
 			} finally {
 				clearTimeout(timer);
