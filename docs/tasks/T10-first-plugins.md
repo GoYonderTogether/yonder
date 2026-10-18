@@ -1,6 +1,6 @@
 # T10 channel-cli 与 context-files
 
-**依据**：`docs/spec/04-plugins.md:36-76`（渠道与上下文贡献）、`docs/spec/03-agents.md:29-40`、`docs/spec/06-delivery.md:26-39`
+**依据**：`docs/spec/04-plugins.md:37-106`（渠道与上下文贡献）、`docs/spec/03-agents.md:29-40`、`docs/spec/06-delivery.md:26-39`
 
 **路径**：`plugins/channel-cli/`、`plugins/context-files/`
 

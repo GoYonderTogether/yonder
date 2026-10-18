@@ -1,6 +1,6 @@
 # T11 CLI 与本地控制接口
 
-**依据**：`docs/spec/07-runtime.md:13-17`、`98-100`（锁与控制接口）、`docs/spec/08-config.md:1-18`、`docs/spec/02-sessions.md:135-151`
+**依据**：`docs/spec/07-runtime.md:13-17`、`104-106`（锁与控制接口）、`docs/spec/08-config.md:1-19`、`docs/spec/02-sessions.md:133-184`
 
 **路径**：`packages/cli/`、`packages/core/src/control/`
 

@@ -22,7 +22,7 @@
 | `main` | `main` | 不自动关闭 | 每个 agent 唯一。主人从 CLI、飞书、QQ 来的消息都进这一个，跨渠道连续 |
 | `persistent` | 由 `per` 决定（§2.2） | 不自动关闭 | 每个群一个、每个好友一个、每个陌生人一个 |
 | `ephemeral` | 入站事件 id | 运行结束后关闭 | 每封邮件、每次语音通话、每个互不相关的请求 |
-| `task` | 发起方的工具调用 id | 运行结束后关闭 | 由 `task.run` 或外部调用用预设开出的临时会话（03 §4） |
+| `task` | 发起方的工具调用 id | 运行结束后关闭 | 由 `task_run` 或外部调用用预设开出的临时会话（03 §4） |
 
 连贯记忆不靠会话：临时会话每次是干净的上下文，跨次的连贯由上下文插件按引用（例如发送者的 `person:`）召回。
 
@@ -108,7 +108,7 @@ interface Route {
 | `y_accounts` | `ref`(主键), `person`, `name`, `firstSeen`, `lastSeen` | 内核在每个入站事件上自动登记发送者账号与显示名 |
 | `y_persons` | `id`, `name`, `note` | 由人或有 `admin` 能力的 agent 创建 |
 
-账号到人的关联只能显式建立（CLI 或工具 `identity.link`），内核不猜。每次关联或解除都写一条 `identity.link` 事件。
+账号到人的关联只能显式建立（CLI 或工具 `identity_link`），内核不猜。每次关联或解除都写一条 `identity.link` 事件。
 
 ### 4.2 相对 agent 的关系
 
@@ -122,19 +122,38 @@ agent 在 `agent.yaml` 里声明 `owner: person:<id>`。对某个 agent 而言�
 
 ### 4.3 能查到什么
 
-内核工具 `identity.lookup(ref)` 返回：
+内核工具 `identity_lookup` 返回（类型见 §4.4 的 `Lookup`）：
 
 - 这个账号或人：关联的所有账号、显示名；
 - 出现过的会话（来自事件表的 `from`/`conv` 组合，例如在哪几个群发过言）；
 - 和哪些 agent 有过会话（来自 `y_sessions` 与 `routes`）。
 
-返回其他 agent 的信息需要调用者具备 `cross-agent` 能力（05 §1）。读取另一个 agent 的会话内容用 `session.read`，同样需要该能力。
+返回其他 agent 的信息需要调用者具备 `cross-agent` 能力（05 §1）。工具调用时，没有该能力的调用者只能看到自己这个 agent 的那部分。读取另一个 agent 的会话内容用 `session_read`，同样需要该能力。插件经 `api.identity` 调用时不受此限（插件由主人安装，可信）。
+
+### 4.4 接口
+
+供 CLI、插件（`api.identity`）与内置工具使用。人一律用引用 `person:<id>` 表示。
+
+```ts
+interface IdentityAPI {
+  account(ref: Ref): Promise<AccountInfo | undefined>;
+  person(ref: Ref): Promise<PersonInfo | undefined>;
+  createPerson(p: { id: string; name: string; note?: string }): Promise<PersonInfo>;
+  link(account: Ref, person: Ref): Promise<void>;        // 写 identity.link 事件，linked: true
+  unlink(account: Ref): Promise<void>;                   // 写 identity.link 事件，linked: false
+  relation(agent: string, account: Ref): Promise<'owner' | 'known' | 'stranger'>;   // §4.2
+  lookup(ref: Ref): Promise<Lookup>;                     // §4.3；ref 是 acct: 或 person:
+}
+interface AccountInfo { ref: Ref; person?: Ref; name?: string; firstSeen: string; lastSeen: string }
+interface PersonInfo { ref: Ref; name: string; note?: string; accounts: Ref[] }
+interface Lookup { accounts: AccountInfo[]; convs: Ref[]; agents: string[] }
+```
 
 〔0.1 不实现〕记忆插件。约束：记忆插件存储的每条记忆必须带一个或多个引用（`person:`、`acct:`、`conv:`、`agent:`），这样任何 agent 都能按人、按群、按 agent 查到并串起来。
 
 ## 5. 会话接口
 
-同一套接口供三方使用：CLI、插件（`api.sessions`）、工具（`session.*`）。外部渠道（例如 MCP 服务端插件）也通过插件接口使用它，从而可选地把会话管理开放给外界。
+同一套接口供三方使用：CLI、插件（`api.sessions`）、工具（`session_*`）。外部渠道（例如 MCP 服务端插件）也通过插件接口使用它，从而可选地把会话管理开放给外界。
 
 ```ts
 interface SessionsAPI {
@@ -145,6 +164,20 @@ interface SessionsAPI {
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
+}
+type Mode = 'main' | 'persistent' | 'ephemeral' | 'task';
+interface SessionInfo {                // y_sessions 的一行（§1）
+  id: string; agent: string | null; profile: string; mode: Mode; key: string;
+  origin?: Ref; parent?: string; opened: string; closed?: string;
+}
+interface Input { text: string; attachments?: Attachment[] }
+interface RunResult { session: string; status: 'done' | 'error' | 'aborted' | 'limit'; text: string; reason?: string }
+interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升序；from 是起始条目 id
+  id: number;
+  kind: string;                        // pi 条目类型，如 yonder.message、pi.assistant、pi.tool-result、pi.compaction
+  text: string;                        // 模型可见的文字
+  tools?: Array<{ name: string; args: object }>;   // assistant 条目里的工具调用
+  event?: string;                      // yonder.message 条目对应的事件 id
 }
 ```
 

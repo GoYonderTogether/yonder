@@ -18,6 +18,7 @@ interface YEvent {
 ```
 
 顶层字段只有这些。新增顶层字段属于不兼容变更（§5）。
+插件写入事件时交给内核的是 `EventInput = Pick<YEvent, 'type' | 'parent' | 'from' | 'conv' | 'data'>`，`id`、`ts`、`routes` 由内核填。
 渠道插件需要的额外信息一律放进 `data`。
 
 ## 2. 引用 Ref
@@ -87,7 +88,21 @@ interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string;
 
 - 事件存在 home 的 SQLite 文件里，表前缀 `y_`（见 07 §2）。
 - 必须建立的索引：`ts`、`type`、`from`、`conv`、`parent`。
-- 内核对插件和工具提供查询：按 `type`（支持 `prefix.*`）、`from`、`conv`、时间区间、`routes` 中的 agent 过滤，结果按时间排序并分页。
+- 内核对插件和工具提供查询，所有条件取交集，结果按 `id` 升序（即时间顺序）分页：
+
+```ts
+interface EventQuery {
+  type?: string;        // 精确类型，或 'prefix.*'
+  from?: Ref;
+  conv?: Ref;
+  agent?: string;       // routes 中出现该 agent（命中或 dropped 都算）
+  since?: string;       // ISO-8601，含
+  until?: string;       // ISO-8601，不含
+  after?: string;       // 上一页最后一条的 id
+  limit?: number;       // 默认 100，最大 1000
+}
+interface EventPage { events: YEvent[]; next?: string }   // next：还有下一页时为本页最后一条的 id
+```
 - "某个账号出现在哪些群""哪些 agent 和某人有过会话"都由事件表回答，不另建关系表（见 02 §4）。
 
 ## 5. 兼容规则

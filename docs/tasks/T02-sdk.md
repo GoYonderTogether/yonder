@@ -1,23 +1,29 @@
 # T02 SDK 类型与契约测试
 
 **依据**
-- `docs/spec/04-plugins.md:1-144`（全文）
-- `docs/spec/01-events.md:3-85`（事件、引用、内核类型）
-- `docs/spec/02-sessions.md:135-151`（§5 会话接口）
+- `docs/spec/04-plugins.md:1-187`（全文：插件槽、`Tool`、`PluginAPI`、`PluginModule`、契约测试）
+- `docs/spec/01-events.md:3-107`（`YEvent`、`EventInput`、引用、内核事件 data、`EventQuery`/`EventPage`）
+- `docs/spec/02-sessions.md:86-101`（`Route`）、`133-184`（`IdentityAPI` 与会话接口的类型）
+- `docs/spec/03-agents.md:59-84`（`Profile` 字段、`Preset`）
 - `docs/spec/05-security.md:5-32`（能力与级别）
 - `docs/spec/06-delivery.md:26-39`（`OutputPart`）
+- `docs/spec/07-runtime.md:76-99`（`ServiceEndpoint`）
 
 **路径**：`packages/sdk/`
 
 **必须**
-- 导出规范中出现的全部类型：`YEvent`、`EventInput`、`Ref`、`Route`、`Attachment`、`Channel`、`OutMessage`、`Delivery`、`OutputPart`、`ContextContribution`、`RenderContext`、`Trigger`、`EnvProvider`、`Hook`、`Capability`、`Level`、`SessionsAPI`、`SessionInfo`、`IdentityAPI`、`PluginAPI`、`PluginModule`。
-- `definePlugin`、`defineChannel` 等只做类型约束的辅助函数。
-- 引用的构造与解析函数（`acct()`、`conv()`、`parseRef()`），格式严格按 `01-events.md:23-39`。
-- `@yonder/sdk/testing` 的 `checkPlugin(dir)`，行为按 `04-plugins.md:142-144`。
+- 导出上述规范里以 TypeScript 写出的全部类型，字段与规范逐字一致：`YEvent`、`EventInput`、`EventQuery`、`EventPage`、`Ref`、`Route`、`Attachment`、`Channel`、`OutMessage`、`Delivery`、`OutputPart`、`Tool`、`ToolContext`、`ToolResult`、`ToolCall`、`ContextContribution`、`RenderContext`、`Trigger`、`EnvProvider`、`Hook`、`HookResult`、`Profile`、`Preset`、`Capability`、`Level`、`Mode`、`SessionsAPI`、`SessionInfo`、`Input`、`RunResult`、`TranscriptItem`、`IdentityAPI`、`AccountInfo`、`PersonInfo`、`Lookup`、`ServiceEndpoint`、`PluginAPI`、`PluginModule`。内核事件的 data（`message.in`、`message.out`、`run.end` 等，01 §3）各导出一个类型。
+- 纯类型重新导出：pi-ai 的 `Message`、`Models`，pi-durable 的 `ExecutionEnv`，typebox 的 `TSchema`。`package.json` 把 `@earendil-works/pi-ai`、`@earendil-works/pi-durable`（1.3.0）与 `typebox`（1.3.27，与 pi-ai 相同）列为依赖，源码里对它们**只允许** `import type`。
+- `definePlugin`、`defineChannel`、`defineTool`、`defineContext`、`defineTrigger`、`defineHook`：原样返回参数，只做类型约束（04 §4）。
+- 引用的构造与解析：`acct(channel, id)`、`conv(channel, id)`、`person(id)`、`agent(id)`、`session(id)`、`plugin(id)`、`parseRef(ref)`，格式严格按 `01-events.md:24-40`。
+- `@yonder/sdk/testing` 的 `checkPlugin(dir)`，行为按 `04-plugins.md:185-187`；支持的 `apiVersion` 集合为 `[1]`。
 
-**禁止**：运行时逻辑（除引用解析与 `checkPlugin`）；规范没有的类型字段。
+**禁止**：运行时逻辑（除引用函数与 `checkPlugin`）；规范没有的类型或字段；值形式 import pi 或 typebox。
 
-**验收**：`checkPlugin` 对"声明与注册一致"的插件返回空列表，对"多注册""少注册""工具未声明能力""apiVersion 不支持"四种情况分别返回对应错误；引用解析覆盖规范表格里的每种格式。
+**验收**（`vitest`，不需要模型）
+- `checkPlugin` 对"声明与注册一致"的插件返回空列表；对"多注册""少注册""工具未声明 `capabilities`""工具名不以 `<pluginId>_` 开头或含点""`apiVersion` 不支持""插件 id 为保留字"六种情况各返回一条指明插件与项目的错误。测试用的插件放在 `packages/sdk/test/fixtures/`，是可加载的真实小插件，不是模拟对象。
+- 引用函数覆盖 01 §2 表格里的每种格式，包括 `<id>` 内含冒号、`<channel>` 不合法、`<id>` 含空白三种情况。
+- `npm run build && npm run typecheck && npm test && npm run lint` 通过。
 
 ## 问题
 

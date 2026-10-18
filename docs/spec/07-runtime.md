@@ -5,7 +5,7 @@
 ## 1. 对接边界
 
 - 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`、`@earendil-works/chord`。版本**锁定到精确版本**，升级单独成一个变更。
-- 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。
+- 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。唯一例外：`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。
 - pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
 - 不使用 pi 的 coding-agent（CLI、界面、它的会话文件和配置格式）。
 - pi 的每个异步调用都带 chord 的 `Context`；取消看 `context.abortSignal`。工具与钩子**必须**响应它，否则中止要等工具自己结束。
@@ -24,12 +24,12 @@
 | 会话 | 一个 conversation（`harness.createConversation({ ownership: { kind: 'ownerless' }, agent, init })`）；Yonder 元数据存在 `y_sessions`，并在 conversation 文档 `yonder.session`（`defineDoc`，`scope: 'conversation'`）中存 `{ agent, profile }`，由 `init` 在创建的同一次提交里写入 |
 | 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })` |
 | 框架段、`SYSTEM.md`、上下文贡献 | 扩展 `yonder.core` 的 `section`，按 03 §5.1 的顺序；section 用 `input.read.snapshot(SessionDoc, input.conversationId, ctx)` 读 `yonder.session` |
-| 插件工具 | 每个插件一个扩展 `plugin:<id>`，配置档选用的插件才进入 `extensions` |
+| 插件工具与钩子 | 每个插件一个扩展 `plugin:<id>`，配置档选用的插件才进入 `extensions`。SDK 的 `Tool`（04 §3.2）转为 `defineTool({ name, description, parameters, execute })`：`ToolResult.text`/`images` → `output` 的文字与图片块，`isError` 原样；`ToolContext` 由 `yonder.session`、本次运行的能力、`api.env`、触发事件和 chord `context.abortSignal` 组成。SDK 的 `Hook` 转为 `hook(ToolTask | GenerationTask, …)`，`ToolCall` 取自 pi 的 `{ id, name, arguments }` |
 | 安全钩子、上限钩子 | 扩展 `yonder.core` 的 `hook(ToolTask, …)` 与 `hook(GenerationTask, …)`，`yonder.core` 最先安装 |
 | `wake: run` | `submit({ type: 'input', content, entry: { kind: 'yonder.message', data: { event } }, whenBusy })` |
 | `wake: write` | `submit({ type: 'write', entry: { kind: 'yonder.message', data: { event }, model: [{ role: 'user', content, timestamp }] } })`。下一次运行模型能看到；会话忙时排到下一个边界 |
 | `busy` | `followup` → `whenBusy: 'followUp'`；`steer` → `whenBusy: 'steer'`（插进当前工具轮之后，与本次运行同一个回答） |
-| `task.run` | 子会话：工具声明 `replay: 'safe'`，在 `api.commit` 里先按 `tx.scanConversations({ ownerTaskId: api.taskId }, 1)` 找已有子会话，否则 `tx.createConversation({ ownership: { kind: 'task', taskId: api.taskId } })`；输入带 `requestId: task:<taskId>`。发起方中止时子会话一并中止 |
+| `task_run` | 子会话：工具声明 `replay: 'safe'`，在 `api.commit` 里先按 `tx.scanConversations({ ownerTaskId: api.taskId }, 1)` 找已有子会话，否则 `tx.createConversation({ ownership: { kind: 'task', taskId: api.taskId } })`；输入带 `requestId: task:<taskId>`。发起方中止时子会话一并中止 |
 | 执行环境 | `HarnessOptions.env({ conversationId, cwd, read })`，按 `yonder.session` 找到配置档的 `env`，本机为 `new NodeExecutionEnv({ cwd })` |
 | 用量 | conversation 文档 `pi.usage`（`UsageDoc`，按 `provider/model` 累计）；运行前后各取一次 `harness.snapshot(UsageDoc, id)`，差值记入 `run.end` |
 | 流式 | `watchEvents(harness, conversationId, ctx)`：`message_update` 的 `changes` 含 `text_delta`，`tool_execution_start` / `tool_execution_end` 给出工具起止；内核据此生成 06 §3 的片段 |
@@ -44,11 +44,11 @@
 
 运行上限内置在内核，因为"运行一定会结束"是框架的保证（架构不变量 7）。默认值宽松，按配置档可调；更细的防护（例如语义级的重复检测）写成钩子插件。
 
-| 上限 | 默认 | 手段 |
+| 上限（配置档 `limits` 的键） | 默认 | 手段 |
 |---|---|---|
-| 每次运行的模型轮数 | 100 | `GenerationTask.afterResponse` 计数；达到上限后，本轮每个工具调用的 `ToolTask.afterTool` 返回原结果加 `control: { terminate: true }`，运行不再请求模型 |
-| 每次运行的墙钟时间 | 30 分钟 | 内核计时，到时调用 `conversation.abort()` |
-| 连续相同的工具调用（同名且参数相同） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | 第 3、4 次：`beforeTool` 返回 `{ block: 原因 }`；第 5 次：`afterTool` 加 `terminate` |
+| 每次运行的模型轮数（`maxTurns`） | 100 | `GenerationTask.afterResponse` 计数；达到上限后，本轮每个工具调用的 `ToolTask.afterTool` 返回原结果加 `control: { terminate: true }`，运行不再请求模型 |
+| 每次运行的墙钟时间（`maxMinutes`） | 30 | 内核计时，到时调用 `conversation.abort()` |
+| 连续相同的工具调用（同名且参数相同；`repeatBlock`、`repeatStop`） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | 第 3、4 次：`beforeTool` 返回 `{ block: 原因 }`；第 5 次：`afterTool` 加 `terminate` |
 
 - 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`；若会话有 `origin`，向来源发一句说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
 - 计数保存在内存里，按运行计；进程重启后重新计数。
@@ -89,11 +89,17 @@ services:
       embedding: { models: [Qwen/Qwen3-Embedding-8B] }
 ```
 
-内核只负责存与解析（`api.services.resolve('asr')` 返回端点、模型与凭据），调用由插件完成。
+内核只负责存与解析，调用由插件完成：
+
+```ts
+interface ServiceEndpoint { id: string; protocol: string; baseUrl: string; apiKey?: string; models: string[]; voices?: string[] }
+```
+
+`api.services.resolve('asr')` 按 `services` 的顺序返回第一个声明了该能力的服务（`models`、`voices` 取自该能力，`apiKey` 取自 `credential` 指向的凭据），没有则返回 `undefined`。
 
 ## 7. 模型能看到的工具结果
 
-pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message.send`、`task.run`、`session.*`、`identity.*`）的结果必须简短、结构化，失败时给出可执行的原因。被 `beforeTool` 拦下的调用，模型看到的是 `Tool call blocked: <原因>`。
+pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message_send`、`task_run`、`session_*`、`identity.*`）的结果必须简短、结构化，失败时给出可执行的原因。被 `beforeTool` 拦下的调用，模型看到的是 `Tool call blocked: <原因>`。
 
 ## 8. 本地控制接口
 

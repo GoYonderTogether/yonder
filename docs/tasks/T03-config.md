@@ -1,7 +1,7 @@
 # T03 配置加载、校验与热重载
 
 **依据**
-- `docs/spec/08-config.md:1-96`（全文）
+- `docs/spec/08-config.md:1-97`（全文）
 - `docs/spec/03-agents.md:12-84`（工作区、agent.yaml、配置档、预设）
 - `docs/spec/02-sessions.md:34-85`（绑定的全部字段）
 - `docs/spec/05-security.md:21-32`（级别）

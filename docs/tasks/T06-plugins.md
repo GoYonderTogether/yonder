@@ -1,6 +1,6 @@
 # T06 插件加载
 
-**依据**：`docs/spec/04-plugins.md:1-144`（全文）、`docs/spec/08-config.md:19-63`（`plugins`、`channels` 配置）
+**依据**：`docs/spec/04-plugins.md:1-187`（全文）、`docs/spec/08-config.md:20-64`（`plugins`、`channels` 配置）
 
 **路径**：`packages/core/src/plugins/`
 

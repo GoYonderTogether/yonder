@@ -85,7 +85,7 @@ defaults:
   plugins: [context-files, qq]
 profiles:
   owner:  { level: bypass, tools: { offer: ["*"] } }
-  friend: { level: standard, tools: { offer: [qq.*, read] } }
+  friend: { level: standard, tools: { offer: [qq_*, read] } }
   guest:  { level: readonly, contexts: [agents-md] }
   group:  { level: readonly, thinking: low }
 bindings:

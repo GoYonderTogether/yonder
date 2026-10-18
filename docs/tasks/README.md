@@ -24,7 +24,7 @@ plugins/
   context-files/           @yonder/plugin-context-files
 ```
 
-`@yonder/sdk` 可以 `import type` pi-durable 的工具与执行环境类型并重新导出；除此之外，pi 的包只出现在 `packages/core/src/runtime/`。
+`@yonder/sdk` 只以 `import type` 重新导出 pi-ai 的 `Message`、`Models` 与 pi-durable 的 `ExecutionEnv`（T02）；除此之外，pi 的包只出现在 `packages/core/src/runtime/`。插件只依赖 `@yonder/sdk`（04 §1）。
 
 工具链：Node ≥ 22.19（pi 的要求）、TypeScript、npm workspaces、vitest、`yaml`。
 

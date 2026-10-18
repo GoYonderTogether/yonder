@@ -1,7 +1,7 @@
 # T05 pi 适配层
 
 **依据**
-- `docs/spec/07-runtime.md:1-100`（全文）
+- `docs/spec/07-runtime.md:1-106`（全文）
 - `docs/spec/05-security.md:33-56`（判定点、执行环境）
 - `docs/spec/03-agents.md:59-84`（配置档、预设与子会话的能力交集）
 

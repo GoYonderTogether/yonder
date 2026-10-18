@@ -70,15 +70,15 @@ bindings: [ … ]                   # 见 02 §2
 | `contexts` | 上下文贡献 id，按顺序 |
 | `instructions` | 追加在系统提示词最后 |
 | `env` | 工具在哪个执行环境运行；默认是工作区所在环境 |
-| `limits` | 覆盖运行上限（07 §5） |
+| `limits` | 覆盖运行上限：`{ maxTurns, maxMinutes, repeatBlock, repeatStop }`（07 §5） |
 
 未写的字段取 `defaults`，再取内核默认。
 
 ## 4. 预设与临时会话
 
-预设是不属于任何 agent 的配置档，放在 `<home>/presets/<id>.yaml`，或由插件贡献（04 §3.7）。字段同 §3，另加必填的 `description`（一句话，会出现在 `task.run` 工具说明里）。
+预设是不属于任何 agent 的配置档，放在 `<home>/presets/<id>.yaml`（`id` 取文件名），或由插件贡献（04 §3.7）。字段同 §3，另加必填的 `description`（一句话，会出现在 `task_run` 工具说明里）。SDK 类型：`Preset = Profile & { id: string; description: string }`，`Profile` 即 §3 的字段表。
 
-- 内核工具 `task.run({ preset, task })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
+- 内核工具 `task_run({ preset, task })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
 - 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
 - 外部调用方经由渠道插件，用 `sessions.open({ preset })` 使用预设，能力取该渠道绑定所指定的配置档与预设的交集。
 
@@ -94,7 +94,7 @@ bindings: [ … ]                   # 见 02 §2
 
 ### 5.2 框架段
 
-内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、回复规则（06 §4）、`message.send` 与 `task.run` 的用途。用英文书写，**应当**控制在 200 词以内。
+内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、回复规则（06 §4）、`message_send` 与 `task_run` 的用途。用英文书写，**应当**控制在 200 词以内。
 
 ### 5.3 `<turn>` 块
 

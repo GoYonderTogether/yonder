@@ -2,7 +2,7 @@
 
 **依据**
 - `docs/spec/03-agents.md:85-113`（§5 全部）
-- `docs/spec/04-plugins.md:62-76`（§3.3 上下文贡献）
+- `docs/spec/04-plugins.md:85-106`（§3.3 上下文贡献）
 - `docs/spec/06-delivery.md:40-50`（框架段要讲的规则）
 - `docs/spec/03-agents.md:29-40`（工作区内容与自动生成）
 

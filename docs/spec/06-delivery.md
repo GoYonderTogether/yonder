@@ -8,8 +8,8 @@ harness 决定模型怎么执行、怎么回复；渠道只决定怎么呈现。
 |---|---|---|
 | 回到来源 | 运行的最终回复，自动交给会话的 `origin` | QQ 里一条气泡；主会话回到最近说话的那个渠道 |
 | 过程流式 | 绑定 `stream: true` 且渠道 `output.stream` 为真 | 飞书卡片实时显示进度；CLI 实时打印 |
-| 主动发送 | 工具 `message.send` | 在 CLI 里说"发我飞书"；agent 自己决定通知主人 |
-| 返回给调用方 | 运行有等待者（`task.run`、`sessions.submit({ wait: true })`） | 编码预设把结果交回主 agent；MCP 调用拿到返回值 |
+| 主动发送 | 工具 `message_send` | 在 CLI 里说"发我飞书"；agent 自己决定通知主人 |
+| 返回给调用方 | 运行有等待者（`task_run`、`sessions.submit({ wait: true })`） | 编码预设把结果交回主 agent；MCP 调用拿到返回值 |
 
 ## 2. 最终回复的去向
 
@@ -43,21 +43,21 @@ type OutputPart =
 
 - 你的最终回复会自动发给当前对话的对方；
 - 不需要回复时，只输出 `NO_REPLY`；
-- 要发给别的人、别的渠道，用 `message.send`；
-- 专门任务可以交给 `task.run`。
+- 要发给别的人、别的渠道，用 `message_send`；
+- 专门任务可以交给 `task_run`。
 
 不追加"是否要发送"的确认轮，不要求用工具结束运行（架构不变量 6）。
 
 ## 5. 主动发送
 
 ```ts
-message.send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string, attachments?: Attachment[] })
+message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string, attachments?: Attachment[] })
 ```
 
 - 发往当前 `origin` 不需要额外能力；发往其他地方需要 `message` 能力（05 §1）。
 - `to` 是人（`owner` 或 `person:`）时：有 `via` 就用这个人在该渠道的账号；没有 `via` 就用这个人最近活跃的账号。找不到账号时以错误结果返回给模型。
 - 每次发送写一条 `message.out` 事件，`delivery` 记录渠道返回的结果。
-- 富消息（卡片等）由渠道插件以自己的工具提供，例如 `feishu.send_card`。
+- 富消息（卡片等）由渠道插件以自己的工具提供，例如 `feishu_send_card`。
 
 ## 6. 失败
 

@@ -3,8 +3,8 @@
 **依据**
 - `docs/spec/02-sessions.md:1-101`（会话、绑定、路由结果）
 - `docs/spec/02-sessions.md:113-122`（§4.2 相对关系）
-- `docs/spec/02-sessions.md:135-151`（§5 会话接口）
-- `docs/spec/01-events.md:40-70`（`message.in`）
+- `docs/spec/02-sessions.md:154-184`（§5 会话接口）
+- `docs/spec/01-events.md:41-71`（`message.in`）
 
 **路径**：`packages/core/src/routing/`、`packages/core/src/sessions/`
 
@@ -19,7 +19,7 @@
 
 **禁止**：规则语言、正则、任意字段路径匹配。
 
-**验收**：`08-config.md:73-96` 的 QQ 绑定表，对 owner 私聊、好友私聊、陌生人私聊、群里未 @、群里 @、通话六种入站事件，各一个测试，断言命中的绑定、会话 key、wake；一个事件同时进两个 agent 的测试。
+**验收**：`08-config.md:74-97` 的 QQ 绑定表，对 owner 私聊、好友私聊、陌生人私聊、群里未 @、群里 @、通话六种入站事件，各一个测试，断言命中的绑定、会话 key、wake；一个事件同时进两个 agent 的测试。
 
 ## 问题
 
