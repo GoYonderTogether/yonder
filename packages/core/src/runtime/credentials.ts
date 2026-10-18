@@ -1,12 +1,16 @@
 // Derived from pi coding-agent 1.3.0, MIT; see THIRD_PARTY_NOTICES.md.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { AuthOperationOptions, Credential, CredentialInfo, CredentialStore } from "@earendil-works/pi-ai";
 import lockfile from "proper-lockfile";
 
 const MAX_EPERM_RETRIES = 5;
+
+export const credentialPath = (home: string, path = ".yonder/auth.json") =>
+	path.startsWith("~/") ? resolve(homedir(), path.slice(2)) : resolve(home, path);
 
 function getRetryableLockErrorCode(error: unknown): "ELOCKED" | "EPERM" | undefined {
 	const code = error instanceof Error && "code" in error ? error.code : undefined;

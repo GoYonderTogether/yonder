@@ -1,13 +1,17 @@
 import { mkdtemp, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "./db.js";
-import { FileCredentials, localEnvironment, Runtime, workspaceFiles } from "./index.js";
+import { credentialPath, FileCredentials, localEnvironment, Runtime, workspaceFiles } from "./index.js";
 import { buildModels } from "./models.js";
 
 test("real SQLite conversation lifecycle, workspace IO, credential lock and provider overlays", async () => {
+	expect(credentialPath("/tmp/home", "~/.yonder-credentials/auth.json")).toBe(
+		join(homedir(), ".yonder-credentials/auth.json"),
+	);
+	expect(credentialPath("/tmp/home")).toBe("/tmp/home/.yonder/auth.json");
 	const home = await mkdtemp(join(tmpdir(), "yonder-runtime-"));
 	let runtime: Runtime | undefined;
 	try {

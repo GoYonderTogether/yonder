@@ -1,4 +1,4 @@
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
@@ -43,14 +43,14 @@ import type {
 } from "@yonder/sdk";
 import { matchesGlob } from "../config/index.js";
 import { loginWithType } from "./auth.js";
-import { FileCredentials } from "./credentials.js";
+import { credentialPath, FileCredentials } from "./credentials.js";
 import { localEnvironment } from "./env.js";
 import { buildModels } from "./models.js";
 import { entryText as textOf, transcriptItem } from "./transcript.js";
 import type { RuntimeInput, RuntimeOptions, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "./types.js";
 
 export { type LoginInteraction, loginProvider } from "./auth.js";
-export { FileCredentials } from "./credentials.js";
+export { credentialPath, FileCredentials } from "./credentials.js";
 export { canonicalPath, localEnvironment, workspaceFiles } from "./env.js";
 export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
@@ -118,7 +118,7 @@ export class Runtime {
 	readonly credentials: FileCredentials;
 	readonly models: Models;
 	private constructor(private options: RuntimeOptions) {
-		this.credentials = new FileCredentials(resolve(options.home, options.config.credentials ?? ".yonder/auth.json"));
+		this.credentials = new FileCredentials(credentialPath(options.home, options.config.credentials));
 		this.models = buildModels(this.credentials, options.config.models?.providers);
 	}
 	static async open(options: RuntimeOptions): Promise<Runtime> {
@@ -520,8 +520,14 @@ export class Runtime {
 			}
 		const stream = input.onOutput ? await watchEvents(this.harness, cid(id), C) : undefined;
 		let submission: Submission | undefined;
+		let submitted!: () => void;
+		const ready = new Promise<void>((resolve) => {
+			submitted = resolve;
+		});
 		let participating = false;
+		const textBlocks = new Map<number, string>();
 		stream?.start(async (events) => {
+			await ready;
 			for (const event of events) {
 				if (event.type === "run_start" || event.type === "snapshot")
 					participating =
@@ -534,7 +540,7 @@ export class Runtime {
 					event.record.status === "placed"
 				)
 					participating = true;
-				if (participating) this.output(event, input);
+				if (participating) this.output(event, input, textBlocks);
 				if (event.type === "run_end") participating = false;
 			}
 		});
@@ -558,6 +564,7 @@ export class Runtime {
 				C,
 			);
 			await this.attachSubmission(submission, input.event, id);
+			submitted();
 			const done = await submission.wait(C);
 			const state = this.stateForSubmission(String(submission.id));
 			if (state) clearTimeout(state.timer);
@@ -584,6 +591,7 @@ export class Runtime {
 				inputs: state ? [...state.inputs] : input.event ? [input.event.id] : [],
 			};
 		} finally {
+			submitted();
 			await stream?.stop();
 		}
 	}
@@ -611,10 +619,31 @@ export class Runtime {
 		}
 	}
 
-	private output(event: AgentEvent, input: RuntimeInput) {
+	private output(event: AgentEvent, input: RuntimeInput, textBlocks: Map<number, string>) {
+		const text = (index: number, value: string) => {
+			const previous = textBlocks.get(index) ?? "";
+			textBlocks.set(index, value);
+			const delta = value.startsWith(previous) ? value.slice(previous.length) : value;
+			if (delta) input.onOutput?.({ type: "text", delta });
+		};
+		const content = (blocks: Array<{ type: string; text?: string }>) =>
+			blocks.forEach((block, index) => {
+				if (block.type === "text") text(index, block.text ?? "");
+			});
+		if (event.type === "message_start" && event.message.role === "assistant") {
+			textBlocks.clear();
+			content(event.message.content);
+		}
+		if (event.type === "message_end")
+			for (const message of event.entry.model ?? []) if (message.role === "assistant") content(message.content);
 		if (event.type === "message_update")
-			for (const change of event.changes)
-				if (change.type === "text_delta") input.onOutput?.({ type: "text", delta: change.delta });
+			for (const change of event.changes) {
+				if (change.type === "text_delta")
+					text(change.contentIndex, (textBlocks.get(change.contentIndex) ?? "") + change.delta);
+				else if (change.type === "message") content(change.message.content);
+				else if ((change.type === "text_start" || change.type === "block") && change.block?.type === "text")
+					text(change.contentIndex, change.block.text);
+			}
 		if (event.type === "tool_execution_start") input.onOutput?.({ type: "tool", phase: "start", name: event.toolName });
 		if (event.type === "tool_execution_end")
 			input.onOutput?.({

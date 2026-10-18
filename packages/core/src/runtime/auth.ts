@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { Models } from "@yonder/sdk";
 import type { YonderConfig } from "../config/index.js";
-import { FileCredentials } from "./credentials.js";
+import { credentialPath, FileCredentials } from "./credentials.js";
 import { buildModels } from "./models.js";
 
 export type LoginInteraction = Parameters<Models["login"]>[2];
@@ -34,7 +34,7 @@ export async function loginProvider(
 	provider: string,
 	interaction: LoginInteraction,
 ): Promise<void> {
-	const credentials = new FileCredentials(resolve(home, config.credentials ?? ".yonder/auth.json"));
+	const credentials = new FileCredentials(credentialPath(home, config.credentials));
 	const models = buildModels(credentials, config.models?.providers);
 	const selected = models.getProvider(provider);
 	if (!selected) throw new Error(`Unknown model provider: ${provider}`);
