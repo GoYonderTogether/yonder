@@ -59,11 +59,13 @@ async function manifest(root = sourceRoot): Promise<{ version: string; repositor
 	return JSON.parse(await readFile(join(root, "package.json"), "utf8"));
 }
 export async function releaseInfo(home?: string) {
+	const originFile = join(sourceRoot, ".yonder-install.json");
 	return {
 		version: (await manifest(join(sourceRoot, "packages/cli"))).version,
 		install: installPath(),
 		source: sourceRoot,
 		home: home ?? null,
+		origin: existsSync(originFile) ? JSON.parse(await readFile(originFile, "utf8")) : null,
 	};
 }
 export async function readDocs(path?: string, list = false): Promise<string | string[]> {
@@ -315,6 +317,21 @@ export async function updateRelease(options: UpdateOptions = {}) {
 			await command("git", ["clone", "--depth", "1", "--branch", tag, repository, temporary]);
 			await command("npm", ["ci"], { cwd: temporary, env: { ...process.env, PATH: runtimePath(install) } });
 			await command("npm", ["run", "build"], { cwd: temporary, env: { ...process.env, PATH: runtimePath(install) } });
+			if ((await manifest(join(temporary, "packages/cli"))).version !== version)
+				throw new Error(`Tag ${tag} does not match its package version`);
+			const commit = (await command("git", ["rev-parse", "HEAD"], { cwd: temporary })).stdout.trim();
+			let origin = repository;
+			if (/^https?:\/\//u.test(repository)) {
+				const url = new URL(repository);
+				url.username = "";
+				url.password = "";
+				origin = url.href;
+			}
+			await writeFile(
+				join(temporary, ".yonder-install.json"),
+				JSON.stringify({ repository: origin, tag, commit, version }, null, 2),
+			);
+			await rm(join(temporary, ".git"), { recursive: true });
 			await rename(temporary, directory);
 		} catch (error) {
 			await rm(temporary, { recursive: true, force: true });

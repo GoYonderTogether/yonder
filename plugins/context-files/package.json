@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-context-files",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -16,14 +16,19 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.1.0"
+		"@yonder/sdk": "0.1.1"
 	},
 	"yonder": {
 		"apiVersion": 1,
 		"id": "context-files",
 		"entry": "./dist/index.js",
 		"contributes": {
-			"contexts": ["agents-md", "user-md", "soul-md", "memory-md"]
+			"contexts": [
+				"agents-md",
+				"user-md",
+				"soul-md",
+				"memory-md"
+			]
 		}
 	}
 }
