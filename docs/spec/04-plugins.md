@@ -234,3 +234,7 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 | 我们调用外部 MCP 工具 | `tools` | 每个 MCP 工具注册为 `<pluginId>_<name>`，配置档用 `tools.search` 按需加载 |
 | 语义级防空转、审计 | `hooks` | 钩子插件 |
 | 飞书卡片等富消息 | `tools` | 渠道插件自带的工具，如 `feishu_send_card` |
+
+## 9. 本地插件管理补齐
+
+已批准 13 §3.1 的 list/show/add/remove 是本页加载/清单规则的管理入口；yonder.yaml.plugins 仍是唯一加载名单。候选完整校验、存在引用拒绝移除、不自动重启、不删外部源码/私有数据；不增加 enabled 状态表、Hub 或热卸载。

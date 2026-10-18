@@ -155,3 +155,7 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 **自己写 skill**：agent 用普通文件工具在工作区 `skills/<name>/SKILL.md` 写入（需要 `write`），下一次运行即进入索引。内核不自动生成、合并或删除 skill；自动整理之类的策略由插件实现。
 
 **与工作流的区别**：skill 是给模型的做事说明，在一次运行里由模型照着做；工作流是跨多次运行、多个 agent 或脚本的编排。0.1 不做工作流，两种做法都有现成接口：模型驱动（skill 写清步骤，模型调用 `task_run` / `agent_ask`），或代码驱动（插件用触发器 + `events.on` + `events.ask`，04 §8）。
+
+## 7. 本地管理补齐
+
+Skills 本地导入/查看/删除、来源与配置诊断的完整边界按已批准 13 §3。发现/遮蔽/profile 选择仍按本页，不增加自动学习引擎、启停数据库或会话中 profile 热切换。

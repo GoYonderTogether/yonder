@@ -1,12 +1,14 @@
 # 下一阶段实施任务
 
-**当前工位：暂停后续 N 派工，先等 U05 和新计划审核。** 2026-10-18 最新要求见 [能力补齐计划](../capability-completion-plan.md)、[Hermes 对比](../hermes-capability-comparison.md)、[13 草案](../../spec/13-capability-completion.md)。拟改为多路 sub agent 的实现轮，不新增或运行测试；尚未放行。以下保留原 N 需求、依赖与结果，不能用新编号清掉历史失败或跳过。
+**当前批准：用户已批准 C0–C6，U05 已以 3d31601 交接；按 [能力补齐计划](../capability-completion-plan.md) 执行，不新增/运行测试，原功能与验收债务保留。**
+
+本目录保留原 N 功能、任务与结果。当前派工采用已批准 C0–C6；旧依赖与执行方式仅作历史，不能用新编号清掉失败或跳过。
 
 原 N 轮于 2026-10-18 获批，功能以 [10](../../spec/10-local-maintenance.md)、[11](../../spec/11-official-plugins.md) 为准。新计划只调整后续编排；原功能与最终验收继续保留。
 
 参考更新和本机只读状态见 [reference-sources.md](reference-sources.md)。它记录证据，不新增需求。
 
-## 原任务清单（新编排待审，非当前派工指令）
+## 原任务清单（原依赖保留作历史，当前派工按 C0–C6）
 
 - 🟢 [N00](N00-contracts.md) 设计锁定与旧规范对齐｜Codex｜无依赖。
 - 🟢 [N01](N01-runtime-foundation.md) 基础边界已实现并检查；恢复/输入组合缺口挂 N05/N09｜Codex｜N00。
@@ -17,14 +19,14 @@
 - 🟡 [N06](N06-codex-tools.md) 插件源码已提交 e067930，尚未整合/安装；不算安装版桌面或搜索通过｜Yonder｜原依赖 N03。
 - 🟡 [N07](N07-browser.md) 插件源码已提交 2d79782，尚未整合/安装；扩展连接仍阻塞真实页面验收｜Yonder｜原依赖 N03。
 - ⚪ [N08](N08-coding-web.md) grep/Bash、Tavily、Web Fetch｜Yonder｜N03；不依赖 hosted search 或浏览器。
-- ⚪ [N09](N09-sol-tests.md) Sol 已真实可用；补测试留后轮，已知源码缺陷拟归 C1/C3｜原验收保留｜不再作为新计划中 N10/N12 源码开发的测试门槛；待批准。
+- ⚪ [N09](N09-sol-tests.md) Sol 已真实可用；补测试留后轮，已知源码缺陷归 C1/C3｜原验收保留｜不再作为新计划中 N10/N12 源码开发的测试门槛。
 - ⚪ [N10](N10-github.md) issue→设计→commit→PR→Codex 合并｜Yonder｜N09。
 - ⚪ [N11](N11-release-update.md) 发布事件与 operator 安装更新｜Yonder｜N10。
 - ⚪ [N12](N12-feishu.md) 飞书完整渠道开发｜Yonder｜N09；不等 GitHub 发布链。
 - ⚪ [N13](N13-feishu-live.md) Computer Use 验证真实飞书矩阵｜Yonder 执行，Codex 观察｜N12、N06 桌面能力、已安装飞书包与真实授权。
 - ⚪ [N14](N14-acceptance.md) 整条自维护链与全部剩余验收｜Yonder + Codex｜N01–N13 各能力验收；任何未通过项保留。
 
-## 原执行与检查规则（本轮实现方式调整待审核）
+## 原执行与检查规则（本轮实现方式由 D33/13 替代）
 
 1. 用户已授权本轮实施。N00 先统一新旧规范并记录冻结 commit，随后按依赖连续推进；不重复请求整轮或普通任务批准。后续实现者不能修改功能规范。
 2. 每项读取其功能依据、现有源码、相关调用者与失败路径，再实现；涉及参考项目时记录固定 commit/模块。

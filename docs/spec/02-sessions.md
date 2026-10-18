@@ -183,7 +183,7 @@ interface SessionsAPI {
   list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
   get(id: string): Promise<SessionInfo | undefined>;
   open(req: { preset: string; parent?: string; capabilities?: Capability[]; close?: 'run-end' | 'manual' }): Promise<SessionInfo>;   // close 默认 run-end；manual 见 12（已批准，待实现）。能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
-  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | void>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox，12 待审核
+  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | void>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox，12 已批准
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
@@ -206,3 +206,7 @@ interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升
 ```
 
 `submit` 的 `wait: true` 让调用方拿到最终回复（06 §2 的"返回给调用方"）。内核在插件服务包装或模型调用现场绑定真实调用方身份和上游事件，不允许插件用参数伪造其他调用方；保留 Input.attachments。调用方身份不明时不编造 agent。父会话 id 不作为事件 parent。
+
+## 6. 能力补齐关联
+
+13 §2 已获批准：会话/输入来源由内核绑定，附件完整传递；TUI、控制面与 MCP 共用被动观察事实，断连只解除观察；原生父子并行与取消沿用 pi。不得另建任务队列、转录或抢占回复的观察等待者。

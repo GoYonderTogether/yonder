@@ -1,6 +1,8 @@
 # 本机自维护与官方插件实施计划（合并版）
 
-**原 N 轮计划，保留需求来源；当前不据此自动派工。** 2026-10-18 最新要求是先等 TUI、收敛方案交用户审核，再开发。最新范围见 [Hermes 对比](hermes-capability-comparison.md) 与 [13 草案](../spec/13-capability-completion.md)，最新编排见 [能力补齐计划](capability-completion-plan.md)，尚未批准。
+**当前批准：用户已批准 C0–C6，U05 已以 3d31601 交接；按 [能力补齐计划](capability-completion-plan.md) 执行，不新增/运行测试，原功能与验收债务保留。**
+
+**原 N 轮计划，保留需求来源；当前派工按已批准 C0–C6。** 最新范围见 [Hermes 对比](hermes-capability-comparison.md)、[13 能力边界](../spec/13-capability-completion.md)，最新编排见 [能力补齐计划](capability-completion-plan.md)。
 
 原计划合并 MCP、自维护、真实安装、版本管理、BrowserSkill、Computer Use、grep/Bash/Web、Tavily、GitHub 与飞书全部要求，曾于 2026-10-18 获准启动。原任务目录见 [next/README.md](next/README.md)。下述顺序/检查为原方案历史，不覆盖用户本次不写/不跑测试及先审核的要求。
 
