@@ -104,3 +104,69 @@ export default {async setup(api) {
 	},
 	150000,
 );
+
+test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
+	"parent abort projects its admitted child's native terminal receipt",
+	async () => {
+		const home = await mkdtemp("/tmp/yonder-child-abort-");
+		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+		try {
+			await initHome(home);
+			const path = `${home}/yonder.yaml`,
+				config = parse(await readFile(path, "utf8"));
+			config.credentials = auth;
+			await writeFile(path, stringify(config));
+			for (const [id, tools] of [
+				["abort-parent", ["task_run"]],
+				["abort-child", ["bash"]],
+			] as const)
+				await writeFile(
+					`${home}/presets/${id}.yaml`,
+					stringify({
+						schema: 1,
+						description: id,
+						model: "openai/gpt-6-luna",
+						capabilities: ["read", "exec"],
+						tools: { offer: tools },
+						plugins: [],
+						contexts: [],
+					}),
+				);
+			kernel = await openKernel(home);
+			const parent = await kernel.sessions.open({ preset: "abort-parent" });
+			await kernel.sessions.submit(
+				parent.id,
+				{
+					text: 'Call task_run exactly once, preset abort-child, task "Run bash sleep 25 then reply child-complete". Do not use other tools.',
+				},
+				{ wait: false },
+			);
+			let child: Awaited<ReturnType<typeof kernel.sessions.get>>;
+			await expect
+				.poll(
+					async () => {
+						child = (await kernel!.sessions.list({})).find((item) => item.parent === parent.id);
+						return (
+							child &&
+							(await kernel!.sessions.transcript(child.id)).some((item) =>
+								item.tools?.some((tool) => tool.name === "bash"),
+							)
+						);
+					},
+					{ timeout: 30000 },
+				)
+				.toBe(true);
+			await kernel.sessions.abort(parent.id);
+			await expect.poll(async () => (await kernel!.sessions.get(child!.id))?.closed, { timeout: 5000 }).toBeTruthy();
+			const ends = (await kernel.events.query({ type: "run.end" })).events.filter(
+				(event) => (event.data as { session?: string }).session === child!.id,
+			);
+			expect(ends).toHaveLength(1);
+			expect(ends[0]?.data).toMatchObject({ status: "aborted" });
+		} finally {
+			await kernel?.close();
+			await rm(home, { recursive: true, force: true });
+		}
+	},
+	60000,
+);

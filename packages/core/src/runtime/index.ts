@@ -1098,7 +1098,10 @@ export class Runtime {
 			} catch (error) {
 				this.options.onReport?.(error);
 			}
-			const done = await submission.wait(context);
+			// Observe the admitted child outside the parent invocation; native ownership still cancels it.
+			const admitted = await this.harness.submission(submission.id, C);
+			if (!admitted) throw new Error("Admitted child input is missing");
+			const done = await admitted.wait(C);
 			return this.settledRun(String(child), done);
 		} catch (error) {
 			if (input.event && !(await this.admitted(String(child), input.event.id)))

@@ -48,8 +48,8 @@ Commands:
   version                         版本与安装 · Version and installation
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
-  update [--to <tag>|latest] [--repo <url>]  安装与更新 · Install or update
-  service install|uninstall|start|stop|restart|status  服务管理 · Manage service
+  update [--check | --to <tag>|latest] [--repo <url>]  安装与更新 · Install or update
+  service install|uninstall|start|stop|restart|status|info  服务管理 · Manage service
   completion zsh|bash|fish         shell 补全脚本 · Shell completion
 `;
 
@@ -65,7 +65,7 @@ const releaseUsage: Record<string, string> = {
 	version: "Usage: yonder version",
 	changelog: "Usage: yonder changelog [--from <version>] [--to <version>]",
 	docs: "Usage: yonder docs [path] [--list]",
-	update: "Usage: yonder update [--to <tag>|latest] [--repo <url>]",
+	update: "Usage: yonder update --check | [--to <tag>|latest] [--repo <url>]",
 	service:
 		"Usage: yonder service install --home <dir> | uninstall | start | stop | restart | status | info --home <dir>",
 };

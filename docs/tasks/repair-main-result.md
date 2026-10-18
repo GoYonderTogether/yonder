@@ -48,3 +48,28 @@ R4 独立安装、launchd/菜单真实状态和界面证据、安装版 Yonder M
 - 新实现漏接：飞书普通消息工具描述支持回复，但未提供 replyTo；现沿用 OutMessage 已有字段接入 SDK/共同发送/工具，不绕开投递权限。聚焦协议检查 6/6、typecheck 通过；尚未安装此源码差异。
 
 R5 前置真实缺陷：相同授权 REST issues 请求带 since=1970-01-01T00:00:00.000Z 返回 []；仅去掉首次 since 参数即返回 issue #1。插件原先 ready 但未发事件。首次全量扫描不带增量水位；已有有效水位仍保留原参数和同秒边界，旧 epoch 游标无需改数据即可继续。最小回归在原首次扫描/重启检查增加初始参数断言，不增加另一同步器。
+
+## R4/R5 后续实际结果
+
+- 安装版 0.1.2026101803 / 690d399：GitHub 首次扫描修复后 issue #1 的真实 message.in 为 01M58B6A9ADKS7RN472KJ84G46，路由 github-issues → maintainer/Sol session 1336 / run 1344。Yonder 自行读取完整 issue/规范/参考、报告方案、修改三文件、运行检查、commit f9df5e0bedf2a09e2130b27683763d2a88f3e8e0、推任务分支并经 channel-github_create_pr 创建 PR #2。Codex 亲自审阅完整 diff 与工具事实，锁定 head 后合并到 zoran/first-pass；合并 commit 2abc4e3，未合并 main。issue 已关闭。未把同账号 PR 评论冒称 GitHub 的独立批准票；CI statusCheckRollup 为空。
+- 自主维修主轮实际 20:28:01–20:32:50 UTC，Sol 用量 input 65985/output 6675/cacheRead 893696，cost 0.2880896；补充范围评论触发的后续轮只确认边界，未重做修复。主轮累计 token 不是单请求上下文长度，不能据此声称超限或未超限；运行真实完成。任务记录保留 6/6 原始基线、旧实现 6过2失败、扩展初次9过1失败、最终10/10与类型检查/Biome事实。
+- 默认 Luna 安装版 session 1370 实际调用 bash/pwd、grep、read；run.end 明确 model=openai/gpt-6-luna。CUA session 1357 通过自己的 codex-tools_js 取得真实应用清单/飞书 AX，点击消息后观察，并另次取得实际 JPEG 截图；无浏览器 metadata 的错误没有用另一后端绕过。后续读取原生返回 cgWindowNotFound，未执行新的客户端动作。截图是旧会话位置，不能证明本次新消息/媒体已展示或可播放。
+- 生产飞书 session 1447：文字/引用回复、PNG、Ogg/Opus、MP4 取得原生消息 id；首次 TXT 以相对 file: URI 被解释到根目录而 ENOENT，改明确绝对 URI 后发送成功。首次 schema2.0 卡片错误使用旧 action 容器而 HTTP400；修为直接 button/behaviors callback 后普通卡片发送成功。两次重做均有明确新假设及无副作用拒绝证据，没有重发成功项目。客户端、入站模型回复、群聊、按钮/模板、CardKit全链、播放、断连仍未通过。
+- 97/97 完整真实模型/launchd 回归在 0.1.2026101804 工作区通过，29文件、0失败0跳过；build/typecheck通过，lint0错误/51warnings/1info。随后仅补 CLI 帮助文字展示已有 service info/update --check；初次受限环境聚焦1失败3通过（socket相关检查5000ms超时），相同断言在正常本机权限下4/4通过，未延长超时。后续新发现的父子取消缺陷及新增回归另记，97项不是最终计数。
+- 临时独立 home 由安装版原生 init 建立，仅引用 Yonder 自有授权文件，未复制 OAuth。plain CLI 连续两轮输入/EOF等待得到“R4第一轮通过”“R4第二轮通过”并正常停止。真实父24同时调用两 task_run：子40和47分别20:40:18.571/.573打开、20:40:25.245/24.986关闭，各bash输出A/B；子模型最终正文分别空/NO_REPLY，父工具忠实返回，未从工具历史编造最终正文。旧生产 home 缺 TUI 默认 preset，补入原生 init 完全相同的 default Luna preset，未新增外部主体或admin权限。
+
+### 父子取消现场缺陷（已修复并验证）
+
+临时父83 abort 后已结束，但子98未生成run.end/closed。真实最小回归旧源码1失败/1按筛选跳过，确认不是检查脚本误判。根因：runTask 在父调用绑定的 submission.wait(context) 上观察子任务；父取消使观察提前抛出，原生子任务虽终止，Yonder 的唯一终态投影未运行。改为已接纳后取相同原生 submission 的服务侧 handle，以服务上下文等待其既有终态并投影；提交与子任务所有权仍原生、取消仍原生，不增加第二观察器/队列/模拟结束。对应真实模型回归最终2/2通过；新增测试初次build因tools是可选字段报TS18048，按类型契约修正访问后build/typecheck通过，没有削弱终态断言。
+
+### 需用户决定/外部条件
+
+自动审批明确拒绝了 proposed operator policy=apply、admin更新工具权限及新飞书绑定的组合配置：要求单独确认持久权限与更新策略。该脚本未执行，生产仍notify、operator未获admin，未增加飞书owner映射/入站绑定。已异步提供“受限工具自动更新/保持notify手动更新”的选择，待用户答复，不能把时间流逝当批准。原生模板 default preset 是独立且已通过审批的安装配置修复。
+
+开发验收员secret未取得；用户睡觉后不揭示后台masked secret、不扩大自动化库范围。正式Release与operator更新/通知闭环等待上述决定；菜单点击、真实注销/重登录、完整TUI实拍与飞书客户端矩阵尚未完成。Computer Use两类真实失败（菜单应用选择超时、后续飞书cgWindowNotFound）分别保留，不猜测是用户锁屏还是驱动问题。不用源码、97项测试或API发送成功冲抵这些未验收项。
+
+## 最终源码检查（候选 0.1.2026101804）
+
+最后一次完整回归：`YONDER_TEST_REAL=1 YONDER_TEST_LAUNCHD=1 YONDER_TEST_AUTH=<Yonder自有授权> agent-network run -- npm test`，**29 files passed / 98 tests passed / 0 failed / 0 skipped**，日志 /tmp/yonder-r6-final-tests.log。原97/97是新增父子取消回归前的历史结果；旧失败不删除。build/typecheck通过；完整lint 0 errors / 56 warnings / 1 info（新回归使用项目既有非空断言风格增加5条warning），日志 /tmp/yonder-r6-final-lint.log；未禁用规则或新增绕过。CLI帮助的socket聚焦4/4通过，日志事实见前文。
+
+R0–R3源码、现场三处根因修复及Yonder自主PR已落地。本轮剩余不是以“全绿”掩盖的完成项：R4全部客户端/TUI/恢复矩阵未齐；R5正式Release和operator更新通知尚待策略授权及实际验证；R6因此仅交付已完成源码/检查/独立安装事实，不能宣布全系统最终验收。用户审核后再恢复依赖其授权的部分，不自行扩大范围或持续例行审查。
