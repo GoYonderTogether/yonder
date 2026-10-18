@@ -6,7 +6,7 @@ Yonder Harness 是本机 Agent 运行时：把收到的事件路由到 Agent 与
 
 模型访问与持久化 Agent 会话使用 pi（`pi-ai`、`pi-durable`）作为依赖。产品名称是 Yonder Harness；pi 是底层依赖及上游来源。
 
-> **状态：** 0.1 第一轮实现已供审核；T12 完整验收以及正式发布、安装和服务验证尚未完成。
+> **状态：** 正在执行 N00–N14。独立安装、launchd 启停和 MCP 控制连接已在本机验证；独立 home 的模型登录待最终授权，真实 agent 维护闭环与 T12 完整验收尚未完成。证据见 [N03](docs/tasks/next/N03-install-agents.md)。
 
 ## 从源码运行
 
@@ -47,7 +47,16 @@ yonder service start
 yonder service uninstall
 ```
 
-`yonder update --to <reviewed-tag|latest>` 更新安装，`--repo` 可指定仓库。`yonder version`、`yonder changelog` 和 `yonder docs` 用于查看安装版本、变更记录和文档。这些发布与服务流程属于第一轮实现，尚未完成正式验收。
+安装后使用安装版初始化、独立登录，再安装服务；不要把其他 home 的 OAuth 复制过来：
+
+```sh
+yonder init <home>
+yonder login openai --home <home>
+yonder service install --home <home>
+yonder chat --home <home>
+```
+
+`yonder update --to <reviewed-tag|latest>` 更新安装，`--repo` 可指定仓库。`yonder version` 返回实际安装目录和来源 commit；`yonder changelog` 和 `yonder docs` 查看该安装版本的变更记录和文档。正式 GitHub 发布与完整更新验收仍在实施中，本地阶段标签不等于发布。
 
 ## 开发插件与 skill
 

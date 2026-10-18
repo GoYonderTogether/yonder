@@ -6,7 +6,7 @@ Yonder Harness is a local agent runtime. It routes incoming events to agents and
 
 The runtime uses pi (`pi-ai` and `pi-durable`) as dependencies for model access and durable agent sessions. The product is Yonder Harness; pi is an underlying dependency and upstream source.
 
-> **Status:** The 0.1 first-pass implementation is ready for review. Full T12 acceptance and formal release, installation, and service verification remain pending.
+> **Status:** N00–N14 implementation is in progress. Separate installation, launchd stop/start, and MCP connectivity have been verified locally. The separate home's model login awaits final consent; autonomous maintenance and full T12 acceptance remain pending. See [N03](docs/tasks/next/N03-install-agents.md) for evidence.
 
 ## Run from source
 
@@ -47,7 +47,16 @@ yonder service start
 yonder service uninstall
 ```
 
-`yonder update --to <reviewed-tag|latest>` updates the installation; `--repo` can select a repository. `yonder version`, `yonder changelog`, and `yonder docs` show the installed version and its release notes and documentation. These release and service paths are part of the first-pass implementation and have not completed formal acceptance.
+Initialize and sign in using the installed executable, then install the service. Do not copy OAuth credentials from another home:
+
+```sh
+yonder init <home>
+yonder login openai --home <home>
+yonder service install --home <home>
+yonder chat --home <home>
+```
+
+`yonder update --to <reviewed-tag|latest>` updates the installation; `--repo` can select a repository. `yonder version` reports the actual installation and source commit; `yonder changelog` and `yonder docs` read that installed version. Formal GitHub release and complete update acceptance remain in progress; local staging tags are not releases.
 
 ## Develop plugins and skills
 

@@ -31,6 +31,10 @@
 
 ## 结果
 
+### N03 补充（2026-10-18）
+
+本机已实际安装 0.1.1/0.1.2；补齐安装来源和移除 .git，修复 current 软链接使 CLI 静默退出的问题。0.1.2 构建及相关 2 文件 3 测试通过。真实独立 home 的 launchd install/status/stop/start 和 MCP 重连通过；模型登录待最终授权。详细版本、commit、路径、pid 与失败记录见 [N03](next/N03-install-agents.md)。原有临时仓库失败保留/回滚/版本清理、版本通知、service uninstall 及 T12 全量验收仍未完成，以下历史记录保留。
+
 第一轮：已实现（待验收）。本轮到 T14 停止，不代表已发布、安装或完整验收。
 
 - `packages/core/src/release/index.ts`：version 读取 CLI 包版本（根 package.json 只存 repository）；docs 在当前源码／安装版本的 docs 目录内读取与列举，按真实路径拒绝越界；changelog 按 (from,to] 选择已发布版本，默认上一个版本。

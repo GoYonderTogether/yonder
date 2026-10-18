@@ -34,10 +34,16 @@
 
 - 安装器原来未执行已冻结的来源记录与移除 .git，已在 updateRelease 的构建→改名处修复；version 增加 origin 资料。按既有规范补实现，没有新建安装系统。
 - 0.1.1 实际安装成功，但 wrapper 经 current 软链接运行时 CLI 的 import.meta.url 与 argv 比较不相等，导致 version/help 静默退出。修复为比较实际入口路径；保留软链接启动回归检查，用新的 0.1.2 安装，不覆盖旧标签。
+- 首次 operator 配置同时设置 level 与 capabilities，被 doctor 按契约拒绝；删除 level，仅保留 read/message 能力后 doctor ok:true/errors:[]。不是核心源码缺陷。
+- 独立登录已到浏览器最终授权页，等待用户点击 Continue；尚无此 home 的 openai OAuth，不能进行默认模型与两个 agent 的真实模型验收。
 
 ## 结果
 
 - 本地标签 v0.1.1 指向 3ccb0cd；从服务外执行 update --repo /Users/zoran/Documents/yonder-harness --to 0.1.1，返回 updated:true。安装目录 /Users/zoran/.yonder-harness，current 指向 versions/0.1.1。未推送标签或创建 GitHub Release。
 - 独立维护源码工作树已创建并附加：/Users/zoran/.codex/worktrees/yonder-maintainer/yonder-harness，起点 v0.1.1。尚未向模型下发任务。
-- 真实 home、独立登录、常驻服务、实际模型与阶段更新验证继续进行。
+- 0.1.2 本地标签对应 900b6779f1f1b987dee576abeb84427822e1dd13，安装版 version 已实际返回 source=/Users/zoran/.yonder-harness/versions/0.1.2 和完整 origin；正式版本副本无 .git。npm run build 通过；CLI/安装相关检查 2 文件、3 测试通过，保留软链接启动检查。
+- 使用安装版 init 创建 /Users/zoran/.local/share/yonder-harness/home（0700）。保留 main CLI 入口，加入 maintainer（默认 Luna，另设独立 Sol 会话配置档）和 operator（read/message，更新工具待 N11）；维护工作树分支 zoran/yonder-maintainer 已切到 v0.1.2。MCP 实例 control 仅回环 19110，固定账号 acct:control:codex 关联 owner，随机凭据仅写入此 home。
+- service install/status 成功，首次 pid=6919；stop/status 显示 loaded:false；start/status 显示 running/pid=7179。服务执行安装 bin/yonder，home 与源码独立；plist 未写凭据，未改其他应用服务。
+- 标准 MCP Client 连接真实常驻安装版，发现 18 工具；stop→start 后重新连接 sessions_list 成功，当前尚无模型会话。客户端证据 /tmp/yonder-n03-tools.json、/tmp/yonder-n03-sessions-after-start.json。
+- 后续仍需：服务外阶段更新、独立登录、main/maintainer/operator 的实际模型/工具及后台 PATH 验证，event/session/model 将随真实运行补记。
 
