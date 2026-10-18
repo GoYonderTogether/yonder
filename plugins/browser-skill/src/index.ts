@@ -95,7 +95,15 @@ export default definePlugin({
 			return parseBskJson(result, argv[0] ?? "command");
 		}
 		async function status(signal: AbortSignal): Promise<Record<string, unknown>> {
-			const version = await runner.run(["--version"], { signal, timeoutMs: 10000 });
+			let version;
+			try {
+				version = await runner.run(["--version"], { signal, timeoutMs: 10000 });
+			} catch (error) {
+				if (!isCommandNotFound(error)) throw error;
+				return { state: "cli-missing", executable: config?.bskPath ?? "bsk", ready: false,
+					guide: "Install the bsk CLI using upstream AGENT_INSTALL.md; do not reinstall an existing browser extension",
+					source: "https://github.com/Tencent/BrowserSkill/blob/main/AGENT_INSTALL.md" };
+			}
 			abortCheck(signal);
 			if (version.code !== 0)
 				throw new BskError(`bsk version failed: ${version.stderr || version.stdout}`, { exitCode: version.code });
@@ -295,6 +303,7 @@ export default definePlugin({
 			async start() {
 				try {
 					sessions.load();
+					await sessions.cleanup();
 				} catch (error) {
 					api.log.warn("BrowserSkill ownership state unavailable; tools will report the error", {
 						error: String(error),

@@ -106,3 +106,9 @@ Codex 先前真实宿主证据（由输入提供，非本轮维护 agent 复验�
 - 证据目录：`/var/folders/hg/8kf929p12wz498k8q4r74kg00000gn/T/yonder-n07-source-live/`；`start-daemon.json` 保留首版真实空 JSON 解析失败，`status.json`/`guide.json` 为真实断连诊断和引导，`page.json` 保留 readiness 阻塞。真实命令均由 `BSK_TEST_EXECUTABLE=/Users/zoran/.local/bin/bsk node plugins/browser-skill/test/live.mjs <mode> [195df83d]` 发起；个人路径仅是本机检查输入，不写死在产品默认配置。
 - **未测/待完成**：已连接 source 页面/图片/原生 request 全生命周期；已连接页面动作与 tabs；真实上传下载（需要获准页面/非敏感文件）；执行中 native browser 取消及图片临时文件路径的真实失败/取消；guide 实际打开商店（已有扩展，不制造安装需求）；安装后的 skill/profile/tool 发现与 `openai/gpt-6.1-sol` 实际模型调用/event/session 证据。纯队列/等待取消单测不能代替真实 native browser 取消。没有 commit/PR 外部发布或服务更新。
 - **Codex 整合需求**：根 workspaces/lock/tsconfig 引入此包；安装包列表和目标 profile 的 `browser-skill` 插件、`browser-skill_*` 工具、`browser-skill` skill 默认选择；按实际安装配置 bskPath/PATH；根 THIRD_PARTY_NOTICES 汇入插件 NOTICE/完整 MIT；从服务外更新安装并继续真实模型验收。本任务未写上述共享文件。
+
+## C2 补齐结果（2026-10-18）
+
+实现未验收。复用 Yonder 的 2d79782（本工作树整合为 6cbbce9），原测试原样保留、未运行。现有七组工具已覆盖完整导航/观察/动作/截图/文件/标签与原生 request prepare/claim/cancel 所有权；补齐 CLI 缺失的结构化 readiness 状态与进程重启后已持久化任务会话释放。未重写驱动，不改共享 daemon 或 BSK_HOME。
+
+未运行模型、浏览器、桌面、安装或任何测试。扩展未连接为历史验收阻塞；完整 N13/N14 矩阵留后轮。根 workspace/锁/构建引用由主 agent 接线。
