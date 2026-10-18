@@ -30,6 +30,8 @@
 
 ## 问题
 
+- N05 长任务实际使用中，Node 标准 fetch 对同步 tools/call 等待响应头触发 UND_ERR_HEADERS_TIMEOUT；MCP 请求 timeout=1800000 不覆盖这层 HTTP 预算。输入 01M57HP6MG0MS04R5MDPYAVPRM 并未因此中止，已从原事件、run.end 与会话 52 的原生转录条目 340 找回完整结果，没有重复提交。长任务控制改用已实现的 events_emit + events_query/sessions_transcript；同步等待的客户端 HTTP 预算/SDK 响应选项仍需单独核对，不增加 MCP 自有任务表或盲目延长运行超时。
+
 - 既有预设 submit 缺少真实调用方的内部注入，仍是 R5 的共享接口缺口；MCP 不接受伪造 from 参数来补它，按 N04/N09 的预设修复接续。常驻 agent 输入已使用固定的本实例账号并经绑定。
 - SDK 1.32.1 的 Transport 可选 onclose 声明与项目 exactOptionalPropertyTypes 不兼容，generic ToolCallback 的条件类型也不能直接推断。只在这两个第三方类型边界使用断言；运行时仍用 SDK 原生传输与 Zod 入参检查，没有关闭项目类型检查。首次构建的类型错误已修正。
 - 临时 home 已在检查结束后清除，没有保留其 event/session ID；检查实际断言了原生父事件、会话转录和终态，不编造 ID。N03 安装版开始保留持久运行证据。

@@ -58,3 +58,11 @@ Codex 先完整追踪本项目和参考模块，在本任务记录运行事实�
 
 进一步已读参考：OpenCode 同一快照 store.ts 的 claim/release/listSuspended 及 session-execution.test.ts 的真实责任边界断言；Hermes 同一快照 agent/session_persistence.py 全文和 runtime_session_lifecycle.py 全文，关注持久消息身份、原子 flush 后才确认与生命周期分别结算；OpenClaw 同一快照 src/infra/outbound/deliver-queue-state.ts 全文，关注真实发送前尝试标记和结果未知不重新变成未发送。借鉴这些边界，不移植其额外框架、租约、备用存储或恢复重试。Yonder 还须阅读自己选用方案的必要调用链，不能把本节当作已完成原生关联证明。
 
+### Yonder 首次方案审查
+
+- 输入 01M57HP6MG0MS04R5MDPYAVPRM，由安装版 0.1.4 的 maintainer 会话 52/Luna 完成只读追踪。同步 MCP 客户端因 HTTP headers 超时退出，Codex 通过原始事件和原生转录条目 340 找回结果，没有重发输入；原始副本 /tmp/yonder-n05-progress-latest.json。
+- 已证实同组成功 submission 可由同一 answer 归组；queued/placed/settled 可由只读 scanSubmissions/submissionByRequest 重开查询，inspect 单独不含已 settled。尚未实际证明结束旧轮与 successor 同时开始、非成功无 answer 的整组来源以及未放置中止窗口，不能凭“原则足够”放行业务源码。
+- Codex 决定先只放行一个 runtime 内的真实原生 API 检查，验证稳定 requestId 重开去重、steer/followup 实际成员与 unplaced abort 回执；产品代码仍待核对结果。必须刻意覆盖 followup 比后到 steer 更早取得 submission ID 的情况，不用 ID 先后猜运行成员。
+- 接纳时的 busy 与 waiting 需要随该条输入保存；不能重载后从当前 binding 推断原来的 busy，也不能从连接是否仍在推断原来的等待意图。候选仅为 Route 的必要可选兼容字段，最终字段待检查后确定。
+- 原生工具适配当前仅 task_run 标为 replay:safe；agent_ask 默认 unsafe，pi 重启会返回 interrupted/可能部分执行，而非框架自动重放。先核对这一真实路径，不误把它直接描述成“重启必定重复 ask”；不在未证实缺口时新增 SDK 调用身份或更改重放策略。
+

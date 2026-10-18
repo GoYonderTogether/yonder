@@ -54,4 +54,5 @@
 - 四次运行全部结束后 service stop→start，pid=9482；MCP 重新连接后的输入 01M57G3XWVKNBJDW2E3T84CAM0 仍路由 session=2，并再次真实调用 yonder version 成功。输入 01M57G7E4AEWVK1MWW8CY6H2SP 的 bash 已实际启动后，通过 sessions_abort 明确中止；run.end=01M57G8VCGXESAWHTVVPCTNMPV，status:aborted/reason:aborted。两个临时启动标记已清理。
 - 持久证据保存在真实 home 的原生事件/会话/转录；临时客户端副本 /tmp/yonder-n03-{main,maintainer,operator,sol,continue}-result.json、/tmp/yonder-n03-main-transcript.json、/tmp/yonder-n03-sol-transcript.json、/tmp/yonder-n03-run-ends-final.json。MCP 等待取消已在 N02 真实客户端检验；本阶段另验证安装版实际中止。
 - 本任务由 Codex 完成安装接线、配置与验收；这些模型调用属于安装版 Yonder 的真实运行，尚不是它自主修复或提交 PR。默认 main 已可通过安装版 yonder chat --home /Users/zoran/.local/share/yonder-harness/home 使用，首次自主修复转 N04。
+- 0.1.4 补充实际用户入口检查：在独立 PTY 从 /private/tmp 启动安装版 yonder chat --home /Users/zoran/.local/share/yonder-harness/home --json，向默认 main 输入一次真实工具任务；实际看到 bash start/end(ok:true)、text 增量及 final:yonder-cli-ready，随后 Ctrl-D 正常退出码 0。未激活用户前台应用，不以 MCP 调用替代这次交互 CLI 证据。
 
