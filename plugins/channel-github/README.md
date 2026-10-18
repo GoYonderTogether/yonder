@@ -1,10 +1,10 @@
 # GitHub channel — 实现未验收
 
-同一 SDK 包提供 GitHub.com issue/comments、PR 工具和 Release 源。只依赖 SDK、已用的 TypeBox 与 Node 标准库；使用固定 argv 的 `agent-network run -- gh api`，gh 保管现有浏览器授权/系统安全存储，插件不执行 `gh auth token`。本轮没有安装、授权、网络调用、测试或实际 GitHub 写入。
+同一 SDK 包提供 GitHub.com issue/comments、PR 工具和 Release 源。只依赖 SDK、已用的 TypeBox 与 Node 标准库；直接使用固定 argv 调用 `gh api`，继承宿主进程的网络环境，gh 保管现有浏览器授权/系统安全存储，插件不执行 `gh auth token`。本轮没有安装、授权、网络调用、测试或实际 GitHub 写入。
 
 ## 安装与任务接纳
 
-由主 agent 把本包加入 workspace、锁文件与 TypeScript 项目引用并构建，再通过正常插件加载安装包。后台进程 PATH 必须包含 `agent-network`、`gh`；用户在服务外执行 `gh auth login --hostname github.com --web`，自行确认浏览器授权。插件不自动打开前台页面，不自动申请新凭据。
+由主 agent 把本包加入 workspace、锁文件与 TypeScript 项目引用并构建，再通过正常插件加载安装包。后台进程 PATH 必须包含 `gh`，网络配置沿用宿主进程环境，不依赖个人工作台 wrapper；用户在服务外执行 `gh auth login --hostname github.com --web`，自行确认浏览器授权。插件不自动打开前台页面，不自动申请新凭据。
 
 `yonder.yaml` 合并以下真实项目配置；`accounts` 是明确获准接任务的 GitHub 登录名，`labels` 为全部必须具备的任务标签。启用前由仓库负责人创建/确认标签；插件不创建标签或扩大仓库权限。
 

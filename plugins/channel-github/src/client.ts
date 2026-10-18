@@ -18,7 +18,7 @@ export function login(value: unknown): string {
 export async function command(args: string[], signal: AbortSignal, input?: object): Promise<string> {
 	signal.throwIfAborted();
 	return new Promise((resolve, reject) => {
-		const child = spawn("agent-network", ["run", "--", "gh", ...args], {
+		const child = spawn("gh", args, {
 			stdio: ["pipe", "pipe", "pipe"],
 			env: { ...process.env, GH_PROMPT_DISABLED: "1", GH_PAGER: "cat" },
 		});
@@ -73,7 +73,7 @@ export async function command(args: string[], signal: AbortSignal, input?: objec
 			else if (code !== 0)
 				reject(
 					new Error(
-						`gh failed (${code}): ${stderr.slice(0, 2000) || "No diagnostic; check gh installation/login and agent-network"}`,
+						`gh failed (${code}): ${stderr.slice(0, 2000) || "No diagnostic; check gh installation/login and the inherited process network environment"}`,
 					),
 				);
 			else resolve(stdout);
