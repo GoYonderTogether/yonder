@@ -29,6 +29,8 @@
 
 ## 问题
 
+2026-10-18 主 agent 源码审查已完成；本任务的当前评估、实现缺口及设计问题见 [第一轮源码审查](review-first-pass.md)。保持原验收状态；以下为第一轮原记录，不代表审查后全部问题已解决。
+
 （无）
 
 - 主 agent 接线：索引进入 system 第③段，skill_view 注册到运行时，CLI skills/doctor 读取同一报告；全部包构建通过。CLI 错误输出补齐 stderr 与 --json 两路。真实模型读写 skill 留第二轮。

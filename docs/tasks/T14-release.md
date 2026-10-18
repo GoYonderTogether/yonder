@@ -20,6 +20,8 @@
 
 ## 问题
 
+2026-10-18 主 agent 源码审查已完成；本任务的当前评估、实现缺口及设计问题见 [第一轮源码审查](review-first-pass.md)。保持原验收状态；以下为第一轮原记录，不代表审查后全部问题已解决。
+
 - 第一轮不执行实际安装、git tag 发布或 launchd 操作；临时双 tag 安装／升级／失败保留／回滚／版本清理和 macOS 服务 install/status/stop/start/restart/uninstall 全部保留第二轮。
 - wrapper 已生成固定 node 绝对路径、安装 bin/node 目录与安装时 PATH；本轮只检查真实临时文件的 shell 语法和 plist 语法，尚未在安装后的后台 agent 中实际运行 yonder/docs/node/npm/git。
 - 更新构建成功后、服务 doctor 失败时保留已构建目标目录但不切换 current；服务重启在 current 切换之后，重启失败时报告失败，未自行引入自动回滚。

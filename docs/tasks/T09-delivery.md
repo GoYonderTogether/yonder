@@ -24,6 +24,8 @@
 
 ## 问题
 
+2026-10-18 主 agent 源码审查已完成；本任务的当前评估、实现缺口及设计问题见 [第一轮源码审查](review-first-pass.md)。保持原验收状态；以下为第一轮原记录，不代表审查后全部问题已解决。
+
 - 第一轮未执行真实模型投递验收，原验收全部保留第二轮：双渠道排队／steer 的 final 去重、实际发送失败、agent_ask 调用链、task_run 子会话中止与恢复。
 - Router 的 onStart 发生于提交前，没有 pi runId。实现按会话保留第一条输入的活动槽，收到过程片段或判定最终投递时才启动 stream；followup／steer 与异步渠道结束交错需第二轮实际组合验收。
 - SDK ToolContext.event 目前仅给开始运行的触发事件，message_send 的免 message 能力判定依据该事件的 conv；被 steer 并入的其他来源的免能力判定尚缺运行来源接口，第二轮核实。
