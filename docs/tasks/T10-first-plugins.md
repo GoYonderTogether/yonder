@@ -17,4 +17,12 @@
 
 ## 问题
 
-（无）
+- 第二个客户端收到的错误 JSON 结构未在规范中定义；当前用 `{ "type": "error", "message": "client already connected" }` 后断开，第二轮确认是否冻结该形状。
+
+## 结果（第一轮，已实现待验收）
+
+- `channel-cli` 注册 `type: cli`，实例在 `paths.data/<实例>.sock` 提供 Unix socket；逐行 UTF-8 输入写入 `message.in`，from/conv 分别为 `acct:<实例>:local` 与 `conv:<实例>:local`。支持单客户端、文本 send 与 `OutputPart` stream；无客户端时返回 `no client`。
+- `context-files` 注册四个 system context；各自只读取对应工作区 Markdown，缺失或空白时不渲染；scaffold 模板只有标题与一行用途说明。
+- 实际检查：两个插件定向 `tsc -b` 通过；`npx vitest run plugins/channel-cli/test/channel.test.ts` 在权限允许创建 Unix socket 后通过（1 文件、1 测试），覆盖 `checkPlugin`、真实 socket 收发与第二客户端断开。
+- `npm run build` 未通过，阻塞来自并行任务的 `packages/core/src/config/index.ts` 类型比较、`packages/core/src/runtime/credentials.ts` 缺少 `proper-lockfile` 及两个类型错误；这些路径不属于 T10。全量 typecheck 未单独运行。
+- 未调用模型；context 被选中后进入 system 的组装集成验收留给 T08/T12。

@@ -23,7 +23,7 @@
 		"id": "channel-cli",
 		"entry": "./dist/index.js",
 		"contributes": {
-			"channels": []
+			"channels": ["cli"]
 		}
 	}
 }
