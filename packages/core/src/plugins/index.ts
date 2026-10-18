@@ -1,0 +1,305 @@
+import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
+import { Errors } from "typebox/value";
+import type {
+	Channel,
+	ChannelIO,
+	ChannelProvider,
+	ContextContribution,
+	EnvProvider,
+	ExecutionEnv,
+	Hook,
+	PluginAPI,
+	PluginModule,
+	Preset,
+	Tool,
+	Trigger,
+	TSchema,
+	YEvent,
+} from "@yonder/sdk";
+import type { YonderConfig } from "../config/index.js";
+
+export type KernelServices = Pick<
+	PluginAPI,
+	"events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "models" | "log"
+>;
+
+export interface LoadedPlugins {
+	channels: Map<string, Channel>;
+	envs: Map<string, ExecutionEnv>;
+	tools: Map<string, Tool[]>;
+	hooks: Map<string, Hook[]>;
+	contexts: Map<string, ContextContribution>;
+	presets: Map<string, Preset>;
+	skillDirs: string[];
+	start(io: ChannelIO): Promise<void>;
+	stop(): Promise<void>;
+	observe(event: YEvent): Promise<void>;
+}
+
+type Lifecycle = { pluginId: string; stop(): Promise<void> };
+type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
+
+async function pluginDirectory(home: string, use: string): Promise<string> {
+	if (isAbsolute(use) || use.startsWith(".")) return resolve(home, use);
+	const homeParent = pathToFileURL(join(home, "yonder-loader.mjs")).href;
+	let entry: string;
+	try {
+		entry = import.meta.resolve(use, homeParent);
+	} catch {
+		entry = import.meta.resolve(use);
+	}
+	let directory = dirname(fileURLToPath(entry));
+	while (true) {
+		try {
+			const pkg = JSON.parse(await readFile(join(directory, "package.json"), "utf8")) as { yonder?: unknown };
+			if (pkg.yonder) return directory;
+		} catch {
+			// Keep walking from the resolved entry to its package root.
+		}
+		const parent = dirname(directory);
+		if (parent === directory) throw new Error(`Cannot find plugin package root for ${use}`);
+		directory = parent;
+	}
+}
+
+function validateConfig(pluginId: string, label: string, schema: TSchema, value: unknown): void {
+	const errors = [...Errors(schema, value)].map((error) => `${error.instancePath || "/"}: ${error.message}`);
+	if (errors.length) throw new Error(`${pluginId}: invalid ${label}: ${errors.join("; ")}`);
+}
+
+function instanceConfig(value: { type: string } & Record<string, unknown>): Record<string, unknown> {
+	const { type: _, ...config } = value;
+	return config;
+}
+
+export async function loadPlugins(home: string, config: YonderConfig, services: KernelServices): Promise<LoadedPlugins> {
+	const channels = new Map<string, Channel>();
+	const envs = new Map<string, ExecutionEnv>();
+	const tools = new Map<string, Tool[]>();
+	const hooks = new Map<string, Hook[]>();
+	const contexts = new Map<string, ContextContribution>();
+	const presets = new Map<string, Preset>();
+	const skillDirs: string[] = [];
+	const channelProviders = new Map<string, { pluginId: string; provider: ChannelProvider }>();
+	const envProviders = new Map<string, { pluginId: string; provider: EnvProvider }>();
+	const triggers: Array<{ pluginId: string; trigger: Trigger }> = [];
+	const listeners: Listener[] = [];
+	const started: Lifecycle[] = [];
+	const pluginIds = new Set<string>();
+	const contributionOwners = new Map<string, string>();
+
+	const claim = (slot: string, name: string, pluginId: string) => {
+		const key = `${slot}:${name}`;
+		const owner = contributionOwners.get(key);
+		if (owner) throw new Error(`${slot}.${name}: contribution conflict between ${owner} and ${pluginId}`);
+		contributionOwners.set(key, pluginId);
+	};
+
+	for (const entry of config.plugins ?? []) {
+		const directory = await pluginDirectory(home, entry.use);
+		const manifest = await readPluginManifest(directory);
+		if (pluginIds.has(manifest.id)) throw new Error(`${manifest.id}: plugin is listed more than once`);
+		pluginIds.add(manifest.id);
+		const loaded = await import(pathToFileURL(resolve(directory, manifest.entry)).href);
+		const plugin = loaded.default as PluginModule;
+		if (typeof plugin?.setup !== "function") throw new Error(`${manifest.id}: entry default export must provide setup(api)`);
+		if (plugin.configSchema) validateConfig(manifest.id, "plugin config", plugin.configSchema, entry.config);
+
+		const { api: registrationsApi, registrations } = createRegistrationCollector();
+		let settingUp = true;
+		const register = <T>(slot: string, save: (item: T) => void) => ({
+			register(item: T) {
+				if (!settingUp) throw new Error(`${manifest.id}: ${slot}.register may only be called during setup`);
+				save(item);
+			},
+		});
+		const denySetupWrite = (operation: string) => {
+			if (settingUp) throw new Error(`${manifest.id}: ${operation} is not allowed during setup`);
+		};
+		const events: PluginAPI["events"] = {
+			emit: (event) => {
+				denySetupWrite("events.emit");
+				return services.events.emit(event);
+			},
+			ask: (event) => {
+				denySetupWrite("events.ask");
+				return services.events.ask(event);
+			},
+			query: (query) => services.events.query(query),
+			on: (type, handler) => {
+				if (!settingUp) throw new Error(`${manifest.id}: events.on may only be registered during setup`);
+				registrationsApi.events.on(type, handler);
+			},
+		};
+		const api: PluginAPI = {
+			id: manifest.id,
+			config: entry.config,
+			log: {
+				info: (message, data) => services.log.info(message, { ...data, plugin: manifest.id }),
+				warn: (message, data) => services.log.warn(message, { ...data, plugin: manifest.id }),
+				error: (message, data) => services.log.error(message, { ...data, plugin: manifest.id }),
+			},
+			channels: register("channels", registrationsApi.channels.register),
+			tools: register("tools", registrationsApi.tools.register),
+			contexts: register("contexts", registrationsApi.contexts.register),
+			triggers: register("triggers", registrationsApi.triggers.register),
+			envs: register("envs", registrationsApi.envs.register),
+			hooks: register("hooks", registrationsApi.hooks.register),
+			presets: register("presets", registrationsApi.presets.register),
+			skills: register("skills", registrationsApi.skills.register),
+			events,
+			messages: {
+				send: (message) => {
+					denySetupWrite("messages.send");
+					return services.messages.send(message);
+				},
+			},
+			credentials: services.credentials,
+			sessions: {
+				list: (filter) => services.sessions.list(filter),
+				get: (id) => services.sessions.get(id),
+				open: (request) => {
+					denySetupWrite("sessions.open");
+					return services.sessions.open(request);
+				},
+				submit: (id, input, options) => {
+					denySetupWrite("sessions.submit");
+					return services.sessions.submit(id, input, options);
+				},
+				abort: (id) => {
+					denySetupWrite("sessions.abort");
+					return services.sessions.abort(id);
+				},
+				close: (id) => {
+					denySetupWrite("sessions.close");
+					return services.sessions.close(id);
+				},
+				transcript: (id, range) => services.sessions.transcript(id, range),
+			},
+			identity: {
+				account: (ref) => services.identity.account(ref),
+				person: (ref) => services.identity.person(ref),
+				createPerson: (person) => {
+					denySetupWrite("identity.createPerson");
+					return services.identity.createPerson(person);
+				},
+				link: (account, person) => {
+					denySetupWrite("identity.link");
+					return services.identity.link(account, person);
+				},
+				unlink: (account) => {
+					denySetupWrite("identity.unlink");
+					return services.identity.unlink(account);
+				},
+				relation: (agent, account) => services.identity.relation(agent, account),
+				lookup: (ref) => services.identity.lookup(ref),
+			},
+			services: services.services,
+			models: services.models,
+			paths: { data: join(home, ".yonder", "plugins", manifest.id) },
+		};
+		try {
+			await plugin.setup(api);
+		} finally {
+			settingUp = false;
+		}
+
+		const issues = await checkRegistrations(manifest, registrations, directory);
+		if (issues.length) throw new Error(issues.join("\n"));
+
+		for (const provider of registrations.channels) {
+			claim("channels", provider.type, manifest.id);
+			channelProviders.set(provider.type, { pluginId: manifest.id, provider });
+		}
+		for (const provider of registrations.envs) {
+			claim("envs", provider.type, manifest.id);
+			envProviders.set(provider.type, { pluginId: manifest.id, provider });
+		}
+		for (const tool of registrations.tools) claim("tools", tool.name, manifest.id);
+		for (const context of registrations.contexts) {
+			claim("contexts", context.id, manifest.id);
+			contexts.set(context.id, context);
+		}
+		for (const trigger of registrations.triggers) claim("triggers", trigger.id, manifest.id);
+		for (const hook of registrations.hooks) claim("hooks", hook.id, manifest.id);
+		for (const preset of registrations.presets) {
+			claim("presets", preset.id, manifest.id);
+			presets.set(preset.id, preset);
+		}
+		for (const skill of manifest.contributes.skills ?? []) claim("skills", skill, manifest.id);
+		for (const skillDir of registrations.skills) skillDirs.push(resolve(directory, skillDir));
+		tools.set(manifest.id, registrations.tools);
+		hooks.set(manifest.id, registrations.hooks);
+		triggers.push(...registrations.triggers.map((trigger) => ({ pluginId: manifest.id, trigger })));
+		listeners.push(...registrations.listeners.map((listener) => ({ pluginId: manifest.id, ...listener })));
+	}
+
+	for (const [id, value] of Object.entries(config.channels ?? {})) {
+		const found = channelProviders.get(value.type);
+		if (!found) throw new Error(`channels.${id}: no provider for type ${value.type}`);
+		const instance = instanceConfig(value);
+		if (found.provider.configSchema) validateConfig(found.pluginId, `channels.${id} config`, found.provider.configSchema, instance);
+		const channel = await found.provider.create(id, instance);
+		if (channel.output.stream && !channel.stream) throw new Error(`channels.${id}: stream output requires provider stream()`);
+		channels.set(id, channel);
+	}
+	for (const [id, value] of Object.entries(config.envs ?? {})) {
+		if (id === "local" && value.type === "local") continue;
+		const found = envProviders.get(value.type);
+		if (!found) throw new Error(`envs.${id}: no provider for type ${value.type}`);
+		const instance = instanceConfig(value);
+		if (found.provider.configSchema) validateConfig(found.pluginId, `envs.${id} config`, found.provider.configSchema, instance);
+		envs.set(id, await found.provider.create(id, instance));
+	}
+
+	const stop = async () => {
+		let failure: unknown;
+		for (const item of started.splice(0).reverse()) {
+			try {
+				await item.stop();
+			} catch (error) {
+				services.log.error("Plugin contribution failed to stop", { plugin: item.pluginId, error: String(error) });
+				failure ??= error;
+			}
+		}
+		if (failure) throw failure;
+	};
+	return {
+		channels,
+		envs,
+		tools,
+		hooks,
+		contexts,
+		presets,
+		skillDirs,
+		async start(io) {
+			try {
+				for (const [id, channel] of channels) {
+					await channel.start(io);
+					started.push({ pluginId: channelProviders.get(config.channels?.[id]?.type ?? "")?.pluginId ?? "", stop: () => channel.stop() });
+				}
+				for (const { pluginId, trigger } of triggers) {
+					await trigger.start({ emit: io.emit });
+					started.push({ pluginId, stop: () => trigger.stop() });
+				}
+			} catch (error) {
+				try { await stop(); } catch {}
+				throw error;
+			}
+		},
+		stop,
+		async observe(event) {
+			for (const listener of listeners) {
+				if (listener.type !== event.type && !(listener.type.endsWith(".*") && event.type.startsWith(listener.type.slice(0, -1)))) continue;
+				try {
+					await listener.handler(event);
+				} catch (error) {
+					services.log.error("Plugin event observer failed", { plugin: listener.pluginId, type: event.type, error: String(error) });
+				}
+			}
+		},
+	} satisfies LoadedPlugins;
+}
