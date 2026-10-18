@@ -25,4 +25,11 @@
 
 ## 问题
 
-（无）
+自动重载通过 `WorkspaceFiles` 每秒轮询文件内容实现；该接口没有文件监听能力。若后续执行环境提供监听接口，可在不改变配置语义的情况下替换轮询。
+
+## 结果
+
+- 完成 `yonder.yaml`、`agent.yaml`、预设 schema、配置加载与字段校验、配置档合并、通配匹配和热重载。
+- `watchConfig` 轮询 agent 工作区与 home 预设；内容变化后校验，成功时原位更新 Map，失败时保留旧值并回调 `config.reload`。同一时刻只运行一个轮询，关闭时清理定时器。
+- 检查：`npx vitest run packages/core/src/config/config.test.ts` 通过（1 个测试）；`npm run build` 未完成，当前被并行编写的 `packages/core/src/runtime/models.ts:202-210` 语法错误阻断，主 agent 统一构建。
+- 原定示例全量校验、每类错误、三种绑定冲突及热重载成功/失败验收留第二轮。
