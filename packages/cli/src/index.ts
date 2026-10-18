@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 import type { LoginInteraction } from "@yonder/core";
 import {
 	compareVersions,
+	attachmentFromPath,
 	initHome,
 	inspectHome,
 	inspectSkills,
@@ -39,7 +40,10 @@ Commands:
   sessions list|show|open|submit|abort|close  会话管理 · Manage sessions
   events                          查询事件 · Query events
   identity lookup|link|unlink|person  身份管理 · Manage identities
-  skills [--agent <id>] [--profile <name>]  技能列表 · List skills
+  skills [show|add|remove] [--agent <id>] [--profile <name>]  技能管理 · Manage skills
+  plugins list|show|add|remove      插件管理 · Manage plugins
+  models list                     模型目录 · Model catalog
+  inspect [--agent <id>] [--profile <name>]  有效配置 · Effective configuration
   version                         版本与安装 · Version and installation
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
@@ -50,9 +54,13 @@ Commands:
 
 const chatUsage = "Usage: yonder chat [--preset <id> | --session <id> | --channel <instance>] [--plain | --json]";
 const sessionsUsage =
-	"Usage: yonder sessions list|show <id>|open <preset> [--keep-open]|submit <id> --text <text>|abort <id>|close <id>";
-const skillsUsage = "Usage: yonder skills [--agent <id>] [--profile <name>]";
+	"Usage: yonder sessions list|show <id>|open <preset> [--keep-open]|submit <id> --text <text> [--attachment <path>]...|abort <id>|close <id>";
+const skillsUsage =
+	"Usage: yonder skills [show <name>|add <directory>|remove <name>] [--agent <id>] [--profile <name>]";
 const releaseUsage: Record<string, string> = {
+	plugins: "Usage: yonder plugins list|show <id>|add <directory/package>|remove <id>",
+	models: "Usage: yonder models list",
+	inspect: "Usage: yonder inspect [--agent <id>] [--profile <name>]",
 	version: "Usage: yonder version",
 	changelog: "Usage: yonder changelog [--from <version>] [--to <version>]",
 	docs: "Usage: yonder docs [path] [--list]",
@@ -404,20 +412,74 @@ async function run(args: string[]): Promise<number> {
 		}
 		return result.ok ? 0 : 1;
 	}
-	if (command === "skills") {
-		let agent = "main";
-		let profile: string | undefined;
-		for (let i = 0; i < rest.length; i++) {
-			const option = rest[i];
-			const value = rest[i + 1];
-			if ((option !== "--agent" && option !== "--profile") || !value || value.startsWith("--"))
-				throw new UsageError(skillsUsage);
-			if (option === "--agent") agent = value;
-			else profile = value;
-			i++;
+	if (["plugins", "models", "inspect"].includes(command)) {
+		let action: string, id: string | undefined, source: string | undefined;
+		let flags: Record<string, string> = {};
+		if (command === "inspect") {
+			action = "inspect";
+			flags = namedOptions(rest, ["--agent", "--profile"], "Usage: yonder inspect [--agent <id>] [--profile <name>]");
+		} else if (command === "models") {
+			if (rest.length !== 1 || rest[0] !== "list") throw new UsageError("Usage: yonder models list");
+			action = "models.list";
+		} else {
+			const operation = rest[0];
+			if (
+				!operation ||
+				!["list", "show", "add", "remove"].includes(operation) ||
+				rest.length !== (operation === "list" ? 1 : 2)
+			)
+				throw new UsageError("Usage: yonder plugins list|show <id>|add <directory/package>|remove <id>");
+			action = `plugins.${operation}`;
+			if (operation === "add") source = rest[1]!.startsWith(".") || existsSync(rest[1]!) ? resolve(rest[1]!) : rest[1];
+			else id = rest[1];
 		}
-		return print(inspectSkills(homeFor(options), agent, profile), options.json);
+		return print(
+			managed(
+				homeFor(options),
+				{
+					method: "management",
+					params: {
+						action,
+						...(id ? { id } : {}),
+						...(source ? { source } : {}),
+						...(flags["--agent"] ? { agent: flags["--agent"] } : {}),
+						...(flags["--profile"] ? { profile: flags["--profile"] } : {}),
+					},
+				},
+				true,
+			),
+			options.json,
+		);
 	}
+	if (command === "skills") {
+		const operation = rest[0] && ["show", "add", "remove"].includes(rest[0]) ? rest[0] : undefined;
+		const target = operation ? rest[1] : undefined;
+		if (operation && (!target || target.startsWith("--"))) throw new UsageError(skillsUsage);
+		const flags = namedOptions(
+			operation ? rest.slice(2) : rest,
+			operation && operation !== "show" ? ["--agent"] : ["--agent", "--profile"],
+			skillsUsage,
+		);
+		if (!operation)
+			return print(inspectSkills(homeFor(options), flags["--agent"] ?? "main", flags["--profile"]), options.json);
+		return print(
+			managed(
+				homeFor(options),
+				{
+					method: "management",
+					params: {
+						action: `skills.${operation}`,
+						...(operation === "add" ? { source: resolve(target!) } : { id: target }),
+						...(flags["--agent"] ? { agent: flags["--agent"] } : {}),
+						...(flags["--profile"] ? { profile: flags["--profile"] } : {}),
+					},
+				},
+				true,
+			),
+			options.json,
+		);
+	}
+
 	if (command === "start") {
 		if (rest.length) throw new UsageError("Usage: yonder start");
 		const home = homeFor(options);
@@ -444,6 +506,8 @@ async function run(args: string[]): Promise<number> {
 			control = await serveControl(home, async (request, connection) => {
 				const params = (request.params ?? {}) as Record<string, unknown>;
 				switch (request.method) {
+					case "management":
+						return kernel.management(params as unknown as Parameters<typeof kernel.management>[0]);
 					case "terminal.sessions":
 						return kernel.terminal.list();
 					case "terminal.presets":
@@ -468,7 +532,16 @@ async function run(args: string[]): Promise<number> {
 					case "sessions.submit": {
 						const busy = params.busy;
 						if (busy !== undefined && busy !== "followup" && busy !== "steer") throw new Error("Invalid busy mode");
-						return kernel.terminal.submit(requiredParam(params, "id"), { text: requiredParam(params, "text") }, busy);
+						return kernel.terminal.submit(
+							requiredParam(params, "id"),
+							{
+								text: requiredParam(params, "text"),
+								...(Array.isArray(params.attachments)
+									? { attachments: params.attachments as import("@yonder/sdk").Attachment[] }
+									: {}),
+							},
+							busy,
+						);
 					}
 					case "sessions.watch": {
 						const id = requiredParam(params, "id");
@@ -587,13 +660,32 @@ async function run(args: string[]): Promise<number> {
 			);
 		}
 		if (subcommand === "submit") {
-			if (args2.length !== 3 || !args2[0] || args2[1] !== "--text" || args2[2] === undefined)
-				throw new UsageError(sessionsUsage);
+			const id = args2[0];
+			if (!id) throw new UsageError(sessionsUsage);
+			let text: string | undefined;
+			const attachments: import("@yonder/sdk").Attachment[] = [];
+			for (let index = 1; index < args2.length; index += 2) {
+				const flag = args2[index],
+					value = args2[index + 1];
+				if (value === undefined) throw new UsageError(sessionsUsage);
+				if (flag === "--text" && text === undefined) text = value;
+				else if (flag === "--attachment") attachments.push(await attachmentFromPath(value));
+				else throw new UsageError(sessionsUsage);
+			}
+			if (text === undefined && !attachments.length) throw new UsageError(sessionsUsage);
 			return print(
-				requestControl(homeFor(options), { method: "sessions.submit", params: { id: args2[0], text: args2[2] } }),
+				managed(
+					homeFor(options),
+					{
+						method: "sessions.submit",
+						params: { id, text: text ?? "", ...(attachments.length ? { attachments } : {}) },
+					},
+					false,
+				),
 				options.json,
 			);
 		}
+
 		if (subcommand === "list") {
 			const filter: { agent?: string; mode?: SessionInfo["mode"]; open?: boolean } = {};
 			for (let i = 0; i < args2.length; i++) {

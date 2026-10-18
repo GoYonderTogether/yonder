@@ -122,6 +122,7 @@ export function createControlServer(api: PluginAPI, io: ChannelIO, channel: stri
 			.object({
 				preset: text,
 				parent: optionalText,
+				close: z.enum(["run-end", "manual"]).optional(),
 				capabilities: z
 					.array(z.enum(["read", "write", "exec", "network", "message", "cross-agent", "admin"]))
 					.optional(),
@@ -132,8 +133,55 @@ export function createControlServer(api: PluginAPI, io: ChannelIO, channel: stri
 	add(
 		"sessions_submit",
 		"向预设会话输入；wait=false 只接纳，结果查询原生事件/转录。",
-		z.object({ id: text, input, wait: z.boolean().default(false) }).strict(),
-		(args) => api.sessions.submit(args.id, args.input as Parameters<SessionsAPI["submit"]>[1], { wait: args.wait }),
+		z
+			.object({ id: text, input, wait: z.boolean().default(false), busy: z.enum(["followup", "steer"]).optional() })
+			.strict(),
+		(args) =>
+			api.sessions.submit(args.id, args.input as Parameters<SessionsAPI["submit"]>[1], {
+				wait: args.wait,
+				...(args.busy ? { busy: args.busy } : {}),
+			}),
+	);
+	server.registerTool(
+		`${api.id}_sessions_watch`,
+		{
+			description: "被动观察原生会话；支持标准进度通知。结束/断连只解除观察，不创建输入或 abort。",
+			inputSchema: z.object({ id: text, milliseconds: z.number().int().min(1).max(60000).default(10000) }).strict(),
+		},
+		async (args, extra) => {
+			if (!api.sessions.observe) throw new Error("Session observation unavailable");
+			const updates: import("@yonder/sdk").SessionUpdate[] = [];
+			let progress = 0,
+				truncated = false;
+			const dispose = await api.sessions.observe(args.id, async (update) => {
+				if (updates.length >= 256) {
+					updates.shift();
+					truncated = true;
+				}
+				updates.push(update);
+				const progressToken = extra._meta?.progressToken;
+				if (progressToken !== undefined)
+					await extra.sendNotification({
+						method: "notifications/progress",
+						params: { progressToken, progress: ++progress, message: JSON.stringify(update) },
+					});
+			});
+			try {
+				await new Promise<void>((resolve) => {
+					const done = () => {
+						clearTimeout(timer);
+						extra.signal.removeEventListener("abort", done);
+						resolve();
+					};
+					const timer = setTimeout(done, args.milliseconds);
+					if (extra.signal.aborted) done();
+					else extra.signal.addEventListener("abort", done, { once: true });
+				});
+			} finally {
+				await dispose();
+			}
+			return json({ session: args.id, updates, truncated });
+		},
 	);
 	add("sessions_abort", "显式中止指定会话及其排队输入。", id, (args) => api.sessions.abort(args.id));
 	add("sessions_close", "关闭指定会话。", id, (args) => api.sessions.close(args.id));

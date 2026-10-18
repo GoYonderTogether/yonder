@@ -24,6 +24,8 @@ export interface Route {
 	binding: string | null;
 	session?: string;
 	wake?: "run" | "write";
+	busy?: "followup" | "steer";
+	waiting?: boolean;
 	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch";
 }
 export interface Attachment {
@@ -52,6 +54,7 @@ export interface MessageOutData {
 }
 export interface RunEndData {
 	session: string;
+	runId?: string;
 	inputs: string[];
 	status: "done" | "error" | "aborted" | "limit";
 	reason?: string;
@@ -113,6 +116,23 @@ export interface Profile {
 }
 export type Preset = Profile & { id: string; description: string };
 
+export interface SessionUpdate {
+	session?: string;
+	runId?: string;
+	eventIds?: string[];
+	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox";
+	event?: object;
+	id?: string;
+	message?: object;
+	messages?: Array<{ id: string; message: object }>;
+	streaming?: boolean;
+	running?: boolean;
+	inputs?: string[];
+	inbox?: Array<{ id: string; mode: string }>;
+	tool?: { id: string; name: string; args?: object; phase: "start" | "update" | "end"; text?: string; result?: object };
+	error?: string;
+}
+
 export interface SessionsAPI {
 	list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
 	get(id: string): Promise<SessionInfo | undefined>;
@@ -127,6 +147,7 @@ export interface SessionsAPI {
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;
 	transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
+	observe?(id: string, send: (update: SessionUpdate) => Promise<void>): Promise<() => Promise<void>>;
 }
 export interface SessionInfo {
 	close?: "run-end" | "manual";
@@ -238,6 +259,8 @@ export interface ToolContext {
 	capabilities: Capability[];
 	env: ExecutionEnv;
 	event?: YEvent;
+	/** Actual inputs of this native run, including placed steer inputs. */
+	events?: YEvent[];
 	signal: AbortSignal;
 }
 export interface ToolResult {
@@ -312,7 +335,15 @@ export interface PluginAPI {
 		query(q: EventQuery): Promise<EventPage>;
 		on(type: string, handler: (e: YEvent) => void | Promise<void>): void;
 	};
-	messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[] }): Promise<Delivery> };
+	messages: {
+		send(m: {
+			to: Ref;
+			via?: string;
+			text: string;
+			attachments?: Attachment[];
+			signal?: AbortSignal;
+		}): Promise<Delivery>;
+	};
 	credentials: { get(name: string): Promise<Credential | undefined> };
 	sessions: SessionsAPI;
 	identity: IdentityAPI;

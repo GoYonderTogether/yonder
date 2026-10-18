@@ -1,20 +1,22 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { EventQuery, Models, Preset, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
-import { stringify } from "yaml";
+import { parseDocument, stringify } from "yaml";
+import { randomUUID } from "node:crypto";
 import {
 	type AgentConfig,
 	loadAgentConfig,
 	loadPresets,
 	loadYonderConfig,
+	parseYonderConfig,
 	resolveProfile,
 	type WorkspaceFiles,
 	watchConfig,
 	type YonderConfig,
 } from "../config/index.js";
 import { createDelivery } from "../delivery/index.js";
-import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
+import { type KernelServices, type LoadedPlugins, loadPlugins, pluginDirectory } from "../plugins/index.js";
 import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "../prompt/index.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -28,7 +30,7 @@ import {
 } from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
 import { createSessions } from "../sessions/index.js";
-import { createSkills } from "../skills/index.js";
+import { addLocalSkill, removeLocalSkill, createSkills } from "../skills/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
 import { createSkillTool } from "../tools/skill-view.js";
@@ -113,6 +115,7 @@ function skillsFor(home: string, config: YonderConfig, plugins: LoadedPlugins, l
 	return createSkills({
 		home,
 		pluginDirs: plugins.skillDirs,
+		...(plugins.skillSources ? { pluginSources: plugins.skillSources } : {}),
 		onIssue: (issue) => log("warn", `${issue.path}: ${issue.message}`),
 		workspace: (session) => {
 			if (!session.agent) return;
@@ -160,6 +163,165 @@ export async function inspectSkills(home: string, agent = "main", profile?: stri
 	const selected = agents.get(agent);
 	if (!selected) throw new Error(`Unknown agent: ${agent}`);
 	return skillsFor(home, config, plugins, () => {}).inspect(profileFor(home, config, selected, profile));
+}
+
+export interface ManagementRequest {
+	action: string;
+	id?: string;
+	source?: string;
+	agent?: string;
+	profile?: string;
+}
+export async function manageHome(home: string, request: ManagementRequest, running?: LoadedPlugins): Promise<unknown> {
+	const config = await loadYonderConfig(home);
+	const services = inspectionServices(home, config, () => {});
+	const loaded = await loadPlugins(home, config, services);
+	const agents = await loadAgents(home, config, loaded);
+	const selectedAgent = () => {
+		const value = agents.get(request.agent ?? "main");
+		if (!value) throw new Error(`Unknown agent: ${request.agent}`);
+		return value;
+	};
+	if (request.action === "models.list")
+		return {
+			source: "configured/native catalog; access not verified",
+			models: services.models
+				.getModels()
+				.map((model) => ({
+					provider: model.provider,
+					id: model.id,
+					name: model.name,
+					contextWindow: model.contextWindow,
+					input: model.input,
+				})),
+		};
+	if (request.action === "inspect") {
+		const session = profileFor(home, config, selectedAgent(), request.profile);
+		const { instructions: _instructions, ...profile } = session.resolved;
+		return {
+			source: "next-run configuration",
+			agent: session.agent,
+			profile: session.profile,
+			configurationFile: join(session.cwd, "agent.yaml"),
+			cwd: session.cwd,
+			...profile,
+			plugins: profile.plugins,
+			registeredPluginTools: [...loaded.tools].flatMap(([plugin, tools]) =>
+				tools.map((tool) => ({ plugin, name: tool.name, capabilities: tool.capabilities })),
+			),
+			...(running ? { runtimeLoaded: (running.info ?? []).map((item) => item.id) } : { runtimeLoaded: null }),
+		};
+	}
+	if (request.action === "skills.show")
+		return skillsFor(home, config, loaded, () => {}).show(
+			profileFor(home, config, selectedAgent(), request.profile),
+			request.id ?? "",
+		);
+	if (request.action === "skills.add" || request.action === "skills.remove") {
+		const entry = request.agent ? config.agents?.find((item) => item.id === request.agent) : undefined;
+		if (request.agent && !entry) throw new Error(`Unknown agent: ${request.agent}`);
+		if (entry?.env && entry.env !== "local") throw new Error("Local skill management requires a local workspace");
+		const target = { home, ...(entry ? { workspace: resolve(home, entry.workspace) } : {}) };
+		return request.action === "skills.add"
+			? addLocalSkill(request.source ?? "", target)
+			: removeLocalSkill(request.id ?? "", target);
+	}
+	if (request.action === "plugins.list" || request.action === "plugins.show") {
+		const result = (loaded.info ?? []).map((info) => ({
+			...info,
+			source: "configured; setup validated",
+			runtimeLoaded: running ? (running.info ?? []).some((item) => item.id === info.id) : null,
+			selectedBy: [...agents.values()].flatMap((agent) =>
+				Object.keys(agent.profiles)
+					.filter((profile) => {
+						const selected = resolveProfile(agent.profiles[profile]!, agent.defaults);
+						return (
+							selected.plugins.includes(info.id) ||
+							selected.contexts.some((id) =>
+								((info.contributes as { contexts?: string[] }).contexts ?? []).includes(id),
+							)
+						);
+					})
+					.map((profile) => `${agent.id}/${profile}`),
+			),
+			instances: [
+				...[...loaded.channels.keys()]
+					.filter((id) =>
+						((info.contributes as { channels?: string[] }).channels ?? []).includes(config.channels![id]!.type),
+					)
+					.map((id) => `channel:${id}`),
+				...[...loaded.envs.keys()]
+					.filter((id) => ((info.contributes as { envs?: string[] }).envs ?? []).includes(config.envs![id]!.type))
+					.map((id) => `env:${id}`),
+			],
+		}));
+		if (request.action === "plugins.list") return result;
+		const found = result.find((item) => item.id === request.id);
+		if (!found) throw new Error(`Plugin not configured: ${request.id}`);
+		return found;
+	}
+	if (request.action !== "plugins.add" && request.action !== "plugins.remove")
+		throw new Error(`Unknown management action: ${request.action}`);
+	const file = join(home, "yonder.yaml"),
+		unlock = await lockfile.lock(file);
+	try {
+		const original = await readFile(file, "utf8"),
+			document = parseDocument(original),
+			candidate = parseYonderConfig(original, file);
+		if (request.action === "plugins.add") {
+			if (!request.source) throw new Error("Plugin source required");
+			await pluginDirectory(home, request.source);
+			candidate.plugins = [...(candidate.plugins ?? []), { use: request.source }];
+		} else {
+			const found = loaded.info?.find((item) => item.id === request.id);
+			if (!found) throw new Error(`Plugin not configured: ${request.id}`);
+			candidate.plugins = (candidate.plugins ?? []).filter((item) => item.use !== found.use);
+		}
+		const next = await loadPlugins(
+			home,
+			candidate,
+			inspectionServices(home, candidate, () => {}),
+		);
+		const nextAgents = await loadAgents(home, candidate, next),
+			presets = await loadPresets(home);
+		const errors = configurationErrors(
+			candidate,
+			nextAgents,
+			next,
+			services.models,
+			new Map([...next.presets, ...presets]),
+		);
+		if (request.action === "plugins.remove") {
+			let hasDatabase = false;
+			try {
+				hasDatabase = (await stat(join(home, ".yonder/state.db"))).isFile();
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			}
+			if (hasDatabase)
+				for (const session of (await offlineQuery(home, {
+					method: "sessions.list",
+					params: { filter: { open: true } },
+				})) as SessionInfo[]) {
+					const exists = session.agent
+						? nextAgents.get(session.agent)?.profiles[session.profile]
+						: presets.has(session.profile) || next.presets.has(session.profile);
+					if (!exists) errors.push(`session ${session.id}: close before removing profile/preset ${session.profile}`);
+				}
+		}
+		if (errors.length) throw new Error(errors.join("; "));
+		document.set("plugins", candidate.plugins);
+		const temporary = `${file}.${randomUUID()}.tmp`;
+		try {
+			await writeFile(temporary, document.toString(), { flag: "wx", mode: 0o600 });
+			await rename(temporary, file);
+		} finally {
+			await rm(temporary, { force: true });
+		}
+		return { configured: true, restartRequired: true, action: request.action, source: request.source ?? request.id };
+	} finally {
+		await unlock();
+	}
 }
 
 function configurationErrors(
@@ -346,13 +508,38 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				void plugins?.observe(event).catch(report);
 				if (event.type === "run.end") {
 					const id = String((event.data as { session?: string }).session ?? "");
-					for (const send of terminalEnds.get(id) ?? []) void send({ type: "end", event }).catch(report);
+					for (const send of terminalEnds.get(id) ?? [])
+						void send({
+							type: "end",
+							session: id,
+							...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
+							eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
+							event,
+						}).catch(report);
 				}
 			},
 		);
 		const realRuntime = () => {
 			if (!runtime) throw new Error("Runtime is not ready");
 			return runtime;
+		};
+		const observeSession = async (id: string, send: (update: import("@yonder/sdk").SessionUpdate) => Promise<void>) => {
+			if (!(await store.sessions.get(id))) throw new Error(`Unknown session: ${id}`);
+			const listeners = terminalEnds.get(id) ?? new Set();
+			listeners.add(send);
+			terminalEnds.set(id, listeners);
+			try {
+				const dispose = await realRuntime().observe(id, send);
+				return async () => {
+					listeners.delete(send);
+					if (!listeners.size) terminalEnds.delete(id);
+					await dispose();
+				};
+			} catch (error) {
+				listeners.delete(send);
+				if (!listeners.size) terminalEnds.delete(id);
+				throw error;
+			}
 		};
 		let sessions: ReturnType<typeof createSessions>;
 		let router: ReturnType<typeof createRouter>;
@@ -375,10 +562,12 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				list: (filter) => sessions.api.list(filter),
 				get: (id) => sessions.api.get(id),
 				open: (req) => sessions.api.open(req),
-				submit: (id, input, opts) => sessions.api.submit(id, input, opts),
+				submit: (id, input, opts, pluginId) =>
+					pluginId ? sessions.submitFrom(id, input, opts, `plugin:${pluginId}`) : sessions.api.submit(id, input, opts),
 				abort: (id) => sessions.api.abort(id),
 				close: (id) => sessions.api.close(id),
 				transcript: (id, range) => sessions.api.transcript(id, range),
+				observe: observeSession,
 			},
 			identity: store.identity(),
 			services: { resolve: (capability) => realRuntime().resolveService(capability) },
@@ -425,6 +614,19 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		};
 		const input = async (row: SessionInfo, event: YEvent, wake: "run" | "write" = "run") =>
 			prepareInput(row, await sessions.resolveSession(row.id), event, wake, promptOptions);
+		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
+			const session = await store.sessions.get(id);
+			if (!session) throw new Error(`Missing runtime session: ${id}`);
+			const completion = await delivery.onRun(session, run, []);
+			await store.events.recordRun(completion.ending);
+			completion.deliver();
+			await router.finishRun(session, run);
+			if (
+				session.mode === "ephemeral" ||
+				(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual")
+			)
+				await sessions.closeSession(id, run.status === "done" ? "completed" : run.status);
+		};
 		sessions = createSessions({
 			store,
 			agents,
@@ -435,7 +637,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			version: packageVersion,
 			runtime: realRuntime,
 			prepareInput: input,
-			onRun: (...args) => delivery.onRun(...args),
+			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
 		});
 		delivery = createDelivery({
@@ -453,7 +655,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			agents,
 			prepareInput: input,
 			onStart: delivery.onStart,
-			onRun: delivery.onRun,
+			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
 		});
 		const tools = createCoreTools({
@@ -475,6 +677,11 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			plugins: [...loaded.tools].map(([id, tools]) => ({ id, tools, hooks: loaded.hooks.get(id) ?? [] })),
 			tools,
 			envs: loaded.envs,
+			readEvent: store.events.get,
+			onAdmitted: async (id, input) => {
+				if (input.version) await store.sessions.setVersion(id, input.version);
+			},
+			onRun: completeRun,
 			resolveSession: async (id) => {
 				const session = await sessions.resolveSession(id);
 				const protectedFiles = session.resolved.contexts
@@ -514,12 +721,42 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				await store.events.record(event);
 			},
 		});
+		await delivery.recover();
+		await runtime.recover();
+		const pendingInputs = [...(await router.recover()), ...(await sessions.recover())];
+		runtime.resume();
+		for (const submit of pendingInputs) submit();
 		await loaded.start(router);
+		delivery.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		return {
-			sessions: sessions.api,
+			sessions: { ...sessions.api, observe: observeSession },
 			events: { query: store.events.query },
 			identity: store.identity(),
+			management: async (request: ManagementRequest) => {
+				const result = await manageHome(home, request, loaded);
+				if (request.action !== "inspect") return result;
+				const agent = agents.get(request.agent ?? "main");
+				if (!agent) throw new Error("Unknown agent");
+				const next = profileFor(home, config, agent, request.profile);
+				return {
+					...(result as object),
+					tools: realRuntime().describeTools(next),
+					runningSnapshots: (await store.sessions.list({ agent: agent.id, open: true })).flatMap((session) => {
+						const snapshot = realRuntime().currentConfig(session.id);
+						return snapshot
+							? [
+									{
+										session: session.id,
+										profile: snapshot.profile,
+										model: snapshot.resolved.model,
+										capabilities: snapshot.resolved.capabilities,
+									},
+								]
+							: [];
+					}),
+				};
+			},
 			close,
 			terminal: {
 				presets: () =>
@@ -615,23 +852,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 						skills: await skills.inspect(active),
 					};
 				},
-				async observe(id: string, send: Parameters<Runtime["observe"]>[1]) {
-					const listeners = terminalEnds.get(id) ?? new Set();
-					listeners.add(send);
-					terminalEnds.set(id, listeners);
-					try {
-						const dispose = await realRuntime().observe(id, send);
-						return async () => {
-							listeners.delete(send);
-							if (!listeners.size) terminalEnds.delete(id);
-							await dispose();
-						};
-					} catch (error) {
-						listeners.delete(send);
-						if (!listeners.size) terminalEnds.delete(id);
-						throw error;
-					}
-				},
+				observe: observeSession,
 			},
 		};
 	} catch (error) {
@@ -641,6 +862,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 }
 
 export async function offlineQuery(home: string, request: { method: string; params?: unknown }): Promise<unknown> {
+	if (request.method === "management") return manageHome(home, request.params as ManagementRequest);
 	const db = await openDatabase(join(home, ".yonder/state.db"), true);
 	try {
 		const store = await createStore(db, undefined, true);

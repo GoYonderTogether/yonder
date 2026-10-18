@@ -5,6 +5,7 @@ export {
 	initHome,
 	inspectHome,
 	inspectSkills,
+	manageHome,
 	loginProvider,
 	offlineQuery,
 	openKernel,
@@ -19,3 +20,5 @@ export {
 	updateRelease,
 } from "./release/index.js";
 export type { TerminalUpdate } from "./runtime/index.js";
+
+export { attachmentFromPath } from "./runtime/index.js";

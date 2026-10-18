@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { findPackageJSON } from "node:module";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -16,6 +17,7 @@ import type {
 	PluginAPI,
 	PluginModule,
 	Preset,
+	SessionsAPI,
 	Tool,
 	Trigger,
 	TSchema,
@@ -26,8 +28,18 @@ import type { YonderConfig } from "../config/index.js";
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
 	Pick<PluginAPI, "events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "models" | "log">,
-	"messages"
-> & { messages: { send(message: PluginMessage, pluginId: string): Promise<Delivery> } };
+	"messages" | "sessions"
+> & {
+	messages: { send(message: PluginMessage, pluginId: string): Promise<Delivery> };
+	sessions: Omit<SessionsAPI, "submit"> & {
+		submit(
+			id: string,
+			input: Parameters<SessionsAPI["submit"]>[1],
+			options?: Parameters<SessionsAPI["submit"]>[2],
+			pluginId?: string,
+		): ReturnType<SessionsAPI["submit"]>;
+	};
+};
 
 export interface LoadedPlugins {
 	channels: Map<string, Channel>;
@@ -37,6 +49,8 @@ export interface LoadedPlugins {
 	contexts: Map<string, ContextContribution>;
 	presets: Map<string, Preset>;
 	skillDirs: string[];
+	skillSources?: ReadonlyMap<string, string>;
+	info?: Array<{ id: string; version: string; use: string; directory: string; contributes: object }>;
 	start(io: ChannelIO): Promise<void>;
 	stop(): Promise<void>;
 	observe(event: YEvent): Promise<void>;
@@ -47,14 +61,18 @@ type Listener = { pluginId: string; type: string; handler: (event: YEvent) => vo
 
 function pluginEvent(id: string, event: EventInput, channel?: string): EventInput {
 	if (event.type === "message.in" && channel) {
-		if (!event.from?.startsWith(`acct:${channel}:`) || !event.conv?.startsWith(`conv:${channel}:`) || "target" in event.data)
+		if (
+			!event.from?.startsWith(`acct:${channel}:`) ||
+			!event.conv?.startsWith(`conv:${channel}:`) ||
+			"target" in event.data
+		)
 			throw new Error(`${id}: message.in must use its own channel and cannot specify target`);
 	} else if (!event.type.startsWith(`${id}.`) || event.type.length === id.length + 1)
 		throw new Error(`${id}: event type must start with ${id}.`);
 	return event;
 }
 
-async function pluginDirectory(home: string, use: string): Promise<string> {
+export async function pluginDirectory(home: string, use: string): Promise<string> {
 	if (isAbsolute(use) || use.startsWith(".")) return resolve(home, use);
 	const homeParent = pathToFileURL(join(home, "yonder-loader.mjs")).href;
 	let manifest: string | undefined;
@@ -78,7 +96,11 @@ function instanceConfig(value: { type: string } & Record<string, unknown>): Reco
 	return config;
 }
 
-export async function loadPlugins(home: string, config: YonderConfig, services: KernelServices): Promise<LoadedPlugins> {
+export async function loadPlugins(
+	home: string,
+	config: YonderConfig,
+	services: KernelServices,
+): Promise<LoadedPlugins> {
 	const channels = new Map<string, Channel>();
 	const envs = new Map<string, ExecutionEnv>();
 	const tools = new Map<string, Tool[]>();
@@ -86,6 +108,8 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 	const contexts = new Map<string, ContextContribution>();
 	const presets = new Map<string, Preset>();
 	const skillDirs: string[] = [];
+	const skillSources = new Map<string, string>();
+	const info: NonNullable<LoadedPlugins["info"]> = [];
 	const channelProviders = new Map<string, { pluginId: string; provider: ChannelProvider }>();
 	const envProviders = new Map<string, { pluginId: string; provider: EnvProvider }>();
 	const triggers: Array<{ pluginId: string; trigger: Trigger }> = [];
@@ -105,11 +129,15 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 	for (const entry of config.plugins ?? []) {
 		const directory = await pluginDirectory(home, entry.use);
 		const manifest = await readPluginManifest(directory);
+		const { version } = JSON.parse(await readFile(resolve(directory, "package.json"), "utf8")) as { version: string };
+		if (typeof version !== "string" || !version) throw new Error(`${manifest.id}: missing package version`);
+		info.push({ id: manifest.id, version, use: entry.use, directory, contributes: manifest.contributes });
 		if (pluginIds.has(manifest.id)) throw new Error(`${manifest.id}: plugin is listed more than once`);
 		pluginIds.add(manifest.id);
 		const loaded = await import(pathToFileURL(resolve(directory, manifest.entry)).href);
 		const plugin = loaded.default as PluginModule;
-		if (typeof plugin?.setup !== "function") throw new Error(`${manifest.id}: entry default export must provide setup(api)`);
+		if (typeof plugin?.setup !== "function")
+			throw new Error(`${manifest.id}: entry default export must provide setup(api)`);
 		if (plugin.configSchema) validateConfig(manifest.id, "plugin config", plugin.configSchema, entry.config);
 
 		const { api: registrationsApi, registrations } = createRegistrationCollector();
@@ -171,7 +199,15 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 				},
 				submit: (id, input, options) => {
 					denySetupWrite("sessions.submit");
-					return services.sessions.submit(id, input, options);
+					return services.sessions.submit(
+						id,
+						input,
+						{
+							...(options?.wait !== undefined ? { wait: options.wait } : {}),
+							...(options?.busy ? { busy: options.busy } : {}),
+						},
+						manifest.id,
+					);
 				},
 				abort: (id) => {
 					denySetupWrite("sessions.abort");
@@ -182,6 +218,11 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 					return services.sessions.close(id);
 				},
 				transcript: (id, range) => services.sessions.transcript(id, range),
+				observe: async (id, send) => {
+					denySetupWrite("sessions.observe");
+					if (!services.sessions.observe) throw new Error("Session observation unavailable");
+					return services.sessions.observe(id, send);
+				},
 			},
 			identity: {
 				account: (ref) => services.identity.account(ref),
@@ -234,7 +275,11 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 			presets.set(preset.id, preset);
 		}
 		for (const skill of manifest.contributes.skills ?? []) claim("skills", skill, manifest.id);
-		for (const skillDir of registrations.skills) skillDirs.push(resolve(directory, skillDir));
+		for (const skillDir of registrations.skills) {
+			const path = resolve(directory, skillDir);
+			skillDirs.push(path);
+			skillSources.set(path, manifest.id);
+		}
 		tools.set(manifest.id, registrations.tools);
 		hooks.set(manifest.id, registrations.hooks);
 		triggers.push(...registrations.triggers.map((trigger) => ({ pluginId: manifest.id, trigger })));
@@ -245,9 +290,11 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		const found = channelProviders.get(value.type);
 		if (!found) throw new Error(`channels.${id}: no provider for type ${value.type}`);
 		const instance = instanceConfig(value);
-		if (found.provider.configSchema) validateConfig(found.pluginId, `channels.${id} config`, found.provider.configSchema, instance);
+		if (found.provider.configSchema)
+			validateConfig(found.pluginId, `channels.${id} config`, found.provider.configSchema, instance);
 		const channel = await found.provider.create(id, instance);
-		if (channel.output.stream && !channel.stream) throw new Error(`channels.${id}: stream output requires provider stream()`);
+		if (channel.output.stream && !channel.stream)
+			throw new Error(`channels.${id}: stream output requires provider stream()`);
 		channels.set(id, channel);
 	}
 	for (const [id, value] of Object.entries(config.envs ?? {})) {
@@ -255,7 +302,8 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		const found = envProviders.get(value.type);
 		if (!found) throw new Error(`envs.${id}: no provider for type ${value.type}`);
 		const instance = instanceConfig(value);
-		if (found.provider.configSchema) validateConfig(found.pluginId, `envs.${id} config`, found.provider.configSchema, instance);
+		if (found.provider.configSchema)
+			validateConfig(found.pluginId, `envs.${id} config`, found.provider.configSchema, instance);
 		envs.set(id, await found.provider.create(id, instance));
 	}
 
@@ -279,35 +327,56 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 		contexts,
 		presets,
 		skillDirs,
+		skillSources,
+		info,
 		async start(io) {
 			try {
 				for (const [id, channel] of channels) {
 					const owner = channelProviders.get(config.channels![id]!.type)!.pluginId;
-					await channel.start({ emit: event => io.emit(pluginEvent(owner, event, id)), ask: event => io.ask(pluginEvent(owner, event, id)) });
+					await channel.start({
+						emit: (event) => io.emit(pluginEvent(owner, event, id)),
+						ask: (event) => io.ask(pluginEvent(owner, event, id)),
+					});
 					started.push({ pluginId: owner, stop: () => channel.stop() });
 				}
 				for (const { pluginId, trigger } of triggers) {
-					await trigger.start({ emit: event => io.emit(pluginEvent(pluginId, event)) });
+					await trigger.start({ emit: (event) => io.emit(pluginEvent(pluginId, event)) });
 					started.push({ pluginId, stop: () => trigger.stop() });
 				}
 			} catch (error) {
-				try { await stop(); } catch {}
+				try {
+					await stop();
+				} catch {}
 				throw error;
 			}
 		},
 		stop,
 		async observe(event) {
-			await Promise.all([...pluginIds].map(pluginId => {
-				const next = (observations.get(pluginId) ?? Promise.resolve()).then(async () => {
-					for (const listener of listeners) {
-						if (listener.pluginId !== pluginId || (listener.type !== event.type && !(listener.type.endsWith(".*") && event.type.startsWith(listener.type.slice(0, -1))))) continue;
-						try { await listener.handler(structuredClone(event)); }
-						catch (error) { services.log.error("Plugin event observer failed", { plugin: pluginId, type: event.type, error: String(error) }); }
-					}
-				});
-				observations.set(pluginId, next);
-				return next;
-			}));
+			await Promise.all(
+				[...pluginIds].map((pluginId) => {
+					const next = (observations.get(pluginId) ?? Promise.resolve()).then(async () => {
+						for (const listener of listeners) {
+							if (
+								listener.pluginId !== pluginId ||
+								(listener.type !== event.type &&
+									!(listener.type.endsWith(".*") && event.type.startsWith(listener.type.slice(0, -1))))
+							)
+								continue;
+							try {
+								await listener.handler(structuredClone(event));
+							} catch (error) {
+								services.log.error("Plugin event observer failed", {
+									plugin: pluginId,
+									type: event.type,
+									error: String(error),
+								});
+							}
+						}
+					});
+					observations.set(pluginId, next);
+					return next;
+				}),
+			);
 		},
 	} satisfies LoadedPlugins;
 }

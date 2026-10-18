@@ -94,13 +94,91 @@ export async function createStore(
 		}
 		return event;
 	}
+	async function findInput(tx: DbExecutor, input: EventInput): Promise<YEvent | undefined> {
+		const msgId = (input.data as { msgId?: unknown }).msgId;
+		if (typeof msgId !== "string" || !msgId || !input.conv?.startsWith("conv:")) return;
+		const prefix = input.conv.split(":").slice(0, 2).join(":") + ":";
+		const row = await tx.get<EventRow>(
+			"SELECT * FROM y_events WHERE type = ? AND substr(conv, 1, ?) = ? AND json_extract(data, '$.msgId') = ? ORDER BY id LIMIT 1",
+			input.type,
+			prefix.length,
+			prefix,
+			msgId,
+		);
+		return row ? eventRow(row) : undefined;
+	}
 	const events = {
+		findInput: (input: EventInput) => findInput(db, input),
 		async append(event: YEvent) {
-			await db.transaction((tx) => insert(tx, event));
-			onEvent?.(event);
-			return event;
+			const result = await db.transaction(async (tx) => (await findInput(tx, event)) ?? insert(tx, event));
+			if (result.id === event.id) onEvent?.(result);
+			return result;
 		},
 		record: (input: EventInput, routes?: Route[]): Promise<YEvent> => events.append(newEvent(input, routes)),
+		async runForInput(session: string, input: string): Promise<YEvent | undefined> {
+			const row = await db.get<EventRow>(
+				"SELECT * FROM y_events WHERE type = 'run.end' AND json_extract(data, '$.session') = ? AND EXISTS (SELECT 1 FROM json_each(json_extract(data, '$.inputs')) WHERE value = ?) ORDER BY id LIMIT 1",
+				session,
+				input,
+			);
+			return row ? eventRow(row) : undefined;
+		},
+		async runEnd(session: string, runId: string): Promise<YEvent | undefined> {
+			const row = await db.get<EventRow>(
+				"SELECT * FROM y_events WHERE type = 'run.end' AND json_extract(data, '$.session') = ? AND json_extract(data, '$.runId') = ? LIMIT 1",
+				session,
+				runId,
+			);
+			return row ? eventRow(row) : undefined;
+		},
+		async recordRun(
+			input: EventInput & { data: { session: string; runId: string; [key: string]: unknown } },
+		): Promise<boolean> {
+			const event = newEvent(input);
+			const added = await db.transaction(async (tx) => {
+				const found = await tx.get<{ id: string }>(
+					"SELECT id FROM y_events WHERE type = 'run.end' AND json_extract(data, '$.session') = ? AND json_extract(data, '$.runId') = ? LIMIT 1",
+					input.data.session,
+					input.data.runId,
+				);
+				if (found) return false;
+				await insert(tx, event);
+				return true;
+			});
+			if (added) onEvent?.(event);
+			return added;
+		},
+		async claimAttempt(
+			input: EventInput & { data: { session?: string; runId?: string; target: string; [key: string]: unknown } },
+		): Promise<string | undefined> {
+			const event = newEvent(input);
+			const added = await db.transaction(async (tx) => {
+				if (
+					input.data.session &&
+					input.data.runId &&
+					(await tx.get<{ id: string }>(
+						"SELECT id FROM y_events WHERE type = 'message.attempt' AND json_extract(data, '$.session') = ? AND json_extract(data, '$.runId') = ? AND json_extract(data, '$.target') = ? LIMIT 1",
+						input.data.session,
+						input.data.runId,
+						input.data.target,
+					))
+				)
+					return false;
+				await insert(tx, event);
+				return true;
+			});
+			if (added) {
+				onEvent?.(event);
+				return event.id;
+			}
+			return undefined;
+		},
+		async unresolvedAttempts(): Promise<YEvent[]> {
+			const rows = await db.all<EventRow>(
+				`SELECT a.* FROM y_events a WHERE a.type = 'message.attempt' AND NOT EXISTS (SELECT 1 FROM y_events c WHERE c.type IN ('message.out', 'message.unknown') AND json_extract(c.data, '$.attempt') = a.id) ORDER BY a.id`,
+			);
+			return rows.map(eventRow);
+		},
 		async get(id: string) {
 			const row = await db.get<EventRow>("SELECT * FROM y_events WHERE id = ?", id);
 			return row && eventRow(row);

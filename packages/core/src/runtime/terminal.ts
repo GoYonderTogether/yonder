@@ -3,19 +3,8 @@ import type { AgentEvent, AgentEventStream, ConversationId, Harness } from "@ear
 import { watchEvents } from "@earendil-works/pi-durable";
 
 /** JSON-only view of native facts. No pi runtime object crosses the control boundary. */
-export interface TerminalUpdate {
-	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox";
-	event?: object;
-	id?: string;
-	message?: object;
-	messages?: Array<{ id: string; message: object }>;
-	streaming?: boolean;
-	running?: boolean;
-	inputs?: string[];
-	inbox?: Array<{ id: string; mode: string }>;
-	tool?: { id: string; name: string; args?: object; phase: "start" | "update" | "end"; text?: string; result?: object };
-	error?: string;
-}
+import type { SessionUpdate as TerminalUpdate } from "@yonder/sdk";
+export type { SessionUpdate as TerminalUpdate } from "@yonder/sdk";
 
 export async function observeTerminal(harness: Harness, id: string, send: (update: TerminalUpdate) => Promise<void>) {
 	const stream: AgentEventStream = await watchEvents(harness, Number(id) as ConversationId, C);

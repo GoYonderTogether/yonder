@@ -19,6 +19,9 @@ export interface RuntimeOptions {
 	envs?: Map<string, ExecutionEnv>;
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
 	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
+	readEvent?(id: string): Promise<YEvent | undefined>;
+	onRun?(session: string, run: RuntimeRun): Promise<void>;
+	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
 	onReport?(error: unknown): void;
 }
 export interface RuntimeInput {
@@ -26,8 +29,9 @@ export interface RuntimeInput {
 	event?: YEvent;
 	attachments?: Attachment[];
 	wake?: "run" | "write";
+	version?: string;
 	busy?: "followup" | "steer";
-	onOutput?(part: OutputPart): void;
+	onOutput?(part: OutputPart, runId?: string): void;
 	requestId?: string;
 }
 export interface RuntimeRun {

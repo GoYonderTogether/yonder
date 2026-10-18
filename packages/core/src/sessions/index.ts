@@ -131,79 +131,100 @@ export function createSessions({
 		});
 	}
 
+	async function submitTaskEvent(session: SessionInfo, event: YEvent): Promise<RunResult> {
+		try {
+			const data = event.data as Input & { busy?: "followup" | "steer" };
+			const prepared = await prepareInput?.(session, event);
+			if (closing.has(session.id) || (await store.sessions.get(session.id))?.closed)
+				throw new Error(`Session closed during input preparation: ${session.id}`);
+			const run = await runtime().submit(session.id, {
+				...(prepared ?? { text: data.text }),
+				event: prepared?.event ?? event,
+				wake: "run",
+				busy: data.busy ?? "followup",
+				requestId: `event:${event.id}`,
+				attachments: prepared?.attachments ?? data.attachments ?? [],
+			});
+			return {
+				agent: session.agent,
+				session: session.id,
+				status: run.status,
+				text: run.text,
+				...(run.reason ? { reason: run.reason } : {}),
+			};
+		} catch (error) {
+			onReport(error);
+			const reason = error instanceof Error ? error.message : String(error);
+			if (!(await runtime().admitted(session.id, event.id)))
+				await onRun?.(
+					session,
+					{
+						runId: `error:${event.id}`,
+						status: "error",
+						text: "",
+						reason,
+						usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+						inputs: [event.id],
+					},
+					[event],
+					(event.data as { waiting?: boolean }).waiting === true,
+				);
+			return { agent: session.agent, session: session.id, status: "error", text: "", reason };
+		}
+	}
 	async function runTask(
 		id: string,
 		input: Input,
 		wait: boolean,
 		busy?: "followup" | "steer",
 		accepted?: (event: string) => void,
+		from?: string,
 	): Promise<RunResult | void> {
 		const session = await store.sessions.get(id);
 		if (!session || session.mode !== "task" || session.closed || closing.has(id))
 			throw new Error(`Not an open task session: ${id}`);
-		const closePolicy = (await runtime().sessionState(id))?.close ?? "run-end";
 		const event = await store.events.record({
 			type: "session.input",
-			data: { session: id, text: input.text, ...(input.attachments ? { attachments: input.attachments } : {}) },
-		});
-		await store.sessions.setVersion(id, version);
-		const prepared = await prepareInput?.(session, event);
-		const source = prepared ?? { text: input.text };
-		const attachments = source.attachments ?? input.attachments;
-		if (closing.has(id) || (await store.sessions.get(id))?.closed)
-			throw new Error(`Session closed during input preparation: ${id}`);
-		const run = runtime().submit(id, {
-			text: source.text,
-			event: source.event ?? event,
-			wake: "run",
-			...(busy ? { busy } : {}),
-			...(attachments ? { attachments } : {}),
-			...(source.onOutput ? { onOutput: source.onOutput } : {}),
-			...(source.requestId ? { requestId: source.requestId } : {}),
+			...(from ? { from } : {}),
+			data: {
+				session: id,
+				text: input.text,
+				waiting: wait,
+				busy: busy ?? "followup",
+				...(input.attachments ? { attachments: input.attachments } : {}),
+			},
 		});
 		accepted?.(event.id);
-		if (!wait) {
-			void run
-				.then(async (result) => {
-					await onRun?.(session, result, [], false);
-					if (closePolicy === "run-end") await closeSession(id, "completed");
-				})
-				.catch(async (error) => {
-					try {
-						if (closePolicy === "run-end") await closeSession(id, "error");
-					} catch (closeError) {
-						onReport(closeError);
-					}
-					onReport(error);
+		const run = submitTaskEvent(session, event);
+		if (wait) return run;
+		void run.catch(onReport);
+	}
+	async function recover(): Promise<Array<() => void>> {
+		const pending: Array<() => void> = [];
+		let after: string | undefined;
+		do {
+			const page = await store.events.query({ type: "session.input", limit: 1000, ...(after ? { after } : {}) });
+			for (const event of page.events) {
+				const data = event.data as { session?: string; waiting?: boolean; busy?: string; taskOwned?: boolean };
+				if (
+					!data.session ||
+					data.taskOwned ||
+					(await store.events.runForInput(data.session, event.id)) ||
+					(await runtime().admitted(data.session, event.id))
+				)
+					continue;
+				const session = await store.sessions.get(data.session);
+				if (!session || session.closed || data.waiting === undefined || data.busy === undefined) {
+					onReport(new Error(`预设输入 ${event.id} 缺少可恢复接纳信息，不猜测重交`));
+					continue;
+				}
+				pending.push(() => {
+					void submitTaskEvent(session, event).catch(onReport);
 				});
-			return;
-		}
-		try {
-			const result = await run;
-			await onRun?.(session, result, [], true);
-			if (closePolicy === "run-end") await closeSession(id, "completed");
-			return {
-				agent: session.agent,
-				session: id,
-				status: result.status,
-				text: result.text,
-				...(result.reason ? { reason: result.reason } : {}),
-			};
-		} catch (error) {
-			try {
-				if (closePolicy === "run-end") await closeSession(id, "error");
-			} catch (closeError) {
-				onReport(closeError);
 			}
-			onReport(error);
-			return {
-				agent: session.agent,
-				session: id,
-				status: "error",
-				text: "",
-				reason: error instanceof Error ? error.message : String(error),
-			};
-		}
+			after = page.next;
+		} while (after);
+		return pending;
 	}
 
 	async function withPolicy(row: SessionInfo): Promise<SessionInfo> {
@@ -277,6 +298,15 @@ export function createSessions({
 
 	return {
 		api,
+		recover,
+		submitFrom(
+			id: string,
+			input: Input,
+			options: { wait?: boolean; busy?: "followup" | "steer" } | undefined,
+			from: string,
+		) {
+			return runTask(id, input, options?.wait === true, options?.busy, undefined, from);
+		},
 		resolveSession,
 		ensureAgent: createAgentSession,
 		closeSession,

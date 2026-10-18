@@ -1,7 +1,7 @@
 const commands =
-	"init login doctor start stop chat sessions events identity skills version changelog docs update service completion";
+	"init login doctor start stop chat sessions events identity skills plugins models inspect version changelog docs update service completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -14,7 +14,7 @@ _yonder() {
     'init:初始化 · Initialize' 'login:登录 · Sign in' 'doctor:诊断 · Diagnose'
     'start:启动 · Start' 'stop:停止 · Stop' 'chat:聊天 · Chat'
     'sessions:会话 · Sessions' 'events:事件 · Events' 'identity:身份 · Identity'
-    'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
+    'plugins:插件 · Plugins' 'models:模型 · Models' 'inspect:配置 · Configuration' 'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
     'docs:文档 · Docs' 'update:更新 · Update' 'service:服务 · Service'
     'completion:补全 · Completion'
   )
@@ -24,10 +24,14 @@ _yonder() {
     --preset) local -a presets; presets=($(_yonder_values presets)); _describe '预设 · Preset' presets; return;;
     --channel) local -a channels; channels=($(_yonder_values channels)); _describe '渠道 · Channel' channels; return;;
     --home) _files -/; return;;
+    --attachment) _files; return;;
     --mode) compadd main persistent ephemeral task; return;;
   esac
   case "$words[2]" in
     sessions) (( CURRENT == 3 )) && { compadd list show abort close open submit; return; };;
+    plugins) (( CURRENT == 3 )) && { compadd list show add remove; return; };;
+    models) (( CURRENT == 3 )) && { compadd list; return; };;
+    skills) (( CURRENT == 3 )) && { compadd show add remove; return; };;
     service) (( CURRENT == 3 )) && { compadd install uninstall start stop restart status; return; };;
     identity) (( CURRENT == 3 )) && { compadd lookup link unlink person; return; };;
     completion) compadd zsh bash fish; return;;
@@ -56,6 +60,7 @@ _yonder() {
   done
   case "$prev" in
     --home) COMPREPLY=($(compgen -d -- "$cur")); return;;
+    --attachment) COMPREPLY=($(compgen -f -- "$cur")); return;;
     --session) choices="$(command yonder completion bash "$\{globals[@]}" --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",b=>s+=b).on("end",()=>{try{console.log(JSON.parse(s).candidates.sessions.join(" "))}catch{}})')";;
     --preset) choices="$(command yonder completion bash "$\{globals[@]}" --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",b=>s+=b).on("end",()=>{try{console.log(JSON.parse(s).candidates.presets.join(" "))}catch{}})')";;
     --channel) choices="$(command yonder completion bash "$\{globals[@]}" --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",b=>s+=b).on("end",()=>{try{console.log(JSON.parse(s).candidates.channels.join(" "))}catch{}})')";;
@@ -64,6 +69,9 @@ _yonder() {
   if (( COMP_CWORD == 2 )); then
     case "$\{COMP_WORDS[1]}" in
       sessions) choices='list show abort close open submit';;
+      plugins) choices='list show add remove';;
+      models) choices='list';;
+      skills) choices='show add remove';;
       service) choices='install uninstall start stop restart status';;
       identity) choices='lookup link unlink person';;
       completion) choices='zsh bash fish';;
@@ -89,6 +97,10 @@ end
 complete -c yonder -f
 complete -c yonder -n '__fish_use_subcommand' -a '${commands}' -d '命令 · Command'
 complete -c yonder -n '__fish_seen_subcommand_from sessions' -a 'list show abort close open submit' -d '会话操作 · Session action'
+complete -c yonder -n '__fish_seen_subcommand_from plugins' -a 'list show add remove'
+complete -c yonder -n '__fish_seen_subcommand_from models' -a 'list'
+complete -c yonder -n '__fish_seen_subcommand_from skills' -a 'show add remove'
+complete -c yonder -l attachment -r -F -d '本地附件 · Local attachment'
 complete -c yonder -n '__fish_seen_subcommand_from service' -a 'install uninstall start stop restart status' -d '服务操作 · Service action'
 complete -c yonder -n '__fish_seen_subcommand_from completion' -a 'zsh bash fish'
 complete -c yonder -l home -r -a '(__fish_complete_directories)' -d '数据目录 · Home'
