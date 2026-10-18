@@ -117,13 +117,16 @@ export class GithubChannel implements Channel {
 				}
 				this.self = login(await this.client.get("user", signal));
 				if (!this.self) throw new Error("Authenticated GitHub login unavailable; run gh auth login --web");
-				const upper = new Date(Date.now() - 1000).toISOString();
+				let latest = Date.parse(this.cursor.since);
 				const since = encodeURIComponent(this.cursor.since);
 				for await (const page of this.client.pages(
 					`issues?state=all&sort=updated&direction=asc&since=${since}`,
 					signal,
 				)) {
 					for (const issue of page) {
+						const updated = Date.parse(String(issue.updated_at));
+						if (!Number.isFinite(updated)) throw new Error("GitHub issue omitted updated_at");
+						latest = Math.max(latest, updated);
 						if (!this.admitted(issue)) continue;
 						const id = nativeId(issue.id),
 							number = Number(issue.number);
@@ -152,7 +155,8 @@ export class GithubChannel implements Channel {
 						}
 					}
 				}
-				this.cursor.since = upper;
+				// Use GitHub object time, never a possibly fast local clock. Keep the timestamp boundary inclusive.
+				this.cursor.since = new Date(Math.max(Date.parse(this.cursor.since), latest - 1000)).toISOString();
 				await this.save();
 				this.state = "ready";
 				this.failure = undefined;
