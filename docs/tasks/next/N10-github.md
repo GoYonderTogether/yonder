@@ -1,6 +1,6 @@
 # N10 GitHub issue 到 PR 与 Codex 合并
 
-**状态**：已批准，待实施；先完成 N00 对齐与冻结。
+**状态**：C4/C6 实现与组装完成，未验收；真实维护/发布链留后轮。
 
 **负责人**：Yonder maintainer 开发；Codex 授权接线、发 issue、审查合并。
 
@@ -33,5 +33,19 @@ Yonder 开发 GitHub 插件，经用户浏览器授权，按 10 §2.1 安装启�
 
 ## 结果
 
-尚未开始。
+原未开始状态已由下列 C4/C6 实施记录更新。
 
+
+### C4 源码交付（2026-10-18，Codex Sol）
+
+- 新增独立 SDK 包 channel-github：gh REST 客户端、分页 issue/comments、显式仓库/账号/标签接纳、按 issue 的 persistent conv、原生 id/水位原子持久化、自己状态评论/PR-as-issue 防循环。
+- 工具完整提供缓存状态、issue/全部评论、方案进度评论、仓库/分支资料、创建/复用 PR、PR 文件 diff/提交/检查/statuses。git 继续使用原执行环境，Codex 负责合并；无自动 push/merge/publish。
+- 固定并阅读参考：OpenClaw cafa09e 的 scripts/pr-lib/github.mjs；Hermes 6660547 的 hermes_cli/github_api.py；OpenCode 2fa3363 的 cli/cmd/github.ts、github.handler.ts 入口/权限/issue-PR/评论与 PR 创建流程。参考边界、具体配置和维护操作见插件 README。
+- 状态：实现未验收。没有新测试，没有修改/运行旧测试，没有网络/授权/发送/推送。工作树缺 node_modules/.bin/tsc，尚未构建；包的根 workspace/lock/项目引用由主 agent 统一接线。
+- C1 主 agent 已确认：type+渠道实例 conv+data.msgId 统一原生接纳去重；本插件不另建队列或扫描核心私有数据库。
+
+- 源码接收后补充：轮询水位取 GitHub 对象的真实 updated_at 并保留边界重叠，不取可能漂移的本机时间；稳定 msgId 继续由核心去重。此为实现修正，未做实际网络调用。
+
+### C6 主仓组装记录
+
+本包生产源码、必要既有资产已整合到主仓，根 workspace、锁文件与 TypeScript 引用已接线；全仓 `npm run build`、`npm run typecheck` 通过。上文工作树检查为历史证据，当前不再处于“待根组装”。本轮没有新增/运行测试、授权、模型、外部 API/消息/安装/发布调用；功能保持“实现未验收”，原真实验收和未完成项留后轮。贡献归实际实现者，不把 Codex 续写计为 Yonder 自主实现。

@@ -1,0 +1,44 @@
+{
+	"name": "@yonder/plugin-channel-github",
+	"version": "0.1.4",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.1.4",
+		"typebox": "1.3.27"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "channel-github",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"channels": [
+				"github"
+			],
+			"tools": [
+				"channel-github_status",
+				"channel-github_read_issue",
+				"channel-github_comment",
+				"channel-github_repository",
+				"channel-github_create_pr",
+				"channel-github_read_pr",
+				"channel-github_read_release",
+				"channel-github_update_schedule",
+				"channel-github_update_status"
+			]
+		}
+	}
+}

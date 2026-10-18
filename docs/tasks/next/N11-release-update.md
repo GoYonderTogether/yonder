@@ -1,6 +1,6 @@
 # N11 发布事件与 operator 更新
 
-**状态**：已批准，待实施；先完成 N00 对齐与冻结。
+**状态**：C4/C6 实现与组装完成，未验收；真实维护/发布链留后轮。
 
 **负责人**：Yonder maintainer 开发；operator 执行；Codex 审查发布。
 
@@ -33,5 +33,18 @@
 
 ## 结果
 
-尚未开始。
+原未开始状态已由下列 C4/C6 实施记录更新。
 
+
+### C4 同包源码交付（2026-10-18，Codex Sol）
+
+- 同包新增 Release REST 分页源，复用实例仓库/客户端；持久化实际 release id，仅接显式批准作者的正式 vX.Y.Z Release。事件完整保留 repository/releaseId/tag/version/sourceUrl/body/作者，稳定 msgId，草稿/预发布/未批准作者不唤醒。
+- operator 默认 notify；显式 apply + install/home 配置后，调度工具重新读取同一原生 Release，以精确仓库/tag 创建服务外 launchd 一次性 Node 作业，使用现有 yonder update/version/service status CLI，无新 CLI flag/SDK/core 私接。现有核心 updater 负责回退。
+- 工具：read_release {instance,releaseId?}、update_schedule {instance,releaseId}、update_status {instance,releaseId}。只调度返回 scheduled/verified:false；作业实际核对版本/origin commit/tag/仓库、源码路径、pid/home/install 并原子保存结果，重启轮询发合法 update-result 事件；没有用户渠道始终不记已通知。同发布不重复运行、未知结果不自动重试。
+- 配置、operator 绑定、精确 argv、返回字段、边界、留存文件及原验收入口均在 plugins/channel-github/README.md。没有自行创建日用 home/launchd/安装目录。
+- 实现未验收。未新增/修改/运行测试，未授权/调用 GitHub、模型、搜索、桌面、安装、launchd、推送或发布。仅借主仓库已装 tsc，以 /tmp/yonder-lane-a-typecheck.json 显式 SDK/typebox 路径对两个插件生产源码 strict/noEmit 类型检查；通过只证明此类型检查，不是发行组装/安装验收。首次临时 typebox 目录映射未解析，改为 package 声明的 build/index.d.mts 后通过。
+- 根 workspace/锁文件/项目引用/许可接线交主 agent；真实 Release→operator pi 输入→更新→重启与用户通知仍未测。N10/C1 的统一原生 msgId 去重是接收窗口恢复的共享接纳契约。
+
+### C6 主仓组装记录
+
+本包生产源码、必要既有资产已整合到主仓，根 workspace、锁文件与 TypeScript 引用已接线；全仓 `npm run build`、`npm run typecheck` 通过。上文工作树检查为历史证据，当前不再处于“待根组装”。本轮没有新增/运行测试、授权、模型、外部 API/消息/安装/发布调用；功能保持“实现未验收”，原真实验收和未完成项留后轮。贡献归实际实现者，不把 Codex 续写计为 Yonder 自主实现。
