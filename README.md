@@ -67,3 +67,9 @@ Plugins depend on `@yonder/sdk` and register contributions through its plugin AP
 - [0.1 implementation tasks](docs/tasks/README.md)
 
 License: [Apache-2.0](LICENSE)
+
+## Native terminal interaction
+
+`yonder` / `yonder chat` opens the pi 1.3.0 native TUI with Yonder commands and real session data. A new standalone task is created on first submission; `/new`, `/resume`, `/session` and slash/Tab completion use upstream UI components. Use `yonder chat --channel cli` for the existing main-agent channel, `--session <id>` to resume, or `--plain` / `--json` for line-oriented clients. Exiting disconnects the UI without stopping admitted work.
+
+For shell completion, load `source <(yonder completion zsh)` or `source <(yonder completion bash)`; fish uses `yonder completion fish | source`. This does not edit shell configuration. Management commands remain non-interactive. See [the terminal contract](docs/spec/12-terminal-interaction.md) and [third-party notices](THIRD_PARTY_NOTICES.md).

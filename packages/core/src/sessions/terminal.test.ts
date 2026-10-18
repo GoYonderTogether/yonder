@@ -23,6 +23,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			const stop = await kernel.terminal.observe(session.id, async (update) => {
 				updates.push(update);
 			});
+			expect(updates[0]?.type).toBe("snapshot");
 			const first = await kernel.sessions.submit(
 				session.id,
 				{

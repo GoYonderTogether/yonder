@@ -20,11 +20,23 @@ node packages/cli/dist/index.js login openai --home <home>
 node packages/cli/dist/index.js start --home <home>
 ```
 
-将 `<home>` 替换为此 Yonder Harness 实例的数据目录。`start` 在前台运行；另开一个终端连接本机 CLI 渠道：
+将 `<home>` 替换为此 Yonder Harness 实例的数据目录。`start` 在前台运行；另开一个终端进入 pi 1.3.0 原生风格的 TUI（默认独立可续聊任务，首次发送才创建会话）：
 
 ```sh
 node packages/cli/dist/index.js chat --home <home>
 ```
+
+`/new` 新任务、`/resume` 继续会话、`/session` 当前信息；`/` 和 Tab 使用原生补全，菜单说明为中英文。模型和工具仍由 Yonder 运行。退出界面不停止后台任务，使用 `/stop` 明确中止。
+
+```sh
+node packages/cli/dist/index.js chat --session <id> --home <home>
+node packages/cli/dist/index.js chat --channel cli --home <home>  # 常驻 main 的原渠道
+node packages/cli/dist/index.js chat --plain --home <home>        # 逐行输入输出
+node packages/cli/dist/index.js sessions open default --keep-open --home <home> --json
+node packages/cli/dist/index.js sessions submit <id> --text '任务正文' --home <home> --json
+```
+
+chat 的默认目标已从 main 渠道改为独立任务。旧 home 没有 default 预设时，在 `/new` 选择实际已有预设；不要假定已安装版本已更新。来源与复用边界见 [终端规范](docs/spec/12-terminal-interaction.md) 和 THIRD_PARTY_NOTICES。
 
 ## 安装与后台服务
 
@@ -57,6 +69,18 @@ yonder chat --home <home>
 ```
 
 `yonder update --to <reviewed-tag|latest>` 更新安装，`--repo` 可指定仓库。`yonder version` 返回实际安装目录和来源 commit；`yonder changelog` 和 `yonder docs` 查看该安装版本的变更记录和文档。正式 GitHub 发布与完整更新验收仍在实施中，本地阶段标签不等于发布。
+
+## Shell Tab 补全
+
+安装版可输出补全脚本，以下命令只加载到当前 shell，不会修改 shell 配置：
+
+```sh
+source <(yonder completion zsh)   # zsh
+source <(yonder completion bash)  # bash
+# fish: yonder completion fish | source
+```
+
+补全可读取当前 `--home` / `YONDER_HOME` 的真实会话、预设和渠道，服务未运行仍可补全静态命令。`--json` 返回单个 `{script, candidates}` 对象，普通管理命令不会弹菜单。
 
 ## 开发插件与 skill
 

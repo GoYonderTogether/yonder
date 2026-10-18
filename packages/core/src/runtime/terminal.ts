@@ -29,7 +29,7 @@ export async function observeTerminal(harness: Harness, id: string, send: (updat
 			await send({ type: "message", id, message: item, streaming: false });
 		}
 	};
-	stream.start(async (events) => {
+	const handle = async (events: readonly AgentEvent[]) => {
 		for (const event of events) {
 			if (event.type === "snapshot") {
 				await send({
@@ -99,7 +99,9 @@ export async function observeTerminal(harness: Harness, id: string, send: (updat
 				await send({ type: "state", running: event.type === "run_start", inputs: event.inputs.map(String) });
 			} else if (event.type === "task_failed") await send({ type: "error", error: event.message });
 		}
-	});
+	};
+	await handle([stream.snapshot]);
+	stream.start(handle);
 	return async () => {
 		await stream.stop();
 	};

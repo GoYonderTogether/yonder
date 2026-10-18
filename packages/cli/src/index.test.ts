@@ -28,7 +28,15 @@ test("chat preserves JSONL final after progress and exits when the server discon
 	);
 	try {
 		await new Promise<void>((done) => server.listen(join(directory, "cli.sock"), done));
-		const child = spawn(process.execPath, [resolve("packages/cli/dist/index.js"), "chat", "--home", home, "--json"]);
+		const child = spawn(process.execPath, [
+			resolve("packages/cli/dist/index.js"),
+			"chat",
+			"--channel",
+			"cli",
+			"--home",
+			home,
+			"--json",
+		]);
 		let out = "",
 			err = "";
 		child.stdout.on("data", (chunk) => {

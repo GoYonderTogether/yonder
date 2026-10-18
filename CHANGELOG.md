@@ -4,6 +4,9 @@
 
 ### Added
 
+- TTY 默认任务聊天、显式渠道/会话目标、plain/JSONL、sessions open/submit 与中英文 shell/斜杠命令说明。
+- zsh/bash/fish 补全脚本，动态候选只读查询当前 home，不修改 shell 配置。
+
 - 基础 TUI 直接复用 pi 1.3.0 原生布局、消息/工具组件、编辑器、补全、选择器与键位；底栏仅适配 Yonder 数据。
 
 - 可续聊任务的手动关闭策略、原生 steer/followup 输入与终端只读消息/工具观察控制接口。

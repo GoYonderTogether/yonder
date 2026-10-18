@@ -5,7 +5,6 @@ import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
-import { inspect } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
 	compareVersions,
@@ -24,27 +23,34 @@ import {
 	updateRelease,
 } from "@yonder/core";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
+import { completion } from "./completion.js";
+import { plainTaskChat } from "./plain-chat.js";
+import type { ChatTarget } from "./terminal.js";
 
 const usage = `Usage: yonder <command> [options]
 
 Commands:
-  init [dir] [--owner <id>]       Create a home
-  login <provider>                Authenticate a model provider
-  doctor                          Check the home configuration
-  start                           Run the harness in the foreground
-  stop                            Stop a running harness
-  chat [--channel <instance>]      Chat through channel-cli
-  sessions list|show|abort|close  Inspect and manage sessions
-  events                          Query events
-  identity lookup|link|unlink|person  Manage identities
-  skills [--agent <id>] [--profile <name>]  List skills
-  version                         Show version, installation and home
-  changelog [--from <v>] [--to <v>]  Read release notes
-  docs [path] [--list]             Read installed documentation
-  update [--to <tag>|latest] [--repo <url>]  Install or update
-  service install|uninstall|start|stop|restart|status  Manage the macOS service
+  init [dir] [--owner <id>]       初始化数据目录 · Create a home
+  login <provider>                登录模型供应商 · Authenticate provider
+  doctor                          检查配置 · Check configuration
+  start                           前台运行 · Start harness
+  stop                            停止运行 · Stop harness
+  chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
+  sessions list|show|open|submit|abort|close  会话管理 · Manage sessions
+  events                          查询事件 · Query events
+  identity lookup|link|unlink|person  身份管理 · Manage identities
+  skills [--agent <id>] [--profile <name>]  技能列表 · List skills
+  version                         版本与安装 · Version and installation
+  changelog [--from <v>] [--to <v>]  更新记录 · Release notes
+  docs [path] [--list]             文档 · Documentation
+  update [--to <tag>|latest] [--repo <url>]  安装与更新 · Install or update
+  service install|uninstall|start|stop|restart|status  服务管理 · Manage service
+  completion zsh|bash|fish         shell 补全脚本 · Shell completion
 `;
 
+const chatUsage = "Usage: yonder chat [--preset <id> | --session <id> | --channel <instance>] [--plain | --json]";
+const sessionsUsage =
+	"Usage: yonder sessions list|show <id>|open <preset> [--keep-open]|submit <id> --text <text>|abort <id>|close <id>";
 const skillsUsage = "Usage: yonder skills [--agent <id>] [--profile <name>]";
 const releaseUsage: Record<string, string> = {
 	version: "Usage: yonder version",
@@ -103,12 +109,23 @@ function parseGlobal(args: string[]): Options {
 }
 class UsageError extends Error {}
 function output(value: unknown, json: boolean) {
-	stdout.write(
-		json
-			? `${JSON.stringify(value)}\n`
-			: `${typeof value === "string" ? value : inspect(value, { colors: stdout.isTTY, depth: 10 })}\n`,
-	);
+	stdout.write(json ? `${JSON.stringify(value)}\n` : `${typeof value === "string" ? value : humanOutput(value)}\n`);
 }
+
+function humanOutput(value: unknown): string {
+	if (value === undefined) return "完成 · Done";
+	if (value === null) return "无结果 · No result";
+	if (Array.isArray(value))
+		return value.length ? value.map((item) => humanOutput(item)).join("\n\n") : "无记录 · No records";
+	if (typeof value !== "object") return String(value);
+	return Object.entries(value)
+		.map(
+			([key, item]) =>
+				`${key}: ${item && typeof item === "object" ? JSON.stringify(item, null, 2) : String(item ?? "—")}`,
+		)
+		.join("\n");
+}
+
 async function print(value: Promise<unknown>, json: boolean) {
 	output(await value, json);
 	return 0;
@@ -211,17 +228,60 @@ async function chat(home: string, instance: string, json: boolean) {
 }
 
 async function run(args: string[]): Promise<number> {
-	if (args.length === 0 || args[0] === "--help" || args[0] === "help") {
+	if (args[0] === "--help" || args[0] === "help") {
 		output(usage, args.includes("--json"));
 		return 0;
 	}
 	const options = parseGlobal(args);
+	if (!options.rest.length && !options.help && stdin.isTTY && stdout.isTTY && !options.json) options.rest.push("chat");
 	const [command, ...rest] = options.rest;
 	if (options.help) {
-		output(command === "skills" ? skillsUsage : (releaseUsage[command ?? ""] ?? usage), options.json);
+		output(
+			command === "skills"
+				? skillsUsage
+				: command === "chat"
+					? chatUsage
+					: command === "sessions"
+						? sessionsUsage
+						: (releaseUsage[command ?? ""] ?? usage),
+			options.json,
+		);
 		return 0;
 	}
 	if (!command) throw new UsageError(usage);
+	if (command === "completion") {
+		if (rest.length !== 1 || !rest[0] || !["zsh", "bash", "fish"].includes(rest[0]))
+			throw new UsageError("Usage: yonder completion zsh|bash|fish");
+		const script = completion(rest[0]);
+		if (!options.json) {
+			stdout.write(script);
+			return 0;
+		}
+		const candidates: { sessions: string[]; presets: string[]; channels: string[] } = {
+			sessions: [],
+			presets: [],
+			channels: [],
+		};
+		const home = optionalHome(options);
+		if (home) {
+			try {
+				const [sessions, presets, channels] = await Promise.all([
+					requestControl(home, { method: "sessions.list", params: { filter: { open: true } } }) as Promise<
+						SessionInfo[]
+					>,
+					requestControl(home, { method: "terminal.presets" }) as Promise<Array<{ id: string }>>,
+					requestControl(home, { method: "terminal.channels" }) as Promise<Array<{ id: string }>>,
+				]);
+				candidates.sessions = sessions.map((item) => item.id);
+				candidates.presets = presets.map((item) => item.id);
+				candidates.channels = channels.map((item) => item.id);
+			} catch (error) {
+				if (!connectionUnavailable(error)) throw error;
+			}
+		}
+		output({ script, candidates }, true);
+		return 0;
+	}
 	if (command === "version") {
 		if (rest.length) throw new UsageError(releaseUsage.version);
 		return print(releaseInfo(optionalHome(options)), options.json);
@@ -475,20 +535,55 @@ async function run(args: string[]): Promise<number> {
 		return 0;
 	}
 	if (command === "chat") {
-		const channelIndex = rest.indexOf("--channel");
-		const instance = channelIndex >= 0 ? rest[channelIndex + 1] : "cli";
-		if (
-			!instance ||
-			(channelIndex < 0 && rest.length !== 0) ||
-			rest.some((value) => value.startsWith("-") && value !== "--channel") ||
-			(channelIndex >= 0 && rest.length !== 2)
-		)
-			throw new UsageError("Usage: yonder chat [--channel <instance>]");
-		await chat(homeFor(options), instance, options.json);
+		const target: ChatTarget = {};
+		let plain = false;
+		for (let index = 0; index < rest.length; index++) {
+			const flag = rest[index];
+			if (flag === "--plain" && !plain) {
+				plain = true;
+				continue;
+			}
+			if (!flag || !["--channel", "--session", "--preset"].includes(flag)) throw new UsageError(chatUsage);
+			const value = rest[++index];
+			if (!value || value.startsWith("--") || Object.keys(target).length) throw new UsageError(chatUsage);
+			if (flag === "--channel") target.channel = value;
+			else if (flag === "--session") target.session = value;
+			else target.preset = value;
+		}
+		if (plain && options.json) throw new UsageError(chatUsage);
+		const home = homeFor(options);
+		if (plain || options.json || !stdin.isTTY || !stdout.isTTY) {
+			if (target.channel) await chat(home, target.channel, options.json);
+			else await plainTaskChat(home, target, options.json);
+		} else {
+			const { runTerminal } = await import("./terminal.js");
+			await runTerminal(home, target);
+		}
 		return 0;
 	}
 	if (command === "sessions") {
 		const [subcommand, ...args2] = rest;
+		if (subcommand === "open") {
+			const keep = args2.includes("--keep-open"),
+				names = args2.filter((arg) => arg !== "--keep-open");
+			if (names.length !== 1 || !names[0] || names[0].startsWith("-") || args2.length !== (keep ? 2 : 1))
+				throw new UsageError(sessionsUsage);
+			return print(
+				requestControl(homeFor(options), {
+					method: "sessions.open",
+					params: { preset: names[0], ...(keep ? { close: "manual" } : {}) },
+				}),
+				options.json,
+			);
+		}
+		if (subcommand === "submit") {
+			if (args2.length !== 3 || !args2[0] || args2[1] !== "--text" || args2[2] === undefined)
+				throw new UsageError(sessionsUsage);
+			return print(
+				requestControl(homeFor(options), { method: "sessions.submit", params: { id: args2[0], text: args2[2] } }),
+				options.json,
+			);
+		}
 		if (subcommand === "list") {
 			const filter: { agent?: string; mode?: SessionInfo["mode"]; open?: boolean } = {};
 			for (let i = 0; i < args2.length; i++) {
@@ -517,7 +612,7 @@ async function run(args: string[]): Promise<number> {
 				managed(homeFor(options), { method: `sessions.${subcommand}`, params: { id: args2[0] } }, false),
 				options.json,
 			);
-		throw new UsageError("Usage: yonder sessions list|show <id>|abort <id>|close <id>");
+		throw new UsageError(sessionsUsage);
 	}
 	if (command === "events") {
 		const query: EventQuery = {};
