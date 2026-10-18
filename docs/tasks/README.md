@@ -15,9 +15,9 @@
 | [T06](T06-plugins.md) | 插件加载 | T02 T03 T10 | 已实现（待验收） |
 | [T07](T07-routing.md) | 绑定解析与会话管理 | T04 T05 T06 | 已实现（待验收） |
 | [T08](T08-prompt.md) | 提示词组装 | T05 T06 T10 | 已实现（待验收） |
-| [T09](T09-delivery.md) | 投递与内置工具 | T07 T08 T10 | 进行中 |
+| [T09](T09-delivery.md) | 投递与内置工具 | T07 T08 T10 | 已实现（待验收） |
 | [T10](T10-first-plugins.md) | channel-cli 与 context-files 插件 | T02 | 已实现（待验收） |
-| [T11](T11-cli.md) | CLI 与本地控制接口（完成后 CLI 可用） | T07 T09 T10 | 待做 |
+| [T11](T11-cli.md) | CLI 与本地控制接口（完成后 CLI 可用） | T07 T09 T10 | 进行中 |
 | [T13](T13-skills.md) | skill 发现、索引与 `skill_view` | T08 T09 T11 | 待做 |
 | [T14](T14-release.md) | 安装、更新、服务、版本通知 | T11 T13 | 待做 |
 | [T12](T12-acceptance.md) | 0.1 端到端验收 | 以上全部 | 待做 |
