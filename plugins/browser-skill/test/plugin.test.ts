@@ -46,11 +46,15 @@ describe("browser-skill SDK contract and input boundaries", () => {
 			{ action: "wheel", deltaX: Number.NaN },
 			{ action: "resize", width: 10, height: 200 },
 			{ action: "select", target: "@e1", values: [] },
+			{ action: "select", target: "@e1", values: [" "] },
+			{ action: "click", target: " " },
+			{ action: "press", key: "Enter", holdMs: Number.MAX_SAFE_INTEGER + 1 },
 			{ action: "emulate", mobile: true },
 			{ action: "emulate", off: true, width: 200, height: 200 },
 			{ action: "click", target: "@e1", command: "bash" },
 		])
 			expect(() => validate("interact", args)).toThrow();
+		expect(validate("interact", { action: "fill", target: "@e1", value: "" }).value).toBe("");
 		expect(() => validate("session", { action: "stop", session: "x", requestId: "r" })).toThrow();
 		expect(() => validate("inspect", { action: "screenshot", ref: "@e1", fullPage: true })).toThrow();
 		expect(() => validate("page", { action: "wait-for-element", target: "@e1", pollMs: 15 })).toThrow();

@@ -1,5 +1,16 @@
 import type { PluginAPI } from "@yonder/sdk";
-import { object, string, type Config, type ObjectValue } from "./protocol.js";
+import { type Config, type ObjectValue, object, string } from "./protocol.js";
+
+/** A request may have reached Feishu without a conclusive protocol receipt. */
+export class FeishuRequestError extends Error {
+	constructor(
+		message: string,
+		readonly uncertain: boolean,
+	) {
+		super(message);
+	}
+}
+export const uncertain = (error: unknown): boolean => error instanceof FeishuRequestError && error.uncertain;
 
 export class FeishuApi {
 	readonly base: string;
@@ -53,15 +64,17 @@ export class FeishuApi {
 	}
 	private async json(response: Response, operation: string): Promise<ObjectValue> {
 		if (!response.ok) {
-			await response.body?.cancel();
-			throw new Error(`Feishu ${operation}: HTTP ${response.status}`);
+			await response.body?.cancel().catch(() => {});
+			throw new FeishuRequestError(`Feishu ${operation}: HTTP ${response.status}`, response.status >= 500);
 		}
 		const result = object(JSON.parse((await this.bytes(response, 2 * 1024 * 1024)).toString("utf8")));
+		if (typeof result.code !== "number") throw new Error(`Feishu ${operation}: malformed response code`);
 		if (result.code !== 0) {
 			const violations = object(result.error).permission_violations;
 			const scopes = Array.isArray(violations) ? violations.map((v) => string(object(v).subject)).filter(Boolean) : [];
-			throw new Error(
+			throw new FeishuRequestError(
 				`Feishu ${operation}: code=${String(result.code)}${scopes.length ? `; required permissions=${scopes.join(",")}` : ""}; check application scopes, publication and tenant access`,
+				false,
 			);
 		}
 		return result;
@@ -85,22 +98,38 @@ export class FeishuApi {
 	}
 	async request(path: string, method = "GET", body?: object | FormData, signal?: AbortSignal): Promise<ObjectValue> {
 		const response = await this.raw(path, method, body, signal);
-		return await this.json(response, path.split("?")[0] ?? path);
+		try {
+			return await this.json(response, path.split("?")[0] ?? path);
+		} catch (error) {
+			if (error instanceof FeishuRequestError) throw error;
+			throw new FeishuRequestError(this.safe(error), method !== "GET");
+		}
 	}
 	async raw(path: string, method = "GET", body?: object | FormData, signal?: AbortSignal): Promise<Response> {
 		if (!path.startsWith("/") || path.startsWith("//")) throw new Error("Invalid Feishu API path");
 		signal?.throwIfAborted();
-		const token = await this.access(signal);
+		let token: string;
+		try {
+			token = await this.access(signal);
+		} catch (error) {
+			// Authentication failed before dispatching this operation.
+			throw new FeishuRequestError(this.safe(error), false);
+		}
 		signal?.throwIfAborted();
-		return await fetch(`${this.base}${path}`, {
-			method,
-			headers: {
-				Authorization: `Bearer ${token}`,
-				...(body && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
-			},
-			...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}),
-			redirect: "error",
-			signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
-		});
+		const encoded = body instanceof FormData ? body : body ? JSON.stringify(body) : undefined;
+		try {
+			return await fetch(`${this.base}${path}`, {
+				method,
+				headers: {
+					Authorization: `Bearer ${token}`,
+					...(body && !(body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+				},
+				...(encoded ? { body: encoded } : {}),
+				redirect: "error",
+				signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
+			});
+		} catch (error) {
+			throw new FeishuRequestError(this.safe(error), method !== "GET");
+		}
 	}
 }

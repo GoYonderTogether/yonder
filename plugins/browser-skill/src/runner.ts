@@ -74,19 +74,15 @@ export interface BskRunner {
 	killFor(tag: string): number;
 }
 
-// Business RPCs translate Ctrl-C / opt-in stdin EOF into cancel(rpc_id).
+// Business RPCs translate Ctrl-C into cancel(rpc_id).
 // Allow reconciliation before hard-killing an old or unresponsive CLI.
 const KILL_GRACE_MS = 3000;
-// Windows IPC may spend 5s connecting, 2s cancelling, 2s settling,
-// and up to 5s releasing the entire batch of caller-owned transfers.
-const WINDOWS_KILL_GRACE_MS = 15_000;
 // A killed child that never reports `exit` at all must still release the caller
 // once the forced kill has had its chance.
 const SETTLE_AFTER_KILL_SLACK_MS = 1000;
 // `close` fires only once every stdio pipe has reached EOF, which needs every
 // process holding a copy of the pipe handles to be gone, not just `bsk`. When
-// `bsk` auto-spawns the daemon, the daemon can end up holding those handles
-// (Windows `CreateProcess` inherits every inheritable handle; issue #180), so
+// another process inherits the pipes, it can keep holding those handles, so
 // after `exit` we drain what the pipes still give us and then settle, rather
 // than waiting for a `close` that may never come. `close` normally follows
 // `exit` within the same loop turn, so the wait is only ever paid when
@@ -104,24 +100,17 @@ interface LiveRun {
 
 export function createBskRunner(bskPath: string, spawnImpl: SpawnImpl = spawn): BskRunner {
 	const live = new Map<ChildProcess, LiveRun>();
-	const windows = process.platform === "win32";
 	const cancelling = new Map<ChildProcess, ReturnType<typeof setTimeout>>();
-	const killGraceMs = windows ? WINDOWS_KILL_GRACE_MS : KILL_GRACE_MS;
-	// The kill grace and the settlement deadline stay in step: a Windows
-	// cancellation using its full 15s must not be cut short by a 4s fallback.
-	const settleAfterKillMs = killGraceMs + SETTLE_AFTER_KILL_SLACK_MS;
+	const settleAfterKillMs = KILL_GRACE_MS + SETTLE_AFTER_KILL_SLACK_MS;
 
 	function killChild(child: ChildProcess): void {
 		if (child.exitCode !== null || child.signalCode !== null || cancelling.has(child)) return;
 		const force = setTimeout(() => {
 			if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-		}, killGraceMs);
+		}, KILL_GRACE_MS);
 		force.unref();
 		cancelling.set(child, force);
-		// Node kills Windows children outright for SIGINT. EOF asks the CLI to
-		// send its existing cancel RPC and wait for browser reconciliation.
-		if (windows && child.stdin) child.stdin.end();
-		else child.kill("SIGINT");
+		child.kill("SIGINT");
 	}
 
 	return {
@@ -140,10 +129,9 @@ export function createBskRunner(bskPath: string, spawnImpl: SpawnImpl = spawn): 
 				try {
 					child = spawnImpl(bskPath, ["--json", ...args], {
 						shell: false,
-						windowsHide: true,
-						env: { ...process.env, BSK_AUTO_START: "0", ...(windows ? { BSK_CANCEL_ON_STDIN_CLOSE: "1" } : {}) },
+						env: { ...process.env, BSK_AUTO_START: "0" },
 					});
-					// A child exiting while cancellation closes stdin may report EPIPE.
+					// A child exiting during pipe cleanup may report EPIPE.
 					// Process completion remains the authority for the run result.
 					child.stdin?.on("error", () => {});
 				} catch (error) {

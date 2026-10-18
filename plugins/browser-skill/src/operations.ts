@@ -1,5 +1,6 @@
 // Action semantics adapted from Tencent BrowserSkill f9b180b (MIT).
 import type { TSchema } from "@yonder/sdk";
+import { Check } from "typebox/value";
 
 export type Args = Record<string, unknown>;
 type Field = {
@@ -10,10 +11,11 @@ type Field = {
 	maximum?: number;
 	items?: Field;
 	minItems?: number;
+	pattern?: string;
 };
-const string: Field = { type: "string" };
-const integer: Field = { type: "integer", minimum: 0 };
-const positive: Field = { type: "integer", minimum: 1 };
+const string: Field = { type: "string", pattern: "\\S" };
+const integer: Field = { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER };
+const positive: Field = { ...integer, minimum: 1 };
 const boolean: Field = { type: "boolean" };
 const strings: Field = { type: "array", items: string, minItems: 1 };
 const choice = (...values: string[]): Field => ({ type: "string", enum: values });
@@ -107,7 +109,7 @@ export const operations = {
 			},
 			["target"],
 		),
-		fill: op("fill", { ...common, target: string, value: string, noClear: boolean }, ["target", "value"]),
+		fill: op("fill", { ...common, target: string, value: { type: "string" }, noClear: boolean }, ["target", "value"]),
 		select: op("select", { ...common, target: string, values: strings, timeoutMs: positive }, ["target", "values"]),
 		press: op("press", { ...common, key: string, target: string, holdMs: integer }, ["key"]),
 		hover: op("hover", { ...common, target: string, modifiers, settleMs: positive, timeoutMs: positive }, ["target"]),
@@ -171,17 +173,8 @@ export function parameters(group: Group): TSchema {
 }
 
 export function validate(group: Group, value: unknown): Args {
-	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Expected an action object");
+	if (!Check(parameters(group), value)) throw new Error(`Invalid ${group} action parameters`);
 	const args = value as Args;
-	const spec = (operations[group] as Record<string, Operation>)[String(args.action)];
-	if (!spec) throw new Error(`Unsupported ${group} action`);
-	for (const key of spec.required) if (args[key] === undefined) throw new Error(`${key} is required`);
-	for (const [key, val] of Object.entries(args)) {
-		if (key === "action") continue;
-		const field = spec.fields[key];
-		if (!field) throw new Error(`Unexpected ${key} for ${group}.${String(args.action)}`);
-		validateField(field, val, key);
-	}
 	if ((args.width === undefined) !== (args.height === undefined))
 		throw new Error("width and height must be given together");
 	if (args.session !== undefined && args.requestId !== undefined)
@@ -210,24 +203,6 @@ export function validate(group: Group, value: unknown): Args {
 		if (args.mobile !== undefined && args.width === undefined) throw new Error("mobile requires width+height");
 	}
 	return args;
-}
-function validateField(field: Field, value: unknown, key: string): void {
-	if (field.type === "array") {
-		if (!Array.isArray(value) || value.length < (field.minItems ?? 0))
-			throw new Error(`${key} must be an array with enough values`);
-		for (const item of value) validateField(field.items ?? string, item, key);
-	} else if (field.type === "integer" || field.type === "number") {
-		if (
-			typeof value !== "number" ||
-			!Number.isFinite(value) ||
-			(field.type === "integer" && !Number.isSafeInteger(value)) ||
-			(field.minimum !== undefined && value < field.minimum) ||
-			(field.maximum !== undefined && value > field.maximum)
-		)
-			throw new Error(`Invalid numeric ${key}`);
-	} else if (typeof value !== field.type || (field.type === "string" && key !== "value" && !String(value).trim()))
-		throw new Error(`Invalid ${key}`);
-	if (field.enum && !field.enum.includes(String(value))) throw new Error(`Invalid ${key}`);
 }
 const flags: Record<string, string> = {
 	waitUntil: "wait-until",

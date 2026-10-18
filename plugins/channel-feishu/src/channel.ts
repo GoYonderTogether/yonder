@@ -1,33 +1,33 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile, rename, open } from "node:fs/promises";
+import { mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import * as Lark from "@larksuiteoapi/node-sdk";
 import {
-	acct,
-	conv,
-	parseRef,
 	type Attachment,
+	acct,
 	type Channel,
 	type ChannelIO,
+	conv,
 	type Delivery,
 	type OutMessage,
 	type OutputPart,
 	type PluginAPI,
+	parseRef,
 } from "@yonder/sdk";
-import * as Lark from "@larksuiteoapi/node-sdk";
-import { FeishuApi } from "./client.js";
+import { FeishuApi, FeishuRequestError, uncertain } from "./client.js";
 import {
+	type Config,
 	cancellable,
 	chunks,
 	mimeFromBytes,
+	type ObjectValue,
 	object,
 	opusDuration,
 	parseContent,
 	required,
 	string,
 	textPayload,
-	type Config,
-	type ObjectValue,
 } from "./protocol.js";
 
 export class FeishuChannel implements Channel {
@@ -352,7 +352,9 @@ export class FeishuChannel implements Channel {
 			},
 			signal,
 		);
-		return required(object(result.data).message_id, "Sent message id");
+		const id = string(object(result.data).message_id);
+		if (!id) throw new FeishuRequestError("Feishu send omitted message id", true);
+		return id;
 	}
 	async send(target: string, msg: OutMessage, signal?: AbortSignal): Promise<Delivery> {
 		let lastId: string | undefined;
@@ -385,7 +387,12 @@ export class FeishuChannel implements Channel {
 			return { ok: true, id: lastId };
 		} catch (error) {
 			this.fail(error);
-			return { ok: false, ...(lastId ? { id: lastId } : {}), error: this.client.safe(error) };
+			return {
+				ok: false,
+				...(lastId ? { id: lastId } : {}),
+				...(uncertain(error) ? { uncertain: true } : {}),
+				error: this.client.safe(error),
+			};
 		}
 	}
 	private async upload(attachment: Attachment, signal?: AbortSignal): Promise<{ type: string; content: object }> {
@@ -478,6 +485,7 @@ export class FeishuChannel implements Channel {
 			sequence = 0,
 			lastUpdate = 0;
 		const errors: string[] = [];
+		let outcomeUncertain = false;
 		const update = async (cleanup = false) => {
 			if (text === accepted) return;
 			await this.client.request(
@@ -502,7 +510,8 @@ export class FeishuChannel implements Channel {
 				{ type: "card_json", data: JSON.stringify(card) },
 				signal,
 			);
-			cardId = required(object(result.data).card_id, "Created CardKit card id");
+			cardId = string(object(result.data).card_id);
+			if (!cardId) throw new FeishuRequestError("Feishu CardKit creation omitted card id", true);
 			messageId = await this.rawSend(
 				target,
 				"interactive",
@@ -520,6 +529,7 @@ export class FeishuChannel implements Channel {
 			}
 			signal?.throwIfAborted();
 		} catch (error) {
+			outcomeUncertain ||= uncertain(error);
 			errors.push(this.client.safe(error));
 		} finally {
 			if (cardId) {
@@ -527,6 +537,7 @@ export class FeishuChannel implements Channel {
 				try {
 					await update(true);
 				} catch (error) {
+					outcomeUncertain ||= uncertain(error);
 					errors.push(this.client.safe(error));
 				}
 				try {
@@ -541,13 +552,19 @@ export class FeishuChannel implements Channel {
 						uuid: randomUUID(),
 					});
 				} catch (error) {
+					outcomeUncertain ||= uncertain(error);
 					errors.push(this.client.safe(error));
 				}
 			}
 		}
 		// An already visible card is never replaced by a duplicate final text on update/close failure.
 		return errors.length
-			? { ok: false, ...(messageId ? { id: messageId } : {}), error: errors.join("; ") }
+			? {
+					ok: false,
+					...(messageId ? { id: messageId } : {}),
+					...(outcomeUncertain ? { uncertain: true } : {}),
+					error: errors.join("; "),
+				}
 			: { ok: true, id: messageId };
 	}
 }

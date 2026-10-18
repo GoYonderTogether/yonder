@@ -1,11 +1,30 @@
-import { definePlugin, parseRef, type Attachment, type PluginAPI, type ToolContext, type TSchema } from "@yonder/sdk";
+import {
+	type Attachment,
+	definePlugin,
+	type PluginAPI,
+	parseRef,
+	type Tool,
+	type ToolContext,
+	type TSchema,
+} from "@yonder/sdk";
+import { Check } from "typebox/value";
 import { FeishuChannel } from "./channel.js";
-import { configSchema, object, required, string, type Config } from "./protocol.js";
+import { uncertain } from "./client.js";
+import { type Config, configSchema, object, required, string } from "./protocol.js";
 
 const str = { type: "string", minLength: 1 };
 export default definePlugin({
 	setup(api: PluginAPI) {
 		const instances = new Map<string, FeishuChannel>();
+		const register = (tool: Tool) =>
+			api.tools.register({
+				...tool,
+				execute(input, ctx) {
+					if (!Check(tool.parameters, input))
+						return Promise.resolve({ text: "Invalid Feishu tool parameters", isError: true });
+					return tool.execute(input, ctx);
+				},
+			});
 		api.channels.register({
 			type: "feishu",
 			configSchema,
@@ -39,7 +58,7 @@ export default definePlugin({
 				data: { instance: channel.id, to: target, messageId: id, session: ctx.session },
 			});
 		};
-		api.tools.register({
+		register({
 			name: "channel-feishu_status",
 			description:
 				"Read actual Feishu instance transport state and required permission guidance; does not connect or send. Connected is not full capability acceptance.",
@@ -59,7 +78,7 @@ export default definePlugin({
 				}
 			},
 		});
-		api.tools.register({
+		register({
 			name: "channel-feishu_message",
 			description:
 				"Send ordinary text and local file: image/audio/video/file artifacts via Yonder message delivery. Uses selected instance render mode, chunk limits, replies and thread configuration. Audio requires Ogg/Opus, video MP4; no silent media downgrade.",
@@ -94,20 +113,23 @@ export default definePlugin({
 					ctx.signal.throwIfAborted();
 					const { args, channel } = resolve(input);
 					const to = targetOf(args, channel);
-					const delivery = await api.messages.send({
-						to,
-						via: channel.id,
-						signal: ctx.signal,
-						text: string(args.text),
-						...(args.attachments ? { attachments: args.attachments as Attachment[] } : {}),
-					});
+					const delivery = await api.messages.send(
+						{
+							to,
+							via: channel.id,
+							signal: ctx.signal,
+							text: string(args.text),
+							...(args.attachments ? { attachments: args.attachments as Attachment[] } : {}),
+						},
+						ctx,
+					);
 					return { text: JSON.stringify(delivery), ...(!delivery.ok ? { isError: true } : {}) };
 				} catch (error) {
 					return { text: error instanceof Error ? error.message : "Feishu send failed", isError: true };
 				}
 			},
 		});
-		api.tools.register({
+		register({
 			name: "channel-feishu_card",
 			description:
 				"Send a native Feishu custom JSON card or a template card through a configured instance. Supply exactly card or templateId (or use instance template default). Records a plugin event and tool transcript; button callbacks are authenticated channel-feishu.card-action events, never automatic authorization.",
@@ -153,7 +175,7 @@ export default definePlugin({
 					const id = await channel.rawSend(target, "interactive", card, string(args.replyTo) || undefined, ctx.signal);
 					try {
 						await record("channel-feishu.card-sent", channel, target, id, ctx);
-					} catch (error) {
+					} catch {
 						return {
 							text: JSON.stringify({
 								ok: false,
@@ -166,7 +188,15 @@ export default definePlugin({
 					return { text: JSON.stringify({ ok: true, id, source: "Feishu" }) };
 				} catch (error) {
 					return {
-						text: channel ? channel.client.safe(error) : error instanceof Error ? error.message : "Feishu card failed",
+						text: JSON.stringify({
+							ok: false,
+							...(uncertain(error) ? { uncertain: true } : {}),
+							error: channel
+								? channel.client.safe(error)
+								: error instanceof Error
+									? error.message
+									: "Feishu card failed",
+						}),
 						isError: true,
 					};
 				}

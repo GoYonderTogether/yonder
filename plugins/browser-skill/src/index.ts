@@ -95,14 +95,18 @@ export default definePlugin({
 			return parseBskJson(result, argv[0] ?? "command");
 		}
 		async function status(signal: AbortSignal): Promise<Record<string, unknown>> {
-			let version;
+			let version: Awaited<ReturnType<typeof runner.run>>;
 			try {
 				version = await runner.run(["--version"], { signal, timeoutMs: 10000 });
 			} catch (error) {
 				if (!isCommandNotFound(error)) throw error;
-				return { state: "cli-missing", executable: config?.bskPath ?? "bsk", ready: false,
+				return {
+					state: "cli-missing",
+					executable: config?.bskPath ?? "bsk",
+					ready: false,
 					guide: "Install the bsk CLI using upstream AGENT_INSTALL.md; do not reinstall an existing browser extension",
-					source: "https://github.com/Tencent/BrowserSkill/blob/main/AGENT_INSTALL.md" };
+					source: "https://github.com/Tencent/BrowserSkill/blob/main/AGENT_INSTALL.md",
+				};
 			}
 			abortCheck(signal);
 			if (version.code !== 0)
