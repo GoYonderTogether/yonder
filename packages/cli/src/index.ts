@@ -444,6 +444,8 @@ async function run(args: string[]): Promise<number> {
 			control = await serveControl(home, async (request, connection) => {
 				const params = (request.params ?? {}) as Record<string, unknown>;
 				switch (request.method) {
+					case "terminal.sessions":
+						return kernel.terminal.list();
 					case "terminal.presets":
 						return kernel.terminal.presets();
 					case "terminal.channels":
@@ -557,7 +559,15 @@ async function run(args: string[]): Promise<number> {
 			else await plainTaskChat(home, target, options.json);
 		} else {
 			const { runTerminal } = await import("./terminal.js");
-			await runTerminal(home, target);
+			try {
+				await runTerminal(home, target);
+			} catch (error) {
+				if (connectionUnavailable(error))
+					throw new Error(
+						"服务未运行 / Service unavailable: run yonder start --home <home>, or yonder service start for an installed service",
+					);
+				throw error;
+			}
 		}
 		return 0;
 	}

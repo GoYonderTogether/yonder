@@ -4,9 +4,12 @@ import { createInterface } from "node:readline";
 import {
 	AssistantMessageComponent,
 	CustomEditor,
-	ExtensionEditorComponent,
+	copyToClipboard,
 	ExtensionSelectorComponent,
 	getMarkdownTheme,
+	keyHint,
+	keyText,
+	rawKeyHint,
 	SessionSelectorComponent,
 	type Theme,
 	ToolExecutionComponent,
@@ -27,12 +30,14 @@ import { CommandAutocomplete } from "./autocomplete.js";
 import {
 	createChatViewport,
 	createInteractiveTui,
+	editInExternalEditor,
 	KeybindingsManager,
 	nativeTheme,
 	WorkingStatusIndicator,
 	withBuiltInRenderers,
 } from "./pi-native.js";
 import { FooterComponent, type FooterView } from "./vendor/pi-footer.js";
+import { ExpandableText } from "./vendor/pi-header.js";
 
 export interface ChatTarget {
 	preset?: string;
@@ -94,6 +99,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	const editorContainer = new Container();
 	editorContainer.addChild(editor);
 	let info: Info | undefined;
+	let opening: Promise<void> | undefined;
 	let presets: Presets = [];
 	let target = { ...initial };
 	let running = false,
@@ -111,7 +117,9 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	const activeSessions = new Set<string>();
 	const speakers = new Map<string, string>();
 	let lastSpeaker: string | undefined;
+	let lastAssistantText = "";
 	let modal: Component | undefined;
+	let startupHeader: ExpandableText | undefined;
 	let finish!: () => void;
 	const done = new Promise<void>((resolve) => {
 		finish = resolve;
@@ -128,7 +136,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 					? `渠道 / Channel ${target.channel}`
 					: `新任务 / New task · ${target.preset ?? "default"}`,
 			...(model ? { model } : {}),
-			...(info?.config.resolved.thinking ? { thinkingLevel: info.config.resolved.thinking } : {}),
+			thinkingLevel:
+				info?.config.resolved.thinking ??
+				presets.find((item) => item.id === (target.preset ?? "default"))?.thinking ??
+				"medium",
 			usageTotals: info?.usage ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
 			contextUsage: {
 				contextWindow:
@@ -137,7 +148,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 					0,
 				percent: null,
 			},
-			status: `${running ? "运行中 / Working" : "就绪 / Ready"}${info ? ` · ${info.config.resolved.level ?? info.config.resolved.capabilities.join(",")} · ${info.config.resolved.env}` : ""}`,
+			status: `${!target.channel && info && (info.session.closed || info.session.mode !== "task") ? "只读 / Read-only" : running ? "运行中 / Working" : "就绪 / Ready"}${info ? ` · ${info.config.resolved.level ?? info.config.resolved.capabilities.join(",")} · ${info.config.resolved.env}` : ""}`,
 		};
 	};
 	const footer = new FooterComponent(footerView);
@@ -180,11 +191,40 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		render();
 	};
 	const title = () => {
-		header.clear();
-		header.addChild(
-			new Text(theme.bold(theme.fg("accent", "Yonder Harness")) + theme.fg("dim", ` v${packageVersion}`), 1, 0),
+		editor.borderColor = theme.getThinkingBorderColor(
+			info?.config.resolved.thinking ??
+				presets.find((item) => item.id === (target.preset ?? "default"))?.thinking ??
+				"medium",
 		);
-		header.addChild(new Text(theme.fg("dim", footerView().label), 1, 0));
+		header.clear();
+		const brand = () => `${theme.bold(theme.fg("accent", "Yonder Harness"))} ${theme.fg("dim", `v${packageVersion}`)}`;
+		const compact = () =>
+			[
+				keyHint("app.interrupt", "interrupt / 中止"),
+				rawKeyHint(`${keyText("app.clear")}/${keyText("app.exit")}`, "clear/exit"),
+				rawKeyHint("/", "commands / 命令"),
+				keyHint("app.tools.expand", "more"),
+			].join(theme.fg("muted", " · "));
+		const expanded = () =>
+			[
+				keyHint("app.interrupt", "interrupt / 中止"),
+				rawKeyHint(`${keyText("app.clear")} twice`, "exit / 退出"),
+				keyHint("tui.input.newLine", "newline / 换行"),
+				keyHint("app.tools.expand", "expand tools / 展开工具"),
+				keyHint("app.message.followUp", "queue follow-up / 后续输入"),
+				keyHint("app.message.dequeue", "edit queued messages / 编辑排队输入"),
+				keyHint("app.editor.external", "external editor / 外部编辑器"),
+			].join("\n");
+		startupHeader = new ExpandableText(
+			() =>
+				`${brand()}\n${compact()}\n${theme.fg("dim", `Press ${keyText("app.tools.expand")} to show full startup help. · 展开帮助`)}\n\n${theme.fg("dim", footerView().label)}`,
+			() => `${brand()}\n${expanded()}\n\n${theme.fg("dim", footerView().label)}`,
+			toolsExpanded,
+			1,
+			0,
+		);
+		header.addChild(new Spacer(1));
+		header.addChild(startupHeader);
 		header.addChild(new Spacer(1));
 		render();
 	};
@@ -241,7 +281,18 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			entries.set(key, component);
 			chat.addChild(component);
 		} else if (message.role === "assistant") {
-			let component = entries.get(key) as AssistantMessageComponent | undefined;
+			const text = message.content
+				.filter((block) => block.type === "text")
+				.map((block) => block.text)
+				.join("\n");
+			if (
+				!message.content.some((block) => block.type === "toolCall") &&
+				text.trim() &&
+				"NO_REPLY".startsWith(text.trim())
+			)
+				return;
+			lastAssistantText = text;
+			let component = (id === "live" ? live.get(session) : entries.get(key)) as AssistantMessageComponent | undefined;
 			if (!component && id !== "live") {
 				component = live.get(session);
 				if (component) live.delete(session);
@@ -395,27 +446,23 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		autocomplete();
 	};
 	const resume = async () => {
-		const rows = await call<SessionInfo[]>("sessions.list", { filter: {} });
-		const loader = async () =>
-			Promise.all(
-				rows.map(async (row) => {
-					const data = await call<{ transcript: Array<{ text: string }> }>("sessions.show", { id: row.id });
-					return {
-						path: row.id,
-						id: row.id,
-						cwd: home,
-						name: `${row.agent ?? "独立任务"} · ${row.profile}${row.closed ? " · 已关闭/Closed" : ""}`,
-						created: new Date(row.opened),
-						modified: new Date(row.closed ?? row.opened),
-						messageCount: data.transcript.length,
-						firstMessage: data.transcript[0]?.text ?? "",
-						allMessagesText: data.transcript.map((item) => item.text).join("\n"),
-					};
-				}),
-			);
+		const loader = async (currentOnly = false) =>
+			(await call<Awaited<ReturnType<Kernel["terminal"]["list"]>>>("terminal.sessions"))
+				.filter((row) => !currentOnly || row.cwd === (info?.config.cwd ?? home))
+				.map((row) => ({
+					path: row.id,
+					id: row.id,
+					cwd: row.cwd,
+					name: `#${row.id} · ${row.agent ?? "独立任务"} · ${row.profile}${row.closed ? " · 已关闭/Closed" : ""}`,
+					created: new Date(row.opened),
+					modified: new Date(row.modified),
+					messageCount: row.messageCount,
+					firstMessage: row.firstMessage,
+					allMessagesText: row.allMessagesText,
+				}));
 		const selector = new SessionSelectorComponent(
-			loader,
-			loader,
+			() => loader(true),
+			() => loader(false),
 			(id) => {
 				closeModal();
 				guarded(async () => {
@@ -482,7 +529,14 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		if (!ids.length) return;
 		const id =
 			ids.length === 1 ? ids[0] : await choose("中止整个会话及排队输入 · Abort session and queued inputs", ids);
-		if (id) await call("sessions.abort", { id });
+		if (id) {
+			if (!target.channel) {
+				const withdrawn = await call<Array<{ text: string }>>("terminal.dequeue", { id });
+				if (withdrawn.length)
+					editor.setText([...withdrawn.map((item) => item.text), editor.getText()].filter(Boolean).join("\n\n"));
+			}
+			await call("sessions.abort", { id });
+		}
 	};
 	const command = async (line: string) => {
 		const name = line.slice(1).trim();
@@ -518,17 +572,14 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			if (info) {
 				await refresh();
 				notice(
-					JSON.stringify(
-						{
-							session: info.session,
-							model: info.config.resolved.model,
-							capabilities: info.config.resolved.capabilities,
-							cwd: info.config.cwd,
-							env: info.config.resolved.env,
-						},
-						null,
-						2,
-					),
+					[
+						`Session #${info.session.id} · ${info.session.mode}`,
+						`对话对象 / Agent: ${info.session.agent ?? "独立任务 / Standalone task"}`,
+						`配置档 / Profile: ${info.session.profile}`,
+						`模型 / Model: ${info.config.resolved.model}`,
+						`执行位置 / Workspace: ${info.config.resolved.env}:${info.config.cwd}`,
+						`能力 / Capabilities: ${info.config.resolved.capabilities.join(", ")}`,
+					].join("\n"),
 				);
 			} else notice(footerView().label);
 			return;
@@ -577,17 +628,39 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	const submit = async (text: string, busy: "steer" | "followup") => {
 		if (target.channel) {
 			if (!channelSocket || channelSocket.destroyed) throw new Error("渠道未连接 / Channel disconnected");
-			channelSocket.write(`${text}\n`);
+			channelSocket.write(`\u001e${JSON.stringify({ type: "input", text })}\n`);
 			return;
 		}
 		if (!info) {
-			const session = await call<SessionInfo>("sessions.open", { preset: target.preset ?? "default", close: "manual" });
-			target = { session: session.id };
-			await watch(session.id);
+			opening ??= (async () => {
+				const session = await call<SessionInfo>("sessions.open", {
+					preset: target.preset ?? "default",
+					close: "manual",
+				});
+				target = { session: session.id };
+				await watch(session.id);
+			})();
+			try {
+				await opening;
+			} finally {
+				opening = undefined;
+			}
 		}
 		if (info?.session.mode !== "task" || info.session.closed || info.session.close !== "manual")
 			throw new Error("该历史只读；请 /new 新建任务 / Read-only history; use /new");
-		const result = await call<{ event: string }>("sessions.submit", { id: info.session.id, text, busy });
+		let result: { event: string };
+		try {
+			result = await call<{ event: string }>("sessions.submit", { id: info.session.id, text, busy });
+		} catch (error) {
+			if (
+				(error as NodeJS.ErrnoException).code === "ECONNRESET" ||
+				(error instanceof Error && error.message.includes("without a response"))
+			)
+				throw new Error(
+					"接纳状态未知，请先查看会话历史再决定是否重发 / Acceptance unknown; inspect history before resending",
+				);
+			throw error;
+		}
 
 		void result;
 	};
@@ -637,6 +710,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	});
 	editor.onAction("app.tools.expand", () => {
 		toolsExpanded = !toolsExpanded;
+		startupHeader?.setExpanded(toolsExpanded);
 		for (const tool of tools.values()) tool.setExpanded(toolsExpanded);
 		render();
 	});
@@ -645,25 +719,30 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		for (const assistant of assistants) assistant.setHideThinkingBlock(hideThinking);
 		render();
 	});
-	editor.onAction("app.editor.external", () => {
-		const external = new ExtensionEditorComponent(
-			ui,
-			keys,
-			"编辑消息 · Edit message",
-			editor.getText(),
-			(value) => {
-				closeModal();
-				editor.setText(value);
-				render();
-			},
-			closeModal,
-		);
-		modal = external;
-		editorContainer.clear();
-		editorContainer.addChild(external);
-		ui.setFocus(external);
-		render();
-	});
+	editor.onAction("app.message.copy", () =>
+		guarded(async () => {
+			if (lastAssistantText) await copyToClipboard(lastAssistantText);
+		}),
+	);
+	editor.onAction("app.editor.external", () =>
+		guarded(async () => {
+			const content = editor.getExpandedText?.() ?? editor.getText();
+			ui.stop();
+			try {
+				const result = await editInExternalEditor({
+					command: process.env.VISUAL || process.env.EDITOR || "nano",
+					content,
+				});
+				if (result.status === "complete") editor.setText(result.content);
+			} finally {
+				if (!closed) {
+					ui.start();
+					ui.requestRender(true);
+				}
+			}
+		}),
+	);
+
 	autocomplete();
 	title();
 	try {

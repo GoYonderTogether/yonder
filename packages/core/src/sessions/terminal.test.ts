@@ -45,6 +45,36 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				{ wait: true },
 			);
 			expect(second?.text).toContain("terminal-continuity");
+
+			const abortable = await kernel.sessions.open({ preset: "default", close: "manual" });
+			let toolStarted = false;
+			const release = await kernel.terminal.observe(abortable.id, async (update) => {
+				if (update.type === "tool" && update.tool?.phase === "start") toolStarted = true;
+			});
+			await kernel.terminal.submit(abortable.id, {
+				text: "Call bash now with command: sleep 10; printf abort-check. Wait for the tool before replying.",
+			});
+			await expect.poll(() => toolStarted, { timeout: 30000 }).toBe(true);
+			const queued = await kernel.terminal.submit(
+				abortable.id,
+				{ text: "Queued input must be returned to the editor." },
+				"followup",
+			);
+			const current = kernel;
+			await expect.poll(async () => (await current.terminal.queued(abortable.id)).length, { timeout: 3000 }).toBe(1);
+			const withdrawn = await kernel.terminal.queued(abortable.id, true);
+			expect(withdrawn[0]?.text).toBe("Queued input must be returned to the editor.");
+			expect(withdrawn[0]?.event).toBe(queued.event);
+			await kernel.sessions.abort(abortable.id);
+			expect((await kernel.sessions.get(abortable.id))?.closed).toBeUndefined();
+			await release();
+			await kernel.sessions.close(abortable.id);
+			const once = await kernel.sessions.open({ preset: "default" });
+			expect(once.close).toBe("run-end");
+			expect(
+				(await kernel.sessions.submit(once.id, { text: "Reply only: one-shot-complete" }, { wait: true }))?.status,
+			).toBe("done");
+			expect((await kernel.sessions.get(once.id))?.closed).toBeTruthy();
 			await kernel.sessions.close(session.id);
 			expect((await kernel.sessions.get(session.id))?.closed).toBeTruthy();
 			await expect(kernel.sessions.submit(session.id, { text: "must reject" })).rejects.toThrow("Not an open task");

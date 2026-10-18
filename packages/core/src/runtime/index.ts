@@ -768,6 +768,16 @@ export class Runtime {
 	async observe(id: string, send: (update: TerminalUpdate) => Promise<void>) {
 		return observeTerminal(this.harness, id, send);
 	}
+	async terminalHistory(id: string) {
+		const page = await (await this.conversation(id)).entries(
+			{ order: "ascending" },
+			Number.MAX_SAFE_INTEGER,
+			undefined,
+			C,
+		);
+		return page.items.flatMap((entry) => entry.model ?? []);
+	}
+
 	async transcript(id: string, range: { from?: number; limit?: number } = {}): Promise<TranscriptItem[]> {
 		const page = await (await this.conversation(id)).entries(
 			{ order: "ascending" },

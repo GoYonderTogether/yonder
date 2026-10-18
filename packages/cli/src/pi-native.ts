@@ -45,3 +45,10 @@ export const { WorkingStatusIndicator } = (await load("modes/interactive/compone
 export const { withBuiltInRenderers } = (await load("core/tools/renderers/index.js")) as {
 	withBuiltInRenderers(name: string, definition?: undefined): ConstructorParameters<typeof ToolExecutionComponent>[4];
 };
+
+export const { editInExternalEditor } = (await load("modes/interactive/external-editor.js")) as {
+	editInExternalEditor(options: {
+		command: string;
+		content: string;
+	}): Promise<{ status: "complete"; content: string } | { status: "failed" }>;
+};

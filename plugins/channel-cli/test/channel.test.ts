@@ -1,12 +1,12 @@
+import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createConnection } from "node:net";
-import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import type { ChannelProvider, PluginAPI } from "@yonder/sdk";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
-import type { ChannelProvider, PluginAPI } from "@yonder/sdk";
 
 it("passes plugin contracts and exchanges messages over its Unix socket", async () => {
 	const root = process.cwd();
@@ -16,13 +16,27 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	const data = await mkdtemp(join(tmpdir(), "yonder-channel-cli-"));
 	let provider!: ChannelProvider;
 	const plugin = (await import("../src/index.js")).default;
-	await plugin.setup({ paths: { data }, channels: { register: (channel) => { provider = channel; } } } as unknown as PluginAPI);
+	await plugin.setup({
+		paths: { data },
+		channels: {
+			register: (channel) => {
+				provider = channel;
+			},
+		},
+	} as unknown as PluginAPI);
 	const channel = await provider.create("test-cli", {});
 	let received!: (event: unknown) => void;
-	const input = new Promise<unknown>((resolveInput) => { received = resolveInput; });
-	const stale = spawn(process.execPath, ["--input-type=module", "-e", 'import {createServer} from "node:net"; createServer().listen(process.argv[1], () => console.log("ready"));', join(data, "test-cli.sock")]);
-	await new Promise<void>(done => stale.stdout.once("data", () => done()));
-	const exited = new Promise<void>(done => stale.once("exit", () => done()));
+	const input = new Promise<unknown>((resolveInput) => {
+		received = resolveInput;
+	});
+	const stale = spawn(process.execPath, [
+		"--input-type=module",
+		"-e",
+		'import {createServer} from "node:net"; createServer().listen(process.argv[1], () => console.log("ready"));',
+		join(data, "test-cli.sock"),
+	]);
+	await new Promise<void>((done) => stale.stdout.once("data", () => done()));
+	const exited = new Promise<void>((done) => stale.once("exit", () => done()));
 	stale.kill("SIGKILL");
 	await exited;
 	await channel.start({
@@ -30,7 +44,9 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 			received(event);
 			return { ...event, id: "1", ts: new Date().toISOString() };
 		},
-		ask: async () => { throw new Error("unused"); },
+		ask: async () => {
+			throw new Error("unused");
+		},
 	});
 
 	const socket = createConnection(join(data, "test-cli.sock"));
@@ -53,6 +69,16 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	});
 	expect(await channel.send("conv:test-cli:local", { text: "reply" })).toEqual({ ok: true });
 	expect(await line).toEqual({ type: "message", text: "reply" });
+
+	const multiline = new Promise<unknown>((resolveInput) => {
+		received = resolveInput;
+	});
+	const ack = new Promise<Record<string, unknown>>((resolveAck) =>
+		socket.once("data", (chunk) => resolveAck(JSON.parse(String(chunk).split("\n")[0] ?? ""))),
+	);
+	socket.write(`\u001e${JSON.stringify({ type: "input", text: "第一行\nsecond line" })}\n`);
+	expect(await multiline).toMatchObject({ data: { kind: "dm", text: "第一行\nsecond line" } });
+	expect((await ack).type).toBe("accepted");
 
 	const second = createConnection(join(data, "test-cli.sock"));
 	second.setEncoding("utf8");

@@ -41,7 +41,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home);
-		await mkdir(`${home}/presets`);
+		await mkdir(`${home}/presets`, { recursive: true });
 		const preset = `${home}/presets/maintenance.yaml`;
 		await writeFile(
 			preset,

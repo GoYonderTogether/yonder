@@ -556,6 +556,32 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 								)
 								.map((agent) => ({ id: agent.id, name: agent.name })),
 						})),
+				async list() {
+					return Promise.all(
+						(await sessions.api.list({})).map(async (session) => {
+							const messages = await realRuntime().terminalHistory(session.id);
+							const texts = messages.map((message) =>
+								typeof message.content === "string"
+									? message.content
+									: message.content
+											.filter((block) => block.type === "text")
+											.map((block) => block.text)
+											.join("\n"),
+							);
+							const state = await realRuntime().sessionState(session.id);
+							return {
+								...session,
+								cwd: state?.cwd ?? home,
+								messageCount: messages.length,
+								firstMessage: texts[0]?.replace(/^<turn\b[\s\S]*?<\/turn>\s*/, "") ?? "",
+								allMessagesText: texts.join("\n"),
+								modified: messages.at(-1)?.timestamp
+									? new Date(messages.at(-1)?.timestamp ?? 0).toISOString()
+									: session.opened,
+							};
+						}),
+					);
+				},
 				submit: sessions.submitAccepted,
 				async queued(id: string, withdraw = false) {
 					return Promise.all(
@@ -569,32 +595,24 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				async info(id: string) {
 					const session = await sessions.api.get(id);
 					if (!session) throw new Error(`Unknown session: ${id}`);
+					const active = await realRuntime().sessionConfig(id),
+						ref = active.resolved.model,
+						slash = ref.indexOf("/");
+					const model = services.models.getModel(ref.slice(0, slash), ref.slice(slash + 1));
 					return {
 						session,
-						config: await realRuntime().sessionConfig(id),
-						model: (() => {
-							const ref = (
-								session.agent
-									? resolveProfile(
-											agents.get(session.agent)?.profiles[session.profile] ?? {},
-											agents.get(session.agent)?.defaults,
-										)
-									: resolveProfile(homePresets.get(session.profile) ?? loaded.presets.get(session.profile) ?? {})
-							).model;
-							const slash = ref.indexOf("/");
-							const model = services.models.getModel(ref.slice(0, slash), ref.slice(slash + 1));
-							return model
-								? {
-										id: model.id,
-										provider: model.provider,
-										contextWindow: model.contextWindow,
-										reasoning: model.reasoning,
-									}
-								: undefined;
-						})(),
+						config: active,
+						model: model
+							? {
+									id: model.id,
+									provider: model.provider,
+									contextWindow: model.contextWindow,
+									reasoning: model.reasoning,
+								}
+							: undefined,
 						state: await realRuntime().sessionState(id),
 						usage: await realRuntime().usage(id),
-						skills: await skills.inspect(await realRuntime().sessionConfig(id)),
+						skills: await skills.inspect(active),
 					};
 				},
 				async observe(id: string, send: Parameters<Runtime["observe"]>[1]) {
