@@ -127,3 +127,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 允许直接移植成熟功能模块并保留必要来源/许可记录，适配为本项目 SDK。选择以覆盖本轮契约、状态所有权清楚、依赖少、可维护为依据；不复制整套 OpenClaw/Hermes/OpenCode 内核，也不删除其实现中本任务真实需要的取消、输入边界或协议行为。
 
 参考仓库可以更新；每项实现开始时固定实际使用的 commit 与模块。参考项目之后更新不自动改变本轮功能规范。功能冻结及变更规则遵守 10 §8。
+
+## R0 Release 首次基线（D34）
+
+首次成功读取 Release 列表时，先将当时已有原生 release id 保存为接收基线，不逐个唤醒 operator 应用历史版本；历史仍可用 read_release 查询。基线持久化成功后才接纳后续首次出现且获准的正式 Release。notify/apply 和显式 update --to 的既有权限不变；不新增版本策略平台。GitHub 普通评论与飞书普通消息工具通过共同 messages.send(request, ctx)，副作用结果不确定返回 uncertain。

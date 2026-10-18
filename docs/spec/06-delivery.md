@@ -85,4 +85,8 @@ agent_ask({ agent: string, text: string })   // 需要 message 能力
 
 ## 7. 失败
 
-渠道 `send` 失败时，内核写 `message.out` 并在 `delivery` 里记录错误，不重试；短暂故障的重试由渠道插件自己负责。
+渠道 `send` 失败时，内核写 `message.out` 并在 `delivery` 里记录错误，不重试；结果不确定时记录 message.unknown；渠道不得静默重试可能已生效的副作用。
+
+## R0 普通模型发送（D34）
+
+普通评论/消息工具与 message_send 使用共同投递入口；模型代发须携带真实 ToolContext，保留 session/来源和发送尝试。附件按 05 的 read 能力、当前 env、真实 cwd/本轮附件规则验证；无 exec 不能借上传读取工作区外文件。供应商仅负责协议与本机/远程传输能力，无法支持当前 env 时明确拒绝。unknown 由 Delivery.uncertain 表达；消息组已部分发送时保留实际 id 和未知/失败事实，不重放整组。

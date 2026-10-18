@@ -2,13 +2,9 @@
 
 > 文档就是代码的目标。代码与文档不一致时，以文档为准；要改设计，先改文档。
 
-## 当前工位：C0–C6 能力补齐实现轮
+## 当前工位：R0–R6 修复与真实验收
 
-用户已于 2026-10-18 批准完整方案；U05 以 `3d31601` 完成交接。按 [能力补齐计划](tasks/capability-completion-plan.md) 连续执行，三个 Sol sub agent 并行，核心和共享文件由主 agent 负责。不新增、不运行测试，仅必要 build/typecheck；整轮源码交付后再审核，真实安装与验收留后轮。
-
-- [Hermes 功能对比与取舍](tasks/hermes-capability-comparison.md)：实际完成度、本轮补齐、后续与不做；接口/槽位不算完成。
-- [13 能力补齐边界](spec/13-capability-completion.md)：已批准并由 C0 冻结；关联旧规范按本页统一，见 D33。
-- 原 T/N/U 的功能、结果、失败和验收债务保留；后续派工以 C0–C6 为准。
+用户已于 2026-10-18 批准 [修复验收计划](tasks/repair-acceptance-plan.md)，D1–D4 推荐方向先改文档，三个 Sol 并行，主 agent 负责核心/共享文件；允许补测试和运行测试，先修缺口再独立安装。新增 [14 macOS 安装与状态栏](spec/14-macos-installation.md)，不扩大为桌面客户端。当前问题基线见 [亲自审查](tasks/review-c0-c6.md)，C0–C6/U05 及原验收保留。D34 记录本次授权。
 
 ## 阅读顺序（渐进式披露）
 

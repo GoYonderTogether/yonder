@@ -59,7 +59,7 @@ interface ChannelIO {
 }
 interface AskResult { event: YEvent; results: RunResult[] }   // 每个被唤醒运行的 agent 一条；只旁观或未命中的 agent 没有
 interface OutMessage { text: string; attachments?: Attachment[]; replyTo?: string }   // replyTo：被回复的渠道原生消息 id
-interface Delivery { ok: boolean; id?: string; error?: string }           // id：渠道原生消息 id
+interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boolean }           // id：渠道原生消息 id
 ```
 
 - 一个插件注册提供者，`yonder.yaml` 的 `channels` 决定开几个实例：同一个 QQ 插件接两个号就是两个实例。实例 id 格式 `[a-z0-9-]+`，`agent` 保留给内核的内部渠道（06 §6）。
@@ -90,6 +90,7 @@ interface ToolResult {
   text: string;                        // 给模型看的结果
   images?: Array<{ mime: string; data: string }>;   // base64
   isError?: boolean;
+  attachments?: Attachment[];            // 明确交付的真实产物引用
 }
 ```
 
@@ -238,3 +239,11 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 ## 9. 本地插件管理补齐
 
 已批准 13 §3.1 的 list/show/add/remove 是本页加载/清单规则的管理入口；yonder.yaml.plugins 仍是唯一加载名单。候选完整校验、存在引用拒绝移除、不自动重启、不删外部源码/私有数据；不增加 enabled 状态表、Hub 或热卸载。
+
+## R0 发送与可省略配置（D34）
+
+PluginAPI.messages.send(request, ctx?: ToolContext) 的可选 ctx 仅供模型工具将实际 execute 上下文原样交回内核。传入时必须是本次 runtime 生成的有效上下文，内核统一执行来源/message、附件 read/真实路径及执行环境检查，发送归属真实 session/agent；不能接受模型提供的伪造上下文。未带 ctx 的可信插件主动发送仍绑定 plugin 身份。
+
+Delivery.uncertain:true 表示副作用可能已发生但无法确认，必须 ok:false；id 可保留已知部分发送身份。明确拒绝是 ok:false 且无 uncertain。内核根据结构化字段保存 unknown，不根据中文错误前缀判定，不自动重发。
+
+插件配置省略时按空对象交给对象 schema 与 setup；schema 中真正 required 的字段仍校验失败，不跳过校验。

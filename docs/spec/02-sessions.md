@@ -183,7 +183,7 @@ interface SessionsAPI {
   list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
   get(id: string): Promise<SessionInfo | undefined>;
   open(req: { preset: string; parent?: string; capabilities?: Capability[]; close?: 'run-end' | 'manual' }): Promise<SessionInfo>;   // close 默认 run-end；manual 见 12（已批准，待实现）。能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
-  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | void>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox，12 已批准
+  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | InputReceipt>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox，12 已批准
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
@@ -195,7 +195,8 @@ interface SessionInfo {                // y_sessions 元数据及注明的 pi �
   close?: 'run-end' | 'manual';          // task 的实际关闭策略，非 task 省略；由扩展文档取得（12，已批准）
 }
 interface Input { text: string; attachments?: Attachment[] }
-interface RunResult { agent: string | null; session: string; status: 'done' | 'error' | 'aborted' | 'limit'; text: string; reason?: string }
+interface InputReceipt { event: string; session: string }
+interface RunResult { agent: string | null; session: string; status: 'done' | 'error' | 'aborted' | 'limit'; text: string; reason?: string; attachments?: Attachment[] }
 interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升序；from 是起始条目 id
   id: number;
   kind: string;                        // pi 条目类型，如 yonder.message、pi.assistant、pi.tool-result、pi.compaction
@@ -210,3 +211,7 @@ interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升
 ## 6. 能力补齐关联
 
 13 §2 已获批准：会话/输入来源由内核绑定，附件完整传递；TUI、控制面与 MCP 共用被动观察事实，断连只解除观察；原生父子并行与取消沿用 pi。不得另建任务队列、转录或抢占回复的观察等待者。
+
+## R0 已批准修订（D34）
+
+submit 的 wait:false（默认）返回本次实际 session.input 的 InputReceipt；wait:true 返回真实 RunResult。不另造 task id 或状态。CLI、SDK、MCP 使用同一个接纳入口；旧调用方可忽略返回值，但不得把回执当模型完成。
