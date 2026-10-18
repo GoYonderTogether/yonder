@@ -1,10 +1,8 @@
 // MIT Copyright (c) 2025 Mario Zechner. pi-coding-agent 1.3.0 components/footer.ts.
-// Only data access was adapted to the real Yonder control snapshot; native render layout is retained.
+// Yonder data adapter; collapsed summary per spec/12 §6, expanded rendering retains the native footer.
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { type Component, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { nativeTheme } from "../pi-native.js";
-
-const theme = nativeTheme.theme;
 
 /**
  * Sanitize text for display in a single-line status.
@@ -46,6 +44,8 @@ export function formatCwdForFooter(cwd: string, home: string | undefined): strin
 export interface FooterView {
 	cwd: string;
 	label: string;
+	hint: string;
+	readOnly: boolean;
 	model?: { id: string; provider: string; contextWindow: number; reasoning: boolean };
 	thinkingLevel?: string;
 	usageTotals: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
@@ -56,11 +56,29 @@ export interface FooterView {
 
 export class FooterComponent implements Component {
 	private autoCompactEnabled = true;
+	expanded = false;
+	setExpanded(expanded: boolean): void {
+		this.expanded = expanded;
+	}
 	constructor(private view: () => FooterView) {}
 	invalidate(): void {}
 
 	render(width: number): string[] {
+		const theme = nativeTheme.theme;
 		const view = this.view();
+		if (!this.expanded) {
+			const left = `${view.label} · ${view.model?.id ?? "模型未知"}${view.readOnly ? " · 只读" : ""}`;
+			const room = width - visibleWidth(view.hint) - 2;
+			const summary = truncateToWidth(left, room > 12 ? room : width, "…");
+			return [
+				theme.fg(
+					"dim",
+					room > 12
+						? summary + " ".repeat(Math.max(2, width - visibleWidth(summary) - visibleWidth(view.hint))) + view.hint
+						: summary,
+				),
+			];
+		}
 		const state = view;
 		const { usageTotals, latestCacheHitRate, contextUsage } = view;
 		const contextWindow = contextUsage?.contextWindow ?? state.model?.contextWindow ?? 0;

@@ -32,7 +32,7 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 内核只通过一个适配目录调用 pi（[07-runtime §1](spec/07-runtime.md#1-对接边界)）。
 
-基础 TUI 属于 CLI 客户端，直接沿用 pi v1.3.0 的原生界面、主题与交互，以 pi-tui 和 coding-agent UI 模块承载 Yonder 内容，不自行设计另一套界面，不运行第二个 agent 内核。管理命令主要面向 agent/脚本，同时保持人可读；TUI 面向人的输入、阅读与目标选择。channel-cli 仍是渠道插件，任务会话可直接经控制面驱动；具体方案与审核边界见 [12](spec/12-terminal-interaction.md)。
+基础 TUI 属于 CLI 客户端，直接沿用 pi v1.3.0 的原生界面、主题与交互，以 pi-tui 和 coding-agent UI 模块承载 Yonder 内容，按 12 §6 的用户截图要求精简角色标记与固定底部信息、适配常用键位，不运行第二个 agent 内核。管理命令主要面向 agent/脚本，同时保持人可读；TUI 面向人的输入、阅读与目标选择。channel-cli 仍是渠道插件，任务会话可直接经控制面驱动；具体方案与审核边界见 [12](spec/12-terminal-interaction.md)。
 
 ## 4. 核心概念
 

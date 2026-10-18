@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -7,12 +8,9 @@ import {
 	copyToClipboard,
 	ExtensionSelectorComponent,
 	getMarkdownTheme,
-	keyHint,
 	keyText,
-	rawKeyHint,
 	SessionSelectorComponent,
 	type Theme,
-	ToolExecutionComponent,
 	UserMessageComponent,
 } from "@earendil-works/pi-coding-agent";
 import {
@@ -27,17 +25,18 @@ import {
 import { type Kernel, observeControl, packageVersion, requestControl, type TerminalUpdate } from "@yonder/core";
 import type { SessionInfo, YEvent } from "@yonder/sdk";
 import { CommandAutocomplete } from "./autocomplete.js";
+import { CompactToolExecution, MessagePresentation } from "./message-presentation.js";
 import {
 	createChatViewport,
 	createInteractiveTui,
 	editInExternalEditor,
 	KeybindingsManager,
 	nativeTheme,
+	syncTerminalTheme,
 	WorkingStatusIndicator,
 	withBuiltInRenderers,
 } from "./pi-native.js";
 import { FooterComponent, type FooterView } from "./vendor/pi-footer.js";
-import { ExpandableText } from "./vendor/pi-header.js";
 
 export interface ChatTarget {
 	preset?: string;
@@ -71,16 +70,30 @@ export const chatCommands = [
 	{ name: "help", description: "帮助 · Help" },
 ];
 
-/** Native pi 1.3.0 component tree and actions; only target and transport belong to Yonder. */
+/** Compare existing local directory aliases without treating missing/remote paths as the same folder. */
+export function sameDirectory(left: string, right: string): boolean {
+	if (left === right) return true;
+	try {
+		return realpathSync(left) === realpathSync(right);
+	} catch {
+		return false;
+	}
+}
+
+/** Native pi 1.3.0 component tree and actions; Yonder supplies content, transport and the spec/12 §6 presentation adapter. */
 export async function runTerminal(home: string, initial: ChatTarget = {}) {
-	const keys = new KeybindingsManager();
+	const keys = new KeybindingsManager({
+		"tui.editor.historyPrevious": "ctrl+p",
+		"tui.editor.historyNext": "ctrl+n",
+		"app.thinking.toggle": [],
+	});
 	setKeybindings(keys);
 	const ui = createInteractiveTui({
 		tuiMode: "fullscreen",
 		showHardwareCursor: false,
 		logDirectory: join(home, ".yonder/logs"),
 	});
-	const theme: Theme = nativeTheme.theme;
+	let theme: Theme = nativeTheme.theme;
 	const document = new Container(),
 		header = new Container(),
 		chat = new Container();
@@ -105,21 +118,20 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	let running = false,
 		closed = false,
 		toolsExpanded = false,
-		hideThinking = false,
+		hideThinking = true,
+		helpVisible = false,
 		clearPressedAt = 0;
 	let loader: InstanceType<typeof WorkingStatusIndicator> | undefined;
 	let channelSocket: Socket | undefined;
 	const observers = new Map<string, { close(): void }>();
 	const entries = new Map<string, Component>();
 	const live = new Map<string, AssistantMessageComponent>();
-	const tools = new Map<string, ToolExecutionComponent>();
+	const tools = new Map<string, CompactToolExecution>();
 	const assistants = new Set<AssistantMessageComponent>();
 	const activeSessions = new Set<string>();
 	const speakers = new Map<string, string>();
-	let lastSpeaker: string | undefined;
 	let lastAssistantText = "";
 	let modal: Component | undefined;
-	let startupHeader: ExpandableText | undefined;
 	let finish!: () => void;
 	const done = new Promise<void>((resolve) => {
 		finish = resolve;
@@ -131,10 +143,12 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		return {
 			cwd: info?.config.cwd ?? home,
 			label: info
-				? `${info.session.agent ?? "独立任务 / Standalone task"} · #${info.session.id} · ${info.session.profile}`
+				? `${info.session.agent ?? "独立任务"} · #${info.session.id}`
 				: target.channel
-					? `渠道 / Channel ${target.channel}`
-					: `新任务 / New task · ${target.preset ?? "default"}`,
+					? `渠道 ${target.channel}`
+					: `新任务 · ${target.preset ?? "default"}`,
+			hint: running ? "esc 中止 · ? 快捷键" : "? 快捷键 · / 命令",
+			readOnly: Boolean(!target.channel && info && (info.session.closed || info.session.mode !== "task")),
 			...(model ? { model } : {}),
 			thinkingLevel:
 				info?.config.resolved.thinking ??
@@ -148,7 +162,23 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 					0,
 				percent: null,
 			},
-			status: `${!target.channel && info && (info.session.closed || info.session.mode !== "task") ? "只读 / Read-only" : running ? "运行中 / Working" : "就绪 / Ready"}${info ? ` · ${info.config.resolved.level ?? info.config.resolved.capabilities.join(",")} · ${info.config.resolved.env}` : ""}`,
+			status: [
+				!target.channel && info && (info.session.closed || info.session.mode !== "task")
+					? "只读 / Read-only"
+					: running
+						? "运行中 / Working"
+						: "就绪 / Ready",
+				...(info
+					? [
+							info.session.profile,
+							info.config.resolved.capabilities.join(","),
+							info.config.resolved.level,
+							info.config.resolved.env,
+						]
+					: []),
+			]
+				.filter(Boolean)
+				.join(" · "),
 		};
 	};
 	const footer = new FooterComponent(footerView);
@@ -190,6 +220,25 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		} else editor.setWorkingStatusIndicator(undefined);
 		render();
 	};
+	const showHelp = () => {
+		below.clear();
+		if (helpVisible)
+			below.addChild(
+				new Text(
+					theme.fg(
+						"dim",
+						[
+							`${keyText("tui.input.submit")} 发送 · ${keyText("tui.input.newLine")} 换行 · tab 补全 · ↑↓ 选择 · esc 返回/中止`,
+							`${keyText("app.clear")} 中止/清空，再按退出 · ${keyText("app.exit")} 空输入退出 · ${keyText("app.tools.expand")} 详情 · ${keyText("app.editor.external")} 编辑器`,
+							`${keyText("tui.editor.historyPrevious")}/${keyText("tui.editor.historyNext")} 历史 · ctrl+l 重绘 · ${keyText("app.message.followUp")} 后续输入 · ${keyText("app.message.dequeue")} 取回排队输入`,
+						].join("\n"),
+					),
+					1,
+					0,
+				),
+			);
+		render();
+	};
 	const title = () => {
 		editor.borderColor = theme.getThinkingBorderColor(
 			info?.config.resolved.thinking ??
@@ -197,35 +246,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 				"medium",
 		);
 		header.clear();
-		const brand = () => `${theme.bold(theme.fg("accent", "Yonder Harness"))} ${theme.fg("dim", `v${packageVersion}`)}`;
-		const compact = () =>
-			[
-				keyHint("app.interrupt", "interrupt / 中止"),
-				rawKeyHint(`${keyText("app.clear")}/${keyText("app.exit")}`, "clear/exit"),
-				rawKeyHint("/", "commands / 命令"),
-				keyHint("app.tools.expand", "more"),
-			].join(theme.fg("muted", " · "));
-		const expanded = () =>
-			[
-				keyHint("app.interrupt", "interrupt / 中止"),
-				rawKeyHint(`${keyText("app.clear")} twice`, "exit / 退出"),
-				keyHint("tui.input.newLine", "newline / 换行"),
-				keyHint("app.tools.expand", "expand tools / 展开工具"),
-				keyHint("app.message.followUp", "queue follow-up / 后续输入"),
-				keyHint("app.message.dequeue", "edit queued messages / 编辑排队输入"),
-				keyHint("app.editor.external", "external editor / 外部编辑器"),
-			].join("\n");
-		startupHeader = new ExpandableText(
-			() =>
-				`${brand()}\n${compact()}\n${theme.fg("dim", `Press ${keyText("app.tools.expand")} to show full startup help. · 展开帮助`)}\n\n${theme.fg("dim", footerView().label)}`,
-			() => `${brand()}\n${expanded()}\n\n${theme.fg("dim", footerView().label)}`,
-			toolsExpanded,
-			1,
-			0,
+		header.addChild(new Spacer(1));
+		header.addChild(
+			new Text(`${theme.bold(theme.fg("accent", "Yonder Harness"))} ${theme.fg("dim", `v${packageVersion}`)}`, 1, 0),
 		);
-		header.addChild(new Spacer(1));
-		header.addChild(startupHeader);
-		header.addChild(new Spacer(1));
 		render();
 	};
 	const autocomplete = () =>
@@ -242,7 +266,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		const key = `${session}:${id}`;
 		let tool = tools.get(key);
 		if (!tool) {
-			tool = new ToolExecutionComponent(
+			tool = new CompactToolExecution(
 				name,
 				id,
 				args,
@@ -252,6 +276,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 				info?.config.cwd ?? home,
 			);
 			tool.setExpanded(toolsExpanded);
+			tool.onToggle = render;
 			tools.set(key, tool);
 			chat.addChild(tool);
 		}
@@ -259,10 +284,6 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	};
 	const showMessage = (session: string, id: string, value: object, streaming = false) => {
 		const message = value as Message;
-		if (target.channel && message.role === "assistant" && lastSpeaker !== session) {
-			notice(`${speakers.get(session) ?? "session"} · #${session}`);
-			lastSpeaker = session;
-		}
 		const key = `${session}:${id}`;
 		if (message.role === "user") {
 			if (entries.has(key)) return;
@@ -276,10 +297,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			const component = new UserMessageComponent(
 				text.replace(/^<turn\b[\s\S]*?<\/turn>\s*/, ""),
 				getMarkdownTheme(),
-				1,
+				0,
 			);
 			entries.set(key, component);
-			chat.addChild(component);
+			chat.addChild(new MessagePresentation(component, "›", true));
 		} else if (message.role === "assistant") {
 			const text = message.content
 				.filter((block) => block.type === "text")
@@ -298,9 +319,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 				if (component) live.delete(session);
 			}
 			if (!component) {
-				component = new AssistantMessageComponent(message, hideThinking, getMarkdownTheme(), undefined, 1);
+				component = new AssistantMessageComponent(message, hideThinking, getMarkdownTheme(), "", 0);
 				assistants.add(component);
-				chat.addChild(component);
+				const speaker = speakers.get(session) ?? info?.session.agent;
+				chat.addChild(new MessagePresentation(component, speaker && speaker !== "AI" ? `• ${speaker}` : "•"));
 			}
 			component.updateContent(message, streaming);
 			if (id === "live") live.set(session, component);
@@ -335,7 +357,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 				tool.setArgsComplete();
 				tool.markExecutionStarted();
 			}
-			if (item.result) tool.updateResult(item.result as Parameters<ToolExecutionComponent["updateResult"]>[0]);
+			if (item.result) tool.updateResult(item.result as Parameters<CompactToolExecution["updateResult"]>[0]);
 			else if (item.phase === "update")
 				tool.updateResult({ content: [{ type: "text", text: item.text ?? "" }], isError: false }, true);
 			else if (item.phase === "end") notice(`${item.name}: 结果未知 / Result unavailable`, true);
@@ -374,6 +396,8 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	};
 	const watch = async (id: string) => {
 		if (observers.has(id)) return;
+		info = await call<Info>("terminal.info", { id });
+		speakers.set(id, info.session.agent ?? "AI");
 		const observation = await observeControl(home, { method: "sessions.watch", params: { id } }, (value) =>
 			receive(id, value),
 		);
@@ -448,7 +472,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	const resume = async () => {
 		const loader = async (currentOnly = false) =>
 			(await call<Awaited<ReturnType<Kernel["terminal"]["list"]>>>("terminal.sessions"))
-				.filter((row) => !currentOnly || row.cwd === (info?.config.cwd ?? home))
+				.filter((row) => !currentOnly || sameDirectory(row.cwd, info?.config.cwd ?? home))
 				.map((row) => ({
 					path: row.id,
 					id: row.id,
@@ -569,19 +593,9 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			return;
 		}
 		if (name === "session") {
-			if (info) {
-				await refresh();
-				notice(
-					[
-						`Session #${info.session.id} · ${info.session.mode}`,
-						`对话对象 / Agent: ${info.session.agent ?? "独立任务 / Standalone task"}`,
-						`配置档 / Profile: ${info.session.profile}`,
-						`模型 / Model: ${info.config.resolved.model}`,
-						`执行位置 / Workspace: ${info.config.resolved.env}:${info.config.cwd}`,
-						`能力 / Capabilities: ${info.config.resolved.capabilities.join(", ")}`,
-					].join("\n"),
-				);
-			} else notice(footerView().label);
+			if (info) await refresh();
+			footer.setExpanded(!footer.expanded);
+			render();
 			return;
 		}
 		if (name === "skills") {
@@ -593,22 +607,8 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			return;
 		}
 		if (name === "hotkeys") {
-			notice(
-				(
-					[
-						"tui.input.submit",
-						"tui.input.newLine",
-						"tui.input.tab",
-						"app.interrupt",
-						"app.clear",
-						"app.exit",
-						"app.tools.expand",
-						"app.message.followUp",
-					] as const
-				)
-					.map((action) => `${keys.getKeys(action).join("/")} · ${keys.getDefinition(action).description}`)
-					.join("\n"),
-			);
+			helpVisible = !helpVisible;
+			showHelp();
 			return;
 		}
 		if (name === "help") {
@@ -666,6 +666,12 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	};
 	const onSubmit = (text: string, busy: "steer" | "followup") => {
 		if (!text.trim()) return;
+		if (text === "?") {
+			editor.setText("");
+			helpVisible = true;
+			showHelp();
+			return;
+		}
 		editor.setText("");
 		guarded(async () => {
 			try {
@@ -691,7 +697,17 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		}),
 	);
 	editor.onAction("app.message.followUp", () => onSubmit(editor.getText(), "followup"));
-	editor.onEscape = () => guarded(stop);
+	editor.onChange = (text) => {
+		helpVisible = text === "?";
+		showHelp();
+	};
+	editor.onEscape = () => {
+		if (helpVisible) {
+			helpVisible = false;
+			if (editor.getText() === "?") editor.setText("");
+			showHelp();
+		} else guarded(stop);
+	};
 	const leave = () => {
 		if (!closed) {
 			closed = true;
@@ -700,6 +716,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 	};
 	editor.onCtrlD = leave;
 	editor.onAction("app.clear", () => {
+		if (running) {
+			guarded(stop);
+			return;
+		}
 		const now = Date.now();
 		if (now - clearPressedAt < 500) leave();
 		else {
@@ -709,16 +729,20 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		render();
 	});
 	editor.onAction("app.tools.expand", () => {
-		toolsExpanded = !toolsExpanded;
-		startupHeader?.setExpanded(toolsExpanded);
+		toolsExpanded = !footer.expanded;
+		footer.setExpanded(toolsExpanded);
+		hideThinking = !toolsExpanded;
+		for (const assistant of assistants) assistant.setHideThinkingBlock(hideThinking);
 		for (const tool of tools.values()) tool.setExpanded(toolsExpanded);
 		render();
 	});
-	editor.onAction("app.thinking.toggle", () => {
-		hideThinking = !hideThinking;
-		for (const assistant of assistants) assistant.setHideThinkingBlock(hideThinking);
-		render();
-	});
+	editor.onExtensionShortcut = (data) => {
+		if (data === "\x0c") {
+			ui.requestRender(true);
+			return true;
+		}
+		return false;
+	};
 	editor.onAction("app.message.copy", () =>
 		guarded(async () => {
 			if (lastAssistantText) await copyToClipboard(lastAssistantText);
@@ -750,6 +774,12 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		presets = await call<Presets>("terminal.presets");
 		title();
 		ui.start();
+		await syncTerminalTheme(ui, () => {
+			theme = nativeTheme.theme;
+			ui.invalidate();
+			title();
+			showHelp();
+		});
 		if (initial.channel) await enterChannel(initial.channel);
 		else if (initial.session) await watch(initial.session);
 		else if (!presets.some((preset) => preset.id === (initial.preset ?? "default"))) await newTask();
