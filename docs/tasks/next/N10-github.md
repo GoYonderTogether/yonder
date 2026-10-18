@@ -35,3 +35,11 @@ Yonder 开发 GitHub 插件，经用户浏览器授权，按 10 §2.1 安装启�
 
 尚未开始。
 
+
+### C4 源码交付（2026-10-18，Codex Sol）
+
+- 新增独立 SDK 包 channel-github：gh REST 客户端、分页 issue/comments、显式仓库/账号/标签接纳、按 issue 的 persistent conv、原生 id/水位原子持久化、自己状态评论/PR-as-issue 防循环。
+- 工具完整提供缓存状态、issue/全部评论、方案进度评论、仓库/分支资料、创建/复用 PR、PR 文件 diff/提交/检查/statuses。git 继续使用原执行环境，Codex 负责合并；无自动 push/merge/publish。
+- 固定并阅读参考：OpenClaw cafa09e 的 scripts/pr-lib/github.mjs；Hermes 6660547 的 hermes_cli/github_api.py；OpenCode 2fa3363 的 cli/cmd/github.ts、github.handler.ts 入口/权限/issue-PR/评论与 PR 创建流程。参考边界、具体配置和维护操作见插件 README。
+- 状态：实现未验收。没有新测试，没有修改/运行旧测试，没有网络/授权/发送/推送。工作树缺 node_modules/.bin/tsc，尚未构建；包的根 workspace/lock/项目引用由主 agent 统一接线。
+- C1 主 agent 已确认：type+渠道实例 conv+data.msgId 统一原生接纳去重；本插件不另建队列或扫描核心私有数据库。
