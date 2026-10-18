@@ -1,0 +1,37 @@
+# N09 Sol 测试与原契约缺陷修复
+
+**状态**：待审核，尚未实现。
+
+**负责人**：Yonder maintainer（用户指定 Sol）；Codex 审查与介入。
+
+**依赖**：N08。
+
+**功能依据**：10 §1/4/7；11 §5；原 T02–T14/T12 验收。完整条款见 [10](../../spec/10-local-maintenance.md)、[11](../../spec/11-official-plugins.md)，本任务不定义新功能。
+
+## 允许路径
+
+- packages/cli/test/ 与现有包内测试目录
+- packages/core/src/config/、sessions/、prompt/、skills/、tools/、delivery/ 的审查缺陷
+- packages/sdk/ 与 runtime/ 仅本任务确认的契约实现缺陷
+- 原 T 任务结果、T12 记录、CHANGELOG.md
+
+本任务文件、任务总表和必要 CHANGELOG 记录可更新；冻结功能文档仅 N00 的设计方可按批准修改。
+
+## 实现安排
+
+核实 Sol 实际 model ID 并在 Yonder 使用，补齐原验收检查，修复剩余原契约缺陷；跨任务按原领域分提交。
+
+## 验证与交付
+
+保留 build/typecheck/test/lint 原始结果及真实模型证据；依赖未来 GitHub/发布/飞书的验收列未完成，在 N14 收尾，不预报通过。
+
+记录实际命令、event/session/model、commit/PR 与失败/跳过；Yonder 和 Codex 的贡献分开归属。
+
+## 问题
+
+待实现时记录。当前没有运行通过的声明。
+
+## 结果
+
+尚未开始。
+

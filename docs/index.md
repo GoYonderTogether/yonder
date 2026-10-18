@@ -19,6 +19,14 @@
 | 2 | [decisions.md](decisions.md) | 关键取舍及理由 | 想改设计的人 |
 | 2 | [tasks/](tasks/README.md) | 0.1 的实现任务、状态表与实现循环的规则，每条引用规范的具体行 | 实现者 |
 
+## 下一阶段草案（待用户审核）
+
+- [10 本机运行与项目自维护](spec/10-local-maintenance.md)、[11 官方插件与常规工具](spec/11-official-plugins.md)：下一阶段功能、边界和验收，批准后冻结。
+- [合并实施计划](tasks/next-mcp-self-maintenance.md)、[N00–N14 任务](tasks/next/README.md)：只安排实现顺序、负责人、路径和检查，不重复功能设计。
+- [参考快照与本机证据](tasks/next/reference-sources.md)：用户授权更新后的实际来源；不作为已实现声明。
+
+现有 0.1 规范与原验收继续有效。新草案在 N00 获准后才与受影响旧条款统一，不由实现者选择性解释冲突。
+
 ## 规范用语
 
 - **必须 / 禁止**：违反即为缺陷。
