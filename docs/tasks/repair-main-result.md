@@ -37,3 +37,12 @@ R4 独立安装、launchd/菜单真实状态和界面证据、安装版 Yonder M
 候选 cec2d38 已经从本地唯一 tag 干净 clone/npm ci/build 安装到独立 versions，实际控制面返回正确 commit/版本/home/PID、ready=true，doctor 通过。随后 service install 重装同一现有服务时，bootout 返回但旧进程/注册尚在退出，紧接 bootstrap 报原生 5；未用 root 绕过。只读确认服务已经卸载后用原 start 恢复，控制面再次就绪。共享修复：bootout 后在同一安装/停止入口等待已知旧 PID 和 launchd 注册都退出，再进入下一操作；30s 是本机实际服务停止确认预算，只读观察状态，不重发 bootstrap、不新增监督器或重试机制。将以真实临时 launchd job 和现有安装入口复验，日期子版本递增，不移动已安装标签。
 
 真实 macOS 临时 launchd job 检查通过：release.test.ts 1 file / 2 passed，其中真实 job 确认停止后重新 bootstrap 成功；实际生产控制面再次返回 0.1.2026101801/cec2d38、ready=true。新安装候选递增为 0.1.2026101802，旧 tag 保留。
+
+## R4 已取得的独立安装证据
+
+- 0.1.2026101802 / 3d9ec69433f902690e62f2a4fce5accb0e5574b5：真实 update 干净 clone/npm ci/build，service install 成功；实际 service info ready=true，PID 61177；状态栏登录项进程 61208 running。用户登录项已注册，尚未实际注销/重登录验证。Computer Use 选择菜单栏应用挂起约 48 分钟后超时；不重复这条挂起调用，菜单点击和截图仍未测。
+- 飞书生产应用真实鉴权成功，机器人名称人生管家/open_id 已确认；历史 API 200/code=0，唯一用户发送者为 ou_a8b9231042bc5160e9d212d8c4cc8dce。用户给出的 oc_… 是会话，未误作 owner；尚未因唯一发送者就授予 owner。开发验收员后台已发布、长连接和 im.message.receive_v1 已有，开发 secret 未读取。生产/Tavily 指定自动化库凭据仅经受信任进程写入安装版自身存储。
+- 安装版经 MCP 同时接纳 Sol 四会话：1204 BrowserSkill、1217 Tavily、1230 hosted search、1243 飞书状态。四个 run.end 均 model=openai/gpt-6.1-sol/status=done；实际时间 20:18:41–20:19:36 UTC，存在并行重叠。原生转录已保存 /tmp/yonder-r4-*-transcript.json。
+- 1204：真实 skill_view→诊断→195df83d 后台 session ywge→example.com→observe→PNG screenshot→stop/list；资源释放成功。1217：Tavily search/extract 成功，fetch source=http-get/truncated=false；Tavily 原生提取表格日期缺失如实报告，不改写成全保真。1230：codex-tools_search 返回 native webSearch 1 item/14 text_result，内部 Luna thread 01a150aa-b6f0-7d03-ab29-ffb599030e61，turn 01a150aa-c1e4-7122-b08f-7d48e04cfacb。1243：channel-feishu_status connected/botIdentityKnown=true。
+- 以上是具体基本场景通过，不代替完整 R4 多媒体/取消/父子/恢复/TUI 等矩阵。旧 u05-c0-c6 自动化在明确删除授权后返回 not_found，已无等待任务。
+- 新实现漏接：飞书普通消息工具描述支持回复，但未提供 replyTo；现沿用 OutMessage 已有字段接入 SDK/共同发送/工具，不绕开投递权限。聚焦协议检查 6/6、typecheck 通过；尚未安装此源码差异。

@@ -20,6 +20,7 @@ export interface MessageRequest {
 	to: string;
 	via?: string;
 	text: string;
+	replyTo?: string;
 	attachments?: Attachment[];
 	signal?: AbortSignal;
 }

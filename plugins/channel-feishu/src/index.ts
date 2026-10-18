@@ -90,6 +90,7 @@ export default definePlugin({
 					instance: str,
 					to: str,
 					text: { type: "string" },
+					replyTo: str,
 					attachments: {
 						type: "array",
 						items: {
@@ -119,6 +120,7 @@ export default definePlugin({
 							via: channel.id,
 							signal: ctx.signal,
 							text: string(args.text),
+							...(args.replyTo ? { replyTo: string(args.replyTo) } : {}),
 							...(args.attachments ? { attachments: args.attachments as Attachment[] } : {}),
 						},
 						ctx,

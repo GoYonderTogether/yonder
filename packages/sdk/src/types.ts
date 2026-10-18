@@ -353,6 +353,7 @@ export interface PluginAPI {
 				to: Ref;
 				via?: string;
 				text: string;
+				replyTo?: string;
 				attachments?: Attachment[];
 				signal?: AbortSignal;
 			},

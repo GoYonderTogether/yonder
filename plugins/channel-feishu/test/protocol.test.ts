@@ -76,8 +76,12 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		registrations.channels[0]?.create("test", config);
 		const ctx = { signal: new AbortController().signal, session: "session:1" } as ToolContext;
 		const tool = registrations.tools.find((tool) => tool.name === "channel-feishu_message");
-		const result = await tool?.execute({ instance: "test", to: "conv:test:chat", text: "content" }, ctx);
+		const result = await tool?.execute(
+			{ instance: "test", to: "conv:test:chat", text: "content", replyTo: "om_original" },
+			ctx,
+		);
 		expect(send.mock.calls[0]?.[1]).toBe(ctx);
+		expect(send.mock.calls[0]?.[0]).toMatchObject({ replyTo: "om_original" });
 		expect(result?.isError).toBe(true);
 		for (const invalid of [
 			{ instance: "test", to: "conv:test:chat", text: 42 },

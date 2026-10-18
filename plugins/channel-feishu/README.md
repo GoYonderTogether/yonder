@@ -30,7 +30,7 @@
 profile 必须明确选用本插件工具。工具名均在清单中：
 
 - `channel-feishu_status`：可选 instance，查询实际内存连接状态（connected/reconnecting/not-ready 等），不触发连接或发送。
-- `channel-feishu_message`：instance、to、text、可选 attachments；经 `api.messages.send`，由既有 message.out 记录。to 必须是同实例的 acct/conv 引用。普通回复也通过 Channel.send/stream。
+- `channel-feishu_message`：instance、to、text、可选 attachments/replyTo；经 `api.messages.send`，由既有 message.out 记录。to 必须是同实例的 acct/conv 引用。普通回复也通过 Channel.send/stream。
 - `channel-feishu_card`：instance、to、可选 replyTo；传 card 原生 JSON，或 templateId/templateVersion/variables（缺 templateId 时使用实例默认），互斥。成功保留真实消息 id，写 channel-feishu.card-sent 事件和工具转录。事件落盘失败返回已发送 id，禁止据此重发。
 
 按钮事件为 `channel-feishu.card-action`：来自已认证 WebSocket，保留真实操作者 acct、原消息 id、原会话、action tag/value/formValue；msgId 为回调 token 的 SHA-256 协议去重标识，不保存原 token。按钮值是输入，不能当作额外授权。事件交内核绑定，不直接唤醒指定 agent。卡片来源只依赖原回调 context.open_message_id，拒绝临时 card-action ID 的错误关联。
