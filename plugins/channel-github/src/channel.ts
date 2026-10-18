@@ -2,9 +2,9 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Channel, ChannelIO, PluginAPI } from "@yonder/sdk";
 import { type Static, Type } from "typebox";
+import { Github, login, nativeId, type ObjectValue, object } from "./client.js";
 import { Releases, ReleasesConfig } from "./releases.js";
 import { recoverUpdates } from "./updates.js";
-import { Github, login, nativeId, object, type ObjectValue } from "./client.js";
 
 export const Config = Type.Object(
 	{
@@ -131,7 +131,8 @@ export class GithubChannel implements Channel {
 						const id = nativeId(issue.id),
 							number = Number(issue.number);
 						if (!Number.isSafeInteger(number) || number <= 0) throw new Error("GitHub issue omitted number");
-						const cursor = (this.cursor.issues[id] ??= { emitted: false, comment: "0" });
+						this.cursor.issues[id] ??= { emitted: false, comment: "0" };
+						const cursor = this.cursor.issues[id];
 						if (!cursor.emitted && this.authorized(issue.user)) {
 							await this.emit(io, issue, issue, `issue:${id}`, number);
 							cursor.emitted = true;
@@ -218,6 +219,7 @@ export class GithubChannel implements Channel {
 		message: { text: string; attachments?: unknown[] },
 		signal: AbortSignal = new AbortController().signal,
 	) {
+		let uncertain = false;
 		try {
 			const prefix = `conv:${this.id}:${this.config.repository}:issue:`;
 			if (!target.startsWith(prefix) || !/^[1-9][0-9]*$/.test(target.slice(prefix.length)))
@@ -226,6 +228,8 @@ export class GithubChannel implements Channel {
 			const number = target.slice(prefix.length);
 			const issue = object(await this.client.get(this.client.path(`issues/${number}`), signal));
 			if (!this.admitted(issue)) throw new Error("Issue is a PR or lacks the configured task labels");
+			signal.throwIfAborted();
+			uncertain = true;
 			const result = await this.client.write(
 				this.client.path(`issues/${number}/comments`),
 				{ body: `${message.text}\n\n${marker}` },
@@ -233,7 +237,7 @@ export class GithubChannel implements Channel {
 			);
 			return { ok: true, id: nativeId(result.id) };
 		} catch (error) {
-			return { ok: false, error: String(error) };
+			return { ok: false, error: String(error), uncertain };
 		}
 	}
 }

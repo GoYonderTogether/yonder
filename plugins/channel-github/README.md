@@ -59,7 +59,7 @@ bindings:
 
 ## Release 与 operator 更新
 
-在同一个渠道实例配置 `releases` 即复用仓库、gh 客户端与轮询生命周期，不创建第二个发布服务。仅接已正式发布、非 draft、非 prerelease、作者在 approvedAuthors 中且 tag 为 `vX.Y.Z` 的真实 Release 对象。首次启用会读取历史正式 Release；相同 release id 只接纳一次。只有本地/远端 tag 没有 Release 对象时不会触发。
+在同一个渠道实例配置 `releases` 即复用仓库、gh 客户端与轮询生命周期，不创建第二个发布服务。仅接已正式发布、非 draft、非 prerelease、作者在 approvedAuthors 中且 tag 为 `vX.Y.Z` 的真实 Release 对象。首次成功读取列表时持久化所有已有 release id 为基线，不逐个唤醒历史版本；此后仅接纳新出现且获准的正式 Release。相同 release id 只接纳一次。只有本地/远端 tag 没有 Release 对象时不会触发。
 
 ```yaml
 channels:
@@ -88,7 +88,7 @@ bindings:
     profile: operator
 ```
 
-Release 事件完整 data 包含 repository、releaseId、tag、version、url/sourceUrl、作者、发布时间和变更正文；事件 `msgId=release:<native-id>:published`，conv 为 `conv:<instance>:<owner/repo>:releases`，由内核通用事件呈现送入模型。不会把发布正文当权限或从 release body 执行命令。游标位于 `<instance>.releases.json`，只有接纳后保存；重启/保存间隙由统一接纳去重。Release 失败单独记录在状态工具的 releaseError，不阻断 issue 扫描。
+Release 事件完整 data 包含 repository、releaseId、tag、version、url/sourceUrl、作者、发布时间和变更正文；事件 `msgId=release:<native-id>:published`，conv 为 `conv:<instance>:<owner/repo>:releases`，由内核通用事件呈现送入模型。不会把发布正文当权限或从 release body 执行命令。游标位于 `<instance>.releases.json`，首次基线落盘成功后才继续接纳新 Release；新事件接纳后保存，重启/保存间隙由统一接纳去重。Release 失败单独记录在状态工具的 releaseError，不阻断 issue 扫描。
 
 `channel-github_read_release {instance, releaseId?}` 查询指定或所有分页的实际 Release 对象与批准状态；不是只查询 tag。通知模式不会自动替换安装版本。可选 `notifyTarget` 指向实际配置的 person/acct/conv；operator 使用既有 message_send 投递并以真实 delivery/message.out 记录成功。没有配置/送达用户渠道时，事件与更新结果可查但 `notified:false`，不能宣称已通知。
 
@@ -109,8 +109,8 @@ releases:
 
 1. Codex 审查发行 commit/检查结果，统一版本，创建并推送对应 tag，使用已有 gh 创建正式 Release。此工作不由插件代做。
 2. operator 收到 Release 事件，`channel-github_update_schedule {instance, releaseId}` 重新读取该原生 Release，核对批准作者/正式状态与精确 tag；不能传任意仓库、路径、命令或“latest”。notify/未配置更新路径时明确拒绝应用。
-3. 调度工具在插件私有数据 `<instance>.updates/<releaseId>/` 保存本次 request、独立 runner 与一次性 plist，然后 `launchctl bootstrap gui/<uid> <plist>`。独立 launchd 作业运行既有安装目录的 `bin/yonder update --repo https://github.com/<配置仓库>.git --to <精确tag> --home <配置home> --json`。没有后台 CLI flag、第二套更新器或 supervisor。作业不属于被重启服务的子进程。
-4. 作业执行前核对 version/service status 的 install/home；执行后查询 `version --json` 与 `service status --json`，有限等待服务 pid，保存实际 version、origin tag/repository/commit、源码路径、服务 pid/home/install、更新 JSON 与失败证据。只在这些匹配时 `verified:true`；新版本还须观察到服务 pid 改变。现有核心 updater 负责保留回退版本与失败回退，插件不另造安装算法。
+3. 调度工具在插件私有数据 `<instance>.updates/<releaseId>/` 保存本次 request、独立 runner 与一次性 plist，然后 `launchctl bootstrap gui/<uid> <plist>`。独立 launchd 作业运行既有安装目录的 `bin/yonder update --repo https://github.com/<配置仓库>.git --to <精确tag> --home <配置home> --json`。准备阶段失败会清理本次暂存目录，尚未调用 bootstrap 不记未知；实际调用 bootstrap 后失败保留原目录供查询，不自动重发。没有后台 CLI flag、第二套更新器或 supervisor。作业不属于被重启服务的子进程。
+4. 作业执行前核对 version/service status 的 install/home 及 service info 的真实运行信息；执行后查询 `version --json`、`service status --json` 与 `service info --home <home> --json`，有限等待真实服务就绪。保存磁盘 version/origin/source 与服务自报 version/commit/home/pid/ready；只有安装来源与这些事实匹配才 `verified:true`，新版本还须观察到服务 pid 改变。旧版本保留，失败时按既有 `update --to <旧版本>` 显式回滚。
 5. 调度返回 `{scheduled:true, verified:false, label, repository, releaseId, tag, version, result}`，不等于安装成功。`channel-github_update_status {instance, releaseId}` 返回 private request、真实 result 或 null、launchd state；没有结果且作业已消失时明确 `not-running-outcome-unknown`，不自动重跑副作用。
 6. 服务启动/下次轮询读取本次原子 result，发出 `channel-github.update-result`；`msgId=update:<releaseId>:result`，含真实证据及 `notified:false`。发送事件后标记已报告并卸载已完成的一次性 launchd job，保留 request/result/plist/log。operator 核对结果，再按已配置渠道通知。无完成回执的旧作业阻止调度另一版本；同 release 调度返回原状态，不重复更新。
 

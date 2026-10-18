@@ -1,11 +1,11 @@
 import { execFile } from "node:child_process";
-import { copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { ChannelIO, PluginAPI } from "@yonder/sdk";
 import type { GithubChannel } from "./channel.js";
-import { object, nativeId, type ObjectValue } from "./client.js";
+import { nativeId, type ObjectValue, object } from "./client.js";
 import { approvedRelease, releaseData } from "./releases.js";
 
 const exec = promisify(execFile);
@@ -113,37 +113,45 @@ async function dispatchUpdate(
 		path: process.env.PATH ?? "/usr/bin:/bin:/usr/sbin:/sbin",
 	};
 	const requestPath = join(directory, "request.json");
-	await writeFile(requestPath, JSON.stringify(request), { mode: 0o600 });
-	// Copy the standalone runner outside versions/current before restarting/pruning the service.
-	const script = join(directory, "update-job.mjs");
-	await copyFile(fileURLToPath(new URL("./update-job.js", import.meta.url)), script);
-	const plist = join(directory, "job.plist"),
-		id = label(channel.id, data.releaseId);
-	const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
-	await writeFile(
-		plist,
-		`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>${pair("Label", id)}<key>ProgramArguments</key><array>${[process.execPath, script, requestPath].map((arg) => `<string>${xml(arg)}</string>`).join("")}</array><key>RunAtLoad</key><true/><key>KeepAlive</key><false/>${pair("StandardOutPath", join(directory, "job.log"))}${pair("StandardErrorPath", join(directory, "job.log"))}</dict></plist>`,
-		{ mode: 0o600 },
-	);
+	let dispatched = false;
 	try {
-		await launch(["bootstrap", domain(), plist], signal);
-	} catch (error) {
-		throw new Error(
-			`launchd update dispatch failed or is uncertain: ${String(error)}. Query update_status for release ${data.releaseId}; do not resubmit.`,
+		await writeFile(requestPath, JSON.stringify(request), { mode: 0o600 });
+		// Copy the standalone runner outside versions/current before restarting/pruning the service.
+		const script = join(directory, "update-job.mjs");
+		await copyFile(fileURLToPath(new URL("./update-job.js", import.meta.url)), script);
+		const plist = join(directory, "job.plist"),
+			id = label(channel.id, data.releaseId);
+		const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
+		await writeFile(
+			plist,
+			`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict>${pair("Label", id)}<key>ProgramArguments</key><array>${[process.execPath, script, requestPath].map((arg) => `<string>${xml(arg)}</string>`).join("")}</array><key>RunAtLoad</key><true/><key>KeepAlive</key><false/>${pair("StandardOutPath", join(directory, "job.log"))}${pair("StandardErrorPath", join(directory, "job.log"))}</dict></plist>`,
+			{ mode: 0o600 },
 		);
+		signal.throwIfAborted();
+		dispatched = true;
+		try {
+			await launch(["bootstrap", domain(), plist], signal);
+		} catch (error) {
+			throw new Error(
+				`launchd update dispatch failed or is uncertain: ${String(error)}. Query update_status for release ${data.releaseId}; do not resubmit.`,
+			);
+		}
+		return {
+			scheduled: true,
+			verified: false,
+			label: id,
+			repository: data.repository,
+			releaseId: data.releaseId,
+			tag: data.tag,
+			version: data.version,
+			result: request.result,
+			message:
+				"Independent launchd job owns update; scheduled is not installed. Query status; restart recovery emits final evidence.",
+		};
+	} catch (error) {
+		if (!dispatched) await rm(directory, { recursive: true, force: true });
+		throw error;
 	}
-	return {
-		scheduled: true,
-		verified: false,
-		label: id,
-		repository: data.repository,
-		releaseId: data.releaseId,
-		tag: data.tag,
-		version: data.version,
-		result: request.result,
-		message:
-			"Independent launchd job owns update; scheduled is not installed. Query status; restart recovery emits final evidence.",
-	};
 }
 export async function recoverUpdates(
 	api: PluginAPI,

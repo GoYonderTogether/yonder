@@ -1,9 +1,9 @@
 import { defineChannel, definePlugin, defineTool, type ToolContext } from "@yonder/sdk";
-import { Type, type Static } from "typebox";
+import { type Static, Type } from "typebox";
 import { Config, GithubChannel } from "./channel.js";
+import { object } from "./client.js";
 import { approvedRelease, releaseData } from "./releases.js";
 import { readUpdate, scheduleUpdate } from "./updates.js";
-import { object } from "./client.js";
 
 const target = { instance: Type.String({ minLength: 1 }), issue: Type.Integer({ minimum: 1 }) };
 export default definePlugin({
@@ -92,8 +92,10 @@ export default definePlugin({
 					"Publish a plan/progress/result comment on an admitted task issue. Adds the plugin status marker to suppress self loops. Query outcome before retrying a failed mutation.",
 				execute: (args, ctx) =>
 					run(args, ctx, async (c, a) => {
-						const delivery = await c.send(c.conv(Number(a.issue)), { text: String(a.body) }, ctx.signal);
-						if (!delivery.ok) throw new Error(delivery.error);
+						const delivery = await api.messages.send(
+							{ to: c.conv(Number(a.issue)), via: c.id, text: String(a.body), signal: ctx.signal },
+							ctx,
+						);
 						return delivery;
 					}),
 			}),

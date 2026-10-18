@@ -1,8 +1,8 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ChannelIO, PluginAPI } from "@yonder/sdk";
-import { Type, type Static } from "typebox";
-import { Github, login, nativeId, object, type ObjectValue } from "./client.js";
+import { type Static, Type } from "typebox";
+import { type Github, login, nativeId, type ObjectValue, object } from "./client.js";
 
 export const ReleasesConfig = Type.Object(
 	{
@@ -56,6 +56,7 @@ export function releaseData(repo: string, release: ObjectValue) {
 export class Releases {
 	private seen = new Set<string>();
 	private loaded = false;
+	private baseline = false;
 	private file: string;
 	constructor(
 		readonly instance: string,
@@ -76,12 +77,20 @@ export class Releases {
 				)
 					throw new Error("Invalid release cursor/repository; preserve file and resolve configuration");
 				this.seen = new Set(state.ids as string[]);
+				this.baseline = true;
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 			}
 			this.loaded = true;
 		}
 		const releases = await client.list("releases", signal);
+		if (!this.baseline) {
+			const ids = new Set(releases.map((release) => nativeId(release.id)));
+			await this.save(ids);
+			this.seen = ids;
+			this.baseline = true;
+			return;
+		}
 		releases.sort((a, b) => String(a.published_at).localeCompare(String(b.published_at)));
 		for (const release of releases) {
 			const id = nativeId(release.id);
@@ -110,12 +119,14 @@ export class Releases {
 					notified: false,
 				},
 			});
-			this.seen.add(id);
-			await mkdir(this.api.paths.data, { recursive: true });
-			await writeFile(`${this.file}.tmp`, JSON.stringify({ repository: this.repo, ids: [...this.seen] }), {
-				mode: 0o600,
-			});
-			await rename(`${this.file}.tmp`, this.file);
+			const next = new Set(this.seen).add(id);
+			await this.save(next);
+			this.seen = next;
 		}
+	}
+	private async save(ids: Set<string>): Promise<void> {
+		await mkdir(this.api.paths.data, { recursive: true });
+		await writeFile(`${this.file}.tmp`, JSON.stringify({ repository: this.repo, ids: [...ids] }), { mode: 0o600 });
+		await rename(`${this.file}.tmp`, this.file);
 	}
 }
