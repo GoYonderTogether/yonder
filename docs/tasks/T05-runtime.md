@@ -37,6 +37,10 @@
 
 完整证据、未完成项和设计问题见 [第一轮源码审查](review-first-pass.md)。本节不替代原定验收；任务保持原状态。
 
+### N04 结果（2026-10-18）
+
+`runtime/index.ts` 现由普通 submit 与 `runTask()` 共用终态转换，修复 task 子会话将非 `done` 结果一律归为 `aborted`、遗漏原生 reason 的问题。pi-durable 1.3.0 终态为 `done` / `unanswered`，其 reason 与 Yonder 上限状态共同用于映射；上限原因优先。参考调用链与精确 commit、路径，及本次 build、runtime 测试、Biome 结果和未执行项见 [N04](next/N04-first-repair.md)。安装版 task_run 真实 error/aborted/limit 尚待 Codex 审查并阶段安装后复验，本项仍待验收。
+
 ### 第一轮原记录
 
 - 第一轮未执行本任务全部真实模型验收：OpenAI 兼容端点、图片识别、只读强制调用、重复调用上限、热重载下一次运行、task 子会话与用量均留第二轮核验；最终默认 Luna 启动检查由主 agent 统一执行。

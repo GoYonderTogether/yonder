@@ -74,6 +74,17 @@ const SessionDoc = defineDoc({
 });
 const cid = (id: string) => Number(id) as ConversationId;
 const emptyUsage = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
+export function submissionOutcome(
+	done: Awaited<ReturnType<Submission["wait"]>>,
+	limitReason?: string,
+): { status: RuntimeRun["status"]; reason?: string } {
+	if (limitReason) return { status: "limit", reason: limitReason };
+	if (done.status === "done") return { status: "done" };
+	return {
+		status: done.reason.includes("abort") ? "aborted" : "error",
+		reason: done.reason,
+	};
+}
 const RunDoc = defineDocFamily({
 	kind: "yonder.run",
 	version: 1,
@@ -649,17 +660,8 @@ export class Runtime {
 			return {
 				...(state ? { config: state.config } : {}),
 				runId: state?.id ?? String(done.answer ?? submission.id),
-				status: state?.reason
-					? "limit"
-					: done.status === "done"
-						? "done"
-						: done.reason.includes("abort")
-							? "aborted"
-							: "error",
+				...submissionOutcome(done, state?.reason),
 				text: textOf(answer),
-				...((state?.reason ?? (done.status === "unanswered" ? done.reason : undefined))
-					? { reason: state?.reason ?? (done.status === "unanswered" ? done.reason : "") }
-					: {}),
 				usage,
 				inputs: state ? [...state.inputs] : input.event ? [input.event.id] : [],
 			};
@@ -794,12 +796,11 @@ export class Runtime {
 		return {
 			...(state ? { config: state.config } : {}),
 			runId: state?.id ?? String(done.answer ?? submission.id),
-			status: state?.reason ? "limit" : done.status === "done" ? "done" : "aborted",
+			...submissionOutcome(done, state?.reason),
 			text:
 				done.status === "done" && done.answer
 					? textOf(await this.harness.commit((tx) => tx.entry(done.answer), context))
 					: "",
-			...(state?.reason ? { reason: state.reason } : {}),
 			usage,
 			inputs: state ? [...state.inputs] : input.event ? [input.event.id] : [],
 		};

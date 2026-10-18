@@ -4,8 +4,42 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "./db.js";
-import { credentialPath, FileCredentials, localEnvironment, Runtime, workspaceFiles } from "./index.js";
+import {
+	credentialPath,
+	FileCredentials,
+	localEnvironment,
+	Runtime,
+	submissionOutcome,
+	workspaceFiles,
+} from "./index.js";
 import { buildModels } from "./models.js";
+
+test("submission outcomes preserve native failures and prioritize Yonder limits", () => {
+	const native = (value: object) => value as Parameters<typeof submissionOutcome>[0];
+	expect(submissionOutcome(native({ status: "done", entry: 1, answer: 2 }))).toEqual({ status: "done" });
+	expect(submissionOutcome(native({ status: "unanswered", reason: "aborted" }))).toEqual({
+		status: "aborted",
+		reason: "aborted",
+	});
+	expect(submissionOutcome(native({ status: "unanswered", reason: "model_error", detail: "provider failed" }))).toEqual(
+		{
+			status: "error",
+			reason: "model_error",
+		},
+	);
+	expect(submissionOutcome(native({ status: "unanswered", reason: "faulted" }))).toEqual({
+		status: "error",
+		reason: "faulted",
+	});
+	expect(submissionOutcome(native({ status: "unanswered", reason: "model_error" }), "maxTurns")).toEqual({
+		status: "limit",
+		reason: "maxTurns",
+	});
+	expect(submissionOutcome(native({ status: "done", entry: 1, answer: 2 }), "maxMinutes")).toEqual({
+		status: "limit",
+		reason: "maxMinutes",
+	});
+});
 
 test("real SQLite conversation lifecycle, workspace IO, credential lock and provider overlays", async () => {
 	expect(credentialPath("/tmp/home", "~/.yonder-credentials/auth.json")).toBe(
