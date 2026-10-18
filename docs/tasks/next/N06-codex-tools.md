@@ -41,6 +41,13 @@ Yonder 读取获准桌面应用并完成可逆动作；一条真实 hosted searc
 - 原生 getState 的应用清单成功，浏览器部分报告 Missing required Codex turn metadata: session_id, turn_id。这不是浏览器已接通的证明；默认浏览器仍由 N07 的 BrowserSkill 完成。Yonder 的实际应用读取、截图与可逆动作尚未执行。
 - 对未产生 rollout 的 ephemeral 线程执行 thread/archive 返回 no rollout found；关闭了本次 app-server 子进程，没有残留常驻探测进程。实现时直接释放这种临时连接，不把 archive 错误伪装成功。
 
+### 受限搜索连接核对
+
+- Codex 尝试以现有 app-server/OpenAI 登录态创建只允许 hosted search 的临时线程，不复制 OAuth；关闭 shell/插件等额外来源并核对 MCP 工具面。第一版 thread config 将 mcp_servers 作为仅含 enabled:false 的整块对象覆盖，原生解析拒绝（invalid transport in mcp_servers.code-review），搜索尚未发出。正在核对现有配置服务器与注入服务器的区别及逐项覆盖方式，不以空工具结果或 CLI 既有成功冒充本次 app-server 搜索通过。
+- 第二次先由官方 config/read 在受信任进程内仅提取配置服务器名称（node_repl/workbench/codegraph/wechat-context，不输出配置值），使用逐项 enabled 覆盖，关闭 orchestrator MCP/skills 和其他原生执行来源。启动后 mcpServerStatus/list(threadId) 证明搜索线程 MCP 工具数为 0；没有修改全局配置或新建/复制 OAuth。
+- 原生 gpt-6-luna 搜索实际 completed，条目只有 userMessage/webSearch/agentMessage；webSearch 保留原生 action/queries/results 与官方来源 URL。thread=01a14f1f-63fe-78c2-8025-1d4b3b23ec24，turn=01a14f1f-7857-7861-8a8c-59ee49316556。证据 /tmp/yonder-n06-search-appserver.json、/tmp/yonder-n06-search-probe2.mjs；返回来源包括 https://openai.com/index/unlocking-the-codex-harness/ 。临时线程、子进程和工作目录已释放。
+- 本次仅是 Codex 完成的官方连接探测；plugins/codex-tools 尚未实现，不能记为安装版 Yonder 的桌面/搜索工具验收。适配时复用同一 app-server 连接并按线程限制用途，不搬入 OpenClaw 的认证迁移、调度器或备用驱动。
+
 
 ### N00 前置探测（2026-10-18）
 
