@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.yonder/
+spike/
+HANDOFF.md
+*.log
+.DS_Store

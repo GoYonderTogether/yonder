@@ -1,0 +1,96 @@
+# 08 配置
+
+配置用 YAML。每个文件顶层有 `schema: <整数>`，内核拒绝未来版本，对过去版本给出迁移命令。
+
+## 1. home 目录
+
+```
+<home>/
+  yonder.yaml           harness：插件、模型、服务、执行环境、agent 登记
+  presets/*.yaml        预设（03 §4）
+  agents/<id>/          本机工作区（远程工作区不在这里，03 §2.1）
+  .yonder/              运行状态，不进版本库
+    state.db            事件、会话、身份、pi-durable 存储
+    auth.json           凭据（默认位置）
+    plugins/<id>/       插件私有数据
+    lock  control.sock
+```
+
+## 2. yonder.yaml
+
+```yaml
+schema: 1
+
+plugins:
+  - use: "@yonder/plugin-channel-cli"
+  - use: "@yonder/plugin-context-files"
+  - use: ./local-plugins/my-plugin       # 本地目录
+    config: { … }                        # 该插件的配置段
+
+channels:                                # 渠道实例：id → 由哪个插件提供、它的配置
+  cli: { plugin: channel-cli }
+
+credentials: ~/.yonder-credentials/auth.json   # 可选，默认 .yonder/auth.json
+
+models:
+  providers:                             # 与 pi 的 models.json 同构
+    deepseek:
+      baseUrl: https://api.deepseek.com
+      api: openai-completions
+      authHeader: true
+      models:
+        - { id: deepseek-flash, reasoning: true, contextWindow: 1048576, maxTokens: 393216, compat: { thinkingFormat: deepseek } }
+
+services: [ … ]                          # 07 §6.3
+
+envs:
+  local: { type: local }
+
+compaction:                              # 原样传给 pi-durable
+  reserveTokens: 16384
+  keepRecentTokens: 20000
+
+agents:
+  - id: main
+    workspace: ./agents/main
+
+identity:
+  persons:
+    - { id: zoran, name: Zoran, accounts: [acct:cli:local] }
+```
+
+`identity.persons` 只用于初始化；之后的关联变化以存储为准，并写 `identity.link` 事件。
+
+## 3. 重载
+
+| 文件 | 何时生效 |
+|---|---|
+| `agents/<id>/agent.yaml` | 保存后自动重载，下一次运行生效；校验失败保留旧配置并写 `config.reload` 事件 |
+| `presets/*.yaml` | 同上 |
+| `SYSTEM.md` 与上下文文件 | 每次组装提示词时读取 |
+| `yonder.yaml` | 需要重启 |
+
+## 4. 一个完整的 agent.yaml（QQ 场景）
+
+```yaml
+schema: 1
+id: xiaoyuan
+name: 小远
+owner: person:zoran
+defaultProfile: guest
+defaults:
+  model: chatgpt/gpt-6-luna
+  contexts: [agents-md, user-md]
+  plugins: [context-files, qq]
+profiles:
+  owner:  { level: bypass, tools: { offer: ["*"] } }
+  friend: { level: standard, tools: { offer: [qq.*, read] } }
+  guest:  { level: readonly, contexts: [agents-md] }
+  group:  { level: readonly, thinking: low }
+bindings:
+  - { id: owner,    match: { channel: qq-main, from: owner },                   session: main,                                profile: owner }
+  - { id: friends,  match: { channel: qq-main, kind: dm, from: known },         session: { mode: persistent, per: person },   profile: friend }
+  - { id: stranger, match: { channel: qq-main, kind: dm, from: stranger },      session: { mode: persistent, per: from },     profile: guest }
+  - { id: groups,   match: { channel: qq-main, kind: group },                   session: { mode: persistent, per: conv },     profile: group, wake: mention }
+  - { id: calls,    match: { channel: qq-main, kind: call },                    session: ephemeral,                           profile: owner }
+```

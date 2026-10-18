@@ -1,0 +1,151 @@
+# 02 会话、绑定与身份
+
+## 1. 会话
+
+会话是一段持续的对话上下文。每个 Yonder 会话**一一对应**一个 pi-durable conversation，转录、排队、压缩都由 pi-durable 负责；Yonder 只保存下表这行元数据（表 `y_sessions`）。
+
+| 字段 | 含义 |
+|---|---|
+| `id` | 等于 pi-durable conversation id |
+| `agent` | 所属 agent；预设会话为 `null` |
+| `profile` | 配置档名或预设名 |
+| `mode` | `main` / `persistent` / `ephemeral` / `task` |
+| `key` | 同一 agent 内唯一，决定"是不是同一个会话"，见下 |
+| `origin` | 当前回复目标：最近一次唤醒运行的入站事件的 `conv`；可为空 |
+| `parent` | `task` 会话的发起会话 |
+| `opened` / `closed` | 时间；`closed` 为空表示仍在使用 |
+
+### 1.1 四种会话方式
+
+| mode | key | 何时关闭 | 用途 |
+|---|---|---|---|
+| `main` | `main` | 不自动关闭 | 每个 agent 唯一。主人从 CLI、飞书、QQ 来的消息都进这一个，跨渠道连续 |
+| `persistent` | 由 `per` 决定（§2.2） | 不自动关闭 | 每个群一个、每个好友一个、每个陌生人一个 |
+| `ephemeral` | 入站事件 id | 运行结束后关闭 | 每封邮件、每次语音通话、每个互不相关的请求 |
+| `task` | 发起方的工具调用 id | 运行结束后关闭 | 由 `task.run` 或外部调用用预设开出的临时会话（03 §4） |
+
+连贯记忆不靠会话：临时会话每次是干净的上下文，跨次的连贯由上下文插件按引用（例如发送者的 `person:`）召回。
+
+### 1.2 并发
+
+- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`followup`（默认，本次答完再处理）或 `steer`（在当前工具轮结束后插入）。这直接使用 pi-durable 的 inbox。
+- 不同会话并行。
+
+## 2. 绑定
+
+绑定写在 agent 的 `agent.yaml`（03 §2）里，是一张有序表。内核对每个 agent **独立**求值，取该 agent 第一条命中的绑定；一个事件可以同时进多个 agent。
+
+```yaml
+bindings:
+  - id: owner                     # 必填，agent 内唯一
+    match: { channel: qq-main, from: owner }
+    session: main
+    profile: owner
+  - id: groups
+    match: { channel: qq-main, kind: group }
+    session: { mode: persistent, per: conv }
+    profile: group
+    wake: mention
+  - id: daily
+    match: { type: trigger-cron.fired, conv: conv:trigger-cron:daily-brief }
+    session: main
+    profile: owner
+    deliver: { to: owner, via: feishu-main }
+```
+
+### 2.1 match：只有这几个维度
+
+| 维度 | 取值 | 匹配对象 |
+|---|---|---|
+| `type` | 事件类型，或 `prefix.*`；省略时为 `message.in` | `event.type` |
+| `channel` | 渠道实例 id 或其数组 | `conv` 引用里的 channel |
+| `kind` | 会话类型或其数组 | `message.in` 的 `data.kind` |
+| `from` | `owner` / `known` / `stranger` / `person:<id>` / `acct:<…>`，或其数组 | 发送者，按 §4.2 相对本 agent 解析 |
+| `conv` | `conv:` 引用或其数组 | `event.conv` |
+
+所有给出的维度都满足才算命中；数组表示"其一即可"。**没有**正则、表达式或任意字段路径——需要更细的划分时，由渠道插件把它体现为不同的 `kind` 或不同的渠道实例。
+渠道在声明中列出它会产生的 `kind`（04 §3.1），`yonder doctor` 据此检查绑定。
+
+### 2.2 session
+
+- `main`
+- `{ mode: persistent, per: conv | from | person }`：按会话、按账号、或按人（账号已关联到人时跨渠道共用；未关联时退化为按账号）
+- `ephemeral`
+
+### 2.3 其他字段
+
+| 字段 | 默认 | 含义 |
+|---|---|---|
+| `profile` | agent 的 `defaultProfile` | 用哪个配置档（03 §3） |
+| `wake` | `run` | `run`：唤醒运行。`write`：只写进会话、不运行、不花 token（旁观）。`mention`：`data.mentioned` 为真时运行，否则按 `write` 处理 |
+| `busy` | `followup` | 见 §1.2 |
+| `reply` | `auto` | `auto`：按 06 的规则回复。`none`：不自动回复，只能通过工具主动发送 |
+| `stream` | `false` | 渠道支持时流式输出过程（06 §3） |
+| `deliver` | 无 | 运行没有来源可回复时（如定时触发）把结果发给谁（06 §2） |
+
+## 3. 路由结果
+
+入站事件写入前，内核计算每个 agent 的结果并写进 `event.routes`：
+
+```ts
+interface Route {
+  agent: string;
+  binding: string | null;   // 命中的绑定 id；未命中为 null
+  session?: string;         // 进入的会话 id
+  wake?: 'run' | 'write';
+  dropped?: 'no-binding' | 'agent-disabled';
+}
+```
+
+没有任何 agent 命中时，事件仍然写入，每个 agent 一条 `dropped`。
+
+## 4. 身份映射
+
+### 4.1 数据
+
+| 表 | 字段 | 说明 |
+|---|---|---|
+| `y_accounts` | `ref`(主键), `person`, `name`, `firstSeen`, `lastSeen` | 内核在每个入站事件上自动登记发送者账号与显示名 |
+| `y_persons` | `id`, `name`, `note` | 由人或有 `admin` 能力的 agent 创建 |
+
+账号到人的关联只能显式建立（CLI 或工具 `identity.link`），内核不猜。每次关联或解除都写一条 `identity.link` 事件。
+
+### 4.2 相对 agent 的关系
+
+agent 在 `agent.yaml` 里声明 `owner: person:<id>`。对某个 agent 而言，发送者账号是：
+
+- `owner`：账号关联的人就是该 agent 的 owner；
+- `known`：账号关联到了某个人，但不是 owner；
+- `stranger`：账号没有关联到任何人。
+
+所以同一个人可以是 A 的 owner、B 的 known——关系是相对 agent 计算的，不存储。
+
+### 4.3 能查到什么
+
+内核工具 `identity.lookup(ref)` 返回：
+
+- 这个账号或人：关联的所有账号、显示名；
+- 出现过的会话（来自事件表的 `from`/`conv` 组合，例如在哪几个群发过言）；
+- 和哪些 agent 有过会话（来自 `y_sessions` 与 `routes`）。
+
+返回其他 agent 的信息需要调用者具备 `cross-agent` 能力（05 §1）。读取另一个 agent 的会话内容用 `session.read`，同样需要该能力。
+
+〔0.1 不实现〕记忆插件。约束：记忆插件存储的每条记忆必须带一个或多个引用（`person:`、`acct:`、`conv:`、`agent:`），这样任何 agent 都能按人、按群、按 agent 查到并串起来。
+
+## 5. 会话接口
+
+同一套接口供三方使用：CLI、插件（`api.sessions`）、工具（`session.*`）。外部渠道（例如 MCP 服务端插件）也通过插件接口使用它，从而可选地把会话管理开放给外界。
+
+```ts
+interface SessionsAPI {
+  list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
+  get(id: string): Promise<SessionInfo | undefined>;
+  open(req: { agent: string; profile?: string; mode: Mode; key?: string } | { preset: string; parent?: string }): Promise<SessionInfo>;
+  submit(id: string, input: Input, opts?: { busy?: 'followup' | 'steer'; wait?: boolean }): Promise<RunResult | void>;
+  abort(id: string): Promise<void>;
+  close(id: string): Promise<void>;
+  transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
+}
+```
+
+`submit` 的 `wait: true` 让调用方拿到最终回复（06 §2 的"返回给调用方"）。
