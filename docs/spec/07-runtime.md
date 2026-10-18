@@ -22,11 +22,11 @@
 |---|---|
 | 一个 home | 一个 `Harness`（`Harness.open(storage, { models, registry, settings, env, onReport })`） |
 | 会话 | 一个 conversation（`harness.createConversation({ ownership: { kind: 'ownerless' }, agent, init })`）；Yonder 元数据存在 `y_sessions`，并在 conversation 文档 `yonder.session`（`defineDoc`，`scope: 'conversation'`）中存 `{ agent, profile }`，由 `init` 在创建的同一次提交里写入 |
-| 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })` |
+| 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })`。每次唤醒运行前，按当前的 `agent.yaml`／预设重新计算，与已存的不同才提交 |
 | 框架段、`SYSTEM.md`、上下文贡献 | 扩展 `yonder.core` 的 `section`，按 03 §5.1 的顺序；section 用 `input.read.snapshot(SessionDoc, input.conversationId, ctx)` 读 `yonder.session` |
 | 插件工具与钩子 | 每个插件一个扩展 `plugin:<id>`，配置档选用的插件才进入 `extensions`。SDK 的 `Tool`（04 §3.2）转为 `defineTool({ name, description, parameters, execute })`：`ToolResult.text`/`images` → `output` 的文字与图片块，`isError` 原样；`ToolContext` 由 `yonder.session`、本次运行的能力、`api.env`、触发事件和 chord `context.abortSignal` 组成。SDK 的 `Hook` 转为 `hook(ToolTask | GenerationTask, …)`，`ToolCall` 取自 pi 的 `{ id, name, arguments }` |
 | 安全钩子、上限钩子 | 扩展 `yonder.core` 的 `hook(ToolTask, …)` 与 `hook(GenerationTask, …)`，`yonder.core` 最先安装 |
-| `wake: run` | `submit({ type: 'input', content, entry: { kind: 'yonder.message', data: { event } }, whenBusy })` |
+| `wake: run` | `submit({ type: 'input', content, entry: { kind: 'yonder.message', data: { event } }, whenBusy })`；`content` 是 `<turn>` 块 + turn 贡献 + 正文的文字块，加上图片附件的图片块（03 §5.3） |
 | `wake: write` | `submit({ type: 'write', entry: { kind: 'yonder.message', data: { event }, model: [{ role: 'user', content, timestamp }] } })`。下一次运行模型能看到；会话忙时排到下一个边界 |
 | `busy` | `followup` → `whenBusy: 'followUp'`；`steer` → `whenBusy: 'steer'`（插进当前工具轮之后，与本次运行同一个回答） |
 | `task_run` | 子会话：工具声明 `replay: 'safe'`，在 `api.commit` 里先按 `tx.scanConversations({ ownerTaskId: api.taskId }, 1)` 找已有子会话，否则 `tx.createConversation({ ownership: { kind: 'task', taskId: api.taskId } })`；输入带 `requestId: task:<taskId>`。发起方中止时子会话一并中止 |
@@ -50,7 +50,7 @@
 | 每次运行的墙钟时间（`maxMinutes`） | 30 | 内核计时，到时调用 `conversation.abort()` |
 | 连续相同的工具调用（同名且参数相同；`repeatBlock`、`repeatStop`） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | 第 3、4 次：`beforeTool` 返回 `{ block: 原因 }`；第 5 次：`afterTool` 加 `terminate` |
 
-- 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`；若会话有 `origin`，向来源发一句说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
+- 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`，并按 06 §2 向来源说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
 - 计数保存在内存里，按运行计；进程重启后重新计数。
 - 上下文：使用 pi-durable 的自动压缩。`yonder.yaml` 的 `compaction`（`enabled`、`reserveTokens`、`keepRecentTokens`、`backgroundTokens`）原样传给 settings。按模型的差异来自模型自己的 `contextWindow`（§6.1，内置模型用 `modelOverrides` 改）。供应商报"上下文过长"时由 pi-durable 压缩后重试一次。不设人为的小上下文上限。
 - 单个工具结果过长时的截断使用 pi-durable 自带的截断；供应商重试使用 settings 的 `retry`。
@@ -71,6 +71,7 @@
 - 凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），键是供应商 id；路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`，权限 `0600`。密钥只放在这里，不写进 `yonder.yaml`。
 - 实现 pi-ai 的 `CredentialStore`（`read`、`list`、`modify`、`delete`），复制 pi coding-agent 的 `FileAuthStorageBackend`（`proper-lockfile` 文件锁，MIT）并在 `THIRD_PARTY_NOTICES` 记录。OAuth 刷新在 `modify` 里进行并写回文件。
 - ChatGPT 订阅：使用 pi-ai 内置 `openai` 供应商的 "Sign in with ChatGPT" OAuth。`yonder login <provider>` 调用 `provider.auth.oauth.login(interaction, { getDeviceId })`，`getDeviceId` 返回本 home 固定的 UUID（存于 `<home>/.yonder/device-id`，首次登录时生成）。
+- 插件只能经 `api.credentials.get(name)` 只读地取一项凭据（渠道、服务的密钥都这样存取），不能写。
 - OAuth 刷新会轮换 refresh token（T00 已验证）。**禁止**复制其他程序的 OAuth 凭据；每个 Yonder home 单独登录。API key 可以复制。
 
 ### 6.3 非对话服务
@@ -103,4 +104,4 @@ pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message_se
 
 ## 8. 本地控制接口
 
-运行中的 harness 在 `<home>/.yonder/control.sock`（Windows 用命名管道）提供本地接口，CLI 的会话、身份、事件查询类命令都经由它；没有运行中的进程时，CLI 以只读方式直接打开存储。
+运行中的 harness 在 `<home>/.yonder/control.sock`（Windows 用命名管道）提供本地接口，CLI 的会话、身份、事件查询类命令与停止进程都经由它；没有运行中的进程时，查询类命令以只读方式直接打开存储。协议是一行一个 JSON 请求、一行一个 JSON 响应。`yonder chat` 不经过它，而是连接 channel-cli 插件自己的套接字（09 §2）。

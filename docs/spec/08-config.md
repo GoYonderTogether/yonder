@@ -8,12 +8,15 @@
 <home>/
   yonder.yaml           harness：插件、模型、服务、执行环境、agent 登记
   presets/*.yaml        预设（03 §4）
+  skills/               所有 agent 与预设共用的 skill（03 §6）
   agents/<id>/          本机工作区（远程工作区不在这里，03 §2.1）
   .yonder/              运行状态，不进版本库
     state.db            事件、会话、身份、pi-durable 存储
     auth.json           凭据（默认位置）
     device-id           本 home 的固定 UUID，OAuth 登录用（07 §6.2）
     plugins/<id>/       插件私有数据
+    attachments/        内核下载的附件（03 §5.3）
+    logs/               harness 日志
     lock  control.sock
 ```
 
@@ -28,8 +31,9 @@ plugins:
   - use: ./local-plugins/my-plugin       # 本地目录
     config: { … }                        # 该插件的配置段
 
-channels:                                # 渠道实例：id → 由哪个插件提供、它的配置
-  cli: { plugin: channel-cli }
+channels:                                # 渠道实例：id → 提供者 type 与实例配置（04 §3.1）
+  cli: { type: cli }
+  feishu-main: { type: feishu, appId: cli_a1b2, credential: feishu-main }   # 密钥在凭据文件里
 
 credentials: ~/.yonder-credentials/auth.json   # 可选，默认 .yonder/auth.json
 
@@ -68,7 +72,7 @@ identity:
 |---|---|
 | `agents/<id>/agent.yaml` | 保存后自动重载，下一次运行生效；校验失败保留旧配置并写 `config.reload` 事件 |
 | `presets/*.yaml` | 同上 |
-| `SYSTEM.md` 与上下文文件 | 每次组装提示词时读取 |
+| `SYSTEM.md`、上下文文件、`skills/` | 每次组装提示词时读取 |
 | `yonder.yaml` | 需要重启 |
 
 ## 4. 一个完整的 agent.yaml（QQ 场景）
@@ -86,12 +90,16 @@ defaults:
 profiles:
   owner:  { level: bypass, tools: { offer: ["*"] } }
   friend: { level: standard, tools: { offer: [qq_*, read] } }
-  guest:  { level: readonly, contexts: [agents-md] }
+  guest:  { level: readonly, contexts: [agents-md], skills: [] }
   group:  { level: readonly, thinking: low }
+  call:   { level: standard, thinking: low }
 bindings:
-  - { id: owner,    match: { channel: qq-main, from: owner },                   session: main,                                profile: owner }
-  - { id: friends,  match: { channel: qq-main, kind: dm, from: known },         session: { mode: persistent, per: person },   profile: friend }
-  - { id: stranger, match: { channel: qq-main, kind: dm, from: stranger },      session: { mode: persistent, per: from },     profile: guest }
-  - { id: groups,   match: { channel: qq-main, kind: group },                   session: { mode: persistent, per: conv },     profile: group, wake: mention }
-  - { id: calls,    match: { channel: qq-main, kind: call },                    session: ephemeral,                           profile: owner }
+  - { id: calls,    match: { channel: qq-main, kind: call, from: [owner, known] }, session: { mode: persistent, per: conv },   profile: call }
+  - { id: owner,    match: { channel: qq-main, from: owner },                      session: main,                              profile: owner }
+  - { id: friends,  match: { channel: qq-main, kind: dm, from: known },            session: { mode: persistent, per: person }, profile: friend }
+  - { id: stranger, match: { channel: qq-main, kind: dm, from: stranger },         session: { mode: persistent, per: from },   profile: guest }
+  - { id: groups,   match: { channel: qq-main, kind: group },                      session: { mode: persistent, per: conv },   profile: group, wake: mention }
 ```
+
+- 通话：QQ 渠道给每通电话一个新的 `conv`，所以每通电话是一个新会话；跨通话的连贯由记忆类上下文插件按人召回。陌生人的来电没有命中任何绑定，不处理。
+- 通话绑定排在 owner 之前，否则主人的来电会进主会话。

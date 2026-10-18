@@ -31,10 +31,10 @@ interface YEvent {
 | 会话（渠道内） | `conv:<channel>:<id>` | `conv:qq-main:g:7788`、`conv:timer:daily-brief` |
 | 人 | `person:<id>` | `person:zoran` |
 | agent | `agent:<id>` | `agent:main` |
-| Yonder 会话 | `session:<id>` | `session:01JB…` |
+| Yonder 会话 | `session:<id>` | `session:42`（id 即 pi-durable 的 conversation id，整数） |
 | 插件 | `plugin:<id>` | `plugin:trigger-cron` |
 
-- `<channel>` 是渠道**实例** id（同一个 QQ 插件接两个号，就是两个实例，如 `qq-main`、`qq-work`），格式 `[a-z0-9-]+`。
+- `<channel>` 是渠道**实例** id（同一个 QQ 插件接两个号，就是两个实例，如 `qq-main`、`qq-work`），格式 `[a-z0-9-]+`。`agent` 保留给内核的内部渠道：agent 之间对话时，发起方账号是 `acct:agent:<agentId>`，会话是 `conv:agent:<agentId>`（06 §6）。
 - `<id>` 由渠道决定，内核视为不透明字符串，但不得含空白；冒号允许出现在 `<id>` 内部。
 - 触发器把自己的名字当会话：`conv:<triggerId>:<name>`。
 
@@ -43,10 +43,11 @@ interface YEvent {
 | type | 谁写 | from | conv | data |
 |---|---|---|---|---|
 | `message.in` | 渠道 | `acct:` 发送者 | 所在会话 | 见 §3.1 |
-| `message.out` | 内核 | `agent:` | 目标会话 | `{ text, attachments?, session, delivery: { ok, id?, error? } }` |
-| `run.end` | 内核 | `agent:` | 运行所在会话的来源 | 见 §3.2 |
+| `message.out` | 内核 | `agent:` 或 `plugin:` | 目标会话 | `{ text, attachments?, session?, delivery: { ok, id?, error? } }`；插件经 `api.messages.send` 发送时没有 `session` |
+| `run.end` | 内核 | `agent:` | 第一个输入事件的 `conv` | 见 §3.2 |
 | `session.open` | 内核 | `agent:` | — | `{ session, mode, key, profile }` |
 | `session.close` | 内核 | `agent:` | — | `{ session, reason }` |
+| `session.input` | 内核 | 调用方：`agent:` / `plugin:` | — | `{ session, text }`：经会话接口直接提交给预设会话的输入（02 §5） |
 | `identity.link` | 内核 | 执行者 | — | `{ account, person, linked: boolean }` |
 | `config.reload` | 内核 | — | — | `{ file, ok, errors? }` |
 
@@ -74,9 +75,10 @@ interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string;
 ```ts
 {
   session: string;
+  inputs: string[];                // 本次运行回答的入站事件 id（通常一个；被 steer 并入的也在内）
   status: 'done' | 'error' | 'aborted' | 'limit';
   reason?: string;                 // error / limit 时说明原因
-  replied: 'origin' | 'caller' | 'deliver' | 'none';   // 见 06 §2
+  replied: 'source' | 'caller' | 'deliver' | 'none';   // 见 06 §2
   model: string;                   // provider/modelId
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
 }

@@ -26,31 +26,44 @@
 }
 ```
 
-- `id`：`[a-z][a-z0-9-]*`，全局唯一。`message`、`task`、`session`、`identity`、`tool` 保留给内核（它们是内置工具名的前缀）。
-- `contributes`：槽名 → 贡献名列表。贡献名由配置决定的（例如渠道实例 id 来自用户配置）写 `["*"]`。
+- `id`：`[a-z][a-z0-9-]*`，全局唯一。`message`、`task`、`session`、`identity`、`agent`、`skill`、`tool` 保留给内核（它们是内置工具名的前缀）。
+- `contributes`：槽名 → 贡献名列表。`channels` 与 `envs` 列的是提供者的 `type`（实例由 `yonder.yaml` 配置），其余列贡献的 id 或名字。
 - 加载时内核比对实际注册与声明，不一致即拒绝加载，并说明是哪个插件、哪一项。
 
 ## 3. 插件槽
 
-共七个：`channels`、`tools`、`contexts`、`triggers`、`envs`、`hooks`、`presets`。下面的 TypeScript 就是 `@yonder/sdk` 导出的类型，字段不多不少。
+共八个：`channels`、`tools`、`contexts`、`triggers`、`envs`、`hooks`、`presets`、`skills`。下面的 TypeScript 就是 `@yonder/sdk` 导出的类型，字段不多不少。
 
 ### 3.1 channels — 收发消息
 
 ```ts
+interface ChannelProvider {
+  type: string;                        // 如 feishu；yonder.yaml 里 channels.<实例id>.type
+  configSchema?: TSchema;              // 实例配置的 schema，加载时校验
+  create(id: string, config: unknown): Channel | Promise<Channel>;   // id：实例 id，如 feishu-main
+}
 interface Channel {
-  id: string;                          // 实例 id，如 qq-main
+  id: string;
   kinds: string[];                     // 会产生的 message.in kind，如 ['dm','group']
   output: { stream: boolean; attachments: boolean };
-  start(io: { emit(e: EventInput): Promise<YEvent> }): Promise<void>;
+  start(io: ChannelIO): Promise<void>;
   stop(): Promise<void>;
   send(conv: Ref, msg: OutMessage): Promise<Delivery>;
-  stream?(conv: Ref, out: AsyncIterable<OutputPart>): Promise<Delivery>;   // output.stream 为真时必须实现
+  stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string): Promise<Delivery>;   // output.stream 为真时必须实现
 }
-interface OutMessage { text: string; attachments?: Attachment[] }
+interface ChannelIO {
+  emit(e: EventInput): Promise<YEvent>;
+  ask(e: EventInput): Promise<AskResult>;   // 写入并等待它唤醒的运行结束；回复交给调用方，不再发回渠道（06 §2）
+}
+interface AskResult { event: YEvent; results: RunResult[] }   // 每个被唤醒运行的 agent 一条；只旁观或未命中的 agent 没有
+interface OutMessage { text: string; attachments?: Attachment[]; replyTo?: string }   // replyTo：被回复的渠道原生消息 id
 interface Delivery { ok: boolean; id?: string; error?: string }           // id：渠道原生消息 id
 ```
 
-渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
+- 一个插件注册提供者，`yonder.yaml` 的 `channels` 决定开几个实例：同一个 QQ 插件接两个号就是两个实例。实例 id 格式 `[a-z0-9-]+`，`agent` 保留给内核的内部渠道（06 §6）。
+- 实例配置里的密钥写成凭据名（例如 `credential: feishu-main`），插件用 `api.credentials.get` 读取（07 §6.2）。
+- 渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
+- 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
 
 ### 3.2 tools — 模型可调用的工具
 
@@ -115,7 +128,7 @@ interface Trigger { id: string; start(io: { emit(e: EventInput): Promise<YEvent>
 ### 3.5 envs — 执行环境
 
 ```ts
-interface EnvProvider { type: string; create(id: string, config: unknown): Promise<ExecutionEnv> }
+interface EnvProvider { type: string; configSchema?: TSchema; create(id: string, config: unknown): Promise<ExecutionEnv> }
 ```
 
 `ExecutionEnv` 是 pi-durable 的执行环境接口，由 `@yonder/sdk` 以纯类型重新导出（05 §4）。
@@ -139,6 +152,10 @@ type HookResult<T> = T | undefined | Promise<T | undefined>;
 
 插件可以贡献预设（03 §4），格式与 `presets/*.yaml` 相同：`api.presets.register({ id, ...字段 })`。
 
+### 3.8 skills — skill（数据贡献）
+
+`api.skills.register(dir)`：`dir` 是插件包内的一个目录，其中每个含 `SKILL.md` 的子目录是一个 skill（03 §6）。清单的 `contributes.skills` 列出这些 skill 的 `name`。
+
 ## 4. 插件 API
 
 ```ts
@@ -153,7 +170,15 @@ interface PluginAPI {
   envs: { register(e: EnvProvider): void };
   hooks: { register(h: Hook): void };
   presets: { register(p: Preset): void };
-  events: { emit(e: EventInput): Promise<YEvent>; query(q: EventQuery): Promise<EventPage> };   // 01 §4
+  skills: { register(dir: string): void };
+  events: {
+    emit(e: EventInput): Promise<YEvent>;
+    ask(e: EventInput): Promise<AskResult>;                              // §3.1
+    query(q: EventQuery): Promise<EventPage>;                            // 01 §4
+    on(type: string, handler: (e: YEvent) => void | Promise<void>): void;   // type 可为 'prefix.*'；见下
+  };
+  messages: { send(m: { to: 'owner' | Ref; via?: string; text: string; attachments?: Attachment[] }): Promise<Delivery> };   // 06 §5
+  credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
   identity: IdentityAPI;               // 02 §4.4
   services: { resolve(capability: string): ServiceEndpoint | undefined };                      // 07 §6.3
@@ -163,6 +188,8 @@ interface PluginAPI {
 interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSchema?: TSchema }
 ```
 
+- `events.on`：事件写入并完成路由之后调用，只观察、不能拦截或修改；同一插件内按事件顺序逐个调用，处理器抛错只记日志。只能在 `setup` 里注册，收到的是进程启动之后写入的事件（之前的用 `query`）。
+- `Credential` 是 pi 的凭据类型（`{ type: 'api_key', key, env? } | { type: 'oauth', … }`），由 `@yonder/sdk` 以纯类型重新导出。
 - entry 的默认导出是 `PluginModule`。`definePlugin(m)` 原样返回 `m`，只做类型约束；`defineChannel`、`defineTool`、`defineContext`、`defineTrigger`、`defineHook` 同理。
 - `Preset` 的字段见 03 §4。
 - 插件**禁止**直接打开内核的 SQLite 表或 pi-durable 的存储。
@@ -171,7 +198,7 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 
 1. **加载**：读清单 → 检查 `apiVersion` → 导入 entry → 调用 `setup(api)`。`setup` 只能注册，不能联网、不能开定时器、不能发事件。
 2. **检查**：比对声明与注册；按 `configSchema` 校验插件配置。
-3. **启动**：调用渠道与触发器的 `start`。
+3. **启动**：按 `yonder.yaml` 的 `channels`、`envs` 用提供者创建实例（先按 `configSchema` 校验实例配置），再调用渠道与触发器的 `start`。
 4. **停止**：反向调用 `stop`。
 
 插件代码不热重载。插件配置变更需要重启；`agent.yaml`、`presets/` 热重载（08 §3）。
@@ -185,3 +212,19 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 ## 7. 契约测试
 
 `@yonder/sdk/testing` 提供 `checkPlugin(dir): Promise<string[]>`：读清单、加载、用一个只记录注册的 `PluginAPI` 调用 `setup`、比对声明与注册、检查每个工具都声明了 `capabilities` 且名字以 `<pluginId>_` 开头并符合 §3.2 的格式、检查 `apiVersion` 在支持集合内。返回问题列表，空列表表示通过。每个插件的测试都必须调用它。
+
+## 8. 留给以后的能力用哪个接口
+
+0.1 不实现下列能力，但接口已经在上面。做的时候只写插件，不改内核。
+
+| 能力 | 用到的接口 | 做法 |
+|---|---|---|
+| 远程主机、多设备 | `envs`；`yonder.yaml` 的 `envs`；配置档 `env`；工作区 = 执行环境 + 路径（03 §2.1） | 插件实现 pi 的 `ExecutionEnv`（pi-env 已有远程实现可包装）；agent 的工作区可以只在远程 |
+| 容器沙箱 | 同上 | `type: container` 的执行环境插件 |
+| 审批 | `hooks.beforeTool`（可异步）+ `messages.send` + `events.on` | 调用前给主人发卡片，等卡片按钮事件，再返回放行或 `block`；等待受墙钟上限约束 |
+| 记忆 | `contexts`（`placement: turn`，按 `event.from` 的人召回）+ `tools` + `events.on`（摄入消息） | 每条记忆带引用（02 §4.3） |
+| 工作流 | `triggers` + `events.on`（如 `run.end`）+ `events.ask` + `sessions`（预设会话） | 代码驱动的编排；模型驱动的编排用 skill（03 §6） |
+| 外部经 MCP 调用我们的 agent | `channels` + `io.ask` | MCP 服务端渠道插件；要开放会话管理时把 `api.sessions` 映射成 MCP 工具 |
+| 我们调用外部 MCP 工具 | `tools` | 每个 MCP 工具注册为 `<pluginId>_<name>`，配置档用 `tools.search` 按需加载 |
+| 语义级防空转、审计 | `hooks` | 钩子插件 |
+| 飞书卡片等富消息 | `tools` | 渠道插件自带的工具，如 `feishu_send_card` |

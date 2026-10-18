@@ -1,0 +1,78 @@
+# 09 CLI、安装与更新
+
+CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yonder docs`，就能自己查看和维护运行环境。
+
+## 1. 约定
+
+- **非交互**：除 `login`、`chat` 外不读标准输入、不提问；缺参数就报错并给出用法。
+- **`--json`**：每个命令都支持，输出一个 JSON 值（列表命令输出数组）；不带时输出给人看的文本。
+- **退出码**：0 成功；1 失败（stderr 一行原因；带 `--json` 时 stdout 输出 `{ "error": "…" }`）；2 用法错误。
+- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 报错。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
+- **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令。
+- **CLI 是管理面**：能运行它就能改配置、身份与会话（05 §3）。
+
+## 2. 命令
+
+| 命令 | 作用 | 任务 |
+|---|---|---|
+| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`（`SYSTEM.md` 模板、`agent.yaml`：CLI 私聊绑定到主会话，配置档 `bypass`）；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local` | T11 |
+| `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 | T11 |
+| `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 | T11 |
+| `start` | 前台运行 harness：持锁、开控制接口、日志写标准输出 | T11 |
+| `stop` | 经控制接口让运行中的进程退出 | T11 |
+| `chat [--channel <实例>]` | 连接 channel-cli 实例的套接字 `<home>/.yonder/plugins/channel-cli/<实例>.sock`（默认实例 `cli`），一行一条消息，打印流式输出；Ctrl-D 退出 | T11 |
+| `sessions list [--agent] [--mode] [--open]` / `show <id>` / `abort <id>` / `close <id>` | 会话接口（02 §5） | T11 |
+| `events [--type --from --conv --agent --since --until --after --limit]` | 事件查询（01 §4） | T11 |
+| `identity lookup <ref>` / `link <acct> <person>` / `unlink <acct>` / `person <id> <name>` | 身份接口（02 §4.4） | T11 |
+| `skills [--agent <id>] [--profile <name>]` | 列出 skill 及来源、是否被遮蔽、索引的估算 token | T13 |
+| `version` | 当前版本、安装目录、home | T14 |
+| `changelog [--from <v>] [--to <v>]` | §5 | T14 |
+| `docs [path] [--list]` | 输出当前版本 `docs/` 下的文件；不带参数输出 `docs/index.md` | T14 |
+| `update [--to <tag>\|latest] [--repo <url>]` | §4 | T14 |
+| `service install\|uninstall\|start\|stop\|restart\|status` | §6 | T14 |
+
+只有这些命令。
+
+## 3. 安装布局
+
+```
+<install>/                    默认 ~/.yonder-harness，可用环境变量 YONDER_INSTALL 改
+  versions/<version>/         某个 tag 的源码，已 npm ci && npm run build
+  current -> versions/<version>
+  bin/yonder                  shell 脚本：用安装时记录的 node 绝对路径运行 current 里的 CLI
+```
+
+- 安装目录放代码，home 放数据，两者分开；一个安装可以服务多个 home。
+- 首次安装：在任意一份已构建的源码里运行 `node packages/cli/dist/index.js update --to <tag|latest>`，它创建安装目录；然后把 `<install>/bin` 加进 `PATH`。
+
+## 4. 更新
+
+`yonder update [--to <tag>|latest] [--repo <url>]`：
+
+1. 目标版本：`latest` 是仓库里最高的 semver 标签 `vX.Y.Z`；仓库默认取根 `package.json` 的 `repository`，用本机的 git 凭据访问。
+2. 已是当前版本：什么都不做，退出码 0。
+3. `git clone --depth 1 --branch <tag>` 到 `versions/<version>.tmp` → `npm ci` → `npm run build` → 改名为 `versions/<version>`。任一步失败：删除临时目录，当前版本不变，退出码 1。
+4. 装了服务时，用新版本对服务的 home 运行 `doctor`；失败则不切换。
+5. 原子切换 `current`（新建符号链接再 rename 覆盖）。
+6. 装了服务：`service restart`。没装服务但有运行中的进程：提示手动重启。
+7. 只保留最近 3 个版本，且不删当前与上一个。回滚就是 `update --to <旧版本>`。
+
+agent 在 bash 里运行 `yonder update` 时，重启会中断这次 bash 调用；重启后 pi-durable 恢复运行，模型看到这次调用被中断的结果，再按 §4.1 收到通知。这是预期行为。
+
+### 4.1 版本通知
+
+- 每次唤醒运行前比较会话的 `version`（02 §1）与当前版本：不同则这次输入的 `<turn>` 块带一行（03 §5.3），并把 `version` 改为当前版本。新会话直接记当前版本，不带通知。预设会话同样适用。
+- 文案固定：`notice: yonder harness updated from <旧> to <新>; details: yonder changelog --from <旧> --to <新>`。
+- 这是给 agent 的内部信息：框架段告诉模型知道即可、不主动转述（06 §4）。
+
+## 5. 发布
+
+- 每个任务把对外可见的变化记在根目录 `CHANGELOG.md` 顶部的 `## [Unreleased]`（小节用 Added / Changed / Fixed / Removed）。发布时把它改为 `## [x.y.z] - YYYY-MM-DD`，所有包的 `version` 改为同一个号，打标签 `vx.y.z`。标签由设计方审阅后打。
+- `yonder changelog --from a --to b`：输出 `CHANGELOG.md`（当前版本里的）中版本在 (a, b] 之间的各节；`--to` 缺省为当前版本，`--from` 缺省为 `--to` 的上一个版本。
+
+## 6. 后台服务（macOS）
+
+- `service install`：写 `~/Library/LaunchAgents/dev.yonder.harness.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。
+- `start` / `stop` / `restart` / `status` / `uninstall` 分别对应 `launchctl kickstart`、`bootout`、`kickstart -k`、`print`、`bootout` 后删除 plist。
+- 进程异常退出由 launchd 拉起；pi-durable 在重新打开时继续未完成的运行。
+- Linux（systemd 用户单元）以后做，命令不变。

@@ -6,34 +6,36 @@
 
 | 字段 | 含义 |
 |---|---|
-| `id` | 等于 pi-durable conversation id |
+| `id` | 等于 pi-durable conversation id（整数） |
 | `agent` | 所属 agent；预设会话为 `null` |
-| `profile` | 配置档名或预设名 |
+| `profile` | 配置档名或预设名；会话创建时确定，之后不变 |
 | `mode` | `main` / `persistent` / `ephemeral` / `task` |
 | `key` | 同一 agent 内唯一，决定"是不是同一个会话"，见下 |
-| `origin` | 当前回复目标：最近一次唤醒运行的入站事件的 `conv`；可为空 |
 | `parent` | `task` 会话的发起会话 |
+| `version` | 这个会话最近一次运行时的 harness 版本（09 §4） |
 | `opened` / `closed` | 时间；`closed` 为空表示仍在使用 |
+
+会话没有"当前回复目标"字段：回复目标跟着输入走（06 §2）。
 
 ### 1.1 四种会话方式
 
 | mode | key | 何时关闭 | 用途 |
 |---|---|---|---|
 | `main` | `main` | 不自动关闭 | 每个 agent 唯一。主人从 CLI、飞书、QQ 来的消息都进这一个，跨渠道连续 |
-| `persistent` | 由 `per` 决定（§2.2） | 不自动关闭 | 每个群一个、每个好友一个、每个陌生人一个 |
-| `ephemeral` | 入站事件 id | 运行结束后关闭 | 每封邮件、每次语音通话、每个互不相关的请求 |
-| `task` | 发起方的工具调用 id | 运行结束后关闭 | 由 `task_run` 或外部调用用预设开出的临时会话（03 §4） |
+| `persistent` | 由 `per` 决定（§2.2） | 不自动关闭 | 每个群、每个好友、每个陌生人、每次语音通话（渠道给每通电话一个新的 `conv`）各一个 |
+| `ephemeral` | 入站事件 id | 运行结束后关闭 | 每封邮件、每个互不相关的请求：一个事件一个会话 |
+| `task` | 发起方的工具调用 id，或 `open` 生成的 id | 运行结束后关闭 | 用预设开出的临时会话（03 §4） |
 
-连贯记忆不靠会话：临时会话每次是干净的上下文，跨次的连贯由上下文插件按引用（例如发送者的 `person:`）召回。
+连贯记忆不靠会话：每次通话、每封邮件都是干净的上下文，跨次的连贯由上下文插件按引用（例如发送者的 `person:`）召回。
 
 ### 1.2 并发
 
-- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`followup`（默认，本次答完再处理）或 `steer`（在当前工具轮结束后插入）。这直接使用 pi-durable 的 inbox。
+- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`followup`（默认，本次答完再单独回答）或 `steer`（插进当前工具轮之后，和本次运行共用一个回答）。这直接使用 pi-durable 的 inbox。
 - 不同会话并行。
 
 ## 2. 绑定
 
-绑定写在 agent 的 `agent.yaml`（03 §2）里，是一张有序表。内核对每个 agent **独立**求值，取该 agent 第一条命中的绑定；一个事件可以同时进多个 agent。
+绑定写在 agent 的 `agent.yaml`（03 §2）里，是一张有序表。内核对每个 agent **独立**求值，取该 agent 第一条命中的绑定；一个事件可以同时进多个 agent。**agent 的会话只能经绑定唤醒**（架构不变量 2）。
 
 ```yaml
 bindings:
@@ -64,13 +66,13 @@ bindings:
 | `conv` | `conv:` 引用或其数组 | `event.conv` |
 
 所有给出的维度都满足才算命中；数组表示"其一即可"。**没有**正则、表达式或任意字段路径——需要更细的划分时，由渠道插件把它体现为不同的 `kind` 或不同的渠道实例。
-渠道在声明中列出它会产生的 `kind`（04 §3.1），`yonder doctor` 据此检查绑定。
+渠道实例声明它会产生的 `kind`（04 §3.1），`yonder doctor` 据此检查绑定。别的 agent 经 `agent_ask` 发来的消息走内部渠道 `agent`（`kind: agent`，06 §6），同样由绑定决定收不收、进哪个会话。
 
 ### 2.2 session
 
 - `main`
-- `{ mode: persistent, per: conv | from | person }`：按会话、按账号、或按人（账号已关联到人时跨渠道共用；未关联时退化为按账号）
-- `ephemeral`
+- `{ mode: persistent, per: conv | from | person }`：按会话、按账号、或按人（账号已关联到人时跨渠道共用；未关联时退化为按账号）。key 分别写作 `conv:<ref>`、`from:<acct>`、`person:<ref>`。
+- `ephemeral`（`wake` 必须是 `run`）
 
 ### 2.3 其他字段
 
@@ -79,9 +81,19 @@ bindings:
 | `profile` | agent 的 `defaultProfile` | 用哪个配置档（03 §3） |
 | `wake` | `run` | `run`：唤醒运行。`write`：只写进会话、不运行、不花 token（旁观）。`mention`：`data.mentioned` 为真时运行，否则按 `write` 处理 |
 | `busy` | `followup` | 见 §1.2 |
-| `reply` | `auto` | `auto`：按 06 的规则回复。`none`：不自动回复，只能通过工具主动发送 |
+| `reply` | `auto` | `auto`：最终回复发回这条输入的来源（06 §2）。`none`：不自动回复，只能通过工具主动发送 |
 | `stream` | `false` | 渠道支持时流式输出过程（06 §3） |
-| `deliver` | 无 | 运行没有来源可回复时（如定时触发）把结果发给谁（06 §2） |
+| `deliver` | 无 | 输入不是来自渠道（如定时触发）时，把结果发给谁（06 §2） |
+
+### 2.4 加载时校验
+
+一个会话只有一个配置档（§1），所以可能落到同一个会话的绑定**必须**用同一个配置档，否则 `agent.yaml` 校验失败：
+
+- 所有 `session: main` 的绑定；
+- 所有 `per: person` 的绑定；
+- `per: conv` 或 `per: from` 相同的绑定中，`match.channel` 与 `match.kind` 都有交集的（没写的维度视为全部）。
+
+运行时若仍遇到已有会话的配置档与命中绑定不同，该 agent 的路由记为 `dropped: 'profile-mismatch'`，不运行。
 
 ## 3. 路由结果
 
@@ -93,7 +105,7 @@ interface Route {
   binding: string | null;   // 命中的绑定 id；未命中为 null
   session?: string;         // 进入的会话 id
   wake?: 'run' | 'write';
-  dropped?: 'no-binding' | 'agent-disabled';
+  dropped?: 'no-binding' | 'agent-disabled' | 'profile-mismatch';
 }
 ```
 
@@ -153,14 +165,17 @@ interface Lookup { accounts: AccountInfo[]; convs: Ref[]; agents: string[] }
 
 ## 5. 会话接口
 
-同一套接口供三方使用：CLI、插件（`api.sessions`）、工具（`session_*`）。外部渠道（例如 MCP 服务端插件）也通过插件接口使用它，从而可选地把会话管理开放给外界。
+同一套接口供三方使用：CLI、插件（`api.sessions`）、工具（`session_*`）。
+
+- agent 会话（`main` / `persistent` / `ephemeral`）由路由创建；这套接口能列出、查看、中止、关闭它们，但**不能**向它们提交输入——给 agent 的输入一律是事件，走绑定（§2）。需要拿到回复的调用方用 `events.ask`（04 §4）。
+- 预设会话（`task`）由 `open` 创建、`submit` 驱动。每次 `submit` 写一条 `session.input` 事件（01 §3）。
 
 ```ts
 interface SessionsAPI {
   list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
   get(id: string): Promise<SessionInfo | undefined>;
-  open(req: { agent: string; profile?: string; mode: Mode; key?: string } | { preset: string; parent?: string }): Promise<SessionInfo>;
-  submit(id: string, input: Input, opts?: { busy?: 'followup' | 'steer'; wait?: boolean }): Promise<RunResult | void>;
+  open(req: { preset: string; parent?: string; capabilities?: Capability[] }): Promise<SessionInfo>;   // 能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
+  submit(id: string, input: Input, opts?: { wait?: boolean }): Promise<RunResult | void>;            // 只接受 task 会话
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
@@ -168,10 +183,10 @@ interface SessionsAPI {
 type Mode = 'main' | 'persistent' | 'ephemeral' | 'task';
 interface SessionInfo {                // y_sessions 的一行（§1）
   id: string; agent: string | null; profile: string; mode: Mode; key: string;
-  origin?: Ref; parent?: string; opened: string; closed?: string;
+  parent?: string; version: string; opened: string; closed?: string;
 }
 interface Input { text: string; attachments?: Attachment[] }
-interface RunResult { session: string; status: 'done' | 'error' | 'aborted' | 'limit'; text: string; reason?: string }
+interface RunResult { agent: string | null; session: string; status: 'done' | 'error' | 'aborted' | 'limit'; text: string; reason?: string }
 interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升序；from 是起始条目 id
   id: number;
   kind: string;                        // pi 条目类型，如 yonder.message、pi.assistant、pi.tool-result、pi.compaction

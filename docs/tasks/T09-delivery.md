@@ -1,24 +1,26 @@
 # T09 投递与内置工具
 
 **依据**
-- `docs/spec/06-delivery.md:1-64`（全文）
-- `docs/spec/03-agents.md:77-84`（`task_run`）
-- `docs/spec/02-sessions.md:123-184`（`identity_lookup`、会话接口）
-- `docs/spec/05-security.md:5-20`（`message`、`cross-agent`、`admin`）
-- `docs/spec/01-events.md:41-86`（`message.out`、`run.end`）
+- `docs/spec/06-delivery.md:1-81`（全文）
+- `docs/spec/05-security.md:33-53`（内置工具能力表）
+- `docs/spec/03-agents.md:79-86`（`task_run`）
+- `docs/spec/02-sessions.md:135-199`（身份查询、会话接口）
+- `docs/spec/01-events.md:41-88`（`message.out`、`run.end`）
+- `docs/spec/07-runtime.md:43-57`（上限结束时的说明）
 
 **路径**：`packages/core/src/delivery/`、`packages/core/src/tools/`
 
 **必须**
-- 最终回复去向的五步判定（06 §2），结果写入 `run.end.data.replied`。
-- 流式：绑定开启且渠道支持时调用 `channel.stream`。
-- 内置工具及其能力：`message_send`（发往当前来源以外需 `message`）、`task_run`、`session_list` / `session_read`（跨 agent 需 `cross-agent`）、`identity_lookup`（跨 agent 信息需 `cross-agent`）、`identity_link`（需 `admin`）。
-- 结束运行（含 `limit`）时按 07 §5 向来源说明。
+- 每次运行结束：按 06 §2 确定输入与来源，五步判定去向，写 `run.end`（含 `inputs`、`replied`）；回复渠道原消息时带 `replyTo`。
+- 流式：开始运行的那条输入的绑定开启 `stream` 且渠道支持时调用 `channel.stream`。
+- 上限或错误结束时向来源说明（07 §5）。
+- 内置工具：`message_send`、`agent_ask`（06 §6，含成环检测）、`task_run`、`session_list`、`session_read`、`identity_lookup`、`identity_link`，能力严格按 05 §3 的表。
+- `api.messages.send` 的实现（与 `message_send` 同规则，`from` 为 `plugin:<id>`）。
 - 每次发送写 `message.out`。
 
 **禁止**：追加确认轮；要求用工具结束运行；内核重试发送。
 
-**验收**（真实模型）：普通回复回到来源；模型输出 `NO_REPLY` 时不发送；CLI 会话里要求"发给 owner 的另一个渠道"时经 `message_send` 送达（用 channel-cli 的第二个实例代替真实外部渠道）；`task_run` 返回结果给发起方。
+**验收**（真实模型）：普通回复回到来源；`NO_REPLY` 不发送；主会话里 CLI 实例 A 的运行进行中、实例 B 的消息排队，两个回答各自回到 A 与 B；要求"发给 owner 的另一个渠道"时经 `message_send` 送达（用 channel-cli 的第二个实例代替外部渠道）；`task_run` 返回结果；两个 agent 之间 `agent_ask` 得到答复，A→B→A 被拒绝；`readonly` 配置档调用 `session_read` 被拦下。
 
 ## 问题
 

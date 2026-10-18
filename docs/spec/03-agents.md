@@ -32,6 +32,7 @@ agents:
 <workspace>/
   agent.yaml     必需。身份、绑定、配置档、选用的上下文与插件
   SYSTEM.md      必需。agent 的基础系统提示词，初始化时由内核模板生成，之后可自由修改
+  skills/        可选。这个 agent 自己的 skill（§6），agent 可以自己写
   …              其余文件由选用的上下文贡献声明（04 §3.3），缺失时按声明自动生成
 ```
 
@@ -68,6 +69,7 @@ bindings: [ … ]                   # 见 02 §2
 | `plugins` | 用哪些插件的工具与钩子 |
 | `tools` | `{ offer: [glob…], search: [glob…] }`。`offer`：工具定义常驻在请求里；`search`：通过按需搜索加载（07 §4）。都要先通过能力过滤 |
 | `contexts` | 上下文贡献 id，按顺序 |
+| `skills` | skill 名的通配列表，默认 `["*"]`（§6） |
 | `instructions` | 追加在系统提示词最后 |
 | `env` | 工具在哪个执行环境运行；默认是工作区所在环境 |
 | `limits` | 覆盖运行上限：`{ maxTurns, maxMinutes, repeatBlock, repeatStop }`（07 §5） |
@@ -80,7 +82,7 @@ bindings: [ … ]                   # 见 02 §2
 
 - 内核工具 `task_run({ preset, task })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
 - 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
-- 外部调用方经由渠道插件，用 `sessions.open({ preset })` 使用预设，能力取该渠道绑定所指定的配置档与预设的交集。
+- 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；能力 = 预设 ∩ `capabilities`，插件应当传入它代表的外部调用方被允许的能力。
 
 ## 5. 提示词组装
 
@@ -88,13 +90,13 @@ bindings: [ … ]                   # 见 02 §2
 
 | 位置 | 放什么 | 规则 |
 |---|---|---|
-| system | 依次：① 框架段 ② `SYSTEM.md` ③ `placement: system` 的上下文贡献（按 `contexts` 顺序） ④ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
+| system | 依次：① 框架段 ② `SYSTEM.md` ③ skill 索引（§6） ④ `placement: system` 的上下文贡献（按 `contexts` 顺序） ⑤ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
 | 本轮输入 | 依次：① 内核的 `<turn>` 块 ② `placement: turn` 的上下文贡献 ③ 消息正文 | 随用户消息一起写入转录，可审计，不再改写 |
 | tools | 只放工具定义 | 不在工具定义里塞上下文 |
 
 ### 5.2 框架段
 
-内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、回复规则（06 §4）、`message_send` 与 `task_run` 的用途。用英文书写，**应当**控制在 200 词以内。
+内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、06 §4 列出的规则、可以用 `yonder` 命令与 `yonder docs` 了解和维护自己的运行环境（09 §1，仅当配置档有 `exec`）。用英文书写，**应当**控制在 250 词以内。
 
 ### 5.3 `<turn>` 块
 
@@ -103,11 +105,47 @@ bindings: [ … ]                   # 见 02 §2
 ```
 <turn time="2026-10-18T14:03:00+08:00" channel="qq-main" kind="group" conv="conv:qq-main:g:7788">
 from: 阿明 (acct:qq-main:10001, known: person:aming)
+attachment: 报价单.pdf (application/pdf, 120 KB) file:///…/报价单.pdf
+notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --from 0.1.0 --to 0.1.1
 </turn>
 ```
 
-以 `wake: write` 写入的消息只带 `from` 一行，不带时间以外的环境信息。
+- `attachment:` 每个附件一行。模型支持图片输入时，图片附件不列在这里，而是由内核读取后作为图片块放进同一条用户消息（超出模型 `inputLimits` 的仍按附件列出）；其余附件只列出，由工具处理。`http(s)` 地址由内核下载到 `<home>/.yonder/attachments/` 后改写为 `file://`。
+- `notice:` 只在会话的 `version` 与当前版本不同时出现一次（09 §4）。
+- 以 `wake: write` 写入的消息只带 `from` 与 `attachment` 行，不带时间以外的环境信息。
 
 ### 5.4 SYSTEM.md 模板
 
 初始化 agent 时内核写入一份模板：只含标题与空的段落提示（身份、职责、边界），不含虚构的人设或示例对话。
+
+## 6. Skill
+
+采用 [Agent Skills](https://agentskills.io/specification) 标准，与 pi、Claude Code、Codex、OpenClaw、Hermes 通用：别处的 skill 原样放进来就能用。
+
+**格式**：一个目录，含 `SKILL.md`。frontmatter 的 `name`（小写字母、数字、连字符，不以连字符开头结尾、不连续，≤ 64 字符）与 `description`（必填，≤ 1024 字符）是内核用到的字段；`disable-model-invocation: true` 的 skill 不进索引；其他字段保留不用。格式不合法的 skill 不加载，`yonder doctor` 与日志说明原因。
+
+**来源**（同名时排前者生效，`doctor` 报告被遮蔽的）：
+
+1. agent 工作区的 `skills/`（经执行环境读取）；
+2. home 的 `skills/`；
+3. 插件贡献（04 §3.8）。
+
+预设会话没有工作区，只有后两种。目录按 `**/SKILL.md` 递归发现。
+
+**选择**：配置档的 `skills` 通配列表（默认 `["*"]`）；访客类分身可以设为 `[]`。
+
+**索引**：system 第 ③ 段（§5.1），按 `name` 排序，每个 skill 只有名字与描述，格式：
+
+```
+<skills>
+<skill name="pdf-tools">Extract text and tables from PDF files. Use when …</skill>
+</skills>
+```
+
+索引在每次组装提示词时重新生成（skill 有变化才会改变 system）。索引超过 4000 个估算 token（字符数 ÷ 4）时 `doctor` 警告，内核不截断。
+
+**读取**：内置工具 `skill_view({ name, path? })` 返回 `SKILL.md` 全文，或 skill 目录内的某个文件（`path` 相对 skill 目录，不能越出）。结果开头注明 skill 目录的绝对路径与所在位置（工作区所在执行环境，或主机）。`skill_view` 不需要能力，只能读本配置档选中的 skill；运行 skill 里的脚本仍需 `exec`，且只有脚本所在位置与本次运行的执行环境相同时才可行。
+
+**自己写 skill**：agent 用普通文件工具在工作区 `skills/<name>/SKILL.md` 写入（需要 `write`），下一次运行即进入索引。内核不自动生成、合并或删除 skill；自动整理之类的策略由插件实现。
+
+**与工作流的区别**：skill 是给模型的做事说明，在一次运行里由模型照着做；工作流是跨多次运行、多个 agent 或脚本的编排。0.1 不做工作流，两种做法都有现成接口：模型驱动（skill 写清步骤，模型调用 `task_run` / `agent_ask`），或代码驱动（插件用触发器 + `events.on` + `events.ask`，04 §8）。

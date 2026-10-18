@@ -32,11 +32,24 @@
 
 ## 3. 工具与判定点
 
-- 每个工具注册时**必须**声明它需要的全部能力。pi-durable 自带工具的映射：`read` → `read`；`write`、`edit` → `write`；`bash` → `exec`。
+- 每个工具注册时**必须**声明它需要的全部能力。内置工具：
+
+| 工具 | 能力 |
+|---|---|
+| `read` | `read` |
+| `write`、`edit` | `write` |
+| `bash` | `exec` |
+| `message_send` | 无；发往本次运行来源以外需要 `message`（调用前判定） |
+| `agent_ask` | `message` |
+| `task_run`、`skill_view`、`tool_search` | 无（`task_run` 的子会话能力见下） |
+| `session_list`、`session_read` | `admin`（本 agent 的其他会话可能属于别人）；涉及其他 agent 的会话还需要 `cross-agent` |
+| `identity_lookup` | `read`，但只能查本次运行的发送者；查任意引用需要 `admin`；其他 agent 的部分需要 `cross-agent` |
+| `identity_link` | `admin` |
+
 - **判定点一：提供。** 工具所需能力不全包含在配置档能力内的，不提供给模型，也不能被按需搜索到。
 - **判定点二：调用前。** 内核的安全钩子再核一次能力，并检查受保护文件：写 `agent.yaml` 需要 `admin`；插件声明的受保护文件需要其指定能力。被拦下的调用以错误结果返回给模型，说明原因。
 - **子会话：** `task_run` 开出的会话能力 = 预设 ∩ 发起方（03 §4）。
-- 说明：拥有 `exec` 的配置档可以用命令行改任何文件，受保护文件规则对它没有约束力。真正的隔离靠执行环境（§4），不靠这条规则。文档与 `yonder doctor` 必须如实说明这一点。
+- 说明：拥有 `exec` 的配置档可以用命令行改任何文件，受保护文件规则对它没有约束力；在主机执行环境里它还能运行 `yonder` 命令，而 CLI 是管理面（09 §1），等同于 `admin`。真正的隔离靠执行环境（§4），不靠这条规则。文档与 `yonder doctor` 必须如实说明这一点。
 
 ## 4. 执行环境
 

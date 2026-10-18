@@ -1,20 +1,17 @@
-# T11 CLI 与本地控制接口
+# T11 CLI、控制接口与内核组装
 
-**依据**：`docs/spec/07-runtime.md:13-17`、`104-106`（锁与控制接口）、`docs/spec/08-config.md:1-19`、`docs/spec/02-sessions.md:133-184`
+**依据**：`docs/spec/09-cli-release.md:1-35`（约定与命令）、`docs/spec/07-runtime.md:13-18`、`105-107`（锁与控制接口）、`docs/spec/08-config.md:5-22`、`docs/spec/02-sessions.md:145-199`、`docs/spec/01-events.md:89-109`
 
-**路径**：`packages/cli/`、`packages/core/src/control/`
+**路径**：`packages/cli/`、`packages/core/src/control/`、`packages/core/src/kernel/`
 
-**命令**（只做这些）
-- `yonder init [dir]`：生成 home、`yonder.yaml`、一个 agent（`SYSTEM.md` 模板、`agent.yaml`，绑定 CLI 私聊到主会话）。
-- `yonder login <provider>`：按 07 §6.2 调用 pi-ai OAuth 登录（含本 home 的 `device-id`），写入凭据文件。
-- `yonder doctor`：校验配置与插件，包括绑定的 `kind` 是否在渠道声明内，并说明 05 §3 关于 `exec` 的限制。
-- `yonder start`：前台运行 harness，持有锁，开控制接口。
-- `yonder chat [--agent id]`：接入运行中进程的 CLI 渠道。
-- `yonder sessions [list|show <id>|close <id>]`
-- `yonder events [--type --from --conv --since --limit]`
-- `yonder identity [lookup <ref>|link <acct> <person>|unlink <acct>]`
+**必须**
+- 内核组装：按 `yonder.yaml` 打开存储与 runtime、加载插件（把真实服务传入 T06 的 `KernelServices`）、启动渠道与触发器、热重载、设置 `YONDER_HOME`。
+- 控制接口（07 §8）：一行一个 JSON 请求与响应；没有运行中的进程时查询类命令只读打开存储。
+- 09 §2 表中任务列为 T11 的命令，全部遵守 09 §1 的约定（`--json`、退出码、home 解析、`--help`）。
 
-**验收**：在一个新目录 `init → login → start → chat` 跑通一次真实对话；`start` 运行时另开终端执行 `sessions`、`events` 能查到这次对话。
+**禁止**：表外的命令或参数。
+
+**验收**：在一个新目录 `init → login openai → start → chat` 跑通一次真实对话；`start` 运行时另开终端执行 `sessions list --json`、`events --json` 能查到这次对话；`stop` 后重新 `start`，`chat` 继续同一主会话；每个命令的 `--json` 输出能被 `JSON.parse`；错误参数退出码为 2。完成后 CLI 可以日常使用。
 
 ## 问题
 
