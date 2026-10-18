@@ -1,5 +1,7 @@
+import { once } from "node:events";
 import { dirname, isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import {
@@ -99,11 +101,12 @@ interface RunState {
 	usageBefore: RuntimeRun["usage"];
 	id: string;
 	turns: number;
-	previous: string;
+	previous?: { name: string; args: unknown };
 	repeats: number;
 	reason?: string;
 	inputs: Set<string>;
 	timer: ReturnType<typeof setTimeout>;
+	limits: RuntimeSessionConfig["resolved"]["limits"];
 }
 export class Runtime {
 	private harness!: Harness;
@@ -165,7 +168,7 @@ export class Runtime {
 	}
 	private async runState(api: HookApi, context: Context): Promise<RunState> {
 		const live = await api.snapshot(LiveDoc, api.conversationId, context);
-		const id = String(live?.run?.taskId ?? api.taskId);
+		const id = String(live?.run?.inputs[0] ?? api.taskId);
 		let state = this.states.get(id);
 		if (!state) {
 			const config = await this.options.resolveSession(String(api.conversationId));
@@ -173,9 +176,9 @@ export class Runtime {
 				usageBefore: await this.usage(String(api.conversationId)),
 				id,
 				turns: 0,
-				previous: "",
 				repeats: 0,
 				inputs: new Set(),
+				limits: structuredClone(config.resolved.limits),
 				timer: setTimeout(() => {
 					const current = this.states.get(id);
 					if (current) current.reason = "maxMinutes";
@@ -194,6 +197,16 @@ export class Runtime {
 		}
 		return state;
 	}
+	private async stop(api: HookApi, context: Context, state: RunState, reason: string): Promise<never> {
+		state.reason ??= reason;
+		const signal = context.abortSignal!;
+		signal.throwIfAborted();
+		const stopped = once(signal, "abort");
+		// Abort must run outside this hook: abort() joins the invocation being stopped.
+		void this.abort(String(api.conversationId)).catch(this.options.onReport ?? (() => {}));
+		await stopped;
+		throw signal.reason;
+	}
 	private install() {
 		const core = defineExtension({
 			name: "yonder.core",
@@ -211,14 +224,23 @@ export class Runtime {
 			hooks: [
 				hook(GenerationTask, {
 					beforeRequest: async (_request, api, context) => {
-						await this.runState(api, context);
+						const state = await this.runState(api, context);
+						if (state.turns >= state.limits.maxTurns) await this.stop(api, context, state, "maxTurns");
+						state.turns++;
 					},
-					afterResponse: async (_message, api, context) => {
-						(await this.runState(api, context)).turns++;
+					afterTools: async (_assistant, _results, api, context) => {
+						const state = await this.runState(api, context);
+						if (state.turns >= state.limits.maxTurns) await this.stop(api, context, state, "maxTurns");
 					},
 				}),
 				hook(ToolTask, {
 					beforeTool: async (call, api, context) => {
+						const state = await this.runState(api, context);
+						const callKey = { name: call.name, args: call.arguments };
+						state.repeats = isDeepStrictEqual(callKey, state.previous) ? state.repeats + 1 : 1;
+						state.previous = structuredClone(callKey);
+						if (state.repeats >= state.limits.repeatStop) await this.stop(api, context, state, "repeatStop");
+						if (state.repeats >= state.limits.repeatBlock) return { block: "相同工具调用已重复，请换一种方法。" };
 						const config = await this.options.resolveSession(String(api.conversationId));
 						const denied = await this.toolDenied(
 							call.name,
@@ -228,22 +250,6 @@ export class Runtime {
 							String(api.conversationId),
 						);
 						if (denied) return { block: denied };
-						const state = await this.runState(api, context);
-						const key = JSON.stringify([call.name, call.arguments]);
-						state.repeats = key === state.previous ? state.repeats + 1 : 1;
-						state.previous = key;
-						if (state.repeats >= config.resolved.limits.repeatStop) {
-							state.reason = "repeatStop";
-							return;
-						}
-						if (state.repeats >= config.resolved.limits.repeatBlock)
-							return { block: "相同工具调用已重复，请换一种方法。" };
-					},
-					afterTool: async (_call, result, api, context) => {
-						const state = await this.runState(api, context);
-						const config = await this.options.resolveSession(String(api.conversationId));
-						if (state.turns >= config.resolved.limits.maxTurns) state.reason ??= "maxTurns";
-						return state.reason ? { ...result, control: { ...result.control, terminate: true } } : undefined;
 					},
 				}),
 			],
@@ -610,7 +616,7 @@ export class Runtime {
 		this.submissions.set(String(submission.id), metadata);
 		const live = await this.harness.snapshot(LiveDoc, cid(session), C);
 		if (live?.run?.inputs.includes(submission.id)) {
-			metadata.runId = String(live.run.taskId);
+			metadata.runId = String(live.run.inputs[0]);
 			const state = this.states.get(metadata.runId);
 			if (state) {
 				metadata.run = state;

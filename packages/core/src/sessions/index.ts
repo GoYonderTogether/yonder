@@ -26,7 +26,7 @@ export function createSessions({ store, agents, homePresets, pluginPresets, home
 		const resolved = resolveProfile(profile, {}, env);
 		if (!capabilities) return resolved;
 		const { level: _level, ...effective } = resolved;
-		return { ...effective, capabilities };
+		return { ...effective, capabilities: resolved.capabilities.filter(capability => capabilities.includes(capability)) };
 	};
 	const workspace = (agent: string) => {
 		const entry = config.agents?.find(candidate => candidate.id === agent);
@@ -92,8 +92,7 @@ export function createSessions({ store, agents, homePresets, pluginPresets, home
 		if (!session || session.mode !== "task" || session.closed) throw new Error(`Not an open task session: ${id}`);
 		const event = await store.events.record({
 			type: "session.input",
-			...(session.parent ? { parent: session.parent } : {}),
-			data: { session: id, text: input.text },
+			data: { session: id, text: input.text, ...(input.attachments ? { attachments: input.attachments } : {}) },
 		});
 		await store.sessions.setVersion(id, version);
 		const prepared = await prepareInput?.(session, event);

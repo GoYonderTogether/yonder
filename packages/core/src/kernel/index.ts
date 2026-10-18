@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { EventQuery, Models, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
+import type { EventQuery, Models, Preset, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { stringify } from "yaml";
 import {
@@ -161,8 +161,18 @@ function configurationErrors(
 	agents: Map<string, AgentConfig>,
 	plugins: LoadedPlugins,
 	models: Models,
+	presets: Map<string, Preset>,
 ): string[] {
 	const errors: string[] = [];
+	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
+		const slash = selected.model.indexOf("/");
+		if (!models.getModel(selected.model.slice(0, slash), selected.model.slice(slash + 1)))
+			errors.push(`${name}: unknown model ${selected.model}`);
+		if (selected.env !== "local" && !plugins.envs.has(selected.env))
+			errors.push(`${name}: unknown environment ${selected.env}`);
+		for (const id of selected.contexts) if (!plugins.contexts.has(id)) errors.push(`${name}: unknown context ${id}`);
+		for (const id of selected.plugins) if (!plugins.tools.has(id)) errors.push(`${name}: unknown plugin ${id}`);
+	};
 	for (const agent of agents.values()) {
 		for (const [name, profile] of Object.entries(agent.profiles)) {
 			const selected = resolveProfile(
@@ -170,15 +180,7 @@ function configurationErrors(
 				agent.defaults,
 				config.agents?.find((item) => item.id === agent.id)?.env,
 			);
-			const slash = selected.model.indexOf("/");
-			if (!models.getModel(selected.model.slice(0, slash), selected.model.slice(slash + 1)))
-				errors.push(`${agent.id}/${name}: unknown model ${selected.model}`);
-			if (selected.env !== "local" && !plugins.envs.has(selected.env))
-				errors.push(`${agent.id}/${name}: unknown environment ${selected.env}`);
-			for (const id of selected.contexts)
-				if (!plugins.contexts.has(id)) errors.push(`${agent.id}/${name}: unknown context ${id}`);
-			for (const id of selected.plugins)
-				if (!plugins.tools.has(id)) errors.push(`${agent.id}/${name}: unknown plugin ${id}`);
+			validateProfile(`${agent.id}/${name}`, selected);
 		}
 		for (const binding of agent.bindings) {
 			const ids =
@@ -195,6 +197,7 @@ function configurationErrors(
 					errors.push(`${agent.id}/${binding.id}: no selected channel declares kind ${kind}`);
 		}
 	}
+	for (const [id, preset] of presets) validateProfile(`preset:${id}`, resolveProfile(preset));
 	return errors;
 }
 
@@ -248,8 +251,14 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 		});
 		const plugins = await loadPlugins(home, config, services);
 		const agents = await loadAgents(home, config, plugins);
-		await loadPresets(home);
-		const errors = configurationErrors(config, agents, plugins, services.models);
+		const presets = await loadPresets(home);
+		const errors = configurationErrors(
+			config,
+			agents,
+			plugins,
+			services.models,
+			new Map([...plugins.presets, ...presets]),
+		);
 		const skills = skillsFor(home, config, plugins, () => {});
 		for (const agent of agents.values())
 			for (const profile of Object.keys(agent.profiles)) {
@@ -349,23 +358,32 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;
 		for (const [id, agent] of await loadAgents(home, config, loaded)) agents.set(id, agent);
-		const errors = configurationErrors(config, agents, loaded, services.models);
+		const homePresets = await loadPresets(home);
+		const errors = configurationErrors(
+			config,
+			agents,
+			loaded,
+			services.models,
+			new Map([...loaded.presets, ...homePresets]),
+		);
 		if (errors.length) throw new Error(errors.join("; "));
-		for (const agent of agents.values()) {
-			const selected = [
-				...new Set(
-					Object.values(agent.profiles).flatMap((profile) => resolveProfile(profile, agent.defaults).contexts),
-				),
-			];
-			await scaffoldWorkspace(filesFor(home, config, loaded, agent.id), selected, loaded.contexts);
-		}
+		const scaffoldAgent = (agent: AgentConfig) =>
+			scaffoldWorkspace(
+				filesFor(home, config, loaded, agent.id),
+				[
+					...new Set(
+						Object.values(agent.profiles).flatMap((profile) => resolveProfile(profile, agent.defaults).contexts),
+					),
+				],
+				loaded.contexts,
+			);
+		for (const agent of agents.values()) await scaffoldAgent(agent);
 		for (const person of config.identity?.persons ?? []) {
 			if (await store.identity().person(`person:${person.id}`)) continue;
 			await store.identity().createPerson(person);
 			for (const account of person.accounts ?? [])
 				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
 		}
-		const homePresets = await loadPresets(home);
 		const skills = skillsFor(home, config, loaded, log);
 		const promptOptions: PromptOptions = {
 			home,
@@ -444,6 +462,26 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			agents,
 			presets: homePresets,
 			workspaceFiles: (id) => filesFor(home, config, loaded, id),
+			validate: async (candidateAgents, candidatePresets) => {
+				const errors = configurationErrors(
+					config,
+					candidateAgents,
+					loaded,
+					services.models,
+					new Map([...loaded.presets, ...candidatePresets]),
+				);
+				for (const session of await store.sessions.list({ open: true })) {
+					const exists = session.agent
+						? candidateAgents.get(session.agent)?.profiles[session.profile]
+						: homePresets.has(session.profile)
+							? candidatePresets.has(session.profile)
+							: loaded.presets.has(session.profile);
+					if (!exists)
+						errors.push(`session ${session.id}: close session before removing profile/preset ${session.profile}`);
+				}
+				if (errors.length) throw new Error(errors.join("; "));
+				for (const agent of candidateAgents.values()) await scaffoldAgent(agent);
+			},
 			onReload: async (event) => {
 				await store.events.record(event);
 			},

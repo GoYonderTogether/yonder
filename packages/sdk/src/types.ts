@@ -190,9 +190,9 @@ export interface Channel {
 	kinds: string[];
 	output: { stream: boolean; attachments: boolean };
 	start(io: ChannelIO): Promise<void>;
-	stop(): Promise<void>;
-	send(target: Ref, msg: OutMessage): Promise<Delivery>;
-	stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string): Promise<Delivery>;
+	stop(signal?: AbortSignal): Promise<void>;
+	send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>;
+	stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string, signal?: AbortSignal): Promise<Delivery>;
 }
 export interface ChannelIO {
 	emit(e: EventInput): Promise<YEvent>;
@@ -251,6 +251,7 @@ export interface RenderContext {
 	session: string;
 	workspace: { read(path: string): Promise<string | undefined> };
 	event?: YEvent;
+	signal?: AbortSignal;
 }
 export interface Trigger {
 	id: string;
