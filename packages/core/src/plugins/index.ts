@@ -8,6 +8,7 @@ import type {
 	ChannelIO,
 	ChannelProvider,
 	ContextContribution,
+	Delivery,
 	EnvProvider,
 	ExecutionEnv,
 	Hook,
@@ -21,10 +22,11 @@ import type {
 } from "@yonder/sdk";
 import type { YonderConfig } from "../config/index.js";
 
-export type KernelServices = Pick<
-	PluginAPI,
-	"events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "models" | "log"
->;
+type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
+export type KernelServices = Omit<
+	Pick<PluginAPI, "events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "models" | "log">,
+	"messages"
+> & { messages: { send(message: PluginMessage, pluginId: string): Promise<Delivery> } };
 
 export interface LoadedPlugins {
 	channels: Map<string, Channel>;
@@ -154,7 +156,7 @@ export async function loadPlugins(home: string, config: YonderConfig, services: 
 			messages: {
 				send: (message) => {
 					denySetupWrite("messages.send");
-					return services.messages.send(message);
+					return services.messages.send(message, manifest.id);
 				},
 			},
 			credentials: services.credentials,

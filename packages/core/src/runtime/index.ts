@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
@@ -12,7 +10,6 @@ import {
 	defineDoc,
 	defineExtension,
 	defineTool,
-	type EntryRecord,
 	type Extension,
 	GenerationTask,
 	Harness,
@@ -45,13 +42,17 @@ import type {
 	TranscriptItem,
 } from "@yonder/sdk";
 import { matchesGlob } from "../config/index.js";
+import { loginWithType } from "./auth.js";
 import { FileCredentials } from "./credentials.js";
 import { localEnvironment } from "./env.js";
 import { buildModels } from "./models.js";
+import { entryText as textOf, transcriptItem } from "./transcript.js";
 import type { RuntimeInput, RuntimeOptions, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "./types.js";
 
+export { type LoginInteraction, loginProvider } from "./auth.js";
 export { FileCredentials } from "./credentials.js";
 export { localEnvironment, workspaceFiles } from "./env.js";
+export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
 
 const SessionDoc = defineDoc({
@@ -93,13 +94,6 @@ function fromResult(value: ToolExecutionResult): ToolResult {
 		images: (value.output ?? []).filter((b) => b.type === "image").map((b) => ({ mime: b.mimeType, data: b.data })),
 		isError: value.isError ?? false,
 	};
-}
-function textOf(entry: EntryRecord | undefined): string {
-	return (entry?.model ?? [])
-		.flatMap((m) =>
-			typeof m.content === "string" ? [m.content] : m.content.filter((b) => b.type === "text").map((b) => b.text),
-		)
-		.join("\n");
 }
 interface RunState {
 	usageBefore: RuntimeRun["usage"];
@@ -646,19 +640,7 @@ export class Runtime {
 			C,
 		);
 		return page.items
-			.map((entry) => ({
-				id: Number(entry.id),
-				kind: entry.kind,
-				text: textOf(entry),
-				tools: (entry.model ?? []).flatMap((m) =>
-					m.role === "assistant"
-						? m.content.filter((b) => b.type === "toolCall").map((b) => ({ name: b.name, args: b.arguments }))
-						: [],
-				),
-				...(typeof entry.data === "object" && entry.data !== null && "event" in entry.data
-					? { event: String(entry.data.event) }
-					: {}),
-			}))
+			.map(transcriptItem)
 			.filter((entry) => range.from === undefined || entry.id >= range.from)
 			.slice(0, range.limit ?? 100);
 	}
@@ -736,18 +718,9 @@ export class Runtime {
 		}
 	}
 	async login(provider: string, type: "api_key" | "oauth", interaction: Parameters<Models["login"]>[2]): Promise<void> {
-		await this.models.login(provider, type, interaction, {
-			agentName: "Yonder",
-			getDeviceId: () => {
-				const file = resolve(this.options.home, ".yonder/device-id");
-				if (existsSync(file)) return readFileSync(file, "utf8").trim();
-				mkdirSync(dirname(file), { recursive: true });
-				const id = randomUUID();
-				writeFileSync(file, id, { mode: 0o600 });
-				return id;
-			},
-		});
+		await loginWithType(this.models, this.options.home, provider, type, interaction);
 	}
+
 	async close(): Promise<void> {
 		for (const state of this.states.values()) clearTimeout(state.timer);
 		await this.harness.close(C);

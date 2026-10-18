@@ -15,4 +15,17 @@
 
 ## 问题
 
-（无）
+- Windows 命名管道尚未实现：规范未定义命名规则；当前 macOS 使用 Unix socket。
+- 本次真实 CLI 对话只观察到 final，未观察到 text/tool 过程片段；默认回复可用，流式过程留第二轮定位。
+- Unix socket 受 macOS 路径长度限制；系统长临时目录首次启动检查返回 EINVAL。最小检查改用 /tmp 短路径；沙箱 EPERM 经授权运行本地 socket 后通过。
+- OAuth 新 home 登录交互、恢复未完成运行、远程工作区和多渠道组合未测；本次使用本项目已有测试凭据引用，未复制其他程序 OAuth。
+
+## 结果
+
+第一轮：已实现（待验收）。
+
+- CLI 提供 init/login/doctor/start/stop/chat/sessions/events/identity 与本地控制协议；内核组装配置、插件、工作区模板、身份、pi 运行时、路由、投递和热重载。一个 home 持锁；停止后查询只读打开 SQLite。
+- 必要适配：插件发送携带 pluginId；OAuth 独立登录不创建 Harness；在线/离线转录复用同一映射。
+- 实际检查：CLI/core 构建通过；最小控制 socket 测试 1 项通过；只读 SQLite 转录测试 1 项通过；init/doctor/open/close/offline 最小检查首次失败 1 项（长路径），第二次失败 1 项（沙箱），获准监听后 1 项通过；非法参数退出码 2。未执行全量测试。
+- 真实模型：开发 home `.yonder/home` 初始化、doctor、start、chat 已运行；会话 2 使用 `openai/gpt-6-luna`，实际调用 bash/pwd，回复当前目录；run.end.status=done、replied=source。CLI 在线查到转录和事件，随后 Ctrl-D 与 stop 正常退出。保留开发 home 与真实对话供审核。
+- 凭据通过 yonder.yaml 的 credentials 引用本项目已授权的 `.yonder/auth.json`；未复制凭据。首次 OAuth 登录和完整 T11 验收留第二轮。

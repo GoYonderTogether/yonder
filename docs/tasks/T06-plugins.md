@@ -24,6 +24,7 @@
 
 - 新增 `loadPlugins(home, config, services)`：从 home 解析本地插件或包名（home 优先，当前安装依赖回退），读取清单、导入 entry、校验插件配置并且只调用一次 `setup`；复用 SDK 的 `readPluginManifest`、`createRegistrationCollector`、`checkRegistrations`。
 - 构造完整 `PluginAPI`，记录八个槽；拒绝 setup 阶段通过 API 写事件/消息/会话/身份，并拒绝 setup 后注册贡献或事件监听。跨插件同槽同名冲突报出双方 id。渠道与执行环境实例按 type 查提供者并验证配置后创建；内置 `envs.local` 留给 runtime。
+- `KernelServices.messages.send(message, pluginId)` 将当前插件 id 交给内核发送服务，T11 接入 `delivery.sendPlugin(id, msg)`，使 `message.out.from` 能记录为 `plugin:<id>`；SDK 的公开 `PluginAPI.messages.send(message)` 类型保持不变。
 - 返回实例 channels/envs、按插件分组的 tools/hooks、contexts/presets、skillDirs，以及按序 `start`、反序 `stop`、按注册顺序 `observe`。事件监听器按精确类型或 `prefix.*` 匹配；单个处理器报错仅记录日志并继续。
 - 实际检查：`npm run build` 通过；`npx vitest run packages/core/src/plugins/index.test.ts` 通过（1 文件、1 测试），使用 T10 两插件检查加载、通道实例创建、上下文登记和 local 环境旁路。测试未调用的服务方法均抛错，未以假成功结果代替实现。
 - 原定各类插件错误夹具、实例 schema 失败、生命周期次序与事件观察异常隔离等复杂验收留第二轮；本轮未接入 T11 服务组装。

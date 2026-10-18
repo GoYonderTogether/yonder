@@ -6,6 +6,9 @@
 	"engines": {
 		"node": ">=22.19"
 	},
+	"bin": {
+		"yonder": "./dist/index.js"
+	},
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
