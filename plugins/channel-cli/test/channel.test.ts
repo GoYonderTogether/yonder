@@ -1,5 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { createConnection } from "node:net";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -19,6 +20,11 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	const channel = await provider.create("test-cli", {});
 	let received!: (event: unknown) => void;
 	const input = new Promise<unknown>((resolveInput) => { received = resolveInput; });
+	const stale = spawn(process.execPath, ["--input-type=module", "-e", 'import {createServer} from "node:net"; createServer().listen(process.argv[1], () => console.log("ready"));', join(data, "test-cli.sock")]);
+	await new Promise<void>(done => stale.stdout.once("data", () => done()));
+	const exited = new Promise<void>(done => stale.once("exit", () => done()));
+	stale.kill("SIGKILL");
+	await exited;
 	await channel.start({
 		emit: async (event) => {
 			received(event);

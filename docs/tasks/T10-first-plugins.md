@@ -17,6 +17,14 @@
 
 ## 问题
 
+### 源码审查（2026-10-18）
+
+CLI provider 按实例捕获 PluginAPI；清除失去进程后的旧 socket；第二客户端写完错误再断开；固定 stream 接收连接并处理断开错误。真实子进程 SIGKILL 后遗留 socket 再启动的检查通过（1 文件、1 测试）。多 home 与流式重连组合未全部实测；context-files 的热重载 scaffold 缺口归 T08/T11。
+
+完整证据、未完成项和设计问题见 [第一轮源码审查](review-first-pass.md)。本节不替代原定验收；任务保持原状态。
+
+### 第一轮原记录
+
 - 第二个客户端收到的错误 JSON 结构未在规范中定义；当前用 `{ "type": "error", "message": "client already connected" }` 后断开，第二轮确认是否冻结该形状。
 
 ## 结果（第一轮，已实现待验收）

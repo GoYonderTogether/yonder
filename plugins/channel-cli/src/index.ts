@@ -4,7 +4,7 @@ import { createInterface } from "node:readline";
 import { join } from "node:path";
 import { acct, conv, defineChannel, definePlugin, type ChannelIO, type PluginAPI, type PluginModule, type Ref } from "@yonder/sdk";
 
-const channelProvider = defineChannel({
+const channelProvider = (api: PluginAPI) => defineChannel({
 	type: "cli",
 	create(id: string, _config: unknown) {
 		const account = acct(id, "local");
@@ -26,9 +26,11 @@ const channelProvider = defineChannel({
 			async start(channelIO) {
 				io = channelIO;
 				await mkdir(api.paths.data, { recursive: true });
+				await rm(socketPath, { force: true });
 				server = createServer((socket) => {
 					if (client) {
-						void write(socket, { type: "error", message: "client already connected" }).finally(() => socket.destroy());
+						socket.on("error", () => socket.destroy());
+						void write(socket, { type: "error", message: "client already connected" }).then(() => socket.end(), () => socket.destroy());
 						return;
 					}
 					client = socket;
@@ -42,7 +44,7 @@ const channelProvider = defineChannel({
 								await write(socket, { type: "error", message: error instanceof Error ? error.message : String(error) });
 							}
 						}
-					})();
+					})().catch(() => socket.destroy());
 					socket.once("close", () => {
 						if (client === socket) client = undefined;
 					});
@@ -78,8 +80,9 @@ const channelProvider = defineChannel({
 			async stream(target: Ref, output) {
 				if (target !== conversation) return { ok: false, error: "unsupported target" };
 				if (!client || client.destroyed) return { ok: false, error: "no client" };
+				const recipient = client;
 				try {
-					for await (const part of output) await write(client, part);
+					for await (const part of output) await write(recipient, part);
 					return { ok: true };
 				} catch (error) {
 					return { ok: false, error: error instanceof Error ? error.message : String(error) };
@@ -89,11 +92,9 @@ const channelProvider = defineChannel({
 	},
 });
 
-let api: PluginAPI;
 const plugin: PluginModule = definePlugin({
-	setup(value) {
-		api = value;
-		api.channels.register(channelProvider);
+	setup(api) {
+		api.channels.register(channelProvider(api));
 	},
 });
 
