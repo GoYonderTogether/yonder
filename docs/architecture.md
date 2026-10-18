@@ -16,7 +16,7 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 1. **事件**：渠道或触发器把外部发生的事交给内核（[01-events](spec/01-events.md)）。
 2. **绑定**：内核按 agent 声明的绑定表，决定这个事件进哪个 agent 的哪种会话、用哪个配置档、是否唤醒模型（[02-sessions](spec/02-sessions.md)）。
-3. **会话**：一段持续的对话上下文。主会话、长期子会话、临时会话三种（[02-sessions](spec/02-sessions.md)）。
+3. **会话**：一段持续的对话上下文。main / persistent / ephemeral 与预设 task，生命周期见 [02-sessions](spec/02-sessions.md)；TUI 可续聊 task 的修订方案见 [12](spec/12-terminal-interaction.md)，已批准，待实现验证。
 4. **运行**：在会话里执行一次模型循环，工具按安全级别放行（[05-security](spec/05-security.md)、[07-runtime](spec/07-runtime.md)）。
 5. **投递**：运行的输出按规则交回渠道或调用方（[06-delivery](spec/06-delivery.md)）。
 
@@ -31,6 +31,8 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 | **插件** | 通过插件槽提供：渠道、工具、上下文、触发器、执行环境、钩子、预设、skill | 绕过内核直接改会话或事件存储；import pi 的包 |
 
 内核只通过一个适配目录调用 pi（[07-runtime §1](spec/07-runtime.md#1-对接边界)）。
+
+基础 TUI 属于 CLI 客户端，直接沿用 pi v1.3.0 的原生界面、主题与交互，以 pi-tui 和 coding-agent UI 模块承载 Yonder 内容，不自行设计另一套界面，不运行第二个 agent 内核。管理命令主要面向 agent/脚本，同时保持人可读；TUI 面向人的输入、阅读与目标选择。channel-cli 仍是渠道插件，任务会话可直接经控制面驱动；具体方案与审核边界见 [12](spec/12-terminal-interaction.md)。
 
 ## 4. 核心概念
 

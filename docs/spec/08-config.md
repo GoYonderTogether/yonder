@@ -7,7 +7,7 @@
 ```
 <home>/
   yonder.yaml           harness：插件、模型、服务、执行环境、agent 登记
-  presets/*.yaml        预设（03 §4）
+  presets/*.yaml        预设（03 §4）；12 已批准方案由 init 生成 default.yaml 供基础 TUI 新任务使用
   skills/               所有 agent 与预设共用的 skill（03 §6）
   agents/<id>/          本机工作区（远程工作区不在这里，03 §2.1）
   .yonder/              运行状态，不进版本库

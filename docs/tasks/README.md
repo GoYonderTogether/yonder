@@ -90,3 +90,7 @@ plugins/
 - 已知可复现问题：停止后 CLI 离线查询的 readline/ENOENT 错误；真实对话只观察到 final，流式过程未验证。记录见 [T11](T11-cli.md)。
 - 重点复核：运行上限、执行环境/附件组合见 [T05](T05-runtime.md)、[T08](T08-prompt.md)；steer 来源权限、投递与恢复组合见 [T09](T09-delivery.md)；正式安装、升级回滚与服务实际操作见 [T14](T14-release.md)。
 - 用户追加品牌任务：可控登录名称提示、CLI 提示与两份 README 已统一 Yonder Harness；OAuth 授权页最终显示未重新登录核验。底层技术标识和版权归属未改名。
+
+## 已批准：原生 pi TUI
+
+2026-10-18 用户批准 spec/12 并要求开始实施、提供实际运行效果。任务见 [U00–U04](terminal/README.md)，主 agent 顺序执行，每任务独立提交；保留原 T/N 历史，不覆盖日用安装或擅自发布。

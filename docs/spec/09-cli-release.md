@@ -2,27 +2,30 @@
 
 CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yonder docs`，就能自己查看和维护运行环境。
 
+> 2026-10-18 用户要求补齐基础终端交互，原因与完整交互方案见 [12](12-terminal-interaction.md)、D30。本页无参数入口、chat、sessions 新子命令、completion、双语帮助及 init default 预设的修订同属已批准新增设计，尚未实现；其余安装、更新和原命令契约保留。
+
 ## 1. 约定
 
-- **非交互**：除 `login`、`chat` 外不读标准输入、不提问；缺参数就报错并给出用法。
+- **非交互**：除 `login`、`chat` 与交互终端中的无参数 TUI 入口外不读标准输入、不提问；缺参数就报错并给出用法。管理命令以 agent/脚本为主要使用方，人也能阅读；TUI 是人使用产品的基础入口，不能用 JSON 或逐行打印代替。
 - **`--json`**：每个命令都支持。有限命令输出一个 JSON 值（列表输出数组）；持续的 `start`、`chat` 输出一行一个 JSON 值（JSON Lines）。`login` 的交互提示走 stderr，stdout 只输出最终结果。不带时输出给人看的文本。
 - **退出码**：0 成功；1 失败（stderr 一行原因；带 `--json` 时 stdout 输出 `{ "error": "…" }`）；2 用法错误。
 - **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 报错。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
 - `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 当前目录解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装 plist 取得 home。
-- **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令。
+- **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令，命令名/参数保持英文，说明“中文 · English”。普通结果按命令呈现摘要、表格或正文，不默认打印调试对象；JSON 键与退出码不翻译。两种 Tab 补全见 12 §5；TUI 菜单、列表、布局和快捷键统一沿用固定版本 pi 原生实现，仅替换 Yonder 命令说明与内容（12 §2/4/6）。
 - **CLI 是管理面**：能运行它就能改配置、身份与会话（05 §3）。
 
 ## 2. 命令
 
 | 命令 | 作用 | 任务 |
 |---|---|---|
-| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载两款内置插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、contexts `[agents-md, user-md]`、plugins `[context-files]`；CLI owner 私聊绑定到主会话且 stream 开启；生成 SYSTEM.md 与所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local` | T11 |
+| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载两款内置插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、contexts `[agents-md, user-md]`、plugins `[context-files]`；CLI owner 私聊绑定到主会话且 stream 开启；生成 SYSTEM.md 与所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。已批准新增：另生成真实 default 任务预设（12 §3） | T11；新增见 12 |
 | `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 | T11 |
 | `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 | T11 |
 | `start` | 前台运行 harness：持锁、开控制接口、日志写标准输出 | T11 |
 | `stop` | 经控制接口让运行中的进程退出 | T11 |
-| `chat [--channel <实例>]` | 连接 channel-cli 实例的套接字 `<home>/.yonder/plugins/channel-cli/<实例>.sock`（默认实例 `cli`），一行一条消息，打印流式输出；Ctrl-D 退出 | T11 |
+| 无参数 / `chat [--preset <id> \| --session <id> \| --channel <实例>] [--plain \| --json]` | 已批准新增：TTY 默认进入新任务 TUI（default 预设，发送才创建），可选继续 task 或指定渠道；任务走控制面，渠道连接 `<home>/.yonder/plugins/channel-cli/<实例>.sock`。plain/JSONL 与非 TTY 规则见 12 §3 | 原 T11；新增见 12 |
 | `sessions list [--agent] [--mode] [--open]` / `show <id>` / `abort <id>` / `close <id>` | 会话接口（02 §5） | T11 |
+| `sessions open <preset> [--keep-open]` / `submit <id> --text <text>` | 已批准新增：显式开任务与提交，默认一轮关闭，keep-open 为 manual；submit 返回接纳事件 id，不默认等待模型（12 §5） | 12，U03 |
 | `events [--type --from --conv --agent --since --until --after --limit]` | 事件查询（01 §4） | T11 |
 | `identity lookup <ref>` / `link <acct> <person>` / `unlink <acct>` / `person <id> <name>` | 身份接口（02 §4.4） | T11 |
 | `skills [--agent <id>] [--profile <name>]` | 列出 skill 及来源、是否被遮蔽、索引的估算 token | T13 |
@@ -31,8 +34,11 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 | `docs [path] [--list]` | 输出当前版本 `docs/` 下的文件；不带参数输出 `docs/index.md` | T14 |
 | `update [--to <tag>\|latest] [--repo <url>]` | §4 | T14 |
 | `service install\|uninstall\|start\|stop\|restart\|status` | §6 | T14 |
+| `completion zsh\|bash\|fish` | 已批准新增：输出 shell 补全脚本；无 home 也可输出静态脚本；不修改用户 shell 配置（12 §5.3） | 12，U03 |
 
 只有这些命令。
+
+12 方案将 chat 默认从“cli 渠道”改为“独立新任务”，旧渠道使用方应显式传 `--channel cli`，不能静默把原 main 历史搬进任务会话。补全命令与 help/version 等一样不要求 home；动态候选仅在能解析 home 时读取。此行为变更随方案审核后在实现与发行说明中明确告知，不把当前安装版当作已支持新入口。
 
 ## 3. 安装布局
 

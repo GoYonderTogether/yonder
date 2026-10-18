@@ -8,7 +8,7 @@
 - pi-durable 1.3.0 使用本仓库可审核的最小补丁（D28、D29）：调度器解析 agent/model 前调用宿主 `beforeAgent`；单运行 abort 由 pi 原生 final 边界接续排队输入；运行终结在同一原生事务保存运行回执。补丁来源为 npm 1.3.0、官方 `earendil-works/pi/packages/durable`；保留版权，不复制运行循环。安装时应用固定补丁，版本或补丁不匹配直接报错，不静默跳过。
 - 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。唯一例外：`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。
 - pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
-- 不使用 pi 的 coding-agent（CLI、界面、它的会话文件和配置格式）。
+- 不使用完整 pi coding-agent 的运行循环、SessionManager、会话文件与配置格式。终端界面按 12（已批准，待实现）统一沿用 pi v1.3.0；仅 `packages/cli/` 可使用 pi-tui 及 coding-agent 的 UI/主题/键位导出或按许可提取的 UI 模块，不另设计布局和交互。这是界面依赖的明确边界，不允许 CLI import 模型/会话运行包或启动另一套 agent runtime。
 - pi 的每个异步调用都带 chord 的 `Context`；取消看 `context.abortSignal`。工具与钩子**必须**响应它，否则中止要等工具自己结束。
 
 ## 2. 存储
@@ -112,4 +112,4 @@ pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message_se
 
 ## 8. 本地控制接口
 
-运行中的 harness 在 `<home>/.yonder/control.sock` 提供本地接口，CLI 的会话、身份、事件查询类命令与停止进程都经由它；没有运行中的进程时，查询类命令以只读方式直接打开存储。协议是一行一个 JSON 请求、一行一个 JSON 响应。`yonder chat` 不经过它，而是连接 channel-cli 插件自己的套接字（09 §2）。当前验收平台为 macOS，Windows 命名管道以后定义并验证。
+运行中的 harness 在 `<home>/.yonder/control.sock` 提供本地接口，CLI 的会话、身份、事件查询类命令与停止进程都经由它；没有运行中的进程时，查询类命令以只读方式直接打开存储。普通协议是一行一个 JSON 请求、一行一个 JSON 响应。渠道 chat 连接 channel-cli 插件自己的套接字；12 的任务 chat 方案使用控制接口驱动 task，并在独立连接观察真实会话状态与输出，不启动第二个 harness 或打开运行中数据库。观察不是等待者，不改变投递；断连不 abort，恢复依据原生转录与事实。订阅确认、关联、终态与目标查询详见 12 §7，均属已批准新增设计。当前验收平台为 macOS，Windows 命名管道以后定义并验证。

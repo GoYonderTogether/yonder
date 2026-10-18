@@ -1,8 +1,10 @@
 # 02 会话、绑定与身份
 
+> 2026-10-18 设计修订：本文 task 关闭策略与接口的新增项按 12 §7 提案，已获用户批准；其余已冻结行为继续有效。新增项不是当前实现声明。
+
 ## 1. 会话
 
-会话是一段持续的对话上下文。每个 Yonder 会话**一一对应**一个 pi-durable conversation，转录、排队、压缩都由 pi-durable 负责；Yonder 只保存下表这行元数据（表 `y_sessions`）。
+会话是一段持续的对话上下文。每个 Yonder 会话**一一对应**一个 pi-durable conversation，转录、排队、压缩都由 pi-durable 负责；Yonder 只保存下表的关联元数据（表 `y_sessions`，单独注明的策略存在 pi 扩展文档）。
 
 | 字段 | 含义 |
 |---|---|
@@ -12,6 +14,7 @@
 | `mode` | `main` / `persistent` / `ephemeral` / `task` |
 | `key` | 同一 agent 内唯一，决定"是不是同一个会话"，见下 |
 | `parent` | `task` 会话的发起会话 |
+| `close` | task 的关闭策略 `run-end` / `manual`；在 pi 扩展文档持久化，由 SessionInfo 暴露，不增加 y_sessions 列；旧记录为 run-end（12，已批准） |
 | `version` | 这个会话最近一次运行时的 harness 版本（09 §4） |
 | `opened` / `closed` | 时间；`closed` 为空表示仍在使用 |
 
@@ -24,7 +27,7 @@
 | `main` | `main` | 不自动关闭 | 每个 agent 唯一。主人从 CLI、飞书、QQ 来的消息都进这一个，跨渠道连续 |
 | `persistent` | 由 `per` 决定（§2.2） | 不自动关闭 | 每个群、每个好友、每个陌生人、每次语音通话（渠道给每通电话一个新的 `conv`）各一个 |
 | `ephemeral` | 入站事件 id | 运行结束后关闭 | 每封邮件、每个互不相关的请求：一个事件一个会话 |
-| `task` | 发起方的工具调用 id，或 `open` 生成的 id | 运行结束后关闭 | 用预设开出的临时会话（03 §4） |
+| `task` | 发起方的工具调用 id，或 `open` 生成的 id | 默认 `run-end`：运行结束后关闭；交互任务可在创建时选 `manual`：显式关闭（已批准，待实现） | 用预设开出的独立任务；可续聊不赋予 agent 身份（03 §4、12） |
 
 连贯记忆不靠会话：每次通话、每封邮件都是干净的上下文，跨次的连贯由上下文插件按引用（例如发送者的 `person:`）召回。
 
@@ -173,21 +176,23 @@ interface Lookup { accounts: AccountInfo[]; convs: Ref[]; agents: string[] }
 
 - agent 会话（`main` / `persistent` / `ephemeral`）由路由创建；这套接口能列出、查看、中止、关闭它们，但**不能**向它们提交输入——给 agent 的输入一律是事件，走绑定（§2）。需要拿到回复的调用方用 `events.ask`（04 §4）。
 - 预设会话（`task`）由 `open` 创建、`submit` 驱动。每次 `submit` 写一条 `session.input` 事件（01 §3）。
+- 12 的交互任务方案：open 可指定 `close: manual`，本轮结束后保持会话打开以便继续 submit；策略创建后不变。abort 中止当前及排队输入但不关闭 manual 会话；close 中止未完成及排队工作后关闭，拒绝后续 submit、保留历史。退出客户端不关闭/中止。默认 run-end 和 task_run 保持既有行为。
 
 ```ts
 interface SessionsAPI {
   list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
   get(id: string): Promise<SessionInfo | undefined>;
-  open(req: { preset: string; parent?: string; capabilities?: Capability[] }): Promise<SessionInfo>;   // 能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
-  submit(id: string, input: Input, opts?: { wait?: boolean }): Promise<RunResult | void>;            // 只接受 task 会话
+  open(req: { preset: string; parent?: string; capabilities?: Capability[]; close?: 'run-end' | 'manual' }): Promise<SessionInfo>;   // close 默认 run-end；manual 见 12（已批准，待实现）。能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
+  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | void>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox，12 待审核
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
 }
 type Mode = 'main' | 'persistent' | 'ephemeral' | 'task';
-interface SessionInfo {                // y_sessions 的一行（§1）
+interface SessionInfo {                // y_sessions 元数据及注明的 pi 扩展策略（§1）
   id: string; agent: string | null; profile: string; mode: Mode; key: string;
   parent?: string; version: string; opened: string; closed?: string;
+  close?: 'run-end' | 'manual';          // task 的实际关闭策略，非 task 省略；由扩展文档取得（12，已批准）
 }
 interface Input { text: string; attachments?: Attachment[] }
 interface RunResult { agent: string | null; session: string; status: 'done' | 'error' | 'aborted' | 'limit'; text: string; reason?: string }

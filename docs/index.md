@@ -16,6 +16,7 @@
 | 1 | [spec/07-runtime.md](spec/07-runtime.md) | 与 pi 的对接、模型与密钥配置、压缩、防空转 | 改内核 |
 | 1 | [spec/08-config.md](spec/08-config.md) | 配置文件全貌与示例 | 所有人 |
 | 1 | [spec/09-cli-release.md](spec/09-cli-release.md) | CLI 约定与命令、安装、更新、版本通知、发布 | 改 CLI 或发布 |
+| 1 | [spec/12-terminal-interaction.md](spec/12-terminal-interaction.md) | 沿用 pi 原生 TUI、Yonder 内容适配、双语/补全与任务闭环（已批准，待实现验证） | 评审与实现终端交互 |
 | 2 | [decisions.md](decisions.md) | 关键取舍及理由 | 想改设计的人 |
 | 2 | [tasks/](tasks/README.md) | 0.1 的实现任务、状态表与实现循环的规则，每条引用规范的具体行 | 实现者 |
 
@@ -26,6 +27,8 @@
 - [参考快照与本机证据](tasks/next/reference-sources.md)：用户授权更新后的实际来源；不作为已实现声明。
 
 N00 已将本轮批准条款与受影响旧条款统一；冻结提交见 N00 结果，普通实现不再修改功能规范。未受影响的 0.1 规范与全部原验收继续有效。
+
+2026-10-18 用户另行授权修订基础终端交互规范并要求先看方案，见 [12](spec/12-terminal-interaction.md) 和 D30。按用户后续纠正统一沿用 pi 原生界面与交互，关联 02/03/06–09 的新增条款同属已批准新增设计，不代表已实现，也独立按 U00–U04 实现，不并入 N00–N14 的原任务范围。
 
 ## 规范用语
 
