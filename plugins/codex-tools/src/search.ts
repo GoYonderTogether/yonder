@@ -56,16 +56,26 @@ export function searchResult(
 	if (items.some((item) => !["userMessage", "agentMessage", "webSearch", "reasoning"].includes(String(item.type))))
 		throw new Error("Hosted search used a non-search item");
 	const searches = items.filter((item) => item.type === "webSearch");
-	const sources = [...new Set(searches.flatMap((item) =>
-		Array.isArray(item.results)
-			? item.results
-					.map(record)
-					.filter((result) => typeof result.url === "string")
-					.map((result) => result.url as string)
-			: [],
-	).filter((url) => {
-		try { return ["https:", "http:"].includes(new URL(url).protocol); } catch { return false; }
-	}))];
+	const sources = [
+		...new Set(
+			searches
+				.flatMap((item) =>
+					Array.isArray(item.results)
+						? item.results
+								.map(record)
+								.filter((result) => typeof result.url === "string")
+								.map((result) => result.url as string)
+						: [],
+				)
+				.filter((url) => {
+					try {
+						return ["https:", "http:"].includes(new URL(url).protocol);
+					} catch {
+						return false;
+					}
+				}),
+		),
+	];
 	const answer = items
 		.filter((item) => item.type === "agentMessage")
 		.map((item) => (typeof item.text === "string" ? item.text : ""))

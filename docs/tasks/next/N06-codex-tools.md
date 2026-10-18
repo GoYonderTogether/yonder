@@ -124,3 +124,5 @@ Yonder 读取获准桌面应用并完成可逆动作；一条真实 hosted searc
 - 完整阅读 app-server 传输、CUA 图片转换、运行生命周期及 hosted search 调用链；补明确状态分类、空 JS 拒绝及 native 来源 HTTP(S) 校验/去重。保持单一官方桌面后端，不读取 OAuth。
 - 图片通过 SDK images 原字段传递；取消搜索走原生 interrupt，桌面未知副作用不自动重放；run.end/stop 释放本轮拥有的连接。
 - 状态：实现未验收。本轮没有模型、桌面、搜索或授权真实调用。原 Yonder 提交及其原检查记录保留，不冒充本轮验证。根 workspace/lock/project references 交主 agent 接线。
+
+- 后续本轮必要检查：借主仓库既有 tsc 与 SDK/typebox 类型，临时 strict/noEmit 配置对 lane A 生产源码类型检查通过（不含/不运行测试）；未安装依赖或改根接线。此结果不扩大为 workspace 构建、真实搜索/桌面或安装验收。

@@ -5,12 +5,14 @@ import { computerCall, computerStatus, desktopThread } from "./computer-use.js";
 import { hostedSearch } from "./search.js";
 
 function failureState(error: unknown): string {
- const message = error instanceof Error ? error.message : String(error);
- if (/Program missing|ENOENT/i.test(message)) return "program-missing";
- if (/Accessibility|Screen Recording|permission denied|not authorized/i.test(message)) return "permission-not-authorized";
- if (/login|unauthorized|authentication|401/i.test(message)) return "login-required";
- if (/MCP unavailable|installation\/service|app-server exited|stdout closed/i.test(message)) return "service-unavailable";
- return "call-failed";
+	const message = error instanceof Error ? error.message : String(error);
+	if (/Program missing|ENOENT/i.test(message)) return "program-missing";
+	if (/Accessibility|Screen Recording|permission denied|not authorized/i.test(message))
+		return "permission-not-authorized";
+	if (/login|unauthorized|authentication|401/i.test(message)) return "login-required";
+	if (/MCP unavailable|installation\/service|app-server exited|stdout closed/i.test(message))
+		return "service-unavailable";
+	return "call-failed";
 }
 const empty = Type.Object({}, { additionalProperties: false });
 const js = Type.Object(
