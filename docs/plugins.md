@@ -192,7 +192,7 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 
 - 内置skill `skill-creator`：按需读取技能创建指导及配套资源，辅助Python脚本依赖仍有未闭合项。
 - 内置skill `yonder-development`：建议在隔离开发目录使用Git保存、验证并交付可审查代码，用户可不采用。
-- 后续源码新增内置skill `yonder-plugin-debug`：从指定入口执行短任务、核对工具/事件/产物并按需隔离复现；不增加插件，1904安装包尚未包含。
+- 内置skill `yonder-plugin-debug`（1905起）：从指定入口执行短任务、核对工具/事件/产物并按需隔离复现；不增加插件，沿现有按需读取机制使用。
 - 核心运行：pi模型循环、原生队列/回执、会话、身份、权限、绑定及共享投递由core/runtime承担。
 - 原生工具：文件读写、Bash、grep及共享message_send/task_run/agent_ask等不重复包装成插件。
 - 用户入口：CLI/TUI、安装更新、launchd和状态栏属于产品包，不是额外渠道插件。
