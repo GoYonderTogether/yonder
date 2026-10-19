@@ -204,3 +204,11 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 1904 / `42646a4`已在main正式发行；插件功能与1903一致，仅统一版本与文档。完整注册名和SDK入口见[功能树](function-tree.md)，本机更新和分支归并见[发行记录](tasks/stable-release-result.md)。
 
 - 后续源码新增内置skill `yonder-self-management`：Yonder特有目录、配置、Agent/preset、权限和更新规约；尚未随1905安装，不增加通用编码/GitHub教程。
+
+## media-tools（本轮源码新增，尚未发行）
+
+- 包：`@yonder/plugin-media-tools`；贡献两个模型工具，不贡献skill/channel/trigger。
+- `media-tools_image_generate`：用已配置模型生成一张图片，下载保存到工作区artifacts并返回附件。
+- `media-tools_audio_transcribe`：按文件访问权限读取音频，调用已配置ASR并返回文字。
+- `services.resolve(image/asr)`复用既有服务/密钥来源，不把对话模型目录冒充生成API；不启用付费TTS或视频。
+- 源码插件真实免费API调用通过，尚未安装到1905，未作模型选择/飞书端到端验收。见[实现记录](tasks/siliconflow-media-result.md)。

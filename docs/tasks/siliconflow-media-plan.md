@@ -16,4 +16,4 @@
 
 ## 结果与问题
 
-进行中；未测不得写成已通过。
+本段完成：两工具功能体、workspace/lock/tsconfig、配置说明均接齐。真实Kolors图片和SenseVoiceSmall ASR通过；拒绝路径和必要检查通过，原始证据及未测详见[siliconflow-media-result.md](siliconflow-media-result.md)。没有TTS/视频调用，没有发布/正式安装，不跑全仓矩阵。

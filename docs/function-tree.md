@@ -4,7 +4,7 @@
 
 **读法**：plugin ID是包的贡献命名空间；channel type是配置中的渠道类型，实例ID由配置指定；tools.register是模型工具，MCP server工具是外部协议接口；contexts/trigger/events分别是上下文、生命周期触发器、事件订阅，不能混为一个“功能完成数”。每个叶节点说明一个最小操作，不列内部私有函数来冒充额外功能。
 
-当前8个官方插件，4种具体渠道、27个插件模型工具、5个上下文贡献、2个生命周期trigger、1个插件skill目录；MCP另有19个外部协议工具，Browser7工具内含38个动作。数量来自manifest与实际实现，SDK的8个槽不等于8种插件都已实现。
+源码当前9个官方插件，4种具体渠道、29个插件模型工具、5个上下文贡献、2个生命周期trigger、1个插件skill目录；MCP另有19个外部协议工具，Browser7工具内含38个动作。数量来自manifest与实际实现，SDK的8个槽不等于8种插件都已实现。
 
 ## 1. 核心与用户入口
 
@@ -324,6 +324,20 @@ channel-feishu
    ├─ 共享命令 — 复用核心help/session/skills/stop及双斜杠转义，不另设飞书命令系统
    └─ 统一日志 — 使用共享脱敏结构化日志定位接收、运行和投递
 ```
+
+### media-tools（本轮源码新增，尚未发行）
+
+```text
+media-tools
+├─ package: @yonder/plugin-media-tools
+├─ tools.register
+│  ├─ media-tools_image_generate — 调用已配置硅基模型生成单图，立即转存工作区并返回附件
+│  └─ media-tools_audio_transcribe — 读取有权访问的音频，经已配置硅基ASR返回识别文本
+├─ services.resolve(image/asr) — 复用现有端点、模型清单和凭据引用
+└─ 没有TTS/视频工具，没有新增skill、channel、trigger或模型循环
+```
+
+真实API图片/ASR已验证；安装版1905仍只有原8插件，不能将源码新增数当作已安装数。
 
 ## 3. SDK作者接口树
 

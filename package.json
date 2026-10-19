@@ -17,7 +17,8 @@
 		"plugins/browser-skill",
 		"plugins/web-tools",
 		"plugins/channel-github",
-		"plugins/channel-feishu"
+		"plugins/channel-feishu",
+		"plugins/media-tools"
 	],
 	"scripts": {
 		"postinstall": "node scripts/apply-pi-patch.mjs",
