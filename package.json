@@ -18,7 +18,10 @@
 		"plugins/web-tools",
 		"plugins/channel-github",
 		"plugins/channel-feishu",
-		"plugins/media-tools"
+		"plugins/media-tools",
+		"plugins/cron",
+		"plugins/mcp-client",
+		"plugins/native-automation"
 	],
 	"scripts": {
 		"postinstall": "node scripts/apply-pi-patch.mjs",
@@ -34,5 +37,5 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/zoran-xc/yonder-harness",
-	"version": "0.1.2026101906"
+	"version": "0.1.2026101907"
 }

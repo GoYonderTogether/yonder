@@ -1,6 +1,6 @@
 # 官方插件功能清单
 
-核对日期：2026-10-19；正式发行及本机安装0.1.2026101906 / 3dab0d3。9个官方插件包已随发行，本机加载8个；media-tools尚未配置加载。注册不等于全部真实场景通过，历史P轮/完整矩阵及未测保留；本次真实无模型升级通知见[1906记录](tasks/release1906-result.md)。
+核对日期：2026-10-19；1907源码有12个官方插件。正式安装与真实验收以[1907结果](tasks/execution-capabilities-result.md)为准；media-tools仍未配置加载。注册不等于全部真实场景通过，历史P轮/完整矩阵及未测保留；本次真实无模型升级通知见[1906记录](tasks/release1906-result.md)。
 
 本清单区分“贡献槽位”“监听事件”“外部输入”“可调用功能”。下列短句描述已存在的功能体，不宣布逐项验收成功。工具实际名称带插件ID前缀；浏览器动作是工具参数，MCP操作是外部协议能力，不混称核心模型工具。
 
@@ -216,3 +216,16 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 ### 1906：GitHub事件程序处理（已安装）
 
 channel-github新增上下文channel-github.release-availability，并订阅channel-github.release执行获准apply、订阅内核release.update-result在notifyUpdates=true时直接通知；原模型工具保留。直接执行业务函数，不模拟Agent调用、不新建插件或调度系统。参数及迁移见该插件README与 [E轮结果](tasks/event-driven-actions-result.md)。
+
+
+## 10 cron：持久调度
+
+工具 `cron_manage`、`cron_exec`；trigger `cron`。调度一次性/间隔/cron与时区，支持CRUD、启停、立即运行、窗口/次数/补跑/并发控制和运行记录。事件需显式绑定及admin；preset按创建/当前能力求交；命令/脚本要求exec；明确目标可投递真实输出。订阅由trigger计时，不是内核自动轮询模型。
+
+## 11 mcp-client：外部MCP客户端
+
+工具 `mcp-client_stdio`、`mcp-client_http`；context `mcp-instructions`；trigger `mcp-cleanup`；订阅 `session.close`。连接/断开/状态/忘记，发现/调用工具、读取资源、获取prompt；stdio、StreamableHTTP、SSE。只在选择时提供外部instructions，图片与附件映射真实产物；OAuth-only服务仍需另有授权，不复制账号。
+
+## 12 native-automation：无宿主浏览器/桌面替代
+
+工具 `native-automation_browser`、`native-automation_desktop`；trigger `native-automation-cleanup`；订阅 `session.close`。自动探测并启动自有Chromium浏览器完成网页操作；macOS原生截图/观察/键鼠。无需BrowserSkill/Codex，但仍需浏览器引擎和OS授权。停止等待自有进程真实退出；截图通过不代替键鼠真实验收。

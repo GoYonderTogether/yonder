@@ -4,7 +4,7 @@
 
 **读法**：plugin ID是包的贡献命名空间；channel type是配置中的渠道类型，实例ID由配置指定；tools.register是模型工具，MCP server工具是外部协议接口；contexts/trigger/events分别是上下文、生命周期触发器、事件订阅，不能混为一个“功能完成数”。每个叶节点说明一个最小操作，不列内部私有函数来冒充额外功能。
 
-源码当前9个官方插件，4种具体渠道、29个插件模型工具、6个上下文贡献、2个生命周期trigger、1个插件skill目录；MCP另有19个外部协议工具，Browser7工具内含38个动作。数量来自manifest与实际实现，SDK的8个槽不等于8种插件都已实现。
+源码当前12个官方插件，4种具体渠道、35个插件模型工具、7个上下文贡献、5个生命周期trigger、1个插件skill目录；MCP另有19个外部协议工具，Browser7工具内含38个动作。数量来自manifest与实际实现，SDK的8个槽不等于8种插件都已实现。
 
 ## 1. 核心与用户入口
 
@@ -424,3 +424,32 @@ cron插件、主动记忆引擎、通用MCP客户端、持久PTY/进程管理、
 - sessions.notify / sessions notify：原生app-only程序通知，TUI按原时序显示；既不是模型回复，也不是模型输入。
 
 原E轮检查见[实现结果](tasks/event-driven-actions-result.md)，正式安装及程序飞书通知见[1906记录](tasks/release1906-result.md)。
+
+
+## 1907 新增执行单元
+
+```text
+内核
+├─ bash → 15秒自动后台化，可立即background，完整日志落盘
+├─ process → status / log / wait / write / kill，按session隔离
+├─ runtime.warning → 时间/轮数/tokens软提醒；子任务也通知父session
+├─ runtime.tool-result → 真实后台结果，继续原授权任务
+├─ agents / presets 管理CLI → 模板创建、校验、热更新、归档恢复
+└─ workspace/memory/README.md → 手工记录说明；不自动注入
+plugins
+├─ cron
+│  ├─ cron_manage / cron_exec → create/get/list/update/enable/disable/delete/run/history
+│  └─ cron trigger → at / every / cron + timezone / window / count / missed / concurrency
+├─ mcp-client
+│  ├─ mcp-client_stdio / mcp-client_http → connect/disconnect/status/forget
+│  │  └─ tools/call/resources/read/templates/prompts/prompt/instructions
+│  ├─ mcp-instructions → 按选择给出已连接server的外部来源信息
+│  └─ mcp-cleanup / session.close → 关闭连接和自有子进程
+└─ native-automation
+   ├─ native-automation_browser → status/navigate/snapshot/click/fill/press/select/screenshot/evaluate
+   │  └─ tabs/new-tab/select-tab/close-tab/back/forward/reload/close
+   ├─ native-automation_desktop → status/snapshot/screenshot/move/click/drag/type/key
+   └─ native-automation-cleanup / session.close → 等待自有浏览器/进程退出
+```
+
+上述注册名与实际验收分开，见[1907结果](tasks/execution-capabilities-result.md)。

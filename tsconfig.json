@@ -36,6 +36,15 @@
 		},
 		{
 			"path": "plugins/media-tools"
+		},
+		{
+			"path": "plugins/cron"
+		},
+		{
+			"path": "plugins/mcp-client"
+		},
+		{
+			"path": "plugins/native-automation"
 		}
 	]
 }
