@@ -86,3 +86,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - plist 的 EnvironmentVariables 仅保存 PATH、YONDER_INSTALL、YONDER_HOME；PATH 含安装 bin、安装时 node 所在目录及安装时 PATH。服务验证必须包含 stop → start，以及从后台 agent 调用 yonder docs、node、npm、git。
 - 进程异常退出由 launchd 拉起；运行恢复按 07 §3.1 接好输入/结束关联后启用 pi 调度，重新打开文件不代表完成恢复。
 - Linux（systemd 用户单元）以后做，命令不变。
+
+## D35 统一诊断
+
+start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugin标签和实例/阶段字段。服务仍写home/.yonder/logs/harness.log，可用系统tail查看/追踪，不新增日志服务或额外命令。CLI/TUI斜杠清单与飞书共用SDK常量；飞书仅实现11定义的现有命令子集。

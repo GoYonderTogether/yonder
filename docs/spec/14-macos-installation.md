@@ -11,3 +11,5 @@ macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，无主窗口�
 只读命令 `yonder service info --home <home> --json` 返回实际服务进程的 version/commit/home/pid/ready；控制面未就绪时失败，不回退磁盘版本。`yonder update --check --json` 经本机既有 gh 登录态查询仓库最新正式 GitHub Release，返回 current/latest/updateAvailable/url，缺 gh、登录或正式发布时显示实际失败。不会安装或改配置。
 
 2026-10-18 用户指定飞书环境：生产 home 使用人生管家；开发验收使用开发验收员和独立 /Users/zoran/.local/share/yonder-harness/home-dev。开发进程仍从独立安装的 bin/yonder 启动，不另加 launchd 管理器；生产登录自启保持唯一。两个 home 的配置/状态/凭据分开，不复制其他应用 OAuth。用户授权在本飞书测试账号内操作 Chrome 开发者后台、私聊及群聊并创建验收群；这不把会话 id 自动等同主人账号身份。
+
+F轮验收：用户已确认原生状态栏菜单正常，记为用户验收通过；Mac注销后重新登录仍需用户主动操作，核对唯一服务/图标、同安装/home及飞书连接/积压，不自动注销系统、不登出ChatGPT制造测试。

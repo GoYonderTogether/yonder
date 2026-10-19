@@ -21,7 +21,7 @@ harness 决定模型怎么执行、怎么回复；渠道只决定怎么呈现。
 
 1. T 去掉首尾空白后为空，或恰好是 `NO_REPLY` → 不发，`none`。
 2. 对有等待者的输入返回调用方；抑制该次输入的自动最终回复，其他已接纳来源仍按下条处理。只有调用方接收时记 `caller`。
-3. 有来源，且把该输入送进来的绑定是 `reply: auto` → 发往每个这样的来源（回复渠道原消息时带上 `replyTo`），`source`。
+3. 有来源，且把该输入送进来的绑定是 `reply: auto` → 发往每个这样的来源（自动回复携带原消息 `sourceMessageId`，渠道按呈现策略决定是否引用；显式 `replyTo` 不变），`source`。
 4. 开始本次运行的绑定有 `deliver` → 发往 `deliver.to`（经 `deliver.via`），`deliver`。
 5. 否则不发，`none`。
 

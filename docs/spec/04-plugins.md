@@ -247,3 +247,7 @@ PluginAPI.messages.send(request, ctx?: ToolContext) 的可选 ctx 仅供模型�
 Delivery.uncertain:true 表示副作用可能已发生但无法确认，必须 ok:false；id 可保留已知部分发送身份。明确拒绝是 ok:false 且无 uncertain。内核根据结构化字段保存 unknown，不根据中文错误前缀判定，不自动重发。
 
 插件配置省略时按空对象交给对象 schema 与 setup；schema 中真正 required 的字段仍校验失败，不跳过校验。
+
+## D35 渠道自动回复来源
+
+OutMessage可携带sourceMessageId表示自动回复所回答的原始消息；不等同于显式replyTo。stream既有第三参数表示自动回复源消息，渠道决定引用呈现。CLI命令名字/描述共用SDK静态清单；飞书只执行11明确的已有命令子集，不复制TUI交互或新增任意控制代理。
