@@ -2,13 +2,20 @@
 
 > 文档就是代码的目标。代码与文档不一致时，以文档为准；要改设计，先改文档。
 
-## 当前工位：F0–F5 飞书恢复、交互与验收
+## 当前工位：现状归档与收尾方案审核（2026-10-19）
 
-用户已批准 [F轮计划](tasks/feishu-recovery-interaction-plan.md)，D35冻结功能边界，Sol负责连接/历史，Luna负责命令清单与验收核对，主agent负责核心/共享接线。R轮结果与未测保留。
+本次仅整理文档，不开发、不运行测试、不安装、不发布；用户审核后才执行后续收尾。
 
-2026-10-19 用户批准[会话上下文修订](tasks/feishu-context-proposal.md)并修复，D36明确待处理输入与全参与者背景分离；复用现有上下文插槽和pi队列，原验收未完成项继续保留。D37另补全局日用入口及内置开发技能，见[实施记录](tasks/global-entry-result.md)。
+- [现状总账](tasks/current-status.md)：当前需求、实现、真实证据E01–E11与剩余项，统一T/N/U/C/R/F状态。
+- [官方插件功能清单](plugins.md)：8个插件的贡献、事件订阅、外部输入和逐项功能。
+- [Hermes当前对比](tasks/hermes-capability-comparison.md)：H01–H26当前结论；原比较和C6快照原文保留。
+- [最小收尾方案（待审核）](tasks/finishing-plan.md)：P0–P5先打磨已有能力，cron仅列后续候选，复杂记忆等后置。
 
-用户已于 2026-10-18 批准 [修复验收计划](tasks/repair-acceptance-plan.md)，D1–D4 推荐方向先改文档，三个 Sol 并行，主 agent 负责核心/共享文件；允许补测试和运行测试，先修缺口再独立安装。新增 [14 macOS 安装与状态栏](spec/14-macos-installation.md)，不扩大为桌面客户端。当前问题基线见 [亲自审查](tasks/review-c0-c6.md)，C0–C6/U05 及原验收保留。D34 记录本次授权。
+当前日用安装0.1.2026101902，功能提交65fa4db；已安装和真实使用通过须按总账区分。D34–D37及现行规范仍是功能边界，不因本次状态整理改变。
+
+### 既有轮次证据入口
+
+[R修复与验收结果](tasks/repair-main-result.md)、[F恢复结果](tasks/feishu-recovery-result.md)、[D36上下文分析](tasks/feishu-context-proposal.md)、[D37全局入口结果](tasks/global-entry-result.md)。原[R计划](tasks/repair-acceptance-plan.md)、[F计划](tasks/feishu-recovery-interaction-plan.md)与[审查](tasks/review-c0-c6.md)保留，不据旧状态重开开发。
 
 ## 阅读顺序（渐进式披露）
 
@@ -24,7 +31,7 @@
 | 1 | [spec/07-runtime.md](spec/07-runtime.md) | 与 pi 的对接、模型与密钥配置、压缩、防空转 | 改内核 |
 | 1 | [spec/08-config.md](spec/08-config.md) | 配置文件全貌与示例 | 所有人 |
 | 1 | [spec/09-cli-release.md](spec/09-cli-release.md) | CLI 约定与命令、安装、更新、版本通知、发布 | 改 CLI 或发布 |
-| 1 | [spec/12-terminal-interaction.md](spec/12-terminal-interaction.md) | 沿用 pi 原生 TUI、Yonder 内容适配、双语/补全与任务闭环（已批准，待实现验证） | 评审与实现终端交互 |
+| 1 | [spec/12-terminal-interaction.md](spec/12-terminal-interaction.md) | 沿用 pi 原生 TUI、Yonder 内容适配、双语/补全与任务闭环（已实现，完整交互验收未关闭） | 评审与实现终端交互 |
 | 2 | [decisions.md](decisions.md) | 关键取舍及理由 | 想改设计的人 |
 | 2 | [tasks/](tasks/README.md) | 0.1 的实现任务、状态表与实现循环的规则，每条引用规范的具体行 | 实现者 |
 
@@ -50,4 +57,4 @@ N00 已将本轮批准条款与受影响旧条款统一；冻结提交见 N00 �
 当前目标：**0.1**——内核完整、能用真实模型跑起来、接口冻结到足以让外部开始写插件。
 0.1 的范围见 [tasks/README.md](tasks/README.md)。
 
-首轮已实现到 T14 并记录问题；N00–N04 已有阶段成果，N05–N07 的未交付/未整合部分见当前对比，后续按本页顶部 R0–R6 执行。“已实现”仍不等于验收通过。具体见 [tasks/README.md](tasks/README.md)。
+T/N/U/C/R/F各轮已有实现及阶段验收，当前状态统一见本页顶部总账；不再等待U05或重开C/R轮。“已实现”仍不等于验收通过。具体见 [tasks/README.md](tasks/README.md)。

@@ -1,5 +1,13 @@
 # N10 GitHub issue 到 PR 与 Codex 合并
 
+## 当前状态（2026-10-19）
+
+真实issue #1到自主修复、commit、PR #2已通过，Codex合入zoran/first-pass；不是main，也不是全部场景完成。 依据：[当前证据](../current-status.md)、[R结果](../repair-main-result.md)、[F结果](../feishu-recovery-result.md)。本次仅整理状态，后续按[待审方案](../finishing-plan.md)。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **状态**：C4/C6 实现与组装完成，未验收；真实维护/发布链留后轮。
 
 **负责人**：Yonder maintainer 开发；Codex 授权接线、发 issue、审查合并。

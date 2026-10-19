@@ -1,5 +1,13 @@
 # U05 用户截图精简与通用键位
 
+## 当前状态（2026-10-19）
+
+实现已进入独立1902安装，有基础终端真实证据；完整视觉/交互验收仍未关闭。U05交接不是当前阻塞。见[总账](../current-status.md)与[待审P2](../finishing-plan.md)；下方原结果及未测项保留。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **依据**：用户本轮截图与要求、spec/12 §4/6、D31。由主 agent 按本次明确授权修订设计后实施。
 
 **允许路径**：packages/cli/、THIRD_PARTY_NOTICES.md、docs/spec/12-terminal-interaction.md、docs/architecture.md、docs/decisions.md、docs/tasks/terminal/。隔离运行 home 与既有可视化目录。

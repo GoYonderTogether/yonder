@@ -1,5 +1,13 @@
 # N08 grep、Bash、Tavily 与 Web Fetch
 
+## 当前状态（2026-10-19）
+
+grep/Tavily/Fetch均已实现并有基本真实调用；不再是未实施，余项见P3。 依据：[当前证据](../current-status.md)、[R结果](../repair-main-result.md)、[F结果](../feishu-recovery-result.md)。本次仅整理状态，后续按[待审方案](../finishing-plan.md)。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **状态**：C2 grep/Web 插件及根组装已实现，未验收；Bash 复用既有 pi 工具。
 
 **负责人**：本轮 Web 插件由 Codex C lane 实现；grep/Bash 由主 agent 实现。原 Yonder 自主开发目标与后轮安装验收保留。

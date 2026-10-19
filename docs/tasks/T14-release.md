@@ -1,5 +1,13 @@
 # T14 安装、更新、服务与版本通知
 
+## 当前状态（2026-10-19）
+
+已有独立安装、全局入口和单条维护/更新链真实证据，但整体验收未关闭。原条目仍保留，按当前规范逐项映射，不机械重发旧版本。见[总账](current-status.md)和[待审P2/P5](finishing-plan.md)。本次不执行验收或发布。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **依据**：`docs/spec/09-cli-release.md`（全文）、`docs/spec/02-sessions.md`（会话的 `version`）、`docs/spec/03-agents.md`（`notice` 行）
 
 **路径**：`packages/cli/`、`packages/core/src/release/`、根目录 `CHANGELOG.md`、根 `package.json`（`repository` 字段）、`README.md`、`README.zh-CN.md`

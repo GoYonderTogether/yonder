@@ -1,5 +1,13 @@
 # N11 发布事件与 operator 更新
 
+## 当前状态（2026-10-19）
+
+正式Release 1805到operator服务外更新、核验和飞书通知已有真实证据；1902已安装但没有正式Release。 依据：[当前证据](../current-status.md)、[R结果](../repair-main-result.md)、[F结果](../feishu-recovery-result.md)。本次仅整理状态，后续按[待审方案](../finishing-plan.md)。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **状态**：C4/C6 实现与组装完成，未验收；真实维护/发布链留后轮。
 
 **负责人**：Yonder maintainer 开发；operator 执行；Codex 审查发布。

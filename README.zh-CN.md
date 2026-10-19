@@ -6,7 +6,7 @@ Yonder Harness 是本机 Agent 运行时：把收到的事件路由到 Agent 与
 
 模型访问与持久化 Agent 会话使用 pi（`pi-ai`、`pi-durable`）作为依赖。产品名称是 Yonder Harness；pi 是底层依赖及上游来源。
 
-> **状态：** 已有独立macOS日用安装、CLI/TUI和人生管家飞书接入；能力实现与验收分别记录，未完成项见[当前任务](docs/index.md)。
+> **状态：** 已有独立macOS日用安装、CLI/TUI和人生管家飞书接入；能力实现与验收分别记录，当前需求、真实证据和未完成项见[现状总账](docs/tasks/current-status.md)，全部插件见[功能清单](docs/plugins.md)，后续按[待审收尾方案](docs/tasks/finishing-plan.md)审核后执行。
 
 ## 日常使用
 

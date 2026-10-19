@@ -1,5 +1,13 @@
 # N07 BrowserSkill 默认插件与就绪引导
 
+## 当前状态（2026-10-19）
+
+已整合安装，真实Chrome导航、观察、截图和清理通过；初装/断开引导及全动作未验收，P3收尾。 依据：[当前证据](../current-status.md)、[R结果](../repair-main-result.md)、[F结果](../feishu-recovery-result.md)。本次仅整理状态，后续按[待审方案](../finishing-plan.md)。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **状态**：已实现（待验收）；Codex 已审查方案并放行本独立工作树实现，真实页面验收暂阻塞于扩展未连接。
 
 **负责人**：Yonder maintainer；Codex 检查安装与权限阻塞。

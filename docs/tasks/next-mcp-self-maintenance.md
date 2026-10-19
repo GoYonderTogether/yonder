@@ -1,5 +1,13 @@
 # 本机自维护与官方插件实施计划（合并版）
 
+## 当前状态（2026-10-19）
+
+本文件保留当轮方案、授权与结果，不能把当时的“当前/待做/未验收”直接作为今天状态。当前事实见[总账](current-status.md)，后续编排见[待审收尾方案](finishing-plan.md)；本次不重新启动本轮，也不新增功能。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **当前批准：用户已批准 C0–C6，U05 已以 3d31601 交接；按 [能力补齐计划](capability-completion-plan.md) 执行，不新增/运行测试，原功能与验收债务保留。**
 
 **原 N 轮计划，保留需求来源；当前派工按已批准 C0–C6。** 最新范围见 [Hermes 对比](hermes-capability-comparison.md)、[13 能力边界](../spec/13-capability-completion.md)，最新编排见 [能力补齐计划](capability-completion-plan.md)。

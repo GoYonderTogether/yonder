@@ -6,7 +6,7 @@ Yonder Harness is a local agent runtime. It routes incoming events to agents and
 
 The runtime uses pi (`pi-ai` and `pi-durable`) as dependencies for model access and durable agent sessions. The product is Yonder Harness; pi is an underlying dependency and upstream source.
 
-> **Status:** C0–C6 source integration is complete, pending acceptance. The workspace build and typecheck passed; this round ran no tests or live integrations and did not replace the daily 0.1.4 installation. See the [operation guide and evidence limits](docs/tasks/capability-completion-usage.md). Earlier installed-version evidence remains in [N03](docs/tasks/next/N03-install-agents.md).
+> **Status:** An independent macOS installation (0.1.2026101902), global CLI/TUI and Feishu integration are available. Real scenario evidence and remaining acceptance work are recorded separately in the [current status](docs/tasks/current-status.md). See the [plugin inventory](docs/plugins.md) and [proposed finishing plan](docs/tasks/finishing-plan.md); this documentation pass does not start development.
 
 ## Run from source
 

@@ -1,5 +1,13 @@
 # N06 Computer Use 与 hosted search 连接
 
+## 当前状态（2026-10-19）
+
+已整合安装，CUA和hosted search均有真实调用；窗口丢失/生命周期等失败保留，P3收尾。 依据：[当前证据](../current-status.md)、[R结果](../repair-main-result.md)、[F结果](../feishu-recovery-result.md)。本次仅整理状态，后续按[待审方案](../finishing-plan.md)。
+
+## 历史任务与结果（原文保留）
+
+以下状态、版本及执行要求按记录当时理解；不作为当前派工指令。
+
 **状态**：已实现（待安装验收）；本地 SDK/真实 app-server 检查通过，尚未计作安装版 Yonder 验收。
 
 **负责人**：Codex 核实本机连接；Yonder maintainer 实现适配。
