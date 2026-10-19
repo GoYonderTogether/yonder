@@ -10,12 +10,24 @@ import {
 import { Check } from "typebox/value";
 import { FeishuChannel } from "./channel.js";
 import { uncertain } from "./client.js";
+import { conversationContext } from "./conversation.js";
 import { type Config, configSchema, object, required, string } from "./protocol.js";
 
 const str = { type: "string", minLength: 1 };
 export default definePlugin({
 	setup(api: PluginAPI) {
 		const instances = new Map<string, FeishuChannel>();
+		api.contexts.register({
+			id: "channel-feishu.conversation",
+			placement: "turn",
+			render(ctx) {
+				const event = ctx.event;
+				if (event?.type !== "message.in" || !event.conv) return;
+				const ref = parseRef(event.conv);
+				const channel = ref.kind === "conv" ? instances.get(ref.channel) : undefined;
+				if (channel) return conversationContext(channel.client, event, ctx.signal ?? AbortSignal.timeout(30000));
+			},
+		});
 		// Do not serialize later inbound observations behind network reaction requests.
 		for (const type of ["message.in", "run.end", "channel.command.result"])
 			api.events.on(type, (event) => {

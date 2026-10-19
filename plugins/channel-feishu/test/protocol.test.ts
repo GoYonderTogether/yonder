@@ -254,6 +254,35 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		expect(history.mock.calls[1]?.[0]).toEqual({ chat: "other" });
 		history.mockRestore();
 	});
+	it("registers source-scoped turn context without fetching for CLI inputs", async () => {
+		const { api: base, registrations } = createRegistrationCollector();
+		plugin.setup({ ...base, paths: { data: "/unused" } } as PluginAPI);
+		const channel = (await registrations.channels[0]?.create("test", config)) as FeishuChannel;
+		const request = vi.spyOn(channel.client, "request").mockResolvedValue({ data: { items: [] } });
+		const contribution = registrations.contexts.find((item) => item.id === "channel-feishu.conversation");
+		expect(contribution?.placement).toBe("turn");
+		const ctx = {
+			agent: "main",
+			profile: "owner",
+			session: "2",
+			workspace: { read: async () => undefined },
+			signal: new AbortController().signal,
+			event: { id: "input", ts: new Date().toISOString(), type: "message.in", conv: "conv:cli:local", data: {} },
+		};
+		expect(await contribution?.render(ctx)).toBeUndefined();
+		expect(request).not.toHaveBeenCalled();
+		const rendered = await contribution?.render({
+			...ctx,
+			event: { ...ctx.event, conv: "conv:test:chat", data: { msgId: "pending", createdAt: "1000" } },
+		});
+		expect(typeof rendered).toBe("string");
+		expect(request).toHaveBeenCalled();
+		for (const [path] of request.mock.calls) {
+			const query = new URL(path, "https://feishu.invalid").searchParams;
+			expect(query.get("container_id")).toBe("chat");
+		}
+		request.mockRestore();
+	});
 	it("preserves inbound resource kinds and UTF-8 chunk limits", () => {
 		expect(parseContent("media", JSON.stringify({ file_key: "video", image_key: "cover" })).resources).toEqual([
 			{ key: "video", kind: "video" },

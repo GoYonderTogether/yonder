@@ -41,6 +41,8 @@ export interface MessageInData {
 	attachments?: Attachment[];
 	mentioned?: boolean;
 	msgId?: string;
+	/** Original channel send time in epoch milliseconds; event.ts is acceptance time. */
+	createdAt?: string;
 	replyTo?: string;
 	name?: string;
 	target?: string;

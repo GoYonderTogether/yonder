@@ -9,6 +9,7 @@ export interface HistoryQuery {
 	end?: number;
 	pageToken?: string;
 	pageSize?: number;
+	sort?: "asc" | "desc";
 }
 export async function historyPage(client: FeishuApi, query: HistoryQuery, signal: AbortSignal) {
 	if (query.start !== undefined && query.end !== undefined && query.start > query.end)
@@ -16,7 +17,7 @@ export async function historyPage(client: FeishuApi, query: HistoryQuery, signal
 	const params = new URLSearchParams({
 		container_id_type: query.thread ? "thread" : "chat",
 		container_id: query.thread || query.chat,
-		sort_type: "ByCreateTimeAsc",
+		sort_type: query.sort === "desc" ? "ByCreateTimeDesc" : "ByCreateTimeAsc",
 		page_size: String(query.pageSize ?? 50),
 	});
 	if (!query.thread) {
@@ -27,6 +28,7 @@ export async function historyPage(client: FeishuApi, query: HistoryQuery, signal
 	const data = object((await client.request(`/im/v1/messages?${params}`, "GET", undefined, signal)).data);
 	if (!Array.isArray(data.items)) throw new Error("Feishu history omitted items");
 	const items = data.items.map(object).filter((item) => {
+		if (item.chat_id !== query.chat) throw new Error("Feishu history returned a different source");
 		const time = Number(item.create_time);
 		if (!Number.isFinite(time)) throw new Error("Feishu history omitted creation time");
 		return (query.start === undefined || time >= query.start) && (query.end === undefined || time <= query.end);
@@ -75,15 +77,22 @@ function recoveryHeader(message: Prepared): string {
 
 /** Preserve full originals while keeping each model-facing text input within the frozen budget. */
 export function recoveryBatches(messages: Prepared[], maxBytes = 64 * 1024): Prepared[][] {
-	const groups = new Map<string, Prepared[]>();
+	const groups: Prepared[][] = [];
 	for (const message of messages) {
-		const key = JSON.stringify([message.input.conv, message.input.from]);
-		const group = groups.get(key) ?? [];
-		group.push(message);
-		groups.set(key, group);
+		const group = groups.at(-1);
+		const previous = group?.[0];
+		if (
+			group &&
+			previous &&
+			previous.input.conv === message.input.conv &&
+			previous.input.from === message.input.from &&
+			string(object(previous.input.data).threadId) === string(object(message.input.data).threadId)
+		)
+			group.push(message);
+		else groups.push([message]);
 	}
 	const batches: Prepared[][] = [];
-	for (const group of groups.values()) {
+	for (const group of groups) {
 		let batch: Prepared[] = [],
 			size = 0;
 		for (const message of group) {

@@ -176,6 +176,24 @@ describe("Feishu history protocol (no network/model)", () => {
 		);
 		expect(() => recoveryBatches([one], headerBytes + 2)).toThrow("insufficient text budget");
 	});
+	it("preserves A1 B2 A3 order and splits continuous same-sender messages at thread boundaries", () => {
+		const message = (id: string, from: string, threadId = ""): Prepared => ({
+			key: id,
+			input: { type: "message.in", from, conv: "conv:test:chat", data: { text: id, threadId } },
+			original: { messageId: id },
+		});
+		const ordered = [
+			message("A1", "a"),
+			message("B2", "b"),
+			message("A3", "a"),
+			message("A4", "a", "thread"),
+			message("A5", "a", "thread"),
+			message("A6", "a"),
+		];
+		const batches = recoveryBatches(ordered);
+		expect(batches.map((batch) => batch.map((row) => row.key))).toEqual([["A1"], ["B2"], ["A3"], ["A4", "A5"], ["A6"]]);
+		expect(batches.flat().map((row) => row.key)).toEqual(ordered.map((row) => row.key));
+	});
 	it("scans old roots and paged replies, merges by sender, and reuses durable IDs on redelivery", async () => {
 		const { channel, internal, emitted, root } = await harness();
 		const calls: URLSearchParams[] = [];
@@ -198,11 +216,12 @@ describe("Feishu history protocol (no network/model)", () => {
 			return { data: { items: [item("reply-b", 1300, "user-b", { thread_id: "thread" })] } };
 		});
 		await internal.catchup();
-		expect(emitted).toHaveLength(2);
-		expect((emitted[0].data as { originals: { messageId: string }[] }).originals.map((row) => row.messageId)).toEqual([
-			"a",
-			"reply-a",
-		]);
+		expect(emitted).toHaveLength(3);
+		expect(
+			emitted.map((input) =>
+				(input.data as { originals: { messageId: string }[] }).originals.map((row) => row.messageId),
+			),
+		).toEqual([["a"], ["reply-a"], ["reply-b"]]);
 		expect(calls.some((params) => params.get("page_token") === "next")).toBe(true);
 		expect(
 			calls.filter((params) => params.get("container_id_type") === "chat").every((params) => !params.has("start_time")),
@@ -219,7 +238,7 @@ describe("Feishu history protocol (no network/model)", () => {
 				content: '{"text":"redelivery"}',
 			},
 		});
-		expect(emitted).toHaveLength(2);
+		expect(emitted).toHaveLength(3);
 		await channel.stop();
 	});
 	it("holds live redeliveries behind ready recovery without deadlocking the ingestion tail", async () => {

@@ -147,6 +147,13 @@ export async function prepareInput(
 		environment = `${conv?.kind === "conv" ? ` channel="${label(conv.channel)}"` : ""}${data.kind ? ` kind="${label(data.kind)}"` : ""}${event.conv ? ` conv="${label(event.conv)}"` : ""}`;
 	}
 	lines.push(`<turn id="${label(event.id)}" type="${label(event.type)}" time="${label(event.ts)}"${environment}>`);
+	if (data.msgId) lines.push(`message: ${label(data.msgId)}`);
+	if (data.createdAt) {
+		const sent = new Date(Number(data.createdAt));
+		lines.push(
+			`sent: ${Number.isNaN(sent.getTime()) ? "unknown" : sent.toISOString()} (time above is acceptance time)`,
+		);
+	}
 	if (event.from) {
 		const ref = parseRef(event.from);
 		const account = ref.kind === "acct" ? await options.identity.account(event.from) : undefined;
