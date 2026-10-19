@@ -1,8 +1,8 @@
 # channel-feishu
 
-实现未验收。官方飞书/Lark 消息渠道；一个配置实例对应一个应用，默认只使用官方 SDK 的 WebSocket，不需公网 webhook。setup 只注册，不联网；channel.start 才解析凭据、诊断机器人、建立连接。缺凭据/权限/连接在 status 中报告，其他渠道继续启动。
+已安装、部分真实场景通过；完整矩阵未关闭，见[本轮结果](../../docs/tasks/finishing-feishu-result.md)。官方飞书/Lark 消息渠道；一个配置实例对应一个应用，默认只使用官方 SDK 的 WebSocket，不需公网 webhook。setup 只注册，不联网；channel.start 才解析凭据、诊断机器人、建立连接。缺凭据/权限/连接在 status 中报告，其他渠道继续启动。
 
-安装/授权/真实消息/测试均留后轮；本包源码由 Codex 实现，不计为 Yonder 自主开发成果。根 workspace、锁文件和构建引用由主 agent 统一接线。
+本包源码由 Codex 实现，不计为 Yonder 自主开发成果；真实调用和未测范围分别记录。根 workspace、锁文件和构建引用由主 agent 统一接线。
 
 ## 接入
 
@@ -21,7 +21,7 @@
 | updateIntervalMs | 160..5000，默认 200，合并累计流式更新；终结时刷新剩余内容 |
 | allowedUsers / allowedChats | 可选传输准入的原生 open_id / chat_id 白名单，空数组拒绝所有。owner/known/stranger、群选择与是否 @ 唤醒仍由既有身份及绑定决定 |
 
-在飞书应用启用机器人，订阅 `im.message.receive_v1` 和 `card.action.trigger`，选择长连接，发布/安装到目标租户。根据实际用途申请 `im:message`、发送机器人消息、`im:resource` 与 `cardkit:card:write` 等权限。status 中的 scopes 是必要权限提示，不是平台已授权证明；REST 失败返回 HTTP/code 与平台实际提供的缺少权限 subject。
+在飞书应用启用机器人，订阅 `im.message.receive_v1` 和 `card.action.trigger`，选择长连接，发布/安装到目标租户。根据实际用途申请 `im:message`、发送机器人消息、`im:resource` 与 `cardkit:card:write` 等权限。群免艾特接收、群历史和恢复还需tenant `im:message.group_msg`；只有@消息权限不能代替完整群历史读取。status 中的 scopes 是必要权限提示，不是平台已授权证明；REST 失败返回 HTTP/code 与平台实际提供的缺少权限 subject。
 
 `acct:<实例>:<open_id>` 是发送者；`conv:<实例>:<chat_id>` 是会话。DM/group、mentioned、真实 msgId、parent/root/thread id 和附件保留在 message.in。身份映射、person 与绑定由内核处理。只接收 user 发送者，拒绝机器人自身和应用互刷。认证来源为本应用 SDK WebSocket，不提供未验证的公网回调入口。
 
@@ -47,7 +47,7 @@ CardKit 按创建→发送实体→累计更新→关闭 streaming_mode 顺序�
 
 ## 证据边界
 
-仅实现，未运行测试、模型、浏览器、桌面或真实飞书调用；未授权、安装、发送、push 或发布。多媒体可打开/播放、客户端展示、卡片回调、恢复和取消全部须按 N13 真实矩阵验收。上游固定来源与许可见 NOTICE.md。
+历史C轮记录：仅实现，未运行测试、模型、浏览器、桌面或真实飞书调用；未授权、安装、发送、push 或发布。后续R/F/P轮已有实际证据，以前述结果为准。多媒体可打开/播放、客户端展示、卡片回调、恢复和取消全部须按 N13 真实矩阵验收。上游固定来源与许可见 NOTICE.md。
 
 
 ## 会话背景（D36）

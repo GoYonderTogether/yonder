@@ -1,8 +1,10 @@
+> 2026-10-19 最新工位：P0–P5已收尾，用户批准归并main及正式发行。查看[发行记录](stable-release-result.md)与[全量功能树](../function-tree.md)；下方原始轮次保留。
+
 # 0.1 任务
 
 ## 当前状态（2026-10-19）
 
-当前为已批准P0–P5收尾执行阶段，见[现状总账](current-status.md)、[Hermes当前表](hermes-capability-comparison.md)、[插件目录](../plugins.md)。R/F/D36/D37已有实现与部分实证，旧轮“不测试”限制不描述后续已获准且已执行的R轮。用户已批准[最小方案](finishing-plan.md)：允许必要修复、测试和真实验收，不新增插件；当前执行记录见[本轮结果](finishing-result.md)。
+当前为P0–P5执行轮交付、待用户审核阶段，见[现状总账](current-status.md)、[Hermes当前表](hermes-capability-comparison.md)、[插件目录](../plugins.md)。R/F/D36/D37已有实现与部分实证，旧轮“不测试”限制不描述后续已获准且已执行的R轮。用户已批准[最小方案](finishing-plan.md)：允许必要修复、测试和真实验收，不新增插件；完整执行结果及未关闭项见[本轮结果](finishing-result.md)。
 
 | 任务 | 当前结论 | 剩余安排 |
 |---|---|---|

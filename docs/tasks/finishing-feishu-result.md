@@ -59,7 +59,7 @@
 | CardKit开始/更新/完成 | 协议与交互检查 | 真实运行API sequence/关闭及客户端观察 |
 | CardKit取消/错误 | 自动检查覆盖 | 本轮真实API收尾及无重复气泡 |
 | 断连恢复及原生同ID去重 | 既有真实离线双条合并及迟到单次消费 | 实际断网重连；禁止以正式服务重启冒充断网 |
-| 工具间隙steer | 原实验第二条未发；MCP双终结不算通过 | 主路串行协调原生客户端插入 |
+| 工具间隙steer | 1903原生A/B同run2069、双inputs、一次最终投递；B在背景准备阶段接纳 | 精确工具执行中才发送B仍未通过；旧失败保留 |
 | 多参与者背景 | 真实私聊和专群均含user/app；新权限后群背景A/A2/B可见 | 多个不同用户/其他bot原生输入仍待验 |
 
 截至本节未发现需要修改飞书生产源码的已证实新根因；验收缺口保持未测，不写成全通过。
@@ -75,4 +75,17 @@
 - A run2045于06:18:21.802Z done，inputs仅A、replied=none；B独立run2057于06:18:29Z done，inputs仅B。唯一可见输出为B的 `P1-native-steer-ok`，message.out01M59CZKZCJ3C83ZFFCBEMMYFM，delivery.ok=true/native om_x100b626f2d07f480ddf279b3bb50b8f。没有A/B同run.inputs，不能因回复字符串写steer通过。
 - 审计分别保存 `/tmp/yonder-p1-final-A-audit.json`、`/tmp/yonder-p1-final-B-audit.json`；每条原生消息各1次接纳。以上不是MCP复制输入。
 
-本轮同时发现真实背景缺口：A原createdAt06:17:34.996Z高于准备时本机固定截止06:17:30.334Z；B原createdAt06:18:24.333Z高于准备截止06:18:21.808Z。两个prepared均页数0、`History start must not exceed end`，原输入保留但背景未读取。这是平台原时间与本机时钟差异下已证实的区间失败；不以问候语义/模型选择解释，也不擅自修改原时间或本机时钟。已报主路，代码处理由当次授权决定，尚未声称修复。
+本轮同时发现真实背景缺口：A原createdAt06:17:34.996Z高于准备时本机固定截止06:17:30.334Z；B原createdAt06:18:24.333Z高于准备截止06:18:21.808Z。两个prepared均页数0、`History start must not exceed end`，原输入保留但背景未读取。这是平台原时间与本机时钟差异下已证实的区间失败；不以问候语义/模型选择解释，也不擅自修改原时间或本机时钟。已报主路；下节另记1903实际修复及新原生验证，原失败保留。
+
+## 1903安装后的原生同轮补充输入
+
+主路在授权内以一行 `Math.max(Date.now(), ...times)` 修复固定截止，保留原发送时间；回归原1失败10通过，修复后11/11，实际4.5秒偏差重读2页无错误。主路已实际安装1903 / commit504b7fc / PID40703；本节只读核对，没有另发消息或修改代码。
+
+- 主路在单次CUA调用连续发送A/B，两气泡3.31秒内可见。A原生om_x100b626fdaabb494cea3c1e0b6c3154，event01M59DQA9NWMSMBTSYF6ZXPGX5，接纳06:31:29.845Z；B原生om_x100b626fdab9688cb0f454f7a216301，event01M59DQBH0R1VH89510P6SN9QV，接纳06:31:31.104Z。各1接纳，main/owner/session2/busy=steer。
+- A prepared2073与B prepared2080均读取2页、没有区间错误。B接纳在A背景准备阶段，早于A首个模型请求timestamp06:31:33.217Z；因此本次证明原生运行期间入队并在工具后同轮消费，不声称B在bash执行中才送达。
+- assistant2075真实调用一次 `bash sleep 8; printf P1-live-boundary`，toolResult2077成功、duration8039ms，按回执推算工具从06:31:41.868Z至06:31:49.907Z。pi在工具结果后放置B raw2078、再准备B2080。
+- 唯一run2069 / run.end01M59DR8WBEVHGE7ZHDXMDD8Y9于06:32:01.163Z done，inputs同时包含A/B、replied=source。唯一message.out01M59DRC6YD0EW290RS1NFE98X于06:32:04.574Z发送 `P1-live-merged`，delivery.ok=true，平台ID om_x100b626fd84c8cb4df0f589bb0fa4a6。没有B独立run或单独气泡。
+- 本地reactions待清理0；真实平台分别查询A/B Typing表情均0、has_more=false。不能据此补写未观察的处理期间动画，但终结清理有实际API事实。
+- 两份只读审计 `/tmp/yonder-p1-live-A-audit.json`、`/tmp/yonder-p1-live-B-audit.json`；针对各1接纳、同一唯一终态、双inputs、唯一成功投递及无B重复投递执行6条断言通过。
+
+结论：原生A/B同一运行消费、一次最终投递、Typing终结清理已具证据；精确“工具执行间隙才发送B”场景仍没有通过证据，前次超时/错过间隙的失败全部保留。
