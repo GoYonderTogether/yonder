@@ -21,3 +21,12 @@
 ## 源码检查结果
 
 候选版本0.1.2026101902。build/typecheck通过；最新整仓34文件143/143通过、0失败0跳过，日志/tmp/yonder-global-full-final.log；lint0错误/55warnings/1info。新增上游SVG资产最初触发无title错误，补实际title后通过，未禁用规则。补全检查初次142通过1失败（不隔离home），修为明确临时home后最终整仓通过。当前机器普通Python缺PyYAML的可选辅助脚本依赖事实保留，不以运行时TS技能加载通过代替脚本依赖安装。
+
+
+## 独立日用安装验收
+
+- 经既有yonder update从GitHub tag v0.1.2026101902独立clone/npm ci/build/doctor/current切换/service install完成，无开发目录运行、无OAuth复制。程序真实路径~/.yonder-harness/versions/0.1.2026101902，无.git；commit65fa4dba6395017db21940eacaa64d6ce1c91552。没有创建本版本GitHub正式Release，源码tag和日用安装不冒充Release发布。
+- 清除YONDER_HOME后，在项目目录运行全局yonder version/service info正确发现生产home；service ready=true、PID19108。进程核对只发现一个生产backend。
+- 实际PTY执行全局裸yonder，无参数、无home环境：先连接cli，立即显示main/#2/Luna及既有飞书历史；尚未发送消息、未调用模型。Ctrl+D仅退出客户端，服务保持ready。真实终端输出见本次工具记录，未伪造截图。
+- 当前main/maintainer已有显式skill白名单补选skill-creator/yonder-development；operator默认全选无需改。三者真实skills查询均selected/indexed=true、source=builtin、issues0。main选择channel-feishu.conversation（CLI输入不会读取飞书背景）。doctor通过，配置修改前备份.pre-global1902。移除本轮验收专用control-f-client/control-f-steer绑定，历史保留。
+- update同版本返回updated=false，不重装；版本/home/进程检查不代表首次陌生用户全新系统安装、真实客户端艾特或模型旧问候语义判断已验收。既有F矩阵未测继续保留。
