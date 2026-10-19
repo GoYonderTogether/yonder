@@ -97,4 +97,38 @@ yonder service info --home /Users/zoran/.local/share/yonder-harness/home --json
 
 用户已明确批准受限 operator 自动更新与指定私聊。自动审批再次拒绝原合并脚本（含额外 maintainer 改动），该脚本没有执行；改用更小方案后通过：原operator owner profile完全保留，仅新增release-updater绑定真实Release/update-result事件，offer五个工具：channel-github_status/read_release/update_schedule/update_status及message_send，search=[]，无bash、无跨agent调用或其他工具。exec/admin仅用于原有update_schedule/update_status的必要能力；不改maintainer。生产仓库/作者/正式版本白名单和指定安装home沿用原规范，policy=apply；通知目标固定为指定人生管家会话。
 
-私聊另加feishu profile及精确open_id+chat_id绑定，capabilities=[read,network,message]、search=[]，不映射owner、不授exec/admin。doctor通过，重启后inspect runtimeLoaded=true，operator实际offer仅上述五工具；私聊无bash/tool_search。原CLI owner不变。下一正式候选0.1.2026101805仅递增版本/发行说明，产品源码沿用98项真实回归已通过的04；随后以真实Release验证更新和通知，不再次展开无关测试。
+私聊另加feishu profile及精确open_id+chat_id绑定，capabilities=[read,network,message]、search=[]，不映射owner、不授exec/admin。doctor通过，重启后inspect的runtimeLoaded列出已加载插件，operator实际offer仅上述五工具；私聊无bash/tool_search。原CLI owner不变。下一正式候选0.1.2026101805仅递增版本/发行说明，产品源码沿用98项真实回归已通过的04；随后以真实Release验证更新和通知，不再次展开无关测试。
+
+
+## R5 正式发布与自主更新实证（2026-10-18 23:03–23:05 本地时间）
+
+- 正式 Release `v0.1.2026101805` 已发布，GitHub release ID `416861753`，author `zoran-xc`；地址 https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101805 。源码/tag commit `68b2c58db59cacfeb3eca23a8b4a50a66763b82a`，没有移动04及既有标签。GitHub审计分支为zoran/first-pass，main未合并。
+- 真实release事件 `01M591THEAS5YESA9HJZJS4EJV` 路由到operator/session1600/release-updater。原生转录依次实际调用status、read_release、status、read_release、update_schedule、update_status、message_send；没有bash或跨agent调用。首次通知忠实报告“已安排”，没有把作业安排冒称已安装。Codex没有手动执行05更新。
+- 独立launchd作业更新后发出update-result `01M591WR357AXA0KW1036Z8Q62`，verified=true/status=verified。独立安装 `/Users/zoran/.yonder-harness/versions/0.1.2026101805`，origin.repository=https://github.com/zoran-xc/yonder-harness.git，tag/commit与实际运行控制面一致；当时PID93198、ready=true、生产home一致。更新已不依赖开发目录作为源。
+- operator接真实结果再次运行，向唯一获准人生管家会话发送确认通知。message.out `01M591X44MKFF199TPYCDVQWWB` 关联该update-result，投递ok=true，原生消息ID `om_x100b626cc32f30b4c08a6bc03d41b1d`；operator run1634正常结束，模型Luna。真实飞书客户端AX/截图已看到这条更新通知，以及音频、视频、TXT和带确认按钮的卡片；可见不等于播放或按钮回调通过。
+- `yonder update --check --json` 实际返回current/latest均05、updateAvailable=false，正式Release查询已通过。原HTTP404是发布前历史，不删除。
+- 因此R5 issue→Yonder/Sol自主修复→PR→Codex审阅合并→正式Release→operator独立更新→实际运行确认→指定飞书通知已取得真实证据。完整R4不因此变成通过。
+
+### 更新后飞书接收启动问题
+
+更新通知虽然成功，随后真实status却为not-ready/botIdentityKnown=false/error=fetch failed；客户端发出私聊验收消息但没有收到回复，不能把出站成功作为入站连接成功。当前直接真实bot API鉴权成功后，Codex只执行一次既有service restart，实际服务PID95891/05/ready=true，随后Yonder自己的channel-feishu_status返回connected/botIdentityKnown=true。没有改网络设置、加重试/回退或伪造入站；具体瞬时fetch失败根因尚未确认。
+
+这是仍需保留的运行缺口：服务控制面ready不表示所有渠道已连接，渠道首次启动失败不能靠一次成功出站消除。当前人工恢复已生效；自动恢复是否满足既有规范需结合真实失败原因继续判断，不在本次记录中发明重连监督器。首次已发送消息没有重发；恢复后使用新标识单独验证私聊。
+
+原“待用户决定/正式Release未发布”的段落为当时历史，已由本节及追加授权实施的事实解决，不再等待重复审批。开发验收员secret、菜单点击/重新登录、完整TUI/飞书客户端矩阵仍未通过；不使用98项测试抵扣。
+
+
+### 真实私聊接收与模型回复通过
+
+连接恢复后，飞书重新送达此前客户端发送的原生消息（msgId `om_x100b626c8a3f4cb4b076a487e38b196`），没有Codex/Yonder人工重发或伪造事件。message.in `01M5932JGZ0H30YEFF2QXT8JT4` / 2026-10-19T03:25:24.383Z，精确from/conv命中feishu-verified-chat，main/session1748/run1756。run.end `01M5932N8QBFC9H1W45MQ6GJR5` / 03:25:27.191Z，model=openai/gpt-6-luna/status=done/replied=source。实际飞书AX可见引用原文及回复“私聊接入已通过”。这证明指定受限私聊→原生事件→Luna→真实回复；不代表所有消息类型/权限/恢复场景通过。
+
+诊断时控制端误复用了一个历史GitHub只读status提示（session1243），已记录为额外诊断调用；随后改正确飞书status提示，未产生外部写入。恢复后的第二条独立标识验收已接纳给CUA/session1357，粘贴成功；Return调用返回“用户改变了飞书窗口”保护提示，后续只读AX没有确认新消息送达。Codex中止该自有验收任务（abort返回ok=true），不重复发送、不继续抢占界面，不计第二条通过。已通过的是上一条原生消息及其真实Luna回复。
+
+
+## R6 本次交付边界
+
+已发布/运行05，正式更新链与受限生产私聊取得真实证据。当前源码检查沿用最后98/98及build/typecheck通过；本次后续仅生产配置、真实运行验收和文档更新，没有再次运行整套测试。最后文档改动通过git diff --check，审计记录提交不移动05发布标签。
+
+仍未通过：开发验收员独立接入（缺其secret引用）；飞书群聊/@策略、模板、按钮回调、CardKit完整流式/取消/失败、媒体播放及完整断连去重矩阵；TUI全部交互/主题窄屏实拍；菜单点击、注销重登录。此前CUA选择状态栏应用超时，没有重新走该挂起入口。本次仍有首次渠道启动fetch失败的未确认根因，手动恢复不冒称已修复。状态栏进程存在、服务ready和API返回不是这些项目的替代证据。
+
+生产服务继续后台运行；已停止自有CUA验收任务，未停止用户的飞书或生产agent。原维护工作树未合并修改保留。现可用入口是yonder chat --channel cli、sessions list/show、service info及人生管家已绑定私聊；具体生产home和历史session见上文。

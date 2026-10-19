@@ -126,4 +126,4 @@ R3 现有检查接线修复：TypeScript 7 的引用项目不能通过 build --n
 
 R1/R2 已实现；R3 安装候选 0.1.2026101801，构建/类型检查通过，完整 92/92 测试通过、0 跳过，lint 0 errors/51 warnings/1 info。失败原始计数、运行边界实际修复与 R4 交接见 [主路结果](repair-main-result.md)。真实安装与外部矩阵尚未通过。用户追加开发/生产飞书 bot 分离，详见 spec/14。
 
-当前交接更新：R0–R3及现场修复已完成，最后完整回归29文件/98测试通过（含真实模型和launchd，0失败0跳过），安装候选0.1.2026101804。Yonder已通过真实issue事件独立修复并创建PR#2，Codex审核合并到zoran/first-pass；main未合并。R4完整客户端矩阵、R5正式Release/自动更新策略仍有明确外部条件与待答复权限选择。以repair-main-result.md的真实计数/失败/未测为准，不将整轮状态误标完成。
+当前交接更新：R0–R3及现场修复已完成，最后完整回归29文件/98测试通过（含真实模型和launchd，0失败0跳过）。Yonder经真实issue独立修复并创建PR#2，Codex审核合并到zoran/first-pass；main未合并。用户已批准受限自动更新和指定私聊；正式Release v0.1.2026101805实际触发operator独立更新，运行版本/commit/home核对通过，确认通知实际到达飞书客户端，R5主链已通过。R4仍有完整客户端矩阵未测及飞书启动fetch失败后人工恢复的现场问题。以repair-main-result.md的逐项证据、失败和未测为准，不将整轮状态误标完成。
