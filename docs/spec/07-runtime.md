@@ -1,5 +1,3 @@
-> 2026-10-19 修订：下文 maxMinutes/maxTurns 的硬停止条款由 [16 §1](16-execution-capabilities.md) 取代；数值迁为软提醒阈值，重复空转、安全和显式取消不变。
-
 # 07 运行时：与 pi 的对接
 
 > T00 验证了 pi 1.3.0 的基础接口；本轮新增配置、上限与恢复契约由 N 任务验证，不能把 T00 的证据扩张为全部新功能已通过。
@@ -49,21 +47,22 @@
 - 两者都先经过能力过滤（05 §3）。
 - 弱模型或语音场景用少量 `offer`；工具多的常驻 agent 用 `search`；编码场景以 `bash` 为主、命令用法写进上下文。三种方式都只是配置，内核不区分场景。
 
-## 5. 运行上限
+## 5. 时间、用量与停止
 
-运行上限内置在内核，因为"运行一定会结束"是框架的保证（架构不变量 7）。默认值宽松，按配置档可调；更细的防护（例如语义级的重复检测）写成钩子插件。
+内核按配置档limits记录运行进度；时间、轮数和tokens是软提醒，不负责判断任务已经完成，见[16 §1](16-execution-capabilities.md)。
 
-| 上限（配置档 `limits` 的键） | 默认 | 手段 |
+| 键 | 默认 | 行为 |
 |---|---|---|
-| 每次运行的模型轮数（`maxTurns`） | 100 | 按真实模型轮次计数，达到上限禁止下一轮请求；拒绝/无效工具不绕过，不依赖 afterTool 一定被调用 |
-| 每次运行的墙钟时间（`maxMinutes`） | 30 | 内核计时，到时中止 pi 当前 generation task；排队输入继续由原生边界处理 |
-| 连续相同的工具调用（同名且参数相同；`repeatBlock`、`repeatStop`） | 第 3 次拦下并提示模型换方法；第 5 次结束运行 | repeatBlock 起阻止；达到 repeatStop 时在该次副作用执行前终止 |
+| maxTurns | 100 | 达到实际模型轮数后提醒一次，不阻止下一轮 |
+| maxMinutes | 30 | 到达墙钟阈值后提醒一次，不中止正在执行的工具或模型 |
+| maxTokens | 200000 | 本运行累计输入、输出与缓存tokens达到阈值后提醒一次 |
+| repeatBlock | 3 | 相同工具与参数重复时拒绝继续重复，要求换方法 |
+| repeatStop | 5 | 连续重复空转停止，run.end.status=limit，reason=repeatStop |
 
-- 触发任一上限，`run.end.status = limit`，原因记在 `run.end.data.reason`，并按 06 §2 向来源说明停在了哪里。`terminate` 结束的运行在 pi 里是 `done` 且最终文字为空，`abort()` 结束的是 `unanswered`/`aborted`——是不是上限由内核自己记录，不靠 pi 的状态判断。
-- 已开始运行的配置、计数和终止原因按 pi 扩展记录恢复，不让重启重新获得无限预算。取消传播到模型、工具、渲染和附件 IO；排队等待与模型运行时间分开。具体有限预算与恢复行为见 10 §3–4。
-- `beforeAgent` 只在原生调度调用中使用；runtime 以 pi 本轮第一条 submission 为身份，在选择模型前固定配置并启动预算，同轮后续工具/模型请求读取该快照。它不为只读查看启动任务。限额只中止本轮；用户显式会话 abort 仍使用 `conversation.abort()`，同时撤销该会话排队输入。
-- 上下文：使用 pi-durable 的自动压缩。`yonder.yaml` 的 `compaction`（`enabled`、`reserveTokens`、`keepRecentTokens`、`backgroundTokens`）原样传给 settings。按模型的差异来自模型自己的 `contextWindow`（§6.1，内置模型用 `modelOverrides` 改）。供应商报"上下文过长"时由 pi-durable 压缩后重试一次。不设人为的小上下文上限。
-- 单个工具结果过长时的截断使用 pi-durable 自带的截断；供应商重试使用 settings 的 `retry`。
+- 长工具15秒转入pi原生后台任务；process支持状态、日志、等待、stdin及取消。正常process观察/等待不当作重复副作用空转。完成后继续原任务，取消不会反向唤醒模型。
+- 子任务的软提醒同时写入父session；只在正常模型请求读取时间事实，不为软提醒启动额外模型循环。显式abort/close/shutdown和真实供应商限制保留。
+- 会话/任务状态只使用pi-durable；后台执行记录不复制模型转录。恢复不能安全重放的调用标为中断，不假装恢复成功。
+- 上下文使用pi-durable自动压缩。compaction的enabled/reserveTokens/keepRecentTokens/backgroundTokens原样传给settings；模型contextWindow继续来自供应商目录。真实上下文过长遵循pi压缩恢复，不设置额外人为小上限。
 
 ## 6. 模型、凭据与服务
 

@@ -1,3 +1,5 @@
+> 2026-10-19 已批准补齐：[16](16-execution-capabilities.md)。Agent热管理、work、归档与模板创建以16 §4为准；limits.maxTurns/maxMinutes/maxTokens是软提醒阈值，不再截断任务。
+
 # 03 Agent、配置档与提示词组装
 
 ## 1. 两类执行者
@@ -33,6 +35,7 @@ agents:
   agent.yaml     必需。身份、绑定、配置档、选用的上下文与插件
   SYSTEM.md      必需。agent 的基础系统提示词，初始化时由内核模板生成，之后可自由修改
   skills/        可选。这个 agent 自己的 skill（§6），agent 可以自己写
+  memory/        手工按需资料；README说明临时方法，不自动注入或维护
   …              其余文件由选用的上下文贡献声明（04 §3.3），缺失时按声明自动生成
 ```
 
@@ -72,7 +75,7 @@ bindings: [ … ]                   # 见 02 §2
 | `skills` | skill 名的通配列表，默认 `["*"]`（§6） |
 | `instructions` | 追加在系统提示词最后 |
 | `env` | 工具在哪个执行环境运行；默认是工作区所在环境 |
-| `limits` | 覆盖运行上限：`{ maxTurns, maxMinutes, repeatBlock, repeatStop }`（07 §5） |
+| `limits` | 覆盖运行软阈值与重复空转保护：`{ maxTurns, maxMinutes, maxTokens, repeatBlock, repeatStop }`（07 §5） |
 
 未写的字段取 `defaults`，再取内核默认。
 

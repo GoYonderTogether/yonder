@@ -1,3 +1,5 @@
+> 2026-10-19 已批准补齐：[16](16-execution-capabilities.md)。yonder.yaml.agents注册、agent及preset配置可校验后热重载，其余全局插件/provider/services等仍需重启；limits新增maxTokens且时间/轮数为软提醒。
+
 # 08 配置
 
 配置用 YAML。每个配置文件顶层有 `schema: <整数>`，当前仅支持 1；其他版本拒绝，并说明需要对应版本的迁移说明。0.1 没有旧格式，不增加未定义的迁移命令。
@@ -73,7 +75,8 @@ identity:
 | `agents/<id>/agent.yaml` | 保存后自动重载，下一次运行生效；校验失败保留旧配置并写 `config.reload` 事件 |
 | `presets/*.yaml` | 同上 |
 | `SYSTEM.md`、上下文文件、`skills/` | 每次组装提示词时读取 |
-| `yonder.yaml` | 需要重启 |
+| `yonder.yaml.agents` | 注册、归档、Agent及preset统一校验后热发布；新输入使用新有效状态 |
+| `yonder.yaml` 其余字段 | 需要重启 |
 
 重载先完成与启动相同的结构/引用校验和必要模板创建，再发布候选；无效保留旧配置，seen 对应实际接受版本。实际运行开始时固定配置，当前运行不被重载改变。删除被未关闭会话引用的 profile/preset 不生效，提示先关闭会话；预设创建时的父/调用方能力上限不因重载扩大（10 §4）。
 

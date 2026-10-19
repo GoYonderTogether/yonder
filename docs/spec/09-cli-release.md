@@ -1,3 +1,5 @@
+> 2026-10-19 已批准补齐：[16](16-execution-capabilities.md)。新增agents/presets管理命令见16 §4及CLI help；归档保留历史，不提供真删。
+
 # 09 CLI、安装与更新
 
 CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yonder docs`，就能自己查看和维护运行环境。
@@ -36,7 +38,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 | `service install\|uninstall\|start\|stop\|restart\|status` | §6 | T14 |
 | `completion zsh\|bash\|fish` | 已批准新增：输出 shell 补全脚本；无 home 也可输出静态脚本；不修改用户 shell 配置（12 §5.3） | 12，U03 |
 
-除上述命令及已批准 13 §3 的 plugins list/show/add/remove、skills show/add/remove、models list、inspect 外，不增加其他命令。sessions submit 同时支持 13 §2.4 的可重复 --attachment <本地路径>；已有 skills 列表入口保留。新增命令的精确参数与语义统一见 13，不在此复制第二份。
+除上述命令、16 §4的agents/presets管理及已批准 13 §3 的 plugins list/show/add/remove、skills show/add/remove、models list、inspect 外，不增加其他命令。sessions submit 同时支持 13 §2.4 的可重复 --attachment <本地路径>；已有 skills 列表入口保留。新增命令的精确参数与语义统一见 13，不在此复制第二份。
 
 12 方案将 chat 默认从“cli 渠道”改为“独立新任务”，旧渠道使用方应显式传 `--channel cli`，不能静默把原 main 历史搬进任务会话。补全命令与 help/version 等一样不要求 home；动态候选仅在能解析 home 时读取。此行为变更随方案审核后在实现与发行说明中明确告知，不把当前安装版当作已支持新入口。
 
