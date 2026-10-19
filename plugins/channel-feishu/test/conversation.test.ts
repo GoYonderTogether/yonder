@@ -30,6 +30,34 @@ function client(pages: object[]) {
 const signal = () => new AbortController().signal;
 const emptyLedger = { query: async () => ({ events: [] }) };
 describe("Feishu read-only conversation background", () => {
+	it("keeps a fixed range covering accepted messages when the platform clock is ahead", async () => {
+		const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+		try {
+			const api = client([
+				{ items: [row("ahead-latest", now + 4500, "Second"), row("ahead-first", now + 2000, "First")] },
+				{ items: [] },
+			]);
+			const text = await conversationContext(
+				api,
+				event({
+					originals: [
+						{ messageId: "ahead-first", createdAt: String(now + 2000) },
+						{ messageId: "ahead-latest", createdAt: String(now + 4500) },
+					],
+				}),
+				signal(),
+				emptyLedger,
+			);
+			expect(text).not.toContain("历史读取未完成");
+			expect(text).toContain("Second");
+			expect(text).toContain("待处理ID中有0条");
+			const range = new URL(String(api.request.mock.calls[0]?.[0]), "https://feishu.invalid").searchParams;
+			expect(range.get("start_time")).toBe(String(Math.floor((now + 2000) / 1000)));
+			expect(range.get("end_time")).toBe(String(Math.floor((now + 4500) / 1000) + 1));
+		} finally {
+			clock.mockRestore();
+		}
+	});
 	it("shows the old pending greeting together with later user and bot replies, not as new requests", async () => {
 		const api = client([
 			{

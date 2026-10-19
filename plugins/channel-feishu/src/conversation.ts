@@ -20,7 +20,7 @@ export async function conversationContext(
 	const pending = new Set(originals.map((row) => string(row.messageId) || string(row.msgId)).filter(Boolean));
 	const times = originals.map((row) => Number(row.createdAt)).filter((time) => Number.isFinite(time) && time > 0);
 	const start = times.length ? Math.min(...times) : undefined;
-	const cutoff = Date.now();
+	const cutoff = Math.max(Date.now(), ...times);
 	const thread = string(data.threadId);
 	const selected: { time: number; text: string }[] = [];
 	const platform: Record<string, unknown>[] = [];
