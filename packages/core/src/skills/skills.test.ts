@@ -46,6 +46,7 @@ test("workspace skill shadows home and skill_view stays inside its directory", a
 			["builtin", false, true],
 			["builtin", false, true],
 			["builtin", false, true],
+			["builtin", false, true],
 		]);
 		expect(await skills.index(session)).toBe(report.index);
 		expect((await skills.view(session, "notes", "guide.md")).text).toContain("Workspace guide");
@@ -122,6 +123,7 @@ test("home shadows plugin with actual source id; selection and disabled invocati
 			["builtin", false, false, false],
 			["builtin", false, false, false],
 			["builtin", false, false, false],
+			["builtin", false, false, false],
 		]);
 		expect((await skills.show(session, "notes")).skill.source).toBe("home");
 		await expect(skills.view(session, "notes")).rejects.toThrow("未找到");
@@ -145,9 +147,14 @@ test("bundled skills expose only an index until requested", async () => {
 			const report = await skills.inspect(session);
 			expect(
 				report.skills.filter((skill) => skill.source === "builtin" && skill.indexed).map((skill) => skill.name),
-			).toEqual(["skill-creator", "yonder-development", "yonder-plugin-debug"]);
+			).toEqual(["skill-creator", "yonder-development", "yonder-plugin-debug", "yonder-self-management"]);
 			expect(report.index).not.toContain("# Skill Creator");
 			expect(report.index).not.toContain("# Yonder 插件调试");
+			expect(report.index).not.toContain("# Yonder 自管理");
+			expect((await skills.view(session, "yonder-self-management")).text).toContain("# Yonder 自管理");
+			expect((await skills.view(session, "yonder-self-management", "references/management.md")).text).toContain(
+				"# 管理事实",
+			);
 			expect((await skills.view(session, "yonder-plugin-debug")).text).toContain("# Yonder 插件调试");
 			expect((await skills.view(session, "yonder-plugin-debug", "references/scenarios.md")).text).toContain(
 				"# 场景线路",

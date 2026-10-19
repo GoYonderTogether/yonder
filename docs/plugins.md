@@ -202,3 +202,5 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 ## 正式发行补记
 
 1904 / `42646a4`已在main正式发行；插件功能与1903一致，仅统一版本与文档。完整注册名和SDK入口见[功能树](function-tree.md)，本机更新和分支归并见[发行记录](tasks/stable-release-result.md)。
+
+- 后续源码新增内置skill `yonder-self-management`：Yonder特有目录、配置、Agent/preset、权限和更新规约；尚未随1905安装，不增加通用编码/GitHub教程。
