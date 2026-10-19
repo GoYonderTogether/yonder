@@ -26,3 +26,10 @@
 - Biome检查3个变更TS文件最终通过。第一次有2个格式错误，自动修复后重查通过，没有删除检查。
 - 共享工作区 `npm run build` 失败，原日志 `/tmp/yonder-builtin-prompts-build.log`：并行执行能力实现中的kernel引用尚无类型定义的`KernelServices.execution`与`Runtime.hasPendingWork`。它们不在本任务路径；没有擅自修改或把该失败写成通过。
 - 准确提交随后交独立验证者 git archive 到隔离目录重建、typecheck与真实Luna验证。独立结果以实际轨迹另记；源码提交不代表正式安装生效。
+
+
+## 准确提交的独立验证
+
+验证对象为 `e910e85319ee02836a0207bd8e001a8c808d1deb`，非共享工作区。隔离build/typecheck通过，4文件9测试通过、0失败、0跳过，Biome3文件通过。真实openai/gpt-6-luna的6次原生运行全部done，含一次工具续轮共7请求/7个HTTP200。完整共同/运行段、身份与exec条件、实际工具和turn动态事实均观察最终provider body；正文经openai-responses映射在developer消息中。
+
+独立报告见 [builtin-prompts-verification.md](builtin-prompts-verification.md)。原始共享工作区构建失败继续保留；隔离提交通过不抹去它。主agent另外从四份真实请求直接核对完整常量、条件及无动态路径泄漏，与报告hash一致。未替换正式安装，长期人格/品味与其他渠道未测。
