@@ -95,3 +95,8 @@ D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR�
 
 
 **D40 事件的程序消费与无模型通知（2026-10-19 用户批准 E0–E4）。** 复用events.on/messages.send/write绑定，确定性执行不经模型；默认模型仅处理显式run输入。GitHub apply直接调用现有升级函数，程序通知单独notifyUpdates选择。core共用updateRelease写release.update-result，直接CLI与插件job同源，不建新outbox；旧plugin事件仅保留历史。可升级上下文使用已核实缓存和宿主version。内部通知经原生pi app-only write及原生requestId去重，SDK sessions.notify与TUI程序消息展示，不伪造角色、不进入模型上下文、不patch pi。三位Sol分路，主路独占核心共享接线；只做相关检查，整合提交，不自动发版覆盖日用安装。
+
+
+## D41 执行能力补齐与软阈值（2026-10-19）
+
+用户直接批准实现和发布。内核统一15秒长工具后台化、进程生命周期与软时间/轮数/tokens提醒；取消仍显式，不追加完成判断循环。cron、通用MCP客户端、独立浏览器/桌面作为SDK插件；Agent管理沿YAML/preset和既有校验热发布；memory仅手工目录，不引入记忆引擎或自动注入。采用成熟库和参考工程，不复制其运行内核。功能冻结见spec/16，路径/分工见tasks/execution-capabilities-plan.md。
