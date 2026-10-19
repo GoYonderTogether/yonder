@@ -28,7 +28,10 @@ import type { YonderConfig } from "../config/index.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
-	Pick<PluginAPI, "events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "models" | "log">,
+	Pick<
+		PluginAPI,
+		"events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "execution" | "models" | "log"
+	>,
 	"messages" | "sessions"
 > & {
 	messages: { send(message: PluginMessage, pluginId: string, ctx?: ToolContext): Promise<Delivery> };
@@ -195,6 +198,7 @@ export async function loadPlugins(
 				},
 			},
 			credentials: services.credentials,
+			execution: services.execution,
 			sessions: {
 				notify: (id, input) => {
 					denySetupWrite("sessions.notify");

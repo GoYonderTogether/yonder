@@ -1,4 +1,14 @@
-import type { Attachment, Capability, ExecutionEnv, Hook, OutputPart, RunEndData, Tool, YEvent } from "@yonder/sdk";
+import type {
+	Attachment,
+	Capability,
+	ExecutionEnv,
+	Hook,
+	OutputPart,
+	RunEndData,
+	Tool,
+	ToolResult,
+	YEvent,
+} from "@yonder/sdk";
 import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js";
 import type { Db } from "./db.js";
 export interface RuntimeSessionConfig {
@@ -28,6 +38,11 @@ export interface RuntimeOptions {
 		signal?: AbortSignal,
 	): Promise<RuntimeInput>;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
+	onBackground?(
+		session: string,
+		input: { id: string; name: string; result: ToolResult; origin?: YEvent },
+	): Promise<void>;
+	onWarning?(session: string, input: { kind: string; text: string; parent?: string }): Promise<void>;
 	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
 	onReport?(error: unknown): void;
 }

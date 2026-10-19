@@ -114,7 +114,7 @@ export interface Profile {
 	skills?: string[];
 	instructions?: string;
 	env?: string;
-	limits?: { maxTurns?: number; maxMinutes?: number; repeatBlock?: number; repeatStop?: number };
+	limits?: { maxTurns?: number; maxMinutes?: number; maxTokens?: number; repeatBlock?: number; repeatStop?: number };
 }
 export type Preset = Profile & { id: string; description: string };
 
@@ -343,6 +343,12 @@ export interface ServiceEndpoint {
 	voices?: string[];
 }
 
+export interface ExecutionOwner {
+	session: string;
+	agent: string | null;
+	profile: string;
+}
+
 export interface PluginAPI {
 	readonly version: string;
 	id: string;
@@ -378,6 +384,16 @@ export interface PluginAPI {
 			},
 			ctx?: ToolContext,
 		): Promise<Delivery>;
+	};
+	execution: {
+		resolve(owner: ExecutionOwner): Promise<{ capabilities: Capability[] }>;
+		run(request: {
+			owner: ExecutionOwner;
+			capabilities: Capability[];
+			command: string | string[];
+			cwd?: string;
+			signal?: AbortSignal;
+		}): Promise<{ stdout: string; stderr: string; exitCode: number }>;
 	};
 	credentials: { get(name: string): Promise<Credential | undefined> };
 	sessions: SessionsAPI;

@@ -1,0 +1,303 @@
+import type { Context } from "@earendil-works/chord";
+import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
+import {
+	defineDoc,
+	defineDocFamily,
+	defineExtension,
+	defineTask,
+	type Harness,
+	type JsonObject,
+	type Task,
+	type TaskId,
+	type TaskOptions,
+	type ToolExecutionApi,
+	type ToolExecutionResult,
+	type ToolRegistration,
+	type Tx,
+} from "@earendil-works/pi-durable";
+import type { YEvent } from "@yonder/sdk";
+import { Type } from "typebox";
+
+const JobDoc = defineDocFamily({
+	kind: "yonder.background",
+	version: 1,
+	family: true,
+	scope: "conversation",
+	history: "latest",
+	fork: "initial",
+	initial: () => ({ name: "", started: 0, output: "", detached: false as boolean, notified: false as boolean }),
+});
+const JobPointer = defineDoc({
+	kind: "yonder.background-pointer",
+	version: 1,
+	scope: "task",
+	initial: () => ({ id: 0 }),
+});
+type Input = { name: string; args: JsonObject; callId: string; config: string };
+type State = { phase: "start" | "interrupted" };
+const clean = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+const failed = (error: unknown): ToolExecutionResult => ({
+	output: [{ type: "text", text: String(error) }],
+	isError: true,
+});
+const json = (value: unknown): ToolExecutionResult => ({ output: [{ type: "text", text: JSON.stringify(value) }] });
+
+/** Native pi tasks own detached calls, their child conversations, cancellation and durable receipts. */
+export function createBackground(options: {
+	harness(): Harness;
+	config(session: string, context: Context): Promise<string>;
+	execute(input: Input, api: ToolExecutionApi, context: Context): Promise<ToolExecutionResult>;
+	finished(session: string, id: string, name: string, result: ToolExecutionResult, origin?: YEvent): Promise<void>;
+	report(error: unknown): void;
+}) {
+	const harness = options.harness;
+	const running = new Map<number, { output: string; write?: (text: string) => Promise<void> }>();
+	const task = defineTask<Input, State, ToolExecutionResult>({
+		name: "yonder.background",
+		version: 1,
+		initial: () => ({ phase: "start" }),
+		phases: {
+			async start(job, runtime, context) {
+				const key = String(job.id),
+					live = { output: "" } as { output: string; write?: (text: string) => Promise<void> };
+				running.set(job.id, live);
+				await runtime.commit(async (tx) => {
+					Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
+						name: job.input.name,
+						started: Date.now(),
+					});
+					return { status: "running", checkpoint: { phase: "interrupted" } };
+				}, context);
+				const diagnostics: NonNullable<ToolExecutionResult["diagnostics"]>[number][] = [];
+				let details: ToolExecutionResult["details"], result: ToolExecutionResult;
+				const api: ToolExecutionApi = {
+					taskId: job.id,
+					conversationId: job.conversationId,
+					callId: job.input.callId,
+					registry: runtime.registry,
+					models: runtime.models,
+					env: undefined,
+					agent: runtime.agent,
+					snapshot: runtime.snapshot,
+					snapshotAsOf: runtime.snapshotAsOf,
+					watchDoc: runtime.watchDoc,
+					memo: runtime.memo,
+					getTask: runtime.getTask,
+					waitForTask: runtime.waitForTask,
+					conversation: runtime.conversation,
+					output(chunk) {
+						live.output = (live.output + (typeof chunk === "string" ? chunk : Buffer.from(chunk).toString())).slice(
+							-65536,
+						);
+					},
+					outputWindow: undefined,
+					retainedOutput: () => ({ text: live.output, truncated: live.output.length >= 65536 }),
+					diagnostic(diagnostic) {
+						diagnostics.push(diagnostic);
+					},
+					async details(value) {
+						details = value;
+					},
+					async commit<T>(change: (tx: Tx) => T | Promise<T>, ctx: Context): Promise<T> {
+						let value!: T;
+						await runtime.commit(async (tx) => {
+							value = await change(tx);
+							return undefined;
+						}, ctx);
+						return value!;
+					},
+					async createTask<I, S extends { phase: string }, R, H extends object>(
+						child: Task<I, S, R, H>,
+						input: I,
+						childOptions: Omit<TaskOptions, "conversationId">,
+						ctx: Context,
+					): Promise<TaskId<R>> {
+						let id: TaskId<R> | undefined;
+						await runtime.commit(async (tx) => {
+							id = await tx.createTask(child, input, { ...childOptions, conversationId: job.conversationId });
+							return undefined;
+						}, ctx);
+						return id!;
+					},
+					async executeTool() {
+						throw new Error("Nested pi tool execution is unavailable from SDK tool jobs");
+					},
+				};
+				try {
+					result = await options.execute(job.input, api, context);
+					result = clean({
+						...result,
+						output: result.output ?? [{ type: "text", text: live.output }],
+						...(details !== undefined && result.details === undefined ? { details } : {}),
+						...(diagnostics.length ? { diagnostics: [...diagnostics, ...(result.diagnostics ?? [])] } : {}),
+					});
+				} catch (error) {
+					if (context.abortSignal?.aborted) throw error;
+					result = failed(error);
+				} finally {
+					running.delete(job.id);
+				}
+				await runtime.commit(async (tx) => {
+					(await tx.doc(JobDoc, job.conversationId, key, null)).output = live.output;
+					return { status: "terminal", outcome: { status: "completed", result } };
+				}, context);
+			},
+			async interrupted(job, runtime, context) {
+				await runtime.commit(
+					() => ({
+						status: "terminal",
+						outcome: {
+							status: "failed",
+							error: { message: "Interrupted by restart; side effects may have occurred. Inspect before retrying." },
+							result: failed("Interrupted by restart; side effects may have occurred. Inspect before retrying."),
+						},
+					}),
+					context,
+				);
+			},
+		},
+		async abort(_job, runtime, context) {
+			await runtime.commit(
+				() => ({ status: "terminal", outcome: { status: "aborted", result: failed("Cancelled") } }),
+				context,
+			);
+		},
+	});
+	const notify = async (session: string, id: TaskId<ToolExecutionResult>) => {
+		const record = await harness().getTask(id, C);
+		if (!record || record.state.status !== "terminal") return;
+		const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
+		if (!doc?.detached || doc.notified) return;
+		const outcome = record.state.outcome;
+		const result = outcome.status === "completed" ? outcome.result : failed("Background task did not complete");
+		if (outcome.status === "aborted") {
+			await harness().commit(async (tx) => {
+				(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
+			}, C);
+			return;
+		}
+		const snapshot = JSON.parse((record.input as unknown as Input).config);
+		await options.finished(session, String(id), doc.name, result, snapshot.events[0]);
+		await harness().commit(async (tx) => {
+			(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
+		}, C);
+	};
+	const watch = (session: string, id: TaskId<ToolExecutionResult>) => {
+		void harness()
+			.waitForTask(id, C)
+			.then(() => notify(session, id))
+			.catch(options.report);
+	};
+	const run = async (tool: ToolRegistration, args: JsonObject, api: ToolExecutionApi, context: Context) => {
+		const config = await options.config(String(api.conversationId), context);
+		const id = await api.commit(async (tx) => {
+			const pointer = await tx.doc(JobPointer, api.taskId);
+			if (!pointer.id)
+				pointer.id = await tx.createTask(
+					task,
+					{ name: tool.name, args, callId: api.callId, config },
+					{ ownership: { kind: "conversation" }, background: true, conversationId: api.conversationId },
+				);
+			return pointer.id as TaskId<ToolExecutionResult>;
+		}, context);
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), tool.name === "bash" && args.background === true ? 0 : 15000);
+		try {
+			const done = await harness().waitForTask(
+				id,
+				withAbortSignal(AbortSignal.any([controller.signal, context.abortSignal!]), C),
+			);
+			return done.state.outcome.status === "completed" ? done.state.outcome.result : failed("Background task failed");
+		} catch (error) {
+			if (context.abortSignal?.aborted) {
+				await harness().abortTask(id, C);
+				throw error;
+			}
+			if (!controller.signal.aborted) throw error;
+			await harness().commit(async (tx) => {
+				(await tx.doc(JobDoc, api.conversationId, String(id), null)).detached = true;
+			}, C);
+			watch(String(api.conversationId), id);
+			const value = json({
+				background: String(id),
+				tool: tool.name,
+				status: "running",
+				message:
+					"Continue other work; completion is delivered automatically. Use process for status, logs, wait or cancellation.",
+			});
+			return {
+				...value,
+				...(tool.structuredOutputSchema ? { structuredOutput: { background: String(id) } } : {}),
+				details: { background: String(id) },
+			};
+		} finally {
+			clearTimeout(timer);
+		}
+	};
+	const inspect = async (session: string, id: number) => {
+		const record = await harness().getTask(id as TaskId<ToolExecutionResult>, C);
+		if (!record || String(record.conversationId) !== session || record.kind !== "yonder.background")
+			throw new Error("Background job not found in this session");
+		const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
+		return { record, doc };
+	};
+	return {
+		extension: defineExtension({ name: "yonder.background", tasks: [task] }),
+		run,
+		running,
+		async recover(records: readonly { id: number; conversationId: number }[]) {
+			for (const row of records) watch(String(row.conversationId), row.id as TaskId<ToolExecutionResult>);
+		},
+		tool: {
+			name: "process",
+			description:
+				"Manage a background tool or command owned by this session: status, log (offset), wait (up to 15 seconds), write stdin, or kill. The original tool result remains available after completion.",
+			parameters: Type.Object(
+				{
+					action: Type.Union(["status", "log", "wait", "write", "kill"].map((x) => Type.Literal(x))),
+					id: Type.String({ pattern: "^[0-9]+$" }),
+					offset: Type.Optional(Type.Integer({ minimum: 0 })),
+					text: Type.Optional(Type.String()),
+				},
+				{ additionalProperties: false },
+			),
+			deferred: true as const,
+			async execute(value: unknown, api: ToolExecutionApi, context: Context) {
+				const args = value as { action: string; id: string; offset?: number; text?: string };
+				const session = String(api.conversationId),
+					id = Number(args.id),
+					{ record, doc } = await inspect(session, id);
+				if (args.action === "kill") await harness().abortTask(id as TaskId, C);
+				if (args.action === "write") {
+					const write = running.get(id)?.write;
+					if (!write) return failed("This job has no writable stdin or has already ended");
+					await write(args.text ?? "");
+				}
+				if (args.action === "wait" && record.state.status !== "terminal") {
+					const stop = new AbortController(),
+						timer = setTimeout(() => stop.abort(), 15000);
+					try {
+						await harness().waitForTask(
+							id as TaskId,
+							withAbortSignal(AbortSignal.any([stop.signal, context.abortSignal!]), C),
+						);
+					} catch (error) {
+						if (context.abortSignal?.aborted || !stop.signal.aborted) throw error;
+					} finally {
+						clearTimeout(timer);
+					}
+				}
+				const current = await inspect(session, id),
+					output = running.get(id)?.output ?? current.doc?.output ?? "";
+				return json({
+					id: args.id,
+					name: doc?.name,
+					started: doc?.started,
+					state: current.record.state,
+					output: output.slice(args.offset ?? 0),
+					next: output.length,
+				});
+			},
+		},
+	};
+}

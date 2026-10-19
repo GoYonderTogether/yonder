@@ -46,7 +46,7 @@ const levels: Record<Level, Capability[]> = {
 	standard: ["read", "write", "exec", "network", "message"],
 	readonly: ["read"],
 };
-export const defaultLimits = { maxTurns: 100, maxMinutes: 30, repeatBlock: 3, repeatStop: 5 };
+export const defaultLimits = { maxTurns: 100, maxMinutes: 30, maxTokens: 200000, repeatBlock: 3, repeatStop: 5 };
 
 export function resolveProfile(profile: Profile, defaults: Profile = {}, workspaceEnv = "local"): ResolvedProfile {
 	const security = profile.level !== undefined || profile.capabilities !== undefined ? profile : defaults;

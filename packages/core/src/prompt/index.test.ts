@@ -49,6 +49,7 @@ test("system sections are deterministic and only selected contexts render", asyn
 			],
 		]);
 		await scaffoldWorkspace(files, ["selected"], contexts);
+		expect(await files.readFile("memory/README.md")).toContain("# 手工记忆资料\n\n");
 		const session = {
 			id: "1",
 			agent: "main",
@@ -179,4 +180,32 @@ test("custom events retain complete data and message labels cannot break the tur
 		await db.close();
 		await rm(directory, { recursive: true, force: true });
 	}
+});
+
+test("preset tasks can select fileless MCP instructions without reading an Agent workspace", async () => {
+	const contexts: PromptOptions["contexts"] = new Map([
+		[
+			"mcp-instructions",
+			{
+				id: "mcp-instructions",
+				placement: "system",
+				render: (ctx) => `External MCP instructions for session ${ctx.session}`,
+			},
+		],
+	]);
+	const session = {
+		id: "7",
+		agent: null,
+		profile: "default",
+		cwd: process.cwd(),
+		resolved: resolveProfile({ contexts: ["mcp-instructions"] }),
+	};
+	const sections = await systemSections(session, {
+		contexts,
+		workspace: () => {
+			throw new Error("Preset has no Agent workspace");
+		},
+	});
+	expect(sections).toContain("External MCP instructions for session 7");
+	expect(sections.join("\n")).not.toContain("手工记忆资料");
 });

@@ -25,6 +25,7 @@ const fields = {
 	limits: Type.Optional(
 		object({
 			maxTurns: Type.Optional(Type.Integer({ minimum: 1 })),
+			maxTokens: Type.Optional(Type.Integer({ minimum: 1 })),
 			maxMinutes: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
 			repeatBlock: Type.Optional(Type.Integer({ minimum: 1 })),
 			repeatStop: Type.Optional(Type.Integer({ minimum: 1 })),
@@ -65,6 +66,7 @@ export const AgentSchema = object({
 	schema: Type.Literal(1),
 	id: text,
 	name: text,
+	work: Type.Optional(text),
 	owner: ref("person"),
 	defaultProfile: text,
 	defaults: Type.Optional(ProfileSchema),
@@ -91,7 +93,9 @@ export const YonderSchema = object({
 	),
 	envs: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	compaction: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
-	agents: Type.Optional(Type.Array(object({ id: text, workspace: text, env: Type.Optional(instanceId) }))),
+	agents: Type.Optional(
+		Type.Array(object({ id: text, workspace: text, env: Type.Optional(instanceId), archivedAt: Type.Optional(text) })),
+	),
 	identity: Type.Optional(
 		object({
 			persons: Type.Array(
@@ -107,5 +111,5 @@ export const YonderSchema = object({
 });
 
 export type Binding = Static<typeof BindingSchema>;
-export type AgentConfig = Static<typeof AgentSchema>;
+export type AgentConfig = Static<typeof AgentSchema> & { archivedAt?: string };
 export type YonderConfig = Static<typeof YonderSchema>;

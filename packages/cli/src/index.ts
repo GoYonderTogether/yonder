@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, realpathSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -44,6 +45,8 @@ Commands:
   events                          查询事件 · Query events
   identity lookup|link|unlink|person  身份管理 · Manage identities
   skills [show|add|remove] [--agent <id>] [--profile <name>]  技能管理 · Manage skills
+  agents list|show|create|update|validate|archive|restore  Agent 管理（--file JSON；create --preset）
+  presets list|show|create|update|validate|remove  预设管理（--file JSON）
   plugins list|show|add|remove      插件管理 · Manage plugins
   models list                     模型目录 · Model catalog
   inspect [--agent <id>] [--profile <name>]  有效配置 · Effective configuration
@@ -421,6 +424,29 @@ async function run(args: string[]): Promise<number> {
 			for (const warning of result.warnings) stdout.write(`WARNING: ${warning}\n`);
 		}
 		return result.ok ? 0 : 1;
+	}
+	if (command === "agents" || command === "presets") {
+		const operation = rest[0];
+		const usage = `Usage: yonder ${command} list|show <id>|create <id> --file <json> [--preset <id>]|update <id> --file <json>|validate <id> --file <json>|${command === "agents" ? "archive|remove|restore" : "remove"} <id>`;
+		if (
+			!operation ||
+			!["list", "show", "create", "update", "validate", "archive", "remove", "restore"].includes(operation)
+		)
+			throw new UsageError(usage);
+		if (operation === "list" && rest.length !== 1) throw new UsageError(usage);
+		const id = operation === "list" ? undefined : rest[1];
+		if (operation !== "list" && (!id || id.startsWith("--"))) throw new UsageError(usage);
+		const flags = namedOptions(rest.slice(operation === "list" ? 1 : 2), ["--file", "--preset"], usage);
+		if (["create", "update", "validate"].includes(operation) && !flags["--file"]) throw new UsageError(usage);
+		const value = flags["--file"] ? JSON.parse(await readFile(resolve(flags["--file"]), "utf8")) : undefined;
+		return print(
+			managed(
+				homeFor(options),
+				{ method: "management", params: { action: `${command}.${operation}`, id, preset: flags["--preset"], value } },
+				true,
+			),
+			options.json,
+		);
 	}
 	if (["plugins", "models", "inspect"].includes(command)) {
 		let action: string, id: string | undefined, source: string | undefined;

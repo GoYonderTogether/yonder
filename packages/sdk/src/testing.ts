@@ -194,6 +194,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			events: { ...api.events, emit: unavailable, ask: unavailable, query: unavailable },
 			messages: { send: unavailable },
 			credentials: { get: unavailable },
+			execution: { resolve: unavailable, run: unavailable },
 			services: { resolve: unavailable },
 			sessions: {
 				notify: unavailable,

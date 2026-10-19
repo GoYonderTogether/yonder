@@ -87,7 +87,7 @@ const channelId = (ref: string) => {
 	return parsed.kind === "acct" || parsed.kind === "conv" ? parsed.channel : undefined;
 };
 const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.agent}` : undefined);
-function sourceMessage(event: YEvent): string | undefined {
+export function sourceMessage(event: YEvent): string | undefined {
 	const data = event.data as { msgId?: string; originals?: Array<{ messageId?: string; msgId?: string }> };
 	const original = data.originals?.at(-1);
 	return original?.messageId ?? original?.msgId ?? data.msgId;

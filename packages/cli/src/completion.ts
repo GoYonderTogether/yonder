@@ -1,7 +1,7 @@
 const commands =
-	"init login doctor start stop chat sessions events identity skills plugins models inspect version changelog docs update service completion";
+	"init login doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -14,7 +14,7 @@ _yonder() {
     'init:初始化 · Initialize' 'login:登录 · Sign in' 'doctor:诊断 · Diagnose'
     'start:启动 · Start' 'stop:停止 · Stop' 'chat:聊天 · Chat'
     'sessions:会话 · Sessions' 'events:事件 · Events' 'identity:身份 · Identity'
-    'plugins:插件 · Plugins' 'models:模型 · Models' 'inspect:配置 · Configuration' 'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
+    'agents:智能体 · Agents' 'presets:预设 · Presets' 'plugins:插件 · Plugins' 'models:模型 · Models' 'inspect:配置 · Configuration' 'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
     'docs:文档 · Docs' 'update:更新 · Update' 'service:服务 · Service'
     'completion:补全 · Completion'
   )
@@ -29,6 +29,8 @@ _yonder() {
   esac
   case "$words[2]" in
     sessions) (( CURRENT == 3 )) && { compadd list show abort close open submit notify; return; };;
+    agents) (( CURRENT == 3 )) && { compadd list show create update validate archive remove restore; return; };;
+    presets) (( CURRENT == 3 )) && { compadd list show create update validate remove; return; };;
     plugins) (( CURRENT == 3 )) && { compadd list show add remove; return; };;
     models) (( CURRENT == 3 )) && { compadd list; return; };;
     skills) (( CURRENT == 3 )) && { compadd show add remove; return; };;
@@ -69,6 +71,8 @@ _yonder() {
   if (( COMP_CWORD == 2 )); then
     case "$\{COMP_WORDS[1]}" in
       sessions) choices='list show abort close open submit notify';;
+      agents) choices='list show create update validate archive remove restore';;
+      presets) choices='list show create update validate remove';;
       plugins) choices='list show add remove';;
       models) choices='list';;
       skills) choices='show add remove';;
@@ -97,6 +101,8 @@ end
 complete -c yonder -f
 complete -c yonder -n '__fish_use_subcommand' -a '${commands}' -d '命令 · Command'
 complete -c yonder -n '__fish_seen_subcommand_from sessions' -a 'list show abort close open submit notify' -d '会话操作 · Session action'
+complete -c yonder -n '__fish_seen_subcommand_from agents' -a 'list show create update validate archive remove restore'
+complete -c yonder -n '__fish_seen_subcommand_from presets' -a 'list show create update validate remove'
 complete -c yonder -n '__fish_seen_subcommand_from plugins' -a 'list show add remove'
 complete -c yonder -n '__fish_seen_subcommand_from models' -a 'list'
 complete -c yonder -n '__fish_seen_subcommand_from skills' -a 'show add remove'

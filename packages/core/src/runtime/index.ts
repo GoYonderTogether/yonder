@@ -50,15 +50,18 @@ import type {
 	ToolResult,
 	TranscriptItem,
 } from "@yonder/sdk";
+import { Type } from "typebox";
 import { matchesGlob } from "../config/index.js";
 import { coreToolCapabilities } from "../tools/catalog.js";
 import { imageMime } from "./attachments.js";
 import { loginWithType } from "./auth.js";
+import { createBackground } from "./background.js";
 import { credentialPath, FileCredentials } from "./credentials.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
+import { processTool } from "./process.js";
 
 export { attachmentFromPath } from "./attachments.js";
 
@@ -118,6 +121,7 @@ const RunDoc = defineDocFamily({
 		error: null as string | null,
 		usageBefore: emptyUsage(),
 		toolTasks: [] as number[],
+		warnings: [] as string[],
 	}),
 });
 const capabilityMap: Record<string, Capability[]> = {
@@ -191,6 +195,8 @@ function fromResult(value: ToolExecutionResult): ToolResult {
 	};
 }
 interface RunState {
+	started: number;
+	warnings: Set<string>;
 	error?: string;
 	toolTasks: number[];
 	usageBefore: RuntimeRun["usage"];
@@ -216,6 +222,12 @@ export class Runtime {
 	private finishing = new Map<string, Promise<RuntimeRun>>();
 	private recovering: Array<{ session: string; id: import("@earendil-works/pi-durable").SubmissionId }> = [];
 	private registry = createRegistry();
+	private background!: ReturnType<typeof createBackground>;
+	private rawTools = new Map<string, ToolRegistration>();
+	private invocationConfigs = new WeakMap<
+		Context,
+		{ config: RuntimeSessionConfig; events: import("@yonder/sdk").YEvent[] }
+	>();
 	private extensions = new Map<string, Extension>();
 	private tools = new Map<string, ToolRegistration>();
 	private capabilities = new Map<string, Capability[]>(Object.entries(capabilityMap));
@@ -262,9 +274,10 @@ export class Runtime {
 		return env;
 	}
 	private async context(id: string, context: Context): Promise<ToolContext> {
-		const config = this.currentConfig(id) ?? (await this.options.resolveSession(id));
+		const saved = this.invocationConfigs.get(context);
+		const config = saved?.config ?? this.currentConfig(id) ?? (await this.options.resolveSession(id));
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		const events = await this.sources(live?.run?.inputs ?? []);
+		const events = saved?.events ?? (await this.sources(live?.run?.inputs ?? []));
 		const input = events[0];
 		return {
 			agent: config.agent,
@@ -313,6 +326,8 @@ export class Runtime {
 			id,
 			session,
 			config,
+			started,
+			warnings: new Set(saved?.warnings ?? []),
 			usageBefore,
 			toolTasks: [...(saved?.toolTasks ?? [])],
 			turns: saved?.turns ?? 0,
@@ -330,17 +345,28 @@ export class Runtime {
 	private armTimer(state: RunState): void {
 		state.timer = setTimeout(
 			() => {
-				void this.abortRun(state, "maxMinutes").catch(this.options.onReport ?? (() => {}));
+				void this.warn(
+					state,
+					"maxMinutes",
+					`Task has run for ${state.config.resolved.limits.maxMinutes} minutes; continue as needed and report meaningful progress.`,
+				).catch(this.options.onReport ?? (() => {}));
 			},
 			Math.max(0, state.deadline - Date.now()),
 		);
 		state.timer.unref();
+	}
+	private async warn(state: RunState, kind: string, text: string): Promise<void> {
+		if (state.warnings.has(kind)) return;
+		state.warnings.add(kind);
+		await this.saveRun(state);
+		await this.options.onWarning?.(state.session, { kind, text });
 	}
 	private async saveRun(state: RunState): Promise<void> {
 		await this.harness.commit(async (tx) => {
 			Object.assign(await tx.doc(RunDoc, cid(state.session), state.id, null), {
 				turns: state.turns,
 				toolTasks: state.toolTasks,
+				warnings: [...state.warnings],
 				previous: state.previous ? JSON.stringify(state.previous) : "",
 				repeats: state.repeats,
 				reason: state.reason ?? null,
@@ -374,6 +400,51 @@ export class Runtime {
 		throw signal.reason;
 	}
 	private install() {
+		this.background = createBackground({
+			harness: () => this.harness,
+			config: async (session, context) => {
+				const ctx = await this.context(session, context);
+				return JSON.stringify({
+					config: this.currentConfig(session) ?? (await this.options.resolveSession(session)),
+					events: ctx.events ?? [],
+				});
+			},
+			execute: async (input, api, context) => {
+				const snapshot = JSON.parse(input.config);
+				this.invocationConfigs.set(context, snapshot);
+				try {
+					const tool = this.rawTools.get(input.name);
+					if (!tool) throw new Error(`Unavailable tool: ${input.name}`);
+					let result = await tool.execute(input.args, { ...api, env: this.environment(snapshot.config) }, context);
+					const ctx = await this.context(String(api.conversationId), context);
+					for (const plugin of this.options.plugins ?? [])
+						if (snapshot.config.resolved.plugins.includes(plugin.id))
+							for (const hook of plugin.hooks) {
+								const changed = await hook.afterTool?.(
+									{ id: api.callId, name: input.name, args: input.args },
+									fromResult(result),
+									ctx,
+								);
+								if (changed) result = toResult(changed.result);
+							}
+					return result;
+				} finally {
+					this.invocationConfigs.delete(context);
+				}
+			},
+			finished: async (session, id, name, value, origin) => {
+				await this.options.onBackground?.(session, {
+					id,
+					name,
+					result: fromResult(value),
+					...(origin ? { origin } : {}),
+				});
+			},
+			report: (error) => this.options.onReport?.(error),
+		});
+		this.registry.install(this.background.extension);
+		this.extensions.set(this.background.extension.name, this.background.extension);
+
 		const core = defineExtension({
 			name: "yonder.core",
 			sections: [
@@ -383,9 +454,14 @@ export class Runtime {
 						await input.read.snapshot(SessionDoc, input.conversationId, context);
 						const config = this.currentConfig(String(input.conversationId));
 						if (!config) throw new Error("Missing active configuration");
-						return (
-							await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)
-						)?.join("\n\n");
+						const sections =
+							(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ??
+							[];
+						const state = [...this.states.values()].find((state) => state.session === String(input.conversationId))!;
+						return [
+							...sections,
+							`<runtime_clock utc="${new Date().toISOString()}">Elapsed ${Math.round((Date.now() - state.started) / 1000)} seconds. Time/turn/token thresholds are reminders; explicit cancellation and real provider limits remain effective.</runtime_clock>`,
+						].join("\n\n");
 					},
 					{ tag: false },
 				),
@@ -395,7 +471,8 @@ export class Runtime {
 					beforeRequest: async (request, api, context) => {
 						const state = await this.runState(api, context);
 						if (state.reason) await this.stop(context, state, state.reason);
-						if (state.turns >= state.config.resolved.limits.maxTurns) await this.stop(context, state, "maxTurns");
+						if (state.turns >= state.config.resolved.limits.maxTurns)
+							await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
 						const model = this.models.getModel(
 							state.config.resolved.model.split("/")[0]!,
 							state.config.resolved.model.slice(state.config.resolved.model.indexOf("/") + 1),
@@ -433,12 +510,25 @@ export class Runtime {
 								"Conversation input exceeds the current model's request byte limit; history was retained",
 								true,
 							);
+
 						state.turns++;
 						await this.saveRun(state);
 					},
-					afterTools: async (_assistant, _results, api, context) => {
+					afterResponse: async (message, api, context) => {
 						const state = await this.runState(api, context);
-						if (state.turns >= state.config.resolved.limits.maxTurns) await this.stop(context, state, "maxTurns");
+						const usage = await this.usage(state.session);
+						const tokens = (["input", "output", "cacheRead", "cacheWrite"] as const).reduce(
+							(sum, key) => sum + usage[key] + message.usage[key] - state.usageBefore[key],
+							0,
+						);
+						if (state.turns >= state.config.resolved.limits.maxTurns)
+							await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
+						if (tokens >= state.config.resolved.limits.maxTokens)
+							await this.warn(
+								state,
+								"maxTokens",
+								`Task has used ${tokens} input/output/cache tokens. Preserve the goal and continue necessary work.`,
+							);
 					},
 				}),
 				hook(ToolTask, {
@@ -446,7 +536,9 @@ export class Runtime {
 						const state = await this.runState(api, context);
 						if (!state.toolTasks.includes(api.taskId)) state.toolTasks.push(api.taskId);
 						const callKey = { name: call.name, args: call.arguments };
-						state.repeats = isDeepStrictEqual(callKey, state.previous) ? state.repeats + 1 : 1;
+						const observing =
+							call.name === "process" && ["status", "log", "wait"].includes(String(call.arguments.action));
+						state.repeats = observing ? 0 : isDeepStrictEqual(callKey, state.previous) ? state.repeats + 1 : 1;
 						state.previous = structuredClone(callKey);
 						await this.saveRun(state);
 						if (state.repeats >= state.config.resolved.limits.repeatStop) await this.stop(context, state, "repeatStop");
@@ -473,7 +565,10 @@ export class Runtime {
 		const coding = defineExtension({
 			...codingTools,
 			name: "yonder.files",
-			tools: (codingTools.tools ?? []).map((t) => ({ ...t, deferred: true })),
+			tools: [
+				...(codingTools.tools ?? []).filter((t) => t.name !== "bash"),
+				processTool(this.options.home, this.background.running),
+			].map((t) => this.backgroundTool({ ...t, deferred: true })),
 		});
 		this.registry.install(coding);
 		this.extensions.set(coding.name, coding);
@@ -481,6 +576,11 @@ export class Runtime {
 		this.registry.install(search);
 		this.extensions.set(search.name, search);
 		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);
+		const processes = defineExtension({ name: "yonder.process", tools: [this.background.tool] });
+		this.capabilities.set("process", []);
+		this.registry.install(processes);
+		this.extensions.set(processes.name, processes);
+		this.tools.set("process", this.background.tool);
 		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...(this.options.tools ?? [])], []);
 		this.registry.install(builtins);
 		this.extensions.set(builtins.name, builtins);
@@ -490,25 +590,45 @@ export class Runtime {
 			this.extensions.set(extension.name, extension);
 		}
 	}
+	private backgroundTool(tool: ToolRegistration): ToolRegistration {
+		this.rawTools.set(tool.name, tool);
+		const registration = {
+			...tool,
+			...(tool.structuredOutputSchema
+				? {
+						structuredOutputSchema: Type.Union([
+							tool.structuredOutputSchema,
+							Type.Object({ background: Type.String() }),
+						]),
+					}
+				: {}),
+		};
+		return {
+			...registration,
+			execute: (args, api, context) => this.background.run(tool, args as JsonObject, api, context),
+		};
+	}
 	private adapter(name: string, tools: Tool[], hooks: Hook[]): Extension {
 		const registrations = tools.map((tool) => {
 			this.capabilities.set(tool.name, tool.capabilities);
-			const registration = defineTool({
-				name: tool.name,
-				description: tool.description,
-				parameters: tool.parameters,
-				deferred: true,
-				...(tool.name === "task_run" ? { replay: "safe" as const } : {}),
-				execute: async (args, api, context) => {
-					const ctx = await this.context(String(api.conversationId), context);
-					this.toolInvocations.set(ctx, { api, context });
-					try {
-						return toResult(await tool.execute(args, ctx));
-					} finally {
-						this.toolInvocations.delete(ctx);
-					}
-				},
-			});
+			const registration = this.backgroundTool(
+				defineTool({
+					name: tool.name,
+					description: tool.description,
+					parameters: tool.parameters,
+					deferred: true,
+					...(tool.name === "task_run" ? { replay: "safe" as const } : {}),
+					execute: async (args, api, context) => {
+						const ctx = await this.context(String(api.conversationId), context);
+						this.toolInvocations.set(ctx, { api, context });
+						try {
+							return toResult(await tool.execute(args, ctx));
+						} finally {
+							this.toolInvocations.delete(ctx);
+						}
+					},
+				}),
+			);
 			this.tools.set(tool.name, registration);
 			return registration;
 		});
@@ -527,14 +647,6 @@ export class Runtime {
 								? { block: result.block }
 								: { arguments: result.args as JsonObject }
 							: undefined;
-					},
-					afterTool: async (call, result, api, context) => {
-						const replacement = await plugin.afterTool?.(
-							{ id: call.id, name: call.name, args: call.arguments },
-							fromResult(result),
-							await this.context(String(api.conversationId), context),
-						);
-						return replacement ? { ...result, ...toResult(replacement.result) } : undefined;
 					},
 				}),
 				hook(GenerationTask, {
@@ -569,6 +681,8 @@ export class Runtime {
 	): Promise<string | undefined> {
 		const missing = (this.capabilities.get(name) ?? []).filter((c) => !config.resolved.capabilities.includes(c));
 		if (missing.length) return `缺少能力：${missing.join(", ")}`;
+		if (name === "process" && args.action === "write" && !config.resolved.capabilities.includes("exec"))
+			return "Writing process stdin requires exec capability";
 		if (!["read", "write", "edit", "grep"].includes(name)) return;
 		if (name === "grep" && args.path === undefined) args = { ...args, path: "." };
 		if (typeof args.path !== "string") return;
@@ -677,7 +791,14 @@ export class Runtime {
 	}
 	private async applyConfiguration(id: string, config: RuntimeSessionConfig): Promise<void> {
 		const profile = config.resolved;
-		const selected = ["yonder.core", "yonder.files", "yonder.tools", ...profile.plugins.map((id) => `plugin:${id}`)];
+		const selected = [
+			"yonder.core",
+			"yonder.files",
+			"yonder.tools",
+			"yonder.background",
+			"yonder.process",
+			...profile.plugins.map((id) => `plugin:${id}`),
+		];
 		const exposure = this.describeTools(config);
 		const offered = exposure.filter((tool) => tool.exposure === "offer").map((tool) => this.tools.get(tool.name)!);
 		const deferred = exposure.filter((tool) => tool.exposure === "search").map((tool) => this.tools.get(tool.name)!);
@@ -866,7 +987,7 @@ export class Runtime {
 	}
 	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
 		const conversation = await this.conversation(id);
-		const requestId = input.event ? `event:${input.event.id}` : input.requestId;
+		const requestId = input.requestId ?? (input.event ? `event:${input.event.id}` : undefined);
 		const existing = requestId ? await this.storage.submissionByRequest(cid(id), requestId, C) : undefined;
 		const content = [{ type: "text" as const, text: input.text }];
 		let stream = input.onOutput ? await watchEvents(this.harness, cid(id), C) : undefined;
@@ -1002,7 +1123,7 @@ export class Runtime {
 		if (event.type === "task_failed") input.onOutput?.({ type: "error", message: event.message });
 	}
 	async abort(id: string): Promise<void> {
-		await (await this.conversation(id)).abort(C);
+		await (await this.conversation(id)).abort(C, { background: true });
 	}
 	async queued(id: string, withdraw = false) {
 		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
@@ -1305,6 +1426,10 @@ export class Runtime {
 				if (submission) await this.settledRun(item.session, await submission.wait(C));
 			})().catch(this.options.onReport ?? (() => {}));
 		}
+		void this.storage
+			.scanTasks({ kind: "yonder.background" }, Number.MAX_SAFE_INTEGER, undefined, C)
+			.then((page) => this.background.recover(page.items))
+			.catch((error) => this.options.onReport?.(error));
 		this.harness.resume();
 	}
 	async responseText(session: string, event: string): Promise<string> {
@@ -1342,6 +1467,75 @@ export class Runtime {
 	}
 	async login(provider: string, type: "api_key" | "oauth", interaction: Parameters<Models["login"]>[2]): Promise<void> {
 		await loginWithType(this.models, this.options.home, provider, type, interaction);
+	}
+
+	async writeNote(id: string, requestId: string, text: string): Promise<void> {
+		await (await this.conversation(id)).submit(
+			{
+				type: "write",
+				requestId,
+				entry: {
+					kind: "yonder.runtime-note",
+					data: { from: "system:yonder", text },
+					model: [
+						{
+							role: "user",
+							content: [{ type: "text", text: `<runtime_notice source="system:yonder">${text}</runtime_notice>` }],
+							timestamp: Date.now(),
+						},
+					],
+				},
+			},
+			C,
+		);
+	}
+
+	async hasBackgroundWork(id: string): Promise<boolean> {
+		const tasks = await this.storage.scanTasks(
+			{ conversationId: cid(id), kind: "yonder.background" },
+			Number.MAX_SAFE_INTEGER,
+			undefined,
+			C,
+		);
+		return tasks.items.some((task) => task.state.status !== "terminal");
+	}
+	async hasPendingWork(id: string): Promise<boolean> {
+		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return true;
+		if ((await this.harness.snapshot(InboxDoc, cid(id), C))?.items.some((item) => item.mode !== "write")) return true;
+		return this.hasBackgroundWork(id);
+	}
+	async executeCommand(
+		config: RuntimeSessionConfig,
+		request: { command: string | string[]; cwd?: string; signal?: AbortSignal },
+	): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+		let stdout = "",
+			stderr = "",
+			truncated = false;
+		const context = request.signal ? withAbortSignal(request.signal, C) : C;
+		const result = getOrThrow(
+			await this.environment(config).exec(
+				request.command,
+				{
+					...(request.cwd ? { cwd: request.cwd } : {}),
+					spill: { afterBytes: 65536, afterLines: 2000 },
+					onOutput(text, _context, info) {
+						if (info.stream === "stderr") {
+							truncated ||= stderr.length + text.length > 65536;
+							stderr = (stderr + text).slice(-65536);
+						} else {
+							truncated ||= stdout.length + text.length > 65536;
+							stdout = (stdout + text).slice(-65536);
+						}
+					},
+				},
+				context,
+			),
+		);
+		return {
+			stdout: stdout + (truncated ? `\n[Output tail retained; full log: ${result.spillPath ?? "unavailable"}]` : ""),
+			stderr,
+			exitCode: result.exitCode,
+		};
 	}
 
 	async close(): Promise<void> {

@@ -141,7 +141,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		return {
 			cwd: info?.config.cwd ?? home,
 			label: info
-				? `${info.session.agent ?? "独立任务"} · #${info.session.id}`
+				? `${info.agentName ?? info.session.agent ?? "独立任务"}${info.agentWork ? ` · ${info.agentWork}` : ""} · #${info.session.id}`
 				: target.channel
 					? `渠道 ${target.channel}`
 					: `新任务 · ${target.preset ?? "default"}`,
@@ -318,7 +318,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			if (!component) {
 				component = new AssistantMessageComponent(message, hideThinking, getMarkdownTheme(), "", 0);
 				assistants.add(component);
-				const speaker = speakers.get(session) ?? info?.session.agent;
+				const speaker = speakers.get(session) ?? info?.agentName ?? info?.session.agent;
 				chat.addChild(new MessagePresentation(component, speaker && speaker !== "AI" ? `• ${speaker}` : "•"));
 			}
 			component.updateContent(message, streaming);
@@ -425,7 +425,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			const epoch = viewEpoch;
 			const next = await call<Info>("terminal.info", { id });
 			if (epoch !== viewEpoch) return;
-			speakers.set(id, next.session.agent ?? "AI");
+			speakers.set(id, next.agentName ?? next.session.agent ?? "AI");
 			const observation = await observeControl(home, { method: "sessions.watch", params: { id } }, (value) => {
 				if (epoch === viewEpoch) receive(id, value);
 			});
@@ -520,7 +520,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 					path: row.id,
 					id: row.id,
 					cwd: row.cwd,
-					name: `#${row.id} · ${row.agent ?? "独立任务"} · ${row.profile}${row.closed ? " · 已关闭/Closed" : ""}`,
+					name: `#${row.id} · ${row.agentName ?? row.agent ?? "独立任务"}${row.agentWork ? ` · ${row.agentWork}` : ""} · ${row.profile}${row.closed ? " · 已关闭/Closed" : ""}`,
 					created: new Date(row.opened),
 					modified: new Date(row.modified),
 					messageCount: row.messageCount,
@@ -595,7 +595,10 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		const mains = await call<SessionInfo[]>("sessions.list", { filter: { mode: "main", open: true } });
 		for (const session of mains)
 			if (channel?.agents.some((agent) => agent.id === session.agent && agent.main)) {
-				speakers.set(session.id, session.agent ?? "");
+				speakers.set(
+					session.id,
+					channel.agents.find((agent) => agent.id === session.agent)?.name ?? session.agent ?? "",
+				);
 				await watch(session.id);
 			}
 	};
@@ -620,7 +623,8 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		if (name === "channel") {
 			const channels = await call<Channels>("terminal.channels");
 			const labels = channels.map(
-				(channel) => `${channel.id} · ${channel.agents.map((agent) => agent.name).join(", ") || "无绑定/Unbound"}`,
+				(channel) =>
+					`${channel.id} · ${channel.agents.map((agent) => `${agent.name}${agent.work ? ` · ${agent.work}` : ""}`).join(", ") || "无绑定/Unbound"}`,
 			);
 			const selected = await choose("渠道聊天 · Channel chat", labels);
 			const channel = selected ? channels[labels.indexOf(selected)] : undefined;

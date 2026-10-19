@@ -15,7 +15,7 @@ import {
 	watchConfig,
 	type YonderConfig,
 } from "../config/index.js";
-import { createDelivery } from "../delivery/index.js";
+import { createDelivery, sourceMessage } from "../delivery/index.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins, pluginDirectory } from "../plugins/index.js";
 import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
@@ -37,6 +37,7 @@ import { addLocalSkill, createSkills, removeLocalSkill } from "../skills/index.j
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
 import { createSkillTool } from "../tools/skill-view.js";
+import { manageObjects } from "./management.js";
 
 export type KernelLog = (level: "info" | "warn" | "error", message: string, data?: object) => void;
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
@@ -57,6 +58,7 @@ function inspectionServices(home: string, config: YonderConfig, log: KernelLog):
 		log: { info: (m, d) => log("info", m, d), warn: (m, d) => log("warn", m, d), error: (m, d) => log("error", m, d) },
 		events: { emit: unavailable, ask: unavailable, query: unavailable, on: unavailable },
 		messages: { send: unavailable },
+		execution: { run: unavailable, resolve: unavailable },
 		services: { resolve: unavailable },
 		sessions: {
 			notify: unavailable,
@@ -110,7 +112,10 @@ async function loadAgents(
 	const agents = new Map<string, AgentConfig>();
 	for (const entry of config.agents ?? []) {
 		if (agents.has(entry.id)) throw new Error(`Duplicate agent: ${entry.id}`);
-		agents.set(entry.id, await loadAgentConfig(filesFor(home, config, plugins, entry.id), entry.id));
+		agents.set(entry.id, {
+			...(await loadAgentConfig(filesFor(home, config, plugins, entry.id), entry.id)),
+			...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}),
+		});
 	}
 	return agents;
 }
@@ -175,6 +180,8 @@ export interface ManagementRequest {
 	source?: string;
 	agent?: string;
 	profile?: string;
+	preset?: string;
+	value?: unknown;
 }
 export async function manageHome(home: string, request: ManagementRequest, running?: LoadedPlugins): Promise<unknown> {
 	const config = await loadYonderConfig(home);
@@ -201,6 +208,53 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 		};
 	const loaded = await loadPlugins(home, config, services);
 	const agents = await loadAgents(home, config, loaded);
+	if (request.action.startsWith("agents.") || request.action.startsWith("presets.")) {
+		const presets = new Map([...loaded.presets, ...(await loadPresets(home))]);
+		return manageObjects(home, request, {
+			config,
+			agents,
+			presets,
+			files: (candidate, id) => filesFor(home, candidate, loaded, id),
+			validate: async (candidate, nextAgents, nextPresets) => {
+				const errors = configurationErrors(candidate, nextAgents, loaded, services.models, nextPresets);
+				let identityDb: Awaited<ReturnType<typeof openDatabase>> | undefined;
+				try {
+					await stat(join(home, ".yonder/state.db"));
+					identityDb = await openDatabase(join(home, ".yonder/state.db"), true);
+					const identityStore = await createStore(identityDb, undefined, true);
+					for (const agent of nextAgents.values())
+						if (!agent.archivedAt && !(await identityStore.identity().person(agent.owner)))
+							errors.push(`${agent.id}/owner: unknown person ${agent.owner}`);
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+					for (const agent of nextAgents.values())
+						if (!agent.archivedAt && !candidate.identity?.persons.some((p) => `person:${p.id}` === agent.owner))
+							errors.push(`${agent.id}/owner: unknown person ${agent.owner}`);
+				} finally {
+					await identityDb?.close();
+				}
+				let sessions: SessionInfo[] = [];
+				try {
+					await stat(join(home, ".yonder/state.db"));
+					sessions = (await offlineQuery(home, {
+						method: "sessions.list",
+						params: { filter: { open: true } },
+					})) as SessionInfo[];
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+				}
+				protectSessions(config, candidate, agents, nextAgents, presets, nextPresets, sessions, errors);
+				if (errors.length) throw new Error(errors.join("; "));
+			},
+			scaffold: async (candidate, agent) => {
+				await scaffoldWorkspace(
+					filesFor(home, candidate, loaded, agent.id),
+					[...new Set(Object.values(agent.profiles).flatMap((p) => resolveProfile(p, agent.defaults).contexts))],
+					loaded.contexts,
+				);
+			},
+		});
+	}
 	const selectedAgent = () => {
 		const value = agents.get(request.agent ?? "main");
 		if (!value) throw new Error(`Unknown agent: ${request.agent}`);
@@ -339,6 +393,39 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 	}
 }
 
+function protectSessions(
+	config: YonderConfig,
+	candidate: YonderConfig,
+	agents: Map<string, AgentConfig>,
+	nextAgents: Map<string, AgentConfig>,
+	presets: Map<string, Preset>,
+	nextPresets: Map<string, Preset>,
+	sessions: SessionInfo[],
+	errors: string[],
+) {
+	for (const session of sessions) {
+		if (session.agent) {
+			const before = config.agents?.find((a) => a.id === session.agent),
+				after = candidate.agents?.find((a) => a.id === session.agent);
+			if (!nextAgents.get(session.agent)?.profiles[session.profile])
+				errors.push(`session ${session.id}: close session before removing agent/profile ${session.profile}`);
+			const previous = agents.get(session.agent),
+				next = nextAgents.get(session.agent);
+			const oldProfile = previous?.profiles[session.profile],
+				newProfile = next?.profiles[session.profile];
+			const envChanged =
+				oldProfile &&
+				newProfile &&
+				resolveProfile(oldProfile, previous?.defaults, before?.env).env !==
+					resolveProfile(newProfile, next?.defaults, after?.env).env;
+			if (before?.workspace !== after?.workspace || before?.env !== after?.env || envChanged)
+				errors.push(`session ${session.id}: close before changing workspace/env`);
+		} else if (presets.has(session.profile) && !nextPresets.has(session.profile))
+			errors.push(`session ${session.id}: close session before removing preset ${session.profile}`);
+	}
+	for (const id of agents.keys()) if (!nextAgents.has(id)) errors.push(`agent ${id}: archive instead of unregistering`);
+}
+
 function configurationErrors(
 	config: YonderConfig,
 	agents: Map<string, AgentConfig>,
@@ -357,6 +444,8 @@ function configurationErrors(
 		for (const id of selected.plugins) if (!plugins.tools.has(id)) errors.push(`${name}: unknown plugin ${id}`);
 	};
 	for (const agent of agents.values()) {
+		if (agent.archivedAt) continue;
+
 		for (const [name, profile] of Object.entries(agent.profiles)) {
 			const selected = resolveProfile(
 				profile,
@@ -559,6 +648,13 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		let sessions: ReturnType<typeof createSessions>;
 		let router: ReturnType<typeof createRouter>;
 		let delivery: ReturnType<typeof createDelivery>;
+		const resolveExecutionOwner = async (owner: { session: string; agent: string | null; profile: string }) => {
+			const session = await store.sessions.get(owner.session);
+			if (!session || session.agent !== owner.agent || session.profile !== owner.profile)
+				throw new Error("Execution owner does not match the stored session");
+			if (owner.agent && agents.get(owner.agent)?.archivedAt) throw new Error(`Agent archived: ${owner.agent}`);
+			return sessions.resolveSession(owner.session);
+		};
 		const services: KernelServices = {
 			...credentialsAndModels(home, config),
 			log: {
@@ -589,6 +685,19 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				transcript: (id, range) => sessions.api.transcript(id, range),
 				observe: observeSession,
 			},
+			execution: {
+				resolve: async (owner) => ({ capabilities: [...(await resolveExecutionOwner(owner)).resolved.capabilities] }),
+				run: async (request) => {
+					const active = await resolveExecutionOwner(request.owner);
+					if (!active.resolved.capabilities.includes("exec") || !request.capabilities.includes("exec"))
+						throw new Error("Command execution requires current and creator exec capability");
+					return realRuntime().executeCommand(active, {
+						command: request.command,
+						...(request.cwd ? { cwd: request.cwd } : {}),
+						...(request.signal ? { signal: request.signal } : {}),
+					});
+				},
+			},
 			identity: store.identity(),
 			services: { resolve: (capability) => realRuntime().resolveService(capability) },
 		};
@@ -604,9 +713,9 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			new Map([...loaded.presets, ...homePresets]),
 		);
 		if (errors.length) throw new Error(errors.join("; "));
-		const scaffoldAgent = (agent: AgentConfig) =>
+		const scaffoldAgent = (agent: AgentConfig, candidate = config) =>
 			scaffoldWorkspace(
-				filesFor(home, config, loaded, agent.id),
+				filesFor(home, candidate, loaded, agent.id),
 				[
 					...new Set(
 						Object.values(agent.profiles).flatMap((profile) => resolveProfile(profile, agent.defaults).contexts),
@@ -640,8 +749,9 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			completion.deliver();
 			await router.finishRun(session, run);
 			if (
-				session.mode === "ephemeral" ||
-				(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual")
+				!(await realRuntime().hasBackgroundWork(id)) &&
+				(session.mode === "ephemeral" ||
+					(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual"))
 			)
 				await sessions.closeSession(id, run.status === "done" ? "completed" : run.status);
 		};
@@ -707,6 +817,54 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				if (input.version) await store.sessions.setVersion(id, input.version);
 			},
 			onRun: completeRun,
+			onBackground: async (id, input) => {
+				const row = await store.sessions.get(id);
+				const origin = input.origin;
+				const msgId = origin ? sourceMessage(origin) : undefined;
+				const text = `[Background ${input.id} ${input.name} ${input.result.isError ? "failed" : "completed"}]\n${input.result.text.slice(-12000)}\nFull result: process status ${input.id}. Continue the original task if needed; do not repeat already completed work.`;
+				const event = await store.events.record(
+					{
+						type: "runtime.tool-result",
+						...(origin ? { parent: origin.id } : {}),
+						...(origin?.conv ? { conv: origin.conv } : {}),
+						data: {
+							session: id,
+							job: input.id,
+							...(msgId ? { msgId } : {}),
+							tool: input.name,
+							text,
+							waiting: false,
+							status: input.result.isError ? "error" : "done",
+						},
+					},
+					origin?.routes?.filter((route) => route.session === id) ?? [],
+				);
+				if (!row || row.closed) return;
+				void realRuntime()
+					.submit(id, {
+						text,
+						event,
+						wake: "run",
+						busy: "steer",
+						requestId: `background:${input.id}`,
+						attachments: input.result.attachments ?? [],
+					})
+					.catch(report);
+			},
+			onWarning: async (id, input) => {
+				const row = await store.sessions.get(id);
+				const event = await store.events.record({
+					type: "runtime.warning",
+					data: { session: id, kind: input.kind, text: input.text },
+				});
+				for (const target of [id, ...(row?.parent ? [row.parent] : [])]) {
+					const parent = await store.sessions.get(target);
+					if (!parent || parent.closed) continue;
+					const text = target === id ? input.text : `Subtask session ${id}: ${input.text}`;
+					await realRuntime().notify(target, { event: event.id, from: "system:yonder", text });
+					await realRuntime().writeNote(target, `warning:${event.id}:${target}`, text);
+				}
+			},
 			resolveSession: async (id) => {
 				const session = await sessions.resolveSession(id);
 				const protectedFiles = session.resolved.contexts
@@ -717,30 +875,53 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
 			onReport: report,
 		});
+		const validateCandidate = async (
+			candidateConfig: YonderConfig,
+			candidateAgents: Map<string, AgentConfig>,
+			candidatePresets: Map<string, Preset>,
+		) => {
+			const errors = configurationErrors(
+				candidateConfig,
+				candidateAgents,
+				loaded,
+				services.models,
+				new Map([...loaded.presets, ...candidatePresets]),
+			);
+			for (const agent of candidateAgents.values())
+				if (!agent.archivedAt && !(await store.identity().person(agent.owner)))
+					errors.push(`${agent.id}/owner: unknown person ${agent.owner}`);
+			const open = await store.sessions.list({ open: true });
+			protectSessions(config, candidateConfig, agents, candidateAgents, homePresets, candidatePresets, open, errors);
+			for (const [id, next] of candidateAgents)
+				if (next.archivedAt && !agents.get(id)?.archivedAt) {
+					if (id === "main") errors.push("main: default daily entry cannot be archived");
+				}
+			if (errors.length) throw new Error(errors.join("; "));
+		};
+		let pendingRestart = "";
 		watcher = await watchConfig({
 			home,
 			agents,
 			presets: homePresets,
 			workspaceFiles: (id) => filesFor(home, config, loaded, id),
-			validate: async (candidateAgents, candidatePresets) => {
-				const errors = configurationErrors(
-					config,
-					candidateAgents,
-					loaded,
-					services.models,
-					new Map([...loaded.presets, ...candidatePresets]),
-				);
-				for (const session of await store.sessions.list({ open: true })) {
-					const exists = session.agent
-						? candidateAgents.get(session.agent)?.profiles[session.profile]
-						: homePresets.has(session.profile)
-							? candidatePresets.has(session.profile)
-							: loaded.presets.has(session.profile);
-					if (!exists)
-						errors.push(`session ${session.id}: close session before removing profile/preset ${session.profile}`);
-				}
-				if (errors.length) throw new Error(errors.join("; "));
-				for (const agent of candidateAgents.values()) await scaffoldAgent(agent);
+			candidate: async () => {
+				const disk = await loadYonderConfig(home);
+				const { agents: _diskAgents, ...diskRest } = disk;
+				const { agents: _runningAgents, ...activeRest } = config;
+				const signature = JSON.stringify(diskRest);
+				if (signature !== JSON.stringify(activeRest) && signature !== pendingRestart)
+					log("warn", "Non-agent yonder.yaml changes require restart");
+				pendingRestart = signature;
+				const candidate = { ...config, agents: disk.agents ?? [] };
+				return { config: candidate, agents: await loadAgents(home, candidate, loaded) };
+			},
+			validate: async (nextAgents, nextPresets, nextConfig) => {
+				await validateCandidate(nextConfig ?? config, nextAgents, nextPresets);
+				for (const agent of nextAgents.values())
+					if (!agent.archivedAt) await scaffoldAgent(agent, nextConfig ?? config);
+			},
+			publish: (candidate) => {
+				config.agents = candidate.agents ?? [];
 			},
 			onReload: async (event) => {
 				await store.events.record(event);
@@ -754,6 +935,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		await loaded.start(router);
 		delivery.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
+		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
 			sessions: { ...sessions.api, observe: observeSession },
 			releaseResult: (data: UpdateResult) => {
@@ -764,6 +946,23 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			events: { query: store.events.query },
 			identity: store.identity(),
 			management: async (request: ManagementRequest) => {
+				if (request.action.startsWith("agents.") || request.action.startsWith("presets.")) {
+					const result = managementQueue.then(() =>
+						manageObjects(home, request, {
+							config,
+							agents,
+							presets: new Map([...loaded.presets, ...homePresets]),
+							files: (candidate, id) => filesFor(home, candidate, loaded, id),
+							validate: validateCandidate,
+							scaffold: async (candidate, agent) => {
+								await scaffoldAgent(agent, candidate);
+							},
+							reload: () => watcher!.reload(),
+						}),
+					);
+					managementQueue = result.catch(() => {});
+					return result;
+				}
 				const result = await manageHome(home, request, loaded);
 				if (request.action !== "inspect") return result;
 				const agent = agents.get(request.agent ?? "main");
@@ -815,11 +1014,20 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 						.map(([id]) => ({
 							id,
 							agents: [...agents.values()].flatMap((agent) => {
-								const bindings = agent.bindings.filter(
-									(binding) => !binding.match.channel || [binding.match.channel].flat().includes(id),
-								);
+								const bindings = agent.archivedAt
+									? []
+									: agent.bindings.filter(
+											(binding) => !binding.match.channel || [binding.match.channel].flat().includes(id),
+										);
 								return bindings.length
-									? [{ id: agent.id, name: agent.name, main: bindings.some((binding) => binding.session === "main") }]
+									? [
+											{
+												id: agent.id,
+												name: agent.name,
+												work: agent.work,
+												main: bindings.some((binding) => binding.session === "main"),
+											},
+										]
 									: [];
 							}),
 						})),
@@ -838,6 +1046,8 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 							const state = await realRuntime().sessionState(session.id);
 							return {
 								...session,
+								agentName: session.agent ? agents.get(session.agent)?.name : undefined,
+								agentWork: session.agent ? agents.get(session.agent)?.work : undefined,
 								cwd: state?.cwd ?? home,
 								messageCount: messages.length,
 								firstMessage: texts[0]?.replace(/^<turn\b[\s\S]*?<\/turn>\s*/, "") ?? "",
@@ -868,6 +1078,8 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 					const model = services.models.getModel(ref.slice(0, slash), ref.slice(slash + 1));
 					return {
 						session,
+						agentName: session.agent ? agents.get(session.agent)?.name : undefined,
+						agentWork: session.agent ? agents.get(session.agent)?.work : undefined,
 						config: active,
 						model: model
 							? {

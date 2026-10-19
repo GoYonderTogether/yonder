@@ -11,17 +11,21 @@ import { Runtime } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
-	"real queued runs take their configuration at start and survive the preceding run's limit",
+	"real queued runs take their configuration at start and survive the preceding run's reminder",
 	async () => {
 		const home = await mkdtemp("/tmp/yonder-boundary-");
 		const db = await openDatabase(`${home}/state.db`);
 		const store = await createStore(db);
 		const preparations: string[] = [];
+		const warnings: Array<{ session: string; kind: string }> = [];
 		let profile = resolveProfile({ capabilities: ["exec"], tools: { offer: ["bash"] }, limits: { maxMinutes: 1 } });
 		const runtime = await Runtime.open({
 			home,
 			db,
 			config: { schema: 1, credentials: auth },
+			onWarning: async (session, warning) => {
+				warnings.push({ session, kind: warning.kind });
+			},
 			readEvent: store.events.get,
 			prepareInput: async (_id, event, config) => {
 				preparations.push(config.resolved.model);
@@ -104,7 +108,8 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			await expect.poll(queued, { timeout: 2000 }).toBe(true);
 			profile = resolveProfile({ limits: { maxTurns: 5, maxMinutes: 1 } });
 			const [c, d] = await Promise.all([stopping, following]);
-			expect([c.status, c.reason, d.status]).toEqual(["limit", "maxTurns", "done"]);
+			expect([c.status, c.reason, d.status]).toEqual(["done", undefined, "done"]);
+			expect(warnings.filter((item) => item.session === limited && item.kind === "maxTurns")).toHaveLength(1);
 			expect(d.text).toContain("queued-after-limit");
 		} finally {
 			await runtime.close();
@@ -114,12 +119,20 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	150000,
 );
 
-test("the run budget cancels context rendering before any model request", async () => {
+test("the elapsed threshold warns without cancelling context rendering before a model request", async () => {
 	const home = await mkdtemp("/tmp/yonder-render-budget-");
+	const failure = new Error("context-render-check-complete");
+	let raised: Error | undefined;
+	const db = await openDatabase(`${home}/state.db`);
+	const warnings: string[] = [];
+	let cancelled: boolean | undefined;
 	const runtime = await Runtime.open({
 		home,
-		db: await openDatabase(`${home}/state.db`),
+		db,
 		config: { schema: 1 },
+		onWarning: async (_session, warning) => {
+			warnings.push(warning.kind);
+		},
 		resolveSession: async () => ({
 			agent: null,
 			profile: "check",
@@ -128,14 +141,19 @@ test("the run budget cancels context rendering before any model request", async 
 		}),
 		sections: async (_session, signal) => {
 			assert(signal);
-			await once(signal, "abort");
-			throw signal.reason;
+			await new Promise((resolve) => setTimeout(resolve, 160));
+			cancelled = signal.aborted;
+			raised = failure;
+			throw failure;
 		},
 	});
 	try {
 		const session = await runtime.create({ agent: null, profile: "check", cwd: home });
 		const run = await runtime.submit(session, { text: "N01 context cancellation verification" });
-		expect([run.status, run.reason, run.usage.cost]).toEqual(["limit", "maxMinutes", 0]);
+		expect([run.status, run.usage.cost, cancelled]).toEqual(["error", 0, false]);
+		expect(run.reason).toBe("model_error");
+		expect(raised).toBe(failure);
+		expect(warnings).toEqual(["maxMinutes"]);
 	} finally {
 		await runtime.close();
 		await rm(home, { recursive: true, force: true });
@@ -229,14 +247,19 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	90000,
 );
 
-test("the native run deadline cancels input preparation before a model request", async () => {
+test("the elapsed threshold warns without cancelling input preparation before a model request", async () => {
 	const home = await mkdtemp("/tmp/yonder-input-deadline-");
+	const warnings: string[] = [];
+	let cancelled: boolean | undefined;
 	const db = await openDatabase(`${home}/state.db`);
 	const store = await createStore(db);
 	const runtime = await Runtime.open({
 		home,
 		db,
 		config: { schema: 1 },
+		onWarning: async (_session, warning) => {
+			warnings.push(warning.kind);
+		},
 		readEvent: store.events.get,
 		resolveSession: async () => ({
 			agent: null,
@@ -246,8 +269,9 @@ test("the native run deadline cancels input preparation before a model request",
 		}),
 		prepareInput: async (_id, _event, _config, _wake, signal) => {
 			assert(signal);
-			await once(signal, "abort");
-			throw signal.reason;
+			await new Promise((resolve) => setTimeout(resolve, 160));
+			cancelled = signal.aborted;
+			throw new Error("input-preparation-check-complete");
 		},
 	});
 	try {
@@ -257,7 +281,51 @@ test("the native run deadline cancels input preparation before a model request",
 			data: { session, text: "Input cancellation check" },
 		});
 		const run = await runtime.submit(session, { text: "Input cancellation check", event });
-		expect([run.status, run.reason, run.usage.cost]).toEqual(["limit", "maxMinutes", 0]);
+		expect([run.status, run.usage.cost, cancelled]).toEqual(["error", 0, false]);
+		expect(run.reason).toBe("faulted");
+		expect(
+			(
+				await db.all<{ record: string }>(
+					"SELECT record FROM pi_tasks UNION ALL SELECT record FROM pi_entries UNION ALL SELECT record FROM pi_submissions",
+				)
+			).some((row) => row.record.includes("input-preparation-check-complete")),
+		).toBe(true);
+		expect(warnings).toEqual(["maxMinutes"]);
+	} finally {
+		await runtime.close();
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("explicit abort still cancels context rendering before a model request", async () => {
+	const home = await mkdtemp("/tmp/yonder-explicit-abort-");
+	let entered = false;
+	let cancelled = false;
+	const runtime = await Runtime.open({
+		home,
+		db: await openDatabase(`${home}/state.db`),
+		config: { schema: 1 },
+		resolveSession: async () => ({
+			agent: null,
+			profile: "check",
+			cwd: home,
+			resolved: resolveProfile({ limits: { maxMinutes: 1 } }),
+		}),
+		sections: async (_session, signal) => {
+			assert(signal);
+			entered = true;
+			await once(signal, "abort");
+			cancelled = signal.aborted;
+			throw signal.reason;
+		},
+	});
+	try {
+		const session = await runtime.create({ agent: null, profile: "check", cwd: home });
+		const pending = runtime.submit(session, { text: "Explicit abort verification" });
+		await expect.poll(() => entered).toBe(true);
+		await runtime.abort(session);
+		const run = await pending;
+		expect([run.status, run.reason, run.usage.cost, cancelled]).toEqual(["aborted", "aborted", 0, true]);
 	} finally {
 		await runtime.close();
 		await rm(home, { recursive: true, force: true });

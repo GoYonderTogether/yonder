@@ -26,7 +26,7 @@ bindings: []
 		const profile = resolveProfile(agent.profiles.guest!, agent.defaults, "local");
 		expect(profile.contexts).toEqual(["one"]);
 		expect(profile.tools).toEqual({ offer: ["custom"], search: ["find"] });
-		expect(profile.limits).toEqual({ maxTurns: 20, maxMinutes: 5, repeatBlock: 3, repeatStop: 5 });
+		expect(profile.limits).toEqual({ maxTurns: 20, maxMinutes: 5, maxTokens: 200000, repeatBlock: 3, repeatStop: 5 });
 		expect(matchesGlob("tool_?ead*", "tool_read_file")).toBe(true);
 	});
 });

@@ -222,6 +222,10 @@ export function createRouter({
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
+			if (agent.archivedAt) {
+				routes.push({ agent: agent.id, binding: null, dropped: "agent-disabled" });
+				continue;
+			}
 			if (internalTarget && internalTarget !== agent.id) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;

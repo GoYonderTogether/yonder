@@ -17,6 +17,8 @@ import type { WorkspaceFiles } from "../config/index.js";
 import type { RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
 import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
 
+export const memoryGuide = `# 手工记忆资料\n\n这是临时、按需读取的记录目录，不是自动记忆引擎。用 YYYY-MM-DD/主题.md 保存已确认的条目，注明日期、来源、适用范围，区分事实与假设；需要时用文件检索读取，可手工合并、编辑和归档。不要保存凭据。\n\n本目录不会自动注入提示词，不自动总结、整理、清理或删除。记忆方法需要结合真实场景，参考成熟项目或方法论迭代，找到适合当前使用的方法；不要把这个简单约定当作长期固定方案。\n`;
+
 export const systemTemplate =
 	"# 身份\n\n<!-- 我是谁。 -->\n\n# 职责\n\n<!-- 我负责什么。 -->\n\n# 边界\n\n<!-- 我遵守哪些边界。 -->\n";
 export const escapeXml = (value: string) =>
@@ -44,7 +46,7 @@ export interface PromptOptions {
 
 function renderContext(
 	session: RuntimeSessionConfig & { id: string },
-	files: WorkspaceFiles,
+	files: () => WorkspaceFiles,
 	event?: YEvent,
 	signal?: AbortSignal,
 ): RenderContext {
@@ -52,7 +54,13 @@ function renderContext(
 		agent: session.agent ?? "",
 		profile: session.profile,
 		session: session.id,
-		workspace: { read: async (path) => ((await files.exists(path)) ? files.readFile(path) : undefined) },
+		workspace: {
+			read: async (path) => {
+				if (!session.agent) return undefined;
+				const workspace = files();
+				return (await workspace.exists(path)) ? workspace.readFile(path) : undefined;
+			},
+		},
 		...(event ? { event } : {}),
 		...(signal ? { signal } : {}),
 	};
@@ -64,8 +72,7 @@ async function contributions(
 	options: Pick<PromptOptions, "contexts" | "workspace" | "signal">,
 	event?: YEvent,
 ): Promise<string[]> {
-	if (!session.agent) return [];
-	const context = renderContext(session, options.workspace(session, options.signal), event, options.signal);
+	const context = renderContext(session, () => options.workspace(session, options.signal), event, options.signal);
 	const sections: string[] = [];
 	for (const id of session.resolved.contexts) {
 		options.signal?.throwIfAborted();
@@ -84,6 +91,7 @@ export async function scaffoldWorkspace(
 	contexts: Map<string, ContextContribution>,
 ): Promise<void> {
 	if (!(await files.exists("SYSTEM.md"))) await files.writeFile("SYSTEM.md", systemTemplate);
+	if (!(await files.exists("memory/README.md"))) await files.writeFile("memory/README.md", memoryGuide);
 	for (const id of selected) {
 		const contribution = contexts.get(id);
 		if (!contribution) throw new Error(`Unknown context: ${id}`);

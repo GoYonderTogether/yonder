@@ -162,7 +162,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "agent_ask",
-			description: "通过目标 agent 的绑定提交问题并等待它的答复。",
+			description: "通过目标 agent 的绑定提交问题；15秒未完成返回后台句柄，答复完成后自动通知。",
 			parameters: schema({ agent: text(), text: text() }),
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "message");
@@ -201,7 +201,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "task_run",
-			description: `使用预设完成专门任务并返回结果。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
+			description: `使用预设完成专门任务；15秒未完成返回后台句柄，完成后自动通知。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
 			parameters: schema({ preset: text(), task: text(), attachments: Type.Optional(Type.Array(attachmentSchema)) }),
 			execute: async (args, ctx) => {
 				const request = args as { preset: string; task: string; attachments?: Attachment[] };

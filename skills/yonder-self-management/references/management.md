@@ -20,9 +20,15 @@ owner 是 `person:<id>`，不是显示名或渠道账号。账号引用为 `acct
 
 常驻 Agent 有身份、owner、独立工作区和绑定，适合持续接收事件；profile 是同一个 agent 的不同运行配置，不是另一个助理。
 
-创建常驻 Agent 需要在目标工作区准备真实职责的 `SYSTEM.md` 与 `agent.yaml`，并在 home 的 `yonder.yaml.agents` 登记 `{ id, workspace, env? }`。复用现有 agent 配置结构，按实际授权指定 owner、profiles、模型、插件和绑定，不复制其他 agent 的全部权限。当前没有 `yonder agents create` 命令。
+使用 `yonder agents list|show <id>` 和 `yonder presets list|show <id>` 查看真实对象。稳定 id 用于绑定和历史，name 是昵称，work 是工作说明；改昵称不改身份、权限或 SYSTEM。
 
-**新增或删除注册、改变 workspace/env 必须重启。** 自动重载只轮询启动时已登记 agent 的 agent.yaml，不会发现新建目录或重新读取 `yonder.yaml.agents`。先运行目标 home 的 doctor；通过后，由服务外的已授权执行方在维护窗口重启，再检查有效配置与实际服务信息；当前运行不要自行停掉服务后承诺会完成核对。只创建文件或 doctor 通过不能记为常驻 Agent 已上线。
+`yonder agents create <id> --preset <preset> --file <json>` 从已有 preset 创建。JSON 必须明确提供 `name`、`work`、已有 `owner` 和 `bindings` 数组，可选 `profile` 覆盖既有 Profile 字段；不给入口时显式写空 bindings，结果 `messageEntry:false` 表示无消息入口。程序生成 agent.yaml、SYSTEM 空段和选中上下文，不覆盖既有工作区，不自动安装插件或扩大绑定。
+
+`yonder agents update <id> --file <json>` 合并 Agent 配置字段；`agents validate <id> --file <json>` 只校验不保存。`presets create|update|validate <id> --file <json>` 复用现有 preset 字段，创建必须有 description。JSON 文件不得包含秘密；管理 RPC 与 CLI 共用校验。命令显式带 `--home <home> --json` 便于查看 saved/valid/accepted。`accepted:true` 表示运行服务已接纳，不代表真实模型成功执行；离线保存返回 `accepted:false`。
+
+`yonder agents archive <id>`（remove 同义）保留注册、目录、历史且不接新输入；`agents restore <id>` 重新校验后恢复。默认 main 保留日常入口，不能归档。归档后既有运行及已接纳输入继续自然完成，不自行中止任务。`presets remove <id>` 不能删除仍被开放会话引用的 preset。无 true delete/purge。
+
+注册、agent 与 preset 候选一起校验后热发布，管理命令等待实际发布结果；失败保留完整有效旧状态并给出错误。已有开放会话保护 workspace/env/profile；不做后台目录迁移。其他 yonder.yaml 配置（插件/provider/服务等）仍须重启。
 
 Agent 输入一律经绑定。内部助理消息需目标绑定允许 `channel: agent`、`kind: agent`；发送者为 `acct:agent:<调用方id>`，按目标 owner 的身份关系计算 from。没有匹配绑定就不会运行；不要为“让它能收到”而扩大所有陌生人的入口。main 的所有绑定必须使用同一 profile，已有会话不能通过更换绑定偷偷换 profile。
 
@@ -49,9 +55,9 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 
 | 改动 | 真实生效边界 |
 |---|---|
-| 已登记 agent 的 agent.yaml、home presets/*.yaml | 约每秒检测，校验成功后供下一次运行使用 |
+| yonder.yaml.agents 注册/归档、agent.yaml、home presets/*.yaml | 约每秒检测，校验成功后供下一次运行使用 |
 | SYSTEM.md、选用上下文、skills | 每次组装提示词读取；技能还受 profile.skills 过滤 |
-| yonder.yaml、插件装卸、agent 注册、程序代码 | 需要重启；代码不热重载 |
+| yonder.yaml 其余字段、插件装卸、程序代码 | 需要重启；代码不热重载 |
 
 候选配置无效会保留旧配置并记录 `config.reload` 的 ok/errors；当前运行保持原快照。删除仍被未关闭会话引用的 profile/preset 会被拒绝，先明确处理那些会话。`doctor` 检查磁盘配置；`inspect` 包含所选配置及运行快照，不能单凭磁盘内容断言运行已切换。事件过滤语法查版本文档；用 `yonder events --type config.reload --home <home> --json` 查重载结果，用 `--type run.end` 查运行终态，并核对相关 session。插件 add/remove 改唯一加载名单，不自动重启或热卸载，也不删除外部源码和插件私有数据。
 

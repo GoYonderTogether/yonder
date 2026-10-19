@@ -80,6 +80,7 @@ export function createSessions({
 	}
 
 	async function createAgentSession(agentId: string, profileName: string, key: string, mode: SessionInfo["mode"]) {
+		if (agents.get(agentId)?.archivedAt) throw new Error(`Agent archived: ${agentId}`);
 		const lock = `${agentId}\0${key}`;
 		const existing = opening.get(lock);
 		if (existing) return existing;
@@ -255,6 +256,7 @@ export function createSessions({
 			if (!selected) throw new Error(`Unknown preset: ${request.preset}`);
 			const parent = request.parent ? await store.sessions.get(request.parent) : undefined;
 			if (request.parent && !parent) throw new Error(`Unknown parent session: ${request.parent}`);
+			if (parent?.agent && agents.get(parent.agent)?.archivedAt) throw new Error(`Agent archived: ${parent.agent}`);
 			const parentState = parent ? await runtime().sessionState(parent.id) : undefined;
 			const parentProfile = parent ? await runtime().sessionConfig(parent.id) : undefined;
 			const baseEnv = parentProfile?.resolved.env ?? parentState?.env ?? "local";

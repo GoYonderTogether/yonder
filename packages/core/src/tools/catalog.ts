@@ -9,4 +9,5 @@ export const coreToolCapabilities: Record<string, Capability[]> = {
 	identity_lookup: ["read"],
 	identity_link: ["admin"],
 	skill_view: [],
+	process: [],
 };
