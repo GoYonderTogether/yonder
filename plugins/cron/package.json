@@ -1,0 +1,39 @@
+{
+	"name": "@yonder/plugin-cron",
+	"version": "0.1.2026101907",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"SOURCES.md"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.1.2026101907",
+		"cron-parser": "5.4.0",
+		"typebox": "1.3.27"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "cron",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"tools": [
+				"cron_manage",
+				"cron_exec"
+			],
+			"triggers": [
+				"cron"
+			]
+		}
+	}
+}
