@@ -66,6 +66,7 @@ Use `scripts/` for executable code when the same logic would otherwise be rewrit
 - **Example:** `scripts/rotate_pdf.py` for a PDF operation that would otherwise require recreating the same code.
 - **Useful for:** Repeated transformations, reliable API operations, data processing, and other concrete automation.
 - **Validation:** Run new or changed scripts to verify their behavior. Scripts can usually be executed without loading their full implementation into context, although an agent may need to inspect them when patching or adapting them.
+- The bundled Python helpers that read or write YAML (`quick_validate.py`, `generate_openai_yaml.py`, and `init_skill.py`) require Python 3 and PyYAML; this is an optional authoring-tool dependency, not a Yonder runtime dependency.
 
 ### References
 
