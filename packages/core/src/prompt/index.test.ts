@@ -8,7 +8,15 @@ import { openDatabase } from "../runtime/db.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
-import { framework, type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "./index.js";
+import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
+import {
+	framework,
+	type PromptOptions,
+	prepareInput,
+	scaffoldWorkspace,
+	systemSections,
+	systemTemplate,
+} from "./index.js";
 
 test("system sections are deterministic and only selected contexts render", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "yonder-prompt-"));
@@ -48,13 +56,42 @@ test("system sections are deterministic and only selected contexts render", asyn
 			cwd: directory,
 			resolved: resolveProfile({ contexts: ["selected"] }),
 		};
-		const options = { contexts, workspace: () => files };
-		expect(await systemSections(session, options)).toEqual(await systemSections(session, options));
+		const options = { contexts, workspace: () => files, skillIndex: async () => "<skills></skills>" };
+		const sections = await systemSections(session, options);
+		expect(sections).toEqual(await systemSections(session, options));
+		expect(sections).toEqual([
+			framework(session),
+			commonPrompt,
+			residentPrompt,
+			runtimePrompt,
+			systemTemplate,
+			"<skills></skills>",
+			"Selected context",
+		]);
 		expect([selected, unselected]).toEqual([2, 0]);
 		expect(framework(session).split(/\s+/u).length).toBeLessThanOrEqual(250);
 		expect(framework(session)).not.toContain("yonder docs");
 	} finally {
 		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("task identity and CLI guidance follow actual identity and capabilities", async () => {
+	const cwd = process.cwd();
+	const options = {
+		contexts: new Map(),
+		workspace: () => {
+			throw new Error("Identity-less tasks must not read an Agent workspace");
+		},
+	};
+	for (const level of ["readonly", "standard"] as const) {
+		const session = { id: "1", agent: null, profile: "default", cwd, resolved: resolveProfile({ level }) };
+		const sections = await systemSections(session, options);
+		expect(sections).toContain(commonPrompt);
+		expect(sections).toContain(runtimePrompt);
+		expect(sections).not.toContain(residentPrompt);
+		expect(sections.includes(cliPrompt)).toBe(level === "standard");
+		expect(sections.join("\n")).not.toContain("You have one owner");
 	}
 });
 
@@ -97,6 +134,13 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.text).toContain(`id="${event.id}" type="github.release"`);
 		expect(prepared.text).toContain(JSON.stringify(event.data));
 		expect(prepared.event).toEqual(event);
+		expect(prepared.text).toContain(`runtime: version=${row.version} home=${directory}`);
+		expect(prepared.text).toContain(`execution: env=local cwd=${directory}`);
+		expect(prepared.text).toContain(`host: platform=${process.platform} prepared=`);
+		expect(prepared.text).toContain(`timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+		const passive = await prepareInput(row, session, event, "write", options);
+		expect(passive.text).not.toContain("runtime: version=");
+		expect(passive.text).not.toContain("host: platform=");
 		const input = newEvent({
 			type: "message.in",
 			from: "acct:cli:local",

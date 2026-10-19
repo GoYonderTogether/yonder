@@ -86,7 +86,7 @@ bindings: [ … ]                   # 见 02 §2
 - 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；能力 = 预设 ∩ `capabilities`，插件应当传入它代表的外部调用方被允许的能力。
 - 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
-- 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取 SYSTEM.md 或工作区上下文贡献；system 保留框架、home/插件 skill 索引和 instructions。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
+- 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取 SYSTEM.md 或工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
 ## 5. 提示词组装
 
@@ -94,13 +94,19 @@ bindings: [ … ]                   # 见 02 §2
 
 | 位置 | 放什么 | 规则 |
 |---|---|---|
-| system | 依次：① 框架段 ② `SYSTEM.md` ③ skill 索引（§6） ④ `placement: system` 的上下文贡献（按 `contexts` 顺序） ⑤ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
+| system | 依次：① 框架段 ② 内置共同底座 ③ 常驻身份段（仅有 agent）④ 内置运行约定 ⑤ CLI 自管理导航（仅有 exec）⑥ `SYSTEM.md`（仅有 agent）⑦ skill 索引（§6）⑧ `placement: system` 的上下文贡献（按 `contexts` 顺序）⑨ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
 | 本轮输入 | 依次：① 内核的 `<turn>` 块 ② 原事件正文（紧随其来源与原时间）③ `placement: turn` 的补充上下文 | 随用户消息一起写入转录，可审计，不再改写 |
 | tools | 只放工具定义 | 不在工具定义里塞上下文 |
 
 ### 5.2 框架段
 
 内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、06 §4 列出的规则、可以用 `yonder` 命令与 `yonder docs` 了解和维护自己的运行环境（09 §1，仅当配置档有 `exec`）。用英文书写，**应当**控制在 250 词以内。
+
+### 5.2.1 非插件内置底座（2026-10-19 用户批准）
+
+内核编译保存等义英文正文，中文审阅源见 docs/prompts/builtin.zh-CN.md。共同底座说明产品愿景、判断与工作方式、事实与反馈、使用建议、资产维护；常驻身份说明唯一主人、独立身份与生命连续性、记忆与分工、协作、自管理与成长；运行约定说明事件、插件、会话、元数据、源码/配置入口和设备关系。它们不注册为插件，不包含具体名字、人设或固定文风，不改权限系统。
+
+框架段的250词约束只约束5.2短导航，不截断完整底座。常驻身份仅真实agent装入，无身份preset不获得主人关系。CLI命令导航仅有exec能力时装入；skill_view等非CLI说明按实际工具规则使用。正文随版本编译，稳定、一次装入，不新增文件读取/回退/复制脚本；既有SYSTEM、技能、上下文与instructions顺序相对保持。
 
 ### 5.3 `<turn>` 块
 
@@ -114,6 +120,7 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 </turn>
 ```
 
+- 仅 `wake: run` 增加可信运行事实：当前软件version与home、有效env与cwd、宿主prepared时间/时区/platform。宿主与执行环境分别标明，cwd不冒充远程宿主或工作区；不新增时间轮询。prepared为本次输入准备时刻，不替换事件原时间。这些事实随输入保留，不进入system。
 - `attachment:` 每个附件一行。模型支持图片输入时，图片附件不列在这里，而是由内核读取后作为图片块放进同一条用户消息（超出模型 `inputLimits` 的仍按附件列出）；其余附件只列出，由工具处理。`http(s)` 地址由内核下载到 `<home>/.yonder/attachments/` 后改写为 `file://`。
 - `notice:` 只在会话的 `version` 与当前版本不同时出现一次（09 §4）。
 - 以 `wake: write` 写入的消息只带 `from` 与 `attachment` 行，不带时间以外的环境信息。
@@ -141,7 +148,7 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 
 **选择**：配置档的 `skills` 通配列表（默认 `["*"]`）；访客类分身可以设为 `[]`。
 
-**索引**：system 第 ③ 段（§5.1），按 `name` 排序，每个 skill 只有名字与描述，格式：
+**索引**：system 第 ⑦ 段（§5.1），按 `name` 排序，每个 skill 只有名字与描述，格式：
 
 ```
 <skills>

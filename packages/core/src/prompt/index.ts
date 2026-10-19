@@ -15,6 +15,7 @@ import {
 } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
 import type { RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
+import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
 
 export const systemTemplate =
 	"# 身份\n\n<!-- 我是谁。 -->\n\n# 职责\n\n<!-- 我负责什么。 -->\n\n# 边界\n\n<!-- 我遵守哪些边界。 -->\n";
@@ -96,7 +97,10 @@ export async function systemSections(
 	session: RuntimeSessionConfig & { id: string },
 	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "signal">,
 ): Promise<string[]> {
-	const sections = [framework(session)];
+	const sections = [framework(session), commonPrompt];
+	if (session.agent) sections.push(residentPrompt);
+	sections.push(runtimePrompt);
+	if (session.resolved.capabilities.includes("exec")) sections.push(cliPrompt);
 	if (session.agent) sections.push(await options.workspace(session, options.signal).readFile("SYSTEM.md"));
 	const skills = await options.skillIndex?.(session);
 	if (skills) sections.push(skills);
@@ -147,6 +151,13 @@ export async function prepareInput(
 		environment = `${conv?.kind === "conv" ? ` channel="${label(conv.channel)}"` : ""}${data.kind ? ` kind="${label(data.kind)}"` : ""}${event.conv ? ` conv="${label(event.conv)}"` : ""}`;
 	}
 	lines.push(`<turn id="${label(event.id)}" type="${label(event.type)}" time="${label(event.ts)}"${environment}>`);
+	if (wake === "run") {
+		lines.push(`runtime: version=${label(options.version)} home=${label(options.home)}`);
+		lines.push(`execution: env=${label(session.resolved.env)} cwd=${label(session.cwd)}`);
+		lines.push(
+			`host: platform=${process.platform} prepared=${new Date().toISOString()} timezone=${label(Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
+		);
+	}
 	if (data.msgId) lines.push(`message: ${label(data.msgId)}`);
 	if (data.createdAt) {
 		const sent = new Date(Number(data.createdAt));
