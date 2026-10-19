@@ -233,7 +233,7 @@ export function launcher(install: string, node = process.execPath, path = runtim
 export function servicePlist(install: string, home: string, path = runtimePath(install)): string {
 	const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
 	return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n${pair("Label", label)}
-<key>ProgramArguments</key><array>${[join(install, "bin/yonder"), "start", "--home", home].map((arg) => `<string>${xml(arg)}</string>`).join("")}</array>
+<key>ProgramArguments</key><array>${[join(install, "bin/yonder"), "start", "--home", home, "--json"].map((arg) => `<string>${xml(arg)}</string>`).join("")}</array>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
 ${pair("StandardOutPath", join(home, ".yonder/logs/harness.log"))}
 ${pair("StandardErrorPath", join(home, ".yonder/logs/harness.log"))}

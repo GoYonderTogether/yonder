@@ -32,3 +32,5 @@ export const person = (id: string): Ref => reference(`person:${id}`);
 export const agent = (id: string): Ref => reference(`agent:${id}`);
 export const session = (id: string | number): Ref => reference(`session:${id}`);
 export const plugin = (id: string): Ref => reference(`plugin:${id}`);
+
+export * from "./chat-commands.js";

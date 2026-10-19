@@ -21,6 +21,7 @@ interface CreateRouterOptions {
 		waiter: boolean,
 	) => ((part: OutputPart, runId?: string) => void) | undefined;
 	onRun?: (session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean) => void | Promise<void>;
+	onCommand?: (session: SessionInfo, event: YEvent) => Promise<RunResult | undefined>;
 	onReport?: (error: unknown) => void;
 }
 
@@ -79,6 +80,7 @@ export function createRouter({
 	agents,
 	onStart,
 	onRun,
+	onCommand,
 	onReport = () => {},
 }: CreateRouterOptions) {
 	const pending = new Map<string, Set<(result: RunResult) => void>>();
@@ -116,6 +118,13 @@ export function createRouter({
 				try {
 					const session = await store.sessions.get(routed.session);
 					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
+					if (routed.wake === "run") {
+						const command = await onCommand?.(session, event);
+						if (command) {
+							finish(routed.agent, event.id, command);
+							return;
+						}
+					}
 					const data = event.data as { text?: string; attachments?: RuntimeInput["attachments"] };
 					const waiter = event.routes?.find((route) => route.session === session.id)?.waiting ?? false;
 					const startedOutput = routed.wake === "run" ? onStart?.(session, event, waiter) : undefined;

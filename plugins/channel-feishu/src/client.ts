@@ -37,7 +37,29 @@ export class FeishuApi {
 	}
 	safe(error: unknown): string {
 		// Never stringify SDK request/config objects; they can contain app_secret and bearer tokens.
-		let message = error instanceof Error ? error.message : "Feishu operation failed";
+		const details: string[] = [];
+		let current = error;
+		const seen = new Set<unknown>();
+		while (current instanceof Error && !seen.has(current) && seen.size < 4) {
+			seen.add(current);
+			const code = (current as NodeJS.ErrnoException).code;
+			details.push(
+				`${current.name === "Error" ? "" : `${current.name}: `}${current.message}${code ? ` [${code}]` : ""}`,
+			);
+			current = current.cause;
+		}
+		let message = details.length
+			? details.join("; cause: ")
+			: typeof error === "string"
+				? error
+				: "Feishu operation failed";
+		message = message
+			.replace(/https?:\/\/[^\s<>"']+/gi, "[redacted URL]")
+			.replace(/(Bearer\s+)\S+/gi, "$1[redacted]")
+			.replace(
+				/((?:app_secret|appSecret|access_token|tenant_access_token|token|ticket)[\s"']*[:=][\s"']*)[^\s,"'&}]+/gi,
+				"$1[redacted]",
+			);
 		for (const value of [this.secret, this.token]) if (value) message = message.split(value).join("[redacted]");
 		return message;
 	}
@@ -79,7 +101,7 @@ export class FeishuApi {
 			throw new FeishuRequestError(
 				this.safe(
 					new Error(
-						`Feishu ${operation}: ${response.ok ? "" : `HTTP ${response.status}; `}code=${String(result.code)}${scopes.length ? `; required permissions=${scopes.join(",")}` : ""}${result.code !== 0 ? "; check application scopes, publication and tenant access" : ""}`,
+						`Feishu ${operation}: ${response.ok ? "" : `HTTP ${response.status}; `}code=${String(result.code)}${string(result.msg) ? `; msg=${string(result.msg)}` : ""}${scopes.length ? `; required permissions=${scopes.join(",")}` : ""}${result.code !== 0 ? "; check application scopes, publication and tenant access" : ""}`,
 					),
 				),
 				!response.ok && response.status >= 500,

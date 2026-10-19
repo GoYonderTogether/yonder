@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FeishuChannel } from "../src/channel.js";
 import { FeishuApi, FeishuRequestError } from "../src/client.js";
 import plugin from "../src/index.js";
+import { FeishuInteraction } from "../src/interaction.js";
 import { cancellable, chunks, parseContent, textPayload } from "../src/protocol.js";
 
 const config = { appId: "protocol-test", secret: "unread" };
@@ -55,7 +56,7 @@ describe("Feishu protocol receipts (no network or model)", () => {
 			await expect(
 				client.request("/im/v1/chats/chat/members?member_id_type=open_id", "POST", {}),
 			).rejects.toMatchObject({
-				message: `Feishu /im/v1/chats/chat/members: HTTP ${status}; code=99991672; required permissions=im:chat.members:read,im:chat:readonly; check application scopes, publication and tenant access`,
+				message: `Feishu /im/v1/chats/chat/members: HTTP ${status}; code=99991672; msg=Access denied; required permissions=im:chat.members:read,im:chat:readonly; check application scopes, publication and tenant access`,
 				uncertain: status >= 500,
 			});
 		}
@@ -132,7 +133,7 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		try {
 			await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
 				message:
-					"Feishu /im/v1/messages: HTTP 400; code=99991672; required permissions=im:message [redacted] [redacted]; check application scopes, publication and tenant access",
+					"Feishu /im/v1/messages: HTTP 400; code=99991672; msg=[redacted] [redacted] untrusted-message; required permissions=im:message [redacted] [redacted]; check application scopes, publication and tenant access",
 				uncertain: false,
 			});
 			expect(fetch).toHaveBeenCalledTimes(2);
@@ -176,6 +177,35 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		await expect(missingId.stream("conv:test:chat", output())).resolves.toMatchObject({ ok: false, uncertain: true });
 		expect(request.mock.calls.filter(([path]) => path.endsWith("/settings"))).toHaveLength(1);
 	});
+	it("ordinary automatic replies use the same policy while explicit replies stay explicit", async () => {
+		const channel = new FeishuChannel("test", config, api());
+		const policy = vi
+			.spyOn(FeishuInteraction.prototype, "beforeReply")
+			.mockResolvedValueOnce(undefined)
+			.mockResolvedValueOnce("om_explicit");
+		const send = vi.spyOn(channel, "rawSend").mockResolvedValue("om_sent");
+		try {
+			await channel.send("conv:test:chat", { text: "reply", sourceMessageId: "om_source" });
+			expect(policy.mock.calls[0]).toEqual(["conv:test:chat", "om_source", undefined]);
+			expect(send.mock.calls[0]?.[3]).toBeUndefined();
+			await channel.send("conv:test:chat", { text: "reply", replyTo: "om_explicit" });
+			expect(send.mock.calls[1]?.[3]).toBe("om_explicit");
+		} finally {
+			policy.mockRestore();
+		}
+	});
+	it("tool-only or empty output creates no visible streaming card", async () => {
+		const channel = new FeishuChannel("test", config, api());
+		const request = vi.spyOn(channel.client, "request");
+		const send = vi.spyOn(channel, "rawSend");
+		async function* output() {
+			yield { type: "tool" as const, phase: "start" as const, name: "read" };
+			yield { type: "final" as const, text: "" };
+		}
+		await expect(channel.stream("conv:test:chat", output(), "om_source")).resolves.toMatchObject({ ok: true });
+		expect(request).not.toHaveBeenCalled();
+		expect(send).not.toHaveBeenCalled();
+	});
 	it("ordinary tool forwards the exact execution context to shared delivery", async () => {
 		const { api: base, registrations } = createRegistrationCollector();
 		const send = vi.fn(async (..._args: unknown[]) => ({ ok: false, uncertain: true }));
@@ -201,6 +231,28 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		])
 			expect((await tool?.execute(invalid, ctx))?.isError).toBe(true);
 		expect(send).toHaveBeenCalledTimes(1);
+	});
+	it("history scope uses actual run sources and requires admin for other chats", async () => {
+		const { api: base, registrations } = createRegistrationCollector();
+		plugin.setup({ ...base, paths: { data: "/unused" } } as PluginAPI);
+		registrations.channels[0]?.create("test", config);
+		const history = vi.spyOn(FeishuChannel.prototype, "history").mockResolvedValue({ items: [] });
+		const tool = registrations.tools.find((tool) => tool.name === "channel-feishu_history");
+		const ctx = {
+			capabilities: ["read", "network"],
+			signal: new AbortController().signal,
+			event: { conv: "conv:test:source" },
+		} as ToolContext;
+		expect((await tool?.execute({ instance: "test", chat: "other" }, ctx))?.isError).toBe(true);
+		expect(history).not.toHaveBeenCalled();
+		expect((await tool?.execute({ instance: "test" }, ctx))?.isError).toBeUndefined();
+		expect(history.mock.calls[0]?.[0]).toEqual({ chat: "source" });
+		expect(
+			(await tool?.execute({ instance: "test", chat: "other" }, { ...ctx, capabilities: ["admin", "read", "network"] }))
+				?.isError,
+		).toBeUndefined();
+		expect(history.mock.calls[1]?.[0]).toEqual({ chat: "other" });
+		history.mockRestore();
 	});
 	it("preserves inbound resource kinds and UTF-8 chunk limits", () => {
 		expect(parseContent("media", JSON.stringify({ file_key: "video", image_key: "cover" })).resources).toEqual([

@@ -18,6 +18,7 @@ import {
 import { createDelivery } from "../delivery/index.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins, pluginDirectory } from "../plugins/index.js";
 import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "../prompt/index.js";
+import { runChannelCommand } from "../routing/commands.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
 import {
@@ -665,6 +666,11 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			sessions,
 			runtime: realRuntime,
 			agents,
+			onCommand: (session, event) => {
+				const channel = event.conv?.split(":")[1];
+				if (!channel || config.channels?.[channel]?.type !== "feishu") return Promise.resolve(undefined);
+				return runChannelCommand(session, event, { store, sessions, delivery, skills: skills.inspect });
+			},
 			onStart: delivery.onStart,
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,

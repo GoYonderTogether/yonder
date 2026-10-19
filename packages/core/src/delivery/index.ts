@@ -21,6 +21,7 @@ export interface MessageRequest {
 	via?: string;
 	text: string;
 	replyTo?: string;
+	sourceMessageId?: string;
 	attachments?: Attachment[];
 	signal?: AbortSignal;
 }
@@ -86,6 +87,11 @@ const channelId = (ref: string) => {
 	return parsed.kind === "acct" || parsed.kind === "conv" ? parsed.channel : undefined;
 };
 const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.agent}` : undefined);
+function sourceMessage(event: YEvent): string | undefined {
+	const data = event.data as { msgId?: string; originals?: Array<{ messageId?: string; msgId?: string }> };
+	const original = data.originals?.at(-1);
+	return original?.messageId ?? original?.msgId ?? data.msgId;
+}
 
 export function createDelivery(options: DeliveryOptions) {
 	const { store, agents, channels, sessions } = options;
@@ -220,6 +226,7 @@ export function createDelivery(options: DeliveryOptions) {
 			const key = `${session.id}\0${runId}\0${target}`;
 			let state = streams.get(key);
 			if (state && state.owner !== event.id) return;
+			if (part.type !== "text" && !state?.delivery) return;
 			if (!state) {
 				state = {
 					owner: event.id,
@@ -244,12 +251,7 @@ export function createDelivery(options: DeliveryOptions) {
 					if (!id) return { ok: false, uncertain: true, error: "该运行已有渠道尝试，不自动重新开流" };
 					stream.attempt = id;
 					try {
-						const delivered = await channel.stream!(
-							target,
-							stream.queue,
-							(event.data as { msgId?: string }).msgId,
-							stream.signal,
-						);
+						const delivered = await channel.stream!(target, stream.queue, sourceMessage(event), stream.signal);
 						return !delivered.ok && delivered.uncertain
 							? unknown(id, delivered.error ?? "渠道未确认结果", delivered)
 							: delivered;
@@ -270,19 +272,19 @@ export function createDelivery(options: DeliveryOptions) {
 		for (const event of actual)
 			if (waiting(session, event) === undefined)
 				report(new Error(`输入 ${event.id} 缺少历史 waiting，自动投递不可确定，未发送`));
-		const seen = new Set<string>();
-		const sources = actual.filter((event) => {
-			if (
-				waiting(session, event) !== false ||
-				!event.conv ||
-				!channels.has(channelId(event.conv) ?? "") ||
-				(binding(session, event, profile)?.reply ?? "auto") !== "auto" ||
-				seen.has(event.conv)
-			)
-				return false;
-			seen.add(event.conv);
-			return true;
-		});
+		const sources = [
+			...new Map(
+				actual
+					.filter(
+						(event) =>
+							waiting(session, event) === false &&
+							event.conv &&
+							channels.has(channelId(event.conv) ?? "") &&
+							(binding(session, event, profile)?.reply ?? "auto") === "auto",
+					)
+					.map((event) => [event.conv, event]),
+			).values(),
+		];
 		const hasWaiter = actual.some((event) => waiting(session, event) === true);
 		const stopped = run.status !== "done";
 		const finalText = stopped
@@ -332,13 +334,14 @@ export function createDelivery(options: DeliveryOptions) {
 					state.queue.end();
 				}
 				for (const event of targets) {
+					const sourceMessageId = sourceMessage(event);
 					if (owned.some(([, state]) => state.target === event.conv && state.delivery)) continue;
 					await send(
 						fromSession(session),
 						{
 							to: event.conv!,
 							text: finalText,
-							...((event.data as { msgId?: string }).msgId ? { replyTo: (event.data as { msgId: string }).msgId } : {}),
+							...(sourceMessageId ? { sourceMessageId } : {}),
 						},
 						session,
 						event.id,
@@ -383,6 +386,19 @@ export function createDelivery(options: DeliveryOptions) {
 		async recover() {
 			for (const event of await store.events.unresolvedAttempts())
 				await unknown(event.id, new Error("进程在渠道尝试后未保存确认"));
+		},
+		async sendCommand(session: SessionInfo, event: YEvent, text: string): Promise<Delivery> {
+			if (!event.conv) throw new Error("Command has no source conversation");
+			const sourceMessageId = sourceMessage(event);
+			return send(
+				fromSession(session),
+				{ to: event.conv, text, ...(sourceMessageId ? { sourceMessageId } : {}) },
+				session,
+				event.id,
+				await sessions.resolveSession(session.id),
+				AbortSignal.timeout(60000),
+				`command:${event.id}`,
+			);
 		},
 		async sendPlugin(pluginId: string, request: MessageRequest): Promise<Delivery> {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };

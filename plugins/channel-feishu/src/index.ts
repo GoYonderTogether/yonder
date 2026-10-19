@@ -16,6 +16,16 @@ const str = { type: "string", minLength: 1 };
 export default definePlugin({
 	setup(api: PluginAPI) {
 		const instances = new Map<string, FeishuChannel>();
+		// Do not serialize later inbound observations behind network reaction requests.
+		for (const type of ["message.in", "run.end", "channel.command.result"])
+			api.events.on(type, (event) => {
+				for (const channel of instances.values()) {
+					const work = type === "message.in" ? channel.onInput(event) : channel.onEnd(event);
+					void work.catch((error: unknown) =>
+						api.log.warn("Feishu interaction failed", { instance: channel.id, error: channel.client.safe(error) }),
+					);
+				}
+			});
 		const register = (tool: Tool) =>
 			api.tools.register({
 				...tool,
@@ -75,6 +85,56 @@ export default definePlugin({
 					};
 				} catch (error) {
 					return { text: error instanceof Error ? error.message : "Feishu status failed", isError: true };
+				}
+			},
+		});
+		register({
+			name: "channel-feishu_history",
+			description:
+				"Read paginated Feishu chat/thread history and resolve message attachments. Non-admin callers can only read actual sources of this run; specifying another chat requires admin. Times are epoch milliseconds. Thread time filtering is local.",
+			parameters: {
+				type: "object",
+				additionalProperties: false,
+				required: ["instance"],
+				properties: {
+					instance: str,
+					chat: str,
+					thread: str,
+					start: { type: "integer", minimum: 0 },
+					end: { type: "integer", minimum: 0 },
+					pageToken: str,
+					pageSize: { type: "integer", minimum: 1, maximum: 50 },
+				},
+			} as TSchema,
+			capabilities: ["read", "network"],
+			async execute(input, ctx) {
+				try {
+					const { args, channel } = resolve(input);
+					const sources = [...(ctx.events ?? []), ...(ctx.event ? [ctx.event] : [])].filter((event) =>
+						event.conv?.startsWith(`conv:${channel.id}:`),
+					);
+					const chat = string(args.chat) || (sources[0]?.conv ? parseRef(sources[0].conv).id : "");
+					if (!chat) throw new Error("A Feishu chat is required");
+					if (
+						!ctx.capabilities.includes("admin") &&
+						!sources.some((event) => event.conv === `conv:${channel.id}:${chat}`)
+					)
+						throw new Error("Reading another Feishu source requires admin");
+					const thread = string(args.thread);
+					const result = await channel.history(
+						{
+							chat,
+							...(thread ? { thread } : {}),
+							...(typeof args.start === "number" ? { start: args.start } : {}),
+							...(typeof args.end === "number" ? { end: args.end } : {}),
+							...(string(args.pageToken) ? { pageToken: string(args.pageToken) } : {}),
+							...(typeof args.pageSize === "number" ? { pageSize: args.pageSize } : {}),
+						},
+						ctx.signal,
+					);
+					return { text: JSON.stringify({ source: "Feishu", chat, ...result }) };
+				} catch (error) {
+					return { text: error instanceof Error ? error.message : "Feishu history failed", isError: true };
 				}
 			},
 		});

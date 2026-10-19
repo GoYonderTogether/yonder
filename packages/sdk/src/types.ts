@@ -241,6 +241,8 @@ export interface AskResult {
 }
 export interface OutMessage {
 	text: string;
+	/** Automatic reply source; explicit replyTo still forces a quoted reply. */
+	sourceMessageId?: string;
 	attachments?: Attachment[];
 	replyTo?: string;
 }

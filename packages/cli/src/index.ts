@@ -490,7 +490,8 @@ async function run(args: string[]): Promise<number> {
 		const home = homeFor(options);
 		env.YONDER_HOME = home;
 		const kernel = await openKernel(home, {
-			log: (level, message, data) => output({ level, message, ...(data ? { data } : {}) }, options.json),
+			log: (level, message, data) =>
+				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
 		});
 		let closing: Promise<void> | undefined;
 		let control: Awaited<ReturnType<typeof serveControl>>;

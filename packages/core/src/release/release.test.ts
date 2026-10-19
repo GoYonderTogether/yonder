@@ -34,6 +34,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 		execFileSync("/bin/sh", ["-n", wrapper]);
 		const text = servicePlist(directory, directory);
 		await writeFile(plist, text);
+		expect(text).toContain("<string>--json</string>");
 		expect(text).toContain("&amp;");
 		expect(text).toContain("&apos;");
 		expect(text.match(/<key>PATH<\/key>|<key>YONDER_INSTALL<\/key>|<key>YONDER_HOME<\/key>/gu) ?? []).toHaveLength(3);

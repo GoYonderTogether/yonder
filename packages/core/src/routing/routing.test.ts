@@ -89,3 +89,123 @@ bindings:
 		await db.close();
 	}
 });
+
+test("owner sources share a steered main session while Feishu observers only write", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const identity = store.identity();
+		await identity.createPerson({ id: "owner", name: "Owner" });
+		await identity.link("acct:cli:owner", "person:owner");
+		await identity.link("acct:feishu:owner", "person:owner");
+		const agent = parseAgentConfig(
+			`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: observer
+profiles:
+  owner: { level: standard }
+  observer: { level: readonly }
+bindings:
+  - id: cli-owner
+    match: { channel: cli, from: owner }
+    session: main
+    profile: owner
+    busy: steer
+  - id: feishu-owner
+    match: { channel: feishu, from: owner }
+    session: main
+    profile: owner
+    busy: steer
+  - id: feishu-group-observer
+    match: { channel: feishu, kind: group, from: [known, stranger] }
+    session: { mode: persistent, per: conv }
+    profile: observer
+    wake: write
+  - id: feishu-dm-observer
+    match: { channel: feishu, kind: dm, from: [known, stranger] }
+    session: { mode: persistent, per: conv }
+    profile: observer
+    wake: write
+`,
+			"agent.yaml",
+			"main",
+		);
+		const submitted: Array<{ id: string; input: { wake: "run" | "write"; busy?: "followup" | "steer" } }> = [];
+		let nextSession = 100;
+		let submitDone!: () => void;
+		const allSubmitted = new Promise<void>((resolve) => {
+			submitDone = resolve;
+		});
+		const runtime = {
+			create: async () => String(nextSession++),
+			submit: async (id: string, input: { wake: "run" | "write"; busy?: "followup" | "steer" }) => {
+				submitted.push({ id, input });
+				if (submitted.length === 4) submitDone();
+				return {
+					runId: `run-${submitted.length}`,
+					status: "done" as const,
+					text: "",
+					usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+					inputs: [],
+				};
+			},
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents: new Map([[agent.id, agent]]),
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/yonder-routing",
+			config: { agents: [{ id: "main", workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const commandSessions: string[] = [];
+		const router = createRouter({
+			store,
+			sessions,
+			runtime: () => runtime,
+			agents: new Map([[agent.id, agent]]),
+			onCommand: async (session) => {
+				commandSessions.push(session.id);
+				return undefined;
+			},
+		});
+		const emit = (from: string, channel: string, room: string, kind: "dm" | "group") =>
+			router.emit({
+				type: "message.in",
+				from,
+				conv: `conv:${channel}:${room}`,
+				data: { kind, text: "hello" },
+			});
+		const [cliOwner, feishuOwner, group, dm] = await Promise.all([
+			emit("acct:cli:owner", "cli", "owner", "dm"),
+			emit("acct:feishu:owner", "feishu", "owner", "dm"),
+			emit("acct:feishu:other", "feishu", "group", "group"),
+			emit("acct:feishu:other", "feishu", "dm", "dm"),
+		]);
+		await allSubmitted;
+		const cliRoute = cliOwner.routes?.[0];
+		const feishuRoute = feishuOwner.routes?.[0];
+		const groupRoute = group.routes?.[0];
+		const dmRoute = dm.routes?.[0];
+		expect(cliRoute?.session).toBe(feishuRoute?.session);
+		expect(cliRoute).toMatchObject({ wake: "run", busy: "steer" });
+		expect(feishuRoute).toMatchObject({ wake: "run", busy: "steer" });
+		expect(groupRoute).toMatchObject({ wake: "write", busy: "followup" });
+		expect(dmRoute).toMatchObject({ wake: "write", busy: "followup" });
+		expect(groupRoute?.session).not.toBe(cliRoute?.session);
+		expect(dmRoute?.session).not.toBe(groupRoute?.session);
+		expect(commandSessions).toHaveLength(2);
+		expect(new Set(commandSessions)).toEqual(new Set([cliRoute?.session, feishuRoute?.session]));
+		expect(submitted.filter(({ input }) => input.wake === "run").map(({ input }) => input.busy)).toEqual([
+			"steer",
+			"steer",
+		]);
+		expect(submitted).toHaveLength(4);
+	} finally {
+		await db.close();
+	}
+});

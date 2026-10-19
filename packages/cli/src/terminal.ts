@@ -24,6 +24,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { type Kernel, observeControl, packageVersion, requestControl, type TerminalUpdate } from "@yonder/core";
 import type { SessionInfo, YEvent } from "@yonder/sdk";
+import { chatCommands } from "@yonder/sdk";
 import { CommandAutocomplete } from "./autocomplete.js";
 import { CompactToolExecution, MessagePresentation } from "./message-presentation.js";
 import {
@@ -58,17 +59,7 @@ type Message =
 			isError: boolean;
 	  };
 
-export const chatCommands = [
-	{ name: "new", description: "新建会话 · New session" },
-	{ name: "resume", description: "继续会话 · Resume session" },
-	{ name: "session", description: "当前会话 · Session info" },
-	{ name: "hotkeys", description: "快捷键 · Hotkeys" },
-	{ name: "channel", description: "渠道聊天 · Channel chat" },
-	{ name: "skills", description: "技能 · Skills" },
-	{ name: "stop", description: "中止运行 · Stop" },
-	{ name: "close", description: "关闭任务 · Close task" },
-	{ name: "help", description: "帮助 · Help" },
-];
+export { chatCommands };
 
 /** Compare existing local directory aliases without treating missing/remote paths as the same folder. */
 export const hideReplyMarker = (text: string, streaming: boolean) =>
