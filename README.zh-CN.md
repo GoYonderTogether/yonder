@@ -6,7 +6,7 @@ Yonder Harness 是本机 Agent 运行时：把收到的事件路由到 Agent 与
 
 模型访问与持久化 Agent 会话使用 pi（`pi-ai`、`pi-durable`）作为依赖。产品名称是 Yonder Harness；pi 是底层依赖及上游来源。
 
-> **状态：** 正式版 0.1.2026101906 已发布并完成独立 macOS 安装升级；程序更新通知已实测，不唤醒模型。当前能力与未完成项见[产品全貌对比](docs/tasks/product-capabilities-1906.md)，插件见[功能清单](docs/plugins.md)，实际发行证据见[1906结果](docs/tasks/release1906-result.md)。
+> **状态：** 正式版 0.1.2026101907 已发布并完成独立 macOS 升级。新增后台工具/软提醒、Agent与preset热管理、cron、通用MCP客户端和独立浏览器/macOS桌面插件。12包随发行，本机加载11个；新用户仍按配置启用能力。实际验证与边界见[1907结果](docs/tasks/execution-capabilities-result.md)，功能见[注册名树](docs/function-tree.md)与[插件清单](docs/plugins.md)，原[1906全貌对比](docs/tasks/product-capabilities-1906.md)保留为历史。
 
 ## 日常使用
 
@@ -83,7 +83,7 @@ yonder service install
 yonder
 ```
 
-`yonder update --to <reviewed-tag|latest>` 更新安装，`--repo` 可指定仓库。`yonder version` 返回实际安装目录和来源 commit；`yonder changelog` 和 `yonder docs` 查看该安装版本的变更记录和文档。正式 GitHub 发布与完整更新验收仍在实施中，本地阶段标签不等于发布。
+`yonder update --to <reviewed-tag|latest>` 更新安装，`--repo` 可指定仓库。`yonder version` 返回实际安装目录和来源 commit；`yonder changelog` 和 `yonder docs` 查看该安装版本的变更记录和文档。正式 GitHub 发布和本机更新已有真实证据；其他平台及失败组合仍按结果文档区分，本地阶段标签不等于发布。
 
 ## Shell Tab 补全
 

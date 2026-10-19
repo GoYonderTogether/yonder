@@ -2,17 +2,17 @@
 
 > 文档就是代码的目标。代码与文档不一致时，以文档为准；要改设计，先改文档。
 
-## 当前工位：1906已正式发布并安装（2026-10-19）
+## 当前工位：1907已正式发布并安装（2026-10-19）
 
-本轮媒体插件、自管理skill与E0–E4源码已进入main，正式Release为[0.1.2026101906](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101906)，固定提交3dab0d35ec346ee074a0ef9a51a19eedfb4680b0。本机经原update流程升级并核验，GitHub插件直接发送飞书程序通知，升级链没有调用模型。
+本轮执行能力源码已进入main，正式Release为[0.1.2026101907](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101907)，固定提交`9ca42a615864d2686d4e6de1aaddef63b7f057fe`。本机经原update流程升级并核验，GitHub插件直接发送飞书程序通知，升级链没有调用模型。真实Luna另行完成正式安装的定时命令验收。
 
-- [1906发行及配置证据](tasks/release1906-result.md)：真实版本/home/进程、统一事件、发送回执与未测。
-- [当前产品能力与Hermes/OpenClaw全貌比较](tasks/product-capabilities-1906.md)：新用户默认、本机配置后、细节差距与扩展边界。
-- [完整功能与注册名树](function-tree.md)、[插件清单](plugins.md)：9包随发行、本机加载8个，媒体服务未配置。
+- [1907实施与正式安装证据](tasks/execution-capabilities-result.md)、[实施计划](tasks/execution-capabilities-plan.md)、[执行能力规范](spec/16-execution-capabilities.md)：后台任务/软提醒、cron、MCP、独立自动化和热管理。
+- [1906发行及配置证据](tasks/release1906-result.md)、[1906产品能力与Hermes/OpenClaw全貌比较](tasks/product-capabilities-1906.md)：保留此前默认安装、细节差距与扩展边界的历史快照；1907变化见本轮结果。
+- [完整功能与注册名树](function-tree.md)、[插件清单](plugins.md)：12包随发行、本机加载11个，媒体服务未配置。
 - [E轮实现结果](tasks/event-driven-actions-result.md)、[媒体真实API记录](tasks/siliconflow-media-result.md)：源码、模型、渠道证据不互相替代。
 - [现状历史总账](tasks/current-status.md)、[原Hermes对比](tasks/hermes-capability-comparison.md)、[P轮结果](tasks/finishing-result.md)、[1904整合发行](tasks/stable-release-result.md)：历史与未测保留。
 
-Agent热CRUD/模板创建仍是单列方案；cron、主动记忆、灵魂模板未实现。已有会话文件重载、preset重载不等于注册热管理。视频播放、真实断网和部分插话验收继续按用户决定留给日用反馈。
+Agent/preset热管理、cron、通用MCP客户端和独立浏览器/macOS桌面插件现已实现；15秒后台工具与时间/用量软提醒归内核。workspace/memory仅手工文件，不是记忆引擎；主动记忆与官方角色/灵魂模板不在本轮。MCP交互OAuth、PTY和完整组合矩阵未完成；视频播放、真实断网和部分插话验收继续按用户决定留给日用反馈。
 
 ### 既有轮次证据入口
 

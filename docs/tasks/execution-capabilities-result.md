@@ -33,4 +33,14 @@
 
 ## 发行与安装
 
-源码和真实主链检查已完成；main合并、正式标签与本机update结果在执行完成后补记。原始正式1906历史见 [1906结果](release1906-result.md)。
+- 已合并main并推送；正式标签[v0.1.2026101907](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101907)，固定提交`9ca42a615864d2686d4e6de1aaddef63b7f057fe`。后续文档补记不移动发行标签。原始正式1906历史见 [1906结果](release1906-result.md)。
+- 原GitHub发布监听自行发现1907，由既有独立更新任务升级并核验；没有第二个正式内核。程序目录`/Users/zoran/.yonder-harness/versions/0.1.2026101907`，home仍为`/Users/zoran/.local/share/yonder-harness/home`。`yonder version --json`返回上述版本/提交；`yonder service status --json`为installed/loaded/running，PID `27432`，ready已核对。
+- 更新结果`417560480/result.json`为verified；统一结果事件`01M5AKGHJGHRHKDSYF6SAP90AG`，程序message.out `01M5AKGN98EYJBT5PBZRKJ375J`，飞书送达成功，消息ID `om_x100b62510fe1bca0c08f4a1ad347a38`。升级及通知窗口内没有模型run.end；随后下述安装验收主动调用了Luna，不能混算成“整轮零模型”。本机证据`/tmp/yonder1907-update-result.json`、`/tmp/yonder1907-installed-evidence.json`。
+- 正式配置备份到home内`.yonder/backups/release1907-2026-10-19T17-26-46.353Z/`。全局与两个Agent/default preset启用cron、mcp-client、native-automation和按需mcp-instructions；权限、绑定和服务配置不扩大。12包随发行，正式加载11个；media-tools仍未启用。doctor无错误，实际session配置已核对。
+- 正式热更新贾维斯/main和哦鲸鲸/maintainer的工作说明，均返回valid/saved/accepted=true、restartRequired=false；没有新增管理Agent。手工memory目录说明实际存在，不注入内容。配置与激活证据`/tmp/yonder1907-migration.json`、`/tmp/yonder1907-activation.json`。
+
+### 正式安装的定时任务实证
+
+独立手工关闭会话`2219`中，真实Luna仅调用一次`cron_exec`创建一次性command作业；没有直接执行命令，也没有立即run或配置投递。指定`2026-10-19T17:34:24.375Z`执行；调度器在`17:34:24.377Z`启动，`17:34:24.396Z`完成。产物`/tmp/yonder1907-installed-cron-check.txt`内容为`YONDER_INSTALLED_CRON_OK`。
+
+作业`a18e5957-88e3-48fd-8879-6d02cd8c33d4`，运行`b531c4cb-663f-4b75-9b3d-6172fb9bfa69`，status=done、runs=1、enabled=false、next=null。验收会话已关闭，历史保留，没有遗留周期任务。完整原提示词、真实工具调用、作业与运行回执见`/tmp/yonder1907-installed-cron-request.json`与`/tmp/yonder1907-installed-cron-result.json`。这是正式模型→插件→持久调度→内核执行环境→本机文件的证据，不替代preset/事件绑定/飞书组合矩阵。

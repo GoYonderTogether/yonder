@@ -1,5 +1,7 @@
 # Yonder 1906 产品能力与 Hermes / OpenClaw 全貌对比
 
+> 历史快照。1907现已发布并安装：补充后台process/软阈值、cron、通用MCP客户端、独立自动化与Agent热管理，见[1907结果](execution-capabilities-result.md)。本页不据新代码改写当时的比较和未测，也不表示重新验收了Hermes/OpenClaw。
+
 核对日期：2026-10-19。Yonder 正式版本0.1.2026101906，发布提交3dab0d35ec346ee074a0ef9a51a19eedfb4680b0。比较口径由用户指定为“安装默认能力、体验细节与扩展边界”。Hermes/OpenClaw按本日官方文档核对，不是三产品在同一任务/模型上的实机评分；官方具备的功能也要按凭据、配置与平台条件启用。
 
 ## 1. 判断

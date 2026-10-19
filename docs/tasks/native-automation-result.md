@@ -1,6 +1,8 @@
 # X4 独立浏览器和桌面结果
 
-2026-10-19 已实现、完成真实headless浏览器与macOS后台屏幕验证，待主路发行整合；未提交、切分支或推送。只改plugins/native-automation/**与本文件。
+主路补记：1907已正式发行、安装并启用本插件；加载与配置证据见[整轮结果](execution-capabilities-result.md)。键鼠实操仍未测，浏览器引擎和系统授权仍为前提。
+
+分路原交接（2026-10-19）：已实现、完成真实headless浏览器与macOS后台屏幕验证，待主路发行整合；未提交、切分支或推送。只改plugins/native-automation/**与本文件。
 
 ## 实现和整合入口
 

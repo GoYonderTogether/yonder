@@ -6,7 +6,7 @@ Yonder Harness is a local agent runtime. It routes incoming events to agents and
 
 The runtime uses pi (`pi-ai` and `pi-durable`) as dependencies for model access and durable agent sessions. The product is Yonder Harness; pi is an underlying dependency and upstream source.
 
-> **Status:** Release 0.1.2026101906 is installed independently on macOS. CLI/TUI, configured Feishu/GitHub channels and program-driven update notifications have real scenario evidence. Nine plugins ship; capabilities still require explicit configuration. See the [current capability comparison](docs/tasks/product-capabilities-1906.md) and [release evidence](docs/tasks/release1906-result.md).
+> **Status:** Release 0.1.2026101907 is installed independently on macOS. It adds background tool execution, soft run reminders, hot agent/preset management, cron, a generic MCP client and independent browser/macOS automation. Twelve plugins ship; eleven are loaded on the configured local installation. See the [release evidence and limits](docs/tasks/execution-capabilities-result.md), [function tree](docs/function-tree.md) and historical [1906 comparison](docs/tasks/product-capabilities-1906.md). New installations still require explicit capability configuration.
 
 ## Run from source
 

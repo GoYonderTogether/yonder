@@ -1,8 +1,8 @@
-> 2026-10-19 最新工位：P0–P5已收尾，用户批准归并main及正式发行。查看[发行记录](stable-release-result.md)与[全量功能树](../function-tree.md)；下方原始轮次保留。
+> 2026-10-19 最新工位：执行能力X0–X6完成，1907已合并main、推送发行并由原update升级本机。查看[1907结果](execution-capabilities-result.md)与[全量功能树](../function-tree.md)。下方P/R/T状态为历史轮次，不据旧“待做”重新派工，也不把未测改为通过。
 
 # 0.1 任务
 
-## 当前状态（2026-10-19）
+## P轮状态快照（2026-10-19，历史）
 
 当前为P0–P5执行轮交付、待用户审核阶段，见[现状总账](current-status.md)、[Hermes当前表](hermes-capability-comparison.md)、[插件目录](../plugins.md)。R/F/D36/D37已有实现与部分实证，旧轮“不测试”限制不描述后续已获准且已执行的R轮。用户已批准[最小方案](finishing-plan.md)：允许必要修复、测试和真实验收，不新增插件；完整执行结果及未关闭项见[本轮结果](finishing-result.md)。
 
