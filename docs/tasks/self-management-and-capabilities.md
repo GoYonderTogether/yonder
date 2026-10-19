@@ -11,7 +11,11 @@
 
 不改冻结规范、SDK、内核、正式home或安装；不新增通用skill包；不执行收费媒体调用、飞书发消息、安装、推送或发版。新插件功能先提交方案审核，通过后先更新对应规范与决策再实现。
 
-## 当前事实
+## 后续落地状态
+
+1906已将自管理skill交付正式安装并加入贾维斯/哦鲸鲸白名单；operator已从注册移除，历史保留。媒体插件随包未启用，Agent热CRUD仍仅有单列方案。见 [发行结果](release1906-result.md) 和 [当前能力对比](product-capabilities-1906.md)。
+
+## 初始事实快照
 
 - 本机注册main（Luna）、maintainer（Sol）、operator（Luna）；只有一个home preset `default`（Luna、standard、plugins=[]、instructions为空）。这些是当前本机配置，不是全局内置角色库。
 - profile是同一Agent的权限/模型分身；preset是无独立身份的任务模板；task_run是原生父子任务；agent_ask联系已登记Agent，不能创建Agent，也不是task_run的别名。

@@ -1,6 +1,6 @@
 # 官方插件功能清单
 
-核对日期：2026-10-19；源码功能基线 `504b7fc`，日用安装 `0.1.2026101903`。共8个官方插件；注册成功不等于所有动作真实通过。验收证据见[总账](tasks/current-status.md)，P0–P5本轮结果见[交付记录](tasks/finishing-result.md)，剩余项待审核，不自行继续。
+核对日期：2026-10-19；正式发行及本机安装0.1.2026101906 / 3dab0d3。9个官方插件包已随发行，本机加载8个；media-tools尚未配置加载。注册不等于全部真实场景通过，历史P轮/完整矩阵及未测保留；本次真实无模型升级通知见[1906记录](tasks/release1906-result.md)。
 
 本清单区分“贡献槽位”“监听事件”“外部输入”“可调用功能”。下列短句描述已存在的功能体，不宣布逐项验收成功。工具实际名称带插件ID前缀；浏览器动作是工具参数，MCP操作是外部协议能力，不混称核心模型工具。
 
@@ -203,16 +203,16 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 
 1904 / `42646a4`已在main正式发行；插件功能与1903一致，仅统一版本与文档。完整注册名和SDK入口见[功能树](function-tree.md)，本机更新和分支归并见[发行记录](tasks/stable-release-result.md)。
 
-- 后续源码新增内置skill `yonder-self-management`：Yonder特有目录、配置、Agent/preset、权限和更新规约；尚未随1905安装，不增加通用编码/GitHub教程。
+- 1906新增内置skill `yonder-self-management`：Yonder特有目录、配置、Agent/preset、权限和更新规约；已随1906安装并加入两Agent的选择白名单，不增加通用编码/GitHub教程。
 
-## media-tools（本轮源码新增，尚未发行）
+## media-tools（1906随包，本机未加载）
 
 - 包：`@yonder/plugin-media-tools`；贡献两个模型工具，不贡献skill/channel/trigger。
 - `media-tools_image_generate`：用已配置模型生成一张图片，下载保存到工作区artifacts并返回附件。
 - `media-tools_audio_transcribe`：按文件访问权限读取音频，调用已配置ASR并返回文字。
 - `services.resolve(image/asr)`复用既有服务/密钥来源，不把对话模型目录冒充生成API；不启用付费TTS或视频。
-- 源码插件真实免费API调用通过，尚未安装到1905，未作模型选择/飞书端到端验收。见[实现记录](tasks/siliconflow-media-result.md)。
+- 源码插件真实免费API调用通过，1906已随包安装但未配置服务、未加载，未作安装版模型选择/飞书端到端验收。见[实现记录](tasks/siliconflow-media-result.md)。
 
-### E轮源码：GitHub事件程序处理（未发布）
+### 1906：GitHub事件程序处理（已安装）
 
 channel-github新增上下文channel-github.release-availability，并订阅channel-github.release执行获准apply、订阅内核release.update-result在notifyUpdates=true时直接通知；原模型工具保留。直接执行业务函数，不模拟Agent调用、不新建插件或调度系统。参数及迁移见该插件README与 [E轮结果](tasks/event-driven-actions-result.md)。

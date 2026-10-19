@@ -30,7 +30,7 @@ Yonder Harness
 │  ├─ skill-creator — 创建/维护技能；辅助Python脚本需要PyYAML
 │  ├─ yonder-development — 建议隔离目录、Git保存和可审查交付；用户可不采用
 │  ├─ yonder-plugin-debug — 按需执行渠道短任务、查询调用证据及隔离复现；随1905内置
-│  └─ yonder-self-management — 目录、配置、身份、委派与更新规约；后续源码新增，尚未安装
+│  └─ yonder-self-management — 目录、配置、身份、委派与更新规约；1906内置并已安装
 └─ 核心职责
    ├─ 事件 → 绑定 → 身份/权限 → 原生会话/队列 → 模型/工具 → 投递
    ├─ pi-durable — 独占转录、执行循环、恢复、子会话与压缩
@@ -50,7 +50,7 @@ yonder · CLI
 ├─ sessions list — 按agent、mode、open条件列出会话。
 ├─ sessions show <id> — 读取会话信息及转录。
 ├─ sessions open <preset> [--keep-open] — 创建预设任务，默认run-end；--keep-open创建manual task。
-├─ sessions notify <id> --event <id> --text <text> — 写入带来源的程序通知，不调用模型（未发布）。
+├─ sessions notify <id> --event <id> --text <text> — 写入带来源的程序通知，不调用模型（1906）。
 ├─ sessions submit <id> — 向已有会话提交文本或附件。
 ├─ sessions abort <id> — 中止指定会话运行。
 ├─ sessions close <id> — 关闭指定task会话。
@@ -326,7 +326,7 @@ channel-feishu
    └─ 统一日志 — 使用共享脱敏结构化日志定位接收、运行和投递
 ```
 
-### media-tools（本轮源码新增，尚未发行）
+### media-tools（1906随包，本机未加载）
 
 ```text
 media-tools
@@ -338,7 +338,7 @@ media-tools
 └─ 没有TTS/视频工具，没有新增skill、channel、trigger或模型循环
 ```
 
-真实API图片/ASR已验证；安装版1905仍只有原8插件，不能将源码新增数当作已安装数。
+真实API图片/ASR已验证；1906已带该包，本机仍只加载原8插件且services为空，不能将已安装包当作已配置能力。
 
 ## 3. SDK作者接口树
 
@@ -414,7 +414,7 @@ cron插件、主动记忆引擎、通用MCP客户端、持久PTY/进程管理、
 - [Hermes对比](tasks/hermes-capability-comparison.md)：后置和不做范围。
 - 用户决定将视频播放、真实断网、执行中才发送插话等剩余飞书场景留给日常使用反馈；这些是主动跳过，不写成已通过，也不阻塞本次发行。
 
-## E轮源码补齐（尚未安装）
+## E轮补齐（1906已安装）
 
 - SDK PluginAPI.version：提供真实宿主版本。
 - events.on → 程序函数/脚本：已有事件订阅现用于自动更新，不强制经过模型。
@@ -423,4 +423,4 @@ cron插件、主动记忆引擎、通用MCP客户端、持久PTY/进程管理、
 - releases.notifyUpdates：显式启用程序通知，沿用目标与未知不重发语义。
 - sessions.notify / sessions notify：原生app-only程序通知，TUI按原时序显示；既不是模型回复，也不是模型输入。
 
-实际检查与未安装边界见 [E轮结果](tasks/event-driven-actions-result.md)。
+原E轮检查见[实现结果](tasks/event-driven-actions-result.md)，正式安装及程序飞书通知见[1906记录](tasks/release1906-result.md)。

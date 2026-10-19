@@ -2,27 +2,21 @@
 
 > 文档就是代码的目标。代码与文档不一致时，以文档为准；要改设计，先改文档。
 
-## 当前工位：P0–P5已收尾，已整合main并正式发行1904（2026-10-19）
+## 当前工位：1906已正式发布并安装（2026-10-19）
 
-用户批准后已完成本轮修复、补检查、独立更新与可执行真实验收；按用户追加要求停止扩展验证。用户随后批准整合所有项目分支/工作树并正式发行；视频播放、真实断网及执行中插话留给日常反馈。未测/平台限制保留，不扩展验证。
+本轮媒体插件、自管理skill与E0–E4源码已进入main，正式Release为[0.1.2026101906](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101906)，固定提交3dab0d35ec346ee074a0ef9a51a19eedfb4680b0。本机经原update流程升级并核验，GitHub插件直接发送飞书程序通知，升级链没有调用模型。
 
-- [本轮结果](tasks/finishing-result.md)：变更、原始失败、145项检查、1903实际安装及未关闭项。
-- [现状总账](tasks/current-status.md)：当前需求、E01–E17证据及T/N/U/C/R/F/P状态。
-- [全量功能与注册名树](function-tree.md)：逐个核心、CLI、插件、工具、渠道及SDK最小单元。
-- [整合与发行记录](tasks/stable-release-result.md)：分支吸收、草稿保存与正式版本。
-- [官方插件清单](plugins.md)：8个既有插件的贡献、订阅和逐项功能；没有新增插件。
-- [Hermes当前对比](tasks/hermes-capability-comparison.md)：当前结论及原历史快照。
-- [P0–P5批准方案](tasks/finishing-plan.md)：原范围与顺序保留；cron/复杂记忆继续后置。
+- [1906发行及配置证据](tasks/release1906-result.md)：真实版本/home/进程、统一事件、发送回执与未测。
+- [当前产品能力与Hermes/OpenClaw全貌比较](tasks/product-capabilities-1906.md)：新用户默认、本机配置后、细节差距与扩展边界。
+- [完整功能与注册名树](function-tree.md)、[插件清单](plugins.md)：9包随发行、本机加载8个，媒体服务未配置。
+- [E轮实现结果](tasks/event-driven-actions-result.md)、[媒体真实API记录](tasks/siliconflow-media-result.md)：源码、模型、渠道证据不互相替代。
+- [现状历史总账](tasks/current-status.md)、[原Hermes对比](tasks/hermes-capability-comparison.md)、[P轮结果](tasks/finishing-result.md)、[1904整合发行](tasks/stable-release-result.md)：历史与未测保留。
 
-正式Release为[0.1.2026101904](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101904)，固定提交42646a4；本机更新结果见发行记录。此前1903/504b7fc独立安装与检查为功能基线。D34–D37及现行规范仍是功能边界。
+Agent热CRUD/模板创建仍是单列方案；cron、主动记忆、灵魂模板未实现。已有会话文件重载、preset重载不等于注册热管理。视频播放、真实断网和部分插话验收继续按用户决定留给日用反馈。
 
 ### 既有轮次证据入口
 
 [R修复与验收结果](tasks/repair-main-result.md)、[F恢复结果](tasks/feishu-recovery-result.md)、[D36上下文分析](tasks/feishu-context-proposal.md)、[D37全局入口结果](tasks/global-entry-result.md)。原[R计划](tasks/repair-acceptance-plan.md)、[F计划](tasks/feishu-recovery-interaction-plan.md)与[审查](tasks/review-c0-c6.md)保留，不据旧状态重开开发。
-
-## 当前源码增量（未发布安装）
-
-用户已批准事件程序消费与无模型通知E0–E4；实现和实际证据见 [E轮结果](tasks/event-driven-actions-result.md)。本机正式版仍1905，不能将源码新增接口当作已部署；Agent热CRUD仍是单列方案。
 
 ## 阅读顺序（渐进式披露）
 

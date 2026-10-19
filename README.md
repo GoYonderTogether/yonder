@@ -6,7 +6,7 @@ Yonder Harness is a local agent runtime. It routes incoming events to agents and
 
 The runtime uses pi (`pi-ai` and `pi-durable`) as dependencies for model access and durable agent sessions. The product is Yonder Harness; pi is an underlying dependency and upstream source.
 
-> **Status:** An independent macOS installation (0.1.2026101902), global CLI/TUI and Feishu integration are available. Real scenario evidence and remaining acceptance work are recorded separately in the [current status](docs/tasks/current-status.md). See the [plugin inventory](docs/plugins.md) and [proposed finishing plan](docs/tasks/finishing-plan.md); this documentation pass does not start development.
+> **Status:** Release 0.1.2026101906 is installed independently on macOS. CLI/TUI, configured Feishu/GitHub channels and program-driven update notifications have real scenario evidence. Nine plugins ship; capabilities still require explicit configuration. See the [current capability comparison](docs/tasks/product-capabilities-1906.md) and [release evidence](docs/tasks/release1906-result.md).
 
 ## Run from source
 
@@ -56,7 +56,7 @@ yonder service install --home <home>
 yonder chat --home <home>
 ```
 
-`yonder update --to <reviewed-tag|latest>` updates the installation; `--repo` can select a repository. `yonder version` reports the actual installation and source commit; `yonder changelog` and `yonder docs` read that installed version. Formal GitHub release and complete update acceptance remain in progress; local staging tags are not releases.
+`yonder update --to <reviewed-tag|latest>` updates the installation; `--repo` can select a repository. `yonder version` reports the actual installation and source commit; `yonder changelog` and `yonder docs` read that installed version. Formal GitHub releases and an actual update/notification path are verified; remaining platform and scenario acceptance is recorded separately. Local staging tags are not releases.
 
 ## Develop plugins and skills
 
