@@ -157,3 +157,12 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - CardKit历史若只有兼容提示，使用现有同会话message.out中delivery.ok且delivery.id与本应用原生消息匹配的正文补充；保留平台时间/引用。未确认送达或其他应用的记录不冒充本机器人回复，补回正文同样计背景预算；账本读取失败明确标未完整，不新建转录副本。
 
 - 2026-10-19 用户追加：模型可使用既有channel-feishu_message.replyTo指定原生消息ID，或用card工具的replyTo显式引用；可在平台原生文本/Markdown/卡片内容中使用对应at标记选择艾特。状态返回实际renderMode，工具说明区分text/post-md的user_id与卡片的id语法；不新增泛化mentions协议。背景原生消息与发送者ID供工具选择，工具仍按既有能力放行。主动工具答复后可NO_REPLY避免自动再发。
+
+## 9. 原生媒体工具：硅基流动首段（D38，2026-10-19 用户指定接入）
+
+- 新增同仓官方SDK插件media-tools，首段只实现已核实免费的图片生成；不增加指导型skill，不修改pi运行循环、Models或SDK。ASR/TTS先核实价格与协议，明确免费后可在同一服务接入任务中补记并实施；视频只调研，无免费API证据不调用付费生成，不用网页体验或赠送额度冒充永久免费API。
+- 注册media-tools_image_generate；参数为非空prompt、可选model和image_size。通过api.services.resolve('image')读取首个端点；protocol=siliconflow、baseUrl=https://api.siliconflow.cn/v1，模型只能从该端点声明清单选择，未指定取首项。凭据沿既有credential引用解析，不复制OAuth。缺配置、密钥或模型时返回真实错误，不自动选其他服务/收费模型。
+- 请求直接使用硅基POST /images/generations，保留平台默认水印；响应按images[].url解析，立即下载实际图片（不向下载URL转发API鉴权），经ctx.env在当前cwd的artifacts/下保存唯一文件，返回真实本地附件URI/MIME及模型和产物事实。不创建产物数据库、后台任务、缓存或重试。
+- 工具声明network/write，响应ctx.signal；不允许模型指定任意覆写路径，不通过Node文件API绕过执行环境。模型/尺寸只支持实际协议声明的首段参数，错误保留请求阶段/状态，不打印密钥、鉴权头或请求对象。
+- 本次配置与真实验收仅用控制台已核实¥0/图片的Kwai-Kolors/Kolors，保存价格日期/证据；免费配额仍可能限流，429如实返回。源码契约检查、真实免费API调用与渠道客户端验收分别记录，不以其中一个代替其余。不得为通过而更换成收费模型。
+- 新插件及共享打包接线按独立任务执行；正式安装/发版沿已有流程，当前接入批准不自动发布。
