@@ -18,8 +18,11 @@ import {
 	Harness,
 	type HookApi,
 	hook,
+	InboxDoc,
 	type JsonObject,
 	LiveDoc,
+	RunReceiptDoc,
+	type RunReceiptState,
 	type Submission,
 	section,
 	type ToolExecutionApi,
@@ -27,6 +30,7 @@ import {
 	type ToolRegistration,
 	ToolTask,
 	UsageDoc,
+	type UsageState,
 	watchEvents,
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
@@ -75,7 +79,7 @@ const SessionDoc = defineDoc({
 const cid = (id: string) => Number(id) as ConversationId;
 const emptyUsage = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
 export function submissionOutcome(
-	done: Awaited<ReturnType<Submission["wait"]>>,
+	done: { status: "done" } | { status: "unanswered"; reason: string },
 	limitReason?: string,
 ): { status: RuntimeRun["status"]; reason?: string } {
 	if (limitReason) return { status: "limit", reason: limitReason };
@@ -135,18 +139,20 @@ interface RunState {
 	previous?: { name: string; args: unknown };
 	repeats: number;
 	reason?: string;
-	inputs: Set<string>;
 	timer: ReturnType<typeof setTimeout>;
 }
 export class Runtime {
 	private harness!: Harness;
+	private storage!: SqliteStorage;
+	private finishing = new Map<string, Promise<RuntimeRun>>();
+	private recovering: Array<{ session: string; id: import("@earendil-works/pi-durable").SubmissionId }> = [];
 	private registry = createRegistry();
 	private extensions = new Map<string, Extension>();
 	private tools = new Map<string, ToolRegistration>();
 	private capabilities = new Map<string, Capability[]>(Object.entries(capabilityMap));
 	private configured = new Map<string, RuntimeSessionConfig>();
 	private states = new Map<string, RunState>();
-	private submissions = new Map<string, { event?: RuntimeInput["event"]; run?: RunState; runId?: string }>();
+	private submissions = new Map<string, { event?: RuntimeInput["event"] }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
 	readonly credentials: FileCredentials;
 	readonly models: Models;
@@ -158,6 +164,7 @@ export class Runtime {
 		const runtime = new Runtime(options);
 		runtime.install();
 		const storage = await SqliteStorage.open(options.db, { prefix: "pi_" });
+		runtime.storage = storage;
 		runtime.harness = await Harness.open(
 			storage,
 			{
@@ -188,7 +195,8 @@ export class Runtime {
 	private async context(id: string, context: Context): Promise<ToolContext> {
 		const config = this.currentConfig(id) ?? (await this.options.resolveSession(id));
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		const input = live?.run?.inputs.map((value) => this.submissions.get(String(value))?.event).find(Boolean);
+		const events = await this.sources(live?.run?.inputs ?? []);
+		const input = events[0];
 		return {
 			agent: config.agent,
 			profile: config.profile,
@@ -196,6 +204,7 @@ export class Runtime {
 			capabilities: [...config.resolved.capabilities],
 			env: this.environment(config),
 			...(input ? { event: input } : {}),
+			events,
 			signal: context.abortSignal!,
 		};
 	}
@@ -217,8 +226,8 @@ export class Runtime {
 			? JSON.parse(saved.config)
 			: structuredClone(await this.options.resolveSession(session));
 		const usageBefore = saved?.config ? saved.usageBefore : await this.usage(session);
+		await this.applyConfiguration(session, config);
 		if (!saved?.config) {
-			await this.applyConfiguration(session, config);
 			await this.harness.commit(async (tx) => {
 				Object.assign(await tx.doc(RunDoc, cid(session), id, null), {
 					config: JSON.stringify(config),
@@ -237,7 +246,6 @@ export class Runtime {
 			repeats: saved?.repeats ?? 0,
 			...(saved?.previous ? { previous: JSON.parse(saved.previous) } : {}),
 			...(saved?.reason ? { reason: saved.reason } : {}),
-			inputs: new Set(),
 			timer: setTimeout(
 				() => {
 					void this.abortRun(state, "maxMinutes").catch(this.options.onReport ?? (() => {}));
@@ -270,13 +278,7 @@ export class Runtime {
 		const id = String(live?.run?.inputs[0] ?? api.taskId);
 		const state = this.states.get(id);
 		if (!state) throw new Error(`Missing active run ${id}`);
-		for (const input of live?.run?.inputs ?? []) {
-			const metadata = this.submissions.get(String(input));
-			if (metadata) {
-				metadata.run = state;
-				if (metadata.event) state.inputs.add(metadata.event.id);
-			}
-		}
+
 		return state;
 	}
 	private async stop(context: Context, state: RunState, reason: string): Promise<never> {
@@ -453,7 +455,9 @@ export class Runtime {
 	}
 	private async contextForAttachment(session: string, context: Context): Promise<string[]> {
 		const ctx = await this.context(session, context);
-		const attachments = (ctx.event?.data as { attachments?: Array<{ uri: string }> } | undefined)?.attachments ?? [];
+		const attachments = (ctx.events ?? (ctx.event ? [ctx.event] : [])).flatMap(
+			(event) => (event.data as { attachments?: Array<{ uri: string }> }).attachments ?? [],
+		);
 		const paths: string[] = [];
 		for (const attachment of attachments) {
 			const path = attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri;
@@ -579,8 +583,7 @@ export class Runtime {
 		if (!value) throw new Error(`Unknown conversation: ${id}`);
 		return value;
 	}
-	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
-		const conversation = await this.conversation(id);
+	private async inputContent(id: string, input: RuntimeInput) {
 		const config = await this.options.resolveSession(id),
 			env = this.environment(config);
 		const preparation = withAbortSignal(AbortSignal.timeout(Math.ceil(config.resolved.limits.maxMinutes * 60000)), C);
@@ -601,6 +604,26 @@ export class Runtime {
 						).toString("base64");
 				content.push({ type: "image", mimeType: attachment.mime, data });
 			}
+		return content;
+	}
+	private inputEntry(input: RuntimeInput) {
+		return {
+			kind: "yonder.message",
+			data: input.event
+				? (JSON.parse(
+						JSON.stringify({
+							event: input.event.id,
+							attachments: (input.event.data as { attachments?: unknown[] }).attachments ?? [],
+						}),
+					) as JsonObject)
+				: {},
+		};
+	}
+	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
+		const conversation = await this.conversation(id);
+		const requestId = input.event ? `event:${input.event.id}` : input.requestId;
+		const existing = requestId ? await this.storage.submissionByRequest(cid(id), requestId, C) : undefined;
+		const content = existing ? [] : await this.inputContent(id, input);
 		const stream = input.onOutput ? await watchEvents(this.harness, cid(id), C) : undefined;
 		let submission: Submission | undefined;
 		let submitted!: () => void;
@@ -608,6 +631,7 @@ export class Runtime {
 			submitted = resolve;
 		});
 		let participating = false;
+		let outputRun: string | undefined;
 		const textBlocks = new Map<number, string>();
 		stream?.start(async (events) => {
 			await ready;
@@ -616,6 +640,8 @@ export class Runtime {
 					participating =
 						!!submission &&
 						(event.type === "run_start" ? event.inputs : (event.run?.inputs ?? [])).includes(submission.id);
+				if (event.type === "run_start" || event.type === "snapshot")
+					outputRun = String((event.type === "run_start" ? event.inputs : event.run?.inputs)?.[0] ?? "");
 				if (
 					event.type === "submission" &&
 					submission &&
@@ -623,48 +649,53 @@ export class Runtime {
 					event.record.status === "placed"
 				)
 					participating = true;
-				if (participating) this.output(event, input, textBlocks);
+				if (participating) {
+					if (!outputRun) outputRun = String((await this.harness.snapshot(LiveDoc, cid(id), C))?.run?.inputs[0] ?? "");
+					this.output(event, { ...input, onOutput: (part) => input.onOutput?.(part, outputRun) }, textBlocks);
+				}
 				if (event.type === "run_end") participating = false;
 			}
 		});
-		const before = await this.usage(id);
-		const entry = { kind: "yonder.message", data: { ...(input.event ? { event: input.event.id } : {}) } };
+		const entry = this.inputEntry(input);
 		try {
-			submission = await conversation.submit(
-				input.wake === "write"
-					? {
-							type: "write",
-							...(input.requestId ? { requestId: input.requestId } : {}),
-							entry: { ...entry, model: [{ role: "user", content, timestamp: Date.now() }] },
-						}
-					: {
-							type: "input",
-							...(input.requestId ? { requestId: input.requestId } : {}),
-							content,
-							entry,
-							whenBusy: input.busy === "steer" ? "steer" : "followUp",
-						},
-				C,
-			);
+			submission = existing
+				? await this.harness.submission(existing.id, C)
+				: await conversation.submit(
+						input.wake === "write"
+							? {
+									type: "write",
+									...(requestId ? { requestId } : {}),
+									entry: { ...entry, model: [{ role: "user", content, timestamp: Date.now() }] },
+								}
+							: {
+									type: "input",
+									...(requestId ? { requestId } : {}),
+									content,
+									entry,
+									whenBusy: input.busy === "steer" ? "steer" : "followUp",
+								},
+						C,
+					);
+			if (!submission) throw new Error("Previously admitted submission disappeared");
 			await this.attachSubmission(submission, input.event, id);
+			try {
+				await this.options.onAdmitted?.(id, input);
+			} catch (error) {
+				this.options.onReport?.(error);
+			}
 			submitted();
 			const done = await submission.wait(C);
-			const state = this.stateForSubmission(String(submission.id));
-			if (state) clearTimeout(state.timer);
-			const after = await this.usage(id),
-				usage = emptyUsage();
-			for (const key of Object.keys(usage) as Array<keyof typeof usage>)
-				usage[key] = after[key] - (state?.usageBefore ?? before)[key];
-			const answerId = done.status === "done" ? done.answer : undefined;
-			const answer = answerId ? await this.harness.commit((tx) => tx.entry(answerId), C) : undefined;
-			return {
-				...(state ? { config: state.config } : {}),
-				runId: state?.id ?? String(done.answer ?? submission.id),
-				...submissionOutcome(done, state?.reason),
-				text: textOf(answer),
-				usage,
-				inputs: state ? [...state.inputs] : input.event ? [input.event.id] : [],
-			};
+			if (input.wake === "write") {
+				this.submissions.delete(String(submission.id));
+				return {
+					runId: String(submission.id),
+					...submissionOutcome(done),
+					text: "",
+					usage: emptyUsage(),
+					inputs: input.event ? [input.event.id] : [],
+				};
+			}
+			return await this.settledRun(id, done);
 		} finally {
 			submitted();
 			await stream?.stop();
@@ -676,22 +707,12 @@ export class Runtime {
 		return match[1];
 	}
 
-	private stateForSubmission(id: string): RunState | undefined {
-		const metadata = this.submissions.get(id);
-		return metadata?.run ?? (metadata?.runId ? this.states.get(metadata.runId) : undefined);
-	}
-	private async attachSubmission(submission: Submission, event: RuntimeInput["event"], session: string): Promise<void> {
-		const metadata: { event?: RuntimeInput["event"]; run?: RunState; runId?: string } = { event };
-		this.submissions.set(String(submission.id), metadata);
-		const live = await this.harness.snapshot(LiveDoc, cid(session), C);
-		if (live?.run?.inputs.includes(submission.id)) {
-			metadata.runId = String(live.run.inputs[0]);
-			const state = this.states.get(metadata.runId);
-			if (state) {
-				metadata.run = state;
-				if (event) state.inputs.add(event.id);
-			}
-		}
+	private async attachSubmission(
+		submission: Submission,
+		event: RuntimeInput["event"],
+		_session: string,
+	): Promise<void> {
+		this.submissions.set(String(submission.id), { event });
 	}
 
 	private output(event: AgentEvent, input: RuntimeInput, textBlocks: Map<number, string>) {
@@ -775,35 +796,186 @@ export class Runtime {
 		const handle = await api.conversation(child, context);
 		if (!handle) throw new Error("Child conversation is missing");
 		// Invocation-bound submit preserves pi task ownership and idempotent task request IDs.
+		const prior = await api.commit((tx) => tx.submissionByRequest(child, `task:${api.taskId}`), context);
 		const submission = await handle.submit(
 			{
 				type: "input",
-				content: input.text,
+				content: prior ? [] : await this.inputContent(String(child), input),
 				requestId: `task:${api.taskId}`,
-				entry: { kind: "yonder.message", data: input.event ? { event: input.event.id } : {} },
+				entry: this.inputEntry(input),
 			},
 			context,
 		);
 		await this.attachSubmission(submission, input.event, String(child));
-		const before = await this.usage(String(child)),
-			done = await submission.wait(context),
-			after = await this.usage(String(child));
-		const state = this.stateForSubmission(String(submission.id));
-		if (state) clearTimeout(state.timer);
-		const usage = emptyUsage();
-		for (const key of Object.keys(usage) as Array<keyof typeof usage>)
-			usage[key] = after[key] - (state?.usageBefore ?? before)[key];
-		return {
-			...(state ? { config: state.config } : {}),
-			runId: state?.id ?? String(done.answer ?? submission.id),
-			...submissionOutcome(done, state?.reason),
-			text:
-				done.status === "done" && done.answer
-					? textOf(await this.harness.commit((tx) => tx.entry(done.answer), context))
-					: "",
-			usage,
-			inputs: state ? [...state.inputs] : input.event ? [input.event.id] : [],
-		};
+		try {
+			await this.options.onAdmitted?.(String(child), input);
+		} catch (error) {
+			this.options.onReport?.(error);
+		}
+		const done = await submission.wait(context);
+		return this.settledRun(String(child), done);
+	}
+	private async sources(ids: readonly number[]): Promise<import("@yonder/sdk").YEvent[]> {
+		const events: import("@yonder/sdk").YEvent[] = [];
+		for (const id of ids) {
+			const record = await this.storage.submission(id as import("@earendil-works/pi-durable").SubmissionId, C);
+			const entry = record?.entry ? await this.harness.commit((tx) => tx.entry(record.entry!), C) : undefined;
+			const data = entry?.data as { event?: string; attachments?: import("@yonder/sdk").Attachment[] } | undefined;
+			const event =
+				(data?.event ? await this.options.readEvent?.(data.event) : undefined) ??
+				this.submissions.get(String(id))?.event;
+			if (data?.event && !event) throw new Error(`submission ${id} 的来源事件 ${data.event} 不可恢复`);
+			if (event)
+				events.push(data?.attachments ? { ...event, data: { ...event.data, attachments: data.attachments } } : event);
+		}
+		return events;
+	}
+	private sumUsage(state?: Readonly<UsageState>): RuntimeRun["usage"] {
+		const sum = emptyUsage();
+		for (const usage of [...Object.values(state?.models ?? {}), ...Object.values(state?.tools ?? {})]) {
+			for (const key of ["input", "output", "cacheRead", "cacheWrite"] as const) sum[key] += usage[key];
+			sum.cost += usage.cost.total;
+		}
+		return sum;
+	}
+	private async receiptRun(session: string, key: string, receipt: Readonly<RunReceiptState>): Promise<RuntimeRun> {
+		const finishKey = `${session}\0${key}`;
+		const existing = this.finishing.get(finishKey);
+		if (existing) return existing;
+		const promise = (async () => {
+			const saved = await this.harness.snapshot(RunDoc, cid(session), key, C);
+			if (!saved?.config || !receipt.settlement)
+				throw new Error(`运行 ${session}/${key} 缺少开始配置或终结凭据，历史结果不可确定`);
+			const config: RuntimeSessionConfig = JSON.parse(saved.config);
+			const usage = this.sumUsage(receipt.usage);
+			for (const field of Object.keys(usage) as Array<keyof typeof usage>) usage[field] -= saved.usageBefore[field];
+			const settlement = receipt.settlement;
+			const answer =
+				settlement.status === "done" ? await this.harness.commit((tx) => tx.entry(settlement.answer), C) : undefined;
+			const inputs = (await this.sources(receipt.inputs)).map((event) => event.id);
+			const run: RuntimeRun = {
+				runId: key,
+				config,
+				...submissionOutcome(settlement, saved.reason ?? undefined),
+				text: textOf(answer),
+				inputs,
+				usage,
+			};
+			try {
+				await this.options.onRun?.(session, run);
+			} finally {
+				const state = this.states.get(key);
+				if (state) {
+					clearTimeout(state.timer);
+					this.states.delete(key);
+				}
+				for (const input of receipt.inputs) this.submissions.delete(String(input));
+				if (this.configured.get(session) === state?.config) this.configured.delete(session);
+			}
+			return run;
+		})();
+		this.finishing.set(finishKey, promise);
+		try {
+			return await promise;
+		} finally {
+			this.finishing.delete(finishKey);
+		}
+	}
+	private async settledRun(session: string, done: Awaited<ReturnType<Submission["wait"]>>): Promise<RuntimeRun> {
+		const receipts = await this.storage.scanDocuments(
+			{ scope: { kind: "conversation", conversationId: cid(session) }, kind: "pi.run-receipt", at: "current" },
+			Number.MAX_SAFE_INTEGER,
+			undefined,
+			C,
+		);
+		for (const doc of receipts.items) {
+			const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), doc.key!, C);
+			if (receipt?.inputs.includes(done.id)) return this.receiptRun(session, doc.key!, receipt);
+		}
+		if (done.status === "unanswered" && !done.entry) {
+			const source =
+				this.submissions.get(String(done.id))?.event ??
+				(done.requestId?.startsWith("event:") ? await this.options.readEvent?.(done.requestId.slice(6)) : undefined);
+			const run: RuntimeRun = {
+				runId: `unplaced:${done.id}`,
+				...submissionOutcome(done),
+				text: "",
+				usage: emptyUsage(),
+				inputs: source ? [source.id] : [],
+			};
+			await this.options.onRun?.(session, run);
+			this.submissions.delete(String(done.id));
+			return run;
+		}
+		throw new Error(`submission ${done.id} 无原生回执，历史运行归属不可确定`);
+	}
+	/** Read and project durable endings before any submit/wait/resume starts scheduling. */
+	async recover(): Promise<void> {
+		const conversations = await this.storage.scanConversations({}, Number.MAX_SAFE_INTEGER, undefined, C);
+		for (const conversation of conversations.items) {
+			const covered = new Set<number>();
+			const docs = await this.storage.scanDocuments(
+				{ scope: { kind: "conversation", conversationId: conversation.id }, kind: "pi.run-receipt", at: "current" },
+				Number.MAX_SAFE_INTEGER,
+				undefined,
+				C,
+			);
+			for (const doc of docs.items) {
+				const receipt = await this.harness.snapshot(RunReceiptDoc, conversation.id, doc.key!, C);
+				for (const input of receipt?.inputs ?? []) covered.add(input);
+				if (receipt) {
+					try {
+						await this.receiptRun(String(conversation.id), doc.key!, receipt);
+					} catch (error) {
+						this.options.onReport?.(error);
+					}
+				}
+			}
+			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
+			if (live?.run) await this.prepareRun(String(conversation.id), C);
+			const records = await this.storage.scanSubmissions(
+				{ conversationId: conversation.id },
+				Number.MAX_SAFE_INTEGER,
+				undefined,
+				C,
+			);
+			for (const record of records.items) {
+				if (record.type !== "input") continue;
+				if (record.status === "queued" || record.status === "placed")
+					this.recovering.push({ session: String(conversation.id), id: record.id });
+				else if (!record.entry) {
+					try {
+						await this.settledRun(String(conversation.id), record);
+					} catch (error) {
+						this.options.onReport?.(error);
+					}
+				} else if (!covered.has(record.id))
+					this.options.onReport?.(
+						new Error(`历史 submission ${record.id} 无原生回执，归属/结束用量不可确定；不重新执行`),
+					);
+			}
+		}
+	}
+	resume(): void {
+		for (const item of this.recovering.splice(0)) {
+			void (async () => {
+				const submission = await this.harness.submission(item.id, C);
+				if (submission) await this.settledRun(item.session, await submission.wait(C));
+			})().catch(this.options.onReport ?? (() => {}));
+		}
+		this.harness.resume();
+	}
+	async admitted(session: string, event: string): Promise<boolean> {
+		if (await this.storage.submissionByRequest(cid(session), `event:${event}`, C)) return true;
+		const inbox = await this.harness.snapshot(InboxDoc, cid(session), C);
+		if (inbox?.items.some((item) => (item.entry?.data as { event?: string } | undefined)?.event === event)) return true;
+		const entries = await this.storage.scanEntries(
+			{ conversationId: cid(session) },
+			Number.MAX_SAFE_INTEGER,
+			undefined,
+			C,
+		);
+		return entries.items.some((entry) => (entry.data as { event?: string } | undefined)?.event === event);
 	}
 	async resolveService(capability: string): Promise<ServiceEndpoint | undefined> {
 		for (const service of this.options.config.services ?? []) {

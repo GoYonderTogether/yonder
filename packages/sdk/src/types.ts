@@ -24,6 +24,8 @@ export interface Route {
 	binding: string | null;
 	session?: string;
 	wake?: "run" | "write";
+	busy?: "followup" | "steer";
+	waiting?: boolean;
 	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch";
 }
 export interface Attachment {
@@ -52,6 +54,7 @@ export interface MessageOutData {
 }
 export interface RunEndData {
 	session: string;
+	runId?: string;
 	inputs: string[];
 	status: "done" | "error" | "aborted" | "limit";
 	reason?: string;
@@ -232,6 +235,8 @@ export interface ToolContext {
 	capabilities: Capability[];
 	env: ExecutionEnv;
 	event?: YEvent;
+	/** Actual inputs of this native run, including placed steer inputs. */
+	events?: YEvent[];
 	signal: AbortSignal;
 }
 export interface ToolResult {

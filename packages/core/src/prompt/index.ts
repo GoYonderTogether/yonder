@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -103,15 +103,29 @@ export async function systemSections(
 	return [...sections, ...(await contributions(session, "system", options))];
 }
 
-async function download(attachment: Attachment, home: string, signal: AbortSignal): Promise<Attachment> {
+async function download(
+	attachment: Attachment,
+	home: string,
+	signal: AbortSignal,
+	event: string,
+	index: number,
+): Promise<Attachment> {
 	if (!/^https?:\/\//u.test(attachment.uri)) return attachment;
-	const response = await fetch(attachment.uri, { signal });
-	if (!response.ok) throw new Error(`Attachment download failed: HTTP ${response.status}`);
 	const directory = join(home, ".yonder/attachments");
 	await mkdir(directory, { recursive: true });
-	const path = join(directory, randomUUID());
+	const path = join(directory, `${event}-${index}`);
+	try {
+		const saved = await stat(path);
+		return { ...attachment, uri: pathToFileURL(path).href, bytes: saved.size };
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+	}
+	const response = await fetch(attachment.uri, { signal });
+	if (!response.ok) throw new Error(`Attachment download failed: HTTP ${response.status}`);
 	const bytes = new Uint8Array(await response.arrayBuffer());
-	await writeFile(path, bytes);
+	const temporary = join(directory, randomUUID());
+	await writeFile(temporary, bytes);
+	await rename(temporary, path);
 	return { ...attachment, uri: pathToFileURL(path).href, bytes: bytes.length };
 }
 
@@ -147,7 +161,9 @@ export async function prepareInput(
 		session.resolved.model.slice(0, slash),
 		session.resolved.model.slice(slash + 1),
 	);
-	const attachments = await Promise.all((data.attachments ?? []).map((item) => download(item, options.home, signal)));
+	const attachments = await Promise.all(
+		(data.attachments ?? []).map((item, index) => download(item, options.home, signal, event.id, index)),
+	);
 	const images: Attachment[] = [];
 	const limits = model?.inputLimits;
 	let imageBytes = 0;
@@ -171,7 +187,6 @@ export async function prepareInput(
 		lines.push(
 			`notice: yonder harness updated from ${row.version} to ${options.version}; details: yonder changelog --from ${row.version} --to ${options.version}`,
 		);
-		await options.setVersion(row.id, options.version);
 	}
 	lines.push("</turn>");
 	const preparedEvent = message ? { ...event, data: { ...event.data, attachments } } : event;
@@ -186,5 +201,6 @@ export async function prepareInput(
 		event: preparedEvent,
 		attachments: images,
 		wake,
+		...(wake === "run" ? { version: options.version } : {}),
 	};
 }

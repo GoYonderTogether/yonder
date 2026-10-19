@@ -86,29 +86,21 @@ const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.
 
 export function createDelivery(options: DeliveryOptions) {
 	const { store, agents, channels, sessions } = options;
-	const completed = new Set<string>();
-	const streams = new Map<string, StreamState>();
-	const active = new Map<string, string>();
+	const streams = new Map<string, StreamState & { owner: string; attempt?: string }>();
+	const report = options.onReport ?? (() => {});
+	let start!: () => void;
+	const ready = new Promise<void>((resolve) => {
+		start = resolve;
+	});
 	const binding = (session: SessionInfo, event: YEvent, config?: RuntimeSessionConfig): Binding | undefined => {
-		const route = event.routes?.find((route) => route.agent === session.agent && route.session === session.id);
+		const route = event.routes?.find((route) => route.session === session.id && route.agent === session.agent);
 		return session.agent
 			? (config?.bindings ?? agents.get(session.agent)?.bindings)?.find((binding) => binding.id === route?.binding)
 			: undefined;
 	};
-	const sourceEvents = (session: SessionInfo, events: YEvent[], config: RuntimeSessionConfig) => {
-		const seen = new Set<string>();
-		return events.filter((event) => {
-			if (
-				!event.conv ||
-				!channels.has(channelId(event.conv) ?? "") ||
-				(binding(session, event, config)?.reply ?? "auto") !== "auto" ||
-				seen.has(event.conv)
-			)
-				return false;
-			seen.add(event.conv);
-			return true;
-		});
-	};
+	const waiting = (session: SessionInfo, event: YEvent) =>
+		event.routes?.find((route) => route.session === session.id)?.waiting ??
+		(event.data as { waiting?: boolean }).waiting;
 	async function record(
 		from: string | undefined,
 		target: string,
@@ -116,19 +108,14 @@ export function createDelivery(options: DeliveryOptions) {
 		delivery: Delivery,
 		session?: string,
 		parent?: string,
+		attempt?: string,
 	) {
 		await store.events.record({
 			type: "message.out",
 			...(from ? { from } : {}),
 			...(target.startsWith("conv:") ? { conv: target } : {}),
 			...(parent ? { parent } : {}),
-			data: {
-				text: msg.text,
-				...(msg.attachments ? { attachments: msg.attachments } : {}),
-				...(session ? { session } : {}),
-				...(target === "owner" ? {} : { to: target }),
-				delivery,
-			},
+			data: { ...msg, ...(session ? { session } : {}), to: target, delivery, ...(attempt ? { attempt } : {}) },
 		});
 	}
 	async function resolveTarget(
@@ -138,7 +125,7 @@ export function createDelivery(options: DeliveryOptions) {
 	): Promise<{ target: string; channel: Channel }> {
 		let target = request.to;
 		if (target === "owner") {
-			if (!agent) throw new Error("预设会话没有 owner；请指定 person:、acct: 或 conv: 目标。");
+			if (!agent) throw new Error("预设会话没有 owner；请指定明确目标。");
 			const owner = config ? config.owner : agents.get(agent)?.owner;
 			if (!owner) throw new Error(`Agent ${agent} 没有 owner`);
 			target = owner;
@@ -160,6 +147,24 @@ export function createDelivery(options: DeliveryOptions) {
 		if (!channel) throw new Error(`渠道未运行：${parsed.channel}`);
 		return { target, channel };
 	}
+	async function attempt(
+		target: string,
+		method: "send" | "stream",
+		session?: string,
+		parent?: string,
+		runId?: string,
+	): Promise<string | undefined> {
+		return store.events.claimAttempt({
+			type: "message.attempt",
+			...(parent ? { parent } : {}),
+			...(target.startsWith("conv:") ? { conv: target } : {}),
+			data: { target, method, ...(session ? { session } : {}), ...(runId ? { runId } : {}) },
+		});
+	}
+	async function unknown(id: string, error: unknown): Promise<Delivery> {
+		await store.events.record({ type: "message.unknown", data: { attempt: id, reason: message(error) } });
+		return { ok: false, error: `发送结果未知：${message(error)}；不会自动重发` };
+	}
 	async function send(
 		from: string | undefined,
 		request: MessageRequest,
@@ -167,48 +172,48 @@ export function createDelivery(options: DeliveryOptions) {
 		parent?: string,
 		config?: RuntimeSessionConfig,
 		signal: AbortSignal = AbortSignal.timeout(60000),
+		runId?: string,
 	): Promise<Delivery> {
-		let target = request.to,
-			delivery: Delivery;
+		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
-			const resolved = await resolveTarget(request, session?.agent, config);
-			target = resolved.target;
-			delivery = await resolved.channel.send(
-				target,
-				{
-					text: request.text,
-					...(request.attachments ? { attachments: request.attachments } : {}),
-				},
-				signal,
-			);
+			resolved = await resolveTarget(request, session?.agent, config);
 		} catch (error) {
-			delivery = { ok: false, error: message(error) };
+			const delivery = { ok: false, error: message(error) };
+			await record(from, request.to, request, delivery, session?.id, parent);
+			return delivery;
 		}
-		await record(
-			from,
-			target,
-			{ text: request.text, ...(request.attachments ? { attachments: request.attachments } : {}) },
-			delivery,
-			session?.id,
-			parent,
-		);
+		const id = await attempt(resolved.target, "send", session?.id, parent, runId);
+		if (!id) return { ok: false, error: "该运行/目标已有发送尝试，结果以持久确认或 unknown 为准，不自动重发" };
+		let delivery: Delivery;
+		try {
+			delivery = await resolved.channel.send(resolved.target, request, signal);
+		} catch (error) {
+			return unknown(id, error);
+		}
+		await record(from, resolved.target, request, delivery, session?.id, parent, id);
 		return delivery;
 	}
-	function onStart(session: SessionInfo, event: YEvent, waiter: boolean): ((part: OutputPart) => void) | undefined {
-		const key = `${session.id}\0${event.id}`;
-		if (!active.has(session.id)) active.set(session.id, key);
+	function onStart(
+		session: SessionInfo,
+		event: YEvent,
+		waiter: boolean,
+	): ((part: OutputPart, runId?: string) => void) | undefined {
 		const target = event.conv;
 		if (waiter || !target) return;
-		let state: StreamState | undefined;
-		return (part) => {
+		return (part, runId) => {
+			if (!runId || part.type === "final") return;
+			const config = options.runtime().currentConfig(session.id);
+			if (!config) return;
+			const selected = binding(session, event, config);
+			const channel = channels.get(channelId(target) ?? "");
+			if (!selected?.stream || (selected.reply ?? "auto") !== "auto" || !channel?.output.stream || !channel.stream)
+				return;
+			const key = `${session.id}\0${runId}\0${target}`;
+			let state = streams.get(key);
+			if (state && state.owner !== event.id) return;
 			if (!state) {
-				const config = options.runtime().currentConfig(session.id);
-				if (!config) return;
-				const selected = binding(session, event, config);
-				if (!selected?.stream || (selected.reply ?? "auto") !== "auto") return;
-				const channel = channels.get(channelId(target) ?? "");
-				if (!channel?.output.stream || !channel.stream) return;
 				state = {
+					owner: event.id,
 					target,
 					channel,
 					queue: new OutputQueue(),
@@ -217,142 +222,148 @@ export function createDelivery(options: DeliveryOptions) {
 				};
 				streams.set(key, state);
 			}
-			const channel = state.channel;
-			const current = active.get(session.id);
-			if (current && current !== key) return;
-			if (part.type === "final") return;
 			if (part.type === "text") {
 				const delta = state.gate.push(part.delta);
 				if (!delta) return;
 				part = { type: "text", delta };
 			}
 			if (!state.delivery) {
-				active.set(session.id, key);
 				const stream = state;
-				state.delivery = Promise.resolve()
-					.then(
-						() =>
-							channel.stream?.(target, stream.queue, (event.data as { msgId?: string }).msgId, stream.signal) ?? {
-								ok: false,
-								error: "渠道不支持流式",
-							},
-					)
-					.catch((error) => ({ ok: false, error: message(error) }));
+				state.delivery = (async () => {
+					await ready;
+					const id = await attempt(target, "stream", session.id, event.id, runId);
+					if (!id) return { ok: false, error: "发送结果未知：该运行已有渠道尝试，不自动重新开流" };
+					stream.attempt = id;
+					try {
+						return await channel.stream!(target, stream.queue, (event.data as { msgId?: string }).msgId, stream.signal);
+					} catch (error) {
+						return unknown(id, error);
+					}
+				})();
 			}
 			state.queue.push(part);
 		};
 	}
-	async function onRun(session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean): Promise<void> {
-		const runKey = `${session.id}\0${run.runId}`;
-		if (completed.has(runKey)) return;
-		completed.add(runKey);
+	async function onRun(session: SessionInfo, run: RuntimeRun, inputs: YEvent[], _waiter = false): Promise<void> {
 		const profile = run.config ?? (await sessions.resolveSession(session.id));
-		const actualInputs = inputs.length
+		const actual = inputs.length
 			? inputs
 			: (await Promise.all(run.inputs.map((id) => store.events.get(id)))).filter((event): event is YEvent => !!event);
-		const first = actualInputs[0],
-			sources = sourceEvents(session, actualInputs, profile),
-			firstBinding = first ? binding(session, first, profile) : undefined;
-		let replied: RunEndData["replied"] = "none";
-		const text = run.text.trim();
-		let targets: YEvent[] = [];
-		let finalText = run.text;
-		if (run.status === "limit" || run.status === "error") {
-			finalText = `运行已停止：${run.reason ?? run.status}。`;
-			targets = sources;
-			replied = targets.length ? "source" : "none";
-		} else if (text && text !== "NO_REPLY") {
-			if (waiter) replied = "caller";
-			else if (sources.length) {
-				targets = sources;
-				replied = "source";
-			} else if (firstBinding?.deliver) {
-				replied = "deliver";
-				await send(
-					fromSession(session),
-					{
-						to: firstBinding.deliver.to,
-						text: run.text,
-						...(firstBinding.deliver.via ? { via: firstBinding.deliver.via } : {}),
-					},
-					session,
-					first?.id,
-					profile,
-				);
-			}
-		}
-		const streamKeys = actualInputs.map((event) => `${session.id}\0${event.id}`);
-		// Release the session slot before awaiting a channel; the next queued run may already produce output.
-		if (streamKeys.includes(active.get(session.id) ?? "")) active.delete(session.id);
-		for (const event of targets) {
-			const key = `${session.id}\0${event.id}`,
-				state = streams.get(key);
-			const replyTo = (event.data as { msgId?: string }).msgId;
-			if (state && event.id === first?.id) {
-				state.delivery ??= Promise.resolve()
-					.then(
-						() =>
-							state.channel.stream?.(state.target, state.queue, replyTo, AbortSignal.timeout(60000)) ?? {
-								ok: false,
-								error: "渠道不支持流式",
-							},
-					)
-					.catch((error) => ({ ok: false, error: message(error) }));
-				state.queue.push({ type: "final", text: finalText });
-			} else {
-				const target = event.conv;
-				if (!target) continue;
-				const channel = channels.get(channelId(target) ?? "");
-				if (!channel) continue;
-				let delivery: Delivery;
-				try {
-					delivery = await channel.send(
-						target,
-						{ text: finalText, ...(replyTo ? { replyTo } : {}) },
-						AbortSignal.timeout(60000),
-					);
-				} catch (error) {
-					delivery = { ok: false, error: message(error) };
-				}
-				await record(fromSession(session), target, { text: finalText }, delivery, session.id, first?.id);
-			}
-		}
-		for (const key of streamKeys) {
-			const state = streams.get(key);
-			streams.delete(key);
-			if (!state) continue;
-			state.queue.end();
-			if (state.delivery) {
-				const delivered = await state.delivery;
-				await record(
-					fromSession(session),
-					state.target,
-					{ text: targets.some((event) => event.conv === state.target) ? finalText : "" },
-					delivered,
-					session.id,
-					first?.id,
-				);
-			}
-		}
-		await store.events.record({
+		const first = actual[0];
+		for (const event of actual)
+			if (waiting(session, event) === undefined)
+				report(new Error(`输入 ${event.id} 缺少历史 waiting，自动投递不可确定，未发送`));
+		const seen = new Set<string>();
+		const sources = actual.filter((event) => {
+			if (
+				waiting(session, event) !== false ||
+				!event.conv ||
+				!channels.has(channelId(event.conv) ?? "") ||
+				(binding(session, event, profile)?.reply ?? "auto") !== "auto" ||
+				seen.has(event.conv)
+			)
+				return false;
+			seen.add(event.conv);
+			return true;
+		});
+		const hasWaiter = actual.some((event) => waiting(session, event) === true);
+		const stopped = run.status !== "done";
+		const finalText = stopped
+			? `运行已停止：${run.reason ?? run.status}。`
+			: run.text.trim() === "NO_REPLY"
+				? ""
+				: run.text;
+		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? sources : [];
+		const deliver =
+			!stopped && !targets.length && !hasWaiter && run.text.trim() && run.text.trim() !== "NO_REPLY" && first
+				? binding(session, first, profile)?.deliver
+				: undefined;
+		const replied: RunEndData["replied"] = targets.length
+			? "source"
+			: hasWaiter
+				? "caller"
+				: deliver
+					? "deliver"
+					: "none";
+		await store.events.recordRun({
 			type: "run.end",
-			...(fromSession(session) ? { from: fromSession(session) as string } : {}),
+			...(fromSession(session) ? { from: fromSession(session)! } : {}),
 			...(first ? { parent: first.id } : {}),
 			...(first?.conv ? { conv: first.conv } : {}),
 			data: {
 				session: session.id,
-				inputs: run.inputs.length ? run.inputs : actualInputs.map((event) => event.id),
+				runId: run.runId,
+				inputs: run.inputs,
 				status: run.status,
 				...(run.reason ? { reason: run.reason } : {}),
 				replied,
 				model: profile.resolved.model,
 				usage: run.usage,
+				targets: targets.map((event) => event.conv),
+				...(deliver ? { deliver } : {}),
 			},
 		});
+		const prefix = `${session.id}\0${run.runId}\0`;
+		const owned = [...streams].filter(([key]) => key.startsWith(prefix));
+		for (const [key] of owned) streams.delete(key);
+		// Model termination is durable and its slot released before awaiting any channel.
+		void (async () => {
+			await ready;
+			for (const [, state] of owned) {
+				state.queue.push({ type: "final", text: finalText });
+				state.queue.end();
+			}
+			for (const event of targets) {
+				if (owned.some(([, state]) => state.target === event.conv && state.delivery)) continue;
+				await send(
+					fromSession(session),
+					{
+						to: event.conv!,
+						text: finalText,
+						...((event.data as { msgId?: string }).msgId ? { replyTo: (event.data as { msgId: string }).msgId } : {}),
+					},
+					session,
+					event.id,
+					profile,
+					AbortSignal.timeout(60000),
+					run.runId,
+				);
+			}
+			if (deliver)
+				await send(
+					fromSession(session),
+					{ ...deliver, text: run.text },
+					session,
+					first?.id,
+					profile,
+					AbortSignal.timeout(60000),
+					run.runId,
+				);
+			for (const [, state] of owned)
+				if (state.delivery) {
+					const delivered = await state.delivery;
+					// Thrown channel results already have an unknown receipt, not a false confirmation.
+					if (!delivered.error?.startsWith("发送结果未知："))
+						await record(
+							fromSession(session),
+							state.target,
+							{ text: finalText },
+							delivered,
+							session.id,
+							state.owner,
+							state.attempt,
+						);
+				}
+		})().catch(report);
 	}
 	return {
 		onStart,
 		onRun,
+		start,
+		async recover() {
+			for (const event of await store.events.unresolvedAttempts())
+				await unknown(event.id, new Error("进程在渠道尝试后未保存确认"));
+		},
 		async sendPlugin(pluginId: string, request: MessageRequest): Promise<Delivery> {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };
 			return send(`plugin:${pluginId}`, request);
@@ -360,22 +371,19 @@ export function createDelivery(options: DeliveryOptions) {
 		async sendTool(ctx: ToolContext, request: MessageRequest): Promise<Delivery> {
 			const session = await store.sessions.get(ctx.session);
 			if (!session) throw new Error("当前会话不存在。");
+			const config = options.runtime().currentConfig(ctx.session);
 			let target: string;
 			try {
-				target = (await resolveTarget(request, ctx.agent, options.runtime().currentConfig(ctx.session))).target;
+				target = (await resolveTarget(request, ctx.agent, config)).target;
 			} catch (error) {
 				return { ok: false, error: message(error) };
 			}
-			if (target !== ctx.event?.conv && !ctx.capabilities.includes("message"))
+			if (
+				!(ctx.events ?? (ctx.event ? [ctx.event] : [])).some((event) => event.conv === target) &&
+				!ctx.capabilities.includes("message")
+			)
 				return { ok: false, error: "发往本次运行来源以外需要 message 能力。" };
-			return send(
-				fromSession(session),
-				request,
-				session,
-				ctx.event?.id,
-				options.runtime().currentConfig(ctx.session),
-				ctx.signal,
-			);
+			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal);
 		},
 	};
 }

@@ -78,7 +78,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	): Promise<{ session: SessionInfo; event: YEvent; input: RuntimeInput }> {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
-		const parent = await sessions.resolveSession(ctx.session);
+		const parent = await runtime().sessionConfig(ctx.session);
 		const resolved = resolveProfile(selected, {}, parent.resolved.env);
 		const capabilities = resolved.capabilities.filter((capability) => ctx.capabilities.includes(capability));
 		let session = await store.sessions.get(childId);
@@ -102,13 +102,14 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				data: { session: childId, mode: "task", key: session.key, profile: presetId },
 			});
 		}
-		await runtime().setSessionState(childId, {
-			agent: null,
-			profile: presetId,
-			cwd: parent.cwd,
-			env: resolved.env,
-			capabilities,
-		});
+		if (!(await runtime().sessionState(childId))?.profile)
+			await runtime().setSessionState(childId, {
+				agent: null,
+				profile: presetId,
+				cwd: parent.cwd,
+				env: resolved.env,
+				capabilities,
+			});
 		let event: YEvent | undefined;
 		// Replay-safe task tools reacquire the prior input event for their existing owned conversation.
 		let after: string | undefined;
@@ -121,7 +122,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			type: "session.input",
 			...(ctx.agent ? { from: `agent:${ctx.agent}` } : {}),
 			...(ctx.event ? { parent: ctx.event.id } : {}),
-			data: { session: childId, text: task },
+			data: { session: childId, text: task, waiting: true, busy: "followup", taskOwned: true },
 		});
 		const prepared = await options.prepareInput?.(session, event);
 		return { session, event, input: prepared ?? { text: task, event } };
@@ -190,22 +191,11 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			execute: async (args, ctx) => {
 				const request = args as { preset: string; task: string };
 				if (!getPreset(request.preset)) throw new Error(`未知预设：${request.preset}`);
-				let initialized: { session: SessionInfo; event: YEvent; input: RuntimeInput } | undefined;
-				let closeReason = "error";
-				try {
-					const run = await runtime().runTask(ctx, async (childId) => {
-						initialized = await taskInput(childId, request.preset, request.task, ctx);
-						return initialized.input;
-					});
-					if (initialized) await delivery.onRun(initialized.session, run, [initialized.event], true);
-					closeReason = run.status === "done" ? "completed" : run.status;
-					return {
-						...result(run.text || run.reason || run.status),
-						...(run.status === "done" ? {} : { isError: true }),
-					};
-				} finally {
-					if (initialized) await sessions.closeSession(initialized.session.id, closeReason);
-				}
+				const run = await runtime().runTask(
+					ctx,
+					async (childId) => (await taskInput(childId, request.preset, request.task, ctx)).input,
+				);
+				return { ...result(run.text || run.reason || run.status), ...(run.status === "done" ? {} : { isError: true }) };
 			},
 		}),
 		tool({

@@ -403,6 +403,14 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		};
 		const input = async (row: SessionInfo, event: YEvent, wake: "run" | "write" = "run") =>
 			prepareInput(row, await sessions.resolveSession(row.id), event, wake, promptOptions);
+		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
+			const session = await store.sessions.get(id);
+			if (!session) throw new Error(`Missing runtime session: ${id}`);
+			await delivery.onRun(session, run, []);
+			await router.finishRun(session, run);
+			if (session.mode === "ephemeral" || session.mode === "task")
+				await sessions.closeSession(id, run.status === "done" ? "completed" : run.status);
+		};
 		sessions = createSessions({
 			store,
 			agents,
@@ -413,7 +421,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			version: packageVersion,
 			runtime: realRuntime,
 			prepareInput: input,
-			onRun: (...args) => delivery.onRun(...args),
+			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
 		});
 		delivery = createDelivery({
@@ -431,7 +439,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			agents,
 			prepareInput: input,
 			onStart: delivery.onStart,
-			onRun: delivery.onRun,
+			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
 		});
 		const tools = createCoreTools({
@@ -453,6 +461,11 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			plugins: [...loaded.tools].map(([id, tools]) => ({ id, tools, hooks: loaded.hooks.get(id) ?? [] })),
 			tools,
 			envs: loaded.envs,
+			readEvent: store.events.get,
+			onAdmitted: async (id, input) => {
+				if (input.version) await store.sessions.setVersion(id, input.version);
+			},
+			onRun: completeRun,
 			resolveSession: async (id) => {
 				const session = await sessions.resolveSession(id);
 				const protectedFiles = session.resolved.contexts
@@ -492,7 +505,13 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				await store.events.record(event);
 			},
 		});
+		await delivery.recover();
+		await runtime.recover();
+		await router.recover();
+		await sessions.recover();
+		runtime.resume();
 		await loaded.start(router);
+		delivery.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		return { sessions: sessions.api, events: { query: store.events.query }, identity: store.identity(), close };
 	} catch (error) {
