@@ -805,13 +805,14 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 						.filter(([, channel]) => channel.type === "cli")
 						.map(([id]) => ({
 							id,
-							agents: [...agents.values()]
-								.filter((agent) =>
-									agent.bindings.some(
-										(binding) => !binding.match.channel || [binding.match.channel].flat().includes(id),
-									),
-								)
-								.map((agent) => ({ id: agent.id, name: agent.name })),
+							agents: [...agents.values()].flatMap((agent) => {
+								const bindings = agent.bindings.filter(
+									(binding) => !binding.match.channel || [binding.match.channel].flat().includes(id),
+								);
+								return bindings.length
+									? [{ id: agent.id, name: agent.name, main: bindings.some((binding) => binding.session === "main") }]
+									: [];
+							}),
 						})),
 				async list() {
 					return Promise.all(

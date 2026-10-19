@@ -196,8 +196,8 @@ export async function prepareInput(
 	return {
 		text: [
 			lines.join("\n"),
-			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 			message ? data.text : JSON.stringify(event.data),
+			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]
 			.filter(Boolean)
 			.join("\n\n"),

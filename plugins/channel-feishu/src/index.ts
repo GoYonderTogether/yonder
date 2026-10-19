@@ -25,7 +25,8 @@ export default definePlugin({
 				if (event?.type !== "message.in" || !event.conv) return;
 				const ref = parseRef(event.conv);
 				const channel = ref.kind === "conv" ? instances.get(ref.channel) : undefined;
-				if (channel) return conversationContext(channel.client, event, ctx.signal ?? AbortSignal.timeout(30000));
+				if (channel)
+					return conversationContext(channel.client, event, ctx.signal ?? AbortSignal.timeout(30000), api.events);
 			},
 		});
 		// Do not serialize later inbound observations behind network reaction requests.
@@ -153,7 +154,7 @@ export default definePlugin({
 		register({
 			name: "channel-feishu_message",
 			description:
-				"Send ordinary text and local file: image/audio/video/file artifacts via Yonder message delivery. Uses selected instance render mode, chunk limits, replies and thread configuration. Audio requires Ogg/Opus, video MP4; no silent media downgrade.",
+				'Send ordinary text and local file: image/audio/video/file artifacts via Yonder message delivery. Set replyTo to a native message ID to explicitly quote it. For text/markdown modes, mention a known user with <at user_id="ou_ID">Name</at>; card Markdown uses <at id=ou_ID></at> via channel-feishu_card. Inspect instance renderMode before choosing markup; use native card JSON for mentions in other modes. After sending your answer here, finish with NO_REPLY to avoid a duplicate automatic reply. Uses selected instance render mode, chunk limits, replies and thread configuration. Audio requires Ogg/Opus, video MP4; no silent media downgrade.',
 			parameters: {
 				type: "object",
 				additionalProperties: false,

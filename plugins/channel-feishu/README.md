@@ -61,3 +61,10 @@ contexts: [agents-md, user-md, channel-feishu.conversation]
 准备实际飞书输入时读取来源会话或来源线程截至当时的可见历史；用户、其他机器人、本机器人回复均为背景，保持时间顺序，不因此唤醒或获得权限。当前待处理项使用原生ID标识，模型结合后续对话决定回复或NO_REPLY。普通输入呈现原发送时间和接纳时间，不能把迟到消息显示成刚发的新请求。
 
 背景64KiB UTF-8，保留最近对话并明确范围、截断或读取失败；原始待处理输入保留，历史工具可继续分页查询。背景媒体只保留描述和资源标识，不自动下载。使用原生pi上下文及压缩，没有单独转录、缓存或任务队列；恢复仅合并连续同发送者同线程输入，不重排跨参与者消息。
+
+
+## 模型指定引用与艾特
+
+`channel-feishu_message`已有replyTo参数，传上下文里的原生消息ID即可强制引用，优先于自动引用规则。状态工具返回renderMode：text/markdown模式可在text中使用飞书原生`<at user_id="ou_实际ID">称呼</at>`；卡片使用既有channel-feishu_card工具，在原生Markdown中使用`<at id=ou_实际ID></at>`。不同格式不要混用，post纯文本模式需要原生卡片工具实现艾特。发送权限、跨来源与实际投递回执仍沿用既有工具检查；主动发送答复后以NO_REPLY结束，避免自动final再发一次。
+
+原生语法依据：[飞书消息内容结构](https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json)与[卡片艾特说明](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)。

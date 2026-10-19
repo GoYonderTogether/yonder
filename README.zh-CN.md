@@ -6,7 +6,22 @@ Yonder Harness 是本机 Agent 运行时：把收到的事件路由到 Agent 与
 
 模型访问与持久化 Agent 会话使用 pi（`pi-ai`、`pi-durable`）作为依赖。产品名称是 Yonder Harness；pi 是底层依赖及上游来源。
 
-> **状态：** C0–C6 源码整合已完成，待审核验收。全仓构建、类型检查通过；本轮没有新增或运行测试、没有调用外部渠道，也没有替换日用 0.1.4。操作入口及证据边界见 [本轮操作说明](docs/tasks/capability-completion-usage.md)。旧安装版实际证据继续见 [N03](docs/tasks/next/N03-install-agents.md)。
+> **状态：** 已有独立macOS日用安装、CLI/TUI和人生管家飞书接入；能力实现与验收分别记录，未完成项见[当前任务](docs/index.md)。
+
+## 日常使用
+
+安装和登录完成后，在任意目录运行：
+
+```sh
+yonder                    # 正式后台的常驻主会话；与已绑定的飞书主会话连续
+yonder chat               # 独立任务，/channel 可切换常驻渠道
+yonder update --check     # 查询正式GitHub Release
+yonder update --to latest # 按仓库版本标签更新；保留home和历史
+```
+
+默认程序`~/.yonder-harness/current`，数据`~/.local/share/yonder-harness/home`；有已安装服务时使用它的实际home。显式`--home`/`YONDER_HOME`仍可选择隔离开发环境。正式后台只有一个launchd服务，打开多个终端不会创建第二个内核。
+
+内置`skill-creator`与`yonder-development`只把名称描述加入索引；需要时经`skill_view`读取。开发技能建议独立源码Git仓库及隔离home，允许用户改用其他目录和流程，不自动push或发布。
 
 ## 从源码运行
 
@@ -36,7 +51,7 @@ node packages/cli/dist/index.js sessions open default --keep-open --home <home> 
 node packages/cli/dist/index.js sessions submit <id> --text '任务正文' --home <home> --json
 ```
 
-chat 的默认目标已从 main 渠道改为独立任务。旧 home 没有 default 预设时，在 `/new` 选择实际已有预设；不要假定已安装版本已更新。来源与复用边界见 [终端规范](docs/spec/12-terminal-interaction.md) 和 THIRD_PARTY_NOTICES。
+裸yonder默认进入常驻渠道；显式chat的默认目标是独立任务。旧 home 没有 default 预设时，在 `/new` 选择实际已有预设；不要假定已安装版本已更新。来源与复用边界见 [终端规范](docs/spec/12-terminal-interaction.md) 和 THIRD_PARTY_NOTICES。
 
 ## 安装与后台服务
 
@@ -46,7 +61,7 @@ chat 的默认目标已从 main 渠道改为独立任务。旧 home 没有 defau
 node packages/cli/dist/index.js update --to <reviewed-tag> [--repo <repository-url>]
 ```
 
-默认安装目录为 `~/.yonder-harness`，可用 `YONDER_INSTALL` 指定其他位置。把 `<install>/bin` 加入 `PATH` 后即可使用 `yonder` 命令。安装目录保存带版本的程序文件；`YONDER_HOME` 或 `--home` 选择独立的数据目录。一个安装可服务多个 home。
+默认安装目录为 `~/.yonder-harness`，可用 `YONDER_INSTALL` 指定其他位置。把 `<install>/bin` 加入 `PATH` 后即可使用 `yonder` 命令；默认路径可执行 `export PATH="$HOME/.yonder-harness/bin:$PATH"`，需要新终端保留时加入自己的shell配置。安装目录保存带版本的程序文件；`YONDER_HOME` 或 `--home` 选择独立的数据目录。一个安装可服务多个 home。
 
 macOS 上可为一个 home 安装 launchd 服务，并用以下命令管理：
 
@@ -62,10 +77,10 @@ yonder service uninstall
 安装后使用安装版初始化、独立登录，再安装服务；不要把其他 home 的 OAuth 复制过来：
 
 ```sh
-yonder init <home>
-yonder login openai --home <home>
-yonder service install --home <home>
-yonder chat --home <home>
+yonder init
+yonder login openai
+yonder service install
+yonder
 ```
 
 `yonder update --to <reviewed-tag|latest>` 更新安装，`--repo` 可指定仓库。`yonder version` 返回实际安装目录和来源 commit；`yonder changelog` 和 `yonder docs` 查看该安装版本的变更记录和文档。正式 GitHub 发布与完整更新验收仍在实施中，本地阶段标签不等于发布。

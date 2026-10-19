@@ -95,7 +95,7 @@ bindings: [ … ]                   # 见 02 §2
 | 位置 | 放什么 | 规则 |
 |---|---|---|
 | system | 依次：① 框架段 ② `SYSTEM.md` ③ skill 索引（§6） ④ `placement: system` 的上下文贡献（按 `contexts` 顺序） ⑤ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
-| 本轮输入 | 依次：① 内核的 `<turn>` 块 ② `placement: turn` 的上下文贡献 ③ 消息正文 | 随用户消息一起写入转录，可审计，不再改写 |
+| 本轮输入 | 依次：① 内核的 `<turn>` 块 ② 原事件正文（紧随其来源与原时间）③ `placement: turn` 的补充上下文 | 随用户消息一起写入转录，可审计，不再改写 |
 | tools | 只放工具定义 | 不在工具定义里塞上下文 |
 
 ### 5.2 框架段
@@ -134,9 +134,10 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 
 1. agent 工作区的 `skills/`（经执行环境读取）；
 2. home 的 `skills/`；
-3. 插件贡献（04 §3.8）。
+3. 插件贡献（04 §3.8）；
+4. 安装代码根目录skills/内置技能。
 
-预设会话没有工作区，只有后两种。目录按 `**/SKILL.md` 递归发现。
+预设会话没有工作区，使用home、插件及内置来源。目录按 `**/SKILL.md` 递归发现。
 
 **选择**：配置档的 `skills` 通配列表（默认 `["*"]`）；访客类分身可以设为 `[]`。
 
@@ -163,3 +164,10 @@ Skills 本地导入/查看/删除、来源与配置诊断的完整边界按已�
 ## R0 子任务结果（D34）
 
 子任务输入附件由调用方显式选择，默认不继承父全部附件；每条附件保留原来源与既有读取范围。task_run 返回包含实际 child session、status、reason、text 和可选 attachments 的结构化正文。ToolResult 可携带显式 attachments，runtime 把这些真实产物引用存入该工具原生结果元数据并在本轮结果中保留；没有产物不造附件，不从自然语言猜路径，不扫描工作区搜集文件。结果引用不自动扩大父调用方权限，读取/发送仍校验；不增加 artifact 数据库。
+
+
+### 内置创作与开发技能（D37）
+
+发行包含完整上游skill-creator（含许可及引用资源）与简洁yonder-development，默认skills=[*]的所有agent及预设可发现，只有名字描述进入索引，正文仍由skill_view按需加载。显式skills选择/禁用和workspace/home覆盖仍有效，不以“默认”绕过用户过滤。现有本机agent配置中的显式白名单加入这两项，不强制未来配置。
+
+yonder-development提供可工作的建议：默认源码<home>/development/<name>或用户指定路径，普通插件独立git保存，官方代码改动常规fork/branch/PR；运行用隔离home与自身凭据，不覆盖正式launchd。正式程序仅update更新，不在versions/current改源码。用户可选择其他方式；skill不授予push/发布权限，不建立强制工作流或自动创建remote。

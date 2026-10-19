@@ -83,6 +83,7 @@ export class FeishuChannel implements Channel {
 			...(this.error ? { error: this.error } : {}),
 			requiredScopes: ["im:message", "im:message:send_as_bot", "im:resource", "cardkit:card:write"],
 			transport: "websocket",
+			renderMode: this.config.renderMode ?? "markdown",
 			recovery: this.recoveryState,
 		};
 	}

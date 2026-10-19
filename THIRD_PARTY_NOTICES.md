@@ -56,3 +56,6 @@ SOFTWARE.
 - Codex Computer Use / hosted search 只通过外部已安装的 Codex app-server 连接；没有复制、重分发其私有插件或凭据。
 
 新增插件源码由实际实现者提供，不因引用上游设计而宣称其授权、协议或真实使用已通过。
+
+
+Skill Creator: copied from the local OpenAI Codex built-in skill-creator distribution, Apache-2.0; license retained at skills/skill-creator/license.txt. Default skill output location and discovery description adapted for Yonder Harness; supporting resources retained; SVG icon given an accessible title.

@@ -14,6 +14,7 @@ export {
 export {
 	checkRelease,
 	compareVersions,
+	installedService,
 	manageService,
 	readChangelog,
 	readDocs,

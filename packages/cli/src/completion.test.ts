@@ -28,7 +28,9 @@ test("shell-native scripts load and offer actual command/subcommand candidates",
 			{ encoding: "utf8" },
 		);
 		expect(zsh).toContain("restart");
-		const data = JSON.parse(execFileSync(process.execPath, [cli, "completion", "zsh", "--json"], { encoding: "utf8" }));
+		const data = JSON.parse(
+			execFileSync(process.execPath, [cli, "completion", "zsh", "--home", directory, "--json"], { encoding: "utf8" }),
+		);
 		expect(data.script).toContain("#compdef yonder");
 		expect(data.candidates).toEqual({ sessions: [], presets: [], channels: [] });
 	} finally {

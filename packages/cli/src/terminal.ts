@@ -571,6 +571,13 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			socket.once("connect", resolve);
 			socket.once("error", reject);
 		});
+		const channel = (await call<Channels>("terminal.channels")).find((channel) => channel.id === id);
+		const mains = await call<SessionInfo[]>("sessions.list", { filter: { mode: "main", open: true } });
+		for (const session of mains)
+			if (channel?.agents.some((agent) => agent.id === session.agent && agent.main)) {
+				speakers.set(session.id, session.agent ?? "");
+				await watch(session.id);
+			}
 	};
 	const stop = async () => {
 		const ids = [...observers.keys()];

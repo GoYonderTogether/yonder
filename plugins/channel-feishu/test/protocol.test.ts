@@ -256,7 +256,11 @@ describe("Feishu protocol receipts (no network or model)", () => {
 	});
 	it("registers source-scoped turn context without fetching for CLI inputs", async () => {
 		const { api: base, registrations } = createRegistrationCollector();
-		plugin.setup({ ...base, paths: { data: "/unused" } } as PluginAPI);
+		plugin.setup({
+			...base,
+			paths: { data: "/unused" },
+			events: { ...base.events, query: async () => ({ events: [] }) },
+		} as PluginAPI);
 		const channel = (await registrations.channels[0]?.create("test", config)) as FeishuChannel;
 		const request = vi.spyOn(channel.client, "request").mockResolvedValue({ data: { items: [] } });
 		const contribution = registrations.contexts.find((item) => item.id === "channel-feishu.conversation");

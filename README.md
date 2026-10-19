@@ -73,3 +73,10 @@ License: [Apache-2.0](LICENSE)
 `yonder` / `yonder chat` opens the pi 1.3.0 native TUI with Yonder commands and real session data. A new standalone task is created on first submission; `/new`, `/resume`, `/session` and slash/Tab completion use upstream UI components. Use `yonder chat --channel cli` for the existing main-agent channel, `--session <id>` to resume, or `--plain` / `--json` for line-oriented clients. Exiting disconnects the UI without stopping admitted work.
 
 For shell completion, load `source <(yonder completion zsh)` or `source <(yonder completion bash)`; fish uses `yonder completion fish | source`. This does not edit shell configuration. Management commands remain non-interactive. See [the terminal contract](docs/spec/12-terminal-interaction.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+
+## Global daily entry
+
+After installing, initializing, authenticating and installing the macOS service, run `yonder` from any directory to open the resident CLI channel and its existing main history. `yonder chat` starts a standalone task; `/channel` switches to a resident channel. The installed service home is discovered automatically; explicit `--home` and `YONDER_HOME` still select an isolated development environment. Terminal clients share one resident service.
+
+Bundled `skill-creator` and `yonder-development` use the existing skill index and on-demand `skill_view`; their full instructions are not injected. Plugin source and Git work can live in `<home>/development/<name>` or a user-selected directory. Production code stays in versioned installation directories and is updated with `yonder update`; development homes and credentials stay separate.

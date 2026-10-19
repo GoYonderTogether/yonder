@@ -209,7 +209,7 @@ interface ServiceInstallation {
 	install: string;
 	plist: string;
 }
-async function installedService(): Promise<ServiceInstallation | undefined> {
+export async function installedService(): Promise<ServiceInstallation | undefined> {
 	if (process.platform !== "darwin" || !existsSync(plistPath())) return;
 	const result = await command("plutil", ["-convert", "json", "-o", "-", plistPath()]);
 	const plist = JSON.parse(result.stdout) as {

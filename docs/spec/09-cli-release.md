@@ -9,8 +9,8 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - **非交互**：除 `login`、`chat` 与交互终端中的无参数 TUI 入口外不读标准输入、不提问；缺参数就报错并给出用法。管理命令以 agent/脚本为主要使用方，人也能阅读；TUI 是人使用产品的基础入口，不能用 JSON 或逐行打印代替。
 - **`--json`**：每个命令都支持。有限命令输出一个 JSON 值（列表输出数组）；持续的 `start`、`chat` 输出一行一个 JSON 值（JSON Lines）。`login` 的交互提示走 stderr，stdout 只输出最终结果。不带时输出给人看的文本。
 - **退出码**：0 成功；1 失败（stderr 一行原因；带 `--json` 时 stdout 输出 `{ "error": "…" }`）；2 用法错误。
-- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 报错。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
-- `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 当前目录解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装 plist 取得 home。
+- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 已安装唯一服务的 home > `~/.local/share/yonder-harness/home`。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
+- `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 含配置的当前目录 > 已安装服务home > 默认全局home解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装 plist 取得 home。
 - **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令，命令名/参数保持英文，说明“中文 · English”。普通结果按命令呈现摘要、表格或正文，不默认打印调试对象；JSON 键与退出码不翻译。两种 Tab 补全见 12 §5；TUI 菜单、列表、布局和快捷键统一沿用固定版本 pi 原生实现，仅替换 Yonder 命令说明与内容（12 §2/4/6）。
 - **CLI 是管理面**：能运行它就能改配置、身份与会话（05 §3）。
 
@@ -90,3 +90,10 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 ## D35 统一诊断
 
 start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugin标签和实例/阶段字段。后台服务以--json写JSONL，仍写home/.yonder/logs/harness.log，可用系统tail查看/追踪，不新增日志服务或额外命令。CLI/TUI斜杠清单与飞书共用SDK常量；飞书仅实现11定义的现有命令子集。
+
+
+## 全局日用入口与开发边界（D37，2026-10-19 用户批准）
+
+裸yonder在TTY中优先进入名为cli的CLI渠道，否则首个实际CLI渠道；无CLI渠道才保留新任务入口。显式yonder chat保持独立任务，--channel/--preset/--session保持原含义。进入CLI渠道即可只读装入该渠道已声明main绑定的agent的现有main历史并观察更新，不必先发一条消息；发送仍经原渠道绑定，禁止直接向常驻session.submit绕过绑定。没有主会话时首次输入正常创建，不伪造历史。
+
+默认home从唯一已安装服务读取，保持--home/YONDER_HOME和当前明确home优先；不依赖开发仓库或shell额外环境变量。未初始化时裸入口说明yonder init、login openai、service install，不偷偷启动第二进程。新用户按README从官方仓库安装，之后用同一update/current/版本目录机制更新回滚。正式安装不保留.git、不以开发目录运行，测试开发显式指定隔离home；不添加第二套服务管理或更新器。

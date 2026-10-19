@@ -61,3 +61,26 @@ test("chat preserves JSONL final after progress and exits when the server discon
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("global CLI discovers the default user home and preserves explicit overrides", async () => {
+	const root = await mkdtemp("/tmp/yonder-global-home-");
+	try {
+		const env: NodeJS.ProcessEnv = { ...process.env, HOME: root };
+		delete env.YONDER_HOME;
+		const version = (args: string[], extra = {}) =>
+			JSON.parse(
+				execFileSync(process.execPath, [resolve("packages/cli/dist/index.js"), "version", ...args, "--json"], {
+					cwd: root,
+					env: { ...env, ...extra },
+					encoding: "utf8",
+				}),
+			);
+		expect(version([]).home).toBe(join(root, ".local/share/yonder-harness/home"));
+		expect(version([], { YONDER_HOME: join(root, "dev") }).home).toBe(join(root, "dev"));
+		expect(version(["--home", join(root, "explicit")], { YONDER_HOME: join(root, "dev") }).home).toBe(
+			join(root, "explicit"),
+		);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});

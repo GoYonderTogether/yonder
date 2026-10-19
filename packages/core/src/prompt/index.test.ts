@@ -115,6 +115,21 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(message.text).toContain("sent: 2026-10-19T03:09:49.000Z (time above is acceptance time)");
 		expect(message.text).toContain("attachment: file &lt;turn&gt;");
 		expect(message.text.match(/<\/turn>/gu)).toHaveLength(1);
+		const withBackground = await prepareInput(
+			row,
+			{ ...session, agent: "main", resolved: resolveProfile({ contexts: ["background"] }) },
+			input,
+			"run",
+			{
+				...options,
+				contexts: new Map([
+					["background", { id: "background", placement: "turn", render: () => "Later conversation" }],
+				]),
+			},
+		);
+		expect(withBackground.text.indexOf("N01 input verification")).toBeLessThan(
+			withBackground.text.indexOf("Later conversation"),
+		);
 		expect(input.data).not.toHaveProperty("attachments.0.bytes");
 	} finally {
 		await db.close();

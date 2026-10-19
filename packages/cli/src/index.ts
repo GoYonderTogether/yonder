@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, realpathSync } from "node:fs";
 import { createConnection } from "node:net";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
@@ -13,6 +14,7 @@ import {
 	initHome,
 	inspectHome,
 	inspectSkills,
+	installedService,
 	loginProvider,
 	manageService,
 	offlineQuery,
@@ -243,7 +245,10 @@ async function run(args: string[]): Promise<number> {
 		return 0;
 	}
 	const options = parseGlobal(args);
-	if (!options.rest.length && !options.help && stdin.isTTY && stdout.isTTY && !options.json) options.rest.push("chat");
+	if (!optionalHome(options))
+		options.home = (await installedService())?.home ?? join(homedir(), ".local/share/yonder-harness/home");
+	const daily = !options.rest.length && !options.help && stdin.isTTY && stdout.isTTY && !options.json;
+	if (daily) options.rest.push("chat");
 	const [command, ...rest] = options.rest;
 	if (options.help) {
 		output(
@@ -637,6 +642,15 @@ async function run(args: string[]): Promise<number> {
 		}
 		if (plain && options.json) throw new UsageError(chatUsage);
 		const home = homeFor(options);
+		if (daily) {
+			if (!existsYonder(home))
+				throw new UsageError(
+					"首次使用请运行 yonder init、yonder login openai、yonder service install，然后运行 yonder。",
+				);
+			const channels = (await requestControl(home, { method: "terminal.channels" })) as Array<{ id: string }>;
+			const channel = channels.find((channel) => channel.id === "cli") ?? channels[0];
+			if (channel) target.channel = channel.id;
+		}
 		if (plain || options.json || !stdin.isTTY || !stdout.isTTY) {
 			if (target.channel) await chat(home, target.channel, options.json);
 			else await plainTaskChat(home, target, options.json);

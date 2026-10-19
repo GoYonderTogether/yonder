@@ -1,12 +1,14 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExecutionEnv, ToolResult } from "@yonder/sdk";
 import { parse } from "yaml";
 import { matchesGlob, type WorkspaceFiles } from "../config/index.js";
 import { canonicalPath } from "../runtime/env.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
 
-export type SkillSource = "workspace" | "home" | `plugin:${string}`;
+export type SkillSource = "workspace" | "home" | "builtin" | `plugin:${string}`;
+const builtinRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 interface SkillFiles {
 	root: string;
 	base: string;
@@ -138,6 +140,13 @@ export function createSkills({ home, pluginDirs, pluginSources, workspace, onIss
 				location: directory,
 				files: hostFiles(directory),
 			})),
+			{
+				root: builtinRoot,
+				base: "skills",
+				source: "builtin",
+				location: "builtin",
+				files: hostFiles(builtinRoot),
+			},
 		];
 	};
 

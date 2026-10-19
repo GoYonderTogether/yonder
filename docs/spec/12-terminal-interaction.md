@@ -36,7 +36,8 @@ TUI 随 CLI 安装，不要求人另装插件。channel-cli 仍只负责常驻 a
 
 | 入口 | 行为 |
 |---|---|
-| `yonder` / `yonder chat` | 交互终端中进入基础 TUI，默认是“新任务”草稿，预设 `default` |
+| `yonder` | 交互终端进入既有CLI渠道（优先cli，否则首个实际CLI渠道），装入其main历史；无CLI渠道时为新任务 |
+| `yonder chat` | 交互终端进入新任务草稿，预设default；/channel可切换常驻渠道 |
 | `yonder chat --preset <id>` | 用该真实预设准备新任务；首次发送才创建会话 |
 | `yonder chat --session <id>` | 继续未关闭的手动关闭 task 会话；已关闭会话只读，不能暗中重开 |
 | `yonder chat --channel <instance>` | 进入指定 CLI 渠道，普通文字经该渠道的事件与绑定处理 |
@@ -46,7 +47,7 @@ TUI 随 CLI 安装，不要求人另装插件。channel-cli 仍只负责常驻 a
 
 三个目标参数互斥；`--plain` 和 `--json` 互斥。无 TTY 时 chat 默认用 plain；裸 `yonder` 在非交互环境报用法错误并提示显式命令，不能等待输入。普通管理命令不因 TTY 存在而弹出菜单或提问。
 
-- home 沿用 09 的显式解析，不偷偷选择机器上另一个 home；找不到时说明如何 `init`、`--home` 或设置 `YONDER_HOME`。
+- home按09解析：显式参数/环境及明确当前home优先，然后唯一安装服务home与默认全局home；未初始化时显示既有init/login/service install命令。
 - 服务未启动时给出 `yonder start` / 已安装服务的 `yonder service start`，保留用户输入；TUI 不隐式安装或启动后台服务。
 - 新 home 的 init 额外生成 `presets/default.yaml`：真实默认模型 `openai/gpt-6-luna`、level `standard`、tools.offer `["*"]`，plugins/contexts 为空，不写示例人设。模型与实际可用工具在界面展示。standard 含 exec，不宣称主机文件隔离（05 §3）。旧 home 缺该预设时提供真实预设选择和创建说明，不在启动 TUI 时修改配置。
 - 任务默认 cwd 为 home、env 取预设或 local，沿用 03 §4；界面必须显示实际路径。当前 shell 的 cwd 不暗中覆盖服务端 cwd。
