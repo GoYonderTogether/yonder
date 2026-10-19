@@ -92,3 +92,9 @@ yonder service info --home /Users/zoran/.local/share/yonder-harness/home --json
 第一条与默认 main/Luna 交互，选用已配置官方工具；不带channel的 `chat` 则使用原生default独立任务预设。历史会话1336是本次真实自主维修，不是新的测试请求。没有正式Release、自动更新或主人身份映射的成功声明；策略与客户端未完成项见前文。源码交接后的记录提交仅更新文档，不移动安装tag。
 
 只读 `yonder update --check --json` 已实际执行，最新正式Release接口返回HTTP404，命令正确失败并显示真实原因；当前尚未创建正式Release，没有把本地tag或磁盘版本当成最新正式发布。按钮本身仍未点击验收。
+
+## 追加授权实施（2026-10-18）
+
+用户已明确批准受限 operator 自动更新与指定私聊。自动审批再次拒绝原合并脚本（含额外 maintainer 改动），该脚本没有执行；改用更小方案后通过：原operator owner profile完全保留，仅新增release-updater绑定真实Release/update-result事件，offer五个工具：channel-github_status/read_release/update_schedule/update_status及message_send，search=[]，无bash、无跨agent调用或其他工具。exec/admin仅用于原有update_schedule/update_status的必要能力；不改maintainer。生产仓库/作者/正式版本白名单和指定安装home沿用原规范，policy=apply；通知目标固定为指定人生管家会话。
+
+私聊另加feishu profile及精确open_id+chat_id绑定，capabilities=[read,network,message]、search=[]，不映射owner、不授exec/admin。doctor通过，重启后inspect runtimeLoaded=true，operator实际offer仅上述五工具；私聊无bash/tool_search。原CLI owner不变。下一正式候选0.1.2026101805仅递增版本/发行说明，产品源码沿用98项真实回归已通过的04；随后以真实Release验证更新和通知，不再次展开无关测试。
