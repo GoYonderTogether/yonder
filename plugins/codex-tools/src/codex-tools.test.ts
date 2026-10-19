@@ -21,6 +21,7 @@ describe("codex-tools source contract", () => {
 		for (const tool of registrations.tools) expect(tool.capabilities).toContain("exec");
 		const js = registrations.tools.find((tool) => tool.name === "codex-tools_js");
 		if (!js) throw new Error("JS tool missing");
+		expect(js.description).toContain("run.end releases all bindings");
 		expect(Check(js.parameters, { code: "await cua.getState();" })).toBe(true);
 		expect(Check(js.parameters, { code: "", timeout_ms: 0 })).toBe(false);
 		expect(Check(js.parameters, { code: "", server: "other" })).toBe(false);

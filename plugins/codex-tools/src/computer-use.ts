@@ -41,6 +41,8 @@ export async function computerStatus(client: AppServer, threadId: string, signal
 		text: JSON.stringify({
 			source: "Codex app-server",
 			status: "discovered",
+			lifetime:
+				"JS bindings persist only within the current Yonder run. run.end releases them; each new run must initialize with exactly one documented entry, then read its documentation.",
 			permissions: "not verified; read actual app state to confirm",
 			server: "cua_repl",
 			tools: server.tools,

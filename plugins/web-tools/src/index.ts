@@ -137,7 +137,7 @@ export default definePlugin({
 		);
 		register(
 			"extract",
-			"Explicit Tavily Extract for public pages including JS-rendered content; no browser login is used.",
+			"Explicit Tavily Extract for public pages including JS-rendered content; no browser login is used. Returns supplier extraction, which may omit table cells, dates or metadata; not a lossless copy.",
 			schema(
 				{
 					urls: { type: "array", items: string, minItems: 1, maxItems: 20 },
@@ -163,7 +163,7 @@ export default definePlugin({
 		);
 		register(
 			"fetch",
-			"HTTP GET of a public page with bounded article extraction. Login pages require BrowserSkill; JS shells can use explicit extract. No automatic fallback.",
+			"HTTP GET of a public page with bounded article extraction; all HTML formats return the extracted article and may omit tables or metadata, not the original page. Login pages require BrowserSkill; JS shells can use explicit extract. No automatic fallback.",
 			schema({ url: string, format: choice("markdown", "text", "html") }, ["url"]),
 			async (args, ctx) => {
 				const a = object(args);

@@ -110,7 +110,7 @@ export default definePlugin({
 				parameters: empty,
 				capabilities: ["exec"],
 				description:
-					"Discover official local Codex Computer Use and return its real tool instructions/schemas. Discovery is not a permission check. Call this before JS. Browsers default to BrowserSkill.",
+					"Discover official local Codex Computer Use and return its real tool instructions/schemas. Discovery is not a permission check. Call this before JS. JS bindings persist only within the current Yonder run; run.end releases them. Each new run must initialize with exactly one documented entry. Browsers default to BrowserSkill.",
 				execute: (_args, ctx) =>
 					execute(ctx, false, (resource, signal) => computerStatus(resource.client, desktop(resource), signal)),
 			}),
@@ -121,7 +121,7 @@ export default definePlugin({
 				parameters: js,
 				capabilities: ["exec"],
 				description:
-					"Run official persistent cua_repl JavaScript. Requires host exec, not a read-only sandbox. First call or after reset: exactly one documented entry such as await cua.getState(); read its documentation before continuing. Native app AX/screenshot/click/typeText/pressKey/scroll use the real cua API. Keep focus unless explicitly authorized; after actions observe fresh AX state. Do not blindly replay actions after error. Prefer BrowserSkill for browsers.",
+					"Run official cua_repl JavaScript, persistent only within this Yonder run. run.end releases all bindings; each new run starts with exactly one documented entry. Requires host exec, not a read-only sandbox. First call or after reset: exactly one documented entry such as await cua.getState(); read its documentation before continuing. Native app AX/screenshot/click/typeText/pressKey/scroll use the real cua API. Keep focus unless explicitly authorized; after actions observe fresh AX state. Do not blindly replay actions after error. Prefer BrowserSkill for browsers.",
 				execute: (args, ctx) =>
 					execute(ctx, false, (resource, signal) =>
 						computerCall(resource.client, desktop(resource), "js", args, signal),
