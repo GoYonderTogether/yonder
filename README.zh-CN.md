@@ -106,3 +106,5 @@ source <(yonder completion bash)  # bash
 - [0.1 实现任务](docs/tasks/README.md)
 
 许可证：[Apache-2.0](LICENSE)
+
+- [完整功能与英文注册名树 / Function tree](docs/function-tree.md)

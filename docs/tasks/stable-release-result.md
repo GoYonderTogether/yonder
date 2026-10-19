@@ -22,4 +22,9 @@
 
 ## 发行执行结果
 
-待写入实际main提交、标签、Release、构建和独立安装结果。
+- 历史归并提交：`0abeb7caaaa53f32d27b0d161080174fc6754b79`；归并前后Git tree完全相同，全部旧head已成为main祖先。
+- 完整备份：`/Users/zoran/.local/share/yonder-harness/archives/git-20261019-pre-main.bundle`，Git verify确认完整历史且可用，权限0600。
+- 六个Codex管理工作树已归档；其最后head均已接入main。临时R5工作树已clean移除，当前只保留主checkout；任务分支在main推送后清理。
+- 本次统一版本：`0.1.2026101904`。产品功能与1903相同，仅版本、文档及历史收口；复用145项功能检查，不重跑相同矩阵。
+- 1904发行构建与typecheck通过，日志：`/tmp/yonder-1904-build.log`、`/tmp/yonder-1904-typecheck.log`。功能检查复用同实现1903的145/145结果。
+- 待写入实际Release和独立安装结果。

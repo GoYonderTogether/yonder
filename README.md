@@ -80,3 +80,5 @@ For shell completion, load `source <(yonder completion zsh)` or `source <(yonder
 After installing, initializing, authenticating and installing the macOS service, run `yonder` from any directory to open the resident CLI channel and its existing main history. `yonder chat` starts a standalone task; `/channel` switches to a resident channel. The installed service home is discovered automatically; explicit `--home` and `YONDER_HOME` still select an isolated development environment. Terminal clients share one resident service.
 
 Bundled `skill-creator` and `yonder-development` use the existing skill index and on-demand `skill_view`; their full instructions are not injected. Plugin source and Git work can live in `<home>/development/<name>` or a user-selected directory. Production code stays in versioned installation directories and is updated with `yonder update`; development homes and credentials stay separate.
+
+- [完整功能与英文注册名树 / Function tree](docs/function-tree.md)
