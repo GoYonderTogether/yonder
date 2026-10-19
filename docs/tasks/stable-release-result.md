@@ -24,7 +24,16 @@
 
 - 历史归并提交：`0abeb7caaaa53f32d27b0d161080174fc6754b79`；归并前后Git tree完全相同，全部旧head已成为main祖先。
 - 完整备份：`/Users/zoran/.local/share/yonder-harness/archives/git-20261019-pre-main.bundle`，Git verify确认完整历史且可用，权限0600。
-- 六个Codex管理工作树已归档；其最后head均已接入main。临时R5工作树已clean移除，当前只保留主checkout；任务分支在main推送后清理。
+- 六个Codex管理工作树已归档；其最后head均已接入main。临时R5工作树已clean移除，当前只保留主checkout；本地任务分支及远端两个任务分支均已删除；main已推送。PR无待合并项。
 - 本次统一版本：`0.1.2026101904`。产品功能与1903相同，仅版本、文档及历史收口；复用145项功能检查，不重跑相同矩阵。
 - 1904发行构建与typecheck通过，日志：`/tmp/yonder-1904-build.log`、`/tmp/yonder-1904-typecheck.log`。功能检查复用同实现1903的145/145结果。
-- 待写入实际Release和独立安装结果。
+- main发行提交：`42646a426825317b37d5e9df88504c03da6cee65`，不可变标签`v0.1.2026101904`。
+- [GitHub正式Release](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101904)于2026-10-19T07:10:03Z发布，draft=false、prerelease=false。
+- 管理agent接收Release事件`01M59FYQSW6W0A247PD9HQ1078`，独立launchd更新作业417001090执行，结束于`2026-10-19T07:11:04.147Z`；主路没有另发手动更新。
+- 更新终结事件`01M59G0SKY2HJXG0KH67W4NTF6`，status=verified、verified=true；本机current指向`/Users/zoran/.yonder-harness/versions/0.1.2026101904`。
+- 实际服务版本1904、commit=42646a426825317b37d5e9df88504c03da6cee65、PID45631、ready=true；数据home保持`/Users/zoran/.local/share/yonder-harness/home`。按进程实际argv确认同home只有一个node后台。
+- 固定更新回执：`/Users/zoran/.local/share/yonder-harness/home/.yonder/plugins/channel-github/github-project.updates/417001090/result.json`。源码目录没有作为正式运行目录；旧版本与用户历史保留。
+
+## 交付状态
+
+本轮main整合、正式Release与独立自动更新已完成。GitHub只有main、无打开PR，本地只保留主checkout/main。无需为相同实现重新跑测试或飞书矩阵，后续按实际反馈处理。该状态不把历史未测、平台限制及用户主动跳过项改成通过。

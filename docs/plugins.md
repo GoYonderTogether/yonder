@@ -197,3 +197,7 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 - 用户入口：CLI/TUI、安装更新、launchd和状态栏属于产品包，不是额外渠道插件。
 
 目前没有cron、主动记忆引擎、通用MCP客户端、持久PTY或PDF/Office插件；trigger槽或MEMORY.md文件不算这些功能已实现。
+
+## 正式发行补记
+
+1904 / `42646a4`已在main正式发行；插件功能与1903一致，仅统一版本与文档。完整注册名和SDK入口见[功能树](function-tree.md)，本机更新和分支归并见[发行记录](tasks/stable-release-result.md)。
