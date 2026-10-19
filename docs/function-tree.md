@@ -28,7 +28,8 @@ Yonder Harness
 │  └─ skill_view — 读取已选skill正文或资源
 ├─ 内置skills（不是插件）
 │  ├─ skill-creator — 创建/维护技能；辅助Python脚本需要PyYAML
-│  └─ yonder-development — 建议隔离目录、Git保存和可审查交付；用户可不采用
+│  ├─ yonder-development — 建议隔离目录、Git保存和可审查交付；用户可不采用
+│  └─ yonder-plugin-debug — 按需执行渠道短任务、查询调用证据及隔离复现；后续源码新增，1904安装包尚未包含
 └─ 核心职责
    ├─ 事件 → 绑定 → 身份/权限 → 原生会话/队列 → 模型/工具 → 投递
    ├─ pi-durable — 独占转录、执行循环、恢复、子会话与压缩

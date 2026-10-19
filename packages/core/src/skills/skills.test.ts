@@ -45,6 +45,7 @@ test("workspace skill shadows home and skill_view stays inside its directory", a
 			["home", true, false],
 			["builtin", false, true],
 			["builtin", false, true],
+			["builtin", false, true],
 		]);
 		expect(await skills.index(session)).toBe(report.index);
 		expect((await skills.view(session, "notes", "guide.md")).text).toContain("Workspace guide");
@@ -120,6 +121,7 @@ test("home shadows plugin with actual source id; selection and disabled invocati
 			["plugin:actual-plugin", true, false, false],
 			["builtin", false, false, false],
 			["builtin", false, false, false],
+			["builtin", false, false, false],
 		]);
 		expect((await skills.show(session, "notes")).skill.source).toBe("home");
 		await expect(skills.view(session, "notes")).rejects.toThrow("未找到");
@@ -134,7 +136,7 @@ test("home shadows plugin with actual source id; selection and disabled invocati
 	}
 });
 
-test("bundled creator and development skills expose only an index until requested", async () => {
+test("bundled skills expose only an index until requested", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-builtin-skills-"));
 	try {
 		const skills = createSkills({ home, pluginDirs: [] });
@@ -143,8 +145,13 @@ test("bundled creator and development skills expose only an index until requeste
 			const report = await skills.inspect(session);
 			expect(
 				report.skills.filter((skill) => skill.source === "builtin" && skill.indexed).map((skill) => skill.name),
-			).toEqual(["skill-creator", "yonder-development"]);
+			).toEqual(["skill-creator", "yonder-development", "yonder-plugin-debug"]);
 			expect(report.index).not.toContain("# Skill Creator");
+			expect(report.index).not.toContain("# Yonder 插件调试");
+			expect((await skills.view(session, "yonder-plugin-debug")).text).toContain("# Yonder 插件调试");
+			expect((await skills.view(session, "yonder-plugin-debug", "references/scenarios.md")).text).toContain(
+				"# 场景线路",
+			);
 			expect((await skills.view(session, "skill-creator")).text).toContain("# Skill Creator");
 			expect((await skills.view(session, "skill-creator", "references/openai_yaml.md")).text).toContain("interface");
 			expect(await skills.index({ ...session, resolved: resolveProfile({ skills: [] }) })).toBe("");
