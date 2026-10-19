@@ -6,6 +6,8 @@
 
 用户已批准 [F轮计划](tasks/feishu-recovery-interaction-plan.md)，D35冻结功能边界，Sol负责连接/历史，Luna负责命令清单与验收核对，主agent负责核心/共享接线。R轮结果与未测保留。
 
+2026-10-19 用户批准[会话上下文修订](tasks/feishu-context-proposal.md)并修复，D36明确待处理输入与全参与者背景分离；复用现有上下文插槽和pi队列，原验收未完成项继续保留。
+
 用户已于 2026-10-18 批准 [修复验收计划](tasks/repair-acceptance-plan.md)，D1–D4 推荐方向先改文档，三个 Sol 并行，主 agent 负责核心/共享文件；允许补测试和运行测试，先修缺口再独立安装。新增 [14 macOS 安装与状态栏](spec/14-macos-installation.md)，不扩大为桌面客户端。当前问题基线见 [亲自审查](tasks/review-c0-c6.md)，C0–C6/U05 及原验收保留。D34 记录本次授权。
 
 ## 阅读顺序（渐进式披露）

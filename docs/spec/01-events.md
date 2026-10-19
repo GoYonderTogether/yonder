@@ -119,3 +119,8 @@ interface EventPage { events: YEvent[]; next?: string }   // next：还有下一
 ## D35 渠道命令执行事实
 
 内核为已通过绑定的渠道斜杠命令写channel.command（parent为输入、data含原始事件/会话组成的msgId与command/session），执行及发送结果写channel.command.result。它们不是模型运行，不伪造run.end。命令尝试复用事件落库去重；重启遇到已有尝试不重复执行或重发，只有尝试没有结果时记录为未确认事实，不能宣称成功。旁观输入不执行命令。
+
+
+### 来源消息时间（D36）
+
+message.in.data可选createdAt为原生发送时间的epoch毫秒字符串，msgId为原生消息ID；event.ts始终是Yonder接纳时间，不替代发送时间。模型输入头分别呈现已知的原时间与接纳时间；未知原时间不伪造。恢复originals的时间仍按各原始消息呈现。

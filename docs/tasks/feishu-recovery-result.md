@@ -28,8 +28,18 @@
 
 07已从GitHub tag干净独立安装，实际PID6400/ready=true、commit99891a1、home一致。Yonder自己status确认connected/botIdentityKnown=true、history complete/covered1/count0。真实/session事件01M595279MMZQJY90YM1YX1ZMF通过feishu-owner命中session2，command.result 01M5952AXCXQ2RSG1H7FDC5T0X/status done/delivery ok/原生消息om_x100b626d13e670a0ddeec1496c8468e。命令未调用模型；主人正常输入随后真实Luna run1871也在session2完成。CUA session1820实际发送/session，后续观察未及时看到回复；另次复用app变量失败app is not defined（工具环境按run重建），如实停止，未反复按Return。API送达不能代替截图通过。
 
-现场发现升级间隙03:58:19的原生用户消息om_x100b626d1b79f130b4bda5e491ec655存在平台历史却未入账。根因是07首次创建history.json时错误给已有账本会话采用当前baseline，且把complete水位推进到消息之后。用户后续新输入已正常处理；旧消息不能被假装不存在。Sol补迁移回归先1失败9通过，修复后10/10；旧安装按最后已完成原始时间续接、已有正确水位/全新安装规则保留。恢复正文追加真实原发送时间/ID/引用，避免晚到历史在上下文里冒充新发送。条件引用同时观察历史中已seen的较新用户气泡。
+现场发现升级间隙03:58:19的原生用户消息om_x100b626d1b79f130b4bda5e491ec655存在平台历史却未入账。根因是07首次创建history.json时错误给已有账本会话采用当前baseline，且把complete水位推进到消息之后。核对原生消息ID后确认：同一条03:58:19消息于04:03:35被SDK迟到投递并正常处理，并非用户重新发送。旧消息不能被假装不存在。Sol补迁移回归先1失败9通过，修复后10/10；旧安装按最后已完成原始时间续接、已有正确水位/全新安装规则保留。恢复正文追加真实原发送时间/ID/引用，避免晚到历史在上下文里冒充新发送。条件引用同时观察历史中已seen的较新用户气泡。
 
 另确认已有服务plist不会因普通update重写ProgramArguments，故07运行仍旧普通日志；新安装模板--json已实现，当前服务将用原service install刷新，不宣称旧plist已迁移。SDK EventDispatcher默认console已接入同一安全logger。上述均为本轮真实现场缺口修复，不新增补丁/恢复平台。新候选1901统一全workspace版本。
 
 1901最终整仓：33文件/129测试通过、0失败0跳过，含真实模型/launchd；build/typecheck通过，lint0错误/55warnings/1info。后续安装接线用既有manageService install替代仅kickstart，更新时刷新原生plist和状态栏模板，避免旧服务永远保留无JSON参数；不创建迁移器或第二服务管理器。对应原生launchd聚焦检查及实际新安装另记。
+
+
+## 用户反馈后的上下文核查（暂停剩余验收）
+
+- 账本中“你在吗”（原生ID om_x100b626cd100f8b8ce84dd36116e270）原发送时间03:09:49.000Z；接纳事件01M595XWV3312YEK42QPESXSYJ发生于04:15:16.835Z，相差65分27.835秒。同会话现有12条message.in中该原生ID只出现一次，未发现同ID重复接纳证据；不能据此声称此前已回答过它。
+- 此输入走普通实时接收路径，未标恢复；prompt外层time取event.ts，不呈现data.createdAt。实际会话先完成工具验收，再追加该旧输入并答“在的。需要我帮你做什么？”。已确认是旧消息迟到后作为最新单条请求处理；尚未确认SDK/平台为何迟到，未证明上下文超限。
+- 自动恢复只取未接纳用户消息，排除其他机器人和已接纳消息；不提供完整外部对话。按发送者分组会重排跨参与者时序，此为冻结设计缺口，不是单纯局部实现错误。seen仅接纳去重，不代表处理或投递完成。
+- 真实离线A/B合并已通过：恢复事件01M595SE461Z69KPJMXJCGM829保留两条原消息；run.end 01M595SHQA6VNP55BQ1VEE5QH6；唯一message.out 01M595SNJH4V3WCN3A3WHS6YRC，客户端看到“离线两条合并通过。”。贴纸增删有日志，终结后待清理数0。此证据不覆盖真实断网、多参与者上下文或工具间插入。
+- 当前独立安装1901、commit8ec8d52，服务已刷新--json参数。真实飞书工具间插入实验第二条未发送（操作时工具已完成）；MCP实验两条分别终结，未证明同轮steer成功。不得计为通过。
+- 本次核查仅读取源码、账本、会话记录并更正任务记录；没有修改运行代码、发送消息或运行测试。上下文修订建议见feishu-context-proposal.md，待用户审核。
