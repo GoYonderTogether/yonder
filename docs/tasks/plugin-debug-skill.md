@@ -39,3 +39,15 @@
 用户明确批准合入main、推送、正式发布和本机正式更新，沿既有更新流程，不跑全功能矩阵。允许路径追加：workspace的package.json及package-lock.json、CHANGELOG.md和本任务发行结果。版本1905；保留上方创建阶段未安装/未发布的历史。本机main的defaults.skills为明确白名单，更新后追加新skill并保留其余配置；这是用户要求正式版直接可用所必需的配置接线。
 
 1905构建和typecheck通过；复用前次5项skills聚焦检查及真实Luna短任务，不运行全仓矩阵。发行与本机更新回执待写入。
+
+## 1905正式发行与本机结果
+
+- main功能发行提交`866717730180c1cffdc016870d2605b8233f9add`已推送，固定标签`v0.1.2026101905`；[正式Release](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101905)已发布。
+- 沿既有Release→operator→独立launchd作业更新，无额外手动安装：Release事件`01M59S4AG81FFAHSW8F4W4QKEW`、releaseId417132621；更新终结`01M59S68J6SJJHVPPRZ7MVW9WR`，verified=true，结束2026-10-19T09:51:19.846Z。
+- 正式服务1905/8667177、PID73818、ready=true，home保持原值；程序来自`~/.yonder-harness/versions/0.1.2026101905`。未使用开发目录运行。
+- main.defaults.skills只追加yonder-plugin-debug，其他字段解析对比不变；原配置保存在正式home的`.yonder/backups/main-agent.pre-debug1905.yaml`，未提交用户配置。
+- 安装版`yonder skills --agent main --json`列出browser-skill、skill-creator、yonder-development、yonder-plugin-debug，均selected/indexed=true，issues=[]。安装版show能读取正文。
+- 最小真实Luna运行：session2188/run2196，输入`01M59S6WMGMZP5TKABA8AQXQ55`，唯一实际工具`skill_view({name: "yonder-plugin-debug"})`；结果目录为1905安装版本目录，source=builtin。唯一终结`01M59S74N9ANPN27PS440X2V0M`，status=done，会话自动关闭。没有读取开发目录、Bash、写文件或外部消息。
+- 原始记录：`/tmp/yonder-1905-build.log`、`/tmp/yonder-1905-typecheck.log`、`/tmp/yonder-1905-installed-skill.json`、`/tmp/yonder-1905-skill-runtime-request.json`、`/tmp/yonder-1905-skill-runtime-session.json`、`/tmp/yonder-1905-skill-runtime-end.json`。只做本次必要构建/类型检查/发现及一次真实技能读取，不重跑全功能矩阵。
+
+飞书先发送`/skills`查看，再用自然语言要求“使用yonder-plugin-debug，先只读检查飞书插件状态，列出实际工具名和证据；不要修改配置或发额外消息”。没有新增`/yonder-plugin-debug`斜杠命令。该调用文案可供用户使用，本次未代用户发送飞书消息。
