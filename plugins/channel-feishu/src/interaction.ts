@@ -80,6 +80,9 @@ export class FeishuInteraction {
 			this.fail("startup", error);
 		}
 	}
+	observeMessage(chat: string, messageId: string, time: number): void {
+		if (time >= (this.latest.get(chat)?.time ?? 0)) this.latest.set(chat, { messageId, time });
+	}
 	async onInput(event: YEvent): Promise<void> {
 		if (this.stopped || event.type !== "message.in" || !event.conv) return;
 		try {
@@ -97,7 +100,7 @@ export class FeishuInteraction {
 			if (!messageId) continue;
 			const timestamp = string(original.createdAt);
 			const time = (timestamp ? Number(timestamp) || Date.parse(timestamp) : Date.parse(event.ts)) || 0;
-			if (time >= (this.latest.get(event.conv)?.time ?? 0)) this.latest.set(event.conv, { messageId, time });
+			this.observeMessage(event.conv, messageId, time);
 			if (!runnable || !this.ready || this.reactions.has(messageId)) continue;
 			const row: Reaction = { chat: event.conv, messageId, eventId: event.id };
 			this.reactions.set(messageId, row);
@@ -115,6 +118,13 @@ export class FeishuInteraction {
 			);
 			row.reactionId = string(object(result.data).reaction_id);
 			if (!row.reactionId) throw new Error("Feishu reaction omitted reaction_id; outcome unknown");
+			this.api.log.info("Feishu reaction added", {
+				instance: this.id,
+				phase: "reaction",
+				msg: row.messageId,
+				event: row.eventId,
+				reaction: row.reactionId,
+			});
 			await this.save();
 		} catch (error) {
 			this.fail("add", error, row.messageId);
@@ -134,6 +144,13 @@ export class FeishuInteraction {
 				`/im/v1/messages/${encodeURIComponent(row.messageId)}/reactions/${encodeURIComponent(row.reactionId)}`,
 				"DELETE",
 			);
+			this.api.log.info("Feishu reaction removed", {
+				instance: this.id,
+				phase: "reaction",
+				msg: row.messageId,
+				event: row.eventId,
+				reaction: row.reactionId,
+			});
 			this.reactions.delete(row.messageId);
 			await this.save();
 		} catch (error) {

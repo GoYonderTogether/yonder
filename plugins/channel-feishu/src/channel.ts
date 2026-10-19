@@ -121,7 +121,7 @@ export class FeishuChannel implements Channel {
 		this.stopped = false;
 		await this.load();
 		await this.loadHistory();
-		const dispatcher = new Lark.EventDispatcher({}).register({
+		const dispatcher = new Lark.EventDispatcher({ logger: this.connection.logger }).register({
 			"im.message.receive_v1": async (data: unknown) => {
 				await this.receive(data);
 			},
@@ -176,6 +176,7 @@ export class FeishuChannel implements Channel {
 		return `${this.config.appId}:${tenant}:message:${id}`;
 	}
 	private async loadHistory(): Promise<void> {
+		let initializeFromLedger = false;
 		try {
 			const saved = object(JSON.parse(await readFile(join(this.directory, "history.json"), "utf8")));
 			if (typeof saved.baseline !== "number" || !Array.isArray(saved.conversations))
@@ -193,6 +194,7 @@ export class FeishuChannel implements Channel {
 			}
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			initializeFromLedger = true;
 		}
 		// The event ledger, not the receipt file, is the durable acceptance fact.
 		let after: string | undefined;
@@ -204,14 +206,30 @@ export class FeishuChannel implements Channel {
 					tenant = string(data.tenant);
 				if (tenant) this.tenant = tenant;
 				const originals = Array.isArray(data.originals) ? data.originals.map(object) : [data];
+				const acceptedTimes: number[] = [];
 				for (const original of originals) {
 					const id = string(original.messageId) || string(original.msgId);
 					if (id && original.complete !== false)
 						this.seen.set(this.messageKey(string(original.tenant) || tenant, id), event.id);
+					if (original.complete !== false) {
+						const time =
+							original.createdAt === undefined || original.createdAt === ""
+								? Date.parse(event.ts)
+								: Number(original.createdAt);
+						if (Number.isFinite(time)) acceptedTimes.push(time);
+					}
 				}
 				const chat = parseRef(event.conv).id;
-				if (!this.conversations.has(chat))
+				const existing = this.conversations.get(chat);
+				if (initializeFromLedger && acceptedTimes.length) {
+					const through = Math.max(...acceptedTimes);
+					this.conversations.set(chat, {
+						kind: data.kind === "dm" ? "dm" : "group",
+						through: existing ? Math.max(existing.through, through) : through,
+					});
+				} else if (!existing && !initializeFromLedger) {
 					this.conversations.set(chat, { kind: data.kind === "dm" ? "dm" : "group", through: this.baseline });
+				}
 			}
 			after = page.next;
 		} while (after);
@@ -333,6 +351,7 @@ export class FeishuChannel implements Channel {
 						this.tenant = tenant;
 						const id = required(item.message_id, "History message id"),
 							key = this.messageKey(tenant, id);
+						this.interaction.observeMessage(conv(this.id, chat), id, Number(item.create_time));
 						if (!this.seen.has(key)) prepared.push(await this.prepare(data, string(sender.id), chat, id, key));
 					}
 					for (const batch of recoveryBatches(prepared)) {
@@ -398,6 +417,7 @@ export class FeishuChannel implements Channel {
 		if (!tenant) return Promise.reject(new Error("Feishu message has no tenant identity"));
 		if (this.tenant && this.tenant !== tenant) return Promise.reject(new Error("Feishu tenant identity mismatch"));
 		this.tenant = tenant;
+		this.interaction.observeMessage(conv(this.id, chat), messageId, Number(message.create_time) || Date.now());
 		const key = `${this.config.appId}:${tenant}:message:${messageId}`;
 		if (this.seen.has(key)) return Promise.resolve();
 		const existing = this.pending.get(key);

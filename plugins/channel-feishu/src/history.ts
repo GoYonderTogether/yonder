@@ -63,6 +63,16 @@ export interface Prepared {
 	input: EventInput;
 	original: ObjectValue;
 }
+function recoveryHeader(message: Prepared): string {
+	const original = message.original;
+	const date = new Date(Number(original.createdAt));
+	const time = original.createdAt && !Number.isNaN(date.getTime()) ? date.toISOString() : "unknown";
+	const id = string(original.messageId) || string(original.msgId);
+	const reply = string(original.replyTo);
+	const thread = string(original.threadId);
+	return `[恢复历史消息，非新发送 | 原发送时间: ${time} | 消息ID: ${id}${reply ? ` | 引用: ${reply}` : ""}${thread ? ` | 线程: ${thread}` : ""}]\n`;
+}
+
 /** Preserve full originals while keeping each model-facing text input within the frozen budget. */
 export function recoveryBatches(messages: Prepared[], maxBytes = 64 * 1024): Prepared[][] {
 	const groups = new Map<string, Prepared[]>();
@@ -78,13 +88,17 @@ export function recoveryBatches(messages: Prepared[], maxBytes = 64 * 1024): Pre
 			size = 0;
 		for (const message of group) {
 			const text = string(object(message.input.data).text);
+			const headerBytes = Buffer.byteLength(recoveryHeader(message));
+			const contentBudget = maxBytes - headerBytes;
+			if (contentBudget < 0) throw new Error("Recovery metadata exceeds text budget");
 			// One unusually large native message is split, with its original identity retained on every piece.
 			let part = "",
 				partBytes = 0;
 			const parts: string[] = [];
 			for (const char of text) {
 				const bytes = Buffer.byteLength(char);
-				if (partBytes + bytes > maxBytes) {
+				if (bytes > contentBudget) throw new Error("Recovery metadata leaves insufficient text budget");
+				if (partBytes + bytes > contentBudget) {
 					parts.push(part);
 					part = "";
 					partBytes = 0;
@@ -108,7 +122,7 @@ export function recoveryBatches(messages: Prepared[], maxBytes = 64 * 1024): Pre
 						},
 					]);
 			} else {
-				const bytes = Buffer.byteLength(text);
+				const bytes = headerBytes + Buffer.byteLength(text);
 				if (batch.length && size + 2 + bytes > maxBytes) {
 					batches.push(batch);
 					batch = [];
@@ -133,7 +147,7 @@ export function mergedInput(batch: Prepared[], id: string): EventInput {
 		data: {
 			...first.input.data,
 			msgId: id,
-			text: data.map((row) => string(row.text)).join("\n\n"),
+			text: batch.map((row) => recoveryHeader(row) + string(object(row.input.data).text)).join("\n\n"),
 			mentioned: data.some((row) => row.mentioned),
 			attachments,
 			recovery: true,

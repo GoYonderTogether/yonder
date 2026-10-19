@@ -4,6 +4,13 @@ import type { FeishuApi } from "./client.js";
 
 /** The official SDK owns initial connection retries, reconnects and their cancellation. */
 export class FeishuConnection {
+	readonly logger: Lark.Logger = {
+		trace: () => {},
+		debug: () => {},
+		info: () => {},
+		warn: (...values: unknown[]) => this.sdkLog(values),
+		error: (...values: unknown[]) => this.sdkLog(values),
+	};
 	private ws: Lark.WSClient | undefined;
 	private stopped = true;
 	private state = "stopped";
@@ -58,13 +65,7 @@ export class FeishuConnection {
 				domain: this.client.config.domain === "lark" ? Lark.Domain.Lark : Lark.Domain.Feishu,
 				autoReconnect: true,
 				httpInstance: http,
-				logger: {
-					trace: () => {},
-					debug: () => {},
-					info: () => {},
-					warn: (...values: unknown[]) => this.sdkLog(values),
-					error: (...values: unknown[]) => this.sdkLog(values),
-				},
+				logger: this.logger,
 				onReady: () => this.ready(),
 				onReconnected: () => this.ready(),
 				onReconnecting: () => {
@@ -87,6 +88,7 @@ export class FeishuConnection {
 	private sdkLog(values: unknown[]): void {
 		// SDK debug logs include a signed WebSocket URL; never forward them or request objects.
 		const message = values
+			.flat(1)
 			.filter((value) => typeof value === "string" || value instanceof Error)
 			.map((value) => this.client.safe(value))
 			.join(" ");

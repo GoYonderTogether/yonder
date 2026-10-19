@@ -23,3 +23,13 @@
 候选0.1.2026101807；独立安装/真实飞书主会话、命令、合并积压、客户端贴纸/条件引用仍待本轮后续实际验证，不能用源码和125项测试替代。未知离线新私聊无法从群列表枚举，仅覆盖已知私聊；平台不可见、撤回/过期/无权历史不能承诺恢复。完整TUI/媒体播放/模板/回调/真实注销登录等按原矩阵分别记录，不预先标完成。
 
 打包记录：候选06提交时漏纳入其余官方插件的版本清单，发行前检查发现；06仅有源码tag，未安装/未创建正式Release。保留该tag不移动，07统一所有workspace清单和锁文件；没有改产品功能或放宽检查。
+
+## F5 独立安装现场（继续）
+
+07已从GitHub tag干净独立安装，实际PID6400/ready=true、commit99891a1、home一致。Yonder自己status确认connected/botIdentityKnown=true、history complete/covered1/count0。真实/session事件01M595279MMZQJY90YM1YX1ZMF通过feishu-owner命中session2，command.result 01M5952AXCXQ2RSG1H7FDC5T0X/status done/delivery ok/原生消息om_x100b626d13e670a0ddeec1496c8468e。命令未调用模型；主人正常输入随后真实Luna run1871也在session2完成。CUA session1820实际发送/session，后续观察未及时看到回复；另次复用app变量失败app is not defined（工具环境按run重建），如实停止，未反复按Return。API送达不能代替截图通过。
+
+现场发现升级间隙03:58:19的原生用户消息om_x100b626d1b79f130b4bda5e491ec655存在平台历史却未入账。根因是07首次创建history.json时错误给已有账本会话采用当前baseline，且把complete水位推进到消息之后。用户后续新输入已正常处理；旧消息不能被假装不存在。Sol补迁移回归先1失败9通过，修复后10/10；旧安装按最后已完成原始时间续接、已有正确水位/全新安装规则保留。恢复正文追加真实原发送时间/ID/引用，避免晚到历史在上下文里冒充新发送。条件引用同时观察历史中已seen的较新用户气泡。
+
+另确认已有服务plist不会因普通update重写ProgramArguments，故07运行仍旧普通日志；新安装模板--json已实现，当前服务将用原service install刷新，不宣称旧plist已迁移。SDK EventDispatcher默认console已接入同一安全logger。上述均为本轮真实现场缺口修复，不新增补丁/恢复平台。新候选1901统一全workspace版本。
+
+1901最终整仓：33文件/129测试通过、0失败0跳过，含真实模型/launchd；build/typecheck通过，lint0错误/55warnings/1info。后续安装接线用既有manageService install替代仅kickstart，更新时刷新原生plist和状态栏模板，避免旧服务永远保留无JSON参数；不创建迁移器或第二服务管理器。对应原生launchd聚焦检查及实际新安装另记。

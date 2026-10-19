@@ -13,7 +13,7 @@ afterEach(async () => {
 async function setup() {
 	const home = await mkdtemp(join(tmpdir(), "feishu-interaction-"));
 	homes.push(home);
-	const api = { paths: { data: home }, log: { warn: vi.fn() } } as unknown as PluginAPI;
+	const api = { paths: { data: home }, log: { info: vi.fn(), warn: vi.fn() } } as unknown as PluginAPI;
 	const client = new FeishuApi({ appId: "test", secret: "unused" }, api);
 	const request = vi
 		.spyOn(client, "request")
@@ -132,4 +132,14 @@ it("reports persistence failure and still removes a confirmed remote reaction", 
 		"Feishu reaction unavailable",
 		expect.objectContaining({ phase: "remove" }),
 	);
+});
+it("keeps a newer observed user bubble when an older recovery batch is accepted", async () => {
+	const { interaction } = await setup();
+	interaction.observeMessage("conv:feishu:chat", "already-received-newer", 2000);
+	await interaction.onInput(
+		input("recovery-hash", {
+			originals: [{ messageId: "older-source", createdAt: "1000" }],
+		}),
+	);
+	expect(await interaction.beforeReply("conv:feishu:chat", "older-source")).toBe("older-source");
 });

@@ -76,4 +76,23 @@ describe("Feishu connection lifecycle (official SDK, no model)", () => {
 		for (const value of ["connection-test-secret", "unknown-token", "private", "never serialize"])
 			expect(text).not.toContain(value);
 	});
+	it("shares a safe logger with EventDispatcher and accepts only one layer of string/error arrays", async () => {
+		const { api, connection } = setup();
+		vi.spyOn(Lark.WSClient.prototype, "start").mockResolvedValue();
+		await connection.start(new Lark.EventDispatcher({ logger: connection.logger }));
+		const serialize = vi.fn(() => "object-secret");
+		connection.logger.warn([
+			"no reaction handle connection-test-secret",
+			new Error("Bearer unknown-token"),
+			{ toJSON: serialize, toString: serialize },
+			["nested-secret"],
+		]);
+		expect(api.log.warn).toHaveBeenCalledWith("Feishu SDK diagnostic", {
+			instance: "test",
+			phase: "sdk",
+			error: "no reaction handle [redacted] Bearer [redacted]",
+		});
+		expect(serialize).not.toHaveBeenCalled();
+		connection.stop();
+	});
 });

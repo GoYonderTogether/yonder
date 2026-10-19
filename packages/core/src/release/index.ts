@@ -437,8 +437,8 @@ export async function updateRelease(options: UpdateOptions = {}) {
 	}
 	let restartRequired = false;
 	if (thisService) {
-		options.onProgress?.("Restarting the service");
-		await manageService("restart");
+		options.onProgress?.("Refreshing and restarting the service");
+		await manageService("install", { home: thisService.home });
 	} else restartRequired = await runningHome(options.home);
 	const directories = (await readdir(versions, { withFileTypes: true })).filter(
 		(entry) => entry.isDirectory() && versionPattern.test(entry.name),
