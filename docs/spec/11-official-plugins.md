@@ -81,11 +81,11 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 ## 6. GitHub issue、PR 与发布消息
 
 - 一个 `channel-github` 插件承担本项目 issues/comments 与 releases；使用现有 gh 的浏览器授权和安全凭据存储。授权时打开浏览器由用户确认；插件不调用 auth token 输出秘密。
-- 仓库、接纳账号与任务标签显式配置，默认只接本项目的授权任务。issue/评论转 message.in，按 issue 建 persistent 会话；release 转独立的合法插件事件，绑定 operator。正文是外部数据。
+- 仓库、接纳账号与任务标签显式配置，默认只接本项目的授权任务。issue/评论转 message.in，按 issue 建 persistent 会话；release 转独立的合法插件事件，绑定管家 main 的 release-updater 配置档。正文是外部数据。
 - 本机先用 REST 轮询，不要求公网 webhook；分页、水位与原生对象 id 持久化，重启能继续，同一输入不重复触发；自己的状态评论、PR 伪装的 issue 不制造自循环。跨接收/入库的重复问题由 10 的统一接纳契约解决，不另造插件任务队列。
 - 工具支持读取 issue/评论、回报方案与进度、分支/提交所需信息、创建 PR、查看 diff 与检查结果。源码分支和提交复用 git。
-- maintainer 创建 commit/PR；Codex 当前负责审查和合并。operator 的 release/update 按 10 §6，不增加一个重复 GitHub 客户端的发布插件。
-- 验收：Codex 实际提交 issue，Yonder 经事件接收、设计、修复、检查、提交 PR；Codex 审查合并；一次真实发布触发 operator 并确认安装更新。
+- maintainer 创建 commit/PR；Codex 当前负责审查和合并。管家的 release/update 按 10 §6，不增加一个重复 GitHub 客户端的发布插件。
+- 验收：Codex 实际提交 issue，Yonder 经事件接收、设计、修复、检查、提交 PR；Codex 审查合并；一次真实发布触发管家 并确认安装更新。
 
 ## 7. 飞书消息渠道
 
@@ -130,7 +130,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 
 ## R0 Release 首次基线（D34）
 
-首次成功读取 Release 列表时，先将当时已有原生 release id 保存为接收基线，不逐个唤醒 operator 应用历史版本；历史仍可用 read_release 查询。基线持久化成功后才接纳后续首次出现且获准的正式 Release。notify/apply 和显式 update --to 的既有权限不变；不新增版本策略平台。GitHub 普通评论与飞书普通消息工具通过共同 messages.send(request, ctx)，副作用结果不确定返回 uncertain。
+首次成功读取 Release 列表时，先将当时已有原生 release id 保存为接收基线，不逐个唤醒管家 应用历史版本；历史仍可用 read_release 查询。基线持久化成功后才接纳后续首次出现且获准的正式 Release。notify/apply 和显式 update --to 的既有权限不变；不新增版本策略平台。GitHub 普通评论与飞书普通消息工具通过共同 messages.send(request, ctx)，副作用结果不确定返回 uncertain。
 
 ## F 轮：飞书恢复与交互（D35，用户已批准）
 
