@@ -97,3 +97,9 @@ start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugi
 裸yonder在TTY中优先进入名为cli的CLI渠道，否则首个实际CLI渠道；无CLI渠道才保留新任务入口。显式yonder chat保持独立任务，--channel/--preset/--session保持原含义。进入CLI渠道即可只读装入该渠道已声明main绑定的agent的现有main历史并观察更新，不必先发一条消息；发送仍经原渠道绑定，禁止直接向常驻session.submit绕过绑定。没有主会话时首次输入正常创建，不伪造历史。
 
 默认home从唯一已安装服务读取，保持--home/YONDER_HOME和当前明确home优先；不依赖开发仓库或shell额外环境变量。未初始化时裸入口说明yonder init、login openai、service install，不偷偷启动第二进程。新用户按README从官方仓库安装，之后用同一update/current/版本目录机制更新回滚。正式安装不保留.git、不以开发目录运行，测试开发显式指定隔离home；不添加第二套服务管理或更新器。
+
+## E40 统一更新结果及内部通知
+
+updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试产生 01 定义的 release.update-result；不能只对 GitHub 自动升级写完成事实。完成核验服务版本/来源提交/home/pid/ready，不用模型确认。无服务可核验或仍待重启时不能报告 verified。更新错误保留错误和事实，不能为了记录失败吞掉原失败。结果记录失败与更新失败分开返回/报告，不重做已完成的安装。
+
+新增 `sessions notify <id> --event <事件id> --text <正文>`，仅提交 system:cli 来源的程序通知；不接受 from，不启动模型。复用现有控制面及 JSON/退出码规范，目标/原事件不合法则拒绝，持久记录和实际展示分别确认。

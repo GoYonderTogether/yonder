@@ -90,3 +90,7 @@ agent_ask({ agent: string, text: string })   // 需要 message 能力
 ## R0 普通模型发送（D34）
 
 普通评论/消息工具与 message_send 使用共同投递入口；模型代发须携带真实 ToolContext，保留 session/来源和发送尝试。附件按 05 的 read 能力、当前 env、真实 cwd/本轮附件规则验证；无 exec 不能借上传读取工作区外文件。供应商仅负责协议与本机/远程传输能力，无法支持当前 env 时明确拒绝。unknown 由 Delivery.uncertain 表达；消息组已部分发送时保留实际 id 和未知/失败事实，不重放整组。
+
+## E40 程序通知
+
+插件可直接 messages.send 向明确 person/acct/conv 发程序通知，无模型、无伪造 Agent 回复；message.out 归属真实插件。内部 session 通知用 sessions.notify，沿 pi 原生 app-only entry 保存与观察，不经 sessions.submit，不唤醒 Agent、不进入模型消息。TUI 以程序通知独立标识来源，和真实对话按 entry 时序排列；录入回执不等于送达外部渠道或人已读。

@@ -92,3 +92,6 @@ D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR�
 
 
 **D39 两个具名 Agent，更新职责收归管家（2026-10-19 用户明确指定并批准配置）。** 日常管家为贾维斯（内部 ID main），项目维护为哦鲸鲸（maintainer）。版本关注、获准更新及通知归贾维斯，用同身份内受限 release-updater 配置档与独立 persistent 会话，不增加第三个 Agent。既有 channel-github 轮询、发布接收基线、五个工具白名单、仓库/作者/通知目标与服务外 launchd 作业保留；operator 注销注册并原地归档文件及历史。当前1905没有原生归档/注册热加载，本次配置通过一次服务重启生效，不将人工配置归档冒充新管理功能。A0–A4的管理框架方案仍待审核，灵魂提示词后置。本次仅配置和必要文档对齐，不发版、不安装新源码、不制造更新事件。
+
+
+**D40 事件的程序消费与无模型通知（2026-10-19 用户批准 E0–E4）。** 复用events.on/messages.send/write绑定，确定性执行不经模型；默认模型仅处理显式run输入。GitHub apply直接调用现有升级函数，程序通知单独notifyUpdates选择。core共用updateRelease写release.update-result，直接CLI与插件job同源，不建新outbox；旧plugin事件仅保留历史。可升级上下文使用已核实缓存和宿主version。内部通知经原生pi app-only write及原生requestId去重，SDK sessions.notify与TUI程序消息展示，不伪造角色、不进入模型上下文、不patch pi。三位Sol分路，主路独占核心共享接线；只做相关检查，整合提交，不自动发版覆盖日用安装。

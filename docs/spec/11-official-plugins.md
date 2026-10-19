@@ -81,7 +81,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 ## 6. GitHub issue、PR 与发布消息
 
 - 一个 `channel-github` 插件承担本项目 issues/comments 与 releases；使用现有 gh 的浏览器授权和安全凭据存储。授权时打开浏览器由用户确认；插件不调用 auth token 输出秘密。
-- 仓库、接纳账号与任务标签显式配置，默认只接本项目的授权任务。issue/评论转 message.in，按 issue 建 persistent 会话；release 转独立的合法插件事件，绑定管家 main 的 release-updater 配置档。正文是外部数据。
+- 仓库、接纳账号与任务标签显式配置，默认只接本项目的授权任务。issue/评论转 message.in，按 issue 建 persistent 会话；release 转独立的合法插件事件，由程序按已批准策略处理，不默认绑定模型。正文是外部数据。
 - 本机先用 REST 轮询，不要求公网 webhook；分页、水位与原生对象 id 持久化，重启能继续，同一输入不重复触发；自己的状态评论、PR 伪装的 issue 不制造自循环。跨接收/入库的重复问题由 10 的统一接纳契约解决，不另造插件任务队列。
 - 工具支持读取 issue/评论、回报方案与进度、分支/提交所需信息、创建 PR、查看 diff 与检查结果。源码分支和提交复用 git。
 - maintainer 创建 commit/PR；Codex 当前负责审查和合并。管家的 release/update 按 10 §6，不增加一个重复 GitHub 客户端的发布插件。
@@ -168,3 +168,10 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 新插件及共享打包接线按独立任务执行；正式安装/发版沿已有流程，当前接入批准不自动发布。
 
 D38免费音频补记：同次Chrome控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。CosyVoice2控制台为¥0.05/千UTF-8字符，未获付费调用授权，不配置或调用TTS；视频仍不调用。
+
+
+## E40 GitHub 程序更新与通知
+
+沿用 approvedAuthors、policy、updater 与 notifyTarget。新增 releases.notifyUpdates?:boolean，默认 false，只有显式 true 才程序订阅内核 release.update-result 并直接向 notifyTarget 发消息。按实际仓库/install/home过滤，按updateId与实例记录一次通知尝试及Delivery，未知不自动重发；不扫描历史重发。apply由精确release订阅器重读真实Release再调用原scheduleUpdate，不构造ToolContext；notify只保留事实。原模型工具继续供用户显式请求使用，但默认移除同时自动执行的run绑定。
+
+贡献 channel-github.release-availability（placement:turn），使用最近成功轮询核实的最高获准正式版本与宿主version比较；仅显示严格更新版本，首次基线也核实。正文不含Release body，聊天不联网，选用贡献才展示，不改system。旧job回执/历史保留，但新程序通知只消费统一core事件，不对旧channel-github.update-result再通知。

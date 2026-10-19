@@ -124,3 +124,9 @@ interface EventPage { events: YEvent[]; next?: string }   // next：还有下一
 ### 来源消息时间（D36）
 
 message.in.data可选createdAt为原生发送时间的epoch毫秒字符串，msgId为原生消息ID；event.ts始终是Yonder接纳时间，不替代发送时间。模型输入头分别呈现已知的原时间与接纳时间；未知原时间不伪造。恢复originals的时间仍按各原始消息呈现。
+
+## 程序更新完成事实（E40，2026-10-19 用户批准）
+
+内核新增 `release.update-result`，不经过模型产生。`data` 为 `{updateId, install, home, repository, beforeVersion?, version?, tag?, commit?, status, verified, service?, error?}`，status 为 verified / failed-or-unknown / restart-required；service 有真实 version/commit/home/pid/ready。只有实际核验吻合才 verified=true。conv 为 `conv:release:<updateId>`。直接 CLI update 与插件作业调用同一 updateRelease，每次实际尝试仅由此公共入口记录完成；同版本未更新不制造完成事件。旧 channel-github.update-result 保留历史兼容，不作为新的程序通知来源。
+
+事件可独立被 Agent 绑定、插件程序订阅或仅记录。绑定 wake:write 不调用模型，wake:run 才调用；插件 events.on 不暗中唤醒模型，不获得外部正文授予的权限。事件账本仍是事实，进程内订阅不是持久任务队列；不承诺回调必执行或 exactly-once。服务不在线时更新完成可写既有事件账本供查询，不新增 outbox/重试平台。

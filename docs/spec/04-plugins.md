@@ -251,3 +251,11 @@ Delivery.uncertain:true 表示副作用可能已发生但无法确认，必须 o
 ## D35 渠道自动回复来源
 
 OutMessage可携带sourceMessageId表示自动回复所回答的原始消息；不等同于显式replyTo。stream既有第三参数表示自动回复源消息，渠道决定引用呈现。CLI命令名字/描述共用SDK静态清单；飞书只执行11明确的已有命令子集，不复制TUI交互或新增任意控制代理。
+
+## E40 程序消费者与运行版本
+
+用户批准现有 events.on 用作确定性程序动作入口，允许可信插件调用共享函数或其明确配置的脚本。原始事件作为数据传递，不拼接 shell，不伪造 ToolContext，不将插件程序动作冒充模型调用。没有新工作流引擎或任意脚本管理器。
+
+PluginAPI 增加只读 version:string，为实际宿主软件版本，不是插件包版本。release 为内核保留插件 ID 前缀，插件不能冒充 release.update-result。事件订阅、模型工具可以复用业务函数，权限判定按各自真实调用方；订阅不替换 Agent 绑定，若两者都选则分别执行，配置者负责不重复安排同一副作用。
+
+PluginAPI.sessions 新增 notify(id,{event,text})：指定真实未关闭 session 与已有原事件，来源由内核固定为实际 plugin:<id>，不接受请求伪造 from。返回 {session,event,entry,recorded:true} 仅证明已记录，不证明人已读。原生 app-only entry 保存通知，不包含 user/assistant/model 内容，不进模型上下文、不启动模型；原生观察和转录按来源展示。相同来源/原事件/目标会话重复返回原记录，不重复插入。setup 不允许 notify；代码重载与其他权限边界不变。
