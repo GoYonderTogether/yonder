@@ -166,3 +166,5 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 工具声明network/write，响应ctx.signal；不允许模型指定任意覆写路径，不通过Node文件API绕过执行环境。模型/尺寸只支持实际协议声明的首段参数，错误保留请求阶段/状态，不打印密钥、鉴权头或请求对象。
 - 本次配置与真实验收仅用控制台已核实¥0/图片的Kwai-Kolors/Kolors，保存价格日期/证据；免费配额仍可能限流，429如实返回。源码契约检查、真实免费API调用与渠道客户端验收分别记录，不以其中一个代替其余。不得为通过而更换成收费模型。
 - 新插件及共享打包接线按独立任务执行；正式安装/发版沿已有流程，当前接入批准不自动发布。
+
+D38免费音频补记：同次Chrome控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。CosyVoice2控制台为¥0.05/千UTF-8字符，未获付费调用授权，不配置或调用TTS；视频仍不调用。

@@ -87,3 +87,5 @@ D36现场补充：原事件正文紧随其来源头，补充会话背景放其�
 
 
 **D38 硅基原生媒体工具，先接明确免费能力（2026-10-19 用户指定）。** 用户要求由Sol接入硅基流动并复用成熟协议，视频成本过高则找免费API。Chrome真实控制台已核实Kwai-Kolors/Kolors在线推理¥0/图片，当前L0为2 IPM/400 IPD；首段采用现有services.resolve与SDK工具/附件，native fetch按官方images[]/image_size契约请求并立即转存。OpenClaw通用OpenAI图片data[]/size和Hermes FAL路径不适配，不能为了照搬引入错误协议或整套provider框架。免费音频经实际核价后补入；未核实免费的视频不生成。代价：免费配额和供应商可用性仍受平台约束；本轮不承诺所有生成模型/服务可选，不建第二模型目录或任务系统。
+
+D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR工具；CosyVoice2为¥0.05/千UTF-8字符，保持未启用。免费API真实验收仅Kolors与SenseVoiceSmall；不会用付费TTS生成验收素材。
