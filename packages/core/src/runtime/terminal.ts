@@ -1,5 +1,5 @@
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
-import type { AgentEvent, AgentEventStream, ConversationId, Harness } from "@earendil-works/pi-durable";
+import type { AgentEvent, AgentEventStream, ConversationId, EntryRecord, Harness } from "@earendil-works/pi-durable";
 import { watchEvents } from "@earendil-works/pi-durable";
 
 /** JSON-only view of native facts. No pi runtime object crosses the control boundary. */
@@ -7,12 +7,16 @@ import type { SessionUpdate as TerminalUpdate } from "@yonder/sdk";
 
 export type { SessionUpdate as TerminalUpdate } from "@yonder/sdk";
 
+import { notificationOf } from "./notifications.js";
+
 export async function observeTerminal(harness: Harness, id: string, send: (update: TerminalUpdate) => Promise<void>) {
 	const stream: AgentEventStream = await watchEvents(harness, Number(id) as ConversationId, C);
 	let currentId = "live";
 	let partial: Extract<AgentEvent, { type: "message_start" }>["message"] | undefined;
 	const clone = <T>(value: T): T => structuredClone(value);
-	const message = async (entry: { id: number; model?: readonly object[] }) => {
+	const message = async (entry: EntryRecord) => {
+		const notification = notificationOf(entry);
+		if (notification) await send({ type: "notification", notification });
 		for (const [index, item] of (entry.model ?? []).entries()) {
 			const id = `${entry.id}:${index}`;
 			if ("role" in item && item.role === "assistant") currentId = id;
@@ -24,6 +28,12 @@ export async function observeTerminal(harness: Harness, id: string, send: (updat
 			if (event.type === "snapshot") {
 				await send({
 					type: "snapshot",
+					items: event.entries.flatMap<NonNullable<TerminalUpdate["items"]>[number]>((entry) => {
+						const notification = notificationOf(entry);
+						return notification
+							? [{ id: String(entry.id), notification }]
+							: (entry.model ?? []).map((message, index) => ({ id: `${entry.id}:${index}`, message }));
+					}),
 					messages: event.entries.flatMap((entry) =>
 						(entry.model ?? []).map((message, index) => ({ id: `${entry.id}:${index}`, message })),
 					),

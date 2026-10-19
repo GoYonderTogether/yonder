@@ -40,7 +40,7 @@ export class GithubChannel implements Channel {
 	private self = "";
 	private cursor: State;
 	private file: string;
-	private releases: Releases | undefined;
+	readonly releases: Releases | undefined;
 	constructor(
 		readonly id: string,
 		readonly config: ConfigValue,

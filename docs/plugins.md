@@ -212,3 +212,7 @@ TUI、补全、管理命令在 `packages/cli/`；本通道不提供附件发送�
 - `media-tools_audio_transcribe`：按文件访问权限读取音频，调用已配置ASR并返回文字。
 - `services.resolve(image/asr)`复用既有服务/密钥来源，不把对话模型目录冒充生成API；不启用付费TTS或视频。
 - 源码插件真实免费API调用通过，尚未安装到1905，未作模型选择/飞书端到端验收。见[实现记录](tasks/siliconflow-media-result.md)。
+
+### E轮源码：GitHub事件程序处理（未发布）
+
+channel-github新增上下文channel-github.release-availability，并订阅channel-github.release执行获准apply、订阅内核release.update-result在notifyUpdates=true时直接通知；原模型工具保留。直接执行业务函数，不模拟Agent调用、不新建插件或调度系统。参数及迁移见该插件README与 [E轮结果](tasks/event-driven-actions-result.md)。

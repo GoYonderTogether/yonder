@@ -28,6 +28,7 @@ test("shell-native scripts load and offer actual command/subcommand candidates",
 			{ encoding: "utf8" },
 		);
 		expect(zsh).toContain("restart");
+		for (const shell of ["bash", "zsh", "fish"]) expect(completion(shell)).toContain("submit notify");
 		const data = JSON.parse(
 			execFileSync(process.execPath, [cli, "completion", "zsh", "--home", directory, "--json"], { encoding: "utf8" }),
 		);

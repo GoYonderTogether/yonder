@@ -26,7 +26,7 @@
 }
 ```
 
-- `id`：`[a-z][a-z0-9-]*`，全局唯一。`message`、`task`、`session`、`identity`、`agent`、`skill`、`tool` 保留给内核（它们是内置工具名的前缀）。
+- `id`：`[a-z][a-z0-9-]*`，全局唯一。`message`、`task`、`session`、`identity`、`agent`、`skill`、`tool`、`release` 保留给内核（它们是内置工具名的前缀）。
 - `contributes`：槽名 → 贡献名列表。`channels` 与 `envs` 列的是提供者的 `type`（实例由 `yonder.yaml` 配置），其余列贡献的 id 或名字。
 - 加载时内核比对实际注册与声明，不一致即拒绝加载，并说明是哪个插件、哪一项。
 
@@ -164,6 +164,7 @@ type HookResult<T> = T | undefined | Promise<T | undefined>;
 
 ```ts
 interface PluginAPI {
+  readonly version: string;           // 实际宿主软件版本
   id: string;
   config: unknown;                     // 它在 yonder.yaml 里的 config 段，已按 configSchema 校验
   log: { info(msg: string, data?: object): void; warn(msg: string, data?: object): void; error(msg: string, data?: object): void };

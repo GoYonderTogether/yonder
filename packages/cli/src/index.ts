@@ -40,7 +40,7 @@ Commands:
   start                           前台运行 · Start harness
   stop                            停止运行 · Stop harness
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
-  sessions list|show|open|submit|abort|close  会话管理 · Manage sessions
+  sessions list|show|open|submit|notify|abort|close  会话管理 · Manage sessions
   events                          查询事件 · Query events
   identity lookup|link|unlink|person  身份管理 · Manage identities
   skills [show|add|remove] [--agent <id>] [--profile <name>]  技能管理 · Manage skills
@@ -57,7 +57,7 @@ Commands:
 
 const chatUsage = "Usage: yonder chat [--preset <id> | --session <id> | --channel <instance>] [--plain | --json]";
 const sessionsUsage =
-	"Usage: yonder sessions list|show <id>|open <preset> [--keep-open]|submit <id> --text <text> [--attachment <path>]...|abort <id>|close <id>";
+	"Usage: yonder sessions list|show <id>|open <preset> [--keep-open]|submit <id> --text <text> [--attachment <path>]...|notify <id> --event <event> --text <text>|abort <id>|close <id>";
 const skillsUsage =
 	"Usage: yonder skills [show <name>|add <directory>|remove <name>] [--agent <id>] [--profile <name>]";
 const releaseUsage: Record<string, string> = {
@@ -517,6 +517,13 @@ async function run(args: string[]): Promise<number> {
 			control = await serveControl(home, async (request, connection) => {
 				const params = (request.params ?? {}) as Record<string, unknown>;
 				switch (request.method) {
+					case "release.result":
+						return kernel.releaseResult(params.data as Parameters<typeof kernel.releaseResult>[0]);
+					case "sessions.notify":
+						return kernel.notify(requiredParam(params, "id"), {
+							event: requiredParam(params, "event"),
+							text: requiredParam(params, "text"),
+						});
 					case "management":
 						return kernel.management(params as unknown as Parameters<typeof kernel.management>[0]);
 					case "terminal.sessions":
@@ -679,6 +686,19 @@ async function run(args: string[]): Promise<number> {
 				requestControl(homeFor(options), {
 					method: "sessions.open",
 					params: { preset: names[0], ...(keep ? { close: "manual" } : {}) },
+				}),
+				options.json,
+			);
+		}
+		if (subcommand === "notify") {
+			const id = args2[0];
+			if (!id) throw new UsageError(sessionsUsage);
+			const flags = namedOptions(args2.slice(1), ["--event", "--text"], sessionsUsage);
+			if (!flags["--event"] || !flags["--text"]) throw new UsageError(sessionsUsage);
+			return print(
+				requestControl(homeFor(options), {
+					method: "sessions.notify",
+					params: { id, event: flags["--event"], text: flags["--text"] },
 				}),
 				options.json,
 			);

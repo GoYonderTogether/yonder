@@ -32,7 +32,8 @@ export type KernelServices = Omit<
 	"messages" | "sessions"
 > & {
 	messages: { send(message: PluginMessage, pluginId: string, ctx?: ToolContext): Promise<Delivery> };
-	sessions: Omit<SessionsAPI, "submit"> & {
+	sessions: Omit<SessionsAPI, "submit" | "notify"> & {
+		notify(id: string, input: { event: string; text: string }, pluginId?: string): ReturnType<SessionsAPI["notify"]>;
 		submit(
 			id: string,
 			input: Parameters<SessionsAPI["submit"]>[1],
@@ -171,6 +172,7 @@ export async function loadPlugins(
 		};
 		const api: PluginAPI = {
 			id: manifest.id,
+			version: JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")).version,
 			config: pluginConfig,
 			log: {
 				info: (message, data) => services.log.info(message, { ...data, plugin: manifest.id }),
@@ -194,6 +196,10 @@ export async function loadPlugins(
 			},
 			credentials: services.credentials,
 			sessions: {
+				notify: (id, input) => {
+					denySetupWrite("sessions.notify");
+					return services.sessions.notify(id, input, manifest.id);
+				},
 				list: (filter) => services.sessions.list(filter),
 				get: (id) => services.sessions.get(id),
 				open: (request) => {

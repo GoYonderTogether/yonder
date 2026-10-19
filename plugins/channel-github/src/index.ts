@@ -1,5 +1,7 @@
 import { defineChannel, definePlugin, defineTool, type ToolContext } from "@yonder/sdk";
 import { type Static, Type } from "typebox";
+import { applyRelease, notifyUpdate } from "./actions.js";
+import { releaseAvailability } from "./availability.js";
 import { Config, GithubChannel } from "./channel.js";
 import { object } from "./client.js";
 import { approvedRelease, releaseData } from "./releases.js";
@@ -9,6 +11,14 @@ const target = { instance: Type.String({ minLength: 1 }), issue: Type.Integer({ 
 export default definePlugin({
 	setup(api) {
 		const channels = new Map<string, GithubChannel>();
+		api.contexts.register(
+			releaseAvailability(
+				() => [...channels.values()].flatMap((channel) => (channel.releases ? [channel.releases] : [])),
+				api.version,
+			),
+		);
+		api.events.on("channel-github.release", (event) => applyRelease(api, channels, event));
+		api.events.on("release.update-result", (event) => notifyUpdate(api, channels, event));
 		api.channels.register(
 			defineChannel({
 				type: "github",
@@ -236,7 +246,7 @@ export default definePlugin({
 					{ additionalProperties: false },
 				),
 				description:
-					"Operator-only: re-read approved published Release and schedule one independent macOS launchd update job for its exact repo/tag. Requires configured apply policy and install/home boundaries. Scheduled is not updated; never retry an unknown mutation. No arbitrary shell or CLI arguments.",
+					"Approved update operation: re-read approved published Release and schedule one independent macOS launchd update job for its exact repo/tag. Requires configured apply policy and install/home boundaries. Scheduled is not updated; never retry an unknown mutation. No arbitrary shell or CLI arguments.",
 				execute: (args, ctx) =>
 					run(args, ctx, async (c, a) => {
 						const release = object(await c.client.get(c.client.path(`releases/${a.releaseId}`), ctx.signal));

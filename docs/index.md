@@ -20,6 +20,10 @@
 
 [R修复与验收结果](tasks/repair-main-result.md)、[F恢复结果](tasks/feishu-recovery-result.md)、[D36上下文分析](tasks/feishu-context-proposal.md)、[D37全局入口结果](tasks/global-entry-result.md)。原[R计划](tasks/repair-acceptance-plan.md)、[F计划](tasks/feishu-recovery-interaction-plan.md)与[审查](tasks/review-c0-c6.md)保留，不据旧状态重开开发。
 
+## 当前源码增量（未发布安装）
+
+用户已批准事件程序消费与无模型通知E0–E4；实现和实际证据见 [E轮结果](tasks/event-driven-actions-result.md)。本机正式版仍1905，不能将源码新增接口当作已部署；Agent热CRUD仍是单列方案。
+
 ## 阅读顺序（渐进式披露）
 
 | 层级 | 文档 | 回答什么 | 谁必须读 |

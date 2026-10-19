@@ -38,6 +38,9 @@
 				"channel-github_read_release",
 				"channel-github_update_schedule",
 				"channel-github_update_status"
+			],
+			"contexts": [
+				"channel-github.release-availability"
 			]
 		}
 	}

@@ -1,7 +1,7 @@
 const commands =
 	"init login doctor start stop chat sessions events identity skills plugins models inspect version changelog docs update service completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --attachment --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -28,7 +28,7 @@ _yonder() {
     --mode) compadd main persistent ephemeral task; return;;
   esac
   case "$words[2]" in
-    sessions) (( CURRENT == 3 )) && { compadd list show abort close open submit; return; };;
+    sessions) (( CURRENT == 3 )) && { compadd list show abort close open submit notify; return; };;
     plugins) (( CURRENT == 3 )) && { compadd list show add remove; return; };;
     models) (( CURRENT == 3 )) && { compadd list; return; };;
     skills) (( CURRENT == 3 )) && { compadd show add remove; return; };;
@@ -68,7 +68,7 @@ _yonder() {
   esac
   if (( COMP_CWORD == 2 )); then
     case "$\{COMP_WORDS[1]}" in
-      sessions) choices='list show abort close open submit';;
+      sessions) choices='list show abort close open submit notify';;
       plugins) choices='list show add remove';;
       models) choices='list';;
       skills) choices='show add remove';;
@@ -96,7 +96,7 @@ function __yonder_values
 end
 complete -c yonder -f
 complete -c yonder -n '__fish_use_subcommand' -a '${commands}' -d '命令 · Command'
-complete -c yonder -n '__fish_seen_subcommand_from sessions' -a 'list show abort close open submit' -d '会话操作 · Session action'
+complete -c yonder -n '__fish_seen_subcommand_from sessions' -a 'list show abort close open submit notify' -d '会话操作 · Session action'
 complete -c yonder -n '__fish_seen_subcommand_from plugins' -a 'list show add remove'
 complete -c yonder -n '__fish_seen_subcommand_from models' -a 'list'
 complete -c yonder -n '__fish_seen_subcommand_from skills' -a 'show add remove'

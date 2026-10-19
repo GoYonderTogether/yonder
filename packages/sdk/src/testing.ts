@@ -42,7 +42,7 @@ export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 	const id = manifest?.id ?? dir;
 	if (!manifest || typeof manifest.id !== "string" || !/^[a-z][a-z0-9-]*$/.test(manifest.id))
 		throw new Error(`${id}: invalid plugin id`);
-	if (["message", "task", "session", "identity", "agent", "skill", "tool"].includes(manifest.id))
+	if (["message", "task", "session", "identity", "agent", "skill", "tool", "release"].includes(manifest.id))
 		throw new Error(`${id}: reserved plugin id`);
 	if (manifest.apiVersion !== 1) throw new Error(`${id}: unsupported apiVersion ${manifest.apiVersion}; supported: 1`);
 	if (typeof manifest.entry !== "string" || !manifest.entry) throw new Error(`${id}: missing entry`);
@@ -188,6 +188,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 		await module.setup({
 			...api,
 			id,
+			version: JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version,
 			config: undefined,
 			log: { info: log, warn: log, error: log },
 			events: { ...api.events, emit: unavailable, ask: unavailable, query: unavailable },
@@ -195,6 +196,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			credentials: { get: unavailable },
 			services: { resolve: unavailable },
 			sessions: {
+				notify: unavailable,
 				list: unavailable,
 				get: unavailable,
 				open: unavailable,

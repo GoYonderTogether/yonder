@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import {
 	AssistantMessageComponent,
 	CustomEditor,
+	CustomMessageComponent,
 	copyToClipboard,
 	ExtensionSelectorComponent,
 	getMarkdownTheme,
@@ -23,7 +24,7 @@ import {
 	TruncatedText,
 } from "@earendil-works/pi-tui";
 import { type Kernel, observeControl, packageVersion, requestControl, type TerminalUpdate } from "@yonder/core";
-import type { SessionInfo, YEvent } from "@yonder/sdk";
+import type { SessionInfo, SessionNotification, YEvent } from "@yonder/sdk";
 import { chatCommands } from "@yonder/sdk";
 import { CommandAutocomplete } from "./autocomplete.js";
 import { CompactToolExecution, MessagePresentation } from "./message-presentation.js";
@@ -332,6 +333,19 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		}
 		render();
 	};
+	const showNotification = (session: string, value: SessionNotification) => {
+		const key = `${session}:notification:${value.id}`;
+		if (entries.has(key)) return;
+		const component = new CustomMessageComponent(
+			{ role: "custom", customType: `通知 · ${value.from}`, content: value.text, display: true, timestamp: 0 },
+			undefined,
+			getMarkdownTheme(),
+			1,
+		);
+		entries.set(key, component);
+		chat.addChild(component);
+		render();
+	};
 	const receive = (session: string, packet: unknown) => {
 		const envelope = packet as { type: string; update?: TerminalUpdate; error?: string };
 		if (envelope.type === "disconnected") {
@@ -346,9 +360,15 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		const update = envelope.update;
 		if (!update) return;
 		if (update.type === "snapshot") {
-			for (const item of update.messages ?? []) showMessage(session, item.id, item.message);
+			if (update.items) {
+				for (const item of update.items) {
+					if (item.notification) showNotification(session, item.notification);
+					else if (item.message) showMessage(session, item.id, item.message);
+				}
+			} else for (const item of update.messages ?? []) showMessage(session, item.id, item.message);
 			setRunning(update.running ?? false, session);
-		} else if (update.type === "message" && update.message)
+		} else if (update.type === "notification" && update.notification) showNotification(session, update.notification);
+		else if (update.type === "message" && update.message)
 			showMessage(session, update.id ?? "live", update.message, update.streaming);
 		else if (update.type === "tool" && update.tool) {
 			const item = update.tool,

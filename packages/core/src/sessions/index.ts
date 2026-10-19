@@ -233,7 +233,18 @@ export function createSessions({
 		return row.mode === "task" ? { ...row, close: (await runtime().sessionState(row.id))?.close ?? "run-end" } : row;
 	}
 
+	async function notifyFrom(id: string, input: { event: string; text: string }, from: string) {
+		if (!from.trim()) throw new Error("Notification requires a program source");
+		if (!input.event || typeof input.text !== "string" || !input.text.trim())
+			throw new Error("Notification requires an event and text");
+		const session = await store.sessions.get(id);
+		if (!session || session.closed || closing.has(id)) throw new Error(`Not an open session: ${id}`);
+		if (!(await store.events.get(input.event))) throw new Error(`Unknown notification event: ${input.event}`);
+		return runtime().notify(id, { ...input, from });
+	}
+
 	const api: SessionsAPI = {
+		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
 		list: async (filter) => Promise.all((await store.sessions.list(filter)).map(withPolicy)),
 		get: async (id) => {
 			const row = await store.sessions.get(id);
@@ -302,6 +313,7 @@ export function createSessions({
 	return {
 		api,
 		recover,
+		notifyFrom,
 		submitFrom(
 			id: string,
 			input: Input,

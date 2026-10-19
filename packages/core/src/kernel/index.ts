@@ -18,6 +18,7 @@ import {
 import { createDelivery } from "../delivery/index.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins, pluginDirectory } from "../plugins/index.js";
 import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "../prompt/index.js";
+import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { runChannelCommand } from "../routing/commands.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -58,6 +59,7 @@ function inspectionServices(home: string, config: YonderConfig, log: KernelLog):
 		messages: { send: unavailable },
 		services: { resolve: unavailable },
 		sessions: {
+			notify: unavailable,
 			list: unavailable,
 			get: unavailable,
 			open: unavailable,
@@ -575,6 +577,8 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 					ctx ? delivery.sendTool(ctx, request) : delivery.sendPlugin(pluginId, request),
 			},
 			sessions: {
+				notify: (id: string, input: { event: string; text: string }, pluginId?: string) =>
+					sessions.notifyFrom(id, input, pluginId ? `plugin:${pluginId}` : "system:yonder"),
 				list: (filter) => sessions.api.list(filter),
 				get: (id) => sessions.api.get(id),
 				open: (req) => sessions.api.open(req),
@@ -752,6 +756,11 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		return {
 			sessions: { ...sessions.api, observe: observeSession },
+			releaseResult: (data: UpdateResult) => {
+				if (resolve(data.home) !== home) throw new Error("Update result belongs to another home");
+				return router.emit(updateResultEvent(data));
+			},
+			notify: (id: string, input: { event: string; text: string }) => sessions.notifyFrom(id, input, "system:cli"),
 			events: { query: store.events.query },
 			identity: store.identity(),
 			management: async (request: ManagementRequest) => {

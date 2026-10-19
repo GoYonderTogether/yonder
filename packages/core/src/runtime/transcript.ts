@@ -1,6 +1,7 @@
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import type { TranscriptItem } from "@yonder/sdk";
 import type { Db } from "./db.js";
+import { notificationOf } from "./notifications.js";
 
 export function entryText(entry: EntryRecord | undefined): string {
 	return (entry?.model ?? [])
@@ -12,10 +13,12 @@ export function entryText(entry: EntryRecord | undefined): string {
 		.join("\n");
 }
 export function transcriptItem(entry: EntryRecord): TranscriptItem {
+	const notification = notificationOf(entry);
 	return {
+		...(notification ? { from: notification.from } : {}),
 		id: Number(entry.id),
 		kind: entry.kind,
-		text: entryText(entry),
+		text: notification?.text ?? entryText(entry),
 		tools: (entry.model ?? []).flatMap((message) =>
 			message.role === "assistant"
 				? message.content

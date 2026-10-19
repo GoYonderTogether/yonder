@@ -63,7 +63,12 @@ function channel() {
 }
 beforeEach(async () => {
 	directory = await mkdtemp(join(tmpdir(), "yonder-github-check-"));
-	api = { paths: { data: directory }, log: { warn: vi.fn() } } as unknown as PluginAPI;
+	api = {
+		paths: { data: directory },
+		log: { warn: vi.fn() },
+		events: { on: vi.fn() },
+		contexts: { register: vi.fn() },
+	} as unknown as PluginAPI;
 	boundary.copy.mockReset().mockResolvedValue(undefined);
 	boundary.launch.mockReset();
 });

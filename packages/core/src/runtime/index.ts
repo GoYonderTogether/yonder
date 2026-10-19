@@ -58,6 +58,7 @@ import { credentialPath, FileCredentials } from "./credentials.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
 import { buildModels } from "./models.js";
+import { writeNotification } from "./notifications.js";
 
 export { attachmentFromPath } from "./attachments.js";
 
@@ -859,6 +860,9 @@ export class Runtime {
 				}),
 			) as JsonObject,
 		};
+	}
+	async notify(id: string, input: { from: string; event: string; text: string }) {
+		return writeNotification(await this.conversation(id), input);
 	}
 	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
 		const conversation = await this.conversation(id);

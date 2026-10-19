@@ -118,15 +118,24 @@ export interface Profile {
 }
 export type Preset = Profile & { id: string; description: string };
 
+export interface SessionNotification {
+	id: number;
+	from: string;
+	event: string;
+	text: string;
+}
+
 export interface SessionUpdate {
 	session?: string;
 	runId?: string;
 	eventIds?: string[];
-	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox";
+	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox" | "notification";
 	event?: object;
 	id?: string;
 	message?: object;
 	messages?: Array<{ id: string; message: object }>;
+	items?: Array<{ id: string; message?: object; notification?: SessionNotification }>;
+	notification?: SessionNotification;
 	streaming?: boolean;
 	running?: boolean;
 	inputs?: string[];
@@ -136,6 +145,10 @@ export interface SessionUpdate {
 }
 
 export interface SessionsAPI {
+	notify(
+		id: string,
+		input: { event: string; text: string },
+	): Promise<{ session: string; event: string; entry: number; recorded: true }>;
 	list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
 	get(id: string): Promise<SessionInfo | undefined>;
 	open(req: {
@@ -185,6 +198,7 @@ export interface RunResult {
 	attachments?: Attachment[];
 }
 export interface TranscriptItem {
+	from?: string;
 	id: number;
 	kind: string;
 	text: string;
@@ -330,6 +344,7 @@ export interface ServiceEndpoint {
 }
 
 export interface PluginAPI {
+	readonly version: string;
 	id: string;
 	config: unknown;
 	log: {

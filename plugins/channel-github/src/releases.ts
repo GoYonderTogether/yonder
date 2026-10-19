@@ -8,6 +8,7 @@ export const ReleasesConfig = Type.Object(
 	{
 		approvedAuthors: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }),
 		policy: Type.Optional(Type.Union([Type.Literal("notify"), Type.Literal("apply")])),
+		notifyUpdates: Type.Optional(Type.Boolean()),
 		notifyTarget: Type.Optional(Type.String({ pattern: "^(person|acct|conv):\\S+$" })),
 		updater: Type.Optional(
 			Type.Object(
@@ -22,6 +23,21 @@ export const ReleasesConfig = Type.Object(
 	{ additionalProperties: false },
 );
 export type ReleasesOptions = Static<typeof ReleasesConfig>;
+export type AvailableRelease = Pick<
+	ReturnType<typeof releaseData>,
+	"repository" | "releaseId" | "tag" | "version" | "url" | "author"
+>;
+export function compareVersions(a: string, b: string): number {
+	const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
+	if (!pattern.test(a) || !pattern.test(b)) throw new Error("Expected exact X.Y.Z versions");
+	const left = a.split(".").map(BigInt) as [bigint, bigint, bigint];
+	const right = b.split(".").map(BigInt) as [bigint, bigint, bigint];
+	for (const i of [0, 1, 2] as const) {
+		const delta = left[i] - right[i];
+		if (delta !== 0n) return delta > 0n ? 1 : -1;
+	}
+	return 0;
+}
 export function releaseVersion(release: ObjectValue): string {
 	const match = /^v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))$/.exec(String(release.tag_name));
 	if (!match?.[1]) throw new Error("Release tag must be an installable vX.Y.Z version");
@@ -54,6 +70,7 @@ export function releaseData(repo: string, release: ObjectValue) {
 	};
 }
 export class Releases {
+	latest: AvailableRelease | undefined;
 	private seen = new Set<string>();
 	private loaded = false;
 	private baseline = false;
@@ -84,6 +101,19 @@ export class Releases {
 			this.loaded = true;
 		}
 		const releases = await client.list("releases", signal);
+		let latest: AvailableRelease | undefined;
+		for (const release of releases) {
+			if (!approvedRelease(release, this.config)) continue;
+			try {
+				const { repository, releaseId, tag, version, url, author } = releaseData(this.repo, release);
+				if (!latest || compareVersions(version, latest.version) > 0)
+					latest = { repository, releaseId, tag, version, url, author };
+			} catch {
+				// Ineligible tags/URLs cannot become an upgrade suggestion.
+			}
+		}
+		this.latest = latest;
+		if (this.baseline) await this.save(this.seen);
 		if (!this.baseline) {
 			const ids = new Set(releases.map((release) => nativeId(release.id)));
 			await this.save(ids);
@@ -126,7 +156,9 @@ export class Releases {
 	}
 	private async save(ids: Set<string>): Promise<void> {
 		await mkdir(this.api.paths.data, { recursive: true });
-		await writeFile(`${this.file}.tmp`, JSON.stringify({ repository: this.repo, ids: [...ids] }), { mode: 0o600 });
+		await writeFile(`${this.file}.tmp`, JSON.stringify({ repository: this.repo, ids: [...ids], latest: this.latest }), {
+			mode: 0o600,
+		});
 		await rename(`${this.file}.tmp`, this.file);
 	}
 }

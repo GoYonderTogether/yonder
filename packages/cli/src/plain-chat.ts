@@ -44,6 +44,8 @@ export async function plainTaskChat(home: string, target: ChatTarget, json: bool
 			const update = envelope.update;
 			if (!update) return;
 			if (json) stdout.write(`${JSON.stringify(packet)}\n`);
+			else if (update.type === "notification" && update.notification)
+				stdout.write(`[通知 · ${update.notification.from}] ${update.notification.text}\n`);
 			else if (update.type === "message" && update.message) {
 				const message = update.message as { role: string; content?: Array<{ type: string; text?: string }> };
 				if (message.role === "assistant") {

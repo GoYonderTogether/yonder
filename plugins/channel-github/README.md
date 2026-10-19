@@ -74,23 +74,23 @@ channels:
       policy: notify
 ```
 
-operator 的现有 `agent.yaml` 加入下面两个绑定，选择已存在的 operator profile：
+若需要模型理解 Release 或更新结果，可在现有 `agent.yaml` 显式选择下面的绑定与已有 profile。程序 apply 消费者不需要这些绑定；同时保留模型更新绑定可能重复调度，因此程序接管时应移除执行同一动作的模型绑定：
 
 ```yaml
 bindings:
   - id: github-releases
     match: { channel: github-project, type: channel-github.release }
     session: { mode: persistent, per: conv }
-    profile: operator
+    profile: release-updater
   - id: github-update-results
-    match: { channel: github-project, type: channel-github.update-result }
+    match: { type: release.update-result }
     session: { mode: persistent, per: conv }
-    profile: operator
+    profile: release-updater
 ```
 
 Release 事件完整 data 包含 repository、releaseId、tag、version、url/sourceUrl、作者、发布时间和变更正文；事件 `msgId=release:<native-id>:published`，conv 为 `conv:<instance>:<owner/repo>:releases`，由内核通用事件呈现送入模型。不会把发布正文当权限或从 release body 执行命令。游标位于 `<instance>.releases.json`，首次基线落盘成功后才继续接纳新 Release；新事件接纳后保存，重启/保存间隙由统一接纳去重。Release 失败单独记录在状态工具的 releaseError，不阻断 issue 扫描。
 
-`channel-github_read_release {instance, releaseId?}` 查询指定或所有分页的实际 Release 对象与批准状态；不是只查询 tag。通知模式不会自动替换安装版本。可选 `notifyTarget` 指向实际配置的 person/acct/conv；operator 使用既有 message_send 投递并以真实 delivery/message.out 记录成功。没有配置/送达用户渠道时，事件与更新结果可查但 `notified:false`，不能宣称已通知。
+`channel-github_read_release {instance, releaseId?}` 查询指定或所有分页的实际 Release 对象与批准状态；不是只查询 tag。通知模式不会自动替换安装版本。可选 `notifyTarget` 指向实际配置的 person/acct/conv。另显式配置 `notifyUpdates: true` 后，插件订阅共同核心事件 `release.update-result`，仅处理 repository、install、home 均匹配本实例 updater 的实际更新，直接使用 `messages.send` 通知；默认不启用。CLI 与独立作业调用 CLI 共享这一完成事件，不再靠模型转发。通知仅在 verified/status 明确时宣称成功，失败或未确认如实提示；每个 updateId/实例在发送前持久化尝试记录及发送回执，即使发送结果未知也不重发。旧 `channel-github.update-result` 保留历史兼容，不触发程序通知。模型通知仍可显式选择工具与绑定。没有配置/送达用户渠道时，事件与更新结果可查但 `notified:false`，不能宣称已通知。
 
 明确批准应用更新后，配置改为：
 
@@ -103,17 +103,32 @@ releases:
     home: /Users/zoran/.local/share/yonder-harness/home
 ```
 
-这两个绝对路径是批准部署目标，配置片段不会创建/修改它们。日用安装、home、launchd 服务需先按原安装流程完成；本轮未执行。只给 operator profile 提供 `channel-github_update_schedule` 与 exec/admin/network，operator 不需要任意 shell；更新状态工具需 read/exec。maintainer profile 不选择调度工具。
+这两个绝对路径是批准部署目标，配置片段不会创建/修改它们。日用安装、home、launchd 服务需先按原安装流程完成；本轮未执行。只给获准更新的 profile 提供 `channel-github_update_schedule` 与 exec/admin/network，程序消费者不需要任意 shell；更新状态工具需 read/exec。maintainer profile 不选择调度工具。
 
 更新调用链：
 
 1. Codex 审查发行 commit/检查结果，统一版本，创建并推送对应 tag，使用已有 gh 创建正式 Release。此工作不由插件代做。
-2. operator 收到 Release 事件，`channel-github_update_schedule {instance, releaseId}` 重新读取该原生 Release，核对批准作者/正式状态与精确 tag；不能传任意仓库、路径、命令或“latest”。notify/未配置更新路径时明确拒绝应用。
+2. 配置 `policy: apply` 与 updater 后，插件直接订阅本实例 `channel-github.release`，重读该原生 Release，核对仓库、批准作者、正式状态及事件的精确 ID/tag，调用既有 `scheduleUpdate`；无需模型或 ToolContext。notify 策略不调度。用户明确要求模型升级时仍可用 `channel-github_update_schedule {instance, releaseId}`，工具保留原能力检查。不能传任意仓库、路径、命令或“latest”。
 3. 调度工具在插件私有数据 `<instance>.updates/<releaseId>/` 保存本次 request、独立 runner 与一次性 plist，然后 `launchctl bootstrap gui/<uid> <plist>`。独立 launchd 作业运行既有安装目录的 `bin/yonder update --repo https://github.com/<配置仓库>.git --to <精确tag> --home <配置home> --json`。准备阶段失败会清理本次暂存目录，尚未调用 bootstrap 不记未知；实际调用 bootstrap 后失败保留原目录供查询，不自动重发。没有后台 CLI flag、第二套更新器或 supervisor。作业不属于被重启服务的子进程。
 4. 作业执行前核对 version/service status 的 install/home 及 service info 的真实运行信息；执行后查询 `version --json`、`service status --json` 与 `service info --home <home> --json`，有限等待真实服务就绪。保存磁盘 version/origin/source 与服务自报 version/commit/home/pid/ready；只有安装来源与这些事实匹配才 `verified:true`，新版本还须观察到服务 pid 改变。旧版本保留，失败时按既有 `update --to <旧版本>` 显式回滚。
 5. 调度返回 `{scheduled:true, verified:false, label, repository, releaseId, tag, version, result}`，不等于安装成功。`channel-github_update_status {instance, releaseId}` 返回 private request、真实 result 或 null、launchd state；没有结果且作业已消失时明确 `not-running-outcome-unknown`，不自动重跑副作用。
-6. 服务启动/下次轮询读取本次原子 result，发出 `channel-github.update-result`；`msgId=update:<releaseId>:result`，含真实证据及 `notified:false`。发送事件后标记已报告并卸载已完成的一次性 launchd job，保留 request/result/plist/log。operator 核对结果，再按已配置渠道通知。无完成回执的旧作业阻止调度另一版本；同 release 调度返回原状态，不重复更新。
+6. 服务启动/下次轮询读取本次原子 result，发出 `channel-github.update-result`；`msgId=update:<releaseId>:result`，含真实证据及 `notified:false`。发送事件后标记已报告并卸载已完成的一次性 launchd job，保留 request/result/plist/log。旧事件仅兼容历史订阅；程序通知只订阅 CLI 实际升级产生的共同 `release.update-result`。无完成回执的旧作业阻止调度另一版本；同 release 调度返回原状态，不重复更新。
 
 作业更新有 15 分钟预算，状态命令 30 秒、服务启动等待 30 秒；超时/取消不能伪称副作用已撤销。调度取消发生在 bootstrap 附近时先查询原 release 的 job。已经交给 launchd 的作业独立继续，不因 MCP 断开/服务重启而被误杀。不自动重发通知、重试更新或删除原历史。
 
-本轮仅生产源码严格 noEmit 类型检查（借用主仓库已装编译器与 SDK/typebox 类型，不改根接线），没有标准 workspace build、测试、真实 Release 或 launchd 调度证据。后轮须以真正的 Release→模型输入→服务外更新→重启→版本/commit/pid/路径确认验收。
+原N轮的仅类型检查记录已由后轮实证补充，历史见任务记录。本次E轮已实现程序接线及聚焦检查，尚未实际发布、更新正式安装或验证新链的飞书投递；不能用旧模型升级链抵扣此次移交。
+
+
+## E 轮配置迁移（安装含本功能的新版本后执行）
+
+- 沿用现有 releases.policy=apply/updater；若要程序直接通知，显式设置 releases.notifyUpdates=true 并保留明确 notifyTarget。默认为false，不因目标地址存在就自动通知。
+- 从 Agent bindings 移除自动执行同一更新和通知的 github-releases/github-update-results 的 run 绑定，避免程序与模型重复执行。需模型知情可显式选择 write 背景；要模型分析才选 run，完成事件类型用 release.update-result，不再依赖旧插件完成事件。
+- 在需要获知新版的 profile/defaults.contexts 中加入 channel-github.release-availability；它只提供最近成功检查的严格更新版本事实，日常对话不联网检查。
+- 删除 AGENTS 中“每次发布必须由AI调用更新、每次结果必须由AI发通知”的旧任务指令，保留人工升级工具与授权边界。用户说“帮我升级”仍可在当前对话调用一次工具。
+- 当前1905安装不认识新开关/贡献，不能提前写入正式配置。旧版CLI升级时不会自动获得新版CLI才实现的统一完成事件；首次迁移不伪造补报旧事件，后续新版更新入口才有共同事件。
+
+## 通用程序消费者
+
+插件可以在 setup 注册 api.events.on，收到完整YEvent后直接调用函数或已授权脚本，JSON通过stdin传入，不把正文拼进shell。对外通知用api.messages.send；内部无模型通知用api.sessions.notify(session,{event:event.id,text})，实际来源由内核标记为插件。模型选择参与则另配Agent绑定；没有run绑定就不因事件本身调用模型。
+
+可重复运行 `python3 scripts/check-event-notifications.py`，它用隔离home、真实配置重载事件、子程序、原生session、CLI与PTY验证整个无模型通知链，不访问正式home、不调用模型或外部渠道。先 npm run build；证据保存在脚本输出的临时目录，进程结束后该隔离服务退出。

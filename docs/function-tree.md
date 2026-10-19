@@ -4,7 +4,7 @@
 
 **读法**：plugin ID是包的贡献命名空间；channel type是配置中的渠道类型，实例ID由配置指定；tools.register是模型工具，MCP server工具是外部协议接口；contexts/trigger/events分别是上下文、生命周期触发器、事件订阅，不能混为一个“功能完成数”。每个叶节点说明一个最小操作，不列内部私有函数来冒充额外功能。
 
-源码当前9个官方插件，4种具体渠道、29个插件模型工具、5个上下文贡献、2个生命周期trigger、1个插件skill目录；MCP另有19个外部协议工具，Browser7工具内含38个动作。数量来自manifest与实际实现，SDK的8个槽不等于8种插件都已实现。
+源码当前9个官方插件，4种具体渠道、29个插件模型工具、6个上下文贡献、2个生命周期trigger、1个插件skill目录；MCP另有19个外部协议工具，Browser7工具内含38个动作。数量来自manifest与实际实现，SDK的8个槽不等于8种插件都已实现。
 
 ## 1. 核心与用户入口
 
@@ -50,6 +50,7 @@ yonder · CLI
 ├─ sessions list — 按agent、mode、open条件列出会话。
 ├─ sessions show <id> — 读取会话信息及转录。
 ├─ sessions open <preset> [--keep-open] — 创建预设任务，默认run-end；--keep-open创建manual task。
+├─ sessions notify <id> --event <id> --text <text> — 写入带来源的程序通知，不调用模型（未发布）。
 ├─ sessions submit <id> — 向已有会话提交文本或附件。
 ├─ sessions abort <id> — 中止指定会话运行。
 ├─ sessions close <id> — 关闭指定task会话。
@@ -412,3 +413,14 @@ cron插件、主动记忆引擎、通用MCP客户端、持久PTY/进程管理、
 - [现状总账](tasks/current-status.md)、[P轮结果](tasks/finishing-result.md)：源码、自动检查、独立安装、真实使用分别记录。
 - [Hermes对比](tasks/hermes-capability-comparison.md)：后置和不做范围。
 - 用户决定将视频播放、真实断网、执行中才发送插话等剩余飞书场景留给日常使用反馈；这些是主动跳过，不写成已通过，也不阻塞本次发行。
+
+## E轮源码补齐（尚未安装）
+
+- SDK PluginAPI.version：提供真实宿主版本。
+- events.on → 程序函数/脚本：已有事件订阅现用于自动更新，不强制经过模型。
+- release.update-result：CLI及插件作业共用的程序更新完成事实。
+- channel-github.release-availability：从已核实缓存提供可升级版本，turn选用，不在聊天联网。
+- releases.notifyUpdates：显式启用程序通知，沿用目标与未知不重发语义。
+- sessions.notify / sessions notify：原生app-only程序通知，TUI按原时序显示；既不是模型回复，也不是模型输入。
+
+实际检查与未安装边界见 [E轮结果](tasks/event-driven-actions-result.md)。

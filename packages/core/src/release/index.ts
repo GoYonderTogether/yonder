@@ -19,6 +19,9 @@ import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { requestControl } from "../control/index.js";
+import { recordUpdateResult, type UpdateResult } from "./result.js";
+
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const label = "dev.yonder.harness";
 const statusLabel = "dev.yonder.harness.status";
@@ -357,7 +360,7 @@ export interface UpdateOptions {
 	home?: string;
 	onProgress?: (stage: string) => void;
 }
-export async function updateRelease(options: UpdateOptions = {}) {
+async function installRelease(options: UpdateOptions = {}) {
 	const install = installPath(),
 		versions = join(install, "versions");
 	const rootManifest = await manifest();
@@ -458,4 +461,118 @@ export async function updateRelease(options: UpdateOptions = {}) {
 		...(restartRequired ? { message: "The harness is still running; restart it to use the new release." } : {}),
 		path: join(install, "bin"),
 	};
+}
+
+function canonicalRepository(repository: string): string {
+	if (!/^https?:\/\//u.test(repository)) return repository;
+	const url = new URL(repository);
+	url.username = "";
+	url.password = "";
+	if (url.hostname === "github.com") url.pathname = url.pathname.replace(/(?:\.git)?\/?$/u, ".git");
+	return url.href;
+}
+
+/** Shared by direct CLI updates and the existing service-external update job. */
+export async function updateRelease(options: UpdateOptions = {}) {
+	const install = installPath(),
+		registration = await installedService();
+	const home = registration && resolve(registration.install) === install ? registration.home : options.home;
+	const root = await manifest();
+	let repository = options.repo ?? (typeof root.repository === "string" ? root.repository : root.repository?.url);
+	if (!repository) throw new Error("Repository is not configured; pass --repo <url>");
+	repository = canonicalRepository(repository);
+	const beforeVersion = await currentVersion(install);
+	const receipt: UpdateResult | undefined = home
+		? {
+				updateId: randomUUID(),
+				install,
+				home: resolve(home),
+				repository,
+				...(beforeVersion ? { beforeVersion } : {}),
+				verified: false,
+				status: "failed-or-unknown",
+			}
+		: undefined;
+	const record = async () => {
+		if (!receipt) return {};
+		try {
+			return { updateId: receipt.updateId, event: await recordUpdateResult(receipt) };
+		} catch (error) {
+			const eventError = error instanceof Error ? error.message : String(error);
+			options.onProgress?.(
+				`Update result was not recorded: ${eventError}; do not repeat installation to retry notification.`,
+			);
+			return { updateId: receipt.updateId, eventError };
+		}
+	};
+	let result: Awaited<ReturnType<typeof installRelease>>;
+	try {
+		result = await installRelease(options);
+	} catch (error) {
+		if (receipt) {
+			receipt.error = (error instanceof Error ? error.message : String(error)).replaceAll(
+				options.repo ?? repository,
+				repository,
+			);
+			await record();
+		}
+		throw error;
+	}
+	if (!result.updated || !receipt) return result;
+	receipt.version = result.version;
+	receipt.tag = `v${result.version}`;
+	try {
+		const directory = join(install, "versions", result.version);
+		const origin = JSON.parse(await readFile(join(directory, ".yonder-install.json"), "utf8")) as {
+			commit: string;
+			tag: string;
+			repository: string;
+		};
+		receipt.commit = origin.commit;
+		if (
+			("restartRequired" in result && result.restartRequired) ||
+			!registration ||
+			resolve(registration.install) !== install
+		) {
+			receipt.status = "restart-required";
+		} else {
+			const deadline = Date.now() + 30000;
+			let lastError = "Updated service is not ready";
+			do {
+				try {
+					const service = (await requestControl(receipt.home, { method: "service.info" })) as NonNullable<
+						UpdateResult["service"]
+					>;
+					const status = await manageService("status");
+					if (
+						service.ready === true &&
+						service.version === result.version &&
+						service.commit === origin.commit &&
+						service.home === receipt.home &&
+						service.pid > 0 &&
+						status.loaded === true &&
+						status.pid === service.pid &&
+						status.install === install &&
+						status.home === receipt.home &&
+						origin.tag === receipt.tag &&
+						canonicalRepository(origin.repository) === repository &&
+						/^[a-f0-9]{40}$/u.test(origin.commit) &&
+						(await realpath(join(install, "current"))) === (await realpath(directory))
+					) {
+						receipt.service = service;
+						receipt.verified = true;
+						receipt.status = "verified";
+						break;
+					}
+				} catch (error) {
+					lastError = error instanceof Error ? error.message : String(error);
+				}
+				if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 1000));
+			} while (Date.now() < deadline);
+			if (!receipt.verified) receipt.error = lastError;
+		}
+	} catch (error) {
+		receipt.error = error instanceof Error ? error.message : String(error);
+	}
+	return { ...result, verified: receipt.verified, status: receipt.status, ...(await record()) };
 }
