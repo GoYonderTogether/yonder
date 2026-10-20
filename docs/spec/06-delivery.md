@@ -37,7 +37,9 @@ harness 决定模型怎么执行、怎么回复；渠道只决定怎么呈现。
 
 ```ts
 type OutputPart =
+  | { type: 'message_start'; id: string }  // 原生 assistant 消息的生成时间标识，限当前 run
   | { type: 'text'; delta: string }
+  | { type: 'message_end'; text: string }  // 一条 assistant 消息结束，不代表任务结束
   | { type: 'tool'; phase: 'start' | 'end'; name: string; label?: string; ok?: boolean }
   | { type: 'final'; text: string }          // 已按 §2 判定为要发往这个渠道时才出现
   | { type: 'error'; message: string };
@@ -45,7 +47,9 @@ type OutputPart =
 
 内核从 pi-durable 的实际 run/inputs 生成这些片段，流式最初发给开始运行的输入来源，归属不能由异步提交 Promise 是否结束推断。后到 steer 不撤回已发过程，已开启流式正常收尾；该次输入有等待者时不新开流（10 §3）。渠道可以只用 final，也可以渲染完整过程。
 
-同一个目标最终只投递一次：已启动 stream 的目标通过 `final` 完成，不再调用 send；其他目标用 send。stream 的 Delivery 同样写 message.out。过程文字是进度，最终文字以 final 为准；CLI 不重复打印已经显示的相同文字。为避免显示控制标记，内核暂存仍可能构成 `NO_REPLY` 的起始增量，确认不是该标记后继续输出；已经显示的正常过程不撤回。`reply: none` 或有等待者时不启动渠道流式。
+流式按一条 assistant 消息开闭，不按整轮任务开闭。内核传递原生消息边界；非空、非 NO_REPLY 的每条消息各自通过一次 channel.stream 投递，在 message_end 时以该条完整正文 final 并结束迭代。工具执行、后台等待不保持上一气泡生成；后续阶段汇报和最终回复分别新建消息，前文不覆盖。纯工具/空消息不建气泡。CLI 每条消息结束换行，不重复打印相同正文。
+
+发送尝试按 session/run/target/message 去重；message 取原生 assistant timestamp（运行内生成标识），最终回执从 answer 使用同一标识，恢复后已尝试的同一消息不重发。旧无 message 的尝试仍按整轮处理，不能据缺失边界猜测旧历史。每条流结束立即记录自己的 message.out；结果不确定记录 unknown，不因最终回复再补发副本。整轮结束不重发已投递的最终消息；未开启流式的来源仍自动 send 最终回复，错误/取消另发终止说明。模型终态不等渠道网络。后台完成继续经原 runtime.tool-result 唤醒，无需用户追问，不增加调度器、转录或定时催促。为避免显示控制标记，内核暂存仍可能构成 `NO_REPLY` 的起始增量，确认不是该标记后继续输出；已经显示的正常过程不撤回。`reply: none` 或有等待者时不启动渠道流式。
 
 ## 4. 告诉模型的规则（框架段内容）
 

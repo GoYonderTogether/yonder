@@ -2,6 +2,10 @@
 
 > 文档就是代码的目标。代码与文档不一致时，以文档为准；要改设计，先改文档。
 
+## 当前修复：消息生命周期（2026-10-20）
+
+用户已批准D43并授权修复后发版；实现与验证见[tasks/message-lifecycle.md](tasks/message-lifecycle.md)，规范见06 §3、11 §7.3。未发布前，下面1907仍为正式安装证据。
+
 ## 当前工位：1907已正式发布并安装（2026-10-19）
 
 本轮执行能力源码已进入main，正式Release为[0.1.2026101907](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026101907)，固定提交`9ca42a615864d2686d4e6de1aaddef63b7f057fe`。本机经原update流程升级并核验，GitHub插件直接发送飞书程序通知，升级链没有调用模型。真实Luna另行完成正式安装的定时命令验收。
