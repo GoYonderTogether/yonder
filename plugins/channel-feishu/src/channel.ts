@@ -784,6 +784,8 @@ export class FeishuChannel implements Channel {
 				}
 				if (Buffer.byteLength(text) > 20000) throw new Error("Feishu streaming card exceeds 20000-byte content limit");
 				if (Date.now() - lastUpdate >= (this.config.updateIntervalMs ?? 200)) await update();
+				// A completed message closes immediately, even if its producer is still doing other work.
+				if (part.type === "final") break;
 			}
 			signal?.throwIfAborted();
 		} catch (error) {

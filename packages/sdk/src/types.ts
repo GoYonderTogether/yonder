@@ -269,6 +269,8 @@ export interface Delivery {
 	error?: string;
 }
 export type OutputPart =
+	| { type: "message_start"; id: string }
+	| { type: "message_end"; text: string }
 	| { type: "text"; delta: string }
 	| { type: "tool"; phase: "start" | "end"; name: string; label?: string; ok?: boolean }
 	| { type: "final"; text: string }

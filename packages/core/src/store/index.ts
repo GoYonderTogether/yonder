@@ -149,7 +149,9 @@ export async function createStore(
 			return added;
 		},
 		async claimAttempt(
-			input: EventInput & { data: { session?: string; runId?: string; target: string; [key: string]: unknown } },
+			input: EventInput & {
+				data: { session?: string; runId?: string; target: string; message?: string; [key: string]: unknown };
+			},
 		): Promise<string | undefined> {
 			const event = newEvent(input);
 			const added = await db.transaction(async (tx) => {
@@ -157,10 +159,11 @@ export async function createStore(
 					input.data.session &&
 					input.data.runId &&
 					(await tx.get<{ id: string }>(
-						"SELECT id FROM y_events WHERE type = 'message.attempt' AND json_extract(data, '$.session') = ? AND json_extract(data, '$.runId') = ? AND json_extract(data, '$.target') = ? LIMIT 1",
+						"SELECT id FROM y_events WHERE type = 'message.attempt' AND json_extract(data, '$.session') = ? AND json_extract(data, '$.runId') = ? AND json_extract(data, '$.target') = ? AND (json_extract(data, '$.message') IS NULL OR json_extract(data, '$.message') = ?) LIMIT 1",
 						input.data.session,
 						input.data.runId,
 						input.data.target,
+						input.data.message ?? "",
 					))
 				)
 					return false;

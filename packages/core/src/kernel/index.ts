@@ -840,6 +840,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 					origin?.routes?.filter((route) => route.session === id) ?? [],
 				);
 				if (!row || row.closed) return;
+				const onOutput = delivery.onStart(row, event, false);
 				void realRuntime()
 					.submit(id, {
 						text,
@@ -847,6 +848,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 						wake: "run",
 						busy: "steer",
 						requestId: `background:${input.id}`,
+						...(onOutput ? { onOutput } : {}),
 						attachments: input.result.attachments ?? [],
 					})
 					.catch(report);

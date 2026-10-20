@@ -1095,11 +1095,22 @@ export class Runtime {
 				if (block.type === "text") text(index, block.text ?? "");
 			});
 		if (event.type === "message_start" && event.message.role === "assistant") {
+			input.onOutput?.({ type: "message_start", id: String(event.message.timestamp) });
 			textBlocks.clear();
 			content(event.message.content);
 		}
 		if (event.type === "message_end")
-			for (const message of event.entry.model ?? []) if (message.role === "assistant") content(message.content);
+			for (const message of event.entry.model ?? [])
+				if (message.role === "assistant") {
+					content(message.content);
+					input.onOutput?.({
+						type: "message_end",
+						text: message.content
+							.filter((block) => block.type === "text")
+							.map((block) => block.text)
+							.join(""),
+					});
+				}
 		if (event.type === "message_update")
 			for (const change of event.changes) {
 				if (change.type === "text_delta")
@@ -1317,6 +1328,7 @@ export class Runtime {
 					? { status: "error" as const, reason: saved.error }
 					: submissionOutcome(settlement, saved.reason ?? undefined)),
 				text: textOf(answer),
+				...(answer?.model?.[0]?.role === "assistant" ? { message: String(answer.model[0].timestamp) } : {}),
 				inputs,
 				usage,
 			};

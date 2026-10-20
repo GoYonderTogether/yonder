@@ -26,3 +26,22 @@ test("appended events and identity are queried from SQLite", async () => {
 		await db.close();
 	}
 });
+
+test("message attempts deduplicate per generation and preserve old run-wide attempts", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const claim = (runId: string, message?: string) =>
+			store.events.claimAttempt({
+				type: "message.attempt",
+				data: { session: "1", runId, target: "conv:test:chat", ...(message ? { message } : {}) },
+			});
+		expect(await claim("new", "100")).toBeTruthy();
+		expect(await claim("new", "100")).toBeUndefined();
+		expect(await claim("new", "101")).toBeTruthy();
+		expect(await claim("old")).toBeTruthy();
+		expect(await claim("old", "102")).toBeUndefined();
+	} finally {
+		await db.close();
+	}
+});

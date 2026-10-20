@@ -60,6 +60,8 @@ export interface RuntimeRun {
 	session?: string;
 	attachments?: Attachment[];
 	runId: string;
+	/** Native assistant generation timestamp, scoped to this run. */
+	message?: string;
 	status: RunEndData["status"];
 	text: string;
 	reason?: string;

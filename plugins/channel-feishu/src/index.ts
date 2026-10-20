@@ -154,14 +154,18 @@ export default definePlugin({
 		register({
 			name: "channel-feishu_message",
 			description:
-				'Send ordinary text and local file: image/audio/video/file artifacts via Yonder message delivery. Set replyTo to a native message ID to explicitly quote it. For text/markdown modes, mention a known user with <at user_id="ou_ID">Name</at>; card Markdown uses <at id=ou_ID></at> via channel-feishu_card. Inspect instance renderMode before choosing markup; use native card JSON for mentions in other modes. After sending your answer here, finish with NO_REPLY to avoid a duplicate automatic reply. Uses selected instance render mode, chunk limits, replies and thread configuration. Audio requires Ogg/Opus, video MP4; no silent media downgrade.',
+				'Send ordinary text and local file: image/audio/video/file artifacts via Yonder message delivery. Use a complete to reference conv:<instance>:<chat_id> or acct:<instance>:<open_id> from the source event, never a bare oc_/ou_ ID. Attachments require uri: file:///absolute/path (not a plain path). Set replyTo to a native message ID to explicitly quote it. For text/markdown modes, mention a known user with <at user_id="ou_ID">Name</at>; card Markdown uses <at id=ou_ID></at> via channel-feishu_card. Inspect instance renderMode before choosing markup; use native card JSON for mentions in other modes. After sending your answer here, finish with NO_REPLY to avoid a duplicate automatic reply. Uses selected instance render mode, chunk limits, replies and thread configuration. Audio requires Ogg/Opus, video MP4; no silent media downgrade.',
 			parameters: {
 				type: "object",
 				additionalProperties: false,
 				required: ["instance", "to", "text"],
 				properties: {
 					instance: str,
-					to: str,
+					to: {
+						type: "string",
+						pattern: "^(acct|conv):[^:]+:.+$",
+						description: "Complete conv:<instance>:<chat_id> or acct:<instance>:<open_id> reference from the event.",
+					},
 					text: { type: "string" },
 					replyTo: str,
 					attachments: {
@@ -173,7 +177,11 @@ export default definePlugin({
 							properties: {
 								kind: { enum: ["image", "audio", "video", "file"] },
 								mime: str,
-								uri: str,
+								uri: {
+									type: "string",
+									pattern: "^file:///",
+									description: "Local file URI, e.g. file:///absolute/path. Encode spaces with %20.",
+								},
 								name: str,
 								bytes: { type: "integer", minimum: 0 },
 							},

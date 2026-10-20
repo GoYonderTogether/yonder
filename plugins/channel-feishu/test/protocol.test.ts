@@ -1,4 +1,4 @@
-import type { PluginAPI, ToolContext } from "@yonder/sdk";
+import type { OutputPart, PluginAPI, ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { FeishuChannel } from "../src/channel.js";
@@ -177,6 +177,37 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		await expect(missingId.stream("conv:test:chat", output())).resolves.toMatchObject({ ok: false, uncertain: true });
 		expect(request.mock.calls.filter(([path]) => path.endsWith("/settings"))).toHaveLength(1);
 	});
+	it("a final flushes throttled text and closes before the task producer ends", async () => {
+		const channel = new FeishuChannel("test", { ...config, updateIntervalMs: 60000 }, api());
+		vi.spyOn(channel, "rawSend").mockResolvedValue("om_card");
+		const request = vi
+			.spyOn(channel.client, "request")
+			.mockImplementation(async (path) =>
+				path === "/cardkit/v1/cards" ? { code: 0, data: { card_id: "card_native" } } : { code: 0 },
+			);
+		let next = 0;
+		const output: AsyncIterable<OutputPart> = {
+			[Symbol.asyncIterator]: () => ({
+				next: async () => {
+					const parts: OutputPart[] = [
+						{ type: "text", delta: "开头" },
+						{ type: "text", delta: "尾字" },
+						{ type: "final", text: "开头尾字" },
+					];
+					if (next < parts.length) return { done: false, value: parts[next++]! };
+					throw new Error("Must not wait for more task output after this message");
+				},
+			}),
+		};
+		await expect(channel.stream("conv:test:chat", output)).resolves.toMatchObject({ ok: true, id: "om_card" });
+		const updates = request.mock.calls.filter(([path]) => path.endsWith("/content"));
+		expect(updates.at(-1)?.[2]).toMatchObject({ content: "开头尾字" });
+		expect(request.mock.calls.filter(([path]) => path.endsWith("/settings"))).toHaveLength(1);
+		const settings = request.mock.calls.at(-1)?.[2] as { settings: string } | undefined;
+		expect(JSON.parse(settings?.settings ?? "null")).toMatchObject({
+			config: { streaming_mode: false },
+		});
+	});
 	it("ordinary automatic replies use the same policy while explicit replies stay explicit", async () => {
 		const channel = new FeishuChannel("test", config, api());
 		const policy = vi
@@ -222,6 +253,13 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		expect(result?.isError).toBe(true);
 		for (const invalid of [
 			{ instance: "test", to: "conv:test:chat", text: 42 },
+			{ instance: "test", to: "oc_bare_chat", text: "content" },
+			{
+				instance: "test",
+				to: "conv:test:chat",
+				text: "content",
+				attachments: [{ kind: "file", mime: "text/markdown", uri: "/tmp/plain-path.md" }],
+			},
 			{
 				instance: "test",
 				to: "conv:test:chat",

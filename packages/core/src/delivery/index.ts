@@ -75,11 +75,11 @@ class OutputQueue implements AsyncIterable<OutputPart> {
 }
 interface StreamState {
 	target: string;
-	channel: Channel;
 	queue: OutputQueue;
 	gate: ReplyText;
-	signal: AbortSignal;
 	delivery?: Promise<Delivery>;
+	text: string;
+	attempt?: string;
 }
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const channelId = (ref: string) => {
@@ -95,7 +95,16 @@ export function sourceMessage(event: YEvent): string | undefined {
 
 export function createDelivery(options: DeliveryOptions) {
 	const { store, agents, channels, sessions } = options;
-	const streams = new Map<string, StreamState & { owner: string; attempt?: string }>();
+	const streams = new Map<
+		string,
+		{
+			owner: string;
+			message?: string;
+			lastMessage?: string | undefined;
+			current?: StreamState | undefined;
+			tail: Promise<void>;
+		}
+	>();
 	const report = options.onReport ?? (() => {});
 	let start!: () => void;
 	const ready = new Promise<void>((resolve) => {
@@ -118,13 +127,21 @@ export function createDelivery(options: DeliveryOptions) {
 		session?: string,
 		parent?: string,
 		attempt?: string,
+		message?: string,
 	) {
 		await store.events.record({
 			type: "message.out",
 			...(from ? { from } : {}),
 			...(target.startsWith("conv:") ? { conv: target } : {}),
 			...(parent ? { parent } : {}),
-			data: { ...msg, ...(session ? { session } : {}), to: target, delivery, ...(attempt ? { attempt } : {}) },
+			data: {
+				...msg,
+				...(session ? { session } : {}),
+				to: target,
+				delivery,
+				...(attempt ? { attempt } : {}),
+				...(message ? { message } : {}),
+			},
 		});
 	}
 	async function resolveTarget(
@@ -162,12 +179,19 @@ export function createDelivery(options: DeliveryOptions) {
 		session?: string,
 		parent?: string,
 		runId?: string,
+		message?: string,
 	): Promise<string | undefined> {
 		return store.events.claimAttempt({
 			type: "message.attempt",
 			...(parent ? { parent } : {}),
 			...(target.startsWith("conv:") ? { conv: target } : {}),
-			data: { target, method, ...(session ? { session } : {}), ...(runId ? { runId } : {}) },
+			data: {
+				target,
+				method,
+				...(session ? { session } : {}),
+				...(runId ? { runId } : {}),
+				...(message ? { message } : {}),
+			},
 		});
 	}
 	async function unknown(id: string, error: unknown, partial?: Delivery): Promise<Delivery> {
@@ -185,6 +209,7 @@ export function createDelivery(options: DeliveryOptions) {
 		config?: RuntimeSessionConfig,
 		signal: AbortSignal = AbortSignal.timeout(60000),
 		runId?: string,
+		messageId?: string,
 	): Promise<Delivery> {
 		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
@@ -195,8 +220,8 @@ export function createDelivery(options: DeliveryOptions) {
 			await record(from, request.to, outgoing, delivery, session?.id, parent);
 			return delivery;
 		}
-		const id = await attempt(resolved.target, "send", session?.id, parent, runId);
-		if (!id) return { ok: false, error: "该运行/目标已有发送尝试，结果以持久确认或 unknown 为准，不自动重发" };
+		const id = await attempt(resolved.target, "send", session?.id, parent, runId, messageId);
+		if (!id) return { ok: false, error: "该消息/目标已有发送尝试，结果以持久确认或 unknown 为准，不自动重发" };
 		let delivery: Delivery;
 		const { signal: _signal, ...outgoing } = request;
 		try {
@@ -205,8 +230,32 @@ export function createDelivery(options: DeliveryOptions) {
 			return unknown(id, error);
 		}
 		if (!delivery.ok && delivery.uncertain) return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
-		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id);
+		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id, messageId);
 		return delivery;
+	}
+	function closeMessage(session: SessionInfo, state: NonNullable<ReturnType<typeof streams.get>>, text: string) {
+		const stream = state.current;
+		if (!stream) return;
+		state.current = undefined;
+		if (!stream.delivery) return;
+		state.lastMessage = state.message;
+		stream.queue.push({ type: "final", text });
+		stream.queue.end();
+		const messageId = state.message;
+		state.tail = (async () => {
+			const delivered = await stream.delivery!;
+			if (!delivered.uncertain)
+				await record(
+					fromSession(session),
+					stream.target,
+					{ text },
+					delivered,
+					session.id,
+					state.owner,
+					stream.attempt,
+					messageId,
+				);
+		})().catch(report);
 	}
 	function onStart(
 		session: SessionInfo,
@@ -226,32 +275,67 @@ export function createDelivery(options: DeliveryOptions) {
 			const key = `${session.id}\0${runId}\0${target}`;
 			let state = streams.get(key);
 			if (state && state.owner !== event.id) return;
-			if (part.type !== "text" && !state?.delivery) return;
 			if (!state) {
-				state = {
-					owner: event.id,
-					target,
-					channel,
-					queue: new OutputQueue(),
-					gate: new ReplyText(),
-					signal: AbortSignal.timeout(Math.ceil(config.resolved.limits.maxMinutes * 60000) + 60000),
-				};
+				state = { owner: event.id, tail: Promise.resolve() };
 				streams.set(key, state);
 			}
+			if (part.type === "message_start") {
+				if (state.current) closeMessage(session, state, state.current.text);
+				state.message = part.id;
+				return;
+			}
+			if (part.type === "message_end") {
+				if (!state.current?.delivery && part.text.trim() && part.text.trim() !== "NO_REPLY") {
+					// An ordinary short message can still be a prefix of NO_REPLY until its end.
+					const previous = state.tail,
+						messageId = state.message,
+						text = part.text;
+					state.current = undefined;
+					state.lastMessage = messageId;
+					state.tail = (async () => {
+						await ready;
+						await previous;
+						await send(
+							fromSession(session),
+							{ to: target, text },
+							session,
+							event.id,
+							config,
+							AbortSignal.timeout(60000),
+							runId,
+							messageId,
+						);
+					})().catch(report);
+				} else closeMessage(session, state, part.text.trim() === "NO_REPLY" ? "" : part.text);
+				return;
+			}
+			if (part.type !== "text" && !state.current) return;
+			if (!state.current) {
+				state.current = {
+					target,
+					queue: new OutputQueue(),
+					gate: new ReplyText(),
+					text: "",
+				};
+			}
+			const stream = state.current;
 			if (part.type === "text") {
-				const delta = state.gate.push(part.delta);
+				const delta = stream.gate.push(part.delta);
 				if (!delta) return;
+				stream.text += delta;
 				part = { type: "text", delta };
 			}
-			if (!state.delivery) {
-				const stream = state;
-				state.delivery = (async () => {
+			if (!stream.delivery) {
+				const previous = state.tail,
+					messageId = state.message;
+				stream.delivery = (async () => {
 					await ready;
-					const id = await attempt(target, "stream", session.id, event.id, runId);
-					if (!id) return { ok: false, uncertain: true, error: "该运行已有渠道尝试，不自动重新开流" };
+					await previous;
+					const id = await attempt(target, "stream", session.id, event.id, runId, messageId);
+					if (!id) return { ok: false, uncertain: true, error: "该消息已有渠道尝试，不自动重新开流" };
 					stream.attempt = id;
 					try {
-						const delivered = await channel.stream!(target, stream.queue, sourceMessage(event), stream.signal);
+						const delivered = await channel.stream!(target, stream.queue, sourceMessage(event));
 						return !delivered.ok && delivered.uncertain
 							? unknown(id, delivered.error ?? "渠道未确认结果", delivered)
 							: delivered;
@@ -260,7 +344,7 @@ export function createDelivery(options: DeliveryOptions) {
 					}
 				})();
 			}
-			state.queue.push(part);
+			stream.queue.push(part);
 		};
 	}
 	async function onRun(session: SessionInfo, run: RuntimeRun, inputs: YEvent[], _waiter = false) {
@@ -329,13 +413,14 @@ export function createDelivery(options: DeliveryOptions) {
 		const deliver = () => {
 			void (async () => {
 				await ready;
-				for (const [, state] of owned) {
-					state.queue.push({ type: "final", text: finalText });
-					state.queue.end();
-				}
+				for (const [, state] of owned)
+					if (state.current) closeMessage(session, state, state.message ? state.current.text : finalText);
 				for (const event of targets) {
 					const sourceMessageId = sourceMessage(event);
-					if (owned.some(([, state]) => state.target === event.conv && state.delivery)) continue;
+					const state = owned.find(([key]) => key.endsWith(`\0${event.conv}`))?.[1];
+					if (state) await state.tail;
+					if (!stopped && state?.lastMessage && state.lastMessage === run.message) continue;
+					if (!stopped && state && !state.message) continue;
 					await send(
 						fromSession(session),
 						{
@@ -348,6 +433,7 @@ export function createDelivery(options: DeliveryOptions) {
 						profile,
 						AbortSignal.timeout(60000),
 						run.runId,
+						stopped ? undefined : run.message,
 					);
 				}
 				if (destination)
@@ -359,22 +445,9 @@ export function createDelivery(options: DeliveryOptions) {
 						profile,
 						AbortSignal.timeout(60000),
 						run.runId,
+						stopped ? undefined : run.message,
 					);
-				for (const [, state] of owned)
-					if (state.delivery) {
-						const delivered = await state.delivery;
-						// Thrown channel results already have an unknown receipt, not a false confirmation.
-						if (!delivered.uncertain)
-							await record(
-								fromSession(session),
-								state.target,
-								{ text: finalText },
-								delivered,
-								session.id,
-								state.owner,
-								state.attempt,
-							);
-					}
+				await Promise.all(owned.map(([, state]) => state.tail));
 			})().catch(report);
 		};
 		return { ending, deliver };
