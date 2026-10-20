@@ -4,7 +4,7 @@
 
 ## 当前修复：消息生命周期（2026-10-20）
 
-D43已完成实现、默认测试167通过/12跳过、真实Luna长任务与真实飞书出站验证；发布目标`0.1.2026102001`。结果与发布记录见[tasks/message-lifecycle.md](tasks/message-lifecycle.md)，规范见06 §3、11 §7.3。下面1907保留为此前正式安装证据。
+D43已完成实现、默认测试167通过/12跳过、真实Luna长任务与真实飞书出站验证；正式发布[0.1.2026102001](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026102001)，固定提交`cf672d6`。结果与发布记录见[tasks/message-lifecycle.md](tasks/message-lifecycle.md)，规范见06 §3、11 §7.3。下面1907保留为此前正式安装证据。
 
 ## 当前工位：1907已正式发布并安装（2026-10-19）
 

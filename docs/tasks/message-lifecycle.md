@@ -1,6 +1,6 @@
 # M43 消息生命周期与长任务交付
 
-状态：实现与验证完成，待正式发布记录。授权：2026-10-20 用户要求修复全部已发现问题，完成后直接发版。
+状态：完成，已合并main、推送并创建正式Release。授权：2026-10-20 用户要求修复全部已发现问题，完成后直接发版。
 
 ## 目标与依据
 
@@ -27,4 +27,4 @@ packages/sdk/src/types.ts；packages/core/src/runtime/{index.ts,types.ts,stream.
 - 真实Luna：独立home、真实pi/SQLite/本机bash及CLI渠道，一条用户输入，18秒后台命令；初始消息关闭早于后台完成，等待消息与后台完成后的阶段/最终消息分别发送，最终只一次，无需追问。首轮1文件1测试通过、45.62秒；证据`/tmp/yonder-message-live-R5ecu6/evidence.json`。最终源码复验同样1文件1测试通过、37.55秒，证据`/tmp/yonder-message-live-jRslmj/evidence.json`，日志`/tmp/yonder-m43-real-final.log`。
 - 真实飞书：出站插件+真实CardKit/IM HTTP，独立临时数据目录，只替换接收连接的start以免启动第二个WebSocket；不读取日用对话、不改服务配置。第一条关闭后等待18秒，后续阶段/最终各自新气泡；3个不同message id、3次streaming_mode=false获平台成功确认。证据`/tmp/yonder-m43-feishu-2PcFdx/evidence.json`，执行脚本`/tmp/yonder-m43-feishu-live.mjs`。没有把API确认说成用户已读或桌面目视验收，也没有把接收通道隔离说成完整收发测试。
 - 原始中间检查：首次编译报参数名遮蔽/可选字段和新测试onEvent不存在，均修正后build/typecheck通过；一次新测试unsafe optional chaining被Biome拒绝，已修，不改变规则。全量测试没有失败；全仓lint的既有失败仍保留。
-- 发布目标：`v0.1.2026102001`。本轮不手工覆盖日用安装，原有GitHub自动更新监听可按用户既定策略自行运行。
+- 正式Release：[v0.1.2026102001](https://github.com/zoran-xc/yonder-harness/releases/tag/v0.1.2026102001)，固定提交`cf672d6`（规范先行`3ab394c`，实现/版本统一`cf672d6`），非draft、非prerelease。main与tag已推送。本轮不手工覆盖日用安装，原有GitHub自动更新监听可按用户既定策略自行运行。
