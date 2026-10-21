@@ -89,7 +89,7 @@ agent_ask({ agent: string, text: string })   // 需要 message 能力
 
 ## 7. 失败
 
-渠道 send 失败时记录 message.out。Delivery.retryable 仅表示可确定整条消息尚未发送的瞬时故障（如 DNS/建连失败，或发消息前获取 token 时断网），且不得与 id/uncertain 并用。内核从原 message.attempt 保存的正文/目标/身份补达，沿同一尝试并记录每次结果，在线退避与重启均恢复，不重跑模型或业务工具；停止服务释放计时器。真实鉴权拒绝和确定业务错误不自动重试。部分成功或真正结果不确定记 message.unknown，不自动重发。历史尝试缺正文、结果未知时不猜测补达。
+渠道 send 失败时记录 message.out。Delivery.retryable 仅表示可确定整条消息尚未发送的瞬时故障（如 DNS/建连失败，或发消息前获取 token 时断网），且不得与 id/uncertain 并用。尚未显示的流式消息在关闭后保存完整正文，确认未发送时也沿普通send补达；已有可见卡片不补发副本。内核从原 message.attempt/message.out 保存的正文/目标/身份补达，沿同一尝试并记录每次结果，在线退避与重启均恢复，不重跑模型或业务工具；停止服务释放计时器。真实鉴权拒绝和确定业务错误不自动重试。部分成功或真正结果不确定记 message.unknown，不自动重发。历史尝试缺正文、结果未知时不猜测补达。
 
 ## 8. 普通模型发送
 

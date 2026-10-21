@@ -209,12 +209,30 @@ export async function createStore(
 			return undefined;
 		},
 		async retryableAttempts(): Promise<YEvent[]> {
-			const rows = await db.all<EventRow>(`SELECT a.* FROM y_events a
-				WHERE a.type = 'message.attempt' AND json_extract(a.data, '$.outgoing') IS NOT NULL
-				AND json_extract((SELECT o.data FROM y_events o WHERE o.type IN ('message.out', 'message.unknown', 'message.retry')
-				AND json_extract(o.data, '$.attempt') = a.id ORDER BY o.id DESC LIMIT 1), '$.delivery.retryable') = 1
+			const rows = await db.all<
+				EventRow & { receipt: string; sender: string | null }
+			>(`SELECT a.*, o.data AS receipt, o."from" AS sender FROM y_events a
+				JOIN y_events o ON o.id = (SELECT r.id FROM y_events r WHERE r.type IN ('message.out', 'message.unknown', 'message.retry')
+				AND json_extract(r.data, '$.attempt') = a.id ORDER BY r.id DESC LIMIT 1)
+				WHERE a.type = 'message.attempt' AND o.type = 'message.out'
+				AND json_extract(o.data, '$.delivery.retryable') = 1
+				AND json_extract(o.data, '$.delivery.id') IS NULL AND COALESCE(json_extract(o.data, '$.delivery.uncertain'),0) = 0
 				ORDER BY a.id`);
-			return rows.map(eventRow);
+			return rows.map(({ receipt, sender, ...row }) => {
+				const event = eventRow(row),
+					saved = JSON.parse(receipt);
+				return {
+					...event,
+					data: {
+						...event.data,
+						outgoing: (event.data as { outgoing?: object }).outgoing ?? {
+							text: saved.text,
+							...(saved.attachments ? { attachments: saved.attachments } : {}),
+						},
+						...(sender ? { from: sender } : {}),
+					},
+				};
+			});
 		},
 		async unresolvedAttempts(): Promise<YEvent[]> {
 			const rows = await db.all<EventRow>(

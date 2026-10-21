@@ -738,7 +738,8 @@ export class FeishuChannel implements Channel {
 			sequence = 0,
 			lastUpdate = 0;
 		const errors: string[] = [];
-		let outcomeUncertain = false;
+		let outcomeUncertain = false,
+			retryable = false;
 		const update = async (cleanup = false) => {
 			if (text === accepted) return;
 			await this.client.request(
@@ -790,6 +791,7 @@ export class FeishuChannel implements Channel {
 			}
 			signal?.throwIfAborted();
 		} catch (error) {
+			retryable = !messageId && error instanceof FeishuRequestError && error.retryable;
 			outcomeUncertain ||= uncertain(error);
 			errors.push(this.client.safe(error));
 		} finally {
@@ -824,6 +826,7 @@ export class FeishuChannel implements Channel {
 					ok: false,
 					...(messageId ? { id: messageId } : {}),
 					...(outcomeUncertain ? { uncertain: true } : {}),
+					...(retryable && !messageId && !outcomeUncertain ? { retryable: true } : {}),
 					error: errors.join("; "),
 				}
 			: { ok: true, id: messageId };

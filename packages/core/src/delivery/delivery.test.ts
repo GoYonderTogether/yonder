@@ -300,3 +300,35 @@ test("shutdown during a retry dispatch preserves uncertainty and never replays a
 		await x.db.close();
 	}
 });
+
+test("a wholly unsent streaming message recovers its full closed text from the same ledger after restart", async () => {
+	const x = await setup();
+	x.channel.stream = async () => ({ ok: false, retryable: true, error: "ENOTFOUND before card creation" });
+	try {
+		x.emit({ type: "message_start", id: "unsent" });
+		x.emit({ type: "text", delta: "partial" });
+		x.emit({ type: "message_end", text: "complete final body" });
+		await x.finish("complete final body", "unsent");
+		await expect.poll(async () => (await x.store.events.retryableAttempts()).length).toBe(1);
+		await x.delivery.close();
+		const reopened = createDelivery({
+			store: x.store,
+			agents: new Map(),
+			channels: new Map([["test", x.channel]]),
+			runtime: () => ({}) as Runtime,
+			sessions: {} as Sessions,
+		});
+		try {
+			await reopened.recover();
+			reopened.start();
+			await expect.poll(() => x.sent, { timeout: 5000 }).toEqual(["complete final body"]);
+			expect((await x.store.events.query({ type: "message.attempt" })).events).toHaveLength(1);
+			expect(await x.store.events.retryableAttempts()).toHaveLength(0);
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});

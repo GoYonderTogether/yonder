@@ -313,6 +313,8 @@ export function createDelivery(options: DeliveryOptions) {
 					stream.attempt,
 					messageId,
 				);
+			if (!delivered.ok && delivered.retryable && !delivered.id && !delivered.uncertain)
+				for (const event of await store.events.retryableAttempts()) retry(event);
 		})().catch(report);
 	}
 	function onStart(

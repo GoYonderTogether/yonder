@@ -94,7 +94,8 @@ for (const tool of ["agent_ask", "task_run"] as const) {
 				const command = `node -e 'const fs=require("node:fs");const value=require("node:crypto").randomUUID();fs.appendFileSync("${home}/effect",value+"\\n");process.stdout.write(value)'`;
 				const task = `Call bash exactly once with command: ${command}. Return the actual token from stdout. Never repeat the command, including after connection failures or restart.`;
 				const delegation = tool === "agent_ask" ? `agent_ask to agent helper` : `task_run with preset helper`;
-				const prompt = `Use ${delegation} for this task: ${task}\nIf it returns a background handle, reply WAITING and wait for automatic completion; do not poll. After receiving the actual child token, write it to ${home}/parent. Then use task_continue with text: "Write CONTINUED to ${home}/continued and reply RECOVERY_DONE". Finish your current progress report with CHILD_RECEIVED. Execute the queued step when its separate runtime.continuation input arrives, after this progress report. Only one delegation. Do not ask the user to continue.`;
+				const prompt = `Call ${delegation} exactly once. Set its ${tool === "agent_ask" ? "text" : "task"} argument to exactly this JSON string: ${JSON.stringify(task)}
+Parent workflow: if the call returns a running background handle, reply exactly WAITING and rely on automatic completion. Do not poll or delegate again. Only after its completed result contains the actual token, call write with path set to exactly ${JSON.stringify(`${home}/parent`)} and content set to that token. This is an absolute path; do not modify it or prepend cwd. Then use task_continue with text: ${JSON.stringify(`Call write with path exactly "${home}/continued" and content "CONTINUED", then reply exactly RECOVERY_DONE`)}. End the current progress report with exactly CHILD_RECEIVED. Execute the queued step only when its separate runtime.continuation input arrives. Do not ask the user to continue.`;
 				await writeFile(`${home}/source/input.json`, JSON.stringify({ text: prompt, msgId: `restart-${tool}` }));
 				await writeFile(
 					`${home}/source/package.json`,
@@ -114,7 +115,7 @@ for (const tool of ["agent_ask", "task_run"] as const) {
 				await writeFile(
 					`${home}/source/index.mjs`,
 					`import {readFile,appendFile,writeFile,access} from 'node:fs/promises';
-export default {setup(api){api.channels.register({type:'recovery-source',create(id){return {id,kinds:['dm'],output:{stream:false,attachments:false},async start(io){await writeFile('${home}/ready','ready');const input=JSON.parse(await readFile('${home}/source/input.json','utf8'));await io.emit({type:'message.in',from:'acct:feishu:owner',conv:'conv:feishu:acceptance',data:{kind:'dm',...input}})},async stop(){},async send(to,message){if(message.text.includes('RECOVERY_DONE')){try{await access('${home}/delivery-online')}catch{await appendFile('${home}/attempts','offline\\n');return {ok:false,retryable:true,error:'ECONNREFUSED before dispatch'}}}await appendFile('${home}/deliveries.jsonl',JSON.stringify({to,text:message.text})+'\\n');return {ok:true,id:'accepted'}}}}})}};`,
+export default {setup(api){api.channels.register({type:'recovery-source',create(id){return {id,kinds:['dm'],output:{stream:false,attachments:false},async start(io){await writeFile('${home}/ready','ready');const input=JSON.parse(await readFile('${home}/source/input.json','utf8'));await io.emit({type:'message.in',from:'acct:feishu:owner',conv:'conv:feishu:acceptance',data:{kind:'dm',...input}})},async stop(){},async send(to,message){if(message.text.trim()==='RECOVERY_DONE'){try{await access('${home}/delivery-online')}catch{await appendFile('${home}/attempts','offline\\n');return {ok:false,retryable:true,error:'ECONNREFUSED before dispatch'}}}await appendFile('${home}/deliveries.jsonl',JSON.stringify({to,text:message.text})+'\\n');return {ok:true,id:'accepted'}}}}})}};`,
 				);
 				const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 				config.credentials = auth;
@@ -211,9 +212,16 @@ export default {setup(api){api.channels.register({type:'recovery-source',create(
 				await writeFile(`${home}/delivery-online`, "online");
 				await launch();
 				await expect
-					.poll(async () => (await readFile(`${home}/deliveries.jsonl`, "utf8")).includes("RECOVERY_DONE"), {
-						timeout: 30000,
-					})
+					.poll(
+						async () =>
+							(await readFile(`${home}/deliveries.jsonl`, "utf8"))
+								.split("\n")
+								.filter(Boolean)
+								.some((line) => JSON.parse(line).text.trim() === "RECOVERY_DONE"),
+						{
+							timeout: 30000,
+						},
+					)
 					.toBe(true);
 				await stop("SIGTERM");
 				const db = await openDatabase(`${home}/.yonder/state.db`, true);
@@ -243,7 +251,7 @@ export default {setup(api){api.channels.register({type:'recovery-source',create(
 						.trim()
 						.split("\n")
 						.map((line) => JSON.parse(line));
-					expect(delivered.filter((e) => e.text.includes("RECOVERY_DONE"))).toHaveLength(1);
+					expect(delivered.filter((e) => e.text.trim() === "RECOVERY_DONE")).toHaveLength(1);
 					expect(
 						statuses.every((s) => s === 200),
 						JSON.stringify(statuses),

@@ -80,8 +80,12 @@ test.skipIf(!real)(
 			// twice, after its filesystem side effect has completed.
 			if (calls === 4 || calls === 5) {
 				failed.push(Date.now());
-				res.writeHead(calls === 4 ? 501 : 503, { "content-type": "application/json" });
-				res.end(JSON.stringify({ error: { message: "Upstream temporarily unavailable" } }));
+				// Drop the actual TCP connection once, then return a protocol overload.
+				if (calls === 4) res.destroy();
+				else {
+					res.writeHead(503, { "content-type": "application/json" });
+					res.end(JSON.stringify({ error: { message: "Upstream temporarily unavailable" } }));
+				}
 				return;
 			}
 			try {

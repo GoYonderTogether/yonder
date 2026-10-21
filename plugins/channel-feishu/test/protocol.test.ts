@@ -377,3 +377,16 @@ describe("Feishu safe unsent failure classification", () => {
 		expect(result.retryable).toBeUndefined();
 	});
 });
+
+it("stream creation DNS failure is safely unsent; an existing card never requests replay", async () => {
+	const channel = new FeishuChannel("test", config, api());
+	vi.spyOn(channel.client, "request").mockRejectedValueOnce(new FeishuRequestError("ENOTFOUND", false, true));
+	async function* parts(): AsyncIterable<OutputPart> {
+		yield { type: "text", delta: "complete" };
+		yield { type: "final", text: "complete" };
+	}
+	const result = await channel.stream("conv:test:chat", parts());
+	expect(result).toMatchObject({ ok: false, retryable: true });
+	expect(result.id).toBeUndefined();
+	expect(result.uncertain).toBeUndefined();
+});
