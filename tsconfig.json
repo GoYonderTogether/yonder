@@ -48,6 +48,12 @@
 		},
 		{
 			"path": "plugins/native-automation"
+		},
+		{
+			"path": "plugins/wechat-archive"
+		},
+		{
+			"path": "plugins/channel-wechat-ilink"
 		}
 	]
 }

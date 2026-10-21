@@ -155,3 +155,17 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 新插件及共享打包接线按独立任务执行；正式安装/发版沿已有流程，当前接入批准不自动发布。
 
 免费音频补记：控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。CosyVoice2控制台为¥0.05/千UTF-8字符，未获付费调用授权，不配置或调用TTS；视频仍不调用。
+
+## 微信双插件
+
+wechat-archive 提供本机 wechat-context 归档的 sources/history/search/message/media/policy/status 工具及同名触发器；它不注册可发送渠道。工具需要 read + admin，策略修改另外需要 write；私密归档不因普通访客有 read 就开放。配置 cliPath（绝对路径）、chats 或 discovery、pollSeconds（最少 30 秒）、可选 consumer/mediaRoot/pinnedPolicies；主人在 pinnedPolicies 固定的策略禁止模型覆盖。增量在插件私有 SQLite 先持久化，再确认源游标；按原消息 id 去重，事件成功接纳后标记已发。批次携带稳定 msgId，重启复用内核已有持久去重核对接纳，采集确认不代表模型处理完成。首次从启用时刻建立游标，历史由工具按需查询；未知初始化结果保留并恢复，不能重新从现在开始跳过消息。
+
+归档事件为 wechat-archive.material，conv:wechat-archive:<chat>，from:plugin:wechat-archive。data 包含来源消息、策略、原时间和 externalContent:true；不冒充 message.in 或主人。绑定显式选择是否运行/旁观及 profile。策略保留 immediate/watch/periodic/silent、角色/标签、collect/dailyReview、关键词、证据与版本；角色标签不授予身份权限，dailyReview 是供现有 cron 任务选择的资料标记，不自动增加调度器。沉默来源不查询正文、不发后续材料；周期策略按 periodicMinutes 合批，其他策略按轮询批次交付，由绑定决定模型是否运行。
+
+channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm。插件配置 owner:person:<id> 明确默认主人（应与目标 agent.owner 一致），第一个配置实例在首次扫码时默认将扫码联系人关联该 person；第一次注册的实例 id 在插件私有状态持久化，后续增加、重排或移除实例不转移这一资格。后续实例不继承主人：实例 person 可显式指定其他已存在 person，null 明确不关联；省略时也不关联。既有身份关联不覆盖，冲突必须由管理面显式处理。可选 allowedUsers 添加可接收的其他私聊账号，只有扫码联系人按上述规则关联；其他账号不会自动成为主人。每个实例保存自己的 bot id、扫码 peer、接收游标和按 peer 隔离的 context token。
+
+提供 status/read、login/admin+network、message/read+message+network 工具。login start/poll 只返回二维码 URL、状态和非秘密身份；token 由插件保存于私有目录的 0600 文件，目录 0700，不进入工具结果/事件/配置。可选 credential 从 SDK 凭据接口读取已有 api_key，需搭配实例 peerId/botId，不能借外部 token 自动建立主人关联。扫码流程由已授权管理面调用；不添加通用凭据写接口。首次扫码结果明确绑定人，已登录实例不允许静默换账号。
+
+所有入站均通过 ChannelIO.emit(message.in)，账号和会话分别为 acct:<instance>:<peer>、conv:<instance>:<peer>；关系由现有 identity 与 agent.owner 求值。主人绑定可进 main；其他人按 from:known/stranger 进入 per:conv persistent 与受限 profile，不默认与主人共享上下文或私密工具。实例的连接先后不参与运行时权限判定。
+
+出站复用 message_send/api.messages.send，支持文本及 image/audio/video/file（音频作为文件，不声称原生语音气泡）。过程流按 message_end/final 每条气泡发送，不逐 token 发消息；原生引用 replyTo 保留。发送必须有该 peer 的 context token；缺失明确失败，不能拿主人 token 替代。已部分发送或网络结果不明返回 uncertain，不自动重发。入站媒体下载解密，SILK 转 WAV、其余支持编码保留音频，不默认 ASR，不声称客户端送达或内容理解已验收。普通微信群不在可声明能力内。

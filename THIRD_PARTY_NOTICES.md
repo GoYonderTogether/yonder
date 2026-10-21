@@ -67,3 +67,9 @@ SOFTWARE.
 
 
 Skill Creator: copied from the local OpenAI Codex built-in skill-creator distribution, Apache-2.0; license retained at skills/skill-creator/license.txt. Default skill output location and discovery description adapted for Yonder Harness; supporting resources retained; SVG icon given an accessible title.
+
+## 微信迁移
+
+- 两个插件从自有 AI-Being/plugins/wechat-archive、wechat-ilink 迁移，归档同时参考自有 being/packages/wechat-inbox 和 wechat-context，来源说明见各插件 NOTICE.md。未复制旧生产配置、凭据、微信数据或旧宿主运行时。
+- iLink 协议按 Tencent/openclaw-weixin 的公开协议文档实现，对照 Hermes Weixin 使用边界；未复制这两个项目的运行时代码。
+- 微信语音解码使用精确版本 silk-wasm@3.7.1，保留 npm 包自带许可证；不提供或声称微信原生语音气泡发送。
