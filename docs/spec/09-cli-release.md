@@ -114,3 +114,7 @@ start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugi
 updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试产生 01 定义的 release.update-result；不能只对 GitHub 自动升级写完成事实。完成核验服务版本/来源提交/home/pid/ready，不用模型确认。无服务可核验或仍待重启时不能报告 verified。更新错误保留错误和事实，不能为了记录失败吞掉原失败。结果记录失败与更新失败分开返回/报告，不重做已完成的安装。
 
 新增 `sessions notify <id> --event <事件id> --text <正文>`，仅提交 system:cli 来源的程序通知；不接受 from，不启动模型。复用现有控制面及 JSON/退出码规范，目标/原事件不合法则拒绝，持久记录和实际展示分别确认。
+
+## 渠道接入命令
+
+`yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。默认返回可扫码链接，--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。

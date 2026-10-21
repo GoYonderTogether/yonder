@@ -52,6 +52,7 @@ interface Channel {
   stop(signal?: AbortSignal): Promise<void>;
   send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>; // conv: 发到会话；acct: 由渠道解析为该账号私聊
   stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string, signal?: AbortSignal): Promise<Delivery>;   // output.stream 为真时必须实现
+  login?(action: 'start' | 'poll', signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult>; // 可选交互登录；返回安全链接/状态，禁止凭据
 }
 interface ChannelIO {
   emit(e: EventInput): Promise<YEvent>;
@@ -260,3 +261,9 @@ OutMessage可携带sourceMessageId表示自动回复所回答的原始消息；�
 PluginAPI 增加只读 version:string，为实际宿主软件版本，不是插件包版本。release 为内核保留插件 ID 前缀，插件不能冒充 release.update-result。事件订阅、模型工具可以复用业务函数，权限判定按各自真实调用方；订阅不替换 Agent 绑定，若两者都选则分别执行，配置者负责不重复安排同一副作用。
 
 PluginAPI.sessions 新增 notify(id,{event,text})：指定真实未关闭 session 与已有原事件，来源由内核固定为实际 plugin:<id>，不接受请求伪造 from。返回 {session,event,entry,recorded:true} 仅证明已记录，不证明人已读。原生 app-only entry 保存通知，不包含 user/assistant/model 内容，不进模型上下文、不启动模型；原生观察和转录按来源展示。相同来源/原事件/目标会话重复返回原记录，不重复插入。setup 不允许 notify；代码重载与其他权限边界不变。
+
+### 渠道扫码登录
+
+ChannelLoginResult 为 {status:string, instance:string, qrcodeUrl?:string, expiresAt?:string, peer?:string, account?:Ref, person?:Ref|null, contextAvailable?:boolean}。登录是渠道自身的可选能力，不增加插件槽。管理面 channels.login 与已授权来源的 /connect [instance] 共用正在运行的渠道实例；后者须经原绑定，当前 profile 同时具备 admin 与 network，不能让访客以斜杠命令越权。默认选择首个支持登录的已配置渠道，指定实例时必须存在且支持 login。
+
+iLink 模型 login 工具省略 instance 时选择持久化首实例，省略 action 时申请扫码；返回 qrcodeUrl/expiresAt 并明确提示用户扫码，后台自动轮询到确认、过期或需要验证码，用户不必再手动 poll。重复申请有效的待扫二维码返回原链接。poll/verifyCode 仍供状态查询及验证码续办。默认只返回链接，不由后台服务抢占桌面；CLI --open 显式打开返回的 HTTPS 链接。

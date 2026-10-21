@@ -60,7 +60,7 @@ Bot 只有在 profile 选择插件、offer/search 选择工具且能力满足时
 | 名称 | 入参 | 正常出参 | 能力 |
 |---|---|---|---|
 | `channel-wechat-ilink_status` | `{instance?: string}`；省略列全部 | 一个状态对象或状态数组：`instance, paired, peer, person, contextAvailable, lastPoll, error, transport, groups, voiceOutput, audioInput, stopped` | read |
-| `channel-wechat-ilink_login` | `{instance: string, action: 'start'或'poll', verifyCode?: string}`；验证码 1–12 位数字 | start：`{status:'wait', instance, qrcodeUrl, expiresAt}`；poll：`{status,instance}`，确认后还含 `peer, account, person, contextAvailable:false` | admin + network |
+| `channel-wechat-ilink_login` | `{instance?: string, action?: 'start'或'poll', verifyCode?: string}`；验证码 1–12 位数字 | start：`{status:'wait', instance, qrcodeUrl, expiresAt}`；poll：`{status,instance}`，确认后还含 `peer, account, person, contextAvailable:false` | admin + network |
 | `channel-wechat-ilink_message` | `{instance, to, text, replyTo?, attachments?}`；to 是当前实例的完整 acct:/conv: 引用 | `{ok, id?, error?, uncertain?}`；id 是本次协议 client ID，不是收件人已读回执 | read + message + network |
 
 `attachments` 为 `Array<{kind:'image'|'audio'|'video'|'file', mime:string, uri:string, name?:string, bytes?:number}>`，uri 必须是 `file:///` 绝对文件 URI；上传还要经过 Yonder 的当前调用方文件权限检查。image/video 按协议媒体发送；audio 作为可下载音频文件发送，不声称支持微信原生语音气泡。单个媒体最多 100 MiB，不能靠软链绕过本地文件读取边界。文本每段最多 2000 个 Unicode 字符。
@@ -69,10 +69,16 @@ Bot 只有在 profile 选择插件、offer/search 选择工具且能力满足时
 
 通用发送优先复用已有 `message_send({to,via?,text,attachments?})`。如需显式微信引用，用上述 message 工具的 replyTo。主动发给主人可用 `message_send({to:'owner',via:实际实例,text:实际正文})`；owner 经当前 Agent 的身份解析，不是插件全局默认发送对象。显式工具发完本次答案后使用 NO_REPLY，避免自动回复副本。
 
+## 直接申请接入
+
+`yonder channels login` 默认给首个可登录实例申请扫码链接；`yonder channels login wechat-contact` 申请第二个。显式 `--open` 在本机打开返回的 HTTPS 链接；`--json` 返回结构化结果。`--poll` 查询当前扫码状态。命令复用当前服务实例，不经过模型队列。
+
+在 TUI 使用 `/connect` 或 `/connect wechat-contact`；在已接入聊天渠道也可发送同名命令，但来源 profile 必须同时有 admin 与 network。普通联系人不能申请登录或变更身份。
+
 ## 真实使用顺序
 
-1. 在已授权管理 profile 中调用 login/start，向人展示返回的二维码 URL。
-2. 人扫码后调用 login/poll，直到 confirmed；检查返回的 account/person，而不是把所有渠道都叫主人。
+1. 在已授权管理 profile 中调用 login 工具（默认 `{}`），向人展示返回的可点击二维码 URL。有效待扫二维码会复用。
+2. 人扫码后由渠道自动确认并关联身份，无需模型或用户反复 poll；需要验证码时才用 verifyCode 续办。检查 status 的实际 account/person，而不是把所有渠道都叫主人。
 3. 该联系人先给机器人发消息，插件保存这个 peer 的 context token。
 4. 后续消息经绑定运行，自动回复原会话；其他联系人各用自己的 conv/profile/context。
 5. 要跨渠道通知主人，调用 message_send 并明确 via；若当前未得到该收件人的上下文，返回 `ILINK_CONTEXT_MISSING`。本地有 token 也不等于平台保证它永远有效。

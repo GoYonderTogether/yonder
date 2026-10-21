@@ -1,4 +1,11 @@
-import { channelChatCommands, chatCommands, type RunResult, type SessionInfo, type YEvent } from "@yonder/sdk";
+import {
+	type ChannelLoginResult,
+	channelChatCommands,
+	chatCommands,
+	type RunResult,
+	type SessionInfo,
+	type YEvent,
+} from "@yonder/sdk";
 import type { DeliveryService } from "../delivery/index.js";
 import type { RuntimeSessionConfig } from "../runtime/index.js";
 import type { createSessions } from "../sessions/index.js";
@@ -18,6 +25,7 @@ export async function runChannelCommand(
 		sessions: ReturnType<typeof createSessions>;
 		delivery: DeliveryService;
 		skills: (profile: RuntimeSessionConfig) => Promise<SkillsReport>;
+		login?: (instance?: string) => Promise<ChannelLoginResult>;
 	},
 ): Promise<RunResult | undefined> {
 	const command = chatCommand(String((event.data as { text?: unknown }).text ?? ""));
@@ -45,7 +53,19 @@ export async function runChannelCommand(
 					.filter((skill) => skill.indexed)
 					.map((skill) => `${skill.name} — ${skill.description}`)
 					.join("\n") || "无技能 / No skills";
-		else if (command === "stop") {
+		else if (/^connect(?:\s+[a-z0-9-]+)?$/.test(command)) {
+			if (!profile.resolved.capabilities.includes("admin") || !profile.resolved.capabilities.includes("network"))
+				throw new Error("接入渠道需要 admin + network 权限");
+			if (!services.login) throw new Error("当前服务不支持渠道登录");
+			const response = await services.login(command.split(/\s+/)[1]);
+			result.text = [
+				`渠道：${response.instance} · ${response.status}`,
+				response.qrcodeUrl ? `请用微信扫描二维码完成接入：[打开扫码链接](${response.qrcodeUrl})` : undefined,
+				response.expiresAt ? `有效期至 ${response.expiresAt}` : undefined,
+			]
+				.filter(Boolean)
+				.join("\n");
+		} else if (command === "stop") {
 			await sessions.api.abort(session.id);
 			result.text = "已中止当前会话 / Stopped";
 		} else

@@ -7,6 +7,7 @@ import {
 	acct,
 	type Channel,
 	type ChannelIO,
+	type ChannelLoginResult,
 	conv,
 	type Delivery,
 	type OutMessage,
@@ -57,7 +58,31 @@ export class IlinkChannel implements Channel {
 	private polling: Promise<void> | undefined;
 	private failure: string | undefined;
 	private lastPoll: string | undefined;
-	private loginState: { qr: string; at: number; base: string } | undefined;
+	private loginState: { qr: string; url: string; at: number; base: string } | undefined;
+	private loginTimer: ReturnType<typeof setTimeout> | undefined;
+	private loginPolling: Promise<void> | undefined;
+	private loginStatus: string | undefined;
+	private scheduleLogin(): void {
+		if (this.lifetime.signal.aborted || !this.loginState || this.loginTimer) return;
+		this.loginTimer = setTimeout(() => {
+			this.loginTimer = undefined;
+			this.loginPolling = this.login("poll", this.lifetime.signal)
+				.then((result) => {
+					this.loginStatus = result.status;
+					if (["wait", "scaned", "scaned_but_redirect", "binded_redirect"].includes(result.status))
+						this.scheduleLogin();
+				})
+				.catch(() => {
+					this.loginStatus = "error";
+					this.api.log.warn("iLink login polling failed", { instance: this.id });
+				})
+				.finally(() => {
+					this.loginPolling = undefined;
+				});
+		}, 1000);
+		this.loginTimer.unref();
+	}
+
 	constructor(
 		readonly id: string,
 		readonly config: Config,
@@ -248,20 +273,29 @@ export class IlinkChannel implements Channel {
 		this.state.seen[key] = event.id;
 		await this.save();
 	}
-	login(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<object> {
+	login(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult> {
 		const next = this.loginTail
 			.catch(() => {})
-			.then(async () => {
+			.then(async (): Promise<ChannelLoginResult> => {
 				signal.throwIfAborted();
 				await this.initialize();
 				if (this.state.peer && action === "poll" && !this.loginState)
 					return {
 						status: "already_connected",
 						instance: this.id,
-						peer: this.state.peer,
+						peer: this.state.peer!,
 						person: this.state.person ?? null,
 					};
 				if (action === "start") {
+					if (this.loginState && Date.now() - this.loginState.at < 300000) {
+						this.scheduleLogin();
+						return {
+							status: "wait",
+							instance: this.id,
+							qrcodeUrl: this.loginState.url,
+							expiresAt: new Date(this.loginState.at + 300000).toISOString(),
+						};
+					}
 					const page = await this.client.request(
 						"ilink/bot/get_bot_qrcode?bot_type=3",
 						{ local_token_list: [] },
@@ -272,7 +306,9 @@ export class IlinkChannel implements Channel {
 					);
 					if (typeof page.qrcode !== "string" || typeof page.qrcode_img_content !== "string")
 						throw new Error("Invalid iLink QR response");
-					this.loginState = { qr: page.qrcode, at: Date.now(), base: this.state.base };
+					this.loginState = { qr: page.qrcode, url: page.qrcode_img_content, at: Date.now(), base: this.state.base };
+					this.loginStatus = "wait";
+					this.scheduleLogin();
 					return {
 						status: "wait",
 						instance: this.id,
@@ -281,7 +317,11 @@ export class IlinkChannel implements Channel {
 					};
 				}
 				const pending = this.loginState;
-				if (!pending || Date.now() - pending.at > 300000) return { status: "expired", instance: this.id };
+				if (!pending || Date.now() - pending.at > 300000) {
+					this.loginState = undefined;
+					this.loginStatus = "expired";
+					return { status: "expired", instance: this.id };
+				}
 				const suffix = verifyCode ? `&verify_code=${encodeURIComponent(verifyCode)}` : "";
 				const page = await this.client.request(
 					`ilink/bot/get_qrcode_status?qrcode=${encodeURIComponent(pending.qr)}${suffix}`,
@@ -292,6 +332,10 @@ export class IlinkChannel implements Channel {
 					signal,
 				);
 				if (page.status !== "confirmed") {
+					if (page.status === "expired") {
+						this.loginState = undefined;
+						this.loginStatus = "expired";
+					}
 					if (page.status === "scaned_but_redirect" && typeof page.redirect_host === "string")
 						pending.base = checkedServerBase(`https://${page.redirect_host}`);
 					return {
@@ -337,11 +381,16 @@ export class IlinkChannel implements Channel {
 				await this.save();
 				await this.link();
 				this.loginState = undefined;
+				this.loginStatus = "confirmed";
+				if (this.loginTimer) {
+					clearTimeout(this.loginTimer);
+					this.loginTimer = undefined;
+				}
 				this.schedule(0);
 				return {
 					status: "confirmed",
 					instance: this.id,
-					peer: this.state.peer,
+					peer: this.state.peer!,
 					account: acct(this.id, this.state.peer!),
 					person,
 					contextAvailable: false,
@@ -447,6 +496,8 @@ export class IlinkChannel implements Channel {
 		return {
 			instance: this.id,
 			paired: Boolean(this.state.peer && this.state.linked),
+			loginPending: Boolean(this.loginState),
+			loginStatus: this.loginStatus ?? null,
 			peer: this.state.peer ?? null,
 			person,
 			contextAvailable: Boolean(this.state.peer && this.state.contexts[this.state.peer]),
@@ -462,7 +513,8 @@ export class IlinkChannel implements Channel {
 	async stop(): Promise<void> {
 		this.lifetime.abort();
 		if (this.timer) clearTimeout(this.timer);
+		if (this.loginTimer) clearTimeout(this.loginTimer);
 		this.loginState = undefined;
-		await Promise.allSettled([this.polling, this.sendTail, this.loginTail, this.saveTail]);
+		await Promise.allSettled([this.polling, this.sendTail, this.loginTail, this.loginPolling, this.saveTail]);
 	}
 }

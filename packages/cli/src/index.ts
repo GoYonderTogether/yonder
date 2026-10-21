@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createConnection } from "node:net";
@@ -7,6 +8,7 @@ import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
 	attachmentFromPath,
@@ -36,6 +38,7 @@ const usage = `Usage: yonder <command> [options]
 
 Commands:
   init [dir] [--owner <id>]       初始化数据目录 · Create a home
+  channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider>                登录模型供应商 · Authenticate provider
   doctor                          检查配置 · Check configuration
   start                           前台运行 · Start harness
@@ -349,6 +352,44 @@ async function run(args: string[]): Promise<number> {
 			options.json,
 		);
 	}
+	if (command === "channels") {
+		const [action, ...values] = rest;
+		if (action === "list" && !values.length)
+			return print(requestControl(homeFor(options), { method: "channels.list" }), options.json);
+		if (action !== "login")
+			throw new UsageError("Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]");
+		let instance: string | undefined,
+			verifyCode: string | undefined,
+			open = false,
+			poll = false;
+		for (let index = 0; index < values.length; index++) {
+			const value = values[index]!;
+			if (value === "--open") open = true;
+			else if (value === "--poll") poll = true;
+			else if (value === "--verify-code") {
+				verifyCode = values[++index];
+				if (!verifyCode || !/^\d{1,12}$/.test(verifyCode)) throw new UsageError("Invalid verification code");
+				poll = true;
+			} else if (!value.startsWith("-") && !instance) instance = value;
+			else throw new UsageError("Invalid channels login option");
+		}
+		const result = (await requestControl(homeFor(options), {
+			method: "channels.login",
+			params: {
+				...(instance ? { instance } : {}),
+				action: poll ? "poll" : "start",
+				...(verifyCode ? { verifyCode } : {}),
+			},
+		})) as { qrcodeUrl?: string };
+		output(result, options.json);
+		if (open && result.qrcodeUrl) {
+			const url = new URL(result.qrcodeUrl);
+			if (url.protocol !== "https:" || url.username || url.password)
+				throw new Error("Channel login only opens HTTPS links");
+			await promisify(execFile)(process.platform === "darwin" ? "open" : "xdg-open", [url.href]);
+		}
+		return 0;
+	}
 	if (command === "service") {
 		const action = rest[0];
 		if (action === "info" && rest.length === 1)
@@ -543,6 +584,10 @@ async function run(args: string[]): Promise<number> {
 			control = await serveControl(home, async (request, connection) => {
 				const params = (request.params ?? {}) as Record<string, unknown>;
 				switch (request.method) {
+					case "channels.list":
+						return kernel.channels.list();
+					case "channels.login":
+						return kernel.channels.login(params as Parameters<typeof kernel.channels.login>[0], connection.signal);
 					case "release.result":
 						return kernel.releaseResult(params.data as Parameters<typeof kernel.releaseResult>[0]);
 					case "sessions.notify":
