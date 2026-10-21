@@ -99,8 +99,8 @@ releases:
   approvedAuthors: [zoran-xc]
   policy: apply
   updater:
-    install: /Users/zoran/.yonder-harness
-    home: /Users/zoran/.local/share/yonder-harness/home
+    install: ~/.yonder-harness
+    home: ~/.local/share/yonder-harness/home
 ```
 
 这两个绝对路径是批准部署目标，配置片段不会创建/修改它们。日用安装、home、launchd 服务需先按原安装流程完成；本轮未执行。只给获准更新的 profile 提供 `channel-github_update_schedule` 与 exec/admin/network，程序消费者不需要任意 shell；更新状态工具需 read/exec。maintainer profile 不选择调度工具。
