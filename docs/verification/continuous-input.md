@@ -35,3 +35,14 @@ Yonder 只配置原生消费数量、映射默认值与 interrupt、抑制 abort
 - 最后补充断言：普通 steer 的工具结果 isError=false；interrupt 的工具结果 isError=true。最终真实 Luna 3 通过、0 失败，包含工具成功/取消结果断言；最终 build/typecheck 通过，默认测试195通过/23跳过/0失败，lint 0错误、184警告、1信息。日用安装事实待下方补记。
 
 未验收：微信真人重新连发、飞书客户端实际中断显示、QQ 安装后的同场景、微信媒体及第二账号权限隔离。扫码页面自动刷新是另一项待完成工作。
+
+
+## 日用安装核验
+
+功能提交 df5ebc420b5a3e464334317e031c52d0498d057b 已快进合入本机 main，未推送或正式发布。独立构建安装目录 `/Users/zoran/.yonder-harness/versions/0.2.26102103-queue.df5ebc4`，tag=local-input-queue-acceptance，localCandidate=true。
+
+安装候选离线 npm ci（ignore-scripts）与 build 成功；切换 current 并重启 dev.yonder.harness。紧接重启的首次 service info 曾因 control.sock 尚未建立返回 ENOENT；随后重读已 ready=true，PID 47227，commit=df5ebc4，home 不变。doctor ok=true/0错误；iLink poll 返回 already_connected、person:owner，未要求重新扫码。
+
+旧 current 指针保存在 `/Users/zoran/.local/share/yonder-harness/home/.yonder/backups/input-queue-1792563401/installation.json`，先前微信配置备份仍保留。未修改实际 owner/profile/bindings 或第二账号权限；它们未指定 busy 的入口现在继承共享 steer 默认。QQ 隔离服务没有重启。
+
+已请主人用微信真实连发 A/B/C；该次真人复验尚待反馈，不把隔离模型用例当作微信客户端验收。
