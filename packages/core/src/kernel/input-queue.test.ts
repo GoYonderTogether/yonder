@@ -81,7 +81,7 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 					.toBe(true);
 				send(
 					scenario === "interrupt" ? interrupt : cli,
-					"Input B replaces the requested final answer. Do not call any more tools. Wait for all already queued input and answer with the labels of the user inputs received, including A and B.",
+					"Input B replaces the requested final answer. Do not call any more tools. After reading all queued inputs including Input C, reply exactly QUEUE_MERGED_A_B_C. No other text.",
 				);
 				send(cli, "Input C. Final answer must be exactly QUEUE_MERGED_A_B_C. No more tools and no long explanation.");
 				await expect
@@ -108,12 +108,16 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 						| undefined;
 					expect(ended?.isError).toBe(scenario === "interrupt");
 				}
-				await writeFile(
-					`${home}/evidence.json`,
-					JSON.stringify({ scenario, packets, updates, ends, messages }, null, 2),
-				);
-				console.log(`Queue evidence: ${home}/evidence.json`);
 			} finally {
+				if (kernel) {
+					const ends = (await kernel.events.query({ type: "run.end" })).events;
+					const messages = (await kernel.events.query({ type: "message.out" })).events;
+					await writeFile(
+						`${home}/evidence.json`,
+						JSON.stringify({ scenario, packets, updates, ends, messages }, null, 2),
+					);
+					console.log(`Queue evidence: ${home}/evidence.json`);
+				}
 				await stop?.();
 				for (const socket of sockets) socket.destroy();
 				await kernel?.close();
