@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.26102003] - 2026-10-21
+
+- 修复 GitHub 插件在宿主为测试版（`-beta.N`）时无法比较版本、导致自动升级失败的问题；版本比较按 semver 处理预发布后缀。
+
 ## [0.2.26102002] - 2026-10-20
 
 - 内化 pi-durable 1.3.0：从 GoYonderTogether/pi 的 yonder/1.3 源码 fork 同步为 workspace，删除安装补丁与 postinstall，其他 pi 依赖仍取上游 npm。

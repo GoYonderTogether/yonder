@@ -15,7 +15,6 @@ import {
 	prepareInput,
 	scaffoldWorkspace,
 	systemSections,
-	systemTemplate,
 } from "./index.js";
 
 test("system sections are deterministic and only selected contexts render", async () => {
@@ -65,7 +64,6 @@ test("system sections are deterministic and only selected contexts render", asyn
 			commonPrompt,
 			residentPrompt,
 			runtimePrompt,
-			systemTemplate,
 			"<skills></skills>",
 			"Selected context",
 		]);
@@ -92,7 +90,7 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 		expect(sections).toContain(runtimePrompt);
 		expect(sections).not.toContain(residentPrompt);
 		expect(sections.includes(cliPrompt)).toBe(level === "standard");
-		expect(sections.join("\n")).not.toContain("You have one owner");
+		expect(sections.join("\n")).not.toContain("exactly one owner");
 	}
 });
 

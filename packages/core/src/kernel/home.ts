@@ -120,7 +120,7 @@ export async function initHome(home: string, owner = "owner") {
 		name: "main",
 		owner: `person:${owner}`,
 		defaultProfile: "owner",
-		defaults: { model: "openai/gpt-6-luna", contexts: ["agents-md", "user-md"], plugins: ["context-files"] },
+		defaults: { model: "openai/gpt-6-luna", contexts: ["soul-md", "agents-md"], plugins: ["context-files"] },
 		profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
 		bindings: [
 			{
@@ -138,7 +138,7 @@ export async function initHome(home: string, owner = "owner") {
 		config,
 		inspectionServices(home, config, () => {}),
 	);
-	await scaffoldWorkspace(filesFor(home, config, plugins, "main"), ["agents-md", "user-md"], plugins.contexts);
+	await scaffoldWorkspace(filesFor(home, config, plugins, "main"), ["soul-md", "agents-md"], plugins.contexts);
 	return { home, agent: "main", model: "openai/gpt-6-luna" };
 }
 

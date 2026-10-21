@@ -50,8 +50,8 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 	let runtime: Runtime | undefined;
 	try {
 		const files = workspaceFiles(localEnvironment(home));
-		await files.writeFile("SYSTEM.md", "Runtime integration verification");
-		expect(await files.readFile("SYSTEM.md")).toBe("Runtime integration verification");
+		await files.writeFile("AGENTS.md", "Runtime integration verification");
+		expect(await files.readFile("AGENTS.md")).toBe("Runtime integration verification");
 		const credentials = new FileCredentials(join(home, ".yonder/auth.json"));
 		await Promise.all([credentials.modify("openai", async (current) => current), credentials.list()]);
 		expect(await credentials.get("openai")).toBeUndefined();

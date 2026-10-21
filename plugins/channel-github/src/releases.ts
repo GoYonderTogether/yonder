@@ -27,14 +27,29 @@ export type AvailableRelease = Pick<
 	ReturnType<typeof releaseData>,
 	"repository" | "releaseId" | "tag" | "version" | "url" | "author"
 >;
+/** Semver order. The host may run a test build (`X.Y.Z-beta.N`), which sorts before the same `X.Y.Z`. */
 export function compareVersions(a: string, b: string): number {
-	const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
-	if (!pattern.test(a) || !pattern.test(b)) throw new Error("Expected exact X.Y.Z versions");
-	const left = a.split(".").map(BigInt) as [bigint, bigint, bigint];
-	const right = b.split(".").map(BigInt) as [bigint, bigint, bigint];
-	for (const i of [0, 1, 2] as const) {
-		const delta = left[i] - right[i];
+	const pattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+	const left = pattern.exec(a),
+		right = pattern.exec(b);
+	if (!left || !right) throw new Error("Expected X.Y.Z or X.Y.Z-prerelease versions");
+	for (const i of [1, 2, 3] as const) {
+		const delta = BigInt(left[i] as string) - BigInt(right[i] as string);
 		if (delta !== 0n) return delta > 0n ? 1 : -1;
+	}
+	const l = left[4]?.split("."),
+		r = right[4]?.split(".");
+	if (!l || !r) return l ? -1 : r ? 1 : 0;
+	for (let i = 0; i < Math.max(l.length, r.length); i++) {
+		const x = l[i],
+			y = r[i];
+		if (x === undefined || y === undefined) return x === undefined ? -1 : 1;
+		const numeric = /^[0-9]+$/;
+		if (numeric.test(x) && numeric.test(y)) {
+			const delta = BigInt(x) - BigInt(y);
+			if (delta !== 0n) return delta > 0n ? 1 : -1;
+		} else if (numeric.test(x) !== numeric.test(y)) return numeric.test(x) ? -1 : 1;
+		else if (x !== y) return x < y ? -1 : 1;
 	}
 	return 0;
 }

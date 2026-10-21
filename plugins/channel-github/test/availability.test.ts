@@ -58,7 +58,10 @@ it("caches approved baseline metadata; selected turn context only suggests a str
 		expect(list).toHaveBeenCalledTimes(1);
 		expect(compareVersions("1.0.9007199254740993", "1.0.9007199254740992")).toBe(1);
 		expect(compareVersions("1.10.0", "1.9.99")).toBe(1);
-		expect(() => compareVersions("1.0.0-beta", "1.0.0")).toThrow();
+		expect(compareVersions("1.0.0-beta.1", "1.0.0")).toBe(-1);
+		expect(compareVersions("0.2.26102001-beta.1", "0.2.26102002")).toBe(-1);
+		expect(compareVersions("1.0.0-beta.10", "1.0.0-beta.2")).toBe(1);
+		expect(() => compareVersions("1.0", "1.0.0")).toThrow();
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}

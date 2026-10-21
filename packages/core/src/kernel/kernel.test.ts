@@ -64,7 +64,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 		await writeFile(file, stringify({ ...agent, defaults: { ...agent.defaults, contexts: ["soul-md"] } }));
 		await expect
 			.poll(() => readFile(`${home}/agents/main/SOUL.md`, "utf8").catch(() => ""), { timeout: 8000 })
-			.toContain("行为方式");
+			.toContain("Who you are");
 		await kernel.sessions.open({ preset: "maintenance" });
 		await rm(preset);
 		await expect

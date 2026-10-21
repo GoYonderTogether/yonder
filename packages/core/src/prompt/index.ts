@@ -19,8 +19,6 @@ import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./conten
 
 export const memoryGuide = `# 手工记忆资料\n\n这是临时、按需读取的记录目录，不是自动记忆引擎。用 YYYY-MM-DD/主题.md 保存已确认的条目，注明日期、来源、适用范围，区分事实与假设；需要时用文件检索读取，可手工合并、编辑和归档。不要保存凭据。\n\n本目录不会自动注入提示词，不自动总结、整理、清理或删除。记忆方法需要结合真实场景，参考成熟项目或方法论迭代，找到适合当前使用的方法；不要把这个简单约定当作长期固定方案。\n`;
 
-export const systemTemplate =
-	"# 身份\n\n<!-- 我是谁。 -->\n\n# 职责\n\n<!-- 我负责什么。 -->\n\n# 边界\n\n<!-- 我遵守哪些边界。 -->\n";
 export const escapeXml = (value: string) =>
 	value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const label = (value: string) => escapeXml(value.replace(/[\r\n\u2028\u2029]/gu, " "));
@@ -90,7 +88,6 @@ export async function scaffoldWorkspace(
 	selected: string[],
 	contexts: Map<string, ContextContribution>,
 ): Promise<void> {
-	if (!(await files.exists("SYSTEM.md"))) await files.writeFile("SYSTEM.md", systemTemplate);
 	if (!(await files.exists("memory/README.md"))) await files.writeFile("memory/README.md", memoryGuide);
 	for (const id of selected) {
 		const contribution = contexts.get(id);
@@ -109,7 +106,6 @@ export async function systemSections(
 	if (session.agent) sections.push(residentPrompt);
 	sections.push(runtimePrompt);
 	if (session.resolved.capabilities.includes("exec")) sections.push(cliPrompt);
-	if (session.agent) sections.push(await options.workspace(session, options.signal).readFile("SYSTEM.md"));
 	const skills = await options.skillIndex?.(session);
 	if (skills) sections.push(skills);
 	return [...sections, ...(await contributions(session, "system", options))];
