@@ -77,21 +77,29 @@ contexts: [agents-md, user-md, channel-feishu.conversation]
 | update | id、expectedRevision、rows | id 是工具创建的 receipt ID，不是原生消息 ID；expectedRevision 为正整数 CAS。只接受原 session/agent 的当前锚 |
 | get | id | 读取持久 receipt；不发消息，不自动重试 |
 
-`rows` 为 1..12 个短条目，分别为 `{id,status,deliverable,acceptance}`：id 为既有任务索引引用（1..80 字符），status 为 `queued/working/done/blocked/unverified`（⚪/🟡/🟢/🔴/🟣），deliverable、acceptance 各 1..160 字符。卡片用原生分栏表格展示，不接受任意卡片 JSON、详情日志或新增任务执行定义；总 JSON 上限 30000 bytes。任务索引仍由原有任务所有者维护，卡片不复制任务调度系统。
+`rows` 为 1..12 个短条目，必填 `{id,status,deliverable,acceptance}`：id 为既有任务索引引用（1..80 字符），deliverable、acceptance 各 1..160 字符。固定短标签为 `queued` → ⚪ 待开始、`working` → 🟡 实现中、`done` → 🟢 已完成、`blocked` → 🔴 已阻塞；兼容旧 `unverified` → ⚪ 未验收，明确非活动、非完成，不宣称验收正在进行。working 仅用于已核实的实时执行，done 仅用于整个交付已送达且通过验收；插件呈现调用者声明，不自行核实任务生命周期。分配任务和已结束的准备测试均不证明运行中或整体完成。
 
-返回 receipt：`{ok,id,messageId?,revision,state,retired,acknowledged,sourceMessageId}`。state 为 `pending/confirmed/unknown`。失败保留可取得的 receipt ID 与原生消息 ID；若已发出/更新而事件记录失败，也返回错误，不可据此重发。`get` 用于查看，**unknown/pending 不盲重试**；需要人工核对平台与事件记录。没有自动重放、自动回退新消息或第二套重试器。
+可选 `assignee`（1..80 字符）、`forwardedVerbatim`（boolean）分别显示负责人和是否原文程序转发；省略显示“未注明”，false 显示“否”。true 只能用于实际程序原文转发，手工复制或摘要必须为 false；这是展示声明，不是转发凭证，不实现转发，也不扩大授权。可选 `lists:{advancing?:string[],needsOwner?:string[]}` 每项 1..160 字符、每列 0..3 项，分别渲染“我在推进，无需您操作”与“需要您处理”，无项显示“无”。前者放无人值守推进事项，后者只写真实 owner gate 的精确解阻动作，不将自己的待办冒充用户阻塞。update 省略 lists 保留原列表，传空数组清空。
+
+卡片用原生六分栏表格展示，不接受任意卡片 JSON、详情日志或新增任务执行定义；总 JSON 上限 30000 bytes（即使单字段符合上限，组合过大仍拒绝）。任务索引仍由原有任务所有者维护，卡片不复制任务调度系统。
+
+返回 receipt：`{ok,id,messageId?,revision,state,retired,acknowledged,notifications,sourceMessageId}`。state 为 `pending/confirmed/unknown`。失败保留可取得的 receipt ID 与原生消息 ID；若已发出/更新而事件记录失败，也返回错误，不可据此重发。`get` 用于查看，**unknown/pending 不盲重试**；需要人工核对平台与事件记录。没有自动重放、自动回退新消息或第二套重试器。
 
 协议更新是 [官方 PATCH /im/v1/messages/:message_id](https://open.feishu.cn/document/server-docs/im-v1/message-card/patch?lang=zh-CN)，不是创建替代消息；发送/更新前后 `config.update_multi:true`，共享卡、同应用身份、未撤回、14 天内（平台限制），本工具串行更新并至少间隔 250ms。普通 text/post 的 PUT 接口未在此工具开放。
 
 原子保存的 `<plugin-data>/<instance>/task-cards.json` 仅含短展示投影和协议 receipt（来源/发起者/session/agent、原生消息 ID、revision、按钮消费状态）；不含详情日志或新任务队列。操作前持久 pending，重启后将 pending 视为 unknown，绝不自动重发。正常 receipt 跨重启可继续更新同消息。
 
-合法原生新 text/post（含恢复消息）进入既有 receive/recovery 路径时，先同步使同会话同发起者旧卡服务端失效，再按原生 PATCH 移除其按钮。无模型轮询、无 cron。群内其他人的消息不会替发起者确认或撤销他的卡。迟到的更早原生时间不退休当前卡；相同毫秒、不同消息 ID 无法证明因果，保守退休而不假造排序。视觉撤销失败/崩溃不复活服务端按钮；错误明确记录。只有下一次真实用户文字才建立新的当前反馈来源，旧任务结果不能通过旧 receipt 覆盖新卡。
+合法原生新 text/post（含恢复消息）进入既有 receive/recovery 路径时，先同步使同会话同发起者旧卡服务端失效，再按原生 PATCH 移除其按钮。无模型轮询、无 cron。群内其他人的消息不会替发起者确认或撤销他的卡。迟到的更早原生时间不退休当前卡；相同毫秒、不同消息 ID 无法证明因果，保守退休而不假造排序。退役状态成功落盘后，视觉撤销失败/崩溃不复活服务端按钮；错误明确记录。实际边界：observe 在网络等待前同步内存失效，随后串行原子保存，再做视觉 PATCH；WebSocket receive 对 observe 异步记录错误，恢复路径则 await。若保存失败或进程在保存前崩溃，重启只能读上次落盘状态，不能保证旧按钮已退役，须等新文字由既有恢复路径再次 observe；start 不联网核对最新来源、不重放 PATCH。原子 rename 也不等于断电 fsync 保证。只有下一次真实用户文字才建立新的当前反馈来源，旧任务结果不能通过旧 receipt 覆盖新卡。
 
 两个按钮仍走本应用鉴权 WebSocket，额外校验发起者 acct、chat、原消息 ID、当前 revision、期限与消费状态，拒绝伪造/过期/错人/重复操作。
 
 - **了解任务详情**：只发既有 `channel-feishu.card-action` 插件事件，`data.action.value` 为 `{action:"details",taskIds,receipt}`；只引用现有任务索引，不把日志塞卡。
-- **已收到，进行下一个任务**：记录 `action:"acknowledge"` 同类事件并移除确认按钮。它只表示收到，不取消任务、不授予新权限、不调用任务执行器。
+- **确认收到（仅通知）**：记录 `action:"acknowledge"` 同类事件并移除确认按钮。它只表示收到，**未安排下一任务**，不取消任务、不授予新权限、不调用任务执行器。acknowledged 仅表示按钮消费，不代表通知或任务成功。
+
+回调在 emit 前持久消费及 revision，同时记 `notifications["revision:action"]="pending"`；emit 和确认落盘都成功才显示成功。emit 失败（包括事件可能已接纳但回执丢失）或确认保存失败返回“通知结果未知”，标记 unknown，不 PATCH、不重发通知。重启把 pending 通知读作 unknown；消费仍有效，不因再次点击、重启或 get 自动重发。若消费本身无法持久化，当前进程仍拒绝重复，但崩溃后无可靠磁盘凭证；须先人工核对原事件与存储故障，不能以未见成功提示推断未发生。通知 confirmed 仅指 emit 返回并已保存，不证明绑定唤醒、详情已交付或下一任务已安排。
 
 部署者需用**现有绑定**接纳 `channel-feishu.card-action` 到负责该来源的 agent，才能按需解释 taskIds/提供详情。没有绑定就只记录事件，不会偷偷唤醒模型；工具不会创建绑定、提升操作者身份或更改 profile。绑定必须保持实际 from/conv 边界，事件始终带 `authorization:"none"`，详情/收到通知不得被当作执行新副作用的批准。此次代码不改变生产绑定；完整按钮→绑定→详情交付仍需部署后验收。
 
 工具发送/更新另记 `channel-feishu.task-card-updated`，含 receipt、revision、原生 messageId/sourceMessageId，不写详细任务正文。工具转录保留输入/结果。部署前必须验收同消息实际更新、真实客户端表格、群错人点击、按钮事件绑定、服务重启恢复；离线协议测试不等于以上真实平台验收。若要由内核强制所有输出自动改单卡而不依赖显式工具/NO_REPLY，那是默认投递契约变更，需另行设计批准。
+
+PR4 本轮修订基线 18d1abb：限定飞书插件/UI/文档；固定状态与协调展示、严格有界 schema、故障通知不报成功且不重发、明确 observe 落盘/重启边界为本轮代码验收点。单元/协议检查不等于真实飞书验收；未安装、未重启、未部署。
