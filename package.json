@@ -22,7 +22,9 @@
 		"plugins/media-tools",
 		"plugins/cron",
 		"plugins/mcp-client",
-		"plugins/native-automation"
+		"plugins/native-automation",
+		"plugins/wechat-archive",
+		"plugins/channel-wechat-ilink"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs",
