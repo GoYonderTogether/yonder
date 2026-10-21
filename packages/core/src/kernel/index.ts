@@ -318,6 +318,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			tools,
 			envs: loaded.envs,
 			readEvent: store.events.get,
+			settled: async (session, run) => Boolean(await store.events.runEnd(session, run)),
 			prepareInput: async (id, event, config, wake, signal) => {
 				const row = await store.sessions.get(id);
 				if (!row) throw new Error(`Unknown session: ${id}`);

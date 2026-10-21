@@ -975,9 +975,15 @@ export class Runtime {
 			const entry = record?.entry ? await this.harness.commit((tx) => tx.entry(record.entry!), C) : undefined;
 			let data = entry?.data as { event?: string; attachments?: import("@yonder/sdk").Attachment[] } | undefined;
 			if (entry) {
-				// ponytail: native scan by target; add an upstream lookup only if long-session cost is measurable.
+				// The prepared entry that targets an input is written before that input is answered, so an answered
+				// input never needs the rest of the conversation. Unbounded, this was measurable: recover() visits every
+				// historical run and startup grew to about two minutes for a few dozen runs of one long conversation.
 				const history = await this.storage.scanEntries(
-					{ conversationId: entry.conversationId, minEntryId: entry.id },
+					{
+						conversationId: entry.conversationId,
+						minEntryId: entry.id,
+						...(record?.status === "done" ? { maxEntryId: record.answer } : {}),
+					},
 					Number.MAX_SAFE_INTEGER,
 					undefined,
 					C,
@@ -1011,12 +1017,24 @@ export class Runtime {
 			const answer =
 				settlement.status === "done" ? await this.harness.commit((tx) => tx.entry(settlement.answer), C) : undefined;
 			const inputs = (await this.sources(receipt.inputs)).map((event) => event.id);
-			const entries = await this.storage.scanEntries(
-				{ conversationId: cid(session) },
-				Number.MAX_SAFE_INTEGER,
-				undefined,
-				C,
-			);
+			// Tool results of this run lie between its first input entry and its answer entry. recover() settles every
+			// historical receipt, so reading the whole conversation here made startup grow with runs x entries
+			// (about two minutes for a few dozen runs of a long conversation).
+			const placed = (await Promise.all(receipt.inputs.map((input) => this.storage.submission(input, C))))
+				.map((record) => record?.entry)
+				.filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
+			const entries = (saved.toolTasks ?? []).length
+				? await this.storage.scanEntries(
+						{
+							conversationId: cid(session),
+							...(placed.length ? { minEntryId: Math.min(...placed) as (typeof placed)[number] } : {}),
+							...(settlement.status === "done" ? { maxEntryId: settlement.answer } : {}),
+						},
+						Number.MAX_SAFE_INTEGER,
+						undefined,
+						C,
+					)
+				: { items: [] };
 			const attachments = entries.items.flatMap((entry) =>
 				(entry.model ?? []).flatMap((message) =>
 					message.role === "toolResult" &&
@@ -1101,10 +1119,17 @@ export class Runtime {
 				undefined,
 				C,
 			);
+			let skipped = false;
 			for (const doc of docs.items) {
 				const receipt = await this.harness.snapshot(RunReceiptDoc, conversation.id, doc.key!, C);
 				for (const input of receipt?.inputs ?? []) covered.add(input);
 				if (receipt) {
+					// A run whose run.end is durable was fully settled before this start. Replaying every historical run
+					// made startup grow with runs x conversation size (about two minutes for Jarvis' main session).
+					if (await this.options.settled?.(String(conversation.id), doc.key!)) {
+						skipped = true;
+						continue;
+					}
 					try {
 						await this.receiptRun(String(conversation.id), doc.key!, receipt);
 					} catch (error) {
@@ -1112,6 +1137,8 @@ export class Runtime {
 					}
 				}
 			}
+			// Settled runs skipped their idle hook; let waiters and sessions re-evaluate once per conversation.
+			if (skipped) await this.idleChanged(String(conversation.id)).catch((error) => this.options.onReport?.(error));
 			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
 			if (live?.run) {
 				await this.prepareRun(String(conversation.id), C);
