@@ -154,15 +154,20 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				effort: { requested: "ultra-deep", effective: "medium", reason: "invalid-level" },
 			});
 
-			// A caller without admin is refused outright: no delegation is created, nothing falls back silently.
+			// A caller without admin is refused: the tool errors and no delegation with an effort is ever created. The model
+			// may then retry without effort (a plain delegation is fine), so assert on what reached the kernel.
 			const before = (await running.events.query({ type: "message.in" })).events.filter(
 				(e) => e.conv === "conv:agent:main",
 			).length;
 			const denied = await submit(plain, ask("high"));
-			expect(denied.text).toMatch(/admin/u);
-			expect(
-				(await running.events.query({ type: "message.in" })).events.filter((e) => e.conv === "conv:agent:main"),
-			).toHaveLength(before);
+			const session = denied.event.routes?.find((r) => r.session)?.session;
+			if (!session) throw new Error("Missing plain session");
+			const transcript = await running.sessions.transcript(session);
+			expect(transcript.some((entry) => entry.kind === "pi.tool-result" && /admin/u.test(entry.text))).toBe(true);
+			const created = (await running.events.query({ type: "message.in" })).events
+				.filter((e) => e.conv === "conv:agent:main")
+				.slice(before);
+			expect(created.every((e) => !Object.hasOwn(e.data, "effort"))).toBe(true);
 		} finally {
 			for (const socket of sockets) socket.destroy();
 			await kernel?.close();
