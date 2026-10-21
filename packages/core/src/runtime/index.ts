@@ -131,6 +131,8 @@ export class Runtime {
 				models: runtime.models,
 				registry: runtime.registry,
 				settings: {
+					steeringMode: "all",
+					followUpMode: "all",
 					retry: retryPolicy(options.config.retry),
 					...(options.config.compaction ? { compaction: options.config.compaction } : {}),
 				},
@@ -726,7 +728,7 @@ export class Runtime {
 									...(requestId ? { requestId } : {}),
 									content,
 									entry,
-									whenBusy: input.busy === "steer" ? "steer" : "followUp",
+									whenBusy: input.busy === "followup" ? "followUp" : (input.busy ?? "steer"),
 								},
 						C,
 					);

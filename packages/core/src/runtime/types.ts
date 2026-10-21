@@ -53,7 +53,7 @@ export interface RuntimeInput {
 	attachments?: Attachment[];
 	wake?: "run" | "write";
 	version?: string;
-	busy?: "followup" | "steer";
+	busy?: "followup" | "steer" | "interrupt";
 	onOutput?(part: OutputPart, runId?: string): void;
 	requestId?: string;
 }

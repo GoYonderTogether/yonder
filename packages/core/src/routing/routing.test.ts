@@ -79,10 +79,10 @@ bindings:
 		const cron = await router.emit({ type: "trigger-cron.fired", from: "plugin:trigger-cron", data: {} });
 		await wasSubmitted;
 		expect(event.routes).toEqual([
-			{ agent: "main", binding: "first", session: "42", wake: "write", busy: "followup", waiting: false },
+			{ agent: "main", binding: "first", session: "42", wake: "write", busy: "steer", waiting: false },
 		]);
 		expect(cron.routes).toEqual([
-			{ agent: "main", binding: "cron", session: "43", wake: "run", busy: "followup", waiting: false },
+			{ agent: "main", binding: "cron", session: "43", wake: "run", busy: "steer", waiting: false },
 		]);
 		expect((await store.sessions.get("42"))?.key).toBe("conv:conv:cli:room");
 	} finally {
@@ -194,8 +194,8 @@ bindings:
 		expect(cliRoute?.session).toBe(feishuRoute?.session);
 		expect(cliRoute).toMatchObject({ wake: "run", busy: "steer" });
 		expect(feishuRoute).toMatchObject({ wake: "run", busy: "steer" });
-		expect(groupRoute).toMatchObject({ wake: "write", busy: "followup" });
-		expect(dmRoute).toMatchObject({ wake: "write", busy: "followup" });
+		expect(groupRoute).toMatchObject({ wake: "write", busy: "steer" });
+		expect(dmRoute).toMatchObject({ wake: "write", busy: "steer" });
 		expect(groupRoute?.session).not.toBe(cliRoute?.session);
 		expect(dmRoute?.session).not.toBe(groupRoute?.session);
 		expect(commandSessions).toHaveLength(2);

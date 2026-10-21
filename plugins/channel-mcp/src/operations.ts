@@ -134,7 +134,12 @@ export function createControlServer(api: PluginAPI, io: ChannelIO, channel: stri
 		"sessions_submit",
 		"向预设会话输入；wait=false 只接纳，结果查询原生事件/转录。",
 		z
-			.object({ id: text, input, wait: z.boolean().default(false), busy: z.enum(["followup", "steer"]).optional() })
+			.object({
+				id: text,
+				input,
+				wait: z.boolean().default(false),
+				busy: z.enum(["followup", "steer", "interrupt"]).optional(),
+			})
 			.strict(),
 		(args) =>
 			api.sessions.submit(args.id, args.input as Parameters<SessionsAPI["submit"]>[1], {
