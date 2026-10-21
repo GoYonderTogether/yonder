@@ -6,7 +6,7 @@ Yonder Harness is a local agent runtime. It routes incoming events to agents and
 
 The runtime uses pi (`pi-ai` and `pi-durable`) as dependencies for model access and durable agent sessions. The product is Yonder Harness; pi is an underlying dependency and upstream source.
 
-> **Status:** Release 0.1.2026101907 is installed independently on macOS. It adds background tool execution, soft run reminders, hot agent/preset management, cron, a generic MCP client and independent browser/macOS automation. Twelve plugins ship; eleven are loaded on the configured local installation. See the [release evidence and limits](docs/tasks/execution-capabilities-result.md), [function tree](docs/function-tree.md) and historical [1906 comparison](docs/tasks/product-capabilities-1906.md). New installations still require explicit capability configuration.
+> **Status:** Developer preview, macOS only. The kernel, CLI and terminal UI, installer/updater and twelve official plugins run end to end, but a fresh install enables only the CLI channel and workspace context files; every other capability is opt-in configuration. [docs/status.md](docs/status.md) records what is verified, what is missing and what is still untested.
 
 ## Run from source
 
@@ -64,7 +64,8 @@ Plugins depend on `@yonder/sdk` and register contributions through its plugin AP
 
 - [Architecture](docs/architecture.md)
 - [Specification index](docs/index.md)
-- [0.1 implementation tasks](docs/tasks/README.md)
+- [Project status](docs/status.md) · [Contributing](CONTRIBUTING.md)
+- [Official plugins](docs/plugins.md) · [Registered names reference](docs/reference.md)
 
 License: [Apache-2.0](LICENSE)
 
@@ -80,5 +81,3 @@ For shell completion, load `source <(yonder completion zsh)` or `source <(yonder
 After installing, initializing, authenticating and installing the macOS service, run `yonder` from any directory to open the resident CLI channel and its existing main history. `yonder chat` starts a standalone task; `/channel` switches to a resident channel. The installed service home is discovered automatically; explicit `--home` and `YONDER_HOME` still select an isolated development environment. Terminal clients share one resident service.
 
 Bundled `skill-creator` and `yonder-development` use the existing skill index and on-demand `skill_view`; their full instructions are not injected. Plugin source and Git work can live in `<home>/development/<name>` or a user-selected directory. Production code stays in versioned installation directories and is updated with `yonder update`; development homes and credentials stay separate.
-
-- [完整功能与英文注册名树 / Function tree](docs/function-tree.md)

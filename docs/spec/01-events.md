@@ -21,7 +21,7 @@ interface YEvent {
 插件写入事件时交给内核的是 `EventInput = Pick<YEvent, 'type' | 'parent' | 'from' | 'conv' | 'data'>`，`id`、`ts`、`routes` 由内核填。
 渠道插件需要的额外信息一律放进 `data`。
 
-进入模型的事件由统一输入准备入口呈现 id、type；message.in/session.input 使用正文与附件，插件自定义事件的完整 data 以 JSON 作为本轮正文，不要求包含 text。外部数据不进入 system，不授予权限，原事件不变；具体格式见 03 §5.3 和 10 §3.1。
+进入模型的事件由统一输入准备入口呈现 id、type；message.in/session.input 使用正文与附件，插件自定义事件的完整 data 以 JSON 作为本轮正文，不要求包含 text。外部数据不进入 system，不授予权限，原事件不变；具体格式见 03 §5.3 和 10 §1.1。
 
 ## 2. 引用 Ref
 
@@ -116,16 +116,15 @@ interface EventPage { events: YEvent[]; next?: string }   // next：还有下一
 - 删除或改名任何字段、改变字段含义、新增顶层字段：不兼容，需升插件 API 版本（04 §6）。
 - 插件自定义类型的 `data` 由插件自己负责兼容。
 
-## D35 渠道命令执行事实
+## 渠道命令执行事实
 
 内核为已通过绑定的渠道斜杠命令写channel.command（parent为输入、data含原始事件/会话组成的msgId与command/session），执行及发送结果写channel.command.result。它们不是模型运行，不伪造run.end。命令尝试复用事件落库去重；重启遇到已有尝试不重复执行或重发，只有尝试没有结果时记录为未确认事实，不能宣称成功。旁观输入不执行命令。
 
-
-### 来源消息时间（D36）
+### 来源消息时间
 
 message.in.data可选createdAt为原生发送时间的epoch毫秒字符串，msgId为原生消息ID；event.ts始终是Yonder接纳时间，不替代发送时间。模型输入头分别呈现已知的原时间与接纳时间；未知原时间不伪造。恢复originals的时间仍按各原始消息呈现。
 
-## 程序更新完成事实（E40，2026-10-19 用户批准）
+## 程序更新完成事实
 
 内核新增 `release.update-result`，不经过模型产生。`data` 为 `{updateId, install, home, repository, beforeVersion?, version?, tag?, commit?, status, verified, service?, error?}`，status 为 verified / failed-or-unknown / restart-required；service 有真实 version/commit/home/pid/ready。只有实际核验吻合才 verified=true。conv 为 `conv:release:<updateId>`。直接 CLI update 与插件作业调用同一 updateRelease，每次实际尝试仅由此公共入口记录完成；同版本未更新不制造完成事件。旧 channel-github.update-result 保留历史兼容，不作为新的程序通知来源。
 

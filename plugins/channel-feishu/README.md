@@ -1,6 +1,6 @@
 # channel-feishu
 
-已安装、部分真实场景通过；完整矩阵未关闭，见[本轮结果](../../docs/tasks/finishing-feishu-result.md)。官方飞书/Lark 消息渠道；一个配置实例对应一个应用，默认只使用官方 SDK 的 WebSocket，不需公网 webhook。setup 只注册，不联网；channel.start 才解析凭据、诊断机器人、建立连接。缺凭据/权限/连接在 status 中报告，其他渠道继续启动。
+部分真实场景已通过；完整矩阵未关闭，见[项目状态](../../docs/status.md#飞书)。官方飞书/Lark 消息渠道；一个配置实例对应一个应用，默认只使用官方 SDK 的 WebSocket，不需公网 webhook。setup 只注册，不联网；channel.start 才解析凭据、诊断机器人、建立连接。缺凭据/权限/连接在 status 中报告，其他渠道继续启动。
 
 本包源码由 Codex 实现，不计为 Yonder 自主开发成果；真实调用和未测范围分别记录。根 workspace、锁文件和构建引用由主 agent 统一接线。
 

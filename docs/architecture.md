@@ -16,7 +16,7 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 1. **事件**：渠道或触发器把外部发生的事交给内核（[01-events](spec/01-events.md)）。
 2. **绑定**：内核按 agent 声明的绑定表，决定这个事件进哪个 agent 的哪种会话、用哪个配置档、是否唤醒模型（[02-sessions](spec/02-sessions.md)）。
-3. **会话**：一段持续的对话上下文。main / persistent / ephemeral 与预设 task，生命周期见 [02-sessions](spec/02-sessions.md)；TUI 可续聊 task 的修订方案见 [12](spec/12-terminal-interaction.md)，已批准，待实现验证。
+3. **会话**：一段持续的对话上下文。main / persistent / ephemeral 与预设 task，生命周期见 [02-sessions](spec/02-sessions.md)；TUI 可续聊 task 见 [12](spec/12-terminal-interaction.md)。
 4. **运行**：在会话里执行一次模型循环，工具按安全级别放行（[05-security](spec/05-security.md)、[07-runtime](spec/07-runtime.md)）。
 5. **投递**：运行的输出按规则交回渠道或调用方（[06-delivery](spec/06-delivery.md)）。
 
@@ -32,7 +32,7 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 内核只通过一个适配目录调用 pi（[07-runtime §1](spec/07-runtime.md#1-对接边界)）。
 
-基础 TUI 属于 CLI 客户端，直接沿用 pi v1.3.0 的原生界面、主题与交互，以 pi-tui 和 coding-agent UI 模块承载 Yonder 内容，按 12 §6 的用户截图要求精简角色标记与固定底部信息、适配常用键位，不运行第二个 agent 内核。管理命令主要面向 agent/脚本，同时保持人可读；TUI 面向人的输入、阅读与目标选择。channel-cli 仍是渠道插件，任务会话可直接经控制面驱动；具体方案与审核边界见 [12](spec/12-terminal-interaction.md)。
+基础 TUI 属于 CLI 客户端，直接沿用 pi v1.3.0 的原生界面、主题与交互，以 pi-tui 和 coding-agent UI 模块承载 Yonder 内容，按 12 §6 精简角色标记与固定底部信息、适配常用键位，不运行第二个 agent 内核。管理命令主要面向 agent/脚本，同时保持人可读；TUI 面向人的输入、阅读与目标选择。channel-cli 仍是渠道插件，任务会话可直接经控制面驱动；具体方案与审核边界见 [12](spec/12-terminal-interaction.md)。
 
 ## 4. 核心概念
 
@@ -59,13 +59,13 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 4. **会话状态只归 pi-durable 管。** Yonder 记录"哪个事件进了哪个会话"，不复制转录。
 5. **安全只有一层：能力 + 级别。** 判定点只有两个——工具是否提供给模型、工具调用前是否放行（[05](spec/05-security.md)）。不存在第二套审批或验收机制；以后要加审批，写成钩子插件。
 6. **完成的定义交给模型。** 一次运行在模型给出最终回复（或明确选择不回复）时结束；内核不追加"你确定完成了吗"之类的轮次。
-7. **耗时可观察，取消归调用方。** 时间、轮数、tokens阈值只提醒，不截断正常任务；显式abort、真实协议限制和防重复空转仍生效。长工具由共享后台执行边界托管，见[16](spec/16-execution-capabilities.md)。
+7. **耗时可观察，取消归调用方。** 时间、轮数、tokens阈值只提醒，不截断正常任务；显式abort、真实协议限制和防重复空转仍生效。长工具由共享后台执行边界托管，见[14](spec/14-execution-capabilities.md)。
 8. **工作区经由执行环境访问。** agent 的文件可以在本机，也可以在远程环境里；内核读写工作区一律通过执行环境接口，不直接假设本地文件系统。
 9. **配置可热重载，代码不热重载。** 重载先校验，失败保留旧配置并报告原因。
 10. **不写假数据。** 产品代码、模板、示例不含模拟模型或虚构内容；需要模型的测试用真实模型。
 
-## 6. 当前实施范围
+## 6. 范围与边界
 
-首轮 0.1 核心实现及原验收保留。用户已批准 N00–N14：本机独立安装、自维护与安装管理 agent、MCP、BrowserSkill、Computer Use、文件/Web 工具、Tavily、GitHub issue/发布更新及完整飞书消息渠道，功能分别见 [10](spec/10-local-maintenance.md)、[11](spec/11-official-plugins.md)。官方插件先作为同仓库独立 SDK 包，不把供应商实现放进内核；MCP 调通后主要由真实安装版 Yonder 开发，Codex 负责基础、审查、介入与 PR 合并。
+内核之外的官方插件（渠道、浏览器、搜索、cron、MCP 客户端、自动化等）放在同仓库 `plugins/` 的独立 SDK 包，清单见 [plugins.md](plugins.md)；供应商实现不进内核。
 
-记忆引擎、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在本轮实现范围。04 §8 仅标明这些后续能力可使用的槽，不代表远程兼容已验收。当前安装与桌面验收平台为 macOS，不把 Windows 命名管道或 Linux 服务计为本轮已支持。
+记忆引擎、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在当前范围。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。当前安装与桌面支持平台为 macOS；Windows 命名管道与 Linux 服务未支持。实现状态与已知缺口见 [status.md](status.md)。

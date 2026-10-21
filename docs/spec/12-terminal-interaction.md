@@ -1,18 +1,10 @@
 # 12 命令行与基础终端交互
 
-**状态：2026-10-18 用户已批准本方案并要求拆任务、开始实施、展示实际运行效果。** 新增设计在 U00 冻结，按 [终端任务](../tasks/terminal/README.md) 实施；不把目标或源码检查当成已实现/已安装/真实终端验收。N00–N14 原授权与进度保留。
+## 1. 原则：沿用成熟产品，不另设计交互
 
-## 1. 为什么改：直接沿用成熟产品，不另设计交互
+以 pi coding-agent v1.3.0 原生终端组件与布局为实现基准；沿用其编辑、消息、工具和选择器，只适配 Yonder 内容及后端。依据 Claude Code 的交互说明做有限的精简呈现与常用键位适配（§6）；不引入第二套渲染框架。选择 pi 是因为本项目已使用其运行库，界面源码和组件可核验；不是因为要把 Yonder 改成编码 agent。
 
-用户先要求基础 TUI、Tab 补全、中英文提示、斜杠补全与列表选择，随后明确纠正：
-
-> 我们的所有的交互 所有的显示 所有的框架都照搬现有现成的东西
-
-> 但是其他的都应该和其他项目是相同的 就这样才符合用户的直觉 然后同时呢也能保持我们的特点
-
-因此本次取消上一版自行设计的界面线框、布局、快捷键和菜单操作规则。**以 pi coding-agent v1.3.0 原生终端组件与布局为实现基准；沿用其编辑、消息、工具和选择器，只适配 Yonder 内容及后端。** 2026-10-18 用户看过运行画面后追加 Claude Code 截图要求，批准以下精简呈现与常用键位适配；不引入第二套渲染框架。选择 pi 是因为本项目已使用其运行库，界面源码和组件可核验；不是因为要把 Yonder 改成编码 agent。
-
-原 D2 将“不使用 coding-agent 的运行系统”和“不复用它的界面”混在一起，范围过宽。修订后不引入其模型循环、SessionManager 或配置存储，但允许直接复用 coding-agent 的 UI、主题与键位实现。仅使用 pi-tui 的通用组件再独立拼界面，不满足本次要求。
+不引入 coding-agent 的模型循环、SessionManager 或配置存储，但允许直接复用其 UI、主题与键位实现。仅使用 pi-tui 的通用组件再独立拼界面，不满足该原则。
 
 ## 2. 复用范围与职责
 
@@ -92,7 +84,7 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 | `/close` 关闭任务 · Close task | 关闭 manual task，保留历史；运行中用原生确认选择器明确中止并关闭 |
 | `/help` 帮助 · Help | 在原生命令呈现方式下说明 Yonder 命令与操作 |
 
-移除上一版与上游同义的 `/sessions`、`/status` 自定命名。退出沿用 pi 的退出动作，不再要求独立 `/exit` 命令。上游模型切换、fork/tree、分享等没有 Yonder 后端契约的能力，不伪装可用；不把上游全部业务功能自动算作本次范围。已有等价能力必须复用原入口，不因“Yonder 特点”另造一套。
+退出沿用 pi 的退出动作，不再要求独立 `/exit` 命令。上游模型切换、fork/tree、分享等没有 Yonder 后端契约的能力，不伪装可用；不把上游全部业务功能自动算作本次范围。已有等价能力必须复用原入口，不因“Yonder 特点”另造一套。
 
 ### 5.3 补全与双语
 
@@ -100,19 +92,17 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 
 ## 6. 原生交互与通用键位适配
 
-界面动作以 pi v1.3.0 的 [Keybindings](https://github.com/earendil-works/pi/blob/v1.3.0/packages/coding-agent/docs/keybindings.md) 和同 tag 源码为准。编辑、补全、选择、粘贴、滚动和消息渲染继续由 pi 实现。依据用户追加截图和 [Claude Code 官方交互说明](https://code.claude.com/docs/en/interactive-mode)，本轮采用以下有限适配：
+界面动作以 pi v1.3.0 的 [Keybindings](https://github.com/earendil-works/pi/blob/v1.3.0/packages/coding-agent/docs/keybindings.md) 和同 tag 源码为准。编辑、补全、选择、粘贴、滚动和消息渲染继续由 pi 实现。依据 [Claude Code 官方交互说明](https://code.claude.com/docs/en/interactive-mode)，采用以下有限适配：
 
 - Enter 发送、Shift+Enter / Ctrl+J 换行；Tab 接受补全，↑↓ 选择、Enter 确认、Esc 返回，保持原生。
 - Esc 中止当前会话运行（菜单打开时先关闭菜单）；Ctrl+C 运行时中止，空闲时清空，再快速按一次退出；Ctrl+D 空输入退出、非空输入删除字符。
 - Ctrl+O 展开/收起工具、thinking 和底部详情；Ctrl+G 外部编辑器，Ctrl+L 重绘，Ctrl+P/N 输入历史。不将 Ctrl+T 声称为 Claude 任务列表，原生 thinking 快捷键移除，统一随 Ctrl+O 收展。
 - 编辑器只输入 `?` 时显示底部快捷键微提示，继续输入其他文字即恢复普通输入；`/hotkeys` 也切换该帮助，Esc 可收起。帮助显示实际启用按键，不能列未接线能力。
 - 默认底栏一行：真实对象/会话、实际模型、状态及 `? 快捷键` 或运行中 `esc 中止`。`/session` 或 Ctrl+O 切换固定底部详情；折叠时不常驻 cwd、token、能力长列表。顶部只保留简短品牌。
-- 消息呈现依据 Codex rust-v0.160.1 的 history_cell/messages.rs、style.rs 与 exec_cell/render.rs 调研及实际本机 Codex Luna 对照：两列灰色行首标记、用户灰背景，去掉 pi 已有 padding 外再叠加的标签/Spacer。只加这一层呈现适配，内容换行、Markdown、工具结果仍由 pi 负责；背景只填真实文字行，不渲染多余的整块空白。终端内不插入字符间隔或隔行，预览行高 1.25、letterSpacing 0；真实终端字体/像素行高由宿主终端控制，不写用户终端配置。
+- 消息呈现依据 Codex rust-v0.160.1 的 history_cell/messages.rs、style.rs 与 exec_cell/render.rs 调研：两列灰色行首标记、用户灰背景，去掉 pi 已有 padding 外再叠加的标签/Spacer。只加这一层呈现适配，内容换行、Markdown、工具结果仍由 pi 负责；背景只填真实文字行，不渲染多余的整块空白。终端内不插入字符间隔或隔行，预览行高 1.25、letterSpacing 0；真实终端字体/像素行高由宿主终端控制，不写用户终端配置。
 - 只复用 pi 的原生 Text/消息/页脚/编辑/选择组件，不新增主题系统或自制编辑器。pi 原生 Alt+Enter 后续输入、Alt+↑ 撤回队列继续有效，提示如实标明；未实现的 Claude 权限切换、rewind、后台任务不能暗示可用。
 
-调整原因：用户已指出原生启动帮助过长、角色区分不足、顶部信息滚出后难查；此处以其明确最新要求替换原来的“任何显示和键位都不调整”，保留 pi 框架与后端边界。
-
-- 删除上一版“运行中禁止第二次发送”。独立任务按上游的当前任务引导/后续输入动作映射 pi-durable 的 steer/followup，不在客户端新建队列。相关提交/取消关联属于必须补齐的后端适配；未接通不能宣称继承该操作。
+- 独立任务按上游的当前任务引导/后续输入动作映射 pi-durable 的 steer/followup，不在客户端新建队列。相关提交/取消关联属于必须补齐的后端适配；未接通不能宣称继承该操作。
 - 渠道模式仍由绑定决定 busy 和运行归属，界面显示实际行为，不能用上游 UI 动作绕过绑定。渠道差异属于内容/后端语义，不能悄悄更改通用键位。
 - 上游菜单、搜索和编辑器拥有的按键先按其原生优先级处理；不能关闭菜单同时触发一次中止。原生中止动作对接真实运行，不能把取消观察当已中止模型。
 - 退出/断开不隐式关闭或中止后台任务；在上游提示位置显示运行仍继续及可恢复的真实 session。切换目标沿用上游切换与草稿处理方式，不再自定每目标草稿缓存机制。
@@ -135,15 +125,15 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 
 这些接口细节必须在实现任务中与 SDK/控制协议一起落地，不能用浏览器、进程内另一份 agent 或第二套队列绕过。
 
-## 8. 评审与验收边界
+## 8. 验收
 
-用户已批准实施 U00–U05。按任务允许路径实现、检查并提供真实终端画面；允许隔离 home 与项目既有凭据引用的真实模型检查，不自动替换日用安装、改主人 home 或发布。原 N 任务继续保留，不把本轮检查冒充其全部验收。
+实现、检查并提供真实终端画面；允许隔离 home 与真实模型检查，不自动替换日用安装、改主人 home 或发布。
 
 基础交互验收必须覆盖：
 
 1. 新 home 初始化、真实 provider 登录、启动服务、进入 TUI；打开界面/列表无模型调用，首条消息使用真实模型执行工具并回答。
 2. 同一 manual task 连续追问、退出再进入、服务重启恢复；默认 run-end/task_run 行为保持，关闭后拒绝输入，历史仍可查。
-3. 同版本 pi 原生界面与 Yonder 在同终端、列宽、主题下并排核对：布局、输入、补全、选择、滚动/搜索、快捷键、Markdown、工具折叠、粘贴/中文宽度与退出恢复。差异限真实内容、已列后端语义及 §6 用户批准的精简呈现/键位；实际截图/录屏是证据，自画线框不算。
+3. 同版本 pi 原生界面与 Yonder 在同终端、列宽、主题下并排核对：布局、输入、补全、选择、滚动/搜索、快捷键、Markdown、工具折叠、粘贴/中文宽度与退出恢复。差异限真实内容、已列后端语义及 §6 的精简呈现/键位；实际截图/录屏是证据，自画线框不算。
 4. 运行中引导/后续输入、中止与排队输入处理，核对上游动作映射和原生执行事实，不把“禁用发送”当完成。
 5. 真实工具成功/失败、空回复、模型错误、上限、显式 abort、断连和接纳未知；输入不丢、状态不猜、不重复运行或输出最终回复。
 6. 渠道进入和原 main 连续对话、多目标路由展示、无绑定反馈；不能因 TUI 选择目标绕过绑定。
@@ -154,6 +144,5 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 
 - 原生组件与布局基准：[pi coding-agent v1.3.0](https://github.com/earendil-works/pi/tree/v1.3.0/packages/coding-agent/src/modes/interactive)，重点是 interactive-mode 的布局装配、components、theme 和 core/keybindings；公开 UI 导出见同 tag 的 src/index.ts。它不是已独立于 AgentSession 的通用后端客户端，不能直接声称“接上 socket 即完成”。
 - 通用渲染：[pi-tui v1.3.0](https://github.com/earendil-works/pi/tree/v1.3.0/packages/tui)。只使用它而重写整套产品界面，不算本次复用达标。
-- AI-Being commit `8aa49512e588717b988eb6b95b1318180f56d7be` 的 `src/tui-chat.ts`、`src/command-menu.ts` 只作为连接自有 daemon 的接线参考，不再作为第二套 UI 风格来源；其依赖版本与基准不同，不能替代 v1.3.0 验证。
-- Claude Code 用户截图及 [官方交互说明](https://code.claude.com/docs/en/interactive-mode) 用于 §6 的精简信息与常用键位适配；渲染组件仍统一使用 pi。DSH、Hermes、Codex 不另引入组件。
-- Codex 消息与灰背景来源：[messages.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/history_cell/messages.rs)、[style.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/style.rs)、[exec_cell/render.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/exec_cell/render.rs)。本机实际版本 0.160.1，已新开只读 Luna 核对；Rust 实现作呈现规则参考，不移植其后端。
+- Claude Code [官方交互说明](https://code.claude.com/docs/en/interactive-mode) 用于 §6 的精简信息与常用键位适配；渲染组件仍统一使用 pi。DSH、Hermes、Codex 不另引入组件。
+- Codex 消息与灰背景来源：[messages.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/history_cell/messages.rs)、[style.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/style.rs)、[exec_cell/render.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/exec_cell/render.rs)。Rust 实现作呈现规则参考，不移植其后端。

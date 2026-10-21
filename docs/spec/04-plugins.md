@@ -94,7 +94,7 @@ interface ToolResult {
 }
 ```
 
-工具名只用下划线与连字符，不用点：OpenAI、Anthropic 只接受 `^[a-zA-Z0-9_-]+$`（T02 规划时用 `gpt-6-luna` 验证，带点的名字返回 400）。内核内置工具同样如此：`message_send`、`task_run`、`session_*`、`identity_*`；pi 自带的 `read`、`write`、`edit`、`bash`、`tool_search` 保留原名。配置档里的 `tools` 通配（如 `qq_*`）按这个名字匹配。
+工具名只用下划线与连字符，不用点：OpenAI、Anthropic 只接受 `^[a-zA-Z0-9_-]+$`（已用 `gpt-6-luna` 验证，带点的名字返回 400）。内核内置工具同样如此：`message_send`、`task_run`、`session_*`、`identity_*`；pi 自带的 `read`、`write`、`edit`、`bash`、`tool_search` 保留原名。配置档里的 `tools` 通配（如 `qq_*`）按这个名字匹配。
 
 注册：`api.tools.register(tool)`。runtime 把它转换成 pi 的工具（07 §3）。工具抛出异常等同于 `isError: true`，异常消息即 `text`。
 
@@ -223,7 +223,7 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 
 ## 8. 留给以后的能力用哪个接口
 
-下表是扩展槽的归属。当前批准的官方插件按 11 实现；其余能力仅保留扩展入口。具体供应商能力写插件，只有规范已批准且现有公共契约确实不足的部分才修改 SDK/共享内核。
+下表是扩展槽的归属。官方插件见 11 与 [plugins.md](../plugins.md)；其余能力仅保留扩展入口。具体供应商能力写插件，只有规范已批准且现有公共契约确实不足的部分才修改 SDK/共享内核。
 
 | 能力 | 用到的接口 | 做法 |
 |---|---|---|
@@ -237,11 +237,11 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 | 语义级防空转、审计 | `hooks` | 钩子插件 |
 | 飞书卡片等富消息 | `tools` | 渠道插件自带的工具，如 `feishu_send_card` |
 
-## 9. 本地插件管理补齐
+## 9. 本地插件管理
 
-已批准 13 §3.1 的 list/show/add/remove 是本页加载/清单规则的管理入口；yonder.yaml.plugins 仍是唯一加载名单。候选完整校验、存在引用拒绝移除、不自动重启、不删外部源码/私有数据；不增加 enabled 状态表、Hub 或热卸载。
+13 §2.1 的 list/show/add/remove 是本页加载/清单规则的管理入口；yonder.yaml.plugins 仍是唯一加载名单。候选完整校验、存在引用拒绝移除、不自动重启、不删外部源码/私有数据；不增加 enabled 状态表、Hub 或热卸载。
 
-## R0 发送与可省略配置（D34）
+## 10. 发送与可省略配置
 
 PluginAPI.messages.send(request, ctx?: ToolContext) 的可选 ctx 仅供模型工具将实际 execute 上下文原样交回内核。传入时必须是本次 runtime 生成的有效上下文，内核统一执行来源/message、附件 read/真实路径及执行环境检查，发送归属真实 session/agent；不能接受模型提供的伪造上下文。未带 ctx 的可信插件主动发送仍绑定 plugin 身份。
 
@@ -249,13 +249,13 @@ Delivery.uncertain:true 表示副作用可能已发生但无法确认，必须 o
 
 插件配置省略时按空对象交给对象 schema 与 setup；schema 中真正 required 的字段仍校验失败，不跳过校验。
 
-## D35 渠道自动回复来源
+## 11. 渠道自动回复来源
 
 OutMessage可携带sourceMessageId表示自动回复所回答的原始消息；不等同于显式replyTo。stream既有第三参数表示自动回复源消息，渠道决定引用呈现。CLI命令名字/描述共用SDK静态清单；飞书只执行11明确的已有命令子集，不复制TUI交互或新增任意控制代理。
 
-## E40 程序消费者与运行版本
+## 12. 程序消费者与运行版本
 
-用户批准现有 events.on 用作确定性程序动作入口，允许可信插件调用共享函数或其明确配置的脚本。原始事件作为数据传递，不拼接 shell，不伪造 ToolContext，不将插件程序动作冒充模型调用。没有新工作流引擎或任意脚本管理器。
+现有 events.on 可用作确定性程序动作入口，允许可信插件调用共享函数或其明确配置的脚本。原始事件作为数据传递，不拼接 shell，不伪造 ToolContext，不将插件程序动作冒充模型调用。没有新工作流引擎或任意脚本管理器。
 
 PluginAPI 增加只读 version:string，为实际宿主软件版本，不是插件包版本。release 为内核保留插件 ID 前缀，插件不能冒充 release.update-result。事件订阅、模型工具可以复用业务函数，权限判定按各自真实调用方；订阅不替换 Agent 绑定，若两者都选则分别执行，配置者负责不重复安排同一副作用。
 

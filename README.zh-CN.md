@@ -6,7 +6,7 @@ Yonder Harness 是本机 Agent 运行时：把收到的事件路由到 Agent 与
 
 模型访问与持久化 Agent 会话使用 pi（`pi-ai`、`pi-durable`）作为依赖。产品名称是 Yonder Harness；pi 是底层依赖及上游来源。
 
-> **状态：** 正式版 0.1.2026101907 已发布并完成独立 macOS 升级。新增后台工具/软提醒、Agent与preset热管理、cron、通用MCP客户端和独立浏览器/macOS桌面插件。12包随发行，本机加载11个；新用户仍按配置启用能力。实际验证与边界见[1907结果](docs/tasks/execution-capabilities-result.md)，功能见[注册名树](docs/function-tree.md)与[插件清单](docs/plugins.md)，原[1906全貌对比](docs/tasks/product-capabilities-1906.md)保留为历史。
+> **状态：** 开发者预览，仅支持 macOS。内核、CLI 与终端界面、安装更新和 12 个官方插件已端到端跑通；新安装默认只启用 CLI 渠道和工作区上下文文件，其他能力按配置启用。已验证什么、缺什么、哪些还没测，见 [docs/status.md](docs/status.md)。
 
 ## 日常使用
 
@@ -103,12 +103,7 @@ source <(yonder completion bash)  # bash
 
 - [架构](docs/architecture.md)
 - [规范索引](docs/index.md)
-- [0.1 实现任务](docs/tasks/README.md)
+- [项目状态](docs/status.md) · [参与开发](CONTRIBUTING.md)
+- [官方插件清单](docs/plugins.md) · [注册名参考](docs/reference.md)
 
 许可证：[Apache-2.0](LICENSE)
-
-- [完整功能与英文注册名树 / Function tree](docs/function-tree.md)
-
-## 当前正式版本与能力
-
-0.1.2026101906已通过独立update安装，升级/核验/飞书通知由程序执行，不额外唤醒Agent。9个插件包随发行，本机加载8个，图片/ASR服务尚未配置；不能把本机已有授权与插件选择当成陌生用户安装默认。完整说明见[产品能力与Hermes/OpenClaw体验对比](docs/tasks/product-capabilities-1906.md)，真实安装与发送证据见[1906记录](docs/tasks/release1906-result.md)。

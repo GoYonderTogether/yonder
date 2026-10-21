@@ -1,5 +1,3 @@
-> 2026-10-19 已批准补齐：[16](16-execution-capabilities.md)。Agent热管理、work、归档与模板创建以16 §4为准；limits.maxTurns/maxMinutes/maxTokens是软提醒阈值，不再截断任务。
-
 # 03 Agent、配置档与提示词组装
 
 ## 1. 两类执行者
@@ -105,7 +103,7 @@ bindings: [ … ]                   # 见 02 §2
 
 内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、06 §4 列出的规则、可以用 `yonder` 命令与 `yonder docs` 了解和维护自己的运行环境（09 §1，仅当配置档有 `exec`）。用英文书写，**应当**控制在 250 词以内。
 
-### 5.2.1 非插件内置底座（2026-10-19 用户批准）
+### 5.2.1 非插件内置底座
 
 内核编译保存等义英文正文，中文审阅源见 docs/prompts/builtin.zh-CN.md。共同底座说明产品愿景、判断与工作方式、事实与反馈、使用建议、资产维护；常驻身份说明唯一主人、独立身份与生命连续性、记忆与分工、协作、自管理与成长；运行约定说明事件、插件、会话、元数据、源码/配置入口和设备关系。它们不注册为插件，不包含具体名字、人设或固定文风，不改权限系统。
 
@@ -127,7 +125,7 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 - `attachment:` 每个附件一行。模型支持图片输入时，图片附件不列在这里，而是由内核读取后作为图片块放进同一条用户消息（超出模型 `inputLimits` 的仍按附件列出）；其余附件只列出，由工具处理。`http(s)` 地址由内核下载到 `<home>/.yonder/attachments/` 后改写为 `file://`。
 - `notice:` 只在会话的 `version` 与当前版本不同时出现一次（09 §4）。
 - 以 `wake: write` 写入的消息只带 `from` 与 `attachment` 行，不带时间以外的环境信息。
-- id/type 对 write 同样保留；message.in/session.input 继续使用 text 与附件，其他事件将完整 data JSON 序列化为正文。插件负责原生事实，内核不识别 release 或卡片专用字段。外部名称、附件名按字符串转义为单行，不能通过换行或标记制造框架边界；原事件保持不变（10 §3.1）。
+- id/type 对 write 同样保留；message.in/session.input 继续使用 text 与附件，其他事件将完整 data JSON 序列化为正文。插件负责原生事实，内核不识别 release 或卡片专用字段。外部名称、附件名按字符串转义为单行，不能通过换行或标记制造框架边界；原事件保持不变（10 §1.1）。
 - 提示词、环境、能力与投递均使用本次运行配置；新选中的上下文文件在配置发布前完成必要 scaffold。版本只在输入真正提交后确认，准备失败不能吞掉 notice。
 
 ### 5.4 SYSTEM.md 模板
@@ -169,14 +167,15 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 
 ## 7. 本地管理补齐
 
-Skills 本地导入/查看/删除、来源与配置诊断的完整边界按已批准 13 §3。发现/遮蔽/profile 选择仍按本页，不增加自动学习引擎、启停数据库或会话中 profile 热切换。
+Skills 本地导入/查看/删除、来源与配置诊断的完整边界按 13 §2。发现/遮蔽/profile 选择仍按本页，不增加自动学习引擎、启停数据库或会话中 profile 热切换。
 
-## R0 子任务结果（D34）
+Agent 与预设的热管理、归档与模板创建见 [14 §4](14-execution-capabilities.md)；limits.maxTurns/maxMinutes/maxTokens 是软提醒阈值，见 14 §1。
+
+## 8. 子任务结果
 
 子任务输入附件由调用方显式选择，默认不继承父全部附件；每条附件保留原来源与既有读取范围。task_run 返回包含实际 child session、status、reason、text 和可选 attachments 的结构化正文。ToolResult 可携带显式 attachments，runtime 把这些真实产物引用存入该工具原生结果元数据并在本轮结果中保留；没有产物不造附件，不从自然语言猜路径，不扫描工作区搜集文件。结果引用不自动扩大父调用方权限，读取/发送仍校验；不增加 artifact 数据库。
 
-
-### 内置创作与开发技能（D37）
+## 9. 内置创作与开发技能
 
 发行包含完整上游skill-creator（含许可及引用资源）与简洁yonder-development，默认skills=[*]的所有agent及预设可发现，只有名字描述进入索引，正文仍由skill_view按需加载。显式skills选择/禁用和workspace/home覆盖仍有效，不以“默认”绕过用户过滤。现有本机agent配置中的显式白名单加入这两项，不强制未来配置。
 

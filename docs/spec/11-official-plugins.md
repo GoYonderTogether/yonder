@@ -1,16 +1,12 @@
-> 2026-10-19 已批准补齐：[16](16-execution-capabilities.md)。新增cron、通用MCP客户端、独立浏览器/macOS桌面替代插件见16；旧MCP服务端和宿主桥接保留。
-
 # 11 官方插件与常规工具
-
-**状态：2026-10-18 用户已授权补齐方案并启动实施。** 已与 10 一起由 N00 对齐旧规范并冻结，提交见 N00 结果。此处固定功能；具体顺序、文件和执行者仅写任务计划。
 
 ## 1. 插件归属与内核边界
 
-本轮官方插件放在主仓库 `plugins/` 的独立 npm workspace 包；沿用现有清单、八个贡献槽、配置实例和 profile 选择。当前没有独立发布节奏的需要，不建立子模块或第二个插件仓库。将来独立发布可直接拆包，当前不增加兼容包装。
+官方插件放在主仓库 `plugins/` 的独立 npm workspace 包；沿用现有清单、八个贡献槽、配置实例和 profile 选择。当前没有独立发布节奏的需要，不建立子模块或第二个插件仓库。将来独立发布可直接拆包，当前不增加兼容包装。
 
 插件可使用其功能所需的正常第三方依赖；Yonder 内部只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件内部代码。pi 运行时依赖仍只在 core/runtime。任何针对具体渠道/浏览器/搜索供应商的实现均在插件中。
 
-本轮新增六个包：`channel-mcp`、`codex-tools`、`browser-skill`、`web-tools`、`channel-github`、`channel-feishu`。已有 channel-cli、context-files 保留。
+官方插件清单见 [plugins.md](../plugins.md)；cron、mcp-client、native-automation 的契约见 [14](14-execution-capabilities.md)。
 
 setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接、远端失败是可诊断的未就绪状态，插件不因此终止核心 CLI 或其他渠道；一次工具调用失败返回真实原因。清单冲突、无效配置等错误必须显式报告，不能用空结果伪装成功。不建立插件进程沙箱，也不承诺任意插件程序错误已获得进程隔离。
 
@@ -23,21 +19,19 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 映射原生业务 API：事件 emit/ask/query；会话 list/get/open/submit/abort/close/transcript；身份 account/person/relation/lookup/createPerson/link/unlink；messages.send。只有渠道自己的 message.in 与合法插件自定义事件可发出，内核事实不能伪造。
 - open/submit 仍只用于预设；常驻 agent 初次创建沿用工作区文件与配置方式，不为此增加配置 CRUD 数据库。
 - 凭据读取、含密钥的服务解析与模型登录不映射成模型可见工具；模型可用性可返回不含秘密的信息。
-- 异步接收返回原生事件/会话身份，查询真实事件、转录和结果；同步 ask 返回原生 AskResult。不创建 MCP 自有任务状态机。取消、断连和恢复遵守 10 §3。
-- 验收：真实 MCP 客户端发现工具、Luna 输入、工具调用、查结果、取消等待及明确 abort；非法来源拒绝。
+- 异步接收返回原生事件/会话身份，查询真实事件、转录和结果；同步 ask 返回原生 AskResult。不创建 MCP 自有任务状态机。取消、断连和恢复遵守 10 §1。
 
 ## 3. 本机 Codex 工具与 Computer Use
 
-一个 `codex-tools` 插件优先复用同一 Codex app-server 的本机连接，用于 Computer Use 与 hosted web search；桌面采用下述替代后端时只接一种桌面实现。它不替代 Yonder 的 pi 模型循环。功能及后端选择规则先冻结，实际后端须有可调用证据后才能记为选定。
+一个 `codex-tools` 插件优先复用同一 Codex app-server 的本机连接，用于 Computer Use 与 hosted web search；桌面采用下述替代后端时只接一种桌面实现。它不替代 Yonder 的 pi 模型循环。
 
 ### 3.1 桌面能力
 
 - 优先复用本机已安装的 ChatGPT/Codex Computer Use 运行程序与官方插件，通过文档化 app-server MCP 发现/调用能力连接。按本机可用配置发现路径，不把某个缓存版本号硬编码成唯一入口，不复制专有实现进仓库。
-- 若该路径实际不可用，选用用户指定的 open-computer-use MCP。实现前完成这一次后端验证，选定一个默认后端；不同时开发两套桌面驱动，不在用户拒绝权限后切换后端绕过限制。
+- 若该路径实际不可用，选用指定的 open-computer-use MCP。只接一种桌面实现，不同时开发两套桌面驱动，不在用户拒绝权限后切换后端绕过限制。
 - 暴露实际可用的应用发现、界面/辅助功能树、截图、点击、输入、按键和滚动，保留上游交互语义、图片结果与错误。只提供说明文档不算实现。
 - 状态能区分程序缺失、服务未启动、权限未授权、调用失败。缺权限时引导系统授权，授权后再次真实读取确认。
 - 默认保持焦点；任务明确要求打开浏览器、授权和飞书真实操作时才执行对应前台动作。一次桌面操作后按实际界面确定下一步，不盲重放副作用。
-- 验收：Yonder 自身发现一个获准应用、读界面/截图、完成一次可逆交互；最终飞书测试必须由桌面工具观察客户端实际变化。
 
 ### 3.2 OpenAI 登录态搜索
 
@@ -45,8 +39,6 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 使用有界搜索任务，限制其用途为搜索；结果包含实际来源链接、所用模型和可确认的 native webSearch 调用。不能只返回一段无搜索记录的模型回答。
 - 无登录、权限或可用工具时报告具体未就绪；Tavily 是同轮明确支持的另一搜索入口，不把失败悄悄变成另一个供应商的成功。
 - hosted search 的账号访问需要真实测试；不能因为 pi 能使用某个 OpenAI 模型，就推断它也能直接调用 hosted web_search。
-- 保留 hosted search 的接通目标并尽早试通。无登录、权限或接口不可用时，该能力单独记阻塞，继续 BrowserSkill、Tavily、测试和渠道等独立工作；不得以 Tavily 成功代记 hosted search 通过。若实际不可行，带证据提交范围决定，不由实现者删除目标或宣称整轮完成。
-- 验收：Yonder 发起一次当前信息搜索并取得 native 搜索记录及可打开来源；对照 Tavily 的真实结果分别记证据。
 
 ## 4. BrowserSkill 默认浏览器能力
 
@@ -56,7 +48,6 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 扩展未连接不等于没安装。引导先检查连接；确需安装时，用 macOS 打开 URL 或已获准 Computer Use 打开官方安装页，让用户完成商店安装/连接。这个引导不能依赖尚未就绪的 BrowserSkill 自己点击页面。
 - 引导保留实际使用的浏览器/配置实例，说明本地连接配置；用户完成后重新诊断、创建 Agent Window、真实导航观察，再记就绪。daemon 已启动不代表扩展已连通。
 - 自动化期间沿用 Agent Window、会话与借用规则，不改变扩展权限设置绕过提示。结束时释放本任务会话。
-- 验收：已连接路径完成真实页面任务；未连接路径有真实诊断与安装/连接引导证据，不卸载用户已有扩展来制造测试。
 
 ## 5. 文件检索、Bash 与 Web
 
@@ -78,20 +69,27 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 公开 HTTP GET，返回最终 URL、正文和来源；支持 HTML 正文、纯文本、JSON/Markdown 文本，输出可选 Markdown/text/html。HTML 正文使用成熟提取库；不支持的二进制类型明确返回 MIME 与下载入口，不谎称已解析正文。
 - 正文有界读取、输出明确截断；支持明确取消、必要重定向与真实 HTTP 错误。登录页、401/403 和 JS 外壳给出可用下一步；登录态页面交 BrowserSkill，JS 正文可显式使用 Tavily Extract。
 - 简单公开网页先直接读取；不为每个失败堆叠自动供应商回退、模型重试或浏览器接管。供应商和渲染路径须可见，不能把提取失败记为成功空文本。
-- 验收：真实中文/时效查询、域限制、公开文章、JS 页面 Extract、登录提示与一次取消；OpenAI hosted search 与 Tavily 分别实测。
 
 ## 6. GitHub issue、PR 与发布消息
 
 - 一个 `channel-github` 插件承担本项目 issues/comments 与 releases；使用现有 gh 的浏览器授权和安全凭据存储。授权时打开浏览器由用户确认；插件不调用 auth token 输出秘密。
-- 仓库、接纳账号与任务标签显式配置，默认只接本项目的授权任务。issue/评论转 message.in，按 issue 建 persistent 会话；release 转独立的合法插件事件，由程序按已批准策略处理，不默认绑定模型。正文是外部数据。
+- 仓库、接纳账号与任务标签显式配置，默认只接本项目的授权任务。issue/评论转 message.in，按 issue 建 persistent 会话；release 转独立的合法插件事件，由程序按配置的策略处理，不默认绑定模型。正文是外部数据。
 - 本机先用 REST 轮询，不要求公网 webhook；分页、水位与原生对象 id 持久化，重启能继续，同一输入不重复触发；自己的状态评论、PR 伪装的 issue 不制造自循环。跨接收/入库的重复问题由 10 的统一接纳契约解决，不另造插件任务队列。
 - 工具支持读取 issue/评论、回报方案与进度、分支/提交所需信息、创建 PR、查看 diff 与检查结果。源码分支和提交复用 git。
-- maintainer 创建 commit/PR；Codex 当前负责审查和合并。管家的 release/update 按 10 §6，不增加一个重复 GitHub 客户端的发布插件。
-- 验收：Codex 实际提交 issue，Yonder 经事件接收、设计、修复、检查、提交 PR；Codex 审查合并；一次真实发布触发已批准程序更新并确认实际安装结果。
+- release/update 按 10 §3，不增加一个重复 GitHub 客户端的发布插件。
+
+### 6.1 首次 Release 基线
+
+首次成功读取 Release 列表时，先将当时已有原生 release id 保存为接收基线，不逐个唤醒 Agent 应用历史版本；历史仍可用 read_release 查询。基线持久化成功后才接纳后续首次出现且获准的正式 Release。notify/apply 和显式 update --to 的既有权限不变；不新增版本策略平台。GitHub 普通评论与飞书普通消息工具通过共同 messages.send(request, ctx)，副作用结果不确定返回 uncertain。
+
+### 6.2 程序更新与通知
+
+沿用 approvedAuthors、policy、updater 与 notifyTarget。新增 releases.notifyUpdates?:boolean，默认 false，只有显式 true 才程序订阅内核 release.update-result 并直接向 notifyTarget 发消息。按实际仓库/install/home过滤，按updateId与实例记录一次通知尝试及Delivery，未知不自动重发；不扫描历史重发。apply由精确release订阅器重读真实Release再调用原scheduleUpdate，不构造ToolContext；notify只保留事实。原模型工具继续供用户显式请求使用，但默认移除同时自动执行的run绑定。
+贡献 channel-github.release-availability（placement:turn），使用最近成功轮询核实的最高获准正式版本与宿主version比较；仅显示严格更新版本，首次基线也核实。正文不含Release body，聊天不联网，选用贡献才展示，不改system。旧job回执/历史保留，但新程序通知只消费统一core事件，不对旧channel-github.update-result再通知。
 
 ## 7. 飞书消息渠道
 
-必须由 **Yonder 维护 agent 实际开发** `channel-feishu`，Codex 审查设计、介入阻塞并检查真实客户端。设计前完整阅读最新固定 commit 的 OpenClaw 和 Hermes 飞书相关调用链，并对照飞书官方接口。
+设计依据：固定 commit 的 OpenClaw 和 Hermes 飞书调用链，并对照飞书官方接口。
 
 完整范围指下列渠道消息能力；不把上游所有办公应用 API 当作消息插件的前置依赖。
 
@@ -116,25 +114,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 自定义卡片操作记录插件事件与 pi 工具转录；普通发送仍由既有 message.out 记录。回调有来源、操作者与原消息关联，经合法插件事件进入绑定。
 - 卡片模板、是否流式、回复目标及必要的大小/分块参数可配置；不复制上游与本阶段无关的历史兼容字段。
 
-### 7.4 真实验收
-
-必须同时有服务端 API/事件证据与用户真实飞书客户端的 Computer Use 观察；只读日志、HTTP 200 或模型口头完成均不算通过。
-
-逐项验收并记录：私聊；群聊 @ 与不 @ 的绑定效果；Markdown/post；图片；文件；音频；视频；回复/线程；普通卡片；流式卡片开始/更新/完成；取消/失败收尾；按钮回调；断连恢复及同消息不重复。使用获准的专用测试会话，避免无关聊天内容。
-
-缺应用权限、凭据或系统授权时保留具体阻塞与未测项，完成可独立部分；不能降低矩阵或声称全通。
-
-## 8. 上游复用与冻结
-
-允许直接移植成熟功能模块并保留必要来源/许可记录，适配为本项目 SDK。选择以覆盖本轮契约、状态所有权清楚、依赖少、可维护为依据；不复制整套 OpenClaw/Hermes/OpenCode 内核，也不删除其实现中本任务真实需要的取消、输入边界或协议行为。
-
-参考仓库可以更新；每项实现开始时固定实际使用的 commit 与模块。参考项目之后更新不自动改变本轮功能规范。功能冻结及变更规则遵守 10 §8。
-
-## R0 Release 首次基线（D34）
-
-首次成功读取 Release 列表时，先将当时已有原生 release id 保存为接收基线，不逐个唤醒管家 应用历史版本；历史仍可用 read_release 查询。基线持久化成功后才接纳后续首次出现且获准的正式 Release。notify/apply 和显式 update --to 的既有权限不变；不新增版本策略平台。GitHub 普通评论与飞书普通消息工具通过共同 messages.send(request, ctx)，副作用结果不确定返回 uncertain。
-
-## F 轮：飞书恢复与交互（D35，用户已批准）
+### 7.4 恢复与交互
 
 - 飞书随harness统一启停；WS创建不受bot/info瞬时失败阻断，使用官方SDK唯一重连循环，stop取消连接/初始化/历史请求。状态区分连接、身份和补齐，永久配置/鉴权错误明确可见。
 - 启动/重连按安装基线和每会话持久水位查询固定截止时间的历史；全新安装无账本时不自动执行此前消息；已有安装首次启用补齐时，从各已知会话账本最后已完成消息时间续接，不以升级后的当前时间跳过安装间隙。已知私聊及机器人获准群逐页补齐，群列表不能枚举未知私聊。群线程旧根的新回复需单独取线程历史、本地过滤时间；权限不足或分页失败标未补齐，不推进失败会话水位。
@@ -145,8 +125,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 自动回复与显式replyTo分开：自动投递提供sourceMessageId；飞书在首次可见发送时，若本会话该源消息之后已有新的用户气泡则引用，否则普通发送。合并运行取本目标实际回答的最后消息；显式replyTo仍严格执行。沿用已有thread，默认不新建话题；已可见流式卡片持续更新，不因后来用户消息移动或重复发送。
 - 复用统一api.log，记录时间/级别/插件/实例/阶段及适用的event/session/run/msg；网络原因仅白名单错误字段，不写凭据/请求对象或默认消息全文，不新增日志平台。
 
-
-## 飞书会话背景与待处理输入（D36，2026-10-19 用户批准设计并修复）
+### 7.5 会话背景与待处理输入
 
 - 接纳去重、水位仅表示协议接纳；pi inbox及运行回执负责排队、处理/终态，message.out负责实际投递事实。禁止把seen/客户端已读当作已处理，也不因投递失败自动重做已执行任务。
 - 通过已有ContextContribution插槽注册channel-feishu.conversation，placement=turn；需要飞书会话背景的配置档显式选择该贡献，CLI输入不请求飞书背景。插件按实际来源会话读取，不跨会话读取，不授予历史参与者权限；未选择时明确不提供自动背景。
@@ -158,9 +137,15 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 
 - CardKit历史若只有兼容提示，使用现有同会话message.out中delivery.ok且delivery.id与本应用原生消息匹配的正文补充；保留平台时间/引用。未确认送达或其他应用的记录不冒充本机器人回复，补回正文同样计背景预算；账本读取失败明确标未完整，不新建转录副本。
 
-- 2026-10-19 用户追加：模型可使用既有channel-feishu_message.replyTo指定原生消息ID，或用card工具的replyTo显式引用；可在平台原生文本/Markdown/卡片内容中使用对应at标记选择艾特。状态返回实际renderMode，工具说明区分text/post-md的user_id与卡片的id语法；不新增泛化mentions协议。背景原生消息与发送者ID供工具选择，工具仍按既有能力放行。主动工具答复后可NO_REPLY避免自动再发。
+- 模型可使用既有channel-feishu_message.replyTo指定原生消息ID，或用card工具的replyTo显式引用；可在平台原生文本/Markdown/卡片内容中使用对应at标记选择艾特。状态返回实际renderMode，工具说明区分text/post-md的user_id与卡片的id语法；不新增泛化mentions协议。背景原生消息与发送者ID供工具选择，工具仍按既有能力放行。主动工具答复后可NO_REPLY避免自动再发。
 
-## 9. 原生媒体工具：硅基流动首段（D38，2026-10-19 用户指定接入）
+## 8. 上游复用
+
+允许直接移植成熟功能模块并保留必要来源/许可记录，适配为本项目 SDK。选择以覆盖本规范契约、状态所有权清楚、依赖少、可维护为依据；不复制整套 OpenClaw/Hermes/OpenCode 内核，也不删除其实现中本任务真实需要的取消、输入边界或协议行为。
+
+参考仓库可以更新；每项实现开始时固定实际使用的 commit 与模块。参考项目之后更新不自动改变本规范。
+
+## 9. 原生媒体工具：硅基流动
 
 - 新增同仓官方SDK插件media-tools，首段只实现已核实免费的图片生成；不增加指导型skill，不修改pi运行循环、Models或SDK。ASR/TTS先核实价格与协议，明确免费后可在同一服务接入任务中补记并实施；视频只调研，无免费API证据不调用付费生成，不用网页体验或赠送额度冒充永久免费API。
 - 注册media-tools_image_generate；参数为非空prompt、可选model和image_size。通过api.services.resolve('image')读取首个端点；protocol=siliconflow、baseUrl=https://api.siliconflow.cn/v1，模型只能从该端点声明清单选择，未指定取首项。凭据沿既有credential引用解析，不复制OAuth。缺配置、密钥或模型时返回真实错误，不自动选其他服务/收费模型。
@@ -169,11 +154,4 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 本次配置与真实验收仅用控制台已核实¥0/图片的Kwai-Kolors/Kolors，保存价格日期/证据；免费配额仍可能限流，429如实返回。源码契约检查、真实免费API调用与渠道客户端验收分别记录，不以其中一个代替其余。不得为通过而更换成收费模型。
 - 新插件及共享打包接线按独立任务执行；正式安装/发版沿已有流程，当前接入批准不自动发布。
 
-D38免费音频补记：同次Chrome控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。CosyVoice2控制台为¥0.05/千UTF-8字符，未获付费调用授权，不配置或调用TTS；视频仍不调用。
-
-
-## E40 GitHub 程序更新与通知
-
-沿用 approvedAuthors、policy、updater 与 notifyTarget。新增 releases.notifyUpdates?:boolean，默认 false，只有显式 true 才程序订阅内核 release.update-result 并直接向 notifyTarget 发消息。按实际仓库/install/home过滤，按updateId与实例记录一次通知尝试及Delivery，未知不自动重发；不扫描历史重发。apply由精确release订阅器重读真实Release再调用原scheduleUpdate，不构造ToolContext；notify只保留事实。原模型工具继续供用户显式请求使用，但默认移除同时自动执行的run绑定。
-
-贡献 channel-github.release-availability（placement:turn），使用最近成功轮询核实的最高获准正式版本与宿主version比较；仅显示严格更新版本，首次基线也核实。正文不含Release body，聊天不联网，选用贡献才展示，不改system。旧job回执/历史保留，但新程序通知只消费统一core事件，不对旧channel-github.update-result再通知。
+免费音频补记：控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。CosyVoice2控制台为¥0.05/千UTF-8字符，未获付费调用授权，不配置或调用TTS；视频仍不调用。

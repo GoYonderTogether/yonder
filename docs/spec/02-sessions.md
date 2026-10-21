@@ -1,7 +1,5 @@
 # 02 会话、绑定与身份
 
-> 2026-10-18 设计修订：本文 task 关闭策略与接口的新增项按 12 §7 提案，已获用户批准；其余已冻结行为继续有效。新增项不是当前实现声明。
-
 ## 1. 会话
 
 会话是一段持续的对话上下文。每个 Yonder 会话**一一对应**一个 pi-durable conversation，转录、排队、压缩都由 pi-durable 负责；Yonder 只保存下表的关联元数据（表 `y_sessions`，单独注明的策略存在 pi 扩展文档）。
@@ -14,7 +12,7 @@
 | `mode` | `main` / `persistent` / `ephemeral` / `task` |
 | `key` | 同一 agent 内唯一，决定"是不是同一个会话"，见下 |
 | `parent` | `task` 会话的发起会话 |
-| `close` | task 的关闭策略 `run-end` / `manual`；在 pi 扩展文档持久化，由 SessionInfo 暴露，不增加 y_sessions 列；旧记录为 run-end（12，已批准） |
+| `close` | task 的关闭策略 `run-end` / `manual`；在 pi 扩展文档持久化，由 SessionInfo 暴露，不增加 y_sessions 列；旧记录为 run-end（12 §7） |
 | `version` | 这个会话最近一次运行时的 harness 版本（09 §4） |
 | `opened` / `closed` | 时间；`closed` 为空表示仍在使用 |
 
@@ -27,16 +25,16 @@
 | `main` | `main` | 不自动关闭 | 每个 agent 唯一。主人从 CLI、飞书、QQ 来的消息都进这一个，跨渠道连续 |
 | `persistent` | 由 `per` 决定（§2.2） | 不自动关闭 | 每个群、每个好友、每个陌生人、每次语音通话（渠道给每通电话一个新的 `conv`）各一个 |
 | `ephemeral` | 入站事件 id | 运行结束后关闭 | 每封邮件、每个互不相关的请求：一个事件一个会话 |
-| `task` | 发起方的工具调用 id，或 `open` 生成的 id | 默认 `run-end`：运行结束后关闭；交互任务可在创建时选 `manual`：显式关闭（已批准，待实现） | 用预设开出的独立任务；可续聊不赋予 agent 身份（03 §4、12） |
+| `task` | 发起方的工具调用 id，或 `open` 生成的 id | 默认 `run-end`：运行结束后关闭；交互任务可在创建时选 `manual`：显式关闭 | 用预设开出的独立任务；可续聊不赋予 agent 身份（03 §4、12） |
 
 连贯记忆不靠会话：每次通话、每封邮件都是干净的上下文，跨次的连贯由上下文插件按引用（例如发送者的 `person:`）召回。
 
 ### 1.2 并发
 
-- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`followup`（通用默认，本次答完再单独回答；飞书可运行绑定按11的F轮使用steer）或 `steer`（插进当前工具轮之后，和本次运行共用一个回答）。这直接使用 pi-durable 的 inbox。
+- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`followup`（通用默认，本次答完再单独回答；飞书可运行绑定按11 §7.4使用steer）或 `steer`（插进当前工具轮之后，和本次运行共用一个回答）。这直接使用 pi-durable 的 inbox。
 - 不同会话并行。
 
-运行事实和输入回答关系由 pi 持有；恢复先还原事件/submission 关联与结束处理，再启动调度。稳定输入身份避免重启重复提交；取消等待与 abort 分开。具体恢复和终结规则见 10 §3，不另建模型队列。
+运行事实和输入回答关系由 pi 持有；恢复先还原事件/submission 关联与结束处理，再启动调度。稳定输入身份避免重启重复提交；取消等待与 abort 分开。具体恢复和终结规则见 10 §1，不另建模型队列。
 
 ## 2. 绑定
 
@@ -176,14 +174,14 @@ interface Lookup { accounts: AccountInfo[]; convs: Ref[]; agents: string[] }
 
 - agent 会话（`main` / `persistent` / `ephemeral`）由路由创建；这套接口能列出、查看、中止、关闭它们，但**不能**向它们提交输入——给 agent 的输入一律是事件，走绑定（§2）。需要拿到回复的调用方用 `events.ask`（04 §4）。
 - 预设会话（`task`）由 `open` 创建、`submit` 驱动。每次 `submit` 写一条 `session.input` 事件（01 §3）。
-- 12 的交互任务方案：open 可指定 `close: manual`，本轮结束后保持会话打开以便继续 submit；策略创建后不变。abort 中止当前及排队输入但不关闭 manual 会话；close 中止未完成及排队工作后关闭，拒绝后续 submit、保留历史。退出客户端不关闭/中止。默认 run-end 和 task_run 保持既有行为。
+- 交互任务（12 §7）：open 可指定 `close: manual`，本轮结束后保持会话打开以便继续 submit；策略创建后不变。abort 中止当前及排队输入但不关闭 manual 会话；close 中止未完成及排队工作后关闭，拒绝后续 submit、保留历史。退出客户端不关闭/中止。默认 run-end 和 task_run 保持既有行为。
 
 ```ts
 interface SessionsAPI {
   list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
   get(id: string): Promise<SessionInfo | undefined>;
-  open(req: { preset: string; parent?: string; capabilities?: Capability[]; close?: 'run-end' | 'manual' }): Promise<SessionInfo>;   // close 默认 run-end；manual 见 12（已批准，待实现）。能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
-  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | InputReceipt>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox，12 已批准
+  open(req: { preset: string; parent?: string; capabilities?: Capability[]; close?: 'run-end' | 'manual' }): Promise<SessionInfo>;   // close 默认 run-end；manual 见 12 §7。能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
+  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | InputReceipt>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox（12 §7）
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
@@ -192,7 +190,7 @@ type Mode = 'main' | 'persistent' | 'ephemeral' | 'task';
 interface SessionInfo {                // y_sessions 元数据及注明的 pi 扩展策略（§1）
   id: string; agent: string | null; profile: string; mode: Mode; key: string;
   parent?: string; version: string; opened: string; closed?: string;
-  close?: 'run-end' | 'manual';          // task 的实际关闭策略，非 task 省略；由扩展文档取得（12，已批准）
+  close?: 'run-end' | 'manual';          // task 的实际关闭策略，非 task 省略；由扩展文档取得（12 §7）
 }
 interface Input { text: string; attachments?: Attachment[] }
 interface InputReceipt { event: string; session: string }
@@ -208,10 +206,10 @@ interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升
 
 `submit` 的 `wait: true` 让调用方拿到最终回复（06 §2 的"返回给调用方"）。内核在插件服务包装或模型调用现场绑定真实调用方身份和上游事件，不允许插件用参数伪造其他调用方；保留 Input.attachments。调用方身份不明时不编造 agent。父会话 id 不作为事件 parent。
 
-## 6. 能力补齐关联
+## 6. 观察、来源与附件
 
-13 §2 已获批准：会话/输入来源由内核绑定，附件完整传递；TUI、控制面与 MCP 共用被动观察事实，断连只解除观察；原生父子并行与取消沿用 pi。不得另建任务队列、转录或抢占回复的观察等待者。
+13 §1：会话/输入来源由内核绑定，附件完整传递；TUI、控制面与 MCP 共用被动观察事实，断连只解除观察；原生父子并行与取消沿用 pi。不得另建任务队列、转录或抢占回复的观察等待者。
 
-## R0 已批准修订（D34）
+## 7. 提交回执
 
 submit 的 wait:false（默认）返回本次实际 session.input 的 InputReceipt；wait:true 返回真实 RunResult。不另造 task id 或状态。CLI、SDK、MCP 使用同一个接纳入口；旧调用方可忽略返回值，但不得把回执当模型完成。

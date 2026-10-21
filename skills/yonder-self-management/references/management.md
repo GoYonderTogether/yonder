@@ -65,4 +65,4 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 
 运行中的 agent 不能依靠自己的 bash 执行 update 并把服务重启造成的断连当成功。已安装的 channel-github 提供 `channel-github_update_schedule` 与 `channel-github_update_status`，仅供配置了 apply 策略与安装/home 边界的管家受限更新配置档，参数为真实 instance/releaseId，重新读取已批准发布的 Release；用实际工具定义提交独立一次性 launchd 更新并查结果。它不是任意版本或任意 Agent 的更新入口；不可用时交给服务外的已授权执行方。更新后重新连接，核对 version 的来源 commit、service info 的运行版本/home/pid 和需要验证的真实能力。查到新版本文件不等于服务已重启成功。
 
-来源：当前安装文档 `spec/02-sessions.md`、`03-agents.md`、`04-plugins.md`、`05-security.md`、`07-runtime.md`、`08-config.md`、`09-cli-release.md`、`10-local-maintenance.md`；对应源码 `packages/cli/src/index.ts`、`packages/core/src/config/reload.ts`、`kernel/index.ts`、`tools/index.ts`、`release/index.ts`。文档可用 `yonder docs --list` 发现，不依赖开发仓库存在。
+来源：当前安装文档 `spec/02-sessions.md`、`03-agents.md`、`04-plugins.md`、`05-security.md`、`07-runtime.md`、`08-config.md`、`09-cli-release.md`、`10-runtime-guarantees.md`；对应源码 `packages/cli/src/index.ts`、`packages/core/src/config/reload.ts`、`kernel/index.ts`、`tools/index.ts`、`release/index.ts`。文档可用 `yonder docs --list` 发现，不依赖开发仓库存在。
