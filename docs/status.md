@@ -6,7 +6,8 @@
 
 ## 验证基线
 
-- 构建、类型检查通过。默认测试 59 文件（51 通过 / 8 跳过），196 用例（180 通过 / 16 跳过 / 0 失败）；打开真实模型后 59 文件通过，196 用例（195 通过 / 1 跳过 / 0 失败；跳过项需要 launchd）。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)），默认不运行；跳过不等于通过。
+- `yonder/pi-fork`：build、typecheck、Biome error 检查通过；默认 59 文件（51 通过 / 8 跳过）、198 用例（182 通过 / 16 跳过 / 0 失败）；真实全量 59 文件通过、197 通过 / 1 跳过 / 0 失败（launchd 未测）。全新 clone 的 npm ci/build/test 与 npm ci --dry-run 通过。Fork durable harness 相关检查 31 文件、619 用例通过，retention=0 同样通过。范围、原始失败及上游全仓 check 的未通过项见 [pi-fork 验收记录](validation/pi-fork.md)。
+- 父分支 `3bcacb5` 历史基线：构建、类型检查通过。默认测试 59 文件（51 通过 / 8 跳过），196 用例（180 通过 / 16 跳过 / 0 失败）；打开真实模型后 59 文件通过，196 用例（195 通过 / 1 跳过 / 0 失败；跳过项需要 launchd）。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)），默认不运行；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
 - 支持平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 未支持。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
@@ -63,8 +64,9 @@
 
 ### 中断恢复
 
+- pi-fork 已验证：配置次数/基础与最大延迟；本地真实 HTTP 覆盖 auth/API key/permission、context/token limit、quota/billing、abort/repeatStop 排除及 socket/5xx/429 重试；在途请求连续重启、退避中重启共享提示、耗尽正常 error 后再重启、即时 abort、原副作用与来源投递不重复。只有 durable 内化，默认 10 次、2 秒起、5 分钟封顶；完整记录见 [验收报告](validation/pi-fork.md)。
 - 已验证（隔离 home）：在途 HTTP 模型请求重启后重发并注入提示；Luna 在已完成文件写入后经历 501/503，恢复且不重复写入，只向原 CLI 来源投递一次；完成回执再次恢复不增加 message.out。真实 socket 断连、429/503 的 3 次退避，401/schema 不重试、退避期间 abort、重复重启保留重试预算及提示身份均通过。逐消息气泡与恢复去重由既有共享 delivery / 飞书协议测试覆盖，未新增模拟模型。
-- 本轮原始过程：首次定向 2 通过 / 1 失败；代理协议定位随后 3 次各 1 失败 / 2 跳过；修正订阅 compat 后 1 通过 / 2 跳过，扩展定向 5 通过；最终在途请求重启定向 1 通过 / 3 跳过。曾出现 2 次类型检查错误及 1 次格式错误，已修复；最终全量结果见上述基线。
+- 父分支原始过程：首次定向 2 通过 / 1 失败；代理协议定位随后 3 次各 1 失败 / 2 跳过；修正订阅 compat 后 1 通过 / 2 跳过，扩展定向 5 通过；最终在途请求重启定向 1 通过 / 3 跳过。曾出现 2 次类型检查错误及 1 次格式错误，已修复；本次 pi-fork 原始失败及最终计数另列验收报告，未覆盖旧记录。
 - 正式 `yonder update`、系统关机/断网、飞书客户端恢复全过程及供应商缓存命中：未测；不触碰日用服务。
 
 ### 发布与更新
@@ -73,6 +75,6 @@
 
 ## 稳定性关注项
 
-- 内核依赖对固定版本 pi-durable 1.3.0 的补丁（`patches/`，`postinstall` 应用，`runtime/patch.test.ts` 检查已生效），升级 pi 前必须重新审核边界与回执。
+- pi-durable 1.3.0 为 packages/pi-durable workspace 源码 fork，来源固定在 FORK_SOURCE.json；无 postinstall 补丁。升级须审核 beforeAgent、abort 接续队列、原子回执与 shouldRetry 边界，运行 fork 与 runtime 检查。
 - 消息生命周期与流式投递语义在 0.1.2026102001（现已并入 0.2 系列）重构，真实渠道矩阵尚未全部复验。
 - 飞书渠道曾在一次升级后首次启动出现 `fetch failed` 而未连上；人工重启后恢复，根因未确认。
