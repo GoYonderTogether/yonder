@@ -72,7 +72,7 @@
 
 ## 当前修复验证
 
-同一飞书来源下连续委派的后台完成事件曾按msgId误去重，导致后续prepared正文读回旧结果。现按(session, job)修复；实现与真实验证记录见[后台结果去重](verification/background-result-dedupe.md)。
+同一飞书来源下连续委派的后台完成事件曾按msgId误去重，导致后续prepared正文读回旧结果。现按(session, job)修复；正式04已发布，既有apply监听自动升级03→04并核验服务ready/commit与飞书通知成功，未手动升级。实现与真实验证记录见[后台结果去重](verification/background-result-dedupe.md)。
 
 ## 稳定性关注项
 

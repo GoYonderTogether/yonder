@@ -23,4 +23,7 @@ main `335b188`，日用版`0.2.26102003`（`e177769`）。D45内置底座/两份
 - 提示词：内置content/index/home源码与日用03一致；贾维斯SOUL.md与docs/prompts/jarvis稿一致，日用AGENTS.md多出Standing Arrangements（中文回复、maintainer分工、更新职责、凭据不外显），原样保留；默认contexts选用soul-md与agents-md等已配置贡献。旧SYSTEM.md保留在磁盘，当前装配不再读取，不自动删用户文件。
 - 版本与流程：03已经有真实release.update-result verified回执（e177769），当前GitHub instance为GoYonderTogether/yonder-harness、apply、approvedAuthors=[zoran-xc]、notifyUpdates=true；没有将组织名误当发布者帐号。旧03的CI run39537394358实际failure，不能照中途通知当成功。本轮等待新CI成功再创建正式04 Release，不创建beta或手工覆盖日用安装。
 - 源码提交c69e3d3已合并并推送main，包含原本未推送的D45规范提交335b188；本机日用保留03，等待本次正式Release触发现有自动更新。
-- CI与正式发布、自动升级最终回执待补记。
+- 正式发行：[v0.2.26102004](https://github.com/GoYonderTogether/yonder-harness/releases/tag/v0.2.26102004)，固定提交`c69e3d3c41e7a90085c301c15b9673ff7d21bb57`，作者zoran-xc，isDraft=false/isPrerelease=false。发行提交CI [39538824789](https://github.com/GoYonderTogether/yonder-harness/actions/runs/39538824789) success；含验收文档的main提交743b38d CI [39542536292](https://github.com/GoYonderTogether/yonder-harness/actions/runs/39542536292)同样success。原03的CI失败保留，不冒充从未失败。
+- 现有监听自动发现04，原apply作业升级日用03→04；没有手动运行日用update、restart或替换current。最终`release.update-result`事件`01M5EAGB57BKXJKZ7XD1F1CM5X`，updateId `fd0c9bde-3ebe-4357-afb1-637f2f391106`，status=verified、verified=true；服务PID86722、ready=true、version=0.2.26102004、commit=c69e3d3...、home吻合。飞书已连接且history recovery complete。
+- 程序通知`01M5EAGEQ805BTSBBVVHA1ZE8E`由plugin:channel-github发送，文本“Yonder 0.2.26102004 已更新并核验。”；delivery.ok=true，飞书ID `om_x100b62b7f94bb4a4df7a91550104607`。这是平台送达回执，不声称用户已读。
+- 日用安装中的store修复、内置content.ts和durable/FORK_SOURCE.json与发行源码字节一致；提示词与委派修复现在可在飞书日用测试。保留旧历史错误关联与历史无回执诊断，没有重写账本或重放已完成任务。其余完整渠道/硬件/历史迁移未验场景仍按status保留，不以本轮200测试声称全产品所有组合均已验收。
