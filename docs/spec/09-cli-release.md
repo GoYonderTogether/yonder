@@ -31,7 +31,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 | `version` | 当前版本、安装目录、home |
 | `changelog [--from <v>] [--to <v>]` | §5 |
 | `docs [path] [--list]` | 输出当前版本 `docs/` 下的文件；不带参数输出 `docs/index.md` |
-| `update [--to <tag>\|latest] [--repo <url>]` | §4 |
+| `update [--to <tag>\|latest\|beta] [--repo <url>]` | §4 |
 | `service install\|uninstall\|start\|stop\|restart\|status` | §6 |
 | `completion zsh\|bash\|fish` | 输出 shell 补全脚本；无 home 也可输出静态脚本；不修改用户 shell 配置（12 §5.3） |
 
@@ -55,9 +55,9 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 ## 4. 更新
 
-`yonder update [--to <tag>|latest] [--repo <url>]`：
+`yonder update [--to <tag>|latest|beta] [--repo <url>]`（版本号与通道见 §5）：
 
-1. 目标版本：`latest` 是仓库里最高的 semver 标签 `vX.Y.Z`；仓库默认取根 `package.json` 的 `repository`，用本机的 git 凭据访问。
+1. 目标版本：`latest` 是仓库里最高的正式版标签 `vX.Y.Z`，`beta` 是包含测试版在内最高的标签；仓库默认取根 `package.json` 的 `repository`，用本机的 git 凭据访问。
 2. 已是当前版本：什么都不做，退出码 0。
 3. `git clone --depth 1 --branch <tag>` 到 `versions/<version>.tmp` → `npm ci` → `npm run build` → 记录来源 commit/tag，移除 .git → 改名为 `versions/<version>`。任一步失败：删除临时目录，当前版本不变，退出码 1。
 4. 装了服务时，用新版本对服务的 home 运行 `doctor`；失败则不切换。
@@ -75,6 +75,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 ## 5. 发布
 
+- **版本号**：`0.<minor>.<YYMMDDNN>`，YYMMDD 是两位年份的发布日期，NN 是当天递增序号（如 `0.2.26102001`）。**正式版**是无后缀版本，对应 GitHub 正式 Release；**测试版**加 `-beta.N` 后缀（如 `0.2.26102001-beta.1`），对应 GitHub 预发布（prerelease）。同一 X.Y.Z 下测试版先于正式版（semver）。自动更新、`update --check`、`update --to latest` 与发布监听只认正式版；安装测试版需显式 `update --to beta` 或指定标签。版本方案变更时递增 minor，保证次序单调。
 - 每次变更把对外可见的变化记在根目录 `CHANGELOG.md` 顶部的 `## [Unreleased]`（小节用 Added / Changed / Fixed / Removed）。发布时统一所有包版本与 CHANGELOG，打标签 vx.y.z 并推送，使用 gh 创建该标签的正式 GitHub Release；本地阶段标签不推送，也不等于 Release。发布 watcher 接实际 Release 对象，不把标签当发布通知（10 §3）。
 - `yonder changelog --from a --to b`：输出 `CHANGELOG.md`（当前版本里的）中版本在 (a, b] 之间的各节；`--to` 缺省为当前版本，`--from` 缺省为 `--to` 的上一个版本。
 

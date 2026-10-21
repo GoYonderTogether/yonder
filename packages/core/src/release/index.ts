@@ -39,15 +39,30 @@ const xml = (value: string) =>
 		.replaceAll('"', "&quot;")
 		.replaceAll("'", "&apos;");
 const domain = () => `gui/${process.getuid?.()}`;
-const versionPattern = /^(?:v)?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+const versionPattern = /^(?:v)?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
 
+/** Semver ordering: a pre-release (for example `-beta.1`) sorts before the same X.Y.Z without one. */
 export function compareVersions(a: string, b: string): number {
 	const left = versionPattern.exec(a),
 		right = versionPattern.exec(b);
-	if (!left || !right) throw new Error("Version must be X.Y.Z or vX.Y.Z");
+	if (!left || !right) throw new Error("Version must be X.Y.Z[-prerelease] or vX.Y.Z[-prerelease]");
 	for (let index = 1; index <= 3; index++) {
 		const delta = BigInt(left[index] ?? "0") - BigInt(right[index] ?? "0");
 		if (delta) return delta < 0n ? -1 : 1;
+	}
+	const l = left[4]?.split("."),
+		r = right[4]?.split(".");
+	if (!l || !r) return l ? -1 : r ? 1 : 0;
+	for (let index = 0; index < Math.max(l.length, r.length); index++) {
+		const x = l[index],
+			y = r[index];
+		if (x === undefined || y === undefined) return x === undefined ? -1 : 1;
+		const numeric = /^\d+$/u;
+		if (numeric.test(x) && numeric.test(y)) {
+			const delta = BigInt(x) - BigInt(y);
+			if (delta) return delta < 0n ? -1 : 1;
+		} else if (numeric.test(x) !== numeric.test(y)) return numeric.test(x) ? -1 : 1;
+		else if (x !== y) return x < y ? -1 : 1;
 	}
 	return 0;
 }
@@ -55,8 +70,11 @@ function normalizeVersion(version: string): string {
 	if (!versionPattern.test(version)) throw new Error(`Invalid release version: ${version}`);
 	return version.replace(/^v/u, "");
 }
-export function latestRelease(tags: string[]): string {
-	const versions = tags.filter((tag) => tag.startsWith("v") && versionPattern.test(tag));
+/** Highest release tag. Stable by default; pass `prerelease` to include test builds such as `v0.2.26102001-beta.1`. */
+export function latestRelease(tags: string[], prerelease = false): string {
+	const versions = tags.filter(
+		(tag) => tag.startsWith("v") && versionPattern.test(tag) && (prerelease || !tag.includes("-")),
+	);
 	versions.sort(compareVersions);
 	const tag = versions.at(-1);
 	if (!tag) throw new Error("The repository has no vX.Y.Z release tags");
@@ -369,14 +387,15 @@ async function installRelease(options: UpdateOptions = {}) {
 		(typeof rootManifest.repository === "string" ? rootManifest.repository : rootManifest.repository?.url);
 	if (!repository) throw new Error("Repository is not configured; pass --repo <url>");
 	let target = options.to ?? "latest";
-	if (target === "latest") {
-		options.onProgress?.("Resolving latest release");
+	if (target === "latest" || target === "beta") {
+		options.onProgress?.(`Resolving ${target === "beta" ? "newest test" : "latest"} release`);
 		const refs = await command("git", ["ls-remote", "--tags", "--refs", repository]);
 		target = latestRelease(
 			refs.stdout.split("\n").flatMap((line) => {
 				const tag = line.split("\t")[1]?.replace(/^refs\/tags\//u, "");
 				return tag ? [tag] : [];
 			}),
+			target === "beta",
 		);
 	}
 	const version = normalizeVersion(target),

@@ -19,9 +19,13 @@ import {
 test("release parsing, real docs and local launcher/plist files need no harness home", async () => {
 	expect(compareVersions("0.10.0", "v0.2.0")).toBe(1);
 	expect(latestRelease(["v0.2.0", "v0.10.0", "v0.11.0-rc.1", "main"])).toBe("v0.10.0");
+	expect(latestRelease(["v0.2.0", "v0.3.0-beta.1", "v0.3.0-beta.2"], true)).toBe("v0.3.0-beta.2");
+	expect(compareVersions("0.2.26102001-beta.1", "0.2.26102001")).toBe(-1);
+	expect(compareVersions("0.2.26102001-beta.10", "0.2.26102001-beta.2")).toBe(1);
+	expect(compareVersions("0.2.26102001", "0.2.26102001-beta.1")).toBe(1);
 	expect(selectChangelog("## [0.2.0]\nSecond\n\n## [0.1.0]\nFirst\n", "0.1.0", "0.2.0")).toBe("## [0.2.0]\nSecond");
 	const info = await releaseInfo();
-	expect(info.version).toMatch(/^\d+\.\d+\.\d+$/u);
+	expect(info.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/u);
 	expect(await readDocs()).toContain("文档地图");
 	expect(await readDocs(undefined, true)).toContain("spec/09-cli-release.md");
 	await expect(readDocs("../package.json")).rejects.toThrow("inside docs/");

@@ -1,7 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.26102001-beta.1] - 2026-10-20
 
+- 版本号改为 `0.<minor>.<YYMMDDNN>`（两位年份），测试版带 `-beta.N` 后缀并发布为 GitHub 预发布，正式版无后缀；自动更新与 `update --to latest` 只认正式版，`update --to beta` 安装最新测试版。minor 由 1 升到 2 以保证相对旧的 `0.1.YYYYMMDDNN` 单调递增。
+- 首个公开开发者预览：全新仓库历史、中英文 README、SECURITY 与行为准则、维护分支前缀 `zoran/` 改为 `yonder/`。
 - 文档收敛：过程记录归档，规范按主题合并（10 运行保证与发布更新、13 观察与管理命令、14 执行能力，macOS 状态栏并入 09），新增 docs/status.md 与 CONTRIBUTING.md，plugins.md + reference.md 取代 function-tree.md。
 - 内核拆分，行为不变：kernel 拆出 workspace、home、home-management、terminal、background；runtime 拆出 docs、catalog、results、output、policy、limits。
 - 测试与 CI：补齐 8 个插件的契约测试，3 个本地集成脚本接入 vitest，新增 pi-durable 补丁生效检查；新增 macOS CI 工作流，lint 排除非产品目录。

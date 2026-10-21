@@ -94,7 +94,7 @@ yonder · CLI
 ├─ changelog — 查询两个版本之间的变更记录。
 ├─ docs — 列出或读取随包文档。
 ├─ update --check — 查询正式Release版本状态。
-├─ update [--to <tag>] / update latest — 按指定标签或最新版本标签安装；可指定repository。
+├─ update [--to <tag>|latest|beta] — 按指定标签、最新正式版或最新测试版安装；可指定repository。
 ├─ service install — 安装home对应的系统服务。
 ├─ service uninstall — 移除系统服务。
 ├─ service start / stop / restart — 管理已安装服务。

@@ -53,7 +53,7 @@ Commands:
   version                         版本与安装 · Version and installation
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
-  update [--check | --to <tag>|latest] [--repo <url>]  安装与更新 · Install or update
+  update [--check | --to <tag>|latest|beta] [--repo <url>]  安装与更新 · Install or update
   service install|uninstall|start|stop|restart|status|info  服务管理 · Manage service
   completion zsh|bash|fish         shell 补全脚本 · Shell completion
 `;
@@ -310,7 +310,7 @@ async function run(args: string[]): Promise<number> {
 			try {
 				compareVersions(value, "0.0.0");
 			} catch {
-				throw new UsageError("Versions must use X.Y.Z or vX.Y.Z");
+				throw new UsageError("Versions must use X.Y.Z[-beta.N] or vX.Y.Z[-beta.N]");
 			}
 		return print(readChangelog(flags["--from"], flags["--to"]), options.json);
 	}
@@ -331,11 +331,11 @@ async function run(args: string[]): Promise<number> {
 		const flags = namedOptions(args, ["--to", "--repo"], releaseUsage.update ?? "");
 		if (rest[0] === "latest" && flags["--to"]) throw new UsageError(releaseUsage.update);
 		const to = rest[0] === "latest" ? "latest" : flags["--to"];
-		if (to && to !== "latest")
+		if (to && to !== "latest" && to !== "beta")
 			try {
 				compareVersions(to, "0.0.0");
 			} catch {
-				throw new UsageError("Release tags must use vX.Y.Z");
+				throw new UsageError("Release tags must use vX.Y.Z or vX.Y.Z-beta.N");
 			}
 		const home = optionalHome(options),
 			repo = flags["--repo"];
