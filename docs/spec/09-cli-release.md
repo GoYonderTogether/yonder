@@ -19,6 +19,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 |---|---|
 | `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载两款内置插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、contexts `[soul-md, agents-md]`、plugins `[context-files]`；CLI owner 私聊绑定到主会话且 stream 开启；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另生成真实 default 任务预设（12 §3） |
 | `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 |
+| `credentials set <name> --home <dir>` | 本机隐藏录入一项命名 API key（07 §6.2）：仅交互 TTY，不接受秘密参数、管道或 `--json`；已有同名项（含 OAuth）一概拒绝，不提供读取、轮换、删除；与 OAuth 共用凭据文件锁，原子写入，文件须为本用户单链接 0600 普通文件，路径中不得有 symlink 或他人可写目录。运行中的服务不必停止 |
 | `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 |
 | `start` | 前台运行 harness：持锁、开控制接口、日志写标准输出 |
 | `stop` | 经控制接口让运行中的进程退出 |

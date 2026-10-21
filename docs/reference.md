@@ -65,6 +65,7 @@ Yonder Harness
 yonder · CLI
 ├─ init — 初始化一个Yonder home和默认配置。
 ├─ login <provider> — 为指定模型供应商执行交互式登录。
+├─ credentials set <name> — 在本机TTY隐藏录入一项命名API key，拒绝覆盖，不经模型。
 ├─ doctor — 检查home配置并列出错误或警告。
 ├─ start — 在前台启动harness服务。
 ├─ stop — 请求停止当前home的harness服务。

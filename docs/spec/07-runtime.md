@@ -78,7 +78,7 @@
 - 凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），键是供应商 id；路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`，权限 `0600`。密钥只放在这里，不写进 `yonder.yaml`。
 - 实现 pi-ai 的 `CredentialStore`（`read`、`list`、`modify`、`delete`），复制 pi coding-agent 的 `FileAuthStorageBackend`（`proper-lockfile` 文件锁，MIT）并在 `THIRD_PARTY_NOTICES` 记录。OAuth 刷新在 `modify` 里进行并写回文件。
 - ChatGPT 订阅：使用 pi-ai 内置 `openai` 供应商的 "Sign in with ChatGPT" OAuth。`yonder login <provider>` 调用 `provider.auth.oauth.login(interaction, { getDeviceId })`，`getDeviceId` 返回本 home 固定的 UUID（存于 `<home>/.yonder/device-id`，首次登录时生成）。
-- 插件只能经 `api.credentials.get(name)` 只读地取一项凭据（渠道、服务的密钥都这样存取），不能写。
+- 插件只能经 `api.credentials.get(name)` 只读地取一项凭据（渠道、服务的密钥都这样存取），不能写。新增渠道或服务密钥由人在本机运行 `yonder credentials set <name> --home <dir>`（09 §2）：隐藏输入、不经模型、控制接口或聊天，只创建 `api_key`，拒绝覆盖；Agent 不得代为录入或读取明文。
 - OAuth 刷新会轮换 refresh token（已验证）。**禁止**复制其他程序的 OAuth 凭据；每个 Yonder home 单独登录。API key 可以复制。
 
 ### 6.3 非对话服务
