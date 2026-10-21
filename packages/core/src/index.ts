@@ -10,6 +10,7 @@ export {
 	offlineQuery,
 	openKernel,
 	packageVersion,
+	setNamedCredential,
 } from "./kernel/index.js";
 export {
 	checkRelease,
