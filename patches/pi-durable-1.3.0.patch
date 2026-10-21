@@ -40,7 +40,24 @@
          return { status: "terminal", outcome: { status: "failed", error: { message, detail: { reason: "no_model" } } } };
      }, context);
  }
-@@ -403,7 +410,7 @@
+@@ -382,10 +389,15 @@
+         }
+     }
+     const policy = settings.retry;
++    let retryable = isRetryableAssistantError(message);
++    await runtime.hooks.each("shouldRetry", async (hook) => {
++        const decision = await hook(message, runtime, context);
++        if (decision !== undefined) retryable = decision;
++    });
+     // An overflow is never retried: only a compaction can make the next request fit.
+     const retry = message.stopReason === "error" &&
+         !overflow &&
+-        isRetryableAssistantError(message) &&
++        retryable &&
+         policy.enabled &&
+         attempt <= policy.maxRetries;
+     const until = retry ? runtime.now() + retryDelayMs(policy, attempt) : 0;
+@@ -403,7 +415,7 @@
              return { status: "running", checkpoint };
          }
          const text = message.errorMessage ?? `Model response ended with stop reason ${message.stopReason}`;
@@ -49,7 +66,7 @@
          return {
              status: "terminal",
              outcome: { status: "failed", error: { message: text, detail: { reason: "model_error" } } },
-@@ -437,7 +444,7 @@
+@@ -437,7 +449,7 @@
              delete live.generation;
              return result;
          }
@@ -58,7 +75,7 @@
          if (users.length > 0)
              await startRun(tx, conversationId, live, users);
          return result;
-@@ -519,7 +526,7 @@
+@@ -519,7 +531,7 @@
                  boundary.head = entry.id;
              }
              const { users } = await applyBoundary(tx, boundary, "final", now);
@@ -67,7 +84,7 @@
              if (users.length > 0)
                  await startRun(tx, conversationId, live, users);
          }
-@@ -527,7 +534,7 @@
+@@ -527,7 +539,7 @@
              const { users, reset } = await applyBoundary(tx, boundary, "postTools", now);
              if (reset) {
                  // The queued reset cut the run's context before an answer.
@@ -171,6 +188,15 @@
      readonly settings?: HarnessSettings;
      /** Builds a conversation's environment at each use. Never called on the Session line; may be async. */
      readonly env?: (target: EnvTarget, context: Context) => ExecutionEnv | undefined | Promise<ExecutionEnv | undefined>;
+@@ -694,6 +696,8 @@
+     }>;
+     /** Every terminal provider message, before classification. */
+     afterResponse(message: AssistantMessage, api: HookApi, context: Context): void | Promise<void>;
++    /** Yonder patch: override transient-error classification; native retry budget/backoff still apply. */
++    shouldRetry(message: AssistantMessage, api: HookApi, context: Context): HookResult<boolean>;
+     /** A final answer; the first `continue` appends a user message and continues the run. */
+     onYield(answer: AssistantMessage, api: HookApi, context: Context): HookResult<{
+         readonly continue: UserInput;
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
 @@ -8,7 +8,7 @@

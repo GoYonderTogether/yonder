@@ -18,6 +18,9 @@ import {
 import type { YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 
+const INTERRUPTED_RESULT =
+	"Task interrupted by restart; side effects may have occurred. Re-check state, avoid repeating completed actions, and resume.";
+
 const JobDoc = defineDocFamily({
 	kind: "yonder.background",
 	version: 1,
@@ -148,8 +151,8 @@ export function createBackground(options: {
 						status: "terminal",
 						outcome: {
 							status: "failed",
-							error: { message: "Interrupted by restart; side effects may have occurred. Inspect before retrying." },
-							result: failed("Interrupted by restart; side effects may have occurred. Inspect before retrying."),
+							error: { message: INTERRUPTED_RESULT },
+							result: failed(INTERRUPTED_RESULT),
 						},
 					}),
 					context,

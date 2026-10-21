@@ -11,4 +11,5 @@ it("runs against the patched pi-durable boundary", async () => {
 	expect(version).toBe("1.3.0");
 	const generation = await readFile(resolve(root, "dist/harness/generation.js"), "utf8");
 	expect(generation).toContain("prepareBoundary(tx, conversationId, runtime.settings)");
+	expect(generation).toContain('runtime.hooks.each("shouldRetry"');
 });

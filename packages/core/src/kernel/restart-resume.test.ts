@@ -46,7 +46,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 					.poll(
 						async () =>
 							JSON.stringify(await second.sessions.transcript(session!.id, { limit: 500 })).includes(
-								"was restarted or the connection was interrupted",
+								"Task interrupted by restart",
 							),
 						{ timeout: 60000 },
 					)

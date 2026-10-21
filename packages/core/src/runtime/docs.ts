@@ -41,6 +41,7 @@ export const RunDoc = defineDocFamily({
 		config: "",
 		started: 0,
 		turns: 0,
+		networkInterrupted: false as boolean,
 		previous: "",
 		repeats: 0,
 		reason: null as string | null,

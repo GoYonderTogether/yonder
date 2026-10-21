@@ -54,6 +54,7 @@ import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
+import { RESTART_NOTICE, RETRY_POLICY, recoveryHooks } from "./recovery.js";
 import { fromResult, toResult } from "./results.js";
 
 export { attachmentFromPath } from "./attachments.js";
@@ -74,7 +75,7 @@ export type * from "./types.js";
 export class Runtime {
 	private harness!: Harness;
 	private restoring = false;
-	private readonly bootedAt = Date.now();
+	private restartNotes = Promise.resolve();
 	private interrupted: Array<{ session: string; run: string }> = [];
 	private images?: Promise<ImageProcessor>;
 	private imageProcessor(): Promise<ImageProcessor> {
@@ -128,7 +129,10 @@ export class Runtime {
 			{
 				models: runtime.models,
 				registry: runtime.registry,
-				settings: { ...(options.config.compaction ? { compaction: options.config.compaction } : {}) },
+				settings: {
+					retry: RETRY_POLICY,
+					...(options.config.compaction ? { compaction: options.config.compaction } : {}),
+				},
 				beforeAgent: (target, context) => runtime.prepareRun(String(target.conversationId), context),
 				env: async (target) => {
 					const doc = await target.read.snapshot(SessionDoc, target.conversationId, C);
@@ -175,6 +179,7 @@ export class Runtime {
 		return (live?.run ? this.currentConfig(id) : undefined) ?? this.options.resolveSession(id);
 	}
 	private async prepareRun(session: string, context: Context): Promise<void> {
+		await this.restartNotes;
 		const live = await this.harness.snapshot(LiveDoc, cid(session), context);
 		if (!live?.run) return;
 		const id = String(live.run.inputs[0]);
@@ -288,7 +293,7 @@ export class Runtime {
 					{ tag: false },
 				),
 			],
-			hooks: this.limits.hooks(),
+			hooks: [...this.limits.hooks(), ...recoveryHooks(() => this.harness)],
 		});
 		this.registry.install(core);
 		this.extensions.set(core.name, core);
@@ -1059,14 +1064,16 @@ export class Runtime {
 			.scanTasks({ kind: "yonder.background" }, Number.MAX_SAFE_INTEGER, undefined, C)
 			.then((page) => this.background.recover(page.items))
 			.catch((error) => this.options.onReport?.(error));
+		// Admit notes before a recovered request can pass beforeAgent, including
+		// requests whose checkpoint is already in the request phase.
+		this.restartNotes = Promise.all(
+			this.interrupted
+				.splice(0)
+				.map(({ session, run }) =>
+					this.writeNote(session, `restart:${run}`, RESTART_NOTICE).catch((error) => this.options.onReport?.(error)),
+				),
+		).then(() => {});
 		this.harness.resume();
-		// A run that was in flight when the process stopped continues from its durable checkpoint; tell the model once.
-		for (const { session, run } of this.interrupted.splice(0))
-			void this.writeNote(
-				session,
-				`restart:${run}:${this.bootedAt}`,
-				"Yonder was restarted or the connection was interrupted while this task was running. Re-check the current state (files, background jobs, external actions) before continuing, do not repeat side effects that already completed, and resume the task yourself.",
-			).catch((error) => this.options.onReport?.(error));
 	}
 	async responseText(session: string, event: string): Promise<string> {
 		const record = await this.storage.submissionByRequest(cid(session), `event:${event}`, C);
