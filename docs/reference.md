@@ -17,8 +17,8 @@ Yonder Harness
 │  └─ tool_search — 按需发现配置允许的工具
 ├─ Kernel实际模型工具
 │  ├─ message_send — 向明确人/账号/会话发送消息
-│  ├─ agent_ask — 按目标agent绑定提问并等待结果；可用sources由程序逐字引用来源会话里的入站消息
-│  ├─ task_run — 使用preset委派原生子任务；同样支持sources原文引用
+│  ├─ agent_ask — 按目标agent绑定提问并等待结果；可用sources由程序逐字引用来源会话里的入站消息，可用effort（需admin）指定本次运行思考等级
+│  ├─ task_run — 使用preset委派原生子任务；同样支持sources原文引用与effort
 │  ├─ task_continue — 将已授权的具体下一步持久排入当前会话
 │  ├─ session_list — 按权限列出会话
 │  ├─ session_read — 按权限读取原生转录

@@ -461,6 +461,8 @@ export function createDelivery(options: DeliveryOptions) {
 				...(run.reason ? { reason: run.reason } : {}),
 				replied,
 				model: profile.resolved.model,
+				thinking: profile.resolved.thinking,
+				...(profile.effort ? { effort: profile.effort } : {}),
 				usage: run.usage,
 				targets: targets.map((event) => event.conv),
 				...(destination ? { deliver: destination } : {}),

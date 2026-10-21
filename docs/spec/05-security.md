@@ -41,7 +41,7 @@
 | `write`、`edit` | `write` |
 | `bash` | `exec` |
 | `message_send` | 无；发往本次运行来源以外需要 `message`（调用前判定） |
-| `agent_ask` | `message` |
+| `agent_ask` | `message`；带 `effort` 另需 `admin` |
 | `task_run`、`skill_view`、`tool_search` | 无（`task_run` 的子会话能力见下） |
 | `session_list`、`session_read` | `admin`（本 agent 的其他会话可能属于别人）；涉及其他 agent 的会话还需要 `cross-agent` |
 | `identity_lookup` | `read`，但只能查本次运行的发送者；查任意引用需要 `admin`；其他 agent 的部分需要 `cross-agent` |

@@ -79,7 +79,7 @@ message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string,
 ## 6. agent 之间
 
 ```ts
-agent_ask({ agent: string, text: string, sources?: string[] })   // 需要 message 能力
+agent_ask({ agent: string, text: string, sources?: string[], effort?: string })   // 需要 message 能力；effort 另需 admin（14 §5）
 ```
 
 - 内核在内部渠道 `agent` 上写一条 `message.in`：`from = acct:agent:<发起方>`，`conv = conv:agent:<发起方>`，`kind: agent`，`data.target` 为指定目标，`parent` 指向发起方本次运行的触发事件。无 agent 身份的预设会话不能调用 agent_ask。

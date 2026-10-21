@@ -17,6 +17,8 @@ export interface RuntimeSessionConfig {
 	cwd: string;
 	resolved: ResolvedProfile;
 	protectedFiles?: Array<{ path: string; capability: Capability }>;
+	/** Set when a delegation asked for a per-run effort; persisted with the run snapshot. */
+	effort?: { requested: string; effective: string; reason?: string; inputs: string[] };
 	bindings?: Binding[];
 	owner?: string;
 }

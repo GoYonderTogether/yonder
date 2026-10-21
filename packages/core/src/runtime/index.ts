@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
 	AgentDoc,
 	createRegistry,
@@ -38,6 +39,7 @@ import type {
 	Tool,
 	ToolContext,
 	TranscriptItem,
+	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
 import { imageMime } from "./attachments.js";
@@ -46,6 +48,7 @@ import { createBackground } from "./background.js";
 import { capabilityMap, describeCatalog } from "./catalog.js";
 import { credentialPath, FileCredentials } from "./credentials.js";
 import { cid, emptyUsage, RunDoc, type RunState, SessionDoc, submissionOutcome, sumUsage } from "./docs.js";
+import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
 import { RunLimits } from "./limits.js";
@@ -196,6 +199,7 @@ export class Runtime {
 			? JSON.parse(saved.config)
 			: structuredClone(await this.options.resolveSession(session));
 		const usageBefore = saved?.config ? saved.usageBefore : await this.usage(session);
+		if (!saved?.config) await this.applyRequestedEffort(session, config, context);
 		await this.applyConfiguration(session, config);
 		if (!saved?.config) {
 			await this.harness.commit(async (tx) => {
@@ -226,6 +230,44 @@ export class Runtime {
 		if (!this.restoring) this.limits.arm(state);
 		this.limits.states.set(id, state);
 		if (!this.restoring) await this.preparePlacedInputs(session, config, context);
+	}
+	/** Per-run effort from authorized delegations; changes only this run's snapshot, never the profile or session. */
+	private async applyRequestedEffort(session: string, config: RuntimeSessionConfig, context: Context): Promise<void> {
+		const view = await (await this.conversation(session)).context(context);
+		const prepared = new Set(
+			view.entries
+				.filter((entry) => entry.kind === "yonder.prepared")
+				.map((entry) => (entry.data as { target: number }).target),
+		);
+		const events: YEvent[] = [];
+		for (const entry of view.entries) {
+			const data = entry.data as { raw?: boolean; event?: string } | undefined;
+			if (entry.kind !== "yonder.message" || !data?.raw || !data.event || prepared.has(entry.id)) continue;
+			const event = await this.options.readEvent?.(data.event);
+			if (event) events.push(event);
+		}
+		const asked = requestedEffort(events);
+		if (!asked) return;
+		const slash = config.resolved.model.indexOf("/");
+		const model = this.models.getModel(config.resolved.model.slice(0, slash), config.resolved.model.slice(slash + 1));
+		try {
+			if (!model) throw new Error("Unknown model");
+			const resolution = resolveEffort(model, config.resolved.thinking as ModelThinkingLevel, asked.requested, true);
+			config.resolved = { ...config.resolved, thinking: resolution.effective };
+			config.effort = {
+				requested: asked.requested,
+				effective: resolution.effective,
+				...(resolution.fallbackReason ? { reason: resolution.fallbackReason } : {}),
+				inputs: asked.inputs,
+			};
+		} catch {
+			config.effort = {
+				requested: asked.requested,
+				effective: config.resolved.thinking,
+				reason: "model-without-effort",
+				inputs: asked.inputs,
+			};
+		}
 	}
 	private install() {
 		this.background = createBackground({

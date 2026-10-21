@@ -68,6 +68,7 @@ interface YEvent {
   name?: string;           // 发送者当前显示名（用于提示词与身份表）
   target?: string;         // 仅内核 agent 渠道使用：agent_ask 指定的目标 agent id
   sources?: string[];      // 仅内核 agent 渠道使用：agent_ask 引用的来源事件 id（06 §6.1）
+  effort?: string;         // 仅内核 agent 渠道使用：agent_ask 请求的本次运行思考等级（14 §5）
 }
 interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string; uri: string; name?: string; bytes?: number }
 ```
@@ -84,6 +85,8 @@ interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string;
   reason?: string;                 // error / limit 时说明原因
   replied: 'source' | 'caller' | 'deliver' | 'none';   // 见 06 §2
   model: string;                   // provider/modelId
+  thinking?: string;               // 本次运行实际使用的思考等级
+  effort?: { requested: string; effective: string; reason?: string; inputs: string[] };   // 有委派请求时（14 §5）
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
 }
 ```
