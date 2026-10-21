@@ -2,13 +2,13 @@
 
 更新：2026-10-21。版本 0.2.26102103，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
 
-任务恢复（D46）：已实现消息/运行/后续责任分离、内部委派跨重启重接、真实错误保留、后台结果接纳补交及确定未发送通知补达；正式验收与发布状态见 [task-recovery](verification/task-recovery.md)。
+任务恢复（D46）：已实现消息/运行/后续责任分离、内部委派跨重启重接、真实错误保留、后台结果接纳补交及确定未发送通知补达；207项真实验收及macOS CI通过；正式03已由日用apply策略自动升级并核验，飞书升级通知送达。完整原始记录见 [task-recovery](verification/task-recovery.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
 ## 验证基线
 
-- 构建、类型检查通过。默认测试 183 通过 / 17 跳过 / 0 失败；显式打开真实模型与隔离 launchd 后 200/200 通过，零跳过。全新克隆的 `npm ci`、构建、类型检查、默认测试和 lint 通过；独立安装后真实 Luna/bash 任务通过。原始失败与后续复验见 [本轮记录](verification/background-result-dedupe.md)。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)）；跳过不等于通过。
+- 构建、类型检查通过。默认测试 188 通过 / 19 跳过 / 0 失败；显式打开真实模型与隔离 launchd 后 207/207 通过，零跳过。最终源码 e163f64 在全新克隆的 npm ci、构建、类型检查、默认测试与 lint、独立安装真实 Luna/bash 和 macOS CI 中通过。原始失败、跨进程恢复、通知补达与实际升级见 [本轮记录](verification/task-recovery.md)；上一轮去重验收保留在 [历史记录](verification/background-result-dedupe.md)。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)）；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
 - 支持平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 未支持。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
