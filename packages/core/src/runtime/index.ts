@@ -54,7 +54,7 @@ import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
-import { RESTART_NOTICE, RETRY_POLICY, recoveryHooks } from "./recovery.js";
+import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, toResult } from "./results.js";
 
 export { attachmentFromPath } from "./attachments.js";
@@ -130,7 +130,7 @@ export class Runtime {
 				models: runtime.models,
 				registry: runtime.registry,
 				settings: {
-					retry: RETRY_POLICY,
+					retry: retryPolicy(options.config.retry),
 					...(options.config.compaction ? { compaction: options.config.compaction } : {}),
 				},
 				beforeAgent: (target, context) => runtime.prepareRun(String(target.conversationId), context),
@@ -293,7 +293,10 @@ export class Runtime {
 					{ tag: false },
 				),
 			],
-			hooks: [...this.limits.hooks(), ...recoveryHooks(() => this.harness)],
+			hooks: [
+				...this.limits.hooks(),
+				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),
+			],
 		});
 		this.registry.install(core);
 		this.extensions.set(core.name, core);
@@ -1054,6 +1057,20 @@ export class Runtime {
 	resume(): void {
 		this.restoring = false;
 		for (const state of this.limits.states.values()) if (!state.timer) this.limits.arm(state);
+		// Admit notes before a recovered request can pass beforeAgent, including
+		// requests whose checkpoint is already in the request phase.
+		this.restartNotes = Promise.all(
+			this.interrupted.splice(0).map(({ session, run }) =>
+				(async () => {
+					const state = await this.harness.snapshot(RunDoc, cid(session), run, C);
+					if (state?.networkInterrupted) return;
+					await this.writeNote(session, `restart:${run}`, RESTART_NOTICE);
+					await this.harness.commit(async (tx) => {
+						(await tx.doc(RunDoc, cid(session), run, null)).networkInterrupted = true;
+					}, C);
+				})().catch((error) => this.options.onReport?.(error)),
+			),
+		).then(() => {});
 		for (const item of this.recovering.splice(0)) {
 			void (async () => {
 				const submission = await this.harness.submission(item.id, C);
@@ -1064,15 +1081,7 @@ export class Runtime {
 			.scanTasks({ kind: "yonder.background" }, Number.MAX_SAFE_INTEGER, undefined, C)
 			.then((page) => this.background.recover(page.items))
 			.catch((error) => this.options.onReport?.(error));
-		// Admit notes before a recovered request can pass beforeAgent, including
-		// requests whose checkpoint is already in the request phase.
-		this.restartNotes = Promise.all(
-			this.interrupted
-				.splice(0)
-				.map(({ session, run }) =>
-					this.writeNote(session, `restart:${run}`, RESTART_NOTICE).catch((error) => this.options.onReport?.(error)),
-				),
-		).then(() => {});
+
 		this.harness.resume();
 	}
 	async responseText(session: string, event: string): Promise<string> {
@@ -1182,7 +1191,11 @@ export class Runtime {
 	}
 
 	async close(): Promise<void> {
-		for (const state of this.limits.states.values()) clearTimeout(state.timer);
-		await this.harness.close(C);
+		await this.restartNotes;
+		try {
+			await this.harness.close(C);
+		} finally {
+			for (const state of this.limits.states.values()) clearTimeout(state.timer);
+		}
 	}
 }

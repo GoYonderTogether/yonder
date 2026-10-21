@@ -92,6 +92,13 @@ export const YonderSchema = object({
 		),
 	),
 	envs: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
+	retry: Type.Optional(
+		object({
+			maxRetries: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })),
+			baseDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
+			maxDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
+		}),
+	),
 	compaction: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 	agents: Type.Optional(
 		Type.Array(object({ id: text, workspace: text, env: Type.Optional(instanceId), archivedAt: Type.Optional(text) })),

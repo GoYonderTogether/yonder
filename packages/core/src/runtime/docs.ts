@@ -20,14 +20,19 @@ export const SessionDoc = defineDoc({
 export const cid = (id: string) => Number(id) as ConversationId;
 export const emptyUsage = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
 export function submissionOutcome(
-	done: { status: "done" } | { status: "unanswered"; reason: string },
+	done: { status: "done" } | { status: "unanswered"; reason: string; detail?: unknown },
 	limitReason?: string,
 ): { status: RuntimeRun["status"]; reason?: string } {
 	if (limitReason) return { status: "limit", reason: limitReason };
 	if (done.status === "done") return { status: "done" };
 	return {
 		status: done.reason.includes("abort") ? "aborted" : "error",
-		reason: done.reason,
+		reason:
+			done.reason === "model_error" &&
+			typeof done.detail === "string" &&
+			done.detail.startsWith("Model retries exhausted (")
+				? `${done.reason}: ${done.detail}`
+				: done.reason,
 	};
 }
 export const RunDoc = defineDocFamily({

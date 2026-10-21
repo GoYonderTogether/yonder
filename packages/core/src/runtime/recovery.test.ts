@@ -12,10 +12,20 @@ import { FileCredentials } from "./credentials.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 import { buildModels } from "./models.js";
-import { transientModelError } from "./recovery.js";
+import { retryPolicy, transientModelError } from "./recovery.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 const real = process.env.YONDER_TEST_REAL === "1" && existsSync(auth);
+
+test("retry settings default to ten patient capped backoffs and accept overrides", () => {
+	expect(retryPolicy()).toEqual({ enabled: true, maxRetries: 10, baseDelayMs: 2000, maxAgentDelayMs: 300000 });
+	expect(retryPolicy({ maxRetries: 0, baseDelayMs: 25, maxDelayMs: 100 })).toEqual({
+		enabled: true,
+		maxRetries: 0,
+		baseDelayMs: 25,
+		maxAgentDelayMs: 100,
+	});
+});
 
 test("recovery retries transport/5xx/throttle errors and excludes deterministic failures and aborts", () => {
 	for (const errorMessage of [
@@ -62,12 +72,12 @@ test.skipIf(!real)(
 			calls++;
 			// Hold the initial real provider request until shutdown cancels it.
 			// Its native request checkpoint must be resent on restart.
-			if (calls === 1) return;
+			if (calls <= 2) return;
 			// The resent request executes a tool. Fail the following generation
 			// twice, after its filesystem side effect has completed.
-			if (calls === 3 || calls === 4) {
+			if (calls === 4 || calls === 5) {
 				failed.push(Date.now());
-				res.writeHead(calls === 3 ? 501 : 503, { "content-type": "application/json" });
+				res.writeHead(calls === 4 ? 501 : 503, { "content-type": "application/json" });
 				res.end(JSON.stringify({ error: { message: "Upstream temporarily unavailable" } }));
 				return;
 			}
@@ -96,6 +106,7 @@ test.skipIf(!real)(
 			await initHome(home);
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
+			config.retry = { maxRetries: 3, baseDelayMs: 2000, maxDelayMs: 2100 };
 			config.models = {
 				providers: {
 					openai: {
@@ -132,6 +143,9 @@ test.skipIf(!real)(
 			socket.destroy();
 			await kernel.close();
 			kernel = await openKernel(home);
+			await expect.poll(() => calls, { timeout: 30000 }).toBe(2);
+			await kernel.close();
+			kernel = await openKernel(home);
 			const running = kernel;
 			socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
 			await new Promise<void>((done, reject) => {
@@ -150,6 +164,7 @@ test.skipIf(!real)(
 			expect(transcript.filter((entry) => entry.kind === "yonder.runtime-note")).toHaveLength(2);
 			expect(requests[1]).toContain("Task interrupted by restart");
 			expect(requests[1]!.match(/Task interrupted by restart/g) ?? []).toHaveLength(1);
+			expect(requests[2]!.match(/Task interrupted by restart/g) ?? []).toHaveLength(1);
 			expect(requests.at(-1)).toContain("Connection to the model interrupted");
 			expect(failed).toHaveLength(2);
 			expect(failed[1]! - failed[0]!).toBeGreaterThanOrEqual(1900);
@@ -184,10 +199,11 @@ test.skipIf(!real)(
 );
 
 test.skipIf(!real)(
-	"real HTTP boundary enforces three backoffs, permanent failures and abort during backoff",
+	"real HTTP boundary enforces capped backoffs, retry exclusions, exhaustion and immediate abort",
 	async () => {
 		const home = await mkdtemp("/tmp/yonder-network-budget-");
 		let status = 503;
+		let errorText = "Service temporarily unavailable";
 		let calls: number[] = [];
 		const server = createServer((req, res) => {
 			calls.push(Date.now());
@@ -196,18 +212,7 @@ test.skipIf(!real)(
 				return;
 			}
 			res.writeHead(status, { "content-type": "application/json" });
-			res.end(
-				JSON.stringify({
-					error: {
-						message:
-							status === 401
-								? "Authentication failed; please retry your request"
-								: status === 400
-									? "Invalid schema; upstream 503"
-									: "Service temporarily unavailable",
-					},
-				}),
-			);
+			res.end(JSON.stringify({ error: { message: errorText } }));
 		});
 		await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
 		const address = server.address() as { port: number };
@@ -217,6 +222,7 @@ test.skipIf(!real)(
 			config: {
 				schema: 1,
 				credentials: auth,
+				retry: { maxRetries: 3, baseDelayMs: 300, maxDelayMs: 400 },
 				models: {
 					providers: {
 						openai: {
@@ -240,14 +246,20 @@ test.skipIf(!real)(
 		const create = () => runtime.create({ agent: null, profile: "recovery", cwd: home });
 		try {
 			const session = await create();
-			expect((await runtime.submit(session, { text: "Check provider availability." })).status).toBe("error");
+			const exhausted = await runtime.submit(session, { text: "Check provider availability." });
+			expect(exhausted).toMatchObject({
+				status: "error",
+				reason: expect.stringContaining("retries exhausted (3 retries)"),
+			});
+			expect(exhausted.reason).toContain("Service temporarily unavailable");
+			expect(await runtime.hasPendingWork(session)).toBe(false);
 			expect(calls).toHaveLength(4);
 			for (let i = 1; i < calls.length; i++)
-				expect(calls[i]! - calls[i - 1]!).toBeGreaterThanOrEqual(2000 * 2 ** (i - 1) - 100);
+				expect(calls[i]! - calls[i - 1]!).toBeGreaterThanOrEqual(Math.min(300 * 2 ** (i - 1), 400) - 30);
 			expect((await runtime.transcript(session)).filter((entry) => entry.kind === "yonder.runtime-note")).toHaveLength(
 				1,
 			);
-			for (status of [0, 429]) {
+			for (status of [0, 429, 500, 501, 502, 504, 529]) {
 				calls = [];
 				const failed = await create();
 				expect((await runtime.submit(failed, { text: "Check provider availability." })).status).toBe("error");
@@ -256,20 +268,40 @@ test.skipIf(!real)(
 					1,
 				);
 			}
-			for (status of [401, 400]) {
+			for (const failure of [
+				[401, "Authentication failed; please retry your request"],
+				[401, "Invalid API key; 503 upstream"],
+				[403, "Permission denied; overloaded"],
+				[400, "Invalid schema; upstream 503"],
+				[422, "Invalid request; please retry your request"],
+				[400, "Context length exceeded; overloaded"],
+				[400, "Token limit exceeded; 503 upstream"],
+				[429, "insufficient_quota"],
+				[429, "Billing limit exceeded; rate limit"],
+				[503, "repeatStop"],
+				[503, "aborted"],
+				[503, "Authentication failed; please retry your request"],
+				[503, "Invalid API key"],
+				[503, "Permission denied"],
+				[503, "Token limit exceeded"],
+			] as const) {
+				[status, errorText] = failure;
 				calls = [];
 				expect((await runtime.submit(await create(), { text: "Check provider availability." })).status).toBe("error");
 				expect(calls).toHaveLength(1);
 			}
 			status = 503;
+			errorText = "Service temporarily unavailable";
 			calls = [];
 			const aborted = await create();
 			const pending = runtime.submit(aborted, { text: "Check provider availability." });
 			await expect
 				.poll(async () => (await runtime.transcript(aborted)).some((entry) => entry.kind === "yonder.runtime-note"))
 				.toBe(true);
+			const abortStarted = Date.now();
 			await runtime.abort(aborted);
 			expect((await pending).status).toBe("aborted");
+			expect(Date.now() - abortStarted).toBeLessThan(1000);
 			expect(calls).toHaveLength(1);
 		} finally {
 			await runtime.close();
@@ -303,6 +335,7 @@ test.skipIf(!real)(
 				config: {
 					schema: 1,
 					credentials: auth,
+					retry: { maxRetries: 3, baseDelayMs: 1000, maxDelayMs: 1000 },
 					models: { providers: { openai: { baseUrl: `http://127.0.0.1:${address.port}/v1` } } },
 				},
 				resolveSession: async () => ({ agent: null, profile: "recovery", cwd: home, resolved: resolveProfile({}) }),
@@ -324,13 +357,7 @@ test.skipIf(!real)(
 			runtime = await open();
 			await runtime.recover();
 			runtime.resume();
-			await expect
-				.poll(async () =>
-					(await db.all<{ record: string }>("SELECT record FROM pi_submissions")).some((row) =>
-						JSON.parse(row.record).requestId?.startsWith("restart:"),
-					),
-				)
-				.toBe(true);
+			await expect.poll(() => requests.length).toBe(2);
 			await runtime.close();
 			db = await openDatabase(`${home}/state.db`);
 			runtime = await open();
@@ -338,15 +365,29 @@ test.skipIf(!real)(
 			runtime.resume();
 			await expect.poll(async () => !(await runtime.hasPendingWork(session)), { timeout: 30000 }).toBe(true);
 			expect(requests).toHaveLength(4);
-			expect(requests.at(-1)).toContain("Task interrupted by restart");
-			expect(requests.at(-1)!.match(/Task interrupted by restart/g) ?? []).toHaveLength(1);
+			expect(requests.at(-1)).toContain("Connection to the model interrupted");
+			expect(requests.at(-1)!.match(/Connection to the model interrupted/g) ?? []).toHaveLength(1);
+			expect(requests.at(-1)).not.toContain("Task interrupted by restart");
 			const submissions = (await db.all<{ record: string }>("SELECT record FROM pi_submissions")).map((row) =>
 				JSON.parse(row.record),
 			);
-			expect(submissions.filter((record) => record.requestId?.startsWith("restart:"))).toHaveLength(1);
+			expect(submissions.filter((record) => record.requestId?.startsWith("restart:"))).toHaveLength(0);
 			expect((await runtime.transcript(session)).filter((entry) => entry.kind === "yonder.runtime-note")).toHaveLength(
 				1,
 			);
+			// Restart an exhausted run twice: no new requests or notices, and no pending work.
+			for (let restart = 0; restart < 2; restart++) {
+				await runtime.close();
+				db = await openDatabase(`${home}/state.db`);
+				runtime = await open();
+				await runtime.recover();
+				runtime.resume();
+				expect(await runtime.hasPendingWork(session)).toBe(false);
+				expect(requests).toHaveLength(4);
+				expect(
+					(await runtime.transcript(session)).filter((entry) => entry.kind === "yonder.runtime-note"),
+				).toHaveLength(1);
+			}
 		} finally {
 			await runtime.close();
 			server.closeAllConnections();

@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { matchesGlob, parseAgentConfig, resolveProfile } from "./index.js";
+import { matchesGlob, parseAgentConfig, parseYonderConfig, resolveProfile } from "./index.js";
 
 describe("config basics", () => {
+	it("reads retry options from YAML and rejects invalid retry parameters", () => {
+		expect(
+			parseYonderConfig("schema: 1\nretry: { maxRetries: 0, baseDelayMs: 25, maxDelayMs: 100 }", "yonder.yaml").retry,
+		).toEqual({ maxRetries: 0, baseDelayMs: 25, maxDelayMs: 100 });
+		for (const retry of [
+			"maxRetries: -1",
+			"maxRetries: 1.5",
+			"baseDelayMs: 0",
+			"maxDelayMs: 0",
+			"maxDelayMs: 2147483648",
+			"unknown: 1",
+		])
+			expect(() => parseYonderConfig(`schema: 1\nretry: { ${retry} }`, "yonder.yaml"), retry).toThrow();
+	});
 	it("validates an agent and resolves profile overrides", () => {
 		const agent = parseAgentConfig(
 			`schema: 1

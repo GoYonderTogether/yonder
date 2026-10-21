@@ -5,7 +5,14 @@ import { GenerationTask, type Harness, hook, InboxDoc, LiveDoc } from "@earendil
 import { RunDoc } from "./docs.js";
 
 // Native checkpoints own both the retry budget and the backoff across restarts.
-export const RETRY_POLICY = { enabled: true, maxRetries: 3, baseDelayMs: 2000 };
+export function retryPolicy(config?: import("../config/index.js").YonderConfig["retry"]) {
+	return {
+		enabled: true,
+		maxRetries: config?.maxRetries ?? 10,
+		baseDelayMs: config?.baseDelayMs ?? 2000,
+		maxAgentDelayMs: config?.maxDelayMs ?? 300000,
+	};
+}
 export const RESTART_NOTICE =
 	"Task interrupted by restart. Re-check state, avoid repeating completed actions, and resume.";
 const NETWORK_NOTICE =
@@ -25,7 +32,7 @@ export function transientModelError(message: Pick<AssistantMessage, "stopReason"
 	);
 }
 
-export function recoveryHooks(harness: () => Harness) {
+export function recoveryHooks(harness: () => Harness, maxRetries: number) {
 	return [
 		hook(GenerationTask, {
 			beforeRequest: async (request, api, context) => {
@@ -41,7 +48,7 @@ export function recoveryHooks(harness: () => Harness) {
 			afterResponse: async (message, api, context) => {
 				const live = await api.snapshot(LiveDoc, api.conversationId, context);
 				if (!live?.run) return;
-				const retry = transientModelError(message) && (live.generation?.attempt ?? 1) <= RETRY_POLICY.maxRetries;
+				const retry = transientModelError(message) && (live.generation?.attempt ?? 1) <= maxRetries;
 				if (message.stopReason === "error" && !retry) return;
 				await harness().commit(async (tx) => {
 					const state = await tx.doc(RunDoc, api.conversationId, String(live.run!.inputs[0]), null);
