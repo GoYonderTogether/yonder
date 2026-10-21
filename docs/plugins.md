@@ -286,3 +286,9 @@
   - 自动探测并启动自有Chromium浏览器完成网页操作；macOS原生截图/观察/键鼠。
   - 停止等待自有进程真实退出。
 - **边界**：无需BrowserSkill/Codex，但仍需浏览器引擎和OS授权。截图通过不代替键鼠真实验收。
+
+## 微信归档与 iLink
+
+- `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
+- `@yonder/plugin-channel-wechat-ilink`：wechat-ilink 私聊渠道及 status/login/message 工具；首个配置实例默认关联明确配置的主人，后续实例独立关联。模型权限、会话与投递沿用现有系统。详见[iLink 插件](../plugins/channel-wechat-ilink/README.md)。
+- 实现/验证/真实微信未测项见[微信迁移验收](verification/wechat-plugins.md)。
