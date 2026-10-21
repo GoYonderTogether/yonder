@@ -67,6 +67,7 @@ const sessionsUsage =
 const skillsUsage =
 	"Usage: yonder skills [show <name>|add <directory>|remove <name>] [--agent <id>] [--profile <name>]";
 const releaseUsage: Record<string, string> = {
+	channels: "Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]",
 	plugins: "Usage: yonder plugins list|show <id>|add <directory/package>|remove <id>",
 	models: "Usage: yonder models list",
 	inspect: "Usage: yonder inspect [--agent <id>] [--profile <name>]",
