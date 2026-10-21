@@ -14,6 +14,12 @@ export class FeishuRequestError extends Error {
 const transport = (error: unknown, beforeDispatch = false): boolean => {
 	let current = error;
 	for (let depth = 0; current instanceof Error && depth < 4; depth++, current = current.cause) {
+		// HTTPS request bytes cannot be sent before the TLS handshake completes.
+		if (
+			(current as NodeJS.ErrnoException).code === "ECONNRESET" &&
+			current.message.includes("before secure TLS connection was established")
+		)
+			return true;
 		if (
 			/^(ENOTFOUND|EAI_AGAIN|ECONNREFUSED|UND_ERR_CONNECT_TIMEOUT)$/.test(
 				String((current as NodeJS.ErrnoException).code),

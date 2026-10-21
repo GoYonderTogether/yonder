@@ -1,3 +1,4 @@
+import { createServer, type Socket } from "node:net";
 import type { OutputPart, PluginAPI, ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { describe, expect, it, vi } from "vitest";
@@ -389,4 +390,55 @@ it("stream creation DNS failure is safely unsent; an existing card never request
 	expect(result).toMatchObject({ ok: false, retryable: true });
 	expect(result.id).toBeUndefined();
 	expect(result.uncertain).toBeUndefined();
+});
+
+it("retries an actual pre-TLS disconnect for send and stream, but not an unqualified reset", async () => {
+	const sockets = new Set<Socket>();
+	const server = createServer((socket) => {
+		sockets.add(socket);
+		socket.end();
+	});
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	let failure: unknown;
+	try {
+		const address = server.address();
+		if (!address || typeof address === "string") throw new Error("Missing test listener");
+		await fetch(`https://127.0.0.1:${address.port}`, { method: "POST", body: "transport probe" });
+	} catch (error) {
+		failure = error;
+	} finally {
+		for (const socket of sockets) socket.destroy();
+		await new Promise<void>((resolve) => server.close(() => resolve()));
+	}
+	expect(failure).toMatchObject({
+		cause: { code: "ECONNRESET", message: expect.stringContaining("before secure TLS connection was established") },
+	});
+	const channel = new FeishuChannel("test", config, api());
+	vi.spyOn(channel.client, "credentials").mockResolvedValue({ appId: config.appId, appSecret: "transport-test" });
+	const request = vi
+		.spyOn(globalThis, "fetch")
+		.mockResolvedValueOnce(Response.json({ code: 0, tenant_access_token: "transport-test", expire: 7200 }))
+		.mockRejectedValueOnce(failure)
+		.mockRejectedValueOnce(failure)
+		.mockRejectedValueOnce(
+			new TypeError("fetch failed", { cause: Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }) }),
+		);
+	try {
+		await expect(channel.client.raw("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+			retryable: true,
+			uncertain: false,
+		});
+		async function* parts(): AsyncIterable<OutputPart> {
+			yield { type: "final", text: "notification" };
+		}
+		const stream = await channel.stream("conv:test:chat", parts());
+		expect(stream).toMatchObject({ ok: false, retryable: true });
+		expect(stream.uncertain).toBeUndefined();
+		await expect(channel.client.raw("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+			uncertain: true,
+			retryable: false,
+		});
+	} finally {
+		request.mockRestore();
+	}
 });
