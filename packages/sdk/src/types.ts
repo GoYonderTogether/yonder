@@ -46,6 +46,8 @@ export interface MessageInData {
 	replyTo?: string;
 	name?: string;
 	target?: string;
+	/** Source event ids quoted by agent_ask (06 §6.1). */
+	sources?: string[];
 }
 export interface MessageOutData {
 	text: string;

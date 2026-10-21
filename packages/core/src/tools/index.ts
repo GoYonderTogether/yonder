@@ -17,6 +17,7 @@ import type { Runtime, RuntimeInput } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { coreToolCapabilities } from "./catalog.js";
+import { MAX_SOURCES, sourceBlock } from "./sources.js";
 
 interface CoreToolsOptions {
 	store: Store;
@@ -36,6 +37,7 @@ const fail = (error: unknown): ToolResult => ({
 const text = () => Type.String({ minLength: 1 });
 const schema = (fields: Record<string, import("typebox").TSchema>) =>
 	Type.Object(fields, { additionalProperties: false });
+const sourcesSchema = Type.Optional(Type.Array(text(), { minItems: 1, maxItems: MAX_SOURCES }));
 const attachmentSchema = Type.Object(
 	{
 		kind: Type.Union([Type.Literal("image"), Type.Literal("audio"), Type.Literal("video"), Type.Literal("file")]),
@@ -81,6 +83,22 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const sameAgent = (session: SessionInfo, ctx: ToolContext) => {
 		if (session.agent !== ctx.agent) requireCapability(ctx, "cross-agent");
 	};
+	/** Verbatim copies of inbound messages of this run's own conversation; the model never re-types them. */
+	async function quoteSources(ids: string[] | undefined, ctx: ToolContext): Promise<string | undefined> {
+		if (!ids?.length) return undefined;
+		const conv = ctx.event?.conv;
+		if (!conv) throw new Error("sources 只能引用本次运行来源会话里的入站消息，当前运行没有来源会话。");
+		const events: YEvent[] = [];
+		for (const id of ids) {
+			const event: YEvent | undefined =
+				(await store.events.get(id)) ??
+				(await store.events.findInput({ type: "message.in", conv, data: { msgId: id } } as EventInput));
+			if (!event || event.type !== "message.in" || event.conv !== conv)
+				throw new Error(`来源消息不存在或不属于本次运行的来源会话：${id}`);
+			events.push(event);
+		}
+		return sourceBlock(events, conv);
+	}
 	async function taskInput(
 		childId: string,
 		presetId: string,
@@ -163,11 +181,11 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "agent_ask",
 			description: "通过目标 agent 的绑定提交问题；15秒未完成返回后台句柄，答复完成后自动通知。",
-			parameters: schema({ agent: text(), text: text() }),
+			parameters: schema({ agent: text(), text: text(), sources: sourcesSchema }),
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "message");
 				if (!ctx.agent) throw new Error("预设会话没有 agent 身份，不能调用 agent_ask。");
-				const request = args as { agent: string; text: string };
+				const request = args as { agent: string; text: string; sources?: string[] };
 				if (!agents.has(request.agent)) throw new Error(`未知 agent：${request.agent}`);
 				if (request.agent === ctx.agent) throw new Error("agent_ask 调用形成环。");
 				let current = ctx.event;
@@ -181,6 +199,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					}
 					current = current.parent ? await store.events.get(current.parent) : undefined;
 				}
+				const quoted = await quoteSources(request.sources, ctx);
 				const reply = await withSignal(
 					ask({
 						type: "message.in",
@@ -189,7 +208,8 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 						...(ctx.event ? { parent: ctx.event.id } : {}),
 						data: {
 							kind: "agent",
-							text: request.text,
+							text: quoted ? `${request.text}\n\n${quoted}` : request.text,
+							...(request.sources?.length ? { sources: request.sources } : {}),
 							target: request.agent,
 							msgId: `internal:${runtime().invocationId(ctx)}`,
 						},
@@ -238,14 +258,21 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "task_run",
 			description: `使用预设完成专门任务；15秒未完成返回后台句柄，完成后自动通知。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
-			parameters: schema({ preset: text(), task: text(), attachments: Type.Optional(Type.Array(attachmentSchema)) }),
+			parameters: schema({
+				preset: text(),
+				task: text(),
+				sources: sourcesSchema,
+				attachments: Type.Optional(Type.Array(attachmentSchema)),
+			}),
 			execute: async (args, ctx) => {
-				const request = args as { preset: string; task: string; attachments?: Attachment[] };
+				const request = args as { preset: string; task: string; sources?: string[]; attachments?: Attachment[] };
 				await runtime().authorizeAttachments(ctx, request.attachments);
 				if (!getPreset(request.preset)) throw new Error(`未知预设：${request.preset}`);
+				const quoted = await quoteSources(request.sources, ctx);
+				const task = quoted ? `${request.task}\n\n${quoted}` : request.task;
 				const run = await runtime().runTask(ctx, async (childId) => {
 					try {
-						return (await taskInput(childId, request.preset, request.task, request.attachments, ctx)).input;
+						return (await taskInput(childId, request.preset, task, request.attachments, ctx)).input;
 					} catch (error) {
 						if (await store.sessions.get(childId)) await sessions.closeSession(childId, "admission-error");
 						throw error;
