@@ -151,14 +151,14 @@ export function createSessions({
 	}
 	async function submitTaskEvent(session: SessionInfo, event: YEvent): Promise<RunResult> {
 		try {
-			const data = event.data as Input & { busy?: "followup" | "steer" };
+			const data = event.data as Input & { busy?: "followup" | "steer" | "interrupt" };
 			if (closing.has(session.id) || (await store.sessions.get(session.id))?.closed)
 				throw new Error(`Session closed before admission: ${session.id}`);
 			const run = await runtime().submit(session.id, {
 				text: data.text,
 				event,
 				wake: "run",
-				busy: data.busy ?? "followup",
+				busy: data.busy ?? "steer",
 				requestId: `event:${event.id}`,
 				attachments: data.attachments ?? [],
 			});
@@ -178,7 +178,7 @@ export function createSessions({
 		id: string,
 		input: Input,
 		wait: boolean,
-		busy?: "followup" | "steer",
+		busy?: "followup" | "steer" | "interrupt",
 		accepted?: (event: string) => void,
 		from?: string,
 	): Promise<RunResult | InputReceipt> {
@@ -192,7 +192,7 @@ export function createSessions({
 				session: id,
 				text: input.text,
 				waiting: wait,
-				busy: busy ?? "followup",
+				busy: busy ?? "steer",
 				...(input.attachments ? { attachments: input.attachments } : {}),
 			},
 		});
@@ -319,7 +319,7 @@ export function createSessions({
 		submitFrom(
 			id: string,
 			input: Input,
-			options: { wait?: boolean; busy?: "followup" | "steer" } | undefined,
+			options: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" } | undefined,
 			from: string,
 		) {
 			return runTask(id, input, options?.wait === true, options?.busy, undefined, from);
@@ -329,7 +329,7 @@ export function createSessions({
 		closeSession,
 		getPreset: preset,
 		version,
-		submitAccepted(id: string, input: Input, busy?: "followup" | "steer"): Promise<InputReceipt> {
+		submitAccepted(id: string, input: Input, busy?: "followup" | "steer" | "interrupt"): Promise<InputReceipt> {
 			return new Promise((resolve, reject) => {
 				void runTask(id, input, false, busy, (event) => resolve({ event, session: id })).catch(reject);
 			});

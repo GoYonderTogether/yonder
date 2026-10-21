@@ -24,7 +24,7 @@ export interface Route {
 	binding: string | null;
 	session?: string;
 	wake?: "run" | "write";
-	busy?: "followup" | "steer";
+	busy?: "followup" | "steer" | "interrupt";
 	waiting?: boolean;
 	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch";
 }
@@ -157,12 +157,16 @@ export interface SessionsAPI {
 		capabilities?: Capability[];
 		close?: "run-end" | "manual";
 	}): Promise<SessionInfo>;
-	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" }): Promise<RunResult>;
-	submit(id: string, input: Input, opts: { wait?: false; busy?: "followup" | "steer" }): Promise<InputReceipt>;
+	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" | "interrupt" }): Promise<RunResult>;
 	submit(
 		id: string,
 		input: Input,
-		opts?: { wait?: boolean; busy?: "followup" | "steer" },
+		opts: { wait?: false; busy?: "followup" | "steer" | "interrupt" },
+	): Promise<InputReceipt>;
+	submit(
+		id: string,
+		input: Input,
+		opts?: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" },
 	): Promise<RunResult | InputReceipt>;
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;

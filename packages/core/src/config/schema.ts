@@ -56,7 +56,7 @@ export const BindingSchema = object({
 	]),
 	profile: Type.Optional(text),
 	wake: Type.Optional(choice("run", "write", "mention")),
-	busy: Type.Optional(choice("followup", "steer")),
+	busy: Type.Optional(choice("followup", "steer", "interrupt")),
 	reply: Type.Optional(choice("auto", "none")),
 	stream: Type.Optional(Type.Boolean()),
 	deliver: Type.Optional(object({ to: text, via: Type.Optional(instanceId) })),

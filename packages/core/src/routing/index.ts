@@ -169,7 +169,7 @@ export function createRouter({
 						text: data.text ?? "",
 						event,
 						wake: routed.wake,
-						busy: event.routes?.find((route) => route.session === session.id)?.busy ?? "followup",
+						busy: event.routes?.find((route) => route.session === session.id)?.busy ?? "steer",
 						...(attachments ? { attachments } : {}),
 						requestId:
 							event.type === "runtime.tool-result"
@@ -285,7 +285,7 @@ export function createRouter({
 				binding: binding.id,
 				session: ensured.session.id,
 				wake,
-				busy: binding.busy ?? "followup",
+				busy: binding.busy ?? "steer",
 				waiting: waiting && wake === "run",
 			});
 			runs.push({ agent: agent.id, session: ensured.session.id, wake });

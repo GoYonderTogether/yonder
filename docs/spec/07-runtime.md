@@ -27,7 +27,7 @@
 | 安全钩子、上限钩子 | 扩展 `yonder.core` 的 `hook(ToolTask, …)` 与 `hook(GenerationTask, …)`，`yonder.core` 最先安装 |
 | `wake: run` | `submit({ type: 'input', content, entry: { kind: 'yonder.message', data: { event } }, whenBusy })`；`content` 是 `<turn>` 块 + turn 贡献 + 正文的文字块，加上图片附件的图片块（03 §5.3） |
 | `wake: write` | `submit({ type: 'write', entry: { kind: 'yonder.message', data: { event }, model: [{ role: 'user', content, timestamp }] } })`。下一次运行模型能看到；会话忙时排到下一个边界 |
-| `busy` | `followup` → `whenBusy: 'followUp'`；`steer` → `whenBusy: 'steer'`（插进当前工具轮之后，与本次运行同一个回答） |
+| `busy` | 缺省 `steer` → `whenBusy: 'steer'`；显式 `followup` → `whenBusy: 'followUp'`；`interrupt` → `whenBusy: 'interrupt'`。steer 在工具轮后合并，在生成中取消旧回答并继续同一运行；interrupt 也取消工具。原生 steeringMode/followUpMode 均配置 all |
 | `task_run` | 子会话：工具声明 `replay: 'safe'`，在 `api.commit` 里先按 `tx.scanConversations({ ownerTaskId: api.taskId }, 1)` 找已有子会话，否则 `tx.createConversation({ ownership: { kind: 'task', taskId: api.taskId } })`；输入带 `requestId: task:<taskId>`。发起方中止时子会话一并中止 |
 | 执行环境 | `HarnessOptions.env({ conversationId, cwd, read })`，按 `yonder.session` 找到配置档的 `env`，本机为 `new NodeExecutionEnv({ cwd })` |
 | 用量 | conversation 文档 `pi.usage`（`UsageDoc`，按 `provider/model` 累计）；开始快照与原生运行回执中的结束快照之差记入 `run.end`，不在等待结果返回后读取可能已含 successor 的最新总量 |

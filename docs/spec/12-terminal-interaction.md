@@ -114,7 +114,7 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 ## 7. 支撑闭环的最小会话与控制面调整
 
 1. task 增加创建时的关闭策略 `run-end`（默认）/ `manual`。现有 task_run 与未带选项的 open 不变；TUI 用 manual，答复结束只结束本轮，下一次发送继续同一 pi conversation。策略持久化于已有 pi 扩展文档，不靠客户端内存；`SessionInfo.close` 对 task 返回实际策略，旧记录按 run-end。已关闭不允许 submit，不允许把一轮任务改成可续聊任务。
-2. SessionsAPI.submit 的 opts 新增可选 `busy: followup | steer`，缺省 followup，直映射原生 inbox；不增加客户端队列。TUI 使用上游输入动作选择该选项。该选项只用于显式 task 输入，不覆盖 agent 的渠道绑定。
+2. SessionsAPI.submit 的 opts 新增可选 `busy: followup | steer | interrupt`，缺省 steer，直映射原生 inbox；不增加客户端队列。TUI 使用上游输入动作选择该选项。该选项只用于显式 task 输入，不覆盖 agent 的渠道绑定。
 3. 本地控制面增加 presets 列表、CLI 渠道及其路由目标查询、task open/submit，与现有 list/transcript/abort/close 共用 Core 行为。列表只读，不能为了预览目标创建会话或花 token。task 提交写真实 `session.input`；常驻 agent 仍走渠道绑定。
 4. task TUI 用控制面的只读会话观察流，订阅确认后再允许发送。观察流给出实际运行状态，以及附有 session、输入事件关联与原生运行标识的 OutputPart；结束记录包含 done/error/aborted/limit（含空回复），不能只靠 final 推断运行结束。运行标识沿用首个实际 submission，不自建 run 身份。可用模型/级别/env/cwd 从 Core 已解析配置和运行快照读取，不由客户端猜。
 5. 观察不是等待者，不创建渠道、不写 message.out、不改变投递选择；不复制转录。task 用 wait:false 提交，先返回已接纳事件 id，再从观察流看进度/终结，最终内容与转录核对。断开只释放观察者，不取消任务。重连先观察再取实际转录/状态，按原生标识合并快照与实时内容，不补发错过的过程、不重复显示 final。
