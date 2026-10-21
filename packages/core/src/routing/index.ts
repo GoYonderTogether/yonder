@@ -113,9 +113,9 @@ export function createRouter({
 	};
 
 	async function finishIdle(session: SessionInfo) {
-		if (await runtime().hasPendingWork(session.id)) return;
 		for (const event of await store.events.waitingInputs(session.id)) {
 			let saved = await store.events.agentResult(session.id, event.id);
+			if (!saved && (await runtime().hasPendingWork(session.id, event.id))) continue;
 			const last = saved ? undefined : await runtime().lastResult(session.id, event.id);
 			if (!saved && !last) continue;
 			if (!saved)

@@ -1131,6 +1131,15 @@ export class Runtime {
 		await this.options.onIdle?.(session);
 	}
 
+	private async causedBy(source: import("@yonder/sdk").YEvent | undefined, input: string): Promise<boolean> {
+		const seen = new Set<string>();
+		while (source && !seen.has(source.id)) {
+			if (source.id === input) return true;
+			seen.add(source.id);
+			source = source.parent ? await this.options.readEvent?.(source.parent) : undefined;
+		}
+		return false;
+	}
 	async lastResult(session: string, input?: string) {
 		const docs = await this.storage.scanDocuments(
 			{ scope: { kind: "conversation", conversationId: cid(session) }, kind: "pi.run-receipt", at: "current" },
@@ -1142,22 +1151,13 @@ export class Runtime {
 			const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), doc.key!, C);
 			if (!receipt?.settlement) continue;
 			let matches = input === undefined;
-			for (let source of await this.sources(receipt.inputs)) {
-				if (matches) break;
-				const seen = new Set<string>();
-				while (source && !seen.has(source.id)) {
-					seen.add(source.id);
-					if (source.id === input) {
+			if (input)
+				for (const source of await this.sources(receipt.inputs)) {
+					if (await this.causedBy(source, input)) {
 						matches = true;
 						break;
 					}
-					if (!source.parent) break;
-					const parent = await this.options.readEvent?.(source.parent);
-					if (!parent) break;
-					source = parent;
 				}
-				if (matches) break;
-			}
 			if (matches) {
 				const state = await this.harness.snapshot(RunDoc, cid(session), doc.key!, C);
 				return {
@@ -1234,7 +1234,7 @@ export class Runtime {
 		);
 	}
 
-	async hasBackgroundWork(id: string, except?: number): Promise<boolean> {
+	async hasBackgroundWork(id: string, except?: number, input?: string): Promise<boolean> {
 		const tasks = await this.storage.scanTasks(
 			{ conversationId: cid(id), kind: "yonder.background" },
 			Number.MAX_SAFE_INTEGER,
@@ -1243,6 +1243,17 @@ export class Runtime {
 		);
 		for (const task of tasks.items) {
 			if (task.id === except) continue;
+			if (input) {
+				const config = (task.input as { config?: string }).config;
+				const events = config ? (JSON.parse(config) as { events: import("@yonder/sdk").YEvent[] }).events : [];
+				let belongs = false;
+				for (const event of events)
+					if (await this.causedBy(event, input)) {
+						belongs = true;
+						break;
+					}
+				if (!belongs) continue;
+			}
 			if (task.state.status !== "terminal") return true;
 			if (await this.background.pending(task.id)) return true;
 		}
@@ -1254,11 +1265,22 @@ export class Runtime {
 		return this.hasBackgroundWork(ctx.session, invocation.api.taskId);
 	}
 
-	async hasPendingWork(id: string): Promise<boolean> {
-		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return true;
-		if ((await this.harness.snapshot(InboxDoc, cid(id), C))?.items.some((item) => item.mode !== "write")) return true;
-		return this.hasBackgroundWork(id);
+	async hasPendingWork(id: string, input?: string): Promise<boolean> {
+		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
+		if (live?.run) {
+			if (!input) return true;
+			for (const source of await this.sources(live.run.inputs)) if (await this.causedBy(source, input)) return true;
+		}
+		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
+		for (const item of inbox?.items ?? [])
+			if (item.mode !== "write") {
+				if (!input) return true;
+				const event = (item.entry?.data as { event?: string } | undefined)?.event;
+				if (event && (await this.causedBy(await this.options.readEvent?.(event), input))) return true;
+			}
+		return this.hasBackgroundWork(id, undefined, input);
 	}
+
 	async executeCommand(
 		config: RuntimeSessionConfig,
 		request: { command: string | string[]; cwd?: string; signal?: AbortSignal },

@@ -12,11 +12,14 @@ import {
 	type ToolExecutionResult,
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
+import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
+import { newEvent } from "../store/index.js";
 import type { createBackground } from "./background.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
+import type { RuntimeSessionConfig } from "./types.js";
 
 // Native task driver replaces only model selection of tool name/arguments. The
 // real Yonder wrapper, pi task scheduler, SQLite, env and process tool all run.
@@ -50,9 +53,14 @@ test("native background preserves results, yields at 15s, owns processes and rel
 			harness: Harness;
 			background: ReturnType<typeof createBackground>;
 			tools: Map<string, ToolRegistration>;
+			invocationConfigs: WeakMap<object, { config: RuntimeSessionConfig; events: YEvent[] }>;
 			registry: { install(extension: ReturnType<typeof defineExtension>): void };
 		};
-		const driver = defineTask<{ name: string; args: JsonObject }, { phase: "run" }, ToolExecutionResult>({
+		const driver = defineTask<
+			{ name: string; args: JsonObject; event?: YEvent },
+			{ phase: "run" },
+			ToolExecutionResult
+		>({
 			name: "yonder.background-check",
 			version: 1,
 			initial: () => ({ phase: "run" }),
@@ -82,7 +90,17 @@ test("native background preserves results, yields at 15s, owns processes and rel
 					} as ToolExecutionApi;
 					const tool = internal.tools.get(job.input.name);
 					if (!tool) throw new Error(`Missing actual tool ${job.input.name}`);
-					const result = await tool.execute(job.input.args, api, context);
+					if (job.input.event)
+						internal.invocationConfigs.set(context, {
+							config: await runtime!.sessionConfig(String(job.conversationId)),
+							events: [job.input.event],
+						});
+					let result: ToolExecutionResult;
+					try {
+						result = await tool.execute(job.input.args, api, context);
+					} finally {
+						internal.invocationConfigs.delete(context);
+					}
 					await task.commit(() => ({ status: "terminal", outcome: { status: "completed", result } }), context);
 				},
 			},
@@ -98,12 +116,12 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		const other = await runtime.create({ agent: null, profile: "default", cwd: home });
 		await runtime.configure(first);
 		await runtime.configure(other);
-		const start = (session: string, name: string, args: JsonObject) =>
+		const start = (session: string, name: string, args: JsonObject, event?: YEvent) =>
 			internal.harness.commit(
 				(tx) =>
 					tx.createTask(
 						driver,
-						{ name, args },
+						{ name, args, ...(event ? { event } : {}) },
 						{ conversationId: Number(session) as never, ownership: { kind: "conversation" }, background: true },
 					),
 				C,
@@ -114,7 +132,8 @@ test("native background preserves results, yields at 15s, owns processes and rel
 				throw new Error(`Native task failed: ${JSON.stringify(task.state.outcome)}`);
 			return task.state.outcome.result;
 		};
-		const call = async (session: string, name: string, args: JsonObject) => done(await start(session, name, args));
+		const call = async (session: string, name: string, args: JsonObject, event?: YEvent) =>
+			done(await start(session, name, args, event));
 		const text = (result: ToolExecutionResult) =>
 			result.output
 				?.filter((part) => part.type === "text")
@@ -155,15 +174,26 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		expect(reports.some((e) => String(e).includes("admission temporarily unavailable"))).toBe(true);
 		expect(notifications.filter((item) => item.id === id)).toHaveLength(1);
 
+		const source = newEvent({ type: "message.in", data: { text: "native background scope check" } });
 		const interactive = JSON.parse(
 			text(
-				await call(first, "bash", {
-					command: "printf 'ready'; read line; printf 'received:%s' \"$line\"; sleep 30",
-					background: true,
-				}),
+				await call(
+					first,
+					"bash",
+					{
+						command: "printf 'ready'; read line; printf 'received:%s' \"$line\"; sleep 30",
+						background: true,
+					},
+					source,
+				),
 			),
 		).background as string;
 		await expect.poll(() => internal.background.running.get(Number(interactive))?.output).toBe("ready");
+		expect(await runtime.hasPendingWork(first)).toBe(true);
+		expect(await runtime.hasPendingWork(first, source.id)).toBe(true);
+		expect(
+			await runtime.hasPendingWork(first, newEvent({ type: "message.in", data: { text: "independent request" } }).id),
+		).toBe(false);
 		await call(first, "process", { action: "write", id: interactive, text: "stdin works\n" });
 		await expect
 			.poll(() => internal.background.running.get(Number(interactive))?.output)
