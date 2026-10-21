@@ -12,6 +12,7 @@ import { FeishuChannel } from "./channel.js";
 import { uncertain } from "./client.js";
 import { conversationContext } from "./conversation.js";
 import { type Config, configSchema, object, required, string } from "./protocol.js";
+import { taskCardParameters } from "./task-card.js";
 
 const str = { type: "string", minLength: 1 };
 export default definePlugin({
@@ -215,40 +216,8 @@ export default definePlugin({
 		register({
 			name: "channel-feishu_task_card",
 			description:
-				"Create/update/get one concise managed task status card. create requires sourceEvent from this run's actual latest Feishu text input, never arbitrary to/messageId. Reuse existing task IDs in rows (no logs). update requires receipt id and expectedRevision; get inspects the durable receipt. New user text retires the prior anchor and buttons programmatically. Unknown effects must not be retried. Only the initiator can use buttons; details/acknowledgment are notifications, never authority to execute/cancel anything. After create/update answer NO_REPLY to avoid a second automatic bubble. Does not alter ordinary streaming delivery.",
-			parameters: {
-				type: "object",
-				additionalProperties: false,
-				required: ["instance", "action"],
-				properties: {
-					instance: str,
-					action: { enum: ["create", "update", "get"] },
-					sourceEvent: str,
-					id: str,
-					expectedRevision: { type: "integer", minimum: 1 },
-					rows: {
-						type: "array",
-						minItems: 1,
-						maxItems: 12,
-						items: {
-							type: "object",
-							additionalProperties: false,
-							required: ["id", "status", "deliverable", "acceptance"],
-							properties: {
-								id: { type: "string", minLength: 1, maxLength: 80 },
-								status: { enum: ["queued", "working", "done", "blocked", "unverified"] },
-								deliverable: { type: "string", minLength: 1, maxLength: 160 },
-								acceptance: { type: "string", minLength: 1, maxLength: 160 },
-							},
-						},
-					},
-				},
-				anyOf: [
-					{ properties: { action: { const: "create" } }, required: ["sourceEvent", "rows"] },
-					{ properties: { action: { const: "update" } }, required: ["id", "expectedRevision", "rows"] },
-					{ properties: { action: { const: "get" } }, required: ["id"] },
-				],
-			} as TSchema,
+				"Create/update/get one concise managed task status card. create requires sourceEvent from this run's actual latest Feishu text input, never arbitrary to/messageId. Reuse existing task IDs in rows (no logs). Status: queued=⚪ 待开始, working=🟡 实现中 (verified live execution only), done=🟢 已完成 (whole deliverable delivered and accepted), blocked=🔴 已阻塞, legacy unverified=⚪ 未验收 (not active). Optional assignee/forwardedVerbatim are presentation claims, not authority or forwarding proof. lists.advancing is unattended work; lists.needsOwner names exact owner unblock actions only. update requires receipt id and expectedRevision; get inspects the durable receipt. New user text retires the prior anchor and buttons programmatically. Unknown effects must not be retried. Only the initiator can use buttons; details/acknowledgment are notifications, never authority to execute/cancel anything. After create/update answer NO_REPLY to avoid a second automatic bubble. Does not alter ordinary streaming delivery.",
+			parameters: taskCardParameters,
 			capabilities: ["read", "message", "network"],
 			async execute(input, ctx) {
 				let channel: FeishuChannel | undefined;

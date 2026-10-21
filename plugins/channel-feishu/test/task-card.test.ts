@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
@@ -250,4 +250,184 @@ it("responds to callbacks without waiting behind an in-flight remote PATCH", asy
 	).toHaveProperty("toast.type", "info");
 	finish();
 	await work;
+});
+
+it("renders fixed four-color labels, optional coordination claims and two short lists on the same card", async () => {
+	const { cards, send, patch } = await setup();
+	const first = (await cards.execute(
+		{
+			action: "create",
+			sourceEvent: "input",
+			rows: [
+				...["queued", "working", "done", "blocked", "unverified"].map((status) => ({ ...rows[0], status })),
+				{ ...rows[0], assignee: "maintainer", forwardedVerbatim: true },
+				{ ...rows[0], forwardedVerbatim: false },
+			],
+			lists: { advancing: ["继续测试\n无需操作"], needsOwner: ["确认验收标准"] },
+		},
+		ctx,
+	)) as { id: string };
+	const card = send.mock.calls[0]?.[1] as {
+		elements: { tag: string; columns?: { elements: { text: { content: string } }[] }[] }[];
+	};
+	const cells = card.elements
+		.filter((element) => element.tag === "column_set")
+		.map((element) => element.columns?.map((column) => column.elements[0]?.text.content));
+	expect(cells[0]).toEqual(["状态", "任务", "负责人", "原文程序转发", "交付物", "验收点"]);
+	expect(cells.slice(1, 6).map((row) => row?.[0])).toEqual([
+		"⚪ 待开始",
+		"🟡 实现中",
+		"🟢 已完成",
+		"🔴 已阻塞",
+		"⚪ 未验收",
+	]);
+	expect(cells[6]?.slice(2, 4)).toEqual(["maintainer", "是"]);
+	expect(cells[7]?.slice(2, 4)).toEqual(["未注明", "否"]);
+	const rendered = JSON.stringify(card);
+	for (const label of [
+		"⚪ 待开始",
+		"🟡 实现中",
+		"🟢 已完成",
+		"🔴 已阻塞",
+		"⚪ 未验收",
+		"负责人",
+		"原文程序转发",
+		"maintainer",
+		"未注明",
+		"我在推进，无需您操作",
+		"需要您处理",
+		"确认验收标准",
+		"确认收到（仅通知）",
+	])
+		expect(rendered).toContain(label);
+	expect(rendered).not.toMatch(/🟣|🟠|进行下一个任务/);
+	await cards.execute({ action: "update", id: first.id, expectedRevision: 1, rows }, ctx);
+	expect(JSON.stringify(patch.mock.calls[0]?.[2])).toContain("确认验收标准");
+	await cards.execute(
+		{ action: "update", id: first.id, expectedRevision: 2, rows, lists: { advancing: [], needsOwner: [] } },
+		ctx,
+	);
+	expect(JSON.stringify(patch.mock.calls[1]?.[2])).not.toContain("确认验收标准");
+});
+
+it.each(["details", "acknowledge"])(
+	"%s emit failure is unknown, not success, and never replays after restart",
+	async (action) => {
+		const { cards, create, emit, patch, client, api, send } = await setup();
+		const first = await create();
+		emit.mockClear();
+		emit.mockRejectedValueOnce(new Error("admission response lost"));
+		const value = { yonder_task_card: first.id, revision: 1, action };
+		expect(await cards.callback(sender, chat, "om_card", value)).toMatchObject({
+			toast: { type: "error", content: expect.stringContaining("未知") },
+		});
+		const receipt = await cards.execute({ action: "get", id: first.id }, ctx);
+		expect(receipt).toMatchObject({
+			notifications: { [`1:${action}`]: "unknown" },
+			acknowledged: action === "acknowledge",
+		});
+		await cards.callback(sender, chat, "om_card", value);
+		const restarted = new FeishuTaskCards("feishu", client, api, send);
+		await restarted.start();
+		await restarted.callback(sender, chat, "om_card", value);
+		expect(emit).toHaveBeenCalledTimes(1);
+		expect(patch).not.toHaveBeenCalled();
+	},
+);
+
+it("restart exposes a pending consumed notification as unknown without emitting", async () => {
+	const { create, home, api, client, send, emit } = await setup();
+	const first = await create();
+	const path = join(home, "feishu", "task-cards.json"),
+		stored = JSON.parse(await readFile(path, "utf8"));
+	stored.receipts[0].actions = ["1:details"];
+	stored.receipts[0].notifications = { "1:details": "pending" };
+	await writeFile(path, JSON.stringify(stored));
+	emit.mockClear();
+	const restarted = new FeishuTaskCards("feishu", client, api, send);
+	await restarted.start();
+	expect(await restarted.execute({ action: "get", id: first.id }, ctx)).toMatchObject({
+		notifications: { "1:details": "unknown" },
+	});
+	expect(
+		await restarted.callback(sender, chat, "om_card", { yonder_task_card: first.id, revision: 1, action: "details" }),
+	).toHaveProperty("toast.type", "error");
+	expect(emit).not.toHaveBeenCalled();
+});
+
+it("observe invalidates before persistence but restart can only restore the last saved source until recovery observes it again", async () => {
+	const { cards, create, home, api, client, send, emit, patch } = await setup();
+	const first = await create();
+	const directory = join(home, "feishu"),
+		backup = join(home, "saved");
+	await rename(directory, backup);
+	await writeFile(directory, "not a directory");
+	await expect(cards.observe(chat, sender, "m2", 2000)).rejects.toThrow();
+	const value = { yonder_task_card: first.id, revision: 1, action: "details" };
+	expect(await cards.callback(sender, chat, "om_card", value)).toHaveProperty("toast.type", "error");
+	await rm(directory);
+	await rename(backup, directory);
+	const restarted = new FeishuTaskCards("feishu", client, api, send);
+	await restarted.start();
+	expect(await restarted.execute({ action: "get", id: first.id }, ctx)).toMatchObject({ retired: false });
+	await restarted.observe(chat, sender, "m2", 2000);
+	expect(await restarted.callback(sender, chat, "om_card", value)).toHaveProperty("toast.type", "error");
+	expect(patch).toHaveBeenCalledTimes(1);
+	expect(emit).toHaveBeenCalledTimes(1);
+});
+
+it("notification consumption save failure never emits or returns success", async () => {
+	const { cards, create, home, emit } = await setup();
+	const first = await create();
+	emit.mockClear();
+	const directory = join(home, "feishu"),
+		backup = join(home, "saved");
+	await rename(directory, backup);
+	await writeFile(directory, "not a directory");
+	const value = { yonder_task_card: first.id, revision: 1, action: "acknowledge" };
+	expect(await cards.callback(sender, chat, "om_card", value)).toHaveProperty("toast.type", "error");
+	await cards.callback(sender, chat, "om_card", value);
+	expect(emit).not.toHaveBeenCalled();
+	await rm(directory);
+	await rename(backup, directory);
+});
+
+it("confirmed emit followed by failed receipt save is unknown and never re-emits", async () => {
+	const { cards, create, home, emit } = await setup();
+	const first = await create();
+	emit.mockClear();
+	const directory = join(home, "feishu"),
+		backup = join(home, "saved");
+	emit.mockImplementationOnce(async () => {
+		await rename(directory, backup);
+		await writeFile(directory, "not a directory");
+		return { id: "admitted" };
+	});
+	const value = { yonder_task_card: first.id, revision: 1, action: "details" };
+	expect(await cards.callback(sender, chat, "om_card", value)).toHaveProperty("toast.type", "error");
+	await rm(directory);
+	await rename(backup, directory);
+	await cards.callback(sender, chat, "om_card", value);
+	expect(emit).toHaveBeenCalledTimes(1);
+});
+
+it("rejects an oversized composite card without sending any message", async () => {
+	const { cards, send } = await setup();
+	const result = await cards.execute(
+		{
+			action: "create",
+			sourceEvent: "input",
+			rows: Array.from({ length: 12 }, () => ({
+				...rows[0],
+				id: "界".repeat(80),
+				assignee: "界".repeat(80),
+				deliverable: "界".repeat(160),
+				acceptance: "界".repeat(160),
+			})),
+			lists: { advancing: Array(3).fill("界".repeat(160)), needsOwner: Array(3).fill("界".repeat(160)) },
+		},
+		ctx,
+	);
+	expect(result).toMatchObject({ ok: false, error: expect.stringContaining("30000") });
+	expect(send).not.toHaveBeenCalled();
 });

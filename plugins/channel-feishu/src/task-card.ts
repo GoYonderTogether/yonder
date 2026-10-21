@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
-import type { PluginAPI, ToolContext } from "@yonder/sdk";
+import type { PluginAPI, ToolContext, TSchema } from "@yonder/sdk";
 import type { FeishuApi } from "./client.js";
 import { object, required, string } from "./protocol.js";
 
@@ -11,7 +11,10 @@ export type TaskRow = {
 	status: "queued" | "working" | "done" | "blocked" | "unverified";
 	deliverable: string;
 	acceptance: string;
+	assignee?: string;
+	forwardedVerbatim?: boolean;
 };
+type ShortLists = { advancing?: string[]; needsOwner?: string[] };
 type Source = { chat: string; sender: string; message: string; time: number };
 type Receipt = {
 	id: string;
@@ -26,8 +29,60 @@ type Receipt = {
 	created: number;
 	rows: TaskRow[];
 	actions: string[];
+	notifications?: Record<string, "pending" | "confirmed" | "unknown">;
+	lists?: ShortLists;
 };
-const emoji = { queued: "⚪", working: "🟡", done: "🟢", blocked: "🔴", unverified: "🟣" };
+const shortText = (maxLength: number) => ({ type: "string", minLength: 1, maxLength });
+const shortList = { type: "array", maxItems: 3, items: shortText(160) };
+const taskRows = {
+	type: "array",
+	minItems: 1,
+	maxItems: 12,
+	items: {
+		type: "object",
+		additionalProperties: false,
+		required: ["id", "status", "deliverable", "acceptance"],
+		properties: {
+			id: shortText(80),
+			status: { enum: ["queued", "working", "done", "blocked", "unverified"] },
+			deliverable: shortText(160),
+			acceptance: shortText(160),
+			assignee: shortText(80),
+			forwardedVerbatim: { type: "boolean" },
+		},
+	},
+};
+/** Tool input contract; documented optional fields must pass the host's strict argument validation. */
+export const taskCardParameters = {
+	type: "object",
+	additionalProperties: false,
+	required: ["instance", "action"],
+	properties: {
+		instance: { type: "string", minLength: 1 },
+		action: { enum: ["create", "update", "get"] },
+		sourceEvent: { type: "string", minLength: 1 },
+		id: { type: "string", minLength: 1 },
+		expectedRevision: { type: "integer", minimum: 1 },
+		rows: taskRows,
+		lists: {
+			type: "object",
+			additionalProperties: false,
+			properties: { advancing: shortList, needsOwner: shortList },
+		},
+	},
+	anyOf: [
+		{ properties: { action: { const: "create" } }, required: ["sourceEvent", "rows"] },
+		{ properties: { action: { const: "update" } }, required: ["id", "expectedRevision", "rows"] },
+		{ properties: { action: { const: "get" } }, required: ["id"] },
+	],
+} as TSchema;
+const labels = {
+	queued: "⚪ 待开始",
+	working: "🟡 实现中",
+	done: "🟢 已完成",
+	blocked: "🔴 已阻塞",
+	unverified: "⚪ 未验收",
+};
 const toast = (content: string, type = "error") => ({ toast: { type, content } });
 const sourceKey = (source: Source) => JSON.stringify([source.chat, source.sender]);
 
@@ -78,6 +133,8 @@ export class FeishuTaskCards {
 				)
 					throw new Error("Invalid Feishu task card receipt");
 				if (row.state === "pending") row.state = "unknown";
+				for (const [key, state] of Object.entries(row.notifications ?? {}))
+					if (state === "pending" && row.notifications) row.notifications[key] = "unknown";
 				this.receipts.set(row.id, row);
 			}
 			for (const value of stored.latest) {
@@ -154,8 +211,17 @@ export class FeishuTaskCards {
 			})),
 		});
 		const table = [
-			tableRow(["状态", "任务", "交付物", "验收点"]),
-			...row.rows.map((item) => tableRow([emoji[item.status], item.id, item.deliverable, item.acceptance])),
+			tableRow(["状态", "任务", "负责人", "原文程序转发", "交付物", "验收点"]),
+			...row.rows.map((item) =>
+				tableRow([
+					labels[item.status],
+					item.id,
+					item.assignee ?? "未注明",
+					item.forwardedVerbatim === undefined ? "未注明" : item.forwardedVerbatim ? "是" : "否",
+					item.deliverable,
+					item.acceptance,
+				]),
+			),
 		];
 		const button = (action: string, text: string) => ({
 			tag: "button",
@@ -167,13 +233,25 @@ export class FeishuTaskCards {
 			header: { title: { tag: "plain_text", content: row.retired ? "任务状态（已归档）" : "任务状态" } },
 			elements: [
 				...table,
+				...(
+					[
+						["我在推进，无需您操作", row.lists?.advancing],
+						["需要您处理", row.lists?.needsOwner],
+					] as const
+				).map(([title, items]) => ({
+					tag: "div",
+					text: {
+						tag: "plain_text",
+						content: `${title}\n${items?.length ? items.map((item) => `• ${clean(item)}`).join("\n") : "无"}`,
+					},
+				})),
 				...(this.current(row)
 					? [
 							{
 								tag: "action",
 								actions: [
 									button("details", "了解任务详情"),
-									...(!row.acknowledged ? [button("acknowledge", "已收到，进行下一个任务")] : []),
+									...(!row.acknowledged ? [button("acknowledge", "确认收到（仅通知）")] : []),
 								],
 							},
 						]
@@ -212,6 +290,7 @@ export class FeishuTaskCards {
 			state: row.state,
 			retired: !this.current(row),
 			acknowledged: row.acknowledged,
+			notifications: row.notifications ?? {},
 			sourceMessageId: row.source.message,
 		};
 	}
@@ -258,6 +337,7 @@ export class FeishuTaskCards {
 					acknowledged: false,
 					created: Date.now(),
 					rows: args.rows as TaskRow[],
+					...(args.lists === undefined ? {} : { lists: args.lists as ShortLists }),
 					actions: [],
 				};
 				this.receipts.set(row.id, row);
@@ -285,6 +365,7 @@ export class FeishuTaskCards {
 			if (row.state !== "confirmed") throw new Error("Previous card effect is unknown; inspect receipt, do not retry");
 			if (args.expectedRevision !== row.revision) throw new Error("Card revision conflict; read current receipt");
 			row.rows = args.rows as TaskRow[];
+			if (args.lists !== undefined) row.lists = args.lists as ShortLists;
 			row.revision++;
 			try {
 				await this.patch(row, ctx.signal);
@@ -334,30 +415,52 @@ export class FeishuTaskCards {
 				return toast("此按钮已过期，请查看最新状态卡");
 			const action = string(value.action);
 			if (!["details", "acknowledge"].includes(action)) return toast("未知卡片操作");
+			if (
+				Object.entries(row.notifications ?? {}).some(
+					([key, state]) => key.endsWith(`:${action}`) && state !== "confirmed",
+				)
+			)
+				return toast("通知结果未知；请核对事件记录，勿重复点击");
 			const key = `${row.revision}:${action}`;
 			if (row.actions.includes(key) || (action === "acknowledge" && row.acknowledged))
-				return toast("已收到，无需重复操作", "info");
-			// Persist consumption before emitting. Deterministic msgId makes native event admission idempotent.
+				return row.notifications?.[key] && row.notifications[key] !== "confirmed"
+					? toast("通知结果未知；请核对事件记录，勿重复点击")
+					: toast("按钮已消费，无需重复操作", "info");
+			// Persist consumption before emitting; admission may succeed even if emit throws. Never replay.
 			row.actions.push(key);
 			if (action === "acknowledge") {
 				row.acknowledged = true;
 				row.revision++;
 			}
-			await this.save();
-			await this.api.events.emit({
-				type: "channel-feishu.card-action",
-				from: sender,
-				conv: chat,
-				data: {
-					msgId: `task-card:${row.id}:${key}`,
+			row.notifications ??= {};
+			row.notifications[key] = "pending";
+			try {
+				await this.save();
+				await this.api.events.emit({
+					type: "channel-feishu.card-action",
+					from: sender,
+					conv: chat,
+					data: {
+						msgId: `task-card:${row.id}:${key}`,
+						instance: this.instance,
+						messageId,
+						operator: sender,
+						source: "feishu-websocket",
+						action: { tag: "button", value: { action, taskIds: row.rows.map((item) => item.id), receipt: row.id } },
+						authorization: "none",
+					},
+				});
+				row.notifications[key] = "confirmed";
+				await this.save();
+			} catch (error) {
+				row.notifications[key] = "unknown";
+				await this.save().catch(() => {});
+				this.api.log.warn("Feishu task card notification outcome unknown; do not retry", {
 					instance: this.instance,
-					messageId,
-					operator: sender,
-					source: "feishu-websocket",
-					action: { tag: "button", value: { action, taskIds: row.rows.map((item) => item.id), receipt: row.id } },
-					authorization: "none",
-				},
-			});
+					error: this.client.safe(error),
+				});
+				return toast("通知结果未知；请核对事件记录，勿重复点击");
+			}
 			if (action === "acknowledge") {
 				// Do not hold the native callback response open for a remote PATCH.
 				void this.serial(async () => {
@@ -372,7 +475,10 @@ export class FeishuTaskCards {
 					}
 				});
 			}
-			return toast(action === "details" ? "已请求任务详情" : "已收到；不代表授权新操作或取消任务", "success");
+			return toast(
+				action === "details" ? "已请求任务详情" : "已通知收到；未安排下一任务，也不授权或取消操作",
+				"success",
+			);
 		});
 	}
 }
