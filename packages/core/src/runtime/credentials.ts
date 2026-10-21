@@ -1,6 +1,18 @@
 // Derived from pi coding-agent 1.3.0, MIT; see THIRD_PARTY_NOTICES.md.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+	closeSync,
+	existsSync,
+	fsyncSync,
+	lstatSync,
+	mkdirSync,
+	openSync,
+	readFileSync,
+	renameSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -37,8 +49,56 @@ export interface AuthStorageBackend {
 export class FileAuthStorageBackend implements AuthStorageBackend {
 	private authPath: string;
 
-	constructor(authPath: string) {
+	constructor(
+		authPath: string,
+		private strict = false,
+	) {
 		this.authPath = resolve(authPath);
+	}
+
+	private checkSafePath(): void {
+		let path = this.authPath;
+		while (true) {
+			try {
+				const stat = lstatSync(path);
+				const file = path === this.authPath;
+				if (
+					stat.isSymbolicLink() ||
+					(file
+						? !stat.isFile() || stat.nlink !== 1 || stat.uid !== process.getuid?.() || (stat.mode & 0o777) !== 0o600
+						: !stat.isDirectory() ||
+							(stat.uid !== 0 && stat.uid !== process.getuid?.()) ||
+							((stat.mode & 0o022) !== 0 && !(stat.uid === 0 && stat.mode & 0o1000)))
+				)
+					throw new Error("Unsafe credential storage path or permissions");
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			}
+			const parent = dirname(path);
+			if (parent === path) break;
+			path = parent;
+		}
+	}
+
+	private atomicWrite(next: string): void {
+		const temporary = `${this.authPath}.${randomUUID()}.tmp`;
+		let fd: number | undefined;
+		try {
+			fd = openSync(temporary, "wx", 0o600);
+			writeFileSync(fd, next, "utf8");
+			fsyncSync(fd);
+			closeSync(fd);
+			fd = undefined;
+			if (this.strict) this.checkSafePath();
+			renameSync(temporary, this.authPath);
+		} finally {
+			if (fd !== undefined) closeSync(fd);
+			try {
+				unlinkSync(temporary);
+			} catch {
+				// A failed cleanup must not hide the original write failure; file remains 0600.
+			}
+		}
 	}
 
 	private ensureParentDir(): void {
@@ -50,7 +110,11 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 
 	private ensureFileExists(): void {
 		if (!existsSync(this.authPath)) {
-			writeFileSync(this.authPath, "{}", AUTH_FILE_WRITE_OPTIONS);
+			try {
+				writeFileSync(this.authPath, "{}", { ...AUTH_FILE_WRITE_OPTIONS, flag: "wx" });
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			}
 		}
 	}
 
@@ -100,6 +164,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 		options?: AuthOperationOptions,
 	): Promise<T> {
 		options?.signal?.throwIfAborted();
+		if (this.strict) this.checkSafePath();
 		this.ensureParentDir();
 		this.ensureFileExists();
 
@@ -120,12 +185,14 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 
 			throwIfCompromised();
 			options?.signal?.throwIfAborted();
+			if (this.strict) this.checkSafePath();
 			const current = existsSync(this.authPath) ? readFileSync(this.authPath, "utf-8") : undefined;
 			const { result, next } = await fn(current);
 			throwIfCompromised();
 			options?.signal?.throwIfAborted();
 			if (next !== undefined) {
-				writeFileSync(this.authPath, next, AUTH_FILE_WRITE_OPTIONS);
+				if (this.strict) this.atomicWrite(next);
+				else writeFileSync(this.authPath, next, AUTH_FILE_WRITE_OPTIONS);
 			}
 			throwIfCompromised();
 			return result;
@@ -207,4 +274,24 @@ export class FileCredentials implements CredentialStore {
 			return { result: undefined, next: JSON.stringify(data, null, 2) };
 		}, options);
 	}
+}
+
+/** Local operator entry only; not registered as a model tool or control RPC. */
+export async function storeNamedCredential(
+	path: string,
+	name: string,
+	key: string,
+	signal?: AbortSignal,
+): Promise<void> {
+	if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(name) || ["__proto__", "constructor", "prototype"].includes(name))
+		throw new Error("Invalid credential name");
+	if (!key || /[\r\n\0]/.test(key)) throw new Error("Credential must be a non-empty single line");
+	await new FileAuthStorageBackend(path, true).withLockAsync(
+		async (content) => {
+			const data = parse(content);
+			if (Object.hasOwn(data, name)) throw new Error("Credential name already exists; refusing replacement");
+			return { result: undefined, next: JSON.stringify({ ...data, [name]: { type: "api_key", key } }, null, 2) };
+		},
+		signal ? { signal } : undefined,
+	);
 }

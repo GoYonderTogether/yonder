@@ -499,3 +499,10 @@ export async function loginProvider(home: string, provider: string, interaction:
 }
 export type LoginInteraction = Parameters<Models["login"]>[2];
 export type Kernel = Awaited<ReturnType<typeof openKernel>>;
+
+/** Store a new non-model named API key without opening the kernel database. */
+export async function setNamedCredential(home: string, name: string, key: string, signal?: AbortSignal): Promise<void> {
+	const { credentialPath, storeNamedCredential } = await import("../runtime/credentials.js");
+	const config = await loadYonderConfig(home);
+	await storeNamedCredential(credentialPath(home, config.credentials), name, key, signal);
+}

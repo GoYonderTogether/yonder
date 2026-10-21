@@ -27,10 +27,12 @@ import {
 	releaseInfo,
 	requestControl,
 	serveControl,
+	setNamedCredential,
 	updateRelease,
 } from "@yonder/core";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { completion } from "./completion.js";
+import { readHiddenCredential } from "./credential-input.js";
 import { plainTaskChat } from "./plain-chat.js";
 import type { ChatTarget } from "./terminal.js";
 
@@ -40,6 +42,7 @@ Commands:
   init [dir] [--owner <id>]       初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider>                登录模型供应商 · Authenticate provider
+  credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
   start                           前台运行 · Start harness
   stop                            停止运行 · Stop harness
@@ -424,6 +427,31 @@ async function run(args: string[]): Promise<number> {
 			throw new UsageError("Usage: yonder init [dir] [--owner <id>]");
 		const home = homeFor(options, true, target);
 		return print(initHome(home, owner), options.json);
+	}
+	if (command === "credentials") {
+		if (
+			rest.length !== 2 ||
+			rest[0] !== "set" ||
+			!rest[1] ||
+			!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(rest[1]) ||
+			!options.home ||
+			options.json
+		)
+			throw new UsageError("Usage: yonder credentials set <name> --home <dir> (local TTY only; no secret arguments)");
+		const home = homeFor(options);
+		stderr.write(`Home: ${home}\nNew credential: ${rest[1]} (existing names are never replaced)\n`);
+		let secret = await readHiddenCredential();
+		try {
+			await setNamedCredential(home, rest[1], secret);
+		} catch {
+			throw new Error(
+				"Credential not saved: invalid input, existing name, unsafe storage, or storage failure; inspect local permissions without printing credentials",
+			);
+		} finally {
+			secret = "";
+		}
+		output({ name: rest[1], saved: true }, false);
+		return 0;
 	}
 	if (command === "login") {
 		const provider = rest[0];
