@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -82,6 +82,32 @@ test("real isolated update of a prepared artifact records restart-required, no-o
 	} finally {
 		if (previous === undefined) delete process.env.YONDER_INSTALL;
 		else process.env.YONDER_INSTALL = previous;
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("a starting kernel's fresh lock is never taken over, a long-dead lock is", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-result-lock-"));
+	try {
+		await database(home);
+		const data: UpdateResult = {
+			updateId: randomUUID(),
+			install: join(home, "install"),
+			home,
+			repository: "https://github.com/GoYonderTogether/yonder-harness.git",
+			status: "failed-or-unknown",
+			verified: false,
+		};
+		// A booting kernel holds the lock but its control socket is not listening yet.
+		await mkdir(join(home, ".yonder/lock"));
+		const held = (await stat(join(home, ".yonder/lock"))).mtimeMs;
+		await expect(recordUpdateResult(data, { wait: 300, poll: 50 })).rejects.toMatchObject({ code: "ELOCKED" });
+		expect((await stat(join(home, ".yonder/lock"))).mtimeMs).toBe(held);
+		// Nothing refreshed it for far longer than any starting kernel needs: the holder is gone.
+		const old = new Date(Date.now() - 600000);
+		await utimes(join(home, ".yonder/lock"), old, old);
+		expect(await recordUpdateResult(data, { wait: 300, poll: 50 })).toMatch(/^[0-9A-Z]{26}$/u);
+	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
 });
