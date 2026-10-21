@@ -22,7 +22,7 @@
 
 向运行中的 Agent 指明真实入口：`yonder help`、`yonder <command> --help`、`yonder version`、`yonder docs --list`、`yonder docs <path>`、`yonder inspect`、`yonder doctor`、`yonder skills` 和实际所选 skill 索引。命令本身也按当前版本帮助核对，不能发明 `yonder agents create` 等尚不存在的入口。
 
-配置路径写为可核实的关系：实际 `<home>/yonder.yaml`、`<workspace>/agent.yaml`、`<workspace>/SYSTEM.md`、`<home>/presets/` 与 `<home>/skills/`。SOUL.md、USER.md、MEMORY.md 等由所选上下文贡献，不能说是所有 Agent 天然已有。默认 home 的位置可说明为查找线索，实际值取运行事实或 version/service 信息，不硬编码开发者路径。源码目录、安装版本目录与运行 home 分开。
+配置路径写为可核实的关系：实际 `<home>/yonder.yaml`、`<workspace>/agent.yaml`、`<workspace>/SOUL.md`、`<workspace>/AGENTS.md`、`<home>/presets/` 与 `<home>/skills/`。SOUL.md、USER.md、MEMORY.md 等由所选上下文贡献，不能说是所有 Agent 天然已有。默认 home 的位置可说明为查找线索，实际值取运行事实或 version/service 信息，不硬编码开发者路径。源码目录、安装版本目录与运行 home 分开。
 
 ## 稳定指引与实时事实分开装配
 

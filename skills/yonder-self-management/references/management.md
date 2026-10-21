@@ -10,7 +10,7 @@ home 内：`yonder.yaml` 是插件、模型、服务、执行环境与 agent 注
 
 ## 2. 配置、权限、身份
 
-所有 YAML 配置 `schema: 1`。agent 工作区至少有 `agent.yaml` 和 `SYSTEM.md`；其他上下文文件由选中的插件贡献。`agent.yaml` 的 `id` 必须等于注册 id，`defaultProfile` 必须存在。`defaults` 提供 profile 默认值，数组整项替换；`tools`、`limits` 按键覆盖。`level` 与 `capabilities` 二选一，profile 指定其中一个会替换 defaults 的这一组。
+所有 YAML 配置 `schema: 1`。agent 工作区必需只有 `agent.yaml`；提示词文件 `SOUL.md`（风格、角色、品味）与 `AGENTS.md`（工作方式与范围）及其他上下文文件由选中的插件贡献。`agent.yaml` 的 `id` 必须等于注册 id，`defaultProfile` 必须存在。`defaults` 提供 profile 默认值，数组整项替换；`tools`、`limits` 按键覆盖。`level` 与 `capabilities` 二选一，profile 指定其中一个会替换 defaults 的这一组。
 
 `readonly` 只有 read；`standard` 有 read/write/exec/network/message；`bypass` 拥有全部能力，还包括 admin/cross-agent。工具先经能力过滤，再受 `plugins`、`tools.offer/search` 选择限制；安装了插件不等于 agent 会使用它。普通文件写入需要 write，修改 agent.yaml、身份关联或其他 agent 需要 admin。**本机 exec 能运行管理 CLI，实际上具有管理权；standard 不是沙箱。** 不通过改配置绕过当前权限。
 
@@ -56,7 +56,7 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 | 改动 | 真实生效边界 |
 |---|---|
 | yonder.yaml.agents 注册/归档、agent.yaml、home presets/*.yaml | 约每秒检测，校验成功后供下一次运行使用 |
-| SYSTEM.md、选用上下文、skills | 每次组装提示词读取；技能还受 profile.skills 过滤 |
+| 选用上下文（SOUL.md、AGENTS.md 等）、skills | 每次组装提示词读取；技能还受 profile.skills 过滤 |
 | yonder.yaml 其余字段、插件装卸、程序代码 | 需要重启；代码不热重载 |
 
 候选配置无效会保留旧配置并记录 `config.reload` 的 ok/errors；当前运行保持原快照。删除仍被未关闭会话引用的 profile/preset 会被拒绝，先明确处理那些会话。`doctor` 检查磁盘配置；`inspect` 包含所选配置及运行快照，不能单凭磁盘内容断言运行已切换。事件过滤语法查版本文档；用 `yonder events --type config.reload --home <home> --json` 查重载结果，用 `--type run.end` 查运行终态，并核对相关 session。插件 add/remove 改唯一加载名单，不自动重启或热卸载，也不删除外部源码和插件私有数据。

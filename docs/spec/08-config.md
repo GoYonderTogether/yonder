@@ -79,7 +79,7 @@ identity:
 |---|---|
 | `agents/<id>/agent.yaml` | 保存后自动重载，下一次运行生效；校验失败保留旧配置并写 `config.reload` 事件 |
 | `presets/*.yaml` | 同上 |
-| `SYSTEM.md`、上下文文件、`skills/` | 每次组装提示词时读取 |
+| 上下文文件（SOUL.md、AGENTS.md 等）、`skills/` | 每次组装提示词时读取 |
 | `yonder.yaml.agents` | 注册、归档、Agent及preset统一校验后热发布；新输入使用新有效状态 |
 | `yonder.yaml` 其余字段 | 需要重启 |
 
@@ -95,7 +95,7 @@ owner: person:zoran
 defaultProfile: guest
 defaults:
   model: openai/gpt-6-luna
-  contexts: [agents-md, user-md]
+  contexts: [soul-md, agents-md]
   plugins: [context-files, qq]
 profiles:
   owner:  { level: bypass, tools: { offer: ["*"] } }

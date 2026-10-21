@@ -31,13 +31,14 @@ agents:
 ```
 <workspace>/
   agent.yaml     必需。身份、绑定、配置档、选用的上下文与插件
-  SYSTEM.md      必需。agent 的基础系统提示词，初始化时由内核模板生成，之后可自由修改
+  SOUL.md        可选（soul-md）。风格、扮演的角色、品味
+  AGENTS.md      可选（agents-md）。工作方式、工作范围、执行任务的方式与风格
   skills/        可选。这个 agent 自己的 skill（§6），agent 可以自己写
   memory/        手工按需资料；README说明临时方法，不自动注入或维护
   …              其余文件由选用的上下文贡献声明（04 §3.3），缺失时按声明自动生成
 ```
 
-- 内核只规定 `agent.yaml` 和 `SYSTEM.md`。`AGENTS.md`、`USER.md`、`SOUL.md`、`MEMORY.md`、`memory/` 等都不是内核概念，而是上下文插件的贡献；不选就不存在、不占上下文。
+- 内核只规定 `agent.yaml`。Agent 自己的提示词只有两份：`SOUL.md`（风格、角色、品味）与 `AGENTS.md`（工作方式与范围），由 context-files 插件的 `soul-md`、`agents-md` 贡献，init 默认选用。两份同一种语言，随角色而定：默认英文，明确的中文角色设定才用中文；Agent 按主人使用的语言回话。`USER.md`、`MEMORY.md`、`memory/` 等同样不是内核概念；不选就不存在、不占上下文。
 - agent 用普通的文件工具修改自己的工作区。写 `agent.yaml` 需要 `admin` 能力，其余文件需要 `write` 能力（05 §3）。插件可以把自己声明的文件标为受保护，并指定所需能力。
 
 ### 2.3 agent.yaml
@@ -50,7 +51,7 @@ owner: person:zoran
 defaultProfile: owner
 defaults:                         # 所有配置档的默认值，配置档可逐项覆盖
   model: openai/gpt-6-luna
-  contexts: [agents-md, user-md]  # 上下文贡献 id，按顺序
+  contexts: [soul-md, agents-md]  # 上下文贡献 id，按顺序
   plugins: [context-files]        # 这个 agent 用哪些插件的工具与钩子
 profiles:
   owner: { level: bypass }
@@ -87,7 +88,7 @@ bindings: [ … ]                   # 见 02 §2
 - 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；能力 = 预设 ∩ `capabilities`，插件应当传入它代表的外部调用方被允许的能力。
 - 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
-- 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取 SYSTEM.md 或工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
+- 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
 ## 5. 提示词组装
 
@@ -95,7 +96,7 @@ bindings: [ … ]                   # 见 02 §2
 
 | 位置 | 放什么 | 规则 |
 |---|---|---|
-| system | 依次：① 框架段 ② 内置共同底座 ③ 常驻身份段（仅有 agent）④ 内置运行约定 ⑤ CLI 自管理导航（仅有 exec）⑥ `SYSTEM.md`（仅有 agent）⑦ skill 索引（§6）⑧ `placement: system` 的上下文贡献（按 `contexts` 顺序）⑨ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
+| system | 依次：① 框架段 ② 内置共同底座 ③ 常驻身份段（仅有 agent）④ 内置运行约定 ⑤ CLI 自管理导航（仅有 exec）⑥ skill 索引（§6）⑦ `placement: system` 的上下文贡献（按 `contexts` 顺序，SOUL.md、AGENTS.md 在此）⑧ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
 | 本轮输入 | 依次：① 内核的 `<turn>` 块 ② 原事件正文（紧随其来源与原时间）③ `placement: turn` 的补充上下文 | 随用户消息一起写入转录，可审计，不再改写 |
 | tools | 只放工具定义 | 不在工具定义里塞上下文 |
 
@@ -105,9 +106,9 @@ bindings: [ … ]                   # 见 02 §2
 
 ### 5.2.1 非插件内置底座
 
-内核编译保存等义英文正文，中文审阅源见 docs/prompts/builtin.zh-CN.md。共同底座说明产品愿景、判断与工作方式、事实与反馈、使用建议、资产维护；常驻身份说明唯一主人、独立身份与生命连续性、记忆与分工、协作、自管理与成长；运行约定说明事件、插件、会话、元数据、源码/配置入口和设备关系。它们不注册为插件，不包含具体名字、人设或固定文风，不改权限系统。
+英文正文只有一份，即 `packages/core/src/prompt/content.ts`，不另设译文审阅源。共同底座说明产品愿景、所有 Agent 共有的习惯、使用建议与资产维护；常驻身份说明 SOUL.md/AGENTS.md 的地位、生命连续性、唯一主人与社交关系、持续授权、工作线分工、任务与协作、成长；运行约定说明事件、插件、会话、投递与可信元数据、位置与源码、技能入口。只写模型反复犯错之处与 Yonder 特有事实，不写通用美德；用 Yonder 自己平实的嗓子，不含具体名字、人设或作家文风，不改权限系统。
 
-框架段的250词约束只约束5.2短导航，不截断完整底座。常驻身份仅真实agent装入，无身份preset不获得主人关系。CLI命令导航仅有exec能力时装入；skill_view等非CLI说明按实际工具规则使用。正文随版本编译，稳定、一次装入，不新增文件读取/回退/复制脚本；既有SYSTEM、技能、上下文与instructions顺序相对保持。
+框架段的250词约束只约束5.2短导航，不截断完整底座。常驻身份仅真实agent装入，无身份preset不获得主人关系。CLI命令导航仅有exec能力时装入；skill_view等非CLI说明按实际工具规则使用。正文随版本编译，稳定、一次装入，不新增文件读取/回退/复制脚本；技能、上下文与instructions顺序相对保持。
 
 ### 5.3 `<turn>` 块
 
@@ -128,9 +129,9 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 - id/type 对 write 同样保留；message.in/session.input 继续使用 text 与附件，其他事件将完整 data JSON 序列化为正文。插件负责原生事实，内核不识别 release 或卡片专用字段。外部名称、附件名按字符串转义为单行，不能通过换行或标记制造框架边界；原事件保持不变（10 §1.1）。
 - 提示词、环境、能力与投递均使用本次运行配置；新选中的上下文文件在配置发布前完成必要 scaffold。版本只在输入真正提交后确认，准备失败不能吞掉 notice。
 
-### 5.4 SYSTEM.md 模板
+### 5.4 SOUL.md 与 AGENTS.md 模板
 
-初始化 agent 时内核写入一份模板：只含标题与空的段落提示（身份、职责、边界），不含虚构的人设或示例对话。
+选用 `soul-md`、`agents-md` 时，context-files 生成只含文件名标题与一句用途说明的英文模板，不含虚构的人设或示例对话。未经编辑的模板不注入提示词。
 
 ## 6. Skill
 

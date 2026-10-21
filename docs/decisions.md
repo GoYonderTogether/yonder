@@ -12,7 +12,7 @@
 
 **D5 身份映射进内核，记忆不进。** 账号、人、关联是跨插件共享的事实，必须统一；记忆策略差异大，是插件。所有插件用引用标注实体，从而可以互相串起来。
 
-**D6 上下文文件全部插件化。** 内核只规定 `agent.yaml` 与 `SYSTEM.md`。`AGENTS.md`、`USER.md`、`SOUL.md`、`MEMORY.md` 是上下文插件的贡献，不选就不存在。
+**D6 上下文文件全部插件化。** 内核只规定 `agent.yaml`。`SOUL.md`、`AGENTS.md`、`USER.md`、`MEMORY.md` 是上下文插件的贡献，不选就不存在（D45 起不再有 `SYSTEM.md`）。
 
 **D7 运行上限内置，智能防护插件化。** "运行一定会结束"是框架的承诺，不能依赖可选插件；默认值宽松，以免限制正常使用。
 
@@ -104,7 +104,7 @@ D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR�
 
 ## D42 非插件内置提示词落地（2026-10-19）
 
-用户明确批准当前v4中文稿落地源码并提交，sub-agent对准确commit验证真实装配与Luna。共同/常驻/运行/exec导航分段以英文静态常量编译；保留中文审阅源。framework短导航约束不截断底座，常驻身份不进入task，CLI只给exec，用户身份与配置顺序保持。version/home/env/cwd与宿主prepared时刻/时区/platform写入turn，不破坏system确定性，不新增插件、模型循环、配置项、存储或资源复制机制。无需改正式安装；初始化磨合与官方角色仍为后续设计。与D41并行的能力以真实当前工具和运行事实为准，底座不写死cron/远程/后台工具已可用或旧硬时限数值。
+用户明确批准当前v4中文稿落地源码并提交，sub-agent对准确commit验证真实装配与Luna。共同/常驻/运行/exec导航分段以英文静态常量编译（正文与中文审阅源已由 D45 取代）。framework短导航约束不截断底座，常驻身份不进入task，CLI只给exec，用户身份与配置顺序保持。version/home/env/cwd与宿主prepared时刻/时区/platform写入turn，不破坏system确定性，不新增插件、模型循环、配置项、存储或资源复制机制。无需改正式安装；初始化磨合与官方角色仍为后续设计。与D41并行的能力以真实当前工具和运行事实为准，底座不写死cron/远程/后台工具已可用或旧硬时限数值。
 
 
 ## D43 消息与任务的生命周期分离（2026-10-20 用户批准）
@@ -117,3 +117,11 @@ D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR�
 用户批准将 durable 内化为 GoYonderTogether/pi 的 yonder/1.3 源码 fork，workspace 同步固定 commit；只有 durable 被修改，其余 pi 依赖继续使用上游 npm。D28/D29 的边界与回执及 shouldRetry 钩子以源码提交维护，不再 patch node_modules。沿原 conversation/run/inputs 与原生持久化 retry checkpoint 恢复，不增加队列或重提交流程。yonder.yaml.retry 提供 maxRetries/baseDelayMs/maxDelayMs，默认 10/2000/300000；pi-ai 1.3.0 已有 maxAgentDelayMs 上限，runtime 直接映射，无需 fork pi-ai。指数退避不加抖动；重启保留次数与当前截止时间，后续退避读取新配置。
 
 runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上限、配额/账单、schema、显式 abort 与 repeatStop 不重试；网络、5xx、429/过载可重试。首次瞬时失败原子写短 user-style 提示及运行去重状态；连续失败及其间重启共用一条，成功后新中断可再提示。重启提示以原 run 为稳定身份，已终结运行不再提示；恢复请求补入 inbox 中未越过旧 cutoff 的提示。耗尽以正常 error 和明确最后错误终结；退避可立即取消，close 释放计时器。保留逐消息投递身份；provider prompt cache 不可持久化。真实检查和未测项另记 status，不操作正式安装或运行中的服务。
+
+
+## D45 Agent 提示词只有 SOUL.md 与 AGENTS.md，内置底座精简为单一英文正文（2026-10-21 用户批准）
+
+用户批评前几稿提示词像合同、没有人味：v4 有 44% 的句子带否定，通用美德与真正要紧的要求同温度铺开。内核不再规定 `SYSTEM.md`，只规定 `agent.yaml`；Agent 自己的提示词只有 `SOUL.md`（风格、扮演的角色、品味）与 `AGENTS.md`（工作方式、范围、执行风格），沿用 context-files 的 `soul-md`、`agents-md`，init 默认选用，未编辑的模板不注入。不设 USER.md 作为默认；了解与建档用户（主人与各渠道的人）待按人记忆能力设计后再定。语言随角色：两份同一种语言，默认英文，明确的中文角色才用中文，按主人的语言回话；不再维护译文审阅源。
+
+内置底座改为 `content.ts` 单一英文正文，约 4200 词减到约 1900 词：只写模型反复犯错之处（先找现成、自己先试、找准目标、不越界、写了不等于做完、主动汇报、记住即落盘）与 Yonder 特有事实（愿景、生命连续性、唯一主人与社交、持续授权、工作线分工、事件/插件/会话/位置）；删去通用美德与重复的授权、元数据、设备段落。用 Yonder 平实的嗓子，作家风格只属于各 Agent 的 SOUL.md。已有 Agent 的 SYSTEM.md 不自动删除或迁移，由主人按需并入 SOUL.md/AGENTS.md。
+

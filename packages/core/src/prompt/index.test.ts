@@ -9,13 +9,7 @@ import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
 import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
-import {
-	framework,
-	type PromptOptions,
-	prepareInput,
-	scaffoldWorkspace,
-	systemSections,
-} from "./index.js";
+import { framework, type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "./index.js";
 
 test("system sections are deterministic and only selected contexts render", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "yonder-prompt-"));

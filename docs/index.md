@@ -26,7 +26,6 @@
 | 2 | [plugins.md](plugins.md) | 官方插件清单：贡献、事件、工具 | 用或写插件 |
 | 2 | [reference.md](reference.md) | 核心工具、CLI 命令、SDK 接口的注册名参考 | 查名字时 |
 | 2 | [decisions.md](decisions.md) | 关键取舍及理由 | 想改设计的人 |
-| 2 | [prompts/builtin.zh-CN.md](prompts/builtin.zh-CN.md) | 内置提示词的中文审阅源（英文正文在 `packages/core/src/prompt/content.ts`） | 改提示词 |
 | 2 | [status.md](status.md) | 实现状态、已知缺口、未关闭验收 | 所有人 |
 
 ## 规范用语

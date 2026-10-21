@@ -127,7 +127,7 @@ v1 太短，v4 太长，jarvis-v2 又压成了电报。长短都试过了，问�
 
 1. 贾维斯的调音叉对不对味；其他 Agent 的参照表。
 2. 自主边界是否就是四样：钱、名义、删除、不可逆。贾维斯的 owner 配置档安全级别需与之匹配（spec 05）。
-3. spec 03 现规定 `SYSTEM.md` 必需；改为只有 SOUL.md + AGENTS.md 属于设计变更，需同步改 spec 03 与 decisions。
+3. ~~SYSTEM.md 去留~~：已定，见 decisions D45。
 
 ## 八、怎么验证（尚未做）
 
