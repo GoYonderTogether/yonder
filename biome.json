@@ -1,7 +1,7 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
 	"files": {
-		"includes": ["**", "!**/dist", "!**/node_modules", "!**/.yonder", "!bp", "!.claude"]
+		"includes": ["**", "!**/dist", "!**/node_modules", "!**/.yonder", "!bp", "!.claude", "!packages/pi-durable"]
 	},
 	"formatter": {
 		"indentStyle": "tab",

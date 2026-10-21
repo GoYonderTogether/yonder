@@ -56,9 +56,9 @@
 
 **D27 N00 对齐并冻结（2026-10-18）。** 01–09 已与 10/11 对齐：通用事件正文、真实调用方/附件、运行配置、取消、终止/恢复、来源/等待者、阶段安装/正式 Release；删除冲突的第五次副作用后终止、重启重新计数、只有 CLI 可实现等旧条款。SDK 仅新增可选取消参数/渲染信号，保留消息与安全单层结构。冻结提交见 N00 结果；任务记录继续变化，功能文档不随实现修改。代价：原实现尚未兑现的新条款必须由 N01/N05 等验证，不能引用 T00 为已通过。
 
-**D28 固定 pi 版本的最小原生边界补丁（2026-10-18 用户批准）。** 用户明确批准“允许最小原生回调，先更新对应设计记录”，并要求继续设计执行。真实复现显示排队输入可把正在运行的 Luna 改为 Sol；1.3.0 公开钩子位于模型选择后，不能兑现 10 §2。保留 npm 1.3.0 与上游版权，用单个仓库补丁增加调度器解析 agent 前的宿主回调，并让单运行 abort 使用原生 final 边界接续队列；runtime 的配置/预算快照仍存在 pi 扩展文档。根 postinstall 应用补丁，不匹配报错；不引入新依赖、自建队列、模型别名或运行时猴补丁。代价：升级 pi 时必须重新审核依赖边界补丁及真实配置/取消检查；上游原生覆盖后删除补丁。
+**D28 固定 pi 版本的最小原生边界补丁（2026-10-18 用户批准）。** 用户明确批准“允许最小原生回调，先更新对应设计记录”，并要求继续设计执行。真实复现显示排队输入可把正在运行的 Luna 改为 Sol；1.3.0 公开钩子位于模型选择后，不能兑现 10 §2。保留 1.3.0 包名版本与 MIT 版权，在 GoYonderTogether/pi 的 yonder/1.3 源码分支增加调度器解析 agent 前的宿主回调，并让单运行 abort 使用原生 final 边界接续队列；runtime 的配置/预算快照仍存在 pi 扩展文档。packages/pi-durable workspace 同步固定 fork commit，构建先于 core，无 postinstall 补丁；不引入新依赖、自建队列、模型别名或运行时猴补丁。代价：升级 pi 时必须重新审核 fork 边界改动及真实配置/取消检查；上游原生覆盖后删除 fork 改动。
 
-**D29 与原生终结同事务的最小运行回执（2026-10-18 用户批准）。** 用户审核具体方案后批准“最小原生回执”。N05 真实 Luna 证明中止后 A/B 同组已无共同 answer，LiveDoc 的旧 run 被清除；异步 run_end 观察不持久，successor 可在同一事务启动，晚读 UsageDoc 会串轮。扩展固定 pi-durable 1.3.0 补丁，在共同原生终结点按 conversation/首个实际 submission 保存一份实际 inputs、settlement、结束 usage 回执，与 submission 终结原子提交。使用原生 doc family 和公开读取，不引入存储拦截器、第二队列、重试或对话副本；Yonder RunDoc 继续负责开始配置/预算。旧历史无充分事实时报告不可确定，不伪造补齐。升级或上游覆盖时审核/删除该补丁，回执与正常/中止/失败/successor 的真实检查同时维护。功能目标与公共 Yonder SDK 不扩大。
+**D29 与原生终结同事务的最小运行回执（2026-10-18 用户批准）。** 用户审核具体方案后批准“最小原生回执”。N05 真实 Luna 证明中止后 A/B 同组已无共同 answer，LiveDoc 的旧 run 被清除；异步 run_end 观察不持久，successor 可在同一事务启动，晚读 UsageDoc 会串轮。扩展 pi-durable 1.3.0 的 fork 源码，在共同原生终结点按 conversation/首个实际 submission 保存一份实际 inputs、settlement、结束 usage 回执，与 submission 终结原子提交。使用原生 doc family 和公开读取，不引入存储拦截器、第二队列、重试或对话副本；Yonder RunDoc 继续负责开始配置/预算。旧历史无充分事实时报告不可确定，不伪造补齐。升级或上游覆盖时审核/删除该 fork 改动，回执与正常/中止/失败/successor 的真实检查同时维护。功能目标与公共 Yonder SDK 不扩大。
 
 **D30 基础 TUI 沿用成熟产品的完整界面与交互（2026-10-18 设计修订；呈现与键位部分已被 D31、D32 取代）。** 用户要求基础 TUI、Tab、中英文提示、斜杠补全和列表选择，随后明确纠正“我们的所有的交互 所有的显示 所有的框架都照搬现有现成的东西”。因此删除上一版自定线框、布局、键位、同义菜单名和运行中禁止发送的限制，以 pi v1.3.0 原生界面为单一基准；同义入口沿用 /new、/resume、/session、/hotkeys，实际命令内容、agent/任务归属与当前对话对象由 Yonder 提供。既有管理命令继续非交互并保持 JSON/退出码；独立可续聊任务仍需 manual 关闭策略与控制面观察，常驻 agent 继续渠道绑定。UI 需要的真实工具/消息数据和原生输入动作由 Core 接通，不能用另造交互绕过。代价：coding-agent 部分 UI 与 AgentSession 耦合，需核验公开导出或按许可提取 UI 并保留来源，同时验证与原生 pi 的视觉/操作一致。12 与关联修订是已批准的设计。
 
@@ -114,4 +114,6 @@ D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR�
 
 ## D44 中断恢复复用原生 generation retry（2026-10-20 用户批准）
 
-任务明确授权设计与实现。pi-durable 已提供持久化 retry checkpoint 与 3 次、2/4/8 秒退避；直接固定该策略，沿原 conversation/run/inputs 恢复，不增加队列或重提交流程，原生错误分类遗漏部分 5xx，且宽泛文本可能误重试鉴权/schema；因此仅给现有 pi 补丁增加 shouldRetry 判定钩子，runtime 提供分类，原生继续拥有调度。runtime 在首次瞬时失败时原子写短 user-style 提示及去重状态；连续重试共用一次，成功后重置中断标记。重启提示以原 run 为稳定身份，不含启动时间；恢复请求补入 inbox 中尚未越过旧 cutoff 的运行提示；后台失败结果统一核对状态和避免重复副作用的措辞。保留原生取消、既有逐消息投递去重；provider prompt cache 不可持久化。真实断网/5xx、取消、重启与投递证据另记 status，不操作正式安装或运行中的服务。
+用户批准将 durable 内化为 GoYonderTogether/pi 的 yonder/1.3 源码 fork，workspace 同步固定 commit；只有 durable 被修改，其余 pi 依赖继续使用上游 npm。D28/D29 的边界与回执及 shouldRetry 钩子以源码提交维护，不再 patch node_modules。沿原 conversation/run/inputs 与原生持久化 retry checkpoint 恢复，不增加队列或重提交流程。yonder.yaml.retry 提供 maxRetries/baseDelayMs/maxDelayMs，默认 10/2000/300000；pi-ai 1.3.0 已有 maxAgentDelayMs 上限，runtime 直接映射，无需 fork pi-ai。指数退避不加抖动；重启保留次数与当前截止时间，后续退避读取新配置。
+
+runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上限、配额/账单、schema、显式 abort 与 repeatStop 不重试；网络、5xx、429/过载可重试。首次瞬时失败原子写短 user-style 提示及运行去重状态；连续失败及其间重启共用一条，成功后新中断可再提示。重启提示以原 run 为稳定身份，已终结运行不再提示；恢复请求补入 inbox 中未越过旧 cutoff 的提示。耗尽以正常 error 和明确最后错误终结；退避可立即取消，close 释放计时器。保留逐消息投递身份；provider prompt cache 不可持久化。真实检查和未测项另记 status，不操作正式安装或运行中的服务。

@@ -3,8 +3,8 @@
 ## 1. 对接边界
 
 - 依赖：`@earendil-works/pi-ai`、`@earendil-works/pi-durable`、`@earendil-works/chord`。版本**锁定到精确版本**，升级单独成一个变更。
-- pi-durable 1.3.0 使用本仓库可审核的最小补丁（D28、D29）：调度器解析 agent/model 前调用宿主 `beforeAgent`；单运行 abort 由 pi 原生 final 边界接续排队输入；运行终结在同一原生事务保存运行回执。补丁来源为 npm 1.3.0、官方 `earendil-works/pi/packages/durable`；保留版权，不复制运行循环。安装时应用固定补丁，版本或补丁不匹配直接报错，不静默跳过。
-- 只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型。唯一例外：`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。
+- pi-durable 1.3.0 来自 MIT fork `GoYonderTogether/pi` 的 `yonder/1.3` 分支，源码同步到 workspace `packages/pi-durable`，保留包名、版本与全部导出路径。D28/D29/D44 的 beforeAgent、abort 接续队列、原子运行回执与 shouldRetry 是 fork 源码提交；不再安装时打补丁。仅 durable 内化，其 chord、pi-ai、codemode 及其他 pi 包仍锁定上游 npm 版本。同步命令和来源 commit 见 CONTRIBUTING 与包内 FORK.md。
+- Yonder 宿主源码只有 `packages/core/src/runtime/` 可以 import 这些包。其他内核代码只用 runtime 目录导出的 Yonder 自己的类型；`@yonder/sdk` 以 `import type` 重新导出少数类型（04 §3.5、§3.6、§4）。`packages/pi-durable` 属于 pi 实现自身，其内部上游 imports 随 fork 保留，不构成宿主的第二个适配入口。
 - pi-durable 标注为实验性。runtime 目录的测试必须覆盖本文用到的每一个 pi 能力，升级 pi 时先跑这组测试。
 - 不使用完整 pi coding-agent 的运行循环、SessionManager、会话文件与配置格式。终端界面按 12 统一沿用 pi v1.3.0；仅 `packages/cli/` 可使用 pi-tui 及 coding-agent 的 UI/主题/键位导出或按许可提取的 UI 模块，不另设计布局和交互。这是界面依赖的明确边界，不允许 CLI import 模型/会话运行包或启动另一套 agent runtime。
 - pi 的每个异步调用都带 chord 的 `Context`；取消看 `context.abortSignal`。工具与钩子**必须**响应它，否则中止要等工具自己结束。

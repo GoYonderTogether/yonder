@@ -7,6 +7,7 @@
 		"node": ">=22.19"
 	},
 	"workspaces": [
+		"packages/pi-durable",
 		"packages/sdk",
 		"packages/core",
 		"packages/cli",
@@ -24,7 +25,6 @@
 		"plugins/native-automation"
 	],
 	"scripts": {
-		"postinstall": "node scripts/apply-pi-patch.mjs",
 		"build": "tsc -b && node scripts/build-macos.mjs",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",

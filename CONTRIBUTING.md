@@ -8,13 +8,13 @@
 
 ```
 packages/
+  pi-durable/            MIT fork 的 durable 源码（构建先于 SDK/core）
   sdk/      @yonder/sdk    插件 API 类型、define* 辅助函数、testing/checkPlugin
   core/     @yonder/core   内核；src/runtime/ 是唯一 import pi 运行时的目录
   cli/      @yonder/cli    yonder 命令与终端界面
   macos/                   macOS 状态栏
 plugins/                   官方插件，每个是独立 npm workspace 包，只依赖 @yonder/sdk
 skills/                    随发行内置的 skill
-patches/                   对固定版本 pi-durable 的边界补丁（postinstall 应用）
 ```
 
 工具链：Node ≥ 22.19、TypeScript、npm workspaces、vitest、Biome。
@@ -32,6 +32,20 @@ patches/                   对固定版本 pi-durable 的边界补丁（postinst
 - `packages/cli/` 可以使用 pi-tui 及 coding-agent 的 UI/主题/键位导出，或按许可提取的界面模块；不得接入 coding-agent 的第二套运行或存储系统，不得自行重设计布局和交互（见 [spec/12](docs/spec/12-terminal-interaction.md)）。
 - 不写模拟模型、假数据、示例人设、占位功能。
 - 修改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md` 与 `AGENTS.md` 属于设计变更，需要维护者审核。
+
+## 同步 pi-durable fork
+
+仅 `packages/durable` 内化，来源 [GoYonderTogether/pi 的 yonder/1.3](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable)，基于上游 v1.3.0。先在 fork 修改 TypeScript、运行相关上游测试并提交，再在本仓库执行：
+
+```sh
+agent-network run -- node scripts/sync-pi-durable.mjs
+# 可用完整 40 位 commit 固定重放（不接受缩写 SHA）
+agent-network run -- node scripts/sync-pi-durable.mjs <full-commit>
+npm install --package-lock-only --ignore-scripts
+npm ci && npm run build && npm test
+```
+
+同步替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、pi-ai、codemode 等依赖继续取 npm，导出路径不变。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
 
 ## 检查与测试
 

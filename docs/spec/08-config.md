@@ -51,6 +51,11 @@ services: []                             # 非对话服务配置见 07 §6.3
 envs:
   local: { type: local }
 
+retry:                                   # 可省略，以下为默认值；修改后重启
+  maxRetries: 10                         # 初次请求之外的重试次数，0 禁用
+  baseDelayMs: 2000
+  maxDelayMs: 300000                     # 每次退避封顶 5 分钟
+
 compaction:                              # 原样传给 pi-durable
   reserveTokens: 16384
   keepRecentTokens: 20000
@@ -63,6 +68,8 @@ identity:
   persons:
     - { id: zoran, name: Zoran, accounts: [acct:cli:local] }
 ```
+
+`retry` 各字段可单独省略；次数为非负整数，延迟为正整数毫秒（不超过 2147483647）。第 n 次退避为 `min(baseDelayMs * 2^(n-1), maxDelayMs)`，不加随机抖动。次数和截止时间由 pi checkpoint 持久化；恢复保留已消耗次数和已定截止时间，后续退避使用重启后的配置。
 
 `identity.persons` 只用于初始化；之后的关联变化以存储为准，并写 `identity.link` 事件。
 
