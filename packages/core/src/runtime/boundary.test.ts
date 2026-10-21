@@ -59,9 +59,11 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				type: "session.input",
 				data: { session, text: "Reply exactly second-complete. Do not call tools." },
 			});
+			// Default busy is steer (D49), which joins the active run; this test needs a genuinely queued second run.
 			const second = runtime.submit(session, {
 				event: secondEvent,
 				text: String((secondEvent.data as { text: string }).text),
+				busy: "followup",
 			});
 			await expect.poll(queued, { timeout: 2000 }).toBe(true);
 			profile = resolveProfile({

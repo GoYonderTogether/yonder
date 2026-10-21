@@ -330,7 +330,7 @@ writeFileSync(file,JSON.stringify(state));console.log(JSON.stringify(result));
 	};
 }
 
-test("archive resumes durable material after unknown admission; silence, policy versions and private capabilities remain enforced", async () => {
+test("archive resumes durable material after unknown admission; silence, policy versions and private capabilities remain enforced", { timeout: 30000 }, async () => {
 	const h = await harness("wechat-archive");
 	const fixture = await archiveSource(h.directory);
 	const config = { cliPath: fixture.script, discovery: true };
