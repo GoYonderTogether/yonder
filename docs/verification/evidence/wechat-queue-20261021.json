@@ -1,0 +1,102 @@
+{
+	"installedCommit": "df5ebc420b5a3e464334317e031c52d0498d057b",
+	"nativeRun": "9831",
+	"message.in": [
+		{
+			"id": "01M5EHQ1JXWH8JHP824T0X6FZH",
+			"ts": "2026-10-21T06:17:27.389Z",
+			"text": "合并验收 1",
+			"route": {
+				"agent": "main",
+				"binding": "wechat-owner",
+				"session": "2",
+				"wake": "run",
+				"busy": "steer",
+				"waiting": false
+			}
+		},
+		{
+			"id": "01M5EHQ3JNA449TZ48QR63H33P",
+			"ts": "2026-10-21T06:17:29.429Z",
+			"text": "2",
+			"route": {
+				"agent": "main",
+				"binding": "wechat-owner",
+				"session": "2",
+				"wake": "run",
+				"busy": "steer",
+				"waiting": false
+			}
+		},
+		{
+			"id": "01M5EHQ5JP9PYR04MR5THW6EX6",
+			"ts": "2026-10-21T06:17:31.478Z",
+			"text": "这是 3",
+			"route": {
+				"agent": "main",
+				"binding": "wechat-owner",
+				"session": "2",
+				"wake": "run",
+				"busy": "steer",
+				"waiting": false
+			}
+		},
+		{
+			"id": "01M5EHQ9HJG8WHREVSVSDHJPF2",
+			"ts": "2026-10-21T06:17:35.538Z",
+			"text": "看看消息合并 4",
+			"route": {
+				"agent": "main",
+				"binding": "wechat-owner",
+				"session": "2",
+				"wake": "run",
+				"busy": "steer",
+				"waiting": false
+			}
+		}
+	],
+	"run.end": [
+		{
+			"id": "01M5EHQQDWN1HTDHERYDG0GY5M",
+			"ts": "2026-10-21T06:17:49.756Z",
+			"parent": "01M5EHQ1JXWH8JHP824T0X6FZH",
+			"data": {
+				"session": "2",
+				"runId": "9831",
+				"inputs": [
+					"01M5EHQ1JXWH8JHP824T0X6FZH",
+					"01M5EHQ3JNA449TZ48QR63H33P",
+					"01M5EHQ5JP9PYR04MR5THW6EX6",
+					"01M5EHQ9HJG8WHREVSVSDHJPF2"
+				],
+				"status": "done",
+				"replied": "source",
+				"model": "openai/gpt-6.1-sol",
+				"usage": {
+					"input": 5803,
+					"output": 82,
+					"cacheRead": 50432,
+					"cacheWrite": 0,
+					"cost": 0.01746920000000074
+				}
+			}
+		}
+	],
+	"message.out": [
+		{
+			"id": "01M5EHQSF158RTPMYG79E7ZQPN",
+			"ts": "2026-10-21T06:17:51.841Z",
+			"parent": "01M5EHQ1JXWH8JHP824T0X6FZH",
+			"data": {
+				"text": "**四条消息已按顺序收到，这次合在一条回复中确认。**\n\n1. 合并验收 1\n2. 2\n3. 这是 3\n4. 看看消息合并 4\n\n这能确认四条内容都进入了当前上下文；不代表底层将它们合成了一个消息事件。",
+				"session": "2",
+				"delivery": {
+					"ok": true,
+					"id": "yonder-wechat-1cafcb41-6098-4e3b-8630-681dab999aba"
+				},
+				"attempt": "01M5EHQJBS298PAFJW61HJQD2Y",
+				"message": "1792563455577"
+			}
+		}
+	]
+}

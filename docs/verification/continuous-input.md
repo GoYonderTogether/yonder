@@ -34,7 +34,7 @@ Yonder 只配置原生消费数量、映射默认值与 interrupt、抑制 abort
 - 新真实模型第二轮：3 通过、0 失败；均为 openai/gpt-6-luna、真实 bash、隔离临时 home。纯文字/工具中 steer/显式 interrupt 均只有一个 run.end、三个实际 inputs；同目标最终答复一次，不重放工具。interrupt 跨两个 owner 来源，同一运行按原契约分别回各来源。
 - 最后补充断言：普通 steer 的工具结果 isError=false；interrupt 的工具结果 isError=true。最终真实 Luna 3 通过、0 失败，包含工具成功/取消结果断言；最终 build/typecheck 通过，默认测试195通过/23跳过/0失败，lint 0错误、184警告、1信息。日用安装事实待下方补记。
 
-未验收：微信真人重新连发、飞书客户端实际中断显示、QQ 安装后的同场景、微信媒体及第二账号权限隔离。扫码页面自动刷新是另一项待完成工作。
+未验收：飞书客户端实际中断显示、QQ 安装后的同场景、微信媒体及第二账号权限隔离。扫码页面自动刷新是另一项待完成工作。
 
 
 ## 日用安装核验
@@ -45,4 +45,6 @@ Yonder 只配置原生消费数量、映射默认值与 interrupt、抑制 abort
 
 旧 current 指针保存在 `/Users/zoran/.local/share/yonder-harness/home/.yonder/backups/input-queue-1792563401/installation.json`，先前微信配置备份仍保留。未修改实际 owner/profile/bindings 或第二账号权限；它们未指定 busy 的入口现在继承共享 steer 默认。QQ 隔离服务没有重启。
 
-已请主人用微信真实连发 A/B/C；该次真人复验尚待反馈，不把隔离模型用例当作微信客户端验收。
+主人已完成真实微信复验：本地 02:17:27、02:17:29、02:17:31、02:17:35 连发四条，全部 busy=steer、session=2；原生运行 9831 的唯一 run.end 包含全部四个输入，02:17:49 结束，02:17:51 唯一一次成功微信 message.out，正文逐条确认四条内容。此后单独发来的验收追问发生在该轮结束后，属于后续运行，不计作四条的重复回复。
+
+实测证据：[wechat-queue-20261021.json](evidence/wechat-queue-20261021.json)。证明一次运行覆盖四输入、一次最终成功投递；不声称只请求过一次模型。媒体、第二账号隔离和飞书/QQ客户端中断显示仍未由这次复验覆盖。
