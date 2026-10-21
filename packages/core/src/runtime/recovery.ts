@@ -21,14 +21,21 @@ const NETWORK_NOTICE =
 export function transientModelError(message: Pick<AssistantMessage, "stopReason" | "errorMessage">): boolean {
 	if (message.stopReason !== "error" || isContextOverflow(message as AssistantMessage)) return false;
 	const text = message.errorMessage ?? "";
+	// OAuth is the operation, not the cause: a failed refresh transport is retryable.
+	const refreshNetwork =
+		/^OAuth refresh failed\b/i.test(text) &&
+		/fetch failed|connection error|ECONNRESET|ECONNREFUSED|EPIPE|ENOTFOUND|EAI_AGAIN|ETIMEDOUT/i.test(text) &&
+		!/\b4\d{2}\b|invalid.grant|revoked|expired.refresh|unauthorized|access.denied/i.test(text);
 	if (
+		!refreshNetwork &&
 		/\b4(?!08\b|29\b)\d{2}\b|auth|api.?key|credential|permission|schema|invalid.?request|context|token.?limit|quota|billing|budget|abort|repeatStop/i.test(
 			text,
 		)
 	)
 		return false;
 	return (
-		/\b5\d\d\b|ECONNRESET|ECONNREFUSED|EPIPE/i.test(text) || isRetryableAssistantError(message as AssistantMessage)
+		/\b5\d\d\b|ECONNRESET|ECONNREFUSED|EPIPE|ENOTFOUND|EAI_AGAIN|ETIMEDOUT/i.test(text) ||
+		isRetryableAssistantError(message as AssistantMessage)
 	);
 }
 

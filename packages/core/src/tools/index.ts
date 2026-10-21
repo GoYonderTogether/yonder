@@ -187,7 +187,12 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 						from: `acct:agent:${ctx.agent}`,
 						conv: `conv:agent:${ctx.agent}`,
 						...(ctx.event ? { parent: ctx.event.id } : {}),
-						data: { kind: "agent", text: request.text, target: request.agent },
+						data: {
+							kind: "agent",
+							text: request.text,
+							target: request.agent,
+							msgId: `internal:${runtime().invocationId(ctx)}`,
+						},
 					}),
 					ctx.signal,
 				);
@@ -197,6 +202,37 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					...result(answer.text || answer.reason || answer.status),
 					...(answer.status === "done" ? {} : { isError: true }),
 				};
+			},
+		}),
+		tool({
+			name: "task_continue",
+			description:
+				"将已获授权任务的具体下一步排入本会话；接纳后可以结束阶段汇报，后续会自动执行。后台工具已有完成通知时不要重复安排等待。",
+			parameters: schema({ text: text() }),
+			execute: async (args, ctx) => {
+				if (await runtime().hasOtherBackgroundWork(ctx))
+					throw new Error(
+						"Background work already delivers the next input automatically. Do not queue a continuation or repeat the delegation; finish this progress report and wait for its result.",
+					);
+				const key = runtime().invocationId(ctx);
+				const origin = ctx.event;
+				const text = (args as { text: string }).text;
+				const event = await store.events.record(
+					{
+						type: "runtime.continuation",
+						...(origin ? { parent: origin.id, conv: origin.conv } : {}),
+						data: { session: ctx.session, job: key, text, waiting: false },
+					},
+					origin?.routes?.filter((route) => route.session === ctx.session) ?? [],
+				);
+				await runtime().enqueue(ctx.session, {
+					text,
+					event,
+					wake: "run",
+					busy: "followup",
+					requestId: `continuation:${key}`,
+				});
+				return result("Next step durably accepted. Finish this progress report; the next step runs automatically.");
 			},
 		}),
 		tool({

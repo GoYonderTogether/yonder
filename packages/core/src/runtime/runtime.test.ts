@@ -24,7 +24,7 @@ test("submission outcomes preserve native failures and prioritize Yonder limits"
 	expect(submissionOutcome(native({ status: "unanswered", reason: "model_error", detail: "provider failed" }))).toEqual(
 		{
 			status: "error",
-			reason: "model_error",
+			reason: "model_error: provider failed",
 		},
 	);
 	expect(submissionOutcome(native({ status: "unanswered", reason: "faulted" }))).toEqual({

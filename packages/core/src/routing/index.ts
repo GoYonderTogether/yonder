@@ -112,6 +112,35 @@ export function createRouter({
 		for (const resolve of group) resolve(result);
 	};
 
+	async function finishIdle(session: SessionInfo) {
+		if (await runtime().hasPendingWork(session.id)) return;
+		for (const event of await store.events.waitingInputs(session.id)) {
+			let saved = await store.events.agentResult(session.id, event.id);
+			const last = saved ? undefined : await runtime().lastResult(session.id, event.id);
+			if (!saved && !last) continue;
+			if (!saved)
+				saved = await store.events.record({
+					type: "agent.result",
+					parent: event.id,
+					data: {
+						session: session.id,
+						job: event.id,
+						runId: last!.runId,
+						status: last!.status,
+						...(last!.reason ? { reason: last!.reason } : {}),
+					},
+				});
+			const data = saved.data as { runId: string; status: RunResult["status"]; reason?: string };
+			finish(session.agent ?? "", event.id, {
+				agent: session.agent,
+				session: session.id,
+				status: data.status,
+				text: await runtime().resultText(session.id, data.runId),
+				...(data.reason ? { reason: data.reason } : {}),
+			});
+		}
+	}
+
 	async function dispatch(event: YEvent, runs: RoutedRun[]): Promise<void> {
 		await Promise.all(
 			runs.map(async (routed) => {
@@ -142,7 +171,12 @@ export function createRouter({
 						wake: routed.wake,
 						busy: event.routes?.find((route) => route.session === session.id)?.busy ?? "followup",
 						...(attachments ? { attachments } : {}),
-						requestId: `event:${event.id}`,
+						requestId:
+							event.type === "runtime.tool-result"
+								? `background:${(event.data as { job: string }).job}`
+								: event.type === "runtime.continuation"
+									? `continuation:${(event.data as { job: string }).job}`
+									: `event:${event.id}`,
 						...(startedOutput ? { onOutput: output } : {}),
 					};
 					await runtime().submit(session.id, input);
@@ -198,17 +232,8 @@ export function createRouter({
 					if (route.session && route.wake === "run" && !route.dropped) {
 						const wait = waitFor(route.agent, previous.id);
 						waits.push(wait);
-						const ending = await store.events.runForInput(route.session, previous.id);
-						if (ending) {
-							const data = ending.data as unknown as RunResult;
-							finish(route.agent, previous.id, {
-								agent: route.agent,
-								session: route.session,
-								status: data.status,
-								text: await runtime().responseText(route.session, previous.id),
-								...(data.reason ? { reason: data.reason } : {}),
-							});
-						}
+						const session = await store.sessions.get(route.session);
+						if (session) await finishIdle(session);
 					}
 			return { event: previous, waits };
 		}
@@ -284,16 +309,8 @@ export function createRouter({
 	}
 
 	return {
-		finishRun: async (session: SessionInfo, run: RuntimeRun) => {
-			for (const id of run.inputs)
-				finish(session.agent ?? "", id, {
-					agent: session.agent,
-					session: session.id,
-					status: run.status,
-					text: run.text,
-					...(run.reason ? { reason: run.reason } : {}),
-				});
-		},
+		finishIdle,
+		finishRun: async (session: SessionInfo, _run: RuntimeRun) => finishIdle(session),
 		async recover(): Promise<Array<() => void>> {
 			const pending: Array<() => void> = [];
 			let after: string | undefined;

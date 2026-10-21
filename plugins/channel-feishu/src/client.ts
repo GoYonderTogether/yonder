@@ -6,10 +6,24 @@ export class FeishuRequestError extends Error {
 	constructor(
 		message: string,
 		readonly uncertain: boolean,
+		readonly retryable = false,
 	) {
 		super(message);
 	}
 }
+const transport = (error: unknown, beforeDispatch = false): boolean => {
+	let current = error;
+	for (let depth = 0; current instanceof Error && depth < 4; depth++, current = current.cause) {
+		if (
+			/^(ENOTFOUND|EAI_AGAIN|ECONNREFUSED|UND_ERR_CONNECT_TIMEOUT)$/.test(
+				String((current as NodeJS.ErrnoException).code),
+			)
+		)
+			return true;
+		if (beforeDispatch && /fetch failed|ECONNRESET|ETIMEDOUT|connection error/i.test(current.message)) return true;
+	}
+	return false;
+};
 export const uncertain = (error: unknown): boolean => error instanceof FeishuRequestError && error.uncertain;
 
 export class FeishuApi {
@@ -143,7 +157,7 @@ export class FeishuApi {
 			token = await this.access(signal);
 		} catch (error) {
 			// Authentication failed before dispatching this operation.
-			throw new FeishuRequestError(this.safe(error), false);
+			throw new FeishuRequestError(this.safe(error), false, transport(error, true));
 		}
 		signal?.throwIfAborted();
 		const encoded = body instanceof FormData ? body : body ? JSON.stringify(body) : undefined;
@@ -159,7 +173,7 @@ export class FeishuApi {
 				signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
 			});
 		} catch (error) {
-			throw new FeishuRequestError(this.safe(error), method !== "GET");
+			throw new FeishuRequestError(this.safe(error), method !== "GET" && !transport(error), transport(error));
 		}
 	}
 }

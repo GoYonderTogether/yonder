@@ -207,3 +207,96 @@ test("an ordinary message that is a control-marker prefix is released at message
 		await x.db.close();
 	}
 });
+
+test("safe unsent delivery is retried online and after reopening; unknown and partial sends are not replayed", async () => {
+	const x = await setup();
+	let online = false,
+		calls = 0;
+	x.channel.send = async (_target, msg) => {
+		calls++;
+		if (!online) return { ok: false, retryable: true, error: "ENOTFOUND before dispatch" };
+		x.sent.push(msg.text);
+		return { ok: true, id: "receipt" };
+	};
+	try {
+		const request = { to: "conv:test:chat", text: "terminal failure notification" };
+		expect(await x.delivery.sendPlugin("check", request)).toMatchObject({ retryable: true });
+		await expect.poll(() => calls, { timeout: 5000 }).toBeGreaterThan(1);
+		await x.delivery.close();
+		online = true;
+		const reopened = createDelivery({
+			store: x.store,
+			agents: new Map(),
+			channels: new Map([["test", x.channel]]),
+			runtime: () => ({}) as Runtime,
+			sessions: {} as Sessions,
+		});
+		try {
+			await reopened.recover();
+			reopened.start();
+			await expect.poll(() => x.sent, { timeout: 5000 }).toContain(request.text);
+			expect(x.sent).toHaveLength(1);
+			expect((await x.store.events.query({ type: "message.attempt" })).events).toHaveLength(1);
+			expect(await x.store.events.retryableAttempts()).toHaveLength(0);
+			for (const outcome of [
+				{ ok: false, uncertain: true, error: "receipt lost" },
+				{ ok: false, id: "partial", uncertain: true, error: "second chunk unknown" },
+				{ ok: false, error: "403 permission denied" },
+			]) {
+				x.channel.send = async () => {
+					calls++;
+					return outcome;
+				};
+				await reopened.sendPlugin("check", { ...request, text: outcome.error });
+			}
+			const before = calls;
+			await reopened.recover();
+			await new Promise((resolve) => setTimeout(resolve, 1100));
+			expect(calls).toBe(before);
+			expect(await x.store.events.retryableAttempts()).toHaveLength(0);
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("shutdown during a retry dispatch preserves uncertainty and never replays an earlier safe failure", async () => {
+	const x = await setup();
+	let calls = 0;
+	x.channel.send = async (_to, _msg, signal) => {
+		calls++;
+		if (calls === 1) return { ok: false, retryable: true, error: "ENOTFOUND" };
+		await new Promise<void>((_resolve, reject) =>
+			signal!.addEventListener("abort", () => reject(signal!.reason), { once: true }),
+		);
+		return { ok: true };
+	};
+	try {
+		await x.delivery.sendPlugin("check", { to: "conv:test:chat", text: "terminal status" });
+		await expect.poll(() => calls, { timeout: 5000 }).toBe(2);
+		await x.delivery.close();
+		const reopened = createDelivery({
+			store: x.store,
+			agents: new Map(),
+			channels: new Map([["test", x.channel]]),
+			runtime: () => ({}) as Runtime,
+			sessions: {} as Sessions,
+		});
+		try {
+			await reopened.recover();
+			reopened.start();
+			expect(await x.store.events.retryableAttempts()).toHaveLength(0);
+			expect((await x.store.events.query({ type: "message.unknown" })).events).toHaveLength(1);
+			await new Promise((resolve) => setTimeout(resolve, 1100));
+			expect(calls).toBe(2);
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});

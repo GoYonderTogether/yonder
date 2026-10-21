@@ -347,3 +347,33 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		await expect(waiting).rejects.toThrow("cancelled");
 	});
 });
+
+describe("Feishu safe unsent failure classification", () => {
+	it("retries connection failure before dispatch but preserves uncertain writes and partial sends", async () => {
+		const client = new FeishuApi(config, api());
+		const credentials = vi
+			.spyOn(client, "credentials")
+			.mockRejectedValueOnce(
+				new TypeError("fetch failed", { cause: Object.assign(new Error("dns lookup failed"), { code: "ENOTFOUND" }) }),
+			);
+		await expect(client.raw("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+			retryable: true,
+			uncertain: false,
+		});
+		credentials.mockRejectedValueOnce(new Error("401 authentication failed"));
+		await expect(client.raw("/im/v1/messages", "POST", {})).rejects.toMatchObject({
+			retryable: false,
+			uncertain: false,
+		});
+		const channel = new FeishuChannel("test", config, api());
+		vi.spyOn(channel, "rawSend").mockRejectedValueOnce(new FeishuRequestError("ENOTFOUND", false, true));
+		await expect(channel.send("conv:test:chat", { text: "notification" })).resolves.toMatchObject({
+			ok: false,
+			retryable: true,
+		});
+		vi.spyOn(channel, "rawSend").mockRejectedValueOnce(new FeishuRequestError("ECONNRESET after write", true));
+		const result = await channel.send("conv:test:chat", { text: "notification" });
+		expect(result).toMatchObject({ uncertain: true });
+		expect(result.retryable).toBeUndefined();
+	});
+});

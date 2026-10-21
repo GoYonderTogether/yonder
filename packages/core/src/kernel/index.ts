@@ -58,11 +58,13 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 	let plugins: LoadedPlugins | undefined;
 	let watcher: Awaited<ReturnType<typeof watchConfig>> | undefined;
 	let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
+	let stopDelivery: (() => Promise<void>) | undefined;
 	let closed = false;
 	const close = async () => {
 		if (closed) return;
 		closed = true;
 		watcher?.close();
+		await stopDelivery?.();
 		try {
 			await plugins?.stop();
 		} finally {
@@ -227,7 +229,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			completion.deliver();
 			await router.finishRun(session, run);
 			if (
-				!(await realRuntime().hasBackgroundWork(id)) &&
+				!(await realRuntime().hasPendingWork(id)) &&
 				(session.mode === "ephemeral" ||
 					(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual"))
 			)
@@ -295,6 +297,20 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				if (input.version) await store.sessions.setVersion(id, input.version);
 			},
 			onRun: completeRun,
+			onIdle: async (id) => {
+				const session = await store.sessions.get(id);
+				if (!session) return;
+				await router.finishIdle(session);
+				if (
+					!(await realRuntime().hasPendingWork(id)) &&
+					!session.closed &&
+					(session.mode === "ephemeral" ||
+						(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual"))
+				) {
+					const end = await realRuntime().lastResult(id);
+					if (end) await sessions.closeSession(id, end.status === "done" ? "completed" : end.status);
+				}
+			},
 			...backgroundHandlers({ store, runtime: realRuntime, delivery, report }),
 			resolveSession: async (id) => {
 				const session = await sessions.resolveSession(id);
@@ -358,6 +374,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				await store.events.record(event);
 			},
 		});
+		stopDelivery = () => delivery.close();
 		await delivery.recover();
 		await runtime.recover();
 		const pendingInputs = [...(await router.recover()), ...(await sessions.recover())];

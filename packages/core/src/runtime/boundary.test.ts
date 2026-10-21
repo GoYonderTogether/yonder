@@ -151,7 +151,7 @@ test("the elapsed threshold warns without cancelling context rendering before a 
 		const session = await runtime.create({ agent: null, profile: "check", cwd: home });
 		const run = await runtime.submit(session, { text: "N01 context cancellation verification" });
 		expect([run.status, run.usage.cost, cancelled]).toEqual(["error", 0, false]);
-		expect(run.reason).toBe("model_error");
+		expect(run.reason).toBe("model_error: Provider is not configured: openai");
 		expect(raised).toBe(failure);
 		expect(warnings).toEqual(["maxMinutes"]);
 	} finally {
@@ -282,7 +282,7 @@ test("the elapsed threshold warns without cancelling input preparation before a 
 		});
 		const run = await runtime.submit(session, { text: "Input cancellation check", event });
 		expect([run.status, run.usage.cost, cancelled]).toEqual(["error", 0, false]);
-		expect(run.reason).toBe("faulted");
+		expect(run.reason).toBe("faulted: input-preparation-check-complete");
 		expect(
 			(
 				await db.all<{ record: string }>(

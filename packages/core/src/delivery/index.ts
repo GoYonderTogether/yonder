@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import {
 	type Attachment,
 	type Channel,
@@ -106,6 +107,8 @@ export function createDelivery(options: DeliveryOptions) {
 		}
 	>();
 	const report = options.onReport ?? (() => {});
+	const lifetime = new AbortController();
+	const retries = new Map<string, Promise<void>>();
 	let start!: () => void;
 	const ready = new Promise<void>((resolve) => {
 		start = resolve;
@@ -180,6 +183,8 @@ export function createDelivery(options: DeliveryOptions) {
 		parent?: string,
 		runId?: string,
 		message?: string,
+		outgoing?: OutMessage,
+		from?: string,
 	): Promise<string | undefined> {
 		return store.events.claimAttempt({
 			type: "message.attempt",
@@ -191,6 +196,8 @@ export function createDelivery(options: DeliveryOptions) {
 				...(session ? { session } : {}),
 				...(runId ? { runId } : {}),
 				...(message ? { message } : {}),
+				...(outgoing ? { outgoing } : {}),
+				...(from ? { from } : {}),
 			},
 		});
 	}
@@ -220,18 +227,69 @@ export function createDelivery(options: DeliveryOptions) {
 			await record(from, request.to, outgoing, delivery, session?.id, parent);
 			return delivery;
 		}
-		const id = await attempt(resolved.target, "send", session?.id, parent, runId, messageId);
+		const { signal: _signal, ...outgoing } = request;
+		const id = await attempt(resolved.target, "send", session?.id, parent, runId, messageId, outgoing, from);
 		if (!id) return { ok: false, error: "该消息/目标已有发送尝试，结果以持久确认或 unknown 为准，不自动重发" };
 		let delivery: Delivery;
-		const { signal: _signal, ...outgoing } = request;
 		try {
 			delivery = await resolved.channel.send(resolved.target, outgoing, signal);
 		} catch (error) {
 			return unknown(id, error);
 		}
-		if (!delivery.ok && delivery.uncertain) return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
+		if (!delivery.ok && (delivery.uncertain || delivery.id))
+			return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
 		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id, messageId);
+		if (!delivery.ok && delivery.retryable && !delivery.id && !delivery.uncertain) {
+			const event = await store.events.get(id);
+			if (event) retry(event);
+		}
 		return delivery;
+	}
+	// The existing attempt ledger owns retry facts; timers only drive unresolved safe sends.
+	function retry(event: YEvent) {
+		if (retries.has(event.id) || lifetime.signal.aborted) return;
+		const data = event.data as {
+			target: string;
+			outgoing: OutMessage;
+			from?: string;
+			session?: string;
+			message?: string;
+		};
+		const work = (async () => {
+			await ready;
+			let delay = 1000;
+			while (!lifetime.signal.aborted) {
+				await sleep(delay, undefined, { signal: lifetime.signal, ref: false });
+				const channel = channels.get(channelId(data.target) ?? "");
+				if (!channel) return;
+				await store.events.record({ type: "message.retry", data: { attempt: event.id } });
+				let result: Delivery;
+				try {
+					result = await channel.send(
+						data.target,
+						data.outgoing,
+						AbortSignal.any([lifetime.signal, AbortSignal.timeout(60000)]),
+					);
+				} catch (error) {
+					if (lifetime.signal.aborted) return;
+					await unknown(event.id, error);
+					return;
+				}
+				if (lifetime.signal.aborted) return;
+				if (result.uncertain || (!result.ok && result.id)) {
+					await unknown(event.id, result.error ?? "渠道未确认结果", result);
+					return;
+				}
+				await record(data.from, data.target, data.outgoing, result, data.session, event.parent, event.id, data.message);
+				if (result.ok || !result.retryable) return;
+				delay = Math.min(delay * 2, 30000);
+			}
+		})()
+			.catch((error) => {
+				if (!lifetime.signal.aborted) report(error);
+			})
+			.finally(() => retries.delete(event.id));
+		retries.set(event.id, work);
 	}
 	function closeMessage(session: SessionInfo, state: NonNullable<ReturnType<typeof streams.get>>, text: string) {
 		const stream = state.current;
@@ -456,9 +514,15 @@ export function createDelivery(options: DeliveryOptions) {
 		onStart,
 		onRun,
 		start,
+		async close() {
+			lifetime.abort();
+			start();
+			await Promise.all(retries.values());
+		},
 		async recover() {
 			for (const event of await store.events.unresolvedAttempts())
 				await unknown(event.id, new Error("进程在渠道尝试后未保存确认"));
+			for (const event of await store.events.retryableAttempts()) retry(event);
 		},
 		async sendCommand(session: SessionInfo, event: YEvent, text: string): Promise<Delivery> {
 			if (!event.conv) throw new Error("Command has no source conversation");

@@ -129,3 +129,11 @@ message.in.data可选createdAt为原生发送时间的epoch毫秒字符串，msg
 内核新增 `release.update-result`，不经过模型产生。`data` 为 `{updateId, install, home, repository, beforeVersion?, version?, tag?, commit?, status, verified, service?, error?}`，status 为 verified / failed-or-unknown / restart-required；service 有真实 version/commit/home/pid/ready。只有实际核验吻合才 verified=true。conv 为 `conv:release:<updateId>`。直接 CLI update 与插件作业调用同一 updateRelease，每次实际尝试仅由此公共入口记录完成；同版本未更新不制造完成事件。旧 channel-github.update-result 保留历史兼容，不作为新的程序通知来源。
 
 事件可独立被 Agent 绑定、插件程序订阅或仅记录。绑定 wake:write 不调用模型，wake:run 才调用；插件 events.on 不暗中唤醒模型，不获得外部正文授予的权限。事件账本仍是事实，进程内订阅不是持久任务队列；不承诺回调必执行或 exactly-once。服务不在线时更新完成可写既有事件账本供查询，不新增 outbox/重试平台。
+
+### 任务续办与结果交接
+
+runtime.continuation 由 task_continue 写入，data 含 session、job（稳定原生调用身份）、text、waiting:false；parent 与 conv/routes 保留来源。同 session/job 去重，原生 requestId 为 continuation:<job>。本轮正文标明这是已接纳的原任务下一步，不能只将 JSON 当作展示通知。
+
+agent.result 只投影一个等待输入的原生最终结果，parent 指向该输入，data 含 session/job（该输入 id）、runId/status/reason；正文从原生回执读取，不复制转录。子会话仍有待执行或未交接工作时不记录最终交接。
+
+message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬时失败在 message.out.delivery.retryable 中明确表示。补达调用前写 message.retry（data.attempt 指向原尝试），调用后的回执仍关联原尝试；重启时在途补达没有确认则记 unknown，不能把更早一次安全失败当成最新事实重发。

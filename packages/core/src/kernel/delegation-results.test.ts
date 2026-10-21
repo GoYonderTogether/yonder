@@ -21,7 +21,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			);
 			const workerTasks = commands.map(
 				(cmd) =>
-					`Run bash exactly once, command: ${cmd}. If it returns a background handle, use process wait until that job completes. Only then return the actual RESULT line verbatim, without extra text. Do not end with a waiting response.`,
+					`Run bash exactly once, command: ${cmd}. If it returns a background handle, end this response with WORKER_WAITING and rely on its automatic completion. When the background result arrives, return the actual RESULT line verbatim, without extra text. A waiting progress response is not the delegated task result.`,
 			);
 			const prompt = `Delegate the following two tasks to helper using agent_ask, sequentially, one at a time. Task 1: ${workerTasks[0]}\nTask 2: ${workerTasks[1]}\nWhen agent_ask returns a running background handle, end this response with WAITING and wait for its automatic completion. Never poll process or ask the user to continue. On completion 1, write its actual full RESULT_1 line to ${home}/parent-1.txt, then delegate task 2. On completion 2, write its actual full RESULT_2 line to ${home}/parent-2.txt and reply DELEGATION_DONE. Never repeat task 1 after receiving task 2. The random RESULT values do not exist until helper executes the commands.`;
 			await mkdir(`${home}/source`);

@@ -19,6 +19,7 @@ Yonder Harness
 │  ├─ message_send — 向明确人/账号/会话发送消息
 │  ├─ agent_ask — 按目标agent绑定提问并等待结果
 │  ├─ task_run — 使用preset委派原生子任务
+│  ├─ task_continue — 将已授权的具体下一步持久排入当前会话
 │  ├─ session_list — 按权限列出会话
 │  ├─ session_read — 按权限读取原生转录
 │  ├─ identity_lookup — 查询账号/人物/会话关系

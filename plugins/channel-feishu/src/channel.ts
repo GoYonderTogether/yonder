@@ -642,7 +642,8 @@ export class FeishuChannel implements Channel {
 			return {
 				ok: false,
 				...(lastId ? { id: lastId } : {}),
-				...(uncertain(error) ? { uncertain: true } : {}),
+				...(lastId || uncertain(error) ? { uncertain: true } : {}),
+				...(!lastId && error instanceof FeishuRequestError && error.retryable ? { retryable: true } : {}),
 				error: this.client.safe(error),
 			};
 		}

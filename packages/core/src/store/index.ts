@@ -95,7 +95,11 @@ export async function createStore(
 		return event;
 	}
 	async function findInput(tx: DbExecutor, input: EventInput): Promise<YEvent | undefined> {
-		if (input.type === "runtime.tool-result") {
+		if (
+			input.type === "runtime.tool-result" ||
+			input.type === "runtime.continuation" ||
+			input.type === "agent.result"
+		) {
 			const { session, job } = input.data as { session?: unknown; job?: unknown };
 			if (typeof session !== "string" || typeof job !== "string") return;
 			const row = await tx.get<EventRow>(
@@ -129,6 +133,23 @@ export async function createStore(
 		async runForInput(session: string, input: string): Promise<YEvent | undefined> {
 			const row = await db.get<EventRow>(
 				"SELECT * FROM y_events WHERE type = 'run.end' AND json_extract(data, '$.session') = ? AND EXISTS (SELECT 1 FROM json_each(json_extract(data, '$.inputs')) WHERE value = ?) ORDER BY id LIMIT 1",
+				session,
+				input,
+			);
+			return row ? eventRow(row) : undefined;
+		},
+		async waitingInputs(session: string): Promise<YEvent[]> {
+			const rows = await db.all<EventRow>(
+				`SELECT e.* FROM y_events e WHERE e.type IN ('message.in', 'session.input')
+			AND EXISTS (SELECT 1 FROM json_each(e.routes) r WHERE json_extract(r.value, '$.session') = ? AND json_extract(r.value, '$.waiting') = 1)
+			ORDER BY e.id`,
+				session,
+			);
+			return rows.map(eventRow);
+		},
+		async agentResult(session: string, input: string): Promise<YEvent | undefined> {
+			const row = await db.get<EventRow>(
+				"SELECT * FROM y_events WHERE type = 'agent.result' AND json_extract(data, '$.session') = ? AND parent = ? LIMIT 1",
 				session,
 				input,
 			);
@@ -187,9 +208,17 @@ export async function createStore(
 			}
 			return undefined;
 		},
+		async retryableAttempts(): Promise<YEvent[]> {
+			const rows = await db.all<EventRow>(`SELECT a.* FROM y_events a
+				WHERE a.type = 'message.attempt' AND json_extract(a.data, '$.outgoing') IS NOT NULL
+				AND json_extract((SELECT o.data FROM y_events o WHERE o.type IN ('message.out', 'message.unknown', 'message.retry')
+				AND json_extract(o.data, '$.attempt') = a.id ORDER BY o.id DESC LIMIT 1), '$.delivery.retryable') = 1
+				ORDER BY a.id`);
+			return rows.map(eventRow);
+		},
 		async unresolvedAttempts(): Promise<YEvent[]> {
 			const rows = await db.all<EventRow>(
-				`SELECT a.* FROM y_events a WHERE a.type = 'message.attempt' AND NOT EXISTS (SELECT 1 FROM y_events c WHERE c.type IN ('message.out', 'message.unknown') AND json_extract(c.data, '$.attempt') = a.id) ORDER BY a.id`,
+				`SELECT a.* FROM y_events a WHERE a.type = 'message.attempt' AND (NOT EXISTS (SELECT 1 FROM y_events c WHERE c.type IN ('message.out', 'message.unknown') AND json_extract(c.data, '$.attempt') = a.id) OR EXISTS (SELECT 1 FROM y_events r WHERE r.type = 'message.retry' AND json_extract(r.data, '$.attempt') = a.id AND NOT EXISTS (SELECT 1 FROM y_events c WHERE c.type IN ('message.out', 'message.unknown') AND json_extract(c.data, '$.attempt') = a.id AND c.id > r.id))) ORDER BY a.id`,
 			);
 			return rows.map(eventRow);
 		},

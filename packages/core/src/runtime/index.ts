@@ -84,6 +84,7 @@ export class Runtime {
 	}
 	private storage!: SqliteStorage;
 	private finishing = new Map<string, Promise<RuntimeRun>>();
+	private idleWaiters = new Map<string, Set<() => void>>();
 	private recovering: Array<{ session: string; id: import("@earendil-works/pi-durable").SubmissionId }> = [];
 	private registry = createRegistry();
 	private background!: ReturnType<typeof createBackground>;
@@ -266,6 +267,7 @@ export class Runtime {
 				});
 			},
 			report: (error) => this.options.onReport?.(error),
+			settled: (session) => this.idleChanged(session),
 		});
 		this.registry.install(this.background.extension);
 		this.extensions.set(this.background.extension.name, this.background.extension);
@@ -358,7 +360,7 @@ export class Runtime {
 					description: tool.description,
 					parameters: tool.parameters,
 					deferred: true,
-					...(tool.name === "task_run" ? { replay: "safe" as const } : {}),
+					...(["task_run", "agent_ask", "task_continue"].includes(tool.name) ? { replay: "safe" as const } : {}),
 					execute: async (args, api, context) => {
 						const ctx = await this.context(String(api.conversationId), context);
 						this.toolInvocations.set(ctx, { api, context });
@@ -671,7 +673,7 @@ export class Runtime {
 	async notify(id: string, input: { from: string; event: string; text: string }) {
 		return writeNotification(await this.conversation(id), input);
 	}
-	async submit(id: string, input: RuntimeInput): Promise<RuntimeRun> {
+	async submit(id: string, input: RuntimeInput, accepted?: () => void): Promise<RuntimeRun> {
 		const conversation = await this.conversation(id);
 		const requestId = input.requestId ?? (input.event ? `event:${input.event.id}` : undefined);
 		const existing = requestId ? await this.storage.submissionByRequest(cid(id), requestId, C) : undefined;
@@ -735,6 +737,7 @@ export class Runtime {
 			} catch (error) {
 				this.options.onReport?.(error);
 			}
+			accepted?.();
 			submitted();
 			const done = await submission.wait(C);
 			await stream?.stop();
@@ -754,6 +757,20 @@ export class Runtime {
 			submitted();
 			await stream?.stop();
 		}
+	}
+	/** Resolve at durable admission; observe the eventual run without holding its caller. */
+	async enqueue(id: string, input: RuntimeInput): Promise<void> {
+		await new Promise<void>((accept, reject) => {
+			void this.submit(id, input, accept).catch((error) => {
+				reject(error);
+				this.options.onReport?.(error);
+			});
+		});
+	}
+	invocationId(ctx: ToolContext): string {
+		const invocation = this.toolInvocations.get(ctx);
+		if (!invocation) throw new Error("Requires an active runtime tool invocation");
+		return `${ctx.session}:${invocation.api.taskId}`;
 	}
 	private async attachSubmission(
 		submission: Submission,
@@ -868,7 +885,31 @@ export class Runtime {
 			const admitted = await this.harness.submission(submission.id, C);
 			if (!admitted) throw new Error("Admitted child input is missing");
 			const done = await admitted.wait(C);
-			return this.settledRun(String(child), done);
+			await this.settledRun(String(child), done);
+			while (true) {
+				let changed!: () => void;
+				const next = new Promise<void>((resolve) => {
+					changed = resolve;
+				});
+				const waiters = this.idleWaiters.get(String(child)) ?? new Set();
+				waiters.add(changed);
+				this.idleWaiters.set(String(child), waiters);
+				context.abortSignal?.addEventListener("abort", changed, { once: true });
+				try {
+					context.abortSignal?.throwIfAborted();
+					if (!(await this.hasPendingWork(String(child)))) break;
+					await next;
+					context.abortSignal?.throwIfAborted();
+				} finally {
+					context.abortSignal?.removeEventListener("abort", changed);
+					waiters.delete(changed);
+					if (!waiters.size) this.idleWaiters.delete(String(child));
+				}
+			}
+			const last = await this.lastResult(String(child));
+			if (!last) throw new Error("Child task has no terminal receipt");
+			const receipt = await this.harness.snapshot(RunReceiptDoc, child, last.runId, C);
+			return this.receiptRun(String(child), last.runId, receipt!);
 		} catch (error) {
 			if (input.event && !(await this.admitted(String(child), input.event.id)))
 				await this.options.onRun?.(String(child), {
@@ -956,6 +997,7 @@ export class Runtime {
 			};
 			try {
 				await this.options.onRun?.(session, run);
+				await this.idleChanged(session);
 			} finally {
 				const state = this.limits.states.get(key);
 				if (state) {
@@ -1084,6 +1126,56 @@ export class Runtime {
 
 		this.harness.resume();
 	}
+	private async idleChanged(session: string): Promise<void> {
+		for (const changed of this.idleWaiters.get(session) ?? []) changed();
+		await this.options.onIdle?.(session);
+	}
+
+	async lastResult(session: string, input?: string) {
+		const docs = await this.storage.scanDocuments(
+			{ scope: { kind: "conversation", conversationId: cid(session) }, kind: "pi.run-receipt", at: "current" },
+			Number.MAX_SAFE_INTEGER,
+			undefined,
+			C,
+		);
+		for (const doc of [...docs.items].sort((a, b) => b.id - a.id)) {
+			const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), doc.key!, C);
+			if (!receipt?.settlement) continue;
+			let matches = input === undefined;
+			for (let source of await this.sources(receipt.inputs)) {
+				if (matches) break;
+				const seen = new Set<string>();
+				while (source && !seen.has(source.id)) {
+					seen.add(source.id);
+					if (source.id === input) {
+						matches = true;
+						break;
+					}
+					if (!source.parent) break;
+					const parent = await this.options.readEvent?.(source.parent);
+					if (!parent) break;
+					source = parent;
+				}
+				if (matches) break;
+			}
+			if (matches) {
+				const state = await this.harness.snapshot(RunDoc, cid(session), doc.key!, C);
+				return {
+					runId: doc.key!,
+					...(state?.error
+						? { status: "error" as const, reason: state.error }
+						: submissionOutcome(receipt.settlement, state?.reason ?? undefined)),
+				};
+			}
+		}
+	}
+
+	async resultText(session: string, runId: string): Promise<string> {
+		const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), runId, C);
+		const end = receipt?.settlement;
+		return end?.status === "done" ? textOf(await this.harness.commit((tx) => tx.entry(end.answer), C)) : "";
+	}
+
 	async responseText(session: string, event: string): Promise<string> {
 		const record = await this.storage.submissionByRequest(cid(session), `event:${event}`, C);
 		return record?.status === "done" && record.answer
@@ -1142,15 +1234,26 @@ export class Runtime {
 		);
 	}
 
-	async hasBackgroundWork(id: string): Promise<boolean> {
+	async hasBackgroundWork(id: string, except?: number): Promise<boolean> {
 		const tasks = await this.storage.scanTasks(
 			{ conversationId: cid(id), kind: "yonder.background" },
 			Number.MAX_SAFE_INTEGER,
 			undefined,
 			C,
 		);
-		return tasks.items.some((task) => task.state.status !== "terminal");
+		for (const task of tasks.items) {
+			if (task.id === except) continue;
+			if (task.state.status !== "terminal") return true;
+			if (await this.background.pending(task.id)) return true;
+		}
+		return false;
 	}
+	async hasOtherBackgroundWork(ctx: ToolContext) {
+		const invocation = this.toolInvocations.get(ctx);
+		if (!invocation) throw new Error("Requires an active runtime tool invocation");
+		return this.hasBackgroundWork(ctx.session, invocation.api.taskId);
+	}
+
 	async hasPendingWork(id: string): Promise<boolean> {
 		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return true;
 		if ((await this.harness.snapshot(InboxDoc, cid(id), C))?.items.some((item) => item.mode !== "write")) return true;
@@ -1192,6 +1295,7 @@ export class Runtime {
 
 	async close(): Promise<void> {
 		await this.restartNotes;
+		await this.background.close();
 		try {
 			await this.harness.close(C);
 		} finally {

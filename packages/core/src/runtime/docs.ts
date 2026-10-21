@@ -28,10 +28,8 @@ export function submissionOutcome(
 	return {
 		status: done.reason.includes("abort") ? "aborted" : "error",
 		reason:
-			done.reason === "model_error" &&
-			typeof done.detail === "string" &&
-			done.detail.startsWith("Model retries exhausted (")
-				? `${done.reason}: ${done.detail}`
+			typeof done.detail === "string" && done.detail
+				? `${done.reason}: ${done.detail.replace(/(Bearer\s+)\S+/gi, "$1[redacted]").replace(/((?:api[_-]?key|access_token|refresh_token)[\s"']*[:=][\s"']*)[^\s,"'&}]+/gi, "$1[redacted]")}`
 				: done.reason,
 	};
 }

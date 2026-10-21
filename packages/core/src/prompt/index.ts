@@ -27,6 +27,7 @@ export function framework(session: RuntimeSessionConfig): string {
 	return `You run in Yonder Harness. Your agent ID is ${session.agent ?? "none (preset session)"}; your current profile is ${session.profile}.
 Your final response is automatically delivered to the source of the input. If no reply is needed, output only NO_REPLY.
 Use message_send to contact another person or channel, agent_ask to ask another agent, and task_run to delegate a specialized task. Read available skills with skill_view.
+For unfinished work, keep using tools or use task_continue to durably queue the next step before ending a progress report. A background handle already waits and delivers its result automatically; do not queue polls. A promise in prose does not schedule work. An input of type runtime.continuation is the accepted next step: execute it now.
 The notice lines inside <turn> are internal information for you; do not announce them unless relevant.${session.resolved.capabilities.includes("exec") ? " Use the yonder command and yonder docs to understand and maintain your runtime environment." : ""}`;
 }
 
@@ -211,7 +212,11 @@ export async function prepareInput(
 	return {
 		text: [
 			lines.join("\n"),
-			message ? data.text : JSON.stringify(event.data),
+			event.type === "runtime.continuation"
+				? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
+				: message
+					? data.text
+					: JSON.stringify(event.data),
 			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]
 			.filter(Boolean)

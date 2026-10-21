@@ -36,17 +36,15 @@ export function backgroundHandlers(ctx: {
 			);
 			if (!row || row.closed) return;
 			const onOutput = delivery.onStart(row, event, false);
-			void realRuntime()
-				.submit(id, {
-					text,
-					event,
-					wake: "run",
-					busy: "steer",
-					requestId: `background:${input.id}`,
-					...(onOutput ? { onOutput } : {}),
-					attachments: input.result.attachments ?? [],
-				})
-				.catch(report);
+			await realRuntime().enqueue(id, {
+				text,
+				event,
+				wake: "run",
+				busy: "steer",
+				requestId: `background:${input.id}`,
+				...(onOutput ? { onOutput } : {}),
+				attachments: input.result.attachments ?? [],
+			});
 		},
 		onWarning: async (id, input) => {
 			const row = await store.sessions.get(id);

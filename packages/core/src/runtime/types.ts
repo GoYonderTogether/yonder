@@ -38,6 +38,7 @@ export interface RuntimeOptions {
 		signal?: AbortSignal,
 	): Promise<RuntimeInput>;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
+	onIdle?(session: string): Promise<void>;
 	onBackground?(
 		session: string,
 		input: { id: string; name: string; result: ToolResult; origin?: YEvent },

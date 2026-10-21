@@ -23,6 +23,7 @@ import { Runtime } from "./index.js";
 test("native background preserves results, yields at 15s, owns processes and releases work", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-background-"));
 	const reports: unknown[] = [];
+	let failedAdmission = false;
 	const notifications: Array<{ session: string; id: string }> = [];
 	let runtime: Runtime | undefined;
 	try {
@@ -38,6 +39,10 @@ test("native background preserves results, yields at 15s, owns processes and rel
 			}),
 			onReport: (error) => reports.push(error),
 			onBackground: async (session, value) => {
+				if (!failedAdmission) {
+					failedAdmission = true;
+					throw new Error("acceptance: continuation admission temporarily unavailable");
+				}
 				notifications.push({ session, id: value.id });
 			},
 		});
@@ -143,8 +148,12 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		expect(JSON.parse(text(completed)).state.status).toBe("terminal");
 		expect(JSON.parse(text(completed)).output).toBe("startedfinished");
 		expect(JSON.parse(text(completed)).state.outcome.result.output[0].text).toContain("startedfinished");
-		await expect.poll(() => notifications.some((item) => item.id === id && item.session === first)).toBe(true);
+		await expect
+			.poll(() => notifications.some((item) => item.id === id && item.session === first), { timeout: 5000 })
+			.toBe(true);
 		expect(internal.background.running.size).toBe(0);
+		expect(reports.some((e) => String(e).includes("admission temporarily unavailable"))).toBe(true);
+		expect(notifications.filter((item) => item.id === id)).toHaveLength(1);
 
 		const interactive = JSON.parse(
 			text(

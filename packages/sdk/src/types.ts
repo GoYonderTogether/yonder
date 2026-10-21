@@ -264,6 +264,8 @@ export interface OutMessage {
 }
 export interface Delivery {
 	ok: boolean;
+	/** Transient failure before any part was sent. Never combine with id or uncertain. */
+	retryable?: boolean;
 	uncertain?: boolean;
 	id?: string;
 	error?: string;

@@ -30,6 +30,8 @@ test("retry settings default to ten patient capped backoffs and accept overrides
 test("recovery retries transport/5xx/throttle errors and excludes deterministic failures and aborts", () => {
 	for (const errorMessage of [
 		"fetch failed",
+		"OAuth refresh failed for openai: fetch failed",
+		"OAuth refresh failed for openai: ECONNRESET",
 		"Connection error.",
 		"ECONNRESET",
 		"501 upstream error",
@@ -39,6 +41,7 @@ test("recovery retries transport/5xx/throttle errors and excludes deterministic 
 		expect(transientModelError({ stopReason: "error", errorMessage }), errorMessage).toBe(true);
 	for (const errorMessage of [
 		"401 authentication failed; please retry your request",
+		"OAuth refresh failed for openai: invalid_grant; fetch failed",
 		"403 permission denied",
 		"400 schema error; 503 upstream",
 		"422 invalid request",

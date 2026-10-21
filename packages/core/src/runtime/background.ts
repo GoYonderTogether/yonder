@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
 import {
@@ -52,8 +53,10 @@ export function createBackground(options: {
 	execute(input: Input, api: ToolExecutionApi, context: Context): Promise<ToolExecutionResult>;
 	finished(session: string, id: string, name: string, result: ToolExecutionResult, origin?: YEvent): Promise<void>;
 	report(error: unknown): void;
+	settled?(session: string): Promise<void>;
 }) {
 	const harness = options.harness;
+	const watchers = new Map<number, { controller: AbortController; done: Promise<void> }>();
 	const running = new Map<number, { output: string; write?: (text: string) => Promise<void> }>();
 	const task = defineTask<Input, State, ToolExecutionResult>({
 		name: "yonder.background",
@@ -145,7 +148,10 @@ export function createBackground(options: {
 					return { status: "terminal", outcome: { status: "completed", result } };
 				}, context);
 			},
-			async interrupted(job, runtime, context) {
+			async interrupted(job, runtime, context): Promise<void> {
+				// Internal waits reacquire their durable identity; external effects cannot be replayed.
+				if (["agent_ask", "task_run", "task_continue"].includes(job.input.name))
+					return task.definition.phases.start!(job, runtime, context);
 				await runtime.commit(
 					() => ({
 						status: "terminal",
@@ -172,7 +178,16 @@ export function createBackground(options: {
 		const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
 		if (!doc?.detached || doc.notified) return;
 		const outcome = record.state.outcome;
-		const result = outcome.status === "completed" ? outcome.result : failed("Background task did not complete");
+		const result =
+			outcome.status === "completed"
+				? outcome.result
+				: "result" in outcome && outcome.result
+					? outcome.result
+					: failed(
+							"error" in outcome
+								? outcome.error.message
+								: `${outcome.status}: ${outcome.reason ?? "Background task did not complete"}`,
+						);
 		if (outcome.status === "aborted") {
 			await harness().commit(async (tx) => {
 				(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
@@ -184,12 +199,31 @@ export function createBackground(options: {
 		await harness().commit(async (tx) => {
 			(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
 		}, C);
+		await options.settled?.(session);
 	};
 	const watch = (session: string, id: TaskId<ToolExecutionResult>) => {
-		void harness()
-			.waitForTask(id, C)
-			.then(() => notify(session, id))
-			.catch(options.report);
+		if (watchers.has(id)) return;
+		const controller = new AbortController();
+		const done = (async () => {
+			let delay = 1000;
+			while (!controller.signal.aborted) {
+				try {
+					await harness().waitForTask(id, withAbortSignal(controller.signal, C));
+					await notify(session, id);
+					return;
+				} catch (error) {
+					if (controller.signal.aborted) return;
+					options.report(error);
+					await sleep(delay, undefined, { signal: controller.signal, ref: false });
+					delay = Math.min(delay * 2, 30000);
+				}
+			}
+		})()
+			.catch((error) => {
+				if (!controller.signal.aborted) options.report(error);
+			})
+			.finally(() => watchers.delete(id));
+		watchers.set(id, { controller, done });
 	};
 	const run = async (tool: ToolRegistration, args: JsonObject, api: ToolExecutionApi, context: Context) => {
 		const config = await options.config(String(api.conversationId), context);
@@ -248,6 +282,22 @@ export function createBackground(options: {
 		extension: defineExtension({ name: "yonder.background", tasks: [task] }),
 		run,
 		running,
+		async pending(id: TaskId) {
+			const record = await harness().getTask(id as TaskId<ToolExecutionResult>, C);
+			if (!record) return false;
+			const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
+			return (
+				!!doc?.detached &&
+				!doc.notified &&
+				record.state.status === "terminal" &&
+				record.state.outcome.status !== "aborted"
+			);
+		},
+		async close() {
+			const current = [...watchers.values()];
+			for (const watch of current) watch.controller.abort();
+			await Promise.all(current.map((watch) => watch.done));
+		},
 		async recover(records: readonly { id: number; conversationId: number }[]) {
 			for (const row of records) watch(String(row.conversationId), row.id as TaskId<ToolExecutionResult>);
 		},
