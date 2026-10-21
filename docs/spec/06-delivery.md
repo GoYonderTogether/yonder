@@ -79,13 +79,22 @@ message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string,
 ## 6. agent 之间
 
 ```ts
-agent_ask({ agent: string, text: string })   // 需要 message 能力
+agent_ask({ agent: string, text: string, sources?: string[] })   // 需要 message 能力
 ```
 
 - 内核在内部渠道 `agent` 上写一条 `message.in`：`from = acct:agent:<发起方>`，`conv = conv:agent:<发起方>`，`kind: agent`，`data.target` 为指定目标，`parent` 指向发起方本次运行的触发事件。无 agent 身份的预设会话不能调用 agent_ask。
 - 目标 agent 的绑定决定收不收、进哪个会话、用哪个配置档。没有命中时，工具返回错误"目标 agent 不接收你的消息"。
 - 这是 `events.ask`：目标的回复作为工具结果返回给发起方，不会再作为消息发回，因此不会来回循环。
 - 形成环时拒绝：沿 `parent` 追溯，若目标 agent 已在这条 `agent` 渠道调用链上，返回错误。
+
+### 6.1 原文来源 `sources`
+
+`agent_ask` 与 `task_run` 可选 `sources`（1..10 个）：本次运行来源会话里入站 `message.in` 的事件 id，或渠道原生 `msgId`。内核从事件账本取出这些消息，在 `text` 之后追加一个 `<source-messages>` 块，逐条带事件 id、原生 id、发送者、接纳时间、渠道原发送时间（若有）与 `chars`（精确字符数），正文由程序原样复制，模型不复述。
+
+- 只能引用调用者当前运行的来源会话（`event.conv` 相同）里的入站消息，其他会话、出站消息、未知 id 一律报错，错误里不回显其内容；跨会话读取仍走 `session_read`（`admin`/`cross-agent`）。
+- 合计超过 60000 字符、重复 id、没有文本的事件都拒绝，不截断。附件只列出 uri（`listed, not transferred`），不转交内容，也不授予读取权限。
+- 块内文本是被引用的材料，不构成新的授权或指令通道；任务与权限仍由发起方的 `text`、目标的绑定与配置档决定。`message.in` 的 `data.sources` 记录所引用的 id。
+- 这只保证“引用的原文没有被模型改写”；它不证明被引用的人确实授权了该委派。
 
 ## 7. 失败
 

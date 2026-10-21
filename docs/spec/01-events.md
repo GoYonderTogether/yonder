@@ -67,6 +67,7 @@ interface YEvent {
   replyTo?: string;        // 被回复的渠道原生消息 id
   name?: string;           // 发送者当前显示名（用于提示词与身份表）
   target?: string;         // 仅内核 agent 渠道使用：agent_ask 指定的目标 agent id
+  sources?: string[];      // 仅内核 agent 渠道使用：agent_ask 引用的来源事件 id（06 §6.1）
 }
 interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string; uri: string; name?: string; bytes?: number }
 ```
