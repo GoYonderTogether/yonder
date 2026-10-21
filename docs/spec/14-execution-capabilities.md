@@ -84,3 +84,15 @@ watcher 读取注册候选，加载对应 agent.yaml，与 preset 一起走共�
 ## 6 手工memory目录
 
 Agent workspace允许普通文件工具创建memory目录、按日期/条目保存及索引资料；初始化提供memory/README.md说明用途、来源、日期与事实/假设区分。仅按需读取，不新增上下文贡献、不自动注入、不自动总结/删除/清理。说明必须指出这只是临时记录约定，需结合真实场景参考成熟方法迭代，不能将简单目录当作长期记忆引擎。不得覆盖现有用户目录或文件。
+
+## 5 按次 effort
+
+`agent_ask` 与 `task_run` 可选 `effort`（pi 思考等级之一：off、minimal、low、medium、high、xhigh、max）。它只作用于由这条委派启动的那一次运行，不改配置档、Agent 或会话的长期设置；下一次运行恢复配置档默认。
+
+- **权限**：设置 `effort` 需要 `admin` 能力（05 §1）；没有则工具返回错误，不创建委派，也不当作“无效等级”回退。agent 名称或配置档名称不赋予任何权限。
+- **来源**：只有内核写入的委派携带 `effort` 才生效——内部 agent 渠道的 `message.in`（`from=acct:agent:*`、`conv=conv:agent:*`）和 `task_run` 创建的任务输入。渠道与插件写入的事件即使带该字段也被忽略。
+- **解析**：按目标配置档实际模型的支持等级。无效字符串回退到配置档默认；模型不支持的等级按 pi 的确定性规则取相邻可用等级（不是字符串距离）；模型完全没有思考等级时保持原值。
+- **合并**：同一次运行接纳多条输入（steer、最终边界一并并入）时取其中最高的有效请求，因此调用方不会得到比请求更低的等级，代价是并入的无关输入可能随之使用更高等级；运行开始后并入的输入不改变当前运行。需要独占一次运行的调用应使用 `task_run`（独立子会话）。
+- **记录**：解析结果随运行快照持久，崩溃恢复沿用，不重新解析。`run.end.data.thinking` 为该运行实际使用的等级；有委派请求时 `run.end.data.effort = { requested, effective, reason?, inputs }`，`reason` 取 `invalid-level`、`unsupported-level`、`unsupported-default`、`model-without-effort`。
+- **不做**：用户在聊天里直接指定等级的语法（自然语言不是授权来源）；按任务难度或成本自动选择等级与模型（可作为独立插件，见 D52）。
+

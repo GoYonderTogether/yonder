@@ -37,6 +37,7 @@ const fail = (error: unknown): ToolResult => ({
 const text = () => Type.String({ minLength: 1 });
 const schema = (fields: Record<string, import("typebox").TSchema>) =>
 	Type.Object(fields, { additionalProperties: false });
+const effortSchema = Type.Optional(text());
 const sourcesSchema = Type.Optional(Type.Array(text(), { minItems: 1, maxItems: MAX_SOURCES }));
 const attachmentSchema = Type.Object(
 	{
@@ -105,6 +106,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		task: string,
 		attachments: Attachment[] | undefined,
 		ctx: ToolContext,
+		effort?: string,
 	): Promise<{ session: SessionInfo; event: YEvent; input: RuntimeInput }> {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
@@ -158,6 +160,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				waiting: true,
 				busy: "followup",
 				taskOwned: true,
+				...(effort !== undefined ? { effort } : {}),
 				...(attachments?.length ? { attachments } : {}),
 			},
 		});
@@ -180,12 +183,13 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "agent_ask",
-			description: "通过目标 agent 的绑定提交问题；15秒未完成返回后台句柄，答复完成后自动通知。",
-			parameters: schema({ agent: text(), text: text(), sources: sourcesSchema }),
+			description:
+				"通过目标 agent 的绑定提交问题；15秒未完成返回后台句柄，答复完成后自动通知。sources 填本次来源会话里入站消息的事件 id 或原生 id，由程序逐字附上原文（不要自己转述用户的话）；effort 指定被委派方本次运行的思考等级（需要 admin）。",
+			parameters: schema({ agent: text(), text: text(), sources: sourcesSchema, effort: effortSchema }),
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "message");
 				if (!ctx.agent) throw new Error("预设会话没有 agent 身份，不能调用 agent_ask。");
-				const request = args as { agent: string; text: string; sources?: string[] };
+				const request = args as { agent: string; text: string; sources?: string[]; effort?: string };
 				if (!agents.has(request.agent)) throw new Error(`未知 agent：${request.agent}`);
 				if (request.agent === ctx.agent) throw new Error("agent_ask 调用形成环。");
 				let current = ctx.event;
@@ -199,6 +203,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					}
 					current = current.parent ? await store.events.get(current.parent) : undefined;
 				}
+				if (request.effort !== undefined) requireCapability(ctx, "admin");
 				const quoted = await quoteSources(request.sources, ctx);
 				const reply = await withSignal(
 					ask({
@@ -210,6 +215,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 							kind: "agent",
 							text: quoted ? `${request.text}\n\n${quoted}` : request.text,
 							...(request.sources?.length ? { sources: request.sources } : {}),
+							...(request.effort !== undefined ? { effort: request.effort } : {}),
 							target: request.agent,
 							msgId: `internal:${runtime().invocationId(ctx)}`,
 						},
@@ -257,22 +263,30 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "task_run",
-			description: `使用预设完成专门任务；15秒未完成返回后台句柄，完成后自动通知。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
+			description: `使用预设完成专门任务；15秒未完成返回后台句柄，完成后自动通知。sources 由程序逐字附上本次来源会话的入站原文，effort 指定本次任务思考等级（需要 admin）。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
 			parameters: schema({
 				preset: text(),
 				task: text(),
 				sources: sourcesSchema,
+				effort: effortSchema,
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),
 			execute: async (args, ctx) => {
-				const request = args as { preset: string; task: string; sources?: string[]; attachments?: Attachment[] };
+				const request = args as {
+					preset: string;
+					task: string;
+					sources?: string[];
+					effort?: string;
+					attachments?: Attachment[];
+				};
 				await runtime().authorizeAttachments(ctx, request.attachments);
 				if (!getPreset(request.preset)) throw new Error(`未知预设：${request.preset}`);
+				if (request.effort !== undefined) requireCapability(ctx, "admin");
 				const quoted = await quoteSources(request.sources, ctx);
 				const task = quoted ? `${request.task}\n\n${quoted}` : request.task;
 				const run = await runtime().runTask(ctx, async (childId) => {
 					try {
-						return (await taskInput(childId, request.preset, task, request.attachments, ctx)).input;
+						return (await taskInput(childId, request.preset, task, request.attachments, ctx, request.effort)).input;
 					} catch (error) {
 						if (await store.sessions.get(childId)) await sessions.closeSession(childId, "admission-error");
 						throw error;

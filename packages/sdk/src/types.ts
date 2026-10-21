@@ -64,6 +64,10 @@ export interface RunEndData {
 	reason?: string;
 	replied: "source" | "caller" | "deliver" | "none";
 	model: string;
+	/** Thinking level this run actually used. */
+	thinking?: string;
+	/** Present when a delegation asked for a per-run effort (14 §5). */
+	effort?: { requested: string; effective: string; reason?: string; inputs: string[] };
 	usage: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
 }
 export interface SessionOpenData {
