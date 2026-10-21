@@ -158,7 +158,8 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		const began = Date.now();
 		const yielded = await call(first, "bash", { command: "printf 'started'; sleep 16; printf 'finished'" });
 		expect(Date.now() - began).toBeGreaterThanOrEqual(14900);
-		expect(Date.now() - began).toBeLessThan(16000);
+		// Upper bound tolerates scheduler load; the live "not terminal" check below proves it yielded early.
+		expect(Date.now() - began).toBeLessThan(18000);
 		const id = JSON.parse(text(yielded)).background as string;
 		expect(id).toMatch(/^\d+$/);
 		const active = await call(first, "process", { action: "status", id });

@@ -95,10 +95,9 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 					.toBeTruthy();
 				return { event, text: client.packets.slice(start).find((p) => p.type === "message")!.text! };
 			};
-			const [a, b] = await Promise.all([
-				submit(cli, "Reply exactly p5-owner-alpha. Do not call tools."),
-				submit(alt, "Reply exactly p5-owner-beta. Do not call tools."),
-			]);
+			// Concurrent inputs to one session are merged into a single run by default (D49); one run each needs sequence.
+			const a = await submit(cli, "Reply exactly p5-owner-alpha. Do not call tools.");
+			const b = await submit(alt, "Reply exactly p5-owner-beta. Do not call tools.");
 			expect([a.text, b.text]).toEqual(["p5-owner-alpha", "p5-owner-beta"]);
 			const mainSession = a.event.routes?.[0]?.session;
 			if (!mainSession) throw new Error("Native owner input has no session route");
