@@ -1,6 +1,6 @@
 # QQ 官方机器人
 
-通过腾讯 QQ Bot SDK 接入官方机器人账号。首版支持文字私聊与群 @，沿 Yonder 事件、绑定、会话和投递；不使用个人号协议。
+通过腾讯 QQ Bot SDK 接入官方机器人账号。支持文字私聊、群 @ 和平台已开放的普通群消息接收，沿 Yonder 事件、绑定、会话和投递；不使用个人号协议。
 
 ## 让 Agent 配置
 
@@ -32,7 +32,9 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 
 `channel-qq_status` 返回最近连接状态、实际接纳/发送计数和配置入口。Agent 需要在配置档的 `plugins` 中选择 `channel-qq` 才能调用该工具；渠道收发本身由 channels 和 bindings 启用。发送使用内核 `message_send`，不另设插件发送接口。
 
-首版不支持媒体发送、流式、频道、群全量或 Webhook。群只有收到 QQ 官方 `GROUP_AT_MESSAGE_CREATE` 才接纳；普通群消息不唤醒模型。群 @ 的平台权限、测试成员/沙箱范围和机器人上线状态在 [QQ 管理端](https://q.qq.com/)设置。
+首版不支持媒体发送、流式、频道或 Webhook。接纳 QQ 官方 `GROUP_AT_MESSAGE_CREATE` 与 `GROUP_MESSAGE_CREATE`；后者需要在平台开启“接收所有消息”，见[官方群全量事件说明](https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/group_message_create.html)。平台未开放时，代码无法取得普通消息。
+
+默认群绑定仍为 `wake: mention`：普通消息只写入该群独立会话，不调用模型；下一条 @ 运行可以看到这些上下文。程序接收与模型回复是两件事；周期分桶、自主参与和共享只读记忆的设计见[群聊持续参与调研草案](../../docs/research/qq-group-participation.md)，目前没有启用。群 @ 的平台权限、测试成员/沙箱范围和机器人上线状态在 [QQ 管理端](https://q.qq.com/)设置。
 
 被动回复使用本次输入的 sourceMessageId，不借用新消息的 ID；发送失败不自动转主动推送。未知送达返回 uncertain。QQ 平台仍控制回复时效、次数、消息类型与主动发送权限，成功以真实消息回执为准。
 

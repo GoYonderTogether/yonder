@@ -28,6 +28,7 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 	for (const [event, kind] of [
 		["C2C_MESSAGE_CREATE", "dm"],
 		["GROUP_AT_MESSAGE_CREATE", "group"],
+		["GROUP_MESSAGE_CREATE", "group"],
 	] as const) {
 		const raw = {
 			id: randomBytes(16).toString("hex"),
@@ -47,6 +48,12 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 		};
 		const input = incoming("qq-main", { appId: "1", credential: "qq" }, msg);
 		expect(input?.data).toMatchObject({ kind, text: raw.content, msgId: raw.id });
+		if (kind === "group") {
+			expect(input?.data.mentioned).toBe(event === "GROUP_AT_MESSAGE_CREATE");
+			expect(
+				incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, mentions: [{ is_you: true }] })?.data.mentioned,
+			).toBe(true);
+		}
 		expect(input?.conv).toBe(kind === "dm" ? "conv:qq-main:c2c:USER" : "conv:qq-main:group:GROUP");
 		expect(recipient("qq-main", String(input?.conv))).toEqual(msg.replyTarget);
 		expect(
@@ -55,7 +62,7 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 		expect(incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, senderIsBot: true })).toBeUndefined();
 		if (kind === "group")
 			expect(
-				incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, rawEventType: "GROUP_MESSAGE_CREATE" }),
+				incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, rawEventType: "MESSAGE_CREATE" }),
 			).toBeUndefined();
 	}
 	expect(() => recipient("qq-work", "conv:qq-main:c2c:USER")).toThrow("another instance");

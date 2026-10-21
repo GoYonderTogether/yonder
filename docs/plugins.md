@@ -312,6 +312,6 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - **包**：`@yonder/plugin-channel-qq`；[使用与扫码配置](../plugins/channel-qq/README.md)
 - **贡献**：渠道提供者 `qq`；工具 `channel-qq_status`（read）。
-- **输入**：官方 WebSocket 的 C2C 与群 @，写 `message.in`，保留原生 msgId、时间、发送者、会话及 mentioned。
+- **输入**：官方 WebSocket 的 C2C、群 @ 与平台已开放的普通群消息，写 `message.in`，保留原生 msgId、时间、发送者、会话及 mentioned。默认群绑定普通消息只写入会话，@ 唤醒。
 - **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
 - **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立无工具配置档。

@@ -109,4 +109,6 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 - 构建、typecheck、lint 通过；lint 保留 126 个既存警告与 1 个 info，QQ 插件单独 lint 无诊断。npm 包 dry-run 含渠道、配置命令、README 与 NOTICE。
 - 群 @ 真实闭环：输入事件 `01M5EDNZMR9NTKFMK7QC6T5N2P`，run `64` / session `56`（独立 persistent 群会话），Luna status=done，投递事件 `01M5EDP80YN4BZGQCE63WZ9SZR` delivery.ok=true。用户确认私聊与群 @ 均在 QQ 客户端收到回答。未 @ 的前一条没有进入事件账本，符合本切片范围。
 - 对齐 main `aaf23e3`（0.2.26102103）后，重新构建/typecheck/lint 与全仓测试：192 通过/0 失败/19 跳过，52 文件通过/10 跳过；lint 127 个既存警告、1 info，QQ 插件无诊断。上述最初扫码与真实模型收发基于 0.2.26102101 的隔离测试服务，QQ 渠道逻辑与此整合提交一致；未替换日用安装。
-- 未测：断网恢复真实故障演练，不把 SDK 的实现当作现场通过。首版无媒体、流式、频道、群全量或 Webhook。用户已追加群全量、分桶和只读分身需求，另行调研设计，不能把本切片当作已支持。
+- 用户追加群全量接收后，接纳 GROUP_MESSAGE_CREATE，复用腾讯 mentionGate passthrough 在清理正文前识别 @，普通文字消息沿现有 wake: mention 写入群会话，不逐条调用模型。构建/typecheck/lint 通过；全仓 192 通过/0 失败/19 跳过（52 文件通过/10 跳过），lint 127 个既存警告、1 info，QQ 专项无诊断。隔离服务已用 0.2.26102103 重启；本次修改后的真实非 @ 入站、平台全量开关与 @ 读取前文仍待用户测试。
+- [群持续参与调研草案](research/qq-group-participation.md) 已核对 OpenClaw ambient room、MaiBot Planner/定向回复、AstrBot 社区批处理和本机 AI-Being voice；推荐非空 60 秒窗口、独立只读分身、显式定向发送与受限父会话请求。核心请求/权限契约待维护者决定，周期参与、共享只读记忆配置及消息 ID 工具尚未实现。
+- 未测：断网恢复真实故障演练，不把 SDK 的实现当作现场通过。首版无媒体、流式、频道或 Webhook；不能把私聊/群 @ 验收或协议测试当作群全量、自主参与已通过。

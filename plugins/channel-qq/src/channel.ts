@@ -5,6 +5,7 @@ import {
 	contentSanitizer,
 	FileKVStore,
 	kvSessionPersistence,
+	mentionGate,
 	QQBot,
 	type QQBotInboundMessage,
 	type ReplyTarget,
@@ -40,9 +41,19 @@ export const configSchema = {
 	},
 };
 
-export function incoming(id: string, config: Config, msg: QQBotInboundMessage): EventInput | undefined {
+export function incoming(
+	id: string,
+	config: Config,
+	msg: QQBotInboundMessage,
+	mentioned = msg.rawEventType === "GROUP_AT_MESSAGE_CREATE" ||
+		msg.mentions?.some((mention) => mention.is_you === true) === true,
+): EventInput | undefined {
 	if (msg.senderIsBot || !msg.messageId || !msg.senderId || !msg.content.trim()) return;
-	if (msg.kind !== "c2c" && (msg.kind !== "group" || msg.rawEventType !== "GROUP_AT_MESSAGE_CREATE")) return;
+	if (
+		msg.kind !== "c2c" &&
+		(msg.kind !== "group" || !["GROUP_AT_MESSAGE_CREATE", "GROUP_MESSAGE_CREATE"].includes(msg.rawEventType))
+	)
+		return;
 	const group = msg.kind === "group";
 	const targetId = group ? msg.groupOpenid : msg.senderId;
 	if (!targetId || ![targetId, msg.senderId].every((value) => /^[A-Za-z0-9_-]+$/.test(value)))
@@ -58,7 +69,7 @@ export function incoming(id: string, config: Config, msg: QQBotInboundMessage): 
 			kind: group ? "group" : "dm",
 			text: msg.content.trim(),
 			msgId: msg.messageId,
-			...(group ? { mentioned: true } : {}),
+			...(group ? { mentioned } : {}),
 			...(Number.isFinite(createdAt) ? { createdAt: String(createdAt) } : {}),
 			...(msg.senderName ? { name: msg.senderName } : {}),
 		},
@@ -129,7 +140,8 @@ export class QQChannel implements Channel {
 			sessionPersistence: kvSessionPersistence({ store: this.store, accountId: this.config.appId }),
 		});
 		this.bot = bot;
-		bot.use(contentSanitizer({ stripBotMention: true }));
+		// Detect mentions before the sanitizer removes their text markers; never drop room context.
+		bot.use(mentionGate({ passthrough: true }), contentSanitizer({ stripBotMention: true }));
 		this.state = "connecting";
 		bot.on("ready", () => {
 			this.state = "ready";
@@ -145,9 +157,9 @@ export class QQChannel implements Channel {
 			this.state = "disconnected";
 			this.api.log.warn("QQ connection error", { instance: this.id, error: this.error });
 		});
-		bot.on("message", async (_ctx, msg) => {
+		bot.on("message", async (ctx, msg) => {
 			if (this.state === "stopped") return;
-			const event = incoming(this.id, this.config, msg);
+			const event = incoming(this.id, this.config, msg, ctx.state.mention?.wasMentioned ?? false);
 			if (!event) return;
 			const work = io.emit(event);
 			this.pending.add(work);
