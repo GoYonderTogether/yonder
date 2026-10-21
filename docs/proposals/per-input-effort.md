@@ -29,3 +29,7 @@ No difficulty estimation/history/cost/vendor heuristics in core. Plugin explicit
 - Review gates: permission mapping, public option naming/UX, audit fields and native isolation.
 - After review: propagate user/chat/agent/task options through the shared admission path; implement native isolation via the approved pi fork process if needed; test permissions, invalid/unsupported effort, concurrent steers/followups, successors, restart and caller receipts.
 - Offline tests use actual catalog metadata; no fake models. Real inference/decision invocation remains untested unless authorized credentials are available. No production configuration/install/restart changes.
+
+## Executable queue evidence
+
+`packages/core/src/runtime/effort-queue.test.ts` exercises pinned native admission and final-boundary functions on real SQLite storage, closes/reopens the session, and confirms that one steer and one follow-up are co-placed even with default one-at-a-time settings. Input entry metadata survives queueing/reopen/placement. No scheduler, provider, fake model answer or vendored edits are used. This is a storage/boundary characterization, **not** an end-to-end inference or run-recovery acceptance test. Native isolation remains unresolved.

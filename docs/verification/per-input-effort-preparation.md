@@ -11,3 +11,9 @@ Scope: internal pure resolver and proposal only. **Input transport, permission p
 - Real inference/decision, queue isolation, restart and channel UX: not tested for this new option, not yet wired. No credentials copied or provider requests made.
 
 Review design: `docs/proposals/per-input-effort.md`. In particular, native final boundaries may combine a steer and follow-up even with one-at-a-time settings; host-side followUp alone cannot guarantee input isolation.
+
+## Native queue characterization follow-up
+
+- Initial queue-test attempt failed: chord background context was imported from the wrong export; typecheck also caught `.ts` import suffixes and a nonexistent public Tx.submission method. Fixed to documented context export, pinned built module imports, and Tx.submissionByRequest. No product code failure was hidden.
+- Corrected queue test: 1 passed, 0 failed/skipped; typecheck passed. Real native SQLite admission/inbox functions preserve request entry metadata over close/reopen, and final boundary co-places one steer and one follow-up. No model calls, no simulated answer and no vendored changes.
+- Full suite counts above belong to the preceding commit; only targeted queue/resolver tests are rerun for this test-only follow-up. This does not verify model execution or enable the feature.
