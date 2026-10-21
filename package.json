@@ -1,0 +1,41 @@
+{
+	"name": "yonder-harness",
+	"private": true,
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"workspaces": [
+		"packages/sdk",
+		"packages/core",
+		"packages/cli",
+		"plugins/channel-cli",
+		"plugins/context-files",
+		"plugins/channel-mcp",
+		"plugins/codex-tools",
+		"plugins/browser-skill",
+		"plugins/web-tools",
+		"plugins/channel-github",
+		"plugins/channel-feishu",
+		"plugins/media-tools",
+		"plugins/cron",
+		"plugins/mcp-client",
+		"plugins/native-automation"
+	],
+	"scripts": {
+		"postinstall": "node scripts/apply-pi-patch.mjs",
+		"build": "tsc -b && node scripts/build-macos.mjs",
+		"typecheck": "tsc -b --force",
+		"test": "vitest run --exclude '**/dist/**'",
+		"lint": "biome check ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.15",
+		"@types/node": "22.20.5",
+		"typescript": "7.0.2",
+		"vitest": "5.0.5"
+	},
+	"repository": "https://github.com/GoYonderTogether/yonder-harness",
+	"version": "0.1.2026102001"
+}

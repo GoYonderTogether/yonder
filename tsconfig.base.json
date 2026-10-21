@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "es2023",
+		"lib": ["es2023"],
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"types": ["node"],
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"skipLibCheck": true,
+		"composite": true,
+		"declaration": true,
+		"declarationMap": true,
+		"sourceMap": true,
+		"rootDir": "${configDir}/src",
+		"outDir": "${configDir}/dist",
+		"tsBuildInfoFile": "${configDir}/dist/tsconfig.tsbuildinfo"
+	},
+	"include": ["${configDir}/src"]
+}

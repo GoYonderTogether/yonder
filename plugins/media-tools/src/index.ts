@@ -1,0 +1,248 @@
+import { randomUUID } from "node:crypto";
+import { basename, isAbsolute, relative, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { definePlugin, type ToolContext, type ToolResult, type TSchema } from "@yonder/sdk";
+import { Check } from "typebox/value";
+
+class MediaError extends Error {}
+const sizes = ["1024x1024", "960x1280", "768x1024", "720x1440", "720x1280"];
+const parameters = {
+	type: "object",
+	properties: {
+		prompt: { type: "string", minLength: 1, pattern: "\\S" },
+		model: { type: "string", minLength: 1, pattern: "\\S" },
+		image_size: { type: "string", enum: sizes },
+	},
+	required: ["prompt"],
+	additionalProperties: false,
+} as TSchema;
+const fileContext = (signal: AbortSignal): Parameters<ToolContext["env"]["writeFile"]>[2] => ({
+	abortSignal: signal,
+	value: () => undefined,
+	toString: () => "media-tools",
+});
+function httpUrl(value: unknown): URL {
+	if (typeof value !== "string") throw new MediaError("INVALID_URL");
+	const url = new URL(value);
+	if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new MediaError("INVALID_URL");
+	return url;
+}
+async function bytes(response: Response, limit: number): Promise<Buffer> {
+	const reader = response.body?.getReader();
+	if (!reader) throw new MediaError("EMPTY_RESPONSE");
+	const chunks: Uint8Array[] = [];
+	let length = 0;
+	try {
+		for (;;) {
+			const chunk = await reader.read();
+			if (chunk.done) break;
+			length += chunk.value.byteLength;
+			if (length > limit) throw new MediaError("RESPONSE_TOO_LARGE");
+			chunks.push(chunk.value);
+		}
+	} finally {
+		await reader.cancel();
+	}
+	if (!length) throw new MediaError("EMPTY_RESPONSE");
+	return Buffer.concat(chunks);
+}
+function imageType(data: Buffer): { mime: string; extension: string } {
+	if (data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
+		return { mime: "image/png", extension: "png" };
+	if (data[0] === 255 && data[1] === 216 && data[2] === 255) return { mime: "image/jpeg", extension: "jpg" };
+	if (data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WEBP")
+		return { mime: "image/webp", extension: "webp" };
+	throw new MediaError("INVALID_IMAGE");
+}
+
+function failure(error: unknown, signal: AbortSignal, stage: string, status?: number): ToolResult {
+	// Only our own fixed diagnostics are safe to expose; supplier errors may contain secrets.
+	const reason = signal.aborted ? "CANCELLED" : error instanceof MediaError ? error.message : "REQUEST_FAILED";
+	return { text: `MEDIA_${reason}: stage=${stage}${status === undefined ? "" : ` HTTP=${status}`}`, isError: true };
+}
+const audioParameters = {
+	type: "object",
+	properties: {
+		file: { type: "string", minLength: 1, pattern: "\\S" },
+		model: { type: "string", minLength: 1, pattern: "\\S" },
+	},
+	required: ["file"],
+	additionalProperties: false,
+} as TSchema;
+async function audioFile(file: string, ctx: ToolContext): Promise<{ data: Uint8Array; name: string }> {
+	const context = fileContext(ctx.signal);
+	const inputPath = file.startsWith("file:") ? fileURLToPath(file) : file;
+	const target = await ctx.env.canonicalPath(inputPath, context);
+	if (!target.ok) throw new MediaError("AUDIO_FILE_NOT_FOUND");
+	if (!ctx.capabilities.includes("exec")) {
+		const root = await ctx.env.canonicalPath(ctx.env.cwd, context);
+		if (!root.ok) throw new MediaError("WORKSPACE_PATH_FAILED");
+		const within = relative(root.value, target.value);
+		if (isAbsolute(within) || within === ".." || within.startsWith("../")) {
+			let allowed = false;
+			for (const event of ctx.events ?? (ctx.event ? [ctx.event] : [])) {
+				const attachments = (event.data as { attachments?: Array<{ uri: string }> }).attachments ?? [];
+				for (const attachment of attachments) {
+					const path = attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri;
+					if (!isAbsolute(path)) continue;
+					const canonical = await ctx.env.canonicalPath(path, context);
+					if (canonical.ok && canonical.value === target.value) allowed = true;
+				}
+			}
+			if (!allowed) throw new MediaError("AUDIO_OUTSIDE_WORKSPACE");
+		}
+	}
+	const opened = await ctx.env.openBinaryReader(target.value, { noFollow: true }, context);
+	if (!opened.ok) throw new MediaError("AUDIO_FILE_OPEN_FAILED");
+	try {
+		const info = await opened.value.info(context);
+		if (!info.ok) throw new MediaError("AUDIO_FILE_INFO_FAILED");
+		const limit = 50 * 1000 * 1000;
+		if (info.value.size > limit) throw new MediaError("AUDIO_EXCEEDS_50MB");
+		const content = await opened.value.read(0, limit + 1, context);
+		if (!content.ok) throw new MediaError("AUDIO_FILE_READ_FAILED");
+		if (!content.value.length) throw new MediaError("AUDIO_FILE_EMPTY");
+		if (content.value.length > limit) throw new MediaError("AUDIO_EXCEEDS_50MB");
+		return { data: content.value, name: basename(target.value) };
+	} finally {
+		await opened.value.close({ ...context, abortSignal: undefined });
+	}
+}
+
+export default definePlugin({
+	setup(api) {
+		api.tools.register({
+			name: `${api.id}_image_generate`,
+			description:
+				"Generate one image with the configured SiliconFlow image service and save it in workspace artifacts. Returns a local image attachment. No automatic retry.",
+			parameters,
+			capabilities: ["network", "write"],
+			async execute(args, ctx): Promise<ToolResult> {
+				let stage = "configuration";
+				let status: number | undefined;
+				try {
+					if (!Check(parameters, args)) return { text: "MEDIA_INVALID_ARGUMENTS", isError: true };
+					ctx.signal.throwIfAborted();
+					const input = args as { prompt: string; model?: string; image_size?: string };
+					const endpoint = await api.services.resolve("image");
+					if (!endpoint) return { text: "MEDIA_IMAGE_SERVICE_NOT_CONFIGURED", isError: true };
+					if (endpoint.protocol !== "siliconflow")
+						return { text: "MEDIA_UNSUPPORTED_PROTOCOL: expected siliconflow", isError: true };
+					if (!endpoint.apiKey) return { text: "MEDIA_API_KEY_MISSING", isError: true };
+					const model = input.model ?? endpoint.models[0];
+					if (!model || !endpoint.models.includes(model)) return { text: "MEDIA_MODEL_NOT_CONFIGURED", isError: true };
+					const base = httpUrl(endpoint.baseUrl);
+					base.pathname = `${base.pathname.replace(/\/$/, "")}/images/generations`;
+					base.search = "";
+					base.hash = "";
+					const signal = ctx.signal;
+					stage = "generation";
+					const response = await fetch(base, {
+						method: "POST",
+						headers: { Authorization: `Bearer ${endpoint.apiKey}`, "Content-Type": "application/json" },
+						body: JSON.stringify({ model, prompt: input.prompt, image_size: input.image_size ?? "1024x1024" }),
+						signal,
+						redirect: "error",
+					});
+					status = response.status;
+					if (!response.ok) {
+						await response.body?.cancel();
+						throw new MediaError("HTTP_ERROR");
+					}
+					const payload = JSON.parse((await bytes(response, 1024 * 1024)).toString("utf8")) as {
+						images?: Array<{ url?: unknown }>;
+					};
+					const url = httpUrl(payload.images?.[0]?.url);
+					stage = "download";
+					status = undefined;
+					// Download URLs are temporary; never forward service Authorization to storage.
+					const download = await fetch(url, { signal, redirect: "follow" });
+					status = download.status;
+					if (!download.ok) {
+						await download.body?.cancel();
+						throw new MediaError("HTTP_ERROR");
+					}
+					const data = await bytes(download, 20 * 1024 * 1024);
+					const format = imageType(data);
+					stage = "save";
+					status = undefined;
+					const context = fileContext(signal);
+					const directory = resolve(ctx.env.cwd, "artifacts");
+					const created = await ctx.env.createDir(directory, { recursive: true }, context);
+					if (!created.ok) throw new MediaError("ARTIFACT_DIRECTORY_FAILED");
+					const root = await ctx.env.canonicalPath(ctx.env.cwd, context);
+					const target = await ctx.env.canonicalPath(directory, context);
+					if (!root.ok || !target.ok) throw new MediaError("ARTIFACT_PATH_FAILED");
+					const within = relative(root.value, target.value);
+					if (within === ".." || within.startsWith("../") || isAbsolute(within))
+						throw new MediaError("ARTIFACT_OUTSIDE_WORKSPACE");
+					const name = `image-${randomUUID()}.${format.extension}`;
+					const path = resolve(target.value, name);
+					const saved = await ctx.env.writeFile(path, data, context);
+					if (!saved.ok) throw new MediaError("ARTIFACT_WRITE_FAILED");
+					const attachment = {
+						kind: "image" as const,
+						mime: format.mime,
+						uri: pathToFileURL(path).href,
+						name,
+						bytes: data.length,
+					};
+					return { text: JSON.stringify({ service: endpoint.id, model, attachment }), attachments: [attachment] };
+				} catch (error) {
+					return failure(error, ctx.signal, stage, status);
+				}
+			},
+		});
+
+		api.tools.register({
+			name: `${api.id}_audio_transcribe`,
+			description:
+				"Transcribe an audio file using the configured SiliconFlow ASR service. Without exec, reads only workspace files or explicit current input attachments. Platform limit: 50 MB and one hour. Returns transcription text.",
+			parameters: audioParameters,
+			capabilities: ["read", "network"],
+			async execute(args, ctx): Promise<ToolResult> {
+				let stage = "configuration";
+				let status: number | undefined;
+				try {
+					if (!Check(audioParameters, args)) return { text: "MEDIA_INVALID_ARGUMENTS", isError: true };
+					ctx.signal.throwIfAborted();
+					const input = args as { file: string; model?: string };
+					const endpoint = await api.services.resolve("asr");
+					if (!endpoint) return { text: "MEDIA_ASR_SERVICE_NOT_CONFIGURED", isError: true };
+					if (endpoint.protocol !== "siliconflow")
+						return { text: "MEDIA_UNSUPPORTED_PROTOCOL: expected siliconflow", isError: true };
+					if (!endpoint.apiKey) return { text: "MEDIA_API_KEY_MISSING", isError: true };
+					const model = input.model ?? endpoint.models[0];
+					if (!model || !endpoint.models.includes(model)) return { text: "MEDIA_MODEL_NOT_CONFIGURED", isError: true };
+					stage = "read";
+					const audio = await audioFile(input.file, ctx);
+					const form = new FormData();
+					form.set("model", model);
+					form.set("file", new Blob([new Uint8Array(audio.data)], { type: "application/octet-stream" }), audio.name);
+					const base = httpUrl(endpoint.baseUrl);
+					base.pathname = `${base.pathname.replace(/\/$/, "")}/audio/transcriptions`;
+					base.search = "";
+					base.hash = "";
+					stage = "transcription";
+					const response = await fetch(base, {
+						method: "POST",
+						headers: { Authorization: `Bearer ${endpoint.apiKey}` },
+						body: form,
+						signal: ctx.signal,
+						redirect: "error",
+					});
+					status = response.status;
+					if (!response.ok) {
+						await response.body?.cancel();
+						throw new MediaError("HTTP_ERROR");
+					}
+					const payload = JSON.parse((await bytes(response, 1024 * 1024)).toString("utf8")) as { text?: unknown };
+					if (typeof payload.text !== "string") throw new MediaError("INVALID_TRANSCRIPTION_RESPONSE");
+					return { text: JSON.stringify({ service: endpoint.id, model, text: payload.text }) };
+				} catch (error) {
+					return failure(error, ctx.signal, stage, status);
+				}
+			},
+		});
+	},
+});

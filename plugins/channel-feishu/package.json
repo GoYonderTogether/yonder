@@ -1,0 +1,46 @@
+{
+	"name": "@yonder/plugin-channel-feishu",
+	"version": "0.1.2026102001",
+	"type": "module",
+	"license": "Apache-2.0 AND MIT",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"NOTICE.md",
+		"LICENSE.openclaw",
+		"LICENSE.hermes"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.1.2026102001",
+		"@larksuiteoapi/node-sdk": "1.74.0",
+		"typebox": "1.3.27"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "channel-feishu",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"contexts": [
+				"channel-feishu.conversation"
+			],
+			"channels": [
+				"feishu"
+			],
+			"tools": [
+				"channel-feishu_status",
+				"channel-feishu_history",
+				"channel-feishu_card",
+				"channel-feishu_message"
+			]
+		}
+	}
+}

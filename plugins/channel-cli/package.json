@@ -1,0 +1,31 @@
+{
+	"name": "@yonder/plugin-channel-cli",
+	"version": "0.1.2026102001",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.1.2026102001"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "channel-cli",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"channels": [
+				"cli"
+			]
+		}
+	}
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Yonder 提示词设计"
+  short_description: "按职责设计 Yonder 内置底座、Agent 设定、工具引导与持续磨合上下文"
+  default_prompt: "使用 $yonder-prompt-design 调整本次涉及的 Yonder 提示词，核对真实运行机制、文本归属与场景效果。"
+policy:
+  allow_implicit_invocation: true
