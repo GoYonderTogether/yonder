@@ -64,3 +64,34 @@ contexts: [agents-md, user-md, channel-feishu.conversation]
 `channel-feishu_message`已有replyTo参数，传上下文里的原生消息ID即可强制引用，优先于自动引用规则。状态工具返回renderMode：text/markdown模式可在text中使用飞书原生`<at user_id="ou_实际ID">称呼</at>`；卡片使用既有channel-feishu_card工具，在原生Markdown中使用`<at id=ou_实际ID></at>`。不同格式不要混用，post纯文本模式需要原生卡片工具实现艾特。发送权限、跨来源与实际投递回执仍沿用既有工具检查；主动发送答复后以NO_REPLY结束，避免自动final再发一次。
 
 原生语法依据：[飞书消息内容结构](https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json)与[卡片艾特说明](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)。
+
+## 单一任务状态卡（显式工具，未替换普通流式输出）
+
+`channel-feishu_task_card` 是受管卡片工具，不是任意历史消息编辑器，不改变默认阶段/最终各自发送气泡的契约。Agent 应在用户最新交代后先 `create`，保留返回的 receipt `id`，以后只 `update` 同一卡；工具答复后 `NO_REPLY`，避免普通 final 再发气泡。新文字后必须以新的实际来源 `create` 新锚，不回到旧卡充当当前反馈。
+
+准确参数（所有对象拒绝额外字段）：
+
+| action | 必填（另加 instance、action） | 说明 |
+| --- | --- | --- |
+| create | sourceEvent、rows | sourceEvent 必须是本次运行 ctx.event/events 中实际飞书 message.in 的事件 ID；只接受该发起者最新 text/post 的来源。无任意 to/messageId 参数 |
+| update | id、expectedRevision、rows | id 是工具创建的 receipt ID，不是原生消息 ID；expectedRevision 为正整数 CAS。只接受原 session/agent 的当前锚 |
+| get | id | 读取持久 receipt；不发消息，不自动重试 |
+
+`rows` 为 1..12 个短条目，分别为 `{id,status,deliverable,acceptance}`：id 为既有任务索引引用（1..80 字符），status 为 `queued/working/done/blocked/unverified`（⚪/🟡/🟢/🔴/🟣），deliverable、acceptance 各 1..160 字符。卡片用原生分栏表格展示，不接受任意卡片 JSON、详情日志或新增任务执行定义；总 JSON 上限 30000 bytes。任务索引仍由原有任务所有者维护，卡片不复制任务调度系统。
+
+返回 receipt：`{ok,id,messageId?,revision,state,retired,acknowledged,sourceMessageId}`。state 为 `pending/confirmed/unknown`。失败保留可取得的 receipt ID 与原生消息 ID；若已发出/更新而事件记录失败，也返回错误，不可据此重发。`get` 用于查看，**unknown/pending 不盲重试**；需要人工核对平台与事件记录。没有自动重放、自动回退新消息或第二套重试器。
+
+协议更新是 [官方 PATCH /im/v1/messages/:message_id](https://open.feishu.cn/document/server-docs/im-v1/message-card/patch?lang=zh-CN)，不是创建替代消息；发送/更新前后 `config.update_multi:true`，共享卡、同应用身份、未撤回、14 天内（平台限制），本工具串行更新并至少间隔 250ms。普通 text/post 的 PUT 接口未在此工具开放。
+
+原子保存的 `<plugin-data>/<instance>/task-cards.json` 仅含短展示投影和协议 receipt（来源/发起者/session/agent、原生消息 ID、revision、按钮消费状态）；不含详情日志或新任务队列。操作前持久 pending，重启后将 pending 视为 unknown，绝不自动重发。正常 receipt 跨重启可继续更新同消息。
+
+合法原生新 text/post（含恢复消息）进入既有 receive/recovery 路径时，先同步使同会话同发起者旧卡服务端失效，再按原生 PATCH 移除其按钮。无模型轮询、无 cron。群内其他人的消息不会替发起者确认或撤销他的卡。迟到的更早原生时间不退休当前卡；相同毫秒、不同消息 ID 无法证明因果，保守退休而不假造排序。视觉撤销失败/崩溃不复活服务端按钮；错误明确记录。只有下一次真实用户文字才建立新的当前反馈来源，旧任务结果不能通过旧 receipt 覆盖新卡。
+
+两个按钮仍走本应用鉴权 WebSocket，额外校验发起者 acct、chat、原消息 ID、当前 revision、期限与消费状态，拒绝伪造/过期/错人/重复操作。
+
+- **了解任务详情**：只发既有 `channel-feishu.card-action` 插件事件，`data.action.value` 为 `{action:"details",taskIds,receipt}`；只引用现有任务索引，不把日志塞卡。
+- **已收到，进行下一个任务**：记录 `action:"acknowledge"` 同类事件并移除确认按钮。它只表示收到，不取消任务、不授予新权限、不调用任务执行器。
+
+部署者需用**现有绑定**接纳 `channel-feishu.card-action` 到负责该来源的 agent，才能按需解释 taskIds/提供详情。没有绑定就只记录事件，不会偷偷唤醒模型；工具不会创建绑定、提升操作者身份或更改 profile。绑定必须保持实际 from/conv 边界，事件始终带 `authorization:"none"`，详情/收到通知不得被当作执行新副作用的批准。此次代码不改变生产绑定；完整按钮→绑定→详情交付仍需部署后验收。
+
+工具发送/更新另记 `channel-feishu.task-card-updated`，含 receipt、revision、原生 messageId/sourceMessageId，不写详细任务正文。工具转录保留输入/结果。部署前必须验收同消息实际更新、真实客户端表格、群错人点击、按钮事件绑定、服务重启恢复；离线协议测试不等于以上真实平台验收。若要由内核强制所有输出自动改单卡而不依赖显式工具/NO_REPLY，那是默认投递契约变更，需另行设计批准。

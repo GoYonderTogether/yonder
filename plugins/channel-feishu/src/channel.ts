@@ -41,6 +41,7 @@ import {
 	string,
 	textPayload,
 } from "./protocol.js";
+import { FeishuTaskCards } from "./task-card.js";
 
 export class FeishuChannel implements Channel {
 	readonly kinds = ["dm", "group"];
@@ -48,6 +49,7 @@ export class FeishuChannel implements Channel {
 	readonly client: FeishuApi;
 	private readonly connection: FeishuConnection;
 	private readonly interaction: FeishuInteraction;
+	readonly taskCards: FeishuTaskCards;
 	private baseline = Date.now();
 	private readonly conversations = new Map<string, { kind: "dm" | "group"; through: number }>();
 	private recoveryState: object = { state: "not-started", privateChats: "known-only" };
@@ -73,6 +75,9 @@ export class FeishuChannel implements Channel {
 		this.output = { stream: config.streaming !== false, attachments: true };
 		this.connection = new FeishuConnection(id, this.client, api, () => this.ready());
 		this.interaction = new FeishuInteraction(id, this.client, api);
+		this.taskCards = new FeishuTaskCards(id, this.client, api, (target, card, signal) =>
+			this.rawSend(target, "interactive", card, undefined, signal),
+		);
 	}
 	status(): object {
 		return {
@@ -122,6 +127,7 @@ export class FeishuChannel implements Channel {
 		this.stopped = false;
 		await this.load();
 		await this.loadHistory();
+		await this.taskCards.start();
 		const dispatcher = new Lark.EventDispatcher({ logger: this.connection.logger }).register({
 			"im.message.receive_v1": async (data: unknown) => {
 				await this.receive(data);
@@ -160,6 +166,7 @@ export class FeishuChannel implements Channel {
 		await Promise.allSettled(this.pending.values());
 		await this.saveTail;
 		await this.interaction.stop();
+		await this.taskCards.stop();
 		this.client.clear();
 	}
 	onInput(event: YEvent): Promise<void> {
@@ -353,6 +360,13 @@ export class FeishuChannel implements Channel {
 						const id = required(item.message_id, "History message id"),
 							key = this.messageKey(tenant, id);
 						this.interaction.observeMessage(conv(this.id, chat), id, Number(item.create_time));
+						if (["text", "post"].includes(string(item.msg_type)))
+							await this.taskCards.observe(
+								conv(this.id, chat),
+								acct(this.id, string(sender.id)),
+								id,
+								Number(item.create_time),
+							);
 						if (!this.seen.has(key)) prepared.push(await this.prepare(data, string(sender.id), chat, id, key));
 					}
 					for (const batch of recoveryBatches(prepared)) {
@@ -419,6 +433,10 @@ export class FeishuChannel implements Channel {
 		if (this.tenant && this.tenant !== tenant) return Promise.reject(new Error("Feishu tenant identity mismatch"));
 		this.tenant = tenant;
 		this.interaction.observeMessage(conv(this.id, chat), messageId, Number(message.create_time) || Date.now());
+		if (["text", "post"].includes(string(message.message_type)))
+			void this.taskCards
+				.observe(conv(this.id, chat), acct(this.id, senderId), messageId, Number(message.create_time))
+				.catch((error: unknown) => this.fail(error));
 		const key = `${this.config.appId}:${tenant}:message:${messageId}`;
 		if (this.seen.has(key)) return Promise.resolve();
 		const existing = this.pending.get(key);
@@ -540,6 +558,8 @@ export class FeishuChannel implements Channel {
 			return { toast: { type: "error", content: "This operator or conversation is not allowed" } };
 		if (!string(data.token) || !string(action.tag)) throw new Error("Malformed Feishu card callback");
 		// This handler is only registered on the authenticated, app-owned SDK WebSocket. No public webhook.
+		if (Object.hasOwn(object(action.value), "yonder_task_card"))
+			return this.taskCards.callback(acct(this.id, sender), conv(this.id, chat), messageId, object(action.value));
 		const key = `${this.config.appId}:card:${createHash("sha256").update(required(data.token, "Callback token")).digest("hex")}`;
 		const existing = this.pending.get(key);
 		if (existing) await existing;
