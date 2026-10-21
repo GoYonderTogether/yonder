@@ -307,3 +307,11 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - 事件：`clipboard.audit`，仅元数据（intent/completed/failed）；TTY journal 在下一次授权调用导入。
 - open 引用同会话入站消息、文件字节范围或当前转录工具结果；sealed 使用 macOS Keychain，不返回原文，隐藏 TTY 一次性 ticket；支持 create-only 文件、固定 child env/HTTPS、open 消息及 vault。
 - 安装不授权；exact profile grant + session scope、TTL/限额/目的地 allowlist。只支持 local；浏览器/Feishu 私密 adapter 阻塞，raw exec 不是沙箱。实际结果见[验收](verification/clipboard-vault.md)。
+
+## 14 channel-qq：QQ 官方机器人
+
+- **包**：`@yonder/plugin-channel-qq`；[使用与扫码配置](../plugins/channel-qq/README.md)
+- **贡献**：渠道提供者 `qq`；工具 `channel-qq_status`（read）。
+- **输入**：官方 WebSocket 的 C2C 与群 @，写 `message.in`，保留原生 msgId、时间、发送者、会话及 mentioned。
+- **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
+- **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立无工具配置档。

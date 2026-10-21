@@ -99,3 +99,14 @@
 ## macOS 权限引导（Track C / D55）
 
 Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用每秒探针、600 秒超时、grantedAt 与有证据的屏幕录制重启流程。2026-10-22 实机 helper AX/Input 已获主人授权；Screen Recording 为 requested/false。短时实测确认两种 guide 的真实窗口在列表下方 8pt、辅助功能自动退出 0、关闭/超时返回 JSON 与退出 1；53 项专项检查通过。未点击授权；新拖放→授权、屏幕录制 needs-restart→重启→granted、撤销、手动移动/跨屏/Space、实际键鼠和升级保留仍待主人验收。FDA/Files & Folders 不可全局预检。详见[调研](research/mac-permission-guidance.md)和[验收记录/OWNER STEP](verification/mac-permissions.md)。
+
+## QQ 官方渠道（2026-10-21，任务分支）
+
+- 新增 `channel-qq`，腾讯 `qqbot-nodejs@1.0.4` 接官方 WebSocket 与文字 API，扫码配置复用腾讯公开发布的 connector@1.2.0。运行时仍只读凭据；本机配置命令保存凭据、渠道和绑定，群默认无工具权限。尚未发布或替换日用安装。
+- 独立测试 home 已经由用户实际扫码，自动取得机器人与扫码用户标识、保存配置；`doctor` 通过。用户另行完成该 home 的 OpenAI 登录，未复制正式版 OAuth。
+- 私聊真实闭环：输入事件 `01M5EDM50822G7F715AC3SH5W6`，run `49` / session `2`，`openai/gpt-6-luna`，status=done；投递事件 `01M5EDMBTTJTA02SBME226TNBW`，delivery.ok=true 且有 QQ 原生消息 ID。另有真实 Luna 调用 `message_send` 主动发至本次验证账号，delivery.ok=true。
+- 原始失败保留：首次私聊在独立模型登录前触发，run `10` 为 error（Provider is not configured: openai）；错误文字经 QQ 成功回传。登录后第二次私聊完成上述成功闭环。首次专项测试为 2 通过/1 失败（测试目录未创建），修复测试准备后专项 3/3，通过后增加预取消检查；最终全仓 190 通过/0 失败/19 跳过（52 文件通过/10 文件跳过）。首次全仓为 189 通过/0 失败/19 跳过。未启用全仓真实模型开关，不能把这些跳过项计为真实模型通过。
+- 构建、typecheck、lint 通过；lint 保留 126 个既存警告与 1 个 info，QQ 插件单独 lint 无诊断。npm 包 dry-run 含渠道、配置命令、README 与 NOTICE。
+- 群 @ 真实闭环：输入事件 `01M5EDNZMR9NTKFMK7QC6T5N2P`，run `64` / session `56`（独立 persistent 群会话），Luna status=done，投递事件 `01M5EDP80YN4BZGQCE63WZ9SZR` delivery.ok=true。用户确认私聊与群 @ 均在 QQ 客户端收到回答。未 @ 的前一条没有进入事件账本，符合本切片范围。
+- 对齐 main `aaf23e3`（0.2.26102103）后，重新构建/typecheck/lint 与全仓测试：192 通过/0 失败/19 跳过，52 文件通过/10 跳过；lint 127 个既存警告、1 info，QQ 插件无诊断。上述最初扫码与真实模型收发基于 0.2.26102101 的隔离测试服务，QQ 渠道逻辑与此整合提交一致；未替换日用安装。
+- 未测：断网恢复真实故障演练，不把 SDK 的实现当作现场通过。首版无媒体、流式、频道、群全量或 Webhook。用户已追加群全量、分桶和只读分身需求，另行调研设计，不能把本切片当作已支持。

@@ -25,7 +25,8 @@
 		"plugins/native-automation",
 		"plugins/wechat-archive",
 		"plugins/channel-wechat-ilink",
-		"plugins/clipboard"
+		"plugins/clipboard",
+		"plugins/channel-qq"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs",

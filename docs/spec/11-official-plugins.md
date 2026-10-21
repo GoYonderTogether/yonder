@@ -174,3 +174,13 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 ### BrowserSkill 可选本地 profile 能力（D54）
 
 `browser-skill_bookmarks` 提供 tree/move/create-folder/remove-empty-folder，配置 `bookmarksEnabled:true` 且主人手动授予可选 bookmarks 权限才可执行。禁止 URL 删除、非空文件夹删除、根/受管理节点写入与远端连接。`browser-skill_extensions` 提供 list/enable/disable，配置 `extensionsEnabled:true` 且主人授予可选 management 权限才可执行；目标须为明确的扩展 ID，禁止自身/受管理项目。两者均只能使用当前 Yonder 会话创建的本地浏览器会话，写入沿既有串行队列和 interrupt gate；权限逐次由扩展核验。扩展管理影响整个 profile；卸载真实测试被 Chrome 要求手势阻止，不提供工具动作，交主人执行。不能安装或授予权限。Chrome 的手势/确认错误原样返回并交主人，不静默换后端。商店与 chrome:// 页面保持原有限制；独立测试浏览器不继承主人登录态。
+
+## 15. QQ 官方机器人渠道
+
+- `channel-qq` 是独立 SDK 插件，优先复用腾讯 `@tencent-connect/qqbot-nodejs`；通过官方 WebSocket 接收 C2C 与群 @，REST 发送文字。平台连接会话与 Agent 会话分开，模型唤醒、权限和转录仍归内核。首版不声明 Webhook、群全量、流式或媒体发送。
+- 实例配置为 `appId`、`credential`，以及可选的 `allowedUsers`（单聊用户 OpenID）和 `allowedGroups`（群 OpenID）；未列名单表示不限，空名单拒绝。入站生成 `message.in`，保留原生 msgId/createdAt；账号为 `acct:<instance>:<openid>`，单聊会话为 `conv:<instance>:c2c:<openid>`，群为 `conv:<instance>:group:<openid>`。群 @ 的 mentioned=true，非 @ 群消息不进入首版渠道。
+- 普通回复使用 OutMessage.sourceMessageId（显式 replyTo 可作为无来源时的被动回复目标），不借用另一次输入的消息 ID。SDK 管协议序号与恢复，内核事件账本管输入去重。发送不明返回 uncertain，不自动改成主动消息或盲重发。
+- 插件附带本机配置命令 `yonder-qq setup --home <home> --agent <id> [--open]`，仅在用户授权的目标 home 操作；它不是运行中 PluginAPI 的凭据写接口。命令调用腾讯公开发布的扫码连接器，输出官方绑定链接与终端二维码，可显式打开系统浏览器；用户自行登录、扫码、选取或创建机器人，凭据不进入模型输出。取消/失败不修改配置。
+- 扫码完成后命令将密钥保存到既有 auth.json 的独立 api_key 项（0600，沿用原文件锁），在 yonder.yaml 写凭据引用和渠道实例，给指定本机 Agent 加绑定，保留原配置和其他凭据。只绑定扫码用户的私聊；群 @ 默认新建无工具、无插件/上下文的独立配置档，可显式选择既有群配置档。无扫码用户 OpenID 时不自动开放私聊；有歧义的多机器人结果要求明确选择。
+- 新插件代码通过重启加载，不冒充热加载；配置工具返回明确下一步。`channel-qq_status` 报真实连接状态与计数，连接成功不等于真实模型收发验收。
+- 必须验证真实用户扫码、官方入站、内核绑定、真实模型与官方回复回执；私聊和群 @ 分别记录，未收到对应场景的真实消息就保留未测。

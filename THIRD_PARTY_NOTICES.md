@@ -77,3 +77,7 @@ Skill Creator: copied from the local OpenAI Codex built-in skill-creator distrib
 ## macOS permission guide
 
 Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinned to cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2. Upstream: https://github.com/jaywcjlove/PermissionFlow. Full license and NOTICE are retained in packages/macos-helper/. The small upstream-compatible API patch is retained at packages/macos-helper/patches/PermissionFlow-guide.patch; its FDA heuristic is not used.
+
+## QQ 官方渠道依赖
+
+`plugins/channel-qq` 使用腾讯公开发布的 `@tencent-connect/qqbot-nodejs@1.0.4`（MIT）与 `@tencent-connect/qqbot-connector@1.2.0`（npm 元数据 UNLICENSED，按其分发 README 使用公开扫码 API）。未复制、修改或重新许可其源码。版本、来源和接入边界见 [插件 NOTICE](plugins/channel-qq/NOTICE.md)。
