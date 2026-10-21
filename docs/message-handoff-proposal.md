@@ -92,3 +92,17 @@
 当前审批请求的具体角色是**有权批准冻结规范与 SDK 的仓库维护者（Codex 维护审核入口）**，不是插件作者或主控的产品方向确认。请逐项批准／修改／拒绝三项决策，并明确允许后续修改的规范路径。当前 PR 的提交或合并本身不应被解释为三个决策自动批准，需显式审查结论。
 
 不先注册四个一律返回 `not_implemented` 的占位工具：`AGENTS.md` 第 3、4 条与 `CONTRIBUTING.md`「改动前」第 1 条／「边界」禁止自行补设计与占位功能。SDK 目前缺少安全入口，完整插件骨架若伪造提交或假状态会违反这些规则。最小审查请求就是上述三项共享契约；并非申请第二套运行器或绕绑定权限。
+
+## 现有契约内的先行验证（2026-10-21）
+
+已补 `packages/core/src/prompt/index.test.ts`：真实 systemSections 在上下文被选用、移除、重新选用时分别显示／移除／恢复贡献；system render 不获取 event。prepareInput 的 run/write 两条路径对合成超长 Unicode／组合字符／CRLF／前后空白／伪 turn 标记正文逐字保持，来源名字单行转义，不改变原事件及 replyTo。这只是现有输入准备与上下文契约回归，不证明 handoff 插件、权限校验、附件字节完整性或真实转派已实现。
+
+检查记录（不覆盖早先失败）：
+- `npm ci --ignore-scripts`：成功，309 packages，audit 0 vulnerabilities。
+- 初次 build、typecheck 各失败 1 项：新增测试访问可选 result.event 未判空（TS18048）；已改为可选链，随后两项重跑均 exit 0。
+- prompt 定向测试：5 passed，0 failed，0 skipped（修改判空后重跑仍相同）。
+- 全仓默认测试：51 files passed / 10 skipped；189 tests passed / 19 skipped / 0 failed。默认未启用真实模型测试；没有运行新的 handoff 真实模型接线，不能视为端到端通过。
+- 初次 lint：1 formatting error / 127 warnings / 1 info；格式修复后 exit 0，仍有 127 warnings / 1 info，未顺手修改其他文件。
+- `git diff --check`：通过。
+
+提示词工具条件的最小待决事项：最近 D45（335b188）明确底座是 core 编译正文，不是插件；当前插件 RenderContext（spec/04 §3.3）没有工具可见性。实际工具过滤走 runtime.describeTools → describeCatalog → offer/search；kernel 的 systemSections 调用没有将该集合传给插件。请在上述 SDK 审查中明确：工具专属指令是否放实际工具 description，或批准给 system context 增加只读、经当前 profile／插件／能力／offer-search 过滤的工具可见性。不得用插件已加载、同 profile 或 capabilities 单项近似“工具实际可调用”。当前尚未添加该 SDK 字段或声称插件提示词启停验收完成。
