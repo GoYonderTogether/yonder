@@ -21,12 +21,14 @@ import {
 	type PluginAPI,
 	parseRef,
 } from "@yonder/sdk";
+import { GroupParticipation } from "./participation.js";
 
 export interface Config {
 	appId: string;
 	credential: string;
 	allowedUsers?: string[];
 	allowedGroups?: string[];
+	groupWindowSeconds?: number;
 }
 const str = { type: "string", minLength: 1 };
 export const configSchema = {
@@ -38,6 +40,7 @@ export const configSchema = {
 		credential: str,
 		allowedUsers: { type: "array", items: str },
 		allowedGroups: { type: "array", items: str },
+		groupWindowSeconds: { type: "integer", minimum: 1, maximum: 3600 },
 	},
 };
 
@@ -101,6 +104,7 @@ export class QQChannel implements Channel {
 	private received = 0;
 	private sent = 0;
 	private readonly pending = new Set<Promise<unknown>>();
+	private groups: GroupParticipation | undefined;
 	constructor(
 		readonly id: string,
 		readonly config: Config,
@@ -114,6 +118,7 @@ export class QQChannel implements Channel {
 			state: this.state,
 			received: this.received,
 			sent: this.sent,
+			groups: this.groups?.status() ?? [],
 			...(this.error ? { error: this.error } : {}),
 		};
 	}
@@ -129,6 +134,10 @@ export class QQChannel implements Channel {
 		const directory = join(this.api.paths.data, this.id);
 		await mkdir(directory, { recursive: true, mode: 0o700 });
 		this.store = new FileKVStore({ dir: directory, fileName: "gateway.json" });
+		if (this.config.groupWindowSeconds) {
+			this.groups = new GroupParticipation(this.api, this.id, this.config.groupWindowSeconds);
+			await this.groups.start();
+		}
 		const bot = new QQBot({
 			appId: this.config.appId,
 			appSecret: credential.key,
@@ -164,7 +173,8 @@ export class QQChannel implements Channel {
 			const work = io.emit(event);
 			this.pending.add(work);
 			try {
-				await work;
+				const recorded = await work;
+				this.groups?.accept(recorded as import("@yonder/sdk").YEvent);
 				this.received++;
 			} finally {
 				this.pending.delete(work);
@@ -185,6 +195,7 @@ export class QQChannel implements Channel {
 	}
 	async stop(): Promise<void> {
 		this.state = "stopped";
+		this.groups?.stop();
 		this.bot?.stop();
 		await this.work;
 		await Promise.allSettled(this.pending);
@@ -201,7 +212,7 @@ export class QQChannel implements Channel {
 			if (message.attachments?.length) throw new Error("QQ first release supports text replies only");
 			if (!message.text.trim()) throw new Error("QQ reply is empty");
 			const to = recipient(this.id, target);
-			const msgId = message.sourceMessageId ?? message.replyTo;
+			const msgId = message.replyTo ?? message.sourceMessageId;
 			if (msgId) to.msgId = msgId;
 			let sequence = 1;
 			if (msgId) {
@@ -215,6 +226,7 @@ export class QQChannel implements Channel {
 				target: to,
 				msgType: 0,
 				content: message.text,
+				...(message.replyTo ? { messageReference: { message_id: message.replyTo } } : {}),
 				extra: { msg_seq: sequence },
 			});
 			if (!response.id) throw new Error("QQ response omitted message ID; delivery is unknown");

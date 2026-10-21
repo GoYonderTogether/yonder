@@ -66,10 +66,11 @@ type OutputPart =
 ## 5. 主动发送
 
 ```ts
-message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string, attachments?: Attachment[] })
+message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string, replyTo?: string /* 消息头的 turn id 或原生消息 ID */, attachments?: Attachment[] })
 ```
 
 - 发往本次运行的来源不需要额外能力；发往其他地方需要 `message` 能力（05 §1）。
+- 显式 replyTo 必须对应事件账本中该目标会话的真实 message.in；接受消息头的 turn id 并转换为该事件的原生 msgId，也接受已核实的原生 msgId，不能跨群借用来源。SDK 保留显式引用与自动 sourceMessageId 的区分；平台时效和额度失败如实返回。
 - `to` 是人（`owner` 或 `person:`）时：有 `via` 就用这个人在该渠道的账号；没有 `via` 就用这个人最近活跃的账号。找不到账号时以错误结果返回给模型。
 - 每次发送写一条 `message.out` 事件，`delivery` 记录渠道返回的结果。
 - 插件用 `api.messages.send`，只接受显式的 `person:`、`acct:`、`conv:` 目标，不接受 `owner`（全局插件不属于某个 agent）；插件可信，不受模型的能力过滤，`message.out` 的 `from` 是 `plugin:<id>`。

@@ -18,7 +18,7 @@ export default definePlugin({
 			name: "channel-qq_status",
 			capabilities: ["read"],
 			description:
-				"Read QQ bot transport state and actual inbound/outbound counts. To configure QQ for the user, run the returned setup executable with --home <Yonder home> --agent <agent id> [--open] using an authorized local exec tool. It prints an official binding link/QR before waiting, saves credentials without displaying them, and configures DM plus group @ bindings. Forward the link immediately from process output. A ready connection alone is not receive/reply acceptance.",
+				"Read QQ bot transport state, actual counts and group batch/read positions. To configure QQ, run the returned setup executable with --home <Yonder home> --agent <agent id> [--open] using authorized local exec. Forward its official binding link/QR immediately while it waits; credentials are saved without display. It configures owner DM and read-only group participation. The group owner must also open that specific group's robot management in mobile QQ, select this bot, and set its message scope to all. The bot's own global settings do not grant group access. A ready connection is not receive/reply acceptance.",
 			parameters: { type: "object", additionalProperties: false, properties: {} } as TSchema,
 			async execute() {
 				return {

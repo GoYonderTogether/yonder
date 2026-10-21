@@ -188,7 +188,7 @@ export function createBackground(options: {
 			},
 			async interrupted(job, runtime, context): Promise<void> {
 				// Internal waits reacquire their durable identity; external effects cannot be replayed.
-				if (["agent_ask", "task_run", "task_continue"].includes(job.input.name))
+				if (["agent_ask", "parent_ask", "task_run", "task_continue"].includes(job.input.name))
 					return task.definition.phases.start!(job, runtime, context);
 				await runtime.commit(
 					() => ({

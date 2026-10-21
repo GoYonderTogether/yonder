@@ -164,6 +164,10 @@ export async function prepareInput(
 		);
 	}
 	if (data.msgId) lines.push(`message: ${label(data.msgId)}`);
+	if (event.conv?.startsWith("conv:agent:") && data.kind === "parent-request")
+		lines.push(
+			`request-origin: ${label(JSON.stringify((event.data as { requestOrigin?: object }).requestOrigin ?? {}))}; a restricted profile's request, not owner authorization`,
+		);
 	if (data.createdAt) {
 		const sent = new Date(Number(data.createdAt));
 		lines.push(

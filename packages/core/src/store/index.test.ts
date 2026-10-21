@@ -2,6 +2,20 @@ import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { createStore, newEvent } from "./index.js";
 
+test("namespaced trigger inputs retain their waiting route", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const event = await store.events.record(
+			{ type: "channel-qq.group-batch", conv: "conv:qq:group:scope", data: { msgId: "batch-scope" } },
+			[{ agent: "main", binding: "batch", session: "1", wake: "run", waiting: true }],
+		);
+		expect(await store.events.waitingInputs("1")).toEqual([event]);
+	} finally {
+		await db.close();
+	}
+});
+
 test("appended events and identity are queried from SQLite", async () => {
 	const db = await openDatabase(":memory:");
 	try {

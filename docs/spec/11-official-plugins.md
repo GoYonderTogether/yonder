@@ -178,9 +178,11 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 ## 15. QQ 官方机器人渠道
 
 - `channel-qq` 是独立 SDK 插件，优先复用腾讯 `@tencent-connect/qqbot-nodejs`；通过官方 WebSocket 接收 C2C、群 @ 与平台已开放的群普通消息，REST 发送文字。平台连接会话与 Agent 会话分开，模型唤醒、权限和转录仍归内核。首版不声明 Webhook、流式或媒体发送。
-- 实例配置为 `appId`、`credential`，以及可选的 `allowedUsers`（单聊用户 OpenID）和 `allowedGroups`（群 OpenID）；未列名单表示不限，空名单拒绝。入站生成 `message.in`，保留原生 msgId/createdAt；账号为 `acct:<instance>:<openid>`，单聊会话为 `conv:<instance>:c2c:<openid>`，群为 `conv:<instance>:group:<openid>`。接纳 GROUP_AT_MESSAGE_CREATE 与 GROUP_MESSAGE_CREATE；在清理正文前复用腾讯 mentionGate 的识别结果呈现 mentioned，passthrough 不过滤普通消息。平台须开启“接收所有消息”才能推送全量事件；Yonder 的接纳能力不代表平台已授权。默认 wake: mention：普通消息写入每群独立会话而不调用模型，@ 才唤醒；周期分桶和自主参与另行设计，不通过 wake: run 冒充。
-- 普通回复使用 OutMessage.sourceMessageId（显式 replyTo 可作为无来源时的被动回复目标），不借用另一次输入的消息 ID。SDK 管协议序号与恢复，内核事件账本管输入去重。发送不明返回 uncertain，不自动改成主动消息或盲重发。
+- 实例配置为 `appId`、`credential`，以及可选的 `allowedUsers`（单聊用户 OpenID）和 `allowedGroups`（群 OpenID）；未列名单表示不限，空名单拒绝。入站生成 `message.in`，保留原生 msgId/createdAt；账号为 `acct:<instance>:<openid>`，单聊会话为 `conv:<instance>:c2c:<openid>`，群为 `conv:<instance>:group:<openid>`。接纳 GROUP_AT_MESSAGE_CREATE 与 GROUP_MESSAGE_CREATE；在清理正文前复用腾讯 mentionGate 的识别结果呈现 mentioned，passthrough 不过滤普通消息。平台须开启“接收所有消息”才能推送全量事件；Yonder 的接纳能力不代表平台已授权。新配置用 wake: write 旁观与独立群批次运行实现持续参与；旧配置的 wake: mention 仍只在 @ 时运行，需显式升级，不能通过逐条 wake: run 冒充。
+- 普通回复使用 OutMessage.sourceMessageId（显式 replyTo 优先用作被动回复目标），不借用另一次输入的消息 ID。SDK 管协议序号与恢复，内核事件账本管输入去重。发送不明返回 uncertain，不自动改成主动消息或盲重发。
 - 插件附带本机配置命令 `yonder-qq setup --home <home> --agent <id> [--open]`，仅在用户授权的目标 home 操作；它不是运行中 PluginAPI 的凭据写接口。命令调用腾讯公开发布的扫码连接器，输出官方绑定链接与终端二维码，可显式打开系统浏览器；用户自行登录、扫码、选取或创建机器人，凭据不进入模型输出。取消/失败不修改配置。
-- 扫码完成后命令将密钥保存到既有 auth.json 的独立 api_key 项（0600，沿用原文件锁），在 yonder.yaml 写凭据引用和渠道实例，给指定本机 Agent 加绑定，保留原配置和其他凭据。只绑定扫码用户的私聊；群 @ 默认新建无工具、无插件/上下文的独立配置档，可显式选择既有群配置档。无扫码用户 OpenID 时不自动开放私聊；有歧义的多机器人结果要求明确选择。
+- 扫码完成后命令将密钥保存到既有 auth.json 的独立 api_key 项（0600，沿用原文件锁），在 yonder.yaml 写凭据引用和渠道实例，给指定本机 Agent 加绑定，保留原配置和其他凭据。只绑定扫码用户的私聊；群默认新建只读的独立配置档，选择必要共享上下文，可显式选择既有群配置档。无扫码用户 OpenID 时不自动开放私聊；有歧义的多机器人结果要求明确选择。
 - 新插件代码通过重启加载，不冒充热加载；配置工具返回明确下一步。`channel-qq_status` 报真实连接状态与计数，连接成功不等于真实模型收发验收。
 - 必须验证真实用户扫码、官方入站、内核绑定、真实模型与官方回复回执；私聊和群 @ 分别记录，未收到对应场景的真实消息就保留未测。
+- 群持续参与：新扫码配置默认群分身 capabilities: [read]，只提供 read/grep、message_send、parent_ask，复用所属 Agent 的 workspace 与所选 context-files，不给历史管理、写、exec 或通用 message 权限。群原消息绑定 wake: write；独立 channel-qq.group-batch 事件经绑定运行同一 persistent/per:conv 会话，reply: none、busy: steer，模型显式选择发送。非空窗口默认 60 秒，@ 提前结束等待；程序只安排输入，不决定是否发言。插件只保存账本游标与批次身份，原文只在账本和原生 conversation，不建第二转录/模型队列。忙时合并待处理范围，空桶不调用模型；已接纳批次沿原生恢复重接，失败保留可见状态，不盲目重放发送。普通文字消息的已收到、已覆盖、已投递分别记录。
+- 官方全量权限由最新版手机 QQ 的群主在具体群聊的机器人管理中选择该机器人，再在“设置权限 → 机器人可获取的群聊消息范围”选择；接收全量与允许主动发言是两个设置。官方 bot_state 可查询 recv_msg_setting（all/only_mention/mention_and_context），查询接口本身仅对白名单机器人开放；不能把这个接口白名单误当成全量接收必须企业认证的证据。

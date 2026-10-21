@@ -9,6 +9,7 @@ import { parseArgs } from "node:util";
 import { type QrConnectCredentials, startQrConnect } from "@tencent-connect/qqbot-connector";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
+import { groupBatch, groupInstructions } from "./participation.js";
 
 interface SetupOptions {
 	home: string;
@@ -116,6 +117,7 @@ export async function configure(
 			appId: credentials.appId,
 			credential,
 			allowedUsers: [credentials.userOpenid],
+			groupWindowSeconds: 60,
 		});
 		if (!options.groupProfile) {
 			const agent = current.agent.toJSON();
@@ -123,15 +125,23 @@ export async function configure(
 			if (!model) throw new Error("Group chat requires a configured model");
 			current.agent.setIn(["profiles", current.groupProfile], {
 				model,
-				capabilities: [],
-				tools: { offer: [], search: [] },
+				capabilities: ["read"],
+				tools: { offer: ["read", "grep", "message_send", "parent_ask"], search: [] },
 				plugins: [],
-				contexts: [],
+				contexts: (agent.profiles[current.profile].contexts ?? agent.defaults?.contexts ?? []).filter((id: string) =>
+					["agents-md", "user-md", "soul-md", "memory-md"].includes(id),
+				),
 				skills: [],
+				instructions: groupInstructions,
 			});
 		}
 		const bindings = current.agent.toJSON().bindings ?? [];
-		for (const id of [`${options.instance}-dm`, `${options.instance}-group`])
+		for (const id of [
+			`${options.instance}-dm`,
+			`${options.instance}-group`,
+			`${options.instance}-batch`,
+			`${options.instance}-parent`,
+		])
 			if (bindings.some((binding: { id: string }) => binding.id === id))
 				throw new Error(`Binding ${id} already exists`);
 		current.agent.set("bindings", [
@@ -140,13 +150,31 @@ export async function configure(
 				match: { channel: options.instance, kind: "dm", from: `acct:${options.instance}:${credentials.userOpenid}` },
 				session: "main",
 				profile: current.profile,
+				busy: "steer",
 			},
 			{
 				id: `${options.instance}-group`,
 				match: { channel: options.instance, kind: "group" },
 				session: { mode: "persistent", per: "conv" },
 				profile: current.groupProfile,
-				wake: "mention",
+				wake: "write",
+				reply: "none",
+			},
+			{
+				id: `${options.instance}-batch`,
+				match: { type: groupBatch, channel: options.instance },
+				session: { mode: "persistent", per: "conv" },
+				profile: current.groupProfile,
+				reply: "none",
+				busy: "steer",
+			},
+			{
+				id: `${options.instance}-parent`,
+				match: { channel: "agent", kind: "parent-request", from: `acct:agent:${options.agent}` },
+				session: "main",
+				profile: current.profile,
+				reply: "none",
+				busy: "followup",
 			},
 			...bindings,
 		]);

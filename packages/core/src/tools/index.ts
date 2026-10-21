@@ -170,7 +170,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "message_send",
 			description:
-				"向明确的收件人或渠道发送消息。最终回复会自动交回来源或调用方；子任务不要用本工具向父 Agent 回传结果。",
+				"向明确的收件人或渠道发送消息。replyTo 可用目标消息头的 turn id 或 message 原生 ID，内核核实会话并转换。最终回复会自动交回来源或调用方；子任务不要用本工具向父 Agent 回传结果。",
 			parameters: schema({
 				to: Type.String({
 					minLength: 1,
@@ -179,11 +179,62 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				}),
 				via: Type.Optional(text()),
 				text: Type.String(),
+				replyTo: Type.Optional(text()),
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),
 			execute: async (args, ctx) => {
 				const sent = await delivery.sendTool(ctx, args as Parameters<DeliveryService["sendTool"]>[1]);
 				return { ...result(sent), ...(!sent.ok ? { isError: true } : {}) };
+			},
+		}),
+		tool({
+			name: "parent_ask",
+			description:
+				"向所属 Agent 的主会话请求代查或执行你无权完成的工作。仅分身可用；真实来源自动附上，请求不等于主人授权。15秒未完成返回后台句柄，实际结果自动送回；取得结果后再决定是否对群公开。",
+			parameters: schema({ text: text() }),
+			execute: async (args, ctx) => {
+				const session = await store.sessions.get(ctx.session);
+				if (!ctx.agent || !session || session.agent !== ctx.agent || session.mode === "main")
+					throw new Error("parent_ask 仅供常驻 Agent 的非 main 分身请求所属主会话。");
+				const events = ctx.events ?? (ctx.event ? [ctx.event] : []);
+				const origins: YEvent[] = [];
+				for (const event of events) {
+					const sources = (event.data as { sourceEvents?: string[] }).sourceEvents;
+					if (!sources) {
+						origins.push(event);
+						continue;
+					}
+					for (const id of sources) {
+						const source = await store.events.get(id);
+						if (source && source.conv === event.conv) origins.push(source);
+					}
+				}
+				const reply = await withSignal(
+					ask({
+						type: "message.in",
+						from: `acct:agent:${ctx.agent}`,
+						conv: `conv:agent:${ctx.agent}`,
+						...(ctx.event ? { parent: ctx.event.id } : {}),
+						data: {
+							kind: "parent-request",
+							target: ctx.agent,
+							text: (args as { text: string }).text,
+							msgId: `parent:${runtime().invocationId(ctx)}`,
+							requestOrigin: {
+								session: session.id,
+								profile: session.profile,
+								events: origins.map((event) => ({ id: event.id, from: event.from, conv: event.conv })),
+							},
+						},
+					}),
+					ctx.signal,
+				);
+				const answer = reply.results.find((answer) => answer.agent === ctx.agent);
+				if (!answer) throw new Error("所属 Agent 没有接收 parent-request 的 main 绑定。");
+				return {
+					...result({ status: answer.status, session: answer.session, text: answer.text, reason: answer.reason }),
+					...(answer.status === "done" ? {} : { isError: true }),
+				};
 			},
 		}),
 		tool({

@@ -577,6 +577,37 @@ export function createDelivery(options: DeliveryOptions) {
 				!ctx.capabilities.includes("message")
 			)
 				return { ok: false, error: "发往本次运行来源以外需要 message 能力。" };
+			if (request.replyTo) {
+				let after: string | undefined;
+				let found = false;
+				do {
+					const page = await store.events.query({
+						type: "message.in",
+						...(target.startsWith("conv:") ? { conv: target } : { from: target }),
+						limit: 1000,
+						...(after ? { after } : {}),
+					});
+					found = page.events.some((event) => {
+						const data = event.data as {
+							kind?: string;
+							msgId?: string;
+							originals?: Array<{ msgId?: string; messageId?: string }>;
+						};
+						if (event.conv !== target && data.kind !== "dm") return false;
+						const native = sourceMessage(event);
+						if (event.id === request.replyTo && native) {
+							request = { ...request, replyTo: native };
+							return true;
+						}
+						return (
+							data.msgId === request.replyTo ||
+							data.originals?.some((item) => (item.messageId ?? item.msgId) === request.replyTo) === true
+						);
+					});
+					after = page.next;
+				} while (!found && after);
+				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
+			}
 			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal);
 		},
 	};

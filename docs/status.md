@@ -102,13 +102,13 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 
 ## QQ 官方渠道（2026-10-21，任务分支）
 
-- 新增 `channel-qq`，腾讯 `qqbot-nodejs@1.0.4` 接官方 WebSocket 与文字 API，扫码配置复用腾讯公开发布的 connector@1.2.0。运行时仍只读凭据；本机配置命令保存凭据、渠道和绑定，群默认无工具权限。尚未发布或替换日用安装。
+- 新增 `channel-qq`，腾讯 `qqbot-nodejs@1.0.4` 接官方 WebSocket 与文字 API，扫码配置复用腾讯公开发布的 connector@1.2.0。运行时仍只读凭据；本机配置命令保存凭据、渠道和绑定，群默认使用只读分身（首轮曾为无工具）。尚未发布或替换日用安装。
 - 独立测试 home 已经由用户实际扫码，自动取得机器人与扫码用户标识、保存配置；`doctor` 通过。用户另行完成该 home 的 OpenAI 登录，未复制正式版 OAuth。
 - 私聊真实闭环：输入事件 `01M5EDM50822G7F715AC3SH5W6`，run `49` / session `2`，`openai/gpt-6-luna`，status=done；投递事件 `01M5EDMBTTJTA02SBME226TNBW`，delivery.ok=true 且有 QQ 原生消息 ID。另有真实 Luna 调用 `message_send` 主动发至本次验证账号，delivery.ok=true。
 - 原始失败保留：首次私聊在独立模型登录前触发，run `10` 为 error（Provider is not configured: openai）；错误文字经 QQ 成功回传。登录后第二次私聊完成上述成功闭环。首次专项测试为 2 通过/1 失败（测试目录未创建），修复测试准备后专项 3/3，通过后增加预取消检查；最终全仓 190 通过/0 失败/19 跳过（52 文件通过/10 文件跳过）。首次全仓为 189 通过/0 失败/19 跳过。未启用全仓真实模型开关，不能把这些跳过项计为真实模型通过。
 - 构建、typecheck、lint 通过；lint 保留 126 个既存警告与 1 个 info，QQ 插件单独 lint 无诊断。npm 包 dry-run 含渠道、配置命令、README 与 NOTICE。
 - 群 @ 真实闭环：输入事件 `01M5EDNZMR9NTKFMK7QC6T5N2P`，run `64` / session `56`（独立 persistent 群会话），Luna status=done，投递事件 `01M5EDP80YN4BZGQCE63WZ9SZR` delivery.ok=true。用户确认私聊与群 @ 均在 QQ 客户端收到回答。未 @ 的前一条没有进入事件账本，符合本切片范围。
 - 对齐 main `aaf23e3`（0.2.26102103）后，重新构建/typecheck/lint 与全仓测试：192 通过/0 失败/19 跳过，52 文件通过/10 跳过；lint 127 个既存警告、1 info，QQ 插件无诊断。上述最初扫码与真实模型收发基于 0.2.26102101 的隔离测试服务，QQ 渠道逻辑与此整合提交一致；未替换日用安装。
-- 用户追加群全量接收后，接纳 GROUP_MESSAGE_CREATE，复用腾讯 mentionGate passthrough 在清理正文前识别 @，普通文字消息沿现有 wake: mention 写入群会话，不逐条调用模型。构建/typecheck/lint 通过；全仓 192 通过/0 失败/19 跳过（52 文件通过/10 跳过），lint 127 个既存警告、1 info，QQ 专项无诊断。隔离服务已用 0.2.26102103 重启；本次修改后的真实非 @ 入站、平台全量开关与 @ 读取前文仍待用户测试。
-- [群持续参与调研草案](research/qq-group-participation.md) 已核对 OpenClaw ambient room、MaiBot Planner/定向回复、AstrBot 社区批处理和本机 AI-Being voice；推荐非空 60 秒窗口、独立只读分身、显式定向发送与受限父会话请求。核心请求/权限契约待维护者决定，周期参与、共享只读记忆配置及消息 ID 工具尚未实现。
-- 未测：断网恢复真实故障演练，不把 SDK 的实现当作现场通过。首版无媒体、流式、频道或 Webhook；不能把私聊/群 @ 验收或协议测试当作群全量、自主参与已通过。
+- 用户追加群全量接收后，接纳 GROUP_MESSAGE_CREATE，复用腾讯 mentionGate passthrough 在清理正文前识别 @，普通文字消息沿现有 wake: mention 写入群会话，不逐条调用模型。构建/typecheck/lint 通过；全仓 192 通过/0 失败/19 跳过（52 文件通过/10 跳过），lint 127 个既存警告、1 info，QQ 专项无诊断。隔离服务已用 0.2.26102103 重启；后续群主已在具体群聊内逐机器人开启全量消息，bot_state=all/member，三条真实未 @ 文字已入站，见下项。
+- 用户批准 [群持续参与契约](research/qq-group-participation.md)（D50）后，实现每群独立只读分身、非空 60 秒分桶、模型显式定向发送与受限 parent_ask；沿既有账本、绑定和原生会话，不建第二模型队列。真实三条普通消息合为一批，read 与主会话请求/返回已完成；首次定向发送因 turn id/原生 ID 歧义被拦截，已在共享投递入口修复转换。修复后五条未 @ 消息合批，main 实际核验通过并经后台结果返回，群分身两条定向消息均取得 QQ 官方成功回执；客户端收到/引用样式仍待用户确认。
+- 扩展默认全仓 193 通过 / 0 失败 / 20 跳过（52 文件通过 / 11 跳过），build/typecheck/lint 通过，127 个既存警告、1 info。真实 Luna 协议入口专项四次原始失败后修复授权准备与消息 ID 转换，第五次 1/1 通过；追加忙时消息检查先 0 通过/1 失败（模型误判裸文本完成状态），主会话返回显式 status/session/text 后 1/1 通过，覆盖跨群拒绝、只读记忆、main 后台结果返回、忙时消息保留下一批、静默和已处理重启不重复。平台与协议入口证据、原始失败及未测项见 [QQ 验收记录](verification/qq-channel.md)。

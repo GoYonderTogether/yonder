@@ -73,13 +73,17 @@ export function configurationErrors(
 				binding.match.channel === undefined ? [...plugins.channels.keys(), "agent"] : [binding.match.channel].flat();
 			const kinds = binding.match.kind === undefined ? [] : [binding.match.kind].flat();
 			for (const id of ids) {
-				const supported = id === "agent" ? ["agent"] : plugins.channels.get(id)?.kinds;
+				const supported = id === "agent" ? ["agent", "parent-request"] : plugins.channels.get(id)?.kinds;
 				if (!supported) {
 					errors.push(`${agent.id}/${binding.id}: unknown channel ${id}`);
 				}
 			}
 			for (const kind of kinds)
-				if (!ids.some((id) => (id === "agent" ? ["agent"] : plugins.channels.get(id)?.kinds)?.includes(kind)))
+				if (
+					!ids.some((id) =>
+						(id === "agent" ? ["agent", "parent-request"] : plugins.channels.get(id)?.kinds)?.includes(kind),
+					)
+				)
 					errors.push(`${agent.id}/${binding.id}: no selected channel declares kind ${kind}`);
 		}
 	}

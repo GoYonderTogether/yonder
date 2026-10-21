@@ -404,7 +404,9 @@ export class Runtime {
 					description: tool.description,
 					parameters: tool.parameters,
 					deferred: true,
-					...(["task_run", "agent_ask", "task_continue"].includes(tool.name) ? { replay: "safe" as const } : {}),
+					...(["task_run", "agent_ask", "parent_ask", "task_continue"].includes(tool.name)
+						? { replay: "safe" as const }
+						: {}),
 					execute: async (args, api, context) => {
 						const ctx = await this.context(String(api.conversationId), context);
 						this.toolInvocations.set(ctx, { api, context });

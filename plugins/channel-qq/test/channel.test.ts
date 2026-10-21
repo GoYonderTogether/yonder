@@ -70,7 +70,7 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 	expect(() => recipient("qq-main", "acct:qq-main:../messages")).toThrow("Invalid QQ OpenID");
 });
 
-test("scan completion configures an isolated real home, preserves other credentials and keeps groups without tools", async () => {
+test("scan completion preserves credentials and configures read-only group participation through bindings", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-qq-config-"));
 	try {
 		await initHome(home);
@@ -89,15 +89,24 @@ test("scan completion configures an isolated real home, preserves other credenti
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 		expect(JSON.stringify(config)).not.toContain(secret);
 		expect(config.channels["qq-main"].allowedUsers).toEqual(["OWNER"]);
+		expect(config.channels["qq-main"].groupWindowSeconds).toBe(60);
 		const agent = parse(await readFile(join(home, "agents/main/agent.yaml"), "utf8"));
 		expect(agent.profiles["qq-main-group"]).toMatchObject({
-			capabilities: [],
-			tools: { offer: [] },
+			capabilities: ["read"],
+			tools: { offer: ["read", "grep", "message_send", "parent_ask"] },
 			plugins: [],
-			contexts: [],
 			skills: [],
 		});
 		expect(agent.bindings[0].match.from).toBe("acct:qq-main:OWNER");
+		expect(agent.bindings[0].busy).toBe("steer");
+		expect(agent.bindings[1]).toMatchObject({ wake: "write", reply: "none" });
+		expect(agent.bindings[2]).toMatchObject({
+			match: { type: "channel-qq.group-batch" },
+			reply: "none",
+			profile: "qq-main-group",
+			busy: "steer",
+		});
+		expect(agent.bindings[3]).toMatchObject({ match: { kind: "parent-request" }, session: "main", reply: "none" });
 		expect((await inspectHome(home)).errors).toEqual([]);
 		const saved = await readFile(authFile, "utf8");
 		await expect(configure({ ...options, instance: "qq-second" }, { appId: "456", appSecret: secret })).rejects.toThrow(
