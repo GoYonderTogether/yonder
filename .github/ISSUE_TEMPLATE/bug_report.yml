@@ -1,0 +1,52 @@
+name: Bug report · 缺陷报告
+description: Something does not work as the specification says · 行为与规范不符
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here; see SECURITY.md. · 安全漏洞请不要在此提交，见 SECURITY.md。
+  - type: input
+    id: version
+    attributes:
+      label: Version · 版本
+      description: Output of `yonder version` · `yonder version` 的输出
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform · 平台
+      description: macOS version, Node.js version · macOS 与 Node.js 版本
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area · 范围
+      options:
+        - Kernel (events, bindings, sessions, runtime) · 内核
+        - CLI / terminal UI · CLI 与终端界面
+        - Install, update, service · 安装、更新、服务
+        - Official plugin · 官方插件
+        - Documentation · 文档
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened and what did you expect? · 实际发生了什么，期望是什么？
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce · 复现步骤
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs · 日志
+      description: Relevant lines from `<home>/.yonder/logs/harness.log`. Remove credentials and personal data. · 相关日志行，请去掉凭据和个人数据。
+      render: text

@@ -24,7 +24,7 @@ and after `codex-tools_js_reset {}` must contain exactly one upstream entry such
 AX state, screenshots and input. Native screenshot image blocks go into Yonder's
 existing ToolResult.images. Other content types remain visible as structured text.
 
-Prefer BrowserSkill for browsers (N07). The directly observed native getState can
+Prefer BrowserSkill for browsers. The directly observed native getState can
 report usable apps alongside browser turn-metadata errors; do not infer browser
 readiness or manufacture Codex turn metadata. Keep focus unless the task explicitly
 authorizes foreground actions. Observe fresh state after actions; do not blindly

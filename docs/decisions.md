@@ -91,7 +91,7 @@ D36现场补充：原事件正文紧随其来源头，补充会话背景放其�
 D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR工具；CosyVoice2为¥0.05/千UTF-8字符，保持未启用。免费API真实验收仅Kolors与SenseVoiceSmall；不会用付费TTS生成验收素材。
 
 
-**D39 两个具名 Agent，更新职责收归管家（2026-10-19 用户明确指定并批准配置；更新通知的模型中转已被 D40 取代）。** 日常管家为贾维斯（内部 ID main），项目维护为哦鲸鲸（maintainer）。版本关注、获准更新及通知归贾维斯，用同身份内受限 release-updater 配置档与独立 persistent 会话，不增加第三个 Agent。既有 channel-github 轮询、发布接收基线、五个工具白名单、仓库/作者/通知目标与服务外 launchd 作业保留；operator 注销注册并原地归档文件及历史。当前1905没有原生归档/注册热加载，本次配置通过一次服务重启生效，不将人工配置归档冒充新管理功能。A0–A4 的管理框架后由 D41 实现，灵魂提示词后置。本次仅配置和必要文档对齐，不发版、不安装新源码、不制造更新事件。
+**D39 更新职责归日常 Agent，不另设更新 Agent（2026-10-19；更新通知的模型中转已被 D40 取代）。** 版本关注、获准更新及通知归常驻的日常 Agent，用同一身份内受限的 release-updater 配置档和独立 persistent 会话，不增加第三个 Agent；项目维护另由维护 Agent 承担。既有 channel-github 轮询、发布接收基线、五个工具白名单、仓库/作者/通知目标与服务外 launchd 作业保留，原独立 operator 归档并保留历史。该决定描述的是一个具体部署的职责划分，不要求每个安装采用同样的 Agent 名字与分工。Agent 热管理由 D41 实现，人格与灵魂提示词后置。
 
 
 **D40 事件的程序消费与无模型通知（2026-10-19 用户批准 E0–E4）。** 复用events.on/messages.send/write绑定，确定性执行不经模型；默认模型仅处理显式run输入。GitHub apply直接调用现有升级函数，程序通知单独notifyUpdates选择。core共用updateRelease写release.update-result，直接CLI与插件job同源，不建新outbox；旧plugin事件仅保留历史。可升级上下文使用已核实缓存和宿主version。内部通知经原生pi app-only write及原生requestId去重，SDK sessions.notify与TUI程序消息展示，不伪造角色、不进入模型上下文、不patch pi。三位Sol分路，主路独占核心共享接线；只做相关检查，整合提交，不自动发版覆盖日用安装。

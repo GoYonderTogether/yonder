@@ -1,6 +1,6 @@
-# Web tools（实现未验收）
+# Web tools
 
-这是独立 SDK 插件，不在 setup 联网。安装包及 workspace 接线由本轮主 agent 统一完成。
+这是独立 SDK 插件，不在 setup 联网。
 
 在 plugins 配置中选择 `@yonder/plugin-web-tools`，配置为 `{ "credential": "tavily" }`；该值是既有 credentials 接口中的凭据引用，不是密钥。缺省引用为 `tavily`，须解析为 `api_key`。不读取 AI-Being 或其他程序登录文件。配置档需选择该插件和 `network` 能力。
 
@@ -10,4 +10,4 @@
 
 网页/搜索结果都是不可信外部资料。插件不带登录态、自定义请求头、供应商回退或模型重试。
 
-本轮未运行测试、真实 HTTP/搜索/模型或安装；构建/组装结果以主 agent 交付为准。参考模块与许可见 [SOURCES.md](SOURCES.md)。
+参考模块与许可见 [SOURCES.md](SOURCES.md)。

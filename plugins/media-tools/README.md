@@ -6,7 +6,7 @@
 
 服务通过 `api.services.resolve('image')` 读取，`protocol: siliconflow`，`baseUrl: https://api.siliconflow.cn/v1`；密钥由已有 credential 引用解析，插件不另存凭据。当前验收只使用官方控制台已确认免费的 `Kwai-Kolors/Kolors`，免费额度及价格可能改变，由配置负责人确认；插件不自动切换模型或价格。
 
-调用返回一张图片后立即下载到当前执行环境的 `artifacts/image-<UUID>.<ext>`，输出真实附件 URI、MIME、字节数。下载不携带 API 鉴权；目录经真实路径核实位于工作区内。不接受覆写路径，不修改默认水印，不自动重试。沿用本轮 ctx.signal 和运行预算，不加独立超时；API JSON 上限 1 MiB，下载上限 20 MiB。
+调用返回一张图片后立即下载到当前执行环境的 `artifacts/image-<UUID>.<ext>`，输出真实附件 URI、MIME、字节数。下载不携带 API 鉴权；目录经真实路径核实位于工作区内。不接受覆写路径，不修改默认水印，不自动重试。沿用 ctx.signal 和运行预算，不加独立超时；API JSON 上限 1 MiB，下载上限 20 MiB。
 
 ASR 参数为非空 `file` 和可选 `model`，通过 `services.resolve('asr')` 取声明模型，未指定取首项；当前免费验收型号为 `FunAudioLLM/SenseVoiceSmall`。文件必须是执行环境路径或 file URI；无 exec 时只允许 cwd 内真实路径或本轮来源明确附件，拒绝符号链接逃出工作区。经 ctx.env 有界读取，50 MB 平台上限，multipart file+model 调用 `/audio/transcriptions`，返回真实识别文本；一小时平台时长上限由服务执行，不引入音频解码依赖。
 
