@@ -1,22 +1,14 @@
-import { once } from "node:events";
-import { dirname, isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isDeepStrictEqual } from "node:util";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
 import {
 	AgentDoc,
-	type AgentEvent,
-	type ConversationId,
 	createRegistry,
-	defineDoc,
-	defineDocFamily,
 	defineExtension,
 	defineTool,
 	type Extension,
 	GenerationTask,
 	Harness,
-	type HookApi,
 	hook,
 	InboxDoc,
 	type JsonObject,
@@ -26,11 +18,9 @@ import {
 	type Submission,
 	section,
 	type ToolExecutionApi,
-	type ToolExecutionResult,
 	type ToolRegistration,
 	ToolTask,
 	UsageDoc,
-	type UsageState,
 	watchEvents,
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
@@ -47,23 +37,28 @@ import type {
 	ServiceEndpoint,
 	Tool,
 	ToolContext,
-	ToolResult,
 	TranscriptItem,
 } from "@yonder/sdk";
 import { Type } from "typebox";
-import { matchesGlob } from "../config/index.js";
-import { coreToolCapabilities } from "../tools/catalog.js";
 import { imageMime } from "./attachments.js";
 import { loginWithType } from "./auth.js";
 import { createBackground } from "./background.js";
+import { capabilityMap, describeCatalog } from "./catalog.js";
 import { credentialPath, FileCredentials } from "./credentials.js";
+import { cid, emptyUsage, RunDoc, type RunState, SessionDoc, submissionOutcome, sumUsage } from "./docs.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
+import { RunLimits } from "./limits.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
+import { imageData, projectOutput } from "./output.js";
+import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
+import { fromResult, toResult } from "./results.js";
 
 export { attachmentFromPath } from "./attachments.js";
+export { inspectToolCatalog } from "./catalog.js";
+export { submissionOutcome } from "./docs.js";
 
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptItem } from "./transcript.js";
@@ -76,140 +71,6 @@ export type { TerminalUpdate } from "./terminal.js";
 export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
 
-const SessionDoc = defineDoc({
-	kind: "yonder.session",
-	version: 1,
-	scope: "conversation",
-	history: "latest",
-	fork: "current",
-	initial: () => ({
-		agent: null as string | null,
-		profile: "",
-		cwd: "",
-		env: "local",
-		capabilities: null as Capability[] | null,
-		close: "run-end" as "run-end" | "manual",
-	}),
-});
-const cid = (id: string) => Number(id) as ConversationId;
-const emptyUsage = () => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 });
-export function submissionOutcome(
-	done: { status: "done" } | { status: "unanswered"; reason: string },
-	limitReason?: string,
-): { status: RuntimeRun["status"]; reason?: string } {
-	if (limitReason) return { status: "limit", reason: limitReason };
-	if (done.status === "done") return { status: "done" };
-	return {
-		status: done.reason.includes("abort") ? "aborted" : "error",
-		reason: done.reason,
-	};
-}
-const RunDoc = defineDocFamily({
-	kind: "yonder.run",
-	version: 1,
-	family: true,
-	scope: "conversation",
-	history: "latest",
-	fork: "initial",
-	initial: (_seed: null) => ({
-		config: "",
-		started: 0,
-		turns: 0,
-		previous: "",
-		repeats: 0,
-		reason: null as string | null,
-		error: null as string | null,
-		usageBefore: emptyUsage(),
-		toolTasks: [] as number[],
-		warnings: [] as string[],
-	}),
-});
-const capabilityMap: Record<string, Capability[]> = {
-	read: ["read"],
-	write: ["write"],
-	edit: ["write"],
-	bash: ["exec"],
-	tool_search: [],
-};
-type CatalogTool = { name: string; capabilities: Capability[]; plugin?: string };
-function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTool[]) {
-	const tools = catalog.map((tool) => {
-		const missing = tool.capabilities.filter((capability) => !config.resolved.capabilities.includes(capability));
-		const selected = !tool.plugin || config.resolved.plugins.includes(tool.plugin);
-		return {
-			...tool,
-			missing,
-			exposure: !selected
-				? "plugin-not-selected"
-				: missing.length
-					? "capability-denied"
-					: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name))
-						? "offer"
-						: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name))
-							? "search"
-							: "not-selected",
-		};
-	});
-	const search = tools.find((tool) => tool.name === "tool_search");
-	if (search)
-		search.exposure = tools.some((tool) => tool.name !== "tool_search" && tool.exposure === "search")
-			? "offer"
-			: "not-selected";
-	return tools;
-}
-export function inspectToolCatalog(config: RuntimeSessionConfig, plugins: Map<string, Tool[]>) {
-	return describeCatalog(config, [
-		...(createCodingTools().tools ?? []).map((tool) => ({
-			name: tool.name,
-			capabilities: capabilityMap[tool.name] ?? [],
-		})),
-		...[
-			...Object.entries(coreToolCapabilities),
-			["grep", ["read"]] as [string, Capability[]],
-			["tool_search", []] as [string, Capability[]],
-		].map(([name, capabilities]) => ({ name, capabilities })),
-		...[...plugins].flatMap(([plugin, tools]) =>
-			tools.map((tool) => ({ name: tool.name, capabilities: tool.capabilities, plugin })),
-		),
-	]);
-}
-const toResult = (value: ToolResult): ToolExecutionResult => ({
-	output: [
-		{ type: "text", text: value.text },
-		...(value.images ?? []).map((image) => ({ type: "image" as const, mimeType: image.mime, data: image.data })),
-	],
-	isError: value.isError ?? false,
-	...(value.attachments?.length ? { details: { attachments: JSON.parse(JSON.stringify(value.attachments)) } } : {}),
-});
-function fromResult(value: ToolExecutionResult): ToolResult {
-	return {
-		...((value.details as { attachments?: Attachment[] } | undefined)?.attachments
-			? { attachments: (value.details as unknown as { attachments: Attachment[] }).attachments }
-			: {}),
-		text: (value.output ?? [])
-			.filter((b) => b.type === "text")
-			.map((b) => b.text)
-			.join("\n"),
-		images: (value.output ?? []).filter((b) => b.type === "image").map((b) => ({ mime: b.mimeType, data: b.data })),
-		isError: value.isError ?? false,
-	};
-}
-interface RunState {
-	started: number;
-	warnings: Set<string>;
-	error?: string;
-	toolTasks: number[];
-	usageBefore: RuntimeRun["usage"];
-	id: string;
-	session: string;
-	config: RuntimeSessionConfig;
-	turns: number;
-	previous?: { name: string; args: unknown };
-	repeats: number;
-	reason?: string;
-	timer: ReturnType<typeof setTimeout> | undefined;
-	deadline: number;
-}
 export class Runtime {
 	private harness!: Harness;
 	private restoring = false;
@@ -232,14 +93,28 @@ export class Runtime {
 	private tools = new Map<string, ToolRegistration>();
 	private capabilities = new Map<string, Capability[]>(Object.entries(capabilityMap));
 	private configured = new Map<string, RuntimeSessionConfig>();
-	private states = new Map<string, RunState>();
 	private submissions = new Map<string, { event?: RuntimeInput["event"] }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
 	readonly credentials: FileCredentials;
+	private readonly policy: ToolPolicy;
+	private readonly limits: RunLimits;
 	readonly models: Models;
 	private constructor(private options: RuntimeOptions) {
 		this.credentials = new FileCredentials(credentialPath(options.home, options.config.credentials));
 		this.models = buildModels(this.credentials, options.config.models?.providers);
+		this.policy = new ToolPolicy({
+			capabilities: this.capabilities,
+			environment: (config) => this.environment(config),
+			context: (session, context) => this.context(session, context),
+		});
+		this.limits = new RunLimits({
+			harness: () => this.harness,
+			models: this.models,
+			onReport: options.onReport,
+			onWarning: options.onWarning,
+			usage: (session) => this.usage(session),
+			denied: (name, args, config, context, session) => this.policy.denied(name, args, config, context, session),
+		});
 	}
 	static async open(options: RuntimeOptions): Promise<Runtime> {
 		const runtime = new Runtime(options);
@@ -301,8 +176,8 @@ export class Runtime {
 		const live = await this.harness.snapshot(LiveDoc, cid(session), context);
 		if (!live?.run) return;
 		const id = String(live.run.inputs[0]);
-		if (this.states.has(id)) {
-			if (!this.restoring) await this.preparePlacedInputs(session, this.states.get(id)!.config, context);
+		if (this.limits.states.has(id)) {
+			if (!this.restoring) await this.preparePlacedInputs(session, this.limits.states.get(id)!.config, context);
 			return;
 		}
 		const saved = await this.harness.snapshot(RunDoc, cid(session), id, context);
@@ -338,66 +213,9 @@ export class Runtime {
 			timer: undefined,
 			deadline: started + config.resolved.limits.maxMinutes * 60000,
 		};
-		if (!this.restoring) this.armTimer(state);
-		this.states.set(id, state);
+		if (!this.restoring) this.limits.arm(state);
+		this.limits.states.set(id, state);
 		if (!this.restoring) await this.preparePlacedInputs(session, config, context);
-	}
-	private armTimer(state: RunState): void {
-		state.timer = setTimeout(
-			() => {
-				void this.warn(
-					state,
-					"maxMinutes",
-					`Task has run for ${state.config.resolved.limits.maxMinutes} minutes; continue as needed and report meaningful progress.`,
-				).catch(this.options.onReport ?? (() => {}));
-			},
-			Math.max(0, state.deadline - Date.now()),
-		);
-		state.timer.unref();
-	}
-	private async warn(state: RunState, kind: string, text: string): Promise<void> {
-		if (state.warnings.has(kind)) return;
-		state.warnings.add(kind);
-		await this.saveRun(state);
-		await this.options.onWarning?.(state.session, { kind, text });
-	}
-	private async saveRun(state: RunState): Promise<void> {
-		await this.harness.commit(async (tx) => {
-			Object.assign(await tx.doc(RunDoc, cid(state.session), state.id, null), {
-				turns: state.turns,
-				toolTasks: state.toolTasks,
-				warnings: [...state.warnings],
-				previous: state.previous ? JSON.stringify(state.previous) : "",
-				repeats: state.repeats,
-				reason: state.reason ?? null,
-				error: state.error ?? null,
-			});
-		}, C);
-	}
-	private async abortRun(state: RunState, reason: string): Promise<void> {
-		const live = await this.harness.snapshot(LiveDoc, cid(state.session), C);
-		if (String(live?.run?.inputs[0]) !== state.id) return;
-		if (!state.error) state.reason ??= reason;
-		await this.saveRun(state);
-		if (live?.run) await this.harness.abortTask(live.run.taskId, C);
-	}
-	private async runState(api: HookApi, context: Context): Promise<RunState> {
-		const live = await api.snapshot(LiveDoc, api.conversationId, context);
-		const id = String(live?.run?.inputs[0] ?? api.taskId);
-		const state = this.states.get(id);
-		if (!state) throw new Error(`Missing active run ${id}`);
-
-		return state;
-	}
-	private async stop(context: Context, state: RunState, reason: string, error = false): Promise<never> {
-		if (error) state.error = reason;
-		const signal = context.abortSignal!;
-		signal.throwIfAborted();
-		const stopped = once(signal, "abort");
-		// Abort must run outside this hook: abort() joins the invocation being stopped.
-		void this.abortRun(state, reason).catch(this.options.onReport ?? (() => {}));
-		await stopped;
-		throw signal.reason;
 	}
 	private install() {
 		this.background = createBackground({
@@ -457,7 +275,9 @@ export class Runtime {
 						const sections =
 							(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ??
 							[];
-						const state = [...this.states.values()].find((state) => state.session === String(input.conversationId))!;
+						const state = [...this.limits.states.values()].find(
+							(state) => state.session === String(input.conversationId),
+						)!;
 						return [
 							...sections,
 							`<runtime_clock utc="${new Date().toISOString()}">Elapsed ${Math.round((Date.now() - state.started) / 1000)} seconds. Time/turn/token thresholds are reminders; explicit cancellation and real provider limits remain effective.</runtime_clock>`,
@@ -466,96 +286,7 @@ export class Runtime {
 					{ tag: false },
 				),
 			],
-			hooks: [
-				hook(GenerationTask, {
-					beforeRequest: async (request, api, context) => {
-						const state = await this.runState(api, context);
-						if (state.reason) await this.stop(context, state, state.reason);
-						if (state.turns >= state.config.resolved.limits.maxTurns)
-							await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
-						const model = this.models.getModel(
-							state.config.resolved.model.split("/")[0]!,
-							state.config.resolved.model.slice(state.config.resolved.model.indexOf("/") + 1),
-						);
-						const limits = model?.inputLimits,
-							images = request.messages.flatMap((message) =>
-								Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],
-							);
-						if (images.length && !model?.input.includes("image"))
-							await this.stop(
-								context,
-								state,
-								"Current model cannot accept images already in conversation history",
-								true,
-							);
-						if (
-							images.length > (limits?.images?.maxPerRequest ?? Infinity) ||
-							request.messages.some(
-								(message) =>
-									Array.isArray(message.content) &&
-									message.content.filter((block) => block.type === "image").length >
-										(limits?.images?.maxPerMessage ?? Infinity),
-							)
-						)
-							await this.stop(
-								context,
-								state,
-								"Conversation image count exceeds the current model's input limit; history was retained",
-								true,
-							);
-						if (Buffer.byteLength(JSON.stringify(request.messages)) > (limits?.maxRequestBytes ?? Infinity))
-							await this.stop(
-								context,
-								state,
-								"Conversation input exceeds the current model's request byte limit; history was retained",
-								true,
-							);
-
-						state.turns++;
-						await this.saveRun(state);
-					},
-					afterResponse: async (message, api, context) => {
-						const state = await this.runState(api, context);
-						const usage = await this.usage(state.session);
-						const tokens = (["input", "output", "cacheRead", "cacheWrite"] as const).reduce(
-							(sum, key) => sum + usage[key] + message.usage[key] - state.usageBefore[key],
-							0,
-						);
-						if (state.turns >= state.config.resolved.limits.maxTurns)
-							await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
-						if (tokens >= state.config.resolved.limits.maxTokens)
-							await this.warn(
-								state,
-								"maxTokens",
-								`Task has used ${tokens} input/output/cache tokens. Preserve the goal and continue necessary work.`,
-							);
-					},
-				}),
-				hook(ToolTask, {
-					beforeTool: async (call, api, context) => {
-						const state = await this.runState(api, context);
-						if (!state.toolTasks.includes(api.taskId)) state.toolTasks.push(api.taskId);
-						const callKey = { name: call.name, args: call.arguments };
-						const observing =
-							call.name === "process" && ["status", "log", "wait"].includes(String(call.arguments.action));
-						state.repeats = observing ? 0 : isDeepStrictEqual(callKey, state.previous) ? state.repeats + 1 : 1;
-						state.previous = structuredClone(callKey);
-						await this.saveRun(state);
-						if (state.repeats >= state.config.resolved.limits.repeatStop) await this.stop(context, state, "repeatStop");
-						if (state.repeats >= state.config.resolved.limits.repeatBlock)
-							return { block: "相同工具调用已重复，请换一种方法。" };
-						const config = state.config;
-						const denied = await this.toolDenied(
-							call.name,
-							call.arguments as JsonObject,
-							config,
-							context,
-							String(api.conversationId),
-						);
-						if (denied) return { block: denied };
-					},
-				}),
-			],
+			hooks: this.limits.hooks(),
 		});
 		this.registry.install(core);
 		this.extensions.set(core.name, core);
@@ -667,65 +398,10 @@ export class Runtime {
 		for (const attachment of attachments) {
 			if (!attachment.uri.startsWith("file:")) throw new Error("发送附件必须是可验证的本地文件 URI。");
 			const path = fileURLToPath(attachment.uri);
-			const denied = await this.toolDenied("read", { path }, config, invocation.context, ctx.session);
+			const denied = await this.policy.denied("read", { path }, config, invocation.context, ctx.session);
 			if (denied) throw new Error(denied);
 			getOrThrow(await ctx.env.canonicalPath(path, invocation.context));
 		}
-	}
-	private async toolDenied(
-		name: string,
-		args: JsonObject,
-		config: RuntimeSessionConfig,
-		context: Context,
-		session: string,
-	): Promise<string | undefined> {
-		const missing = (this.capabilities.get(name) ?? []).filter((c) => !config.resolved.capabilities.includes(c));
-		if (missing.length) return `缺少能力：${missing.join(", ")}`;
-		if (name === "process" && args.action === "write" && !config.resolved.capabilities.includes("exec"))
-			return "Writing process stdin requires exec capability";
-		if (!["read", "write", "edit", "grep"].includes(name)) return;
-		if (name === "grep" && args.path === undefined) args = { ...args, path: "." };
-		if (typeof args.path !== "string") return;
-		const env = this.environment(config);
-		const canonical = async (path: string): Promise<string> => {
-			const result = await env.canonicalPath(path, context);
-			if (result.ok) return result.value;
-			if (result.error.code !== "not_found") throw result.error;
-			const absolute = getOrThrow(await env.absolutePath(path, context));
-			const parent = dirname(absolute);
-			if (parent === absolute) throw result.error;
-			return getOrThrow(await env.joinPath([await canonical(parent), absolute.slice(parent.length)], context));
-		};
-		const target = await canonical(args.path),
-			cwd = await canonical(config.cwd);
-		if (!config.resolved.capabilities.includes("exec")) {
-			const rel = relative(cwd, target);
-			if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
-				const ctx = await this.contextForAttachment(session, context);
-				const allowed = (name === "read" || name === "grep") && ctx.some((a) => a === target);
-				if (!allowed) return "文件路径超出当前工作区。";
-			}
-		}
-		if (name !== "read" && name !== "grep")
-			for (const file of [{ path: "agent.yaml", capability: "admin" as const }, ...(config.protectedFiles ?? [])]) {
-				const protectedPath = await canonical(getOrThrow(await env.joinPath([config.cwd, file.path], context)));
-				if (target === protectedPath && !config.resolved.capabilities.includes(file.capability))
-					return `受保护文件需要 ${file.capability} 能力。`;
-			}
-	}
-	private async contextForAttachment(session: string, context: Context): Promise<string[]> {
-		const ctx = await this.context(session, context);
-		const attachments = (ctx.events ?? (ctx.event ? [ctx.event] : [])).flatMap(
-			(event) => (event.data as { attachments?: Array<{ uri: string }> }).attachments ?? [],
-		);
-		const paths: string[] = [];
-		for (const attachment of attachments) {
-			const path = attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri;
-			if (!isAbsolute(path)) continue;
-			const canonical = await ctx.env.canonicalPath(path, context);
-			if (canonical.ok) paths.push(canonical.value);
-		}
-		return paths;
 	}
 
 	async create(meta: {
@@ -873,7 +549,7 @@ export class Runtime {
 		for (const attachment of input.attachments ?? [])
 			if (attachment.kind === "image") {
 				const bytes = attachment.uri.startsWith("data:")
-					? Buffer.from(this.imageData(attachment.uri), "base64")
+					? Buffer.from(imageData(attachment.uri), "base64")
 					: getOrThrow(
 							await env.readBinaryFile(
 								attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri,
@@ -1017,7 +693,7 @@ export class Runtime {
 					participating = true;
 				if (participating) {
 					if (!outputRun) outputRun = String((await this.harness.snapshot(LiveDoc, cid(id), C))?.run?.inputs[0] ?? "");
-					this.output(event, { ...input, onOutput: (part) => input.onOutput?.(part, outputRun) }, textBlocks);
+					projectOutput(event, { ...input, onOutput: (part) => input.onOutput?.(part, outputRun) }, textBlocks);
 				}
 				if (event.type === "run_end") participating = false;
 			}
@@ -1069,12 +745,6 @@ export class Runtime {
 			await stream?.stop();
 		}
 	}
-	private imageData(uri: string): string {
-		const match = /^data:[^;,]+;base64,([A-Za-z0-9+/]*={0,2})$/.exec(uri);
-		if (!match?.[1]) throw new Error("Image data URI must contain base64 data");
-		return match[1];
-	}
-
 	private async attachSubmission(
 		submission: Submission,
 		event: RuntimeInput["event"],
@@ -1083,56 +753,6 @@ export class Runtime {
 		this.submissions.set(String(submission.id), { event });
 	}
 
-	private output(event: AgentEvent, input: RuntimeInput, textBlocks: Map<number, string>) {
-		const text = (index: number, value: string) => {
-			const previous = textBlocks.get(index) ?? "";
-			textBlocks.set(index, value);
-			const delta = value.startsWith(previous) ? value.slice(previous.length) : value;
-			if (delta) input.onOutput?.({ type: "text", delta });
-		};
-		const content = (blocks: Array<{ type: string; text?: string }>) =>
-			blocks.forEach((block, index) => {
-				if (block.type === "text") text(index, block.text ?? "");
-			});
-		if (event.type === "message_start" && event.message.role === "assistant") {
-			input.onOutput?.({ type: "message_start", id: String(event.message.timestamp) });
-			textBlocks.clear();
-			content(event.message.content);
-		}
-		if (event.type === "message_end")
-			for (const message of event.entry.model ?? [])
-				if (message.role === "assistant") {
-					content(message.content);
-					input.onOutput?.({
-						type: "message_end",
-						text: message.content
-							.filter((block) => block.type === "text")
-							.map((block) => block.text)
-							.join(""),
-					});
-				}
-		if (event.type === "message_update")
-			for (const change of event.changes) {
-				if (change.type === "text_delta")
-					text(change.contentIndex, (textBlocks.get(change.contentIndex) ?? "") + change.delta);
-				else if (change.type === "message") content(change.message.content);
-				else if ((change.type === "text_start" || change.type === "block") && change.block?.type === "text")
-					text(change.contentIndex, change.block.text);
-			}
-		if (event.type === "tool_execution_start") input.onOutput?.({ type: "tool", phase: "start", name: event.toolName });
-		if (event.type === "tool_execution_end")
-			input.onOutput?.({
-				type: "tool",
-				phase: "end",
-				name: event.toolName,
-				ok: event.result
-					? !event.result.isError
-					: event.entry
-						? !event.entry.model?.some((m) => m.role === "toolResult" && m.isError)
-						: false,
-			});
-		if (event.type === "task_failed") input.onOutput?.({ type: "error", message: event.message });
-	}
 	async abort(id: string): Promise<void> {
 		await (await this.conversation(id)).abort(C, { background: true });
 	}
@@ -1281,14 +901,6 @@ export class Runtime {
 		}
 		return events;
 	}
-	private sumUsage(state?: Readonly<UsageState>): RuntimeRun["usage"] {
-		const sum = emptyUsage();
-		for (const usage of [...Object.values(state?.models ?? {}), ...Object.values(state?.tools ?? {})]) {
-			for (const key of ["input", "output", "cacheRead", "cacheWrite"] as const) sum[key] += usage[key];
-			sum.cost += usage.cost.total;
-		}
-		return sum;
-	}
 	private async receiptRun(session: string, key: string, receipt: Readonly<RunReceiptState>): Promise<RuntimeRun> {
 		const finishKey = `${session}\0${key}`;
 		const existing = this.finishing.get(finishKey);
@@ -1298,7 +910,7 @@ export class Runtime {
 			if (!saved?.config || !receipt.settlement)
 				throw new Error(`运行 ${session}/${key} 缺少开始配置或终结凭据，历史结果不可确定`);
 			const config: RuntimeSessionConfig = JSON.parse(saved.config);
-			const usage = this.sumUsage(receipt.usage);
+			const usage = sumUsage(receipt.usage);
 			for (const field of Object.keys(usage) as Array<keyof typeof usage>) usage[field] -= saved.usageBefore[field];
 			const settlement = receipt.settlement;
 			const answer =
@@ -1335,10 +947,10 @@ export class Runtime {
 			try {
 				await this.options.onRun?.(session, run);
 			} finally {
-				const state = this.states.get(key);
+				const state = this.limits.states.get(key);
 				if (state) {
 					clearTimeout(state.timer);
-					this.states.delete(key);
+					this.limits.states.delete(key);
 				}
 				for (const input of receipt.inputs) this.submissions.delete(String(input));
 				if (this.configured.get(session) === state?.config) this.configured.delete(session);
@@ -1431,7 +1043,7 @@ export class Runtime {
 	}
 	resume(): void {
 		this.restoring = false;
-		for (const state of this.states.values()) if (!state.timer) this.armTimer(state);
+		for (const state of this.limits.states.values()) if (!state.timer) this.limits.arm(state);
 		for (const item of this.recovering.splice(0)) {
 			void (async () => {
 				const submission = await this.harness.submission(item.id, C);
@@ -1551,7 +1163,7 @@ export class Runtime {
 	}
 
 	async close(): Promise<void> {
-		for (const state of this.states.values()) clearTimeout(state.timer);
+		for (const state of this.limits.states.values()) clearTimeout(state.timer);
 		await this.harness.close(C);
 	}
 }

@@ -6,7 +6,7 @@
 
 ## 验证基线
 
-- 构建、类型检查通过。默认测试 167 通过 / 12 跳过 / 0 失败。跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)），默认不运行；跳过不等于通过。
+- 构建、类型检查通过。默认测试 179 通过 / 12 跳过 / 0 失败；打开真实模型后 190 个用例中 189 通过、1 个（需要 launchd）跳过。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)），默认不运行；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
 - 支持平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 未支持。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
@@ -67,6 +67,6 @@
 
 ## 稳定性关注项
 
-- 内核依赖对固定版本 pi-durable 1.3.0 的补丁（`patches/`，`postinstall` 应用），升级 pi 前必须重新审核边界与回执。
+- 内核依赖对固定版本 pi-durable 1.3.0 的补丁（`patches/`，`postinstall` 应用，`runtime/patch.test.ts` 检查已生效），升级 pi 前必须重新审核边界与回执。
 - 消息生命周期与流式投递语义在 0.1.2026102001 重构，真实渠道矩阵尚未全部复验。
 - 飞书渠道曾在一次升级后首次启动出现 `fetch failed` 而未连上；人工重启后恢复，根因未确认。

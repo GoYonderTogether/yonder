@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+- 文档收敛：过程记录归档，规范按主题合并（10 运行保证与发布更新、13 观察与管理命令、14 执行能力，macOS 状态栏并入 09），新增 docs/status.md 与 CONTRIBUTING.md，plugins.md + reference.md 取代 function-tree.md。
+- 内核拆分，行为不变：kernel 拆出 workspace、home、home-management、terminal、background；runtime 拆出 docs、catalog、results、output、policy、limits。
+- 测试与 CI：补齐 8 个插件的契约测试，3 个本地集成脚本接入 vitest，新增 pi-durable 补丁生效检查；新增 macOS CI 工作流，lint 排除非产品目录。
+
 ## [0.1.2026102001] - 2026-10-20
 
 - 模型每条消息独立结束气泡，工具和后台等待不保持飞书流式；阶段汇报与最终结果各自发送，前文不被覆盖。
