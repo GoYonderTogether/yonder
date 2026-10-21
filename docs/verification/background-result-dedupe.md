@@ -16,4 +16,11 @@ main `335b188`，日用版`0.2.26102003`（`e177769`）。D45内置底座/两份
 - 新增真实双委派回归首轮：1通过（87.92秒），只注入一条带Feishu msgId的渠道事件；实际两个Luna子Agent分别执行17秒命令生成随机UUID；父Agent通过自动完成输入逐项写回新结果。两次prepared edits包含各自实际UUID，最终DELEGATION_DONE投递。隔离home `/tmp/yonder-delegation-results-F8TLTI`，无真实飞书连接。新源码下全套真实运行中的同用例亦通过。
 - 全套真实模型与隔离launchd首轮：199通过/0跳过/1失败（93.97秒），原始日志`/tmp/yonder-dedupe-full-real.log`。失败为原有message-lifecycle测试，模型只输出M43_START就stop，没有调用工具；不是完成通知丢失。实际home `/tmp/yonder-message-live-172RbK`。补明确同一助手消息的commentary+工具调用指令；原消息数、顺序、自动续办、无新用户输入、最终只一次的断言不变。
 - 初始新增用例编写错误：store回调误传第三参数触发只读未建表；helper遗漏name触发配置校验；均已修。一次unsafe optional chaining被lint拒绝，已改为明确存在性检查，未放宽规则。
-- 其余检查和发布记录待补齐。
+- 流式用例聚焦复验：1通过，34.58秒，`/tmp/yonder-dedupe-message-rerun.log`。随后同一最终源码运行真实模型与隔离launchd全套：60文件/200测试全部通过、0失败、0跳过，92.04秒；日志`/tmp/yonder-dedupe-full-real2.log`。包含重启、HTTP恢复/重试分类/耗尽/abort与timer、工作区fork验证、提示词装配、后台任务和连续委派。
+- 新增回归红绿验证：在独立克隆中临时使用旧store源码，1失败/2过滤跳过；恢复修复后1通过/2过滤跳过。日志`/tmp/yonder-dedupe-red.log`、`/tmp/yonder-dedupe-green.log`。没有更改断言来制造通过。
+- 最终源码构建/typecheck/lint通过（108 warnings、1 info），无屏蔽或削弱规则。干净克隆 `/tmp/yonder-dedupe-clean-kKUWxi/repo` 的npm ci/build/typecheck/默认测试/lint均退出0，默认183通过/17跳过/0失败。日志`/tmp/yonder-dedupe-clean-check.log`。clone不使用已有node_modules或安装补丁；durable保持固定fork来源、版本1.3.0。
+- 原update机制完成独立安装 `/tmp/yonder-dedupe-clean-kKUWxi/install`，固定源码c69e3d3。首次离线home未启动过内核、无state.db，安装成功但更新结果落库给出ENOENT/eventError，未重复安装来伪造回执。之后从这份无.git安装启动隔离内核，doctor通过，真实Luna执行bash返回INSTALLED_DEDUPE_OK并正常done；子进程已停止，不触碰日用launchd服务。证据`/tmp/yonder-dedupe-clean-kKUWxi/installed-evidence.json`。没有把无日用service的安装标成verified自动升级。
+- 提示词：内置content/index/home源码与日用03一致；贾维斯SOUL.md与docs/prompts/jarvis稿一致，日用AGENTS.md多出Standing Arrangements（中文回复、maintainer分工、更新职责、凭据不外显），原样保留；默认contexts选用soul-md与agents-md等已配置贡献。旧SYSTEM.md保留在磁盘，当前装配不再读取，不自动删用户文件。
+- 版本与流程：03已经有真实release.update-result verified回执（e177769），当前GitHub instance为GoYonderTogether/yonder-harness、apply、approvedAuthors=[zoran-xc]、notifyUpdates=true；没有将组织名误当发布者帐号。旧03的CI run39537394358实际failure，不能照中途通知当成功。本轮等待新CI成功再创建正式04 Release，不创建beta或手工覆盖日用安装。
+- 源码提交c69e3d3已合并并推送main，包含原本未推送的D45规范提交335b188；本机日用保留03，等待本次正式Release触发现有自动更新。
+- CI与正式发布、自动升级最终回执待补记。

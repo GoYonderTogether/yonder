@@ -6,7 +6,7 @@
 
 ## 验证基线
 
-- 构建、类型检查通过。默认测试 182 通过 / 16 跳过 / 0 失败；打开真实模型后 198 个用例中 197 通过、1 个（需要 launchd）跳过。全新克隆的 `npm ci`、构建和测试通过。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)）；跳过不等于通过。
+- 构建、类型检查通过。默认测试 183 通过 / 17 跳过 / 0 失败；显式打开真实模型与隔离 launchd 后 200/200 通过，零跳过。全新克隆的 `npm ci`、构建、类型检查、默认测试和 lint 通过；独立安装后真实 Luna/bash 任务通过。原始失败与后续复验见 [本轮记录](verification/background-result-dedupe.md)。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)）；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
 - 支持平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 未支持。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
