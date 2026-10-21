@@ -115,7 +115,17 @@ test("QR pairing persists first owner, keeps second independent and uses per-pee
 		channels.push(first, second, third);
 		const login = h.registrations.tools.find((t) => t.name.endsWith("_login"))!;
 		for (const instance of ["wechat-primary", "wechat-contact", "wechat-known"]) {
-			expect((await login.execute({ instance, action: "start" }, context())).isError).toBeUndefined();
+			expect(
+				(await login.execute(instance === "wechat-primary" ? {} : { instance, action: "start" }, context())).isError,
+			).toBeUndefined();
+			if (instance === "wechat-primary") {
+				expect((await login.execute({}, context())).isError).toBeUndefined();
+				expect(sequence).toBe(1);
+			}
+			if (instance === "wechat-known")
+				await expect
+					.poll(() => h.identity.relation("main", "acct:wechat-known:peer-3"), { timeout: 5000 })
+					.toBe("known");
 			const paired = await login.execute({ instance, action: "poll" }, context());
 			expect(paired.isError).toBeUndefined();
 			expect(paired.text).not.toContain("test-token");

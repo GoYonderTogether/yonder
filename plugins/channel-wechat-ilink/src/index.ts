@@ -96,19 +96,27 @@ export default definePlugin({
 		tool({
 			name: "channel-wechat-ilink_login",
 			description:
-				"Admin QR pairing: start returns a QR URL for the human to scan; poll checks confirmation. First configured instance defaults to plugin owner; later instances use their own configured person or remain unlinked. Never returns bot tokens. Existing connected accounts cannot be silently replaced.",
+				"Request WeChat access and return a clickable QR login link for the human. Omit instance/action to start pairing the primary instance. Show qrcodeUrl as a Markdown link and explain that the human scans it with WeChat; wait is not connected. The channel automatically checks confirmation without more model calls; poll is only for status or verifyCode. Later instances retain their own person/permissions. Never returns bot tokens or silently replaces a paired account.",
 			capabilities: ["admin", "network"],
 			parameters: Type.Object(
 				{
-					instance: str,
-					action: Type.Union([Type.Literal("start"), Type.Literal("poll")]),
+					instance: Type.Optional(str),
+					action: Type.Optional(Type.Union([Type.Literal("start"), Type.Literal("poll")])),
 					verifyCode: Type.Optional(Type.String({ pattern: "^\\d{1,12}$" })),
 				},
 				{ additionalProperties: false },
 			),
 			async execute(input, ctx) {
-				const args = input as { instance: string; action: "start" | "poll"; verifyCode?: string };
-				return { text: JSON.stringify(await channel(args.instance).login(args.action, ctx.signal, args.verifyCode)) };
+				const args = input as { instance?: string; action?: "start" | "poll"; verifyCode?: string };
+				const selected = channel(args.instance ?? (await primaryId()));
+				const status = await selected.status();
+				if (!args.action && (status as { paired: boolean }).paired)
+					return { text: JSON.stringify({ status: "already_connected", ...status }) };
+				return {
+					text: JSON.stringify(
+						await selected.login(args.action ?? (args.verifyCode ? "poll" : "start"), ctx.signal, args.verifyCode),
+					),
+				};
 			},
 		});
 		tool({
