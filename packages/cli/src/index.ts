@@ -625,7 +625,8 @@ async function run(args: string[]): Promise<number> {
 					}
 					case "sessions.submit": {
 						const busy = params.busy;
-						if (busy !== undefined && busy !== "followup" && busy !== "steer") throw new Error("Invalid busy mode");
+						if (busy !== undefined && busy !== "followup" && busy !== "steer" && busy !== "interrupt")
+							throw new Error("Invalid busy mode");
 						return kernel.terminal.submit(
 							requiredParam(params, "id"),
 							{

@@ -3,9 +3,9 @@
 ## pi-durable 1.3.0 source fork
 
 - Vendored workspace: `packages/pi-durable`, npm name remains `@earendil-works/pi-durable`, version 1.3.0.
-- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit [`eca1f259bb08f4fa14a96b93b456e4684fe3c450`](https://github.com/GoYonderTogether/pi/commit/eca1f259bb08f4fa14a96b93b456e4684fe3c450).
+- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, local source commit `5bba5aedf7cbc57a83e437a491c80cffc2c4f50d` on `zoran/input-queue-interrupt` (not yet pushed).
 - Base: earendil-works/pi tag v1.3.0, `71023aec1546d6d677a65669c5665c0927ce0dd0`.
-- MIT, Copyright (c) 2025 Mario Zechner; full original license retained in [packages/pi-durable/LICENSE](packages/pi-durable/LICENSE). Boundary callback/abort queue continuation (D28), atomic run receipt (D29), retry hook and exhaustion reason (D44) are source changes described in FORK.md. No install-time patch remains.
+- MIT, Copyright (c) 2025 Mario Zechner; full original license retained in [packages/pi-durable/LICENSE](packages/pi-durable/LICENSE). Boundary callback/abort queue continuation (D28), atomic run receipt (D29), retry hook and exhaustion reason (D44), interrupted-generation continuation (D49) are source changes described in FORK.md. No install-time patch remains.
 - Only durable is forked. pi-ai, chord, codemode, tui and coding-agent remain upstream npm dependencies. Refresh instructions: CONTRIBUTING.md; machine-readable provenance: packages/pi-durable/FORK_SOURCE.json.
 
 ## pi coding-agent 1.3.0

@@ -39,13 +39,13 @@ harness 决定模型怎么执行、怎么回复；渠道只决定怎么呈现。
 type OutputPart =
   | { type: 'message_start'; id: string }  // 原生 assistant 消息的生成时间标识，限当前 run
   | { type: 'text'; delta: string }
-  | { type: 'message_end'; text: string }  // 一条 assistant 消息结束，不代表任务结束
+  | { type: 'message_end'; text: string }  // 一条 assistant 消息结束，不代表任务结束；被新输入中断的正文为空
   | { type: 'tool'; phase: 'start' | 'end'; name: string; label?: string; ok?: boolean }
   | { type: 'final'; text: string }          // 已按 §2 判定为要发往这个渠道时才出现
   | { type: 'error'; message: string };
 ```
 
-内核从 pi-durable 的实际 run/inputs 生成这些片段，流式最初发给开始运行的输入来源，归属不能由异步提交 Promise 是否结束推断。后到 steer 不撤回已发过程，已开启流式正常收尾；该次输入有等待者时不新开流（10 §1）。渠道可以只用 final，也可以渲染完整过程。
+内核从 pi-durable 的实际 run/inputs 生成这些片段，流式最初发给开始运行的输入来源，归属不能由异步提交 Promise 是否结束推断。后到 steer 保留已发出的完整阶段性气泡；被新输入中断的生成不作为最终回答投递，已可见的部分停止增长并收尾，不能承诺撤回平台已显示内容；该次输入有等待者时不新开流（10 §1）。渠道可以只用 final，也可以渲染完整过程。
 
 流式按一条 assistant 消息开闭，不按整轮任务开闭。内核传递原生消息边界；非空、非 NO_REPLY 的每条消息各自通过一次 channel.stream 投递，在 message_end 时以该条完整正文 final 并结束迭代。工具执行、后台等待不保持上一气泡生成；后续阶段汇报和最终回复分别新建消息，前文不覆盖。纯工具/空消息不建气泡。CLI 每条消息结束换行，不重复打印相同正文。
 

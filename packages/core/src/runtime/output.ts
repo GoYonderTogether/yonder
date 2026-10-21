@@ -20,13 +20,16 @@ export function projectOutput(event: AgentEvent, input: RuntimeInput, textBlocks
 	if (event.type === "message_end")
 		for (const message of event.entry.model ?? [])
 			if (message.role === "assistant") {
-				content(message.content);
+				if (message.stopReason !== "aborted") content(message.content);
 				input.onOutput?.({
 					type: "message_end",
-					text: message.content
-						.filter((block) => block.type === "text")
-						.map((block) => block.text)
-						.join(""),
+					text:
+						message.stopReason === "aborted"
+							? ""
+							: message.content
+									.filter((block) => block.type === "text")
+									.map((block) => block.text)
+									.join(""),
 				});
 			}
 	if (event.type === "message_update")

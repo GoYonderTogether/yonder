@@ -31,7 +31,7 @@
 
 ### 1.2 并发
 
-- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`followup`（通用默认，本次答完再单独回答；飞书可运行绑定按11 §7.4使用steer）或 `steer`（插进当前工具轮之后，和本次运行共用一个回答）。这直接使用 pi-durable 的 inbox。
+- 同一会话同一时间只有一次运行；运行中到达的输入按绑定的 `busy` 设置排队：`steer`（所有渠道通用默认，工具执行期间等本轮工具完成后并入；生成回复期间中止旧生成并并入，保留同一运行）、`followup`（本次答完后另起运行）或显式 `interrupt`（立即请求中止当前生成及工具，待原生取消收尾后并入当前运行）。这直接使用 pi-durable 的 inbox。steer 与 followup 队列均默认一次消费全部已排队消息（all），不增加定时收集窗口；只在同一会话内合并。interrupt 的取消不能撤销已发生的外部副作用，不自动重放工具。
 - 不同会话并行。
 
 运行事实和输入回答关系由 pi 持有；恢复先还原事件/submission 关联与结束处理，再启动调度。稳定输入身份避免重启重复提交；取消等待与 abort 分开。具体恢复和终结规则见 10 §1，不另建模型队列。
@@ -85,7 +85,7 @@ bindings:
 |---|---|---|
 | `profile` | agent 的 `defaultProfile` | 用哪个配置档（03 §3） |
 | `wake` | `run` | `run`：唤醒运行。`write`：只写进会话、不运行、不花 token（旁观）。`mention`：`data.mentioned` 为真时运行，否则按 `write` 处理 |
-| `busy` | `followup` | 见 §1.2 |
+| `busy` | `steer` | 见 §1.2 |
 | `reply` | `auto` | `auto`：最终回复发回这条输入的来源（06 §2）。`none`：不自动回复，只能通过工具主动发送 |
 | `stream` | `false` | 渠道支持时流式输出过程（06 §3） |
 | `deliver` | 无 | 输入不是来自渠道（如定时触发）时，把结果发给谁（06 §2） |
@@ -181,7 +181,7 @@ interface SessionsAPI {
   list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
   get(id: string): Promise<SessionInfo | undefined>;
   open(req: { preset: string; parent?: string; capabilities?: Capability[]; close?: 'run-end' | 'manual' }): Promise<SessionInfo>;   // close 默认 run-end；manual 见 12 §7。能力 = 预设 ∩ 发起会话 ∩ capabilities（03 §4）
-  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' }): Promise<RunResult | InputReceipt>;            // 只接受 task 会话；busy 默认 followup，直映射原生 inbox（12 §7）
+  submit(id: string, input: Input, opts?: { wait?: boolean; busy?: 'followup' | 'steer' | 'interrupt' }): Promise<RunResult | InputReceipt>;            // 只接受 task 会话；busy 默认 steer，直映射原生 inbox（12 §7）
   abort(id: string): Promise<void>;
   close(id: string): Promise<void>;
   transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
