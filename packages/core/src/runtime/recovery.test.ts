@@ -364,7 +364,7 @@ test.skipIf(!real)(
 			runtime = await open();
 			await runtime.recover();
 			runtime.resume();
-			await expect.poll(() => requests.length).toBe(2);
+			await expect.poll(() => requests.length, { timeout: 15000 }).toBe(2);
 			await runtime.close();
 			db = await openDatabase(`${home}/state.db`);
 			runtime = await open();

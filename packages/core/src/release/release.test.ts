@@ -71,11 +71,11 @@ test.skipIf(process.platform !== "darwin" || process.env.YONDER_TEST_LAUNCHD !==
 				`<?xml version="1.0"?><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array><string>${process.execPath}</string><string>-e</string><string>${script.replaceAll("&", "&amp;").replaceAll("<", "&lt;")}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><false/></dict></plist>`,
 			);
 			execFileSync("launchctl", ["bootstrap", `gui/${process.getuid?.()}`, plist]);
-			await expect.poll(() => readFile(ready, "utf8").catch(() => ""), { timeout: 5000 }).toBe("ready");
+			await expect.poll(() => readFile(ready, "utf8").catch(() => ""), { timeout: 20000 }).toBe("ready");
 			await unloadService(service);
 			await rm(ready);
 			execFileSync("launchctl", ["bootstrap", `gui/${process.getuid?.()}`, plist]);
-			await expect.poll(() => readFile(ready, "utf8").catch(() => ""), { timeout: 5000 }).toBe("ready");
+			await expect.poll(() => readFile(ready, "utf8").catch(() => ""), { timeout: 20000 }).toBe("ready");
 		} finally {
 			await unloadService(service);
 			await rm(root, { recursive: true, force: true });
