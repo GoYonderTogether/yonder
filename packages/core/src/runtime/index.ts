@@ -74,6 +74,8 @@ export type * from "./types.js";
 export class Runtime {
 	private harness!: Harness;
 	private restoring = false;
+	private readonly bootedAt = Date.now();
+	private interrupted: Array<{ session: string; run: string }> = [];
 	private images?: Promise<ImageProcessor>;
 	private imageProcessor(): Promise<ImageProcessor> {
 		this.images ??= createNodePhotonImages();
@@ -1017,7 +1019,10 @@ export class Runtime {
 				}
 			}
 			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
-			if (live?.run) await this.prepareRun(String(conversation.id), C);
+			if (live?.run) {
+				await this.prepareRun(String(conversation.id), C);
+				this.interrupted.push({ session: String(conversation.id), run: String(live.run.inputs[0]) });
+			}
 			const records = await this.storage.scanSubmissions(
 				{ conversationId: conversation.id },
 				Number.MAX_SAFE_INTEGER,
@@ -1055,6 +1060,13 @@ export class Runtime {
 			.then((page) => this.background.recover(page.items))
 			.catch((error) => this.options.onReport?.(error));
 		this.harness.resume();
+		// A run that was in flight when the process stopped continues from its durable checkpoint; tell the model once.
+		for (const { session, run } of this.interrupted.splice(0))
+			void this.writeNote(
+				session,
+				`restart:${run}:${this.bootedAt}`,
+				"Yonder was restarted or the connection was interrupted while this task was running. Re-check the current state (files, background jobs, external actions) before continuing, do not repeat side effects that already completed, and resume the task yourself.",
+			).catch((error) => this.options.onReport?.(error));
 	}
 	async responseText(session: string, event: string): Promise<string> {
 		const record = await this.storage.submissionByRequest(cid(session), `event:${event}`, C);
