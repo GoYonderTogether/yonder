@@ -201,11 +201,13 @@
 - **发出事件**：
   - `channel-feishu.card-action`：卡片按钮回调。
   - `channel-feishu.card-sent`：工具卡片发送，保留卡片及原生消息关联。
+  - `channel-feishu.task-card-updated`：受管任务状态卡创建或更新，携带 receipt、revision 与来源消息。
 - **可调用工具**：
   - `channel-feishu_status`：查询连接、机器人身份、补收及渲染状态。
   - `channel-feishu_history`：分页查询获准会话或线程的指定时间区间历史。
   - `channel-feishu_message`：通过共享投递发送文字或多媒体，并可指定原生replyTo。
   - `channel-feishu_card`：发送原生自定义或模板卡片，并可指定原生replyTo。
+  - `channel-feishu_task_card`：创建、更新、读取一张受管任务状态卡：同一条原生消息 PATCH、固定状态词与两个短列表；新文字撤销旧卡按钮，按钮只产生无授权通知。
 - **功能**：
   - 接收解析：解析文字、富文本、图片、文件、音频、视频和卡片消息。
   - 恢复补收：按固定截止时间、水位与原生ID补收可访问的已知会话消息。
