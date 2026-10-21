@@ -22,7 +22,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 	expect(latestRelease(["v0.2.0", "v0.3.0-beta.1", "v0.3.0-beta.2"], true)).toBe("v0.3.0-beta.2");
 	expect(compareVersions("0.2.26102001-beta.1", "0.2.26102001")).toBe(-1);
 	expect(compareVersions("0.2.26102001-beta.10", "0.2.26102001-beta.2")).toBe(1);
-	expect(compareVersions("0.2.26102001", "0.2.26102001-beta.1")).toBe(1);
+	expect(compareVersions("0.2.26102002", "0.1.2026102001")).toBe(1);
 	expect(selectChangelog("## [0.2.0]\nSecond\n\n## [0.1.0]\nFirst\n", "0.1.0", "0.2.0")).toBe("## [0.2.0]\nSecond");
 	const info = await releaseInfo();
 	expect(info.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/u);

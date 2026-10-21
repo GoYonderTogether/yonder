@@ -70,7 +70,7 @@ function normalizeVersion(version: string): string {
 	if (!versionPattern.test(version)) throw new Error(`Invalid release version: ${version}`);
 	return version.replace(/^v/u, "");
 }
-/** Highest release tag. Stable by default; pass `prerelease` to include test builds such as `v0.2.26102001-beta.1`. */
+/** Highest release tag. Stable by default; pass `prerelease` to include test builds such as `v0.2.26102002`. */
 export function latestRelease(tags: string[], prerelease = false): string {
 	const versions = tags.filter(
 		(tag) => tag.startsWith("v") && versionPattern.test(tag) && (prerelease || !tag.includes("-")),

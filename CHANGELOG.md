@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.26102002] - 2026-10-20
 
 - 内化 pi-durable 1.3.0：从 GoYonderTogether/pi 的 yonder/1.3 源码 fork 同步为 workspace，删除安装补丁与 postinstall，其他 pi 依赖仍取上游 npm。
 - 中断恢复：yonder.yaml.retry 可配置次数、基础和最大延迟，默认 10 次、2 秒起、5 分钟封顶；连续失败及退避重启共用一条提示，重启提示按运行去重。耗尽以明确 error 终结，退避可立即取消，close 清理计时器。
