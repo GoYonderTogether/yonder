@@ -242,10 +242,21 @@ export interface Channel {
 	id: string;
 	kinds: string[];
 	output: { stream: boolean; attachments: boolean };
+	login?(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult>;
 	start(io: ChannelIO): Promise<void>;
 	stop(signal?: AbortSignal): Promise<void>;
 	send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>;
 	stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string, signal?: AbortSignal): Promise<Delivery>;
+}
+export interface ChannelLoginResult {
+	status: string;
+	instance: string;
+	qrcodeUrl?: string;
+	expiresAt?: string;
+	peer?: string;
+	account?: Ref;
+	person?: Ref | null;
+	contextAvailable?: boolean;
 }
 export interface ChannelIO {
 	emit(e: EventInput): Promise<YEvent>;

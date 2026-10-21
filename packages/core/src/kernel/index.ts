@@ -211,6 +211,29 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
 		}
 		const skills = skillsFor(home, config, loaded, log);
+		const loginChannel = async (
+			request: { instance?: string; action?: "start" | "poll"; verifyCode?: string },
+			signal: AbortSignal,
+		) => {
+			if (
+				request.instance !== undefined &&
+				(typeof request.instance !== "string" || !/^[a-z0-9-]+$/.test(request.instance))
+			)
+				throw new Error("Invalid channel instance");
+			if (request.action !== undefined && !["start", "poll"].includes(request.action))
+				throw new Error("Invalid channel login action");
+			if (
+				request.verifyCode !== undefined &&
+				(typeof request.verifyCode !== "string" || !/^\d{1,12}$/.test(request.verifyCode))
+			)
+				throw new Error("Invalid channel verification code");
+			const channel = request.instance
+				? loaded.channels.get(request.instance)
+				: [...loaded.channels.values()].find((channel) => channel.login);
+			if (!channel?.login) throw new Error("No configured login-capable channel; configure a channel instance first");
+			return channel.login(request.action ?? (request.verifyCode ? "poll" : "start"), signal, request.verifyCode);
+		};
+
 		const promptOptions: PromptOptions = {
 			home,
 			version: packageVersion,
@@ -262,8 +285,15 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			agents,
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
-				if (!channel || config.channels?.[channel]?.type !== "feishu") return Promise.resolve(undefined);
-				return runChannelCommand(session, event, { store, sessions, delivery, skills: skills.inspect });
+				if (!channel || !["feishu", "wechat-ilink", "cli"].includes(config.channels?.[channel]?.type ?? ""))
+					return Promise.resolve(undefined);
+				return runChannelCommand(session, event, {
+					store,
+					sessions,
+					delivery,
+					skills: skills.inspect,
+					login: (instance) => loginChannel(instance ? { instance } : {}, new AbortController().signal),
+				});
 			},
 			onStart: delivery.onStart,
 			onRun: (session, run) => completeRun(session.id, run),
@@ -385,6 +415,15 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
+			channels: {
+				list: () =>
+					[...loaded.channels].map(([id, channel]) => ({
+						instance: id,
+						type: config.channels?.[id]?.type,
+						login: Boolean(channel.login),
+					})),
+				login: loginChannel,
+			},
 			sessions: { ...sessions.api, observe: observeSession },
 			releaseResult: (data: UpdateResult) => {
 				if (resolve(data.home) !== home) throw new Error("Update result belongs to another home");

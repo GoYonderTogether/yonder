@@ -631,6 +631,22 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			if (channel) await enterChannel(channel.id);
 			return;
 		}
+		if (/^connect(?:\s+[a-z0-9-]+)?$/.test(name)) {
+			const instance = name.split(/\s+/)[1];
+			const result = await call<{ instance: string; status: string; qrcodeUrl?: string }>(
+				"channels.login",
+				instance ? { instance } : {},
+			);
+			notice(
+				[
+					`渠道 ${result.instance}: ${result.status}`,
+					result.qrcodeUrl ? `请用微信扫码：[打开接入链接](${result.qrcodeUrl})` : undefined,
+				]
+					.filter(Boolean)
+					.join("\n"),
+			);
+			return;
+		}
 		if (name === "stop") return stop();
 		if (name === "close") {
 			if (info?.session.mode !== "task" || info.session.close !== "manual" || target.channel)

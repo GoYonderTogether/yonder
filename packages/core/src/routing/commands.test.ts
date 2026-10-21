@@ -9,7 +9,7 @@ import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { chatCommand, runChannelCommand } from "./commands.js";
 
-async function setup() {
+async function setup(level = "readonly") {
 	const db = await openDatabase(":memory:");
 	const store = await createStore(db);
 	const session: SessionInfo = {
@@ -28,7 +28,7 @@ name: Main
 owner: person:owner
 defaultProfile: guest
 profiles:
-  guest: { level: readonly }
+  guest: { level: ${level} }
 bindings: []
 `,
 		"agent.yaml",
@@ -81,7 +81,7 @@ test("help uses shared commands and excludes commands absent from the CLI", asyn
 		expect(result?.text).toContain("/skills");
 		expect(result?.text).toContain("/stop");
 		expect(result?.text).not.toMatch(/\/(status|history)\b/);
-		expect(channelChatCommands.map(({ name }) => name)).toEqual(["session", "skills", "stop", "help"]);
+		expect(channelChatCommands.map(({ name }) => name)).toEqual(["session", "connect", "skills", "stop", "help"]);
 		expect(chatCommands.some(({ name }) => name === "history" || name === "status")).toBe(false);
 	} finally {
 		await ctx.db.close();
@@ -130,5 +130,33 @@ test("escaped slash text is ordinary input and /new reports terminal-only", asyn
 		expect(ctx.sends).toHaveLength(1);
 	} finally {
 		await ctx.db.close();
+	}
+});
+
+test("connect commands require admin+network and use the shared channel login without a model", async () => {
+	for (const [level, allowed] of [
+		["readonly", false],
+		["bypass", true],
+	] as const) {
+		const ctx = await setup(level);
+		let calls = 0;
+		try {
+			const result = await runChannelCommand(ctx.session, event(`connect-${level}`, "/connect wechat-primary"), {
+				store: ctx.store,
+				sessions: ctx.sessions,
+				delivery: ctx.delivery,
+				skills,
+				login: async (instance) => {
+					calls++;
+					return { status: "wait", instance: instance!, qrcodeUrl: "https://example.invalid/protocol-login" };
+				},
+			});
+			expect(calls).toBe(allowed ? 1 : 0);
+			expect(result?.status).toBe(allowed ? "done" : "error");
+			if (allowed) expect(result?.text).toContain("https://example.invalid/protocol-login");
+			else expect(result?.text).toContain("admin + network");
+		} finally {
+			await ctx.db.close();
+		}
 	}
 });
