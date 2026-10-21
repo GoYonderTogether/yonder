@@ -95,6 +95,17 @@ export async function createStore(
 		return event;
 	}
 	async function findInput(tx: DbExecutor, input: EventInput): Promise<YEvent | undefined> {
+		if (input.type === "runtime.tool-result") {
+			const { session, job } = input.data as { session?: unknown; job?: unknown };
+			if (typeof session !== "string" || typeof job !== "string") return;
+			const row = await tx.get<EventRow>(
+				"SELECT * FROM y_events WHERE type = ? AND json_extract(data, '$.session') = ? AND json_extract(data, '$.job') = ? ORDER BY id LIMIT 1",
+				input.type,
+				session,
+				job,
+			);
+			return row ? eventRow(row) : undefined;
+		}
 		const msgId = (input.data as { msgId?: unknown }).msgId;
 		if (typeof msgId !== "string" || !msgId || !input.conv?.startsWith("conv:")) return;
 		const prefix = input.conv.split(":").slice(0, 2).join(":") + ":";

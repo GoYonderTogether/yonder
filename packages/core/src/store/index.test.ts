@@ -45,3 +45,46 @@ test("message attempts deduplicate per generation and preserve old run-wide atte
 		await db.close();
 	}
 });
+
+test("background results use session/job identity while preserving channel message and command dedupe", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const observed: string[] = [];
+		const store = await createStore(db, undefined, false, (event) => {
+			observed.push(event.id);
+		});
+		const conv = "conv:feishu:acceptance";
+		const msgId = "om_same_source";
+		const results = [];
+		for (const job of ["1", "2", "3"]) {
+			const event = await store.events.record({
+				type: "runtime.tool-result",
+				conv,
+				data: { session: "main", job, msgId, text: `Result of job ${job}` },
+			});
+			results.push(event);
+			const repeated = await store.events.record({
+				type: "runtime.tool-result",
+				conv,
+				data: { session: "main", job, msgId, text: "Repeated completion must retain the first receipt" },
+			});
+			expect(repeated).toEqual(event);
+			expect((await store.events.get(event.id))?.data).toMatchObject({ job, text: `Result of job ${job}` });
+		}
+		expect(new Set(results.map((event) => event.id)).size).toBe(3);
+		const other = await store.events.record({
+			type: "runtime.tool-result",
+			conv,
+			data: { session: "other", job: "1", msgId },
+		});
+		expect(results.map((event) => event.id)).not.toContain(other.id);
+		for (const type of ["message.in", "channel.command"]) {
+			const input = { type, conv, data: { msgId } };
+			expect(await store.events.record(input)).toEqual(await store.events.record(input));
+		}
+		expect(observed).toHaveLength(6);
+		expect((await store.events.query({ type: "runtime.tool-result" })).events).toHaveLength(4);
+	} finally {
+		await db.close();
+	}
+});

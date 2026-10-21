@@ -40,7 +40,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			// One input only. End the first run while the real tool is detached, so
 			// the background completion must start its own streamed follow-up.
 			socket.write(
-				'First say exactly M43_START as ordinary assistant text. Then call bash exactly once with command "sleep 18; printf M43_TOOL_DONE" and background:true. After it returns running, say M43_WAITING and end your response; do not poll process. When the automatic background completion arrives, say M43_RESUMED as ordinary text, call bash with command "printf M43_CHECKED", then finish with M43_FINAL. Never ask for another user input.\n',
+				'Execute the complete workflow below. M43_START must be commentary in the same assistant message that calls bash, never a final answer. Do not end the initial response before actually starting the background tool. Say M43_START and call bash exactly once with command "sleep 18; printf M43_TOOL_DONE" and background:true. After it returns running, say M43_WAITING and end your response; do not poll process. When the automatic background completion arrives, say M43_RESUMED as ordinary text, call bash with command "printf M43_CHECKED", then finish with M43_FINAL. Never ask for another user input.\n',
 			);
 			await expect
 				.poll(() => packets.filter((p) => p.part.type === "final").length, { timeout: 90000 })
