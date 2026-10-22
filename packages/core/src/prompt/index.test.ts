@@ -81,6 +81,13 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 		const session = { id: "1", agent: null, profile: "default", cwd, resolved: resolveProfile({ level }) };
 		const sections = await systemSections(session, options);
 		expect(sections).toContain(commonPrompt);
+		expect(commonPrompt).toContain(
+			"For a new user request that needs tools or extended execution, first send one brief, specific response",
+		);
+		expect(commonPrompt).toContain("Simple requests you can answer directly need no preliminary acknowledgement");
+		expect(commonPrompt).toContain(
+			"Never claim to have started, completed, or verified work unless you actually have.",
+		);
 		expect(sections).toContain(runtimePrompt);
 		expect(sections).not.toContain(residentPrompt);
 		expect(sections.includes(cliPrompt)).toBe(level === "standard");
