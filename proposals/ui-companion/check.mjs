@@ -1,18 +1,35 @@
 import assert from "node:assert/strict";
-import { emptyState, readState, recordChoice, recordNote } from "./state.mjs";
+import { beginTask, completeStep, emptyState, initialTask, readState, validateCard } from "./state.mjs";
 
-const draft = { ...emptyState(), draft: "收起后，保留我没写完的反馈。" };
-assert.deepEqual(readState(JSON.stringify(draft)), draft, "重开原型不能丢失草稿");
-const choice = recordChoice(draft, "character", 1);
-assert.equal(recordChoice(choice, "character", 2).history.length, 1, "重复选择不能重复记录");
-assert.equal(choice.draft, draft.draft, "选择卡片不能清空反馈草稿");
-const note = recordNote(choice, "  保留双星角色  ", 3);
-assert.equal(note.draft, "");
-assert.equal(note.history[0].text, "保留双星角色");
-assert.equal(note.history[1].kind, "choice");
-assert.deepEqual(readState(JSON.stringify(note)), note, "重启后保留记录与选择");
-assert.throws(() => recordChoice(note, "constructor", 4));
-assert.throws(() => recordNote(note, "  ", 4));
-assert.throws(() => readState('{"draft":42}'), /原记录未覆盖/);
-assert.throws(() => readState("broken"));
-console.log("Prototype state check passed: draft recovery, selection dedupe, note persistence, invalid input.");
+let state = beginTask(emptyState(), initialTask, "task-1");
+state = completeStep(state, "cards", 1);
+assert.equal(state.active.completed, false, "有下一步时不能提前完成");
+assert.equal(state.active.card.kind, "form");
+state = { ...state, active: { ...state.active, draft: "未写完的内容" } };
+assert.deepEqual(readState(JSON.stringify(state)), state, "重开保留当前窗口和草稿");
+state = completeStep(state, "收敛操作入口", 2);
+assert.equal(state.active.autoClose, true, "默认完成后收起");
+assert.equal(state.active.completed, true);
+assert.equal(state.active.steps[0].answer, "交互卡片");
+assert.equal(state.active.steps[1].answer, "收敛操作入口");
+assert.throws(() => completeStep(state, "重复完成", 3));
+state = beginTask(state, { ...initialTask, autoClose: false, next: undefined }, "task-2");
+state = completeStep(state, "window", 3);
+assert.equal(state.active.autoClose, false, "宿主可要求完成后保留");
+assert.equal(state.sessions[0].steps.length, 2, "历史保留完整步骤和原卡片");
+assert.equal(readState(JSON.stringify({ draft: "旧草稿", choice: null, history: [] })).draft, "旧草稿");
+assert.throws(() => validateCard({ ...initialTask, autoClose: "false" }));
+assert.throws(() =>
+	validateCard({
+		...initialTask,
+		options: [
+			{ id: "a", label: "一" },
+			{ id: "a", label: "二" },
+		],
+	}),
+);
+assert.throws(() => readState('{"draft":42}'));
+assert.throws(() => completeStep(beginTask(emptyState(), initialTask, "bad"), "unknown", 4));
+console.log(
+	"Passed: next step, default close, host keep-open, draft recovery, history snapshots, legacy data, input validation.",
+);

@@ -36,6 +36,7 @@ if (process.argv.includes("--native")) {
 	await writeFile(join(bundle, "Resources/index.html"), html);
 	for (const name of ["menubar-template.png", "menubar-template@2x.png"])
 		await copyFile(join(root, "brand/assets/macos", name), join(bundle, "Resources", name));
+	await copyFile(join(root, "brand/assets/png/yonder-mark-512.png"), join(bundle, "Resources/dock-mark.png"));
 	await writeFile(
 		join(bundle, "Info.plist"),
 		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>

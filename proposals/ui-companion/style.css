@@ -194,11 +194,11 @@ svg {
 	background: var(--tone);
 }
 .panel {
-	position: relative;
-	margin: 8px 32px 24px auto;
+	position: fixed;
+	margin: 0;
 	width: 400px;
 	height: 460px;
-	max-height: calc(100dvh - 88px);
+	max-height: calc(100dvh - 16px);
 	display: flex;
 	flex-direction: column;
 	border-radius: var(--radius-panel);
@@ -207,6 +207,12 @@ svg {
 	overflow: hidden;
 	transform-origin: 95% 0;
 	animation: rise var(--d2) var(--ease);
+	top: 72px;
+	right: 32px;
+	resize: none;
+	min-width: 320px;
+	min-height: 320px;
+	max-width: calc(100vw - 16px);
 }
 .panel-header {
 	position: relative;
@@ -258,39 +264,6 @@ svg {
 .icon-button:hover {
 	background: var(--tone);
 	color: var(--ink);
-}
-.more-menu {
-	position: absolute;
-	z-index: 2;
-	top: 60px;
-	right: 20px;
-	width: 160px;
-	padding: 6px;
-	border-radius: var(--radius-card);
-	background: var(--ground);
-	box-shadow: var(--shadow-float);
-}
-.more-menu button {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	width: 100%;
-	height: 40px;
-	padding: 0 12px;
-	font-size: var(--text-small);
-	border-radius: var(--radius-control);
-	background: transparent;
-	text-align: left;
-}
-.more-menu button:hover {
-	background: var(--tone);
-}
-.more-menu :where(#pin) svg {
-	width: 16px;
-	opacity: 0;
-}
-.more-menu :where(#pin[aria-pressed="true"]) svg {
-	opacity: 1;
 }
 .panel-scroll {
 	padding: 4px 28px 28px;
@@ -425,14 +398,19 @@ a {
 	text-underline-offset: 3px;
 }
 .reopen {
-	position: absolute;
-	top: 40%;
-	left: calc(50% - 40px);
-	width: 80px;
-	height: 80px;
+	padding: 2px;
+	display: grid;
+	place-items: center;
+	position: fixed;
+	top: auto;
+	left: auto;
+	width: 56px;
+	height: 56px;
 	border-radius: var(--radius-card);
 	background: var(--raised);
 	box-shadow: var(--shadow-soft);
+	right: 16px;
+	bottom: 24px;
 }
 .reopen .static-mark {
 	width: 52px;
@@ -460,6 +438,12 @@ a {
 	max-height: none;
 	box-shadow: none;
 	animation: none;
+	resize: none;
+	min-width: 0;
+	min-height: 0;
+	max-width: none;
+	top: 0;
+	right: 0;
 }
 @keyframes rise {
 	from {
@@ -487,8 +471,7 @@ a {
 		margin: 8px auto;
 		width: min(400px, calc(100% - 24px));
 	}
-	.icon-button,
-	.more-menu button {
+	.icon-button {
 		min-width: 44px;
 		height: 44px;
 	}
@@ -516,4 +499,126 @@ a {
 	button:active:not(:disabled) {
 		transform: none;
 	}
+}
+.preview-bar nav {
+	display: flex;
+	gap: 20px;
+	font-size: var(--text-small);
+	font-weight: 400;
+}
+.preview-bar a {
+	color: var(--muted);
+	text-decoration: none;
+}
+.preview-bar a[aria-current="page"] {
+	color: var(--ink);
+}
+
+.panel-header,
+.panel-scroll {
+	cursor: grab;
+}
+.panel :where(button, input, textarea, a, summary, [data-selectable]) {
+	cursor: auto;
+}
+.panel :where(button, a, summary) {
+	cursor: pointer;
+}
+.panel :where(textarea, input) {
+	cursor: text;
+}
+
+.pending-dot {
+	position: absolute;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--radius-full);
+	background: var(--accent);
+	right: 8px;
+	top: 8px;
+}
+.history-entry {
+	width: 100%;
+	padding: 16px;
+	margin: 0 0 8px;
+	text-align: left;
+	border-radius: var(--radius-control);
+	background: var(--tone);
+}
+.history-entry strong {
+	display: block;
+	font-size: var(--text-small);
+	font-weight: 500;
+}
+.history-entry small,
+.legacy {
+	display: block;
+	font-size: var(--text-caption);
+	color: var(--muted);
+	margin-top: 4px;
+}
+#replay details {
+	padding: 12px 0;
+}
+#replay summary {
+	font-size: var(--text-small);
+}
+.replay-answer {
+	padding: 12px;
+	background: var(--tone);
+	border-radius: var(--radius-control);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+#replay time {
+	font-size: var(--text-caption);
+	color: var(--muted);
+}
+#done-summary {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+:where(body)[data-surface="inline"] .panel {
+	position: relative;
+	top: auto;
+	right: auto;
+	margin: 72px auto;
+	width: min(560px, calc(100% - 32px));
+	height: auto;
+	min-height: 0;
+	max-height: none;
+	resize: none;
+	box-shadow: none;
+	background: transparent;
+}
+:where(body)[data-surface="inline"] .panel-header,
+:where(body)[data-surface="inline"] #launcher {
+	display: none;
+}
+:where(body)[data-surface="inline"] .panel-scroll {
+	padding: 24px;
+	cursor: auto;
+	background: var(--raised);
+	border-radius: var(--radius-card);
+}
+:where(body)[data-surface="inline"] #done-view h1 {
+	font-size: var(--text-body);
+	margin-bottom: 8px;
+}
+
+@media (max-width: 600px) {
+	.preview-bar {
+		gap: 8px;
+	}
+	.preview-bar nav {
+		gap: 12px;
+		font-size: var(--text-caption);
+	}
+	.preview-bar > span {
+		display: none;
+	}
+}
+
+:where(body)[data-surface="inline"] .preview-bar {
+	display: none;
 }

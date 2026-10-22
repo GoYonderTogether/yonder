@@ -1,56 +1,13 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>Yonder · 交互小窗</title>
-  <style>/* STYLES */</style>
-</head>
-<body>
-  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
-    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
-    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
-    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
-    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m5-5-5 5 5 5"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
-  </defs></svg>
-  <header class="preview-bar"><span>Yonder <span class="preview-label">UI 原型</span></span><button type="button" id="launcher" aria-label="收起 Yonder" aria-expanded="true"><span class="static-mark"></span></button></header>
-  <main id="panel" class="panel" aria-label="Yonder 交互小窗">
-    <header class="panel-header">
-      <button type="button" id="character-button" class="character-button" aria-label="Yonder，点击看看角色动效" title="点击看看角色动效"><svg id="character" aria-hidden="true"></svg></button>
-      <span class="name">Yonder</span>
-      <div class="actions">
-        <button type="button" id="more" class="icon-button" aria-label="更多" aria-expanded="false" aria-controls="more-menu"><svg aria-hidden="true"><use href="#i-more"/></svg></button>
-        <button type="button" id="close" class="icon-button" aria-label="收起" title="收起 · Esc"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
-      </div>
-      <nav id="more-menu" class="more-menu" aria-label="更多操作" hidden>
-        <button type="button" id="saved">已保存</button>
-        <button type="button" id="about">关于原型</button>
-        <button type="button" id="pin" aria-pressed="false">保持打开<svg aria-hidden="true"><use href="#i-check"/></svg></button>
-      </nav>
-    </header>
-    <div class="panel-scroll">
-      <section id="choice-view" class="view">
-        <p class="context">下一轮设计</p><h1>从哪里开始？</h1>
-        <section class="choices" aria-label="选择设计重点">
-          <button type="button" data-choice="window"><span>小窗体验</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
-          <button type="button" data-choice="character"><span>角色动效</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
-          <button type="button" data-choice="cards"><span>交互卡片</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
-        </section>
-      </section>
-      <section id="compose-view" class="view" hidden>
-        <button type="button" class="back context" id="change-choice"><svg aria-hidden="true"><use href="#i-back"/></svg>下一轮设计</button>
-        <h1 id="chosen-title">补充一个想法</h1>
-        <form id="note-form"><label for="note" class="sr-only">补充想法</label><textarea id="note" rows="3" maxlength="2000" placeholder="还有想补充的？"></textarea><button type="submit" id="finish" class="primary">完成<svg aria-hidden="true"><use href="#i-check"/></svg></button></form>
-      </section>
-      <section id="history-view" class="view" hidden><button type="button" class="back context return"><svg aria-hidden="true"><use href="#i-back"/></svg>返回</button><h1>已保存</h1><div id="history"></div></section>
-      <section id="read-view" class="view" hidden><button type="button" class="back context return"><svg aria-hidden="true"><use href="#i-back"/></svg>返回</button><h1>用完，就收起。</h1><p class="reading">双星角色、选择与反馈，都在同一个小窗里。关掉窗口，未写完的内容也会保留。</p><p class="reading secondary-text">本原型仅在本机保存；尚未接入 Agent、语音和渠道发送。</p><p class="source">风格沿用 Yonder 名片。<br>卡片交互参考 <a href="https://www.openui.com/demos" target="_blank" rel="noreferrer">OpenUI ↗</a> 与 <a href="https://www.assistant-ui.com/elements" target="_blank" rel="noreferrer">assistant-ui ↗</a>。</p></section>
-    </div>
-    <p id="storage-error" class="storage-error" role="alert" hidden></p>
-  </main>
-  <button type="button" id="reopen" class="reopen" aria-label="打开 Yonder" hidden><span class="static-mark"></span></button>
-  <p id="announcement" class="sr-only" role="status" aria-live="polite"></p>
-  <script type="module">/* SCRIPT */</script>
-</body>
-</html>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>Yonder</title><style>/* STYLES */</style></head><body>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v5l3 2"/></symbol><symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol><symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m5-5-5 5 5 5"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol></defs></svg>
+<header class="preview-bar"><span>Yonder</span><nav aria-label="显示方式"><a href="#window">独立窗口</a><a href="#notice">页面提醒</a><a href="#inline">聊天内嵌</a></nav><button type="button" id="launcher" aria-label="打开交互" aria-expanded="true"><span class="static-mark"></span></button></header>
+<main id="panel" class="panel" aria-label="交互窗口">
+<header class="panel-header" title="拖动空白处移动窗口"><div id="character-button" class="character-button"><svg id="character" aria-hidden="true"></svg></div><span class="name">Yonder</span><div class="actions"><button type="button" id="history-button" class="icon-button" aria-label="交互历史" title="交互历史"><svg aria-hidden="true"><use href="#i-history"/></svg></button><button type="button" id="close" class="icon-button" aria-label="收起" title="收起"><svg aria-hidden="true"><use href="#i-close"/></svg></button></div></header>
+<div class="panel-scroll">
+<section id="task-view" class="view"><p id="task-context" class="context">下一轮设计</p><h1 id="task-title">从哪里开始？</h1><section id="choices" class="choices" aria-label="选择"></section><form id="note-form" hidden><label for="note" class="sr-only">补充想法</label><textarea id="note" rows="3" maxlength="2000" placeholder="写下你的想法…"></textarea><button type="submit" id="finish" class="primary">完成<svg aria-hidden="true"><use href="#i-check"/></svg></button></form></section>
+<section id="done-view" class="view" hidden><p class="context">已完成</p><h1 id="done-title">已记录</h1><div id="done-summary" class="reading" data-selectable></div></section>
+<section id="history-view" class="view" hidden><button type="button" class="back context" id="history-back"><svg aria-hidden="true"><use href="#i-back"/></svg>返回当前交互</button><h1>交互历史</h1><div id="history"></div></section>
+<section id="replay-view" class="view" hidden><button type="button" class="back context" id="replay-back"><svg aria-hidden="true"><use href="#i-back"/></svg>交互历史</button><h1 id="replay-title">历史窗口</h1><div id="replay" data-selectable></div></section>
+</div><p id="storage-error" class="storage-error" role="alert" hidden></p></main>
+<button type="button" id="reopen" class="reopen" aria-label="待处理交互，点击展开" hidden><span class="static-mark"></span><span class="pending-dot"></span></button><p id="announcement" class="sr-only" role="status" aria-live="polite"></p><script type="module">/* SCRIPT */</script></body></html>
