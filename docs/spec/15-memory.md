@@ -100,9 +100,11 @@ status: open            # open | reviewed
   | `wechat-self` | `human-written` | `self: true` 的微信会话（§6.1(5)） |
   | `wechat` | `external` | 名单内其他微信会话 |
 
-  文件的 origin：`raw/` 与 `private/` 文件靠 frontmatter 的 `origin`；`mine/` 恒为 `human-written`；登记目录取配置值；`me/`、`life/`、`projects/`、月文档、周文档中非记录行的内容为 `derived`；周文档的记录行各按自己的来源标签。
+  文件的 origin：凡含记录行的文件（周文档、`private/YYYY-MM.md`）**逐行**按来源标签；其他内容按文件：`raw/` 靠 frontmatter 的 `origin`，`mine/` 恒为 `human-written`，登记目录取配置值，`me/`、`life/`、`projects/`、月文档、周文档的非记录行为 `derived`；`private/` 文件的 frontmatter 只需 `private: true`，非记录内容按 `derived`。
 - `[ ]` 未整理；`[x]` 已整理，行尾 `→ 去向` 记录去向（`me/now`、`me/profile`、`me/mind`、`plan`、`decision`、`output`、`project:<名>`、`none`）。
 - **正文一个字都不改**，整理只翻转标记并追加去向。用户在 Obsidian 里手动勾选等于自己接管了这条。
+- 正文里的换行写成缩进两个空格的续行，空行写成只含两个空格的行；一条记录因此始终是“一个以 `- [ ]` 或 `- [x]` 开头的行加若干缩进续行”。
+- 记录流按**到达顺序**追加；日期小标题格式 `### MM-DD 周一` … `### MM-DD 周日`，记录的日期与末尾小标题不同时才新增一个。`when`（补记）只决定记录进入哪个周文档和用哪个日期的小标题，不重排已有内容；`when` 晚于当前时间则拒绝。
 - 单条正文超过 `capture.inlineMax` 字符时，全文存为 `raw/YYYY-MM/<id>.md`，记录行只留前 200 字符与 `→ raw/…` 指针。
 - 标记就是去重依据：已 `[x]` 的条目重复整理为空操作。
 
@@ -131,6 +133,22 @@ status: open            # open | reviewed
 - `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
 - `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 记录的条目 id（该记录由插件自己从 owner 的消息确定性写入，不是模型写的；`{capture}` 记录不算）。否则只能标 `inferred`。同样不核验语义。`events.on` 不保证先于运行启动完成，所以运行刚开始时 `{chat}` 记录可能尚未写入：此时只能用①；找不到记录不代表用户没说过，也不得伪造证据。
 - `memory_me` 条目格式：`- 内容 {confirmed|inferred} [自 YYYY-MM-DD] (ref: …) ^id`；`supersede` 在原条目追加 `[至 YYYY-MM-DD]` 并移入文件末尾的 `## 历史`，不删除。
+
+### 5.1 参数与返回
+
+TypeBox 校验，未列出的字段不存在。返回为 JSON 文本（外部文本结果带 `externalContent: true`），写入类返回受影响的条目 id 与文件路径。`period` 缺省取当前周期；`path` 为根内相对路径，登记目录写作 `<name>:<相对路径>`。
+
+| 工具 | 参数 |
+|---|---|
+| `memory_status` | `{}` |
+| `memory_search` | `{ terms: string[1..8], match?: 'any'\|'all', zones?: string[], since?: 'YYYY-MM-DD', until?: 'YYYY-MM-DD', origin?: Origin[], limit?: 1..100（20）, includePrivate?: boolean }`。返回 `{ files: [{ path, hits: [{ line, origin, date?, text }] }], total, truncated }`，`text` 为命中行加前后各一行。`since/until` 作用于命中：记录行取其所在日期小标题，其他取文件 mtime |
+| `memory_read` | `{ path?: string, week?: 'YYYY-Www', fromLine?: ≥1（1）, lines?: 1..400（200）, includePrivate?: boolean }`，`path` 与 `week` 二选一；读 `private/` 须 `includePrivate: true`。返回 `{ path, origin, fromLine, toLine, totalLines, text, truncated }`，`text` 上限 12000 字符 |
+| `memory_capture` | `{ text: string, kind?: 'note'\|'material', by?: 'owner'\|'agent', title?: string, when?: ISO 日期或日期时间, private?: boolean }`。`material` 忽略 `by`（恒为 `{material}`），`title` 用作 raw 文件的 frontmatter 标题，`material` 与 `private` 不能同用 |
+| `memory_plan` | `get: { scope: 'vision'\|'year'\|'month'\|'week', period? }`；`propose: { scope: 'year'\|'month'\|'week', period?, items: [{ text, due?: 'YYYY-MM-DD' }] }`；`commit: { scope, period?, ids: string[] }`；`update: { scope: 'week', period?, id, status: 'done'\|'postponed'\|'dropped'\|'open' }`。`propose` 写入 `## 提议`，`commit` 把条目移入 `## 本周计划` / `## 月目标` / `## 年度目标`（`vision` 为 `## 愿景`）；`due` 写作 `📅 YYYY-MM-DD` |
+| `memory_review` | `pending: { week?, limit?: 1..200（50） }` 返回未整理条目 `{ id, week, time, source, text }`；`organize: { entries: [{ id, to }] }`，`to` 取 `me/now`、`me/profile`、`me/mind`、`plan`、`decision`、`output`、`project:<名>`、`none`；`section: { scope: 'week'\|'month', period?, name, mode: 'append'\|'replace', text }`，周可写 `决定/产出/复盘`，月可写 `月复盘/阶段变化`；`close: { week? }` |
+| `memory_me` | `read: { file?: 'now'\|'profile'\|'mind' }`；`add: { file, text, status: 'confirmed'\|'inferred', evidence?: string }`；`supersede: { id, text, status?, evidence? }`；`confirm: { id }` |
+| `memory_import` | `{ source: 'wechat', chat: string, since?, until?, dryRun?: boolean }`，返回 `{ read, written, skipped }` |
+| `memory_bootstrap` | `audit: { model? }`；`ack: { reason, snoozeDays? }`；`state: {}` |
 
 ## 6 采集与检索
 
