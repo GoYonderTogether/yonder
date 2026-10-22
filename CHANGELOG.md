@@ -2,9 +2,16 @@
 
 ## [Unreleased]
 
+## [0.2.26102205] - 2026-10-22
+
+### Added
+
+- progress-observer 自动进度通知改为显式 opt-in；只有管理员同时批准的 agent 与精确来源会话才允许触发判断及发送。此变更不包含 missing/stall 检测、owner inactivity 提醒或 ask 通知。
+
 ### Fixed
 
-- memory 自动归档事件现与 `capture.enabled` 共用显式 opt-in；默认/缺省不订阅，且只接受归档插件来源及 allowlist 聊天。
+- memory inbox、bootstrap、capture 与微信归档自动捕获均默认关闭，必须分别显式启用；配置的 channel/白名单本身不再隐式开启自动处理。
+- login operations 的显式 `loginOperations.enabled`（包括 `false`）优先于旧环境变量；`login_begin` 同时要求 `write` 与 `exec` capability，catalog 和 handler 均实施检查。
 
 ## [0.2.26102204] - 2026-10-22
 
