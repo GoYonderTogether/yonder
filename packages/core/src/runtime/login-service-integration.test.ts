@@ -36,7 +36,7 @@ it("integrates handler, real wrapper child, SQLite completion/outbox and bound-s
 			session: "bound-session",
 			agent: "agent",
 			event: { id: "source-event" },
-			capabilities: [],
+			capabilities: ["write", "exec"],
 			signal: new AbortController().signal,
 		} as unknown as ToolContext;
 		const pending = await service.handler({ provider: "fake" }, ctx);

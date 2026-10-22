@@ -16,6 +16,11 @@ import {
 export { watchConfig } from "./reload.js";
 export type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 
+/** Explicit administrator configuration wins; only an omitted setting consults the legacy opt-in. */
+export function isLoginOperationsEnabled(config: Pick<YonderConfig, "loginOperations">, legacyEnv?: string): boolean {
+	return config.loginOperations?.enabled ?? legacyEnv === "1";
+}
+
 export interface WorkspaceFiles {
 	readFile(path: string): Promise<string>;
 	writeFile(path: string, text: string): Promise<void>;

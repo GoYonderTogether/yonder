@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesGlob, parseAgentConfig, parseYonderConfig, resolveProfile } from "./index.js";
+import { isLoginOperationsEnabled, matchesGlob, parseAgentConfig, parseYonderConfig, resolveProfile } from "./index.js";
 
 describe("config basics", () => {
 	it("login operations are formally configurable, default off, and reject invalid values", () => {
@@ -9,6 +9,12 @@ describe("config basics", () => {
 		});
 		for (const value of ["true", "yes", "1", "{ enabled: nope }"])
 			expect(() => parseYonderConfig(`schema: 1\nloginOperations: ${value}`, "yonder.yaml")).toThrow();
+	});
+	it("explicit loginOperations.enabled overrides the legacy environment opt-in", () => {
+		expect(isLoginOperationsEnabled({}, "1")).toBe(true);
+		expect(isLoginOperationsEnabled({}, "0")).toBe(false);
+		expect(isLoginOperationsEnabled({ loginOperations: { enabled: true } }, "0")).toBe(true);
+		expect(isLoginOperationsEnabled({ loginOperations: { enabled: false } }, "1")).toBe(false);
 	});
 	it("reads retry options from YAML and rejects invalid retry parameters", () => {
 		expect(

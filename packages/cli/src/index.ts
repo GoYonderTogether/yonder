@@ -18,6 +18,7 @@ import {
 	inspectHome,
 	inspectSkills,
 	installedService,
+	isLoginOperationsEnabled,
 	loadYonderConfig,
 	loginProvider,
 	manageService,
@@ -594,7 +595,7 @@ async function run(args: string[]): Promise<number> {
 		env.YONDER_HOME = home;
 		const config = await loadYonderConfig(home);
 		const kernel = await openKernel(home, {
-			...(config.loginOperations?.enabled === true || env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
+			...(isLoginOperationsEnabled(config, env.YONDER_ENABLE_LOGIN_OPERATIONS)
 				? {
 						loginHost: createLoginHostAdapter({
 							nodeExecutable: process.execPath,

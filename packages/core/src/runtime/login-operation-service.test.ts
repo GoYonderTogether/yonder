@@ -12,6 +12,7 @@ afterEach(async () => {
 });
 async function fixture(
 	delivery: (entry: { operationId: string }, key: string) => Promise<"delivered" | "unknown"> = async () => "delivered",
+	capabilities: string[] = ["write", "exec", "read"],
 ) {
 	const dir = await mkdtemp(join(tmpdir(), "login-service-"));
 	dirs.push(dir);
@@ -20,7 +21,7 @@ async function fixture(
 		session: "s",
 		agent: "a",
 		event: { id: "e" },
-		capabilities: [],
+		capabilities,
 		signal: new AbortController().signal,
 	} as unknown as ToolContext;
 	const runner = {
@@ -41,7 +42,7 @@ async function fixture(
 }
 it("register-bound handler invokes runner with internal capability but exposes only safe result", async () => {
 	const f = await fixture();
-	expect(f.service.tool.capabilities).toEqual(["write"]);
+	expect(f.service.tool.capabilities).toEqual(["write", "exec"]);
 	expect(f.service.statusTool.capabilities).toEqual(["read"]);
 	const output = await f.service.tool.execute({ provider: "example" }, f.ctx);
 	expect(f.runner.start).toHaveBeenCalledTimes(1);
@@ -54,6 +55,16 @@ it("register-bound handler invokes runner with internal capability but exposes o
 	expect(JSON.parse(output.text)).toMatchObject({ status: "pending" });
 	await expect(f.service.handler({ provider: "x", session: "forged" } as never, f.ctx)).rejects.toThrow();
 	await f.db.close();
+});
+it("login_begin rejects write-only and readonly callers before the host runner starts", async () => {
+	for (const capabilities of [["write"], ["read"]]) {
+		const f = await fixture(undefined, capabilities);
+		await expect(f.service.tool.execute({ provider: "example" }, f.ctx)).rejects.toThrow(
+			"Login requires write and exec capabilities",
+		);
+		expect(f.runner.start).not.toHaveBeenCalled();
+		await f.db.close();
+	}
 });
 it("recovers unacknowledged entries after restart and acknowledges confirmed delivery", async () => {
 	const f = await fixture();

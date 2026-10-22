@@ -31,6 +31,8 @@ const result = (value: unknown): ToolResult => ({ text: JSON.stringify(value) })
 export function createLoginOperationService(options: LoginOperationServiceOptions) {
 	const operations = new LoginOperations(options.db, options.now, options.ttlMs);
 	const handler = async (args: { provider: string }, ctx: ToolContext): Promise<ToolResult> => {
+		if (!ctx.capabilities.includes("write") || !ctx.capabilities.includes("exec"))
+			throw new Error("Login requires write and exec capabilities");
 		if (
 			!args ||
 			typeof args !== "object" ||
@@ -72,7 +74,7 @@ export function createLoginOperationService(options: LoginOperationServiceOption
 			{ provider: Type.String({ minLength: 1, maxLength: 64 }) },
 			{ additionalProperties: false },
 		),
-		capabilities: ["write"],
+		capabilities: ["write", "exec"],
 		execute: async (args, ctx) => handler(args as { provider: string }, ctx),
 	};
 	return {
