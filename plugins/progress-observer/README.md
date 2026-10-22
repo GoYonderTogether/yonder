@@ -1,5 +1,12 @@
 # Progress observer
 
+The plugin exposes these loader-valid tools (plugin ID `progress-observer`):
+
+- `progress-observer_task_register` registers a task using the current tool context's agent, session, and source event.
+- `progress-observer_task_bind` binds the registered task to a spawned task session only after runtime `task.linked` evidence verifies the source invocation. Register first, then bind; registration alone does not claim execution or completion.
+
+Both names use the required `<plugin-id>_` prefix. Keep these exact names in agent tool selections, integrations, and examples; the kernel validator is intentionally not relaxed and no unregistered aliases are provided.
+
 Automatic progress reporting is disabled unless `enabled: true`. Even when enabled, the observer will not invoke its decision model or send a message unless **both** administrator-maintained allowlists match the task's recorded owner and exact source conversation:
 
 ```yaml
