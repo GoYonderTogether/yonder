@@ -23,6 +23,7 @@ export interface Task {
 	pending: string[];
 	claimed?: string[];
 	attempt?: string;
+	sendEntered?: boolean;
 }
 export type Event = {
 	id: string;
@@ -164,10 +165,38 @@ export class Ledger {
 			t.attempt = attemptId;
 			t.claimed = [...new Set([...(t.claimed ?? []), ...d.evidence])];
 			t.delivery = "unknown";
+			delete t.sendEntered;
 			await this.save();
 			return attemptId;
 		}
 		return undefined;
+	}
+	/** Cancel only while the matching attempt is still unambiguously before send. */
+	async cancelBeforeSend(id: string, attemptId: string) {
+		const t = this.tasks.find((x) => x.id === id);
+		if (!t || t.attempt !== attemptId || t.delivery !== "unknown" || t.sendEntered) return false;
+		t.delivery = "not_sent";
+		delete t.attempt;
+		t.claimed = [];
+		delete t.sendEntered;
+		await this.save();
+		return true;
+	}
+	/** Durable boundary: once marked, send may have begun and cancellation is forbidden. */
+	async markSending(id: string, attemptId: string, minimumIntervalMs: number, now = Date.now()) {
+		const t = this.tasks.find((x) => x.id === id);
+		if (
+			!t ||
+			t.attempt !== attemptId ||
+			t.delivery !== "unknown" ||
+			t.sendEntered ||
+			(t.quietUntil && now < t.quietUntil) ||
+			(t.lastSent !== undefined && now - t.lastSent < minimumIntervalMs)
+		)
+			return false;
+		t.sendEntered = true;
+		await this.save();
+		return true;
 	}
 	async receipt(id: string, attemptId: string, state: "sent" | "failed" | "unknown") {
 		const t = this.tasks.find((x) => x.id === id);
