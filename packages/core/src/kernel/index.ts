@@ -4,6 +4,7 @@ import type { Models, Preset } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import {
 	type AgentConfig,
+	isLoginOperationsEnabled,
 	loadPresets,
 	loadYonderConfig,
 	resolveProfile,
@@ -327,7 +328,7 @@ export async function openKernel(
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
 			db,
-			...(config.loginOperations?.enabled === true || process.env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
+			...(isLoginOperationsEnabled(config, process.env.YONDER_ENABLE_LOGIN_OPERATIONS)
 				? {
 						loginOperations: {
 							runner: options.loginHost ?? {
