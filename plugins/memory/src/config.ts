@@ -16,7 +16,8 @@ export const configSchema = object({
 	timezone: str,
 	capture: optional(
 		object({
-			channels: optional(Type.Array(str)),
+			enabled: optional(Type.Boolean({ default: false })),
+			channels: optional(Type.Array(str, { default: [] })),
 			attachments: optional(Type.Boolean({ default: true })),
 			maxAttachmentBytes: number(26214400),
 			inlineMax: number(1000),
@@ -44,6 +45,12 @@ export const configSchema = object({
 		}),
 	),
 	inbox: optional(object({ rescanSeconds: number(60) })),
+	triggers: optional(
+		object({
+			inbox: optional(Type.Boolean({ default: false })),
+			bootstrap: optional(Type.Boolean({ default: false })),
+		}),
+	),
 	converter: optional(object({ command: str, args: optional(Type.Array(Type.String())), timeoutSeconds: number(120) })),
 	roots: optional(
 		Type.Array(

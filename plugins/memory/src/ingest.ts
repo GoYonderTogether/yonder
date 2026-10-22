@@ -53,6 +53,7 @@ export class Ingest {
 	}
 	async chat(event: YEvent) {
 		if (
+			this.config.capture?.enabled !== true ||
 			!(this.config.capture?.channels ?? []).includes(event.from?.split(":")[1] ?? "") ||
 			!(await owner(this.api, this.config, event))
 		)

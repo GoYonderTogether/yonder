@@ -36,20 +36,22 @@ export default definePlugin({
 		api.triggers.register({
 			id: "memory-bootstrap",
 			async start(io) {
+				if (config?.triggers?.bootstrap !== true) return;
 				configured();
 				await bootstrap!.trigger().start(io);
 			},
 			async stop() {
-				await bootstrap?.trigger().stop();
+				if (config?.triggers?.bootstrap === true) await bootstrap?.trigger().stop();
 			},
 		});
 		api.triggers.register({
 			id: "memory-inbox",
 			start: async (io) => {
+				if (config?.triggers?.inbox !== true) return;
 				await ingest?.trigger().start(io);
 			},
 			stop: async () => {
-				await ingest?.trigger().stop();
+				if (config?.triggers?.inbox === true) await ingest?.trigger().stop();
 			},
 		});
 		const store = config ? new Store(config.root) : undefined;

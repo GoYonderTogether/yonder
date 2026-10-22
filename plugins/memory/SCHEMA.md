@@ -2,6 +2,23 @@
 
 How to read and write this memory. The plugin generates this file once; the owner may edit it.
 
+## Automatic behavior (plugin configuration)
+
+All automatic behavior is opt-in and independent of tools/contexts:
+
+```yaml
+triggers:
+  inbox: false       # true starts inbox watcher + periodic rescan
+  bootstrap: false   # true runs startup audit + periodic checks
+capture:
+  enabled: false     # must be true, with channels configured, to capture messages/attachments
+  channels: []
+  attachments: false
+# Omit converter to ensure it is never invoked.
+```
+
+Omitting `triggers` or either flag means disabled; disabled trigger start/stop does not initialize or read the root. `capture.enabled` also defaults off even when channels are listed. Existing installations that depended on previous automatic behavior must deliberately set the respective flag to `true`; there is no automatic migration or watcher start. Manual memory tools and contexts do not depend on these flags.
+
 ## Rules
 
 1. Facts beat inferences. `confirmed` beats `inferred`. Concrete behaviour beats an abstract label.

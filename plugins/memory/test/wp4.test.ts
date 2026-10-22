@@ -16,7 +16,7 @@ async function setup(extra = {}) {
 	return h;
 }
 it("captures only owner on allowlisted channel; skips commands/empty messages and copies bounded attachments", async () => {
-	const h = await setup({ capture: { channels: ["test"], maxAttachmentBytes: 5 } }),
+	const h = await setup({ capture: { enabled: true, channels: ["test"], maxAttachmentBytes: 5 } }),
 		ingest = new Ingest(h.api, h.config, []);
 	const attachment = join(h.root, "input.txt");
 	await writeFile(attachment, "123");

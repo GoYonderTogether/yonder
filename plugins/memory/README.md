@@ -2,7 +2,7 @@
 
 用户个人资料库插件，独立于 agent 工作区。当前实现 WP1–WP7：个人记忆文件库、检索/整理、受限来源导入、审计启动、两个上下文贡献与六个按需 skills。它不是向量检索、自动画像或跨会话聊天记忆注入。
 
-Node ≥ 22.19；状态工具需要 read + admin。配置必填 `root`（绝对路径，位于所有 agent 工作区外）、`owner`（person: 引用）、`timezone`（IANA 时区）。`allowedAgents` 与 `allowedSourceConversations` 是管理员明确维护的身份边界：memory 读写工具与个人记忆上下文仅在 agent 位于前者、事件为 `message.in`、来源 acct 解析到 owner、且完整 `event.conv` 精确命中后者时授权；两项默认空。allowlist 不可由模型或工具参数改变。SDK 未提供私聊标志，因此配置会话是管理员逐会话批准，不代表系统自动识别私聊。无 conv 一律拒绝，不用 from/account 引用兜底。登记目录只读，root 与任一登记目录相同或互相包含时加载失败，不初始化。目录/固定文件只在触发器 start 创建，已有文件不覆盖。
+Node ≥ 22.19；状态工具需要 read + admin。自动行为均为 opt-in：`triggers.inbox` 与 `triggers.bootstrap` 缺省/省略时均为 `false`；禁用的 trigger start/stop 不初始化、扫描或读取 `root`。只有显式设为 `true` 才分别启动 inbox watcher/重扫或 bootstrap 首次审计/周期检查。`capture.enabled` 缺省为 `false`，即使配置了 `capture.channels` 也不自动处理消息或附件；需显式设 `enabled: true` 并配置 channel 才启用。旧配置若曾用 inbox/bootstrap 自动监控或消息自动 capture，迁移时须人工添加相应 `triggers.*: true` / `capture.enabled: true`；本升级不会自动恢复这些动作。手动工具和 contexts 不依赖这些开关。配置必填 `root`（绝对路径，位于所有 agent 工作区外）、`owner`（person: 引用）、`timezone`（IANA 时区）。`allowedAgents` 与 `allowedSourceConversations` 是管理员明确维护的身份边界：memory 读写工具与个人记忆上下文仅在 agent 位于前者、事件为 `message.in`、来源 acct 解析到 owner、且完整 `event.conv` 精确命中后者时授权；两项默认空。allowlist 不可由模型或工具参数改变。SDK 未提供私聊标志，因此配置会话是管理员逐会话批准，不代表系统自动识别私聊。无 conv 一律拒绝，不用 from/account 引用兜底。登记目录只读，root 与任一登记目录相同或互相包含时加载失败，不初始化。目录/固定文件只在触发器 start 创建，已有文件不覆盖。
 
 依赖精确版本：`@yonder/sdk@0.2.26102103` 提供插件接口；`typebox@1.3.27` 校验配置与参数；`yaml@2.9.1` 读取 frontmatter。不安装转换器，不自动访问微信内容，不安装到正式服务。
 
@@ -29,7 +29,20 @@ WP6 已接入名单内微信实时/历史、memory_import、memory_bootstrap和m
 
 `memory-core` 只读取 `me/now.md`、`me/profile.md`、`me/mind.md`，最多 `context.meChars`（默认 2000）字符；空缺、私密标记文件不贡献。`memory-week` 和 `memory-core` 仅在通过上述 agent、owner acct 与精确 conv allowlist 鉴权后提供个人记忆；无 conv、未批准会话、非 owner 或未批准 agent 均不贡献。贡献是确定性文件读取，不搜索 private 目录，不调用模型。六个 `skills/` 可由 profile 按需选用：morning-brief、evening-wrap、weekly-review、monthly-plan、onboarding、onboard-legacy。
 
-`SCHEMA.md` 是新库结构说明。插件不会读取其他 session/agent 的对话或工作区历史；记忆内容只通过配置根目录的静态文件与显式工具调用进入上下文。`admin` 是本插件工具要求，也允许 agent 修改自身工作区配置（SDK 当前能力词表的已知限制）。卸载只移除插件配置，不删除根目录；事件库记录不承诺可擦除。
+配置示例（触发器和自动 capture 全部关闭；这些开关不影响手动工具/contexts）：
+
+```yaml
+triggers:
+  inbox: false
+  bootstrap: false
+capture:
+  enabled: false
+  channels: []
+  attachments: false
+# 不配置 converter 时绝不调用转换器。
+```
+
+`plugins/memory/package.json` manifest 仍声明两个 trigger ID，以供宿主发现；每个 trigger 的运行行为由上面的受 schema 校验配置门控。`SCHEMA.md` 是新库结构说明。插件不会读取其他 session/agent 的对话或工作区历史；记忆内容只通过配置根目录的静态文件与显式工具调用进入上下文。`admin` 是本插件工具要求，也允许 agent 修改自身工作区配置（SDK 当前能力词表的已知限制）。卸载只移除插件配置，不删除根目录；事件库记录不承诺可擦除。
 
 周期任务示例（须在目标 agent 的配置中显式设置）：`payload: { kind: "event", type: "cron.tick", target: "memory-keeper", data: { name: "weekly-review" } }`。启用前请按 cron 插件实际作业 schema 配置并人工确认主人资料；不会自动创建作业。
 
