@@ -111,8 +111,8 @@ status: open            # open | reviewed
 | `memory_review` | write, admin | `pending`（列未整理条目）；`organize`（翻转标记并写去向）；`section`（写周/月文档的 `决定 / 产出 / 复盘 / 月复盘` 等节，`append` 或 `replace`）；`close`（周 `status: reviewed`，复盘节为空则拒绝；仍有 `[ ]` 时附警告但允许） |
 | `memory_me` | write, admin | `read`；`add`；`supersede`（关旧开新）；`confirm` |
 
-- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
-- `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 记录的条目 id（该记录由插件自己从 owner 的消息确定性写入，不是模型写的；`{capture}` 记录不算）。否则只能标 `inferred`。同样不核验语义。
+- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
+- `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 记录的条目 id（该记录由插件自己从 owner 的消息确定性写入，不是模型写的；`{capture}` 记录不算）。否则只能标 `inferred`。同样不核验语义。`events.on` 不保证先于运行启动完成，所以运行刚开始时 `{chat}` 记录可能尚未写入：此时只能用①；找不到记录不代表用户没说过，也不得伪造证据。
 - `memory_me` 条目格式：`- 内容 {confirmed|inferred} [自 YYYY-MM-DD] (ref: …) ^id`；`supersede` 在原条目追加 `[至 YYYY-MM-DD]` 并移入文件末尾的 `## 历史`，不删除。
 
 ## 6 采集与检索
@@ -121,7 +121,7 @@ status: open            # open | reviewed
 
 1. **对话**：`events.on('message.in')`。仅当发送者账号经 `identity` 关联到配置的 `owner`，且渠道在 `capture.channels` 里（默认空：不采集）时，追加一条 `{chat}` 记录，origin `human-said`。文本为空且无附件的跳过。`capture.attachments` 为真时，附件复制到 `inbox/`（受 `maxAttachmentBytes` 限制，超出只记元数据）。本入口**不**另发事件。
 2. **`memory_capture`**：见 §5。
-3. **inbox**：触发器 `memory-inbox` 监听 `inbox/`（文件变化加每 `rescanSeconds` 的重扫兜底），大小稳定后处理：忽略点文件与 `.part`、`.crdownload`、`.tmp`；计算 sha256，`manifest.json` 已有则移入 `archive/duplicates/` 并记一行，不重复入库；否则文本类（`.md/.markdown/.txt`）原样，其他类型在配置了 `converter` 时调用转换为 `.md`，转换失败保留原件并在 `memory_status` 报告；原件移入 `raw/YYYY-MM/<sha256前8位>-<原名>`；追加一条 `{inbox}` 记录（origin `external`）；发出事件 `memory.captured`。
+3. **inbox**：触发器 `memory-inbox` 监听 `inbox/`（文件变化加每 `rescanSeconds` 的重扫兜底），大小稳定后处理：忽略点文件与 `.part`、`.crdownload`、`.tmp`；计算 sha256，`manifest.json` 已有则移入 `archive/duplicates/` 并记一行，不重复入库；否则文本类（`.md/.markdown/.txt`）原样，其他类型在配置了 `converter` 时按 §10 的调用约定转换为 `.md`，转换失败（非零退出、超时、空输出）保留原件并在 `memory_status` 报告；原件移入 `raw/YYYY-MM/<sha256前8位>-<原名>`；追加一条 `{inbox}` 记录（origin `external`）；发出事件 `memory.captured`。
 4. **登记目录**：见 §6.4。
 
 ### 6.2 检索
@@ -206,11 +206,13 @@ plugins:
         maxAttachmentBytes: 26214400
         inlineMax: 1000
       inbox: { rescanSeconds: 60 }
-      converter: { command: <绝对路径> }   # 可选；缺省时仅文本类文件入库
+      converter: { command: <绝对路径>, args: [], timeoutSeconds: 120 }   # 可选；缺省时仅文本类文件入库
       roots:
         - { name: <名>, path: <绝对路径>, origin: human }
       context: { meChars: 2000 }
 ```
+
+**converter 调用约定**：不经 shell，argv 为 `[command, ...args, <输入文件绝对路径>]`；退出码 0 且标准输出非空视为成功，标准输出即 Markdown；超过 `timeoutSeconds` 终止并算失败。只把标准输出当文本，不执行其中任何内容。需要写输出目录的工具（如 docling）须由用户提供输出到标准输出的包装脚本。
 
 数值是可调默认值，不是实验结论。无效配置返回字段级错误，不跳过校验。`root` 与 `roots` 互相包含时 `memory_status` 报告；“root 不在 agent 工作区内”无法由插件确认，属配置者责任。
 
