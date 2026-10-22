@@ -44,6 +44,21 @@ G0 已通过（见 [g0-report.md](g0-report.md)）：规划方已补测转换器
 | 6 | 微信来源（`wechat-archive.material` 实时、`memory_import` 回填、`wechat:<chat>:<msgid>` 去重）；启动器 `memory-bootstrap`、`memory_bootstrap`（audit/ack/state）、审计与费用估算（`js-tiktoken` 精确版本、`api.models` 的目录价）；预设 `memory-keeper` | 先向我要 `wechat-context` 的可用性确认，**只用名单内会话**；实时与回填同一消息只记一次；`first-run` 恰好一条且 ack 后不重复；审计数字与实际一致且只读 |
 | 7 | 上下文 `memory-core`/`memory-week`（私密排除、owner 判断）、6 个 skill、`SCHEMA.md` 正文、README（规范 §13 要求的全部内容；cron 示例 payload 必须含 `kind: "event"`）、`docs/plugins.md` 条目由“规范已定，未实现”改为实际状态 | 真实模型验收规范 §12 的 1–8 条；未跑的标“未测” |
 
+## 复用清单（优先用成熟包，不手写）
+
+依据见 D50。精确版本锁定，引入前确认 `engines` 与仓库 Node ≥ 22.19 兼容：
+
+| 用途 | 采用 |
+|---|---|
+| inbox 文件监听与“大小稳定后处理” | `chokidar@5.0.0`，`awaitWriteFinish`；不要用 6.x（要求 Node ≥ 22.22） |
+| 原子写 | `write-file-atomic` |
+| ISO 周、时区 | `luxon` |
+| token 计数 | `gpt-tokenizer`（`o200k_base`） |
+| 文档转换 | 外部命令 `markitdown`（调用约定见规范 §10） |
+| frontmatter | 只读最小字段，用 `yaml` 或已有依赖；不引入 gray-matter、remark |
+
+若某包经核对不合适（许可、体积、行为不符），写入 `open-questions.md`，不要悄悄改回手写。
+
 ## 不属于你的事（不要做）
 
 - 不发布、不打 tag、不改正式版 launchd 服务、不修改正式 home 的 `yonder.yaml`、不安装到正式版。安装与发布由我与维护者另行执行。
