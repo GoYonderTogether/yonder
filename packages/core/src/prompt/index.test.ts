@@ -81,6 +81,10 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 		const session = { id: "1", agent: null, profile: "default", cwd, resolved: resolveProfile({ level }) };
 		const sections = await systemSections(session, options);
 		expect(sections).toContain(commonPrompt);
+		expect(commonPrompt).toContain("if the owner interjects, acknowledge briefly before continuing the original task");
+		expect(commonPrompt).toContain("an interjection alone does not cancel it");
+		expect(commonPrompt).toContain("If the direction changes, adjust the task accordingly.");
+		expect(commonPrompt).toContain("Do not promise that a running tool can be interrupted immediately.");
 		expect(sections).toContain(runtimePrompt);
 		expect(sections).not.toContain(residentPrompt);
 		expect(sections.includes(cliPrompt)).toBe(level === "standard");
