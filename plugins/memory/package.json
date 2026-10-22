@@ -19,7 +19,9 @@
 	"dependencies": {
 		"@yonder/sdk": "0.2.26102103",
 		"typebox": "1.3.27",
-		"yaml": "2.9.1"
+		"yaml": "2.9.1",
+		"luxon": "3.7.2",
+		"write-file-atomic": "6.0.0"
 	},
 	"yonder": {
 		"apiVersion": 1,
@@ -27,11 +29,16 @@
 		"entry": "./dist/index.js",
 		"contributes": {
 			"tools": [
-				"memory_status"
+				"memory_status",
+				"memory_capture"
 			],
 			"triggers": [
 				"memory-bootstrap"
 			]
 		}
+	},
+	"devDependencies": {
+		"@types/luxon": "3.7.6",
+		"@types/write-file-atomic": "4.0.3"
 	}
 }

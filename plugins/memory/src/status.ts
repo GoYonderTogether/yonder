@@ -3,8 +3,10 @@ import { access, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { DateTime } from "luxon";
 import type { Config } from "./config.js";
 import { metadata, readText, safePath, textFiles } from "./files.js";
+import { records } from "./records.js";
 
 const exec = promisify(execFile);
 export async function ready(path: string) {
@@ -38,13 +40,15 @@ export async function status(config: Config, signal: AbortSignal, errors: string
 			if (!path.startsWith("timeline/")) continue;
 			const text = await readText(config.root, path);
 			if (metadata(text).private === true) continue;
-			for (const line of text.split("\n"))
-				if (/^- \[ \] \d{2}:\d{2} \{[^}]+\}/.test(line)) {
-					pending++;
-					const id = /\^m([a-z0-9]+)[a-z0-9]{2}(?:\s|$)/.exec(line)?.[1];
-					const time = id ? Number.parseInt(id, 36) : (await stat(await safePath(config.root, path))).mtimeMs;
-					if (Number.isFinite(time)) oldest = Math.min(oldest ?? time, time);
-				}
+			const range = String(metadata(text).range ?? "").split("..")[0];
+			for (const entry of records(text, range || undefined)) {
+				if (entry.done) continue;
+				pending++;
+				const time = entry.date
+					? DateTime.fromISO(`${entry.date}T${entry.time}`, { zone: config.timezone }).toMillis()
+					: (await stat(await safePath(config.root, path))).mtimeMs;
+				if (Number.isFinite(time)) oldest = Math.min(oldest ?? time, time);
+			}
 		}
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;

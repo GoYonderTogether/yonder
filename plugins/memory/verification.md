@@ -28,3 +28,32 @@
 - 未做真实模型、正式安装、服务进程 PATH、Obsidian/微信归档与端到端采集验收。
 - 无新增下载依赖；精确使用已安装的 SDK 0.2.26102103、typebox 1.3.27、yaml 2.9.1。仓库根 package-lock.json 按本轮路径限制未修改，未声称 npm ci 的新增 workspace 锁文件接线已验证。
 - WP2–WP7 的能力未实现；不把初始化触发器注册视为 attention 节律完成。
+
+## WP2
+
+文件：新增 src/{calendar,capture,records,store}.ts、test/wp2.test.ts；修改 src/{index,status}.ts、package.json、README.md、verification.md；整理 proposals/memory/open-questions.md 的 Q4 已裁决状态（依据 c5f8e9d）。
+
+### 原始检查记录
+
+- `npm run build` 初步构建：通过，0 TypeScript 错误。
+- 新增测试后执行 `npm run build && npm run typecheck && npm test && npm run lint`：全部退出 0，build/typecheck 各 1 通过 / 0 失败 / 0 跳过，无用例计数。
+- npm test：Tests 207 passed / 0 failed / 23 skipped（230）；Test Files 54 passed / 0 failed / 11 skipped（65）。memory 共 12 项（WP1 5 + WP2 7）通过。
+- lint：228 files，0 errors / 204 warnings / 1 info，退出 0。格式预检仅警告，无失败。
+- 独立 checkPlugin：通过，errors=[]（另由 WP1 的契约测试再次调用）。
+
+### 已验证
+
+- 时区、DST、跨年 ISO 周、周四定月；40 个并发真实文件追加不丢行、id 不重复、日期标题不重复。
+- 正文换行/空行/原有缩进与 CRLF 保留；整理仅翻标记和追加去向，重复整理无写入；周节替换/追加不改末尾记录流。
+- 真实文件在读改写期间被修改：第一次冲突重读保留用户文本；第二次冲突拒绝，文件保留第二次用户编辑，原子写临时文件清理。
+- 长正文完整存 raw；来源及多行标题 frontmatter；material 忽略 by，发出 memory.captured 的契约参数；私密双来源同月追加，不进入 timeline；补记到达顺序不重排。
+- 未来日期、非法日期、material+private、未知参数、缺写能力、已取消调用被拒；日志仅元信息，无正文。status 的积压年龄改用记录日期标题与时间，支持补记。
+
+### 仅实现未做端到端验收
+
+- material 事件经 SDK 注册收集边界验证了发出参数；未接真实 Harness 事件库或绑定唤醒模型。
+- mtime 按规范在原子写临时文件创建后、内容写入前比对；未做跨进程压力或外部编辑器与最后 rename 同时发生的实时竞态验收。
+- 未运行真实模型（默认 23 skipped 保留），未访问用户 Obsidian/微信，未安装服务。
+- SDK collector 仅用于注册/事件调用边界，文件操作全部为临时目录中的真实 FS；未模拟模型或文件系统。
+- 精确依赖及用途见 README。npm 的 workspace 过滤安装报告 no workspace folder present，退出 0 但未安装目标包；确认后在隔离 /tmp 前缀安装相同精确版本并将 node_modules 放到 plugins/memory/node_modules（忽略目录），构建使用真实包。临时目录已清理；未修改根 package-lock.json，未声称全新 npm ci 已验证。
+- Q1–Q4 均已裁决；本包无新增规范待决项。WP3 可开始。
