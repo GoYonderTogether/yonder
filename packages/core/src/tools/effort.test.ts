@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { clampThinkingLevel } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
@@ -17,6 +17,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		const home = await mkdtemp("/tmp/yonder-effort-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const sockets: Socket[] = [];
+		const clients: Array<{ channel: string; packets: Array<{ type: string; text?: string; event?: YEvent }> }> = [];
 		try {
 			await initHome(home);
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
@@ -74,6 +75,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				const socket = createConnection(`${home}/.yonder/plugins/channel-cli/${channel}.sock`);
 				sockets.push(socket);
 				const packets: Array<{ type: string; text?: string; event?: YEvent }> = [];
+				clients.push({ channel, packets });
 				createInterface({ input: socket }).on("line", (line) => packets.push(JSON.parse(line)));
 				await new Promise<void>((done, reject) => {
 					socket.once("connect", done);
@@ -169,9 +171,34 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				.slice(before);
 			expect(created.every((e) => !Object.hasOwn(e.data, "effort"))).toBe(true);
 		} finally {
-			for (const socket of sockets) socket.destroy();
-			await kernel?.close();
-			await rm(home, { recursive: true, force: true });
+			try {
+				const directory = process.env.YONDER_TEST_EVIDENCE_DIR;
+				if (kernel && (directory || process.env.YONDER_KEEP_TEST_HOME === "1")) {
+					const running = kernel;
+					const events: YEvent[] = [];
+					let after: string | undefined;
+					do {
+						const page = await running.events.query({ limit: 1000, ...(after ? { after } : {}) });
+						events.push(...page.events);
+						after = page.next;
+					} while (after);
+					const sessions = await running.sessions.list({});
+					const transcripts = await Promise.all(
+						sessions.map(async (session) => ({
+							session: session.id,
+							entries: await running.sessions.transcript(session.id, { limit: 1000 }),
+						})),
+					);
+					const output = resolve(directory ?? home, `${basename(home)}-evidence.json`);
+					await mkdir(directory ?? home, { recursive: true });
+					await writeFile(output, JSON.stringify({ home, clients, events, sessions, transcripts }, null, 2));
+					console.log(`Effort test evidence: ${output}`);
+				}
+			} finally {
+				for (const socket of sockets) socket.destroy();
+				await kernel?.close();
+				if (process.env.YONDER_KEEP_TEST_HOME !== "1") await rm(home, { recursive: true, force: true });
+			}
 		}
 	},
 	420000,
