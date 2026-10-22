@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- memory 自动归档事件现与 `capture.enabled` 共用显式 opt-in；默认/缺省不订阅，且只接受归档插件来源及 allowlist 聊天。
+
 ## [0.2.26102204] - 2026-10-22
 
 ### Added
