@@ -108,6 +108,8 @@ export class Ingest {
 			/\.(part|crdownload|tmp)$/i.test(path)
 		)
 			return;
+		if (info.size > (this.config.capture?.maxAttachmentBytes ?? 26214400))
+			throw new Error("Inbox file exceeds configured size limit; original retained");
 		const bytes = await readFile(file),
 			sha = createHash("sha256").update(bytes).digest("hex"),
 			ctx = writeContext("memory.inbox", this.lifetime.signal);
@@ -119,12 +121,19 @@ export class Ingest {
 				await this.store.log(target, ctx);
 				return target;
 			}
-			const textType = /\.(md|markdown|txt)$/i.test(path);
-			if (!textType && !this.config.converter) throw new Error("Converter not configured; original retained in inbox");
+			const textType = /\.(md|markdown|txt)$/i.test(path),
+				converterConfig = this.config.converter;
+			if (!textType) {
+				const pdf = /\.pdf$/i.test(path) && bytes.subarray(0, 5).toString("ascii") === "%PDF-";
+				const docx = /\.docx$/i.test(path) && bytes.subarray(0, 4).equals(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+				if (!pdf && !docx) throw new Error("Unsupported or mismatched inbox file type; original retained");
+			}
+			if (!textType && !converterConfig) throw new Error("Converter not configured; original retained in inbox");
 			let converted: string | undefined;
 			if (!textType) {
 				try {
-					const converter = this.config.converter!;
+					if (!converterConfig) throw new Error("Converter not configured");
+					const converter = converterConfig;
 					const result = await exec(converter.command, [...(converter.args ?? []), file], {
 						signal: this.lifetime.signal,
 						timeout: (converter.timeoutSeconds ?? 120) * 1000,
