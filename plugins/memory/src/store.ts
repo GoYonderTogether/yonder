@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { appendFile, lstat, mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
-import writeFileAtomic from "write-file-atomic";
+import { dirname, join } from "node:path";
 import lockfile from "proper-lockfile";
+import writeFileAtomic from "write-file-atomic";
 import { safePath } from "./files.js";
 
 // Shared by instances in this process, so all plugin callers serialize writes to the same canonical file.
@@ -28,15 +29,21 @@ class Conflict extends Error {}
 
 // The in-memory queue avoids lock churn for same-process callers; the lockfile
 // coordinates separate plugin processes using the same root.
-async function withFileLock<T>(file: string, run: () => Promise<T>): Promise<T> {
+async function withFileLock<T>(root: string, file: string, run: () => Promise<T>): Promise<T> {
+	const lockDir = await safePath(root, ".memory/locks");
+	await mkdir(lockDir, { recursive: true });
+	const lockPath = join(lockDir, `${createHash("sha256").update(file).digest("hex")}.lock`);
 	try {
-		await writeFile(file, "", { flag: "wx" });
+		await writeFile(lockPath, "", { flag: "wx" });
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
 	}
-	const release = await lockfile.lock(file, { retries: { retries: 40, minTimeout: 25, maxTimeout: 250 }, stale: 30_000 });
+	const release = await lockfile.lock(lockPath, {
+		retries: { retries: 40, minTimeout: 25, maxTimeout: 250 },
+		stale: 30_000,
+	});
 	try {
-		if ((await lstat(file)).isSymbolicLink()) throw new Error("Symbolic links are not allowed");
+		if ((await lstat(lockPath)).isSymbolicLink()) throw new Error("Symbolic links are not allowed");
 		return await run();
 	} finally {
 		await release();
@@ -82,24 +89,28 @@ export class Store {
 	}
 	async log(path: string, ctx: WriteContext) {
 		const file = await this.target("log.md");
-		await serial(file, () => withFileLock(file, async () => {
-			ctx.signal.throwIfAborted();
-			await this.target("log.md");
-			await appendFile(
-				file,
-				`${new Date().toISOString()} ${ctx.op} ${path} ${ctx.id} by ${ctx.by} session:${ctx.session}\n`,
-				{ flag: "a" },
-			);
-		}));
+		await serial(file, () =>
+			withFileLock(this.root, file, async () => {
+				ctx.signal.throwIfAborted();
+				await this.target("log.md");
+				await appendFile(
+					file,
+					`${new Date().toISOString()} ${ctx.op} ${path} ${ctx.id} by ${ctx.by} session:${ctx.session}\n`,
+					{ flag: "a" },
+				);
+			}),
+		);
 	}
 	async edit(path: string, transform: (text: string | undefined) => string | Promise<string>, ctx: WriteContext) {
 		const file = await this.target(path);
 		await mkdir(dirname(file), { recursive: true });
-		return serial(file, () => withFileLock(file, async () => {
-			await this.target(path);
-			await mkdir(dirname(file), { recursive: true });
-			if (await this.change(file, transform, ctx.signal)) await this.log(path, ctx);
-		}));
+		return serial(file, () =>
+			withFileLock(this.root, file, async () => {
+				await this.target(path);
+				await mkdir(dirname(file), { recursive: true });
+				if (await this.change(file, transform, ctx.signal)) await this.log(path, ctx);
+			}),
+		);
 	}
 	async ensure(path: string, template: string, ctx: WriteContext) {
 		await this.edit(path, (text) => text ?? template, ctx);
@@ -107,14 +118,16 @@ export class Store {
 	async append(path: string, template: string, block: (text: string) => string, ctx: WriteContext) {
 		const file = await this.target(path);
 		await mkdir(dirname(file), { recursive: true });
-		await serial(file, () => withFileLock(file, async () => {
-			await this.target(path);
-			await mkdir(dirname(file), { recursive: true });
-			if (await this.change(file, (text) => text ?? template, ctx.signal)) await this.log(path, ctx);
-			const old = await readFile(file, "utf8");
-			ctx.signal.throwIfAborted();
-			await appendFile(file, `${old.endsWith("\n") ? "" : "\n"}${block(old)}`, { flag: "a" });
-			await this.log(path, ctx);
-		}));
+		await serial(file, () =>
+			withFileLock(this.root, file, async () => {
+				await this.target(path);
+				await mkdir(dirname(file), { recursive: true });
+				if (await this.change(file, (text) => text ?? template, ctx.signal)) await this.log(path, ctx);
+				const old = await readFile(file, "utf8");
+				ctx.signal.throwIfAborted();
+				await appendFile(file, `${old.endsWith("\n") ? "" : "\n"}${block(old)}`, { flag: "a" });
+				await this.log(path, ctx);
+			}),
+		);
 	}
 }
