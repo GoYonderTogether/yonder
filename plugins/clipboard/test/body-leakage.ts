@@ -3,8 +3,7 @@ export function containsBodyFragment(text: string, body: string, minCodePoints =
 	const points = Array.from(body);
 	if (points.length < minCodePoints) return false;
 	const fragments = new Set<string>();
-	for (let i = 0; i <= points.length - minCodePoints; i++)
-		fragments.add(points.slice(i, i + minCodePoints).join(""));
+	for (let i = 0; i <= points.length - minCodePoints; i++) fragments.add(points.slice(i, i + minCodePoints).join(""));
 	for (const fragment of fragments)
 		if (text.includes(fragment) || text.includes(JSON.stringify(fragment).slice(1, -1))) return true;
 	return false;
