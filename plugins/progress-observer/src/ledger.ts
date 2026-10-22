@@ -203,10 +203,16 @@ export function stateHash(t: Task) {
 		.digest("hex")
 		.slice(0, 16);
 }
+export function executorStatusText(executor: Task["executor"]): string {
+	if (executor === "interrupted") return "执行中断；尚未核实续跑。";
+	if (executor === "missing") return "未找到执行者的可靠记录；尚未核实续跑。";
+	return `执行状态：${executor}`;
+}
+
 export function safeFallback(t: Task): Decision {
 	const evidence = t.pending.slice(-3);
-	if (t.executor === "missing" || t.executor === "interrupted")
-		return { decision: "notify", evidence, text: `执行者状态：${t.executor}；尚未核实续跑。` };
+	if (t.executor === "interrupted" || t.executor === "missing")
+		return { decision: "notify", evidence, text: executorStatusText(t.executor) };
 	if (t.delivery === "unknown") return { decision: "update", evidence, text: "投递结果未知；不会自动重发。" };
 	return { decision: "skip", evidence: [], text: "" };
 }

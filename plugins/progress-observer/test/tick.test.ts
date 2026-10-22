@@ -11,7 +11,12 @@ async function boot(dir: string, config: object, send: (input: unknown) => Promi
 		config,
 		paths: { data: dir },
 		log: { error: vi.fn() },
-		events: { on: vi.fn(), query: async () => ({ events: [] }) },
+		events: {
+			on: (type: string, handler: (event: any) => Promise<void>) => {
+				api.handler = handler;
+			},
+			query: async () => ({ events: [] }),
+		},
 		tools: { register: vi.fn() },
 		triggers: {
 			register: (value: unknown) => {
@@ -68,6 +73,43 @@ it("enabled tick sends fallback once; durable unknown survives restart without r
 	}
 });
 
+it("real run.end aborted event reaches tick and sends one interrupted notice; replay dedupes and active is not a false alarm", async () => {
+	vi.useFakeTimers();
+	const dir = await mkdtemp(join(tmpdir(), "observer-interrupted-integration-"));
+	try {
+		const ledger = await new Ledger(dir).open();
+		for (let i = 0; i < 4; i++) await ledger.create(`t${i}`, `task ${i}`, { target: "conv:matrix:room" });
+		for (let i = 0; i < 4; i++) await ledger.bindExecutor(`t${i}`, `child${i}`);
+		const send = vi.fn(async () => ({ ok: true }));
+		const { trigger, api } = await boot(dir, { enabled: true, intervalMs: 1000 }, send);
+		const aborted = {
+			id: "aborted",
+			type: "run.end",
+			ts: new Date().toISOString(),
+			data: { session: "child0", status: "aborted" },
+		};
+		await api.handler(aborted);
+		await api.handler(aborted);
+		await api.handler({
+			id: "active",
+			type: "session.input",
+			ts: new Date().toISOString(),
+			data: { session: "child1" },
+		});
+		await vi.advanceTimersByTimeAsync(1000);
+		await vi.advanceTimersByTimeAsync(1000);
+		await trigger.stop();
+		expect(send).toHaveBeenCalledTimes(1);
+		expect(send.mock.calls[0][0].text).toContain("执行中断");
+		expect(send.mock.calls[0][0].text).toContain("未核实续跑");
+		const tasks = await ledger.list();
+		expect(tasks[0].completed).not.toBe(true);
+		expect(tasks[1].executor).toBe("none");
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
 it("enabled configured model tick selects evidence and sends only program-rendered facts", async () => {
 	vi.useFakeTimers();
 	const dir = await mkdtemp(join(tmpdir(), "observer-tick-model-"));
@@ -95,7 +137,7 @@ it("enabled configured model tick selects evidence and sends only program-render
 		await instance.trigger.stop();
 		expect(completeSimple).toHaveBeenCalledTimes(1);
 		expect(send).toHaveBeenCalledTimes(1);
-		expect(send.mock.calls[0][0].text).toContain("执行状态：missing");
+		expect(send.mock.calls[0][0].text).toContain("未找到执行者的可靠记录；尚未核实续跑。");
 		expect(send.mock.calls[0][0].text).not.toContain("FALSE");
 		expect(send.mock.calls[0][0].text).not.toContain("PRIVATE LABEL");
 	} finally {
