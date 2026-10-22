@@ -1,13 +1,7 @@
 // Kept at the permitted pi import boundary; the external library imports only SDK types.
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { afterEach, expect, test, vi } from "vitest";
-import {
-	createDecisionProvider,
-	type Policy,
-	recommend,
-	validateAnswer,
-	validatePolicy,
-} from "../dist/advisory.js";
+import { createDecisionProvider, type Policy, recommend, validateAnswer, validatePolicy } from "../dist/advisory.js";
 
 const models = builtinModels();
 const catalogModel = models.getModelsOfType("classifier", "openai")[0];
@@ -21,7 +15,7 @@ const policy = (): Policy => ({
 	allowedEfforts: ["medium"],
 	allowedClassifierModels: [`${model.provider}/${model.id}`],
 	allowedClassifierOrigins: [new URL(model.baseUrl).origin],
-	maxInputBytes: 100,
+	maxInputBytes: 4096,
 	timeoutMs: 50,
 	minConfidence: 0.7,
 	budgetUsd: 1,
@@ -29,7 +23,7 @@ const policy = (): Policy => ({
 	classifierCostBound: { usd: 0.1, expires: Date.now() + 60000 },
 });
 const request = () => ({
-	summary: "",
+	summary: "Task summary",
 	capabilities: ["admin", "network"] as const,
 	signal: new AbortController().signal,
 });
@@ -45,21 +39,17 @@ test("catalog exposes a real classifier and adapter forwards abort with zero pro
 	expect(dispatch).toHaveBeenCalledExactlyOnceWith(model, context, { signal, maxRetries: 0 });
 });
 
-test("owner explicit selection precedes classifier and disclosure checks without mutating defaults", async () => {
+test("caller preference is untrusted and cannot bypass classifier policy", async () => {
 	const p = policy();
 	p.allowedClassifierModels = [];
-	const before = structuredClone(p);
 	const dispatch = vi.spyOn(models, "classify");
-	expect(await recommend(models, classifier, p, { ...request(), ownerChoice: "default" })).toMatchObject({
-		status: "selected",
-		reason: "owner_choice",
-		classification: "not_started",
-	});
-	expect(dispatch).not.toHaveBeenCalled();
-	expect(p).toEqual(before);
-	await expect(recommend(models, classifier, p, { ...request(), ownerChoice: "other" })).rejects.toThrow(
-		"owner_choice_not_allowed",
+	await expect(recommend(models, classifier, p, { ...request(), callerPreference: "default" })).rejects.toThrow(
+		"classifier_not_allowed",
 	);
+	await expect(
+		recommend(models, classifier, policy(), { ...request(), callerPreference: "not-allowed" }),
+	).rejects.toThrow("caller_preference_not_allowed");
+	expect(dispatch).not.toHaveBeenCalled();
 });
 
 test.each(["allowlist", "effort", "budget", "unknown-cost", "stale-cost", "invalid-number", "default", "duplicate"])(
@@ -78,12 +68,64 @@ test.each(["allowlist", "effort", "budget", "unknown-cost", "stale-cost", "inval
 	},
 );
 
+test("malicious preference cannot relax target, effort, classifier origin/model, or budget policy", async () => {
+	const dispatch = vi.spyOn(models, "classify");
+	const invalidTarget = policy();
+	const [targetRoute] = invalidTarget.routes;
+	if (!targetRoute) throw new Error("Expected policy route");
+	invalidTarget.routes = [{ ...targetRoute, model: "attacker/model" }];
+	await expect(
+		recommend(models, classifier, invalidTarget, { ...request(), callerPreference: "default" }),
+	).rejects.toThrow("route_not_allowed");
+	const invalidEffort = policy();
+	const [effortRoute] = invalidEffort.routes;
+	if (!effortRoute) throw new Error("Expected policy route");
+	invalidEffort.routes = [{ ...effortRoute, effort: "max" }];
+	await expect(
+		recommend(models, classifier, invalidEffort, { ...request(), callerPreference: "default" }),
+	).rejects.toThrow("route_not_allowed");
+	const invalidBudget = policy();
+	invalidBudget.budgetUsd = 0;
+	await expect(
+		recommend(models, classifier, invalidBudget, { ...request(), callerPreference: "default" }),
+	).rejects.toThrow("budget_exceeded");
+	const invalidOrigin = policy();
+	invalidOrigin.allowedClassifierOrigins = [];
+	await expect(
+		recommend(models, classifier, invalidOrigin, { ...request(), callerPreference: "default" }),
+	).rejects.toThrow("disclosure_not_allowed");
+	const invalidClassifier = policy();
+	invalidClassifier.allowedClassifierModels = [];
+	await expect(
+		recommend(models, classifier, invalidClassifier, { ...request(), callerPreference: "default" }),
+	).rejects.toThrow("classifier_not_allowed");
+	expect(dispatch).not.toHaveBeenCalled();
+});
+
+test("combined UTF8 classifier-input budget includes all bounded candidate descriptions", async () => {
+	const p = policy();
+	p.maxInputBytes = 4096;
+	p.routes = Array.from({ length: 12 }, (_, index) => ({
+		id: `route-${index}`,
+		model: "openai/gpt-6-luna",
+		effort: "medium" as const,
+		description: "d".repeat(256),
+	}));
+	p.defaultRoute = "route-0";
+	p.routeCostBounds = Object.fromEntries(
+		p.routes.map((route) => [route.id, { usd: 0.01, expires: Date.now() + 60000 }]),
+	);
+	await expect(recommend(models, classifier, p, { ...request(), summary: "s".repeat(1000) })).rejects.toThrow(
+		"input_not_allowed",
+	);
+});
+
 test("permission, privacy and UTF8 limits reject before any auth or classification", async () => {
 	const available = vi.spyOn(models, "getAvailableOfType");
 	await expect(recommend(models, classifier, policy(), { ...request(), capabilities: [] })).rejects.toThrow(
 		"permission_denied",
 	);
-	await expect(recommend(models, classifier, policy(), { ...request(), summary: "鲸".repeat(34) })).rejects.toThrow(
+	await expect(recommend(models, classifier, policy(), { ...request(), summary: "鲸".repeat(1400) })).rejects.toThrow(
 		"input_not_allowed",
 	);
 	const p = policy();

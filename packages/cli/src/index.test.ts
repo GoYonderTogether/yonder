@@ -73,12 +73,47 @@ test("real CLI doctor accepts an enabled progress observer with both exact allow
 });
 
 test("real CLI doctor validates the optional disabled decision-routing manifest", async () => {
- const home=await mkdtemp("/tmp/yonder-decision-doctor-"); const workspace=join(home,"agents/main"); await mkdir(workspace,{recursive:true});
- try {
-  await writeFile(join(home,"yonder.yaml"),stringify({schema:1,plugins:[{use:resolve("plugins/decision-routing")}],envs:{local:{type:"local"}},agents:[{id:"main",workspace:"./agents/main"}]}));
-  await writeFile(join(workspace,"agent.yaml"),stringify({schema:1,id:"main",name:"main",owner:"person:owner",defaultProfile:"owner",defaults:{model:"openai/gpt-6-luna",plugins:["decision-routing"],tools:{offer:["*"]}},profiles:{owner:{level:"bypass",model:"openai/gpt-6-luna",plugins:["decision-routing"],tools:{offer:["*"]}}},bindings:[]}));
-  const output=execFileSync(process.execPath,[resolve("packages/cli/dist/index.js"),"doctor","--home",home],{cwd:resolve("."),encoding:"utf8"}); expect(output).toContain("Doctor: passed");
- } finally { await rm(home,{recursive:true,force:true}); }
+	const home = await mkdtemp("/tmp/yonder-decision-doctor-");
+	const workspace = join(home, "agents/main");
+	await mkdir(workspace, { recursive: true });
+	try {
+		await writeFile(
+			join(home, "yonder.yaml"),
+			stringify({
+				schema: 1,
+				plugins: [{ use: resolve("plugins/decision-routing") }],
+				envs: { local: { type: "local" } },
+				agents: [{ id: "main", workspace: "./agents/main" }],
+			}),
+		);
+		await writeFile(
+			join(workspace, "agent.yaml"),
+			stringify({
+				schema: 1,
+				id: "main",
+				name: "main",
+				owner: "person:owner",
+				defaultProfile: "owner",
+				defaults: { model: "openai/gpt-6-luna", plugins: ["decision-routing"], tools: { offer: ["*"] } },
+				profiles: {
+					owner: {
+						level: "bypass",
+						model: "openai/gpt-6-luna",
+						plugins: ["decision-routing"],
+						tools: { offer: ["*"] },
+					},
+				},
+				bindings: [],
+			}),
+		);
+		const output = execFileSync(process.execPath, [resolve("packages/cli/dist/index.js"), "doctor", "--home", home], {
+			cwd: resolve("."),
+			encoding: "utf8",
+		});
+		expect(output).toContain("Doctor: passed");
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
 });
 
 test("chat preserves JSONL final after progress and exits when the server disconnects", async () => {
