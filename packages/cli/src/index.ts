@@ -33,8 +33,7 @@ import {
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
-import { launchTerminalLogin } from "./login-terminal.js";
-import { createLoginWrapper } from "./login-wrapper.js";
+import { createLoginHostAdapter } from "./login-host-adapter.js";
 import { plainTaskChat } from "./plain-chat.js";
 import type { ChatTarget } from "./terminal.js";
 
@@ -595,52 +594,13 @@ async function run(args: string[]): Promise<number> {
 		const kernel = await openKernel(home, {
 			...(env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
 				? {
-						loginHost: {
-							start: async (input: {
-								id: string;
-								capability: string;
-								provider: string;
-								finish(outcome: "succeeded" | "failed" | "interrupted" | "cancelled", code: number): Promise<boolean>;
-							}) => {
-								const { wrapperPath, resultPath } = await createLoginWrapper({
-									nodeExecutable: process.execPath,
-									cliEntry: fileURLToPath(import.meta.url),
-									home,
-									provider: input.provider,
-								});
-								void launchTerminalLogin({
-									wrapperPath,
-									resultPath,
-									timeoutMs: 10 * 60_000,
-									finish: async (result) => {
-										const outcome =
-											result.status === "complete" ? (result.code === 0 ? "succeeded" : "failed") : "failed";
-										await input.finish(
-											outcome,
-											result.status === "complete" ? result.code : result.status === "timeout" ? 124 : 1,
-										);
-									},
-									onFinishError: () =>
-										output(
-											{
-												ts: new Date().toISOString(),
-												level: "error",
-												message: "Login completion persistence failed; operation remains pending",
-											},
-											options.json,
-										),
-								}).catch(() => {
-									output(
-										{
-											ts: new Date().toISOString(),
-											level: "error",
-											message: "Login terminal monitor failed; operation remains pending",
-										},
-										options.json,
-									);
-								});
-							},
-						},
+						loginHost: createLoginHostAdapter({
+							nodeExecutable: process.execPath,
+							cliEntry: fileURLToPath(import.meta.url),
+							home,
+							json: options.json,
+							output: (value, json) => output(value, json),
+						}),
 					}
 				: {}),
 			log: (level, message, data) =>
