@@ -169,9 +169,14 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	return [
 		tool({
 			name: "message_send",
-			description: "向明确的收件人或渠道发送消息。最终回复会自动交回当前来源，无需再发一次。",
+			description:
+				"向明确的收件人或渠道发送消息。最终回复会自动交回来源或调用方；子任务不要用本工具向父 Agent 回传结果。",
 			parameters: schema({
-				to: text(),
+				to: Type.String({
+					minLength: 1,
+					description:
+						"已核实的投递目标：owner（仅常驻 Agent）、person:<id>、acct:<渠道实例>:<id> 或 conv:<渠道实例>:<id>。from 中的 agent:<id>、acct:agent:<id> 是内部来源身份，session:<id> 是会话标识，不能当作投递地址。",
+				}),
 				via: Type.Optional(text()),
 				text: Type.String(),
 				attachments: Type.Optional(Type.Array(attachmentSchema)),

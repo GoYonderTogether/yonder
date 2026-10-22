@@ -11,6 +11,7 @@ import {
 	type Task,
 	type TaskId,
 	type TaskOptions,
+	type TaskOutcome,
 	type ToolExecutionApi,
 	type ToolExecutionResult,
 	type ToolRegistration,
@@ -29,7 +30,14 @@ const JobDoc = defineDocFamily({
 	scope: "conversation",
 	history: "latest",
 	fork: "initial",
-	initial: () => ({ name: "", started: 0, output: "", detached: false as boolean, notified: false as boolean }),
+	initial: () => ({
+		name: "",
+		started: 0,
+		output: "",
+		next: 0,
+		detached: false as boolean,
+		notified: false as boolean,
+	}),
 });
 const JobPointer = defineDoc({
 	kind: "yonder.background-pointer",
@@ -45,6 +53,18 @@ const failed = (error: unknown): ToolExecutionResult => ({
 	isError: true,
 });
 const json = (value: unknown): ToolExecutionResult => ({ output: [{ type: "text", text: JSON.stringify(value) }] });
+const outcomeResult = (outcome: TaskOutcome<ToolExecutionResult>): ToolExecutionResult =>
+	outcome.status === "completed"
+		? outcome.result
+		: "result" in outcome && outcome.result
+			? outcome.result
+			: failed(
+					"error" in outcome
+						? outcome.error.message
+						: `${outcome.status}: ${outcome.reason ?? "Background task did not complete"}`,
+				);
+
+type LiveOutput = { output: string; next: number; write?: (text: string, eof?: boolean) => Promise<void> };
 
 /** Native pi tasks own detached calls, their child conversations, cancellation and durable receipts. */
 export function createBackground(options: {
@@ -57,7 +77,7 @@ export function createBackground(options: {
 }) {
 	const harness = options.harness;
 	const watchers = new Map<number, { controller: AbortController; done: Promise<void> }>();
-	const running = new Map<number, { output: string; write?: (text: string) => Promise<void> }>();
+	const running = new Map<number, LiveOutput>();
 	const task = defineTask<Input, State, ToolExecutionResult>({
 		name: "yonder.background",
 		version: 1,
@@ -65,88 +85,106 @@ export function createBackground(options: {
 		phases: {
 			async start(job, runtime, context) {
 				const key = String(job.id),
-					live = { output: "" } as { output: string; write?: (text: string) => Promise<void> };
+					live: LiveOutput = { output: "", next: 0 };
 				running.set(job.id, live);
-				await runtime.commit(async (tx) => {
-					Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
-						name: job.input.name,
-						started: Date.now(),
-					});
-					return { status: "running", checkpoint: { phase: "interrupted" } };
-				}, context);
-				const diagnostics: NonNullable<ToolExecutionResult["diagnostics"]>[number][] = [];
-				let details: ToolExecutionResult["details"], result: ToolExecutionResult;
-				const api: ToolExecutionApi = {
-					taskId: job.id,
-					conversationId: job.conversationId,
-					callId: job.input.callId,
-					registry: runtime.registry,
-					models: runtime.models,
-					env: undefined,
-					agent: runtime.agent,
-					snapshot: runtime.snapshot,
-					snapshotAsOf: runtime.snapshotAsOf,
-					watchDoc: runtime.watchDoc,
-					memo: runtime.memo,
-					getTask: runtime.getTask,
-					waitForTask: runtime.waitForTask,
-					conversation: runtime.conversation,
-					output(chunk) {
-						live.output = (live.output + (typeof chunk === "string" ? chunk : Buffer.from(chunk).toString())).slice(
-							-65536,
-						);
-					},
-					outputWindow: undefined,
-					retainedOutput: () => ({ text: live.output, truncated: live.output.length >= 65536 }),
-					diagnostic(diagnostic) {
-						diagnostics.push(diagnostic);
-					},
-					async details(value) {
-						details = value;
-					},
-					async commit<T>(change: (tx: Tx) => T | Promise<T>, ctx: Context): Promise<T> {
-						let value!: T;
-						await runtime.commit(async (tx) => {
-							value = await change(tx);
-							return undefined;
-						}, ctx);
-						return value!;
-					},
-					async createTask<I, S extends { phase: string }, R, H extends object>(
-						child: Task<I, S, R, H>,
-						input: I,
-						childOptions: Omit<TaskOptions, "conversationId">,
-						ctx: Context,
-					): Promise<TaskId<R>> {
-						let id: TaskId<R> | undefined;
-						await runtime.commit(async (tx) => {
-							id = await tx.createTask(child, input, { ...childOptions, conversationId: job.conversationId });
-							return undefined;
-						}, ctx);
-						return id!;
-					},
-					async executeTool() {
-						throw new Error("Nested pi tool execution is unavailable from SDK tool jobs");
-					},
-				};
+				let saved = false;
 				try {
-					result = await options.execute(job.input, api, context);
-					result = clean({
-						...result,
-						output: result.output ?? [{ type: "text", text: live.output }],
-						...(details !== undefined && result.details === undefined ? { details } : {}),
-						...(diagnostics.length ? { diagnostics: [...diagnostics, ...(result.diagnostics ?? [])] } : {}),
-					});
-				} catch (error) {
-					if (context.abortSignal?.aborted) throw error;
-					result = failed(error);
+					await runtime.commit(async (tx) => {
+						Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
+							name: job.input.name,
+							started: Date.now(),
+						});
+						return { status: "running", checkpoint: { phase: "interrupted" } };
+					}, context);
+					const diagnostics: NonNullable<ToolExecutionResult["diagnostics"]>[number][] = [];
+					let details: ToolExecutionResult["details"], result: ToolExecutionResult;
+					const api: ToolExecutionApi = {
+						taskId: job.id,
+						conversationId: job.conversationId,
+						callId: job.input.callId,
+						registry: runtime.registry,
+						models: runtime.models,
+						env: undefined,
+						agent: runtime.agent,
+						snapshot: runtime.snapshot,
+						snapshotAsOf: runtime.snapshotAsOf,
+						watchDoc: runtime.watchDoc,
+						memo: runtime.memo,
+						getTask: runtime.getTask,
+						waitForTask: runtime.waitForTask,
+						conversation: runtime.conversation,
+						output(chunk) {
+							const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
+							live.next += text.length;
+							live.output = (live.output + text).slice(-65536);
+						},
+						outputWindow: undefined,
+						retainedOutput: () => ({ text: live.output, truncated: live.output.length >= 65536 }),
+						diagnostic(diagnostic) {
+							diagnostics.push(diagnostic);
+						},
+						async details(value) {
+							details = value;
+						},
+						async commit<T>(change: (tx: Tx) => T | Promise<T>, ctx: Context): Promise<T> {
+							let value!: T;
+							await runtime.commit(async (tx) => {
+								value = await change(tx);
+								return undefined;
+							}, ctx);
+							return value!;
+						},
+						async createTask<I, S extends { phase: string }, R, H extends object>(
+							child: Task<I, S, R, H>,
+							input: I,
+							childOptions: Omit<TaskOptions, "conversationId">,
+							ctx: Context,
+						): Promise<TaskId<R>> {
+							let id: TaskId<R> | undefined;
+							await runtime.commit(async (tx) => {
+								id = await tx.createTask(child, input, { ...childOptions, conversationId: job.conversationId });
+								return undefined;
+							}, ctx);
+							return id!;
+						},
+						async executeTool() {
+							throw new Error("Nested pi tool execution is unavailable from SDK tool jobs");
+						},
+					};
+					try {
+						result = await options.execute(job.input, api, context);
+						result = clean({
+							...result,
+							output: result.output ?? [{ type: "text", text: live.output }],
+							...(details !== undefined && result.details === undefined ? { details } : {}),
+							...(diagnostics.length ? { diagnostics: [...diagnostics, ...(result.diagnostics ?? [])] } : {}),
+						});
+					} catch (error) {
+						if (context.abortSignal?.aborted) throw error;
+						result = failed(error);
+					}
+					await runtime.commit(async (tx) => {
+						Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
+							output: live.output,
+							next: live.next,
+						});
+						return { status: "terminal", outcome: { status: "completed", result } };
+					}, context);
+					saved = true;
 				} finally {
-					running.delete(job.id);
+					try {
+						// Cancellation ends the invocation context; retain its tail before releasing the live window.
+						if (!saved && live.next)
+							await harness().commit(async (tx) => {
+								Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
+									output: live.output,
+									next: live.next,
+								});
+							}, C);
+					} finally {
+						running.delete(job.id);
+					}
 				}
-				await runtime.commit(async (tx) => {
-					(await tx.doc(JobDoc, job.conversationId, key, null)).output = live.output;
-					return { status: "terminal", outcome: { status: "completed", result } };
-				}, context);
 			},
 			async interrupted(job, runtime, context): Promise<void> {
 				// Internal waits reacquire their durable identity; external effects cannot be replayed.
@@ -178,24 +216,10 @@ export function createBackground(options: {
 		const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
 		if (!doc?.detached || doc.notified) return;
 		const outcome = record.state.outcome;
-		const result =
-			outcome.status === "completed"
-				? outcome.result
-				: "result" in outcome && outcome.result
-					? outcome.result
-					: failed(
-							"error" in outcome
-								? outcome.error.message
-								: `${outcome.status}: ${outcome.reason ?? "Background task did not complete"}`,
-						);
-		if (outcome.status === "aborted") {
-			await harness().commit(async (tx) => {
-				(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
-			}, C);
-			return;
+		if (outcome.status !== "aborted") {
+			const snapshot = JSON.parse((record.input as unknown as Input).config);
+			await options.finished(session, String(id), doc.name, outcomeResult(outcome), snapshot.events[0]);
 		}
-		const snapshot = JSON.parse((record.input as unknown as Input).config);
-		await options.finished(session, String(id), doc.name, result, snapshot.events[0]);
 		await harness().commit(async (tx) => {
 			(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
 		}, C);
@@ -244,7 +268,7 @@ export function createBackground(options: {
 				id,
 				withAbortSignal(AbortSignal.any([controller.signal, context.abortSignal!]), C),
 			);
-			return done.state.outcome.status === "completed" ? done.state.outcome.result : failed("Background task failed");
+			return outcomeResult(done.state.outcome);
 		} catch (error) {
 			if (context.abortSignal?.aborted) {
 				await harness().abortTask(id, C);
@@ -304,19 +328,20 @@ export function createBackground(options: {
 		tool: {
 			name: "process",
 			description:
-				"Manage a background tool or command owned by this session: status, log (offset), wait (up to 15 seconds), write stdin, or kill. The original tool result remains available after completion.",
+				"Manage a background tool or command owned by this session: status, log, wait (up to 15 seconds), write stdin, or kill. Write accepts eof=true to end stdin. Logs use absolute character offset/next cursors; truncated means the requested prefix was discarded. The original tool result remains available after completion.",
 			parameters: Type.Object(
 				{
 					action: Type.Union(["status", "log", "wait", "write", "kill"].map((x) => Type.Literal(x))),
 					id: Type.String({ pattern: "^[0-9]+$" }),
 					offset: Type.Optional(Type.Integer({ minimum: 0 })),
 					text: Type.Optional(Type.String()),
+					eof: Type.Optional(Type.Boolean()),
 				},
 				{ additionalProperties: false },
 			),
 			deferred: true as const,
 			async execute(value: unknown, api: ToolExecutionApi, context: Context) {
-				const args = value as { action: string; id: string; offset?: number; text?: string };
+				const args = value as { action: string; id: string; offset?: number; text?: string; eof?: boolean };
 				const session = String(api.conversationId),
 					id = Number(args.id),
 					{ record, doc } = await inspect(session, id);
@@ -324,7 +349,7 @@ export function createBackground(options: {
 				if (args.action === "write") {
 					const write = running.get(id)?.write;
 					if (!write) return failed("This job has no writable stdin or has already ended");
-					await write(args.text ?? "");
+					await write(args.text ?? "", args.eof);
 				}
 				if (args.action === "wait" && record.state.status !== "terminal") {
 					const stop = new AbortController(),
@@ -341,14 +366,20 @@ export function createBackground(options: {
 					}
 				}
 				const current = await inspect(session, id),
-					output = running.get(id)?.output ?? current.doc?.output ?? "";
+					live = running.get(id),
+					output = live?.output ?? current.doc?.output ?? "",
+					next = live?.next ?? current.doc?.next ?? output.length,
+					base = next - output.length,
+					offset = Math.max(base, args.offset ?? base);
 				return json({
 					id: args.id,
 					name: doc?.name,
 					started: doc?.started,
 					state: current.record.state,
-					output: output.slice(args.offset ?? 0),
-					next: output.length,
+					output: output.slice(offset - base),
+					offset,
+					next,
+					truncated: (args.offset ?? base) < base,
 				});
 			},
 		},

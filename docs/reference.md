@@ -42,8 +42,8 @@ Yonder Harness
 
 ```text
 内核
-├─ bash → 15秒自动后台化，可立即background，完整日志落盘
-├─ process → status / log / wait / write / kill，按session隔离
+├─ bash → 15秒自动后台化，可立即background，完整日志落盘；默认stdin结束，stdin:true开启输入
+├─ process → status / log / wait / write / kill，按session隔离；write可附eof:true结束stdin，日志next为累计字符游标
 ├─ runtime.warning → 时间/轮数/tokens软提醒；子任务也通知父session
 ├─ runtime.tool-result → 真实后台结果，继续原授权任务
 └─ workspace/memory/README.md → 手工记录说明；不自动注入

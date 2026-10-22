@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.2.26102201] - 2026-10-22
+
+- 修复 Bash 默认开放 stdin 导致无路径搜索等输入；普通命令默认 EOF，交互命令显式 stdin:true，process.write 支持 eof:true。background 与软 timeout 语义不变。
+- 后台取消仍通知确定性等待者并保留已输出尾部；滚动日志使用累计游标和截断标记；同步/后台路径保留相同的原生错误详情。
+- 动态时钟移到既有输入准备层，system 恢复确定性；说明 waiter 最终回传与合法消息目标，无身份任务不提供 agent_ask。
+
 - 修复 macOS 权限引导窗：跟随实际 Settings 列表下沿，授权后显示确认并自动关闭；guide/watch 共用每秒观察、600 秒超时和有证据的屏幕权限重启流程。
 
 - BrowserSkill：同步最新上游指导与 UTF-8 runner 修复，加入默认关闭的书签、扩展管理工具；保留主人权限授权与安装确认。

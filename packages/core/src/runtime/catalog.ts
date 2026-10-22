@@ -23,11 +23,13 @@ export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTo
 				? "plugin-not-selected"
 				: missing.length
 					? "capability-denied"
-					: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name))
-						? "offer"
-						: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name))
-							? "search"
-							: "not-selected",
+					: !config.agent && tool.name === "agent_ask"
+						? "not-selected"
+						: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name))
+							? "offer"
+							: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name))
+								? "search"
+								: "not-selected",
 		};
 	});
 	const search = tools.find((tool) => tool.name === "tool_search");

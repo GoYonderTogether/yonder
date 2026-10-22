@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
@@ -28,6 +28,7 @@ test("native background preserves results, yields at 15s, owns processes and rel
 	const reports: unknown[] = [];
 	let failedAdmission = false;
 	const notifications: Array<{ session: string; id: string }> = [];
+	let idle = 0;
 	let runtime: Runtime | undefined;
 	try {
 		runtime = await Runtime.open({
@@ -41,6 +42,9 @@ test("native background preserves results, yields at 15s, owns processes and rel
 				resolved: resolveProfile({ level: "bypass" }),
 			}),
 			onReport: (error) => reports.push(error),
+			onIdle: async () => {
+				idle++;
+			},
 			onBackground: async (session, value) => {
 				if (!failedAdmission) {
 					failedAdmission = true;
@@ -154,6 +158,12 @@ test("native background preserves results, yields at 15s, owns processes and rel
 			"real short stdout",
 		);
 		expect(internal.background.running.size).toBe(0);
+		const eof = await call(first, "bash", { command: "cat" });
+		expect(JSON.parse(text(eof))).toMatchObject({ output: "", exitCode: 0 });
+		await writeFile(join(home, "stdin.txt"), "native stdin file match\n");
+		// The EOF/file regression must run on hosts without optional ripgrep installed.
+		const search = await call(first, "bash", { command: "cat; grep -H 'native stdin file match' stdin.txt" });
+		expect(JSON.parse(text(search))).toMatchObject({ output: "stdin.txt:native stdin file match\n", exitCode: 0 });
 
 		const began = Date.now();
 		const yielded = await call(first, "bash", { command: "printf 'started'; sleep 16; printf 'finished'" });
@@ -174,6 +184,64 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		expect(internal.background.running.size).toBe(0);
 		expect(reports.some((e) => String(e).includes("admission temporarily unavailable"))).toBe(true);
 		expect(notifications.filter((item) => item.id === id)).toHaveLength(1);
+		await expect.poll(() => idle).toBe(1);
+
+		const input = JSON.parse(text(await call(first, "bash", { command: "cat", stdin: true, background: true })))
+			.background as string;
+		await expect.poll(() => typeof internal.background.running.get(Number(input))?.write).toBe("function");
+		const crossEof = await start(other, "process", { action: "write", id: input, eof: true });
+		expect((await internal.harness.waitForTask(crossEof, C)).state.outcome.status).not.toBe("completed");
+		await call(first, "process", { action: "write", id: input, text: "pipe input\n", eof: true });
+		const echoed = JSON.parse(text(await call(first, "process", { action: "wait", id: input })));
+		expect(echoed.state.outcome.status).toBe("completed");
+		expect(JSON.parse(echoed.state.outcome.result.output[0].text)).toMatchObject({
+			output: "pipe input\n",
+			exitCode: 0,
+		});
+		await expect.poll(() => idle).toBe(2);
+
+		// Killing a native job before its yield must retain its actual non-completed outcome.
+		const synchronous = await start(first, "bash", { command: "printf 'synchronous start'; sleep 30" });
+		await expect
+			.poll(() => [...internal.background.running.values()].some((value) => value.output === "synchronous start"))
+			.toBe(true);
+		const synchronousId = [...internal.background.running].find(
+			([, value]) => value.output === "synchronous start",
+		)?.[0];
+		expect(synchronousId).toBeDefined();
+		await call(first, "process", { action: "kill", id: String(synchronousId) });
+		const cancelled = await done(synchronous);
+		expect(cancelled.isError).toBe(true);
+		expect(text(cancelled)).toBe("Cancelled");
+		const cancelledLog = JSON.parse(text(await call(first, "process", { action: "log", id: String(synchronousId) })));
+		expect(cancelledLog).toMatchObject({ output: "synchronous start", next: "synchronous start".length });
+
+		const rolling = JSON.parse(
+			text(
+				await call(first, "bash", {
+					command: "head -c 70000 /dev/zero | tr '\\0' x; read line; printf '%s' \"$line\"; sleep 30",
+					stdin: true,
+					background: true,
+				}),
+			),
+		).background as string;
+		await expect.poll(() => internal.background.running.get(Number(rolling))?.next).toBe(70000);
+		const window = JSON.parse(text(await call(first, "process", { action: "log", id: rolling, offset: 0 })));
+		expect(window).toMatchObject({ offset: 4464, next: 70000, truncated: true });
+		expect(window.output).toHaveLength(65536);
+		await call(first, "process", { action: "write", id: rolling, text: "NEW_TAIL\n" });
+		await expect.poll(() => internal.background.running.get(Number(rolling))?.output.endsWith("NEW_TAIL")).toBe(true);
+		const delta = JSON.parse(text(await call(first, "process", { action: "log", id: rolling, offset: window.next })));
+		expect(delta).toMatchObject({ output: "NEW_TAIL", offset: 70000, next: 70008, truncated: false });
+		const notificationsBeforeKill = notifications.length;
+		await call(first, "process", { action: "kill", id: rolling });
+		await expect.poll(() => idle).toBe(3);
+		expect(notifications).toHaveLength(notificationsBeforeKill);
+		expect(await runtime.hasPendingWork(first)).toBe(false);
+		const retained = JSON.parse(
+			text(await call(first, "process", { action: "log", id: rolling, offset: window.next })),
+		);
+		expect(retained).toMatchObject({ output: "NEW_TAIL", next: 70008, state: { outcome: { status: "aborted" } } });
 
 		const source = newEvent({ type: "message.in", data: { text: "native background scope check" } });
 		const interactive = JSON.parse(
@@ -184,6 +252,7 @@ test("native background preserves results, yields at 15s, owns processes and rel
 					{
 						command: "printf 'ready'; read line; printf 'received:%s' \"$line\"; sleep 30",
 						background: true,
+						stdin: true,
 					},
 					source,
 				),
