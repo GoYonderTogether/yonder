@@ -947,6 +947,17 @@ export class Runtime {
 			await tx.doc(SessionDoc, created.id);
 			return created.id;
 		}, context);
+		if (this.options.recordEvent) {
+			await this.options.recordEvent({
+				type: "task.linked",
+				from: "system:runtime",
+				data: {
+					parentSession: ctx.session,
+					childSession: String(child),
+					...((ctx.event?.id ?? ctx.events?.[0]?.id) ? { sourceEvent: ctx.event?.id ?? ctx.events?.[0]?.id } : {}),
+				},
+			});
+		}
 		const input = await initialize(String(child));
 		try {
 			const handle = await api.conversation(child, context);
