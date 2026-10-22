@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.26102202] - 2026-10-22
+
+- 修复 runtime.transcript 在 limit/from 很小时仍解码整段会话历史：把 minEntryId 与 limit 下推到存储扫描（生产最大会话 2552 条/26MB：limit=1 由约 65ms 降到约 1ms）。
+
 ## [0.2.26102201] - 2026-10-22
 
 - 修复 Bash 默认开放 stdin 导致无路径搜索等输入；普通命令默认 EOF，交互命令显式 stdin:true，process.write 支持 eof:true。background 与软 timeout 语义不变。
