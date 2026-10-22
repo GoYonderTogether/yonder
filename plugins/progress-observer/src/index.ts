@@ -5,7 +5,10 @@ import { Ledger } from "./ledger.js";
 
 // Labels are display-only data. Reject unknown fields instead of letting callers
 // smuggle instructions or unreviewed association claims through this tool.
-const taskSchema = Type.Object({ label: Type.String({ minLength: 1, maxLength: 120 }) }, { additionalProperties: false });
+const taskSchema = Type.Object(
+	{ label: Type.String({ minLength: 1, maxLength: 120 }) },
+	{ additionalProperties: false },
+);
 
 export default definePlugin({
 	setup(api: PluginAPI) {
@@ -17,9 +20,9 @@ export default definePlugin({
 				.then(async () => {
 					await ready;
 					const data = event.data as Record<string, unknown>;
-					// Parent/sourceRun identifies only the initiating run, not which of
-					// several parallel delegated tasks owns this session. Leave it unknown
-					// until the runtime supplies a unique, authenticated correlation.
+					// A task.linked fact is durable correlation, but not evidence that its
+					// child initialized or began executing.
+					if (event.type === "task.linked") return;
 					if (event.type !== "session.input" && event.type !== "run.end") return;
 					const session = typeof data.session === "string" ? data.session : undefined;
 					if (!session) return;
@@ -44,6 +47,51 @@ export default definePlugin({
 		};
 		api.events.on("*", enqueue);
 		api.tools.register({
+			name: "progress_task_bind",
+			description:
+				"Bind a registered task only to a task session whose open and input events prove this invocation spawned it.",
+			parameters: Type.Object(
+				{ taskId: Type.String({ minLength: 1 }), executorSession: Type.String({ minLength: 1 }) },
+				{ additionalProperties: false },
+			),
+			capabilities: ["write"],
+			async execute(args: unknown, ctx: ToolContext) {
+				await ready;
+				const { taskId, executorSession } = args as { taskId: string; executorSession: string };
+				const task = (await ledger.list()).find((item) => item.id === taskId);
+				if (!task || task.owner !== ctx.agent || task.sourceSession !== ctx.session)
+					throw new Error("task does not belong to this invocation");
+				if (!task.sourceRun) throw new Error("task has no verifiable source invocation");
+				const session = await api.sessions.get(executorSession);
+				if (!session || session.mode !== "task" || session.parent !== task.sourceSession)
+					throw new Error("executor session lineage mismatch");
+				let after: string | undefined;
+				let proven = false;
+				do {
+					const page = await api.events.query({ type: "task.linked", limit: 500, ...(after ? { after } : {}) });
+					if (
+						page.events.some((event) => {
+							const link = event.data as { parentSession?: string; childSession?: string; sourceEvent?: string };
+							return (
+								event.from === "system:runtime" &&
+								link.parentSession === ctx.session &&
+								link.childSession === executorSession &&
+								link.sourceEvent === task.sourceRun
+							);
+						})
+					)
+						proven = true;
+					after = page.next;
+				} while (!proven && after);
+				if (!proven) throw new Error("no runtime task.linked evidence for this invocation");
+				const all = await ledger.list();
+				if (all.some((item) => item.id !== taskId && item.executorSession === executorSession))
+					throw new Error("executor session already bound to another task");
+				await ledger.bindExecutor(taskId, executorSession);
+				return { text: `Bound ${taskId} to verified executor session.` };
+			},
+		});
+		api.tools.register({
 			name: "progress_task_register",
 			description:
 				"Register a work item from this real tool invocation; owner/session identity is taken only from ToolContext. Does not assert that a task_run has started or completed.",
@@ -53,7 +101,10 @@ export default definePlugin({
 				await ready;
 				const { label } = args as { label: string };
 				const id = randomUUID();
-				const sourceRun = ctx.events?.findLast((event) => event.type === "session.input")?.id;
+				const sourceRun =
+					ctx.event?.type === "session.input" || ctx.event?.type === "message.in"
+						? ctx.event.id
+						: ctx.events?.findLast((event) => event.type === "session.input" || event.type === "message.in")?.id;
 				await ledger.create(id, label, {
 					owner: ctx.agent,
 					sourceSession: ctx.session,

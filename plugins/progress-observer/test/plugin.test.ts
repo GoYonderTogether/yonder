@@ -9,8 +9,8 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 	const dir = await mkdtemp(join(tmpdir(), "observer-plugin-"));
 	try {
 		const ledger = await new Ledger(dir).open();
-		await ledger.create("T", "task", { sourceSession: "source", sourceRun: "parent-event" });
-		await ledger.create("T2", "parallel task", { sourceSession: "source", sourceRun: "parent-event" });
+		await ledger.create("T", "task", { owner: "main", sourceSession: "source", sourceRun: "parent-event" });
+		await ledger.create("T2", "parallel task", { owner: "main", sourceSession: "source", sourceRun: "parent-event" });
 		const first = {
 			id: "open",
 			type: "session.open",
@@ -33,7 +33,9 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 		let handler: ((event: any) => Promise<void>) | undefined;
 		let trigger: any;
 		let tool: any;
+		let bindTool: any;
 		let calls = 0;
+		let links: any[] = [];
 		const api: any = {
 			paths: { data: dir },
 			events: {
@@ -42,13 +44,15 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 				},
 				query: async (query: any) => {
 					calls++;
+					if (query.type === "task.linked") return { events: links };
 					if (query.after === "cursor-1") return { events: [second, unknown] };
 					return { events: [first], next: "cursor-1" };
 				},
 			},
 			tools: {
 				register: (item: any) => {
-					tool = item;
+					if (item.name === "progress_task_bind") bindTool = item;
+					else tool = item;
 				},
 			},
 			triggers: {
@@ -56,6 +60,7 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 					trigger = item;
 				},
 			},
+			sessions: { get: async (id: string) => ({ id, mode: "task", parent: "source" }) },
 			log: { error: () => {} },
 		};
 		await plugin.setup(api);
@@ -81,6 +86,37 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 			sourceSession: "source",
 			sourceRun: "caller-input",
 		});
+		// Durable task.linked evidence is replayable and uniquely binds parallel work.
+		links = [
+			{ from: "system:runtime", data: { parentSession: "source", childSession: "child", sourceEvent: "parent-event" } },
+			{
+				from: "system:runtime",
+				data: { parentSession: "different-owner", childSession: "child-2", sourceEvent: "parent-event" },
+			},
+		];
+		api.sessions.get = async (id: string) => ({ id, mode: "task", parent: "source" });
+		const bindCtx = { agent: "main", session: "source", events: [{ id: "parent-event", type: "session.input" }] };
+		await expect(bindTool.execute({ taskId: "T", executorSession: "child" }, bindCtx)).resolves.toMatchObject({
+			text: expect.stringContaining("Bound"),
+		});
+		await expect(bindTool.execute({ taskId: "T2", executorSession: "child-2" }, bindCtx)).rejects.toThrow(
+			"runtime task.linked",
+		);
+		links = [
+			{ from: "someone:else", data: { parentSession: "source", childSession: "other", sourceEvent: "parent-event" } },
+		];
+		await expect(bindTool.execute({ taskId: "T", executorSession: "other" }, bindCtx)).rejects.toThrow(
+			"runtime task.linked",
+		);
+		await expect(
+			bindTool.execute({ taskId: "T", executorSession: "other" }, { ...bindCtx, agent: "other" }),
+		).rejects.toThrow("does not belong");
+		await tool.execute(
+			{ label: "Unknown source" },
+			{ agent: "main", session: "source", events: [{ id: "noise", type: "run.start" }] },
+		);
+		const afterUnknown = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
+		expect(afterUnknown.at(-1).sourceRun).toBeUndefined();
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}

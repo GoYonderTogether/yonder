@@ -943,7 +943,14 @@ export class Runtime {
 			data: {
 				parentSession: ctx.session,
 				childSession,
-				...((ctx.event?.id ?? ctx.events?.[0]?.id) ? { sourceEvent: ctx.event?.id ?? ctx.events?.[0]?.id } : {}),
+				...((ctx.event?.type === "session.input" || ctx.event?.type === "message.in") && ctx.event.id
+					? { sourceEvent: ctx.event.id }
+					: (() => {
+							const source = ctx.events?.findLast(
+								(event) => event.type === "session.input" || event.type === "message.in",
+							);
+							return source?.id ? { sourceEvent: source.id } : {};
+						})()),
 			},
 		};
 	}
