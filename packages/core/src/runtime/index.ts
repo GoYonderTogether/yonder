@@ -7,6 +7,7 @@ import {
 	createRegistry,
 	defineExtension,
 	defineTool,
+	type EntryId,
 	type Extension,
 	GenerationTask,
 	Harness,
@@ -890,16 +891,14 @@ export class Runtime {
 	}
 
 	async transcript(id: string, range: { from?: number; limit?: number } = {}): Promise<TranscriptItem[]> {
+		// Push the bounds into the scan so a one-entry read does not decode the whole conversation.
 		const page = await (await this.conversation(id)).entries(
-			{ order: "ascending" },
-			Number.MAX_SAFE_INTEGER,
+			{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
+			range.limit ?? 100,
 			undefined,
 			C,
 		);
-		return page.items
-			.map(transcriptItem)
-			.filter((entry) => range.from === undefined || entry.id >= range.from)
-			.slice(0, range.limit ?? 100);
+		return page.items.map(transcriptItem);
 	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
