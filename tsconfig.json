@@ -66,6 +66,9 @@
 		},
 		{
 			"path": "plugins/progress-observer"
+		},
+		{
+			"path": "plugins/decision-routing"
 		}
 	]
 }

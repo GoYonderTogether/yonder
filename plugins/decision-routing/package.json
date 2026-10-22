@@ -1,0 +1,12 @@
+{
+  "name": "@yonder/plugin-decision-routing",
+  "version": "0.2.26102206",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.19" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "dependencies": { "@yonder/sdk": "0.2.26102206" },
+  "yonder": { "apiVersion": 1, "id": "decision-routing", "entry": "./dist/index.js", "contributes": { "tools": ["decision-routing_recommend"] } }
+}
