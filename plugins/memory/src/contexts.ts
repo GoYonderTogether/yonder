@@ -2,6 +2,7 @@ import { lstat, readFile, realpath } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import type { PluginAPI, YEvent } from "@yonder/sdk";
 import { DateTime } from "luxon";
+import { parse } from "yaml";
 import type { Config } from "./config.js";
 
 export async function ownerEvent(
@@ -41,8 +42,17 @@ async function safe(root: string, relative: string, max: number): Promise<string
 			const end = value.indexOf("\n---", 4);
 			if (end < 0) return undefined;
 			const header = value.slice(4, end);
-			if (!/^(?:[\w-]+:\s*[^\n]*\n?)*$/.test(header)) return undefined;
-			if (/^private:\s*(?:true|yes|1)\s*$/im.test(header)) return undefined;
+			let metadata: unknown;
+			try {
+				metadata = parse(header);
+			} catch {
+				return undefined;
+			}
+			if (metadata !== null && typeof metadata === "object" && !Array.isArray(metadata)) {
+				const privacy = (metadata as Record<string, unknown>).private;
+				if (privacy === true) return undefined;
+				if (Object.hasOwn(metadata, "private") && typeof privacy !== "boolean") return undefined;
+			}
 		}
 		return value.slice(0, max);
 	} catch {
