@@ -172,6 +172,6 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 
 用户确认私聊与群 @ 收发后要求开放群全量接收，并调研分桶、自主参与和只读分身。先复用现有 GROUP_AND_C2C_EVENT intent 与腾讯 mentionGate passthrough 接纳 GROUP_MESSAGE_CREATE，沿 wake: mention 写入群独立 persistent 会话，普通消息不逐条调用模型；平台开关与真实普通消息验收单独记录。周期调度、按消息 ID 选择回复、只读分身向本 Agent 主会话请求工作的契约另见调研草案，未审核前不把草案接口当成已实现能力。
 
-## D50 群分桶参与与受限主会话请求（2026-10-21 用户明确批准草案）
+## D57 群分桶参与与受限主会话请求（2026-10-21 用户明确批准草案）
 
 用户选择“按这套契约继续实现”，批准每群独立只读分身、非空 60 秒分桶、模型显式定向回复及只请求所属 Agent main 的 parent_ask。继续使用 write/persistent、事件绑定、原生 inbox/后台等待和既有投递；群分身不授予通用 message/exec/admin。主会话请求携带真实来源，不把群成员请求升级为主人授权。共享 message_send 增加已有 SDK 的 replyTo 并验证目标会话。平台全量权限实际由手机 QQ 群主设置，已核对官方 FAQ 与 bot_state；日用安装保持不动，隔离 home 验收。
