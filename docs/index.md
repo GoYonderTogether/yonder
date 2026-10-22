@@ -23,6 +23,7 @@
 | 1 | [spec/12-terminal-interaction.md](spec/12-terminal-interaction.md) | 沿用 pi 原生 TUI、Yonder 内容适配、双语与补全 | 改终端交互 |
 | 1 | [spec/13-observation-and-management.md](spec/13-observation-and-management.md) | 被动观察、附件、plugins / skills / models / inspect 管理命令 | 改 CLI 或内核 |
 | 1 | [spec/14-execution-capabilities.md](spec/14-execution-capabilities.md) | 后台任务与软提醒、cron、MCP 客户端、Agent 热管理、独立自动化、手工 memory | 改内核或相关插件 |
+| 1 | [spec/15-memory.md](spec/15-memory.md) | 用户个人记忆库（memory 插件）：目录、时间线与人生计划、采集、检索、整理闭环 | 写 memory 插件或用它 |
 | 2 | [plugins.md](plugins.md) | 官方插件清单：贡献、事件、工具 | 用或写插件 |
 | 2 | [reference.md](reference.md) | 核心工具、CLI 命令、SDK 接口的注册名参考 | 查名字时 |
 | 2 | [decisions.md](decisions.md) | 关键取舍及理由 | 想改设计的人 |

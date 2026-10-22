@@ -24,7 +24,7 @@
 
 ## 已知缺口（尚未实现）
 
-- 长期记忆引擎与跨会话检索（目前只有 context-files 与手工 `memory/` 目录约定）。
+- 用户记忆库（memory 插件，规范 [15](spec/15-memory.md)）：规范已定，**尚未实现**。通用记忆引擎（语义召回、自动画像）无计划；目前 agent 侧只有 context-files 与手工 `memory/` 目录约定。
 - PTY 交互进程（process 管理使用管道，不标称 PTY）。
 - 沙箱或容器隔离的执行环境（环境槽已定义；本机 exec 不是沙箱）。
 - MCP 客户端的交互式 OAuth 登录（已有授权可用凭据 header）。

@@ -287,6 +287,21 @@
   - 停止等待自有进程真实退出。
 - **边界**：无需BrowserSkill/Codex，但仍需浏览器引擎和OS授权。截图通过不代替键鼠真实验收。
 
+## 13 memory：用户个人记忆库（规范已定，未实现）
+
+- **包**：`@yonder/plugin-memory`
+- **规范**：[15 用户记忆](spec/15-memory.md)
+- **贡献**：
+  - 工具：`memory_status`、`memory_search`、`memory_read`、`memory_capture`、`memory_plan`、`memory_review`、`memory_me`
+  - 上下文：`memory-core`（system）、`memory-week`（turn）
+  - 触发器：`memory-inbox`
+  - skills：`memory-evening-wrap`、`memory-weekly-review`、`memory-monthly-plan`、`memory-morning-brief`
+- **订阅事件**：`message.in`（仅主人在配置渠道的消息）
+- **写入事件**：`memory.captured`
+- **外部输入**：独立根目录与 inbox 里的文件、登记的只读外部目录（Obsidian 库等）、可选的文档转换命令
+- **功能**：按时间线（月目录、周文档）记录，按人生计划（愿景、年度、月、周）推进，整理后标记“已整理”；全文检索靠 ripgrep 扫描，不建索引。
+- **边界**：不改内核；不含向量检索与自动画像；亲笔与登记目录只读；私密内容不进上下文。
+
 ## 微信归档与 iLink
 
 - `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
