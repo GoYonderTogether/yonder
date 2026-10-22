@@ -53,7 +53,7 @@ export class LoginOperations {
 				"SELECT id,expires_at,state FROM login_operations WHERE capability_hash=?",
 				hash(capability),
 			);
-			if (!row || row.state !== "pending" || row.expires_at <= now) return false;
+			if (row?.state !== "pending" || row.expires_at <= now) return false;
 			const updated = await tx.get<{ id: string }>(
 				"UPDATE login_operations SET state=?,code=?,finished_at=? WHERE id=? AND state='pending' AND expires_at>? RETURNING id",
 				outcome,
