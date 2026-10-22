@@ -1,11 +1,11 @@
 import { spawn } from "node:child_process";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { createLoginChildRunner } from "./login-child-runner.js";
 
 const fixture = (
 	command: string,
 	args: string[],
-	_options: { cwd: string; env: NodeJS.ProcessEnv; stdio: "inherit" },
+	_options: { cwd: string; env: NodeJS.ProcessEnv; stdio: "inherit" | "ignore" },
 ) => spawn(command, args, { stdio: "ignore" });
 
 test("private child runner maps real child exit once and never returns child output or capability", async () => {
@@ -29,7 +29,6 @@ test("private child runner maps real child exit once and never returns child out
 			return true;
 		},
 	});
-	await new Promise((resolve) => setTimeout(resolve, 100));
 	expect(finishes).toEqual([["succeeded", 0]]);
 	expect(JSON.stringify(finishes)).not.toContain("synthetic-secret");
 	expect(JSON.stringify(finishes)).not.toContain("host-only-capability");
@@ -68,7 +67,7 @@ test("timeout and owner cancellation win exit races and finish once", async () =
 			},
 		});
 		if (mode === "cancel") runner.cancel("i");
-		else await new Promise((resolve) => setTimeout(resolve, 15));
+		else await vi.waitFor(() => expect(finishes).toHaveLength(1));
 		if (mode === "cancel") {
 			expect(finishes).toHaveLength(1);
 			expect(finishes[0]?.[0]).toBe("cancelled");

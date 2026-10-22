@@ -9,7 +9,7 @@ export interface LoginTerminalChild {
 export type SpawnTerminal = (
 	command: string,
 	args: string[],
-	options: { cwd: string; env: NodeJS.ProcessEnv; stdio: "inherit" },
+	options: { cwd: string; env: NodeJS.ProcessEnv; stdio: "inherit" | "ignore" },
 ) => LoginTerminalChild;
 export interface LoginChildRunnerOptions {
 	home: string;
@@ -27,7 +27,13 @@ export interface LoginChildInput {
 /** Private host-side runner. The child receives only allowlisted launch parameters; completion authority stays in this closure. */
 export function createLoginChildRunner(options: LoginChildRunnerOptions) {
 	const spawnTerminal =
-		options.spawnTerminal ?? ((command, args, launch) => nodeSpawn(command, args, launch) as ChildProcess);
+		options.spawnTerminal ??
+		((command, args, launch) => {
+			if (!process.stdin.isTTY || !process.stdout.isTTY || !process.stderr.isTTY) {
+				throw new Error("Login requires an interactive terminal");
+			}
+			return nodeSpawn(command, args, launch) as ChildProcess;
+		});
 	const active = new Map<string, (outcome: LoginOutcome) => void>();
 	return {
 		cancel(id: string) {
@@ -41,7 +47,7 @@ export function createLoginChildRunner(options: LoginChildRunnerOptions) {
 				env: { ...process.env, YONDER_HOME: options.home },
 				stdio: "inherit",
 			});
-			return new Promise((resolve) => {
+			return new Promise<void>((resolve) => {
 				let settled = false;
 				let timer: ReturnType<typeof setTimeout> | undefined;
 				const settle = (outcome: LoginOutcome, code: number) => {
@@ -49,7 +55,10 @@ export function createLoginChildRunner(options: LoginChildRunnerOptions) {
 					settled = true;
 					active.delete(input.id);
 					if (timer) clearTimeout(timer);
-					void input.finish(outcome, code).finally(resolve);
+					void input.finish(outcome, code).then(
+						() => resolve(),
+						() => resolve(),
+					);
 				};
 				active.set(input.id, (outcome) => {
 					child.kill("SIGTERM");
@@ -67,7 +76,6 @@ export function createLoginChildRunner(options: LoginChildRunnerOptions) {
 					options.timeoutMs ?? 10 * 60_000,
 				);
 				timer.unref?.();
-				resolve();
 			});
 		},
 	};
