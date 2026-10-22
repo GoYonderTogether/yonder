@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { Ledger, safeFallback } from "../src/ledger.js";
 import { runDecision } from "../src/decision-engine.js";
+import { Ledger, safeFallback } from "../src/ledger.js";
 
 const leaseHooks = vi.hoisted(() => ({ compromised: undefined as (() => void) | undefined }));
 vi.mock("proper-lockfile", async (importOriginal) => {
