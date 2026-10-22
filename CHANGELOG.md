@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- progress-observer now deduplicates a reported stall evidence window across plugin restarts, suppresses quiet or non-allowlisted tasks before model/send, and treats done-but-unaccepted tasks as missing-progress evidence only after the threshold; real milestone or resumed-input timestamps open the next window.
+
 ## [0.2.26102205] - 2026-10-22
 
 ### Added

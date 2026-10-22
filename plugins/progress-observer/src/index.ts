@@ -9,11 +9,17 @@ import { sendProgress } from "./sender.js";
 // Labels are display-only data. Reject unknown fields instead of letting callers
 // smuggle instructions or unreviewed association claims through this tool.
 export function isStallEligible(
-	task: { executorSession?: string; executor: string; lastExecutorEventAt?: number; lastMilestoneAt?: number },
+	task: {
+		executorSession?: string;
+		executor: string;
+		accepted?: string;
+		lastExecutorEventAt?: number;
+		lastMilestoneAt?: number;
+	},
 	now: number,
 	stallAfterMs: number,
 ): boolean {
-	if (!task.executorSession || task.executor === "done") return false;
+	if (!task.executorSession || (task.executor === "done" && task.accepted === "accepted")) return false;
 	const evidenceAt = Math.max(task.lastExecutorEventAt ?? 0, task.lastMilestoneAt ?? 0);
 	return evidenceAt > 0 && now - evidenceAt >= stallAfterMs;
 }
@@ -195,15 +201,22 @@ export default definePlugin({
 							if (requiredTasks.length < minTasks) return;
 							const now = Date.now();
 							for (const task of requiredTasks) {
+								// An unaccepted done marker is not a completion claim or an immediate notification.
+								const stallEligible = isStallEligible(task, now, stallAfterMs);
+								if (task.executor === "done" && task.accepted !== "accepted" && !stallEligible) continue;
 								// A recorded active run means progress is unknown, never proof of interruption.
-								if (isStallEligible(task, now, stallAfterMs)) {
-									const window = `${task.lastExecutorEventAt ?? 0}:${task.lastMilestoneAt ?? 0}`;
+								if (stallEligible) {
+									const stallId = `stall:${task.id}:${task.lastExecutorEventAt ?? 0}:${task.lastMilestoneAt ?? 0}`;
 									await ledger.event({
-										id: `stall:${task.id}:${window}`,
+										id: stallId,
 										task: task.id,
 										type: "stall.candidate",
 										at: now,
 									});
+									const current = (await ledger.list()).find((item) => item.id === task.id);
+									// An already-consumed candidate identifies a window that has been reported.
+									// Do not fall through to older pending evidence and notify again on every tick.
+									if (current?.seen.includes(stallId) && !current.pending.includes(stallId)) continue;
 								}
 								// Require admin-approved source AND agent before model invocation or delivery.
 								// The immutable configured set, never model arguments/history, defines scope.

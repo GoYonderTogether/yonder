@@ -7,7 +7,8 @@ it("uses the business clock for threshold edges and excludes active/done executo
 	expect(isStallEligible(task, 50_000, 40_000)).toBe(true);
 	expect(isStallEligible({ ...task, executor: "active" }, 49_999, 40_000)).toBe(false);
 	expect(isStallEligible({ ...task, executor: "active" }, 50_000, 40_000)).toBe(true);
-	expect(isStallEligible({ ...task, executor: "done" }, 90_000, 40_000)).toBe(false);
+	expect(isStallEligible({ ...task, executor: "done", accepted: "accepted" }, 90_000, 40_000)).toBe(false);
+	expect(isStallEligible({ ...task, executor: "done", accepted: "unknown" }, 50_000, 40_000)).toBe(true);
 	expect(isStallEligible({ ...task, lastMilestoneAt: 80_000 }, 90_000, 40_000)).toBe(false);
 	expect(isStallEligible({ ...task, lastMilestoneAt: 80_000 }, 120_000, 40_000)).toBe(true);
 	expect(isStallEligible({ ...task, executorSession: undefined }, 90_000, 40_000)).toBe(false);
