@@ -21,6 +21,11 @@ export default definePlugin({
 		model: Type.Optional(
 			Type.Object({ provider: Type.String({ minLength: 1 }), modelId: Type.String({ minLength: 1 }) }),
 		),
+		// External progress delivery is opt-in per exact source conversation and agent.
+		allowedSourceConversations: Type.Optional(
+			Type.Array(Type.String({ pattern: "^(conv|acct):\\S+$" }), { default: [] }),
+		),
+		allowedAgents: Type.Optional(Type.Array(Type.String({ pattern: "^agent:\\S+$" }), { default: [] })),
 	}),
 	setup(api: PluginAPI) {
 		const config = (api.config && typeof api.config === "object" ? api.config : {}) as {
@@ -28,6 +33,8 @@ export default definePlugin({
 			intervalMs?: number;
 			minTasks?: number;
 			model?: { provider: string; modelId: string };
+			allowedSourceConversations?: string[];
+			allowedAgents?: string[];
 		};
 		const enabled = config.enabled === true;
 		const intervalMs =
@@ -35,6 +42,8 @@ export default definePlugin({
 				? (config.intervalMs ?? 20 * 60 * 1000)
 				: 20 * 60 * 1000;
 		const minTasks = Number.isInteger(config.minTasks) && (config.minTasks ?? 0) >= 1 ? (config.minTasks ?? 4) : 4;
+		const allowedSourceConversations = new Set(config.allowedSourceConversations ?? []);
+		const allowedAgents = new Set(config.allowedAgents ?? []);
 		let stopTimer = () => {};
 		let ticking: Promise<void> = Promise.resolve();
 		const ledger = new Ledger(api.paths.data);
@@ -167,8 +176,15 @@ export default definePlugin({
 							const tasks = await ledger.list();
 							if (tasks.length < minTasks) return;
 							for (const task of tasks) {
-								// A target is usable only when bound from the original source event.
-								if (!task.target) continue;
+								// Require admin-approved source AND agent before model invocation or delivery.
+								// The immutable configured set, never model arguments/history, defines scope.
+								if (
+									!task.target ||
+									!allowedSourceConversations.has(task.target) ||
+									task.owner == null ||
+									!allowedAgents.has(task.owner)
+								)
+									continue;
 								await runDecision(
 									{
 										ledger,

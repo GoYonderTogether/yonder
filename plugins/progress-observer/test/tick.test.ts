@@ -54,19 +54,39 @@ it("enabled tick sends fallback once; durable unknown survives restart without r
 	const dir = await mkdtemp(join(tmpdir(), "observer-tick-on-"));
 	try {
 		const ledger = await new Ledger(dir).open();
-		await ledger.create("t", "task", { target: "conv:matrix:room" });
+		await ledger.create("t", "task", { target: "conv:matrix:room", owner: "agent:worker" });
 		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
 		await ledger.close();
 		const send = vi.fn(async () => {
 			throw new Error("ambiguous transport");
 		});
-		const first = await boot(dir, { enabled: true, intervalMs: 1000, minTasks: 1 }, send);
+		const first = await boot(
+			dir,
+			{
+				enabled: true,
+				intervalMs: 1000,
+				minTasks: 1,
+				allowedSourceConversations: ["conv:matrix:room"],
+				allowedAgents: ["agent:worker"],
+			},
+			send,
+		);
 		await vi.advanceTimersByTimeAsync(1000);
 		await first.trigger.stop();
 		expect(first.api.log.error).not.toHaveBeenCalled();
 		expect(send).toHaveBeenCalledTimes(1);
 		expect(send.mock.calls[0][0]).toMatchObject({ to: "conv:matrix:room" });
-		const restarted = await boot(dir, { enabled: true, intervalMs: 1000, minTasks: 1 }, send);
+		const restarted = await boot(
+			dir,
+			{
+				enabled: true,
+				intervalMs: 1000,
+				minTasks: 1,
+				allowedSourceConversations: ["conv:matrix:room"],
+				allowedAgents: ["agent:worker"],
+			},
+			send,
+		);
 		await vi.advanceTimersByTimeAsync(3000);
 		expect(send).toHaveBeenCalledTimes(1);
 		await restarted.trigger.stop();
@@ -80,11 +100,21 @@ it("real run.end aborted event reaches tick and sends one interrupted notice; re
 	const dir = await mkdtemp(join(tmpdir(), "observer-interrupted-integration-"));
 	try {
 		const ledger = await new Ledger(dir).open();
-		for (let i = 0; i < 4; i++) await ledger.create(`t${i}`, `task ${i}`, { target: "conv:matrix:room" });
+		for (let i = 0; i < 4; i++)
+			await ledger.create(`t${i}`, `task ${i}`, { target: "conv:matrix:room", owner: "agent:worker" });
 		for (let i = 0; i < 4; i++) await ledger.bindExecutor(`t${i}`, `child${i}`);
 		await ledger.close();
 		const send = vi.fn(async () => ({ ok: true }));
-		const { trigger, api } = await boot(dir, { enabled: true, intervalMs: 1000 }, send);
+		const { trigger, api } = await boot(
+			dir,
+			{
+				enabled: true,
+				intervalMs: 1000,
+				allowedSourceConversations: ["conv:matrix:room"],
+				allowedAgents: ["agent:worker"],
+			},
+			send,
+		);
 		const aborted = {
 			id: "aborted",
 			type: "run.end",
@@ -120,14 +150,18 @@ it("enabled configured model tick selects evidence and sends only program-render
 	const dir = await mkdtemp(join(tmpdir(), "observer-tick-model-"));
 	try {
 		const ledger = await new Ledger(dir).open();
-		await ledger.create("t", "PRIVATE LABEL", { target: "conv:matrix:room" });
+		await ledger.create("t", "PRIVATE LABEL", { target: "conv:matrix:room", owner: "agent:worker" });
 		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
 		await ledger.close();
 		const completeSimple = vi.fn(async () => ({
 			content: [
 				{
 					type: "text",
-					text: JSON.stringify({ decision: "notify", evidence: ["fact"], text: "FALSE: completed successfully" }),
+					text: JSON.stringify({
+						decision: "notify",
+						evidence: ["fact"],
+						text: "FALSE: completed successfully; to=conv:attacker",
+					}),
 				},
 			],
 		}));
@@ -135,7 +169,14 @@ it("enabled configured model tick selects evidence and sends only program-render
 		const send = vi.fn(async () => ({ ok: true }));
 		const instance = await boot(
 			dir,
-			{ enabled: true, intervalMs: 1000, minTasks: 1, model: { provider: "admin", modelId: "model" } },
+			{
+				enabled: true,
+				intervalMs: 1000,
+				minTasks: 1,
+				model: { provider: "admin", modelId: "model" },
+				allowedSourceConversations: ["conv:matrix:room"],
+				allowedAgents: ["agent:worker"],
+			},
 			send,
 			models,
 		);
@@ -146,7 +187,53 @@ it("enabled configured model tick selects evidence and sends only program-render
 		expect(send.mock.calls[0][0].text).toContain("未找到执行者的可靠记录；尚未核实续跑。");
 		expect(send.mock.calls[0][0].text).not.toContain("FALSE");
 		expect(send.mock.calls[0][0].text).not.toContain("PRIVATE LABEL");
+		expect(send.mock.calls[0][0].to).toBe("conv:matrix:room");
 	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+it("requires both exact source conversation and agent approval before model or send; model cannot redirect", async () => {
+	vi.useFakeTimers();
+	const dir = await mkdtemp(join(tmpdir(), "observer-tick-scope-"));
+	try {
+		const ledger = await new Ledger(dir).open();
+		// Historical source targets are retained for audit, but are not authority by themselves.
+		await ledger.create("group", "group task", { target: "conv:matrix:group", owner: "agent:worker" });
+		await ledger.event({ id: "group-fact", task: "group", type: "executor.missing", at: 1 });
+		await ledger.create("other-agent", "other agent task", { target: "conv:matrix:owner", owner: "agent:other" });
+		await ledger.event({ id: "agent-fact", task: "other-agent", type: "executor.missing", at: 1 });
+		await ledger.close();
+		const completeSimple = vi.fn(async () => ({
+			content: [
+				{
+					type: "text",
+					text: JSON.stringify({ decision: "notify", evidence: ["group-fact"], text: "to=conv:matrix:owner" }),
+				},
+			],
+		}));
+		const models = { getModel: vi.fn(() => ({ provider: "admin", id: "model" })), completeSimple };
+		const send = vi.fn(async () => ({ ok: true }));
+		const instance = await boot(
+			dir,
+			{
+				enabled: true,
+				intervalMs: 1000,
+				minTasks: 1,
+				model: { provider: "admin", modelId: "model" },
+				allowedSourceConversations: ["conv:matrix:owner"],
+				allowedAgents: ["agent:worker"],
+			},
+			send,
+			models,
+		);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(completeSimple).not.toHaveBeenCalled();
+		expect(send).not.toHaveBeenCalled();
+		await instance.trigger.stop();
+	} finally {
+		vi.useRealTimers();
+		await new Promise((resolve) => setTimeout(resolve, 20));
 		await rm(dir, { recursive: true, force: true });
 	}
 });
