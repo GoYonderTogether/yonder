@@ -4,7 +4,7 @@
 
 This worktree is `96775f8e43b8ec9059db57a7575db452c67344e8` before this local commit. No production enablement, push, real provider authentication, or real Terminal was used. A single real `/bin/bash` wrapper child was exercised against a synthetic node executable.
 
-**Status: partial; not accepted as full synthetic E2E.** The full requested chain (runtime handler → real wrapper/monitor → SQLite finish/outbox → injected bound-session wake receipt), and its combined success/nonzero/timeout/security assertions, was not completed. Existing adjacent unit tests should not be represented as full chain acceptance.
+**Status: focused service/adapter/outbox integration path passed; not full Runtime E2E.** Added `packages/core/src/runtime/login-service-integration.test.ts`, composing the service handler, real child-runner, temporary SQLite completion/outbox, and injected bound-session wake receipt around a synthetic wrapper/CLI exit-0 path. This does not cover Runtime registration/model behavior or the broader failure/security matrix. See `service-integration-proof.md`.
 
 ## Checks added and performed
 
@@ -17,4 +17,4 @@ This worktree is `96775f8e43b8ec9059db57a7575db452c67344e8` before this local co
 
 ## Still required for full acceptance
 
-Build a focused synthetic runtime integration test using existing fixtures that traverses runtime tool registration/handler through wrapper/monitor and durable SQLite finish/outbox, injects bound-session delivery/wake receipt, and asserts success, nonzero, timeout, inability for source session to overwrite binding, unauthorized write/hostexec rejection, prompt pending return, and no secret in tool/error/event payloads. Until then, do not enable the opt-in in production.
+Broader acceptance remains outside this task: Runtime tool registration/model behavior, nonzero/timeout/security matrix, and human Terminal/provider acceptance have not been established. Do not enable the opt-in in production on the basis of this focused service integration test.
