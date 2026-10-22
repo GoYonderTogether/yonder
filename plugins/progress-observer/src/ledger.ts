@@ -15,6 +15,8 @@ export interface Task {
 	target?: string;
 	executorSession?: string;
 	runStatus?: string;
+	lastExecutorEventAt?: number;
+	lastMilestoneAt?: number;
 	milestone?: string;
 	accepted: "pending" | "accepted" | "unknown";
 	delivery: Delivery;
@@ -35,6 +37,7 @@ export type Event = {
 		| "executor.missing"
 		| "run.end"
 		| "milestone"
+		| "stall.candidate"
 		| "accepted"
 		| "delivery.sent"
 		| "delivery.unknown"
@@ -56,21 +59,31 @@ export function apply(t: Task, e: Event) {
 	switch (e.type) {
 		case "executor.active":
 			t.executor = "active";
+			t.runStatus = "active";
+			t.lastExecutorEventAt = e.at;
 			break;
 		case "executor.interrupted":
 			t.executor = "interrupted";
+			t.lastExecutorEventAt = e.at;
 			break;
 		case "executor.missing":
 			t.executor = "missing";
+			t.lastExecutorEventAt = e.at;
 			break;
 		case "run.end":
+			t.lastExecutorEventAt = e.at;
 			t.runStatus = e.value ?? "unknown";
 			if (e.value === "done") t.executor = "done";
 			else if (e.value === "aborted" || e.value === "error" || e.value === "limit" || e.value === "interrupted")
 				t.executor = "interrupted";
 			break;
 		case "milestone":
-			if (e.value !== undefined) t.milestone = e.value;
+			if (e.value !== undefined) {
+				t.milestone = e.value;
+				t.lastMilestoneAt = e.at;
+			}
+			break;
+		case "stall.candidate":
 			break;
 		case "accepted":
 			t.accepted = "accepted";
@@ -278,9 +291,14 @@ export function executorStatusText(executor: Task["executor"]): string {
 }
 
 export function safeFallback(t: Task): Decision {
-	const evidence = t.pending.slice(-3);
+	const stallEvidence = t.pending.filter((id) => id.startsWith(`stall:${t.id}:`)).slice(-1);
+	const evidence = stallEvidence.length ? stallEvidence : t.pending.slice(-3);
+	if (stallEvidence.length)
+		return { decision: "notify", evidence, text: "超过配置停滞阈值没有新的进展证据；这不表示执行者失联或任务中断。" };
 	if (t.executor === "interrupted" || t.executor === "missing")
 		return { decision: "notify", evidence, text: executorStatusText(t.executor) };
+	if (t.executor === "done" && t.accepted !== "accepted")
+		return { decision: "notify", evidence, text: "执行记录为 done，但结果尚未获接受确认。" };
 	if (t.delivery === "unknown") return { decision: "update", evidence, text: "投递结果未知；不会自动重发。" };
 	return { decision: "skip", evidence: [], text: "" };
 }

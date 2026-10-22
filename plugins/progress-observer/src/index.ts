@@ -17,6 +17,7 @@ export default definePlugin({
 	configSchema: Type.Object({
 		enabled: Type.Optional(Type.Boolean({ default: false })),
 		intervalMs: Type.Optional(Type.Integer({ minimum: 1000, default: 20 * 60 * 1000 })),
+		stallAfterMs: Type.Optional(Type.Integer({ minimum: 1000, default: 40 * 60 * 1000 })),
 		minTasks: Type.Optional(Type.Integer({ minimum: 1, default: 4 })),
 		model: Type.Optional(
 			Type.Object({ provider: Type.String({ minLength: 1 }), modelId: Type.String({ minLength: 1 }) }),
@@ -31,6 +32,7 @@ export default definePlugin({
 		const config = (api.config && typeof api.config === "object" ? api.config : {}) as {
 			enabled?: boolean;
 			intervalMs?: number;
+			stallAfterMs?: number;
 			minTasks?: number;
 			model?: { provider: string; modelId: string };
 			allowedSourceConversations?: string[];
@@ -41,6 +43,10 @@ export default definePlugin({
 			Number.isInteger(config.intervalMs) && (config.intervalMs ?? 0) >= 1000
 				? (config.intervalMs ?? 20 * 60 * 1000)
 				: 20 * 60 * 1000;
+		const stallAfterMs =
+			Number.isInteger(config.stallAfterMs) && (config.stallAfterMs ?? 0) >= 1000
+				? (config.stallAfterMs ?? 40 * 60 * 1000)
+				: 40 * 60 * 1000;
 		const minTasks = Number.isInteger(config.minTasks) && (config.minTasks ?? 0) >= 1 ? (config.minTasks ?? 4) : 4;
 		const allowedSourceConversations = new Set(config.allowedSourceConversations ?? []);
 		const allowedAgents = new Set(config.allowedAgents ?? []);
@@ -174,8 +180,24 @@ export default definePlugin({
 						try {
 							await ready;
 							const tasks = await ledger.list();
-							if (tasks.length < minTasks) return;
-							for (const task of tasks) {
+							// minTasks applies only to unresolved work, never an accumulation of historical done tasks.
+							const requiredTasks = tasks.filter((task) => task.executor !== "done" || task.accepted !== "accepted");
+							if (requiredTasks.length < minTasks) return;
+							const now = Date.now();
+							for (const task of requiredTasks) {
+								// A recorded active run means progress is unknown, never proof of interruption.
+								if (task.executorSession && task.executor !== "active" && task.executor !== "done") {
+									const evidenceAt = Math.max(task.lastExecutorEventAt ?? 0, task.lastMilestoneAt ?? 0);
+									if (evidenceAt > 0 && now - evidenceAt >= stallAfterMs) {
+										const window = `${task.lastExecutorEventAt ?? 0}:${task.lastMilestoneAt ?? 0}`;
+										await ledger.event({
+											id: `stall:${task.id}:${window}`,
+											task: task.id,
+											type: "stall.candidate",
+											at: now,
+										});
+									}
+								}
 								// Require admin-approved source AND agent before model invocation or delivery.
 								// The immutable configured set, never model arguments/history, defines scope.
 								if (
