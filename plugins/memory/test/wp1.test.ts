@@ -24,11 +24,28 @@ export function context(capabilities: ToolContext["capabilities"] = ["read", "wr
 		session: "test-session",
 		capabilities,
 		signal: new AbortController().signal,
+		event: { type: "message.in", from: "acct:test:owner", conv: "conv:test:owner", data: {} },
 	} as ToolContext;
 }
 export async function setup(root: string, extra = {}) {
 	const { api, registrations } = createRegistrationCollector();
-	await plugin.setup({ ...api, config: { root, owner: "person:test", timezone: "UTC", ...extra } } as PluginAPI);
+	await plugin.setup({
+		...api,
+		config: {
+			root,
+			owner: "person:test",
+			timezone: "UTC",
+			allowedAgents: ["main"],
+			allowedSourceConversations: ["conv:test:owner"],
+			...extra,
+		},
+		identity: {
+			...api.identity,
+			async account() {
+				return { person: "person:test" };
+			},
+		},
+	} as PluginAPI);
 	return registrations;
 }
 it("passes checkPlugin and setup has no filesystem side effects", async () => {

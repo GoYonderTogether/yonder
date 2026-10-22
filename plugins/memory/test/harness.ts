@@ -20,14 +20,21 @@ export function event(
 	from = "acct:test:owner",
 	data: object = { text: "确定性测试输入" },
 ): YEvent {
-	return { id: randomUUID(), ts: new Date().toISOString(), type, from, data };
+	return { id: randomUUID(), ts: new Date().toISOString(), type, from, conv: "conv:test:owner", data };
 }
 export async function harness(extra = {}, overrides: Partial<PluginAPI> = {}) {
 	const root = await mkdtemp(join(tmpdir(), "memory-test-"));
 	await initialize(root);
 	const { api, registrations } = createRegistrationCollector(),
 		events: EventInput[] = [];
-	const config = { root, owner: "person:test", timezone: "UTC", ...extra };
+	const config = {
+		root,
+		owner: "person:test",
+		timezone: "UTC",
+		allowedAgents: ["test"],
+		allowedSourceConversations: ["conv:test:owner"],
+		...extra,
+	};
 	const full = {
 		...api,
 		config,
@@ -52,7 +59,7 @@ export async function harness(extra = {}, overrides: Partial<PluginAPI> = {}) {
 		api: full,
 		registrations,
 		events,
-		async run(name: string, args: unknown, ctx = context()) {
+		async run(name: string, args: unknown, ctx = context(event())) {
 			const tool = registrations.tools.find((t) => t.name === `memory_${name}`);
 			if (!tool) throw new Error("missing tool");
 			const result = await tool.execute(args, ctx);
