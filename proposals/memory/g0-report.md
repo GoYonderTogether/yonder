@@ -99,7 +99,24 @@
 
 ## 6. 文档转换器评估（markitdown / docling）
 
-**结论：未完成，无转换结果，不给出实测推荐。**
+**结论（2026-10-22 下午由规划方补测）：两者都能转换；推荐 markitdown 作默认 converter，docling 仅作需要 OCR/复杂版式时的可选项。** 下文“安装”一段记录的是 Codex 当时受沙箱网络限制的失败，补测在本机直连网络下完成。
+
+补测结果（隔离虚拟环境，样本为同一份 1 页 PDF 与 docx，以及自生成的中文 docx/PDF）：
+
+| | markitdown 0.1.9（`[pdf,docx]`） | docling（最新版，`--pipeline` 默认） |
+|---|---|---|
+| 安装 | 约 21 秒，体积小 | 约 1.4 GB 虚拟环境，另在 `~/.cache/huggingface` 下载模型 |
+| PDF（1 页） | 0.33 秒，退出码 0，Markdown 到标准输出 | 首次 46 秒（含模型下载），写入输出目录 |
+| docx | 0.23 秒，正文干净 | 96 秒（含首次初始化），输出 139 KB（体积异常大，疑含内嵌图片数据） |
+| 中文 docx | 正确 | 未测 |
+| 中文 PDF | 文字正确，但“文”被抽成康熙部首“⽂”（U+2F42） | 未测 |
+| 调用方式 | `markitdown <文件>` 标准输出 | `docling --to md --output <目录> <文件>`，需包装才能走标准输出 |
+
+**新发现**：PDF 抽取会把汉字映射成兼容字符，直接落盘会让中文子串检索失败；NFKC 规范化可以修复（已写入规范 §6.1、§6.2）。注意 NFKC 同时会把全角冒号等标点变成 ASCII，所以只对转换产物规范化，检索词则原样与规范化各搜一次。
+
+未测：扫描件/OCR、复杂版式、大文件、docling 的中文表现；docling 补测会在用户 `~/.cache/huggingface` 留下模型缓存。
+
+以下为 Codex 当时的原始记录：
 
 - 许可证：两者的 GitHub 仓库许可均为 MIT（Codex 查询公开 API；规划方另用 `gh repo view` 复核，markitdown 191k 星、docling 69k 星，2026-10 仍在更新）。
 - 样本：`/tmp/yonder-memory-g0.AwzTjf/test.pdf`（1 页，93 KB）与 `test.docx`（136 KB）为下载的公开样本，已用 `file` 核验类型；docx 正文包含公开论文内容。
