@@ -194,7 +194,6 @@ chatCommands · TUI
 
 主动记忆引擎、持久PTY、PDF/Office解析、自动PR审核合并均未列为已实现。MEMORY.md文件加载、生命周期trigger、MCP服务端不能冒充这些能力。
 
-
 BrowserSkill fork（D54）：`browser-skill_bookmarks` 的 tree / move(nodeId,parentId,index?) / create-folder(title,parentId,index?) / remove-empty-folder(nodeId)；`browser-skill_extensions` 的 list / enable(extensionId) / disable(extensionId)。均支持可选 session（仅恰有一个 owned session 时可省略）。插件 config：`bookmarksEnabled`、`extensionsEnabled` 默认 false，不代替主人 popup 授权。
 
-macOS 权限研究：`scripts/demo-permissions.sh status` 在隔离研究 app 中执行只读探针；`scripts/demo-permissions.sh guide accessibility` 仅供主人显式查看浮窗。不是 `yonder` 子命令或模型工具，不诊断生产服务。完整权限工具未实现，见[验收记录](verification/mac-permissions.md)。
+macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helper 自身 9 类非提示式探针（含 bundle/path/codeHash、lastCheckedAt、lastRequestedAt、nextStep）。人用 `~/.local/share/yonder-harness/helper/yonder-permissions status | request|guide|watch <kind>`；checkout 演示入口为 `scripts/demo-permissions.sh`，先 `npm run build`。不是 `yonder` 子命令；AI action 不提供授权。FDA/Files & Folders 为 unobservable，详见[验收记录](verification/mac-permissions.md)。

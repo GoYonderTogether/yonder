@@ -81,9 +81,13 @@ watcher 读取注册候选，加载对应 agent.yaml，与 preset 一起走共�
 
 保留BrowserSkill与Codex桥接。另提供独立browser/desktop工具，不要求这两项安装；优先直接采用Hermes/OpenClaw可复用原生方案和许可。自动探测本机原生浏览器/OS能力，能自动启动即启动。浏览器需要的浏览器引擎/驱动应随依赖或由显式安装流程准备，不宣称无任何依赖；macOS桌面仍须系统屏幕录制/辅助功能授权，不能绕过。无宿主凭据可完成本地网页操作/截图/键鼠即为替代闭环。原始实现和版权注明来源，不引入另一Agent运行核心。
 
-### 5.1 macOS 权限扩展准入（D55）
+### 5.1 macOS 权限 helper（D55）
 
-完整权限状态与引导扩展尚未通过准入：必须先证实实际服务/子进程的 responsible identity、可观测状态语义与更新后的身份稳定性。研究 demo 仅供只读探测和主人手动查看浮窗，不是生产 helper，不提供模型工具、持久状态或授予权限。现有 desktop status 仍为当前 JXA 调用方的非提示式 boolean 预检，不能等同所有权限/进程均已授权。阻塞、候选实测与后续选择见 [D55](../decisions.md) 和 [验收记录](../verification/mac-permissions.md)。
+维护者在 Track C phase 2 批准可观测事实 + 请求历史：`unknown | not-granted | requested | granted | needs-restart | revoked-detected | unobservable`。boolean false 不区分未请求与拒绝；`requested` 仅表示 helper 曾发请求，带 lastRequestedAt，不代表 pending/denied。FDA、Files & Folders 不作全局猜测，返回 unobservable 与人工下一步。Automation 限定 System Events target，未运行/探测失败为 unknown。needs-restart 只用于同路径代码身份变化且旧身份曾 granted 的情况，明确表示旧授权可能失效，不能承诺重启修复。
+
+单一 `Yonder Helper.app`（dev.yonder.harness.helper）在稳定目录 `~/.local/share/yonder-harness/helper/`；状态文件在 bundle 外，更新只在 cdhash 变化时替换 bundle。Apple Development/Developer ID 签名优先；无证书时 ad-hoc，并报告 hash 变化与重新授权风险。通过 LaunchServices 后台独立启动，stdin/stdout JSON、无网络。截图、鼠标、Unicode 输入、物理按键与窗口 AX 快照均在 helper 自身执行。
+
+AI 的 native-automation_desktop `permissions` / `status` 只执行非提示式探针，返回 kind/state/lastCheckedAt/lastRequestedAt/responsibleIdentity/nextStep/raw；不得弹窗、开 Settings 或授予权限。负责身份字段指实际执行代码的 bundle/path/cdhash，不将 PPID 当成系统 TCC 审计证明。人用 `yonder-permissions request|guide|watch <kind>`；只有 request/guide 记录发起历史并交互。guide 固定 PermissionFlow SHA，关闭自动 AX 提示；watch 有限时只读轮询。AI 不点击 Allow、不访问 TCC.db、不调用 tccutil。真实授权、撤销、UI 跟随与更新保留须主人完成后验收。
 
 ## 6 手工memory目录
 

@@ -27,5 +27,5 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      - run: npm test
+      - run: npm test -- --maxWorkers=4
       - run: npm run lint

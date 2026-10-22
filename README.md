@@ -125,3 +125,5 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md). Tests that need a model use a re
 ## License and acknowledgements
 
 Apache-2.0, see [LICENSE](LICENSE). Yonder Harness builds on [pi](https://github.com/earendil-works/pi) (MIT) and adapts code or protocol behavior from pi's coding-agent, [OpenClaw](https://github.com/openclaw/openclaw), [Hermes Agent](https://github.com/NousResearch/hermes-agent) and Tencent's BrowserSkill under their MIT licenses. Attributions and license texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the individual plugin directories.
+
+macOS 桌面权限使用稳定签名的 Yonder Helper.app；AI 通过 native-automation_desktop `permissions` 只读查看状态。首次桌面调用安装 helper，授权由主人使用独立 CLI 完成，见[权限与 OWNER STEP](docs/verification/mac-permissions.md)。

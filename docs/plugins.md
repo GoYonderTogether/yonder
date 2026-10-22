@@ -283,13 +283,13 @@
 - **可调用工具**：
   - `native-automation_browser` → status/navigate/snapshot/click/fill/press/select/screenshot/evaluate
     - tabs/new-tab/select-tab/close-tab/back/forward/reload/close
-  - `native-automation_desktop` → status/snapshot/screenshot/move/click/drag/type/key
+  - `native-automation_desktop` → status/permissions/snapshot/screenshot/move/click/drag/type/key
 - **功能**：
   - 自动探测并启动自有Chromium浏览器完成网页操作；macOS原生截图/观察/键鼠。
   - 停止等待自有进程真实退出。
 - **边界**：无需BrowserSkill/Codex，但仍需浏览器引擎和OS授权。截图通过不代替键鼠真实验收。
 
-macOS 权限完整状态扩展仍受 D55 准入门槛阻塞；现有 desktop status 未替换。研究探针/浮窗不属于模型工具或服务能力，见[实测与 OWNER STEP](verification/mac-permissions.md)。
+macOS 桌面通过稳定路径的签名 Yonder Helper.app 执行。permissions/status 只读 OS 探针，提供 9 类权限的身份、请求历史、原始状态和主人下一步；只由人用 CLI request/guide 交互。FDA/Files & Folders 为 unobservable。首次调用可复制/更新 helper 并持久化观测，不代表授予权限。截图当前限主屏；真人 UI/输入/授权/撤销/升级保留未测，见[实测与 OWNER STEP](verification/mac-permissions.md)。
 
 ## 微信归档与 iLink
 

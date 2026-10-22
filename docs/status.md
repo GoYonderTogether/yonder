@@ -98,4 +98,4 @@
 
 ## macOS 权限引导（Track C / D55）
 
-候选库五项实机构建与安全只读 smoke 已完成；研究 app 包内原生探针与 PermissionFlow provider 已比较。完整状态管理的责任进程、FDA/Files & Folders 可观测性、引导 UI、授权/撤销/重启/升级仍未通过准入。未实现生产 helper、持久状态及 native-automation permissions 接线；现有桌面功能不作变更。详见[调研](research/mac-permission-guidance.md)和[验收记录/OWNER STEP](verification/mac-permissions.md)。
+Phase 2 已按获准 unknown 语义实现稳定签名 Yonder Helper.app、9 类非提示式探针、请求历史、显式人用 request/guide/watch 与 native-automation permissions/status/桌面执行接线。实机新 helper 的 AX/Screen/Input 均未授权；未授权截图返回正确状态与主人命令。FDA/Files & Folders 不可全局预检。构建、签名与只读检查不代替真人 UI、授权/撤销、键鼠输入和升级保留验收；这些仍未测。详见[调研](research/mac-permission-guidance.md)和[验收记录/OWNER STEP](verification/mac-permissions.md)。

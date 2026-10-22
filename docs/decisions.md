@@ -151,12 +151,12 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 
 **D54 BrowserSkill 继续使用 MIT 上游，最小 fork 提供可选书签与扩展管理。** 基线为 Tencent/BrowserSkill main `6214e3d`（最新发布仍为 0.3.3），保留独立 fork，Yonder 只调用 CLI、不内化浏览器运行时。沿用书签四动作，扩展管理复用 Chrome `management` API，仅 list/enable/disable；插件 `bookmarksEnabled`、`extensionsEnabled` 默认关闭，Chrome 可选权限只能由主人在 popup 授予，本地 owned session、取消和原有受限页面规则保留，拒绝修改自身与受管理扩展。不让网页授权扩展修改，不自动重试未知写入。安装采用真人 Chrome 的手动 Load unpacked / 商店确认；无人值守仅在独立 Chrome for Testing profile 使用 `--load-extension`，不冒充真人已登录浏览器。CWS API 可自动更新已有条目并送审，但首次开发者账号/费用、unlisted 配置及审核不能跳过，未提供凭据则停止该支线。编译 `BSK_FORK_BUILD=1` 固定关闭本 fork 的自动及显式上游更新，避免书签补丁被覆盖；升级通过重新同步 fork。取舍、七级路线及 OWNER STEP 见 [调研](research/chrome-extension-install.md)，实际测试见 [验收](verification/browser-skill-fork.md)。PR #434 原书签分支不重写：本轮 rebase 改写了本地提交且增加 Yonder 专用管理行为，另推 fork 分支，不向 Tencent 推送。
 
-## D55 macOS 权限扩展先验证实际归属与可观测性（Track C，2026-10-22，待审核）
+## D55 macOS 权限由稳定 helper 执行与引导（Track C phase 2，2026-10-22，待审核）
 
-决定：按 Track C 的复用规则，选 PermissionFlow v2.11.3 / `cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2` 作为浮窗引导的首选候选，仅在隔离研究 demo 固定依赖，保留 MIT LICENSE 与 NOTICE。不采用其 FDA provider，不把其他库的请求历史当成用户拒绝。候选比较、stars/release/许可、实机运行与原始失败见[调研](research/mac-permission-guidance.md)。
+维护者代表主人明确批准 unknown 语义，撤销 phase 1 的完整可观测性 gate；不再要求 OS 区分未请求与拒绝。采用 spec/14 §5.1 的状态模型，持久保存自身请求时间、最近探针、代码身份与曾 granted 的证据。false 是 not-granted；requested 仅是请求历史；同代码身份后续 false 可记录 revoked-detected（探针证据，非拒绝原因判定）；代码 hash 变化而旧 grant 存在时标 needs-restart / grant likely invalid，须重新检查或授权。FDA/Files & Folders 为 unobservable；API 不适用/失败为 unknown。
 
-理由：五个候选均构建成功，但没有一个验证了 launchd node / osascript / screencapture 的实际 TCC responsibility，也没有可靠涵盖全部 permission 的 denied/pending/needs-restart 事实。研究 app 内的 preflight 不能替代服务状态。ad-hoc 同 identifier 重编译后的 DR 已实测改变，跨自更新授权稳定性未建立。完整状态准入未通过；按公共任务规则停止依赖它的生产集成，不能注册占位工具。
+复用 PermissionFlow v2.11.3 / `cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2`，MIT LICENSE + NOTICE，仅显式 guide 初始化浮窗，promptForAccessibilityTrust=false；不使用其 FDA provider。原生 API 组合提供 AX/Screen/Input/AV/UN/按目标 Automation 探针；最小自有 Swift helper 补齐持久历史与 CoreGraphics/AX 桌面执行。候选实测表沿用[调研](research/mac-permission-guidance.md)，不再增加候选或依赖。
 
-设计边界：未来持久记录必须按 permission + 已验证 responsible identity + target/resource（适用时）区分，保存 raw probe、lastChecked、nextStep、request 历史及运行实例；不可观测时 unknown，不能把 false 推成 denied、把请求完成推成 granted、把任意新进程探针推成 needs-restart。需要重启必须有同一身份旧进程/新进程的相反有效证据；revoked-detected 必须来自同身份已授权后的新否定证据，并区分缓存。status/AI 查询不得提示或开 Settings；只有主人显式请求的 request/guide 才有交互；watch 仅观察且有超时/取消。授权、点击 Allow、TCC 修改始终不交给 AI。
+ONE Yonder Helper.app 是桌面操作的签名代码主体，通过 LaunchServices 后台启动，以本地 stdin/stdout JSON 交换；不让 Node/JXA 代执行截图或输入。稳定路径与外置状态跨 harness 更新保留，bundle 仅 cdhash 改变才重装。本机发现 Apple Development 身份，构建优先采用；CI 无身份时 ad-hoc，显式披露不能承诺 grant retention。签名本身和父进程链不构成已授权证明，真实 TCC 归属与授权矩阵保留主人验收。
 
-代价与未决项：C2 的正式 JSON CLI/持久状态契约、C3 状态迁移及真实授权/撤销/重启/升级验收、C4 native-automation 接线均未实现，不改变现有插件接口。维护者需先选择：维持完整可证明要求并完成隔离归属/签名试验，或明确批准“可观测事实 + unknown”的较窄契约。主人操作见[验收记录](verification/mac-permissions.md)。本条不把研究代码冒充产品功能，也不批准操作生产环境。
+AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide；watch 只观察、限时、可取消。不动生产 home/service/launchd/TCC，也不执行主人桌面的 request/guide/watch。实际验证、全部失败与 OWNER STEP 见[验收记录](verification/mac-permissions.md)。

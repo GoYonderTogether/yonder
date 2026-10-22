@@ -2,7 +2,7 @@
 
 2026-10-22，基线 `f820996`，实机 macOS 27.2 / 26B5091g，Apple Silicon，Swift 6.4。
 
-**结论：优先复用 PermissionFlow 的引导 UI，但完整状态管理准入未通过，生产 helper / 插件集成暂停。** 本 PR 提供真实只读探针与主人手动启动的研究浮窗，不宣称完成 C2–C4。浮窗能显示不等于目标进程获得权限；进程的父子关系也不是 TCC responsibility 的证明。
+**Phase 2 决定：复用 PermissionFlow 的显式引导 UI，采用原生非提示式探针 + 自有请求历史，以稳定签名的 Yonder Helper.app 执行所有桌面操作。** 维护者已批准 unknown / unobservable，不再要求 OS 区分未请求与拒绝；下表为 phase 1 的真实候选证据，继续复用，不重新造权限框架。helper 及原生操作已构建并签名；授权、拖放、撤销与跨更新 grant-retention 仍须主人验收。
 
 ## 复用选择与实测
 
@@ -10,7 +10,7 @@
 
 | 候选 | Stars / open issues | 最后 release / push (UTC) | 许可 | macOS 27.2 构建 + 运行 | 适配与决定 |
 |---|---:|---|---|---|---|
-| [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow) | 422 / 3 | v2.11.3，2026-09-26 / 2026-09-26 | MIT | `swift build -j 4` 成功；AX / Screen / Input 3 个 provider 与同进程原生 API 一致 | 选为 UI 候选及研究 demo 的固定依赖；不采用其 FDA provider |
+| [PermissionFlow](https://github.com/jaywcjlove/PermissionFlow) | 422 / 3 | v2.11.3，2026-09-26 / 2026-09-26 | MIT | `swift build -j 4` 成功；AX / Screen / Input 3 个 provider 与同进程原生 API 一致 | 选为显式 guide 的固定依赖；不采用其 FDA provider |
 | [AskForPermission](https://github.com/riko2chen/AskForPermission) | 41 / 0 | 无 release / 2026-04-19 | MIT | build 成功；真实 `PermissionCenter()` 拒绝裸 CLI（missingHostApplicationBundle），未运行其全权限 status | 要求 .app；状态初始化会探测 Safari/TCC 文件及私有 SPI，不选择 |
 | [SwiftPermissions](https://github.com/MoElnaggar14/SwiftPermissions) | 5 / 3 | v3.6.0，2026-10-06 / 2026-10-06 | MIT | build 成功；AX / Screen 2 项原生比较通过 | 可复用细分 provider，但不提供目标浮窗；请求历史推断 denied 不符合严格状态语义 |
 | [PermissionsKit](https://github.com/MacPaw/PermissionsKit) | 313 / 9 | 1.0.6，2024-04-15 / 2026-09-21 | MIT | build 成功；真实 calendar status 返回 raw 0（notDetermined） | 支持日历/联系人等，缺 AX/Screen/Input 与引导浮窗；FDA 仍为受保护文件探测 |
@@ -36,10 +36,10 @@
 
 ## 复用阶梯的决定
 
-1. **直接使用成熟组件**：PermissionFlow 能处理 Settings deeplink、原生拖放、浮窗位置、中文和资源打包；研究 demo 固定其 revision，保留 MIT LICENSE 与 NOTICE。
+1. **直接使用成熟组件**：PermissionFlow 能处理 Settings deeplink、原生拖放、浮窗位置、中文和资源打包；产品 helper 固定其 revision，保留 MIT LICENSE 与 NOTICE。
 2. **包裹适配**：仅以 `PermissionFlowController` 打开显式 guide；`promptForAccessibilityTrust: false`；status 直接调用三个 provider 并与 Apple API 比较。避开会触发多种请求的 `PermissionFlowButton`、默认 FDA provider 与自动 status registry 读取。
 3. **组合**：Camera/Microphone、Automation、Notifications 可由 Apple 原生只读 API 提供，不为此再引入整套状态管理库。
-4. **剩余缺口**：实际 responsible identity、不可观测状态、跨更新身份及进程重启证据没有由候选解决。不得自己造一个枚举就声称解决。生产实现在这里停下，见 BLOCKED。
+4. **剩余缺口**：实际 responsible identity、不可观测状态、跨更新身份及进程重启证据没有由候选解决。不得自己造一个枚举就声称解决。phase 2 已批准不可观测语义；剩余实现采用最小 Swift helper，详见下文。
 
 ## 各类权限能证明什么
 
@@ -68,16 +68,15 @@ Apple 的 [Automation API](https://developer.apple.com/documentation/coreservice
 
 更新稳定性：本机创建两个完全自有的 throwaway Mach-O，均 `codesign --sign - --identifier dev.yonder.research.sign`，DR 分别为 `cdhash 8ae540d57ee4ed985b212fb76dd0f180ded7e588` 与 `cdhash b082425bab8de6690de59360dbb175e8e1e7f5a3`。同 identifier 的 ad-hoc 重编译确实改变 DR。未创建 Keychain 项或读取签名私钥。按 [Apple Code Signing Guide](https://developer.apple.com/library/archive/documentation/Security/Conceptual/CodeSigningGuide/AboutCS/AboutCS.html) 与 [TN2206](https://developer.apple.com/library/archive/technotes/tn2206/)，稳定证书链/identifier 的 DR 是跨版本代码身份的依据；Developer ID 可作为分发方案，但不是“权限永不丢失”的保证，TCC 更新保留仍须真实升级试验。没有申请开发者账号、选择生产签名身份或承诺签名已配置。
 
-## BLOCKED：C1 gate 及下一选项
+## Phase 2：解除 gate 后的实现与实测
 
-- **完整状态语义**：AX/Screen/Input 公共 API 返回 boolean；“已发请求”不等于“用户拒绝”。不能真实区分 pending/denied/needs-restart 时必须 unknown，而原需求要求完整区分。FDA / Files & Folders 也没有选出可靠、无副作用、全局可读的状态来源。
-- **责任进程**：C1 要求具体证实 launchd node、JXA、screencapture 的归属；目前只证实 executable、parent、DR。生产链验证需要主人只读诊断，或后续明确授权的隔离 launchd 环境，不能拿终端运行代替。
-- **引导 UI**：五个库的编译不等于 UI 验收；本轮禁止替主人运行 guide，浮窗跟随、拖放、正确 pane、授权与撤销/重启都待 OWNER STEP。
-- **跨更新身份**：无稳定 Yonder helper 分发身份及 grant-retention 实测；新 helper 的授权也不会自然覆盖现有 JXA/screencapture 路径。
+复用阶梯：原生 TCC API 能做自身 preflight；PermissionFlow 已解决 Settings deeplink、拖动卡片、窗口跟随和本地化；二者组合后，剩余缺口只有稳定代码身份、请求历史和在同一代码中实际执行桌面操作，因此实现一个 SwiftPM executable，不再加入第二套权限库。旧研究 demo 被产品 helper 取代，原始源码保留在 Git commit `313fa60`。
 
-下一选项供维护者选择：
+- `packages/macos-helper/` 固定同一 PermissionFlow SHA；MIT LICENSE/NOTICE 保留，不使用 FDA provider。只有显式 guide 创建 controller；promptForAccessibilityTrust=false。native status 直接读 AX/CG/AV/UN/按目标 Apple Events API。
+- `security find-identity -v -p codesigning` 实测 **1 valid identity**：Apple Development: zoran zeng (Z4A92U2M2T)。以该证书签名成功，`codesign --verify --strict` 通过；未要求主人接受任何提示。DR 包含 helper identifier、Apple anchor 与证书名称约束；不是仅用 path 或宽松 identifier 自定义 DR。
+- `open -n -g -W --stdin ... --stdout ... -a 'Yonder Helper.app'` 使用本机 `man open` 支持的 LaunchServices API，保持后台启动、不激活应用。stdin/stdout 是私有临时文件承接的 JSON，无网络服务。helper 自身用 CoreGraphics 截图与输入、AX 窗口读取，Node 不再 spawn JXA 或 screencapture。CLI 信号转发到 helper，取消标记防止尚未启动的请求稍后执行输入。
+- helper 位于 `~/.local/share/yonder-harness/helper/Yonder Helper.app`；state/lock/稳定 CLI 在 bundle 外。launcher 比较源 bundle 与已安装 bundle 的 CDHash，未变不替换，变更才校验签名并替换。请求与 status 共用文件锁、原子保存 JSON；状态保留同路径旧身份的历史用于 needs-restart 提示。无签名身份时构建明确回退 ad-hoc，更新可能要求重新授权，不保证 grant retention。
+- 实机新身份 AX/Screen/Input **false**；AV Camera/Microphone raw=0；Notifications raw=0；Automation raw=-600（目标未运行）；FDA/Files & Folders unobservable。前述终端研究进程 true 没有被沿用到产品权限状态。PPID=1 是 LaunchServices 独立启动的佐证，不能代替 TCC 授权后的真人验收。
+- Phase 2 不调用 request/guide/watch。窗口跟随、拖放、真实输入、授权与撤销、重启与升级保留均未测；构建和状态机检查不替代这些证据。
 
-1. 保留“完整、可证明”的门槛，先在隔离服务中验证实际归属与升级，选定稳定 app/helper 身份并将受保护操作真正路由到它，再实现状态与集成。
-2. 明确批准收窄为“可观测状态 + 不可判定时 unknown（保留 raw API evidence）”，按 permission + responsible identity + target/resource 持久化事实；不可再标“完整授权状态已知”。
-
-这两个选项都不是本 PR 已做出的产品契约变更。本 PR 不注册空壳工具、不替换现有桌面诊断、不加入未工作的持久状态机。
+批准语义见 [D55](../decisions.md) / [spec/14 §5.1](../spec/14-execution-capabilities.md)，原始失败、当前结果、确切 OWNER STEP 见[验收记录](../verification/mac-permissions.md)。

@@ -4,7 +4,7 @@
 
 - BrowserSkill：同步最新上游指导与 UTF-8 runner 修复，加入默认关闭的书签、扩展管理工具；保留主人权限授权与安装确认。
 
-- 记录 macOS 权限引导候选实机调研与 D55 准入阻塞；新增独立研究探针/主人手动浮窗演示，未接入生产 helper、持久状态或模型工具。
+- 实现稳定签名 Yonder Helper.app、9 类非提示式权限状态与请求历史；native-automation 桌面操作改由 helper 执行，新增只读 permissions action；独立人用 CLI 提供 request/guide/watch，显式引导复用 PermissionFlow。FDA/Files & Folders 如实 unobservable，真人授权/UI/升级保留待验收。
 
 ## [0.2.26102106] - 2026-10-21
 
