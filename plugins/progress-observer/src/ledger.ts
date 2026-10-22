@@ -20,6 +20,7 @@ export interface Task {
 	lastSent?: number;
 	seen: string[];
 	pending: string[];
+	claimed?: string[];
 	attempt?: string;
 }
 export type Event = {
@@ -48,7 +49,6 @@ export interface Decision {
 export function apply(t: Task, e: Event) {
 	if (t.seen.includes(e.id)) return;
 	t.seen.push(e.id);
-	if (t.seen.length > 1000) t.seen.shift();
 	t.pending.push(e.id);
 	switch (e.type) {
 		case "executor.active":
@@ -85,16 +85,27 @@ export function apply(t: Task, e: Event) {
 			break;
 	}
 }
-export function verifyDecision(d: Decision, t: Task, now: number): boolean {
-	if (!["skip", "update", "notify", "ask"].includes(d.decision) || d.text.length > 500 || d.evidence.length > 5)
+export function verifyDecision(input: unknown, t: Task, now: number): input is Decision {
+	if (!input || typeof input !== "object" || Array.isArray(input)) return false;
+	const d = input as Record<string, unknown>;
+	if (Object.keys(d).some((k) => !["decision", "evidence", "text"].includes(k))) return false;
+	if (
+		!["skip", "update", "notify", "ask"].includes(d.decision as string) ||
+		typeof d.text !== "string" ||
+		d.text.length > 500
+	)
 		return false;
-	if (d.decision === "skip") return true;
-	if (!d.evidence.length || d.evidence.some((id) => !t.seen.includes(id))) return false;
+	if (!Array.isArray(d.evidence) || d.evidence.length > 5 || d.evidence.some((id) => typeof id !== "string"))
+		return false;
+	if (d.decision === "skip") return d.evidence.length === 0;
+	if (!d.evidence.length || d.evidence.some((id) => !t.pending.includes(id) || t.claimed?.includes(id))) return false;
 	if (t.quietUntil && now < t.quietUntil) return false;
+	if (t.delivery === "unknown" || (t.attempt && t.delivery !== "sent" && t.delivery !== "failed")) return false;
 	return true;
 }
 export class Ledger {
 	private tasks: Task[] = [];
+	private writes: Promise<void> = Promise.resolve();
 	constructor(private dir: string) {}
 	async open() {
 		await mkdir(this.dir, { recursive: true, mode: 0o700 });
@@ -145,29 +156,37 @@ export class Ledger {
 		if (!t) throw Error("unknown task");
 		if (!verifyDecision(d, t, now)) throw Error("decision violates evidence/quiet policy");
 		if (d.decision !== "skip") {
-			t.lastSent = now;
-			t.attempt = randomUUID(); /* persisted before external send: crash means unknown, never blind retry */
+			t.attempt = randomUUID();
+			t.claimed = [...new Set([...(t.claimed ?? []), ...d.evidence])];
 			t.delivery = "unknown";
 			await this.save();
 		}
-		t.pending = [];
-		await this.save();
 		return t;
 	}
 	async receipt(id: string, state: "sent" | "failed" | "unknown") {
 		const t = this.tasks.find((x) => x.id === id);
 		if (!t) throw Error("unknown task");
 		t.delivery = state;
+		if (state === "sent") {
+			t.lastSent = Date.now();
+			const claimed = new Set(t.claimed ?? []);
+			t.pending = t.pending.filter((id) => !claimed.has(id));
+			t.claimed = [];
+		}
 		await this.save();
 	}
 	async list() {
 		return this.tasks;
 	}
 	private async save() {
-		const p = join(this.dir, "tasks.json"),
-			tmp = `${p}.${randomUUID()}.tmp`;
-		await writeFile(tmp, JSON.stringify(this.tasks), { mode: 0o600 });
-		await rename(tmp, p);
+		const write = this.writes.then(async () => {
+			const p = join(this.dir, "tasks.json"),
+				tmp = `${p}.${randomUUID()}.tmp`;
+			await writeFile(tmp, JSON.stringify(this.tasks), { mode: 0o600 });
+			await rename(tmp, p);
+		});
+		this.writes = write.catch(() => {});
+		await write;
 	}
 }
 export function stateHash(t: Task) {
