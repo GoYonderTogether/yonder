@@ -63,8 +63,9 @@ export function apply(t: Task, e: Event) {
 			break;
 		case "run.end":
 			t.runStatus = e.value ?? "unknown";
-			if (e.value === "done" || e.value === "error" || e.value === "aborted" || e.value === "limit")
-				t.executor = "done";
+			if (e.value === "done") t.executor = "done";
+			else if (e.value === "aborted" || e.value === "error" || e.value === "limit" || e.value === "interrupted")
+				t.executor = "interrupted";
 			break;
 		case "milestone":
 			if (e.value !== undefined) t.milestone = e.value;

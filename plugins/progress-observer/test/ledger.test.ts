@@ -20,6 +20,20 @@ describe("durable progress facts", () => {
 			await rm(d, { recursive: true, force: true });
 		}
 	});
+	it("maps real terminal run statuses without turning a successful run into acceptance", async () => {
+		const d = await mkdtemp(join(tmpdir(), "observer-"));
+		try {
+			const l = await new Ledger(d).open();
+			await l.create("a", "alpha");
+			await l.event({ id: "interrupted", task: "a", type: "run.end", at: 10, value: "aborted" });
+			expect((await l.list())[0]).toMatchObject({ executor: "interrupted", runStatus: "aborted", accepted: "unknown" });
+			expect(safeFallback((await l.list())[0]).decision).toBe("notify");
+			await l.event({ id: "finished", task: "a", type: "run.end", at: 20, value: "done" });
+			expect((await l.list())[0]).toMatchObject({ executor: "done", accepted: "unknown" });
+		} finally {
+			await rm(d, { recursive: true, force: true });
+		}
+	});
 	it("quiet and unknown receipt are respected; never auto-retry", async () => {
 		const d = await mkdtemp(join(tmpdir(), "observer-"));
 		try {
