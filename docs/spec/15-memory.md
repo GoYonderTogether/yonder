@@ -131,7 +131,7 @@ status: open            # open | reviewed
 | `memory_bootstrap` | write, admin | `audit`（§6.6）；`ack`（确认某个 `memory.attention` 的 reason，可带 `snoozeDays`）；`state`（读 `.memory/state.json`） |
 
 - `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
-- `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 记录的条目 id（该记录由插件自己从 owner 的消息确定性写入，不是模型写的；`{capture}` 记录不算）。否则只能标 `inferred`。同样不核验语义。`events.on` 不保证先于运行启动完成，所以运行刚开始时 `{chat}` 记录可能尚未写入：此时只能用①；找不到记录不代表用户没说过，也不得伪造证据。
+- `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 或 `{wechat-self}` 记录的条目 id（这两类记录由插件自己从 owner 的消息或其自写微信会话确定性写入，不是模型写的；`{capture}`、`{said}` 由模型调用写入，不算）。`evidence` 的写法：事件证据 `evt:<事件id>`，记录证据 `^<条目id>`。否则只能标 `inferred`。同样不核验语义。`events.on` 不保证先于运行启动完成，所以运行刚开始时 `{chat}` 记录可能尚未写入：此时只能用①；找不到记录不代表用户没说过，也不得伪造证据。
 - `memory_me` 条目格式：`- 内容 {confirmed|inferred} [自 YYYY-MM-DD] (ref: …) ^id`；`supersede` 在原条目追加 `[至 YYYY-MM-DD]` 并移入文件末尾的 `## 历史`，不删除。
 
 ### 5.1 参数与返回
@@ -154,13 +154,14 @@ TypeBox 校验，未列出的字段不存在。返回为 JSON 文本（外部文
 
 ### 6.1 采集入口
 
-1. **对话**：`events.on('message.in')`。仅当发送者账号经 `identity` 关联到配置的 `owner`，且渠道在 `capture.channels` 里（默认空：不采集）时，追加一条 `{chat}` 记录，origin `human-said`。文本为空且无附件的跳过。`capture.attachments` 为真时，附件复制到 `inbox/`（受 `maxAttachmentBytes` 限制，超出只记元数据）。本入口**不**另发事件。
+1. **对话**：`events.on('message.in')`。仅当发送者账号经 `identity` 关联到配置的 `owner`，且渠道在 `capture.channels` 里（默认空：不采集）时，追加一条 `{chat}` 记录，origin `human-said`。文本为空且无附件的跳过；以 `/` 加字母开头的是渠道命令，不记录。附件在记录正文后以续行 `  附件: <名称> (<mime>, <字节>)` 列出（复制到 `inbox/` 的另有 `→ inbox`）。渠道实例以 `from`（`acct:<渠道实例>:…`）为准。`capture.attachments` 为真时，附件复制到 `inbox/`（受 `maxAttachmentBytes` 限制，超出只记元数据）。本入口**不**另发事件。
 2. **`memory_capture`**：见 §5。
 3. **inbox**：触发器 `memory-inbox` 监听 `inbox/`（文件变化加每 `rescanSeconds` 的重扫兜底），大小稳定后处理：忽略点文件与 `.part`、`.crdownload`、`.tmp`；计算 sha256，`manifest.json` 已有则移入 `archive/duplicates/` 并记一行，不重复入库；否则文本类（`.md/.markdown/.txt`）原样，其他类型在配置了 `converter` 时按 §10 的调用约定转换为 `.md`，转换输出先做 Unicode NFKC 规范化再落盘（PDF 抽取常把汉字映射成康熙部首等兼容字符，如“文”变成“⽂”，不规范化则子串检索失败）；转换失败（非零退出、超时、空输出）保留原件并在 `memory_status` 报告；原件移入 `raw/YYYY-MM/<sha256前8位>-<原名>`；追加一条 `{inbox}` 记录（origin `external`）；发出事件 `memory.captured`。
 4. **登记目录**：见 §6.4。
 5. **微信**：配置 `sources.wechat.chats`，每项 `{ chat, self? }`，`chat` 是 `wechat-context` 的会话 id（形如 `Msg_…`），`self: true` 表示这是用户写给自己的笔记会话（如文件传输助手）。
    - 实时：`events.on('wechat-archive.material')`，`data.chat` 在名单内的每条消息追加一条 `{wechat}` 记录；`self` 的 origin 为 `human-written`，否则 `external`。这要求同时安装并配置 `wechat-archive`（其 `chats` 须包含该会话）；本插件不读取名单外的会话，未配置名单则不采集任何微信内容。
    - 历史：`memory_import` 调用 `wechat-context history --chat <id> --normalized` 分页（与 wechat-archive 同一命令契约，`sources.wechat.cliPath` 缺省取与其相同的位置），按消息时间写入对应周文档；媒体只记元数据与 `url`，不复制文件。
+   - 记录正文取消息 `text`；有 `url` 追加续行 `  链接: <url>`；有 `media` 追加续行 `  媒体: <kind> <name>（仅元数据）`。引用写作 `(ref: conv:wechat-archive:<chat>; msg:<msgid>)`，时间取消息时间（秒级时间戳按配置时区换算），没有时间的消息跳过并计入 `skipped`。
    - 实时与历史共用去重键 `wechat:<chat>:<msgid>`（`manifest.json`）；重复导入为空操作。
 
 ### 6.2 检索
@@ -196,7 +197,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 | `backlog` | inbox 文件数 ≥ `bootstrap.inboxFiles`，或未整理条目 ≥ `bootstrap.unorganized`，或最久的未整理条目超过 `bootstrap.staleDays` 天 |
 
 - data：`{ reason, audit }`，`audit` 是 `memory_bootstrap(audit)` 的结果。
-- 同一 reason 在被 `ack` 之前，每 `bootstrap.cooldownHours` 小时最多一次；`ack` 后按其 `snoozeDays` 静默。状态在 `.memory/state.json`。
+- 同一 reason 在被 `ack` 之前，每 `bootstrap.cooldownHours` 小时最多一次；`ack` 后按其 `snoozeDays` 静默。状态在 `.memory/state.json`：`{ initialized?: ISO时间, acked: { [reason]: { at, until } }, lastEmitted: { [reason]: ISO时间 }, audited: string[] }`；`ack({ reason: 'first-run' })` 写入 `initialized`，`audited` 记录已审计的登记目录名与微信会话 id。
 - 事件经 agent 的绑定唤醒负责的 agent（通常是主人的日常 agent，由它与用户确认）；没有绑定命中时只记录原因（架构不变量 2）。
 - 启动器只负责“发现需要处理并通知”，不创建 agent、不改配置、不开始导入；这些由收到事件的 agent 按 skill `memory-onboarding` 经用户确认后执行。
 
@@ -207,6 +208,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 - 仅供量级参考：不含输出 tokens 与多轮往返，对非 OpenAI 分词器不精确，订阅登录的实际计费方式也可能不同。目录里没有该模型价格时只给 tokens，不猜价格。
 - 文件类型分开计：可检索文本直接计；需转换的格式按转换后文本计，未转换的标“未估”。
 - 审计同时报告微信归档的最近同步时间，超过 `bootstrap.wechatStaleHours` 小时的标 stale（对应 `source-stale`）。
+- 返回结构：`{ model?, inputUsdPerMTok?, total: { files, chars, tokens, usd? }, zones: [{ name, files, bytes, chars, tokens }], roots: [...同结构], wechat: [{ chat, messages, chars, tokens, lastSync, stale }], unestimated: [{ path, reason }] }`。
 - 只读：审计不修改任何文件、不移动 inbox、不调用转换器。
 
 ## 7 隐私
@@ -235,6 +237,10 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 ### 8.3 log.md
 
 每次写入追加一行：`<UTC 时间> <工具.op> <目标路径> <条目id> by <agent:… 或 plugin:memory> session:<id>`。只记元信息，不复制正文。
+
+### 8.4 实现自定的部分
+
+下列由实现决定，**不算规范空白**，不必暂停询问，但须在 README 或测试中说明：`memory-core` 与 `memory-week` 的渲染排版（须确定性、条目带状态标注、不含私密内容、受字符预算约束）；`.memory/` 内部文件（`manifest.json` 等）的结构；`memory_status` 返回的具体字段名；`me/*.md`、`month.md`、`life/*.md` 的初始模板（须含 §4.3 与 §5 规定的各节标题和 `## 历史`，不含虚构内容）；skill 正文的措辞（初稿由实现起草，规划方审阅）。
 
 ## 9 SCHEMA.md 与 skills
 
