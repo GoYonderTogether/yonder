@@ -100,7 +100,7 @@ status: open            # open | reviewed
   | `wechat-self` | `human-written` | `self: true` 的微信会话（§6.1(5)） |
   | `wechat` | `external` | 名单内其他微信会话 |
 
-  文件的 origin：凡含记录行的文件（周文档、`private/YYYY-MM.md`）**逐行**按来源标签；其他内容按文件：`raw/` 靠 frontmatter 的 `origin`，`mine/` 恒为 `human-written`，登记目录取配置值，`me/`、`life/`、`projects/`、月文档、周文档的非记录行为 `derived`；`private/` 文件的 frontmatter 只需 `private: true`，非记录内容按 `derived`。
+  文件的 origin：凡含记录行的文件（周文档、`private/YYYY-MM.md`）**逐行**按来源标签；其他内容按文件：`raw/` 里**生成的文件**（转换产物、agent 资料）靠 frontmatter 的 `origin`，inbox 的**原件不改动**，其 origin 取 `.memory/manifest.json` 里该文件的记录、缺省 `external`，`mine/` 恒为 `human-written`，登记目录取配置值，`me/`、`life/`、`projects/`、月文档、周文档的非记录行为 `derived`；`private/` 文件的 frontmatter 只需 `private: true`，非记录内容按 `derived`。
 - `[ ]` 未整理；`[x]` 已整理，行尾 `→ 去向` 记录去向（`me/now`、`me/profile`、`me/mind`、`plan`、`decision`、`output`、`project:<名>`、`none`）。
 - **正文一个字都不改**，整理只翻转标记并追加去向。用户在 Obsidian 里手动勾选等于自己接管了这条。
 - 正文里的换行写成缩进两个空格的续行，空行写成只含两个空格的行；一条记录因此始终是“一个以 `- [ ]` 或 `- [x]` 开头的行加若干缩进续行”。
@@ -240,7 +240,9 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 
 ### 8.4 实现自定的部分
 
-下列由实现决定，**不算规范空白**，不必暂停询问，但须在 README 或测试中说明：`memory-core` 与 `memory-week` 的渲染排版（须确定性、条目带状态标注、不含私密内容、受字符预算约束）；`.memory/` 内部文件（`manifest.json` 等）的结构；`memory_status` 返回的具体字段名；`me/*.md`、`month.md`、`life/*.md` 的初始模板（须含 §4.3 与 §5 规定的各节标题和 `## 历史`，不含虚构内容）；skill 正文的措辞（初稿由实现起草，规划方审阅）。
+转换产物的 frontmatter 固定为 `origin: external`、`source`（原文件名）、`sha256`、`converted: true`；agent 资料为 `origin: agent`、`title?`、`by`。
+
+下列由实现决定，**不算规范空白**，不必暂停询问，但须在 README 或测试中说明：`memory-core` 与 `memory-week` 的渲染排版（须确定性、条目带状态标注、不含私密内容、受字符预算约束）；`.memory/` 内部文件（`manifest.json` 等）的结构（须能按路径查出原件的 origin）；从聊天附件复制进 `inbox/` 的文件名（须避免冲突）；`memory_status` 返回的具体字段名；`me/*.md`、`month.md`、`life/*.md` 的初始模板（须含 §4.3 与 §5 规定的各节标题和 `## 历史`，不含虚构内容）；skill 正文的措辞（初稿由实现起草，规划方审阅）。
 
 ## 9 SCHEMA.md 与 skills
 
