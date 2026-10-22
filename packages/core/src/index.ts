@@ -5,6 +5,7 @@ export {
 	initHome,
 	inspectHome,
 	inspectSkills,
+	loadYonderConfig,
 	loginProvider,
 	manageHome,
 	offlineQuery,

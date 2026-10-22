@@ -41,6 +41,8 @@ async function fixture(
 }
 it("register-bound handler invokes runner with internal capability but exposes only safe result", async () => {
 	const f = await fixture();
+	expect(f.service.tool.capabilities).toEqual(["write"]);
+	expect(f.service.statusTool.capabilities).toEqual(["read"]);
 	const output = await f.service.tool.execute({ provider: "example" }, f.ctx);
 	expect(f.runner.start).toHaveBeenCalledTimes(1);
 	const call = f.runner.start.mock.calls[0]?.[0];

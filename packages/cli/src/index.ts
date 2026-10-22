@@ -18,6 +18,7 @@ import {
 	inspectHome,
 	inspectSkills,
 	installedService,
+	loadYonderConfig,
 	loginProvider,
 	manageService,
 	offlineQuery,
@@ -591,8 +592,9 @@ async function run(args: string[]): Promise<number> {
 		if (rest.length) throw new UsageError("Usage: yonder start");
 		const home = homeFor(options);
 		env.YONDER_HOME = home;
+		const config = await loadYonderConfig(home);
 		const kernel = await openKernel(home, {
-			...(env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
+			...(config.loginOperations?.enabled === true || env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
 				? {
 						loginHost: createLoginHostAdapter({
 							nodeExecutable: process.execPath,

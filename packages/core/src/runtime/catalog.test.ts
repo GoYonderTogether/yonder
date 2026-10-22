@@ -1,6 +1,23 @@
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
-import { inspectToolCatalog } from "./catalog.js";
+import { describeCatalog, inspectToolCatalog } from "./catalog.js";
+
+test("login_begin remains write-gated when login operations are enabled", () => {
+	const tool: Array<{ name: string; capabilities: ["write"] }> = [{ name: "login_begin", capabilities: ["write"] }];
+	const readonly = {
+		agent: "main",
+		profile: "guest",
+		cwd: process.cwd(),
+		resolved: resolveProfile({ capabilities: ["read"], tools: { offer: ["*"] } }),
+	};
+	const owner = {
+		...readonly,
+		profile: "owner",
+		resolved: resolveProfile({ capabilities: ["write"], tools: { offer: ["*"] } }),
+	};
+	expect(describeCatalog(readonly, tool)[0]?.exposure).toBe("capability-denied");
+	expect(describeCatalog(owner, tool)[0]?.exposure).toBe("offer");
+});
 
 test("only resident Agents can offer agent_ask even when a preset selects every tool", () => {
 	const config = {
