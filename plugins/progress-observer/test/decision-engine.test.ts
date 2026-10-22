@@ -37,6 +37,24 @@ describe("decision boundary", () => {
 			await rm(dir, { recursive: true, force: true });
 		}
 	});
+	it("allows only one concurrent decision to claim and send an evidence item", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "observer-race-"));
+		try {
+			const ledger = await new Ledger(dir).open();
+			await ledger.create("race", "task");
+			await ledger.event({ id: "fact", task: "race", type: "executor.active", at: 1 });
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => { release = resolve; });
+			const decide = async () => { await gate; return { decision: "notify", evidence: ["fact"], text: "hello" }; };
+			const send = vi.fn(async () => "sent" as const);
+			const options = { ledger, decide, send, boundTarget: "bound", minimumIntervalMs: 0 };
+			const one = runDecision(options, "race", 10);
+			const two = runDecision(options, "race", 10);
+			release();
+			await Promise.all([one, two]);
+			expect(send).toHaveBeenCalledTimes(1);
+		} finally { await rm(dir, { recursive: true, force: true }); }
+	});
 	it("durably claims before send and never retries unknown receipts after restart", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "observer-decision-"));
 		try {

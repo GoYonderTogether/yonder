@@ -29,13 +29,23 @@ export async function runDecision(
 	if (decision.decision === "skip") return decision;
 	// Ask only goes to the explicitly supplied bound target; no owner is inferred here.
 	if (!options.boundTarget) return null;
-	await options.ledger.decision(taskId, decision, now); // durable claim before crossing the delivery boundary
+	let attemptId: string | undefined;
+	try {
+		attemptId = await options.ledger.decision(taskId, decision, now); // durable atomic claim before delivery
+	} catch {
+		return null; // stale decision lost the race or policy changed
+	}
+	if (!attemptId) return null;
+	// Re-read policy immediately before sending: quiet/rate changes during model latency must win.
+	const current = (await options.ledger.list()).find((item) => item.id === taskId);
+	if (!current || (current.quietUntil && Date.now() < current.quietUntil) ||
+		(current.lastSent !== undefined && Date.now() - current.lastSent < options.minimumIntervalMs)) return null;
 	let receipt: "sent" | "failed" | "unknown";
 	try {
 		receipt = await options.send(options.boundTarget, decision.text);
 	} catch {
 		receipt = "unknown";
 	}
-	await options.ledger.receipt(taskId, receipt);
+	await options.ledger.receipt(taskId, attemptId, receipt);
 	return decision;
 }

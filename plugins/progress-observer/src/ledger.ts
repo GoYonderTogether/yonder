@@ -156,16 +156,19 @@ export class Ledger {
 		if (!t) throw Error("unknown task");
 		if (!verifyDecision(d, t, now)) throw Error("decision violates evidence/quiet policy");
 		if (d.decision !== "skip") {
-			t.attempt = randomUUID();
+			const attemptId = randomUUID();
+			t.attempt = attemptId;
 			t.claimed = [...new Set([...(t.claimed ?? []), ...d.evidence])];
 			t.delivery = "unknown";
 			await this.save();
+			return attemptId;
 		}
-		return t;
+		return undefined;
 	}
-	async receipt(id: string, state: "sent" | "failed" | "unknown") {
+	async receipt(id: string, attemptId: string, state: "sent" | "failed" | "unknown") {
 		const t = this.tasks.find((x) => x.id === id);
 		if (!t) throw Error("unknown task");
+		if (t.attempt !== attemptId) return false;
 		t.delivery = state;
 		if (state === "sent") {
 			t.lastSent = Date.now();
@@ -174,6 +177,7 @@ export class Ledger {
 			t.claimed = [];
 		}
 		await this.save();
+		return true;
 	}
 	async list() {
 		return this.tasks;
