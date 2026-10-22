@@ -8,6 +8,16 @@ import { sendProgress } from "./sender.js";
 
 // Labels are display-only data. Reject unknown fields instead of letting callers
 // smuggle instructions or unreviewed association claims through this tool.
+export function isStallEligible(
+	task: { executorSession?: string; executor: string; lastExecutorEventAt?: number; lastMilestoneAt?: number },
+	now: number,
+	stallAfterMs: number,
+): boolean {
+	if (!task.executorSession || task.executor === "done") return false;
+	const evidenceAt = Math.max(task.lastExecutorEventAt ?? 0, task.lastMilestoneAt ?? 0);
+	return evidenceAt > 0 && now - evidenceAt >= stallAfterMs;
+}
+
 const taskSchema = Type.Object(
 	{ label: Type.String({ minLength: 1, maxLength: 120 }) },
 	{ additionalProperties: false },
@@ -186,17 +196,14 @@ export default definePlugin({
 							const now = Date.now();
 							for (const task of requiredTasks) {
 								// A recorded active run means progress is unknown, never proof of interruption.
-								if (task.executorSession && task.executor !== "active" && task.executor !== "done") {
-									const evidenceAt = Math.max(task.lastExecutorEventAt ?? 0, task.lastMilestoneAt ?? 0);
-									if (evidenceAt > 0 && now - evidenceAt >= stallAfterMs) {
-										const window = `${task.lastExecutorEventAt ?? 0}:${task.lastMilestoneAt ?? 0}`;
-										await ledger.event({
-											id: `stall:${task.id}:${window}`,
-											task: task.id,
-											type: "stall.candidate",
-											at: now,
-										});
-									}
+								if (isStallEligible(task, now, stallAfterMs)) {
+									const window = `${task.lastExecutorEventAt ?? 0}:${task.lastMilestoneAt ?? 0}`;
+									await ledger.event({
+										id: `stall:${task.id}:${window}`,
+										task: task.id,
+										type: "stall.candidate",
+										at: now,
+									});
 								}
 								// Require admin-approved source AND agent before model invocation or delivery.
 								// The immutable configured set, never model arguments/history, defines scope.
