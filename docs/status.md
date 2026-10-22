@@ -95,3 +95,7 @@
 
 
 - D54 BrowserSkill fork：同步最新上游，插件提供 opt-in 书签和扩展管理；隔离测试及未关闭项见 [验收](verification/browser-skill-fork.md)。真人 Chrome 的扩展加载、权限、生产 Yonder 配置和真实模型验收尚未完成；CWS 发布缺主人账号/凭据，未发布。
+
+## macOS 权限引导（Track C / D55）
+
+候选库五项实机构建与安全只读 smoke 已完成；研究 app 包内原生探针与 PermissionFlow provider 已比较。完整状态管理的责任进程、FDA/Files & Folders 可观测性、引导 UI、授权/撤销/重启/升级仍未通过准入。未实现生产 helper、持久状态及 native-automation permissions 接线；现有桌面功能不作变更。详见[调研](research/mac-permission-guidance.md)和[验收记录/OWNER STEP](verification/mac-permissions.md)。

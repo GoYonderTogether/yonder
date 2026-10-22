@@ -289,6 +289,8 @@
   - 停止等待自有进程真实退出。
 - **边界**：无需BrowserSkill/Codex，但仍需浏览器引擎和OS授权。截图通过不代替键鼠真实验收。
 
+macOS 权限完整状态扩展仍受 D55 准入门槛阻塞；现有 desktop status 未替换。研究探针/浮窗不属于模型工具或服务能力，见[实测与 OWNER STEP](verification/mac-permissions.md)。
+
 ## 微信归档与 iLink
 
 - `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。

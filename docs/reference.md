@@ -196,3 +196,5 @@ chatCommands · TUI
 
 
 BrowserSkill fork（D54）：`browser-skill_bookmarks` 的 tree / move(nodeId,parentId,index?) / create-folder(title,parentId,index?) / remove-empty-folder(nodeId)；`browser-skill_extensions` 的 list / enable(extensionId) / disable(extensionId)。均支持可选 session（仅恰有一个 owned session 时可省略）。插件 config：`bookmarksEnabled`、`extensionsEnabled` 默认 false，不代替主人 popup 授权。
+
+macOS 权限研究：`scripts/demo-permissions.sh status` 在隔离研究 app 中执行只读探针；`scripts/demo-permissions.sh guide accessibility` 仅供主人显式查看浮窗。不是 `yonder` 子命令或模型工具，不诊断生产服务。完整权限工具未实现，见[验收记录](verification/mac-permissions.md)。
