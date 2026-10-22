@@ -142,6 +142,7 @@ interface EnvProvider { type: string; configSchema?: TSchema; create(id: string,
 
 ```ts
 interface Hook {
+  beforeSend?(message: OutMessage, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
   id: string;
   beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
   afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;
@@ -152,6 +153,8 @@ type HookResult<T> = T | undefined | Promise<T | undefined>;
 ```
 
 `Message` 是 pi-ai 的消息类型，由 `@yonder/sdk` 以纯类型重新导出。映射到 pi-durable 的同名钩子。内核自带的安全与上限钩子总是最先执行，插件钩子不能放行内核已拦下的调用。审批、审计、沙箱策略这类功能都写成钩子插件。
+
+beforeSend 只对该会话选中的插件执行，在发送 attempt/事件账本前过滤完整消息；选中它的 profile 按单条 message_end 缓冲流式文本，避免跨片段泄漏。无会话的插件发送不借用其他 profile。具体使用见 [15 §4](15-clipboard-vault.md#4-防泄漏与边界)。
 
 ### 3.7 presets — 预设（数据贡献）
 

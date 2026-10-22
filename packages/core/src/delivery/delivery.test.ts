@@ -16,7 +16,7 @@ test("NO_REPLY fragments stay private, ordinary progress is released without los
 });
 
 // Protocol driver only: real SQLite receipts and delivery, no simulated model.
-import type { Channel, OutputPart, SessionInfo } from "@yonder/sdk";
+import type { Channel, Hook, OutputPart, SessionInfo } from "@yonder/sdk";
 import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeSessionConfig } from "../runtime/index.js";
@@ -24,14 +24,14 @@ import type { Sessions } from "../sessions/index.js";
 import { createStore, newEvent } from "../store/index.js";
 import { createDelivery } from "./index.js";
 
-async function setup() {
+async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 	const db = await openDatabase(":memory:");
 	const store = await createStore(db);
 	const config: RuntimeSessionConfig = {
 		agent: "main",
 		profile: "owner",
 		cwd: "/tmp",
-		resolved: resolveProfile({}),
+		resolved: resolveProfile({ plugins: selected }),
 		bindings: [{ id: "source", match: { channel: "test" }, session: "main", stream: true }],
 	};
 	const session: SessionInfo = {
@@ -68,6 +68,7 @@ async function setup() {
 		},
 	};
 	const delivery = createDelivery({
+		...(hooks ? { hooks } : {}),
 		store,
 		agents: new Map(),
 		channels: new Map([["test", channel]]),
@@ -330,5 +331,53 @@ test("a wholly unsent streaming message recovers its full closed text from the s
 	} finally {
 		await x.delivery.close();
 		await x.db.close();
+	}
+});
+
+test("selected beforeSend filters complete split messages before attempts/ledger, while unselected hooks do not run", async () => {
+	let called = 0;
+	const hooks = new Map<string, Hook[]>([
+		[
+			"filter",
+			[
+				{
+					id: "filter",
+					beforeSend(message) {
+						called++;
+						return { message: { ...message, text: message.text.replaceAll("opaque-secret", "[sealed]") } };
+					},
+				},
+			],
+		],
+	]);
+	const x = await setup(hooks, ["filter"]);
+	try {
+		x.emit({ type: "message_start", id: "filtered" });
+		x.emit({ type: "text", delta: "opaque-" });
+		x.emit({ type: "tool", phase: "start", name: "read" });
+		x.emit({ type: "text", delta: "secret" });
+		expect(x.bubbles).toHaveLength(0);
+		expect(x.sent).toHaveLength(0);
+		x.emit({ type: "message_end", text: "opaque-secret" });
+		await expect.poll(() => x.sent).toEqual(["[sealed]"]);
+		await x.finish("opaque-secret", "filtered");
+		await expect.poll(async () => (await x.store.events.query({ type: "message.out" })).events.length).toBe(1);
+		expect(JSON.stringify((await x.store.events.query({})).events)).not.toContain("opaque-secret");
+		expect(called).toBe(1);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+	const y = await setup(hooks);
+	try {
+		y.emit({ type: "message_start", id: "normal" });
+		y.emit({ type: "text", delta: "opaque-secret" });
+		y.emit({ type: "message_end", text: "opaque-secret" });
+		await y.finish("opaque-secret", "normal");
+		await expect.poll(() => y.bubbles[0]?.closed).toBe(true);
+		expect(called).toBe(1);
+	} finally {
+		await y.delivery.close();
+		await y.db.close();
 	}
 });

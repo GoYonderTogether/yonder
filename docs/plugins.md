@@ -299,3 +299,11 @@ macOS 桌面通过稳定路径的签名 Yonder Helper.app 执行。permissions/s
 
 
 BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move/create-folder/remove-empty-folder）和 `browser-skill_extensions`（list/enable/disable）。各需 owner 配置 opt-in 与 popup 可选权限，默认关闭；只用调用会话拥有的本地 session，影响整个 profile。安装步骤及限制见[扩展调研](research/chrome-extension-install.md)。
+
+## Clipboard / Keychain（D53）
+
+- 包：`@yonder/plugin-clipboard`，只依赖 SDK；[配置与边界](../plugins/clipboard/README.md)。
+- 工具：`clipboard_copy`、`clipboard_paste`、`clipboard_list`、`clipboard_drop`、`clipboard_capture`；钩子 `clipboard-redact`。
+- 事件：`clipboard.audit`，仅元数据（intent/completed/failed）；TTY journal 在下一次授权调用导入。
+- open 引用同会话入站消息、文件字节范围或当前转录工具结果；sealed 使用 macOS Keychain，不返回原文，隐藏 TTY 一次性 ticket；支持 create-only 文件、固定 child env/HTTPS、open 消息及 vault。
+- 安装不授权；exact profile grant + session scope、TTL/限额/目的地 allowlist。只支持 local；浏览器/Feishu 私密 adapter 阻塞，raw exec 不是沙箱。实际结果见[验收](verification/clipboard-vault.md)。

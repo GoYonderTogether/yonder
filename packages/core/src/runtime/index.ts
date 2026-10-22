@@ -285,7 +285,12 @@ export class Runtime {
 				try {
 					const tool = this.rawTools.get(input.name);
 					if (!tool) throw new Error(`Unavailable tool: ${input.name}`);
-					let result = await tool.execute(input.args, { ...api, env: this.environment(snapshot.config) }, context);
+					let result: ReturnType<typeof toResult>;
+					try {
+						result = await tool.execute(input.args, { ...api, env: this.environment(snapshot.config) }, context);
+					} catch (error) {
+						result = toResult({ text: error instanceof Error ? error.message : String(error), isError: true });
+					}
 					const ctx = await this.context(String(api.conversationId), context);
 					for (const plugin of this.options.plugins ?? [])
 						if (snapshot.config.resolved.plugins.includes(plugin.id))
@@ -424,6 +429,16 @@ export class Runtime {
 			tools: registrations,
 			hooks: hooks.flatMap((plugin) => [
 				hook(ToolTask, {
+					afterTool: async (call, result, api, context) => {
+						// Process management is native, not a background-wrapped SDK tool.
+						if (call.name !== "process") return;
+						const changed = await plugin.afterTool?.(
+							{ id: call.id, name: call.name, args: call.arguments },
+							fromResult(result),
+							await this.context(String(api.conversationId), context),
+						);
+						return changed ? toResult(changed.result) : undefined;
+					},
 					beforeTool: async (call, api, context) => {
 						const result = await plugin.beforeTool?.(
 							{ id: call.id, name: call.name, args: call.arguments },

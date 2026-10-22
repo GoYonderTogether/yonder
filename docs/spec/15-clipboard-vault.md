@@ -18,7 +18,7 @@ open blob 存插件私有 `.yonder/plugins/clipboard/blobs/<sha256>`（0700/0600
 - `clipboard_capture({ttlSeconds?})`：创建绑定当前 scope 的一次性 capture ticket，返回本地隐藏 TTY 命令。`yonder-clipboard capture --data <path> --ticket <id>` 不接受明文参数/环境/重定向，仅人机 TTY，不回显；取消不存。capture ticket 在兑现前原子领取，失败不重放；成功产生同 handle 的 sealed clip。不新增能向模型返回明文的 getter。
 - `clipboard_paste({handle,to})`：to.kind=file(path)、consumer(id)、message(target)、vault。sealed 必须显式 grant；message 永远拒绝 sealed。
 - `clipboard_list({})`：当前 scope 未过期元数据，不返回原文。
-- `clipboard_drop({handle})`：删自己 Keychain item/元数据；保留历史 audit，open blob 按引用清理。不删除或改写事件历史。过期对象不能使用，但可以 drop。
+- `clipboard_drop({handle})`：删自己 Keychain item/元数据；保留历史 audit，共享 open blob 保留，退役作用域后离线清理。不删除或改写事件历史。过期对象不能使用，但可以 drop。
 
 浏览器 element capture/fill、Feishu 私密录入在可信 adapter/入站前秘密分流未具备前 **不注册**，不得用明文 DOM、模型参数或渠道聊天实现替身。
 
@@ -27,7 +27,7 @@ open blob 存插件私有 `.yonder/plugins/clipboard/blobs/<sha256>`（0700/0600
 - file：仅 writeRoots 下现存真实父目录，create-only（O_EXCL|O_NOFOLLOW），sealed 0600，open 0600；不覆盖。写入 fsync，读回验证 length/hash。失败删除本次创建的文件；取消亦清理，绝不删原文件。使用本机文件 API，不承诺防同 OS 用户恶意目录交换的沙箱隔离。
 - consumer：模型只能选配置 id；配置决定 `child`（固定绝对 file/args/cwd/variable，secret 只进该子进程 env；不继承宿主凭据，不回传 stdout/stderr）或 `http`（固定 HTTPS URL/method、header 或 body；明确 grant，拒绝重定向，返回 status/ok，不返回正文/header）。不得接受任意命令、URL 或变量。HTTP 只接受 2xx 成功；网络未知不重试，返回安全失败码。测试使用隔离 loopback TLS 服务，不放宽产品 HTTPS 规则。
 - message：open UTF-8 通过 SDK messages.send，target 必须在 grant.messageTargets 且通过原有核心能力判定；结果/ledger 不重复返回正文。
-- vault：将 open 原字节存为新 sealed handle；不覆盖现有 item。sealed 无需重复拷贝。不会写 auth.json；D50 的 credentials.set 和 D51 的 sources 不变。
+- vault：将 open 原字节存为新 sealed handle；不覆盖现有 item；open 原来源/blob 不被追溯清除。sealed 无需重复拷贝。不会写 auth.json；D50 的 credentials.set 和 D51 的 sources 不变。
 
 ## 4. 防泄漏与边界
 
@@ -35,7 +35,7 @@ open blob 存插件私有 `.yonder/plugins/clipboard/blobs/<sha256>`（0700/0600
 
 SDK 新增可选 `Hook.beforeSend(message: OutMessage, owner?: ExecutionOwner): HookResult<{message: OutMessage}>`。核心只对该会话选中插件执行，发送前、attempt/ledger 前过滤。带 beforeSend 的 profile 将每条流式消息缓存到 message_end 再过滤；保留逐消息边界与 NO_REPLY，不缓冲整次运行。不修改 pi 或把具体 vault 写进核心。无会话的插件发送不隐式借其他 profile 权限。
 
-精确替换不能识别编码、分段、多模态或同一用户的 shell 绕过。拥有 exec 的模型可能直接读 pasted file、Keychain helper、发网络；本插件不是 OS 沙箱。sealed 文件是明确泄密给受信任目标，调用方必须信任该目标。关闭插件/漏选钩子、drop 后旧副本、内存/交换区、恶意同用户进程、此前已有明文历史不在保证内；不宣称“模型绝对永不知晓”。
+精确替换不能识别编码、多模态或同一用户的 shell 绕过；原生 process 结果也过滤，但底层 raw shell log 不属于保密存储，秘密应使用只提供必要 clipboard/consumer 工具的专用 profile。拥有 exec 的模型可能直接读 pasted file、Keychain helper、发网络；本插件不是 OS 沙箱。sealed 文件是明确泄密给受信任目标，调用方必须信任该目标。关闭插件/漏选钩子、drop 后旧副本、内存/交换区、恶意同用户进程、此前已有明文历史不在保证内；不宣称“模型绝对永不知晓”。
 
 ## 5. 验收
 
