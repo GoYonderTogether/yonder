@@ -22,9 +22,12 @@ export default definePlugin({
 		const ingest = config ? new Ingest(api, config, errors) : undefined;
 		const wechat = config ? new Wechat(api, config) : undefined;
 		const bootstrap = config ? new Bootstrap(api, config, wechat!, errors) : undefined;
-		api.events.on("wechat-archive.material", async (e) => {
-			await wechat?.material(e);
-		});
+		if (config?.capture?.enabled === true) {
+			api.events.on("wechat-archive.material", async (e) => {
+				if (e.from !== "plugin:wechat-archive") return;
+				await wechat?.material(e);
+			});
+		}
 		api.events.on("message.in", async (event) => {
 			await ingest?.chat(event);
 		});
