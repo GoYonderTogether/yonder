@@ -116,4 +116,4 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 
 ## QQ 与微信合并发布候选 0.2.26102202（2026-10-22）
 
-从远端 main d3537b2 保留已发布的微信双插件与最新运行时，迁入 QQ 五个提交，统一包版本。构建/typecheck/lint 通过；默认 271 通过/0 失败/31 跳过，真实模型与隔离 launchd 全量 297 通过/0 失败/5 跳过；权限 self-check 36/36。原真人 QQ/微信验收与本轮模型检查分开记录，未改正式 home 配置；详情见 [本轮记录](verification/release-26102202.md)。
+从远端 main d3537b2 保留已发布的微信双插件与最新运行时，迁入 QQ 五个提交，统一包版本。构建/typecheck/lint 通过；默认 271 通过/0 失败/31 跳过，真实模型与隔离 launchd 全量 297 通过/0 失败/5 跳过；权限 self-check 36/36。原真人 QQ/微信验收与本轮模型检查分开记录，未改正式 home 配置；原候选因并行 main 发布已顺延至 0.2.26102203，详情见 [本轮记录](verification/release-26102203.md)。
