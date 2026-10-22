@@ -335,6 +335,7 @@ export async function openKernel(
 								},
 							},
 							providers: new Set(["anthropic", "openai", "google", "openrouter"]),
+							receipt: (session, requestId) => realRuntime().queryLoginWakeReceipt(session, requestId),
 							deliver: async (entry, requestId) => {
 								await realRuntime().submit(entry.session, {
 									text: `Login operation ${entry.outcome}.`,

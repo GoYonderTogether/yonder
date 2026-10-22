@@ -19,6 +19,7 @@ export interface LoginOperationServiceOptions {
 	db: Db;
 	runner: LoginRunner;
 	deliver: LoginDelivery;
+	receipt?: (session: string, requestId: string) => Promise<boolean>;
 	now?: () => number;
 	ttlMs?: number;
 	deliveryTimeoutMs?: number;
@@ -102,6 +103,13 @@ export function createLoginOperationService(options: LoginOperationServiceOption
 		async drainOutbox(limit = 100): Promise<number> {
 			await operations.expirePending();
 			let acked = 0;
+			if (options.receipt) {
+				for (const entry of await operations.readClaimed(limit)) {
+					if (await options.receipt(entry.session, `login:${entry.operationId}`)) {
+						if (await operations.acknowledge(entry.id)) acked++;
+					}
+				}
+			}
 			for (const entry of await operations.readUnacknowledged(limit)) {
 				if (!(await operations.claimDelivery(entry.id))) continue;
 				let state: "delivered" | "unknown";

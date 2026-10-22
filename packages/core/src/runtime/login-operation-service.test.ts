@@ -90,6 +90,29 @@ it("unknown delivery remains durably claimed across service restart", async () =
 	expect(redeliver).not.toHaveBeenCalled();
 	await db.close();
 });
+it("reconciles only an exact session/request receipt after restart; missing or mismatched proof stays unknown", async () => {
+	const f = await fixture(async () => "unknown");
+	await f.service.tool.execute({ provider: "p" }, f.ctx);
+	await f.service.drainOutbox(); // claimed, delivery result unknown
+	await f.db.close();
+	const db = await openDatabase(join(f.dir, "db.sqlite"));
+	const receipt = vi.fn(
+		async (session: string, requestId: string) => session === "s" && requestId.startsWith("login:"),
+	);
+	const recovered = createLoginOperationService({
+		db,
+		runner: { start: vi.fn() },
+		deliver: async () => "unknown",
+		receipt,
+	});
+	await recovered.initialize();
+	receipt.mockResolvedValueOnce(false); // wrong session/request has no proof
+	expect(await recovered.drainOutbox()).toBe(0);
+	expect(await recovered.operations.readClaimed()).toHaveLength(1);
+	expect(await recovered.drainOutbox()).toBe(1);
+	expect(receipt).toHaveBeenLastCalledWith("s", expect.stringMatching(/^login:/));
+	await db.close();
+});
 it("durable claim prevents two workers from delivering the same entry", async () => {
 	const f = await fixture();
 	await f.service.tool.execute({ provider: "p" }, f.ctx);
