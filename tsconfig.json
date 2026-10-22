@@ -60,6 +60,9 @@
 		},
 		{
 			"path": "plugins/channel-qq"
+		},
+		{
+			"path": "plugins/memory"
 		}
 	]
 }

@@ -26,7 +26,8 @@
 		"plugins/wechat-archive",
 		"plugins/channel-wechat-ilink",
 		"plugins/clipboard",
-		"plugins/channel-qq"
+		"plugins/channel-qq",
+		"plugins/memory"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs",
