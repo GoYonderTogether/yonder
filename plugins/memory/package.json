@@ -1,0 +1,37 @@
+{
+	"name": "@yonder/plugin-memory",
+	"version": "0.2.26102103",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.2.26102103",
+		"typebox": "1.3.27",
+		"yaml": "2.9.1"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "memory",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"tools": [
+				"memory_status"
+			],
+			"triggers": [
+				"memory-bootstrap"
+			]
+		}
+	}
+}
