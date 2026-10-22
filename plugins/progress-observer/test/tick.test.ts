@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import plugin from "../src/index.js";
 import { Ledger } from "../src/ledger.js";
 
-async function boot(dir: string, config: object, send: (input: unknown) => Promise<unknown>) {
+async function boot(dir: string, config: object, send: (input: unknown) => Promise<unknown>, models?: unknown) {
 	let trigger: any;
 	const api: any = {
 		config,
@@ -19,6 +19,7 @@ async function boot(dir: string, config: object, send: (input: unknown) => Promi
 			},
 		},
 		messages: { send },
+		models,
 	};
 	await plugin.setup(api);
 	await trigger.start({});
@@ -62,6 +63,41 @@ it("enabled tick sends fallback once; durable unknown survives restart without r
 		await vi.advanceTimersByTimeAsync(3000);
 		expect(send).toHaveBeenCalledTimes(1);
 		await restarted.trigger.stop();
+	} finally {
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+it("enabled configured model tick selects evidence and sends only program-rendered facts", async () => {
+	vi.useFakeTimers();
+	const dir = await mkdtemp(join(tmpdir(), "observer-tick-model-"));
+	try {
+		const ledger = await new Ledger(dir).open();
+		await ledger.create("t", "PRIVATE LABEL", { target: "conv:matrix:room" });
+		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
+		const completeSimple = vi.fn(async () => ({
+			content: [
+				{
+					type: "text",
+					text: JSON.stringify({ decision: "notify", evidence: ["fact"], text: "FALSE: completed successfully" }),
+				},
+			],
+		}));
+		const models = { getModel: vi.fn(() => ({ provider: "admin", id: "model" })), completeSimple };
+		const send = vi.fn(async () => ({ ok: true }));
+		const instance = await boot(
+			dir,
+			{ enabled: true, intervalMs: 1000, minTasks: 1, model: { provider: "admin", modelId: "model" } },
+			send,
+			models,
+		);
+		await vi.advanceTimersByTimeAsync(1000);
+		await instance.trigger.stop();
+		expect(completeSimple).toHaveBeenCalledTimes(1);
+		expect(send).toHaveBeenCalledTimes(1);
+		expect(send.mock.calls[0][0].text).toContain("执行状态：missing");
+		expect(send.mock.calls[0][0].text).not.toContain("FALSE");
+		expect(send.mock.calls[0][0].text).not.toContain("PRIVATE LABEL");
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}

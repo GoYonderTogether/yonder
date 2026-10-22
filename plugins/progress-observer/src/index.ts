@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { definePlugin, type PluginAPI, parseRef, type ToolContext, type YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
+import { createBoundedDecider } from "./bounded-adapter.js";
 import { runDecision } from "./decision-engine.js";
 import { Ledger, safeFallback } from "./ledger.js";
 import { sendProgress } from "./sender.js";
@@ -17,12 +18,16 @@ export default definePlugin({
 		enabled: Type.Optional(Type.Boolean({ default: false })),
 		intervalMs: Type.Optional(Type.Integer({ minimum: 1000, default: 20 * 60 * 1000 })),
 		minTasks: Type.Optional(Type.Integer({ minimum: 1, default: 4 })),
+		model: Type.Optional(
+			Type.Object({ provider: Type.String({ minLength: 1 }), modelId: Type.String({ minLength: 1 }) }),
+		),
 	}),
 	setup(api: PluginAPI) {
 		const config = (api.config && typeof api.config === "object" ? api.config : {}) as {
 			enabled?: boolean;
 			intervalMs?: number;
 			minTasks?: number;
+			model?: { provider: string; modelId: string };
 		};
 		const enabled = config.enabled === true;
 		const intervalMs =
@@ -167,7 +172,9 @@ export default definePlugin({
 								await runDecision(
 									{
 										ledger,
-										decide: async (snapshot) => safeFallback(snapshot),
+										decide: config.model
+											? createBoundedDecider(api.models, config.model)
+											: async (snapshot) => safeFallback(snapshot),
 										send: (target, text) => sendProgress(api.messages, target, text),
 										boundTarget: task.target,
 										minimumIntervalMs: intervalMs,

@@ -72,7 +72,13 @@ export function createBoundedDecider(models: Models, adminModelConfig: AdminMode
 				.map((part) => part.text)
 				.join("");
 			const parsed: unknown = JSON.parse(text);
-			return verifyDecision(parsed, task as Task, now) ? (parsed as Decision) : fallback;
+			if (!verifyDecision(parsed, task as Task, now)) return fallback;
+			const decision = parsed as Decision;
+			if (decision.decision === "skip") return decision;
+			// The model may select state/evidence only. Render claims from durable facts;
+			// never expose model-authored prose or task labels to the recipient.
+			const status = `执行状态：${task.executor}；验收状态：${task.accepted}。`;
+			return { ...decision, text: `${status}（关联证据 ${decision.evidence.length} 项）` };
 		} catch {
 			return fallback;
 		} finally {
