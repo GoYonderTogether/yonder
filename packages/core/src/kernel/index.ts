@@ -271,6 +271,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			onReport: report,
 		});
 		delivery = createDelivery({
+			hooks: loaded.hooks,
 			store,
 			agents,
 			channels: loaded.channels,

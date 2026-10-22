@@ -4,6 +4,7 @@ import {
 	type Channel,
 	type Delivery,
 	type EventInput,
+	type Hook,
 	type OutMessage,
 	type OutputPart,
 	parseRef,
@@ -27,6 +28,7 @@ export interface MessageRequest {
 	signal?: AbortSignal;
 }
 interface DeliveryOptions {
+	hooks?: Map<string, Hook[]>;
 	store: Store;
 	agents: Map<string, AgentConfig>;
 	channels: Map<string, Channel>;
@@ -106,6 +108,8 @@ export function createDelivery(options: DeliveryOptions) {
 			tail: Promise<void>;
 		}
 	>();
+	const selectedHooks = (config?: RuntimeSessionConfig) =>
+		(config?.resolved.plugins ?? []).flatMap((id) => options.hooks?.get(id) ?? []).filter((hook) => !!hook.beforeSend);
 	const report = options.onReport ?? (() => {});
 	const lifetime = new AbortController();
 	const retries = new Map<string, Promise<void>>();
@@ -218,6 +222,13 @@ export function createDelivery(options: DeliveryOptions) {
 		runId?: string,
 		messageId?: string,
 	): Promise<Delivery> {
+		for (const hook of selectedHooks(config)) {
+			const changed = await hook.beforeSend?.(
+				request,
+				session ? { session: session.id, agent: session.agent, profile: session.profile } : undefined,
+			);
+			if (changed) request = { ...request, ...changed.message };
+		}
 		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
 			resolved = await resolveTarget(request, session?.agent, config);
@@ -332,6 +343,7 @@ export function createDelivery(options: DeliveryOptions) {
 			const channel = channels.get(channelId(target) ?? "");
 			if (!selected?.stream || (selected.reply ?? "auto") !== "auto" || !channel?.output.stream || !channel.stream)
 				return;
+			if (selectedHooks(config).length && part.type !== "message_start" && part.type !== "message_end") return;
 			const key = `${session.id}\0${runId}\0${target}`;
 			let state = streams.get(key);
 			if (state && state.owner !== event.id) return;

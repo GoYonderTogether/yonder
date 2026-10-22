@@ -1,0 +1,44 @@
+{
+	"name": "@yonder/plugin-clipboard",
+	"version": "0.2.26102106",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"bin": {
+		"yonder-clipboard": "./dist/capture.js"
+	},
+	"files": [
+		"dist",
+		"native",
+		"README.md",
+		"NOTICE.md"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.2.26102106"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "clipboard",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"tools": [
+				"clipboard_copy",
+				"clipboard_paste",
+				"clipboard_list",
+				"clipboard_drop",
+				"clipboard_capture"
+			],
+			"hooks": [
+				"clipboard-redact"
+			]
+		}
+	}
+}

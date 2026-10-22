@@ -24,7 +24,8 @@
 		"plugins/mcp-client",
 		"plugins/native-automation",
 		"plugins/wechat-archive",
-		"plugins/channel-wechat-ilink"
+		"plugins/channel-wechat-ilink",
+		"plugins/clipboard"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs",

@@ -141,7 +141,7 @@ chatCommands · TUI
 ├─ envs
 │  └─ api.envs.register — 注册执行环境工厂
 ├─ hooks
-│  └─ api.hooks.register — 注册生命周期钩子
+│  └─ api.hooks.register — 注册 beforeTool / afterTool / beforeRequest / beforeSend（完整消息发送前过滤）钩子
 ├─ presets
 │  └─ api.presets.register — 注册任务预设
 ├─ skills
@@ -197,3 +197,18 @@ chatCommands · TUI
 BrowserSkill fork（D54）：`browser-skill_bookmarks` 的 tree / move(nodeId,parentId,index?) / create-folder(title,parentId,index?) / remove-empty-folder(nodeId)；`browser-skill_extensions` 的 list / enable(extensionId) / disable(extensionId)。均支持可选 session（仅恰有一个 owned session 时可省略）。插件 config：`bookmarksEnabled`、`extensionsEnabled` 默认 false，不代替主人 popup 授权。
 
 macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helper 自身 9 类非提示式探针（含 bundle/path/codeHash、lastCheckedAt、lastRequestedAt、nextStep）。人用 `~/.local/share/yonder-harness/helper/yonder-permissions status | request|guide|watch <kind>`；checkout 演示入口为 `scripts/demo-permissions.sh`，先 `npm run build`。不是 `yonder` 子命令；AI action 不提供授权。FDA/Files & Folders 为 unobservable，详见[验收记录](verification/mac-permissions.md)。
+
+## Clipboard（D53）
+
+| 注册名 | 输入与结果 |
+|---|---|
+| `clipboard_copy` | from.message(eventId)/file(path,start?,end?)/tool(transcriptId)，返回 open/sealed 元数据 handle |
+| `clipboard_paste` | handle + file(path)/consumer(id)/message(target,仅 open)/vault；typed 目的地，不传原文 |
+| `clipboard_list` | 当前 session/agent/profile 未过期元数据 |
+| `clipboard_drop` | 删除本作用域 handle/Keychain item，历史/已粘贴文件保留 |
+| `clipboard_capture` | 一次性隐藏 TTY ticket 与 OWNER 命令，不接受聊天秘密 |
+| `clipboard-redact` | afterTool + beforeSend，选中 profile 的精确值过滤；按消息缓冲流式文本 |
+| `yonder-clipboard prepare --data <path>` | 显式编译本地 Keychain helper，不改 TCC/生产服务 |
+| `yonder-clipboard capture --data <path> --ticket <id>` | 独立 package bin，交互 TTY 隐藏录入；不属于 yonder 核心子命令 |
+
+配置与 raw exec/Keychain ACL 边界见 [插件 README](../plugins/clipboard/README.md) 和 [spec/15](spec/15-clipboard-vault.md)。

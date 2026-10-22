@@ -6,6 +6,9 @@
 
 - 实现稳定签名 Yonder Helper.app、9 类非提示式权限状态与请求历史；native-automation 桌面操作改由 helper 执行，新增只读 permissions action；独立人用 CLI 提供 request/guide/watch，显式引导复用 PermissionFlow。FDA/Files & Folders 如实 unobservable，真人授权/UI/升级保留待验收。
 
+- 新增可选 clipboard 插件：同会话消息/文件/工具结果按 opaque handle 原样搬运，Keychain sealed 存储、隐藏 TTY 捕获、作用域/TTL/目的地授权与元数据审计；文件、固定 child env/HTTPS、open 消息及 vault 目的地。浏览器与飞书私密 adapter 仍阻塞，不启用生产配置。
+- SDK 增加可选 beforeSend；选中 profile 的消息在 message_end 过滤后投递，工具异常与原生 process 结果也经过 afterTool。精确脱敏不构成 shell/OS 沙箱。
+
 ## [0.2.26102106] - 2026-10-21
 
 - 启动恢复不再重放已有 `run.end` 的历史运行，并把回执附件与 `sources()` 的条目扫描限定在该运行自己的区间：用生产状态库副本实测，启动从约 45 秒（生产约 2 分钟）降到 4.8 秒，且不再随会话变长而增长。
