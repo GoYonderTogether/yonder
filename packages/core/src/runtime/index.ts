@@ -53,7 +53,8 @@ import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
 import { RunLimits } from "./limits.js";
-import { buildModels } from "./models.js";
+import { createLoginOperationService } from "./login-operation-service.js";
+import { buildModels, providerRegistryIds } from "./models.js";
 import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
@@ -92,6 +93,8 @@ export class Runtime {
 	private recovering: Array<{ session: string; id: import("@earendil-works/pi-durable").SubmissionId }> = [];
 	private registry = createRegistry();
 	private background!: ReturnType<typeof createBackground>;
+	private loginOperations?: ReturnType<typeof createLoginOperationService>;
+	private stopLoginDrain?: () => void;
 	private rawTools = new Map<string, ToolRegistration>();
 	private invocationConfigs = new WeakMap<
 		Context,
@@ -129,6 +132,10 @@ export class Runtime {
 		runtime.install();
 		const storage = await SqliteStorage.open(options.db, { prefix: "pi_" });
 		runtime.storage = storage;
+		if (runtime.loginOperations) {
+			await runtime.loginOperations.initialize();
+			runtime.stopLoginDrain = runtime.loginOperations.startDrain();
+		}
 		runtime.harness = await Harness.open(
 			storage,
 			{
@@ -369,7 +376,16 @@ export class Runtime {
 		this.registry.install(processes);
 		this.extensions.set(processes.name, processes);
 		this.tools.set("process", this.background.tool);
-		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...(this.options.tools ?? [])], []);
+		const loginTools: Tool[] = [];
+		if (this.options.loginOperations) {
+			this.loginOperations = createLoginOperationService({
+				db: this.options.db,
+				providers: providerRegistryIds(),
+				...this.options.loginOperations,
+			});
+			loginTools.push(this.loginOperations.tool);
+		}
+		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...loginTools, ...(this.options.tools ?? [])], []);
 		this.registry.install(builtins);
 		this.extensions.set(builtins.name, builtins);
 		for (const plugin of this.options.plugins ?? []) {
@@ -1407,6 +1423,7 @@ export class Runtime {
 	}
 
 	async close(): Promise<void> {
+		this.stopLoginDrain?.();
 		await this.restartNotes;
 		await this.background.close();
 		try {

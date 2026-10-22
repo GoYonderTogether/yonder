@@ -22,6 +22,7 @@ export interface LoginOperationServiceOptions {
 	now?: () => number;
 	ttlMs?: number;
 	deliveryTimeoutMs?: number;
+	providers?: ReadonlySet<string>;
 }
 const result = (value: unknown): ToolResult => ({ text: JSON.stringify(value) });
 
@@ -37,6 +38,7 @@ export function createLoginOperationService(options: LoginOperationServiceOption
 			!/^[a-z0-9_-]{1,64}$/i.test(args.provider)
 		)
 			throw new Error("Invalid login arguments");
+		if (options.providers && !options.providers.has(args.provider)) throw new Error("Unsupported login provider");
 		const operation = await operations.begin(ctx);
 		try {
 			await options.runner.start({
@@ -66,6 +68,25 @@ export function createLoginOperationService(options: LoginOperationServiceOption
 		tool,
 		handler,
 		initialize: () => operations.initialize(),
+		startDrain(intervalMs = 1_000): () => void {
+			let stopped = false;
+			let active: Promise<unknown> | undefined;
+			const tick = () => {
+				if (stopped || active) return;
+				active = this.drainOutbox()
+					.catch(() => undefined)
+					.finally(() => {
+						active = undefined;
+					});
+			};
+			tick();
+			const timer = setInterval(tick, intervalMs);
+			timer.unref?.();
+			return () => {
+				stopped = true;
+				clearInterval(timer);
+			};
+		},
 		async drainOutbox(limit = 100): Promise<number> {
 			await operations.expirePending();
 			let acked = 0;
