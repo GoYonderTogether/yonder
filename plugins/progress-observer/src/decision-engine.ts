@@ -38,8 +38,18 @@ export async function runDecision(
 	if (!attemptId) return null;
 	// Re-read policy immediately before sending: quiet/rate changes during model latency must win.
 	const current = (await options.ledger.list()).find((item) => item.id === taskId);
-	if (!current || (current.quietUntil && Date.now() < current.quietUntil) ||
-		(current.lastSent !== undefined && Date.now() - current.lastSent < options.minimumIntervalMs)) return null;
+	if (
+		!current ||
+		(current.quietUntil && Date.now() < current.quietUntil) ||
+		(current.lastSent !== undefined && Date.now() - current.lastSent < options.minimumIntervalMs)
+	) {
+		await options.ledger.cancelBeforeSend(taskId, attemptId);
+		return null;
+	}
+	if (!(await options.ledger.markSending(taskId, attemptId, options.minimumIntervalMs))) {
+		await options.ledger.cancelBeforeSend(taskId, attemptId);
+		return null;
+	}
 	let receipt: "sent" | "failed" | "unknown";
 	try {
 		receipt = await options.send(options.boundTarget, decision.text);
