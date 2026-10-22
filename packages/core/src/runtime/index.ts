@@ -936,7 +936,7 @@ export class Runtime {
 		}
 		return sum;
 	}
-	exportTaskLink(ctx: ToolContext, childSession: string) {
+	static exportTaskLink(ctx: ToolContext, childSession: string) {
 		return {
 			type: "task.linked" as const,
 			from: "system:runtime" as const,
@@ -958,7 +958,7 @@ export class Runtime {
 			await tx.doc(SessionDoc, created.id);
 			return created.id;
 		}, context);
-		if (this.options.recordEvent) await this.options.recordEvent(this.exportTaskLink(ctx, String(child)));
+		if (this.options.recordEvent) await this.options.recordEvent(Runtime.exportTaskLink(ctx, String(child)));
 		const input = await initialize(String(child));
 		try {
 			const handle = await api.conversation(child, context);
