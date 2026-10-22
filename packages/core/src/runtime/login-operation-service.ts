@@ -53,6 +53,17 @@ export function createLoginOperationService(options: LoginOperationServiceOption
 		}
 		return result({ id: operation.id, expiresAt: operation.expiresAt, status: "pending" });
 	};
+	const statusTool: Tool = {
+		name: "login_status",
+		description: "Read the status of a login operation belonging to this session",
+		parameters: Type.Object({ id: Type.String({ minLength: 32, maxLength: 32 }) }, { additionalProperties: false }),
+		capabilities: ["read"],
+		execute: async (args, ctx) => {
+			if (!args || Object.keys(args).some((key) => key !== "id") || typeof (args as { id?: unknown }).id !== "string")
+				throw new Error("Invalid login status arguments");
+			return result(await operations.status((args as { id: string }).id, ctx.session));
+		},
+	};
 	const tool: Tool = {
 		name: "login_begin",
 		description: "Begin a provider login operation",
@@ -66,6 +77,7 @@ export function createLoginOperationService(options: LoginOperationServiceOption
 	return {
 		operations,
 		tool,
+		statusTool,
 		handler,
 		initialize: () => operations.initialize(),
 		startDrain(intervalMs = 1_000): () => void {
