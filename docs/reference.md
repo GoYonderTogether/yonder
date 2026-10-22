@@ -193,3 +193,6 @@ chatCommands · TUI
 ## 4. 当前没有的模块
 
 主动记忆引擎、持久PTY、PDF/Office解析、自动PR审核合并均未列为已实现。MEMORY.md文件加载、生命周期trigger、MCP服务端不能冒充这些能力。
+
+
+BrowserSkill fork（D54）：`browser-skill_bookmarks` 的 tree / move(nodeId,parentId,index?) / create-folder(title,parentId,index?) / remove-empty-folder(nodeId)；`browser-skill_extensions` 的 list / enable(extensionId) / disable(extensionId)。均支持可选 session（仅恰有一个 owned session 时可省略）。插件 config：`bookmarksEnabled`、`extensionsEnabled` 默认 false，不代替主人 popup 授权。

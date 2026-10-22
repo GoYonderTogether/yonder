@@ -87,3 +87,68 @@ tab borrowing. Evidence is written under the OS temp directory in
 `yonder-n07-source-live/`. CLI/extension and page-task checks remain distinct from
 subsequent installation/profile discovery and a real `openai/gpt-6.1-sol` run.
 Never uninstall an existing extension to manufacture a disconnected test.
+
+## Optional local-profile bookmarks (fork required)
+
+This is opt-in and is **not** available in the stock BrowserSkill 0.3.3 release.
+Use the companion BrowserSkill `yonder/bookmarks-0.3.3` fork, based on official
+upstream main commit `6214e3d`, with the `f9b180b` bookmark implementation
+ported forward. Match CLI, daemon and extension builds; a version string alone
+does not establish that the running binaries contain this patch.
+
+The `browser-skill_bookmarks` schema is always registered to match the plugin
+manifest, but execution is disabled unless plugin config `bookmarksEnabled` is
+explicitly `true`. The owner also selects this tool in the intended profile's
+tool configuration. Neither setting grants Chrome permission: the user must
+manually enable optional bookmark access in that browser profile's extension
+popup. The agent must never grant that permission itself. Revocation is checked
+by the extension on every call. `tree` reads the **entire profile**, not only
+bookmarks related to the Agent Window; obtain authorization before reading it.
+
+Actions (all use an owned local BrowserSkill session):
+
+- `tree`: optional `session`; returns the whole tree.
+- `move`: `nodeId`, `parentId`, optional nonnegative uint32 `index`.
+- `create-folder`: `parentId`, `title`, optional `index`; cannot create a URL.
+- `remove-empty-folder`: `nodeId`; refuses URL bookmarks/nonempty folders.
+
+`session` can be omitted only with exactly one active request owned by the
+calling Yonder session. No browser/profile override, recursive deletion, arbitrary
+CRUD or permission request is exposed by the bookmark tool. Root and managed-node
+protection and remote-session rejection remain in the extension. Mutations run
+through the existing serialized owned-session command chain. Do not repeat a
+write whose effect is unknown.
+
+### Minimal deployment, performed only after approval
+
+1. In the companion fork, use its pinned toolchain and lockfile:
+   `corepack pnpm install --frozen-lockfile`, `corepack pnpm ext:build`, and
+   `cargo build --locked --release -p bsk`. Keep artifacts separate from the
+   stock installation; record the exact source commit and artifact hashes.
+2. Do not replace/restart a shared running daemon during a task. Arrange an
+   owner-approved deployment window for matched CLI/daemon/extension artifacts.
+   This change does not auto-install or reload an extension.
+3. The user opens `chrome://extensions`, enables Developer mode and chooses
+   **Load unpacked** with `apps/extension/dist/chrome-mv3` (or manually reloads
+   the already-approved unpacked build). BrowserSkill cannot automate this
+   restricted URL; retain `restricted_tab_url`, with no CDP/profile-policy bypass.
+4. The user confirms the intended profile and grants bookmark permission in the
+   extension popup. After the reviewed Yonder build is deployed, configure
+   `bskPath` to the matched CLI, opt in with `bookmarksEnabled: true`, and offer
+   `browser-skill_bookmarks` only to the intended profile. Do not change production
+   config merely to run tests.
+5. Re-run readiness, create a no-focus owned Agent Window for the verified browser
+   instance, and test only a disposable profile/tree with separate authorization;
+   stop that session afterward. Unit tests/builds alone do not prove live wiring.
+
+Chrome's `chrome.management` API cannot install extensions. The separate
+`browser-skill_extensions` tool supports `list`, `enable`, `disable`
+with `extensionId` and optional owned `session`. It requires `extensionsEnabled:
+true` plus owner-granted **Extension management** in the popup. The permission
+covers the whole profile. Uninstall requires an owner gesture and is not exposed as a tool. Self, managed and non-extension items are refused.
+Chrome can require a user gesture for enable; report the native error and ask
+the owner, without retrying. Installation remains an owner step; see
+[route comparison](../../docs/research/chrome-extension-install.md).
+Build this fork CLI with `BSK_FORK_BUILD=1 cargo build --locked --release -p bsk`:
+both periodic self-update and explicit `bsk update` are disabled in that binary.
+The running shared daemon is not restarted during installation.

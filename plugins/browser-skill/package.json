@@ -34,7 +34,9 @@
 				"browser-skill_inspect",
 				"browser-skill_interact",
 				"browser-skill_tabs",
-				"browser-skill_file"
+				"browser-skill_file",
+				"browser-skill_bookmarks",
+				"browser-skill_extensions"
 			],
 			"skills": [
 				"browser-skill"

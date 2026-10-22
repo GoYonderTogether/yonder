@@ -46,6 +46,29 @@ const op = (command: string, fields: Record<string, Field> = {}, required: strin
 	required,
 });
 export const operations = {
+	extensions: {
+		list: op("extensions list", { session: string }),
+		enable: op("extensions enable", { session: string, extensionId: { type: "string", pattern: "^[a-p]{32}$" } }, [
+			"extensionId",
+		]),
+		disable: op("extensions disable", { session: string, extensionId: { type: "string", pattern: "^[a-p]{32}$" } }, [
+			"extensionId",
+		]),
+	},
+	bookmarks: {
+		tree: op("bookmarks tree", { session: string }),
+		move: op(
+			"bookmarks move",
+			{ session: string, nodeId: string, parentId: string, index: { ...integer, maximum: 4294967295 } },
+			["nodeId", "parentId"],
+		),
+		"create-folder": op(
+			"bookmarks create-folder",
+			{ session: string, parentId: string, title: { type: "string" }, index: { ...integer, maximum: 4294967295 } },
+			["parentId", "title"],
+		),
+		"remove-empty-folder": op("bookmarks remove-empty-folder", { session: string, nodeId: string }, ["nodeId"]),
+	},
 	setup: {
 		status: op("status"),
 		"start-daemon": op("daemon start"),
@@ -235,6 +258,23 @@ const boolFlags: Record<string, string> = {
 export function command(group: Group, args: Args, session: string): string[] {
 	const spec = (operations[group] as Record<string, Operation>)[String(args.action)];
 	if (!spec || ["setup", "session"].includes(group)) throw new Error("Not a browser business command");
+	if (group === "extensions") {
+		return [
+			"extensions",
+			"--session",
+			session,
+			String(args.action),
+			...(args.extensionId ? [String(args.extensionId)] : []),
+		];
+	}
+	if (group === "bookmarks") {
+		const argv = ["bookmarks", "--session", session, String(args.action)];
+		if (args.parentId !== undefined) argv.push(`--parent=${String(args.parentId)}`);
+		if (args.index !== undefined) argv.push(`--index=${String(args.index)}`);
+		if (args.nodeId !== undefined) argv.push("--", String(args.nodeId));
+		if (args.title !== undefined) argv.push("--", String(args.title));
+		return argv;
+	}
 	const argv = [...spec.command, "--session", session];
 	const tabPositional = group === "tabs" && ["select", "close", "borrow", "return"].includes(String(args.action));
 	if (args.tabId !== undefined) argv.push(...(tabPositional ? [String(args.tabId)] : ["--tab-id", String(args.tabId)]));

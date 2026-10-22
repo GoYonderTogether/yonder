@@ -1,0 +1,730 @@
+=== B-cargo-build.log ===
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.45
+   Compiling unicode-ident v1.0.24
+   Compiling libc v0.2.186
+   Compiling cfg-if v1.0.4
+   Compiling smallvec v1.15.1
+   Compiling itoa v1.0.18
+   Compiling stable_deref_trait v1.2.1
+   Compiling memchr v2.8.0
+   Compiling once_cell v1.21.4
+   Compiling syn v2.0.117
+   Compiling shlex v2.0.1
+   Compiling pin-project-lite v0.2.17
+   Compiling serde_core v1.0.228
+   Compiling find-msvc-tools v0.1.9
+   Compiling jobserver v0.1.35
+   Compiling errno v0.3.14
+   Compiling cc v1.2.66
+   Compiling bytes v1.11.1
+   Compiling fs_extra v1.3.0
+   Compiling cmake v0.1.58
+   Compiling parking_lot_core v0.9.12
+   Compiling typenum v1.20.0
+   Compiling pkg-config v0.3.33
+   Compiling dunce v1.0.5
+   Compiling log v0.4.29
+   Compiling aws-lc-sys v0.42.0
+   Compiling scopeguard v1.2.0
+   Compiling futures-core v0.3.32
+   Compiling lock_api v0.4.14
+   Compiling bitflags v2.11.1
+   Compiling parking_lot v0.12.5
+   Compiling http v1.4.0
+   Compiling synstructure v0.13.2
+   Compiling signal-hook-registry v1.4.8
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling displaydoc v0.2.6
+   Compiling zerofrom v0.1.8
+   Compiling tokio-macros v2.7.0
+   Compiling socket2 v0.6.3
+   Compiling mio v1.2.0
+   Compiling yoke v0.8.3
+   Compiling litemap v0.8.2
+   Compiling aws-lc-rs v1.17.1
+   Compiling version_check v0.9.5
+   Compiling writeable v0.6.3
+   Compiling zeroize v1.8.2
+   Compiling zerovec v0.11.6
+   Compiling futures-sink v0.3.32
+   Compiling zerotrie v0.2.4
+   Compiling generic-array v0.14.7
+   Compiling tokio v1.52.3
+   Compiling tracing-core v0.1.36
+   Compiling tinystr v0.8.3
+   Compiling icu_locale_core v2.2.0
+   Compiling potential_utf v0.1.5
+   Compiling icu_normalizer_data v2.2.0
+   Compiling httparse v1.10.1
+   Compiling icu_properties_data v2.2.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_collections v2.2.0
+   Compiling icu_provider v2.2.0
+   Compiling futures-macro v0.3.32
+   Compiling zmij v1.0.21
+   Compiling slab v0.4.12
+   Compiling futures-task v0.3.32
+   Compiling futures-io v0.3.32
+   Compiling zerocopy v0.8.48
+   Compiling serde v1.0.228
+   Compiling futures-util v0.3.32
+   Compiling rustls-pki-types v1.15.0
+   Compiling serde_derive v1.0.228
+   Compiling tracing-attributes v0.1.31
+   Compiling http-body v1.0.1
+   Compiling percent-encoding v2.3.2
+   Compiling rustix v1.1.4
+   Compiling rustls v0.23.41
+   Compiling untrusted v0.9.0
+   Compiling serde_json v1.0.149
+   Compiling tracing v0.1.44
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling getrandom v0.2.17
+   Compiling tower-service v0.3.3
+   Compiling core-foundation-sys v0.8.7
+   Compiling thiserror v1.0.69
+   Compiling subtle v2.6.1
+   Compiling crc32fast v1.5.0
+   Compiling try-lock v0.2.5
+   Compiling getrandom v0.4.2
+   Compiling want v0.3.1
+   Compiling rand_core v0.6.4
+   Compiling ppv-lite86 v0.2.21
+   Compiling idna_adapter v1.2.2
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling futures-channel v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling hybrid-array v0.4.13
+   Compiling utf8parse v0.2.2
+   Compiling regex-syntax v0.8.10
+   Compiling equivalent v1.0.2
+   Compiling simd-adler32 v0.3.9
+   Compiling thiserror v2.0.18
+   Compiling httpdate v1.0.3
+   Compiling crossbeam-utils v0.8.21
+   Compiling atomic-waker v1.1.2
+   Compiling hashbrown v0.17.1
+   Compiling hyper v1.10.1
+   Compiling indexmap v2.14.0
+   Compiling regex-automata v0.4.14
+   Compiling anstyle-parse v1.0.0
+   Compiling digest v0.10.7
+   Compiling idna v1.1.0
+   Compiling rand_chacha v0.3.1
+   Compiling security-framework-sys v2.17.0
+   Compiling core-foundation v0.10.1
+   Compiling form_urlencoded v1.2.2
+   Compiling thiserror-impl v2.0.18
+   Compiling serde_derive_internals v0.29.1
+   Compiling sync_wrapper v1.0.2
+   Compiling cpufeatures v0.2.17
+   Compiling powerfmt v0.2.0
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling lazy_static v1.5.0
+   Compiling base64 v0.22.1
+   Compiling cfg_aliases v0.2.1
+   Compiling colorchoice v1.0.5
+   Compiling anstyle v1.0.14
+   Compiling adler2 v2.0.1
+   Compiling ipnet v2.12.0
+   Compiling tower-layer v0.3.3
+   Compiling anstyle-query v1.1.5
+   Compiling schemars v0.8.22
+   Compiling tower v0.5.3
+   Compiling hyper-util v0.1.20
+   Compiling anstream v1.0.0
+   Compiling miniz_oxide v0.8.9
+   Compiling nix v0.29.0
+   Compiling sharded-slab v0.1.7
+   Compiling deranged v0.5.8
+   Compiling sha1 v0.10.6
+   Compiling schemars_derive v0.8.22
+   Compiling security-framework v3.7.0
+   Compiling url v2.5.8
+   Compiling rand v0.8.6
+   Compiling matchers v0.2.0
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling tracing-serde v0.2.0
+   Compiling tracing-log v0.2.0
+   Compiling thread_local v1.1.9
+   Compiling anyhow v1.0.102
+   Compiling unicode-width v0.2.2
+   Compiling option-ext v0.2.0
+   Compiling time-core v0.1.8
+   Compiling strsim v0.11.1
+   Compiling nu-ansi-term v0.50.3
+   Compiling dyn-clone v1.0.20
+   Compiling utf-8 v0.7.6
+   Compiling data-encoding v2.11.0
+   Compiling num-conv v0.2.1
+   Compiling heck v0.5.0
+   Compiling clap_lex v1.1.0
+   Compiling bumpalo v3.20.2
+   Compiling zlib-rs v0.6.5
+   Compiling fastrand v2.4.1
+   Compiling byteorder v1.5.0
+   Compiling const-oid v0.10.2
+   Compiling digest v0.11.3
+   Compiling tungstenite v0.24.0
+   Compiling tempfile v3.27.0
+   Compiling zopfli v0.8.3
+   Compiling clap_builder v4.6.0
+   Compiling clap_derive v4.6.1
+   Compiling flate2 v1.1.9
+   Compiling time v0.3.47
+   Compiling tracing-subscriber v0.3.23
+   Compiling dirs-sys v0.4.1
+   Compiling console v0.15.11
+   Compiling crossbeam-channel v0.5.15
+   Compiling tower-http v0.6.11
+   Compiling xattr v1.6.1
+   Compiling http-body-util v0.1.3
+   Compiling semver v1.0.28
+   Compiling filetime v0.2.29
+   Compiling cpufeatures v0.3.0
+   Compiling csv-core v0.1.13
+   Compiling symlink v0.1.0
+   Compiling ryu v1.0.23
+   Compiling bsk v0.3.3 (/Users/zoran/Documents/github/BrowserSkill-bookmarks-033/crates/bsk-cli)
+   Compiling typed-path v0.12.3
+   Compiling shell-words v1.1.1
+   Compiling dialoguer v0.11.0
+   Compiling csv v1.4.0
+   Compiling zip v7.2.0
+   Compiling tracing-appender v0.2.5
+   Compiling sha2 v0.11.0
+   Compiling bsk-protocol v0.3.3 (/Users/zoran/Documents/github/BrowserSkill-bookmarks-033/crates/bsk-protocol)
+   Compiling tar v0.4.46
+   Compiling dirs v5.0.1
+   Compiling clap v4.6.1
+   Compiling tokio-tungstenite v0.24.0
+   Compiling uuid v1.23.1
+   Compiling fs2 v0.4.3
+   Compiling rustls-webpki v0.103.13
+   Compiling tokio-rustls v0.26.4
+   Compiling rustls-platform-verifier v0.7.0
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.13.4
+    Finished `release` profile [optimized] target(s) in 2m 03s
+
+
+=== B-npm-ci.log ===
+npm error code E404
+npm error 404 Not Found - GET https://registry.npmjs.org/@yonder%2fsdk - Not found
+npm error 404
+npm error 404  The requested resource '@yonder/sdk@0.2.26102103' could not be found or you do not have permission to access it.
+npm error 404
+npm error 404 Note that you can also install from a
+npm error 404 tarball, folder, http url, or git url.
+npm error A complete log of this run can be found in: /Users/zoran/.npm/_logs/2026-10-22T04_49_56_422Z-debug-0.log
+
+
+=== B-fork-lint.log ===
+
+> browser-skill@ lint /Users/zoran/Documents/github/BrowserSkill-bookmarks-033
+> biome check . && stylelint "**/*.css" && pnpm --filter @wxg-prc-cpg/browser-skill-dsh-plugin typecheck && pnpm --filter @wxg-prc-cpg/browser-skill-dsh-plugin test
+
+packages/dsh-plugin-browserskill/tests/tools.test.ts format ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Formatter would have printed the following content:
+  
+     274  274 │     ],
+     275  275 │     bsk_tabs: ["list", "create", "select", "close", "borrow", "return"],
+     276      │ - ··bsk_assist:·["bookmarks-move",·"bookmarks-create-folder",·"bookmarks-remove-empty-folder",·"resize",·"emulate",·"request-help"],
+          276 │ + ··bsk_assist:·[
+          277 │ + ····"bookmarks-move",
+          278 │ + ····"bookmarks-create-folder",
+          279 │ + ····"bookmarks-remove-empty-folder",
+          280 │ + ····"resize",
+          281 │ + ····"emulate",
+          282 │ + ····"request-help",
+          283 │ + ··],
+     277  284 │   } as const;
+     278  285 │   
+  
+
+Checked 655 files in 229ms. No fixes applied.
+Found 1 error.
+check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  × Some errors were emitted while running checks.
+  
+
+ ELIFECYCLE  Command failed with exit code 1.
+
+
+=== B-browser-test.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts (1 test | 1 failed) 6610ms
+     × preserves bookmark identities while flattening and refuses destructive removal 6609ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tools/__tests__/bookmarks.browser.test.ts > bookmark CLI/extension integration > preserves bookmark identities while flattening and refuses destructive removal
+Error: Command failed: /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/target/release/bsk --json extensions --session lbbt list
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:52:28
+   Duration  6.92s (transform 269ms, setup 344ms, import 53ms, tests 6.61s, environment 204ms)
+
+undefined
+/Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/tools/__tests__/bookmarks.browser.test.ts src/tools/__tests__/extensions.test.ts --maxWorkers=4
+
+
+=== B-browser-test-2.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts (1 test | 1 failed) 6081ms
+     × preserves bookmark identities while flattening and refuses destructive removal 6080ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tools/__tests__/bookmarks.browser.test.ts > bookmark CLI/extension integration > preserves bookmark identities while flattening and refuses destructive removal
+Error: Command failed: /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/target/release/bsk --json extensions --session nuvr list
+
+stdout: {
+  "code": "unknown_method",
+  "message": "method not implemented yet: ToolExtensionsList",
+  "hint": "upgrade both bsk CLI and the browser-skill extension; CLI and daemon may be on mismatched protocol versions",
+  "exit_code": 5
+}
+
+stderr: 
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts:31:113
+
+ ❯ cli src/tools/__tests__/bookmarks.browser.test.ts:31:21
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts:96:33
+ ❯ withChrome ../../evals/browser/cases/regression/snapshot-coordinates/chrome.mjs:114:5
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts:79:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  00:52:51
+   Duration  6.24s (transform 72ms, setup 96ms, import 8ms, tests 6.08s, environment 0ms)
+
+undefined
+/Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/tools/__tests__/bookmarks.browser.test.ts --maxWorkers=4
+
+
+=== B-browser-test-3.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts (1 test | 1 failed) 6400ms
+     × preserves bookmark identities while flattening and refuses destructive removal 6399ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/tools/__tests__/bookmarks.browser.test.ts > bookmark CLI/extension integration > preserves bookmark identities while flattening and refuses destructive removal
+Error: Command failed: /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/target/release/bsk --json extensions --session tkxl uninstall ajnbcncdapenahfkcapnkbildgjmfnjb
+
+stdout: {
+  "code": "protocol_error",
+  "message": "Extension management failed: chrome.management.uninstall requires a user gesture.. If Chrome requires a user gesture or confirmation, ask the owner; inspect state before retrying.",
+  "hint": "ensure CLI and daemon protocol versions match — check `protocol version` in `bsk status`",
+  "exit_code": 2
+}
+
+stderr: 
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts:31:113
+
+ ❯ cli src/tools/__tests__/bookmarks.browser.test.ts:31:21
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts:109:22
+ ❯ withChrome ../../evals/browser/cases/regression/snapshot-coordinates/chrome.mjs:114:5
+ ❯ src/tools/__tests__/bookmarks.browser.test.ts:79:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  00:54:54
+   Duration  6.61s (transform 95ms, setup 124ms, import 9ms, tests 6.40s, environment 0ms)
+
+undefined
+/Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run src/tools/__tests__/bookmarks.browser.test.ts --maxWorkers=4
+
+
+=== B-browser-test-4.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:57:02
+   Duration  7.63s (transform 95ms, setup 123ms, import 12ms, tests 7.42s, environment 0ms)
+
+
+
+=== B-installed-browser-test.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  01:00:34
+   Duration  6.78s (transform 75ms, setup 98ms, import 8ms, tests 6.61s, environment 0ms)
+
+
+
+=== B-cargo-test.log ===
+test daemon::start::tests::lifecycle_daemon_process ... ignored, subprocess entry point
+test daemon::ws::session_user_interrupt_tests::handle_session_user_interrupt_ignored_from_non_owning_browser ... ok
+test daemon::ws::session_user_interrupt_tests::handle_session_window_closed_ignored_from_non_owning_browser ... ok
+test result: ok. 453 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.82s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.65s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 48.26s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.17s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.90s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.19s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.65s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.56s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.55s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.31s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.30s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.59s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.01s
+test result: ok. 171 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+=== B-cargo-test-final.log ===
+test daemon::start::tests::lifecycle_daemon_process ... ignored, subprocess entry point
+test daemon::ws::session_user_interrupt_tests::handle_session_user_interrupt_ignored_from_non_owning_browser ... ok
+test daemon::ws::session_user_interrupt_tests::handle_session_window_closed_ignored_from_non_owning_browser ... ok
+test result: ok. 453 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 4.51s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.51s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 45.92s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.12s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.91s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.60s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.70s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.58s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.01s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.31s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.30s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.01s
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.26s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 14.67s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.01s
+test result: ok. 171 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+=== B-ext-test.log ===
+
+> browser-skill@ ext:test /Users/zoran/Documents/github/BrowserSkill-bookmarks-033
+> pnpm --filter @browser-skill/extension test -- --maxWorkers=4
+
+
+> @browser-skill/extension@0.3.3 test /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+> vitest run -- --maxWorkers=4
+
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+
+ Test Files  174 passed | 33 skipped (207)
+      Tests  2693 passed | 248 skipped (2941)
+   Start at  00:53:53
+   Duration  29.28s (transform 9.31s, setup 17.47s, import 17.94s, tests 59.09s, environment 36.76s)
+
+
+
+=== B-ext-test-final.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/apps/extension
+
+
+ Test Files  174 passed | 33 skipped (207)
+      Tests  2693 passed | 248 skipped (2941)
+   Start at  00:57:49
+   Duration  28.40s (transform 2.86s, setup 8.25s, import 7.09s, tests 53.39s, environment 18.45s)
+
+
+
+=== B-vom-test.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/packages/vom
+
+
+ Test Files  3 passed (3)
+      Tests  82 passed (82)
+   Start at  00:58:20
+   Duration  159ms (transform 103ms, setup 0ms, import 129ms, tests 51ms, environment 0ms)
+
+
+
+=== B-dsh-test.log ===
+de@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:20082:13
+    at readFromFileMap (file:///Users/zoran/Documents/github/BrowserSkill-bookmarks-033/node_modules/.pnpm/vite@8.0.13_@types+node@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:19861:13)
+    at Object.exports.fromMapFileComment (file:///Users/zoran/Documents/github/BrowserSkill-bookmarks-033/node_modules/.pnpm/vite@8.0.13_@types+node@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:19955:12)
+    at Object.exports.fromMapFileSource (file:///Users/zoran/Documents/github/BrowserSkill-bookmarks-033/node_modules/.pnpm/vite@8.0.13_@types+node@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:19966:22)
+    at extractSourcemapFromFile (file:///Users/zoran/Documents/github/BrowserSkill-bookmarks-033/node_modules/.pnpm/vite@8.0.13_@types+node@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:20068:87)
+    at loadAndTransform (file:///Users/zoran/Documents/github/BrowserSkill-bookmarks-033/node_modules/.pnpm/vite@8.0.13_@types+node@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:24498:22)
+
+ Test Files  25 passed (25)
+      Tests  541 passed (541)
+   Start at  00:58:41
+   Duration  3.60s (transform 1.30s, setup 0ms, import 3.47s, tests 7.02s, environment 773ms)
+
+
+
+=== B-i18n-test.log ===
+
+ RUN  v4.1.6 /Users/zoran/Documents/github/BrowserSkill-bookmarks-033/packages/i18n
+
+
+ Test Files  2 passed (2)
+      Tests  64 passed (64)
+   Start at  00:59:19
+   Duration  472ms (transform 280ms, setup 0ms, import 237ms, tests 356ms, environment 0ms)
+
+
+
+=== B-eval-test.log ===
+✔ case manifests are discovered, ordered, and grouped into suites (0.82275ms)
+✔ repository validation links every case to a fixture and valid workflow evidence (0.398292ms)
+✔ manifest validation rejects unknown operations and incomplete workflow steps (0.127292ms)
+✔ fixture server exposes deterministic task and seeded matrix markers (23.217792ms)
+✔ server records and resets run-scoped events (9.192375ms)
+✔ form case oracle checks submitted values and separates adapter evidence (0.317167ms)
+✔ navigation case fails when reload is missing (0.090667ms)
+✔ prompt rendering is run-scoped, localized, and seed-aware (0.160708ms)
+✔ command adapter carries a run from process launch through oracle verification (350.761042ms)
+✔ report summary keeps partial verification distinct from full verification (0.305042ms)
+✔ coverage inventory contains all 28 operations and three manual lanes (0.3245ms)
+✔ seeded dimensions are reproducible and vary across seeds (0.11675ms)
+✔ badcase scaffold creates a loadable, escaped, self-contained case (3.976083ms)
+✔ CLI accepts pnpm separator and supports suite and tag filters (188.523041ms)
+✔ CLI validation and seed generation are machine-readable (186.415375ms)
+✔ fill manifests permit empty/whitespace values and validate rejection options (1.818709ms)
+✔ fill rejection workflow: expected (359.307208ms)
+✔ fill rejection workflow: wrong-code (352.20275ms)
+✔ fill rejection workflow: wrong-reason (351.409333ms)
+✔ fill rejection workflow: success (351.889083ms)
+✔ fill rejection workflow: timeout (352.065458ms)
+✔ fill rejection workflow: spawn-error (351.104625ms)
+✔ fill rejection workflow: malformed (351.966875ms)
+✔ process output preserves UTF-8 characters split across pipe writes (143.166291ms)
+✔ process output flushes an incomplete final UTF-8 sequence (38.400583ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2534.042375
+
+
+=== B-plugin-test.log ===
+
+ RUN  v5.0.5 /Users/zoran/Documents/yonder-harness-bsk-ext
+
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  00:52:08
+   Duration  456ms (import 57%, transform 24%, tests 18%, worker 1%)
+
+
+
+=== B-plugin-test-utf.log ===
+
+ RUN  v5.0.5 /Users/zoran/Documents/yonder-harness-bsk-ext
+
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  00:58:30
+   Duration  235ms (import 75%, transform 13%, tests 11%, worker 1%)
+
+
+
+=== B-yonder-test.log ===
+
+> yonder-harness@0.2.26102106 test
+> vitest run --exclude '**/dist/**' --maxWorkers=4
+
+
+ RUN  v5.0.5 /Users/zoran/Documents/yonder-harness-bsk-ext
+
+
+ Test Files  56 passed | 13 skipped (69)
+      Tests  251 passed | 26 skipped (277)
+   Start at  00:57:02
+   Duration  18.93s (tests 82%, import 15%, transform 3%)
+
+
+
+=== B-yonder-test-final.log ===
+
+> yonder-harness@0.2.26102106 test
+> vitest run --exclude '**/dist/**' --maxWorkers=4
+
+
+ RUN  v5.0.5 /Users/zoran/Documents/yonder-harness-bsk-ext
+
+
+ Test Files  56 passed | 13 skipped (69)
+      Tests  252 passed | 26 skipped (278)
+   Start at  00:58:58
+   Duration  17.68s (tests 81%, import 18%, transform 1%)
+
+    Isolate  69 workers spawned · ~59ms startup each (spawn + environment, per file)
+             at least ~954ms faster with isolate: false — reuses workers across files instead of one per file
+
+
+
+=== B-installed-update-block.json ===
+{
+  "code": null,
+  "message": "This fork build disables upstream updates; rebuild from its pinned fork branch",
+  "hint": "is the daemon running? try `bsk daemon start` or `bsk status`",
+  "exit_code": 2
+}
+
+
+=== B-doctor.json ===
+[
+  {
+    "name": "bsk home writable",
+    "ok": true,
+    "status": "ok",
+    "detail": "/Users/zoran/.bsk",
+    "hint": null
+  },
+  {
+    "name": "agent skill matches bundled CLI",
+    "ok": true,
+    "status": "ok",
+    "detail": "bundled bsk v0.3.3; already matches bundled CLI: codex",
+    "hint": null
+  },
+  {
+    "name": "daemon running",
+    "ok": true,
+    "status": "ok",
+    "detail": "pid 21161 at ws://127.0.0.1:52800 (sock /Users/zoran/.bsk/run/daemon.sock)",
+    "hint": null
+  },
+  {
+    "name": "daemon local process identity",
+    "ok": true,
+    "status": "ok",
+    "detail": "IPC peer PID matches daemon identity",
+    "hint": null
+  },
+  {
+    "name": "protocol compatible",
+    "ok": false,
+    "status": "fail",
+    "detail": "daemon protocol 1.3 (expected 1.4), app 0.3.3",
+    "hint": "upgrade or restart bsk so CLI and daemon speak the same protocol version"
+  },
+  {
+    "name": "auto-update",
+    "ok": true,
+    "status": "ok",
+    "detail": "no update attempt recorded",
+    "hint": null
+  },
+  {
+    "name": "extension connected",
+    "ok": true,
+    "status": "ok",
+    "detail": "1 browser(s) connected",
+    "hint": null
+  },
+  {
+    "name": "browser protocol compatible",
+    "ok": true,
+    "status": "ok",
+    "detail": "all 1 online browser(s) are compatible with the daemon",
+    "hint": null
+  }
+]
+
+
+=== B-install.json ===
+{"commit": "8500bcbdf2e6bf0d19c33a9b156ba62a07f85ade", "backup": "/Users/zoran/.local/share/browserskill-fork/backup/bsk-before-r2-20261022T050023Z", "backup_sha256": "900c85d168a4a23f19767aa918b4de4c2ae0097cd298fca3691b89843935bb58", "installed_sha256": "be10b8f04f1fad73adddf40b7418e5bb0c86a3adb04bea076af0a47ae5f81538", "extension_path": "/Users/zoran/.local/share/browserskill-fork/chrome-extension"}

@@ -1,6 +1,9 @@
+import type { ChildProcess } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
@@ -16,7 +19,7 @@ describe("browser-skill SDK contract and input boundaries", () => {
 		expect(await checkPlugin(root)).toEqual([]);
 		const { api, registrations } = createRegistrationCollector();
 		plugin.setup({ ...api, paths: { data: "/nonexistent-browser-skill-state" } } as PluginAPI);
-		expect(registrations.tools).toHaveLength(7);
+		expect(registrations.tools).toHaveLength(9);
 		expect(registrations.triggers).toHaveLength(1);
 		expect(registrations.listeners.map((v) => v.type)).toEqual(["session.close"]);
 	});
@@ -179,4 +182,126 @@ describe("ownership and cancellation (no browser/model simulations)", () => {
 		expect(result.aborted).toBe(true);
 		expect(result.code).toBeNull();
 	});
+});
+
+describe("optional bookmarks", () => {
+	it("builds literal argv and rejects unrelated fields", () => {
+		expect(
+			command(
+				"bookmarks",
+				validate("bookmarks", { action: "create-folder", parentId: "2", title: "--help", index: 0 }),
+				"owned",
+			),
+		).toEqual(["bookmarks", "--session", "owned", "create-folder", "--parent=2", "--index=0", "--", "--help"]);
+		expect(
+			command("bookmarks", validate("bookmarks", { action: "move", parentId: "2", nodeId: "--help" }), "owned"),
+		).toEqual(["bookmarks", "--session", "owned", "move", "--parent=2", "--", "--help"]);
+		for (const args of [
+			{ action: "tree", browser: "foreign" },
+			{ action: "move", nodeId: "1", parentId: "2", index: -1 },
+			{ action: "remove-empty-folder", nodeId: "1", recursive: true },
+			{ action: "create-folder", parentId: "2", title: "x", url: "https://example.com" },
+		])
+			expect(() => validate("bookmarks", args)).toThrow();
+	});
+	it("is registered but disabled by default before any state or CLI IO", async () => {
+		const { api, registrations } = createRegistrationCollector();
+		plugin.setup({
+			...api,
+			paths: { data: "/nonexistent-bookmark-state" },
+			config: { bskPath: "/nonexistent-bsk" },
+		} as PluginAPI);
+		const tool = registrations.tools.find((t) => t.name === "browser-skill_bookmarks");
+		if (!tool) throw new Error("Missing bookmark tool");
+		const result = await tool.execute({ action: "tree" }, {
+			session: "owner",
+			env: { id: "node:local" },
+			signal: new AbortController().signal,
+		} as ToolContext);
+		expect(result.isError).toBe(true);
+		expect(result.text).toContain("disabled");
+	});
+	it("rejects foreign and remote calls without touching a browser", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "yonder-bookmarks-denied-"));
+		try {
+			await writeFile(
+				join(dir, "requests.json"),
+				JSON.stringify([
+					{ requestId: "1000000000000:00000000-0000-0000-0000-000000000001", owner: "alice", session: "abcd" },
+				]),
+			);
+			const { api, registrations } = createRegistrationCollector();
+			plugin.setup({
+				...api,
+				paths: { data: dir },
+				config: { bookmarksEnabled: true, bskPath: "/nonexistent-bsk" },
+			} as PluginAPI);
+			const tool = registrations.tools.find((t) => t.name === "browser-skill_bookmarks");
+			if (!tool) throw new Error("Missing bookmark tool");
+			for (const [owner, env, error] of [
+				["bob", "node:local", "foreign"],
+				["alice", "remote", "remote environment"],
+			]) {
+				const result = await tool.execute({ action: "tree", session: "abcd" }, {
+					session: owner,
+					env: { id: env },
+					signal: new AbortController().signal,
+				} as ToolContext);
+				expect(result.isError).toBe(true);
+				expect(result.text).toContain(error);
+			}
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("extension management boundaries", () => {
+	it("maps only known actions and literal extension IDs", () => {
+		const id = "a".repeat(32);
+		expect(command("extensions", validate("extensions", { action: "disable", extensionId: id }), "own")).toEqual([
+			"extensions",
+			"--session",
+			"own",
+			"disable",
+			id,
+		]);
+		for (const args of [
+			{ action: "install" },
+			{ action: "disable", extensionId: "--help" },
+			{ action: "uninstall" },
+			{ action: "list", extensionId: id },
+		])
+			expect(() => validate("extensions", args)).toThrow();
+	});
+	it("refuses management before CLI access unless the owner opts in", async () => {
+		const { api, registrations } = createRegistrationCollector();
+		plugin.setup({ ...api, paths: { data: "/nonexistent-browser-skill-state" } } as PluginAPI);
+		const tool = registrations.tools.find((t) => t.name === "browser-skill_extensions");
+		if (!tool) throw new Error("Missing extension tool");
+		const result = await tool.execute({ action: "list" }, {
+			env: { id: "node:local" },
+			signal: new AbortController().signal,
+		} as ToolContext);
+		expect(result.isError).toBe(true);
+		expect(result.text).toContain("extensionsEnabled");
+	});
+});
+
+it("preserves upstream UTF-8 streaming behavior for Chinese and emoji", async () => {
+	const child = Object.assign(new EventEmitter(), {
+		stdout: new PassThrough(),
+		stderr: new PassThrough(),
+		exitCode: null,
+		signalCode: null,
+		unref() {},
+	});
+	const runner = createBskRunner("bsk", () => child as unknown as ChildProcess);
+	const pending = runner.run(["snapshot"]);
+	const stdout = JSON.stringify({ text: "中文🙂" });
+	const stderr = "错误🚫";
+	for (const byte of Buffer.from(stdout)) child.stdout.write(Buffer.from([byte]));
+	for (const byte of Buffer.from(stderr)) child.stderr.write(Buffer.from([byte]));
+	child.emit("close", 0);
+	expect(await pending).toMatchObject({ stdout, stderr, code: 0 });
 });

@@ -169,3 +169,8 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 所有入站均通过 ChannelIO.emit(message.in)，账号和会话分别为 acct:<instance>:<peer>、conv:<instance>:<peer>；关系由现有 identity 与 agent.owner 求值。主人绑定可进 main；其他人按 from:known/stranger 进入 per:conv persistent 与受限 profile，不默认与主人共享上下文或私密工具。实例的连接先后不参与运行时权限判定。
 
 出站复用 message_send/api.messages.send，支持文本及 image/audio/video/file（音频作为文件，不声称原生语音气泡）。过程流按 message_end/final 每条气泡发送，不逐 token 发消息；原生引用 replyTo 保留。发送必须有该 peer 的 context token；缺失明确失败，不能拿主人 token 替代。已部分发送或网络结果不明返回 uncertain，不自动重发。入站媒体下载解密，SILK 转 WAV、其余支持编码保留音频，不默认 ASR，不声称客户端送达或内容理解已验收。普通微信群不在可声明能力内。
+
+
+### BrowserSkill 可选本地 profile 能力（D54）
+
+`browser-skill_bookmarks` 提供 tree/move/create-folder/remove-empty-folder，配置 `bookmarksEnabled:true` 且主人手动授予可选 bookmarks 权限才可执行。禁止 URL 删除、非空文件夹删除、根/受管理节点写入与远端连接。`browser-skill_extensions` 提供 list/enable/disable，配置 `extensionsEnabled:true` 且主人授予可选 management 权限才可执行；目标须为明确的扩展 ID，禁止自身/受管理项目。两者均只能使用当前 Yonder 会话创建的本地浏览器会话，写入沿既有串行队列和 interrupt gate；权限逐次由扩展核验。扩展管理影响整个 profile；卸载真实测试被 Chrome 要求手势阻止，不提供工具动作，交主人执行。不能安装或授予权限。Chrome 的手势/确认错误原样返回并交主人，不静默换后端。商店与 chrome:// 页面保持原有限制；独立测试浏览器不继承主人登录态。

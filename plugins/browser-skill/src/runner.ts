@@ -7,6 +7,7 @@
  */
 
 import { type ChildProcess, type SpawnOptionsWithoutStdio, spawn } from "node:child_process";
+import { StringDecoder } from "node:string_decoder";
 
 /** Shape of the JSON error envelope `bsk --json` prints on failure. */
 export interface BskErrorBody {
@@ -141,14 +142,16 @@ export function createBskRunner(bskPath: string, spawnImpl: SpawnImpl = spawn): 
 
 				let stdout = "";
 				let stderr = "";
+				const stdoutDecoder = new StringDecoder("utf8");
+				const stderrDecoder = new StringDecoder("utf8");
 				let timedOut = false;
 				let aborted = false;
 				const onStdout = (chunk: Buffer | string) => {
-					stdout += chunk;
+					stdout += stdoutDecoder.write(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
 					extendDrain();
 				};
 				const onStderr = (chunk: Buffer | string) => {
-					stderr += chunk;
+					stderr += stderrDecoder.write(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
 					extendDrain();
 				};
 				child.stdout?.on("data", onStdout);
@@ -174,6 +177,8 @@ export function createBskRunner(bskPath: string, spawnImpl: SpawnImpl = spawn): 
 				const finish = (code: number | null) => {
 					if (settled) return;
 					settled = true;
+					stdout += stdoutDecoder.end();
+					stderr += stderrDecoder.end();
 					settle();
 					release();
 					resolve({ code, stdout, stderr, timedOut, aborted });
@@ -257,6 +262,8 @@ export function createBskRunner(bskPath: string, spawnImpl: SpawnImpl = spawn): 
 				child.on("error", (error) => {
 					if (settled) return;
 					settled = true;
+					stdout += stdoutDecoder.end();
+					stderr += stderrDecoder.end();
 					settle();
 					release();
 					reject(error);
