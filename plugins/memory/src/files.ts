@@ -1,5 +1,5 @@
 import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { parse } from "yaml";
 import { within } from "./config.js";
 
@@ -30,6 +30,7 @@ export function metadata(text: string): Record<string, unknown> {
 	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 export async function safePath(root: string, path: string): Promise<string> {
+	if (isAbsolute(path)) throw new Error("Path must be relative to memory root");
 	const base = await realpath(root);
 	const target = join(base, path);
 	if (!within(base, target)) throw new Error("Path outside memory root");

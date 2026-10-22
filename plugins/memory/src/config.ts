@@ -48,7 +48,9 @@ export const configSchema = object({
 			object({
 				name: str,
 				path: str,
-				origin: optional(Type.Union(["human", "agent", "external", "legacy"].map((v) => Type.Literal(v)))),
+				origin: optional(
+					Type.Union([Type.Literal("human"), Type.Literal("agent"), Type.Literal("external"), Type.Literal("legacy")]),
+				),
 			}),
 		),
 	),

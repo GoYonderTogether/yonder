@@ -30,7 +30,9 @@
 		"contributes": {
 			"tools": [
 				"memory_status",
-				"memory_capture"
+				"memory_capture",
+				"memory_search",
+				"memory_read"
 			],
 			"triggers": [
 				"memory-bootstrap"
