@@ -103,3 +103,14 @@
 - markitdown 0.1.9 通过环境变量传入，实际转换 test.pdf、test.docx、zh.docx、zh.pdf 四份样本；转换文件 NFKC、指定 frontmatter、普通汉字检索通过。原件与转换产物共存。
 - 仅实现未做端到端：真实飞书隔天采集/回忆、真实消息附件与服务生命周期；未访问 Obsidian 或微信内容。本包没有新增待决问题。
 - chokidar 精确 5.0.0（MIT，Node >=20.19.0），兼容项目 >=22.19，使用 awaitWriteFinish（1000ms）及周期重扫；未用6.x。根锁文件未改，依赖按授权路径在插件 package.json 精确列出。
+
+## WP5
+
+文件：新增 src/organize.ts、test/wp5.test.ts；修改 src/{calendar,capture,files,index}.ts、package.json、README.md、本记录。
+
+- 初步 build 与第一次链的 build 各失败 1 次，同一个 exactOptionalPropertyTypes 字段错误；中间编辑脚本的定位错误未改变文件。修正后完整链 build/typecheck 各退出0。
+- 完整链 `npm run build && npm run typecheck && npm test -- --maxWorkers=2 && npm run lint`：225 通过 / 0 失败 / 24 跳过（249）；文件 57 通过 / 0 失败 / 11 跳过。24 跳过含23原有可选用例及未传环境变量的转换测试（转换器实际可用且WP4已验）。
+- WP5 专项：5 通过 / 0 失败 / 0 跳过。lint 236文件，0 errors / 240 warnings / 5 infos；独立 checkPlugin=[]。
+- 已验证：提议与计划分离、cron/非owner/同轮确认被拒、后续owner确认写事件引用、Tasks截止日期及四种任务状态/延期计数；周/月/年/愿景读取，非法日期与节写入拒绝。
+- 已验证：正文与空行不变、organize幂等无写入、复盘为空拒绝close、有积压仅警告；confirmed无证据或said证据拒绝、当前owner事件证据接受；supersede历史保留、用户手改读取为confirmed且不回改源文件。
+- 仅实现未做真实模型验收：模型自主规划/整理、复杂决定五项内容质量；工具不核验语义。未访问个人资料库。本包无新增规范空白。

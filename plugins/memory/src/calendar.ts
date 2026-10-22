@@ -29,7 +29,7 @@ export function heading(date: DateTime): string {
 	return `### ${date.toFormat("MM-dd")} 周${["一", "二", "三", "四", "五", "六", "日"][date.weekday - 1]}`;
 }
 export const weekSections = ["本周计划", "提议", "决定", "产出", "复盘", "记录流"];
-export const monthSections = ["月目标", "提议", "月复盘", "阶段变化"];
+export const monthSections = ["月目标", "提议", "月复盘", "阶段变化", "历史"];
 export function weekTemplate(date: DateTime): string {
 	const info = weekInfo(date);
 	return `---\nweek: ${info.week}\nrange: ${info.range}\nstatus: open\n---\n${weekSections.map((s) => `## ${s}\n`).join("")}`;
