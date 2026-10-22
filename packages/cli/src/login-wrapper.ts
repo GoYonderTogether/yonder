@@ -21,7 +21,7 @@ export async function createLoginWrapper(input: {
 	const wrapperPath = join(directory, "login.command");
 	const resultPath = join(directory, "result.json");
 	const temporaryResult = join(directory, "result.tmp");
-	const script = `#!/bin/bash\n${quote(input.nodeExecutable)} ${quote(input.cliEntry)} login ${quote(input.provider)} --home ${quote(input.home)}\ncode=$?\nprintf '{"status":"complete","code":%s}\\n' "$code" > ${quote(temporaryResult)}\nchmod 600 ${quote(temporaryResult)}\nmv ${quote(temporaryResult)} ${quote(resultPath)}\nexit "$code"\n`;
+	const script = `#!/bin/bash\numask 077\n${quote(input.nodeExecutable)} ${quote(input.cliEntry)} login ${quote(input.provider)} --home ${quote(input.home)}\ncode=$?\nprintf '{"status":"complete","code":%s}\\n' "$code" > ${quote(temporaryResult)}\nmv ${quote(temporaryResult)} ${quote(resultPath)}\nexit "$code"\n`;
 	await writeFile(wrapperPath, script, { mode: 0o700, flag: "wx" });
 	await chmod(wrapperPath, 0o700);
 	return { wrapperPath, resultPath };
