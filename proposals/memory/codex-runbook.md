@@ -26,7 +26,7 @@
 3. `Trigger` 的 `start(io)`、`io.emit`、`conv:<triggerId>:<name>` 约定；`api.paths.data`；`api.skills.register(dir)` 的目录约定。
 4. cron 事件作业的 payload 实际形状，以及它如何经 agent 绑定唤醒主人类配置档。
 5. 本机 `rg` 是否可用，核心 grep 工具如何定位 rg（复用同一方式，不另造）。
-6. 文档转换命令（只在隔离的临时虚拟环境里安装，不装进全局）：评估 `markitdown`（MIT）与 `docling`（MIT）各一条真实 PDF、一条 docx 的转换结果与安装方式，选一个作为 README 里的推荐 `converter`；不把安装写进插件 setup（setup 不得有副作用）。
+6. 文档转换命令（只在隔离的临时虚拟环境里安装，不装进全局）：评估 `markitdown`（MIT）与 `docling`（MIT）各一条真实 PDF、一条 docx 的转换结果与安装方式，选一个作为 README 里的推荐 `converter`；不把安装写进插件 setup（setup 不得有副作用）。**状态：第一轮 G0 因下载过慢未完成，无转换结果**；WP4 的转换验收若仍装不上，如实记“未测：缺转换器”，文本类（md/txt）路径不受影响。调用约定见规范 §10。
 7. 对中文的真实检索：用含中文的临时文件验证 `rg --fixed-strings --ignore-case` 命中与行号。
 8. 在用户真实 Obsidian 库上做只读扫描试验前，**先问我库路径**；未经确认不要访问用户目录。
 
@@ -39,7 +39,7 @@
 | 3 | `memory_search`（rg 固定参数、聚合排序、zones/since/until/origin/private）、`memory_read`；登记目录只读检索 | 中文子串命中；越界路径与符号链接被拒；登记目录前后字节与 mtime 不变 |
 | 4 | `message.in` 采集（owner 核验、渠道白名单、附件复制）、`memory-inbox` 触发器（稳定性判断、sha256 去重、manifest、转换器、`memory.captured`） | 重复文件不重复入库；转换失败保留原件并在 status 可见；非 owner 消息不被记录 |
 | 5 | `memory_plan`、`memory_review`、`memory_me`，含确认核验（`ToolContext.event` 须为 owner 的 `message.in` 且晚于提议；`confirmed` 的 `evidence` 规则见规范 §5）、`supersede` 关旧开新、`close` 规则 | cron 触发的运行里 `commit/confirm` 被拒；无有效 `evidence` 时 `confirmed` 的 add 被拒；整理幂等；`[ ]/[x]` 翻转只改标记 |
-| 6 | 上下文 `memory-core`/`memory-week`（私密排除、owner 判断）、4 个 skill、README（配置、cron 示例作业、converter 推荐）、`docs/plugins.md` 条目由“规范已定，未实现”改为实际状态 | 真实模型验收 §12 的 1–5 条；未跑的标“未测” |
+| 6 | 上下文 `memory-core`/`memory-week`（私密排除、owner 判断）、4 个 skill、README（配置、cron 示例作业——payload 必须含 `kind: "event"`，cron 自带 README 的速记漏写了它；converter 推荐）、`docs/plugins.md` 条目由“规范已定，未实现”改为实际状态 | 真实模型验收 §12 的 1–5 条；未跑的标“未测” |
 
 ## 汇报格式
 
