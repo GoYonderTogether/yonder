@@ -32,11 +32,11 @@ The `logs` assertion observes only the callback supplied to `openKernel` in this
 
 ### Independent real-model login gate
 
-No authorized independent test login was available for this work, so the real-model case remains unrun/unaccepted. `yonder help` exposes `yonder login <provider>`; `CONTRIBUTING.md` specifies OAuth is separate per home and explicitly forbids copying another program's OAuth. The CLI help documents only `yonder login <provider>` and does not document a home-selection argument; CONTRIBUTING says each home needs its own OAuth login and prohibits copying OAuth. So the minimum safe action is: have the operator use the established supported mechanism to select/create an isolated test home, run `yonder login openai` in that home and complete its interactive authorization, then set `YONDER_TEST_AUTH` to that independent login file. Do not use production auth. If there is no established home-selection mechanism, stop and get that documented/configured before login rather than guessing. This worker did not run login or inspect credentials. The repository's stated runner command is `YONDER_TEST_REAL=1 npm test`; for this test only, use:
+No authorized independent test login was available for this work, so the real-model case remains unrun/unaccepted. The installed CLI/source supports global `--home <dir>`: `parseGlobal` accepts it before or after the command; the login branch calls `homeFor(options)` and passes that home to `loginProvider(home, provider, ...)`, which stores the authorization for that home. Thus an independently created home can be initialized and logged into directly without selecting or altering the production home. This worker did not run login or inspect credentials. The repository's stated runner command is `YONDER_TEST_REAL=1 npm test`; for this test only, use:
 
 ```sh
 YONDER_TEST_REAL=1 YONDER_TEST_KEYCHAIN=1 YONDER_TEST_AUTH=/absolute/path/to/independent-login-file \
   npx vitest run plugins/clipboard/test/real-model.test.ts --maxWorkers=4
 ```
 
-The CLI help and CONTRIBUTING do not document an option for selecting the home on `yonder login`; confirm the installed CLI's supported home selection with the operator before performing login. Do not infer it by changing the production home. No login was attempted here.
+To provision a separate home, first create an empty directory, then run `yonder init /absolute/path/to/isolated-home`; complete a separate provider authorization there with `yonder --home /absolute/path/to/isolated-home login openai` (or `yonder login openai --home /absolute/path/to/isolated-home`). Point `YONDER_TEST_AUTH` only at the resulting independent login file within that home. Do not use/copy production auth. No login was attempted here.
