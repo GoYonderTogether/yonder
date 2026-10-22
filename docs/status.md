@@ -1,6 +1,6 @@
 # 项目状态
 
-更新：2026-10-21。版本 0.2.26102105，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
+更新：2026-10-21。版本 0.2.26102106，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
 
 任务恢复（D46）：已实现消息/运行/后续责任分离、内部委派跨重启重接、真实错误保留、后台结果接纳补交及确定未发送通知补达；207项真实验收及macOS CI通过；正式03已由日用apply策略自动升级并核验，飞书升级通知送达。完整原始记录见 [task-recovery](verification/task-recovery.md)。
 
@@ -8,7 +8,7 @@
 
 ## 验证基线
 
-- 构建、类型检查通过。默认测试 231 通过 / 24 跳过 / 0 失败；显式打开真实模型（`openai/gpt-6-luna`）与隔离 launchd 后 252 通过 / 2 失败 / 1 跳过（2 项为全量并行下的轮询超时，单独重跑 7/7 通过，已放宽超时）。0.2.26102104 候选在全新 `npm ci` 的工作树上取得上述结果；之前一轮在合入后的 main 上跑出 4 项失败（D49 之后的 3 个真实用例仍按旧的“并发输入各一次运行”假设，1 个 15 秒让出的上界在负载下抖动），已在 #7 修正；CLI 子进程用例的 5 秒默认超时在机器忙时反复超时，已改为 20 秒默认。完整原始记录见 [0.2.26102104 验收](verification/release-26102104.md)、[0.2.26102105 验收](verification/release-26102105.md)；此前的任务恢复与去重验收见 [task-recovery](verification/task-recovery.md)、[background-result-dedupe](verification/background-result-dedupe.md)。默认跳过的用例需要真实模型（`YONDER_TEST_REAL=1` 与可用凭据，见 [CONTRIBUTING.md](../CONTRIBUTING.md)）；跳过不等于通过。
+- 0.2.26102106 构建、类型检查通过；默认测试 **246 通过 / 0 失败 / 26 跳过（272）**，56 文件通过 / 13 跳过；lint **0 错误 / 204 warnings / 1 info**。真实模型 `openai/gpt-6-luna` 与隔离 launchd（`--maxWorkers=4`）全量 **271 通过 / 0 失败 / 1 跳过（272）**，68 文件通过 / 1 跳过。此前全量 270 通过 / 1 失败 / 1 跳过与单文件重跑失败均为 input-queue 提示竞争导致的既有模型输出不确定，诊断及最小提示修正原样记录在 [0.2.26102106 验收](verification/release-26102106.md)。历史原始结果见 [0.2.26102104 验收](verification/release-26102104.md)、[0.2.26102105 验收](verification/release-26102105.md)；任务恢复与去重见 [task-recovery](verification/task-recovery.md)、[background-result-dedupe](verification/background-result-dedupe.md)。默认跳过项需要真实模型与凭据；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
 - 支持平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 未支持。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
