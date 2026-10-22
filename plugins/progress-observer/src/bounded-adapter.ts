@@ -1,5 +1,5 @@
 import type { Models } from "@yonder/sdk";
-import { type Decision, safeFallback, type Task, verifyDecision } from "./ledger.js";
+import { type Decision, executorStatusText, safeFallback, type Task, verifyDecision } from "./ledger.js";
 
 export type AdminModelConfig = { provider: string; modelId: string };
 
@@ -77,7 +77,7 @@ export function createBoundedDecider(models: Models, adminModelConfig: AdminMode
 			if (decision.decision === "skip") return decision;
 			// The model may select state/evidence only. Render claims from durable facts;
 			// never expose model-authored prose or task labels to the recipient.
-			const status = `执行状态：${task.executor}；验收状态：${task.accepted}。`;
+			const status = `${executorStatusText(task.executor)}；验收状态：${task.accepted}。`;
 			return { ...decision, text: `${status}（关联证据 ${decision.evidence.length} 项）` };
 		} catch {
 			return fallback;
