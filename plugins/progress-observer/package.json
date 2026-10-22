@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-progress-observer",
-	"version": "0.2.26102203",
+	"version": "0.2.26102204",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -16,7 +16,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102203",
+		"@yonder/sdk": "0.2.26102204",
 		"proper-lockfile": "^4.1.2"
 	},
 	"yonder": {
