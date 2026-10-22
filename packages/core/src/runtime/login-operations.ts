@@ -143,6 +143,12 @@ export class LoginOperations {
 						: "unknown";
 		return { status: status as "pending" | "succeeded" | "failed" | "cancelled" | "interrupted" | "expired", delivery };
 	}
+	async readClaimed(limit = 100): Promise<LoginOutboxEntry[]> {
+		return this.db.all<LoginOutboxEntry>(
+			"SELECT id,operation_id AS operationId,session,event,outcome,code,finished_at AS finishedAt FROM login_outbox WHERE acknowledged_at IS NULL AND delivery_state='claimed' ORDER BY finished_at,id LIMIT ?",
+			limit,
+		);
+	}
 	async readUnacknowledged(limit = 100): Promise<LoginOutboxEntry[]> {
 		if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Invalid limit");
 		return this.db.all<LoginOutboxEntry>(

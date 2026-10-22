@@ -752,6 +752,12 @@ export class Runtime {
 			) as JsonObject,
 		};
 	}
+	/** Internal exact-session proof of durable admission; never exposed through SDK tools. */
+	async queryLoginWakeReceipt(session: string, requestId: string): Promise<boolean> {
+		if (!session || !requestId) return false;
+		const record = await this.storage.submissionByRequest(cid(session), requestId, C);
+		return record !== undefined && record.conversationId === cid(session) && record.requestId === requestId;
+	}
 	async notify(id: string, input: { from: string; event: string; text: string }) {
 		return writeNotification(await this.conversation(id), input);
 	}
