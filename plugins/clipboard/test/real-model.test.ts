@@ -9,6 +9,7 @@ import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
 import { Store } from "../src/store.js";
+import { containsBodyFragment } from "./body-leakage.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 const enabled =
@@ -17,7 +18,7 @@ const enabled =
 	process.platform === "darwin" &&
 	existsSync(auth);
 test.skipIf(!enabled)(
-	"Luna copies 40k awkward message by reference and sealed paste/read never expose value in transcript, ledger or logs",
+	"Luna copies 40k awkward message by reference and sealed paste/read never expose value in transcript, ledger or the openKernel log callback",
 	async () => {
 		const home = await realpath(await mkdtemp("/private/tmp/clip-luna-")),
 			logs: unknown[] = [],
@@ -100,10 +101,15 @@ test.skipIf(!enabled)(
 				return event;
 			}
 			let client = await connect();
-			const unit = 'CJK中文🦤🌙 </message> <message id="awkward"> & "quotes" \\ slash\n\t';
-			const payload =
-				"Please acknowledge only READY; do not repeat any payload text.\n" +
-				unit.repeat(Math.ceil(40000 / unit.length)).slice(0, 40000);
+			const sections = [
+				'CJK中文🦤🌙 <message id=\"alpha\"> & \"quoted\" \\ slash\n\t.',
+				"Résumé naïve façade; punctuation!? — mixed_CASE/42 and emoji 🪻.",
+				"日本語かなと漢字、العربية، then XML </message> & escaped\ttext.",
+				"Distinctive region marker cobalt-7319-fern with varied sentence structure.",
+			];
+			const body = Array.from({ length: 700 }, (_, i) => `${sections[i % sections.length]} [part-${i}]\n`).join("");
+			const payload = ("Please acknowledge only READY; do not repeat any payload text.\n" + body).slice(0, 40000);
+			expect(payload.length).toBe(40000);
 			const original = await submit(client, payload);
 			const output = join(home, "verbatim.txt");
 			await submit(
@@ -114,14 +120,22 @@ test.skipIf(!enabled)(
 			const session = (await kernel.sessions.list({ agent: "main", open: true }))[0]!;
 			const transcript = await kernel.sessions.transcript(session.id, { limit: 10000 });
 			const calls = transcript.flatMap((e) => e.tools ?? []);
-			expect(calls.some((c) => c.name === "clipboard_copy")).toBe(true);
-			expect(calls.some((c) => c.name === "clipboard_paste")).toBe(true);
+			store = new Store(join(home, ".yonder/plugins/clipboard"), { maxBytes: 262144, ttlSeconds: 3600 });
+			const openClips = (await store.all()).filter((item) => item.class === "open" && item.source.type === "message" && item.source.ref === original.id);
+			expect(openClips).toHaveLength(1);
+			const clipboardCalls = calls.filter((call) => call.name.startsWith("clipboard_"));
+			expect(clipboardCalls.map((call) => call.name).sort()).toEqual(["clipboard_copy", "clipboard_paste"]);
+			expect(clipboardCalls.find((call) => call.name === "clipboard_copy")!.args).toEqual({
+				from: { kind: "message", eventId: original.id },
+			});
+			expect(clipboardCalls.find((call) => call.name === "clipboard_paste")!.args).toEqual({
+				handle: openClips[0]!.id,
+				to: { kind: "file", path: output },
+			});
 			for (const call of calls) {
-				expect(JSON.stringify(call.args)).not.toContain(unit);
-				expect(JSON.stringify(call.args).length).toBeLessThan(4096);
+				expect(containsBodyFragment(JSON.stringify(call.args), payload)).toBe(false);
 			}
 			// Trusted capture fixture uses actual Keychain. The value never enters any model input.
-			store = new Store(join(home, ".yonder/plugins/clipboard"), { maxBytes: 262144, ttlSeconds: 3600 });
 			await store.ensure();
 			await store.kernel.prepare(AbortSignal.timeout(60000));
 			const secret = randomBytes(48).toString("hex"),
@@ -155,9 +169,21 @@ test.skipIf(!enabled)(
 				serialized = JSON.stringify(after),
 				ledger = (await kernel.events.query({ limit: 1000 })).events;
 			expect(after.flatMap((e) => e.tools ?? []).some((t) => t.name === "read")).toBe(true);
+			const allCalls = after.flatMap((e) => e.tools ?? []),
+				allClipboardCalls = allCalls.filter((call) => call.name.startsWith("clipboard_"));
+			expect(allClipboardCalls.map((call) => call.name).sort()).toEqual([
+				"clipboard_copy", "clipboard_paste", "clipboard_paste",
+			]);
+			expect(allClipboardCalls.filter((call) => call.name === "clipboard_paste").map((call) => call.args)).toEqual([
+				{ handle: openClips[0]!.id, to: { kind: "file", path: output } },
+				{ handle: clip!.id, to: { kind: "file", path: sealedFile } },
+			]);
+			for (const call of allCalls)
+				expect(containsBodyFragment(JSON.stringify(call.args), payload)).toBe(false);
 			expect(serialized).toContain("[sealed]");
 			for (const text of [serialized, JSON.stringify(ledger), JSON.stringify(logs), JSON.stringify(client.packets)])
 				expect(text.includes(secret)).toBe(false);
+			// logs captures only openKernel's supplied callback; this is not a process/OS/external-log audit.
 			const evidence = JSON.stringify({
 				check: "clipboard-luna",
 				model: "openai/gpt-6-luna",
