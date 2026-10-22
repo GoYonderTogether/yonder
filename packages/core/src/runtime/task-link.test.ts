@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Runtime } from "./index.js";
 
 const ctx = (session: string, eventId?: string) =>
-	({ session, ...(eventId ? { event: { id: eventId } } : {}) }) as ToolContext;
+	({ session, ...(eventId ? { event: { id: eventId, type: "session.input" } } : {}) }) as ToolContext;
 
 describe("Runtime.exportTaskLink unit projection", () => {
 	it("projects parent session, source event, and child parameter", () => {
