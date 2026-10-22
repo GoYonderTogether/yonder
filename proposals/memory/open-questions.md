@@ -74,3 +74,20 @@ WP1 已完成，提交 `0614027`。复核 WP2–WP3 全部相关条款后，新�
 ## Q4（已裁决）
 
 2026-10-22，规划方裁决（规范提交 c5f8e9d，§4.2 与 §5.1）：凡含记录行的文件（周文档、`private/YYYY-MM.md`）逐行按来源标签确定 origin；`private/` 文件 frontmatter 只需 `private: true`，非记录内容按 `derived`；WP3 对私密命中行同样按命中行 origin 过滤。同时规范新增 §5.1，列出各工具的参数与返回，以及记录续行、空行、补记（`when`）与日期小标题规则。
+
+## Q5（已裁决；以下为原记录）：inbox 原件字节保留与 raw 来源标签（阻塞 WP4）
+
+本轮基线 `cb8802d`，已合入规范 `6c8fc82` 与初稿 `ffd9196`。已通读 WP4 涉及的 §3、§4.2、§5.1、§6.1、§6.3、§7、§8.2–8.4、§10 与 runbook；本包目前发现的新增待决项仅此一项，不将 §8.4 的实现自定事项列为问题。
+
+- §6.1(3)（当前规范第 159 行）要求文本类原样入库，并将原件移入 `raw/YYYY-MM/<sha256前8位>-<原名>`。
+- §4.2（第 103 行）规定 raw 文件靠 frontmatter 的 origin 判定来源；§6.2 的搜索需要据此过滤、返回 origin。
+- 若输入为没有 frontmatter 的 md/txt，或自带其他 origin 的 Markdown，给它添加/覆盖 `origin: external` 就改变了原件字节；保持原件字节不变又不能由 frontmatter 得到本次 inbox 来源。对二进制原件同样不能直接添加 frontmatter。
+- §8.4 允许自行决定 manifest 的内部结构，但尚未授权它作为原件 origin 的来源来替代 §4.2 的判定规则，因此不自行扩展该语义。
+
+**待决定：**是否允许原件保持字节不变，由 manifest 提供其 origin，生成的转换 Markdown 才写 frontmatter；或“原样”仅指正文、允许给文本原件添加来源 frontmatter；或另有规则。需明确原件已有 origin 时的优先级。
+
+**状态：**WP4 按任务规则暂停，WP5–WP7 尚未开始；已通过交互问题提交裁决请求。仅新增本问题记录，未创建实现提交或运行完成验收。检查命令与 checkPlugin 的本轮计数为“未运行”，不记为通过/零失败。
+
+**准备事实：**用户指定的 markitdown、test.pdf、test.docx、zh.docx、zh.pdf 均存在；仅检查路径可用性，未转换、未访问微信内容或 auth.json，未访问 Obsidian/其他检出文件。未安装依赖、未修改服务或正式配置，未 push/tag/merge。
+
+Q5 裁决依据：440b35a（已合并于 933f484）。原件字节不变，manifest 按路径提供 origin；转换产物和 agent 资料按 §8.4 写 frontmatter。WP4 暂停解除。

@@ -89,3 +89,17 @@
 - 未进行跨进程/跨宿主压力验收；登记目录只读验证覆盖本轮临时目录中的检索/读取，不代表用户真实资料库验收。
 - 未修改根 package-lock.json，未执行全新 npm ci。WP3 未新增依赖。
 - Q1–Q4 已裁决；本包没有新增待决规范空白。已停在 WP3，不实施 WP4–WP7。
+
+## WP4
+
+文件：新增 src/{manifest,ingest}.ts、test/{harness,wp4.test}.ts；修改 src/{capture,index,retrieval,store}.ts、package.json、README.md、本记录与 open-questions.md（Q5 已裁决，440b35a）。
+
+- build 初步及最终、typecheck 最终均退出 0。
+- 首次完整链：测试 212 通过 / 4 失败 / 23 跳过；文件 52 通过 / 4 失败 / 11 跳过。另有 WP4 suite 因已移除的 Vitest 参数签名加载失败（0 用例）；4 项失败是旧 CLI/微信测试 5 秒超时。lint 未执行。
+- 定位专项首次：suite 加载失败，无用例；修正签名后：4 通过 / 1 失败 / 0 跳过，失败为 watcher 路径别名；已修正，不改断言与超时。
+- 最终链 `npm run build && npm run typecheck && [MEMORY_TEST_CONVERTER 与 MEMORY_TEST_SAMPLES] npm test -- --maxWorkers=2 && npm run lint`：全部退出 0；测试 221 通过 / 0 失败 / 23 跳过（244）；文件 56 通过 / 0 失败 / 11 跳过。较低并发用于避免首轮宿主竞争导致的旧用例超时。
+- lint：234 文件，0 errors / 211 warnings / 2 infos。独立 checkPlugin：[]。
+- 已验证：真实 FS 的 owner/渠道/命令/空消息过滤、附件限额路径、重复事件去重、原件字节不变与 manifest 来源覆盖既有 frontmatter、hash 去重归档、chokidar 实际监听与 stop、真实进程非零/空输出/超时保留原件。
+- markitdown 0.1.9 通过环境变量传入，实际转换 test.pdf、test.docx、zh.docx、zh.pdf 四份样本；转换文件 NFKC、指定 frontmatter、普通汉字检索通过。原件与转换产物共存。
+- 仅实现未做端到端：真实飞书隔天采集/回忆、真实消息附件与服务生命周期；未访问 Obsidian 或微信内容。本包没有新增待决问题。
+- chokidar 精确 5.0.0（MIT，Node >=20.19.0），兼容项目 >=22.19，使用 awaitWriteFinish（1000ms）及周期重扫；未用6.x。根锁文件未改，依赖按授权路径在插件 package.json 精确列出。

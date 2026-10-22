@@ -16,3 +16,5 @@ WP2 精确依赖：`luxon@3.7.2`（MIT，Node ≥12）负责时区、DST 与 ISO
 WP3 使用 PATH 中的 `rg`，固定字面/忽略大小写/不跟随链接参数，不经 shell。查询同时搜索用户输入与其 NFKC 形式，按文件聚合并按逐命中的来源与日期过滤；不改写已有兼容字符原文。默认搜索 timeline/life/me/mine/raw/projects 和登记目录，不含 archive/private；private 与 frontmatter 私密文件需显式 includePrivate。登记目录路径写作 `<name>:<相对路径>`，只读；memory_read 也可按 ISO 周定位，并分页返回至多 12000 字符。缺 rg 给出诊断，不提供另一套检索实现。
 
 测试仅使用临时文件系统；尚未在用户 Obsidian/微信归档、真实模型或正式服务验证。卸载配置不会删除根目录。根 package-lock.json 未在本任务允许的修改范围内更新，全新 npm ci 安装新 workspace 未验收。
+
+WP4 已接入主人白名单消息与 inbox：chokidar@5.0.0（MIT，Node ≥20.19）awaitWriteFinish 1000ms；周期重扫兜底。点文件和下载临时文件不处理；转换失败留在 inbox 并在 status 报错。文本原件不添加 frontmatter，manifest 的 files[path].origin 是其权威来源，hashes[sha256] 指原件路径；keys 保存事件/微信等去重引用，不含正文。附件使用随机前缀文件名避免冲突。转换文件为原件路径加 .converted.md，写 origin/source/sha256/converted，并做 NFKC。推荐外部 markitdown 0.1.9（MIT），插件不负责安装。

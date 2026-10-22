@@ -5,7 +5,7 @@ import { safePath } from "./files.js";
 
 // Shared by instances in this process, so all plugin callers serialize writes to the same canonical file.
 const queues = new Map<string, Promise<unknown>>();
-async function serial<T>(path: string, run: () => Promise<T>): Promise<T> {
+export async function serial<T>(path: string, run: () => Promise<T>): Promise<T> {
 	const previous = queues.get(path) ?? Promise.resolve();
 	const work = previous.catch(() => {}).then(run);
 	queues.set(path, work);

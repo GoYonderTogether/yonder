@@ -4,6 +4,7 @@ import { Check } from "typebox/value";
 import { type Capture, capture, captureSchema } from "./capture.js";
 import { configSchema, validateConfig } from "./config.js";
 import { initialize } from "./files.js";
+import { Ingest } from "./ingest.js";
 import { type ReadArgs, read, readSchema, type SearchArgs, search, searchSchema } from "./retrieval.js";
 import { status } from "./status.js";
 import { Store } from "./store.js";
@@ -13,6 +14,11 @@ export default definePlugin({
 		// checkPlugin supplies no config and only inspects registrations. The host validates required fields.
 		const config = api.config === undefined ? undefined : validateConfig(api.config);
 		const errors: string[] = [];
+		const ingest = config ? new Ingest(api, config, errors) : undefined;
+		api.events.on("message.in", async (event) => {
+			await ingest?.chat(event);
+		});
+
 		const configured = () => {
 			if (!config) throw new Error("root, owner, timezone: configuration required");
 			return config;
@@ -23,6 +29,15 @@ export default definePlugin({
 				await initialize(configured().root);
 			},
 			async stop() {},
+		});
+		api.triggers.register({
+			id: "memory-inbox",
+			start: async (io) => {
+				await ingest?.trigger().start(io);
+			},
+			stop: async () => {
+				await ingest?.trigger().stop();
+			},
 		});
 		const store = config ? new Store(config.root) : undefined;
 		const register = (
