@@ -7,7 +7,7 @@
 ```text
 浏览器（访客 / 用户）                  主人电脑上的 Yonder
   └ 网页应用                              └ card 插件（tinode-sdk 客户端）
-    （Tinode 网页端分支 + 新页面）
+    （React + Vite + shadcn/ui，自己写，连 tinode-sdk）
         │ WebSocket / HTTP                      │ WebSocket / HTTP
         ▼                                       ▼
    Tinode 服务端：账号、会话、消息、同步、在线状态
@@ -23,8 +23,8 @@
 |---|---|---|
 | 账号、登录、匿名账号 | Tinode 的 `basic` 与 `anonymous` | 登录名按邮箱字符串使用，不配验证器 |
 | 私聊、群聊、消息、同步、在线状态 | Tinode | — |
-| 富文本、文件、转发、群管理、二维码、联系人 | Tinode 网页端组件 | — |
-| 聊天界面、响应式 | Tinode 网页端 | 分支里改品牌与文案 |
+| 富文本格式（Drafty）、文件、群、联系人 | Tinode 服务端与 SDK | — |
+| 聊天界面、转发、群管理、二维码、响应式 | — | 自己用 shadcn/ui 写（[foundation.md](foundation.md#前端栈)） |
 | 名片：存储、预览、发布、名片页 | — | 名片服务 + 页面 4、5 |
 | Agent 归属、设备授权 | — | 名片服务 + 页面 6 |
 | Agent 接入 | `tinode-sdk` | card 插件 |

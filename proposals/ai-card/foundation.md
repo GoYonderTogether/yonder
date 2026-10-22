@@ -6,7 +6,50 @@
 
 ## 结论
 
-**倾向 Tinode：服务端用 Tinode，网页端 fork Tinode 的 React 应用，再加几个自己的页面和一个很小的名片服务。** 这是倾向，不是定案：下面"先验证"里的几项通过之前不要开始大量开发。
+**服务端倾向 Tinode；前端不 fork Tinode 的网页端（风格不合要求），改为自己用现代 React 栈写，通过 `tinode-sdk` 连 Tinode。** 这是倾向，不是定案：下面"先验证"里的几项通过之前不要开始大量开发。
+
+## 前端栈
+
+参照项目的前端（查询日期 2026-10-21，来自各仓库 `package.json`）：
+
+| 项目 | 前端 |
+|---|---|
+| opencode | SolidJS + Vite + Tailwind CSS 4 + Kobalte，带 PWA |
+| OpenClaw | Solid 2.0 预发布 + Vite，无 CSS 框架 |
+| Hermes Agent | 顶层有 `apps/`（含 desktop、shared），网页栈未确认 |
+| DeepSeek Harness | 本地 Web UI，具体框架未确认 |
+
+再补查的 React 项目（同日期，GitHub 接口与 `package.json`）：
+
+| 项目 | 前端 | 许可 | 判断 |
+|---|---|---|---|
+| **Hermes Agent 桌面端** `apps/desktop` | React 19 + Vite 8 + Tailwind 4 + radix-ui + **assistant-ui** + streamdown + nanostores + TanStack Query + react-router 8；带 `DESIGN.md` 设计规则 | 仓库 MIT（该包自身未声明） | **照抄对象**：栈最新，最贴合 AI 时代观感，设计规则成文 |
+| LibreChat `client` | React 18 + Vite + Tailwind 4 + radix + react-markdown | MIT | 多用户聊天的结构参考，栈比 Hermes 旧 |
+| LobeHub、Dify | React / Next | GitHub 未识别为单一许可 | 许可不清，不抄 |
+| Cherry Studio | React / Electron | AGPL-3.0 | 许可太强，不抄 |
+| DeepSeek Harness `apps/web` | Vite 项目，包文件读取失败，框架未确认 | — | 无法参考 |
+
+**结论：抄 Hermes 桌面端的前端栈和 `DESIGN.md` 规则，聊天部分直接用它选的 assistant-ui + streamdown，多用户聊天结构（会话列表、群）参考 LibreChat。** 注意：
+
+- Hermes 桌面端是 Electron 单用户客户端，我们只取网页部分；它依赖的 `@nous-research/ui` 是 Nous 自己的组件包，许可未确认，不直接依赖，用 radix + 自己的少量组件替换。
+- 抄代码前先确认 `apps/desktop` 的许可文件和品牌素材范围（仓库 MIT，但品牌标识不能带走）。
+- assistant-ui（MIT）面向“一人对一个 AI”的会话，群聊、多发送者要自己扩展，这是最大的适配成本，需要在原型里先验证。
+
+下面是之前按“自己选”列的组合，仅作对照，以抄 Hermes 为准：
+
+| 层 | 选择 | 理由 |
+|---|---|---|
+| 构建 | Vite + TypeScript | 与参照项目一致，轻 |
+| 样式与组件 | Tailwind CSS 4 + shadcn/ui（Radix 或 Base UI） | 代码复制进自己仓库，自己拥有，风格可控，是当前 AI 产品的主流观感 |
+| 聊天界面 | shadcn 的会话组件（MessageScroller、Message、Bubble、Attachment、Marker，2026-08 发布）；可参考 Vercel AI Elements、assistant-ui、prompt-kit | 都是 React + Tailwind，按需拷贝，不绑后端 |
+| 数据 | `tinode-sdk` + TanStack Query | 消息、同步、在线状态走 Tinode |
+| 路由、PWA | React Router、vite-plugin-pwa | 名片页等新页面，和可安装 |
+
+注意：
+
+- shadcn 会话组件是第一阶段发布，有一个已报告的 MessageScroller 锚点问题（来自 InfoQ 报道），Vercel AI Elements 绑定 AI SDK 的 `useChat`，我们的数据来自 Tinode，所以只拿它们的外观和结构当参考，不当依赖。
+- 没找到现成的前端设计 skill（在你的 claude.ai skills 里搜过）。设计质量靠选定一套设计 token（字体、色板、圆角）后统一落在 shadcn 主题里。
+- 前端从零写，工作量比 fork 大，但页面少（见 [pages.md](pages.md)），可以由 Agent 快速生成。
 
 ## 候选
 
