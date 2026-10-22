@@ -72,7 +72,7 @@ it("loads the enabled progress observer through the real plugin manifest and reg
 	const home = await mkdtemp(join(tmpdir(), "yonder-progress-load-"));
 	try {
 		const services = {
-			events: { emit: unused, ask: unused, query: unused },
+			events: { emit: unused, ask: unused, query: async () => ({ events: [] }) },
 			messages: { send: unused },
 			credentials: { get: unused },
 			sessions: {
@@ -118,6 +118,7 @@ it("loads the enabled progress observer through the real plugin manifest and reg
 			"progress-observer_task_bind",
 			"progress-observer_task_register",
 		]);
+		await plugins.start({ emit: unused, ask: unused });
 		await plugins.stop();
 	} finally {
 		await rm(home, { recursive: true, force: true });
