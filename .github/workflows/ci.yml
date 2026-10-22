@@ -27,6 +27,7 @@ jobs:
           cache: npm
       - run: brew install ripgrep
       - run: npm ci
+      - run: node scripts/check-pi-durable-workspace.mjs
       - run: npm run typecheck
       - run: npm run build
       - run: node scripts/yonder-permissions.mjs self-check
