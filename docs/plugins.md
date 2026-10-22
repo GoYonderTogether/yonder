@@ -294,3 +294,6 @@
 - `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
 - `@yonder/plugin-channel-wechat-ilink`：wechat-ilink 私聊渠道及 status/login/message 工具；首个配置实例默认关联明确配置的主人，后续实例独立关联。模型权限、会话与投递沿用现有系统。详见[iLink 插件](../plugins/channel-wechat-ilink/README.md)。
 - 实现/验证/真实微信未测项见[微信迁移验收](verification/wechat-plugins.md)。
+
+
+BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move/create-folder/remove-empty-folder）和 `browser-skill_extensions`（list/enable/disable）。各需 owner 配置 opt-in 与 popup 可选权限，默认关闭；只用调用会话拥有的本地 session，影响整个 profile。安装步骤及限制见[扩展调研](research/chrome-extension-install.md)。

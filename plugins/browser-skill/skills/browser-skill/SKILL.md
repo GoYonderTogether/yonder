@@ -56,7 +56,7 @@ Never uninstall/reinstall a connected extension to test the disconnected branch.
 Screenshots return actual tool-result image bytes and native dimensions/capture_id;
 the temporary file is deleted. Use original image pixels for a Canvas click.
 `request-help` supports prompt/title/targets/timeout; inspect its native outcome.
-Automatic completion criteria, video, bookmarks and full debug experiments are
+Automatic completion criteria, video and full debug experiments are
 not SDK actions in this N07 adapter. The complete upstream references below remain
 for their CLI semantics; they do not authorize extra operations or imply those
 features are exposed by the SDK. Use raw CLI for an additional feature only under
@@ -179,3 +179,20 @@ A task may need more than one reference as it progresses.
 | Video recording or MP4 export | [Video](references/video.md) |
 | Upload or download | [Files](references/files.md) |
 | Login/CAPTCHA/OTP/consent/payment confirmation, two attempts without progress, or an operation error | [Human help and recovery](references/help-and-recovery.md) |
+
+## Optional bookmarks
+
+`browser-skill_bookmarks` is a separate opt-in fork capability, not a stock bsk
+SDK action. Read [bookmarks](references/bookmarks.md) before using it. Never grant
+extension permissions or infer authorization to read an entire profile from
+permission to automate a page.
+
+
+## Optional extension management
+
+`browser-skill_extensions` requires the matched fork CLI/daemon/extension,
+owner `extensionsEnabled:true`, and owner-granted popup **Extension management**.
+Use an owned local session; list covers the entire profile. `enable`, `disable` require an exact `extensionId`. Uninstall is not exposed; ask the owner to remove the exact extension in chrome://extensions. Self/managed items are refused. If Chrome needs
+a user gesture, stop and give the owner the exact extension ID and action.
+Do not grant permissions or drive restricted pages to bypass confirmation.
+For install routes and exact owner steps, read [extensions](references/extensions.md).
