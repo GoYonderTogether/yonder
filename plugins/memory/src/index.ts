@@ -4,6 +4,7 @@ import { Check } from "typebox/value";
 import { Bootstrap, type BootstrapArgs, bootstrapSchema } from "./bootstrap.js";
 import { type Capture, capture, captureSchema } from "./capture.js";
 import { configSchema, validateConfig } from "./config.js";
+import { registerContexts } from "./contexts.js";
 import { Ingest } from "./ingest.js";
 import { type Args, meSchema, Organizer, planSchema, reviewSchema } from "./organize.js";
 import { type ReadArgs, read, readSchema, type SearchArgs, search, searchSchema } from "./retrieval.js";
@@ -13,9 +14,11 @@ import { type ImportArgs, importSchema, Wechat } from "./wechat.js";
 export default definePlugin({
 	configSchema,
 	setup(api) {
+		api.skills.register("skills");
 		// checkPlugin supplies no config and only inspects registrations. The host validates required fields.
 		const config = api.config === undefined ? undefined : validateConfig(api.config);
 		const errors: string[] = [];
+		registerContexts(api, config);
 		const ingest = config ? new Ingest(api, config, errors) : undefined;
 		const wechat = config ? new Wechat(api, config) : undefined;
 		const bootstrap = config ? new Bootstrap(api, config, wechat!, errors) : undefined;

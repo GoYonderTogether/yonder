@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-memory",
-	"version": "0.2.26102103",
+	"version": "0.2.26102203",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -17,7 +17,7 @@
 		"README.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102103",
+		"@yonder/sdk": "0.2.26102203",
 		"typebox": "1.3.27",
 		"yaml": "2.9.1",
 		"luxon": "3.7.2",
@@ -48,6 +48,18 @@
 			],
 			"presets": [
 				"memory-keeper"
+			],
+			"contexts": [
+				"memory-core",
+				"memory-week"
+			],
+			"skills": [
+				"memory-evening-wrap",
+				"memory-monthly-plan",
+				"memory-morning-brief",
+				"memory-onboard-legacy",
+				"memory-onboarding",
+				"memory-weekly-review"
 			]
 		}
 	},

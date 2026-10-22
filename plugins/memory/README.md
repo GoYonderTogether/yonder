@@ -1,6 +1,6 @@
 # memory
 
-用户个人资料库插件，独立于 agent 工作区。已实现 WP1–WP3：配置校验、首次启动目录初始化、`memory_status`、`memory_capture`、`memory_search` 与 `memory_read`。自动采集、inbox 转换、计划/整理工具、启动器 attention、上下文与 skills 属于 WP4–WP7，尚未接入。
+用户个人资料库插件，独立于 agent 工作区。当前实现 WP1–WP7：个人记忆文件库、检索/整理、受限来源导入、审计启动、两个上下文贡献与六个按需 skills。它不是向量检索、自动画像或跨会话聊天记忆注入。
 
 Node ≥ 22.19；状态工具需要 read + admin。配置必填 `root`（绝对路径，位于所有 agent 工作区外）、`owner`（person: 引用）、`timezone`（IANA 时区）。登记目录只读，root 与任一登记目录相同或互相包含时加载失败，不初始化。目录/固定文件只在触发器 start 创建，已有文件不覆盖。
 
@@ -24,3 +24,13 @@ WP5 已接入 memory_plan、memory_review、memory_me。所有操作显式传 op
 WP6 已接入名单内微信实时/历史、memory_import、memory_bootstrap和memory-keeper预设。微信正文仅用于存储与调用方检索，日志只记录元信息；历史和实时共用 wechat:<chat>:<msgid> 键。分页按CLI给出的nextBefore继续，不假定数值递减；dryRun不写入，返回written=0。未同步或无转换器时不会自行修环境。
 
 审计采用 gpt-tokenizer@4.1.0（MIT）o200k_base，只读、无模型调用、不触发转换；按文本估tokens，未转换格式单列未估。输入目录价来自api.models（美元/百万tokens），无价不猜，仅作输入单次量级估算，不含输出、多轮和订阅计费差异。ack缺省静默cooldownHours，传snoozeDays可覆盖；first-run ack设置initialized，first-run/source-new ack持久记录本次确认审计的来源名/id。初始化和告警不创建agent、作业或导入。
+
+## 上下文、技能与隐私
+
+`memory-core` 只读取 `me/now.md`、`me/profile.md`、`me/mind.md`，最多 `context.meChars`（默认 2000）字符；空缺、私密标记文件不贡献。`memory-week` 仅在事件来源可解析为配置的 owner (`person:`) 时提供当前 ISO 周“本周计划”段落；无来源/非 owner 不贡献。贡献是确定性文件读取，不搜索 private 目录，不调用模型。六个 `skills/` 可由 profile 按需选用：morning-brief、evening-wrap、weekly-review、monthly-plan、onboarding、onboard-legacy。
+
+`SCHEMA.md` 是新库结构说明。插件不会读取其他 session/agent 的对话或工作区历史；记忆内容只通过配置根目录的静态文件与显式工具调用进入上下文。`admin` 是本插件工具要求，也允许 agent 修改自身工作区配置（SDK 当前能力词表的已知限制）。卸载只移除插件配置，不删除根目录；事件库记录不承诺可擦除。
+
+周期任务示例（须在目标 agent 的配置中显式设置）：`payload: { kind: "event", type: "cron.tick", target: "memory-keeper", data: { name: "weekly-review" } }`。启用前请按 cron 插件实际作业 schema 配置并人工确认主人资料；不会自动创建作业。
+
+常见问题：缺少 `rg` 时检索工具报告错误；缺少 `markitdown` 只影响不支持的文档转换，原件保留；微信工具不可用时跳过微信导入并保持文件资料可用；目录不可读或 owner 无法核验时上下文缺省，不猜测身份。

@@ -38,7 +38,14 @@
   - 文件准备：仅为选中的上下文按现有模板补初始文件。
 - **边界**：本插件不检索、提炼或自动更新长期记忆。
 
-## 03 channel-mcp：外部agent控制入口
+## 03 memory：个人记忆库
+
+- **包**：`@yonder/plugin-memory`（源码位于 `plugins/memory/`，当前集成实现）
+- **贡献**：工具 `memory_*`、触发器 `memory-bootstrap`/`memory-inbox`、预设 `memory-keeper`、上下文 `memory-core`/`memory-week`；提供六个 profile 可选 skills。
+- **功能**：维护配置指定的个人资料库，支持时间线、字面检索、整理、显式私密记录、允许列表微信资料导入和只读来源审计。
+- **隐私边界**：不注入其他 session 的对话；private 不进入默认检索或上下文。`memory-week` 仅为可解析为配置 owner 的事件贡献。真实模型/微信和生产资料验收不随本地测试自动完成。
+
+## 04 channel-mcp：外部agent控制入口
 
 - **包**：`@yonder/plugin-channel-mcp`
 - **源码**：[协议入口](../plugins/channel-mcp/src/index.ts)、[操作实现](../plugins/channel-mcp/src/operations.ts)
