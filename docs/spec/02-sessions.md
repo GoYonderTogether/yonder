@@ -168,7 +168,7 @@ interface PersonInfo { ref: Ref; name: string; note?: string; accounts: Ref[] }
 interface Lookup { accounts: AccountInfo[]; convs: Ref[]; agents: string[] }
 ```
 
-〔0.1 不实现〕记忆插件。约束：记忆插件存储的每条记忆必须带一个或多个引用（`person:`、`acct:`、`conv:`、`agent:`），这样任何 agent 都能按人、按群、按 agent 查到并串起来。
+记忆插件（官方 memory 见 [15](15-memory.md)）约束：存储的每条记忆必须带一个或多个引用（`person:`、`acct:`、`conv:`、`agent:`），这样任何 agent 都能按人、按群、按 agent 查到并串起来。
 
 ## 5. 会话接口
 
