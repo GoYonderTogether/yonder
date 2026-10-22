@@ -15,3 +15,5 @@ Desktop capture requires macOS Screen Recording permission for the actual host. 
 Build: `npx tsc -b plugins/native-automation`.
 
 Real verification: `node plugins/native-automation/test/integration.mjs` after build. It launches an actual local HTTP form, navigates, observes ARIA, fills, clicks, checks server receipt, evaluates and captures a real PNG, then checks session isolation, permissions, cancellation and cleanup. Desktop verification only reads permission status and captures the screen in the background; it never sends mouse/keyboard input or changes focus. Set `YONDER_KEEP_ARTIFACTS=1` to retain the test's actual screenshot artifacts.
+
+macOS permission guidance research (D55): the production stateful helper is blocked pending responsible-process and state-observability evidence. The isolated research demo does not authorize or diagnose the launchd service. See [verification and OWNER STEPs](../../docs/verification/mac-permissions.md). Existing desktop status remains a nonprompting check from the JXA caller, not proof of all permissions.
