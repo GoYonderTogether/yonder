@@ -3,7 +3,9 @@ import { definePlugin, type PluginAPI, type ToolContext, type YEvent } from "@yo
 import { Type } from "typebox";
 import { Ledger } from "./ledger.js";
 
-const taskSchema = Type.Object({ label: Type.String({ minLength: 1, maxLength: 120 }) });
+// Labels are display-only data. Reject unknown fields instead of letting callers
+// smuggle instructions or unreviewed association claims through this tool.
+const taskSchema = Type.Object({ label: Type.String({ minLength: 1, maxLength: 120 }) }, { additionalProperties: false });
 
 export default definePlugin({
 	setup(api: PluginAPI) {
@@ -15,16 +17,9 @@ export default definePlugin({
 				.then(async () => {
 					await ready;
 					const data = event.data as Record<string, unknown>;
-					if (event.type === "session.open" && data.mode === "task" && event.parent) {
-						for (const task of await ledger.list()) {
-							if (task.sourceRun === event.parent && !task.executorSession) {
-								const session = String(data.session);
-								await ledger.bindExecutor(task.id, session);
-								await ledger.event({ id: event.id, task: task.id, type: "executor.active", at: Date.parse(event.ts) });
-							}
-						}
-						return;
-					}
+					// Parent/sourceRun identifies only the initiating run, not which of
+					// several parallel delegated tasks owns this session. Leave it unknown
+					// until the runtime supplies a unique, authenticated correlation.
 					if (event.type !== "session.input" && event.type !== "run.end") return;
 					const session = typeof data.session === "string" ? data.session : undefined;
 					if (!session) return;

@@ -5,11 +5,12 @@ import { expect, it } from "vitest";
 import plugin from "../src/index.js";
 import { Ledger } from "../src/ledger.js";
 
-it("reconciles all pages, binds real task sessions, deduplicates replays and retains unknown tasks", async () => {
+it("reconciles pages without guessing task-session associations, deduplicates replays and retains unknown tasks", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "observer-plugin-"));
 	try {
 		const ledger = await new Ledger(dir).open();
 		await ledger.create("T", "task", { sourceSession: "source", sourceRun: "parent-event" });
+		await ledger.create("T2", "parallel task", { sourceSession: "source", sourceRun: "parent-event" });
 		const first = {
 			id: "open",
 			type: "session.open",
@@ -61,23 +62,21 @@ it("reconciles all pages, binds real task sessions, deduplicates replays and ret
 		await trigger.start({});
 		expect(calls).toBe(2);
 		const state = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
-		expect(state[0]).toMatchObject({
-			executorSession: "child",
-			runStatus: "done",
-			executor: "done",
-			accepted: "unknown",
-		});
-		expect(state[0].seen).toEqual(["open", "end"]);
+		expect(state[0]).toMatchObject({ executor: "none", accepted: "unknown" });
+		expect(state[0].executorSession).toBeUndefined();
+		expect(state[0].seen).toEqual([]);
+		expect(state[1].executorSession).toBeUndefined();
+		expect(state[1].seen).toEqual([]);
 		await handler?.(second);
 		await trigger.stop();
 		const replay = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
-		expect(replay[0].seen).toEqual(["open", "end"]);
+		expect(replay[0].seen).toEqual([]);
 		await tool.execute(
 			{ label: "Actual invocation" },
 			{ agent: "main", session: "source", events: [{ id: "caller-input", type: "session.input" }] },
 		);
 		const registered = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
-		expect(registered[1]).toMatchObject({
+		expect(registered[2]).toMatchObject({
 			owner: "main",
 			sourceSession: "source",
 			sourceRun: "caller-input",
