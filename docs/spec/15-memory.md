@@ -71,6 +71,7 @@ status: open            # open | reviewed
 
 - **记录流必须是最后一节**；插件对它只做文件末尾追加，其余节的修改是读-改-写（§8.2 并发保护）。
 - 记录流按天以 `### MM-DD 周X` 小标题分组，换天时自动插入。每天**没有**独立文档。
+- 周文档文件名 `YYYY-Www.md` 与 Obsidian Periodic Notes 的默认周格式一致；任务行沿用 Obsidian Tasks 的写法，截止日期用 `📅 YYYY-MM-DD`，使用户在 Obsidian 里打开即可被这些插件识别，不另造格式。
 - 本周计划：`- [ ] 文字 ^id`。状态标记 `[ ]` 开放、`[x]` 完成、`[-]` 放弃、`[>]` 延期（行尾 `⟳N` 记延期次数）。
 - 提议：模型写入的待确认条目，格式同上。用户确认前**不得**视为计划。
 - 决定：每个复杂决定一块，固定五项：`背景 / 选项 / 选择 / 理由 / 复查日`。
@@ -158,6 +159,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 |---|---|
 | `first-run` | `.memory/state.json` 没有 `initialized` |
 | `source-new` | 配置里出现尚未审计过的登记目录或微信会话 |
+| `source-stale` | 微信归档的最近同步时间（取 `wechat-context status`）距今超过 `bootstrap.wechatStaleHours` 小时：归档同步可能已停（`wechat-context` 的后台轮询连续失败 3 次会自行暂停，不会主动告警） |
 | `backlog` | inbox 文件数 ≥ `bootstrap.inboxFiles`，或未整理条目 ≥ `bootstrap.unorganized`，或最久的未整理条目超过 `bootstrap.staleDays` 天 |
 
 - data：`{ reason, audit }`，`audit` 是 `memory_bootstrap(audit)` 的结果。
@@ -167,10 +169,11 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 
 ### 6.6 审计与费用估算
 
-`memory_bootstrap({ op: 'audit', model? })`：统计各区、登记目录、inbox、微信名单与未整理记录的文件数、字节数、字符数；用 `js-tiktoken` 的 `o200k_base` 估算 tokens；`model` 缺省取 `bootstrap.model`，从 `api.models` 的目录价取输入单价（美元/百万 tokens），给出 `tokens × 输入单价` 的粗略费用。
+`memory_bootstrap({ op: 'audit', model? })`：统计各区、登记目录、inbox、微信名单与未整理记录的文件数、字节数、字符数；用 `gpt-tokenizer` 的 `o200k_base` 估算 tokens；`model` 缺省取 `bootstrap.model`，从 `api.models` 的目录价取输入单价（美元/百万 tokens），给出 `tokens × 输入单价` 的粗略费用。
 
 - 仅供量级参考：不含输出 tokens 与多轮往返，对非 OpenAI 分词器不精确，订阅登录的实际计费方式也可能不同。目录里没有该模型价格时只给 tokens，不猜价格。
 - 文件类型分开计：可检索文本直接计；需转换的格式按转换后文本计，未转换的标“未估”。
+- 审计同时报告微信归档的最近同步时间，超过 `bootstrap.wechatStaleHours` 小时的标 stale（对应 `source-stale`）。
 - 只读：审计不修改任何文件、不移动 inbox、不调用转换器。
 
 ## 7 隐私
@@ -245,7 +248,7 @@ plugins:
         wechat:
           cliPath: <wechat-context 绝对路径>   # 可选
           chats: [{ chat: <会话 id>, self: true }]
-      bootstrap: { checkMinutes: 60, cooldownHours: 24, inboxFiles: 20, unorganized: 100, staleDays: 7, model: <provider/modelId> }
+      bootstrap: { wechatStaleHours: 24, checkMinutes: 60, cooldownHours: 24, inboxFiles: 20, unorganized: 100, staleDays: 7, model: <provider/modelId> }
       inbox: { rescanSeconds: 60 }
       converter: { command: <绝对路径>, args: [], timeoutSeconds: 120 }   # 可选；缺省时仅文本类文件入库
       roots:
