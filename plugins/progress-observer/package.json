@@ -16,7 +16,8 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102201"
+		"@yonder/sdk": "0.2.26102201",
+		"proper-lockfile": "^4.1.2"
 	},
 	"yonder": {
 		"apiVersion": 1,

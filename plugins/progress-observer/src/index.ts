@@ -196,6 +196,8 @@ export default definePlugin({
 			async stop() {
 				stopTimer();
 				await Promise.all([queue, ticking]);
+				await ready.catch(() => {});
+				await ledger.close();
 			},
 		});
 	},

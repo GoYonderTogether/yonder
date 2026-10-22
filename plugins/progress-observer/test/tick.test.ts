@@ -39,6 +39,7 @@ it("disabled by default does not send", async () => {
 		const ledger = await new Ledger(dir).open();
 		await ledger.create("t", "task", { target: "conv:matrix:room" });
 		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
+		await ledger.close();
 		const send = vi.fn(async () => ({ ok: true }));
 		const { trigger } = await boot(dir, {}, send);
 		expect(send).not.toHaveBeenCalled();
@@ -55,6 +56,7 @@ it("enabled tick sends fallback once; durable unknown survives restart without r
 		const ledger = await new Ledger(dir).open();
 		await ledger.create("t", "task", { target: "conv:matrix:room" });
 		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
+		await ledger.close();
 		const send = vi.fn(async () => {
 			throw new Error("ambiguous transport");
 		});
@@ -80,6 +82,7 @@ it("real run.end aborted event reaches tick and sends one interrupted notice; re
 		const ledger = await new Ledger(dir).open();
 		for (let i = 0; i < 4; i++) await ledger.create(`t${i}`, `task ${i}`, { target: "conv:matrix:room" });
 		for (let i = 0; i < 4; i++) await ledger.bindExecutor(`t${i}`, `child${i}`);
+		await ledger.close();
 		const send = vi.fn(async () => ({ ok: true }));
 		const { trigger, api } = await boot(dir, { enabled: true, intervalMs: 1000 }, send);
 		const aborted = {
@@ -102,9 +105,11 @@ it("real run.end aborted event reaches tick and sends one interrupted notice; re
 		expect(send).toHaveBeenCalledTimes(1);
 		expect(send.mock.calls[0][0].text).toContain("执行中断");
 		expect(send.mock.calls[0][0].text).toContain("未核实续跑");
-		const tasks = await ledger.list();
+		const readLedger = await new Ledger(dir).open();
+		const tasks = await readLedger.list();
+		await readLedger.close();
 		expect(tasks[0].completed).not.toBe(true);
-		expect(tasks[1].executor).toBe("none");
+		expect(tasks[1].executor).toBe("active");
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
@@ -117,6 +122,7 @@ it("enabled configured model tick selects evidence and sends only program-render
 		const ledger = await new Ledger(dir).open();
 		await ledger.create("t", "PRIVATE LABEL", { target: "conv:matrix:room" });
 		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
+		await ledger.close();
 		const completeSimple = vi.fn(async () => ({
 			content: [
 				{
@@ -152,6 +158,7 @@ it("enabled tick never sends when source target is absent and clears its timer o
 		const ledger = await new Ledger(dir).open();
 		await ledger.create("t", "task");
 		await ledger.event({ id: "fact", task: "t", type: "executor.missing", at: 1 });
+		await ledger.close();
 		const send = vi.fn(async () => ({ ok: true }));
 		const { trigger } = await boot(dir, { enabled: true, intervalMs: 1000, minTasks: 1 }, send);
 		await vi.advanceTimersByTimeAsync(1000);
