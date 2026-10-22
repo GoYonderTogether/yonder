@@ -238,10 +238,10 @@ export function createRouter({
 			return { event: previous, waits };
 		}
 		const event = newEvent(eventInput);
-		const data = event.data as { target?: unknown };
+		const inputData = event.data as { target?: unknown; kind?: unknown };
 		const internalTarget =
-			event.type === "message.in" && channelOf(event.conv) === "agent" && typeof data.target === "string"
-				? data.target
+			event.type === "message.in" && channelOf(event.conv) === "agent" && typeof inputData.target === "string"
+				? inputData.target
 				: undefined;
 		const routes: NonNullable<YEvent["routes"]> = [];
 		const runs: RoutedRun[] = [];
@@ -257,7 +257,10 @@ export function createRouter({
 			}
 			let binding: Binding | undefined;
 			for (const candidate of agent.bindings)
-				if (await matches(candidate, event, agent, store)) {
+				if (
+					!(internalTarget && inputData.kind === "parent-request" && candidate.session !== "main") &&
+					(await matches(candidate, event, agent, store))
+				) {
 					binding = candidate;
 					break;
 				}

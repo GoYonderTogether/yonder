@@ -25,7 +25,8 @@
 		"plugins/native-automation",
 		"plugins/wechat-archive",
 		"plugins/channel-wechat-ilink",
-		"plugins/clipboard"
+		"plugins/clipboard",
+		"plugins/channel-qq"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs",
@@ -40,5 +41,5 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder-harness",
-	"version": "0.2.26102202"
+	"version": "0.2.26102203"
 }

@@ -140,8 +140,8 @@ export async function createStore(
 		},
 		async waitingInputs(session: string): Promise<YEvent[]> {
 			const rows = await db.all<EventRow>(
-				`SELECT e.* FROM y_events e WHERE e.type IN ('message.in', 'session.input')
-			AND EXISTS (SELECT 1 FROM json_each(e.routes) r WHERE json_extract(r.value, '$.session') = ? AND json_extract(r.value, '$.waiting') = 1)
+				`SELECT e.* FROM y_events e WHERE
+				EXISTS (SELECT 1 FROM json_each(e.routes) r WHERE json_extract(r.value, '$.session') = ? AND json_extract(r.value, '$.waiting') = 1)
 			ORDER BY e.id`,
 				session,
 			);

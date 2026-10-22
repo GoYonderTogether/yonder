@@ -57,6 +57,9 @@
 		},
 		{
 			"path": "plugins/clipboard"
+		},
+		{
+			"path": "plugins/channel-qq"
 		}
 	]
 }

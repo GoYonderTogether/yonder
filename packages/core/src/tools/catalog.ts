@@ -3,6 +3,7 @@ import type { Capability } from "@yonder/sdk";
 export const coreToolCapabilities: Record<string, Capability[]> = {
 	message_send: [],
 	agent_ask: ["message"],
+	parent_ask: [],
 	task_run: [],
 	task_continue: [],
 	session_list: ["admin"],
