@@ -52,7 +52,7 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 			},
 			tools: {
 				register: (item: any) => {
-					if (item.name === "progress_task_bind") bindTool = item;
+					if (item.name === "progress-observer_task_bind") bindTool = item;
 					else tool = item;
 				},
 			},

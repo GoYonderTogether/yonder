@@ -1,8 +1,9 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
+import { stringify } from "yaml";
 
 test("CLI runs through the installed current symlink", async () => {
 	const directory = await mkdtemp("/tmp/yonder-entry-");
@@ -14,6 +15,60 @@ test("CLI runs through the installed current symlink", async () => {
 		expect(result.source).toBe(resolve("."));
 	} finally {
 		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("real CLI doctor accepts an enabled progress observer with both exact allowlists", async () => {
+	const home = await mkdtemp("/tmp/yonder-progress-doctor-");
+	const workspace = join(home, "agents/main");
+	await mkdir(workspace, { recursive: true });
+	try {
+		const plugin = resolve("plugins/progress-observer");
+		await writeFile(
+			join(home, "yonder.yaml"),
+			stringify({
+				schema: 1,
+				plugins: [
+					{
+						use: plugin,
+						config: {
+							enabled: true,
+							allowedAgents: ["agent:main"],
+							allowedSourceConversations: ["conv:test:owner-private"],
+						},
+					},
+				],
+				envs: { local: { type: "local" } },
+				agents: [{ id: "main", workspace: "./agents/main" }],
+			}),
+		);
+		await writeFile(
+			join(workspace, "agent.yaml"),
+			stringify({
+				schema: 1,
+				id: "main",
+				name: "main",
+				owner: "person:owner",
+				defaultProfile: "owner",
+				defaults: { model: "openai/gpt-6-luna", plugins: ["progress-observer"], tools: { offer: ["*"] } },
+				profiles: {
+					owner: {
+						level: "bypass",
+						model: "openai/gpt-6-luna",
+						plugins: ["progress-observer"],
+						tools: { offer: ["*"] },
+					},
+				},
+				bindings: [],
+			}),
+		);
+		const output = execFileSync(process.execPath, [resolve("packages/cli/dist/index.js"), "doctor", "--home", home], {
+			cwd: resolve("."),
+			encoding: "utf8",
+		});
+		expect(output).toContain("Doctor: passed");
+	} finally {
+		await rm(home, { recursive: true, force: true });
 	}
 });
 

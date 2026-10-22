@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
 import type { KernelServices } from "./index.js";
 import { loadPlugins } from "./index.js";
@@ -63,6 +63,62 @@ it("loads both first-party plugins through the manifest and registration checks"
 		expect([...plugins.channels.keys()]).toEqual(["cli"]);
 		expect([...plugins.contexts.keys()]).toEqual(["agents-md", "user-md", "soul-md", "memory-md"]);
 		expect(plugins.envs.size).toBe(0);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+it("loads the enabled progress observer through the real plugin manifest and registration validator", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-progress-load-"));
+	try {
+		const services = {
+			events: { emit: unused, ask: unused, query: unused },
+			messages: { send: unused },
+			credentials: { get: unused },
+			sessions: {
+				list: unused,
+				get: unused,
+				open: unused,
+				submit: unused,
+				abort: unused,
+				close: unused,
+				transcript: unused,
+			},
+			identity: {
+				account: unused,
+				person: unused,
+				createPerson: unused,
+				link: unused,
+				unlink: unused,
+				relation: unused,
+				lookup: unused,
+			},
+			services: { resolve: unused },
+			models: {},
+			log: console,
+		} as unknown as KernelServices;
+		const plugins = await loadPlugins(
+			home,
+			{
+				schema: 1,
+				plugins: [
+					{
+						use: resolve("plugins/progress-observer"),
+						config: {
+							enabled: true,
+							allowedAgents: ["agent:main"],
+							allowedSourceConversations: ["conv:test:owner"],
+						},
+					},
+				],
+			},
+			services,
+		);
+		expect(plugins.tools.get("progress-observer")?.map((tool) => tool.name)).toEqual([
+			"progress-observer_task_bind",
+			"progress-observer_task_register",
+		]);
+		await plugins.stop();
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
