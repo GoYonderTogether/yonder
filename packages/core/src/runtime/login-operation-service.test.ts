@@ -66,6 +66,15 @@ it("recovers unacknowledged entries after restart and acknowledges confirmed del
 	expect(deliveredCall?.[1]).toBe(deliveredCall?.[0].operationId);
 	await db.close();
 });
+it("status is fixed-shape, distinguishes outcome and delivery, and refuses cross-session lookup", async () => {
+	const f = await fixture(async () => "unknown");
+	const output = await f.service.tool.execute({ provider: "p" }, f.ctx);
+	const id = JSON.parse(output.text).id as string;
+	await f.service.drainOutbox();
+	expect(await f.service.operations.status(id, "s")).toEqual({ status: "succeeded", delivery: "unknown" });
+	await expect(f.service.operations.status(id, "other")).rejects.toThrow("Login operation not found");
+	await f.db.close();
+});
 it("unknown delivery remains durably claimed across service restart", async () => {
 	const deliver = vi.fn(async () => "unknown" as const);
 	const f = await fixture(deliver);

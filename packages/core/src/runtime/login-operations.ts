@@ -115,6 +115,34 @@ export class LoginOperations {
 			return expired.length;
 		});
 	}
+	async status(
+		id: string,
+		session: string,
+	): Promise<{
+		status: "pending" | "succeeded" | "failed" | "cancelled" | "interrupted" | "expired";
+		delivery: "pending" | "unknown" | "confirmed";
+	}> {
+		if (typeof id !== "string" || !/^[a-f0-9]{32}$/.test(id) || typeof session !== "string")
+			throw new Error("Invalid status query");
+		const row = await this.db.get<{ state: string; delivery_state: string | null; acknowledged_at: number | null }>(
+			"SELECT o.delivery_state,o.acknowledged_at,p.state FROM login_operations p LEFT JOIN login_outbox o ON o.operation_id=p.id WHERE p.id=? AND p.session=?",
+			id,
+			session,
+		);
+		if (!row) throw new Error("Login operation not found");
+		const status = new Set(["pending", "succeeded", "failed", "cancelled", "interrupted", "expired"]).has(row.state)
+			? row.state
+			: "pending";
+		const delivery =
+			row.state === "pending"
+				? "pending"
+				: row.acknowledged_at !== null
+					? "confirmed"
+					: row.delivery_state === "pending"
+						? "pending"
+						: "unknown";
+		return { status: status as "pending" | "succeeded" | "failed" | "cancelled" | "interrupted" | "expired", delivery };
+	}
 	async readUnacknowledged(limit = 100): Promise<LoginOutboxEntry[]> {
 		if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Invalid limit");
 		return this.db.all<LoginOutboxEntry>(

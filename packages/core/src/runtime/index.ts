@@ -383,7 +383,7 @@ export class Runtime {
 				providers: providerRegistryIds(),
 				...this.options.loginOperations,
 			});
-			loginTools.push(this.loginOperations.tool);
+			loginTools.push(this.loginOperations.tool, this.loginOperations.statusTool);
 		}
 		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...loginTools, ...(this.options.tools ?? [])], []);
 		this.registry.install(builtins);
