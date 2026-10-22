@@ -612,14 +612,32 @@ async function run(args: string[]): Promise<number> {
 									wrapperPath,
 									resultPath,
 									timeoutMs: 10 * 60_000,
-									finish: (result) => {
+									finish: async (result) => {
 										const outcome =
 											result.status === "complete" ? (result.code === 0 ? "succeeded" : "failed") : "failed";
-										void input.finish(
+										await input.finish(
 											outcome,
 											result.status === "complete" ? result.code : result.status === "timeout" ? 124 : 1,
 										);
 									},
+									onFinishError: () =>
+										output(
+											{
+												ts: new Date().toISOString(),
+												level: "error",
+												message: "Login completion persistence failed; operation remains pending",
+											},
+											options.json,
+										),
+								}).catch(() => {
+									output(
+										{
+											ts: new Date().toISOString(),
+											level: "error",
+											message: "Login terminal monitor failed; operation remains pending",
+										},
+										options.json,
+									);
 								});
 							},
 						},

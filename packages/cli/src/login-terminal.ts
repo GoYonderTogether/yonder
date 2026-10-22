@@ -33,7 +33,8 @@ export type TerminalLoginInput = {
 	resultPath: string;
 	timeoutMs: number;
 	launch?: (wrapperPath: string) => Promise<void>;
-	finish: (result: LoginResult | { status: "timeout" | "invalid" }) => void;
+	finish: (result: LoginResult | { status: "timeout" | "invalid" }) => Promise<unknown> | unknown;
+	onFinishError?: () => void;
 };
 
 export async function launchTerminalLogin(input: TerminalLoginInput): Promise<void> {
@@ -51,22 +52,30 @@ export async function launchTerminalLogin(input: TerminalLoginInput): Promise<vo
 	const end = Date.now() + input.timeoutMs;
 	let finished = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	const finish = (result: LoginResult | { status: "timeout" | "invalid" }) => {
+	const finish = async (result: LoginResult | { status: "timeout" | "invalid" }) => {
 		if (finished) return;
 		finished = true;
 		if (timer) clearTimeout(timer);
-		input.finish(result);
+		try {
+			await input.finish(result);
+		} catch {
+			try {
+				input.onFinishError?.();
+			} catch {
+				// The monitor must not leak a rejection from its persistence-failure reporter.
+			}
+		}
 	};
 	try {
 		await launch(input.wrapperPath);
 	} catch {
-		finish({ status: "invalid" });
+		await finish({ status: "invalid" });
 		return;
 	}
 	while (!finished && Date.now() < end) {
 		const result = await readLoginResult(input.resultPath);
 		if (result) {
-			finish(result);
+			await finish(result);
 			return;
 		}
 		timer = setTimeout(() => {}, interval);
@@ -74,5 +83,5 @@ export async function launchTerminalLogin(input: TerminalLoginInput): Promise<vo
 		clearTimeout(timer);
 		timer = undefined;
 	}
-	if (!finished) finish({ status: "timeout" });
+	if (!finished) await finish({ status: "timeout" });
 }

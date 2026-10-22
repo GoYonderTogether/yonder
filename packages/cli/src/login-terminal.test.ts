@@ -24,6 +24,30 @@ describe("terminal login monitor", () => {
 		});
 		expect(calls).toBe(1);
 	});
+	it("awaits completion persistence and reports rejection without leaking it", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "login-monitor-finish-"));
+		const resultPath = join(dir, "result.json");
+		await writeFile(resultPath, '{"status":"complete","code":7}');
+		let attempts = 0;
+		let reported = 0;
+		await expect(
+			launchTerminalLogin({
+				wrapperPath: "/unused",
+				resultPath,
+				timeoutMs: 1000,
+				launch: async () => {},
+				finish: async () => {
+					attempts++;
+					throw new Error("sensitive failure details");
+				},
+				onFinishError: () => {
+					reported++;
+				},
+			}),
+		).resolves.toBeUndefined();
+		expect(attempts).toBe(1);
+		expect(reported).toBe(1);
+	});
 	it("rejects symlinks and malformed schemas; reports timeout", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "login-monitor-"));
 		const target = join(dir, "target");
