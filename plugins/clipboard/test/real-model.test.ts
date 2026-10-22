@@ -127,9 +127,11 @@ test.skipIf(!enabled)(
 			expect(openClips).toHaveLength(1);
 			const clipboardCalls = calls.filter((call) => call.name.startsWith("clipboard_"));
 			expect(clipboardCalls.map((call) => call.name).sort()).toEqual(["clipboard_copy", "clipboard_paste"]);
-			expect(clipboardCalls.find((call) => call.name === "clipboard_copy")!.args).toEqual({
-				from: { kind: "message", eventId: original.id },
-			});
+			const copyArgs = clipboardCalls.find((call) => call.name === "clipboard_copy")!.args;
+			expect([
+				{ from: { kind: "message", eventId: original.id } },
+				{ from: { kind: "message", eventId: original.id }, class: "open" },
+			]).toContainEqual(copyArgs);
 			expect(clipboardCalls.find((call) => call.name === "clipboard_paste")!.args).toEqual({
 				handle: openClips[0]!.id,
 				to: { kind: "file", path: output },

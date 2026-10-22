@@ -123,6 +123,40 @@ async function protocol(root: string, granted = true) {
 		registrations.tools.find((t) => t.name === `clipboard_${name}`)?.execute(args, context);
 	return { call, ctx, events, registrations };
 }
+test("copy schema allows exactly the two intended message argument forms, not extras or body text", async () => {
+	const root = await temporary();
+	try {
+		const { registrations } = await protocol(root),
+			tool = registrations.tools.find((t) => t.name === "clipboard_copy")!;
+		const parameters = tool.parameters as {
+			additionalProperties: boolean;
+			properties: { from: { oneOf: Array<{ additionalProperties: boolean }> }; class: { enum: string[] } };
+		};
+		expect(parameters.additionalProperties).toBe(false);
+		expect(parameters.properties.class.enum).toEqual(["open", "sealed"]);
+		expect(parameters.properties.from.oneOf.every((variant) => variant.additionalProperties === false)).toBe(true);
+		const source = { kind: "message", eventId: "inbound-id" };
+		const isAllowed = (args: Record<string, unknown>) => {
+			const from = args.from as Record<string, unknown> | undefined;
+			return (
+				Object.keys(args).every((key) => key === "from" || key === "class") &&
+				from?.kind === "message" &&
+				Object.keys(from).every((key) => key === "kind" || key === "eventId") &&
+				typeof from.eventId === "string" &&
+				(args.class === undefined || args.class === "open" || args.class === "sealed")
+			);
+		};
+		for (const allowed of [{ from: source }, { from: source, class: "open" }]) expect(isAllowed(allowed)).toBe(true);
+		for (const rejected of [
+			{ from: source, class: "open", unexpected: true },
+			{ from: { ...source, extra: true } },
+			{ from: source, body: "synthetic-private-payload" },
+		])
+			expect(isAllowed(rejected)).toBe(false);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
 test("message and previous tool references copy verbatim, refuse foreign conversations and sealed history", async () => {
 	const root = await temporary();
 	try {
