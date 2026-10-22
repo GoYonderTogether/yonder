@@ -11,6 +11,8 @@ const object = <T extends Record<string, import("typebox").TSchema>>(fields: T) 
 export const configSchema = object({
 	root: str,
 	owner: Type.String({ pattern: "^person:.+$" }),
+	allowedAgents: optional(Type.Array(str, { default: [] })),
+	allowedSourceConversations: optional(Type.Array(str, { default: [] })),
 	timezone: str,
 	capture: optional(
 		object({

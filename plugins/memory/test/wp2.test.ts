@@ -28,6 +28,14 @@ const ctx: ToolContext = {
 	session: "wp2",
 	capabilities: ["read", "write", "admin"],
 	signal: new AbortController().signal,
+	event: {
+		id: "evt:test",
+		ts: new Date().toISOString(),
+		type: "message.in",
+		from: "acct:test:owner",
+		conv: "conv:test:owner",
+		data: {},
+	},
 } as ToolContext;
 const meta: WriteContext = { op: "test.section", id: "-", by: "plugin:memory", session: "wp2", signal: ctx.signal };
 async function setup(root: string, extra = {}) {
@@ -35,7 +43,20 @@ async function setup(root: string, extra = {}) {
 		events: EventInput[] = [];
 	await plugin.setup({
 		...api,
-		config: { root, owner: "person:test", timezone: "UTC", ...extra },
+		config: {
+			root,
+			owner: "person:test",
+			timezone: "UTC",
+			allowedAgents: ["test"],
+			allowedSourceConversations: ["conv:test:owner"],
+			...extra,
+		},
+		identity: {
+			...api.identity,
+			async account() {
+				return { person: "person:test" };
+			},
+		},
 		events: {
 			...api.events,
 			async emit(event: EventInput) {
@@ -75,7 +96,7 @@ it("serializes concurrent appends without losing records and logs metadata only"
 	expect(records(text)).toHaveLength(40);
 	expect(new Set(results.map((r) => r.id)).size).toBe(40);
 	expect(text.match(/^### /gm)).toHaveLength(1);
-	for (let i = 0; i < 40; i++) expect(text).toContain(`并发记录 ${i} (ref: agent:test)`);
+	for (let i = 0; i < 40; i++) expect(text).toContain(`并发记录 ${i} (ref: agent:test; evt:evt:test)`);
 	const log = await readFile(join(root, "log.md"), "utf8");
 	expect(log).not.toContain("并发记录");
 	expect(log.match(/memory_capture timeline\/2026-01\/2026-W01.md/g)).toHaveLength(41);

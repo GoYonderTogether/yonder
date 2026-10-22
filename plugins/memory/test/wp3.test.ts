@@ -24,13 +24,30 @@ const ctx = {
 	session: "wp3",
 	capabilities: ["read", "write", "admin"],
 	signal: new AbortController().signal,
+	event: { type: "message.in", from: "acct:test:owner", conv: "conv:test:owner", data: {} },
 } as ToolContext;
 async function setup(extra = {}) {
 	const root = await temp();
 	await initialize(root);
-	const config = { root, owner: "person:test", timezone: "UTC", ...extra };
+	const config = {
+		root,
+		owner: "person:test",
+		timezone: "UTC",
+		allowedAgents: ["test"],
+		allowedSourceConversations: ["conv:test:owner"],
+		...extra,
+	};
 	const { api, registrations } = createRegistrationCollector();
-	await plugin.setup({ ...api, config } as PluginAPI);
+	await plugin.setup({
+		...api,
+		config,
+		identity: {
+			...api.identity,
+			async account() {
+				return { person: "person:test" };
+			},
+		},
+	} as PluginAPI);
 	const run = async (name: string, args: unknown, context = ctx) => {
 		const result = await registrations.tools.find((t) => t.name === name)!.execute(args, context);
 		if (result.isError) throw new Error(result.text);
