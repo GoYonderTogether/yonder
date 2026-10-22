@@ -1,1 +1,1 @@
-{"extends":"../../tsconfig.base.json","references":[{"path":"../../packages/sdk"}]}
+{ "extends": "../../tsconfig.base.json", "references": [{ "path": "../../packages/sdk" }] }
