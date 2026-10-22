@@ -125,6 +125,20 @@ it("loads the enabled progress observer through the real plugin manifest and reg
 	}
 });
 
+it("loads decision-routing from its manifest, disabled by default and opt-in as an advisory tool", async () => {
+ const home = await mkdtemp(join(tmpdir(), "yonder-decision-routing-"));
+ const services = { events:{emit:unused,ask:unused,query:unused}, messages:{send:unused}, credentials:{get:unused}, sessions:{list:unused,get:unused,open:unused,submit:unused,abort:unused,close:unused,transcript:unused}, identity:{account:unused,person:unused,createPerson:unused,link:unused,unlink:unused,relation:unused,lookup:unused}, services:{resolve:unused}, models:{}, log:console } as unknown as KernelServices;
+ try {
+  const disabled = await loadPlugins(home,{schema:1,plugins:[{use:resolve("plugins/decision-routing")}]},services);
+  const disabledTool=disabled.tools.get("decision-routing")?.[0];
+  expect(disabledTool?.name).toBe("decision-routing_recommend");
+  await expect(disabledTool?.execute({},{} as never)).resolves.toMatchObject({isError:true,text:"decision_routing_disabled_or_unapproved"});
+  const enabled = await loadPlugins(home,{schema:1,plugins:[{use:resolve("plugins/decision-routing"),config:{enabled:true,adminApproved:true,classifier:{provider:"openai",id:"example"},allowedClassifierModels:["openai/example"],allowedClassifierOrigins:["https://example.invalid"],allowedAgents:["agent:main"],allowedConversations:["conv:test:owner"],targetModels:["openai/target"],budgetUsd:1,classifierCostBoundUsd:0.1,routeCostBoundsUsd:{default:0.5}}}]},services);
+  expect(enabled.tools.get("decision-routing")?.map(tool=>tool.name)).toEqual(["decision-routing_recommend"]);
+  await enabled.start({emit:unused,ask:unused}); await enabled.stop();
+ } finally { await rm(home,{recursive:true,force:true}); }
+});
+
 it("resolves home packages and serializes each plugin's observers without exposing mutable events", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-plugin-order-"));
 	const directory = join(home, "node_modules/audit-plugin");
