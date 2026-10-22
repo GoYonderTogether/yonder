@@ -57,3 +57,35 @@
 - SDK collector 仅用于注册/事件调用边界，文件操作全部为临时目录中的真实 FS；未模拟模型或文件系统。
 - 精确依赖及用途见 README。npm 的 workspace 过滤安装报告 no workspace folder present，退出 0 但未安装目标包；确认后在隔离 /tmp 前缀安装相同精确版本并将 node_modules 放到 plugins/memory/node_modules（忽略目录），构建使用真实包。临时目录已清理；未修改根 package-lock.json，未声称全新 npm ci 已验证。
 - Q1–Q4 均已裁决；本包无新增规范待决项。WP3 可开始。
+
+## WP3
+
+文件：新增 src/retrieval.ts、test/wp3.test.ts；修改 package.json（两项工具声明）、src/index.ts（注册）、src/files.ts（拒绝绝对路径）、src/config.ts（origin 枚举显式 TypeBox tuple，修正动态 map 导致的 Static 推导）、README.md、verification.md。未改其他路径。
+
+### 原始检查记录（按发生顺序保留）
+
+1. 初步 `npm run build`：失败，2 个 TypeScript 错误（origin 动态 Union 的 Static 推导）；已改为显式 Literal tuple。
+2. 首次完整链：build、typecheck 通过；npm test 为 Tests 211 passed / 4 failed / 23 skipped（238）；Test Files 54 passed / 1 failed / 11 skipped（66）。四项失败均为 WP3 搜索返回空，因 macOS 临时目录逻辑路径与 rg 真实路径混用，合法命中被相对路径过滤。lint 因 && 未执行。
+3. 定位时专项 `npx vitest run plugins/memory/test/wp3.test.ts --reporter=verbose`：4 passed / 4 failed / 0 skipped（8），1 failed file。保留与首轮一致的失败，未改断言。
+4. 统一按 canonical base 计算相对路径后，同一专项：8 passed / 0 failed / 0 skipped（8），1 passed file。
+5. 补齐真实缺 rg 的用例并排除隐藏路径、明确 derived 文件来源后，最终执行 `npm run build && npm run typecheck && npm test && npm run lint`：全部退出 0。
+6. 最终 npm test：Tests 216 passed / 0 failed / 23 skipped（239）；Test Files 55 passed / 0 failed / 11 skipped（66）。memory 共 21 项（WP1 5 + WP2 7 + WP3 9）通过。
+7. 最终 build、typecheck：各 1 通过 / 0 失败 / 0 跳过，无测试用例计数；不覆盖上述首轮失败。lint：230 files，0 errors / 207 warnings / 2 infos，退出 0。
+8. 独立调用 checkPlugin：通过，errors=[]；契约用例也通过。格式预检仅警告/提示，无错误。
+
+### 已验证
+
+- 中文字面子串、正则字符按字面、全角冒号输入的 NFKC 双搜、未改写源文件康熙部首原文；后者不声称能被普通汉字命中（转换产物验收属 WP4）。
+- 按命中行与缩进续行的 origin/date 过滤；跨年周标题与 private 同月 owner/agent 混合来源；raw frontmatter、mine 固定 human-written、派生文件 derived、登记目录配置 origin。
+- distinct term 数 / 命中次数 / 日期排序，any/all、zones、since/until、limit、total/truncated；默认排除 archive/private，显式 private 读取与检索、frontmatter private 排除。
+- 登记目录的命中路径带来源名；检索与读取前后真实文件字节及 mtimeNs 完全相同。
+- 拒绝越界、绝对路径与符号链接读取；检索不跟随链接，不返回隐藏文件、.obsidian/node_modules 或非文本文件。
+- memory_read 按 ISO 周定位、行分页、12000 字符截断；参数、日期、path/week 二选一、能力与取消边界。
+- 真正清空子进程 PATH 后 rg 无法启动：search 返回具体诊断，status 报不可用；未模拟 rg 或提供回退。
+
+### 仅实现未做端到端验收
+
+- 已做源码工具调用、构建产物 checkPlugin 和真实临时 FS/rg 验证；未安装到正式服务，未用真实模型验收，未访问用户 Obsidian/微信归档。默认 23 skipped 如实保留。
+- 未进行跨进程/跨宿主压力验收；登记目录只读验证覆盖本轮临时目录中的检索/读取，不代表用户真实资料库验收。
+- 未修改根 package-lock.json，未执行全新 npm ci。WP3 未新增依赖。
+- Q1–Q4 已裁决；本包没有新增待决规范空白。已停在 WP3，不实施 WP4–WP7。
