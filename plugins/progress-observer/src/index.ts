@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { definePlugin, type PluginAPI, parseRef, type ToolContext, type YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
-import { Ledger } from "./ledger.js";
+import { runDecision } from "./decision-engine.js";
+import { Ledger, safeFallback } from "./ledger.js";
+import { sendProgress } from "./sender.js";
 
 // Labels are display-only data. Reject unknown fields instead of letting callers
 // smuggle instructions or unreviewed association claims through this tool.
@@ -11,7 +13,25 @@ const taskSchema = Type.Object(
 );
 
 export default definePlugin({
+	configSchema: Type.Object({
+		enabled: Type.Optional(Type.Boolean({ default: false })),
+		intervalMs: Type.Optional(Type.Integer({ minimum: 1000, default: 20 * 60 * 1000 })),
+		minTasks: Type.Optional(Type.Integer({ minimum: 1, default: 4 })),
+	}),
 	setup(api: PluginAPI) {
+		const config = (api.config && typeof api.config === "object" ? api.config : {}) as {
+			enabled?: boolean;
+			intervalMs?: number;
+			minTasks?: number;
+		};
+		const enabled = config.enabled === true;
+		const intervalMs =
+			Number.isInteger(config.intervalMs) && (config.intervalMs ?? 0) >= 1000
+				? (config.intervalMs ?? 20 * 60 * 1000)
+				: 20 * 60 * 1000;
+		const minTasks = Number.isInteger(config.minTasks) && (config.minTasks ?? 0) >= 1 ? (config.minTasks ?? 4) : 4;
+		let stopTimer = () => {};
+		let ticking: Promise<void> = Promise.resolve();
 		const ledger = new Ledger(api.paths.data);
 		const ready: Promise<unknown> = ledger.open();
 		let queue = Promise.resolve();
@@ -135,9 +155,40 @@ export default definePlugin({
 					await queue;
 					after = page.next;
 				} while (after);
+				if (enabled) {
+					const tick = async () => {
+						try {
+							await ready;
+							const tasks = await ledger.list();
+							if (tasks.length < minTasks) return;
+							for (const task of tasks) {
+								// A target is usable only when bound from the original source event.
+								if (!task.target) continue;
+								await runDecision(
+									{
+										ledger,
+										decide: async (snapshot) => safeFallback(snapshot),
+										send: (target, text) => sendProgress(api.messages, target, text),
+										boundTarget: task.target,
+										minimumIntervalMs: intervalMs,
+									},
+									task.id,
+								);
+							}
+						} catch (error) {
+							api.log.error("Progress observer tick failed", { error: String(error) });
+						}
+					};
+					const timer = setInterval(() => {
+						ticking = ticking.then(tick);
+					}, intervalMs);
+					// Store cleanup on the trigger instance closure, including in fake SDK tests.
+					stopTimer = () => clearInterval(timer);
+				}
 			},
 			async stop() {
-				await queue;
+				stopTimer();
+				await Promise.all([queue, ticking]);
 			},
 		});
 	},
