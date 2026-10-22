@@ -53,3 +53,24 @@ NFKC term：exit 1，stdout 空，stderr 空
 - Q3 已裁决：规范 §6.2 与 runbook WP3/WP4，WP3 验证输入兼容形式的 NFKC 双搜，康熙部首转换产物验收归 WP4。
 
 上文问题描述与复现保留为裁决前记录；暂停状态已解除，按最新规范实施，不沿用上文待决状态。
+
+## Q4（已裁决）：私密月文件混合 origin
+
+以下保留为裁决前记录，暂停状态已解除。
+
+WP1 已完成，提交 `0614027`。复核 WP2–WP3 全部相关条款后，新增待决问题仅本项；Q1–Q3 不再阻塞。
+
+- §5：`memory_capture(by: owner)` 产生 human-said，默认 by: agent 产生 agent。
+- §7：所有 private capture 写入 `private/YYYY-MM.md`，同月共用一个文件。
+- §4.2：private 文件靠 frontmatter 的 origin；只有周文档的记录行明确按来源标签恢复逐条 origin。
+- §6.2：周文档记录行按各自标签确定 origin，其他内容按文件 origin，origin 过滤作用于命中行。
+
+同月先后写入 owner 与 agent 的私密记录时，单个文件 origin 无法同时表达两者。不能自行统一标成 agent/human-said、覆盖既有 origin 或改变既定私密路径；也不能未经裁决把只适用于周文档的逐条标签规则推广到 private。
+
+**待决定：**private 的记录行是否也按来源标签判断 origin（frontmatter 仅作非记录内容的默认值）；或者要求遇到不同 origin 拒绝追加；或另有规则。需同时明确 WP3 对私密命中行的过滤方式。
+
+**状态：**WP2 未开始实现，按任务规则暂停；WP3 尚未开始。已通过交互问题提交维护者裁决请求。未为该问题修改任何规范或实现新行为。
+
+## Q4（已裁决）
+
+2026-10-22，规划方裁决（规范提交 c5f8e9d，§4.2 与 §5.1）：凡含记录行的文件（周文档、`private/YYYY-MM.md`）逐行按来源标签确定 origin；`private/` 文件 frontmatter 只需 `private: true`，非记录内容按 `derived`；WP3 对私密命中行同样按命中行 origin 过滤。同时规范新增 §5.1，列出各工具的参数与返回，以及记录续行、空行、补记（`when`）与日期小标题规则。
