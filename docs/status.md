@@ -85,3 +85,7 @@
 - pi-durable 1.3.0 为 packages/pi-durable workspace 源码 fork，来源固定在 FORK_SOURCE.json；无 postinstall 补丁。升级须审核 beforeAgent、abort 接续队列、原子回执与 shouldRetry 边界，运行 fork 与 runtime 检查。
 - 消息生命周期与流式投递语义在 0.1.2026102001（现已并入 0.2 系列）重构，真实渠道矩阵尚未全部复验。
 - 飞书渠道曾在一次升级后首次启动出现 `fetch failed` 而未连上；人工重启后恢复，根因未确认。
+
+## UI Companion 插件（2026-10-22）
+
+已确认原型迁入 plugins/ui-companion，SDK 工具/生命周期、回环服务、私有交互存储、macOS 非激活宿主接通。真实加载器+工具→网页选择/填写→结果回传/收起，以及原生按钮→结果回传/收起已验证；全仓 197 通过/23 跳过。原生文本输入、系统级台前调度/全屏/焦点保持与真实模型自主调用仍未测；未安装到正式服务。原始失败和重跑计数见插件 README。

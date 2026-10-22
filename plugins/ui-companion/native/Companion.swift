@@ -57,7 +57,7 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     private var spaceObserver: NSObjectProtocol?
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var anchor: WindowAnchor?
-    private let page = Bundle.main.url(forResource: "index", withExtension: "html")!
+    private let page = ProcessInfo.processInfo.environment["YONDER_UI_URL"].flatMap(URL.init(string:)) ?? Bundle.main.url(forResource: "index", withExtension: "html")!
     private var screen: NSScreen { NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main! }
 
     private func makePanel(size: NSSize, typing: Bool) -> CompanionPanel {
@@ -97,7 +97,8 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let container = NSView(frame: panel.contentView!.bounds)
         container.wantsLayer = true; container.layer?.cornerRadius = 24; container.layer?.masksToBounds = true
         web.frame = container.bounds; container.addSubview(web); panel.contentView = container
-        web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
+        if page.isFileURL { web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent()) }
+        else { web.load(URLRequest(url: page)) }
 
         dock = makePanel(size: NSSize(width: 56, height: 56), typing: false)
         dock.title = "Yonder 悬浮入口"
@@ -161,7 +162,7 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     @objc private func openPanel() { showPanel() }
     @objc private func quitApp() { NSApp.terminate(nil) }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.standardizedFileURL == page.standardizedFileURL,
+        guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.absoluteString == page.absoluteString,
               let data = message.body as? [String: Any], let action = data["action"] as? String else { return }
         switch action {
         case "close": collapse()
@@ -184,7 +185,7 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
-        if url.standardizedFileURL == page.standardizedFileURL { decisionHandler(.allow); return }
+        if url.absoluteString == page.absoluteString { decisionHandler(.allow); return }
         if navigationAction.navigationType == .linkActivated, url.scheme == "https" { NSWorkspace.shared.open(url) }
         decisionHandler(.cancel)
     }

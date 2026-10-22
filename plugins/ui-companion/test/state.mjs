@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
-import { beginTask, completeStep, emptyState, initialTask, readState, validateCard } from "./state.mjs";
+import { beginTask, completeStep, emptyState, readState, validateCard } from "../web/state.mjs";
 
+const initialTask = {
+	id: "ui-review",
+	title: "界面确认",
+	prompt: "选择验收项",
+	kind: "choice",
+	options: [
+		{ id: "cards", label: "交互卡片" },
+		{ id: "window", label: "窗口" },
+	],
+	next: { id: "feedback", title: "界面确认", prompt: "验收反馈", kind: "form" },
+};
 let state = beginTask(emptyState(), initialTask, "task-1");
 state = completeStep(state, "cards", 1);
 assert.equal(state.active.completed, false, "有下一步时不能提前完成");

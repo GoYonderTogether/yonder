@@ -54,6 +54,9 @@
 		},
 		{
 			"path": "plugins/channel-wechat-ilink"
+		},
+		{
+			"path": "plugins/ui-companion"
 		}
 	]
 }

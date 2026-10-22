@@ -1,16 +1,4 @@
 export const STORAGE_KEY = "yonder-ui-prototype-v1";
-export const initialTask = {
-	id: "design-direction",
-	title: "下一轮设计",
-	prompt: "从哪里开始？",
-	kind: "choice",
-	options: [
-		{ id: "window", label: "小窗体验" },
-		{ id: "character", label: "角色动效" },
-		{ id: "cards", label: "交互卡片" },
-	],
-	next: { id: "design-note", title: "下一轮设计", prompt: "还有想补充的？", kind: "form" },
-};
 export function validateCard(value, depth = 0) {
 	if (
 		depth > 12 ||
@@ -96,7 +84,7 @@ export function completeStep(state, answer, at) {
 		if (!option) throw new Error("请选择有效选项。");
 		label = option.label;
 	} else if (typeof answer !== "string" || answer.length > 2000) throw new Error("想法不能超过 2000 字。");
-	const steps = [...active.steps, { card, answer: label, at }];
+	const steps = [...active.steps, { card, value: answer, answer: label, at }];
 	const next = card.next;
 	return {
 		...state,

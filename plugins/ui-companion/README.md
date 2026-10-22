@@ -1,0 +1,70 @@
+# Yonder UI Companion
+
+已确认的小窗现为独立 SDK 插件，源码从 proposals/ui-companion 迁入此目录。保留 ai-card Web 风格、唯一共享品牌角色、同锚点展开/收起、大区域拖拽与历史回溯。
+
+## 加载
+
+在仓库运行 `npm run build`，会编译 TypeScript、构建离线 Web 页面，并在 macOS 编译插件自有的 `dist/Yonder UI.app`。无需新增下载依赖。非 macOS 跳过原生宿主，仍提供网页。
+
+使用现有 CLI 将本目录添加到目标 home：
+
+```sh
+yonder plugins add /absolute/path/to/yonder-harness/plugins/ui-companion --home /absolute/path/to/home
+```
+
+也可以在目标 home 的 yonder.yaml 加入：
+
+```yaml
+plugins:
+  - use: /absolute/path/to/yonder-harness/plugins/ui-companion
+    config:
+      desktop: true
+```
+
+在实际 Agent 的 defaults.plugins 或配置档 plugins 选入 ui-companion，tools.offer 选 `ui-companion_*`；呈现需要 message、exec，读取需要 read。安装插件不会自动扩大任何 Agent 的工具权限。使用既有重启方式加载代码；本轮没有改正式 home、注册登录项、替换已安装服务或发布 npm 包。
+
+## 真实调用闭环
+
+1. Agent 调用 `ui-companion_present({card})`。插件校验并持久化，返回 id、url、noticeUrl、inlineUrl。macOS 默认首次调用才后台启动非激活宿主，先显示悬浮入口；desktop:false 仅提供网页，用户或可信宿主自行打开返回的 URL。
+2. Agent 调用 `ui-companion_result({id,wait:true})`。等待使用 Harness 原有工具/后台执行生命周期；wait:false 查询当前状态。
+3. 用户选择或填写内容。服务以请求 id 和步骤序号接纳答案，拒绝重复和过期步骤；卡片有 next 时进入下一步。
+4. 完成默认收起，result 返回 completed 和真实 steps（原卡片、选择 value、可读 answer、时间 at）。autoClose:false 保留窗口。交互只回到创建它的 session/agent/profile，不向其他 Agent 伪造事件或自动唤醒。
+
+card 必填：id、title、prompt、kind（choice/form）；choice 必须有 options（唯一 id、label）。可选 next 是下一张 card，可选 autoClose 默认 true。没有固定示例任务或模拟 Agent 回复。
+
+取消等待保留卡片，可再次查询；session.close 取消该会话的未完成卡片。关闭小窗只收起，不代替取消。服务停止唤醒等待者并关闭监听器与自有宿主。插件 data 目录的 interactions.json 保存队列和原始步骤，重启恢复；浏览器本地数据只保存展示状态和未提交草稿，清理网站数据不会删除服务端交互记录。
+
+## 窗口与宿主
+
+- 窗口与 56×56 悬浮入口共用边角锚点，拖动后再次展开不跳位。Logo 视图 52×52，原生使用高清品牌图。位置在当前宿主运行期间保留。
+- 首次放在离指针较远的角落，之后尊重用户位置；不读取其他应用内容。空白区域和入口均可拖拽。
+- 原生 NSPanel 使用 nonactivatingPanel、orderFrontRegardless、becomesKeyOnlyIfNeeded，不在出现时激活应用。macOS 13+ canJoinAllApplications 用于台前调度集合，另设 canJoinAllSpaces/fullScreenAuxiliary；Space 切换收起入口。系统级焦点、全屏/台前调度与多屏行为仍需实际验收。
+- url 是独立窗，noticeUrl 为页面浮窗提醒，inlineUrl 为无品牌核心内容且保留完成结果。支持 iframe 的本地 Web/聊天宿主可嵌入同一 URL；没有自动接入第三方 IM 或图片渠道。
+- 回环 URL 含每次启动随机路径，是本机交互访问凭据；只交给用户或可信本地宿主，不公开传播。服务器验证 Host、Origin、内容类型、体积和步骤。它不执行任意生成的 HTML 或脚本；卡片答案不构成其他工具的权限放行。
+
+## 风格和品牌
+
+直接沿用 `/Users/zoran/Documents/yonder-card-web` 的 DESIGN.md、src/styles.css、Button/Field（参考 1c5b692aa5ff40de9ee9c8105f96a564fb38aa98）：浅深色令牌、Geist、字号/圆角/阴影/曲线。未改 ai-card 工程；字体许可在 web/assets/Geist-LICENSE。正式共享样式源尚未抽包。
+
+角色构建时直接内联本仓库 brand/src/yonder-mark.js；输入倾听、完成反馈，不代表录音或模型状态。减少动态效果时显示静态 Logo。[OpenUI](https://www.openui.com/demos) 与 [assistant-ui](https://www.assistant-ui.com/elements) 仅作渐进交互参考，未引入其运行时。
+
+## 验证
+
+```sh
+node plugins/ui-companion/test/state.mjs
+npx vitest run plugins/ui-companion/test/contract.test.ts
+npm run build && npm run typecheck && npm test && npm run lint
+```
+
+隔离分支 zoran/ui-companion-prototype；主工作区未提交的 channel-card 改动未触碰。原型旧提交保留在 Git 历史中，源码不保留双实现。
+
+- 原型迁移前基线：52 文件通过/11 跳过，195 测试通过/23 跳过，0 失败。
+- 首次插件聚焦检查：2 失败；配置省略读取和源码测试资产路径发现问题，均修复。迁移时状态自检首次因测试导入替换误删实参失败，已修正，后续通过。
+- 首次插件全仓：52 文件通过/1 失败/11 跳过，195 测试通过/2 失败/23 跳过；与上述配置/资产问题相同。
+- 修复后聚焦插件：2/2 通过。第二轮全仓：50 文件通过/3 失败/11 跳过，192 测试通过/5 失败/23 跳过；失败均为未修改的 CLI/微信用例 5 秒超时。以 maxWorkers=2 聚焦同三文件及插件：4 文件通过，13 测试通过/1 跳过，0 失败。未放宽断言或超时。
+- 状态及原生几何自检通过；包括默认收起、宿主保留、恢复、历史快照、重复/越权答案、取消等待、会话关闭及重启恢复。
+- 使用真实 Harness 插件加载器和注册工具启动，浏览器实际选择→填写→收起，result 工具拿到真实界面提交的两步答案；这不等于模型自主使用验收。
+- 原生实际选择按钮→结果工具收到 confirm→自动收起闭环通过。原生文本输入、台前调度/全屏/多屏及其他应用焦点保持仍待人工实际验收。
+- 没有调用模型；真实模型自主选用与已安装正式服务验收未测。
+
+- 最终全仓以 maxWorkers=4 完整运行：53 文件通过/11 跳过，197 测试通过/23 跳过，0 失败；未改断言或超时。构建/typecheck 通过，lint 184 条既有警告和 1 条提示，插件单独检查无警告。

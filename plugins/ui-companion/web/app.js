@@ -1,10 +1,12 @@
-import { createCharacter, markPath } from "../../brand/src/yonder-mark.js";
-import { beginTask, completeStep, emptyState, initialTask, readState, STORAGE_KEY } from "./state.mjs";
+import { createCharacter, markPath } from "../../../brand/src/yonder-mark.js";
+import { beginTask, completeStep, emptyState, readState, STORAGE_KEY } from "./state.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const bridge = window.webkit?.messageHandlers?.companion;
 const native = Boolean(bridge);
+const connected = location.protocol === "http:" && location.pathname !== "/";
 document.body.classList.toggle("native", native);
+let submitting = false;
 let state = emptyState(),
 	storageAvailable = true,
 	open = true,
@@ -16,7 +18,7 @@ function error(reason) {
 	$("#storage-error").textContent = `无法保存：${reason.message} 请先复制内容。`;
 }
 try {
-	state = readState(localStorage.getItem(STORAGE_KEY));
+	state = readState(localStorage.getItem(connected ? `yonder-ui:${location.pathname}` : STORAGE_KEY));
 } catch (reason) {
 	storageAvailable = false;
 	error(reason);
@@ -24,19 +26,13 @@ try {
 function save(next) {
 	if (!storageAvailable) return false;
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+		localStorage.setItem(connected ? `yonder-ui:${location.pathname}` : STORAGE_KEY, JSON.stringify(next));
 		state = next;
 		return true;
 	} catch (reason) {
 		error(reason);
 		return false;
 	}
-}
-if (!state.active && storageAvailable) {
-	const next = beginTask(state, initialTask, crypto.randomUUID());
-	next.active.draft = state.draft;
-	if (state.draft) next.active.card = initialTask.next;
-	save(next);
 }
 for (const mark of document.querySelectorAll(".static-mark"))
 	mark.innerHTML = `<svg viewBox="0 0 256 256" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="${markPath({ smallCut: true })}"/></svg>`;
@@ -109,7 +105,11 @@ function summary(target, steps) {
 function render() {
 	const active = state.active;
 	if (!active) {
+		$("#task-context").textContent = "";
+		$("#task-title").textContent = "暂无待处理交互";
 		$("#choices").replaceChildren();
+		$("#note-form").hidden = true;
+		showScene("task");
 		return;
 	}
 	if (active.completed) {
@@ -136,25 +136,36 @@ function render() {
 	$("#finish").disabled = !storageAvailable;
 	showScene("task");
 }
-function finish(answer) {
-	let next;
+async function finish(answer) {
+	if (submitting) return;
+	submitting = true;
 	try {
-		next = completeStep(state, answer, Date.now());
+		const current = state.active;
+		const next = completeStep(state, answer, Date.now());
+		if (connected) {
+			const response = await fetch(new URL("answer", location.href), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ id: current.id, answer, step: current.steps.length }),
+			});
+			if (!response.ok) throw new Error(await response.text());
+		}
+		if (!save(next)) return;
+		setPose("done");
+		render();
+		const active = state.active;
+		$("#announcement").textContent = active.completed ? "已完成" : "已记录，继续下一步";
+		window.dispatchEvent(
+			new CustomEvent("yonder-interaction", {
+				detail: { id: active.id, step: active.steps.at(-1), completed: active.completed },
+			}),
+		);
+		if (state.active === active && active.completed && active.autoClose && surface !== "inline") setOpen(false);
 	} catch (reason) {
 		error(reason);
-		return;
+	} finally {
+		submitting = false;
 	}
-	if (!save(next)) return;
-	setPose("done");
-	render();
-	const active = state.active;
-	$("#announcement").textContent = active.completed ? "已完成" : "已记录，继续下一步";
-	window.dispatchEvent(
-		new CustomEvent("yonder-interaction", {
-			detail: { id: active.id, step: active.steps.at(-1), completed: active.completed },
-		}),
-	);
-	if (state.active === active && active.completed && active.autoClose && surface !== "inline") setOpen(false);
 }
 $("#note").addEventListener("focus", () => setPose("listen"));
 $("#note").addEventListener("blur", () => setPose("idle"));
@@ -357,7 +368,7 @@ function setSurface(next) {
 	}
 }
 window.addEventListener("hashchange", () => setSurface(location.hash.slice(1) || "window"));
-// Local host API only. A real Agent adapter must still use the Harness event/binding contract.
+// The trusted plugin host supplies cards; model answers return through the originating tool context.
 window.yonderUI = {
 	present(card) {
 		const next = beginTask(state, card, crypto.randomUUID());
@@ -375,3 +386,54 @@ window.yonderUI = {
 render();
 setSurface(location.hash.slice(1) || "window");
 draw();
+
+if (connected) {
+	document.querySelector(".preview-bar").hidden = true;
+	let syncing = false;
+	async function syncHost() {
+		if (syncing || submitting) return;
+		syncing = true;
+		try {
+			const response = await fetch(new URL("state", location.href));
+			if (!response.ok) throw new Error(await response.text());
+			const data = await response.json();
+			if (submitting) return;
+			state.sessions = data.history.filter((item) => item.id !== state.active?.id);
+			if (data.active && state.active?.id !== data.active.id) {
+				const next = beginTask(state, data.active.card, data.active.id);
+				next.active = data.active;
+				if (save(next)) {
+					render();
+					setPose("idle");
+					if (native) bridge.postMessage({ action: "attention" });
+					else if (surface !== "notice") setOpen(true);
+				}
+			} else if (data.active && !state.active?.completed && data.active.steps.length !== state.active.steps.length) {
+				if (save({ ...state, active: data.active })) render();
+			} else if (!data.active) {
+				const completed =
+					data.history.find((item) => item.id === state.active?.id && item.completed) ??
+					(!state.active ? data.history.findLast((item) => item.completed) : null);
+				if (completed && !state.active?.completed) {
+					if (
+						save({ ...state, active: completed, sessions: data.history.filter((item) => item.id !== completed.id) })
+					) {
+						render();
+						if (completed.autoClose && surface !== "inline") setOpen(false);
+					}
+				} else if (state.active && !state.active.completed) {
+					if (save({ ...state, active: null })) {
+						render();
+						if (surface !== "inline") setOpen(false);
+					}
+				}
+			}
+		} catch (reason) {
+			error(reason);
+		} finally {
+			syncing = false;
+		}
+	}
+	await syncHost();
+	setInterval(syncHost, 1000);
+}

@@ -24,10 +24,11 @@
 		"plugins/mcp-client",
 		"plugins/native-automation",
 		"plugins/wechat-archive",
-		"plugins/channel-wechat-ilink"
+		"plugins/channel-wechat-ilink",
+		"plugins/ui-companion"
 	],
 	"scripts": {
-		"build": "tsc -b && node scripts/build-macos.mjs",
+		"build": "tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs --native",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"lint": "biome check .",

@@ -169,3 +169,14 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 所有入站均通过 ChannelIO.emit(message.in)，账号和会话分别为 acct:<instance>:<peer>、conv:<instance>:<peer>；关系由现有 identity 与 agent.owner 求值。主人绑定可进 main；其他人按 from:known/stranger 进入 per:conv persistent 与受限 profile，不默认与主人共享上下文或私密工具。实例的连接先后不参与运行时权限判定。
 
 出站复用 message_send/api.messages.send，支持文本及 image/audio/video/file（音频作为文件，不声称原生语音气泡）。过程流按 message_end/final 每条气泡发送，不逐 token 发消息；原生引用 replyTo 保留。发送必须有该 peer 的 context token；缺失明确失败，不能拿主人 token 替代。已部分发送或网络结果不明返回 uncertain，不自动重发。入站媒体下载解密，SILK 转 WAV、其余支持编码保留音频，不默认 ASR，不声称客户端送达或内容理解已验收。普通微信群不在可声明能力内。
+
+## UI Companion 交互窗口
+
+2026-10-22 用户确认原型并要求直接接入插件。官方插件 `ui-companion` 仅使用 tools、triggers 与既有 session.close 事件；不增加 SDK 槽或内核状态机。
+
+- `ui-companion_present` 接受 card：id/title/prompt、kind（choice/form）、choice 的 options（唯一 id、label）、可选 next 和 autoClose（默认 true）。返回交互 id、回环页面 URL、页面提醒 URL 与无品牌内嵌 URL。任何被配置选择了该工具的 Agent/预设均可使用；呈现需 message、exec，限 node:local。插件加载不代表自动给所有 Agent 开工具。
+- `ui-companion_result` 接受 id、可选 wait（默认 true），仅返回本次实际 session/agent/profile 发起的卡片结果；需要 read。等待复用宿主工具取消/后台执行，不创建第二个模型循环。取消等待不取消卡片，后续可继续查询；session.close 取消该会话未完成卡片。卡片回答只是输入，不构成对其他工具的权限放行。
+- 服务仅监听 127.0.0.1 随机端口，页面及答案接口使用每次启动随机路径，验证 Host、Origin、JSON 和体积。回环 URL 是本地交互访问凭据，只交给用户或可信本地宿主，不发布到公共渠道。多个请求排队展示；答案按交互 id 和步骤序号接纳，拒绝过期/重复步骤。完整卡片和实际答案落在插件私有 data 目录，重启恢复待处理卡片与历史。
+- Web 与原生使用同一内容与状态逻辑。保留 ai-card 风格、共享品牌源、大区域拖拽、展开/收起同一锚点、放大悬浮 Logo、逐步历史回溯。网页 `#notice` 为浮窗提醒，`#inline` 仅核心内容且保留完成结果；可嵌入支持 iframe 的本地页面或 IM 宿主，不自动适配第三方 IM。
+- macOS 自带非激活 NSPanel 宿主，默认首次提交才启动，先显示紧凑入口；desktop:false 时仅提供网页。插件停止关闭其服务器与自有宿主，不改正式状态栏服务、登录项或系统模式。台前调度/全屏/多显示器及输入焦点以实际验收为准，配置标记不能替代验收。
+- 本期只接已确认的结构化卡片，不接任意生成 HTML/SVG 执行、图片投递或语音唤醒。
