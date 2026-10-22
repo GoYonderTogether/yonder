@@ -313,6 +313,25 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
 			db,
+			...(process.env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
+				? {
+						loginOperations: {
+							runner: {
+								start: async () => {
+									throw new Error("Login runner unsupported until CLI integration");
+								},
+							},
+							deliver: async (entry, requestId) => {
+								await realRuntime().submit(entry.session, {
+									text: `Login operation ${entry.outcome}.`,
+									wake: "run",
+									requestId: `login:${requestId}`,
+								});
+								return "delivered" as const;
+							},
+						},
+					}
+				: {}),
 			home,
 			config,
 			plugins: [...loaded.tools].map(([id, tools]) => ({ id, tools, hooks: loaded.hooks.get(id) ?? [] })),
