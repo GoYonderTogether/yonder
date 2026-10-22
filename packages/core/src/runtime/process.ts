@@ -6,24 +6,25 @@ import { Type } from "typebox";
 
 export function processTool(
 	home: string,
-	jobs: Map<number, { output: string; write?: (text: string) => Promise<void> }>,
+	jobs: Map<number, { output: string; write?: (text: string, eof?: boolean) => Promise<void> }>,
 ): ToolRegistration {
 	return {
 		name: "bash",
 		deferred: true,
 		description:
-			"Run a shell command in the execution workspace. Calls lasting 15 seconds return a background id automatically; background=true yields immediately. Use process for logs, stdin, status or cancellation. timeout is a soft elapsed-time reminder, not a kill limit. Output is bounded; full stdout/stderr is retained in the reported log file. Pipes are supported; this is not a PTY.",
+			"Run a shell command in the execution workspace. Calls lasting 15 seconds return a background id automatically; background=true yields immediately. Use process for logs, stdin, status or cancellation. timeout is a soft elapsed-time reminder, not a kill limit. Output is bounded; full stdout/stderr is retained in the reported log file. Stdin is closed by default; set stdin=true only for commands that need process.write, then finish input with eof=true. Shell pipelines are supported; this is not a PTY. Specify a search path when searching files.",
 		parameters: Type.Object(
 			{
 				command: Type.String(),
 				cwd: Type.Optional(Type.String()),
 				background: Type.Optional(Type.Boolean()),
+				stdin: Type.Optional(Type.Boolean()),
 				timeout: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
 			},
 			{ additionalProperties: false },
 		),
 		async execute(value, api, context) {
-			const args = value as { command: string; cwd?: string; timeout?: number };
+			const args = value as { command: string; cwd?: string; timeout?: number; stdin?: boolean };
 			if (api.env?.id !== "node:local")
 				throw new Error("Interactive process management requires the local environment");
 			const folder = join(home, ".yonder", "background");
@@ -35,7 +36,7 @@ export function processTool(
 					const child = spawn("/bin/bash", ["-c", args.command], {
 						cwd: args.cwd ?? api.env!.cwd,
 						detached: true,
-						stdio: ["pipe", "pipe", "pipe"],
+						stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
 					});
 					let output = "",
 						stderr = "",
@@ -46,8 +47,8 @@ export function processTool(
 						output = (output + text).slice(-65536);
 						if (error) stderr = (stderr + text).slice(-65536);
 						api.output(text);
-						child.stdout.pause();
-						child.stderr.pause();
+						child.stdout!.pause();
+						child.stderr!.pause();
 						pendingWrites++;
 						writes = writes
 							.then(() => log.write(text))
@@ -58,8 +59,8 @@ export function processTool(
 							})
 							.finally(() => {
 								if (--pendingWrites === 0) {
-									child.stdout.resume();
-									child.stderr.resume();
+									child.stdout!.resume();
+									child.stderr!.resume();
 								}
 							});
 					};
@@ -92,12 +93,18 @@ export function processTool(
 						: undefined;
 					timer?.unref();
 					const job = jobs.get(api.taskId);
-					if (job)
-						job.write = (text) =>
-							new Promise<void>((done, fail) => child.stdin.write(text, (error) => (error ? fail(error) : done())));
-					child.stdout.setEncoding("utf8").on("data", (text: string) => append(text));
-					child.stderr.setEncoding("utf8").on("data", (text: string) => append(text, true));
-					child.stdin.on("error", () => {});
+					if (job && child.stdin)
+						job.write = async (text, eof) => {
+							const input = child.stdin!;
+							await new Promise<void>((done, fail) => input.write(text, (error) => (error ? fail(error) : done())));
+							if (eof) {
+								input.end();
+								delete job.write;
+							}
+						};
+					child.stdout!.setEncoding("utf8").on("data", (text: string) => append(text));
+					child.stderr!.setEncoding("utf8").on("data", (text: string) => append(text, true));
+					child.stdin?.on("error", () => {});
 					child.once("error", (error) => {
 						fault = error;
 					});
