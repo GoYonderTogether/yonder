@@ -157,6 +157,7 @@ export class Ledger {
 		label: string,
 		association: Pick<Task, "owner" | "sourceSession" | "sourceRun" | "executorSession" | "target"> = {},
 	) {
+		this.assertWritable();
 		if (this.tasks.some((t) => t.id === id)) throw Error("duplicate task");
 		const t: Task = {
 			id,
@@ -173,6 +174,7 @@ export class Ledger {
 		return t;
 	}
 	async event(e: Event) {
+		this.assertWritable();
 		const t = this.tasks.find((x) => x.id === e.task);
 		if (!t) throw Error("unknown task");
 		apply(t, e);
@@ -180,6 +182,7 @@ export class Ledger {
 		return t;
 	}
 	async bindExecutor(id: string, session: string) {
+		this.assertWritable();
 		const task = this.tasks.find((item) => item.id === id);
 		if (!task) throw Error("unknown task");
 		if (task.executorSession && task.executorSession !== session) throw Error("executor session already bound");
@@ -188,6 +191,7 @@ export class Ledger {
 		return task;
 	}
 	async decision(id: string, d: Decision, now = Date.now()) {
+		this.assertWritable();
 		const t = this.tasks.find((x) => x.id === id);
 		if (!t) throw Error("unknown task");
 		if (!verifyDecision(d, t, now)) throw Error("decision violates evidence/quiet policy");
@@ -204,6 +208,7 @@ export class Ledger {
 	}
 	/** Cancel only while the matching attempt is still unambiguously before send. */
 	async cancelBeforeSend(id: string, attemptId: string) {
+		this.assertWritable();
 		const t = this.tasks.find((x) => x.id === id);
 		if (!t || t.attempt !== attemptId || t.delivery !== "unknown" || t.sendEntered) return false;
 		t.delivery = "not_sent";
@@ -231,6 +236,7 @@ export class Ledger {
 		return true;
 	}
 	async receipt(id: string, attemptId: string, state: "sent" | "failed" | "unknown") {
+		this.assertWritable();
 		const t = this.tasks.find((x) => x.id === id);
 		if (!t) throw Error("unknown task");
 		if (t.attempt !== attemptId) return false;
