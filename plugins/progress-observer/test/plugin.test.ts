@@ -77,15 +77,49 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 		const replay = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
 		expect(replay[0].seen).toEqual([]);
 		await tool.execute(
-			{ label: "Actual invocation" },
-			{ agent: "main", session: "source", events: [{ id: "caller-input", type: "session.input" }] },
+			{ label: "Actual invocation", to: "conv:evil:room" },
+			{
+				agent: "main",
+				session: "source",
+				event: { id: "caller-input", type: "message.in", conv: "conv:real:room" },
+				events: [{ id: "spoof", type: "message.in", conv: "conv:evil:room" }],
+			},
 		);
 		const registered = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
 		expect(registered[2]).toMatchObject({
 			owner: "main",
 			sourceSession: "source",
 			sourceRun: "caller-input",
+			target: "conv:real:room",
 		});
+		for (const [label, event, args] of [
+			["acct source", { id: "acct-event", type: "message.in", conv: "acct:feishu:user-1" }, {}],
+			["invalid source", { id: "bad-event", type: "message.in", conv: "conv:BAD:room" }, {}],
+			["model target ignored", { id: "model-target", type: "message.in", conv: undefined }, { to: "conv:forged:room" }],
+			["non-message", { id: "non-message", type: "session.input", conv: "conv:real:room" }, {}],
+			["missing source", undefined, {}],
+		] as const) {
+			await tool.execute(
+				{ label, ...args },
+				{
+					agent: "main",
+					session: "source",
+					event,
+					events: [{ id: "history", type: "message.in", conv: "conv:history:room" }],
+				},
+			);
+		}
+		const boundary = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
+		expect(boundary[3]).toMatchObject({ sourceRun: "acct-event", target: "acct:feishu:user-1" });
+		expect(boundary[4]).toMatchObject({ sourceRun: "bad-event" });
+		expect(boundary[4].target).toBeUndefined();
+		expect(boundary[5]).toMatchObject({ sourceRun: "model-target" });
+		expect(boundary[5].target).toBeUndefined();
+		for (const item of boundary.slice(6)) {
+			expect(item.sourceRun).toBeUndefined();
+			expect(item.target).toBeUndefined();
+		}
+		expect(boundary[6].sourceSession).toBe("source");
 		// Durable task.linked evidence is replayable and uniquely binds parallel work.
 		links = [
 			{ from: "system:runtime", data: { parentSession: "source", childSession: "child", sourceEvent: "parent-event" } },
