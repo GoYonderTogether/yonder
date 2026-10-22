@@ -189,8 +189,9 @@ export class Runtime {
 		const live = await this.harness.snapshot(LiveDoc, cid(session), context);
 		if (!live?.run) return;
 		const id = String(live.run.inputs[0]);
-		if (this.limits.states.has(id)) {
-			if (!this.restoring) await this.preparePlacedInputs(session, this.limits.states.get(id)!.config, context);
+		const active = this.limits.states.get(id);
+		if (active) {
+			if (!this.restoring) await this.preparePlacedInputs(session, active.config, active.started, context);
 			return;
 		}
 		const saved = await this.harness.snapshot(RunDoc, cid(session), id, context);
@@ -229,7 +230,7 @@ export class Runtime {
 		};
 		if (!this.restoring) this.limits.arm(state);
 		this.limits.states.set(id, state);
-		if (!this.restoring) await this.preparePlacedInputs(session, config, context);
+		if (!this.restoring) await this.preparePlacedInputs(session, config, started, context);
 	}
 	/** Per-run effort from authorized delegations; changes only this run's snapshot, never the profile or session. */
 	private async applyRequestedEffort(session: string, config: RuntimeSessionConfig, context: Context): Promise<void> {
@@ -333,13 +334,7 @@ export class Runtime {
 						const sections =
 							(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ??
 							[];
-						const state = [...this.limits.states.values()].find(
-							(state) => state.session === String(input.conversationId),
-						)!;
-						return [
-							...sections,
-							`<runtime_clock utc="${new Date().toISOString()}">Elapsed ${Math.round((Date.now() - state.started) / 1000)} seconds. Time/turn/token thresholds are reminders; explicit cancellation and real provider limits remain effective.</runtime_clock>`,
-						].join("\n\n");
+						return sections.join("\n\n");
 					},
 					{ tag: false },
 				),
@@ -663,7 +658,12 @@ export class Runtime {
 		}
 		return content;
 	}
-	private async preparePlacedInputs(session: string, config: RuntimeSessionConfig, context: Context): Promise<void> {
+	private async preparePlacedInputs(
+		session: string,
+		config: RuntimeSessionConfig,
+		started: number,
+		context: Context,
+	): Promise<void> {
 		const conversation = await this.conversation(session);
 		let view = await conversation.context(context);
 		const prepared = new Set(
@@ -682,6 +682,10 @@ export class Runtime {
 				event && this.options.prepareInput
 					? await this.options.prepareInput(session, event, config, data.wake ?? "run", context.abortSignal)
 					: { text: textOf(entry), ...(event ? { event } : {}), attachments: data.attachments ?? [] };
+			if (data.wake !== "write") {
+				const now = Date.now();
+				input.text = `<runtime_clock utc="${new Date(now).toISOString()}">Elapsed ${Math.round((now - started) / 1000)} seconds at input preparation. Time/turn/token thresholds are reminders; explicit cancellation and real provider limits remain effective.</runtime_clock>\n\n${input.text}`;
+			}
 			const slash = config.resolved.model.indexOf("/");
 			const model = this.models.getModel(config.resolved.model.slice(0, slash), config.resolved.model.slice(slash + 1));
 			const images = view.messages.flatMap((message) =>

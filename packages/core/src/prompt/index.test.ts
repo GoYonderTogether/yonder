@@ -87,6 +87,7 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 		expect(commonPrompt).toContain("Do not promise that a running tool can be interrupted immediately.");
 		expect(sections).toContain(runtimePrompt);
 		expect(sections).not.toContain(residentPrompt);
+		expect(framework(session)).not.toContain("agent_ask");
 		expect(sections.includes(cliPrompt)).toBe(level === "standard");
 		expect(sections.join("\n")).not.toContain("exactly one owner");
 	}
