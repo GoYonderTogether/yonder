@@ -43,17 +43,18 @@ it("initializes only on start and preserves every existing file byte on restart"
 	const r = await setup(root);
 	await r.triggers[0]!.start({
 		emit: async () => {
-			throw new Error("WP1 must not emit");
+			return {} as import("@yonder/sdk").YEvent;
 		},
 	});
 	expect(await readFile(join(root, "SCHEMA.md"), "utf8")).toBe("用户改写\r\n");
 	await writeFile(join(root, "me/now.md"), "当前手记\n");
 	await r.triggers[0]!.start({
 		emit: async () => {
-			throw new Error("must not emit");
+			return {} as import("@yonder/sdk").YEvent;
 		},
 	});
 	expect(await readFile(join(root, "me/now.md"), "utf8")).toBe("当前手记\n");
+	await r.triggers[0]!.stop();
 	expect(await readdir(root)).toEqual(expect.arrayContaining(["mine", "timeline", "raw", ".memory", "SCHEMA.md"]));
 });
 it("rejects equality, both containment directions, and symlink aliases before initialization", async () => {
@@ -111,7 +112,7 @@ it("status returns readiness and counts without private content; denies missing 
 	const r = await setup(root, { roots: [{ name: "notes", path: source }] });
 	await r.triggers[0]!.start({
 		emit: async () => {
-			throw new Error("must not emit");
+			return {} as import("@yonder/sdk").YEvent;
 		},
 	});
 	await writeFile(join(root, "inbox/a.txt"), "一段资料");
@@ -119,6 +120,7 @@ it("status returns readiness and counts without private content; denies missing 
 		join(root, "timeline/private.md"),
 		"---\nprivate: true\n---\n- [ ] 12:00 {capture} 秘密 ^m12345678ab\n",
 	);
+	await r.triggers[0]!.stop();
 	const result = await r.tools[0]!.execute({}, context());
 	const value = JSON.parse(result.text);
 	expect(value).toMatchObject({

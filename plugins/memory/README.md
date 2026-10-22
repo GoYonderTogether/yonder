@@ -20,3 +20,7 @@ WP3 使用 PATH 中的 `rg`，固定字面/忽略大小写/不跟随链接参数
 WP4 已接入主人白名单消息与 inbox：chokidar@5.0.0（MIT，Node ≥20.19）awaitWriteFinish 1000ms；周期重扫兜底。点文件和下载临时文件不处理；转换失败留在 inbox 并在 status 报错。文本原件不添加 frontmatter，manifest 的 files[path].origin 是其权威来源，hashes[sha256] 指原件路径；keys 保存事件/微信等去重引用，不含正文。附件使用随机前缀文件名避免冲突。转换文件为原件路径加 .converted.md，写 origin/source/sha256/converted，并做 NFKC。推荐外部 markitdown 0.1.9（MIT），插件不负责安装。
 
 WP5 已接入 memory_plan、memory_review、memory_me。所有操作显式传 op，参数见规范 §5.1；commit/confirm 检查当前运行首事件为owner message.in且晚于提议。confirmed事实的evidence为 evt:<当前事件id> 或 ^<确定性chat/wechat-self条目id>，模型调用的said不算证据。me手改条目通过与插件写入快照比对，读取时按confirmed呈现，不回改用户文件；历史不删除。新建me文件含当前/历史，新建month/year/vision含规范节与历史，不覆盖已有文件。
+
+WP6 已接入名单内微信实时/历史、memory_import、memory_bootstrap和memory-keeper预设。微信正文仅用于存储与调用方检索，日志只记录元信息；历史和实时共用 wechat:<chat>:<msgid> 键。分页按CLI给出的nextBefore继续，不假定数值递减；dryRun不写入，返回written=0。未同步或无转换器时不会自行修环境。
+
+审计采用 gpt-tokenizer@4.1.0（MIT）o200k_base，只读、无模型调用、不触发转换；按文本估tokens，未转换格式单列未估。输入目录价来自api.models（美元/百万tokens），无价不猜，仅作输入单次量级估算，不含输出、多轮和订阅计费差异。ack缺省静默cooldownHours，传snoozeDays可覆盖；first-run ack设置initialized，first-run/source-new ack持久记录本次确认审计的来源名/id。初始化和告警不创建agent、作业或导入。

@@ -114,3 +114,17 @@
 - 已验证：提议与计划分离、cron/非owner/同轮确认被拒、后续owner确认写事件引用、Tasks截止日期及四种任务状态/延期计数；周/月/年/愿景读取，非法日期与节写入拒绝。
 - 已验证：正文与空行不变、organize幂等无写入、复盘为空拒绝close、有积压仅警告；confirmed无证据或said证据拒绝、当前owner事件证据接受；supersede历史保留、用户手改读取为confirmed且不回改源文件。
 - 仅实现未做真实模型验收：模型自主规划/整理、复杂决定五项内容质量；工具不核验语义。未访问个人资料库。本包无新增规范空白。
+
+## WP6
+
+文件：新增 src/{wechat,bootstrap}.ts、test/wp6.test.ts；修改 src/index.ts、test/wp1.test.ts（启动器现会真正发attention）、package.json、README.md、本记录。另有外部并发修复提交3e9b952，单独记录，不混入WP6提交。
+
+- 初步build及各轮build/typecheck均退出0。
+- 首轮全测：212通过 / 18失败 / 24跳过（254）；文件54通过 / 5失败 / 11跳过。失败含并发加入的锁逻辑预创建空文档回归、watcher未入库及一次并发清理ENOTEMPTY。同期进入WP5提交的store/proper-lockfile来自另一写入来源，WP5先前测试结果发生在该改动之前；不能作为其验证。外部来源已在3e9b952改为独立锁路径并单独提交测试/说明。
+- 第二轮全测：229通过 / 1失败 / 24跳过（254）；文件58通过 / 1失败 / 11跳过。失败为错误假定微信nextBefore数值递减；实测游标可增，改为只检测重复游标，不改CLI协议。
+- 第三轮完整链 build/typecheck、`MEMORY_TEST_WECHAT_CHAT=<唯一授权会话> npm test -- --maxWorkers=2`、lint全部退出0：231通过 / 0失败 / 24跳过（255）；文件59通过 / 0失败 / 11跳过。新增计数含外部提交的hardening用例；默认转换测试未启用，WP4已实测。
+- 为提取计数额外专项 `-t 'explicitly authorized real chat' --disableConsoleIntercept --reporter=verbose`：1通过 / 0失败 / 3跳过。
+- 真实微信仅授权会话：读608条、写608条、跳过0；第二遍新增0、跳过608；审计字符54603，去重通过。只在系统临时记忆根写入，afterEach停止触发器并删除；未读取其他会话、未保留正文。报告仅计数。
+- lint 240文件，0 errors / 254 warnings / 8 infos；独立checkPlugin=[]。根package-lock由另一来源留有更新，本轮不暂存该文件。
+- 已验证：first-run一次、冷却及ack持久化、audit只读字节/mtime、积压事件、未转换文件未估且不转换、名单外拒绝、无时间跳过、realtime共享去重键、自写微信记录可作事实证据；预设已注册但真实模型运行留至WP7。
+- gpt-tokenizer精确4.1.0（MIT），使用o200k_base且只读目录价；动态加载避免setup加载编码表。仅实现未验证：生产归档实时推送、真实同步停止时的自动告警、非OpenAI分词器费用精度。无新增规范待决项。
