@@ -36,10 +36,10 @@ G0 已通过（见 [g0-report.md](g0-report.md)）：规划方已补测转换器
 
 | WP | 内容 | 验收 |
 |---|---|---|
-| 1 | 包骨架、清单（`contributes` 与实际注册一致）、配置 schema（规范 §10 全部字段）、`memory_status`、首次启动创建 §2 的目录与 `SCHEMA.md`（已存在文件不覆盖；创建发生在触发器 start，不在 setup） | `checkPlugin` 通过；根目录与登记目录互相包含被 status 报出；已有文件字节不变 |
+| 1 | 包骨架、清单（`contributes` 与实际注册一致）、配置 schema（规范 §10 全部字段）、`memory_status`、首次启动创建 §2 的目录与 `SCHEMA.md`（已存在文件不覆盖；创建发生在触发器 start，不在 setup） | `checkPlugin` 通过；`root` 与 `roots[].path` 相同或互相包含时配置校验失败（字段级错误，不初始化）；已有文件字节不变 |
 | 2 | 周/月文档引擎：路径与 ISO 周规则（周四定月）、记录流末尾 `O_APPEND`、整理标记翻转、节写入、mtime 并发保护、原子替换、互斥队列、`log.md`；`memory_capture`（note/material/private/when/by） | 并发追加不丢行；用户中途改文件后写入不覆盖；超长正文落 `raw/`；原文逐字不变 |
-| 3 | `memory_search`（rg 固定参数、term 原样加 NFKC 双搜、聚合排序、zones/since/until/origin/private）、`memory_read`；登记目录只读检索 | 中文子串命中；康熙部首文本能被普通汉字 term 命中；越界路径与符号链接被拒；登记目录前后字节与 mtime 不变 |
-| 4 | `message.in` 采集（owner 核验、渠道白名单、附件复制）、`memory-inbox` 触发器（稳定性判断、sha256 去重、manifest、converter 调用约定、转换产物 NFKC、`memory.captured`） | 重复文件不重复入库；转换失败保留原件并在 status 可见；非 owner 消息不被记录；用 markitdown 实测 PDF/docx/中文文件 |
+| 3 | `memory_search`（rg 固定参数、term 原样加 NFKC 双搜、聚合排序、zones/since/until/origin/private）、`memory_read`；登记目录只读检索 | 中文子串命中；全角冒号等用户输入的兼容形式能命中规范形式文本（NFKC 双搜）；origin 按命中行返回并按命中过滤；越界路径与符号链接被拒；登记目录前后字节与 mtime 不变 |
+| 4 | `message.in` 采集（owner 核验、渠道白名单、附件复制）、`memory-inbox` 触发器（稳定性判断、sha256 去重、manifest、converter 调用约定、转换产物 NFKC、`memory.captured`） | 重复文件不重复入库；转换失败保留原件并在 status 可见；非 owner 消息不被记录；用 markitdown 实测 PDF/docx/中文文件；含康熙部首的 PDF 经 NFKC 入库后，普通汉字 term 能命中（这是康熙部首验收的归属） |
 | 5 | `memory_plan`、`memory_review`、`memory_me`，含确认核验（`ToolContext.event` 须为 owner 的 `message.in` 且晚于提议；`confirmed` 的 `evidence` 规则见规范 §5）、`supersede` 关旧开新、`close` 规则 | cron 触发的运行里 `commit/confirm` 被拒；无有效 `evidence` 时 `confirmed` 的 add 被拒；整理幂等；`[ ]/[x]` 翻转只改标记 |
 | 6 | 微信来源（`wechat-archive.material` 实时、`memory_import` 回填、`wechat:<chat>:<msgid>` 去重）；启动器 `memory-bootstrap`、`memory_bootstrap`（audit/ack/state）、审计与费用估算（`js-tiktoken` 精确版本、`api.models` 的目录价）；预设 `memory-keeper` | 先向我要 `wechat-context` 的可用性确认，**只用名单内会话**；实时与回填同一消息只记一次；`first-run` 恰好一条且 ack 后不重复；审计数字与实际一致且只读 |
 | 7 | 上下文 `memory-core`/`memory-week`（私密排除、owner 判断）、6 个 skill、`SCHEMA.md` 正文、README（规范 §13 要求的全部内容；cron 示例 payload 必须含 `kind: "event"`）、`docs/plugins.md` 条目由“规范已定，未实现”改为实际状态 | 真实模型验收规范 §12 的 1–8 条；未跑的标“未测” |
