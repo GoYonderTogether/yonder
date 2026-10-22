@@ -111,8 +111,8 @@ status: open            # open | reviewed
 | `memory_review` | write, admin | `pending`（列未整理条目）；`organize`（翻转标记并写去向）；`section`（写周/月文档的 `决定 / 产出 / 复盘 / 月复盘` 等节，`append` 或 `replace`）；`close`（周 `status: reviewed`，复盘节为空则拒绝；仍有 `[ ]` 时附警告但允许） |
 | `memory_me` | write, admin | `read`；`add`；`supersede`（关旧开新）；`confirm` |
 
-- `commit` 与 `confirm`：参数必须带 `confirmEvent`（一条 `message.in` 的事件 id）。插件用 `events.query` 与 `identity` 核验该事件由配置的 `owner` 发出且晚于被确认条目的写入时间；不核验语义。这是工具的前置条件，不是审批层（不变量 5）。
-- `memory_me.add` 标 `confirmed` 时同样必须带 `confirmEvent` 且事件由 owner 发出（用户亲口所说）；否则只能标 `inferred`。
+- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
+- `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 记录的条目 id（该记录由插件自己从 owner 的消息确定性写入，不是模型写的；`{capture}` 记录不算）。否则只能标 `inferred`。同样不核验语义。
 - `memory_me` 条目格式：`- 内容 {confirmed|inferred} [自 YYYY-MM-DD] (ref: …) ^id`；`supersede` 在原条目追加 `[至 YYYY-MM-DD]` 并移入文件末尾的 `## 历史`，不删除。
 
 ## 6 采集与检索
@@ -184,7 +184,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 
 | skill | 做什么 |
 |---|---|
-| `memory-evening-wrap` | 列当日未整理条目：任务→提议，事实→`me/`（明确陈述需 `confirmEvent`，否则 `inferred`），决定→决定节，产出→产出节；整理后翻转标记；一条消息向用户汇报 |
+| `memory-evening-wrap` | 列当日未整理条目：任务→提议，事实→`me/`（以 `{chat}` 记录为 `evidence` 的可标 `confirmed`，否则 `inferred`），决定→决定节，产出→产出节；整理后翻转标记；一条消息向用户汇报 |
 | `memory-weekly-review` | 草拟复盘；体检（矛盾只标记、`now.md` 过期项、超预算的 `me/` 文件、超两周未确认的 `inferred`、未整理积压）；为下周提议计划；`close` |
 | `memory-monthly-plan` | 回看当月，写月复盘与阶段变化，提议下月目标 |
 | `memory-morning-brief` | 汇总当日计划与到期事项，以单条消息发出 |
