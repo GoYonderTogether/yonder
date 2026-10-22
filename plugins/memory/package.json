@@ -22,7 +22,8 @@
 		"yaml": "2.9.1",
 		"luxon": "3.7.2",
 		"write-file-atomic": "6.0.0",
-		"chokidar": "5.0.0"
+		"chokidar": "5.0.0",
+		"proper-lockfile": "4.1.2"
 	},
 	"yonder": {
 		"apiVersion": 1,
@@ -33,7 +34,10 @@
 				"memory_status",
 				"memory_capture",
 				"memory_search",
-				"memory_read"
+				"memory_read",
+				"memory_plan",
+				"memory_review",
+				"memory_me"
 			],
 			"triggers": [
 				"memory-bootstrap",
@@ -43,6 +47,7 @@
 	},
 	"devDependencies": {
 		"@types/luxon": "3.7.6",
-		"@types/write-file-atomic": "4.0.3"
+		"@types/write-file-atomic": "4.0.3",
+		"@types/proper-lockfile": "4.1.4"
 	}
 }

@@ -72,7 +72,7 @@ export async function capture(
 	const path = args.private ? `private/${date.toFormat("yyyy-MM")}.md` : info.path;
 	if (!args.private) {
 		await store.ensure(`timeline/${info.month}/month.md`, monthTemplate(), meta);
-		await store.ensure(`life/${date.year}.md`, "## 年度目标\n## 提议\n", meta);
+		await store.ensure(`life/${date.year}.md`, "## 年度目标\n## 提议\n## 历史\n", meta);
 	}
 	await store.append(
 		path,

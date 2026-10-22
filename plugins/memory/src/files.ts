@@ -63,10 +63,10 @@ export async function initialize(root: string): Promise<void> {
 	for (const [path, text] of Object.entries({
 		"SCHEMA.md": schemaText,
 		"log.md": "",
-		"me/now.md": "",
-		"me/profile.md": "",
-		"me/mind.md": "",
-		"life/vision.md": "## 提议\n",
+		"me/now.md": "## 当前\n## 历史\n",
+		"me/profile.md": "## 当前\n## 历史\n",
+		"me/mind.md": "## 当前\n## 历史\n",
+		"life/vision.md": "## 愿景\n## 提议\n## 历史\n",
 		".memory/manifest.json": "{}\n",
 	}))
 		await createFile(root, path, text);

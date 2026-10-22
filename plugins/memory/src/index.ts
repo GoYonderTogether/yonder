@@ -5,6 +5,7 @@ import { type Capture, capture, captureSchema } from "./capture.js";
 import { configSchema, validateConfig } from "./config.js";
 import { initialize } from "./files.js";
 import { Ingest } from "./ingest.js";
+import { type Args, meSchema, Organizer, planSchema, reviewSchema } from "./organize.js";
 import { type ReadArgs, read, readSchema, type SearchArgs, search, searchSchema } from "./retrieval.js";
 import { status } from "./status.js";
 import { Store } from "./store.js";
@@ -94,6 +95,28 @@ export default definePlugin({
 			readSchema,
 			false,
 			async (input, ctx) => read(configured(), input as ReadArgs, ctx.signal),
+		);
+		const organizer = config ? new Organizer(api, config) : undefined;
+		register(
+			"memory_plan",
+			"Read/propose/commit/update plans. commit requires a later owner message; proposals are not plans.",
+			planSchema,
+			true,
+			async (input, ctx) => organizer!.plan(input as Args, ctx),
+		);
+		register(
+			"memory_review",
+			"List pending records, organize without editing bodies, write review sections, or close a reviewed week.",
+			reviewSchema,
+			true,
+			async (input, ctx) => organizer!.review(input as Args, ctx),
+		);
+		register(
+			"memory_me",
+			"Read or add/supersede/confirm personal facts. confirmed requires plugin evidence or an owner event. Superseded entries stay in history.",
+			meSchema,
+			true,
+			async (input, ctx) => organizer!.me(input as Args, ctx),
 		);
 	},
 });
