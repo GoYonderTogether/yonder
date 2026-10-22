@@ -39,6 +39,7 @@ import {
 
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
+export { loadYonderConfig } from "../config/index.js";
 export { initHome, inspectHome } from "./home.js";
 export { type ManagementRequest, manageHome, offlineQuery } from "./home-management.js";
 export type { KernelLog } from "./workspace.js";
@@ -326,7 +327,7 @@ export async function openKernel(
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
 			db,
-			...(process.env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
+			...(config.loginOperations?.enabled === true || process.env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
 				? {
 						loginOperations: {
 							runner: options.loginHost ?? {

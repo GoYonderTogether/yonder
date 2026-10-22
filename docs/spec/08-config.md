@@ -56,6 +56,9 @@ retry:                                   # 可省略，以下为默认值；修�
   baseDelayMs: 2000
   maxDelayMs: 300000                     # 每次退避封顶 5 分钟
 
+loginOperations:                        # 可省略；默认关闭。修改后重启 service
+  enabled: false                         # true 启用 login_begin/login_status
+
 compaction:                              # 原样传给 pi-durable
   reserveTokens: 16384
   keepRecentTokens: 20000
@@ -70,6 +73,8 @@ identity:
 ```
 
 `retry` 各字段可单独省略；次数为非负整数，延迟为正整数毫秒（不超过 2147483647）。第 n 次退避为 `min(baseDelayMs * 2^(n-1), maxDelayMs)`，不加随机抖动。次数和截止时间由 pi checkpoint 持久化；恢复保留已消耗次数和已定截止时间，后续退避使用重启后的配置。
+
+`loginOperations.enabled` 是管理员 home 配置，默认关闭；开启后 start 注册登录操作工具并启动其恢复/派发流程，需重启已运行的 service 才生效（不支持热重载）。旧版显式 `YONDER_ENABLE_LOGIN_OPERATIONS=1` 仍可开启，作为兼容开关；二者为 OR 关系，因此设置为 `false` 不会抵消旧环境变量。外部消息和模型参数不能改变此设置。即使启用，`login_begin` 仍要求 `write` capability，并由 host adapter 执行；操作及状态严格绑定发起 session。启用配置不是实际登录验收。
 
 `identity.persons` 只用于初始化；之后的关联变化以存储为准，并写 `identity.link` 事件。
 
