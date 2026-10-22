@@ -29,11 +29,19 @@ describe("controlled login wrapper", () => {
 		const nodePath = join(dir, "fake node 'quoted'");
 		const cliPath = join(dir, "fake cli 'quoted'");
 		const home = join(dir, "home ' ; touch injected");
-		await writeFile(nodePath, `#!/bin/bash\nexit ${exitCode}\n`, { mode: 0o700 });
+		const argvPath = join(dir, "argv.json");
+		await writeFile(nodePath, `#!/bin/bash\nprintf '%s\\n' "$@" > '${argvPath}'\nexit ${exitCode}\n`, { mode: 0o700 });
 		const wrapper = await createLoginWrapper({ nodeExecutable: nodePath, cliEntry: cliPath, home, provider: "openai" });
 		const result = await exec("/bin/bash", [wrapper.wrapperPath]).catch((error: { code: number }) => error);
 		expect("code" in result ? result.code : 0).toBe(exitCode);
 		expect(JSON.parse(await readFile(wrapper.resultPath, "utf8"))).toEqual({ status: "complete", code: exitCode });
+		expect((await readFile(argvPath, "utf8")).trim().split(/\r?\n/)).toEqual([
+			cliPath,
+			"login",
+			"openai",
+			"--home",
+			home,
+		]);
 		expect((await stat(wrapper.resultPath)).mode & 0o777).toBe(0o600);
 		expect(await import("node:fs").then(({ existsSync }) => existsSync(join(dir, "injected")))).toBe(false);
 	});

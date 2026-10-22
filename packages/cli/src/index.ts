@@ -111,7 +111,7 @@ function loginMessage(message: string): string {
 }
 
 type Options = { json: boolean; help: boolean; home?: string; rest: string[] };
-function parseGlobal(args: string[]): Options {
+export function parseGlobal(args: string[]): Options {
 	let json = false;
 	let help = false;
 	let home: string | undefined;
