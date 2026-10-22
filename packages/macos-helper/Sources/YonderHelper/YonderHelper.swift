@@ -28,27 +28,31 @@ struct Record: Codable {
     var state: String
     var lastCheckedAt: String
     var lastRequestedAt: String?
+    var grantedAt: String?
     var responsibleIdentity: Identity
     var raw: String
     var nextStep: String
     var wasGranted: Bool
     var previousCodeHash: String?
-    enum CodingKeys: String, CodingKey { case kind, state, lastCheckedAt, lastRequestedAt, responsibleIdentity, raw, nextStep, wasGranted, previousCodeHash }
+    enum CodingKeys: String, CodingKey { case kind, state, lastCheckedAt, lastRequestedAt, grantedAt, responsibleIdentity, raw, nextStep, wasGranted, previousCodeHash }
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(kind, forKey: .kind); try container.encode(state, forKey: .state)
         try container.encode(lastCheckedAt, forKey: .lastCheckedAt); try container.encode(lastRequestedAt, forKey: .lastRequestedAt)
+        try container.encode(grantedAt, forKey: .grantedAt)
         try container.encode(responsibleIdentity, forKey: .responsibleIdentity); try container.encode(raw, forKey: .raw)
         try container.encode(nextStep, forKey: .nextStep); try container.encode(wasGranted, forKey: .wasGranted)
         try container.encode(previousCodeHash, forKey: .previousCodeHash)
     }
 }
-func transition(_ probe: Probe, previous: Record?, identity: Identity, now: String, requested: Bool = false) -> Record {
+func transition(_ probe: Probe, previous: Record?, identity: Identity, now: String, requested: Bool = false, restartNeeded: Bool = false, interrupted: Bool = false) -> Record {
     let same = previous?.responsibleIdentity == identity
     let requestedAt = requested ? now : previous?.lastRequestedAt
     let state: String
     if !probe.observable { state = "unobservable" }
     else if probe.granted == true { state = "granted" }
+    else if restartNeeded { state = "needs-restart" }
+    else if interrupted && requestedAt != nil && previous?.state != "revoked-detected" { state = "requested" }
     else if let previous, (!same && previous.wasGranted) || (same && previous.state == "needs-restart" && !requested) { state = "needs-restart" }
     else if probe.granted == nil { state = "unknown" }
     else if same && previous?.wasGranted == true { state = "revoked-detected" }
@@ -60,12 +64,12 @@ func transition(_ probe: Probe, previous: Record?, identity: Identity, now: Stri
     if probe.kind == "automation" && state == "unknown" { next = "System Events 目标当前不可预检（可能未运行）；请主人启动目标后重查，或显式运行 \(command) request automation。" }
     if state == "unobservable" { next = "无法全局安全预检；请主人检查具体文件资源及系统设置。\(command) guide \(probe.kind)" }
     if state == "requested" { next = "曾发起请求（不代表待审批或已拒绝）；请主人完成系统提示，再运行 \(command) status；需要设置引导：\(command) guide \(probe.kind)。" }
-    if state == "needs-restart" { next = "同路径代码身份已变化，旧授权可能失效。结束旧 helper 后重新检查；若未授权由主人运行 \(command) request \(probe.kind)。重启不保证恢复授权。" }
+    if state == "needs-restart" { next = "需要重启 Helper；代码身份变化或当前进程的屏幕授权缓存尚未生效。请主人运行 \(command) guide \(probe.kind)，按重启按钮后重新检查。重启不保证恢复授权。" }
     let previousHash = !same ? previous?.responsibleIdentity.codeHash : previous?.previousCodeHash
     if previousHash != nil && state != "granted" && state != "needs-restart" {
         next = "同路径 helper 代码身份曾变化，旧授权可能失效；请按当前身份检查。" + next
     }
-    return Record(kind: probe.kind, state: state, lastCheckedAt: now, lastRequestedAt: requestedAt,
+    return Record(kind: probe.kind, state: state, lastCheckedAt: now, lastRequestedAt: requestedAt, grantedAt: probe.granted == true ? (same && previous?.state == "granted" ? previous?.grantedAt ?? now : now) : previous?.grantedAt,
                   responsibleIdentity: identity, raw: probe.raw, nextStep: next,
                   wasGranted: probe.granted == true || (same && previous?.wasGranted == true), previousCodeHash: previousHash)
 }
@@ -115,7 +119,7 @@ func checkCancellation() throws {
     if let cancellationFile, FileManager.default.fileExists(atPath: cancellationFile) { throw failure("Helper request cancelled before input") }
 }
 let stateDirectory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/yonder-harness/helper")
-@MainActor func status(_ identity: Identity, requestedKind: String? = nil) async throws -> [Record] {
+@MainActor func status(_ identity: Identity, requestedKind: String? = nil, restartKind: String? = nil, interruptedKind: String? = nil) async throws -> [Record] {
     let current = await probes()
     try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
     let fd = open(stateDirectory.appendingPathComponent("permissions.lock").path, O_CREAT | O_RDWR, 0o600)
@@ -127,7 +131,7 @@ let stateDirectory = FileManager.default.homeDirectoryForCurrentUser.appendingPa
     if FileManager.default.fileExists(atPath: url.path) { prior = try JSONDecoder().decode([Record].self, from: Data(contentsOf: url)) }
     else { prior = [] }
     let now = ISO8601DateFormatter().string(from: Date())
-    let records = current.map { probe in transition(probe, previous: prior.first { $0.kind == probe.kind }, identity: identity, now: now, requested: probe.kind == requestedKind) }
+    let records = current.map { probe in transition(probe, previous: prior.first { $0.kind == probe.kind }, identity: identity, now: now, requested: probe.kind == requestedKind, restartNeeded: probe.kind == restartKind, interrupted: probe.kind == interruptedKind) }
     try JSONEncoder().encode(records).write(to: url, options: .atomic)
     try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     return records
@@ -236,7 +240,16 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
     return ["action": action, "performed": "true"]
 }
 @main struct YonderHelper {
-    @MainActor static func main() async {
+    @MainActor static func main() {
+        // Start AppKit outside a Swift task: app.run() must not block the main actor job.
+        if CommandLine.arguments.dropFirst().first == "--screen-probe" {
+            print(CGPreflightScreenCaptureAccess() ? "true" : "false"); return
+        }
+        NSApplication.shared.setActivationPolicy(.accessory)
+        Task { @MainActor in await execute(); exit(0) }
+        NSApplication.shared.run()
+    }
+    @MainActor static func execute() async {
         do {
             var arguments = Array(CommandLine.arguments.dropFirst())
             if arguments.count >= 2, arguments[arguments.count - 2] == "--pid-file" {
@@ -245,7 +258,6 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
                 try String(getpid()).write(toFile: pidPath, atomically: true, encoding: .utf8)
                 arguments.removeLast()
             }
-            let app = NSApplication.shared; app.setActivationPolicy(.accessory)
             guard PermissionFlowResources.packageBundle != nil else { throw failure("Missing PermissionFlow resources") }
             let id = try identity()
             if arguments == ["rpc"] {
@@ -278,28 +290,23 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
                     let pendingRestart = transition(no, previous: grant, identity: changed, now: "3")
                     precondition(transition(no, previous: pendingRestart, identity: changed, now: "4").state == "needs-restart"); count += 1
                     precondition(transition(yes, previous: pendingRestart, identity: changed, now: "4").state == "granted"); count += 1
+                    count += guideSelfCheck(identity: id)
                     try emit(["passed": count, "failed": 0]); return
                 }
                 try emit(desktop(args, records: records)); return
             }
-            guard arguments.count == 2, ["request", "guide", "watch"].contains(arguments[0]), kinds.contains(arguments[1]) else { throw failure("Usage: yonder-permissions status | request|guide|watch <kind>") }
+            var timeout: TimeInterval = 600
+            if arguments.count == 4, arguments[2] == "--timeout" {
+                guard let seconds = TimeInterval(arguments[3]), seconds.isFinite, seconds > 0, seconds <= 600 else { throw failure("Invalid timeout (0 < seconds <= 600)") }
+                timeout = seconds; arguments.removeLast(2)
+            }
+            guard arguments.count == 2, ["request", "guide", "watch"].contains(arguments[0]), kinds.contains(arguments[1]) else { throw failure("Usage: yonder-permissions status | request|guide|watch <kind> [--timeout <seconds>]") }
             let command = arguments[0], kind = arguments[1]
-            if command == "watch" {
-                for _ in 0..<60 {
-                    let records = try await status(id); try emit(records.filter { $0.kind == kind })
-                    if records.first(where: { $0.kind == kind })?.state == "granted" { return }
-                    try await Task.sleep(for: .seconds(2))
-                }; return
-            }
-            _ = try await status(id, requestedKind: kind)
+            if command != "watch" { _ = try await status(id, requestedKind: kind) }
             if command == "request" { try await request(kind); try emit(await status(id).filter { $0.kind == kind }); return }
-            let controller = PermissionFlowController(configuration: .init(requiredAppURLs: [Bundle.main.bundleURL], promptForAccessibilityTrust: false, localeIdentifier: "zh-Hans"))
-            if let pane = panes[kind] { controller.authorize(pane: pane, suggestedAppURLs: [Bundle.main.bundleURL]) }
-            else { openSettings(kind); return }
-            let timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { _ in
-                Task { @MainActor in try? emit(await status(id).filter { $0.kind == kind }) }
-            }
-            withExtendedLifetime((controller, timer)) { app.run() }
+            let result = try await observePermission(kind, identity: id, guide: command == "guide", deadline: Date().addingTimeInterval(timeout))
+            try emit(result)
+            exit(Int32(result.exitCode))
         } catch {
             try? emit(["error": error.localizedDescription]); exit(1)
         }

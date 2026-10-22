@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 macOS 权限引导窗：跟随实际 Settings 列表下沿，授权后显示确认并自动关闭；guide/watch 共用每秒观察、600 秒超时和有证据的屏幕权限重启流程。
+
 - BrowserSkill：同步最新上游指导与 UTF-8 runner 修复，加入默认关闭的书签、扩展管理工具；保留主人权限授权与安装确认。
 
 - 实现稳定签名 Yonder Helper.app、9 类非提示式权限状态与请求历史；native-automation 桌面操作改由 helper 执行，新增只读 permissions action；独立人用 CLI 提供 request/guide/watch，显式引导复用 PermissionFlow。FDA/Files & Folders 如实 unobservable，真人授权/UI/升级保留待验收。

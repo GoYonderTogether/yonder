@@ -98,4 +98,4 @@
 
 ## macOS 权限引导（Track C / D55）
 
-Phase 2 已按获准 unknown 语义实现稳定签名 Yonder Helper.app、9 类非提示式探针、请求历史、显式人用 request/guide/watch 与 native-automation permissions/status/桌面执行接线。实机新 helper 的 AX/Screen/Input 均未授权；未授权截图返回正确状态与主人命令。FDA/Files & Folders 不可全局预检。构建、签名与只读检查不代替真人 UI、授权/撤销、键鼠输入和升级保留验收；这些仍未测。详见[调研](research/mac-permission-guidance.md)和[验收记录/OWNER STEP](verification/mac-permissions.md)。
+Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用每秒探针、600 秒超时、grantedAt 与有证据的屏幕录制重启流程。2026-10-22 实机 helper AX/Input 已获主人授权；Screen Recording 为 requested/false。短时实测确认两种 guide 的真实窗口在列表下方 8pt、辅助功能自动退出 0、关闭/超时返回 JSON 与退出 1；53 项专项检查通过。未点击授权；新拖放→授权、屏幕录制 needs-restart→重启→granted、撤销、手动移动/跨屏/Space、实际键鼠和升级保留仍待主人验收。FDA/Files & Folders 不可全局预检。详见[调研](research/mac-permission-guidance.md)和[验收记录/OWNER STEP](verification/mac-permissions.md)。

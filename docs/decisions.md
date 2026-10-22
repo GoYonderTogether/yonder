@@ -151,7 +151,7 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 
 **D54 BrowserSkill 继续使用 MIT 上游，最小 fork 提供可选书签与扩展管理。** 基线为 Tencent/BrowserSkill main `6214e3d`（最新发布仍为 0.3.3），保留独立 fork，Yonder 只调用 CLI、不内化浏览器运行时。沿用书签四动作，扩展管理复用 Chrome `management` API，仅 list/enable/disable；插件 `bookmarksEnabled`、`extensionsEnabled` 默认关闭，Chrome 可选权限只能由主人在 popup 授予，本地 owned session、取消和原有受限页面规则保留，拒绝修改自身与受管理扩展。不让网页授权扩展修改，不自动重试未知写入。安装采用真人 Chrome 的手动 Load unpacked / 商店确认；无人值守仅在独立 Chrome for Testing profile 使用 `--load-extension`，不冒充真人已登录浏览器。CWS API 可自动更新已有条目并送审，但首次开发者账号/费用、unlisted 配置及审核不能跳过，未提供凭据则停止该支线。编译 `BSK_FORK_BUILD=1` 固定关闭本 fork 的自动及显式上游更新，避免书签补丁被覆盖；升级通过重新同步 fork。取舍、七级路线及 OWNER STEP 见 [调研](research/chrome-extension-install.md)，实际测试见 [验收](verification/browser-skill-fork.md)。PR #434 原书签分支不重写：本轮 rebase 改写了本地提交且增加 Yonder 专用管理行为，另推 fork 分支，不向 Tencent 推送。
 
-## D55 macOS 权限由稳定 helper 执行与引导（Track C phase 2，2026-10-22，待审核）
+## D55 macOS 权限由稳定 helper 执行与引导（Track C phases 2–3，2026-10-22）
 
 维护者代表主人明确批准 unknown 语义，撤销 phase 1 的完整可观测性 gate；不再要求 OS 区分未请求与拒绝。采用 spec/14 §5.1 的状态模型，持久保存自身请求时间、最近探针、代码身份与曾 granted 的证据。false 是 not-granted；requested 仅是请求历史；同代码身份后续 false 可记录 revoked-detected（探针证据，非拒绝原因判定）；代码 hash 变化而旧 grant 存在时标 needs-restart / grant likely invalid，须重新检查或授权。FDA/Files & Folders 为 unobservable；API 不适用/失败为 unknown。
 
@@ -159,10 +159,4 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 
 ONE Yonder Helper.app 是桌面操作的签名代码主体，通过 LaunchServices 后台启动，以本地 stdin/stdout JSON 交换；不让 Node/JXA 代执行截图或输入。稳定路径与外置状态跨 harness 更新保留，bundle 仅 cdhash 改变才重装。本机发现 Apple Development 身份，构建优先采用；CI 无身份时 ad-hoc，显式披露不能承诺 grant retention。签名本身和父进程链不构成已授权证明，真实 TCC 归属与授权矩阵保留主人验收。
 
-AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide；watch 只观察、限时、可取消。不动生产 home/service/launchd/TCC，也不执行主人桌面的 request/guide/watch。实际验证、全部失败与 OWNER STEP 见[验收记录](verification/mac-permissions.md)。
-
-## D53 统一引用剪贴板与系统秘密内核（2026-10-22，Track A 明确授权）
-
-按成熟内核优先顺序实测 Keychain 与 KeePassXC，选 macOS Security.framework Keychain 原样存储 sealed 字节，KeePassXC 作为未来可迁移备用、禁止自动权限回退；不自研加密，不把通用秘密混入 D50 provider auth.json。D51 sources 保留其原样委派职责。研究与量化维护证据见 [vault-kernel](research/vault-kernel.md)，完整契约见 [15](spec/15-clipboard-vault.md)。
-
-在 SDK 插件中实现 session/agent/profile 作用域的 open/sealed handle、TTL、元数据审计、typed file/固定 child/固定 HTTPS/message(open)/vault 目的地；本机 TTY 捕获从不把值交模型。复用 afterTool，新增可选 beforeSend 以覆盖渠道与跨 chunk 泄漏（选中 profile 按消息缓冲，不改变运行终结或增加审批层）。旧 secrets-plugin 的管道/错误边界有复用价值，固定消费者/MV3 installer 不直接迁入。浏览器秘密适配和 Feishu 入站前秘密分流暂阻塞、不注册假功能。代价：当前仅 macOS/local，helper 签名/Keychain ACL 仍需安装验收；同 OS 用户与 exec 不是秘密沙箱，精确脱敏只是纵深防御。设计在编码前单独提交，最终实现/未测项独立记录。
+AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide；watch 只观察、限时、可取消。不动生产 home/service/launchd/TCC。Phase 3 按主人一次性授权短时打开 accessibility / screen-recording guide 测量几何，不点击授权。guide/watch 共享每秒非提示式观察，默认 600 秒；granted 保存 grantedAt，显示一秒确认后结束。关闭/超时返回 requested 历史与失败 JSON；撤销保留 revoked-detected。Screen Recording 当前进程 false 而同签名新进程 true 才标 needs-restart，guide 由单按钮重启、watch 自动重启，再验证 granted。PermissionFlow 保持原 SHA，以可审阅的小补丁开放 frame provider / 状态文本 / 关闭回调；按真实 Settings CG 边界与可用 AX 列表帧定位，屏幕无下方空间时隐藏而不覆盖列表，输出上移 Settings 的下一步。实际验证、全部失败与 OWNER STEP 见[验收记录](verification/mac-permissions.md)。

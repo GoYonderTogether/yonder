@@ -1,17 +1,66 @@
-# Track C phase 2 macOS 权限验收
+# Track C phase 3 macOS 权限引导验收
 
-2026-10-22；基线 `f820996`；worktree `/Users/zoran/Documents/yonder-harness-perms`；branch `yonder/mac-permissions`；[PR #17](https://github.com/GoYonderTogether/yonder-harness/pull/17)，待审核、不合并。
+2026-10-22；基线 `20ed4a2`（PR #17 已合并）；新 worktree `/Users/zoran/Documents/yonder-harness-perms-ui`；新 branch `yonder/mac-permissions-ui`。D55 原地修订，PR 待审核，禁止合并/发布。Phase 2 原始计数保留在本文后半部分。
 
-Phase 2 已按维护者批准的 unknown 语义实现 helper/状态/CLI/插件接线。**真人授权、浮窗、键鼠和升级 grant-retention 未测。** 生产 home、服务、launchd、用户 TCC/Settings、浏览器 profile 均未修改。仅在任务允许的稳定 helper 目录安装自有签名 app、CLI 与状态文件；没有执行 request/guide/watch，没有点击 Allow、读 TCC.db 或运行 tccutil。
+**当前结果：列表下沿几何、已有 AX grant 的自动确认退出、主人关闭引导窗和未授权超时已在实机验证。新拖放授权、屏幕录制重启和撤销仍未测。** 没有点击 Allow/开关、拖入应用或改 TCC；没有改生产 home/service/launchd。稳定 Helper bundle/CLI 按代码 hash 更新，权限历史保留。主人此前已授予 AX/Input，本轮探针为 true；Screen Recording 为 false。
 
-| 步骤 | 结果 | 证据 |
-|---|---|---|
-| 复用与 D55 | 保留五候选真实比较，解除完整观测 gate，明确 unknown/unobservable/请求历史 | [调研表](../research/mac-permission-guidance.md)、[D55](../decisions.md)、[spec/14 §5.1](../spec/14-execution-capabilities.md) |
-| helper | SwiftPM，单一 dev.yonder.harness.helper；Apple Development 签名通过 | [Swift 源码](../../packages/macos-helper/Sources/YonderHelper/YonderHelper.swift)、[构建](../../scripts/build-permissions.mjs)、codesign verify strict |
-| 身份与持久化 | LaunchServices 后台启动，实际执行代码自行探测；外置状态/锁、hash 变化才重装 | [CLI/launcher](../../scripts/yonder-permissions.mjs)、实机 JSON、unchanged-hash mtime 断言 |
-| 桌面路由 | screenshot/click/move/drag/type/key/snapshot 在 helper 内 CG/AX 执行，删除 JXA/screencapture 路径 | [desktop](../../plugins/native-automation/src/desktop.ts)、[插件](../../plugins/native-automation/src/index.ts) |
-| AI permissions | 9 类状态、raw、时间、bundle/path/codeHash/DR、中文下一步；不提供 request action | [实机检查](../../plugins/native-automation/test/permissions.mjs) |
-| 人用 CLI/UI | request 调原生请求，guide 使用 pinned PermissionFlow，自动 AX 提示关闭；watch 最长 120 秒只读观察 | 实现/构建通过；交互仅 OWNER STEP，本轮未运行 |
+## Phase 3 变更与原始检查
+
+日志 `/private/tmp/yonder-r2/C3/`，进度 `/private/tmp/yonder-r2/C.progress.log`。复用表与上游 issues/main 核验见[调研](../research/mac-permission-guidance.md)，许可/补丁见 [NOTICE](../../packages/macos-helper/NOTICE)。
+
+| 步骤 | 结果 / 证据 |
+|---|---|
+| 新 worktree/分支 | 从 `origin/main=20ed4a2` 创建；原工作树未修改；无 force-push |
+| 上游选择 | main 仍为 pinned `cb96db4…`；423 stars / 3 issues / MIT。保留源库，以可审阅补丁开放小型 API，build 自动幂等应用；helper-build-1/2/3/final.log 均构建签名成功 |
+| npm ci / build / typecheck | 全部退出 0；npm-ci.log / build.log / typecheck.log。复编译 patch 已应用的 checkout 仍通过 |
+| 本地全套 | **252 通过 / 0 失败 / 26 跳过；56 文件通过 / 13 跳过（69），18.81 秒**；test.log。持有公共 heavy-test 锁，仅测试时占用，--maxWorkers=4，完成后释放 |
+| 最初专项检查 | **失败 1**：已有 screen 请求历史时 nextStep 合法返回 `guide screen-recording`，旧断言固定只接受 `request screen-recording`；permissions-live-final.log。没有更改权限状态来制造通过，现断言错误包含当次状态返回的完整 nextStep |
+| 最终专项检查 | **53 通过 / 0 失败**（含 **36 self-check / 0 失败**、真实九类探针、grantedAt、history/hash、拒绝 AI request、未授权截图命令、watch 成功/超时/退出码）；permissions-live-final-2.log。显式历史迁移仅自检使用，不写虚构 OS grant |
+| 初次外部帧采集 | 采集程序 stdout 缓冲，终止时 AX 样本未落盘且 screen 尾行不完整，解析失败；不作为通过。改用 FileHandle 逐行即时输出，再测实际窗口，保留最初日志 |
+| 最终 live geometry | **6 通过 / 0 失败**；geometry-assertions.json、*-final-windows.jsonl、*-final-guide.jsonl。外部 CG 实际窗口与 host 目标 frame 一致；两种均在列表下方 8pt；未截屏 |
+| 真实关闭/超时 | Screen guide 12.40 秒超时返回 requested / exit 1；最终约 2.80 秒后只对 Helper 自有“关闭权限引导”按钮执行 AXPress，返回 closed/requested/exit 1。AX guide 两次约 1.56/1.60 秒，返回 granted/grantedAt/exit 0。每种累计打开 < 30 秒，无授权/Settings 移动 |
+| lint | 退出 0，**204 warnings / 1 info / 0 errors**，基线诊断保留；lint.log |
+| 真实模型 | **未测**：本轮无模型链路变更，未启用 YONDER_TEST_REAL；全套 26 skipped 如实保留 |
+| CI | 新增非提示式 helper self-check；最终 PR check 以 GitHub 对本分支最新提交的实际结果为准 |
+
+## 真实窗口数字
+
+AppKit 坐标为左下原点，`[x,y,width,height]`；主屏 `[0,0,2560,1440]`，visible `[0,0,2560,1410]`。CG/AX 坐标为左上原点，转换 `appKitY=1440-cgY-height`。Settings 稳定窗口 AppKit `[601,244,740,923]`，CG `[601,273,740,923]`。
+
+| kind | AX 列表/父容器（AppKit） | 目标 / 实际引导窗（AppKit） | 外部实际 CG guide bounds | 断言 |
+|---|---|---|---|---|
+| accessibility | `[853,404,468,630]` | `[853,300,468,96]` | `[853,1044,468,96]` | panel 上沿 396，list 下沿 404，8pt 间隔，退出 0 |
+| screen-recording | `[853,668,468,379]` | `[853,564,468,96]` | `[853,780,468,96]` | panel 上沿 660，list 下沿 668，8pt 间隔，关闭退出 1 |
+
+Settings 自身打开动画还产生真实 sample `[497,222,547,710]`（AX list 尚不可见），当时 fallback guide 为 `[727,118,317,96]`。纯计算 self-check 使用这些真实原始 sample、无 AX fallback、空间不足隐藏、多屏偏移；平移样本明确是计算检查，**不是实际移动 Settings 的证明**。没有人工移动 Settings，以免影响主人其他工作；人工移动/resize、跨屏/Space 的 live 跟随仍未测。实现按可见 Settings CG 边界跟随，未知 frame 时隐藏，未设置 canJoinAllSpaces。
+
+## OWNER STEP：仅主人完成授权矩阵
+
+在当前 PR worktree 构建并通过 status 安装对应 Helper：
+
+```sh
+cd /Users/zoran/Documents/yonder-harness-perms-ui
+agent-network run -- npm run build
+scripts/demo-permissions.sh status
+node plugins/native-automation/test/permissions.mjs
+```
+
+1. 运行 `~/.local/share/yonder-harness/helper/yonder-permissions guide accessibility`。guide 应在实际列表正下方，不遮挡开关或 `+`。当前已授权时显示“已授权 / Granted”约一秒后自行关闭，JSON outcome=granted、exit 0。需要测新授权时，由主人自行先撤销再重开 guide，把 **Yonder Helper.app** 拖入列表并接受系统确认；不授权 node/osascript 替代 Helper。移动/调整 Settings 大小，观察跟随；屏幕底部无空间时上移 Settings。
+2. 运行 `~/.local/share/yonder-harness/helper/yonder-permissions guide screen-recording`。主人亲自拖入/启用 **Yonder Helper**；新进程已看到授权而当前进程仍 false 时应显示“需要重启 Helper”，只有一个“重启 Yonder Helper”按钮。主人点击该按钮，新 Helper 重新检查，显示“已授权 / Granted”约一秒，自动关闭并 exit 0；status 中 grantedAt 应存在。如果系统要求 Quit & Reopen，由主人确认。不得把本轮未授权检查称为重启链已通过。
+3. 运行 `~/.local/share/yonder-harness/helper/yonder-permissions watch screen-recording`，共享同一探针/状态逻辑，默认 600 秒；此命令不打开 Settings、不发请求。若观察到新旧进程授权差异会自动重启自身再确认。可用 `watch screen-recording --timeout 5` 复测超时（请求时间不更新），exit 1；granted 则 exit 0。guide 关闭按钮返回 closed 和 exit 1；取消用 Ctrl+C，launcher exit 130。
+4. 在 guide 打开期间由主人撤销权限，观察 revoked-detected；授权后一秒确认期间再撤销不得返回成功。完成后运行 status 和专项脚本，屏幕授权后脚本应验证 PNG。键鼠真实执行、拒绝/撤销/重启、多屏/Space 与更新 grant-retention 按明确授权另行记录，本轮未做。
+
+## 未完成 / 限制
+
+- **未测**：新拖放→探针变 true 的真人授权、屏幕 needs-restart→按钮/自动重启→granted 的真实缓存分支、实际撤销、人工移动/resize 与跨屏/Space、实际键鼠、授权后 PNG 与升级 grant retention。现有 AX/Input true 是主人此前授权，本轮不冒充新 grant。
+- 未获 AX 时只能用 CG Settings 窗口下沿；不能读取准确列表结构。屏幕下方没有足够空间则隐藏引导并输出上移 Settings 的下一步，避免遮挡按钮。
+- grantedAt 是此状态机首次观测该次 grant 的时间，不能反推 OS 真正授权时刻；旧 JSON 无此字段可解码。watch 从未请求的种类仍保留其真实状态与 null 请求时间，不伪造请求历史；unobservable 不会因超时变成可观测。
+- Screen Recording 新子进程探针失败会返回实际错误，不伪造 needs-restart。代码 hash 变化的既有 needs-restart 仍是风险提示，不承诺重启恢复；ad-hoc/证书轮换仍须主人检查授权。
+- 未改生产 home、service、launchd，未合并/发布；仅专用稳定 Helper/CLI/state 按任务更新。
+
+## Phase 2 历史记录（当时未进行 UI 授权验收）
+
+下列是 PR #17 合并前的原始证据，日期 2026-10-22，旧 worktree `/Users/zoran/Documents/yonder-harness-perms`；旧状态不是本轮实时状态，watch 120 秒等旧实现描述已被 Phase 3 的 600 秒共享循环替代。
 
 稳定安装目录：`~/.local/share/yonder-harness/helper/`。`Yonder Helper.app`、`yonder-permissions`、`permissions-state.json`、`permissions.lock` 同级，状态不放在 app 内或生产 home 内。每次新 harness 调用 launcher 比较源/已装 CDHash，仅变化时校验签名并替换 app；已有状态保留。首次调用会安装 helper 并记录观测，“只读”指不发起权限请求或改变系统授权。原研究 demo 由此替代，原始实现保留在 commit `313fa60`。
 
@@ -57,51 +106,3 @@ Phase 2 已按维护者批准的 unknown 语义实现 helper/状态/CLI/插件�
 | Phase 2 取消与参数 | 非提示式 status 取消后 launcher 退出/native children 清空；cancel-readonly.log。bash -n 通过，无效参数退出 2，不启动 helper |
 | 真实模型 | **未测**：未启用 YONDER_TEST_REAL；本次是系统权限/本地执行改动，无模型调用改动，默认 suite 26 跳过如实保留 |
 | CI | 以 PR #17 最新提交的 check 为准；不将 phase 1 绿色结果当作 phase 2 证据 |
-
-## OWNER STEP：仅由主人执行
-
-1. **复现只读检查**（不授权、不打开 Settings）：
-
-   ```sh
-   cd /Users/zoran/Documents/yonder-harness-perms
-   agent-network run -- npm run build
-   scripts/demo-permissions.sh status
-   node plugins/native-automation/test/permissions.mjs
-   ```
-
-   应看到 9 类 JSON、正确稳定路径/代码身份、原生状态；首次未授权情况下应与上表相符。测试会按当前 Screen Recording 状态验证真实 PNG 或正确的未授权拒绝，不发送键鼠、不发权限提示。可直接运行 `~/.local/share/yonder-harness/helper/yonder-permissions status`。
-
-2. **亲自授权 Accessibility**：
-
-   ```sh
-   ~/.local/share/yonder-harness/helper/yonder-permissions guide accessibility
-   ```
-
-   应打开 System Settings 对应隐私页并显示 Yonder Helper 拖动卡片。macOS 27 页面可能名为 Device Control and Data Access；实际中文以本机为准。移动 Settings 观察浮窗跟随；将 **Yonder Helper.app** 拖到列表，主人亲自打开开关并接受系统确认。不要给旧 Permission Research Demo、node 或 osascript 授权来替代 helper。缺 AX 时浮窗跟随可能受限，先完成该权限，再重新运行 guide 验证。关闭设置后 Ctrl+C 结束 guide。
-
-3. **亲自授权 Screen Recording**：
-
-   ```sh
-   ~/.local/share/yonder-harness/helper/yonder-permissions request screen-recording
-   ~/.local/share/yonder-harness/helper/yonder-permissions guide screen-recording
-   ```
-
-   主人接受系统提示，在 Screen & System Audio Recording 页启用 **Yonder Helper**；系统要求 Quit & Reopen 时由主人确认。Ctrl+C 结束旧 guide，然后新运行 status / `node plugins/native-automation/test/permissions.mjs`。新 helper 应显示 granted，插件检查应验证真实 PNG。此后再安排获准的真实键鼠/Unicode/快捷键/窗口读取验收；本轮没有发送任何输入。
-
-4. **其他种类（仅按实际需要）**：`request input-monitoring` / `guide input-monitoring`，在 Input Monitoring 列表打开 Yonder Helper；该权限不作为点击/输入的前置。`request camera`、`request microphone`、`request notifications` 使用各原生系统提示。Automation 按 com.apple.systemevents 目标检查，目标未运行时先由主人启动目标或检查 request 返回值；它不参与当前 CG/AX 桌面路径。`guide full-disk-access` 由主人拖入启用；`guide files-and-folders` 仅打开设置，具体资源访问授权另按真实任务触发，不能拖入获得全局权限。两项 status 仍为 unobservable，不伪称 granted。
-
-5. **观察与 phase 3**：
-
-   ```sh
-   ~/.local/share/yonder-harness/helper/yonder-permissions watch accessibility
-   ~/.local/share/yonder-harness/helper/yonder-permissions status
-   ```
-
-   watch 每 2 秒输出一次该种类，granted 时退出，否则最多 120 秒；Ctrl+C 可取消，无请求/开 Settings。由主人完成拒绝/授权/撤销/重启及更新前后检查，记录同一身份的 raw 与状态。更新后 helper 路径与 state 应保持；同 hash 不重装；不同 hash 不保证保留 grant。真人矩阵完成后才可声称 UI 跟随、拖放、实际输入与 grant retention 已通过。
-
-## 未完成/限制
-
-- 本轮未运行 request/guide/watch，未验证浮窗、拖放、系统提示、实际截图像素（未授权分支已验证）、点击/拖拽/Unicode/快捷键/窗口实际读取、授权/拒绝/撤销/重启/跨版本 grant retention。没有 UI 预览可据此交付。
-- 状态仅描述 helper 自身；不诊断其他工具、生产 node、Codex CUA 或任意 JXA。旧生产责任归属仍未核实；它不再用于新 native-automation 桌面实现。
-- 缺签名证书的 CI/其他机器为 ad-hoc；证书轮换/路径或代码变化可能影响授权，需重新检查。完整 TCC observability 不作为完成门槛，仍不杜撰 denied/pending 或全局 FDA 状态。
-- helper 已安装在专用稳定目录；未安装整个 harness、未重启生产服务、未合并、未打 tag、未发布。

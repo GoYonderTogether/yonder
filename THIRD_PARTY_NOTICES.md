@@ -76,4 +76,4 @@ Skill Creator: copied from the local OpenAI Codex built-in skill-creator distrib
 
 ## macOS permission guide
 
-Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinned to cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2. Upstream: https://github.com/jaywcjlove/PermissionFlow. Full license and NOTICE are retained in packages/macos-helper/. No upstream source is copied; its FDA heuristic is not used.
+Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinned to cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2. Upstream: https://github.com/jaywcjlove/PermissionFlow. Full license and NOTICE are retained in packages/macos-helper/. The small upstream-compatible API patch is retained at packages/macos-helper/patches/PermissionFlow-guide.patch; its FDA heuristic is not used.

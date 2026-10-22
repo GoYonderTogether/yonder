@@ -18,6 +18,16 @@ const kinds = [
 	"files-and-folders",
 ];
 const args = process.argv.slice(2);
+let timeout = 600;
+if (args.length === 4 && ["guide", "watch"].includes(args[0]) && args[2] === "--timeout") {
+	timeout = Number(args.pop());
+	args.pop();
+	if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 600) {
+		console.error("Invalid timeout (0 < seconds <= 600)");
+		process.exit(2);
+	}
+}
+const deadline = Date.now() + timeout * 1000;
 if (
 	!(
 		(args.length === 1 && ["status", "permissions", "rpc", "self-check"].includes(args[0])) ||
@@ -103,79 +113,94 @@ await Promise.all([
 	writeFile(errors, "", { mode: 0o600 }),
 ]);
 const command = ["status", "permissions", "rpc", "self-check"].includes(args[0]) ? ["rpc"] : args;
-const child = spawn(
-	"/usr/bin/open",
-	[
-		"-n",
-		"-g",
-		"-W",
-		"--stdin",
-		input,
-		"--stdout",
-		output,
-		"--stderr",
-		errors,
-		"-a",
-		app,
-		"--args",
-		...command,
-		"--pid-file",
-		pidFile,
-	],
-	{ stdio: ["ignore", "ignore", "pipe"] },
-);
-let cancelled = false,
-	offset = 0;
-const cancel = () => {
-	cancelled = true;
-	writeFileSync(join(scratch, "cancelled"), "", { mode: 0o600 });
-};
-process.on("SIGTERM", cancel);
-process.on("SIGINT", cancel);
-const poll = async () => {
-	if (cancelled) {
-		try {
-			const pid = Number(await readFile(pidFile, "utf8"));
-			if (Number.isInteger(pid) && pid > 1) process.kill(pid, "SIGTERM");
-		} catch {}
-	}
-	const data = await readFile(output);
-	if (data.length > offset) {
-		process.stdout.write(data.subarray(offset));
-		offset = data.length;
-	}
-};
-let polling = Promise.resolve();
-const timer = setInterval(() => {
-	polling = polling.then(poll);
-}, 100);
-let launchError = "";
-child.stderr.on("data", (data) => {
-	launchError += data;
-});
 try {
-	const code = await new Promise((resolve, reject) => {
-		child.on("error", reject);
-		child.on("close", resolve);
-	});
-	clearInterval(timer);
-	await polling;
-	await poll();
-	if (code !== 0) throw new Error(`LaunchServices failed (${code}): ${launchError}`);
-	const result = await readFile(output, "utf8");
-	if (!result.trim() && command[0] === "rpc")
-		throw new Error(`Helper exited without JSON: ${await readFile(errors, "utf8")}`);
-	for (const line of result.split("\n").filter((line) => line.trim())) {
-		const message = JSON.parse(line).error;
-		if (message) {
-			console.error(message);
-			process.exitCode = 1;
+	while (true) {
+		if (["guide", "watch"].includes(command[0])) {
+			command.splice(2, command.length, "--timeout", String(Math.max(0.001, (deadline - Date.now()) / 1000)));
+		}
+		await Promise.all([writeFile(output, ""), writeFile(errors, ""), rm(pidFile, { force: true })]);
+		const child = spawn(
+			"/usr/bin/open",
+			[
+				"-n",
+				"-g",
+				"-W",
+				"--stdin",
+				input,
+				"--stdout",
+				output,
+				"--stderr",
+				errors,
+				"-a",
+				app,
+				"--args",
+				...command,
+				"--pid-file",
+				pidFile,
+			],
+			{ stdio: ["ignore", "ignore", "pipe"] },
+		);
+		let cancelled = false,
+			offset = 0;
+		const cancel = () => {
+			cancelled = true;
+			writeFileSync(join(scratch, "cancelled"), "", { mode: 0o600 });
+		};
+		process.on("SIGTERM", cancel);
+		process.on("SIGINT", cancel);
+		const poll = async () => {
+			if (cancelled) {
+				try {
+					const pid = Number(await readFile(pidFile, "utf8"));
+					if (Number.isInteger(pid) && pid > 1) process.kill(pid, "SIGTERM");
+				} catch {}
+			}
+			const data = await readFile(output);
+			if (data.length > offset) {
+				process.stdout.write(data.subarray(offset));
+				offset = data.length;
+			}
+		};
+		let polling = Promise.resolve();
+		const timer = setInterval(() => {
+			polling = polling.then(poll);
+		}, 100);
+		let launchError = "";
+		child.stderr.on("data", (data) => {
+			launchError += data;
+		});
+		try {
+			const code = await new Promise((resolve, reject) => {
+				child.on("error", reject);
+				child.on("close", resolve);
+			});
+			clearInterval(timer);
+			await polling;
+			await poll();
+			if (code !== 0) throw new Error(`LaunchServices failed (${code}): ${launchError}`);
+			const result = await readFile(output, "utf8");
+			if (!result.trim() && command[0] === "rpc")
+				throw new Error(`Helper exited without JSON: ${await readFile(errors, "utf8")}`);
+			const lines = result.split("\n").filter((line) => line.trim());
+			for (const line of lines) {
+				const message = JSON.parse(line).error;
+				if (message) {
+					console.error(message);
+					process.exitCode = 1;
+				}
+			}
+			const final = lines.length ? JSON.parse(lines.at(-1)) : undefined;
+			if (cancelled) process.exitCode = 130;
+			else if (final?.outcome === "relaunch" && Date.now() < deadline) continue;
+			else if (final?.exitCode !== undefined) process.exitCode = final.exitCode;
+			else if (["guide", "watch"].includes(command[0])) process.exitCode = 1;
+			break;
+		} finally {
+			clearInterval(timer);
+			process.off("SIGTERM", cancel);
+			process.off("SIGINT", cancel);
 		}
 	}
-	if (cancelled) process.exitCode = 130;
 } finally {
-	clearInterval(timer);
-	process.off("SIGTERM", cancel);
-	process.off("SIGINT", cancel);
 	await rm(scratch, { recursive: true, force: true });
 }

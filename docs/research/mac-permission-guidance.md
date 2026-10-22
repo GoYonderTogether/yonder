@@ -80,3 +80,16 @@ Apple 的 [Automation API](https://developer.apple.com/documentation/coreservice
 - Phase 2 不调用 request/guide/watch。窗口跟随、拖放、真实输入、授权与撤销、重启与升级保留均未测；构建和状态机检查不替代这些证据。
 
 批准语义见 [D55](../decisions.md) / [spec/14 §5.1](../spec/14-execution-capabilities.md)，原始失败、当前结果、确切 OWNER STEP 见[验收记录](../verification/mac-permissions.md)。
+
+## Phase 3：布局与授权后生命周期
+
+2026-10-22 再核验 [repo API](https://api.github.com/repos/jaywcjlove/PermissionFlow)：423 stars / 3 open issues，MIT，push 仍为 2026-09-26。[main commit](https://github.com/jaywcjlove/PermissionFlow/commit/cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2) 与已固定 SHA 相同，无可直接升级的布局修复。[#10](https://github.com/jaywcjlove/PermissionFlow/issues/10) 与 [#13](https://github.com/jaywcjlove/PermissionFlow/issues/13) 仍 open；已读正文和讨论，分别涉及屏幕录制与系统音频列表的混淆、macOS 27 的初始裁切及已有条目拖入不生效。保持原候选比较表，不扩大选型。
+
+| 复用阶梯 | 源码证据与结论 |
+|---|---|
+| 原样依赖 / 公开配置 | `PermissionFlowConfiguration` 没有 frame provider / grant completion / close callback；`FloatingDropPanel.targetFrame` 只按整个 Settings frame 与 sidebar 常数定位。公开 `closePanel` 可复用，但无法取得用户关闭事件或更新状态文本 |
+| 小型适配 | 采用 [PermissionFlow-guide.patch](../../packages/macos-helper/patches/PermissionFlow-guide.patch)：只开放 frame/message/restart/close hooks、初始无 frame 隐藏、非全 Space 浮窗与可访问关闭按钮名称；不重写拖放或 provider。build 在 pinned SwiftPM checkout 幂等应用，冲突即失败；MIT/NOTICE 保留 |
+| 原生组合 | CGWindowList 的 Settings 实际可见窗口边界 + 已有 AX 授权下的右侧列表/父容器 frame；只读、无截图、不访问 TCC。无 AX 列表时落到窗口下沿，留 8pt；屏幕下方空间不足则隐藏并要求主人上移 Settings，不钳制到列表上方 |
+| 剩余生命周期 | AppKit run loop 在 Swift main actor task 外启动；guide/watch 共用观察。记录 grantedAt；授权后一秒确认并复检撤销。Screen Recording 使用同一 Helper 可执行文件的新子进程运行非提示式 preflight，与当前进程比较；只有 false/true 不一致才给重启按钮，launcher 继承原始截止时间重启，经新探针确认后 granted |
+
+运行证据：构建/签名成功；53 项专项检查（内含 36 项 self-check）；两种 guide 的真实 CG bounds 与 AX 列表边界比较各 3 项通过。短时 guide 的累计打开时间每种 < 30 秒，无授权操作；源数据、初次采集失败和所有未测项见[验收记录](../verification/mac-permissions.md)。没有把已有 AX grant 或未授权屏幕状态当作新拖放授权成功。

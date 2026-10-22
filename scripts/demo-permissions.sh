@@ -1,5 +1,5 @@
 #!/bin/bash
-# Owner entry point. No request/guide/watch is run by the agent.
+# Human permission-flow entry point. Only the owner grants permissions.
 set -euo pipefail
 repo=$(cd "$(dirname "$0")/.." && pwd)
 if [[ $# -eq 0 ]]; then set -- status; fi
