@@ -5,3 +5,5 @@ HANDOFF.md
 *.log
 .DS_Store
 .claude/
+
+.build/

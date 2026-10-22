@@ -1,5 +1,5 @@
-Research demo links PermissionFlow, Copyright (c) 2026 小弟调调, MIT.
+Yonder Helper links PermissionFlow, Copyright (c) 2026 小弟调调, MIT.
 Source: https://github.com/jaywcjlove/PermissionFlow
 Pinned revision: cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2 (v2.11.3)
 License reproduced in PermissionFlow-LICENSE; no upstream source is copied.
-The default FDA status provider is deliberately never used: see ../mac-permission-guidance.md.
+The default FDA status provider is deliberately never used: see ../../docs/research/mac-permission-guidance.md.

@@ -5,7 +5,7 @@ import { definePlugin, type PluginAPI, type ToolContext, type ToolResult, type T
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { desktop, native, stopChildren } from "./desktop.js";
+import { desktop, stopChildren } from "./desktop.js";
 
 const browserSchema = Type.Object(
 	{
@@ -44,7 +44,9 @@ const browserSchema = Type.Object(
 const desktopSchema = Type.Object(
 	{
 		action: Type.Union(
-			["status", "snapshot", "screenshot", "move", "click", "drag", "type", "key"].map((x) => Type.Literal(x)),
+			["status", "permissions", "snapshot", "screenshot", "move", "click", "drag", "type", "key"].map((x) =>
+				Type.Literal(x),
+			),
 		),
 		x: Type.Optional(Type.Integer()),
 		y: Type.Optional(Type.Integer()),
@@ -316,31 +318,24 @@ export default definePlugin({
 				if (args.action === "type") requireField(args.text, "text");
 				if (args.action === "key") requireField(args.keyCode, "keyCode");
 				if (args.action === "screenshot") {
-					const permissions = (await desktop({ action: "status" }, ctx.signal, ctx.session)) as {
-						screenCapture: boolean;
-					};
-					if (!permissions.screenCapture)
-						throw new Error(
-							"Screen Recording permission missing for osascript/Yonder host. Enable System Settings > Privacy & Security > Screen & System Audio Recording; no permission prompt is forced.",
-						);
 					await mkdir(artifacts, { recursive: true });
 					const path = join(artifacts, `${randomUUID()}.png`);
-					await native("/usr/sbin/screencapture", ["-x", "-t", "png", path], ctx.signal, ctx.session);
+					await desktop({ action: "screenshot", path }, ctx.signal, ctx.session);
 					if ((await stat(path)).size > 20 * 1024 * 1024) throw new Error("Desktop image exceeds 20MB");
 					return {
-						text: JSON.stringify({ source: "macOS screencapture", path }),
+						text: JSON.stringify({ source: "Yonder Helper CoreGraphics (main display)", path }),
 						images: [{ mime: "image/png", data: (await readFile(path)).toString("base64") }],
 					};
 				}
 				return result({
-					source: "macOS native JXA/CoreGraphics",
+					source: "Yonder Helper CoreGraphics/AX",
 					result: await desktop(args, ctx.signal, ctx.session),
 				});
 			} catch (error) {
 				return {
 					...result({
 						error: String(error).slice(0, 10000),
-						hint: "Check macOS Screen Recording, Accessibility and Automation permissions for the actual Yonder/osascript host. No automatic permission bypass or frontmost app activation.",
+						hint: "Use desktop permissions for Yonder Helper identity, state and exact owner commands. No automatic permission request or frontmost app activation.",
 					}),
 					isError: true,
 				};
@@ -357,7 +352,7 @@ export default definePlugin({
 		api.tools.register({
 			name: "native-automation_desktop",
 			description:
-				"Independent macOS desktop: permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses system JXA/CoreGraphics and screencapture. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays.",
+				"Independent macOS desktop: permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. permissions/status are non-prompting and return nine kinds with identity, history and next steps. Only the human CLI may request/guide. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays.",
 			parameters: desktopSchema as TSchema,
 			capabilities: ["exec", "read", "write", "message"],
 			execute: desktopRun,

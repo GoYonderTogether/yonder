@@ -73,3 +73,7 @@ Skill Creator: copied from the local OpenAI Codex built-in skill-creator distrib
 - 两个插件从自有 AI-Being/plugins/wechat-archive、wechat-ilink 迁移，归档同时参考自有 being/packages/wechat-inbox 和 wechat-context，来源说明见各插件 NOTICE.md。未复制旧生产配置、凭据、微信数据或旧宿主运行时。
 - iLink 协议按 Tencent/openclaw-weixin 的公开协议文档实现，对照 Hermes Weixin 使用边界；未复制这两个项目的运行时代码。
 - 微信语音解码使用精确版本 silk-wasm@3.7.1，保留 npm 包自带许可证；不提供或声称微信原生语音气泡发送。
+
+## macOS permission guide
+
+Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinned to cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2. Upstream: https://github.com/jaywcjlove/PermissionFlow. Full license and NOTICE are retained in packages/macos-helper/. No upstream source is copied; its FDA heuristic is not used.

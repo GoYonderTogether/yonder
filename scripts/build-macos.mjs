@@ -28,3 +28,5 @@ if (process.platform === "darwin") {
 	if (result.error) throw result.error;
 	process.exitCode = result.status ?? 1;
 }
+
+if (!process.exitCode) await import("./build-permissions.mjs");
