@@ -2,9 +2,18 @@
 
 ## [Unreleased]
 
+## [0.2.26102206] - 2026-10-22
+
 ### Fixed
 
-- progress-observer now deduplicates a reported stall evidence window across plugin restarts, suppresses quiet or non-allowlisted tasks before model/send, and treats done-but-unaccepted tasks as missing-progress evidence only after the threshold; real milestone or resumed-input timestamps open the next window.
+- 修复 progress-observer 工具注册名称必须带 `<plugin-id>_` 前缀导致真实插件加载/doctor 启用检查阻断的问题；覆盖真实 loader 与启用配置下的 CLI doctor fixture。
+- stall 候选以已核验执行器事件/里程碑证据窗口为准，跨重启对同一窗口去重；通知只表示“阈值内没有更新的进展证据”，不推断 executor 已死、任务 missing 或被中断。
+- 静默任务及未通过管理员双 allowlist 的任务在模型判断/发送前过滤；done-but-unaccepted 仅在证据窗口超阈后才是待处理 stall 候选。
+
+### Limitations
+
+- 此 release 不等于 progress-observer 已在生产启用或完成生产验收。管理员 opt-in 与精确 allowlist 仍需单独授权和部署。
+- owner inactivity 检测、ask/ownerRequired 生产接口，以及面向生产调用方的完整 milestone 更新接口仍未完成；不要把“无新进展证据”描述为 missing/dead。
 
 ## [0.2.26102205] - 2026-10-22
 
