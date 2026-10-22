@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-native-automation",
-	"version": "0.2.26102106",
+	"version": "0.2.26102107",
 	"type": "module",
 	"license": "MIT",
 	"engines": {

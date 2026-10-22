@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.26102107] - 2026-10-22
+
+- macOS 权限引导窗跟随实际 Settings 列表下沿，授权后确认并自动关闭；共享观察、超时及带证据的屏幕权限重启流程（PR #17/#19）。验收限制见发布验证记录。
+- BrowserSkill 同步上游指导及 UTF-8 runner 修复，新增默认关闭的书签和扩展管理工具，保留主人授权与安装确认（PR #18）。
+- 增加可选 clipboard vault：基于 opaque handles 的消息/文件/工具结果搬运、Keychain sealed vault、作用域与 TTL 等授权和固定 child-env/HTTPS/open/vault 目的地；不默认启用（PR #22）。
+- 明确 owner interjection 上下文行为（PR #21）；修正 PermissionFlow pasteboard UTI 声明（PR #19 后续修复）。
+
 - 修复 macOS 权限引导窗：跟随实际 Settings 列表下沿，授权后显示确认并自动关闭；guide/watch 共用每秒观察、600 秒超时和有证据的屏幕权限重启流程。
 
 - BrowserSkill：同步最新上游指导与 UTF-8 runner 修复，加入默认关闭的书签、扩展管理工具；保留主人权限授权与安装确认。
