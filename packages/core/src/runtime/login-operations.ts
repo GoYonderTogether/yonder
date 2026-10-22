@@ -33,7 +33,14 @@ export class LoginOperations {
    event TEXT, state TEXT NOT NULL, code INTEGER, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, finished_at INTEGER)`);
 		await this.db.exec(`CREATE TABLE IF NOT EXISTS login_outbox (
    id TEXT PRIMARY KEY, operation_id TEXT NOT NULL UNIQUE REFERENCES login_operations(id), session TEXT NOT NULL,
-   event TEXT, outcome TEXT NOT NULL, code INTEGER, finished_at INTEGER NOT NULL, acknowledged_at INTEGER)`);
+   event TEXT, outcome TEXT NOT NULL, code INTEGER, finished_at INTEGER NOT NULL, acknowledged_at INTEGER,
+   delivery_state TEXT NOT NULL DEFAULT 'pending', delivery_claimed_at INTEGER)`);
+		// Upgrade databases created before durable delivery claims.
+		const columns = await this.db.all<{ name: string }>("PRAGMA table_info(login_outbox)");
+		if (!columns.some((column) => column.name === "delivery_state"))
+			await this.db.exec("ALTER TABLE login_outbox ADD COLUMN delivery_state TEXT NOT NULL DEFAULT 'pending'");
+		if (!columns.some((column) => column.name === "delivery_claimed_at"))
+			await this.db.exec("ALTER TABLE login_outbox ADD COLUMN delivery_claimed_at INTEGER");
 	}
 	async begin(ctx: ToolContext): Promise<LoginOperation> {
 		if (!ctx.session || ctx.session.length > 512 || (ctx.agent !== null && ctx.agent.length > 256))
@@ -111,9 +118,21 @@ export class LoginOperations {
 	async readUnacknowledged(limit = 100): Promise<LoginOutboxEntry[]> {
 		if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Invalid limit");
 		return this.db.all<LoginOutboxEntry>(
-			"SELECT id,operation_id AS operationId,session,event,outcome,code,finished_at AS finishedAt FROM login_outbox WHERE acknowledged_at IS NULL ORDER BY finished_at,id LIMIT ?",
+			"SELECT id,operation_id AS operationId,session,event,outcome,code,finished_at AS finishedAt FROM login_outbox WHERE acknowledged_at IS NULL AND delivery_state='pending' ORDER BY finished_at,id LIMIT ?",
 			limit,
 		);
+	}
+	/** A permanent claim is written before external delivery. Claimed-but-unacknowledged rows are never replayed. */
+	async claimDelivery(id: string): Promise<boolean> {
+		if (typeof id !== "string" || !/^[a-f0-9]{32}$/.test(id)) throw new Error("Invalid outbox id");
+		return this.db.transaction(async (tx) => {
+			const result = await tx.get<{ id: string }>(
+				"UPDATE login_outbox SET delivery_state='claimed',delivery_claimed_at=? WHERE id=? AND acknowledged_at IS NULL AND delivery_state='pending' RETURNING id",
+				this.now(),
+				id,
+			);
+			return result !== undefined;
+		});
 	}
 	async acknowledge(id: string): Promise<boolean> {
 		if (typeof id !== "string" || !/^[a-f0-9]{32}$/.test(id)) throw new Error("Invalid outbox id");
