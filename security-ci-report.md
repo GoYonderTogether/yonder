@@ -12,5 +12,6 @@
 - Full suite `npm test -- --maxWorkers=4`: passed (71 files passed, 17 skipped; 309 tests passed, 34 skipped).
 - `npm run typecheck`: passed.
 - `npm run build`: passed.
-- `npm run lint`: failed due to an existing repository-wide Biome error; it reports 304 existing warnings and one error (not in files changed by this review). No lint findings are introduced in the changed memory files.
+- Local `npm run lint`: exited nonzero with one repository-wide Biome error and 304 warnings; changed implementation has no new lint error (the edited test file retains pre-existing non-null-assertion warnings). GitHub Actions on the committed head completed the lint step successfully.
 - CI run 39837076399 failed: `rg` was absent on the runner, causing tests that explicitly expect ripgrep to be available to fail. The workflow now installs ripgrep; it does not skip those tests or provide a fallback implementation.
+- Exact-head CI run 39841073433 passed, including dependency install, typecheck, build, permissions self-check, full test suite, and lint. GitHub noted a Node.js 20 action deprecation and macOS runner capacity advisory.
