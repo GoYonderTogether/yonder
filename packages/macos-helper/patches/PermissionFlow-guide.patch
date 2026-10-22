@@ -1,0 +1,96 @@
+--- a/Sources/PermissionFlow/PermissionFlowController.swift
++++ b/Sources/PermissionFlow/PermissionFlowController.swift
+@@ -26,6 +26,16 @@
+ 
+     /// Drives the locale environment used by the floating SwiftUI panel.
+     @Published public private(set) var localeIdentifier: String?
++
++    /// Host-owned geometry and permission lifecycle; the library never grants access.
++    public var panelFrame: ((CGRect, CGSize) -> CGRect)?
++    @Published public var guidanceMessage: String?
++    public var restartAction: (() -> Void)?
++    public var onClose: (() -> Void)?
++
++    public func refreshPanel() {
++        if let frame = tracker.currentFrame { presentPanel(panel, for: frame) }
++    }
+ 
+     public var onDrop: ((URL) -> Void)?
+ 
+@@ -98,12 +108,12 @@
+         if let sourceFrame = pendingLaunchSourceFrame {
+             panel.show(at: sourceFrame)
+         } else {
+-            panel.center()
+-            panel.show()
++            panel.orderOut(nil)
+         }
+     }
+ 
+     public func closePanel(returnToPreviousApp: Bool = false) {
++        let wasOpen = panel != nil
+         tracker.stopTracking()
+         panel?.close()
+         panel = nil
+@@ -113,6 +123,8 @@
+             Self.activeController = nil
+         }
+ 
++        if wasOpen { onClose?() }
++
+         if returnToPreviousApp {
+             reactivatePreviousFrontmostApplication()
+         }
+--- a/Sources/PermissionFlow/UI/FloatingDropPanel.swift
++++ b/Sources/PermissionFlow/UI/FloatingDropPanel.swift
+@@ -50,7 +50,7 @@
+         isOpaque = false
+         backgroundColor = .clear
+         hasShadow = true
+-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
++        collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
+         isMovableByWindowBackground = false
+         hidesOnDeactivate = false
+         animationBehavior = .utilityWindow
+@@ -183,6 +183,7 @@
+     /// updated so the motion stays continuous.
+     func snap(to settingsFrame: CGRect) {
+         let target = targetFrame(for: settingsFrame)
++        guard !target.isEmpty else { orderOut(nil); return }
+         if isAnimatingLaunch {
+             // Tracking updates can arrive during the launch. Updating the final
+             // destination preserves the motion instead of abruptly snapping.
+@@ -210,6 +211,9 @@
+         let availableContentWidth = max(240, settingsFrame.width - sidebarWidth)
+         let width = min(availableContentWidth, screenFrame.width - (screenInset * 2))
+         let height = measuredPanelHeight(for: width)
++        if let panelFrame = panelController?.panelFrame {
++            return panelFrame(settingsFrame, CGSize(width: width, height: height))
++        }
+ 
+         // This is the place to tune visual attachment if the panel feels too
+         // far from the bottom edge of System Settings.
+--- a/Sources/PermissionFlow/UI/PermissionFlowPanelView.swift
++++ b/Sources/PermissionFlow/UI/PermissionFlowPanelView.swift
+@@ -8,7 +8,12 @@
+     var body: some View {
+         VStack(alignment: .leading, spacing: 6) {
+             header
+-            if let primaryApp = controller.preferredAppURL {
++            if let message = controller.guidanceMessage {
++                Text(message).accessibilityAddTraits(.updatesFrequently)
++                if let restart = controller.restartAction {
++                    Button("重启 Yonder Helper", action: restart)
++                }
++            } else if let primaryApp = controller.preferredAppURL {
+                 AppDragItemView(
+                     url: primaryApp,
+                     localeIdentifier: controller.localeIdentifier
+@@ -55,6 +60,7 @@
+                     controller.closePanel(returnToPreviousApp: true)
+                 } label: {
+                     Image(systemName: "xmark.circle.fill")
++                        .accessibilityLabel("关闭权限引导")
+                         .font(.system(size: 18, weight: .semibold))
+                         .symbolRenderingMode(.palette)
+                         .foregroundStyle(.primary, .secondary.opacity(0.35))

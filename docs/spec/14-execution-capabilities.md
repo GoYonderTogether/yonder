@@ -83,11 +83,11 @@ watcher 读取注册候选，加载对应 agent.yaml，与 preset 一起走共�
 
 ### 5.1 macOS 权限 helper（D55）
 
-维护者在 Track C phase 2 批准可观测事实 + 请求历史：`unknown | not-granted | requested | granted | needs-restart | revoked-detected | unobservable`。boolean false 不区分未请求与拒绝；`requested` 仅表示 helper 曾发请求，带 lastRequestedAt，不代表 pending/denied。FDA、Files & Folders 不作全局猜测，返回 unobservable 与人工下一步。Automation 限定 System Events target，未运行/探测失败为 unknown。needs-restart 只用于同路径代码身份变化且旧身份曾 granted 的情况，明确表示旧授权可能失效，不能承诺重启修复。
+维护者在 Track C phase 2 批准可观测事实 + 请求历史：`unknown | not-granted | requested | granted | needs-restart | revoked-detected | unobservable`。boolean false 不区分未请求与拒绝；`requested` 仅表示 helper 曾发请求，带 lastRequestedAt，不代表 pending/denied。FDA、Files & Folders 不作全局猜测，返回 unobservable 与人工下一步。Automation 限定 System Events target，未运行/探测失败为 unknown。needs-restart 用于同路径代码身份变化且旧身份曾 granted，或 Screen Recording 当前进程 false 而同签名新进程 true 的情况，明确表示旧授权可能失效，不能承诺重启修复。
 
 单一 `Yonder Helper.app`（dev.yonder.harness.helper）在稳定目录 `~/.local/share/yonder-harness/helper/`；状态文件在 bundle 外，更新只在 cdhash 变化时替换 bundle。Apple Development/Developer ID 签名优先；无证书时 ad-hoc，并报告 hash 变化与重新授权风险。通过 LaunchServices 后台独立启动，stdin/stdout JSON、无网络。截图、鼠标、Unicode 输入、物理按键与窗口 AX 快照均在 helper 自身执行。
 
-AI 的 native-automation_desktop `permissions` / `status` 只执行非提示式探针，返回 kind/state/lastCheckedAt/lastRequestedAt/responsibleIdentity/nextStep/raw；不得弹窗、开 Settings 或授予权限。负责身份字段指实际执行代码的 bundle/path/cdhash，不将 PPID 当成系统 TCC 审计证明。人用 `yonder-permissions request|guide|watch <kind>`；只有 request/guide 记录发起历史并交互。guide 固定 PermissionFlow SHA，关闭自动 AX 提示；watch 有限时只读轮询。AI 不点击 Allow、不访问 TCC.db、不调用 tccutil。真实授权、撤销、UI 跟随与更新保留须主人完成后验收。
+AI 的 native-automation_desktop `permissions` / `status` 只执行非提示式探针，返回 kind/state/lastCheckedAt/lastRequestedAt/responsibleIdentity/nextStep/raw；不得弹窗、开 Settings 或授予权限。负责身份字段指实际执行代码的 bundle/path/cdhash，不将 PPID 当成系统 TCC 审计证明。人用 `yonder-permissions request|guide|watch <kind>`；只有 request/guide 记录发起历史并交互。guide 固定 PermissionFlow SHA 并保留小型 API 补丁，关闭自动 AX 提示；按实际 Settings 窗口/列表下沿定位，不覆盖列表开关。guide/watch 共享约每秒只读轮询，默认 600 秒（可用 --timeout <seconds> 缩短），granted 持久保存 grantedAt，guide 显示一秒确认再关闭，成功退出 0。关闭/超时退出 1，返回包含最后观测与请求时间的 JSON；已有请求历史时超时/关闭记录 requested（撤销事实仍为 revoked-detected；从未请求或 unobservable 的种类保留真实状态）。运行中屏幕授权缓存以同签名新进程非提示式探针比较；仅证据不一致时提示单按钮重启 Helper，watch 自动重启并重新验证。AI 不点击 Allow、不访问 TCC.db、不调用 tccutil。真实授权、撤销、UI 跟随与更新保留须主人完成后验收。
 
 ## 6 手工memory目录
 

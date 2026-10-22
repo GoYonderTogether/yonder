@@ -1,6 +1,6 @@
 // Live, non-prompting acceptance. Run after npm run build on macOS, never grants permissions.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -35,6 +35,7 @@ try {
 		assert.ok(record.lastCheckedAt && "lastRequestedAt" in record && record.nextStep);
 		assert.equal(record.responsibleIdentity.bundleID, "dev.yonder.harness.helper");
 		assert.ok(record.responsibleIdentity.codeHash && record.responsibleIdentity.designatedRequirement);
+		if (record.state === "granted") assert.ok(record.grantedAt);
 		if (["full-disk-access", "files-and-folders"].includes(record.kind)) assert.equal(record.state, "unobservable");
 		passed++;
 	}
@@ -67,7 +68,8 @@ try {
 				`screen-recording: ${status.permissions.find((record) => record.kind === "screen-recording").state}`,
 			),
 		);
-		assert.match(screenshot.text, /request screen-recording/);
+		const record = status.permissions.find((record) => record.kind === "screen-recording");
+		assert.ok(JSON.parse(screenshot.text).error.includes(record.nextStep));
 	}
 	passed++;
 	const forbidden = await call({ action: "request" });
@@ -78,6 +80,21 @@ try {
 	);
 	assert.equal(self.failed, 0);
 	passed += self.passed;
+	for (const kind of ["accessibility", "screen-recording"]) {
+		const watched = spawnSync(process.execPath, ["scripts/yonder-permissions.mjs", "watch", kind, "--timeout", "0.1"], {
+			encoding: "utf8",
+			timeout: 10000,
+		});
+		assert.equal(watched.error, undefined);
+		const final = JSON.parse(watched.stdout.trim().split("\n").at(-1));
+		assert.equal(watched.status, final.exitCode);
+		assert.equal(final.outcome, final.permission.state === "granted" ? "granted" : "timeout");
+		assert.equal(
+			final.permission.lastRequestedAt,
+			status.permissions.find((record) => record.kind === kind).lastRequestedAt,
+		);
+		passed++;
+	}
 	console.log(
 		JSON.stringify({
 			passed,

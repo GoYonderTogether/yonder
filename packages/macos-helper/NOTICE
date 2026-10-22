@@ -1,5 +1,8 @@
 Yonder Helper links PermissionFlow, Copyright (c) 2026 小弟调调, MIT.
 Source: https://github.com/jaywcjlove/PermissionFlow
 Pinned revision: cb96db4bfd2342e8d8c56f2a7d51ca65b8aed6e2 (v2.11.3)
-License reproduced in PermissionFlow-LICENSE; no upstream source is copied.
+License reproduced in PermissionFlow-LICENSE; upstream API additions are recorded in patches/PermissionFlow-guide.patch.
+The build applies this patch only to the pinned SwiftPM checkout (idempotent, fails on mismatch).
+Adds host frame/message/restart/close hooks; preserves upstream drag UI, license and behavior by default.
+Yonder uses the hooks for list-bottom positioning and non-prompting permission lifecycle.
 The default FDA status provider is deliberately never used: see ../../docs/research/mac-permission-guidance.md.

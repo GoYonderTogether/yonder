@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -6,6 +6,14 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 if (process.platform === "darwin") {
 	const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: "utf8" });
 	const pkg = "packages/macos-helper";
+	process.stderr.write(run("swift", ["package", "--package-path", pkg, "resolve"]));
+	const checkout = `${root}${pkg}/.build/checkouts/PermissionFlow`;
+	const patch = `${root}${pkg}/patches/PermissionFlow-guide.patch`;
+	const apply = (args) => spawnSync("git", ["apply", ...args, patch], { cwd: checkout, encoding: "utf8" });
+	if (apply(["--reverse", "--check"]).status !== 0) {
+		const result = apply([]);
+		if (result.status !== 0) throw new Error(`PermissionFlow patch failed: ${result.stderr}`);
+	}
 	process.stderr.write(run("swift", ["build", "--package-path", pkg, "-j", "4"]));
 	const bin = run("swift", ["build", "--package-path", pkg, "--show-bin-path"]).trim();
 	const app = `${root}${pkg}/dist/Yonder Helper.app`;
