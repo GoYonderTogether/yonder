@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { definePlugin, type PluginAPI, type ToolContext, type YEvent } from "@yonder/sdk";
+import { definePlugin, type PluginAPI, parseRef, type ToolContext, type YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Ledger } from "./ledger.js";
 
@@ -101,14 +101,24 @@ export default definePlugin({
 				await ready;
 				const { label } = args as { label: string };
 				const id = randomUUID();
-				const sourceRun =
-					ctx.event?.type === "session.input" || ctx.event?.type === "message.in"
-						? ctx.event.id
-						: ctx.events?.findLast((event) => event.type === "session.input" || event.type === "message.in")?.id;
+				// Bind only the actual message.in context event. Historical events and caller-supplied args
+				// are not a reliable current recipient authorization source.
+				const source = ctx.event?.type === "message.in" ? ctx.event : undefined;
+				const sourceRun = source?.id;
+				let target: string | undefined;
+				if (source?.conv) {
+					try {
+						const ref = parseRef(source.conv);
+						if (ref.kind === "conv" || ref.kind === "acct") target = source.conv;
+					} catch {
+						// Invalid event metadata is not a delivery target.
+					}
+				}
 				await ledger.create(id, label, {
 					owner: ctx.agent,
 					sourceSession: ctx.session,
 					...(sourceRun ? { sourceRun } : {}),
+					...(target ? { target } : {}),
 				});
 				return { text: `Registered ${id}. No executor session/run has been verified; registration is not completion.` };
 			},

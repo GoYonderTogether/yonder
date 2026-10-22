@@ -11,6 +11,7 @@ export interface Task {
 	owner?: string | null;
 	sourceSession?: string;
 	sourceRun?: string;
+	target?: string;
 	executorSession?: string;
 	runStatus?: string;
 	milestone?: string;
@@ -97,6 +98,8 @@ export function verifyDecision(input: unknown, t: Task, now: number): input is D
 		return false;
 	if (!Array.isArray(d.evidence) || d.evidence.length > 5 || d.evidence.some((id) => typeof id !== "string"))
 		return false;
+	// No durable trusted ownerRequired gate exists in this version; model-authored ask is never authority.
+	if (d.decision === "ask") return false;
 	if (d.decision === "skip") return d.evidence.length === 0;
 	if (!d.evidence.length || d.evidence.some((id) => !t.pending.includes(id) || t.claimed?.includes(id))) return false;
 	if (t.quietUntil && now < t.quietUntil) return false;
@@ -119,7 +122,7 @@ export class Ledger {
 	async create(
 		id: string,
 		label: string,
-		association: Pick<Task, "owner" | "sourceSession" | "sourceRun" | "executorSession"> = {},
+		association: Pick<Task, "owner" | "sourceSession" | "sourceRun" | "executorSession" | "target"> = {},
 	) {
 		if (this.tasks.some((t) => t.id === id)) throw Error("duplicate task");
 		const t: Task = {
