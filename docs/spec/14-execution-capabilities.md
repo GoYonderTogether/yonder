@@ -1,6 +1,6 @@
 # 14 执行能力
 
-本规范覆盖旧条款相冲突部分；不包含记忆引擎、沙箱或人格预设。
+本规范覆盖旧条款相冲突部分；不包含记忆引擎、沙箱或人格预设（用户记忆库见 [15](15-memory.md)）。
 
 ## 1 内核异步执行与时间感知
 
@@ -90,6 +90,8 @@ watcher 读取注册候选，加载对应 agent.yaml，与 preset 一起走共�
 AI 的 native-automation_desktop `permissions` / `status` 只执行非提示式探针，返回 kind/state/lastCheckedAt/lastRequestedAt/responsibleIdentity/nextStep/raw；不得弹窗、开 Settings 或授予权限。负责身份字段指实际执行代码的 bundle/path/cdhash，不将 PPID 当成系统 TCC 审计证明。人用 `yonder-permissions request|guide|watch <kind>`；只有 request/guide 记录发起历史并交互。guide 固定 PermissionFlow SHA 并保留小型 API 补丁，关闭自动 AX 提示；按实际 Settings 窗口/列表下沿定位，不覆盖列表开关。guide/watch 共享约每秒只读轮询，默认 600 秒（可用 --timeout <seconds> 缩短），granted 持久保存 grantedAt，guide 显示一秒确认再关闭，成功退出 0。关闭/超时退出 1，返回包含最后观测与请求时间的 JSON；已有请求历史时超时/关闭记录 requested（撤销事实仍为 revoked-detected；从未请求或 unobservable 的种类保留真实状态）。运行中屏幕授权缓存以同签名新进程非提示式探针比较；仅证据不一致时提示单按钮重启 Helper，watch 自动重启并重新验证。AI 不点击 Allow、不访问 TCC.db、不调用 tccutil。真实授权、撤销、UI 跟随与更新保留须主人完成后验收。
 
 ## 6 手工memory目录
+
+这是 agent 自己的手记，不是用户记忆库；用户记忆库由 memory 插件提供（[15](15-memory.md)），二者互不读写。
 
 Agent workspace允许普通文件工具创建memory目录、按日期/条目保存及索引资料；初始化提供memory/README.md说明用途、来源、日期与事实/假设区分。仅按需读取，不新增上下文贡献、不自动注入、不自动总结/删除/清理。说明必须指出这只是临时记录约定，需结合真实场景参考成熟方法迭代，不能将简单目录当作长期记忆引擎。不得覆盖现有用户目录或文件。
 

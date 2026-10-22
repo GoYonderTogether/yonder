@@ -234,7 +234,7 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 | 远程主机、多设备 | `envs`；`yonder.yaml` 的 `envs`；配置档 `env`；工作区 = 执行环境 + 路径（03 §2.1） | 插件实现 pi 的 `ExecutionEnv`（pi-env 已有远程实现可包装）；agent 的工作区可以只在远程 |
 | 容器沙箱 | 同上 | `type: container` 的执行环境插件 |
 | 审批 | `hooks.beforeTool`（可异步）+ `messages.send` + `events.on` | 调用前给主人发卡片，等卡片按钮事件，再返回放行或 `block`；等待受墙钟上限约束 |
-| 记忆 | `contexts`（`placement: turn`，按 `event.from` 的人召回）+ `tools` + `events.on`（摄入消息） | 每条记忆带引用（02 §4.3） |
+| 记忆 | `contexts`（`placement: turn`，按 `event.from` 的人召回）+ `tools` + `events.on`（摄入消息） | 每条记忆带引用（02 §4.3）；官方实现见 [15](15-memory.md) |
 | 工作流 | `triggers` + `events.on`（如 `run.end`）+ `events.ask` + `sessions`（预设会话） | 代码驱动的编排；模型驱动的编排用 skill（03 §6） |
 | 外部经 MCP 调用我们的 agent | `channels` + `io.ask` | MCP 服务端渠道插件；要开放会话管理时把 `api.sessions` 映射成 MCP 工具 |
 | 我们调用外部 MCP 工具 | `tools` | 每个 MCP 工具注册为 `<pluginId>_<name>`，配置档用 `tools.search` 按需加载 |
