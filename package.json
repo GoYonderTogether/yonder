@@ -30,7 +30,8 @@
 		"build": "tsc -b && node scripts/build-macos.mjs",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
-		"lint": "biome check ."
+		"lint": "biome check .",
+		"build:brand": "node brand/scripts/build.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
