@@ -1,14 +1,15 @@
 import { definePlugin, type Tool, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
+import { Bootstrap, type BootstrapArgs, bootstrapSchema } from "./bootstrap.js";
 import { type Capture, capture, captureSchema } from "./capture.js";
 import { configSchema, validateConfig } from "./config.js";
-import { initialize } from "./files.js";
 import { Ingest } from "./ingest.js";
 import { type Args, meSchema, Organizer, planSchema, reviewSchema } from "./organize.js";
 import { type ReadArgs, read, readSchema, type SearchArgs, search, searchSchema } from "./retrieval.js";
 import { status } from "./status.js";
 import { Store } from "./store.js";
+import { type ImportArgs, importSchema, Wechat } from "./wechat.js";
 export default definePlugin({
 	configSchema,
 	setup(api) {
@@ -16,6 +17,11 @@ export default definePlugin({
 		const config = api.config === undefined ? undefined : validateConfig(api.config);
 		const errors: string[] = [];
 		const ingest = config ? new Ingest(api, config, errors) : undefined;
+		const wechat = config ? new Wechat(api, config) : undefined;
+		const bootstrap = config ? new Bootstrap(api, config, wechat!, errors) : undefined;
+		api.events.on("wechat-archive.material", async (e) => {
+			await wechat?.material(e);
+		});
 		api.events.on("message.in", async (event) => {
 			await ingest?.chat(event);
 		});
@@ -26,10 +32,13 @@ export default definePlugin({
 		};
 		api.triggers.register({
 			id: "memory-bootstrap",
-			async start() {
-				await initialize(configured().root);
+			async start(io) {
+				configured();
+				await bootstrap!.trigger().start(io);
 			},
-			async stop() {},
+			async stop() {
+				await bootstrap?.trigger().stop();
+			},
 		});
 		api.triggers.register({
 			id: "memory-inbox",
@@ -118,5 +127,27 @@ export default definePlugin({
 			true,
 			async (input, ctx) => organizer!.me(input as Args, ctx),
 		);
+		register(
+			"memory_import",
+			"Import only allowlisted WeChat history, preserving source time. dryRun does not write; repeated messages share realtime/history dedupe keys.",
+			importSchema,
+			true,
+			async (input, ctx) => wechat!.import(input as ImportArgs, ctx),
+		);
+		register(
+			"memory_bootstrap",
+			"Read-only audit and o200k input-cost estimate; ack attention explicitly or read durable bootstrap state. Audit never converts files or invokes a model.",
+			bootstrapSchema,
+			true,
+			async (input, ctx) => bootstrap!.tool(input as BootstrapArgs, ctx),
+		);
+		api.presets.register({
+			id: "memory-keeper",
+			description: "Background memory organization; proposals need later owner confirmation",
+			plugins: ["memory"],
+			contexts: ["memory-core"],
+			capabilities: ["read", "write", "admin"],
+			tools: { offer: ["memory_*", "read", "write", "edit"], search: [] },
+		});
 	},
 });

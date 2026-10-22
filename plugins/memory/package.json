@@ -23,7 +23,8 @@
 		"luxon": "3.7.2",
 		"write-file-atomic": "6.0.0",
 		"chokidar": "5.0.0",
-		"proper-lockfile": "4.1.2"
+		"proper-lockfile": "4.1.2",
+		"gpt-tokenizer": "4.1.0"
 	},
 	"yonder": {
 		"apiVersion": 1,
@@ -37,11 +38,16 @@
 				"memory_read",
 				"memory_plan",
 				"memory_review",
-				"memory_me"
+				"memory_me",
+				"memory_import",
+				"memory_bootstrap"
 			],
 			"triggers": [
 				"memory-bootstrap",
 				"memory-inbox"
+			],
+			"presets": [
+				"memory-keeper"
 			]
 		}
 	},
