@@ -35,7 +35,7 @@ The `logs` assertion observes only the callback supplied to `openKernel` in this
 No authorized independent test login was available for this work, so the real-model case remains unrun/unaccepted. `yonder help` exposes `yonder login <provider>`; `CONTRIBUTING.md` specifies OAuth is separate per home and explicitly forbids copying another program's OAuth. The CLI help documents only `yonder login <provider>` and does not document a home-selection argument; CONTRIBUTING says each home needs its own OAuth login and prohibits copying OAuth. So the minimum safe action is: have the operator use the established supported mechanism to select/create an isolated test home, run `yonder login openai` in that home and complete its interactive authorization, then set `YONDER_TEST_AUTH` to that independent login file. Do not use production auth. If there is no established home-selection mechanism, stop and get that documented/configured before login rather than guessing. This worker did not run login or inspect credentials. The repository's stated runner command is `YONDER_TEST_REAL=1 npm test`; for this test only, use:
 
 ```sh
-YONDER_TEST_REAL=1 YONDER_TEST_KEYCHAIN=1 YONDER_TEST_AUTH=/absolute/path/to/independent-test-home/auth.json \
+YONDER_TEST_REAL=1 YONDER_TEST_KEYCHAIN=1 YONDER_TEST_AUTH=/absolute/path/to/independent-login-file \
   npx vitest run plugins/clipboard/test/real-model.test.ts --maxWorkers=4
 ```
 
