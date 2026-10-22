@@ -161,7 +161,8 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		const eof = await call(first, "bash", { command: "cat" });
 		expect(JSON.parse(text(eof))).toMatchObject({ output: "", exitCode: 0 });
 		await writeFile(join(home, "stdin.txt"), "native stdin file match\n");
-		const search = await call(first, "bash", { command: "rg 'native stdin file match' --glob 'stdin.txt'" });
+		// The EOF/file regression must run on hosts without optional ripgrep installed.
+		const search = await call(first, "bash", { command: "cat; grep -H 'native stdin file match' stdin.txt" });
 		expect(JSON.parse(text(search))).toMatchObject({ output: "stdin.txt:native stdin file match\n", exitCode: 0 });
 
 		const began = Date.now();
