@@ -46,6 +46,7 @@
 | `agent` | agent 观察、整理、研究所得 |
 | `external` | 他人消息、网页、导入文档 |
 | `legacy` | 旧资料，作者未确认（登记目录的默认值，视同假设，不当证据） |
+| `derived` | 系统综合产物（`me/`、`life/`、`projects/`、复盘等）；其断言须能追溯到记录或文件，不是原始证据 |
 
 - 每条记录**必须**带来源引用（02 §4.3 的约束）：`(ref: <Ref>; evt:<事件id>)`。`<Ref>` 对对话是发送者 `acct:`，对 `memory_capture` 是调用的 `agent:`，对 inbox 是 `plugin:memory`；`evt:` 仅在有对应事件时出现。
 - 派生内容（`me/`、复盘、projects）的每条断言**必须**能追溯到记录或文件；`agent` 的断言是假设，不是证据（§9）。
@@ -87,7 +88,19 @@ status: open            # open | reviewed
 - [x] 14:20 {capture} 正文 (ref: agent:main) ^mk2fa77 → me/now
 ```
 
-- `{source}` 取 `chat`、`capture`、`inbox`、`material`、`wechat`。
+- `{source}` 取下表，**它与 origin 一一对应**，因此 origin 不另写语法，由来源标签恢复：
+
+  | `{source}` | origin | 产生方式 |
+  |---|---|---|
+  | `chat` | `human-said` | 主人在白名单渠道的消息（§6.1(1)） |
+  | `said` | `human-said` | `memory_capture` 的 `by: owner` |
+  | `capture` | `agent` | `memory_capture` 的 `by: agent`（默认） |
+  | `material` | `agent` | `memory_capture(kind: material)` 的指针行 |
+  | `inbox` | `external` | inbox 处理（§6.1(3)） |
+  | `wechat-self` | `human-written` | `self: true` 的微信会话（§6.1(5)） |
+  | `wechat` | `external` | 名单内其他微信会话 |
+
+  文件的 origin：`raw/` 与 `private/` 文件靠 frontmatter 的 `origin`；`mine/` 恒为 `human-written`；登记目录取配置值；`me/`、`life/`、`projects/`、月文档、周文档中非记录行的内容为 `derived`；周文档的记录行各按自己的来源标签。
 - `[ ]` 未整理；`[x]` 已整理，行尾 `→ 去向` 记录去向（`me/now`、`me/profile`、`me/mind`、`plan`、`decision`、`output`、`project:<名>`、`none`）。
 - **正文一个字都不改**，整理只翻转标记并追加去向。用户在 Obsidian 里手动勾选等于自己接管了这条。
 - 单条正文超过 `capture.inlineMax` 字符时，全文存为 `raw/YYYY-MM/<id>.md`，记录行只留前 200 字符与 `→ raw/…` 指针。
@@ -108,7 +121,7 @@ status: open            # open | reviewed
 | `memory_status` | read, admin | 根目录、各来源可用性、转换器与 rg 是否就绪、inbox 积压、未整理条目数与最久一条的年龄、最近错误 |
 | `memory_search` | read, admin | 检索（§6.2） |
 | `memory_read` | read, admin | 读一个文件或周文档的一段（上限 12000 字符，超出标 truncated） |
-| `memory_capture` | write, admin | 记一条；`kind`：`note`（默认，写入记录流）、`material`（agent 资料，存 `raw/` 并在记录流留指针）；`by`：`owner`（主人原话，origin `human-said`）或 `agent`（默认）；可选 `when`（补记到指定日期的周文档）、`private`（写入 `private/`） |
+| `memory_capture` | write, admin | 记一条；`kind`：`note`（默认，写入记录流）、`material`（agent 资料，存 `raw/` 并在记录流留指针）；`by`：`owner`（主人原话，记为 `{said}`，origin `human-said`）或 `agent`（默认，记为 `{capture}`）；可选 `when`（补记到指定日期的周文档）、`private`（写入 `private/`） |
 | `memory_plan` | write, admin | `get`；`propose`（写入提议节）；`commit`（见下）；`update`（改任务状态 `done/postponed/dropped/open`） |
 | `memory_review` | write, admin | `pending`（列未整理条目）；`organize`（翻转标记并写去向）；`section`（写周/月文档的 `决定 / 产出 / 复盘 / 月复盘` 等节，`append` 或 `replace`）；`close`（周 `status: reviewed`，复盘节为空则拒绝；仍有 `[ ]` 时附警告但允许） |
 | `memory_me` | write, admin | `read`；`add`；`supersede`（关旧开新）；`confirm` |
@@ -139,6 +152,8 @@ status: open            # open | reviewed
 - 不建索引。使用 ripgrep 固定参数（`--fixed-strings --ignore-case`，与核心 grep 同一依赖，不经 shell）扫描根目录与登记目录；缺 `rg` 时 `memory_status` 与工具错误给出具体诊断，不做第二套实现。
 - `terms` 是字面子串（对中文稳定，不分词）；每个 term 同时按原样与 NFKC 规范化后各搜一次；同义词、改写由模型展开成多个 term。`match: any` 默认。
 - 结果按文件聚合，排序：命中的不同 term 数、命中数、日期新者在前。每个文件返回路径（根内相对路径，登记目录为 `<name>:<相对路径>`）、origin、日期、命中行号与前后各一行片段。`limit` 默认 20，最大 100。
+- origin 按**命中行**确定：周文档的记录行用其来源标签对应的 origin，其他内容用所在文件的 origin（上表）。`origin` 过滤作用于命中而不是整个文件，所以同一周文档里只有符合的行会返回；返回的每个文件带各命中的 origin。
+- 检索词的 NFKC 双搜只能让“用户输入的兼容形式”（如全角冒号）命中规范形式的文本；已落盘的兼容字符原文（登记目录里本来就存着的“⽂”）不会被普通汉字命中，插件**不改写**登记目录和已有文件。转换产物由入库时的 NFKC 规范化（§6.1(3)）解决。
 - `zones`：`timeline`、`life`、`me`、`mine`、`raw`、`projects`、`archive`，或登记目录名。默认不含 `archive`、`private`；`includePrivate` 必须显式为真。
 - 默认忽略 `.git`、`.obsidian`、`node_modules` 与点文件，不跟随符号链接，路径按真实路径校验不得越出根或登记目录。
 - 仅文本类文件（`.md/.markdown/.txt`）可检索；其他类型须经 inbox 转换后进入 `raw/`。
@@ -258,7 +273,7 @@ plugins:
 
 **converter 调用约定**：不经 shell，argv 为 `[command, ...args, <输入文件绝对路径>]`；退出码 0 且标准输出非空视为成功，标准输出即 Markdown；超过 `timeoutSeconds` 终止并算失败。只把标准输出当文本，不执行其中任何内容。需要写输出目录的工具（如 docling）须由用户提供输出到标准输出的包装脚本。
 
-数值是可调默认值，不是实验结论。无效配置返回字段级错误，不跳过校验。`root` 与 `roots` 互相包含时 `memory_status` 报告；“root 不在 agent 工作区内”无法由插件确认，属配置者责任。
+数值是可调默认值，不是实验结论。无效配置返回字段级错误，不跳过校验。`root` 与任一 `roots[].path` 相同、或互相包含时配置无效：加载时返回字段级错误，插件不启动，不做任何初始化（否则在记忆根创建文件就会写进只读的登记目录）；“root 不在 agent 工作区内”无法由插件确认，属配置者责任。
 
 ## 11 本期不做
 
