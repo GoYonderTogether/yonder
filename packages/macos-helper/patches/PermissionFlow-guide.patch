@@ -94,3 +94,24 @@
                          .font(.system(size: 18, weight: .semibold))
                          .symbolRenderingMode(.palette)
                          .foregroundStyle(.primary, .secondary.opacity(0.35))
+diff --git a/Sources/PermissionFlow/UI/AppDropArea.swift b/Sources/PermissionFlow/UI/AppDropArea.swift
+index e385b72..4303f4e 100644
+--- a/Sources/PermissionFlow/UI/AppDropArea.swift
++++ b/Sources/PermissionFlow/UI/AppDropArea.swift
+@@ -150,7 +150,6 @@ private final class AppBundlePasteboardWriter: NSObject, NSPasteboardWriting {
+         [
+             .fileURL,
+             .URL,
+-            NSPasteboard.PasteboardType("NSFilenamesPboardType"),
+             NSPasteboard.PasteboardType("com.apple.pasteboard.promised-file-url"),
+             .string
+         ]
+@@ -160,8 +159,6 @@ private final class AppBundlePasteboardWriter: NSObject, NSPasteboardWriting {
+         switch type {
+         case .fileURL, .URL, NSPasteboard.PasteboardType("com.apple.pasteboard.promised-file-url"):
+             return url.absoluteString
+-        case NSPasteboard.PasteboardType("NSFilenamesPboardType"):
+-            return [url.path]
+         case .string:
+             return url.path
+         default:
