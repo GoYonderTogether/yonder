@@ -121,7 +121,9 @@ test.skipIf(!enabled)(
 			const transcript = await kernel.sessions.transcript(session.id, { limit: 10000 });
 			const calls = transcript.flatMap((e) => e.tools ?? []);
 			store = new Store(join(home, ".yonder/plugins/clipboard"), { maxBytes: 262144, ttlSeconds: 3600 });
-			const openClips = (await store.all()).filter((item) => item.class === "open" && item.source.type === "message" && item.source.ref === original.id);
+			const openClips = (await store.all()).filter(
+				(item) => item.class === "open" && item.source.type === "message" && item.source.ref === original.id,
+			);
 			expect(openClips).toHaveLength(1);
 			const clipboardCalls = calls.filter((call) => call.name.startsWith("clipboard_"));
 			expect(clipboardCalls.map((call) => call.name).sort()).toEqual(["clipboard_copy", "clipboard_paste"]);
@@ -172,14 +174,15 @@ test.skipIf(!enabled)(
 			const allCalls = after.flatMap((e) => e.tools ?? []),
 				allClipboardCalls = allCalls.filter((call) => call.name.startsWith("clipboard_"));
 			expect(allClipboardCalls.map((call) => call.name).sort()).toEqual([
-				"clipboard_copy", "clipboard_paste", "clipboard_paste",
+				"clipboard_copy",
+				"clipboard_paste",
+				"clipboard_paste",
 			]);
 			expect(allClipboardCalls.filter((call) => call.name === "clipboard_paste").map((call) => call.args)).toEqual([
 				{ handle: openClips[0]!.id, to: { kind: "file", path: output } },
 				{ handle: clip!.id, to: { kind: "file", path: sealedFile } },
 			]);
-			for (const call of allCalls)
-				expect(containsBodyFragment(JSON.stringify(call.args), payload)).toBe(false);
+			for (const call of allCalls) expect(containsBodyFragment(JSON.stringify(call.args), payload)).toBe(false);
 			expect(serialized).toContain("[sealed]");
 			for (const text of [serialized, JSON.stringify(ledger), JSON.stringify(logs), JSON.stringify(client.packets)])
 				expect(text.includes(secret)).toBe(false);
