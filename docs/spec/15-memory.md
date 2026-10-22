@@ -280,9 +280,13 @@ plugins:
       root: <绝对路径>             # 必填；必须在所有 agent 工作区之外
       owner: person:<id>           # 必填；这份记忆属于谁
       timezone: <IANA 时区>        # 必填；周、日的边界按它计
+      triggers:                    # 自动触发器全部 opt-in；省略或 false 不读/初始化 root
+        inbox: false               # true 启动 inbox watcher + 周期重扫
+        bootstrap: false           # true 启动审计与周期检查
       capture:
-        channels: []               # 采集哪些渠道实例的主人消息；默认空
-        attachments: true
+        enabled: false             # 必须显式 true 才自动采集消息/附件
+        channels: []               # channels 默认空；启用时仅采集所列渠道
+        attachments: false
         maxAttachmentBytes: 26214400
         inlineMax: 1000
       sources:
@@ -296,6 +300,8 @@ plugins:
         - { name: <名>, path: <绝对路径>, origin: legacy }
       context: { meChars: 2000 }
 ```
+
+旧配置若依赖此前 inbox/bootstrap 自动监控或消息 capture，升级不会自动迁移；管理员须明确配置 `triggers.inbox: true`、`triggers.bootstrap: true` 或 `capture.enabled: true` 才恢复相应行为。开关仅控制自动行为，不限制手动 memory 工具或上下文；未配置 `converter` 永不调用转换器。`plugins/memory/package.json` 继续声明 trigger IDs 供宿主发现，但实际 start 由上述 schema 校验开关门控。
 
 **converter 调用约定**：不经 shell，argv 为 `[command, ...args, <输入文件绝对路径>]`；退出码 0 且标准输出非空视为成功，标准输出即 Markdown；超过 `timeoutSeconds` 终止并算失败。只把标准输出当文本，不执行其中任何内容。需要写输出目录的工具（如 docling）须由用户提供输出到标准输出的包装脚本。
 

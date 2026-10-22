@@ -57,7 +57,7 @@ it("passes checkPlugin and setup has no filesystem side effects", async () => {
 it("initializes only on start and preserves every existing file byte on restart", async () => {
 	const root = await temp();
 	await writeFile(join(root, "SCHEMA.md"), "用户改写\r\n");
-	const r = await setup(root);
+	const r = await setup(root, { triggers: { bootstrap: true } });
 	await r.triggers[0]!.start({
 		emit: async () => {
 			return {} as import("@yonder/sdk").YEvent;
@@ -126,7 +126,7 @@ it("validates every nested configuration field and reports field errors", async 
 it("status returns readiness and counts without private content; denies missing capabilities", async () => {
 	const root = await temp(),
 		source = await temp();
-	const r = await setup(root, { roots: [{ name: "notes", path: source }] });
+	const r = await setup(root, { roots: [{ name: "notes", path: source }], triggers: { bootstrap: true } });
 	await r.triggers[0]!.start({
 		emit: async () => {
 			return {} as import("@yonder/sdk").YEvent;
