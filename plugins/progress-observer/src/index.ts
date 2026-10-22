@@ -81,7 +81,7 @@ export default definePlugin({
 		};
 		api.events.on("*", enqueue);
 		api.tools.register({
-			name: "progress_task_bind",
+			name: "progress-observer_task_bind",
 			description:
 				"Bind a registered task only to a task session whose open and input events prove this invocation spawned it.",
 			parameters: Type.Object(
@@ -126,7 +126,7 @@ export default definePlugin({
 			},
 		});
 		api.tools.register({
-			name: "progress_task_register",
+			name: "progress-observer_task_register",
 			description:
 				"Register a work item from this real tool invocation; owner/session identity is taken only from ToolContext. Does not assert that a task_run has started or completed.",
 			parameters: taskSchema,

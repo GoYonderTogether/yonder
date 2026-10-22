@@ -24,6 +24,10 @@
 		"id": "progress-observer",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"tools": [
+				"progress-observer_task_bind",
+				"progress-observer_task_register"
+			],
 			"triggers": [
 				"progress-observer-reconcile"
 			]
