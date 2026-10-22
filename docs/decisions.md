@@ -160,3 +160,9 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 ONE Yonder Helper.app 是桌面操作的签名代码主体，通过 LaunchServices 后台启动，以本地 stdin/stdout JSON 交换；不让 Node/JXA 代执行截图或输入。稳定路径与外置状态跨 harness 更新保留，bundle 仅 cdhash 改变才重装。本机发现 Apple Development 身份，构建优先采用；CI 无身份时 ad-hoc，显式披露不能承诺 grant retention。签名本身和父进程链不构成已授权证明，真实 TCC 归属与授权矩阵保留主人验收。
 
 AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide；watch 只观察、限时、可取消。不动生产 home/service/launchd/TCC，也不执行主人桌面的 request/guide/watch。实际验证、全部失败与 OWNER STEP 见[验收记录](verification/mac-permissions.md)。
+
+## D53 统一引用剪贴板与系统秘密内核（2026-10-22，Track A 明确授权）
+
+按成熟内核优先顺序实测 Keychain 与 KeePassXC，选 macOS Security.framework Keychain 原样存储 sealed 字节，KeePassXC 作为未来可迁移备用、禁止自动权限回退；不自研加密，不把通用秘密混入 D50 provider auth.json。D51 sources 保留其原样委派职责。研究与量化维护证据见 [vault-kernel](research/vault-kernel.md)，完整契约见 [15](spec/15-clipboard-vault.md)。
+
+在 SDK 插件中实现 session/agent/profile 作用域的 open/sealed handle、TTL、元数据审计、typed file/固定 child/固定 HTTPS/message(open)/vault 目的地；本机 TTY 捕获从不把值交模型。复用 afterTool，新增可选 beforeSend 以覆盖渠道与跨 chunk 泄漏（选中 profile 按消息缓冲，不改变运行终结或增加审批层）。旧 secrets-plugin 的管道/错误边界有复用价值，固定消费者/MV3 installer 不直接迁入。浏览器秘密适配和 Feishu 入站前秘密分流暂阻塞、不注册假功能。代价：当前仅 macOS/local，helper 签名/Keychain ACL 仍需安装验收；同 OS 用户与 exec 不是秘密沙箱，精确脱敏只是纵深防御。设计在编码前单独提交，最终实现/未测项独立记录。
