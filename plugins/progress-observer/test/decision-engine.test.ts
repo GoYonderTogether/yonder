@@ -113,6 +113,7 @@ describe("decision boundary", () => {
 			expect(await ledger.markSending("a", newAttempt, 0)).toBe(true);
 			expect(await ledger.cancelBeforeSend("a", newAttempt)).toBe(false);
 			expect((await ledger.list())[0]?.delivery).toBe("unknown");
+			await ledger.close();
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}
@@ -133,10 +134,12 @@ describe("decision boundary", () => {
 			};
 			await runDecision(opts, "a", 10);
 			expect((await ledger.list())[0]?.lastSent).toBeUndefined();
+			await ledger.close();
 			ledger = await new Ledger(dir).open();
 			await runDecision({ ...opts, ledger }, "a", 20);
 			expect(send).toHaveBeenCalledTimes(1);
 			expect((await ledger.list())[0]?.pending).toContain("fact");
+			await ledger.close();
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}

@@ -11,6 +11,7 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 		const ledger = await new Ledger(dir).open();
 		await ledger.create("T", "task", { owner: "main", sourceSession: "source", sourceRun: "parent-event" });
 		await ledger.create("T2", "parallel task", { owner: "main", sourceSession: "source", sourceRun: "parent-event" });
+		await ledger.close();
 		const first = {
 			id: "open",
 			type: "session.open",
@@ -73,7 +74,6 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 		expect(state[1].executorSession).toBeUndefined();
 		expect(state[1].seen).toEqual([]);
 		await handler?.(second);
-		await trigger.stop();
 		const replay = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
 		expect(replay[0].seen).toEqual([]);
 		await tool.execute(
@@ -151,6 +151,7 @@ it("reconciles pages without guessing task-session associations, deduplicates re
 		);
 		const afterUnknown = JSON.parse(await readFile(join(dir, "tasks.json"), "utf8"));
 		expect(afterUnknown.at(-1).sourceRun).toBeUndefined();
+		await trigger.stop();
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}

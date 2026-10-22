@@ -14,8 +14,11 @@ describe("durable progress facts", () => {
 			await l.event({ id: "e1", task: "a", type: "executor.active", at: 2 });
 			expect((await l.list())[0].executor).toBe("interrupted");
 			expect(safeFallback((await l.list())[0]).decision).toBe("notify");
+			await l.close();
+			await l.close();
 			l = await new Ledger(d).open();
 			expect((await l.list())[0].executor).toBe("interrupted");
+			await l.close();
 		} finally {
 			await rm(d, { recursive: true, force: true });
 		}
@@ -30,6 +33,7 @@ describe("durable progress facts", () => {
 			expect(safeFallback((await l.list())[0]).decision).toBe("notify");
 			await l.event({ id: "finished", task: "a", type: "run.end", at: 20, value: "done" });
 			expect((await l.list())[0]).toMatchObject({ executor: "done", accepted: "unknown" });
+			await l.close();
 		} finally {
 			await rm(d, { recursive: true, force: true });
 		}
@@ -43,6 +47,7 @@ describe("durable progress facts", () => {
 			await l.event({ id: "u", task: "a", type: "delivery.unknown", at: 2 });
 			await expect(l.decision("a", { decision: "notify", evidence: ["u"], text: "test" }, 3)).rejects.toThrow("quiet");
 			expect(safeFallback((await l.list())[0]).text).toContain("不会自动重发");
+			await l.close();
 		} finally {
 			await rm(d, { recursive: true, force: true });
 		}

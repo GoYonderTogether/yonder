@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { lock } from "proper-lockfile";
 
 export type Exec = "active" | "interrupted" | "missing" | "done" | "none";
 export type Delivery = "not_sent" | "sent" | "unknown" | "failed";
@@ -111,16 +112,46 @@ export function verifyDecision(input: unknown, t: Task, now: number): input is D
 export class Ledger {
 	private tasks: Task[] = [];
 	private writes: Promise<void> = Promise.resolve();
+	private release: (() => Promise<void>) | undefined;
+	private compromised = false;
+	private opening?: Promise<this>;
 	constructor(private dir: string) {}
 	async open() {
-		await mkdir(this.dir, { recursive: true, mode: 0o700 });
-		try {
-			this.tasks = JSON.parse(await readFile(join(this.dir, "tasks.json"), "utf8"));
-		} catch (e) {
-			if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
-		}
-		return this;
+		if (this.opening) return this.opening;
+		this.opening = (async () => {
+			await mkdir(this.dir, { recursive: true, mode: 0o700 });
+			const leasePath = resolve(this.dir);
+			this.release = await lock(leasePath, {
+				realpath: false,
+				stale: 30_000,
+				update: 10_000,
+				retries: 0,
+				onCompromised: () => {
+					this.compromised = true;
+				},
+			});
+			try {
+				this.tasks = JSON.parse(await readFile(join(this.dir, "tasks.json"), "utf8"));
+			} catch (e) {
+				if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+					await this.close();
+					throw e;
+				}
+			}
+			return this;
+		})();
+		return this.opening;
 	}
+	async close() {
+		await this.writes;
+		const release = this.release;
+		this.release = undefined;
+		if (release) await release();
+	}
+	private assertWritable() {
+		if (!this.release || this.compromised) throw new Error("ledger lease unavailable or compromised");
+	}
+
 	async create(
 		id: string,
 		label: string,
@@ -184,6 +215,7 @@ export class Ledger {
 	}
 	/** Durable boundary: once marked, send may have begun and cancellation is forbidden. */
 	async markSending(id: string, attemptId: string, minimumIntervalMs: number, now = Date.now()) {
+		this.assertWritable();
 		const t = this.tasks.find((x) => x.id === id);
 		if (
 			!t ||
@@ -216,6 +248,7 @@ export class Ledger {
 		return this.tasks;
 	}
 	private async save() {
+		this.assertWritable();
 		const write = this.writes.then(async () => {
 			const p = join(this.dir, "tasks.json"),
 				tmp = `${p}.${randomUUID()}.tmp`;
