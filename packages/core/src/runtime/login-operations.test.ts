@@ -35,9 +35,11 @@ it("binds begin to trusted ToolContext and survives reopening with capability on
 		op.id,
 	);
 	expect(row).toMatchObject({ session: "trusted-session", agent: "trusted-agent", event: "trusted-event" });
-	expect(row!.capability_hash).not.toBe(op.capability);
+	expect(row?.capability_hash).not.toBe(op.capability);
 	await db.close();
-	const reopened = await openDatabase(join(dirs[0]!, "state.db"));
+	const dir = dirs[0];
+	expect(dir).toBeDefined();
+	const reopened = await openDatabase(join(dir as string, "state.db"));
 	const recovered = new LoginOperations(reopened, () => 1000, 100);
 	await recovered.initialize();
 	expect(await recovered.finish(op.capability, "succeeded", 0)).toBe(true);
