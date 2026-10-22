@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
@@ -33,6 +33,8 @@ import {
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
+import { launchTerminalLogin } from "./login-terminal.js";
+import { createLoginWrapper } from "./login-wrapper.js";
 import { plainTaskChat } from "./plain-chat.js";
 import type { ChatTarget } from "./terminal.js";
 
@@ -591,6 +593,38 @@ async function run(args: string[]): Promise<number> {
 		const home = homeFor(options);
 		env.YONDER_HOME = home;
 		const kernel = await openKernel(home, {
+			...(env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
+				? {
+						loginHost: {
+							start: async (input: {
+								id: string;
+								capability: string;
+								provider: string;
+								finish(outcome: "succeeded" | "failed" | "interrupted" | "cancelled", code: number): Promise<boolean>;
+							}) => {
+								const { wrapperPath, resultPath } = await createLoginWrapper({
+									nodeExecutable: process.execPath,
+									cliEntry: fileURLToPath(import.meta.url),
+									home,
+									provider: input.provider,
+								});
+								void launchTerminalLogin({
+									wrapperPath,
+									resultPath,
+									timeoutMs: 10 * 60_000,
+									finish: (result) => {
+										const outcome =
+											result.status === "complete" ? (result.code === 0 ? "succeeded" : "failed") : "failed";
+										void input.finish(
+											outcome,
+											result.status === "complete" ? result.code : result.status === "timeout" ? 124 : 1,
+										);
+									},
+								});
+							},
+						},
+					}
+				: {}),
 			log: (level, message, data) =>
 				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
 		});

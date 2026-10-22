@@ -29,7 +29,7 @@ test("private child runner maps real child exit once and never returns child out
 			return true;
 		},
 	});
-	expect(finishes).toEqual([["succeeded", 0]]);
+	await vi.waitFor(() => expect(finishes).toEqual([["succeeded", 0]]));
 	expect(JSON.stringify(finishes)).not.toContain("synthetic-secret");
 	expect(JSON.stringify(finishes)).not.toContain("host-only-capability");
 });

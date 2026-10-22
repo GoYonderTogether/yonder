@@ -24,14 +24,13 @@ export interface LoginChildInput {
 	finish(outcome: LoginOutcome, code: number): Promise<boolean>;
 }
 
-/** Private host-side runner. The child receives only allowlisted launch parameters; completion authority stays in this closure. */
+/** Private host-side runner. start() acknowledges launch immediately; completion finishes the durable operation asynchronously. */
 export function createLoginChildRunner(options: LoginChildRunnerOptions) {
 	const spawnTerminal =
 		options.spawnTerminal ??
 		((command, args, launch) => {
-			if (!process.stdin.isTTY || !process.stdout.isTTY || !process.stderr.isTTY) {
+			if (!process.stdin.isTTY || !process.stdout.isTTY || !process.stderr.isTTY)
 				throw new Error("Login requires an interactive terminal");
-			}
 			return nodeSpawn(command, args, launch) as ChildProcess;
 		});
 	const active = new Map<string, (outcome: LoginOutcome) => void>();
@@ -47,36 +46,32 @@ export function createLoginChildRunner(options: LoginChildRunnerOptions) {
 				env: { ...process.env, YONDER_HOME: options.home },
 				stdio: "inherit",
 			});
-			return new Promise<void>((resolve) => {
-				let settled = false;
-				let timer: ReturnType<typeof setTimeout> | undefined;
-				const settle = (outcome: LoginOutcome, code: number) => {
-					if (settled) return;
-					settled = true;
-					active.delete(input.id);
-					if (timer) clearTimeout(timer);
-					void input.finish(outcome, code).then(
-						() => resolve(),
-						() => resolve(),
-					);
-				};
-				active.set(input.id, (outcome) => {
-					child.kill("SIGTERM");
-					settle(outcome, 130);
-				});
-				child.on("exit", (code, signal) =>
-					settle(signal ? "interrupted" : code === 0 ? "succeeded" : "failed", code ?? 1),
-				);
-				child.on("error", () => settle("failed", 1));
-				timer = setTimeout(
-					() => {
-						child.kill("SIGTERM");
-						settle("failed", 124);
-					},
-					options.timeoutMs ?? 10 * 60_000,
-				);
-				timer.unref?.();
+			let settled = false;
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			const settle = (outcome: LoginOutcome, code: number) => {
+				if (settled) return;
+				settled = true;
+				active.delete(input.id);
+				if (timer) clearTimeout(timer);
+				void input.finish(outcome, code).catch(() => undefined);
+			};
+			active.set(input.id, (outcome) => {
+				child.kill("SIGTERM");
+				settle(outcome, 130);
 			});
+			child.on("exit", (code, signal) =>
+				settle(signal ? "interrupted" : code === 0 ? "succeeded" : "failed", code ?? 1),
+			);
+			child.on("error", () => settle("failed", 1));
+			timer = setTimeout(
+				() => {
+					child.kill("SIGTERM");
+					settle("failed", 124);
+				},
+				options.timeoutMs ?? 10 * 60_000,
+			);
+			timer.unref?.();
+			return Promise.resolve();
 		},
 	};
 }

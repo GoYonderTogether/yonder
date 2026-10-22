@@ -44,7 +44,20 @@ export { type ManagementRequest, manageHome, offlineQuery } from "./home-managem
 export type { KernelLog } from "./workspace.js";
 export { inspectSkills } from "./workspace.js";
 
-export async function openKernel(home: string, options: { log?: KernelLog } = {}) {
+export async function openKernel(
+	home: string,
+	options: {
+		log?: KernelLog;
+		loginHost?: {
+			start(input: {
+				id: string;
+				capability: string;
+				provider: string;
+				finish(outcome: import("../runtime/login-operations.js").LoginOutcome, code: number): Promise<boolean>;
+			}): Promise<void>;
+		};
+	} = {},
+) {
 	home = resolve(home);
 	process.env.YONDER_HOME = home;
 	const log = options.log ?? (() => {});
@@ -316,11 +329,12 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			...(process.env.YONDER_ENABLE_LOGIN_OPERATIONS === "1"
 				? {
 						loginOperations: {
-							runner: {
+							runner: options.loginHost ?? {
 								start: async () => {
-									throw new Error("Login runner unsupported until CLI integration");
+									throw new Error("Login host adapter unavailable");
 								},
 							},
+							providers: new Set(["anthropic", "openai", "google", "openrouter"]),
 							deliver: async (entry, requestId) => {
 								await realRuntime().submit(entry.session, {
 									text: `Login operation ${entry.outcome}.`,
