@@ -7,6 +7,7 @@ import { type Static, Type } from "typebox";
 import { weekDate, weekInfo } from "./calendar.js";
 import type { Config } from "./config.js";
 import { metadata, readText, safePath } from "./files.js";
+import { manifest } from "./manifest.js";
 import { type Origin, records, sourceOrigins } from "./records.js";
 
 const exec = promisify(execFile);
@@ -89,10 +90,12 @@ async function document(config: Config, loc: Location, includePrivate: boolean, 
 		throw new Error("Private content requires includePrivate: true");
 	const lines = text.split("\n");
 	if (lines.at(-1) === "") lines.pop();
-	const origin = fileOrigin(loc, meta),
+	const original =
+		!loc.registered && loc.path.startsWith("raw/") ? (await manifest(config.root)).files[loc.path] : undefined;
+	const origin = original?.origin ?? fileOrigin(loc, meta),
 		fallback = DateTime.fromMillis(info.mtimeMs, { zone: config.timezone }).toISODate()!;
 	const facts = lines.map(() => ({ origin, date: fallback }));
-	if (!loc.registered) {
+	if (!loc.registered && !original) {
 		const range = typeof meta.range === "string" ? meta.range.split("..")[0] : undefined;
 		const month = /^private\/(\d{4}-\d{2})\.md$/.exec(loc.path)?.[1];
 		const entries = records(text, range ?? (month ? `${month}-01` : undefined));

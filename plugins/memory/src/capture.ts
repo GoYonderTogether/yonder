@@ -4,7 +4,7 @@ import { type Static, Type } from "typebox";
 import { stringify } from "yaml";
 import { heading, moment, monthTemplate, weekInfo, weekTemplate } from "./calendar.js";
 import type { Config } from "./config.js";
-import { formatRecord, type Source } from "./records.js";
+import { formatRecord, type Source, sourceOrigins } from "./records.js";
 import type { Store, WriteContext } from "./store.js";
 
 export const captureSchema = Type.Object(
@@ -21,7 +21,7 @@ export const captureSchema = Type.Object(
 export type Capture = Static<typeof captureSchema>;
 let last = 0;
 const issued = new Set<string>();
-function recordId(): string {
+export function recordId(): string {
 	const time = Date.now();
 	if (time !== last) {
 		last = time;
@@ -40,29 +40,30 @@ export async function capture(
 	args: Capture,
 	ctx: ToolContext,
 	emit: PluginAPI["events"]["emit"],
+	entry?: { source: Source; ref: string },
 ) {
 	if (args.kind === "material" && args.private) throw new Error("material and private cannot be used together");
-	if (!ctx.agent) throw new Error("memory_capture requires a calling agent for its source reference");
+	if (!ctx.agent && !entry) throw new Error("memory_capture requires a calling agent for its source reference");
 	const date = moment(config.timezone, args.when),
 		info = weekInfo(date),
 		id = recordId();
-	const ref = `(ref: agent:${ctx.agent}${ctx.event ? `; evt:${ctx.event.id}` : ""})`;
+	const ref = entry?.ref ?? `(ref: agent:${ctx.agent}${ctx.event ? `; evt:${ctx.event.id}` : ""})`;
 	const meta: WriteContext = {
 		op: "memory_capture",
 		id,
-		by: `agent:${ctx.agent}`,
+		by: ctx.agent ? `agent:${ctx.agent}` : "plugin:memory",
 		session: ctx.session,
 		signal: ctx.signal,
 	};
 	const material = args.kind === "material";
-	const source: Source = material ? "material" : args.by === "owner" ? "said" : "capture";
+	const source: Source = entry?.source ?? (material ? "material" : args.by === "owner" ? "said" : "capture");
 	let body = args.text;
 	const paths: string[] = [];
 	if (material || args.text.length > (config.capture?.inlineMax ?? 1000)) {
 		const raw = `raw/${date.toFormat("yyyy-MM")}/${id}.md`;
 		await store.ensure(
 			raw,
-			`---\n${stringify({ origin: source === "said" ? "human-said" : "agent", ...(args.private ? { private: true } : {}), ...(args.title === undefined ? {} : { title: args.title }) })}---\n${args.text}`,
+			`---\n${stringify({ origin: sourceOrigins[source], by: meta.by, ...(args.private ? { private: true } : {}), ...(args.title === undefined ? {} : { title: args.title }) })}---\n${args.text}`,
 			meta,
 		);
 		paths.push(raw);
