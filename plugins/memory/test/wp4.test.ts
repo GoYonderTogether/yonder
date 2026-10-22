@@ -1,4 +1,4 @@
-import { copyFile, readdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { metadata, textFiles } from "../src/files.js";
@@ -56,6 +56,29 @@ it("moves text originals byte-for-byte, indexes origin by path and archives dupl
 	expect(h.events).toHaveLength(1);
 	expect(await readdir(join(h.root, "archive/duplicates"))).toHaveLength(1);
 });
+it("enforces converter input size, regular-file and content-type boundaries; allows a matching fixture", async () => {
+	const converter = { command: process.execPath, args: ["-e", "process.stdout.write('converted fixture')"] };
+	const tooLarge = await setup({ converter, capture: { maxAttachmentBytes: 4 } });
+	await writeFile(join(tooLarge.root, "inbox/large.pdf"), "%PDF-1.7");
+	await expect(new Ingest(tooLarge.api, tooLarge.config, []).process("large.pdf", () => {})).rejects.toThrow(
+		"size limit",
+	);
+	const mismatch = await setup({ converter });
+	await writeFile(join(mismatch.root, "inbox/fake.pdf"), "not a PDF");
+	await expect(new Ingest(mismatch.api, mismatch.config, []).process("fake.pdf", () => {})).rejects.toThrow(
+		"mismatched",
+	);
+	const linked = await setup({ converter });
+	await writeFile(join(linked.root, "outside.pdf"), "%PDF-1.7");
+	await symlink(join(linked.root, "outside.pdf"), join(linked.root, "inbox/link.pdf"));
+	await expect(new Ingest(linked.api, linked.config, []).process("link.pdf", () => {})).rejects.toThrow(
+		"Symbolic links",
+	);
+	const valid = await setup({ converter });
+	await writeFile(join(valid.root, "inbox/good.pdf"), "%PDF-1.7 fixture");
+	await new Ingest(valid.api, valid.config, []).process("good.pdf", () => {});
+	expect((await textFiles(valid.root)).some((name) => name.endsWith(".converted.md"))).toBe(true);
+});
 it("keeps originals for real converter nonzero/empty/timeout failures", async () => {
 	for (const converter of [
 		{ command: "/usr/bin/false" },
@@ -64,7 +87,7 @@ it("keeps originals for real converter nonzero/empty/timeout failures", async ()
 	]) {
 		const h = await setup({ converter }),
 			ingest = new Ingest(h.api, h.config, []);
-		await writeFile(join(h.root, "inbox/a.pdf"), "不可转换测试文件");
+		await writeFile(join(h.root, "inbox/a.pdf"), "%PDF-1.7 不可转换测试文件");
 		await expect(ingest.process("a.pdf", (e) => h.api.events.emit(e))).rejects.toThrow("Conversion failed");
 		expect(await readdir(join(h.root, "inbox"))).toEqual(["a.pdf"]);
 		expect(h.events).toHaveLength(0);

@@ -17,7 +17,7 @@ WP3 使用 PATH 中的 `rg`，固定字面/忽略大小写/不跟随链接参数
 
 测试仅使用临时文件系统；尚未在用户 Obsidian/微信归档、真实模型或正式服务验证。卸载配置不会删除根目录。根 package-lock.json 未在本任务允许的修改范围内更新，全新 npm ci 安装新 workspace 未验收。
 
-WP4 已接入主人白名单消息与 inbox：chokidar@5.0.0（MIT，Node ≥20.19）awaitWriteFinish 1000ms；周期重扫兜底。点文件和下载临时文件不处理；转换失败留在 inbox 并在 status 报错。文本原件不添加 frontmatter，manifest 的 files[path].origin 是其权威来源，hashes[sha256] 指原件路径；keys 保存事件/微信等去重引用，不含正文。附件使用随机前缀文件名避免冲突。转换文件为原件路径加 .converted.md，写 origin/source/sha256/converted，并做 NFKC。推荐外部 markitdown 0.1.9（MIT），插件不负责安装。
+WP4 已接入主人白名单消息与 inbox：chokidar@5.0.0（MIT，Node ≥20.19）awaitWriteFinish 1000ms；周期重扫兜底。点文件和下载临时文件不处理；转换失败留在 inbox 并在 status 报错。文本原件不添加 frontmatter，manifest 的 files[path].origin 是其权威来源，hashes[sha256] 指原件路径；keys 保存事件/微信等去重引用，不含正文。附件使用随机前缀文件名避免冲突。转换文件为原件路径加 .converted.md，写 origin/source/sha256/converted，并做 NFKC。推荐外部 markitdown 0.1.9（MIT），插件不负责安装。`converter.command/args/timeoutSeconds` 是管理员配置的固定可执行文件和参数，不能由模型或附件覆盖；未配置时不调用转换器。转换前拒绝符号链接、非普通文件、超出 `capture.maxAttachmentBytes`（默认 25 MiB）的文件，并校验扩展名对应的 PDF/ZIP(DOCX)文件签名；这些检查不是恶意软件扫描或隔离。转换器以插件进程同一 UID 运行，无法防御同 UID 对手在检查后替换文件，也不能消除转换器自身漏洞风险。
 
 WP5 已接入 memory_plan、memory_review、memory_me。所有操作显式传 op，参数见规范 §5.1；commit/confirm 检查当前运行首事件为owner message.in且晚于提议。confirmed事实的evidence为 evt:<当前事件id> 或 ^<确定性chat/wechat-self条目id>，模型调用的said不算证据。me手改条目通过与插件写入快照比对，读取时按confirmed呈现，不回改用户文件；历史不删除。新建me文件含当前/历史，新建month/year/vision含规范节与历史，不覆盖已有文件。
 
