@@ -13,7 +13,7 @@
 
 | 检查 | 原始结果 | 说明 |
 |---|---|---|
-| Rust workspace 首轮 | 878 passed / 0 failed / 1 ignored；46 summaries | `cargo test --workspace --locked -j 4 -- --test-threads=4`，持有共享 heavy-test lock；包括首轮接线修改前的基线，最终复跑另记 |
+| Rust workspace 首轮及最终轮 | 每轮 878 passed / 0 failed / 1 ignored；46 summaries | `cargo test --workspace --locked -j 4 -- --test-threads=4`，持有共享 heavy-test lock；首轮与最终源码复跑结果相同，原始结果分别保留 |
 | Extension 全套（两轮） | 每轮 2693 passed / 0 failed / 248 skipped；174 files passed / 33 skipped | 最终轮使用 `pnpm --filter @browser-skill/extension exec vitest run --maxWorkers=4`。首轮 pnpm 转发多了一个 `--`，因此重跑显式限制 workers；未把 browser opt-in skips 当通过 |
 | VOM | 82 passed / 0 failed | 3 files，maxWorkers=4 |
 | DSH 插件 | 541 passed / 0 failed | 25 files，maxWorkers=4；Vite 有 sourcemap 缺失警告，不影响测试退出码 |

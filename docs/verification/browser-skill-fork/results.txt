@@ -728,3 +728,17 @@ de@22.20.1_esbuild@0.27.7_jiti@2.7.0/node_modules/vite/dist/node/chunks/node.js:
 
 === B-install.json ===
 {"commit": "8500bcbdf2e6bf0d19c33a9b156ba62a07f85ade", "backup": "/Users/zoran/.local/share/browserskill-fork/backup/bsk-before-r2-20261022T050023Z", "backup_sha256": "900c85d168a4a23f19767aa918b4de4c2ae0097cd298fca3691b89843935bb58", "installed_sha256": "be10b8f04f1fad73adddf40b7418e5bb0c86a3adb04bea076af0a47ae5f81538", "extension_path": "/Users/zoran/.local/share/browserskill-fork/chrome-extension"}
+
+
+=== B-update-sha-check.json ===
+{
+  "exit_code": 2,
+  "sha256_before": "be10b8f04f1fad73adddf40b7418e5bb0c86a3adb04bea076af0a47ae5f81538",
+  "sha256_after": "be10b8f04f1fad73adddf40b7418e5bb0c86a3adb04bea076af0a47ae5f81538",
+  "output": {
+    "code": null,
+    "message": "This fork build disables upstream updates; rebuild from its pinned fork branch",
+    "hint": "is the daemon running? try `bsk daemon start` or `bsk status`",
+    "exit_code": 2
+  }
+}
