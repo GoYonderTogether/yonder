@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.26102202] - 2026-10-22
+
 - 修复 runtime.transcript 在 limit/from 很小时仍解码整段会话历史：把 minEntryId 与 limit 下推到存储扫描（生产最大会话 2552 条/26MB：limit=1 由约 65ms 降到约 1ms）。
 
 ## [0.2.26102201] - 2026-10-22
