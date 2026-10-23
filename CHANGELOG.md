@@ -2,9 +2,15 @@
 
 ## [Unreleased]
 
+## [0.2.26102307] - 2026-10-23
+
 ### Added
 
 - `yonder.yaml` 全局 locale/timezone 默认中文与 Asia/Shanghai；提示词日历明确显示 UTC 和北京时间/星期，UI Companion 历史时间也使用同一设置，不依赖宿主时区。cron 仍要求作业显式设置时区。
+
+### Changed
+
+- 共享提示词：多步任务合并相关目标、保留可检查的验收条件与预算提醒，够用即停；另附目标、上下文压缩与时间展示的设计提案（`proposals/goal-context-time-design.md`，仅提案，未实现）。
 
 ## [0.2.26102306] - 2026-10-23
 
