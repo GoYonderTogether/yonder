@@ -222,3 +222,5 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 用户明确要求大量保留参考项目和已安装技能的详细原文。编码取用 MIT OpenCode、Ponytail；调研取用 MIT CopilotKit OpenMuse；保存来源、原文、许可与适配说明，原文不自动注入。未找到明确许可证的 Digger OpenMuse 仅作结构参考。通用规则不在各角色中重复维护，工具/宿主专属约定改成 Yonder 实际接口。文案可配置，权限由现有代码落实；research 不提供 shell，不用提示词假装只读。
 
 web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就因未知依赖无法启动。插件的 research 默认只选自身；新 init 加载 web-tools 并生成选择它的同名 home 预设。现有 home 需显式选择，已有自定义 preset 保持优先。搜索凭据缺失与 HTTP fetch 可用分别报告。此轮不批量合并其他分支、不为展示创建无职责的常驻 Bot；开发者预览版的全仓收敛另按真实验收推进。
+
+**统一聊天与压缩恢复（2026-10-23 用户批准）。** pi-durable 共享纯失败决策，generation 与 compaction 保留原生 checkpoint、取消链和状态所有权；Yonder 向两者注册同一错误分类。失败尝试记录在原生无模型正文 entry 中，与状态原子提交；压缩复用耗尽文案。不新建重试服务、队列或恢复存储。保留既有有回退链时所有模型 error 计数的契约，未配置回退时使用瞬时错误分类。

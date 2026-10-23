@@ -1,7 +1,7 @@
 import type { AssistantMessage, Message } from "@earendil-works/pi-ai";
 import { isContextOverflow } from "@earendil-works/pi-ai/utils/overflow";
 import { isRetryableAssistantError } from "@earendil-works/pi-ai/utils/retry";
-import { GenerationTask, type Harness, hook, InboxDoc, LiveDoc } from "@earendil-works/pi-durable";
+import { CompactionTask, GenerationTask, type Harness, hook, InboxDoc, LiveDoc } from "@earendil-works/pi-durable";
 import { RunDoc } from "./docs.js";
 
 // Native checkpoints own both the retry budget and the backoff across restarts.
@@ -41,6 +41,7 @@ export function transientModelError(message: Pick<AssistantMessage, "stopReason"
 
 export function recoveryHooks(harness: () => Harness, maxRetries: number) {
 	return [
+		hook(CompactionTask, { shouldRetry: (message) => transientModelError(message) }),
 		hook(GenerationTask, {
 			beforeRequest: async (request, api, context) => {
 				// A recovered request has a pinned cutoff. Pending write notes must

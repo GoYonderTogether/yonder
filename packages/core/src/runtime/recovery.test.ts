@@ -99,7 +99,10 @@ test.skipIf(!real)(
 				});
 				upstreamStatuses.push(response.status);
 				res.writeHead(response.status, { "content-type": response.headers.get("content-type") ?? "text/event-stream" });
-				if (response.body) Readable.fromWeb(response.body).pipe(res);
+				if (response.body)
+					Readable.fromWeb(response.body)
+						.on("error", () => res.destroy())
+						.pipe(res);
 				else res.end();
 			} catch {
 				res.destroy();
