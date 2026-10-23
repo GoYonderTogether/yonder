@@ -11,6 +11,58 @@ import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js
 import { Store } from "../src/store.js";
 import { containsBodyFragment } from "./body-leakage.js";
 
+function safeClipboardDiagnostics(
+	tools: unknown,
+	runDone: boolean,
+	outputExists: boolean,
+	diagnosticsUnavailable = false,
+) {
+	const counts: Record<string, number> = { clipboard_copy: 0, clipboard_paste: 0, other: 0 };
+	if (Array.isArray(tools))
+		for (const item of tools) {
+			const name = item && typeof item === "object" && "name" in item ? item.name : undefined;
+			const key = name === "clipboard_copy" || name === "clipboard_paste" ? name : "other";
+			counts[key]++;
+		}
+	return { counts, runDone: runDone === true, outputExists: outputExists === true, diagnosticsUnavailable };
+}
+
+test("clipboard failure diagnostics expose only allowlisted scalar fields", () => {
+	const secret = "SYNTHETIC_SECRET_DIAGNOSTIC_9f12";
+	const result = safeClipboardDiagnostics(
+		[
+			{ name: "clipboard_copy", args: secret, result: secret },
+			{ name: secret, error: secret },
+		],
+		true,
+		false,
+	);
+	expect(JSON.stringify(result)).not.toContain(secret);
+	expect(result).toEqual({
+		counts: { clipboard_copy: 1, clipboard_paste: 0, other: 1 },
+		runDone: true,
+		outputExists: false,
+		diagnosticsUnavailable: false,
+	});
+});
+
+test("diagnostic session lookup failure is reduced to a static availability flag", async () => {
+	let diagnosticsUnavailable = false;
+	try {
+		await Promise.reject(new Error("SYNTHETIC_SECRET_SESSION_ERROR"));
+	} catch {
+		diagnosticsUnavailable = true;
+	}
+	const result = safeClipboardDiagnostics(undefined, true, false, diagnosticsUnavailable);
+	expect(JSON.stringify(result)).not.toContain("SYNTHETIC_SECRET_SESSION_ERROR");
+	expect(result).toEqual({
+		counts: { clipboard_copy: 0, clipboard_paste: 0, other: 0 },
+		runDone: true,
+		outputExists: false,
+		diagnosticsUnavailable: true,
+	});
+});
+
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 const enabled =
 	process.env.YONDER_TEST_REAL === "1" &&
@@ -116,7 +168,24 @@ test.skipIf(!enabled)(
 				client,
 				`Use clipboard_copy with from kind message and eventId ${original.id}, then clipboard_paste the returned handle to a file at ${output}. Copy the entire original message byte-for-byte by reference. Do not transcribe it. Reply only COPIED after success.`,
 			);
-			expect(await readFile(output, "utf8")).toBe(payload);
+			try {
+				expect(await readFile(output, "utf8")).toBe(payload);
+			} catch (error) {
+				let tools: unknown = [];
+				let diagnosticsUnavailable = false;
+				try {
+					const session = (await kernel.sessions.list({ agent: "main", open: true }))[0];
+					const transcript = session ? await kernel.sessions.transcript(session.id, { limit: 10000 }) : [];
+					tools = transcript.flatMap((e) => e.tools ?? []);
+				} catch {
+					diagnosticsUnavailable = true;
+				}
+				console.error(
+					"clipboard diagnostic",
+					JSON.stringify(safeClipboardDiagnostics(tools, true, existsSync(output), diagnosticsUnavailable)),
+				);
+				throw error;
+			}
 			const session = (await kernel.sessions.list({ agent: "main", open: true }))[0]!;
 			const transcript = await kernel.sessions.transcript(session.id, { limit: 10000 });
 			const calls = transcript.flatMap((e) => e.tools ?? []);
