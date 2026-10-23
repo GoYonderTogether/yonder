@@ -113,6 +113,7 @@ export async function initHome(home: string, owner = "owner") {
 			{ use: "@yonder/plugin-context-files" },
 			{ use: "@yonder/plugin-ui-companion" },
 			{ use: "@yonder/plugin-agent-presets" },
+			{ use: "@yonder/plugin-web-tools" },
 		],
 		channels: { cli: { type: "cli" } },
 		envs: { local: { type: "local" } },
@@ -121,19 +122,6 @@ export async function initHome(home: string, owner = "owner") {
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
 	await mkdir(join(home, "presets"), { recursive: true });
-	await writeFile(
-		join(home, "presets/default.yaml"),
-		stringify({
-			schema: 1,
-			description: "独立任务 · Standalone task",
-			model: "openai/gpt-6-luna",
-			level: "standard",
-			tools: { offer: ["*"] },
-			plugins: [],
-			contexts: [],
-		}),
-		{ flag: "wx" },
-	);
 	const agent: AgentConfig = {
 		schema: 1,
 		id: "main",
@@ -162,6 +150,20 @@ export async function initHome(home: string, owner = "owner") {
 		config,
 		inspectionServices(home, config, () => {}),
 	);
+	for (const name of ["default", "research"]) {
+		const preset = plugins.presets.get(name);
+		if (!preset) throw new Error(`Missing official preset ${name}`);
+		const { id, ...profile } = preset;
+		await writeFile(
+			join(home, `presets/${id}.yaml`),
+			stringify({
+				schema: 1,
+				...profile,
+				...(id === "research" ? { plugins: ["agent-presets", "web-tools"] } : {}),
+			}),
+			{ flag: "wx" },
+		);
+	}
 	await scaffoldWorkspace(
 		filesFor(home, config, plugins, "main"),
 		profileFor(home, config, agent).resolved.contexts,

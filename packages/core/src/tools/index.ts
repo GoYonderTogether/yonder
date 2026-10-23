@@ -37,8 +37,21 @@ const fail = (error: unknown): ToolResult => ({
 const text = () => Type.String({ minLength: 1 });
 const schema = (fields: Record<string, import("typebox").TSchema>) =>
 	Type.Object(fields, { additionalProperties: false });
-const effortSchema = Type.Optional(text());
-const sourcesSchema = Type.Optional(Type.Array(text(), { minItems: 1, maxItems: MAX_SOURCES }));
+const effortSchema = Type.Optional(
+	Type.String({
+		minLength: 1,
+		description:
+			"Optional per-run thinking override. Requires admin capability; otherwise omit this field and use the configured preset/profile thinking.",
+	}),
+);
+const sourcesSchema = Type.Optional(
+	Type.Array(text(), {
+		minItems: 1,
+		maxItems: MAX_SOURCES,
+		description:
+			"Optional exact inbound message IDs to quote from the current source conversation. Omit this field when not quoting or when no source conversation exists. Never send an empty array, prose or invented IDs. It is not required for delegation.",
+	}),
+);
 const attachmentSchema = Type.Object(
 	{
 		kind: Type.Union([Type.Literal("image"), Type.Literal("audio"), Type.Literal("video"), Type.Literal("file")]),

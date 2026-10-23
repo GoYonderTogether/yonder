@@ -33,15 +33,29 @@ submit 的接纳回执不是完成结果；实际终态看 run.end 与会话转�
 
 要持续拥有职责、身份和渠道入口，才使用 `yonder agents create <id> --preset default-agent --file <配置.json>`。真实 name/work/owner/bindings 必填；选 Jarvis 模板不会授予额外权限。实际参数以该版本 --help 为准。
 
-## Coding 专化现状与参考
+## 三套官方任务预设
 
-本次正式提供的角色模板是 Jarvis 和普通常驻 Agent；init 的 default 是通用独立任务。Yonder 不会自动装入上游 pi coding-agent 的完整系统提示词。代码执行已有 read/write/edit/grep/bash/process、项目指令读取、隔离任务、真实检查与交付规则；部署者可以为维护 Agent 设置职责，但这不等于已发布独立 coding/plan/review 三种官方预设。
+| preset | 任务正文 | 默认工具和能力 |
+|---|---|---|
+| default | task-general：任务边界、原始材料、推进、连续工作与交付 | read/grep/write/edit/bash/process/skill_view；read/write/exec/network |
+| coding | task-general + task-coding：理解调用链、最小完整修复、真实检查、Git 与交付 | 同 default；不自动赋予消息、管理或递归委派 |
+| research | task-general + task-research：原始资料、搜索、证据、比较、引用 | read/grep/skill_view 和选中的 web-tools；read/network，无 shell、写文件或发消息 |
 
-专业化可沿现有 preset 的 instructions、工具/能力选择、skills 和 prompt 段落实现。建议先做 coding（实施并验证）、review（按真实权限只读审查）两种有实际使用方的配置，不新增人格或运行框架。只写“只读”不能限制有 exec 的配置；权限和工具必须同时对齐。常驻维护者的项目职责放自己的 AGENTS，某次修改的仓库与验收放任务，领域工艺再放按需 skill。
+新 init 加载 web-tools，并给 research 选中该插件。已安装 agent-presets 的旧 home 不会因为缺少 web-tools 而失效：插件原始 research 只选 agent-presets，可读取已提供的本地材料；需要联网时显式加载并选择 web-tools。公开 URL fetch 不需要搜索凭据；search/extract 需要实际配置的 Tavily 命名凭据。工具已注册不等于已认证或已成功使用。
 
-已核对两处上游官方资料（2026-10-23）：
+```sh
+yonder chat --preset coding --home <home>
+yonder sessions open research --keep-open --home <home> --json
+```
 
-- [pi system-prompt.ts](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/system-prompt.ts)：按实际可用工具生成说明，分开项目指令、技能与可替换提示段。适合继续借鉴其小底座与按能力装配方法；工具名、路径与工具细则要使用 Yonder 现有契约。
-- [OpenCode Agents](https://opencode.ai/docs/agents/)：把 Build、Plan、Explore 等任务用途与自定义提示词、模型、权限分别配置。适合借鉴实施与探索/审查的职责区分；它的权限系统、@ 调用、会话键位和自动模式不应照搬成 Yonder 已有能力。
+task_run 选择同一个 default/coding/research。子任务按父权限交集运行，不能凭编码预设获取父会话没有的写入/执行能力；调用方需要提供真实仓库、目标、允许改动、来源和验收。连续独立 session 用同一 preset，靠会话历史续作；不会自动继承主 Agent 的全部聊天或长期记忆。不按名称自动降级模型，也不新增“常驻子 Agent”层级。
 
-本轮只完成资料核对和分配方式说明，没有据名称新增未验证的 coding 执行器，也没有声称任意模型已经具备同样的代码任务完成率。
+如确有长期职能，创建普通常驻 Agent，在其 profile 的 contexts 保留 default-agent-soul/default-agent-work，再显式加入 task-general 与 task-coding 或 task-research。它仍是原有姓名、职责和工作区的同一个 Agent。渠道分身沿 binding 选择 profile 和会话；任务正文不会把它变成另一人格。需要只读代码审查时，使用只读工具/能力配置；有 exec 的 coding 不构成只读沙箱。
+
+## 参考和复用范围
+
+主要对标 OpenCode 的任务提示词与工具选择方式，结合 Ponytail 的完整工程取舍方法；调研正文改编 CopilotKit OpenMuse 的 worker/search 指令。原文、固定版本、MIT 许可和逐项改编记录随 [agent-presets/SOURCES](../../plugins/agent-presets/prompts/SOURCES.md) 打包。没有移植任何上游运行器、权限系统或第二套会话存储。
+
+OpenDot 的本机助理方向可参考，但其全部操作可撤销、固定连接器调用等约定不符合当前 Yonder；Digger 的同名 OpenMuse 未查到可复用许可，仅作架构比较，未复制提示词。来源正文不自动注入，实际只加载当前选中的 task context。
+
+[配置说明](configuration.md) 展示关闭、替换正文和小上下文配置；官方预设不覆盖 home 下同名自定义文件。实际验证记录见 [任务预设验收](../verification/task-presets.md)。

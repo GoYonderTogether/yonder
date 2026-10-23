@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-decision-routing",
-	"version": "0.2.26102306",
+	"version": "0.2.26102307",
 	"private": true,
 	"type": "module",
 	"license": "Apache-2.0",
@@ -17,7 +17,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102306"
+		"@yonder/sdk": "0.2.26102307"
 	},
 	"yonder": {
 		"apiVersion": 1,

@@ -210,3 +210,11 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 用户随后补充本机多仓库、子 Agent/子进程、插件分散规则与原文表达案例，已纳入同一重构。又明确要求短上下文本地模型可移除、替换或部分选择提示词：Profile 增加可选 prompt.sections/overrides，按稳定段落 id 配置，包括移除框架导航；默认全量，既有配置兼容，不改变运行能力或投递。角色上下文、技能和工具沿原选择字段控制，不新增自动裁剪器或模型推断策略。配置运行快照与热重载仍走现有链。
 
 用户随后明确要求基础设施完成后正式发版并全面更新本机 Agent 提示词。发布基线改为最新 main，保留已上线的 sources/effort、parent_ask、模型回退与按需工具目录；目录也纳入可配置的 tool-discovery 段。迁移只针对实际登记的本机 Agent 和 default 任务预设，备份后更新正文、保留个体职责与授权边界，移除旧的静态工具目录。外部 Hermes 扩展继续保留自身记忆与学习上下文。此授权属于本次部署，不将以后每次模板升级改成自动覆写。
+
+## 2026-10-23 职责型常驻 Agent 与三个任务预设（用户要求按方案开发）
+
+用户要求减少层级，以有特定职责的常驻 Agent 承接长期工作，渠道分身与临时子任务辅助；独立工作 session 由模板定义提示词和工具。复用现有两类执行者与 preset/profile/context，不增加工作流框架或人格运行时。agent-presets 提供 default、coding、research 三套任务正文，后两者选择共同任务 context。短任务用 task_run，多轮工作用已有 manual task session；是否为子任务不改变专业模板。
+
+用户明确要求大量保留参考项目和已安装技能的详细原文。编码取用 MIT OpenCode、Ponytail；调研取用 MIT CopilotKit OpenMuse；保存来源、原文、许可与适配说明，原文不自动注入。未找到明确许可证的 Digger OpenMuse 仅作结构参考。通用规则不在各角色中重复维护，工具/宿主专属约定改成 Yonder 实际接口。文案可配置，权限由现有代码落实；research 不提供 shell，不用提示词假装只读。
+
+web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就因未知依赖无法启动。插件的 research 默认只选自身；新 init 加载 web-tools 并生成选择它的同名 home 预设。现有 home 需显式选择，已有自定义 preset 保持优先。搜索凭据缺失与 HTTP fetch 可用分别报告。此轮不批量合并其他分支、不为展示创建无职责的常驻 Bot；开发者预览版的全仓收敛另按真实验收推进。

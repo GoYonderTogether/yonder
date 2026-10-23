@@ -82,3 +82,7 @@ Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinne
 ## QQ 官方渠道依赖
 
 `plugins/channel-qq` 使用腾讯公开发布的 `@tencent-connect/qqbot-nodejs@1.0.4`（MIT）与 `@tencent-connect/qqbot-connector@1.2.0`（npm 元数据 UNLICENSED，按其分发 README 使用公开扫码 API）。未复制、修改或重新许可其源码。版本、来源和接入边界见 [插件 NOTICE](plugins/channel-qq/NOTICE.md)。
+
+## Official task prompt sources
+
+`plugins/agent-presets/prompts/tasks/` adapts substantial prompt text from OpenCode (`4d30794bcf4dccdcadbcb1f62bb35b4943a96426`), CopilotKit OpenMuse (`1ac68f3909f2478ab6280883f1ab5ea65eb5719d`) and the installed Ponytail 4.10.0 skill distribution, all MIT. Exact inspected originals and full copyright/license notices are distributed in `plugins/agent-presets/prompts/upstream/`. [Source and adaptation map](plugins/agent-presets/prompts/SOURCES.md). These prompts do not import an upstream runtime or change its license; the original MIT notices continue to apply to the reused text.
