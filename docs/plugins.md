@@ -322,3 +322,10 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **输入**：官方 WebSocket 的 C2C、群 @ 与平台已开放的普通群消息，写 `message.in`，保留原生 msgId、时间、发送者、会话及 mentioned。默认群绑定普通消息只写入会话，@ 唤醒。
 - **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
 - **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立只读分身、非空 60 秒分桶和显式定向发送。全量权限须由群主在具体群聊内管理该机器人时逐群配置，机器人的全局设置不能替代。
+
+## ui-companion — 本地交互窗口
+
+- **源码**：[入口](../plugins/ui-companion/src/index.ts) · [运行和验收](../plugins/ui-companion/README.md)
+- **贡献**：工具 `ui-companion_present`、`ui-companion_result`；触发器 `ui-companion-service` 托管回环服务。
+- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-ui-companion`，在实际 Agent/配置档选择 `ui-companion_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
+- **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
