@@ -610,7 +610,6 @@ async function run(args: string[]): Promise<number> {
 				method: "management",
 				params: { action: "plugins.add", source: "@yonder/plugin-ui-companion" },
 			});
-		const config = await loadYonderConfig(home);
 		const kernel = await openKernel(home, {
 			log: (level, message, data) =>
 				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
