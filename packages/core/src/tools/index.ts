@@ -170,7 +170,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "message_send",
 			description:
-				"向明确的收件人或渠道发送消息。replyTo 可用目标消息头的 turn id 或 message 原生 ID，内核核实会话并转换。最终回复会自动交回来源或调用方；子任务不要用本工具向父 Agent 回传结果。",
+				"Send to a real recipient/channel or deliver actual attachments. Normal final text returns to the input source or waiting caller automatically; do not duplicate it or send a child task result separately to its parent. replyTo accepts a turn event id or native message id from the target conversation; the kernel verifies and converts it. Use owner or a verified person:/acct:/conv: reference, and via when a specific channel is intended. Attachment uri must be an actual supported reference, never a guessed path. A returned delivery result is not a read receipt; uncertain delivery must not be blindly resent.",
 			parameters: schema({
 				to: Type.String({
 					minLength: 1,
@@ -240,7 +240,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "agent_ask",
 			description:
-				"通过目标 agent 的绑定提交问题；15秒未完成返回后台句柄，答复完成后自动通知。sources 填本次来源会话里入站消息的事件 id 或原生 id，由程序逐字附上原文（不要自己转述用户的话）；effort 指定被委派方本次运行的思考等级（需要 admin）。",
+				"Ask an existing resident Agent through its bindings. Supply the goal, relevant context and allowed scope; use its real configured id. This does not create a worker or copy your conversation. After 15 seconds a background handle returns and the answer arrives automatically; do not ask again to poll. Inspect the answer and finish delivery yourself. sources identifies inbound event/native message ids in the current source conversation; the program quotes the originals verbatim instead of relying on your paraphrase. effort selects this run's thinking level (admin required). Identity-less tasks cannot call this tool.",
 			parameters: schema({ agent: text(), text: text(), sources: sourcesSchema, effort: effortSchema }),
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "message");
@@ -319,7 +319,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "task_run",
-			description: `使用预设完成专门任务；15秒未完成返回后台句柄，完成后自动通知。sources 由程序逐字附上本次来源会话的入站原文，effort 指定本次任务思考等级（需要 admin）。${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
+			description: `Delegate bounded work using an available preset. Include the goal, actual repository/cwd, relevant materials, allowed changes and finish condition; label root-cause guesses as hypotheses. Explicit attachments and sources travel to the child; sources quotes inbound messages verbatim from this source conversation. effort selects this run's thinking level (admin required). The child has no resident persona and cannot exceed your capabilities. After 15 seconds a background handle returns; completion automatically resumes you, so do not repeat the task or queue a poll. Check status/reason, evidence and actual artifacts before delivering. Available presets: ${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
 			parameters: schema({
 				preset: text(),
 				task: text(),

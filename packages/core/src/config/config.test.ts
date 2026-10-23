@@ -58,3 +58,31 @@ bindings: []
 		expect(matchesGlob("tool_?ead*", "tool_read_file")).toBe(true);
 	});
 });
+
+it("prompt fields inherit independently and invalid section ids fail before publication", async () => {
+	const { parsePresetConfig } = await import("./index.js");
+	const defaults = { prompt: { sections: ["framework", "common.writing"], overrides: { framework: "Custom frame" } } };
+	expect(resolveProfile({ prompt: { sections: [] } }, defaults).prompt).toEqual({
+		sections: [],
+		overrides: { framework: "Custom frame" },
+	});
+	expect(resolveProfile({ prompt: { overrides: {} } }, defaults).prompt).toEqual({
+		sections: ["framework", "common.writing"],
+		overrides: {},
+	});
+	expect(
+		parsePresetConfig(
+			'schema: 1\ndescription: Prompt configuration validation\nprompt:\n  sections: []\n  overrides: { framework: "" }\n',
+			"short",
+		).prompt,
+	).toEqual({ sections: [], overrides: { framework: "" } });
+	for (const config of [
+		"prompt: { sections: [misspelled] }",
+		"prompt: { overrides: { misspelled: text } }",
+		"prompt: { sections: [framework, framework] }",
+		"prompt: { sections: false }",
+	])
+		expect(() =>
+			parsePresetConfig(`schema: 1\ndescription: Prompt configuration validation\n${config}\n`, "short"),
+		).toThrow();
+});

@@ -13,6 +13,7 @@
 		"packages/cli",
 		"plugins/channel-cli",
 		"plugins/context-files",
+		"plugins/agent-presets",
 		"plugins/channel-mcp",
 		"plugins/codex-tools",
 		"plugins/browser-skill",

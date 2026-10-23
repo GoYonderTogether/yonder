@@ -121,6 +121,7 @@ export interface Profile extends SessionModels {
 	tools?: { offer?: string[]; search?: string[] };
 	contexts?: string[];
 	skills?: string[];
+	prompt?: { sections?: string[]; overrides?: Record<string, string> };
 	instructions?: string;
 	env?: string;
 	limits?: { maxTurns?: number; maxMinutes?: number; maxTokens?: number; repeatBlock?: number; repeatStop?: number };

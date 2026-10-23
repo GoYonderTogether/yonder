@@ -79,7 +79,7 @@ export default definePlugin({
 		tool({
 			name: "channel-wechat-ilink_status",
 			description:
-				"Read cached iLink pairing, per-instance identity and context readiness. No credentials, network requests, or sending.",
+				"Read cached iLink pairing, per-instance identity and context readiness. No credentials, network requests, or sending. Check pairing and recipient-context readiness separately. Missing inbound context is not repaired by re-pairing or borrowing another peer context; ask the intended peer to contact this instance. Use login only for the reported pairing need, not as a generic retry.",
 			capabilities: ["read"],
 			parameters: Type.Object({ instance: Type.Optional(str) }, { additionalProperties: false }),
 			async execute(input) {

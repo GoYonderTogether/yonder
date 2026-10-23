@@ -119,11 +119,11 @@ D38同次核价补充：SenseVoiceSmall实际控制台¥0，追加同插件ASR�
 runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上限、配额/账单、schema、显式 abort 与 repeatStop 不重试；网络、5xx、429/过载可重试。首次瞬时失败原子写短 user-style 提示及运行去重状态；连续失败及其间重启共用一条，成功后新中断可再提示。重启提示以原 run 为稳定身份，已终结运行不再提示；恢复请求补入 inbox 中未越过旧 cutoff 的提示。耗尽以正常 error 和明确最后错误终结；退避可立即取消，close 释放计时器。保留逐消息投递身份；provider prompt cache 不可持久化。真实检查和未测项另记 status，不操作正式安装或运行中的服务。
 
 
-## D45 Agent 提示词只有 SOUL.md 与 AGENTS.md，内置底座精简为单一英文正文（2026-10-21 用户批准）
+## D45 Agent 提示词只有 SOUL.md 与 AGENTS.md，内置正文只有一个来源（2026-10-21 用户批准）
 
-用户批评前几稿提示词像合同、没有人味：v4 有 44% 的句子带否定，通用美德与真正要紧的要求同温度铺开。内核不再规定 `SYSTEM.md`，只规定 `agent.yaml`；Agent 自己的提示词只有 `SOUL.md`（风格、扮演的角色、品味）与 `AGENTS.md`（工作方式、范围、执行风格），沿用 context-files 的 `soul-md`、`agents-md`，init 默认选用，未编辑的模板不注入。不设 USER.md 作为默认；了解与建档用户（主人与各渠道的人）待按人记忆能力设计后再定。语言随角色：两份同一种语言，默认英文，明确的中文角色才用中文，按主人的语言回话；不再维护译文审阅源。
+内核不再规定 `SYSTEM.md`，只规定 `agent.yaml`；Agent 自己的提示词只有 `SOUL.md`（风格、扮演的角色、品味）与 `AGENTS.md`（工作方式、范围、执行风格）。context-files 的 `soul-md`、`agents-md` 保持通用读取，未编辑的空模板不注入。两份同一种语言，默认英文，明确的中文角色才用中文，按主人的语言回话。不设 USER.md 作为默认；用户个人资料库见 D50。
 
-内置底座改为 `content.ts` 单一英文正文，约 4200 词减到约 1900 词：只写模型反复犯错之处（先找现成、自己先试、找准目标、不越界、写了不等于做完、主动汇报、记住即落盘）与 Yonder 特有事实（愿景、生命连续性、唯一主人与社交、持续授权、工作线分工、事件/插件/会话/位置）；删去通用美德与重复的授权、元数据、设备段落。用 Yonder 平实的嗓子，作家风格只属于各 Agent 的 SOUL.md。已有 Agent 的 SYSTEM.md 不自动删除或迁移，由主人按需并入 SOUL.md/AGENTS.md。
+内置底座继续以 `content.ts` 为唯一英文正文，不另维护译文审阅源；用 Yonder 平实的嗓子，具体人格属于各 Agent 的 SOUL.md。原来的长度目标与 init 空模板选择已由下方 2026-10-23 分层决定取代：默认完整保留共同规则和来源表达案例，可配置删减，init 选择插件内 Jarvis 正文。已有 Agent 的 SYSTEM.md 不自动删除或迁移，由主人按需并入 SOUL.md/AGENTS.md。
 
 
 
@@ -197,3 +197,12 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 ## D59 上下文窗口与提前后台压缩（2026-10-23）
 
 维护者要求 Claude 配置 1M 窗口，并在超过 272K 时开始自动压缩。复用 pi 原生后台压缩，仅增加可选 backgroundAtTokens 绝对触发点，取原生阈值与该值较小者；不伪装供应商窗口，也不把 GPT 的压缩推迟。共享 /model、/status 用量显示增加一位小数的窗口百分比。
+
+
+## 2026-10-23 系统底座与两类官方常驻 Agent 分层（2026-10-23 用户要求实施）
+
+用户提供完整参考提示词，要求完整合并共同规则，并将贾维斯主 Agent 与普通常驻 Agent 两类官方提示词落入插件；已明确默认 Agent 指普通常驻 Agent，无身份任务只继承共同底座。内核仍用确定性英文常量承载共同执行、常驻身份与真实运行约定；原文的 SendMessage-only、CloudAgent、box、Auto-review、固定 widget 与线程协议改为 Yonder 的实际契约，不新增这些能力。
+
+使用独立官方 agent-presets 插件的现有 contexts/presets 槽，Jarvis 和 default-agent 各有 SOUL.md/AGENTS.md。新 init 选择 Jarvis；旧工作区不自动覆盖。沿用 scaffold、agents create --preset 与权限交集，不增加人格加载器。代价是模板修订不自动覆盖已创建的文件，用户已有设定优先；无身份 task 选择同名 preset 也不装入人格。来源逐项映射见 prompts/README.md。
+
+用户随后补充本机多仓库、子 Agent/子进程、插件分散规则与原文表达案例，已纳入同一重构。又明确要求短上下文本地模型可移除、替换或部分选择提示词：Profile 增加可选 prompt.sections/overrides，按稳定段落 id 配置，包括移除框架导航；默认全量，既有配置兼容，不改变运行能力或投递。角色上下文、技能和工具沿原选择字段控制，不新增自动裁剪器或模型推断策略。配置运行快照与热重载仍走现有链。

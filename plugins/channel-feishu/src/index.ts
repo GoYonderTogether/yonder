@@ -85,7 +85,7 @@ export default definePlugin({
 		register({
 			name: "channel-feishu_status",
 			description:
-				"Read actual Feishu instance transport state and required permission guidance; does not connect or send. Connected is not full capability acceptance.",
+				"Read actual Feishu instance transport state and required permission guidance; does not connect or send. Connected is not full capability acceptance. Start diagnosis here: distinguish transport/authentication, application permissions, target membership and render/media errors. Follow the reported instance guidance; do not reinstall the plugin or restart unrelated channels to repair a missing permission.",
 			parameters: { type: "object", additionalProperties: false, properties: { instance: str } } as TSchema,
 			capabilities: ["read"],
 			async execute(input) {
@@ -240,7 +240,7 @@ export default definePlugin({
 		register({
 			name: "channel-feishu_card",
 			description:
-				"Send a native Feishu custom JSON card or a template card through a configured instance. Supply exactly card or templateId (or use instance template default). Records a plugin event and tool transcript; button callbacks are authenticated channel-feishu.card-action events, never automatic authorization.",
+				"Send a native Feishu custom JSON card or a template card through a configured instance. Supply exactly card or templateId (or use instance template default). Records a plugin event and tool transcript; button callbacks are authenticated channel-feishu.card-action events, never automatic authorization. For a necessary choice, ask one natural self-contained question with short verified options. Keep questions visible in the intended chat; closing or ignoring a card is not consent. Do not claim every other channel supports this card.",
 			parameters: {
 				type: "object",
 				additionalProperties: false,
