@@ -1,49 +1,240 @@
-# memory
+# memory：用户个人记忆库
 
-用户个人资料库插件，独立于 agent 工作区。当前实现 WP1–WP7：个人记忆文件库、检索/整理、受限来源导入、审计启动、两个上下文贡献与六个按需 skills。它不是向量检索、自动画像或跨会话聊天记忆注入。
+*English summary: an official Yonder Harness plugin that keeps one person's memory as plain Markdown, outside every agent workspace. It captures chat, dropped files, registered folders (e.g. an Obsidian vault, read-only) and self-notes from WeChat; searches them with ripgrep; and closes the loop with weekly documents, a life plan, and a propose → owner confirms → organize flow. Spec: `docs/spec/15-memory.md`.*
 
-Node ≥ 22.19；状态工具需要 read + admin。自动行为均为 opt-in：`triggers.inbox` 与 `triggers.bootstrap` 缺省/省略时均为 `false`；禁用的 trigger start/stop 不初始化、扫描或读取 `root`。只有显式设为 `true` 才分别启动 inbox watcher/重扫或 bootstrap 首次审计/周期检查。`capture.enabled` 缺省为 `false`，即使配置了 `capture.channels` 也不自动处理消息或附件；需显式设 `enabled: true` 并配置 channel 才启用。旧配置若曾用 inbox/bootstrap 自动监控或消息自动 capture，迁移时须人工添加相应 `triggers.*: true` / `capture.enabled: true`；本升级不会自动恢复这些动作。手动工具和 contexts 不依赖这些开关。配置必填 `root`（绝对路径，位于所有 agent 工作区外）、`owner`（person: 引用）、`timezone`（IANA 时区）。`allowedAgents` 与 `allowedSourceConversations` 是管理员明确维护的身份边界：memory 读写工具与个人记忆上下文仅在 agent 位于前者、事件为 `message.in`、来源 acct 解析到 owner、且完整 `event.conv` 精确命中后者时授权；两项默认空。allowlist 不可由模型或工具参数改变。SDK 未提供私聊标志，因此配置会话是管理员逐会话批准，不代表系统自动识别私聊。无 conv 一律拒绝，不用 from/account 引用兜底。登记目录只读，root 与任一登记目录相同或互相包含时加载失败，不初始化。目录/固定文件只在触发器 start 创建，已有文件不覆盖。
+## 这是什么
 
-依赖精确版本：`@yonder/sdk@0.2.26102103` 提供插件接口；`typebox@1.3.27` 校验配置与参数；`yaml@2.9.1` 读取 frontmatter。不安装转换器，不自动访问微信内容，不安装到正式服务。
+一个**属于你、不属于任何 agent** 的资料库。所有 agent 共用同一份，数据是普通 Markdown 文件，用 Obsidian 打开也行，不用也行。
 
-详细执行与检查记录见 [verification.md](verification.md)。
+它做四件事：
 
-WP2 已加入 `memory_capture`（参数见规范 §5.1）、周/月文档引擎、补记、私密记录、长正文 raw 文件、逐文件互斥、原子替换与元信息日志。`material` 忽略 by，不能与 private 同用。周按配置时区与 ISO 周四定月，补记只追加不重排。整理标记与节写入目前为内部引擎，memory_review 工具属于 WP5。
+1. **全部记下来**：你和 agent 的对话、丢进 `inbox/` 的文件、微信文件传输助手里的笔记、你登记的旧笔记目录。
+2. **查得到**：用 ripgrep 做字面搜索，不建索引，对中文稳定。
+3. **形成时间线**：每月一个目录，每周一个文档（没有每日文档），记录流、计划、决定、产出、复盘都在周文档里。
+4. **闭环**：AI 提议 → 你在对话里确认 → 才生效；整理只把记录从 `[ ]` 翻成 `[x]` 并写去向，**从不改你的原文**。
 
-WP2 精确依赖：`luxon@3.7.2`（MIT，Node ≥12）负责时区、DST 与 ISO 周；`write-file-atomic@6.0.0`（ISC，Node ^18.17.0 或 ≥20.5.0）负责临时文件、fsync 和原子替换，均兼容本仓库 Node ≥22.19。开发类型包 `@types/luxon@3.7.6`、`@types/write-file-atomic@4.0.3` 仅用于构建。不手写日期算法或替换原子写库。
+## 它不是什么
 
+- 不是向量检索，也不是自动画像或“分身”。
+- 不自己创建 agent、不自己开定时任务、不自己导入旧资料。这些都是**通知 agent，经你确认后**才做。
+- 不替你做判断：工具只核验“是谁发的”，不核验内容对不对。
 
-WP3 使用 PATH 中的 `rg`，固定字面/忽略大小写/不跟随链接参数，不经 shell。查询同时搜索用户输入与其 NFKC 形式，按文件聚合并按逐命中的来源与日期过滤；不改写已有兼容字符原文。默认搜索 timeline/life/me/mine/raw/projects 和登记目录，不含 archive/private；private 与 frontmatter 私密文件需显式 includePrivate。登记目录路径写作 `<name>:<相对路径>`，只读；memory_read 也可按 ISO 周定位，并分页返回至多 12000 字符。缺 rg 给出诊断，不提供另一套检索实现。
+## 目录
 
-测试仅使用临时文件系统；尚未在用户 Obsidian/微信归档、真实模型或正式服务验证。卸载配置不会删除根目录。根 package-lock.json 未在本任务允许的修改范围内更新，全新 npm ci 安装新 workspace 未验收。
-
-WP4 已接入主人白名单消息与 inbox：chokidar@5.0.0（MIT，Node ≥20.19）awaitWriteFinish 1000ms；周期重扫兜底。点文件和下载临时文件不处理；转换失败留在 inbox 并在 status 报错。文本原件不添加 frontmatter，manifest 的 files[path].origin 是其权威来源，hashes[sha256] 指原件路径；keys 保存事件/微信等去重引用，不含正文。附件使用随机前缀文件名避免冲突。转换文件为原件路径加 .converted.md，写 origin/source/sha256/converted，并做 NFKC。推荐外部 markitdown 0.1.9（MIT），插件不负责安装。`converter.command/args/timeoutSeconds` 是管理员配置的固定可执行文件和参数，不能由模型或附件覆盖；未配置时不调用转换器。转换前拒绝符号链接、非普通文件、超出 `capture.maxAttachmentBytes`（默认 25 MiB）的文件，并校验扩展名对应的 PDF/ZIP(DOCX)文件签名；这些检查不是恶意软件扫描或隔离。转换器以插件进程同一 UID 运行，无法防御同 UID 对手在检查后替换文件，也不能消除转换器自身漏洞风险。
-
-WP5 已接入 memory_plan、memory_review、memory_me。所有操作显式传 op，参数见规范 §5.1；commit/confirm 检查当前运行首事件为owner message.in且晚于提议。confirmed事实的evidence为 evt:<当前事件id> 或 ^<确定性chat/wechat-self条目id>，模型调用的said不算证据。me手改条目通过与插件写入快照比对，读取时按confirmed呈现，不回改用户文件；历史不删除。新建me文件含当前/历史，新建month/year/vision含规范节与历史，不覆盖已有文件。
-
-WP6 已接入名单内微信实时/历史、memory_import、memory_bootstrap和memory-keeper预设。微信正文仅用于存储与调用方检索，日志只记录元信息；历史和实时共用 wechat:<chat>:<msgid> 键。分页按CLI给出的nextBefore继续，不假定数值递减；dryRun不写入，返回written=0。未同步或无转换器时不会自行修环境。
-
-审计采用 gpt-tokenizer@4.1.0（MIT）o200k_base，只读、无模型调用、不触发转换；按文本估tokens，未转换格式单列未估。输入目录价来自api.models（美元/百万tokens），无价不猜，仅作输入单次量级估算，不含输出、多轮和订阅计费差异。ack缺省静默cooldownHours，传snoozeDays可覆盖；first-run ack设置initialized，first-run/source-new ack持久记录本次确认审计的来源名/id。初始化和告警不创建agent、作业或导入。
-
-## 上下文、技能与隐私
-
-`memory-core` 只读取 `me/now.md`、`me/profile.md`、`me/mind.md`，最多 `context.meChars`（默认 2000）字符；空缺、私密标记文件不贡献。`memory-week` 和 `memory-core` 仅在通过上述 agent、owner acct 与精确 conv allowlist 鉴权后提供个人记忆；无 conv、未批准会话、非 owner 或未批准 agent 均不贡献。贡献是确定性文件读取，不搜索 private 目录，不调用模型。六个 `skills/` 可由 profile 按需选用：morning-brief、evening-wrap、weekly-review、monthly-plan、onboarding、onboard-legacy。
-
-配置示例（触发器和自动 capture 全部关闭；这些开关不影响手动工具/contexts）：
-
-```yaml
-triggers:
-  inbox: false
-  bootstrap: false
-capture:
-  enabled: false
-  channels: []
-  attachments: false
-# 不配置 converter 时绝不调用转换器。
+```
+<root>/                     你指定的绝对路径，必须在所有 agent 工作区之外
+  SCHEMA.md                 给模型的读写规则（可改）
+  log.md                    变更日志，只记元信息，不复制正文
+  mine/                     你亲笔写的东西；插件从不写入
+  raw/YYYY-MM/              原始资料：inbox 处理后的原件、转换文本、agent 资料
+  inbox/                    把文件丢在这里
+  life/                     vision.md（愿景）、<年>.md（年度）
+  timeline/YYYY-MM/         month.md（月文档）、YYYY-Www.md（周文档）
+  me/                       now.md、profile.md、mind.md：关于你的条目，带 confirmed/inferred
+  projects/                 一个项目一个文件
+  private/                  私密记录（默认不检索、不进上下文）
+  archive/                  只归档，不删除
+  .memory/                  状态、manifest、锁
 ```
 
-`plugins/memory/package.json` manifest 仍声明两个 trigger ID，以供宿主发现；每个 trigger 的运行行为由上面的受 schema 校验配置门控。`SCHEMA.md` 是新库结构说明。插件不会读取其他 session/agent 的对话或工作区历史；记忆内容只通过配置根目录的静态文件与显式工具调用进入上下文。`admin` 是本插件工具要求，也允许 agent 修改自身工作区配置（SDK 当前能力词表的已知限制）。卸载只移除插件配置，不删除根目录；事件库记录不承诺可擦除。
+登记的外部目录（比如你的 Obsidian 库）**不复制、不改动**，只读检索。
 
-周期任务示例（须在目标 agent 的配置中显式设置）：`payload: { kind: "event", type: "cron.tick", target: "memory-keeper", data: { name: "weekly-review" } }`。启用前请按 cron 插件实际作业 schema 配置并人工确认主人资料；不会自动创建作业。
+### 周文档长这样
 
-常见问题：缺少 `rg` 时检索工具报告错误；缺少 `markitdown` 只影响不支持的文档转换，原件保留；微信工具不可用时跳过微信导入并保持文件资料可用；目录不可读或 owner 无法核验时上下文缺省，不猜测身份。
+```
+## 本周计划       确认过的任务：- [ ] 文字 📅 2026-10-25
+## 提议           AI 提议、等你确认的条目
+## 决定           背景 / 选项 / 选择 / 理由 / 复查日
+## 产出           本周产出的文档，只放链接
+## 复盘           AI 草拟，你改定
+## 记录流         最后一节，只追加：
+                  - [ ] 14:03 {chat} 你说的话 (ref: …) ^id          ← 未整理
+                  - [x] 14:20 {capture} … ^id → me/now              ← 已整理，去向
+```
+
+文件名 `YYYY-Www` 与 Obsidian Periodic Notes 的默认周格式一致；任务行沿用 Obsidian Tasks 的写法。
+
+## 前置条件
+
+| 需要 | 说明 |
+|---|---|
+| Node ≥ 22.19 | 同 Yonder Harness |
+| `rg`（ripgrep） | 必须在服务进程的 PATH 里；缺失时 `memory_status` 与搜索会给出具体诊断，不会静默失败 |
+| 文档转换器（可选） | 推荐 [markitdown](https://github.com/microsoft/markitdown) 0.1.9（MIT）：`pip install "markitdown[pdf,docx]"`。没有它时只处理 md/txt |
+| wechat-context 与 wechat-archive（可选） | 只有要采集微信时才需要 |
+
+## 安装与最小配置
+
+```sh
+yonder plugins add @yonder/plugin-memory
+```
+
+在 `yonder.yaml` 的 `plugins` 里：
+
+```yaml
+plugins:
+  - use: '@yonder/plugin-memory'
+    config:
+      root: <绝对路径>             # 必填，在所有 agent 工作区之外
+      owner: person:<id>           # 必填，这份记忆属于谁（须与身份映射一致）
+      timezone: <IANA 时区>        # 必填，周和日的边界按它算
+      allowedAgents: [<agent id>]                 # 见下节
+      allowedSourceConversations: [<conv 引用>]   # 见下节
+      triggers:
+        bootstrap: true            # 建议打开：首次启动创建目录并评估是否需要通知
+```
+
+**所有自动行为默认关闭**（`triggers.inbox`、`triggers.bootstrap`、`capture.enabled` 缺省都是 `false`）：不扫描、不初始化目录、不采集聊天、不读微信。需要哪项就显式打开哪项。改插件配置需要重启服务。
+
+### 授权白名单
+
+记忆里有你的个人信息，所以上下文和“确认”只对**白名单里的 agent、来自白名单里的会话、且身份映射确认是你本人**的消息生效：
+
+```yaml
+allowedAgents: [<agent id>]
+allowedSourceConversations: [<conv:渠道:会话 id>]   # 例如你和日常 agent 的私聊会话
+```
+
+两项缺省为空，等于**没有任何人能触发记忆上下文和确认**。工具本身要求 `read`/`write` + `admin` 能力，访客类配置档拿不到。
+
+你的日常 agent 的配置档需要选择这个插件：
+
+```yaml
+profiles:
+  owner:
+    plugins: [memory]
+    contexts: [memory-core, memory-week]
+    # 工具 memory_*，并有 read、write、admin 能力
+```
+
+访客类配置档**不要**选 memory：工具都要求 `admin` 能力，上下文会包含你的个人信息。
+
+## 第一次启动会发生什么
+
+1. 需要 `triggers.bootstrap: true`。启动时创建 `<root>` 下的目录和 `SCHEMA.md`（已有文件不覆盖）。
+2. 启动器评估后发出一条 `memory.attention` 事件（`first-run`），里面带着**审计结果**：各来源的文件数、字符数、估算的 token 数。这一步**不调用模型**。
+3. 你需要给负责的 agent 加一个绑定，它才会收到这条事件：
+
+```yaml
+bindings:
+  - id: memory-attention
+    match: { type: memory.attention }
+    session: main
+    profile: owner
+```
+
+4. agent 按 skill `memory-onboarding` 向你报告：找到了什么、大约多少 token、粗略费用（只算输入、一遍，不是账单；没有价格就只给 token）。
+5. **你明确说“好”之后**，它才会创建后台整理 agent `memory-keeper`、开启你同意的定时节律、开始导入，最后确认（ack），之后不再重复提醒。
+
+另外两种情况也会发 `memory.attention`：`backlog`（inbox 或未整理记录堆积）、`source-stale`（微信归档超过 `wechatStaleHours` 没同步）。
+
+## 采集来源
+
+### 对话
+
+```yaml
+capture:
+  enabled: true               # 必须显式打开，缺省 false
+  channels: [<渠道实例 id>]   # 默认空 = 不采集
+  attachments: true           # 附件复制进 inbox，缺省 true；设 false 只记元数据
+```
+
+只记录**你本人**（身份映射到 `owner`）在这些渠道里的消息。以 `/` 加字母开头的是命令，不记录。
+
+### inbox 与文档转换
+
+需要 `triggers.inbox: true`。把文件丢进 `<root>/inbox/`，写完后（`chokidar` 的 `awaitWriteFinish`）自动处理：
+
+- 文本原件移入 `raw/`，**字节不变**；重复内容移入 `archive/duplicates/`。
+- PDF、docx 等需要转换器，转换产物是原件路径加 `.converted.md`，并做 Unicode NFKC 规范化（PDF 抽取常把“文”变成部首“⽂”，不规范化就搜不到）。
+
+```yaml
+converter:
+  command: /绝对路径/markitdown
+  args: []
+  timeoutSeconds: 120
+```
+
+调用约定：不经 shell，输入文件绝对路径作最后一个参数，标准输出是 Markdown；非零退出、空输出、超时都算失败，原件保留在 inbox 并在 `memory_status` 里可见。docling 需要自备输出到标准输出的包装脚本。
+
+### 登记旧笔记目录（含 Obsidian 库）
+
+```yaml
+roots:
+  - { name: <名>, path: <绝对路径>, origin: legacy }
+```
+
+`origin` 取 `human`、`agent`、`external`、`legacy`（缺省）。**只读**：参与检索，插件从不写入、移动或改名其中任何文件。`legacy` 表示作者未确认，内容当作假设而不是证据。`root` 与登记目录相同或互相包含时配置无效，不会启动。
+
+### 微信自写笔记
+
+```yaml
+sources:
+  wechat:
+    cliPath: <wechat-context 绝对路径>   # 可选
+    chats: [{ chat: <Msg_… 会话 id>, self: true }]
+```
+
+- 只读取名单内的会话；`self: true` 表示这是写给自己的笔记（如文件传输助手）。
+- 实时：需要同时安装 `wechat-archive`，且它的 `chats` 包含同一会话。
+- 历史：agent 调用 `memory_import`；实时与历史共用去重键 `wechat:<会话>:<消息 id>`，重复导入不新增。
+- 媒体只记元数据和链接，不复制文件。
+- 归档停止同步时会发 `source-stale`；插件**不会**自行修复归档的权限或密钥。
+
+## 日常使用
+
+| 你想 | 做法 |
+|---|---|
+| 记一件事 | 对 agent 说“记一下……”（`memory_capture`），或直接发到被采集的渠道 |
+| 找东西 | 问 agent；它用 `memory_search`（字面子串，同义词由模型展开）和 `memory_read` |
+| 定计划 | agent 用 `memory_plan` 提议；你在对话里确认后才写入计划 |
+| 整理 | 定时节律或手动让 agent 整理：`memory_review` |
+| 改“关于我” | `memory_me`；你亲口说的可标 `confirmed`，模型推断的只能是 `inferred` |
+| 私密记录 | `memory_capture` 带 `private: true` |
+
+确认规则：`commit` 和 `confirm` 必须在**由你本人的消息触发的那一轮**执行，并且要确认的提议必须写在这条消息之前，也就是**提议和确认至少隔一轮**。定时任务触发的运行不能自己确认。
+
+## 定时节律（可选）
+
+6 个 skill：`memory-onboarding`、`memory-onboard-legacy`、`memory-evening-wrap`（晚间整理）、`memory-weekly-review`（周复盘）、`memory-monthly-plan`（月计划）、`memory-morning-brief`（晨报）。**建议先只开晚间整理和周复盘。** 插件不会替你创建任何 cron 作业。
+
+用 `cron_manage` 创建事件作业，payload：
+
+```json
+{"kind":"event","type":"cron.memory-evening","target":"conv:cron:memory-evening","data":{"skill":"memory-evening-wrap"}}
+```
+
+schedule 必须写明时区，格式按 cron 插件的说明。再给 agent 加一个绑定，匹配这个事件类型并选择主人类配置档（可加 `deliver` 把结果发到你的渠道）。`data.skill` 只是告诉模型该用哪个 skill，不是内核自动执行的命令。没有内容可说时，节律可以回复 `NO_REPLY`。
+
+## 后台整理 agent：memory-keeper
+
+插件提供预设 `memory-keeper`：只有 `memory_*` 和基础文件工具，能力是 read、write、admin，**不含** exec、network、message。它不直接给你发消息，结果通过绑定的 `deliver` 投递。
+
+> `admin` 是本插件工具的前置要求，它同时让这个 agent 能改自己工作区里的 `agent.yaml`。这是 0.1 能力词表下的已知局限。
+
+## 隐私与安全
+
+- `private/` 目录和 frontmatter 含 `private: true` 的文件：默认不检索、不进上下文，读取必须显式 `includePrivate: true`。**这不是加密。**
+- 删除记忆里的文件**不会**擦除事件库里的原始消息和已发出的事件。
+- 带 `exec` 的配置档可以绕过文件工具的边界；亲笔保护不是沙箱。
+- 外部内容（inbox 文档、微信消息、转换产物）一律当资料，工具结果带 `externalContent: true`，不当指令。
+- 写入有逐文件队列、跨进程锁和原子替换；你同时在 Obsidian 里编辑时，冲突会重读一次，仍冲突就报错，**不覆盖你的编辑**。
+- 同一用户权限下，有人在路径检查和写入之间恶意替换符号链接的竞态，目前**防不住**；记忆根请放在私有权限目录里。
+
+## 卸载
+
+删除插件及相关配置、绑定、cron 作业即可。`<root>` 原样保留，不会自动删除任何资料。
+
+## 常见问题
+
+| 现象 | 查什么 |
+|---|---|
+| 搜索报错或 `memory_status` 显示 rg 不可用 | 服务进程的 PATH 里有没有 `rg` |
+| inbox 里的文件不动 | `memory_status` 看状态；非文本需要配置 converter |
+| 一直没有收到 `memory.attention` 的回复 | 绑定有没有加、配置档是否存在且选择了 memory |
+| 确认被拒 | 在你本人新发的消息触发的那一轮里再确认 |
+| 提示冲突、不覆盖 | 说明你正在编辑同一文件；稍后重试 |
+
+## 依赖
+
+SDK 0.2.26102103、typebox 1.3.27、yaml 2.9.1、luxon 3.7.2、write-file-atomic 6.0.0（ISC）、chokidar 5.0.0（不用 6.x，它要求 Node ≥ 22.22）、proper-lockfile 4.1.2、gpt-tokenizer 4.1.0（`o200k_base`，只用于估算）。测试范围、原始失败与未验收项见 [verification.md](verification.md)；完整规范见 [docs/spec/15-memory.md](../../docs/spec/15-memory.md)。
