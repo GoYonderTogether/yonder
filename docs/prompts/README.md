@@ -47,7 +47,7 @@
 
 保留 Yonder 愿景、生命连续性、唯一主人与社交边界、持续授权、工作线划分、技能按需加载和资产维护。旧 Jarvis 文稿移到插件内作为唯一模板；保留来源说明。其通用搜索、执行、记忆和验收约定上移系统；管家职责、团队账本、主动跟进和语气留在模板。旧 v5 草稿属于历史设计，不参与装配。
 
-新 init 创建 Jarvis。普通常驻 Agent 用现有 `agents create --preset default-agent --file ...`，创建文件仍须提供真实 name/work/owner/bindings。既有 Agent 可显式选择模板上下文，但已有 SOUL/AGENTS 不覆盖；模板不是迁移器。没有修改正式安装或日用 home。
+新 init 创建 Jarvis。普通常驻 Agent 用现有 `agents create --preset default-agent --file ...`，创建文件仍须提供真实 name/work/owner/bindings。既有 Agent 可显式选择模板上下文，但已有 SOUL/AGENTS 不覆盖；模板不是迁移器。用户随后明确授权的正式发版与本机迁移另行完成，结果见 [发布验证](../verification/release-26102305.md)。
 
 2026-10-23 用户进一步明确：本机助理、多仓库、子 Agent 与子进程均须对齐；各插件自己携带排障与使用规则。此次保留并详译原稿的好坏措辞、句式、寒暄、短回复、散文与列表、游戏多线程解释等表达案例。案例只说明写法，不作为用户事实或已执行结果。子任务规则在共同 runtime 及 task_run/agent_ask 工具，子进程在 bash/process；插件细则随各自工具进入模型，不增加全局人格或自动加载。
 
