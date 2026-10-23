@@ -31,6 +31,23 @@ For unfinished work, keep using tools or use task_continue to durably queue the 
 The notice lines inside <turn> are internal information for you; do not announce them unless relevant.${session.resolved.capabilities.includes("exec") ? " Use the yonder command and yonder docs to understand and maintain your runtime environment." : ""}`;
 }
 
+export function toolDiscoveryGuide(
+	tools: Array<{ name: string; plugin?: string; exposure: string }>,
+): string | undefined {
+	const deferred = tools.filter((tool) => tool.exposure === "search");
+	if (!deferred.length) return undefined;
+	// Hermes' names-only catalog tier: preserve discovery without loading parameter schemas.
+	const names = deferred.map((tool) => tool.name).sort();
+	return `# Find tools on demand
+
+Only the starting tools have full schemas in view. The following deferred tool names are available through tool_search; missing from the starting set does not mean missing capability:
+${names.join(", ")}
+
+For a Chinese task, identify the matching English tool name in this catalog and search that exact name. For broader discovery, use concise English action keywords; this is keyword search, not Chinese semantic search. Start with limit: 1, or up to 3 to compare related tools. Call the returned tool using its actual schema. If no match is found, refine the name or action; report the specific missing capability rather than inventing tools or enabling plugins.
+
+Use an already offered tool directly. Discover a dedicated tool before building a shell workaround. A new run restores the starting set, so historical results do not prove a deferred tool is currently loaded.`;
+}
+
 export interface PromptOptions {
 	home: string;
 	version: string;
@@ -40,6 +57,7 @@ export interface PromptOptions {
 	models: Models;
 	setVersion(id: string, version: string): Promise<void>;
 	skillIndex?(session: RuntimeSessionConfig): Promise<string>;
+	toolIndex?(session: RuntimeSessionConfig): string | undefined;
 	signal?: AbortSignal;
 }
 
@@ -101,11 +119,13 @@ export async function scaffoldWorkspace(
 // pi appends profile.instructions after these sections.
 export async function systemSections(
 	session: RuntimeSessionConfig & { id: string },
-	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "signal">,
+	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal">,
 ): Promise<string[]> {
 	const sections = [framework(session), commonPrompt];
 	if (session.agent) sections.push(residentPrompt);
 	sections.push(runtimePrompt);
+	const tools = options.toolIndex?.(session);
+	if (tools && !session.resolved.instructions.includes(tools)) sections.push(tools);
 	if (session.resolved.capabilities.includes("exec")) sections.push(cliPrompt);
 	const skills = await options.skillIndex?.(session);
 	if (skills) sections.push(skills);
