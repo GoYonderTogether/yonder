@@ -274,6 +274,6 @@ ChannelLoginResult 为 {status:string, instance:string, qrcodeUrl?:string, expir
 
 iLink 模型 login 工具省略 instance 时选择持久化首实例，省略 action 时申请扫码；返回 qrcodeUrl/expiresAt 并明确提示用户扫码，后台自动轮询到确认、过期或需要验证码，用户不必再手动 poll。重复申请有效的待扫二维码返回原链接。poll/verifyCode 仍供状态查询及验证码续办。默认只返回链接，不由后台服务抢占桌面；CLI --open 显式打开返回的 HTTPS 链接。
 
-### 多 Agent 渠道与枚举（D52）
+### 多 Agent 渠道与枚举（D62）
 
 PluginAPI.agents.list(): Promise<{id:string;name:string}[]> 只读返回本实例启用 Agent 的 id 和显示名，不含 archived。ChannelProvider 和 Channel 可选 multiAgent:boolean；内核以 provider 注册值为准传给实例。普通渠道不可用 data.target，唯一例外为 multiAgent:true 的 provider：目标仍须自身绑定通过，其他 Agent 为 no-binding。此类渠道可把 agent id 嵌入不透明 ref，从 Channel.send(target) 还原发言身份；OutMessage 不变。
