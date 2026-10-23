@@ -3,13 +3,65 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
+import { describeCatalog } from "../runtime/catalog.js";
 import { FileCredentials } from "../runtime/credentials.js";
 import { openDatabase } from "../runtime/db.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
 import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
-import { framework, type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "./index.js";
+import {
+	framework,
+	type PromptOptions,
+	prepareInput,
+	scaffoldWorkspace,
+	systemSections,
+	toolDiscoveryGuide,
+} from "./index.js";
+
+test("tool discovery guidance follows effective exposure for residents and presets", async () => {
+	for (const agent of ["main", null]) {
+		const session = {
+			id: "1",
+			agent,
+			profile: "owner",
+			cwd: process.cwd(),
+			resolved: resolveProfile({
+				capabilities: ["read", "write"],
+				plugins: ["cron", "native-automation"],
+				tools: { offer: ["read"], search: ["*"] },
+			}),
+		};
+		const catalog = describeCatalog(session, [
+			{ name: "read", capabilities: ["read"] },
+			{ name: "write", capabilities: ["write"] },
+			{ name: "cron_manage", plugin: "cron", capabilities: ["write"] },
+			{ name: "native-automation_desktop", plugin: "native-automation", capabilities: ["exec"] },
+			{ name: "memory_search", plugin: "memory", capabilities: ["read"] },
+		]);
+		const guide = toolDiscoveryGuide(catalog) ?? "";
+		expect(guide).toContain("cron_manage, write");
+		expect(guide).not.toContain("native-automation");
+		expect(guide).not.toContain("memory_search");
+		const options = {
+			contexts: new Map(),
+			workspace: () => {
+				throw new Error("No workspace needed");
+			},
+			toolIndex: () => guide,
+		};
+		expect(await systemSections(session, options)).toContain(guide);
+		expect(
+			await systemSections({ ...session, resolved: { ...session.resolved, instructions: guide } }, options),
+		).not.toContain(guide);
+		expect(
+			await systemSections(session, {
+				...options,
+				toolIndex: () => toolDiscoveryGuide(catalog.filter((tool) => tool.exposure !== "search")),
+			}),
+		).not.toContain(guide);
+	}
+});
 
 test("system sections are deterministic and only selected contexts render", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "yonder-prompt-"));

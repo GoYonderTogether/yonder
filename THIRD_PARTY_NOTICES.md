@@ -3,9 +3,10 @@
 ## pi-durable 1.3.0 source fork
 
 - Vendored workspace: `packages/pi-durable`, npm name remains `@earendil-works/pi-durable`, version 1.3.0.
-- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `3c6d1d161320e6eb1b0d777b704e5b12b0e32ffa` (published).
+- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `2cce1ecc6adde6d6b5ebdc6475b743e581002334` (published).
 - Base: earendil-works/pi tag v1.3.0, `71023aec1546d6d677a65669c5665c0927ce0dd0`.
 - MIT, Copyright (c) 2025 Mario Zechner; full original license retained in [packages/pi-durable/LICENSE](packages/pi-durable/LICENSE). Boundary callback/abort queue continuation (D28), atomic run receipt (D29), retry hook and exhaustion reason (D44), interrupted-generation continuation (D49) are source changes described in FORK.md. No install-time patch remains.
+- Tool-search relevance rules adapt [Hermes Agent](https://github.com/NousResearch/hermes-agent/blob/bf0203a794a07aac3ff764972ab9087baa4e4f4e/tools/tool_search_catalog.py), MIT, Copyright (c) 2025 Nous Research; the full applicable license and reference are retained in [packages/pi-durable/FORK.md](packages/pi-durable/FORK.md).
 - Only durable is forked. pi-ai, chord, codemode, tui and coding-agent remain upstream npm dependencies. Refresh instructions: CONTRIBUTING.md; machine-readable provenance: packages/pi-durable/FORK_SOURCE.json.
 
 ## pi coding-agent 1.3.0

@@ -13,7 +13,13 @@ import {
 } from "../config/index.js";
 import { createDelivery } from "../delivery/index.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
-import { type PromptOptions, prepareInput, scaffoldWorkspace, systemSections } from "../prompt/index.js";
+import {
+	type PromptOptions,
+	prepareInput,
+	scaffoldWorkspace,
+	systemSections,
+	toolDiscoveryGuide,
+} from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { runChannelCommand } from "../routing/commands.js";
 import { createRouter } from "../routing/index.js";
@@ -259,6 +265,7 @@ export async function openKernel(
 			models: services.models,
 			setVersion: store.sessions.setVersion,
 			skillIndex: skills.index,
+			toolIndex: (session) => toolDiscoveryGuide(realRuntime().describeTools(session)),
 		};
 		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
 			const session = await store.sessions.get(id);
