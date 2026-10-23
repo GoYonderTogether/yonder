@@ -9,6 +9,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let current = NSMenuItem(title: "当前交互", action: #selector(openCurrent), keyEquivalent: "")
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
     private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
+    private var needsPowerUpdate = false
     private let awake = NSMenuItem(title: "任务期间保持唤醒", action: #selector(toggleAwake), keyEquivalent: "")
     private let powerState = NSMenuItem(title: "读取唤醒状态…", action: nil, keyEquivalent: "")
     private let update = NSMenuItem(title: "检查更新", action: #selector(checkUpdate), keyEquivalent: "")
@@ -102,6 +103,8 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             switch result {
             case .success(let info):
                 let enabled = info["enabled"] as? Bool == true
+                self.needsPowerUpdate = info["requiresUpdate"] as? Bool == true
+                self.awake.title = self.needsPowerUpdate ? "任务期间保持唤醒 · 更新组件…" : "任务期间保持唤醒"
                 self.awake.state = enabled ? .on : .off
                 if !enabled { self.powerState.title = "已关闭 · 允许休眠" }
                 else if let error = info["error"] as? String { self.powerState.title = "合盖保护未就绪：" + error }
@@ -112,7 +115,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc private func toggleAwake() {
-        let enable = awake.state != .on
+        let enable = needsPowerUpdate || awake.state != .on
         awake.isEnabled = false
         let apply = {
             self.run(["awake", "set", enable ? "on" : "off", "--home", self.home]) { result in
@@ -121,7 +124,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 else { self.awake.state = enable ? .on : .off; self.powerState.title = enable ? "正在启用任务保护…" : "正在释放保护…" }
             }
         }
-        if enable && !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.harness.power.sock") {
+        if enable && (needsPowerUpdate || !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.harness.power.sock")) {
             let alert = NSAlert()
             alert.messageText = "任务期间保持唤醒"
             alert.informativeText = "任务运行时允许合盖继续执行，屏幕可以熄灭；完成后恢复休眠。合盖运行会增加耗电和发热，请勿放入密闭包中。首次安装电源组件需要系统管理员授权。"
