@@ -8,6 +8,9 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 	const home = await mkdtemp("/tmp/yonder-kernel-");
 	try {
 		await initHome(home);
+		expect(parse(await readFile(`${home}/yonder.yaml`, "utf8")).plugins).toContainEqual({
+			use: "@yonder/plugin-ui-companion",
+		});
 		const file = `${home}/agents/main/agent.yaml`;
 		await writeFile(file, (await readFile(file, "utf8")).replace("      channel: cli\n", ""));
 		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });
@@ -18,6 +21,9 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 				"acct:cli:local",
 			]);
 			expect(await kernel.sessions.list({})).toEqual([]);
+			const endpoint = JSON.parse(await readFile(`${home}/.yonder/plugins/ui-companion/desktop.json`, "utf8"));
+			expect((await fetch(endpoint.url)).status).toBe(200);
+			expect(parse(await readFile(file, "utf8")).defaults.plugins).not.toContain("ui-companion");
 			await kernel.identity.unlink("acct:cli:local");
 			await kernel.identity.createPerson({ id: "owner", name: "Renamed owner" });
 		} finally {

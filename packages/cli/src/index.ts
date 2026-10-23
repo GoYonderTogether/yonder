@@ -593,6 +593,14 @@ async function run(args: string[]): Promise<number> {
 		if (rest.length) throw new UsageError("Usage: yonder start");
 		const home = homeFor(options);
 		env.YONDER_HOME = home;
+		const plugins = (await offlineQuery(home, { method: "management", params: { action: "plugins.list" } })) as Array<{
+			id: string;
+		}>;
+		if (!plugins.some((plugin) => plugin.id === "ui-companion"))
+			await offlineQuery(home, {
+				method: "management",
+				params: { action: "plugins.add", source: "@yonder/plugin-ui-companion" },
+			});
 		const config = await loadYonderConfig(home);
 		const kernel = await openKernel(home, {
 			...(isLoginOperationsEnabled(config, env.YONDER_ENABLE_LOGIN_OPERATIONS)

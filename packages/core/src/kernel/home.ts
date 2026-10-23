@@ -98,7 +98,11 @@ export async function initHome(home: string, owner = "owner") {
 	await mkdir(directory, { recursive: true });
 	const config: YonderConfig = {
 		schema: 1,
-		plugins: [{ use: "@yonder/plugin-channel-cli" }, { use: "@yonder/plugin-context-files" }],
+		plugins: [
+			{ use: "@yonder/plugin-channel-cli" },
+			{ use: "@yonder/plugin-context-files" },
+			{ use: "@yonder/plugin-ui-companion" },
+		],
 		channels: { cli: { type: "cli" } },
 		envs: { local: { type: "local" } },
 		agents: [{ id: "main", workspace: "./agents/main" }],
