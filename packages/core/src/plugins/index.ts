@@ -30,7 +30,16 @@ type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
 	Pick<
 		PluginAPI,
-		"events" | "messages" | "credentials" | "sessions" | "identity" | "services" | "execution" | "models" | "log"
+		| "agents"
+		| "events"
+		| "messages"
+		| "credentials"
+		| "sessions"
+		| "identity"
+		| "services"
+		| "execution"
+		| "models"
+		| "log"
 	>,
 	"messages" | "sessions"
 > & {
@@ -64,12 +73,12 @@ export interface LoadedPlugins {
 type Lifecycle = { pluginId: string; stop(): Promise<void> };
 type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
 
-function pluginEvent(id: string, event: EventInput, channel?: string): EventInput {
+function pluginEvent(id: string, event: EventInput, channel?: string, multiAgent = false): EventInput {
 	if (event.type === "message.in" && channel) {
 		if (
 			!event.from?.startsWith(`acct:${channel}:`) ||
 			!event.conv?.startsWith(`conv:${channel}:`) ||
-			"target" in event.data
+			("target" in event.data && !multiAgent)
 		)
 			throw new Error(`${id}: message.in must use its own channel and cannot specify target`);
 	} else if (!event.type.startsWith(`${id}.`) || event.type.length === id.length + 1)
@@ -199,6 +208,7 @@ export async function loadPlugins(
 					return services.messages.send(message, manifest.id, ctx);
 				},
 			},
+			agents: services.agents,
 			credentials: services.credentials,
 			execution: services.execution,
 			sessions: {
@@ -314,6 +324,7 @@ export async function loadPlugins(
 		const channel = await found.provider.create(id, instance);
 		if (channel.output.stream && !channel.stream)
 			throw new Error(`channels.${id}: stream output requires provider stream()`);
+		channel.multiAgent = found.provider.multiAgent === true;
 		channels.set(id, channel);
 	}
 	for (const [id, value] of Object.entries(config.envs ?? {})) {
@@ -353,8 +364,8 @@ export async function loadPlugins(
 				for (const [id, channel] of channels) {
 					const owner = channelProviders.get(config.channels![id]!.type)!.pluginId;
 					await channel.start({
-						emit: (event) => io.emit(pluginEvent(owner, event, id)),
-						ask: (event) => io.ask(pluginEvent(owner, event, id)),
+						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),
+						ask: (event) => io.ask(pluginEvent(owner, event, id, channel.multiAgent)),
 					});
 					started.push({ pluginId: owner, stop: () => channel.stop() });
 				}
