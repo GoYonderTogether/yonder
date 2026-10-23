@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.2.26102304] - 2026-10-23
+
+### Changed
+
+- /model 与 /status 的上下文用量增加百分比，保留一位小数。
+- 自动后台压缩可用 compaction.backgroundAtTokens 提前触发，与实际模型窗口分开设置。
+
 ## [0.2.26102301] - 2026-10-23
 
 ### Added

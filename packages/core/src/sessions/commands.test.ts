@@ -17,6 +17,9 @@ test("session model commands persist, remain isolated, validate input and report
 		expect(changed).toContain("openai/gpt-6.1-sol");
 		expect(changed).toContain("连续失败 0 / 3");
 		expect(changed).toContain("尚无可压缩");
+		const context = changed.match(/上下文估计: (\d+) \/ (\d+) tokens（([\d.]+)%）/);
+		expect(context).not.toBeNull();
+		expect(context?.[3]).toBe(((Number(context?.[1]) / Number(context?.[2])) * 100).toFixed(1));
 		await kernel.sessions.command(first.id, "model effort high");
 		await kernel.sessions.command(first.id, "model after 2");
 		expect(await kernel.sessions.command(first.id, "status")).toContain("Effort: high");

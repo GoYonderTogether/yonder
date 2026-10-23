@@ -197,7 +197,7 @@ export function createSessions({
 				`Agent: ${session.agent ?? "preset:" + session.profile} · Session: ${id} · ${state.running ? "运行中" : "空闲"}`,
 				`供应商 / 模型: ${state.model ? state.model.provider + "/" + state.model.id : "不可用"}`,
 				`主模型: ${state.primary} · Effort: ${state.thinking}`,
-				`上下文估计: ${state.contextTokens} / ${state.model?.contextWindow ?? "未知"} tokens · 输出上限: ${state.model?.maxTokens ?? "未知"}`,
+				`上下文估计: ${state.contextTokens} / ${state.model?.contextWindow ?? "未知"} tokens${state.model?.contextWindow ? `（${((state.contextTokens / state.model.contextWindow) * 100).toFixed(1)}%）` : ""} · 输出上限: ${state.model?.maxTokens ?? "未知"}`,
 				`Compact: ${state.compact.reason}${state.compact.tasks.length ? " · Task " + state.compact.tasks.join(", ") : ""}${state.compact.failure ? ` · 上次失败: ${state.compact.failure}` : ""}`,
 				`回退: ${state.fallback?.models.join(" → ") || "未配置"} · 连续失败 ${state.failures} / ${state.fallback?.after ?? 3}`,
 				`会话绑定渠道: ${channels.join(", ") || "无"}`,

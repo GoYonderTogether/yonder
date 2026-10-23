@@ -34,3 +34,8 @@
 - 版本统一时首次npm lock安装失败（内部依赖仍钉旧版本，registry 404，随后一次网络ECONNRESET）；统一内部依赖后，离线lock刷新及干净npm ci通过。
 
 - 压缩回退补齐后的最终检查：build、typecheck、workspace 边界、lint 均通过；默认 410 通过 / 0 失败 / 36 跳过；权限自检 36/0。lint 检查 327 文件，323 warnings、13 infos，无 error。曾误调用不存在的 npm check:workspace，改用仓库既有 node scripts/check-pi-durable-workspace.mjs 后通过。
+
+## 0.2.26102304 上下文显示与自动压缩
+
+- /model、/status 增加按实际窗口计算的一位小数百分比。用户安装的 RightAPI Sonnet/Opus 窗口改为 1000000，compaction.backgroundAtTokens 设为 272000；提前后台压缩与模型最大窗口分开。GPT 沿用较早的原生阈值。1M 为本地配置，未验证满窗口上游承载。
+- pi 原生压缩定向 107 通过 / 0 失败；扩展既有阈值用例覆盖大窗口提前触发和小窗口不延后。pi npm run check 仍被既有 AI 测试旧模型 ID 类型不一致阻断，详细错误保留在本次检查日志；无本次修改路径的错误。

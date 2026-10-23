@@ -60,7 +60,7 @@
 - 长工具15秒转入pi原生后台任务；process支持状态、日志、等待、stdin及取消。正常process观察/等待不当作重复副作用空转。完成后继续原任务，取消不会反向唤醒模型。
 - 子任务的软提醒同时写入父session；只在正常模型请求读取时间事实，不为软提醒启动额外模型循环。显式abort/close/shutdown和真实供应商限制保留。
 - 会话/任务状态只使用pi-durable；后台执行记录不复制模型转录。恢复不能安全重放的调用标为中断，不假装恢复成功。
-- 上下文使用pi-durable自动压缩。compaction的enabled/reserveTokens/keepRecentTokens/backgroundTokens原样传给settings；模型contextWindow继续来自供应商目录。真实上下文过长遵循pi压缩恢复，不设置额外人为小上限。
+- 上下文使用pi-durable自动压缩。compaction的enabled/reserveTokens/keepRecentTokens/backgroundTokens/backgroundAtTokens原样传给settings；模型contextWindow继续来自供应商目录。可选 backgroundAtTokens 限定开始后台压缩的绝对 token 用量，与模型实际窗口分开；实际开始点取它与原生后台阈值的较小值，不推迟小窗口模型的压缩，backgroundTokens 为 0 时仍禁用后台压缩。真实上下文过长遵循pi压缩恢复。
 
 ## 6. 模型、凭据与服务
 

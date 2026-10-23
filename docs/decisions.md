@@ -179,3 +179,7 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 ## D58 会话模型链与跨渠道运行命令（2026-10-23）
 
 维护者要求 RightAPI Sonnet 默认、GPT-6.1-Sol 回退，支持 Agent/profile 与会话配置多模型，默认连续失败三次。模型切换、失败计数与重试 checkpoint 归 pi 原生循环；Yonder 只映射配置及会话覆盖。复用原生上下文估计、压缩、任务图与渠道命令层提供 /model、/status、/compact，不另建队列或任务存储。
+
+## D59 上下文窗口与提前后台压缩（2026-10-23）
+
+维护者要求 Claude 配置 1M 窗口，并在超过 272K 时开始自动压缩。复用 pi 原生后台压缩，仅增加可选 backgroundAtTokens 绝对触发点，取原生阈值与该值较小者；不伪装供应商窗口，也不把 GPT 的压缩推迟。共享 /model、/status 用量显示增加一位小数的窗口百分比。
