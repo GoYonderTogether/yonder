@@ -23,8 +23,9 @@ export const escapeXml = (value: string) =>
 	value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const label = (value: string) => escapeXml(value.replace(/[\r\n\u2028\u2029]/gu, " "));
 
-export function framework(session: RuntimeSessionConfig): string {
+export function framework(session: RuntimeSessionConfig, locale = "zh-CN"): string {
 	return `You run in Yonder Harness. Your agent ID is ${session.agent ?? "none (preset session)"}; your current profile is ${session.profile}.
+Use ${locale} as the default language for user-facing responses; follow the user's language when it is clear, and do not translate skill or source text unless asked.
 Your final response is automatically returned to the caller or delivered according to the input's reply settings; do not send it again. If no reply is needed, output only NO_REPLY.
 Use message_send to contact another person or channel, ${session.agent ? "agent_ask to ask another agent, and " : ""}task_run to delegate a specialized task. Read available skills with skill_view.
 For unfinished work, keep using tools or use task_continue to durably queue the next step before ending a progress report. A background handle already waits and delivers its result automatically; do not queue polls. A promise in prose does not schedule work. An input of type runtime.continuation is the accepted next step: execute it now.
@@ -51,6 +52,9 @@ Use an already offered tool directly. Discover a dedicated tool before building 
 export interface PromptOptions {
 	home: string;
 	version: string;
+	locale: string;
+	timezone: string;
+	now?: () => number;
 	contexts: Map<string, ContextContribution>;
 	workspace(session: RuntimeSessionConfig, signal?: AbortSignal): WorkspaceFiles;
 	identity: IdentityAPI;
@@ -119,7 +123,8 @@ export async function scaffoldWorkspace(
 // pi appends profile.instructions after these sections.
 export async function systemSections(
 	session: RuntimeSessionConfig & { id: string },
-	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal">,
+	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal"> &
+		Partial<Pick<PromptOptions, "locale">>,
 ): Promise<string[]> {
 	const prompt = session.resolved.prompt ?? {};
 	const sections: string[] = [];
@@ -127,7 +132,9 @@ export async function systemSections(
 		if (id.startsWith("resident.") && !session.agent) continue;
 		if (id === "cli" && !session.resolved.capabilities.includes("exec")) continue;
 		let original =
-			id === "framework" ? framework(session) : builtinPromptSections.find((section) => section.id === id)?.text;
+			id === "framework"
+				? framework(session, options.locale ?? "zh-CN")
+				: builtinPromptSections.find((section) => section.id === id)?.text;
 		if (id === "tool-discovery") {
 			const guide = options.toolIndex?.(session);
 			original = guide && !session.resolved.instructions.includes(guide) ? guide : "";
@@ -167,6 +174,24 @@ async function download(
 	return { ...attachment, uri: pathToFileURL(path).href, bytes: bytes.length };
 }
 
+export function formatClock(now: number, locale: string, timezone: string): { utc: string; local: string } {
+	const instant = new Date(now);
+	return {
+		utc: instant.toISOString(),
+		local: new Intl.DateTimeFormat(locale, {
+			timeZone: timezone,
+			weekday: "long",
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			timeZoneName: "long",
+		}).format(instant),
+	};
+}
+
 export async function prepareInput(
 	row: SessionInfo,
 	session: RuntimeSessionConfig,
@@ -188,9 +213,11 @@ export async function prepareInput(
 	if (wake === "run") {
 		lines.push(`runtime: version=${label(options.version)} home=${label(options.home)}`);
 		lines.push(`execution: env=${label(session.resolved.env)} cwd=${label(session.cwd)}`);
+		const clock = formatClock((options.now ?? Date.now)(), options.locale, options.timezone);
 		lines.push(
-			`host: platform=${process.platform} prepared=${new Date().toISOString()} timezone=${label(Intl.DateTimeFormat().resolvedOptions().timeZone)}`,
+			`host: platform=${process.platform} prepared=${clock.utc} locale=${label(options.locale)} timezone=${label(options.timezone)}`,
 		);
+		lines.push(`calendar: ${clock.local} (UTC ${clock.utc})`);
 	}
 	if (data.msgId) lines.push(`message: ${label(data.msgId)}`);
 	if (event.conv?.startsWith("conv:agent:") && data.kind === "parent-request")

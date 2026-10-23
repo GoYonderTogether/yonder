@@ -91,6 +91,8 @@ export const AgentSchema = object({
 export const PresetSchema = object({ schema: Type.Literal(1), description: text, ...fields });
 export const YonderSchema = object({
 	schema: Type.Literal(1),
+	locale: Type.Optional(text),
+	timezone: Type.Optional(text),
 	plugins: Type.Optional(Type.Array(object({ use: text, config: Type.Optional(Type.Unknown()) }))),
 	channels: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	credentials: Type.Optional(text),

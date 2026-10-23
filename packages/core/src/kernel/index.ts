@@ -259,6 +259,8 @@ export async function openKernel(
 		const promptOptions: PromptOptions = {
 			home,
 			version: packageVersion,
+			locale: config.locale ?? "zh-CN",
+			timezone: config.timezone ?? "Asia/Shanghai",
 			contexts: loaded.contexts,
 			workspace: (session, signal) => filesFor(home, config, loaded, session.agent ?? "", signal),
 			identity: store.identity(),

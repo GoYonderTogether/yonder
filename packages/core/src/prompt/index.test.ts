@@ -11,6 +11,7 @@ import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
 import { builtinPromptSections, cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
 import {
+	formatClock,
 	framework,
 	type PromptOptions,
 	prepareInput,
@@ -129,6 +130,8 @@ test("system sections are deterministic and only selected contexts render", asyn
 			"Selected context",
 		]);
 		expect([selected, unselected]).toEqual([2, 0]);
+		expect(framework(session)).toContain("Use zh-CN as the default language for user-facing responses");
+		expect(framework(session, "en-US")).toContain("Use en-US as the default language for user-facing responses");
 		expect(framework(session).split(/\s+/u).length).toBeLessThanOrEqual(250);
 		expect(framework(session)).not.toContain("yonder docs");
 	} finally {
@@ -190,6 +193,9 @@ test("custom events retain complete data and message labels cannot break the tur
 		const options: PromptOptions = {
 			home: directory,
 			version: row.version,
+			locale: "zh-CN",
+			timezone: "Asia/Shanghai",
+			now: () => Date.parse("2026-10-23T06:00:00.000Z"),
 			contexts: new Map(),
 			workspace: () => workspaceFiles(localEnvironment(directory)),
 			identity: store.identity(),
@@ -203,7 +209,9 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.text).toContain(`runtime: version=${row.version} home=${directory}`);
 		expect(prepared.text).toContain(`execution: env=local cwd=${directory}`);
 		expect(prepared.text).toContain(`host: platform=${process.platform} prepared=`);
-		expect(prepared.text).toContain(`timezone=${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
+		expect(prepared.text).toContain("星期五");
+		expect(prepared.text).toContain("UTC 2026-10-23T06:00:00.000Z");
 		const passive = await prepareInput(row, session, event, "write", options);
 		expect(passive.text).not.toContain("runtime: version=");
 		expect(passive.text).not.toContain("host: platform=");
@@ -272,6 +280,16 @@ test("custom events retain complete data and message labels cannot break the tur
 		await db.close();
 		await rm(directory, { recursive: true, force: true });
 	}
+});
+
+test("calendar rendering uses an explicit locale and timezone rather than the host timezone", () => {
+	const clock = formatClock(Date.parse("2026-10-23T06:00:00.000Z"), "zh-CN", "Asia/Shanghai");
+	expect(clock).toEqual({
+		utc: "2026-10-23T06:00:00.000Z",
+		local: expect.stringContaining("星期五"),
+	});
+	expect(clock.local).toContain("2026年10月23日");
+	expect(clock.local).toContain("中国标准时间");
 });
 
 test("preset tasks can select fileless MCP instructions without reading an Agent workspace", async () => {

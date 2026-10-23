@@ -169,6 +169,8 @@ beforeSend 只对该会话选中的插件执行，在发送 attempt/事件账本
 ```ts
 interface PluginAPI {
   readonly version: string;           // 实际宿主软件版本
+  readonly locale: string;            // yonder.yaml 全局 locale，默认 zh-CN
+  readonly timezone: string;          // yonder.yaml 全局 IANA timezone，默认 Asia/Shanghai
   id: string;
   config: unknown;                     // 它在 yonder.yaml 里的 config 段，已按 configSchema 校验
   log: { info(msg: string, data?: object): void; warn(msg: string, data?: object): void; error(msg: string, data?: object): void };

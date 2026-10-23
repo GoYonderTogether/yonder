@@ -24,6 +24,8 @@
 
 ```yaml
 schema: 1
+locale: zh-CN                          # 可省略，默认中文；可显式覆盖为有效 Intl locale
+timezone: Asia/Shanghai                 # 可省略，默认北京时间；必须是有效 IANA 时区
 
 plugins:
   - use: "@yonder/plugin-channel-cli"
@@ -71,6 +73,8 @@ identity:
   persons:
     - { id: zoran, name: Zoran, accounts: [acct:cli:local] }
 ```
+
+`locale` 与 `timezone` 可分别省略，生效默认值为 `zh-CN` 与 `Asia/Shanghai`；显式值须通过运行时 Intl locale 与 IANA 时区校验。`locale` 同时决定默认用户回复语言（用户明确使用其他语言时跟随用户；不擅自翻译 skill 或来源文本）和日期本地化。运行提示词按该 locale/时区渲染本地日历（含星期），同时给出 UTC 时间；插件 SDK 向插件暴露同一全局 locale/timezone，UI Companion 历史日期使用它。此配置不读取操作系统时区；该时区是 Harness 日历/提示词显示设置，不会隐式改变 cron 或 memory 插件的调度/记忆配置。cron 作业仍必须各自提供明确 IANA `timezone`，memory 插件也仍按其自身配置确定日期边界。
 
 `retry` 各字段可单独省略；次数为非负整数，延迟为正整数毫秒（不超过 2147483647）。第 n 次退避为 `min(baseDelayMs * 2^(n-1), maxDelayMs)`，不加随机抖动。次数和截止时间由 pi checkpoint 持久化；恢复保留已消耗次数和已定截止时间，后续退避使用重启后的配置。
 

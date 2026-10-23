@@ -1,7 +1,35 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { isLoginOperationsEnabled, matchesGlob, parseAgentConfig, parseYonderConfig, resolveProfile } from "./index.js";
+import {
+	isLoginOperationsEnabled,
+	loadYonderConfig,
+	matchesGlob,
+	parseAgentConfig,
+	parseYonderConfig,
+	resolveProfile,
+} from "./index.js";
 
 describe("config basics", () => {
+	it("loads default locale/timezone through the real home config loader", async () => {
+		const home = await mkdtemp(join(tmpdir(), "yonder-locale-config-"));
+		try {
+			await writeFile(join(home, "yonder.yaml"), "schema: 1\n");
+			expect(await loadYonderConfig(home)).toMatchObject({ locale: "zh-CN", timezone: "Asia/Shanghai" });
+		} finally {
+			await rm(home, { recursive: true, force: true });
+		}
+	});
+	it("defaults locale and timezone to Chinese and Shanghai, validates IANA values, and permits overrides", () => {
+		expect(parseYonderConfig("schema: 1", "yonder.yaml")).toMatchObject({ locale: "zh-CN", timezone: "Asia/Shanghai" });
+		expect(parseYonderConfig("schema: 1\nlocale: en-US\ntimezone: America/Caracas", "yonder.yaml")).toMatchObject({
+			locale: "en-US",
+			timezone: "America/Caracas",
+		});
+		for (const config of ["locale: invalid_locale", "timezone: Not/AZone"])
+			expect(() => parseYonderConfig(`schema: 1\n${config}`, "yonder.yaml"), config).toThrow();
+	});
 	it("login operations are formally configurable, default off, and reject invalid values", () => {
 		expect(parseYonderConfig("schema: 1", "yonder.yaml").loginOperations).toBeUndefined();
 		expect(parseYonderConfig("schema: 1\nloginOperations: { enabled: true }", "yonder.yaml").loginOperations).toEqual({

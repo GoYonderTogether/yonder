@@ -83,6 +83,8 @@ test("real CLI doctor validates the optional disabled decision-routing manifest"
 			join(home, "yonder.yaml"),
 			stringify({
 				schema: 1,
+				locale: "zh-CN",
+				timezone: "Asia/Shanghai",
 				plugins: [{ use: resolve("plugins/decision-routing") }],
 				envs: { local: { type: "local" } },
 				agents: [{ id: "main", workspace: "./agents/main" }],
