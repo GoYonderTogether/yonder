@@ -1,11 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 if (process.platform === "darwin") {
 	const contents = "packages/macos/dist/YonderStatus.app/Contents";
 	mkdirSync(`${contents}/MacOS`, { recursive: true });
+	mkdirSync(`${contents}/Resources`, { recursive: true });
+	for (const name of ["menubar-template.png", "menubar-template@2x.png"])
+		copyFileSync(`brand/assets/macos/${name}`, `${contents}/Resources/${name}`);
+	copyFileSync("brand/assets/png/yonder-mark-512.png", `${contents}/Resources/dock-mark.png`);
 	const { version } = JSON.parse(readFileSync("package.json", "utf8"));
 	writeFileSync(
 		`${contents}/Info.plist`,
@@ -20,6 +24,7 @@ if (process.platform === "darwin") {
 			"-module-cache-path",
 			join(tmpdir(), "yonder-swift-module-cache"),
 			"packages/macos/YonderStatus.swift",
+			"packages/macos/Companion.swift",
 			"-o",
 			`${contents}/MacOS/YonderStatus`,
 		],

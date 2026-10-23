@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import Darwin
 
 // Placement only considers the pointer and screen edges, never reads other apps' contents.
 func clampedFrame(_ frame: NSRect, in screen: NSRect) -> NSRect {
@@ -48,8 +49,9 @@ final class DockView: NSView {
     override func mouseUp(with event: NSEvent) { if !moved { open?() } }
     override func accessibilityPerformPress() -> Bool { open?(); return true }
 }
-final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNavigationDelegate {
-    private var item: NSStatusItem!
+final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+    var onVisibility: ((Bool) -> Void)?
+    var isStatusClick: ((NSPoint) -> Bool)?
     private var panel: CompanionPanel!
     private var dock: CompanionPanel!
     private var web: WKWebView!
@@ -58,7 +60,9 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var anchor: WindowAnchor?
     private var pending = false
-    private let page = ProcessInfo.processInfo.environment["YONDER_UI_URL"].flatMap(URL.init(string:)) ?? Bundle.main.url(forResource: "index", withExtension: "html")!
+    private var page: URL?
+    private var historyOnOpen = false
+    var available: Bool { page != nil }
     private var screen: NSScreen { NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main! }
 
     private func makePanel(size: NSSize, typing: Bool) -> CompanionPanel {
@@ -76,17 +80,8 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         if #available(macOS 13.0, *) { result.collectionBehavior.insert(.canJoinAllApplications) }
         return result
     }
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
-        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        let image = NSImage(contentsOf: Bundle.main.url(forResource: "menubar-template", withExtension: "png")!)!
-        image.size = NSSize(width: 22, height: 22); image.isTemplate = true
-        item.button?.image = image
-        item.button?.toolTip = "Yonder · 左键展开，右键退出"
-        item.button?.setAccessibilityLabel("Yonder")
-        item.button?.target = self; item.button?.action = #selector(statusClicked)
-        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
-
+    override init() {
+        super.init()
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "companion")
         web = WKWebView(frame: .zero, configuration: config)
@@ -98,8 +93,7 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         let container = NSView(frame: panel.contentView!.bounds)
         container.wantsLayer = true; container.layer?.cornerRadius = 24; container.layer?.masksToBounds = true
         web.frame = container.bounds; container.addSubview(web); panel.contentView = container
-        if page.isFileURL { web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent()) }
-        else { web.load(URLRequest(url: page)) }
+
 
         dock = makePanel(size: NSSize(width: 56, height: 56), typing: false)
         dock.title = "Yonder 悬浮入口"
@@ -123,27 +117,45 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         dock.contentView = dockView
         outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self, self.panel.isVisible, !self.panel.frame.contains(NSEvent.mouseLocation) else { return }
-            if let button = self.item.button, let window = button.window, window.convertToScreen(button.convert(button.bounds, to: nil)).contains(NSEvent.mouseLocation) { return }
+
+            if self.isStatusClick?(NSEvent.mouseLocation) == true { return }
             self.collapse()
         }
         spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in self?.collapse() }
         // Proactive appearance is always the compact entry, including full-screen spaces.
         collapse()
     }
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showPanel(); return true }
+    func setEndpoint(_ next: URL?) {
+        guard next != page else { return }
+        pending = false; panel.orderOut(nil); dock.orderOut(nil); onVisibility?(false)
+        page = next
+        if let next { web.load(URLRequest(url: next)) }
+        else { web.loadHTMLString("", baseURL: nil) }
+    }
+    func toggle() {
+        if panel.isVisible { collapse() }
+        else { showPanel(history: !pending) }
+    }
+    func showHistory() { showPanel(history: true) }
+    func showCurrent() { showPanel(history: !pending) }
+
     private func ensureAnchor() {
         if anchor == nil || !NSScreen.screens.contains(where: { $0.visibleFrame.contains(anchor!.point) }) {
             anchor = WindowAnchor(frame: awayFrame(size: panel.frame.size, screen: screen.visibleFrame, mouse: NSEvent.mouseLocation), screen: screen.visibleFrame)
         }
     }
-    private func showPanel() {
+    private func showPanel(history: Bool = false) {
+        guard available else { return }
+        historyOnOpen = history
+        if history { web.evaluateJavaScript("window.yonderUI?.history()", completionHandler: nil) }
+        else { web.evaluateJavaScript("window.yonderUI?.current()", completionHandler: nil) }
         ensureAnchor()
         panel.setFrame(anchor!.frame(size: panel.frame.size), display: true)
         dock.orderOut(nil)
         // Never activate the app or make a window key on presentation.
         panel.orderFrontRegardless()
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('yonder-visibility',{detail:true}))", completionHandler: nil)
-        item.button?.state = .on
+        onVisibility?(true)
     }
     private func collapse() {
         ensureAnchor()
@@ -153,20 +165,10 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
             dock.setFrame(anchor!.frame(size: dock.frame.size), display: true)
             dock.orderFrontRegardless()
         } else { dock.orderOut(nil) }
-        item.button?.state = .off
+        onVisibility?(false)
     }
-    @objc private func statusClicked() {
-        if NSApp.currentEvent?.type == .rightMouseUp {
-            let menu = NSMenu()
-            let show = NSMenuItem(title: "展开", action: #selector(openPanel), keyEquivalent: ""); show.target = self; menu.addItem(show)
-            let quit = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "q"); quit.target = self; menu.addItem(quit)
-            item.menu = menu; item.button?.performClick(nil); item.menu = nil
-        } else if panel.isVisible { collapse() } else { showPanel() }
-    }
-    @objc private func openPanel() { showPanel() }
-    @objc private func quitApp() { NSApp.terminate(nil) }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.absoluteString == page.absoluteString,
+        guard message.frameInfo.isMainFrame, let page, message.frameInfo.request.url?.absoluteString == page.absoluteString,
               let data = message.body as? [String: Any], let action = data["action"] as? String else { return }
         switch action {
         case "close": collapse()
@@ -189,21 +191,23 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if historyOnOpen && panel.isVisible { web.evaluateJavaScript("window.yonderUI?.history()", completionHandler: nil) }
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('yonder-visibility',{detail:\(panel.isVisible)}))", completionHandler: nil)
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         guard let url = navigationAction.request.url else { decisionHandler(.cancel); return }
-        if url.absoluteString == page.absoluteString { decisionHandler(.allow); return }
+        if let page, url.absoluteString == page.absoluteString { decisionHandler(.allow); return }
         if navigationAction.navigationType == .linkActivated, url.scheme == "https" { NSWorkspace.shared.open(url) }
         decisionHandler(.cancel)
     }
-    func applicationWillTerminate(_ notification: Notification) {
+    func stop() {
+        panel.orderOut(nil); dock.orderOut(nil)
         if let outsideMonitor { NSEvent.removeMonitor(outsideMonitor) }
         if let spaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver) }
         web.configuration.userContentController.removeScriptMessageHandler(forName: "companion")
     }
 }
-if CommandLine.arguments.contains("--check") {
+func checkCompanionGeometry() {
     for screen in [NSRect(x: 0,y: 0,width: 1440,height: 900),NSRect(x: -1920,y: 0,width: 1920,height: 1080)] {
         for mouse in [NSPoint(x:screen.minX+30,y:screen.minY+30),NSPoint(x:screen.maxX-30,y:screen.maxY-30)] {
             let frame = awayFrame(size: NSSize(width:400,height:460),screen:screen,mouse:mouse)
@@ -219,9 +223,20 @@ if CommandLine.arguments.contains("--check") {
         precondition(screen.contains(dragged))
     }
     print("Passed: pointer avoidance, screen containment, negative-coordinate display, drag bounds, shared expand/collapse anchor.")
-} else {
-    let app = NSApplication.shared
-    let delegate = CompanionApp()
-    app.delegate = delegate
-    app.run()
+}
+
+struct DesktopEndpoint: Decodable {
+    let url: URL
+    let pid: Int32
+    static func read(_ data: Data) -> URL? {
+        guard let endpoint = try? JSONDecoder().decode(Self.self, from: data),
+              endpoint.pid > 0, (kill(endpoint.pid, 0) == 0 || errno == EPERM),
+              let parts = URLComponents(url: endpoint.url, resolvingAgainstBaseURL: false),
+              parts.scheme == "http", parts.host == "127.0.0.1", let port = parts.port, port > 0, port <= 65535,
+              parts.user == nil, parts.password == nil, parts.query == nil, parts.fragment == nil,
+              endpoint.url.pathComponents.count == 2,
+              UUID(uuidString: endpoint.url.pathComponents[1]) != nil
+        else { return nil }
+        return endpoint.url
+    }
 }

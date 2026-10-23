@@ -28,7 +28,7 @@
 		"plugins/ui-companion"
 	],
 	"scripts": {
-		"build": "tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs --native",
+		"build": "tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"lint": "biome check .",

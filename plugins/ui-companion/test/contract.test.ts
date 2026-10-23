@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -72,5 +72,27 @@ it("serves cards, returns actual answers only to their owner, and recovers persi
 		}
 	} finally {
 		await service.stop();
+	}
+});
+
+it("publishes one private desktop endpoint instead of launching a second application", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "yonder-ui-endpoint-"));
+	const service = new CompanionService(directory, true);
+	const path = join(directory, "desktop.json");
+	await service.start();
+	try {
+		expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ url: service.url, pid: process.pid });
+		expect((await stat(path)).mode & 0o777).toBe(0o600);
+		expect((await fetch(service.url)).status).toBe(200);
+	} finally {
+		await service.stop();
+	}
+	await expect(readFile(path, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+	const browserOnly = new CompanionService(directory, false);
+	await browserOnly.start();
+	try {
+		await expect(readFile(path, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+	} finally {
+		await browserOnly.stop();
 	}
 });

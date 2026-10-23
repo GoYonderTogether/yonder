@@ -91,9 +91,9 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.yonder-harness`，默认数据目录 `~/.local/share/yonder-harness/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
-macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，无主窗口、Dock 图标或客户端框架。菜单只含真实服务状态（只读）、检查更新、退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
+macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左键切换当前交互，无待处理交互时打开历史；交互插件未就绪时打开管理菜单并显示原因。右键管理菜单含当前交互、交互历史、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
-服务沿用现有 dev.yonder.harness；图标采用一个用户 launchd 登录项 dev.yonder.harness.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。无需新增常驻管理器、自动更新机制、窗口、设置页、安装平台或特权助手。
+服务沿用现有 dev.yonder.harness；图标采用一个用户 launchd 登录项 dev.yonder.harness.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。交互浮窗与浮球由同一状态栏进程承载，不增加第二个桌面应用、常驻管理器、自动更新机制、设置页、安装平台或特权助手。
 
 状态栏源码位于 packages/macos/，使用系统 swiftc；构建/安装接入既有发行流程。安装版保存构建后的 .app；程序调用安装 bin/yonder 固定 argv，不拼 shell，不读凭据。状态/更新检查需要相应真实结果，不以图标显示等价于服务运行。macOS 状态栏操作和屏幕预览需要真实运行证据。
 
@@ -118,3 +118,5 @@ updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试�
 ## 渠道接入命令
 
 `yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。默认返回可扫码链接，--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。
+
+交互插件在私有 data 目录发布 desktop.json（运行时回环 url、实际 pid），状态栏仅读取当前 home 的 .yonder/plugins/ui-companion/desktop.json 并验证本机地址和进程存活；插件停止清理自身描述文件，宿主关闭旧页面与窗口。desktop:false 不向状态栏发布。UI 状态不复制到内核；业务工具/队列/历史仍由 ui-companion 插件负责。状态栏进程使用当前 home 的文件锁阻止重复启动；不依赖 Web 内容保证单实例。

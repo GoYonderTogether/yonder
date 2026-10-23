@@ -312,5 +312,5 @@
 
 - **源码**：[入口](../plugins/ui-companion/src/index.ts) · [运行和验收](../plugins/ui-companion/README.md)
 - **贡献**：工具 `ui-companion_present`、`ui-companion_result`；触发器 `ui-companion-service` 托管回环服务。
-- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-ui-companion`，在实际 Agent/配置档选择 `ui-companion_*` 并授予 message、exec、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
-- **界面**：macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
+- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-ui-companion`，在实际 Agent/配置档选择 `ui-companion_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
+- **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。

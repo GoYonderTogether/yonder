@@ -1,10 +1,8 @@
-import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { ToolContext } from "@yonder/sdk";
 import {
 	beginTask,
@@ -22,7 +20,6 @@ type Record = { owner: Owner; interaction: Interaction; cancelled: boolean };
 export class CompanionService {
 	private records: Record[] = [];
 	private server: Server | undefined;
-	private child: ChildProcess | undefined;
 	private tail: Promise<unknown> = Promise.resolve();
 	private changes = new Set<() => void>();
 	private base = "";
@@ -128,6 +125,17 @@ export class CompanionService {
 		const address = server.address();
 		if (!address || typeof address === "string") throw new Error("UI listener unavailable");
 		this.base = `http://127.0.0.1:${address.port}/${secret}/`;
+		if (this.desktop) {
+			try {
+				await mkdir(this.directory, { recursive: true, mode: 0o700 });
+				const path = join(this.directory, "desktop.json");
+				await writeFile(`${path}.tmp`, JSON.stringify({ url: this.base, pid: process.pid }), { mode: 0o600 });
+				await rename(`${path}.tmp`, path);
+			} catch (error) {
+				await this.stop();
+				throw error;
+			}
+		}
 		this.stopped = false;
 	}
 	private async body(request: IncomingMessage) {
@@ -140,24 +148,9 @@ export class CompanionService {
 		}
 		return Buffer.concat(chunks).toString("utf8");
 	}
-	private async openDesktop() {
-		if (!this.desktop || process.platform !== "darwin" || this.child) return;
-		const executable = fileURLToPath(new URL("../dist/Yonder UI.app/Contents/MacOS/YonderUI", import.meta.url));
-		const child = spawn(executable, [], { env: { ...process.env, YONDER_UI_URL: this.base }, stdio: "ignore" });
-		this.child = child;
-		child.once("exit", () => {
-			if (this.child === child) this.child = undefined;
-		});
-		child.once("error", () => {
-			if (this.child === child) this.child = undefined;
-		});
-		await once(child, "spawn");
-	}
 	async present(card: unknown, owner: Owner) {
 		const validated: Card = validateCard(card);
 		if (this.stopped) throw new Error("UI plugin is not running");
-		// Launch first so a missing native binary cannot leave an unseen queued request.
-		await this.openDesktop();
 		return this.mutate(async () => {
 			if (this.stopped) throw new Error("UI plugin stopped");
 			const interaction = beginTask(emptyState(), validated, randomUUID()).active as Interaction;
@@ -262,13 +255,23 @@ export class CompanionService {
 		this.stopped = true;
 		this.changed();
 		await this.tail;
-		this.child?.kill();
-		this.child = undefined;
-		if (this.server) {
-			const server = this.server;
-			server.closeAllConnections();
-			await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-			this.server = undefined;
+		try {
+			if (this.desktop && this.base) {
+				const path = join(this.directory, "desktop.json");
+				try {
+					const endpoint = JSON.parse(await readFile(path, "utf8"));
+					if (endpoint.url === this.base && endpoint.pid === process.pid) await unlink(path);
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+				}
+			}
+		} finally {
+			if (this.server) {
+				const server = this.server;
+				server.closeAllConnections();
+				await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+				this.server = undefined;
+			}
 		}
 	}
 }

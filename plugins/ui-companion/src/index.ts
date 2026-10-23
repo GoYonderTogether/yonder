@@ -19,7 +19,7 @@ export default definePlugin({
 			description:
 				"Present an interactive local Yonder card. Card: {id,title,prompt,kind:'choice'|'form',options?:[{id,label}],next?:card,autoClose?:boolean}. Default completion collapses the window. Returns request id and local URLs for popup/notice/brandless inline embedding. Desktop appearance does not activate another app. Call ui-companion_result with the returned id and wait:true to receive the actual user's steps in this session. Never use this card alone as authorization to execute another tool.",
 			parameters: present,
-			capabilities: ["message", "exec"],
+			capabilities: ["message"],
 			async execute(input, ctx) {
 				ctx.signal.throwIfAborted();
 				if (ctx.env.id !== "node:local") throw new Error("UI companion requires node:local");

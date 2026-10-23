@@ -383,6 +383,7 @@ window.yonderUI = {
 	},
 	setSurface,
 	history: renderHistory,
+	current: render,
 };
 render();
 setSurface(location.hash.slice(1) || "window");
