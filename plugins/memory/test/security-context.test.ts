@@ -47,3 +47,27 @@ it("fails closed on private/malformed metadata, symlinks and traversal; admits p
 		await rm(outside, { recursive: true, force: true });
 	}
 });
+
+it("allows allowed agents on non-chat events and still gates chat messages", async () => {
+	const { allowedRun } = await import("../src/contexts.js");
+	const config = {
+		root: "/x",
+		owner: "person:test",
+		timezone: "UTC",
+		allowedAgents: ["keeper"],
+		allowedSourceConversations: ["conv:test:owner"],
+	} as never;
+	const api = {
+		identity: {
+			async account() {
+				return { person: "person:test" };
+			},
+		},
+	} as never;
+	const cron = { ...event(), type: "cron.memory-evening", from: "plugin:cron", conv: "conv:cron:memory-evening" } as never;
+	expect(await allowedRun(api, config, "keeper", cron)).toBe(true);
+	expect(await allowedRun(api, config, "other", cron)).toBe(false);
+	expect(await allowedRun(api, config, undefined, cron)).toBe(false);
+	const elsewhere = { ...event(), conv: "conv:test:other" } as never;
+	expect(await allowedRun(api, config, "keeper", elsewhere)).toBe(false);
+});
