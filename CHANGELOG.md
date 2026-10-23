@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 撤回 `plugins/progress-observer`、`plugins/decision-routing`、login operations 子系统（`login_begin`/`login_status` 工具、`loginOperations` 配置项、`login_operations`/`login_outbox` 数据表的创建与使用、`task.linked` 事件）及遗留审查报告（见 D58）。这些模块在 0.2.26102204 起的已发布版本中出现，从下一版起移除；若配置里仍引用 `progress-observer`、`decision-routing` 插件或 `loginOperations`，需要删除这些条目，否则加载或配置校验会失败。已存在的 `login_operations`/`login_outbox` 表不会被自动删除，保留无害。
+
 ## [0.2.26102206] - 2026-10-22
 
 ### Fixed
