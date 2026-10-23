@@ -47,12 +47,12 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 					db.close();
 				}
 			};
-			const run = async (text: string) => {
-				const receipt = await running.terminal.submit(session.id, { text });
+			const run = async (text: string, active = running) => {
+				const receipt = await active.terminal.submit(session.id, { text });
 				await expect
 					.poll(
 						async () =>
-							(await running.events.query({ type: "run.end", after: receipt.event })).events.find(
+							(await active.events.query({ type: "run.end", after: receipt.event })).events.find(
 								(event) => event.parent === receipt.event,
 							)?.data,
 						{ timeout: 120000, interval: 500 },
@@ -69,6 +69,17 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			expect(calls[1]?.args).toMatchObject({ action: "list" });
 			expect(tools()).toEqual([...offer, "tool_search", "cron_manage"].sort());
 			await run("这是下一轮独立输入。不要调用工具，只回复已收到。");
+			expect(tools()).toEqual([...offer, "tool_search"].sort());
+			await run(
+				'请调用 tool_search，query 严格使用字符串 "task_run delegate subagent"，limit 为 1，验证委派工具能被发现。本轮只加载工具，不创建子任务、不运行终端命令、不发消息；完成后报告工具名。',
+			);
+			const searches = (await running.sessions.transcript(session.id)).flatMap((entry) => entry.tools ?? []);
+			expect(searches.map((call) => call.name)).toEqual(["tool_search", "cron_manage", "tool_search"]);
+			expect(searches[2]?.args).toEqual({ query: "task_run delegate subagent", limit: 1 });
+			expect(tools()).toEqual([...offer, "tool_search", "task_run"].sort());
+			await running.close();
+			kernel = await openKernel(home);
+			await run("重启后的下一轮独立输入，不要调用工具，只回复已收到。", kernel);
 			expect(tools()).toEqual([...offer, "tool_search"].sort());
 		} finally {
 			await kernel?.close();

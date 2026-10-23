@@ -43,7 +43,7 @@ export function toolDiscoveryGuide(
 Only the starting tools have full schemas in view. The following deferred tool names are available through tool_search; missing from the starting set does not mean missing capability:
 ${names.join(", ")}
 
-For a Chinese task, identify the matching English tool name in this catalog and search that exact name. For broader discovery, use concise English action keywords; this is keyword search, not Chinese semantic search. Start with limit: 1, or up to 3 to compare related tools. Call the returned tool using its actual schema. If no match is found, refine the name or action; report the specific missing capability rather than inventing tools or enabling plugins.
+For a Chinese task, identify the matching English tool name in this catalog and search that exact name. For broader discovery, use concise English action keywords; this is keyword search, not Chinese semantic search. Start with limit: 1, or up to 3 to compare related tools. Wait for the search result, then call the loaded tool in a later model response using its actual schema; do not batch the search and the deferred call together. If no match is found, retry the exact catalog name alone before reporting a missing capability. Do not invent tools or enable plugins.
 
 Use an already offered tool directly. Discover a dedicated tool before building a shell workaround. A new run restores the starting set, so historical results do not prove a deferred tool is currently loaded.`;
 }
