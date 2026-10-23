@@ -319,7 +319,6 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			tools,
 			envs: loaded.envs,
 			readEvent: store.events.get,
-			recordEvent: store.events.record,
 			settled: async (session, run) => Boolean(await store.events.runEnd(session, run)),
 			prepareInput: async (id, event, config, wake, signal) => {
 				const row = await store.sessions.get(id);

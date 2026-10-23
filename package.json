@@ -27,9 +27,7 @@
 		"plugins/channel-wechat-ilink",
 		"plugins/clipboard",
 		"plugins/channel-qq",
-		"plugins/memory",
-		"plugins/progress-observer",
-		"plugins/decision-routing"
+		"plugins/memory"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs",

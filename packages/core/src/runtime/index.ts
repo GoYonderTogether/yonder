@@ -914,24 +914,6 @@ export class Runtime {
 		}
 		return sum;
 	}
-	static exportTaskLink(ctx: ToolContext, childSession: string) {
-		return {
-			type: "task.linked" as const,
-			from: "system:runtime" as const,
-			data: {
-				parentSession: ctx.session,
-				childSession,
-				...((ctx.event?.type === "session.input" || ctx.event?.type === "message.in") && ctx.event.id
-					? { sourceEvent: ctx.event.id }
-					: (() => {
-							const source = ctx.events?.findLast(
-								(event) => event.type === "session.input" || event.type === "message.in",
-							);
-							return source?.id ? { sourceEvent: source.id } : {};
-						})()),
-			},
-		};
-	}
 	async runTask(ctx: ToolContext, initialize: (childId: string) => Promise<RuntimeInput>): Promise<RuntimeRun> {
 		const invocation = this.toolInvocations.get(ctx);
 		if (!invocation) throw new Error("task_run requires an active runtime tool invocation");
@@ -943,7 +925,6 @@ export class Runtime {
 			await tx.doc(SessionDoc, created.id);
 			return created.id;
 		}, context);
-		if (this.options.recordEvent) await this.options.recordEvent(Runtime.exportTaskLink(ctx, String(child)));
 		const input = await initialize(String(child));
 		try {
 			const handle = await api.conversation(child, context);

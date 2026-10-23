@@ -32,7 +32,6 @@ export interface RuntimeOptions {
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
 	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
 	readEvent?(id: string): Promise<YEvent | undefined>;
-	recordEvent?(event: import("@yonder/sdk").EventInput): Promise<YEvent>;
 	/** True when this run already has its durable `run.end`; recover() then does not replay it. */
 	settled?(session: string, run: string): Promise<boolean>;
 	prepareInput?(
