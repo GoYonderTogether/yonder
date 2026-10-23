@@ -176,6 +176,8 @@ export async function loadPlugins(
 		const api: PluginAPI = {
 			id: manifest.id,
 			version: JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")).version,
+			locale: config.locale ?? "zh-CN",
+			timezone: config.timezone ?? "Asia/Shanghai",
 			config: pluginConfig,
 			log: {
 				info: (message, data) => services.log.info(message, { ...data, plugin: manifest.id }),

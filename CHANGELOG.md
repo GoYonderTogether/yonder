@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `yonder.yaml` 全局 locale/timezone 默认中文与 Asia/Shanghai；提示词日历明确显示 UTC 和北京时间/星期，UI Companion 历史时间也使用同一设置，不依赖宿主时区。cron 仍要求作业显式设置时区。
+
 ## [0.2.26102306] - 2026-10-23
 
 ### Fixed

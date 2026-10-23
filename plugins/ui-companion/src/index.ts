@@ -12,7 +12,12 @@ const json = (value: unknown): ToolResult => ({ text: JSON.stringify(value) });
 export default definePlugin({
 	configSchema: Type.Object({ desktop: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
 	setup(api) {
-		const service = new CompanionService(api.paths.data, ((api.config ?? {}) as { desktop?: boolean }).desktop ?? true);
+		const service = new CompanionService(
+			api.paths.data,
+			((api.config ?? {}) as { desktop?: boolean }).desktop ?? true,
+			api.locale,
+			api.timezone,
+		);
 		api.triggers.register({ id: "ui-companion-service", start: () => service.start(), stop: () => service.stop() });
 		api.tools.register({
 			name: "ui-companion_present",

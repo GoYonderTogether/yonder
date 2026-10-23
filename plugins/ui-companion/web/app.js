@@ -178,7 +178,8 @@ $("#note-form").addEventListener("submit", (event) => {
 	finish($("#note").value.trim());
 });
 function time(at) {
-	return new Intl.DateTimeFormat("zh-CN", {
+	return new Intl.DateTimeFormat(window.yonderSettings?.locale ?? "zh-CN", {
+		timeZone: window.yonderSettings?.timezone ?? "Asia/Shanghai",
 		month: "short",
 		day: "numeric",
 		hour: "2-digit",
