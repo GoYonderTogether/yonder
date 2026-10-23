@@ -68,6 +68,9 @@
 			"path": "plugins/memory"
 		},
 		{
+			"path": "plugins/channel-card"
+		},
+		{
 			"path": "plugins/ui-companion"
 		}
 	]
