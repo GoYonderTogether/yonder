@@ -39,3 +39,5 @@
 
 - /model、/status 增加按实际窗口计算的一位小数百分比。用户安装的 RightAPI Sonnet/Opus 窗口改为 1000000，compaction.backgroundAtTokens 设为 272000；提前后台压缩与模型最大窗口分开。GPT 沿用较早的原生阈值。1M 为本地配置，未验证满窗口上游承载。
 - pi 原生压缩定向 107 通过 / 0 失败；扩展既有阈值用例覆盖大窗口提前触发和小窗口不延后。pi npm run check 仍被既有 AI 测试旧模型 ID 类型不一致阻断，详细错误保留在本次检查日志；无本次修改路径的错误。
+
+- 并行主线已发布 0.2.26102302/03，本次保留它们并发布 0.2.26102304。fork 已接纳远端 Hermes 检索提交再重放本次阈值改动（只在 FORK.md 有冲突，双方说明均保留）。合并后原生定向 108/0，Yonder 干净 npm ci、build、typecheck、workspace 边界、lint 退出 0；97 文件通过、18 跳过，415 用例通过、0 失败、37 跳过；权限自检 36/0。lint 341 文件，323 warnings、13 infos，无 error。

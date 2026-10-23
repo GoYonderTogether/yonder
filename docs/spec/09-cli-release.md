@@ -17,7 +17,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 | 命令 | 作用 |
 |---|---|
-| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载两款内置插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、contexts `[soul-md, agents-md]`、plugins `[context-files]`；CLI owner 私聊绑定到主会话且 stream 开启；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另生成真实 default 任务预设（12 §3） |
+| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、ui-companion 三款内置插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、contexts `[soul-md, agents-md]`、plugins `[context-files]`；CLI owner 私聊绑定到主会话且 stream 开启；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另生成真实 default 任务预设（12 §3） |
 | `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 |
 | `credentials set <name> --home <dir>` | 本机隐藏录入一项命名 API key（07 §6.2）：仅交互 TTY，不接受秘密参数、管道或 `--json`；已有同名项（含 OAuth）一概拒绝，不提供读取、轮换、删除；与 OAuth 共用凭据文件锁，原子写入，文件须为本用户单链接 0600 普通文件，路径中不得有 symlink 或他人可写目录。运行中的服务不必停止 |
 | `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 |
@@ -92,13 +92,15 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.yonder-harness`，默认数据目录 `~/.local/share/yonder-harness/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
-macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，无主窗口、Dock 图标或客户端框架。菜单只含真实服务状态（只读）、检查更新、退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
+macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左键切换当前交互，无待处理交互时打开历史；交互插件未就绪时打开管理菜单并显示原因。右键管理菜单含当前交互、交互历史、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
-服务沿用现有 dev.yonder.harness；图标采用一个用户 launchd 登录项 dev.yonder.harness.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。无需新增常驻管理器、自动更新机制、窗口、设置页、安装平台或特权助手。
+服务沿用现有 dev.yonder.harness；图标采用一个用户 launchd 登录项 dev.yonder.harness.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。交互浮窗与浮球由同一状态栏进程承载，不增加第二个桌面应用、常驻管理器、自动更新机制、设置页、安装平台或特权助手。
 
 状态栏源码位于 packages/macos/，使用系统 swiftc；构建/安装接入既有发行流程。安装版保存构建后的 .app；程序调用安装 bin/yonder 固定 argv，不拼 shell，不读凭据。状态/更新检查需要相应真实结果，不以图标显示等价于服务运行。macOS 状态栏操作和屏幕预览需要真实运行证据。
 
 只读命令 `yonder service info --home <home> --json` 返回实际服务进程的 version/commit/home/pid/ready；控制面未就绪时失败，不回退磁盘版本。`yonder update --check --json` 经本机既有 gh 登录态查询仓库最新正式 GitHub Release，返回 current/latest/updateAvailable/url，缺 gh、登录或正式发布时显示实际失败。不会安装或改配置。
+
+桌面交互入口默认就绪：init 将 ui-companion 加入全局插件列表；CLI start 对旧 home 复用 plugins 管理入口，按实际插件 id 检查并仅在缺失时补入官方包。已有自定义来源和 desktop:false 均保留，不改任何 Agent/预设的 plugins、tools 或权限。交互插件在私有 data 目录发布 desktop.json（运行时回环 url、实际 pid），状态栏仅读取当前 home 的 .yonder/plugins/ui-companion/desktop.json 并验证本机地址和进程存活；插件停止清理自身描述文件，宿主关闭旧页面与窗口。desktop:false 不向状态栏发布。UI 状态不复制到内核；业务工具/队列/历史仍由 ui-companion 插件负责。状态栏进程使用当前 home 的文件锁阻止重复启动；不依赖 Web 内容保证单实例。
 
 ## 7. 统一诊断
 

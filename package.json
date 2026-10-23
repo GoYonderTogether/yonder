@@ -29,10 +29,11 @@
 		"plugins/channel-qq",
 		"plugins/memory",
 		"plugins/progress-observer",
-		"plugins/decision-routing"
+		"plugins/decision-routing",
+		"plugins/ui-companion"
 	],
 	"scripts": {
-		"build": "tsc -b && node scripts/build-macos.mjs",
+		"build": "tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"lint": "biome check ."

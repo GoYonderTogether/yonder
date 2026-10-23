@@ -1,9 +1,11 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { once } from "node:events";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
+import { initHome } from "@yonder/core";
 import { expect, test } from "vitest";
-import { stringify } from "yaml";
+import { parse, stringify } from "yaml";
 
 test("CLI runs through the installed current symlink", async () => {
 	const directory = await mkdtemp("/tmp/yonder-entry-");
@@ -183,3 +185,43 @@ test("global CLI discovers the default user home and preserves explicit override
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+test("CLI start readies legacy desktop UI without changing Agent tools or an explicit desktop opt-out", async () => {
+	for (const disabled of [false, true]) {
+		const home = await mkdtemp("/tmp/yonder-ui-default-");
+		await initHome(home);
+		const file = join(home, "yonder.yaml");
+		const config = parse(await readFile(file, "utf8"));
+		config.plugins = config.plugins.filter((entry: { use: string }) => entry.use !== "@yonder/plugin-ui-companion");
+		if (disabled) config.plugins.push({ use: "@yonder/plugin-ui-companion", config: { desktop: false } });
+		await writeFile(file, stringify(config));
+		const agent = await readFile(join(home, "agents/main/agent.yaml"), "utf8");
+		const cli = resolve("packages/cli/dist/index.js");
+		const child = spawn(process.execPath, [cli, "start", "--home", home, "--json"], { stdio: "ignore" });
+		const exited = once(child, "exit");
+		try {
+			await expect
+				.poll(async () => (await stat(join(home, ".yonder/control.sock")).catch(() => null))?.isSocket() ?? false, {
+					timeout: 10000,
+				})
+				.toBe(true);
+			const updated = parse(await readFile(file, "utf8"));
+			expect(updated.plugins.filter((entry: { use: string }) => entry.use === "@yonder/plugin-ui-companion")).toEqual([
+				disabled
+					? { use: "@yonder/plugin-ui-companion", config: { desktop: false } }
+					: { use: "@yonder/plugin-ui-companion" },
+			]);
+			expect(await readFile(join(home, "agents/main/agent.yaml"), "utf8")).toBe(agent);
+			const descriptor = join(home, ".yonder/plugins/ui-companion/desktop.json");
+			if (disabled) await expect(readFile(descriptor, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+			else {
+				const endpoint = JSON.parse(await readFile(descriptor, "utf8"));
+				expect((await fetch(endpoint.url)).status).toBe(200);
+			}
+		} finally {
+			child.kill("SIGTERM");
+			await exited;
+			await rm(home, { recursive: true, force: true });
+		}
+	}
+}, 20000);

@@ -123,3 +123,9 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 ## RightAPI 与模型命令（2026-10-23）
 
 正式版候选 `0.2.26102301`（开发验收从06的隔离工作树开始）：Agent/profile 与会话模型链、默认连续三次失败切换、/model /status /compact 共用命令、原生上下文/任务图状态已实现。默认检查384通过/0失败/36跳过，真实GPT回退与Luna压缩2/2通过，RightAPI Sonnet/Opus请求及Sonnet/read循环成功。完整原始失败与验收边界见[本轮记录](verification/rightapi-model-commands.md)。合并最新main后默认全套410通过/0失败/36跳过，权限自检36/0。真人飞书/微信命令回显未测，发布及日用服务结果以Release与实际服务核验为准。
+
+## UI Companion 与统一状态栏
+
+交互工具和私有回环服务在 plugins/ui-companion；唯一 macOS 宿主在 packages/macos，插件不再起第二个桌面应用。左键当前交互/历史，右键交互入口、服务状态、检查更新及停止服务并退出。默认完成隐藏浮窗和浮球，autoClose:false 可保留；不自动给未选择插件的 Agent 增加工具。端点/单实例锁/真实卡片回传有验证；全屏、台前调度与菜单左右键真人验收仍未完成。正式发布验证记录见插件 README。
+
+UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typecheck，413 测试通过/36 跳过，lint 退出成功。发布不自动启用 Agent 工具或修改用户权限；系统级桌面场景仍待人工验收。

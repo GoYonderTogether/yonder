@@ -186,3 +186,14 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 - 必须验证真实用户扫码、官方入站、内核绑定、真实模型与官方回复回执；私聊和群 @ 分别记录，未收到对应场景的真实消息就保留未测。
 - 群持续参与：新扫码配置默认群分身 capabilities: [read]，只提供 read/grep、message_send、parent_ask，复用所属 Agent 的 workspace 与所选 context-files，不给历史管理、写、exec 或通用 message 权限。群原消息绑定 wake: write；独立 channel-qq.group-batch 事件经绑定运行同一 persistent/per:conv 会话，reply: none、busy: steer，模型显式选择发送。非空窗口默认 60 秒，@ 提前结束等待；程序只安排输入，不决定是否发言。插件只保存账本游标与批次身份，原文只在账本和原生 conversation，不建第二转录/模型队列。忙时合并待处理范围，空桶不调用模型；已接纳批次沿原生恢复重接，失败保留可见状态，不盲目重放发送。普通文字消息的已收到、已覆盖、已投递分别记录。
 - 官方全量权限由最新版手机 QQ 的群主在具体群聊的机器人管理中选择该机器人，再在“设置权限 → 机器人可获取的群聊消息范围”选择；接收全量与允许主动发言是两个设置。官方 bot_state 可查询 recv_msg_setting（all/only_mention/mention_and_context），查询接口本身仅对白名单机器人开放；不能把这个接口白名单误当成全量接收必须企业认证的证据。
+
+## UI Companion 交互窗口
+
+2026-10-22 用户确认原型并要求直接接入插件。官方插件 `ui-companion` 默认作为桌面入口加载；Agent 工具仍需按配置档选择。它仅使用 tools、triggers 与既有 session.close 事件；不增加 SDK 槽或内核状态机。
+
+- `ui-companion_present` 接受 card：id/title/prompt、kind（choice/form）、choice 的 options（唯一 id、label）、可选 next 和 autoClose（默认 true，完成隐藏浮窗与浮球；菜单栏保留历史入口）。返回交互 id、回环页面 URL、页面提醒 URL 与无品牌内嵌 URL。任何被配置选择了该工具的 Agent/预设均可使用；呈现需 message，限 node:local。插件加载不代表自动给所有 Agent 开工具。
+- `ui-companion_result` 接受 id、可选 wait（默认 true），仅返回本次实际 session/agent/profile 发起的卡片结果；需要 read。等待复用宿主工具取消/后台执行，不创建第二个模型循环。取消等待不取消卡片，后续可继续查询；session.close 取消该会话未完成卡片。卡片回答只是输入，不构成对其他工具的权限放行。
+- 服务仅监听 127.0.0.1 随机端口，页面及答案接口使用每次启动随机路径，验证 Host、Origin、JSON 和体积。回环 URL 是本地交互访问凭据，只交给用户或可信本地宿主，不发布到公共渠道。多个请求排队展示；答案按交互 id 和步骤序号接纳，拒绝过期/重复步骤。完整卡片和实际答案落在插件私有 data 目录，重启恢复待处理卡片与历史。
+- Web 与原生使用同一内容与状态逻辑。保留 ai-card 风格、共享品牌源、大区域拖拽、展开/收起同一锚点、放大悬浮 Logo、逐步历史回溯。网页 `#notice` 为浮窗提醒，`#inline` 仅核心内容且保留完成结果；可嵌入支持 iframe 的本地页面或 IM 宿主，不自动适配第三方 IM。
+- macOS 非激活 NSPanel 由主仓库唯一状态栏宿主承载，插件仅发布同 home 的私有 desktop.json，不创建 NSStatusItem 或启动桌面进程。待处理任务先显示紧凑入口；desktop:false 时仅提供网页。插件停止清理自身描述文件并关闭服务器，宿主随之关闭交互页面，保留服务管理菜单；不新增登录项或更改系统模式。台前调度/全屏/多显示器及输入焦点以实际验收为准，配置标记不能替代验收。
+- 本期只接已确认的结构化卡片，不接任意生成 HTML/SVG 执行、图片投递或语音唤醒。
