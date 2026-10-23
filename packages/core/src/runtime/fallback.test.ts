@@ -56,6 +56,7 @@ test.skipIf(!real)(
 		const upstream = buildModels(new FileCredentials(auth)).getModel("openai", "gpt-6.1-sol")!.baseUrl;
 		let failAll = false;
 		const calls: string[] = [];
+		const upstreamStatuses: Array<{ model: string; status: number; error?: string }> = [];
 		const server = createServer(async (req, res) => {
 			const chunks: Buffer[] = [];
 			for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -76,6 +77,14 @@ test.skipIf(!real)(
 					headers,
 					body,
 				});
+				if (response.status >= 400) {
+					const error = (await response.text()).replace(/sk-[A-Za-z0-9_-]+/g, "[redacted]");
+					upstreamStatuses.push({ model, status: response.status, error: error.slice(0, 400) });
+					res.writeHead(response.status, { "content-type": "application/json" });
+					res.end(error);
+					return;
+				}
+				upstreamStatuses.push({ model, status: response.status });
 				res.writeHead(response.status, { "content-type": response.headers.get("content-type") ?? "text/event-stream" });
 				if (response.body) Readable.fromWeb(response.body).pipe(res);
 				else res.end();
@@ -89,6 +98,7 @@ test.skipIf(!real)(
 		const config = {
 			schema: 1 as const,
 			credentials: auth,
+			compaction: { enabled: false, keepRecentTokens: 1, reserveTokens: 16384 },
 			retry: { maxRetries: 0, baseDelayMs: 400, maxDelayMs: 400 },
 			models: {
 				providers: {
@@ -139,9 +149,35 @@ test.skipIf(!real)(
 			runtime.resume();
 			await expect.poll(async () => !(await runtime.hasPendingWork(session)), { timeout: 120000 }).toBe(true);
 			expect(calls.slice(0, 3)).toEqual(["gpt-6-luna", "gpt-6-luna", "gpt-6-luna"]);
-			expect(calls.slice(3).every((model) => model === "gpt-6.1-sol")).toBe(true);
+			expect(
+				calls.slice(3).every((model) => model === "gpt-6.1-sol"),
+				JSON.stringify({ calls, upstreamStatuses }),
+			).toBe(true);
 			expect(await readFile(`${home}/effect`, "utf8")).toBe("done");
 			expect((await runtime.transcript(session)).some((entry) => entry.text.includes("FALLBACK_DONE"))).toBe(true);
+			calls.length = 0;
+			const compactTask = await runtime.compact(session);
+			await expect
+				.poll(async () => (await runtime.modelStatus(session)).compact.tasks.includes(compactTask), { timeout: 60000 })
+				.toBe(false);
+			expect((await runtime.transcript(session)).some((entry) => entry.kind === "pi.compaction")).toBe(true);
+			expect(calls.slice(0, 3)).toEqual(["gpt-6-luna", "gpt-6-luna", "gpt-6-luna"]);
+			expect(
+				calls.slice(3).every((model) => model === "gpt-6.1-sol"),
+				JSON.stringify({ calls, upstreamStatuses }),
+			).toBe(true);
+			calls.length = 0;
+			config.compaction.enabled = true;
+			config.compaction.reserveTokens = runtime.models.getModel("openai", "gpt-6-luna")!.contextWindow - 1;
+			expect(
+				(await runtime.submit(session, { text: "Reply briefly that the previous task is complete." })).status,
+			).toBe("done");
+			expect(calls.slice(0, 3)).toEqual(["gpt-6-luna", "gpt-6-luna", "gpt-6-luna"]);
+			expect(
+				calls.slice(3).every((model) => model === "gpt-6.1-sol"),
+				JSON.stringify({ calls, upstreamStatuses }),
+			).toBe(true);
+			config.compaction.enabled = false;
 			failAll = true;
 			calls.length = 0;
 			const failed = await runtime.submit(session, { text: "Check availability." });

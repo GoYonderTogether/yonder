@@ -679,11 +679,19 @@ export class Runtime {
 							const record = await this.harness.getTask(task.id, C);
 							const conversation = await this.harness.conversation(task.conversationId, C);
 							const native = await conversation?.agent(C);
+							const checkpoint =
+								record && record.state.status !== "terminal"
+									? (record.state.checkpoint as {
+											model?: { provider: string; modelId: string };
+											thinkingLevel?: string;
+										})
+									: undefined;
+							const selected = checkpoint?.model ?? native?.model;
 							const input = record?.input as { name?: string; args?: { agent?: string } } | undefined;
 							return {
 								name: input?.name,
-								model: native?.model ? `${native.model.provider}/${native.model.modelId}` : undefined,
-								thinking: native?.thinkingLevel,
+								model: selected ? `${selected.provider}/${selected.modelId}` : undefined,
+								thinking: checkpoint?.thinkingLevel ?? native?.thinkingLevel,
 								targetAgent: input?.name === "agent_ask" ? input.args?.agent : undefined,
 								id: String(task.id),
 								session: String(task.conversationId),
