@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-cron",
-	"version": "0.2.26102311",
+	"version": "0.2.26102312",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -18,7 +18,7 @@
 		"SOURCES.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102311",
+		"@yonder/sdk": "0.2.26102312",
 		"cron-parser": "5.4.0",
 		"typebox": "1.3.27"
 	},
