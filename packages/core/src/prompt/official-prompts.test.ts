@@ -1,11 +1,13 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { loadYonderConfig, parseAgentConfig, resolveProfile } from "../config/index.js";
-import { initHome, openKernel } from "../kernel/index.js";
+import { stringify } from "yaml";
+import { loadPresets, loadYonderConfig, parseAgentConfig, resolveProfile } from "../config/index.js";
+import { initHome, inspectHome, openKernel } from "../kernel/index.js";
 import { filesFor, inspectionServices, profileFor } from "../kernel/workspace.js";
 import { loadPlugins } from "../plugins/index.js";
+import { inspectToolCatalog } from "../runtime/index.js";
 import { commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
 import { scaffoldWorkspace, systemSections } from "./index.js";
 
@@ -97,7 +99,7 @@ test("official resident templates load, scaffold and stay out of identity-less t
 		).rejects.toThrow("Unknown prompt section");
 		expect(await files.readFile("agent.yaml")).toBe(saved);
 
-		for (const preset of ["default", "jarvis", "default-agent"]) {
+		for (const preset of ["default", "coding", "research", "jarvis", "default-agent"]) {
 			const selected = plugins.presets.get(preset) ?? {};
 			const task = { id: "task", agent: null, profile: preset, cwd: home, resolved: resolveProfile(selected) };
 			const sections = await systemSections(task, {
@@ -112,6 +114,113 @@ test("official resident templates load, scaffold and stay out of identity-less t
 		}
 	} finally {
 		await kernel?.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 30000);
+
+test("official tasks select real tools, share work-session presets and allow short replacements without leaking resident files", async () => {
+	const home = await mkdtemp("/tmp/yonder-task-presets-");
+	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+	try {
+		await initHome(home);
+		const config = await loadYonderConfig(home);
+		const plugins = await loadPlugins(
+			home,
+			config,
+			inspectionServices(home, config, () => {}),
+		);
+		const presets = new Map([...plugins.presets, ...(await loadPresets(home))]);
+		const workspace = () => {
+			throw new Error("Tasks must not read resident files");
+		};
+		for (const id of ["default", "coding", "research"]) {
+			const task = {
+				id: `task-${id}`,
+				agent: null,
+				profile: id,
+				cwd: home,
+				resolved: resolveProfile(presets.get(id)!),
+			};
+			const sections = await systemSections(task, { contexts: plugins.contexts, workspace });
+			const names = id === "default" ? ["general"] : ["general", id];
+			const expected = await Promise.all(
+				names.map((name) =>
+					readFile(new URL(`../../../../plugins/agent-presets/prompts/tasks/${name}.md`, import.meta.url), "utf8").then(
+						(text) => text.trim(),
+					),
+				),
+			);
+			expect(sections.slice(-names.length)).toEqual(expected);
+			expect(sections.join("\n")).not.toContain(residentPrompt);
+			const offered = inspectToolCatalog(task, plugins.tools)
+				.filter((tool) => tool.exposure === "offer")
+				.map((tool) => tool.name)
+				.sort();
+			expect(offered).toEqual(
+				(id === "research"
+					? ["read", "grep", "skill_view", "web-tools_search", "web-tools_fetch", "web-tools_extract"]
+					: ["read", "grep", "write", "edit", "bash", "process", "skill_view"]
+				).sort(),
+			);
+		}
+		kernel = await openKernel(home);
+		const session = await kernel.sessions.open({ preset: "coding", close: "manual" });
+		expect((await kernel.terminal.info(session.id)).config.resolved.contexts).toEqual(["task-general", "task-coding"]);
+		await kernel.sessions.close(session.id);
+		await kernel.management({
+			action: "presets.update",
+			id: "coding",
+			value: {
+				contexts: [],
+				skills: [],
+				prompt: { sections: ["framework"], overrides: { framework: "Local coding work." } },
+				instructions: "Use the supplied repository and return checked results.",
+			},
+		});
+		const short = (await loadPresets(home)).get("coding")!;
+		expect(short.instructions).toBe("Use the supplied repository and return checked results.");
+		expect(short.tools).toEqual(presets.get("coding")!.tools);
+		expect(
+			await systemSections(
+				{ id: "short", agent: null, profile: "coding", cwd: home, resolved: resolveProfile(short) },
+				{ contexts: plugins.contexts, workspace },
+			),
+		).toEqual(["Local coding work."]);
+	} finally {
+		await kernel?.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 30000);
+
+test("adding task presets keeps older homes without web-tools and customized default presets valid", async () => {
+	const home = await mkdtemp("/tmp/yonder-existing-presets-");
+	try {
+		await initHome(home);
+		const config = await loadYonderConfig(home);
+		config.plugins = config.plugins!.filter((plugin) => plugin.use !== "@yonder/plugin-web-tools");
+		await writeFile(`${home}/yonder.yaml`, stringify(config));
+		await rm(`${home}/presets/research.yaml`);
+		await writeFile(
+			`${home}/presets/default.yaml`,
+			stringify({
+				schema: 1,
+				description: "Existing task configuration",
+				model: "openai/gpt-6-luna",
+				capabilities: ["read"],
+				contexts: [],
+				instructions: "Keep this task instruction.",
+			}),
+		);
+		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });
+		const plugins = await loadPlugins(
+			home,
+			config,
+			inspectionServices(home, config, () => {}),
+		);
+		const presets = new Map([...plugins.presets, ...(await loadPresets(home))]);
+		expect(presets.get("default")).toMatchObject({ contexts: [], instructions: "Keep this task instruction." });
+		expect(presets.get("research")?.plugins).toEqual(["agent-presets"]);
+	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
 }, 30000);

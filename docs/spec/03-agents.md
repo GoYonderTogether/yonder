@@ -144,7 +144,19 @@ context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板�
 
 两种 preset 只是创建配置的现有入口，不增加 Agent 类型或权限字段。`agents create --preset` 继续要求真实 name/work/owner/bindings。模板不提供虚构经历、用户资料或伪造历史对话；来源中的表达例句仅说明措辞和语气，不作为已发生的事实。不把编程、研究、所有具体专业方法塞进人格。权限沿现有默认值或调用方明确配置。
 
-插件包内 `prompts/<id>/SOUL.md`、`AGENTS.md` 是起始正文的唯一来源；选中上下文后通过既有 scaffold 仅补缺失文件，渲染读取实际工作区文件，用户清空或编辑后不回退到模板。不覆写已有文件，不自动迁移旧 Agent；同一文件只选一个读取贡献，避免与通用 context-files 重复注入。新 init 的 main 选用 jarvis，两份文件仍属于该 Agent，可修改。无身份 task 即使使用这些 preset，也不渲染人格上下文、不读 Agent 工作区；`default` 独立任务预设保持原语义。
+插件包内 `prompts/<id>/SOUL.md`、`AGENTS.md` 是起始正文的唯一来源；选中上下文后通过既有 scaffold 仅补缺失文件，渲染读取实际工作区文件，用户清空或编辑后不回退到模板。不覆写已有文件，不自动迁移旧 Agent；同一文件只选一个读取贡献，避免与通用 context-files 重复注入。新 init 的 main 选用 jarvis，两份文件仍属于该 Agent，可修改。无身份 task 即使使用这些 preset，也不渲染人格上下文、不读 Agent 工作区。
+
+### 5.4.1 官方任务预设
+
+同一插件提供 `default`（通用任务）、`coding`（实施与验证）、`research`（读取、调查与证据报告）。正文分别为 `prompts/tasks/general.md`、`coding.md`、`research.md`，经 `task-general`、`task-coding`、`task-research` 三个无工作区读取的 system context 加载；专业预设同时选择通用任务 context。渠道分身仍是同一常驻 Agent 的 profile，不新增人格；子任务与独立工作 session 使用同一 preset，只在发起方、历史和关闭方式上不同。
+
+任务不装入常驻人格，不继承父会话全部历史或私人记忆。长期任务由常驻 Agent 负责，任务会话和项目交接资料承接进展；不因任务耗时长而新建 Agent。需要持续职责、关系与独立资产时才创建另一个常驻 Agent，并通过现有绑定交接。专业任务 context 也可显式选入常驻 profile，与其人格并用，不新增运行类型。
+
+`default`、`coding` 使用现有文件、shell、process、skill 工具；`research` 默认只有 read/network 能力与明确的读取/公开 Web 工具白名单，不提供 shell、文件写入、对外发送或继续委派。预设能力仍与调用方取交集；含 exec 的任务不是文件沙箱。工具集合使用既有 `tools.offer/search`，没有新的工具集注册层。
+
+`research` 插件预设可在仅加载 agent-presets 的 home 阅读已给材料；公开 Web 能力由显式选中的 web-tools 提供。新 init 加载官方 web-tools 并生成选择它的 research home 预设；HTTP fetch 无需搜索凭据，search/extract 仍要求该插件的真实服务凭据。旧 home 不自动装插件或改其预设；同 id home 预设继续覆盖插件预设。task context 可用 contexts 移除，完整自定义正文使用 instructions；内置段落仍按 5.5 配置，不按模型名称自动降级或裁剪。
+
+第三方正文按固定来源与许可保留，逐项记录身份、工具名、执行位置及投递协议的适配。原稿不是工具能力的证据。验证在独立 home/session 进行，不向日用主会话投递验收输入。
 
 ### 5.5 小上下文模型与段落配置
 

@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-agent-presets",
-	"version": "0.2.26102306",
+	"version": "0.2.26102307",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -17,7 +17,7 @@
 		"prompts"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102306"
+		"@yonder/sdk": "0.2.26102307"
 	},
 	"yonder": {
 		"apiVersion": 1,
@@ -28,11 +28,17 @@
 				"jarvis-soul",
 				"jarvis-work",
 				"default-agent-soul",
-				"default-agent-work"
+				"default-agent-work",
+				"task-general",
+				"task-coding",
+				"task-research"
 			],
 			"presets": [
 				"jarvis",
-				"default-agent"
+				"default-agent",
+				"default",
+				"coding",
+				"research"
 			]
 		}
 	}

@@ -331,9 +331,9 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
 
 
-## agent-presets：官方常驻 Agent 模板
+## agent-presets：官方常驻模板与任务预设
 
 - **包**：`@yonder/plugin-agent-presets`；[说明与迁移](../plugins/agent-presets/README.md)。
-- **贡献**：presets `jarvis`、`default-agent`；system contexts `jarvis-soul`、`jarvis-work`、`default-agent-soul`、`default-agent-work`。
+- **贡献**：常驻 presets `jarvis`、`default-agent` 与任务 presets `default`、`coding`、`research`；角色 soul/work contexts 与 task-general/task-coding/task-research。
 - **功能**：现有 scaffold 仅为所选模板补缺失的 SOUL.md/AGENTS.md；按实际工作区渲染，新 init 的主 Agent 使用 Jarvis，普通 Agent 可经现有 create --preset 创建。
-- **边界**：无工具、事件订阅或服务；不改权限，不覆写已有文件，不给无身份 task 注入人格。插件内 Markdown 为唯一起始正文；[分层与来源](prompts/README.md)。
+- **边界**：不注册工具、事件订阅或服务；任务预设明确选择现有工具与能力，research 无 shell/写入/消息；不覆写已有文件，不给无身份 task 注入人格。插件内 Markdown 为唯一起始正文；[分层与来源](prompts/README.md)。
