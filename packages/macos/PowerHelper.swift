@@ -18,13 +18,18 @@ final class PowerLease {
     static var failure: String?
 
     static func pmset(_ args: [String]) throws -> String {
-        let process = Process(), pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
-        process.arguments = args; process.standardOutput = pipe; process.standardError = pipe
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
-        guard process.terminationStatus == 0 else { throw NSError(domain: "pmset", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: String(decoding: data, as: UTF8.self)]) }
-        return String(decoding: data, as: UTF8.self)
+        // A socket handler stays alive for hours: drain Foundation's autoreleased process objects per call.
+        return try autoreleasepool {
+            let process = Process(), pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
+            process.arguments = args; process.standardInput = FileHandle.nullDevice
+            process.standardOutput = pipe; process.standardError = pipe
+            defer { try? pipe.fileHandleForReading.close(); try? pipe.fileHandleForWriting.close() }
+            try process.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile(); process.waitUntilExit()
+            guard process.terminationStatus == 0 else { throw NSError(domain: "pmset", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: String(decoding: data, as: UTF8.self)]) }
+            return String(decoding: data, as: UTF8.self)
+        }
     }
     static func sleepDisabled() throws -> Bool {
         for line in try pmset(["-g"]).split(separator: "\n") {
@@ -60,10 +65,10 @@ final class PowerLease {
                 try restore()
             }
             failure = nil
-            return ["active": leases.active, "protected": leases.active > 0, "systemSleepDisabled": try sleepDisabled()]
+            return ["protocol": 2, "active": leases.active, "protected": leases.active > 0, "systemSleepDisabled": try sleepDisabled()]
         } catch {
             failure = error.localizedDescription
-            return ["active": leases.active, "protected": false, "error": error.localizedDescription]
+            return ["protocol": 2, "active": leases.active, "protected": false, "error": error.localizedDescription]
         }
     }
     static func handle(_ fd: Int32, _ uid: uid_t) {
@@ -96,7 +101,12 @@ final class PowerLease {
         if CommandLine.arguments.contains("--check") {
             let state = PowerLease(); state.update(1, 2); state.update(2, 1); precondition(state.active == 3)
             state.update(1, nil); precondition(state.active == 1); state.update(2, 0); precondition(state.active == 0)
-            print("Passed: concurrent power leases release only after the last owner."); return
+            for _ in 0..<8 { _ = try! pmset(["-g"]) }
+            let before = (0..<1024).filter { fcntl(Int32($0), F_GETFD) >= 0 }.count
+            for _ in 0..<64 { _ = try! pmset(["-g"]) }
+            let after = (0..<1024).filter { fcntl(Int32($0), F_GETFD) >= 0 }.count
+            precondition(after <= before, "pmset leaked file descriptors: \(before) -> \(after)")
+            print("Passed: concurrent power leases and 64 repeated pmset calls without descriptor growth (\(before) -> \(after))."); return
         }
         guard geteuid() == 0, CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--serve", let uid = uid_t(CommandLine.arguments[2]), uid > 0 else { exit(64) }
         signal(SIGPIPE, SIG_IGN)

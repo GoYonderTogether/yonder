@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-ui-companion",
-	"version": "0.2.26102308",
+	"version": "0.2.26102309",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -23,7 +23,7 @@
 		"web/assets/Geist-LICENSE"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102308",
+		"@yonder/sdk": "0.2.26102309",
 		"typebox": "1.3.27"
 	},
 	"yonder": {

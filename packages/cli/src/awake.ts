@@ -108,14 +108,20 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 						const end = pending.indexOf("\n");
 						try {
 							const reply = JSON.parse(pending.slice(0, end));
-							lastReply = Date.now();
-							snapshot = {
-								...snapshot,
-								error: undefined,
-								...reply,
-								systemActive: reply.active,
-								active: snapshot.active,
-							};
+							if (reply.protocol !== 2) {
+								snapshot = { ...snapshot, requiresUpdate: true, protected: false, error: "电源组件需要更新" };
+							} else {
+								lastReply = Date.now();
+								snapshot = {
+									...snapshot,
+									error: undefined,
+									...reply,
+									systemActive: reply.active,
+									active: snapshot.active,
+									requiresUpdate: false,
+									protected: reply.protected === true && Number(snapshot.active) > 0,
+								};
+							}
 						} catch {
 							connection.destroy();
 						}
@@ -132,7 +138,7 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 					}
 				});
 			}
-			if (socket.writable) socket.write(`${JSON.stringify({ active })}\n`);
+			if (socket.writable) socket.write(`${JSON.stringify({ active: snapshot.requiresUpdate ? 0 : active })}\n`);
 			if (Date.now() - lastReply > 5000) snapshot = { ...snapshot, protected: false, error: "等待电源宿主确认" };
 		} catch (error) {
 			disconnect();
