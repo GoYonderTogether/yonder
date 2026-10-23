@@ -28,7 +28,7 @@ plugins:
 1. Agent 调用 `ui-companion_present({card})`。插件校验并持久化，返回 id、url、noticeUrl、inlineUrl。macOS 默认首次调用才后台启动非激活宿主，先显示悬浮入口；desktop:false 仅提供网页，用户或可信宿主自行打开返回的 URL。
 2. Agent 调用 `ui-companion_result({id,wait:true})`。等待使用 Harness 原有工具/后台执行生命周期；wait:false 查询当前状态。
 3. 用户选择或填写内容。服务以请求 id 和步骤序号接纳答案，拒绝重复和过期步骤；卡片有 next 时进入下一步。
-4. 完成默认收起，result 返回 completed 和真实 steps（原卡片、选择 value、可读 answer、时间 at）。autoClose:false 保留窗口。交互只回到创建它的 session/agent/profile，不向其他 Agent 伪造事件或自动唤醒。
+4. 完成默认隐藏浮窗与浮球，无待处理任务时不在桌面留入口；菜单栏仍可打开历史。result 返回 completed 和真实 steps（原卡片、选择 value、可读 answer、时间 at）。autoClose:false 保留窗口。交互只回到创建它的 session/agent/profile，不向其他 Agent 伪造事件或自动唤醒。
 
 card 必填：id、title、prompt、kind（choice/form）；choice 必须有 options（唯一 id、label）。可选 next 是下一张 card，可选 autoClose 默认 true。没有固定示例任务或模拟 Agent 回复。
 
@@ -68,3 +68,5 @@ npm run build && npm run typecheck && npm test && npm run lint
 - 没有调用模型；真实模型自主选用与已安装正式服务验收未测。
 
 - 最终全仓以 maxWorkers=4 完整运行：53 文件通过/11 跳过，197 测试通过/23 跳过，0 失败；未改断言或超时。构建/typecheck 通过，lint 184 条既有警告和 1 条提示，插件单独检查无警告。
+
+- 完成后全隐藏修订：构建/typecheck 通过，全仓仍为 53 文件通过/11 跳过，197 测试通过/23 跳过；实际提交后 result 返回 completed，网页 DOM 确认 panel 与 reopen 均 hidden。原生按待处理状态决定是否保留悬浮入口，菜单栏仍可回溯。

@@ -57,6 +57,7 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
     private var spaceObserver: NSObjectProtocol?
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var anchor: WindowAnchor?
+    private var pending = false
     private let page = ProcessInfo.processInfo.environment["YONDER_UI_URL"].flatMap(URL.init(string:)) ?? Bundle.main.url(forResource: "index", withExtension: "html")!
     private var screen: NSScreen { NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main! }
 
@@ -148,8 +149,11 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         ensureAnchor()
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('yonder-visibility',{detail:false}))", completionHandler: nil)
         panel.orderOut(nil)
-        dock.setFrame(anchor!.frame(size: dock.frame.size), display: true)
-        dock.orderFrontRegardless(); item.button?.state = .off
+        if pending {
+            dock.setFrame(anchor!.frame(size: dock.frame.size), display: true)
+            dock.orderFrontRegardless()
+        } else { dock.orderOut(nil) }
+        item.button?.state = .off
     }
     @objc private func statusClicked() {
         if NSApp.currentEvent?.type == .rightMouseUp {
@@ -167,7 +171,11 @@ final class CompanionApp: NSObject, NSApplicationDelegate, WKScriptMessageHandle
         switch action {
         case "close": collapse()
         case "open": showPanel()
-        case "attention": if !panel.isVisible { collapse() }
+        case "attention": pending = true; if !panel.isVisible { collapse() }
+        case "state":
+            pending = data["pending"] as? Bool ?? false
+            if !pending { dock.orderOut(nil) }
+            else if !panel.isVisible { collapse() }
         case "drag-start": dragStart = (NSEvent.mouseLocation, panel.frame.origin)
         case "drag-move":
             if let start = dragStart {

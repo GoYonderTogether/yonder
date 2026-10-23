@@ -66,7 +66,7 @@ function setOpen(next) {
 	$(".pending-dot").hidden = Boolean(state.active?.completed);
 	$("#reopen").setAttribute("aria-label", state.active?.completed ? "打开已完成的交互" : "待处理交互，点击展开");
 	alignDock();
-	$("#reopen").hidden = next || surface === "inline";
+	$("#reopen").hidden = next || surface === "inline" || !state.active || state.active.completed;
 	$("#launcher").setAttribute("aria-expanded", String(next));
 	if (next) {
 		placeAway();
@@ -104,6 +104,7 @@ function summary(target, steps) {
 }
 function render() {
 	const active = state.active;
+	if (native) bridge.postMessage({ action: "state", pending: Boolean(active && !active.completed) });
 	if (!active) {
 		$("#task-context").textContent = "";
 		$("#task-title").textContent = "暂无待处理交互";
@@ -385,6 +386,7 @@ window.yonderUI = {
 };
 render();
 setSurface(location.hash.slice(1) || "window");
+if (surface !== "inline" && (!state.active || (state.active.completed && state.active.autoClose))) setOpen(false);
 draw();
 
 if (connected) {
@@ -406,7 +408,7 @@ if (connected) {
 					render();
 					setPose("idle");
 					if (native) bridge.postMessage({ action: "attention" });
-					else if (surface !== "notice") setOpen(true);
+					else setOpen(surface !== "notice");
 				}
 			} else if (data.active && !state.active?.completed && data.active.steps.length !== state.active.steps.length) {
 				if (save({ ...state, active: data.active })) render();
