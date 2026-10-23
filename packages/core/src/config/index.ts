@@ -40,8 +40,9 @@ export class ConfigError extends Error {
 	}
 }
 
-export type ResolvedProfile = Required<Omit<Profile, "level" | "tools" | "limits">> & {
+export type ResolvedProfile = Required<Omit<Profile, "level" | "tools" | "limits" | "fallback">> & {
 	level?: Level;
+	fallback?: Profile["fallback"];
 	tools: Required<NonNullable<Profile["tools"]>>;
 	limits: Required<NonNullable<Profile["limits"]>>;
 };

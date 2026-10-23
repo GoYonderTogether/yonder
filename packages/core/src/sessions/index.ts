@@ -1,7 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import type { Capability, Input, InputReceipt, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
+import type {
+	Capability,
+	Input,
+	InputReceipt,
+	Preset,
+	RunResult,
+	SessionInfo,
+	SessionModels,
+	SessionsAPI,
+	YEvent,
+} from "@yonder/sdk";
+import { Check } from "typebox/value";
 import { type AgentConfig, type ResolvedProfile, resolveProfile, type YonderConfig } from "../config/index.js";
+import { SessionModelsSchema } from "../config/schema.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 
@@ -48,7 +60,7 @@ export function createSessions({
 		return { cwd: resolve(home, entry.workspace), env: entry.env ?? "local" };
 	};
 
-	async function resolveSession(id: string): Promise<RuntimeSessionConfig> {
+	async function resolveBaseSession(id: string): Promise<RuntimeSessionConfig> {
 		const row = await store.sessions.get(id);
 		if (!row) throw new Error(`Unknown session: ${id}`);
 		if (row.mode === "task") {
@@ -77,6 +89,122 @@ export function createSessions({
 			bindings: agent.bindings,
 			owner: agent.owner,
 		};
+	}
+
+	async function resolveSession(id: string): Promise<RuntimeSessionConfig> {
+		const base = await resolveBaseSession(id);
+		const override = (await runtime().sessionState(id))?.models;
+		return override ? { ...base, resolved: { ...base.resolved, ...override } } : base;
+	}
+	async function command(id: string, command: string): Promise<string> {
+		const session = await store.sessions.get(id);
+		if (!session || session.closed) throw new Error(`Not an open session: ${id}`);
+		const profile = await runtime().sessionConfig(id);
+		const caps = profile.resolved.capabilities;
+		if (!caps.includes("read")) throw new Error("当前来源没有读取会话权限");
+		const [name, ...args] = command.trim().split(/\s+/);
+		const mutates = name === "compact" || (name === "model" && args.length > 0 && args[0] !== "list");
+		if (mutates && !caps.includes("admin")) throw new Error("修改模型或压缩需要 admin 权限");
+		if (name === "compact") {
+			if (!caps.includes("network")) throw new Error("压缩需要 network 权限");
+			return `已提交上下文压缩 · Session: ${id} · Task: ${await runtime().compact(id, args.join(" ") || undefined)}\n/status 查看进度`;
+		}
+		if (name !== "model" && name !== "status") throw new Error("仅支持 model / status / compact");
+		if (name === "status" && args.length) throw new Error("用法：/status");
+		if (name === "model" && args[0] === "list") {
+			if (args.length > 2) throw new Error("用法：/model list [provider]");
+			const all = runtime().models.getProviders();
+			if (!args[1])
+				return `供应商：\n${all.map((p) => `${p.id} · ${p.getModels().length} models`).join("\n")}\n/model list <provider> 查看模型`;
+			const selected = all.find((p) => p.id === args[1]);
+			if (!selected) throw new Error(`Unknown provider: ${args[1]}`);
+			return (
+				selected
+					.getModels()
+					.map((m) => `${selected.id}/${m.id} · context ${m.contextWindow} · output ${m.maxTokens}`)
+					.join("\n") || "无模型"
+			);
+		}
+		let changed = "";
+		if (name === "model" && args.length) {
+			const saved = (await runtime().sessionState(id))?.models ?? {};
+			const selected = (await resolveSession(id)).resolved;
+			let next: SessionModels | null;
+			if (args[0] === "reset" && args.length === 1) next = null;
+			else if (args[0] === "effort" && args.length === 2)
+				next = { ...saved, thinking: args[1] as NonNullable<SessionModels["thinking"]> };
+			else if (args[0] === "after" && args.length === 2)
+				next = { ...saved, fallback: { models: selected.fallback?.models ?? [], after: Number(args[1]) } };
+			else if (args.every((arg) => /^[^/]+\/.+$/.test(arg)))
+				next = {
+					...saved,
+					model: args[0]!,
+					fallback: { models: args.slice(1), after: selected.fallback?.after ?? 3 },
+				};
+			else throw new Error("用法：/model <provider/model> [fallback ...] | effort <level> | after <次数> | reset");
+			if (next && !Check(SessionModelsSchema, next))
+				throw new Error("无效模型设置：effort 必须是 off/minimal/low/medium/high/xhigh/max，after 必须是正整数");
+			for (const ref of [next?.model, ...(next?.fallback?.models ?? [])].filter((ref): ref is string => !!ref)) {
+				const slash = ref.indexOf("/");
+				if (!runtime().models.getModel(ref.slice(0, slash), ref.slice(slash + 1)))
+					throw new Error(`Unknown model: ${ref}`);
+			}
+			await runtime().configureModels(id, next);
+			changed = (await runtime().hasPendingWork(id)) ? "设置已保存，下次运行生效。\n" : "会话模型设置已保存。\n";
+		}
+		const state = await runtime().modelStatus(id);
+		const channels = session.agent
+			? Object.entries(config.channels ?? {})
+					.filter(([channel]) =>
+						agents
+							.get(session.agent!)
+							?.bindings.some(
+								(b) =>
+									(b.match.type === undefined || b.match.type === "message.in") &&
+									(session.mode !== "main" || b.session === "main") &&
+									(!b.match.channel || [b.match.channel].flat().includes(channel)),
+							),
+					)
+					.map(([id, c]) => `${id} (${c.type})`)
+			: [];
+		const tasks = await Promise.all(
+			state.tasks.map(async (task) => {
+				const child = await store.sessions.get(task.session);
+				const active = child
+					? await runtime()
+							.sessionConfig(task.session)
+							.catch(() => undefined)
+					: undefined;
+				let delegated = "";
+				if (task.targetAgent && session.agent && caps.includes("cross-agent")) {
+					const input = await store.events.findInput({
+						type: "message.in",
+						conv: `conv:agent:${session.agent}`,
+						data: { msgId: `internal:${task.session}:${task.id}` },
+					});
+					const route = input?.routes?.find((route) => route.agent === task.targetAgent);
+					if (route?.session) {
+						const target = await runtime().modelStatus(route.session);
+						delegated = ` · target Session ${route.session} · ${target.model ? `${target.model.provider}/${target.model.id}` : "未知模型"} · effort ${target.thinking} · target Tasks ${target.tasks.map((task) => task.id).join(", ") || "无"}`;
+					}
+				}
+				return `${task.background ? "后台 " : ""}Task ${task.id} · ${task.name ?? task.kind} · ${task.state} · Session ${task.session}${child ? ` · Agent ${child.agent ?? "preset:" + child.profile}` : ""}${task.model ? ` · ${task.model} · effort ${task.thinking}` : active ? ` · ${active.resolved.model} · effort ${active.resolved.thinking}` : ""}${task.owner ? ` · parent task ${task.owner}` : ""}${task.targetAgent ? ` · 委派 Agent ${task.targetAgent}` : ""}${delegated}`;
+			}),
+		);
+		return (
+			changed +
+			[
+				`Agent: ${session.agent ?? "preset:" + session.profile} · Session: ${id} · ${state.running ? "运行中" : "空闲"}`,
+				`供应商 / 模型: ${state.model ? state.model.provider + "/" + state.model.id : "不可用"}`,
+				`主模型: ${state.primary} · Effort: ${state.thinking}`,
+				`上下文估计: ${state.contextTokens} / ${state.model?.contextWindow ?? "未知"} tokens · 输出上限: ${state.model?.maxTokens ?? "未知"}`,
+				`Compact: ${state.compact.reason}${state.compact.tasks.length ? " · Task " + state.compact.tasks.join(", ") : ""}${state.compact.failure ? ` · 上次失败: ${state.compact.failure}` : ""}`,
+				`回退: ${state.fallback?.models.join(" → ") || "未配置"} · 连续失败 ${state.failures} / ${state.fallback?.after ?? 3}`,
+				`会话绑定渠道: ${channels.join(", ") || "无"}`,
+				`进行中任务 / 子 Agent:\n${tasks.join("\n") || "无"}`,
+				"/model list [provider] · /model effort <level> · /compact [说明] · /status",
+			].join("\n")
+		);
 	}
 
 	async function createAgentSession(agentId: string, profileName: string, key: string, mode: SessionInfo["mode"]) {
@@ -245,6 +373,7 @@ export function createSessions({
 	}
 
 	const api: SessionsAPI = {
+		command,
 		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
 		list: async (filter) => Promise.all((await store.sessions.list(filter)).map(withPolicy)),
 		get: async (id) => {

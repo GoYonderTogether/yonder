@@ -109,9 +109,12 @@ export interface EventPage {
 	events: YEvent[];
 	next?: string;
 }
-export interface Profile {
+export type SessionModels = {
 	model?: string;
 	thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+	fallback?: { models: string[]; after?: number };
+};
+export interface Profile extends SessionModels {
 	level?: Level;
 	capabilities?: Capability[];
 	plugins?: string[];
@@ -151,6 +154,8 @@ export interface SessionUpdate {
 }
 
 export interface SessionsAPI {
+	/** Deterministic model/status/compact commands, scoped to this session and its capabilities. */
+	command(id: string, command: string): Promise<string>;
 	notify(
 		id: string,
 		input: { event: string; text: string },

@@ -114,6 +114,12 @@ export function createControlServer(api: PluginAPI, io: ChannelIO, channel: stri
 		api.sessions.list((args.filter ?? {}) as Parameters<SessionsAPI["list"]>[0]),
 	);
 	const id = z.object({ id: text }).strict();
+	add(
+		"sessions_command",
+		"查询或修改单个会话的模型、effort 与回退链，或请求压缩。先 sessions_list 取得 id；command 为 model/status/compact 命令文本。读需 read，修改需 admin，compact 还需 network。压缩返回 Task ID 表示已接纳，用 status 查看进度。",
+		z.object({ id: text, command: text }).strict(),
+		(args) => api.sessions.command(args.id, args.command),
+	);
 	add("sessions_get", "读取指定会话。", id, (args) => api.sessions.get(args.id));
 	add(
 		"sessions_open",

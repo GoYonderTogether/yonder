@@ -47,6 +47,8 @@ export async function runChannelCommand(
 			result.text = channelChatCommands.map((item) => `/${item.name} — ${item.description}`).join("\n");
 		else if (command === "session")
 			result.text = `Agent: ${session.agent}\nSession: ${session.id}\nMode: ${session.mode}\nProfile: ${session.profile}\nModel: ${profile.resolved.model}`;
+		else if (/^(model|status|compact)(?:\s|$)/.test(command))
+			result.text = await sessions.api.command(session.id, command);
 		else if (command === "skills")
 			result.text =
 				(await services.skills(profile)).skills

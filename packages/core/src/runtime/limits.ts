@@ -101,10 +101,9 @@ export class RunLimits {
 					if (state.reason) await this.stop(context, state, state.reason);
 					if (state.turns >= state.config.resolved.limits.maxTurns)
 						await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
-					const model = this.deps.models.getModel(
-						state.config.resolved.model.split("/")[0]!,
-						state.config.resolved.model.slice(state.config.resolved.model.indexOf("/") + 1),
-					);
+					const conversation = await this.deps.harness().conversation(api.conversationId, context);
+					const ref = (await conversation!.agent(context)).model;
+					const model = ref ? this.deps.models.getModel(ref.provider, ref.modelId) : undefined;
 					const limits = model?.inputLimits,
 						images = request.messages.flatMap((message) =>
 							Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],

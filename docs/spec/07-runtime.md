@@ -21,7 +21,7 @@
 |---|---|
 | 一个 home | 一个 `Harness`（`Harness.open(storage, { models, registry, settings, env, onReport })`） |
 | 会话 | 一个 conversation（`harness.createConversation({ ownership: { kind: 'ownerless' }, agent, init })`）；Yonder 元数据存在 `y_sessions`，并在 conversation 文档 `yonder.session`（`defineDoc`，`scope: 'conversation'`）中存 `{ agent, profile }`，由 `init` 在创建的同一次提交里写入 |
-| 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })`；实际开始运行时取配置并固定，运行内模型/权限/env/提示/投递使用同一份。排队输入在开始时取新配置，恢复的已开始运行沿用原配置（10 §2） |
+| 配置档 | `conversation.configure({ model, thinkingLevel, extensions, tools, modelTools, instructions, cwd })`；实际开始运行时取配置并固定，运行内模型链/权限/env/提示/投递使用同一份；当前模型只能在该快照的 fallback 链内按 §6.1 切换。排队输入在开始时取新配置，恢复的已开始运行沿用原配置（10 §2） |
 | 框架段、内置底座、上下文贡献 | 扩展 `yonder.core` 的 `section`，按 03 §5.1 的顺序；section 用 `input.read.snapshot(SessionDoc, input.conversationId, ctx)` 读 `yonder.session` |
 | 插件工具与钩子 | 每个插件一个扩展 `plugin:<id>`，配置档选用的插件才进入 `extensions`。SDK 的 `Tool`（04 §3.2）转为 `defineTool({ name, description, parameters, execute })`：`ToolResult.text`/`images` → `output` 的文字与图片块，`isError` 原样；`ToolContext` 由 `yonder.session`、本次运行的能力、`api.env`、触发事件和 chord `context.abortSignal` 组成。SDK 的 `Hook` 转为 `hook(ToolTask | GenerationTask, …)`，`ToolCall` 取自 pi 的 `{ id, name, arguments }` |
 | 安全钩子、上限钩子 | 扩展 `yonder.core` 的 `hook(ToolTask, …)` 与 `hook(GenerationTask, …)`，`yonder.core` 最先安装 |
@@ -72,6 +72,8 @@
   - 其他 id：新建供应商，`createProvider({ id, auth: { apiKey: envApiKeyAuth(id, []) }, models, api })`；`api` 按名字取 pi-ai 的 `api/<api>.lazy` 实现（一张"协议名 → 实现"表，按协议而非按厂商）；模型缺省的字段取 pi `models.json` 的默认值。
 - 任何 OpenAI 兼容、Anthropic 兼容的端点都只靠配置接入，**禁止**为单个供应商写适配代码。
 - 模型引用写作 `provider/modelId`。
+
+配置档的 `fallback` 映射到 pi 原生 agent 的模型链与失败阈值。pi 在分类模型错误的同一事务中保存运行内模型索引、连续失败计数及重试 checkpoint；不重交输入、不重放已完成工具。所有模型 error（含鉴权、配额）计数；上下文超限沿用压缩、aborted 不回退。模型链耗尽保留真实错误。请求内 SDK 重试设为 0，使一次原生请求对应一次失败计数；未配置回退的行为不变。
 
 ### 6.2 凭据
 

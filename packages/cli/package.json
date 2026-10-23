@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/cli",
-	"version": "0.2.26102206",
+	"version": "0.2.26102301-rightapi.1",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {

@@ -49,9 +49,10 @@ export function configurationErrors(
 ): string[] {
 	const errors: string[] = [];
 	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
-		const slash = selected.model.indexOf("/");
-		if (!models.getModel(selected.model.slice(0, slash), selected.model.slice(slash + 1)))
-			errors.push(`${name}: unknown model ${selected.model}`);
+		for (const ref of [selected.model, ...(selected.fallback?.models ?? [])]) {
+			const slash = ref.indexOf("/");
+			if (!models.getModel(ref.slice(0, slash), ref.slice(slash + 1))) errors.push(`${name}: unknown model ${ref}`);
+		}
 		if (selected.env !== "local" && !plugins.envs.has(selected.env))
 			errors.push(`${name}: unknown environment ${selected.env}`);
 		for (const id of selected.contexts) if (!plugins.contexts.has(id)) errors.push(`${name}: unknown context ${id}`);

@@ -197,6 +197,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			execution: { resolve: unavailable, run: unavailable },
 			services: { resolve: unavailable },
 			sessions: {
+				command: unavailable,
 				notify: unavailable,
 				list: unavailable,
 				get: unavailable,

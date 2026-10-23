@@ -200,6 +200,10 @@ export async function loadPlugins(
 			credentials: services.credentials,
 			execution: services.execution,
 			sessions: {
+				command: (id, command) => {
+					denySetupWrite("sessions.command");
+					return services.sessions.command(id, command);
+				},
 				notify: (id, input) => {
 					denySetupWrite("sessions.notify");
 					return services.sessions.notify(id, input, manifest.id);

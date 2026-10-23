@@ -472,7 +472,7 @@ export function createDelivery(options: DeliveryOptions) {
 				status: run.status,
 				...(run.reason ? { reason: run.reason } : {}),
 				replied,
-				model: profile.resolved.model,
+				model: run.model ?? profile.resolved.model,
 				thinking: profile.resolved.thinking,
 				...(profile.effort ? { effort: profile.effort } : {}),
 				usage: run.usage,

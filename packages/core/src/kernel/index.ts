@@ -168,6 +168,7 @@ export async function openKernel(
 					ctx ? delivery.sendTool(ctx, request) : delivery.sendPlugin(pluginId, request),
 			},
 			sessions: {
+				command: (id, command) => sessions.api.command(id, command),
 				notify: (id: string, input: { event: string; text: string }, pluginId?: string) =>
 					sessions.notifyFrom(id, input, pluginId ? `plugin:${pluginId}` : "system:yonder"),
 				list: (filter) => sessions.api.list(filter),
@@ -301,8 +302,7 @@ export async function openKernel(
 			agents,
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
-				if (!channel || !["feishu", "wechat-ilink", "cli"].includes(config.channels?.[channel]?.type ?? ""))
-					return Promise.resolve(undefined);
+				if (!channel || !config.channels?.[channel]) return Promise.resolve(undefined);
 				return runChannelCommand(session, event, {
 					store,
 					sessions,

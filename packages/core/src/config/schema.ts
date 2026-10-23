@@ -9,9 +9,18 @@ const choice = <const T extends [string, ...string[]]>(...values: T) =>
 const ref = (prefix: string) => Type.String({ pattern: `^${prefix}:.+` });
 const instanceId = Type.String({ pattern: "^[a-z0-9-]+$" });
 const providerConfig = Type.Object({ type: text }, { additionalProperties: true });
-const fields = {
+export const SessionModelsSchema = object({
 	model: Type.Optional(Type.String({ pattern: "^[^/]+/.+$" })),
 	thinking: Type.Optional(choice("off", "minimal", "low", "medium", "high", "xhigh", "max")),
+	fallback: Type.Optional(
+		object({
+			models: Type.Array(Type.String({ pattern: "^[^/]+/.+$" }), { uniqueItems: true }),
+			after: Type.Optional(Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })),
+		}),
+	),
+});
+const fields = {
+	...SessionModelsSchema.properties,
 	level: Type.Optional(choice("bypass", "standard", "readonly")),
 	capabilities: Type.Optional(
 		Type.Array(choice("read", "write", "exec", "network", "message", "cross-agent", "admin")),

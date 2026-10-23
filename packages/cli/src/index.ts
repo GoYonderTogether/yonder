@@ -657,6 +657,8 @@ async function run(args: string[]): Promise<number> {
 					}
 					case "terminal.info":
 						return kernel.terminal.info(requiredParam(params, "id"));
+					case "sessions.command":
+						return kernel.sessions.command(requiredParam(params, "id"), requiredParam(params, "command"));
 					case "sessions.open": {
 						const policy = params.close;
 						if (policy !== undefined && policy !== "manual" && policy !== "run-end")

@@ -175,3 +175,7 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 ## D57 群分桶参与与受限主会话请求（2026-10-21 用户明确批准草案）
 
 用户选择“按这套契约继续实现”，批准每群独立只读分身、非空 60 秒分桶、模型显式定向回复及只请求所属 Agent main 的 parent_ask。继续使用 write/persistent、事件绑定、原生 inbox/后台等待和既有投递；群分身不授予通用 message/exec/admin。主会话请求携带真实来源，不把群成员请求升级为主人授权。共享 message_send 增加已有 SDK 的 replyTo 并验证目标会话。平台全量权限实际由手机 QQ 群主设置，已核对官方 FAQ 与 bot_state；日用安装保持不动，隔离 home 验收。
+
+## D53 会话模型链与跨渠道运行命令（2026-10-23）
+
+维护者要求 RightAPI Sonnet 默认、GPT-6.1-Sol 回退，支持 Agent/profile 与会话配置多模型，默认连续失败三次。模型切换、失败计数与重试 checkpoint 归 pi 原生循环；Yonder 只映射配置及会话覆盖。复用原生上下文估计、压缩、任务图与渠道命令层提供 /model、/status、/compact，不另建队列或任务存储。

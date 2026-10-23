@@ -5,6 +5,7 @@ import type {
 	Hook,
 	OutputPart,
 	RunEndData,
+	SessionModels,
 	Tool,
 	ToolResult,
 	YEvent,
@@ -65,6 +66,7 @@ export interface RuntimeInput {
 	requestId?: string;
 }
 export interface RuntimeRun {
+	model?: string;
 	session?: string;
 	attachments?: Attachment[];
 	runId: string;
@@ -79,6 +81,7 @@ export interface RuntimeRun {
 }
 
 export interface RuntimeSessionState {
+	models?: SessionModels;
 	close?: "run-end" | "manual";
 	agent: string | null;
 	profile: string;

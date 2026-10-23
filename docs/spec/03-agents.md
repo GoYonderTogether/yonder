@@ -66,6 +66,7 @@ bindings: [ … ]                   # 见 02 §2
 | 字段 | 含义 |
 |---|---|
 | `model` | `provider/modelId`（07 §6） |
+| `fallback` | 可选 `{ models: [provider/modelId, ...], after: 3 }`；主模型连续失败达到 after 后按顺序回退，成功响应清零计数；最后一个模型也只尝试 after 次。省略则沿用原生 retry。计数与当前模型限于本次运行，新运行从主模型开始。 |
 | `thinking` | `off` / `minimal` / `low` / `medium` / `high` / `xhigh` / `max` |
 | `level` 或 `capabilities` | 安全级别或显式能力列表（05 §2），二选一 |
 | `plugins` | 用哪些插件的工具与钩子 |

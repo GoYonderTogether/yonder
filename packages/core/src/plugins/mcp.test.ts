@@ -86,9 +86,13 @@ test("standard MCP client discovers native APIs and rejects forged identities, f
 	const connection = await setup();
 	try {
 		const names = (await connection.client.listTools()).tools.map((tool) => tool.name);
-		expect(names).toHaveLength(19);
+		expect(names).toHaveLength(20);
+		expect(names).toContain("channel-mcp_sessions_command");
 		expect(names).toContain("channel-mcp_sessions_watch");
 		const session = data(await connection.call("sessions_open", { preset: "default", close: "manual" }));
+		expect(data(await connection.call("sessions_command", { id: session.id, command: "status" }))).toContain(
+			"上下文估计",
+		);
 		const progress: string[] = [];
 		const observed = data(
 			await connection.client.callTool(

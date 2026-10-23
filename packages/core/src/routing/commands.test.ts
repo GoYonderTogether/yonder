@@ -37,10 +37,11 @@ bindings: []
 	await store.sessions.put(session);
 	const aborted: string[] = [];
 	const runtime = {
+		sessionState: async () => undefined,
 		abort: async (id: string) => {
 			aborted.push(id);
 		},
-	} as Runtime;
+	} as unknown as Runtime;
 	const sessions = createSessions({
 		store,
 		agents: new Map([[agent.id, agent]]),
@@ -80,9 +81,21 @@ test("help uses shared commands and excludes commands absent from the CLI", asyn
 		expect(result?.text).toContain("/session");
 		expect(result?.text).toContain("/skills");
 		expect(result?.text).toContain("/stop");
-		expect(result?.text).not.toMatch(/\/(status|history)\b/);
-		expect(channelChatCommands.map(({ name }) => name)).toEqual(["session", "connect", "skills", "stop", "help"]);
-		expect(chatCommands.some(({ name }) => name === "history" || name === "status")).toBe(false);
+		expect(result?.text).toContain("/model");
+		expect(result?.text).toContain("/compact");
+		expect(result?.text).toContain("/status");
+		expect(result?.text).not.toMatch(/\/history\b/);
+		expect(channelChatCommands.map(({ name }) => name)).toEqual([
+			"model",
+			"status",
+			"compact",
+			"session",
+			"connect",
+			"skills",
+			"stop",
+			"help",
+		]);
+		expect(chatCommands.some(({ name }) => name === "history")).toBe(false);
 	} finally {
 		await ctx.db.close();
 	}

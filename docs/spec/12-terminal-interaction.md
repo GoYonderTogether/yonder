@@ -146,3 +146,7 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 - 通用渲染：[pi-tui v1.3.0](https://github.com/earendil-works/pi/tree/v1.3.0/packages/tui)。只使用它而重写整套产品界面，不算本次复用达标。
 - Claude Code [官方交互说明](https://code.claude.com/docs/en/interactive-mode) 用于 §6 的精简信息与常用键位适配；渲染组件仍统一使用 pi。DSH、Hermes、Codex 不另引入组件。
 - Codex 消息与灰背景来源：[messages.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/history_cell/messages.rs)、[style.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/style.rs)、[exec_cell/render.rs](https://github.com/openai/codex/blob/rust-v0.160.1/codex-rs/tui/src/exec_cell/render.rs)。Rust 实现作呈现规则参考，不移植其后端。
+
+## 跨渠道模型与运行命令
+
+飞书、微信、CLI 等文本渠道共用 `/model`、`/status`、`/compact [instructions]`。`/model` 与 `/status` 展示当前供应商/模型、上下文窗口与估计用量、可否压缩及原因、effort、回退链/失败计数、当前 Agent 绑定的渠道以及当前会话与后代的后台任务/子 Agent session/task id。`/model list [provider]` 列出供应商和模型；`/model <provider/model> [fallback ...]` 设置会话模型链，`/model effort <level>` 设置会话 effort，`/model after <positive integer>` 设置连续失败阈值。读命令需要 read；设置和压缩需要 admin，压缩还需要 network。读命令不调用模型。命令结果沿原来源投递并保留原有命令去重，不由渠道各自实现。

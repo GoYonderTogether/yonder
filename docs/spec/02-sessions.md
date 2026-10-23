@@ -215,3 +215,7 @@ interface TranscriptItem {             // 转录的一条，按 pi 条目 id 升
 ## 7. 提交回执
 
 submit 的 wait:false（默认）返回本次实际 session.input 的 InputReceipt；wait:true 返回真实 RunResult。不另造 task id 或状态。CLI、SDK、MCP 使用同一个接纳入口；旧调用方可忽略返回值，但不得把回执当模型完成。
+
+## 8. 会话模型覆盖
+
+`sessions.command(id, command)` 执行 model/status/compact 的确定性共享命令（12）。模型设置只覆盖指定会话，存入原生 `yonder.session` 文档；不更改 Agent/profile 或权限。未知模型/无效 effort 值拒绝。运行中修改从下一次运行生效，恢复保留开始快照。状态读取模型、供应商、上下文估计/窗口/输出上限、压缩可用性、effort、回退链/当前失败计数及本会话和后代的原生任务图，不泄露无关会话。compact 显式提交原生压缩，返回 task id；不创建用户模型运行。

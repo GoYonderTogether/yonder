@@ -5,10 +5,12 @@ import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
 	AgentDoc,
 	createRegistry,
+	DEFAULT_COMPACTION_POLICY,
 	defineExtension,
 	defineTool,
 	type EntryId,
 	type Extension,
+	estimateContext,
 	GenerationTask,
 	Harness,
 	hook,
@@ -19,6 +21,7 @@ import {
 	type RunReceiptState,
 	type Submission,
 	section,
+	selectCut,
 	type ToolExecutionApi,
 	type ToolRegistration,
 	ToolTask,
@@ -37,6 +40,7 @@ import type {
 	Hook,
 	Models,
 	ServiceEndpoint,
+	SessionModels,
 	Tool,
 	ToolContext,
 	TranscriptItem,
@@ -519,6 +523,7 @@ export class Runtime {
 		const state = await this.harness.snapshot(SessionDoc, cid(id), C);
 		if (!state) return;
 		return {
+			...(state.models ? { models: structuredClone(state.models) } : {}),
 			agent: state.agent,
 			profile: state.profile,
 			close: state.close ?? "run-end",
@@ -575,10 +580,20 @@ export class Runtime {
 			provider: profile.model.slice(0, profile.model.indexOf("/")),
 			modelId: profile.model.slice(profile.model.indexOf("/") + 1),
 		};
+		const modelFallbacks = profile.fallback?.models.length
+			? {
+					models: profile.fallback.models.map((ref) => ({
+						provider: ref.slice(0, ref.indexOf("/")),
+						modelId: ref.slice(ref.indexOf("/") + 1),
+					})),
+					after: profile.fallback.after ?? 3,
+				}
+			: null;
 		const current = await this.harness.snapshot(AgentDoc, cid(id), C);
 		const same =
 			current &&
 			JSON.stringify(current.model) === JSON.stringify(model) &&
+			JSON.stringify(current.modelFallbacks ?? null) === JSON.stringify(modelFallbacks) &&
 			current.thinkingLevel === profile.thinking &&
 			JSON.stringify(current.extensions) === JSON.stringify(selected) &&
 			JSON.stringify(current.tools) === JSON.stringify(tools.map((t) => t.name)) &&
@@ -589,6 +604,7 @@ export class Runtime {
 			await conversation.configure(
 				{
 					model,
+					modelFallbacks,
 					thinkingLevel: profile.thinking,
 					extensions: selected.map((name) => {
 						const e = this.extensions.get(name);
@@ -608,6 +624,85 @@ export class Runtime {
 				Object.assign(await tx.doc(SessionDoc, cid(id)), { agent: config.agent, profile: config.profile });
 			}, C);
 		this.configured.set(id, config);
+	}
+	async configureModels(id: string, models: SessionModels | null): Promise<void> {
+		await (await this.conversation(id)).commit(async (tx) => {
+			(await tx.doc(SessionDoc, cid(id))).models = models;
+		}, C);
+		await this.configure(id);
+	}
+	async modelStatus(id: string) {
+		await this.configure(id);
+		const conversation = await this.conversation(id);
+		const agent = await conversation.agent(C);
+		const config = await this.sessionConfig(id);
+		const ref = agent.model;
+		const model = ref ? this.models.getModel(ref.provider, ref.modelId) : undefined;
+		const view = await conversation.context(C);
+		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
+		const policy = { ...DEFAULT_COMPACTION_POLICY, ...this.options.config.compaction };
+		const compactable = selectCut(view, policy.keepRecentTokens) !== undefined;
+		const graph = await this.harness.taskGraph(C);
+		try {
+			const all = Object.values(graph.value.tasks);
+			const scope = new Set([Number(id)]);
+			for (let changed = true; changed; ) {
+				changed = false;
+				for (const task of all)
+					if (scope.has(task.conversationId))
+						for (const child of task.conversations)
+							if (!scope.has(child)) {
+								scope.add(child);
+								changed = true;
+							}
+			}
+			return {
+				model: model
+					? { provider: model.provider, id: model.id, contextWindow: model.contextWindow, maxTokens: model.maxTokens }
+					: null,
+				thinking: agent.thinkingLevel,
+				primary: config.resolved.model,
+				fallback: config.resolved.fallback,
+				failures: live?.run?.modelFallback?.failures ?? 0,
+				running: !!live?.run,
+				contextTokens: estimateContext(view, []),
+				compact: {
+					available: !live?.compactions?.length && compactable,
+					reason: live?.compactions?.length ? "压缩进行中" : !compactable ? "尚无可压缩的较早上下文" : "可压缩",
+					tasks: (live?.compactions ?? []).map((task) => String(task.taskId)),
+					failure: live?.compactionFailure?.error,
+				},
+				tasks: await Promise.all(
+					all
+						.filter((task) => scope.has(task.conversationId))
+						.map(async (task) => {
+							const record = await this.harness.getTask(task.id, C);
+							const conversation = await this.harness.conversation(task.conversationId, C);
+							const native = await conversation?.agent(C);
+							const input = record?.input as { name?: string; args?: { agent?: string } } | undefined;
+							return {
+								name: input?.name,
+								model: native?.model ? `${native.model.provider}/${native.model.modelId}` : undefined,
+								thinking: native?.thinkingLevel,
+								targetAgent: input?.name === "agent_ask" ? input.args?.agent : undefined,
+								id: String(task.id),
+								session: String(task.conversationId),
+								kind: task.kind,
+								owner: task.owner ? String(task.owner) : undefined,
+								background: task.background,
+								state: task.state.status,
+							};
+						}),
+				),
+			};
+		} finally {
+			graph.dispose();
+		}
+	}
+	async compact(id: string, instructions?: string): Promise<string> {
+		const status = await this.modelStatus(id);
+		if (!status.compact.available) throw new Error(status.compact.reason);
+		return String(await (await this.conversation(id)).compact(instructions, C));
 	}
 	private async conversation(id: string) {
 		const value = await this.harness.conversation(cid(id), C);
@@ -1110,6 +1205,9 @@ export class Runtime {
 				session,
 				...(attachments.length ? { attachments } : {}),
 				config,
+				...(answer?.model?.[0]?.role === "assistant"
+					? { model: `${answer.model[0].provider}/${answer.model[0].model}` }
+					: {}),
 				...(saved.error
 					? { status: "error" as const, reason: saved.error }
 					: submissionOutcome(settlement, saved.reason ?? undefined)),

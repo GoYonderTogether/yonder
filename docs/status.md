@@ -119,3 +119,7 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 从远端 main d3537b2 保留已发布的微信双插件与最新运行时，迁入 QQ 五个提交，统一包版本。构建/typecheck/lint 通过；默认 271 通过/0 失败/31 跳过，真实模型与隔离 launchd 全量 297 通过/0 失败/5 跳过；权限 self-check 36/36。原真人 QQ/微信验收与本轮模型检查分开记录，未改正式 home 配置；原候选因并行 main 发布已顺延至 0.2.26102203，详情见 [本轮记录](verification/release-26102203.md)。
 
 最终版本顺延 0.2.26102203，合并 main 的 transcript 范围扫描优化，保留正常 merge 历史。默认 271 通过/0 失败/32 跳过；真实全量原始 297 通过/1 失败/5 跳过，失败是模型误填可选 sources 导致测试未开始子任务，明确测试参数后定向 1 通过/1 筛选跳过；未删断言、未改产品权限或加超时。详见同一发布记录，不能以定向结果覆盖原全量失败。
+
+## 本地 RightAPI 与模型命令（2026-10-23）
+
+基于正式06的隔离本地版本 `0.2.26102301-rightapi.1`：Agent/profile 与会话模型链、默认连续三次失败切换、/model /status /compact 共用命令、原生上下文/任务图状态已实现。默认检查384通过/0失败/36跳过，真实GPT回退与Luna压缩2/2通过，RightAPI Sonnet/Opus请求及Sonnet/read循环成功。完整原始失败与验收边界见[本轮记录](verification/rightapi-model-commands.md)。尚未发布Release，真人飞书/微信命令回显未测。

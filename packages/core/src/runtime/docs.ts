@@ -1,5 +1,5 @@
 import { type ConversationId, defineDoc, defineDocFamily, type UsageState } from "@earendil-works/pi-durable";
-import type { Capability } from "@yonder/sdk";
+import type { Capability, SessionModels } from "@yonder/sdk";
 import type { RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 export const SessionDoc = defineDoc({
@@ -9,6 +9,7 @@ export const SessionDoc = defineDoc({
 	history: "latest",
 	fork: "current",
 	initial: () => ({
+		models: null as SessionModels | null,
 		agent: null as string | null,
 		profile: "",
 		cwd: "",
