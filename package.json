@@ -29,8 +29,6 @@
 		"plugins/clipboard",
 		"plugins/channel-qq",
 		"plugins/memory",
-		"plugins/progress-observer",
-		"plugins/decision-routing",
 		"plugins/ui-companion"
 	],
 	"scripts": {

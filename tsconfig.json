@@ -68,12 +68,6 @@
 			"path": "plugins/memory"
 		},
 		{
-			"path": "plugins/progress-observer"
-		},
-		{
-			"path": "plugins/decision-routing"
-		},
-		{
 			"path": "plugins/ui-companion"
 		}
 	]

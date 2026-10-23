@@ -1,31 +1,6 @@
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
-import { describeCatalog, inspectToolCatalog } from "./catalog.js";
-
-test("login_begin requires both write and host execution capability", () => {
-	const tool: Array<{ name: string; capabilities: ["write", "exec"] }> = [
-		{ name: "login_begin", capabilities: ["write", "exec"] },
-	];
-	const readonly = {
-		agent: "main",
-		profile: "guest",
-		cwd: process.cwd(),
-		resolved: resolveProfile({ capabilities: ["read"], tools: { offer: ["*"] } }),
-	};
-	const writeOnly = {
-		...readonly,
-		profile: "write-only",
-		resolved: resolveProfile({ capabilities: ["write"], tools: { offer: ["*"] } }),
-	};
-	const permitted = {
-		...readonly,
-		profile: "owner",
-		resolved: resolveProfile({ capabilities: ["write", "exec"], tools: { offer: ["*"] } }),
-	};
-	expect(describeCatalog(readonly, tool)[0]?.exposure).toBe("capability-denied");
-	expect(describeCatalog(writeOnly, tool)[0]?.exposure).toBe("capability-denied");
-	expect(describeCatalog(permitted, tool)[0]?.exposure).toBe("offer");
-});
+import { inspectToolCatalog } from "./catalog.js";
 
 test("only resident Agents can offer agent_ask even when a preset selects every tool", () => {
 	const config = {

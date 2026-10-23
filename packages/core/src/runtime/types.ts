@@ -12,7 +12,6 @@ import type {
 } from "@yonder/sdk";
 import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js";
 import type { Db } from "./db.js";
-import type { LoginOperationServiceOptions } from "./login-operation-service.js";
 export interface RuntimeSessionConfig {
 	agent: string | null;
 	profile: string;
@@ -29,13 +28,11 @@ export interface RuntimeOptions {
 	home: string;
 	config: YonderConfig;
 	plugins?: Array<{ id: string; tools: Tool[]; hooks: Hook[] }>;
-	loginOperations?: Omit<LoginOperationServiceOptions, "db">;
 	tools?: Tool[];
 	envs?: Map<string, ExecutionEnv>;
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
 	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
 	readEvent?(id: string): Promise<YEvent | undefined>;
-	recordEvent?(event: import("@yonder/sdk").EventInput): Promise<YEvent>;
 	/** True when this run already has its durable `run.end`; recover() then does not replay it. */
 	settled?(session: string, run: string): Promise<boolean>;
 	prepareInput?(

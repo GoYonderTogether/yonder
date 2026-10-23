@@ -1,7 +1,0 @@
-# Memory security phase 2 (partial)
-
-Implemented: context frontmatter now uses the existing `yaml` parser rather than a regex. `private: true` (boolean) excludes content; a present non-boolean `private` value and malformed YAML fail closed. Other metadata is not heuristically interpreted. Added a synthetic temporary-root context test exercising private metadata, malformed YAML, private directory contents, parent-directory and leaf symlinks, and an allowed public markdown file; it asserts synthetic secret markers do not appear.
-
-Verification: memory test suite passed (37 passed, 2 skipped across 9 files); scoped Biome check passed; memory TypeScript project `tsc --noEmit` passed. One earlier test invocation failed because the new test initially omitted Vitest imports; imports were added and the full suite subsequently passed.
-
-Not completed in this phase: converter process audit/tests and same-UID trust-boundary documentation. Do not treat this report as signoff for converter security. Existing implementation uses `execFile(command, [...args, file])` (no shell), only for non-text files when explicit converter config exists; it has timeout and 64 MiB maxBuffer, but input file size and converter command allowlist/type policy have not been newly tested here. Under a same-UID threat model, configured executable and its output are trusted with the plugin user's filesystem/process authority; configuration must be admin-controlled. Production/auth/push were not touched. No claim is made about untested behaviors.
