@@ -132,4 +132,4 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 
 ## 提示词分层与官方模板（2026-10-23）
 
-系统底座与两类官方常驻模板、子任务/进程和插件说明已重构；装配与检查结果见 [提示词验证](verification/prompt-layers.md)。新 init 使用 Jarvis；未覆盖既有 Agent 或正式安装，模型行为与真实渠道体验以验证记录为准。
+系统底座与两类官方常驻模板、子任务/进程和插件说明已重构；初期装配与检查结果见 [提示词验证](verification/prompt-layers.md)。新 init 使用 Jarvis，已有个体文件默认不覆盖。用户随后授权 0.2.26102305 正式发版与本机迁移，最新主线整合、原始计数和实际发布入口见 [发布验证](verification/release-26102305.md)。

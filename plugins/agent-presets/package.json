@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-agent-presets",
-	"version": "0.2.26102304",
+	"version": "0.2.26102305",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -17,7 +17,7 @@
 		"prompts"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102304"
+		"@yonder/sdk": "0.2.26102305"
 	},
 	"yonder": {
 		"apiVersion": 1,

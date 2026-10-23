@@ -206,3 +206,5 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 使用独立官方 agent-presets 插件的现有 contexts/presets 槽，Jarvis 和 default-agent 各有 SOUL.md/AGENTS.md。新 init 选择 Jarvis；旧工作区不自动覆盖。沿用 scaffold、agents create --preset 与权限交集，不增加人格加载器。代价是模板修订不自动覆盖已创建的文件，用户已有设定优先；无身份 task 选择同名 preset 也不装入人格。来源逐项映射见 prompts/README.md。
 
 用户随后补充本机多仓库、子 Agent/子进程、插件分散规则与原文表达案例，已纳入同一重构。又明确要求短上下文本地模型可移除、替换或部分选择提示词：Profile 增加可选 prompt.sections/overrides，按稳定段落 id 配置，包括移除框架导航；默认全量，既有配置兼容，不改变运行能力或投递。角色上下文、技能和工具沿原选择字段控制，不新增自动裁剪器或模型推断策略。配置运行快照与热重载仍走现有链。
+
+用户随后明确要求基础设施完成后正式发版并全面更新本机 Agent 提示词。发布基线改为最新 main，保留已上线的 sources/effort、parent_ask、模型回退与按需工具目录；目录也纳入可配置的 tool-discovery 段。迁移只针对实际登记的本机 Agent 和 default 任务预设，备份后更新正文、保留个体职责与授权边界，移除旧的静态工具目录。外部 Hermes 扩展继续保留自身记忆与学习上下文。此授权属于本次部署，不将以后每次模板升级改成自动覆写。

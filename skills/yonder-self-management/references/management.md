@@ -20,9 +20,9 @@ owner 是 `person:<id>`，不是显示名或渠道账号。账号引用为 `acct
 
 常驻 Agent 有身份、owner、独立工作区和绑定，适合持续接收事件；profile 是同一个 agent 的不同运行配置，不是另一个助理。
 
-使用 `yonder agents list|show <id>` 和 `yonder presets list|show <id>` 查看真实对象。稳定 id 用于绑定和历史，name 是昵称，work 是工作说明；改昵称不改身份、权限或 SYSTEM。
+使用 `yonder agents list|show <id>` 和 `yonder presets list|show <id>` 查看真实对象。稳定 id 用于绑定和历史，name 是昵称，work 是工作说明；改昵称不改身份、权限或已保存的 SOUL/AGENTS 正文。
 
-`yonder agents create <id> --preset <preset> --file <json>` 从已有 preset 创建。JSON 必须明确提供 `name`、`work`、已有 `owner` 和 `bindings` 数组，可选 `profile` 覆盖既有 Profile 字段；不给入口时显式写空 bindings，结果 `messageEntry:false` 表示无消息入口。程序生成 agent.yaml、SYSTEM 空段和选中上下文，不覆盖既有工作区，不自动安装插件或扩大绑定。
+`yonder agents create <id> --preset <preset> --file <json>` 从已有 preset 创建。JSON 必须明确提供 `name`、`work`、已有 `owner` 和 `bindings` 数组，可选 `profile` 覆盖既有 Profile 字段；不给入口时显式写空 bindings，结果 `messageEntry:false` 表示无消息入口。程序生成 agent.yaml 和选中上下文文件，不覆盖既有工作区，不自动安装插件或扩大绑定。
 
 `yonder agents update <id> --file <json>` 合并 Agent 配置字段；`agents validate <id> --file <json>` 只校验不保存。`presets create|update|validate <id> --file <json>` 复用现有 preset 字段，创建必须有 description。JSON 文件不得包含秘密；管理 RPC 与 CLI 共用校验。命令显式带 `--home <home> --json` 便于查看 saved/valid/accepted。`accepted:true` 表示运行服务已接纳，不代表真实模型成功执行；离线保存返回 `accepted:false`。
 
@@ -32,14 +32,18 @@ owner 是 `person:<id>`，不是显示名或渠道账号。账号引用为 `acct
 
 Agent 输入一律经绑定。内部助理消息需目标绑定允许 `channel: agent`、`kind: agent`；发送者为 `acct:agent:<调用方id>`，按目标 owner 的身份关系计算 from。没有匹配绑定就不会运行；不要为“让它能收到”而扩大所有陌生人的入口。main 的所有绑定必须使用同一 profile，已有会话不能通过更换绑定偷偷换 profile。
 
-preset 没有身份、owner、工作区或绑定：在 `<home>/presets/<id>.yaml` 写 `schema: 1`、必填 `description` 和 profile 字段，id 来自文件名。新增/修改 preset 可自动重载；无父会话的任务默认 cwd=home，子任务沿用父 cwd/env（preset 显式 env 优先），不读取某个 agent 的 SYSTEM.md，也不渲染 agent 工作区上下文贡献；任务角色与要求写在 preset 的 instructions。不要为了临时任务新建常驻 Agent。
+preset 没有身份、owner、工作区或绑定：在 `<home>/presets/<id>.yaml` 写 `schema: 1`、必填 `description` 和 profile 字段，id 来自文件名。新增/修改 preset 可自动重载；无父会话的任务默认 cwd=home，子任务沿用父 cwd/env（preset 显式 env 优先），不读取某个 agent 的 SOUL.md/AGENTS.md，也不渲染 agent 工作区上下文贡献；任务角色与要求写在 preset 的 instructions。不要为了临时任务新建常驻 Agent。
+
+官方 `agent-presets` 插件提供 `jarvis` 与 `default-agent` 两种常驻起始模板，使用前先核对已加载预设。已有个体文件不因切换模板自动覆盖。短上下文模型可用 `prompt.sections` 选择、排序或关闭内置段落，用 `prompt.overrides` 替换；人格上下文、skill 和工具列表仍分别由 contexts/skills/tools 控制，详见 `yonder docs prompts/configuration.md`。
 
 ## 4. 委派与会话
 
-- 一次性子任务：`task_run({ preset, task, attachments? })` 等待结果，返回 session/status/text 等事实，运行结束后关闭；父运行中止会中止子任务。能力始终是 preset 与发起方的交集，不能提权。
-- 已存在的常驻助理：`agent_ask({ agent, text })`，需要 message 和调用方 agent 身份。预设会话不能调用；禁止调用形成环；目标仍须命中自己的绑定。它不是创建 Agent 的工具。
+- 一次性子任务：`task_run({ preset, task, attachments?, sources?, effort? })` 等待结果，返回 session/status/text 等事实，运行结束后关闭；父运行中止会中止子任务。能力始终是 preset 与发起方的交集，不能提权。
+- 已存在的常驻助理：`agent_ask({ agent, text, sources?, effort? })`，需要 message 和调用方 agent 身份。预设会话不能调用；禁止调用形成环；目标仍须命中自己的绑定。它不是创建 Agent 的工具。
 - 连续任务：`yonder sessions open <preset> --keep-open` 创建 manual task，然后 `sessions submit <id> --text <text>`；默认返回输入回执，**不代表模型完成**。`sessions show <id>` 看会话元数据与转录，运行终态还应核对对应 run.end。`abort` 中止工作但保留 manual 会话；`close` 中止未完成工作并关闭、保留历史。退出 TUI 或观察断连不会关闭任务。
 - `sessions submit` 只驱动 task，不能给常驻 agent 会话直接塞输入。`yonder chat --session <id>` 续聊 task；`yonder chat --channel <instance>` 经渠道绑定联系常驻 agent。裸 `yonder` 在 TTY 优先选择 CLI 渠道；显式 `yonder chat` 默认独立任务。
+
+`sources` 由程序逐字转交当前来源会话中的原消息，不转抄为自己的摘要；`effort` 是本次运行的思考级别，需 admin。渠道分身可在实际提供 `parent_ask` 时向同一个 Agent 的主会话提出有限请求，附带的来源身份不等于主人授权；它不是提权按钮。
 
 列出/读取会话的内置工具需要 admin；涉及其他 agent 还需 cross-agent。CLI 是管理面，不是绕过任务授权的借口。委派前明确任务和允许副作用；接纳回执、模型终态、渠道送达分别核对，结果不明先查原事件/会话，不重复投递。
 
