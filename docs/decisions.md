@@ -227,6 +227,10 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 
 主线曾合入三块没有 spec、没有决策记录、没有真实验收的模块，维护者要求回到“内核最小、官方插件各自独立”：（1）`plugins/progress-observer` 及其唯一消费的 `task.linked` 事件（含 `Runtime.exportTaskLink`/`recordEvent`）：与 D46“不加心跳模型或第二调度器”冲突，状态机一半无生产来源，测试以伪造模型代替真实模型；（2）`plugins/decision-routing`：违背 D52“路由插件要先有被批准的 SDK 钩子”，只是咨询型占位，测试在插件内直接 import pi-ai（违背 AGENTS 第 5 条）；（3）login operations 子系统（`login_begin`/`login_status`、`login_operations`/`login_outbox` 表、`runtime/login-*.ts`、`cli/login-*.ts`、`loginOperations` 配置）：插件形状的能力被塞进内核并自带 outbox 与第二套状态，未经人工登录验证。同时删除仓库根目录与 `artifacts/login-lifecycle/` 的过程报告，以及 `proposals/memory/skills/` 中与 `plugins/memory/skills/` 重复的副本。这些模块均不得在补齐 spec 与决策前重新合入；如需重做，先走设计变更，且登录类能力应以插件形式、复用既有事件与绑定实现。依据见审查盘点（代码、插件与架构文档对照）。
 
+## 2026-10-23 用户要求 15 分钟缓冲和始终唤醒
+
+保留同一电源租约和状态栏宿主，增加 tasks/always/off 互斥模式；任务归零后缓冲 15 分钟，期间新工作结束后重计。模式不参与 Agent 权限。网络恢复仅检查并反馈，不另造网络恢复层。
+
 ## D61 名片插件使用自定义设备协议，一次安装连接全部 Agent（2026-10-22 用户批准实施）
 
 维护者明确要求先文档后代码，在当前分支、不提交、不连接真实服务的范围内实现 `@yonder/plugin-channel-card`（[16](spec/16-card-plugin.md)）。后端契约切换到 `yonder-card-web/server/PLAN.md`，旧 Tinode 草案被取代：设备码登录后以 agent id 为 key 登记本实例全部 Agent，单条设备 WS 多路收发、按游标补收；名片工具只写该 Agent 自己的草稿，发布保留为网页里人的操作。

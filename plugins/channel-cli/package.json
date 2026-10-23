@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-channel-cli",
-	"version": "0.2.26102311",
+	"version": "0.2.26102312",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -16,7 +16,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102311"
+		"@yonder/sdk": "0.2.26102312"
 	},
 	"yonder": {
 		"apiVersion": 1,

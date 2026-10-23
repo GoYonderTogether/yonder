@@ -45,7 +45,7 @@ Commands:
   login <provider>                登录模型供应商 · Authenticate provider
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
-  awake status|install|set on|off  任务期间保持唤醒 · macOS
+  awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS
   start                           前台运行 · Start harness
   stop                            停止运行 · Stop harness
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
@@ -593,9 +593,13 @@ async function run(args: string[]): Promise<number> {
 		if (action === "install" && rest.length === 1) return print(installPower(), options.json);
 		if (action === "status" && rest.length === 1)
 			return print(requestControl(homeFor(options), { method: "awake.status" }), options.json);
-		if (action === "set" && rest.length === 2 && (value === "on" || value === "off"))
-			return print(setAwake(homeFor(options), value === "on"), options.json);
-		throw new UsageError("Usage: yonder awake status|install|set on|off");
+		if (
+			action === "set" &&
+			rest.length === 2 &&
+			(value === "on" || value === "off" || value === "tasks" || value === "always")
+		)
+			return print(setAwake(homeFor(options), value === "on" ? "tasks" : value), options.json);
+		throw new UsageError("Usage: yonder awake status|install|set off|tasks|always");
 	}
 
 	if (command === "start") {
