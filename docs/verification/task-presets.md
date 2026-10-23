@@ -25,3 +25,13 @@
 正式发布与本机安装结果以 [Release](https://github.com/GoYonderTogether/yonder-harness/releases/tag/v0.2.26102307) 及部署记录为准；此文件的源码测试不是日用渠道行为验收。既有 home 的模型、thinking、个人文件和工具选择不被 init 迁移器覆盖；主人本机的显式 prompt 更新使用私有备份及现有管理接口。
 
 发布准备期间主线再进入 86b5fbb（默认中文与 Asia/Shanghai），已保留并整合；最终基线 build/typecheck/lint exit 0，默认全仓 **423/0/38（461）**，98 文件通过/19 跳过，21.26 秒；lint 331 warnings/13 infos。同一真实 Luna 集成在最终基线再次 **1/0/0**，51.79 秒。此前 420 用例基线记录保留；新增三项来自主线配置/时间检查。effort 字段保留原有 minLength:1，sources 保留 minItems:1/maxItems，不放宽既有校验。
+
+## 正式发布与本机安装
+
+- PR #49 已合并；标签 v0.2.26102307 对应 03ca28bcdd6293be2799bc6a208bcfcd71b51767。PR macOS CI 39917264152 与合并后主线 CI 39917813890 均通过，正式 GitHub Release 已创建。
+- 首次安装失败：发布监听先启动自动升级，本轮随后手动执行 update，两个入口共用该版本的 .tmp 目录。手动 clone 失败后清理了自动构建仍在使用的目录，自动构建因源文件消失而失败；旧 06 服务保持 ready。自动作业留下 failed-or-unknown 终态，手动失败日志也保留，未改写为成功。
+- 确认两个升级进程均已结束、临时目录不存在后，仅由手动 CLI 再执行一次正式 update。结果 updated=true、verified=true、restartRequired=false；service.info 验证 07 / 03ca28b / ready=true，doctor 无错误。没有把第一次失败当作已经安装，也未通过改安装目录源码解决问题。
+- 本机显式迁移先备份，给既有 default 保留全部旧模型/thinking/工具/权限，仅补任务 context 与插件选择；research 选用 web-tools。两位实际活跃常驻 Agent 只补新任务分工段落，agent.yaml 逐字保持；已归档 Agent 继续归档，个人历史保留。
+- 安装版实际装配验证覆盖 6 个活跃 profile、3 个任务预设，身份隔离与 research 的六个只读/网络工具匹配；无真实模型消息发送到日用渠道。私有文件、转录和备份仅保存在本机，没有提交仓库。
+
+安装器缺少跨 CLI/发布作业入口的互斥是本轮发现的既有缺口，已列入 status；此次采用一个执行者完成恢复，没有扩大为安装系统重构。后续更新应先查发布作业状态，避免自动升级和手动升级同时进行。
