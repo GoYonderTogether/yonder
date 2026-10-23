@@ -69,6 +69,30 @@ test("system sections are deterministic and only selected contexts render", asyn
 	}
 });
 
+test("built-in prompt states autonomy, goal-first and stop-when-enough within a word budget", () => {
+	const all = [commonPrompt, residentPrompt, runtimePrompt, cliPrompt];
+	const words = all.join("\n").trim().split(/\s+/u).length;
+	// Baseline before the autonomy section was 2035 words (D58); the section may add at most about 350.
+	expect(words).toBeLessThanOrEqual(2385);
+	for (const heading of [
+		"## Act, don't hand off",
+		"## Goal first",
+		"## Enough, then stop",
+		"## Where agents go down rabbit holes",
+	]) {
+		expect(commonPrompt).toContain(heading);
+	}
+	expect(commonPrompt).toContain("Never give the owner a command, script or approval step that you can run yourself");
+	expect(commonPrompt).toContain("Verify once, with the cheapest check that could fail");
+	expect(commonPrompt).toContain("acceptance criteria you can observe");
+	// No persona, names or invented examples in the built-in base.
+	for (const forbidden of ["Jarvis", "Luna", "SYSTEM.md", "TODO", "placeholder"]) {
+		expect(all.join("\n")).not.toContain(forbidden);
+	}
+	// Compiled constants stay stable and plain strings.
+	expect(all.every((text) => typeof text === "string" && text === text.trim())).toBe(true);
+});
+
 test("task identity and CLI guidance follow actual identity and capabilities", async () => {
 	const cwd = process.cwd();
 	const options = {
