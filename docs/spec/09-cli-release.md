@@ -102,7 +102,7 @@ macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，无主窗口�
 
 ## 7. 统一诊断
 
-start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugin标签和实例/阶段字段。后台服务以--json写JSONL，仍写home/.yonder/logs/harness.log，可用系统tail查看/追踪，不新增日志服务或额外命令。CLI/TUI斜杠清单与飞书共用SDK常量；飞书仅实现11定义的现有命令子集。
+start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugin标签和实例/阶段字段。后台服务以--json写JSONL，仍写home/.yonder/logs/harness.log，可用系统tail查看/追踪，不新增日志服务或额外命令。CLI/TUI斜杠清单与飞书共用SDK常量；文本渠道实现11及12定义的共享命令子集。
 
 ## 8. 全局日用入口与开发边界
 

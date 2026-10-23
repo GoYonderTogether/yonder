@@ -1,6 +1,6 @@
 # RightAPI、模型回退与跨渠道命令
 
-2026-10-23，基于正式源码 d5c08d6（0.2.26102206），隔离分支 `zoran/rightapi-fallback`。本地版本 `0.2.26102301-rightapi.1`，不代表已发布正式 Release。主工作区原有名片任务改动未纳入。
+2026-10-23，基于正式源码 d5c08d6（0.2.26102206），隔离分支 `zoran/rightapi-fallback`。开发验收版本 `0.2.26102301-rightapi.1`；维护者随后要求合并 main 并发布正式 `0.2.26102301`。主工作区原有名片任务改动未纳入。
 
 ## 实现
 
@@ -22,6 +22,13 @@
 
 ## 验收边界
 
-本次没有向飞书或微信发送验收消息；实际真人客户端的命令显示、长结果排版与按钮交互不属于上述测试证据。`/compact` 回执表示原生任务已接纳；`/status` 显示其进行中 ID，压缩结束后任务消失，摘要保留在原生转录。普通 generation 的回退已测，压缩 summarizer 保持既有独立重试行为。
+本次没有向飞书或微信发送斜杠命令验收消息；实际真人客户端的命令显示、长结果排版与按钮交互不属于上述测试证据。`/compact` 回执表示原生任务已接纳；`/status` 显示其进行中 ID，压缩结束后任务消失，摘要保留在原生转录。普通 generation 的回退已测，压缩 summarizer 保持既有独立重试行为。
 
-本地安装与配置检查结果由当前任务交付记录补充；没有推送远端或发布 Release。
+本地安装与配置检查结果由当前任务交付记录补充；发布与安装结果以 GitHub Release、CI 及运行服务的 version/commit/home/pid/ready 为准。
+
+## 正式版准备
+
+- 合并远端最新 main（8c02c22）后，统一所有 Yonder workspace 的版本和内部精确依赖为 0.2.26102301；pi-durable 保持 1.3.0。干净 npm ci、workspace 边界检查、typecheck、build、lint 退出0；默认全套96文件通过/17文件跳过，410通过/0失败/36跳过，共446；权限helper自检36通过/0失败。主分支新增decision-routing等既有变动已包含在这一轮检查中。
+- 本机旧main相对origin/main分叉（7个旧提交）已原样保存在 `archive/main-before-rightapi-20261023`；当前main从远端最新main接纳本次功能，没有覆盖原card工作区的未提交改动。
+- 原生fork提交已推送至 GoYonderTogether/pi 的 yonder/1.3，正式源码可按FORK_SOURCE.json重放。
+- 版本统一时首次npm lock安装失败（内部依赖仍钉旧版本，registry 404，随后一次网络ECONNRESET）；统一内部依赖后，离线lock刷新及干净npm ci通过。

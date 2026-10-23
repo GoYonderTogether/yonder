@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.26102301] - 2026-10-23
+
+### Added
+
 - 支持 Agent/profile 和单会话模型回退链，默认连续失败三次切换，原生 checkpoint 保留任务与重启恢复。
 - 飞书、微信与 CLI 共用 /model、/status、/compact：模型目录、effort、上下文与后台任务/子 Agent 状态。
 
