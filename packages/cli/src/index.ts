@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
@@ -18,8 +18,6 @@ import {
 	inspectHome,
 	inspectSkills,
 	installedService,
-	isLoginOperationsEnabled,
-	loadYonderConfig,
 	loginProvider,
 	manageService,
 	offlineQuery,
@@ -36,7 +34,6 @@ import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
-import { createLoginHostAdapter } from "./login-host-adapter.js";
 import { plainTaskChat } from "./plain-chat.js";
 import type { ChatTarget } from "./terminal.js";
 
@@ -114,7 +111,7 @@ function loginMessage(message: string): string {
 }
 
 type Options = { json: boolean; help: boolean; home?: string; rest: string[] };
-export function parseGlobal(args: string[]): Options {
+function parseGlobal(args: string[]): Options {
 	let json = false;
 	let help = false;
 	let home: string | undefined;
@@ -615,17 +612,6 @@ async function run(args: string[]): Promise<number> {
 			});
 		const config = await loadYonderConfig(home);
 		const kernel = await openKernel(home, {
-			...(isLoginOperationsEnabled(config, env.YONDER_ENABLE_LOGIN_OPERATIONS)
-				? {
-						loginHost: createLoginHostAdapter({
-							nodeExecutable: process.execPath,
-							cliEntry: fileURLToPath(import.meta.url),
-							home,
-							json: options.json,
-							output: (value, json) => output(value, json),
-						}),
-					}
-				: {}),
 			log: (level, message, data) =>
 				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
 		});
