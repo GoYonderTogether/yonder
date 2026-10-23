@@ -8,21 +8,56 @@ import { promisify } from "node:util";
 
 export const powerSocket = "/var/run/dev.yonder.harness.power.sock";
 const file = (home: string) => join(home, ".yonder/awake.json");
-export async function awakeEnabled(home: string) {
+export type AwakeMode = "off" | "tasks" | "always";
+export const awakeGraceMs = 15 * 60 * 1000;
+export async function awakeMode(home: string): Promise<AwakeMode> {
 	try {
-		return JSON.parse(await readFile(file(home), "utf8")).enabled === true;
+		const config = JSON.parse(await readFile(file(home), "utf8"));
+		if (config.mode === "off" || config.mode === "tasks" || config.mode === "always") return config.mode;
+		if (config.mode !== undefined) throw new Error("Invalid awake mode");
+		return config.enabled === true ? "tasks" : "off";
 	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return "off";
 		throw error;
 	}
 }
-export async function setAwake(home: string, enabled: boolean) {
+export async function awakeEnabled(home: string) {
+	return (await awakeMode(home)) !== "off";
+}
+export async function setAwake(home: string, value: boolean | AwakeMode) {
 	if (process.platform !== "darwin") throw new Error("Task awake is only supported on macOS");
+	const mode = typeof value === "boolean" ? (value ? "tasks" : "off") : value;
 	await mkdir(join(home, ".yonder"), { recursive: true });
 	const temporary = `${file(home)}.${process.pid}.tmp`;
-	await writeFile(temporary, `${JSON.stringify({ enabled })}\n`, { mode: 0o600 });
+	await writeFile(temporary, `${JSON.stringify({ enabled: mode !== "off", mode })}\n`, { mode: 0o600 });
 	await rename(temporary, file(home));
-	return { enabled };
+	return { enabled: mode !== "off", mode };
+}
+
+/** One service owns its grace period. Native execution remains the task authority. */
+export function createAwakeHold() {
+	let previousMode: AwakeMode = "off",
+		wasActive = false,
+		holdUntil: number | undefined;
+	return (mode: AwakeMode, active: number, now: number) => {
+		if (mode !== previousMode) {
+			wasActive = false;
+			holdUntil = undefined;
+			previousMode = mode;
+		}
+		if (mode === "tasks") {
+			if (active > 0) holdUntil = undefined;
+			else if (wasActive) holdUntil = now + awakeGraceMs;
+			wasActive = active > 0;
+		}
+		const grace = mode === "tasks" && active === 0 && holdUntil !== undefined && now <= holdUntil;
+		const holding = mode === "always" || (mode === "tasks" && (active > 0 || grace));
+		return {
+			holding,
+			holdUntil: grace ? holdUntil : undefined,
+			reason: mode === "off" ? "off" : mode === "always" ? "always" : active > 0 ? "tasks" : grace ? "grace" : "idle",
+		};
+	};
 }
 const quote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 export async function installPower() {
@@ -59,6 +94,7 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 		closed = false;
 	let snapshot: Record<string, unknown> = { enabled: false, active: 0, protected: false };
 	let lastReply = 0;
+	const hold = createAwakeHold();
 	const disconnect = () => {
 		socket?.destroy();
 		socket = undefined;
@@ -67,18 +103,23 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 		if (busy || closed) return;
 		busy = true;
 		try {
-			const enabled = await awakeEnabled(home);
+			const mode = await awakeMode(home);
+			const enabled = mode !== "off";
 			const { active } = enabled ? await activity() : { active: 0 };
 			if (closed) return;
-			snapshot = { ...snapshot, enabled, active };
+			const policy = hold(mode, active, performance.now());
+			const holdUntil =
+				policy.holdUntil === undefined ? undefined : Date.now() + Math.max(0, policy.holdUntil - performance.now());
+			const leaseActive = policy.holding ? Math.max(1, active) : 0;
+			snapshot = { ...snapshot, enabled, mode, active, ...policy, holdUntil };
 			if (!enabled || process.platform !== "darwin") {
 				disconnect();
 				idle?.kill();
 				idle = undefined;
-				snapshot = { enabled, active: 0, protected: false };
+				snapshot = { enabled, mode, active: 0, protected: false, ...policy };
 				return;
 			}
-			if (active > 0 && !idle) {
+			if (policy.holding && !idle) {
 				const child = spawn("/usr/bin/caffeinate", ["-i", "-w", String(process.pid)], { stdio: "ignore" });
 				idle = child;
 				child.on("error", () => {
@@ -87,7 +128,7 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 				child.on("exit", () => {
 					if (idle === child) idle = undefined;
 				});
-			} else if (!active) {
+			} else if (!policy.holding) {
 				idle?.kill();
 				idle = undefined;
 			}
@@ -119,7 +160,7 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 									systemActive: reply.active,
 									active: snapshot.active,
 									requiresUpdate: false,
-									protected: reply.protected === true && Number(snapshot.active) > 0,
+									protected: reply.protected === true && snapshot.holding === true,
 								};
 							}
 						} catch {
@@ -138,7 +179,7 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 					}
 				});
 			}
-			if (socket.writable) socket.write(`${JSON.stringify({ active: snapshot.requiresUpdate ? 0 : active })}\n`);
+			if (socket.writable) socket.write(`${JSON.stringify({ active: snapshot.requiresUpdate ? 0 : leaseActive })}\n`);
 			if (Date.now() - lastReply > 5000) snapshot = { ...snapshot, protected: false, error: "等待电源宿主确认" };
 		} catch (error) {
 			disconnect();

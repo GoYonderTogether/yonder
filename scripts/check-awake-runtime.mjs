@@ -101,10 +101,27 @@ try {
 				lidClosed: closedSeen,
 			}),
 		);
-		if (protectedSeen && state.active === 0 && !state.protected) break;
+		if (protectedSeen && state.active === 0 && state.reason === "grace" && state.protected) {
+			assert(state.holdUntil > Date.now() + 14 * 60 * 1000, "completed task must retain a fresh 15-minute grace");
+			await setAwake(home, false);
+			await host.refresh();
+			break;
+		}
 	}
 	assert(protectedSeen, "task must acquire real system protection");
 	assert.equal(host.status().active, 0);
+	assert.equal(host.status().protected, false);
+	await setAwake(home, "always");
+	const alwaysEnd = Date.now() + 5000;
+	while (!host.status().protected && Date.now() < alwaysEnd) {
+		await host.refresh();
+		await wait(100);
+	}
+	assert.equal(host.status().active, 0);
+	assert.equal(host.status().protected, true);
+	assert.equal(host.status().reason, "always");
+	await setAwake(home, false);
+	await host.refresh();
 	assert.equal(host.status().protected, false);
 	console.log(JSON.stringify({ passed: true, physicalLidObserved: closedSeen, maxHeartbeatGapMs: maxGap, home }));
 } finally {
