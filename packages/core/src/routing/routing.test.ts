@@ -209,3 +209,57 @@ bindings:
 		await db.close();
 	}
 });
+
+test("multiAgent targets only its own bound agent; ordinary channels cannot target", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string, bound: boolean) =>
+			parseAgentConfig(
+				`schema: 1\nid: ${id}\nname: ${id}\nowner: person:owner\ndefaultProfile: guest\nprofiles:\n  guest: {}\nbindings: ${bound ? "\n  - id: incoming\n    match: { channel: card, kind: dm }\n    session: { mode: persistent, per: conv }\n    wake: write" : "[]"}\n`,
+				"agent.yaml",
+				id,
+			);
+		const agents = new Map([
+			["one", make("one", true)],
+			["two", make("two", true)],
+			["unbound", make("unbound", false)],
+		]);
+		let session = 0;
+		const sessions = {
+			ensureAgent: async (agent: string, profile: string) => ({ session: { id: String(++session), agent, profile } }),
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const channels = new Map<string, import("@yonder/sdk").Channel>([
+			["card", { multiAgent: true } as import("@yonder/sdk").Channel],
+		]);
+		// wake:write never calls a model; no runtime is needed to inspect durable routes.
+		const router = createRouter({
+			store,
+			sessions,
+			agents,
+			channels,
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const input = (target: string) => ({
+			type: "message.in",
+			from: "acct:card:two:human",
+			conv: "conv:card:two:dm",
+			data: { target, kind: "dm", text: "hello" },
+		});
+		let event = await router.emit(input("two"));
+		expect(event.routes?.map((r) => [r.agent, r.binding, r.dropped])).toEqual([
+			["one", null, "no-binding"],
+			["two", "incoming", undefined],
+			["unbound", null, "no-binding"],
+		]);
+		event = await router.emit(input("unbound"));
+		expect(event.routes?.every((r) => r.dropped === "no-binding")).toBe(true);
+		channels.set("card", { multiAgent: false } as import("@yonder/sdk").Channel);
+		event = await router.emit(input("two"));
+		expect(event.routes?.filter((r) => r.binding).map((r) => r.agent)).toEqual(["one", "two"]);
+	} finally {
+		await db.close();
+	}
+});

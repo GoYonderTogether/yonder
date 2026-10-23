@@ -1,4 +1,4 @@
-import type { EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
+import type { Channel, EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
 import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
@@ -11,6 +11,7 @@ interface RoutedRun {
 	wake: Wake;
 }
 interface CreateRouterOptions {
+	channels?: Map<string, Channel>;
 	store: Store;
 	sessions: Sessions;
 	runtime: () => Runtime;
@@ -74,6 +75,7 @@ function sessionKey(
 }
 
 export function createRouter({
+	channels,
 	store,
 	sessions,
 	runtime,
@@ -240,19 +242,21 @@ export function createRouter({
 		const event = newEvent(eventInput);
 		const inputData = event.data as { target?: unknown; kind?: unknown };
 		const internalTarget =
-			event.type === "message.in" && channelOf(event.conv) === "agent" && typeof inputData.target === "string"
+			event.type === "message.in" &&
+			(channelOf(event.conv) === "agent" || channels?.get(channelOf(event.conv) ?? "")?.multiAgent === true) &&
+			typeof inputData.target === "string"
 				? inputData.target
 				: undefined;
 		const routes: NonNullable<YEvent["routes"]> = [];
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
-			if (agent.archivedAt) {
-				routes.push({ agent: agent.id, binding: null, dropped: "agent-disabled" });
-				continue;
-			}
 			if (internalTarget && internalTarget !== agent.id) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+				continue;
+			}
+			if (agent.archivedAt) {
+				routes.push({ agent: agent.id, binding: null, dropped: "agent-disabled" });
 				continue;
 			}
 			let binding: Binding | undefined;
