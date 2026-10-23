@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-channel-qq",
-	"version": "0.2.26102305",
+	"version": "0.2.26102306",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -21,7 +21,7 @@
 		"NOTICE.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102305",
+		"@yonder/sdk": "0.2.26102306",
 		"@tencent-connect/qqbot-nodejs": "1.0.4",
 		"@tencent-connect/qqbot-connector": "1.2.0",
 		"proper-lockfile": "4.1.2",
