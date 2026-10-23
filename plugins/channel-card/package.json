@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-channel-card",
-	"version": "0.2.26102310",
+	"version": "0.2.26102311",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -17,9 +17,9 @@
 		"README.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102310",
-		"ws": "8.22.0",
-		"typebox": "1.3.27"
+		"@yonder/sdk": "0.2.26102311",
+		"typebox": "1.3.27",
+		"ws": "8.22.0"
 	},
 	"yonder": {
 		"apiVersion": 1,
@@ -33,5 +33,8 @@
 				"channel-card_card_push"
 			]
 		}
+	},
+	"devDependencies": {
+		"@types/ws": "8.18.2"
 	}
 }

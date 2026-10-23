@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增 channel-card 多 Agent 名片渠道、设备授权（含网页十位一次性邀请码兑换）和名片草稿工具；SDK 增加只读 Agent 枚举和需自身绑定的 multiAgent 定向（D61、D62）。
+
 ## [0.2.26102311] - 2026-10-23
 
 ### Removed

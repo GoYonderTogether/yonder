@@ -182,20 +182,6 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 
 维护者要求 RightAPI Sonnet 默认、GPT-6.1-Sol 回退，支持 Agent/profile 与会话配置多模型，默认连续失败三次。模型切换、失败计数与重试 checkpoint 归 pi 原生循环；Yonder 只映射配置及会话覆盖。复用原生上下文估计、压缩、任务图与渠道命令层提供 /model、/status、/compact，不另建队列或任务存储。
 
-## D51 名片插件使用自定义设备协议，一次安装连接全部 Agent（2026-10-22 用户批准实施）
-
-维护者明确要求先文档后代码，在当前分支、不提交、不连接真实服务的范围内实现 `@yonder/plugin-channel-card`（[16](spec/16-card-plugin.md)）。后端契约切换到 `yonder-card-web/server/PLAN.md`，旧 Tinode 草案被取代：设备码登录后以 agent id 为 key 登记本实例全部 Agent，单条设备 WS 多路收发、按游标补收；名片工具只写该 Agent 自己的草稿，发布保留为网页里人的操作。
-
-`ChannelLoginResult` 只有 `qrcodeUrl`，复用该字段承载确认 URL，不新增 SDK 登录字段。`setup` 仍只注册，登记在启动/登录确认后执行；设备令牌只保存在插件私有数据目录。契约测试与真实后端联调分别记实。
-
-## D52 名片渠道公共契约与后端补充（2026-10-22 维护者明确决定）
-
-取代 D51 的未决契约项：G1 新增只读 PluginAPI.agents.list 返回启用 Agent id/name，启动、登录确认/邀请码兑换成功和每十分钟同步，无变更事件。G2 ChannelProvider/Channel 可选 multiAgent，注册 true 是普通渠道禁止 data.target 的唯一例外；目标须通过自己的绑定，其他 Agent no-binding；acct/conv ref 嵌入 Yonder agent id，OutMessage 不变。G3 使用 convKind/mentioned 下行与带 ref 的 sent/error；15 秒未确认 uncertain，绝不自动重发，io.emit 接纳后才 ack。G4 在后端 devices.ts 增加幂等 device/dm，限制设备所属启用 Agent 和共同会话/主人好友；token 私有，device.kind 配置默认 desktop。
-
-真实实现差异：poll 的过期和未知码均为 404 invalid_code，used 为状态；WS 错误当前仅 {error}，没有 type/ref；登记仅 upsert，不移除省略 Agent，hello 的订阅在连接时固定。插件适配这些事实（未关联错误等待确认超时、同步后重连）；不修改 realtime.ts。详见 16。
-
-维护者批准第二种连接方式 B（网页发起邀请）：已登录 human 的 `POST /api/device/invite` 返回绑定账号的十位数字一次性码及 ISO expiresAt，十分钟有效；Agent 经现有 `yonder channels login card --verify-code <code>` 无认证调用 `POST /api/device/redeem` `{code,name,kind}`，得到 deviceToken，复用私有保存、全 Agent 登记和连接，无需再次确认。card 的 verifyCode 在 start/poll 均走兑换，以兼容现有 CLI；404 invalid_code → invalid-code，429 rate_limited → retry-later，已有当前 endpoint 令牌则 already-connected、不消耗邀请码。原 start/confirm/poll 保留；邀请码与令牌均不得记录。新增替身测试仅为契约测试，不等于并行后端已联调。方式 A（浏览器 URL scheme/loopback 唤醒本地 Yonder）未实现，须先获维护者批准内核设计。
-
 ## UI Companion 由已确认原型接入插件（2026-10-22 用户批准）
 
 用户确认菜单栏小窗、共享 Logo、同锚点收起和渐进卡片后要求直接接入插件。源码从 proposals/ui-companion 迁入 plugins/ui-companion，删除原型固定设计任务，沿用 SDK tools/triggers，不改内核或增加 UI 槽。present 提交并返回真实请求 id，result 在原会话可取消地等待实际输入；采用插件自有回环服务和主仓库状态栏非激活宿主，复用同一 Web 渲染。插件私有文件保存交互历史，不复制模型转录。唯一状态栏同时承载交互与服务管理。结构化卡片、独立窗/提醒/内嵌为本期边界；生成 HTML 执行、图片渠道及语音另议。
@@ -240,3 +226,17 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 ## D60 撤回未经设计批准合入的过度建设模块（2026-10-22 维护者要求）
 
 主线曾合入三块没有 spec、没有决策记录、没有真实验收的模块，维护者要求回到“内核最小、官方插件各自独立”：（1）`plugins/progress-observer` 及其唯一消费的 `task.linked` 事件（含 `Runtime.exportTaskLink`/`recordEvent`）：与 D46“不加心跳模型或第二调度器”冲突，状态机一半无生产来源，测试以伪造模型代替真实模型；（2）`plugins/decision-routing`：违背 D52“路由插件要先有被批准的 SDK 钩子”，只是咨询型占位，测试在插件内直接 import pi-ai（违背 AGENTS 第 5 条）；（3）login operations 子系统（`login_begin`/`login_status`、`login_operations`/`login_outbox` 表、`runtime/login-*.ts`、`cli/login-*.ts`、`loginOperations` 配置）：插件形状的能力被塞进内核并自带 outbox 与第二套状态，未经人工登录验证。同时删除仓库根目录与 `artifacts/login-lifecycle/` 的过程报告，以及 `proposals/memory/skills/` 中与 `plugins/memory/skills/` 重复的副本。这些模块均不得在补齐 spec 与决策前重新合入；如需重做，先走设计变更，且登录类能力应以插件形式、复用既有事件与绑定实现。依据见审查盘点（代码、插件与架构文档对照）。
+
+## D61 名片插件使用自定义设备协议，一次安装连接全部 Agent（2026-10-22 用户批准实施）
+
+维护者明确要求先文档后代码，在当前分支、不提交、不连接真实服务的范围内实现 `@yonder/plugin-channel-card`（[16](spec/16-card-plugin.md)）。后端契约切换到 `yonder-card-web/server/PLAN.md`，旧 Tinode 草案被取代：设备码登录后以 agent id 为 key 登记本实例全部 Agent，单条设备 WS 多路收发、按游标补收；名片工具只写该 Agent 自己的草稿，发布保留为网页里人的操作。
+
+`ChannelLoginResult` 只有 `qrcodeUrl`，复用该字段承载确认 URL，不新增 SDK 登录字段。`setup` 仍只注册，登记在启动/登录确认后执行；设备令牌只保存在插件私有数据目录。契约测试与真实后端联调分别记实。
+
+## D62 名片渠道公共契约与后端补充（2026-10-22 维护者明确决定）
+
+取代 D61 的未决契约项：G1 新增只读 PluginAPI.agents.list 返回启用 Agent id/name，启动、登录确认/邀请码兑换成功和每十分钟同步，无变更事件。G2 ChannelProvider/Channel 可选 multiAgent，注册 true 是普通渠道禁止 data.target 的唯一例外；目标须通过自己的绑定，其他 Agent no-binding；acct/conv ref 嵌入 Yonder agent id，OutMessage 不变。G3 使用 convKind/mentioned 下行与带 ref 的 sent/error；15 秒未确认 uncertain，绝不自动重发，io.emit 接纳后才 ack。G4 在后端 devices.ts 增加幂等 device/dm，限制设备所属启用 Agent 和共同会话/主人好友；token 私有，device.kind 配置默认 desktop。
+
+真实实现差异：poll 的过期和未知码均为 404 invalid_code，used 为状态；WS 错误当前仅 {error}，没有 type/ref；登记仅 upsert，不移除省略 Agent，hello 的订阅在连接时固定。插件适配这些事实（未关联错误等待确认超时、同步后重连）；不修改 realtime.ts。详见 16。
+
+维护者批准第二种连接方式 B（网页发起邀请）：已登录 human 的 `POST /api/device/invite` 返回绑定账号的十位数字一次性码及 ISO expiresAt，十分钟有效；Agent 经现有 `yonder channels login card --verify-code <code>` 无认证调用 `POST /api/device/redeem` `{code,name,kind}`，得到 deviceToken，复用私有保存、全 Agent 登记和连接，无需再次确认。card 的 verifyCode 在 start/poll 均走兑换，以兼容现有 CLI；404 invalid_code → invalid-code，429 rate_limited → retry-later，已有当前 endpoint 令牌则 already-connected、不消耗邀请码。原 start/confirm/poll 保留；邀请码与令牌均不得记录。新增替身测试仅为契约测试，不等于并行后端已联调。方式 A（浏览器 URL scheme/loopback 唤醒本地 Yonder）未实现，须先获维护者批准内核设计。
