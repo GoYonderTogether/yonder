@@ -67,6 +67,7 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 - 实例配置里的密钥写成凭据名（例如 `credential: feishu-main`），插件用 `api.credentials.get` 读取（07 §6.2）。
 - 渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
 - 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
+- `login(action, signal, verifyCode)` 的纯数字 verifyCode 由具体渠道解释；card 用它兑换网页主人发起的十位一次性邀请码（start/poll 均适用），见 16 §1；不增加公共登录参数。
 
 ### 3.2 tools — 模型可调用的工具
 
@@ -272,3 +273,7 @@ PluginAPI.sessions 新增 notify(id,{event,text})：指定真实未关闭 sessio
 ChannelLoginResult 为 {status:string, instance:string, qrcodeUrl?:string, expiresAt?:string, peer?:string, account?:Ref, person?:Ref|null, contextAvailable?:boolean}。登录是渠道自身的可选能力，不增加插件槽。管理面 channels.login 与已授权来源的 /connect [instance] 共用正在运行的渠道实例；后者须经原绑定，当前 profile 同时具备 admin 与 network，不能让访客以斜杠命令越权。默认选择首个支持登录的已配置渠道，指定实例时必须存在且支持 login。
 
 iLink 模型 login 工具省略 instance 时选择持久化首实例，省略 action 时申请扫码；返回 qrcodeUrl/expiresAt 并明确提示用户扫码，后台自动轮询到确认、过期或需要验证码，用户不必再手动 poll。重复申请有效的待扫二维码返回原链接。poll/verifyCode 仍供状态查询及验证码续办。默认只返回链接，不由后台服务抢占桌面；CLI --open 显式打开返回的 HTTPS 链接。
+
+### 多 Agent 渠道与枚举（D52）
+
+PluginAPI.agents.list(): Promise<{id:string;name:string}[]> 只读返回本实例启用 Agent 的 id 和显示名，不含 archived。ChannelProvider 和 Channel 可选 multiAgent:boolean；内核以 provider 注册值为准传给实例。普通渠道不可用 data.target，唯一例外为 multiAgent:true 的 provider：目标仍须自身绑定通过，其他 Agent 为 no-binding。此类渠道可把 agent id 嵌入不透明 ref，从 Channel.send(target) 还原发言身份；OutMessage 不变。

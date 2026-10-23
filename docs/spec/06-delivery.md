@@ -108,3 +108,5 @@ agent_ask({ agent: string, text: string, sources?: string[], effort?: string }) 
 ## 9. 程序通知
 
 插件可直接 messages.send 向明确 person/acct/conv 发程序通知，无模型、无伪造 Agent 回复；message.out 归属真实插件。内部 session 通知用 sessions.notify，沿 pi 原生 app-only entry 保存与观察，不经 sessions.submit，不唤醒 Agent、不进入模型消息。TUI 以程序通知独立标识来源，和真实对话按 entry 时序排列；录入回执不等于送达外部渠道或人已读。
+
+channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认返回 ok:false,uncertain:true，禁止自动重发。其 acct/conv 引用嵌入 Yonder Agent id，见 16。
