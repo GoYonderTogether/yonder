@@ -121,3 +121,11 @@ updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试�
 ## 渠道接入命令
 
 `yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。默认返回可扫码链接，--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。
+
+## 任务期间保持唤醒（macOS）
+
+主服务按原生运行、待执行输入和后台工作查询活跃数量；现有状态栏提供唯一的“任务期间保持唤醒”开关与真实状态，不新增图标。设置存于 home/.yonder/awake.json，默认关闭，首次明确启用安装限定电源能力的 root helper 并由系统请求授权；成功后保持选择。显示器允许休眠。
+
+服务每秒续租；root helper 仅接受安装用户的本机 Unix socket，聚合所有连接的任务保护。需要时用 IOKit 防空闲睡眠并临时设置 SleepDisabled，最后一份租约断开、超过 5 秒未续租或任务结束时恢复自身改动；原本已禁用睡眠时不擅自关闭。root helper 持有恢复记录，重启时先恢复。服务/状态栏退出不遗留租约；菜单收起不释放任务保护。无授权与失败显示真实状态，不能标记已保护。
+
+CLI awake status/set/install 提供状态、布尔策略开关和用户主动授权入口；后台启动不弹授权。活动计数不唤醒模型，不复制会话存储。单纯历史会话和未来定时任务不计；等待 ui-companion_result 且没有其他实际执行的状态不计。MacToolkit 电源功能移除后交由 Yonder 单独管理。合盖、电池供电、服务崩溃恢复均需分开验证；不能把编译或热点连接当成物理合盖验收。

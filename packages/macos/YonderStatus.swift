@@ -9,6 +9,8 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let current = NSMenuItem(title: "当前交互", action: #selector(openCurrent), keyEquivalent: "")
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
     private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
+    private let awake = NSMenuItem(title: "任务期间保持唤醒", action: #selector(toggleAwake), keyEquivalent: "")
+    private let powerState = NSMenuItem(title: "读取唤醒状态…", action: nil, keyEquivalent: "")
     private let update = NSMenuItem(title: "检查更新", action: #selector(checkUpdate), keyEquivalent: "")
     private let quit = NSMenuItem(title: "停止服务并退出", action: #selector(exitService), keyEquivalent: "q")
     private let install = ProcessInfo.processInfo.environment["YONDER_INSTALL"] ?? NSHomeDirectory() + "/.yonder-harness"
@@ -25,9 +27,9 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.button?.target = self; item.button?.action = #selector(statusClicked)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         menu.delegate = self; menu.autoenablesItems = false
-        status.isEnabled = false
-        for entry in [current, history, update, quit] { entry.target = self }
-        [current, history, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
+        status.isEnabled = false; powerState.isEnabled = false
+        for entry in [current, history, awake, update, quit] { entry.target = self }
+        [current, history, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
         companion = CompanionController()
         companion.onVisibility = { [weak self] visible in self?.item.button?.state = visible ? .on : .off }
         companion.isStatusClick = { [weak self] point in
@@ -83,6 +85,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        refreshPower()
         refreshEndpoint()
         status.title = "读取服务状态…"
         run(["service", "info", "--home", home]) { result in
@@ -92,6 +95,45 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .failure(let error): self.status.title = "服务未就绪：\(error.localizedDescription)"
             }
         }
+    }
+
+    private func refreshPower() {
+        run(["awake", "status", "--home", home]) { result in
+            switch result {
+            case .success(let info):
+                let enabled = info["enabled"] as? Bool == true
+                self.awake.state = enabled ? .on : .off
+                if !enabled { self.powerState.title = "已关闭 · 允许休眠" }
+                else if let error = info["error"] as? String { self.powerState.title = "合盖保护未就绪：" + error }
+                else if info["protected"] as? Bool == true { self.powerState.title = "保持唤醒 · \(info["active"] ?? 0) 项任务" }
+                else { self.powerState.title = info["systemSleepDisabled"] as? Bool == true ? "系统已保持唤醒" : "空闲 · 允许休眠" }
+            case .failure(let error): self.powerState.title = "唤醒状态未知：" + error.localizedDescription
+            }
+        }
+    }
+    @objc private func toggleAwake() {
+        let enable = awake.state != .on
+        awake.isEnabled = false
+        let apply = {
+            self.run(["awake", "set", enable ? "on" : "off", "--home", self.home]) { result in
+                self.awake.isEnabled = true
+                if case .failure(let error) = result { self.powerState.title = error.localizedDescription }
+                else { self.awake.state = enable ? .on : .off; self.powerState.title = enable ? "正在启用任务保护…" : "正在释放保护…" }
+            }
+        }
+        if enable && !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.harness.power.sock") {
+            let alert = NSAlert()
+            alert.messageText = "任务期间保持唤醒"
+            alert.informativeText = "任务运行时允许合盖继续执行，屏幕可以熄灭；完成后恢复休眠。合盖运行会增加耗电和发热，请勿放入密闭包中。首次安装电源组件需要系统管理员授权。"
+            alert.addButton(withTitle: "安装并开启"); alert.addButton(withTitle: "取消")
+            guard alert.runModal() == .alertFirstButtonReturn else { awake.isEnabled = true; return }
+            run(["awake", "install"]) { result in
+                switch result {
+                case .success: apply()
+                case .failure(let error): self.awake.isEnabled = true; self.powerState.title = "未授权或安装失败：" + error.localizedDescription
+                }
+            }
+        } else { apply() }
     }
 
     @objc private func checkUpdate() {

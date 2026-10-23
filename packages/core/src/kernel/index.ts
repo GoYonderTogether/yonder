@@ -521,6 +521,13 @@ export async function openKernel(
 				};
 			},
 			close,
+			async awakeActivity() {
+				const sessions = await store.sessions.list({ open: true });
+				const active = await Promise.all(
+					sessions.map(async (session) => ((await realRuntime().hasAwakeWork(session.id)) ? session.id : null)),
+				);
+				return { active: active.filter(Boolean).length };
+			},
 			terminal: terminalApi({
 				home,
 				config,

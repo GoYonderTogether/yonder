@@ -211,6 +211,10 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 
 用户随后明确要求基础设施完成后正式发版并全面更新本机 Agent 提示词。发布基线改为最新 main，保留已上线的 sources/effort、parent_ask、模型回退与按需工具目录；目录也纳入可配置的 tool-discovery 段。迁移只针对实际登记的本机 Agent 和 default 任务预设，备份后更新正文、保留个体职责与授权边界，移除旧的静态工具目录。外部 Hermes 扩展继续保留自身记忆与学习上下文。此授权属于本次部署，不将以后每次模板升级改成自动覆写。
 
+## 2026-10-23 用户批准任务唤醒与合盖运行
+
+电源能力归主仓库 macOS 系统集成，不归 UI 插件；沿用唯一状态栏。主服务续租，限定电源操作的特权宿主聚合并恢复系统状态。用户批准移除 MacToolkit 电源功能、落地验证后合并发版；保留其访达与硬件功能。
+
 ## 2026-10-23 职责型常驻 Agent 与三个任务预设（用户要求按方案开发）
 
 用户要求减少层级，以有特定职责的常驻 Agent 承接长期工作，渠道分身与临时子任务辅助；独立工作 session 由模板定义提示词和工具。复用现有两类执行者与 preset/profile/context，不增加工作流框架或人格运行时。agent-presets 提供 default、coding、research 三套任务正文，后两者选择共同任务 context。短任务用 task_run，多轮工作用已有 manual task session；是否为子任务不改变专业模板。

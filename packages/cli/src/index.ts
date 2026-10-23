@@ -33,6 +33,7 @@ import {
 	updateRelease,
 } from "@yonder/core";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
+import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
 import { createLoginHostAdapter } from "./login-host-adapter.js";
@@ -47,6 +48,7 @@ Commands:
   login <provider>                登录模型供应商 · Authenticate provider
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
+  awake status|install|set on|off  任务期间保持唤醒 · macOS
   start                           前台运行 · Start harness
   stop                            停止运行 · Stop harness
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
@@ -589,6 +591,16 @@ async function run(args: string[]): Promise<number> {
 		);
 	}
 
+	if (command === "awake") {
+		const [action, value] = rest;
+		if (action === "install" && rest.length === 1) return print(installPower(), options.json);
+		if (action === "status" && rest.length === 1)
+			return print(requestControl(homeFor(options), { method: "awake.status" }), options.json);
+		if (action === "set" && rest.length === 2 && (value === "on" || value === "off"))
+			return print(setAwake(homeFor(options), value === "on"), options.json);
+		throw new UsageError("Usage: yonder awake status|install|set on|off");
+	}
+
 	if (command === "start") {
 		if (rest.length) throw new UsageError("Usage: yonder start");
 		const home = homeFor(options);
@@ -617,6 +629,7 @@ async function run(args: string[]): Promise<number> {
 			log: (level, message, data) =>
 				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
 		});
+		const awake = startAwake(home, () => kernel.awakeActivity());
 		let closing: Promise<void> | undefined;
 		let control: Awaited<ReturnType<typeof serveControl>>;
 		let finish!: () => void;
@@ -626,6 +639,7 @@ async function run(args: string[]): Promise<number> {
 		const stop = () => {
 			if (closing) return closing;
 			closing = (async () => {
+				awake.close();
 				await control?.close();
 				await kernel.close();
 				finish();
@@ -636,6 +650,8 @@ async function run(args: string[]): Promise<number> {
 			control = await serveControl(home, async (request, connection) => {
 				const params = (request.params ?? {}) as Record<string, unknown>;
 				switch (request.method) {
+					case "awake.status":
+						return awake.status();
 					case "channels.list":
 						return kernel.channels.list();
 					case "channels.login":
@@ -740,6 +756,7 @@ async function run(args: string[]): Promise<number> {
 				}
 			});
 		} catch (error) {
+			awake.close();
 			await kernel.close();
 			throw error;
 		}

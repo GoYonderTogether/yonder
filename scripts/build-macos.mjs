@@ -18,6 +18,14 @@ if (process.platform === "darwin") {
 <key>CFBundleName</key><string>Yonder Harness</string><key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${version}</string><key>LSUIElement</key><true/></dict></plist>`,
 	);
+	const power = spawnSync(
+		"/usr/bin/swiftc",
+		["-parse-as-library", "packages/macos/PowerHelper.swift", "-o", `${contents}/Resources/YonderPower`],
+		{ stdio: "inherit" },
+	);
+	if (power.status !== 0) throw new Error("Power helper build failed");
+	const powerCheck = spawnSync(`${contents}/Resources/YonderPower`, ["--check"], { stdio: "inherit" });
+	if (powerCheck.status !== 0) throw new Error("Power helper self-check failed");
 	const result = spawnSync(
 		"/usr/bin/swiftc",
 		[
