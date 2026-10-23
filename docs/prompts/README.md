@@ -19,7 +19,7 @@
 | 参考稿内容 | Yonder 归属与修正 |
 |---|---|
 | 默认身份 Grok Bot | 普通常驻 Agent SOUL；姓名来自配置，不带产品身份 |
-| 回合节奏、先回复、持续同步、结果收口 | common 的 Taking on work / Staying in touch；人类任务先回应，内部唤醒按结果价值发言 |
+| 回合节奏、目标/可检查验收、预算提醒、够用即停、先回复、持续同步、结果收口 | common 的 Taking on work / Staying in touch；多步工作合并相关目标并保留验收条件，不为简单请求强制计划；人类任务先回应，内部唤醒按结果价值发言 |
 | SendMessage 唯一声音、额外结束消息、用户回复提醒 | runtime 的 Delivery；改为自动最终投递、按绑定流式、跨渠道/附件用 message_send，禁止重复发送 |
 | 语气、称呼、代词、emoji、句式 | 两类 SOUL；普通 Agent 友好自然，Jarvis 克制准确；不强制全体同一人格 |
 | 回复长度、短讯、多气泡、结构、Markdown、数学和 Mermaid | common 交付 + 两类 SOUL；遵守用户长度要求，具体呈现取渠道，不能保证 KaTeX/Mermaid 渲染 |

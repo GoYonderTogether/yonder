@@ -153,6 +153,8 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 		expect(commonPrompt).toContain("Do not promise that a running tool can be interrupted immediately.");
 		expect(commonPrompt).toContain("Acknowledge the new information, incorporate it and return to the original goal");
 		expect(commonPrompt).toContain("unless the user cancels it or replaces it with an incompatible one");
+		expect(commonPrompt).toContain("a checkable finish condition, scope and any time or effort budget clear");
+		expect(commonPrompt).toContain("When one fit-for-purpose check passes, deliver");
 		expect(framework(session)).not.toContain("agent_ask");
 		expect(sections.includes(cliPrompt)).toBe(level === "standard");
 		expect(sections.join("\n")).not.toContain("exactly one owner");
