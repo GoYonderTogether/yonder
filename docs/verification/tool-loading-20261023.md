@@ -25,4 +25,11 @@
 
 整合主线 `950b12e` 后准备正式版本 `0.2.26102306`，仅统一根与 24 个 @yonder 工作区版本及锁文件；上游 pi-durable 保持 1.3.0。新基线再次 build、typecheck、lint 和工作区解析检查 exit 0；默认全仓 **418 通过 / 0 失败 / 37 跳过**，真实 Luna 定向 **1 通过 / 0 失败**。既有 lint warnings/infos 数量不变。
 
-安装与运行结果在实际完成后补记；源码检查不冒充安装版验收。
+## 安装版与服务
+
+- 主线提交 `a9165fe367dd69371ca2ee005ff8ac11762d6191` 的 [macOS CI 39914843740](https://github.com/GoYonderTogether/yonder-harness/actions/runs/39914843740) 全部通过，标签 v0.2.26102306 固定于此提交。
+- 安装前确认当时只有原生模型请求和内部等待，没有正在执行的工具；沿现有 service stop / update 流程安装，未重复分派原任务。更新返回 `verified=true`、`restartRequired=false`，实际 service.info 确认 **0.2.26102306 / a9165fe / pid 57080 / ready=true**，home 为本机原服务 home。
+- 直接 import 安装目录 `versions/0.2.26102306/packages/core/dist/kernel/index.js` 的编译产物，在隔离 home 使用真实 Luna 完成三轮：中文任务自行搜索 cron_manage 并只读 list；原事故 query 加载 task_run、没有执行委派；关闭重开内核后的新一轮恢复十个常驻工具。实录调用为 tool_search → cron_manage → tool_search，原 query 参数逐字相等，断言全部通过。没有把源码运行或生产主会话回复算作这次安装版验收。
+- 更新后 doctor `ok=true`、无错误，仅原有 exec 管理权限警告。备份的 11 份配置与提示词文件哈希逐字一致；没有更改权限、插件、常驻列表、个体正文或归档状态。原始结果、版本信息与编译产物验收脚本保存在本机私有备份。
+
+正式发布入口：[0.2.26102306 Release](https://github.com/GoYonderTogether/yonder-harness/releases/tag/v0.2.26102306)。本次未做 Claude 非法调用生成行为的强制实验，也未重新验证与该检索修复无关的外部渠道/network 告警；这些不计为通过。
