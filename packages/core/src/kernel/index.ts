@@ -4,7 +4,6 @@ import type { Models, Preset } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import {
 	type AgentConfig,
-	isLoginOperationsEnabled,
 	loadPresets,
 	loadYonderConfig,
 	resolveProfile,
@@ -40,26 +39,12 @@ import {
 
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
-export { loadYonderConfig } from "../config/index.js";
 export { initHome, inspectHome } from "./home.js";
 export { type ManagementRequest, manageHome, offlineQuery } from "./home-management.js";
 export type { KernelLog } from "./workspace.js";
 export { inspectSkills } from "./workspace.js";
 
-export async function openKernel(
-	home: string,
-	options: {
-		log?: KernelLog;
-		loginHost?: {
-			start(input: {
-				id: string;
-				capability: string;
-				provider: string;
-				finish(outcome: import("../runtime/login-operations.js").LoginOutcome, code: number): Promise<boolean>;
-			}): Promise<void>;
-		};
-	} = {},
-) {
+export async function openKernel(home: string, options: { log?: KernelLog } = {}) {
 	home = resolve(home);
 	process.env.YONDER_HOME = home;
 	const log = options.log ?? (() => {});
@@ -328,27 +313,6 @@ export async function openKernel(
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
 			db,
-			...(isLoginOperationsEnabled(config, process.env.YONDER_ENABLE_LOGIN_OPERATIONS)
-				? {
-						loginOperations: {
-							runner: options.loginHost ?? {
-								start: async () => {
-									throw new Error("Login host adapter unavailable");
-								},
-							},
-							providers: new Set(["anthropic", "openai", "google", "openrouter"]),
-							receipt: (session, requestId) => realRuntime().queryLoginWakeReceipt(session, requestId),
-							deliver: async (entry, requestId) => {
-								await realRuntime().submit(entry.session, {
-									text: `Login operation ${entry.outcome}.`,
-									wake: "run",
-									requestId: `login:${requestId}`,
-								});
-								return "delivered" as const;
-							},
-						},
-					}
-				: {}),
 			home,
 			config,
 			plugins: [...loaded.tools].map(([id, tools]) => ({ id, tools, hooks: loaded.hooks.get(id) ?? [] })),

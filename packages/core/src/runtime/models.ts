@@ -187,10 +187,6 @@ function findModelDefaults(models: readonly AnyModel[], modelId: string, api?: A
 	);
 }
 
-export function providerRegistryIds(): ReadonlySet<string> {
-	return new Set(builtinProviders().map((provider) => provider.name));
-}
-
 export function buildModels(credentials: CredentialStore, configs: Record<string, unknown> = {}) {
 	const models = createModels({ credentials });
 	for (const base of builtinProviders()) models.setProvider(base);
