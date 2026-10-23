@@ -238,6 +238,7 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		await expect.poll(() => idle).toBe(3);
 		expect(notifications).toHaveLength(notificationsBeforeKill);
 		expect(await runtime.hasPendingWork(first)).toBe(false);
+		expect(await runtime.hasAwakeWork(first)).toBe(false);
 		const retained = JSON.parse(
 			text(await call(first, "process", { action: "log", id: rolling, offset: window.next })),
 		);
@@ -260,6 +261,7 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		).background as string;
 		await expect.poll(() => internal.background.running.get(Number(interactive))?.output).toBe("ready");
 		expect(await runtime.hasPendingWork(first)).toBe(true);
+		expect(await runtime.hasAwakeWork(first)).toBe(true);
 		expect(await runtime.hasPendingWork(first, source.id)).toBe(true);
 		expect(
 			await runtime.hasPendingWork(first, newEvent({ type: "message.in", data: { text: "independent request" } }).id),

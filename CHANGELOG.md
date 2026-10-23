@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- macOS 现有状态栏新增任务期间保持唤醒：服务按原生运行事实续租，限定电源宿主支持合盖运行，任务结束、断开或租约过期恢复自身设置；首次启用走系统授权，显示器可熄灭。
+
 ### Added
 
 - `yonder.yaml` 全局 locale/timezone 默认中文与 Asia/Shanghai；提示词日历明确显示 UTC 和北京时间/星期，UI Companion 历史时间也使用同一设置，不依赖宿主时区。cron 仍要求作业显式设置时区。

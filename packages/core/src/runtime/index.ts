@@ -1503,6 +1503,24 @@ export class Runtime {
 		return this.hasBackgroundWork(ctx.session, invocation.api.taskId);
 	}
 
+	/** Read native state only; waiting for a UI answer is not executable work. */
+	async hasAwakeWork(id: string): Promise<boolean> {
+		const tasks = await this.storage.scanTasks(
+			{ conversationId: cid(id), kind: "yonder.background" },
+			Number.MAX_SAFE_INTEGER,
+			undefined,
+			C,
+		);
+		const pending = tasks.items.filter((task) => task.state.status !== "terminal");
+
+		if (pending.some((task) => (task.input as { name?: string }).name !== "ui-companion_result")) return true;
+		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
+		if (inbox?.items.some((item) => item.mode !== "write")) return true;
+		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
+		const slots = live?.tools?.filter((slot) => slot.status !== "done") ?? [];
+		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "ui-companion_result"));
+	}
+
 	async hasPendingWork(id: string, input?: string): Promise<boolean> {
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		if (live?.run) {
