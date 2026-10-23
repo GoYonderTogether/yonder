@@ -18,6 +18,8 @@
 
 **D8 配置用 YAML；模型配置与 pi 的 models.json 同构；凭据与 pi 的 auth.json 同格式。** 便于直接沿用 AI-Being 的现有配置。
 
+**D58 Harness 默认中文 locale 与北京时间（2026-10-23 用户明确要求）。** `yonder.yaml` 的全局 `locale`、`timezone` 默认分别为 `zh-CN` 与 `Asia/Shanghai`，并在解析时验证 Intl locale/IANA 时区；用户可显式覆盖。提示词日历固定按配置时区格式化，展示 UTC 与本地时间/星期，不读取宿主本地时区；PluginAPI 暴露这两项有效设置供 UI 等插件格式化显示。cron 仍要求每个作业明确配置时区，插件不得从 Harness 默认值继承，避免调度意图隐式变化。代价：运行环境 Intl 数据库负责名称/格式本地化，Harness 显示时区不替代 memory 或 cron 专属时区。
+
 **D9 不写假数据。** 产品代码与模板不含模拟模型或虚构内容；需要模型的测试使用真实模型（默认 `openai/gpt-6-luna`），没有凭据时跳过并明确报告"未测"。
 
 **D10 许可证 Apache-2.0。** 含专利授权，并明确不授予商标使用权。

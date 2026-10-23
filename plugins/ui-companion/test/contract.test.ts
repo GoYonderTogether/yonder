@@ -11,7 +11,7 @@ it("satisfies the actual SDK plugin contract", async () => {
 });
 it("serves cards, returns actual answers only to their owner, and recovers persisted history", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "yonder-ui-"));
-	const service = new CompanionService(directory, false);
+	const service = new CompanionService(directory, false, "en-US", "America/Caracas");
 	const owner = { agent: "ui-test", session: "ui-test-session", profile: "default" };
 	const signal = new AbortController().signal;
 	await service.start();
@@ -38,6 +38,9 @@ it("serves cards, returns actual answers only to their owner, and recovers persi
 				body: JSON.stringify({ id, answer, step }),
 			});
 		expect((await fetch(`${service.url}state`)).status).toBe(200);
+		const page = await (await fetch(service.url)).text();
+		expect(page).toContain('"locale":"en-US","timezone":"America/Caracas"');
+		expect(page).toContain("document.documentElement.lang=window.yonderSettings.locale");
 		expect((await fetch(new URL("/state", service.url))).status).toBe(403);
 		expect((await fetch(service.url, { headers: { Origin: "https://foreign.invalid" } })).status).toBe(403);
 		await expect(service.result(first.id, { ...owner, session: "other" }, false, signal)).rejects.toThrow("belong");

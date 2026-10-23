@@ -189,6 +189,8 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			...api,
 			id,
 			version: JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version,
+			locale: "zh-CN",
+			timezone: "Asia/Shanghai",
 			config: undefined,
 			log: { info: log, warn: log, error: log },
 			events: { ...api.events, emit: unavailable, ask: unavailable, query: unavailable },

@@ -106,6 +106,8 @@ export async function initHome(home: string, owner = "owner") {
 	await mkdir(directory, { recursive: true });
 	const config: YonderConfig = {
 		schema: 1,
+		locale: "zh-CN",
+		timezone: "Asia/Shanghai",
 		plugins: [
 			{ use: "@yonder/plugin-channel-cli" },
 			{ use: "@yonder/plugin-context-files" },

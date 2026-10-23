@@ -384,6 +384,8 @@ export interface ExecutionOwner {
 
 export interface PluginAPI {
 	readonly version: string;
+	readonly locale: string;
+	readonly timezone: string;
 	id: string;
 	config: unknown;
 	log: {

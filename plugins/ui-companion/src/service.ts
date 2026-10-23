@@ -27,6 +27,8 @@ export class CompanionService {
 	constructor(
 		private readonly directory: string,
 		private readonly desktop: boolean,
+		private readonly locale = "zh-CN",
+		private readonly timezone = "Asia/Shanghai",
 	) {}
 	get url() {
 		return this.base;
@@ -68,7 +70,10 @@ export class CompanionService {
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 		}
-		const html = await readFile(new URL("../dist/index.html", import.meta.url));
+		const html = (await readFile(new URL("../dist/index.html", import.meta.url), "utf8")).replace(
+			"</head>",
+			`<script>window.yonderSettings=${JSON.stringify({ locale: this.locale, timezone: this.timezone }).replaceAll("<", "\\u003c")};document.documentElement.lang=window.yonderSettings.locale</script></head>`,
+		);
 		const secret = randomUUID();
 		const server = createServer((request, response) => {
 			void (async () => {

@@ -179,9 +179,21 @@ export function parsePresetConfig(text: string, id: string, file = `${id}.yaml`)
 }
 
 export function parseYonderConfig(text: string, file: string): YonderConfig {
-	const config = parse(text, file, YonderSchema);
-	if (config.channels?.agent)
-		throw new ConfigError([{ file, path: "/channels/agent", message: "agent 渠道保留给内核" }]);
+	const parsed = parse(text, file, YonderSchema);
+	const config = { ...parsed, locale: parsed.locale ?? "zh-CN", timezone: parsed.timezone ?? "Asia/Shanghai" };
+	const issues: ConfigIssue[] = [];
+	try {
+		new Intl.DateTimeFormat(config.locale);
+	} catch {
+		issues.push({ file, path: "/locale", message: "locale: invalid Intl locale" });
+	}
+	try {
+		new Intl.DateTimeFormat("en", { timeZone: config.timezone });
+	} catch {
+		issues.push({ file, path: "/timezone", message: "timezone: invalid IANA timezone" });
+	}
+	if (config.channels?.agent) issues.push({ file, path: "/channels/agent", message: "agent 渠道保留给内核" });
+	if (issues.length) throw new ConfigError(issues);
 	return config;
 }
 
