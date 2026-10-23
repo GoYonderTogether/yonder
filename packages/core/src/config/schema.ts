@@ -29,6 +29,12 @@ const fields = {
 	tools: Type.Optional(object({ offer: Type.Optional(strings), search: Type.Optional(strings) })),
 	contexts: Type.Optional(strings),
 	skills: Type.Optional(strings),
+	prompt: Type.Optional(
+		object({
+			sections: Type.Optional(Type.Array(text, { uniqueItems: true })),
+			overrides: Type.Optional(Type.Record(text, Type.String())),
+		}),
+	),
 	instructions: Type.Optional(Type.String()),
 	env: Type.Optional(instanceId),
 	limits: Type.Optional(

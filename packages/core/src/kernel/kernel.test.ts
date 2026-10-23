@@ -67,6 +67,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 				{ timeout: 8000 },
 			)
 			.toBe(true);
+		await rm(`${home}/agents/main/SOUL.md`);
 		await writeFile(file, stringify({ ...agent, defaults: { ...agent.defaults, contexts: ["soul-md"] } }));
 		await expect
 			.poll(() => readFile(`${home}/agents/main/SOUL.md`, "utf8").catch(() => ""), { timeout: 8000 })

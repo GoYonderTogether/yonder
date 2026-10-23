@@ -9,7 +9,7 @@ import { openDatabase } from "../runtime/db.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
-import { cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
+import { builtinPromptSections, cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
 import {
 	framework,
 	type PromptOptions,
@@ -51,6 +51,23 @@ test("tool discovery guidance follows effective exposure for residents and prese
 			toolIndex: () => guide,
 		};
 		expect(await systemSections(session, options)).toContain(guide);
+		expect(
+			await systemSections({ ...session, resolved: resolveProfile({ prompt: { sections: [] } }) }, options),
+		).toEqual([]);
+		expect(
+			await systemSections(
+				{
+					...session,
+					resolved: resolveProfile({
+						prompt: {
+							sections: ["tool-discovery"],
+							overrides: { "tool-discovery": "Find the relevant tool by name." },
+						},
+					}),
+				},
+				options,
+			),
+		).toEqual(["Find the relevant tool by name."]);
 		expect(
 			await systemSections({ ...session, resolved: { ...session.resolved, instructions: guide } }, options),
 		).not.toContain(guide);
@@ -107,9 +124,7 @@ test("system sections are deterministic and only selected contexts render", asyn
 		expect(sections).toEqual(await systemSections(session, options));
 		expect(sections).toEqual([
 			framework(session),
-			commonPrompt,
-			residentPrompt,
-			runtimePrompt,
+			...builtinPromptSections.filter((section) => section.id !== "cli").map((section) => section.text),
 			"<skills></skills>",
 			"Selected context",
 		]);
@@ -132,13 +147,12 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 	for (const level of ["readonly", "standard"] as const) {
 		const session = { id: "1", agent: null, profile: "default", cwd, resolved: resolveProfile({ level }) };
 		const sections = await systemSections(session, options);
-		expect(sections).toContain(commonPrompt);
-		expect(commonPrompt).toContain("if the owner interjects, acknowledge briefly before continuing the original task");
-		expect(commonPrompt).toContain("an interjection alone does not cancel it");
-		expect(commonPrompt).toContain("If the direction changes, adjust the task accordingly.");
+		expect(sections.join("\n\n")).toContain(commonPrompt);
+		expect(sections.join("\n\n")).toContain(runtimePrompt);
+		expect(sections.join("\n\n")).not.toContain(residentPrompt);
 		expect(commonPrompt).toContain("Do not promise that a running tool can be interrupted immediately.");
-		expect(sections).toContain(runtimePrompt);
-		expect(sections).not.toContain(residentPrompt);
+		expect(commonPrompt).toContain("Acknowledge the new information, incorporate it and return to the original goal");
+		expect(commonPrompt).toContain("unless the user cancels it or replaces it with an incompatible one");
 		expect(framework(session)).not.toContain("agent_ask");
 		expect(sections.includes(cliPrompt)).toBe(level === "standard");
 		expect(sections.join("\n")).not.toContain("exactly one owner");
@@ -323,4 +337,36 @@ test("removing a selected context removes its instructions and system render nev
 	expect(renders).toBe(1);
 	expect(await systemSections(session, options)).toEqual(enabled);
 	expect(renders).toBe(2);
+});
+
+test("prompt selection can be empty, ordered or replaced without changing capability and identity gates", async () => {
+	const options = {
+		contexts: new Map(),
+		workspace: () => {
+			throw new Error("No workspace contexts selected");
+		},
+	};
+	const base = { id: "config-check", agent: null, profile: "default", cwd: process.cwd() };
+	const empty = { ...base, resolved: resolveProfile({ prompt: { sections: [] }, skills: [], contexts: [] }) };
+	expect(await systemSections(empty, options)).toEqual([]);
+	const selected = {
+		...base,
+		resolved: resolveProfile({
+			prompt: {
+				sections: ["runtime.delivery", "common.writing", "resident.identity", "cli", "framework"],
+				overrides: {
+					"common.writing": "Use short sentences. Literal ${name} stays literal.",
+					"resident.identity": "Resident only",
+					cli: "Exec only",
+					framework: "",
+				},
+			},
+		}),
+	};
+	expect(await systemSections(selected, options)).toEqual([
+		builtinPromptSections.find((section) => section.id === "runtime.delivery")?.text,
+		"Use short sentences. Literal ${name} stays literal.",
+	]);
+	expect(selected.resolved.capabilities).toEqual(["read"]);
+	expect(await systemSections(selected, options)).toEqual(await systemSections(selected, options));
 });

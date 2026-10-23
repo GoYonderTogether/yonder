@@ -36,7 +36,7 @@
 - 沙箱或容器隔离的执行环境（环境槽已定义；本机 exec 不是沙箱）。
 - MCP 客户端的交互式 OAuth 登录（已有授权可用凭据 header）。
 - Linux systemd、Windows 支持；Web 控制台；交互式安装向导。
-- 官方角色/人格模板。
+- 更多专业角色模板；本轮 agent-presets 提供 Jarvis 与普通常驻 Agent 两类，见下方验证记录。
 - 文档/PDF 解析、TTS、视频生成；ASR 随包但默认未启用。
 
 ## 未关闭的真实验收
@@ -129,3 +129,7 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 交互工具和私有回环服务在 plugins/ui-companion；唯一 macOS 宿主在 packages/macos，插件不再起第二个桌面应用。左键当前交互/历史，右键交互入口、服务状态、检查更新及停止服务并退出。默认完成隐藏浮窗和浮球，autoClose:false 可保留；不自动给未选择插件的 Agent 增加工具。端点/单实例锁/真实卡片回传有验证；全屏、台前调度与菜单左右键真人验收仍未完成。正式发布验证记录见插件 README。
 
 UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typecheck，413 测试通过/36 跳过，lint 退出成功。发布不自动启用 Agent 工具或修改用户权限；系统级桌面场景仍待人工验收。
+
+## 提示词分层与官方模板（2026-10-23）
+
+系统底座与两类官方常驻模板、子任务/进程和插件说明已重构；初期装配与检查结果见 [提示词验证](verification/prompt-layers.md)。新 init 使用 Jarvis，已有个体文件默认不覆盖。用户随后授权 0.2.26102305 正式发版与本机迁移，最新主线整合、原始计数和实际发布入口见 [发布验证](verification/release-26102305.md)。

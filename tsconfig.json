@@ -20,6 +20,9 @@
 			"path": "plugins/context-files"
 		},
 		{
+			"path": "plugins/agent-presets"
+		},
+		{
 			"path": "plugins/channel-mcp"
 		},
 		{

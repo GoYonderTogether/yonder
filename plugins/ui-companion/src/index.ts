@@ -17,7 +17,7 @@ export default definePlugin({
 		api.tools.register({
 			name: "ui-companion_present",
 			description:
-				"Present an interactive local Yonder card. Card: {id,title,prompt,kind:'choice'|'form',options?:[{id,label}],next?:card,autoClose?:boolean}. Default completion collapses the window. Returns request id and local URLs for popup/notice/brandless inline embedding. Desktop appearance does not activate another app. Call ui-companion_result with the returned id and wait:true to receive the actual user's steps in this session. Never use this card alone as authorization to execute another tool.",
+				"Present an interactive local Yonder card. Card: {id,title,prompt,kind:'choice'|'form',options?:[{id,label}],next?:card,autoClose?:boolean}. Default completion collapses the window. Returns request id and local URLs for popup/notice/brandless inline embedding. Desktop appearance does not activate another app. Call ui-companion_result with the returned id and wait:true to receive the actual user's steps in this session. Never use this card alone as authorization to execute another tool. Use for a real decision that benefits from a local card: one natural self-contained question, short verified choices, no invented accounts or options. This UI is on the Yonder host; a remote chat user may not see it, so use their chat/channel instead when appropriate. Read the actual result before proceeding; dismissal or timeout is not approval.",
 			parameters: present,
 			capabilities: ["message"],
 			async execute(input, ctx) {

@@ -2,7 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset, SessionInfo } from "@yonder/sdk";
 import { stringify } from "yaml";
-import { type AgentConfig, loadPresets, loadYonderConfig, resolveProfile, type YonderConfig } from "../config/index.js";
+import {
+	type AgentConfig,
+	loadPresets,
+	loadYonderConfig,
+	promptErrors,
+	resolveProfile,
+	type YonderConfig,
+} from "../config/index.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
@@ -49,6 +56,7 @@ export function configurationErrors(
 ): string[] {
 	const errors: string[] = [];
 	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
+		errors.push(...promptErrors(selected.prompt).map((error) => `${name}: ${error}`));
 		for (const ref of [selected.model, ...(selected.fallback?.models ?? [])]) {
 			const slash = ref.indexOf("/");
 			if (!models.getModel(ref.slice(0, slash), ref.slice(slash + 1))) errors.push(`${name}: unknown model ${ref}`);
@@ -102,6 +110,7 @@ export async function initHome(home: string, owner = "owner") {
 			{ use: "@yonder/plugin-channel-cli" },
 			{ use: "@yonder/plugin-context-files" },
 			{ use: "@yonder/plugin-ui-companion" },
+			{ use: "@yonder/plugin-agent-presets" },
 		],
 		channels: { cli: { type: "cli" } },
 		envs: { local: { type: "local" } },
@@ -126,10 +135,14 @@ export async function initHome(home: string, owner = "owner") {
 	const agent: AgentConfig = {
 		schema: 1,
 		id: "main",
-		name: "main",
+		name: "Jarvis",
 		owner: `person:${owner}`,
 		defaultProfile: "owner",
-		defaults: { model: "openai/gpt-6-luna", contexts: ["soul-md", "agents-md"], plugins: ["context-files"] },
+		defaults: {
+			model: "openai/gpt-6-luna",
+			contexts: ["jarvis-soul", "jarvis-work"],
+			plugins: ["context-files", "agent-presets"],
+		},
 		profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
 		bindings: [
 			{
@@ -147,7 +160,11 @@ export async function initHome(home: string, owner = "owner") {
 		config,
 		inspectionServices(home, config, () => {}),
 	);
-	await scaffoldWorkspace(filesFor(home, config, plugins, "main"), ["soul-md", "agents-md"], plugins.contexts);
+	await scaffoldWorkspace(
+		filesFor(home, config, plugins, "main"),
+		profileFor(home, config, agent).resolved.contexts,
+		plugins.contexts,
+	);
 	return { home, agent: "main", model: "openai/gpt-6-luna" };
 }
 

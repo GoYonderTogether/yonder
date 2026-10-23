@@ -38,7 +38,7 @@ agents:
   …              其余文件由选用的上下文贡献声明（04 §3.3），缺失时按声明自动生成
 ```
 
-- 内核只规定 `agent.yaml`。Agent 自己的提示词只有两份：`SOUL.md`（风格、角色、品味）与 `AGENTS.md`（工作方式与范围），由 context-files 插件的 `soul-md`、`agents-md` 贡献，init 默认选用。两份同一种语言，随角色而定：默认英文，明确的中文角色设定才用中文；Agent 按主人使用的语言回话。`USER.md`、`MEMORY.md`、`memory/` 等同样不是内核概念；不选就不存在、不占上下文。
+- 内核只规定 `agent.yaml`。Agent 自己的提示词只有两份：`SOUL.md`（风格、角色、品味）与 `AGENTS.md`（工作方式与范围），由所选上下文插件贡献；context-files 提供通用文件读取，agent-presets 提供官方起始正文。init 默认选用贾维斯模板。两份同一种语言，随角色而定：默认英文，明确的中文角色设定才用中文；Agent 按主人使用的语言回话。`USER.md`、`MEMORY.md`、`memory/` 等同样不是内核概念；不选就不存在、不占上下文。
 - agent 用普通的文件工具修改自己的工作区。写 `agent.yaml` 需要 `admin` 能力，其余文件需要 `write` 能力（05 §3）。插件可以把自己声明的文件标为受保护，并指定所需能力。
 
 ### 2.3 agent.yaml
@@ -73,13 +73,14 @@ bindings: [ … ]                   # 见 02 §2
 | `tools` | `{ offer: [glob…], search: [glob…] }`。`offer`：工具定义常驻在请求里；`search`：通过按需搜索加载（07 §4）。都要先通过能力过滤 |
 | `contexts` | 上下文贡献 id，按顺序 |
 | `skills` | skill 名的通配列表，默认 `["*"]`（§6） |
+| `prompt` | `{ sections?: string[], overrides?: Record<string, string> }`，选择、排序或替换内置段落（§5.5） |
 | `instructions` | 追加在系统提示词最后 |
 | `env` | 工具在哪个执行环境运行；默认是工作区所在环境 |
 | `limits` | 覆盖运行软阈值与重复空转保护：`{ maxTurns, maxMinutes, maxTokens, repeatBlock, repeatStop }`（07 §5） |
 
 未写的字段取 `defaults`，再取内核默认。
 
-内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools` 与 `limits` 按键覆盖。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
+内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`、`prompt: {}`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools`、`limits` 与 `prompt` 按键覆盖；`prompt.sections` 和 `prompt.overrides` 各自整项替换，不按 id 合并。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
 
 ## 4. 预设与临时会话
 
@@ -97,19 +98,19 @@ bindings: [ … ]                   # 见 02 §2
 
 | 位置 | 放什么 | 规则 |
 |---|---|---|
-| system | 依次：① 框架段 ② 内置共同底座 ③ 常驻身份段（仅有 agent）④ 内置运行约定 ⑤ CLI 自管理导航（仅有 exec）⑥ skill 索引（§6）⑦ `placement: system` 的上下文贡献（按 `contexts` 顺序，SOUL.md、AGENTS.md 在此）⑧ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
+| system | 默认依次：① 框架段 ② 内置共同底座 ③ 常驻身份段（仅有 agent）④ 内置运行约定 ⑤ 按有效工具生成的发现目录与说明 ⑥ CLI 自管理导航（仅有 exec）⑦ skill 索引（§6）⑧ `placement: system` 的上下文贡献（按 `contexts` 顺序，SOUL.md、AGENTS.md 在此）⑨ 配置档 `instructions` | **必须**是确定性的：同样的配置、同样的文件内容，渲染结果逐字相同（不放时间、不放随机内容），以命中提示缓存 |
 | 本轮输入 | 依次：① 输入准备时的 `<runtime_clock>` 时间快照和内核的 `<turn>` 块 ② 原事件正文（紧随其来源与原时间）③ `placement: turn` 的补充上下文 | 随用户消息一起写入转录，可审计，不再改写 |
 | tools | 只放工具定义 | 不在工具定义里塞上下文 |
 
 ### 5.2 框架段
 
-内核写死、agent 不能改的一小段，只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、06 §4 列出的规则、可以用 `yonder` 命令与 `yonder docs` 了解和维护自己的运行环境（09 §1，仅当配置档有 `exec`）。用英文书写，**应当**控制在 250 词以内。
+内核提供默认框架段；经管理配置可选择移除或替换（§5.5），普通外部输入不能修改它。默认正文只说明：运行在 Yonder Harness、自己的 agent id 与当前配置档、06 §4 列出的规则、可以用 `yonder` 命令与 `yonder docs` 了解和维护自己的运行环境（09 §1，仅当配置档有 `exec`）。用英文书写，**应当**控制在 250 词以内。
 
 ### 5.2.1 非插件内置底座
 
-英文正文只有一份，即 `packages/core/src/prompt/content.ts`，不另设译文审阅源。共同底座说明产品愿景、所有 Agent 共有的习惯、使用建议与资产维护；常驻身份说明 SOUL.md/AGENTS.md 的地位、生命连续性、唯一主人与社交关系、持续授权、工作线分工、任务与协作、成长；运行约定说明事件、插件、会话、投递与可信元数据、位置与源码、技能入口。只写模型反复犯错之处与 Yonder 特有事实，不写通用美德；用 Yonder 自己平实的嗓子，不含具体名字、人设或作家文风，不改权限系统。
+英文正文只有一份，即 `packages/core/src/prompt/content.ts`，不另设译文审阅源。共同底座说明产品愿景、所有 Agent 共有的习惯、使用建议与资产维护；常驻身份说明 SOUL.md/AGENTS.md 的地位、生命连续性、唯一主人与社交关系、持续授权、工作线分工、任务与协作、成长；运行约定说明事件、插件、会话、投递与可信元数据、位置与源码、技能入口。共同执行规则完整覆盖接任务、持续推进、必要澄清、证据与交付、自主范围、安全、协作和资产维护；运行约定按实际多渠道、工具、插件与后台契约编写。保留直接、具体、自然段推进的写法；不含具体名字、固定人设或口吻，不改权限系统。官方人格只在插件选择的工作区上下文中装入，详见 [提示词分层与来源](../prompts/README.md)。
 
-框架段的250词约束只约束5.2短导航，不截断完整底座。常驻身份仅真实agent装入，无身份preset不获得主人关系。CLI命令导航仅有exec能力时装入；skill_view等非CLI说明按实际工具规则使用。正文随版本编译，稳定、一次装入，不新增文件读取/回退/复制脚本；技能、上下文与instructions顺序相对保持。
+完整默认框架段的250词约束只约束5.2短导航，不截断完整底座。常驻身份仅真实agent装入，无身份preset不获得主人关系。CLI命令导航仅有exec能力时装入；skill_view等非CLI说明按实际工具规则使用。正文随版本编译，稳定、一次装入，不新增文件读取/回退/复制脚本；技能、上下文与instructions顺序相对保持。
 
 ### 5.3 `<turn>` 块
 
@@ -132,7 +133,30 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 
 ### 5.4 SOUL.md 与 AGENTS.md 模板
 
-选用 `soul-md`、`agents-md` 时，context-files 生成只含文件名标题与一句用途说明的英文模板，不含虚构的人设或示例对话。未经编辑的模板不注入提示词。
+context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板语义；未经编辑的空模板不注入提示词。
+
+官方插件 `agent-presets` 用现有 contexts 与 presets 槽提供两类常驻 Agent 起始正文：
+
+| 预设 id | SOUL.md 上下文 | AGENTS.md 上下文 | 职责 |
+|---|---|---|---|
+| `jarvis` | `jarvis-soul` | `jarvis-work` | 默认主 Agent：贾维斯、个人事务入口、主动跟进与团队协调 |
+| `default-agent` | `default-agent-soul` | `default-agent-work` | 普通常驻 Agent：自然亲切的个人协作者，围绕配置中的工作范围长期负责 |
+
+两种 preset 只是创建配置的现有入口，不增加 Agent 类型或权限字段。`agents create --preset` 继续要求真实 name/work/owner/bindings。模板不提供虚构经历、用户资料或伪造历史对话；来源中的表达例句仅说明措辞和语气，不作为已发生的事实。不把编程、研究、所有具体专业方法塞进人格。权限沿现有默认值或调用方明确配置。
+
+插件包内 `prompts/<id>/SOUL.md`、`AGENTS.md` 是起始正文的唯一来源；选中上下文后通过既有 scaffold 仅补缺失文件，渲染读取实际工作区文件，用户清空或编辑后不回退到模板。不覆写已有文件，不自动迁移旧 Agent；同一文件只选一个读取贡献，避免与通用 context-files 重复注入。新 init 的 main 选用 jarvis，两份文件仍属于该 Agent，可修改。无身份 task 即使使用这些 preset，也不渲染人格上下文、不读 Agent 工作区；`default` 独立任务预设保持原语义。
+
+### 5.5 小上下文模型与段落配置
+
+用户在 2026-10-23 明确要求全部内置正文可以配置移除、替换或只保留部分。`Profile.prompt` 可用于 agent defaults、各 profile、home preset 与插件 preset；不按模型名猜测长度或自动丢内容。
+
+- 不写 `sections`：按正文目录的默认顺序装入完整内置内容；写 `sections`：只装入列出的稳定 id，按列表顺序；`[]` 关闭全部内置正文，包括框架导航。
+- `overrides`：按稳定 id 替换正文；空字符串关闭该段。替换只作用于已选段落，不自动选中它。不支持任意文件读取、脚本或模板插值；自定义文字按字面装入。
+- `prompt` 的两个键分别继承 defaults；显式 `sections` 整表替换，显式 `overrides` 整表替换。未知 id、重复选择与非法类型拒绝配置；重载失败保留旧配置。
+- resident.* 即便被选择或替换，也只对真实常驻 Agent 生效；cli 仅有 exec 能力时生效。运行能力、绑定、身份和投递仍由代码执行，关闭说明不改变权限。
+- 这只控制内置 system 正文。角色/插件上下文用已有 `contexts` 选择并编辑工作区文件，skill 索引用 `skills` 选择，工具定义用 `tools.offer/search` 与 `plugins` 选择，尾部自定义正文用 `instructions`。要极简运行，需同时配置这些来源。
+- `<turn>`、实际输入与原生运行计时/恢复事实不是长正文模板，仍按运行协议保留。关闭正文不删除历史转录，也不宣称任意模型会正确完成工具任务。
+- 稳定 id 及精简/全自定义配置见 [提示词配置](../prompts/configuration.md)。默认全文行为不变；修改在下一次运行生效，已开始运行使用既有快照。
 
 ## 6. Skill
 

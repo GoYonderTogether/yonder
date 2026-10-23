@@ -110,7 +110,7 @@ export default definePlugin({
 				parameters: empty,
 				capabilities: ["exec"],
 				description:
-					"Discover official local Codex Computer Use and return its real tool instructions/schemas. Discovery is not a permission check. Call this before JS. JS bindings persist only within the current Yonder run; run.end releases them. Each new run must initialize with exactly one documented entry. Browsers default to BrowserSkill.",
+					"Discover official local Codex Computer Use and return its real tool instructions/schemas. Discovery is not a permission check. Call this before JS. JS bindings persist only within the current Yonder run; run.end releases them. Each new run must initialize with exactly one documented entry. Browsers default to BrowserSkill. This bridge exposes local computer use and hosted search, not a cloud coding Agent. If discovery fails, inspect the returned native app-server error and installed CLI/login state; never borrow OAuth files or reinstall the whole assistant as a first step. Use js_reset for lost JS bindings, then initialize again; it does not reset the user applications.",
 				execute: (_args, ctx) =>
 					execute(ctx, false, (resource, signal) => computerStatus(resource.client, desktop(resource), signal)),
 			}),

@@ -329,3 +329,11 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **贡献**：工具 `ui-companion_present`、`ui-companion_result`；触发器 `ui-companion-service` 托管回环服务。
 - **使用**：在 plugins 加载本地目录或 `@yonder/plugin-ui-companion`，在实际 Agent/配置档选择 `ui-companion_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
 - **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
+
+
+## agent-presets：官方常驻 Agent 模板
+
+- **包**：`@yonder/plugin-agent-presets`；[说明与迁移](../plugins/agent-presets/README.md)。
+- **贡献**：presets `jarvis`、`default-agent`；system contexts `jarvis-soul`、`jarvis-work`、`default-agent-soul`、`default-agent-work`。
+- **功能**：现有 scaffold 仅为所选模板补缺失的 SOUL.md/AGENTS.md；按实际工作区渲染，新 init 的主 Agent 使用 Jarvis，普通 Agent 可经现有 create --preset 创建。
+- **边界**：无工具、事件订阅或服务；不改权限，不覆写已有文件，不给无身份 task 注入人格。插件内 Markdown 为唯一起始正文；[分层与来源](prompts/README.md)。

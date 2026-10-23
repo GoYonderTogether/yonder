@@ -114,7 +114,7 @@ export default definePlugin({
 		api.tools.register({
 			name: `${api.id}_image_generate`,
 			description:
-				"Generate one image with the configured SiliconFlow image service and save it in workspace artifacts. Returns a local image attachment. No automatic retry.",
+				"Generate one image with the configured SiliconFlow image service and save it in workspace artifacts. Use for a requested illustration or visual asset, not as evidence of what a real person/place/product looks like. Returns a local image attachment; show the actual result through a supported channel, not just a description. No automatic retry. For SERVICE_NOT_CONFIGURED/API_KEY_MISSING/MODEL_NOT_CONFIGURED, inspect the image service configuration and credential reference; do not guess a model or request the secret in chat. Failure includes the stage: generation, download and save are different; a download/save failure may follow successful paid generation, so do not blindly regenerate.",
 			parameters,
 			capabilities: ["network", "write"],
 			async execute(args, ctx): Promise<ToolResult> {

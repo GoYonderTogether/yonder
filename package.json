@@ -13,6 +13,7 @@
 		"packages/cli",
 		"plugins/channel-cli",
 		"plugins/context-files",
+		"plugins/agent-presets",
 		"plugins/channel-mcp",
 		"plugins/codex-tools",
 		"plugins/browser-skill",
@@ -45,5 +46,5 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder-harness",
-	"version": "0.2.26102304"
+	"version": "0.2.26102305"
 }

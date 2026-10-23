@@ -1,0 +1,39 @@
+{
+	"name": "@yonder/plugin-agent-presets",
+	"version": "0.2.26102305",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"prompts"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.2.26102305"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "agent-presets",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"contexts": [
+				"jarvis-soul",
+				"jarvis-work",
+				"default-agent-soul",
+				"default-agent-work"
+			],
+			"presets": [
+				"jarvis",
+				"default-agent"
+			]
+		}
+	}
+}

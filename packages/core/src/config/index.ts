@@ -4,6 +4,7 @@ import type { Capability, Level, Preset, Profile } from "@yonder/sdk";
 import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
+import { promptSectionIds } from "../prompt/content.js";
 import {
 	type AgentConfig,
 	AgentSchema,
@@ -71,6 +72,7 @@ export function resolveProfile(profile: Profile, defaults: Profile = {}, workspa
 		capabilities: [...(security.capabilities ?? levels[level ?? "readonly"])],
 		tools: { offer: ["*"], search: [], ...defaults.tools, ...profile.tools },
 		limits: { ...defaultLimits, ...defaults.limits, ...profile.limits },
+		prompt: { ...defaults.prompt, ...profile.prompt },
 	} as ResolvedProfile;
 }
 
@@ -101,10 +103,22 @@ function parse<T extends TSchema>(text: string, file: string, schema: T): Static
 	return value as Static<T>;
 }
 
-function securityIssues(profile: Profile, file: string, path: string): ConfigIssue[] {
-	return profile.level !== undefined && profile.capabilities !== undefined
-		? [{ file, path, message: "level 与 capabilities 只能选择一个" }]
-		: [];
+export function promptErrors(prompt: Profile["prompt"]): string[] {
+	const selected = prompt?.sections ?? [];
+	const ids = [...selected, ...Object.keys(prompt?.overrides ?? {})];
+	return [
+		...new Set(ids.filter((id) => !promptSectionIds.includes(id)).map((id) => `Unknown prompt section: ${id}`)),
+		...(new Set(selected).size !== selected.length ? ["Duplicate prompt section"] : []),
+	];
+}
+
+function profileIssues(profile: Profile, file: string, path: string): ConfigIssue[] {
+	return [
+		...(profile.level !== undefined && profile.capabilities !== undefined
+			? [{ file, path, message: "level 与 capabilities 只能选择一个" }]
+			: []),
+		...promptErrors(profile.prompt).map((message) => ({ file, path: `${path}/prompt`, message })),
+	];
 }
 
 const intersects = (a?: string | string[], b?: string | string[]) =>
@@ -123,13 +137,13 @@ function sameSession(a: Binding, b: Binding): boolean {
 
 export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?: string): AgentConfig {
 	const agent = parse(text, file, AgentSchema);
-	const issues = securityIssues(agent.defaults ?? {}, file, "/defaults");
+	const issues = profileIssues(agent.defaults ?? {}, file, "/defaults");
 	if (expectedId !== undefined && agent.id !== expectedId)
 		issues.push({ file, path: "/id", message: "必须等于 yonder.yaml 登记的 agent id" });
 	if (!(agent.defaultProfile in agent.profiles))
 		issues.push({ file, path: "/defaultProfile", message: "配置档不存在" });
 	for (const [name, profile] of Object.entries(agent.profiles))
-		issues.push(...securityIssues(profile, file, `/profiles/${name}`));
+		issues.push(...profileIssues(profile, file, `/profiles/${name}`));
 	const seen = new Set<string>();
 	for (const [index, binding] of agent.bindings.entries()) {
 		const path = `/bindings/${index}`;
@@ -159,7 +173,7 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 
 export function parsePresetConfig(text: string, id: string, file = `${id}.yaml`): Preset {
 	const { schema: _, ...preset } = parse(text, file, PresetSchema);
-	const issues = securityIssues(preset, file, "/");
+	const issues = profileIssues(preset, file, "/");
 	if (issues.length) throw new ConfigError(issues);
 	return { id, ...preset };
 }
