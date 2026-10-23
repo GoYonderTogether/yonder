@@ -250,11 +250,13 @@ export interface Lookup {
 }
 
 export interface ChannelProvider {
+	multiAgent?: boolean;
 	type: string;
 	configSchema?: TSchema;
 	create(id: string, config: unknown): Channel | Promise<Channel>;
 }
 export interface Channel {
+	multiAgent?: boolean;
 	id: string;
 	kinds: string[];
 	output: { stream: boolean; attachments: boolean };
@@ -383,6 +385,7 @@ export interface ExecutionOwner {
 }
 
 export interface PluginAPI {
+	agents: { list(): Promise<{ id: string; name: string }[]> };
 	readonly version: string;
 	readonly locale: string;
 	readonly timezone: string;
