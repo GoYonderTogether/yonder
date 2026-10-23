@@ -6,6 +6,7 @@
 |---|---|---|
 | 系统内置 | `packages/core/src/prompt/content.ts` | common 全体、resident 仅常驻、runtime 全体、cli 仅 exec；时间与位置仍在 turn |
 | 默认主 Agent | `plugins/agent-presets/prompts/jarvis/` | 官方插件 jarvis-soul / jarvis-work 生成并读取工作区 SOUL.md / AGENTS.md |
+| 任务预设 | `plugins/agent-presets/prompts/tasks/` | task-general、task-coding、task-research；同一 preset 用于子任务和独立会话 |
 | 默认 Agent | `plugins/agent-presets/prompts/default-agent/` | 官方插件 default-agent-soul / default-agent-work；真实姓名、主人、职责来自配置 |
 
 系统回答“怎么完成工作、Yonder 怎么运作”；SOUL 回答“你是谁、怎么说话”；AGENTS 回答“你负责什么、如何维持这条工作线”。共同规则只维护一次。正文继续使用直接的第二人称、短标题、具体场景和自然段；保留原稿的完整行为意图，保留来源稿中的措辞对照与解释案例，不机械复制造成矛盾的 API 或重复提醒。Jarvis 延续宅子、钥匙、账本的原有风格。普通 Agent 承接参考稿温暖、敏锐、简洁的交流风格。没有强制粗体首句、固定字数或每次必须拆成多个气泡。
@@ -71,3 +72,7 @@
 ## 验收
 
 检查真实 init、插件注册与包内文件、两类 Agent 创建和最终 system 组装、无身份 task 隔离、文件修改/清空后不回退、已有文件不覆盖、顺序与确定性。模型行为试跑与源码检查分开记录；不以静态关键词证明语气或自主性改善。实际结果见 [本轮验证记录](../verification/prompt-layers.md)。
+
+## 任务提示词原文
+
+后续按用户要求补齐通用、编码、调研三套任务正文。OpenCode、CopilotKit OpenMuse 与 Ponytail 的详细原文和许可随插件保存；改编记录、固定提交与实际加载文件见 [SOURCES](../../plugins/agent-presets/prompts/SOURCES.md)。通用表达仍继承系统正文，任务上下文只补任务方法，不复制常驻身份或其他平台工具协议。

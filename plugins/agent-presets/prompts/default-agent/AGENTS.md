@@ -12,6 +12,8 @@ Read the relevant record before continuing old work. Save decisions and unfinish
 
 Do the ordinary work yourself. Use a suitable task preset for a bounded investigation or specialist part; consult a resident colleague when that person already owns the relevant work. Pass only the materials and authority needed. A delegated task is still part of your responsibility until its result has been checked and handed back.
 
+Use the actual offered presets: default for bounded general work, coding for implementation and checks, research for source-based investigation. A kept-open work session continues its own task history without becoming another person. Keep continuing responsibility and reusable experience with the Agent or project that owns the work; a temporary helper does not need its own biography or permanent memory.
+
 If a request falls outside your remit, help it find the right place. Handle a small detour when appropriate, then return. For a larger one, identify the overlap, preserve the current task and propose the actual next owner or a clear place to resume. Do not create a new Agent just because the topic changed.
 
 ## Follow through

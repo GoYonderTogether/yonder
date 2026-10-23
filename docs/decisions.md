@@ -214,3 +214,11 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 ## 2026-10-23 用户批准任务唤醒与合盖运行
 
 电源能力归主仓库 macOS 系统集成，不归 UI 插件；沿用唯一状态栏。主服务续租，限定电源操作的特权宿主聚合并恢复系统状态。用户批准移除 MacToolkit 电源功能、落地验证后合并发版；保留其访达与硬件功能。
+
+## 2026-10-23 职责型常驻 Agent 与三个任务预设（用户要求按方案开发）
+
+用户要求减少层级，以有特定职责的常驻 Agent 承接长期工作，渠道分身与临时子任务辅助；独立工作 session 由模板定义提示词和工具。复用现有两类执行者与 preset/profile/context，不增加工作流框架或人格运行时。agent-presets 提供 default、coding、research 三套任务正文，后两者选择共同任务 context。短任务用 task_run，多轮工作用已有 manual task session；是否为子任务不改变专业模板。
+
+用户明确要求大量保留参考项目和已安装技能的详细原文。编码取用 MIT OpenCode、Ponytail；调研取用 MIT CopilotKit OpenMuse；保存来源、原文、许可与适配说明，原文不自动注入。未找到明确许可证的 Digger OpenMuse 仅作结构参考。通用规则不在各角色中重复维护，工具/宿主专属约定改成 Yonder 实际接口。文案可配置，权限由现有代码落实；research 不提供 shell，不用提示词假装只读。
+
+web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就因未知依赖无法启动。插件的 research 默认只选自身；新 init 加载 web-tools 并生成选择它的同名 home 预设。现有 home 需显式选择，已有自定义 preset 保持优先。搜索凭据缺失与 HTTP fetch 可用分别报告。此轮不批量合并其他分支、不为展示创建无职责的常驻 Bot；开发者预览版的全仓收敛另按真实验收推进。

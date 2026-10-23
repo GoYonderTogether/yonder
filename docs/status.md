@@ -1,12 +1,14 @@
 # 项目状态
 
-更新：2026-10-21。版本 0.2.26102106，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
+更新：2026-10-23。版本 0.2.26102307 发布候选，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
 
 任务恢复（D46）：已实现消息/运行/后续责任分离、内部委派跨重启重接、真实错误保留、后台结果接纳补交及确定未发送通知补达；207项真实验收及macOS CI通过；正式03已由日用apply策略自动升级并核验，飞书升级通知送达。完整原始记录见 [task-recovery](verification/task-recovery.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
 ## 验证基线
+
+- 0.2.26102307 提示词与任务预设：默认全仓 423/0/38，真实 Luna 三类任务及连续工作 session 集成 1/0/0；构建、类型检查、lint 通过，原始失败和修正保留在 [任务预设验收](verification/task-presets.md)。
 
 - 0.2.26102106 构建、类型检查通过；默认测试 **246 通过 / 0 失败 / 26 跳过（272）**，56 文件通过 / 13 跳过；lint **0 错误 / 204 warnings / 1 info**。真实模型 `openai/gpt-6-luna` 与隔离 launchd（`--maxWorkers=4`）全量 **271 通过 / 0 失败 / 1 跳过（272）**，68 文件通过 / 1 跳过。此前全量 270 通过 / 1 失败 / 1 跳过与单文件重跑失败均为 input-queue 提示竞争导致的既有模型输出不确定，诊断及最小提示修正原样记录在 [0.2.26102106 验收](verification/release-26102106.md)。历史原始结果见 [0.2.26102104 验收](verification/release-26102104.md)、[0.2.26102105 验收](verification/release-26102105.md)；任务恢复与去重见 [task-recovery](verification/task-recovery.md)、[background-result-dedupe](verification/background-result-dedupe.md)。默认跳过项需要真实模型与凭据；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
@@ -36,7 +38,7 @@
 - 沙箱或容器隔离的执行环境（环境槽已定义；本机 exec 不是沙箱）。
 - MCP 客户端的交互式 OAuth 登录（已有授权可用凭据 header）。
 - Linux systemd、Windows 支持；Web 控制台；交互式安装向导。
-- 更多专业角色模板；本轮 agent-presets 提供 Jarvis 与普通常驻 Agent 两类，见下方验证记录。
+- 官方常驻模板已提供 Jarvis 与普通常驻 Agent；任务预设新增 default/coding/research，接线与实际验证见 [任务预设](verification/task-presets.md)。更专门的购物等 Agent 尚未提供。
 - 文档/PDF 解析、TTS、视频生成；ASR 随包但默认未启用。
 
 ## 未关闭的真实验收

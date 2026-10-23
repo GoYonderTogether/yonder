@@ -3,6 +3,31 @@ import { definePlugin } from "@yonder/sdk";
 
 export default definePlugin({
 	async setup(api) {
+		for (const name of ["general", "coding", "research"]) {
+			const text = await readFile(new URL(`../prompts/tasks/${name}.md`, import.meta.url), "utf8");
+			api.contexts.register({ id: `task-${name}`, placement: "system", render: () => text.trim() });
+		}
+		for (const [id, description] of [
+			["default", "Complete a bounded general task with explicit inputs and verifiable results."],
+			["coding", "Implement and verify a software change in the specified repository."],
+			["research", "Investigate supplied material and available web sources; return evidence and citations."],
+		] as const) {
+			api.presets.register({
+				id,
+				description,
+				model: "openai/gpt-6-luna",
+				capabilities: id === "research" ? ["read", "network"] : ["read", "write", "exec", "network"],
+				plugins: [api.id],
+				contexts: id === "default" ? ["task-general"] : ["task-general", `task-${id}`],
+				tools: {
+					offer:
+						id === "research"
+							? ["read", "grep", "skill_view", "web-tools_search", "web-tools_fetch", "web-tools_extract"]
+							: ["read", "grep", "write", "edit", "bash", "process", "skill_view"],
+					search: [],
+				},
+			});
+		}
 		for (const [id, description] of [
 			["jarvis", "Create a resident Jarvis: personal affairs, the local computer and Agent coordination."],
 			["default-agent", "Create a resident collaborator with a configured name and remit."],

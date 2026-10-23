@@ -52,6 +52,14 @@ prompt:
 
 未写 sections 保留默认全量顺序。上例替换整个 common.writing 段、关闭 resident.growth；其他段落沿用默认。希望只改段内某句时，将该段正文复制到 overrides 再编辑该句。支持字面文本，不读取任意路径、不执行代码、不替换 ${...}。角色正文可直接编辑工作区 SOUL.md/AGENTS.md，空文件保持为空，不回填模板。
 
+## 任务预设与专业正文
+
+插件提供 default、coding、research 三套任务预设。任务正文以 task-general、task-coding、task-research 三个 context 选择，沿用 contexts 的整表替换规则。例如只保留编码方法但去掉通用任务段，设置 `contexts: [task-coding]`；全部关闭则 `contexts: []`，再将精简后的方法放进 instructions。希望修改其中一段，复制该任务正文到 instructions、删改所需段落，并移除原 context，避免两份同时加载。无需编辑安装包。
+
+角色文件和任务正文与内置 prompt.sections 分开控制。只设置 `prompt.sections: []` 不会移除已选 task context。小模型需要同时选择内置段、任务/角色 contexts、技能索引与工具；没有自动截断，也不会因模型名而改变设置。配置支持删除正文，但不改变实际工具能力、身份和输入元数据。
+
+home 中同名 preset 覆盖插件贡献的完整 preset，而非按字段继承；用 `presets update <id> --file <patch.json>` 从当前有效配置做部分更新可保留原有模型和工具。系统不会自动替换旧 default.yaml。完整来源可从插件 prompts/tasks 复制后编辑，许可证与来源记录见 prompts/SOURCES.md。
+
 ## 继承和校验
 
 prompt 的 sections 与 overrides 分别继承 defaults。profile 写 sections 时整表替换；写 overrides 时整张替换表替换，`overrides: {}` 可清除从 defaults 继承的替换。替换只影响被选择的段，不能把未选择的段偷偷加回来。空字符串去掉对应段。顺序取 sections 列表，重复与未知 id 拒绝加载，错误重载保留旧有效配置。
