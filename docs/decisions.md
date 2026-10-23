@@ -189,3 +189,7 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 ## 2026-10-23 合并状态栏与 UI Companion（用户要求直接合入当前仓库）
 
 状态栏留在 packages/macos，继续归安装/服务客户端；交互数据、工具和回环 Web 保留在 ui-companion 插件。移除插件独立 App 和 NSStatusItem，通过插件私有 desktop.json 把当前回环页面交给同 home 的唯一状态栏。左键当前交互/历史，右键交互入口、服务状态、检查更新与停止服务并退出；任务默认完成后仍同时隐藏浮窗与浮球。现有未提交的 channel-card 工作必须完整保留。
+
+## 2026-10-23 桌面入口默认就绪修复（用户反馈已更新却提示插件未就绪）
+
+0.2.26102302 只随发行提供 UI 插件，旧 home 未配置时没有端点，状态栏因此不可用。默认加载桌面服务与授予 Agent 工具是不同职责：init 全局加载 ui-companion；CLI start 按已注册插件 id 为旧 home 补齐，复用现有管理入口做原子校验写入。已有来源与 desktop:false 保留，不改 Agent/预设的插件选择或权限。

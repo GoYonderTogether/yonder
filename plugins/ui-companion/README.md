@@ -6,7 +6,7 @@
 
 在仓库运行 `npm run build`，会编译 TypeScript、构建离线 Web 页面，并在 macOS 编译主仓库唯一的 `packages/macos/dist/YonderStatus.app`。无需新增下载依赖。非 macOS 跳过状态栏宿主，仍提供网页。
 
-使用现有 CLI 将本目录添加到目标 home：
+新 home 默认加载官方插件；已有 home 在 CLI start 时补齐，已有配置与 desktop:false 保留。开发时可用现有 CLI 指向本目录：
 
 ```sh
 yonder plugins add /absolute/path/to/yonder-harness/plugins/ui-companion --home /absolute/path/to/home
@@ -21,7 +21,7 @@ plugins:
       desktop: true
 ```
 
-在实际 Agent 的 defaults.plugins 或配置档 plugins 选入 ui-companion，tools.offer 选 `ui-companion_*`；呈现需要 message，读取需要 read。安装插件不会自动扩大任何 Agent 的工具权限。使用既有重启方式加载代码；本轮没有改正式 home、注册登录项、替换已安装服务或发布 npm 包。
+在实际 Agent 的 defaults.plugins 或配置档 plugins 选入 ui-companion，tools.offer 选 `ui-companion_*`；呈现需要 message，读取需要 read。安装插件不会自动扩大任何 Agent 的工具权限。使用既有重启方式加载代码。
 
 ## 真实调用闭环
 
@@ -83,3 +83,7 @@ npm run build && npm run typecheck && npm test && npm run lint
 ## 0.2.26102302 发布候选验证
 
 基于当前正式主线 0e97c70，仅移植已确认 UI 功能及其必需品牌资源，不包含未提交的 channel-card 或 card-studio。npm ci、构建、typecheck 通过；默认全仓 97 文件通过/17 跳过，413 测试通过/36 跳过，0 失败；未调用真实模型。lint 退出成功（323 警告、13 提示），本次新增源码单独检查无警告。系统级全屏、台前调度以及菜单左右键真人验收仍未完成，发版不改变此边界。
+
+## 0.2.26102303 默认就绪修复验证
+
+本机旧 home 已补入官方插件并重启；runtimeLoaded 为 true，端点返回 HTTP 200。新 home、缺插件的旧 home 与 desktop:false 均通过真实内核/CLI 子进程回归，Agent 配置未变。全仓 97 文件通过/17 跳过，414 测试通过/36 跳过，0 失败；build、typecheck、lint 通过（323 条既有警告、13 条提示），权限自检 36 通过/0 失败。默认测试未启用真实模型；状态栏鼠标与全屏/台前调度人工体验未在本轮验证。

@@ -189,7 +189,7 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 ## UI Companion 交互窗口
 
-2026-10-22 用户确认原型并要求直接接入插件。官方插件 `ui-companion` 仅使用 tools、triggers 与既有 session.close 事件；不增加 SDK 槽或内核状态机。
+2026-10-22 用户确认原型并要求直接接入插件。官方插件 `ui-companion` 默认作为桌面入口加载；Agent 工具仍需按配置档选择。它仅使用 tools、triggers 与既有 session.close 事件；不增加 SDK 槽或内核状态机。
 
 - `ui-companion_present` 接受 card：id/title/prompt、kind（choice/form）、choice 的 options（唯一 id、label）、可选 next 和 autoClose（默认 true，完成隐藏浮窗与浮球；菜单栏保留历史入口）。返回交互 id、回环页面 URL、页面提醒 URL 与无品牌内嵌 URL。任何被配置选择了该工具的 Agent/预设均可使用；呈现需 message，限 node:local。插件加载不代表自动给所有 Agent 开工具。
 - `ui-companion_result` 接受 id、可选 wait（默认 true），仅返回本次实际 session/agent/profile 发起的卡片结果；需要 read。等待复用宿主工具取消/后台执行，不创建第二个模型循环。取消等待不取消卡片，后续可继续查询；session.close 取消该会话未完成卡片。卡片回答只是输入，不构成对其他工具的权限放行。
