@@ -323,6 +323,10 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
 - **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立只读分身、非空 60 秒分桶和显式定向发送。全量权限须由群主在具体群聊内管理该机器人时逐群配置，机器人的全局设置不能替代。
 
+## channel-card
+
+`@yonder/plugin-channel-card`：多 Agent 名片渠道（type card、multiAgent）。设备码登录、单条 WS、游标补收；工具 channel-card_card_push 仅起草调用 Agent 自己的名片。配置与限制见 [README](../plugins/channel-card/README.md) 和 [16](spec/16-card-plugin.md)。
+
 ## ui-companion — 本地交互窗口
 
 - **源码**：[入口](../plugins/ui-companion/src/index.ts) · [运行和验收](../plugins/ui-companion/README.md)

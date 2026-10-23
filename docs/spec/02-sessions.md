@@ -40,7 +40,7 @@
 
 绑定写在 agent 的 `agent.yaml`（03 §2）里，是一张有序表。内核对每个 agent **独立**求值，取该 agent 第一条命中的绑定；一个事件可以同时进多个 agent。**agent 的会话只能经绑定唤醒**（架构不变量 2）。
 
-内部 `agent` 渠道带 `data.target` 时只允许该目标命中；其他 agent 记 `no-binding`。目标仍须通过自己的绑定，不增加 match 维度。普通渠道不得使用这个字段指定目标。
+内部 `agent` 渠道带 `data.target` 时只允许该目标命中；其他 agent 记 `no-binding`。目标仍须通过自己的绑定，不增加 match 维度。普通渠道不得使用这个字段指定目标；唯一例外是注册时声明 `multiAgent:true` 的渠道 provider（04）：同样只求值目标 Agent，必须通过其自己的绑定，其他 Agent 记 no-binding。
 
 `parent_ask` 写内部 message.in（kind: parent-request），目标固定为调用方所属 Agent，仅允许 main 绑定命中；原会话、配置档、来源事件与发送者由内核附上。没有 main 绑定即不运行。工具不直接向常驻会话 submit；返回沿原生调用等待交给分身，包含实际 status、session 和 text，不能自动公开主会话答复。复用稳定调用身份，重启重接同一请求。
 
