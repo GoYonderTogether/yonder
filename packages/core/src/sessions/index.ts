@@ -12,9 +12,16 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import { Check } from "typebox/value";
-import { type AgentConfig, type ResolvedProfile, resolveProfile, type YonderConfig } from "../config/index.js";
+import {
+	type AgentConfig,
+	presetProfile,
+	presetSession,
+	type ResolvedProfile,
+	resolveProfile,
+	type YonderConfig,
+} from "../config/index.js";
 import { SessionModelsSchema } from "../config/schema.js";
-import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
+import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 
 interface CreateSessionsOptions {
@@ -45,15 +52,12 @@ export function createSessions({
 	const closing = new Set<string>();
 	const opening = new Map<string, Promise<{ session: SessionInfo; profileMismatch: boolean }>>();
 	const preset = (id: string) => homePresets.get(id) ?? pluginPresets.get(id);
-	const runtimeProfile = (profile: Preset, env: string, capabilities?: Capability[]): ResolvedProfile => {
-		const resolved = resolveProfile(profile, {}, env);
-		if (!capabilities) return resolved;
-		const { level: _level, ...effective } = resolved;
-		return {
-			...effective,
-			capabilities: resolved.capabilities.filter((capability) => capabilities.includes(capability)),
-		};
-	};
+	const runtimeProfile = (
+		profile: Preset,
+		env: string,
+		capabilities?: Capability[],
+		inherit?: RuntimeSessionState["inherit"],
+	): ResolvedProfile => presetProfile(profile, env, capabilities, inherit);
 	const workspace = (agent: string) => {
 		const entry = config.agents?.find((candidate) => candidate.id === agent);
 		if (!entry) throw new Error(`Unknown agent workspace: ${agent}`);
@@ -72,7 +76,7 @@ export function createSessions({
 				agent: null,
 				profile: row.profile,
 				cwd: state.cwd,
-				resolved: runtimeProfile(selected, state.env, state.capabilities),
+				resolved: runtimeProfile(selected, state.env, state.capabilities, state.inherit),
 			};
 		}
 		if (!row.agent) throw new Error(`Agent session has no agent: ${id}`);
@@ -391,13 +395,7 @@ export function createSessions({
 			const baseEnv = parentProfile?.resolved.env ?? parentState?.env ?? "local";
 			const env = selected.env ?? baseEnv;
 			const cwd = parentState?.cwd ?? parentProfile?.cwd ?? home;
-			const presetCapabilities = resolveProfile(selected, {}, env).capabilities;
-			const parentCapabilities = parentProfile?.resolved.capabilities ?? presetCapabilities;
-			const capabilities = presetCapabilities.filter(
-				(capability) =>
-					parentCapabilities.includes(capability) &&
-					(!request.capabilities || request.capabilities.includes(capability)),
-			);
+			const { capabilities, inherit } = presetSession(selected, env, parentProfile?.resolved, request.capabilities);
 			const key = randomUUID();
 			const id = await runtime().create({
 				agent: null,
@@ -405,6 +403,7 @@ export function createSessions({
 				cwd,
 				env,
 				capabilities,
+				...(inherit ? { inherit } : {}),
 				close: request.close ?? "run-end",
 			});
 			const session: SessionInfo = {

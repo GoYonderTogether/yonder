@@ -16,16 +16,8 @@ export default definePlugin({
 				id,
 				description,
 				model: "openai/gpt-6-luna",
-				capabilities: id === "research" ? ["read", "network"] : ["read", "write", "exec", "network"],
 				plugins: [api.id],
 				contexts: id === "default" ? ["task-general"] : ["task-general", `task-${id}`],
-				tools: {
-					offer:
-						id === "research"
-							? ["read", "grep", "skill_view", "web-tools_search", "web-tools_fetch", "web-tools_extract"]
-							: ["read", "grep", "write", "edit", "bash", "process", "skill_view"],
-					search: [],
-				},
 			});
 		}
 		for (const [id, description] of [
