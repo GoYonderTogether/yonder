@@ -40,7 +40,7 @@ import type { ChatTarget } from "./terminal.js";
 const usage = `Usage: yonder <command> [options]
 
 Commands:
-  init [dir] [--owner <id>]       初始化数据目录 · Create a home
+  init [dir] [--owner <id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider>                登录模型供应商 · Authenticate provider
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
@@ -417,18 +417,19 @@ async function run(args: string[]): Promise<number> {
 
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
+		const isolated = rest.includes("--isolated");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
 		const target = rest.find(
 			(value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1),
 		);
-		if (ownerIndex >= 0 && !owner) throw new UsageError("init --owner requires an id");
+		if (ownerIndex >= 0 && (!owner || owner.startsWith("-"))) throw new UsageError("init --owner requires an id");
 		if (
-			rest.some((value) => value.startsWith("-") && value !== "--owner") ||
+			rest.some((value) => value.startsWith("-") && value !== "--owner" && value !== "--isolated") ||
 			rest.filter((value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1)).length > 1
 		)
-			throw new UsageError("Usage: yonder init [dir] [--owner <id>]");
+			throw new UsageError("Usage: yonder init [dir] [--owner <id>] [--isolated]");
 		const home = homeFor(options, true, target);
-		return print(initHome(home, owner), options.json);
+		return print(initHome(home, owner, { isolated }), options.json);
 	}
 	if (command === "credentials") {
 		if (

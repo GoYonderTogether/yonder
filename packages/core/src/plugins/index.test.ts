@@ -61,7 +61,7 @@ it("loads both first-party plugins through the manifest and registration checks"
 			services,
 		);
 		expect([...plugins.channels.keys()]).toEqual(["cli"]);
-		expect([...plugins.contexts.keys()]).toEqual(["agents-md", "user-md", "soul-md", "memory-md"]);
+		expect([...plugins.contexts.keys()]).toEqual(["peer-workspace", "agents-md", "user-md", "soul-md", "memory-md"]);
 		expect(plugins.envs.size).toBe(0);
 	} finally {
 		await rm(home, { recursive: true, force: true });

@@ -17,6 +17,21 @@ import type { WorkspaceFiles } from "../config/index.js";
 import type { RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
 import { builtinPromptSections, promptSectionIds } from "./content.js";
 
+/** Core context: no optional plugin or template fallback is needed for peer collaboration. */
+export const peerWorkspaceContext: ContextContribution = {
+	id: "peer-workspace",
+	placement: "system",
+	async render(context) {
+		if (!context.agent) return undefined;
+		const sections: string[] = [];
+		for (const path of ["SOUL.md", "AGENTS.md"]) {
+			const text = await context.workspace.read(path);
+			if (text?.trim()) sections.push(`<${path}>\n${text}\n</${path}>`);
+		}
+		return sections.join("\n\n");
+	},
+};
+
 export const memoryGuide = `# 手工记忆资料\n\n这是临时、按需读取的记录目录，不是自动记忆引擎。用 YYYY-MM-DD/主题.md 保存已确认的条目，注明日期、来源、适用范围，区分事实与假设；需要时用文件检索读取，可手工合并、编辑和归档。不要保存凭据。\n\n本目录不会自动注入提示词，不自动总结、整理、清理或删除。记忆方法需要结合真实场景，参考成熟项目或方法论迭代，找到适合当前使用的方法；不要把这个简单约定当作长期固定方案。\n`;
 
 export const escapeXml = (value: string) =>

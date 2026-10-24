@@ -14,6 +14,8 @@ import {
 	type YonderConfig,
 } from "../config/index.js";
 
+import { withDefaultPeer } from "./peer.js";
+
 export interface ObjectRequest {
 	action: string;
 	id?: string;
@@ -99,6 +101,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					"agent.yaml",
 					id,
 				);
+				generated = withDefaultPeer(generated, value.isolated);
 				config.agents = [...(config.agents ?? []), { id, workspace: `./agents/${id}` }];
 				const files = state.files(config, id);
 				if (await files.exists(".")) throw new Error(`Workspace already exists: ${resolve(home, `agents/${id}`)}`);

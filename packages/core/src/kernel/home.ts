@@ -12,6 +12,7 @@ import {
 } from "../config/index.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
+import { withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
 export function protectSessions(
@@ -100,7 +101,9 @@ export function configurationErrors(
 	return errors;
 }
 
-export async function initHome(home: string, owner = "owner") {
+export async function initHome(home: string, owner = "owner", options: { isolated?: boolean } = {}) {
+	if (options.isolated !== undefined && typeof options.isolated !== "boolean")
+		throw new Error("isolated must be a boolean");
 	home = resolve(home);
 	const directory = join(home, "agents/main");
 	await mkdir(directory, { recursive: true });
@@ -122,28 +125,31 @@ export async function initHome(home: string, owner = "owner") {
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
 	await mkdir(join(home, "presets"), { recursive: true });
-	const agent: AgentConfig = {
-		schema: 1,
-		id: "main",
-		name: "Jarvis",
-		owner: `person:${owner}`,
-		defaultProfile: "owner",
-		defaults: {
-			model: "openai/gpt-6-luna",
-			contexts: ["jarvis-soul", "jarvis-work"],
-			plugins: ["context-files", "agent-presets"],
-		},
-		profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
-		bindings: [
-			{
-				id: "owner",
-				match: { channel: "cli", kind: "dm", from: "owner" },
-				session: "main",
-				profile: "owner",
-				stream: true,
+	const agent: AgentConfig = withDefaultPeer(
+		{
+			schema: 1,
+			id: "main",
+			name: "Jarvis",
+			owner: `person:${owner}`,
+			defaultProfile: "owner",
+			defaults: {
+				model: "openai/gpt-6-luna",
+				contexts: ["jarvis-soul", "jarvis-work"],
+				plugins: ["context-files", "agent-presets"],
 			},
-		],
-	};
+			profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
+			bindings: [
+				{
+					id: "owner",
+					match: { channel: "cli", kind: "dm", from: "owner" },
+					session: "main",
+					profile: "owner",
+					stream: true,
+				},
+			],
+		},
+		options.isolated,
+	);
 	await writeFile(join(directory, "agent.yaml"), stringify(agent), { flag: "wx" });
 	const plugins = await loadPlugins(
 		home,

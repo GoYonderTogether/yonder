@@ -17,7 +17,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 | 命令 | 作用 |
 |---|---|
-| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、ui-companion、agent-presets、web-tools 五款官方插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、name `Jarvis`、contexts `[jarvis-soul, jarvis-work]`、plugins `[context-files, agent-presets]`；CLI owner 私聊绑定到主会话且 stream 开启；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另从官方插件生成 default 与选择 web-tools 的 research 任务配置，coding 直接用插件预设（03 §5.4.1、12 §3） |
+| `init [dir] [--owner <id>] [--isolated]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、ui-companion、agent-presets、web-tools 五款官方插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、name `Jarvis`、contexts `[jarvis-soul, jarvis-work]`、plugins `[context-files, agent-presets]`；CLI owner 私聊绑定到主会话且 stream 开启；默认先生成独立 peer profile/binding，`--isolated` 禁用（03 §2.4）；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另从官方插件生成 default 与选择 web-tools 的 research 任务配置，coding 直接用插件预设（03 §5.4.1、12 §3） |
 | `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 |
 | `credentials set <name> --home <dir>` | 本机隐藏录入一项命名 API key（07 §6.2）：仅交互 TTY，不接受秘密参数、管道或 `--json`；已有同名项（含 OAuth）一概拒绝，不提供读取、轮换、删除；与 OAuth 共用凭据文件锁，原子写入，文件须为本用户单链接 0600 普通文件，路径中不得有 symlink 或他人可写目录。运行中的服务不必停止 |
 | `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 |
@@ -137,3 +137,5 @@ CLI awake status/set/install 提供状态、布尔策略开关和用户主动授
 现有菜单的“保持唤醒”子菜单提供互斥的关闭、任务期间保持唤醒、始终保持唤醒。沿用已安装电源组件，不增加图标。CLI awake set 接受 off/tasks/always，旧 on 等价 tasks，旧 enabled 布尔配置兼容读取。模式选择保存到同一 home，已有关闭选择保留；首次启用 always 提示额外耗电与合盖散热，用户确认后保存提示已读。
 
 任务模式在观察到最后一项真实任务结束时开始至少 15 分钟缓冲，期间新任务重置缓冲，等新任务全部结束后重新计 15 分钟。缓冲结束前最后再查询一次运行状态；始终模式不因空闲释放，关闭模式立即释放。状态显示真实保护结果、模式和缓冲剩余分钟；不能以 active=0 判定缓冲期不需要保护。等待未来定时任务不单独持有保护，已配置定时任务进入实际运行后沿相同机制重计缓冲。服务退出仍释放自身保护，重启不会凭空补出历史缓冲。唤醒与网络重连是不同能力，不承诺已睡主机能被普通 cron 或消息唤醒，也不承诺手机热点永不断连。
+
+创建接口：`initHome(home, owner?, options?: { isolated?: boolean })`；`agents create --file` 的创建输入可含 isolated，不新增该命令旗标，也不持久化到 Agent 配置。

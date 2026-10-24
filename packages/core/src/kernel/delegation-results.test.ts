@@ -58,7 +58,7 @@ export default {setup(api){api.channels.register({type:'delegation-source',creat
 			const parent = parse(await readFile(path, "utf8"));
 			parent.defaults.contexts = [];
 			parent.profiles.owner.tools = { offer: ["agent_ask", "write"] };
-			parent.bindings[0].match.channel = "feishu";
+			parent.bindings.find((binding: { id: string }) => binding.id === "owner")!.match.channel = "feishu";
 			await writeFile(path, stringify(parent));
 			await mkdir(`${home}/agents/helper`);
 			await writeFile(

@@ -244,3 +244,7 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 真实实现差异：poll 的过期和未知码均为 404 invalid_code，used 为状态；WS 错误当前仅 {error}，没有 type/ref；登记仅 upsert，不移除省略 Agent，hello 的订阅在连接时固定。插件适配这些事实（未关联错误等待确认超时、同步后重连）；不修改 realtime.ts。详见 16。
 
 维护者批准第二种连接方式 B（网页发起邀请）：已登录 human 的 `POST /api/device/invite` 返回绑定账号的十位数字一次性码及 ISO expiresAt，十分钟有效；Agent 经现有 `yonder channels login card --verify-code <code>` 无认证调用 `POST /api/device/redeem` `{code,name,kind}`，得到 deviceToken，复用私有保存、全 Agent 登记和连接，无需再次确认。card 的 verifyCode 在 start/poll 均走兑换，以兼容现有 CLI；404 invalid_code → invalid-code，429 rate_limited → retry-later，已有当前 endpoint 令牌则 already-connected、不消耗邀请码。原 start/confirm/poll 保留；邀请码与令牌均不得记录。新增替身测试仅为契约测试，不等于并行后端已联调。方式 A（浏览器 URL scheme/loopback 唤醒本地 Yonder）未实现，须先获维护者批准内核设计。
+
+## D63 新建 Agent 默认窄权限 peer 协作（2026-10-24 主人批准）
+
+选择方案 A：read/grep/skill_view/agent_ask、read/message，禁用工具搜索、插件及技能。init/create 共用生成器，置前 ephemeral peer binding，reply none；isolated 是严格布尔创建输入，保守拒绝可能接收 agent/agent 的显式 bindings。只复用模型参数，不继承主人的 defaults 上下文与提示覆盖；用现有 context 字段选内核内置双文件读取，不增加 schema、内核状态或可选插件依赖。工作区预加载也必须守 canonical 路径边界。旧配置不自动改；同一工作区不是私密文件隔离，旧宽泛 bypass 接收方仍有代理提权风险。人工迁移方案见 research/default-agent-peer-binding-design.md。

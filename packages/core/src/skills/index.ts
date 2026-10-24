@@ -239,6 +239,7 @@ export function createSkills({ home, pluginDirs, pluginSources, workspace, onIss
 	}
 
 	async function view(session: RuntimeSessionConfig, name: string, path?: string): Promise<ToolResult> {
+		if (session.resolved.skills.length === 0) throw new Error(`未找到当前配置档选中的 skill：${name}`);
 		const report = await inspectInternal(session);
 		const skill = report.skills.find(
 			(candidate) => candidate.name === name && !candidate.shadowed && candidate.selected,
@@ -262,7 +263,8 @@ export function createSkills({ home, pluginDirs, pluginSources, workspace, onIss
 	return {
 		inspect,
 		show,
-		index: async (session: RuntimeSessionConfig) => (await inspectInternal(session)).index,
+		index: async (session: RuntimeSessionConfig) =>
+			session.resolved.skills.length === 0 ? "" : (await inspectInternal(session)).index,
 		view,
 	};
 }

@@ -95,7 +95,7 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 		await store.events.recordRun(end.ending);
 		end.deliver();
 	};
-	return { db, store, delivery, channel, session, event, bubbles, sent, emit, finish };
+	return { db, store, delivery, channel, session, event, bubbles, sent, emit, finish, config };
 }
 
 test("messages close during tool work; progress and answer keep independent receipts without a new input", async () => {
@@ -379,5 +379,47 @@ test("selected beforeSend filters complete split messages before attempts/ledger
 	} finally {
 		await y.delivery.close();
 		await y.db.close();
+	}
+});
+
+test("peer reply none records caller return without a channel message or stream", async () => {
+	const x = await setup();
+	try {
+		x.config.bindings![0]!.reply = "none";
+		const event = newEvent(
+			{
+				type: "message.in",
+				from: "acct:agent:other",
+				conv: "conv:test:chat",
+				data: { kind: "agent", text: "Delivery contract" },
+			},
+			[{ agent: "main", session: "1", binding: "source", waiting: true }],
+		);
+		await x.store.events.append(event);
+		expect(x.delivery.onStart(x.session, event, true)).toBeUndefined();
+		// Supply a protocol result directly, not a model implementation.
+		const end = await x.delivery.onRun(
+			x.session,
+			{
+				runId: "peer-contract",
+				status: "done",
+				text: "Protocol return",
+				inputs: [event.id],
+				config: x.config,
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+			},
+			[event],
+			true,
+		);
+		expect(end.ending.data.replied).toBe("caller");
+		expect(end.ending.data.targets).toEqual([]);
+		await x.store.events.recordRun(end.ending);
+		end.deliver();
+		expect(x.sent).toEqual([]);
+		expect(x.bubbles).toEqual([]);
+		expect((await x.store.events.query({ type: "message.out" })).events).toEqual([]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
 	}
 });
