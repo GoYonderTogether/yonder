@@ -64,7 +64,12 @@ it("allows allowed agents on non-chat events and still gates chat messages", asy
 			},
 		},
 	} as never;
-	const cron = { ...event(), type: "cron.memory-evening", from: "plugin:cron", conv: "conv:cron:memory-evening" } as never;
+	const cron = {
+		...event(),
+		type: "cron.memory-evening",
+		from: "plugin:cron",
+		conv: "conv:cron:memory-evening",
+	} as never;
 	expect(await allowedRun(api, config, "keeper", cron)).toBe(true);
 	expect(await allowedRun(api, config, "other", cron)).toBe(false);
 	expect(await allowedRun(api, config, undefined, cron)).toBe(false);

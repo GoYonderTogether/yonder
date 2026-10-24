@@ -74,7 +74,9 @@ export default definePlugin({
 					try {
 						ctx.signal.throwIfAborted();
 						if (!config || !(await allowedRun(api, config, ctx.agent, ctx.event)))
-							throw new Error(`${name} requires an allowed agent (and, for chat messages, the owner in an approved conversation)`);
+							throw new Error(
+								`${name} requires an allowed agent (and, for chat messages, the owner in an approved conversation)`,
+							);
 						if (!ctx.capabilities.includes(write ? "write" : "read") || !ctx.capabilities.includes("admin"))
 							throw new Error(`${name} requires ${write ? "write" : "read"} and admin`);
 						if (!Check(parameters, input)) throw new Error(`Invalid ${name} parameters`);
