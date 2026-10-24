@@ -485,17 +485,29 @@ export class FeishuChannel implements Channel {
 		for (const resource of parsed.resources) {
 			try {
 				const kind = resource.kind === "image" ? "image" : "file";
-				const response = await this.client.raw(
-					`/im/v1/messages/${encodeURIComponent(messageId)}/resources/${encodeURIComponent(resource.key)}?type=${kind}`,
-					"GET",
-					undefined,
-					signal,
-				);
-				if (!response.ok) {
-					await response.body?.cancel();
-					throw new Error(`resource HTTP ${response.status}`);
+				let response!: Response;
+				let bytes!: Buffer;
+				// A dropped connection is common on a moving laptop: retry before telling the agent the resource is lost.
+				for (let attempt = 1; ; attempt++) {
+					try {
+						response = await this.client.raw(
+							`/im/v1/messages/${encodeURIComponent(messageId)}/resources/${encodeURIComponent(resource.key)}?type=${kind}`,
+							"GET",
+							undefined,
+							signal,
+						);
+						if (!response.ok) {
+							await response.body?.cancel();
+							throw new Error(`resource HTTP ${response.status}`);
+						}
+						bytes = await this.client.bytes(response, this.config.mediaMaxBytes ?? 30000000);
+						break;
+					} catch (error) {
+						const retryable = !/resource HTTP 4\d\d/.test(error instanceof Error ? error.message : "");
+						if (!retryable || attempt >= 3 || signal.aborted) throw error;
+						await new Promise((resolve) => setTimeout(resolve, 1000 * 3 ** (attempt - 1)));
+					}
 				}
-				const bytes = await this.client.bytes(response, this.config.mediaMaxBytes ?? 30000000);
 				const mime = mimeFromBytes(bytes, response.headers.get("content-type") ?? "application/octet-stream");
 				const disposition = response.headers.get("content-disposition") ?? "";
 				const rawName = resource.name || /filename\*?=(?:UTF-8''|["']?)([^"';]+)/i.exec(disposition)?.[1];
@@ -509,7 +521,12 @@ export class FeishuChannel implements Channel {
 				await writeFile(path, bytes, { mode: 0o600 });
 				attachments.push({ kind: resource.kind, mime, uri: pathToFileURL(path).href, name, bytes: bytes.length });
 			} catch (error) {
-				failures.push(`[${resource.kind} unavailable: ${this.client.safe(error)}]`);
+				this.api.log.warn("Feishu resource download failed", {
+					instance: this.id,
+					kind: resource.kind,
+					error: this.client.safe(error),
+				});
+				failures.push(`[${resource.kind === "image" ? "图片" : "文件"}没能下载，可以请对方重发]`);
 			}
 		}
 		const mentions = Array.isArray(message.mentions)

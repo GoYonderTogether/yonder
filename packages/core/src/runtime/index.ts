@@ -483,6 +483,7 @@ export class Runtime {
 		cwd: string;
 		env?: string;
 		capabilities?: Capability[];
+		inherit?: RuntimeSessionState["inherit"];
 		close?: "run-end" | "manual";
 	}): Promise<string> {
 		const conversation = await this.harness.createConversation(
@@ -495,6 +496,7 @@ export class Runtime {
 						cwd: meta.cwd,
 						env: meta.env ?? "local",
 						capabilities: meta.capabilities ?? null,
+						inherit: meta.inherit ?? null,
 						close: meta.close ?? "run-end",
 					});
 				},
@@ -514,11 +516,16 @@ export class Runtime {
 			cwd: state.cwd,
 			env: state.env,
 			...(state.capabilities ? { capabilities: [...state.capabilities] } : {}),
+			...(state.inherit ? { inherit: structuredClone(state.inherit) } : {}),
 		};
 	}
 	async setSessionState(id: string, state: RuntimeSessionState): Promise<void> {
 		await (await this.conversation(id)).commit(async (tx) => {
-			Object.assign(await tx.doc(SessionDoc, cid(id)), { ...state, capabilities: state.capabilities ?? null });
+			Object.assign(await tx.doc(SessionDoc, cid(id)), {
+				...state,
+				capabilities: state.capabilities ?? null,
+				inherit: state.inherit ?? null,
+			});
 		}, C);
 		this.configured.delete(id);
 	}
@@ -564,13 +571,15 @@ export class Runtime {
 			provider: profile.model.slice(0, profile.model.indexOf("/")),
 			modelId: profile.model.slice(profile.model.indexOf("/") + 1),
 		};
-		const modelFallbacks = profile.fallback?.models.length
+		// A fallback that repeats the primary (or an earlier fallback) is not an alternative; without one pi's native retry applies.
+		const alternatives = [...new Set(profile.fallback?.models ?? [])].filter((ref) => ref !== profile.model);
+		const modelFallbacks = alternatives.length
 			? {
-					models: profile.fallback.models.map((ref) => ({
+					models: alternatives.map((ref) => ({
 						provider: ref.slice(0, ref.indexOf("/")),
 						modelId: ref.slice(ref.indexOf("/") + 1),
 					})),
-					after: profile.fallback.after ?? 3,
+					after: profile.fallback?.after ?? 3,
 				}
 			: null;
 		const current = await this.harness.snapshot(AgentDoc, cid(id), C);
