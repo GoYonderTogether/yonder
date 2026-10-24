@@ -5,18 +5,9 @@ import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/pro
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { permissionCommand, permissionKinds } from "./yonder-permission-rpc.mjs";
 
-const kinds = [
-	"accessibility",
-	"screen-recording",
-	"input-monitoring",
-	"camera",
-	"microphone",
-	"notifications",
-	"automation",
-	"full-disk-access",
-	"files-and-folders",
-];
+const kinds = permissionKinds;
 const args = process.argv.slice(2);
 let timeout = 600;
 if (args.length === 4 && ["guide", "watch"].includes(args[0]) && args[2] === "--timeout") {
@@ -27,7 +18,7 @@ if (args.length === 4 && ["guide", "watch"].includes(args[0]) && args[2] === "--
 		process.exit(2);
 	}
 }
-const deadline = Date.now() + timeout * 1000;
+
 if (
 	!(
 		(args.length === 1 && ["status", "permissions", "rpc", "self-check"].includes(args[0])) ||
@@ -38,6 +29,22 @@ if (
 	process.exit(2);
 }
 if (process.platform !== "darwin") throw new Error("Yonder Helper requires macOS");
+let request = "{}";
+let rpcPermission;
+if (args[0] === "rpc") {
+	const chunks = [];
+	let bytes = 0;
+	for await (const chunk of process.stdin) {
+		bytes += chunk.length;
+		if (bytes > 100000) throw new Error("Helper request exceeds 100KB");
+		chunks.push(chunk);
+	}
+	request = Buffer.concat(chunks).toString("utf8");
+	rpcPermission = permissionCommand(JSON.parse(request));
+	if (rpcPermission?.[2] === "--timeout") timeout = Number(rpcPermission[3]);
+} else if (["status", "permissions", "self-check"].includes(args[0])) request = JSON.stringify({ action: args[0] });
+const deadline = Date.now() + timeout * 1000;
+
 const root = fileURLToPath(new URL("../", import.meta.url));
 const home = join(homedir(), ".local/share/yonder-harness/helper");
 const app = join(home, "Yonder Helper.app");
@@ -93,26 +100,12 @@ const input = join(scratch, "input.json"),
 	output = join(scratch, "output.json"),
 	errors = join(scratch, "stderr"),
 	pidFile = join(scratch, "pid");
-let request = "{}";
-if (args[0] === "rpc") {
-	const chunks = [];
-	let bytes = 0;
-	for await (const chunk of process.stdin) {
-		bytes += chunk.length;
-		if (bytes > 100000) throw new Error("Helper request exceeds 100KB");
-		chunks.push(chunk);
-	}
-	request = Buffer.concat(chunks).toString("utf8");
-	const action = JSON.parse(request).action;
-	if (!["status", "permissions", "screenshot", "snapshot", "move", "click", "drag", "type", "key"].includes(action))
-		throw new Error("RPC is read-only permissions or desktop actions; no request/guide/watch");
-} else if (["status", "permissions", "self-check"].includes(args[0])) request = JSON.stringify({ action: args[0] });
 await Promise.all([
 	writeFile(input, request, { mode: 0o600 }),
 	writeFile(output, "", { mode: 0o600 }),
 	writeFile(errors, "", { mode: 0o600 }),
 ]);
-const command = ["status", "permissions", "rpc", "self-check"].includes(args[0]) ? ["rpc"] : args;
+const command = rpcPermission ?? (["status", "permissions", "rpc", "self-check"].includes(args[0]) ? ["rpc"] : args);
 try {
 	while (true) {
 		if (["guide", "watch"].includes(command[0])) {
@@ -157,7 +150,7 @@ try {
 			}
 			const data = await readFile(output);
 			if (data.length > offset) {
-				process.stdout.write(data.subarray(offset));
+				if (!rpcPermission) process.stdout.write(data.subarray(offset));
 				offset = data.length;
 			}
 		};
@@ -179,7 +172,7 @@ try {
 			await poll();
 			if (code !== 0) throw new Error(`LaunchServices failed (${code}): ${launchError}`);
 			const result = await readFile(output, "utf8");
-			if (!result.trim() && command[0] === "rpc")
+			if (!result.trim() && (command[0] === "rpc" || rpcPermission))
 				throw new Error(`Helper exited without JSON: ${await readFile(errors, "utf8")}`);
 			const lines = result.split("\n").filter((line) => line.trim());
 			for (const line of lines) {
@@ -192,7 +185,11 @@ try {
 			const final = lines.length ? JSON.parse(lines.at(-1)) : undefined;
 			if (cancelled) process.exitCode = 130;
 			else if (final?.outcome === "relaunch" && Date.now() < deadline) continue;
-			else if (final?.exitCode !== undefined) process.exitCode = final.exitCode;
+			else if (rpcPermission && final && !process.exitCode) {
+				// RPC returns one final JSON value, never the guide's progress NDJSON.
+				// timeout/closed remain explicit outcomes, not transport failures or grants.
+				process.stdout.write(`${JSON.stringify(final)}\n`);
+			} else if (final?.exitCode !== undefined) process.exitCode = final.exitCode;
 			else if (["guide", "watch"].includes(command[0])) process.exitCode = 1;
 			break;
 		} finally {
