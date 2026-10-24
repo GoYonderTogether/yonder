@@ -7,6 +7,7 @@ import type {
 	ContextContribution,
 	EnvProvider,
 	Hook,
+	PermissionProvider,
 	PluginAPI,
 	PluginModule,
 	Preset,
@@ -15,7 +16,17 @@ import type {
 	YEvent,
 } from "./types.js";
 
-const slots = ["channels", "tools", "contexts", "triggers", "envs", "hooks", "presets", "skills"] as const;
+const slots = [
+	"channels",
+	"tools",
+	"contexts",
+	"triggers",
+	"envs",
+	"hooks",
+	"presets",
+	"skills",
+	"permissions",
+] as const;
 type Slot = (typeof slots)[number];
 export interface PluginManifest {
 	apiVersion: number;
@@ -24,6 +35,7 @@ export interface PluginManifest {
 	contributes: Partial<Record<Slot, string[]>>;
 }
 export interface Registrations {
+	permissions: PermissionProvider[];
 	channels: ChannelProvider[];
 	tools: Tool[];
 	contexts: ContextContribution[];
@@ -61,6 +73,7 @@ export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 
 export function createRegistrationCollector() {
 	const registrations: Registrations = {
+		permissions: [],
 		channels: [],
 		tools: [],
 		contexts: [],
@@ -77,6 +90,7 @@ export function createRegistrationCollector() {
 		},
 	});
 	const api = {
+		permissions: collect(registrations.permissions),
 		channels: collect(registrations.channels),
 		tools: collect(registrations.tools),
 		contexts: collect(registrations.contexts),
@@ -102,6 +116,7 @@ export async function checkRegistrations(
 	const errors: string[] = [];
 	const report = (message: string) => errors.push(`${manifest.id}: ${message}`);
 	const names: Record<Slot, string[]> = {
+		permissions: registrations.permissions.map((value) => value.id),
 		channels: registrations.channels.map((value) => value.type),
 		envs: registrations.envs.map((value) => value.type),
 		tools: registrations.tools.map((value) => value.name),
@@ -111,6 +126,22 @@ export async function checkRegistrations(
 		presets: registrations.presets.map((value) => value.id),
 		skills: [],
 	};
+	for (const provider of registrations.permissions) {
+		if (typeof provider.id !== "string" || (provider.id !== manifest.id && !provider.id.startsWith(`${manifest.id}.`)))
+			report(`permission ${provider.id}: expected own plugin namespace`);
+		if (
+			typeof provider.id !== "string" ||
+			!/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)?$/.test(provider.id) ||
+			typeof provider.scope !== "string" ||
+			!provider.scope.trim() ||
+			!Array.isArray(provider.kinds) ||
+			!provider.kinds.length ||
+			provider.kinds.some((kind) => typeof kind !== "string" || !kind.trim()) ||
+			new Set(provider.kinds).size !== provider.kinds.length ||
+			typeof provider.invoke !== "function"
+		)
+			report(`permission ${provider.id}: invalid provider contract`);
+	}
 	for (const tool of registrations.tools) {
 		if (!Array.isArray(tool.capabilities)) report(`tool ${tool.name}: capabilities must be declared`);
 		if (
@@ -187,6 +218,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 		};
 		await module.setup({
 			...api,
+			permissions: { ...api.permissions, list: unavailable, invoke: unavailable },
 			id,
 			version: JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version,
 			locale: "zh-CN",

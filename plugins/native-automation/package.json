@@ -27,6 +27,9 @@
 		"id": "native-automation",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"permissions": [
+				"native-automation"
+			],
 			"tools": [
 				"native-automation_browser",
 				"native-automation_desktop"

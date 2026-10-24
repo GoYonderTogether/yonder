@@ -463,6 +463,11 @@ export class Runtime {
 			]),
 		});
 	}
+	/** Shared services may only act with the exact context of an active native tool invocation. */
+	assertToolContext(ctx: ToolContext): void {
+		if (!this.toolInvocations.has(ctx)) throw new Error("需要真实运行中的工具调用上下文。");
+		ctx.signal.throwIfAborted();
+	}
 	async authorizeAttachments(ctx: ToolContext, attachments: Attachment[] = []): Promise<void> {
 		const invocation = this.toolInvocations.get(ctx);
 		if (!invocation) throw new Error("需要真实运行中的工具调用上下文。");
