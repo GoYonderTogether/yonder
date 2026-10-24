@@ -70,6 +70,7 @@ test("official resident templates load, scaffold and stay out of identity-less t
 			id: "main",
 			value: {
 				profiles: {
+					...parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8")).profiles,
 					owner: {
 						level: "bypass",
 						contexts: [],
@@ -93,7 +94,10 @@ test("official resident templates load, scaffold and stay out of identity-less t
 				action: "agents.update",
 				id: "main",
 				value: {
-					profiles: { owner: { prompt: { sections: ["missing-section"] } } },
+					profiles: {
+						...parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8")).profiles,
+						owner: { prompt: { sections: ["missing-section"] } },
+					},
 				},
 			}),
 		).rejects.toThrow("Unknown prompt section");

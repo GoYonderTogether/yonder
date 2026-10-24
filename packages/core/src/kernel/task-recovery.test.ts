@@ -156,7 +156,7 @@ export default {setup(api){api.channels.register({type:'recovery-source',create(
 				const parent = parse(await readFile(parentPath, "utf8"));
 				parent.defaults.contexts = [];
 				parent.profiles.owner.tools = { offer: [tool, "write", "task_continue"] };
-				parent.bindings[0].match.channel = "feishu";
+				parent.bindings.find((binding: { id: string }) => binding.id === "owner")!.match.channel = "feishu";
 				await writeFile(parentPath, stringify(parent));
 				await mkdir(`${home}/agents/helper`);
 				await writeFile(

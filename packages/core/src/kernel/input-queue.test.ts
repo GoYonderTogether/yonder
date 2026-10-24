@@ -31,10 +31,10 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 				agent.defaults.contexts = [];
 				agent.profiles.owner.model = "openai/gpt-6-luna";
 				agent.profiles.owner.tools = { offer: scenario === "generation" ? [] : ["bash"], search: [] };
-				delete agent.bindings[0].busy;
-				agent.bindings[0].stream = true;
+				delete agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.busy;
+				agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.stream = true;
 				agent.bindings.unshift({
-					...agent.bindings[0],
+					...agent.bindings.find((binding: { id: string }) => binding.id === "owner")!,
 					id: "interrupt",
 					match: { channel: "interrupt", from: "owner" },
 					busy: "interrupt",

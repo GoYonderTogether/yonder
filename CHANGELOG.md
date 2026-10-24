@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新建 Agent 默认生成只读工作区的 peer 协作 profile 与置前 ephemeral binding，回复只交等待调用方；init/create 可用严格布尔 isolated 创建输入禁用。peer 不继承主人私有上下文、插件或技能，仅预加载自身 SOUL.md/AGENTS.md 并校验符号链接边界；旧 Agent 不自动迁移（D63）。
+
 ## [0.2.26102313] - 2026-10-23
 
 - 修复 memory 插件：白名单内的 agent 在定时作业与 `memory.attention` 等非聊天事件触发的运行中可以使用记忆工具和上下文，后台 `memory-keeper` 的晚间整理、周复盘与上手流程不再被拒；由聊天消息触发时仍要求主人在白名单会话，`commit`/`confirm` 核验不变。

@@ -25,6 +25,7 @@ import type {
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
 import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
+import { peerWorkspaceContext } from "../prompt/index.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
@@ -119,7 +120,7 @@ export async function loadPlugins(
 	const envs = new Map<string, ExecutionEnv>();
 	const tools = new Map<string, Tool[]>();
 	const hooks = new Map<string, Hook[]>();
-	const contexts = new Map<string, ContextContribution>();
+	const contexts = new Map<string, ContextContribution>([[peerWorkspaceContext.id, peerWorkspaceContext]]);
 	const presets = new Map<string, Preset>();
 	const skillDirs: string[] = [];
 	const skillSources = new Map<string, string>();
@@ -140,6 +141,7 @@ export async function loadPlugins(
 		contributionOwners.set(key, pluginId);
 	};
 
+	claim("contexts", peerWorkspaceContext.id, "core");
 	for (const entry of config.plugins ?? []) {
 		const directory = await pluginDirectory(home, entry.use);
 		const manifest = await readPluginManifest(directory);

@@ -96,7 +96,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			agent.defaults.contexts = [];
 			agent.profiles.owner.tools = { offer: ["agent_ask"] };
 			agent.profiles.owner.limits = { maxMinutes: 2 };
-			agent.bindings[0].stream = false;
+			agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.stream = false;
 			agent.bindings.push({
 				id: "other",
 				match: { channel: "other", kind: "dm", from: "owner" },
