@@ -172,3 +172,28 @@ describe("launcher with all I/O mocked, no Helper or OS actions", () => {
 		for (const command of ["request", "guide", "watch"]) expect(mock.commands[0]).not.toContain(command);
 	});
 });
+
+describe("file RPC validation and dispatch, no real Helper", () => {
+	it.each(["file-list", "file-export"])("%s stays original RPC, never permission request", async (action) => {
+		mock.responses = [[{ path: "/ordinary/artifact", size: 3 }]];
+		expect(await rpc({ action, path: "/ordinary/source", destination: "/ordinary/artifact" })).toEqual({
+			path: "/ordinary/artifact",
+			size: 3,
+		});
+		expect(mock.commands[0]).toContain("rpc");
+		expect(mock.commands[0]).not.toContain("request");
+	});
+	it.each(["relative", "", "/tmp/../x", "/tmp/\0x", undefined])(
+		"invalid file path %j fails before launch",
+		async (path) => {
+			await expect(rpc({ action: "file-list", path })).rejects.toThrow("absolute");
+			expect(mock.commands).toHaveLength(0);
+		},
+	);
+	it("export requires an absolute generated destination", async () => {
+		await expect(rpc({ action: "file-export", path: "/ordinary/source", destination: "relative" })).rejects.toThrow(
+			"absolute",
+		);
+		expect(mock.commands).toHaveLength(0);
+	});
+});

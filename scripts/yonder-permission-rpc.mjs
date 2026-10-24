@@ -11,8 +11,18 @@ export const permissionKinds = [
 	"full-disk-access",
 	"files-and-folders",
 ];
+export function absoluteFilePath(value) {
+	if (typeof value !== "string" || !value.startsWith("/") || value.includes("\0") || value.split("/").includes(".."))
+		throw new Error("Expected absolute path without NUL or ..");
+	return value;
+}
 export function permissionCommand(args) {
 	if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("Invalid RPC arguments");
+	if (["file-list", "file-export"].includes(args.action)) {
+		absoluteFilePath(args.path);
+		if (args.action === "file-export") absoluteFilePath(args.destination);
+		return undefined;
+	}
 	if (["permission-request", "permission-guide", "permission-watch"].includes(args.action)) {
 		if (!permissionKinds.includes(args.kind)) throw new Error("Invalid permission kind");
 		const command = args.action.slice("permission-".length);

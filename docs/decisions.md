@@ -264,3 +264,7 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 ## 2026-10-24 权限入口继承可信内核续办来源（主对话批准）
 
 修正 02 版本把全部输入限为直接账号消息的遗漏：仅 runtime.tool-result/runtime.continuation 可沿真实 parent 在同 agent/session/conv 中追溯 owner；64 跳上限，失败关闭。SDK EventQuery 增加可选精确 id，store 使用参数化 id = ?；不增加令牌、配置、模型来源参数或另一套授权。全部实际输入均须通过，访客、内部 Agent、混合输入与隔离保护不变；所有 OS grant 仍由人完成。
+
+## 2026-10-24 统一实际 TCC 操作宿主并补文件访问（主对话批准）
+
+同一 Yonder 签名 Helper 不仅发起申请，也执行需 TCC 的实际操作；本轮仅新增 owner 授权任务的一层文件列举和单普通文件导出，沿用稳定 bundle ID、安装路径与 LaunchServices。插件生成私有唯一产物，不接受目的地覆盖。Node/Python 不继承 Helper grant，不迁移全部插件、不增加 driver 或权限注册框架，OS 仍按资源种类分别授权。
