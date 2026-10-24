@@ -248,3 +248,7 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 ## D63 新建 Agent 默认窄权限 peer 协作（2026-10-24 主人批准）
 
 选择方案 A：read/grep/skill_view/agent_ask、read/message，禁用工具搜索、插件及技能。init/create 共用生成器，置前 ephemeral peer binding，reply none；isolated 是严格布尔创建输入，保守拒绝可能接收 agent/agent 的显式 bindings。只复用模型参数，不继承主人的 defaults 上下文与提示覆盖；用现有 context 字段选内核内置双文件读取，不增加 schema、内核状态或可选插件依赖。工作区预加载也必须守 canonical 路径边界。旧配置不自动改；同一工作区不是私密文件隔离，旧宽泛 bypass 接收方仍有代理提权风险。人工迁移方案见 research/default-agent-peer-binding-design.md。
+
+## D64 每条消息只问一个问题；记忆上手由对话 agent 逐来源推进（2026-10-24 维护者要求）
+
+共同提示词增加一句：每条消息只问一个问题，其余决策排队，汇报也一次一件。memory-onboarding 改为与主人对话的 agent 按微信、聊天渠道、登记目录、节律的顺序逐个询问，进度写入记忆笔记以便跨会话继续；后台 memory-keeper 只执行不对话，因为主人的回复进入的是对话 agent 的会话。不改内核或 SDK，不新增机制。

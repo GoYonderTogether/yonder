@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.2.26102314] - 2026-10-24
+
+- 共同提示词：每条消息只问一个问题，汇报也一次一件；memory-onboarding 改为按来源（微信、聊天渠道、登记目录、节律）逐个询问并记录进度（D64）。
+
 - 新建 Agent 默认生成只读工作区的 peer 协作 profile 与置前 ephemeral binding，回复只交等待调用方；init/create 可用严格布尔 isolated 创建输入禁用。peer 不继承主人私有上下文、插件或技能，仅预加载自身 SOUL.md/AGENTS.md 并校验符号链接边界；旧 Agent 不自动迁移（D63）。
 
 ## [0.2.26102313] - 2026-10-23
