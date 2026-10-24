@@ -23,6 +23,17 @@ export async function ownerEvent(
 	return (await api.identity.account(event.from))?.person === config.owner;
 }
 
+/** Tools and contexts: an allowed agent, and a human message only when it comes from the owner in an approved conversation. */
+export async function allowedRun(
+	api: PluginAPI,
+	config: Config,
+	agent: string | null | undefined,
+	event?: YEvent,
+): Promise<boolean> {
+	if (!agent || !(config.allowedAgents ?? []).includes(agent)) return false;
+	return event?.type === "message.in" ? ownerEvent(api, config, agent, event) : true;
+}
+
 async function safe(root: string, relative: string, max: number): Promise<string | undefined> {
 	try {
 		if (relative.split(/[\\/]/).includes("private")) return undefined;
@@ -67,7 +78,7 @@ export function registerContexts(
 		id: "memory-core",
 		placement: "system",
 		render: async (ctx) => {
-			if (!config || !(await ownerEvent(api, config, ctx.agent, ctx.event))) return undefined;
+			if (!config || !(await allowedRun(api, config, ctx.agent, ctx.event))) return undefined;
 			const budget = config.context?.meChars ?? 2000;
 			const parts: string[] = [];
 			for (const rel of ["me/now.md", "me/profile.md", "me/mind.md"]) {
@@ -83,7 +94,7 @@ export function registerContexts(
 		id: "memory-week",
 		placement: "turn",
 		render: async (ctx) => {
-			if (!config || !(await ownerEvent(api, config, ctx.agent, ctx.event))) return undefined;
+			if (!config || !(await allowedRun(api, config, ctx.agent, ctx.event))) return undefined;
 			const now = DateTime.now().setZone(config.timezone);
 			const week = `${now.weekYear}-W${String(now.weekNumber).padStart(2, "0")}`;
 			const text = await safe(config.root, `timeline/${week}.md`, 4000);
