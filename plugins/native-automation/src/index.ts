@@ -6,6 +6,7 @@ import { type Browser, type BrowserContext, chromium, type Page } from "playwrig
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { desktop, stopChildren } from "./desktop.js";
+import { requireOwnerOrigin } from "./permission-origin.js";
 
 const browserSchema = Type.Object(
 	{
@@ -338,19 +339,7 @@ export default definePlugin({
 					requireField(args.kind, "kind");
 					if (args.action === "permission-request" && args.timeout !== undefined)
 						throw new Error("timeout is only supported for permission-guide/permission-watch");
-					// Only actual inputs of this run establish origin, never tool arguments,
-					// quoted source messages, an agent request or historical session ownership.
-					const inputs = ctx.events ?? (ctx.event ? [ctx.event] : []);
-					if (!ctx.agent || !inputs.length) throw new Error("Permission actions require an owner input");
-					for (const event of inputs) {
-						if (
-							!["message.in", "session.input"].includes(event.type) ||
-							!event.from?.startsWith("acct:") ||
-							event.from.startsWith("acct:agent:") ||
-							(await api.identity.relation(ctx.agent, event.from)) !== "owner"
-						)
-							throw new Error("Permission actions require exclusively owner inputs in this run");
-					}
+					await requireOwnerOrigin(api, ctx);
 					check(ctx, ["exec", "read", "write", "message"]);
 				}
 
@@ -399,7 +388,7 @@ export default definePlugin({
 		api.tools.register({
 			name: "native-automation_desktop",
 			description:
-				"Independent macOS desktop: permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. permissions/status are non-prompting and return nine kinds with identity, history and next steps. Owner-origin runs with the existing desktop capabilities may explicitly use permission-request, permission-guide or permission-watch for one kind. guide/watch timeout is seconds (0 < timeout <= 600, default 600); request has no timeout field. Request opens an OS prompt or Settings, guide opens human guidance, watch only observes. None grants permission. OS confirmation, passwords and biometrics must remain human; never click Allow/toggles, edit TCC, reset, elevate or retry via another driver. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Ordinary desktop input does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays. For permission failure, read permissions/status and its next steps for the actual signed host; an authorized owner may explicitly initiate request/guide/watch; never request automatically from status or request all kinds in a batch. Restarting or switching drivers cannot grant OS access. After an input failure, take a fresh snapshot before another click.",
+				"Independent macOS desktop: permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. permissions/status are non-prompting and return nine kinds with identity, history and next steps. Owner-origin runs (including same-session kernel background/continuation inputs with verified persistent parent ancestry) with the existing desktop capabilities may explicitly use permission-request, permission-guide or permission-watch for one kind. guide/watch timeout is seconds (0 < timeout <= 600, default 600); request has no timeout field. Request opens an OS prompt or Settings, guide opens human guidance, watch only observes. None grants permission. OS confirmation, passwords and biometrics must remain human; never click Allow/toggles, edit TCC, reset, elevate or retry via another driver. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Ordinary desktop input does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays. For permission failure, read permissions/status and its next steps for the actual signed host; an authorized owner may explicitly initiate request/guide/watch; never request automatically from status or request all kinds in a batch. Restarting or switching drivers cannot grant OS access. After an input failure, take a fresh snapshot before another click.",
 			parameters: desktopSchema as TSchema,
 			capabilities: ["exec", "read", "write", "message"],
 			execute: desktopRun,

@@ -121,3 +121,20 @@ test("one multi-agent platform message is accepted once per target agent", async
 		await db.close();
 	}
 });
+
+test("event query exact id is parameterized and intersects other filters", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const event = await store.events.record({ type: "message.in", conv: "conv:test:exact", data: {} });
+		await store.events.record({ type: "message.in", data: {} });
+		expect(await store.events.query({ id: event.id, limit: 1 })).toEqual({ events: [event] });
+		expect((await store.events.query({ id: event.id, type: "runtime.*" })).events).toEqual([]);
+		expect((await store.events.query({ id: event.id, conv: "conv:test:other" })).events).toEqual([]);
+		expect((await store.events.query({ id: "' OR 1=1 --" })).events).toEqual([]);
+		expect((await store.events.query({ id: "" })).events).toEqual([]);
+		expect((await store.events.query({ id: "missing" })).events).toEqual([]);
+	} finally {
+		await db.close();
+	}
+});

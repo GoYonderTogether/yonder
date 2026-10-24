@@ -101,6 +101,7 @@ interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string;
 
 ```ts
 interface EventQuery {
+  id?: string;          // 精确事件 ID；与其他条件取交集，参数化查询
   type?: string;        // 精确类型，或 'prefix.*'
   from?: Ref;
   conv?: Ref;

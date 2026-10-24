@@ -130,7 +130,7 @@ status: open            # open | reviewed
 | `memory_import` | write, admin | `source: 'wechat'`：按 §6.1(5) 导入历史，参数 `chat`、可选 `since/until`；重复导入为空操作 |
 | `memory_bootstrap` | write, admin | `audit`（§6.6）；`ack`（确认某个 `memory.attention` 的 reason，可带 `snoozeDays`）；`state`（读 `.memory/state.json`） |
 
-- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
+- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（不使用 SDK 的精确 `id` 查询）。
 - `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 或 `{wechat-self}` 记录的条目 id（这两类记录由插件自己从 owner 的消息或其自写微信会话确定性写入，不是模型写的；`{capture}`、`{said}` 由模型调用写入，不算）。`evidence` 的写法：事件证据 `evt:<事件id>`，记录证据 `^<条目id>`。否则只能标 `inferred`。同样不核验语义。`events.on` 不保证先于运行启动完成，所以运行刚开始时 `{chat}` 记录可能尚未写入：此时只能用①；找不到记录不代表用户没说过，也不得伪造证据。
 - `memory_me` 条目格式：`- 内容 {confirmed|inferred} [自 YYYY-MM-DD] (ref: …) ^id`；`supersede` 在原条目追加 `[至 YYYY-MM-DD]` 并移入文件末尾的 `## 历史`，不删除。
 
