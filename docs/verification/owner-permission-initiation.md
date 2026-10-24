@@ -62,4 +62,6 @@ No unrelated code fixes were attempted. The memory search fixture visibility exp
 
 ## Release gate
 
+PR #68 was merged into `main` at `c0b7d8a91f24a745ccdd08e10b75ab3417167749`; its GitHub CI completed successfully. The release-version metadata change does not rerun the local full suite.
+
 The four-file targeted verification gate passed. The original full-suite evidence remains exactly **449 passed, 7 failed, 39 skipped**; it must not be represented as a clean full-suite pass. Permission-specific `permission-actions` (47 tests) and `permission-rpc` (29 tests) had already passed in that original run, for 76 passed permission tests. Real-device authorization and installation were not tested (see above).
