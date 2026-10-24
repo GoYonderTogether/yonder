@@ -15,6 +15,8 @@ export interface Request {
 	home: string;
 	result: string;
 	path: string;
+	/** Automatic updates wait for running work to finish (bounded); an explicitly requested update does not. */
+	defer?: boolean;
 }
 interface CommandResult {
 	code: number | null;
@@ -113,6 +115,18 @@ export async function runUpdate(request: Request): Promise<void> {
 			await execute(executable, ["service", "info", "--home", request.home, "--json"], request, 30_000),
 		);
 		evidence.runningBefore = runningBefore;
+		if (request.defer) {
+			const until = Date.now() + 30 * 60_000;
+			let busy = Number(runningBefore.active ?? 0);
+			while (busy > 0 && Date.now() < until) {
+				await new Promise((resolve) => setTimeout(resolve, 60_000));
+				busy = Number(
+					json(await execute(executable, ["service", "info", "--home", request.home, "--json"], request, 30_000))
+						.active ?? 0,
+				);
+			}
+			evidence.deferredMs = Date.now() - Date.parse(base.startedAt);
+		}
 		if (
 			before.install !== request.install ||
 			before.source !== join(request.install, "versions", String(before.version)) ||

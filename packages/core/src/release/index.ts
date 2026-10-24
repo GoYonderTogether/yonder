@@ -491,8 +491,50 @@ function canonicalRepository(repository: string): string {
 	return url.href;
 }
 
+/** One update at a time per install: a second caller fails fast instead of racing in the same temp directory. */
+async function acquireUpdateLock(install: string): Promise<() => Promise<void>> {
+	await mkdir(install, { recursive: true });
+	const file = join(install, ".update.lock");
+	for (let attempt = 0; ; attempt++) {
+		try {
+			await writeFile(file, JSON.stringify({ pid: process.pid, at: Date.now() }), { flag: "wx", mode: 0o600 });
+			return async () => {
+				await rm(file, { force: true });
+			};
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+			let holder: { pid?: number; at?: number } = {};
+			try {
+				holder = JSON.parse(await readFile(file, "utf8"));
+			} catch {}
+			let alive = false;
+			if (typeof holder.pid === "number") {
+				try {
+					process.kill(holder.pid, 0);
+					alive = true;
+				} catch {}
+			}
+			if (alive && Date.now() - (holder.at ?? 0) < 30 * 60_000)
+				throw new Error(
+					`Another update is already running (pid ${holder.pid}); wait for its result instead of starting a second one.`,
+				);
+			if (attempt > 0) throw new Error("Could not take the update lock");
+			await rm(file, { force: true });
+		}
+	}
+}
+
 /** Shared by direct CLI updates and the existing service-external update job. */
 export async function updateRelease(options: UpdateOptions = {}) {
+	const release = await acquireUpdateLock(installPath());
+	try {
+		return await performUpdate(options);
+	} finally {
+		await release();
+	}
+}
+
+async function performUpdate(options: UpdateOptions) {
 	const install = installPath(),
 		registration = await installedService();
 	const home = registration && resolve(registration.install) === install ? registration.home : options.home;

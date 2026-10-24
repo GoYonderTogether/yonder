@@ -667,7 +667,14 @@ async function run(args: string[]): Promise<number> {
 						return kernel.terminal.queued(requiredParam(params, "id"), true);
 					case "service.info": {
 						const info = await releaseInfo(home);
-						return { version: info.version, commit: info.origin?.commit ?? null, home, pid: process.pid, ready: true };
+						return {
+							version: info.version,
+							commit: info.origin?.commit ?? null,
+							home,
+							pid: process.pid,
+							ready: true,
+							active: (await kernel.awakeActivity()).active,
+						};
 					}
 					case "terminal.info":
 						return kernel.terminal.info(requiredParam(params, "id"));

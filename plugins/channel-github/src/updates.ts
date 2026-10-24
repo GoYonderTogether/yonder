@@ -58,11 +58,12 @@ export async function scheduleUpdate(
 	channel: GithubChannel,
 	release: ObjectValue,
 	signal: AbortSignal,
+	options: { defer?: boolean } = {},
 ): Promise<ObjectValue> {
 	if (scheduling.has(channel.id)) throw new Error("An update scheduling call is already in progress for this instance");
 	scheduling.add(channel.id);
 	try {
-		return await dispatchUpdate(api, channel, release, signal);
+		return await dispatchUpdate(api, channel, release, signal, options);
 	} finally {
 		scheduling.delete(channel.id);
 	}
@@ -72,6 +73,7 @@ async function dispatchUpdate(
 	channel: GithubChannel,
 	release: ObjectValue,
 	signal: AbortSignal,
+	scheduleOptions: { defer?: boolean } = {},
 ): Promise<ObjectValue> {
 	if (process.platform !== "darwin" || process.getuid?.() === undefined)
 		throw new Error("Service-external updates require macOS launchd user domain");
@@ -110,6 +112,7 @@ async function dispatchUpdate(
 		install,
 		home,
 		result: join(directory, "result.json"),
+		...(scheduleOptions.defer ? { defer: true } : {}),
 		path: process.env.PATH ?? "/usr/bin:/bin:/usr/sbin:/sbin",
 	};
 	const requestPath = join(directory, "request.json");
