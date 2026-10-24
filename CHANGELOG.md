@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Yonder 同一签名原生权限宿主新增 owner 任务的 file-list / file-export：一层 metadata、不跟随符号链接、单普通文件私有产物与附件；实际读取在 Helper，不让 Node/Python 冒称继承授权，不自动请求权限。
+
 - 权限入口允许同一 owner 任务的可信内核后台结果/续办沿持久 parent 继承来源；逐跳限制 agent/session/conv，保留访客、混合输入、取消和人工批准保护。SDK 事件查询增加可选精确 id。
 
 ## [0.2.26102403] - 2026-10-24

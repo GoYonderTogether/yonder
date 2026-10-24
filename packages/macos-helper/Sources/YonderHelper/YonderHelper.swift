@@ -264,8 +264,12 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
                 let data = FileHandle.standardInput.readDataToEndOfFile()
                 guard data.count <= 100000, let args = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw failure("Invalid JSON request") }
                 try checkCancellation()
-                let records = try await status(id)
                 let action = args["action"] as? String ?? ""
+                if action == "file-list" || action == "file-export" {
+                    let output = try HelperFiles.run(args, cancelled: checkCancellation)
+                    FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])); return
+                }
+                let records = try await status(id)
                 if action == "status" || action == "permissions" {
                     let output: [String: Any] = ["permissions": try JSONSerialization.jsonObject(with: JSONEncoder().encode(records)),
                         "screenCapture": records.first { $0.kind == "screen-recording" }?.state == "granted",

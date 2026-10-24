@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { access, mkdir, readFile, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { definePlugin, type PluginAPI, type ToolContext, type ToolResult, type TSchema } from "@yonder/sdk";
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { Type } from "typebox";
@@ -51,6 +52,8 @@ const desktopSchema = Type.Object(
 				"permission-request",
 				"permission-guide",
 				"permission-watch",
+				"file-list",
+				"file-export",
 				"snapshot",
 				"screenshot",
 				"move",
@@ -60,6 +63,7 @@ const desktopSchema = Type.Object(
 				"key",
 			].map((x) => Type.Literal(x)),
 		),
+		path: Type.Optional(Type.String({ description: "Absolute source file/directory path for file-list/file-export" })),
 		kind: Type.Optional(
 			Type.Union(
 				[
@@ -343,6 +347,49 @@ export default definePlugin({
 					check(ctx, ["exec", "read", "write", "message"]);
 				}
 
+				if (["file-list", "file-export"].includes(String(args.action))) {
+					if (
+						typeof args.path !== "string" ||
+						!args.path.startsWith("/") ||
+						args.path.includes("\0") ||
+						args.path.split("/").includes("..")
+					)
+						throw new Error("Expected absolute path without NUL or ..");
+					await requireOwnerOrigin(api, ctx);
+					check(ctx, ["exec", "read", "write", "message"]);
+					if (args.action === "file-list")
+						return result({ source: "Yonder Helper file host", result: await desktop(args, ctx.signal, ctx.session) });
+					await mkdir(artifacts, { recursive: true, mode: 0o700 });
+					const directory = await mkdtemp(join(artifacts, "file-"));
+					const path = join(directory, "export");
+					try {
+						ctx.signal.throwIfAborted();
+						const exported = (await desktop(
+							{ action: "file-export", path: args.path, destination: path },
+							ctx.signal,
+							ctx.session,
+						)) as { path: string; size: number; metadata: unknown };
+						ctx.signal.throwIfAborted();
+						if (exported.path !== path || (await stat(path)).size !== exported.size)
+							throw new Error("Invalid Helper artifact path or size");
+						return {
+							text: JSON.stringify({ source: "Yonder Helper file host", ...exported }),
+							attachments: [
+								{
+									kind: "file",
+									mime: "application/octet-stream",
+									uri: pathToFileURL(path).href,
+									name: basename(args.path),
+									bytes: exported.size,
+								},
+							],
+						};
+					} catch (error) {
+						await rm(directory, { recursive: true, force: true });
+						throw error;
+					}
+				}
+
 				if (["move", "click", "drag"].includes(String(args.action))) {
 					requireField(args.x, "x");
 					requireField(args.y, "y");
@@ -388,7 +435,7 @@ export default definePlugin({
 		api.tools.register({
 			name: "native-automation_desktop",
 			description:
-				"Independent macOS desktop: permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. permissions/status are non-prompting and return nine kinds with identity, history and next steps. Owner-origin runs (including same-session kernel background/continuation inputs with verified persistent parent ancestry) with the existing desktop capabilities may explicitly use permission-request, permission-guide or permission-watch for one kind. guide/watch timeout is seconds (0 < timeout <= 600, default 600); request has no timeout field. Request opens an OS prompt or Settings, guide opens human guidance, watch only observes. None grants permission. OS confirmation, passwords and biometrics must remain human; never click Allow/toggles, edit TCC, reset, elevate or retry via another driver. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Ordinary desktop input does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays. For permission failure, read permissions/status and its next steps for the actual signed host; an authorized owner may explicitly initiate request/guide/watch; never request automatically from status or request all kinds in a batch. Restarting or switching drivers cannot grant OS access. After an input failure, take a fresh snapshot before another click.",
+				"Independent macOS desktop: file-list/file-export with absolute path for owner-authorized tasks only (same trusted owner/continuation rule). The same signed Yonder Helper actually reads files; no automatic permission requests and no grant inheritance for Node/Python. file-list returns one level of metadata, marking symlinks without following them. file-export copies only one regular file (not directories or symlinks), preserves source metadata, returns a unique private artifact path and file attachment, never inline bytes; destination cannot be supplied. OS EPERM remains an error, requested is not granted. Permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. permissions/status are non-prompting and return nine kinds with identity, history and next steps. Owner-origin runs (including same-session kernel background/continuation inputs with verified persistent parent ancestry) with the existing desktop capabilities may explicitly use permission-request, permission-guide or permission-watch for one kind. guide/watch timeout is seconds (0 < timeout <= 600, default 600); request has no timeout field. Request opens an OS prompt or Settings, guide opens human guidance, watch only observes. None grants permission. OS confirmation, passwords and biometrics must remain human; never click Allow/toggles, edit TCC, reset, elevate or retry via another driver. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Ordinary desktop input does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays. For permission failure, read permissions/status and its next steps for the actual signed host; an authorized owner may explicitly initiate request/guide/watch; never request automatically from status or request all kinds in a batch. Restarting or switching drivers cannot grant OS access. After an input failure, take a fresh snapshot before another click.",
 			parameters: desktopSchema as TSchema,
 			capabilities: ["exec", "read", "write", "message"],
 			execute: desktopRun,

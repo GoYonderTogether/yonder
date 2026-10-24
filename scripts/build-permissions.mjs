@@ -26,6 +26,7 @@ if (process.platform === "darwin") {
 		`${app}/Contents/Info.plist`,
 		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>YonderHelper</string><key>CFBundleIdentifier</key><string>dev.yonder.harness.helper</string>
+<key>CFBundleDisplayName</key><string>Yonder</string>
 <key>CFBundleName</key><string>Yonder Helper</string><key>CFBundlePackageType</key><string>APPL</string><key>LSUIElement</key><true/>
 <key>NSCameraUsageDescription</key><string>Owner-requested Yonder camera access.</string>
 <key>NSMicrophoneUsageDescription</key><string>Owner-requested Yonder microphone access.</string>

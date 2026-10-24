@@ -1,6 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { PluginAPI, Tool, ToolContext, YEvent } from "@yonder/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -175,7 +176,7 @@ describe("explicit permission actions, no live Helper", () => {
 	}
 	it.each([1, 2, 64])("owner causal chain of %s hops reaches mocked transport", async (depth) => {
 		const events = chain(depth);
-		expect((await tool.execute({ action: "permission-watch", kind: "camera" }, ctx)).isError).toBeUndefined();
+		expect((await tool.execute({ action: "file-list", path: data }, ctx)).isError).toBeUndefined();
 		expect(query).toHaveBeenCalledTimes(depth);
 		expect(query).toHaveBeenCalledWith({ id: events[0]!.id, limit: 1 });
 		expect(transport.desktop).toHaveBeenCalledTimes(1);
@@ -306,5 +307,102 @@ describe("explicit permission actions, no live Helper", () => {
 		});
 		expect((await tool.execute({ action: "permission-guide", kind: "camera" }, ctx)).isError).toBe(true);
 		expect(transport.desktop).not.toHaveBeenCalled();
+	});
+});
+
+describe("owner file actions, mocked transport and ordinary temp artifacts only", () => {
+	it.each(["file-list", "file-export"])("%s shares owner/capability/cancel boundaries", async (action) => {
+		relation.mockResolvedValue("stranger");
+		expect((await tool.execute({ action, path: data }, ctx)).isError).toBe(true);
+		relation.mockResolvedValue("owner");
+		ctx.capabilities = ["read"];
+		expect((await tool.execute({ action, path: data }, ctx)).isError).toBe(true);
+		ctx.capabilities = ["exec", "read", "write", "message"];
+		ctx.signal = AbortSignal.abort();
+		expect((await tool.execute({ action, path: data }, ctx)).isError).toBe(true);
+		expect(transport.desktop).not.toHaveBeenCalled();
+	});
+	it.each(["", "relative", "/tmp/../x", "/tmp/\0x"])("rejects path %j", async (path) => {
+		expect((await tool.execute({ action: "file-export", path }, ctx)).isError).toBe(true);
+		expect(transport.desktop).not.toHaveBeenCalled();
+	});
+	it("does not accept a model-controlled output", async () => {
+		expect(
+			(await tool.execute({ action: "file-export", path: data, destination: "/tmp/overwrite" }, ctx)).isError,
+		).toBe(true);
+		expect(transport.desktop).not.toHaveBeenCalled();
+	});
+	it("file-list preserves symlink metadata, never turns into a request", async () => {
+		const entries = [
+			{
+				name: "link",
+				type: "symlink",
+				size: 9,
+				creationDate: "2026-10-24T00:00:00Z",
+				modificationDate: "2026-10-24T00:00:00Z",
+			},
+		];
+		transport.desktop.mockResolvedValue({ path: data, entries });
+		const reply = await tool.execute({ action: "file-list", path: data }, ctx);
+		expect(JSON.parse(reply.text).result.entries).toEqual(entries);
+		expect(transport.desktop).toHaveBeenCalledExactlyOnceWith(
+			{ action: "file-list", path: data },
+			ctx.signal,
+			ctx.session,
+		);
+	});
+	it("export returns actual private unique path, metadata, file attachment, no bytes in JSON", async () => {
+		const bytes = Buffer.alloc(1024 * 1024 + 3, 127);
+		const metadata = {
+			name: "source.m4a",
+			type: "file",
+			size: bytes.length,
+			creationDate: "2026-10-24T00:00:00Z",
+			modificationDate: "2026-10-24T00:00:00Z",
+		};
+		const destinations: string[] = [];
+		transport.desktop.mockImplementation(async (args) => {
+			destinations.push(args.destination);
+			expect((await stat(args.destination.substring(0, args.destination.lastIndexOf("/")))).mode & 0o777).toBe(0o700);
+			await writeFile(args.destination, bytes, { flag: "wx" });
+			return { path: args.destination, size: bytes.length, metadata };
+		});
+		for (let i = 0; i < 2; i++) {
+			const reply = await tool.execute({ action: "file-export", path: "/ordinary/source.m4a" }, ctx);
+			expect(reply.isError).toBeUndefined();
+			expect(JSON.parse(reply.text).metadata).toEqual(metadata);
+			expect(reply.text.length).toBeLessThan(1000);
+			expect(reply.images).toBeUndefined();
+			expect(reply.attachments?.[0]).toMatchObject({
+				kind: "file",
+				mime: "application/octet-stream",
+				bytes: bytes.length,
+				name: "source.m4a",
+			});
+			expect(await readFile(fileURLToPath(reply.attachments![0]!.uri))).toEqual(bytes);
+		}
+		expect(destinations[0]).not.toBe(destinations[1]);
+	});
+	it.each(["EPERM errno 1", "cancelled", "wrong-path"])("failed export %s leaves no artifact", async (fault) => {
+		transport.desktop.mockImplementation(async (args) => {
+			await writeFile(args.destination, "partial");
+			if (fault === "wrong-path") return { path: "/untrusted", size: 7 };
+			throw new Error(fault);
+		});
+		const reply = await tool.execute({ action: "file-export", path: data }, ctx);
+		expect(reply.isError).toBe(true);
+		expect(reply.attachments).toBeUndefined();
+		expect(await readdir(join(data, "artifacts"))).toEqual([]);
+	});
+	it("cancellation after the Helper returns also cleans the export", async () => {
+		const controller = new AbortController();
+		ctx.signal = controller.signal;
+		transport.desktop.mockImplementation(async (args) => {
+			await writeFile(args.destination, "complete");
+			controller.abort();
+			return { path: args.destination, size: 8 };
+		});
+		expect((await tool.execute({ action: "file-export", path: data }, ctx)).isError).toBe(true);
+		expect(await readdir(join(data, "artifacts"))).toEqual([]);
 	});
 });
