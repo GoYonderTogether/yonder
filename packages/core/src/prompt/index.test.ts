@@ -154,8 +154,11 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 		expect(sections.join("\n\n")).toContain(runtimePrompt);
 		expect(sections.join("\n\n")).not.toContain(residentPrompt);
 		expect(commonPrompt).toContain("Do not promise that a running tool can be interrupted immediately.");
-		expect(commonPrompt).toContain("Acknowledge the new information, incorporate it and return to the original goal");
-		expect(commonPrompt).toContain("unless the user cancels it or replaces it with an incompatible one");
+		expect(commonPrompt).toContain("take in the new information and return to the original goal");
+		expect(commonPrompt).toContain("unless they cancel or replace it");
+		expect(commonPrompt).toContain("Promise only what something will carry out.");
+		expect(commonPrompt).toContain("Their instruction is the authorization.");
+		expect(commonPrompt).not.toContain("A genuinely safer route");
 		expect(commonPrompt).toContain("a checkable finish condition, scope and any time or effort budget clear");
 		expect(commonPrompt).toContain("When one fit-for-purpose check passes, deliver");
 		expect(framework(session)).not.toContain("agent_ask");
