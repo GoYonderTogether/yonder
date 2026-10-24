@@ -40,7 +40,7 @@ export class RunLimits {
 				void this.warn(
 					state,
 					"maxMinutes",
-					`Task has run for ${state.config.resolved.limits.maxMinutes} minutes; continue as needed and report meaningful progress.`,
+					`Task has run for ${state.config.resolved.limits.maxMinutes} minutes. If the goal is met, deliver the result; otherwise carry on and report what changed.`,
 				).catch(this.deps.onReport ?? (() => {}));
 			},
 			Math.max(0, state.deadline - Date.now()),
@@ -100,7 +100,11 @@ export class RunLimits {
 					const state = await this.runState(api, context);
 					if (state.reason) await this.stop(context, state, state.reason);
 					if (state.turns >= state.config.resolved.limits.maxTurns)
-						await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
+						await this.warn(
+							state,
+							"maxTurns",
+							`Task has used ${state.turns} model turns. If the goal is met, deliver the result; otherwise carry on.`,
+						);
 					const conversation = await this.deps.harness().conversation(api.conversationId, context);
 					const ref = (await conversation!.agent(context)).model;
 					const model = ref ? this.deps.models.getModel(ref.provider, ref.modelId) : undefined;
@@ -139,17 +143,21 @@ export class RunLimits {
 				afterResponse: async (message, api, context) => {
 					const state = await this.runState(api, context);
 					const usage = await this.deps.usage(state.session);
-					const tokens = (["input", "output", "cacheRead", "cacheWrite"] as const).reduce(
+					const tokens = (["input", "output"] as const).reduce(
 						(sum, key) => sum + usage[key] + message.usage[key] - state.usageBefore[key],
 						0,
 					);
 					if (state.turns >= state.config.resolved.limits.maxTurns)
-						await this.warn(state, "maxTurns", `Task has used ${state.turns} model turns; continue if work remains.`);
+						await this.warn(
+							state,
+							"maxTurns",
+							`Task has used ${state.turns} model turns. If the goal is met, deliver the result; otherwise carry on.`,
+						);
 					if (tokens >= state.config.resolved.limits.maxTokens)
 						await this.warn(
 							state,
 							"maxTokens",
-							`Task has used ${tokens} input/output/cache tokens. Preserve the goal and continue necessary work.`,
+							`This run has used ${tokens} new input and output tokens. If the goal is met, deliver the result; otherwise carry on and say what remains when you report.`,
 						);
 				},
 			}),
@@ -165,7 +173,9 @@ export class RunLimits {
 					await this.saveRun(state);
 					if (state.repeats >= state.config.resolved.limits.repeatStop) await this.stop(context, state, "repeatStop");
 					if (state.repeats >= state.config.resolved.limits.repeatBlock)
-						return { block: "相同工具调用已重复，请换一种方法。" };
+						return {
+							block: `同一个 ${call.name} 调用已用相同参数重复 ${state.repeats} 次。先读上一次的结果；换参数或换方法；仍然不行就停下来，说明卡在哪里。`,
+						};
 					const config = state.config;
 					const denied = await this.deps.denied(
 						call.name,

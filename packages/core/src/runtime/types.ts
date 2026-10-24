@@ -85,4 +85,6 @@ export interface RuntimeSessionState {
 	cwd: string;
 	env: string;
 	capabilities?: Capability[];
+	/** Parent tool surface captured when a preset session opens; fields the preset leaves unset are taken from here. */
+	inherit?: { plugins: string[]; tools: { offer: string[]; search: string[] } };
 }

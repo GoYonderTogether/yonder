@@ -12,7 +12,7 @@ import {
 } from "../config/index.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
-import { withDefaultPeer } from "./peer.js";
+import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
 export function protectSessions(
@@ -165,6 +165,8 @@ export async function initHome(home: string, owner = "owner", options: { isolate
 			stringify({
 				schema: 1,
 				...profile,
+				// Standalone task sessions have no opener to inherit from, so the user's own task power is explicit here.
+				capabilities: ["read", "write", "exec", "network"],
 				...(id === "research" ? { plugins: ["agent-presets", "web-tools"] } : {}),
 			}),
 			{ flag: "wx" },
@@ -210,6 +212,23 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 						`${agent.id}/${profile}: skill index exceeds 4000 estimated tokens (${report.estimatedTokens})`,
 					);
 			}
+		for (const agent of agents.values()) {
+			if (agent.archivedAt) continue;
+			const env = config.agents?.find((item) => item.id === agent.id)?.env;
+			for (const [name, profile] of Object.entries(agent.profiles)) {
+				const { model, fallback } = resolveProfile(profile, agent.defaults, env);
+				if (fallback?.models.length && fallback.models.every((ref) => ref === model))
+					warnings.push(
+						`${agent.id}/${name}: fallback 只有主模型 ${model} 本身，等于没有备用；已按无备用处理，沿用自动重试。`,
+					);
+			}
+			if (!canReceivePeerAsk(agent)) {
+				const fix = peerFix(agent, env);
+				warnings.push(
+					`${agent.id}: 其他 agent 的 agent_ask 收不到它（没有 channel=agent、kind=agent 的绑定；若是有意隔离可忽略）。${fix ? `加入 agent.yaml：\n${fix}` : "它已有同名 peer 配置，请检查绑定。"}`,
+				);
+			}
+		}
 		return { ok: errors.length === 0, errors, warnings: [...new Set(warnings)] };
 	} catch (error) {
 		return { ok: false, errors: [message(error)], warnings };

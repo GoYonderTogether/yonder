@@ -89,6 +89,13 @@ const channelId = (ref: string) => {
 	const parsed = parseRef(ref);
 	return parsed.kind === "acct" || parsed.kind === "conv" ? parsed.channel : undefined;
 };
+/** What the person sees when a run stops: the effect and what to do, not the provider's raw error. */
+export function stopNotice(reason: string): string {
+	if (/connection error|fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket|network/i.test(reason))
+		return "网络连接中断，这一轮没有完成。网络恢复后回我一句，我接着做。";
+	const brief = reason.replace(/\s+/g, " ").trim();
+	return `运行已停止：${brief.length > 160 ? `${brief.slice(0, 160)}…` : brief}。`;
+}
 const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.agent}` : undefined);
 export function sourceMessage(event: YEvent): string | undefined {
 	const data = event.data as { msgId?: string; originals?: Array<{ messageId?: string; msgId?: string }> };
@@ -443,11 +450,7 @@ export function createDelivery(options: DeliveryOptions) {
 		];
 		const hasWaiter = actual.some((event) => waiting(session, event) === true);
 		const stopped = run.status !== "done";
-		const finalText = stopped
-			? `运行已停止：${run.reason ?? run.status}。`
-			: run.text.trim() === "NO_REPLY"
-				? ""
-				: run.text;
+		const finalText = stopped ? stopNotice(run.reason ?? run.status) : run.text.trim() === "NO_REPLY" ? "" : run.text;
 		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? sources : [];
 		const destination =
 			!stopped && !targets.length && !hasWaiter && run.text.trim() && run.text.trim() !== "NO_REPLY" && first

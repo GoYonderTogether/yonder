@@ -49,7 +49,7 @@ describe("program release consumer", () => {
 		const schedule = vi.fn().mockResolvedValue({ scheduled: true });
 		await applyRelease(api, channels, event, schedule);
 		expect(get.mock.calls[0]?.[0]).toBe("repos/GoYonderTogether/yonder-harness/releases/1");
-		expect(schedule).toHaveBeenCalledWith(api, channel, release, expect.any(AbortSignal));
+		expect(schedule).toHaveBeenCalledWith(api, channel, release, expect.any(AbortSignal), { defer: true });
 	});
 	it.each(["0.1.4", "0.1.5"])("does not schedule a release at or below host %s", async (version) => {
 		const { channel, event, release, channels } = input();

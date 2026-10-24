@@ -11,8 +11,9 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
-import { type AgentConfig, resolveProfile } from "../config/index.js";
+import { type AgentConfig, presetSession, resolveProfile } from "../config/index.js";
 import type { DeliveryService } from "../delivery/index.js";
+import { canReceivePeerAsk } from "../kernel/peer.js";
 import type { Runtime, RuntimeInput } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
@@ -125,7 +126,10 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		if (!selected) throw new Error(`未知预设：${presetId}`);
 		const parent = await runtime().sessionConfig(ctx.session);
 		const resolved = resolveProfile(selected, {}, parent.resolved.env);
-		const capabilities = resolved.capabilities.filter((capability) => ctx.capabilities.includes(capability));
+		const { capabilities, inherit } = presetSession(selected, resolved.env, {
+			...parent.resolved,
+			capabilities: ctx.capabilities,
+		});
 		let session = await store.sessions.get(childId);
 		if (!session) {
 			session = {
@@ -154,6 +158,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				cwd: parent.cwd,
 				env: resolved.env,
 				capabilities,
+				...(inherit ? { inherit } : {}),
 			});
 		let event: YEvent | undefined;
 		// Replay-safe task tools reacquire the prior input event for their existing owned conversation.
@@ -292,7 +297,14 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					ctx.signal,
 				);
 				const answer = reply.results.find((answer) => answer.agent === request.agent);
-				if (!answer) throw new Error("目标 agent 不接收你的消息。");
+				if (!answer) {
+					const target = agents.get(request.agent)!;
+					throw new Error(
+						canReceivePeerAsk(target)
+							? `${request.agent} 的绑定没有接收这条请求。`
+							: `${request.agent} 没有接收 agent_ask 的绑定（需要 match channel=agent、kind=agent），所以收不到；这是配置缺口，不是它拒绝。给它的 agent.yaml 加上 peer profile 和绑定即可，片段见 yonder doctor。先把这一点告诉主人，别让交接悬着。`,
+					);
+				}
 				return {
 					...result(answer.text || answer.reason || answer.status),
 					...(answer.status === "done" ? {} : { isError: true }),
@@ -350,6 +362,14 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				};
 				await runtime().authorizeAttachments(ctx, request.attachments);
 				if (!getPreset(request.preset)) throw new Error(`未知预设：${request.preset}`);
+				let depth = 0;
+				for (
+					let s = await store.sessions.get(ctx.session);
+					s?.mode === "task" && s.parent;
+					s = await store.sessions.get(s.parent)
+				)
+					depth++;
+				if (depth >= 2) throw new Error("任务已嵌套两层，不能再派发：直接完成，或把阻塞原因交回上级。");
 				if (request.effort !== undefined) requireCapability(ctx, "admin");
 				const quoted = await quoteSources(request.sources, ctx);
 				const task = quoted ? `${request.task}\n\n${quoted}` : request.task;

@@ -26,7 +26,7 @@ export async function applyRelease(
 	if (current.releaseId !== data.releaseId || current.tag !== data.tag || !approvedRelease(release, options))
 		throw new Error("Release event no longer matches an approved published release");
 	if (compareVersions(current.version, api.version) <= 0) return;
-	await schedule(api, channel, release, signal);
+	await schedule(api, channel, release, signal, { defer: true });
 }
 
 export async function notifyUpdate(api: PluginAPI, channels: Map<string, GithubChannel>, event: YEvent): Promise<void> {
@@ -67,12 +67,16 @@ export async function notifyUpdate(api: PluginAPI, channels: Map<string, GithubC
 			throw error;
 		}
 		const version = typeof data.version === "string" ? ` ${data.version}` : "";
+		const reason =
+			typeof data.error === "string" && data.error.trim()
+				? `：${data.error.replace(/\s+/g, " ").trim().slice(0, 100)}`
+				: "，结果没有得到确认";
 		const text =
 			data.verified === true && data.status === "verified"
 				? `Yonder${version} 已更新并核验。`
 				: data.status === "restart-required"
 					? `Yonder${version} 已安装，服务仍需重启，尚未确认运行版本。`
-					: `Yonder${version} 更新失败或结果未确认；请查看更新回执 ${data.updateId}。`;
+					: `Yonder${version} 更新没有成功${reason}。`;
 		let delivery: unknown;
 		try {
 			delivery = await api.messages.send({ to: options.notifyTarget, text });

@@ -71,6 +71,64 @@ export function resolveProfile(profile: Profile, defaults: Profile = {}, workspa
 	} as ResolvedProfile;
 }
 
+export interface PresetInherit {
+	plugins: string[];
+	tools: { offer: string[]; search: string[] };
+}
+
+/**
+ * Capabilities and inherited tool surface for a preset session (spec 03 §4). A preset that sets no
+ * level/capabilities takes the opener's; one that sets them is intersected with the opener. Nothing
+ * ever exceeds the opener, or the limit a plugin caller passes.
+ */
+export function presetSession(
+	preset: Profile,
+	env: string,
+	opener?: ResolvedProfile,
+	limit?: Capability[],
+): { capabilities: Capability[]; inherit?: PresetInherit } {
+	const own = preset.level !== undefined || preset.capabilities !== undefined;
+	const ceiling = opener?.capabilities;
+	const base = own || !(ceiling ?? limit) ? resolveProfile(preset, {}, env).capabilities : [...(ceiling ?? limit!)];
+	const capabilities = base.filter(
+		(capability) => (ceiling ?? base).includes(capability) && (!limit || limit.includes(capability)),
+	);
+	return {
+		capabilities,
+		...(opener
+			? {
+					inherit: {
+						plugins: [...opener.plugins],
+						tools: { offer: [...opener.tools.offer], search: [...opener.tools.search] },
+					},
+				}
+			: {}),
+	};
+}
+
+/** The profile a preset session runs with: what the preset sets, plus the opener's plugins and tools where it sets none. */
+export function presetProfile(
+	preset: Profile,
+	env: string,
+	capabilities?: Capability[],
+	inherit?: PresetInherit,
+): ResolvedProfile {
+	const resolved = resolveProfile(preset, {}, env);
+	const inherited = inherit
+		? {
+				...resolved,
+				plugins: [...new Set([...inherit.plugins, ...(preset.plugins ?? [])])],
+				tools: {
+					offer: preset.tools?.offer ?? inherit.tools.offer,
+					search: preset.tools?.search ?? inherit.tools.search,
+				},
+			}
+		: resolved;
+	if (!capabilities) return inherited;
+	const { level: _level, ...effective } = inherited;
+	return { ...effective, capabilities: [...capabilities] };
+}
+
 export function matchesGlob(pattern: string, value: string): boolean {
 	return new RegExp(
 		`^${pattern
