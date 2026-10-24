@@ -26,10 +26,9 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let image = NSImage(contentsOf: Bundle.main.url(forResource: "menubar-template", withExtension: "png")!)!
         image.size = NSSize(width: 22, height: 22); image.isTemplate = true
         item.button?.image = image
-        item.button?.toolTip = "Yonder · 左键交互，右键管理"
+        item.button?.toolTip = "Yonder · 点击打开菜单"
         item.button?.setAccessibilityLabel("Yonder")
-        item.button?.target = self; item.button?.action = #selector(statusClicked)
-        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        item.menu = menu
         menu.delegate = self; menu.autoenablesItems = false
         status.isEnabled = false; powerState.isEnabled = false
         for entry in [current, history, awakeOff, awakeTasks, awakeAlways, update, quit] { entry.target = self }
@@ -53,14 +52,6 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         companion.setEndpoint((try? Data(contentsOf: file)).flatMap(DesktopEndpoint.read))
         current.isEnabled = companion.available; history.isEnabled = companion.available
         current.title = companion.available ? "当前交互" : "交互插件未就绪"
-    }
-    private func showMenu() {
-        item.menu = menu; item.button?.performClick(nil); item.menu = nil
-    }
-    @objc private func statusClicked() {
-        refreshEndpoint()
-        if NSApp.currentEvent?.type == .rightMouseUp || !companion.available { showMenu() }
-        else { companion.toggle() }
     }
     @objc private func openCurrent() { companion.showCurrent() }
     @objc private func openHistory() { companion.showHistory() }

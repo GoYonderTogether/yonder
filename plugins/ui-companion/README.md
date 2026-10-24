@@ -38,7 +38,7 @@ card 必填：id、title、prompt、kind（choice/form）；choice 必须有 opt
 
 - 窗口与 56×56 悬浮入口共用边角锚点，拖动后再次展开不跳位。Logo 视图 52×52，原生使用高清品牌图。位置在当前宿主运行期间保留。
 - 首次放在离指针较远的角落，之后尊重用户位置；不读取其他应用内容。空白区域和入口均可拖拽。
-- 左键状态栏图标切换当前交互，无待办时查看历史；右键提供当前交互、历史、服务状态、检查更新及停止服务并退出。未启用插件时仍能管理服务，且交互入口显示未就绪。
+- 左右键均打开同一状态栏菜单，提供当前交互、历史、服务状态、检查更新及停止服务并退出；点击图标不再直接展开窗口。未启用插件时仍能管理服务，且交互入口显示未就绪。
 - 状态栏原生 NSPanel 使用 nonactivatingPanel、orderFrontRegardless、becomesKeyOnlyIfNeeded，不在出现时激活应用。macOS 13+ canJoinAllApplications 用于台前调度集合，另设 canJoinAllSpaces/fullScreenAuxiliary；Space 切换收起入口。系统级焦点、全屏/台前调度与多屏行为仍需实际验收。
 - url 是独立窗，noticeUrl 为页面浮窗提醒，inlineUrl 为无品牌核心内容且保留完成结果。支持 iframe 的本地 Web/聊天宿主可嵌入同一 URL；没有自动接入第三方 IM 或图片渠道。
 - 回环 URL 含每次启动随机路径，是本机交互访问凭据；只交给用户或可信本地宿主，不公开传播。服务器验证 Host、Origin、内容类型、体积和步骤。它不执行任意生成的 HTML 或脚本；卡片答案不构成其他工具的权限放行。
