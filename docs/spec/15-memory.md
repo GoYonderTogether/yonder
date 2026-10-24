@@ -261,7 +261,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 | `memory-evening-wrap` | 列当日未整理条目：任务→提议，事实→`me/`（以 `{chat}` 记录为 `evidence` 的可标 `confirmed`，否则 `inferred`），决定→决定节，产出→产出节；整理后翻转标记；一条消息向用户汇报 |
 | `memory-weekly-review` | 草拟复盘；体检（矛盾只标记、`now.md` 过期项、超预算的 `me/` 文件、超两周未确认的 `inferred`、未整理积压）；为下周提议计划；`close` |
 | `memory-monthly-plan` | 回看当月，写月复盘与阶段变化，提议下月目标 |
-| `memory-onboarding` | 收到 `memory.attention` 后：①向用户转述审计结果（各来源规模、tokens 与粗略费用）；②提出方案（是否创建后台 agent `memory-keeper`、开启哪些节律、是否导入旧目录与微信历史）并**等待用户确认**；③确认后用 `yonder agents` 从预设 `memory-keeper` 创建 agent（14 §4，需 exec），按需配置 cron 作业与绑定，启动导入；④ `ack`。未经确认不得创建 agent、启用节律或开始导入 |
+| `memory-onboarding` | 收到 `memory.attention` 或主人要求继续时，由与主人对话的 agent 执行（后台 `memory-keeper` 听不到回复，只做导入、整理与 cron）。**每条消息只问一个问题**，按来源逐个推进：微信（逐会话定档位）→ 聊天渠道 → 登记目录 → 节律。每个来源定完用 `memory_capture` 记一条 `onboarding: …`，下次从该处继续；按需 `ack`。未经确认不得创建 agent、启用节律或开始导入 |
 | `memory-onboard-legacy` | 对 `legacy` 登记目录逐篇只读审阅，产出提议：可信的事实→`me/`（`inferred`）、项目→`projects/`、可执行事项→周计划提议；不改原目录；记录每篇的去向，便于用户决定是否归档旧库 |
 | `memory-morning-brief` | 汇总当日计划与到期事项，以单条消息发出 |
 
