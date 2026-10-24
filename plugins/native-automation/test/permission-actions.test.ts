@@ -20,8 +20,12 @@ let data: string;
 let tool: Tool;
 let ctx: ToolContext;
 let relation: ReturnType<typeof vi.fn>;
+let query: ReturnType<typeof vi.fn>;
+let persisted: Map<string, YEvent>;
 beforeEach(async () => {
 	vi.clearAllMocks();
+	persisted = new Map();
+	query = vi.fn(async ({ id }: { id: string }) => ({ events: persisted.has(id) ? [persisted.get(id)] : [] }));
 	data = await mkdtemp(join(tmpdir(), "yonder-permission-unit-"));
 	relation = vi.fn(async (_agent: string, account: string) => (account === ownerInput.from ? "owner" : "stranger"));
 	ctx = {
@@ -43,7 +47,7 @@ beforeEach(async () => {
 				if (registered.name === "native-automation_desktop") tool = registered;
 			},
 		},
-		events: { on() {} },
+		events: { on() {}, query },
 		triggers: { register() {} },
 	} as unknown as PluginAPI);
 });
@@ -151,6 +155,130 @@ describe("explicit permission actions, no live Helper", () => {
 		ctx.events = [{ ...ownerInput, type: "session.input" }];
 		expect((await tool.execute({ action: "permission-watch", kind: "camera" }, ctx)).isError).toBeUndefined();
 	});
+	function chain(depth = 2): YEvent[] {
+		const route = { agent: ctx.agent!, binding: null, session: ctx.session };
+		const events: YEvent[] = [{ ...ownerInput, conv: "conv:test:owner", routes: [route] }];
+		for (let i = 1; i <= depth; i++)
+			events.push({
+				id: `causal-${i}`,
+				ts: ownerInput.ts,
+				type: i % 2 ? "runtime.tool-result" : "runtime.continuation",
+				parent: events[i - 1]!.id,
+				conv: events[0]!.conv,
+				routes: [route],
+				data: { session: ctx.session },
+			});
+		for (const event of events) persisted.set(event.id, event);
+		ctx.event = events.at(-1)!;
+		ctx.events = [ctx.event];
+		return events;
+	}
+	it.each([1, 2, 64])("owner causal chain of %s hops reaches mocked transport", async (depth) => {
+		const events = chain(depth);
+		expect((await tool.execute({ action: "permission-watch", kind: "camera" }, ctx)).isError).toBeUndefined();
+		expect(query).toHaveBeenCalledTimes(depth);
+		expect(query).toHaveBeenCalledWith({ id: events[0]!.id, limit: 1 });
+		expect(transport.desktop).toHaveBeenCalledTimes(1);
+	});
+	it.each([
+		"guest",
+		"agent",
+		"cross-session",
+		"cross-agent",
+		"cross-conv",
+		"missing",
+		"missing-parent",
+		"loop",
+		"deep",
+		"mixed",
+		"external-runtime",
+		"wrong-id",
+		"identity-error",
+		"query-error",
+		"cancel",
+		"wrong-data-session",
+		"missing-data-session",
+		"missing-route",
+		"ancestor-session",
+		"ancestor-session-missing",
+		"quoted",
+	])("causal chain rejects %s without Helper", async (fault) => {
+		const events = chain(fault === "deep" ? 65 : 2);
+		const root = events[0]!;
+		const middle = events[1]!;
+		switch (fault) {
+			case "guest":
+				root.from = "acct:test:guest";
+				break;
+			case "agent":
+				root.from = "acct:agent:main";
+				relation.mockResolvedValue("owner");
+				break;
+			case "cross-session":
+				middle.routes![0] = { agent: "main", binding: null, session: "other" };
+				break;
+			case "cross-agent":
+				middle.routes![0] = { agent: "other", binding: null, session: ctx.session };
+				break;
+			case "cross-conv":
+				middle.conv = "conv:test:other";
+				break;
+			case "missing":
+				persisted.delete(root.id);
+				break;
+			case "missing-parent":
+				delete middle.parent;
+				break;
+			case "loop":
+				middle.parent = ctx.event!.id;
+				break;
+			case "mixed":
+				ctx.events!.push({ ...ownerInput, from: "acct:test:guest" });
+				break;
+			case "external-runtime":
+				middle.from = ownerInput.from;
+				break;
+			case "wrong-id":
+				query.mockResolvedValue({ events: [{ ...root, id: "wrong" }] });
+				break;
+			case "identity-error":
+				relation.mockRejectedValue(new Error("unavailable"));
+				break;
+			case "query-error":
+				query.mockRejectedValue(new Error("unavailable"));
+				break;
+			case "cancel": {
+				const controller = new AbortController();
+				ctx.signal = controller.signal;
+				query.mockImplementation(async () => {
+					controller.abort();
+					return { events: [middle] };
+				});
+				break;
+			}
+			case "wrong-data-session":
+				middle.data = { session: "other" };
+				break;
+			case "missing-data-session":
+				middle.data = {};
+				break;
+			case "missing-route":
+				delete root.routes;
+				break;
+			case "ancestor-session-missing":
+				root.type = "session.input";
+				break;
+			case "ancestor-session":
+				root.data = { session: "other" };
+				break;
+			case "quoted":
+				root.type = "agent.ask";
+				root.data = { sources: [ownerInput.id], owner: true };
+				break;
+		}
+		expect((await tool.execute({ action: "permission-guide", kind: "camera" }, ctx)).isError).toBe(true);
+		expect(transport.desktop).not.toHaveBeenCalled();
+	});
 	it.each(["exec", "read", "write", "message"])("missing %s capability cannot initiate", async (capability) => {
 		ctx.capabilities = ctx.capabilities.filter((c) => c !== capability);
 		expect((await tool.execute({ action: "permission-request", kind: "camera" }, ctx)).isError).toBe(true);
@@ -162,6 +290,7 @@ describe("explicit permission actions, no live Helper", () => {
 			expect(transport.desktop).toHaveBeenLastCalledWith({ action }, ctx.signal, ctx.session);
 		}
 		expect(relation).not.toHaveBeenCalled();
+		expect(query).not.toHaveBeenCalled();
 	});
 	it("aborted input cannot reach the transport", async () => {
 		ctx.signal = AbortSignal.abort();

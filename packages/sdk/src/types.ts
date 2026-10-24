@@ -96,6 +96,8 @@ export interface ConfigReloadData {
 }
 
 export interface EventQuery {
+	/** Exact event ID; intersected with all other filters. */
+	id?: string;
 	type?: string;
 	from?: Ref;
 	conv?: Ref;

@@ -255,6 +255,7 @@ export async function createStore(
 				where.push(sql);
 				values.push(value);
 			};
+			if (query.id !== undefined) add("id = ?", query.id);
 			if (query.type)
 				query.type.endsWith(".*") ? add("substr(type, 1, ?) = ?", query.type.length - 1) : add("type = ?", query.type);
 			if (query.type?.endsWith(".*")) values.push(query.type.slice(0, -1));
