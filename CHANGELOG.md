@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+## [0.2.26102506] - 2026-10-25
+
 - 新增共享 `PluginAPI.permissions`、核心 `permissions` 工具和 native-automation provider，复用已有 macOS 权限驱动及 desktop 兼容入口；按真实活动 ToolContext、session/profile 插件选择、owner、能力、执行环境和取消信号校验。
-- 该 API 独立于未决的薄原生服务宿主，不改变服务入口或加入定位接口。当前仅分支实现及专项验证，未发布、未安装、未验真实 TCC；TypeScript/UI 构建通过，不代表原生打包/签名验收。见 [权限 API 验证](docs/verification/permissions-api.md)。
+- 该 API 独立于未决的薄原生服务宿主，不改变服务入口或加入定位接口。统一 API 不代表 OS 授权继承；真实 TCC、grant 保留、薄 host 与定位均不在本版验收范围。正式安装另由现有更新流程核验。见 [权限 API 验证](docs/verification/permissions-api.md)。
+- 标准 build/typecheck/lint 通过；唯一一次本地全量 662 通过 / 1 失败 / 39 跳过，修正旧 cleanup 测试夹具的 permissions 注册后定点 1 通过，未重复全量或掩盖原失败。
 
 ## [0.2.26102505] - 2026-10-25
 

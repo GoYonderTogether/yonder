@@ -1,10 +1,22 @@
 # Shared permissions API verification
 
-## API-only integration on the official .05 base (2026-10-25)
+## 0.2.26102506 API-only release checks (2026-10-25)
+
+The release adds the shared SDK/core permissions facade and native-automation provider only. It does not add the thin service host, location, a new service entry point, or an OS authorization inheritance mechanism. Live TCC grant/denial/revocation, responsible identity, protected resources, update grant retention and model/Kernel/OS E2E remain **not verified**. Installation and service readiness are separate update-job facts, not established by these checks.
+
+The remote baseline was official `v0.2.26102505` / main `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9`; no active CI or competing release was observed at preparation. All Yonder workspace versions and internal dependencies are aligned to `0.2.26102506`; vendored pi-durable remains `1.3.0`.
+
+Under the owned `/tmp/yonder-heavy-test.lock`, the **only local full-suite invocation** was `npm test -- --maxWorkers=4`: **662 passed / 1 failed / 39 skipped (702)**, with **109 files passed / 1 failed / 19 skipped (129)**, exit 1. Failure: the pre-existing `cleanup.mjs` direct setup fixture omitted the newly required `api.permissions.register`. The fixture and the two other direct native setup scripts now supply that setup-only registration service; no production fallback or permission bypass was added. Only `cleanup.test.ts` was rerun with `--maxWorkers=4`: **1 passed / 0 failed / 0 skipped**, exit 0. The full suite was not repeated locally; its original failure is retained, not reported as all green. The other two scripts received syntax checks only, not live browser/Helper execution.
+
+Standard `npm run build` **passed**, including the normal macOS Swift packaging, PowerHelper self-check, existing local signing selection and UI build. `npm run typecheck`, `npm run lint`, and `node scripts/check-pi-durable-workspace.mjs` also passed. Lint retained **402 warnings / 14 infos**, 0 errors; the three fixture files passed focused Biome checks after their edit. No signing identity configuration was changed, no credentials exported, and the installed Helper/TCC were not operated on. Default skipped tests (including opt-in real-model checks) remain untested, not passes.
+
+Raw logs, commands, UTC start/end times and exit codes: `/tmp/yonder-permissions-api-release-20261025-EVIDENCE/` (`build.log`, `typecheck.log`, `fullsuite.log`, `lint.log`, `workspace.log`, `cleanup-targeted.log`, `fixture-lint.log`). Final remote PR/CI/release and independent update-job facts are recorded in `/tmp/yonder-permissions-api-release-20261025.md`; the earlier integration evidence below is preserved as history.
+
+## Initial API-only integration on the official .05 base (2026-10-25; historical pre-release stage)
 
 Base: `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9` (`0.2.26102505`). Worktree: `/tmp/yonder-permissions-api-final-20261025`, branch: `feat/permissions-api-final-20261025`.
 
-**Implemented and locally verified on this branch; not released, not installed, and not live-TCC verified.** The installed .05 does not contain this API. This integration is independent of the unresolved thin service host: only `afebc8d` (SDK/core/native provider) and `f8905fe` (real adapter contract) were transplanted. No changes from `7469ec8` or `428fbf5`, no service launch/install changes, and no location interface or collection.
+**At this initial stage: implemented and locally verified on this branch; not released, not installed, and not live-TCC verified.** The installed .05 does not contain this API. This integration is independent of the unresolved thin service host: only `afebc8d` (SDK/core/native provider) and `f8905fe` (real adapter contract) were transplanted. No changes from `7469ec8` or `428fbf5`, no service launch/install changes, and no location interface or collection.
 
 The only cherry-pick conflict was the insertion point in `packages/sdk/src/types.ts`: both .05's `ResolvedExecution` (including `channelInstances`) and the permission types are retained. The existing runtime adapter still registers the exact native ToolContext and deletes it in `finally`; registry calls use that context, stored session/profile, selected provider, and original cancellation signal. Native owner/capability/local-environment checks remain in the shared `permissionRun` used by both entries.
 

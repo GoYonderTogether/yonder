@@ -6,11 +6,11 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
-## 共享 permissions API 独立集成（2026-10-25，未发布分支）
+## 共享 permissions API 独立集成（0.2.26102506，2026-10-25）
 
 从正式 .05 commit `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9` 只迁入共享 SDK/core/native provider 与真实 adapter 合同两项增量。保留同一 registry、真实活动 ToolContext、session/profile 插件选择、finally 释放与 owner/capability/env/cancellation 校验；不包含薄服务宿主、安装入口变更或定位功能。
 
-本分支专项 12 文件、186 通过 / 0 失败 / 0 跳过；TypeScript/UI 构建、typecheck、lint 通过（lint 402 warnings / 14 infos）。**尚未发布、未安装到正式 home、未验真实 TCC**；正式 .05 不含此 API。未运行全量测试、模型/Kernel/OS E2E、原生打包/签名、权限请求或定位采集，不能据此宣称权限继承、grant 保留或宿主生命周期已修复。原始记录与边界见 [权限 API 验证](verification/permissions-api.md)。
+初始专项 12 文件、186 通过 / 0 失败 / 0 跳过。发版唯一一次本地全量为 662 通过 / 1 失败 / 39 跳过；失败是旧 cleanup 测试夹具缺少新增 permissions 注册服务，补齐直接 setup 夹具后仅定点重跑 cleanup：1 通过，未重跑本地全量、未将原失败写成全绿。标准 build（含正常本地签名）、typecheck、lint 均通过（lint 402 warnings / 14 infos）。API 只提供统一接口；**未验真实 TCC**、模型/Kernel/OS E2E、权限请求或定位，不能据此宣称 OS 授权继承、grant 保留或宿主生命周期已修复。正式安装及 ready 另由独立更新回执核验，不能由代码发版推断。原始记录与边界见 [权限 API 验证](verification/permissions-api.md)。
 
 ## 验证基线
 
