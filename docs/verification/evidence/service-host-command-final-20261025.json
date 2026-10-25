@@ -1,0 +1,1249 @@
+{
+	"when": "2026-10-25T09:53:54.097201+00:00",
+	"baseline": "fb847be0294c1b7d1a70fc66afe0b30c3abbb4dc",
+	"sourceSha256": {
+		"packages/core/src/runtime/process.ts": "e9c14de70ec104d0cb88a7bd40cf624555594ae1262108869896de337b1e51a1",
+		"packages/core/src/runtime/process.test.ts": "33cfcd4a23d321d33808bcc28cb20c5b5da502026fcb0ba5149f40f70395c8fb",
+		"packages/macos-helper/Sources/YonderHelper/ServiceHost.swift": "dcfa54db54ab247e41c5277bf55d4a9f0aa4385b22dbff875865c907123bf19a",
+		"packages/macos-helper/Sources/YonderHelper/YonderHelper.swift": "3c32c02813483bb3305264ee650ed604c1c8e947a4a28e2352abeec25b394c9a",
+		"scripts/yonder-service-host.mjs": "b7567f2e8e4602e165599812a58244a29eaa7fbcd99480700dbfb92a45afbab0",
+		"scripts/test-service-host-command.mjs": "61d3c164a8d2f3889624e1be9d98f59710c691b63b68a7858ef783e7208d1c19",
+		"scripts/test-service-host-command-gate.mjs": "b8e0173c777d7b176026a3ec3bf0338f4e9689a1b95bded066c4f1411a9adabd",
+		"scripts/fixtures/service-command-runner.mjs": "f6ef14275b96e4597fefbd8cae798290ff03986cac64c946dd66f10f43c4640c"
+	},
+	"fullHelperExecutableSha256": "f96d7c44a25290c9fbb27a002bd50d86033f30fbe1542ac5e771605e13ee4f59",
+	"finalSupportedBatch": {
+		"pass": 33,
+		"fail": 0,
+		"skip": 0,
+		"seconds": 216.294347917,
+		"log": "98048.log"
+	},
+	"priorRegressionBatch": {
+		"pass": 31,
+		"fail": 2,
+		"skip": 0,
+		"log": "97929.log",
+		"failures": [
+			"managed helper-death observed=false precondition failed, actual child reclaimed",
+			"bad ACK incorrectly ignored, returned 11 rather than 1; fixed pending PID identity mismatch"
+		]
+	},
+	"javascriptBatch": {
+		"files": 10,
+		"pass": 181,
+		"fail": 0,
+		"skip": 0,
+		"log": "97936.log"
+	},
+	"commands": [
+		{
+			"name": "contract-I16REs",
+			"result": {
+				"mode": "contract",
+				"outcome": {
+					"code": 0,
+					"signal": null
+				},
+				"pids": [
+					60523, 60527, 60528, 60533, 60531, 60545, 60556, 60570, 60579, 60595, 60602, 60601, 60609, 60610, 60614,
+					60615, 60625, 60626, 60640, 60646, 60651
+				],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-Rjzsii\n"
+			},
+			"cleanup": {
+				"pids": [
+					60523, 60527, 60528, 60533, 60531, 60545, 60556, 60570, 60579, 60595, 60602, 60601, 60609, 60610, 60614,
+					60615, 60625, 60626, 60640, 60646, 60651
+				],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-Rjzsii\n"
+			},
+			"bashResults": [
+				{
+					"id": 2,
+					"exitCode": 7,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/2.log",
+					"outputChars": 11,
+					"stderrChars": 5,
+					"logSha256": "77ed7f5d8a3ebe1c5c11dfc3cf3871c4b1c99be813593151642a242e8d871e39"
+				},
+				{
+					"id": 3,
+					"exitCode": null,
+					"signal": "SIGTERM",
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/3.log",
+					"outputChars": 0,
+					"stderrChars": 0,
+					"logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+				},
+				{
+					"id": 4,
+					"exitCode": 0,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/4.log",
+					"outputChars": 60,
+					"stderrChars": 0,
+					"logSha256": "4df3648f9e00a79069c90f95ec07b19b78559c68d4efb35ac659453faf4db105"
+				},
+				{
+					"id": 5,
+					"exitCode": 0,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/5.log",
+					"outputChars": 11,
+					"stderrChars": 0,
+					"logSha256": "9fcdfdf9ac4c9e7a1d717e9bf13f8fec583b8a47215c47f0c46eea8d95501c38"
+				},
+				{
+					"id": 6,
+					"exitCode": 0,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/6.log",
+					"outputChars": 65536,
+					"stderrChars": 0,
+					"logSha256": "d509bff642a353f88582e8a846ecae041c333b79c57a7a24ff310fbdb7e914e9"
+				},
+				{
+					"id": 7,
+					"exitCode": 0,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/7.log",
+					"outputChars": 39,
+					"stderrChars": 0,
+					"logSha256": "902ba977dc67c2c0e575623d0a4ff18b4b685c4b76d036de48d5baedd96df792"
+				},
+				{
+					"id": 9,
+					"exitCode": 0,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/9.log",
+					"outputChars": 9,
+					"stderrChars": 0,
+					"logSha256": "e6cab2b997f264e39d6e1b8c57d206de85d3ef34c173acc5a8feb483dc3358cf"
+				},
+				{
+					"id": 10,
+					"exitCode": 7,
+					"signal": null,
+					"fullOutputPath": "/tmp/yonder-command-13ksKo/contract-I16REs/.yonder/background/10.log",
+					"outputChars": 0,
+					"stderrChars": 0,
+					"logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+				}
+			]
+		},
+		{
+			"name": "helper-death-w4krG7",
+			"result": {
+				"mode": "helper-death",
+				"outcome": {
+					"code": 1,
+					"signal": null
+				},
+				"pids": [60688, 60693, 60701, 60698, 60692, 60709],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-36ctjb\n"
+			},
+			"cleanup": {
+				"pids": [60688, 60693, 60701, 60698, 60692, 60709],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-36ctjb\n"
+			},
+			"before-death": {
+				"state": {
+					"registering": {
+						"seconds": 1792921812,
+						"micros": 175461,
+						"pid": 60701
+					},
+					"helperPid": 60692,
+					"registered": [
+						{
+							"seconds": 1792921812,
+							"micros": 175461,
+							"pid": 60701
+						}
+					],
+					"commandGroups": [
+						{
+							"seconds": 1792921812,
+							"micros": 175461,
+							"pid": 60701
+						}
+					],
+					"anchorPid": 60693,
+					"groupStage": "ready",
+					"helper": {
+						"seconds": 1792921811,
+						"micros": 546647,
+						"pid": 60692
+					},
+					"anchor": {
+						"seconds": 1792921811,
+						"micros": 552468,
+						"pid": 60693
+					},
+					"members": [
+						{
+							"seconds": 1792921811,
+							"micros": 552468,
+							"pid": 60693
+						},
+						{
+							"seconds": 1792921812,
+							"micros": 175461,
+							"pid": 60701
+						},
+						{
+							"seconds": 1792921812,
+							"micros": 72000,
+							"pid": 60698
+						}
+					],
+					"awaitingAnchorAck": false,
+					"nodePid": 60698
+				},
+				"child": 60709,
+				"snapshot": "  PID  PPID  PGID STAT COMM\n60688 60518 60015 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60692 60688 60015 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60693 60692 60693 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60698 60693 60693 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60701 60698 60701 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60709 60708 60701 S    /tmp/yonder-command-13ksKo/same-group\n"
+			}
+		},
+		{
+			"name": "launcher-death-l2mb7k",
+			"result": {
+				"mode": "launcher-death",
+				"outcome": {
+					"code": null,
+					"signal": "SIGKILL"
+				},
+				"pids": [60730, 60735, 60742, 60738, 60734, 60746],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-VHHE8t\nService host: Lease write failed or timed out\n"
+			},
+			"cleanup": {
+				"pids": [60730, 60735, 60742, 60738, 60734, 60746],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-VHHE8t\nService host: Lease write failed or timed out\n"
+			},
+			"before-death": {
+				"state": {
+					"anchor": {
+						"pid": 60735,
+						"seconds": 1792921818,
+						"micros": 499955
+					},
+					"commandGroups": [
+						{
+							"pid": 60742,
+							"seconds": 1792921819,
+							"micros": 74463
+						}
+					],
+					"members": [
+						{
+							"pid": 60735,
+							"seconds": 1792921818,
+							"micros": 499955
+						},
+						{
+							"pid": 60742,
+							"seconds": 1792921819,
+							"micros": 74463
+						},
+						{
+							"pid": 60738,
+							"seconds": 1792921819,
+							"micros": 13027
+						}
+					],
+					"helperPid": 60734,
+					"awaitingAnchorAck": false,
+					"registering": {
+						"pid": 60742,
+						"seconds": 1792921819,
+						"micros": 74463
+					},
+					"helper": {
+						"pid": 60734,
+						"seconds": 1792921818,
+						"micros": 493910
+					},
+					"registered": [
+						{
+							"pid": 60742,
+							"seconds": 1792921819,
+							"micros": 74463
+						}
+					],
+					"anchorPid": 60735,
+					"groupStage": "ready",
+					"nodePid": 60738
+				},
+				"child": 60746,
+				"snapshot": "  PID  PPID  PGID STAT COMM\n60730 60518 60015 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60734 60730 60015 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60735 60734 60735 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60738 60735 60735 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60742 60738 60742 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60746 60745 60742 S    /tmp/yonder-command-13ksKo/same-group\n"
+			}
+		},
+		{
+			"name": "quick-helper-death-Z90Tgu",
+			"result": {
+				"mode": "quick-helper-death",
+				"outcome": {
+					"code": 1,
+					"signal": null
+				},
+				"pids": [60773, 60780, 60782, 60783, 60779, 60790],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-4NXDOR\n"
+			},
+			"cleanup": {
+				"pids": [60773, 60780, 60782, 60783, 60779, 60790],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-4NXDOR\n"
+			},
+			"before-death": {
+				"state": {
+					"helper": {
+						"pid": 60779,
+						"micros": 127448,
+						"seconds": 1792921825
+					},
+					"members": [
+						{
+							"pid": 60780,
+							"micros": 134108,
+							"seconds": 1792921825
+						},
+						{
+							"pid": 60782,
+							"micros": 571777,
+							"seconds": 1792921825
+						},
+						{
+							"pid": 60783,
+							"micros": 686603,
+							"seconds": 1792921825
+						}
+					],
+					"registered": [
+						{
+							"pid": 60783,
+							"micros": 686603,
+							"seconds": 1792921825
+						}
+					],
+					"registering": {
+						"pid": 60783,
+						"micros": 686603,
+						"seconds": 1792921825
+					},
+					"helperPid": 60779,
+					"anchor": {
+						"pid": 60780,
+						"micros": 134108,
+						"seconds": 1792921825
+					},
+					"anchorPid": 60780,
+					"groupStage": "ready",
+					"commandGroups": [
+						{
+							"pid": 60783,
+							"micros": 686603,
+							"seconds": 1792921825
+						}
+					],
+					"awaitingAnchorAck": false,
+					"nodePid": 60782
+				},
+				"child": 60790,
+				"snapshot": "  PID  PPID  PGID STAT COMM\n60773 60518 60015 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60779 60773 60015 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60780 60779 60780 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60782 60780 60780 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60783 60782 60783 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60790     1 60783 S    /tmp/yonder-command-13ksKo/same-group\n"
+			}
+		},
+		{
+			"name": "quick-launcher-death-ucQyzo",
+			"result": {
+				"mode": "quick-launcher-death",
+				"outcome": {
+					"code": null,
+					"signal": "SIGKILL"
+				},
+				"pids": [60816, 60821, 60826, 60827, 60820, 60834],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-rmLaXo\nService host: Lease write failed or timed out\n"
+			},
+			"cleanup": {
+				"pids": [60816, 60821, 60826, 60827, 60820, 60834],
+				"remaining": [],
+				"output": "Command evidence: /tmp/yonder-command-rmLaXo\nService host: Lease write failed or timed out\n"
+			},
+			"before-death": {
+				"state": {
+					"anchor": {
+						"pid": 60821,
+						"seconds": 1792921831,
+						"micros": 703572
+					},
+					"registering": {
+						"pid": 60827,
+						"seconds": 1792921832,
+						"micros": 256547
+					},
+					"anchorPid": 60821,
+					"members": [
+						{
+							"pid": 60821,
+							"seconds": 1792921831,
+							"micros": 703572
+						},
+						{
+							"pid": 60826,
+							"seconds": 1792921832,
+							"micros": 189824
+						},
+						{
+							"pid": 60827,
+							"seconds": 1792921832,
+							"micros": 256547
+						}
+					],
+					"helper": {
+						"pid": 60820,
+						"seconds": 1792921831,
+						"micros": 697762
+					},
+					"commandGroups": [
+						{
+							"pid": 60827,
+							"seconds": 1792921832,
+							"micros": 256547
+						}
+					],
+					"registered": [
+						{
+							"pid": 60827,
+							"seconds": 1792921832,
+							"micros": 256547
+						}
+					],
+					"groupStage": "ready",
+					"helperPid": 60820,
+					"awaitingAnchorAck": false,
+					"nodePid": 60826
+				},
+				"child": 60834,
+				"snapshot": "  PID  PPID  PGID STAT COMM\n60816 60518 60015 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60820 60816 60015 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60821 60820 60821 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60826 60821 60821 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n60827 60826 60827 S    /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app/Contents/MacOS/YonderHelper\n60834     1 60827 S    /tmp/yonder-command-13ksKo/same-group\n"
+			}
+		}
+	],
+	"gates": [
+		{
+			"name": "prepare-bad-ack-aFie4H",
+			"result": {
+				"action": "bad-ack",
+				"stage": "prepare",
+				"snapshots": [
+					{
+						"helperPid": 60200,
+						"registering": {
+							"micros": 535284,
+							"pid": 60208,
+							"seconds": 1792921737
+						},
+						"anchor": {
+							"micros": 101658,
+							"pid": 60201,
+							"seconds": 1792921737
+						},
+						"anchorPid": 60201,
+						"commandGroups": [
+							{
+								"micros": 535284,
+								"pid": 60208,
+								"seconds": 1792921737
+							}
+						],
+						"awaitingAnchorAck": false,
+						"groupStage": "prepare",
+						"helper": {
+							"micros": 95719,
+							"pid": 60200,
+							"seconds": 1792921737
+						},
+						"members": [
+							{
+								"micros": 101658,
+								"pid": 60201,
+								"seconds": 1792921737
+							},
+							{
+								"micros": 535284,
+								"pid": 60208,
+								"seconds": 1792921737
+							},
+							{
+								"micros": 423585,
+								"pid": 60207,
+								"seconds": 1792921737
+							}
+						],
+						"registered": [],
+						"nodePid": 60207
+					}
+				],
+				"pids": [60200, 60201, 60207, 60208],
+				"remaining": [],
+				"errors": "Service host: Invalid member ACK identity\n"
+			},
+			"cleanup": {
+				"pids": [60200, 60201, 60207, 60208],
+				"remaining": []
+			}
+		},
+		{
+			"name": "prepare-cancel-fW27AW",
+			"result": {
+				"action": "cancel",
+				"stage": "prepare",
+				"snapshots": [
+					{
+						"groupStage": "prepare",
+						"commandGroups": [
+							{
+								"seconds": 1792921731,
+								"pid": 60171,
+								"micros": 893724
+							}
+						],
+						"anchorPid": 60167,
+						"anchor": {
+							"seconds": 1792921731,
+							"pid": 60167,
+							"micros": 189994
+						},
+						"registering": {
+							"seconds": 1792921731,
+							"pid": 60171,
+							"micros": 893724
+						},
+						"awaitingAnchorAck": false,
+						"helper": {
+							"seconds": 1792921731,
+							"pid": 60166,
+							"micros": 154545
+						},
+						"helperPid": 60166,
+						"members": [
+							{
+								"seconds": 1792921731,
+								"pid": 60167,
+								"micros": 189994
+							},
+							{
+								"seconds": 1792921731,
+								"pid": 60169,
+								"micros": 720747
+							},
+							{
+								"seconds": 1792921731,
+								"pid": 60171,
+								"micros": 893724
+							}
+						],
+						"registered": [],
+						"nodePid": 60169
+					}
+				],
+				"pids": [60166, 60167, 60169, 60171],
+				"remaining": [],
+				"errors": ""
+			},
+			"cleanup": {
+				"pids": [60166, 60167, 60169, 60171],
+				"remaining": []
+			}
+		},
+		{
+			"name": "prepare-helper-death-F2cL2t",
+			"result": {
+				"action": "helper-death",
+				"stage": "prepare",
+				"snapshots": [
+					{
+						"members": [
+							{
+								"seconds": 1792921752,
+								"micros": 917267,
+								"pid": 60285
+							},
+							{
+								"seconds": 1792921753,
+								"micros": 465157,
+								"pid": 60290
+							},
+							{
+								"seconds": 1792921753,
+								"micros": 617200,
+								"pid": 60291
+							}
+						],
+						"registering": {
+							"seconds": 1792921753,
+							"micros": 617200,
+							"pid": 60291
+						},
+						"anchor": {
+							"seconds": 1792921752,
+							"micros": 917267,
+							"pid": 60285
+						},
+						"helperPid": 60284,
+						"registered": [],
+						"helper": {
+							"seconds": 1792921752,
+							"micros": 909929,
+							"pid": 60284
+						},
+						"groupStage": "prepare",
+						"awaitingAnchorAck": false,
+						"commandGroups": [
+							{
+								"seconds": 1792921753,
+								"micros": 617200,
+								"pid": 60291
+							}
+						],
+						"anchorPid": 60285,
+						"nodePid": 60290
+					}
+				],
+				"pids": [60284, 60285, 60290, 60291],
+				"remaining": [],
+				"errors": ""
+			},
+			"cleanup": {
+				"pids": [60284, 60285, 60290, 60291],
+				"remaining": []
+			}
+		},
+		{
+			"name": "prepare-timeout-5btMPF",
+			"result": {
+				"action": "timeout",
+				"stage": "prepare",
+				"snapshots": [
+					{
+						"helperPid": 60239,
+						"groupStage": "prepare",
+						"registering": {
+							"pid": 60246,
+							"micros": 391130,
+							"seconds": 1792921743
+						},
+						"anchorPid": 60241,
+						"awaitingAnchorAck": false,
+						"registered": [],
+						"anchor": {
+							"pid": 60241,
+							"micros": 946669,
+							"seconds": 1792921742
+						},
+						"members": [
+							{
+								"pid": 60241,
+								"micros": 946669,
+								"seconds": 1792921742
+							},
+							{
+								"pid": 60245,
+								"micros": 311771,
+								"seconds": 1792921743
+							},
+							{
+								"pid": 60246,
+								"micros": 391130,
+								"seconds": 1792921743
+							}
+						],
+						"commandGroups": [
+							{
+								"pid": 60246,
+								"micros": 391130,
+								"seconds": 1792921743
+							}
+						],
+						"helper": {
+							"pid": 60239,
+							"micros": 940519,
+							"seconds": 1792921742
+						},
+						"nodePid": 60245
+					}
+				],
+				"pids": [60239, 60241, 60245, 60246],
+				"remaining": [],
+				"errors": ""
+			},
+			"cleanup": {
+				"pids": [60239, 60241, 60245, 60246],
+				"remaining": []
+			}
+		},
+		{
+			"name": "ready-bad-ack-qRNPwU",
+			"result": {
+				"action": "bad-ack",
+				"stage": "ready",
+				"snapshots": [
+					{
+						"anchorPid": 60348,
+						"helperPid": 60347,
+						"helper": {
+							"micros": 155067,
+							"pid": 60347,
+							"seconds": 1792921765
+						},
+						"commandGroups": [
+							{
+								"micros": 761722,
+								"pid": 60351,
+								"seconds": 1792921765
+							}
+						],
+						"anchor": {
+							"micros": 161078,
+							"pid": 60348,
+							"seconds": 1792921765
+						},
+						"registering": {
+							"micros": 761722,
+							"pid": 60351,
+							"seconds": 1792921765
+						},
+						"awaitingAnchorAck": false,
+						"registered": [],
+						"members": [
+							{
+								"micros": 161078,
+								"pid": 60348,
+								"seconds": 1792921765
+							},
+							{
+								"micros": 652713,
+								"pid": 60350,
+								"seconds": 1792921765
+							},
+							{
+								"micros": 761722,
+								"pid": 60351,
+								"seconds": 1792921765
+							}
+						],
+						"groupStage": "prepare",
+						"nodePid": 60350
+					},
+					{
+						"anchorPid": 60348,
+						"helperPid": 60347,
+						"helper": {
+							"seconds": 1792921765,
+							"pid": 60347,
+							"micros": 155067
+						},
+						"commandGroups": [
+							{
+								"seconds": 1792921765,
+								"pid": 60351,
+								"micros": 761722
+							}
+						],
+						"anchor": {
+							"seconds": 1792921765,
+							"pid": 60348,
+							"micros": 161078
+						},
+						"registering": {
+							"seconds": 1792921765,
+							"pid": 60351,
+							"micros": 761722
+						},
+						"awaitingAnchorAck": false,
+						"registered": [
+							{
+								"seconds": 1792921765,
+								"pid": 60351,
+								"micros": 761722
+							}
+						],
+						"members": [
+							{
+								"seconds": 1792921765,
+								"pid": 60348,
+								"micros": 161078
+							},
+							{
+								"seconds": 1792921765,
+								"pid": 60350,
+								"micros": 652713
+							},
+							{
+								"seconds": 1792921765,
+								"pid": 60351,
+								"micros": 761722
+							}
+						],
+						"groupStage": "ready",
+						"nodePid": 60350
+					}
+				],
+				"pids": [60347, 60348, 60350, 60351],
+				"remaining": [],
+				"errors": "Service host: Invalid member ACK identity\n"
+			},
+			"cleanup": {
+				"pids": [60347, 60348, 60350, 60351],
+				"remaining": []
+			}
+		},
+		{
+			"name": "ready-cancel-OkeTUA",
+			"result": {
+				"action": "cancel",
+				"stage": "ready",
+				"snapshots": [
+					{
+						"registering": {
+							"seconds": 1792921759,
+							"micros": 404125,
+							"pid": 60321
+						},
+						"awaitingAnchorAck": false,
+						"groupStage": "prepare",
+						"helperPid": 60313,
+						"anchor": {
+							"seconds": 1792921758,
+							"micros": 782612,
+							"pid": 60314
+						},
+						"helper": {
+							"seconds": 1792921758,
+							"micros": 768027,
+							"pid": 60313
+						},
+						"commandGroups": [
+							{
+								"seconds": 1792921759,
+								"micros": 404125,
+								"pid": 60321
+							}
+						],
+						"anchorPid": 60314,
+						"registered": [],
+						"members": [
+							{
+								"seconds": 1792921758,
+								"micros": 782612,
+								"pid": 60314
+							},
+							{
+								"seconds": 1792921759,
+								"micros": 404125,
+								"pid": 60321
+							},
+							{
+								"seconds": 1792921759,
+								"micros": 317900,
+								"pid": 60320
+							}
+						],
+						"nodePid": 60320
+					},
+					{
+						"registering": {
+							"pid": 60321,
+							"seconds": 1792921759,
+							"micros": 404125
+						},
+						"awaitingAnchorAck": false,
+						"groupStage": "ready",
+						"helperPid": 60313,
+						"anchor": {
+							"pid": 60314,
+							"seconds": 1792921758,
+							"micros": 782612
+						},
+						"helper": {
+							"pid": 60313,
+							"seconds": 1792921758,
+							"micros": 768027
+						},
+						"commandGroups": [
+							{
+								"pid": 60321,
+								"seconds": 1792921759,
+								"micros": 404125
+							}
+						],
+						"anchorPid": 60314,
+						"registered": [
+							{
+								"pid": 60321,
+								"seconds": 1792921759,
+								"micros": 404125
+							}
+						],
+						"members": [
+							{
+								"pid": 60314,
+								"seconds": 1792921758,
+								"micros": 782612
+							},
+							{
+								"pid": 60321,
+								"seconds": 1792921759,
+								"micros": 404125
+							},
+							{
+								"pid": 60320,
+								"seconds": 1792921759,
+								"micros": 317900
+							}
+						],
+						"nodePid": 60320
+					}
+				],
+				"pids": [60313, 60314, 60321, 60320],
+				"remaining": [],
+				"errors": ""
+			},
+			"cleanup": {
+				"pids": [60313, 60314, 60321, 60320],
+				"remaining": []
+			}
+		},
+		{
+			"name": "ready-helper-death-Se5ETa",
+			"result": {
+				"action": "helper-death",
+				"stage": "ready",
+				"snapshots": [
+					{
+						"groupStage": "prepare",
+						"helper": {
+							"micros": 24414,
+							"seconds": 1792921782,
+							"pid": 60452
+						},
+						"registered": [],
+						"awaitingAnchorAck": false,
+						"anchorPid": 60454,
+						"registering": {
+							"micros": 767002,
+							"seconds": 1792921782,
+							"pid": 60458
+						},
+						"members": [
+							{
+								"micros": 30126,
+								"seconds": 1792921782,
+								"pid": 60454
+							},
+							{
+								"micros": 767002,
+								"seconds": 1792921782,
+								"pid": 60458
+							},
+							{
+								"micros": 663296,
+								"seconds": 1792921782,
+								"pid": 60457
+							}
+						],
+						"helperPid": 60452,
+						"commandGroups": [
+							{
+								"micros": 767002,
+								"seconds": 1792921782,
+								"pid": 60458
+							}
+						],
+						"anchor": {
+							"micros": 30126,
+							"seconds": 1792921782,
+							"pid": 60454
+						},
+						"nodePid": 60457
+					},
+					{
+						"groupStage": "ready",
+						"helper": {
+							"pid": 60452,
+							"seconds": 1792921782,
+							"micros": 24414
+						},
+						"registered": [
+							{
+								"pid": 60458,
+								"seconds": 1792921782,
+								"micros": 767002
+							}
+						],
+						"awaitingAnchorAck": false,
+						"anchorPid": 60454,
+						"registering": {
+							"pid": 60458,
+							"seconds": 1792921782,
+							"micros": 767002
+						},
+						"members": [
+							{
+								"pid": 60454,
+								"seconds": 1792921782,
+								"micros": 30126
+							},
+							{
+								"pid": 60458,
+								"seconds": 1792921782,
+								"micros": 767002
+							},
+							{
+								"pid": 60457,
+								"seconds": 1792921782,
+								"micros": 663296
+							}
+						],
+						"helperPid": 60452,
+						"commandGroups": [
+							{
+								"pid": 60458,
+								"seconds": 1792921782,
+								"micros": 767002
+							}
+						],
+						"anchor": {
+							"pid": 60454,
+							"seconds": 1792921782,
+							"micros": 30126
+						},
+						"nodePid": 60457
+					}
+				],
+				"pids": [60452, 60454, 60457, 60458],
+				"remaining": [],
+				"errors": ""
+			},
+			"cleanup": {
+				"pids": [60452, 60454, 60457, 60458],
+				"remaining": []
+			}
+		},
+		{
+			"name": "ready-timeout-N9W7vD",
+			"result": {
+				"action": "timeout",
+				"stage": "ready",
+				"snapshots": [
+					{
+						"commandGroups": [
+							{
+								"seconds": 1792921772,
+								"micros": 174892,
+								"pid": 60390
+							}
+						],
+						"awaitingAnchorAck": false,
+						"registering": {
+							"seconds": 1792921772,
+							"micros": 174892,
+							"pid": 60390
+						},
+						"members": [
+							{
+								"seconds": 1792921771,
+								"micros": 585791,
+								"pid": 60382
+							},
+							{
+								"seconds": 1792921772,
+								"micros": 113842,
+								"pid": 60389
+							},
+							{
+								"seconds": 1792921772,
+								"micros": 174892,
+								"pid": 60390
+							}
+						],
+						"registered": [],
+						"anchorPid": 60382,
+						"groupStage": "prepare",
+						"helper": {
+							"seconds": 1792921771,
+							"micros": 576570,
+							"pid": 60381
+						},
+						"helperPid": 60381,
+						"anchor": {
+							"seconds": 1792921771,
+							"micros": 585791,
+							"pid": 60382
+						},
+						"nodePid": 60389
+					},
+					{
+						"commandGroups": [
+							{
+								"pid": 60390,
+								"seconds": 1792921772,
+								"micros": 174892
+							}
+						],
+						"awaitingAnchorAck": false,
+						"registering": {
+							"pid": 60390,
+							"seconds": 1792921772,
+							"micros": 174892
+						},
+						"members": [
+							{
+								"pid": 60382,
+								"seconds": 1792921771,
+								"micros": 585791
+							},
+							{
+								"pid": 60389,
+								"seconds": 1792921772,
+								"micros": 113842
+							},
+							{
+								"pid": 60390,
+								"seconds": 1792921772,
+								"micros": 174892
+							}
+						],
+						"registered": [
+							{
+								"pid": 60390,
+								"seconds": 1792921772,
+								"micros": 174892
+							}
+						],
+						"anchorPid": 60382,
+						"groupStage": "ready",
+						"helper": {
+							"pid": 60381,
+							"seconds": 1792921771,
+							"micros": 576570
+						},
+						"helperPid": 60381,
+						"anchor": {
+							"pid": 60382,
+							"seconds": 1792921771,
+							"micros": 585791
+						},
+						"nodePid": 60389
+					}
+				],
+				"pids": [60381, 60382, 60389, 60390],
+				"remaining": [],
+				"errors": ""
+			},
+			"cleanup": {
+				"pids": [60381, 60382, 60389, 60390],
+				"remaining": []
+			}
+		}
+	],
+	"cli": {
+		"result": {
+			"code": 0,
+			"signal": null
+		},
+		"state": {
+			"anchor": {
+				"micros": 766837,
+				"seconds": 1792921948,
+				"pid": 61475
+			},
+			"anchorPid": 61475,
+			"members": [
+				{
+					"micros": 766837,
+					"seconds": 1792921948,
+					"pid": 61475
+				}
+			],
+			"commandGroups": [],
+			"registered": [],
+			"awaitingAnchorAck": false,
+			"helperPid": 61471,
+			"groupStage": null,
+			"helper": {
+				"micros": 344296,
+				"seconds": 1792921948,
+				"pid": 61471
+			},
+			"registering": null,
+			"nodePid": 61481,
+			"exitCode": 0
+		},
+		"info": {
+			"version": "0.2.26102506",
+			"commit": null,
+			"home": "/tmp/yonder-host-evidence-K0qs8C/real-cli-fg2BWp",
+			"pid": 61481,
+			"ready": true,
+			"active": 0,
+			"agents": []
+		},
+		"ancestry": "61469 61456 60015 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n61471     1 61471 S    /private/tmp/yonder-host-evidence-K0qs8C/Yonder Helper.app/Contents/MacOS/YonderHelper\n61475 61471 61475 S    /private/tmp/yonder-host-evidence-K0qs8C/Yonder Helper.app/Contents/MacOS/YonderHelper\n61481 61475 61475 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node\n"
+	},
+	"liveness": {
+		"roots": [
+			"/tmp/yonder-command-71WzZI",
+			"/tmp/yonder-command-icjXV7",
+			"/tmp/yonder-command-gate-MzrRxl",
+			"/tmp/yonder-command-RC0G1f",
+			"/tmp/yonder-command-gate-kGJiLf",
+			"/tmp/yonder-command-PTmEvZ",
+			"/tmp/yonder-managed-group-EUmpaJ",
+			"/tmp/yonder-managed-group-GvfSgn",
+			"/tmp/yonder-registration-mQXjvG",
+			"/tmp/yonder-anchor-startup-OXFNdN",
+			"/tmp/yonder-command-gate-8Arh55",
+			"/tmp/yonder-command-13ksKo",
+			"/tmp/yonder-registration-m9iCiA",
+			"/tmp/yonder-anchor-startup-uVYrrs",
+			"/tmp/yonder-host-evidence-K0qs8C"
+		],
+		"count": 384,
+		"pids": [
+			55149, 55154, 55228, 55496, 55500, 55505, 55507, 55509, 55519, 55531, 55563, 55567, 55568, 55573, 55574, 55579,
+			55582, 55615, 55619, 55620, 55626, 55627, 55631, 56515, 56516, 56524, 56525, 56570, 56571, 56574, 56575, 56615,
+			56616, 56620, 56621, 56663, 56664, 56668, 56669, 56697, 56698, 56705, 56706, 56748, 56749, 56753, 56754, 56802,
+			56803, 56806, 56807, 56850, 56851, 56854, 56855, 56897, 56901, 56902, 56909, 56911, 56922, 56936, 56949, 56964,
+			56978, 56983, 56984, 56994, 56995, 57001, 57002, 57006, 57007, 57011, 57019, 57026, 57030, 57054, 57058, 57059,
+			57062, 57065, 57070, 57096, 57100, 57102, 57107, 57108, 57115, 58044, 58045, 58049, 58053, 58094, 58095, 58164,
+			58171, 58286, 58287, 58294, 58295, 58348, 58349, 58354, 58356, 58394, 58395, 58397, 58398, 58433, 58434, 58440,
+			58441, 58478, 58479, 58487, 58488, 58535, 58536, 58538, 58539, 58578, 58582, 58583, 58587, 58593, 58604, 58615,
+			58626, 58637, 58650, 58656, 58662, 58663, 58669, 58670, 58680, 58681, 58692, 58698, 58702, 58726, 58733, 58734,
+			58737, 58738, 58745, 58768, 58774, 58775, 58777, 58778, 58789, 58832, 58833, 58837, 58840, 58844, 58882, 58883,
+			58884, 58886, 58890, 58929, 58930, 58931, 58936, 58940, 58971, 58973, 58974, 58979, 58980, 59009, 59010, 59011,
+			59013, 59014, 59049, 59050, 59051, 59057, 59059, 59089, 59090, 59092, 59093, 59118, 59119, 59123, 59124, 59160,
+			59161, 59165, 59166, 59227, 59228, 59232, 59233, 59258, 59259, 59263, 59264, 59288, 59289, 59293, 59294, 59324,
+			59325, 59326, 59328, 59329, 59353, 59354, 59355, 59357, 59358, 59402, 59406, 59448, 59449, 59450, 59451, 59475,
+			59476, 59478, 59479, 59501, 59502, 59539, 59540, 59544, 59549, 60166, 60167, 60169, 60171, 60200, 60201, 60207,
+			60208, 60239, 60241, 60245, 60246, 60284, 60285, 60290, 60291, 60313, 60314, 60320, 60321, 60347, 60348, 60350,
+			60351, 60381, 60382, 60389, 60390, 60452, 60454, 60457, 60458, 60523, 60527, 60528, 60531, 60533, 60545, 60556,
+			60570, 60579, 60595, 60601, 60602, 60609, 60610, 60614, 60615, 60625, 60626, 60640, 60646, 60651, 60688, 60692,
+			60693, 60698, 60701, 60709, 60730, 60734, 60735, 60738, 60742, 60746, 60773, 60779, 60780, 60782, 60783, 60790,
+			60816, 60820, 60821, 60826, 60827, 60834, 60875, 60876, 60877, 60882, 60883, 60921, 60923, 60924, 60926, 60927,
+			60958, 60959, 60960, 60973, 60974, 61000, 61002, 61003, 61005, 61006, 61036, 61037, 61040, 61041, 61066, 61067,
+			61071, 61072, 61094, 61095, 61099, 61100, 61147, 61148, 61153, 61154, 61177, 61178, 61183, 61184, 61211, 61212,
+			61216, 61217, 61240, 61241, 61242, 61245, 61246, 61270, 61271, 61272, 61274, 61275, 61318, 61322, 61350, 61351,
+			61355, 61356, 61378, 61379, 61383, 61384, 61407, 61408, 61445, 61446, 61451, 61452, 61469, 61471, 61475, 61481
+		],
+		"remaining": [],
+		"scope": "Recorded fixture identities/PIDs only; read-only kill(pid,0), no machine-wide scan or signalling."
+	}
+}

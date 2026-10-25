@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+- 本机 ExecutionEnv.exec（rg、Runtime/SDK execution.run 和 cron 程序作业）接入同一薄宿主 program+argv 门；通过 Pi fork 的可选 local spawn/cancel 适配保留原 Result、流式输出/背压/spill、stdin transport、timeout/abort/cleanup，默认 bash 共用私有 fd 能力缓存，不再各自读取。无宿主/非 macOS/remote 原行为不变。
+
+- 共享 Helper 安装器在 host/permissions 两个入口同步刷新当前安装发行版的稳定 permissions wrapper，支持升级和回滚；锁保留 holder 身份且仅证明旧 holder 已死才恢复，替换失败恢复旧签名 bundle，不盲删并发锁。
+
+- 修复薄宿主后代枚举的归属竞态：以同一 BSD identity/PPID 快照复验到真实 anchor 或已 ACK 根的完整边，拒绝枚举后复用/换父的 PID，清理不误收新身份。
+
+- macOS 服务改由同一 Helper 的无 UI 生命周期入口托管 Node；独立 group-anchor 在业务根退出后保留可验证的组身份，双方 owner 登记 ACK 后才允许启动，TERM 后有界等待并重验身份再组 KILL。
+- 增加真实后代在脱组/丢失父链前逐进程登记的双方 ACK 协议，拒绝任意 target PID；服务 restart 先等待旧宿主卸载，旧版本回滚保留原启动链。至少一个 owner 存活且后代保持原组或先登记是受管契约，不承诺未登记 daemon 或双 owner 同杀。
+- 默认 bash 在 macOS 薄宿主下复用同一 Helper 的每任务 command-anchor；从宿主私有继承描述符取得能力，先保持原组完成双方 prepare ACK，再建子组、完成 ready ACK 才执行。保留真实 shell 退出码/信号、stdio、stdin 与每任务 TERM→1秒 KILL，命令结束先回收子组再回收锚点；宿主协议损坏报错，不静默退回 detached。非宿主/非 macOS 原路径兼容。
+- 保留 .06 统一 permissions registry/ToolContext/API；本次进程专项与产品构建不代表生产 TCC 授权或升级保留已验收。原失败门和最终专项记录见 [宿主回收验证](docs/verification/service-host-owned-cleanup-20261025.md)。
+
 ## [0.2.26102506] - 2026-10-25
 
 - 新增共享 `PluginAPI.permissions`、核心 `permissions` 工具和 native-automation provider，复用已有 macOS 权限驱动及 desktop 兼容入口；按真实活动 ToolContext、session/profile 插件选择、owner、能力、执行环境和取消信号校验。

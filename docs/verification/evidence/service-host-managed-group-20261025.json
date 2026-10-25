@@ -1,0 +1,69 @@
+{
+	"child": 33004,
+	"observed": false,
+	"survived": true,
+	"result": {
+		"code": 1,
+		"signal": null
+	},
+	"states": [
+		{
+			"members": [
+				{
+					"seconds": 1792918218,
+					"pid": 32997,
+					"micros": 981743
+				}
+			],
+			"helperPid": 32994,
+			"nodePid": 32997
+		},
+		{
+			"members": [
+				{
+					"pid": 32997,
+					"micros": 981743,
+					"seconds": 1792918218
+				}
+			],
+			"helperPid": 32994,
+			"nodePid": 32997
+		},
+		{
+			"members": [
+				{
+					"pid": 32997,
+					"micros": 981743,
+					"seconds": 1792918218
+				}
+			],
+			"helperPid": 32994,
+			"nodePid": 32997
+		},
+		{
+			"members": [
+				{
+					"micros": 981743,
+					"seconds": 1792918218,
+					"pid": 32997
+				}
+			],
+			"helperPid": 32994,
+			"nodePid": 32997
+		},
+		{
+			"members": [
+				{
+					"seconds": 1792918218,
+					"micros": 981743,
+					"pid": 32997
+				}
+			],
+			"helperPid": 32994,
+			"nodePid": 32997
+		}
+	],
+	"errors": "",
+	"beforeKill": "32991 32971 32962 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node /tmp/yonder-managed-group-lAIXxj/runner.mjs {\"app\":\"/tmp/yonder-managed-group-lAIXxj/YonderHelper\",\"direct\":true,\"program\":\"/tmp/yonder-managed-group-lAIXxj/escape\",\"args\":[\"/tmp/yonder-managed-group-lAIXxj/child.pid\"],\"environment\":{},\"cwd\":\"/tmp/yonder-managed-group-lAIXxj\",\"home\":\"/tmp/yonder-managed-group-lAIXxj\"}\n32994 32991 32962 S    /tmp/yonder-managed-group-lAIXxj/YonderHelper service-host /tmp/yonder-service-aAJgrS/lease /tmp/yonder-service-aAJgrS/launch.json\n32997 32994 32997 Z    <defunct>\n33004     1 32997 S    /tmp/yonder-managed-group-lAIXxj/escape /tmp/yonder-managed-group-lAIXxj/child.pid\n",
+	"processState": "33004     1 32997 /tmp/yonder-managed-group-lAIXxj/escape /tmp/yonder-managed-group-lAIXxj/child.pid"
+}
