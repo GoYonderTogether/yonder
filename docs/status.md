@@ -8,6 +8,23 @@
 
 ## 任务账本候选（未定版本，2026-10-25，待审核）
 
+本轮 PR #82 机械同步（2026-10-25）：在指定任务 worktree 的干净分支合并 origin/main `8f2cfcb`（PR #77–#81，0.2.26102509），合并提交 `10a6915`。27 个冲突文件为 CHANGELOG、package-lock 和 25 个 package.json；无代码冲突。版本冲突采用 main，tasks workspace/锁文件链接与依赖保留并对齐 .09。后续提交 `462b027` 撤销 1346529 的发布准备声明，tasks 变更留在 Unreleased；已发布 CHANGELOG 段落逐字等于 main，已有包版本/依赖与锁文件版本核对通过。docs/verification 历史记录保留，候选等待独立 release PR 定版本。
+
+本轮从干净 Git 状态执行以下命令（依次完成安装、构建、类型检查和测试，没有并发重装依赖）；命令均 exit 0，没有检查失败或修复重跑：
+
+| 实际命令 | 本轮原始结果 |
+|---|---|
+| `agent-network run -- git fetch origin` | 通过 |
+| `git merge --no-commit origin/main` | 预期冲突，按上述规则解决并提交 |
+| `agent-network run -- npm ci` | 通过；新增 334 包，审计 361 包；4 vulnerabilities（2 moderate / 2 high），未自动修复；3 包 install scripts 提示未获 allowScripts 授权 |
+| `agent-network run -- npm run build` | 通过，含 worktree 内 macOS Helper 构建/签名验证；未安装 |
+| `npm run typecheck` | 通过，0 errors |
+| `npm run lint` | 通过，406 files，0 errors / 482 warnings / 14 infos |
+| `npm test` | 文件 117 passed / 0 failed / 19 skipped；用例 730 passed / 0 failed / 39 skipped（769） |
+| `YONDER_TEST_REAL=1 YONDER_TEST_AUTH=/Users/zoran/Documents/yonder-harness/.yonder/auth.json agent-network run -- npm test -- plugins/tasks/test/moments.test.ts` | 文件 1 passed / 0 failed / 0 skipped；用例 4 passed / 0 failed / 0 skipped，含真实 openai/gpt-6-luna stall 检查；凭据仅由测试读取，未打印 |
+
+本轮未测（not tested）：默认跳过的 39 个用例中，除上述 moments 真实用例外的其他真实模型/环境专项；历史 task-presets-live 失败未重跑；独立构建版 smoke、真实飞书、已安装 macOS、生产服务、TCC/定位授权与升级均未测。本轮未发布、安装、操作生产 home 或已安装服务；既往失败与计数继续保留在下文，不以本轮成功覆盖。原始本机日志：`/tmp/task-ledger-82-{ci,build,typecheck,lint,test,real}.log`。
+
 任务 worktree 合并 origin/main `78ae9de`（PR #74–#76），合并提交 `fcc176a`。companion 同页保留 Agent 概览/图钉与任务看板；渠道实例范围、permissions API 及两侧历史记录保留。此前 release-prep 提交 1346529 的版本准备已撤销：本功能候选未定版本，等待独立 release PR；包版本沿用 main 的 0.2.26102509，不表示 tasks 已发布。以下保留此前验证的原始记录；当时未推送、打 tag、发布或安装。
 
 干净安装、build、typecheck、lint 通过（0 errors / 478 warnings / 14 infos）；默认全量 114 文件通过 / 19 跳过，681 用例通过 / 0 失败 / 39 跳过。真实专项首轮被执行者并发 npm ci 破坏 worker 后中止（exit 130，无完整计数）；完整重跑为 48 文件通过 / 1 失败 / 1 跳过，141 用例通过 / 1 失败 / 1 跳过。失败的官方 task-presets-live 父预设只提供 task_run，coding 子任务按现有契约继承后无文件/Shell 工具；相关源码/测试与 main 完全相同，未为本次合并扩大修复，也不宣称候选全绿。execution-live 硬编码 worktree 凭据路径，未测。任务插件 moments 定点真实检查 4 通过 / 0 失败 / 0 跳过，Luna 实际 read/tasks_update 后标记 blocked。
