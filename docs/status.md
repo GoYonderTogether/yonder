@@ -6,6 +6,12 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 共享 permissions API 独立集成（2026-10-25，未发布分支）
+
+从正式 .05 commit `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9` 只迁入共享 SDK/core/native provider 与真实 adapter 合同两项增量。保留同一 registry、真实活动 ToolContext、session/profile 插件选择、finally 释放与 owner/capability/env/cancellation 校验；不包含薄服务宿主、安装入口变更或定位功能。
+
+本分支专项 12 文件、186 通过 / 0 失败 / 0 跳过；TypeScript/UI 构建、typecheck、lint 通过（lint 402 warnings / 14 infos）。**尚未发布、未安装到正式 home、未验真实 TCC**；正式 .05 不含此 API。未运行全量测试、模型/Kernel/OS E2E、原生打包/签名、权限请求或定位采集，不能据此宣称权限继承、grant 保留或宿主生命周期已修复。原始记录与边界见 [权限 API 验证](verification/permissions-api.md)。
+
 ## 验证基线
 
 - 0.2.26102307 提示词与任务预设：默认全仓 423/0/38，真实 Luna 三类任务及连续工作 session 集成 1/0/0；构建、类型检查、lint 通过，原始失败和修正保留在 [任务预设验收](verification/task-presets.md)。

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- 新增共享 `PluginAPI.permissions`、核心 `permissions` 工具和 native-automation provider，复用已有 macOS 权限驱动及 desktop 兼容入口；按真实活动 ToolContext、session/profile 插件选择、owner、能力、执行环境和取消信号校验。
+- 该 API 独立于未决的薄原生服务宿主，不改变服务入口或加入定位接口。当前仅分支实现及专项验证，未发布、未安装、未验真实 TCC；TypeScript/UI 构建通过，不代表原生打包/签名验收。见 [权限 API 验证](docs/verification/permissions-api.md)。
+
 ## [0.2.26102505] - 2026-10-25
 
 - 状态栏展示逐 Agent 的运行/空闲/等待状态、任务摘要与可见回复短片段；图标同步标记运行中。

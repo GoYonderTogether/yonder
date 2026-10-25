@@ -1,5 +1,32 @@
 # Shared permissions API verification
 
+## API-only integration on the official .05 base (2026-10-25)
+
+Base: `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9` (`0.2.26102505`). Worktree: `/tmp/yonder-permissions-api-final-20261025`, branch: `feat/permissions-api-final-20261025`.
+
+**Implemented and locally verified on this branch; not released, not installed, and not live-TCC verified.** The installed .05 does not contain this API. This integration is independent of the unresolved thin service host: only `afebc8d` (SDK/core/native provider) and `f8905fe` (real adapter contract) were transplanted. No changes from `7469ec8` or `428fbf5`, no service launch/install changes, and no location interface or collection.
+
+The only cherry-pick conflict was the insertion point in `packages/sdk/src/types.ts`: both .05's `ResolvedExecution` (including `channelInstances`) and the permission types are retained. The existing runtime adapter still registers the exact native ToolContext and deletes it in `finally`; registry calls use that context, stored session/profile, selected provider, and original cancellation signal. Native owner/capability/local-environment checks remain in the shared `permissionRun` used by both entries.
+
+Checks performed under the owned `/tmp/yonder-heavy-test.lock`:
+
+| Command / scope | Result |
+| --- | --- |
+| `npm ci --ignore-scripts` | exit 0; no dependency or lockfile changes; npm reported 2 moderate and 2 high vulnerabilities, not changed in this task |
+| `node_modules/.bin/tsc -b` | exit 0 |
+| `node plugins/ui-companion/build.mjs` | exit 0 |
+| Targeted Vitest (`--maxWorkers=4`, explicit 12 files below) | 186 passed / 0 failed / 0 skipped; 12 files passed |
+| `npm run typecheck` | exit 0 |
+| `npm run lint` | exit 0; 368 files, 0 errors / 402 warnings / 14 infos; no fixes applied |
+
+Targeted files: SDK permissions/types; core permissions, plugin loader/index and permissions, prompt permissions, runtime catalog, permission-context, permissions-integration; native-automation permission-actions, permission-rpc and contract. This is not a full-suite run. The adapter file's 7 cases execute the real registered Runtime adapter with a labelled provider/driver fixture and isolated SQLite, covering all four actions, selection/list rejection, provider error and abort/context expiry. They are not a model/Kernel bootstrap/OS E2E. Transport tests mock all Helper/OS operations; no permission request was executed.
+
+Standard `npm run build` was deliberately not invoked: on macOS it unconditionally calls `build-permissions.mjs`, queries signing identities and signs the Helper. The TypeScript and UI build components above passed separately. Native packaging/signing remains untested in this integration, not a full standard-build pass. No native sources or scripts changed.
+
+Raw current-run logs, commands, UTC start/end times and exit files: `/tmp/yonder-permissions-api-final-20261025-EVIDENCE/` (`npm-ci.log`, `typescript-build.log`, `ui-build.log`, `targeted-tests.log`, `typecheck.log`, `lint.log`). Exact final diff and merge/release handoff are recorded in `/tmp/yonder-permissions-api-final-20261025-RESULT.md`. The final full-suite/release budget remains with the parent; any release, installation, restart, live permission or protected-resource verification requires the separate authorized release/acceptance step. No such step was performed here.
+
+## Historical implementation checks (not rerun evidence for .05)
+
 Date: 2026-10-25 (Asia/Shanghai). Base: `1d4836e6da4a5ead0424864c4955ca22a81714ed`.
 Scope: SDK/core shared facade, existing native-automation macOS permission driver, native common authority prompt. No service host, Windows driver, account authorization migration, media capture, memory changes, installation or release.
 
