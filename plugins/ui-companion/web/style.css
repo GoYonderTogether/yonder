@@ -622,3 +622,77 @@ a {
 :where(body)[data-surface="inline"] .preview-bar {
 	display: none;
 }
+
+#pin-button[aria-pressed="true"] {
+	background: var(--tone);
+}
+.agent-row {
+	padding: 16px 0;
+	border-bottom: 1px solid var(--hairline);
+}
+.agent-row:first-child {
+	padding-top: 0;
+}
+.agent-row:last-child {
+	border-bottom: 0;
+}
+.agent-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+.agent-heading strong {
+	font-size: var(--text-body);
+	font-weight: 500;
+	overflow-wrap: anywhere;
+}
+.agent-status {
+	font-size: var(--text-caption);
+	color: var(--muted);
+	white-space: nowrap;
+}
+.agent-status::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: var(--offline);
+	margin-right: 6px;
+}
+[data-state="running"] .agent-status::before {
+	background: var(--ink);
+	animation: working 1.8s ease-in-out infinite;
+}
+[data-state="waiting"] .agent-status::before {
+	background: var(--ink);
+	border-radius: 0;
+}
+.agent-task {
+	margin-top: 12px;
+}
+.agent-task p {
+	margin: 0 0 4px;
+	font-size: var(--text-small);
+	overflow-wrap: anywhere;
+}
+.agent-task small {
+	color: var(--muted);
+	font-size: var(--text-caption);
+}
+.agent-task .agent-output {
+	margin-top: 10px;
+	color: var(--muted);
+	line-height: 1.65;
+}
+@keyframes working {
+	50% {
+		opacity: 0.25;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-state="running"] .agent-status::before {
+		animation: none;
+	}
+}

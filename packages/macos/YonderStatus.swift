@@ -6,10 +6,14 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var companion: CompanionController!
     private var endpointTimer: Timer?
     private let menu = NSMenu()
-    private let current = NSMenuItem(title: "当前交互", action: #selector(openCurrent), keyEquivalent: "")
+    private let current = NSMenuItem(title: "打开悬浮窗", action: #selector(openCurrent), keyEquivalent: "")
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
     private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
     private var needsPowerUpdate = false
+    private var readingActivity = false
+    private var agentItems: [NSMenuItem] = []
+    private var activityKey = ""
+    private var baseImage: NSImage!
     private let awake = NSMenuItem(title: "保持唤醒", action: nil, keyEquivalent: "")
     private let awakeOff = NSMenuItem(title: "关闭", action: #selector(selectAwakeMode(_:)), keyEquivalent: "")
     private let awakeTasks = NSMenuItem(title: "任务期间保持唤醒", action: #selector(selectAwakeMode(_:)), keyEquivalent: "")
@@ -25,6 +29,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let image = NSImage(contentsOf: Bundle.main.url(forResource: "menubar-template", withExtension: "png")!)!
         image.size = NSSize(width: 22, height: 22); image.isTemplate = true
+        baseImage = image
         item.button?.image = image
         item.button?.toolTip = "Yonder · 点击打开菜单"
         item.button?.setAccessibilityLabel("Yonder")
@@ -38,20 +43,22 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         [awakeOff, awakeTasks, awakeAlways].forEach(awakeMenu.addItem)
         awake.submenu = awakeMenu
         [current, history, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
-        companion = CompanionController()
+        companion = CompanionController(preferenceKey: home + ":companion-pinned")
         companion.onVisibility = { [weak self] visible in self?.item.button?.state = visible ? .on : .off }
         companion.isStatusClick = { [weak self] point in
             guard let button = self?.item.button, let window = button.window else { return false }
             return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(point)
         }
         refreshEndpoint()
-        endpointTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refreshEndpoint() }
+        refreshActivity()
+        endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshEndpoint(); self?.refreshActivity() }
+        RunLoop.main.add(endpointTimer!, forMode: .common)
     }
     private func refreshEndpoint() {
         let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/plugins/ui-companion/desktop.json")
         companion.setEndpoint((try? Data(contentsOf: file)).flatMap(DesktopEndpoint.read))
         current.isEnabled = companion.available; history.isEnabled = companion.available
-        current.title = companion.available ? "当前交互" : "交互插件未就绪"
+        current.title = companion.available ? "打开悬浮窗" : "交互插件未就绪"
     }
     @objc private func openCurrent() { companion.showCurrent() }
     @objc private func openHistory() { companion.showHistory() }
@@ -87,12 +94,62 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         refreshPower()
         refreshEndpoint()
-        status.title = "读取服务状态…"
+        refreshActivity()
+    }
+
+    private func refreshActivity() {
+        guard !readingActivity else { return }
+        readingActivity = true
         run(["service", "info", "--home", home]) { result in
+            self.readingActivity = false
+            var agents: [AgentActivity] = []
+            var known = false
+            var running = false
             switch result {
             case .success(let info):
-                self.status.title = info["ready"] as? Bool == true ? "运行中 · \(info["version"] ?? "") · PID \(info["pid"] ?? "")" : "服务未就绪"
-            case .failure(let error): self.status.title = "服务未就绪：\(error.localizedDescription)"
+                known = info["ready"] as? Bool == true && info["agents"] is [[String: Any]]
+                agents = (info["agents"] as? [[String: Any]] ?? []).compactMap(AgentActivity.init)
+                running = agents.contains { $0.state == "running" } || (info["active"] as? Int ?? 0) > 0
+                self.status.title = known ? "服务运行中 · \(info["version"] ?? "")" : "运行状态未知"
+            case .failure:
+                self.status.title = "服务未就绪 · 运行状态未知"
+            }
+            self.companion.setActivity(agents, known: known)
+            self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
+            let image = NSImage(size: NSSize(width: 22, height: 22))
+            image.lockFocus()
+            self.baseImage.draw(in: NSRect(x: 0, y: 0, width: 22, height: 22))
+            if running || !known {
+                NSColor.labelColor.setFill()
+                let dot = NSBezierPath(ovalIn: NSRect(x: 16, y: 1, width: 5, height: 5))
+                if running { dot.fill() } else { dot.lineWidth = 1; dot.stroke() }
+            }
+            image.unlockFocus(); image.isTemplate = true
+            self.item.button?.image = image
+            let key = "\(known):" + agents.map { $0.menuText + $0.tasks.map { $0.summary + $0.detail + $0.text }.joined(separator: "\n") }.joined(separator: "\n")
+            guard self.activityKey != key else { return }
+            self.activityKey = key
+            self.agentItems.forEach { self.menu.removeItem($0) }; self.agentItems = []
+            var index = 0
+            for agent in agents {
+                let title = NSMenuItem(title: agent.menuText, action: nil, keyEquivalent: "")
+                title.isEnabled = false
+                self.menu.insertItem(title, at: index); index += 1; self.agentItems.append(title)
+                for task in agent.tasks {
+                    let text = [String(task.summary.prefix(44)), task.detail].filter { !$0.isEmpty }.joined(separator: " · ")
+                    let row = NSMenuItem(title: String(text.prefix(90)), action: nil, keyEquivalent: "")
+                    row.isEnabled = false; row.indentationLevel = 1; row.toolTip = [task.summary, task.detail].joined(separator: " · ")
+                    self.menu.insertItem(row, at: index); index += 1; self.agentItems.append(row)
+                    if !task.text.isEmpty {
+                        let output = NSMenuItem(title: String(task.text.replacingOccurrences(of: "\n", with: " ").suffix(64)), action: nil, keyEquivalent: "")
+                        output.isEnabled = false; output.indentationLevel = 1; output.toolTip = task.text
+                        self.menu.insertItem(output, at: index); index += 1; self.agentItems.append(output)
+                    }
+                }
+            }
+            if !self.agentItems.isEmpty {
+                let separator = NSMenuItem.separator()
+                self.menu.insertItem(separator, at: index); self.agentItems.append(separator)
             }
         }
     }
@@ -197,6 +254,9 @@ struct DesktopMain {
     static func main() {
         if CommandLine.arguments.contains("--check") {
             checkCompanionGeometry()
+            precondition(AgentActivity(["id": "main", "name": "main", "state": "unknown"]) == nil)
+            let activity = AgentActivity(["id": "main", "name": "main", "state": "running", "tasks": [["detail": "执行 bash"]]])!
+            precondition(activity.label == "运行中" && activity.tasks[0].detail == "执行 bash")
             let path = "/" + UUID().uuidString + "/"
             let data = try! JSONSerialization.data(withJSONObject: ["url": "http://127.0.0.1:12345" + path, "pid": getpid()])
             precondition(DesktopEndpoint.read(data) != nil)

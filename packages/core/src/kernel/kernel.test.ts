@@ -22,6 +22,9 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 			]);
 			expect(await kernel.sessions.list({})).toEqual([]);
 			expect(await kernel.awakeActivity()).toEqual({ active: 0 });
+			expect(await kernel.terminal.activity()).toEqual([
+				{ id: "main", name: expect.any(String), state: "idle", tasks: [] },
+			]);
 			const endpoint = JSON.parse(await readFile(`${home}/.yonder/plugins/ui-companion/desktop.json`, "utf8"));
 			expect((await fetch(endpoint.url)).status).toBe(200);
 			expect(parse(await readFile(file, "utf8")).defaults.plugins).not.toContain("ui-companion");

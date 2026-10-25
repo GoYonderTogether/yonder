@@ -674,6 +674,7 @@ async function run(args: string[]): Promise<number> {
 							pid: process.pid,
 							ready: true,
 							active: (await kernel.awakeActivity()).active,
+							agents: await kernel.terminal.activity(),
 						};
 					}
 					case "terminal.info":
