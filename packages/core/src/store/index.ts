@@ -114,11 +114,12 @@ export async function createStore(
 		if (typeof msgId !== "string" || !msgId || !input.conv?.startsWith("conv:")) return;
 		const prefix = input.conv.split(":").slice(0, 2).join(":") + ":";
 		const row = await tx.get<EventRow>(
-			"SELECT * FROM y_events WHERE type = ? AND substr(conv, 1, ?) = ? AND json_extract(data, '$.msgId') = ? ORDER BY id LIMIT 1",
+			"SELECT * FROM y_events WHERE type = ? AND substr(conv, 1, ?) = ? AND json_extract(data, '$.msgId') = ? AND CASE WHEN type = 'message.in' THEN json_extract(data, '$.target') END IS ? ORDER BY id LIMIT 1",
 			input.type,
 			prefix.length,
 			prefix,
 			msgId,
+			input.type === "message.in" ? ((input.data as { target?: string }).target ?? null) : null,
 		);
 		return row ? eventRow(row) : undefined;
 	}
@@ -254,6 +255,7 @@ export async function createStore(
 				where.push(sql);
 				values.push(value);
 			};
+			if (query.id !== undefined) add("id = ?", query.id);
 			if (query.type)
 				query.type.endsWith(".*") ? add("substr(type, 1, ?) = ?", query.type.length - 1) : add("type = ?", query.type);
 			if (query.type?.endsWith(".*")) values.push(query.type.slice(0, -1));

@@ -30,8 +30,8 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			agent.profiles.owner.tools = { offer: ["agent_ask", "write", "skill_view", "message_send"] };
 			agent.profiles.owner.limits = { maxMinutes: 1 };
 			agent.profiles.guest = { level: "readonly", tools: { offer: ["read", "write"] } };
-			agent.bindings[0].match.channel = ["cli", "alt"];
-			agent.bindings[0].stream = false;
+			agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.match.channel = ["cli", "alt"];
+			agent.bindings.find((binding: { id: string }) => binding.id === "owner")!.stream = false;
 			agent.bindings.push({
 				id: "guest",
 				match: { channel: "guest", from: "stranger" },

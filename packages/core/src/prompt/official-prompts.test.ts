@@ -70,6 +70,7 @@ test("official resident templates load, scaffold and stay out of identity-less t
 			id: "main",
 			value: {
 				profiles: {
+					...parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8")).profiles,
 					owner: {
 						level: "bypass",
 						contexts: [],
@@ -93,7 +94,10 @@ test("official resident templates load, scaffold and stay out of identity-less t
 				action: "agents.update",
 				id: "main",
 				value: {
-					profiles: { owner: { prompt: { sections: ["missing-section"] } } },
+					profiles: {
+						...parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8")).profiles,
+						owner: { prompt: { sections: ["missing-section"] } },
+					},
 				},
 			}),
 		).rejects.toThrow("Unknown prompt section");
@@ -152,16 +156,11 @@ test("official tasks select real tools, share work-session presets and allow sho
 			);
 			expect(sections.slice(-names.length)).toEqual(expected);
 			expect(sections.join("\n")).not.toContain(residentPrompt);
-			const offered = inspectToolCatalog(task, plugins.tools)
-				.filter((tool) => tool.exposure === "offer")
-				.map((tool) => tool.name)
-				.sort();
-			expect(offered).toEqual(
-				(id === "research"
-					? ["read", "grep", "skill_view", "web-tools_search", "web-tools_fetch", "web-tools_extract"]
-					: ["read", "grep", "write", "edit", "bash", "process", "skill_view"]
-				).sort(),
-			);
+			// Official presets specialise only model and context; tools and permissions come from the opener.
+			const preset = plugins.presets.get(id)!;
+			expect(preset.tools).toBeUndefined();
+			expect(preset.capabilities).toBeUndefined();
+			expect(preset.level).toBeUndefined();
 		}
 		kernel = await openKernel(home);
 		const session = await kernel.sessions.open({ preset: "coding", close: "manual" });

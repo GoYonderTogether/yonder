@@ -72,8 +72,10 @@ try {
 		assert.ok(JSON.parse(screenshot.text).error.includes(record.nextStep));
 	}
 	passed++;
-	const forbidden = await call({ action: "request" });
+	// This diagnostic context has no owner-origin input, so even a valid new action must fail before transport.
+	const forbidden = await call({ action: "permission-request", kind: "camera" });
 	assert.equal(forbidden.isError, true);
+	assert.match(JSON.parse(forbidden.text).error, /owner input/);
 	passed++;
 	const self = JSON.parse(
 		execFileSync(process.execPath, ["scripts/yonder-permissions.mjs", "self-check"], { encoding: "utf8" }),

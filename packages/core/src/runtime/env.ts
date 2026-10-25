@@ -1,3 +1,4 @@
+import { isAbsolute, relative, sep } from "node:path";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
@@ -8,10 +9,20 @@ export function localEnvironment(cwd: string): ExecutionEnv {
 }
 export const canonicalPath = async (env: ExecutionEnv, path: string): Promise<string> =>
 	getOrThrow(await env.canonicalPath(path, BACKGROUND_CONTEXT));
-export function workspaceFiles(env: ExecutionEnv, signal?: AbortSignal): WorkspaceFiles {
+export function workspaceFiles(env: ExecutionEnv, signal?: AbortSignal, root?: string): WorkspaceFiles {
 	const context = signal ? withAbortSignal(signal, BACKGROUND_CONTEXT) : BACKGROUND_CONTEXT;
 	return {
-		readFile: async (path) => getOrThrow(await env.readTextFile(path, context)),
+		readFile: async (path) => {
+			if (root !== undefined) {
+				const base = getOrThrow(await env.canonicalPath(root, context));
+				const target = getOrThrow(await env.canonicalPath(path, context));
+				const rel = relative(base, target);
+				if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`))
+					throw new Error("Workspace context path escapes workspace");
+				path = target;
+			}
+			return getOrThrow(await env.readTextFile(path, context));
+		},
 		writeFile: async (path, text) => getOrThrow(await env.writeFile(path, text, context)),
 		exists: async (path) => getOrThrow(await env.exists(path, context)),
 		list: async (path) =>

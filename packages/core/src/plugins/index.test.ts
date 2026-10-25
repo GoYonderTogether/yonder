@@ -61,169 +61,8 @@ it("loads both first-party plugins through the manifest and registration checks"
 			services,
 		);
 		expect([...plugins.channels.keys()]).toEqual(["cli"]);
-		expect([...plugins.contexts.keys()]).toEqual(["agents-md", "user-md", "soul-md", "memory-md"]);
+		expect([...plugins.contexts.keys()]).toEqual(["peer-workspace", "agents-md", "user-md", "soul-md", "memory-md"]);
 		expect(plugins.envs.size).toBe(0);
-	} finally {
-		await rm(home, { recursive: true, force: true });
-	}
-});
-
-it("loads the enabled progress observer through the real plugin manifest and registration validator", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-progress-load-"));
-	try {
-		const services = {
-			events: { emit: unused, ask: unused, query: async () => ({ events: [] }) },
-			messages: { send: unused },
-			credentials: { get: unused },
-			sessions: {
-				list: unused,
-				get: unused,
-				open: unused,
-				submit: unused,
-				abort: unused,
-				close: unused,
-				transcript: unused,
-			},
-			identity: {
-				account: unused,
-				person: unused,
-				createPerson: unused,
-				link: unused,
-				unlink: unused,
-				relation: unused,
-				lookup: unused,
-			},
-			services: { resolve: unused },
-			models: {},
-			log: console,
-		} as unknown as KernelServices;
-		const plugins = await loadPlugins(
-			home,
-			{
-				schema: 1,
-				plugins: [
-					{
-						use: resolve("plugins/progress-observer"),
-						config: {
-							enabled: true,
-							allowedAgents: ["agent:main"],
-							allowedSourceConversations: ["conv:test:owner"],
-						},
-					},
-				],
-			},
-			services,
-		);
-		expect(plugins.tools.get("progress-observer")?.map((tool) => tool.name)).toEqual([
-			"progress-observer_task_bind",
-			"progress-observer_task_register",
-		]);
-		await plugins.start({ emit: unused, ask: unused });
-		await plugins.stop();
-	} finally {
-		await rm(home, { recursive: true, force: true });
-	}
-});
-
-it("loads decision-routing from its manifest, disabled by default and opt-in as an advisory tool", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-decision-routing-"));
-	const services = {
-		events: { emit: unused, ask: unused, query: unused },
-		messages: { send: unused },
-		credentials: { get: unused },
-		sessions: {
-			list: unused,
-			get: unused,
-			open: unused,
-			submit: unused,
-			abort: unused,
-			close: unused,
-			transcript: unused,
-		},
-		identity: {
-			account: unused,
-			person: unused,
-			createPerson: unused,
-			link: unused,
-			unlink: unused,
-			relation: unused,
-			lookup: unused,
-		},
-		services: { resolve: unused },
-		models: {},
-		log: console,
-	} as unknown as KernelServices;
-	try {
-		const disabled = await loadPlugins(
-			home,
-			{ schema: 1, plugins: [{ use: resolve("plugins/decision-routing") }] },
-			services,
-		);
-		const disabledTool = disabled.tools.get("decision-routing")?.[0];
-		expect(disabledTool?.name).toBe("decision-routing_recommend");
-		await expect(disabledTool?.execute({}, {} as never)).resolves.toMatchObject({
-			isError: true,
-			text: "decision_routing_disabled_or_unapproved",
-		});
-		const enabled = await loadPlugins(
-			home,
-			{
-				schema: 1,
-				plugins: [
-					{
-						use: resolve("plugins/decision-routing"),
-						config: {
-							enabled: true,
-							adminApproved: true,
-							classifier: { provider: "openai", id: "example" },
-							allowedClassifierModels: ["openai/example"],
-							allowedClassifierOrigins: ["https://example.invalid"],
-							allowedAgents: ["agent:main"],
-							allowedConversations: ["conv:test:owner"],
-							targetModels: ["openai/target"],
-							budgetUsd: 1,
-							classifierCostBoundUsd: 0.1,
-							routeCostBoundsUsd: { default: 0.5 },
-						},
-					},
-				],
-			},
-			services,
-		);
-		const advisoryTool = enabled.tools.get("decision-routing")?.[0];
-		expect(advisoryTool?.name).toBe("decision-routing_recommend");
-		await expect(
-			advisoryTool?.execute(
-				{
-					agent: "agent:main",
-					conversation: "conv:test:owner",
-					capabilities: ["admin", "network"],
-					summary: "task",
-					routes: [],
-					defaultRoute: "default",
-					allowedModels: ["openai/target"],
-				},
-				{
-					capabilities: ["admin", "network"],
-					agent: "agent:attacker",
-					event: { conv: "conv:attacker" },
-					signal: new AbortController().signal,
-				} as never,
-			),
-		).resolves.toMatchObject({ isError: true, text: "caller_not_allowlisted" });
-		await expect(
-			advisoryTool?.execute(
-				{ agent: "agent:main", conversation: "conv:test:owner", summary: "task", routes: [], defaultRoute: "default" },
-				{
-					capabilities: [],
-					agent: "agent:main",
-					event: { conv: "conv:test:owner" },
-					signal: new AbortController().signal,
-				} as never,
-			),
-		).resolves.toMatchObject({ isError: true, text: "permission_denied" });
-		await enabled.start({ emit: unused, ask: unused });
-		await enabled.stop();
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
@@ -272,6 +111,60 @@ export default { configSchema: {type: "object", required: ["output"], properties
 		await expect(plugins.start({ emit: unused, ask: unused })).rejects.toThrow(
 			"event type must start with audit-plugin.",
 		);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+it("only the provider registration can allow a channel to emit target", async () => {
+	const home = await mkdtemp("/tmp/yonder-channel-target-");
+	try {
+		for (const allowed of [false, true]) {
+			const directory = join(home, `provider-${allowed}`);
+			await mkdir(directory);
+			await writeFile(
+				join(directory, "package.json"),
+				JSON.stringify({
+					version: "1.0.0",
+					type: "module",
+					yonder: {
+						apiVersion: 1,
+						id: "target-check",
+						entry: "./index.mjs",
+						contributes: { channels: ["target-check"] },
+					},
+				}),
+			);
+			await writeFile(
+				join(directory, "index.mjs"),
+				`export default {
+  setup(api) {
+    api.channels.register({
+      type:'target-check', multiAgent:${allowed},
+      create: id => ({
+        id, multiAgent:true, kinds:['dm'], output:{stream:false,attachments:false},
+        async start(io) { await io.emit({type:'message.in',from:'acct:input:user',conv:'conv:input:room',data:{kind:'dm',text:'input',target:'main'}}); },
+        async stop() {}, async send() { return {ok:false}; }
+      })
+    });
+  }
+};`,
+			);
+			const plugins = await loadPlugins(
+				home,
+				{ schema: 1, plugins: [{ use: directory }], channels: { input: { type: "target-check" } } },
+				{ log: { error() {} } } as unknown as KernelServices,
+			);
+			expect(plugins.channels.get("input")?.multiAgent).toBe(allowed);
+			const emit = async (event: import("@yonder/sdk").EventInput) => ({
+				...event,
+				id: "1",
+				ts: new Date().toISOString(),
+			});
+			if (allowed) await expect(plugins.start({ emit, ask: unused })).resolves.toBeUndefined();
+			else await expect(plugins.start({ emit, ask: unused })).rejects.toThrow("cannot specify target");
+			await plugins.stop();
+		}
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

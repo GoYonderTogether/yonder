@@ -17,7 +17,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 | 命令 | 作用 |
 |---|---|
-| `init [dir] [--owner <id>]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、ui-companion、agent-presets、web-tools 五款官方插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、name `Jarvis`、contexts `[jarvis-soul, jarvis-work]`、plugins `[context-files, agent-presets]`；CLI owner 私聊绑定到主会话且 stream 开启；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另从官方插件生成 default 与选择 web-tools 的 research 任务配置，coding 直接用插件预设（03 §5.4.1、12 §3） |
+| `init [dir] [--owner <id>] [--isolated]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、ui-companion、agent-presets、web-tools 五款官方插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、name `Jarvis`、contexts `[jarvis-soul, jarvis-work]`、plugins `[context-files, agent-presets]`；CLI owner 私聊绑定到主会话且 stream 开启；默认先生成独立 peer profile/binding，`--isolated` 禁用（03 §2.4）；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另从官方插件生成 default 与选择 web-tools 的 research 任务配置，coding 直接用插件预设（03 §5.4.1、12 §3） |
 | `login <provider>` | pi-ai OAuth 登录（07 §6.2），写入凭据文件 |
 | `credentials set <name> --home <dir>` | 本机隐藏录入一项命名 API key（07 §6.2）：仅交互 TTY，不接受秘密参数、管道或 `--json`；已有同名项（含 OAuth）一概拒绝，不提供读取、轮换、删除；与 OAuth 共用凭据文件锁，原子写入，文件须为本用户单链接 0600 普通文件，路径中不得有 symlink 或他人可写目录。运行中的服务不必停止 |
 | `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 |
@@ -92,7 +92,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.yonder-harness`，默认数据目录 `~/.local/share/yonder-harness/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
-macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左键切换当前交互，无待处理交互时打开历史；交互插件未就绪时打开管理菜单并显示原因。右键管理菜单含当前交互、交互历史、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
+macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左右键均打开同一原生管理菜单，不因点击状态栏展开交互窗口；菜单含当前交互、交互历史、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
 服务沿用现有 dev.yonder.harness；图标采用一个用户 launchd 登录项 dev.yonder.harness.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。交互浮窗与浮球由同一状态栏进程承载，不增加第二个桌面应用、常驻管理器、自动更新机制、设置页、安装平台或特权助手。
 
@@ -114,13 +114,13 @@ start输出沿用单一日志入口，增加ISO时间；插件api.log沿用plugi
 
 ## 9. 统一更新结果及内部通知
 
-updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试产生 01 定义的 release.update-result；不能只对 GitHub 自动升级写完成事实。完成核验服务版本/来源提交/home/pid/ready，不用模型确认。无服务可核验或仍待重启时不能报告 verified。更新错误保留错误和事实，不能为了记录失败吞掉原失败。结果记录失败与更新失败分开返回/报告，不重做已完成的安装。服务重启后控制接口尚未就绪而主目录锁仍新鲜（120 秒内被刷新）时，记录结果等待服务而不是接管该锁：启动中的内核事件循环可能被占用超过锁的 10 秒默认过期时间，被接管的锁会使其以 ECOMPROMISED 崩溃（0.2.26102104 升级实测）；超过等待上限仍无服务则报告记录失败。
+updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试产生 01 定义的 release.update-result；不能只对 GitHub 自动升级写完成事实。完成核验服务版本/来源提交/home/pid/ready，不用模型确认。无服务可核验或仍待重启时不能报告 verified。同一安装同时只允许一个 `updateRelease`（安装目录下 `.update.lock`，持有进程存活且不足 30 分钟则后来者直接报错，不记录失败结果、不争用临时目录）；自动升级的独立作业在运行中有活动工作时先等待，最多 30 分钟，主人或 Agent 明确要求的升级不等待。给主人的通知只在终态发送：核验通过写“已更新并核验”，失败写简短原因，不含回执号。更新错误保留错误和事实，不能为了记录失败吞掉原失败。结果记录失败与更新失败分开返回/报告，不重做已完成的安装。服务重启后控制接口尚未就绪而主目录锁仍新鲜（120 秒内被刷新）时，记录结果等待服务而不是接管该锁：启动中的内核事件循环可能被占用超过锁的 10 秒默认过期时间，被接管的锁会使其以 ECOMPROMISED 崩溃（0.2.26102104 升级实测）；超过等待上限仍无服务则报告记录失败。
 
 新增 `sessions notify <id> --event <事件id> --text <正文>`，仅提交 system:cli 来源的程序通知；不接受 from，不启动模型。复用现有控制面及 JSON/退出码规范，目标/原事件不合法则拒绝，持久记录和实际展示分别确认。
 
 ## 渠道接入命令
 
-`yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。默认返回可扫码链接，--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。
+`yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。未带验证码时默认返回可扫码链接；`--verify-code` 接受 1–12 位纯数字并以 poll action 传给渠道。card 将其中十位数字解释为兑换网页主人发起的一次性邀请码，成功直接连接，无需第二次确认（16 §1）。--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。
 
 ## 任务期间保持唤醒（macOS）
 
@@ -131,3 +131,11 @@ updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试�
 CLI awake status/set/install 提供状态、布尔策略开关和用户主动授权入口；后台启动不弹授权。活动计数不唤醒模型，不复制会话存储。单纯历史会话和未来定时任务不计；等待 ui-companion_result 且没有其他实际执行的状态不计。MacToolkit 电源功能移除后交由 Yonder 单独管理。合盖、电池供电、服务崩溃恢复均需分开验证；不能把编译或热点连接当成物理合盖验收。
 
 电源组件协议带版本；升级后旧组件不标记为已保护，原菜单项提供更新操作并复用系统授权，不后台弹窗。持久 socket 每次调用须回收子进程/管道资源；构建自检重复真实 pmset 读取，无句柄增长。
+
+### 唤醒模式与任务结束缓冲
+
+现有菜单的“保持唤醒”子菜单提供互斥的关闭、任务期间保持唤醒、始终保持唤醒。沿用已安装电源组件，不增加图标。CLI awake set 接受 off/tasks/always，旧 on 等价 tasks，旧 enabled 布尔配置兼容读取。模式选择保存到同一 home，已有关闭选择保留；首次启用 always 提示额外耗电与合盖散热，用户确认后保存提示已读。
+
+任务模式在观察到最后一项真实任务结束时开始至少 15 分钟缓冲，期间新任务重置缓冲，等新任务全部结束后重新计 15 分钟。缓冲结束前最后再查询一次运行状态；始终模式不因空闲释放，关闭模式立即释放。状态显示真实保护结果、模式和缓冲剩余分钟；不能以 active=0 判定缓冲期不需要保护。等待未来定时任务不单独持有保护，已配置定时任务进入实际运行后沿相同机制重计缓冲。服务退出仍释放自身保护，重启不会凭空补出历史缓冲。唤醒与网络重连是不同能力，不承诺已睡主机能被普通 cron 或消息唤醒，也不承诺手机热点永不断连。
+
+创建接口：`initHome(home, owner?, options?: { isolated?: boolean })`；`agents create --file` 的创建输入可含 isolated，不新增该命令旗标，也不持久化到 Agent 配置。

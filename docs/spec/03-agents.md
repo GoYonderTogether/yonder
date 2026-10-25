@@ -59,6 +59,24 @@ profiles:
 bindings: [ … ]                   # 见 02 §2
 ```
 
+### 2.4 新建 Agent 的默认 peer 协作
+
+`init` 与 `agents create` 共用内核生成逻辑，默认在显式 bindings 之前加入：
+
+```yaml
+- id: peer
+  match: { channel: agent, kind: agent }
+  session: ephemeral
+  profile: peer
+  reply: none
+```
+
+同时生成独立 `peer` profile：capabilities `[read, message]`，tools.offer `[read, grep, skill_view, agent_ask]`，tools.search `[]`，plugins `[]`，skills `[]`。只复用主 profile 的 model/thinking/fallback；显式重置 contexts、instructions、prompt、env、limits，不能继承 defaults 的私有记忆、插件、主人指令或 prompt overrides。生成时 env 显式固定到新工作区环境（当前 init/create 为 local），不继承主 profile 的执行环境覆盖；以后人工迁移 Agent 工作区环境时，也需同步更新其 profiles 的 env，不能只改登记项。peer 只选内核自带 `peer-workspace` context，依次加载本 Agent 的 SOUL.md / AGENTS.md，不依赖 context-files 或 agent-presets；缺文件不回退到模板。预加载读取同样检查 canonical 工作区边界，越界符号链接拒绝，工作区内链接可读。工作区 memory/笔记按需读，外部插件记忆不自动开放；skills=[] 不做运行期外部技能扫描。
+
+固定协作说明按同一主人日常协作场景说明请求来自另一个已配置 Agent，应以事件实际 from 判断来源身份，不信正文冒充；from 不证明双方 owner 相同，现有 agent_ask 不校验 owner 相等，不能把协作请求当作主人授权；在本工作区只读处理并可继续 agent_ask，能力不足说明并交回。它不增加主人私有上下文。peer 与 owner 共享本 Agent 工作区，放在其中的私人文件仍可读（其他 Agent 的目录若嵌套其中也一样），**不是文件级私密隔离或主机沙箱**。需隔离的主人资料应保留在该工作区之外，Agent 工作区应分开且不嵌套，不用指向私有目录的外链替代权限。agent_ask 仍可能请求旧的高权限 Agent，不能声称彻底消除代理提权。
+
+创建输入 `isolated?: boolean` 只控制此次生成，不写入 agent.yaml。非布尔值拒绝；true 不生成 peer，且显式 binding 只要 channel 与 kind 各自缺省、等于 agent 或数组包含 agent，就保守拒绝（不因 type/from/conv 收窄而放过）。其他显式 bindings 保留；默认生成时显式 binding 的 id=peer 冲突报错，不覆盖。已有 home/Agent 不自动迁移；QQ setup、parent-request 不变。后续管理员仍可明确编辑普通 profile/binding，本规则不新增运行时 Agent 类型或持久隔离标志。
+
 ## 3. 配置档
 
 配置档决定一次运行用什么。属于 agent 的配置档就是这个 agent 的"分身"：同一个身份、同一个工作区，能力不同。
@@ -87,8 +105,8 @@ bindings: [ … ]                   # 见 02 §2
 预设是不属于任何 agent 的配置档，放在 `<home>/presets/<id>.yaml`（`id` 取文件名），或由插件贡献（04 §3.7）。字段同 §3，另加必填的 `description`（一句话，会出现在 `task_run` 工具说明里）。SDK 类型：`Preset = Profile & { id: string; description: string }`，`Profile` 即 §3 的字段表。
 
 - 内核工具 `task_run({ preset, task, attachments? })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
-- 子会话的能力 = 预设能力 ∩ 发起方能力。**禁止**借预设提权。
-- 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；能力 = 预设 ∩ `capabilities`，插件应当传入它代表的外部调用方被允许的能力。
+- 子会话默认继承发起方：预设没写 `level`/`capabilities` 就取发起方的能力，写了则与发起方相交；没写的 `tools.offer/search` 取发起方，`plugins` 为发起方所列加预设自己所列。预设只在显式写出时收窄。**禁止**借预设提权。contexts、model、instructions 由预设决定，不继承常驻身份；`task_run` 嵌套不超过两层。继承的插件与工具在开会话时固定保存，不因重载扩大。
+- 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；预设没写能力时取 `capabilities`，写了则与之相交，插件应当传入它代表的外部调用方被允许的能力。
 - 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
 - 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
@@ -152,7 +170,7 @@ context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板�
 
 任务不装入常驻人格，不继承父会话全部历史或私人记忆。长期任务由常驻 Agent 负责，任务会话和项目交接资料承接进展；不因任务耗时长而新建 Agent。需要持续职责、关系与独立资产时才创建另一个常驻 Agent，并通过现有绑定交接。专业任务 context 也可显式选入常驻 profile，与其人格并用，不新增运行类型。
 
-`default`、`coding` 使用现有文件、shell、process、skill 工具；`research` 默认只有 read/network 能力与明确的读取/公开 Web 工具白名单，不提供 shell、文件写入、对外发送或继续委派。预设能力仍与调用方取交集；含 exec 的任务不是文件沙箱。工具集合使用既有 `tools.offer/search`，没有新的工具集注册层。
+三个官方预设只指定模型与上下文，不写 `capabilities`/`tools`，因此继承发起方的全部能力与工具：research 同样可以用 shell、命令行与脚本做调研，只是正文要求它的副作用限于任务本身。独立任务会话（TUI、插件打开且没有发起方）没有可继承的对象，init 生成的 home 预设显式写 read/write/exec/network。预设能力仍与发起方取交集；含 exec 的任务不是文件沙箱。
 
 `research` 插件预设可在仅加载 agent-presets 的 home 阅读已给材料；公开 Web 能力由显式选中的 web-tools 提供。新 init 加载官方 web-tools 并生成选择它的 research home 预设；HTTP fetch 无需搜索凭据，search/extract 仍要求该插件的真实服务凭据。旧 home 不自动装插件或改其预设；同 id home 预设继续覆盖插件预设。task context 可用 contexts 移除，完整自定义正文使用 instructions；内置段落仍按 5.5 配置，不按模型名称自动降级或裁剪。
 

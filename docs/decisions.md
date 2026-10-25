@@ -161,7 +161,7 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 
 ONE Yonder Helper.app 是桌面操作的签名代码主体，通过 LaunchServices 后台启动，以本地 stdin/stdout JSON 交换；不让 Node/JXA 代执行截图或输入。稳定路径与外置状态跨 harness 更新保留，bundle 仅 cdhash 改变才重装。本机发现 Apple Development 身份，构建优先采用；CI 无身份时 ad-hoc，显式披露不能承诺 grant retention。签名本身和父进程链不构成已授权证明，真实 TCC 归属与授权矩阵保留主人验收。
 
-AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide；watch 只观察、限时、可取消。不动生产 home/service/launchd/TCC。Phase 3 按主人一次性授权短时打开 accessibility / screen-recording guide 测量几何，不点击授权。guide/watch 共享每秒非提示式观察，默认 600 秒；granted 保存 grantedAt，显示一秒确认后结束。关闭/超时返回 requested 历史与失败 JSON；撤销保留 revoked-detected。Screen Recording 当前进程 false 而同签名新进程 true 才标 needs-restart，guide 由单按钮重启、watch 自动重启，再验证 granted。PermissionFlow 保持原 SHA，以可审阅的小补丁开放 frame provider / 状态文本 / 关闭回调；按真实 Settings CG 边界与可用 AX 列表帧定位，屏幕无下方空间时隐藏而不覆盖列表，输出上移 Settings 的下一步。实际验证、全部失败与 OWNER STEP 见[验收记录](verification/mac-permissions.md)。
+AI permissions/status 不发起请求，保持非提示式。2026-10-24 主人明确授权修正：除独立人用 CLI 外，owner 来源也可在现有工具能力范围内显式发起单项 request/guide/watch；非 owner 来源不得发起，系统权限批准仍由真人完成。watch 只观察、限时、可取消。不动生产 home/service/launchd/TCC。Phase 3 按主人一次性授权短时打开 accessibility / screen-recording guide 测量几何，不点击授权。guide/watch 共享每秒非提示式观察，默认 600 秒；granted 保存 grantedAt，显示一秒确认后结束。关闭/超时返回 requested 历史与失败 JSON；撤销保留 revoked-detected。Screen Recording 当前进程 false 而同签名新进程 true 才标 needs-restart，guide 由单按钮重启、watch 自动重启，再验证 granted。PermissionFlow 保持原 SHA，以可审阅的小补丁开放 frame provider / 状态文本 / 关闭回调；按真实 Settings CG 边界与可用 AX 列表帧定位，屏幕无下方空间时隐藏而不覆盖列表，输出上移 Settings 的下一步。实际验证、全部失败与 OWNER STEP 见[验收记录](verification/mac-permissions.md)。
 
 
 **D56 Bash 普通输入与交互输入显式区分，后台终态统一收口（2026-10-22 维护者授权筛选修复）。** 生产四个无路径rg因始终打开的stdin等待数小时，不能通过延长timeout或重复命令解决。普通Bash默认stdin结束，只有显式stdin=true保留管道；process.write沿原入口可附eof=true关闭输入，background仅决定让出时机。取消仍完成既有settled/idle责任交接并保存有界日志尾部，但不触发模型续办；日志游标使用累计字符数，超出窗口明确截断。保留pi任务/文档、能力与session边界，不新增队列、存储、硬超时或完成判定层。代价：依赖原来隐式开放stdin的交互调用须显式传stdin=true，旧日志缺累计游标时仅能按已保留长度解释。
@@ -224,3 +224,49 @@ AI permissions/status 不发起请求。独立人用 CLI 才允许 request/guide
 web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就因未知依赖无法启动。插件的 research 默认只选自身；新 init 加载 web-tools 并生成选择它的同名 home 预设。现有 home 需显式选择，已有自定义 preset 保持优先。搜索凭据缺失与 HTTP fetch 可用分别报告。此轮不批量合并其他分支、不为展示创建无职责的常驻 Bot；开发者预览版的全仓收敛另按真实验收推进。
 
 **统一聊天与压缩恢复（2026-10-23 用户批准）。** pi-durable 共享纯失败决策，generation 与 compaction 保留原生 checkpoint、取消链和状态所有权；Yonder 向两者注册同一错误分类。失败尝试记录在原生无模型正文 entry 中，与状态原子提交；压缩复用耗尽文案。不新建重试服务、队列或恢复存储。保留既有有回退链时所有模型 error 计数的契约，未配置回退时使用瞬时错误分类。
+
+## D60 撤回未经设计批准合入的过度建设模块（2026-10-22 维护者要求）
+
+主线曾合入三块没有 spec、没有决策记录、没有真实验收的模块，维护者要求回到“内核最小、官方插件各自独立”：（1）`plugins/progress-observer` 及其唯一消费的 `task.linked` 事件（含 `Runtime.exportTaskLink`/`recordEvent`）：与 D46“不加心跳模型或第二调度器”冲突，状态机一半无生产来源，测试以伪造模型代替真实模型；（2）`plugins/decision-routing`：违背 D52“路由插件要先有被批准的 SDK 钩子”，只是咨询型占位，测试在插件内直接 import pi-ai（违背 AGENTS 第 5 条）；（3）login operations 子系统（`login_begin`/`login_status`、`login_operations`/`login_outbox` 表、`runtime/login-*.ts`、`cli/login-*.ts`、`loginOperations` 配置）：插件形状的能力被塞进内核并自带 outbox 与第二套状态，未经人工登录验证。同时删除仓库根目录与 `artifacts/login-lifecycle/` 的过程报告，以及 `proposals/memory/skills/` 中与 `plugins/memory/skills/` 重复的副本。这些模块均不得在补齐 spec 与决策前重新合入；如需重做，先走设计变更，且登录类能力应以插件形式、复用既有事件与绑定实现。依据见审查盘点（代码、插件与架构文档对照）。
+
+## 2026-10-23 用户要求 15 分钟缓冲和始终唤醒
+
+保留同一电源租约和状态栏宿主，增加 tasks/always/off 互斥模式；任务归零后缓冲 15 分钟，期间新工作结束后重计。模式不参与 Agent 权限。网络恢复仅检查并反馈，不另造网络恢复层。
+
+## D61 名片插件使用自定义设备协议，一次安装连接全部 Agent（2026-10-22 用户批准实施）
+
+维护者明确要求先文档后代码，在当前分支、不提交、不连接真实服务的范围内实现 `@yonder/plugin-channel-card`（[16](spec/16-card-plugin.md)）。后端契约切换到 `yonder-card-web/server/PLAN.md`，旧 Tinode 草案被取代：设备码登录后以 agent id 为 key 登记本实例全部 Agent，单条设备 WS 多路收发、按游标补收；名片工具只写该 Agent 自己的草稿，发布保留为网页里人的操作。
+
+`ChannelLoginResult` 只有 `qrcodeUrl`，复用该字段承载确认 URL，不新增 SDK 登录字段。`setup` 仍只注册，登记在启动/登录确认后执行；设备令牌只保存在插件私有数据目录。契约测试与真实后端联调分别记实。
+
+## D62 名片渠道公共契约与后端补充（2026-10-22 维护者明确决定）
+
+取代 D61 的未决契约项：G1 新增只读 PluginAPI.agents.list 返回启用 Agent id/name，启动、登录确认/邀请码兑换成功和每十分钟同步，无变更事件。G2 ChannelProvider/Channel 可选 multiAgent，注册 true 是普通渠道禁止 data.target 的唯一例外；目标须通过自己的绑定，其他 Agent no-binding；acct/conv ref 嵌入 Yonder agent id，OutMessage 不变。G3 使用 convKind/mentioned 下行与带 ref 的 sent/error；15 秒未确认 uncertain，绝不自动重发，io.emit 接纳后才 ack。G4 在后端 devices.ts 增加幂等 device/dm，限制设备所属启用 Agent 和共同会话/主人好友；token 私有，device.kind 配置默认 desktop。
+
+真实实现差异：poll 的过期和未知码均为 404 invalid_code，used 为状态；WS 错误当前仅 {error}，没有 type/ref；登记仅 upsert，不移除省略 Agent，hello 的订阅在连接时固定。插件适配这些事实（未关联错误等待确认超时、同步后重连）；不修改 realtime.ts。详见 16。
+
+维护者批准第二种连接方式 B（网页发起邀请）：已登录 human 的 `POST /api/device/invite` 返回绑定账号的十位数字一次性码及 ISO expiresAt，十分钟有效；Agent 经现有 `yonder channels login card --verify-code <code>` 无认证调用 `POST /api/device/redeem` `{code,name,kind}`，得到 deviceToken，复用私有保存、全 Agent 登记和连接，无需再次确认。card 的 verifyCode 在 start/poll 均走兑换，以兼容现有 CLI；404 invalid_code → invalid-code，429 rate_limited → retry-later，已有当前 endpoint 令牌则 already-connected、不消耗邀请码。原 start/confirm/poll 保留；邀请码与令牌均不得记录。新增替身测试仅为契约测试，不等于并行后端已联调。方式 A（浏览器 URL scheme/loopback 唤醒本地 Yonder）未实现，须先获维护者批准内核设计。
+
+## D63 新建 Agent 默认窄权限 peer 协作（2026-10-24 主人批准）
+
+选择方案 A：read/grep/skill_view/agent_ask、read/message，禁用工具搜索、插件及技能。init/create 共用生成器，置前 ephemeral peer binding，reply none；isolated 是严格布尔创建输入，保守拒绝可能接收 agent/agent 的显式 bindings。只复用模型参数，不继承主人的 defaults 上下文与提示覆盖；用现有 context 字段选内核内置双文件读取，不增加 schema、内核状态或可选插件依赖。工作区预加载也必须守 canonical 路径边界。旧配置不自动改；同一工作区不是私密文件隔离，旧宽泛 bypass 接收方仍有代理提权风险。人工迁移方案见 research/default-agent-peer-binding-design.md。
+
+## D64 每条消息只问一个问题；记忆上手由对话 agent 逐来源推进（2026-10-24 维护者要求）
+
+共同提示词增加一句：每条消息只问一个问题，其余决策排队，汇报也一次一件。memory-onboarding 改为与主人对话的 agent 按微信、聊天渠道、登记目录、节律的顺序逐个询问，进度写入记忆笔记以便跨会话继续；后台 memory-keeper 只执行不对话，因为主人的回复进入的是对话 agent 的会话。不改内核或 SDK，不新增机制。
+
+## 2026-10-24 用户要求状态栏左右键统一菜单
+
+移除左键直接展开交互窗口的动作，复用 NSStatusItem.menu 处理左右键；当前交互/历史仍从菜单主动打开，必要交互继续沿原有紧凑提醒入口呈现。
+
+## D65 提示词去防御化，子会话继承发起方，运行可靠性修正（2026-10-24 维护者要求）
+
+生产对话审计：Jarvis/Hermes 把主人的“去掉限制”读成“拆安全边界”并反复辩解，承诺“下一条讲”却没有任何机制兑现，同一问题五次追问，任务汇报退回备忘录体；子任务因预设少给工具白跑，交接被拒后悬了数小时，自动升级互相争用并打断运行，430 条 token 警告。决定：(1) 共同提示词与 jarvis/default-agent/任务正文直接重写，不加新 context：主人的指令即授权，不加警示与限制，边界由 harness 与系统承担，阻塞要立刻说明并绕行，只对不可逆且超出授权的花钱、公开发言、删数据提示一次；只在接手、阻塞、结果、需要主人拍板四处说话；“之后讲”必须有任务、续跑或计划任务支撑；一次一个问题并给默认；中文用日常语气，不带英文套话与私人比喻。(2) 子会话（task_run 与无身份预设）默认继承发起方的能力、工具、插件，预设只在显式写出时收窄，官方 default/coding/research 不再写白名单，嵌套限两层（03 §4）。(3) maxTokens 只计新输入与输出，不含缓存读写；停止提示给人读；剔除与主模型相同的回退项；agent_ask 被拒时说明缺少 peer 绑定并由 doctor 给出片段；飞书资源下载重试；升级单飞锁、自动升级等待运行中工作、通知只在终态发出。已有 home 预设里写死的 tools/capabilities 仍按显式收窄生效，需人工删除。
+
+## 2026-10-24 权限入口继承可信内核续办来源（主对话批准）
+
+修正 02 版本把全部输入限为直接账号消息的遗漏：仅 runtime.tool-result/runtime.continuation 可沿真实 parent 在同 agent/session/conv 中追溯 owner；64 跳上限，失败关闭。SDK EventQuery 增加可选精确 id，store 使用参数化 id = ?；不增加令牌、配置、模型来源参数或另一套授权。全部实际输入均须通过，访客、内部 Agent、混合输入与隔离保护不变；所有 OS grant 仍由人完成。
+
+## 2026-10-24 统一实际 TCC 操作宿主并补文件访问（主对话批准）
+
+同一 Yonder 签名 Helper 不仅发起申请，也执行需 TCC 的实际操作；本轮仅新增 owner 授权任务的一层文件列举和单普通文件导出，沿用稳定 bundle ID、安装路径与 LaunchServices。插件生成私有唯一产物，不接受目的地覆盖。Node/Python 不继承 Helper grant，不迁移全部插件、不增加 driver 或权限注册框架，OS 仍按资源种类分别授权。

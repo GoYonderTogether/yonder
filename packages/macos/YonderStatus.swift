@@ -10,7 +10,10 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
     private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
     private var needsPowerUpdate = false
-    private let awake = NSMenuItem(title: "任务期间保持唤醒", action: #selector(toggleAwake), keyEquivalent: "")
+    private let awake = NSMenuItem(title: "保持唤醒", action: nil, keyEquivalent: "")
+    private let awakeOff = NSMenuItem(title: "关闭", action: #selector(selectAwakeMode(_:)), keyEquivalent: "")
+    private let awakeTasks = NSMenuItem(title: "任务期间保持唤醒", action: #selector(selectAwakeMode(_:)), keyEquivalent: "")
+    private let awakeAlways = NSMenuItem(title: "始终保持唤醒", action: #selector(selectAwakeMode(_:)), keyEquivalent: "")
     private let powerState = NSMenuItem(title: "读取唤醒状态…", action: nil, keyEquivalent: "")
     private let update = NSMenuItem(title: "检查更新", action: #selector(checkUpdate), keyEquivalent: "")
     private let quit = NSMenuItem(title: "停止服务并退出", action: #selector(exitService), keyEquivalent: "q")
@@ -23,13 +26,17 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let image = NSImage(contentsOf: Bundle.main.url(forResource: "menubar-template", withExtension: "png")!)!
         image.size = NSSize(width: 22, height: 22); image.isTemplate = true
         item.button?.image = image
-        item.button?.toolTip = "Yonder · 左键交互，右键管理"
+        item.button?.toolTip = "Yonder · 点击打开菜单"
         item.button?.setAccessibilityLabel("Yonder")
-        item.button?.target = self; item.button?.action = #selector(statusClicked)
-        item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        item.menu = menu
         menu.delegate = self; menu.autoenablesItems = false
         status.isEnabled = false; powerState.isEnabled = false
-        for entry in [current, history, awake, update, quit] { entry.target = self }
+        for entry in [current, history, awakeOff, awakeTasks, awakeAlways, update, quit] { entry.target = self }
+        let awakeMenu = NSMenu()
+        awakeMenu.autoenablesItems = false
+        awakeOff.representedObject = "off"; awakeTasks.representedObject = "tasks"; awakeAlways.representedObject = "always"
+        [awakeOff, awakeTasks, awakeAlways].forEach(awakeMenu.addItem)
+        awake.submenu = awakeMenu
         [current, history, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
         companion = CompanionController()
         companion.onVisibility = { [weak self] visible in self?.item.button?.state = visible ? .on : .off }
@@ -45,14 +52,6 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         companion.setEndpoint((try? Data(contentsOf: file)).flatMap(DesktopEndpoint.read))
         current.isEnabled = companion.available; history.isEnabled = companion.available
         current.title = companion.available ? "当前交互" : "交互插件未就绪"
-    }
-    private func showMenu() {
-        item.menu = menu; item.button?.performClick(nil); item.menu = nil
-    }
-    @objc private func statusClicked() {
-        refreshEndpoint()
-        if NSApp.currentEvent?.type == .rightMouseUp || !companion.available { showMenu() }
-        else { companion.toggle() }
     }
     @objc private func openCurrent() { companion.showCurrent() }
     @objc private func openHistory() { companion.showHistory() }
@@ -104,36 +103,63 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case .success(let info):
                 let enabled = info["enabled"] as? Bool == true
                 self.needsPowerUpdate = info["requiresUpdate"] as? Bool == true
-                self.awake.title = self.needsPowerUpdate ? "任务期间保持唤醒 · 更新组件…" : "任务期间保持唤醒"
-                self.awake.state = enabled ? .on : .off
+                let mode = info["mode"] as? String ?? (enabled ? "tasks" : "off")
+                self.awake.title = self.needsPowerUpdate ? "保持唤醒 · 更新组件…" : "保持唤醒"
+                for entry in [self.awakeOff, self.awakeTasks, self.awakeAlways] {
+                    entry.state = entry.representedObject as? String == mode ? .on : .off
+                }
                 if !enabled { self.powerState.title = "已关闭 · 允许休眠" }
                 else if let error = info["error"] as? String { self.powerState.title = "合盖保护未就绪：" + error }
-                else if info["protected"] as? Bool == true { self.powerState.title = "保持唤醒 · \(info["active"] ?? 0) 项任务" }
+                else if info["protected"] as? Bool == true {
+                    if mode == "always" { self.powerState.title = "始终保持唤醒" }
+                    else if info["reason"] as? String == "grace", let until = info["holdUntil"] as? Double {
+                        let minutes = max(1, Int(ceil((until / 1000 - Date().timeIntervalSince1970) / 60)))
+                        self.powerState.title = "缓冲保持唤醒 · 还剩 \(minutes) 分钟"
+                    } else { self.powerState.title = "保持唤醒 · \(info["active"] ?? 0) 项任务" }
+                }
                 else { self.powerState.title = info["systemSleepDisabled"] as? Bool == true ? "系统已保持唤醒" : "空闲 · 允许休眠" }
             case .failure(let error): self.powerState.title = "唤醒状态未知：" + error.localizedDescription
             }
         }
     }
-    @objc private func toggleAwake() {
-        let enable = needsPowerUpdate || awake.state != .on
-        awake.isEnabled = false
+    @objc private func selectAwakeMode(_ sender: NSMenuItem) {
+        guard let mode = sender.representedObject as? String else { return }
+        let warnAlways = mode == "always" && !UserDefaults.standard.bool(forKey: "alwaysAwakeAcknowledged")
+        if warnAlways {
+            let alert = NSAlert()
+            alert.messageText = "始终保持唤醒"
+            alert.informativeText = "即使没有任务，Mac 也会持续运行。合盖会增加耗电和发热，请保持通风，不要放入密闭背包中。"
+            alert.addButton(withTitle: "开启"); alert.addButton(withTitle: "取消")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+        }
+        [awakeOff, awakeTasks, awakeAlways].forEach { $0.isEnabled = false }
         let apply = {
-            self.run(["awake", "set", enable ? "on" : "off", "--home", self.home]) { result in
-                self.awake.isEnabled = true
+            self.run(["awake", "set", mode, "--home", self.home]) { result in
+                [self.awakeOff, self.awakeTasks, self.awakeAlways].forEach { $0.isEnabled = true }
                 if case .failure(let error) = result { self.powerState.title = error.localizedDescription }
-                else { self.awake.state = enable ? .on : .off; self.powerState.title = enable ? "正在启用任务保护…" : "正在释放保护…" }
+                else {
+                    if warnAlways { UserDefaults.standard.set(true, forKey: "alwaysAwakeAcknowledged") }
+                    for entry in [self.awakeOff, self.awakeTasks, self.awakeAlways] {
+                        entry.state = entry.representedObject as? String == mode ? .on : .off
+                    }
+                    self.powerState.title = mode == "off" ? "正在释放保护…" : "正在应用唤醒模式…"
+                }
             }
         }
-        if enable && (needsPowerUpdate || !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.harness.power.sock")) {
+        if mode != "off" && (needsPowerUpdate || !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.harness.power.sock")) {
             let alert = NSAlert()
-            alert.messageText = "任务期间保持唤醒"
-            alert.informativeText = "任务运行时允许合盖继续执行，屏幕可以熄灭；完成后恢复休眠。合盖运行会增加耗电和发热，请勿放入密闭包中。首次安装电源组件需要系统管理员授权。"
+            alert.messageText = "启用保持唤醒"
+            alert.informativeText = "允许合盖期间继续执行，显示器仍可熄灭。首次安装或更新电源组件需要系统管理员授权。"
             alert.addButton(withTitle: "安装并开启"); alert.addButton(withTitle: "取消")
-            guard alert.runModal() == .alertFirstButtonReturn else { awake.isEnabled = true; return }
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                [awakeOff, awakeTasks, awakeAlways].forEach { $0.isEnabled = true }; return
+            }
             run(["awake", "install"]) { result in
                 switch result {
                 case .success: apply()
-                case .failure(let error): self.awake.isEnabled = true; self.powerState.title = "未授权或安装失败：" + error.localizedDescription
+                case .failure(let error):
+                    [self.awakeOff, self.awakeTasks, self.awakeAlways].forEach { $0.isEnabled = true }
+                    self.powerState.title = "未授权或安装失败：" + error.localizedDescription
                 }
             }
         } else { apply() }

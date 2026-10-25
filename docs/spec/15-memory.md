@@ -130,7 +130,7 @@ status: open            # open | reviewed
 | `memory_import` | write, admin | `source: 'wechat'`：按 §6.1(5) 导入历史，参数 `chat`、可选 `since/until`；重复导入为空操作 |
 | `memory_bootstrap` | write, admin | `audit`（§6.6）；`ack`（确认某个 `memory.attention` 的 reason，可带 `snoozeDays`）；`state`（读 `.memory/state.json`） |
 
-- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（SDK 的 `EventQuery` 没有该字段）。
+- `commit` 与 `confirm`：必须在**由 `owner` 的 `message.in` 触发的运行**中调用，即 `ToolContext.event` 是该事件，其 `from` 经 `identity.account` 解析到配置的 `owner`；被确认的提议必须写于该事件之前（提议与确认至少隔一轮，同一轮里提议后不能自行确认）。该事件的 id 作为确认证据写入条目。`ToolContext.event` 是本次运行的**第一条**输入事件：多条输入因 steer 合并为一次运行时仍以它为准，后到的 owner 消息不能用来确认更早的提议，确认应在新的一轮里进行。不核验语义；节律（cron）触发的运行因此不能自行确认。这是工具的前置条件，不是审批层（不变量 5）。插件不依赖按 id 查询事件（不使用 SDK 的精确 `id` 查询）。
 - `memory_me.add` 标 `confirmed` 时必须带 `evidence`，取下列之一：①当前运行由 owner 的 `message.in` 触发（证据为该事件 id）；②记录流里一条 `{chat}` 或 `{wechat-self}` 记录的条目 id（这两类记录由插件自己从 owner 的消息或其自写微信会话确定性写入，不是模型写的；`{capture}`、`{said}` 由模型调用写入，不算）。`evidence` 的写法：事件证据 `evt:<事件id>`，记录证据 `^<条目id>`。否则只能标 `inferred`。同样不核验语义。`events.on` 不保证先于运行启动完成，所以运行刚开始时 `{chat}` 记录可能尚未写入：此时只能用①；找不到记录不代表用户没说过，也不得伪造证据。
 - `memory_me` 条目格式：`- 内容 {confirmed|inferred} [自 YYYY-MM-DD] (ref: …) ^id`；`supersede` 在原条目追加 `[至 YYYY-MM-DD]` 并移入文件末尾的 `## 历史`，不删除。
 
@@ -261,7 +261,7 @@ type `memory.captured`，conv `conv:memory-inbox:default`，data：`{ path, orig
 | `memory-evening-wrap` | 列当日未整理条目：任务→提议，事实→`me/`（以 `{chat}` 记录为 `evidence` 的可标 `confirmed`，否则 `inferred`），决定→决定节，产出→产出节；整理后翻转标记；一条消息向用户汇报 |
 | `memory-weekly-review` | 草拟复盘；体检（矛盾只标记、`now.md` 过期项、超预算的 `me/` 文件、超两周未确认的 `inferred`、未整理积压）；为下周提议计划；`close` |
 | `memory-monthly-plan` | 回看当月，写月复盘与阶段变化，提议下月目标 |
-| `memory-onboarding` | 收到 `memory.attention` 后：①向用户转述审计结果（各来源规模、tokens 与粗略费用）；②提出方案（是否创建后台 agent `memory-keeper`、开启哪些节律、是否导入旧目录与微信历史）并**等待用户确认**；③确认后用 `yonder agents` 从预设 `memory-keeper` 创建 agent（14 §4，需 exec），按需配置 cron 作业与绑定，启动导入；④ `ack`。未经确认不得创建 agent、启用节律或开始导入 |
+| `memory-onboarding` | 收到 `memory.attention` 或主人要求继续时，由与主人对话的 agent 执行（后台 `memory-keeper` 听不到回复，只做导入、整理与 cron）。**每条消息只问一个问题**，按来源逐个推进：微信（逐会话定档位）→ 聊天渠道 → 登记目录 → 节律。每个来源定完用 `memory_capture` 记一条 `onboarding: …`，下次从该处继续；按需 `ack`。未经确认不得创建 agent、启用节律或开始导入 |
 | `memory-onboard-legacy` | 对 `legacy` 登记目录逐篇只读审阅，产出提议：可信的事实→`me/`（`inferred`）、项目→`projects/`、可执行事项→周计划提议；不改原目录；记录每篇的去向，便于用户决定是否归档旧库 |
 | `memory-morning-brief` | 汇总当日计划与到期事项，以单条消息发出 |
 

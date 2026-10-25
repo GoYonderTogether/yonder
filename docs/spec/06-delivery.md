@@ -88,6 +88,8 @@ agent_ask({ agent: string, text: string, sources?: string[], effort?: string }) 
 - 这是 `events.ask`：目标的回复作为工具结果返回给发起方，不会再作为消息发回，因此不会来回循环。
 - 形成环时拒绝：沿 `parent` 追溯，若目标 agent 已在这条 `agent` 渠道调用链上，返回错误。
 
+新建 Agent 默认经独立 peer binding/profile 接纳 agent/agent 请求（03 §2.4），不是 owner profile。`reply: none` 不影响返回等待的 agent_ask/events.ask，但禁止渠道自动回复与流式；无 binding 仍拒绝，parent-request 不改。因果链环检测沿事件 parent，包括嵌套调用与后台完成输入，不因临时会话或后台句柄重新获得调用权限。sources 中列出的附件 URI 不是当前事件 attachments，不授予 ToolPolicy 的附件路径例外。
+
 ### 6.1 原文来源 `sources`
 
 `agent_ask` 与 `task_run` 可选 `sources`（1..10 个）：本次运行来源会话里入站 `message.in` 的事件 id，或渠道原生 `msgId`。内核从事件账本取出这些消息，在 `text` 之后追加一个 `<source-messages>` 块，逐条带事件 id、原生 id、发送者、接纳时间、渠道原发送时间（若有）与 `chars`（精确字符数），正文由程序原样复制，模型不复述。
@@ -108,3 +110,5 @@ agent_ask({ agent: string, text: string, sources?: string[], effort?: string }) 
 ## 9. 程序通知
 
 插件可直接 messages.send 向明确 person/acct/conv 发程序通知，无模型、无伪造 Agent 回复；message.out 归属真实插件。内部 session 通知用 sessions.notify，沿 pi 原生 app-only entry 保存与观察，不经 sessions.submit，不唤醒 Agent、不进入模型消息。TUI 以程序通知独立标识来源，和真实对话按 entry 时序排列；录入回执不等于送达外部渠道或人已读。
+
+channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认返回 ok:false,uncertain:true，禁止自动重发。其 acct/conv 引用嵌入 Yonder Agent id，见 16。

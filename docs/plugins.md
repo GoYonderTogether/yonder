@@ -323,6 +323,10 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
 - **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立只读分身、非空 60 秒分桶和显式定向发送。全量权限须由群主在具体群聊内管理该机器人时逐群配置，机器人的全局设置不能替代。
 
+## channel-card
+
+`@yonder/plugin-channel-card`：多 Agent 名片渠道（type card、multiAgent）。设备码登录、单条 WS、游标补收；工具 channel-card_card_push 仅起草调用 Agent 自己的名片。配置与限制见 [README](../plugins/channel-card/README.md) 和 [16](spec/16-card-plugin.md)。
+
 ## ui-companion — 本地交互窗口
 
 - **源码**：[入口](../plugins/ui-companion/src/index.ts) · [运行和验收](../plugins/ui-companion/README.md)
@@ -337,3 +341,10 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **贡献**：常驻 presets `jarvis`、`default-agent` 与任务 presets `default`、`coding`、`research`；角色 soul/work contexts 与 task-general/task-coding/task-research。
 - **功能**：现有 scaffold 仅为所选模板补缺失的 SOUL.md/AGENTS.md；按实际工作区渲染，新 init 的主 Agent 使用 Jarvis，普通 Agent 可经现有 create --preset 创建。
 - **边界**：不注册工具、事件订阅或服务；任务预设明确选择现有工具与能力，research 无 shell/写入/消息；不覆写已有文件，不给无身份 task 注入人格。插件内 Markdown 为唯一起始正文；[分层与来源](prompts/README.md)。
+
+## hermes-experience：可选精选记忆与静默学习
+
+- **包**：`@yonder/plugin-hermes-experience`；[安装、原 scope 迁移与验证](../plugins/hermes-experience/README.md)。
+- **贡献**：前台 memory_read/edit、skill_store、memory_pending、refine；三个仅 active grant 可用的内部 review 工具；hermes-memory/behavior/core 上下文、hermes-yonder 教学技能、hermes-study 与 hermes-learning-review 预设及学习 hooks/trigger。
+- **范围**：只在明确映射的 Agent/profile 与原授权目录内操作；不自动选入其他 Agent，不搬动记忆或技能。新技能使用现有原生发现/skill_view；静默 review 不发渠道消息，不含通用 shell 或派发工具。
+- **来源**：MIT Hermes 策略的 Yonder-native 适配，精确 pin、许可、运行时差异与受控原生验收脚本随包保留；不是 Python runtime 或上游字节/cache 一致 fork。

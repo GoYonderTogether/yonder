@@ -57,8 +57,7 @@ import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
 import { RunLimits } from "./limits.js";
-import { createLoginOperationService } from "./login-operation-service.js";
-import { buildModels, providerRegistryIds } from "./models.js";
+import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
@@ -97,8 +96,6 @@ export class Runtime {
 	private recovering: Array<{ session: string; id: import("@earendil-works/pi-durable").SubmissionId }> = [];
 	private registry = createRegistry();
 	private background!: ReturnType<typeof createBackground>;
-	private loginOperations?: ReturnType<typeof createLoginOperationService>;
-	private stopLoginDrain?: () => void;
 	private rawTools = new Map<string, ToolRegistration>();
 	private invocationConfigs = new WeakMap<
 		Context,
@@ -136,10 +133,6 @@ export class Runtime {
 		runtime.install();
 		const storage = await SqliteStorage.open(options.db, { prefix: "pi_" });
 		runtime.storage = storage;
-		if (runtime.loginOperations) {
-			await runtime.loginOperations.initialize();
-			runtime.stopLoginDrain = runtime.loginOperations.startDrain();
-		}
 		runtime.harness = await Harness.open(
 			storage,
 			{
@@ -380,16 +373,7 @@ export class Runtime {
 		this.registry.install(processes);
 		this.extensions.set(processes.name, processes);
 		this.tools.set("process", this.background.tool);
-		const loginTools: Tool[] = [];
-		if (this.options.loginOperations) {
-			this.loginOperations = createLoginOperationService({
-				db: this.options.db,
-				providers: providerRegistryIds(),
-				...this.options.loginOperations,
-			});
-			loginTools.push(this.loginOperations.tool, this.loginOperations.statusTool);
-		}
-		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...loginTools, ...(this.options.tools ?? [])], []);
+		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...(this.options.tools ?? [])], []);
 		this.registry.install(builtins);
 		this.extensions.set(builtins.name, builtins);
 		for (const plugin of this.options.plugins ?? []) {
@@ -499,6 +483,7 @@ export class Runtime {
 		cwd: string;
 		env?: string;
 		capabilities?: Capability[];
+		inherit?: RuntimeSessionState["inherit"];
 		close?: "run-end" | "manual";
 	}): Promise<string> {
 		const conversation = await this.harness.createConversation(
@@ -511,6 +496,7 @@ export class Runtime {
 						cwd: meta.cwd,
 						env: meta.env ?? "local",
 						capabilities: meta.capabilities ?? null,
+						inherit: meta.inherit ?? null,
 						close: meta.close ?? "run-end",
 					});
 				},
@@ -530,11 +516,16 @@ export class Runtime {
 			cwd: state.cwd,
 			env: state.env,
 			...(state.capabilities ? { capabilities: [...state.capabilities] } : {}),
+			...(state.inherit ? { inherit: structuredClone(state.inherit) } : {}),
 		};
 	}
 	async setSessionState(id: string, state: RuntimeSessionState): Promise<void> {
 		await (await this.conversation(id)).commit(async (tx) => {
-			Object.assign(await tx.doc(SessionDoc, cid(id)), { ...state, capabilities: state.capabilities ?? null });
+			Object.assign(await tx.doc(SessionDoc, cid(id)), {
+				...state,
+				capabilities: state.capabilities ?? null,
+				inherit: state.inherit ?? null,
+			});
 		}, C);
 		this.configured.delete(id);
 	}
@@ -580,13 +571,15 @@ export class Runtime {
 			provider: profile.model.slice(0, profile.model.indexOf("/")),
 			modelId: profile.model.slice(profile.model.indexOf("/") + 1),
 		};
-		const modelFallbacks = profile.fallback?.models.length
+		// A fallback that repeats the primary (or an earlier fallback) is not an alternative; without one pi's native retry applies.
+		const alternatives = [...new Set(profile.fallback?.models ?? [])].filter((ref) => ref !== profile.model);
+		const modelFallbacks = alternatives.length
 			? {
-					models: profile.fallback.models.map((ref) => ({
+					models: alternatives.map((ref) => ({
 						provider: ref.slice(0, ref.indexOf("/")),
 						modelId: ref.slice(ref.indexOf("/") + 1),
 					})),
-					after: profile.fallback.after ?? 3,
+					after: profile.fallback?.after ?? 3,
 				}
 			: null;
 		const current = await this.harness.snapshot(AgentDoc, cid(id), C);
@@ -855,12 +848,6 @@ export class Runtime {
 			) as JsonObject,
 		};
 	}
-	/** Internal exact-session proof of durable admission; never exposed through SDK tools. */
-	async queryLoginWakeReceipt(session: string, requestId: string): Promise<boolean> {
-		if (!session || !requestId) return false;
-		const record = await this.storage.submissionByRequest(cid(session), requestId, C);
-		return record !== undefined && record.conversationId === cid(session) && record.requestId === requestId;
-	}
 	async notify(id: string, input: { from: string; event: string; text: string }) {
 		return writeNotification(await this.conversation(id), input);
 	}
@@ -1039,24 +1026,6 @@ export class Runtime {
 		}
 		return sum;
 	}
-	static exportTaskLink(ctx: ToolContext, childSession: string) {
-		return {
-			type: "task.linked" as const,
-			from: "system:runtime" as const,
-			data: {
-				parentSession: ctx.session,
-				childSession,
-				...((ctx.event?.type === "session.input" || ctx.event?.type === "message.in") && ctx.event.id
-					? { sourceEvent: ctx.event.id }
-					: (() => {
-							const source = ctx.events?.findLast(
-								(event) => event.type === "session.input" || event.type === "message.in",
-							);
-							return source?.id ? { sourceEvent: source.id } : {};
-						})()),
-			},
-		};
-	}
 	async runTask(ctx: ToolContext, initialize: (childId: string) => Promise<RuntimeInput>): Promise<RuntimeRun> {
 		const invocation = this.toolInvocations.get(ctx);
 		if (!invocation) throw new Error("task_run requires an active runtime tool invocation");
@@ -1068,7 +1037,6 @@ export class Runtime {
 			await tx.doc(SessionDoc, created.id);
 			return created.id;
 		}, context);
-		if (this.options.recordEvent) await this.options.recordEvent(Runtime.exportTaskLink(ctx, String(child)));
 		const input = await initialize(String(child));
 		try {
 			const handle = await api.conversation(child, context);
@@ -1572,7 +1540,6 @@ export class Runtime {
 	}
 
 	async close(): Promise<void> {
-		this.stopLoginDrain?.();
 		await this.restartNotes;
 		await this.background.close();
 		try {

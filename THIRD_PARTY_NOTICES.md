@@ -86,3 +86,8 @@ Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinne
 ## Official task prompt sources
 
 `plugins/agent-presets/prompts/tasks/` adapts substantial prompt text from OpenCode (`4d30794bcf4dccdcadbcb1f62bb35b4943a96426`), CopilotKit OpenMuse (`1ac68f3909f2478ab6280883f1ab5ea65eb5719d`) and the installed Ponytail 4.10.0 skill distribution, all MIT. Exact inspected originals and full copyright/license notices are distributed in `plugins/agent-presets/prompts/upstream/`. [Source and adaptation map](plugins/agent-presets/prompts/SOURCES.md). These prompts do not import an upstream runtime or change its license; the original MIT notices continue to apply to the reused text.
+
+## Hermes experience adaptation
+
+- `plugins/hermes-experience` adapts Hermes Agent memory, skill and review policy at `4dcef215cfe41bd2d02c2d1dad6e257a18101216`, with earlier response-style guidance at `0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0`. MIT, Copyright (c) 2025 Nous Research.
+- Exact source symbols, qualifications and retained permission are in [NOTICE](plugins/hermes-experience/NOTICE), [SOURCES.md](plugins/hermes-experience/assets/SOURCES.md) and [Hermes-MIT.txt](plugins/hermes-experience/assets/Hermes-MIT.txt). New native adapter contributions follow this repository’s Apache-2.0 license. No Python runtime or upstream skill corpus is bundled.

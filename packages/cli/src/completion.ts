@@ -39,6 +39,7 @@ _yonder() {
     identity) (( CURRENT == 3 )) && { compadd lookup link unlink person; return; };;
     completion) compadd zsh bash fish; return;;
   esac
+  [[ $words[2] == init ]] && compadd -- --isolated
   compadd -- ${options}
   _files
 }
@@ -83,6 +84,7 @@ _yonder() {
       completion) choices='zsh bash fish';;
     esac
   fi
+  [[ $\{COMP_WORDS[1]} == init ]] && choices="$choices --isolated"
   COMPREPLY=($(compgen -W "$choices" -- "$cur"))
   if [[ $cur != -* && $\{#COMPREPLY[@]} == 0 ]]; then COMPREPLY=($(compgen -f -- "$cur")); fi
 }
@@ -121,6 +123,7 @@ complete -c yonder -l preset -r -a '(__yonder_values presets)' -d '预设 · Pre
 complete -c yonder -l channel -r -a '(__yonder_values channels)' -d '渠道 · Channel'
 complete -c yonder -l help -d '帮助 · Help'
 complete -c yonder -l json -d 'JSON 输出 · JSON output'
+complete -c yonder -n '__fish_seen_subcommand_from init' -l isolated -d '隔离模式 · Isolated mode'
 complete -c yonder -l plain -d '逐行输出 · Plain output'
 `;
 	throw new Error("Usage: yonder completion zsh|bash|fish");

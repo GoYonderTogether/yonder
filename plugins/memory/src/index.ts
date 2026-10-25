@@ -4,7 +4,7 @@ import { Check } from "typebox/value";
 import { Bootstrap, type BootstrapArgs, bootstrapSchema } from "./bootstrap.js";
 import { type Capture, capture, captureSchema } from "./capture.js";
 import { configSchema, validateConfig } from "./config.js";
-import { ownerEvent, registerContexts } from "./contexts.js";
+import { allowedRun, registerContexts } from "./contexts.js";
 import { Ingest } from "./ingest.js";
 import { type Args, meSchema, Organizer, planSchema, reviewSchema } from "./organize.js";
 import { type ReadArgs, read, readSchema, type SearchArgs, search, searchSchema } from "./retrieval.js";
@@ -73,8 +73,10 @@ export default definePlugin({
 				async execute(input, ctx) {
 					try {
 						ctx.signal.throwIfAborted();
-						if (!config || !(await ownerEvent(api, config, ctx.agent, ctx.event)))
-							throw new Error(`${name} requires an allowed agent in an owner private message`);
+						if (!config || !(await allowedRun(api, config, ctx.agent, ctx.event)))
+							throw new Error(
+								`${name} requires an allowed agent (and, for chat messages, the owner in an approved conversation)`,
+							);
 						if (!ctx.capabilities.includes(write ? "write" : "read") || !ctx.capabilities.includes("admin"))
 							throw new Error(`${name} requires ${write ? "write" : "read"} and admin`);
 						if (!Check(parameters, input)) throw new Error(`Invalid ${name} parameters`);

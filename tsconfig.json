@@ -68,13 +68,13 @@
 			"path": "plugins/memory"
 		},
 		{
-			"path": "plugins/progress-observer"
-		},
-		{
-			"path": "plugins/decision-routing"
+			"path": "plugins/channel-card"
 		},
 		{
 			"path": "plugins/ui-companion"
+		},
+		{
+			"path": "plugins/hermes-experience"
 		}
 	]
 }

@@ -109,7 +109,6 @@ export const YonderSchema = object({
 		),
 	),
 	envs: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
-	loginOperations: Type.Optional(object({ enabled: Type.Optional(Type.Boolean()) })),
 	retry: Type.Optional(
 		object({
 			maxRetries: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })),

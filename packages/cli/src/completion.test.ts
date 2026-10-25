@@ -32,6 +32,7 @@ test("shell-native scripts load and offer actual command/subcommand candidates",
 			expect(completion(shell)).toContain("submit notify");
 			expect(completion(shell)).toContain("channels");
 			expect(completion(shell)).toContain("list login");
+			expect(completion(shell)).toContain(shell === "fish" ? "-l isolated" : "--isolated");
 		}
 		const data = JSON.parse(
 			execFileSync(process.execPath, [cli, "completion", "zsh", "--home", directory, "--json"], { encoding: "utf8" }),

@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { cwd, env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
@@ -18,8 +18,6 @@ import {
 	inspectHome,
 	inspectSkills,
 	installedService,
-	isLoginOperationsEnabled,
-	loadYonderConfig,
 	loginProvider,
 	manageService,
 	offlineQuery,
@@ -36,19 +34,18 @@ import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
-import { createLoginHostAdapter } from "./login-host-adapter.js";
 import { plainTaskChat } from "./plain-chat.js";
 import type { ChatTarget } from "./terminal.js";
 
 const usage = `Usage: yonder <command> [options]
 
 Commands:
-  init [dir] [--owner <id>]       初始化数据目录 · Create a home
+  init [dir] [--owner <id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider>                登录模型供应商 · Authenticate provider
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
-  awake status|install|set on|off  任务期间保持唤醒 · macOS
+  awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS
   start                           前台运行 · Start harness
   stop                            停止运行 · Stop harness
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
@@ -114,7 +111,7 @@ function loginMessage(message: string): string {
 }
 
 type Options = { json: boolean; help: boolean; home?: string; rest: string[] };
-export function parseGlobal(args: string[]): Options {
+function parseGlobal(args: string[]): Options {
 	let json = false;
 	let help = false;
 	let home: string | undefined;
@@ -420,18 +417,19 @@ async function run(args: string[]): Promise<number> {
 
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
+		const isolated = rest.includes("--isolated");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
 		const target = rest.find(
 			(value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1),
 		);
-		if (ownerIndex >= 0 && !owner) throw new UsageError("init --owner requires an id");
+		if (ownerIndex >= 0 && (!owner || owner.startsWith("-"))) throw new UsageError("init --owner requires an id");
 		if (
-			rest.some((value) => value.startsWith("-") && value !== "--owner") ||
+			rest.some((value) => value.startsWith("-") && value !== "--owner" && value !== "--isolated") ||
 			rest.filter((value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1)).length > 1
 		)
-			throw new UsageError("Usage: yonder init [dir] [--owner <id>]");
+			throw new UsageError("Usage: yonder init [dir] [--owner <id>] [--isolated]");
 		const home = homeFor(options, true, target);
-		return print(initHome(home, owner), options.json);
+		return print(initHome(home, owner, { isolated }), options.json);
 	}
 	if (command === "credentials") {
 		if (
@@ -596,9 +594,13 @@ async function run(args: string[]): Promise<number> {
 		if (action === "install" && rest.length === 1) return print(installPower(), options.json);
 		if (action === "status" && rest.length === 1)
 			return print(requestControl(homeFor(options), { method: "awake.status" }), options.json);
-		if (action === "set" && rest.length === 2 && (value === "on" || value === "off"))
-			return print(setAwake(homeFor(options), value === "on"), options.json);
-		throw new UsageError("Usage: yonder awake status|install|set on|off");
+		if (
+			action === "set" &&
+			rest.length === 2 &&
+			(value === "on" || value === "off" || value === "tasks" || value === "always")
+		)
+			return print(setAwake(homeFor(options), value === "on" ? "tasks" : value), options.json);
+		throw new UsageError("Usage: yonder awake status|install|set off|tasks|always");
 	}
 
 	if (command === "start") {
@@ -613,19 +615,7 @@ async function run(args: string[]): Promise<number> {
 				method: "management",
 				params: { action: "plugins.add", source: "@yonder/plugin-ui-companion" },
 			});
-		const config = await loadYonderConfig(home);
 		const kernel = await openKernel(home, {
-			...(isLoginOperationsEnabled(config, env.YONDER_ENABLE_LOGIN_OPERATIONS)
-				? {
-						loginHost: createLoginHostAdapter({
-							nodeExecutable: process.execPath,
-							cliEntry: fileURLToPath(import.meta.url),
-							home,
-							json: options.json,
-							output: (value, json) => output(value, json),
-						}),
-					}
-				: {}),
 			log: (level, message, data) =>
 				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
 		});
@@ -677,7 +667,14 @@ async function run(args: string[]): Promise<number> {
 						return kernel.terminal.queued(requiredParam(params, "id"), true);
 					case "service.info": {
 						const info = await releaseInfo(home);
-						return { version: info.version, commit: info.origin?.commit ?? null, home, pid: process.pid, ready: true };
+						return {
+							version: info.version,
+							commit: info.origin?.commit ?? null,
+							home,
+							pid: process.pid,
+							ready: true,
+							active: (await kernel.awakeActivity()).active,
+						};
 					}
 					case "terminal.info":
 						return kernel.terminal.info(requiredParam(params, "id"));

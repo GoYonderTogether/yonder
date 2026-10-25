@@ -1,4 +1,3 @@
-export { isLoginOperationsEnabled } from "./config/index.js";
 export type { ControlConnection, ControlRequest } from "./control/index.js";
 export { observeControl, requestControl, serveControl } from "./control/index.js";
 export type { Kernel, KernelLog, LoginInteraction } from "./kernel/index.js";
@@ -6,7 +5,6 @@ export {
 	initHome,
 	inspectHome,
 	inspectSkills,
-	loadYonderConfig,
 	loginProvider,
 	manageHome,
 	offlineQuery,

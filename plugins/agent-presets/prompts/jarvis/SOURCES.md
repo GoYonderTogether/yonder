@@ -8,3 +8,5 @@
 | [Dthen/repository-of-souls](https://github.com/Dthen/repository-of-souls) `research/` | `0236763` | 0BSD | 写法：人格要写成“活在其中”，而非“行为描述”；嗓音靠示范；一个贯穿始终的比喻（宅子、钥匙、账本）；一句牢骚；口语化的收尾 |
 | [will-assistant/openclaw-agents](https://github.com/will-assistant/openclaw-agents) `agents/sci-fi/jarvis/` | `2c04d54` | MIT | 对照：电影 J.A.R.V.I.S. 式的英式冷幽默（未采用表情符号与影视梗） |
 | OpenClaw `docs/concepts/soul.md`、`templates/SOUL.md` | 本机快照 | MIT | SOUL.md 只放会改变说话感觉的东西；“每次醒来，这些文件就是你的记忆” |
+
+2026-10-24 重写：去掉宅子、钥匙、账本的比喻与英式套话（比喻曾漏进给主人的消息），改为语言中性的语气描述；骨架与立意仍参考上表。

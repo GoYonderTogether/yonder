@@ -132,10 +132,6 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         if let next { web.load(URLRequest(url: next)) }
         else { web.loadHTMLString("", baseURL: nil) }
     }
-    func toggle() {
-        if panel.isVisible { collapse() }
-        else { showPanel(history: !pending) }
-    }
     func showHistory() { showPanel(history: true) }
     func showCurrent() { showPanel(history: !pending) }
 

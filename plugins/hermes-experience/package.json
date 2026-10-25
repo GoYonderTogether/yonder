@@ -1,0 +1,66 @@
+{
+	"name": "@yonder/plugin-hermes-experience",
+	"version": "0.2.26102502",
+	"type": "module",
+	"yonder": {
+		"apiVersion": 1,
+		"id": "hermes-experience",
+		"entry": "./dist/index.mjs",
+		"contributes": {
+			"tools": [
+				"hermes-experience_memory_read",
+				"hermes-experience_memory_edit",
+				"hermes-experience_skill_store",
+				"hermes-experience_memory_pending",
+				"hermes-experience_refine",
+				"hermes-experience_review_memory_read",
+				"hermes-experience_review_memory_edit",
+				"hermes-experience_review_skill_store"
+			],
+			"contexts": [
+				"hermes-memory",
+				"hermes-behavior",
+				"hermes-core"
+			],
+			"skills": [
+				"hermes-yonder"
+			],
+			"presets": [
+				"hermes-study",
+				"hermes-learning-review"
+			],
+			"hooks": [
+				"hermes-learning"
+			],
+			"triggers": [
+				"hermes-learning"
+			]
+		}
+	},
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./recipe": {
+			"types": "./dist/recipe.d.mts",
+			"import": "./dist/recipe.mjs"
+		}
+	},
+	"files": [
+		"dist",
+		"assets",
+		"skills",
+		"docs",
+		"README.md",
+		"NOTICE"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.2.26102502",
+		"yaml": "2.9.1"
+	}
+}

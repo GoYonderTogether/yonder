@@ -29,9 +29,9 @@
 		"plugins/clipboard",
 		"plugins/channel-qq",
 		"plugins/memory",
-		"plugins/progress-observer",
-		"plugins/decision-routing",
-		"plugins/ui-companion"
+		"plugins/ui-companion",
+		"plugins/channel-card",
+		"plugins/hermes-experience"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
@@ -46,5 +46,5 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder-harness",
-	"version": "0.2.26102309"
+	"version": "0.2.26102502"
 }

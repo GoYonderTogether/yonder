@@ -1,0 +1,36 @@
+Hermes Agent format/behavior reference:
+https://github.com/NousResearch/hermes-agent
+commit 0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0
+MIT License, Copyright (c) 2025 Nous Research (full license in assets/Hermes-MIT.txt).
+Reference: curated-memory separator/default budgets/add-patch-remove behavior and profile directory layout. No Hermes agent loop, Python executable source or bundled skill/prompt corpus is shipped. This project is not an official Nous Research Hermes distribution. Dependencies retain their own licenses; Yonder SDK is Apache-2.0.
+
+Slice 2 additionally ships an adapted excerpt of SOUL.md / DEFAULT_AGENT_IDENTITY
+from the same fixed Hermes commit under the retained MIT license. The upstream
+identity sentence is removed: this adapter is not built by Nous Research. The
+teaching skill and installation recipe are new adapter assets, not an upstream
+Hermes skill or named preset. See assets/SOURCES.md.
+
+Learning-store parity adaptation additionally references fixed upstream commit
+4dcef215cfe41bd2d02c2d1dad6e257a18101216 (2026-10-24):
+  tools/memory_tool.py and tools/memory_tool_store.py
+  tools/skill_manager_tool.py, tools/skill_manager_batch.py,
+  tools/skill_manager_guards.py, tools/skill_provenance.py, tools/skill_usage.py
+Matching typography folds, whole-entry priority, whitespace-preserving span edits,
+terminal/no-duplicate memory results, final-budget batches, unattended destructive
+pending, review-local exact-file read guards and recoverable skill archival are
+adapted to Node and Yonder private stores. MIT License, Copyright (c) 2025 Nous
+Research; full unchanged license retained in assets/Hermes-MIT.txt. No Python
+runtime, upstream model loop, shared skill scanner or automatic script execution
+is introduced. See docs/learning-store-api.md for intentional adapter differences.
+
+Learning lifecycle and review prompts additionally adapt agent/background_review.py
+(_MEMORY_ROUTING_BLOCK, _MEMORY_REVIEW_PROMPT, _LESSON_LAYER_BLOCK,
+_DO_NOT_CAPTURE_BLOCK, _SKILL_REVIEW_PROMPT, _COMBINED_REVIEW_PROMPT),
+agent/turn_context.py, agent/turn_iteration_prep.py, agent/turn_finalizer.py,
+agent/review_idle_queue.py, tools/tool_executor.py and run_agent.py from the same
+4dcef215cfe41bd2d02c2d1dad6e257a18101216 MIT source. The adapted policy retains
+Nothing to save, class-level skills, existing-skill/support-file preference and
+verified-evidence rules, but restricts writes to configured private native skills.
+This is a separate native Harness task with bounded evidence, not an upstream
+byte/cache-identical fork. No aggregate input budget, provider lifecycle, seven-day
+curator or Hermes compaction checkpoint implementation is claimed.

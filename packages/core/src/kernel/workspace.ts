@@ -32,6 +32,7 @@ export function credentialsAndModels(home: string, config: YonderConfig) {
 export function inspectionServices(home: string, config: YonderConfig, log: KernelLog): KernelServices {
 	return {
 		...credentialsAndModels(home, config),
+		agents: { list: unavailable },
 		log: { info: (m, d) => log("info", m, d), warn: (m, d) => log("warn", m, d), error: (m, d) => log("error", m, d) },
 		events: { emit: unavailable, ask: unavailable, query: unavailable, on: unavailable },
 		messages: { send: unavailable },
@@ -70,10 +71,10 @@ export function filesFor(
 	const entry = config.agents?.find((item) => item.id === agent);
 	if (!entry) throw new Error(`Unknown agent: ${agent}`);
 	const cwd = resolve(home, entry.workspace);
-	if (!entry.env || entry.env === "local") return workspaceFiles(localEnvironment(cwd), signal);
+	if (!entry.env || entry.env === "local") return workspaceFiles(localEnvironment(cwd), signal, cwd);
 	const environment = plugins.envs.get(entry.env);
 	if (!environment) throw new Error(`Unknown workspace environment: ${entry.env}`);
-	const files = workspaceFiles(environment, signal);
+	const files = workspaceFiles(environment, signal, cwd);
 	return {
 		readFile: (path) => files.readFile(resolve(cwd, path)),
 		writeFile: (path, text) => files.writeFile(resolve(cwd, path), text),
