@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-channel-github",
-	"version": "0.2.26102509",
+	"version": "0.2.26102510",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -17,7 +17,7 @@
 		"README.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102509",
+		"@yonder/sdk": "0.2.26102510",
 		"typebox": "1.3.27"
 	},
 	"yonder": {
