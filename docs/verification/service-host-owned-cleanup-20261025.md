@@ -113,3 +113,15 @@ fi
 轻量检查：新增脚本 `node --check`、最终 Biome check、`git diff --check` 通过。首次 Biome check 报两个 JSON 证据文件的缩进/末尾换行格式错误，格式化后通过；格式化前后 JSON 数据深比较一致，原始结果未变。没有发版、push、正式安装、服务重启、重签批准 app、权限请求或敏感资源采集。
 
 父级剩余事项：先补齐上述根组跨 owner 身份锚点设计，再继续受管登记的双方真实身份同步/ACK、失败与竞态测试、从旧候选定点迁入产品接线及完整构建。生产身份 TCC 验收仍须另做，不得由本生命周期结果推断授权继承。无需主人重选普通受管契约；此处返回的是明确的实现结构缺口。
+
+## 接续：独立 group-anchor 最小修复（17:00，待产品接线）
+
+按父级确定的方案增加同一 Helper 可执行的 `service-group-anchor` 模式：Helper 启动组 leader anchor，anchor 在真实起始时间/PGID/父链经 Helper 登记和 launcher 独立 native verifier 确认 ACK 后才启动业务根。业务根退出报告真实退出状态，anchor 不随根退出，忽略 TERM，并保持到最终身份重验后的组 KILL。Helper 与 launcher 均保留 anchor 身份；没有无身份的旧 PGID 重试。预启动 Helper 死亡时，未获 start 的 anchor 观察私有通道 EOF 自退，没有业务启动窗口。
+
+首次实际验证（每项均持原子 heavy-test 锁，无并发 Swift 构建）：
+
+- `node --test --test-concurrency=1 scripts/test-service-host-managed-group.mjs`：1/0/0，8.0 秒。`/tmp/yonder-managed-group-mmoAzA/result.json` 中根 `38874` 为 anchor `38869` 的 zombie，未观测子 `38881` 留在 anchor PGID；SIGKILL Helper 后 launcher 存活，子最终已消失。`cleanup.json` 记录 5 个 PID 全部回收。
+- `node --test --test-concurrency=1 scripts/test-service-host.mjs`：13 通过/0 失败/1 跳过，105.3 秒。包括 Node/Helper/launcher 单点死亡、真实 exit 7、同组未观测子、短写与失败路径；13 中仍包含原未登记 setsid **负向边界**测试，不是该强门通过。CLI 产品场景尚未运行。原始目录 `/tmp/yonder-host-evidence-6tAicx`。
+- `node --test --test-concurrency=1 scripts/test-service-host-startup.mjs`：7/0/0，27.6 秒。ACK 前取消、Helper 死、launcher EOF、anchor 死、错误身份 ACK、ACK 超时均没有执行业务代码，按测试记录有界结束并回收 anchor；另检验 stale identity verifier 拒绝且 cleanup 不信号无关进程。原始目录 `/tmp/yonder-anchor-startup-RIY07B`。
+
+以上只是最小修复的进程专项，不是生产可用结论。原先真实失败证据保留；没有重跑上一轮已结束的 setsid 红门或调查。接续工作仍为脱组登记双方 ACK、产品接线/构建与权限入口专项，不触及真实 TCC。

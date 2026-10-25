@@ -105,12 +105,18 @@ catch (e) { console.error(e.message); process.exitCode = 1; }
 			}
 		}, "fixture child pid");
 		pids.add(child);
-		// Wait for the real root to be a zombie held by Helper's cleanup. This
-		// is not double-owner death: the launcher's lease is still alive.
+		// Wait for the real business root to be a zombie held by the anchor.
+		// This is not double-owner death: the launcher's lease is still alive.
 		let beforeKill;
 		await waitFor(
 			() => {
-				const first = output.split("\n").find(Boolean);
+				const first = output.split("\n").find((line) => {
+					try {
+						return JSON.parse(line).nodePid;
+					} catch {
+						return false;
+					}
+				});
 				if (!first) return false;
 				const state = JSON.parse(first);
 				try {
@@ -122,7 +128,7 @@ catch (e) { console.error(e.message); process.exitCode = 1; }
 						"/bin/ps",
 						[
 							"-p",
-							[launcher.pid, state.helperPid, state.nodePid, child].join(","),
+							[launcher.pid, state.helperPid, state.anchorPid, state.nodePid, child].join(","),
 							"-o",
 							"pid=,ppid=,pgid=,stat=,command=",
 						],

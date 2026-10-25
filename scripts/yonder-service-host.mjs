@@ -48,6 +48,16 @@ export async function runServiceHost({
 		startup,
 		shutdownTimer;
 	let finishLease;
+	let acknowledging = false;
+	const native = async (command, value) => {
+		const file = join(scratch, `${command}.json`);
+		await writeFile(file, JSON.stringify(value), { mode: 0o600 });
+		const child = spawn(executable, [command, file], { stdio: "inherit" });
+		await new Promise((resolve, reject) => {
+			child.once("error", reject);
+			child.once("close", (code) => (code ? reject(new Error(`${command} failed (${code})`)) : resolve()));
+		});
+	};
 	const ended = new Promise((resolve) => {
 		finishLease = resolve;
 	});
@@ -73,6 +83,21 @@ export async function runServiceHost({
 				try {
 					state = { ...state, ...JSON.parse(buffer.slice(0, end)) };
 					onState(state);
+					if (state.awaitingAnchorAck && !acknowledging && !stopping) {
+						acknowledging = true;
+						const pending = state;
+						// Launcher independently verifies the native start time, PGID and
+						// Helper -> anchor ancestry before acknowledging its registry.
+						native("service-verify-anchor", pending)
+							.then(() => {
+								if (!stopping && !connection.destroyed)
+									connection.write(`${JSON.stringify({ anchorAck: pending.anchor })}\n`);
+							})
+							.catch((cause) => {
+								error = cause;
+								connection.destroy();
+							});
+					}
 				} catch (cause) {
 					error = cause;
 					connection.destroy();
@@ -134,14 +159,8 @@ export async function runServiceHost({
 		if (lease) await ended;
 		try {
 			if (state?.members?.length) {
-				const file = join(scratch, "cleanup.json");
-				await writeFile(file, JSON.stringify(state.members), { mode: 0o600 });
 				// Emergency cleanup also handles a SIGKILLed Helper. It does no permission IO.
-				const cleanup = spawn(executable, ["service-cleanup", file], { stdio: "inherit" });
-				await new Promise((resolve, reject) => {
-					cleanup.once("error", reject);
-					cleanup.once("close", (code) => (code ? reject(new Error(`Service cleanup failed (${code})`)) : resolve()));
-				});
+				await native("service-cleanup", state);
 			}
 		} catch (cause) {
 			error ??= cause;

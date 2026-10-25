@@ -96,7 +96,7 @@ async function start(name, { home, direct = true, args = [tree], failState = fal
 			return state;
 		},
 		async ready() {
-			await waitFor(() => state?.members?.length >= (args[0] === tree ? 2 : 1), `${name} ready`);
+			await waitFor(() => state?.nodePid && state?.members?.length >= (args[0] === tree ? 3 : 2), `${name} ready`);
 		},
 		async save() {
 			await writeFile(
@@ -483,6 +483,12 @@ test("post-spawn lease write throw executes cleanup and waitpid before Helper ex
 		connection.on("error", () => {});
 		connection.on("data", (b) => {
 			output += b;
+			for (const line of output.split("\n").filter(Boolean)) {
+				try {
+					const state = JSON.parse(line);
+					if (state.awaitingAnchorAck) connection.write(`${JSON.stringify({ anchorAck: state.anchor })}\n`);
+				} catch {}
+			}
 		});
 	});
 	await new Promise((resolve) => server.listen(socket, resolve));
@@ -494,7 +500,11 @@ test("post-spawn lease write throw executes cleanup and waitpid before Helper ex
 	try {
 		await waitFor(async () => {
 			try {
-				rootPid = JSON.parse(output.split("\n")[0]).nodePid;
+				rootPid = output
+					.split("\n")
+					.filter(Boolean)
+					.map((line) => JSON.parse(line))
+					.find((state) => state.nodePid)?.nodePid;
 				const log = await readFile(join(home, ".yonder/logs/harness.log"), "utf8");
 				child = JSON.parse(log.split("\n").find((line) => line.startsWith("{"))).child;
 				return child > 1;
