@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { PluginAPI, Tool, ToolContext, YEvent } from "@yonder/sdk";
+import type { PermissionProvider, PluginAPI, Tool, ToolContext, YEvent } from "@yonder/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transport = vi.hoisted(() => ({ desktop: vi.fn(), stopChildren: vi.fn() }));
@@ -19,6 +19,7 @@ const ownerInput: YEvent = {
 };
 let data: string;
 let tool: Tool;
+let provider: PermissionProvider;
 let ctx: ToolContext;
 let relation: ReturnType<typeof vi.fn>;
 let query: ReturnType<typeof vi.fn>;
@@ -42,6 +43,11 @@ beforeEach(async () => {
 	transport.desktop.mockResolvedValue({ outcome: "timeout", exitCode: 1, permission: { state: "requested" } });
 	await plugin.setup({
 		paths: { data },
+		permissions: {
+			register: (value: PermissionProvider) => {
+				provider = value;
+			},
+		},
 		identity: { relation },
 		tools: {
 			register: (registered: Tool) => {
@@ -288,7 +294,7 @@ describe("explicit permission actions, no live Helper", () => {
 	it("status and permissions never initiate an application or run owner checks", async () => {
 		for (const action of ["status", "permissions"]) {
 			await tool.execute({ action }, ctx);
-			expect(transport.desktop).toHaveBeenLastCalledWith({ action }, ctx.signal, ctx.session);
+			expect(transport.desktop).toHaveBeenLastCalledWith({ action: "permissions" }, ctx.signal, ctx.session);
 		}
 		expect(relation).not.toHaveBeenCalled();
 		expect(query).not.toHaveBeenCalled();
@@ -404,5 +410,77 @@ describe("owner file actions, mocked transport and ordinary temp artifacts only"
 		});
 		expect((await tool.execute({ action: "file-export", path: data }, ctx)).isError).toBe(true);
 		expect(await readdir(join(data, "artifacts"))).toEqual([]);
+	});
+});
+
+describe("shared provider and legacy native entry", () => {
+	it.each(["status", "request", "guide", "watch"] as const)(
+		"%s reaches the identical transport and preserves raw states",
+		async (action) => {
+			const response = await provider.invoke({ provider: provider.id, action, kind: "camera" }, ctx);
+			const call = transport.desktop.mock.calls.at(-1);
+			expect(response).toEqual({
+				platform: "darwin",
+				result: { outcome: "timeout", exitCode: 1, permission: { state: "requested" } },
+			});
+			transport.desktop.mockClear();
+			const legacy = await tool.execute(
+				{ action: action === "status" ? "permissions" : `permission-${action}`, kind: "camera" },
+				ctx,
+			);
+			expect(legacy.isError).toBeUndefined();
+			expect(transport.desktop.mock.calls.at(-1)).toEqual(call);
+			expect(JSON.parse(legacy.text).result).toEqual(response.result);
+		},
+	);
+	it.each(["requested", "unknown", "denied", "unobservable", "needs-restart"])(
+		"preserves actual %s state and identity",
+		async (state) => {
+			const raw = { permission: { state, responsibleIdentity: { bundle: "contract-test" } } };
+			transport.desktop.mockResolvedValue(raw);
+			expect((await provider.invoke({ provider: provider.id, action: "status", kind: "camera" }, ctx)).result).toBe(
+				raw,
+			);
+		},
+	);
+	it("both entries honor cancellation even when a transport returns late", async () => {
+		const controller = new AbortController();
+		ctx.signal = controller.signal;
+		transport.desktop.mockImplementation(async () => {
+			controller.abort();
+			return { state: "unknown" };
+		});
+		await expect(provider.invoke({ provider: provider.id, action: "status", kind: "camera" }, ctx)).rejects.toThrow();
+		const second = new AbortController();
+		ctx.signal = second.signal;
+		transport.desktop.mockImplementation(async () => {
+			second.abort();
+			return { state: "unknown" };
+		});
+		expect((await tool.execute({ action: "status" }, ctx)).isError).toBe(true);
+	});
+
+	it("provider retains owner, local execution, capability and cancellation checks", async () => {
+		const request = { provider: provider.id, action: "guide", kind: "camera" } as const;
+		relation.mockResolvedValue("stranger");
+		await expect(provider.invoke(request, ctx)).rejects.toThrow();
+		relation.mockResolvedValue("owner");
+		await expect(provider.invoke(request, { ...ctx, env: { id: "remote" } as ToolContext["env"] })).rejects.toThrow(
+			"node:local",
+		);
+		await expect(provider.invoke(request, { ...ctx, capabilities: [] })).rejects.toThrow("Requires");
+		await expect(provider.invoke(request, { ...ctx, signal: AbortSignal.abort() })).rejects.toThrow();
+		expect(transport.desktop).not.toHaveBeenCalled();
+	});
+	it("non-macOS reports unsupported without launching any driver", async () => {
+		vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+		try {
+			const response = await provider.invoke({ provider: provider.id, action: "status", kind: "camera" }, ctx);
+			expect(response.platform).toBe("win32");
+			expect(response.result).toMatchObject({ state: "unsupported", reason: expect.stringContaining("win32") });
+			expect(transport.desktop).not.toHaveBeenCalled();
+		} finally {
+			vi.restoreAllMocks();
+		}
 	});
 });

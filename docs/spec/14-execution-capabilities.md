@@ -110,3 +110,19 @@ Agent workspace允许普通文件工具创建memory目录、按日期/条目保�
 - **记录**：解析结果随运行快照持久，崩溃恢复沿用，不重新解析。`run.end.data.thinking` 为该运行实际使用的等级；有委派请求时 `run.end.data.effort = { requested, effective, reason?, inputs }`，`reason` 取 `invalid-level`、`unsupported-level`、`unsupported-default`、`model-without-effort`。
 - **不做**：用户在聊天里直接指定等级的语法（自然语言不是授权来源）；按任务难度或成本自动选择等级与模型（可作为独立插件，见 D52）。
 
+
+## 共享权限工具
+
+核心 `permissions` 工具支持 `action=list`，或指定 `provider`、`kind` 的 `status/request/guide/watch`，可选 `timeout`（秒）。
+进入统一 registry，不因内置工具身份绕过 profile 插件选择；provider 仍检查既有能力、实际执行环境与可信 owner 来源。
+工具由标准 catalog/spec 路径发现。查询不会申请，取消传到 provider 与原生驱动。
+
+`native-automation` 注册同名 provider，scope 为 macOS Yonder Helper（不代表 Node、独立浏览器、远程环境或外部账号）。
+实际支持 accessibility、screen-recording、input-monitoring、camera、microphone、notifications、automation、full-disk-access、files-and-folders 的已有状态/申请/引导/观察契约；后两项不可全局探测时维持原生 unobservable/unknown，不声称已授权。
+这里的 camera/microphone 是已有授权探针，不是摄像头或麦克风采集器。返回 Helper 原始身份和状态，不回传凭据。
+原 desktop 的 status/permissions/permission-request/permission-guide/permission-watch 为兼容入口，共用 provider 底层实现与校验。
+request/guide/watch 保留 `requireOwnerOrigin` 与可信续办来源规则；均要求 exec/read/write/message 及 node:local。
+guide/watch 支持 `0 < timeout <= 600`（默认 600 秒），status/request 不接受 timeout。
+仅 macOS 有实际原生 driver；其他平台返回实际平台与 unsupported 原因，不伪造签名或 grant。SDK 门面允许其他平台注册真实 provider。
+
+共同原生提示词要求主动查询、申请/引导、检查后继续已授权任务，不让主人重复授权或代跑命令搬文件；只把 OS 必须本人完成的密码、生物识别或批准交给真人。安装和 owner 意图不是 OS grant 的证据，既有凭据、来源与隔离边界不变。

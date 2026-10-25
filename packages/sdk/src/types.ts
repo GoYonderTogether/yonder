@@ -395,7 +395,33 @@ export interface ResolvedExecution {
 	channelInstances?: string[];
 }
 
+/** Platform-neutral permission operations. Providers must never return credentials or infer grants. */
+export interface PermissionRequest {
+	provider: string;
+	action: "status" | "request" | "guide" | "watch";
+	kind: string;
+	/** Seconds; provider may constrain supported actions/range. */
+	timeout?: number;
+}
+export interface PermissionResponse {
+	platform: string;
+	/** Actual platform result, including responsible identity and raw permission states. Never normalized to granted. */
+	result: unknown;
+}
+export interface PermissionProvider {
+	/** Plugin id, or plugin id followed by a dot and local provider id. */
+	id: string;
+	scope: string;
+	kinds: string[];
+	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
+}
+export interface PermissionsAPI {
+	register(provider: PermissionProvider): void;
+	list(ctx: ToolContext): Promise<Array<Pick<PermissionProvider, "id" | "scope" | "kinds">>>;
+	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
+}
 export interface PluginAPI {
+	permissions: PermissionsAPI;
 	agents: { list(): Promise<{ id: string; name: string }[]> };
 	readonly version: string;
 	readonly locale: string;

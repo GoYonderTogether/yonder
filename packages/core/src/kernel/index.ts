@@ -11,6 +11,7 @@ import {
 	type YonderConfig,
 } from "../config/index.js";
 import { createDelivery } from "../delivery/index.js";
+import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import {
 	type PromptOptions,
@@ -27,6 +28,7 @@ import { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
+import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { backgroundHandlers } from "./background.js";
 import { configurationErrors, protectSessions } from "./home.js";
@@ -141,7 +143,15 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			if (owner.agent && agents.get(owner.agent)?.archivedAt) throw new Error(`Agent archived: ${owner.agent}`);
 			return sessions.resolveSession(owner.session);
 		};
+		const permissions = createPermissions(async (ctx) => {
+			realRuntime().assertToolContext(ctx);
+			const row = await store.sessions.get(ctx.session);
+			if (!row || row.agent !== ctx.agent || row.profile !== ctx.profile)
+				throw new Error("Permission context does not match stored session");
+			return (await realRuntime().sessionConfig(ctx.session)).resolved.plugins;
+		});
 		const services: KernelServices = {
+			permissions,
 			agents: {
 				list: async () => [...agents.values()].filter((a) => !a.archivedAt).map((a) => ({ id: a.id, name: a.name })),
 			},
@@ -339,6 +349,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			getPreset: sessions.getPreset,
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
 		});
+		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		runtime = await Runtime.open({
 			db,
