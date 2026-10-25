@@ -21,7 +21,7 @@ export interface Task extends TaskContent {
 	state: State;
 	deliverable: string | null;
 	evidence: string[];
-	origin: string;
+	origin?: string;
 	createdAt: string;
 	lastActivityAt: string;
 	lastDeliveryAt: string | null;
@@ -40,7 +40,7 @@ export type Update = Partial<TaskContent> & {
 interface TaskEvent {
 	seq: number;
 	task: string;
-	kind: "open" | "update" | "done" | "wake";
+	kind: "open" | "update" | "done" | "wake" | "moment" | "moment-result";
 	at: string;
 	data: Partial<Task> & {
 		note?: string;
@@ -48,8 +48,12 @@ interface TaskEvent {
 		renderedSession?: string;
 		renderedEvent?: string;
 		counted?: boolean;
+		moment?: Moment;
+		result?: unknown;
+		error?: string;
 	};
 }
+export type Moment = "stall" | "user-wait" | "postCompact";
 interface Current {
 	task: Task;
 	revision: number;
@@ -98,6 +102,7 @@ export class Store {
 		// ponytail: replay the local ledger; index only if measured ledger size requires it.
 		const tasks = new Map<string, Current>();
 		for (const event of events) {
+			if (event.kind === "moment" || event.kind === "moment-result") continue;
 			if (event.kind === "open") {
 				tasks.set(event.task, { task: structuredClone(event.data) as Task, revision: event.seq, rendered: new Map() });
 				continue;
@@ -117,11 +122,11 @@ export class Store {
 		}
 		return tasks;
 	}
-	private append(db: DatabaseSync, task: string, kind: TaskEvent["kind"], data: TaskEvent["data"]) {
+	private append(db: DatabaseSync, task: string, kind: TaskEvent["kind"], data: TaskEvent["data"], now = Date.now()) {
 		db.prepare("INSERT INTO events(task, kind, at, data) VALUES (?, ?, ?, ?)").run(
 			task,
 			kind,
-			new Date().toISOString(),
+			new Date(now).toISOString(),
 			JSON.stringify(data),
 		);
 	}
@@ -205,6 +210,50 @@ export class Store {
 			if (!task || !this.visible(task, tasks, ctx)) throw new Error("Task not found for caller");
 			return { task, history: events.filter((event) => event.task === id) };
 		});
+	}
+	claimMoments(now: number, stallMinutes: number, userWaitMinutes: number, postCompact: boolean) {
+		return this.use((db) => {
+			const events = this.events(db);
+			const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string }> = [];
+			for (const { task } of this.current(events).values()) {
+				const history = events.filter((event) => event.task === task.id);
+				const activity = history.filter((event) => !event.kind.startsWith("moment")).at(-1)!;
+				const done = history.find((event) => event.kind === "done");
+				const moment: Moment | undefined =
+					task.state === "active"
+						? "stall"
+						: task.state === "waiting-user" && task.origin
+							? "user-wait"
+							: task.state === "done" && postCompact
+								? "postCompact"
+								: undefined;
+				if (!moment) continue;
+				const last = history.findLast((event) => event.kind === "moment" && event.data.moment === moment);
+				const since =
+					moment === "postCompact"
+						? done!.at
+						: moment === "user-wait"
+							? history.findLast((event) => event.data.state === "waiting-user")!.at
+							: activity.at;
+				const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
+				if (moment === "postCompact" && last) continue;
+				if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
+				this.append(db, task.id, "moment", { moment }, now);
+				due.push({
+					task,
+					moment,
+					minutes: Math.floor((now - Date.parse(since)) / 60000),
+					waitingFor: history.findLast((event) => event.data.note)?.data.note ?? task.objective,
+				});
+			}
+			return due;
+		});
+	}
+	momentResult(id: string, moment: Moment, data: { result?: unknown; error?: string }, now: number) {
+		this.use((db) => this.append(db, id, "moment-result", { moment, ...data }, now));
+	}
+	recentlyDone(task: Task, now = Date.now()): boolean {
+		return task.state === "done" && now - Date.parse(task.lastActivityAt) < 30 * 60000;
 	}
 	render(ctx: RenderContext): string | undefined {
 		ctx.signal?.throwIfAborted();

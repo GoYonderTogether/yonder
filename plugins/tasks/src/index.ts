@@ -1,5 +1,6 @@
 import { type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
-import { DONE, GET, LIST, OPEN, UPDATE } from "./prompts.js";
+import { type Config, moments } from "./moments.js";
+import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, UPDATE } from "./prompts.js";
 import { type Open, Store, type Update } from "./store.js";
 
 const string = { type: "string", minLength: 1, pattern: "\\S" };
@@ -14,8 +15,17 @@ const content = {
 	budget: obj({ wallMinutes: { type: "number", exclusiveMinimum: 0 }, wakeups: { type: "integer", minimum: 1 } }, []),
 };
 export default definePlugin({
+	configSchema: obj(
+		{
+			stallMinutes: { type: "number", exclusiveMinimum: 0 },
+			userWaitMinutes: { type: "number", exclusiveMinimum: 0 },
+			moments: obj({ postCompact: { type: "boolean" }, postRetain: { type: "boolean" } }, []),
+		},
+		[],
+	),
 	setup(api) {
 		const store = new Store(api.paths.data);
+		const config = (api.config ?? {}) as Config;
 		const add = (
 			name: string,
 			description: string,
@@ -31,7 +41,7 @@ export default definePlugin({
 				async execute(args, ctx) {
 					try {
 						ctx.signal.throwIfAborted();
-						return { text: JSON.stringify(run(args as Record<string, unknown>, ctx)) };
+						return { text: JSON.stringify(await run(args as Record<string, unknown>, ctx)) };
 					} catch (error) {
 						return { text: error instanceof Error ? error.message : String(error), isError: true };
 					}
@@ -67,8 +77,25 @@ export default definePlugin({
 			["write"],
 			(args, ctx) => store.done(args.id as string, args.deliverable as string, args.evidence as string[], ctx),
 		);
-		add("list", LIST, obj({}), ["read"], (_args, ctx) => store.list(ctx));
+		add("list", LIST, obj({}), ["read"], (_args, ctx) =>
+			store.list(ctx).map((task) => ({
+				...task,
+				recentlyDone: config.moments?.postRetain === true && store.recentlyDone(task),
+			})),
+		);
 		add("get", GET, obj({ id: string }), ["read"], (args, ctx) => store.get(args.id as string, ctx));
+		add("nudge", NUDGE, obj({ id: string, say: string }), ["cross-agent"], async (args, ctx) => {
+			const { task } = store.get(args.id as string, ctx);
+			if (task.state === "done" || task.state === "cancelled") throw new Error("Task is closed");
+			return api.sessions.submit(
+				task.session,
+				{
+					text: NUDGE_INPUT(task.title, ctx.agent ?? `session:${ctx.session}`, args.say as string),
+				},
+				{ busy: "followup" },
+			);
+		});
 		api.contexts.register({ id: "tasks-turn", placement: "turn", render: (ctx) => store.render(ctx) });
+		api.triggers.register(moments(api, store, config));
 	},
 });

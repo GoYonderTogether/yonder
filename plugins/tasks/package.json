@@ -29,10 +29,14 @@
 				"tasks_update",
 				"tasks_done",
 				"tasks_list",
-				"tasks_get"
+				"tasks_get",
+				"tasks_nudge"
 			],
 			"contexts": [
 				"tasks-turn"
+			],
+			"triggers": [
+				"tasks-moments"
 			]
 		}
 	}
