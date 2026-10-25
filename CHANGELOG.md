@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-## [0.2.26102507] - 2026-10-25
-
 - 合入渠道实例范围、Agent 状态/固定悬浮入口与共享 permissions API；同一 companion 页面保留任务看板。默认全量 681 通过 / 0 失败 / 39 跳过，隔离真实工具与 Chrome smoke 通过；真实专项 141 通过 / 1 失败 / 1 跳过，既有预设继承测试失败及中止记录见 [候选验证](docs/verification/task-ledger-release.md)。本次仅准备候选，未发布或安装。
 
 - tasks / ui-companion / channel-feishu：私有 scoped TaskBoard 服务、桌面/网页只读总览与详情、轮询刷新和既有悬浮待办提示；飞书每会话版本化看板原地更新、显式请求重发，失败降级 PNG/文字。无 SDK/core/原生改动；无管家视图。实际检查记录见 docs/status.md 的 P3a renderers 条目。
@@ -17,6 +15,41 @@
 - 新增可选 tasks 插件 P1/P2：只追加 SQLite 任务账本、六个工具（含 cross-agent 催办）、归属/parent/cross-agent 可见范围、逐项完成证据与 turn 目标重现；60 秒时点检查支持默认 30 分钟滞留续办提醒、120 分钟用户待办程序通知和跨重启窗口去重。完成后 15 分钟压缩、30 分钟 recentlyDone 标记默认关闭；无后台等待/continuation 可见字段，暂不判定这一 stall 排除条件。不自动启用，不含 TaskBoard、投影、尾部摘要或复盘。
 
 - P2 验证：build/typecheck/lint 通过；默认全仓 601 passed / 0 failed / 39 skipped。新增真实 Luna stall 用例未测（缺凭据）；原始失败与修正见 docs/status.md。
+
+## [0.2.26102509] - 2026-10-25
+
+### Added
+
+- 同一签名 macOS Helper 增加有界 CoreLocation status/request/collect RPC，native permissions provider 支持 location 状态与显式请求；采集只使用真实已有授权，不隐式请求。保留原生授权状态、责任身份与结构化失败，补定位 usage 文案。源码验证不代表正式 OS 授权已完成。
+
+### Fixed
+
+- 定位原生错误回调与成功回调共用取消/deadline 检查，避免边界完成覆盖已超时或取消的操作。
+
+### Verification
+
+- 发布前构建、签名和测试结果见 [Location 发行准备](RELEASE-LOCATION-READY.md)。真实初始化 callback、前台激活、系统授权、定位 fix 与升级授权保留仍未测，由正式发布后的稳定 Helper 验收；源码测试不代表已获 OS 授权。
+
+## [0.2.26102508] - 2026-10-25
+
+### Fixed
+
+- 修复服务入口经 current 符号链接启动时直接退出，导致 launchd 重启循环。正式归并 #79 的 realpathSync 入口修复与真实符号链接回归；本版取代带本机入口热修的 .07，旧 tag 与原部署失败证据不改写。
+
+## [0.2.26102507] - 2026-10-25
+
+### Changed
+
+- 本机 ExecutionEnv.exec（rg、Runtime/SDK execution.run 和 cron 程序作业）接入同一薄宿主 program+argv 门；通过 Pi fork 的可选 local spawn/cancel 适配保留原 Result、流式输出/背压/spill、stdin transport、timeout/abort/cleanup，默认 bash 共用私有 fd 能力缓存，不再各自读取。无宿主/非 macOS/remote 原行为不变。
+
+- 共享 Helper 安装器在 host/permissions 两个入口同步刷新当前安装发行版的稳定 permissions wrapper，支持升级和回滚；锁保留 holder 身份且仅证明旧 holder 已死才恢复，替换失败恢复旧签名 bundle，不盲删并发锁。
+
+- 修复薄宿主后代枚举的归属竞态：以同一 BSD identity/PPID 快照复验到真实 anchor 或已 ACK 根的完整边，拒绝枚举后复用/换父的 PID，清理不误收新身份。
+
+- macOS 服务改由同一 Helper 的无 UI 生命周期入口托管 Node；独立 group-anchor 在业务根退出后保留可验证的组身份，双方 owner 登记 ACK 后才允许启动，TERM 后有界等待并重验身份再组 KILL。
+- 增加真实后代在脱组/丢失父链前逐进程登记的双方 ACK 协议，拒绝任意 target PID；服务 restart 先等待旧宿主卸载，旧版本回滚保留原启动链。至少一个 owner 存活且后代保持原组或先登记是受管契约，不承诺未登记 daemon 或双 owner 同杀。
+- 默认 bash 在 macOS 薄宿主下复用同一 Helper 的每任务 command-anchor；从宿主私有继承描述符取得能力，先保持原组完成双方 prepare ACK，再建子组、完成 ready ACK 才执行。保留真实 shell 退出码/信号、stdio、stdin 与每任务 TERM→1秒 KILL，命令结束先回收子组再回收锚点；宿主协议损坏报错，不静默退回 detached。非宿主/非 macOS 原路径兼容。
+- 保留 .06 统一 permissions registry/ToolContext/API；本次进程专项与产品构建不代表生产 TCC 授权或升级保留已验收。原失败门和最终专项记录见 [宿主回收验证](docs/verification/service-host-owned-cleanup-20261025.md)。
 
 ## [0.2.26102506] - 2026-10-25
 

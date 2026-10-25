@@ -6,13 +6,23 @@ import { fileURLToPath } from "node:url";
 
 const repository = "https://github.com/GoYonderTogether/pi.git";
 const ref = process.argv[2] ?? "yonder/1.3";
+const localSource = process.env.YONDER_PI_SOURCE;
+if (ref !== "yonder/1.3" && !/^[a-f0-9]{40}$/u.test(ref)) throw new Error("Expected a full 40-character commit");
+if (localSource) {
+	if (!/^[a-f0-9]{40}$/u.test(ref)) throw new Error("Local sync requires an exact full commit");
+	const origin = execFileSync("git", ["remote", "get-url", "origin"], { cwd: localSource, encoding: "utf8" }).trim();
+	if (origin.replace(/\.git$/u, "") !== repository.replace(/\.git$/u, ""))
+		throw new Error("Local source is not the configured Pi fork");
+	const actual = execFileSync("git", ["rev-parse", `${ref}^{commit}`], { cwd: localSource, encoding: "utf8" }).trim();
+	if (actual !== ref) throw new Error("Local source commit mismatch");
+}
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const target = join(root, "packages/pi-durable");
 const scratch = mkdtempSync(join(tmpdir(), "sync-pi-durable-"));
 const git = (...args) => execFileSync("git", args, { cwd: scratch, encoding: "utf8" }).trim();
 try {
 	git("init", "--quiet");
-	git("fetch", "--quiet", "--depth=1", repository, ref);
+	git("fetch", "--quiet", "--depth=1", localSource ?? repository, ref);
 	git("checkout", "--quiet", "--detach", "FETCH_HEAD");
 	const commit = git("rev-parse", "HEAD");
 	const source = join(scratch, "packages/durable");
@@ -55,7 +65,9 @@ try {
 		join(target, "FORK_SOURCE.json"),
 		`${JSON.stringify({ repository, branch: "yonder/1.3", commit, upstream: "v1.3.0", upstreamCommit: "71023aec1546d6d677a65669c5665c0927ce0dd0" }, null, "\t")}\n`,
 	);
-	console.log(`Synced pi-durable 1.3.0 from ${commit}`);
+	console.log(
+		`Synced pi-durable 1.3.0 from ${commit}${localSource ? ` (local fork checkout: ${localSource}; not a remote-publication claim)` : ""}`,
+	);
 } finally {
 	rmSync(scratch, { recursive: true, force: true });
 }

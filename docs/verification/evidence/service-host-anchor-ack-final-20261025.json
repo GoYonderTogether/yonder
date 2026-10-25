@@ -1,0 +1,1901 @@
+{
+	"when": "2026-10-25T09:22:44.158Z",
+	"scope": "Read-only liveness checks of explicitly recorded fixture PIDs only; not a machine-wide orphan proof. Managed/status snapshots selected below; complete raw artifacts remain at the listed sources.",
+	"sourceSha256": {
+		"packages/macos-helper/Sources/YonderHelper/ServiceHost.swift": "94ff82f58484d55a84c8ff56d8e4f6fbf42f19915e29e6b29cff4d0e528156c7",
+		"packages/macos-helper/Sources/YonderHelper/YonderHelper.swift": "591b3f059482737edb8f69563daa369a43723ae49aeb9bc9a7a059ee2ba0515c",
+		"scripts/yonder-service-host.mjs": "c89c238c64f5d8f716961b7698e48246c8041b45c48958fdda944d3df549988c",
+		"packages/core/src/release/index.ts": "4f4e2fb94e43700494b446fde198fe14b594dccc099d96361801ad4a44d6061a"
+	},
+	"fixtureChecks": [
+		{
+			"root": "/tmp/yonder-managed-group-mmoAzA",
+			"pids": [38847, 38848, 38869, 38874, 38881],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-host-evidence-6tAicx",
+			"pids": [
+				39264, 39269, 39271, 39272, 39327, 39328, 39333, 39334, 39411, 39420, 39434, 39439, 39541, 39542, 39547, 39548,
+				39591, 39592, 39594, 39595, 39656, 39657, 39674, 39675, 39726, 39727, 39729, 39730, 39758, 39759, 39762, 39842,
+				39843, 39851, 39903, 39904, 39910, 39934, 39957, 39958, 40012, 40124, 40263, 40264, 40270, 40271, 40314, 40315,
+				40330, 40331
+			],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-anchor-startup-RIY07B",
+			"pids": [40453, 40465, 40466, 40498, 40499, 40504, 40505, 40595, 40596, 40597, 40598, 40632, 40633, 40737],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-registration-SVkTs8",
+			"pids": [
+				44014, 44057, 44058, 44059, 44064, 44065, 44116, 44117, 44118, 44120, 44121, 44228, 44229, 44230, 44232, 44233,
+				44381, 44383, 44384, 44386, 44387, 44478, 44479, 44493, 44494, 44854, 44861, 44866, 44867, 45172, 45173, 45175,
+				45176, 45250, 45251, 45255, 45256, 45411, 45413, 45414, 45416, 45417, 45441, 45442, 45443, 45449, 45450
+			],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-registration-3IlXzf",
+			"pids": [
+				45815, 45825, 45826, 45830, 45835, 45836, 45863, 45865, 45866, 45868, 45869, 45893, 45894, 45895, 45900, 45901,
+				45931, 45932, 45933, 45938, 45939, 45961, 45962, 45966, 45967, 46023, 46024, 46032, 46033, 46062, 46063, 46067,
+				46068, 46131, 46132, 46133, 46134, 46160, 46162, 46163, 46165, 46166, 46191, 46193, 46194, 46198, 46199
+			],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-host-evidence-0YKa5D",
+			"pids": [
+				48755, 48774, 48781, 48783, 48809, 48810, 48812, 48813, 48841, 48842, 48844, 48845, 48883, 48884, 48886, 48887,
+				48915, 48916, 48919, 48920, 48960, 48961, 48966, 48968, 49005, 49006, 49012, 49013, 49044, 49045, 49050, 49072,
+				49073, 49079, 49130, 49131, 49133, 49163, 49164, 49169, 49170, 49209, 49210, 49256, 49328, 49421, 49443, 49444,
+				49449
+			],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-managed-group-500c9e",
+			"pids": [50147, 50148, 50156, 50163, 50165],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-managed-group-Cx52lP",
+			"pids": [50206, 50207, 50210, 50214, 50215],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-registration-KUBk9T",
+			"pids": [
+				50243, 50252, 50253, 50254, 50259, 50260, 50289, 50290, 50291, 50293, 50294, 50320, 50321, 50322, 50325, 50326,
+				50354, 50355, 50356, 50358, 50359, 50388, 50392, 50394, 50395, 50427, 50428, 50430, 50431, 50456, 50457, 50461,
+				50462, 50559, 50560, 50564, 50565, 50585, 50586, 50593, 50594, 50618, 50619, 50628, 50629, 50658, 50659, 50660,
+				50669, 50670, 50727, 50728, 50729, 50734, 50735
+			],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-anchor-startup-l1cxe0",
+			"pids": [
+				50775, 50781, 50785, 50818, 50819, 50820, 50821, 50847, 50848, 50850, 50851, 50879, 50880, 50928, 50929, 50934,
+				50935
+			],
+			"remaining": []
+		},
+		{
+			"root": "/tmp/yonder-host-evidence-Bc6KtN",
+			"pids": [50954, 50956, 50964],
+			"remaining": []
+		}
+	],
+	"managed": [
+		{
+			"root": "/tmp/yonder-managed-group-500c9e",
+			"result": {
+				"child": 50165,
+				"observed": false,
+				"survived": false,
+				"result": {
+					"code": 1,
+					"signal": null
+				},
+				"states": [
+					{
+						"registered": [],
+						"helperPid": 50148,
+						"helper": {
+							"micros": 724240,
+							"pid": 50148,
+							"seconds": 1792919872
+						},
+						"registering": null,
+						"awaitingAnchorAck": true,
+						"members": [
+							{
+								"seconds": 1792919873,
+								"micros": 879396,
+								"pid": 50156
+							}
+						],
+						"anchor": {
+							"pid": 50156,
+							"micros": 879396,
+							"seconds": 1792919873
+						},
+						"anchorPid": 50156
+					},
+					{
+						"registered": [],
+						"helperPid": 50148,
+						"helper": {
+							"pid": 50148,
+							"seconds": 1792919872,
+							"micros": 724240
+						},
+						"registering": null,
+						"awaitingAnchorAck": true,
+						"members": [
+							{
+								"pid": 50156,
+								"seconds": 1792919873,
+								"micros": 879396
+							}
+						],
+						"anchor": {
+							"pid": 50156,
+							"seconds": 1792919873,
+							"micros": 879396
+						},
+						"anchorPid": 50156
+					},
+					{
+						"registered": [],
+						"helperPid": 50148,
+						"helper": {
+							"pid": 50148,
+							"seconds": 1792919872,
+							"micros": 724240
+						},
+						"registering": null,
+						"awaitingAnchorAck": false,
+						"members": [
+							{
+								"pid": 50156,
+								"seconds": 1792919873,
+								"micros": 879396
+							},
+							{
+								"pid": 50163,
+								"seconds": 1792919874,
+								"micros": 333894
+							}
+						],
+						"anchor": {
+							"pid": 50156,
+							"seconds": 1792919873,
+							"micros": 879396
+						},
+						"anchorPid": 50156,
+						"nodePid": 50163
+					},
+					{
+						"registered": [],
+						"helperPid": 50148,
+						"helper": {
+							"pid": 50148,
+							"seconds": 1792919872,
+							"micros": 724240
+						},
+						"registering": null,
+						"awaitingAnchorAck": false,
+						"members": [
+							{
+								"pid": 50156,
+								"seconds": 1792919873,
+								"micros": 879396
+							},
+							{
+								"pid": 50163,
+								"seconds": 1792919874,
+								"micros": 333894
+							}
+						],
+						"anchor": {
+							"pid": 50156,
+							"seconds": 1792919873,
+							"micros": 879396
+						},
+						"anchorPid": 50156,
+						"nodePid": 50163
+					}
+				],
+				"errors": "",
+				"beforeKill": "50147 50138 50133 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node /tmp/yonder-managed-group-500c9e/runner.mjs {\"app\":\"/tmp/yonder-managed-group-500c9e/YonderHelper\",\"direct\":true,\"program\":\"/tmp/yonder-managed-group-500c9e/escape\",\"args\":[\"/tmp/yonder-managed-group-500c9e/child.pid\"],\"environment\":{},\"cwd\":\"/tmp/yonder-managed-group-500c9e\",\"home\":\"/tmp/yonder-managed-group-500c9e\"}\n50148 50147 50133 S    /tmp/yonder-managed-group-500c9e/YonderHelper service-host /tmp/yonder-service-jKw5Qs/lease /tmp/yonder-service-jKw5Qs/launch.json\n50156 50148 50156 S    /tmp/yonder-managed-group-500c9e/YonderHelper service-group-anchor /tmp/yonder-service-jKw5Qs/launch.json /tmp/yonder-service-jKw5Qs/lease.register\n50163 50156 50156 Z    <defunct>\n50165     1 50156 S    /tmp/yonder-managed-group-500c9e/escape /tmp/yonder-managed-group-500c9e/child.pid\n",
+				"processState": null
+			},
+			"cleanup": {
+				"pids": [50147, 50165, 50148, 50156, 50163],
+				"remaining": [],
+				"reclaimed": true
+			}
+		},
+		{
+			"root": "/tmp/yonder-managed-group-Cx52lP",
+			"result": {
+				"child": 50215,
+				"observed": false,
+				"survived": false,
+				"result": {
+					"code": null,
+					"signal": "SIGKILL"
+				},
+				"states": [
+					{
+						"members": [
+							{
+								"seconds": 1792919880,
+								"micros": 863654,
+								"pid": 50210
+							}
+						],
+						"registered": [],
+						"anchor": {
+							"pid": 50210,
+							"seconds": 1792919880,
+							"micros": 863654
+						},
+						"helperPid": 50207,
+						"awaitingAnchorAck": true,
+						"anchorPid": 50210,
+						"registering": null,
+						"helper": {
+							"seconds": 1792919880,
+							"micros": 650806,
+							"pid": 50207
+						}
+					},
+					{
+						"members": [
+							{
+								"pid": 50210,
+								"seconds": 1792919880,
+								"micros": 863654
+							}
+						],
+						"registered": [],
+						"anchor": {
+							"pid": 50210,
+							"seconds": 1792919880,
+							"micros": 863654
+						},
+						"helperPid": 50207,
+						"awaitingAnchorAck": true,
+						"anchorPid": 50210,
+						"registering": null,
+						"helper": {
+							"pid": 50207,
+							"seconds": 1792919880,
+							"micros": 650806
+						}
+					},
+					{
+						"members": [
+							{
+								"micros": 863654,
+								"seconds": 1792919880,
+								"pid": 50210
+							},
+							{
+								"micros": 371131,
+								"seconds": 1792919881,
+								"pid": 50214
+							}
+						],
+						"registered": [],
+						"anchor": {
+							"micros": 863654,
+							"seconds": 1792919880,
+							"pid": 50210
+						},
+						"helperPid": 50207,
+						"awaitingAnchorAck": false,
+						"anchorPid": 50210,
+						"registering": null,
+						"helper": {
+							"micros": 650806,
+							"seconds": 1792919880,
+							"pid": 50207
+						},
+						"nodePid": 50214
+					},
+					{
+						"members": [
+							{
+								"pid": 50210,
+								"seconds": 1792919880,
+								"micros": 863654
+							},
+							{
+								"pid": 50214,
+								"seconds": 1792919881,
+								"micros": 371131
+							}
+						],
+						"registered": [],
+						"anchor": {
+							"pid": 50210,
+							"seconds": 1792919880,
+							"micros": 863654
+						},
+						"helperPid": 50207,
+						"awaitingAnchorAck": false,
+						"anchorPid": 50210,
+						"registering": null,
+						"helper": {
+							"pid": 50207,
+							"seconds": 1792919880,
+							"micros": 650806
+						},
+						"nodePid": 50214
+					},
+					{
+						"members": [
+							{
+								"pid": 50210,
+								"seconds": 1792919880,
+								"micros": 863654
+							},
+							{
+								"pid": 50214,
+								"seconds": 1792919881,
+								"micros": 371131
+							}
+						],
+						"registered": [],
+						"anchor": {
+							"pid": 50210,
+							"seconds": 1792919880,
+							"micros": 863654
+						},
+						"helperPid": 50207,
+						"awaitingAnchorAck": false,
+						"anchorPid": 50210,
+						"registering": null,
+						"helper": {
+							"pid": 50207,
+							"seconds": 1792919880,
+							"micros": 650806
+						},
+						"nodePid": 50214
+					}
+				],
+				"errors": "",
+				"beforeKill": "50206 50138 50133 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node /tmp/yonder-managed-group-Cx52lP/runner.mjs {\"app\":\"/tmp/yonder-managed-group-Cx52lP/YonderHelper\",\"direct\":true,\"program\":\"/tmp/yonder-managed-group-Cx52lP/escape\",\"args\":[\"/tmp/yonder-managed-group-Cx52lP/child.pid\"],\"environment\":{},\"cwd\":\"/tmp/yonder-managed-group-Cx52lP\",\"home\":\"/tmp/yonder-managed-group-Cx52lP\"}\n50207 50206 50133 S    /tmp/yonder-managed-group-Cx52lP/YonderHelper service-host /tmp/yonder-service-DZnK2H/lease /tmp/yonder-service-DZnK2H/launch.json\n50210 50207 50210 S    /tmp/yonder-managed-group-Cx52lP/YonderHelper service-group-anchor /tmp/yonder-service-DZnK2H/launch.json /tmp/yonder-service-DZnK2H/lease.register\n50214 50210 50210 Z    <defunct>\n50215     1 50210 S    /tmp/yonder-managed-group-Cx52lP/escape /tmp/yonder-managed-group-Cx52lP/child.pid\n",
+				"processState": null
+			},
+			"cleanup": {
+				"pids": [50206, 50215, 50207, 50210, 50214],
+				"remaining": [],
+				"reclaimed": true
+			}
+		}
+	],
+	"registration": [
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/bad-ack-eHwnBY/result.json",
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"pids": [50427, 50431, 50428, 50430],
+			"remaining": [],
+			"detached": false,
+			"first": {
+				"helperPid": 50427,
+				"registering": null,
+				"awaitingAnchorAck": true,
+				"helper": {
+					"micros": 941559,
+					"pid": 50427,
+					"seconds": 1792919918
+				},
+				"registered": [],
+				"members": [
+					{
+						"pid": 50428,
+						"micros": 945810,
+						"seconds": 1792919918
+					}
+				],
+				"anchorPid": 50428,
+				"anchor": {
+					"micros": 945810,
+					"pid": 50428,
+					"seconds": 1792919918
+				}
+			},
+			"pending": {
+				"helperPid": 50427,
+				"helper": {
+					"seconds": 1792919918,
+					"micros": 941559,
+					"pid": 50427
+				},
+				"members": [
+					{
+						"seconds": 1792919918,
+						"micros": 945810,
+						"pid": 50428
+					},
+					{
+						"seconds": 1792919919,
+						"micros": 262508,
+						"pid": 50431
+					},
+					{
+						"seconds": 1792919919,
+						"micros": 260048,
+						"pid": 50430
+					}
+				],
+				"registered": [],
+				"anchorPid": 50428,
+				"anchor": {
+					"seconds": 1792919918,
+					"micros": 945810,
+					"pid": 50428
+				},
+				"awaitingAnchorAck": false,
+				"nodePid": 50430,
+				"registering": {
+					"seconds": 1792919919,
+					"micros": 262508,
+					"pid": 50431
+				}
+			},
+			"last": {
+				"nodePid": 50430,
+				"helper": {
+					"pid": 50427,
+					"micros": 941559,
+					"seconds": 1792919918
+				},
+				"registered": [],
+				"registering": {
+					"pid": 50431,
+					"micros": 262508,
+					"seconds": 1792919919
+				},
+				"anchor": {
+					"pid": 50428,
+					"micros": 945810,
+					"seconds": 1792919918
+				},
+				"members": [
+					{
+						"pid": 50428,
+						"micros": 945810,
+						"seconds": 1792919918
+					},
+					{
+						"pid": 50431,
+						"micros": 262508,
+						"seconds": 1792919919
+					},
+					{
+						"pid": 50430,
+						"micros": 260048,
+						"seconds": 1792919919
+					}
+				],
+				"awaitingAnchorAck": false,
+				"anchorPid": 50428,
+				"helperPid": 50427
+			},
+			"errors": "Service host: Invalid member ACK\n"
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/bad-message-hYBxGA/result.json",
+			"result": {
+				"code": 11,
+				"signal": null
+			},
+			"pids": [50658, 50670, 50659, 50660, 50669],
+			"remaining": [],
+			"detached": false,
+			"first": {
+				"registered": [],
+				"helperPid": 50659,
+				"awaitingAnchorAck": true,
+				"members": [
+					{
+						"seconds": 1792919952,
+						"pid": 50660,
+						"micros": 539962
+					}
+				],
+				"registering": null,
+				"helper": {
+					"micros": 535362,
+					"pid": 50659,
+					"seconds": 1792919952
+				},
+				"anchor": {
+					"seconds": 1792919952,
+					"micros": 539962,
+					"pid": 50660
+				},
+				"anchorPid": 50660
+			},
+			"last": {
+				"registered": [],
+				"helperPid": 50659,
+				"awaitingAnchorAck": false,
+				"members": [
+					{
+						"pid": 50660,
+						"seconds": 1792919952,
+						"micros": 539962
+					},
+					{
+						"pid": 50670,
+						"seconds": 1792919953,
+						"micros": 37685
+					},
+					{
+						"pid": 50669,
+						"seconds": 1792919953,
+						"micros": 35827
+					}
+				],
+				"registering": null,
+				"helper": {
+					"pid": 50659,
+					"seconds": 1792919952,
+					"micros": 535362
+				},
+				"anchor": {
+					"pid": 50660,
+					"seconds": 1792919952,
+					"micros": 539962
+				},
+				"anchorPid": 50660,
+				"nodePid": 50669,
+				"exitCode": 11
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/helper-PYLFb8/result.json",
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"pids": [50320, 50326, 50321, 50322, 50325],
+			"remaining": [],
+			"detached": true,
+			"first": {
+				"helper": {
+					"micros": 217427,
+					"seconds": 1792919900,
+					"pid": 50321
+				},
+				"members": [
+					{
+						"pid": 50322,
+						"micros": 223426,
+						"seconds": 1792919900
+					}
+				],
+				"awaitingAnchorAck": true,
+				"registering": null,
+				"registered": [],
+				"anchorPid": 50322,
+				"anchor": {
+					"pid": 50322,
+					"micros": 223426,
+					"seconds": 1792919900
+				},
+				"helperPid": 50321
+			},
+			"pending": {
+				"helper": {
+					"pid": 50321,
+					"micros": 217427,
+					"seconds": 1792919900
+				},
+				"members": [
+					{
+						"pid": 50322,
+						"micros": 223426,
+						"seconds": 1792919900
+					},
+					{
+						"pid": 50325,
+						"micros": 742792,
+						"seconds": 1792919900
+					},
+					{
+						"pid": 50326,
+						"micros": 745971,
+						"seconds": 1792919900
+					}
+				],
+				"awaitingAnchorAck": false,
+				"registering": {
+					"pid": 50326,
+					"micros": 745971,
+					"seconds": 1792919900
+				},
+				"registered": [],
+				"anchorPid": 50322,
+				"anchor": {
+					"pid": 50322,
+					"micros": 223426,
+					"seconds": 1792919900
+				},
+				"helperPid": 50321,
+				"nodePid": 50325
+			},
+			"last": {
+				"helper": {
+					"seconds": 1792919900,
+					"micros": 217427,
+					"pid": 50321
+				},
+				"members": [
+					{
+						"seconds": 1792919900,
+						"micros": 223426,
+						"pid": 50322
+					},
+					{
+						"seconds": 1792919900,
+						"micros": 742792,
+						"pid": 50325
+					},
+					{
+						"seconds": 1792919900,
+						"micros": 745971,
+						"pid": 50326
+					}
+				],
+				"awaitingAnchorAck": false,
+				"registering": {
+					"seconds": 1792919900,
+					"micros": 745971,
+					"pid": 50326
+				},
+				"registered": [],
+				"anchorPid": 50322,
+				"anchor": {
+					"seconds": 1792919900,
+					"micros": 223426,
+					"pid": 50322
+				},
+				"helperPid": 50321,
+				"nodePid": 50325
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/helper-death-Wb2m1f/result.json",
+			"result": {
+				"code": null,
+				"signal": "SIGKILL"
+			},
+			"pids": [50618, 50629, 50619, 50628],
+			"remaining": [],
+			"detached": false,
+			"first": {
+				"registered": [],
+				"anchorPid": 50619,
+				"helperPid": 50618,
+				"anchor": {
+					"micros": 751535,
+					"seconds": 1792919946,
+					"pid": 50619
+				},
+				"members": [
+					{
+						"pid": 50619,
+						"micros": 751535,
+						"seconds": 1792919946
+					}
+				],
+				"helper": {
+					"micros": 742239,
+					"pid": 50618,
+					"seconds": 1792919946
+				},
+				"registering": null,
+				"awaitingAnchorAck": true
+			},
+			"pending": {
+				"helperPid": 50618,
+				"anchor": {
+					"micros": 751535,
+					"seconds": 1792919946,
+					"pid": 50619
+				},
+				"helper": {
+					"micros": 742239,
+					"seconds": 1792919946,
+					"pid": 50618
+				},
+				"registering": {
+					"micros": 118111,
+					"seconds": 1792919947,
+					"pid": 50629
+				},
+				"registered": [],
+				"members": [
+					{
+						"micros": 751535,
+						"seconds": 1792919946,
+						"pid": 50619
+					},
+					{
+						"micros": 116562,
+						"seconds": 1792919947,
+						"pid": 50628
+					},
+					{
+						"micros": 118111,
+						"seconds": 1792919947,
+						"pid": 50629
+					}
+				],
+				"nodePid": 50628,
+				"anchorPid": 50619,
+				"awaitingAnchorAck": false
+			},
+			"last": {
+				"helperPid": 50618,
+				"anchor": {
+					"micros": 751535,
+					"seconds": 1792919946,
+					"pid": 50619
+				},
+				"helper": {
+					"micros": 742239,
+					"seconds": 1792919946,
+					"pid": 50618
+				},
+				"registering": {
+					"micros": 118111,
+					"seconds": 1792919947,
+					"pid": 50629
+				},
+				"registered": [],
+				"members": [
+					{
+						"micros": 751535,
+						"seconds": 1792919946,
+						"pid": 50619
+					},
+					{
+						"micros": 116562,
+						"seconds": 1792919947,
+						"pid": 50628
+					},
+					{
+						"micros": 118111,
+						"seconds": 1792919947,
+						"pid": 50629
+					}
+				],
+				"nodePid": 50628,
+				"anchorPid": 50619,
+				"awaitingAnchorAck": false
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/hold-then-ack-DzqqbA/result.json",
+			"result": {
+				"code": 143,
+				"signal": null
+			},
+			"pids": [50388, 50395, 50392, 50394],
+			"remaining": [],
+			"detached": true,
+			"first": {
+				"registering": null,
+				"awaitingAnchorAck": true,
+				"helperPid": 50388,
+				"anchorPid": 50392,
+				"registered": [],
+				"helper": {
+					"micros": 267618,
+					"pid": 50388,
+					"seconds": 1792919912
+				},
+				"members": [
+					{
+						"pid": 50392,
+						"micros": 277112,
+						"seconds": 1792919912
+					}
+				],
+				"anchor": {
+					"seconds": 1792919912,
+					"micros": 277112,
+					"pid": 50392
+				}
+			},
+			"pending": {
+				"helper": {
+					"seconds": 1792919912,
+					"micros": 267618,
+					"pid": 50388
+				},
+				"registering": {
+					"seconds": 1792919912,
+					"micros": 764640,
+					"pid": 50395
+				},
+				"anchor": {
+					"seconds": 1792919912,
+					"micros": 277112,
+					"pid": 50392
+				},
+				"members": [
+					{
+						"seconds": 1792919912,
+						"micros": 277112,
+						"pid": 50392
+					},
+					{
+						"seconds": 1792919912,
+						"micros": 759837,
+						"pid": 50394
+					},
+					{
+						"seconds": 1792919912,
+						"micros": 764640,
+						"pid": 50395
+					}
+				],
+				"nodePid": 50394,
+				"registered": [],
+				"anchorPid": 50392,
+				"helperPid": 50388,
+				"awaitingAnchorAck": false
+			},
+			"last": {
+				"registering": null,
+				"anchorPid": 50392,
+				"awaitingAnchorAck": false,
+				"nodePid": 50394,
+				"helper": {
+					"pid": 50388,
+					"micros": 267618,
+					"seconds": 1792919912
+				},
+				"anchor": {
+					"pid": 50392,
+					"micros": 277112,
+					"seconds": 1792919912
+				},
+				"helperPid": 50388,
+				"members": [
+					{
+						"pid": 50392,
+						"micros": 277112,
+						"seconds": 1792919912
+					},
+					{
+						"pid": 50394,
+						"micros": 759837,
+						"seconds": 1792919912
+					},
+					{
+						"pid": 50395,
+						"micros": 764640,
+						"seconds": 1792919912
+					}
+				],
+				"registered": [
+					{
+						"pid": 50395,
+						"micros": 764640,
+						"seconds": 1792919912
+					}
+				]
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/launcher-Wf4O7L/result.json",
+			"result": {
+				"code": null,
+				"signal": "SIGKILL"
+			},
+			"pids": [50354, 50359, 50355, 50356, 50358],
+			"remaining": [],
+			"detached": true,
+			"first": {
+				"members": [
+					{
+						"micros": 33315,
+						"seconds": 1792919906,
+						"pid": 50356
+					}
+				],
+				"helper": {
+					"pid": 50355,
+					"seconds": 1792919906,
+					"micros": 29417
+				},
+				"registering": null,
+				"anchor": {
+					"micros": 33315,
+					"seconds": 1792919906,
+					"pid": 50356
+				},
+				"registered": [],
+				"anchorPid": 50356,
+				"awaitingAnchorAck": true,
+				"helperPid": 50355
+			},
+			"pending": {
+				"members": [
+					{
+						"pid": 50356,
+						"seconds": 1792919906,
+						"micros": 33315
+					},
+					{
+						"pid": 50359,
+						"seconds": 1792919906,
+						"micros": 641710
+					},
+					{
+						"pid": 50358,
+						"seconds": 1792919906,
+						"micros": 633571
+					}
+				],
+				"helper": {
+					"pid": 50355,
+					"seconds": 1792919906,
+					"micros": 29417
+				},
+				"registering": {
+					"pid": 50359,
+					"seconds": 1792919906,
+					"micros": 641710
+				},
+				"anchor": {
+					"pid": 50356,
+					"seconds": 1792919906,
+					"micros": 33315
+				},
+				"registered": [],
+				"anchorPid": 50356,
+				"awaitingAnchorAck": false,
+				"helperPid": 50355,
+				"nodePid": 50358
+			},
+			"last": {
+				"members": [
+					{
+						"pid": 50356,
+						"seconds": 1792919906,
+						"micros": 33315
+					},
+					{
+						"pid": 50359,
+						"seconds": 1792919906,
+						"micros": 641710
+					},
+					{
+						"pid": 50358,
+						"seconds": 1792919906,
+						"micros": 633571
+					}
+				],
+				"helper": {
+					"pid": 50355,
+					"seconds": 1792919906,
+					"micros": 29417
+				},
+				"registering": {
+					"pid": 50359,
+					"seconds": 1792919906,
+					"micros": 641710
+				},
+				"anchor": {
+					"pid": 50356,
+					"seconds": 1792919906,
+					"micros": 33315
+				},
+				"registered": [],
+				"anchorPid": 50356,
+				"awaitingAnchorAck": false,
+				"helperPid": 50355,
+				"nodePid": 50358
+			},
+			"errors": "Service host: Lease write failed or timed out\n"
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/launcher-eof-KLCKHz/result.json",
+			"result": {
+				"code": 143,
+				"signal": null
+			},
+			"pids": [50585, 50594, 50586, 50593],
+			"remaining": [],
+			"detached": false,
+			"first": {
+				"anchorPid": 50586,
+				"anchor": {
+					"pid": 50586,
+					"micros": 759378,
+					"seconds": 1792919940
+				},
+				"registering": null,
+				"members": [
+					{
+						"micros": 759378,
+						"seconds": 1792919940,
+						"pid": 50586
+					}
+				],
+				"helper": {
+					"pid": 50585,
+					"seconds": 1792919940,
+					"micros": 745995
+				},
+				"awaitingAnchorAck": true,
+				"registered": [],
+				"helperPid": 50585
+			},
+			"pending": {
+				"anchor": {
+					"seconds": 1792919940,
+					"pid": 50586,
+					"micros": 759378
+				},
+				"awaitingAnchorAck": false,
+				"nodePid": 50593,
+				"members": [
+					{
+						"seconds": 1792919940,
+						"pid": 50586,
+						"micros": 759378
+					},
+					{
+						"seconds": 1792919941,
+						"pid": 50593,
+						"micros": 261327
+					},
+					{
+						"seconds": 1792919941,
+						"pid": 50594,
+						"micros": 263582
+					}
+				],
+				"registering": {
+					"seconds": 1792919941,
+					"pid": 50594,
+					"micros": 263582
+				},
+				"registered": [],
+				"helper": {
+					"seconds": 1792919940,
+					"pid": 50585,
+					"micros": 745995
+				},
+				"helperPid": 50585,
+				"anchorPid": 50586
+			},
+			"last": {
+				"awaitingAnchorAck": false,
+				"nodePid": 50593,
+				"members": [
+					{
+						"pid": 50586,
+						"micros": 759378,
+						"seconds": 1792919940
+					},
+					{
+						"pid": 50593,
+						"micros": 261327,
+						"seconds": 1792919941
+					},
+					{
+						"pid": 50594,
+						"micros": 263582,
+						"seconds": 1792919941
+					}
+				],
+				"anchorPid": 50586,
+				"registering": {
+					"pid": 50594,
+					"micros": 263582,
+					"seconds": 1792919941
+				},
+				"registered": [],
+				"anchor": {
+					"pid": 50586,
+					"micros": 759378,
+					"seconds": 1792919940
+				},
+				"helper": {
+					"pid": 50585,
+					"micros": 745995,
+					"seconds": 1792919940
+				},
+				"helperPid": 50585
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/missing-ack-SAcWPL/result.json",
+			"result": {
+				"code": 11,
+				"signal": null
+			},
+			"pids": [50456, 50462, 50457, 50461, null],
+			"remaining": [],
+			"detached": false,
+			"first": {
+				"anchorPid": 50457,
+				"helper": {
+					"pid": 50456,
+					"seconds": 1792919924,
+					"micros": 818775
+				},
+				"awaitingAnchorAck": true,
+				"registering": null,
+				"helperPid": 50456,
+				"anchor": {
+					"seconds": 1792919924,
+					"micros": 825870,
+					"pid": 50457
+				},
+				"members": [
+					{
+						"micros": 825870,
+						"pid": 50457,
+						"seconds": 1792919924
+					}
+				],
+				"registered": []
+			},
+			"pending": {
+				"registered": [],
+				"helper": {
+					"pid": 50456,
+					"micros": 818775,
+					"seconds": 1792919924
+				},
+				"helperPid": 50456,
+				"members": [
+					{
+						"pid": 50457,
+						"micros": 825870,
+						"seconds": 1792919924
+					},
+					{
+						"pid": 50462,
+						"micros": 303907,
+						"seconds": 1792919925
+					},
+					{
+						"pid": 50461,
+						"micros": 299292,
+						"seconds": 1792919925
+					}
+				],
+				"anchor": {
+					"pid": 50457,
+					"micros": 825870,
+					"seconds": 1792919924
+				},
+				"registering": {
+					"pid": 50462,
+					"micros": 303907,
+					"seconds": 1792919925
+				},
+				"anchorPid": 50457,
+				"awaitingAnchorAck": false,
+				"nodePid": 50461
+			},
+			"last": {
+				"exitCode": 11
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/peer-exit-DSQHuz/result.json",
+			"result": {
+				"code": 11,
+				"signal": null
+			},
+			"pids": [50559, 50565, 50560, 50564, null],
+			"remaining": [],
+			"detached": false,
+			"first": {
+				"registering": null,
+				"anchorPid": 50560,
+				"registered": [],
+				"helperPid": 50559,
+				"anchor": {
+					"pid": 50560,
+					"micros": 922612,
+					"seconds": 1792919934
+				},
+				"members": [
+					{
+						"seconds": 1792919934,
+						"micros": 922612,
+						"pid": 50560
+					}
+				],
+				"helper": {
+					"micros": 918218,
+					"pid": 50559,
+					"seconds": 1792919934
+				},
+				"awaitingAnchorAck": true
+			},
+			"pending": {
+				"awaitingAnchorAck": false,
+				"registering": {
+					"micros": 211867,
+					"pid": 50565,
+					"seconds": 1792919935
+				},
+				"anchorPid": 50560,
+				"nodePid": 50564,
+				"anchor": {
+					"micros": 922612,
+					"pid": 50560,
+					"seconds": 1792919934
+				},
+				"members": [
+					{
+						"micros": 922612,
+						"pid": 50560,
+						"seconds": 1792919934
+					},
+					{
+						"micros": 209932,
+						"pid": 50564,
+						"seconds": 1792919935
+					},
+					{
+						"micros": 211867,
+						"pid": 50565,
+						"seconds": 1792919935
+					}
+				],
+				"helperPid": 50559,
+				"helper": {
+					"micros": 918218,
+					"pid": 50559,
+					"seconds": 1792919934
+				},
+				"registered": []
+			},
+			"last": {
+				"exitCode": 11
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/root-exit-lY5olD/result.json",
+			"result": {
+				"code": 7,
+				"signal": null
+			},
+			"pids": [50252, 50260, 50253, 50254, 50259],
+			"remaining": [],
+			"detached": true,
+			"first": {
+				"anchor": {
+					"seconds": 1792919887,
+					"micros": 785847,
+					"pid": 50254
+				},
+				"registering": null,
+				"registered": [],
+				"helper": {
+					"micros": 558708,
+					"pid": 50253,
+					"seconds": 1792919887
+				},
+				"helperPid": 50253,
+				"awaitingAnchorAck": true,
+				"anchorPid": 50254,
+				"members": [
+					{
+						"seconds": 1792919887,
+						"pid": 50254,
+						"micros": 785847
+					}
+				]
+			},
+			"pending": {
+				"anchor": {
+					"seconds": 1792919887,
+					"micros": 785847,
+					"pid": 50254
+				},
+				"registering": {
+					"seconds": 1792919888,
+					"micros": 543738,
+					"pid": 50260
+				},
+				"registered": [],
+				"helper": {
+					"seconds": 1792919887,
+					"micros": 558708,
+					"pid": 50253
+				},
+				"helperPid": 50253,
+				"awaitingAnchorAck": false,
+				"anchorPid": 50254,
+				"members": [
+					{
+						"seconds": 1792919887,
+						"micros": 785847,
+						"pid": 50254
+					},
+					{
+						"seconds": 1792919888,
+						"micros": 543738,
+						"pid": 50260
+					},
+					{
+						"seconds": 1792919888,
+						"micros": 252996,
+						"pid": 50259
+					}
+				],
+				"nodePid": 50259
+			},
+			"last": {
+				"anchor": {
+					"micros": 785847,
+					"pid": 50254,
+					"seconds": 1792919887
+				},
+				"registering": null,
+				"registered": [
+					{
+						"micros": 543738,
+						"pid": 50260,
+						"seconds": 1792919888
+					}
+				],
+				"helper": {
+					"micros": 558708,
+					"pid": 50253,
+					"seconds": 1792919887
+				},
+				"helperPid": 50253,
+				"awaitingAnchorAck": false,
+				"anchorPid": 50254,
+				"members": [
+					{
+						"micros": 785847,
+						"pid": 50254,
+						"seconds": 1792919887
+					},
+					{
+						"micros": 543738,
+						"pid": 50260,
+						"seconds": 1792919888
+					},
+					{
+						"micros": 252996,
+						"pid": 50259,
+						"seconds": 1792919888
+					}
+				],
+				"nodePid": 50259,
+				"exitCode": 7
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/root-kill-OvfRw2/result.json",
+			"result": {
+				"code": 137,
+				"signal": null
+			},
+			"pids": [50289, 50294, 50290, 50291, 50293],
+			"remaining": [],
+			"detached": true,
+			"first": {
+				"awaitingAnchorAck": true,
+				"registered": [],
+				"helper": {
+					"micros": 54298,
+					"pid": 50290,
+					"seconds": 1792919894
+				},
+				"helperPid": 50290,
+				"members": [
+					{
+						"pid": 50291,
+						"seconds": 1792919894,
+						"micros": 58781
+					}
+				],
+				"anchor": {
+					"seconds": 1792919894,
+					"micros": 58781,
+					"pid": 50291
+				},
+				"anchorPid": 50291,
+				"registering": null
+			},
+			"pending": {
+				"awaitingAnchorAck": false,
+				"registered": [],
+				"helper": {
+					"pid": 50290,
+					"seconds": 1792919894,
+					"micros": 54298
+				},
+				"helperPid": 50290,
+				"members": [
+					{
+						"pid": 50291,
+						"seconds": 1792919894,
+						"micros": 58781
+					},
+					{
+						"pid": 50293,
+						"seconds": 1792919894,
+						"micros": 694239
+					},
+					{
+						"pid": 50294,
+						"seconds": 1792919894,
+						"micros": 700717
+					}
+				],
+				"anchor": {
+					"pid": 50291,
+					"seconds": 1792919894,
+					"micros": 58781
+				},
+				"anchorPid": 50291,
+				"registering": {
+					"pid": 50294,
+					"seconds": 1792919894,
+					"micros": 700717
+				},
+				"nodePid": 50293
+			},
+			"last": {
+				"awaitingAnchorAck": false,
+				"registered": [
+					{
+						"micros": 700717,
+						"pid": 50294,
+						"seconds": 1792919894
+					}
+				],
+				"helper": {
+					"micros": 54298,
+					"pid": 50290,
+					"seconds": 1792919894
+				},
+				"helperPid": 50290,
+				"members": [
+					{
+						"micros": 58781,
+						"pid": 50291,
+						"seconds": 1792919894
+					},
+					{
+						"micros": 694239,
+						"pid": 50293,
+						"seconds": 1792919894
+					},
+					{
+						"micros": 700717,
+						"pid": 50294,
+						"seconds": 1792919894
+					}
+				],
+				"anchor": {
+					"micros": 58781,
+					"pid": 50291,
+					"seconds": 1792919894
+				},
+				"anchorPid": 50291,
+				"registering": null,
+				"nodePid": 50293,
+				"exitCode": 137
+			},
+			"errors": ""
+		},
+		{
+			"source": "/tmp/yonder-registration-KUBk9T/unrelated-QGTyCM/result.json",
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"pids": [50727, 50735, 50728, 50729, 50734],
+			"remaining": [],
+			"detached": true,
+			"first": {
+				"anchor": {
+					"pid": 50729,
+					"seconds": 1792919958,
+					"micros": 527163
+				},
+				"members": [
+					{
+						"seconds": 1792919958,
+						"micros": 527163,
+						"pid": 50729
+					}
+				],
+				"helperPid": 50728,
+				"anchorPid": 50729,
+				"registering": null,
+				"registered": [],
+				"awaitingAnchorAck": true,
+				"helper": {
+					"seconds": 1792919958,
+					"micros": 522345,
+					"pid": 50728
+				}
+			},
+			"pending": {
+				"anchor": {
+					"seconds": 1792919958,
+					"pid": 50729,
+					"micros": 527163
+				},
+				"members": [
+					{
+						"seconds": 1792919958,
+						"pid": 50729,
+						"micros": 527163
+					},
+					{
+						"seconds": 1792919959,
+						"pid": 50734,
+						"micros": 19439
+					},
+					{
+						"seconds": 1792919959,
+						"pid": 50735,
+						"micros": 20913
+					}
+				],
+				"helperPid": 50728,
+				"anchorPid": 50729,
+				"registering": {
+					"seconds": 1792919959,
+					"pid": 50735,
+					"micros": 20913
+				},
+				"registered": [],
+				"awaitingAnchorAck": false,
+				"helper": {
+					"seconds": 1792919958,
+					"pid": 50728,
+					"micros": 522345
+				},
+				"nodePid": 50734
+			},
+			"last": {
+				"anchor": {
+					"seconds": 1792919958,
+					"pid": 50729,
+					"micros": 527163
+				},
+				"members": [
+					{
+						"seconds": 1792919958,
+						"pid": 50729,
+						"micros": 527163
+					},
+					{
+						"seconds": 1792919959,
+						"pid": 50734,
+						"micros": 19439
+					},
+					{
+						"seconds": 1792919959,
+						"pid": 50735,
+						"micros": 20913
+					}
+				],
+				"helperPid": 50728,
+				"anchorPid": 50729,
+				"registering": null,
+				"registered": [
+					{
+						"seconds": 1792919959,
+						"pid": 50735,
+						"micros": 20913
+					}
+				],
+				"awaitingAnchorAck": false,
+				"helper": {
+					"seconds": 1792919958,
+					"pid": 50728,
+					"micros": 522345
+				},
+				"nodePid": 50734
+			},
+			"errors": ""
+		}
+	],
+	"startup": [
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/ack-timeout-J8GPKw/result.json",
+			"state": {
+				"helperPid": 50879,
+				"anchorPid": 50880,
+				"registering": null,
+				"anchor": {
+					"micros": 420430,
+					"pid": 50880,
+					"seconds": 1792919984
+				},
+				"members": [
+					{
+						"micros": 420430,
+						"pid": 50880,
+						"seconds": 1792919984
+					}
+				],
+				"awaitingAnchorAck": true,
+				"helper": {
+					"micros": 405972,
+					"pid": 50879,
+					"seconds": 1792919984
+				},
+				"registered": []
+			},
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"errors": "Service host: Launcher anchor registration ACK timed out\n",
+			"businessStarted": false,
+			"remaining": []
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/anchor-after-start-vJcniA/result.json",
+			"state": {
+				"anchorPid": 50929,
+				"nodePid": 50934,
+				"anchor": {
+					"micros": 764244,
+					"pid": 50929,
+					"seconds": 1792919994
+				},
+				"registered": [],
+				"helperPid": 50928,
+				"awaitingAnchorAck": false,
+				"members": [
+					{
+						"micros": 764244,
+						"pid": 50929,
+						"seconds": 1792919994
+					},
+					{
+						"micros": 156657,
+						"pid": 50934,
+						"seconds": 1792919995
+					}
+				],
+				"helper": {
+					"micros": 747135,
+					"pid": 50928,
+					"seconds": 1792919994
+				},
+				"registering": null
+			},
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"errors": "Service host: Group anchor failed\n",
+			"businessStarted": true,
+			"remaining": []
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/anchor-death-9HLDvr/result.json",
+			"state": {
+				"awaitingAnchorAck": true,
+				"helperPid": 50847,
+				"helper": {
+					"pid": 50847,
+					"seconds": 1792919978,
+					"micros": 323128
+				},
+				"members": [
+					{
+						"micros": 337406,
+						"seconds": 1792919978,
+						"pid": 50848
+					}
+				],
+				"anchor": {
+					"pid": 50848,
+					"seconds": 1792919978,
+					"micros": 337406
+				},
+				"registered": [],
+				"anchorPid": 50848,
+				"registering": null
+			},
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"errors": "Service host: Group anchor failed\n",
+			"businessStarted": false,
+			"remaining": []
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/bad-ack-rQwCJH/result.json",
+			"state": {
+				"awaitingAnchorAck": true,
+				"anchor": {
+					"micros": 848886,
+					"pid": 50851,
+					"seconds": 1792919978
+				},
+				"members": [
+					{
+						"micros": 848886,
+						"pid": 50851,
+						"seconds": 1792919978
+					}
+				],
+				"anchorPid": 50851,
+				"helperPid": 50850,
+				"helper": {
+					"micros": 838071,
+					"pid": 50850,
+					"seconds": 1792919978
+				},
+				"registering": null,
+				"registered": []
+			},
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"errors": "Service host: Invalid anchor ACK\n",
+			"businessStarted": false,
+			"remaining": []
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/cancel-wu30ZJ/result.json",
+			"state": {
+				"helper": {
+					"micros": 722936,
+					"pid": 50781,
+					"seconds": 1792919965
+				},
+				"registering": null,
+				"anchorPid": 50785,
+				"registered": [],
+				"members": [
+					{
+						"seconds": 1792919966,
+						"pid": 50785,
+						"micros": 694655
+					}
+				],
+				"awaitingAnchorAck": true,
+				"anchor": {
+					"seconds": 1792919966,
+					"pid": 50785,
+					"micros": 694655
+				},
+				"helperPid": 50781
+			},
+			"result": {
+				"code": 1,
+				"signal": null
+			},
+			"errors": "Service host: Lease write failed or timed out\n",
+			"businessStarted": false,
+			"remaining": []
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/helper-death-2JhNwL/result.json",
+			"state": {
+				"registering": null,
+				"helperPid": 50818,
+				"awaitingAnchorAck": true,
+				"members": [
+					{
+						"micros": 253637,
+						"seconds": 1792919972,
+						"pid": 50819
+					}
+				],
+				"anchor": {
+					"seconds": 1792919972,
+					"pid": 50819,
+					"micros": 253637
+				},
+				"helper": {
+					"micros": 241770,
+					"seconds": 1792919972,
+					"pid": 50818
+				},
+				"anchorPid": 50819,
+				"registered": []
+			},
+			"result": {
+				"code": null,
+				"signal": "SIGKILL"
+			},
+			"errors": "",
+			"businessStarted": false,
+			"remaining": []
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/identity-5yHYVh/result.json",
+			"staleRejected": true,
+			"unrelatedStillAlive": true
+		},
+		{
+			"source": "/tmp/yonder-anchor-startup-l1cxe0/launcher-eof-qW6rCY/result.json",
+			"state": {
+				"helper": {
+					"seconds": 1792919972,
+					"micros": 631308,
+					"pid": 50820
+				},
+				"anchorPid": 50821,
+				"registered": [],
+				"members": [
+					{
+						"seconds": 1792919972,
+						"micros": 646897,
+						"pid": 50821
+					}
+				],
+				"awaitingAnchorAck": true,
+				"helperPid": 50820,
+				"registering": null,
+				"anchor": {
+					"seconds": 1792919972,
+					"micros": 646897,
+					"pid": 50821
+				}
+			},
+			"result": {
+				"code": 143,
+				"signal": null
+			},
+			"errors": "",
+			"businessStarted": false,
+			"remaining": []
+		}
+	],
+	"cliAncestry": "50954     1 50954 S    /private/tmp/yonder-host-evidence-Bc6KtN/Yonder Helper.app/Contents/MacOS/YonderHelper service-host /tmp/yonder-service-lvDjSK/lease /tmp/yonder-service-lvDjSK/launch.json\n50956 50954 50956 S    /private/tmp/yonder-host-evidence-Bc6KtN/Yonder Helper.app/Contents/MacOS/YonderHelper service-group-anchor /tmp/yonder-service-lvDjSK/launch.json /tmp/yonder-service-lvDjSK/lease.register\n50964 50956 50956 S    /Users/zoran/.local/share/mise/installs/node/24.21.0/bin/node /Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/cli/dist/index.js start --home /tmp/yonder-host-evidence-Bc6KtN/real-cli-qjEl3t --json\n",
+	"cliInfo": {
+		"version": "0.2.26102506",
+		"commit": null,
+		"home": "/tmp/yonder-host-evidence-Bc6KtN/real-cli-qjEl3t",
+		"pid": 50964,
+		"ready": true,
+		"active": 0,
+		"agents": []
+	},
+	"cliAncestrySelection": "Selected native Helper/anchor/business CLI rows from the recorded ps view. Launcher argv omitted because fixture argv embeds inherited environment; no environment retained here. The test now requests comm instead of command for future captures."
+}

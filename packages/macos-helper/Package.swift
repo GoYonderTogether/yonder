@@ -13,5 +13,5 @@ let package = Package(
         .product(name: "PermissionFlow", package: "PermissionFlow"),
         .product(name: "PermissionFlowScreenRecordingStatus", package: "PermissionFlow"),
         .product(name: "PermissionFlowInputMonitoringStatus", package: "PermissionFlow")
-    ])]
+    ]), .testTarget(name: "YonderHelperTests", dependencies: ["YonderHelper"])]
 )

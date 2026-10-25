@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-tasks",
-	"version": "0.2.26102507",
+	"version": "0.2.26102509",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -18,7 +18,7 @@
 	],
 	"dependencies": {
 		"@resvg/resvg-js": "2.6.2",
-		"@yonder/sdk": "0.2.26102507"
+		"@yonder/sdk": "0.2.26102509"
 	},
 	"yonder": {
 		"apiVersion": 1,

@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-hermes-experience",
-	"version": "0.2.26102507",
+	"version": "0.2.26102509",
 	"type": "module",
 	"yonder": {
 		"apiVersion": 1,
@@ -60,7 +60,7 @@
 		"NOTICE"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102507",
+		"@yonder/sdk": "0.2.26102509",
 		"yaml": "2.9.1"
 	}
 }

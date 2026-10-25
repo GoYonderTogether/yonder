@@ -1,8 +1,10 @@
 import { spawn } from "node:child_process";
 import { mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
-import type { ToolExecutionApi, ToolRegistration } from "@earendil-works/pi-durable";
+import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
+
+import { hostedProcessSpawner } from "./hosted-process.js";
 
 export function processTool(
 	home: string,
@@ -32,12 +34,32 @@ export function processTool(
 			const path = join(folder, `${api.taskId}.log`),
 				log = await open(path, "a", 0o600);
 			try {
+				const host = hostedProcessSpawner();
 				return await new Promise((resolve, reject) => {
-					const child = spawn("/bin/bash", ["-c", args.command], {
+					const hosted = host?.({
+						program: "/bin/bash",
+						args: ["-c", args.command],
 						cwd: args.cwd ?? api.env!.cwd,
-						detached: true,
-						stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
+						env: process.env,
+						stdin: args.stdin ? "pipe" : "ignore",
 					});
+					const child =
+						hosted?.child ??
+						spawn("/bin/bash", ["-c", args.command], {
+							cwd: args.cwd ?? api.env!.cwd,
+							detached: true,
+							stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
+						});
+					let result: { code: number | null; signal: NodeJS.Signals | null } | undefined;
+					let completionFault: unknown;
+					const completed = hosted?.result.then(
+						(value) => {
+							result = value;
+						},
+						(error) => {
+							completionFault = error;
+						},
+					);
 					let output = "",
 						stderr = "",
 						writes = Promise.resolve(),
@@ -65,6 +87,10 @@ export function processTool(
 							});
 					};
 					const stop = () => {
+						if (hosted) {
+							hosted.cancel();
+							return;
+						}
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGTERM");
@@ -74,6 +100,9 @@ export function processTool(
 						}
 					};
 					const force = () => {
+						// Native gate owns TERM -> 1s KILL, including ACK-before-start.
+						// Never signal the original service group from Node.
+						if (host) return;
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGKILL");
@@ -114,17 +143,27 @@ export function processTool(
 						context.abortSignal?.removeEventListener("abort", abort);
 						if (job) delete job.write;
 						await writes;
+						await completed;
 						if (fault) reject(fault);
 						else if (context.abortSignal?.aborted) reject(context.abortSignal.reason);
+						else if (completionFault) reject(completionFault);
+						else if (host && !result)
+							reject(new Error(`Hosted command exited without a verified result (${code}, ${signal})`));
 						else
 							resolve({
 								output: [
 									{
 										type: "text",
-										text: JSON.stringify({ output, stderr, exitCode: code, signal, fullOutputPath: path }),
+										text: JSON.stringify({
+											output,
+											stderr,
+											exitCode: host ? result!.code : code,
+											signal: host ? result!.signal : signal,
+											fullOutputPath: path,
+										}),
 									},
 								],
-								isError: code !== 0,
+								isError: (host ? result!.code : code) !== 0,
 								details: { pid: child.pid ?? 0, fullOutputPath: path },
 							});
 					});
