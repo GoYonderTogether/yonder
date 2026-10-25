@@ -84,6 +84,7 @@ interface ToolContext {
   profile: string;
   session: string;
   capabilities: Capability[];          // 本次运行生效的能力
+  channelInstances?: string[];         // 真实运行实例范围；未配置无限制，[] 无实例
   env: ExecutionEnv;                   // 本次运行的执行环境（05 §4）
   event?: YEvent;                      // 触发本次运行的入站事件
   signal: AbortSignal;                 // 运行被中止时触发；工具必须响应
@@ -189,7 +190,8 @@ interface PluginAPI {
     query(q: EventQuery): Promise<EventPage>;                            // 01 §4
     on(type: string, handler: (e: YEvent) => void | Promise<void>): void;   // type 可为 'prefix.*'；见下
   };
-  messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[] }): Promise<Delivery> };   // 全局插件无 owner；传 person:/acct:/conv:，06 §5
+  messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[]; owner?: ExecutionOwner }, ctx?: ToolContext): Promise<Delivery> }; // ctx 为模型调用；owner 为代表真实执行者的程序发送，06 §5
+  execution: { resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
   credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
   identity: IdentityAPI;               // 02 §4.4
@@ -206,6 +208,8 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 - `defineChannel` 约束 `ChannelProvider`。插件发送使用显式目标，不把全局插件关联到某个默认 agent。
 - `Preset` 的字段见 03 §4。
 - 插件**禁止**直接打开内核的 SQLite 表或 pi-durable 的存储。
+
+`ExecutionOwner = { session: string; agent: string | null; profile: string }`，`ResolvedExecution = { capabilities: Capability[]; channelInstances?: string[] }`。核心按存储会话核对 owner 并取当前有效配置；不得伪造 ToolContext 或把全部无 ctx 调用视为模型授权。SDK 的 `allowsChannelInstance(scope, instance)` / `assertChannelInstance(scope, instance)` 接受携带可选 channelInstances 的作用域；插件在平台访问前使用，不能自己读 home 推导。飞书 status/history/message/card/task-card 共用检查，省略实例的 status 只枚举授权实例，保留原能力、来源与归属约束。
 
 ## 5. 生命周期
 

@@ -34,3 +34,18 @@ export const session = (id: string | number): Ref => reference(`session:${id}`);
 export const plugin = (id: string): Ref => reference(`plugin:${id}`);
 
 export * from "./chat-commands.js";
+
+/** Resource scope only; capabilities and source/ownership checks remain the caller's responsibility. */
+export function allowsChannelInstance(scope: { channelInstances?: readonly string[] }, instance: string): boolean {
+	return scope.channelInstances === undefined || scope.channelInstances.includes(instance);
+}
+
+export function assertChannelInstance(scope: { channelInstances?: readonly string[] }, instance: string): void {
+	if (!allowsChannelInstance(scope, instance)) throw new Error(`Channel instance not authorized: ${instance}`);
+}
+
+/** Undefined is the intersection identity, while [] must never turn into unrestricted access. */
+export function intersectChannelInstances(a?: readonly string[], b?: readonly string[]): string[] | undefined {
+	if (a === undefined) return b === undefined ? undefined : [...b];
+	return a.filter((instance) => b === undefined || b.includes(instance));
+}

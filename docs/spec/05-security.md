@@ -55,6 +55,8 @@
 - `parent_ask` 是固定内部请求，不接受目标或权限参数，不赋予 readonly 分身通用 message 能力。主会话以自己的配置档处理，必须看到由内核附上的真实分身、群及发送者来源；请求不是主人授权。无 main 绑定、预设会话、main 自调用或因果链形成环时拒绝。继续复用既有异步等待、恢复与取消，不增加审批层。
 - 说明：拥有 `exec` 的配置档可以用命令行改任何文件，受保护文件规则对它没有约束力；在主机执行环境里它还能运行 `yonder` 命令，而 CLI 是管理面（09 §1），等同于 `admin`。真正的隔离靠执行环境（§4），不靠这条规则。文档与 `yonder doctor` 必须如实说明这一点。
 
+渠道工具/API 的资源作用域为配置档的 `channelInstances`（03 §3）：未配置无限制兼容，显式 `[]` 禁止全部实例；admin/bypass 也须在显式名单内。SDK `assertChannelInstance(scope, instance)` 统一拒绝越界，`allowsChannelInstance` 用于候选过滤；不是新增能力或审批层。它约束受支持的工具/API，不隔离任意插件代码、exec 或 macOS 主机权限。
+
 ## 4. 执行环境
 
 工具在哪里执行由执行环境决定。接口直接使用 pi-durable 的 `ExecutionEnv`：文件读写、目录分页、`exec(argv)`、可选的 `listFiles`。

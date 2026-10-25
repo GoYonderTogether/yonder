@@ -317,7 +317,7 @@ test("a wholly unsent streaming message recovers its full closed text from the s
 			agents: new Map(),
 			channels: new Map([["test", x.channel]]),
 			runtime: () => ({}) as Runtime,
-			sessions: {} as Sessions,
+			sessions: { resolveSession: async () => x.config } as unknown as Sessions,
 		});
 		try {
 			await reopened.recover();

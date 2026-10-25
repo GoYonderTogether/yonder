@@ -158,8 +158,18 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				on: unavailable,
 			},
 			messages: {
-				send: (request, pluginId, ctx) =>
-					ctx ? delivery.sendTool(ctx, request) : delivery.sendPlugin(pluginId, request),
+				send: async (request, pluginId, ctx) => {
+					const { owner, ...message } = request;
+					if (ctx) return delivery.sendTool(ctx, message);
+					if (!owner) return delivery.sendPlugin(pluginId, message);
+					try {
+						const config = await resolveExecutionOwner(owner);
+						const session = await store.sessions.get(owner.session);
+						return delivery.sendOwned(pluginId, message, config, session!);
+					} catch (error) {
+						return { ok: false, error: error instanceof Error ? error.message : String(error) };
+					}
+				},
 			},
 			sessions: {
 				command: (id, command) => sessions.api.command(id, command),
@@ -176,7 +186,13 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				observe: observeSession,
 			},
 			execution: {
-				resolve: async (owner) => ({ capabilities: [...(await resolveExecutionOwner(owner)).resolved.capabilities] }),
+				resolve: async (owner) => {
+					const { resolved } = await resolveExecutionOwner(owner);
+					return {
+						capabilities: [...resolved.capabilities],
+						...(resolved.channelInstances === undefined ? {} : { channelInstances: [...resolved.channelInstances] }),
+					};
+				},
 				run: async (request) => {
 					const active = await resolveExecutionOwner(request.owner);
 					if (!active.resolved.capabilities.includes("exec") || !request.capabilities.includes("exec"))
