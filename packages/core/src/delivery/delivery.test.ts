@@ -423,3 +423,32 @@ test("peer reply none records caller return without a channel message or stream"
 		await x.db.close();
 	}
 });
+
+test("beforeSend receives the destination Ref from kernel delivery", async () => {
+	const destinations: string[] = [];
+	const x = await setup(
+		new Map([
+			[
+				"destination",
+				[
+					{
+						id: "destination",
+						beforeSend(message) {
+							destinations.push(message.to);
+						},
+					},
+				],
+			],
+		]),
+		["destination"],
+	);
+	try {
+		x.emit({ type: "message_start", id: "destination" });
+		x.emit({ type: "message_end", text: "Destination check" });
+		await expect.poll(() => x.sent).toEqual(["Destination check"]);
+		expect(destinations).toEqual(["conv:test:chat"]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
