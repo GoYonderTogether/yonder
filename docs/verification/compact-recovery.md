@@ -35,3 +35,5 @@
 - 合入主线 `7cf1a591e3c0ba4336547eebd4f4f8197ac365f4`；保留主线重复回退模型去重、耐心退避和人类错误提示逻辑。
 - 日用服务此前在 0.2.26102502 启动循环：home/development/system-snapshot/node_modules 指向已被版本清理删除的 0.2.26102403。原样保留插件源码，将链接改为稳定的安装 current/node_modules。插件 16/16 通过，doctor 通过；服务 PID 58552、ready=true，主会话 2 在 2026-10-25T03:28:11.493Z 恢复后 run.end=done。
 - 首次集成检查与远端 fork 同步重叠，导致同步替换目录时 dist/tsconfig 临时缺失：默认测试 559 通过/6 失败/39 跳过、7 文件失败；真实两文件无法导入、0 用例执行。此为验证操作顺序错误。同步完成后顺序重新构建、typecheck、默认测试及 lint 全部退出 0；默认 590 通过/0 失败/39 跳过，99 文件通过/19 跳过。
+- 集成真实模型验证：fallback.test.ts、recovery.test.ts 7/7 通过，115.82 秒；使用真实 Luna/Sol 输出、真实 HTTP/TCP 故障，覆盖压缩退避重启、回退、耗尽后恢复、无回退链重试，以及聊天继续与工具不重放。lint 为 385 warnings/14 infos/0 errors。发布版本号调整后的构建再次通过。
+- 安装后复用同两组真实检查，将所有相对运行时 import 指向 `/Users/zoran/.yonder-harness/versions/0.2.26102503/packages/core/dist`，隔离 home，不对日用会话注入故障。运行证据保留在 `/tmp/yonder-compact-installed-26102503` 和 `/tmp/yonder-compact-installed-real.log`；只有安装后检查成功才报告已验证。
