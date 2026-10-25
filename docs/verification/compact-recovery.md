@@ -27,3 +27,11 @@
 - 真实首轮 5 通过 / 2 失败，另有 1 个未处理流异常：新增测试修改了启动后配置、仍使用旧 retry 快照；另一个真实代理上游断流使旧转发器出现未处理错误并超时。修正为重开隔离 Runtime 和转发流错误后，串行复跑 7/7。未放宽超时、预算或成功断言。
 - lint 中间一次 2 个格式错误，格式化后退出 0。原日志 `/tmp/yonder-compact-real.log`、最终 `/tmp/yonder-compact-real-final.log`、默认 `/tmp/yonder-compact-default-final.log`、lint `/tmp/yonder-compact-lint-final2.log`。
 - 未验证正式日用服务安装与真实客户端展示；未提交远端 fork 或 Harness PR。
+
+## 发布集成与服务修复（2026-10-25 UTC）
+
+- 本节接续上次本地验收，不覆盖上面的历史状态。用户授权合并、发版、更新日用服务和推送 pi fork。
+- pi 正式 `yonder/1.3` 已快进到 `f263794abacef09ee0ca59bb0d79ae039ca59c9f`；从远端用原同步脚本重新核对来源。
+- 合入主线 `7cf1a591e3c0ba4336547eebd4f4f8197ac365f4`；保留主线重复回退模型去重、耐心退避和人类错误提示逻辑。
+- 日用服务此前在 0.2.26102502 启动循环：home/development/system-snapshot/node_modules 指向已被版本清理删除的 0.2.26102403。原样保留插件源码，将链接改为稳定的安装 current/node_modules。插件 16/16 通过，doctor 通过；服务 PID 58552、ready=true，主会话 2 在 2026-10-25T03:28:11.493Z 恢复后 run.end=done。
+- 首次集成检查与远端 fork 同步重叠，导致同步替换目录时 dist/tsconfig 临时缺失：默认测试 559 通过/6 失败/39 跳过、7 文件失败；真实两文件无法导入、0 用例执行。此为验证操作顺序错误。同步完成后顺序重新构建、typecheck、默认测试及 lint 全部退出 0；默认 590 通过/0 失败/39 跳过，99 文件通过/19 跳过。
