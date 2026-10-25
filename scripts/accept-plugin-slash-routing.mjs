@@ -26,7 +26,8 @@ const result = {
 	home,
 	candidate,
 	candidateCommit,
-	model: "openai/gpt-6-luna",
+	model: "openai/gpt-6.1-sol",
+	thinking: "high",
 	checks: {},
 };
 const save = (name, value) => writeFile(join(evidence, name), `${JSON.stringify(value, null, 2)}\n`);
@@ -97,7 +98,7 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 			profiles: {
 				source: {
 					model: result.model,
-					thinking: "low",
+					thinking: result.thinking,
 					capabilities: ["read", "write"],
 					plugins: ["hermes-experience", "slash-audit"],
 					contexts: [],
@@ -159,6 +160,7 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 	}, "real model run.end");
 	assert.equal(end.data.status, "done", JSON.stringify(end.data));
 	assert.equal(end.data.model, result.model);
+	assert.equal(end.data.thinking, result.thinking);
 	const transcript = await kernel.sessions.transcript(input.routes[0].session, { limit: 1000 });
 	await save("transcript.json", transcript);
 	const tools = transcript.flatMap((item) => item.tools ?? []);
