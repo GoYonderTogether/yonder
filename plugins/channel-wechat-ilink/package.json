@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-channel-wechat-ilink",
-	"version": "0.2.26102503",
+	"version": "0.2.26102504",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -18,7 +18,7 @@
 		"NOTICE.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102503",
+		"@yonder/sdk": "0.2.26102504",
 		"silk-wasm": "3.7.1",
 		"typebox": "1.3.27"
 	},
