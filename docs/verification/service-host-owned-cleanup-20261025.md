@@ -63,10 +63,53 @@ Swift 编译保留旧 `addchdir_np` 的 macOS 26 deprecation warning。新增脚
 
 因此在本任务禁止全机监视、新 daemon、提权、改变进程模型的范围内，**没有可据以实现任意未登记脱组后代保证的受支持手段**。这里不声称证明了 macOS 所有潜在架构均不可能；结论限于当前薄宿主方案与授权范围。也不宣称通用恶意子树约束或 macOS 沙箱。
 
-## 仅有的下一项维护者决定
+## 前轮提交时待定的维护者决定（历史）
 
-交 main 决定是否将可保证契约明确收窄为：**至少一个 owner 存活；后代保持原进程组，或在脱组/丢失父链前主动登记并获得 owner 确认；不承诺未登记 daemon 化及双 owner 同杀。** 这会改变原要求，故本任务没有代为接受、实现登记系统或把反例改绿。如果仍要求当前允许的任意未登记 setsid 后代也必回收，薄宿主必须继续阻塞，另立能强制归属的架构决策；不能再次只调快轮询。
+交 main 决定是否将可保证契约明确收窄为：**至少一个 owner 存活；后代保持原进程组，或在脱组/丢失父链前主动登记并获得 owner 确认；不承诺未登记 daemon 化及双 owner 同杀。** 这会改变先前候选/Agent 自设的强验收假设，并非改变已核对的主人原始要求；当时本任务尚未收到维护者的契约决定，因此没有代为接受、实现登记系统或把反例改绿。如果仍要求当前允许的任意未登记 setsid 后代也必回收，薄宿主必须继续阻塞，另立能强制归属的架构决策；不能再次只调快轮询。
 
 ## 与最新 .06 的交接方式
 
 本分支继承最新 .06，版本和正式接线均未变。准备提交只是独立复现基线；新增提交只是**失败验收与交接文档**，没有可宣称完成的产品修复。维护者可检出本分支复现，或在正式选定宿主候选后单独迁入新增红色测试；不得将准备提交当作完整宿主集成，更不得将其按成功修复发布。需要先决定上面的契约边界，之后由主 Agent/main 正规整合及必要生产验收。本任务没有 push、生产重启、安装/替换/重签已装 Helper，没有修改正式 home、launchd job、yonder.yaml、bot、snapshot approvedapp，也没有调用权限请求或采集敏感资源。
+
+
+## 接续：受管契约已确定，但同组单 owner 死亡仍有独立红门
+
+2026-10-25 16:46–16:52（上海时间）。本次从 `2a4241eaf5de794c8c9c744322e7a6aac035728e` 接续，分支及工作树与上文相同，起点 clean。维护者已确定常规受管契约：至少一个 owner 存活；后代保持根组，或在脱组/丢失父链前主动登记并获得 owner ACK；不承诺未登记 daemon 或双 owner 同杀。**不再待主人选择，也不再把强保证归为主人原要求。**
+
+来源核对：只读读取 `agents/hermes/projects/yonder-harness/HOST-REQUIREMENTS-SOURCE.md`。主人原目标为主仓库最小原生窗口/系统对接宿主、插件承载窗口具体内容，权限申请和系统数据获取走主代码；任意未登记 setsid 必清理与双 owner 同杀零残留是先前 Agent 自设的强验收假设。上文归属已更正，原 setsid 红门、失败计数、反例和限制不变。
+
+本轮已读项目 AGENTS、docs/index、architecture 全文、CONTRIBUTING、status，并只读核对两旧候选的实际 HEAD/干净状态及相关接线差异：`337b735c87e19ebb121c9a73cb61268311f1333e` 的 Helper @main、release service launcher/plist/status/restart、共享 installer；`428fbf500423c619ca163fd3b856ea4a2cff80b8` 的统一 permissions 增量。没有整树覆盖、没有修改两旧候选、没有倒退当前 .06 已发布 permissions API。
+
+### 新反例属于已支持契约，不是原 setsid 强保证
+
+新增独立红门 `scripts/test-service-host-managed-group.mjs`，直接编译现有真实 ServiceHost.swift；没有安装或使用测试 app 作为 TCC 证据。真实 C 根进程等待 30ms 后 fork，同组后代忽略 TERM，根退出 7。后代从未调用 setsid/setpgid。测试定点观察到根为 Helper 保持的 zombie 后，仅 SIGKILL Helper；launcher 此时仍存活。
+
+实际执行（由原子 mkdir 取得锁，trap 只释放本任务取得的锁）：
+
+```sh
+if mkdir /tmp/yonder-heavy-test.lock; then
+  trap 'rmdir /tmp/yonder-heavy-test.lock' EXIT
+  node --test --test-concurrency=1 scripts/test-service-host-managed-group.mjs \
+    > /tmp/yonder-managed-group-20261025.log 2>&1
+fi
+```
+
+结果：**0 passed / 1 failed / 0 skipped**，约 4.9 秒，退出码 1；失败为 `Timeout: same-group descendant reclaimed by surviving launcher`，不是编译失败。Swift 保留已有 macOS 26 addchdir_np deprecation warning。
+
+- 原始目录：`/tmp/yonder-managed-group-lAIXxj`，含 Main.swift、escape.c、编译产物、runner、result.json 和 cleanup.json。
+- KILL 前：launcher `32991` 存活；Helper `32994` 存活；根 `32997` 为 `Z` 且父为 Helper；后代 `33004` 的 PPID 为 1、**PGID 为根 `32997`**。它始终留在根组，未进入任何 lease snapshot。
+- Helper 被 KILL 后，launcher 应急 cleanup 收到的 members 只有根 `32997` 的真实起始时间（seconds `1792918218` / micros `981743`）。根随父死被系统回收；它不再是 `same()` 身份锚点。后代仍为 `33004 1 32997 .../escape .../child.pid`。launcher 返回 1 后后代仍存活。
+- finally 仅对夹具自身记录的 child PID，在再次核对唯一可执行路径后 KILL。全部 4 个记录 PID 最终消失；没有全机扫描或按进程名杀进程。
+- 已保存非敏感实测证据：[result.json](evidence/service-host-managed-group-20261025.json)、[cleanup.json](evidence/service-host-managed-group-cleanup-20261025.json)。日志和原目录仍保留于本机 /tmp（非持久交付路径）。
+
+### 准确的架构缺口与停止位置
+
+现有 `cleanup(pinnedGroup: true)` 的身份固定依赖 Helper 持有 waitable root；launcher 的 fallback 则只允许带起始时间的成员仍匹配、且仍在该组时发组信号。这两者在 Helper 死亡、根已退出时同时失效。去掉 `anchored()` 校验、仅按缓存 PGID 发信号会重新引入 PID/PGID 复用误杀，不能作为修复。更快 collect 仍不能消除该窗口。
+
+**登记 ACK 本身不解决此反例**：同组后代按已批准契约无需主动登记，而它的父链在被轮询前已丢失。需要补齐能跨任一 owner 死亡继续存在的根组身份/接管锚点，或调整根进程父子/组生命周期；这不是再增加一条租约快照即可完成。此结果不证明已批准契约在所有架构下不可实现；只证明当前“Helper 持有 waitable root + launcher 身份快照应急清理”结构尚缺这一设计环节。按委派中遇真实架构阻塞先返回的要求，**没有自行引入新 guardian、daemon、进程容器或变更已批准契约**。
+
+因这条受管基础路径已红，本轮没有启用产品 @main/release/install 接线，没有实现半套登记/ACK 后冒称完成，也没有把当前候选标成产品可构建或契约专项通过。原未登记 setsid 强门和本次支持契约红门分开保留；本轮没有重跑旧门、全量测试、真实 CLI/完整产品构建或注册竞态测试。
+
+轻量检查：新增脚本 `node --check`、最终 Biome check、`git diff --check` 通过。首次 Biome check 报两个 JSON 证据文件的缩进/末尾换行格式错误，格式化后通过；格式化前后 JSON 数据深比较一致，原始结果未变。没有发版、push、正式安装、服务重启、重签批准 app、权限请求或敏感资源采集。
+
+父级剩余事项：先补齐上述根组跨 owner 身份锚点设计，再继续受管登记的双方真实身份同步/ACK、失败与竞态测试、从旧候选定点迁入产品接线及完整构建。生产身份 TCC 验收仍须另做，不得由本生命周期结果推断授权继承。无需主人重选普通受管契约；此处返回的是明确的实现结构缺口。
