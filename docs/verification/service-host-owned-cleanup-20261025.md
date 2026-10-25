@@ -314,3 +314,9 @@ node_modules/.bin/vitest run --maxWorkers=4 \
 ### 交付边界
 
 默认 bash 的必要子组接线已闭合，仍不是生产上线结论。剩余需另做：已批准 app 真实身份/TCC、现有 grant 保留、生产 launchd 安装/升级/回滚及真人系统功能验收。没有全量测试、push/发布、正式安装/替换/重启、重签已批准 app 或敏感资源采集。未登记 setsid 强门和它的历史失败、旧完整 Helper 负向夹具前置失败、本轮同组夹具时序前置失败全部保留，未无条件 skip。SDK env.exec/cron 的其它 detached 路径如上准确列出，未被本轮默认 bash 保证覆盖。
+
+## 发布审查必要修复 B1：归属采集竞态（18:10）
+
+基于 `95d323f9e6a7d3381627bba80d4eba5ae68deac2` 按 `/tmp/yonder-host-release-review-20261025.md` 的 B1 实施，不重复旧审查。collect 改为接受已知 parent Member，并从真实 anchor / 已 ACK registered roots 遍历；同一 BSD snapshot 提供 child identity + PPID，每次入表及递归前重验到可信根的完整连接。PID 枚举本身不再作为归属证据。descendant 的每条边也统一用同一 snapshot，清理仍在发信号前检查已保存的身份；没有全机扫描或新 OS pidfd 要求。
+
+专项 `node --test --test-concurrency=1 scripts/test-service-host-collect.mjs scripts/test-helper-install.mjs`（原子 heavy-test 锁，日志 `.yonder/background/98913.log`）共 **11 通过 / 0 失败 / 0 跳过**。其中 B1 **8 项**用可注入 BSD snapshot/children 的真实 collect 实现验证：稳定树、枚举后 PID 复用/PPID 改变/父身份改变、入表前 child identity/PPID 改变、深层采集时祖先替换、非可信根。错误身份不入表，注入的 TERM/KILL signal sink 不收到错误 PID；已保存旧身份被复用后也不发信号。Swift standalone 编译通过，保留原 addchdir_np deprecation warning。原始证据 `/tmp/yonder-collect-race-xIzfkw`；这是确定性归属竞态单测，不是人为复用系统 PID 或给无关进程发信号。旧 setsid 红门及所有历史失败保持原样。B3 的同批 3 项详见后节。

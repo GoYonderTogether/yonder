@@ -30,18 +30,49 @@ enum HelperServiceHost {
         guard pid > 1, proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, Int32(MemoryLayout<proc_bsdinfo>.size)) == MemoryLayout<proc_bsdinfo>.size else { return nil }
         return info
     }
-    static func member(_ pid: Int32) -> Member? {
+    struct Snapshot { let member: Member; let parent: Int32 }
+    static func snapshot(_ pid: Int32) -> Snapshot? {
         guard let info = bsd(pid) else { return nil }
-        return Member(pid: pid, seconds: info.pbi_start_tvsec, micros: info.pbi_start_tvusec)
+        return Snapshot(member: Member(pid: pid, seconds: info.pbi_start_tvsec, micros: info.pbi_start_tvusec), parent: Int32(info.pbi_ppid))
     }
+    static func member(_ pid: Int32) -> Member? { snapshot(pid)?.member }
     static func same(_ item: Member) -> Bool { member(item.pid) == item }
-    static func collect(_ pid: Int32, _ members: inout [Int32: Member]) {
+    static func children(_ pid: Int32) -> [Int32] {
         var children = [Int32](repeating: 0, count: 4096)
         let count = proc_listchildpids(pid, &children, Int32(children.count * MemoryLayout<Int32>.size))
-        guard count > 0 else { return }
-        for child in children.prefix(Int(count)) where child > 1 {
-            if let item = member(child) { members[child] = item; collect(child, &members) }
+        return count > 0 ? Array(children.prefix(Int(count))).filter { $0 > 1 } : []
+    }
+    // Enumeration is only a hint. Never turn an unverified, newly reused PID
+    // into ownership. Every edge uses one BSD identity+PPID snapshot, and the
+    // whole path back to a real anchor/ACK root is rechecked before admission.
+    static func collect(_ parent: Member, roots: [Member], _ members: inout [Int32: Member],
+                        read: (Int32) -> Snapshot? = snapshot, list: (Int32) -> [Int32] = children) {
+        func connected(_ path: [Member]) -> Bool {
+            guard let root = path.last, roots.contains(root), read(root.pid)?.member == root else { return false }
+            for (child, parent) in zip(path, path.dropFirst()) {
+                guard let value = read(child.pid), value.member == child, value.parent == parent.pid,
+                      read(parent.pid)?.member == parent,
+                      parent.seconds < child.seconds || (parent.seconds == child.seconds && parent.micros <= child.micros) else { return false }
+            }
+            return true
         }
+        func walk(_ path: [Member]) {
+            guard path.count < 1024, connected(path), let parent = path.first else { return }
+            for pid in list(parent.pid) where !path.contains(where: { $0.pid == pid }) {
+                guard let child = read(pid), child.parent == parent.pid else { continue }
+                let edge = [child.member] + path
+                guard connected(edge) else { continue }
+                members[pid] = child.member
+                walk(edge)
+            }
+        }
+        guard roots.contains(parent) else { return }
+        walk([parent])
+    }
+    static func signalMembers(_ members: [Member], excluding anchor: Member, signal: Int32,
+                              read: (Int32) -> Snapshot? = snapshot,
+                              send: (Int32, Int32) -> Int32 = Darwin.kill) {
+        for item in members where item != anchor && read(item.pid)?.member == item { _ = send(item.pid, signal) }
     }
     static func anchored(_ anchor: Member) -> Bool { same(anchor) && getpgid(anchor.pid) == anchor.pid }
     static func cleanup(_ members: [Member], anchor: Member, groups: [Member] = []) {
@@ -50,12 +81,12 @@ enum HelperServiceHost {
         // final KILL. No signal is sent to a cached PGID after identity is lost.
         if anchored(anchor) { kill(-anchor.pid, SIGTERM) }
         for group in groups where anchored(group) { kill(-group.pid, SIGTERM) }
-        for item in members where item != anchor && same(item) { kill(item.pid, SIGTERM) }
+        signalMembers(members, excluding: anchor, signal: SIGTERM)
         let deadline = Date().addingTimeInterval(5)
         while Date() < deadline && (anchored(anchor) || members.contains(where: same)) { usleep(50_000) }
         if anchored(anchor) { kill(-anchor.pid, SIGKILL) }
         for group in groups where anchored(group) { kill(-group.pid, SIGKILL) }
-        for item in members where item != anchor && same(item) { kill(item.pid, SIGKILL) }
+        signalMembers(members, excluding: anchor, signal: SIGKILL)
     }
     static func sendFrame(_ socket: Int32, _ data: Data) throws {
         let deadline = DispatchTime.now().uptimeNanoseconds + 1_000_000_000
@@ -271,14 +302,19 @@ enum HelperServiceHost {
         var visited = Set<Int32>()
         var links: [(Member, Member)] = []
         for _ in 0..<1024 {
-            guard visited.insert(current).inserted, let child = member(current), let info = bsd(current), info.pbi_ppid > 1,
-                  let parent = member(Int32(info.pbi_ppid)),
+            guard visited.insert(current).inserted, let info = snapshot(current), info.parent > 1,
+                  let parent = member(info.parent) else { return false }
+            let child = info.member
+            guard
                   parent.seconds < child.seconds || (parent.seconds == child.seconds && parent.micros <= child.micros) else { return false }
             links.append((child, parent))
             if roots.contains(parent) {
                 // Recheck every link, not just the endpoints: an intermediate
                 // parent exiting/reusing its PID must not fabricate ancestry.
-                return same(candidate) && links.allSatisfy { same($0.0) && same($0.1) && bsd($0.0.pid)?.pbi_ppid == UInt32($0.1.pid) }
+                return same(candidate) && links.allSatisfy { child, parent in
+                    guard let value = snapshot(child.pid) else { return false }
+                    return value.member == child && value.parent == parent.pid && same(parent)
+                }
             }
             current = parent.pid
         }
@@ -419,7 +455,8 @@ enum HelperServiceHost {
                 commandGroups.removeAll { !same($0) }
                 registered.removeAll { !same($0) }
                 members = members.filter { same($0.value) }
-                collect(anchorPid, &members)
+                let roots = [anchor] + registered
+                for root in roots { collect(root, roots: roots, &members) }
                 // Admission is self-registration only. LOCAL_PEERPID binds the
                 // request to its actual sender; no supplied target PID is accepted.
                 if started {

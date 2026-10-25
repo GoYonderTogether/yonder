@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复薄宿主后代枚举的归属竞态：以同一 BSD identity/PPID 快照复验到真实 anchor 或已 ACK 根的完整边，拒绝枚举后复用/换父的 PID，清理不误收新身份。
+
 - macOS 服务改由同一 Helper 的无 UI 生命周期入口托管 Node；独立 group-anchor 在业务根退出后保留可验证的组身份，双方 owner 登记 ACK 后才允许启动，TERM 后有界等待并重验身份再组 KILL。
 - 增加真实后代在脱组/丢失父链前逐进程登记的双方 ACK 协议，拒绝任意 target PID；服务 restart 先等待旧宿主卸载，旧版本回滚保留原启动链。至少一个 owner 存活且后代保持原组或先登记是受管契约，不承诺未登记 daemon 或双 owner 同杀。
 - 默认 bash 在 macOS 薄宿主下复用同一 Helper 的每任务 command-anchor；从宿主私有继承描述符取得能力，先保持原组完成双方 prepare ACK，再建子组、完成 ready ACK 才执行。保留真实 shell 退出码/信号、stdio、stdin 与每任务 TERM→1秒 KILL，命令结束先回收子组再回收锚点；宿主协议损坏报错，不静默退回 detached。非宿主/非 macOS 原路径兼容。
