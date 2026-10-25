@@ -223,6 +223,8 @@ AI permissions/status 不发起请求，保持非提示式。2026-10-24 主人�
 
 web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就因未知依赖无法启动。插件的 research 默认只选自身；新 init 加载 web-tools 并生成选择它的同名 home 预设。现有 home 需显式选择，已有自定义 preset 保持优先。搜索凭据缺失与 HTTP fetch 可用分别报告。此轮不批量合并其他分支、不为展示创建无职责的常驻 Bot；开发者预览版的全仓收敛另按真实验收推进。
 
+**统一聊天与压缩恢复（2026-10-23 用户批准）。** pi-durable 共享纯失败决策，generation 与 compaction 保留原生 checkpoint、取消链和状态所有权；Yonder 向两者注册同一错误分类。失败尝试记录在原生无模型正文 entry 中，与状态原子提交；压缩复用耗尽文案。不新建重试服务、队列或恢复存储。保留既有有回退链时所有模型 error 计数的契约，未配置回退时使用瞬时错误分类。
+
 ## D60 撤回未经设计批准合入的过度建设模块（2026-10-22 维护者要求）
 
 主线曾合入三块没有 spec、没有决策记录、没有真实验收的模块，维护者要求回到“内核最小、官方插件各自独立”：（1）`plugins/progress-observer` 及其唯一消费的 `task.linked` 事件（含 `Runtime.exportTaskLink`/`recordEvent`）：与 D46“不加心跳模型或第二调度器”冲突，状态机一半无生产来源，测试以伪造模型代替真实模型；（2）`plugins/decision-routing`：违背 D52“路由插件要先有被批准的 SDK 钩子”，只是咨询型占位，测试在插件内直接 import pi-ai（违背 AGENTS 第 5 条）；（3）login operations 子系统（`login_begin`/`login_status`、`login_operations`/`login_outbox` 表、`runtime/login-*.ts`、`cli/login-*.ts`、`loginOperations` 配置）：插件形状的能力被塞进内核并自带 outbox 与第二套状态，未经人工登录验证。同时删除仓库根目录与 `artifacts/login-lifecycle/` 的过程报告，以及 `proposals/memory/skills/` 中与 `plugins/memory/skills/` 重复的副本。这些模块均不得在补齐 spec 与决策前重新合入；如需重做，先走设计变更，且登录类能力应以插件形式、复用既有事件与绑定实现。依据见审查盘点（代码、插件与架构文档对照）。

@@ -55,6 +55,7 @@ test.skipIf(!real)(
 		const home = await mkdtemp("/tmp/yonder-fallback-");
 		const upstream = buildModels(new FileCredentials(auth)).getModel("openai", "gpt-6.1-sol")!.baseUrl;
 		let failAll = false;
+		let transientFailures = 0;
 		const calls: string[] = [];
 		const upstreamStatuses: Array<{ model: string; status: number; error?: string }> = [];
 		const server = createServer(async (req, res) => {
@@ -63,6 +64,12 @@ test.skipIf(!real)(
 			const body = Buffer.concat(chunks);
 			const model = JSON.parse(body.toString()).model as string;
 			calls.push(model);
+			if (transientFailures > 0) {
+				transientFailures--;
+				res.writeHead(501, { "content-type": "application/json" });
+				res.end(JSON.stringify({ error: { message: "501 controlled compaction outage" } }));
+				return;
+			}
 			if (failAll || model === "gpt-6-luna") {
 				res.writeHead(401, { "content-type": "application/json" });
 				res.end(JSON.stringify({ error: { message: "Authentication rejected at controlled HTTP boundary" } }));
@@ -86,7 +93,10 @@ test.skipIf(!real)(
 				}
 				upstreamStatuses.push({ model, status: response.status });
 				res.writeHead(response.status, { "content-type": response.headers.get("content-type") ?? "text/event-stream" });
-				if (response.body) Readable.fromWeb(response.body).pipe(res);
+				if (response.body)
+					Readable.fromWeb(response.body)
+						.on("error", () => res.destroy())
+						.pipe(res);
 				else res.end();
 			} catch {
 				res.destroy();
@@ -157,6 +167,11 @@ test.skipIf(!real)(
 			expect((await runtime.transcript(session)).some((entry) => entry.text.includes("FALLBACK_DONE"))).toBe(true);
 			calls.length = 0;
 			const compactTask = await runtime.compact(session);
+			await expect.poll(() => calls.length, { timeout: 30000 }).toBe(1);
+			await runtime.close();
+			runtime = await open();
+			await runtime.recover();
+			runtime.resume();
 			await expect
 				.poll(async () => (await runtime.modelStatus(session)).compact.tasks.includes(compactTask), { timeout: 60000 })
 				.toBe(false);
@@ -203,6 +218,55 @@ test.skipIf(!real)(
 			await runtime.abort(abortSession);
 			expect((await abortRun).status).toBe("aborted");
 			expect(calls).toHaveLength(1);
+			calls.length = 0;
+			const failedCompact = await runtime.compact(session);
+			await expect
+				.poll(async () => (await runtime.modelStatus(session)).compact.tasks.includes(failedCompact), {
+					timeout: 60000,
+				})
+				.toBe(false);
+			expect((await runtime.modelStatus(session)).compact.failure).toContain(
+				"Model fallback chain exhausted (3 consecutive failures per model)",
+			);
+			expect(calls).toEqual([
+				"gpt-6-luna",
+				"gpt-6-luna",
+				"gpt-6-luna",
+				"gpt-6.1-sol",
+				"gpt-6.1-sol",
+				"gpt-6.1-sol",
+				"gpt-6-astra",
+				"gpt-6-astra",
+				"gpt-6-astra",
+			]);
+			const attempts = (await runtime.transcript(session)).filter((entry) => entry.kind === "pi.model-attempt");
+			expect(attempts.length).toBeGreaterThanOrEqual(9);
+			// Recover the same history after the outage; no new user input is needed for manual compaction.
+			failAll = false;
+			const recoveredCompact = await runtime.compact(session);
+			await expect
+				.poll(async () => (await runtime.modelStatus(session)).compact.tasks.includes(recoveredCompact), {
+					timeout: 60000,
+				})
+				.toBe(false);
+			expect((await runtime.modelStatus(session)).compact.failure).toBeUndefined();
+			// No fallback: the same transient classifier and retry budget apply to summaries.
+			delete profile.fallback;
+			profile.model = "openai/gpt-6.1-sol";
+			config.retry.maxRetries = 1;
+			await runtime.close();
+			runtime = await open();
+			await runtime.recover();
+			runtime.resume();
+			await runtime.submit(session, { text: "Remember that recovery preserves our original task. Reply briefly." });
+			calls.length = 0;
+			transientFailures = 1;
+			const retryCompact = await runtime.compact(session);
+			await expect
+				.poll(async () => (await runtime.modelStatus(session)).compact.tasks.includes(retryCompact), { timeout: 60000 })
+				.toBe(false);
+			expect((await runtime.modelStatus(session)).compact.failure).toBeUndefined();
+			expect(calls).toEqual(["gpt-6.1-sol", "gpt-6.1-sol"]);
 		} finally {
 			await runtime.close();
 			server.closeAllConnections();
