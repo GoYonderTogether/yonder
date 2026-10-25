@@ -7,6 +7,8 @@ const native = Boolean(bridge);
 const connected = location.protocol === "http:" && location.pathname !== "/";
 document.body.classList.toggle("native", native);
 let submitting = false;
+let scene = "task",
+	activityKey = "";
 let state = emptyState(),
 	storageAvailable = true,
 	open = true,
@@ -50,6 +52,7 @@ function draw() {
 	} else if (open) character = createCharacter(svg, { color, state: pose });
 }
 function setPose(next) {
+	if (pose === next) return;
 	pose = next;
 	character?.setState(next);
 }
@@ -91,6 +94,7 @@ window.addEventListener("yonder-visibility", (event) => {
 	else character?.destroy();
 });
 function showScene(next) {
+	scene = next;
 	for (const section of document.querySelectorAll(".view")) section.hidden = section.id !== `${next}-view`;
 	$(".panel-scroll").scrollTop = 0;
 }
@@ -102,10 +106,76 @@ function summary(target, steps) {
 		target.append(p);
 	}
 }
+for (const event of ["focusin", "focusout"])
+	document.addEventListener(event, () =>
+		queueMicrotask(() =>
+			bridge?.postMessage({
+				action: "editing",
+				value: Boolean(document.activeElement?.matches("input,textarea,[contenteditable=true]")),
+			}),
+		),
+	);
+$("#pin-button").hidden = !native;
+$("#pin-button").addEventListener("click", () => bridge?.postMessage({ action: "pin" }));
+function renderActivity(data) {
+	$("#pin-button").setAttribute("aria-pressed", String(data.pinned));
+	$("#pin-button").title = data.pinned ? "取消固定悬浮入口" : "固定悬浮入口";
+	$("#pin-button").setAttribute("aria-label", $("#pin-button").title);
+	const key = JSON.stringify([data.known, data.agents]);
+	if (key !== activityKey) {
+		activityKey = key;
+		const target = $("#agents");
+		target.replaceChildren();
+		for (const agent of data.agents) {
+			const row = document.createElement("article");
+			row.className = "agent-row";
+			row.dataset.state = agent.state;
+			const header = document.createElement("div");
+			header.className = "agent-heading";
+			const name = document.createElement("strong");
+			name.textContent = agent.name;
+			const status = document.createElement("span");
+			status.className = "agent-status";
+			status.textContent = agent.state === "running" ? "运行中" : agent.state === "waiting" ? "等待交互" : "空闲";
+			header.append(name, status);
+			row.append(header);
+			for (const task of agent.tasks) {
+				const content = document.createElement("div");
+				content.className = "agent-task";
+				if (task.summary) {
+					const summary = document.createElement("p");
+					summary.textContent = task.summary;
+					content.append(summary);
+				}
+				const detail = document.createElement("small");
+				detail.textContent = task.detail;
+				content.append(detail);
+				if (task.text) {
+					const text = document.createElement("p");
+					text.className = "agent-output";
+					text.textContent = task.text;
+					content.append(text);
+				}
+				row.append(content);
+			}
+			target.append(row);
+		}
+		if (!data.known || !data.agents.length) {
+			const empty = document.createElement("p");
+			empty.className = "context";
+			empty.textContent = data.known ? "暂无 Agent" : "运行状态未知";
+			target.append(empty);
+		}
+	}
+	if ((!state.active || (state.active.completed && state.active.autoClose)) && ["task", "done"].includes(scene))
+		showScene("agents");
+	if (scene === "agents") setPose(data.agents.some((agent) => agent.state === "running") ? "work" : "idle");
+}
 function render() {
 	const active = state.active;
 	if (native) bridge.postMessage({ action: "state", pending: Boolean(active && !active.completed) });
-	if (!active) {
+	if (!active || (native && active.completed && active.autoClose)) {
+		if (native) showScene("agents");
 		$("#task-context").textContent = "";
 		$("#task-title").textContent = "暂无待处理交互";
 		$("#choices").replaceChildren();
@@ -372,6 +442,7 @@ function setSurface(next) {
 window.addEventListener("hashchange", () => setSurface(location.hash.slice(1) || "window"));
 // The trusted plugin host supplies cards; model answers return through the originating tool context.
 window.yonderUI = {
+	activity: renderActivity,
 	present(card) {
 		const next = beginTask(state, card, crypto.randomUUID());
 		if (!save(next)) return false;

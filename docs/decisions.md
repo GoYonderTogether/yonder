@@ -278,3 +278,8 @@ Profile/defaults/preset 增加 `channelInstances?: string[]`。未配置保持�
 带 ctx 的发送在 owner/person 候选账号选择前过滤范围，最终实例再次检查；通用 message_send/api.messages.send 与飞书 status/history/message/card/task-card（包括 rawSend）共用检查，在任何平台读取/请求之前拒绝。status 省略实例只列授权实例。保留 message 能力、history 来源/admin、卡片归属检查，不以事件来源推导范围，支持合法多实例与无 event 主动通知。
 
 execution.resolve 返回可信 `ResolvedExecution`（能力与实例范围）；程序发送可传真实 `owner: ExecutionOwner`，核心核对存储会话归属并重新解析当前权限，不信任调用方自报范围，不伪造 ToolContext。cron 保留 job.owner 真实来源及 message 能力复核，创建/更新 delivery 与执行前共用实例检查，发送前核心再次复核；撤销后拒绝。无 owner/ctx 的原合法插件程序通知继续属于插件本身，不当作模型授权。不新增审批、身份系统或开关；此为受支持工具/API 的作用域，不是 macOS 沙箱。兼容代价：旧配置须人工填名单才隔离。
+
+
+## 2026-10-25 Agent 运行概览与固定悬浮入口（用户要求）
+
+复用原生任务、输入和流式回复快照，通过本机 service.info 聚合逐 Agent 状态；同一状态驱动唯一状态栏菜单、图标、浮球及浮窗概览。当前交互改名打开悬浮窗，保留左右键统一菜单。图钉保留桌面入口，移出/收起后回到同锚点浮球；未固定仍临时，默认完成自动收起。仅显示真实任务摘要及可见回复短片段，不复制转录、不新增调度器、不向 Agent 插件开放全局状态权限。
