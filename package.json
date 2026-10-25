@@ -31,7 +31,8 @@
 		"plugins/memory",
 		"plugins/ui-companion",
 		"plugins/channel-card",
-		"plugins/hermes-experience"
+		"plugins/hermes-experience",
+		"plugins/tasks"
 	],
 	"scripts": {
 		"build": "tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",

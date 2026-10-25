@@ -6,6 +6,27 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 任务账本 P1（2026-10-25，任务分支待审核）
+
+- 范围：`feat/task-ledger-20261025`，仅 `/Users/zoran/Documents/yonder-harness-tasks`。新增可选 `@yonder/plugin-tasks`；插件 data 下 SQLite 只追加事件，五个工具、归属/parent 链/cross-agent 只读可见范围、逐项完成证据、turn 完整目标与一行重现。未改 SDK/core 或设计文档，未启用到现有 profile。
+- 真实证据：临时目录里的 SQLite、真实插件 loader、真实 kernel profile 选择与原生 `prepareInput`；没有模型替身或模型调用。修正骨架回放修改原始 open 历史的问题，覆盖原始行不变、状态恢复、渲染版本和事件计数去重。
+- 原始命令结果（本 worktree）：
+
+| 命令 | 结果 |
+|---|---|
+| `npm install --package-lock-only --ignore-scripts --offline --no-audit --no-fund` | exit 0，更新 workspace 锁文件，无新增依赖 |
+| `npx biome check plugins/tasks` | 首次失败：6 errors / 8 warnings；格式问题（包括必须保留原文的 prompts.ts） |
+| `npx biome check --write biome.json plugins/tasks/package.json plugins/tasks/tsconfig.json plugins/tasks/src/index.ts plugins/tasks/src/store.ts plugins/tasks/test/tasks.test.ts` | exit 0，修正 5 文件，0 errors / 8 warnings；biome.json 仅对 prompts.ts 停用 formatter |
+| `npm run build` | 两次均 exit 0；含原生 macOS 构建、并发 power lease/64 次 pmset 检查、ui-companion 构建；产物仅在 worktree |
+| `npm run typecheck` | exit 0 |
+| `npm run lint` | exit 0；0 errors / 393 warnings / 14 infos（保留仓库警告） |
+| `npm test -- plugins/tasks/test/tasks.test.ts` | 6 passed / 0 failed / 0 skipped；1 文件通过 |
+| `npm test` | 597 passed / 0 failed / 38 skipped（635）；100 文件通过 / 0 失败 / 19 跳过（119） |
+
+- 维护者原文 `plugins/tasks/src/prompts.ts` SHA-256 保持 `7f5dd68c7b0788b0db40f7e9cb685ab588bc1720f71e1799ba3b2c31eb1f9e05`。工具描述直接引用原文常量；一行渲染直接调用 TURN_ONE_LINE。
+- 待维护者确认的最简解释见 [README](../plugins/tasks/README.md#questions-for-the-maintainer)：状态恢复路径、预设 session 归属、显式 parent、关闭任务不注入；SDK RenderContext 无 run/write 标记，当前计数基于选中 turn 的输入渲染，session + event 去重，无法区分旁观与实际模型唤醒。
+- **未测**：38 项默认跳过测试、真实模型 `openai/gpt-6-luna` 与 spec 17 §9 的 n≥10 场景、干净 `npm ci` 安装、生产 Agent/真实渠道/服务、发布升级和生产账本对照。按本次 P1 边界未实现 nudge、滞留定时器、tasks_show、投影、尾部清单或复盘时点；未触碰生产 home 或已安装服务，未推送或发布。
+
 ## 验证基线
 
 - 0.2.26102307 提示词与任务预设：默认全仓 423/0/38，真实 Luna 三类任务及连续工作 session 集成 1/0/0；构建、类型检查、lint 通过，原始失败和修正保留在 [任务预设验收](verification/task-presets.md)。
