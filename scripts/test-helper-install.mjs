@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { acquireInstallLock, installHelper } from "./yonder-helper-install.mjs";
@@ -62,6 +62,37 @@ test("failed wrapper replacement restores previous signed bundle and preserves l
 	await assert.rejects(installHelper(join(evidence, "rollback"), home));
 	assert.equal(await readFile(join(app, "Contents/Info.plist"), "utf8"), prior);
 	hash(app); // real signature still valid, no app launch or TCC probe.
+	execFileSync("/usr/bin/codesign", ["--verify", "--strict", app]);
+	await assert.rejects(stat(join(home, "install.lock")), { code: "ENOENT" });
+});
+test("production guard accepts the real current artifact and rejects checkout without changing bundle or wrapper", async () => {
+	const user = join(evidence, "isolated-user"),
+		install = join(user, "install"),
+		root = join(install, "versions/candidate"),
+		home = join(user, ".local/share/yonder-harness/helper");
+	await mkdir(join(install, "versions"), { recursive: true });
+	await cp(second, root, { recursive: true });
+	await writeFile(join(root, ".yonder-install.json"), JSON.stringify({ version: "fixture" }));
+	await symlink(root, join(install, "current"));
+	const invoke = (source) =>
+		execFileSync(
+			process.execPath,
+			[
+				"--input-type=module",
+				"-e",
+				`import {installHelper} from ${JSON.stringify(new URL("./yonder-helper-install.mjs", import.meta.url).href)};await installHelper(process.argv[1]);`,
+				source,
+			],
+			{ env: { ...process.env, HOME: user, YONDER_INSTALL: install }, stdio: "pipe" },
+		);
+	invoke(join(install, "current"));
+	runWrapper(home, "second");
+	const app = join(home, "Yonder Helper.app");
+	const prior = await readFile(join(app, "Contents/MacOS/fixture"));
+	const wrapper = await readFile(join(home, "yonder-permissions"));
+	assert.throws(() => invoke(second), /requires the current installed release/u);
+	assert.deepEqual(await readFile(join(app, "Contents/MacOS/fixture")), prior);
+	assert.deepEqual(await readFile(join(home, "yonder-permissions")), wrapper);
 	execFileSync("/usr/bin/codesign", ["--verify", "--strict", app]);
 	await assert.rejects(stat(join(home, "install.lock")), { code: "ENOENT" });
 });

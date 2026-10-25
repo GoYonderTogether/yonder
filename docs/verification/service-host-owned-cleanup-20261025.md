@@ -406,3 +406,27 @@ JS
 ### 最终边界
 
 B1/B2/B3代码及限定专项已交付，原“SDK exec未接线”历史描述由本节更新，历史证据不删除。仍待父级一次全量及正式发版整合；Pi SHA尚未push。B5保留为生产验收门：正式签名/DR、真实launchd安装升级回滚、grant retention及真实授权功能验证，不能用本轮ad-hoc/临时home替代。未push/发布、未正式安装/重启、未修当前损坏生产wrapper、未重签已批准app、未做敏感资源采集或OS权限prompt。
+
+## 最终集成准备与唯一全量（18:28–18:36，未部署）
+
+在本隔离分支 `32dcf6bc93d7dd49729b8c9c18a09adf72a92288` 接续。fetch/ls-remote 核对真实 origins；Harness main 仍为 `78ae9de9b1b6624fedf228d6e10007ce238d726c`，Pi yonder/1.3 仍为 `f263794abacef09ee0ca59bb0d79ae039ca59c9f`，没有必要并发更新、没有 rebase/丢弃改动。Pi feature `fix/hosted-local-exec-20261025` 已普通 push，真实 [Pi PR #1](https://github.com/GoYonderTogether/pi/pull/1) 目标 yonder/1.3；未合并、未发布。完整 SHA `9060e7fa16681bf7ad572c4af56dc87e67a41309` 已从真实远端 fresh fetch，整个 vendor src 的 **83 文件逐字节相同**，FORK_SOURCE/NOTICE 一致。B1/B2生产代码和此前专项不重做。
+
+### 本轮检查与原失败
+
+每批重型操作均先原子 mkdir `/tmp/yonder-heavy-test.lock`，仅持有者 trap 释放，无并发重型构建。唯一全量命令严格沿 package script：`npm test -- --maxWorkers=4` → `vitest run --exclude '**/dist/**' --maxWorkers=4`。
+
+- **唯一全量 exit 1：618 通过 / 50 失败 / 39 跳过（707），80 文件通过 / 33 失败 / 19 跳过（132）**，20.99 秒。完整原日志 `/tmp/yonder-host-full-test-20261025.log`。本轮错误地在全仓构建前运行全量，多个未构建 workspace dist 缺失；另有 RPC 夹具因共享安装器新增 realpath 等 I/O 而失败。这些原失败不被后续定点成功覆盖。
+- 随后标准 **build/typecheck/lint 均 exit 0**，日志 `/tmp/yonder-host-{build,typecheck,lint}-20261025.log`。build 包含 Swift 原生/PowerHelper 自检/UI，明确使用经 keychain 公开清单核实的 Apple Development 身份 `B01B3BA3C522ECE27BF2C2BBE08C3CCADD0D970D`，没有 ad-hoc 冒充。lint 为 0 error / 406 warnings / 14 infos。
+- 只修 RPC 测试的边界：mock 共享 installer，不再用旧不完整 fs mock 去执行新 installer。仅对原 **33 个失败文件**定点复验，**166 通过 / 0 失败 / 2 跳过**，7.41 秒；日志 `/tmp/yonder-host-failed-files-targeted-20261025.log`，确切范围 `/tmp/yonder-host-failed-file-scope-20261025.json`。不是第二次全量，不相加伪造全量绿色结果。两项跳过是真实模型 opt-in 未开启。
+- installer 合同新增 isolated HOME/current artifact 接受与 checkout 拒绝，真实 codesign、bundle 字节和 wrapper 不变校验；连同原升级/回滚/失败恢复/持锁测试共 **4/0/0**，日志 `/tmp/yonder-host-installer-guard-20261025.log`，证据 `/tmp/yonder-helper-install-kcEtU1`。没有执行正式 installer。
+- 静态发现 CI 从 checkout 执行 `self-check` 会被生产 guard 拒绝。只给 self-check 使用本 RPC scratch 下的显式隔离 Helper 目录，在原 finally 一起清理；正常 permission/file RPC 仍由 current+metadata guard 保护。其路径选择及原 RPC mock 合同 **38/0/0**，日志 `/tmp/yonder-host-selfcheck-targeted-20261025.log`；最终 typecheck exit 0 `/tmp/yonder-host-selfcheck-typecheck-20261025.log`，变更文件 Biome/node check/diffcheck 通过。**未运行真实 native self-check、permissions status 或任何权限探针。**
+
+### 正式签名候选与部署门
+
+本 checkout `packages/macos-helper/dist/Yonder Helper.app` 已以实际生产相同 `Apple Development: zoran zeng (Z4A92U2M2T)` 签名。候选和正式已装 Helper 的 identifier 均为 `dev.yonder.harness.helper`，Team 均为 `D4UZU32UN9`，DR 完全相同：`identifier "dev.yonder.harness.helper" and anchor apple generic and certificate leaf[subject.CN] = "Apple Development: zoran zeng (Z4A92U2M2T)" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */`。三者（候选/正式稳定包/正式 .06 源包）均 `codesign --verify --strict` 通过。完整签名、CDHash、产物 SHA256、provenance、测试结果见 [本轮持久证据](evidence/service-host-integration-ready-20261025.json)。这是正式身份签名的 checkout 候选，不是新版本正式 artifact、安装或 grant retention 证明。
+
+只读生产清单 `/tmp/yonder-host-production-readonly-20261025.json` 保存 current/source metadata、去掉环境值的 plist、签名与四个文件 hash。生产仍为 .06、旧直接 Node plist；损坏的 .02 permissions wrapper 保持原样，未执行它。结束前复核 plist、已批准 Helper executable、wrapper、外置 permissions-state 的 hash 全部未变；未读权限状态正文或授权数据库。
+
+代码可进入父级合并审查，顺序是先 Pi PR，再 Harness；**不可当作生产验收完成直接发布/安装**。版本仍是 .06，没有发明新 tag。原 B4 首次 update 后独立管理作业调用新 CLI `service install` 与旧版回滚的共享 installer 步骤仍有效。B5 真实 launchd 升降级、稳定 bundle/wrapper 恢复、grant retention/真实权限功能仍未验，DR 一致不能代替它们。
+
+现有 service-external 真入口是 `channel-github_update_schedule(instance,releaseId)` / `channel-github_update_status(instance,releaseId)`；实例 `github-project` 实际 ready、apply。`updates.ts` 会复制 standalone runner 到持久目录，bootstrap 独立 launchd job；它只能更新批准的真实 Release，不能传 shell、CLI 参数或 post-install hook。当前 runner 只 update+version/status/info 核验，**不会额外启动新 CLI service install，也不核验薄宿主父链**。首轮迁移须由独立于服务树的管理作业执行明确的新 CLI install；不能把其 verified 回执当宿主已启用，也不能从受管 bash/cron/后台工具自杀式更新代替独立作业。本轮没有排队任何部署。

@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { installHelper } from "../../../scripts/yonder-helper-install.mjs";
 import { permissionCommand, permissionKinds } from "../../../scripts/yonder-permission-rpc.mjs";
 
 const mock = vi.hoisted(() => ({
@@ -9,6 +10,11 @@ const mock = vi.hoisted(() => ({
 	launchCount: 0,
 	responses: [] as unknown[][],
 	cancel: false,
+}));
+// Installation has its own real-filesystem contracts. Keep this RPC transport
+// fixture isolated from the shared installer's production-root and lock checks.
+vi.mock("../../../scripts/yonder-helper-install.mjs", () => ({
+	installHelper: vi.fn(async () => ({ home: "/isolated-mock-helper", app: "/isolated-mock-helper/Yonder Helper.app" })),
 }));
 vi.mock("node:fs/promises", () => ({
 	mkdir: vi.fn(async () => {}),
@@ -50,6 +56,7 @@ let output: string;
 beforeEach(() => {
 	Object.defineProperty(process, "platform", { ...platform, value: "darwin" });
 	vi.resetModules();
+	vi.mocked(installHelper).mockClear();
 	mock.files.clear();
 	mock.commands = [];
 	mock.launchCount = 0;
@@ -106,9 +113,18 @@ describe("pure RPC contract", () => {
 });
 
 describe("launcher with all I/O mocked, no Helper or OS actions", () => {
+	it("checkout self-check selects only a scratch Helper and cleans it with the RPC scratch", async () => {
+		process.argv = [process.execPath, "scripts/yonder-permissions.mjs", "self-check"];
+		mock.responses = [[{ fixture: "self-check response" }]];
+		await import("../../../scripts/yonder-permissions.mjs");
+		expect(installHelper).toHaveBeenCalledWith(expect.any(String), "/isolated-mock-rpc/helper");
+		const { rm } = await import("node:fs/promises");
+		expect(rm).toHaveBeenCalledWith("/isolated-mock-rpc", { recursive: true, force: true });
+	});
 	it("request reuses the CLI and preserves requested, not granted", async () => {
 		mock.responses = [[[{ state: "requested" }]]];
 		expect(await rpc({ action: "permission-request", kind: "camera" })).toEqual([{ state: "requested" }]);
+		expect(installHelper).toHaveBeenCalledWith(expect.any(String), undefined);
 		expect(mock.commands[0]).toContain("request");
 		expect(mock.commands[0]).toContain("camera");
 		expect(mock.commands[0]).not.toContain("rpc");

@@ -1,0 +1,106 @@
+{
+	"date": "2026-10-25",
+	"harnessImplementationHead": "32dcf6bc93d7dd49729b8c9c18a09adf72a92288",
+	"piCommit": "9060e7fa16681bf7ad572c4af56dc87e67a41309",
+	"piRemoteBranch": "fix/hosted-local-exec-20261025",
+	"piPR": "https://github.com/GoYonderTogether/pi/pull/1",
+	"remoteFetchExactCommit": true,
+	"vendoredSourceByteIdenticalFiles": 83,
+	"sourceSha256": {
+		"packages/macos-helper/Sources/YonderHelper/ServiceHost.swift": "09d693e055dc5d14ffaf163db42475f789cb5c2537c8d890b925f1a72b124d58",
+		"packages/core/src/runtime/hosted-process.ts": "73baff2d3b80862ad7266f56996e9869d2b60921233a56753e25e4a8838ec3c6",
+		"packages/core/src/runtime/process.ts": "4e138a079fadf15ab043caab9e3962a4f69ad15c01d188e5d2411f981fc1c4d7",
+		"packages/core/src/runtime/env.ts": "019b4851ab888e99af63554057fcdacc40cb3dce14392c30559ada7197e9fc62",
+		"scripts/yonder-helper-install.mjs": "39b3c1991e7d12979516923ceec3849949575766947a78782d457216ea551622",
+		"scripts/yonder-permissions.mjs": "81b0ac1a460142340ae00fdda06304603f50976fb4e1f8ecf7985cc5394fd471",
+		"scripts/sync-pi-durable.mjs": "72f5e85b0ac81eb19d4358661d934126dc78c0a90064d3718edbdc03a18a9568",
+		"packages/pi-durable/src/env/node.ts": "9f7704d28055887921477b7abaa0ab9b1e63f209c499c23b76d9d6e59df1a115",
+		"packages/pi-durable/FORK_SOURCE.json": "268ad320f4ab85e1cb86091fe1c396d4cde6fc68952aa2761c4d52621c11b1ed",
+		"scripts/fixtures/service-exec-runner.mjs": "809de16884da1fbe57118b1df9babc69667333cd1b2a8919f308054a6bc4e90f"
+	},
+	"signingIdentity": "1) B01B3BA3C522ECE27BF2C2BBE08C3CCADD0D970D \"Apple Development: zoran zeng (Z4A92U2M2T)\"\n     1 valid identities found",
+	"signatures": {
+		"installed": {
+			"path": "/Users/zoran/.local/share/yonder-harness/helper/Yonder Helper.app",
+			"identifier": "dev.yonder.harness.helper",
+			"team": "D4UZU32UN9",
+			"cdhash": "b85cf8f0032f756a638500c326df9eacfce4ae7c",
+			"designatedRequirement": "identifier \"dev.yonder.harness.helper\" and anchor apple generic and certificate leaf[subject.CN] = \"Apple Development: zoran zeng (Z4A92U2M2T)\" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */",
+			"verifyExit": 0,
+			"executableSha256": "5fbaa4c47225894d4a34b43218740dbc4383cc58655f223d1529c69a1c4d9be1"
+		},
+		"candidate": {
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-service-host-cleanup-20261025/packages/macos-helper/dist/Yonder Helper.app",
+			"identifier": "dev.yonder.harness.helper",
+			"team": "D4UZU32UN9",
+			"cdhash": "3b316aa3ef309108f34d755f5f89649b4398dfc8",
+			"designatedRequirement": "identifier \"dev.yonder.harness.helper\" and anchor apple generic and certificate leaf[subject.CN] = \"Apple Development: zoran zeng (Z4A92U2M2T)\" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */",
+			"verifyExit": 0,
+			"executableSha256": "a5a73f7283afc5cd3dc4f80a1d066e907ade5ec09e0cf86c1ea9335bc7eb486c"
+		},
+		"installedSource": {
+			"path": "/Users/zoran/.yonder-harness/current/packages/macos-helper/dist/Yonder Helper.app",
+			"identifier": "dev.yonder.harness.helper",
+			"team": "D4UZU32UN9",
+			"cdhash": "fbe9e3e0df4ccd93e86b34185b9be9a47e0c5d4e",
+			"designatedRequirement": "identifier \"dev.yonder.harness.helper\" and anchor apple generic and certificate leaf[subject.CN] = \"Apple Development: zoran zeng (Z4A92U2M2T)\" and certificate 1[field.1.2.840.113635.100.6.2.1] /* exists */",
+			"verifyExit": 0,
+			"executableSha256": "19f11295b82ba2f69070991fe5f4327c14b1e7188561954837878697c133d750"
+		}
+	},
+	"tests": {
+		"singleFull": {
+			"passed": 618,
+			"failed": 50,
+			"skipped": 39,
+			"filePassed": 80,
+			"fileFailed": 33,
+			"fileSkipped": 19,
+			"log": "/tmp/yonder-host-full-test-20261025.log",
+			"durationSeconds": 20.99
+		},
+		"failedFilesOnly": {
+			"files": 33,
+			"passed": 166,
+			"failed": 0,
+			"skipped": 2,
+			"log": "/tmp/yonder-host-failed-files-targeted-20261025.log"
+		},
+		"installer": {
+			"passed": 4,
+			"failed": 0,
+			"skipped": 0,
+			"log": "/tmp/yonder-host-installer-guard-20261025.log"
+		},
+		"selfCheckPathOnly": {
+			"passed": 38,
+			"failed": 0,
+			"skipped": 0,
+			"log": "/tmp/yonder-host-selfcheck-targeted-20261025.log",
+			"nativeSelfCheckNotRun": true
+		}
+	},
+	"build": {
+		"exit": 0,
+		"log": "/tmp/yonder-host-build-20261025.log"
+	},
+	"typecheck": {
+		"exit": 0,
+		"log": "/tmp/yonder-host-selfcheck-typecheck-20261025.log"
+	},
+	"lint": {
+		"exit": 0,
+		"warnings": 406,
+		"infos": 14,
+		"log": "/tmp/yonder-host-lint-20261025.log"
+	},
+	"liveTCCVerified": false,
+	"launchdDeploymentPerformed": false,
+	"productionModified": false,
+	"sourceProofBaselineMatchedBeforeSelfCheckFix": true,
+	"testFixes": [
+		"RPC transport fixture mocks shared installation rather than incomplete fs installer mocks",
+		"Native self-check uses temporary isolated Helper directory; normal permission/file RPC production-root guard unchanged",
+		"Isolated HOME/current artifact acceptance and checkout rejection preserve bundle/wrapper"
+	]
+}

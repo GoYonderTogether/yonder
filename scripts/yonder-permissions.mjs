@@ -47,7 +47,6 @@ if (args[0] === "rpc") {
 const deadline = Date.now() + timeout * 1000;
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const { app } = await installHelper(root);
 const scratch = await mkdtemp(join(tmpdir(), "yonder-helper-rpc-"));
 const input = join(scratch, "input.json"),
 	output = join(scratch, "output.json"),
@@ -60,6 +59,9 @@ await Promise.all([
 ]);
 const command = rpcPermission ?? (["status", "permissions", "rpc", "self-check"].includes(args[0]) ? ["rpc"] : args);
 try {
+	// CI self-checks run from a checkout, never replacing the approved stable app.
+	// All normal permission/file RPCs still require the selected installed release.
+	const { app } = await installHelper(root, args[0] === "self-check" ? join(scratch, "helper") : undefined);
 	while (true) {
 		if (["guide", "watch"].includes(command[0])) {
 			command.splice(2, command.length, "--timeout", String(Math.max(0.001, (deadline - Date.now()) / 1000)));
