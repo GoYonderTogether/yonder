@@ -10,7 +10,7 @@ import PermissionFlowScreenRecordingStatus
 import Security
 import UserNotifications
 
-let kinds = ["accessibility", "screen-recording", "input-monitoring", "camera", "microphone", "notifications", "automation", "full-disk-access", "files-and-folders"]
+let kinds = ["accessibility", "screen-recording", "input-monitoring", "camera", "microphone", "notifications", "automation", "full-disk-access", "files-and-folders", "location"]
 struct Identity: Codable, Equatable {
     let bundleID: String
     let path: String
@@ -274,6 +274,9 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
                     let output = try HelperFiles.run(args, cancelled: checkCancellation)
                     FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])); return
                 }
+                if ["location-status", "location-request", "location-collect"].contains(action) {
+                    try emit(await HelperLocation(subject: id).run(args)); return
+                }
                 let records = try await status(id)
                 if action == "status" || action == "permissions" {
                     let output: [String: Any] = ["permissions": try JSONSerialization.jsonObject(with: JSONEncoder().encode(records)),
@@ -311,6 +314,10 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
             }
             guard arguments.count == 2, ["request", "guide", "watch"].contains(arguments[0]), kinds.contains(arguments[1]) else { throw failure("Usage: yonder-permissions status | request|guide|watch <kind> [--timeout <seconds>]") }
             let command = arguments[0], kind = arguments[1]
+            if kind == "location" {
+                guard command == "request" else { throw failure("Location supports status/request/collect RPC, not guide/watch") }
+                try emit(await HelperLocation(subject: id).run(["action": "location-request"])); return
+            }
             if command != "watch" { _ = try await status(id, requestedKind: kind) }
             if command == "request" { try await request(kind); try emit(await status(id).filter { $0.kind == kind }); return }
             let result = try await observePermission(kind, identity: id, guide: command == "guide", deadline: Date().addingTimeInterval(timeout))

@@ -484,3 +484,86 @@ describe("shared provider and legacy native entry", () => {
 		}
 	});
 });
+
+describe("location provider and desktop wiring, no live CoreLocation", () => {
+	it("advertises location in the existing registry", () => {
+		expect(provider.kinds).toContain("location");
+	});
+	it.each(["status", "request"] as const)("provider %s uses the dedicated native action", async (action) => {
+		const raw = { ok: false, authorization: "restricted", failure: { code: "LOCATION_RESTRICTED" } };
+		transport.desktop.mockResolvedValue(raw);
+		expect((await provider.invoke({ provider: provider.id, action, kind: "location" }, ctx)).result).toBe(raw);
+		expect(transport.desktop).toHaveBeenCalledExactlyOnceWith(
+			{ action: `location-${action}` },
+			ctx.signal,
+			ctx.session,
+		);
+		expect(relation).toHaveBeenCalledTimes(action === "request" ? 1 : 0);
+	});
+	it.each(["guide", "watch"] as const)(
+		"provider rejects location %s rather than opening the wrong pane",
+		async (action) => {
+			await expect(provider.invoke({ provider: provider.id, action, kind: "location" }, ctx)).rejects.toThrow(
+				"status/request only",
+			);
+			expect(transport.desktop).not.toHaveBeenCalled();
+		},
+	);
+	it.each(["notDetermined", "unknown", "denied", "restricted", "authorizedAlways"])(
+		"preserves native %s without a normalized grant",
+		async (authorization) => {
+			const raw = { ok: true, authorization, subject: { bundleID: "contract-test" } };
+			transport.desktop.mockResolvedValue(raw);
+			const reply = await tool.execute({ action: "location-status" }, ctx);
+			expect(JSON.parse(reply.text).result).toEqual(raw);
+			expect(relation).not.toHaveBeenCalled();
+		},
+	);
+	it.each(["location-status", "location-request", "location-collect"])(
+		"%s uses the same owned cancellable transport",
+		async (action) => {
+			const raw = { ok: false, authorization: "notDetermined", failure: { code: "LOCATION_TIMEOUT" } };
+			transport.desktop.mockResolvedValue(raw);
+			const reply = await tool.execute({ action, timeout: 0.1 }, ctx);
+			expect(reply.isError).toBe(true);
+			expect(JSON.parse(reply.text).result).toEqual(raw);
+			expect(transport.desktop).toHaveBeenCalledExactlyOnceWith({ action, timeout: 0.1 }, ctx.signal, ctx.session);
+		},
+	);
+	it("a guest cannot request location but may read status without starting an authorization", async () => {
+		relation.mockResolvedValue("stranger");
+		expect((await tool.execute({ action: "location-request" }, ctx)).isError).toBe(true);
+		expect(transport.desktop).not.toHaveBeenCalled();
+		await tool.execute({ action: "location-status" }, ctx);
+		expect(transport.desktop).toHaveBeenCalledExactlyOnceWith({ action: "location-status" }, ctx.signal, ctx.session);
+	});
+	it.each([{ timeout: 61 }, { timeout: 0 }, { kind: "location" }, { x: 1 }, { request: true }])(
+		"rejects invalid direct fields %j",
+		async (fields) => {
+			expect((await tool.execute({ action: "location-collect", ...fields }, ctx)).isError).toBe(true);
+			expect(transport.desktop).not.toHaveBeenCalled();
+		},
+	);
+	it.each(["location-status", "location-request", "location-collect"])(
+		"%s checks local execution, capabilities and cancellation",
+		async (action) => {
+			for (const patch of [
+				{ env: { id: "remote" } as ToolContext["env"] },
+				{ capabilities: [] },
+				{ signal: AbortSignal.abort() },
+			]) {
+				expect((await tool.execute({ action }, { ...ctx, ...patch })).isError).toBe(true);
+			}
+			expect(transport.desktop).not.toHaveBeenCalled();
+		},
+	);
+	it("late location results cannot survive cancellation", async () => {
+		const controller = new AbortController();
+		ctx.signal = controller.signal;
+		transport.desktop.mockImplementation(async () => {
+			controller.abort();
+			return { ok: true };
+		});
+		expect((await tool.execute({ action: "location-collect" }, ctx)).isError).toBe(true);
+	});
+});

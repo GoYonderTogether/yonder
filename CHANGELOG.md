@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.2.26102509] - 2026-10-25
+
+### Added
+
+- 同一签名 macOS Helper 增加有界 CoreLocation status/request/collect RPC，native permissions provider 支持 location 状态与显式请求；采集只使用真实已有授权，不隐式请求。保留原生授权状态、责任身份与结构化失败，补定位 usage 文案。源码验证不代表正式 OS 授权已完成。
+
+### Fixed
+
+- 定位原生错误回调与成功回调共用取消/deadline 检查，避免边界完成覆盖已超时或取消的操作。
+
+### Verification
+
+- 发布前构建、签名和测试结果见 [Location 发行准备](RELEASE-LOCATION-READY.md)。真实初始化 callback、前台激活、系统授权、定位 fix 与升级授权保留仍未测，由正式发布后的稳定 Helper 验收；源码测试不代表已获 OS 授权。
+
 ## [0.2.26102508] - 2026-10-25
 
 ### Fixed
