@@ -103,3 +103,23 @@ contexts: [agents-md, user-md, channel-feishu.conversation]
 工具发送/更新另记 `channel-feishu.task-card-updated`，含 receipt、revision、原生 messageId/sourceMessageId，不写详细任务正文。工具转录保留输入/结果。部署前必须验收同消息实际更新、真实客户端表格、群错人点击、按钮事件绑定、服务重启恢复；离线协议测试不等于以上真实平台验收。若要由内核强制所有输出自动改单卡而不依赖显式工具/NO_REPLY，那是默认投递契约变更，需另行设计批准。
 
 PR4 本轮修订基线 18d1abb：限定飞书插件/UI/文档；固定状态与协调展示、严格有界 schema、故障通知不报成功且不重发、明确 observe 落盘/重启边界为本轮代码验收点。单元/协议检查不等于真实飞书验收；未安装、未重启、未部署。
+
+## 账本 TaskBoard 卡（2026-10-25）
+
+这是 tasks_show 的只读看板，与显式 channel-feishu_task_card 的受管状态卡并存。每个 conversation 保留一个当前看板消息锚：首次请求创建，之后每两秒读取 tasks 发布的本机视图，仅文字变化时 PATCH 同一消息并增加 revision；用户再次请求时发送新的最新消息并切换锚。正文直接使用 tasks 的 renderText，因此分组和计数不在渠道重复实现。看板没有操作按钮、任务状态机或账本读取。
+
+`<plugin-data>/<instance>/task-board.json`（0600）声明当前 pid 和 `application/vnd.yonder.task-board+json` Attachment 路由，停止删除。该附件 uri 为随机路径的 loopback TaskBoard URL，只在本机读取，不发送到飞书。原有 task-card.ts 的串行发送、限速 PATCH、原子 receipt 文件被复用；boards 展示 receipt 和原有 receipts 一起保存。发送失败返回现有 Delivery 错误，由 tasks 降级 PNG/文字；大小仍遵守既有 30000-byte 卡片限制。
+
+### Questions for the maintainer
+
+- 显式请求切换当前锚后旧消息保留原样，不再刷新；每个会话只更新最新一张。无需新增工具或 SDK 路由。
+- 订阅范围由最近一次 tasks_show 决定，不自行跨 Agent 聚合。进程重启后私有 URL 失效，等待再次 show 重接；PATCH 失败记 unknown 并停止该卡的自动更新，显式请求可重新发送，不猜测失败副作用。
+- 秒级时间会继续变化；卡片正文按原 renderText 的整分钟展示，仅实际正文变化时发 PATCH。
+
+### 本轮验证（P3a renderers）
+
+`npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0；lint 0 errors / 461 warnings / 14 infos。`YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` 为 93 passed / 0 failed / 1 skipped（11 文件）；`npm test` 为 608 passed / 0 failed / 39 skipped（103 文件通过 / 19 跳过）。`node plugins/ui-companion/test/state.mjs` exit 0。真实 loader/kernel、本地协议服务、实际 Chrome 页面已验证；截图为 `/tmp/yonder-task-board-detail-overview.png` 和 `/tmp/yonder-task-board-detail.png`。
+
+原始失败保留：build 首次 4 个类型错误；聚焦前两轮各 91 passed / 2 failed / 1 skipped（首轮另有 1 unhandled rejection）；两插件 contract 5/2/0 后 6/1/0；UI 单文件 3/1/0 后 4/0/0。均修正测试夹具/计时器类型/Chrome 启动标签页导航竞争，未放宽断言或超时。完整命令、原因和每轮计数见 [docs/status.md](../../docs/status.md) 的 P3a renderers 条目。
+
+未测：真实飞书平台与客户端、已安装 macOS 浮球及焦点、多屏/全屏、生产环境、resvg 缺失的文字降级、干净 npm ci。没有调用模型，本轮没有相关模型行为变更；未读取生产 auth。未推送、发布、安装或操作已安装服务。

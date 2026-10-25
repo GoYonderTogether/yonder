@@ -38,7 +38,8 @@
 				"tasks-turn"
 			],
 			"triggers": [
-				"tasks-moments"
+				"tasks-moments",
+				"tasks-board"
 			],
 			"hooks": [
 				"tasks-digest"

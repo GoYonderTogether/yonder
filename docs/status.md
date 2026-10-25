@@ -6,6 +6,39 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 任务账本 P3a renderers（2026-10-25，任务分支待审核）
+
+仅在 `/Users/zoran/Documents/yonder-harness-tasks` 的 `feat/task-ledger-20261025` 实施，基于已提交的 P1/P2/P3-1、D66/D67。本轮一个逻辑提交覆盖三个插件；没有推送、发布、安装、修改生产 home 或操作已安装服务。
+
+**已实现**：tasks 在随机路径 loopback 服务发布调用者可见范围内的 `{board,text}`；ui-companion 现有页面显示固定四组、计数、任务字段、滞留标记、详情/逐项证据/交付/事件/嵌套子任务，每秒刷新，刚完成默认收起，刷新保留滚动；复用网页徽标及原生 state/attention/current 机制。飞书通过现有 Attachment 投递路由接收 source URL，每会话当前看板卡每两秒读取、文字变化时带递增版本 PATCH 原消息；显式请求重新发送为最新锚，发送失败回退现有 PNG/文字路径。没有 renderer 任务状态机或账本读取，没有管家视图、操作按钮、新工具或生产配置。
+
+SDK services 只有 resolve、没有发布注册接口，采用既有私有端点文件惯例；ui-companion 发布 renderer.json，飞书按实例发布 task-board.json 路由声明。tasks 不 import 其他插件，SDK/core/原生源码和全部受保护设计文档、prompts.ts 均未改。协议和最简单解释见三个插件 README 的 Questions for the maintainer：首次展示/重启需 tasks_show 建立范围；最近一次请求决定当前范围；飞书历史消息保留，只刷新最新锚；PATCH 不确定失败暂停该卡自动更新，显式 show 重接。
+
+**实际验证**：真实 loader/kernel、SQLite、ChannelIO 和本地 HTTP 协议服务；FeishuApi 仅把 HTTP transport 接到隔离的本地协议服务器，实例走真实 start/stop（隔离 home 无飞书凭据，外部连接未启动），没有模拟模型。网页使用后台独立 Chrome profile 与 CDP，读取真实服务页面，验证分组顺序/刚完成收起/详情/证据/子任务/跨 Agent 隔离/账本变化后自动刷新/长静默标记/滚动保持/悬浮入口/current 入口。测试按调用者自己的范围发布，外部 Agent 详情返回 400。飞书验证首次仅一条、无变化不 PATCH、变化 PATCH 同 ID 且版本增加、显式请求新 ID、后续只 PATCH 新 ID、平台拒绝时真实 PNG 上传和发送。浏览器无 Chrome 时该用例显式 skip；本机未跳过。
+
+原始命令与结果（passed / failed / skipped；未覆盖旧失败）：
+
+| 命令 | 原始结果 |
+|---|---|
+| `npm run build` | 第一次 exit 2，4 个 TS 错误：promise setTimeout 与轮询函数同名造成 3 个类型错误，server 可选字段严格类型错误 1 个。改为 globalThis.setTimeout 和显式 undefined 联合类型后，4 次均 exit 0；含项目既有 macOS 编译/自检与网页资源构建，没有安装/启动原生应用 |
+| `npm run typecheck` | 两次 exit 0 |
+| `npm run lint` | 两次 exit 0；0 errors / 461 warnings / 14 infos |
+| `npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` | 首次 91 / 2 / 1，9 文件通过 / 2 文件失败，另有 1 unhandled rejection。测试夹具 active 直接 done 违反既有状态契约；HTTP FormData 错标 JSON 导致协议服务器解析异常和超时。修正夹具，不改状态机/断言/超时 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` | 首次 91 / 2 / 1：飞书夹具只启动卡片存储，实例仍 stopped；Chrome 启动标签页导航竞争。修正为真实实例 start/stop，浏览器独立测试标签页；最后两次均 93 / 0 / 1，11 文件通过 |
+| `npm test -- plugins/ui-companion/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 5 / 2 / 0，仍为上述实例生命周期与浏览器导航问题；增加协议/导航诊断，没有扩大超时 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/ui-companion/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 6 / 1 / 0，飞书已通过，Chrome 返回 net::ERR_ABORTED |
+| `npm test -- plugins/ui-companion/test/contract.test.ts` | 3 / 1 / 0，网络诊断确认导航被取消；改为独立测试标签页后通过 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/ui-companion/test/contract.test.ts` | 4 / 0 / 0，截图输出成功 |
+| `node plugins/ui-companion/test/state.mjs` | exit 0，既有状态自检通过（脚本没有测试计数汇总） |
+| `npm test` | 608 / 0 / 39（647），103 文件通过 / 0 失败 / 19 跳过（122），默认运行未启用真实模型 |
+| `git diff --check` | exit 0 |
+
+格式化仅作用于触及的插件源码、测试和 package.json：早期 `npx biome check --write` exit 0，分别报告 6 和 57 warnings；后续局部格式化同为 exit 0。最终以完整 lint 的 461 warnings / 14 infos 为准，不把 warning 当失败或删除既有检查。
+
+本机实图已检查：`/tmp/yonder-task-board-detail-overview.png`（总览和嵌套子项）、`/tmp/yonder-task-board-detail.png`（详情和逐项证据）。图来自真实发布账本的浏览器测试，不是静态 mock。
+
+**未测**：真实飞书平台/客户端卡片外观与更新；已安装 macOS 浮球、焦点、全屏及多屏；生产部署；resvg 故意缺失的文字降级；干净 npm ci。未调用真实模型（本轮是确定性渲染/协议，无模型判断变更），因此没有读取指定生产 auth 文件；默认跳过项不是通过。范围外的管家视图、后台日志尾部未实现。
+
 ## 任务账本 P3-1（2026-10-25，任务分支待审核）
 
 - 仅 `/Users/zoran/Documents/yonder-harness-tasks`，`feat/task-ledger-20261025`。A `45c69e1` 为 SDK 类型及真实内核投递组件测试；B 为本节记录的 tasks 展示。未推送、发布、安装或操作生产服务；指定 auth 文件仅作为真实模型测试凭据入口。

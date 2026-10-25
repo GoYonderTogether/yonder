@@ -8,6 +8,7 @@ export interface BoardItem {
 	ownerAgent: string | null;
 	elapsedMs: number;
 	idleMs: number;
+	stalled: boolean;
 	acceptance: { met: number; total: number };
 	parent: string | null;
 	origin?: string;
@@ -18,7 +19,12 @@ export interface TaskBoard {
 	groups: Array<{ id: "waiting" | "inProgress" | "blocked" | "done"; items: BoardItem[] }>;
 	detail?: { task: Task; history: TaskEvent[]; children: BoardItem[] };
 }
-export function taskBoard(tasks: Task[], now: number, detail?: { task: Task; history: TaskEvent[] }): TaskBoard {
+export function taskBoard(
+	tasks: Task[],
+	now: number,
+	detail?: { task: Task; history: TaskEvent[] },
+	stallMinutes = 30,
+): TaskBoard {
 	const item = (task: Task): BoardItem => ({
 		id: task.id,
 		ref: task.ref,
@@ -31,6 +37,7 @@ export function taskBoard(tasks: Task[], now: number, detail?: { task: Task; his
 				Date.parse(task.createdAt),
 		),
 		idleMs: Math.max(0, now - Date.parse(task.lastActivityAt)),
+		stalled: task.state === "active" && now - Date.parse(task.lastActivityAt) >= stallMinutes * 60000,
 		acceptance: {
 			met: task.acceptance.filter((_, i) => task.evidence[i]?.trim()).length,
 			total: task.acceptance.length,

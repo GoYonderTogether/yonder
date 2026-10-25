@@ -622,3 +622,49 @@ a {
 :where(body)[data-surface="inline"] .preview-bar {
 	display: none;
 }
+
+.board-item {
+	padding: 10px 0;
+	border-bottom: 1px solid var(--hairline);
+}
+.board-task {
+	text-align: left;
+	font-weight: 600;
+	background: transparent;
+	color: var(--ink);
+	border: 0;
+	padding: 0;
+}
+.board-children {
+	margin-left: 12px;
+	border-left: 1px solid var(--hairline);
+	padding-left: 12px;
+}
+.board-stalled {
+	color: var(--danger);
+	font-size: var(--text-caption);
+}
+.board-event {
+	white-space: pre-wrap;
+	font-size: var(--text-caption);
+}
+#board-content {
+	overflow-wrap: anywhere;
+}
+#board-content h2 {
+	font-size: var(--text-body);
+	margin-top: 20px;
+}
+#board-content p {
+	margin: 6px 0;
+}
+.board-count {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border-radius: var(--radius-full);
+	background: var(--danger);
+	color: var(--on-accent);
+	padding: 2px 5px;
+	font-size: var(--text-caption);
+}
