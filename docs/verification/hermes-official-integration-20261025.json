@@ -1,0 +1,291 @@
+{
+	"kind": "actual integrated official artifact; real native CLI Sol; isolated fixture, NOT production owner E2E",
+	"date": "2026-10-25",
+	"origin": "https://github.com/GoYonderTogether/yonder-harness.git",
+	"baseline": "bb19a5d36fe1e64a47379417ce5f609c0118f87d",
+	"candidate": "33dc9c16b47686f3a787f2f4935e0d6838fdb023",
+	"branch": "integrate/hermes-official-20261025",
+	"version": "0.2.26102502",
+	"remote": [
+		"bb19a5d36fe1e64a47379417ce5f609c0118f87d\trefs/heads/main",
+		"bb19a5d36fe1e64a47379417ce5f609c0118f87d\trefs/tags/v0.2.26102501"
+	],
+	"gates": {
+		"build": {
+			"exit": 0
+		},
+		"typecheck": {
+			"exit": 0
+		},
+		"lint": {
+			"exit": 0,
+			"warnings": 385,
+			"infos": 14,
+			"finalFiles": 354
+		},
+		"test": {
+			"exit": 0,
+			"command": "npm test -- --maxWorkers=4",
+			"fullSuiteRuns": 1,
+			"passed": 590,
+			"failed": 0,
+			"skipped": 39,
+			"total": 629,
+			"filesPassed": 99,
+			"filesSkipped": 19,
+			"filesTotal": 118,
+			"seconds": 31.83,
+			"hermesPassed": 54
+		}
+	},
+	"native": {
+		"initial": {
+			"exit": 1,
+			"path": "/tmp/yonder-official-refine-2gqaLY/evidence/result.json",
+			"reason": "Test assertion counted /help response as if it were review output; real foreground/review both done, no product fix."
+		},
+		"final": {
+			"exit": 0,
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/result.json",
+			"status": "passed",
+			"plugin": {
+				"id": "hermes-experience",
+				"version": "0.2.26102502",
+				"use": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/artifact/extracted/package",
+				"directory": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/artifact/extracted/package",
+				"contributes": {
+					"tools": [
+						"hermes-experience_memory_read",
+						"hermes-experience_memory_edit",
+						"hermes-experience_skill_store",
+						"hermes-experience_memory_pending",
+						"hermes-experience_refine",
+						"hermes-experience_review_memory_read",
+						"hermes-experience_review_memory_edit",
+						"hermes-experience_review_skill_store"
+					],
+					"contexts": ["hermes-memory", "hermes-behavior", "hermes-core"],
+					"skills": ["hermes-yonder"],
+					"presets": ["hermes-study", "hermes-learning-review"],
+					"hooks": ["hermes-learning"],
+					"triggers": ["hermes-learning"]
+				},
+				"source": "configured; setup validated",
+				"runtimeLoaded": true,
+				"selectedBy": ["preset:hermes-study", "preset:hermes-learning-review", "main/source"],
+				"instances": []
+			},
+			"scope": {
+				"agent": "main",
+				"profiles": ["source"],
+				"memoryDir": "/tmp/yonder-official-refine-4UKrIK/agents/main/memories",
+				"skillDir": "/tmp/yonder-official-refine-4UKrIK/agents/main/skills"
+			},
+			"checks": {
+				"officialPackedSource": true,
+				"builtinNoModel": true,
+				"unauthorizedNoBinding": true,
+				"nativeModelHookOriginalContext": true,
+				"actualHermesAttendedRefineSuccess": true,
+				"productionOwnerAcceptance": "not performed or claimed",
+				"realSolReviewCompleted": true,
+				"reviewOnlyScopedSkillTools": true,
+				"parentUnchanged": true,
+				"noReviewOutbound": true
+			},
+			"input": {
+				"type": "message.in",
+				"from": "acct:allowed:local",
+				"conv": "conv:allowed:local",
+				"data": {
+					"kind": "dm",
+					"text": "/refine skills\nIsolated routing acceptance only: call the attended refine tool once with focus skills and acknowledge. No new reusable lesson or file write is needed.  "
+				},
+				"id": "01M5RBHT1ZN1JGEAA299456PRR",
+				"ts": "2026-10-25T01:42:08.703Z",
+				"routes": [
+					{
+						"agent": "main",
+						"binding": "authorized",
+						"session": "2",
+						"wake": "run",
+						"busy": "steer",
+						"waiting": false
+					}
+				]
+			},
+			"end": {
+				"id": "01M5RBJ0FFJGFA5TRM0B3X9M4Q",
+				"ts": "2026-10-25T01:42:15.279Z",
+				"type": "run.end",
+				"parent": "01M5RBHT1ZN1JGEAA299456PRR",
+				"from": "agent:main",
+				"conv": "conv:allowed:local",
+				"data": {
+					"session": "2",
+					"runId": "10",
+					"inputs": ["01M5RBHT1ZN1JGEAA299456PRR"],
+					"status": "done",
+					"replied": "source",
+					"model": "openai/gpt-6.1-sol",
+					"thinking": "high",
+					"usage": {
+						"input": 8586,
+						"output": 41,
+						"cacheRead": 8320,
+						"cacheWrite": 0,
+						"cost": 0.018414
+					},
+					"targets": ["conv:allowed:local"]
+				}
+			},
+			"review": {
+				"session": {
+					"id": "24",
+					"profile": "hermes-learning-review",
+					"mode": "task",
+					"key": "ea0b2f41-36cb-4788-a243-1cd1cb0deafa",
+					"parent": "2",
+					"version": "0.2.26102502",
+					"opened": "2026-10-25T01:42:30.286Z",
+					"closed": "2026-10-25T01:42:35.812Z",
+					"agent": null,
+					"close": "manual"
+				},
+				"end": {
+					"id": "01M5RBJMH1GHSJXA520X8Y4K55",
+					"ts": "2026-10-25T01:42:35.810Z",
+					"type": "run.end",
+					"parent": "01M5RBJF4FAEAVCGCF2G5G0R91",
+					"data": {
+						"session": "24",
+						"runId": "32",
+						"inputs": ["01M5RBJF4FAEAVCGCF2G5G0R91"],
+						"status": "done",
+						"replied": "caller",
+						"model": "openai/gpt-6.1-sol",
+						"thinking": "high",
+						"usage": {
+							"input": 18030,
+							"output": 34,
+							"cacheRead": 0,
+							"cacheWrite": 0,
+							"cost": 0.0364
+						},
+						"targets": []
+					}
+				}
+			},
+			"privateFinal": "Nothing to save.",
+			"reviewToolCalls": 0,
+			"reviewMessageOut": 0,
+			"quietBeforeReviewMs": 15007,
+			"parentTranscriptSHA256": "52697cf5da42a3eb715715ef75252964e464f30924fe949776ca84bc8a87b63e",
+			"cleanup": {
+				"socketsDestroyed": true,
+				"kernelClosed": true,
+				"serviceInstalled": false
+			},
+			"channelSocketsAbsent": true,
+			"skillFiles": [],
+			"memoryFiles": [
+				{
+					"path": "MEMORY.md",
+					"bytes": 0
+				},
+				{
+					"path": "USER.md",
+					"bytes": 0
+				}
+			]
+		}
+	},
+	"artifact": {
+		"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/artifact/yonder-plugin-hermes-experience-0.2.26102502.tgz",
+		"sha256": "2a7a8ee9bdc1a39673d10ac7ff1cfef96f7184f65233ec52c093a4de77c26de7",
+		"parityFiles": 38,
+		"parityManifest": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/artifact/runtime-parity.json"
+	},
+	"sourceScript": {
+		"path": "scripts/accept-hermes-official.mjs",
+		"sha256": "4fb2ea5580f7a8c2f6e73acde1213d8df97322375d51501723cd6aef510811b7"
+	},
+	"evidenceHashes": [
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/gates.tsv",
+			"sha256": "bfc84cc7d254c686e241daba9c7a5fdff3183dbaf229f946cae92c83e558d65c"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/build.log",
+			"sha256": "6c3f680583ced860f34d2048e16cc184ca46b0f1c5c7d54d487f6f6ebaef784d"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/typecheck.log",
+			"sha256": "6479aa0ec3e806de599e3ecc889f69680b8d837c9b9e9d4b2c082ae476343227"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/lint.log",
+			"sha256": "109926633548aa023e0b4fcabd627436d9882aacae9b391118c9e612f96c32f9"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/lint-final.log",
+			"sha256": "80338340ad2d8411b96eddeb0827c84dd03395d8dd9ded306044c32eff4b12c3"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/test.log",
+			"sha256": "64864d33bce480d30bb572316a75e13a5ed8edcd501ac73a48e801fa9a5e9d03"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/native-real.log",
+			"sha256": "f4192981251d18e0e354f5c2f01455b1400a4c50850b74deee6dce5ccd2fcec6"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/native-real-final.log",
+			"sha256": "662c7b3c197badb19ef0488bb01bfce2c35c0907bfdbc5a99564cd07361c721d"
+		},
+		{
+			"path": "/Users/zoran/.local/share/yonder-harness/home/development/yonder-hermes-integration-20261025/.yonder/hermes-integration-evidence/artifact/runtime-parity.json",
+			"sha256": "83318641f68057b5a3692f351592d0a3ab965a6773465ec6c304e55ac7d4f16f"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/result.json",
+			"sha256": "1e11a8e639c20d3166429bf3bd47a939b320f851d4db1bc0b0d1ab1588c688f8"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/events.json",
+			"sha256": "9ba87f88e649293d667143ab3392b2ca2bcb1197920c21047a76001d76f50c32"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/hooks.jsonl",
+			"sha256": "621d314acf3708363248481abf35567c97b443475d65d67bb8589a80f2765b5c"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/transcript.json",
+			"sha256": "52697cf5da42a3eb715715ef75252964e464f30924fe949776ca84bc8a87b63e"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/review-transcript.json",
+			"sha256": "a47d2b692033c2915fcd71f3e8238b5026727bfdae96608fab73f582495918a0"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/parent-before.json",
+			"sha256": "52697cf5da42a3eb715715ef75252964e464f30924fe949776ca84bc8a87b63e"
+		},
+		{
+			"path": "/tmp/yonder-official-refine-4UKrIK/evidence/parent-after.json",
+			"sha256": "52697cf5da42a3eb715715ef75252964e464f30924fe949776ca84bc8a87b63e"
+		}
+	],
+	"notPerformed": [
+		"push",
+		"tag",
+		"Release",
+		"upgrade",
+		"production config/activation/input",
+		"expensive ten-turn automatic review rerun",
+		"controlled provider run",
+		"fresh skill write/reuse"
+	],
+	"remainingRunningResources": [],
+	"heavyTestLockAbsent": true
+}

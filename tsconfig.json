@@ -72,6 +72,9 @@
 		},
 		{
 			"path": "plugins/ui-companion"
+		},
+		{
+			"path": "plugins/hermes-experience"
 		}
 	]
 }
