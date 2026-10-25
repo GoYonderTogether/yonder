@@ -15,6 +15,7 @@ export interface TaskContent {
 }
 export interface Task extends TaskContent {
 	id: string;
+	ref: string;
 	ownerAgent: string | null;
 	session: string;
 	parent: string | null;
@@ -37,12 +38,14 @@ export type Update = Partial<TaskContent> & {
 	deliverable?: string;
 	note?: string;
 };
-interface TaskEvent {
+export interface TaskEvent {
 	seq: number;
 	task: string;
-	kind: "open" | "update" | "done" | "wake" | "moment" | "moment-result";
+	kind: "open" | "update" | "done" | "wake" | "moment" | "moment-result" | "digest";
 	at: string;
 	data: Partial<Task> & {
+		destination?: string;
+		fingerprint?: string;
 		note?: string;
 		renderedRevision?: number;
 		renderedSession?: string;
@@ -73,6 +76,13 @@ const own = (task: Task, ctx: Pick<ToolContext, "agent" | "session">) =>
 	task.ownerAgent === null ? ctx.agent === null && task.session === ctx.session : task.ownerAgent === ctx.agent;
 const minutes = (since: string, now: number) => `${Math.floor((now - Date.parse(since)) / 60000)}m`;
 
+const digestFingerprint = (task: Task) =>
+	JSON.stringify(
+		["waiting-user", "review", "blocked"].includes(task.state)
+			? [task.state, task.lastActivityAt, task.lastDeliveryAt, task.deliverable]
+			: [task.lastDeliveryAt, task.deliverable],
+	);
+
 export class Store {
 	constructor(private readonly data: string) {}
 	private use<T>(fn: (db: DatabaseSync) => T): T {
@@ -102,9 +112,13 @@ export class Store {
 		// ponytail: replay the local ledger; index only if measured ledger size requires it.
 		const tasks = new Map<string, Current>();
 		for (const event of events) {
-			if (event.kind === "moment" || event.kind === "moment-result") continue;
+			if (event.kind === "moment" || event.kind === "moment-result" || event.kind === "digest") continue;
 			if (event.kind === "open") {
-				tasks.set(event.task, { task: structuredClone(event.data) as Task, revision: event.seq, rendered: new Map() });
+				tasks.set(event.task, {
+					task: { ...structuredClone(event.data), ref: event.data.ref ?? `T${tasks.size + 1}` } as Task,
+					revision: event.seq,
+					rendered: new Map(),
+				});
 				continue;
 			}
 			const current = tasks.get(event.task)!;
@@ -141,15 +155,46 @@ export class Store {
 		}
 		return false;
 	}
+	private find(tasks: Map<string, Current>, id: string): Task | undefined {
+		return tasks.get(id)?.task ?? [...tasks.values()].find(({ task }) => task.ref === id)?.task;
+	}
+	claimDigest(task: Task, destination: string, now: number): boolean {
+		return this.use((db) => {
+			const fingerprint = digestFingerprint(task);
+			const last = this.events(db).findLast(
+				(event) => event.kind === "digest" && event.task === task.id && event.data.destination === destination,
+			);
+			if (last?.data.fingerprint === fingerprint) return false;
+			this.append(db, task.id, "digest", { destination, fingerprint, lastDeliveryAt: task.lastDeliveryAt }, now);
+			return true;
+		});
+	}
+	digestSeen(task: Task, destination: string): boolean {
+		return this.use((db) =>
+			this.events(db).some(
+				(event) =>
+					event.kind === "digest" &&
+					event.task === task.id &&
+					event.data.destination === destination &&
+					(event.data.fingerprint === digestFingerprint(task) ||
+						(!["waiting-user", "review", "blocked"].includes(task.state) &&
+							event.data.lastDeliveryAt === task.lastDeliveryAt)),
+			),
+		);
+	}
+
 	open(args: Open, ctx: ToolContext): Task {
 		return this.use((db) => {
-			if (args.parent && !this.current(this.events(db)).has(args.parent)) throw new Error("Parent task not found");
+			const tasks = this.current(this.events(db));
+			const parent = args.parent ? this.find(tasks, args.parent) : undefined;
+			if (args.parent && !parent) throw new Error("Parent task not found");
 			const now = new Date().toISOString();
 			const task: Task = {
 				id: randomUUID(),
+				ref: `T${tasks.size + 1}`,
 				ownerAgent: ctx.agent,
 				session: ctx.session,
-				parent: args.parent ?? null,
+				parent: parent?.id ?? null,
 				title: args.title,
 				objective: args.objective,
 				acceptance: args.acceptance,
@@ -176,7 +221,7 @@ export class Store {
 	}
 	private change(id: string, patch: Partial<Task> & { note?: string }, ctx: ToolContext): Task {
 		return this.use((db) => {
-			const task = this.current(this.events(db)).get(id)?.task;
+			const task = this.find(this.current(this.events(db)), id);
 			if (!task || !own(task, ctx)) throw new Error("Task not found for caller");
 			if (!ongoing(task)) throw new Error("Task is closed");
 			if (patch.state && patch.state !== task.state && !transitions[task.state].includes(patch.state))
@@ -191,7 +236,7 @@ export class Store {
 				throw new Error("Done requires a deliverable and one evidence entry per acceptance point");
 			patch.lastActivityAt = new Date().toISOString();
 			if (patch.deliverable?.trim()) patch.lastDeliveryAt = patch.lastActivityAt;
-			this.append(db, id, patch.state === "done" ? "done" : "update", patch);
+			this.append(db, task.id, patch.state === "done" ? "done" : "update", patch);
 			const { note: _, ...fields } = patch;
 			return { ...task, ...fields };
 		});
@@ -206,9 +251,9 @@ export class Store {
 		return this.use((db) => {
 			const events = this.events(db),
 				tasks = this.current(events),
-				task = tasks.get(id)?.task;
+				task = this.find(tasks, id);
 			if (!task || !this.visible(task, tasks, ctx)) throw new Error("Task not found for caller");
-			return { task, history: events.filter((event) => event.task === id) };
+			return { task, history: events.filter((event) => event.task === task.id) };
 		});
 	}
 	claimMoments(now: number, stallMinutes: number, userWaitMinutes: number, postCompact: boolean) {
@@ -217,7 +262,7 @@ export class Store {
 			const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string }> = [];
 			for (const { task } of this.current(events).values()) {
 				const history = events.filter((event) => event.task === task.id);
-				const activity = history.filter((event) => !event.kind.startsWith("moment")).at(-1)!;
+				const activity = history.filter((event) => !event.kind.startsWith("moment") && event.kind !== "digest").at(-1)!;
 				const done = history.find((event) => event.kind === "done");
 				const moment: Moment | undefined =
 					task.state === "active"

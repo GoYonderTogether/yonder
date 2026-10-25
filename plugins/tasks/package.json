@@ -17,6 +17,7 @@
 		"README.md"
 	],
 	"dependencies": {
+		"@resvg/resvg-js": "2.6.2",
 		"@yonder/sdk": "0.2.26102503"
 	},
 	"yonder": {
@@ -30,13 +31,17 @@
 				"tasks_done",
 				"tasks_list",
 				"tasks_get",
-				"tasks_nudge"
+				"tasks_nudge",
+				"tasks_show"
 			],
 			"contexts": [
 				"tasks-turn"
 			],
 			"triggers": [
 				"tasks-moments"
+			],
+			"hooks": [
+				"tasks-digest"
 			]
 		}
 	}

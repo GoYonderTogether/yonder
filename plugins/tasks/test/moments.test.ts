@@ -23,7 +23,7 @@ async function fixture(config: Config = {}, real = false) {
 	const home = await mkdtemp("/tmp/yonder-task-moments-");
 	const manifest = JSON.parse(await readFile(resolve("plugins/tasks/package.json"), "utf8"));
 	manifest.yonder.entry = "./probe.mjs";
-	manifest.yonder.contributes.hooks = ["hold"];
+	manifest.yonder.contributes.hooks.push("hold");
 	manifest.yonder.contributes.channels = ["task-test"];
 	await writeFile(join(home, "package.json"), JSON.stringify(manifest));
 	// Capture actual registrations and local channel delivery; hold/cancel real requests

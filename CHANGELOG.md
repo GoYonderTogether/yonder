@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- tasks P3-1：稳定 T<n> 编号、TaskBoard JSON/详情、双语文字与 resvg PNG 渠道输出、按目的地去重的回复尾部清单和两小时回来摘要；新增 tasks_show，桌面/网页仍返回未开放。SDK beforeSend 的参数声明目的地 to: Ref，不改内核运行行为。
+
 - 插件 sessions.submit 可向已打开的 main/persistent 会话提交系统提醒：保留 plugin 来源与 session.input 持久记录，使用会话当前 profile 和原生 busy 队列，不携带人类授权。
 
 - 新增可选 tasks 插件 P1/P2：只追加 SQLite 任务账本、六个工具（含 cross-agent 催办）、归属/parent/cross-agent 可见范围、逐项完成证据与 turn 目标重现；60 秒时点检查支持默认 30 分钟滞留续办提醒、120 分钟用户待办程序通知和跨重启窗口去重。完成后 15 分钟压缩、30 分钟 recentlyDone 标记默认关闭；无后台等待/continuation 可见字段，暂不判定这一 stall 排除条件。不自动启用，不含 TaskBoard、投影、尾部摘要或复盘。

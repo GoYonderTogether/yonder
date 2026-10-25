@@ -1,6 +1,6 @@
-# tasks — P1 + P2
+# tasks — P1 + P2 + P3-1
 
-可选任务账本插件 `@yonder/plugin-tasks`，id `tasks`。只依赖 `@yonder/sdk`；在插件 `<paths.data>/tasks.sqlite` 追加事件，回放得到当前任务、历史及唤醒计数。插件记录模型给出的交付和证据，不判断验收是否通过。
+可选任务账本插件 `@yonder/plugin-tasks`，id `tasks`。运行接口只依赖 `@yonder/sdk`，图片转换使用 `@resvg/resvg-js`；在插件 `<paths.data>/tasks.sqlite` 追加事件，回放得到当前任务、历史及唤醒计数。插件记录模型给出的交付和证据，不判断验收是否通过。
 
 在 `yonder.yaml` 的 `plugins` 加入 `{ use: "@yonder/plugin-tasks" }`，再在目标 profile 选择：
 
@@ -46,7 +46,19 @@ plugins:
         postRetain: false
 ```
 
-SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过“没有后台等待/已接纳 task_continue”的判定**，不会用运行状态猜测。P2 不含 tasks_show、TaskBoard、渠道投影、尾部摘要或完成后复盘。
+SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过“没有后台等待/已接纳 task_continue”的判定**，不会用运行状态猜测。完成后复盘仍未实现。
+
+## 展示（P3-1）
+
+- `tasks_show({target?, view?, id?})`：target 默认 `channel`，从本次输入或该 session 的事件账本取会话，程序发送 PNG；`json` 返回同一 TaskBoard。`desktop` / `web` 明确返回 not available yet。view 默认 `board`，`detail` 必须给 id，包含目标、逐项证据、交付、完整事件时间线、子任务与来源。描述直接引用既有 SHOW，prompts.ts 未修改。
+- TaskBoard 是纯函数，输入已经按现有 own / parent / cross-agent 规则过滤的任务。四组固定为等你（waiting-user、review）、进行中（open、active）、阻塞、刚完成。done 满 30 分钟从总览及其子项省略，仍可显式查询 detail；不依赖实验 postRetain 开关。counts 统计所有可见任务，子任务也按自己的状态计数。
+- 短编号 `T1`、`T2`…按本账本创建顺序持久保存；旧账本按不可变 open 行顺序恢复编号，无须改写旧行。所有接受任务 id 的工具及 parent 同时接受短编号和 UUID。
+- `renderText(board, locale)` / `renderSvg(board, locale)` 为纯投影；locale 以 zh 开头时中文。验收 met 是已有 evidence 的非空项数，不判断证据质量。详情可读取 30 分钟以前的交付。
+- 精确依赖 resvg 2.6.2，把 SVG 转成 PNG，文件保存在插件 data 目录，经现有 `Attachment {kind: image, mime: image/png, uri: file:...}` 发出。**resvg 安装、加载或渲染不可用时退化为文字**，不自制栅格器。PNG 文件保留供既有附件路径使用；无新增清理定时器。
+- `tasks-digest` 在选择 tasks 的 profile 上默认开启；仅对有真实人类 message.in 记录的目标、sender 自己的任务追加。等你优先，其次阻塞、交付，最多五行；仅进行中且无新交付时不追加。相同状态版本/交付对同一目的地只展示一次，重启保留去重。附件无文本、Agent 等非人类目标、插件自身程序消息均不追加。
+- 从 `events.query` 读取目标会话的人类输入时间，超过两小时间隔的首次回复使用“离开期间”措辞；不依赖模型记忆。配置只增加 `tailDigest: {enabled?: boolean, lines?: number}`，默认 true / 5，lines 为 1–5。
+
+本期不提供桌面/网页端点、飞书卡、按 Agent 分行的管家视图或后台输出尾部。已核对 ui-companion 的 loopback 私有端点和飞书的附件消费方式，未修改这两个插件。
 
 ## Questions for the maintainer
 
@@ -61,7 +73,17 @@ SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过�
 - P1 缺少渠道来源时仍保留 session:<id> origin；user-wait 不猜渠道，交现有 messages.send 处理，失败结果写账本。真正缺失/空 origin 不触发。
 - §5 未规定 tasks_list 的刚完成输出结构：保留已有数组，在每项增加 recentlyDone 标记；保持原可见范围，不扩大跨 Agent 对已关闭任务的读取权限。
 
+- P3-1 按本次维护者任务约定采用每账本稳定编号、`channel|json|desktop|web` 和回来摘要；spec §6.5/6.6 更广的渠道选择、桌面与网页留到下一阶段。本次未改 spec/17。
+- SDK 无通用“收件人是人类”标记：以目的地实际 message.in 的 acct/person 来源为依据，Agent/plugin/system 来源不算人；owner 别名未解析为具体 Ref 时不猜目的地。渠道仍负责自身机器人消息过滤。
+- 摘要的“无变化不出现”解释为每目的地按任务状态内容版本去重；waiting/review/blocked 改变后可再提示。发送前记录摘要，跟 P2 时点相同：发送失败/崩溃可能漏一次提醒，不猜测重发副作用。
+- 旧任务只有 done 时保存逐项 evidence，所以现有工具写出的 met 通常为 0 或 total；P3-1 不另加写入协议。elapsed 在终态停止，idle 从 lastActivityAt 算；open 归入进行中，cancelled 不在总览展示。
+- 详情保留完整 JSON 时间线；图片按固定字符数折行。未新增主题、模板、图片缓存或模型/后台日志字段；后者不在本次明确字段范围。
+
 ## Verification
+
+P3-1：`npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0（lint 0 errors / 445 warnings / 14 infos）；`npm test -- plugins/tasks/test` 为 13 passed / 0 failed / 1 skipped；`npm test` 为 606 passed / 0 failed / 39 skipped。`YONDER_TEST_REAL=1 YONDER_TEST_AUTH=/Users/zoran/Documents/yonder-harness/.yonder/auth.json agent-network run -- npm test -- plugins/tasks/test/moments.test.ts` 为 4 passed / 0 failed / 0 skipped，真实 Luna stall 已测。PNG 本地协议发送和文件头已验证。
+
+原始失败：A 的手工工具上下文测试三次各 1 failed，改为既有内核投递协议测试后 11 passed；B 首次构建失败于可选 conv 类型，局部 Biome 两次各 2 errors，均修正。完整命令与每轮计数见 [docs/status.md](../../docs/status.md) 的“任务账本 P3-1”条目。真实用户渠道、resvg 缺失降级执行、n≥10 模型对照、干净 npm ci、安装/生产均未测。以下 P2 结果保留为历史记录。
 
 P2 使用真实 SQLite、插件 loader、kernel 与本地测试渠道；协议测试在真实 beforeRequest 钩子暂停并取消请求，未替换模型。确定性时点直接调用 `tick(..., now)`，不 sleep。
 

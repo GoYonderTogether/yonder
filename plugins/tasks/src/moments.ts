@@ -4,6 +4,7 @@ import type { Store } from "./store.js";
 
 export interface Config {
 	stallMinutes?: number;
+	tailDigest?: { enabled?: boolean; lines?: number };
 	userWaitMinutes?: number;
 	moments?: { postCompact?: boolean; postRetain?: boolean };
 }

@@ -1,6 +1,12 @@
-import { type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { type Attachment, type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
+import { renderPng, renderText, taskBoard } from "./board.js";
+import { digest } from "./digest.js";
 import { type Config, moments } from "./moments.js";
-import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, UPDATE } from "./prompts.js";
+import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, SHOW, UPDATE } from "./prompts.js";
 import { type Open, Store, type Update } from "./store.js";
 
 const string = { type: "string", minLength: 1, pattern: "\\S" };
@@ -17,6 +23,7 @@ const content = {
 export default definePlugin({
 	configSchema: obj(
 		{
+			tailDigest: obj({ enabled: { type: "boolean" }, lines: { type: "integer", minimum: 1, maximum: 5 } }, []),
 			stallMinutes: { type: "number", exclusiveMinimum: 0 },
 			userWaitMinutes: { type: "number", exclusiveMinimum: 0 },
 			moments: obj({ postCompact: { type: "boolean" }, postRetain: { type: "boolean" } }, []),
@@ -95,6 +102,60 @@ export default definePlugin({
 				{ busy: "followup" },
 			);
 		});
+		add(
+			"show",
+			SHOW,
+			obj(
+				{ target: { enum: ["channel", "json", "desktop", "web"] }, view: { enum: ["board", "detail"] }, id: string },
+				[],
+			),
+			["read"],
+			async (args, ctx) => {
+				const target = args.target ?? "channel",
+					view = args.view ?? "board";
+				if (target === "desktop" || target === "web") throw new Error(`${target} is not available yet`);
+				if (!["channel", "json"].includes(target as string) || !["board", "detail"].includes(view as string))
+					throw new Error("Invalid target or view");
+				if (view === "detail" && !args.id) throw new Error("detail requires id");
+				const board = taskBoard(
+					store.list(ctx),
+					Date.now(),
+					view === "detail" ? store.get(args.id as string, ctx) : undefined,
+				);
+				if (target === "json") return board;
+				let to = ctx.events?.findLast((event) => event.conv)?.conv ?? ctx.event?.conv;
+				if (!to) {
+					let after: string | undefined;
+					do {
+						const page = await api.events.query({ type: "message.in", limit: 1000, ...(after ? { after } : {}) });
+						to =
+							page.events.findLast(
+								(event) => event.conv && event.routes?.some((route) => route.session === ctx.session),
+							)?.conv ?? to;
+						after = page.next;
+					} while (after);
+				}
+				if (!to) throw new Error("No channel conversation in the calling session");
+				let attachments: Attachment[] | undefined;
+				let text = "";
+				try {
+					const bytes = await renderPng(board, api.locale);
+					await mkdir(api.paths.data, { recursive: true });
+					const name = `tasks-${randomUUID()}.png`,
+						path = join(api.paths.data, name);
+					await writeFile(path, bytes);
+					attachments = [
+						{ kind: "image" as const, mime: "image/png", uri: pathToFileURL(path).href, name, bytes: bytes.length },
+					];
+				} catch (error) {
+					api.log.warn("Task image unavailable; using text", { error: String(error) });
+					text = renderText(board, api.locale);
+				}
+				return api.messages.send({ to, text, ...(attachments ? { attachments } : {}), signal: ctx.signal });
+			},
+		);
+		api.hooks.register(digest(api, store, config));
+
 		api.contexts.register({ id: "tasks-turn", placement: "turn", render: (ctx) => store.render(ctx) });
 		api.triggers.register(moments(api, store, config));
 	},
