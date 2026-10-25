@@ -29,6 +29,8 @@ if (
 	console.error("Usage: yonder-permissions status | request|guide|watch <kind>");
 	process.exit(2);
 }
+if (args[1] === "location" && args[0] !== "request")
+	throw new Error("Location supports status/request/collect RPC, not guide/watch");
 if (process.platform !== "darwin") throw new Error("Yonder Helper requires macOS");
 let request = "{}";
 let rpcPermission;

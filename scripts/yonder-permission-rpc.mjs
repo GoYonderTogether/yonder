@@ -10,6 +10,7 @@ export const permissionKinds = [
 	"automation",
 	"full-disk-access",
 	"files-and-folders",
+	"location",
 ];
 export function absoluteFilePath(value) {
 	if (typeof value !== "string" || !value.startsWith("/") || value.includes("\0") || value.split("/").includes(".."))
@@ -18,6 +19,16 @@ export function absoluteFilePath(value) {
 }
 export function permissionCommand(args) {
 	if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error("Invalid RPC arguments");
+	if (["location-status", "location-request", "location-collect"].includes(args.action)) {
+		if (Object.keys(args).some((key) => !["action", "timeout"].includes(key)))
+			throw new Error("Location accepts only action and optional timeout");
+		if (
+			args.timeout !== undefined &&
+			(typeof args.timeout !== "number" || !Number.isFinite(args.timeout) || args.timeout <= 0 || args.timeout > 60)
+		)
+			throw new Error("Invalid location timeout (0 < seconds <= 60)");
+		return undefined;
+	}
 	if (["file-list", "file-export"].includes(args.action)) {
 		absoluteFilePath(args.path);
 		if (args.action === "file-export") absoluteFilePath(args.destination);
@@ -25,6 +36,8 @@ export function permissionCommand(args) {
 	}
 	if (["permission-request", "permission-guide", "permission-watch"].includes(args.action)) {
 		if (!permissionKinds.includes(args.kind)) throw new Error("Invalid permission kind");
+		if (args.kind === "location" && args.action !== "permission-request")
+			throw new Error("Location supports status/request/collect RPC, not guide/watch");
 		const command = args.action.slice("permission-".length);
 		const timeout = args.timeout ?? 600;
 		if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout <= 0 || timeout > 600)

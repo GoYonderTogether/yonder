@@ -28,6 +28,8 @@ if (process.platform === "darwin") {
 <key>CFBundleExecutable</key><string>YonderHelper</string><key>CFBundleIdentifier</key><string>dev.yonder.harness.helper</string>
 <key>CFBundleDisplayName</key><string>Yonder</string>
 <key>CFBundleName</key><string>Yonder Helper</string><key>CFBundlePackageType</key><string>APPL</string><key>LSUIElement</key><true/>
+<key>NSLocationUsageDescription</key><string>Yonder uses your location only for owner-requested local collection.</string>
+<key>NSLocationWhenInUseUsageDescription</key><string>Yonder uses your location only for owner-requested local collection.</string>
 <key>NSCameraUsageDescription</key><string>Owner-requested Yonder camera access.</string>
 <key>NSMicrophoneUsageDescription</key><string>Owner-requested Yonder microphone access.</string>
 <key>NSAppleEventsUsageDescription</key><string>Owner-requested System Events automation.</string></dict></plist>`,

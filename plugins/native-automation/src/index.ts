@@ -60,6 +60,9 @@ const desktopSchema = Type.Object(
 				"permission-request",
 				"permission-guide",
 				"permission-watch",
+				"location-status",
+				"location-request",
+				"location-collect",
 				"file-list",
 				"file-export",
 				"snapshot",
@@ -84,6 +87,7 @@ const desktopSchema = Type.Object(
 					"automation",
 					"full-disk-access",
 					"files-and-folders",
+					"location",
 				].map((x) => Type.Literal(x)),
 			),
 		),
@@ -352,6 +356,7 @@ export default definePlugin({
 			"automation",
 			"full-disk-access",
 			"files-and-folders",
+			"location",
 		];
 		async function permissionRun(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse> {
 			check(ctx, ["exec", "read", "write", "message"]);
@@ -369,6 +374,8 @@ export default definePlugin({
 					request.timeout > 600)
 			)
 				throw new Error("timeout is only supported for permission-guide/permission-watch (0 < seconds <= 600)");
+			if (request.kind === "location" && !["status", "request"].includes(request.action))
+				throw new Error("Location supports status/request only in the permission provider; collect uses desktop RPC");
 			if (request.action !== "status") {
 				await requireOwnerOrigin(api, ctx);
 				check(ctx, ["exec", "read", "write", "message"]);
@@ -383,8 +390,13 @@ export default definePlugin({
 				};
 			const output = await desktop(
 				{
-					action: request.action === "status" ? "permissions" : `permission-${request.action}`,
-					...(request.action !== "status" ? { kind: request.kind } : {}),
+					action:
+						request.kind === "location"
+							? `location-${request.action}`
+							: request.action === "status"
+								? "permissions"
+								: `permission-${request.action}`,
+					...(request.kind !== "location" && request.action !== "status" ? { kind: request.kind } : {}),
 					...(request.timeout !== undefined ? { timeout: request.timeout } : {}),
 				},
 				ctx.signal,
@@ -404,6 +416,25 @@ export default definePlugin({
 				check(ctx, ["exec", "read", "write", "message"]);
 				if (!Value.Check(desktopSchema, input)) throw new Error("Invalid native-automation_desktop arguments");
 				const args = input as Record<string, unknown>;
+				if (["location-status", "location-request", "location-collect"].includes(String(args.action))) {
+					if (
+						Object.keys(args).some((key) => !["action", "timeout"].includes(key)) ||
+						(args.timeout !== undefined &&
+							(typeof args.timeout !== "number" ||
+								!Number.isFinite(args.timeout) ||
+								args.timeout <= 0 ||
+								args.timeout > 60))
+					)
+						throw new Error("Location accepts action and optional 0 < timeout <= 60 seconds only");
+					if (args.action === "location-request") await requireOwnerOrigin(api, ctx);
+					check(ctx, ["exec", "read", "write", "message"]);
+					const output = await desktop(args, ctx.signal, ctx.session);
+					ctx.signal.throwIfAborted();
+					return {
+						...result({ source: "Yonder Helper CoreLocation", result: output }),
+						...((output as { ok?: boolean })?.ok === false ? { isError: true } : {}),
+					};
+				}
 				if (
 					["status", "permissions", "permission-request", "permission-guide", "permission-watch"].includes(
 						String(args.action),
@@ -513,7 +544,7 @@ export default definePlugin({
 		api.tools.register({
 			name: "native-automation_desktop",
 			description:
-				"Independent macOS desktop: file-list/file-export with absolute path for owner-authorized tasks only (same trusted owner/continuation rule). The same signed Yonder Helper actually reads files; no automatic permission requests and no grant inheritance for Node/Python. file-list returns one level of metadata, marking symlinks without following them. file-export copies only one regular file (not directories or symlinks), preserves source metadata, returns a unique private artifact path and file attachment, never inline bytes; destination cannot be supplied. OS EPERM remains an error, requested is not granted. Permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. permissions/status are non-prompting and return nine kinds with identity, history and next steps. Owner-origin runs (including same-session kernel background/continuation inputs with verified persistent parent ancestry) with the existing desktop capabilities may explicitly use permission-request, permission-guide or permission-watch for one kind. guide/watch timeout is seconds (0 < timeout <= 600, default 600); request has no timeout field. Request opens an OS prompt or Settings, guide opens human guidance, watch only observes. None grants permission. OS confirmation, passwords and biometrics must remain human; never click Allow/toggles, edit TCC, reset, elevate or retry via another driver. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Ordinary desktop input does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays. For permission failure, read permissions/status and its next steps for the actual signed host; an authorized owner may explicitly initiate request/guide/watch; never request automatically from status or request all kinds in a batch. Restarting or switching drivers cannot grant OS access. After an input failure, take a fresh snapshot before another click.",
+				"Independent macOS desktop: file-list/file-export with absolute path for owner-authorized tasks only (same trusted owner/continuation rule). The same signed Yonder Helper actually reads files; no automatic permission requests and no grant inheritance for Node/Python. file-list returns one level of metadata, marking symlinks without following them. file-export copies only one regular file (not directories or symlinks), preserves source metadata, returns a unique private artifact path and file attachment, never inline bytes; destination cannot be supplied. OS EPERM remains an error, requested is not granted. Permission status, frontmost app/window snapshot, screenshot artifact + image, mouse move/click/drag, Unicode typing, physical keyCode 0..127 with explicit modifiers. Uses the signed Yonder Helper app via LaunchServices, stdin/stdout JSON. location-status/location-request/location-collect use the same Helper CoreLocation subject; timeout is seconds (0 < timeout <= 60, defaults 2/60/10). Status never requests or samples; request requires owner origin, may activate Helper and waits for real app activation before the OS prompt; collect requires existing native authorization and never requests. Location responses preserve authorization (notDetermined/denied/restricted/authorizedAlways/unknown), identity, and structured failure codes. Successful collect includes precise native location data. permissions/status are non-prompting and return nine legacy kinds with identity, history and next steps. Owner-origin runs (including same-session kernel background/continuation inputs with verified persistent parent ancestry) with the existing desktop capabilities may explicitly use permission-request, permission-guide or permission-watch for one kind. guide/watch timeout is seconds (0 < timeout <= 600, default 600); permission-request has no timeout field. Location kind supports status/request only via the permissions provider, not guide/watch; use location-status for native state. Request opens an OS prompt or Settings, guide opens human guidance, watch only observes. None grants permission. OS confirmation, passwords and biometrics must remain human; never click Allow/toggles, edit TCC, reset, elevate or retry via another driver. Screenshots capture the main display. Input acts on the real user desktop and requires explicit task authorization; maintain user focus unless requested. Ordinary desktop input does not activate apps or bypass OS permissions. Screen coordinates use global macOS display points; screenshots use display pixels, which may differ on Retina displays. For permission failure, read permissions/status and its next steps for the actual signed host; an authorized owner may explicitly initiate request/guide/watch; never request automatically from status or request all kinds in a batch. Restarting or switching drivers cannot grant OS access. After an input failure, take a fresh snapshot before another click.",
 			parameters: desktopSchema as TSchema,
 			capabilities: ["exec", "read", "write", "message"],
 			execute: desktopRun,

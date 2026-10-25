@@ -213,3 +213,39 @@ describe("file RPC validation and dispatch, no real Helper", () => {
 		expect(mock.commands).toHaveLength(0);
 	});
 });
+
+describe("location RPC contract, no native manager or coordinates", () => {
+	it.each(["location-status", "location-request", "location-collect"])("%s stays the original RPC", async (action) => {
+		const response = {
+			action,
+			ok: false,
+			authorization: "notDetermined",
+			failure: { code: "LOCATION_NOT_DETERMINED" },
+		};
+		mock.responses = [[response]];
+		expect(await rpc({ action, timeout: 1 })).toEqual(response);
+		expect(mock.commands[0]).toContain("rpc");
+		expect(mock.commands[0]).not.toContain("request");
+		expect(process.exitCode).toBeUndefined(); // domain failure is structured JSON, not lost as stderr.
+	});
+	it.each([0, -1, 61, Number.NaN, Infinity, "1", null, true])("rejects location timeout %s", async (timeout) => {
+		await expect(rpc({ action: "location-collect", timeout })).rejects.toThrow("timeout");
+		expect(installHelper).not.toHaveBeenCalled();
+		expect(mock.commands).toHaveLength(0);
+	});
+	it.each(["kind", "latitude", "request", "owner"])("rejects extra field %s before install", async (field) => {
+		await expect(rpc({ action: "location-status", [field]: true })).rejects.toThrow("only action");
+		expect(installHelper).not.toHaveBeenCalled();
+	});
+	it.each(["guide", "watch"])("CLI location %s fails before scratch/install", async (command) => {
+		process.argv = [process.execPath, "scripts/yonder-permissions.mjs", command, "location"];
+		await expect(import("../../../scripts/yonder-permissions.mjs")).rejects.toThrow("not guide/watch");
+		expect(installHelper).not.toHaveBeenCalled();
+		expect(mock.files.size).toBe(0);
+	});
+	it("location permission request retains CLI compatibility but has no guide/watch", () => {
+		expect(permissionCommand({ action: "permission-request", kind: "location" })).toEqual(["request", "location"]);
+		for (const action of ["permission-guide", "permission-watch"])
+			expect(() => permissionCommand({ action, kind: "location" })).toThrow("not guide/watch");
+	});
+});
