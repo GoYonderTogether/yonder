@@ -1,0 +1,127 @@
+{
+	"date": "2026-10-25",
+	"scope": "release review B1/B2/B3; not production acceptance",
+	"harnessBase": "95d323f9e6a7d3381627bba80d4eba5ae68deac2",
+	"pi": {
+		"repository": "https://github.com/GoYonderTogether/pi.git",
+		"checkout": "/Users/zoran/Documents/github/yonder-pi-compact-recovery",
+		"branch": "fix/hosted-local-exec-20261025",
+		"base": "f263794abacef09ee0ca59bb0d79ae039ca59c9f",
+		"commit": "9060e7fa16681bf7ad572c4af56dc87e67a41309",
+		"published": false
+	},
+	"sourceSha256": {
+		"packages/macos-helper/Sources/YonderHelper/ServiceHost.swift": "09d693e055dc5d14ffaf163db42475f789cb5c2537c8d890b925f1a72b124d58",
+		"packages/core/src/runtime/hosted-process.ts": "73baff2d3b80862ad7266f56996e9869d2b60921233a56753e25e4a8838ec3c6",
+		"packages/core/src/runtime/process.ts": "4e138a079fadf15ab043caab9e3962a4f69ad15c01d188e5d2411f981fc1c4d7",
+		"packages/core/src/runtime/env.ts": "019b4851ab888e99af63554057fcdacc40cb3dce14392c30559ada7197e9fc62",
+		"scripts/yonder-helper-install.mjs": "39b3c1991e7d12979516923ceec3849949575766947a78782d457216ea551622",
+		"scripts/yonder-permissions.mjs": "439a6de21ce25886023ed09c85b87e3c2c513e74ab482b4118926be18f9c3bdc",
+		"scripts/sync-pi-durable.mjs": "72f5e85b0ac81eb19d4358661d934126dc78c0a90064d3718edbdc03a18a9568",
+		"packages/pi-durable/src/env/node.ts": "9f7704d28055887921477b7abaa0ab9b1e63f209c499c23b76d9d6e59df1a115",
+		"packages/pi-durable/FORK_SOURCE.json": "268ad320f4ab85e1cb86091fe1c396d4cde6fc68952aa2761c4d52621c11b1ed",
+		"scripts/fixtures/service-exec-runner.mjs": "809de16884da1fbe57118b1df9babc69667333cd1b2a8919f308054a6bc4e90f"
+	},
+	"helperExecutableSha256": "03a3c6eac498446deba3692ae450d4e8d793e51a19b325007c659c055b31431d",
+	"tests": [
+		{
+			"name": "B1 deterministic collection races",
+			"passed": 8,
+			"failed": 0,
+			"skipped": 0,
+			"log": "98913.log"
+		},
+		{
+			"name": "B3 wrapper installation/upgrades/rollback/failed replacement/locks",
+			"passed": 3,
+			"failed": 0,
+			"skipped": 0,
+			"log": "98913.log"
+		},
+		{
+			"name": "upstream default exec/local adapter/spill",
+			"passed": 57,
+			"failed": 0,
+			"skipped": 64,
+			"log": "99048.log",
+			"skipDetails": "63 filtered outside execution scope + 1 Windows-only"
+		},
+		{
+			"name": "local env/default bash fail-closed and unhosted",
+			"passed": 4,
+			"failed": 0,
+			"skipped": 0,
+			"log": "99285.log"
+		},
+		{
+			"name": "hosted env contract and two-phase gates/owners",
+			"passed": 13,
+			"failed": 0,
+			"skipped": 0,
+			"log": "99285.log",
+			"roots": ["/tmp/yonder-command-wkrnms", "/tmp/yonder-command-gate-tWsjRY"]
+		},
+		{
+			"name": "shared bash contract after cancellation precedence fix",
+			"passed": 1,
+			"failed": 0,
+			"skipped": 0,
+			"log": "99336.log",
+			"root": "/tmp/yonder-command-Lil5aR"
+		}
+	],
+	"retainedFailures": [
+		{
+			"log": "99215.log",
+			"reason": "first Harness target tsc: exactOptionalPropertyTypes localSpawn undefined; corrected with conditional property"
+		},
+		{
+			"log": "99226.log",
+			"reason": "first hosted env contract fixture compared env to literal object; macOS Node also injects __CF_USER_TEXT_ENCODING; compare actual unhosted Node baseline instead",
+			"passed": 0,
+			"failed": 1
+		},
+		{
+			"log": "99285.log",
+			"reason": "bash pre-ACK abort initially surfaced missing verified result instead of abort reason; split completion fault from I/O fault, then contract rerun passed",
+			"passed": 0,
+			"failed": 1
+		},
+		"Original setsid red gate and historical timing failures retained in verification document; not rerun."
+	],
+	"liveness": {
+		"roots": [
+			"/tmp/yonder-command-G1XcdX",
+			"/tmp/yonder-command-ykS8FH",
+			"/tmp/yonder-command-gate-tWsjRY",
+			"/tmp/yonder-command-wkrnms",
+			"/tmp/yonder-command-QYQnJ5",
+			"/tmp/yonder-command-Lil5aR"
+		],
+		"uniquePidCount": 149,
+		"pids": [
+			69157, 69161, 69162, 69164, 69169, 69176, 69187, 69199, 69456, 69461, 69462, 69471, 69473, 69488, 69499, 69512,
+			69524, 69535, 69555, 69567, 69573, 69574, 69581, 69589, 69590, 69595, 69607, 69613, 69618, 69622, 69633, 69644,
+			69663, 69674, 69688, 69997, 69998, 70004, 70005, 70030, 70031, 70036, 70037, 70071, 70072, 70075, 70078, 70131,
+			70132, 70137, 70138, 70169, 70170, 70175, 70176, 70205, 70206, 70208, 70212, 70235, 70236, 70241, 70242, 70284,
+			70285, 70291, 70294, 70333, 70340, 70341, 70344, 70345, 70351, 70361, 70378, 70389, 70401, 70412, 70418, 70423,
+			70424, 70436, 70457, 70469, 70476, 70477, 70482, 70488, 70489, 70496, 70508, 70514, 70515, 70520, 70532, 70547,
+			70562, 70578, 70586, 70591, 70622, 70626, 70627, 70632, 70633, 70640, 70666, 70670, 70671, 70675, 70677, 70684,
+			70716, 70721, 70722, 70724, 70728, 70732, 70756, 70762, 70764, 70767, 70770, 70781, 70827, 70831, 70832, 70837,
+			71023, 71027, 71028, 71030, 71032, 71043, 71054, 71065, 71076, 71089, 71096, 71097, 71101, 71102, 71113, 71114,
+			71120, 71121, 71132, 71137, 71140
+		],
+		"remaining": [],
+		"method": "kill(pid,0) only for recorded fixture PIDs, no machine scan or unknown signals"
+	},
+	"productionNotPerformed": [
+		"push",
+		"publication",
+		"formal installation",
+		"launchd restart",
+		"approved app replacement or resigning",
+		"live TCC/grant retention",
+		"sensitive resource collection",
+		"full suite"
+	]
+}

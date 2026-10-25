@@ -58,7 +58,12 @@ if (process.argv[2] === "driver") {
 		app: helper,
 		direct: true,
 		program: process.execPath,
-		args: [join(root, "scripts/fixtures/service-command-runner.mjs"), home, mode, process.argv[5]],
+		args: [
+			join(root, process.env.YONDER_HOST_TEST_RUNNER ?? "scripts/fixtures/service-command-runner.mjs"),
+			home,
+			mode,
+			process.argv[5],
+		],
 		environment: { ...process.env, YONDER_COMMAND_FIXTURE: "inherited" },
 		cwd: home,
 		home,
@@ -71,7 +76,9 @@ if (process.argv[2] === "driver") {
 	});
 } else {
 	for (const mode of ["contract", "helper-death", "launcher-death", "quick-helper-death", "quick-launcher-death"]) {
-		test(`real bash tool hosted command: ${mode}`, { timeout: 60000 }, async () => {
+		test(`real ${process.env.YONDER_HOST_TEST_RUNNER ? "env exec" : "bash tool"} hosted command: ${mode}`, {
+			timeout: 60000,
+		}, async () => {
 			const home = await mkdtemp(join(evidence, `${mode}-`));
 			await mkdir(join(home, ".yonder"));
 			const driver = spawn(process.execPath, [fileURLToPath(import.meta.url), "driver", home, mode, sameGroup], {

@@ -1,50 +1,10 @@
 import { spawn } from "node:child_process";
-import { closeSync, fstatSync, readSync } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
-import type { Socket } from "node:net";
-import { constants } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 
-// The host supplies a one-shot private fd, never a user-configurable executable
-// setting. A hosted process with a missing/broken capability must fail closed.
-let commandHost: { helper: string; registration: string } | undefined;
-let commandHostFailure: unknown;
-function hostedCommand() {
-	if (process.platform !== "darwin") return undefined;
-	if (commandHost) return commandHost;
-	if (commandHostFailure) throw commandHostFailure;
-	if (!process.env.YONDER_SERVICE_REGISTRATION && !process.env.YONDER_SERVICE_COMMAND_FD) return undefined;
-	let opened = false;
-	try {
-		if (process.env.YONDER_SERVICE_COMMAND_FD !== "4" || !fstatSync(4).isSocket())
-			throw new Error("Service command capability is missing or invalid");
-		opened = true;
-		const buffer = Buffer.alloc(16384);
-		let size = 0;
-		while (size < buffer.length) {
-			const count = readSync(4, buffer, size, buffer.length - size, null);
-			if (!count) break;
-			size += count;
-		}
-		if (size === buffer.length) throw new Error("Service command capability exceeds limit");
-		const value = JSON.parse(buffer.subarray(0, size).toString());
-		if (
-			typeof value.helper !== "string" ||
-			!isAbsolute(value.helper) ||
-			value.registration !== process.env.YONDER_SERVICE_REGISTRATION
-		)
-			throw new Error("Service command capability does not match the host");
-		commandHost = value;
-		return commandHost;
-	} catch (error) {
-		commandHostFailure = error;
-		throw error;
-	} finally {
-		if (opened) closeSync(4);
-	}
-}
+import { hostedProcessSpawner } from "./hosted-process.js";
 
 export function processTool(
 	home: string,
@@ -74,57 +34,32 @@ export function processTool(
 			const path = join(folder, `${api.taskId}.log`),
 				log = await open(path, "a", 0o600);
 			try {
-				const host = hostedCommand();
+				const host = hostedProcessSpawner();
 				return await new Promise((resolve, reject) => {
-					const child = spawn(
-						host?.helper ?? "/bin/bash",
-						host ? ["service-command-anchor", args.command] : ["-c", args.command],
-						{
+					const hosted = host?.({
+						program: "/bin/bash",
+						args: ["-c", args.command],
+						cwd: args.cwd ?? api.env!.cwd,
+						env: process.env,
+						stdin: args.stdin ? "pipe" : "ignore",
+					});
+					const child =
+						hosted?.child ??
+						spawn("/bin/bash", ["-c", args.command], {
 							cwd: args.cwd ?? api.env!.cwd,
-							detached: !host,
-							stdio: host
-								? [args.stdin ? "pipe" : "ignore", "pipe", "pipe", "pipe"]
-								: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
+							detached: true,
+							stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
+						});
+					let result: { code: number | null; signal: NodeJS.Signals | null } | undefined;
+					let completionFault: unknown;
+					const completed = hosted?.result.then(
+						(value) => {
+							result = value;
+						},
+						(error) => {
+							completionFault = error;
 						},
 					);
-					const control = host ? (child.stdio[3] as Socket) : undefined;
-					let result: { exitCode: number | null; signal: NodeJS.Signals | null } | undefined;
-					let protocol = "";
-					control?.setEncoding("utf8");
-					control?.on("data", (chunk: string) => {
-						try {
-							protocol += chunk;
-							if (protocol.length > 16384) throw new Error("Command result exceeds limit");
-							let end = protocol.indexOf("\n");
-							while (end >= 0) {
-								const frame = JSON.parse(protocol.slice(0, end));
-								protocol = protocol.slice(end + 1);
-								if ("exitCode" in frame) {
-									const signal =
-										frame.signal === null
-											? null
-											: (Object.entries(constants.signals).find(([, value]) => value === frame.signal)?.[0] as
-													| NodeJS.Signals
-													| undefined);
-									if (
-										result ||
-										!(frame.exitCode === null || Number.isInteger(frame.exitCode)) ||
-										signal === undefined ||
-										(frame.exitCode === null) === (signal === null)
-									)
-										throw new Error("Invalid command result");
-									result = { exitCode: frame.exitCode, signal };
-								}
-								end = protocol.indexOf("\n");
-							}
-						} catch (error) {
-							fault = error;
-							control.end();
-						}
-					});
-					control?.on("error", (error) => {
-						fault = error;
-					});
 					let output = "",
 						stderr = "",
 						writes = Promise.resolve(),
@@ -152,8 +87,8 @@ export function processTool(
 							});
 					};
 					const stop = () => {
-						if (control) {
-							control.end();
+						if (hosted) {
+							hosted.cancel();
 							return;
 						}
 						if (child.pid) {
@@ -208,8 +143,10 @@ export function processTool(
 						context.abortSignal?.removeEventListener("abort", abort);
 						if (job) delete job.write;
 						await writes;
+						await completed;
 						if (fault) reject(fault);
 						else if (context.abortSignal?.aborted) reject(context.abortSignal.reason);
+						else if (completionFault) reject(completionFault);
 						else if (host && !result)
 							reject(new Error(`Hosted command exited without a verified result (${code}, ${signal})`));
 						else
@@ -220,13 +157,13 @@ export function processTool(
 										text: JSON.stringify({
 											output,
 											stderr,
-											exitCode: host ? result!.exitCode : code,
+											exitCode: host ? result!.code : code,
 											signal: host ? result!.signal : signal,
 											fullOutputPath: path,
 										}),
 									},
 								],
-								isError: (host ? result!.exitCode : code) !== 0,
+								isError: (host ? result!.code : code) !== 0,
 								details: { pid: child.pid ?? 0, fullOutputPath: path },
 							});
 					});

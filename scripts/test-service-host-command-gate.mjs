@@ -49,7 +49,11 @@ for (const stage of ["prepare", "ready"]) {
 				JSON.stringify({
 					launcherPid: process.pid,
 					program: process.execPath,
-					arguments: [join(root, "scripts/fixtures/service-command-runner.mjs"), home, "gate"],
+					arguments: [
+						join(root, process.env.YONDER_HOST_TEST_RUNNER ?? "scripts/fixtures/service-command-runner.mjs"),
+						home,
+						"gate",
+					],
 					environment: { ...process.env },
 					cwd: home,
 					log: join(home, "log"),

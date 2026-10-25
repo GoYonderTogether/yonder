@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 本机 ExecutionEnv.exec（rg、Runtime/SDK execution.run 和 cron 程序作业）接入同一薄宿主 program+argv 门；通过 Pi fork 的可选 local spawn/cancel 适配保留原 Result、流式输出/背压/spill、stdin transport、timeout/abort/cleanup，默认 bash 共用私有 fd 能力缓存，不再各自读取。无宿主/非 macOS/remote 原行为不变。
+
 - 共享 Helper 安装器在 host/permissions 两个入口同步刷新当前安装发行版的稳定 permissions wrapper，支持升级和回滚；锁保留 holder 身份且仅证明旧 holder 已死才恢复，替换失败恢复旧签名 bundle，不盲删并发锁。
 
 - 修复薄宿主后代枚举的归属竞态：以同一 BSD identity/PPID 快照复验到真实 anchor 或已 ACK 根的完整边，拒绝枚举后复用/换父的 PID，清理不误收新身份。

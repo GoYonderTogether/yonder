@@ -4,8 +4,10 @@ import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ExecutionEnv } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
+import { hostedProcessSpawner } from "./hosted-process.js";
 export function localEnvironment(cwd: string): ExecutionEnv {
-	return new NodeExecutionEnv({ cwd });
+	const localSpawn = hostedProcessSpawner();
+	return new NodeExecutionEnv({ cwd, ...(localSpawn ? { localSpawn } : {}) });
 }
 export const canonicalPath = async (env: ExecutionEnv, path: string): Promise<string> =>
 	getOrThrow(await env.canonicalPath(path, BACKGROUND_CONTEXT));

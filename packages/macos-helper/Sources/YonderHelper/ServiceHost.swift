@@ -126,7 +126,7 @@ enum HelperServiceHost {
         }
     }
     static func nonblocking(_ fd: Int32) { _ = fcntl(fd, F_SETFD, FD_CLOEXEC); _ = fcntl(fd, F_SETFL, O_NONBLOCK) }
-    static func spawn(_ program: String, _ arguments: [String], _ config: Launch, group: Bool, channel: Int32? = nil, environment: [String: String]? = nil, inheritIO: Bool = false, capability: Int32? = nil) throws -> Int32 {
+    static func spawn(_ program: String, _ arguments: [String], _ config: Launch, group: Bool, channel: Int32? = nil, environment: [String: String]? = nil, inheritIO: Bool = false, capability: Int32? = nil, searchPath: Bool = false) throws -> Int32 {
         var actions: posix_spawn_file_actions_t?; posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
         posix_spawn_file_actions_addchdir_np(&actions, config.cwd)
@@ -153,7 +153,7 @@ enum HelperServiceHost {
         defer { for item in argv + env { free(item) } }
         var pid: Int32 = 0
         let result = argv.withUnsafeBufferPointer { av in env.withUnsafeBufferPointer { ev in
-            posix_spawn(&pid, program, &actions, &attributes, av.baseAddress!, ev.baseAddress!)
+            searchPath ? posix_spawnp(&pid, program, &actions, &attributes, av.baseAddress!, ev.baseAddress!) : posix_spawn(&pid, program, &actions, &attributes, av.baseAddress!, ev.baseAddress!)
         } }
         guard result == 0 else { throw hostError("Process spawn failed: \(result)") }
         return pid
@@ -206,7 +206,8 @@ enum HelperServiceHost {
             usleep(20_000)
         }
     }
-    static func commandAnchor(_ command: String) throws -> Int32 {
+    struct CommandLaunch: Codable { let program: String; let arguments: [String]; let environment: [String: String] }
+    static func commandAnchor() throws -> Int32 {
         let control: Int32 = 3
         nonblocking(control)
         signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN)
@@ -214,6 +215,19 @@ enum HelperServiceHost {
         term.setEventHandler { shutdown(control, SHUT_RD) }; term.resume()
         defer { term.cancel() }
         let input = Frames()
+        var launch: CommandLaunch?
+        let launchDeadline = Date().addingTimeInterval(5)
+        while launch == nil {
+            let frames = try input.read(control)
+            if input.eof { return 143 }
+            if let frame = frames.first {
+                guard frames.count == 1, Set(frame.keys) == Set(["launch"]), let value = frame["launch"] else { throw hostError("Invalid command launch") }
+                launch = try JSONDecoder().decode(CommandLaunch.self, from: JSONSerialization.data(withJSONObject: value))
+            }
+            guard Date() < launchDeadline else { throw hostError("Command launch timed out") }
+            if launch == nil { usleep(10_000) }
+        }
+        guard let launch, !launch.program.isEmpty else { throw hostError("Missing command program") }
         func cancelled() throws -> Bool { _ = try input.read(control); return input.eof }
         guard let own = member(getpid()), getpgid(own.pid) != own.pid,
               let path = ProcessInfo.processInfo.environment["YONDER_SERVICE_REGISTRATION"] else { throw hostError("Command gate requires hosted original group") }
@@ -261,10 +275,10 @@ enum HelperServiceHost {
         defer { if anchored(own) { kill(-own.pid, SIGKILL) } }
         try sendJSON(registration, ["groupReady": true])
         guard try ack("registered"), try !cancelled() else { return 143 }
-        var environment = ProcessInfo.processInfo.environment
+        var environment = launch.environment
         environment.removeValue(forKey: "YONDER_SERVICE_COMMAND_FD")
-        let config = Launch(launcherPid: 0, program: "/bin/bash", arguments: ["-c", command], environment: environment, cwd: FileManager.default.currentDirectoryPath, log: "", lock: "")
-        let pid = try spawn(config.program, config.arguments, config, group: false, inheritIO: true)
+        let config = Launch(launcherPid: 0, program: launch.program, arguments: launch.arguments, environment: environment, cwd: FileManager.default.currentDirectoryPath, log: "", lock: "")
+        let pid = try spawn(config.program, config.arguments, config, group: false, inheritIO: true, searchPath: true)
         try sendFrame(control, JSONSerialization.data(withJSONObject: ["shellPid": pid, "anchor": try object(own)]) + Data([10]))
         var status: siginfo_t? = nil
         var ending: Date? = nil
@@ -364,7 +378,7 @@ enum HelperServiceHost {
     static func run(_ args: [String]) -> Int32 {
         do {
             signal(SIGPIPE, SIG_IGN)
-            if args.count == 2 && args[0] == "service-command-anchor" { return try commandAnchor(args[1]) }
+            if args.count == 1 && args[0] == "service-command-anchor" { return try commandAnchor() }
             if args.count == 3 && args[0] == "service-group-anchor" { return try groupAnchor(args[1], registration: args[2]) }
             if args.count == 2 && ["service-cleanup", "service-verify-anchor", "service-verify-member"].contains(args[0]) {
                 let state = try JSONDecoder().decode(State.self, from: Data(contentsOf: URL(fileURLWithPath: args[1])))

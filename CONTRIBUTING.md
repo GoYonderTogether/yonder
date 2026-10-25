@@ -45,6 +45,8 @@ npm install --package-lock-only --ignore-scripts
 npm ci && npm run build && npm test
 ```
 
+本地未 push 的 fork 提交可用 `YONDER_PI_SOURCE=/absolute/fork-checkout node scripts/sync-pi-durable.mjs <完整40位commit>`；脚本核对 checkout 的 origin 是上述 fork 并 fetch 精确已提交对象，仍生成相同 repository/commit provenance，不读取未提交文件。这不代表该 SHA 已在远端发布。
+
 同步替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、pi-ai、codemode 等依赖继续取 npm，导出路径不变。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
 
 ## 检查与测试

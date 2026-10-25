@@ -328,3 +328,81 @@ wrapper 生成从 permissions 入口移入共享 `installHelper()`，host 安装
 锁记录 holder PID、ps start identity、随机 ownership token；活 holder、未知/半写 holder 都保留并明确失败，只有 ESRCH 或已确认不同 start identity 才允许恢复。恢复者在旧锁目录原子争取单一 recovery claim，复验 inode/token/死亡后才能删旧锁；正常释放也核对自己的 token。pending app 经真实 codesign verify 后先把旧 bundle rename 到本轮 backup，再替换；wrapper/rename 失败恢复旧 bundle，本轮 finally 仅清 pending/自身锁，成功后才删 backup。不是通用跨文件崩溃事务：SIGKILL 发生在 rename 窄窗时可能保留 `.previous.app` 备份，未宣称所有断电窗口自动事务恢复；没有重构安装平台。
 
 同前节 `.yonder/background/98913.log` 的 B3 **3 通过 / 0 失败 / 0 跳过**：首次 host/shared 安装、真实删除旧版本目录后升级、回滚均可执行 wrapper 且逐字保留带空格/引号 argv；外置 permissions-state 保留、wrapper mode=0700；强制 wrapper rename 失败后旧签名 bundle 内容恢复且 codesign verify 通过；活/未知锁不删，真实持锁子进程 SIGKILL 并 reap 后才恢复。证据 `/tmp/yonder-helper-install-l1mvmG` 只含临时 ad-hoc `/bin/echo` 合同 app，不启动 app、不探测 TCC、不接触正式稳定 wrapper/已批准 app。node --check 和变更脚本 Biome 无 error。
+
+## 发布审查必要修复 B2：本地 ExecutionEnv 的通用受管执行（18:24）
+
+### Fork 与 provenance
+
+只读检查已有 Pi checkout 后，选用 clean 的 `/Users/zoran/Documents/github/yonder-pi-compact-recovery`（origin=`https://github.com/GoYonderTogether/pi.git`），从当前内化的完整 base `f263794abacef09ee0ca59bb0d79ae039ca59c9f` 新建 `fix/hosted-local-exec-20261025`，未丢弃用户改动。上游必要变更已提交为 **`9060e7fa16681bf7ad572c4af56dc87e67a41309`**，只改 durable NodeExecutionEnv/options/结果/cleanup、专项及 fork 说明，不 import core、不含 Yonder 路径/授权判断。
+
+新增公开 `LocalProcessSpawn`：同步接收真实 program、readonly args、cwd、已合成 env 和 stdin pipe/ignore，返回 raw ChildProcess、幂等不抛错 cancel、child close 后结算的业务 code/signal Promise。NodeExecutionEnv 可选 `localSpawn`，未设置时保留原 spawn 与取消。结果 Promise 立即处理 rejection，流式输出仍使用原 decoder、waitForChildProcess、onOutput 和 spill/backpressure；最终同时等输出收尾及适配器业务结果。abort/timeout/callback/spill 错误和 cleanup 都调用适配器取消，不对 hosted 裸 PGID 发信号。
+
+本轮给既有同步脚本增加受支持 `YONDER_PI_SOURCE` 本地已提交对象来源（核对 fork origin、要求完整 SHA，fetch 精确 commit，不拷贝未提交文件）；实际执行：
+
+```sh
+YONDER_PI_SOURCE=/Users/zoran/Documents/github/yonder-pi-compact-recovery \
+  node scripts/sync-pi-durable.mjs 9060e7fa16681bf7ad572c4af56dc87e67a41309
+npm install --package-lock-only --ignore-scripts
+```
+
+`FORK_SOURCE.json`、NOTICE 均记录该完整 SHA，锁文件刷新后无 diff。`diff -qr` 证实 vendor 的整个 src 与已提交 Pi checkout 一致，未直接编辑 vendor。**Pi 提交仅在本地，未 push，不能把 provenance 当作远端已发布的证明**；父级发版前需按正式流程使 fork 对象可在远端重放，或使用已记录的本地脚本路径。
+
+### Harness 实际接线
+
+`runtime/env.ts` 只对 localEnvironment 注入适配器，远程 env 仍由原 env map 返回。新 `runtime/hosted-process.ts` 集中读取/关闭并 cache 私有 fd4（包括 sticky failure），默认 bash 也复用它；不存在两模块抢读 fd4。macOS 明确 hosted 且能力损坏时报错，绝不 fallback detached；明确无宿主/非 macOS 沿原分支，非 macOS 只有源码分支核对、未跨机实测。
+
+原生 command-anchor 不再把命令限定为 bash 字符串。Node 通过私有 fd3 首帧发送 program、arguments、业务 environment，native gate 仍在原组完成 prepare ACK 后才建子组，ready ACK 后才 posix_spawnp 真实 program+argv；不把 argv 拼成 shell。gate 自身保有真实注册 endpoint，业务 env 取请求的 env/inheritEnv 结果，不把为 gate 补入的私有字段漏给 inheritEnv=false 的业务。CLOEXEC/明确 stdio 继承、两 owner、子组锚点、WNOWAIT、业务真实结果帧及 TERM→1秒 KILL 保持。Node hosted cancel 只关闭本任务控制端，不信号服务根组。默认 bash 的日志、后台语义和软 timeout 不变。
+
+### 实际专项与失败保留
+
+所有重型批次先原子 mkdir `/tmp/yonder-heavy-test.lock`，成功者 finally 只释放自己的锁；JS 最多 `--maxWorkers=4`，未跑全量。
+
+- Pi 三条专项（在 `packages/durable`）：`env-node.test.ts env-node-conformance.test.ts -t 'NodeExecutionEnv shell| exec '` 为 **36 通过 / 0 失败 / 64 跳过**（63 范围过滤、1 Windows-only）；`env-node-local-spawn.test.ts` **19/0/0**；`env-node-spill.test.ts` **2/0/0**。日志 `.yonder/background/99048.log`，合计 **57 passed / 0 failed**。上游 scoped TypeScript 首先因临时配置 Node types 路径失败，随后因 Result 泛型 unknown 推断失败，修正后通过；没有上游测试失败。fork 定点 Biome/diffcheck 通过。Harness 后续目标构建也编译了最终 vendor。
+- Harness 首次 `tsc -b packages/core packages/cli plugins/cron` 被 exactOptionalPropertyTypes 拒绝显式 `localSpawn:undefined`，改为有能力时才加入属性；失败日志 `99215.log`。修正后目标 tsc 与完整 Swift Package Helper 构建、checkout ad-hoc 签名/verify 通过（`99226.log`，Swift 构建2.26秒），未改批准 app。
+- hosted exec 合同首次 **0 通过 / 1 失败**（`99226.log`，`/tmp/yonder-command-G1XcdX`），是夹具把 inheritEnv=false 的 Node 环境与字面 `{ONLY:...}` 比较，而 macOS Node 自身会添加 `__CF_USER_TEXT_ENCODING`。改为与同一 Node 实际 unhosted env 基线逐项比较，不允许 gate 额外泄漏环境；修正后 **1/0/0**（`99259.log`，`/tmp/yonder-command-ykS8FH`）。stdin 专项明确使用 shared adapter 的 pipe；Pi 的 legacy WSL shell-stdin transport 由 upstream 专项覆盖，不把 macOS Node `-c` 语法检查误当 stdin 执行。
+- 最终 exec 合同（新增自定义 PATH、相对 program、pre-abort、完整 spill 内容比较）及 owner/gate 批次：
+
+```sh
+node_modules/.bin/tsc -b packages/core packages/cli plugins/cron
+node_modules/.bin/vitest run --maxWorkers=4 \
+  packages/core/src/runtime/process.test.ts packages/core/src/runtime/env.test.ts
+YONDER_HOST_TEST_RUNNER=scripts/fixtures/service-exec-runner.mjs \
+  node --test --test-concurrency=1 \
+  scripts/test-service-host-command.mjs scripts/test-service-host-command-gate.mjs
+```
+
+本地无宿主/损坏能力合同 **2 文件、4 通过 / 0 失败 / 0 跳过**；真实 hosted env exec **13/0/0**（129.26秒，`99285.log`，`/tmp/yonder-command-wkrnms` 和 `/tmp/yonder-command-gate-tWsjRY`）。其中广合同调用真实 local env string + literal argv（空格、引号、shell元字符不解析）、cwd/env/inheritEnv、自定义 PATH 及相对程序、真实 rg Tool、adapter stdin、3MiB stdout+stderr 全量 spill 内容/背压、实际 code7/SIGTERM→143、timeout/abort/cleanup/callback错误、快速根退出同组抗TERM后代。真实 Runtime.open/executeCommand、真实 openKernel PluginAPI execution.run 的 string/argv 与 owner/capability拒绝，以及实际 cron 插件的 cron_exec command/script 作业均已执行并断言结果，不是 mock execution.run；通过注册捕获的真实 tool 直接调用，不声称模型选择工具或真实长期定时调度已验收。随后同进程运行 bash 成功，证明 env 与 bash 共用一次 fd4 capability。
+
+13项另包括 Helper/launcher 各自单 owner SIGKILL、快速根已退出且后代 PPID=1/PGID=登记 anchor 后各自单 owner 死亡，以及 prepare/ready 的 cancel、错误 ACK、无 ACK、Helper 死亡。阶段取消不执行业务；不是重跑旧“必须未被枚举到”的时序夹具。
+
+- 同批最后默认 bash 广合同 **0/1/0**（`99285.log`，`/tmp/yonder-command-QYQnJ5`）：共享模块把取消前无结果帧的 completion error 抢先当作 I/O fault，盖过原 abort reason。产品修复为分别保存 completionFault，仍先处理真实 I/O fault，再保留显式 abort reason，非取消时必须有 verified result。最终目标 `tsc -b packages/core packages/cli` 与默认 bash 广合同定点 **1/0/0**（24.31秒，`99336.log`，`/tmp/yonder-command-Lil5aR`）。只改 bash 结果结算优先级，已通过的 env/gate/Swift 未变化，不重复全部13项。
+- 最后变更的12个 JS/TS文件 Biome **0 error / 12 warnings**（原有 non-null 风格），脚本 node --check、diffcheck 通过。没有用末次通过覆盖上述失败，没有重跑 setsid 红门/旧时序夹具来凑绿色数字。
+
+[本轮持久证据](evidence/service-host-release-fixes-20261025.json) 保存最终关键源码/Helper SHA-256、fork provenance、原始失败、专项矩阵和6个实际证据根的 liveness。**149个已记录唯一PID均已不存在，remaining=[]**（含失败批次、被取消任务、cleanup及快速根后代），只查已记录PID、不做全机扫描/未知信号。heavy-test锁已释放，无本轮开发服务器/后台watcher。
+
+### B4：首轮 .06 迁移与 legacy 回滚的真实执行步骤（本轮未执行）
+
+当前 .06 updater 自身不会生成 hosted plist，必须由父级正式发布窗口执行以下步骤，不能把 version/ready当作宿主已启用。使用唯一正式新tag、同一生产签名身份的发行 artifact，由独立于被更新服务的管理进程进行：
+
+1. 按既有发布流程 `yonder update --to <父级选定的真实新tag> --home /Users/zoran/.local/share/yonder-harness/home --json`。本轮没有发明tag、改版本或执行update。
+2. 更新后从真实 `~/.yonder-harness/bin/yonder` **新进程**执行 `service install --home /Users/zoran/.local/share/yonder-harness/home --json`。不是 restart。先用 `candidateRoot="$(node -p "require('node:fs').realpathSync(process.env.HOME + '/.yonder-harness/current')")"` 记录这时真实 current 对应的安装版本目录，保留该正式 artifact 到升降级闭环结束。host启动调用共享installer，稳定bundle/wrapper一起刷新；核对真实plist是`bin/yonder-service --home ...`、lease及Helper→anchor→Node父链。
+3. 回滚 .06 后，legacy artifact 本身没有新共享installer/host入口，因此不能声称“旧代码自动执行了新逻辑”。由仍保留的**正式候选安装目录**载入本轮共享installer，并把源root设成回滚后的真实current（不是开发checkout），同步回滚稳定bundle/wrapper，再从回滚后的新CLI进程执行旧 `service install`。明确命令如下（`candidateRoot` 是步骤2实际记录的安装目录，不是猜测路径）：
+
+```sh
+# 在独立管理进程中，执行前先核对 candidateRoot 仍存在且是正式已签名 artifact。
+# ~/.yonder-harness/bin/yonder update --to v0.2.26102506 --home /Users/zoran/.local/share/yonder-harness/home --json
+node --input-type=module - "$candidateRoot" "$HOME/.yonder-harness/current" <<'JS'
+import { realpath } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const { installHelper } = await import(pathToFileURL(join(process.argv[2], 'scripts/yonder-helper-install.mjs')));
+await installHelper(await realpath(process.argv[3]));
+JS
+# 随后在实际授权窗口：~/.yonder-harness/bin/yonder service install --home /Users/zoran/.local/share/yonder-harness/home --json
+```
+
+共享installer已对“选定旧root→wrapper/旧bundle恢复”做真实临时artifact合同；上面是尚未执行的生产迁移步骤，不是已完成的生产回滚证据。若回滚到也含新host的版本，它自己的host启动即走同一共享installer。重新升级后再次核对plist/真实父链、wrapper路径、版本/commit/home与统一API权限前后对比。
+
+### 最终边界
+
+B1/B2/B3代码及限定专项已交付，原“SDK exec未接线”历史描述由本节更新，历史证据不删除。仍待父级一次全量及正式发版整合；Pi SHA尚未push。B5保留为生产验收门：正式签名/DR、真实launchd安装升级回滚、grant retention及真实授权功能验证，不能用本轮ad-hoc/临时home替代。未push/发布、未正式安装/重启、未修当前损坏生产wrapper、未重签已批准app、未做敏感资源采集或OS权限prompt。
