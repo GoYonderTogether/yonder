@@ -174,7 +174,7 @@ interface Lookup { accounts: AccountInfo[]; convs: Ref[]; agents: string[] }
 
 同一套接口供三方使用：CLI、插件（`api.sessions`）、工具（`session_*`）。
 
-- agent 会话（`main` / `persistent` / `ephemeral`）由路由创建；这套接口能列出、查看、中止、关闭它们，但**不能**向它们提交输入——给 agent 的输入一律是事件，走绑定（§2）。需要拿到回复的调用方用 `events.ask`（04 §4）。
+- agent 会话（`main` / `persistent` / `ephemeral`）由路由创建；这套接口能列出、查看、中止、关闭它们。插件还可向已打开的 `main` / `persistent` 会话 submit 系统提醒，记录 `from: plugin:<id>` 的 `session.input`，沿用该会话当前配置档、能力与原生续办/并发处理，不携带人类授权。其他给 agent 的输入走绑定（§2）；需要拿到回复的调用方用 `events.ask`（04 §4）。
 - 预设会话（`task`）由 `open` 创建、`submit` 驱动。每次 `submit` 写一条 `session.input` 事件（01 §3）。
 - 交互任务（12 §7）：open 可指定 `close: manual`，本轮结束后保持会话打开以便继续 submit；策略创建后不变。abort 中止当前及排队输入但不关闭 manual 会话；close 中止未完成及排队工作后关闭，拒绝后续 submit、保留历史。退出客户端不关闭/中止。默认 run-end 和 task_run 保持既有行为。
 

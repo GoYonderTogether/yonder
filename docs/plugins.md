@@ -348,3 +348,11 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **贡献**：前台 memory_read/edit、skill_store、memory_pending、refine；三个仅 active grant 可用的内部 review 工具；hermes-memory/behavior/core 上下文、hermes-yonder 教学技能、hermes-study 与 hermes-learning-review 预设及学习 hooks/trigger。
 - **范围**：只在明确映射的 Agent/profile 与原授权目录内操作；不自动选入其他 Agent，不搬动记忆或技能。新技能使用现有原生发现/skill_view；静默 review 不发渠道消息，不含通用 shell 或派发工具。
 - **来源**：MIT Hermes 策略的 Yonder-native 适配，精确 pin、许可、运行时差异与受控原生验收脚本随包保留；不是 Python runtime 或上游字节/cache 一致 fork。
+
+## tasks：任务账本（P1）
+
+- **包**：`@yonder/plugin-tasks`，id `tasks`；[README](../plugins/tasks/README.md)、[源码](../plugins/tasks/src/index.ts)。
+- **贡献**：工具 `tasks_open`、`tasks_update`、`tasks_done`、`tasks_list`、`tasks_get`；turn 上下文 `tasks-turn`。
+- **存储**：插件 data 下 SQLite 只追加事件，回放得到当前状态与历史；完成要求交付和逐项证据，插件不判断验收。
+- **范围**：默认自己的任务及 parent 链下子任务；`cross-agent` 只读其他 Agent 进行中任务。工具与上下文须由 profile 显式选用。
+- **边界**：P1 不含提醒、nudge、展示投影、回复尾部清单或复盘时点；未做模型及生产验收。

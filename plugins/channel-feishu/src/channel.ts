@@ -41,7 +41,7 @@ import {
 	string,
 	textPayload,
 } from "./protocol.js";
-import { FeishuTaskCards } from "./task-card.js";
+import { boardMime, FeishuTaskCards } from "./task-card.js";
 
 export class FeishuChannel implements Channel {
 	readonly kinds = ["dm", "group"];
@@ -644,6 +644,12 @@ export class FeishuChannel implements Channel {
 	async send(target: string, msg: OutMessage, signal?: AbortSignal): Promise<Delivery> {
 		let lastId: string | undefined;
 		try {
+			const board = msg.attachments?.find((attachment) => attachment.mime === boardMime);
+			if (board)
+				return {
+					ok: true,
+					id: await this.taskCards.showBoard(target, board.uri, signal ?? AbortSignal.timeout(30000)),
+				};
 			const replyTo =
 				msg.sourceMessageId || msg.replyTo
 					? await this.interaction.beforeReply(target, msg.sourceMessageId, msg.replyTo)

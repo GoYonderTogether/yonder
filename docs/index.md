@@ -25,6 +25,7 @@
 | 1 | [spec/14-execution-capabilities.md](spec/14-execution-capabilities.md) | 后台任务与软提醒、cron、MCP 客户端、Agent 热管理、独立自动化、手工 memory | 改内核或相关插件 |
 | 1 | [spec/15-clipboard-vault.md](spec/15-clipboard-vault.md) | 引用剪贴板、Keychain 秘密与类型化目的地 | 改剪贴板或秘密消费者 |
 | 1 | [spec/16-card-plugin.md](spec/16-card-plugin.md) | 名片渠道：设备授权、全部 Agent 登记、多路消息、补收与名片草稿 | 写 card 插件 |
+| 1 | [spec/17-task-ledger.md](spec/17-task-ledger.md) | 统一任务账本：对象与状态、工具、可见范围、时点机制、展示分层 | 写 tasks 插件或用它 |
 | 2 | [plugins.md](plugins.md) | 官方插件清单：贡献、事件、工具 | 用或写插件 |
 | 2 | [prompts/README.md](prompts/README.md) | 系统底座、两类官方常驻模板、来源映射与小上下文配置入口 | 调整 Agent 提示词 |
 | 2 | [reference.md](reference.md) | 核心工具、CLI 命令、SDK 接口的注册名参考 | 查名字时 |

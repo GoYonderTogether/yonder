@@ -173,6 +173,7 @@ export interface SessionsAPI {
 		capabilities?: Capability[];
 		close?: "run-end" | "manual";
 	}): Promise<SessionInfo>;
+	/** Plugins may also submit system reminders to open main/persistent sessions, under their current profile. No human authority is implied. */
 	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" | "interrupt" }): Promise<RunResult>;
 	submit(
 		id: string,
@@ -362,8 +363,8 @@ export interface EnvProvider {
 	create(id: string, config: unknown): Promise<ExecutionEnv>;
 }
 export interface Hook {
-	/** Filter a complete outbound message before any channel attempt or ledger record. */
-	beforeSend?(message: OutMessage, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
+	/** Filter a complete outbound message, including its destination Ref, before any channel attempt or ledger record. */
+	beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
 	id: string;
 	beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
 	afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;

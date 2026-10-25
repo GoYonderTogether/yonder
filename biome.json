@@ -15,5 +15,13 @@
 	"formatter": {
 		"indentStyle": "tab",
 		"lineWidth": 120
-	}
+	},
+	"overrides": [
+		{
+			"includes": ["plugins/tasks/src/prompts.ts"],
+			"formatter": {
+				"enabled": false
+			}
+		}
+	]
 }

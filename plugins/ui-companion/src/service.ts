@@ -24,6 +24,8 @@ export class CompanionService {
 	private changes = new Set<() => void>();
 	private base = "";
 	private stopped = true;
+	private boardSource?: string;
+	private boardRequest?: { id?: string; revision: number };
 	constructor(
 		private readonly directory: string,
 		private readonly desktop: boolean,
@@ -96,10 +98,37 @@ export class CompanionService {
 					response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }).end(html);
 					return;
 				}
+				if (request.method === "POST" && path === "board") {
+					if (request.headers["content-type"] !== "application/json") throw new Error("JSON required");
+					const input = JSON.parse(await this.body(request));
+					const source = new URL(input.source);
+					if (
+						source.protocol !== "http:" ||
+						source.hostname !== "127.0.0.1" ||
+						(input.id !== undefined && typeof input.id !== "string")
+					)
+						throw new Error("Invalid board source");
+					this.boardSource = source.href;
+					this.boardRequest = { id: input.id, revision: (this.boardRequest?.revision ?? 0) + 1 };
+					response
+						.writeHead(200, { "Content-Type": "application/json" })
+						.end(JSON.stringify({ url: this.base, view: input.id ? "detail" : "board" }));
+					return;
+				}
+				if (request.method === "GET" && (path === "board" || path.startsWith("board?"))) {
+					if (!this.boardSource) throw new Error("No board published");
+					const source = new URL(this.boardSource);
+					const id = new URL(request.url, origin).searchParams.get("id");
+					if (id) source.searchParams.set("id", id);
+					const result = await fetch(source, { signal: AbortSignal.timeout(5000), redirect: "error" });
+					response.writeHead(result.status, { "Content-Type": "application/json" }).end(await result.text());
+					return;
+				}
 				if (request.method === "GET" && path === "state") {
 					response.writeHead(200, { "Content-Type": "application/json" }).end(
 						JSON.stringify({
 							active: this.active()?.interaction ?? null,
+							board: this.boardRequest ?? null,
 							history: this.records.filter((r) => r.interaction.completed || r.cancelled).map((r) => r.interaction),
 						}),
 					);
@@ -130,6 +159,10 @@ export class CompanionService {
 		const address = server.address();
 		if (!address || typeof address === "string") throw new Error("UI listener unavailable");
 		this.base = `http://127.0.0.1:${address.port}/${secret}/`;
+		await mkdir(this.directory, { recursive: true, mode: 0o700 });
+		await writeFile(join(this.directory, "renderer.json"), JSON.stringify({ url: this.base, pid: process.pid }), {
+			mode: 0o600,
+		});
 		if (this.desktop) {
 			try {
 				await mkdir(this.directory, { recursive: true, mode: 0o700 });
@@ -260,6 +293,9 @@ export class CompanionService {
 		this.stopped = true;
 		this.changed();
 		await this.tail;
+		await unlink(join(this.directory, "renderer.json")).catch((error) => {
+			if (error.code !== "ENOENT") throw error;
+		});
 		try {
 			if (this.desktop && this.base) {
 				const path = join(this.directory, "desktop.json");

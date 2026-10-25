@@ -1,0 +1,49 @@
+{
+	"name": "@yonder/plugin-tasks",
+	"version": "0.2.26102509",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"dependencies": {
+		"@resvg/resvg-js": "2.6.2",
+		"@yonder/sdk": "0.2.26102509"
+	},
+	"yonder": {
+		"apiVersion": 1,
+		"id": "tasks",
+		"entry": "./dist/index.js",
+		"contributes": {
+			"tools": [
+				"tasks_open",
+				"tasks_update",
+				"tasks_done",
+				"tasks_list",
+				"tasks_get",
+				"tasks_nudge",
+				"tasks_show"
+			],
+			"contexts": [
+				"tasks-turn"
+			],
+			"triggers": [
+				"tasks-moments",
+				"tasks-board"
+			],
+			"hooks": [
+				"tasks-digest"
+			]
+		}
+	}
+}

@@ -6,6 +6,153 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 任务账本候选（未定版本，2026-10-25，待审核）
+
+本轮 PR #82 机械同步（2026-10-25）：在指定任务 worktree 的干净分支合并 origin/main `8f2cfcb`（PR #77–#81，0.2.26102509），合并提交 `10a6915`。27 个冲突文件为 CHANGELOG、package-lock 和 25 个 package.json；无代码冲突。版本冲突采用 main，tasks workspace/锁文件链接与依赖保留并对齐 .09。后续提交 `462b027` 撤销 1346529 的发布准备声明，tasks 变更留在 Unreleased；已发布 CHANGELOG 段落逐字等于 main，已有包版本/依赖与锁文件版本核对通过。docs/verification 历史记录保留，候选等待独立 release PR 定版本。
+
+本轮从干净 Git 状态执行以下命令（依次完成安装、构建、类型检查和测试，没有并发重装依赖）；命令均 exit 0，没有检查失败或修复重跑：
+
+| 实际命令 | 本轮原始结果 |
+|---|---|
+| `agent-network run -- git fetch origin` | 通过 |
+| `git merge --no-commit origin/main` | 预期冲突，按上述规则解决并提交 |
+| `agent-network run -- npm ci` | 通过；新增 334 包，审计 361 包；4 vulnerabilities（2 moderate / 2 high），未自动修复；3 包 install scripts 提示未获 allowScripts 授权 |
+| `agent-network run -- npm run build` | 通过，含 worktree 内 macOS Helper 构建/签名验证；未安装 |
+| `npm run typecheck` | 通过，0 errors |
+| `npm run lint` | 通过，406 files，0 errors / 482 warnings / 14 infos |
+| `npm test` | 文件 117 passed / 0 failed / 19 skipped；用例 730 passed / 0 failed / 39 skipped（769） |
+| `YONDER_TEST_REAL=1 YONDER_TEST_AUTH=/Users/zoran/Documents/yonder-harness/.yonder/auth.json agent-network run -- npm test -- plugins/tasks/test/moments.test.ts` | 文件 1 passed / 0 failed / 0 skipped；用例 4 passed / 0 failed / 0 skipped，含真实 openai/gpt-6-luna stall 检查；凭据仅由测试读取，未打印 |
+
+本轮未测（not tested）：默认跳过的 39 个用例中，除上述 moments 真实用例外的其他真实模型/环境专项；历史 task-presets-live 失败未重跑；独立构建版 smoke、真实飞书、已安装 macOS、生产服务、TCC/定位授权与升级均未测。本轮未发布、安装、操作生产 home 或已安装服务；既往失败与计数继续保留在下文，不以本轮成功覆盖。原始本机日志：`/tmp/task-ledger-82-{ci,build,typecheck,lint,test,real}.log`。
+
+任务 worktree 合并 origin/main `78ae9de`（PR #74–#76），合并提交 `fcc176a`。companion 同页保留 Agent 概览/图钉与任务看板；渠道实例范围、permissions API 及两侧历史记录保留。此前 release-prep 提交 1346529 的版本准备已撤销：本功能候选未定版本，等待独立 release PR；包版本沿用 main 的 0.2.26102509，不表示 tasks 已发布。以下保留此前验证的原始记录；当时未推送、打 tag、发布或安装。
+
+干净安装、build、typecheck、lint 通过（0 errors / 478 warnings / 14 infos）；默认全量 114 文件通过 / 19 跳过，681 用例通过 / 0 失败 / 39 跳过。真实专项首轮被执行者并发 npm ci 破坏 worker 后中止（exit 130，无完整计数）；完整重跑为 48 文件通过 / 1 失败 / 1 跳过，141 用例通过 / 1 失败 / 1 跳过。失败的官方 task-presets-live 父预设只提供 task_run，coding 子任务按现有契约继承后无文件/Shell 工具；相关源码/测试与 main 完全相同，未为本次合并扩大修复，也不宣称候选全绿。execution-live 硬编码 worktree 凭据路径，未测。任务插件 moments 定点真实检查 4 通过 / 0 失败 / 0 跳过，Luna 实际 read/tasks_update 后标记 blocked。
+
+此前构建版在独立 `/tmp/yonder-task-ledger-rc-smoke` 返回 .07/ready=true（历史验证值，不作为本候选版本）；真实 Luna 经真实 loader 完成 tasks_open → tasks_list → tasks_show，T1 一致，companion/board HTTP 200、Chrome 可见看板；临时进程已停止。首次 smoke 因临时配置缺少 research 依赖 web-tools 启动失败，恢复该插件后通过。生产/安装/渠道/原生鼠标与 TCC 均未测。完整命令、原始失败、结果与截图入口见 [发布候选验证](verification/task-ledger-release.md)。
+
+## 任务账本 P3a renderers（2026-10-25，任务分支待审核）
+
+仅在 `/Users/zoran/Documents/yonder-harness-tasks` 的 `feat/task-ledger-20261025` 实施，基于已提交的 P1/P2/P3-1、D66/D67。本轮一个逻辑提交覆盖三个插件；没有推送、发布、安装、修改生产 home 或操作已安装服务。
+
+**已实现**：tasks 在随机路径 loopback 服务发布调用者可见范围内的 `{board,text}`；ui-companion 现有页面显示固定四组、计数、任务字段、滞留标记、详情/逐项证据/交付/事件/嵌套子任务，每秒刷新，刚完成默认收起，刷新保留滚动；复用网页徽标及原生 state/attention/current 机制。飞书通过现有 Attachment 投递路由接收 source URL，每会话当前看板卡每两秒读取、文字变化时带递增版本 PATCH 原消息；显式请求重新发送为最新锚，发送失败回退现有 PNG/文字路径。没有 renderer 任务状态机或账本读取，没有管家视图、操作按钮、新工具或生产配置。
+
+SDK services 只有 resolve、没有发布注册接口，采用既有私有端点文件惯例；ui-companion 发布 renderer.json，飞书按实例发布 task-board.json 路由声明。tasks 不 import 其他插件，SDK/core/原生源码和全部受保护设计文档、prompts.ts 均未改。协议和最简单解释见三个插件 README 的 Questions for the maintainer：首次展示/重启需 tasks_show 建立范围；最近一次请求决定当前范围；飞书历史消息保留，只刷新最新锚；PATCH 不确定失败暂停该卡自动更新，显式 show 重接。
+
+**实际验证**：真实 loader/kernel、SQLite、ChannelIO 和本地 HTTP 协议服务；FeishuApi 仅把 HTTP transport 接到隔离的本地协议服务器，实例走真实 start/stop（隔离 home 无飞书凭据，外部连接未启动），没有模拟模型。网页使用后台独立 Chrome profile 与 CDP，读取真实服务页面，验证分组顺序/刚完成收起/详情/证据/子任务/跨 Agent 隔离/账本变化后自动刷新/长静默标记/滚动保持/悬浮入口/current 入口。测试按调用者自己的范围发布，外部 Agent 详情返回 400。飞书验证首次仅一条、无变化不 PATCH、变化 PATCH 同 ID 且版本增加、显式请求新 ID、后续只 PATCH 新 ID、平台拒绝时真实 PNG 上传和发送。浏览器无 Chrome 时该用例显式 skip；本机未跳过。
+
+原始命令与结果（passed / failed / skipped；未覆盖旧失败）：
+
+| 命令 | 原始结果 |
+|---|---|
+| `npm run build` | 第一次 exit 2，4 个 TS 错误：promise setTimeout 与轮询函数同名造成 3 个类型错误，server 可选字段严格类型错误 1 个。改为 globalThis.setTimeout 和显式 undefined 联合类型后，4 次均 exit 0；含项目既有 macOS 编译/自检与网页资源构建，没有安装/启动原生应用 |
+| `npm run typecheck` | 两次 exit 0 |
+| `npm run lint` | 两次 exit 0；0 errors / 461 warnings / 14 infos |
+| `npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` | 首次 91 / 2 / 1，9 文件通过 / 2 文件失败，另有 1 unhandled rejection。测试夹具 active 直接 done 违反既有状态契约；HTTP FormData 错标 JSON 导致协议服务器解析异常和超时。修正夹具，不改状态机/断言/超时 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` | 首次 91 / 2 / 1：飞书夹具只启动卡片存储，实例仍 stopped；Chrome 启动标签页导航竞争。修正为真实实例 start/stop，浏览器独立测试标签页；最后两次均 93 / 0 / 1，11 文件通过 |
+| `npm test -- plugins/ui-companion/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 5 / 2 / 0，仍为上述实例生命周期与浏览器导航问题；增加协议/导航诊断，没有扩大超时 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/ui-companion/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 6 / 1 / 0，飞书已通过，Chrome 返回 net::ERR_ABORTED |
+| `npm test -- plugins/ui-companion/test/contract.test.ts` | 3 / 1 / 0，网络诊断确认导航被取消；改为独立测试标签页后通过 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/ui-companion/test/contract.test.ts` | 4 / 0 / 0，截图输出成功 |
+| `node plugins/ui-companion/test/state.mjs` | exit 0，既有状态自检通过（脚本没有测试计数汇总） |
+| `npm test` | 608 / 0 / 39（647），103 文件通过 / 0 失败 / 19 跳过（122），默认运行未启用真实模型 |
+| `git diff --check` | exit 0 |
+
+格式化仅作用于触及的插件源码、测试和 package.json：早期 `npx biome check --write` exit 0，分别报告 6 和 57 warnings；后续局部格式化同为 exit 0。最终以完整 lint 的 461 warnings / 14 infos 为准，不把 warning 当失败或删除既有检查。
+
+本机实图已检查：`/tmp/yonder-task-board-detail-overview.png`（总览和嵌套子项）、`/tmp/yonder-task-board-detail.png`（详情和逐项证据）。图来自真实发布账本的浏览器测试，不是静态 mock。
+
+**未测**：真实飞书平台/客户端卡片外观与更新；已安装 macOS 浮球、焦点、全屏及多屏；生产部署；resvg 故意缺失的文字降级；干净 npm ci。未调用真实模型（本轮是确定性渲染/协议，无模型判断变更），因此没有读取指定生产 auth 文件；默认跳过项不是通过。范围外的管家视图、后台日志尾部未实现。
+
+## 任务账本 P3-1（2026-10-25，任务分支待审核）
+
+- 仅 `/Users/zoran/Documents/yonder-harness-tasks`，`feat/task-ledger-20261025`。A `45c69e1` 为 SDK 类型及真实内核投递组件测试；B 为本节记录的 tasks 展示。未推送、发布、安装或操作生产服务；指定 auth 文件仅作为真实模型测试凭据入口。
+- **已实现**：TaskBoard 纯数据投影、固定四组及计数、30 分钟刚完成窗口、每账本稳定 T<n>/UUID 兼容、原可见范围、验收证据计数与父子树；tasks_show board/detail JSON、文字/SVG/resvg PNG；程序附件发送；默认启用的 beforeSend 尾部摘要、每目的地持久去重、事件账本推导的两小时离开摘要。仍无桌面/网页端点、飞书卡、管家视图、后台输出尾部。
+- **实际验证**：真实 SQLite、loader、kernel、本地 ChannelIO 与附件文件；纯 SVG 被 resvg 真实解析，PNG 文件头校验通过，实际图片已查看（本机 `/tmp/tasks-p3-board.png`）。摘要测试调用真实注册 hook 和事件查询 API，不模拟模型；SDK 测试沿用真实内核 createDelivery/SQLite 协议驱动，未把手工 ToolContext 当真实工具调用。真实 Luna stall 用例单独启用并通过。
+
+原始命令与结果（通过 / 失败 / 跳过；保留失败尝试）：
+
+| 命令 | 实际结果 |
+|---|---|
+| A `npm test -- packages/core/src/kernel/before-send.test.ts`，三次早期尝试 | 每次 0 passed / 1 failed / 0 skipped，1 文件失败；手工及 beforeRequest 上下文都不是原生工具 invocation，messages.send 返回“需要真实运行中的工具调用上下文”。删除该错误测试入口，改用现有内核投递协议驱动；未改运行时授权 |
+| A `npm test -- packages/core/src/delivery/delivery.test.ts` | 11 passed / 0 failed / 0 skipped，1 文件通过 |
+| `agent-network run -- npm install --workspace @yonder/plugin-tasks --save-exact @resvg/resvg-js` | exit 0；安装 3 包，锁定 resvg 2.6.2；npm 报审计项 1 moderate / 2 high，未运行范围外 audit fix |
+| B `npx biome check --write plugins/tasks/src/board.ts plugins/tasks/src/digest.ts plugins/tasks/src/store.ts plugins/tasks/src/index.ts plugins/tasks/src/moments.ts plugins/tasks/package.json plugins/tasks/test` | 首次 2 errors / 20 warnings，修正 5 文件；escape 名称及隐式 any 待修 |
+| B `npx biome check --write plugins/tasks/src plugins/tasks/test/board.test.ts` | 首次 2 errors / 47 warnings，修正 3 文件；修正 escape → escapeXml、attachments 显式类型后重跑 0 errors / 47 warnings |
+| B `npx biome check plugins/tasks/src plugins/tasks/test/board.test.ts --diagnostic-level=error --max-diagnostics=100` | 修正前诊断确认上述 2 errors |
+| B `npm run build` | 首次 exit 2：EventQuery.conv 不能显式传 undefined；改为条件字段。之后构建均 exit 0，包含本地 macOS 构建和 ui-companion 静态资源构建；未安装或启动应用 |
+| B `npm run typecheck` | 三次均 exit 0 |
+| B `npm run lint` | 三次均 exit 0；0 errors / 445 warnings / 14 infos |
+| B `npm test -- plugins/tasks/test` | 三次均 13 passed / 0 failed / 1 skipped（14），3 文件通过 |
+| B `npm test` | 两次均 606 passed / 0 failed / 39 skipped（645）；103 文件通过 / 19 文件跳过（122） |
+| B `YONDER_TEST_REAL=1 YONDER_TEST_AUTH=/Users/zoran/Documents/yonder-harness/.yonder/auth.json agent-network run -- npm test -- plugins/tasks/test/moments.test.ts` | 4 passed / 0 failed / 0 skipped，1 文件通过；真实 openai/gpt-6-luna stall 检查已测 |
+| `git diff --check` | exit 0 |
+
+最终按 build → typecheck → lint → 插件测试 → 全仓默认测试顺序运行。最后一次修改把离开窗口内的首次回复判断限定在“两小时以后”，避免把离开前的普通回复算进窗口；随后的完整检查结果如上。其他局部 Biome 格式命令均只作用于 tasks 的 board/store/digest 或 A 测试文件，最终全仓 lint 为准。prompts.ts 与本期开始时完全相同。
+
+**维护者问题/本期解释**记录于 [tasks README](../plugins/tasks/README.md#questions-for-the-maintainer)：编号按账本稳定；总览独立于 postRetain；open 归进行中、计数包含子任务；摘要无变化不重发，先落去重记录再投递存在漏送窗口；人类来源使用现有 acct/person message.in，SDK 未提供通用人类标记；owner 别名不猜；PNG 保留在插件 data；验收 met 仅计算已有 evidence。未改 spec/17、architecture、decisions、index 或现有 prompts 原文。
+
+**未测**：真实微信/飞书等用户渠道；resvg 缺失/加载失败时的文字降级执行；SDK beforeSend 的完整真实模型出站调用（已测真实内核投递组件）；默认跳过的其余真实模型项目；spec 17 §9 n≥10 对照、多任务中断模型验收、postCompact 成功模型压缩；干净 npm ci；生产服务/发布升级。Luna 4/4 只证明该现有 stall 场景，不外推 P3 真实模型完整体验。
+
+## 任务账本 P2 与 resident 插件输入（2026-10-25，任务分支待审核）
+
+- 范围：仅 `/Users/zoran/Documents/yonder-harness-tasks`，`feat/task-ledger-20261025`；A `abdc211` 为 core 输入通路，B 为 tasks P2。没有推送、发布、生产 home 修改、安装或服务操作；基础分支继续保留 P1 提交。
+- **A 已实现**：仅插件 `sessions.submit → submitFrom` 可向打开的 main/persistent 会话投递；复用原 session.input 落盘、runtime submission、当前 profile/capabilities、busy 队列及恢复机制。事件来源 `plugin:<id>`，模型输入明确为系统提醒、不携带人类授权，不补造 parent/owner 来源。普通 submit 保持 task-only。SDK 仅补注释；spec/02 §5 只更正原本禁止插件向 resident submit 的一句；不改 architecture/decisions。
+- **P2 已实现**：`tasks-moments` Trigger 启动检查并每轮结束约 60 秒再检查；从账本时间推导到期，先追加 moment，再记录 moment-result（API 回执或错误），跨重启按窗口去重。stall 默认 30 分钟、仅 active、followup 到 owner session；user-wait 默认 120 分钟、直发 origin、中文 locale 本地化、不唤醒模型；tasks_nudge 需 cross-agent，以调用方 Agent 名构造维护者 NUDGE_INPUT，输入事件仍为 plugin:tasks。postCompact 默认关闭，done 15 分钟后调用 compact 一次；postRetain 默认关闭，done 30 分钟内 tasks_list 每项 recentlyDone 为 true。只接受 stallMinutes/userWaitMinutes/moments 三个配置键。
+- **实际验证边界**：临时 SQLite、真实插件 loader/kernel/runtime admission、本地协议渠道；beforeRequest 暂停/取消 provider 请求，没有模拟模型。覆盖两个 resident mode、来源与当前能力、busy followup 入队、关闭/未知拒绝、task 输入、持久事件；P2 覆盖非 active 不 stall、窗口内一次、下个窗口重发、真实 kernel 重启不重发、用户通知无模型、缺 origin 跳过、催办到 owner/关闭或缺失拒绝、postCompact 默认关/开启调用后记录真实能力错误且只尝试一次、recentlyDone 30 分钟边界。
+
+本次原始命令记录（通过 / 失败 / 跳过；未用后一次成功覆盖失败）：
+
+| 阶段 / 命令 | 真实结果 |
+|---|---|
+| A `npx biome check --write packages/core/src/kernel/plugin-input.test.ts packages/core/src/sessions/index.ts packages/core/src/prompt/index.ts packages/sdk/src/types.ts` | exit 0，修正 1 文件；0 errors / 6 warnings / 4 infos |
+| A `npm test -- packages/core/src/kernel/plugin-input.test.ts`，最初三次 | 每次 0 passed / 1 failed / 0 skipped；前两次临时 home 默认 preset 引用未注册插件/上下文，第三次测试事件未使用插件 x 命名空间；修正测试装配 |
+| A `npm run build`，首次 | exit 1；2 个测试 TypeScript 错误：kernel.events 不暴露 emit、submit 返回 union 未指定 wait:false；改用真实 PluginAPI 并明确回执类型 |
+| A `npx biome format --write packages/core/src/kernel/plugin-input.test.ts`（两次） | 均 exit 0，各格式化 1 文件 |
+| A `npm test -- packages/core/src/kernel/plugin-input.test.ts`，修正后 | 1 passed / 0 failed / 0 skipped；1 文件通过 |
+| A `npm run build`，修正后 | exit 0；原生构建、并发 power lease/64 次 pmset 与 ui-companion 构建通过；产物仅在 worktree |
+| A `npm run typecheck` | exit 0 |
+| A `npm run lint` | exit 0；0 errors / 396 warnings / 14 infos |
+| A `npm test` | 598 passed / 0 failed / 38 skipped（636）；101 文件通过 / 19 跳过（120） |
+| B `npx biome check --write plugins/tasks/src/index.ts plugins/tasks/src/store.ts plugins/tasks/src/moments.ts plugins/tasks/package.json plugins/tasks/test/tasks.test.ts` | exit 0，修正 3 文件；0 errors / 11 warnings |
+| B `npx biome check --write plugins/tasks/test/moments.test.ts` | exit 0，修正 1 文件；0 errors / 6 warnings |
+| B `npm run build`（两次） | 两次均 exit 0；第二次包含最终时点逻辑与协议测试修正，原生与网页构建通过 |
+| B `npm test -- plugins/tasks/test`，首次 | 8 passed / 1 failed / 1 skipped（10）；1 文件通过 / 1 失败；本地测试渠道 send 错把第一个 target 参数当 message，修正为 send(target, message) |
+| B `npx biome check --write plugins/tasks/src/store.ts plugins/tasks/test/moments.test.ts` | exit 0，修正 1 文件；0 errors / 11 warnings |
+| B `npm run typecheck` | exit 0 |
+| B `npm run lint` | exit 0；0 errors / 405 warnings / 14 infos |
+| B `npm test -- plugins/tasks/test packages/core/src/kernel/plugin-input.test.ts`（两次） | 两次均 10 passed / 0 failed / 1 skipped（11）；3 文件通过 |
+| B `YONDER_TEST_REAL=1 npm test -- plugins/tasks/test/moments.test.ts` | 3 passed / 0 failed / 1 skipped（4）；1 文件通过；新增 Luna 用例**未测：缺少凭据**（未设置 YONDER_TEST_AUTH，worktree 默认 .yonder/auth.json 不存在） |
+| B `npm test`，最终默认全仓 | 601 passed / 0 failed / 39 skipped（640）；102 文件通过 / 19 跳过（121） |
+| B `npx biome check plugins/tasks/README.md docs/status.md CHANGELOG.md` | exit 1；0 files processed，Biome 不处理这些 Markdown 路径；不算文档 lint 通过 |
+| `git diff --check` | exit 0，无空白错误 |
+
+- 模型原文 `plugins/tasks/src/prompts.ts` 未修改，与 A 及其父提交一致；当前 SHA-256 `4ab808d9f2bfec93efc111838f897e492a09262af09c0e43d24d72aaae52d59c`（本次实测，不回写历史 P1 记录）。工具与时点直接引用原文常量。
+- **维护者问题/本期解释**见 [README](../plugins/tasks/README.md#questions-for-the-maintainer)：stall 把 wake 计为账本活动、排除 moment 行；等待从 waiting-user 状态时间起算；waitingFor 最近 note/缺省 objective。先记触发再外调，崩溃窗口可能漏送而不重放未知副作用；postCompact 每任务一次。最近完成保持数组并增加布尔标记，不扩大关闭任务的跨 Agent 可见范围。P1 的 session:<id> origin 继续交已有消息 API 处理，不猜渠道。
+- **明确跳过条件**：SessionInfo 无后台等待/已接纳 continuation 字段，因此按本次授权不判定这项 stall 排除条件。
+- **未测**：新增真实 Luna stall 行为（缺凭据）及其余 38 项默认跳过测试；postCompact 成功压缩/模型完成（协议测试验证的是真实 admin 能力拒绝与错误落账）；真实用户渠道、实际 60 秒墙钟等待、spec 17 §9 的 n≥10 对照、干净 npm ci、生产 Agent/服务、发布升级和生产账本对照。未实现 tasks_show、TaskBoard、投影、尾部摘要或任何完成后复盘时点。
+
+## 任务账本 P1（2026-10-25，任务分支待审核）
+
+- 范围：`feat/task-ledger-20261025`，仅 `/Users/zoran/Documents/yonder-harness-tasks`。新增可选 `@yonder/plugin-tasks`；插件 data 下 SQLite 只追加事件，五个工具、归属/parent 链/cross-agent 只读可见范围、逐项完成证据、turn 完整目标与一行重现。未改 SDK/core 或设计文档，未启用到现有 profile。
+- 真实证据：临时目录里的 SQLite、真实插件 loader、真实 kernel profile 选择与原生 `prepareInput`；没有模型替身或模型调用。修正骨架回放修改原始 open 历史的问题，覆盖原始行不变、状态恢复、渲染版本和事件计数去重。
+- 原始命令结果（本 worktree）：
+
+| 命令 | 结果 |
+|---|---|
+| `npm install --package-lock-only --ignore-scripts --offline --no-audit --no-fund` | exit 0，更新 workspace 锁文件，无新增依赖 |
+| `npx biome check plugins/tasks` | 首次失败：6 errors / 8 warnings；格式问题（包括必须保留原文的 prompts.ts） |
+| `npx biome check --write biome.json plugins/tasks/package.json plugins/tasks/tsconfig.json plugins/tasks/src/index.ts plugins/tasks/src/store.ts plugins/tasks/test/tasks.test.ts` | exit 0，修正 5 文件，0 errors / 8 warnings；biome.json 仅对 prompts.ts 停用 formatter |
+| `npm run build` | 两次均 exit 0；含原生 macOS 构建、并发 power lease/64 次 pmset 检查、ui-companion 构建；产物仅在 worktree |
+| `npm run typecheck` | exit 0 |
+| `npm run lint` | exit 0；0 errors / 393 warnings / 14 infos（保留仓库警告） |
+| `npm test -- plugins/tasks/test/tasks.test.ts` | 6 passed / 0 failed / 0 skipped；1 文件通过 |
+| `npm test` | 597 passed / 0 failed / 38 skipped（635）；100 文件通过 / 0 失败 / 19 跳过（119） |
+
+- 维护者原文 `plugins/tasks/src/prompts.ts` SHA-256 保持 `7f5dd68c7b0788b0db40f7e9cb685ab588bc1720f71e1799ba3b2c31eb1f9e05`。工具描述直接引用原文常量；一行渲染直接调用 TURN_ONE_LINE。
+- 待维护者确认的最简解释见 [README](../plugins/tasks/README.md#questions-for-the-maintainer)：状态恢复路径、预设 session 归属、显式 parent、关闭任务不注入；SDK RenderContext 无 run/write 标记，当前计数基于选中 turn 的输入渲染，session + event 去重，无法区分旁观与实际模型唤醒。
+- **未测**：38 项默认跳过测试、真实模型 `openai/gpt-6-luna` 与 spec 17 §9 的 n≥10 场景、干净 `npm ci` 安装、生产 Agent/真实渠道/服务、发布升级和生产账本对照。按本次 P1 边界未实现 nudge、滞留定时器、tasks_show、投影、尾部清单或复盘时点；未触碰生产 home 或已安装服务，未推送或发布。
+
 ## 共享 permissions API 独立集成（0.2.26102506，2026-10-25）
 
 从正式 .05 commit `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9` 只迁入共享 SDK/core/native provider 与真实 adapter 合同两项增量。保留同一 registry、真实活动 ToolContext、session/profile 插件选择、finally 释放与 owner/capability/env/cancellation 校验；不包含薄服务宿主、安装入口变更或定位功能。
@@ -159,6 +306,8 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 ## 2026-10-23 唤醒模式与 15 分钟缓冲
 
 现有状态栏改为关闭/任务期间/始终互斥模式。任务完成后继续保持至少 15 分钟，期间新任务结束后重新计时；旧设置兼容，始终模式不因任务归零释放。build/typecheck/lint 通过；79 文件通过/19 跳过，334 测试通过/38 跳过、0 失败（317 warnings、14 infos）。真实后台任务后缓冲保护、空闲 always 与显式关闭释放通过；短时采集到合盖状态且任务正常完成。时间边界测试不冒充真实等待15分钟，背包散热与热点稳定性未验收。详见 verification/awake-modes.md。
+- 维护者复核（2026-10-25）：独立重跑 `npm run build`、`npm run typecheck` 通过；`plugins/tasks` 与会话测试 10 通过 / 2 跳过。设置 `YONDER_TEST_REAL=1` 与 `YONDER_TEST_AUTH` 指向主仓库 `.yonder/auth.json` 后，`plugins/tasks/test/moments.test.ts` 4 通过 / 0 跳过，其中 Luna 滞留提醒用例真实通过。提醒是否真的让 Agent 不再中断，仍需 P5 在生产对照。
+
 
 ## Agent 状态与固定悬浮入口（0.2.26102505）
 

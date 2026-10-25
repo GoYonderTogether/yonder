@@ -87,3 +87,22 @@ npm run build && npm run typecheck && npm test && npm run lint
 ## 0.2.26102303 默认就绪修复验证
 
 本机旧 home 已补入官方插件并重启；runtimeLoaded 为 true，端点返回 HTTP 200。新 home、缺插件的旧 home 与 desktop:false 均通过真实内核/CLI 子进程回归，Agent 配置未变。全仓 97 文件通过/17 跳过，414 测试通过/36 跳过，0 失败；build、typecheck、lint 通过（323 条既有警告、13 条提示），权限自检 36 通过/0 失败。默认测试未启用真实模型；状态栏鼠标与全屏/台前调度人工体验未在本轮验证。
+
+## TaskBoard 只读面板（2026-10-25）
+
+加载 tasks 和 ui-companion 后调用 tasks_show target web/desktop；两者均返回现有页面 URL，desktop:false 仍仅提供网页。界面沿用现有 ai-card 令牌和滚动面板：顶部计数、等你→进行中→阻塞→刚完成（默认收起），每项显示 T<n>、标题、状态、owner、elapsed/idle、验收进度和 tasks 提供的滞留标记；点击打开目标、逐项证据、交付、追加事件和嵌套子任务。面板没有修改任务的按钮。
+
+`renderer.json`（0600，停止时删除）发布现有服务 URL；POST board 接收 tasks 的私有 source URL 和可选详情 id；GET board 代理读取。网页沿用每秒 state 轮询，并读取已发布看板。没有读账本文件、状态机、新框架或新配置。刷新保留详情、滚动和刚完成的展开状态。等你数量通过现有网页徽标及 native state/attention 消息反映到悬浮入口；宿主 current 仍能打开看板，未改 packages/macos*。
+
+### Questions for the maintainer
+
+- 同一窗口只显示最近一次 tasks_show 选择的范围，重启需重新 show。现有交互卡收到新请求时照常优先显示，工具栏的看板按钮可切回；没有待处理交互时 current 打开看板。
+- “长时间无进展”由 tasks 给出 stalled，页面不自行判定任务状态。原生浮球沿用已有 pending 提醒，数值徽标显示在网页入口；不新增原生绘制接口。
+
+### 本轮验证（P3a renderers）
+
+`npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0；lint 0 errors / 461 warnings / 14 infos。`YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` 为 93 passed / 0 failed / 1 skipped（11 文件）；`npm test` 为 608 passed / 0 failed / 39 skipped（103 文件通过 / 19 跳过）。`node plugins/ui-companion/test/state.mjs` exit 0。真实 loader/kernel、本地协议服务、实际 Chrome 页面已验证；截图为 `/tmp/yonder-task-board-detail-overview.png` 和 `/tmp/yonder-task-board-detail.png`。
+
+原始失败保留：build 首次 4 个类型错误；聚焦前两轮各 91 passed / 2 failed / 1 skipped（首轮另有 1 unhandled rejection）；两插件 contract 5/2/0 后 6/1/0；UI 单文件 3/1/0 后 4/0/0。均修正测试夹具/计时器类型/Chrome 启动标签页导航竞争，未放宽断言或超时。完整命令、原因和每轮计数见 [docs/status.md](../../docs/status.md) 的 P3a renderers 条目。
+
+未测：真实飞书平台与客户端、已安装 macOS 浮球及焦点、多屏/全屏、生产环境、resvg 缺失的文字降级、干净 npm ci。没有调用模型，本轮没有相关模型行为变更；未读取生产 auth。未推送、发布、安装或操作已安装服务。

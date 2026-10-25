@@ -316,7 +316,12 @@ export function createSessions({
 		from?: string,
 	): Promise<RunResult | InputReceipt> {
 		const session = await store.sessions.get(id);
-		if (!session || session.mode !== "task" || session.closed || closing.has(id))
+		if (
+			!session ||
+			(session.mode !== "task" && !(from?.startsWith("plugin:") && ["main", "persistent"].includes(session.mode))) ||
+			session.closed ||
+			closing.has(id)
+		)
 			throw new Error(`Not an open task session: ${id}`);
 		const event = await store.events.record({
 			type: "session.input",

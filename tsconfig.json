@@ -75,6 +75,9 @@
 		},
 		{
 			"path": "plugins/hermes-experience"
+		},
+		{
+			"path": "plugins/tasks"
 		}
 	]
 }

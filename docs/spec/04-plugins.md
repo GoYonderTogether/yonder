@@ -144,7 +144,7 @@ interface EnvProvider { type: string; configSchema?: TSchema; create(id: string,
 
 ```ts
 interface Hook {
-  beforeSend?(message: OutMessage, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
+  beforeSend?(message: OutMessage & { to: Ref }, owner?: ExecutionOwner): HookResult<{ message: OutMessage }>;
   id: string;
   beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
   afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;

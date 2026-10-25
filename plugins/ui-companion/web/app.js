@@ -7,6 +7,12 @@ const native = Boolean(bridge);
 const connected = location.protocol === "http:" && location.pathname !== "/";
 document.body.classList.toggle("native", native);
 let submitting = false;
+let board = null,
+	boardId,
+	boardRevision = 0,
+	boardVisible = false;
+const pending = () => Boolean((state.active && !state.active.completed) || board?.counts.waiting);
+
 let scene = "task",
 	activityKey = "";
 let state = emptyState(),
@@ -66,10 +72,10 @@ function setOpen(next) {
 	}
 	if (!next && !anchor) placeAway();
 	$("#panel").hidden = !next;
-	$(".pending-dot").hidden = Boolean(state.active?.completed);
+	$(".pending-dot").hidden = !pending();
 	$("#reopen").setAttribute("aria-label", state.active?.completed ? "打开已完成的交互" : "待处理交互，点击展开");
 	alignDock();
-	$("#reopen").hidden = next || surface === "inline" || !state.active || state.active.completed;
+	$("#reopen").hidden = next || surface === "inline" || !pending();
 	$("#launcher").setAttribute("aria-expanded", String(next));
 	if (next) {
 		placeAway();
@@ -172,15 +178,15 @@ function renderActivity(data) {
 	if (scene === "agents") setPose(data.agents.some((agent) => agent.state === "running") ? "work" : "idle");
 }
 function render() {
+	boardVisible = false;
 	const active = state.active;
-	if (native) bridge.postMessage({ action: "state", pending: Boolean(active && !active.completed) });
+	if (native) bridge.postMessage({ action: "state", pending: pending() });
 	if (!active || (native && active.completed && active.autoClose)) {
-		if (native) showScene("agents");
 		$("#task-context").textContent = "";
 		$("#task-title").textContent = "暂无待处理交互";
 		$("#choices").replaceChildren();
 		$("#note-form").hidden = true;
-		showScene("task");
+		showScene(native ? "agents" : "task");
 		return;
 	}
 	if (active.completed) {
@@ -257,6 +263,7 @@ function time(at) {
 	}).format(at);
 }
 function renderHistory() {
+	boardVisible = false;
 	const target = $("#history");
 	target.replaceChildren();
 	for (const session of [state.active, ...state.sessions].filter(Boolean)) {
@@ -312,6 +319,125 @@ function replay(session) {
 	}
 	showScene("replay");
 }
+function boardNode(tag, text, className) {
+	const node = document.createElement(tag);
+	if (text !== undefined) node.textContent = text;
+	if (className) node.className = className;
+	return node;
+}
+function boardItems(items, target) {
+	for (const item of items) {
+		const row = boardNode("div", undefined, "board-item");
+		const button = boardNode("button", `${item.ref} ${item.title}`, "board-task");
+		button.type = "button";
+		button.dataset.task = item.id;
+		button.addEventListener("click", () => {
+			boardId = item.id;
+			refreshBoard(true).catch(error);
+		});
+		row.append(
+			button,
+			boardNode(
+				"p",
+				`${item.state} · ${item.ownerAgent ?? "—"} · ${item.acceptance.met}/${item.acceptance.total}`,
+				"context",
+			),
+			boardNode(
+				"p",
+				`${Math.floor(item.elapsedMs / 60000)}m · ${Math.floor(item.idleMs / 60000)}m 未更新${item.stalled ? " · 长时间无进展" : ""}`,
+				item.stalled ? "board-stalled" : "context",
+			),
+		);
+		if (item.children.length) {
+			const children = boardNode("div", undefined, "board-children");
+			boardItems(item.children, children);
+			row.append(children);
+		}
+		target.append(row);
+	}
+}
+function renderBoard(reset = false) {
+	if (!board) return;
+	const scroll = reset ? 0 : $(".panel-scroll").scrollTop;
+	const focused = document.activeElement?.dataset.task;
+	boardVisible = true;
+	const target = $("#board-content");
+	const expanded = [...target.querySelectorAll("details[open]")].map((node) => node.dataset.group);
+	target.replaceChildren();
+	$("#board-back").hidden = !board.detail;
+	const counts = board.counts;
+	target.append(
+		boardNode("p", `${counts.waiting} 等你 · ${counts.inProgress} 进行中 · ${counts.blocked} 阻塞`, "context"),
+	);
+	if (board.detail) {
+		const { task, history, children } = board.detail;
+		target.append(boardNode("h2", `${task.ref} ${task.title}`), boardNode("p", task.objective));
+		const acceptance = boardNode("ol");
+		for (const [index, point] of task.acceptance.entries()) {
+			const item = boardNode("li", point);
+			item.append(boardNode("p", task.evidence[index] ?? "—", "context"));
+			acceptance.append(item);
+		}
+		target.append(
+			acceptance,
+			boardNode("h2", "交付"),
+			boardNode("p", task.deliverable ?? "—"),
+			boardNode("h2", "事件时间线"),
+		);
+		for (const event of history)
+			target.append(
+				boardNode(
+					"p",
+					`${event.at} · ${event.kind}
+${JSON.stringify(event.data)}`,
+					"board-event",
+				),
+			);
+		if (children.length) {
+			target.append(boardNode("h2", "子任务"));
+			boardItems(children, target);
+		}
+	} else {
+		const labels = { waiting: "等你", inProgress: "进行中", blocked: "阻塞", done: "刚完成" };
+		for (const group of board.groups) {
+			const section = boardNode(group.id === "done" ? "details" : "section");
+			section.dataset.group = group.id;
+			if (group.id === "done") section.open = expanded.includes(group.id);
+			section.append(boardNode(group.id === "done" ? "summary" : "h2", `${labels[group.id]} · ${group.items.length}`));
+			boardItems(group.items, section);
+			target.append(section);
+		}
+	}
+	showScene("board");
+	$(".panel-scroll").scrollTop = scroll;
+	if (!reset && focused) $(`[data-task="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+}
+async function refreshBoard(show = false) {
+	const url = new URL("board", location.href);
+	if (boardId) url.searchParams.set("id", boardId);
+	const response = await fetch(url);
+	if (!response.ok) throw new Error(await response.text());
+	const previous = board?.counts.waiting ?? 0;
+	board = (await response.json()).board;
+	$("#board-button").hidden = false;
+	$("#board-count").textContent = board.counts.waiting;
+	$("#board-count").hidden = !board.counts.waiting;
+	$(".pending-dot").hidden = !pending();
+	if (native) {
+		bridge.postMessage({ action: "state", pending: pending() });
+		if (board.counts.waiting > previous) bridge.postMessage({ action: "attention" });
+	} else if (!open) $("#reopen").hidden = surface === "inline" || !pending();
+	if (show || boardVisible) renderBoard(show);
+	if (show) setOpen(true);
+}
+$("#board-button").addEventListener("click", () => {
+	boardId = undefined;
+	refreshBoard(true).catch(error);
+});
+$("#board-back").addEventListener("click", () => {
+	boardId = undefined;
+	refreshBoard(true).catch(error);
+});
 $("#history-button").addEventListener("click", renderHistory);
 $("#history-back").addEventListener("click", render);
 $("#replay-back").addEventListener("click", renderHistory);
@@ -455,7 +581,10 @@ window.yonderUI = {
 	},
 	setSurface,
 	history: renderHistory,
-	current: render,
+	current() {
+		if (board && boardVisible) renderBoard();
+		else render();
+	},
 };
 render();
 setSurface(location.hash.slice(1) || "window");
@@ -473,6 +602,11 @@ if (connected) {
 			if (!response.ok) throw new Error(await response.text());
 			const data = await response.json();
 			if (submitting) return;
+			const showBoard = data.board && data.board.revision !== boardRevision;
+			if (showBoard) {
+				boardId = data.board.id;
+				boardRevision = data.board.revision;
+			}
 			state.sessions = data.history.filter((item) => item.id !== state.active?.id);
 			if (data.active && state.active?.id !== data.active.id) {
 				const next = beginTask(state, data.active.card, data.active.id);
@@ -503,6 +637,7 @@ if (connected) {
 					}
 				}
 			}
+			if (data.board) await refreshBoard(showBoard);
 		} catch (reason) {
 			error(reason);
 		} finally {
