@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-- 合入渠道实例范围、Agent 状态/固定悬浮入口与共享 permissions API；同一 companion 页面保留任务看板。默认全量 681 通过 / 0 失败 / 39 跳过，隔离真实工具与 Chrome smoke 通过；真实专项 141 通过 / 1 失败 / 1 跳过，既有预设继承测试失败及中止记录见 [候选验证](docs/verification/task-ledger-release.md)。本次仅准备候选，未发布或安装。
-
 - tasks / ui-companion / channel-feishu：私有 scoped TaskBoard 服务、桌面/网页只读总览与详情、轮询刷新和既有悬浮待办提示；飞书每会话版本化看板原地更新、显式请求重发，失败降级 PNG/文字。无 SDK/core/原生改动；无管家视图。实际检查记录见 docs/status.md 的 P3a renderers 条目。
 
 - P3a renderers 验证：build/typecheck/lint 通过（lint 461 warnings / 14 infos）；三个插件 93 passed / 0 failed / 1 skipped，全仓默认 608 passed / 0 failed / 39 skipped；真实本地协议与 Chrome 页面通过，真实飞书/已安装 macOS/模型未测。原始失败与修正详见 docs/status.md。

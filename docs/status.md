@@ -6,13 +6,13 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
-## 任务账本发布候选（0.2.26102507，2026-10-25，待审核）
+## 任务账本候选（未定版本，2026-10-25，待审核）
 
-任务 worktree 合并 origin/main `78ae9de`（PR #74–#76），合并提交 `fcc176a`。companion 同页保留 Agent 概览/图钉与任务看板；渠道实例范围、permissions API 及两侧历史记录保留。按既有 release 提交对齐第一方版本和锁文件；未推送、打 tag、发布或安装。
+任务 worktree 合并 origin/main `78ae9de`（PR #74–#76），合并提交 `fcc176a`。companion 同页保留 Agent 概览/图钉与任务看板；渠道实例范围、permissions API 及两侧历史记录保留。此前 release-prep 提交 1346529 的版本准备已撤销：本功能候选未定版本，等待独立 release PR；包版本沿用 main 的 0.2.26102509，不表示 tasks 已发布。以下保留此前验证的原始记录；当时未推送、打 tag、发布或安装。
 
 干净安装、build、typecheck、lint 通过（0 errors / 478 warnings / 14 infos）；默认全量 114 文件通过 / 19 跳过，681 用例通过 / 0 失败 / 39 跳过。真实专项首轮被执行者并发 npm ci 破坏 worker 后中止（exit 130，无完整计数）；完整重跑为 48 文件通过 / 1 失败 / 1 跳过，141 用例通过 / 1 失败 / 1 跳过。失败的官方 task-presets-live 父预设只提供 task_run，coding 子任务按现有契约继承后无文件/Shell 工具；相关源码/测试与 main 完全相同，未为本次合并扩大修复，也不宣称候选全绿。execution-live 硬编码 worktree 凭据路径，未测。任务插件 moments 定点真实检查 4 通过 / 0 失败 / 0 跳过，Luna 实际 read/tasks_update 后标记 blocked。
 
-构建版在独立 `/tmp/yonder-task-ledger-rc-smoke` 返回 .07/ready=true；真实 Luna 经真实 loader 完成 tasks_open → tasks_list → tasks_show，T1 一致，companion/board HTTP 200、Chrome 可见看板；临时进程已停止。首次 smoke 因临时配置缺少 research 依赖 web-tools 启动失败，恢复该插件后通过。生产/安装/渠道/原生鼠标与 TCC 均未测。完整命令、原始失败、结果与截图入口见 [发布候选验证](verification/task-ledger-release.md)。
+此前构建版在独立 `/tmp/yonder-task-ledger-rc-smoke` 返回 .07/ready=true（历史验证值，不作为本候选版本）；真实 Luna 经真实 loader 完成 tasks_open → tasks_list → tasks_show，T1 一致，companion/board HTTP 200、Chrome 可见看板；临时进程已停止。首次 smoke 因临时配置缺少 research 依赖 web-tools 启动失败，恢复该插件后通过。生产/安装/渠道/原生鼠标与 TCC 均未测。完整命令、原始失败、结果与截图入口见 [发布候选验证](verification/task-ledger-release.md)。
 
 ## 任务账本 P3a renderers（2026-10-25，任务分支待审核）
 
