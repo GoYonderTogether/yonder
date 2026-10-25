@@ -1,5 +1,6 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { expect, test, vi } from "vitest";
 
 const fixture = vi.hoisted(() => ({ home: "" }));
@@ -96,3 +97,15 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 		}
 	},
 );
+
+test("service host executes its entry point through the installed current symlink", async () => {
+	const root = await mkdtemp("/tmp/yonder-host-entry-");
+	try {
+		await symlink(resolve("scripts"), join(root, "current"), "dir");
+		const result = spawnSync(process.execPath, [join(root, "current/yonder-service-host.mjs")], { encoding: "utf8" });
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain("Usage: yonder-service-host --home <home>");
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});

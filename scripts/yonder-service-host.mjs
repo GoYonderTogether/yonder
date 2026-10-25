@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { renameSync, writeFileSync } from "node:fs";
+import { realpathSync, renameSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
@@ -208,7 +208,7 @@ export async function runServiceHost({
 	}
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
 	try {
 		if (process.platform !== "darwin") throw new Error("Yonder service host requires macOS");
 		const args = process.argv.slice(2);
