@@ -270,3 +270,8 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 ## 2026-10-24 统一实际 TCC 操作宿主并补文件访问（主对话批准）
 
 同一 Yonder 签名 Helper 不仅发起申请，也执行需 TCC 的实际操作；本轮仅新增 owner 授权任务的一层文件列举和单普通文件导出，沿用稳定 bundle ID、安装路径与 LaunchServices。插件生成私有唯一产物，不接受目的地覆盖。Node/Python 不继承 Helper grant，不迁移全部插件、不增加 driver 或权限注册框架，OS 仍按资源种类分别授权。
+
+## D66 统一任务账本作为官方插件 tasks（2026-10-25 主人批准）
+
+背景：主人在飞书只有两个窗口，十几条任务线只存在于模型上下文里，串了、压缩了、做一半停了都无人知晓，Agent 之间互不可见。决定：(1) 官方插件 tasks，追加式账本，复刻 Codex `/goal`（持久目标、每次唤醒重现、软预算、完成前对照证据），不复刻已被业界默认关闭的 `update_plan` 清单；(2) 可见范围沿用能力模型：默认自己，主 Agent 加自己 sub-agent，持有 cross-agent 的配置档（管家，非新角色）可见全部并可催办；(3) 接受“滞留催办”等时点机制：带来源标记的输入，去重限频，不阻断、不截断，完成判定仍归模型；(4) 完成后复盘 / 留存为默认关闭的实验时点，复用 hermes-experience 静默复盘通道，按真实模型对照后再决定默认；完成后压缩待 context-keeper 提供 sessions.compact；(5) 展示分层：账本只产 TaskBoard，ui-companion 只做渲染渠道，IM 渠道用图片或文字，回复尾部清单经 beforeSend 程序化追加；(6) 底座提示词任务段同步修改，并更新本机常驻 Agent 的 AGENTS.md。规范见 [17](spec/17-task-ledger.md)，设计依据见 proposals/task-ledger。
+

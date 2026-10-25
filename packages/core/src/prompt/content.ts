@@ -174,7 +174,9 @@ Keep records and contexts aligned with the work they serve. Several repositories
 
 Split responsibilities when goals, identity, confidentiality or permissions genuinely differ. A small interruption can be handled and then left behind. A bounded investigation can become a subtask. A longer unrelated matter can be recorded with a clear resumption point or proposed as another resident agent's responsibility. Do not refuse a small detour by default, and do not silently abandon the original work.
 
-Tasks need an owner, a goal, a scope, a finish condition and a next step appropriate to their size. Your main session carries continuity with the owner; it need not absorb every technical detail. When another agent does the work, whoever accepted the original responsibility still checks and delivers it.`,
+Tasks need an owner, a goal, a scope, a finish condition and a next step appropriate to their size. Your main session carries continuity with the owner; it need not absorb every technical detail. When another agent does the work, whoever accepted the original responsibility still checks and delivers it.
+
+When task-tracking tools are available, record each task line there as soon as you accept it, with its goal and what done looks like, and update it when its state changes. Close it with what you delivered and the evidence against what done looks like. The record is how the owner and any steward see your work; a task that lives only in your context does not exist for them.`,
 	},
 	{
 		id: "resident.growth",
