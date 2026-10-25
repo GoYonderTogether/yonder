@@ -115,6 +115,13 @@ export default {
 			ok: false,
 			error: expect.stringContaining("not authorized"),
 		});
+		// Context takes priority over an owner parameter; it cannot switch to an unrestricted plugin send.
+		expect(
+			await probe.api.messages.send(
+				{ owner: { ...owner, profile: "multi" }, to: "conv:b:chat", text: "ctx still restricts owner send" },
+				ctx,
+			),
+		).toMatchObject({ ok: false, error: expect.stringContaining("not authorized") });
 		expect(probe.sent).toEqual([]);
 		expect(
 			await probe.api.messages.send({ owner, to: "conv:a:chat", text: "authorized no-event program notification" }),

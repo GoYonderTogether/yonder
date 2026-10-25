@@ -164,19 +164,24 @@ test("final check prevents a beforeSend hook changing an authorized instance int
 	}
 });
 
-test("native task_run initialization captures the parent/preset intersection, including empty ceiling", async () => {
-	const x = await setup();
-	try {
-		const result = await x.tools
-			.find((t) => t.name === "task_run")!
-			.execute({ preset: "child", task: "Scope initialization" }, x.ctx);
-		expect(result).toMatchObject({ isError: true, text: expect.stringContaining("no model started") });
-		expect(x.saved.get("2")).toMatchObject({ agent: null, profile: "child", channelInstances: [] });
-	} finally {
-		await x.delivery.close();
-		await x.db.close();
-	}
-});
+test.each([false, true])(
+	"native task_run captures the invoking parent scope even after current config broadens (%s)",
+	async (broadened) => {
+		const x = await setup();
+		try {
+			// A background invocation retains its run snapshot when the session moves to a later run.
+			if (broadened) x.config.resolved.channelInstances = ["a", "b"];
+			const result = await x.tools
+				.find((t) => t.name === "task_run")!
+				.execute({ preset: "child", task: "Scope initialization" }, x.ctx);
+			expect(result).toMatchObject({ isError: true, text: expect.stringContaining("no model started") });
+			expect(x.saved.get("2")).toMatchObject({ agent: null, profile: "child", channelInstances: [] });
+		} finally {
+			await x.delivery.close();
+			await x.db.close();
+		}
+	},
+);
 
 test.each(["scope", "program-message"])(
 	"retry rechecks %s revocation and records a terminal denial without platform dispatch",
