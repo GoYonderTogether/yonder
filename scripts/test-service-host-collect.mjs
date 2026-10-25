@@ -9,7 +9,9 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const evidence = await mkdtemp("/tmp/yonder-collect-race-");
 console.log(`Collect race evidence: ${evidence}`);
 const source = join(evidence, "Main.swift");
-await writeFile(source, `import Darwin
+await writeFile(
+	source,
+	`import Darwin
 @main struct Main {
  static func main() {
   typealias H = HelperServiceHost
@@ -56,10 +58,25 @@ await writeFile(source, `import Darwin
   print("passed " + mode)
  }
 }
-`);
+`,
+);
 const executable = join(evidence, "collect");
-execFileSync("/usr/bin/swiftc", [join(root, "packages/macos-helper/Sources/YonderHelper/ServiceHost.swift"), source, "-o", executable]);
-for (const mode of ["stable", "reused-after-enumeration", "reparented-after-enumeration", "parent-reused-after-enumeration", "identity-before-admit", "ppid-before-admit", "ancestor-before-leaf", "untrusted-root"]) {
+execFileSync("/usr/bin/swiftc", [
+	join(root, "packages/macos-helper/Sources/YonderHelper/ServiceHost.swift"),
+	source,
+	"-o",
+	executable,
+]);
+for (const mode of [
+	"stable",
+	"reused-after-enumeration",
+	"reparented-after-enumeration",
+	"parent-reused-after-enumeration",
+	"identity-before-admit",
+	"ppid-before-admit",
+	"ancestor-before-leaf",
+	"untrusted-root",
+]) {
 	test(`collect ownership race: ${mode}`, () => {
 		assert.match(execFileSync(executable, [mode], { encoding: "utf8" }), /^passed /u);
 	});
