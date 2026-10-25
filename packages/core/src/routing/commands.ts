@@ -30,6 +30,13 @@ export async function runChannelCommand(
 ): Promise<RunResult | undefined> {
 	const command = chatCommand(String((event.data as { text?: unknown }).text ?? ""));
 	if (command === undefined || !event.conv) return;
+	// Only consume recognized builtins. Plugin/model slash input keeps the normal admission path.
+	if (
+		!chatCommands.some((item) => item.name === command) &&
+		!/^(model|status|compact)(?:\s|$)/.test(command) &&
+		!/^connect(?:\s+[a-z0-9-]+)?$/.test(command)
+	)
+		return;
 	const { store, sessions, delivery } = services;
 	const result: RunResult = { agent: session.agent, session: session.id, status: "done", text: "" };
 	// A durable command attempt is not a model run. After a crash, its side effect is never replayed.
@@ -70,10 +77,7 @@ export async function runChannelCommand(
 		} else if (command === "stop") {
 			await sessions.api.abort(session.id);
 			result.text = "已中止当前会话 / Stopped";
-		} else
-			result.text = chatCommands.some((item) => item.name === command)
-				? `/${command} 仅适用于终端交互；/help 查看当前可用命令。`
-				: "未知命令；/help 查看当前可用命令。";
+		} else result.text = `/${command} 仅适用于终端交互；/help 查看当前可用命令。`;
 	} catch (error) {
 		result.status = "error";
 		result.text = error instanceof Error ? error.message : "命令执行失败";

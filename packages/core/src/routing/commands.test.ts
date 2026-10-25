@@ -9,7 +9,7 @@ import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { chatCommand, runChannelCommand } from "./commands.js";
 
-async function setup(level = "readonly") {
+async function setup(level = "readonly", capabilities?: string[]) {
 	const db = await openDatabase(":memory:");
 	const store = await createStore(db);
 	const session: SessionInfo = {
@@ -28,7 +28,7 @@ name: Main
 owner: person:owner
 defaultProfile: guest
 profiles:
-  guest: { level: ${level} }
+  guest: { ${capabilities ? `capabilities: ${JSON.stringify(capabilities)}` : `level: ${level}`} }
 bindings: []
 `,
 		"agent.yaml",
@@ -141,6 +141,57 @@ test("escaped slash text is ordinary input and /new reports terminal-only", asyn
 		const result: RunResult | undefined = await runChannelCommand(ctx.session, event("e-new", "/new"), services);
 		expect(result?.text).toContain("仅适用于终端交互");
 		expect(ctx.sends).toHaveLength(1);
+	} finally {
+		await ctx.db.close();
+	}
+});
+
+test.each(["/refine skills\n保留原始文本", "/plugin-command argument", "/", "/MODEL", "/model-extra", "/help extra"])(
+	"unknown slash %j falls through without command records, policy lookup or delivery",
+	async (text) => {
+		const ctx = await setup();
+		try {
+			const input = event("e-unknown", text);
+			const original = structuredClone(input);
+			const result = await runChannelCommand(ctx.session, input, {
+				store: ctx.store,
+				sessions: {
+					resolveSession: async () => {
+						throw new Error("Unknown slash must reach normal admission, not command policy");
+					},
+				} as unknown as typeof ctx.sessions,
+				delivery: ctx.delivery,
+				skills,
+			});
+			expect(result).toBeUndefined();
+			expect(input).toEqual(original);
+			expect(ctx.sends).toEqual([]);
+			expect((await ctx.store.events.query({})).events).toEqual([]);
+		} finally {
+			await ctx.db.close();
+		}
+	},
+);
+
+test.each([
+	...chatCommands.map(({ name }) => `/${name}`),
+	"/model openai/gpt-6-luna",
+	"/status details",
+	"/compact focus",
+	"/connect cli",
+])("recognized builtin %s never falls through, even on a permission error", async (text) => {
+	const ctx = await setup("standard", []);
+	try {
+		const result = await runChannelCommand(ctx.session, event("e-denied", text), {
+			store: ctx.store,
+			sessions: ctx.sessions,
+			delivery: ctx.delivery,
+			skills,
+		});
+		expect(result).toMatchObject({ status: "error", text: "当前来源没有读取会话权限" });
+		expect(ctx.sends).toHaveLength(1);
+		expect((await ctx.store.events.query({ type: "channel.command" })).events).toHaveLength(1);
+		expect((await ctx.store.events.query({ type: "channel.command.result" })).events).toHaveLength(1);
 	} finally {
 		await ctx.db.close();
 	}
