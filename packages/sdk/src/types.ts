@@ -119,6 +119,8 @@ export type SessionModels = {
 export interface Profile extends SessionModels {
 	level?: Level;
 	capabilities?: Capability[];
+	/** Undefined preserves legacy unrestricted access; [] permits no channel instances. */
+	channelInstances?: string[];
 	plugins?: string[];
 	tools?: { offer?: string[]; search?: string[] };
 	contexts?: string[];
@@ -322,6 +324,8 @@ export interface ToolContext {
 	profile: string;
 	session: string;
 	capabilities: Capability[];
+	/** Effective scope from the real run configuration, not inferred from input events. */
+	channelInstances?: string[];
 	env: ExecutionEnv;
 	event?: YEvent;
 	/** Actual inputs of this native run, including placed steer inputs. */
@@ -387,7 +391,38 @@ export interface ExecutionOwner {
 	profile: string;
 }
 
+export interface ResolvedExecution {
+	capabilities: Capability[];
+	channelInstances?: string[];
+}
+
+/** Platform-neutral permission operations. Providers must never return credentials or infer grants. */
+export interface PermissionRequest {
+	provider: string;
+	action: "status" | "request" | "guide" | "watch";
+	kind: string;
+	/** Seconds; provider may constrain supported actions/range. */
+	timeout?: number;
+}
+export interface PermissionResponse {
+	platform: string;
+	/** Actual platform result, including responsible identity and raw permission states. Never normalized to granted. */
+	result: unknown;
+}
+export interface PermissionProvider {
+	/** Plugin id, or plugin id followed by a dot and local provider id. */
+	id: string;
+	scope: string;
+	kinds: string[];
+	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
+}
+export interface PermissionsAPI {
+	register(provider: PermissionProvider): void;
+	list(ctx: ToolContext): Promise<Array<Pick<PermissionProvider, "id" | "scope" | "kinds">>>;
+	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
+}
 export interface PluginAPI {
+	permissions: PermissionsAPI;
 	agents: { list(): Promise<{ id: string; name: string }[]> };
 	readonly version: string;
 	readonly locale: string;
@@ -422,12 +457,14 @@ export interface PluginAPI {
 				replyTo?: string;
 				attachments?: Attachment[];
 				signal?: AbortSignal;
+				/** Program delivery on behalf of this stored execution owner; revalidated by core. */
+				owner?: ExecutionOwner;
 			},
 			ctx?: ToolContext,
 		): Promise<Delivery>;
 	};
 	execution: {
-		resolve(owner: ExecutionOwner): Promise<{ capabilities: Capability[] }>;
+		resolve(owner: ExecutionOwner): Promise<ResolvedExecution>;
 		run(request: {
 			owner: ExecutionOwner;
 			capabilities: Capability[];

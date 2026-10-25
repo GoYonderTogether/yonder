@@ -31,6 +31,7 @@ type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
 	Pick<
 		PluginAPI,
+		| "permissions"
 		| "agents"
 		| "events"
 		| "messages"
@@ -195,6 +196,17 @@ export async function loadPlugins(
 				warn: (message, data) => services.log.warn(message, { ...data, plugin: manifest.id }),
 				error: (message, data) => services.log.error(message, { ...data, plugin: manifest.id }),
 			},
+			permissions: {
+				...register("permissions", registrationsApi.permissions.register),
+				list: (ctx) => {
+					denySetupWrite("permissions.list");
+					return services.permissions.list(ctx);
+				},
+				invoke: (request, ctx) => {
+					denySetupWrite("permissions.invoke");
+					return services.permissions.invoke(request, ctx);
+				},
+			},
 			channels: register("channels", registrationsApi.channels.register),
 			tools: register("tools", registrationsApi.tools.register),
 			contexts: register("contexts", registrationsApi.contexts.register),
@@ -285,6 +297,8 @@ export async function loadPlugins(
 
 		const issues = await checkRegistrations(manifest, registrations, directory);
 		if (issues.length) throw new Error(issues.join("\n"));
+
+		for (const provider of registrations.permissions) services.permissions.register(provider);
 
 		for (const provider of registrations.channels) {
 			claim("channels", provider.type, manifest.id);

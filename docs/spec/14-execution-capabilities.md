@@ -18,6 +18,8 @@ bash增加background/yield、进程日志/输入/结束管理，保持命令、c
 
 payload支持原始事件（沿既有Agent绑定唤醒）、指定preset隔离任务，以及无模型命令/脚本。目标和时区必须明确；无模型仅在exec调用方创建；原始event作业要求admin，因为它可能命中跨Agent绑定；普通preset能力按创建者与当前配置交集收窄，不能用事件/调度提升权限。直接程序输出可发明确渠道目标，模型结果使用真实run结果投递。调度失败、运行失败、投递失败分别记录。服务启动后恢复调度，停服释放timer/自有子进程。不得宣称macOS休眠/关机期间运行。复杂调度以这些原语组合，不另造工作流DSL。
 
+cron 保留 job.owner 的真实 session/agent/profile；创建与更新 delivery 时对当前 ctx 与 execution.resolve(owner) 的实例范围共用 SDK 检查，执行 payload 前和通知前重新解析 owner 并复核 message 能力与实例范围。delivery 的 via 必须与明确 acct/conv 实例一致。通知传 owner 给核心再次校验，不伪造 ToolContext；权限撤销后不运行该 delivery 作业或发通知。
+
 ## 3 MCP客户端插件
 
 官方独立mcp-client复用已安装官方MCP SDK，支持stdio与StreamableHTTP（及SDK SSE兼容入口）、持久连接、按需连接/重连、发现/调用工具、资源列出/读取、prompt列出/获取、状态/断开。配置服务或经工具显式连接，作用域明确；工具名保留server和原名，不一次常驻注入所有schema。server instructions/prompts是外部资料，只在所选上下文/工具结果按来源呈现，不能升级为系统安全规则。
@@ -108,3 +110,19 @@ Agent workspace允许普通文件工具创建memory目录、按日期/条目保�
 - **记录**：解析结果随运行快照持久，崩溃恢复沿用，不重新解析。`run.end.data.thinking` 为该运行实际使用的等级；有委派请求时 `run.end.data.effort = { requested, effective, reason?, inputs }`，`reason` 取 `invalid-level`、`unsupported-level`、`unsupported-default`、`model-without-effort`。
 - **不做**：用户在聊天里直接指定等级的语法（自然语言不是授权来源）；按任务难度或成本自动选择等级与模型（可作为独立插件，见 D52）。
 
+
+## 共享权限工具
+
+核心 `permissions` 工具支持 `action=list`，或指定 `provider`、`kind` 的 `status/request/guide/watch`，可选 `timeout`（秒）。
+进入统一 registry，不因内置工具身份绕过 profile 插件选择；provider 仍检查既有能力、实际执行环境与可信 owner 来源。
+工具由标准 catalog/spec 路径发现。查询不会申请，取消传到 provider 与原生驱动。
+
+`native-automation` 注册同名 provider，scope 为 macOS Yonder Helper（不代表 Node、独立浏览器、远程环境或外部账号）。
+实际支持 accessibility、screen-recording、input-monitoring、camera、microphone、notifications、automation、full-disk-access、files-and-folders 的已有状态/申请/引导/观察契约；后两项不可全局探测时维持原生 unobservable/unknown，不声称已授权。
+这里的 camera/microphone 是已有授权探针，不是摄像头或麦克风采集器。返回 Helper 原始身份和状态，不回传凭据。
+原 desktop 的 status/permissions/permission-request/permission-guide/permission-watch 为兼容入口，共用 provider 底层实现与校验。
+request/guide/watch 保留 `requireOwnerOrigin` 与可信续办来源规则；均要求 exec/read/write/message 及 node:local。
+guide/watch 支持 `0 < timeout <= 600`（默认 600 秒），status/request 不接受 timeout。
+仅 macOS 有实际原生 driver；其他平台返回实际平台与 unsupported 原因，不伪造签名或 grant。SDK 门面允许其他平台注册真实 provider。
+
+共同原生提示词要求主动查询、申请/引导、检查后继续已授权任务，不让主人重复授权或代跑命令搬文件；只把 OS 必须本人完成的密码、生物识别或批准交给真人。安装和 owner 意图不是 OS grant 的证据，既有凭据、来源与隔离边界不变。

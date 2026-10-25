@@ -13,6 +13,8 @@ const tools = new Map(),
 const api = {
 	version: "1",
 	paths: { data },
+	// Setup-only fixture; permission operations are not invoked by this script.
+	permissions: { register() {} },
 	tools: { register: (t) => tools.set(t.name, t) },
 	triggers: { register: (t) => triggers.push(t) },
 	events: { on: (name, handler) => handlers.set(name, handler) },

@@ -150,6 +150,8 @@ it.skipIf(!existsSync(chromePath))(
 			expect(await page.evaluate('document.querySelector("details[data-group=done]").open')).toBe(false);
 			expect(await page.evaluate('document.querySelector("#board-count").textContent')).toBe("1");
 			expect(await page.evaluate('document.querySelector(".board-stalled").textContent')).toContain("长时间无进展");
+			await page.evaluate("window.yonderUI.activity({known:true, pinned:true, agents:[]})");
+			expect(await page.evaluate('document.querySelector("#pin-button").getAttribute("aria-pressed")')).toBe("true");
 			await page.evaluate("window.yonderUI.current()");
 			expect(await page.evaluate('document.querySelector("#board-view").hidden')).toBe(false);
 			await page.evaluate('document.querySelector("#close").click()');

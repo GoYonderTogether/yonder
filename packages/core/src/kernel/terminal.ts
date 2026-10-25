@@ -80,6 +80,27 @@ export function terminalApi(ctx: {
 							: [];
 					}),
 				})),
+		async activity() {
+			const rows = await Promise.all(
+				(await store.sessions.list({ open: true })).map(async (session) => ({
+					id: session.id,
+					agent: session.agent,
+					profile: session.profile,
+					...(await realRuntime().activity(session.id)),
+				})),
+			);
+			return [...agents.values()]
+				.filter((agent) => !agent.archivedAt)
+				.map((agent) => {
+					const tasks = rows.filter((row) => row.agent === agent.id && row.state !== "idle");
+					return {
+						id: agent.id,
+						name: agent.name,
+						state: tasks.some((task) => task.state === "running") ? "running" : tasks.length ? "waiting" : "idle",
+						tasks,
+					};
+				});
+		},
 		async list() {
 			return Promise.all(
 				(await sessions.api.list({})).map(async (session) => {

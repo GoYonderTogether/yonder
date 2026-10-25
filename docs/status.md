@@ -128,6 +128,12 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 - 待维护者确认的最简解释见 [README](../plugins/tasks/README.md#questions-for-the-maintainer)：状态恢复路径、预设 session 归属、显式 parent、关闭任务不注入；SDK RenderContext 无 run/write 标记，当前计数基于选中 turn 的输入渲染，session + event 去重，无法区分旁观与实际模型唤醒。
 - **未测**：38 项默认跳过测试、真实模型 `openai/gpt-6-luna` 与 spec 17 §9 的 n≥10 场景、干净 `npm ci` 安装、生产 Agent/真实渠道/服务、发布升级和生产账本对照。按本次 P1 边界未实现 nudge、滞留定时器、tasks_show、投影、尾部清单或复盘时点；未触碰生产 home 或已安装服务，未推送或发布。
 
+## 共享 permissions API 独立集成（0.2.26102506，2026-10-25）
+
+从正式 .05 commit `7df082c5bc9d65e1a44a0e26121ff0e6a4fe92d9` 只迁入共享 SDK/core/native provider 与真实 adapter 合同两项增量。保留同一 registry、真实活动 ToolContext、session/profile 插件选择、finally 释放与 owner/capability/env/cancellation 校验；不包含薄服务宿主、安装入口变更或定位功能。
+
+初始专项 12 文件、186 通过 / 0 失败 / 0 跳过。发版唯一一次本地全量为 662 通过 / 1 失败 / 39 跳过；失败是旧 cleanup 测试夹具缺少新增 permissions 注册服务，补齐直接 setup 夹具后仅定点重跑 cleanup：1 通过，未重跑本地全量、未将原失败写成全绿。标准 build（含正常本地签名）、typecheck、lint 均通过（lint 402 warnings / 14 infos）。API 只提供统一接口；**未验真实 TCC**、模型/Kernel/OS E2E、权限请求或定位，不能据此宣称 OS 授权继承、grant 保留或宿主生命周期已修复。正式安装及 ready 另由独立更新回执核验，不能由代码发版推断。原始记录与边界见 [权限 API 验证](verification/permissions-api.md)。
+
 ## 验证基线
 
 - 0.2.26102307 提示词与任务预设：默认全仓 423/0/38，真实 Luna 三类任务及连续工作 session 集成 1/0/0；构建、类型检查、lint 通过，原始失败和修正保留在 [任务预设验收](verification/task-presets.md)。
@@ -276,3 +282,8 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 
 现有状态栏改为关闭/任务期间/始终互斥模式。任务完成后继续保持至少 15 分钟，期间新任务结束后重新计时；旧设置兼容，始终模式不因任务归零释放。build/typecheck/lint 通过；79 文件通过/19 跳过，334 测试通过/38 跳过、0 失败（317 warnings、14 infos）。真实后台任务后缓冲保护、空闲 always 与显式关闭释放通过；短时采集到合盖状态且任务正常完成。时间边界测试不冒充真实等待15分钟，背包散热与热点稳定性未验收。详见 verification/awake-modes.md。
 - 维护者复核（2026-10-25）：独立重跑 `npm run build`、`npm run typecheck` 通过；`plugins/tasks` 与会话测试 10 通过 / 2 跳过。设置 `YONDER_TEST_REAL=1` 与 `YONDER_TEST_AUTH` 指向主仓库 `.yonder/auth.json` 后，`plugins/tasks/test/moments.test.ts` 4 通过 / 0 跳过，其中 Luna 滞留提醒用例真实通过。提醒是否真的让 Agent 不再中断，仍需 P5 在生产对照。
+
+
+## Agent 状态与固定悬浮入口（0.2.26102505）
+
+状态栏、菜单与悬浮入口接入逐 Agent 的真实运行/等待/空闲状态；菜单和浮窗显示当前输入、执行步骤与生成中的可见回复短片段。图钉按 home 保存，固定后收起保留同锚点入口，鼠标移出且无输入/拖动时自动收起。默认完成自动收起与左右键统一菜单保持。build/typecheck/lint 与全仓 605/0/39 通过；原生实际交互与焦点边界不由构建推定，见 [验证记录](verification/agent-status-companion.md)。

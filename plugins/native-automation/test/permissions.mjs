@@ -19,6 +19,8 @@ let passed = 0;
 try {
 	await plugin.setup({
 		paths: { data },
+		// Setup-only fixture; permission operations are not invoked by this script.
+		permissions: { register() {} },
 		tools: { register: (tool) => tools.set(tool.name, tool) },
 		events: { on() {} },
 		triggers: { register: (trigger) => triggers.push(trigger) },

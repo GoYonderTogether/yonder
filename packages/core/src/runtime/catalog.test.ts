@@ -29,3 +29,20 @@ test("an identity-less preset cannot expose agent_ask through tool search", () =
 	expect(resident.find((tool) => tool.name === "agent_ask")?.exposure).toBe("search");
 	expect(resident.find((tool) => tool.name === "tool_search")?.exposure).toBe("offer");
 });
+
+test("shared permissions is discovered as a core tool through offer/search catalog selection", () => {
+	const config = {
+		agent: null,
+		profile: "permissions",
+		cwd: process.cwd(),
+		resolved: resolveProfile({ plugins: [], capabilities: [], tools: { offer: [], search: ["permissions"] } }),
+	};
+	const catalog = inspectToolCatalog(config, new Map());
+	expect(catalog.find((tool) => tool.name === "permissions")).toMatchObject({ exposure: "search", missing: [] });
+	expect(catalog.find((tool) => tool.name === "tool_search")?.exposure).toBe("offer");
+	const offered = inspectToolCatalog(
+		{ ...config, resolved: resolveProfile({ tools: { offer: ["permissions"], search: [] } }) },
+		new Map(),
+	);
+	expect(offered.find((tool) => tool.name === "permissions")?.exposure).toBe("offer");
+});

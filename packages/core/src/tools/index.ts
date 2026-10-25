@@ -126,9 +126,12 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		if (!selected) throw new Error(`未知预设：${presetId}`);
 		const parent = await runtime().sessionConfig(ctx.session);
 		const resolved = resolveProfile(selected, {}, parent.resolved.env);
-		const { capabilities, inherit } = presetSession(selected, resolved.env, {
-			...parent.resolved,
+		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
+		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
+		const { capabilities, channelInstances, inherit } = presetSession(selected, resolved.env, {
+			...parentResolved,
 			capabilities: ctx.capabilities,
+			...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
 		});
 		let session = await store.sessions.get(childId);
 		if (!session) {
@@ -158,6 +161,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				cwd: parent.cwd,
 				env: resolved.env,
 				capabilities,
+				...(channelInstances === undefined ? {} : { channelInstances }),
 				...(inherit ? { inherit } : {}),
 			});
 		let event: YEvent | undefined;

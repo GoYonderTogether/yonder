@@ -25,6 +25,7 @@ const fields = {
 	capabilities: Type.Optional(
 		Type.Array(choice("read", "write", "exec", "network", "message", "cross-agent", "admin")),
 	),
+	channelInstances: Type.Optional(Type.Array(instanceId, { uniqueItems: true })),
 	plugins: Type.Optional(strings),
 	tools: Type.Optional(object({ offer: Type.Optional(strings), search: Type.Optional(strings) })),
 	contexts: Type.Optional(strings),

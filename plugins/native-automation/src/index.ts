@@ -2,7 +2,15 @@ import { randomUUID } from "node:crypto";
 import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { definePlugin, type PluginAPI, type ToolContext, type ToolResult, type TSchema } from "@yonder/sdk";
+import {
+	definePlugin,
+	type PermissionRequest,
+	type PermissionResponse,
+	type PluginAPI,
+	type ToolContext,
+	type ToolResult,
+	type TSchema,
+} from "@yonder/sdk";
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
@@ -334,17 +342,87 @@ export default definePlugin({
 				};
 			}
 		}
+		const permissionKinds = [
+			"accessibility",
+			"screen-recording",
+			"input-monitoring",
+			"camera",
+			"microphone",
+			"notifications",
+			"automation",
+			"full-disk-access",
+			"files-and-folders",
+		];
+		async function permissionRun(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse> {
+			check(ctx, ["exec", "read", "write", "message"]);
+			if (
+				request.provider !== "native-automation" ||
+				!permissionKinds.includes(request.kind) ||
+				!["status", "request", "guide", "watch"].includes(request.action)
+			)
+				throw new Error("Invalid native permission request");
+			if (
+				request.timeout !== undefined &&
+				(!["guide", "watch"].includes(request.action) ||
+					!Number.isFinite(request.timeout) ||
+					request.timeout <= 0 ||
+					request.timeout > 600)
+			)
+				throw new Error("timeout is only supported for permission-guide/permission-watch (0 < seconds <= 600)");
+			if (request.action !== "status") {
+				await requireOwnerOrigin(api, ctx);
+				check(ctx, ["exec", "read", "write", "message"]);
+			}
+			if (process.platform !== "darwin")
+				return {
+					platform: process.platform,
+					result: {
+						state: "unsupported",
+						reason: `No native permission driver for ${process.platform}; this provider implements macOS Yonder Helper only.`,
+					},
+				};
+			const output = await desktop(
+				{
+					action: request.action === "status" ? "permissions" : `permission-${request.action}`,
+					...(request.action !== "status" ? { kind: request.kind } : {}),
+					...(request.timeout !== undefined ? { timeout: request.timeout } : {}),
+				},
+				ctx.signal,
+				ctx.session,
+			);
+			ctx.signal.throwIfAborted();
+			return { platform: process.platform, result: output };
+		}
+		api.permissions.register({
+			id: "native-automation",
+			scope: "macOS Yonder Helper OS permissions (not Node, remote environments, browser sites or external accounts)",
+			kinds: permissionKinds,
+			invoke: permissionRun,
+		});
 		async function desktopRun(input: unknown, ctx: ToolContext): Promise<ToolResult> {
 			try {
 				check(ctx, ["exec", "read", "write", "message"]);
 				if (!Value.Check(desktopSchema, input)) throw new Error("Invalid native-automation_desktop arguments");
 				const args = input as Record<string, unknown>;
-				if (["permission-request", "permission-guide", "permission-watch"].includes(String(args.action))) {
-					requireField(args.kind, "kind");
-					if (args.action === "permission-request" && args.timeout !== undefined)
-						throw new Error("timeout is only supported for permission-guide/permission-watch");
-					await requireOwnerOrigin(api, ctx);
-					check(ctx, ["exec", "read", "write", "message"]);
+				if (
+					["status", "permissions", "permission-request", "permission-guide", "permission-watch"].includes(
+						String(args.action),
+					)
+				) {
+					if (!["status", "permissions"].includes(String(args.action))) requireField(args.kind, "kind");
+					const action = ["status", "permissions"].includes(String(args.action))
+						? "status"
+						: String(args.action).slice("permission-".length);
+					const response = await permissionRun(
+						{
+							provider: "native-automation",
+							action,
+							kind: args.kind ?? "accessibility",
+							...(args.timeout !== undefined ? { timeout: args.timeout } : {}),
+						} as PermissionRequest,
+						ctx,
+					);
+					return result({ source: "Yonder Helper CoreGraphics/AX", result: response.result });
 				}
 
 				if (["file-list", "file-export"].includes(String(args.action))) {

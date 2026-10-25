@@ -1,6 +1,28 @@
 import AppKit
 import WebKit
 import Darwin
+import QuartzCore
+
+struct AgentActivity {
+    struct Task {
+        let summary: String
+        let detail: String
+        let text: String
+    }
+    let id: String
+    let name: String
+    let state: String
+    let tasks: [Task]
+    init?(_ data: [String: Any]) {
+        guard let id = data["id"] as? String, let name = data["name"] as? String,
+              let state = data["state"] as? String, ["running", "waiting", "idle"].contains(state) else { return nil }
+        self.id = id; self.name = name; self.state = state
+        tasks = (data["tasks"] as? [[String: Any]] ?? []).map { Task(summary: $0["summary"] as? String ?? "", detail: $0["detail"] as? String ?? "", text: $0["text"] as? String ?? "") }
+    }
+    var label: String { state == "running" ? "运行中" : state == "waiting" ? "等待交互" : "空闲" }
+    var menuText: String { "\(state == "running" ? "●" : state == "waiting" ? "◐" : "○") \(name) · \(label)" }
+    var json: [String: Any] { ["id": id, "name": name, "state": state, "tasks": tasks.map { ["summary": $0.summary, "detail": $0.detail, "text": $0.text] }] }
+}
 
 // Placement only considers the pointer and screen edges, never reads other apps' contents.
 func clampedFrame(_ frame: NSRect, in screen: NSRect) -> NSRect {
@@ -60,6 +82,15 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
     private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     private var anchor: WindowAnchor?
     private var pending = false
+    private var pinned: Bool
+    private let preferenceKey: String
+    private var agents: [AgentActivity] = []
+    private var activityKnown = false
+    private var hoverTimer: Timer?
+    private var enteredPanel = false
+    private var editing = false
+    private var dockStateKey = ""
+
     private var page: URL?
     private var historyOnOpen = false
     var available: Bool { page != nil }
@@ -80,7 +111,9 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         if #available(macOS 13.0, *) { result.collectionBehavior.insert(.canJoinAllApplications) }
         return result
     }
-    override init() {
+    init(preferenceKey: String) {
+        self.preferenceKey = preferenceKey
+        pinned = UserDefaults.standard.bool(forKey: preferenceKey)
         super.init()
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "companion")
@@ -124,16 +157,60 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in self?.collapse() }
         // Proactive appearance is always the compact entry, including full-screen spaces.
         collapse()
+        hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            guard let self, self.pinned, self.panel.isVisible else { return }
+            if self.panel.frame.contains(NSEvent.mouseLocation) { self.enteredPanel = true }
+            else if self.enteredPanel && self.dragStart == nil && !self.editing && NSEvent.pressedMouseButtons == 0 { self.collapse() }
+        }
+        RunLoop.main.add(hoverTimer!, forMode: .common)
+    }
+    func setActivity(_ agents: [AgentActivity], known: Bool) {
+        self.agents = agents; activityKnown = known
+        publishActivity()
+        let key = "\(known):\(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion):" + agents.map { $0.menuText }.joined(separator: "\n")
+        guard key != dockStateKey else { return }
+        dockStateKey = key
+        guard let view = dock.contentView else { return }
+        for child in view.subviews where !(child is NSImageView) { child.removeFromSuperview() }
+        let count = max(1, agents.count)
+        dock.setContentSize(NSSize(width: 184, height: max(56, 16 + count * 22)))
+        if let mark = view.subviews.first as? NSImageView { mark.frame.origin.y = (view.bounds.height - 52) / 2 }
+        let labels = known && !agents.isEmpty ? agents.map { ($0.name, $0.state, $0.label) } : [(known ? "暂无 Agent" : "状态未知", "unknown", "")]
+        for (index, row) in labels.enumerated() {
+            let y = view.bounds.height - 24 - CGFloat(index * 22)
+            let dot = NSView(frame: NSRect(x: 62, y: y + 4, width: 6, height: 6))
+            dot.wantsLayer = true; dot.layer?.cornerRadius = 3
+            dot.layer?.backgroundColor = (row.1 == "running" ? NSColor.labelColor : row.1 == "waiting" ? NSColor.systemOrange : NSColor.tertiaryLabelColor).cgColor
+            if row.1 == "running" && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+                let pulse = CABasicAnimation(keyPath: "opacity")
+                pulse.fromValue = 1; pulse.toValue = 0.25; pulse.duration = 0.9; pulse.autoreverses = true; pulse.repeatCount = .infinity
+                dot.layer?.add(pulse, forKey: "working")
+            }
+            let name = NSTextField(labelWithString: row.0)
+            name.frame = NSRect(x: 75, y: y, width: 99, height: 16)
+            name.font = .systemFont(ofSize: 11, weight: .medium); name.lineBreakMode = .byTruncatingTail
+            name.textColor = row.1 == "running" ? .labelColor : .secondaryLabelColor
+            name.toolTip = row.0 + " · " + row.2
+            view.addSubview(dot); view.addSubview(name)
+        }
+        view.toolTip = known ? agents.map { $0.menuText }.joined(separator: "\n") : "运行状态未知"
+        view.setAccessibilityLabel("打开 Yonder。" + (view.toolTip ?? ""))
+        if dock.isVisible { ensureAnchor(); dock.setFrame(anchor!.frame(size: dock.frame.size), display: true) }
+    }
+    private func publishActivity() {
+        let data: [String: Any] = ["agents": agents.map { $0.json }, "known": activityKnown, "pinned": pinned]
+        guard let bytes = try? JSONSerialization.data(withJSONObject: data), let json = String(data: bytes, encoding: .utf8) else { return }
+        web.evaluateJavaScript("window.yonderUI?.activity(\(json))", completionHandler: nil)
     }
     func setEndpoint(_ next: URL?) {
         guard next != page else { return }
         pending = false; panel.orderOut(nil); dock.orderOut(nil); onVisibility?(false)
         page = next
-        if let next { web.load(URLRequest(url: next)) }
+        if let next { web.load(URLRequest(url: next)); if pinned { collapse() } }
         else { web.loadHTMLString("", baseURL: nil) }
     }
     func showHistory() { showPanel(history: true) }
-    func showCurrent() { showPanel(history: !pending) }
+    func showCurrent() { showPanel() }
 
     private func ensureAnchor() {
         if anchor == nil || !NSScreen.screens.contains(where: { $0.visibleFrame.contains(anchor!.point) }) {
@@ -142,6 +219,7 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
     }
     private func showPanel(history: Bool = false) {
         guard available else { return }
+        enteredPanel = false
         historyOnOpen = history
         if history { web.evaluateJavaScript("window.yonderUI?.history()", completionHandler: nil) }
         else { web.evaluateJavaScript("window.yonderUI?.current()", completionHandler: nil) }
@@ -157,7 +235,7 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         ensureAnchor()
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('yonder-visibility',{detail:false}))", completionHandler: nil)
         panel.orderOut(nil)
-        if pending {
+        if available && (pending || pinned) {
             dock.setFrame(anchor!.frame(size: dock.frame.size), display: true)
             dock.orderFrontRegardless()
         } else { dock.orderOut(nil) }
@@ -168,12 +246,16 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
               let data = message.body as? [String: Any], let action = data["action"] as? String else { return }
         switch action {
         case "close": collapse()
+        case "editing": editing = data["value"] as? Bool ?? false
+        case "pin":
+            pinned.toggle(); UserDefaults.standard.set(pinned, forKey: preferenceKey)
+            publishActivity()
+            if !panel.isVisible { collapse() }
         case "open": showPanel()
         case "attention": pending = true; if !panel.isVisible { collapse() }
         case "state":
             pending = data["pending"] as? Bool ?? false
-            if !pending { dock.orderOut(nil) }
-            else if !panel.isVisible { collapse() }
+            if !panel.isVisible { collapse() }
         case "drag-start": dragStart = (NSEvent.mouseLocation, panel.frame.origin)
         case "drag-move":
             if let start = dragStart {
@@ -187,6 +269,7 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         }
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        publishActivity()
         if historyOnOpen && panel.isVisible { web.evaluateJavaScript("window.yonderUI?.history()", completionHandler: nil) }
         web.evaluateJavaScript("window.dispatchEvent(new CustomEvent('yonder-visibility',{detail:\(panel.isVisible)}))", completionHandler: nil)
     }
@@ -197,6 +280,7 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         decisionHandler(.cancel)
     }
     func stop() {
+        hoverTimer?.invalidate()
         panel.orderOut(nil); dock.orderOut(nil)
         if let outsideMonitor { NSEvent.removeMonitor(outsideMonitor) }
         if let spaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver) }

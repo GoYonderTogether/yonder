@@ -1,5 +1,7 @@
 import {
 	type Attachment,
+	allowsChannelInstance,
+	assertChannelInstance,
 	definePlugin,
 	type PluginAPI,
 	parseRef,
@@ -59,10 +61,11 @@ export default definePlugin({
 				return channel;
 			},
 		});
-		const resolve = (input: unknown) => {
+		const resolve = (input: unknown, ctx: ToolContext) => {
 			const args = object(input),
-				id = required(args.instance, "instance"),
-				channel = instances.get(id);
+				id = required(args.instance, "instance");
+			assertChannelInstance(ctx, id);
+			const channel = instances.get(id);
 			if (!channel) throw new Error(`Unknown Feishu instance ${id}`);
 			return { args, channel };
 		};
@@ -88,14 +91,21 @@ export default definePlugin({
 				"Read actual Feishu instance transport state and required permission guidance; does not connect or send. Connected is not full capability acceptance. Start diagnosis here: distinguish transport/authentication, application permissions, target membership and render/media errors. Follow the reported instance guidance; do not reinstall the plugin or restart unrelated channels to repair a missing permission.",
 			parameters: { type: "object", additionalProperties: false, properties: { instance: str } } as TSchema,
 			capabilities: ["read"],
-			async execute(input) {
+			async execute(input, ctx) {
 				try {
 					const args = object(input);
 					const selected = string(args.instance);
+					if (selected) assertChannelInstance(ctx, selected);
 					const channel = selected ? instances.get(selected) : undefined;
 					if (selected && !channel) throw new Error("Unknown Feishu instance");
 					return {
-						text: JSON.stringify(channel ? channel.status() : [...instances.values()].map((value) => value.status())),
+						text: JSON.stringify(
+							channel
+								? channel.status()
+								: [...instances.values()]
+										.filter((value) => allowsChannelInstance(ctx, value.id))
+										.map((value) => value.status()),
+						),
 					};
 				} catch (error) {
 					return { text: error instanceof Error ? error.message : "Feishu status failed", isError: true };
@@ -123,7 +133,7 @@ export default definePlugin({
 			capabilities: ["read", "network"],
 			async execute(input, ctx) {
 				try {
-					const { args, channel } = resolve(input);
+					const { args, channel } = resolve(input, ctx);
 					const sources = [...(ctx.events ?? []), ...(ctx.event ? [ctx.event] : [])].filter((event) =>
 						event.conv?.startsWith(`conv:${channel.id}:`),
 					);
@@ -194,7 +204,7 @@ export default definePlugin({
 			async execute(input, ctx) {
 				try {
 					ctx.signal.throwIfAborted();
-					const { args, channel } = resolve(input);
+					const { args, channel } = resolve(input, ctx);
 					const to = targetOf(args, channel);
 					const delivery = await api.messages.send(
 						{
@@ -222,7 +232,7 @@ export default definePlugin({
 			async execute(input, ctx) {
 				let channel: FeishuChannel | undefined;
 				try {
-					const resolved = resolve(input);
+					const resolved = resolve(input, ctx);
 					channel = resolved.channel;
 					const result = await channel.taskCards.execute(resolved.args, ctx);
 					return { text: JSON.stringify(result), ...(object(result).ok === false ? { isError: true } : {}) };
@@ -230,7 +240,11 @@ export default definePlugin({
 					return {
 						text: JSON.stringify({
 							ok: false,
-							error: channel ? channel.client.safe(error) : "Invalid Feishu task card request",
+							error: channel
+								? channel.client.safe(error)
+								: error instanceof Error
+									? error.message
+									: "Invalid Feishu task card request",
 						}),
 						isError: true,
 					};
@@ -260,7 +274,7 @@ export default definePlugin({
 				let channel: FeishuChannel | undefined;
 				try {
 					ctx.signal.throwIfAborted();
-					const resolved = resolve(input);
+					const resolved = resolve(input, ctx);
 					channel = resolved.channel;
 					const args = resolved.args;
 					const target = targetOf(args, channel);

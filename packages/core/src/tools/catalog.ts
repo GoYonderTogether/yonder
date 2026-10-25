@@ -1,6 +1,7 @@
 import type { Capability } from "@yonder/sdk";
 
 export const coreToolCapabilities: Record<string, Capability[]> = {
+	permissions: [],
 	message_send: [],
 	agent_ask: ["message"],
 	parent_ask: [],

@@ -32,7 +32,7 @@
 
 ## 3. 插件槽
 
-共八个：`channels`、`tools`、`contexts`、`triggers`、`envs`、`hooks`、`presets`、`skills`。下面的 TypeScript 就是 `@yonder/sdk` 导出的类型，字段不多不少。
+共九个：`channels`、`tools`、`contexts`、`triggers`、`envs`、`hooks`、`presets`、`skills`、`permissions`。下面的 TypeScript 就是 `@yonder/sdk` 导出的类型，字段不多不少。
 
 提供者实例配置剥离用于选择提供者的 type 后再校验并传给 create。缺凭据或外部服务未就绪由官方插件返回可诊断状态，不因该依赖终止其他渠道；不提供任意插件代码的进程隔离保证。
 
@@ -84,6 +84,7 @@ interface ToolContext {
   profile: string;
   session: string;
   capabilities: Capability[];          // 本次运行生效的能力
+  channelInstances?: string[];         // 真实运行实例范围；未配置无限制，[] 无实例
   env: ExecutionEnv;                   // 本次运行的执行环境（05 §4）
   event?: YEvent;                      // 触发本次运行的入站事件
   signal: AbortSignal;                 // 运行被中止时触发；工具必须响应
@@ -189,7 +190,8 @@ interface PluginAPI {
     query(q: EventQuery): Promise<EventPage>;                            // 01 §4
     on(type: string, handler: (e: YEvent) => void | Promise<void>): void;   // type 可为 'prefix.*'；见下
   };
-  messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[] }): Promise<Delivery> };   // 全局插件无 owner；传 person:/acct:/conv:，06 §5
+  messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[]; owner?: ExecutionOwner }, ctx?: ToolContext): Promise<Delivery> }; // ctx 为模型调用；owner 为代表真实执行者的程序发送，06 §5
+  execution: { resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
   credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
   identity: IdentityAPI;               // 02 §4.4
@@ -206,6 +208,8 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 - `defineChannel` 约束 `ChannelProvider`。插件发送使用显式目标，不把全局插件关联到某个默认 agent。
 - `Preset` 的字段见 03 §4。
 - 插件**禁止**直接打开内核的 SQLite 表或 pi-durable 的存储。
+
+`ExecutionOwner = { session: string; agent: string | null; profile: string }`，`ResolvedExecution = { capabilities: Capability[]; channelInstances?: string[] }`。核心按存储会话核对 owner 并取当前有效配置；不得伪造 ToolContext 或把全部无 ctx 调用视为模型授权。SDK 的 `allowsChannelInstance(scope, instance)` / `assertChannelInstance(scope, instance)` 接受携带可选 channelInstances 的作用域；插件在平台访问前使用，不能自己读 home 推导。飞书 status/history/message/card/task-card 共用检查，省略实例的 status 只枚举授权实例，保留原能力、来源与归属约束。
 
 ## 5. 生命周期
 
@@ -277,3 +281,34 @@ iLink 模型 login 工具省略 instance 时选择持久化首实例，省略 ac
 ### 多 Agent 渠道与枚举（D62）
 
 PluginAPI.agents.list(): Promise<{id:string;name:string}[]> 只读返回本实例启用 Agent 的 id 和显示名，不含 archived。ChannelProvider 和 Channel 可选 multiAgent:boolean；内核以 provider 注册值为准传给实例。普通渠道不可用 data.target，唯一例外为 multiAgent:true 的 provider：目标仍须自身绑定通过，其他 Agent 为 no-binding。此类渠道可把 agent id 嵌入不透明 ref，从 Channel.send(target) 还原发言身份；OutMessage 不变。
+
+## 统一权限门面（permissions 槽）
+
+`PluginAPI.permissions` 提供 `register(provider)`、`list(ctx)`、`invoke(request, ctx)`。
+清单 `contributes.permissions` 列 provider ID；沿用 setup 注册收集、声明比对和重名拒绝。
+provider ID 必须是插件 ID 或 `<插件ID>.<局部ID>`，不得抢占别的插件命名空间。
+`scope` 说明实际责任主体/范围，`kinds` 是非空、不重复的实际支持权限种类。
+
+```ts
+interface PermissionRequest {
+  provider: string;
+  action: "status" | "request" | "guide" | "watch";
+  kind: string;
+  timeout?: number; // 秒，由 provider 限制可用 action/范围
+}
+interface PermissionResponse {
+  platform: string;
+  result: unknown; // 实际平台输出：身份、状态、下一步；不含凭据
+}
+interface PermissionProvider {
+  id: string;
+  scope: string;
+  kinds: string[];
+  invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
+}
+```
+
+内核只有一个 registry，同一实例服务核心工具与插件。调用必须传递原始真实 `ToolContext`，核心校验它在运行中的工具调用登记中（仅伪造会话引用不足以调用），保留取消、来源与能力；只允许当前 session/profile 选择的插件 provider。
+`list` 仅返回已选择 provider 的静态描述，不执行权限探测。setup/检查不得调用 list/invoke 或触发申请。
+`status` 只查询，不可升级为 request；requested、unknown、denied 不可转换为 granted。
+门面平台无关，provider 自己保持平台、执行环境、OS 身份、外部服务及凭据边界，不另建授权数据库或审批队列。

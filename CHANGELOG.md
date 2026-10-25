@@ -14,6 +14,33 @@
 
 - P2 验证：build/typecheck/lint 通过；默认全仓 601 passed / 0 failed / 39 skipped。新增真实 Luna stall 用例未测（缺凭据）；原始失败与修正见 docs/status.md。
 
+## [0.2.26102506] - 2026-10-25
+
+- 新增共享 `PluginAPI.permissions`、核心 `permissions` 工具和 native-automation provider，复用已有 macOS 权限驱动及 desktop 兼容入口；按真实活动 ToolContext、session/profile 插件选择、owner、能力、执行环境和取消信号校验。
+- 该 API 独立于未决的薄原生服务宿主，不改变服务入口或加入定位接口。统一 API 不代表 OS 授权继承；真实 TCC、grant 保留、薄 host 与定位均不在本版验收范围。正式安装另由现有更新流程核验。见 [权限 API 验证](docs/verification/permissions-api.md)。
+- 标准 build/typecheck/lint 通过；唯一一次本地全量 662 通过 / 1 失败 / 39 跳过，修正旧 cleanup 测试夹具的 permissions 注册后定点 1 通过，未重复全量或掩盖原失败。
+
+## [0.2.26102505] - 2026-10-25
+
+- 状态栏展示逐 Agent 的运行/空闲/等待状态、任务摘要与可见回复短片段；图标同步标记运行中。
+- 菜单入口改为“打开悬浮窗”；图钉可保留同锚点悬浮入口，显示各 Agent 状态，运行时轻微呼吸。
+
+## [0.2.26102504] - 2026-10-25
+
+### Added
+
+- 配置档/defaults/preset 支持可选 `channelInstances` 实例范围；通用投递、飞书工具与带真实 owner 的 cron 程序通知共用检查，子任务保存父调用与预设的范围交集，并在恢复/重新解析时保持保存上限。
+
+### Compatibility
+
+- 未配置 `channelInstances` 保持无限制兼容，不从 bindings 推导授权，也不会自动隔离已有配置或旧任务；显式 `[]` 表示无渠道实例，admin/bypass 不越过显式名单。正式配置迁移须另行安排，已开始的运行仍沿原快照语义。
+- 本次不是入站过滤、任意插件进程隔离或 exec/CLI/macOS 沙箱；无 ctx/owner 的可信插件自身通知仍沿原路径。
+
+### Verification
+
+- 复用最终代码 `76d5ee6` 的本地验收：104 个测试文件通过、19 个跳过；605 个用例通过、0 失败、39 个跳过；build/typecheck/lint 均 exit 0（lint 仍有 400 warnings、14 infos）。版本 metadata 变更不重复本地全量。
+- 真实 Sol 模型整轮工具/子任务/恢复闭环及正式渠道平台联调未测；没有把离线平台边界回归或跳过项算作真实账号验收。
+
 ## [0.2.26102503] - 2026-10-25
 
 - 统一聊天与上下文压缩的重试/回退决策和错误分类，持久记录失败尝试与后续动作，压缩失败明确报告重试或模型链耗尽。

@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	type Attachment,
+	assertChannelInstance,
 	type Capability,
 	definePlugin,
 	type EventInput,
@@ -109,6 +110,13 @@ const parameters = object(
 	["action"],
 ) as TSchema;
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
+function checkDelivery(delivery: NonNullable<Job["delivery"]>, scope: { channelInstances?: string[] }) {
+	const target = parseRef(delivery.to);
+	if (target.kind !== "conv" && target.kind !== "acct")
+		throw new Error("Delivery target must be explicit channel conv/acct reference");
+	if (delivery.via && delivery.via !== target.channel) throw new Error("via does not match delivery target instance");
+	assertChannelInstance(scope, target.channel);
+}
 function sameOwner(job: Job, ctx: ToolContext): boolean {
 	return job.owner.agent === null
 		? ctx.agent === null && job.owner.session === ctx.session
@@ -312,7 +320,10 @@ export class Scheduler {
 			});
 			const authority = await this.api.execution.resolve(job.owner);
 			const capabilities = job.capabilities.filter((c) => authority.capabilities.includes(c));
-			if (job.delivery && !capabilities.includes("message")) throw new Error("Creator message capability revoked");
+			if (job.delivery) {
+				if (!capabilities.includes("message")) throw new Error("Creator message capability revoked");
+				checkDelivery(job.delivery, authority);
+			}
 			const payload = job.payload;
 			if (payload.kind === "event") {
 				const event: EventInput = {
@@ -379,9 +390,11 @@ export class Scheduler {
 				const authority = await this.api.execution.resolve(job.owner);
 				if (!job.capabilities.includes("message") || !authority.capabilities.includes("message"))
 					throw new Error("Creator message capability revoked");
+				checkDelivery(job.delivery, authority);
 				const text = run.error ? `Cron ${job.name} failed: ${run.error}\n${run.text ?? ""}` : (run.text ?? "");
 				const delivery = await this.api.messages.send({
 					...job.delivery,
+					owner: job.owner,
 					text,
 					...(run.attachments ? { attachments: run.attachments } : {}),
 					signal: active.controller.signal,
@@ -472,6 +485,12 @@ export class Scheduler {
 			// Updates cannot preserve old privileges after the caller loses them.
 			updated.capabilities = updated.capabilities.filter((c) => ctx.capabilities.includes(c));
 			this.validate(updated);
+			if (updated.delivery) {
+				checkDelivery(updated.delivery, ctx);
+				const authority = await this.api.execution.resolve(updated.owner);
+				if (!authority.capabilities.includes("message")) throw new Error("Creator message capability revoked");
+				checkDelivery(updated.delivery, authority);
+			}
 			updated.updated = now;
 			updated.next = next(updated.schedule, Date.now() - 1, updated.start, updated.end);
 			if (updated.maxRuns !== undefined && updated.runs >= updated.maxRuns) updated.enabled = false;

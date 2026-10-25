@@ -7,6 +7,7 @@ import {
 	type WorkspaceFiles,
 	type YonderConfig,
 } from "../config/index.js";
+import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import {
 	credentialPath,
@@ -32,6 +33,7 @@ export function credentialsAndModels(home: string, config: YonderConfig) {
 export function inspectionServices(home: string, config: YonderConfig, log: KernelLog): KernelServices {
 	return {
 		...credentialsAndModels(home, config),
+		permissions: createPermissions(async () => unavailable()),
 		agents: { list: unavailable },
 		log: { info: (m, d) => log("info", m, d), warn: (m, d) => log("warn", m, d), error: (m, d) => log("error", m, d) },
 		events: { emit: unavailable, ask: unavailable, query: unavailable, on: unavailable },

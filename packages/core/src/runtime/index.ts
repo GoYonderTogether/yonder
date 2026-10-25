@@ -176,6 +176,9 @@ export class Runtime {
 			profile: config.profile,
 			session: id,
 			capabilities: [...config.resolved.capabilities],
+			...(config.resolved.channelInstances === undefined
+				? {}
+				: { channelInstances: [...config.resolved.channelInstances] }),
 			env: this.environment(config),
 			...(input ? { event: input } : {}),
 			events,
@@ -460,6 +463,11 @@ export class Runtime {
 			]),
 		});
 	}
+	/** Shared services may only act with the exact context of an active native tool invocation. */
+	assertToolContext(ctx: ToolContext): void {
+		if (!this.toolInvocations.has(ctx)) throw new Error("需要真实运行中的工具调用上下文。");
+		ctx.signal.throwIfAborted();
+	}
 	async authorizeAttachments(ctx: ToolContext, attachments: Attachment[] = []): Promise<void> {
 		const invocation = this.toolInvocations.get(ctx);
 		if (!invocation) throw new Error("需要真实运行中的工具调用上下文。");
@@ -483,6 +491,7 @@ export class Runtime {
 		cwd: string;
 		env?: string;
 		capabilities?: Capability[];
+		channelInstances?: string[];
 		inherit?: RuntimeSessionState["inherit"];
 		close?: "run-end" | "manual";
 	}): Promise<string> {
@@ -496,6 +505,7 @@ export class Runtime {
 						cwd: meta.cwd,
 						env: meta.env ?? "local",
 						capabilities: meta.capabilities ?? null,
+						channelInstances: meta.channelInstances ?? null,
 						inherit: meta.inherit ?? null,
 						close: meta.close ?? "run-end",
 					});
@@ -516,6 +526,7 @@ export class Runtime {
 			cwd: state.cwd,
 			env: state.env,
 			...(state.capabilities ? { capabilities: [...state.capabilities] } : {}),
+			...(state.channelInstances ? { channelInstances: [...state.channelInstances] } : {}),
 			...(state.inherit ? { inherit: structuredClone(state.inherit) } : {}),
 		};
 	}
@@ -524,6 +535,7 @@ export class Runtime {
 			Object.assign(await tx.doc(SessionDoc, cid(id)), {
 				...state,
 				capabilities: state.capabilities ?? null,
+				channelInstances: state.channelInstances ?? null,
 				inherit: state.inherit ?? null,
 			});
 		}, C);
@@ -1487,6 +1499,73 @@ export class Runtime {
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		const slots = live?.tools?.filter((slot) => slot.status !== "done") ?? [];
 		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "ui-companion_result"));
+	}
+
+	/** Owner-local presentation, projected from native live state, never reasoning or tool payloads. */
+	async activity(id: string) {
+		const [live, inbox, background] = await Promise.all([
+			this.harness.snapshot(LiveDoc, cid(id), C),
+			this.harness.snapshot(InboxDoc, cid(id), C),
+			this.storage.scanTasks(
+				{ conversationId: cid(id), kind: "yonder.background" },
+				Number.MAX_SAFE_INTEGER,
+				undefined,
+				C,
+			),
+		]);
+		const tools = [...(live?.tools ?? []), ...(live?.nestedTools ?? [])]
+			.filter((slot) => slot.status !== "done")
+			.map((slot) => slot.name);
+		tools.push(
+			...background.items
+				.filter((task) => task.state.status !== "terminal")
+				.map((task) => (task.input as { name: string }).name),
+		);
+		const queued = inbox?.items.some((item) => item.mode !== "write");
+		const busy = !!live?.run || !!queued || tools.length > 0 || !!live?.compactions?.length;
+		const waiting =
+			busy &&
+			!queued &&
+			!live?.compactions?.length &&
+			tools.length > 0 &&
+			tools.every((name) => name === "ui-companion_result");
+		let summary = "";
+		const input = live?.run?.inputs.at(-1);
+		if (input !== undefined) {
+			const submission = await this.storage.submission(input, C);
+			const entry = submission?.entry ? await this.harness.commit((tx) => tx.entry(submission.entry!), C) : undefined;
+			const message = entry?.model?.find((message) => message.role === "user");
+			if (message)
+				summary =
+					typeof message.content === "string"
+						? message.content
+						: message.content
+								.filter((block) => block.type === "text")
+								.map((block) => block.text)
+								.join(" ");
+		}
+		const text =
+			live?.generation?.message?.content
+				.filter((block) => block.type === "text")
+				.map((block) => block.text)
+				.join(" ") ?? "";
+		const detail = waiting
+			? "等待交互"
+			: live?.compactions?.length
+				? "整理上下文"
+				: tools.length
+					? `执行 ${[...new Set(tools)].join(" · ")}`
+					: queued && !live?.run
+						? "排队中"
+						: busy
+							? "生成回复"
+							: "空闲";
+		return {
+			state: waiting ? ("waiting" as const) : busy ? ("running" as const) : ("idle" as const),
+			summary: summary.replace(/\s+/g, " ").trim().slice(0, 160),
+			detail: detail.slice(0, 160),
+			text: text.trim().slice(-240),
+		};
 	}
 
 	async hasPendingWork(id: string, input?: string): Promise<boolean> {

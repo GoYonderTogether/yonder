@@ -85,6 +85,8 @@ export interface RuntimeSessionState {
 	cwd: string;
 	env: string;
 	capabilities?: Capability[];
+	/** Effective instance ceiling captured at creation, including the preset restriction. */
+	channelInstances?: string[];
 	/** Parent tool surface captured when a preset session opens; fields the preset leaves unset are taken from here. */
 	inherit?: { plugins: string[]; tools: { offer: string[]; search: string[] } };
 }
