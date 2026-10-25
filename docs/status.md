@@ -212,3 +212,4 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 ## 2026-10-23 唤醒模式与 15 分钟缓冲
 
 现有状态栏改为关闭/任务期间/始终互斥模式。任务完成后继续保持至少 15 分钟，期间新任务结束后重新计时；旧设置兼容，始终模式不因任务归零释放。build/typecheck/lint 通过；79 文件通过/19 跳过，334 测试通过/38 跳过、0 失败（317 warnings、14 infos）。真实后台任务后缓冲保护、空闲 always 与显式关闭释放通过；短时采集到合盖状态且任务正常完成。时间边界测试不冒充真实等待15分钟，背包散热与热点稳定性未验收。详见 verification/awake-modes.md。
+- 维护者复核（2026-10-25）：独立重跑 `npm run build`、`npm run typecheck` 通过；`plugins/tasks` 与会话测试 10 通过 / 2 跳过。设置 `YONDER_TEST_REAL=1` 与 `YONDER_TEST_AUTH` 指向主仓库 `.yonder/auth.json` 后，`plugins/tasks/test/moments.test.ts` 4 通过 / 0 跳过，其中 Luna 滞留提醒用例真实通过。提醒是否真的让 Agent 不再中断，仍需 P5 在生产对照。
