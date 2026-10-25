@@ -7,6 +7,8 @@ const handlers = new Map(),
 	triggers = [];
 await plugin.setup({
 	paths: { data: "/tmp" },
+	// Setup-only fixture; permission operations are not invoked by this script.
+	permissions: { register() {} },
 	tools: { register() {} },
 	events: { on: (type, handler) => handlers.set(type, handler) },
 	triggers: { register: (t) => triggers.push(t) },
