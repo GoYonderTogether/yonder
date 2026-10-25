@@ -176,6 +176,9 @@ export class Runtime {
 			profile: config.profile,
 			session: id,
 			capabilities: [...config.resolved.capabilities],
+			...(config.resolved.channelInstances === undefined
+				? {}
+				: { channelInstances: [...config.resolved.channelInstances] }),
 			env: this.environment(config),
 			...(input ? { event: input } : {}),
 			events,
@@ -483,6 +486,7 @@ export class Runtime {
 		cwd: string;
 		env?: string;
 		capabilities?: Capability[];
+		channelInstances?: string[];
 		inherit?: RuntimeSessionState["inherit"];
 		close?: "run-end" | "manual";
 	}): Promise<string> {
@@ -496,6 +500,7 @@ export class Runtime {
 						cwd: meta.cwd,
 						env: meta.env ?? "local",
 						capabilities: meta.capabilities ?? null,
+						channelInstances: meta.channelInstances ?? null,
 						inherit: meta.inherit ?? null,
 						close: meta.close ?? "run-end",
 					});
@@ -516,6 +521,7 @@ export class Runtime {
 			cwd: state.cwd,
 			env: state.env,
 			...(state.capabilities ? { capabilities: [...state.capabilities] } : {}),
+			...(state.channelInstances ? { channelInstances: [...state.channelInstances] } : {}),
 			...(state.inherit ? { inherit: structuredClone(state.inherit) } : {}),
 		};
 	}
@@ -524,6 +530,7 @@ export class Runtime {
 			Object.assign(await tx.doc(SessionDoc, cid(id)), {
 				...state,
 				capabilities: state.capabilities ?? null,
+				channelInstances: state.channelInstances ?? null,
 				inherit: state.inherit ?? null,
 			});
 		}, C);

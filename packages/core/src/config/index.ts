@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Capability, Level, Preset, Profile } from "@yonder/sdk";
+import { type Capability, intersectChannelInstances, type Level, type Preset, type Profile } from "@yonder/sdk";
 import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
@@ -36,8 +36,11 @@ export class ConfigError extends Error {
 	}
 }
 
-export type ResolvedProfile = Required<Omit<Profile, "level" | "tools" | "limits" | "fallback">> & {
+export type ResolvedProfile = Required<
+	Omit<Profile, "level" | "tools" | "limits" | "fallback" | "channelInstances">
+> & {
 	level?: Level;
+	channelInstances?: string[];
 	fallback?: Profile["fallback"];
 	tools: Required<NonNullable<Profile["tools"]>>;
 	limits: Required<NonNullable<Profile["limits"]>>;
@@ -86,15 +89,17 @@ export function presetSession(
 	env: string,
 	opener?: ResolvedProfile,
 	limit?: Capability[],
-): { capabilities: Capability[]; inherit?: PresetInherit } {
+): { capabilities: Capability[]; channelInstances?: string[]; inherit?: PresetInherit } {
 	const own = preset.level !== undefined || preset.capabilities !== undefined;
 	const ceiling = opener?.capabilities;
 	const base = own || !(ceiling ?? limit) ? resolveProfile(preset, {}, env).capabilities : [...(ceiling ?? limit!)];
 	const capabilities = base.filter(
 		(capability) => (ceiling ?? base).includes(capability) && (!limit || limit.includes(capability)),
 	);
+	const channelInstances = intersectChannelInstances(opener?.channelInstances, preset.channelInstances);
 	return {
 		capabilities,
+		...(channelInstances === undefined ? {} : { channelInstances }),
 		...(opener
 			? {
 					inherit: {
@@ -112,8 +117,11 @@ export function presetProfile(
 	env: string,
 	capabilities?: Capability[],
 	inherit?: PresetInherit,
+	channelInstances?: string[],
 ): ResolvedProfile {
 	const resolved = resolveProfile(preset, {}, env);
+	const scope = intersectChannelInstances(channelInstances, resolved.channelInstances);
+	if (scope !== undefined) resolved.channelInstances = scope;
 	const inherited = inherit
 		? {
 				...resolved,
@@ -126,7 +134,7 @@ export function presetProfile(
 		: resolved;
 	if (!capabilities) return inherited;
 	const { level: _level, ...effective } = inherited;
-	return { ...effective, capabilities: [...capabilities] };
+	return { ...effective, capabilities: presetSession(preset, env, undefined, capabilities).capabilities };
 }
 
 export function matchesGlob(pattern: string, value: string): boolean {

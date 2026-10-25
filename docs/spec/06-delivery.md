@@ -71,9 +71,9 @@ message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string,
 
 - 发往本次运行的来源不需要额外能力；发往其他地方需要 `message` 能力（05 §1）。
 - 显式 replyTo 必须对应事件账本中该目标会话的真实 message.in；接受消息头的 turn id 并转换为该事件的原生 msgId，也接受已核实的原生 msgId，不能跨群借用来源。SDK 保留显式引用与自动 sourceMessageId 的区分；平台时效和额度失败如实返回。
-- `to` 是人（`owner` 或 `person:`）时：有 `via` 就用这个人在该渠道的账号；没有 `via` 就用这个人最近活跃的账号。找不到账号时以错误结果返回给模型。
+- `to` 是人（`owner` 或 `person:`）时：有 `via` 就用这个人在该渠道的账号；没有 `via` 就用这个人在授权实例中最近活跃的账号。候选选择前按 `channelInstances` 过滤，确定最终实例后共用 SDK 检查，admin/bypass 不豁免；显式 via/目标越界在平台读取或请求前拒绝。找不到账号时以错误结果返回给模型。
 - 每次发送写一条 `message.out` 事件，`delivery` 记录渠道返回的结果。
-- 插件用 `api.messages.send`，只接受显式的 `person:`、`acct:`、`conv:` 目标，不接受 `owner`（全局插件不属于某个 agent）；插件可信，不受模型的能力过滤，`message.out` 的 `from` 是 `plugin:<id>`。
+- 无 ctx/owner 的全局插件用 `api.messages.send`，只接受显式的 `person:`、`acct:`、`conv:` 目标，不接受 `owner`（全局插件不属于某个 agent）；插件可信，不受模型的能力过滤，`message.out` 的 `from` 是 `plugin:<id>`。
 - 人解析成账号后，将 `acct:` 交给对应渠道的 send，由渠道投递到该账号的私聊；不得用该账号最近发言的群作为替代。message.out 的 conv 仅在目标为 conv: 时填写，账号目标保存在 data 的可选 `to: Ref` 中。
 - 富消息（卡片等）由渠道插件以自己的工具提供，例如 `feishu_send_card`。
 
@@ -109,6 +109,6 @@ agent_ask({ agent: string, text: string, sources?: string[], effort?: string }) 
 
 ## 9. 程序通知
 
-插件可直接 messages.send 向明确 person/acct/conv 发程序通知，无模型、无伪造 Agent 回复；message.out 归属真实插件。内部 session 通知用 sessions.notify，沿 pi 原生 app-only entry 保存与观察，不经 sessions.submit，不唤醒 Agent、不进入模型消息。TUI 以程序通知独立标识来源，和真实对话按 entry 时序排列；录入回执不等于送达外部渠道或人已读。
+插件可直接 messages.send 向明确 person/acct/conv 发程序通知，无模型、无伪造 Agent 回复；message.out 归属真实插件。代表执行者的程序发送传 `owner: ExecutionOwner`，由核心核对真实会话归属、重新解析当前能力与实例范围并要求 message 能力；同一范围过滤/最终检查也用于带 ctx 的发送。无 ctx/owner 的原合法插件通知仍按插件身份发送，不等于模型授权。内部 session 通知用 sessions.notify，沿 pi 原生 app-only entry 保存与观察，不经 sessions.submit，不唤醒 Agent、不进入模型消息。TUI 以程序通知独立标识来源，和真实对话按 entry 时序排列；录入回执不等于送达外部渠道或人已读。
 
 channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认返回 ok:false,uncertain:true，禁止自动重发。其 acct/conv 引用嵌入 Yonder Agent id，见 16。

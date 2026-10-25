@@ -119,6 +119,8 @@ export type SessionModels = {
 export interface Profile extends SessionModels {
 	level?: Level;
 	capabilities?: Capability[];
+	/** Undefined preserves legacy unrestricted access; [] permits no channel instances. */
+	channelInstances?: string[];
 	plugins?: string[];
 	tools?: { offer?: string[]; search?: string[] };
 	contexts?: string[];
@@ -321,6 +323,8 @@ export interface ToolContext {
 	profile: string;
 	session: string;
 	capabilities: Capability[];
+	/** Effective scope from the real run configuration, not inferred from input events. */
+	channelInstances?: string[];
 	env: ExecutionEnv;
 	event?: YEvent;
 	/** Actual inputs of this native run, including placed steer inputs. */
@@ -386,6 +390,11 @@ export interface ExecutionOwner {
 	profile: string;
 }
 
+export interface ResolvedExecution {
+	capabilities: Capability[];
+	channelInstances?: string[];
+}
+
 export interface PluginAPI {
 	agents: { list(): Promise<{ id: string; name: string }[]> };
 	readonly version: string;
@@ -421,12 +430,14 @@ export interface PluginAPI {
 				replyTo?: string;
 				attachments?: Attachment[];
 				signal?: AbortSignal;
+				/** Program delivery on behalf of this stored execution owner; revalidated by core. */
+				owner?: ExecutionOwner;
 			},
 			ctx?: ToolContext,
 		): Promise<Delivery>;
 	};
 	execution: {
-		resolve(owner: ExecutionOwner): Promise<{ capabilities: Capability[] }>;
+		resolve(owner: ExecutionOwner): Promise<ResolvedExecution>;
 		run(request: {
 			owner: ExecutionOwner;
 			capabilities: Capability[];

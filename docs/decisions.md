@@ -270,3 +270,11 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 ## 2026-10-24 统一实际 TCC 操作宿主并补文件访问（主对话批准）
 
 同一 Yonder 签名 Helper 不仅发起申请，也执行需 TCC 的实际操作；本轮仅新增 owner 授权任务的一层文件列举和单普通文件导出，沿用稳定 bundle ID、安装路径与 LaunchServices。插件生成私有唯一产物，不接受目的地覆盖。Node/Python 不继承 Helper grant，不迁移全部插件、不增加 driver 或权限注册框架，OS 仍按资源种类分别授权。
+
+## 2026-10-25 渠道实例最小作用域（主维护者批准）
+
+Profile/defaults/preset 增加 `channelInstances?: string[]`。未配置保持旧版无限制兼容，不从 bindings 推导；显式空数组无实例，显式名单只允许名单内实例，admin/bypass 不越过。数组沿既有字段替换规则继承；子任务取父范围与 preset 范围交集，undefined 为交集单位元；创建时保存上限，恢复/重载不放宽。真实运行配置传入 ToolContext，SDK 提供共用实例授权判断，插件不读取 home。
+
+带 ctx 的发送在 owner/person 候选账号选择前过滤范围，最终实例再次检查；通用 message_send/api.messages.send 与飞书 status/history/message/card/task-card（包括 rawSend）共用检查，在任何平台读取/请求之前拒绝。status 省略实例只列授权实例。保留 message 能力、history 来源/admin、卡片归属检查，不以事件来源推导范围，支持合法多实例与无 event 主动通知。
+
+execution.resolve 返回可信 `ResolvedExecution`（能力与实例范围）；程序发送可传真实 `owner: ExecutionOwner`，核心核对存储会话归属并重新解析当前权限，不信任调用方自报范围，不伪造 ToolContext。cron 保留 job.owner 真实来源及 message 能力复核，创建/更新 delivery 与执行前共用实例检查，发送前核心再次复核；撤销后拒绝。无 owner/ctx 的原合法插件程序通知继续属于插件本身，不当作模型授权。不新增审批、身份系统或开关；此为受支持工具/API 的作用域，不是 macOS 沙箱。兼容代价：旧配置须人工填名单才隔离。

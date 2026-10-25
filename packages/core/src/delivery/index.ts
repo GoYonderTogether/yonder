@@ -1,6 +1,8 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import {
 	type Attachment,
+	allowsChannelInstance,
+	assertChannelInstance,
 	type Channel,
 	type Delivery,
 	type EventInput,
@@ -162,7 +164,9 @@ export function createDelivery(options: DeliveryOptions) {
 		request: MessageRequest,
 		agent?: string | null,
 		config?: RuntimeSessionConfig,
+		scope: { channelInstances?: string[] } = config?.resolved ?? {},
 	): Promise<{ target: string; channel: Channel }> {
+		if (request.via) assertChannelInstance(scope, request.via);
 		let target = request.to;
 		if (target === "owner") {
 			if (!agent) throw new Error("预设会话没有 owner；请指定明确目标。");
@@ -175,7 +179,12 @@ export function createDelivery(options: DeliveryOptions) {
 			const person = await store.identity().person(target);
 			const accounts = person ? await Promise.all(person.accounts.map((ref) => store.identity().account(ref))) : [];
 			const selected = accounts
-				.filter((account) => account && (!request.via || channelId(account.ref) === request.via))
+				.filter(
+					(account) =>
+						account &&
+						allowsChannelInstance(scope, channelId(account.ref) ?? "") &&
+						(!request.via || channelId(account.ref) === request.via),
+				)
 				.sort((a, b) => (b?.lastSeen ?? "").localeCompare(a?.lastSeen ?? ""))[0];
 			if (!selected) throw new Error("此人没有符合渠道要求的账号；请先关联账号。");
 			target = selected.ref;
@@ -183,6 +192,7 @@ export function createDelivery(options: DeliveryOptions) {
 		}
 		if (parsed.kind !== "acct" && parsed.kind !== "conv") throw new Error("目标必须为 person:、acct: 或 conv: 引用。");
 		if (request.via && parsed.channel !== request.via) throw new Error("via 与目标引用的渠道不一致。");
+		assertChannelInstance(scope, parsed.channel);
 		const channel = channels.get(parsed.channel);
 		if (!channel) throw new Error(`渠道未运行：${parsed.channel}`);
 		return { target, channel };
@@ -228,6 +238,7 @@ export function createDelivery(options: DeliveryOptions) {
 		signal: AbortSignal = AbortSignal.timeout(60000),
 		runId?: string,
 		messageId?: string,
+		scope: { channelInstances?: string[] } = config?.resolved ?? {},
 	): Promise<Delivery> {
 		for (const hook of selectedHooks(config)) {
 			const changed = await hook.beforeSend?.(
@@ -238,7 +249,7 @@ export function createDelivery(options: DeliveryOptions) {
 		}
 		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
-			resolved = await resolveTarget(request, session?.agent, config);
+			resolved = await resolveTarget(request, session?.agent, config, scope);
 		} catch (error) {
 			const delivery = { ok: false, error: message(error) };
 			const { signal: _signal, ...outgoing } = request;
@@ -278,6 +289,26 @@ export function createDelivery(options: DeliveryOptions) {
 			let delay = 1000;
 			while (!lifetime.signal.aborted) {
 				await sleep(delay, undefined, { signal: lifetime.signal, ref: false });
+				if (data.session) {
+					try {
+						const config = await sessions.resolveSession(data.session);
+						assertChannelInstance(config.resolved, channelId(data.target) ?? "");
+						if (data.from?.startsWith("plugin:") && !config.resolved.capabilities.includes("message"))
+							throw new Error("Program delivery requires current message capability");
+					} catch (error) {
+						await record(
+							data.from,
+							data.target,
+							data.outgoing,
+							{ ok: false, error: message(error) },
+							data.session,
+							event.parent,
+							event.id,
+							data.message,
+						);
+						return;
+					}
+				}
 				const channel = channels.get(channelId(data.target) ?? "");
 				if (!channel) return;
 				await store.events.record({ type: "message.retry", data: { attempt: event.id } });
@@ -345,7 +376,7 @@ export function createDelivery(options: DeliveryOptions) {
 		return (part, runId) => {
 			if (!runId || part.type === "final") return;
 			const config = options.runtime().currentConfig(session.id);
-			if (!config) return;
+			if (!config || !allowsChannelInstance(config.resolved, channelId(target) ?? "")) return;
 			const selected = binding(session, event, config);
 			const channel = channels.get(channelId(target) ?? "");
 			if (!selected?.stream || (selected.reply ?? "auto") !== "auto" || !channel?.output.stream || !channel.stream)
@@ -560,18 +591,28 @@ export function createDelivery(options: DeliveryOptions) {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };
 			return send(`plugin:${pluginId}`, request, undefined, undefined, undefined, request.signal);
 		},
+		async sendOwned(
+			pluginId: string,
+			request: MessageRequest,
+			config: RuntimeSessionConfig,
+			session: SessionInfo,
+		): Promise<Delivery> {
+			if (!config.resolved.capabilities.includes("message"))
+				return { ok: false, error: "Program delivery requires current message capability" };
+			return send(`plugin:${pluginId}`, request, session, undefined, config, request.signal);
+		},
 		async sendTool(ctx: ToolContext, request: MessageRequest): Promise<Delivery> {
-			try {
-				await options.runtime().authorizeAttachments(ctx, request.attachments);
-			} catch (error) {
-				return { ok: false, error: message(error) };
-			}
 			const session = await store.sessions.get(ctx.session);
 			if (!session) throw new Error("当前会话不存在。");
 			const config = options.runtime().currentConfig(ctx.session);
 			let target: string;
 			try {
-				target = (await resolveTarget(request, ctx.agent, config)).target;
+				target = (await resolveTarget(request, ctx.agent, config, ctx)).target;
+			} catch (error) {
+				return { ok: false, error: message(error) };
+			}
+			try {
+				await options.runtime().authorizeAttachments(ctx, request.attachments);
 			} catch (error) {
 				return { ok: false, error: message(error) };
 			}
@@ -611,7 +652,7 @@ export function createDelivery(options: DeliveryOptions) {
 				} while (!found && after);
 				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
 			}
-			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal);
+			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal, undefined, undefined, ctx);
 		},
 	};
 }

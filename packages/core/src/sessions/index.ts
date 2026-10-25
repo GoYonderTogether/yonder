@@ -57,7 +57,8 @@ export function createSessions({
 		env: string,
 		capabilities?: Capability[],
 		inherit?: RuntimeSessionState["inherit"],
-	): ResolvedProfile => presetProfile(profile, env, capabilities, inherit);
+		channelInstances?: string[],
+	): ResolvedProfile => presetProfile(profile, env, capabilities, inherit, channelInstances);
 	const workspace = (agent: string) => {
 		const entry = config.agents?.find((candidate) => candidate.id === agent);
 		if (!entry) throw new Error(`Unknown agent workspace: ${agent}`);
@@ -76,7 +77,7 @@ export function createSessions({
 				agent: null,
 				profile: row.profile,
 				cwd: state.cwd,
-				resolved: runtimeProfile(selected, state.env, state.capabilities, state.inherit),
+				resolved: runtimeProfile(selected, state.env, state.capabilities, state.inherit, state.channelInstances),
 			};
 		}
 		if (!row.agent) throw new Error(`Agent session has no agent: ${id}`);
@@ -395,7 +396,12 @@ export function createSessions({
 			const baseEnv = parentProfile?.resolved.env ?? parentState?.env ?? "local";
 			const env = selected.env ?? baseEnv;
 			const cwd = parentState?.cwd ?? parentProfile?.cwd ?? home;
-			const { capabilities, inherit } = presetSession(selected, env, parentProfile?.resolved, request.capabilities);
+			const { capabilities, channelInstances, inherit } = presetSession(
+				selected,
+				env,
+				parentProfile?.resolved,
+				request.capabilities,
+			);
 			const key = randomUUID();
 			const id = await runtime().create({
 				agent: null,
@@ -403,6 +409,7 @@ export function createSessions({
 				cwd,
 				env,
 				capabilities,
+				...(channelInstances === undefined ? {} : { channelInstances }),
 				...(inherit ? { inherit } : {}),
 				close: request.close ?? "run-end",
 			});
