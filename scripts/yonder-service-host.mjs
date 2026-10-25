@@ -49,6 +49,7 @@ export async function runServiceHost({
 		shutdownTimer;
 	let finishLease;
 	let acknowledging = false;
+	const memberAcks = new Set();
 	const native = async (command, value) => {
 		const file = join(scratch, `${command}.json`);
 		await writeFile(file, JSON.stringify(value), { mode: 0o600 });
@@ -97,6 +98,22 @@ export async function runServiceHost({
 								error = cause;
 								connection.destroy();
 							});
+					}
+					if (state.registering && !stopping) {
+						const pending = state;
+						const key = `${pending.registering.pid}:${pending.registering.seconds}:${pending.registering.micros}`;
+						if (!memberAcks.has(key)) {
+							memberAcks.add(key);
+							native("service-verify-member", pending)
+								.then(() => {
+									if (!stopping && !connection.destroyed)
+										connection.write(`${JSON.stringify({ memberAck: pending.registering })}\n`);
+								})
+								.catch((cause) => {
+									error = cause;
+									connection.destroy();
+								});
+						}
 					}
 				} catch (cause) {
 					error = cause;

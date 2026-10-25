@@ -125,3 +125,14 @@ fi
 - `node --test --test-concurrency=1 scripts/test-service-host-startup.mjs`：7/0/0，27.6 秒。ACK 前取消、Helper 死、launcher EOF、anchor 死、错误身份 ACK、ACK 超时均没有执行业务代码，按测试记录有界结束并回收 anchor；另检验 stale identity verifier 拒绝且 cleanup 不信号无关进程。原始目录 `/tmp/yonder-anchor-startup-RIY07B`。
 
 以上只是最小修复的进程专项，不是生产可用结论。原先真实失败证据保留；没有重跑上一轮已结束的 setsid 红门或调查。接续工作仍为脱组登记双方 ACK、产品接线/构建与权限入口专项，不触及真实 TCC。
+
+### 脱组前双方登记 ACK
+
+业务环境新增仅本次宿主私有的 `YONDER_SERVICE_REGISTRATION` Unix socket。协议是进程**自己**连接、发送一行 `{"register":true}`，保持原父链且不得脱组/让父链消失，等到收到 `{"registered":<真实 Member>}` 才继续。不能传 target PID。Helper 以 Darwin `LOCAL_PEERPID` / `getpeereid` 取得真实 sender，核对相同 uid、起始时间、完整后代父链（含各中间进程身份复验），将 Member 放入自己的清理表并推送 launcher。launcher 在自己的表中保存后，用 native verifier 再核对身份/祖先，回 memberAck；Helper 最终复验并登记后才给客户端 ACK。并发 admission/帧大小/写入/等待都有界。任一失败均不授权脱组；已捕获的候选身份仍在清理表中。
+
+这是一份逐进程的协作生命周期协议，不是任意 PID 杀进程 API、OS 沙箱或任意新 session 容器。每个离开最初 anchor 组、或将失去可验证父链的进程都必须先完成自己的登记；登记某个 PID 不给其未来未登记 daemon 后代无限继承清理保证。至少一个 owner 存活的契约不变，未登记 daemon / 双 owner 同杀不保证；未登记 setsid 红门与原失败证据不改绿。
+
+- 第一次 `scripts/test-service-host-registration.mjs`：2 通过/8 失败/0 跳过，135.5 秒。原因是新 C 测试夹具将所有带第三参数的 mode 错当恶意消息，合法 stay/hold 路径根本没有发合法登记，等待预期 detach/pending 超时。保留 `/tmp/yonder-registration-SVkTs8` 及原始日志；所有夹具的 finally 记录 remaining 为空。修正为明确比较 `bad`，未放松产品检验或断言。
+- 修正后同命令：10 通过/0 失败/0 跳过，64.9 秒，原始目录 `/tmp/yonder-registration-3IlXzf`。实际覆盖双方 ACK 后 setsid + 忽略 TERM，再根 exit 7/根 SIGKILL/Helper SIGKILL/launcher SIGKILL；hold ACK 确认尚未 detach；错误身份 ACK、缺 ACK 超时、peer 提前退出、伪造 target PID、无关真实 peer 拒绝，以及 native verifier 对实际 identity 的 timestamp 篡改拒绝。各测试 result.json 记录 PID 与 remaining（全部空）。
+
+随后补强了中间父链身份复验，最终产品回归另记，不以此前结果覆盖新源码的最终验证。

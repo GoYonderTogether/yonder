@@ -19,6 +19,8 @@ enum HelperServiceHost {
         let helper: Member
         let anchor: Member
         var members: [Member]
+        var registered: [Member]? = nil
+        var registering: Member? = nil
         var helperPid: Int32 { helper.pid }
     }
     static func bsd(_ pid: Int32) -> proc_bsdinfo? {
@@ -89,7 +91,7 @@ enum HelperServiceHost {
         }
     }
     static func nonblocking(_ fd: Int32) { _ = fcntl(fd, F_SETFD, FD_CLOEXEC); _ = fcntl(fd, F_SETFL, O_NONBLOCK) }
-    static func spawn(_ program: String, _ arguments: [String], _ config: Launch, group: Bool, channel: Int32? = nil) throws -> Int32 {
+    static func spawn(_ program: String, _ arguments: [String], _ config: Launch, group: Bool, channel: Int32? = nil, environment: [String: String]? = nil) throws -> Int32 {
         var actions: posix_spawn_file_actions_t?; posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
         posix_spawn_file_actions_addchdir_np(&actions, config.cwd)
@@ -107,7 +109,7 @@ enum HelperServiceHost {
         var mask = sigset_t(); sigemptyset(&mask)
         posix_spawnattr_setsigdefault(&attributes, &defaults); posix_spawnattr_setsigmask(&attributes, &mask)
         let argv = ([program] + arguments).map { strdup($0) } + [nil]
-        let env = config.environment.map { strdup("\($0.key)=\($0.value)") } + [nil]
+        let env = (environment ?? config.environment).map { strdup("\($0.key)=\($0.value)") } + [nil]
         defer { for item in argv + env { free(item) } }
         var pid: Int32 = 0
         let result = argv.withUnsafeBufferPointer { av in env.withUnsafeBufferPointer { ev in
@@ -117,7 +119,7 @@ enum HelperServiceHost {
         return pid
     }
     static func wait(_ pid: Int32) { var status: Int32 = 0; while waitpid(pid, &status, 0) < 0 && errno == EINTR {} }
-    static func groupAnchor(_ path: String) throws -> Int32 {
+    static func groupAnchor(_ path: String, registration: String) throws -> Int32 {
         let fd: Int32 = 3
         nonblocking(fd); signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN); signal(SIGPIPE, SIG_IGN)
         guard let own = member(getpid()), anchored(own) else { throw hostError("Anchor is not group leader") }
@@ -134,7 +136,9 @@ enum HelperServiceHost {
             guard Date() < deadline else { throw hostError("Anchor registration ACK timed out") }
             if !started { usleep(20_000) }
         }
-        let pid = try spawn(config.program, config.arguments, config, group: false)
+        var environment = config.environment
+        environment["YONDER_SERVICE_REGISTRATION"] = registration
+        let pid = try spawn(config.program, config.arguments, config, group: false, environment: environment)
         // Any channel failure after spawn must clean this group, never abandon it.
         defer { cleanup([], anchor: own) }
         try sendJSON(fd, ["nodePid": pid])
@@ -158,13 +162,76 @@ enum HelperServiceHost {
     static func verified(_ state: State) -> Bool {
         same(state.helper) && anchored(state.anchor) && bsd(state.anchor.pid)?.pbi_ppid == UInt32(state.helper.pid)
     }
+    static func descendant(_ candidate: Member, of roots: [Member]) -> Bool {
+        guard same(candidate) else { return false }
+        var current = candidate.pid
+        var visited = Set<Int32>()
+        var links: [(Member, Member)] = []
+        for _ in 0..<1024 {
+            guard visited.insert(current).inserted, let child = member(current), let info = bsd(current), info.pbi_ppid > 1,
+                  let parent = member(Int32(info.pbi_ppid)),
+                  parent.seconds < child.seconds || (parent.seconds == child.seconds && parent.micros <= child.micros) else { return false }
+            links.append((child, parent))
+            if roots.contains(parent) {
+                // Recheck every link, not just the endpoints: an intermediate
+                // parent exiting/reusing its PID must not fabricate ancestry.
+                return same(candidate) && links.allSatisfy { same($0.0) && same($0.1) && bsd($0.0.pid)?.pbi_ppid == UInt32($0.1.pid) }
+            }
+            current = parent.pid
+        }
+        return false
+    }
+    final class Registration {
+        let fd: Int32
+        let peer: Member?
+        let frames = Frames()
+        let deadline = Date().addingTimeInterval(4)
+        var candidate: Member?
+        init(_ fd: Int32) {
+            self.fd = fd
+            var pid: Int32 = 0, uid: uid_t = 0, gid: gid_t = 0
+            var size = socklen_t(MemoryLayout<Int32>.size)
+            if getsockopt(fd, SOL_LOCAL, LOCAL_PEERPID, &pid, &size) == 0,
+               getpeereid(fd, &uid, &gid) == 0, uid == geteuid() { peer = member(pid) }
+            else { peer = nil }
+        }
+    }
+    static func registrationListener(_ path: String) throws -> Int32 {
+        let fd = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw hostError("Cannot create registration socket") }
+        do {
+            var address = sockaddr_un(); address.sun_family = sa_family_t(AF_UNIX)
+            let bytes = Array(path.utf8CString)
+            guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { throw hostError("Registration path too long") }
+            withUnsafeMutableBytes(of: &address.sun_path) { target in bytes.withUnsafeBytes { target.copyBytes(from: $0) } }
+            let result = withUnsafePointer(to: &address) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+            }
+            guard result == 0, chmod(path, 0o600) == 0, listen(fd, 16) == 0 else { throw hostError("Cannot bind registration socket") }
+            nonblocking(fd); return fd
+        } catch { close(fd); throw error }
+    }
+    static func acceptRegistrations(_ listener: Int32, clients: inout [Registration]) {
+        // Bound admission work so flooding cannot starve owner-death handling.
+        for _ in 0..<16 {
+            let fd = accept(listener, nil, nil)
+            if fd < 0 { return }
+            nonblocking(fd)
+            if clients.count >= 64 { close(fd) }
+            else { clients.append(Registration(fd)) }
+        }
+    }
     static func run(_ args: [String]) -> Int32 {
         do {
             signal(SIGPIPE, SIG_IGN)
-            if args.count == 2 && args[0] == "service-group-anchor" { return try groupAnchor(args[1]) }
-            if args.count == 2 && ["service-cleanup", "service-verify-anchor"].contains(args[0]) {
+            if args.count == 3 && args[0] == "service-group-anchor" { return try groupAnchor(args[1], registration: args[2]) }
+            if args.count == 2 && ["service-cleanup", "service-verify-anchor", "service-verify-member"].contains(args[0]) {
                 let state = try JSONDecoder().decode(State.self, from: Data(contentsOf: URL(fileURLWithPath: args[1])))
                 if args[0] == "service-verify-anchor" { guard verified(state) else { throw hostError("Anchor identity/ancestry changed") }; return 0 }
+                if args[0] == "service-verify-member" {
+                    guard verified(state), let candidate = state.registering, descendant(candidate, of: [state.anchor] + (state.registered ?? []).filter { $0 != candidate }) else { throw hostError("Registration identity/ancestry changed") }
+                    return 0
+                }
                 cleanup(state.members, anchor: state.anchor); return 0
             }
             guard args.count == 3, args[0] == "service-host" else { return 2 }
@@ -202,7 +269,10 @@ enum HelperServiceHost {
             nonblocking(pair[0]); nonblocking(pair[1])
             defer { close(pair[0]); close(pair[1]) }
             let executable = Bundle.main.executablePath ?? CommandLine.arguments[0]
-            let anchorPid = try spawn(executable, ["service-group-anchor", args[2]], config, group: true, channel: pair[1])
+            let registration = args[1] + ".register"
+            let listener = try registrationListener(registration)
+            defer { close(listener); unlink(registration) }
+            let anchorPid = try spawn(executable, ["service-group-anchor", args[2], registration], config, group: true, channel: pair[1])
             close(pair[1]); pair[1] = -1
             var members: [Int32: Member] = [:]
             var anchor = member(anchorPid)
@@ -215,6 +285,9 @@ enum HelperServiceHost {
                 if !finalized { wait(anchorPid) }
             }
             let fromAnchor = Frames(), fromLauncher = Frames()
+            var clients: [Registration] = []
+            var registered: [Member] = []
+            defer { for client in clients { close(client.fd) } }
             let deadline = Date().addingTimeInterval(8)
             var announced = false, started = false
             var node: Int32?, code: Int32?
@@ -231,11 +304,36 @@ enum HelperServiceHost {
                 }
                 guard let anchor, anchored(anchor), !fromAnchor.eof else { throw hostError("Group anchor failed") }
                 collect(anchorPid, &members)
+                // Admission is self-registration only. LOCAL_PEERPID binds the
+                // request to its actual sender; no supplied target PID is accepted.
+                if started {
+                    acceptRegistrations(listener, clients: &clients)
+                    for client in clients where client.candidate == nil {
+                        do {
+                            let requests = try client.frames.read(client.fd)
+                            if let request = requests.first {
+                                guard requests.count == 1, Set(request.keys) == Set(["register"]), request["register"] as? Bool == true,
+                                      let peer = client.peer, descendant(peer, of: [anchor] + registered) else { throw hostError("Registration requires a live verified descendant") }
+                                client.candidate = peer; members[peer.pid] = peer
+                            }
+                        } catch { client.frames.eof = true }
+                    }
+                    // Rejected, abandoned and stalled clients never block the
+                    // service. A pending accepted identity remains owned even if
+                    // a client disconnects before receiving its final ACK.
+                    clients.removeAll { client in
+                        if client.frames.eof || Date() >= client.deadline { close(client.fd); return true }
+                        return false
+                    }
+                }
                 if announced {
-                    let state = State(helper: helper, anchor: anchor, members: [anchor] + members.values.filter { $0 != anchor })
+                    var state = State(helper: helper, anchor: anchor, members: [anchor] + members.values.filter { $0 != anchor })
+                    state.registered = registered
+                    state.registering = clients.compactMap { $0.candidate }.first
                     var message = try object(state) as! [String: Any]
                     message["helperPid"] = helper.pid; message["anchorPid"] = anchor.pid
                     message["awaitingAnchorAck"] = !started
+                    if state.registering == nil { message["registering"] = NSNull() }
                     if let node { message["nodePid"] = node }
                     try sendFrame(socket, JSONSerialization.data(withJSONObject: message) + Data([10]))
                     for frame in try fromLauncher.read(socket) {
@@ -243,6 +341,15 @@ enum HelperServiceHost {
                             let ack = try JSONDecoder().decode(Member.self, from: JSONSerialization.data(withJSONObject: value))
                             guard ack == anchor, verified(state) else { throw hostError("Invalid anchor ACK") }
                             try sendJSON(pair[0], ["start": true]); started = true
+                        }
+                        if let value = frame["memberAck"] {
+                            let ack = try JSONDecoder().decode(Member.self, from: JSONSerialization.data(withJSONObject: value))
+                            guard let client = clients.first(where: { $0.candidate == ack }), descendant(ack, of: [anchor] + registered) else { throw hostError("Invalid member ACK") }
+                            if !registered.contains(ack) { registered.append(ack) }
+                            // Only after BOTH registries contain this real identity
+                            // may the caller detach or let its ancestor exit.
+                            try? sendJSON(client.fd, ["registered": ack])
+                            close(client.fd); clients.removeAll { $0 === client }
                         }
                     }
                 } else { _ = try fromLauncher.read(socket) }
