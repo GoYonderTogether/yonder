@@ -19,3 +19,9 @@ export const TURN_ONE_LINE = (title: string, state: string, elapsed: string, wak
 
 export const STALL_NOTICE = (title: string, state: string, minutes: number) =>
   `Task "${title}" has had no progress for ${minutes} minutes (state: ${state}). If work remains, continue it; if a specific fact or capability stops you, mark it blocked and name it; if you need the person, mark it waiting-user and name the one thing. If it is finished, close it with the evidence.`;
+
+export const NUDGE_INPUT = (title: string, from: string, say: string) =>
+  `Reminder from ${from} about task "${title}": ${say} Reply by continuing the work, or mark it blocked or waiting-user and name the one thing that stops it.`;
+
+export const USER_WAIT_NOTICE = (zh: boolean, title: string, minutes: number, waitingFor: string) =>
+  zh ? `任务「${title}」已等你 ${minutes} 分钟：${waitingFor}` : `Task "${title}" has been waiting on you for ${minutes} minutes: ${waitingFor}`;
