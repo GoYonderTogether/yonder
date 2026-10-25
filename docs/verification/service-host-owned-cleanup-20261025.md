@@ -1,6 +1,6 @@
 # ServiceHost owned-cleanup：锚点/登记实现与未关闭产品验收
 
-最新状态：独立 group-anchor、双方登记 ACK 和最小产品接线已实现；最终受管专项 22/0/0，完整 Helper 构建及临时副本真实 CLI 父链通过。尚未生产验收；默认 bash 的 detached 启动未接登记协议，见文末明确缺口。以下前轮失败记录按历史保留。
+最新状态：独立 group-anchor、双方登记 ACK、最小产品入口及默认 bash 的每任务 command-anchor 已接线。bash 在原组完成 prepare ACK，再 setpgid、完成 ready ACK 才执行，能力由原生宿主私有继承描述符注入。验证批次、仍保留的反例/时序夹具失败与生产验收边界见末节。以下前轮失败记录按历史保留。
 
 2026-10-25（上海时间）。本任务在约 7 分钟内遇到技术保证边界，按委派要求停止，不消耗 40 分钟预算反复研究同一原因。**没有修复 setsid 缺口，没有上线就绪结论；不能把本提交作为已修复产品整合。**
 
@@ -231,3 +231,86 @@ node_modules/.bin/vitest run --maxWorkers=4 \
 2. 代码接线核对发现既有 `packages/core/src/runtime/process.ts:38` 的 bash 仍是直接 `spawn(..., detached: true)`，没有使用新登记协议。原 Node/Helper 轮询能回收已观测的稳定进程，不等于它已满足“脱组前双方 ACK”。因此本候选不能宣称所有常规 bash 的任意快速脱组后代已经强受管。新协议不会事后把这个窗口变成已登记。
 3. 如果父级要求该默认 bash 路径也纳入新保证，需在其原生脱组前提供启动门，并为该子组保留跨业务根退出的身份锚点；仅登记 shell PID 后让 Node 立即 wait/reap，仍会重现同类子组身份丢失。此涉及每任务子组/退出码与取消的接线，超出本轮所选“顶层 Helper -> group-anchor -> Node + 协作逐进程登记”的最小结构。本轮没有自行引入每任务 guardian 或改掉 bash 的取消语义，交父级定范围后继续；不是用缩短轮询掩盖。
 4. 双 owner 同死、未登记 daemon 化仍不保证，原 setsid 强门/失败证据保留。不把这些 Agent 旧假设重新归为主人原始要求。
+
+## 接续：默认 bash 的受管 command-anchor（17:27 起）
+
+起点 `fb847be0294c1b7d1a70fc66afe0b30c3abbb4dc`，原分支/唯一写入 checkout 不变。父级明确批准补齐默认 bash；前节“交父级定范围”的第 2、3 项缺口由本轮实施，不再待用户授权。未迁入旧 permissions、未更改 .06 registry/ToolContext/provider 路径。
+
+### 实际产品路径与两阶段门
+
+`processTool()` 仍是默认 bash 的唯一启动适配点，后台任务/15 秒返回/持久回执/日志/软提醒沿原 `background.ts`，没有第二个后台任务系统。只有 macOS 且原生宿主提供能力时，Node 以 `detached:false` 启动同一个已安装 Helper 的 `service-command-anchor` 模式。该门最初仍在服务根组，不先脱组。
+
+顶层原生 anchor 给 Node 继承一个私有 socket 描述符（fd 4），内容由宿主写入真实 Helper 可执行路径和本次登记 endpoint，随后关闭写端。`YONDER_SERVICE_COMMAND_FD=4` 只是固定描述符标记，不是可执行文件路径设置；core 不接受环境/用户配置中的任意 helper path，不从进程参数猜安装目录。首次 bash 读取并关闭该描述符，缓存能力或失败。缺少/损坏 fd、endpoint 不符、登记/ACK 失败均报错；没有 hosted → 未登记 detached 的静默回退。明确无宿主和非 macOS 仍用原路径（本机实测无宿主兼容，非 macOS 只有条件分支审查，未跨机实测）。
+
+每任务两阶段复用现有 peer 身份登记、完整父链复验和 launcher native verifier：
+
+1. 门发送 `register:true,group:true`。Helper 用真实 peer PID/start identity 验证原组及父链，把身份同时放入 members 和 commandGroups，再发布 `groupStage:prepare`；launcher 保存状态并独立核对身份、父链及仍在原组后 ACK。Helper 最后复验原组，才返回 `prepared`。
+2. 门获 prepare ACK 后才 `setpgid(0,0)`。转换前两 owner 已保留同一个真实身份；转换间仍在原组则原组可回收，已经成为 leader 则按该身份+PGID 可回收，不存在只缓存裸 PGID 的窗口。随后发送 `groupReady:true`，双方再次验证真实 group leader，ready ACK 返回 `registered` 后才 spawn `/bin/bash -c`。任何阶段失败都不执行命令。
+3. bash 继承真实 cwd/env 和 fd 0/1/2，原日志串行写入和 pause/resume 背压不变；fd 3 为 Node↔门的私有控制/结果通道，不泄漏给 bash。Node 取消只关闭该任务通道，绝不对服务根组发负 PID 信号。门执行任务组 TERM→1 秒 KILL。shell 结束也先清理任务组；shell 以 WNOWAIT 保留真实退出码/信号，anchor 留到最终 group KILL，Node 从独立结果帧取真实 shell 状态，不把 anchor 的 SIGKILL 冒充命令信号。stdio 随最终组回收关闭，Node 才回收门。
+4. 两 owner 的清理状态都包含子组锚点身份，每次组信号前重新验证 start identity 和 PGID。一个 owner 死亡后另一方仍能清理子组。完成/reap 后丢弃失效身份，避免常驻服务的 lease 由已结束命令无限增长。取消期间迟到 ACK 不影响其他任务；但仍 pending 的同 PID 错误起始时间 ACK 是协议损坏，不能被误当迟到取消。并发 native verifier 使用独立状态文件，不会互相覆盖后 ACK 了未验证的身份。
+
+这不是新 daemon、提权或全机扫描。原未登记 setsid 强保证仍不承诺；双 owner 同杀仍不承诺。锚点被外部 SIGKILL 后不再用失去身份的旧 PGID 重试。shell 自行产生的未登记 daemon 不会因本次子组登记自动取得无限后代归属。
+
+### 其它 detached 调用的真实归属（未做插件迁移）
+
+- `packages/core/src/runtime/process.ts`：本轮默认 bash；hosted 使用门，无宿主保留 detached 分支。
+- `packages/pi-durable/src/env/node.ts` 的 `exec`：仍为 `detached: process.platform !== "win32"`，由 NodeExecutionEnv 统一执行/取消；core 的 `createGrepTool()`（rg）及 `Runtime.executeCommand()` → kernel `services.execution.run` → cron 程序作业会走此路径。它不是默认 bash 的必经点，且 vendored 源须走 pi fork 同步流程，未在本范围迁移，不能宣称所有 SDK exec/cron 快速脱组后代都已登记。
+- 同文件另一个 `detached:true` 只在 Windows 的 `taskkill /F /T` 清理分支，不是 macOS 产品启动路径。
+- `scripts/test-service-host.mjs` 的 detached Node 是已有真实生命周期夹具；registration 测试的 `detached` 是证据字段；`background.ts` 的 detached 是后台任务回执状态，不是 OS spawn。
+- 当前 plugins 没有另一个显式 `spawn(...detached:true)`；browser-skill 的 `child.unref()` 是自身 pipe/drain 收尾，其他插件同组 spawn 由现有祖先/原组合同管理。本轮没有无边界改写插件启动器。
+
+### 验证过程中的失败（不可被末次通过覆盖）
+
+- 第一次完整 Helper 构建失败：新 shellPid/anchor 混合字典错误地调用 Encodable 泛型，Swift 报 Any → Int32；改为现有 JSONSerialization 帧后完整构建成功。日志 `97683.log` → `97705.log`（均在本 home `.yonder/background/`）。
+- 新脚本首次 0/3：direct 模式误传 .app 目录而非内部 executable，EACCES，根本未启动业务；修正夹具调用，不改产品门。证据 `/tmp/yonder-command-71WzZI`，日志 `97735.log`。同次 Biome 新增三项错误（赋值表达式、escape 命名）随后修正。
+- 新脚本第二次 2/1：实际 cwd 为 macOS `/private/tmp`，夹具错误比较 `/tmp` 文本；改为 realpath 比较，仍验证真实 cwd。证据 `/tmp/yonder-command-icjXV7`，日志 `97771.log`。
+- 修正后新门/命令 11/0/0，102.5 秒：`/tmp/yonder-command-gate-MzrRxl`、`/tmp/yonder-command-RC0G1f`，日志 `97825.log`。其后又补非阻塞 connect、失效身份淘汰、迟到 ACK 与并发 verifier 文件隔离；不能仅以此轮结果代表最终源码。
+- 一次最终命令前的目标 tsc 被新增测试的 `result.output` 可空类型拦住，重型批次尚未执行；修正测试明确检查 text 结果后 tsc 和该 2 项测试通过。日志 `97911.log`、`97983.log`。Biome 又检出测试 optional chaining 后直接取值，已改为明确的结果类型检查。
+- 受管回归批次实际 **31 通过 / 2 失败 / 0 跳过**（230.95 秒，日志 `97929.log`）。新 command/gate 11 项全通过；旧 managed-group/helper-death 的夹具子 `58844` 实际被轮询观测，`observed === false` 前置断言失败，**但其 survived=false 且全部 5 个已记录 PID 回收**。原结果 `/tmp/yonder-managed-group-EUmpaJ` 与测试体不改；另一个 launcher-death 场景通过（`/tmp/yonder-managed-group-GvfSgn`）。另一个失败是错误 ACK 被过宽的“迟到 ACK 忽略”改动吞掉，原测试要求 host exit 1，实际 exit 11（未授权 detach=false、remaining=[]）；已恢复 pending PID 的错误 start identity 为协议错误，保留原测试断言，不改成绿。原目录 `/tmp/yonder-registration-mQXjvG`、`/tmp/yonder-anchor-startup-OXFNdN`。
+- 旧完整 Helper 的未登记 setsid 负向夹具前置失败、原 setsid 红门及历史证据仍按前节保留。本轮没有删掉反例、改 unconditional skip 或反复重试到观测时序碰巧合适；将支持合同的定点门与这种时序前置分开报告。新增 `quick-helper-death` / `quick-launcher-death` 用实际 bash `exec` C 根快速退出，先核实真实后代 PPID=1、PGID 等于登记 command anchor，再杀指定单 owner，避免依赖“必须没被轮询看到”的前置条件。
+
+### 最终源码的定点结果（17:52，非生产验收）
+
+最终保留并修正了 pending PID 错误 identity 的 fail-closed 校验、prepare 时双方独立原组验证。最终完整 Helper 构建与验证在同一原子 heavy-test 锁内顺序执行，取得锁的 shell 已释放锁；没有删除别人的锁。JS 最多 `--maxWorkers=4`。
+
+```sh
+node_modules/.bin/tsc -b packages/core packages/cli
+YONDER_HELPER_SIGN_IDENTITY=- node scripts/build-permissions.mjs
+node --test --test-concurrency=1 \
+  scripts/test-service-host-startup.mjs \
+  scripts/test-service-host-registration.mjs \
+  scripts/test-service-host-command.mjs \
+  scripts/test-service-host-command-gate.mjs
+YONDER_HOST_TEST_APP="$PWD/packages/macos-helper/dist/Yonder Helper.app" \
+YONDER_HOST_TEST_CLI="$PWD/packages/cli/dist/index.js" \
+node --test --test-concurrency=1 --test-name-pattern='full Helper LaunchServices' \
+  scripts/test-service-host.mjs
+```
+
+- tsc 目标构建、完整 Swift Package Helper 构建（1.64 秒）和本 checkout 产物 ad-hoc 签名、`codesign --verify --strict` 通过。
+- 最终支持合同批次 **33 通过 / 0 失败 / 0 跳过**（216.29 秒）：command/gate 13 项、现有 registration 12 项、startup 8 项。原始目录 `/tmp/yonder-command-13ksKo`、`/tmp/yonder-command-gate-8Arh55`、`/tmp/yonder-registration-m9iCiA`、`/tmp/yonder-anchor-startup-uVYrrs`。不是重跑原时序夹具“直到变绿”，最终命令明确不包含保留的 `test-service-host-managed-group.mjs`；其本轮 1 过/1 前置失败仍在上节，旧 setsid 负向/红门同样不混入此计数。
+- 真实 bash ToolRegistration 的正常 stdout/stderr、exit 7、exit 0、SIGTERM（exitCode=null/signal=SIGTERM）、stdin 分次 write/eof、默认 stdin 关闭兼容、cwd/env、262144 字节输出/65536 尾窗/完整日志背压、软 timeout、并发取消一任务而另一任务输出成功、快速根退出后的同组 TERM-resistant 后代回收均通过。两阶段分别 hold、取消、错误 ACK、无 ACK、Helper 单点死亡均不执行业务代码；实际产品 launcher 的 Helper/launcher 单点死亡与两个 quick-owner-death 均通过。取消抗 TERM 的任务实测等待至少 900ms 才结束。新直接 ToolRegistration 夹具不是模型/Kernel E2E；共享后台边界另由原 Runtime 合同实测。
+- 完整 app 临时副本经真实 LaunchServices 启动已构建 CLI 并由控制面 stop：**1/0/0**（7.51 秒），按名称未执行其他场景。原生 Helper `61471`（PPID 1）→ 顶层 anchor `61475` → Node CLI `61481`，Node PPID/PGID=`61475`；service info ready=true、pid=`61481`，最终退出 0。原目录 `/tmp/yonder-host-evidence-K0qs8C`。没有正式安装或 launchd 服务重启。
+- 上面完整构建、33 项、CLI 的日志：本 home `.yonder/background/98048.log`。
+
+```sh
+node_modules/.bin/vitest run --maxWorkers=4 \
+  packages/core/src/runtime/process.test.ts \
+  packages/core/src/runtime/background.test.ts \
+  packages/core/src/release/service-host.test.ts \
+  packages/sdk/src/permissions.test.ts \
+  packages/core/src/permissions.test.ts \
+  packages/core/src/plugins/permissions.test.ts \
+  packages/core/src/runtime/permission-context.test.ts \
+  packages/core/src/runtime/permissions-integration.test.ts \
+  plugins/native-automation/test/permission-actions.test.ts \
+  plugins/native-automation/test/permission-rpc.test.ts
+```
+
+该批 **10 文件，181 通过 / 0 失败 / 0 跳过**（18.12 秒，日志 `97936.log`）。真实 Runtime background 合同验证原 15 秒返回、background:true、process.write/eof、结果投递和取消归属；运行在明确无宿主模式，不能冒充 hosted Runtime+模型整链。permissions 的实测层级同前节：真实 adapter/registry/context 与 mock native transport 分开，不发 OS prompt。process 新测试修正可空值检查后另定点 **2/0/0**，目标 tsc 再通过（`97983.log`）。最终 Biome check 无 error（保留 process 原有/新增 non-null 及测试 optional-chain 风格 warnings），相关脚本 `node --check`、`git diff --check` 通过；Swift 保留既有 addchdir_np deprecation warning。
+
+[最终 command-anchor 实测摘要](evidence/service-host-command-final-20261025.json) 保存最终源码/完整 Helper SHA-256、13 项 command/gate 真实状态、shell 退出与日志 hash、两种 quick-owner-death 的实际 ps、CLI 父链/info，以及本轮全部 15 个已知证据根的定点回收结果。**384 个唯一已记录 PID 全部已不存在，remaining=[]**，包括早期失败夹具、31/2 回归和最终验证。只读取夹具记录中的 PID，不做全机扫描、不对未知存活 PID 发信号；这不是全机无孤儿证明。没有后台开发服务器/未关闭 watcher，heavy-test 锁已释放。
+
+### 交付边界
+
+默认 bash 的必要子组接线已闭合，仍不是生产上线结论。剩余需另做：已批准 app 真实身份/TCC、现有 grant 保留、生产 launchd 安装/升级/回滚及真人系统功能验收。没有全量测试、push/发布、正式安装/替换/重启、重签已批准 app 或敏感资源采集。未登记 setsid 强门和它的历史失败、旧完整 Helper 负向夹具前置失败、本轮同组夹具时序前置失败全部保留，未无条件 skip。SDK env.exec/cron 的其它 detached 路径如上准确列出，未被本轮默认 bash 保证覆盖。

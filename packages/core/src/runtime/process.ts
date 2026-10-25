@@ -1,8 +1,50 @@
 import { spawn } from "node:child_process";
+import { closeSync, fstatSync, readSync } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
-import { join } from "node:path";
-import type { ToolExecutionApi, ToolRegistration } from "@earendil-works/pi-durable";
+import type { Socket } from "node:net";
+import { constants } from "node:os";
+import { isAbsolute, join } from "node:path";
+import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
+
+// The host supplies a one-shot private fd, never a user-configurable executable
+// setting. A hosted process with a missing/broken capability must fail closed.
+let commandHost: { helper: string; registration: string } | undefined;
+let commandHostFailure: unknown;
+function hostedCommand() {
+	if (process.platform !== "darwin") return undefined;
+	if (commandHost) return commandHost;
+	if (commandHostFailure) throw commandHostFailure;
+	if (!process.env.YONDER_SERVICE_REGISTRATION && !process.env.YONDER_SERVICE_COMMAND_FD) return undefined;
+	let opened = false;
+	try {
+		if (process.env.YONDER_SERVICE_COMMAND_FD !== "4" || !fstatSync(4).isSocket())
+			throw new Error("Service command capability is missing or invalid");
+		opened = true;
+		const buffer = Buffer.alloc(16384);
+		let size = 0;
+		while (size < buffer.length) {
+			const count = readSync(4, buffer, size, buffer.length - size, null);
+			if (!count) break;
+			size += count;
+		}
+		if (size === buffer.length) throw new Error("Service command capability exceeds limit");
+		const value = JSON.parse(buffer.subarray(0, size).toString());
+		if (
+			typeof value.helper !== "string" ||
+			!isAbsolute(value.helper) ||
+			value.registration !== process.env.YONDER_SERVICE_REGISTRATION
+		)
+			throw new Error("Service command capability does not match the host");
+		commandHost = value;
+		return commandHost;
+	} catch (error) {
+		commandHostFailure = error;
+		throw error;
+	} finally {
+		if (opened) closeSync(4);
+	}
+}
 
 export function processTool(
 	home: string,
@@ -32,11 +74,56 @@ export function processTool(
 			const path = join(folder, `${api.taskId}.log`),
 				log = await open(path, "a", 0o600);
 			try {
+				const host = hostedCommand();
 				return await new Promise((resolve, reject) => {
-					const child = spawn("/bin/bash", ["-c", args.command], {
-						cwd: args.cwd ?? api.env!.cwd,
-						detached: true,
-						stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
+					const child = spawn(
+						host?.helper ?? "/bin/bash",
+						host ? ["service-command-anchor", args.command] : ["-c", args.command],
+						{
+							cwd: args.cwd ?? api.env!.cwd,
+							detached: !host,
+							stdio: host
+								? [args.stdin ? "pipe" : "ignore", "pipe", "pipe", "pipe"]
+								: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
+						},
+					);
+					const control = host ? (child.stdio[3] as Socket) : undefined;
+					let result: { exitCode: number | null; signal: NodeJS.Signals | null } | undefined;
+					let protocol = "";
+					control?.setEncoding("utf8");
+					control?.on("data", (chunk: string) => {
+						try {
+							protocol += chunk;
+							if (protocol.length > 16384) throw new Error("Command result exceeds limit");
+							let end = protocol.indexOf("\n");
+							while (end >= 0) {
+								const frame = JSON.parse(protocol.slice(0, end));
+								protocol = protocol.slice(end + 1);
+								if ("exitCode" in frame) {
+									const signal =
+										frame.signal === null
+											? null
+											: (Object.entries(constants.signals).find(([, value]) => value === frame.signal)?.[0] as
+													| NodeJS.Signals
+													| undefined);
+									if (
+										result ||
+										!(frame.exitCode === null || Number.isInteger(frame.exitCode)) ||
+										signal === undefined ||
+										(frame.exitCode === null) === (signal === null)
+									)
+										throw new Error("Invalid command result");
+									result = { exitCode: frame.exitCode, signal };
+								}
+								end = protocol.indexOf("\n");
+							}
+						} catch (error) {
+							fault = error;
+							control.end();
+						}
+					});
+					control?.on("error", (error) => {
+						fault = error;
 					});
 					let output = "",
 						stderr = "",
@@ -65,6 +152,10 @@ export function processTool(
 							});
 					};
 					const stop = () => {
+						if (control) {
+							control.end();
+							return;
+						}
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGTERM");
@@ -74,6 +165,9 @@ export function processTool(
 						}
 					};
 					const force = () => {
+						// Native gate owns TERM -> 1s KILL, including ACK-before-start.
+						// Never signal the original service group from Node.
+						if (host) return;
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGKILL");
@@ -116,15 +210,23 @@ export function processTool(
 						await writes;
 						if (fault) reject(fault);
 						else if (context.abortSignal?.aborted) reject(context.abortSignal.reason);
+						else if (host && !result)
+							reject(new Error(`Hosted command exited without a verified result (${code}, ${signal})`));
 						else
 							resolve({
 								output: [
 									{
 										type: "text",
-										text: JSON.stringify({ output, stderr, exitCode: code, signal, fullOutputPath: path }),
+										text: JSON.stringify({
+											output,
+											stderr,
+											exitCode: host ? result!.exitCode : code,
+											signal: host ? result!.signal : signal,
+											fullOutputPath: path,
+										}),
 									},
 								],
-								isError: code !== 0,
+								isError: (host ? result!.exitCode : code) !== 0,
 								details: { pid: child.pid ?? 0, fullOutputPath: path },
 							});
 					});

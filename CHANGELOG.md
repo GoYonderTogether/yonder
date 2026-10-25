@@ -4,7 +4,7 @@
 
 - macOS 服务改由同一 Helper 的无 UI 生命周期入口托管 Node；独立 group-anchor 在业务根退出后保留可验证的组身份，双方 owner 登记 ACK 后才允许启动，TERM 后有界等待并重验身份再组 KILL。
 - 增加真实后代在脱组/丢失父链前逐进程登记的双方 ACK 协议，拒绝任意 target PID；服务 restart 先等待旧宿主卸载，旧版本回滚保留原启动链。至少一个 owner 存活且后代保持原组或先登记是受管契约，不承诺未登记 daemon 或双 owner 同杀。
-- 现有 bash `detached:true` 启动尚未接入脱组前登记，不把所有快速脱组后代宣称为已受管；需父级决定每任务子组接线后继续。
+- 默认 bash 在 macOS 薄宿主下复用同一 Helper 的每任务 command-anchor；从宿主私有继承描述符取得能力，先保持原组完成双方 prepare ACK，再建子组、完成 ready ACK 才执行。保留真实 shell 退出码/信号、stdio、stdin 与每任务 TERM→1秒 KILL，命令结束先回收子组再回收锚点；宿主协议损坏报错，不静默退回 detached。非宿主/非 macOS 原路径兼容。
 - 保留 .06 统一 permissions registry/ToolContext/API；本次进程专项与产品构建不代表生产 TCC 授权或升级保留已验收。原失败门和最终专项记录见 [宿主回收验证](docs/verification/service-host-owned-cleanup-20261025.md)。
 
 ## [0.2.26102506] - 2026-10-25

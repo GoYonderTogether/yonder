@@ -21,6 +21,8 @@ enum HelperServiceHost {
         var members: [Member]
         var registered: [Member]? = nil
         var registering: Member? = nil
+        var commandGroups: [Member]? = nil
+        var groupStage: String? = nil
         var helperPid: Int32 { helper.pid }
     }
     static func bsd(_ pid: Int32) -> proc_bsdinfo? {
@@ -42,15 +44,17 @@ enum HelperServiceHost {
         }
     }
     static func anchored(_ anchor: Member) -> Bool { same(anchor) && getpgid(anchor.pid) == anchor.pid }
-    static func cleanup(_ members: [Member], anchor: Member) {
+    static func cleanup(_ members: [Member], anchor: Member, groups: [Member] = []) {
         // TERM leaves the anchor alive, even after the business root has exited.
         // Recheck its start time AND PGID before each group signal, including the
         // final KILL. No signal is sent to a cached PGID after identity is lost.
         if anchored(anchor) { kill(-anchor.pid, SIGTERM) }
+        for group in groups where anchored(group) { kill(-group.pid, SIGTERM) }
         for item in members where item != anchor && same(item) { kill(item.pid, SIGTERM) }
         let deadline = Date().addingTimeInterval(5)
         while Date() < deadline && (anchored(anchor) || members.contains(where: same)) { usleep(50_000) }
         if anchored(anchor) { kill(-anchor.pid, SIGKILL) }
+        for group in groups where anchored(group) { kill(-group.pid, SIGKILL) }
         for item in members where item != anchor && same(item) { kill(item.pid, SIGKILL) }
     }
     static func sendFrame(_ socket: Int32, _ data: Data) throws {
@@ -91,14 +95,19 @@ enum HelperServiceHost {
         }
     }
     static func nonblocking(_ fd: Int32) { _ = fcntl(fd, F_SETFD, FD_CLOEXEC); _ = fcntl(fd, F_SETFL, O_NONBLOCK) }
-    static func spawn(_ program: String, _ arguments: [String], _ config: Launch, group: Bool, channel: Int32? = nil, environment: [String: String]? = nil) throws -> Int32 {
+    static func spawn(_ program: String, _ arguments: [String], _ config: Launch, group: Bool, channel: Int32? = nil, environment: [String: String]? = nil, inheritIO: Bool = false, capability: Int32? = nil) throws -> Int32 {
         var actions: posix_spawn_file_actions_t?; posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
         posix_spawn_file_actions_addchdir_np(&actions, config.cwd)
-        posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
-        posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, config.log, O_WRONLY | O_APPEND | O_CREAT, 0o600)
-        posix_spawn_file_actions_adddup2(&actions, STDOUT_FILENO, STDERR_FILENO)
+        if inheritIO {
+            for fd in [STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO] { posix_spawn_file_actions_addinherit_np(&actions, fd) }
+        } else {
+            posix_spawn_file_actions_addopen(&actions, STDIN_FILENO, "/dev/null", O_RDONLY, 0)
+            posix_spawn_file_actions_addopen(&actions, STDOUT_FILENO, config.log, O_WRONLY | O_APPEND | O_CREAT, 0o600)
+            posix_spawn_file_actions_adddup2(&actions, STDOUT_FILENO, STDERR_FILENO)
+        }
         if let channel { posix_spawn_file_actions_adddup2(&actions, channel, 3) }
+        if let capability { posix_spawn_file_actions_adddup2(&actions, capability, 4) }
         var attributes: posix_spawnattr_t?; posix_spawnattr_init(&attributes)
         defer { posix_spawnattr_destroy(&attributes) }
         var flags = POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGDEF | POSIX_SPAWN_SETSIGMASK
@@ -138,7 +147,15 @@ enum HelperServiceHost {
         }
         var environment = config.environment
         environment["YONDER_SERVICE_REGISTRATION"] = registration
-        let pid = try spawn(config.program, config.arguments, config, group: false, environment: environment)
+        // A private inherited descriptor, not a configurable executable path.
+        // Only this native host creates the command-launch capability for Node.
+        var capability: [Int32] = [0, 0]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &capability) == 0 else { throw hostError("Cannot create command capability") }
+        defer { close(capability[0]); close(capability[1]) }
+        try sendJSON(capability[0], ["helper": Bundle.main.executablePath ?? CommandLine.arguments[0], "registration": registration])
+        shutdown(capability[0], SHUT_WR)
+        environment["YONDER_SERVICE_COMMAND_FD"] = "4"
+        let pid = try spawn(config.program, config.arguments, config, group: false, environment: environment, capability: capability[1])
         // Any channel failure after spawn must clean this group, never abandon it.
         defer { cleanup([], anchor: own) }
         try sendJSON(fd, ["nodePid": pid])
@@ -156,6 +173,92 @@ enum HelperServiceHost {
                 }
             }
             usleep(20_000)
+        }
+    }
+    static func commandAnchor(_ command: String) throws -> Int32 {
+        let control: Int32 = 3
+        nonblocking(control)
+        signal(SIGTERM, SIG_IGN); signal(SIGINT, SIG_IGN)
+        let term = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .global())
+        term.setEventHandler { shutdown(control, SHUT_RD) }; term.resume()
+        defer { term.cancel() }
+        let input = Frames()
+        func cancelled() throws -> Bool { _ = try input.read(control); return input.eof }
+        guard let own = member(getpid()), getpgid(own.pid) != own.pid,
+              let path = ProcessInfo.processInfo.environment["YONDER_SERVICE_REGISTRATION"] else { throw hostError("Command gate requires hosted original group") }
+        let registration = Darwin.socket(AF_UNIX, SOCK_STREAM, 0)
+        guard registration >= 0 else { throw hostError("Cannot create command registration") }
+        defer { close(registration) }
+        nonblocking(registration)
+        var address = sockaddr_un(); address.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8CString)
+        guard bytes.count <= MemoryLayout.size(ofValue: address.sun_path) else { throw hostError("Command registration path too long") }
+        withUnsafeMutableBytes(of: &address.sun_path) { target in bytes.withUnsafeBytes { target.copyBytes(from: $0) } }
+        let connected = withUnsafePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(registration, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        if connected != 0 {
+            guard errno == EINPROGRESS else { throw hostError("Command registration unavailable") }
+            let deadline = Date().addingTimeInterval(5)
+            var descriptor = pollfd(fd: registration, events: Int16(POLLOUT), revents: 0)
+            while poll(&descriptor, 1, 10) <= 0 {
+                if try cancelled() { return 143 }
+                guard Date() < deadline else { throw hostError("Command registration connect timed out") }
+            }
+            var error: Int32 = 0, size = socklen_t(MemoryLayout<Int32>.size)
+            guard getsockopt(registration, SOL_SOCKET, SO_ERROR, &error, &size) == 0, error == 0 else { throw hostError("Command registration connect failed") }
+        }
+        let frames = Frames()
+        func ack(_ key: String) throws -> Bool {
+            let deadline = Date().addingTimeInterval(5)
+            while Date() < deadline {
+                if try cancelled() { return false }
+                for frame in try frames.read(registration) {
+                    guard let value = frame[key], try JSONDecoder().decode(Member.self, from: JSONSerialization.data(withJSONObject: value)) == own else { throw hostError("Invalid command registration ACK") }
+                    return true
+                }
+                guard !frames.eof else { throw hostError("Command registration closed before ACK") }
+                usleep(10_000)
+            }
+            throw hostError("Command registration ACK timed out")
+        }
+        try sendJSON(registration, ["register": true, "group": true])
+        guard try ack("prepared") else { return 143 }
+        guard setpgid(0, 0) == 0, anchored(own) else { throw hostError("Cannot establish command group") }
+        // From here both owners already have this exact start identity and will
+        // verify its current PGID on cleanup, including the conversion window.
+        defer { if anchored(own) { kill(-own.pid, SIGKILL) } }
+        try sendJSON(registration, ["groupReady": true])
+        guard try ack("registered"), try !cancelled() else { return 143 }
+        var environment = ProcessInfo.processInfo.environment
+        environment.removeValue(forKey: "YONDER_SERVICE_COMMAND_FD")
+        let config = Launch(launcherPid: 0, program: "/bin/bash", arguments: ["-c", command], environment: environment, cwd: FileManager.default.currentDirectoryPath, log: "", lock: "")
+        let pid = try spawn(config.program, config.arguments, config, group: false, inheritIO: true)
+        try sendFrame(control, JSONSerialization.data(withJSONObject: ["shellPid": pid, "anchor": try object(own)]) + Data([10]))
+        var status: siginfo_t? = nil
+        var ending: Date? = nil
+        while true {
+            if status == nil {
+                var info = siginfo_t()
+                let result = waitid(P_PID, id_t(pid), &info, WEXITED | WNOHANG | WNOWAIT)
+                guard result == 0 || errno == EINTR else { throw hostError("Command wait failed") }
+                if result == 0 && info.si_pid == pid { status = info }
+            }
+            if (try cancelled()) || status != nil {
+                if ending == nil {
+                    kill(-own.pid, SIGTERM)
+                    ending = Date().addingTimeInterval(1)
+                }
+            }
+            if let ending, Date() >= ending {
+                // Keep bash waitable and the anchor alive until the final group
+                // KILL. The result travels separately from anchor SIGKILL.
+                let exited = status?.si_code == CLD_EXITED
+                let result: [String: Any] = ["exitCode": exited ? (status!.si_status as Any) : NSNull(), "signal": exited ? NSNull() : (status?.si_status ?? SIGKILL)]
+                try sendFrame(control, JSONSerialization.data(withJSONObject: result) + Data([10]))
+                return 0 // defer KILLs this retained group, including the anchor.
+            }
+            usleep(10_000)
         }
     }
     static func object<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) }
@@ -185,7 +288,8 @@ enum HelperServiceHost {
         let fd: Int32
         let peer: Member?
         let frames = Frames()
-        let deadline = Date().addingTimeInterval(4)
+        var deadline = Date().addingTimeInterval(4)
+        var stage: String? = nil
         var candidate: Member?
         init(_ fd: Int32) {
             self.fd = fd
@@ -224,15 +328,20 @@ enum HelperServiceHost {
     static func run(_ args: [String]) -> Int32 {
         do {
             signal(SIGPIPE, SIG_IGN)
+            if args.count == 2 && args[0] == "service-command-anchor" { return try commandAnchor(args[1]) }
             if args.count == 3 && args[0] == "service-group-anchor" { return try groupAnchor(args[1], registration: args[2]) }
             if args.count == 2 && ["service-cleanup", "service-verify-anchor", "service-verify-member"].contains(args[0]) {
                 let state = try JSONDecoder().decode(State.self, from: Data(contentsOf: URL(fileURLWithPath: args[1])))
                 if args[0] == "service-verify-anchor" { guard verified(state) else { throw hostError("Anchor identity/ancestry changed") }; return 0 }
                 if args[0] == "service-verify-member" {
                     guard verified(state), let candidate = state.registering, descendant(candidate, of: [state.anchor] + (state.registered ?? []).filter { $0 != candidate }) else { throw hostError("Registration identity/ancestry changed") }
+                    if let stage = state.groupStage {
+                        guard (state.commandGroups ?? []).contains(candidate), stage == "prepare" || stage == "ready",
+                              stage == "ready" ? anchored(candidate) : getpgid(candidate.pid) == state.anchor.pid else { throw hostError("Command group identity changed") }
+                    }
                     return 0
                 }
-                cleanup(state.members, anchor: state.anchor); return 0
+                cleanup(state.members, anchor: state.anchor, groups: state.commandGroups ?? []); return 0
             }
             guard args.count == 3, args[0] == "service-host" else { return 2 }
             let config = try JSONDecoder().decode(Launch.self, from: Data(contentsOf: URL(fileURLWithPath: args[2])))
@@ -277,8 +386,9 @@ enum HelperServiceHost {
             var members: [Int32: Member] = [:]
             var anchor = member(anchorPid)
             var finalized = false
+            var commandGroups: [Member] = []
             defer {
-                if !finalized, let anchor { cleanup(Array(members.values), anchor: anchor) }
+                if !finalized, let anchor { cleanup(Array(members.values), anchor: anchor, groups: commandGroups) }
                 // If identity could not be read, close pre-start channel so the
                 // still-waitable child exits without ever spawning business code.
                 shutdown(pair[0], SHUT_RDWR)
@@ -303,18 +413,35 @@ enum HelperServiceHost {
                     if let value = frame["exitCode"] as? Int32 { code = value }
                 }
                 guard let anchor, anchored(anchor), !fromAnchor.eof else { throw hostError("Group anchor failed") }
+                // Completed command anchors have been group-KILLed and reaped.
+                // Stale identities cannot authorize cleanup and need not grow a
+                // long-running service's lease past its bounded frame size.
+                commandGroups.removeAll { !same($0) }
+                registered.removeAll { !same($0) }
+                members = members.filter { same($0.value) }
                 collect(anchorPid, &members)
                 // Admission is self-registration only. LOCAL_PEERPID binds the
                 // request to its actual sender; no supplied target PID is accepted.
                 if started {
                     acceptRegistrations(listener, clients: &clients)
-                    for client in clients where client.candidate == nil {
+                    for client in clients where client.candidate == nil || client.stage == "transition" {
                         do {
                             let requests = try client.frames.read(client.fd)
                             if let request = requests.first {
-                                guard requests.count == 1, Set(request.keys) == Set(["register"]), request["register"] as? Bool == true,
-                                      let peer = client.peer, descendant(peer, of: [anchor] + registered) else { throw hostError("Registration requires a live verified descendant") }
-                                client.candidate = peer; members[peer.pid] = peer
+                                guard requests.count == 1, let peer = client.peer, descendant(peer, of: [anchor] + registered) else { throw hostError("Registration requires a live verified descendant") }
+                                if client.stage == "transition" {
+                                    guard Set(request.keys) == Set(["groupReady"]), request["groupReady"] as? Bool == true, anchored(peer) else { throw hostError("Invalid group transition") }
+                                    client.stage = "ready"
+                                } else {
+                                    let group = request["group"] as? Bool == true
+                                    guard Set(request.keys) == Set(group ? ["register", "group"] : ["register"]), request["register"] as? Bool == true else { throw hostError("Invalid registration") }
+                                    if group {
+                                        guard getpgid(peer.pid) == anchor.pid else { throw hostError("Command gate left original group before ACK") }
+                                        client.stage = "prepare"
+                                        commandGroups.append(peer) // Identity owned BEFORE setpgid.
+                                    }
+                                    client.candidate = peer; members[peer.pid] = peer
+                                }
                             }
                         } catch { client.frames.eof = true }
                     }
@@ -322,18 +449,22 @@ enum HelperServiceHost {
                     // service. A pending accepted identity remains owned even if
                     // a client disconnects before receiving its final ACK.
                     clients.removeAll { client in
-                        if client.frames.eof || Date() >= client.deadline { close(client.fd); return true }
+                        if client.frames.eof || Date() >= client.deadline || (client.candidate != nil && !same(client.candidate!)) { close(client.fd); return true }
                         return false
                     }
                 }
                 if announced {
                     var state = State(helper: helper, anchor: anchor, members: [anchor] + members.values.filter { $0 != anchor })
                     state.registered = registered
-                    state.registering = clients.compactMap { $0.candidate }.first
+                    let pending = clients.first { $0.candidate != nil && $0.stage != "transition" }
+                    state.registering = pending?.candidate
+                    state.commandGroups = commandGroups
+                    state.groupStage = pending?.stage
                     var message = try object(state) as! [String: Any]
                     message["helperPid"] = helper.pid; message["anchorPid"] = anchor.pid
                     message["awaitingAnchorAck"] = !started
                     if state.registering == nil { message["registering"] = NSNull() }
+                    if state.groupStage == nil { message["groupStage"] = NSNull() }
                     if let node { message["nodePid"] = node }
                     try sendFrame(socket, JSONSerialization.data(withJSONObject: message) + Data([10]))
                     for frame in try fromLauncher.read(socket) {
@@ -344,12 +475,28 @@ enum HelperServiceHost {
                         }
                         if let value = frame["memberAck"] {
                             let ack = try JSONDecoder().decode(Member.self, from: JSONSerialization.data(withJSONObject: value))
-                            guard let client = clients.first(where: { $0.candidate == ack }), descendant(ack, of: [anchor] + registered) else { throw hostError("Invalid member ACK") }
+                            guard let client = clients.first(where: { $0.candidate == ack }) else {
+                                // A stale ACK for a removed/cancelled peer is harmless;
+                                // a mismatching start identity for a pending PID is
+                                // protocol corruption, not a cancellation race.
+                                guard !clients.contains(where: { $0.candidate?.pid == ack.pid }) else { throw hostError("Invalid member ACK identity") }
+                                continue
+                            }
+                            guard descendant(ack, of: [anchor] + registered) else {
+                                close(client.fd); clients.removeAll { $0 === client }; continue
+                            }
                             if !registered.contains(ack) { registered.append(ack) }
-                            // Only after BOTH registries contain this real identity
-                            // may the caller detach or let its ancestor exit.
-                            try? sendJSON(client.fd, ["registered": ack])
-                            close(client.fd); clients.removeAll { $0 === client }
+                            guard (frame["groupStage"] as? String) == client.stage else { throw hostError("Invalid group stage ACK") }
+                            if client.stage == "prepare" {
+                                guard getpgid(ack.pid) == anchor.pid else { throw hostError("Command gate changed group before prepare ACK") }
+                                // Both owners retain this identity across setpgid.
+                                client.stage = "transition"; client.deadline = Date().addingTimeInterval(4)
+                                try? sendJSON(client.fd, ["prepared": ack])
+                            } else {
+                                guard client.stage != "ready" || anchored(ack) else { throw hostError("Command anchor changed before ACK") }
+                                try? sendJSON(client.fd, ["registered": ack])
+                                close(client.fd); clients.removeAll { $0 === client }
+                            }
                         }
                     }
                 } else { _ = try fromLauncher.read(socket) }
@@ -358,7 +505,7 @@ enum HelperServiceHost {
                 if let code {
                     // Exit status is independent of anchor lifetime; final cleanup
                     // runs before this frame, so the launcher cannot finish early.
-                    cleanup(Array(members.values), anchor: anchor)
+                    cleanup(Array(members.values), anchor: anchor, groups: commandGroups)
                     wait(anchorPid)
                     finalized = true
                     try? sendJSON(socket, ["exitCode": code])

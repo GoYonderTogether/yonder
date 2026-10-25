@@ -243,7 +243,7 @@ func number(_ args: [String: Any], _ key: String) throws -> Int {
     @MainActor static func main() {
         // Service lifecycle modes must never initialize AppKit or permission
         // probes. The business root remains a descendant of this signed binary.
-        if ["service-host", "service-group-anchor", "service-cleanup", "service-verify-anchor", "service-verify-member"].contains(CommandLine.arguments.dropFirst().first ?? "") {
+        if ["service-host", "service-group-anchor", "service-command-anchor", "service-cleanup", "service-verify-anchor", "service-verify-member"].contains(CommandLine.arguments.dropFirst().first ?? "") {
             exit(HelperServiceHost.run(Array(CommandLine.arguments.dropFirst())))
         }
         // Start AppKit outside a Swift task: app.run() must not block the main actor job.

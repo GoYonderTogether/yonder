@@ -50,14 +50,21 @@ export async function runServiceHost({
 	let finishLease;
 	let acknowledging = false;
 	const memberAcks = new Set();
+	let verification = 0;
 	const native = async (command, value) => {
-		const file = join(scratch, `${command}.json`);
+		// Cancellation can overlap verification of the next command. Never let
+		// two native verifiers read a shared file overwritten by another state.
+		const file = join(scratch, `${command}-${++verification}.json`);
 		await writeFile(file, JSON.stringify(value), { mode: 0o600 });
-		const child = spawn(executable, [command, file], { stdio: "inherit" });
-		await new Promise((resolve, reject) => {
-			child.once("error", reject);
-			child.once("close", (code) => (code ? reject(new Error(`${command} failed (${code})`)) : resolve()));
-		});
+		try {
+			const child = spawn(executable, [command, file], { stdio: "inherit" });
+			await new Promise((resolve, reject) => {
+				child.once("error", reject);
+				child.once("close", (code) => (code ? reject(new Error(`${command} failed (${code})`)) : resolve()));
+			});
+		} finally {
+			await rm(file, { force: true });
+		}
 	};
 	const ended = new Promise((resolve) => {
 		finishLease = resolve;
@@ -99,19 +106,22 @@ export async function runServiceHost({
 								connection.destroy();
 							});
 					}
+					if (!state.registering) memberAcks.clear();
 					if (state.registering && !stopping) {
 						const pending = state;
-						const key = `${pending.registering.pid}:${pending.registering.seconds}:${pending.registering.micros}`;
+						const key = `${pending.registering.pid}:${pending.registering.seconds}:${pending.registering.micros}:${pending.groupStage ?? "member"}`;
 						if (!memberAcks.has(key)) {
 							memberAcks.add(key);
 							native("service-verify-member", pending)
 								.then(() => {
 									if (!stopping && !connection.destroyed)
-										connection.write(`${JSON.stringify({ memberAck: pending.registering })}\n`);
+										connection.write(
+											`${JSON.stringify({ memberAck: pending.registering, groupStage: pending.groupStage })}\n`,
+										);
 								})
-								.catch((cause) => {
-									error = cause;
-									connection.destroy();
+								.catch(() => {
+									// A command can be cancelled/reaped during native verification.
+									// Decline its ACK; never tear down unrelated service tasks.
 								});
 						}
 					}
