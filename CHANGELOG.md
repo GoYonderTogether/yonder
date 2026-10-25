@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 共享 Helper 安装器在 host/permissions 两个入口同步刷新当前安装发行版的稳定 permissions wrapper，支持升级和回滚；锁保留 holder 身份且仅证明旧 holder 已死才恢复，替换失败恢复旧签名 bundle，不盲删并发锁。
+
 - 修复薄宿主后代枚举的归属竞态：以同一 BSD identity/PPID 快照复验到真实 anchor 或已 ACK 根的完整边，拒绝枚举后复用/换父的 PID，清理不误收新身份。
 
 - macOS 服务改由同一 Helper 的无 UI 生命周期入口托管 Node；独立 group-anchor 在业务根退出后保留可验证的组身份，双方 owner 登记 ACK 后才允许启动，TERM 后有界等待并重验身份再组 KILL。

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,19 +47,7 @@ if (args[0] === "rpc") {
 const deadline = Date.now() + timeout * 1000;
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const { home, app } = await installHelper(root);
-// Stable owner entry point follows the current release's launcher, state stays outside the app.
-const wrapper = `#!/bin/sh\nexec '${process.execPath.replaceAll("'", "'\\''")}' '${fileURLToPath(import.meta.url).replaceAll("'", "'\\''")}' "$@"\n`;
-const wrapperPath = join(home, "yonder-permissions");
-let priorWrapper;
-try {
-	priorWrapper = await readFile(wrapperPath, "utf8");
-} catch {}
-if (priorWrapper !== wrapper) {
-	const pendingWrapper = `${wrapperPath}.${process.pid}`;
-	await writeFile(pendingWrapper, wrapper, { mode: 0o700 });
-	await rename(pendingWrapper, wrapperPath);
-}
+const { app } = await installHelper(root);
 const scratch = await mkdtemp(join(tmpdir(), "yonder-helper-rpc-"));
 const input = join(scratch, "input.json"),
 	output = join(scratch, "output.json"),

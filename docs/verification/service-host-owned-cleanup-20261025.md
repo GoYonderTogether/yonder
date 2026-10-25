@@ -320,3 +320,11 @@ node_modules/.bin/vitest run --maxWorkers=4 \
 基于 `95d323f9e6a7d3381627bba80d4eba5ae68deac2` 按 `/tmp/yonder-host-release-review-20261025.md` 的 B1 实施，不重复旧审查。collect 改为接受已知 parent Member，并从真实 anchor / 已 ACK registered roots 遍历；同一 BSD snapshot 提供 child identity + PPID，每次入表及递归前重验到可信根的完整连接。PID 枚举本身不再作为归属证据。descendant 的每条边也统一用同一 snapshot，清理仍在发信号前检查已保存的身份；没有全机扫描或新 OS pidfd 要求。
 
 专项 `node --test --test-concurrency=1 scripts/test-service-host-collect.mjs scripts/test-helper-install.mjs`（原子 heavy-test 锁，日志 `.yonder/background/98913.log`）共 **11 通过 / 0 失败 / 0 跳过**。其中 B1 **8 项**用可注入 BSD snapshot/children 的真实 collect 实现验证：稳定树、枚举后 PID 复用/PPID 改变/父身份改变、入表前 child identity/PPID 改变、深层采集时祖先替换、非可信根。错误身份不入表，注入的 TERM/KILL signal sink 不收到错误 PID；已保存旧身份被复用后也不发信号。Swift standalone 编译通过，保留原 addchdir_np deprecation warning。原始证据 `/tmp/yonder-collect-race-xIzfkw`；这是确定性归属竞态单测，不是人为复用系统 PID 或给无关进程发信号。旧 setsid 红门及所有历史失败保持原样。B3 的同批 3 项详见后节。
+
+## 发布审查必要修复 B3：稳定 wrapper 与同一安装临界区（18:10）
+
+wrapper 生成从 permissions 入口移入共享 `installHelper()`，host 安装和 permissions 入口都在同一锁内刷新，包含 bundle CDHash 未变的情况。wrapper 指向传入发行版的 realpath；写默认生产稳定目录前，必须证明 root 是 `YONDER_INSTALL`（或默认安装根）下的真实 current 且存在安装来源 metadata，开发 checkout 只能显式选择隔离目录，不会把开发路径写进生产 wrapper。升级/回滚均跟随实际选中的安装发行版，不执行旧 wrapper 来修自己。
+
+锁记录 holder PID、ps start identity、随机 ownership token；活 holder、未知/半写 holder 都保留并明确失败，只有 ESRCH 或已确认不同 start identity 才允许恢复。恢复者在旧锁目录原子争取单一 recovery claim，复验 inode/token/死亡后才能删旧锁；正常释放也核对自己的 token。pending app 经真实 codesign verify 后先把旧 bundle rename 到本轮 backup，再替换；wrapper/rename 失败恢复旧 bundle，本轮 finally 仅清 pending/自身锁，成功后才删 backup。不是通用跨文件崩溃事务：SIGKILL 发生在 rename 窄窗时可能保留 `.previous.app` 备份，未宣称所有断电窗口自动事务恢复；没有重构安装平台。
+
+同前节 `.yonder/background/98913.log` 的 B3 **3 通过 / 0 失败 / 0 跳过**：首次 host/shared 安装、真实删除旧版本目录后升级、回滚均可执行 wrapper 且逐字保留带空格/引号 argv；外置 permissions-state 保留、wrapper mode=0700；强制 wrapper rename 失败后旧签名 bundle 内容恢复且 codesign verify 通过；活/未知锁不删，真实持锁子进程 SIGKILL 并 reap 后才恢复。证据 `/tmp/yonder-helper-install-l1mvmG` 只含临时 ad-hoc `/bin/echo` 合同 app，不启动 app、不探测 TCC、不接触正式稳定 wrapper/已批准 app。node --check 和变更脚本 Biome 无 error。
