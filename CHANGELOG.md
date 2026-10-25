@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 插件 sessions.submit 可向已打开的 main/persistent 会话提交系统提醒：保留 plugin 来源与 session.input 持久记录，使用会话当前 profile 和原生 busy 队列，不携带人类授权。
+
 - 新增可选 tasks 插件 P1：只追加 SQLite 任务账本、五个工具、归属/parent/cross-agent 可见范围、逐项完成证据与 turn 目标重现；不自动启用，不含后续提醒或展示阶段。
 
 ## [0.2.26102503] - 2026-10-25

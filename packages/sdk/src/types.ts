@@ -171,6 +171,7 @@ export interface SessionsAPI {
 		capabilities?: Capability[];
 		close?: "run-end" | "manual";
 	}): Promise<SessionInfo>;
+	/** Plugins may also submit system reminders to open main/persistent sessions, under their current profile. No human authority is implied. */
 	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" | "interrupt" }): Promise<RunResult>;
 	submit(
 		id: string,
