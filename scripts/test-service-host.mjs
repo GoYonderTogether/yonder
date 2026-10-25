@@ -217,6 +217,21 @@ test("full Helper LaunchServices actually hosts built Node CLI start and control
 		}, "actual CLI control readiness");
 		assert.equal(info.pid, run.state.nodePid);
 		assert.equal(info.home, home);
+		const parentOf = (pid) =>
+			Number(execFileSync("/bin/ps", ["-p", String(pid), "-o", "ppid="], { encoding: "utf8" }).trim());
+		assert.equal(parentOf(run.state.nodePid), run.state.anchorPid);
+		assert.equal(parentOf(run.state.anchorPid), run.state.helperPid);
+		const ancestry = execFileSync(
+			"/bin/ps",
+			[
+				"-p",
+				[run.launcher.pid, run.state.helperPid, run.state.anchorPid, run.state.nodePid].join(","),
+				"-o",
+				"pid=,ppid=,pgid=,stat=,comm=",
+			],
+			{ encoding: "utf8" },
+		);
+		await writeFile(join(evidence, "actual-cli-ancestry.txt"), ancestry);
 		execFileSync(process.execPath, [cli, "stop", "--home", home, "--json"]);
 		assert.equal((await run.closed).code, 0);
 		await run.gone();

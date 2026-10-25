@@ -11,6 +11,7 @@ import {
 	readDocs,
 	releaseInfo,
 	selectChangelog,
+	serviceLauncher,
 	servicePlist,
 	statusPlist,
 	unloadService,
@@ -38,7 +39,12 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 		execFileSync("/bin/sh", ["-n", wrapper]);
 		const text = servicePlist(directory, directory);
 		await writeFile(plist, text);
-		expect(text).toContain("<string>--json</string>");
+		expect(text).toContain("bin/yonder-service</string>");
+		expect(text).not.toContain("<string>start</string>");
+		expect(servicePlist(directory, directory, "/bin", false)).toContain("<string>--json</string>");
+		await writeFile(wrapper, serviceLauncher(directory));
+		execFileSync("/bin/sh", ["-n", wrapper]);
+		expect(await readFile(wrapper, "utf8")).toContain("current/scripts/yonder-service-host.mjs");
 		expect(text).toContain("&amp;");
 		expect(text).toContain("&apos;");
 		expect(text.match(/<key>PATH<\/key>|<key>YONDER_INSTALL<\/key>|<key>YONDER_HOME<\/key>/gu) ?? []).toHaveLength(3);

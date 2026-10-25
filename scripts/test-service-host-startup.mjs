@@ -46,8 +46,16 @@ async function exists(path) {
 		return false;
 	}
 }
-for (const action of ["cancel", "helper-death", "launcher-eof", "anchor-death", "bad-ack", "ack-timeout"]) {
-	test(`pre-start anchor ACK gate: ${action} never runs business root and finishes bounded`, {
+for (const action of [
+	"cancel",
+	"helper-death",
+	"launcher-eof",
+	"anchor-death",
+	"bad-ack",
+	"ack-timeout",
+	"anchor-after-start",
+]) {
+	test(`anchor ACK/lifetime gate: ${action} finishes bounded without unowned business root`, {
 		timeout: 25000,
 	}, async () => {
 		const home = await mkdtemp(join(evidence, `${action}-`));
@@ -98,6 +106,11 @@ for (const action of ["cancel", "helper-death", "launcher-eof", "anchor-death", 
 			assert.equal(state.nodePid, undefined);
 			assert.equal(await exists(marker), false);
 			const began = Date.now();
+			if (action === "anchor-after-start") {
+				connection.write(`${JSON.stringify({ anchorAck: state.anchor })}\n`);
+				await waitFor(async () => state?.nodePid && (await exists(marker)), "business root started after ACK");
+				process.kill(state.anchorPid, "SIGKILL");
+			}
 			if (action === "cancel") processHelper.kill("SIGTERM");
 			if (action === "helper-death") processHelper.kill("SIGKILL");
 			if (action === "launcher-eof") connection.end();
@@ -106,9 +119,17 @@ for (const action of ["cancel", "helper-death", "launcher-eof", "anchor-death", 
 				connection.write(`${JSON.stringify({ anchorAck: { ...state.anchor, micros: state.anchor.micros + 1 } })}\n`);
 			result = await closed;
 			assert.ok(Date.now() - began < 15000);
-			assert.equal(await exists(marker), false, "business code must not run before both owners ACK");
-			if (["anchor-death", "bad-ack", "ack-timeout"].includes(action)) assert.equal(result.code, 1);
-			await waitFor(() => !alive(state.anchorPid), "anchor reclaimed");
+			assert.equal(
+				await exists(marker),
+				action === "anchor-after-start",
+				"business code must not run before both owners ACK",
+			);
+			if (["anchor-death", "bad-ack", "ack-timeout", "anchor-after-start"].includes(action))
+				assert.equal(result.code, 1);
+			await waitFor(
+				() => [state.anchorPid, ...(state.members ?? []).map((m) => m.pid)].every((pid) => !alive(pid)),
+				"anchor and known business processes reclaimed",
+			);
 			await writeFile(
 				join(home, "result.json"),
 				JSON.stringify(
@@ -117,7 +138,7 @@ for (const action of ["cancel", "helper-death", "launcher-eof", "anchor-death", 
 						result,
 						errors,
 						businessStarted: await exists(marker),
-						remaining: [processHelper.pid, state.anchorPid].filter(alive),
+						remaining: [processHelper.pid, state.anchorPid, ...(state.members ?? []).map((m) => m.pid)].filter(alive),
 					},
 					null,
 					2,

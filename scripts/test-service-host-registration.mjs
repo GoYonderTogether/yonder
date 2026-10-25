@@ -178,6 +178,9 @@ async function run(mode, { raw = false } = {}) {
 		send(value) {
 			connection.write(`${JSON.stringify(value)}\n`);
 		},
+		end() {
+			connection.end();
+		},
 		async cleanup() {
 			connection?.end();
 			if (alive(launcher.pid)) {
@@ -241,7 +244,7 @@ for (const target of ["root-exit", "root-kill", "helper", "launcher"]) {
 		}
 	});
 }
-for (const mode of ["hold-then-ack", "bad-ack", "missing-ack", "peer-exit"]) {
+for (const mode of ["hold-then-ack", "bad-ack", "missing-ack", "peer-exit", "launcher-eof", "helper-death"]) {
 	test(`registration ${mode}: no detach until launcher identity ACK`, { timeout: 25000 }, async () => {
 		const r = await run(mode, { raw: true });
 		try {
@@ -266,6 +269,12 @@ for (const mode of ["hold-then-ack", "bad-ack", "missing-ack", "peer-exit"]) {
 			} else if (mode === "bad-ack") {
 				r.send({ memberAck: { ...state.registering, seconds: 1 } });
 				assert.equal((await r.closed).code, 1);
+			} else if (mode === "launcher-eof") {
+				r.end();
+				await r.closed;
+			} else if (mode === "helper-death") {
+				r.launcher.kill("SIGKILL");
+				await r.closed;
 			} else if (mode === "peer-exit") {
 				process.kill(state.registering.pid, "SIGKILL");
 				await r.closed;

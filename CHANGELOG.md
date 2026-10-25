@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+- macOS 服务改由同一 Helper 的无 UI 生命周期入口托管 Node；独立 group-anchor 在业务根退出后保留可验证的组身份，双方 owner 登记 ACK 后才允许启动，TERM 后有界等待并重验身份再组 KILL。
+- 增加真实后代在脱组/丢失父链前逐进程登记的双方 ACK 协议，拒绝任意 target PID；服务 restart 先等待旧宿主卸载，旧版本回滚保留原启动链。至少一个 owner 存活且后代保持原组或先登记是受管契约，不承诺未登记 daemon 或双 owner 同杀。
+- 现有 bash `detached:true` 启动尚未接入脱组前登记，不把所有快速脱组后代宣称为已受管；需父级决定每任务子组接线后继续。
+- 保留 .06 统一 permissions registry/ToolContext/API；本次进程专项与产品构建不代表生产 TCC 授权或升级保留已验收。原失败门和最终专项记录见 [宿主回收验证](docs/verification/service-host-owned-cleanup-20261025.md)。
+
 ## [0.2.26102506] - 2026-10-25
 
 - 新增共享 `PluginAPI.permissions`、核心 `permissions` 工具和 native-automation provider，复用已有 macOS 权限驱动及 desktop 兼容入口；按真实活动 ToolContext、session/profile 插件选择、owner、能力、执行环境和取消信号校验。

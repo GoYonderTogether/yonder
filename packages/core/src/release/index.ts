@@ -251,10 +251,13 @@ function runtimePath(install: string): string {
 export function launcher(install: string, node = process.execPath, path = runtimePath(install)): string {
 	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/packages/cli/dist/index.js"))} "$@"\n`;
 }
-export function servicePlist(install: string, home: string, path = runtimePath(install)): string {
+export function serviceLauncher(install: string, node = process.execPath, path = runtimePath(install)): string {
+	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/scripts/yonder-service-host.mjs"))} "$@"\n`;
+}
+export function servicePlist(install: string, home: string, path = runtimePath(install), hosted = true): string {
 	const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
 	return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n${pair("Label", label)}
-<key>ProgramArguments</key><array>${[join(install, "bin/yonder"), "start", "--home", home, "--json"].map((arg) => `<string>${xml(arg)}</string>`).join("")}</array>
+<key>ProgramArguments</key><array>${(hosted ? [join(install, "bin/yonder-service"), "--home", home] : [join(install, "bin/yonder"), "start", "--home", home, "--json"]).map((arg) => `<string>${xml(arg)}</string>`).join("")}</array>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
 ${pair("StandardOutPath", join(home, ".yonder/logs/harness.log"))}
 ${pair("StandardErrorPath", join(home, ".yonder/logs/harness.log"))}
@@ -287,7 +290,14 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		await mkdir(dirname(plistPath()), { recursive: true });
 		await mkdir(join(home, ".yonder/logs"), { recursive: true });
 		if (await loaded()) await unloadService(service);
-		await writeFile(plistPath(), servicePlist(install, home), { mode: 0o600 });
+		// Older rollback artifacts lack the host launcher. Restore their original
+		// service chain instead of pointing launchd at a script that does not exist.
+		const hosted = existsSync(join(install, "current/scripts/yonder-service-host.mjs"));
+		if (hosted) {
+			await writeFile(join(install, "bin/yonder-service"), serviceLauncher(install), { mode: 0o755 });
+			await chmod(join(install, "bin/yonder-service"), 0o755);
+		}
+		await writeFile(plistPath(), servicePlist(install, home, runtimePath(install), hosted), { mode: 0o600 });
 		await command("launchctl", ["bootstrap", domain(), plistPath()]);
 		installed = { home, install, plist: plistPath() };
 		const statusService = `${domain()}/${statusLabel}`;
@@ -297,6 +307,23 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		await command("launchctl", ["bootstrap", domain(), statusPlistPath()]);
 	} else if (action === "status") {
 		const status = await command("launchctl", ["print", service], { allowFailure: true });
+		const launcherPid = Number(/^\s*pid = (\d+)$/mu.exec(status.stdout)?.[1]) || null;
+		let nodePid: number | undefined;
+		if (installed && launcherPid) {
+			try {
+				const host = JSON.parse(await readFile(join(installed.home, ".yonder/service-host.json"), "utf8")) as {
+					launcherPid: number;
+					nodePid: number;
+					updatedAt: number;
+				};
+				if (host.launcherPid === launcherPid && Date.now() - host.updatedAt < 5000 && host.nodePid > 0) {
+					process.kill(host.nodePid, 0);
+					nodePid = host.nodePid;
+				}
+			} catch {
+				/* No current host lease: old direct-Node services keep their PID. */
+			}
+		}
 		return {
 			installed: !!installed,
 			loaded: status.code === 0,
@@ -304,7 +331,8 @@ export async function manageService(action: ServiceAction, options: { home?: str
 			...(status.code === 0
 				? {
 						state: /^\s*state = (.+)$/mu.exec(status.stdout)?.[1] ?? "loaded",
-						pid: Number(/^\s*pid = (\d+)$/mu.exec(status.stdout)?.[1]) || null,
+						pid: nodePid ?? launcherPid,
+						launcherPid,
 					}
 				: {}),
 		};
@@ -321,7 +349,11 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		const running = await loaded();
 		if (action === "stop") {
 			if (running) await unloadService(service);
-		} else if (running) await command("launchctl", ["kickstart", ...(action === "restart" ? ["-k"] : []), service]);
+		} else if (running && action === "restart") {
+			// Do not SIGKILL the foreground lease before Helper has reaped Node.
+			await unloadService(service);
+			await command("launchctl", ["bootstrap", domain(), installed.plist]);
+		} else if (running) await command("launchctl", ["kickstart", service]);
 		else await command("launchctl", ["bootstrap", domain(), installed.plist]);
 		if (action === "start" && existsSync(statusPlistPath())) {
 			const statusService = `${domain()}/${statusLabel}`;
