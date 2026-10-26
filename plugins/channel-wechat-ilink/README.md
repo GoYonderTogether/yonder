@@ -89,6 +89,8 @@ SDK 的 credentials 接口保持只读。扫码 token 与游标等协议状态�
 
 只声明 iLink 机器人私聊；普通个人号全部聊天和普通微信群不在此链路能力内。归档插件负责本机已有私聊/群资料。资料查询不等于代个人号发送。
 
-发送失败明确区分平台拒绝和结果不明；部分成功、断连未知均返回 uncertain，不自行重发整组。停止会取消轮询及在途请求。SILK 入站转 WAV，其他支持的编码保留为音频附件；ASR 通过已存在媒体工具显式调用，接收成功不等于已经转写或理解。
+发送失败明确区分平台拒绝和结果不明；部分成功、断连未知均返回 uncertain，不自行重发整组。错误保留 `ILINK_SEND_REJECTED` / `ILINK_SEND_FAILED` / `ILINK_DELIVERY_UNCERTAIN` 前缀，并附安全诊断 JSON；不要依赖完整错误字符串等值匹配。出站阶段仅使用本地固定标签 `preflight`、`attachment-read`、`upload-url`、`cdn-upload`、`sendmessage`。安全诊断日志 `iLink send failed` 同时记录实例、阶段、固定原因、已知数字 `httpStatus/ret/errcode`、是否已尝试及确认段数，不记录凭据、context、签名 URL、原始响应、文件名、正文或文件内容；未知码不猜测。上传准备失败不等于已尝试发消息，后续段明确拒绝也不能把前面已确认的段改成整组未发送。
+
+停止会取消轮询及在途请求。SILK 入站转 WAV，其他支持的编码保留为音频附件；ASR 通过已存在媒体工具显式调用，接收成功不等于已经转写或理解。
 
 验证及未测项见 [微信迁移验收](../../docs/verification/wechat-plugins.md)。
