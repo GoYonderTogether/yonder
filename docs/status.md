@@ -1,6 +1,6 @@
-# 多设备执行 W0（2026-10-26）
+# 多设备执行 W0 与完整程序平台适配 W4（2026-10-26）
 
-新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。daemon、持久账本与写锁、真实配对、设备插件、Card执行relay及六端安装均未实现/未验收。首版checkpoint restore明确unsupported。检查结果见proposals/multidevice/W0-verification.md。
+新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；平台代码已构建，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。daemon、持久账本与写锁、真实配对、设备插件、Card执行relay及六端安装均未实现/未验收。首版checkpoint restore明确unsupported。W0检查结果见proposals/multidevice/W0-verification.md。
 
 # 项目状态
 
@@ -169,7 +169,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 
 - 0.2.26102106 构建、类型检查通过；默认测试 **246 通过 / 0 失败 / 26 跳过（272）**，56 文件通过 / 13 跳过；lint **0 错误 / 204 warnings / 1 info**。真实模型 `openai/gpt-6-luna` 与隔离 launchd（`--maxWorkers=4`）全量 **271 通过 / 0 失败 / 1 跳过（272）**，68 文件通过 / 1 跳过。此前全量 270 通过 / 1 失败 / 1 跳过与单文件重跑失败均为 input-queue 提示竞争导致的既有模型输出不确定，诊断及最小提示修正原样记录在 [0.2.26102106 验收](verification/release-26102106.md)。历史原始结果见 [0.2.26102104 验收](verification/release-26102104.md)、[0.2.26102105 验收](verification/release-26102105.md)；任务恢复与去重见 [task-recovery](verification/task-recovery.md)、[background-result-dedupe](verification/background-result-dedupe.md)。默认跳过项需要真实模型与凭据；跳过不等于通过。
 - 产品目录 lint 0 错误（保留警告）。
-- 支持平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 未支持。
+- 有实际运行证据的平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 已有完整程序平台适配代码，真实安装与运行验收待做。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
 
 ## 已实现并有真实运行记录
@@ -196,7 +196,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 - PTY 交互进程（process 管理使用管道，不标称 PTY）。
 - 沙箱或容器隔离的执行环境（环境槽已定义；本机 exec 不是沙箱）。
 - MCP 客户端的交互式 OAuth 登录（已有授权可用凭据 header）。
-- Linux systemd、Windows 支持；Web 控制台；交互式安装向导。
+- Linux/Windows 的实际安装、启动、控制、重启与卸载验收；Web 控制台；交互式安装向导。
 - 官方常驻模板已提供 Jarvis 与普通常驻 Agent；任务预设新增 default/coding/research，接线与实际验证见 [任务预设](verification/task-presets.md)。更专门的购物等 Agent 尚未提供。
 - 文档/PDF 解析、TTS、视频生成；ASR 随包但默认未启用。
 
