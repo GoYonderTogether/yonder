@@ -120,6 +120,18 @@ test("independent CLI pairs both homes, starts HTTPS daemon, serves signed RPC a
 		provider,
 		`export function createBackendProvider() { return { describe: async () => ({ schemaVersion: 1, deviceId: ${JSON.stringify(offer.deviceId)}, role: "execution-only", os: { name: "test", version: "1" }, hostArch: "test", processArch: "test", runtimeVersion: process.version, targets: [{ id: "local", name: "Local" }], capabilities: [], resources: { observedAt: null }, apps: { observedAt: null, status: "unsupported", complete: false }, lastSeenAt: null, health: "ready", routes: [], checkpointRestore: "unsupported" }), apps: async targetId => ({ deviceId: ${JSON.stringify(offer.deviceId)}, targetId, observedAt: new Date().toISOString(), status: "unsupported", complete: false, items: [] }), snapshot: async session => ({ deviceId: ${JSON.stringify(offer.deviceId)}, deviceSessionId: session.deviceSessionId, targetId: session.targetId, observedAt: new Date().toISOString(), status: "unsupported" }), actions: {} }; }`,
 	);
+	const unavailableToken = join(root, "unavailable-card-token"),
+		cardConfig = join(root, "unavailable-card.json");
+	writeFileSync(unavailableToken, "temporary-unreachable-card-credential", { mode: 0o600 });
+	writeFileSync(
+		cardConfig,
+		JSON.stringify({
+			baseUrl: "http://127.0.0.1:1",
+			peerDeviceId: randomUUID(),
+			tokenFile: unavailableToken,
+			allowInsecureLoopback: true,
+		}),
+	);
 	const child = spawn(
 		process.execPath,
 		[
@@ -137,6 +149,8 @@ test("independent CLI pairs both homes, starts HTTPS daemon, serves signed RPC a
 			key,
 			"--tls-cert",
 			cert,
+			"--card-config",
+			cardConfig,
 		],
 		{ stdio: ["ignore", "pipe", "pipe"] },
 	);

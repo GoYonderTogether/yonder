@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { type Grant, publicKeyId } from "@yonder/execution-protocol";
 import type { BackendProvider } from "./backend-provider.js";
+import { type CardConnectionConfig, CardDaemonConnection } from "./card-connection.js";
 import { DeviceExecutor } from "./executor.js";
 import {
 	ControllerPairing,
@@ -71,6 +72,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		const backend = await loaded.createBackendProvider({ home });
 		if (!backend || typeof backend.describe !== "function" || !backend.actions) throw new Error("INVALID_REQUEST");
 		const executor = new DeviceExecutor(home, backend);
+		let card: CardDaemonConnection | undefined;
 		try {
 			const host = options.host ?? "127.0.0.1";
 			const port = options.port === undefined ? 0 : Number(options.port);
@@ -80,6 +82,15 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 					? { key: readFileSync(options["tls-key"]), cert: readFileSync(options["tls-cert"]) }
 					: undefined;
 			const boundPort = await executor.listenDirect({ host, port, ...(tls ? { tls } : {}) });
+			if (options["card-config"]) {
+				const config = JSON.parse(readFileSync(options["card-config"], "utf8")) as CardConnectionConfig;
+				card = new CardDaemonConnection(
+					config,
+					(envelope) => executor.handle(envelope),
+					(state) => process.stderr.write(`${JSON.stringify({ card: state })}\n`),
+				);
+				card.start();
+			}
 			output({
 				deviceId: executor.deviceId,
 				url: `${tls ? "https" : "http"}://${host}:${boundPort}/execution/v1`,
@@ -90,6 +101,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 				process.once("SIGTERM", () => done());
 			});
 		} finally {
+			card?.close();
 			await executor.close();
 		}
 		return;
