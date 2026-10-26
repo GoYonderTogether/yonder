@@ -56,6 +56,7 @@ const covered = (resource: string, roots: string[]) =>
 
 export class DeviceExecutor {
 	readonly store: ExecutorStore;
+	private readonly requestsInFlight = new Map<string, { digest: string; response: Promise<SignedEnvelope> }>();
 	private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
 	private writer: string | undefined;
 	private server: Server | HttpsServer | undefined;
@@ -206,25 +207,24 @@ export class DeviceExecutor {
 		})();
 		this.running.set(key, { abort, done });
 	}
-	private async operate(request: RpcRequest): Promise<unknown> {
+	private async operate(request: RpcRequest, commit: (result: unknown) => void): Promise<unknown> {
 		const p = request.principalId;
 		switch (request.method) {
 			case "device.describe": {
 				const descriptor = await this.backend.describe();
-				if (
-					!descriptor.targets.some((t) => {
-						try {
-							this.grant(p, t.id, "read");
-							return true;
-						} catch {
-							return false;
-						}
-					})
-				)
-					fail("UNAUTHORIZED");
 				if (descriptor.deviceId !== this.deviceId || descriptor.checkpointRestore !== "unsupported")
 					fail("INVALID_REQUEST");
-				return descriptor;
+				const targets = descriptor.targets.filter((t) => {
+					try {
+						this.grant(p, t.id, "read");
+						return true;
+					} catch {
+						return false;
+					}
+				});
+				if (!targets.length) fail("UNAUTHORIZED");
+				const visible = new Set(targets.map((t) => t.id));
+				return { ...descriptor, targets, capabilities: descriptor.capabilities.filter((c) => visible.has(c.scope)) };
 			}
 			case "device.apps.list": {
 				this.grant(p, request.params.targetId, "read");
@@ -257,6 +257,8 @@ export class DeviceExecutor {
 				if (capabilities.some((c) => !grant.capabilities.includes(c))) fail("UNAUTHORIZED");
 				const descriptor = await this.backend.describe();
 				if (!descriptor.targets.some((t) => t.id === targetId)) fail("WRONG_TARGET");
+				if (grant.revokedAt) fail("GRANT_REVOKED");
+				if (Date.parse(grant.expiresAt) <= Date.now()) fail("GRANT_EXPIRED");
 				const epoch = (this.store.data.leaseEpochs[targetId] ?? 0) + 1;
 				const session: DeviceSession = {
 					deviceSessionId: randomUUID(),
@@ -272,13 +274,13 @@ export class DeviceExecutor {
 				};
 				this.store.data.leaseEpochs[targetId] = epoch;
 				this.store.data.sessions[session.deviceSessionId] = session;
-				this.store.save();
+				commit(session);
 				return session;
 			}
 			case "device.sessions.close": {
 				const session = this.session(p, request.params.deviceSessionId);
 				this.store.data.leaseEpochs[session.targetId] = session.leaseEpoch + 1;
-				this.store.save();
+				commit({ closed: true });
 				return { closed: true };
 			}
 			case "commands.submit": {
@@ -320,7 +322,7 @@ export class DeviceExecutor {
 					readRoots: [...resources.readRoots],
 					writeRoots: [...resources.writeRoots],
 				};
-				this.store.save();
+				commit(receipt);
 				queueMicrotask(() => {
 					void this.dispatch(key);
 				});
@@ -334,7 +336,7 @@ export class DeviceExecutor {
 				if (record.receipt.state === "accepted") {
 					record.receipt.state = "cancelled";
 					record.receipt.updatedAt = now();
-					this.store.save();
+					commit(record.receipt);
 				} else if (record.receipt.state === "running") {
 					const running = this.running.get(key);
 					if (!running) throw new Error("OUTCOME_UNKNOWN");
@@ -344,7 +346,8 @@ export class DeviceExecutor {
 				return record.receipt;
 			}
 			case "grants.revoke":
-				this.store.revoke(p, request.params.grantId);
+				this.store.revoke(p, request.params.grantId, false);
+				commit({ revoked: true });
 				return { revoked: true };
 		}
 	}
@@ -365,6 +368,22 @@ export class DeviceExecutor {
 		);
 		if (verified.kind !== "request") throw new Error("INVALID_REQUEST");
 		const request = verified as RpcRequest;
+		const requestKey = `${request.principalId}:${request.requestId}`;
+		const requestDigest = digest((envelope as SignedEnvelope).payloadBase64);
+		const active = this.requestsInFlight.get(requestKey);
+		if (active) {
+			if (active.digest !== requestDigest) throw new Error("COMMAND_CONFLICT");
+			return active.response;
+		}
+		const response = this.respond(request, requestDigest);
+		this.requestsInFlight.set(requestKey, { digest: requestDigest, response });
+		try {
+			return await response;
+		} finally {
+			this.requestsInFlight.delete(requestKey);
+		}
+	}
+	private async respond(request: RpcRequest, requestDigest: string): Promise<SignedEnvelope> {
 		const mutates = [
 			"device.sessions.open",
 			"device.sessions.close",
@@ -373,51 +392,53 @@ export class DeviceExecutor {
 			"grants.revoke",
 		].includes(request.method);
 		const requestKey = `${request.principalId}:${request.requestId}`;
-		const requestDigest = digest((envelope as SignedEnvelope).payloadBase64);
 		const cached = this.store.data.requests[requestKey];
-		let response: RpcResponse;
+		const header = {
+			protocol: "yonder.execution",
+			version: 1,
+			kind: "response",
+			requestId: request.requestId,
+			principalId: request.principalId,
+			deviceId: this.deviceId,
+			issuedAt: Date.now(),
+			expiresAt: Date.now() + 60_000,
+		} as const;
+		let response: RpcResponse | undefined;
+		let commitAttempted = false;
+		const commit = (result: unknown) => {
+			// Effect and replay receipt share one atomic state-file publication, before dispatch/response.
+			commitAttempted = true;
+			response = { ...header, ok: true, result: structuredClone(result) };
+			this.store.data.requests[requestKey] = { digest: requestDigest, response };
+			this.store.save();
+		};
 		if (cached) {
 			if (cached.digest !== requestDigest) throw new Error("COMMAND_CONFLICT");
 			response = cached.response as RpcResponse;
 		} else {
 			try {
-				response = {
-					protocol: "yonder.execution",
-					version: 1,
-					kind: "response",
-					requestId: request.requestId,
-					principalId: request.principalId,
-					deviceId: this.deviceId,
-					issuedAt: Date.now(),
-					expiresAt: Date.now() + 60_000,
-					ok: true,
-					result: await this.operate(request),
-				};
+				const result = await this.operate(request, commit);
+				if (!response) {
+					if (mutates) commit(result);
+					else response = { ...header, ok: true, result };
+				}
 			} catch (error) {
+				if (commitAttempted) throw error;
 				const raw = (error as Error).message;
-				const code = errorCodes.has(raw) ? raw : "INTERNAL_ERROR";
-				response = {
-					protocol: "yonder.execution",
-					version: 1,
-					kind: "response",
-					requestId: request.requestId,
-					principalId: request.principalId,
-					deviceId: this.deviceId,
-					issuedAt: Date.now(),
-					expiresAt: Date.now() + 60_000,
-					ok: false,
-					error: { code: code as NonNullable<CommandReceipt["error"]>["code"], message: code },
-				};
-			}
-			if (mutates) {
-				this.store.data.requests[requestKey] = { digest: requestDigest, response };
-				this.store.save();
+				const code = (errorCodes.has(raw) ? raw : "INTERNAL_ERROR") as NonNullable<CommandReceipt["error"]>["code"];
+				response = { ...header, ok: false, error: { code, message: code } };
+				if (mutates) {
+					this.store.data.requests[requestKey] = { digest: requestDigest, response };
+					this.store.save();
+				}
 			}
 		}
+		if (!response) throw new Error("INTERNAL_ERROR");
 		if (response.expiresAt <= Date.now())
 			response = { ...response, issuedAt: Date.now(), expiresAt: Date.now() + 60_000 };
 		return signMessage(response, this.store.key);
 	}
+
 	/** Loopback HTTP is test-only; private-network listening requires TLS. */
 	async listenLoopback(port = 0): Promise<number> {
 		return this.listenDirect({ host: "127.0.0.1", port });

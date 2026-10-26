@@ -20,6 +20,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import {
 	type CommandReceipt,
 	type DeviceSession,
@@ -105,12 +106,11 @@ const challenge = (offer: PairOffer) =>
 export class ExecutorStore {
 	readonly data: StoreData;
 	readonly key: KeyObject;
-	private readonly lockPath: string;
+	private readonly daemonLock: DatabaseSync;
 	private closed = false;
 	constructor(readonly home: string) {
 		mkdirSync(home, { recursive: true, mode: 0o700 });
-		this.lockPath = join(home, "daemon.lock");
-		this.lock();
+		this.daemonLock = this.lock();
 		try {
 			const file = join(home, "state.json");
 			if (existsSync(file)) this.data = JSON.parse(readFileSync(file, "utf8")) as StoreData;
@@ -138,25 +138,21 @@ export class ExecutorStore {
 			throw error;
 		}
 	}
-	private lock(): void {
+	private lock(): DatabaseSync {
+		// Old daemons do not take the SQLite lock; never reclaim their directory automatically.
+		if (existsSync(join(this.home, "daemon.lock"))) throw new Error("BUSY");
+		const db = new DatabaseSync(join(this.home, "daemon-lock.sqlite"));
 		try {
-			mkdirSync(this.lockPath, { mode: 0o700 });
-		} catch {
-			const pid = Number(readFileSync(join(this.lockPath, "pid"), "utf8"));
-			if (Number.isSafeInteger(pid) && pid > 0) {
-				try {
-					process.kill(pid, 0);
-					throw new Error("BUSY");
-				} catch (error) {
-					if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-				}
-			}
-			rmSync(this.lockPath, { recursive: true, force: true });
-			mkdirSync(this.lockPath, { mode: 0o700 });
+			db.exec("PRAGMA busy_timeout=250; BEGIN EXCLUSIVE");
+			return db;
+		} catch (error) {
+			db.close();
+			if ((error as { errcode?: number }).errcode === 5) throw new Error("BUSY");
+			throw error;
 		}
-		writeFileSync(join(this.lockPath, "pid"), String(process.pid), { mode: 0o600 });
 	}
 	save(): void {
+		if (this.closed) throw new Error("BUSY");
 		const target = join(this.home, "state.json");
 		const temp = join(this.home, `.state-${randomUUID()}`);
 		const fd = openSync(temp, "wx", 0o600);
@@ -177,7 +173,7 @@ export class ExecutorStore {
 	close(): void {
 		if (!this.closed) {
 			this.closed = true;
-			rmSync(this.lockPath, { recursive: true, force: true });
+			this.daemonLock.close();
 		}
 	}
 	beginPairing(ttlMs = 300_000, tlsFingerprint?: string): PairOffer {
@@ -226,13 +222,13 @@ export class ExecutorStore {
 			signature: sign(null, Buffer.from(JSON.stringify(confirmation)), this.key).toString("base64"),
 		};
 	}
-	revoke(principalId: string, grantId: string): void {
+	revoke(principalId: string, grantId: string, persist = true): void {
 		const grant = this.data.grants[grantId];
 		if (!grant || grant.principalId !== principalId) throw new Error("UNAUTHORIZED");
 		if (!grant.revokedAt) {
 			grant.revokedAt = iso();
 			grant.revision++;
-			this.save();
+			if (persist) this.save();
 		}
 	}
 }

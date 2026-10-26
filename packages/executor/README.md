@@ -30,3 +30,10 @@ Offline pairing uses JSON on stdin/stdout:
 4. Controller `pair connect --phase finish --home <controller-home>` reads `{pairingId,confirmation,direct:{url,tlsFingerprint}}` and saves trust.
 
 W2 reads `<controller-home>/device-<deviceId>.json` using `readDeviceTrust(home,deviceId)`. Its format is `{deviceId,publicKey,fingerprint,direct:{url,tlsFingerprint}}`: `publicKey` is SPKI DER base64, both fingerprints are lowercase SHA-256 hex, and `direct.url` is HTTPS. W2 validates the TLS certificate fingerprint on every direct connection and verifies response signatures against `publicKey`. It separately persists original `commandBase64` before first send. Card relay calls `DeviceExecutor.handle()`; it does not get a second ledger or lock. `pending-<pairingId>.json` exists in the controller home only until finish.
+
+
+## Daemon ownership and RPC persistence
+
+The daemon holds a Node `node:sqlite` `BEGIN EXCLUSIVE` transaction on `<home>/daemon-lock.sqlite` for its whole lifetime. Contenders wait at most 250ms and fail `BUSY`; the OS/SQLite releases ownership after process death. The lock database is never unlinked, and close only closes the owning connection. A legacy `daemon.lock` directory causes safe refusal, even with a dead PID: stop all old executors and explicitly reconcile that legacy directory before upgrading. No PID-based automatic deletion remains.
+
+Session open/close, grant revocation and accepted-command cancellation publish their effect and requestId replay receipt in the same atomic state-file commit. Concurrent copies of the same signed request share one in-flight response; a changed payload under that requestId conflicts. Provider dispatch still requires durable accepted/running states, and a crashed running operation remains unknown. Describe filters targets and target-scoped capabilities using current unrevoked, unexpired read grants.
