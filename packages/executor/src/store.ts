@@ -1,0 +1,272 @@
+import {
+	createPrivateKey,
+	createPublicKey,
+	generateKeyPairSync,
+	type KeyObject,
+	randomBytes,
+	randomUUID,
+	sign,
+	verify,
+} from "node:crypto";
+import {
+	closeSync,
+	existsSync,
+	fsyncSync,
+	mkdirSync,
+	openSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { join } from "node:path";
+import {
+	type CommandReceipt,
+	type DeviceSession,
+	type Grant,
+	GrantSchema,
+	publicKeyId,
+	recoveredCommandState,
+} from "@yonder/execution-protocol";
+import { Check } from "typebox/value";
+
+export interface PairOffer {
+	pairingId: string;
+	code: string;
+	deviceId: string;
+	devicePublicKey: string;
+	deviceFingerprint: string;
+	expiresAt: string;
+}
+export interface PairProof {
+	pairingId: string;
+	controllerPublicKey: string;
+	controllerFingerprint: string;
+	signature: string;
+}
+export interface PairConfirmation {
+	pairingId: string;
+	principalId: string;
+	deviceId: string;
+	signature: string;
+}
+export interface CommandRecord {
+	receipt: CommandReceipt;
+	commandBase64: string;
+	targetId: string;
+	action: string;
+	readRoots: string[];
+	writeRoots: string[];
+}
+interface PairPending {
+	offer: PairOffer;
+}
+export interface StoreData {
+	deviceId: string;
+	privateKey: string;
+	peers: Record<string, string>;
+	grants: Record<string, Grant>;
+	sessions: Record<string, DeviceSession>;
+	leaseEpochs: Record<string, number>;
+	commands: Record<string, CommandRecord>;
+	requests: Record<string, { digest: string; response: unknown }>;
+	pending: Record<string, PairPending>;
+}
+const iso = () => new Date().toISOString();
+const fingerprint = (key: KeyObject) => publicKeyId(key);
+const pub = (key: KeyObject) =>
+	(key.type === "public" ? key : createPublicKey(key)).export({ format: "der", type: "spki" }).toString("base64");
+const privateKey = (key: KeyObject) => key.export({ format: "pem", type: "pkcs8" }).toString();
+const keyFromPublic = (der: string) =>
+	createPublicKey({ key: Buffer.from(der, "base64"), format: "der", type: "spki" });
+const challenge = (offer: PairOffer) =>
+	Buffer.from(JSON.stringify([offer.pairingId, offer.deviceId, offer.deviceFingerprint, offer.code]));
+
+/** All mutations are durable before returning; one daemon owns one home. */
+export class ExecutorStore {
+	readonly data: StoreData;
+	readonly key: KeyObject;
+	private readonly lockPath: string;
+	private closed = false;
+	constructor(readonly home: string) {
+		mkdirSync(home, { recursive: true, mode: 0o700 });
+		this.lockPath = join(home, "daemon.lock");
+		this.lock();
+		try {
+			const file = join(home, "state.json");
+			if (existsSync(file)) this.data = JSON.parse(readFileSync(file, "utf8")) as StoreData;
+			else {
+				const pair = generateKeyPairSync("ed25519");
+				this.data = {
+					deviceId: randomUUID(),
+					privateKey: privateKey(pair.privateKey),
+					peers: {},
+					grants: {},
+					sessions: {},
+					leaseEpochs: {},
+					commands: {},
+					requests: {},
+					pending: {},
+				};
+				this.save();
+			}
+			this.key = createPrivateKey(this.data.privateKey);
+			for (const record of Object.values(this.data.commands))
+				record.receipt.state = recoveredCommandState(record.receipt.state);
+			this.save();
+		} catch (error) {
+			this.close();
+			throw error;
+		}
+	}
+	private lock(): void {
+		try {
+			mkdirSync(this.lockPath, { mode: 0o700 });
+		} catch {
+			const pid = Number(readFileSync(join(this.lockPath, "pid"), "utf8"));
+			if (Number.isSafeInteger(pid) && pid > 0) {
+				try {
+					process.kill(pid, 0);
+					throw new Error("BUSY");
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+				}
+			}
+			rmSync(this.lockPath, { recursive: true, force: true });
+			mkdirSync(this.lockPath, { mode: 0o700 });
+		}
+		writeFileSync(join(this.lockPath, "pid"), String(process.pid), { mode: 0o600 });
+	}
+	save(): void {
+		const target = join(this.home, "state.json");
+		const temp = join(this.home, `.state-${randomUUID()}`);
+		const fd = openSync(temp, "wx", 0o600);
+		try {
+			writeFileSync(fd, JSON.stringify(this.data));
+			fsyncSync(fd);
+		} finally {
+			closeSync(fd);
+		}
+		renameSync(temp, target);
+		const dir = openSync(this.home, "r");
+		try {
+			fsyncSync(dir);
+		} finally {
+			closeSync(dir);
+		}
+	}
+	close(): void {
+		if (!this.closed) {
+			this.closed = true;
+			rmSync(this.lockPath, { recursive: true, force: true });
+		}
+	}
+	beginPairing(ttlMs = 300_000): PairOffer {
+		if (ttlMs <= 0 || ttlMs > 300_000) throw new Error("INVALID_REQUEST");
+		const offer = {
+			pairingId: randomUUID(),
+			code: randomBytes(16).toString("hex"),
+			deviceId: this.data.deviceId,
+			devicePublicKey: pub(this.key),
+			deviceFingerprint: fingerprint(this.key),
+			expiresAt: new Date(Date.now() + ttlMs).toISOString(),
+		};
+		this.data.pending[offer.pairingId] = { offer };
+		this.save();
+		return offer;
+	}
+	approvePairing(proof: PairProof, code: string, grants: Grant[]): PairConfirmation {
+		const pending = this.data.pending[proof.pairingId];
+		if (!pending || Date.parse(pending.offer.expiresAt) <= Date.now() || pending.offer.code !== code)
+			throw new Error("UNAUTHORIZED");
+		const controller = keyFromPublic(proof.controllerPublicKey);
+		const principalId = fingerprint(controller);
+		if (
+			proof.controllerFingerprint !== principalId ||
+			!verify(null, challenge(pending.offer), controller, Buffer.from(proof.signature, "base64"))
+		)
+			throw new Error("UNAUTHORIZED");
+		for (const grant of grants) {
+			if (
+				!Check(GrantSchema, grant) ||
+				grant.deviceId !== this.data.deviceId ||
+				grant.principalId !== principalId ||
+				grant.revokedAt ||
+				Date.parse(grant.expiresAt) <= Date.now()
+			)
+				throw new Error("UNAUTHORIZED");
+		}
+		this.data.peers[principalId] = proof.controllerPublicKey;
+		for (const grant of grants) this.data.grants[grant.grantId] = grant;
+		delete this.data.pending[proof.pairingId];
+		this.save();
+		const confirmation = { pairingId: proof.pairingId, principalId, deviceId: this.data.deviceId };
+		return {
+			...confirmation,
+			signature: sign(null, Buffer.from(JSON.stringify(confirmation)), this.key).toString("base64"),
+		};
+	}
+	revoke(principalId: string, grantId: string): void {
+		const grant = this.data.grants[grantId];
+		if (!grant || grant.principalId !== principalId) throw new Error("UNAUTHORIZED");
+		if (!grant.revokedAt) {
+			grant.revokedAt = iso();
+			grant.revision++;
+			this.save();
+		}
+	}
+}
+
+/** Controller data lives only in its own private home; no Card token is consulted. */
+export class ControllerPairing {
+	privateKey: string;
+	constructor(readonly home: string) {
+		mkdirSync(home, { recursive: true, mode: 0o700 });
+		const path = join(home, "controller-key.pem");
+		if (existsSync(path)) this.privateKey = readFileSync(path, "utf8");
+		else {
+			this.privateKey = privateKey(generateKeyPairSync("ed25519").privateKey);
+			writeFileSync(path, this.privateKey, { flag: "wx", mode: 0o600 });
+		}
+	}
+	prove(offer: PairOffer, code: string, expectedDeviceFingerprint: string): PairProof {
+		if (
+			offer.code !== code ||
+			offer.deviceFingerprint !== expectedDeviceFingerprint ||
+			Date.parse(offer.expiresAt) <= Date.now() ||
+			fingerprint(keyFromPublic(offer.devicePublicKey)) !== expectedDeviceFingerprint
+		)
+			throw new Error("UNAUTHORIZED");
+		const key = createPrivateKey(this.privateKey);
+		return {
+			pairingId: offer.pairingId,
+			controllerPublicKey: pub(key),
+			controllerFingerprint: fingerprint(key),
+			signature: sign(null, challenge(offer), key).toString("base64"),
+		};
+	}
+	finish(offer: PairOffer, confirmation: PairConfirmation): void {
+		const { signature, ...content } = confirmation;
+		if (
+			confirmation.pairingId !== offer.pairingId ||
+			confirmation.deviceId !== offer.deviceId ||
+			confirmation.principalId !== fingerprint(createPrivateKey(this.privateKey)) ||
+			!verify(
+				null,
+				Buffer.from(JSON.stringify(content)),
+				keyFromPublic(offer.devicePublicKey),
+				Buffer.from(signature, "base64"),
+			)
+		)
+			throw new Error("UNAUTHORIZED");
+		writeFileSync(
+			join(this.home, `device-${offer.deviceId}.json`),
+			JSON.stringify({
+				deviceId: offer.deviceId,
+				publicKey: offer.devicePublicKey,
+				fingerprint: offer.deviceFingerprint,
+			}),
+			{ flag: "wx", mode: 0o600 },
+		);
+	}
+}
