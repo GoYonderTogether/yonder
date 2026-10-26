@@ -1,6 +1,6 @@
 # 多设备执行 W0/W2 与完整程序平台适配 W4（2026-10-26）
 
-新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。设备插件控制器已接入构建与包清单，但默认登记为空，缺真实配对记录读取和 direct/Card 传输适配，因此尚不能连接设备。执行端账本、授权检查与单 daemon 写锁的核心库已接入构建并通过隔离测试；常驻 daemon、CLI、TLS/配对入口及真实后端未集成，不能把库函数当成可安装执行端。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；平台代码已构建，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。Card relay 已在独立 Card 代码树实现，双进程联调和部署拓扑未验。六端安装、真实配对及端到端控制均未验收；首版 checkpoint restore 明确 unsupported。W0 检查结果见 proposals/multidevice/W0-verification.md。
+新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。设备插件已接入包与构建；只有显式配置 W1 已配对设备、grant 和路由时才读取并连接，direct HTTPS 与 Card 控制端适配已通过隔离组件测试，不进行隐式发现。执行端账本、授权检查、单 daemon 写锁、双端离线配对、HTTPS CLI 和 Linux 本地后端已接入；Linux GUI 驱动 `agent-device@0.21.31` 按需安装，真实 guest GUI 尚未验证，Card 侧执行端常驻连接尚未接线。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；平台代码已构建，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。Card relay 已在独立 Card 代码树实现，部署拓扑和真实双进程控制未验。六端安装、模型驱动选择、真实配对与端到端控制均未验收；首版 checkpoint restore 明确 unsupported。W0 检查结果见 proposals/multidevice/W0-verification.md。
 
 # 项目状态
 

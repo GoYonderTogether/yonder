@@ -356,3 +356,10 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **存储**：插件 data 下 SQLite 只追加事件，回放得到当前状态与历史；完成要求交付和逐项证据，插件不判断验收。
 - **范围**：默认自己的任务及 parent 链下子任务；`cross-agent` 只读其他 Agent 进行中任务。工具与上下文须由 profile 显式选用。
 - **边界**：P1 不含提醒、nudge、展示投影、回复尾部清单或复盘时点；未做模型及生产验收。
+
+## devices：已配对设备控制
+
+- **包**：`@yonder/plugin-devices`，id `devices`；[README](../plugins/devices/README.md)、[源码](../plugins/devices/src/index.ts)。
+- **贡献**：工具 `devices_list`、`devices_describe`、`devices_apps`、`devices_open`、`devices_observe`、`devices_execute`、`devices_status`、`devices_cancel`、`devices_close`；按需 skill `devices`；生命周期 trigger `devices-connections` 只关闭自身连接。
+- **接入**：仅从显式配置的配对目录读取 W1 信任记录和现有 grant 快照；direct HTTPS 固定证书指纹，可选 Card relay。安装插件不自动注册设备，也不扩大任何 Agent 权限。
+- **边界**：命令在控制端先持久记录，结果以执行端权威账本为准；未知状态不自动重放。Card relay 不是端到端加密，执行端的常驻 Card 连接和真实 guest GUI 尚未验收。
