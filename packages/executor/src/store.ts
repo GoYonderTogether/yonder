@@ -31,6 +31,7 @@ import {
 import { Check } from "typebox/value";
 
 export interface PairOffer {
+	tlsFingerprint?: string;
 	pairingId: string;
 	code: string;
 	deviceId: string;
@@ -43,6 +44,16 @@ export interface PairProof {
 	controllerPublicKey: string;
 	controllerFingerprint: string;
 	signature: string;
+}
+export interface DirectRoute {
+	url: string;
+	tlsFingerprint: string;
+}
+export interface DeviceTrustRecord {
+	deviceId: string;
+	publicKey: string;
+	fingerprint: string;
+	direct?: DirectRoute;
 }
 export interface PairConfirmation {
 	pairingId: string;
@@ -80,7 +91,15 @@ const privateKey = (key: KeyObject) => key.export({ format: "pem", type: "pkcs8"
 const keyFromPublic = (der: string) =>
 	createPublicKey({ key: Buffer.from(der, "base64"), format: "der", type: "spki" });
 const challenge = (offer: PairOffer) =>
-	Buffer.from(JSON.stringify([offer.pairingId, offer.deviceId, offer.deviceFingerprint, offer.code]));
+	Buffer.from(
+		JSON.stringify([
+			offer.pairingId,
+			offer.deviceId,
+			offer.deviceFingerprint,
+			offer.code,
+			offer.tlsFingerprint ?? null,
+		]),
+	);
 
 /** All mutations are durable before returning; one daemon owns one home. */
 export class ExecutorStore {
@@ -161,15 +180,16 @@ export class ExecutorStore {
 			rmSync(this.lockPath, { recursive: true, force: true });
 		}
 	}
-	beginPairing(ttlMs = 300_000): PairOffer {
+	beginPairing(ttlMs = 300_000, tlsFingerprint?: string): PairOffer {
 		if (ttlMs <= 0 || ttlMs > 300_000) throw new Error("INVALID_REQUEST");
-		const offer = {
+		const offer: PairOffer = {
 			pairingId: randomUUID(),
 			code: randomBytes(16).toString("hex"),
 			deviceId: this.data.deviceId,
 			devicePublicKey: pub(this.key),
 			deviceFingerprint: fingerprint(this.key),
 			expiresAt: new Date(Date.now() + ttlMs).toISOString(),
+			...(tlsFingerprint ? { tlsFingerprint } : {}),
 		};
 		this.data.pending[offer.pairingId] = { offer };
 		this.save();
@@ -229,15 +249,20 @@ export class ControllerPairing {
 			writeFileSync(path, this.privateKey, { flag: "wx", mode: 0o600 });
 		}
 	}
-	prove(offer: PairOffer, code: string, expectedDeviceFingerprint: string): PairProof {
+	prove(offer: PairOffer, code: string, expectedDeviceFingerprint: string, expectedTlsFingerprint?: string): PairProof {
 		if (
 			offer.code !== code ||
 			offer.deviceFingerprint !== expectedDeviceFingerprint ||
+			(offer.tlsFingerprint !== undefined && offer.tlsFingerprint !== expectedTlsFingerprint) ||
 			Date.parse(offer.expiresAt) <= Date.now() ||
 			fingerprint(keyFromPublic(offer.devicePublicKey)) !== expectedDeviceFingerprint
 		)
 			throw new Error("UNAUTHORIZED");
 		const key = createPrivateKey(this.privateKey);
+		const pendingPath = join(this.home, `pending-${offer.pairingId}.json`);
+		if (existsSync(pendingPath)) {
+			if (readFileSync(pendingPath, "utf8") !== JSON.stringify(offer)) throw new Error("COMMAND_CONFLICT");
+		} else writeFileSync(pendingPath, JSON.stringify(offer), { flag: "wx", mode: 0o600 });
 		return {
 			pairingId: offer.pairingId,
 			controllerPublicKey: pub(key),
@@ -245,7 +270,9 @@ export class ControllerPairing {
 			signature: sign(null, challenge(offer), key).toString("base64"),
 		};
 	}
-	finish(offer: PairOffer, confirmation: PairConfirmation): void {
+	finish(offer: PairOffer, confirmation: PairConfirmation, direct?: DirectRoute): void {
+		if (direct && (new URL(direct.url).protocol !== "https:" || direct.tlsFingerprint !== offer.tlsFingerprint))
+			throw new Error("UNAUTHORIZED");
 		const { signature, ...content } = confirmation;
 		if (
 			confirmation.pairingId !== offer.pairingId ||
@@ -265,8 +292,15 @@ export class ControllerPairing {
 				deviceId: offer.deviceId,
 				publicKey: offer.devicePublicKey,
 				fingerprint: offer.deviceFingerprint,
+				...(direct ? { direct } : {}),
 			}),
 			{ flag: "wx", mode: 0o600 },
 		);
+		rmSync(join(this.home, `pending-${offer.pairingId}.json`), { force: true });
 	}
+}
+
+export function readDeviceTrust(home: string, deviceId: string): DeviceTrustRecord {
+	if (!/^[a-f0-9-]{36}$/.test(deviceId)) throw new Error("INVALID_REQUEST");
+	return JSON.parse(readFileSync(join(home, `device-${deviceId}.json`), "utf8")) as DeviceTrustRecord;
 }

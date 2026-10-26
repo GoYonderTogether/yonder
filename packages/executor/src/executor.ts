@@ -1,5 +1,7 @@
 import { createHash, createPublicKey, randomUUID } from "node:crypto";
-import { createServer, type Server } from "node:http";
+import { createServer, type RequestListener, type Server } from "node:http";
+import { createServer as createHttpsServer, type Server as HttpsServer } from "node:https";
+import { isIP } from "node:net";
 import { isAbsolute, relative, sep } from "node:path";
 import {
 	type CommandReceipt,
@@ -56,7 +58,7 @@ export class DeviceExecutor {
 	readonly store: ExecutorStore;
 	private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
 	private writer: string | undefined;
-	private server: Server | undefined;
+	private server: Server | HttpsServer | undefined;
 	constructor(
 		home: string,
 		readonly backend: BackendProvider,
@@ -413,10 +415,14 @@ export class DeviceExecutor {
 			response = { ...response, issuedAt: Date.now(), expiresAt: Date.now() + 60_000 };
 		return signMessage(response, this.store.key);
 	}
-	/** Direct transport is deliberately loopback only until the TLS adapter supplies endpoint identity. */
+	/** Loopback HTTP is test-only; private-network listening requires TLS. */
 	async listenLoopback(port = 0): Promise<number> {
+		return this.listenDirect({ host: "127.0.0.1", port });
+	}
+	async listenDirect(options: { host: string; port: number; tls?: { key: Buffer; cert: Buffer } }): Promise<number> {
 		if (this.server) fail("BUSY");
-		this.server = createServer(async (req, res) => {
+		if (isIP(options.host) === 0 || (options.host !== "127.0.0.1" && !options.tls)) fail("UNAUTHORIZED");
+		const handler: RequestListener = async (req, res) => {
 			if (req.method !== "POST" || req.url !== "/execution/v1") {
 				res.writeHead(404).end();
 				return;
@@ -434,11 +440,12 @@ export class DeviceExecutor {
 			} catch {
 				res.writeHead(400).end();
 			}
-		});
-		const server = this.server;
+		};
+		const server = options.tls ? createHttpsServer(options.tls, handler) : createServer(handler);
+		this.server = server;
 		await new Promise<void>((resolve, reject) => {
 			server.once("error", reject);
-			server.listen(port, "127.0.0.1", () => {
+			server.listen(options.port, options.host, () => {
 				server.off("error", reject);
 				resolve();
 			});
