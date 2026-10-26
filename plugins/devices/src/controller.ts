@@ -91,7 +91,8 @@ export class DeviceController {
 					capabilities: executeCapabilities.filter(
 						(c) => ctx.capabilities.includes(c) && grants.some((g) => g.capabilities.includes(c)),
 					),
-					connectivity: grants.length ? "unknown" : "unpaired",
+					connectivity: device.routes.length ? "unknown" : "offline",
+					authorization: grants.length ? "granted" : "no-current-read-grant",
 					...(grants.length && lastKnown ? { lastKnown, freshness: "cached; use devices_describe to refresh" } : {}),
 				};
 			}),
