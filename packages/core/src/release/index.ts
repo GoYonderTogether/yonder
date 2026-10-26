@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import {
 	access,
 	chmod,
+	lstat,
 	mkdir,
 	readdir,
 	readFile,
@@ -12,6 +13,7 @@ import {
 	rm,
 	stat,
 	symlink,
+	unlink,
 	writeFile,
 } from "node:fs/promises";
 import { createConnection } from "node:net";
@@ -320,12 +322,14 @@ ${pair("StandardOutPath", join(home, ".yonder/logs/status.log"))}${pair("Standar
 <key>EnvironmentVariables</key><dict>${pair("PATH", runtimePath(install))}${pair("YONDER_INSTALL", install)}${pair("YONDER_HOME", home)}</dict>
 </dict></plist>\n`;
 }
-function systemdQuote(value: string): string {
+function systemdEscape(value: string): string {
 	if (/[\r\n]/u.test(value)) throw new Error("systemd service paths must not contain line breaks");
-	return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%").replaceAll("$", "$$")}"`;
+	return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%");
 }
+const systemdExecArg = (value: string) => `"${systemdEscape(value).replaceAll("$", () => "$$")}"`;
+const systemdEnvironment = (value: string) => `"${systemdEscape(value)}"`;
 export function linuxServiceUnit(install: string, home: string, path = runtimePath(install)): string {
-	return `# YonderService=${JSON.stringify({ home, install })}\n[Unit]\nDescription=Yonder Harness\n[Service]\nType=simple\nExecStart=${systemdQuote(join(install, "bin/yonder"))} start --home ${systemdQuote(home)} --json\nEnvironment=${systemdQuote(`PATH=${path}`)}\nEnvironment=${systemdQuote(`YONDER_INSTALL=${install}`)}\nEnvironment=${systemdQuote(`YONDER_HOME=${home}`)}\nRestart=on-failure\nRestartSec=2\n[Install]\nWantedBy=default.target\n`;
+	return `# YonderService=${JSON.stringify({ home, install })}\n[Unit]\nDescription=Yonder Harness\n[Service]\nType=simple\nExecStart=${systemdExecArg(join(install, "bin/yonder"))} start --home ${systemdExecArg(home)} --json\nEnvironment=${systemdEnvironment(`PATH=${path}`)}\nEnvironment=${systemdEnvironment(`YONDER_INSTALL=${install}`)}\nEnvironment=${systemdEnvironment(`YONDER_HOME=${home}`)}\nRestart=on-failure\nRestartSec=2\n[Install]\nWantedBy=default.target\n`;
 }
 
 async function manageLinuxService(action: ServiceAction, options: { home?: string }) {
@@ -575,7 +579,36 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		plist: installed.plist,
 	};
 }
+/** Refuse to move or remove anything except a link into this install's own version directory. */
+export async function managedVersionLink(install: string, link: string): Promise<string | undefined> {
+	const entry = await lstat(link).catch((error: NodeJS.ErrnoException) => {
+		if (error.code === "ENOENT") return undefined;
+		throw error;
+	});
+	if (!entry) return;
+	if (!entry.isSymbolicLink()) throw new Error(`Refusing unmanaged current path: ${link}`);
+	const versions = join(install, "versions");
+	const versionsEntry = await lstat(versions);
+	if (!versionsEntry.isDirectory() || versionsEntry.isSymbolicLink())
+		throw new Error(`Refusing unmanaged versions directory: ${versions}`);
+	const version = relative(await realpath(versions), await realpath(link));
+	if (!versionPattern.test(version)) throw new Error(`Refusing version link outside managed versions: ${link}`);
+	return version;
+}
+export async function unlinkManagedVersionLink(install: string, link: string): Promise<void> {
+	if (await managedVersionLink(install, link)) await unlink(link);
+}
+async function requireMissingPath(path: string): Promise<void> {
+	try {
+		await lstat(path);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+		throw error;
+	}
+	throw new Error(`Refusing to replace an unexpected current path: ${path}`);
+}
 async function currentVersion(install: string): Promise<string | undefined> {
+	if (process.platform === "win32") return managedVersionLink(install, join(install, "current"));
 	try {
 		return basename(await realpath(join(install, "current")));
 	} catch (error) {
@@ -684,6 +717,8 @@ async function installRelease(options: UpdateOptions = {}) {
 	const previousLink = join(install, `.previous.${randomUUID()}`);
 	let movedPrevious = false;
 	try {
+		if (process.platform === "win32" && (await managedVersionLink(install, join(install, "current"))) !== previous)
+			throw new Error("Current version link changed during update");
 		await writeFile(newWrapper, process.platform === "win32" ? windowsLauncher(install) : launcher(install), {
 			mode: 0o755,
 		});
@@ -693,22 +728,33 @@ async function installRelease(options: UpdateOptions = {}) {
 			link,
 			process.platform === "win32" ? "junction" : "dir",
 		);
+		if (process.platform === "win32" && (await managedVersionLink(install, link)) !== version)
+			throw new Error("New version junction does not target the requested release");
 		await rename(newWrapper, wrapper);
 		if (process.platform === "win32" && previous) {
+			if ((await managedVersionLink(install, join(install, "current"))) !== previous)
+				throw new Error("Current version link changed during update");
 			await rename(join(install, "current"), previousLink);
 			movedPrevious = true;
 		}
+		if (process.platform === "win32") await requireMissingPath(join(install, "current"));
 		await rename(link, join(install, "current"));
 		if (movedPrevious) {
 			movedPrevious = false;
-			await rm(previousLink, { recursive: true, force: true }).catch(() => {});
+			await unlinkManagedVersionLink(install, previousLink);
 		}
 	} catch (error) {
-		if (movedPrevious) await rename(previousLink, join(install, "current"));
+		if (movedPrevious) {
+			if ((await managedVersionLink(install, previousLink)) !== previous)
+				throw new Error("Cannot roll back an unmanaged previous version link", { cause: error });
+			await requireMissingPath(join(install, "current"));
+			await rename(previousLink, join(install, "current"));
+		}
 		throw error;
 	} finally {
 		await rm(newWrapper, { force: true });
-		await rm(link, { recursive: true, force: true });
+		if (process.platform === "win32") await unlinkManagedVersionLink(install, link);
+		else await rm(link, { force: true });
 	}
 	let restartRequired = false;
 	if (thisService) {

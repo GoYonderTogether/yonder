@@ -63,7 +63,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 2. 已是当前版本：什么都不做，退出码 0。
 3. `git clone --depth 1 --branch <tag>` 到 `versions/<version>.tmp` → `npm ci` → `npm run build` → 记录来源 commit/tag，移除 .git → 改名为 `versions/<version>`。任一步失败：删除临时目录，当前版本不变，退出码 1。
 4. 装了服务时，用新版本对服务的 home 运行 `doctor`；失败则不切换。
-5. Unix 原子切换 `current`（新建符号链接再 rename 覆盖）；Windows 创建新 junction，先把旧 junction 改名留作回退，再将新 junction 改名为 `current`。切换失败恢复旧 junction；Windows 切换期间可能有短暂入口空档。
+5. Unix 原子切换 `current`（新建符号链接再 rename 覆盖）；Windows 创建新 junction，验证新旧入口均为指向本安装 `versions/<version>` 的链接后，先把旧 junction 改名留作回退，再将新 junction 改名为 `current`。真实目录、悬空或越界链接须拒绝且不删除；仅 unlink 已验证的旧链接。切换失败恢复旧 junction；Windows 切换期间可能有短暂入口空档。
 6. 装了服务：`service restart`。没装服务但有运行中的进程：提示手动重启。
 7. 只保留最近 3 个版本，且不删当前与上一个。回滚就是 `update --to <旧版本>`。
 
@@ -89,6 +89,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - 进程异常退出由 launchd 拉起；运行恢复按 07 §3.1 接好输入/结束关联后启用 pi 调度，重新打开文件不代表完成恢复。
 - Linux 使用 systemd **用户**单元 `dev.yonder.harness.service`，放在 `$XDG_CONFIG_HOME/systemd/user`（缺省 `~/.config/systemd/user`）。`service install` 写单元并 `daemon-reload`、`enable --now`；start/stop/restart/status/uninstall 对该用户单元操作。ExecStart 使用已安装 wrapper、固定 home；日志由 journald 保管。无需 root，不安装系统级服务。
 - Windows 使用当前用户的 Task Scheduler 登录任务 `Yonder Harness` 作为后台入口；不注册需要管理员权限的 SCM 服务。`service install` 在 `<install>/bin` 保存只含 home/install/node 路径的启动脚本，并在 `%LOCALAPPDATA%\\YonderHarness` 保存注册记录；start/stop/restart/status/uninstall 使用 `schtasks`，卸载保留 home 与版本。任务在当前用户会话启动，不承诺注销后运行或崩溃后自动重启。Windows 控制面与 CLI 渠道使用本机命名管道，管道名由规范化 home 路径摘要决定，不暴露 TCP 端口。
+- Windows 管道当前显式关闭 Node 的 `readableAll`/`writableAll`，但跨账户隔离尚无实机证明。验收门槛：Windows ARM64 上同一普通用户可连控制面和 CLI 渠道，另一独立普通用户对两条管道均被拒绝，且任务重启后仍成立；若默认 DACL 不满足，需在创建管道时将 DACL 限定为安装用户 SID（及系统必需主体）并在无法施加时拒绝启动，或增加绑定仅该用户可读本地凭据的认证。未完成前不得将 Windows 本机控制面标为多用户安全通过。
 - Linux/Windows 的 full 首版是 CLI/TUI 与内核；macOS Helper、状态栏、屏幕/电源辅助能力仅在 macOS 启用。实际安装、启动、Agent 创建、控制、重启连接、卸载按 OS 与架构单独验收，构建成功不等于运行通过。
 
 ### 6.1 macOS 状态栏
