@@ -1,6 +1,6 @@
-# 多设备执行 W0 与完整程序平台适配 W4（2026-10-26）
+# 多设备执行 W0/W2 与完整程序平台适配 W4（2026-10-26）
 
-新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；平台代码已构建，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。daemon、持久账本与写锁、真实配对、设备插件、Card执行relay及六端安装均未实现/未验收。首版checkpoint restore明确unsupported。W0检查结果见proposals/multidevice/W0-verification.md。
+新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。设备插件控制器已接入构建与包清单，但默认登记为空，缺真实配对记录读取和 direct/Card 传输适配，因此尚不能连接设备。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；平台代码已构建，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。执行端 daemon、持久账本与写锁、真实配对及六端安装未集成/未验收；Card relay 已在独立 Card 代码树实现，双进程联调和部署拓扑未验。首版 checkpoint restore 明确 unsupported。W0 检查结果见 proposals/multidevice/W0-verification.md。
 
 # 项目状态
 

@@ -74,6 +74,9 @@
 			"path": "plugins/channel-card"
 		},
 		{
+			"path": "plugins/devices"
+		},
+		{
 			"path": "plugins/ui-companion"
 		},
 		{
