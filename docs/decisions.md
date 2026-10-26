@@ -296,3 +296,8 @@ execution.resolve 返回可信 `ResolvedExecution`（能力与实例范围）；
 ## 2026-10-25 共享权限 API 与薄服务宿主解耦（主对话批准）
 
 复用现成共享 permissions registry、SDK/core 工具、native-automation provider 与真实 Runtime adapter 合同，从正式 .05 基线独立集成；不带入尚未收口的薄服务宿主及其清理补丁，不改服务启动链、安装或定位功能。它只统一既有权限入口与真实 ToolContext/session/profile/provider 校验，不建立新授权状态库、审批或原生架构。旧文件执行宿主任务中“不增加权限注册框架”的范围限制不再描述本次已批准的共享门面工作。发布、正式安装与真实 TCC 验收仍是分开的状态，本地专项通过不代替这些验收。
+
+
+## 2026-10-26 多设备执行 W0（父会话准入裁定）
+
+采用独立无模型 execution-protocol，full SDK只重导出契约，不重构 pi 依赖。当前仅 W0 schema/标准 Ed25519 签名与本地契约测试；持久命令账本/设备锁、真实双端配对、插件、Card relay和平台包分别后续实施。只读状态查询按当前principal/device授权，不依赖旧session；running崩溃后unknown不自动重放；同home双daemon由执行端独占拒启。首版只做inventory/UI，已配对checkpoint restore/clone unsupported，不建外部epoch系统。Card v1中继可读正文，端到端签名不等于E2EE。见[18](spec/18-device-execution.md)。

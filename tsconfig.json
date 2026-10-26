@@ -5,6 +5,9 @@
 			"path": "packages/pi-durable"
 		},
 		{
+			"path": "packages/execution-protocol"
+		},
+		{
 			"path": "packages/sdk"
 		},
 		{

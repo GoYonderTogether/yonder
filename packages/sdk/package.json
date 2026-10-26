@@ -20,7 +20,8 @@
 		"@earendil-works/pi-ai": "1.3.0",
 		"@earendil-works/pi-durable": "1.3.0",
 		"typebox": "1.3.27",
-		"yaml": "2.9.1"
+		"yaml": "2.9.1",
+		"@yonder/execution-protocol": "0.2.26102510"
 	},
 	"files": [
 		"dist"

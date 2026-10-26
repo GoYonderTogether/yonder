@@ -1,3 +1,7 @@
+# 多设备执行 W0（2026-10-26）
+
+新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。daemon、持久账本与写锁、真实配对、设备插件、Card执行relay及六端安装均未实现/未验收。首版checkpoint restore明确unsupported。检查结果见proposals/multidevice/W0-verification.md。
+
 # 项目状态
 
 更新：2026-10-23。版本 0.2.26102307，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。

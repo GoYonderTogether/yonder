@@ -49,3 +49,5 @@ export function intersectChannelInstances(a?: readonly string[], b?: readonly st
 	if (a === undefined) return b === undefined ? undefined : [...b];
 	return a.filter((instance) => b === undefined || b.includes(instance));
 }
+
+export * from "@yonder/execution-protocol";

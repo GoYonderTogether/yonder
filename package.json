@@ -8,6 +8,7 @@
 	},
 	"workspaces": [
 		"packages/pi-durable",
+		"packages/execution-protocol",
 		"packages/sdk",
 		"packages/core",
 		"packages/cli",
