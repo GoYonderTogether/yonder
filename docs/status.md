@@ -1,6 +1,6 @@
-# 多设备执行 W0/W2 与完整程序平台适配 W4（2026-10-26）
+# 多设备执行 W0–W5 隔离集成（2026-10-26）
 
-新增独立无模型契约包与SDK重导出；定义身份/查询/恢复/中继可见性。设备插件已接入包与构建；只有显式配置 W1 已配对设备、grant 和路由时才读取并连接，direct HTTPS 与 Card 控制端适配已通过隔离组件测试，不进行隐式发现。执行端账本、授权检查、单 daemon 写锁、双端离线配对、HTTPS CLI 和 Linux 本地后端已接入；Linux GUI 驱动 `agent-device@0.21.31` 按需安装，真实 guest GUI 尚未验证，Card 侧执行端常驻连接尚未接线。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；平台代码已构建，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。Card relay 已在独立 Card 代码树实现，部署拓扑和真实双进程控制未验。六端安装、模型驱动选择、真实配对与端到端控制均未验收；首版 checkpoint restore 明确 unsupported。W0 检查结果见 proposals/multidevice/W0-verification.md。
+独立无模型执行契约包、默认 devices 插件、execution-only CLI、账本/单 daemon 写锁、双端离线配对、HTTPS direct 和可选 Card 常驻连接已在本隔离树接线。W1 锁竞态、请求/效果原子回执及设备描述权限过滤已修；W2 的 cached/fresh target 展示按当前 grant 过滤。实际 CLI 子进程与默认插件在临时双 home、本地 Card/PG/Redis 中完成 direct、relay、双路查询回退及命令去重；Card relay 源码位于独立未部署的 Card 树，Card 进程拓扑仍需核实。仅显式配置已配对设备、grant 和路由才连接，不进行隐式发现。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；Mac 本机构建通过，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。Linux GUI 驱动 `agent-device@0.21.31` 按需安装，真实 guest GUI、应用清单和模型自主选设备尚未验证；首版 checkpoint restore 明确 unsupported。全仓默认测试 787 通过、1 项原基线 memory 周号夹具失败、43 跳过；完整构建和 lint 退出 0。W0 证据见 proposals/multidevice/W0-verification.md；这些隔离测试不构成生产发布、VM 隔离或六端安装验收。
 
 # 项目状态
 
