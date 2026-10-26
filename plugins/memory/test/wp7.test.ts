@@ -1,16 +1,19 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerContexts } from "../src/contexts.js";
 
 const roots: string[] = [];
 afterEach(async () => {
+	vi.useRealTimers();
 	const { rm } = await import("node:fs/promises");
 	await Promise.all(roots.splice(0).map((p) => rm(p, { recursive: true, force: true })));
 });
 describe("memory contexts identity boundary", () => {
 	it("keeps private facts out and only renders the weekly context for the configured owner", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
 		const root = await mkdtemp(join(tmpdir(), "memory-wp7-"));
 		roots.push(root);
 		await mkdir(join(root, "me"));

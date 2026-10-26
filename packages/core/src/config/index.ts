@@ -196,9 +196,27 @@ function sameSession(a: Binding, b: Binding): boolean {
 	);
 }
 
+function publicAvatarUrl(value: string): boolean {
+	try {
+		const url = new URL(value);
+		return (
+			url.protocol === "https:" &&
+			!url.username &&
+			!url.password &&
+			!url.port &&
+			/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/i.test(url.hostname) &&
+			!/(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid|example|onion)$|\.home\.arpa$/i.test(url.hostname)
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?: string): AgentConfig {
 	const agent = parse(text, file, AgentSchema);
 	const issues = profileIssues(agent.defaults ?? {}, file, "/defaults");
+	if (agent.avatarUrl !== undefined && !publicAvatarUrl(agent.avatarUrl))
+		issues.push({ file, path: "/avatarUrl", message: "必须为无凭据的公共域名 HTTPS 图片 URL" });
 	if (expectedId !== undefined && agent.id !== expectedId)
 		issues.push({ file, path: "/id", message: "必须等于 yonder.yaml 登记的 agent id" });
 	if (!(agent.defaultProfile in agent.profiles))

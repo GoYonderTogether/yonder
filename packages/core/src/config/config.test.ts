@@ -93,3 +93,33 @@ it("prompt fields inherit independently and invalid section ids fail before publ
 			parsePresetConfig(`schema: 1\ndescription: Prompt configuration validation\n${config}\n`, "short"),
 		).toThrow();
 });
+
+it("accepts only cloud HTTPS avatar URLs while keeping old Agent config compatible", () => {
+	const config = {
+		schema: 1,
+		id: "main",
+		name: "Main",
+		owner: "person:owner",
+		defaultProfile: "default",
+		profiles: { default: {} },
+		bindings: [],
+	};
+	expect(parseAgentConfig(JSON.stringify(config)).avatarUrl).toBeUndefined();
+	expect(parseAgentConfig(JSON.stringify({ ...config, avatarUrl: "https://cdn.yonder.cn/bot.png" })).avatarUrl).toBe(
+		"https://cdn.yonder.cn/bot.png",
+	);
+	for (const avatarUrl of [
+		"file:///tmp/avatar.png",
+		"data:image/png;base64,x",
+		"blob:https://cdn.yonder.cn/a",
+		"/tmp/a.png",
+		"http://cdn.yonder.cn/a",
+		"https://localhost/a",
+		"https://127.0.0.1/a",
+		"https://10.1.2.3/a",
+		"https://[::1]/a",
+		"https://router.local/a",
+		"https://a:secret@cdn.yonder.cn/a",
+	])
+		expect(() => parseAgentConfig(JSON.stringify({ ...config, avatarUrl })), avatarUrl).toThrow(/avatarUrl/);
+});

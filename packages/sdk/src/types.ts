@@ -423,7 +423,7 @@ export interface PermissionsAPI {
 }
 export interface PluginAPI {
 	permissions: PermissionsAPI;
-	agents: { list(): Promise<{ id: string; name: string }[]> };
+	agents: { list(): Promise<{ id: string; name: string; avatarUrl?: string }[]> };
 	readonly version: string;
 	readonly locale: string;
 	readonly timezone: string;

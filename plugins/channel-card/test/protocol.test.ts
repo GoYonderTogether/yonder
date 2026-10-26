@@ -104,7 +104,7 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 	const events: EventInput[] = [];
 	let accept: (() => Promise<void>) | undefined;
 	const list = vi.fn(async () => [
-		{ id: "main", name: "Main" },
+		{ id: "main", name: "Main", avatarUrl: "https://cdn.yonder.cn/main.png" },
 		{ id: "other", name: "Other" },
 	]);
 	const api = { paths: { data }, agents: { list }, log: { warn: vi.fn() } } as unknown as PluginAPI;
@@ -199,8 +199,8 @@ test("device flow, private token, agent identity, direct metadata and ack after 
 	await f.login();
 	expect(f.calls.find((c) => c.path === "/api/device/start")?.body).toMatchObject({ kind: "desktop" });
 	expect(f.calls.find((c) => c.path === "/api/device/agents")?.body).toEqual([
-		{ key: "main", name: "Main" },
-		{ key: "other", name: "Other" },
+		{ key: "main", name: "Main", avatarUrl: "https://cdn.yonder.cn/main.png" },
+		{ key: "other", name: "Other", avatarUrl: null },
 	]);
 	expect((await stat(f.data)).mode & 0o777).toBe(0o700);
 	expect((await stat(join(f.data, "card-local.json"))).mode & 0o777).toBe(0o600);
@@ -359,8 +359,8 @@ test.each([
 	expect(f.calls.find((c) => c.path === "/api/device/agents")).toEqual({
 		path: "/api/device/agents",
 		body: [
-			{ key: "main", name: "Main" },
-			{ key: "other", name: "Other" },
+			{ key: "main", name: "Main", avatarUrl: "https://cdn.yonder.cn/main.png" },
+			{ key: "other", name: "Other", avatarUrl: null },
 		],
 		auth: "Bearer contract-token",
 	});

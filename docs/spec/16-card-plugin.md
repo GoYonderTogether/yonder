@@ -15,7 +15,7 @@
 
 ## 2 全部 Agent 与连接
 
-启动及登录确认/邀请码兑换成功后、此后每十分钟，通过只读 `api.agents.list(): Promise<{id:string; name:string}[]>` 枚举本实例全部启用的 Yonder Agent（不含 archived）；同步间隔内的变更等待下一次同步，无事件通知。调用 `PUT /api/device/agents`，正文 `[{key, name, note?}]`，`key` 必须等于 Yonder agent id。响应 `[{key, id}]` 建立 Yonder Agent → 平台 Agent 账号的映射；后端按 `(device, key)` 幂等登记，自动加入主人的默认群。
+启动及登录确认/邀请码兑换成功后、此后每十分钟，通过只读 `api.agents.list(): Promise<{id:string; name:string; avatarUrl?:string}[]>` 枚举本实例全部启用的 Yonder Agent（不含 archived）；同步间隔内的变更等待下一次同步，无事件通知。调用 `PUT /api/device/agents`，正文 `[{key, name, avatarUrl:string|null, note?}]`（新插件始终发送配置值或 null，null 清除；旧客户端省略字段时后端保留原值），`key` 必须等于 Yonder agent id。响应 `[{key, id}]` 建立 Yonder Agent → 平台 Agent 账号的映射；后端按 `(device, key)` 幂等登记，自动加入主人的默认群。
 
 渠道 provider 注册 `multiAgent:true`，实例继承此标记。这是内部 agent 渠道以外允许 data.target 的唯一例外：只求值目标 Agent，仍须命中其自己的绑定，其他 Agent 为 no-binding。
 

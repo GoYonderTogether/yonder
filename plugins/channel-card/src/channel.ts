@@ -124,7 +124,7 @@ export class CardChannel implements Channel {
 		const rows = await this.request(
 			"/api/device/agents",
 			"PUT",
-			agents.map((a) => ({ key: a.id, name: a.name })),
+			agents.map((a) => ({ key: a.id, name: a.name, avatarUrl: a.avatarUrl ?? null })),
 		);
 		if (
 			!Array.isArray(rows) ||
