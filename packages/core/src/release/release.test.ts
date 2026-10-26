@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -8,6 +8,7 @@ import {
 	latestRelease,
 	launcher,
 	linuxServiceUnit,
+	managedVersionLink,
 	readChangelog,
 	readDocs,
 	releaseInfo,
@@ -15,6 +16,7 @@ import {
 	serviceLauncher,
 	servicePlist,
 	statusPlist,
+	unlinkManagedVersionLink,
 	unloadService,
 	windowsLauncher,
 	windowsServiceLauncher,
@@ -26,11 +28,43 @@ test("Linux user unit and Windows wrappers keep installed code separate from hom
 	expect(unit).toContain("WantedBy=default.target");
 	expect(unit).toContain("Restart=on-failure");
 	expect(unit).not.toContain("User=root");
+	const special = linuxServiceUnit("/opt/Yonder $d% app", "/tmp/Agent $h% x", "/bin:/tmp/$p% dir");
+	expect(special).toContain('ExecStart="/opt/Yonder $$d%% app/bin/yonder" start --home "/tmp/Agent $$h%% x" --json');
+	expect(special).toContain('Environment="YONDER_HOME=/tmp/Agent $h%% x"');
+	expect(special).toContain('Environment="PATH=/bin:/tmp/$p%% dir"');
+	expect(special).not.toContain('Environment="YONDER_HOME=/tmp/Agent $$h');
 	const wrapper = windowsLauncher("C:\\Yonder App", "C:\\Node\\node.exe", "C:\\Node");
 	expect(wrapper).toContain('"C:\\Node\\node.exe" "C:\\Yonder App\\current\\packages\\cli\\dist\\index.js" %*');
 	expect(windowsServiceLauncher("C:\\Yonder App", "C:\\Agent Home", "C:\\Node\\node.exe", "C:\\Node")).toContain(
 		'start --home "C:\\Agent Home" --json',
 	);
+});
+
+test("version-link cleanup preserves real directories and links outside versions", async () => {
+	const install = await mkdtemp("/tmp/yonder-w4-links-");
+	const current = join(install, "current"),
+		versions = join(install, "versions"),
+		version = join(versions, "0.2.1"),
+		outside = join(install, "outside");
+	try {
+		await mkdir(version, { recursive: true });
+		await mkdir(outside);
+		await writeFile(join(outside, "keep"), "outside");
+		await symlink(version, current, "dir");
+		expect(await managedVersionLink(install, current)).toBe("0.2.1");
+		await unlinkManagedVersionLink(install, current);
+		expect((await stat(version)).isDirectory()).toBe(true);
+		await mkdir(current);
+		await writeFile(join(current, "keep"), "real directory");
+		await expect(unlinkManagedVersionLink(install, current)).rejects.toThrow("unmanaged current path");
+		expect(await readFile(join(current, "keep"), "utf8")).toBe("real directory");
+		await rm(current, { recursive: true });
+		await symlink(outside, current, "dir");
+		await expect(unlinkManagedVersionLink(install, current)).rejects.toThrow("outside managed versions");
+		expect(await readFile(join(outside, "keep"), "utf8")).toBe("outside");
+	} finally {
+		await rm(install, { recursive: true, force: true });
+	}
 });
 
 test("release parsing, real docs and local launcher/plist files need no harness home", async () => {
