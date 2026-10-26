@@ -1,5 +1,7 @@
 # 多设备执行 W0–W5 隔离集成（2026-10-26）
 
+后续独立验收补充：Linux **ARM64 execution-only** 四包在已缓存 Node 24 的无网络临时容器内通过 SHA、离线安装、`init`、两轮 `serve`/停止和同一临时 home 身份保持；默认无 peer/grant，四项 GUI 能力实际为 unsupported/degraded，短测容器内存峰值约 74.3 MiB。它不验证已配对 signed RPC、真实 GUI、Linux full/systemd、x64 或生产服务。完整 A1–A12 现状与阻塞见本任务独立文档 `/Users/zoran/Documents/Codex/2026-10-26/task/multidevice-handoff-2026-10-26.md`；尚无整项签收。
+
 独立无模型执行契约包、默认 devices 插件、execution-only CLI、账本/单 daemon 写锁、双端离线配对、HTTPS direct 和可选 Card 常驻连接已在本隔离树接线。W1 锁竞态、请求/效果原子回执及设备描述权限过滤已修；保存失败后 daemon 会故障封锁，直连/中继同 request 不返回未持久化的成功、也不派发新命令，重启才从磁盘恢复。W2 的 cached/fresh target 展示按当前 grant 过滤。实际 CLI 子进程与默认插件在临时双 home、本地 Card/PG/Redis 中完成 direct、relay、双路查询回退及命令去重；Card relay 源码位于独立未部署的 Card 树，Card 进程拓扑仍需核实。仅显式配置已配对设备、grant 和路由才连接，不进行隐式发现。完整程序新增 Linux systemd 用户单元、Windows 当前用户登录任务与命名管道适配；Mac 本机构建通过，Linux/Windows 安装与真实运行尚未验收，Windows 注销常驻和异常自动重启尚未实现。Linux GUI 驱动 `agent-device@0.21.31` 按需安装，真实 guest GUI、应用清单和模型自主选设备尚未验证；首版 checkpoint restore 明确 unsupported。全仓默认测试 788 通过、1 项原基线 memory 周号夹具失败、43 跳过；完整构建和 lint 退出 0。W0 证据见 proposals/multidevice/W0-verification.md；这些隔离测试不构成生产发布、VM 隔离或六端安装验收。
 
 # 项目状态
