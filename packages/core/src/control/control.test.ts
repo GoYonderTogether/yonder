@@ -2,7 +2,17 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, test } from "vitest";
-import { observeControl, requestControl, serveControl } from "./index.js";
+import { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./index.js";
+
+test("Windows local endpoints are stable named pipes and keep homes/channels separate", () => {
+	const first = controlEndpoint("C:\\Users\\Ada\\Yonder", "win32");
+	expect(first).toMatch(/^\\\\\.\\pipe\\yonder-control-[a-f0-9]{32}$/u);
+	expect(first).toBe(controlEndpoint("c:\\users\\ada\\yonder", "win32"));
+	expect(first).not.toBe(controlEndpoint("C:\\Users\\Ada\\Another", "win32"));
+	expect(cliChannelEndpoint("C:\\Users\\Ada\\Yonder", "cli", "win32")).not.toBe(
+		cliChannelEndpoint("C:\\Users\\Ada\\Yonder", "other", "win32"),
+	);
+});
 
 const homes: string[] = [];
 afterEach(async () => Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true }))));

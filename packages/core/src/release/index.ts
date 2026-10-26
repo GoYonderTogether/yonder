@@ -16,10 +16,10 @@ import {
 } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { requestControl } from "../control/index.js";
+import { controlEndpoint, requestControl } from "../control/index.js";
 import { recordUpdateResult, type UpdateResult } from "./result.js";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -29,7 +29,15 @@ const statusPlistPath = () => join(homedir(), "Library/LaunchAgents", `${statusL
 const statusExecutable = (install: string) =>
 	join(install, "current/packages/macos/dist/YonderStatus.app/Contents/MacOS/YonderStatus");
 const plistPath = () => join(homedir(), "Library/LaunchAgents", `${label}.plist`);
-const installPath = () => resolve(process.env.YONDER_INSTALL ?? join(homedir(), ".yonder-harness"));
+const windowsData = () => resolve(process.env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "YonderHarness");
+const installPath = () =>
+	resolve(
+		process.env.YONDER_INSTALL ?? (process.platform === "win32" ? windowsData() : join(homedir(), ".yonder-harness")),
+	);
+const linuxUnitPath = () =>
+	join(resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config")), "systemd/user", `${label}.service`);
+const windowsServicePath = () => join(windowsData(), "service.json");
+const windowsTask = "Yonder Harness";
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const xml = (value: string) =>
 	value
@@ -203,6 +211,11 @@ function command(
 		});
 	});
 }
+function npmCommand(args: string[], options: { cwd: string; env: NodeJS.ProcessEnv }) {
+	return process.platform === "win32"
+		? command("cmd.exe", ["/d", "/s", "/c", "npm", ...args], options)
+		: command("npm", args, options);
+}
 export async function unloadService(service: string): Promise<void> {
 	const before = await command("launchctl", ["print", service], { allowFailure: true });
 	if (before.code !== 0) return;
@@ -231,6 +244,24 @@ interface ServiceInstallation {
 	plist: string;
 }
 export async function installedService(): Promise<ServiceInstallation | undefined> {
+	if (process.platform === "linux") {
+		if (!existsSync(linuxUnitPath())) return;
+		const unit = await readFile(linuxUnitPath(), "utf8");
+		const record = /^# YonderService=(.+)$/mu.exec(unit)?.[1];
+		if (!record) throw new Error("Installed systemd unit is missing its Yonder service record");
+		const { home, install } = JSON.parse(record) as { home?: string; install?: string };
+		if (!home || !install) throw new Error("Installed systemd unit is missing its home or install");
+		return { home, install, plist: linuxUnitPath() };
+	}
+	if (process.platform === "win32") {
+		if (!existsSync(windowsServicePath())) return;
+		const { home, install } = JSON.parse(await readFile(windowsServicePath(), "utf8")) as {
+			home?: string;
+			install?: string;
+		};
+		if (!home || !install) throw new Error("Installed Windows task is missing its home or install");
+		return { home, install, plist: windowsServicePath() };
+	}
 	if (process.platform !== "darwin" || !existsSync(plistPath())) return;
 	const result = await command("plutil", ["-convert", "json", "-o", "-", plistPath()]);
 	const plist = JSON.parse(result.stdout) as {
@@ -244,9 +275,25 @@ export async function installedService(): Promise<ServiceInstallation | undefine
 	return { home, install: plist.EnvironmentVariables?.YONDER_INSTALL ?? dirname(dirname(args[0])), plist: plistPath() };
 }
 function runtimePath(install: string): string {
-	return [...new Set([join(install, "bin"), dirname(process.execPath), ...(process.env.PATH ?? "").split(":")])]
+	return [...new Set([join(install, "bin"), dirname(process.execPath), ...(process.env.PATH ?? "").split(delimiter)])]
 		.filter(Boolean)
-		.join(":");
+		.join(delimiter);
+}
+
+function windowsBatchValue(value: string): string {
+	if (/[\r\n"]/u.test(value)) throw new Error("Windows install paths must not contain quotes or line breaks");
+	return value.replaceAll("%", "%%").replaceAll("^", "^^");
+}
+export function windowsLauncher(install: string, node = process.execPath, path = runtimePath(install)): string {
+	return `@echo off\r\nsetlocal DisableDelayedExpansion\r\nset "PATH=${windowsBatchValue(path)}"\r\nset "YONDER_INSTALL=${windowsBatchValue(install)}"\r\n"${windowsBatchValue(node)}" "${windowsBatchValue(win32.join(install, "current/packages/cli/dist/index.js"))}" %*\r\n`;
+}
+export function windowsServiceLauncher(
+	install: string,
+	home: string,
+	node = process.execPath,
+	path = runtimePath(install),
+): string {
+	return `@echo off\r\nsetlocal DisableDelayedExpansion\r\nset "PATH=${windowsBatchValue(path)}"\r\nset "YONDER_INSTALL=${windowsBatchValue(install)}"\r\n"${windowsBatchValue(node)}" "${windowsBatchValue(win32.join(install, "current/packages/cli/dist/index.js"))}" start --home "${windowsBatchValue(home)}" --json >> "${windowsBatchValue(win32.join(home, ".yonder/logs/harness.log"))}" 2>&1\r\n`;
 }
 export function launcher(install: string, node = process.execPath, path = runtimePath(install)): string {
 	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/packages/cli/dist/index.js"))} "$@"\n`;
@@ -273,8 +320,161 @@ ${pair("StandardOutPath", join(home, ".yonder/logs/status.log"))}${pair("Standar
 <key>EnvironmentVariables</key><dict>${pair("PATH", runtimePath(install))}${pair("YONDER_INSTALL", install)}${pair("YONDER_HOME", home)}</dict>
 </dict></plist>\n`;
 }
+function systemdQuote(value: string): string {
+	if (/[\r\n]/u.test(value)) throw new Error("systemd service paths must not contain line breaks");
+	return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%").replaceAll("$", "$$")}"`;
+}
+export function linuxServiceUnit(install: string, home: string, path = runtimePath(install)): string {
+	return `# YonderService=${JSON.stringify({ home, install })}\n[Unit]\nDescription=Yonder Harness\n[Service]\nType=simple\nExecStart=${systemdQuote(join(install, "bin/yonder"))} start --home ${systemdQuote(home)} --json\nEnvironment=${systemdQuote(`PATH=${path}`)}\nEnvironment=${systemdQuote(`YONDER_INSTALL=${install}`)}\nEnvironment=${systemdQuote(`YONDER_HOME=${home}`)}\nRestart=on-failure\nRestartSec=2\n[Install]\nWantedBy=default.target\n`;
+}
+
+async function manageLinuxService(action: ServiceAction, options: { home?: string }) {
+	let installed = await installedService();
+	const unit = `${label}.service`;
+	const systemctl = (args: string[], allowFailure = false) =>
+		command("systemctl", ["--user", ...args], { allowFailure });
+	if (action === "install") {
+		if (!options.home) throw new Error("service install requires --home");
+		const home = resolve(options.home),
+			install = installPath();
+		await access(join(home, "yonder.yaml"));
+		await access(join(install, "bin/yonder"));
+		await mkdir(dirname(linuxUnitPath()), { recursive: true });
+		await writeFile(linuxUnitPath(), linuxServiceUnit(install, home), { mode: 0o600 });
+		await systemctl(["daemon-reload"]);
+		await systemctl(["enable", unit]);
+		await systemctl(["restart", unit]);
+		installed = { home, install, plist: linuxUnitPath() };
+	} else if (action === "uninstall") {
+		if (installed) {
+			await systemctl(["disable", "--now", unit]);
+			await rm(linuxUnitPath());
+			await systemctl(["daemon-reload"]);
+		}
+		return { installed: false, loaded: false };
+	} else if (action !== "status") {
+		if (!installed) throw new Error("Yonder Harness service is not installed");
+		await systemctl([action, unit]);
+	}
+	const state = await systemctl(["show", unit, "--property=ActiveState,MainPID", "--no-pager"], true);
+	const active = /^ActiveState=active$/mu.test(state.stdout);
+	const pid = Number(/^MainPID=(\d+)$/mu.exec(state.stdout)?.[1]) || null;
+	return {
+		installed: !!installed,
+		loaded: active,
+		...(installed ? { home: installed.home, install: installed.install, plist: installed.plist } : {}),
+		state: /^ActiveState=(.+)$/mu.exec(state.stdout)?.[1] ?? "inactive",
+		pid,
+	};
+}
+
+async function manageWindowsService(action: ServiceAction, options: { home?: string }) {
+	let installed = await installedService();
+	const task = (args: string[], allowFailure = false) =>
+		command("schtasks.exe", [...args, "/TN", windowsTask], { allowFailure });
+	const stopTask = async (home?: string) => {
+		let pid: number | undefined;
+		if (home) {
+			try {
+				pid = ((await requestControl(home, { method: "service.info" })) as { pid?: number }).pid;
+				await requestControl(home, { method: "stop" });
+			} catch {
+				/* A stopped or starting task has no control endpoint. */
+			}
+		}
+		if (pid) {
+			const alive = () => {
+				try {
+					process.kill(pid, 0);
+					return true;
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+					throw error;
+				}
+			};
+			const grace = Date.now() + 5_000;
+			while (alive() && Date.now() < grace) await new Promise((resolve) => setTimeout(resolve, 100));
+			if (!alive()) return;
+			await task(["/End"], true);
+			const deadline = Date.now() + 30_000;
+			while (alive()) {
+				if (Date.now() >= deadline) throw new Error(`Windows task process has not finished stopping: ${pid}`);
+				await new Promise((resolve) => setTimeout(resolve, 100));
+			}
+		} else await task(["/End"], true);
+	};
+	if (action === "install") {
+		if (!options.home) throw new Error("service install requires --home");
+		const home = resolve(options.home),
+			install = installPath();
+		await access(join(home, "yonder.yaml"));
+		await access(join(install, "bin/yonder.cmd"));
+		await mkdir(join(home, ".yonder/logs"), { recursive: true });
+		const script = join(install, "bin/yonder-service.cmd");
+		const previous = await task(["/Query"], true);
+		if (previous.code === 0) await stopTask(installed?.home);
+		if (/[%\r\n"]/u.test(script))
+			throw new Error("Windows task script path must not contain percent, quotes or line breaks");
+		await writeFile(script, windowsServiceLauncher(install, home));
+		const commandLine = `cmd.exe /d /c ""${script}""`;
+		if (commandLine.length > 262) throw new Error("Windows scheduled task command exceeds the 262-character /TR limit");
+		await task(["/Create", "/SC", "ONLOGON", "/TR", commandLine, "/F", "/RL", "LIMITED"]);
+		await mkdir(dirname(windowsServicePath()), { recursive: true });
+		await writeFile(windowsServicePath(), JSON.stringify({ home, install }), { mode: 0o600 });
+		await task(["/Run"]);
+		installed = { home, install, plist: windowsServicePath() };
+	} else if (action === "uninstall") {
+		if ((await task(["/Query"], true)).code === 0) {
+			await stopTask(installed?.home);
+			await task(["/Delete", "/F"]);
+		}
+		await rm(windowsServicePath(), { force: true });
+		return { installed: false, loaded: false };
+	} else if (action !== "status") {
+		if (!installed) throw new Error("Yonder Harness service is not installed");
+		if (action === "stop" || action === "restart") await stopTask(installed.home);
+		let running = false;
+		if (action === "start") {
+			try {
+				running = !!((await requestControl(installed.home, { method: "service.info" })) as { pid?: number }).pid;
+			} catch {
+				/* The task is not ready. */
+			}
+		}
+		if ((action === "start" && !running) || action === "restart") await task(["/Run"]);
+	}
+	const registered = (await task(["/Query"], true)).code === 0;
+	let info: { pid?: number } | undefined;
+	if (registered && installed) {
+		try {
+			info = (await requestControl(installed.home, { method: "service.info" })) as { pid?: number };
+		} catch {
+			/* A registered task may be stopped or still starting. */
+		}
+	}
+	return {
+		installed: registered && !!installed,
+		loaded: !!info?.pid,
+		...(registered && installed ? { home: installed.home, install: installed.install, plist: installed.plist } : {}),
+		state: info?.pid ? "running" : "stopped",
+		pid: info?.pid ?? null,
+	};
+}
+
 export type ServiceAction = "install" | "uninstall" | "start" | "stop" | "restart" | "status";
-export async function manageService(action: ServiceAction, options: { home?: string } = {}) {
+interface ServiceStatus {
+	installed: boolean;
+	loaded: boolean;
+	home?: string;
+	install?: string;
+	plist?: string;
+	state?: string;
+	pid?: number | null;
+	launcherPid?: number | null;
+}
+export async function manageService(action: ServiceAction, options: { home?: string } = {}): Promise<ServiceStatus> {
+	if (process.platform === "linux") return manageLinuxService(action, options);
+	if (process.platform === "win32") return manageWindowsService(action, options);
 	if (process.platform !== "darwin")
 		throw new Error("Yonder Harness background services currently support macOS launchd only");
 	let installed = await installedService();
@@ -385,12 +585,14 @@ async function currentVersion(install: string): Promise<string | undefined> {
 }
 async function runningHome(home: string | undefined): Promise<boolean> {
 	if (!home) return false;
-	const path = join(home, ".yonder/control.sock");
-	try {
-		if (!(await stat(path)).isSocket()) return false;
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-		throw error;
+	const path = controlEndpoint(home);
+	if (process.platform !== "win32") {
+		try {
+			if (!(await stat(path)).isSocket()) return false;
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+			throw error;
+		}
 	}
 	return new Promise((resolve) => {
 		const socket = createConnection(path);
@@ -441,8 +643,8 @@ async function installRelease(options: UpdateOptions = {}) {
 		options.onProgress?.(`Building ${tag}`);
 		try {
 			await command("git", ["clone", "--depth", "1", "--branch", tag, repository, temporary]);
-			await command("npm", ["ci"], { cwd: temporary, env: { ...process.env, PATH: runtimePath(install) } });
-			await command("npm", ["run", "build"], { cwd: temporary, env: { ...process.env, PATH: runtimePath(install) } });
+			await npmCommand(["ci"], { cwd: temporary, env: { ...process.env, PATH: runtimePath(install) } });
+			await npmCommand(["run", "build"], { cwd: temporary, env: { ...process.env, PATH: runtimePath(install) } });
 			if ((await manifest(join(temporary, "packages/cli"))).version !== version)
 				throw new Error(`Tag ${tag} does not match its package version`);
 			const commit = (await command("git", ["rev-parse", "HEAD"], { cwd: temporary })).stdout.trim();
@@ -476,18 +678,37 @@ async function installRelease(options: UpdateOptions = {}) {
 		);
 	}
 	await mkdir(join(install, "bin"), { recursive: true });
-	const wrapper = join(install, "bin/yonder"),
+	const wrapper = join(install, process.platform === "win32" ? "bin/yonder.cmd" : "bin/yonder"),
 		newWrapper = `${wrapper}.${randomUUID()}.tmp`;
 	const link = join(install, `.current.${randomUUID()}`);
+	const previousLink = join(install, `.previous.${randomUUID()}`);
+	let movedPrevious = false;
 	try {
-		await writeFile(newWrapper, launcher(install), { mode: 0o755 });
-		await chmod(newWrapper, 0o755);
-		await symlink(join("versions", version), link, "dir");
+		await writeFile(newWrapper, process.platform === "win32" ? windowsLauncher(install) : launcher(install), {
+			mode: 0o755,
+		});
+		if (process.platform !== "win32") await chmod(newWrapper, 0o755);
+		await symlink(
+			process.platform === "win32" ? directory : join("versions", version),
+			link,
+			process.platform === "win32" ? "junction" : "dir",
+		);
 		await rename(newWrapper, wrapper);
+		if (process.platform === "win32" && previous) {
+			await rename(join(install, "current"), previousLink);
+			movedPrevious = true;
+		}
 		await rename(link, join(install, "current"));
+		if (movedPrevious) {
+			movedPrevious = false;
+			await rm(previousLink, { recursive: true, force: true }).catch(() => {});
+		}
+	} catch (error) {
+		if (movedPrevious) await rename(previousLink, join(install, "current"));
+		throw error;
 	} finally {
 		await rm(newWrapper, { force: true });
-		await rm(link, { force: true });
+		await rm(link, { recursive: true, force: true });
 	}
 	let restartRequired = false;
 	if (thisService) {

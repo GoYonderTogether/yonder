@@ -13,6 +13,7 @@ import type { LoginInteraction } from "@yonder/core";
 import {
 	attachmentFromPath,
 	checkRelease,
+	cliChannelEndpoint,
 	compareVersions,
 	initHome,
 	inspectHome,
@@ -196,7 +197,7 @@ async function managed(home: string, request: { method: string; params?: unknown
 	}
 }
 async function chat(home: string, instance: string, json: boolean) {
-	const socket = createConnection(join(home, ".yonder", "plugins", "channel-cli", `${instance}.sock`));
+	const socket = createConnection(cliChannelEndpoint(home, instance));
 	socket.setEncoding("utf8");
 	const lines = createInterface({ input: socket, crlfDelay: Infinity });
 	const terminal = createInterface({ input: stdin, output: json ? stderr : stdout, terminal: stdin.isTTY });
@@ -258,7 +259,11 @@ async function run(args: string[]): Promise<number> {
 	}
 	const options = parseGlobal(args);
 	if (!optionalHome(options))
-		options.home = (await installedService())?.home ?? join(homedir(), ".local/share/yonder-harness/home");
+		options.home =
+			(await installedService())?.home ??
+			(process.platform === "win32"
+				? join(env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "YonderHarness/home")
+				: join(homedir(), ".local/share/yonder-harness/home"));
 	const daily = !options.rest.length && !options.help && stdin.isTTY && stdout.isTTY && !options.json;
 	if (daily) options.rest.push("chat");
 	const [command, ...rest] = options.rest;
