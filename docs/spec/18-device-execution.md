@@ -88,7 +88,7 @@ DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets
 4. 在任何后端副作用前原子持久accepted，再持久running，再dispatch。direct/relay/full本机入口共用同一账本和device写锁。新连接不重置锁。同一执行home第二daemon拒启；W4服务adapter必须调用W1锁，不再实现一把设备锁。
 5. 收到/出队时检查本地grant/revision/期限和lease，取受信host权限与本地grant交集；排队时撤销仍能阻止执行。已运行操作先确认子进程/驱动停止，再释放写者；只失去网络或lease不代表停止。
 6. 重启发现running一律unknown，不自动重放；accepted可在重新核权限、确认未dispatch后处理。unknown只可显式核验，不能自动failed→新ID重试。W0只给纯状态转换helper，不实现账本/调度器。
-7. 首版不支持已配对guest checkpoint restore/clone，也不尝试恢复后沿用密钥/旧grant。后端报告unsupported。未配对无密钥模板可复制后独立生成身份配对；checkpoint恢复能力与未来明确防克隆机制另开设计，不建立外部epoch系统。
+7. 首版不支持已配对guest checkpoint restore/clone，也不尝试恢复后沿用密钥/旧grant。后端报告unsupported。未配对无密钥模板可复制后独立生成身份配对；checkpoint恢复能力与未来明确防克隆机制另开设计，不建立外部epoch系统。Android 后续接入不得把 AVD 名称或 ADB serial 当作持久 deviceId：不同 guest 数据目录可复用相同显示名和 `emulator-5554`。注册必须绑定受控实例记录与其数据盘、执行端签名身份；应用清单缓存不得跨实例复用。本版尚无 Android native executor，以上仅是接入约束而非已通过的实现。
 
 ## 5. 模型工具和管理命令名称（后续实现）
 
