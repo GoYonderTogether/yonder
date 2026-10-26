@@ -38,6 +38,8 @@ The daemon holds a Node `node:sqlite` `BEGIN EXCLUSIVE` transaction on `<home>/d
 
 Session open/close, grant revocation and accepted-command cancellation publish their effect and requestId replay receipt in the same atomic state-file commit. Concurrent copies of the same signed request share one in-flight response; a changed payload under that requestId conflicts. Provider dispatch still requires durable accepted/running states, and a crashed running operation remains unknown. Describe filters targets and target-scoped capabilities using current unrevoked, unexpired read grants.
 
+If any daemon state save throws, that executor instance enters a faulted state. Both direct HTTP and Card relay use the same handler and refuse later requests, including an in-memory cached success; queued commands are not dispatched. Stop the daemon, repair storage, and restart to reload the durable state before retrying the same request ID. A save error never certifies that a side effect completed or that it was rolled back.
+
 ## Optional persistent Card transport
 
 `serve --card-config /absolute/card.json` enables the daemon's real W3 ticket/WS client. The private JSON file contains `{baseUrl,peerDeviceId,tokenFile,allowInsecureLoopback?}`. `tokenFile` is an explicitly supplied absolute private file for this executor's Card device bearer token; `peerDeviceId` is the controller's **Card device ID**, a separate namespace from the executor UUID and paired principal. HTTPS/WSS with normal certificate verification is required, except an explicit `allowInsecureLoopback:true` permits HTTP/WS on literal loopback test addresses. No production credential is configured by default.

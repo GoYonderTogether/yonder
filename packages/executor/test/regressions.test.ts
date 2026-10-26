@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -203,6 +203,42 @@ test("concurrent copies of one sessions.open return the same lease", async () =>
 	expect(f.decode(responses[0])).toEqual(f.decode(responses[1]));
 	expect(f.executor.store.data.leaseEpochs.local).toBe(1);
 	expect(Object.keys(f.executor.store.data.sessions)).toHaveLength(1);
+});
+
+test("failed publication fences direct and relay retries until durable state is reloaded", async () => {
+	const f = fixture();
+	const packet = f.envelope("grants.revoke", { grantId: f.grant.grantId });
+	const request = JSON.parse(Buffer.from(packet.payloadBase64, "base64").toString()) as RpcRequest;
+	const requestKey = `${request.principalId}:${request.requestId}`;
+	const durable = () =>
+		JSON.parse(readFileSync(join(f.home, "state.json"), "utf8")) as {
+			grants: Record<string, Grant>;
+			requests: Record<string, unknown>;
+		};
+	const port = await f.executor.listenLoopback();
+	f.executor.store.save = () => {
+		throw new Error("injected save failure");
+	};
+	const direct = await fetch(`http://127.0.0.1:${port}/execution/v1`, {
+		method: "POST",
+		body: JSON.stringify(packet),
+	});
+	expect(direct.status).toBe(400);
+	expect(f.executor.store.data.grants[f.grant.grantId]?.revokedAt).not.toBeNull();
+	expect(durable().grants[f.grant.grantId]?.revokedAt).toBeNull();
+	expect(durable().requests[requestKey]).toBeUndefined();
+	// Card's transport calls this same handler. Neither it nor a fresh request may see the unsaved success.
+	await expect(f.executor.handle(packet)).rejects.toThrow("INTERNAL_ERROR");
+	await expect(f.executor.handle(f.open())).rejects.toThrow("INTERNAL_ERROR");
+	await f.executor.close();
+	executors.delete(f.executor);
+	const recovered = new DeviceExecutor(f.home, f.provider);
+	executors.add(recovered);
+	expect(recovered.store.data.grants[f.grant.grantId]?.revokedAt).toBeNull();
+	expect(recovered.store.data.requests[requestKey]).toBeUndefined();
+	expect(f.decode(await recovered.handle(packet)).ok).toBe(true);
+	expect(durable().grants[f.grant.grantId]?.revokedAt).not.toBeNull();
+	expect(durable().requests[requestKey]).toBeDefined();
 });
 
 for (const method of ["device.sessions.open", "device.sessions.close", "grants.revoke"] as const) {

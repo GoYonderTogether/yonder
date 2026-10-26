@@ -60,6 +60,7 @@ export class DeviceExecutor {
 	private readonly running = new Map<string, { abort: AbortController; done: Promise<void> }>();
 	private writer: string | undefined;
 	private server: Server | HttpsServer | undefined;
+	private faulted = false;
 	constructor(
 		home: string,
 		readonly backend: BackendProvider,
@@ -67,11 +68,30 @@ export class DeviceExecutor {
 		this.store = new ExecutorStore(home);
 		queueMicrotask(() => {
 			for (const [key, record] of Object.entries(this.store.data.commands))
-				if (record.receipt.state === "accepted") void this.dispatch(key);
+				if (record.receipt.state === "accepted") this.startDispatch(key);
 		});
 	}
 	get deviceId(): string {
 		return this.store.data.deviceId;
+	}
+	private assertHealthy(): void {
+		if (this.faulted) throw new Error("INTERNAL_ERROR");
+	}
+	private persist(): void {
+		this.assertHealthy();
+		try {
+			this.store.save();
+		} catch (error) {
+			// The mutable in-memory state may now differ from durable state. Only a new daemon may reload it.
+			this.faulted = true;
+			throw error;
+		}
+	}
+	private startDispatch(key: string): void {
+		if (this.faulted) return;
+		void this.dispatch(key).catch(() => {
+			this.faulted = true;
+		});
 	}
 	private grant(principalId: string, targetId: string, capability: ExecutionCapability, action?: string): Grant {
 		const candidates = Object.values(this.store.data.grants).filter(
@@ -144,6 +164,7 @@ export class DeviceExecutor {
 		return receipt;
 	}
 	private async dispatch(key: string): Promise<void> {
+		if (this.faulted) return;
 		const record = this.store.data.commands[key];
 		if (record?.receipt.state !== "accepted") return;
 		const command = decodeCommand(record.commandBase64, {
@@ -154,7 +175,7 @@ export class DeviceExecutor {
 		if (!action) {
 			record.receipt.state = "failed";
 			record.receipt.error = { code: "UNSUPPORTED_OPERATION", message: "UNSUPPORTED_OPERATION" };
-			this.store.save();
+			this.persist();
 			return;
 		}
 		let session: DeviceSession;
@@ -169,14 +190,14 @@ export class DeviceExecutor {
 				code: (errorCodes.has(code) ? code : "INTERNAL_ERROR") as NonNullable<CommandReceipt["error"]>["code"],
 				message: code,
 			};
-			this.store.save();
+			this.persist();
 			return;
 		}
 		if (action.mutatesDevice && this.writer) return;
 		if (action.mutatesDevice) this.writer = key;
 		record.receipt.state = "running";
 		record.receipt.updatedAt = now();
-		this.store.save();
+		this.persist();
 		const abort = new AbortController();
 		const done = (async () => {
 			try {
@@ -195,17 +216,21 @@ export class DeviceExecutor {
 				}
 			} finally {
 				record.receipt.updatedAt = now();
-				this.store.save();
-				if (this.writer === key) this.writer = undefined;
-				this.running.delete(key);
-				for (const [waitingKey, waiting] of Object.entries(this.store.data.commands))
-					if (waiting.receipt.state === "accepted")
-						queueMicrotask(() => {
-							void this.dispatch(waitingKey);
-						});
+				try {
+					this.persist();
+				} finally {
+					if (this.writer === key) this.writer = undefined;
+					this.running.delete(key);
+					if (!this.faulted)
+						for (const [waitingKey, waiting] of Object.entries(this.store.data.commands))
+							if (waiting.receipt.state === "accepted") queueMicrotask(() => this.startDispatch(waitingKey));
+				}
 			}
 		})();
 		this.running.set(key, { abort, done });
+		void done.catch(() => {
+			this.faulted = true;
+		});
 	}
 	private async operate(request: RpcRequest, commit: (result: unknown) => void): Promise<unknown> {
 		const p = request.principalId;
@@ -323,9 +348,7 @@ export class DeviceExecutor {
 					writeRoots: [...resources.writeRoots],
 				};
 				commit(receipt);
-				queueMicrotask(() => {
-					void this.dispatch(key);
-				});
+				queueMicrotask(() => this.startDispatch(key));
 				return receipt;
 			}
 			case "commands.status":
@@ -353,6 +376,7 @@ export class DeviceExecutor {
 	}
 	/** Both direct and relay adapters call this one authenticated entry point. */
 	async handle(envelope: unknown): Promise<SignedEnvelope> {
+		this.assertHealthy();
 		if (!Check(SignedEnvelopeSchema, envelope)) throw new Error("INVALID_REQUEST");
 		const untrusted = JSON.parse(
 			Buffer.from((envelope as SignedEnvelope).payloadBase64, "base64").toString("utf8"),
@@ -373,12 +397,16 @@ export class DeviceExecutor {
 		const active = this.requestsInFlight.get(requestKey);
 		if (active) {
 			if (active.digest !== requestDigest) throw new Error("COMMAND_CONFLICT");
-			return active.response;
+			const answer = await active.response;
+			this.assertHealthy();
+			return answer;
 		}
 		const response = this.respond(request, requestDigest);
 		this.requestsInFlight.set(requestKey, { digest: requestDigest, response });
 		try {
-			return await response;
+			const answer = await response;
+			this.assertHealthy();
+			return answer;
 		} finally {
 			this.requestsInFlight.delete(requestKey);
 		}
@@ -410,7 +438,7 @@ export class DeviceExecutor {
 			commitAttempted = true;
 			response = { ...header, ok: true, result: structuredClone(result) };
 			this.store.data.requests[requestKey] = { digest: requestDigest, response };
-			this.store.save();
+			this.persist();
 		};
 		if (cached) {
 			if (cached.digest !== requestDigest) throw new Error("COMMAND_CONFLICT");
@@ -429,11 +457,12 @@ export class DeviceExecutor {
 				response = { ...header, ok: false, error: { code, message: code } };
 				if (mutates) {
 					this.store.data.requests[requestKey] = { digest: requestDigest, response };
-					this.store.save();
+					this.persist();
 				}
 			}
 		}
 		if (!response) throw new Error("INTERNAL_ERROR");
+		this.assertHealthy();
 		if (response.expiresAt <= Date.now())
 			response = { ...response, issuedAt: Date.now(), expiresAt: Date.now() + 60_000 };
 		return signMessage(response, this.store.key);
@@ -444,6 +473,7 @@ export class DeviceExecutor {
 		return this.listenDirect({ host: "127.0.0.1", port });
 	}
 	async listenDirect(options: { host: string; port: number; tls?: { key: Buffer; cert: Buffer } }): Promise<number> {
+		this.assertHealthy();
 		if (this.server) fail("BUSY");
 		if (isIP(options.host) === 0 || (options.host !== "127.0.0.1" && !options.tls)) fail("UNAUTHORIZED");
 		const handler: RequestListener = async (req, res) => {
@@ -483,7 +513,10 @@ export class DeviceExecutor {
 		}
 		const active = [...this.running.values()];
 		for (const item of active) item.abort.abort();
-		await Promise.all(active.map((item) => item.done));
-		this.store.close();
+		try {
+			await Promise.all(active.map((item) => item.done));
+		} finally {
+			this.store.close();
+		}
 	}
 }
