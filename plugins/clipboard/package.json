@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-clipboard",
-	"version": "0.2.26102510",
+	"version": "0.2.26102511",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -22,7 +22,7 @@
 		"NOTICE.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102510"
+		"@yonder/sdk": "0.2.26102511"
 	},
 	"yonder": {
 		"apiVersion": 1,
