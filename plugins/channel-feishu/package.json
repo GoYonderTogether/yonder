@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-channel-feishu",
-	"version": "0.2.26102511",
+	"version": "0.2.26102512",
 	"type": "module",
 	"license": "Apache-2.0 AND MIT",
 	"engines": {
@@ -20,7 +20,7 @@
 		"LICENSE.hermes"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.2.26102511",
+		"@yonder/sdk": "0.2.26102512",
 		"@larksuiteoapi/node-sdk": "1.74.0",
 		"typebox": "1.3.27"
 	},
