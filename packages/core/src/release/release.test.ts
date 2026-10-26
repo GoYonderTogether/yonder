@@ -7,6 +7,7 @@ import {
 	compareVersions,
 	latestRelease,
 	launcher,
+	linuxServiceUnit,
 	readChangelog,
 	readDocs,
 	releaseInfo,
@@ -15,7 +16,22 @@ import {
 	servicePlist,
 	statusPlist,
 	unloadService,
+	windowsLauncher,
+	windowsServiceLauncher,
 } from "./index.js";
+
+test("Linux user unit and Windows wrappers keep installed code separate from home", () => {
+	const unit = linuxServiceUnit("/opt/yonder app", "/tmp/agent home", "/usr/bin:/bin");
+	expect(unit).toContain('ExecStart="/opt/yonder app/bin/yonder" start --home "/tmp/agent home" --json');
+	expect(unit).toContain("WantedBy=default.target");
+	expect(unit).toContain("Restart=on-failure");
+	expect(unit).not.toContain("User=root");
+	const wrapper = windowsLauncher("C:\\Yonder App", "C:\\Node\\node.exe", "C:\\Node");
+	expect(wrapper).toContain('"C:\\Node\\node.exe" "C:\\Yonder App\\current\\packages\\cli\\dist\\index.js" %*');
+	expect(windowsServiceLauncher("C:\\Yonder App", "C:\\Agent Home", "C:\\Node\\node.exe", "C:\\Node")).toContain(
+		'start --home "C:\\Agent Home" --json',
+	);
+});
 
 test("release parsing, real docs and local launcher/plist files need no harness home", async () => {
 	expect(compareVersions("0.10.0", "v0.2.0")).toBe(1);

@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
 import { createInterface } from "node:readline";
 
 export interface ControlRequest {
@@ -14,8 +15,20 @@ export interface ControlConnection {
 }
 export type ControlHandler = (request: ControlRequest, connection: ControlConnection) => Promise<unknown>;
 
-function socketPath(home: string) {
+export function controlEndpoint(home: string, platform: NodeJS.Platform = process.platform) {
+	if (platform === "win32")
+		return `\\\\.\\pipe\\yonder-control-${createHash("sha256").update(win32.resolve(home).toLowerCase()).digest("hex").slice(0, 32)}`;
 	return join(home, ".yonder", "control.sock");
+}
+
+export function cliChannelEndpoint(home: string, id: string, platform: NodeJS.Platform = process.platform) {
+	const path =
+		platform === "win32"
+			? win32.join(home, ".yonder", "plugins", "channel-cli", `${id}.sock`)
+			: join(home, ".yonder", "plugins", "channel-cli", `${id}.sock`);
+	if (platform === "win32")
+		return `\\\\.\\pipe\\yonder-cli-${createHash("sha256").update(win32.resolve(path).toLowerCase()).digest("hex").slice(0, 32)}`;
+	return path;
 }
 
 function message(error: unknown) {
@@ -29,9 +42,9 @@ async function write(socket: Socket, value: unknown) {
 }
 
 export async function serveControl(home: string, handler: ControlHandler): Promise<{ close(): Promise<void> }> {
-	const path = socketPath(home);
+	const path = controlEndpoint(home);
 	await mkdir(join(home, ".yonder"), { recursive: true });
-	await rm(path, { force: true });
+	if (process.platform !== "win32") await rm(path, { force: true });
 	const clients = new Set<Socket>();
 	const server: Server = createServer((socket) => {
 		clients.add(socket);
@@ -75,7 +88,7 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 	});
 	await new Promise<void>((resolve, reject) => {
 		server.once("error", reject);
-		server.listen(path, () => {
+		server.listen({ path, readableAll: false, writableAll: false }, () => {
 			server.off("error", reject);
 			resolve();
 		});
@@ -85,14 +98,14 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 			for (const client of clients) client.destroy();
 			if (server.listening)
 				await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-			await rm(path, { force: true });
+			if (process.platform !== "win32") await rm(path, { force: true });
 		},
 	};
 }
 
 export function requestControl(home: string, request: ControlRequest): Promise<unknown> {
 	return new Promise((resolve, reject) => {
-		const socket = createConnection(socketPath(home));
+		const socket = createConnection(controlEndpoint(home));
 		socket.setEncoding("utf8");
 		let settled = false;
 		const fail = (error: Error) => {
@@ -130,7 +143,7 @@ export function observeControl(
 	receive: (value: unknown) => void,
 ): Promise<{ result: unknown; close(): void }> {
 	return new Promise((resolve, reject) => {
-		const socket = createConnection(socketPath(home));
+		const socket = createConnection(controlEndpoint(home));
 		socket.setEncoding("utf8");
 		const lines = createInterface({ input: socket, crlfDelay: Infinity });
 		let ready = false;

@@ -70,4 +70,4 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 本轮新增多设备执行契约W0，见[18](spec/18-device-execution.md)；execution-only、远程设备后端与Card执行relay尚未实现，不能据契约宣称可运行。
 
-通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在当前范围；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。当前安装与桌面支持平台为 macOS；Windows 命名管道与 Linux 服务未支持。实现状态与已知缺口见 [status.md](status.md)。
+通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在当前范围；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。完整主程序的 CLI/TUI 安装目标扩至 macOS、Linux 与 Windows；平台服务与本机 IPC 见 [09](spec/09-cli-release.md)，桌面 Helper/状态栏仍限 macOS。平台适配代码不代表各平台安装与运行已验收；实际状态见 [status.md](status.md)。
