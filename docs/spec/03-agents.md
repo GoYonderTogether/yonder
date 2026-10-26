@@ -77,6 +77,8 @@ bindings: [ … ]                   # 见 02 §2
 
 创建输入 `isolated?: boolean` 只控制此次生成，不写入 agent.yaml。非布尔值拒绝；true 不生成 peer，且显式 binding 只要 channel 与 kind 各自缺省、等于 agent 或数组包含 agent，就保守拒绝（不因 type/from/conv 收窄而放过）。其他显式 bindings 保留；默认生成时显式 binding 的 id=peer 冲突报错，不覆盖。已有 home/Agent 不自动迁移；QQ setup、parent-request 不变。后续管理员仍可明确编辑普通 profile/binding，本规则不新增运行时 Agent 类型或持久隔离标志。
 
+`avatarUrl` 为可选的云端图片 HTTPS URL，与 `name` 同属 Agent 身份配置。只允许无凭据的公共 DNS 主机名，禁止 IP、localhost、局域网域名与本地路径；不读取或上传本地图片，服务端只保存 URL。缺省沿用原默认头像，删除字段恢复默认。
+
 ## 3. 配置档
 
 配置档决定一次运行用什么。属于 agent 的配置档就是这个 agent 的"分身"：同一个身份、同一个工作区，能力不同。

@@ -92,6 +92,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 						schema: 1,
 						id,
 						name: value.name,
+						...(value.avatarUrl !== undefined ? { avatarUrl: value.avatarUrl } : {}),
 						work: value.work,
 						owner: value.owner,
 						defaultProfile: "default",

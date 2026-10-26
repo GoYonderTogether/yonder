@@ -67,12 +67,24 @@ test("PluginAPI.agents.list is live, enabled-only and returns detached id/name v
 			{ id: "main", name: "Jarvis" },
 			{ id: "extra", name: "Extra" },
 		]);
-		await kernel.management({ action: "agents.update", id: "extra", value: { name: "Renamed" } });
-		expect(await list()).toContainEqual({ id: "extra", name: "Renamed" });
+		await kernel.management({
+			action: "agents.update",
+			id: "extra",
+			value: { name: "Renamed", avatarUrl: "https://cdn.yonder.cn/renamed.png" },
+		});
+		expect(await list()).toContainEqual({
+			id: "extra",
+			name: "Renamed",
+			avatarUrl: "https://cdn.yonder.cn/renamed.png",
+		});
 		await kernel.management({ action: "agents.archive", id: "extra" });
 		expect(await list()).toEqual([{ id: "main", name: "Jarvis" }]);
 		await kernel.management({ action: "agents.restore", id: "extra" });
-		expect(await list()).toContainEqual({ id: "extra", name: "Renamed" });
+		expect(await list()).toContainEqual({
+			id: "extra",
+			name: "Renamed",
+			avatarUrl: "https://cdn.yonder.cn/renamed.png",
+		});
 	} finally {
 		await kernel?.close();
 		await rm(home, { recursive: true, force: true });

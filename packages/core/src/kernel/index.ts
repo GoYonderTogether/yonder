@@ -153,7 +153,10 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 		const services: KernelServices = {
 			permissions,
 			agents: {
-				list: async () => [...agents.values()].filter((a) => !a.archivedAt).map((a) => ({ id: a.id, name: a.name })),
+				list: async () =>
+					[...agents.values()]
+						.filter((a) => !a.archivedAt)
+						.map((a) => ({ id: a.id, name: a.name, ...(a.avatarUrl ? { avatarUrl: a.avatarUrl } : {}) })),
 			},
 			...credentialsAndModels(home, config),
 			log: {
