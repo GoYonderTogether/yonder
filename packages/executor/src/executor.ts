@@ -184,11 +184,14 @@ export class DeviceExecutor {
 				if (!abort.signal.aborted) record.receipt.result = result;
 			} catch (error) {
 				record.receipt.state = abort.signal.aborted ? "cancelled" : "failed";
-				if (!abort.signal.aborted)
+				if (!abort.signal.aborted) {
+					const raw = error instanceof Error ? error.message : "";
+					const code = errorCodes.has(raw) ? raw : "INTERNAL_ERROR";
 					record.receipt.error = {
-						code: "INTERNAL_ERROR",
-						message: error instanceof Error ? error.message.slice(0, 4096) || "INTERNAL_ERROR" : "INTERNAL_ERROR",
+						code: code as NonNullable<CommandReceipt["error"]>["code"],
+						message: code,
 					};
+				}
 			} finally {
 				record.receipt.updatedAt = now();
 				this.store.save();

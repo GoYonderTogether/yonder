@@ -82,7 +82,7 @@ export function createLinuxGuestProvider(deviceId: string, role: "full" | "execu
 				{
 					input: JSON.stringify({ action, args, entry, stateDir }),
 					env,
-					signal,
+					...(signal ? { signal } : {}),
 					timeoutMs: 45_000,
 				},
 			);

@@ -203,6 +203,22 @@ test("offline two-ended pairing, signed direct/relay RPC and one durable command
 	expect(next.deviceSessionId).not.toBe(s.deviceSessionId);
 });
 
+test("provider unsupported action keeps its protocol error code", async () => {
+	const f = await fixture();
+	const action = f.executor.backend.actions["file.write"];
+	if (!action) throw new Error("Missing fixture action");
+	action.execute = async () => {
+		throw new Error("UNSUPPORTED_OPERATION");
+	};
+	const s = await session(f);
+	const commandId = randomUUID();
+	result(await f.call("commands.submit", { commandBase64: command(f, s, commandId) }));
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	const receipt = result<{ state: string; error?: { code: string } }>(await f.call("commands.status", { commandId }));
+	expect(receipt.state).toBe("failed");
+	expect(receipt.error?.code).toBe("UNSUPPORTED_OPERATION");
+});
+
 test("revocation, cancellation, target and principal checks", async () => {
 	const f = await fixture();
 	const s = await session(f);

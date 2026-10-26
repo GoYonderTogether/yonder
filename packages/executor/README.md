@@ -2,6 +2,8 @@
 
 Execution-only device authority and command ledger. It does not import a model runtime or create an Agent. W0 integration owns the package manifest, root workspace wiring, lockfile and public exports; this work package only supplies `src/` and `test/`.
 
+Integration now exposes the `yonder-executor` bin. On Linux, `serve --home <isolated-home>` selects the bundled `createBackendProvider({ home })` bridge and the local Linux desktop provider; `--provider <module>` remains an explicit test/advanced override. Other operating systems require a separately reviewed provider. The `agent-device` driver is optional and must be installed at exactly `0.21.31` in the executor's Node resolution tree before GUI controls can be reported available. It is absent from the default execution-only dependency closure. The compiled `dist/backends/agent-device-worker.js` is included in this package. A headless Linux VM may correctly report GUI operations as unsupported; this is not GUI acceptance.
+
 ## Integration contract
 
 - `src/backend-provider.ts` is the W5 provider boundary. A provider reports real `describe`, `apps` and `snapshot` data and registers actions with capabilities, `mutatesDevice`, argument validation, canonical resource paths for path-based actions, and an abortable `execute`. Providers do not authenticate peers or manage grants, sessions, command records or the device writer lock. An aborted action must settle only after its driver or subprocess has stopped.
