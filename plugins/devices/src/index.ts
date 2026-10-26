@@ -71,7 +71,7 @@ export function createDevicesPlugin(registry?: DeviceRegistry) {
 			};
 			add(
 				"list",
-				"Discover trusted registered devices, effective grant capabilities, cached technical snapshots, and this host/execution environment. No network refresh; unknown connectivity is not ready. Use describe/apps on demand. Read the devices skill for the observe-act-verify-release workflow.",
+				"Discover trusted registered devices, current target/capability authority per grant, cached technical snapshots, and this host/execution environment. No network refresh; unknown connectivity is not ready. Use describe/apps on demand. Read the devices skill for the observe-act-verify-release workflow.",
 				object({}),
 				["read"],
 				(_a, c) => controller.list(c),

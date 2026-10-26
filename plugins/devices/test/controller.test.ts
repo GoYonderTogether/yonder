@@ -3,7 +3,14 @@ import { cp, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { commandDigest, decodeCommand, type PluginAPI, publicKeyId, type ToolContext } from "@yonder/sdk";
+import {
+	commandDigest,
+	type DeviceDescriptor,
+	type Grant,
+	type PluginAPI,
+	publicKeyId,
+	type ToolContext,
+} from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { executeCapabilities } from "../src/controller.js";
@@ -101,6 +108,74 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 			observedAt: null,
 			items: [],
 		});
+	});
+	it("filters current grants and cached targets after authority narrows or ends", async () => {
+		const { peer, controller, ctx } = await setup();
+		const processGrant: Grant = { ...peer.grant, capabilities: ["read", "exec"] };
+		const screenGrant: Grant = {
+			...peer.grant,
+			grantId: randomUUID(),
+			targetIds: ["screen"],
+			capabilities: ["read", "write"],
+		};
+		peer.device.grants = [processGrant, screenGrant];
+		peer.state.alterResponse = (response) => {
+			if (!response.ok || peer.seen.at(-1)?.request.method !== "device.describe") return response;
+			return {
+				...response,
+				result: {
+					...(response.result as DeviceDescriptor),
+					targets: [
+						{ id: "process", name: "Process" },
+						{ id: "screen", name: "Screen" },
+					],
+					capabilities: [
+						{ id: "test.process", version: "1", scope: "process", state: "available" },
+						{ id: "test.screen", version: "1", scope: "screen", state: "available" },
+					],
+				},
+			};
+		};
+		const fresh = (await controller.list(ctx)) as { devices: Array<Record<string, unknown>> };
+		expect(fresh.devices[0]).toMatchObject({
+			grants: [
+				{ targetIds: ["process"], capabilities: ["read", "exec"] },
+				{ targetIds: ["screen"], capabilities: ["read", "write"] },
+			],
+		});
+		expect(fresh.devices[0]).not.toHaveProperty("capabilities");
+		const readonly = (await controller.list(context({ capabilities: ["read"] }))) as {
+			devices: Array<Record<string, unknown>>;
+		};
+		expect(readonly.devices[0]).toMatchObject({
+			grants: [
+				{ targetIds: ["process"], capabilities: ["read"] },
+				{ targetIds: ["screen"], capabilities: ["read"] },
+			],
+		});
+		expect((await controller.describe(peer.device.deviceId, ctx)).targets).toHaveLength(2);
+		peer.device.grants = [{ ...processGrant, capabilities: ["read"] }];
+		const narrowed = (await controller.list(ctx)) as { devices: Array<Record<string, unknown>> };
+		expect(narrowed.devices[0]).toMatchObject({
+			grants: [{ targetIds: ["process"], capabilities: ["read"] }],
+			lastKnown: {
+				targets: [{ id: "process" }],
+				capabilities: [{ id: "test.process", scope: "process" }],
+			},
+		});
+		expect(JSON.stringify(narrowed)).not.toContain("screen");
+		expect((await controller.describe(peer.device.deviceId, ctx)).targets).toEqual([
+			{ id: "process", name: "Process" },
+		]);
+		for (const grant of [
+			{ ...processGrant, expiresAt: new Date(Date.now() - 1_000).toISOString() },
+			{ ...processGrant, revokedAt: new Date().toISOString() },
+		]) {
+			peer.device.grants = [grant];
+			const ended = (await controller.list(ctx)) as { devices: Array<Record<string, unknown>> };
+			expect(ended.devices[0]).toMatchObject({ grants: [], authorization: "no-current-read-grant" });
+			expect(ended.devices[0]).not.toHaveProperty("lastKnown");
+		}
 	});
 	it("signs actual context origin and intersects one grant without unioning privileges", async () => {
 		const { peer, controller } = await setup();

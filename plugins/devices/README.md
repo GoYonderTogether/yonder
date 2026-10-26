@@ -1,8 +1,8 @@
 # Devices controller — W2
 
-W0 base: `0591eae69f45f6973259833e44386a421998b277`. This worktree implements the full-host controller logic under [device execution v1](../../docs/spec/18-device-execution.md). It does not implement W1 pairing/daemon/authorization, W3 relay, a second Agent runtime, a scheduler or an ExecutionEnv replacement.
+W0 base: `0591eae69f45f6973259833e44386a421998b277`. This worktree implements the full-host controller logic under [device execution v1](../../docs/spec/18-device-execution.md). It does not implement W1 pairing/daemon/authorization, the W3 relay service, a second Agent runtime, a scheduler or an ExecutionEnv replacement.
 
-The plugin contributes `devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_status`, `devices_cancel`, `devices_close`, the on-demand `devices` skill, and a `devices-connections` lifecycle trigger that only closes owned sockets on shutdown. It contributes no contexts, presets or hooks. Installation does not add tools or capabilities to any profile. Inventory is read on demand, never injected on each turn. `list` distinguishes the controller host from `ctx.env`; it never registers that host as an execution device. Cached descriptors remain explicitly cached and connectivity remains unknown until refreshed. Unsupported apps/UI/restore and execution states are preserved.
+The plugin contributes `devices_list`, `devices_describe`, `devices_apps`, `devices_open`, `devices_observe`, `devices_execute`, `devices_status`, `devices_cancel`, `devices_close`, the on-demand `devices` skill, and a `devices-connections` lifecycle trigger that only closes owned sockets on shutdown. It contributes no contexts, presets or hooks. Installation does not add tools or capabilities to any profile. Inventory is read on demand, never injected on each turn. `list` distinguishes the controller host from `ctx.env`; it never registers that host as an execution device. It reports targets and effective capabilities per current grant, never a combined grant, and filters cached descriptor targets and their scoped support capabilities through current read grants. Cached descriptors remain explicitly cached and connectivity remains unknown until refreshed. Unsupported apps/UI/restore and execution states are preserved.
 
 ## Configured default plugin and W1 pairing records
 
@@ -99,3 +99,13 @@ The original controller commit `7b96663b558a2fc04fa0ac6dc9ef65b9bed3bd83` is ret
 Follow-up raw evidence: `/tmp/yonder-w2-connect-{tests,tests2,final,typecheck,lint,full-test,biome-final}.log`. No formal home/credentials, production Card, OAuth data, VM or OS security setting was used or modified. Temporary TLS certificates, controller/device identities, database device sessions and file effects were cleaned up by the test.
 
 Real Agent acceptance is **untested: no authorized model credentials in this isolated home** (`.yonder/auth.json` absent); no fake model was used. The 40 root skips remain skips, not passes. W1/W3 component integration does not replace final installed-product/model acceptance. Checkpoint restore remains unsupported.
+
+## Grant-scoped discovery follow-up
+
+`devices_list` now reports current targets and effective capabilities **per read grant**, instead of presenting a cross-grant capability union. Both a fresh `devices_describe` response and a previously cached descriptor are projected through the current local read grants: target entries and support capabilities scoped to removed targets disappear. With an expired or revoked local grant, the cached descriptor is omitted. The single-grant `devices_open` selection is unchanged.
+
+- The new regression caches a signed two-target descriptor, narrows to one target and read-only authority, and checks fresh discovery, cached output, refreshed description, expiration and revocation. It also checks the ToolContext capability intersection.
+- Dedicated W2 build and strict TypeScript check of the modified test: exit 0. Biome on changed code/test files: exit 0 with pre-existing non-null test warnings.
+- Ordinary sandbox test: 1 passed / 13 failed because loopback `listen` returned `EPERM`. Permission-reviewed isolated run: **14 passed / 0 failed**. Real component run with temporary W1 HTTPS, W3 Card, PostgreSQL and Redis: **15 passed / 0 failed**. W1 source at test time: `38969100122f7d847b8f8968d9a7bd2cbecd10bc` (separate CLI/Card changes were in progress); W3: `269e75fede8a535d0ed9c117e6c2e67ed775ac8e`.
+
+`devices_list` is an offline view of the operator-supplied W1 grant snapshot. A revocation performed only on a remote executor cannot appear in this offline view until the controller configuration is updated; the executor still rejects subsequent unauthorized RPCs. W0 defines no grant-discovery RPC, so a live revocation feed requires a separate contract decision rather than an invented W2 endpoint.

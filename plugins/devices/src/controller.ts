@@ -76,6 +76,14 @@ export class DeviceController {
 				ctx.capabilities.includes(capability),
 		);
 	}
+	private visibleDescriptor(descriptor: DeviceDescriptor, grants: readonly Grant[]): DeviceDescriptor {
+		const targets = new Set(grants.flatMap((grant) => grant.targetIds));
+		return {
+			...descriptor,
+			targets: descriptor.targets.filter((target) => targets.has(target.id)),
+			capabilities: descriptor.capabilities.filter((capability) => targets.has(capability.scope)),
+		};
+	}
 	async list(ctx: ToolContext): Promise<unknown> {
 		requireCaps(ctx, ["read"]);
 		const devices = await this.registry();
@@ -88,12 +96,20 @@ export class DeviceController {
 				return {
 					deviceId: device.deviceId,
 					name: device.name,
-					capabilities: executeCapabilities.filter(
-						(c) => ctx.capabilities.includes(c) && grants.some((g) => g.capabilities.includes(c)),
-					),
+					grants: grants.map((grant) => ({
+						targetIds: [...grant.targetIds],
+						capabilities: executeCapabilities.filter(
+							(capability) => ctx.capabilities.includes(capability) && grant.capabilities.includes(capability),
+						),
+					})),
 					connectivity: device.routes.length ? "unknown" : "offline",
 					authorization: grants.length ? "granted" : "no-current-read-grant",
-					...(grants.length && lastKnown ? { lastKnown, freshness: "cached; use devices_describe to refresh" } : {}),
+					...(grants.length && lastKnown
+						? {
+								lastKnown: this.visibleDescriptor(lastKnown, grants),
+								freshness: "cached; use devices_describe to refresh",
+							}
+						: {}),
 				};
 			}),
 		);
@@ -124,8 +140,10 @@ export class DeviceController {
 			await rpc(device, "device.describe", {}, ctx.signal),
 		);
 		if (result.deviceId !== deviceId) throw new Error("WRONG_TARGET");
+		const grants = this.grants(device, ctx);
+		if (!grants.length) throw new RemoteError("UNAUTHORIZED", "No current device read grant");
 		await this.store.cache(result);
-		return result;
+		return this.visibleDescriptor(result, grants);
 	}
 	async apps(deviceId: string, targetId: string, ctx: ToolContext): Promise<AppInventory> {
 		const device = await this.readable(deviceId, ctx);
