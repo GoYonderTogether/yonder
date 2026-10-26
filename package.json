@@ -9,6 +9,7 @@
 	"workspaces": [
 		"packages/pi-durable",
 		"packages/execution-protocol",
+		"packages/executor",
 		"packages/sdk",
 		"packages/core",
 		"packages/cli",

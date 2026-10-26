@@ -8,6 +8,9 @@
 			"path": "packages/execution-protocol"
 		},
 		{
+			"path": "packages/executor"
+		},
+		{
 			"path": "packages/sdk"
 		},
 		{
