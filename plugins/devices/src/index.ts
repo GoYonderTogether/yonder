@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
 import { Check } from "typebox/value";
+import { configSchema, configuredRegistry } from "./connections.js";
 import { DeviceController, executeCapabilities, toolError } from "./controller.js";
 import { type DeviceRegistry, RemoteError } from "./transport.js";
 
@@ -22,10 +23,15 @@ const object = (properties: Record<string, unknown>): TSchema =>
 	}) as TSchema;
 
 /** Integration injects only an already-paired registry; setup does no IO and cannot pair devices. */
-export function createDevicesPlugin(registry: DeviceRegistry) {
+export function createDevicesPlugin(registry?: DeviceRegistry) {
 	return definePlugin({
+		configSchema,
 		setup(api) {
-			const controller = new DeviceController(api.paths.data, registry);
+			const connections = registry
+				? { registry, close: async () => {} }
+				: configuredRegistry(api.config, api.credentials);
+			const controller = new DeviceController(api.paths.data, connections.registry);
+			api.triggers.register({ id: "devices-connections", start: async () => {}, stop: connections.close });
 			const add = (
 				name: string,
 				description: string,
@@ -145,4 +151,4 @@ export function createDevicesPlugin(registry: DeviceRegistry) {
 }
 
 // No implicit pairing, credential generation, default device, or host registration on installation.
-export default createDevicesPlugin(async () => []);
+export default createDevicesPlugin();

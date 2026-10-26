@@ -60,6 +60,7 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 							(n) => `devices_${n}`,
 						),
 						skills: ["devices"],
+						triggers: ["devices-connections"],
 					},
 				},
 			}),
@@ -70,7 +71,7 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		expect(registrations.tools).toHaveLength(9);
 		expect(registrations.contexts).toHaveLength(0);
 		expect(registrations.presets).toHaveLength(0);
-		expect(registrations.triggers).toHaveLength(0);
+		expect(registrations.triggers).toHaveLength(1);
 		await expect(stat(join(stage, "must-not-exist"))).rejects.toMatchObject({ code: "ENOENT" });
 		const result = await registrations.tools[0]!.execute({}, context({ capabilities: ["read"] }));
 		expect(JSON.parse(result.text)).toMatchObject({

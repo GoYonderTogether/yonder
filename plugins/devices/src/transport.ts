@@ -72,9 +72,9 @@ export async function rpc<M extends RpcRequest["method"]>(
 		params,
 	} as RpcRequest;
 	const envelope = signMessage(request, device.controllerKey);
-	const budget = AbortSignal.any([signal, AbortSignal.timeout(15_000)]);
 	// Only queries can fall through to another route. Lost submit ACKs are queried by command ID.
 	for (const route of queries.has(method) ? device.routes : device.routes.slice(0, 1)) {
+		const budget = AbortSignal.any([signal, AbortSignal.timeout(15_000)]);
 		try {
 			budget.throwIfAborted();
 			const response = verifyMessage(await route.exchange(envelope, budget), device.deviceKey, {
@@ -89,7 +89,7 @@ export async function rpc<M extends RpcRequest["method"]>(
 			return response.result;
 		} catch (error) {
 			if (error instanceof RemoteError) throw error;
-			if (budget.aborted) break;
+			if (signal.aborted) break;
 		}
 	}
 	throw new UnconfirmedRequest(requestId, device.routes.length ? "unknown" : "offline");
