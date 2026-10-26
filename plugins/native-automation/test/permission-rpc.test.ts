@@ -215,6 +215,29 @@ describe("file RPC validation and dispatch, no real Helper", () => {
 });
 
 describe("location RPC contract, no native manager or coordinates", () => {
+	it("request timeout diagnostic metadata survives launcher JSON unchanged", async () => {
+		const response = {
+			action: "location-request",
+			ok: false,
+			outcome: "timeout",
+			authorization: "notDetermined",
+			failure: {
+				code: "LOCATION_TIMEOUT",
+				message: "Location operation exceeded its deadline.",
+				diagnostics: {
+					firstAuthorizationCallbackMs: 125,
+					activationRequested: true,
+					didBecomeActiveReceived: false,
+					isActive: false,
+					lastStage: "waitingForActivation",
+				},
+			},
+		};
+		mock.responses = [[response]];
+		expect(await rpc({ action: "location-request", timeout: 1 })).toEqual(response);
+		expect(mock.launchCount).toBe(1);
+		expect(process.exitCode).toBeUndefined();
+	});
 	it.each(["location-status", "location-request", "location-collect"])("%s stays the original RPC", async (action) => {
 		const response = {
 			action,

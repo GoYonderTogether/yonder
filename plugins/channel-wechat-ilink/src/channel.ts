@@ -15,7 +15,14 @@ import {
 	type PluginAPI,
 	parseRef,
 } from "@yonder/sdk";
-import { checkedServerBase, createClient, type Item, type Message } from "./client.js";
+import {
+	checkedServerBase,
+	createClient,
+	IlinkRequestError,
+	type IlinkStage,
+	type Item,
+	type Message,
+} from "./client.js";
 
 export interface Config {
 	person?: string | null;
@@ -405,6 +412,7 @@ export class IlinkChannel implements Channel {
 			.then(async (): Promise<Delivery> => {
 				let attempted = false,
 					sent = 0;
+				let stage: IlinkStage | "preflight" = "preflight";
 				const id = `yonder-wechat-${randomUUID()}`;
 				try {
 					await this.initialize();
@@ -426,10 +434,13 @@ export class IlinkChannel implements Channel {
 					const characters = Array.from(msg.text);
 					for (let offset = 0; offset < characters.length; offset += 2000)
 						outgoing.push({ type: 1, text_item: { text: characters.slice(offset, offset + 2000).join("") } });
-					for (const attachment of msg.attachments ?? [])
+					for (const attachment of msg.attachments ?? []) {
+						stage = "attachment-read";
 						outgoing.push(await this.client.upload(attachment, peer, signal));
+					}
 					if (!outgoing.length) throw new Error("Empty iLink message");
 					for (let index = 0; index < outgoing.length; index++) {
+						stage = "sendmessage";
 						signal?.throwIfAborted();
 						const item = outgoing[index]!;
 						if (msg.replyTo && index === 0) Object.assign(item, { ref_msg: { svr_id: msg.replyTo } });
@@ -457,18 +468,29 @@ export class IlinkChannel implements Channel {
 					}
 					return { ok: true, id };
 				} catch (error) {
+					// Upload preparation is not a message attempt. A confirmed earlier part must
+					// remain uncertain even if a later part receives a definite rejection.
 					const rejected =
-						sent === 0 && error instanceof Error && /API request failed (?:ret=-?\d+|http=4\d\d)$/.test(error.message);
+						sent === 0 && error instanceof IlinkRequestError && error.stage === "sendmessage" && error.rejected;
+					const diagnostic = error instanceof IlinkRequestError ? error.diagnostic : { stage };
+					this.api.log.warn("iLink send failed", {
+						instance: this.id,
+						...diagnostic,
+						attempted,
+						confirmedParts: sent,
+						uncertain: attempted && !rejected,
+					});
+					const detail = `; ${JSON.stringify(diagnostic)}`;
 					return {
 						ok: false,
 						...(attempted && !rejected ? { uncertain: true, id } : {}),
 						error: rejected
-							? "ILINK_SEND_REJECTED"
+							? `ILINK_SEND_REJECTED${detail}`
 							: attempted
-								? `ILINK_DELIVERY_UNCERTAIN: ${sent} parts confirmed; do not resend`
+								? `ILINK_DELIVERY_UNCERTAIN: ${sent} parts confirmed; do not resend${detail}`
 								: error instanceof Error && /^(?:ILINK_|Target |iLink |Empty )/.test(error.message)
 									? error.message
-									: "ILINK_SEND_FAILED",
+									: `ILINK_SEND_FAILED${detail}`,
 					};
 				}
 			});

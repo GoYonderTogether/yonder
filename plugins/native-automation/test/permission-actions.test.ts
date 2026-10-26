@@ -486,6 +486,49 @@ describe("shared provider and legacy native entry", () => {
 });
 
 describe("location provider and desktop wiring, no live CoreLocation", () => {
+	it.each([
+		{
+			lastStage: "waitingForAuthorizationCallback",
+			activationRequested: false,
+			didBecomeActiveReceived: false,
+			isActive: false,
+		},
+		{
+			firstAuthorizationCallbackMs: 125,
+			lastStage: "waitingForActivation",
+			activationRequested: true,
+			didBecomeActiveReceived: false,
+			isActive: false,
+		},
+		{
+			firstAuthorizationCallbackMs: 125,
+			lastStage: "authorizationRequested",
+			activationRequested: true,
+			didBecomeActiveReceived: true,
+			isActive: true,
+		},
+	])("request timeout diagnostics survive desktop and provider: $lastStage", async (diagnostics) => {
+		// Contract fixtures only; no real initialization, activation or OS request.
+		const raw = {
+			action: "location-request",
+			ok: false,
+			outcome: "timeout",
+			authorization: "notDetermined",
+			callbackReceived: diagnostics.firstAuthorizationCallbackMs !== undefined,
+			requestIssued: diagnostics.lastStage === "authorizationRequested",
+			collectionStarted: false,
+			failure: { code: "LOCATION_TIMEOUT", message: "Location operation exceeded its deadline.", diagnostics },
+		};
+		transport.desktop.mockResolvedValue(raw);
+		const reply = await tool.execute({ action: "location-request", timeout: 1 }, ctx);
+		expect(reply.isError).toBe(true);
+		expect(JSON.parse(reply.text).result).toEqual(raw);
+		expect((await provider.invoke({ provider: provider.id, action: "request", kind: "location" }, ctx)).result).toBe(
+			raw,
+		);
+		expect(transport.desktop).toHaveBeenCalledTimes(2);
+		expect(raw.failure.diagnostics).not.toHaveProperty("location");
+	});
 	it("advertises location in the existing registry", () => {
 		expect(provider.kinds).toContain("location");
 	});

@@ -6,6 +6,60 @@ struct LocationFailure: Codable, Error {
     let message: String
     var domain: String? = nil
     var nativeCode: Int? = nil
+    var diagnostics: LocationRequestDiagnostics? = nil
+}
+// Failure-only, bounded metadata. No authorization decisions, location samples,
+// wall-clock timestamps, app/window names or native error text are recorded.
+struct LocationRequestDiagnostics: Codable {
+    enum Stage: String, Codable {
+        case validatingArguments, waitingForAuthorizationCallback, authorizationCallbackReceived
+        case waitingForActivation, authorizationRequested
+    }
+    var firstAuthorizationCallbackMs: Int?
+    var activationRequested = false
+    var didBecomeActiveReceived = false
+    var lastStage: Stage = .validatingArguments
+    let isActive: Bool
+}
+// The live delegate supplies events; tests supply events and a monotonic clock.
+// This recorder observes the existing flow and never drives or retries it.
+struct LocationRequestTrace {
+    enum Event {
+        case waitingForAuthorizationCallback, authorizationCallback, activationRequested
+        case didBecomeActive, authorizationRequested
+    }
+    private let started: TimeInterval
+    private let now: () -> TimeInterval
+    private var firstAuthorizationCallbackMs: Int?
+    private var activationRequested = false
+    private var didBecomeActiveReceived = false
+    private var lastStage: LocationRequestDiagnostics.Stage = .validatingArguments
+
+    init(started: TimeInterval, now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+        self.started = started; self.now = now
+    }
+    mutating func record(_ event: Event) {
+        switch event {
+        case .waitingForAuthorizationCallback: lastStage = .waitingForAuthorizationCallback
+        case .authorizationCallback:
+            if firstAuthorizationCallbackMs == nil {
+                firstAuthorizationCallbackMs = max(0, Int((now() - started) * 1000))
+                lastStage = .authorizationCallbackReceived
+            }
+        case .activationRequested:
+            activationRequested = true; lastStage = .waitingForActivation
+        case .didBecomeActive:
+            didBecomeActiveReceived = true
+        case .authorizationRequested: lastStage = .authorizationRequested
+        }
+    }
+    func annotating(_ failure: LocationFailure, isActive: Bool) -> LocationFailure {
+        var result = failure
+        result.diagnostics = LocationRequestDiagnostics(firstAuthorizationCallbackMs: firstAuthorizationCallbackMs,
+            activationRequested: activationRequested, didBecomeActiveReceived: didBecomeActiveReceived,
+            lastStage: lastStage, isActive: isActive)
+        return result
+    }
 }
 struct LocationSample: Codable {
     let latitude: Double
@@ -97,6 +151,7 @@ enum LocationPolicy {
     private var activationObserver: NSObjectProtocol?
     private var deadline: TimeInterval = 0
     private var started = ProcessInfo.processInfo.systemUptime
+    private var requestTrace = LocationRequestTrace(started: ProcessInfo.processInfo.systemUptime)
     private var action = "location-status"
     private var callbackReceived = false
     private var collecting = false
@@ -108,6 +163,7 @@ enum LocationPolicy {
     func run(_ args: [String: Any]) async -> LocationResponse {
         action = args["action"] as? String ?? "location-status"
         started = ProcessInfo.processInfo.systemUptime
+        requestTrace = LocationRequestTrace(started: started)
         let timeout: TimeInterval
         do { timeout = try LocationPolicy.timeout(args); try checkCancellation() }
         catch let error as LocationFailure { return response("error", error) }
@@ -119,6 +175,7 @@ enum LocationPolicy {
                 if Task.isCancelled {
                     finish("cancelled", LocationFailure(code: "LOCATION_CANCELLED", message: "Location operation cancelled.")); return
                 }
+                requestTrace.record(.waitingForAuthorizationCallback)
                 let current = CLLocationManager()
                 manager = current
                 current.delegate = self
@@ -143,6 +200,9 @@ enum LocationPolicy {
         }
     }
     private func response(_ outcome: String, _ failure: LocationFailure? = nil, location: CLLocation? = nil) -> LocationResponse {
+        let failure = action == "location-request" ? failure.map {
+            requestTrace.annotating($0, isActive: NSApplication.shared.isActive)
+        } : failure
         let authorization = manager?.authorizationStatus
         let accuracy: String
         switch manager?.accuracyAuthorization {
@@ -184,11 +244,16 @@ enum LocationPolicy {
                 activationObserver = NotificationCenter.default.addObserver(
                     forName: NSApplication.didBecomeActiveNotification, object: NSApplication.shared, queue: .main
                 ) { [weak self] _ in
-                    Task { @MainActor in self?.requestIfActive() }
+                    Task { @MainActor in
+                        guard let self, !self.finished else { return }
+                        self.requestTrace.record(.didBecomeActive)
+                        self.requestIfActive()
+                    }
                 }
                 // Only the explicit request path may activate. Calling the OS
                 // API immediately after activate() can be too early; wait for
                 // the real didBecomeActive event (or already-active state).
+                requestTrace.record(.activationRequested)
                 NSApplication.shared.activate(ignoringOtherApps: true)
             }
             requestIfActive()
@@ -216,10 +281,12 @@ enum LocationPolicy {
         guard canContinue(), !requested, NSApplication.shared.isActive,
               let manager, manager.authorizationStatus == .notDetermined else { return }
         requested = true
+        requestTrace.record(.authorizationRequested)
         manager.requestWhenInUseAuthorization()
     }
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         callbackReceived = true
+        if !finished { requestTrace.record(.authorizationCallback) }
         resolveAuthorization()
     }
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {

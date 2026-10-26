@@ -71,6 +71,54 @@ export interface Message {
 	item_list?: Item[];
 }
 export type { Item };
+
+// Only these locally chosen labels and numeric codes may cross the diagnostic boundary.
+export type IlinkStage =
+	| "api-request"
+	| "attachment-read"
+	| "upload-url"
+	| "cdn-upload"
+	| "cdn-download"
+	| "sendmessage";
+type FailureReason = "transport" | "http" | "ret" | "invalid-response";
+export class IlinkRequestError extends Error {
+	readonly httpStatus: number | undefined;
+	readonly ret: number | undefined;
+	readonly errcode: number | undefined;
+	constructor(
+		readonly stage: IlinkStage,
+		readonly reason: FailureReason,
+		codes: { httpStatus?: unknown; ret?: unknown; errcode?: unknown } = {},
+	) {
+		const safeCode = (value: unknown): number | undefined =>
+			typeof value === "number" && Number.isSafeInteger(value) ? value : undefined;
+		const http = safeCode(codes.httpStatus);
+		const httpStatus = http !== undefined && http >= 100 && http <= 599 ? http : undefined;
+		const ret = safeCode(codes.ret),
+			errcode = safeCode(codes.errcode);
+		super(
+			`wechat-ilink: request failed stage=${stage} reason=${reason}${httpStatus === undefined ? "" : ` http=${httpStatus}`}${ret === undefined ? "" : ` ret=${ret}`}${errcode === undefined ? "" : ` errcode=${errcode}`}`,
+		);
+		this.httpStatus = httpStatus;
+		this.ret = ret;
+		this.errcode = errcode;
+	}
+	get rejected(): boolean {
+		return this.reason === "ret"
+			? (this.ret !== undefined && this.ret !== 0) || (this.errcode !== undefined && this.errcode !== 0)
+			: this.reason === "http" && this.httpStatus !== undefined && this.httpStatus >= 400 && this.httpStatus < 500;
+	}
+	get diagnostic() {
+		return {
+			stage: this.stage,
+			reason: this.reason,
+			...(this.httpStatus === undefined ? {} : { httpStatus: this.httpStatus }),
+			...(this.ret === undefined ? {} : { ret: this.ret }),
+			...(this.errcode === undefined ? {} : { errcode: this.errcode }),
+		};
+	}
+}
+
 export function createClient(options: {
 	base: () => string;
 	token: () => Promise<string | undefined>;
@@ -93,12 +141,20 @@ export function createClient(options: {
 			headers.AuthorizationType = "ilink_bot_token";
 			headers["X-WECHAT-UIN"] = Buffer.from(String(randomBytes(4).readUInt32BE())).toString("base64");
 		}
-		if (authenticated) {
-			const token = await options.token();
-			if (!token) throw new Error("wechat-ilink: credential unavailable");
-			headers.Authorization = `Bearer ${token}`;
-		}
+		const path = endpoint.split("?")[0];
+		const stage =
+			path === "ilink/bot/getuploadurl"
+				? "upload-url"
+				: path === "ilink/bot/sendmessage"
+					? "sendmessage"
+					: "api-request";
+		let httpStatus: number | undefined;
 		try {
+			if (authenticated) {
+				const token = await options.token();
+				if (!token) throw new Error("wechat-ilink: credential unavailable");
+				headers.Authorization = `Bearer ${token}`;
+			}
 			const response = await (options.fetch ?? fetch)(new URL(endpoint, `${requestBase}/`), {
 				method: body === undefined ? "GET" : "POST",
 				headers,
@@ -106,24 +162,23 @@ export function createClient(options: {
 				redirect: "error",
 				signal: AbortSignal.any([options.signal, signal, AbortSignal.timeout(timeoutMs)]),
 			});
-			if (!response.ok) throw new Error(`http=${response.status}`);
+			httpStatus = response.status;
+			if (!response.ok) throw new IlinkRequestError(stage, "http", { httpStatus });
 			// Node 24 JSON reviver source keeps uint64 identifiers exact without a custom parser.
 			const result = JSON.parse(await response.text(), (key, value, source?: { source?: string }) =>
 				["message_id", "msg_id", "svr_id"].includes(key) && typeof value === "number" ? source?.source : value,
 			);
-			if (!result || typeof result !== "object" || Array.isArray(result)) throw new Error("invalid response");
+			if (!result || typeof result !== "object" || Array.isArray(result))
+				throw new IlinkRequestError(stage, "invalid-response", { httpStatus });
 			if (result.ret !== undefined && result.ret !== 0)
-				throw new Error(`ret=${Number.isFinite(result.ret) ? result.ret : "invalid"}`);
+				throw new IlinkRequestError(stage, "ret", { httpStatus, ret: result.ret });
 			if (result.errcode !== undefined && result.errcode !== 0)
-				throw new Error(`ret=${Number.isFinite(result.errcode) ? result.errcode : "invalid"}`);
+				throw new IlinkRequestError(stage, "ret", { httpStatus, ret: result.ret, errcode: result.errcode });
 			return result;
 		} catch (error) {
-			const reason =
-				error instanceof Error && /^(?:http=\d{3}|ret=-?\d+|ret=invalid)$/.test(error.message)
-					? error.message
-					: "transport";
-			throw new Error(`wechat-ilink: API request failed ${reason}`);
-		} // Never expose response bodies or credentials.
+			if (error instanceof IlinkRequestError) throw error;
+			throw new IlinkRequestError(stage, "transport", { httpStatus });
+		} // Never retain the original error, response body, request URL or credentials.
 	};
 	const baseInfo = { channel_version: VERSION, bot_agent: `Yonder/${VERSION}` };
 	const mediaFetch = async (value: string, bytes?: Uint8Array, signal = options.signal): Promise<Response> => {
@@ -136,6 +191,7 @@ export function createClient(options: {
 			(!test && (url.protocol !== "https:" || !url.hostname.endsWith(".cdn.weixin.qq.com")))
 		)
 			throw new Error("wechat-ilink: untrusted CDN origin");
+		const stage = bytes ? "cdn-upload" : "cdn-download";
 		try {
 			const result = await (options.fetch ?? fetch)(url, {
 				method: bytes ? "POST" : "GET",
@@ -143,10 +199,11 @@ export function createClient(options: {
 				...(bytes ? { headers: { "Content-Type": "application/octet-stream" }, body: Buffer.from(bytes) } : {}),
 				signal: AbortSignal.any([options.signal, signal, AbortSignal.timeout(60_000)]),
 			});
-			if (!result.ok) throw new Error("HTTP failure");
+			if (!result.ok) throw new IlinkRequestError(stage, "http", { httpStatus: result.status });
 			return result;
-		} catch {
-			throw new Error("wechat-ilink: media transfer failed");
+		} catch (error) {
+			if (error instanceof IlinkRequestError) throw error;
+			throw new IlinkRequestError(stage, "transport");
 		}
 	};
 	const download = async (item: Item): Promise<Attachment[]> => {
@@ -290,41 +347,38 @@ export function createClient(options: {
 		const cipher = createCipheriv("aes-128-ecb", key, null),
 			encrypted = Buffer.concat([cipher.update(bytes), cipher.final()]);
 		const mediaType = { image: 1, video: 2, file: 3, audio: 3 }[attachment.kind];
-		let uploaded: Record<string, any>;
-		try {
-			uploaded = await request(
-				"ilink/bot/getuploadurl",
-				{
-					filekey,
-					media_type: mediaType,
-					to_user_id: peer,
-					rawsize: bytes.byteLength,
-					rawfilemd5: createHash("md5").update(bytes).digest("hex"),
-					filesize: encrypted.length,
-					no_need_thumb: true,
-					aeskey: key.toString("hex"),
-					base_info: baseInfo,
-				},
-				true,
-				undefined,
-				undefined,
-				signal,
-			);
-		} catch {
-			throw new Error("wechat-ilink: upload URL failed");
-		}
-		if (!uploaded.upload_full_url && !uploaded.upload_param) throw new Error("wechat-ilink: invalid upload URL");
+		const uploaded = await request(
+			"ilink/bot/getuploadurl",
+			{
+				filekey,
+				media_type: mediaType,
+				to_user_id: peer,
+				rawsize: bytes.byteLength,
+				rawfilemd5: createHash("md5").update(bytes).digest("hex"),
+				filesize: encrypted.length,
+				no_need_thumb: true,
+				aeskey: key.toString("hex"),
+				base_info: baseInfo,
+			},
+			true,
+			undefined,
+			undefined,
+			signal,
+		);
+		if (!uploaded.upload_full_url && !uploaded.upload_param)
+			throw new IlinkRequestError("upload-url", "invalid-response");
 		const target =
 			uploaded.upload_full_url ??
 			`${CDN}/upload?encrypted_query_param=${encodeURIComponent(uploaded.upload_param)}&filekey=${filekey}`;
 		let response: Response;
 		try {
 			response = await mediaFetch(target, encrypted, signal);
-		} catch {
-			throw new Error("wechat-ilink: CDN upload failed");
+		} catch (error) {
+			if (error instanceof IlinkRequestError) throw error;
+			throw new IlinkRequestError("cdn-upload", "invalid-response");
 		}
 		const parameter = response.headers.get("x-encrypted-param");
-		if (!parameter) throw new Error("wechat-ilink: upload reference missing");
+		if (!parameter) throw new IlinkRequestError("cdn-upload", "invalid-response", { httpStatus: response.status });
 		const media = {
 			encrypt_query_param: parameter,
 			aes_key: Buffer.from(key.toString("hex")).toString("base64"),

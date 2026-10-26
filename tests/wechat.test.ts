@@ -175,7 +175,7 @@ test("QR pairing persists first owner, keeps second independent and uses per-pee
 		sendFailure = "reject";
 		expect(await first.send("conv:wechat-primary:peer-1", { text: "definite rejection" })).toMatchObject({
 			ok: false,
-			error: "ILINK_SEND_REJECTED",
+			error: expect.stringContaining('ILINK_SEND_REJECTED; {"stage":"sendmessage"'),
 		});
 		sendFailure = "none";
 
