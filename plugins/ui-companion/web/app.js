@@ -325,7 +325,7 @@ function boardNode(tag, text, className) {
 	if (className) node.className = className;
 	return node;
 }
-function boardItems(items, target) {
+function boardItems(items, target, groupIds) {
 	for (const item of items) {
 		const row = boardNode("div", undefined, "board-item");
 		const button = boardNode("button", `${item.ref} ${item.title}`, "board-task");
@@ -348,9 +348,10 @@ function boardItems(items, target) {
 				item.stalled ? "board-stalled" : "context",
 			),
 		);
-		if (item.children.length) {
+		const nested = groupIds ? item.children.filter((child) => groupIds.has(child.id)) : item.children;
+		if (nested.length) {
 			const children = boardNode("div", undefined, "board-children");
-			boardItems(item.children, children);
+			boardItems(nested, children, groupIds);
 			row.append(children);
 		}
 		target.append(row);
@@ -404,7 +405,12 @@ ${JSON.stringify(event.data)}`,
 			section.dataset.group = group.id;
 			if (group.id === "done") section.open = expanded.includes(group.id);
 			section.append(boardNode(group.id === "done" ? "summary" : "h2", `${labels[group.id]} · ${group.items.length}`));
-			boardItems(group.items, section);
+			const groupIds = new Set(group.items.map((item) => item.id));
+			boardItems(
+				group.items.filter((item) => !groupIds.has(item.parent)),
+				section,
+				groupIds,
+			);
 			target.append(section);
 		}
 	}
