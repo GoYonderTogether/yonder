@@ -147,6 +147,10 @@ it.skipIf(!existsSync(chromePath))(
 					'[...document.querySelectorAll("#board-content > [data-group]")].map(n => n.dataset.group)',
 				),
 			).toEqual(["waiting", "inProgress", "blocked", "done"]);
+			expect(await page.evaluate(`document.querySelectorAll('[data-task="${child.id}"]').length`)).toBe(1);
+			expect(
+				await page.evaluate(`document.querySelector('[data-group="inProgress"] [data-task="${child.id}"]') !== null`),
+			).toBe(true);
 			expect(await page.evaluate('document.querySelector("details[data-group=done]").open')).toBe(false);
 			expect(await page.evaluate('document.querySelector("#board-count").textContent')).toBe("1");
 			expect(await page.evaluate('document.querySelector(".board-stalled").textContent')).toContain("长时间无进展");
@@ -174,6 +178,12 @@ it.skipIf(!existsSync(chromePath))(
 			expect(await page.evaluate('document.querySelector(".panel-scroll").scrollTop')).toBe(80);
 			await page.evaluate('document.querySelector("#board-back").click()');
 			await page.wait('document.querySelector("#board-content")?.textContent.includes("0 等你")');
+			expect(await page.evaluate(`document.querySelectorAll('[data-task="${child.id}"]').length`)).toBe(1);
+			expect(
+				await page.evaluate(
+					`document.querySelector('[data-task="${task.id}"]').parentElement.querySelector('[data-task="${child.id}"]') !== null`,
+				),
+			).toBe(true);
 			const desktop = await f.call("show", { target: "desktop", view: "detail", id: done.ref }, own);
 			expect(JSON.parse(desktop.text).view).toBe("detail");
 			await page.wait('document.querySelector("#board-content")?.textContent.includes("Protocol checked")');
