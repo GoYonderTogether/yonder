@@ -1,6 +1,6 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { statusPath, type StatusSnapshot } from "./snapshot.js";
+import { type StatusSnapshot, statusPath } from "./snapshot.js";
 
 /**
  * 原子发布状态文件。

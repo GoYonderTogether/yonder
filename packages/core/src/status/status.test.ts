@@ -59,7 +59,10 @@ describe("状态面", () => {
 		let clock = 1_000_000;
 		const surface = createStatusSurface({
 			home,
-			source: { read: async () => ({ ready: true, version: "1.0.0", active: 0, agents: [] }), watermark: async () => 1 },
+			source: {
+				read: async () => ({ ready: true, version: "1.0.0", active: 0, agents: [] }),
+				watermark: async () => 1,
+			},
 			now: () => clock,
 			heartbeatMs: 10_000,
 		});

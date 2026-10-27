@@ -1,6 +1,6 @@
-import type { Db } from "../runtime/db.js";
 import { compactBackgroundOutcomes } from "../retention/derived.js";
 import { createRetention, summarizeSweep } from "../retention/index.js";
+import type { Db } from "../runtime/db.js";
 import { codeFor, createSignals } from "../signals/index.js";
 import type { KernelLog } from "./workspace.js";
 
@@ -22,7 +22,11 @@ export interface Observability {
 	stop(): void;
 }
 
-export function createObservability(options: { home: string; log: KernelLog; db: () => Db | undefined }): Observability {
+export function createObservability(options: {
+	home: string;
+	log: KernelLog;
+	db: () => Db | undefined;
+}): Observability {
 	const signals = createSignals({
 		emit: (record) =>
 			options.log(record.level, record.message, {

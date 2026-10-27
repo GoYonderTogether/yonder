@@ -63,7 +63,6 @@ export function codeFor(error: unknown): SignalCode {
 	// 配置类：凭据、scope、鉴权失败。这些不会自愈，必须人处理。
 	if (/invalid appid|invalid secret|scope|unauthorized|access denied|\b(401|403)\b|凭证|凭据/i.test(text))
 		return "channel.config-invalid";
-	if (/transport|ECONN|EPIPE|ECANCELED|socket|disconnect|网络|连接/i.test(text))
-		return "channel.transport-failed";
+	if (/transport|ECONN|EPIPE|ECANCELED|socket|disconnect|网络|连接/i.test(text)) return "channel.transport-failed";
 	return "unknown";
 }

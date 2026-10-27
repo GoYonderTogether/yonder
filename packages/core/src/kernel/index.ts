@@ -13,7 +13,6 @@ import {
 import { createDelivery } from "../delivery/index.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
-import { createObservability } from "./observability.js";
 import {
 	type PromptOptions,
 	prepareInput,
@@ -35,15 +34,9 @@ import { backgroundHandlers } from "./background.js";
 import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
+import { createObservability } from "./observability.js";
 import { terminalApi } from "./terminal.js";
-import {
-	credentialsAndModels,
-	filesFor,
-	type KernelLog,
-	loadAgents,
-	skillsFor,
-	unavailable,
-} from "./workspace.js";
+import { credentialsAndModels, filesFor, type KernelLog, loadAgents, skillsFor, unavailable } from "./workspace.js";
 
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;

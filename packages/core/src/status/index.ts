@@ -1,5 +1,5 @@
 import { createPublisher } from "./publish.js";
-import { sameSnapshot, statusPath, type StatusSnapshot } from "./snapshot.js";
+import { type StatusSnapshot, sameSnapshot, statusPath } from "./snapshot.js";
 
 export type { StatusSnapshot } from "./snapshot.js";
 

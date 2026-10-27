@@ -10,7 +10,6 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
-import { startStatusSurface } from "./status-surface.js";
 import {
 	attachmentFromPath,
 	checkRelease,
@@ -38,6 +37,7 @@ import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
 import { plainTaskChat } from "./plain-chat.js";
+import { startStatusSurface } from "./status-surface.js";
 import type { ChatTarget } from "./terminal.js";
 
 const usage = `Usage: yonder <command> [options]
