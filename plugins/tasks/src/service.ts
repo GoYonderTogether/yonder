@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { ToolContext } from "@yonder/sdk";
 import { renderText, taskBoard } from "./board.js";
-import type { Store } from "./store.js";
+import type { Store } from "./store/index.js";
 
 export interface PanelAgent {
 	id: string;
@@ -84,22 +84,18 @@ export class BoardService {
 						const visible = this.store.list(caller);
 						const ids = new Set(visible.map((task) => task.id));
 						const owners = new Set(visible.map((task) => task.ownerAgent).filter(Boolean));
-						const tasks = visible.map((task) => {
-							const history = this.store.get(task.id, caller).history;
-							const stateIndex = history.findLastIndex((event) => event.data.state !== undefined);
-							const relevant = ["waiting-user", "blocked"].includes(task.state) ? history.slice(stateIndex) : history;
-							const latest = relevant.findLast((event) => event.data.note?.trim() || event.data.deliverable?.trim());
-							return {
-								id: task.id,
-								title: task.title,
-								state: task.state,
-								ownerAgent: task.ownerAgent,
-								// A hidden parent is not looked up or projected, even as a title/id hint.
-								parent: task.parent && ids.has(task.parent) ? task.parent : null,
-								objective: task.objective,
-								progress: latest?.data.note ?? latest?.data.deliverable ?? null,
-							};
-						});
+						// 一次批量取进度，逐任务 get() 会让面板代价随任务数乘以账本量增长。
+						const progress = this.store.progress(visible);
+						const tasks = visible.map((task) => ({
+							id: task.id,
+							title: task.title,
+							state: task.state,
+							ownerAgent: task.ownerAgent,
+							// A hidden parent is not looked up or projected, even as a title/id hint.
+							parent: task.parent && ids.has(task.parent) ? task.parent : null,
+							objective: task.objective,
+							progress: progress.get(task.id) ?? null,
+						}));
 						const agents = (await this.agents())
 							.filter((agent) => owners.has(agent.id))
 							.map(({ id, name, avatarUrl }) => ({ id, name, ...(avatarUrl ? { avatarUrl } : {}) }));

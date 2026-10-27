@@ -1,6 +1,6 @@
 import type { PluginAPI, Trigger } from "@yonder/sdk";
 import { STALL_NOTICE, USER_WAIT_NOTICE } from "./prompts.js";
-import type { Store } from "./store.js";
+import type { Store } from "./store/index.js";
 
 export interface Config {
 	stallMinutes?: number;

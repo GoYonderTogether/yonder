@@ -1,4 +1,4 @@
-import type { Task, TaskEvent } from "./store.js";
+import type { Task, TaskEvent } from "./store/index.js";
 
 export interface BoardItem {
 	id: string;

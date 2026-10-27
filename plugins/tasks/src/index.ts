@@ -8,7 +8,7 @@ import { digest } from "./digest.js";
 import { type Config, moments } from "./moments.js";
 import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, SHOW, UPDATE } from "./prompts.js";
 import { BoardService } from "./service.js";
-import { type Open, Store, type Update } from "./store.js";
+import { type Open, Store, type Update } from "./store/index.js";
 
 const string = { type: "string", minLength: 1, pattern: "\\S" };
 const strings = { type: "array", items: string };

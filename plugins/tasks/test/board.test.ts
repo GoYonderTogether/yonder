@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { renderPng, renderSvg, renderText, taskBoard } from "../src/board.js";
 import { digest } from "../src/digest.js";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store/index.js";
 import { fixture } from "./board-fixture.js";
 
 const content = {

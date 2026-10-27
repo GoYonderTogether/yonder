@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
 import { afterEach, expect, test } from "vitest";
 import { BoardService } from "../../tasks/src/service.js";
-import { Store } from "../../tasks/src/store.js";
+import { Store } from "../../tasks/src/store/index.js";
 import { CompanionService } from "../src/service.js";
 
 // Real loopback HTTP and temporary stores. Upstream protocol failures are controlled

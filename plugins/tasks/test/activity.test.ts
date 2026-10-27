@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { BoardService } from "../src/service.js";
-import { type State, Store } from "../src/store.js";
+import { type State, Store } from "../src/store/index.js";
 
 const content = {
 	title: "Activity protocol check",

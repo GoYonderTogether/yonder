@@ -12,7 +12,7 @@ import { openDatabase } from "../../../packages/core/src/runtime/db.js";
 import { Runtime } from "../../../packages/core/src/runtime/index.js";
 import { createStore } from "../../../packages/core/src/store/index.js";
 import { BoardService } from "../../tasks/src/service.js";
-import { Store } from "../../tasks/src/store.js";
+import { Store } from "../../tasks/src/store/index.js";
 import { CompanionService } from "../src/service.js";
 import { browser } from "./browser.js";
 

@@ -8,7 +8,7 @@ import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { type Config, tick } from "../src/moments.js";
 import { NUDGE_INPUT, STALL_NOTICE, USER_WAIT_NOTICE } from "../src/prompts.js";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store/index.js";
 
 const content = {
 	title: "Inspect required input",

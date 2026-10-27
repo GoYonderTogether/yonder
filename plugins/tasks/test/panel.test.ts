@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { BoardService } from "../src/service.js";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store/index.js";
 
 const caller = (agent: string | null, session = "test"): ToolContext => ({
 	agent,

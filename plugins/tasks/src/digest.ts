@@ -1,6 +1,6 @@
 import type { Hook, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
 import type { Config } from "./moments.js";
-import type { Store } from "./store.js";
+import type { Store } from "./store/index.js";
 
 async function humanMessages(api: PluginAPI, to: string): Promise<YEvent[]> {
 	if (!to.startsWith("conv:") && !to.startsWith("acct:") && !to.startsWith("person:")) return [];

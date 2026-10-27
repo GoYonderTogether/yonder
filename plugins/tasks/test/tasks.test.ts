@@ -13,7 +13,7 @@ import { inspectionServices } from "../../../packages/core/src/kernel/workspace.
 import { loadPlugins } from "../../../packages/core/src/plugins/index.js";
 import { prepareInput } from "../../../packages/core/src/prompt/index.js";
 import { DONE, GET, LIST, NUDGE, OPEN, SHOW, TURN_ONE_LINE, UPDATE } from "../src/prompts.js";
-import { Store, type Task } from "../src/store.js";
+import { Store, type Task } from "../src/store/index.js";
 
 // Protocol fixtures only. SQLite, plugin loading and kernel are real; no model calls.
 const content = {

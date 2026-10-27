@@ -5,7 +5,7 @@ import type { ChannelIO, Hook, OutMessage, PluginAPI, Tool, ToolContext, Trigger
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import type { Config } from "../src/moments.js";
-import { Store } from "../src/store.js";
+import { Store } from "../src/store/index.js";
 
 export async function fixture(
 	config: Config = {},
