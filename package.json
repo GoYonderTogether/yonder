@@ -42,7 +42,8 @@
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"test:node": "node --test scripts/export-model-observations.test.mjs",
-		"lint": "biome check ."
+		"lint:size": "node scripts/check-file-size.mjs",
+		"lint": "biome check . && node scripts/check-file-size.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",

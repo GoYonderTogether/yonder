@@ -1,0 +1,54 @@
+{
+	"packages/core/src/runtime/index.ts": {
+		"lines": 1952,
+		"reason": "待拆分：Runtime 上帝对象，会话生命周期、工具装配、事件分发全在一个类"
+	},
+	"packages/cli/src/index.ts": {
+		"lines": 1063,
+		"reason": "待拆分：main() 里所有子命令的参数解析与装配堆在一起，应按命令拆成独立模块"
+	},
+	"packages/core/src/release/index.ts": {
+		"lines": 938,
+		"reason": "待拆分：版本比较、发布检查、文档读取、服务启停与 launcher 生成混在一个模块"
+	},
+	"packages/cli/src/terminal.ts": {
+		"lines": 894,
+		"reason": "待拆分：交互式终端把渲染、输入处理、会话切换混在一起，应分出渲染层与输入层"
+	},
+	"plugins/channel-feishu/src/channel.ts": {
+		"lines": 877,
+		"reason": "待拆分：FeishuChannel 同时承担事件接入、消息发送与卡片更新，应抽出发送客户端"
+	},
+	"packages/core/src/delivery/index.ts": {
+		"lines": 659,
+		"reason": "待拆分：createDelivery 闭包同时负责路由、回复组装与投递重试"
+	},
+	"packages/core/src/kernel/index.ts": {
+		"lines": 621,
+		"reason": "待拆分：openKernel 装配全部服务，凭证与 provider 登录逻辑应移出"
+	},
+	"plugins/channel-feishu/src/task-card.ts": {
+		"lines": 599,
+		"reason": "待拆分：任务看板的卡片渲染与交互回调混写，应拆出渲染与动作处理"
+	},
+	"plugins/native-automation/src/index.ts": {
+		"lines": 571,
+		"reason": "待拆分：浏览器与应用自动化工具集散落在单一入口，应按目标平台拆分"
+	},
+	"plugins/channel-wechat-ilink/src/channel.ts": {
+		"lines": 542,
+		"reason": "待拆分：IlinkChannel 网络层与消息处理未分离，应抽出协议客户端"
+	},
+	"plugins/cron/src/index.ts": {
+		"lines": 530,
+		"reason": "待拆分：Scheduler 兼做 cron 解析、任务执行与持久化"
+	},
+	"packages/core/src/tools/index.ts": {
+		"lines": 524,
+		"reason": "待拆分：createCoreTools 一次注册全部核心工具，应按工具域分组"
+	},
+	"packages/executor/src/executor.ts": {
+		"lines": 522,
+		"reason": "待拆分：DeviceExecutor 混合设备协议处理与命令调度"
+	}
+}
