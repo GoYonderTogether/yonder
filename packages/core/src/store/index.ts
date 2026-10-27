@@ -245,6 +245,14 @@ export async function createStore(
 			const row = await db.get<EventRow>("SELECT * FROM y_events WHERE id = ?", id);
 			return row && eventRow(row);
 		},
+		/**
+		 * 事件日志的最大 id。走索引只读一行。
+		 * 用来回答"有没有新事实"，比重新算一遍状态便宜几个数量级。
+		 */
+		async watermark(): Promise<string | number | undefined> {
+			const row = await db.get<{ id: string | number }>("SELECT MAX(id) AS id FROM y_events");
+			return row?.id ?? undefined;
+		},
 		async query(query: EventQuery = {}): Promise<EventPage> {
 			const limit = query.limit ?? 100;
 			if (!Number.isInteger(limit) || limit < 1 || limit > 1000)

@@ -13,6 +13,7 @@ import {
 import { createDelivery } from "../delivery/index.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
+import { createObservability } from "./observability.js";
 import {
 	type PromptOptions,
 	prepareInput,
@@ -40,7 +41,6 @@ import {
 	filesFor,
 	type KernelLog,
 	loadAgents,
-	message,
 	skillsFor,
 	unavailable,
 } from "./workspace.js";
@@ -56,7 +56,8 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 	home = resolve(home);
 	process.env.YONDER_HOME = home;
 	const log = options.log ?? (() => {});
-	const report = (error: unknown) => log("error", message(error));
+	const observability = createObservability({ home, log, db: () => db });
+	const report = observability.report;
 	await mkdir(join(home, ".yonder"), { recursive: true });
 	const unlock = await lockfile.lock(home, {
 		realpath: false,
@@ -80,6 +81,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				if (runtime) await runtime.close();
 				else await db?.close();
 			} finally {
+				observability.stop();
 				await unlock();
 			}
 		}
@@ -87,6 +89,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 	try {
 		const config = await loadYonderConfig(home);
 		db = await openDatabase(join(home, ".yonder/state.db"));
+		observability.startRetention();
 		const terminalEnds = new Map<
 			string,
 			Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>
@@ -395,6 +398,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				return { ...session, protectedFiles };
 			},
 			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
 			onReport: report,
 		});
 		const validateCandidate = async (
@@ -518,6 +522,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 				};
 			},
 			close,
+			eventWatermark: () => store.events.watermark(),
 			async awakeActivity() {
 				const sessions = await store.sessions.list({ open: true });
 				const active = await Promise.all(

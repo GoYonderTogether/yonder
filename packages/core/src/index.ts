@@ -1,5 +1,7 @@
 export type { ControlConnection, ControlRequest } from "./control/index.js";
 export { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./control/index.js";
+export { createStatusSurface, type StatusSnapshot, type StatusSurface } from "./status/index.js";
+export { statusPath } from "./status/snapshot.js";
 export type { Kernel, KernelLog, LoginInteraction } from "./kernel/index.js";
 export {
 	initHome,
