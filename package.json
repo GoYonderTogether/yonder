@@ -41,6 +41,7 @@
 		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
+		"test:node": "node --test scripts/export-model-observations.test.mjs",
 		"lint": "biome check ."
 	},
 	"devDependencies": {
@@ -50,7 +51,7 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder-harness",
-	"version": "0.2.26102512",
+	"version": "0.2.26102701",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"
 	},
