@@ -361,11 +361,17 @@ test.skipIf(!real)(
 					),
 				)
 				.toBe(true);
+			expect((await runtime.activity(session)).execution).toMatchObject({
+				phase: "retrying",
+				retryAt: expect.any(Number),
+			});
+			expect((await runtime.activity(session)).execution.issue).toBeUndefined();
 			await runtime.close();
 			await interrupted;
 			db = await openDatabase(`${home}/state.db`);
 			runtime = await open();
 			await runtime.recover();
+			expect((await runtime.activity(session)).execution.phase).toBe("retrying");
 			runtime.resume();
 			await expect.poll(() => requests.length, { timeout: 15000 }).toBe(2);
 			await runtime.close();
@@ -375,6 +381,9 @@ test.skipIf(!real)(
 			runtime.resume();
 			await expect.poll(async () => !(await runtime.hasPendingWork(session)), { timeout: 30000 }).toBe(true);
 			expect(requests).toHaveLength(4);
+			await expect.poll(async () => (await runtime.activity(session)).execution.phase).toBe("blocked");
+			const activityIssue = (await runtime.activity(session)).execution.issue;
+			expect(activityIssue).toMatchObject({ code: "model_error" });
 			expect(requests.at(-1)).toContain("Connection to the model interrupted");
 			expect(requests.at(-1)!.match(/Connection to the model interrupted/g) ?? []).toHaveLength(1);
 			expect(requests.at(-1)).not.toContain("Task interrupted by restart");
@@ -393,6 +402,7 @@ test.skipIf(!real)(
 				await runtime.recover();
 				runtime.resume();
 				expect(await runtime.hasPendingWork(session)).toBe(false);
+				expect((await runtime.activity(session)).execution).toEqual({ phase: "blocked", issue: activityIssue });
 				expect(requests).toHaveLength(4);
 				expect(
 					(await runtime.transcript(session)).filter((entry) => entry.kind === "yonder.runtime-note"),

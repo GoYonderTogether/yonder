@@ -71,7 +71,14 @@ export { submissionOutcome } from "./docs.js";
 
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptItem } from "./transcript.js";
-import type { RuntimeInput, RuntimeOptions, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "./types.js";
+import type {
+	RuntimeActivityExecution,
+	RuntimeInput,
+	RuntimeOptions,
+	RuntimeRun,
+	RuntimeSessionConfig,
+	RuntimeSessionState,
+} from "./types.js";
 
 export { type LoginInteraction, loginProvider } from "./auth.js";
 export { credentialPath, FileCredentials } from "./credentials.js";
@@ -203,6 +210,13 @@ export class Runtime {
 			return;
 		}
 		const saved = await this.harness.snapshot(RunDoc, cid(session), id, context);
+		// beforeAgent is actual execution, unlike admission into the inbox. Also runs
+		// for a genuinely live recovered run, never for a historical receipt.
+		await this.harness.commit(async (tx) => {
+			const activity = await tx.doc(SessionDoc, cid(session));
+			activity.activityRunId = id;
+			activity.activityIssue = null;
+		}, context);
 		const started = saved?.started || Date.now();
 		const config: RuntimeSessionConfig = saved?.config
 			? JSON.parse(saved.config)
@@ -971,7 +985,19 @@ export class Runtime {
 	}
 
 	async abort(id: string): Promise<void> {
+		const [live, activity] = await Promise.all([
+			this.harness.snapshot(LiveDoc, cid(id), C),
+			this.harness.snapshot(SessionDoc, cid(id), C),
+		]);
+		const cancelledRun = live?.run ? String(live.run.inputs[0]) : (activity?.activityRunId ?? null);
 		await (await this.conversation(id)).abort(C, { background: true });
+		await this.harness.commit(async (tx) => {
+			const state = await tx.doc(SessionDoc, cid(id));
+			// A later input can already have started while cancellation joined its old scope.
+			if ((state.activityRunId ?? null) !== cancelledRun) return;
+			state.activityIssue = null;
+			state.activityRunId = null;
+		}, C);
 	}
 	async queued(id: string, withdraw = false) {
 		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
@@ -1152,6 +1178,10 @@ export class Runtime {
 		if (existing) return existing;
 		const promise = (async () => {
 			const saved = await this.harness.snapshot(RunDoc, cid(session), key, C);
+			await this.settleActivity(session, key, receipt, {
+				error: saved?.error ?? null,
+				reason: saved?.reason ?? null,
+			});
 			if (!saved?.config || !receipt.settlement)
 				throw new Error(`运行 ${session}/${key} 缺少开始配置或终结凭据，历史结果不可确定`);
 			const config: RuntimeSessionConfig = JSON.parse(saved.config);
@@ -1225,6 +1255,36 @@ export class Runtime {
 			this.finishing.delete(finishKey);
 		}
 	}
+	/** The existing receipt observer projects only the run actually started by this core. */
+	private async settleActivity(
+		session: string,
+		runId: string,
+		receipt: Readonly<RunReceiptState>,
+		saved: { error: string | null; reason: string | null },
+	): Promise<void> {
+		const end = receipt.settlement;
+		if (!end) return;
+		// Native continuation remains executable work, not a terminal blocker.
+		const pending = await this.hasPendingWork(session);
+		await this.harness.commit(async (tx) => {
+			const state = await tx.doc(SessionDoc, cid(session));
+			if (state.activityRunId !== runId) return;
+			if (end.status === "done" || (!saved.error && !saved.reason && end.reason === "aborted")) {
+				state.activityIssue = null;
+				return;
+			}
+			if (pending || end.status !== "unanswered" || end.reason === "reset") return;
+			const code = saved.error
+				? "execution_error"
+				: saved.reason
+					? "runtime_limit"
+					: ["model_error", "no_model", "faulted", "orphaned"].includes(end.reason)
+						? end.reason
+						: "execution_failed";
+			state.activityIssue ??= { code, since: Date.now(), runId };
+		}, C);
+	}
+
 	// ponytail: scan native receipts; use an upstream lookup if long-session cost becomes measurable.
 	private async settledRun(session: string, done: Awaited<ReturnType<Submission["wait"]>>): Promise<RuntimeRun> {
 		const receipts = await this.storage.scanDocuments(
@@ -1503,7 +1563,7 @@ export class Runtime {
 
 	/** Owner-local presentation, projected from native live state, never reasoning or tool payloads. */
 	async activity(id: string) {
-		const [live, inbox, background] = await Promise.all([
+		const [live, inbox, background, activity] = await Promise.all([
 			this.harness.snapshot(LiveDoc, cid(id), C),
 			this.harness.snapshot(InboxDoc, cid(id), C),
 			this.storage.scanTasks(
@@ -1512,6 +1572,7 @@ export class Runtime {
 				undefined,
 				C,
 			),
+			this.harness.snapshot(SessionDoc, cid(id), C),
 		]);
 		const tools = [...(live?.tools ?? []), ...(live?.nestedTools ?? [])]
 			.filter((slot) => slot.status !== "done")
@@ -1529,6 +1590,33 @@ export class Runtime {
 			!live?.compactions?.length &&
 			tools.length > 0 &&
 			tools.every((name) => name === "ui-companion_result");
+		const runId = live?.run ? String(live.run.inputs[0]) : undefined;
+		const generationRetry = live?.run ? live.generation?.retry?.at : undefined;
+		const compactions = live?.compactions ?? [];
+		const compactionRetry =
+			compactions.length > 0 && compactions.every((task) => task.retry)
+				? Math.min(...compactions.map((task) => task.retry?.at ?? Infinity))
+				: undefined;
+		const retryAt = generationRetry ?? compactionRetry;
+		const retrying =
+			retryAt !== undefined &&
+			tools.length === 0 &&
+			(!live?.run || generationRetry !== undefined || compactions.some((task) => task.blocking)) &&
+			compactions.every((task) => task.retry);
+		const execution: RuntimeActivityExecution = {
+			phase: waiting
+				? "waiting-input"
+				: busy
+					? retrying
+						? "retrying"
+						: "running"
+					: activity?.activityIssue
+						? "blocked"
+						: "idle",
+			...(runId ? { runId } : {}),
+			...(retryAt === undefined ? {} : { retryAt }),
+			...(activity?.activityIssue ? { issue: activity.activityIssue } : {}),
+		};
 		let summary = "";
 		const input = live?.run?.inputs.at(-1);
 		if (input !== undefined) {
@@ -1549,18 +1637,24 @@ export class Runtime {
 				.filter((block) => block.type === "text")
 				.map((block) => block.text)
 				.join(" ") ?? "";
-		const detail = waiting
-			? "等待交互"
-			: live?.compactions?.length
-				? "整理上下文"
-				: tools.length
-					? `执行 ${[...new Set(tools)].join(" · ")}`
-					: queued && !live?.run
-						? "排队中"
-						: busy
-							? "生成回复"
-							: "空闲";
+		const detail =
+			execution.phase === "retrying"
+				? "重试中"
+				: execution.phase === "blocked"
+					? "执行受阻"
+					: waiting
+						? "等待交互"
+						: live?.compactions?.length
+							? "整理上下文"
+							: tools.length
+								? `执行 ${[...new Set(tools)].join(" · ")}`
+								: queued && !live?.run
+									? "排队中"
+									: busy
+										? "生成回复"
+										: "空闲";
 		return {
+			execution,
 			state: waiting ? ("waiting" as const) : busy ? ("running" as const) : ("idle" as const),
 			summary: summary.replace(/\s+/g, " ").trim().slice(0, 160),
 			detail: detail.slice(0, 160),

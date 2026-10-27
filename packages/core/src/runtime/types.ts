@@ -90,3 +90,11 @@ export interface RuntimeSessionState {
 	/** Parent tool surface captured when a preset session opens; fields the preset leaves unset are taken from here. */
 	inherit?: { plugins: string[]; tools: { offer: string[]; search: string[] } };
 }
+
+/** Owner-local execution facts. Never includes native error text or tool payloads. */
+export interface RuntimeActivityExecution {
+	phase: "running" | "retrying" | "waiting-input" | "blocked" | "idle";
+	runId?: string;
+	retryAt?: number;
+	issue?: { code: string; since: number; runId: string };
+}

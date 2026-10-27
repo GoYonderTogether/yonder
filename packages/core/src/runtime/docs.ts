@@ -1,6 +1,6 @@
 import { type ConversationId, defineDoc, defineDocFamily, type UsageState } from "@earendil-works/pi-durable";
 import type { Capability, SessionModels } from "@yonder/sdk";
-import type { RuntimeRun, RuntimeSessionConfig } from "./types.js";
+import type { RuntimeActivityExecution, RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 export const SessionDoc = defineDoc({
 	kind: "yonder.session",
@@ -18,6 +18,9 @@ export const SessionDoc = defineDoc({
 		channelInstances: null as string[] | null,
 		inherit: null as { plugins: string[]; tools: { offer: string[]; search: string[] } } | null,
 		close: "run-end" as "run-end" | "manual",
+		// Only actual run starts advance this cursor; historical receipt replay cannot backfill issues.
+		activityRunId: null as string | null,
+		activityIssue: null as NonNullable<RuntimeActivityExecution["issue"]> | null,
 	}),
 });
 export const cid = (id: string) => Number(id) as ConversationId;

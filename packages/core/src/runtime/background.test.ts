@@ -262,8 +262,18 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		await expect.poll(() => internal.background.running.get(Number(interactive))?.output).toBe("ready");
 		expect(await runtime.hasPendingWork(first)).toBe(true);
 		expect(await runtime.hasAwakeWork(first)).toBe(true);
-		expect(await runtime.activity(first)).toMatchObject({ state: "running", detail: "执行 bash", text: "" });
-		expect(await runtime.activity(other)).toMatchObject({ state: "idle", summary: "", text: "" });
+		expect(await runtime.activity(first)).toMatchObject({
+			state: "running",
+			execution: { phase: "running" },
+			detail: "执行 bash",
+			text: "",
+		});
+		expect(await runtime.activity(other)).toMatchObject({
+			state: "idle",
+			execution: { phase: "idle" },
+			summary: "",
+			text: "",
+		});
 		expect(await runtime.hasPendingWork(first, source.id)).toBe(true);
 		expect(
 			await runtime.hasPendingWork(first, newEvent({ type: "message.in", data: { text: "independent request" } }).id),

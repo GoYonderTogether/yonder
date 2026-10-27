@@ -1,6 +1,7 @@
 import type { Models, Preset } from "@yonder/sdk";
 import { type AgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
+import { aggregateExecution } from "../runtime/activity.js";
 import type { Runtime } from "../runtime/index.js";
 import type { createSessions } from "../sessions/index.js";
 import type { createSkills } from "../skills/index.js";
@@ -92,11 +93,18 @@ export function terminalApi(ctx: {
 			return [...agents.values()]
 				.filter((agent) => !agent.archivedAt)
 				.map((agent) => {
-					const tasks = rows.filter((row) => row.agent === agent.id && row.state !== "idle");
+					const tasks = rows.filter(
+						(row) => row.agent === agent.id && (row.state !== "idle" || row.execution.phase === "blocked"),
+					);
 					return {
 						id: agent.id,
 						name: agent.name,
-						state: tasks.some((task) => task.state === "running") ? "running" : tasks.length ? "waiting" : "idle",
+						state: tasks.some((task) => task.state === "running")
+							? "running"
+							: tasks.some((task) => task.state === "waiting")
+								? "waiting"
+								: "idle",
+						execution: aggregateExecution(tasks.map((task) => task.execution)),
 						tasks,
 					};
 				});

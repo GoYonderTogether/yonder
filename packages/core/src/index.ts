@@ -22,6 +22,6 @@ export {
 	releaseInfo,
 	updateRelease,
 } from "./release/index.js";
-export type { TerminalUpdate } from "./runtime/index.js";
+export type { RuntimeActivityExecution, TerminalUpdate } from "./runtime/index.js";
 
 export { attachmentFromPath } from "./runtime/index.js";
