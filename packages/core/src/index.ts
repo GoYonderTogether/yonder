@@ -1,4 +1,15 @@
 export type { ControlConnection, ControlRequest } from "./control/index.js";
+export type {
+	ErrorCode,
+	GatewayHost,
+	HostCtx,
+	MethodDef,
+	MethodFacts,
+	Principal,
+	Scope,
+	StreamDef,
+} from "./control/methods.js";
+export { allScopes, controlHandler, MethodError, PROTOCOL, registry } from "./control/methods.js";
 export { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./control/index.js";
 export type { Kernel, KernelLog, LoginInteraction } from "./kernel/index.js";
 export {
