@@ -569,11 +569,12 @@ export const socketPrincipal: Principal = { id: "socket", transport: "socket", k
 
 /** control.sock handler: same wire format as before, dispatching through the registry. */
 export function controlHandler(host: Omit<HostCtx, "principal">): ControlHandler {
-	const ctx: HostCtx = { ...host, principal: socketPrincipal };
 	return async (request, connection) => {
 		const params = (request.params ?? {}) as Record<string, unknown>;
 		const def = registry.get(request.method);
 		const legacy = def?.stream?.legacyFrame;
+		// Spread per request: the daemon attaches `gateway` after the socket is already serving.
+		const ctx: HostCtx = { ...host, principal: socketPrincipal };
 		return registry.call(request.method, params, ctx, connection.signal, async (value) =>
 			connection.send(legacy ? legacy(params, value) : value),
 		);

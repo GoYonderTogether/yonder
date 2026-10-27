@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createConnection } from "node:net";
@@ -15,6 +16,8 @@ import {
 	checkRelease,
 	cliChannelEndpoint,
 	compareVersions,
+	controlHandler,
+	gatewaySettings,
 	initHome,
 	inspectHome,
 	inspectSkills,
@@ -29,9 +32,11 @@ import {
 	releaseInfo,
 	requestControl,
 	serveControl,
+	setAccessTokenHash,
 	setNamedCredential,
 	updateRelease,
 } from "@yonder/core";
+import { startGateway } from "@yonder/gateway";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
@@ -50,8 +55,10 @@ Commands:
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
   awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS
-  start                           前台运行 · Start harness
+  start [--no-gateway]            前台运行 · Start harness
   stop                            停止运行 · Stop harness
+  ui [--open]                     打印/打开带一次性令牌的网页地址 · Print/open the web UI URL
+  ui token --rotate               生成新的远程访问令牌 · Rotate the remote access token
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
   sessions list|show|open|submit|notify|abort|close  会话管理 · Manage sessions
   events                          查询事件 · Query events
@@ -173,19 +180,6 @@ function homeFor(options: Options, init = false, target?: string): string {
 }
 function existsYonder(dir: string) {
 	return existsSync(join(dir, "yonder.yaml"));
-}
-function requiredParam(params: Record<string, unknown>, name: string): string {
-	const value = params[name];
-	if (typeof value !== "string") throw new Error(`control request requires ${name}`);
-	return value;
-}
-function personParam(value: unknown): { id: string; name: string; note?: string } {
-	if (!value || typeof value !== "object" || !("id" in value) || !("name" in value))
-		throw new Error("control request requires person id and name");
-	const person = value as { id: unknown; name: unknown; note?: unknown };
-	if (typeof person.id !== "string" || typeof person.name !== "string")
-		throw new Error("control request requires person id and name");
-	return { id: person.id, name: person.name, ...(typeof person.note === "string" ? { note: person.note } : {}) };
 }
 function connectionUnavailable(error: unknown) {
 	const code = (error as NodeJS.ErrnoException)?.code;
@@ -685,7 +679,7 @@ async function run(args: string[]): Promise<number> {
 	}
 
 	if (command === "start") {
-		if (rest.length) throw new UsageError("Usage: yonder start");
+		if (rest.some((arg) => arg !== "--no-gateway")) throw new UsageError("Usage: yonder start [--no-gateway]");
 		const home = homeFor(options);
 		env.YONDER_HOME = home;
 		const plugins = (await offlineQuery(home, { method: "management", params: { action: "plugins.list" } })) as Array<{
@@ -704,7 +698,8 @@ async function run(args: string[]): Promise<number> {
 		// 状态面：服务自己把"现在怎么样"写成一份小文件，读取方读文件而不是派生进程。
 		const status = startStatusSurface(home, kernel);
 		let closing: Promise<void> | undefined;
-		let control: Awaited<ReturnType<typeof serveControl>>;
+		let control: Awaited<ReturnType<typeof serveControl>> | undefined;
+		let gateway: Awaited<ReturnType<typeof startGateway>> | undefined;
 		let finish!: () => void;
 		const stopped = new Promise<void>((resolve) => {
 			finish = resolve;
@@ -714,6 +709,7 @@ async function run(args: string[]): Promise<number> {
 			closing = (async () => {
 				awake.close();
 				await status.stop();
+				await gateway?.close();
 				await control?.close();
 				await kernel.close();
 				finish();
@@ -721,125 +717,24 @@ async function run(args: string[]): Promise<number> {
 			return closing;
 		};
 		try {
-			control = await serveControl(home, async (request, connection) => {
-				const params = (request.params ?? {}) as Record<string, unknown>;
-				switch (request.method) {
-					case "awake.status":
-						return awake.status();
-					case "channels.list":
-						return kernel.channels.list();
-					case "channels.login":
-						return kernel.channels.login(params as Parameters<typeof kernel.channels.login>[0], connection.signal);
-					case "release.result":
-						return kernel.releaseResult(params.data as Parameters<typeof kernel.releaseResult>[0]);
-					case "sessions.notify":
-						return kernel.notify(requiredParam(params, "id"), {
-							event: requiredParam(params, "event"),
-							text: requiredParam(params, "text"),
-						});
-					case "management":
-						return kernel.management(params as unknown as Parameters<typeof kernel.management>[0]);
-					case "terminal.sessions":
-						return kernel.terminal.list();
-					case "terminal.presets":
-						return kernel.terminal.presets();
-					case "terminal.channels":
-						return kernel.terminal.channels();
-					case "terminal.queued":
-						return kernel.terminal.queued(requiredParam(params, "id"));
-					case "terminal.dequeue":
-						return kernel.terminal.queued(requiredParam(params, "id"), true);
-					case "service.info": {
-						const info = await releaseInfo(home);
-						return {
-							version: info.version,
-							commit: info.origin?.commit ?? null,
-							home,
-							pid: process.pid,
-							ready: true,
-							active: (await kernel.awakeActivity()).active,
-							agents: await kernel.terminal.activity(),
-						};
-					}
-					case "terminal.info":
-						return kernel.terminal.info(requiredParam(params, "id"));
-					case "sessions.command":
-						return kernel.sessions.command(requiredParam(params, "id"), requiredParam(params, "command"));
-					case "sessions.open": {
-						const policy = params.close;
-						if (policy !== undefined && policy !== "manual" && policy !== "run-end")
-							throw new Error("Invalid close policy");
-						return kernel.sessions.open({
-							preset: requiredParam(params, "preset"),
-							...(policy ? { close: policy } : {}),
-						});
-					}
-					case "sessions.submit": {
-						const busy = params.busy;
-						if (busy !== undefined && busy !== "followup" && busy !== "steer" && busy !== "interrupt")
-							throw new Error("Invalid busy mode");
-						return kernel.terminal.submit(
-							requiredParam(params, "id"),
-							{
-								text: requiredParam(params, "text"),
-								...(Array.isArray(params.attachments)
-									? { attachments: params.attachments as import("@yonder/sdk").Attachment[] }
-									: {}),
-							},
-							busy,
-						);
-					}
-					case "sessions.watch": {
-						const id = requiredParam(params, "id");
-						const info = await kernel.terminal.info(id);
-						const dispose = await kernel.terminal.observe(id, async (update) =>
-							connection.send({ type: "update", session: id, update }),
-						);
-						if (connection.signal.aborted) await dispose();
-						else
-							connection.signal.addEventListener(
-								"abort",
-								() => {
-									void dispose();
-								},
-								{ once: true },
-							);
-						return info;
-					}
-					case "sessions.list":
-						return kernel.sessions.list((params.filter ?? {}) as Parameters<typeof kernel.sessions.list>[0]);
-					case "sessions.show": {
-						const id = requiredParam(params, "id");
-						const session = await kernel.sessions.get(id);
-						if (!session) throw new Error(`Unknown session: ${id}`);
-						return { session, transcript: await kernel.sessions.transcript(id) };
-					}
-					case "sessions.abort":
-						return kernel.sessions.abort(requiredParam(params, "id")).then(() => ({ ok: true }));
-					case "sessions.close":
-						return kernel.sessions.close(requiredParam(params, "id")).then(() => ({ ok: true }));
-					case "events.query":
-						return kernel.events.query((params.query ?? {}) as EventQuery);
-					case "identity.lookup":
-						return kernel.identity.lookup(requiredParam(params, "ref"));
-					case "identity.link":
-						return kernel.identity
-							.link(requiredParam(params, "account"), requiredParam(params, "person"))
-							.then(() => ({ ok: true }));
-					case "identity.unlink":
-						return kernel.identity.unlink(requiredParam(params, "account")).then(() => ({ ok: true }));
-					case "identity.person":
-						return kernel.identity.createPerson(personParam(params.person));
-					case "stop":
-						setImmediate(() => void stop());
-						return { stopping: true };
-					default:
-						throw new Error(`unknown control method: ${request.method}`);
-				}
-			});
+			const host: Parameters<typeof controlHandler>[0] = {
+				kernel,
+				home,
+				releaseInfo: () => releaseInfo(home),
+				awakeStatus: () => awake.status(),
+				stop: () => void stop(),
+			};
+			control = await serveControl(home, controlHandler(host));
+			if (!rest.includes("--no-gateway") && (await gatewaySettings(home)).enabled) {
+				gateway = await startGateway({ home, host });
+				host.gateway = gateway;
+				output({ gateway: `http://127.0.0.1:${gateway.port}/` }, options.json);
+			}
 		} catch (error) {
 			awake.close();
 			await status.stop();
+			await gateway?.close();
+			await control?.close();
 			await kernel.close();
 			throw error;
 		}
@@ -849,6 +744,37 @@ async function run(args: string[]): Promise<number> {
 		await stopped;
 		process.off("SIGINT", signal);
 		process.off("SIGTERM", signal);
+		return 0;
+	}
+	if (command === "ui") {
+		const home = homeFor(options);
+		const rotate = rest[0] === "token" && rest[1] === "--rotate" && rest.length === 2;
+		const open = rest.length === 1 && rest[0] === "--open";
+		if (!rotate && !open && rest.length) throw new UsageError("Usage: yonder ui [--open] | yonder ui token --rotate");
+		const settings = await gatewaySettings(home);
+		if (rotate) {
+			// Only the hash is stored; the token is shown once, here.
+			const token = randomBytes(32).toString("base64url");
+			await setAccessTokenHash(home, `sha256:${createHash("sha256").update(token).digest("hex")}`);
+			const origin = settings.publicOrigins[0] ?? "";
+			output(
+				{ token, login: `${origin}${settings.basePath}login`, note: "shown once; the old token is now invalid" },
+				options.json,
+			);
+			return 0;
+		}
+		const ticket = (await requestControl(home, { method: "gateway.ticket" })) as {
+			token: string;
+			port: number;
+			basePath: string;
+			expiresAt: string;
+		};
+		const url = `http://127.0.0.1:${ticket.port}/?token=${ticket.token}`;
+		if (open) {
+			const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+			spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
+		}
+		output(options.json ? { url, expiresAt: ticket.expiresAt } : url, options.json);
 		return 0;
 	}
 	if (command === "stop") {

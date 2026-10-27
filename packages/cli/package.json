@@ -22,6 +22,7 @@
 		"@earendil-works/pi-coding-agent": "1.3.0",
 		"@earendil-works/pi-tui": "1.3.0",
 		"@yonder/core": "0.2.26102705",
+		"@yonder/gateway": "0.2.26102705",
 		"@yonder/sdk": "0.2.26102705"
 	}
 }
