@@ -14,6 +14,46 @@ import {
 	validateCard,
 } from "../web/state.mjs";
 
+// Wire contract only: the companion never imports the task ledger or its store.
+export interface ActivitySummary {
+	schemaVersion: 1;
+	observedAt: number;
+	agents: Array<{ agentId: string; blocked: number; review: number; waitingUser: number }>;
+}
+export type ActivitySummaryResponse = {
+	schemaVersion: 1;
+	sourceRevision: number;
+} & (
+	| { availability: "available"; summary: ActivitySummary }
+	| { availability: "unpublished" | "unavailable"; summary?: never }
+);
+
+function readActivitySummary(input: unknown): ActivitySummary {
+	const value = input as ActivitySummary | null;
+	if (
+		value?.schemaVersion !== 1 ||
+		!Number.isFinite(value.observedAt) ||
+		value.observedAt < 0 ||
+		!Array.isArray(value.agents)
+	)
+		throw new Error("Invalid activity summary");
+	const seen = new Set<string>();
+	const agents = value.agents.map((agent) => {
+		if (
+			!agent ||
+			typeof agent.agentId !== "string" ||
+			!agent.agentId ||
+			seen.has(agent.agentId) ||
+			![agent.blocked, agent.review, agent.waitingUser].every((count) => Number.isSafeInteger(count) && count >= 0)
+		)
+			throw new Error("Invalid activity counts");
+		seen.add(agent.agentId);
+		return { agentId: agent.agentId, blocked: agent.blocked, review: agent.review, waitingUser: agent.waitingUser };
+	});
+	// Project only the public fields, never proxy task content or upstream errors.
+	return { schemaVersion: 1, observedAt: value.observedAt, agents };
+}
+
 type Owner = Pick<ToolContext, "session" | "agent" | "profile">;
 type Record = { owner: Owner; interaction: Interaction; cancelled: boolean };
 
@@ -24,8 +64,10 @@ export class CompanionService {
 	private changes = new Set<() => void>();
 	private base = "";
 	private stopped = true;
-	private boardSource?: string;
-	private boardRequest?: { id?: string; revision: number };
+	private boardSource: string | undefined;
+	private sourceRevision = 0;
+	private sourceAbort = new AbortController();
+	private boardRequest: { id?: string; revision: number } | undefined;
 	constructor(
 		private readonly directory: string,
 		private readonly desktop: boolean,
@@ -52,7 +94,35 @@ export class CompanionService {
 	private active() {
 		return this.records.find((r) => !r.cancelled && !r.interaction.completed);
 	}
+	private async activitySummary(): Promise<ActivitySummaryResponse> {
+		const timeout = AbortSignal.timeout(5000);
+		for (;;) {
+			const source = this.boardSource;
+			const sourceRevision = this.sourceRevision;
+			const envelope = { schemaVersion: 1 as const, sourceRevision };
+			if (!source) return { ...envelope, availability: "unpublished" };
+			try {
+				const url = new URL(source);
+				url.searchParams.delete("id");
+				url.searchParams.set("view", "activity");
+				const result = await fetch(url, {
+					signal: AbortSignal.any([timeout, this.sourceAbort.signal]),
+					redirect: "error",
+				});
+				if (!result.ok) throw new Error("Activity source unavailable");
+				const summary = readActivitySummary(await result.json());
+				if (sourceRevision === this.sourceRevision) return { ...envelope, availability: "available", summary };
+			} catch {
+				if (sourceRevision === this.sourceRevision) return { ...envelope, availability: "unavailable" };
+			}
+			// A switched source invalidates even a late body. Read the current source,
+			// within the same request deadline, rather than returning stale counts.
+			if (timeout.aborted && this.boardSource)
+				return { schemaVersion: 1, sourceRevision: this.sourceRevision, availability: "unavailable" };
+		}
+	}
 	async start() {
+		if (this.sourceAbort.signal.aborted) this.sourceAbort = new AbortController();
 		try {
 			const stored: unknown = JSON.parse(await readFile(join(this.directory, "interactions.json"), "utf8"));
 			if (!Array.isArray(stored)) throw new Error("Invalid interaction store");
@@ -108,11 +178,21 @@ export class CompanionService {
 						(input.id !== undefined && typeof input.id !== "string")
 					)
 						throw new Error("Invalid board source");
-					this.boardSource = source.href;
+					if (this.boardSource !== source.href) {
+						this.sourceRevision++;
+						this.boardSource = source.href;
+						this.sourceAbort.abort();
+						this.sourceAbort = new AbortController();
+					}
 					this.boardRequest = { id: input.id, revision: (this.boardRequest?.revision ?? 0) + 1 };
 					response
 						.writeHead(200, { "Content-Type": "application/json" })
 						.end(JSON.stringify({ url: this.base, view: input.id ? "detail" : "board" }));
+					return;
+				}
+				if (request.method === "GET" && path === "activity-summary") {
+					const summary = await this.activitySummary();
+					response.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(summary));
 					return;
 				}
 				if (request.method === "GET" && (path === "board" || path.startsWith("board?"))) {
@@ -120,7 +200,10 @@ export class CompanionService {
 					const source = new URL(this.boardSource);
 					const id = new URL(request.url, origin).searchParams.get("id");
 					if (id) source.searchParams.set("id", id);
-					const result = await fetch(source, { signal: AbortSignal.timeout(5000), redirect: "error" });
+					const result = await fetch(source, {
+						signal: AbortSignal.any([AbortSignal.timeout(5000), this.sourceAbort.signal]),
+						redirect: "error",
+					});
 					response.writeHead(result.status, { "Content-Type": "application/json" }).end(await result.text());
 					return;
 				}
@@ -291,6 +374,10 @@ export class CompanionService {
 	}
 	async stop() {
 		this.stopped = true;
+		if (this.boardSource) this.sourceRevision++;
+		this.boardSource = undefined;
+		this.boardRequest = undefined;
+		this.sourceAbort.abort();
 		this.changed();
 		await this.tail;
 		await unlink(join(this.directory, "renderer.json")).catch((error) => {
@@ -313,6 +400,7 @@ export class CompanionService {
 				await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 				this.server = undefined;
 			}
+			this.base = "";
 		}
 	}
 }
