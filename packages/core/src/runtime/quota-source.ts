@@ -7,6 +7,8 @@ import { accountKey, type ModelQuota, type QuotaWindow } from "./model-quota.js"
  * A credential at `<authPath>.slots/<provider>/<slot>.auth.json` may use either the pi OAuth shape
  * (`{ openai: { type: "oauth", access, refresh, expires, accountId? } }`) or a Codex `auth.json`
  * (`{ tokens: { access_token, refresh_token, account_id } }`) converted from an existing install.
+ * A converted Codex credential may also sit beside the slot as `<slot>.codex.auth.json`; it is read for
+ * quota only, so the model credential in `<slot>.auth.json` stays untouched.
  */
 const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 const FIVE_HOURS = 5 * 60 * 60;
@@ -133,7 +135,12 @@ export class QuotaSource {
 		};
 	}
 	private async credential(provider: string, slot: string): Promise<{ access: string; accountId: string } | undefined> {
-		const path = slot === "default" ? this.authPath : join(`${this.authPath}.slots`, provider, `${slot}.auth.json`);
+		const directory = join(`${this.authPath}.slots`, provider);
+		if (slot !== "default") {
+			const converted = await this.codexCredential(join(directory, `${slot}.codex.auth.json`));
+			if (converted) return converted;
+		}
+		const path = slot === "default" ? this.authPath : join(directory, `${slot}.auth.json`);
 		let data: unknown;
 		try {
 			data = JSON.parse(await readFile(path, "utf8"));
@@ -149,6 +156,19 @@ export class QuotaSource {
 			return accountId ? { access: stored.access, accountId } : undefined;
 		}
 		const tokens = (root as CodexAuthFile).tokens;
+		if (!tokens || typeof tokens.access_token !== "string" || typeof tokens.account_id !== "string") return undefined;
+		if (this.expired(undefined, tokens.access_token)) return undefined;
+		return { access: tokens.access_token, accountId: tokens.account_id };
+	}
+	private async codexCredential(path: string): Promise<{ access: string; accountId: string } | undefined> {
+		let data: unknown;
+		try {
+			data = JSON.parse(await readFile(path, "utf8"));
+		} catch {
+			return undefined;
+		}
+		if (!data || typeof data !== "object") return undefined;
+		const tokens = (data as CodexAuthFile).tokens;
 		if (!tokens || typeof tokens.access_token !== "string" || typeof tokens.account_id !== "string") return undefined;
 		if (this.expired(undefined, tokens.access_token)) return undefined;
 		return { access: tokens.access_token, accountId: tokens.account_id };

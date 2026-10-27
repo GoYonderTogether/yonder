@@ -95,6 +95,29 @@ describe("quota source", () => {
 		);
 		expect(await source.reading("openai", "gpt2")).toBeUndefined();
 	});
+	it("prefers a converted Codex credential beside the model slot", async () => {
+		const auth = join(root(), "auth.json");
+		const model = token(now + 3_600_000, "pi-account");
+		const converted = token(now + 3_600_000, "codex-account");
+		slot(auth, "openai", "gpt2", { openai: { type: "oauth", access: model, expires: now + 3_600_000 } });
+		writeFileSync(
+			join(`${auth}.slots`, "openai", "gpt2.codex.auth.json"),
+			JSON.stringify({ tokens: { access_token: converted, account_id: "codex-account" } }),
+			{ mode: 0o600 },
+		);
+		const fetch = vi.fn(
+			async (_input: string | URL | Request, _init?: RequestInit) =>
+				new Response(JSON.stringify(usage({ primary_window: { used_percent: 13, limit_window_seconds: 18_000 } })), {
+					status: 200,
+				}),
+		);
+		vi.stubGlobal("fetch", fetch);
+		const reading = await new QuotaSource(auth, () => now).reading("openai", "gpt2");
+		expect(reading?.window?.usedPercent).toBe(13);
+		const headers = fetch.mock.calls[0]?.[1]?.headers as Record<string, string>;
+		expect(headers.Authorization).toContain(converted);
+		expect(headers["ChatGPT-Account-ID"]).toBe("codex-account");
+	});
 	it("records the reading under the shared provider@slot key", async () => {
 		const auth = join(root(), "auth.json");
 		slot(auth, "openai", "gpt2", {
