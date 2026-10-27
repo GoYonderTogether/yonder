@@ -3,32 +3,45 @@ import { runInNewContext } from "node:vm";
 import { expect, test } from "vitest";
 
 const source = await readFile(new URL("./yonder-mark.js", import.meta.url), "utf8");
+
+/**
+ * The frame loop reads Math, performance and the animation hooks from scope on every frame. Inside a vm
+ * context each such lookup goes through the contextified sandbox, which made Math.cos/Math.sin ~10x
+ * slower than in module scope and the per-frame geometry rebuild ~3x slower. Bind them as parameters so
+ * the character runs at its normal speed; the source and what it computes stay exactly the same.
+ */
+function factory(scale: number) {
+	const code = source.replace("MOTION_TIME_SCALE = 3", `MOTION_TIME_SCALE = ${scale}`).replace(/^export /gm, "");
+	return runInNewContext(
+		`(function (Math, performance, matchMedia, requestAnimationFrame, cancelAnimationFrame, svg) {\n${code}\nreturn (options) => createCharacter(svg, options);\n})`,
+		{},
+	);
+}
+
 function character(scale: number, state: string) {
 	let frame: (ms: number) => void;
 	let frames = 0;
 	let now = 0;
 	const svg = { innerHTML: "", setAttribute() {}, addEventListener() {}, removeEventListener() {} };
-	const code = source.replace("MOTION_TIME_SCALE = 3", `MOTION_TIME_SCALE = ${scale}`).replace(/^export /gm, "");
-	const context = {
-		Math: Object.assign(Object.create(Math), { random: () => 0.5 }),
-		performance: { now: () => now },
-		matchMedia: () => ({ matches: false }),
-		requestAnimationFrame: (callback: typeof frame) => {
+	const api = factory(scale)(
+		Object.assign(Object.create(Math), { random: () => 0.5 }),
+		{ now: () => now },
+		() => ({ matches: false }),
+		(callback: (ms: number) => void) => {
 			frame = callback;
 			frames++;
 			return frames;
 		},
-		cancelAnimationFrame() {},
+		() => {},
 		svg,
-	};
-	const api = runInNewContext(`${code}\ncreateCharacter(svg, {state: '${state}', pointer: false})`, context);
+	)({ state, pointer: false });
 	return {
 		tick(ms: number) {
 			now = ms;
 			frame(ms);
 			return svg.innerHTML;
 		},
-		setState: api.setState,
+		setState: api.setState as (next: string) => void,
 		get frames() {
 			return frames;
 		},
@@ -45,14 +58,18 @@ test("brand timeline is one third speed at every normal 60 Hz display frame, inc
 			const wall = (i * 1000) / 60;
 			const actual = slow.tick(wall);
 			const originalTime = reference.tick(wall / 3);
-			// SVG rounds paths to .01 px. Compare numeric geometry, not float serialization.
-			const numbers = /-?\d+(?:\.\d+)?/g;
-			if (actual.replace(numbers, "#") !== originalTime.replace(numbers, "#"))
-				throw new Error(`SVG topology changed: ${state}, frame ${i}`);
-			const a = actual.match(numbers)!.map(Number),
-				b = originalTime.match(numbers)!.map(Number);
-			const error = Math.max(...a.map((value, index) => Math.abs(value - b[index]!)));
-			if (error > 0.011) throw new Error(`Geometry changed ${error}px: ${state}, frame ${i}`);
+			// Byte-identical output is identical geometry, so the numeric comparison below can only add
+			// information when the two frames differ; parsing every frame costs more than both characters.
+			if (actual !== originalTime) {
+				// SVG rounds paths to .01 px. Compare numeric geometry, not float serialization.
+				const numbers = /-?\d+(?:\.\d+)?/g;
+				if (actual.replace(numbers, "#") !== originalTime.replace(numbers, "#"))
+					throw new Error(`SVG topology changed: ${state}, frame ${i}`);
+				const a = actual.match(numbers)!.map(Number),
+					b = originalTime.match(numbers)!.map(Number);
+				const error = Math.max(...a.map((value, index) => Math.abs(value - b[index]!)));
+				if (error > 0.011) throw new Error(`Geometry changed ${error}px: ${state}, frame ${i}`);
+			}
 			if (i === 300 && state === "work") {
 				slow.setState("done");
 				reference.setState("done");

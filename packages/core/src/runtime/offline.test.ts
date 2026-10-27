@@ -35,3 +35,9 @@ test("offline transcript matches the live conversation over an actual read-only 
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("empty task report is unknown without changing run status", async () => {
+	const { taskReport } = await import("./results.js");
+	for (const text of ["", "  ", " NO_REPLY\n"]) expect(taskReport(text)).toBe("STATUS: unknown (no report)");
+	expect(taskReport("STATUS: partial\nRemaining: real acceptance")).toBe("STATUS: partial\nRemaining: real acceptance");
+});

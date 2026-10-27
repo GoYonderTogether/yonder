@@ -16,6 +16,12 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 任务回报与确定性可见性（2026-10-27，集成分支，待审核）
+
+`yonder/runtime-discipline`（`58a9850`，原决策 D57）按当前主线重新落地：task 会话的最终回报必须以 `STATUS: done|partial|blocked` 起头并给实际证据，空回报与 `NO_REPLY` 归一为 `STATUS: unknown (no report)`（原生 status 与转录不变）；`agent_ask` / `task_run` 描述要求目标、材料、完成标准、边界、遇阻条件和证据；后台完成在续办收尾后按可见事实发一条兜底，`run.end` 保存通知意图、重启只补尚未尝试的；静默心跳复用运行软提醒计时器，生产 5 分钟、每轮最多 6 次、不调用模型；`runtime.discipline` 纪律段只在 modelId 完整匹配 `^gpt-\d+(?:\.\d+)?-(?:luna|sol)$` 时装入，可被 `prompt.sections` 排除。决策按现行惯例记为 `## 2026-10-27 任务回报与确定性运行可见性`（D57–D67 已被占用）。
+
+`npm run build`、`npm run typecheck`、`npm run lint` 退出 0；默认 `npm test` 153 文件通过 / 23 跳过，959 用例通过 / 0 失败 / 44 跳过；lint 550 warnings / 16 infos，文件行数门禁通过。**未测**：真实模型验收（本轮环境未配置 `YONDER_TEST_REAL` / `YONDER_TEST_AUTH`，新增的 `runtime-discipline.test.ts` 默认跳过）；真实飞书卡片编辑与其他渠道的端到端显示。完整移植差异、跳过项与原始计数见 [运行纪律移植验收](verification/runtime-discipline.md)。
+
 ## 任务账本候选（未定版本，2026-10-25，待审核）
 
 本轮 PR #82 机械同步（2026-10-25）：在指定任务 worktree 的干净分支合并 origin/main `8f2cfcb`（PR #77–#81，0.2.26102509），合并提交 `10a6915`。27 个冲突文件为 CHANGELOG、package-lock 和 25 个 package.json；无代码冲突。版本冲突采用 main，tasks workspace/锁文件链接与依赖保留并对齐 .09。后续提交 `462b027` 撤销 1346529 的发布准备声明，tasks 变更留在 Unreleased；已发布 CHANGELOG 段落逐字等于 main，已有包版本/依赖与锁文件版本核对通过。docs/verification 历史记录保留，候选等待独立 release PR 定版本。

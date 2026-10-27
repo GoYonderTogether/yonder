@@ -156,6 +156,37 @@ export async function createStore(
 			);
 			return row ? eventRow(row) : undefined;
 		},
+		/** Existing channel receipts, card anchors and attempts; no second visibility ledger. */
+		async outputSince(session: string, target: string, after = "", since = "", account = target): Promise<YEvent[]> {
+			const rows = await db.all<EventRow>(
+				`SELECT e.* FROM y_events e WHERE e.id > ? AND e.ts >= ? AND (
+				(json_extract(e.data, '$.session') = ?
+				AND (e.conv = ? OR json_extract(e.data, '$.to') IN (?, ?) OR json_extract(e.data, '$.target') IN (?, ?))
+				AND (e.type IN ('message.out', 'message.attempt') OR json_extract(e.data, '$.delivery.ok') = 1))
+				OR (e.type = 'message.unknown' AND EXISTS (SELECT 1 FROM y_events a
+				WHERE a.id = json_extract(e.data, '$.attempt') AND json_extract(a.data, '$.session') = ?
+				AND json_extract(a.data, '$.target') IN (?, ?)))) ORDER BY e.id`,
+				after,
+				since,
+				session,
+				target,
+				target,
+				account,
+				target,
+				account,
+				session,
+				target,
+				account,
+			);
+			return rows.map(eventRow);
+		},
+		// ponytail: scan notice intents at startup; index a projection if this becomes measurable.
+		async completionNotices(): Promise<YEvent[]> {
+			const rows = await db.all<EventRow>(
+				"SELECT * FROM y_events WHERE type = 'run.end' AND json_array_length(json_extract(data, '$.completionNotices')) > 0 ORDER BY id",
+			);
+			return rows.map(eventRow);
+		},
 		async runEnd(session: string, runId: string): Promise<YEvent | undefined> {
 			const row = await db.get<EventRow>(
 				"SELECT * FROM y_events WHERE type = 'run.end' AND json_extract(data, '$.session') = ? AND json_extract(data, '$.runId') = ? LIMIT 1",

@@ -19,6 +19,8 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+import { createLedger } from "./ledger.js";
+import { createVisibility } from "./visibility.js";
 
 export interface MessageRequest {
 	to: string;
@@ -107,12 +109,14 @@ export function sourceMessage(event: YEvent): string | undefined {
 
 export function createDelivery(options: DeliveryOptions) {
 	const { store, agents, channels, sessions } = options;
+	const { attempt, record, unknown } = createLedger(store);
 	const streams = new Map<
 		string,
 		{
 			owner: string;
 			message?: string;
 			lastMessage?: string | undefined;
+			visibleAt?: number;
 			current?: StreamState | undefined;
 			tail: Promise<void>;
 		}
@@ -135,31 +139,21 @@ export function createDelivery(options: DeliveryOptions) {
 	const waiting = (session: SessionInfo, event: YEvent) =>
 		event.routes?.find((route) => route.session === session.id)?.waiting ??
 		(event.data as { waiting?: boolean }).waiting;
-	async function record(
-		from: string | undefined,
-		target: string,
-		msg: OutMessage,
-		delivery: Delivery,
-		session?: string,
-		parent?: string,
-		attempt?: string,
-		message?: string,
-	) {
-		await store.events.record({
-			type: "message.out",
-			...(from ? { from } : {}),
-			...(target.startsWith("conv:") ? { conv: target } : {}),
-			...(parent ? { parent } : {}),
-			data: {
-				...msg,
-				...(session ? { session } : {}),
-				to: target,
-				delivery,
-				...(attempt ? { attempt } : {}),
-				...(message ? { message } : {}),
-			},
-		});
-	}
+	const visibility = createVisibility({
+		store,
+		channelFor: (ref) => channels.get(channelId(ref) ?? ""),
+		lifetime,
+		streams,
+		ready,
+		waiting,
+		binding,
+		fromSession,
+		send,
+		attempt,
+		unknown,
+		record,
+		report,
+	});
 	async function resolveTarget(
 		request: MessageRequest,
 		agent?: string | null,
@@ -196,38 +190,6 @@ export function createDelivery(options: DeliveryOptions) {
 		const channel = channels.get(parsed.channel);
 		if (!channel) throw new Error(`渠道未运行：${parsed.channel}`);
 		return { target, channel };
-	}
-	async function attempt(
-		target: string,
-		method: "send" | "stream",
-		session?: string,
-		parent?: string,
-		runId?: string,
-		message?: string,
-		outgoing?: OutMessage,
-		from?: string,
-	): Promise<string | undefined> {
-		return store.events.claimAttempt({
-			type: "message.attempt",
-			...(parent ? { parent } : {}),
-			...(target.startsWith("conv:") ? { conv: target } : {}),
-			data: {
-				target,
-				method,
-				...(session ? { session } : {}),
-				...(runId ? { runId } : {}),
-				...(message ? { message } : {}),
-				...(outgoing ? { outgoing } : {}),
-				...(from ? { from } : {}),
-			},
-		});
-	}
-	async function unknown(id: string, error: unknown, partial?: Delivery): Promise<Delivery> {
-		await store.events.record({
-			type: "message.unknown",
-			data: { attempt: id, reason: message(error), ...(partial?.id ? { id: partial.id } : {}) },
-		});
-		return { ...partial, ok: false, uncertain: true, error: `发送结果未知：${message(error)}；不会自动重发` };
 	}
 	async function send(
 		from: string | undefined,
@@ -433,6 +395,7 @@ export function createDelivery(options: DeliveryOptions) {
 				const delta = stream.gate.push(part.delta);
 				if (!delta) return;
 				stream.text += delta;
+				state.visibleAt = Date.now();
 				part = { type: "text", delta };
 			}
 			if (!stream.delivery) {
@@ -494,6 +457,7 @@ export function createDelivery(options: DeliveryOptions) {
 				: destination
 					? "deliver"
 					: "none";
+		const completionNotices = await visibility.notices(session, actual, profile);
 		const ending: EventInput & { data: { session: string; runId: string; [key: string]: unknown } } = {
 			type: "run.end",
 			...(fromSession(session) ? { from: fromSession(session)! } : {}),
@@ -503,6 +467,7 @@ export function createDelivery(options: DeliveryOptions) {
 				session: session.id,
 				runId: run.runId,
 				inputs: run.inputs,
+				...(completionNotices.length ? { completionNotices } : {}),
 				status: run.status,
 				...(run.reason ? { reason: run.reason } : {}),
 				replied,
@@ -556,11 +521,13 @@ export function createDelivery(options: DeliveryOptions) {
 						stopped ? undefined : run.message,
 					);
 				await Promise.all(owned.map(([, state]) => state.tail));
+				await visibility.complete(session, completionNotices, profile);
 			})().catch(report);
 		};
 		return { ending, deliver };
 	}
 	return {
+		heartbeat: visibility.heartbeat,
 		onStart,
 		onRun,
 		start,
@@ -573,6 +540,7 @@ export function createDelivery(options: DeliveryOptions) {
 			for (const event of await store.events.unresolvedAttempts())
 				await unknown(event.id, new Error("进程在渠道尝试后未保存确认"));
 			for (const event of await store.events.retryableAttempts()) retry(event);
+			await visibility.replay();
 		},
 		async sendCommand(session: SessionInfo, event: YEvent, text: string): Promise<Delivery> {
 			if (!event.conv) throw new Error("Command has no source conversation");

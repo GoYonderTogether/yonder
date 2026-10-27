@@ -36,7 +36,8 @@ import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
 import { terminalApi } from "./terminal.js";
-import { credentialsAndModels, filesFor, type KernelLog, loadAgents, skillsFor, unavailable } from "./workspace.js";
+import { type KernelOptions, ticks } from "./tick.js";
+import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
 
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
@@ -45,7 +46,7 @@ export { type ManagementRequest, manageHome, offlineQuery } from "./home-managem
 export type { KernelLog } from "./workspace.js";
 export { inspectSkills } from "./workspace.js";
 
-export async function openKernel(home: string, options: { log?: KernelLog } = {}) {
+export async function openKernel(home: string, options: KernelOptions = {}) {
 	home = resolve(home);
 	process.env.YONDER_HOME = home;
 	const log = options.log ?? (() => {});
@@ -367,6 +368,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			onAdmitted: async (id, input) => {
 				if (input.version) await store.sessions.setVersion(id, input.version);
 			},
+			...ticks(store, delivery, options.test),
 			onRun: completeRun,
 			onIdle: async (id) => {
 				const session = await store.sessions.get(id);

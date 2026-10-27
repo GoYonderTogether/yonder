@@ -9,7 +9,14 @@ import { openDatabase } from "../runtime/db.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
-import { builtinPromptSections, cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
+import {
+	builtinPromptSections,
+	cliPrompt,
+	commonPrompt,
+	modelDiscipline,
+	residentPrompt,
+	runtimePrompt,
+} from "./content.js";
 import {
 	formatClock,
 	framework,
@@ -392,4 +399,61 @@ test("prompt selection can be empty, ordered or replaced without changing capabi
 	]);
 	expect(selected.resolved.capabilities).toEqual(["read"]);
 	expect(await systemSections(selected, options)).toEqual(await systemSections(selected, options));
+});
+
+test("model discipline follows the exact model id and task sessions must report STATUS", async () => {
+	const options = {
+		contexts: new Map(),
+		workspace: () => {
+			throw new Error("Model discipline needs no workspace");
+		},
+	};
+	for (const [model, expected] of [
+		["openai/gpt-6-luna", true],
+		["custom/gpt-6-sol", true],
+		["openai/gpt-6.1-sol", true],
+		["openai/gpt-6", false],
+		["custom/not-gpt-6-luna", false],
+		["openai/gpt-6-luna-preview", false],
+	] as const) {
+		const session = {
+			id: "1",
+			agent: null,
+			profile: "default",
+			cwd: process.cwd(),
+			resolved: resolveProfile({ model }),
+		};
+		expect((await systemSections(session, options)).includes(modelDiscipline)).toBe(expected);
+	}
+	const task = { id: "1", agent: null, profile: "default", cwd: process.cwd(), resolved: resolveProfile({}) };
+	expect(framework(task)).toContain("Your final report must start with STATUS: done|partial|blocked");
+	expect(framework(task)).toContain("Never end a task session with empty text or NO_REPLY");
+	expect(framework({ ...task, agent: "main" })).toContain("If no reply is needed, output only NO_REPLY.");
+	expect(framework({ ...task, agent: "main" })).not.toContain("STATUS: done|partial|blocked");
+});
+
+test("built-in prompt states autonomy, goal-first and stop-when-enough within a word budget", () => {
+	const all = [commonPrompt, residentPrompt, runtimePrompt, cliPrompt].join("\n");
+	const words = all.trim().split(/\s+/u).length;
+	// Measured 7016 words after folding the autonomy sentences into the current sections; the ceiling only shrinks.
+	expect(words).toBeLessThanOrEqual(7100);
+	for (const line of [
+		"Never give the person a command, script or approval step you can run yourself",
+		"Work that takes under half an hour needs no research first; do it.",
+		"If two goals conflict, pick one and say why.",
+		"When a reminder about time or context arrives, wrap up: deliver what exists and say what remains.",
+		"Keep at most two lines of work moving at once.",
+		"Never spend a model turn only to append a ledger line; batch notes.",
+		"Give commands explicit paths or a timeout so they cannot wait on stdin.",
+		"within two attempts, fix one, route around it or report it",
+		"wait for its notification instead of checking again",
+	]) {
+		expect(commonPrompt).toContain(line);
+	}
+	// No persona or product names in the built-in base.
+	for (const forbidden of ["Jarvis", "Luna", "SYSTEM.md"]) {
+		expect(all).not.toContain(forbidden);
+	}
+	// Compiled constants stay stable and plain strings.
+	expect([commonPrompt, residentPrompt, runtimePrompt, cliPrompt].every((text) => text === text.trim())).toBe(true);
 });

@@ -313,13 +313,10 @@ export class FeishuTaskCards {
 			}
 		});
 	}
-	private current(row: Receipt): boolean {
-		return (
-			!row.retired &&
-			this.latest.get(sourceKey(row.source))?.message === row.source.message &&
-			Date.now() - row.created < 14 * 86400000
-		);
-	}
+	private current = (row: Receipt) =>
+		!row.retired &&
+		this.latest.get(sourceKey(row.source))?.message === row.source.message &&
+		Date.now() - row.created < 14 * 86400000;
 	private card(row: Receipt): object {
 		const clean = (value: string) => value.replace(/[\r\n|]/g, " ").replace(/[<>]/g, "");
 		const tableRow = (cells: string[]) => ({
@@ -499,6 +496,7 @@ export class FeishuTaskCards {
 			from: row.source.sender,
 			data: {
 				msgId: `task-card:${row.id}:${row.revision}`,
+				delivery: { ok: true },
 				instance: this.instance,
 				messageId: row.messageId,
 				receipt: row.id,

@@ -19,7 +19,7 @@ harness 决定模型怎么执行、怎么回复；渠道只决定怎么呈现。
 
 运行结束时得到最终文字 T，按顺序判断，命中即止，结果记入 `run.end.data.replied`：
 
-1. T 去掉首尾空白后为空，或恰好是 `NO_REPLY` → 不发，`none`。
+1. T 去掉首尾空白后为空，或恰好是 `NO_REPLY` → 不发渠道消息；task 等待者仍按 03 §8 收到 `STATUS: unknown (no report)`，记 `caller`，其余记 `none`。
 2. 对有等待者的输入返回调用方；抑制该次输入的自动最终回复，其他已接纳来源仍按下条处理。只有调用方接收时记 `caller`。
 3. 有来源，且把该输入送进来的绑定是 `reply: auto` → 发往每个这样的来源（自动回复携带原消息 `sourceMessageId`，渠道按呈现策略决定是否引用；显式 `replyTo` 不变），`source`。
 4. 开始本次运行的绑定有 `deliver` → 发往 `deliver.to`（经 `deliver.via`），`deliver`。
@@ -49,14 +49,14 @@ type OutputPart =
 
 流式按一条 assistant 消息开闭，不按整轮任务开闭。内核传递原生消息边界；非空、非 NO_REPLY 的每条消息各自通过一次 channel.stream 投递，在 message_end 时以该条完整正文 final 并结束迭代。工具执行、后台等待不保持上一气泡生成；后续阶段汇报和最终回复分别新建消息，前文不覆盖。纯工具/空消息不建气泡。CLI 每条消息结束换行，不重复打印相同正文。
 
-发送尝试按 session/run/target/message 去重；message 取原生 assistant timestamp（运行内生成标识），最终回执从 answer 使用同一标识，恢复后已尝试的同一消息不重发。旧无 message 的尝试仍按整轮处理，不能据缺失边界猜测旧历史。每条流结束立即记录自己的 message.out；结果不确定记录 unknown，不因最终回复再补发副本。整轮结束不重发已投递的最终消息；未开启流式的来源仍自动 send 最终回复，错误/取消另发终止说明。模型终态不等渠道网络。后台完成继续经原 runtime.tool-result 唤醒，无需用户追问，不增加调度器、转录或定时催促。为避免显示控制标记，内核暂存仍可能构成 `NO_REPLY` 的起始增量，确认不是该标记后继续输出；已经显示的正常过程不撤回。`reply: none` 或有等待者时不启动渠道流式。
+发送尝试按 session/run/target/message 去重；message 取原生 assistant timestamp（运行内生成标识），最终回执从 answer 使用同一标识，恢复后已尝试的同一消息不重发。旧无 message 的尝试仍按整轮处理，不能据缺失边界猜测旧历史。每条流结束立即记录自己的 message.out；结果不确定记录 unknown，不因最终回复再补发副本。整轮结束不重发已投递的最终消息；未开启流式的来源仍自动 send 最终回复，错误/取消另发终止说明。模型终态不等渠道网络。后台完成继续经原 runtime.tool-result 唤醒，无需用户追问，不增加调度器、转录或定时催促；确定性静默心跳见 §10。为避免显示控制标记，内核暂存仍可能构成 `NO_REPLY` 的起始增量，确认不是该标记后继续输出；已经显示的正常过程不撤回。`reply: none` 或有等待者时不启动渠道流式。
 
 ## 4. 告诉模型的规则（框架段内容）
 
 框架段（03 §5.2）用几句话说明：
 
 - 你的最终回复会自动发回这条消息的来源；
-- 不需要回复时，只输出 `NO_REPLY`；
+- 不需要回复时，只输出 `NO_REPLY`；task 会话除外，必须按 03 §8 回传 STATUS 与证据；
 - 要发给别的人、别的渠道，用 `message_send`；要问别的 agent，用 `agent_ask`；
 - 专门任务可以交给 `task_run`；有可用 skill 时，用 `skill_view` 读取（03 §6）；
 - `<turn>` 块里的 `notice:` 是给你的内部信息，知道即可，不必主动告诉对方。
@@ -112,3 +112,11 @@ agent_ask({ agent: string, text: string, sources?: string[], effort?: string }) 
 插件可直接 messages.send 向明确 person/acct/conv 发程序通知，无模型、无伪造 Agent 回复；message.out 归属真实插件。代表执行者的程序发送传 `owner: ExecutionOwner`，由核心核对真实会话归属、重新解析当前能力与实例范围并要求 message 能力；同一范围过滤/最终检查也用于带 ctx 的发送。无 ctx/owner 的原合法插件通知仍按插件身份发送，不等于模型授权。内部 session 通知用 sessions.notify，沿 pi 原生 app-only entry 保存与观察，不经 sessions.submit，不唤醒 Agent、不进入模型消息。TUI 以程序通知独立标识来源，和真实对话按 entry 时序排列；录入回执不等于送达外部渠道或人已读。
 
 channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认返回 ok:false,uncertain:true，禁止自动重发。其 acct/conv 引用嵌入 Yonder Agent id，见 16。
+
+## 10. 确定性可见性
+
+后台/委派完成经原 runtime.tool-result 接纳后，续办轮结束时，共享 delivery 边界检查从该完成事件到本轮投递结束之间本会话对原渠道/会话的可见输出。成功送出的消息，或模型成功更新的状态卡/锚点，均计入；插件在既有成功事件附带通用 `data.delivery.ok=true`、session 与 conv，内核不识别供应商专用事件名；读取卡片、失败更新、其他会话或其他会话目标不算。若没有新可见输出，发一条模板：成功 `✅ 后台任务「<标题/摘要前40字符>」已完成。`；失败或无法确认 `⚠️ 后台任务「…」未能确认完成（<status>）。`。task_run 的 done 必须同时有 `STATUS: done` 才可称成功，STATUS 仍是模型自述。保留 reply:none、cron/trigger deliver 规则和非主人交互的静默语义；仅原本代表主人在渠道工作的会话使用兜底。若一次续办合并多个完成，逐完成检查，已有一条可见输出即满足本轮。
+
+兜底意图随 `run.end` 保存，以 completion/session/target 为稳定发送身份，使用现有 attempt/out/unknown 与确定未发送重试规则；重启补办尚无尝试的意图，已尝试且不确定的绝不自动重发。发送与本地确认之间崩溃保留 unknown，不声称 exactly-once。
+
+主人消息启动的交互运行仍活跃、连续 5 分钟无主人可见输出时，无模型调用地发送 `⏳ 仍在处理（已 N 分钟，已执行 M 次工具）。`；每隔至少 5 分钟一次，每轮最多 6 次。任何可见输出重置静默时间，运行终结/取消或服务关闭取消计时；cron、后台续办和 agent_ask 不启用。N 为真实运行分钟，M 为原生已执行工具任务数。复用既有运行软提醒计时器；首响应当前只有 ack-before-tools 提示词，没有独立计时器。支持 `Channel.edit` 的渠道更新同一心跳消息（原生消息 API 编辑，未知结果不重试），其他渠道发送短消息。当前身份/配置没有语言字段，默认中文，不从自由文本猜测，不新增生产配置旋钮；测试可经宿主 `openKernel` 的 `test.heartbeatIntervalMs` 注入缩短间隔，生产固定 5 分钟。
