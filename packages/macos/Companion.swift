@@ -47,7 +47,7 @@ struct AgentActivity {
         var status = "idle", label = "无执行"
         if !executionKnown { status = "unknown"; label = "执行状态未知" }
         else if running || retrying { status = "running"; label = running ? "运行中" + (retrying ? " · 重试中" : "") : "重试中" }
-        else if waitingInput { status = "waiting"; label = "等你 · 等待输入" }
+        else if waitingInput { status = "waiting"; label = "等你输入" }
         else if phases.contains("blocked") { status = "blocked"; label = "执行受阻" }
         else if blocked > 0 { status = "blocked"; label = "有阻塞事项" }
         else if review > 0 { status = "review"; label = "待检查" }
@@ -98,24 +98,21 @@ func renderActivityDock(_ view: NSView, agents: [AgentActivity], known: Bool, su
     if let mark = view.subviews.first as? NSImageView { mark.frame.origin.y = (view.bounds.height - 52) / 2 }
     let rows = known && !agents.isEmpty ? agents.map { ($0.name, $0.presentation(known: known, summary: summary)) } : [(known ? "暂无 Agent" : "状态未知", ActivityPresentation(state: "unknown", label: known ? "暂无 Agent" : "执行状态未知", items: "", emphasized: false))]
     for (index, row) in rows.enumerated() {
-        let y = view.bounds.height - 25 - CGFloat(index * 32)
-        let dot = NSView(frame: NSRect(x: 62, y: y + 7, width: 7, height: 7))
-        dot.wantsLayer = true; dot.layer?.cornerRadius = row.1.state == "waiting" ? 1 : 3.5
+        let y = view.bounds.height - 24 - CGFloat(index * 22)
+        let dot = NSView(frame: NSRect(x: 62, y: y + 4, width: 6, height: 6))
+        dot.wantsLayer = true; dot.layer?.cornerRadius = row.1.state == "waiting" ? 1 : 3
         let color = ActivityColors.color(row.1.state, dark: dark)
         if row.1.state == "unknown" { dot.layer?.borderWidth = 1; dot.layer?.borderColor = color.cgColor }
         else { dot.layer?.backgroundColor = color.cgColor }
         // Static semantic lights: no pulsing, including when Reduce Motion is enabled.
         let name = NSTextField(labelWithString: row.0)
-        name.frame = NSRect(x: 76, y: y + 2, width: 110, height: 17)
+        name.frame = NSRect(x: 75, y: y, width: 99, height: 16)
         name.font = .systemFont(ofSize: 11, weight: row.1.emphasized ? .bold : .medium)
-        name.lineBreakMode = .byTruncatingTail; name.textColor = .labelColor
-        let status = NSTextField(labelWithString: row.1.description)
-        status.frame = NSRect(x: 76, y: y - 12, width: 220, height: 15)
-        status.font = .systemFont(ofSize: 10); status.textColor = .secondaryLabelColor; status.lineBreakMode = .byTruncatingTail
-        name.toolTip = row.0 + " · " + row.1.description; status.toolTip = name.toolTip
-        name.setAccessibilityLabel(name.toolTip); status.setAccessibilityLabel(row.1.description)
+        name.lineBreakMode = .byTruncatingTail; name.textColor = row.1.emphasized ? .labelColor : .secondaryLabelColor
+        name.toolTip = row.0 + " · " + row.1.description
+        name.setAccessibilityLabel(name.toolTip)
         dot.setAccessibilityElement(false)
-        view.addSubview(dot); view.addSubview(name); view.addSubview(status)
+        view.addSubview(dot); view.addSubview(name)
     }
     view.toolTip = rows.map { $0.0 + " · " + $0.1.description }.joined(separator: "\n")
     view.setAccessibilityLabel("打开 Yonder。" + (view.toolTip ?? ""))
@@ -277,7 +274,7 @@ final class CompanionController: NSObject, WKScriptMessageHandler, WKNavigationD
         let key = "\(activityKnown):\(dock.effectiveAppearance.name):" + agents.map { $0.name + $0.presentation(known: activityKnown, summary: activitySummary).description }.joined(separator: "\n")
         guard key != dockStateKey, let view = dock.contentView else { return }
         dockStateKey = key
-        dock.setContentSize(NSSize(width: 310, height: max(56, 20 + max(1, agents.count) * 32)))
+        dock.setContentSize(NSSize(width: 184, height: max(56, 16 + max(1, agents.count) * 22)))
         renderActivityDock(view, agents: agents, known: activityKnown, summary: activitySummary)
         if dock.isVisible { ensureAnchor(); dock.setFrame(anchor!.frame(size: dock.frame.size), display: true) }
     }
@@ -454,7 +451,7 @@ func previewActivityCases(_ cases: [[String: Any]], directory: String) {
         let canvas = NSView(frame: NSRect(x: 0, y: 0, width: 660, height: height))
         canvas.appearance = appearance; canvas.wantsLayer = true
         appearance.performAsCurrentDrawingAppearance { canvas.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
-        let heading = NSTextField(labelWithString: "AppKit 测试预览 · 候选、未装机 · \(dark ? "深色" : "浅色")")
+        let heading = NSTextField(labelWithString: "AppKit 测试预览 · 184宽/22行高 · 候选、未装机 · \(dark ? "深色" : "浅色")")
         heading.frame = NSRect(x: 20, y: height - 42, width: 620, height: 24); heading.font = .boldSystemFont(ofSize: 16)
         canvas.addSubview(heading)
         let note = NSTextField(labelWithString: "真实 Dock 组件离屏渲染；合成 fixture，非运行数据；状态灯静态，减少动态同样适用。")
@@ -463,12 +460,20 @@ func previewActivityCases(_ cases: [[String: Any]], directory: String) {
         for (index, item) in cases.enumerated() {
             let x = CGFloat(12 + (index % 2) * 324)
             let y = height - 142 - CGFloat((index / 2) * 62)
-            let row = NSView(frame: NSRect(x: x, y: y, width: 310, height: 56))
+            let row = NSView(frame: NSRect(x: x, y: y, width: 184, height: 56))
             row.wantsLayer = true; row.layer?.cornerRadius = 12; row.appearance = appearance
+            let mark = NSImageView(frame: NSRect(x: 2, y: 2, width: 52, height: 52))
+            mark.image = NSImage(contentsOfFile: "brand/assets/png/yonder-mark-512.png")
+            mark.image?.isTemplate = true; mark.contentTintColor = .labelColor
+            row.addSubview(mark)
             canvas.addSubview(row)
             renderActivityDock(row, agents: [AgentActivity(item["agent"] as! [String: Any])!], known: item["known"] as! Bool, summary: item["summary"] as! [String: Any])
         }
         canvas.layoutSubtreeIfNeeded()
+        // Each real entry is 184 pt wide, each agent consumes exactly one 22 pt row.
+        for row in canvas.subviews where row.frame.width == 184 {
+            precondition(row.subviews.count == 3 && row.subviews[2].frame.maxX <= 184)
+        }
         let bitmap = canvas.bitmapImageRepForCachingDisplay(in: canvas.bounds)!
         appearance.performAsCurrentDrawingAppearance { canvas.cacheDisplay(in: canvas.bounds, to: bitmap) }
         let path = URL(fileURLWithPath: directory).appendingPathComponent("native-\(dark ? "dark" : "light").png")
@@ -479,7 +484,7 @@ func previewActivityCases(_ cases: [[String: Any]], directory: String) {
 
 func checkDynamicActivityAppearance(_ item: [String: Any]) {
     _ = NSApplication.shared
-    let view = DockView(frame: NSRect(x: 0, y: 0, width: 310, height: 56))
+    let view = DockView(frame: NSRect(x: 0, y: 0, width: 184, height: 56))
     view.wantsLayer = true; view.appearance = NSAppearance(named: .aqua)
     let agent = AgentActivity(item["agent"] as! [String: Any])!
     let render = { renderActivityDock(view, agents: [agent], known: true, summary: item["summary"] as! [String: Any]) }
@@ -491,9 +496,39 @@ func checkDynamicActivityAppearance(_ item: [String: Any]) {
     let dark = view.subviews[0].layer!.backgroundColor!
     precondition(callbacks > 0 && light != dark, "Effective appearance must repaint cached CGColors")
     precondition(dark == ActivityColors.color("running", dark: true).cgColor)
+    precondition(view.subviews.count == 2 && view.bounds.width == 184)
     precondition(view.subviews[0].layer!.animationKeys() == nil)
     precondition((view.subviews[1] as! NSTextField).font == NSFont.systemFont(ofSize: 11, weight: .bold))
     precondition(view.accessibilityLabel()!.contains("运行中"))
     view.appearanceChanged = nil
     print("Passed: real DockView effective-appearance callback recolors light→dark; static light, bold name and accessible status.")
+}
+
+// Read-only integration check. No window, home, status host, helper or OS permission request.
+func checkActivityHTTP(_ address: String, fixture: String) {
+    let url = URL(string: address)!
+    precondition(url.scheme == "http" && url.host == "127.0.0.1" && url.lastPathComponent == "activity-summary")
+    let semaphore = DispatchSemaphore(value: 0)
+    var result: [String: Any]?
+    let task = URLSession.shared.dataTask(with: url) { data, response, _ in
+        if (response as? HTTPURLResponse)?.statusCode == 200, let data {
+            result = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        }
+        semaphore.signal()
+    }
+    task.resume()
+    precondition(semaphore.wait(timeout: .now() + 8) == .success, "Summary HTTP request timed out")
+    let envelope = validatedActivitySummary(result ?? [:])
+    let bytes = try! Data(contentsOf: URL(fileURLWithPath: fixture))
+    let item = try! JSONSerialization.jsonObject(with: bytes) as! [String: Any]
+    let agent = AgentActivity(item["agent"] as! [String: Any])!
+    let presentation = agent.presentation(known: true, summary: envelope)
+    let expected = item["expected"] as! [String: Any]
+    precondition(presentation.state == expected["state"] as! String)
+    precondition(presentation.label == expected["label"] as! String)
+    precondition(presentation.emphasized == expected["emphasized"] as! Bool)
+    // Exactly the payload shape consumed by publishActivity's WKWebView bridge.
+    let bridge: [String: Any] = ["agents": [agent.json], "known": true, "activitySummary": envelope]
+    let output = try! JSONSerialization.data(withJSONObject: bridge, options: [.sortedKeys])
+    print(String(data: output, encoding: .utf8)!)
 }

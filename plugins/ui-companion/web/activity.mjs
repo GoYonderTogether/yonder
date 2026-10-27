@@ -49,7 +49,7 @@ export function presentActivity(agent, known, envelope) {
 		label = running ? `运行中${retrying ? " · 重试中" : ""}` : "重试中";
 	} else if (waitingInput) {
 		state = "waiting";
-		label = "等你 · 等待输入";
+		label = "等你输入";
 	} else if (phases.includes("blocked")) {
 		state = "blocked";
 		label = "执行受阻";

@@ -283,6 +283,10 @@ export function markSVG({
 
 /* ------------------------------------------------------------------ motion */
 
+// Slow the character timeline, not the display refresh or other UI animations.
+export const MOTION_TIME_SCALE = 3;
+export const motionSeconds = (milliseconds) => milliseconds / MOTION_TIME_SCALE / 1000;
+
 const spring = (x, f, z) => ({ x, v: 0, t: x, f, z });
 function stepSpring(s, dt) {
 	const w = 2 * Math.PI * s.f;
@@ -339,6 +343,7 @@ export function createCharacter(svg, { color = PALETTE.ink, state = "idle", poin
 	let last = null;
 	let raf = 0;
 	let saccadeAt = 2;
+	let smallHopAt = null;
 	const blinkQ = { b: [], s: [] };
 	const nextBlink = { b: 1.6, s: 2.3 };
 	const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -354,7 +359,7 @@ export function createCharacter(svg, { color = PALETTE.ink, state = "idle", poin
 		return v;
 	}
 
-	function setState(next, now = performance.now() / 1000) {
+	function setState(next, now = motionSeconds(performance.now())) {
 		current = next;
 		since = now;
 		if (next === "split") {
@@ -370,9 +375,7 @@ export function createCharacter(svg, { color = PALETTE.ink, state = "idle", poin
 			sp.th.t = sp.th.x + 360;
 		} else if (next === "done") {
 			sp.bHop.v -= 120;
-			setTimeout(() => {
-				sp.sHop.v -= 150;
-			}, 140);
+			smallHopAt = now + 0.14;
 			sp.bSquash.x = 0.9;
 		} else if (next === "sleep") {
 			sp.th.t = home() - 80;
@@ -410,15 +413,19 @@ export function createCharacter(svg, { color = PALETTE.ink, state = "idle", poin
 	}
 
 	function frame(ms) {
-		const now = ms / 1000;
+		const now = motionSeconds(ms);
 		if (last === null) {
 			last = now;
 			tourAt = now;
 			setState(current, now);
 		}
-		const dt = Math.min(0.05, now - last);
+		const dt = Math.min(0.05 / MOTION_TIME_SCALE, now - last);
 		last = now;
 		const t = now - since;
+		if (smallHopAt !== null && now >= smallHopAt) {
+			sp.sHop.v -= 150;
+			smallHopAt = null;
+		}
 		if (tour && now - tourAt > TOUR[tourI][1]) {
 			tourI = (tourI + 1) % TOUR.length;
 			tourAt = now;

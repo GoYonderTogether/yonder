@@ -252,6 +252,10 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 @main
 struct DesktopMain {
     static func main() {
+        if let index = CommandLine.arguments.firstIndex(of: "--check-activity-http"), CommandLine.arguments.count > index + 2 {
+            checkActivityHTTP(CommandLine.arguments[index + 1], fixture: CommandLine.arguments[index + 2])
+            return
+        }
         if let index = CommandLine.arguments.firstIndex(of: "--check-activity"), CommandLine.arguments.count > index + 1 {
             let cases = checkActivityCases(CommandLine.arguments[index + 1])
             if let preview = CommandLine.arguments.firstIndex(of: "--preview-activity"), CommandLine.arguments.count > preview + 1 {
