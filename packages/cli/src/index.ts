@@ -10,6 +10,7 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
+import { startStatusSurface } from "./status-surface.js";
 import {
 	attachmentFromPath,
 	checkRelease,
@@ -700,6 +701,8 @@ async function run(args: string[]): Promise<number> {
 				output({ ts: new Date().toISOString(), level, message, ...(data ? { data } : {}) }, options.json),
 		});
 		const awake = startAwake(home, () => kernel.awakeActivity());
+		// 状态面：服务自己把"现在怎么样"写成一份小文件，读取方读文件而不是派生进程。
+		const status = startStatusSurface(home, kernel);
 		let closing: Promise<void> | undefined;
 		let control: Awaited<ReturnType<typeof serveControl>>;
 		let finish!: () => void;
@@ -710,6 +713,7 @@ async function run(args: string[]): Promise<number> {
 			if (closing) return closing;
 			closing = (async () => {
 				awake.close();
+				await status.stop();
 				await control?.close();
 				await kernel.close();
 				finish();
@@ -835,6 +839,7 @@ async function run(args: string[]): Promise<number> {
 			});
 		} catch (error) {
 			awake.close();
+			await status.stop();
 			await kernel.close();
 			throw error;
 		}

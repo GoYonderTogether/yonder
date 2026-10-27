@@ -10,7 +10,6 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
     private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
     private var needsPowerUpdate = false
-    private var readingActivity = false
     private var agentItems: [NSMenuItem] = []
     private var activityKey = ""
     private var baseImage: NSImage!
@@ -97,60 +96,64 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshActivity()
     }
 
+    /// 状态由服务自己写成 `.yonder/status.json`，这里只读文件。
+    /// 派生 `yonder service info` 每次都要付 Node 启动和整棵模块图加载，2 秒一次就是持续空转。
     private func refreshActivity() {
-        guard !readingActivity else { return }
-        readingActivity = true
-        run(["service", "info", "--home", home]) { result in
-            self.readingActivity = false
-            var agents: [AgentActivity] = []
-            var known = false
-            var running = false
-            switch result {
-            case .success(let info):
-                known = info["ready"] as? Bool == true && info["agents"] is [[String: Any]]
-                agents = (info["agents"] as? [[String: Any]] ?? []).compactMap(AgentActivity.init)
+        var agents: [AgentActivity] = []
+        var known = false
+        var running = false
+        var version = ""
+        let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/status.json")
+        if let data = try? Data(contentsOf: file),
+           let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           info["ready"] as? Bool == true,
+           let rows = info["agents"] as? [[String: Any]] {
+            // 心跳：内容不变时服务每 10 秒刷新 observedAt。30 秒没动就说明服务已经不在了。
+            let observedAt = (info["observedAt"] as? Double ?? 0) / 1000
+            if Date().timeIntervalSince1970 - observedAt < 30 {
+                known = true
+                version = info["version"] as? String ?? ""
+                agents = rows.compactMap(AgentActivity.init)
                 running = agents.contains { $0.state == "running" } || (info["active"] as? Int ?? 0) > 0
-                self.status.title = known ? "服务运行中 · \(info["version"] ?? "")" : "运行状态未知"
-            case .failure:
-                self.status.title = "服务未就绪 · 运行状态未知"
             }
-            self.companion.setActivity(agents, known: known)
-            self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
-            let image = NSImage(size: NSSize(width: 22, height: 22))
-            image.lockFocus()
-            self.baseImage.draw(in: NSRect(x: 0, y: 0, width: 22, height: 22))
-            if running || !known {
-                NSColor.labelColor.setFill()
-                let dot = NSBezierPath(ovalIn: NSRect(x: 16, y: 1, width: 5, height: 5))
-                if running { dot.fill() } else { dot.lineWidth = 1; dot.stroke() }
-            }
-            image.unlockFocus(); image.isTemplate = true
-            self.item.button?.image = image
-            let key = "\(known):" + agents.map { $0.menuText + $0.tasks.map { $0.summary + $0.detail + $0.text }.joined(separator: "\n") }.joined(separator: "\n")
-            guard self.activityKey != key else { return }
-            self.activityKey = key
-            self.agentItems.forEach { self.menu.removeItem($0) }; self.agentItems = []
-            var index = 0
-            for agent in agents {
-                let title = NSMenuItem(title: agent.menuText, action: nil, keyEquivalent: "")
-                title.isEnabled = false
-                self.menu.insertItem(title, at: index); index += 1; self.agentItems.append(title)
-                for task in agent.tasks {
-                    let text = [String(task.summary.prefix(44)), task.detail].filter { !$0.isEmpty }.joined(separator: " · ")
-                    let row = NSMenuItem(title: String(text.prefix(90)), action: nil, keyEquivalent: "")
-                    row.isEnabled = false; row.indentationLevel = 1; row.toolTip = [task.summary, task.detail].joined(separator: " · ")
-                    self.menu.insertItem(row, at: index); index += 1; self.agentItems.append(row)
-                    if !task.text.isEmpty {
-                        let output = NSMenuItem(title: String(task.text.replacingOccurrences(of: "\n", with: " ").suffix(64)), action: nil, keyEquivalent: "")
-                        output.isEnabled = false; output.indentationLevel = 1; output.toolTip = task.text
-                        self.menu.insertItem(output, at: index); index += 1; self.agentItems.append(output)
-                    }
+        }
+        self.status.title = known ? "服务运行中 · \(version)" : "服务未就绪 · 运行状态未知"
+        self.companion.setActivity(agents, known: known)
+        self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
+        let image = NSImage(size: NSSize(width: 22, height: 22))
+        image.lockFocus()
+        self.baseImage.draw(in: NSRect(x: 0, y: 0, width: 22, height: 22))
+        if running || !known {
+            NSColor.labelColor.setFill()
+            let dot = NSBezierPath(ovalIn: NSRect(x: 16, y: 1, width: 5, height: 5))
+            if running { dot.fill() } else { dot.lineWidth = 1; dot.stroke() }
+        }
+        image.unlockFocus(); image.isTemplate = true
+        self.item.button?.image = image
+        let key = "\(known):" + agents.map { $0.menuText + $0.tasks.map { $0.summary + $0.detail + $0.text }.joined(separator: "\n") }.joined(separator: "\n")
+        guard self.activityKey != key else { return }
+        self.activityKey = key
+        self.agentItems.forEach { self.menu.removeItem($0) }; self.agentItems = []
+        var index = 0
+        for agent in agents {
+            let title = NSMenuItem(title: agent.menuText, action: nil, keyEquivalent: "")
+            title.isEnabled = false
+            self.menu.insertItem(title, at: index); index += 1; self.agentItems.append(title)
+            for task in agent.tasks {
+                let text = [String(task.summary.prefix(44)), task.detail].filter { !$0.isEmpty }.joined(separator: " · ")
+                let row = NSMenuItem(title: String(text.prefix(90)), action: nil, keyEquivalent: "")
+                row.isEnabled = false; row.indentationLevel = 1; row.toolTip = [task.summary, task.detail].joined(separator: " · ")
+                self.menu.insertItem(row, at: index); index += 1; self.agentItems.append(row)
+                if !task.text.isEmpty {
+                    let output = NSMenuItem(title: String(task.text.replacingOccurrences(of: "\n", with: " ").suffix(64)), action: nil, keyEquivalent: "")
+                    output.isEnabled = false; output.indentationLevel = 1; output.toolTip = task.text
+                    self.menu.insertItem(output, at: index); index += 1; self.agentItems.append(output)
                 }
             }
-            if !self.agentItems.isEmpty {
-                let separator = NSMenuItem.separator()
-                self.menu.insertItem(separator, at: index); self.agentItems.append(separator)
-            }
+        }
+        if !self.agentItems.isEmpty {
+            let separator = NSMenuItem.separator()
+            self.menu.insertItem(separator, at: index); self.agentItems.append(separator)
         }
     }
 
