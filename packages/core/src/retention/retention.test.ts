@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createRetention, defaultPolicy, validatePolicy } from "./index.js";
+import { createRetention, DEFAULT_DERIVED_OLDER_THAN_DAYS, defaultPolicy, validatePolicy } from "./index.js";
 
 const temps: string[] = [];
 
@@ -138,7 +138,7 @@ describe("调用约定", () => {
 			home,
 			compactDerived: async (olderThanDays, budgetBytes) => {
 				calls += 1;
-				expect(olderThanDays).toBe(30);
+				expect(olderThanDays).toBe(DEFAULT_DERIVED_OLDER_THAN_DAYS);
 				expect(budgetBytes).toBe(budget);
 				return 7;
 			},

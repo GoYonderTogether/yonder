@@ -33,7 +33,14 @@ export interface RetentionPolicy {
 export const DEFAULT_LOG_MAX_BYTES = 10 * 1024 * 1024;
 export const DEFAULT_LOG_KEEP = 3;
 export const DEFAULT_BACKGROUND_KEEP_DAYS = 7;
-export const DEFAULT_DERIVED_OLDER_THAN_DAYS = 30;
+/**
+ * 派生物正文的保留天数。
+ *
+ * 原定 30 天，实测本机全部后台终态记录都在最近 8 天内——30 天窗口等于永不回收。
+ * 而这些正文在同一会话的转录 `pi_entries` 里已有副本（抽样 12/12 命中），
+ * 转录只追加、不清理，所以剥离正文不会丢内容。1 天足够覆盖"刚结束还要回看"。
+ */
+export const DEFAULT_DERIVED_OLDER_THAN_DAYS = 1;
 export const DEFAULT_BUDGET_BYTES = 50 * 1024 * 1024;
 
 /** 运行时 home 下的默认布局；`home` 是运行时数据根，不是用户主目录。 */

@@ -5,6 +5,7 @@ import { createSweep } from "./sweep.js";
 export type { RetentionPolicy } from "./policy.js";
 export {
 	DEFAULT_BUDGET_BYTES,
+	DEFAULT_DERIVED_OLDER_THAN_DAYS,
 	DEFAULT_LOG_KEEP,
 	DEFAULT_LOG_MAX_BYTES,
 	defaultPolicy,
