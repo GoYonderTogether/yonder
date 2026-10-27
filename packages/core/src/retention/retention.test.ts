@@ -101,6 +101,47 @@ describe("后台目录合并", () => {
 	});
 });
 
+describe("合并文件轮转", () => {
+	const archiveName = /^background\.\d{8}T\d{9}Z\.log$/;
+
+	it("合并文件超过上限就归档，且只保留 keep 份", async () => {
+		const home = await tempHome();
+		const yonder = join(home, ".yonder");
+		const merged = join(yonder, "background.log");
+		await mkdir(yonder, { recursive: true });
+		// 同名目录里的其他 base 归档不归它管，不能被一起裁掉。
+		const decoy = join(yonder, "harness.20240101T000000000Z.log");
+		await writeFile(decoy, "decoy\n");
+		const base = defaultPolicy(home);
+		const policy = { ...base, logs: { ...base.logs, maxBytes: 100, keep: 2 } };
+		let clock = 1_700_000_000_000;
+		const retention = createRetention({ home, policy, now: () => clock });
+		for (let round = 1; round <= 4; round += 1) {
+			await writeFile(merged, `merged-${round}\n`.repeat(20));
+			clock += 60_000;
+			const result = await retention.run();
+			expect(result.logsRotated).toHaveLength(1);
+		}
+		const archives = (await readdir(yonder)).filter((name) => archiveName.test(name)).sort();
+		expect(archives).toHaveLength(2);
+		// 归档保留完整内容，最新一轮的原文可查。
+		expect(await readFile(join(yonder, archives.at(-1) ?? ""), "utf8")).toContain("merged-4");
+		// 活跃文件被截断而不是改名，写入方持有的 fd 仍然有效。
+		expect((await stat(merged)).size).toBe(0);
+		expect(await readFile(decoy, "utf8")).toBe("decoy\n");
+	});
+
+	it("未超限的合并文件不动", async () => {
+		const home = await tempHome();
+		const merged = join(home, ".yonder", "background.log");
+		await mkdir(join(home, ".yonder"), { recursive: true });
+		await writeFile(merged, "small\n");
+		const result = await createRetention({ home }).run();
+		expect(result.logsRotated).toEqual([]);
+		expect(await readFile(merged, "utf8")).toBe("small\n");
+	});
+});
+
 describe("失败隔离", () => {
 	it("单个文件失败只记 skipped，整轮继续", async () => {
 		const home = await tempHome();

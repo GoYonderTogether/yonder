@@ -1,5 +1,5 @@
 import { appendFile, copyFile, mkdir, readdir, readFile, rm, stat, truncate } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { RetentionPolicy } from "./policy.js";
 import { emptyResult, type SweepResult } from "./report.js";
 
@@ -38,6 +38,7 @@ async function sweep(deps: SweepDeps, now: () => number): Promise<SweepResult> {
 	try {
 		await rotateLogs(deps.policy, now(), result, budget);
 		await mergeBackground(deps.policy, now(), result, budget);
+		await rotateMerged(deps.policy, now(), result, budget);
 	} catch (error) {
 		// 顶层兜底：保留任务不能把宿主服务打挂，未预期的错误也只记一条。
 		result.skipped.push({ what: "sweep", reason: message(error) });
@@ -78,6 +79,8 @@ async function rotateLogs(policy: RetentionPolicy, at: number, result: SweepResu
 	for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
 		if (!entry.name.endsWith(".log") || ARCHIVE_NAME.test(entry.name)) continue;
 		const file = join(dir, entry.name);
+		// 合并文件由 rotateMerged 单独轮转，避免落在 logs 目录时被处理两次。
+		if (resolve(file) === resolve(policy.background.mergedFile)) continue;
 		try {
 			if (!entry.isFile()) {
 				result.skipped.push({ what: file, reason: "不是普通文件，跳过" });
@@ -128,6 +131,33 @@ async function pruneArchives(dir: string, base: string, keep: number, result: Sw
 		} catch (error) {
 			result.skipped.push({ what: old.file, reason: message(error) });
 		}
+	}
+}
+
+/**
+ * 合并文件轮转：与 logs 目录共用 maxBytes 和 keep。
+ *
+ * 合并文件在后台目录之外，`rotateLogs` 扫不到；不轮转的话它会把所有历史
+ * 后台输出永久累积成一个越来越大的文件。
+ */
+async function rotateMerged(policy: RetentionPolicy, at: number, result: SweepResult, budget: Budget) {
+	const file = policy.background.mergedFile;
+	let size: number;
+	try {
+		size = (await stat(file)).size;
+	} catch (error) {
+		if (!isMissing(error)) result.skipped.push({ what: file, reason: message(error) });
+		return;
+	}
+	if (size <= policy.logs.maxBytes) return;
+	if (!budget.take(size)) {
+		result.skipped.push({ what: file, reason: "超出单轮预算，留到下一轮" });
+		return;
+	}
+	try {
+		await rotateOne(file, policy, at, result);
+	} catch (error) {
+		result.skipped.push({ what: file, reason: message(error) });
 	}
 }
 
