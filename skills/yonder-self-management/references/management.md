@@ -22,7 +22,11 @@ owner 是 `person:<id>`，不是显示名或渠道账号。账号引用为 `acct
 
 使用 `yonder agents list|show <id>` 和 `yonder presets list|show <id>` 查看真实对象。稳定 id 用于绑定和历史，name 是昵称，work 是工作说明；改昵称不改身份、权限或已保存的 SOUL/AGENTS 正文。
 
-`yonder agents create <id> --preset <preset> --file <json>` 从已有 preset 创建。JSON 必须明确提供 `name`、`work`、已有 `owner` 和 `bindings` 数组，可选 `profile` 覆盖既有 Profile 字段；不给入口时显式写空 bindings，结果 `messageEntry:false` 表示无消息入口。程序生成 agent.yaml 和选中上下文文件，不覆盖既有工作区，不自动安装插件或扩大绑定。
+`yonder agents create <id> --preset <preset> --file <json>` 从已有 preset 创建。JSON 必须明确提供 `name`、`work`、已有 `owner` 和 `bindings` 数组，可选 `avatarUrl` 设置身份头像、`profile` 覆盖既有 Profile 字段；不给入口时显式写空 bindings，结果 `messageEntry:false` 表示无消息入口。程序生成 agent.yaml 和选中上下文文件，不覆盖既有工作区，不自动安装插件或扩大绑定。
+
+头像统一使用该 Agent 的 `agent.yaml.avatarUrl`：无凭据的公共域名 HTTPS 图片地址，不是本地文件路径。创建或连接新渠道前先 `agents show` 核对已选头像，沿用同一来源；已有 Agent 用只含 `avatarUrl` 的配置补丁更新，不覆盖其模型、权限和绑定。网页 card 渠道在首次登记及约每十分钟同步这个字段，配置保存与网页实际显示分别核验；不需要另建一个网页 Bot 或第二份头像清单。
+
+飞书应用头像仍由飞书自己的设置与发布流程管理，连接渠道不会自动把它回写到本地。若主人已在飞书选定头像且本地尚未配置，可在授权范围内核对其公开图片地址后填入 `avatarUrl`；两边已有不同选择时先确认本次要保留哪张。新建或修改飞书应用时应用本地已选的同一图源，按当前提供的管理工具完成，分别记录头像已保存、应用已发布、渠道已接入和真实收发，不把其中一步当全部同步完成。
 
 `yonder agents update <id> --file <json>` 合并 Agent 配置字段；`agents validate <id> --file <json>` 只校验不保存。`presets create|update|validate <id> --file <json>` 复用现有 preset 字段，创建必须有 description。JSON 文件不得包含秘密；管理 RPC 与 CLI 共用校验。命令显式带 `--home <home> --json` 便于查看 saved/valid/accepted。`accepted:true` 表示运行服务已接纳，不代表真实模型成功执行；离线保存返回 `accepted:false`。
 
