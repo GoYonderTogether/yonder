@@ -149,12 +149,15 @@ export function createSessions({
 			else if (args[0] === "effort" && args.length === 2)
 				next = { ...saved, thinking: args[1] as NonNullable<SessionModels["thinking"]> };
 			else if (args[0] === "after" && args.length === 2)
-				next = { ...saved, fallback: { models: selected.fallback?.models ?? [], after: Number(args[1]) } };
+				next = {
+					...saved,
+					fallback: { ...selected.fallback, models: selected.fallback?.models ?? [], after: Number(args[1]) },
+				};
 			else if (args.every((arg) => /^[^/]+\/.+$/.test(arg)))
 				next = {
 					...saved,
 					model: args[0]!,
-					fallback: { models: args.slice(1), after: selected.fallback?.after ?? 3 },
+					fallback: { ...selected.fallback, models: args.slice(1), after: selected.fallback?.after ?? 3 },
 				};
 			else throw new Error("用法：/model <provider/model> [fallback ...] | effort <level> | after <次数> | reset");
 			if (next && !Check(SessionModelsSchema, next))

@@ -4,6 +4,9 @@
 
 ### Added
 
+- 模型账号回退：`fallback.accounts` 让主模型换用同一供应商的其他凭据槽，`fallback.accountModels` 按槽换成同供应商的其他模型（额度受限的账号跑较小模型），`fallback.hold`/`probe` 让失败模型在冷却期内不占用运行起点并由后台最小请求恢复。官方用量窗口从响应里的 `rate_limits` 只读取用，按 `provider@slot` 落盘，`fallback.quotaStopPercent` 给某个槽设停用线，窗口重置后自动恢复。账号回退在运行时以只读别名供应商 `<provider>#<slot>` 实现，别名不进配置；调用适配器前把 provider 重写回真实 id，避免共享订阅按别名判定为不支持的能力。
+
+
 - 信号分级与同类聚合（`core/src/signals`）：`report` 按稳定错误码分级，同类首次输出完整上下文、之后只计数、每分钟汇总一条；未知码默认 `warn` 而不是 `error`。
 - 状态面（`core/src/status`）：服务把"现在怎么样"原子写入 `.yonder/status.json`，内容不变时只按 10 秒心跳刷新 `observedAt`，空闲只付一次索引查询。菜单栏改读该文件，不再每 2 秒派生 `yonder service info` 进程。
 - 保留引擎（`core/src/retention`）：日志按大小轮转保留 3 份、后台日志目录合并为滚动文件、派生物正文按 30 天回收，单轮 50 MB 预算，失败只记 `skipped` 不中断。

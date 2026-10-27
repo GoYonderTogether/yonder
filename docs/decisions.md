@@ -310,3 +310,11 @@ Agent 身份增加可选 avatarUrl，name 继续复用原字段。配置校验�
 ## 2026-10-27 T63 模型账户选择配置（主对话批准）
 
 公开 `SessionModels.credentialSlots?: Record<string, string>`，键为真实 provider id，值为非秘密 slot 名。defaults、profile、session 与按次 task_run 逐 provider 合并，显式 `default` 可覆盖继承值；模型及 fallback 仍使用原 provider/modelId，不新增 alias 或跨槽轮换。preset 只取自己的模型账户配置，不继承父映射。task_run 按次映射沿现有 effort 的结构化 session.input、重放与 admin 门槛进入运行快照，不增加授权机制。此条只定案配置与输入契约，凭据存储、认证与 runtime 绑定由对应实现负责。
+
+## 2026-10-27 模型账号回退与冷却（主对话批准）
+
+额度耗尽时同一个模型要能自动换用另一个账号，并且一段时间内不要反复用坏掉的模型重试。`fallback` 增加 `accounts`（同模型换槽）、`hold`（默认 600 秒）与 `probe`（默认 60 秒）：链按「主模型 → 同模型的其他账号 → 其他模型」展开，账号项在运行时用只读别名供应商 `<provider>#<slot>` 实现，别名不进配置、不改模型名。健康状态按 `provider/modelId@slot` 记在 `<home>/.yonder/model-health.json`，只把被持有的条目移到链尾，不重排其余条目；后台最小请求探测成功后立即恢复。不重放输入、不重跑工具、不新建队列或调度器；探测不落库、不计用量。代价：用量键会包含别名 provider，`hold` 期间该账号的额度恢复要靠探测才能被发现，探测本身也消耗一次极小请求。
+
+## 2026-10-27 官方用量窗口与按槽停用线（主对话批准）
+
+共享订阅的 5 小时窗口用完后所有请求都被拒，事后才知道太晚。供应商在正常响应里带回 `rate_limits`，运行时只读地取 5 小时窗口（`used_percent`/`window_minutes`/`resets_at`），按 `provider@slot` 落盘，配置档用 `fallback.quotaStopPercent` 给某个槽设停用线，达到即把该账号移到链尾，窗口重置后自动恢复。不新增轮询请求、不建第二个调度器、不复制转录；抓取挂在供应商事件观察上，观察失败不影响请求。失败冷却（`hold`）与官方配额是两套独立状态，前者靠探测恢复，后者靠 `resets_at` 恢复。代价：没有响应就没有新读数；供应商改字段时退化为只靠失败冷却。

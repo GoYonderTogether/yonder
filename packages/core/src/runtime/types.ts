@@ -52,6 +52,8 @@ export interface RuntimeOptions {
 	): Promise<void>;
 	onWarning?(session: string, input: { kind: string; text: string; parent?: string }): Promise<void>;
 	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
+	/** Model health changed: a chain entry was held after a failed run, or a probe recovered it. */
+	onModelHealth?(event: { key: string; state: "held" | "recovered"; reason?: string; until?: number }): void;
 	onReport?(error: unknown): void;
 }
 export interface RuntimeInput {

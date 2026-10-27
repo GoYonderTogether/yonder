@@ -86,9 +86,9 @@ bindings: [ … ]                   # 见 02 §2
 | 字段 | 含义 |
 |---|---|
 | `model` | `provider/modelId`（07 §6） |
-| `fallback` | 可选 `{ models: [provider/modelId, ...], after: 3 }`；主模型连续失败达到 after 后按顺序回退，成功响应清零计数；最后一个模型也只尝试 after 次。省略则沿用原生 retry。计数与当前模型限于本次运行，新运行从主模型开始。 |
+| `fallback` | 可选 `{ models: [provider/modelId, ...], accounts: { [providerId]: [slot, ...] }, accountModels: { [slot]: { [provider/modelId]: provider/modelId } }, quotaStopPercent: { [slot]: 50 }, after: 3, hold: 600, probe: 60 }`；主模型连续失败达到 after 后按顺序回退：先让主模型换用 `accounts` 里列出的其他账号（只对主模型生效），再按 `models` 顺序换模型；`accountModels` 给某个槽换用同 provider 的其他模型（例如额度受限的账号只跑较小模型），对该槽的每个链条目生效，映射到其他 provider 的条目被忽略。`quotaStopPercent` 按槽设官方用量窗口的停用线：账号已用百分比达到该值且窗口未重置时不再被选中（07 §6.1）。成功响应清零计数，最后一个条目也只尝试 after 次。`hold` 秒内被判定不可用的条目不再作为新运行的起点，`probe` 秒在后台探测一次，成功后回到主模型。省略则沿用原生 retry。运行内的失败计数与当前模型限于本次运行。 |
 | `thinking` | `off` / `minimal` / `low` / `medium` / `high` / `xhigh` / `max` |
-| `credentialSlots` | 可选 `{ [providerId]: slotName }` 非秘密账户选择；defaults → profile → session 按 provider 合并，显式 `default` 覆盖继承；未选择的 provider 使用 default，不改变模型名或引入跨槽轮换 |
+| `credentialSlots` | 可选 `{ [providerId]: slotName }` 非秘密账户选择；defaults → profile → session 按 provider 合并，显式 `default` 覆盖继承；未选择的 provider 使用 default，不改变模型名。同一模型换用其他账号只经 `fallback.accounts` 进入运行内模型链 |
 | `level` 或 `capabilities` | 安全级别或显式能力列表（05 §2），二选一 |
 | `plugins` | 用哪些插件的工具与钩子 |
 | `channelInstances` | 可选渠道实例 id 数组；未配置无限制兼容，`[]` 无实例，显式列表仅名单内；不从 bindings 推导，admin/bypass 不越过 |

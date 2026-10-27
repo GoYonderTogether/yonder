@@ -192,10 +192,44 @@ function findModelDefaults(models: readonly AnyModel[], modelId: string, api?: A
 	);
 }
 
+export interface ModelsTelemetry {
+	/** Raw provider stream events, used to read the official quota the provider reports in a response. */
+	onProviderEvent?(provider: string, data: unknown): void;
+}
+/**
+ * Observe provider events without owning them: the caller's own callback still runs, and a failing
+ * observer never breaks a request.
+ */
+function withTelemetry(provider: Provider, id: string, telemetry?: ModelsTelemetry): Provider {
+	if (!telemetry?.onProviderEvent) return provider;
+	const observe = telemetry.onProviderEvent;
+	const wrap = <T extends { onProviderStreamEvent?: (data: unknown, model: Model<Api>) => void | Promise<void> }>(
+		options: T | undefined,
+	): T =>
+		({
+			...options,
+			onProviderStreamEvent: (data: unknown, model: Model<Api>) => {
+				try {
+					observe(id, data);
+				} catch {
+					// Observation must never turn a working request into a failed one.
+				}
+				return options?.onProviderStreamEvent?.(data, model);
+			},
+		}) as T;
+	return {
+		...provider,
+		stream: (model, context, options) => provider.stream(model, context, wrap(options)),
+		streamSimple: (model, context, options) => provider.streamSimple(model, context, wrap(options)),
+	};
+}
+
 export function buildModels(
 	credentials: CredentialStore,
 	configs: Record<string, unknown> = {},
 	credentialSlots: Readonly<Record<string, string>> = {},
+	aliases: Readonly<Record<string, { provider: string; slot: string }>> = {},
+	telemetry?: ModelsTelemetry,
 ) {
 	const models = createModels({
 		credentials,
@@ -303,5 +337,37 @@ export function buildModels(
 					: api[model.api].streamSimple(model, context, options),
 		});
 	}
+	// Account fallback: a read-only alias of a real provider that resolves the same models through another
+	// credential slot. Aliases exist only inside one run's chain (07 §6.2).
+	for (const [alias, target] of Object.entries(aliases)) {
+		const base = models.getProvider(target.provider);
+		if (!base) throw new Error(`Unknown model provider for account fallback: ${target.provider}`);
+		const aliasModels = base.getModels().map((model) => ({ ...model, provider: alias }) as Model<Api>);
+		models.setProvider(
+			withTelemetry(
+				{
+					...base,
+					id: alias,
+					name: `${base.name} · ${target.slot}`,
+					getModels: () => aliasModels,
+					getAllModels: () => [...aliasModels],
+					// The adapter picks provider-specific request shaping by `model.provider`; an alias must keep the
+					// real id there or OpenAI rejects the shared-subscription request (07 §6.2).
+					stream: (model, context, options) =>
+						base.stream({ ...model, provider: target.provider } as Model<Api>, context, options),
+					streamSimple: (model, context, options) =>
+						base.streamSimple({ ...model, provider: target.provider } as Model<Api>, context, options),
+				},
+				alias,
+				telemetry,
+			),
+		);
+	}
+	if (telemetry?.onProviderEvent)
+		for (const [id, slot] of Object.entries(credentialSlots)) {
+			if (slot === "default") continue;
+			const provider = models.getProvider(id);
+			if (provider) models.setProvider(withTelemetry(provider, id, telemetry));
+		}
 	return models;
 }

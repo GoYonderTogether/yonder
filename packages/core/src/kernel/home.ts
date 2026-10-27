@@ -217,7 +217,8 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 			const env = config.agents?.find((item) => item.id === agent.id)?.env;
 			for (const [name, profile] of Object.entries(agent.profiles)) {
 				const { model, fallback } = resolveProfile(profile, agent.defaults, env);
-				if (fallback?.models.length && fallback.models.every((ref) => ref === model))
+				const accounts = fallback?.accounts?.[model.slice(0, model.indexOf("/"))] ?? [];
+				if (fallback?.models.length && !accounts.length && fallback.models.every((ref) => ref === model))
 					warnings.push(
 						`${agent.id}/${name}: fallback 只有主模型 ${model} 本身，等于没有备用；已按无备用处理，沿用自动重试。`,
 					);

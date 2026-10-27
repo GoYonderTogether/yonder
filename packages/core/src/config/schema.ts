@@ -19,7 +19,29 @@ export const SessionModelsSchema = object({
 	fallback: Type.Optional(
 		object({
 			models: Type.Array(Type.String({ pattern: "^[^/]+/.+$" }), { uniqueItems: true }),
+			accounts: Type.Optional(
+				Type.Record(Type.String({ pattern: "^.+$" }), Type.Array(text, { uniqueItems: true }), {
+					additionalProperties: false,
+				}),
+			),
+			accountModels: Type.Optional(
+				Type.Record(
+					Type.String({ pattern: "^.+$" }),
+					Type.Record(Type.String({ pattern: "^[^/]+/.+$" }), Type.String({ pattern: "^[^/]+/.+$" }), {
+						additionalProperties: false,
+					}),
+					{ additionalProperties: false },
+				),
+			),
 			after: Type.Optional(Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })),
+			/** Per slot: stop choosing the account once its official usage window is at or above this percent. */
+			quotaStopPercent: Type.Optional(
+				Type.Record(Type.String({ pattern: "^.+$" }), Type.Integer({ minimum: 1, maximum: 100 }), {
+					additionalProperties: false,
+				}),
+			),
+			hold: Type.Optional(Type.Integer({ minimum: 0, maximum: 86400 })),
+			probe: Type.Optional(Type.Integer({ minimum: 15, maximum: 3600 })),
 		}),
 	),
 });

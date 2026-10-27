@@ -206,11 +206,20 @@ export class CredentialSlotStore {
 		return result;
 	}
 	/** Non-secret account generations persisted in the run snapshot before the first request. */
-	async capture(selection: CredentialSlots): Promise<Record<string, string>> {
+	async capture(
+		selection: CredentialSlots,
+		aliases: Readonly<Record<string, { provider: string; slot: string }>> = {},
+	): Promise<Record<string, string>> {
 		const generations: Record<string, string> = {};
-		for (const [provider, slot] of Object.entries(selection)) {
+		const targets: Array<[string, string, string]> = Object.entries(selection).map(([provider, slot]) => [
+			provider,
+			provider,
+			slot,
+		]);
+		for (const [alias, target] of Object.entries(aliases)) targets.push([alias, target.provider, target.slot]);
+		for (const [key, provider, slot] of targets) {
 			if (slot === "default") continue;
-			generations[provider] = await this.backend(provider, slot).withLockAsync(async (content) => {
+			generations[key] = await this.backend(provider, slot).withLockAsync(async (content) => {
 				const current = descriptor(content);
 				if (!current || current.removed) throw new Error(`Unknown credential slot: ${provider}/${slot}`);
 				return { result: current.generation };
@@ -218,26 +227,36 @@ export class CredentialSlotStore {
 		}
 		return generations;
 	}
-	/** Immutable selection; unknown or removed named slots always fail, including at refresh time. */
-	bind(selection: CredentialSlots = {}, generations: Readonly<Record<string, string>> = {}): CredentialStore {
+	/**
+	 * Immutable selection; unknown or removed named slots always fail, including at refresh time.
+	 * Alias entries let one run read the same provider from several accounts; they are keyed by the alias id.
+	 */
+	bind(
+		selection: CredentialSlots = {},
+		generations: Readonly<Record<string, string>> = {},
+		aliases: Readonly<Record<string, { provider: string; slot: string }>> = {},
+	): CredentialStore {
 		const pinned = { ...generations };
 		const slots = Object.freeze({ ...selection });
+		const aliasMap = Object.freeze({ ...aliases });
 		for (const [provider, slot] of Object.entries(slots)) this.paths(provider, slot);
+		for (const target of Object.values(aliasMap)) this.paths(target.provider, target.slot);
+		const target = (provider: string) => aliasMap[provider] ?? { provider, slot: slots[provider] ?? "default" };
 		const access = async <T>(
 			provider: string,
 			options: AuthOperationOptions | undefined,
 			fn: (store: FileCredentials, current: Descriptor) => Promise<T>,
 		): Promise<T> => {
-			const slot = slots[provider] ?? "default";
+			const { provider: base, slot } = target(provider);
 			if (slot === "default")
 				return fn(this.defaults, { version: 1, generation: "default", removed: false, source: { kind: "stored" } });
-			return this.backend(provider, slot).withLockAsync(async (content) => {
+			return this.backend(base, slot).withLockAsync(async (content) => {
 				const current = descriptor(content);
-				if (!current || current.removed) throw new Error(`Unknown credential slot: ${provider}/${slot}`);
+				if (!current || current.removed) throw new Error(`Unknown credential slot: ${base}/${slot}`);
 				if (pinned[provider] !== undefined && pinned[provider] !== current.generation)
 					throw new Error("Credential account changed; frozen run cannot use its replacement");
 				pinned[provider] = current.generation;
-				return { result: await fn(this.secrets(provider, slot), current) };
+				return { result: await fn(this.secrets(base, slot), current) };
 			}, options);
 		};
 		return {
@@ -248,17 +267,20 @@ export class CredentialSlotStore {
 						if (!key) throw new Error("Credential slot environment reference is not configured");
 						return { type: "api_key", key };
 					}
-					const value = await store.read(provider, options);
-					if ((slots[provider] ?? "default") !== "default" && !value)
-						throw new Error(`Credential slot is not configured: ${provider}/${slots[provider]}`);
+					const { provider: base, slot } = target(provider);
+					const value = await store.read(base, options);
+					if (slot !== "default" && !value) throw new Error(`Credential slot is not configured: ${base}/${slot}`);
 					return value;
 				}),
 			modify: (provider, fn, options) =>
 				access(provider, options, async (store, current) => {
 					if (current.source.kind !== "stored") throw new Error("Environment reference slots cannot be modified");
-					return store.modify(provider, fn, options);
+					return store.modify(target(provider).provider, fn, options);
 				}),
-			delete: (provider, options) => this.remove(provider, slots[provider] ?? "default", options),
+			delete: (provider, options) => {
+				const { provider: base, slot } = target(provider);
+				return this.remove(base, slot, options);
+			},
 			list: async (options) => {
 				const result = [...(await this.defaults.list(options))].filter(
 					(item) => !slots[item.providerId] || slots[item.providerId] === "default",
@@ -267,6 +289,10 @@ export class CredentialSlotStore {
 					if (slot === "default") continue;
 					const metadata = await this.status(provider, slot, options);
 					if (metadata.configured) result.push({ providerId: provider, type: metadata.type ?? "api_key" });
+				}
+				for (const [alias, value] of Object.entries(aliasMap)) {
+					const metadata = await this.status(value.provider, value.slot, options);
+					if (metadata.configured) result.push({ providerId: alias, type: metadata.type ?? "api_key" });
 				}
 				return result;
 			},

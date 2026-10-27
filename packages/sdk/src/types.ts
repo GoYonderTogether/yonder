@@ -1,6 +1,7 @@
 import type { Credential, Message, Models } from "@earendil-works/pi-ai";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { TSchema } from "typebox";
+import type { Preset } from "./models.js";
 
 export type { Credential, ExecutionEnv, Message, Models, TSchema };
 export type Ref = string;
@@ -107,32 +108,12 @@ export interface EventQuery {
 	after?: string;
 	limit?: number;
 }
+export type { Preset, Profile, SessionModels } from "./models.js";
+
 export interface EventPage {
 	events: YEvent[];
 	next?: string;
 }
-export type SessionModels = {
-	/** Non-secret provider -> credential slot selection. Merge per provider; explicit "default" resets inheritance. */
-	credentialSlots?: Record<string, string>;
-	model?: string;
-	thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
-	fallback?: { models: string[]; after?: number };
-};
-export interface Profile extends SessionModels {
-	level?: Level;
-	capabilities?: Capability[];
-	/** Undefined preserves legacy unrestricted access; [] permits no channel instances. */
-	channelInstances?: string[];
-	plugins?: string[];
-	tools?: { offer?: string[]; search?: string[] };
-	contexts?: string[];
-	skills?: string[];
-	prompt?: { sections?: string[]; overrides?: Record<string, string> };
-	instructions?: string;
-	env?: string;
-	limits?: { maxTurns?: number; maxMinutes?: number; maxTokens?: number; repeatBlock?: number; repeatStop?: number };
-}
-export type Preset = Profile & { id: string; description: string };
 
 export interface SessionNotification {
 	id: number;

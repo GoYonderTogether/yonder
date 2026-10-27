@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
@@ -69,6 +70,23 @@ import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
 import { RunLimits } from "./limits.js";
+import {
+	chainKey,
+	chainRef,
+	DEFAULT_FALLBACK_AFTER,
+	DEFAULT_MODEL_PROBE_SECONDS,
+	fallbackAliases,
+	holdSeconds,
+	modelChain,
+	parseAccountProvider,
+	probeSeconds,
+	refKey,
+	splitModelRef,
+} from "./model-chain.js";
+import { ModelGate } from "./model-gate.js";
+import { ModelHealth } from "./model-health.js";
+import { accountKey, ModelQuota } from "./model-quota.js";
+import { ModelWatch } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
@@ -128,6 +146,10 @@ export class Runtime {
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
 	private readonly credentialSlots: CredentialSlotStore;
 	private readonly boundModels = new WeakMap<RuntimeSessionConfig, Promise<Models>>();
+	private readonly health: ModelHealth;
+	private readonly quota: ModelQuota;
+	private readonly gate: ModelGate;
+	private readonly watch: ModelWatch;
 	readonly credentials: FileCredentials;
 	private readonly policy: ToolPolicy;
 	private readonly limits: RunLimits;
@@ -135,6 +157,21 @@ export class Runtime {
 	private constructor(private options: RuntimeOptions) {
 		this.credentialSlots = new CredentialSlotStore(credentialPath(options.home, options.config.credentials));
 		this.credentials = this.credentialSlots.defaults;
+		this.health = new ModelHealth(join(options.home, ".yonder", "model-health.json"));
+		this.quota = new ModelQuota(join(options.home, ".yonder", "model-quota.json"), Date.now, (error) =>
+			options.onReport?.(error),
+		);
+		this.gate = new ModelGate(this.health, this.quota);
+		this.watch = new ModelWatch({
+			health: this.health,
+			quota: this.quota,
+			gate: this.gate,
+			models: (selection) =>
+				buildModels(this.credentialSlots.bind(selection), this.options.config.models?.providers, selection),
+			liveIndex: async (session) => (await this.harness.snapshot(LiveDoc, cid(session), C))?.run?.modelFallback?.index,
+			onHealth: (event) => this.options.onModelHealth?.(event),
+			onReport: (error) => this.options.onReport?.(error),
+		});
 		this.models = buildModels(this.credentials, options.config.models?.providers);
 		this.policy = new ToolPolicy({
 			capabilities: this.capabilities,
@@ -212,6 +249,9 @@ export class Runtime {
 			},
 			C,
 		);
+		await runtime.health.load();
+		await runtime.quota.load();
+		runtime.watch.start();
 		return runtime;
 	}
 	/** A run owns independent provider factories and catalog caches; selection never mutates a global Models. */
@@ -220,13 +260,23 @@ export class Runtime {
 		if (!pending) {
 			pending = (async () => {
 				const selection = Object.freeze({ ...config.resolved.credentialSlots });
-				config.credentialGenerations ??= await this.credentialSlots.capture(selection);
-				const credentials = this.credentialSlots.bind(selection, config.credentialGenerations);
-				const models = buildModels(credentials, this.options.config.models?.providers, selection);
+				const aliases = fallbackAliases(config.resolved.fallback, selection, config.resolved.model);
+				config.credentialGenerations ??= await this.credentialSlots.capture(selection, aliases);
+				const credentials = this.credentialSlots.bind(selection, config.credentialGenerations, aliases);
+				const models = buildModels(credentials, this.options.config.models?.providers, selection, aliases, {
+					onProviderEvent: (provider, data) => {
+						const alias = parseAccountProvider(provider);
+						const account = alias
+							? accountKey(alias.provider, alias.slot)
+							: accountKey(provider, selection[provider] ?? "default");
+						this.quota.record(account, data);
+					},
+				});
 				for (const [provider, slot] of Object.entries(selection)) {
 					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);
 					if (slot !== "default") await credentials.read(provider);
 				}
+				for (const alias of Object.keys(aliases)) await credentials.read(alias);
 				return models;
 			})();
 			this.boundModels.set(config, pending);
@@ -682,19 +732,18 @@ export class Runtime {
 		}
 		const tools = [...new Set([...offered, ...deferred])];
 		const conversation = await this.conversation(id);
-		const model = {
-			provider: profile.model.slice(0, profile.model.indexOf("/")),
-			modelId: profile.model.slice(profile.model.indexOf("/") + 1),
-		};
-		// A fallback that repeats the primary (or an earlier fallback) is not an alternative; without one pi's native retry applies.
-		const alternatives = [...new Set(profile.fallback?.models ?? [])].filter((ref) => ref !== profile.model);
+		// Held or over-quota entries are not a starting model: they move to the back of the chain.
+		const chain = this.watch.order(
+			modelChain(profile.model, profile.fallback, profile.credentialSlots),
+			profile.fallback?.quotaStopPercent,
+		);
+		const primary = chain[0] ?? splitModelRef(profile.model);
+		const model = { provider: primary.provider, modelId: primary.modelId };
+		const alternatives = chain.slice(1);
 		const modelFallbacks = alternatives.length
 			? {
-					models: alternatives.map((ref) => ({
-						provider: ref.slice(0, ref.indexOf("/")),
-						modelId: ref.slice(ref.indexOf("/") + 1),
-					})),
-					after: profile.fallback?.after ?? 3,
+					models: alternatives.map((entry) => ({ provider: entry.provider, modelId: entry.modelId })),
+					after: profile.fallback?.after ?? DEFAULT_FALLBACK_AFTER,
 				}
 			: null;
 		const current = await this.harness.snapshot(AgentDoc, cid(id), C);
@@ -1326,6 +1375,7 @@ export class Runtime {
 				inputs,
 				usage,
 			};
+			await this.watch.record(config, run, await this.watch.chainIndex(session, config, run));
 			try {
 				await this.options.onRun?.(session, run);
 				await this.idleChanged(session);
@@ -1811,6 +1861,7 @@ export class Runtime {
 
 	async close(): Promise<void> {
 		await this.restartNotes;
+		this.watch.stop();
 		await this.background.close();
 		try {
 			await this.harness.close(C);

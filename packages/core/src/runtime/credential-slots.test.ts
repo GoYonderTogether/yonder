@@ -102,4 +102,19 @@ describe("credential slots", () => {
 		await slots.create("openai", "env", { kind: "env-ref", variable: "YONDER_T63_MISSING_TEST_ENV" });
 		await expect(slots.bind({ openai: "env" }).read("openai")).rejects.toThrow("reference is not configured");
 	});
+	it("alias ids read another account of the same provider without changing the default", async () => {
+		const { slots } = setup();
+		for (const slot of ["gpt2", "gpt3"]) {
+			const ticket = await slots.beginLogin("openai", slot);
+			await slots.commitLogin(ticket, { type: "api_key", key: slot });
+		}
+		const aliases = { "openai#gpt2": { provider: "openai", slot: "gpt2" } };
+		const generations = await slots.capture({}, aliases);
+		const bound = slots.bind({}, generations, aliases);
+		expect(await bound.read("openai#gpt2")).toEqual({ type: "api_key", key: "gpt2" });
+		expect(await bound.read("openai")).toEqual({ type: "api_key", key: "default-test" });
+		expect((await bound.list()).map((item) => item.providerId)).toContain("openai#gpt2");
+		await slots.remove("openai", "gpt2");
+		await expect(bound.read("openai#gpt2")).rejects.toThrow();
+	});
 });

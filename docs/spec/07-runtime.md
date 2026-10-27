@@ -77,6 +77,10 @@
 
 失败尝试以无 model 正文的 `pi.model-attempt` entry 记录任务、操作类型、模型、次数、错误、后续动作及退避时间/目标模型，与重试 checkpoint 或终态同事务提交；不注入对话上下文，不新增队列。压缩耗尽提示包含重试或回退耗尽原因及最后错误，原历史保留。
 
+**模型健康与冷却。** 运行结束后按本次链的实际结果更新健康状态：以非链首条目完成，说明前面的条目在本轮不可用；以 `model_error`/`no_model` 结束，说明整条链不可用。被判定不可用的条目在 `hold` 秒（默认 600）内不作为新运行的起点：链仍按配置展开，只把被持有的条目移到健康条目之后，条目之间顺序不变；全部被持有则保持原顺序。状态按 `provider/modelId@slot` 记在 `<home>/.yonder/model-health.json`（原子写，0600），跨会话与重启保留，不写转录、不计入用量。后台每 `probe` 秒（默认 60，最小 15）对尚未到期的被持有条目发一次最小请求：单轮、无工具、不落库；成功立即清除持有，下一次运行回到主模型；失败把持有延长到 `now + hold`。探测走正常鉴权（可能刷新 OAuth），不发消息、不唤醒模型循环；进程关闭时停止计时器。
+
+**官方用量窗口。** 供应商在正常响应里带回账户的用量窗口（`rate_limits`：`used_percent`、`window_minutes`、`resets_at`）。运行时在供应商事件上只读地取这份数据，按 `provider@slot` 记在 `<home>/.yonder/model-quota.json`，取 5 小时窗口（`window_minutes` 最接近 300 的那个），窗口重置时间缺失时按窗口长度推算。配置档 `fallback.quotaStopPercent` 给某个槽设停用线：已用百分比达到该值且窗口未重置时，该账号不参与链条排序的前半段（与失败持有同样只移到链尾）。这份数据不额外发请求、不消耗额度：账号在被使用时就持续刷新，没有使用时保持最后读数。停用与恢复都由窗口的 `resets_at` 决定，不靠探测。
+
 ### 6.2 凭据
 
 - `default` 槽继续使用原凭据文件，不迁移或改写已有 provider 与 named secret。凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），键是供应商 id；路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`，权限 `0600`。密钥只放在这里，不写进 `yonder.yaml`。
@@ -85,7 +89,7 @@
 - 插件只能经 `api.credentials.get(name)` 只读地取一项凭据（渠道、服务的密钥都这样存取），不能写。新增渠道或服务密钥由人在本机运行 `yonder credentials set <name> --home <dir>`（09 §2）：隐藏输入、不经模型、控制接口或聊天，只创建 `api_key`，拒绝覆盖；Agent 不得代为录入或读取明文。
 - OAuth 刷新会轮换 refresh token（已验证）。**禁止**复制其他程序的 OAuth 凭据；每个 Yonder home 单独登录。API key 可以复制。
 
-模型账户槽通过 `credentialSlots: { provider: slot }` 选择，不改模型名；未列出的供应商使用 `default`，现有跨供应商 fallback 保留，不增加跨槽轮换。按 provider 合并及 preset/按次规则见 03。运行快照冻结选择，生成、压缩、deferred poll/cancel 和模型工具使用独立绑定的 Models 与供应商工厂，不使用全局 activeSlot 或 ALS。
+模型账户槽通过 `credentialSlots: { provider: slot }` 选择，不改模型名；未列出的供应商使用 `default`，现有跨供应商 fallback 保留。同一模型换用其他账号只经 `fallback.accounts` 进入本次运行的模型链：运行时为每个被列出的槽注册只读别名供应商 `<provider>#<slot>`，别名只出现在链和运行快照里，不写进 `yonder.yaml`、不改变配置里的模型名。`fallback.accountModels` 按槽替换模型，让额度受限的账号在同一角色上跑较小模型；替换只允许同 provider，跨 provider 的映射被忽略。仍不使用全局 activeSlot 或 ALS，也不按请求轮换。按 provider 合并及 preset/按次规则见 03。运行快照冻结选择，生成、压缩、deferred poll/cancel 和模型工具使用独立绑定的 Models 与供应商工厂。
 
 非 default 凭据存于 `<authPath>.slots/<provider>/<slot>.auth.json`，目录 0700、文件 0600、strict 安全写与跨进程锁；独立 `<slot>.meta.json` 保存 version 1 非秘密来源描述、账号 generation 与删除墓碑。槽名/provider 限小写字母数字、`_`、`-`，禁止路径穿越、保留危险键和大小写碰撞。未知、被删除或未配置的命名槽必须失败，不能借用 default/ambient 身份。每个槽独立锁，旧 default 的供应商与 named secret 仍共用原 auth 文件锁。
 
