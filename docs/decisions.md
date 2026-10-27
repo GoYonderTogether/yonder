@@ -342,3 +342,7 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 ## 2026-10-27 QQ 渠道媒体、引用与发送间隔（用户批准）
 
 主人要求 QQ 私聊与群聊正式可用。腾讯 SDK 1.0.4 已提供入站 `attachments`/`msg_elements` 与 `sendMedia`，插件此前的「只发文字」是插件层缺口而非平台限制，因此直接补在插件里：入站媒体映射为 `message.in` 的 `attachments`（`content_type` 决定 kind，只接纳 https URL，其他 URI 丢弃不猜测），引用回复原文取 `msg_elements[0].content` 写入新增的 `quote.text`（参考索引本身不含正文，缓存未命中时只有这一处来源），并进入本轮提示的 `quote:` 行；只有附件没有正文的消息不再被丢弃。出站接受 https URL 或绝对本地路径的 image/audio/video/file，音频按文件发送，不声称原生语音气泡；一次回复先发文字再逐条发媒体，复用被动回复的 msg_seq 计数。新增实例配置 `sendIntervalMs`（默认 500，0–60000 毫秒），所有发送与媒体上传经插件内串行间隔器，平台限流与 5xx 仍是 uncertain，不盲重发。重连继续由 SDK 的 ready/resumed/failed 状态机负责，不另建重试循环；媒体发送不携带 msg_seq 是已知限制。详见 11 §15。代价：媒体上传占用同一间隔队列，多附件回复会变慢。
+
+## 2026-10-27 微信归档入站标注与提醒（用户批准）
+
+主人要求微信客户端的消息能进入渠道监听。归档插件已经按会话批次发出 `wechat-archive.material`，但事件里没有可直接展示的发送人/摘要，因此补三处标注而不改事件类型：`channel: "wechat-archive"`、`conversation`、批次去重的 `senders`，以及一行 `summary`（单条 `发送人: 正文`，多条 `N 条消息（前三位发送人）：最后一条`，正文截断 60 字，纯媒体 `[<kind>]`，无正文 `[无正文]`；`media.kind` 为 `unknown` 时按无正文处理，因为 CLI 对未解析媒体统一给 unknown）。`summary` 只喂内核 `yonder.notification`，不替代正文，也不进模型消息。是否提醒由 yonder.yaml 的 `notifications` 按 `conv:wechat-archive:<chat>` 决定；微信批次没有 `mentioned`，所以 `mention` 级别对微信不提醒，需提醒用 `all`，这与 06 §9.1 的规则一致，不额外发明关键词提醒。监听保持只读：不新增发送工具、不自动回复，唤醒仍只由绑定决定（架构 5.2）。轮询间隔取自 `pollSeconds`，插件游标在私有 SQLite meta、源游标在稳定 consumer 名下，重启复用不重放。代价：摘要只有 60 字、只覆盖批次尾部，长批次要看 `messages`。

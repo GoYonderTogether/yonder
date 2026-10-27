@@ -4,6 +4,7 @@
 
 ### Added
 
+- 微信归档监听补齐入站标注：`wechat-archive.material` 的 data 增加 `channel`、`conversation`、批次去重的 `senders` 和一行通知用 `summary`（发送人加正文摘要，纯媒体与无正文分别记标记），消息正文与附件仍在 `messages`；同一会话是否提醒由 `notifications` 级别决定，监听保持只读、不自动回复。
 - 渠道通知级别：`yonder.yaml` 新增 `notifications`（`default` + 按 `conv` 覆盖，取值 `all`/`mention`/`mute`）。被绑定接纳的入站 `message.in` 与带 `data.summary` 的插件事件对每个路由会话写一条 `yonder.notification`（走 `sessions.notify`，不唤醒模型），`mention` 只在 `data.mentioned` 为真时通知，`mute` 只累积事件与未读（06 §9.1、08 §2）。
 - task 会话要求 STATUS 与实际证据；空或 `NO_REPLY` 回报由内核标为 `STATUS: unknown (no report)`，委派工具说明加入目标、材料、边界、完成标准、阻塞条件、回传格式六要素。
 - 后台续办没有新的可见输出时，共享 delivery 按 run.end 保存的意图补一条模板通知；主人交互运行静默五分钟发送事实心跳（最多六次，可编辑渠道复用同一条消息）。保留静默绑定，未知交付不重发。
