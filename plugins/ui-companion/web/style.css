@@ -31,6 +31,10 @@
 	--accent-ink: #111111;
 
 	--danger: #b4342c;
+	--execution-running: #876113;
+	--execution-blocked: #b4342c;
+	--execution-review: #365e79;
+	--execution-idle: #72716b;
 	--online: #2f9e6e;
 	--offline: #b3b1ab;
 	--shadow-float: 0 1px 2px rgb(17 17 17 / 0.05), 0 12px 32px -8px rgb(17 17 17 / 0.16);
@@ -60,6 +64,10 @@
 	--accent-soft: #262625;
 	--accent-ink: #f3f3f1;
 	--danger: #ea6b5f;
+	--execution-running: #e6bd64;
+	--execution-blocked: #ea6b5f;
+	--execution-review: #a8cbe6;
+	--execution-idle: #a6a6a1;
 	--online: #4cc08c;
 	--offline: #5c5c58;
 	--shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -8px rgb(0 0 0 / 0.7);
@@ -129,7 +137,7 @@ svg {
 	height: 20px;
 	fill: none;
 	stroke: currentColor;
-	stroke-width: 1.6;
+	stroke-width: 2;
 	stroke-linecap: round;
 	stroke-linejoin: round;
 	flex: none;
@@ -704,16 +712,30 @@ a {
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
-	background: var(--offline);
+	background: var(--execution-idle);
 	margin-right: 6px;
 }
 [data-state="running"] .agent-status::before {
-	background: var(--ink);
-	animation: working 1.8s ease-in-out infinite;
+	background: var(--execution-running);
+}
+[data-state="blocked"] .agent-status::before {
+	background: var(--execution-blocked);
+}
+[data-state="review"] .agent-status::before {
+	background: var(--execution-review);
 }
 [data-state="waiting"] .agent-status::before {
-	background: var(--ink);
 	border-radius: 0;
+}
+[data-state="unknown"] .agent-status::before {
+	background: transparent;
+	border: 1px solid var(--execution-idle);
+}
+[data-emphasized="true"] .agent-heading strong {
+	font-weight: 700;
+}
+.agent-counts {
+	margin: 4px 0 0;
 }
 .agent-task {
 	margin-top: 12px;

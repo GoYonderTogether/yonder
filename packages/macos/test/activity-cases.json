@@ -1,0 +1,592 @@
+[
+  {
+    "name": "正常执行优先",
+    "agent": {
+      "id": "test",
+      "name": "正常执行优先",
+      "state": "running",
+      "tasks": [
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "running"
+          }
+        },
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "retrying"
+          }
+        },
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "blocked"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 3,
+            "review": 2,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "running",
+      "label": "运行中 · 重试中",
+      "emphasized": true
+    }
+  },
+  {
+    "name": "自动重试",
+    "agent": {
+      "id": "test",
+      "name": "自动重试",
+      "state": "running",
+      "tasks": [
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "retrying"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 1,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "running",
+      "label": "重试中",
+      "emphasized": true
+    }
+  },
+  {
+    "name": "当前输入优先",
+    "agent": {
+      "id": "test",
+      "name": "当前输入优先",
+      "state": "waiting",
+      "tasks": [
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "waiting-input"
+          }
+        },
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "blocked"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 1,
+            "review": 1,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "waiting",
+      "label": "等你 · 等待输入",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "执行持久阻塞",
+    "agent": {
+      "id": "test",
+      "name": "执行持久阻塞",
+      "state": "idle",
+      "tasks": [
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "blocked"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "blocked",
+      "label": "执行受阻",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "可见事项阻塞",
+    "agent": {
+      "id": "test",
+      "name": "可见事项阻塞",
+      "state": "idle",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 2,
+            "review": 1,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "blocked",
+      "label": "有阻塞事项",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "交付待检查",
+    "agent": {
+      "id": "test",
+      "name": "交付待检查",
+      "state": "idle",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 2,
+            "waitingUser": 1
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "review",
+      "label": "待检查",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "事项等你",
+    "agent": {
+      "id": "test",
+      "name": "事项等你",
+      "state": "idle",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 1
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "waiting",
+      "label": "等你",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "已清除事项",
+    "agent": {
+      "id": "test",
+      "name": "已清除事项",
+      "state": "idle",
+      "tasks": [
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "idle"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "idle",
+      "label": "无执行",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "执行源未知",
+    "agent": {
+      "id": "test",
+      "name": "执行源未知",
+      "state": "idle",
+      "tasks": []
+    },
+    "known": false,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 2,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "unknown",
+      "label": "执行状态未知",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "事项未接入",
+    "agent": {
+      "id": "test",
+      "name": "事项未接入",
+      "state": "idle",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "unpublished"
+    },
+    "expected": {
+      "state": "idle",
+      "label": "无执行",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "事项不可用",
+    "agent": {
+      "id": "test",
+      "name": "事项不可用",
+      "state": "idle",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "unavailable"
+    },
+    "expected": {
+      "state": "idle",
+      "label": "无执行",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "运行不被摘要故障覆盖",
+    "agent": {
+      "id": "test",
+      "name": "运行不被摘要故障覆盖",
+      "state": "running",
+      "tasks": [
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "running"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "unavailable"
+    },
+    "expected": {
+      "state": "running",
+      "label": "运行中",
+      "emphasized": true
+    }
+  },
+  {
+    "name": "旧接口运行",
+    "agent": {
+      "id": "test",
+      "name": "旧接口运行",
+      "state": "running",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "running",
+      "label": "运行中",
+      "emphasized": true
+    }
+  },
+  {
+    "name": "旧接口输入",
+    "agent": {
+      "id": "test",
+      "name": "旧接口输入",
+      "state": "waiting",
+      "tasks": []
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "waiting",
+      "label": "等你 · 等待输入",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "新旧并行",
+    "agent": {
+      "id": "test",
+      "name": "新旧并行",
+      "state": "running",
+      "tasks": [
+        {
+          "summary": "旧接口测试"
+        },
+        {
+          "summary": "测试预览",
+          "execution": {
+            "phase": "retrying"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "running",
+      "label": "运行中 · 重试中",
+      "emphasized": true
+    }
+  },
+  {
+    "name": "新版执行优先旧三态",
+    "agent": {
+      "id": "test",
+      "name": "新版执行优先旧三态",
+      "state": "waiting",
+      "tasks": [
+        {
+          "execution": {
+            "phase": "blocked"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "blocked",
+      "label": "执行受阻",
+      "emphasized": false
+    }
+  },
+  {
+    "name": "不支持的执行阶段",
+    "agent": {
+      "id": "test",
+      "name": "不支持的执行阶段",
+      "state": "idle",
+      "tasks": [
+        {
+          "execution": {
+            "phase": "future-phase"
+          }
+        }
+      ]
+    },
+    "known": true,
+    "summary": {
+      "schemaVersion": 1,
+      "sourceRevision": 2,
+      "availability": "available",
+      "summary": {
+        "schemaVersion": 1,
+        "observedAt": 1,
+        "agents": [
+          {
+            "agentId": "test",
+            "blocked": 0,
+            "review": 0,
+            "waitingUser": 0
+          }
+        ]
+      }
+    },
+    "expected": {
+      "state": "unknown",
+      "label": "执行状态未知",
+      "emphasized": false
+    }
+  }
+]

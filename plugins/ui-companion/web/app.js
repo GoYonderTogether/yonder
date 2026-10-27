@@ -1,4 +1,5 @@
 import { createCharacter, markPath } from "../../../brand/src/yonder-mark.js";
+import { activitySummary, presentActivity } from "./activity.mjs";
 import { beginTask, completeStep, emptyState, readState, STORAGE_KEY } from "./state.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -123,11 +124,15 @@ for (const event of ["focusin", "focusout"])
 	);
 $("#pin-button").hidden = !native;
 $("#pin-button").addEventListener("click", () => bridge?.postMessage({ action: "pin" }));
+let latestActivity = { agents: [], known: false };
+let summaryEnvelope = { availability: "unpublished" };
 function renderActivity(data) {
+	latestActivity = data;
+	if (data.activitySummary) summaryEnvelope = activitySummary(data.activitySummary);
 	$("#pin-button").setAttribute("aria-pressed", String(data.pinned));
 	$("#pin-button").title = data.pinned ? "取消固定悬浮入口" : "固定悬浮入口";
 	$("#pin-button").setAttribute("aria-label", $("#pin-button").title);
-	const key = JSON.stringify([data.known, data.agents]);
+	const key = JSON.stringify([data.known, data.agents, summaryEnvelope]);
 	if (key !== activityKey) {
 		activityKey = key;
 		const target = $("#agents");
@@ -135,17 +140,24 @@ function renderActivity(data) {
 		for (const agent of data.agents) {
 			const row = document.createElement("article");
 			row.className = "agent-row";
-			row.dataset.state = agent.state;
+			const presentation = presentActivity(agent, data.known, summaryEnvelope);
+			row.dataset.state = presentation.state;
+			row.dataset.emphasized = String(presentation.emphasized);
+			row.setAttribute("aria-label", `${agent.name} · ${presentation.label} · ${presentation.items}`);
 			const header = document.createElement("div");
 			header.className = "agent-heading";
 			const name = document.createElement("strong");
 			name.textContent = agent.name;
 			const status = document.createElement("span");
 			status.className = "agent-status";
-			status.textContent = agent.state === "running" ? "运行中" : agent.state === "waiting" ? "等待交互" : "空闲";
+			status.textContent = presentation.label;
 			header.append(name, status);
 			row.append(header);
-			for (const task of agent.tasks) {
+			const counts = document.createElement("p");
+			counts.className = "context agent-counts";
+			counts.textContent = presentation.items;
+			row.append(counts);
+			for (const task of agent.tasks ?? []) {
 				const content = document.createElement("div");
 				content.className = "agent-task";
 				if (task.summary) {
@@ -597,6 +609,19 @@ setSurface(location.hash.slice(1) || "window");
 if (surface !== "inline" && (!state.active || (state.active.completed && state.active.autoClose))) setOpen(false);
 draw();
 
+async function refreshActivitySummary() {
+	if (!connected || native) return; // AppKit fetches the same endpoint on its existing 2s cycle.
+	try {
+		const response = await fetch(new URL("activity-summary", location.href), { signal: AbortSignal.timeout(1800) });
+		if (!response.ok) throw new Error("Activity summary unavailable");
+		const next = activitySummary(await response.json());
+		if (next.sourceRevision < (summaryEnvelope.sourceRevision ?? -1)) return;
+		summaryEnvelope = next;
+	} catch {
+		summaryEnvelope = { availability: "unavailable" };
+	}
+	renderActivity(latestActivity);
+}
 if (connected) {
 	document.querySelector(".preview-bar").hidden = true;
 	let syncing = false;
@@ -644,6 +669,7 @@ if (connected) {
 				}
 			}
 			if (data.board) await refreshBoard(showBoard);
+			await refreshActivitySummary();
 		} catch (reason) {
 			error(reason);
 		} finally {

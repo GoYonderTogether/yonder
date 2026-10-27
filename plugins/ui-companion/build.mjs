@@ -8,20 +8,23 @@ const root = resolve(dir, "../..");
 const dist = join(dir, "dist");
 const web = join(dir, "web");
 await mkdir(dist, { recursive: true });
-const [template, style, brand, state, app] = await Promise.all([
+const [template, style, brand, state, activity, icons, app] = await Promise.all([
 	readFile(join(web, "index.html"), "utf8"),
 	readFile(join(web, "style.css"), "utf8"),
 	readFile(join(root, "brand/src/yonder-mark.js"), "utf8"),
 	readFile(join(web, "state.mjs"), "utf8"),
+	readFile(join(web, "activity.mjs"), "utf8"),
+	readFile(join(web, "assets/lucide/symbols.svg"), "utf8"),
 	readFile(join(web, "app.js"), "utf8"),
 ]);
 // Build from the shared brand source; no fork of the logo or its motion.
-const script = [brand, state, app]
+const script = [brand, state, activity, app]
 	.join("\n")
 	.replace(/^import[\s\S]*?;\r?\n/gm, "")
 	.replace(/^export /gm, "");
 const font = await readFile(join(web, "assets/geist-latin-wght-normal.woff2"));
 const html = template
+	.replace("<!-- ICONS -->", () => icons)
 	.replace("/* STYLES */", () => style.replace("/* GEIST */", font.toString("base64")))
 	.replace("/* SCRIPT */", () => script);
 await writeFile(join(dist, "index.html"), html);

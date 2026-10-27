@@ -252,6 +252,14 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 @main
 struct DesktopMain {
     static func main() {
+        if let index = CommandLine.arguments.firstIndex(of: "--check-activity"), CommandLine.arguments.count > index + 1 {
+            let cases = checkActivityCases(CommandLine.arguments[index + 1])
+            if let preview = CommandLine.arguments.firstIndex(of: "--preview-activity"), CommandLine.arguments.count > preview + 1 {
+                checkDynamicActivityAppearance(cases[0])
+                previewActivityCases(cases, directory: CommandLine.arguments[preview + 1])
+            }
+            return
+        }
         if CommandLine.arguments.contains("--check") {
             checkCompanionGeometry()
             precondition(AgentActivity(["id": "main", "name": "main", "state": "unknown"]) == nil)
