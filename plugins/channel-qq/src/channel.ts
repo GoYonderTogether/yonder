@@ -255,6 +255,10 @@ export class QQChannel implements Channel {
 			if (this.state === "stopped") return;
 			const event = incoming(this.id, this.config, msg, ctx.state.mention?.wasMentioned ?? false);
 			if (!event) return;
+			const received = msg.attachments?.length ?? 0;
+			const kept = (event.data as { attachments?: unknown[] }).attachments?.length ?? 0;
+			if (received > kept)
+				this.api.log.warn("QQ inbound attachments dropped", { instance: this.id, dropped: received - kept });
 			const work = io.emit(event);
 			this.pending.add(work);
 			try {

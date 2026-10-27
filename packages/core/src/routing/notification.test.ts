@@ -149,6 +149,15 @@ bindings:
 		if (!other) throw new Error("second routed session missing");
 		await expect.poll(() => notifications(other).then((rows) => rows.length)).toBe(1);
 		expect(await notifications(other)).toMatchObject([{ text: "全部提醒" }]);
+		const unbound = await router.emit({
+			type: "message.in",
+			from: "acct:other:OPENID9",
+			conv: "conv:other:group:X",
+			data: { kind: "group", text: "别的渠道", mentioned: true, msgId: "m4" },
+		});
+		expect(unbound.routes?.map((route) => route.dropped)).toEqual(["no-binding"]);
+		expect(await notifications(session)).toHaveLength(1);
+		expect(await notifications(other)).toHaveLength(1);
 	} finally {
 		await runtime?.close();
 		await rm(home, { recursive: true, force: true });
