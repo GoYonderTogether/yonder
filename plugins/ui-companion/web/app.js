@@ -1,5 +1,6 @@
 import { createCharacter, markPath } from "../../../brand/src/yonder-mark.js";
 import { activitySummary, presentActivity } from "./activity.mjs";
+import { endedTask, panelGroups, panelState, shortPanelText } from "./panel.mjs";
 import { beginTask, completeStep, emptyState, readState, STORAGE_KEY } from "./state.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -337,116 +338,208 @@ function boardNode(tag, text, className) {
 	if (className) node.className = className;
 	return node;
 }
-function boardItems(items, target, groupIds) {
+let panelData = { tasks: [], agents: [] },
+	groupMode = "bot",
+	expandedTask,
+	panelSource;
+let boardRequestSerial = 0;
+const endedSections = new Set();
+function agentIdentity(id) {
+	return panelData.agents.find((agent) => agent.id === id) ?? { id, name: id ?? "临时任务（无 BOT 身份）" };
+}
+function agentAvatar(agent) {
+	const avatar = boardNode("span", agent.name.slice(0, 1), "bot-avatar");
+	avatar.setAttribute("aria-label", `${agent.name} · 无头像`);
+	if (agent.avatarUrl) {
+		try {
+			const url = new URL(agent.avatarUrl);
+			if (!["https:", "http:"].includes(url.protocol)) return avatar;
+			const image = document.createElement("img");
+			image.alt = "";
+			image.referrerPolicy = "no-referrer";
+			image.addEventListener("load", () => {
+				avatar.classList.add("has-image");
+				avatar.setAttribute("aria-label", `${agent.name} · 头像`);
+			});
+			image.addEventListener("error", () => {
+				image.remove();
+				avatar.classList.remove("has-image");
+				avatar.setAttribute("aria-label", `${agent.name} · 头像加载失败`);
+			});
+			image.src = url.href;
+			avatar.append(image);
+		} catch {
+			/* Invalid public metadata uses the same honest fallback. */
+		}
+	}
+	return avatar;
+}
+function boardItems(items, target) {
 	for (const item of items) {
 		const row = boardNode("div", undefined, "board-item");
-		const button = boardNode("button", `${item.ref} ${item.title}`, "board-task");
+		const button = boardNode("button", undefined, "board-task");
 		button.type = "button";
 		button.dataset.task = item.id;
-		button.addEventListener("click", () => {
-			boardId = item.id;
-			refreshBoard(true).catch(error);
-		});
-		row.append(
-			button,
-			boardNode(
-				"p",
-				`${item.state} · ${item.ownerAgent ?? "—"} · ${item.acceptance.met}/${item.acceptance.total}`,
-				"context",
-			),
-			boardNode(
-				"p",
-				`${Math.floor(item.elapsedMs / 60000)}m · ${Math.floor(item.idleMs / 60000)}m 未更新${item.stalled ? " · 长时间无进展" : ""}`,
-				item.stalled ? "board-stalled" : "context",
-			),
+		button.id = `task-${item.id}`;
+		button.setAttribute("aria-expanded", String(expandedTask === item.id));
+		button.setAttribute("aria-controls", `task-detail-${item.id}`);
+		button.append(
+			boardNode("span", panelState(item), `task-state state-${item.state}`),
+			boardNode("span", item.title, "task-title"),
 		);
-		const nested = groupIds ? item.children.filter((child) => groupIds.has(child.id)) : item.children;
-		if (nested.length) {
-			const children = boardNode("div", undefined, "board-children");
-			boardItems(nested, children, groupIds);
-			row.append(children);
+		const chevron = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+		chevron.setAttribute("aria-hidden", "true");
+		chevron.innerHTML = '<use href="#i-arrow"/>';
+		button.append(chevron);
+		button.addEventListener("click", () => {
+			expandedTask = expandedTask === item.id ? undefined : item.id;
+			renderBoard();
+		});
+		const detail = boardNode("div", undefined, "task-detail");
+		detail.id = `task-detail-${item.id}`;
+		detail.setAttribute("role", "region");
+		detail.setAttribute("aria-labelledby", button.id);
+		detail.hidden = expandedTask !== item.id;
+		if (!detail.hidden) {
+			detail.append(boardNode("p", item.title, "task-full-title"));
+			if (item.state === "waiting-user" || item.state === "blocked")
+				detail.append(
+					boardNode(
+						"p",
+						`${item.state === "blocked" ? "具体阻塞" : "所需操作"}：${shortPanelText(item.progress) || "待补充，尚未记录具体内容"}`,
+					),
+				);
+			else detail.append(boardNode("p", shortPanelText(item.progress || item.objective) || "尚未记录进展"));
+			const agent = agentIdentity(item.ownerAgent);
+			detail.append(boardNode("p", `负责人：${agent.name}`, "context"));
 		}
+		row.append(button, detail);
 		target.append(row);
 	}
+}
+function endedSection(key, label) {
+	const sectionKey = `${groupMode}:${key}`;
+	const section = boardNode("details", undefined, "ended-section");
+	section.dataset.group = key;
+	section.open = endedSections.has(sectionKey);
+	const summary = boardNode("summary", label);
+	summary.dataset.focusKey = `ended-${key}`;
+	section.append(summary);
+	section.addEventListener("toggle", () => {
+		if (section.open) endedSections.add(sectionKey);
+		else endedSections.delete(sectionKey);
+	});
+	return section;
 }
 function renderBoard(reset = false) {
 	if (!board) return;
 	const scroll = reset ? 0 : $(".panel-scroll").scrollTop;
 	const focused = document.activeElement?.dataset.task;
+	const focusKey = document.activeElement?.dataset.focusKey;
 	boardVisible = true;
 	const target = $("#board-content");
-	const expanded = [...target.querySelectorAll("details[open]")].map((node) => node.dataset.group);
 	target.replaceChildren();
-	$("#board-back").hidden = !board.detail;
-	const counts = board.counts;
-	target.append(
-		boardNode("p", `${counts.waiting} 等你 · ${counts.inProgress} 进行中 · ${counts.blocked} 阻塞`, "context"),
-	);
-	if (board.detail) {
-		const { task, history, children } = board.detail;
-		target.append(boardNode("h2", `${task.ref} ${task.title}`), boardNode("p", task.objective));
-		const acceptance = boardNode("ol");
-		for (const [index, point] of task.acceptance.entries()) {
-			const item = boardNode("li", point);
-			item.append(boardNode("p", task.evidence[index] ?? "—", "context"));
-			acceptance.append(item);
-		}
-		target.append(
-			acceptance,
-			boardNode("h2", "交付"),
-			boardNode("p", task.deliverable ?? "—"),
-			boardNode("h2", "事件时间线"),
-		);
-		for (const event of history)
-			target.append(
-				boardNode(
-					"p",
-					`${event.at} · ${event.kind}
-${JSON.stringify(event.data)}`,
-					"board-event",
-				),
-			);
-		if (children.length) {
-			target.append(boardNode("h2", "子任务"));
-			boardItems(children, target);
-		}
-	} else {
-		const labels = { waiting: "等你", inProgress: "进行中", blocked: "阻塞", done: "刚完成" };
-		for (const group of board.groups) {
-			const section = boardNode(group.id === "done" ? "details" : "section");
-			section.dataset.group = group.id;
-			if (group.id === "done") section.open = expanded.includes(group.id);
-			section.append(boardNode(group.id === "done" ? "summary" : "h2", `${labels[group.id]} · ${group.items.length}`));
-			const groupIds = new Set(group.items.map((item) => item.id));
-			boardItems(
-				group.items.filter((item) => !groupIds.has(item.parent)),
-				section,
-				groupIds,
-			);
-			target.append(section);
-		}
+	$("#board-back").hidden = true;
+	const controls = boardNode("div", undefined, "board-group-controls");
+	controls.setAttribute("role", "group");
+	controls.setAttribute("aria-label", "任务分组");
+	for (const [mode, label] of [
+		["bot", "按 BOT"],
+		["matter", "按事项"],
+	]) {
+		const button = boardNode("button", label);
+		button.type = "button";
+		button.dataset.focusKey = mode;
+		button.setAttribute("aria-pressed", String(mode === groupMode));
+		button.addEventListener("click", () => {
+			groupMode = mode;
+			renderBoard();
+		});
+		controls.append(button);
 	}
+	target.append(controls);
+	const all = panelGroups(panelData.tasks, groupMode);
+	target.append(
+		boardNode(
+			"p",
+			`${panelData.tasks.filter((task) => !endedTask(task)).length} 项未结束 · ${panelData.tasks.filter(endedTask).length} 项已结束`,
+			"context board-overview",
+		),
+	);
+	const finished = all.filter((group) => group.ended);
+	const done = endedSection("done", `已结束 · ${finished.reduce((sum, group) => sum + group.tasks.length, 0)}`);
+	for (const group of all) {
+		const section = boardNode("section", undefined, "task-group");
+		section.dataset.panelGroup = group.key;
+		const heading = boardNode("h2", undefined, "bot-heading");
+		if (groupMode === "bot") {
+			const agent = agentIdentity(group.root.ownerAgent);
+			heading.append(agentAvatar(agent), boardNode("strong", agent.name));
+		} else heading.append(boardNode("strong", shortPanelText(group.root.title, 60)));
+		heading.append(boardNode("span", String(group.tasks.length), "context group-count"));
+		section.append(heading);
+		const ongoing = group.tasks.filter((task) => !endedTask(task));
+		boardItems(group.ended ? group.tasks : ongoing, section);
+		const ended = group.tasks.filter(endedTask);
+		if (!group.ended && ended.length) {
+			const nested = endedSection(`done-${group.key}`, `已结束 · ${ended.length}`);
+			boardItems(ended, nested);
+			section.append(nested);
+		}
+		(group.ended ? done : target).append(section);
+	}
+	if (finished.length) target.append(done);
+	if (!all.length) target.append(boardNode("p", "当前可见范围内没有任务", "context"));
+	target.append(boardNode("p", "已结束包含已完成、已取消；当前账本没有归档状态。", "context board-boundary"));
 	showScene("board");
 	$(".panel-scroll").scrollTop = scroll;
-	if (!reset && focused) $(`[data-task="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+	if (focused) $(`[data-task="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+	else if (focusKey) $(`[data-focus-key="${CSS.escape(focusKey)}"]`)?.focus({ preventScroll: true });
 }
 async function refreshBoard(show = false) {
-	const url = new URL("board", location.href);
+	const serial = ++boardRequestSerial;
+	const url = new URL("board?view=panel", location.href);
 	if (boardId) url.searchParams.set("id", boardId);
-	const response = await fetch(url);
-	if (!response.ok) throw new Error(await response.text());
-	const previous = board?.counts.waiting ?? 0;
-	board = (await response.json()).board;
-	$("#board-button").hidden = false;
-	$("#board-count").textContent = board.counts.waiting;
-	$("#board-count").hidden = !board.counts.waiting;
-	$(".pending-dot").hidden = !pending();
-	if (native) {
-		bridge.postMessage({ action: "state", pending: pending() });
-		if (board.counts.waiting > previous) bridge.postMessage({ action: "attention" });
-	} else if (!open) $("#reopen").hidden = surface === "inline" || !pending();
-	if (show || boardVisible) renderBoard(show);
-	if (show) setOpen(true);
+	try {
+		const response = await fetch(url);
+		if (!response.ok) throw new Error("任务面板暂不可用");
+		const data = await response.json();
+		if (serial !== boardRequestSerial) return;
+		if (!data.panel) throw new Error("任务面板数据尚未接入");
+		const previous = board?.counts.waiting ?? 0;
+		board = data.board;
+		panelData = data.panel;
+		if (boardId) {
+			const item = panelData.tasks.find((task) => task.id === (panelData.selectedId ?? boardId));
+			if (item) {
+				expandedTask = item.id;
+				if (endedTask(item)) {
+					const group = panelGroups(panelData.tasks, groupMode).find((group) =>
+						group.tasks.some((task) => task.id === item.id),
+					);
+					endedSections.add(`${groupMode}:${group.ended ? "done" : `done-${group.key}`}`);
+				}
+			}
+			boardId = undefined;
+		}
+		$("#board-button").hidden = false;
+		$("#board-count").textContent = board.counts.waiting;
+		$("#board-count").hidden = !board.counts.waiting;
+		$(".pending-dot").hidden = !pending();
+		if (native) {
+			bridge.postMessage({ action: "state", pending: pending() });
+			if (board.counts.waiting > previous) bridge.postMessage({ action: "attention" });
+		} else if (!open) $("#reopen").hidden = surface === "inline" || !pending();
+		if (show || boardVisible) renderBoard(show);
+		if (show) setOpen(true);
+	} catch (reason) {
+		if (serial !== boardRequestSerial) return;
+		board = null;
+		panelData = { tasks: [], agents: [] };
+		expandedTask = undefined;
+		$("#board-count").hidden = true;
+		$("#board-content").replaceChildren(boardNode("p", reason.message, "context"));
+	}
 }
 $("#board-button").addEventListener("click", () => {
 	boardId = undefined;
@@ -635,6 +728,15 @@ if (connected) {
 			if (submitting) return;
 			const showBoard = data.board && data.board.revision !== boardRevision;
 			if (showBoard) {
+				if (panelSource !== data.board.sourceRevision) {
+					panelSource = data.board.sourceRevision;
+					boardRequestSerial++;
+					board = null;
+					panelData = { tasks: [], agents: [] };
+					expandedTask = undefined;
+					endedSections.clear();
+					$("#board-content").replaceChildren();
+				}
 				boardId = data.board.id;
 				boardRevision = data.board.revision;
 			}

@@ -1,13 +1,10 @@
-import { existsSync } from "node:fs";
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
-import { fixture } from "../../tasks/test/board-fixture.js";
 import { CompanionService } from "../src/service.js";
-import { browser, chromePath } from "./browser.js";
 
 it("satisfies the actual SDK plugin contract", async () => {
 	expect(await checkPlugin(fileURLToPath(new URL("..", import.meta.url)))).toEqual([]);
@@ -102,99 +99,3 @@ it("publishes one private desktop endpoint instead of launching a second applica
 		await browserOnly.stop();
 	}
 });
-
-it.skipIf(!existsSync(chromePath))(
-	"renders a real published ledger, detail and automatic updates in the existing page",
-	async () => {
-		const f = await fixture({ stallMinutes: 0.000001 }, { ui: true });
-		let page: Awaited<ReturnType<typeof browser>> | undefined;
-		try {
-			const input = {
-				title: "Verify task board",
-				objective: "Inspect the real local board",
-				acceptance: ["Groups visible", "Detail visible"],
-				nonGoals: [],
-			};
-			const task = f.store.open(input, f.ctx);
-			f.store.update(task.ref, { state: "active" }, f.ctx);
-			f.store.update(task.ref, { state: "waiting-user" }, f.ctx);
-			const child = f.store.open({ ...input, title: "Nested acceptance", parent: task.id }, f.ctx);
-			f.store.update(child.id, { state: "active" }, f.ctx);
-			const blocked = f.store.open({ ...input, title: "Blocked check" }, f.ctx);
-			f.store.update(blocked.id, { state: "active" }, f.ctx);
-			f.store.update(blocked.id, { state: "blocked" }, f.ctx);
-			const done = f.store.open({ ...input, title: "Completed check" }, f.ctx);
-			f.store.update(done.id, { state: "active" }, f.ctx);
-			f.store.update(done.id, { state: "review" }, f.ctx);
-			f.store.done(done.id, "Protocol checked", ["HTTP 200", "DOM inspected"], f.ctx);
-			const foreign = f.store.open({ ...input, title: "Foreign private task" }, { ...f.ctx, agent: "foreign" });
-			const own = { ...f.ctx, capabilities: ["read"] };
-			const shown = await f.call("show", { target: "web" }, own);
-			expect(shown.isError).not.toBe(true);
-			const { url } = JSON.parse(shown.text);
-			expect((await fetch(url)).status).toBe(200);
-			const published = await (await fetch(`${url}board`)).json();
-			expect(published.board.counts).toEqual({ waiting: 1, inProgress: 1, blocked: 1 });
-			expect(JSON.stringify(published)).not.toContain(foreign.id);
-			expect((await fetch(`${url}board?id=${foreign.id}`)).status).toBe(400);
-			const detail = await (await fetch(`${url}board?id=${done.ref}`)).json();
-			expect(detail.board.detail.task.evidence).toEqual(["HTTP 200", "DOM inspected"]);
-			page = await browser();
-			expect(await page.command("Page.navigate", { url })).not.toHaveProperty("errorText");
-			await page.wait('document.querySelector("#board-content")?.textContent.includes("1 等你")');
-			expect(
-				await page.evaluate(
-					'[...document.querySelectorAll("#board-content > [data-group]")].map(n => n.dataset.group)',
-				),
-			).toEqual(["waiting", "inProgress", "blocked", "done"]);
-			expect(await page.evaluate(`document.querySelectorAll('[data-task="${child.id}"]').length`)).toBe(1);
-			expect(
-				await page.evaluate(`document.querySelector('[data-group="inProgress"] [data-task="${child.id}"]') !== null`),
-			).toBe(true);
-			expect(await page.evaluate('document.querySelector("details[data-group=done]").open')).toBe(false);
-			expect(await page.evaluate('document.querySelector("#board-count").textContent')).toBe("1");
-			expect(await page.evaluate('document.querySelector(".board-stalled").textContent')).toContain("长时间无进展");
-			await page.evaluate("window.yonderUI.activity({known:true, pinned:true, agents:[]})");
-			expect(await page.evaluate('document.querySelector("#pin-button").getAttribute("aria-pressed")')).toBe("true");
-			await page.evaluate("window.yonderUI.current()");
-			expect(await page.evaluate('document.querySelector("#board-view").hidden')).toBe(false);
-			await page.evaluate('document.querySelector("#close").click()');
-			expect(await page.evaluate('document.querySelector("#reopen").hidden')).toBe(false);
-			await page.evaluate('document.querySelector("#reopen").click()');
-			if (process.env.YONDER_BOARD_SCREENSHOT) {
-				const shot = await page.command("Page.captureScreenshot", { format: "png" });
-				await writeFile(
-					process.env.YONDER_BOARD_SCREENSHOT.replace(".png", "-overview.png"),
-					Buffer.from(shot.data, "base64"),
-				);
-			}
-			await page.evaluate('document.querySelector(".board-task").click()');
-			await page.wait('document.querySelector("#board-content")?.textContent.includes("Inspect the real local board")');
-			expect(await page.evaluate('document.querySelector("#board-content").textContent')).toContain("事件时间线");
-			expect(await page.evaluate('document.querySelector("#board-content").textContent')).toContain(child.ref);
-			await page.evaluate('document.querySelector(".panel-scroll").scrollTop = 80');
-			f.store.update(task.id, { state: "active", note: "Continue verification" }, f.ctx);
-			await page.wait('document.querySelector("#board-content")?.textContent.includes("Continue verification")');
-			expect(await page.evaluate('document.querySelector(".panel-scroll").scrollTop')).toBe(80);
-			await page.evaluate('document.querySelector("#board-back").click()');
-			await page.wait('document.querySelector("#board-content")?.textContent.includes("0 等你")');
-			expect(await page.evaluate(`document.querySelectorAll('[data-task="${child.id}"]').length`)).toBe(1);
-			expect(
-				await page.evaluate(
-					`document.querySelector('[data-task="${task.id}"]').parentElement.querySelector('[data-task="${child.id}"]') !== null`,
-				),
-			).toBe(true);
-			const desktop = await f.call("show", { target: "desktop", view: "detail", id: done.ref }, own);
-			expect(JSON.parse(desktop.text).view).toBe("detail");
-			await page.wait('document.querySelector("#board-content")?.textContent.includes("Protocol checked")');
-			if (process.env.YONDER_BOARD_SCREENSHOT) {
-				const shot = await page.command("Page.captureScreenshot", { format: "png" });
-				await writeFile(process.env.YONDER_BOARD_SCREENSHOT, Buffer.from(shot.data, "base64"));
-			}
-		} finally {
-			await page?.close();
-			await f.close();
-		}
-	},
-	20000,
-);

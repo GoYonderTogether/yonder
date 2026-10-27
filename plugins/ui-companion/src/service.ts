@@ -197,21 +197,26 @@ export class CompanionService {
 				}
 				if (request.method === "GET" && (path === "board" || path.startsWith("board?"))) {
 					if (!this.boardSource) throw new Error("No board published");
+					const revision = this.sourceRevision;
 					const source = new URL(this.boardSource);
 					const id = new URL(request.url, origin).searchParams.get("id");
 					if (id) source.searchParams.set("id", id);
+					if (new URL(request.url, origin).searchParams.get("view") === "panel" || !id)
+						source.searchParams.set("view", "panel");
 					const result = await fetch(source, {
 						signal: AbortSignal.any([AbortSignal.timeout(5000), this.sourceAbort.signal]),
 						redirect: "error",
 					});
-					response.writeHead(result.status, { "Content-Type": "application/json" }).end(await result.text());
+					const body = await result.text();
+					if (revision !== this.sourceRevision) throw new Error("Board source changed");
+					response.writeHead(result.status, { "Content-Type": "application/json" }).end(body);
 					return;
 				}
 				if (request.method === "GET" && path === "state") {
 					response.writeHead(200, { "Content-Type": "application/json" }).end(
 						JSON.stringify({
 							active: this.active()?.interaction ?? null,
-							board: this.boardRequest ?? null,
+							board: this.boardRequest ? { ...this.boardRequest, sourceRevision: this.sourceRevision } : null,
 							history: this.records.filter((r) => r.interaction.completed || r.cancelled).map((r) => r.interaction),
 						}),
 					);

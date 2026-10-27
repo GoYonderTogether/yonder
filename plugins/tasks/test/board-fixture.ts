@@ -7,7 +7,10 @@ import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import type { Config } from "../src/moments.js";
 import { Store } from "../src/store.js";
 
-export async function fixture(config: Config = {}, options: { ui?: boolean; feishuBase?: string } = {}) {
+export async function fixture(
+	config: Config = {},
+	options: { ui?: boolean; feishuBase?: string; avatarUrl?: string } = {},
+) {
 	const home = await mkdtemp("/tmp/yonder-task-moments-");
 	const manifest = JSON.parse(await readFile(resolve("plugins/tasks/package.json"), "utf8"));
 	manifest.yonder.entry = "./probe.mjs";
@@ -63,6 +66,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 			schema: 1,
 			id: "main",
 			name: "Task moments protocol test",
+			...(options.avatarUrl ? { avatarUrl: options.avatarUrl } : {}),
 			owner: "person:test",
 			defaultProfile: "owner",
 			profiles: {

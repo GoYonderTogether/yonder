@@ -8,17 +8,18 @@ const root = resolve(dir, "../..");
 const dist = join(dir, "dist");
 const web = join(dir, "web");
 await mkdir(dist, { recursive: true });
-const [template, style, brand, state, activity, icons, app] = await Promise.all([
+const [template, style, brand, state, activity, panel, icons, app] = await Promise.all([
 	readFile(join(web, "index.html"), "utf8"),
 	readFile(join(web, "style.css"), "utf8"),
 	readFile(join(root, "brand/src/yonder-mark.js"), "utf8"),
 	readFile(join(web, "state.mjs"), "utf8"),
 	readFile(join(web, "activity.mjs"), "utf8"),
+	readFile(join(web, "panel.mjs"), "utf8"),
 	readFile(join(web, "assets/lucide/symbols.svg"), "utf8"),
 	readFile(join(web, "app.js"), "utf8"),
 ]);
 // Build from the shared brand source; no fork of the logo or its motion.
-const script = [brand, state, activity, app]
+const script = [brand, state, activity, panel, app]
 	.join("\n")
 	.replace(/^import[\s\S]*?;\r?\n/gm, "")
 	.replace(/^export /gm, "");

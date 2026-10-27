@@ -34,7 +34,7 @@ export default definePlugin({
 	setup(api) {
 		const store = new Store(api.paths.data);
 		const config = (api.config ?? {}) as Config;
-		const service = new BoardService(store, api.locale, config.stallMinutes ?? 30);
+		const service = new BoardService(store, api.locale, config.stallMinutes ?? 30, () => api.agents.list());
 		api.triggers.register({ id: "tasks-board", start: () => service.start(), stop: () => service.stop() });
 		const add = (
 			name: string,
