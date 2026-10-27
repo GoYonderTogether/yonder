@@ -9,7 +9,14 @@ import { openDatabase } from "../runtime/db.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
 import { createStore, newEvent } from "../store/index.js";
-import { builtinPromptSections, cliPrompt, commonPrompt, residentPrompt, runtimePrompt } from "./content.js";
+import {
+	builtinPromptSections,
+	cliPrompt,
+	commonPrompt,
+	modelDiscipline,
+	residentPrompt,
+	runtimePrompt,
+} from "./content.js";
 import {
 	formatClock,
 	framework,
@@ -392,4 +399,35 @@ test("prompt selection can be empty, ordered or replaced without changing capabi
 	]);
 	expect(selected.resolved.capabilities).toEqual(["read"]);
 	expect(await systemSections(selected, options)).toEqual(await systemSections(selected, options));
+});
+
+test("model discipline follows the exact model id and task sessions must report STATUS", async () => {
+	const options = {
+		contexts: new Map(),
+		workspace: () => {
+			throw new Error("Model discipline needs no workspace");
+		},
+	};
+	for (const [model, expected] of [
+		["openai/gpt-6-luna", true],
+		["custom/gpt-6-sol", true],
+		["openai/gpt-6.1-sol", true],
+		["openai/gpt-6", false],
+		["custom/not-gpt-6-luna", false],
+		["openai/gpt-6-luna-preview", false],
+	] as const) {
+		const session = {
+			id: "1",
+			agent: null,
+			profile: "default",
+			cwd: process.cwd(),
+			resolved: resolveProfile({ model }),
+		};
+		expect((await systemSections(session, options)).includes(modelDiscipline)).toBe(expected);
+	}
+	const task = { id: "1", agent: null, profile: "default", cwd: process.cwd(), resolved: resolveProfile({}) };
+	expect(framework(task)).toContain("Your final report must start with STATUS: done|partial|blocked");
+	expect(framework(task)).toContain("Never end a task session with empty text or NO_REPLY");
+	expect(framework({ ...task, agent: "main" })).toContain("If no reply is needed, output only NO_REPLY.");
+	expect(framework({ ...task, agent: "main" })).not.toContain("STATUS: done|partial|blocked");
 });

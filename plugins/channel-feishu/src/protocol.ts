@@ -1,5 +1,5 @@
 // Protocol semantics adapted from OpenClaw cafa09e and Hermes 6660547 (MIT; NOTICE.md).
-import type { Attachment, OutputPart, TSchema } from "@yonder/sdk";
+import { type Attachment, type OutputPart, parseRef, type TSchema } from "@yonder/sdk";
 
 export type ObjectValue = Record<string, unknown>;
 export const object = (value: unknown): ObjectValue =>
@@ -178,6 +178,28 @@ export function textPayload(text: string, mode: Config["renderMode"]): { type: s
 		type: "post",
 		content: { zh_cn: { title: "", content: [[{ tag: mode === "post" ? "text" : "md", text }]] } },
 	};
+}
+/** Native message edit: text/post use PUT, interactive cards use PATCH. */
+export async function editMessage(
+	client: { request(path: string, method: string, body?: object, signal?: AbortSignal): Promise<unknown> },
+	mode: Config["renderMode"],
+	id: string,
+	msg: { text: string },
+	signal?: AbortSignal,
+): Promise<void> {
+	const payload = textPayload(msg.text, mode);
+	await client.request(
+		`/im/v1/messages/${encodeURIComponent(id)}`,
+		payload.type === "interactive" ? "PATCH" : "PUT",
+		{ ...(payload.type !== "interactive" ? { msg_type: payload.type } : {}), content: JSON.stringify(payload.content) },
+		signal,
+	);
+}
+export function recipient(target: string, channel: string): { id: string; type: string } {
+	const parsed = parseRef(target);
+	if ((parsed.kind !== "acct" && parsed.kind !== "conv") || parsed.channel !== channel)
+		throw new Error("Feishu target belongs to another instance");
+	return { id: parsed.id, type: parsed.kind === "conv" ? "chat_id" : "open_id" };
 }
 export function mimeFromBytes(bytes: Buffer, fallback: string): string {
 	if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";

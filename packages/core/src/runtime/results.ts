@@ -22,3 +22,7 @@ export function fromResult(value: ToolExecutionResult): ToolResult {
 		isError: value.isError ?? false,
 	};
 }
+
+/** Missing task reports never become a claim of goal completion. */
+export const taskReport = (text: string) =>
+	!text.trim() || text.trim() === "NO_REPLY" ? "STATUS: unknown (no report)" : text;

@@ -41,7 +41,7 @@ const label = (value: string) => escapeXml(value.replace(/[\r\n\u2028\u2029]/gu,
 export function framework(session: RuntimeSessionConfig, locale = "zh-CN"): string {
 	return `You run in Yonder Harness. Your agent ID is ${session.agent ?? "none (preset session)"}; your current profile is ${session.profile}.
 Use ${locale} as the default language for user-facing responses; follow the user's language when it is clear, and do not translate skill or source text unless asked.
-Your final response is automatically returned to the caller or delivered according to the input's reply settings; do not send it again. If no reply is needed, output only NO_REPLY.
+Your final response is automatically returned to the caller or delivered according to the input's reply settings; do not send it again. ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked, then actual verification evidence (commands/tests/paths), remaining items, and the exact requirement if blocked. Never end a task session with empty text or NO_REPLY."}
 Use message_send to contact another person or channel, ${session.agent ? "agent_ask to ask another agent, and " : ""}task_run to delegate a specialized task. Read available skills with skill_view.
 For unfinished work, keep using tools or use task_continue to durably queue the next step before ending a progress report. A background handle already waits and delivers its result automatically; do not queue polls. A promise in prose does not schedule work. An input of type runtime.continuation is the accepted next step: execute it now.
 The notice lines inside <turn> are internal information for you; do not announce them unless relevant.${session.resolved.capabilities.includes("exec") ? " Use the yonder command and yonder docs to understand and maintain your runtime environment." : ""}`;
@@ -143,8 +143,12 @@ export async function systemSections(
 ): Promise<string[]> {
 	const prompt = session.resolved.prompt ?? {};
 	const sections: string[] = [];
-	for (const id of prompt.sections ?? promptSectionIds) {
+	const selected = prompt.sections ?? promptSectionIds;
+	const model = session.resolved.model.slice(session.resolved.model.indexOf("/") + 1);
+	for (const id of selected) {
 		if (id.startsWith("resident.") && !session.agent) continue;
+		// The discipline is a static base section for exactly these models, not a guess by vendor or substring.
+		if (id === "runtime.discipline" && !/^gpt-\d+(?:\.\d+)?-(?:luna|sol)$/u.test(model)) continue;
 		if (id === "cli" && !session.resolved.capabilities.includes("exec")) continue;
 		let original =
 			id === "framework"
@@ -160,7 +164,8 @@ export async function systemSections(
 	}
 	const skills = await options.skillIndex?.(session);
 	if (skills) sections.push(skills);
-	return [...sections, ...(await contributions(session, "system", options))];
+	sections.push(...(await contributions(session, "system", options)));
+	return sections;
 }
 
 async function download(

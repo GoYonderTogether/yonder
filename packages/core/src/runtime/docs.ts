@@ -62,6 +62,7 @@ export const RunDoc = defineDocFamily({
 });
 
 export interface RunState {
+	visibility: AbortController;
 	started: number;
 	warnings: Set<string>;
 	error?: string;

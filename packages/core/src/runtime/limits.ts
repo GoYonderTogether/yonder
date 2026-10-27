@@ -20,6 +20,8 @@ export interface LimitsDeps {
 	models: Models;
 	onReport: ((error: unknown) => void) | undefined;
 	onWarning: RuntimeOptions["onWarning"] | undefined;
+	onTick?(state: RunState): Promise<number | undefined>;
+	tickIntervalMs?: number | undefined;
 	usage(session: string): Promise<RuntimeRun["usage"]>;
 	denied(
 		name: string,
@@ -34,16 +36,27 @@ export interface LimitsDeps {
 export class RunLimits {
 	readonly states = new Map<string, RunState>();
 	constructor(private deps: LimitsDeps) {}
-	arm(state: RunState): void {
+	arm(state: RunState, next = this.deps.tickIntervalMs ?? 300000): void {
 		state.timer = setTimeout(
 			() => {
-				void this.warn(
-					state,
-					"maxMinutes",
-					`Task has run for ${state.config.resolved.limits.maxMinutes} minutes. If the goal is met, deliver the result; otherwise carry on and report what changed.`,
-				).catch(this.deps.onReport ?? (() => {}));
+				state.timer = undefined;
+				void (async () => {
+					if (Date.now() >= state.deadline)
+						await this.warn(
+							state,
+							"maxMinutes",
+							`Task has run for ${state.config.resolved.limits.maxMinutes} minutes. If the goal is met, deliver the result; otherwise carry on and report what changed.`,
+						);
+					const delay = await this.deps.onTick?.(state);
+					if (
+						!state.visibility.signal.aborted &&
+						this.states.get(state.id) === state &&
+						(delay !== undefined || !state.warnings.has("maxMinutes"))
+					)
+						this.arm(state, delay ?? Infinity);
+				})().catch(this.deps.onReport ?? (() => {}));
 			},
-			Math.max(0, state.deadline - Date.now()),
+			Math.max(1, Math.min(next, state.warnings.has("maxMinutes") ? Infinity : state.deadline - Date.now())),
 		);
 		state.timer.unref();
 	}

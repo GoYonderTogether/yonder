@@ -442,3 +442,29 @@ it("retries an actual pre-TLS disconnect for send and stream, but not an unquali
 		request.mockRestore();
 	}
 });
+
+describe("Feishu native message edit (heartbeat visibility)", () => {
+	it.each(["text", "post", "markdown", "card"] as const)(
+		"edits one message through the native API for %s and never retries an unknown outcome",
+		async (renderMode) => {
+			const channel = new FeishuChannel("test", { ...config, renderMode }, api());
+			const request = vi.spyOn(channel.client, "request").mockResolvedValue({ code: 0 });
+			const text = "⏳ 仍在处理（已 5 分钟，已执行 3 次工具）。";
+			expect(await channel.edit("conv:feishu:chat", "native-message", { text })).toEqual({
+				ok: true,
+				id: "native-message",
+			});
+			expect(request.mock.calls[0]?.slice(0, 2)).toEqual([
+				"/im/v1/messages/native-message",
+				renderMode === "card" ? "PATCH" : "PUT",
+			]);
+			expect(JSON.stringify(request.mock.calls[0]?.[2])).toContain(text);
+			request.mockRejectedValueOnce(new Error("connection lost after dispatch"));
+			expect(await channel.edit("conv:feishu:chat", "native-message", { text })).toMatchObject({
+				ok: false,
+				uncertain: true,
+			});
+			expect(request).toHaveBeenCalledTimes(2);
+		},
+	);
+});

@@ -135,6 +135,10 @@ bindings: [ … ]                   # 见 02 §2
 
 完整默认框架段的250词约束只约束5.2短导航，不截断完整底座。常驻身份仅真实agent装入，无身份preset不获得主人关系。CLI命令导航仅有exec能力时装入；skill_view等非CLI说明按实际工具规则使用。正文随版本编译，稳定、一次装入，不新增文件读取/回退/复制脚本；技能、上下文与instructions顺序相对保持。
 
+### 5.2.2 模型条件纪律段
+
+内置运行约定的末段（段落 id `runtime.discipline`，正文同样是 `content.ts` 里的一份静态文本，不超过 200 词）只在配置模型引用的 modelId 完整匹配 `^gpt-\d+(?:\.\d+)?-(?:luna|sol)$`（如 `gpt-6-luna`、`gpt-6.1-sol`）时装入；不按供应商、子串或本轮输入猜测模型，`gpt-6-luna-preview` 这类后缀不匹配。内容要求先简短回应主人、长工具链中不持续沉默、搜索与文件命令显式给路径、以实际执行过的命令/测试/路径结案，task 会话首行用 STATUS。它属于可选段落，显式 `prompt.sections` 未列出时不装入，可在 `prompt.overrides` 中替换；其他模型不装入。运行时间、计数与事件仍只进 `<turn>`，两次不同输入的稳定 system 前缀必须逐字相同。
+
 ### 5.3 `<turn>` 块
 
 每个提交的事件都带一个，run/write 都标明原事件 id/type；以下只示意既有消息正文格式：
@@ -235,6 +239,10 @@ Agent 与预设的热管理、归档与模板创建见 [14 §4](14-execution-cap
 ## 8. 子任务结果
 
 子任务输入附件由调用方显式选择，默认不继承父全部附件；每条附件保留原来源与既有读取范围。task_run 返回包含实际 child session、status、reason、text 和可选 attachments 的结构化正文。ToolResult 可携带显式 attachments，runtime 把这些真实产物引用存入该工具原生结果元数据并在本轮结果中保留；没有产物不造附件，不从自然语言猜路径，不扫描工作区搜集文件。结果引用不自动扩大父调用方权限，读取/发送仍校验；不增加 artifact 数据库。
+
+task 会话最终回复首行必须为 `STATUS: done|partial|blocked`，随后列出实际验证证据（命令、测试、路径）、剩余项，blocked 必须说明准确所需条件。禁止以空文本或字面 `NO_REPLY` 结案；若仍出现，内核只把返回调用方的 text 规范化为 `STATUS: unknown (no report)`，不改变原生运行 status、不增加 outcome。`status: done` 仅表示运行正常结束，STATUS 是模型自述，调用方必须核实后再向主人报告。
+
+`task_run`、`agent_ask` 的工具说明含简报六要素：目标、材料/路径、边界/禁止、完成标准、遇阻停止并报告的条件、回传要求（含 STATUS 首行）；每项工具的新增指引不超过约 120 词，不增加 schema 字段。
 
 ## 9. 内置创作与开发技能
 

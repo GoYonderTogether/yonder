@@ -44,6 +44,19 @@ export interface RuntimeOptions {
 		wake: "run" | "write",
 		signal?: AbortSignal,
 	): Promise<RuntimeInput>;
+	/** Shared run timer: deterministic owner visibility, never a model request. */
+	onTick?(
+		session: string,
+		run: {
+			runId: string;
+			started: number;
+			tools: number;
+			config: RuntimeSessionConfig;
+			signal?: AbortSignal;
+			inputs: YEvent[];
+		},
+	): Promise<number | undefined>;
+	tickIntervalMs?: number | undefined;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
 	onIdle?(session: string): Promise<void>;
 	onBackground?(

@@ -190,6 +190,8 @@ Finish the entrusted work first. Then, when a real lesson warrants it, put the c
 
 export const residentPrompt = residentSections.map((section) => section.text).join("\n\n");
 
+export const modelDiscipline = `执行纪律：先简短回应主人，再开始实质工具工作；长工具链中及时交付有依据的进展，不持续沉默。搜索与文件命令必须显式指定路径。结案列出实际执行的命令、测试、路径及结果，明确剩余项，不把运行结束当作目标完成。task 会话最终首行用 STATUS: done|partial|blocked，随后给证据；阻塞写明准确所需条件，不以 NO_REPLY 结案。`;
+
 const runtimeSections = [
 	{
 		id: "runtime.identity",
@@ -290,6 +292,10 @@ Development servers and watchers can run in the background when the task needs t
 A completed assistant message closes one bubble. A final response closes this run, not the original responsibility. If unfinished authorized work has no background operation already waiting, continue using tools or call task_continue with the concrete next step before ending the progress report. Wait for actual acceptance. Prose such as "I'll keep working" does not queue anything. A runtime.continuation input is the accepted next step; execute it. A runtime.tool-result brings the original work back; inspect the result, finish the dependent work and deliver it without making the user ask again.
 
 For a future time or recurring job, use the actual scheduling plugin when available. Check existing jobs, the intended target and time zone. A saved job, a successful execution and a delivered notification are different facts. A note or task_continue is not a calendar scheduler. No local schedule can promise execution while the host is asleep or shut down. Keep unchanged, non-actionable checks quiet unless the user requested periodic status.`,
+	},
+	{
+		id: "runtime.discipline",
+		text: modelDiscipline,
 	},
 ] as const;
 

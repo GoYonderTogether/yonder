@@ -26,7 +26,7 @@ import { createDelivery } from "./index.js";
 
 async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 	const db = await openDatabase(":memory:");
-	const store = await createStore(db);
+	const store = await createStore(db, () => "person:owner");
 	const config: RuntimeSessionConfig = {
 		agent: "main",
 		profile: "owner",
@@ -43,10 +43,14 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 		version: "check",
 		opened: new Date().toISOString(),
 	};
-	const event = newEvent({ type: "message.in", conv: "conv:test:chat", data: { text: "check" } }, [
-		{ agent: "main", session: "1", binding: "source", waiting: false },
-	]);
+	await store.sessions.put(session);
+	const event = newEvent(
+		{ type: "message.in", from: "acct:test:owner", conv: "conv:test:chat", data: { text: "check", kind: "dm" } },
+		[{ agent: "main", session: "1", binding: "source", waiting: false }],
+	);
 	await store.events.append(event);
+	await store.identity().createPerson({ id: "owner", name: "owner" });
+	await store.identity().link("acct:test:owner", "person:owner");
 	const bubbles: Array<{ parts: OutputPart[]; closed: boolean }> = [];
 	const sent: string[] = [];
 	const channel: Channel = {
@@ -447,6 +451,185 @@ test("beforeSend receives the destination Ref from kernel delivery", async () =>
 		x.emit({ type: "message_end", text: "Destination check" });
 		await expect.poll(() => x.sent).toEqual(["Destination check"]);
 		expect(destinations).toEqual(["conv:test:chat"]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+async function backgroundEnd(
+	x: Awaited<ReturnType<typeof setup>>,
+	status = "done",
+	text = '{"text":"STATUS: done"}',
+	tool = "task_run",
+) {
+	const event = await x.store.events.record(
+		{
+			type: "runtime.tool-result",
+			parent: x.event.id,
+			conv: x.event.conv!,
+			data: { session: x.session.id, job: "job", tool, status, text, waiting: false },
+		},
+		x.event.routes,
+	);
+	const end = await x.delivery.onRun(
+		x.session,
+		{
+			runId: "continuation",
+			status: "done",
+			text: "NO_REPLY",
+			inputs: [event.id],
+			config: x.config,
+			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+		},
+		[event],
+	);
+	await x.store.events.recordRun(end.ending);
+	return { event, end };
+}
+test.each([
+	["done", '{"text":"STATUS: done"}', "✅"],
+	["done", '{"text":"STATUS: blocked"}', "⚠️"],
+	["done", '{"text":"STATUS: unknown (no report)"}', "⚠️"],
+	["error", "failed", "⚠️"],
+])("background %s %s produces exactly one conservative fallback", async (status, text, prefix) => {
+	const x = await setup();
+	try {
+		const { end } = await backgroundEnd(x, status, text);
+		end.deliver();
+		await expect.poll(() => x.sent.length).toBe(1);
+		expect(x.sent[0]).toMatch(new RegExp(`^${prefix}`));
+		end.deliver();
+		await x.delivery.recover();
+		await new Promise((r) => setTimeout(r, 20));
+		expect(x.sent).toHaveLength(1);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+test.each(["message", "account", "card", "uncertain", "silent", "not-owner", "waiter"])(
+	"background visibility respects %s",
+	async (kind) => {
+		const x = await setup();
+		try {
+			if (kind === "silent") x.config.bindings![0]!.reply = "none";
+			if (kind === "not-owner") await x.store.identity().unlink("acct:test:owner");
+			if (kind === "waiter") x.event.routes![0]!.waiting = true;
+			const { event, end } = await backgroundEnd(x);
+			if (kind === "message") await x.delivery.sendCommand(x.session, event, "visible progress");
+			if (kind === "account")
+				await x.store.events.record({
+					type: "message.out",
+					data: { session: x.session.id, to: "acct:test:owner", text: "owner DM", delivery: { ok: true } },
+				});
+			if (kind === "card")
+				await x.store.events.record({
+					type: "channel-test.anchor-updated",
+					conv: x.event.conv!,
+					data: { session: x.session.id, delivery: { ok: true } },
+				});
+			if (kind === "uncertain") {
+				vi.spyOn(x.channel, "send").mockRejectedValueOnce(new Error("lost response"));
+				await x.delivery.sendCommand(x.session, event, "possibly visible");
+			}
+			const before = x.sent.length;
+			end.deliver();
+			await new Promise((r) => setTimeout(r, 20));
+			expect(x.sent.length).toBe(before);
+		} finally {
+			await x.delivery.close();
+			await x.db.close();
+		}
+	},
+);
+test("restart delivers durable unattempted fallback, but never repeats unknown delivery", async () => {
+	const x = await setup();
+	try {
+		await backgroundEnd(x); // run.end committed, process did not reach deliver()
+		const send = vi.spyOn(x.channel, "send").mockRejectedValueOnce(new Error("response lost"));
+		await x.delivery.recover();
+		await expect.poll(() => send.mock.calls.length).toBe(1);
+		await x.delivery.recover();
+		await new Promise((r) => setTimeout(r, 20));
+		expect(send).toHaveBeenCalledTimes(1);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+test("heartbeat uses facts, resets after visible output, edits one message and caps at six", async () => {
+	const x = await setup();
+	try {
+		const send = vi.spyOn(x.channel, "send").mockResolvedValue({ ok: true, id: "heartbeat-message" });
+		x.channel.edit = vi.fn(async () => ({ ok: true, id: "heartbeat-message" }));
+		const run = { runId: "interactive", started: Date.now() - 300001, tools: 7, config: x.config, inputs: [x.event] };
+		await x.delivery.heartbeat(x.session, run, 5);
+		expect(send.mock.calls[0]?.[1].text).toBe("⏳ 仍在处理（已 5 分钟，已执行 7 次工具）。");
+		for (let i = 0; i < 6; i++) {
+			await new Promise((r) => setTimeout(r, 8));
+			await x.delivery.heartbeat(x.session, run, 5);
+		}
+		expect(send).toHaveBeenCalledTimes(1);
+		expect(x.channel.edit).toHaveBeenCalledTimes(5);
+		const another = { ...run, runId: "second", started: Date.now() - 300001 };
+		await x.delivery.sendCommand(x.session, x.event, "new visible result");
+		const count = send.mock.calls.length;
+		expect(await x.delivery.heartbeat(x.session, another, 300000)).toBeGreaterThan(0);
+		expect(send).toHaveBeenCalledTimes(count);
+		expect(
+			await x.delivery.heartbeat(x.session, { ...run, inputs: [{ ...x.event, type: "runtime.tool-result" }] }),
+		).toBeUndefined();
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("definite send failure allows fallback; late uncertainty from an earlier stream suppresses a duplicate", async () => {
+	const x = await setup();
+	try {
+		const { event, end } = await backgroundEnd(x);
+		vi.spyOn(x.channel, "send").mockResolvedValueOnce({ ok: false, error: "definitely rejected" });
+		await x.delivery.sendCommand(x.session, event, "not delivered");
+		end.deliver();
+		await expect.poll(() => x.sent.length).toBe(1);
+		expect(x.sent[0]).toMatch(/^✅/u);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+	const y = await setup();
+	try {
+		const attempt = await y.store.events.claimAttempt({
+			type: "message.attempt",
+			data: { session: y.session.id, runId: "old", target: y.event.conv!, method: "stream", message: "old" },
+		});
+		const { end } = await backgroundEnd(y);
+		await y.store.events.record({ type: "message.unknown", data: { attempt, reason: "stream acknowledgment lost" } });
+		end.deliver();
+		await new Promise((r) => setTimeout(r, 20));
+		expect(y.sent).toHaveLength(0);
+	} finally {
+		await y.delivery.close();
+		await y.db.close();
+	}
+});
+test("a stream that stops producing text still receives a silence heartbeat", async () => {
+	const x = await setup();
+	try {
+		x.emit({ type: "message_start", id: "paused" });
+		x.emit({ type: "text", delta: "开始检查" });
+		await new Promise((r) => setTimeout(r, 30));
+		await x.delivery.heartbeat(
+			x.session,
+			{ runId: "run", started: Date.now() - 1000, tools: 2, config: x.config, inputs: [x.event] },
+			20,
+		);
+		expect(x.sent).toHaveLength(1);
+		expect(x.sent[0]).toMatch(/^⏳/u);
+		await x.finish("NO_REPLY");
+		await expect.poll(() => x.bubbles[0]?.closed).toBe(true);
 	} finally {
 		await x.delivery.close();
 		await x.db.close();

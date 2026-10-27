@@ -94,7 +94,7 @@ import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
-import { fromResult, toResult } from "./results.js";
+import { fromResult, taskReport, toResult } from "./results.js";
 
 export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
@@ -189,6 +189,19 @@ export class Runtime {
 			models: this.models,
 			onReport: options.onReport,
 			onWarning: options.onWarning,
+			tickIntervalMs: options.tickIntervalMs,
+			onTick: async (state) => {
+				const live = await this.harness.snapshot(LiveDoc, cid(state.session), C);
+				if (String(live?.run?.inputs[0]) !== state.id) return;
+				return options.onTick?.(state.session, {
+					runId: state.id,
+					started: state.started,
+					tools: state.toolTasks.length,
+					signal: state.visibility.signal,
+					config: state.config,
+					inputs: await this.sources(live?.run?.inputs ?? []),
+				});
+			},
 			usage: (session) => this.usage(session),
 			denied: (name, args, config, context, session) => this.policy.denied(name, args, config, context, session),
 		});
@@ -359,6 +372,7 @@ export class Runtime {
 		}
 		this.configured.set(session, config);
 		const state: RunState = {
+			visibility: new AbortController(),
 			id,
 			session,
 			config,
@@ -1271,7 +1285,8 @@ export class Runtime {
 			const last = await this.lastResult(String(child));
 			if (!last) throw new Error("Child task has no terminal receipt");
 			const receipt = await this.harness.snapshot(RunReceiptDoc, child, last.runId, C);
-			return this.receiptRun(String(child), last.runId, receipt!);
+			const result = await this.receiptRun(String(child), last.runId, receipt!);
+			return { ...result, text: taskReport(result.text) };
 		} catch (error) {
 			if (input.event && !(await this.admitted(String(child), input.event.id)))
 				await this.options.onRun?.(String(child), {
@@ -1383,12 +1398,16 @@ export class Runtime {
 				usage,
 			};
 			await this.watch.record(config, run, await this.watch.chainIndex(session, config, run));
+			const active = this.limits.states.get(key);
+			active?.visibility.abort();
+			clearTimeout(active?.timer);
 			try {
 				await this.options.onRun?.(session, run);
 				await this.idleChanged(session);
 			} finally {
 				const state = this.limits.states.get(key);
 				if (state) {
+					state.visibility.abort();
 					clearTimeout(state.timer);
 					this.limits.states.delete(key);
 				}
@@ -1886,6 +1905,10 @@ export class Runtime {
 	}
 
 	async close(): Promise<void> {
+		for (const state of this.limits.states.values()) {
+			state.visibility.abort();
+			clearTimeout(state.timer);
+		}
 		await this.restartNotes;
 		this.quotaPoller.stop();
 		this.watch.stop();
@@ -1893,7 +1916,10 @@ export class Runtime {
 		try {
 			await this.harness.close(C);
 		} finally {
-			for (const state of this.limits.states.values()) clearTimeout(state.timer);
+			for (const state of this.limits.states.values()) {
+				state.visibility.abort();
+				clearTimeout(state.timer);
+			}
 		}
 	}
 }

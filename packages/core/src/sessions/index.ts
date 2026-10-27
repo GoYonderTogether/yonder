@@ -23,6 +23,7 @@ import {
 } from "../config/index.js";
 import { SessionModelsSchema } from "../config/schema.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
+import { taskReport } from "../runtime/results.js";
 import type { Store } from "../store/index.js";
 
 interface CreateSessionsOptions {
@@ -312,7 +313,7 @@ export function createSessions({
 				agent: session.agent,
 				session: session.id,
 				status: run.status,
-				text: run.text,
+				text: taskReport(run.text),
 				...(run.reason ? { reason: run.reason } : {}),
 				...(run.attachments?.length ? { attachments: run.attachments } : {}),
 			};

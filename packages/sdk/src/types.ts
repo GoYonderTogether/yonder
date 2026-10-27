@@ -252,6 +252,8 @@ export interface Channel {
 	start(io: ChannelIO): Promise<void>;
 	stop(signal?: AbortSignal): Promise<void>;
 	send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>;
+	/** Optional native edit; unknown effects must not be retried. */
+	edit?(target: Ref, id: string, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>;
 	stream?(conv: Ref, out: AsyncIterable<OutputPart>, replyTo?: string, signal?: AbortSignal): Promise<Delivery>;
 }
 export interface ChannelLoginResult {

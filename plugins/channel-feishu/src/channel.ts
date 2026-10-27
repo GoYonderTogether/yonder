@@ -32,11 +32,13 @@ import {
 	type Config,
 	cancellable,
 	chunks,
+	editMessage,
 	mimeFromBytes,
 	type ObjectValue,
 	object,
 	opusDuration,
 	parseContent,
+	recipient as recipientOf,
 	required,
 	string,
 	textPayload,
@@ -175,14 +177,8 @@ export class FeishuChannel implements Channel {
 	onEnd(event: YEvent): Promise<void> {
 		return this.interaction.onEnd(event);
 	}
-	private serialize(work: () => Promise<void>): Promise<void> {
-		const result = this.inputTail.catch(() => {}).then(work);
-		this.inputTail = result;
-		return result;
-	}
-	private messageKey(tenant: string, id: string): string {
-		return `${this.config.appId}:${tenant}:message:${id}`;
-	}
+	private serialize = (work: () => Promise<void>) => (this.inputTail = this.inputTail.catch(() => {}).then(work));
+	private messageKey = (tenant: string, id: string) => `${this.config.appId}:${tenant}:message:${id}`;
 	private async loadHistory(): Promise<void> {
 		let initializeFromLedger = false;
 		try {
@@ -607,12 +603,7 @@ export class FeishuChannel implements Channel {
 		}
 		return { toast: { type: "success", content: "Action received" } };
 	}
-	private recipient(target: string): { id: string; type: string } {
-		const parsed = parseRef(target);
-		if ((parsed.kind !== "acct" && parsed.kind !== "conv") || parsed.channel !== this.id)
-			throw new Error("Feishu target belongs to another instance");
-		return { id: parsed.id, type: parsed.kind === "conv" ? "chat_id" : "open_id" };
-	}
+	private recipient = (target: string) => recipientOf(target, this.id);
 	async rawSend(
 		target: string,
 		type: string,
@@ -689,6 +680,14 @@ export class FeishuChannel implements Channel {
 				...(!lastId && error instanceof FeishuRequestError && error.retryable ? { retryable: true } : {}),
 				error: this.client.safe(error),
 			};
+		}
+	}
+	async edit(_target: string, id: string, msg: OutMessage, signal?: AbortSignal): Promise<Delivery> {
+		try {
+			await editMessage(this.client, this.config.renderMode ?? "markdown", id, msg, signal);
+			return { ok: true, id };
+		} catch (error) {
+			return { ok: false, uncertain: true, error: this.client.safe(error) };
 		}
 	}
 	private async upload(attachment: Attachment, signal?: AbortSignal): Promise<{ type: string; content: object }> {
