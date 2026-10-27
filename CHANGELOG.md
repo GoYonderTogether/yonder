@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- T61：同步 pi 原生 `pi.model-observation` 逐网络 attempt start/end 观测；generation、compaction、取消和同步 throw 共用原生写入，保留现有 usage 累计和重试。附只读白名单 JSONL/counts 导出脚本。pi-ai 与 durable 同源，以仓库内哈希锁定 tarball 接入干净安装；真实模型/认证验收未执行。
+- 模型供应商多账户槽位：配置档与按次任务选择、严格命名身份隔离、create-only/replace 登录与元数据管理；运行绑定贯穿生成、压缩和 deferred 请求。命名槽固定账号 generation，替换/删除后旧运行失败而不换号，恢复失败不阻断其他会话；真实认证验收未执行，AWS profile 命名身份模式明确拒绝。
+
 ### Fixed
 
 - 悬浮入口保留原184宽/22行高，以黄/红/蓝/灰区分执行和可见事项，当前执行优先；收起仅显示彩灯与姓名，详情留在提示与展开页，功能图标统一 Lucide 并保留许可。

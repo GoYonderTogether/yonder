@@ -6,6 +6,7 @@ export {
 	inspectHome,
 	inspectSkills,
 	loginProvider,
+	manageCredentialSlots,
 	manageHome,
 	offlineQuery,
 	openKernel,

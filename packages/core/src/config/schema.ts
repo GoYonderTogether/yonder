@@ -9,7 +9,11 @@ const choice = <const T extends [string, ...string[]]>(...values: T) =>
 const ref = (prefix: string) => Type.String({ pattern: `^${prefix}:.+` });
 const instanceId = Type.String({ pattern: "^[a-z0-9-]+$" });
 const providerConfig = Type.Object({ type: text }, { additionalProperties: true });
+export const CredentialSlotsSchema = Type.Record(Type.String({ pattern: "^.+$" }), text, {
+	additionalProperties: false,
+});
 export const SessionModelsSchema = object({
+	credentialSlots: Type.Optional(CredentialSlotsSchema),
 	model: Type.Optional(Type.String({ pattern: "^[^/]+/.+$" })),
 	thinking: Type.Optional(choice("off", "minimal", "low", "medium", "high", "xhigh", "max")),
 	fallback: Type.Optional(

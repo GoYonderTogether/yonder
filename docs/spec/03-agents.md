@@ -88,6 +88,7 @@ bindings: [ … ]                   # 见 02 §2
 | `model` | `provider/modelId`（07 §6） |
 | `fallback` | 可选 `{ models: [provider/modelId, ...], after: 3 }`；主模型连续失败达到 after 后按顺序回退，成功响应清零计数；最后一个模型也只尝试 after 次。省略则沿用原生 retry。计数与当前模型限于本次运行，新运行从主模型开始。 |
 | `thinking` | `off` / `minimal` / `low` / `medium` / `high` / `xhigh` / `max` |
+| `credentialSlots` | 可选 `{ [providerId]: slotName }` 非秘密账户选择；defaults → profile → session 按 provider 合并，显式 `default` 覆盖继承；未选择的 provider 使用 default，不改变模型名或引入跨槽轮换 |
 | `level` 或 `capabilities` | 安全级别或显式能力列表（05 §2），二选一 |
 | `plugins` | 用哪些插件的工具与钩子 |
 | `channelInstances` | 可选渠道实例 id 数组；未配置无限制兼容，`[]` 无实例，显式列表仅名单内；不从 bindings 推导，admin/bypass 不越过 |
@@ -101,14 +102,15 @@ bindings: [ … ]                   # 见 02 §2
 
 未写的字段取 `defaults`，再取内核默认。
 
-内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`、`prompt: {}`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools`、`limits` 与 `prompt` 按键覆盖；`prompt.sections` 和 `prompt.overrides` 各自整项替换，不按 id 合并。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
+内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`、`prompt: {}`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools`、`limits`、`prompt` 与 `credentialSlots` 按键覆盖；`prompt.sections` 和 `prompt.overrides` 各自整项替换，不按 id 合并。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
 
 ## 4. 预设与临时会话
 
 预设是不属于任何 agent 的配置档，放在 `<home>/presets/<id>.yaml`（`id` 取文件名），或由插件贡献（04 §3.7）。字段同 §3，另加必填的 `description`（一句话，会出现在 `task_run` 工具说明里）。SDK 类型：`Preset = Profile & { id: string; description: string }`，`Profile` 即 §3 的字段表。
 
-- 内核工具 `task_run({ preset, task, attachments? })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
-- 子会话默认继承发起方：预设没写 `level`/`capabilities` 就取发起方的能力，写了则与发起方相交；没写的 `tools.offer/search` 取发起方，`plugins` 为发起方所列加预设自己所列。预设只在显式写出时收窄。**禁止**借预设提权。contexts、model、instructions 由预设决定，不继承常驻身份；`task_run` 嵌套不超过两层。继承的插件与工具在开会话时固定保存，不因重载扩大。`channelInstances` 取父范围与预设范围交集（undefined 为单位元），创建时保存有效上限；无父则取预设范围，恢复与后续预设重载只能再相交，不放宽。
+- 内核工具 `task_run({ preset, task, attachments?, effort?, credentialSlots? })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
+- 子会话默认继承发起方：预设没写 `level`/`capabilities` 就取发起方的能力，写了则与发起方相交；没写的 `tools.offer/search` 取发起方，`plugins` 为发起方所列加预设自己所列。预设只在显式写出时收窄。**禁止**借预设提权。contexts、model、thinking、fallback、credentialSlots、instructions 由预设决定，不继承父会话的模型账户配置或常驻身份；`task_run` 嵌套不超过两层。继承的插件与工具在开会话时固定保存，不因重载扩大。`channelInstances` 取父范围与预设范围交集（undefined 为单位元），创建时保存有效上限；无父则取预设范围，恢复与后续预设重载只能再相交，不放宽。
+- `task_run` 的按次 `credentialSlots` 与 `effort` 使用同一既有 admin 能力门槛，不增加权限机制。映射按 provider 覆盖预设自身的选择，与 effort 同级保存在结构化 `session.input.data` 中，重放使用原事件；仅影响该次运行，在运行配置快照前应用，不改写预设或父会话。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；预设没写能力时取 `capabilities`，写了则与之相交，插件应当传入它代表的外部调用方被允许的能力。
 - 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
 - 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。

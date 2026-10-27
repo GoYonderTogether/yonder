@@ -3,11 +3,11 @@
 ## pi-durable 1.3.0 source fork
 
 - Vendored workspace: `packages/pi-durable`, npm name remains `@earendil-works/pi-durable`, version 1.3.0.
-- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `9060e7fa16681bf7ad572c4af56dc87e67a41309`.
+- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `45014f2a2250b789df4fc00441de54d4fda505f8`.
 - Base: earendil-works/pi tag v1.3.0, `71023aec1546d6d677a65669c5665c0927ce0dd0`.
 - MIT, Copyright (c) 2025 Mario Zechner; full original license retained in [packages/pi-durable/LICENSE](packages/pi-durable/LICENSE). Boundary callback/abort queue continuation (D28), atomic run receipt (D29), retry hook and exhaustion reason (D44), interrupted-generation continuation (D49) are source changes described in FORK.md. No install-time patch remains.
 - Tool-search relevance rules adapt [Hermes Agent](https://github.com/NousResearch/hermes-agent/blob/bf0203a794a07aac3ff764972ab9087baa4e4f4e/tools/tool_search_catalog.py), MIT, Copyright (c) 2025 Nous Research; the full applicable license and reference are retained in [packages/pi-durable/FORK.md](packages/pi-durable/FORK.md).
-- Only durable is forked. pi-ai, chord, codemode, tui and coding-agent remain upstream npm dependencies. Refresh instructions: CONTRIBUTING.md; machine-readable provenance: packages/pi-durable/FORK_SOURCE.json.
+- durable and pi-ai are forked at the same exact source commit. pi-ai retains its actual upstream-derived name/version 1.3.0 and is bundled as a committed, integrity-pinned tarball in `third_party/pi-ai`; this is not a new upstream npm release. Its MIT license is retained there. Root dependency plus a `$@earendil-works/pi-ai` override forces every consumer (including UI transitive imports) onto that one artifact. chord, codemode, tui and coding-agent remain upstream npm dependencies. Refresh instructions: CONTRIBUTING.md; machine-readable provenance: packages/pi-durable/FORK_SOURCE.json.
 
 ## pi coding-agent 1.3.0
 

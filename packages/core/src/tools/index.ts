@@ -5,6 +5,7 @@ import type {
 	EventInput,
 	Preset,
 	SessionInfo,
+	SessionModels,
 	Tool,
 	ToolContext,
 	ToolResult,
@@ -12,6 +13,7 @@ import type {
 } from "@yonder/sdk";
 import { Type } from "typebox";
 import { type AgentConfig, presetSession, resolveProfile } from "../config/index.js";
+import { CredentialSlotsSchema } from "../config/schema.js";
 import type { DeliveryService } from "../delivery/index.js";
 import { canReceivePeerAsk } from "../kernel/peer.js";
 import type { Runtime, RuntimeInput } from "../runtime/index.js";
@@ -121,6 +123,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		attachments: Attachment[] | undefined,
 		ctx: ToolContext,
 		effort?: string,
+		credentialSlots?: SessionModels["credentialSlots"],
 	): Promise<{ session: SessionInfo; event: YEvent; input: RuntimeInput }> {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
@@ -183,6 +186,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				busy: "followup",
 				taskOwned: true,
 				...(effort !== undefined ? { effort } : {}),
+				...(credentialSlots !== undefined ? { credentialSlots } : {}),
 				...(attachments?.length ? { attachments } : {}),
 			},
 		});
@@ -348,12 +352,17 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "task_run",
-			description: `Delegate bounded work using an available preset. Include the goal, actual repository/cwd, relevant materials, allowed changes and finish condition; label root-cause guesses as hypotheses. Explicit attachments and sources travel to the child; sources quotes inbound messages verbatim from this source conversation. effort selects this run's thinking level (admin required). The child has no resident persona and cannot exceed your capabilities. After 15 seconds a background handle returns; completion automatically resumes you, so do not repeat the task or queue a poll. Check status/reason, evidence and actual artifacts before delivering. Available presets: ${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
+			description: `Delegate bounded work using an available preset. Include the goal, actual repository/cwd, relevant materials, allowed changes and finish condition; label root-cause guesses as hypotheses. Explicit attachments and sources travel to the child; sources quotes inbound messages verbatim from this source conversation. effort selects this run's thinking level; credentialSlots selects provider -> slot overrides for this run (both require admin). Omit credentialSlots to use only the preset's own model accounts, never the parent's. The child has no resident persona and cannot exceed your capabilities. After 15 seconds a background handle returns; completion automatically resumes you, so do not repeat the task or queue a poll. Check status/reason, evidence and actual artifacts before delivering. Available presets: ${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
 			parameters: schema({
 				preset: text(),
 				task: text(),
 				sources: sourcesSchema,
 				effort: effortSchema,
+				credentialSlots: Type.Optional({
+					...CredentialSlotsSchema,
+					description:
+						"Optional non-secret provider -> credential slot map for this run. Requires admin, like effort. Merges per provider over the preset's own selection; explicit default resets an inherited slot. Never pass keys or tokens.",
+				}),
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),
 			execute: async (args, ctx) => {
@@ -362,6 +371,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					task: string;
 					sources?: string[];
 					effort?: string;
+					credentialSlots?: SessionModels["credentialSlots"];
 					attachments?: Attachment[];
 				};
 				await runtime().authorizeAttachments(ctx, request.attachments);
@@ -374,12 +384,22 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				)
 					depth++;
 				if (depth >= 2) throw new Error("任务已嵌套两层，不能再派发：直接完成，或把阻塞原因交回上级。");
-				if (request.effort !== undefined) requireCapability(ctx, "admin");
+				if (request.effort !== undefined || request.credentialSlots !== undefined) requireCapability(ctx, "admin");
 				const quoted = await quoteSources(request.sources, ctx);
 				const task = quoted ? `${request.task}\n\n${quoted}` : request.task;
 				const run = await runtime().runTask(ctx, async (childId) => {
 					try {
-						return (await taskInput(childId, request.preset, task, request.attachments, ctx, request.effort)).input;
+						return (
+							await taskInput(
+								childId,
+								request.preset,
+								task,
+								request.attachments,
+								ctx,
+								request.effort,
+								request.credentialSlots,
+							)
+						).input;
 					} catch (error) {
 						if (await store.sessions.get(childId)) await sessions.closeSession(childId, "admission-error");
 						throw error;

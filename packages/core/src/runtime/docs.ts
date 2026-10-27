@@ -86,3 +86,14 @@ export function sumUsage(state?: Readonly<UsageState>): RuntimeRun["usage"] {
 	}
 	return sum;
 }
+
+/** A manual/background task keeps its first model configuration across retries and reopen. No credentials. */
+export const ModelBindingDoc = defineDocFamily({
+	kind: "yonder.model-binding",
+	version: 1,
+	family: true,
+	scope: "conversation",
+	history: "latest",
+	fork: "initial",
+	initial: (_seed: null) => ({ config: "" }),
+});

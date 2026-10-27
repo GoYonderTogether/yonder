@@ -20,6 +20,8 @@ export interface RuntimeSessionConfig {
 	protectedFiles?: Array<{ path: string; capability: Capability }>;
 	/** Set when a delegation asked for a per-run effort; persisted with the run snapshot. */
 	effort?: { requested: string; effective: string; reason?: string; inputs: string[] };
+	/** Non-secret named-account generation identities, fixed for this run and restored on reopen. */
+	credentialGenerations?: Record<string, string>;
 	bindings?: Binding[];
 	owner?: string;
 }
