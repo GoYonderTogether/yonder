@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- T61：同步 pi 原生 `pi.model-observation` 逐网络 attempt start/end 观测；generation、compaction、取消和同步 throw 共用原生写入，保留现有 usage 累计和重试。附只读白名单 JSONL/counts 导出脚本。pi-ai sidecar 仍是未发布 fork 源码，当前 npm 依赖未切换；此同步不宣称三协议 stream 边界已在 Yonder 实际联调或真实模型验收。
+
 ## [0.2.26102512] - 2026-10-26
 
 ### Added
