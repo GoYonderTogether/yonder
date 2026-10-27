@@ -134,7 +134,9 @@ export class ModelWatch {
 				.streamSimple(
 					model,
 					{ messages: [{ role: "user", content: [{ type: "text", text: "ping" }], timestamp: Date.now() }] },
-					{ maxTokens: 8, signal: controller.signal },
+					// Reasoning models spend the budget thinking before any visible text: a tiny cap makes
+					// every probe an empty completion, so a healthy key can never clear its hold. 07 §6.1.
+					{ maxTokens: 512, signal: controller.signal },
 				)
 				.result();
 			ok = message.stopReason !== "error";

@@ -84,9 +84,10 @@ export function modelChain(
 			account: false,
 		},
 	];
+	const accountEntries: ChainEntry[] = [];
 	for (const slot of fallback?.accounts?.[primary.provider] ?? []) {
 		if (slot === entries[0]!.slot) continue;
-		entries.push({
+		accountEntries.push({
 			provider: accountProvider(primary.provider, slot),
 			modelId: substitute(slot, primary.provider, primary.modelId),
 			base: primary.provider,
@@ -94,11 +95,12 @@ export function modelChain(
 			account: true,
 		});
 	}
+	const modelEntries: ChainEntry[] = [];
 	for (const ref of fallback?.models ?? []) {
 		if (ref === model) continue;
 		const { provider, modelId } = splitModelRef(ref);
 		const slot = slotFor(selection, provider);
-		entries.push({
+		modelEntries.push({
 			provider,
 			modelId: substitute(slot, provider, modelId),
 			base: provider,
@@ -106,6 +108,8 @@ export function modelChain(
 			account: false,
 		});
 	}
+	// Preferred order: primary → first fallback model (WorkBuddy) → other accounts (GPT2) → the rest.
+	entries.push(...modelEntries.slice(0, 1), ...accountEntries, ...modelEntries.slice(1));
 	const seen = new Set<string>();
 	return entries.filter((entry) => {
 		const key = chainKey(entry);
