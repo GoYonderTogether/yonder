@@ -324,6 +324,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			sessions,
 			runtime: realRuntime,
 			agents,
+			notifications: config.notifications,
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
 				if (!channel || !config.channels?.[channel]) return Promise.resolve(undefined);
