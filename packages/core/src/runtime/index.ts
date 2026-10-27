@@ -92,6 +92,7 @@ import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
+import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, toResult } from "./results.js";
 
@@ -150,12 +151,14 @@ export class Runtime {
 	private readonly quota: ModelQuota;
 	private readonly gate: ModelGate;
 	private readonly watch: ModelWatch;
+	private readonly quotaPoller: QuotaPoller;
 	readonly credentials: FileCredentials;
 	private readonly policy: ToolPolicy;
 	private readonly limits: RunLimits;
 	readonly models: Models;
 	private constructor(private options: RuntimeOptions) {
-		this.credentialSlots = new CredentialSlotStore(credentialPath(options.home, options.config.credentials));
+		const authPath = credentialPath(options.home, options.config.credentials);
+		this.credentialSlots = new CredentialSlotStore(authPath);
 		this.credentials = this.credentialSlots.defaults;
 		this.health = new ModelHealth(join(options.home, ".yonder", "model-health.json"));
 		this.quota = new ModelQuota(join(options.home, ".yonder", "model-quota.json"), Date.now, (error) =>
@@ -172,6 +175,9 @@ export class Runtime {
 			onHealth: (event) => this.options.onModelHealth?.(event),
 			onReport: (error) => this.options.onReport?.(error),
 		});
+		this.quotaPoller = new QuotaPoller(new QuotaSource(authPath), this.quota, 60_000, (error) =>
+			options.onReport?.(error),
+		);
 		this.models = buildModels(this.credentials, options.config.models?.providers);
 		this.policy = new ToolPolicy({
 			capabilities: this.capabilities,
@@ -732,6 +738,7 @@ export class Runtime {
 		}
 		const tools = [...new Set([...offered, ...deferred])];
 		const conversation = await this.conversation(id);
+		this.pollQuota(profile.fallback, profile.credentialSlots);
 		// Held or over-quota entries are not a starting model: they move to the back of the chain.
 		const chain = this.watch.order(
 			modelChain(profile.model, profile.fallback, profile.credentialSlots),
@@ -1859,8 +1866,28 @@ export class Runtime {
 		};
 	}
 
+	/**
+	 * Poll only the accounts a stop line names. Without `quotaStopPercent` nothing is scheduled, so ordinary
+	 * homes keep the no-extra-request behaviour of 07 §6.1.
+	 */
+	private pollQuota(
+		fallback: RuntimeSessionConfig["resolved"]["fallback"],
+		selection: RuntimeSessionConfig["resolved"]["credentialSlots"],
+	): void {
+		const stops = fallback?.quotaStopPercent;
+		if (!stops) return;
+		const accounts: Array<{ provider: string; slot: string }> = [];
+		for (const [provider, slots] of Object.entries(fallback?.accounts ?? {}))
+			for (const slot of slots) if (stops[slot] !== undefined) accounts.push({ provider, slot });
+		for (const [provider, slot] of Object.entries(selection ?? {}))
+			if (stops[slot] !== undefined) accounts.push({ provider, slot });
+		this.quotaPoller.watch(accounts);
+		this.quotaPoller.start();
+	}
+
 	async close(): Promise<void> {
 		await this.restartNotes;
+		this.quotaPoller.stop();
 		this.watch.stop();
 		await this.background.close();
 		try {

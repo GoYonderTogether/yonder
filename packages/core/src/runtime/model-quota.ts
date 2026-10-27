@@ -116,10 +116,13 @@ export class ModelQuota {
 	}
 	record(account: string, data: unknown): void {
 		const window = parseRateLimits(data, this.now());
-		if (!window) return;
+		if (window) this.recordWindow(account, window);
+	}
+	/** Store an already parsed reading, e.g. from the official usage endpoint. */
+	recordWindow(account: string, window: QuotaWindow): void {
 		const prior = this.accounts.get(account);
 		if (prior && window.updatedAt < prior.updatedAt) return;
-		this.accounts.set(account, window);
+		this.accounts.set(account, { ...window });
 		void this.persist();
 	}
 	snapshot(): Record<string, QuotaWindow> {

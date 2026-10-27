@@ -4,7 +4,7 @@
 
 ### Added
 
-- 模型账号回退：`fallback.accounts` 让主模型换用同一供应商的其他凭据槽，`fallback.accountModels` 按槽换成同供应商的其他模型（额度受限的账号跑较小模型），`fallback.hold`/`probe` 让失败模型在冷却期内不占用运行起点并由后台最小请求恢复。官方用量窗口从响应里的 `rate_limits` 只读取用，按 `provider@slot` 落盘，`fallback.quotaStopPercent` 给某个槽设停用线，窗口重置后自动恢复。账号回退在运行时以只读别名供应商 `<provider>#<slot>` 实现，别名不进配置；调用适配器前把 provider 重写回真实 id，避免共享订阅按别名判定为不支持的能力。
+- 模型账号回退：`fallback.accounts` 让主模型换用同一供应商的其他凭据槽，`fallback.accountModels` 按槽换成同供应商的其他模型（额度受限的账号跑较小模型），`fallback.hold`/`probe` 让失败模型在冷却期内不占用运行起点并由后台最小请求恢复。官方用量窗口从响应里的 `rate_limits` 只读取用，按 `provider@slot` 落盘；配置了 `fallback.quotaStopPercent` 的槽每 60 秒另查一次官方用量接口，未配置时不多发请求。`fallback.quotaStopPercent` 给某个槽设停用线，窗口重置后自动恢复。账号回退在运行时以只读别名供应商 `<provider>#<slot>` 实现，别名不进配置；调用适配器前把 provider 重写回真实 id，避免共享订阅按别名判定为不支持的能力。
 
 
 - 信号分级与同类聚合（`core/src/signals`）：`report` 按稳定错误码分级，同类首次输出完整上下文、之后只计数、每分钟汇总一条；未知码默认 `warn` 而不是 `error`。
