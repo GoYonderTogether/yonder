@@ -322,3 +322,7 @@ Agent 身份增加可选 avatarUrl，name 继续复用原字段。配置校验�
 ## 2026-10-27 官方用量主动轮询（用户批准）
 
 `fallback.quotaStopPercent` 存在时，运行时每 60 秒查询被设线账号的官方用量接口并写回 `model-quota.json`；未配置停用线时不轮询，上一条「不新增轮询请求」只保留在这个范围，正常响应里的 `rate_limits` 仍是另一条来源。轮询读取运行时已有的凭据槽 `<authPath>.slots/<provider>/<slot>.auth.json`，兼容 pi OAuth 与 Codex `auth.json` 两种结构；不另行登录、不复制或刷新令牌，过期或接口拒绝时跳过，不伪造读数。代价：每个设线账号每分钟一次 HTTP 请求；只有 Codex 客户端签发的令牌能通过该接口，pi OAuth 令牌缺少账号标识时无法读取。
+
+## 2026-10-27 转换的 Codex 凭据自动刷新（用户批准）
+
+转换到槽旁的 Codex 凭据约 10 天过期，原先用量轮询不刷新，过期后只能等 Codex 客户端续期。改为在用量读取这一条路径内自动刷新：访问令牌过期或距过期不足 60 秒时按 Codex 刷新协议（固定 `client_id`、`grant_type=refresh_token`、`scope` openid profile email）请求新令牌，用量接口返回 401 时强制刷新一次并只重试一次；刷新结果原地原子写回同一文件（0600、保留未知字段、`last_refresh` 使用注入时钟），写前重读文件并把同一路径的并发刷新合并为一次，避免重复轮换。pi OAuth 凭据仍不在这里刷新；刷新失败（网络、非 2xx、缺 `access_token`）按不可用处理，不抛错、不写文件。上一条中的「不刷新令牌」在转换的 Codex 凭据范围内由本条取代。代价：用量轮询可能自行轮换 refresh token，Codex 客户端或其他共用同一凭据的进程必须读同一文件才能保持一致。

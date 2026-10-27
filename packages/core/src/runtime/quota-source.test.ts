@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,6 +37,15 @@ function respond(body: unknown, status = 200) {
 	const fetch = vi.fn(async () => new Response(JSON.stringify(body), { status }));
 	vi.stubGlobal("fetch", fetch);
 	return fetch;
+}
+const USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
+const TOKEN_URL = "https://auth.openai.com/oauth/token";
+function codexSlot(auth: string, provider: string, name: string, credential: unknown, suffix = ".auth.json") {
+	const directory = join(`${auth}.slots`, provider);
+	mkdirSync(directory, { recursive: true, mode: 0o700 });
+	const path = join(directory, `${name}${suffix}`);
+	writeFileSync(path, JSON.stringify(credential), { mode: 0o600 });
+	return path;
 }
 
 describe("quota source", () => {
@@ -117,6 +126,149 @@ describe("quota source", () => {
 		const headers = fetch.mock.calls[0]?.[1]?.headers as Record<string, string>;
 		expect(headers.Authorization).toContain(converted);
 		expect(headers["ChatGPT-Account-ID"]).toBe("codex-account");
+	});
+	it("refreshes an expired Codex credential beside the model slot and persists the rotated tokens", async () => {
+		const auth = join(root(), "auth.json");
+		const expired = token(now - 1_000, "old-account");
+		const fresh = token(now + 600_000, "new-account");
+		const path = codexSlot(
+			auth,
+			"openai",
+			"gpt2",
+			{
+				tokens: {
+					access_token: expired,
+					refresh_token: "old-refresh",
+					id_token: "old-id",
+					account_id: "old-account",
+				},
+				last_refresh: "2026-01-01T00:00:00.000Z",
+				unknown: { keep: true },
+			},
+			".codex.auth.json",
+		);
+		const fetch = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
+			if (String(input) === TOKEN_URL)
+				return new Response(
+					JSON.stringify({
+						access_token: fresh,
+						refresh_token: "new-refresh",
+						id_token: "new-id",
+						expires_in: 600,
+						token_type: "Bearer",
+					}),
+					{ status: 200 },
+				);
+			return new Response(
+				JSON.stringify(usage({ primary_window: { used_percent: 27, limit_window_seconds: 18_000 } })),
+				{
+					status: 200,
+				},
+			);
+		});
+		vi.stubGlobal("fetch", fetch);
+		const reading = await new QuotaSource(auth, () => now).reading("openai", "gpt2");
+		expect(reading?.window?.usedPercent).toBe(27);
+		const refresh = fetch.mock.calls.find((call) => String(call[0]) === TOKEN_URL);
+		expect(refresh?.[1]?.method).toBe("POST");
+		expect(JSON.parse(String(refresh?.[1]?.body))).toEqual({
+			client_id: "app_EMoamEEZ73f0CkXaXp7hrann",
+			grant_type: "refresh_token",
+			refresh_token: "old-refresh",
+			scope: "openid profile email",
+		});
+		const usageCalls = fetch.mock.calls.filter((call) => String(call[0]) === USAGE_URL);
+		expect(usageCalls).toHaveLength(1);
+		const headers = usageCalls[0]?.[1]?.headers as Record<string, string>;
+		expect(headers.Authorization).toBe(`Bearer ${fresh}`);
+		expect(headers["ChatGPT-Account-ID"]).toBe("new-account");
+		const saved = JSON.parse(readFileSync(path, "utf8"));
+		expect(saved.tokens).toEqual({
+			access_token: fresh,
+			refresh_token: "new-refresh",
+			id_token: "new-id",
+			account_id: "new-account",
+		});
+		expect(saved.last_refresh).toBe(new Date(now).toISOString());
+		expect(saved.unknown).toEqual({ keep: true });
+		expect(statSync(path).mode & 0o777).toBe(0o600);
+	});
+	it("forces one refresh and retries the usage request after a 401", async () => {
+		const auth = join(root(), "auth.json");
+		const valid = token(now + 600_000, "account");
+		const fresh = token(now + 900_000, "account");
+		codexSlot(
+			auth,
+			"openai",
+			"gpt2",
+			{ tokens: { access_token: valid, refresh_token: "refresh", account_id: "account" } },
+			".codex.auth.json",
+		);
+		let usages = 0;
+		const fetch = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
+			if (String(input) === TOKEN_URL)
+				return new Response(JSON.stringify({ access_token: fresh, refresh_token: "rotated" }), { status: 200 });
+			usages += 1;
+			if (usages === 1) return new Response("{}", { status: 401 });
+			return new Response(
+				JSON.stringify(usage({ primary_window: { used_percent: 41, limit_window_seconds: 18_000 } })),
+				{
+					status: 200,
+				},
+			);
+		});
+		vi.stubGlobal("fetch", fetch);
+		const reading = await new QuotaSource(auth, () => now).reading("openai", "gpt2");
+		expect(reading?.window?.usedPercent).toBe(41);
+		expect(usages).toBe(2);
+		expect(fetch.mock.calls.filter((call) => String(call[0]) === TOKEN_URL)).toHaveLength(1);
+		const usageCalls = fetch.mock.calls.filter((call) => String(call[0]) === USAGE_URL);
+		const retryHeaders = usageCalls[1]?.[1]?.headers as Record<string, string>;
+		expect(retryHeaders.Authorization).toBe(`Bearer ${fresh}`);
+	});
+	it("leaves the credential untouched and reads as unavailable when refresh fails", async () => {
+		const auth = join(root(), "auth.json");
+		const expired = token(now - 1_000, "account");
+		const credential = {
+			tokens: { access_token: expired, refresh_token: "refresh", account_id: "account" },
+			last_refresh: "2026-01-01T00:00:00.000Z",
+		};
+		const path = codexSlot(auth, "openai", "gpt2", credential, ".codex.auth.json");
+		const original = JSON.stringify(credential);
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response("{}", { status: 500 })),
+		);
+		expect(await new QuotaSource(auth, () => now).reading("openai", "gpt2")).toBeUndefined();
+		expect(readFileSync(path, "utf8")).toBe(original);
+	});
+	it("refreshes only once when concurrent readers race on the same credential file", async () => {
+		const auth = join(root(), "auth.json");
+		const fresh = token(now + 600_000, "account");
+		codexSlot(auth, "openai", "gpt2", {
+			tokens: { access_token: token(now - 1_000, "account"), refresh_token: "refresh", account_id: "account" },
+		});
+		let refreshes = 0;
+		const fetch = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
+			if (String(input) === TOKEN_URL) {
+				refreshes += 1;
+				await new Promise<void>((resolve) => setTimeout(() => resolve(), 5));
+				return new Response(JSON.stringify({ access_token: fresh, refresh_token: "rotated" }), { status: 200 });
+			}
+			return new Response(
+				JSON.stringify(usage({ primary_window: { used_percent: 18, limit_window_seconds: 18_000 } })),
+				{
+					status: 200,
+				},
+			);
+		});
+		vi.stubGlobal("fetch", fetch);
+		const source = new QuotaSource(auth, () => now);
+		const readings = await Promise.all([source.reading("openai", "gpt2"), source.reading("openai", "gpt2")]);
+		expect(readings.map((reading) => reading?.window?.usedPercent)).toEqual([18, 18]);
+		expect(refreshes).toBe(1);
+		const saved = JSON.parse(readFileSync(join(`${auth}.slots`, "openai", "gpt2.auth.json"), "utf8"));
+		expect(saved.tokens.access_token).toBe(fresh);
 	});
 	it("records the reading under the shared provider@slot key", async () => {
 		const auth = join(root(), "auth.json");
