@@ -5,6 +5,7 @@ import {
 	contentSanitizer,
 	FileKVStore,
 	kvSessionPersistence,
+	MediaFileType,
 	mentionGate,
 	QQBot,
 	type QQBotInboundMessage,
@@ -12,6 +13,7 @@ import {
 } from "@tencent-connect/qqbot-nodejs";
 import {
 	acct,
+	type Attachment,
 	type Channel,
 	type ChannelIO,
 	conv,
@@ -29,6 +31,7 @@ export interface Config {
 	allowedUsers?: string[];
 	allowedGroups?: string[];
 	groupWindowSeconds?: number;
+	sendIntervalMs?: number;
 }
 const str = { type: "string", minLength: 1 };
 export const configSchema = {
@@ -41,8 +44,82 @@ export const configSchema = {
 		allowedUsers: { type: "array", items: str },
 		allowedGroups: { type: "array", items: str },
 		groupWindowSeconds: { type: "integer", minimum: 1, maximum: 3600 },
+		sendIntervalMs: { type: "integer", minimum: 0, maximum: 60000 },
 	},
 };
+
+type InboundMedia = NonNullable<QQBotInboundMessage["attachments"]>[number];
+
+const mediaKind = (mime: string): Attachment["kind"] =>
+	mime.startsWith("image/")
+		? "image"
+		: mime.startsWith("audio/")
+			? "audio"
+			: mime.startsWith("video/")
+				? "video"
+				: "file";
+
+/** Platform media becomes real attachments; anything but an https URL is dropped, never guessed. */
+export function attachmentsOf(items: InboundMedia[] | undefined): Attachment[] {
+	return (items ?? []).flatMap((item) => {
+		const uri = item.url;
+		if (!uri?.startsWith("https://")) return [];
+		const mime = item.content_type?.trim() || "application/octet-stream";
+		return [
+			{
+				kind: mediaKind(mime),
+				mime,
+				uri,
+				...(item.filename ? { name: item.filename } : {}),
+				...(item.size ? { bytes: item.size } : {}),
+			},
+		];
+	});
+}
+
+/** A quoted reply only survives in msg_elements[0]; the reference index alone carries no text. */
+export function quoteOf(msg: QQBotInboundMessage): { text: string } | undefined {
+	const text = msg.msgElements?.[0]?.content?.trim();
+	return msg.refMsgIdx !== undefined && text ? { text } : undefined;
+}
+
+/** Serializes requests and keeps at least `intervalMs` between them; QQ rejects bursts. */
+export class Spacing {
+	private chain: Promise<unknown> = Promise.resolve();
+	private last = 0;
+	constructor(private readonly intervalMs: number) {}
+	run<T>(work: () => Promise<T>): Promise<T> {
+		const next = this.chain.then(async () => {
+			const wait = this.last + this.intervalMs - Date.now();
+			if (wait > 0) await new Promise<void>((done) => setTimeout(done, wait));
+			try {
+				return await work();
+			} finally {
+				this.last = Date.now();
+			}
+		});
+		this.chain = next.catch(() => {});
+		return next;
+	}
+}
+
+/** Outbound media accepts an https URL or an absolute local path; the platform uploads both. */
+function mediaOf(attachment: Attachment): {
+	fileType: MediaFileType;
+	source: { url: string } | { localPath: string };
+} {
+	const fileType =
+		attachment.kind === "image"
+			? MediaFileType.IMAGE
+			: attachment.kind === "audio"
+				? MediaFileType.VOICE
+				: attachment.kind === "video"
+					? MediaFileType.VIDEO
+					: MediaFileType.FILE;
+	if (attachment.uri.startsWith("https://")) return { fileType, source: { url: attachment.uri } };
+	if (attachment.uri.startsWith("/")) return { fileType, source: { localPath: attachment.uri } };
+	throw new Error("QQ attachment must be an https URL or an absolute local path");
+}
 
 export function incoming(
 	id: string,
@@ -51,7 +128,10 @@ export function incoming(
 	mentioned = msg.rawEventType === "GROUP_AT_MESSAGE_CREATE" ||
 		msg.mentions?.some((mention) => mention.is_you === true) === true,
 ): EventInput | undefined {
-	if (msg.senderIsBot || !msg.messageId || !msg.senderId || !msg.content.trim()) return;
+	const text = msg.content.trim();
+	const attachments = attachmentsOf(msg.attachments);
+	const quote = quoteOf(msg);
+	if (msg.senderIsBot || !msg.messageId || !msg.senderId || (!text && !attachments.length)) return;
 	if (
 		msg.kind !== "c2c" &&
 		(msg.kind !== "group" || !["GROUP_AT_MESSAGE_CREATE", "GROUP_MESSAGE_CREATE"].includes(msg.rawEventType))
@@ -70,7 +150,9 @@ export function incoming(
 		conv: conv(id, `${group ? "group" : "c2c"}:${targetId}`),
 		data: {
 			kind: group ? "group" : "dm",
-			text: msg.content.trim(),
+			text,
+			...(attachments.length ? { attachments } : {}),
+			...(quote ? { quote } : {}),
 			msgId: msg.messageId,
 			...(group ? { mentioned } : {}),
 			...(Number.isFinite(createdAt) ? { createdAt: String(createdAt) } : {}),
@@ -94,7 +176,7 @@ export function recipient(id: string, target: string): ReplyTarget {
 
 export class QQChannel implements Channel {
 	readonly kinds = ["dm", "group"];
-	readonly output = { stream: false, attachments: false };
+	readonly output = { stream: false, attachments: true };
 	private bot: QQBot | undefined;
 	private store: FileKVStore | undefined;
 	private work: Promise<void> | undefined;
@@ -104,12 +186,15 @@ export class QQChannel implements Channel {
 	private received = 0;
 	private sent = 0;
 	private readonly pending = new Set<Promise<unknown>>();
+	private readonly queue: Spacing;
 	private groups: GroupParticipation | undefined;
 	constructor(
 		readonly id: string,
 		readonly config: Config,
 		private readonly api: PluginAPI,
-	) {}
+	) {
+		this.queue = new Spacing(config.sendIntervalMs ?? 500);
+	}
 	status() {
 		return {
 			instance: this.id,
@@ -209,8 +294,9 @@ export class QQChannel implements Channel {
 			signal?.throwIfAborted();
 			if (!this.bot || this.state === "stopped" || this.state === "failed")
 				throw new Error("QQ channel is not running");
-			if (message.attachments?.length) throw new Error("QQ first release supports text replies only");
-			if (!message.text.trim()) throw new Error("QQ reply is empty");
+			const text = message.text.trim();
+			if (!text && !message.attachments?.length) throw new Error("QQ reply is empty");
+			const media = (message.attachments ?? []).map(mediaOf);
 			const to = recipient(this.id, target);
 			const msgId = message.replyTo ?? message.sourceMessageId;
 			if (msgId) to.msgId = msgId;
@@ -222,16 +308,29 @@ export class QQChannel implements Channel {
 				this.store?.flush();
 			}
 			attempted = true;
-			const response = await this.bot.send({
-				target: to,
-				msgType: 0,
-				content: message.text,
-				...(message.replyTo ? { messageReference: { message_id: message.replyTo } } : {}),
-				extra: { msg_seq: sequence },
-			});
-			if (!response.id) throw new Error("QQ response omitted message ID; delivery is unknown");
+			const ids: string[] = [];
+			if (text) {
+				const response = await this.queue.run(() =>
+					this.bot!.send({
+						target: to,
+						msgType: 0,
+						content: text,
+						...(message.replyTo ? { messageReference: { message_id: message.replyTo } } : {}),
+						extra: { msg_seq: sequence },
+					}),
+				);
+				if (response.id) ids.push(response.id);
+			}
+			for (const item of media) {
+				const response = await this.queue.run(() =>
+					this.bot!.sendMedia({ target: to, fileType: item.fileType, ...item.source }),
+				);
+				if (response.message?.id) ids.push(response.message.id);
+			}
+			const id = ids[0];
+			if (!id) throw new Error("QQ response omitted message ID; delivery is unknown");
 			this.sent++;
-			return { ok: true, id: response.id };
+			return { ok: true, id };
 		} catch (error) {
 			// SDK requests do not expose cancellation. Once started, await their receipt;
 			// network failures and invalid responses cannot safely be replayed.

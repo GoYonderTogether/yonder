@@ -8,7 +8,7 @@ import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, inspectHome } from "../../../packages/core/src/kernel/home.js";
-import { incoming, recipient } from "../src/channel.js";
+import { incoming, recipient, Spacing } from "../src/channel.js";
 import { configure, connect } from "../src/setup.js";
 
 test("cancelled QR setup does not contact the portal", async () => {
@@ -131,4 +131,76 @@ test("scan completion preserves credentials and configures read-only group parti
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
+});
+
+test("inbound media and quoted replies keep the real protocol structure", () => {
+	const raw = {
+		id: randomBytes(16).toString("hex"),
+		content: "",
+		author: { user_openid: "USER" },
+		timestamp: new Date().toISOString(),
+		attachments: [
+			{ content_type: "image/png", url: "https://gchat.qpic.cn/a.png", filename: "截图.png", size: 2048 },
+			{ content_type: "application/pdf", url: "http://insecure.example/b.pdf" },
+		],
+	};
+	const result = dispatchEvent("C2C_MESSAGE_CREATE", raw, "instance");
+	if (result.action !== "message") throw new Error("Tencent SDK did not parse the protocol event");
+	const msg = { ...result.msg, replyTarget: { scope: "c2c" as const, targetId: "USER" } };
+	const input = incoming("qq-main", { appId: "1", credential: "qq" }, msg);
+	expect(input?.data).toMatchObject({
+		kind: "dm",
+		text: "",
+		attachments: [
+			{ kind: "image", mime: "image/png", uri: "https://gchat.qpic.cn/a.png", name: "截图.png", bytes: 2048 },
+		],
+	});
+	expect(incoming("qq-main", { appId: "1", credential: "qq" }, {
+		...msg,
+		attachments: [{ content_type: "image/png", url: "file:///etc/passwd" }],
+	})).toBeUndefined();
+	const quoted = dispatchEvent(
+		"GROUP_AT_MESSAGE_CREATE",
+		{
+			id: randomBytes(16).toString("hex"),
+			content: "接上文",
+			author: { member_openid: "MEMBER" },
+			group_openid: "GROUP",
+			timestamp: new Date().toISOString(),
+			message_type: 103,
+			message_scene: { ext: ["ref_msg_idx=REF1", "msg_idx=SELF1"] },
+			msg_elements: [{ msg_idx: "REF1", content: "被引用的原文" }],
+		},
+		"instance",
+	);
+	if (quoted.action !== "message") throw new Error("Tencent SDK did not parse the quoted reply");
+	const reply = incoming("qq-main", { appId: "1", credential: "qq" }, {
+		...quoted.msg,
+		replyTarget: { scope: "group" as const, targetId: "GROUP" },
+	});
+	expect(reply?.data).toMatchObject({ kind: "group", mentioned: true, quote: { text: "被引用的原文" } });
+	expect(reply?.conv).toBe("conv:qq-main:group:GROUP");
+});
+
+test("send spacing serializes requests and keeps the configured interval", async () => {
+	const spacing = new Spacing(40);
+	const at: number[] = [];
+	let active = 0;
+	let peak = 0;
+	const start = Date.now();
+	await Promise.all(
+		[0, 1, 2].map(() =>
+			spacing.run(async () => {
+				active++;
+				peak = Math.max(peak, active);
+				at.push(Date.now() - start);
+				await new Promise((done) => setTimeout(done, 5));
+				active--;
+			}),
+		),
+	);
+	expect(peak).toBe(1);
+	const [first = 0, second = 0, third = 0] = at;
+	expect(second - first).toBeGreaterThanOrEqual(30);
+	expect(third - second).toBeGreaterThanOrEqual(30);
 });

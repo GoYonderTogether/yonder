@@ -338,3 +338,7 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 ## 2026-10-27 渠道通知级别与入站通知（用户批准）
 
 主人要求 QQ 私聊/群聊正式可用并带标注与通知、微信客户端消息进入渠道监听。按 `proposals/unified-client/research/C3-social-ux.md` §3.4/§5.3 采用三档级别 `all`/`mention`/`mute`，写进 `yonder.yaml` 的 `notifications`（默认级别 + 按 `conv` 覆盖），由节点侧判定并作为权威来源；`mention` 复用事件里已有的 `data.mentioned`，不新增字段。只有被绑定路由接纳的 `message.in` 与显式带字符串 `data.summary` 的插件事件产生 `yonder.notification`（走 `sessions.notify`，不唤醒 Agent、不进模型消息），`mute` 不产生记录但事件与未读照常累积；客户端在正查看该会话时抑制系统通知只是兜底。C3 明确先不做折叠群、关键词提醒、分时段免打扰与按渠道单设级别，本轮同样不做。详见 06 §9.1、08 §2。代价：每个入站消息在每个路由到的会话产生一条 entry；级别改动需要重启（随 `yonder.yaml` 其余字段）。
+
+## 2026-10-27 QQ 渠道媒体、引用与发送间隔（用户批准）
+
+主人要求 QQ 私聊与群聊正式可用。腾讯 SDK 1.0.4 已提供入站 `attachments`/`msg_elements` 与 `sendMedia`，插件此前的「只发文字」是插件层缺口而非平台限制，因此直接补在插件里：入站媒体映射为 `message.in` 的 `attachments`（`content_type` 决定 kind，只接纳 https URL，其他 URI 丢弃不猜测），引用回复原文取 `msg_elements[0].content` 写入新增的 `quote.text`（参考索引本身不含正文，缓存未命中时只有这一处来源），并进入本轮提示的 `quote:` 行；只有附件没有正文的消息不再被丢弃。出站接受 https URL 或绝对本地路径的 image/audio/video/file，音频按文件发送，不声称原生语音气泡；一次回复先发文字再逐条发媒体，复用被动回复的 msg_seq 计数。新增实例配置 `sendIntervalMs`（默认 500，0–60000 毫秒），所有发送与媒体上传经插件内串行间隔器，平台限流与 5xx 仍是 uncertain，不盲重发。重连继续由 SDK 的 ready/resumed/failed 状态机负责，不另建重试循环；媒体发送不携带 msg_seq 是已知限制。详见 11 §15。代价：媒体上传占用同一间隔队列，多附件回复会变慢。
