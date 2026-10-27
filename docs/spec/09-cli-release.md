@@ -8,8 +8,8 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - **非交互**：除 `login`、`chat` 与交互终端中的无参数 TUI 入口外不读标准输入、不提问；缺参数就报错并给出用法。管理命令以 agent/脚本为主要使用方，人也能阅读；TUI 是人使用产品的基础入口，不能用 JSON 或逐行打印代替。
 - **`--json`**：每个命令都支持。有限命令输出一个 JSON 值（列表输出数组）；持续的 `start`、`chat` 输出一行一个 JSON 值（JSON Lines）。`login` 仅本机交互 TTY，拒绝 `--json`；提示走 stderr，stdout 只输出最终非秘密结果。不带时输出给人看的文本。
 - **退出码**：0 成功；1 失败（stderr 一行原因；带 `--json` 时 stdout 输出 `{ "error": "…" }`）；2 用法错误。
-- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 已安装唯一服务的 home > `~/.local/share/yonder-harness/home`。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
-- `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 含配置的当前目录 > 已安装服务home > 默认全局home解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装 plist 取得 home。
+- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 已安装唯一服务的 home > `~/.local/share/yonder-harness/home`（macOS/Linux）或 `%LOCALAPPDATA%\\YonderHarness\\home`（Windows）。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
+- `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 含配置的当前目录 > 已安装服务home > 默认全局home解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装的平台注册记录取得 home。
 - **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令，命令名/参数保持英文，说明“中文 · English”。普通结果按命令呈现摘要、表格或正文，不默认打印调试对象；JSON 键与退出码不翻译。两种 Tab 补全见 12 §5；TUI 菜单、列表、布局和快捷键统一沿用固定版本 pi 原生实现，仅替换 Yonder 命令说明与内容（12 §2/4/6）。
 - **CLI 是管理面**：能运行它就能改配置、身份与会话（05 §3）。
 
@@ -47,10 +47,11 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 ## 3. 安装布局
 
 ```
-<install>/                    默认 ~/.yonder-harness，可用环境变量 YONDER_INSTALL 改
+<install>/                    默认 ~/.yonder-harness（Windows 为 %LOCALAPPDATA%\\YonderHarness），可用 YONDER_INSTALL 改
   versions/<version>/         某个审核 tag 的构建安装，已 npm ci && npm run build，无 .git
-  current -> versions/<version>
-  bin/yonder                  shell 脚本：用安装时记录的 node 绝对路径运行 current 里的 CLI
+  current -> versions/<version>   Unix 符号链接；Windows 目录 junction
+  bin/yonder                  Unix shell wrapper
+  bin/yonder.cmd              Windows cmd wrapper；均用安装时 node 绝对路径运行 current 里的 CLI
 ```
 
 - 安装目录放代码，home 放数据，两者分开；一个安装可以服务多个 home。
@@ -66,11 +67,11 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 2. 已是当前版本：什么都不做，退出码 0。
 3. `git clone --depth 1 --branch <tag>` 到 `versions/<version>.tmp` → `npm ci` → `npm run build` → 记录来源 commit/tag，移除 .git → 改名为 `versions/<version>`。任一步失败：删除临时目录，当前版本不变，退出码 1。
 4. 装了服务时，用新版本对服务的 home 运行 `doctor`；失败则不切换。
-5. 原子切换 `current`（新建符号链接再 rename 覆盖）。
+5. Unix 原子切换 `current`（新建符号链接再 rename 覆盖）；Windows 创建新 junction，验证新旧入口均为指向本安装 `versions/<version>` 的链接后，先把旧 junction 改名留作回退，再将新 junction 改名为 `current`。真实目录、悬空或越界链接须拒绝且不删除；仅 unlink 已验证的旧链接。切换失败恢复旧 junction；Windows 切换期间可能有短暂入口空档。
 6. 装了服务：`service restart`。没装服务但有运行中的进程：提示手动重启。
 7. 只保留最近 3 个版本，且不删当前与上一个。回滚就是 `update --to <旧版本>`。
 
-从本地仓库阶段安装：`update --repo <本地仓库> --to <唯一版本>`；不同审核源码使用不同 X.Y.Z，包版本和标签一致，不移动已安装标签或覆盖同版本目录；同版本 update 返回未更新，不能作为新代码已生效的证据。自动更新由独立一次性 launchd 作业执行并核对结果，不得把承载自身的 bash 被杀死视为更新成功（10 §3）。
+从本地仓库阶段安装：`update --repo <本地仓库> --to <唯一版本>`；不同审核源码使用不同 X.Y.Z，包版本和标签一致，不移动已安装标签或覆盖同版本目录；同版本 update 返回未更新，不能作为新代码已生效的证据。macOS 自动更新由独立一次性 launchd 作业执行并核对结果，不得把承载自身的 bash 被杀死视为更新成功（10 §3）；Linux/Windows 首版仅支持显式 update。
 
 ### 4.1 版本通知
 
@@ -84,13 +85,16 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - 每次变更把对外可见的变化记在根目录 `CHANGELOG.md` 顶部的 `## [Unreleased]`（小节用 Added / Changed / Fixed / Removed）。发布时统一所有包版本与 CHANGELOG，打标签 vx.y.z 并推送，使用 gh 创建该标签的正式 GitHub Release；本地阶段标签不推送，也不等于 Release。发布 watcher 接实际 Release 对象，不把标签当发布通知（10 §3）。
 - `yonder changelog --from a --to b`：输出 `CHANGELOG.md`（当前版本里的）中版本在 (a, b] 之间的各节；`--to` 缺省为当前版本，`--from` 缺省为 `--to` 的上一个版本。
 
-## 6. 后台服务（macOS）
+## 6. 后台服务
 
-- `service install`：写 `~/Library/LaunchAgents/dev.yonder.harness.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。
+- macOS `service install`：写 `~/Library/LaunchAgents/dev.yonder.harness.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。
 - `start`：已加载用 `launchctl kickstart`，未加载但 plist 存在用 `bootstrap`；`stop` 用 `bootout`，保留 plist；`restart` 对已加载服务用 `kickstart -k`，未加载时用 `bootstrap`；`status` 用 `print`；`uninstall` 卸载已加载服务后删除 plist。
 - plist 的 EnvironmentVariables 仅保存 PATH、YONDER_INSTALL、YONDER_HOME；PATH 含安装 bin、安装时 node 所在目录及安装时 PATH。服务验证必须包含 stop → start，以及从后台 agent 调用 yonder docs、node、npm、git。
 - 进程异常退出由 launchd 拉起；运行恢复按 07 §3.1 接好输入/结束关联后启用 pi 调度，重新打开文件不代表完成恢复。
-- Linux（systemd 用户单元）以后做，命令不变。
+- Linux 使用 systemd **用户**单元 `dev.yonder.harness.service`，放在 `$XDG_CONFIG_HOME/systemd/user`（缺省 `~/.config/systemd/user`）。`service install` 写单元并 `daemon-reload`、`enable --now`；start/stop/restart/status/uninstall 对该用户单元操作。ExecStart 使用已安装 wrapper、固定 home；日志由 journald 保管。无需 root，不安装系统级服务。
+- Windows 使用当前用户的 Task Scheduler 登录任务 `Yonder Harness` 作为后台入口；不注册需要管理员权限的 SCM 服务。`service install` 在 `<install>/bin` 保存只含 home/install/node 路径的启动脚本，并在 `%LOCALAPPDATA%\\YonderHarness` 保存注册记录；start/stop/restart/status/uninstall 使用 `schtasks`，卸载保留 home 与版本。任务在当前用户会话启动，不承诺注销后运行或崩溃后自动重启。Windows 控制面与 CLI 渠道使用本机命名管道，管道名由规范化 home 路径摘要决定，不暴露 TCP 端口。
+- Windows 管道当前显式关闭 Node 的 `readableAll`/`writableAll`，但跨账户隔离尚无实机证明。验收门槛：Windows ARM64 上同一普通用户可连控制面和 CLI 渠道，另一独立普通用户对两条管道均被拒绝，且任务重启后仍成立；若默认 DACL 不满足，需在创建管道时将 DACL 限定为安装用户 SID（及系统必需主体）并在无法施加时拒绝启动，或增加绑定仅该用户可读本地凭据的认证。未完成前不得将 Windows 本机控制面标为多用户安全通过。
+- Linux/Windows 的 full 首版是 CLI/TUI 与内核；macOS Helper、状态栏、屏幕/电源辅助能力仅在 macOS 启用。实际安装、启动、Agent 创建、控制、重启连接、卸载按 OS 与架构单独验收，构建成功不等于运行通过。
 
 ### 6.1 macOS 状态栏
 

@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { createServer, type Server, type Socket } from "node:net";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import {
 	acct,
@@ -19,7 +20,11 @@ const channelProvider = (api: PluginAPI) =>
 		create(id: string, _config: unknown) {
 			const account = acct(id, "local");
 			const conversation = conv(id, "local");
-			const socketPath = join(api.paths.data, `${id}.sock`);
+			const filePath = join(api.paths.data, `${id}.sock`);
+			const socketPath =
+				process.platform === "win32"
+					? `\\\\.\\pipe\\yonder-cli-${createHash("sha256").update(resolve(filePath).toLowerCase()).digest("hex").slice(0, 32)}`
+					: filePath;
 			let server: Server | undefined;
 			let client: Socket | undefined;
 			let io: ChannelIO | undefined;
@@ -36,7 +41,7 @@ const channelProvider = (api: PluginAPI) =>
 				async start(channelIO) {
 					io = channelIO;
 					await mkdir(api.paths.data, { recursive: true });
-					await rm(socketPath, { force: true });
+					if (process.platform !== "win32") await rm(socketPath, { force: true });
 					server = createServer((socket) => {
 						if (client) {
 							socket.on("error", () => socket.destroy());
@@ -79,7 +84,7 @@ const channelProvider = (api: PluginAPI) =>
 					await new Promise<void>((resolve, reject) => {
 						const onError = (error: Error) => reject(error);
 						server?.once("error", onError);
-						server?.listen(socketPath, () => {
+						server?.listen({ path: socketPath, readableAll: false, writableAll: false }, () => {
 							server?.off("error", onError);
 							resolve();
 						});
@@ -90,7 +95,7 @@ const channelProvider = (api: PluginAPI) =>
 					client = undefined;
 					if (server?.listening) {
 						await new Promise<void>((resolve, reject) => server?.close((error) => (error ? reject(error) : resolve())));
-						await rm(socketPath, { force: true });
+						if (process.platform !== "win32") await rm(socketPath, { force: true });
 					}
 					server = undefined;
 				},

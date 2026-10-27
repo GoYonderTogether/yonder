@@ -1,5 +1,5 @@
 export type { ControlConnection, ControlRequest } from "./control/index.js";
-export { observeControl, requestControl, serveControl } from "./control/index.js";
+export { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./control/index.js";
 export type { Kernel, KernelLog, LoginInteraction } from "./kernel/index.js";
 export {
 	initHome,
