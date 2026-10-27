@@ -119,6 +119,7 @@ channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认�
 每条被绑定路由接纳的入站 `message.in`，以及显式带字符串 `data.summary` 的插件事件（如 wechat-archive 归档的入站消息），对每个路由到的会话写一条 `yonder.notification`：`from` 取事件来源，`event` 取原事件 id，`text` 取消息正文，无正文时取 `data.summary`，两者都为空时用 `[N 个附件]`，截断到 120 字符。写入走 `sessions.notify` 的原生 app-only entry，不唤醒 Agent、不进入模型消息；同一 `(from, event)` 重复写入返回原记录，重启后恢复的路由不会产生第二条。没有绑定或被丢弃的路由、以及内部运行事件（`agent.result`、`runtime.tool-result` 等）不产生通知。
 
 级别来自 `yonder.yaml` 的 `notifications`（08 §2）：`all` 每条都通知；`mention` 只在 `data.mentioned === true` 时通知；`mute` 不产生通知记录，事件与未读仍照常累积。级别在节点侧判定并作为权威来源；客户端在页面可见且正查看该会话时抑制系统通知只是额外兜底，不能替代节点侧过滤。通知只表达「有新内容需要主人知道」，不声称已读，也不改变 `message.out` 的投递状态。
+
 ## 10. 确定性可见性
 
 后台/委派完成经原 runtime.tool-result 接纳后，续办轮结束时，共享 delivery 边界检查从该完成事件到本轮投递结束之间本会话对原渠道/会话的可见输出。成功送出的消息，或模型成功更新的状态卡/锚点，均计入；插件在既有成功事件附带通用 `data.delivery.ok=true`、session 与 conv，内核不识别供应商专用事件名；读取卡片、失败更新、其他会话或其他会话目标不算。若没有新可见输出，发一条模板：成功 `✅ 后台任务「<标题/摘要前40字符>」已完成。`；失败或无法确认 `⚠️ 后台任务「…」未能确认完成（<status>）。`。task_run 的 done 必须同时有 `STATUS: done` 才可称成功，STATUS 仍是模型自述。保留 reply:none、cron/trigger deliver 规则和非主人交互的静默语义；仅原本代表主人在渠道工作的会话使用兜底。若一次续办合并多个完成，逐完成检查，已有一条可见输出即满足本轮。
