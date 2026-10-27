@@ -12,8 +12,8 @@ import {
 	type ReplyTarget,
 } from "@tencent-connect/qqbot-nodejs";
 import {
-	acct,
 	type Attachment,
+	acct,
 	type Channel,
 	type ChannelIO,
 	conv,

@@ -155,10 +155,16 @@ test("inbound media and quoted replies keep the real protocol structure", () => 
 			{ kind: "image", mime: "image/png", uri: "https://gchat.qpic.cn/a.png", name: "截图.png", bytes: 2048 },
 		],
 	});
-	expect(incoming("qq-main", { appId: "1", credential: "qq" }, {
-		...msg,
-		attachments: [{ content_type: "image/png", url: "file:///etc/passwd" }],
-	})).toBeUndefined();
+	expect(
+		incoming(
+			"qq-main",
+			{ appId: "1", credential: "qq" },
+			{
+				...msg,
+				attachments: [{ content_type: "image/png", url: "file:///etc/passwd" }],
+			},
+		),
+	).toBeUndefined();
 	const quoted = dispatchEvent(
 		"GROUP_AT_MESSAGE_CREATE",
 		{
@@ -174,10 +180,14 @@ test("inbound media and quoted replies keep the real protocol structure", () => 
 		"instance",
 	);
 	if (quoted.action !== "message") throw new Error("Tencent SDK did not parse the quoted reply");
-	const reply = incoming("qq-main", { appId: "1", credential: "qq" }, {
-		...quoted.msg,
-		replyTarget: { scope: "group" as const, targetId: "GROUP" },
-	});
+	const reply = incoming(
+		"qq-main",
+		{ appId: "1", credential: "qq" },
+		{
+			...quoted.msg,
+			replyTarget: { scope: "group" as const, targetId: "GROUP" },
+		},
+	);
 	expect(reply?.data).toMatchObject({ kind: "group", mentioned: true, quote: { text: "被引用的原文" } });
 	expect(reply?.conv).toBe("conv:qq-main:group:GROUP");
 });
