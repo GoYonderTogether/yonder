@@ -47,7 +47,29 @@ npm ci && npm run build && npm test
 
 本地未 push 的 fork 提交可用 `YONDER_PI_SOURCE=/absolute/fork-checkout node scripts/sync-pi-durable.mjs <完整40位commit>`；脚本核对 checkout 的 origin 是上述 fork 并 fetch 精确已提交对象，仍生成相同 repository/commit provenance，不读取未提交文件。这不代表该 SHA 已在远端发布。
 
-同步替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、pi-ai、codemode 等依赖继续取 npm，导出路径不变。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
+同步替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
+
+## 打包匹配的 pi-ai fork
+
+Harness 正式发行走 Git tag clone → npm ci → build（见 core release/index.ts）。因此将 pi-ai 编译 tarball 与精确来源、MIT 许可证一并提交到 `third_party/pi-ai/`，无需新 npm scope 或 registry 权限。包仍为其真实上游衍生版本 1.3.0；fork 身份由源码 commit、tarball hash 和 lock integrity 区分，不冒充上游新发行。
+
+在干净 pi fork checkout（HEAD 必须与 durable 的 FORK_SOURCE 相同）中执行 `npm ci --ignore-scripts`；准备受支持 model data 后执行：
+
+```sh
+node scripts/pack-packages.mjs --out /absolute/artifacts --offline-model-data
+```
+
+这会 clean/build 所有公开包后生成 coherent artifact set。不要用旧 dist 冒充本次源码。再到 Harness：
+
+```sh
+node scripts/bundle-pi-ai.mjs /absolute/artifacts/manifest.json
+npm install --package-lock-only --ignore-scripts
+npm ci --ignore-scripts
+node scripts/check-pi-ai-bundle.mjs
+node node_modules/typescript/bin/tsc -b packages/pi-durable packages/sdk packages/core packages/cli --force
+```
+
+打包脚本要求 clean、精确同源的 artifact manifest。根 direct dependency 用仓库内相对 tarball 路径，并以 npm `$` override 统一直接/传递依赖；不要把 `/tmp` 或外部 checkout 写入依赖。构建前 guard 检查唯一 ai resolution 与同源 hash。新 tarball、provenance、MIT LICENSE、根 package.json 与 package-lock 必须一起提交。正式 tag 的干净 clone 无需 pi checkout 或本地 artifact 目录；重建 tarball 才需要 fork 构建输入。
 
 ## 检查与测试
 
