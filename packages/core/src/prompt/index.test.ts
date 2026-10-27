@@ -431,3 +431,31 @@ test("model discipline follows the exact model id and task sessions must report 
 	expect(framework({ ...task, agent: "main" })).toContain("If no reply is needed, output only NO_REPLY.");
 	expect(framework({ ...task, agent: "main" })).not.toContain("STATUS: done|partial|blocked");
 });
+
+test("built-in prompt states autonomy, goal-first and stop-when-enough within a word budget", () => {
+	const all = [commonPrompt, residentPrompt, runtimePrompt, cliPrompt].join("\n");
+	const words = all.trim().split(/\s+/u).length;
+	// Measured 7016 words after folding the autonomy sentences into the current sections; the ceiling only shrinks.
+	expect(words).toBeLessThanOrEqual(7100);
+	for (const line of [
+		"Never give the person a command, script or approval step you can run yourself",
+		"Work that takes under half an hour needs no research first; do it.",
+		"If two goals conflict, pick one and say why.",
+		"When a reminder about time or context arrives, wrap up: deliver what exists and say what remains.",
+		"Keep at most two lines of work moving at once.",
+		"Never spend a model turn only to append a ledger line; batch notes.",
+		"Give commands explicit paths or a timeout so they cannot wait on stdin.",
+		"within two attempts, fix one, route around it or report it",
+		"wait for its notification instead of checking again",
+	]) {
+		expect(commonPrompt).toContain(line);
+	}
+	// No persona or product names in the built-in base.
+	for (const forbidden of ["Jarvis", "Luna", "SYSTEM.md"]) {
+		expect(all).not.toContain(forbidden);
+	}
+	// Compiled constants stay stable and plain strings.
+	expect([commonPrompt, residentPrompt, runtimePrompt, cliPrompt].every((text) => text === text.trim())).toBe(
+		true,
+	);
+});
