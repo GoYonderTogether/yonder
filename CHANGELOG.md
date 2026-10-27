@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- 信号分级与同类聚合（`core/src/signals`）：`report` 按稳定错误码分级，同类首次输出完整上下文、之后只计数、每分钟汇总一条；未知码默认 `warn` 而不是 `error`。
+- 状态面（`core/src/status`）：服务把"现在怎么样"原子写入 `.yonder/status.json`，内容不变时只按 10 秒心跳刷新 `observedAt`，空闲只付一次索引查询。菜单栏改读该文件，不再每 2 秒派生 `yonder service info` 进程。
+- 保留引擎（`core/src/retention`）：日志按大小轮转保留 3 份、后台日志目录合并为滚动文件、派生物正文按 30 天回收，单轮 50 MB 预算，失败只记 `skipped` 不中断。
+- 账本正文回收：`yonder.background` 终态记录的 `state.outcome` 正文剥离为摘要（保留 `status`、字节数、sha256、首尾各 2 KB）。正文仍在同会话转录 `pi_entries` 中（本机抽样 12/12 命中），属去重不是丢数据。
+- 任务账本读模型：新增 `task_current` 投影表，`list`/`get`/`activity` 只查投影；面板视图从"每个任务一次全量重放"改为一次批量查询。
+- 文件行数门禁：`scripts/check-file-size.mjs` 与 `scripts/file-size-baseline.json`，超过 500 行且未登记即失败，基线只减不增。
+
+### Changed
+
+- `npm run lint` 现在包含文件行数检查。
+
+### Fixed
+
+- 单次启动产生的 11,726 条 error 级"历史 submission 无原生回执"降为 1 条 `warn` 加周期汇总。
+- 任务账本每次读取都新建连接、`SELECT *` 全表并从头 replay 的问题。
+
 ## [0.2.26102701] - 2026-10-27
 
 ### Added
