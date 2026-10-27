@@ -2,11 +2,19 @@
 
 ## [Unreleased]
 
+## [0.2.26102701] - 2026-10-27
+
 ### Added
 
 - T61：同步 pi 原生 `pi.model-observation` 逐网络 attempt start/end 观测；generation、compaction、取消和同步 throw 共用原生写入，保留现有 usage 累计和重试。附只读白名单 JSONL/counts 导出脚本。pi-ai 与 durable 同源，以仓库内哈希锁定 tarball 接入干净安装；真实模型/认证验收未执行。
 - 模型供应商多账户槽位：配置档与按次任务选择、严格命名身份隔离、create-only/replace 登录与元数据管理；运行绑定贯穿生成、压缩和 deferred 请求。命名槽固定账号 generation，替换/删除后旧运行失败而不换号，恢复失败不阻断其他会话；真实认证验收未执行，AWS profile 命名身份模式明确拒绝。
 - 新增独立无模型设备执行契约和标准 Ed25519 端点签名 helper，SDK重导出；仅W0接口，不含执行daemon/配对存储/relay实现。
+- 多设备执行 W2/W4：授权范围内的设备发现快照过滤、HTTPS 与 Card 中继配对、控制器工具与持久命令恢复；新增 Linux 与 Windows 全程序平台适配器，校验 Windows 版本链接并拆分 systemd 转义。
+- 任务面板视图：看板按状态分组展示任务，新增 panel 页与浏览器契约测试。
+
+### Changed
+
+- 统一根包与全部 workspace 包版本，内部 `@yonder/*` 依赖同步到同一版本；`pi-durable` 保持上游 1.3.0。
 
 ### Fixed
 
@@ -15,6 +23,7 @@
 - 品牌小星球的统一角色时间轴放慢至1/3速度，保持逐帧渲染及静态品牌资产不变。
 - 任务看板总览中，每条子任务仅在其状态分组出现一次；同组父子保留缩进，跨状态子任务留在自己的分组，详情仍显示全部子任务。
 - 自管理创建说明补齐 `avatarUrl` 的统一身份来源、网页同步时点与飞书单独保存/发布的生效边界，避免创建或接入渠道时遗漏已有头像。
+- 默认 `npm test` 不再收集用 `node:test` 编写的 `scripts/export-model-observations.test.mjs`，新增 `npm run test:node` 运行它（10 通过 / 0 失败）。
 
 ## [0.2.26102512] - 2026-10-26
 

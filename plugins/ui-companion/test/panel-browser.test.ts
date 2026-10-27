@@ -111,11 +111,15 @@ test.skipIf(!existsSync(chromePath))(
 				}
 			};
 			const key = async (name: string, code: number) => {
+				// Enter/Space 的默认激活只在带 text 的 keyDown 上发生；缺 text 时 CDP 只送原始键事件，
+				// 按钮的 click 不会触发，键盘用例会误报“没展开”。
+				const text = name === "Enter" ? "\r" : name === " " ? " " : undefined;
 				await page!.command("Input.dispatchKeyEvent", {
 					type: "keyDown",
 					key: name,
 					code: name === " " ? "Space" : name,
 					windowsVirtualKeyCode: code,
+					...(text === undefined ? {} : { text }),
 				});
 				await page!.command("Input.dispatchKeyEvent", {
 					type: "keyUp",
