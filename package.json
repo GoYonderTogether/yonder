@@ -52,7 +52,7 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder-harness",
-	"version": "0.2.26102702",
+	"version": "0.2.26102703",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"
 	},
