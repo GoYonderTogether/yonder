@@ -136,6 +136,12 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			return sessions.resolveSession(owner.session);
 		};
 		const services: KernelServices = {
+			agents: {
+				list: async () =>
+					[...agents.values()]
+						.filter((a) => !a.archivedAt)
+						.map((a) => ({ id: a.id, name: a.name, ...(a.avatarUrl ? { avatarUrl: a.avatarUrl } : {}) })),
+			},
 			...credentialsAndModels(home, config),
 			log: {
 				info: (m, d) => log("info", m, d),
@@ -279,6 +285,7 @@ export async function openKernel(home: string, options: { log?: KernelLog } = {}
 			onReport: report,
 		});
 		router = createRouter({
+			channels: loaded.channels,
 			store,
 			sessions,
 			runtime: realRuntime,

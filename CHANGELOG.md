@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Agent 可配置云端 HTTPS 头像 URL，经 card 渠道同步至网页身份；旧配置继续使用默认头像。
+
+- 新增 channel-card 多 Agent 名片渠道、设备授权（含网页十位一次性邀请码兑换）和名片草稿工具；SDK 增加只读 Agent 枚举和需自身绑定的 multiAgent 定向。
+
 - 将 UI Companion 合入唯一 macOS 状态栏：左键交互/历史，右键服务管理；插件不再创建图标或桌面进程，按 home 加锁防止重复入口。
 
 - UI Companion 完成交互后默认同时隐藏浮窗与浮球，无待处理任务时切换 Space 也不会重新显示；菜单栏保留历史入口。

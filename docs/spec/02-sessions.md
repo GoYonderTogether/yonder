@@ -40,7 +40,7 @@
 
 绑定写在 agent 的 `agent.yaml`（03 §2）里，是一张有序表。内核对每个 agent **独立**求值，取该 agent 第一条命中的绑定；一个事件可以同时进多个 agent。**agent 的会话只能经绑定唤醒**（架构不变量 2）。
 
-内部 `agent` 渠道带 `data.target` 时只允许该目标命中；其他 agent 记 `no-binding`。目标仍须通过自己的绑定，不增加 match 维度。普通渠道不得使用这个字段指定目标。
+内部 `agent` 渠道带 `data.target` 时只允许该目标命中；其他 agent 记 `no-binding`。目标仍须通过自己的绑定，不增加 match 维度。普通渠道不得使用这个字段指定目标；唯一例外是注册时声明 `multiAgent:true` 的渠道 provider（04）：同样只求值目标 Agent，必须通过其自己的绑定，其他 Agent 记 no-binding。
 
 ```yaml
 bindings:

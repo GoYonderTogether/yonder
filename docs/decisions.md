@@ -149,9 +149,24 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 - 按**来源**区分亲笔、对话原话、agent 资料与外部材料（`origin`），按**语义**组织自我档案（`me/`），两条轴正交；AI 的产出是假设，用户确认或亲笔才是证据。借鉴 Elys 一类产品的做法：已确认优先于推断、具体行为优先于标签、没有就不补写、状态变化关旧开新；其公开资料只披露了记忆槽位、用户认可/撤回作为训练信号和压缩合并会出错，分类体系取自分身自述，仅作参考。
 - 时间线用“月目录 + 周文档”，每日不单独成文档；记录流为周文档最后一节，整理只翻转 `[ ]/[x]` 并写去向，不改原文，复杂决定与流程产出各占周文档一节。
 - **第一版不建索引**：检索用 ripgrep 固定子串扫描（对中文稳定，不依赖分词），向量与重排留待迭代。复用调研：文档转换用 markitdown/docling 一类外部命令（可选）；qmd、EverOS、Mem0、Graphiti、Letta 只借思路，不嵌入（多数自带 LLM 提取管线与独立密钥，与 Yonder 的模型运行和凭据冲突；Basic Memory 为 AGPL，不兼容 Apache-2.0 插件）。上述项目的星数与许可为 2026-10-22 查得，未做本机冒烟。
-- 取舍与代价：不做自动画像、打扰预算钩子、卡片按钮映射、人物 wiki 与登记目录内非文本转换；亲笔保护靠“根在工作区外、工具从不写 `mine/`”，带 `exec` 的配置档仍可绕过（05 §3）。事件库只追加，用户在记忆库里“忘记”一条不会擦除内核事件里的原文。
+- 数据来源按用户真实习惯定：用户不写笔记，笔记都在微信文件传输助手里，所以微信会话（经 wechat-archive 实时、经 `wechat-context` 回填）是一等来源，旧 Obsidian 库登记为只读 `legacy`，收敛后由用户决定是否归档。
+- **启动器**：触发器在首次运行、来源新增、堆积时写 `memory.attention` 事件（不调模型），由日常 agent 按 skill 向用户展示审计规模与 tokens×输入单价的粗略费用，经用户确认后再创建后台整理 agent（预设 `memory-keeper`）、配置节律与导入；内核不增加任何东西，agent 管理沿用 14 §4。
+- 取舍与代价：不做自动画像、打扰预算钩子、卡片按钮映射、人物 wiki 与登记目录内非文本转换；`memory-keeper` 需要 `admin` 能力是 0.1 能力词表的已知局限；亲笔保护靠“根在工作区外、工具从不写 `mine/`”，带 `exec` 的配置档仍可绕过（05 §3）。事件库只追加，用户在记忆库里“忘记”一条不会擦除内核事件里的原文。
 - 待维护者另议（不属本期）：`yonder doctor` 检查记忆根不位于任何 agent 工作区内；Open Knowledge Format 的 frontmatter 对齐（目前只读到第三方转述）。
 
+## D51 名片插件使用自定义设备协议，一次安装连接全部 Agent（2026-10-22 用户批准实施）
+
+维护者明确要求先文档后代码，在当前分支、不提交、不连接真实服务的范围内实现 `@yonder/plugin-channel-card`（[16](spec/16-card-plugin.md)）。后端契约切换到 `yonder-card-web/server/PLAN.md`，旧 Tinode 草案被取代：设备码登录后以 agent id 为 key 登记本实例全部 Agent，单条设备 WS 多路收发、按游标补收；名片工具只写该 Agent 自己的草稿，发布保留为网页里人的操作。
+
+`ChannelLoginResult` 只有 `qrcodeUrl`，复用该字段承载确认 URL，不新增 SDK 登录字段。`setup` 仍只注册，登记在启动/登录确认后执行；设备令牌只保存在插件私有数据目录。契约测试与真实后端联调分别记实。
+
+## D52 名片渠道公共契约与后端补充（2026-10-22 维护者明确决定）
+
+取代 D51 的未决契约项：G1 新增只读 PluginAPI.agents.list 返回启用 Agent id/name，启动、登录确认/邀请码兑换成功和每十分钟同步，无变更事件。G2 ChannelProvider/Channel 可选 multiAgent，注册 true 是普通渠道禁止 data.target 的唯一例外；目标须通过自己的绑定，其他 Agent no-binding；acct/conv ref 嵌入 Yonder agent id，OutMessage 不变。G3 使用 convKind/mentioned 下行与带 ref 的 sent/error；15 秒未确认 uncertain，绝不自动重发，io.emit 接纳后才 ack。G4 在后端 devices.ts 增加幂等 device/dm，限制设备所属启用 Agent 和共同会话/主人好友；token 私有，device.kind 配置默认 desktop。
+
+真实实现差异：poll 的过期和未知码均为 404 invalid_code，used 为状态；WS 错误当前仅 {error}，没有 type/ref；登记仅 upsert，不移除省略 Agent，hello 的订阅在连接时固定。插件适配这些事实（未关联错误等待确认超时、同步后重连）；不修改 realtime.ts。详见 16。
+
+维护者批准第二种连接方式 B（网页发起邀请）：已登录 human 的 `POST /api/device/invite` 返回绑定账号的十位数字一次性码及 ISO expiresAt，十分钟有效；Agent 经现有 `yonder channels login card --verify-code <code>` 无认证调用 `POST /api/device/redeem` `{code,name,kind}`，得到 deviceToken，复用私有保存、全 Agent 登记和连接，无需再次确认。card 的 verifyCode 在 start/poll 均走兑换，以兼容现有 CLI；404 invalid_code → invalid-code，429 rate_limited → retry-later，已有当前 endpoint 令牌则 already-connected、不消耗邀请码。原 start/confirm/poll 保留；邀请码与令牌均不得记录。新增替身测试仅为契约测试，不等于并行后端已联调。方式 A（浏览器 URL scheme/loopback 唤醒本地 Yonder）未实现，须先获维护者批准内核设计。
 
 ## UI Companion 由已确认原型接入插件（2026-10-22 用户批准）
 
@@ -162,3 +177,7 @@ runtime 提供瞬时错误分类，鉴权/API key/权限、上下文/token 上�
 ## 2026-10-23 合并状态栏与 UI Companion（用户要求直接合入当前仓库）
 
 状态栏留在 packages/macos，继续归安装/服务客户端；交互数据、工具和回环 Web 保留在 ui-companion 插件。移除插件独立 App 和 NSStatusItem，通过插件私有 desktop.json 把当前回环页面交给同 home 的唯一状态栏。左键当前交互/历史，右键交互入口、服务状态、检查更新与停止服务并退出；任务默认完成后仍同时隐藏浮窗与浮球。现有未提交的 channel-card 工作必须完整保留。
+
+## 2026-10-26 Agent 云端头像（用户本轮授权）
+
+Agent 身份增加可选 avatarUrl，name 继续复用原字段。配置校验仅接受公共 DNS 主机名的无凭据 HTTPS URL，渠道只同步 URL，网页服务端不接收图片二进制、不代理抓图。card 新客户端始终发送配置头像或 null（清除），旧客户端省略时保留原值。网页、名片与二维码复用该身份字段，加载失败恢复原默认图形；跨源二维码导出需图片源允许 CORS。代价：外部图源可失效，不保证离线可见。

@@ -115,3 +115,57 @@ export default { configSchema: {type: "object", required: ["output"], properties
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+it("only the provider registration can allow a channel to emit target", async () => {
+	const home = await mkdtemp("/tmp/yonder-channel-target-");
+	try {
+		for (const allowed of [false, true]) {
+			const directory = join(home, `provider-${allowed}`);
+			await mkdir(directory);
+			await writeFile(
+				join(directory, "package.json"),
+				JSON.stringify({
+					version: "1.0.0",
+					type: "module",
+					yonder: {
+						apiVersion: 1,
+						id: "target-check",
+						entry: "./index.mjs",
+						contributes: { channels: ["target-check"] },
+					},
+				}),
+			);
+			await writeFile(
+				join(directory, "index.mjs"),
+				`export default {
+  setup(api) {
+    api.channels.register({
+      type:'target-check', multiAgent:${allowed},
+      create: id => ({
+        id, multiAgent:true, kinds:['dm'], output:{stream:false,attachments:false},
+        async start(io) { await io.emit({type:'message.in',from:'acct:input:user',conv:'conv:input:room',data:{kind:'dm',text:'input',target:'main'}}); },
+        async stop() {}, async send() { return {ok:false}; }
+      })
+    });
+  }
+};`,
+			);
+			const plugins = await loadPlugins(
+				home,
+				{ schema: 1, plugins: [{ use: directory }], channels: { input: { type: "target-check" } } },
+				{ log: { error() {} } } as unknown as KernelServices,
+			);
+			expect(plugins.channels.get("input")?.multiAgent).toBe(allowed);
+			const emit = async (event: import("@yonder/sdk").EventInput) => ({
+				...event,
+				id: "1",
+				ts: new Date().toISOString(),
+			});
+			if (allowed) await expect(plugins.start({ emit, ask: unused })).resolves.toBeUndefined();
+			else await expect(plugins.start({ emit, ask: unused })).rejects.toThrow("cannot specify target");
+			await plugins.stop();
+		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});

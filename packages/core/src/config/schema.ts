@@ -66,6 +66,7 @@ export const AgentSchema = object({
 	schema: Type.Literal(1),
 	id: text,
 	name: text,
+	avatarUrl: Type.Optional(text),
 	work: Type.Optional(text),
 	owner: ref("person"),
 	defaultProfile: text,

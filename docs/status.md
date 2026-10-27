@@ -1,6 +1,6 @@
 # 项目状态
 
-更新：2026-10-21。版本 0.2.26102103，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
+更新：2026-10-22。版本 0.2.26102103，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
 
 任务恢复（D46）：已实现消息/运行/后续责任分离、内部委派跨重启重接、真实错误保留、后台结果接纳补交及确定未发送通知补达；207项真实验收及macOS CI通过；正式03已由日用apply策略自动升级并核验，飞书升级通知送达。完整原始记录见 [task-recovery](verification/task-recovery.md)。
 
@@ -33,6 +33,19 @@
 - 文档/PDF 解析、TTS、视频生成；ASR 随包但默认未启用。
 
 ## 未关闭的真实验收
+
+### 名片渠道
+
+- 已实现 [channel-card](../plugins/channel-card/README.md)，契约见 [16](spec/16-card-plugin.md) 与 D52：设备码后台登录、网页十位一次性邀请码兑换（B）、私有令牌、启用 Agent 枚举与十分钟同步、单条 WS/hello/退避重连、绑定约束下的 multiAgent 定向、带 Agent 的引用、匹配 sent 确认、15 秒 uncertain 且不重发、emit 接纳后 ack、acct DM、仅起草名片工具。workspace、构建与默认测试发现已包含新包。
+- 内核去重已按 target 区分同一渠道的同一原生消息，防止群消息给第二 Agent 的输入被吞；普通渠道仍拒绝 target，provider 注册值决定 multiAgent（实例不能自行开启）。
+- loopback 契约测试覆盖注册无联网、登录与后台 poll、0600/0700、Agent 映射、kind/mentioned、ack 顺序与失败不 ack、匹配回执/错误/超时/断连/取消、不重发、十分钟同步、工具身份。核心测试覆盖枚举热更新/归档/恢复/独立返回值、目标自身绑定与非目标 no-binding、普通渠道禁止定向、多 Agent 去重。
+- **真实后端已测（仅 loopback，无模型）**：动态加载 sibling server 的真实实现和 test/services.ts（先编译到临时发布布局，不修改 sibling 生成文件），启动临时 PostgreSQL/Redis；注册真实 human → device start → 网页 session confirm → poll → 登记两个 Agent → WS hello 在线 → 网页 DM → message.in target research → send → human 历史看到回复；另测 acct 私聊和名片草稿。后端 devices 测试 6 通过 / 0 失败 / 0 取消 / 0 跳过（含新增 DM 权限、并发幂等和设备/启用边界）。
+- 最终检查：npm run build、npm run typecheck、npm run lint 均退出 0；lint 226 文件、198 警告、1 提示，无错误。定向测试 6 文件、18 用例通过 / 0 失败 / 0 跳过；默认全套 YONDER_TEST_REAL=0 npm test：55 文件通过 / 11 文件跳过，206 用例通过 / 0 失败 / 23 跳过，共 229。
+- 邀请码 B 本次检查：`npm run build`、`npm run typecheck`、`npm run lint` 均退出 0；lint 226 文件、202 warnings、1 info、0 errors。`YONDER_TEST_REAL=0 npx vitest run plugins/channel-card/test`：2 文件、19 用例通过 / 0 失败 / 0 跳过（其中新增 12 个邀请码契约用例）；`YONDER_TEST_REAL=0 npm test`：55 文件通过 / 11 文件跳过，218 用例通过 / 0 失败 / 23 跳过，共 241。新增契约用例覆盖 start/poll 兑换、默认/配置 kind、unknown/expired/used、429、重复连接与私有文件重载、0600/0700 和结果/日志不含秘密；原有真实后端测试验证的仍是 start/confirm/poll，不证明邀请接口已联调。本轮检查未发生失败；上轮原始结果保留如下。
+- 邀请码 B **未测/待完成**：并行真实后端 invite/redeem 与网页 `/get`/“添加设备”的端到端联调；包含此插件及兑换功能的官方发行版。Agent 提示词模板在插件 README，本轮未修改 sibling repo。方式 A（URL scheme/loopback 唤醒本地 Yonder）未实现，待维护者批准内核设计。
+- 如实保留早期结果：首次 typecheck 因遗漏 inspection agents service 与 exactOptional 字段报错，后修复；第三次因测试误用 kernel.inspect 报错，后修复；其余复跑通过。首次定向 9 通过 / 2 失败（后端源码 metadata 相对路径、测试 fixture 缺 version）；第二次 10/1（fixture JS 语法）；第三次 12/1（initHome 显示名期望错误）；第四次 13/0；新增守卫/去重测试后第五次 17/1（新增 fixture JS 语法），第六次 18/0。未通过结果不计作最终成功。
+- 真实后端差异：poll 对未知及过期均 404 invalid_code，used 为状态；WS 错误实际为 {error}，缺 type/ref，无法关联的错误等待确认超时；Agent 登记仅 upsert，不删除省略 Agent；hello 只在连接时订阅（同步后重连）。app.ts 的 package.json 路径面向发布布局，直接从 source 启动会 ENOENT，测试采用临时真实编译布局。后端只修改 devices.ts、test/devices.test.ts 与 PLAN 路由行，未修改 realtime.ts/app.ts。
+- **未测**：生产/外网/真实客户端；真实 ChatGPT/Luna 或其他模型路径；真实后端断网、进程重启与游标补收；长期十分钟真实时钟（契约测试推进时钟）、入站 image/file/interactive 的真实客户端展示、HTML/SVG 安全渲染和网页人工发布。契约测试不代替这些真实验收。没有提交、切分支、安装或服务部署。
 
 ### 微信双插件
 

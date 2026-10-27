@@ -88,3 +88,22 @@ test("background results use session/job identity while preserving channel messa
 		await db.close();
 	}
 });
+
+test("one multi-agent platform message is accepted once per target agent", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const input = (target: string) => ({
+			type: "message.in",
+			conv: `conv:card:${target}:group`,
+			from: `acct:card:${target}:human`,
+			data: { target, msgId: "same-native-id", text: "group input", kind: "group" },
+		});
+		const first = await store.events.append(newEvent(input("one")));
+		const second = await store.events.append(newEvent(input("two")));
+		expect(second.id).not.toBe(first.id);
+		expect((await store.events.append(newEvent(input("one")))).id).toBe(first.id);
+	} finally {
+		await db.close();
+	}
+});

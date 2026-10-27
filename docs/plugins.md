@@ -292,13 +292,14 @@
 - **包**：`@yonder/plugin-memory`
 - **规范**：[15 用户记忆](spec/15-memory.md)
 - **贡献**：
-  - 工具：`memory_status`、`memory_search`、`memory_read`、`memory_capture`、`memory_plan`、`memory_review`、`memory_me`
+  - 工具：`memory_status`、`memory_search`、`memory_read`、`memory_capture`、`memory_plan`、`memory_review`、`memory_me`、`memory_import`、`memory_bootstrap`
   - 上下文：`memory-core`（system）、`memory-week`（turn）
-  - 触发器：`memory-inbox`
-  - skills：`memory-evening-wrap`、`memory-weekly-review`、`memory-monthly-plan`、`memory-morning-brief`
-- **订阅事件**：`message.in`（仅主人在配置渠道的消息）
-- **写入事件**：`memory.captured`
-- **外部输入**：独立根目录与 inbox 里的文件、登记的只读外部目录（Obsidian 库等）、可选的文档转换命令
+  - 触发器：`memory-inbox`、`memory-bootstrap`（启动器）
+  - 预设：`memory-keeper`（后台整理 agent）
+  - skills：`memory-onboarding`、`memory-onboard-legacy`、`memory-evening-wrap`、`memory-weekly-review`、`memory-monthly-plan`、`memory-morning-brief`
+- **订阅事件**：`message.in`（仅主人在配置渠道的消息）、`wechat-archive.material`（仅名单内会话）
+- **写入事件**：`memory.captured`、`memory.attention`
+- **外部输入**：独立根目录与 inbox 里的文件、登记的只读外部目录（Obsidian 库等）、微信会话（经 wechat-archive 与 `wechat-context`）、可选的文档转换命令
 - **功能**：按时间线（月目录、周文档）记录，按人生计划（愿景、年度、月、周）推进，整理后标记“已整理”；全文检索靠 ripgrep 扫描，不建索引。
 - **边界**：不改内核；不含向量检索与自动画像；亲笔与登记目录只读；私密内容不进上下文。
 
@@ -307,6 +308,10 @@
 - `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
 - `@yonder/plugin-channel-wechat-ilink`：wechat-ilink 私聊渠道及 status/login/message 工具；首个配置实例默认关联明确配置的主人，后续实例独立关联。模型权限、会话与投递沿用现有系统。详见[iLink 插件](../plugins/channel-wechat-ilink/README.md)。
 - 实现/验证/真实微信未测项见[微信迁移验收](verification/wechat-plugins.md)。
+
+## channel-card
+
+`@yonder/plugin-channel-card`：多 Agent 名片渠道（type card、multiAgent）。设备码登录、单条 WS、游标补收；工具 channel-card_card_push 仅起草调用 Agent 自己的名片。配置与限制见 [README](../plugins/channel-card/README.md) 和 [16](spec/16-card-plugin.md)。
 
 ## ui-companion — 本地交互窗口
 

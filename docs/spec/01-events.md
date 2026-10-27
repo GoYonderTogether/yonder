@@ -66,7 +66,7 @@ interface YEvent {
   msgId?: string;          // 渠道原生消息 id
   replyTo?: string;        // 被回复的渠道原生消息 id
   name?: string;           // 发送者当前显示名（用于提示词与身份表）
-  target?: string;         // 仅内核 agent 渠道使用：agent_ask 指定的目标 agent id
+  target?: string;         // 仅内部 agent 渠道或声明 multiAgent:true 的渠道使用，目标仍须通过自身绑定
 }
 interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string; uri: string; name?: string; bytes?: number }
 ```
@@ -137,3 +137,5 @@ runtime.continuation 由 task_continue 写入，data 含 session、job（稳定�
 agent.result 只投影一个等待输入的原生最终结果，parent 指向该输入，data 含 session/job（该输入 id）、runId/status/reason；正文从原生回执读取，不复制转录。子会话仍有待执行或未交接工作时不记录最终交接。
 
 message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬时失败在 message.out.delivery.retryable 中明确表示。补达调用前写 message.retry（data.attempt 指向原尝试），调用后的回执仍关联原尝试；重启时在途补达没有确认则记 unknown，不能把更早一次安全失败当成最新事实重发。
+
+多 Agent 渠道同一原生消息可分别投给不同 Agent；入站去重身份为渠道实例 + type + msgId + data.target（普通渠道无 target）。保留原生 msgId，不把 Agent 拼入原生 id。

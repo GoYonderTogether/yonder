@@ -193,6 +193,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			log: { info: log, warn: log, error: log },
 			events: { ...api.events, emit: unavailable, ask: unavailable, query: unavailable },
 			messages: { send: unavailable },
+			agents: { list: unavailable },
 			credentials: { get: unavailable },
 			execution: { resolve: unavailable, run: unavailable },
 			services: { resolve: unavailable },
