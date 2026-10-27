@@ -297,6 +297,10 @@ execution.resolve 返回可信 `ResolvedExecution`（能力与实例范围）；
 
 复用现成共享 permissions registry、SDK/core 工具、native-automation provider 与真实 Runtime adapter 合同，从正式 .05 基线独立集成；不带入尚未收口的薄服务宿主及其清理补丁，不改服务启动链、安装或定位功能。它只统一既有权限入口与真实 ToolContext/session/profile/provider 校验，不建立新授权状态库、审批或原生架构。旧文件执行宿主任务中“不增加权限注册框架”的范围限制不再描述本次已批准的共享门面工作。发布、正式安装与真实 TCC 验收仍是分开的状态，本地专项通过不代替这些验收。
 
+## 2026-10-27 T63 模型账户选择配置（主对话批准）
+
+公开 `SessionModels.credentialSlots?: Record<string, string>`，键为真实 provider id，值为非秘密 slot 名。defaults、profile、session 与按次 task_run 逐 provider 合并，显式 `default` 可覆盖继承值；模型及 fallback 仍使用原 provider/modelId，不新增 alias 或跨槽轮换。preset 只取自己的模型账户配置，不继承父映射。task_run 按次映射沿现有 effort 的结构化 session.input、重放与 admin 门槛进入运行快照，不增加授权机制。此条只定案配置与输入契约，凭据存储、认证与 runtime 绑定由对应实现负责。
+
 ## 2026-10-26 Agent 云端头像（用户本轮授权）
 
 Agent 身份增加可选 avatarUrl，name 继续复用原字段。配置校验仅接受公共 DNS 主机名的无凭据 HTTPS URL，渠道只同步 URL，网页服务端不接收图片二进制、不代理抓图。card 新客户端始终发送配置头像或 null（清除），旧客户端省略时保留原值。网页、名片与二维码复用该身份字段，加载失败恢复原默认图形；跨源二维码导出需图片源允许 CORS。代价：外部图源可失效，不保证离线可见。

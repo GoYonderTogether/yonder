@@ -14,6 +14,7 @@ import type {
 import { Check } from "typebox/value";
 import {
 	type AgentConfig,
+	mergeCredentialSlots,
 	presetProfile,
 	presetSession,
 	type ResolvedProfile,
@@ -99,7 +100,16 @@ export function createSessions({
 	async function resolveSession(id: string): Promise<RuntimeSessionConfig> {
 		const base = await resolveBaseSession(id);
 		const override = (await runtime().sessionState(id))?.models;
-		return override ? { ...base, resolved: { ...base.resolved, ...override } } : base;
+		return override
+			? {
+					...base,
+					resolved: {
+						...base.resolved,
+						...override,
+						credentialSlots: mergeCredentialSlots(base.resolved.credentialSlots, override.credentialSlots),
+					},
+				}
+			: base;
 	}
 	async function command(id: string, command: string): Promise<string> {
 		const session = await store.sessions.get(id);

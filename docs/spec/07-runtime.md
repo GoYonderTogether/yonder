@@ -79,11 +79,19 @@
 
 ### 6.2 凭据
 
-- 凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），键是供应商 id；路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`，权限 `0600`。密钥只放在这里，不写进 `yonder.yaml`。
+- `default` 槽继续使用原凭据文件，不迁移或改写已有 provider 与 named secret。凭据文件采用 pi 的 `auth.json` 格式（`{ <provider>: { type: 'api_key', key } | { type: 'oauth', … } }`），键是供应商 id；路径由 `yonder.yaml` 的 `credentials` 指定，默认 `<home>/.yonder/auth.json`，权限 `0600`。密钥只放在这里，不写进 `yonder.yaml`。
 - 实现 pi-ai 的 `CredentialStore`（`read`、`list`、`modify`、`delete`），复制 pi coding-agent 的 `FileAuthStorageBackend`（`proper-lockfile` 文件锁，MIT）并在 `THIRD_PARTY_NOTICES` 记录。OAuth 刷新在 `modify` 里进行并写回文件。
 - ChatGPT 订阅：使用 pi-ai 内置 `openai` 供应商的 "Sign in with ChatGPT" OAuth。`yonder login <provider>` 调用 `provider.auth.oauth.login(interaction, { getDeviceId })`，`getDeviceId` 返回本 home 固定的 UUID（存于 `<home>/.yonder/device-id`，首次登录时生成）。
 - 插件只能经 `api.credentials.get(name)` 只读地取一项凭据（渠道、服务的密钥都这样存取），不能写。新增渠道或服务密钥由人在本机运行 `yonder credentials set <name> --home <dir>`（09 §2）：隐藏输入、不经模型、控制接口或聊天，只创建 `api_key`，拒绝覆盖；Agent 不得代为录入或读取明文。
 - OAuth 刷新会轮换 refresh token（已验证）。**禁止**复制其他程序的 OAuth 凭据；每个 Yonder home 单独登录。API key 可以复制。
+
+模型账户槽通过 `credentialSlots: { provider: slot }` 选择，不改模型名；未列出的供应商使用 `default`，现有跨供应商 fallback 保留，不增加跨槽轮换。按 provider 合并及 preset/按次规则见 03。运行快照冻结选择，生成、压缩、deferred poll/cancel 和模型工具使用独立绑定的 Models 与供应商工厂，不使用全局 activeSlot 或 ALS。
+
+非 default 凭据存于 `<authPath>.slots/<provider>/<slot>.auth.json`，目录 0700、文件 0600、strict 安全写与跨进程锁；独立 `<slot>.meta.json` 保存 version 1 非秘密来源描述、账号 generation 与删除墓碑。槽名/provider 限小写字母数字、`_`、`-`，禁止路径穿越、保留危险键和大小写碰撞。未知、被删除或未配置的命名槽必须失败，不能借用 default/ambient 身份。每个槽独立锁，旧 default 的供应商与 named secret 仍共用原 auth 文件锁。
+
+登录默认 create-only，覆盖须 `--replace`。网络流程在锁外，提交在锁内核对 generation；remove/replace 改变账号 generation，refresh 不改变。迟到登录不得复活已删或替换账号。取消等待不写入；刷新一旦开始继续保存轮换结果，沿用 pi 原有保护。list/status 仅白名单元数据，不解析秘密来源、不刷新、不输出 URL/code/token。env-ref 描述只存变量名，不存变量值。
+
+命名槽的 stored key、OAuth、env-ref 与 Cloudflare 完整配置必须屏蔽 ambient 身份回落；Vertex 只接受显式绝对凭据文件、project/location。当前命名 AWS 模式支持显式 bearer/static credentials，profile/default chain 由于 SDK chain 不能证明隔离而明确拒绝，不能报告为已支持；default 原行为不变。后续 profile-only 设施另行验证，不新建进程隔离平台。
 
 ### 6.3 非对话服务
 

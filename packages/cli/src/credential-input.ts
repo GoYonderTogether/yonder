@@ -2,7 +2,8 @@ import { stderr, stdin } from "node:process";
 import { emitKeypressEvents } from "node:readline";
 
 /** No echo, history, pipe/env/argv fallback, or secret-bearing errors. */
-export async function readHiddenCredential(): Promise<string> {
+export async function readHiddenCredential(signal?: AbortSignal): Promise<string> {
+	signal?.throwIfAborted();
 	if (!stdin.isTTY || !stderr.isTTY || typeof stdin.setRawMode !== "function")
 		throw new Error("Credential entry requires a local interactive TTY");
 	if (stdin.isRaw) throw new Error("Credential entry requires an idle terminal");
@@ -10,6 +11,7 @@ export async function readHiddenCredential(): Promise<string> {
 	return new Promise<string>((resolve, reject) => {
 		let value = "";
 		const cleanup = () => {
+			signal?.removeEventListener("abort", cancel);
 			stdin.removeListener("keypress", onKey);
 			stdin.removeListener("end", cancel);
 			stdin.removeListener("error", cancel);
@@ -39,6 +41,7 @@ export async function readHiddenCredential(): Promise<string> {
 			)
 				value += text;
 		};
+		signal?.addEventListener("abort", cancel, { once: true });
 		stdin.setRawMode(true);
 		stdin.on("keypress", onKey);
 		stdin.once("end", cancel);

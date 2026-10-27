@@ -1,7 +1,7 @@
 const commands =
-	"init login channels doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service completion";
+	"init login credentials channels doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file --poll --verify-code";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file --poll --verify-code --slot --method --replace --env-ref";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -11,7 +11,7 @@ export function completion(shell: string): string {
 _yonder() {
   local -a commands
   commands=(
-    'init:初始化 · Initialize' 'login:登录 · Sign in' 'channels:渠道接入 · Connect channels' 'doctor:诊断 · Diagnose'
+    'credentials:凭据 · Credentials' 'init:初始化 · Initialize' 'login:登录 · Sign in' 'channels:渠道接入 · Connect channels' 'doctor:诊断 · Diagnose'
     'start:启动 · Start' 'stop:停止 · Stop' 'chat:聊天 · Chat'
     'sessions:会话 · Sessions' 'events:事件 · Events' 'identity:身份 · Identity'
     'agents:智能体 · Agents' 'presets:预设 · Presets' 'plugins:插件 · Plugins' 'models:模型 · Models' 'inspect:配置 · Configuration' 'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
@@ -28,6 +28,7 @@ _yonder() {
     --mode) compadd main persistent ephemeral task; return;;
   esac
   case "$words[2]" in
+    credentials) (( CURRENT == 3 )) && { compadd set slots; return; }; [[ $words[3] == slots ]] && { compadd list status create remove; return; };;
     channels) (( CURRENT == 3 )) && { compadd list login; return; };;
     sessions) (( CURRENT == 3 )) && { compadd list show abort close open submit notify; return; };;
     agents) (( CURRENT == 3 )) && { compadd list show create update validate archive remove restore; return; };;
@@ -72,6 +73,7 @@ _yonder() {
   esac
   if (( COMP_CWORD == 2 )); then
     case "$\{COMP_WORDS[1]}" in
+      credentials) choices='set slots';;
       channels) choices='list login';;
       sessions) choices='list show abort close open submit notify';;
       agents) choices='list show create update validate archive remove restore';;
@@ -104,6 +106,7 @@ function __yonder_values
 end
 complete -c yonder -f
 complete -c yonder -n '__fish_use_subcommand' -a '${commands}' -d '命令 · Command'
+complete -c yonder -n '__fish_seen_subcommand_from credentials' -a 'set slots list status create remove'
 complete -c yonder -n '__fish_seen_subcommand_from channels' -a 'list login'
 complete -c yonder -n '__fish_seen_subcommand_from channels' -l open -d '打开扫码链接 · Open login link'
 complete -c yonder -n '__fish_seen_subcommand_from channels' -l poll -d '查询扫码状态 · Check login'

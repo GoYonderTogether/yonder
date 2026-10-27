@@ -112,6 +112,8 @@ export interface EventPage {
 	next?: string;
 }
 export type SessionModels = {
+	/** Non-secret provider -> credential slot selection. Merge per provider; explicit "default" resets inheritance. */
+	credentialSlots?: Record<string, string>;
 	model?: string;
 	thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 	fallback?: { models: string[]; after?: number };

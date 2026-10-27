@@ -22,6 +22,7 @@ import {
 	type Submission,
 	section,
 	selectCut,
+	type TaskId,
 	type ToolExecutionApi,
 	type ToolRegistration,
 	ToolTask,
@@ -47,12 +48,23 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
+import { mergeCredentialSlots } from "../config/index.js";
 import { imageMime } from "./attachments.js";
-import { loginWithType } from "./auth.js";
+import { loginProvider } from "./auth.js";
 import { createBackground } from "./background.js";
 import { capabilityMap, describeCatalog } from "./catalog.js";
-import { credentialPath, FileCredentials } from "./credentials.js";
-import { cid, emptyUsage, RunDoc, type RunState, SessionDoc, submissionOutcome, sumUsage } from "./docs.js";
+import { CredentialSlotStore, validateSlotPart } from "./credential-slots.js";
+import { credentialPath, type FileCredentials } from "./credentials.js";
+import {
+	cid,
+	emptyUsage,
+	ModelBindingDoc,
+	RunDoc,
+	type RunState,
+	SessionDoc,
+	submissionOutcome,
+	sumUsage,
+} from "./docs.js";
 import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createGrepTool } from "./grep.js";
@@ -107,12 +119,15 @@ export class Runtime {
 	private configured = new Map<string, RuntimeSessionConfig>();
 	private submissions = new Map<string, { event?: RuntimeInput["event"] }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
+	private readonly credentialSlots: CredentialSlotStore;
+	private readonly boundModels = new WeakMap<RuntimeSessionConfig, Promise<Models>>();
 	readonly credentials: FileCredentials;
 	private readonly policy: ToolPolicy;
 	private readonly limits: RunLimits;
 	readonly models: Models;
 	private constructor(private options: RuntimeOptions) {
-		this.credentials = new FileCredentials(credentialPath(options.home, options.config.credentials));
+		this.credentialSlots = new CredentialSlotStore(credentialPath(options.home, options.config.credentials));
+		this.credentials = this.credentialSlots.defaults;
 		this.models = buildModels(this.credentials, options.config.models?.providers);
 		this.policy = new ToolPolicy({
 			capabilities: this.capabilities,
@@ -137,6 +152,38 @@ export class Runtime {
 			storage,
 			{
 				models: runtime.models,
+				resolveModels: async (target, context) => {
+					const session = String(target.conversationId);
+					const key = String(target.taskId);
+					const pinned = await target.read.snapshot(ModelBindingDoc, target.conversationId, key, context);
+					if (pinned?.config) return runtime.modelsFor(JSON.parse(pinned.config));
+					let task = await runtime.harness.getTask(target.taskId, context);
+					let run: number | undefined;
+					const seen = new Set<TaskId>();
+					while (task && !seen.has(task.id)) {
+						seen.add(task.id);
+						const input = task.input as { modelRun?: number };
+						if (typeof input.modelRun === "number") {
+							run = input.modelRun;
+							break;
+						}
+						if (task.owner === undefined) break;
+						task = await runtime.harness.getTask(task.owner, context);
+					}
+					await runtime.prepareRun(session, context);
+					const saved =
+						run === undefined
+							? undefined
+							: await target.read.snapshot(RunDoc, target.conversationId, String(run), context);
+					if (run !== undefined && !saved?.config) throw new Error("Missing frozen run model configuration");
+					const config: RuntimeSessionConfig = saved?.config
+						? JSON.parse(saved.config)
+						: await runtime.sessionConfig(session);
+					await runtime.harness.commit(async (tx) => {
+						(await tx.doc(ModelBindingDoc, target.conversationId, key, null)).config = JSON.stringify(config);
+					}, context);
+					return runtime.modelsFor(config);
+				},
 				registry: runtime.registry,
 				settings: {
 					steeringMode: "all",
@@ -158,6 +205,24 @@ export class Runtime {
 			C,
 		);
 		return runtime;
+	}
+	/** A run owns independent provider factories and catalog caches; selection never mutates a global Models. */
+	private modelsFor(config: RuntimeSessionConfig): Promise<Models> {
+		let pending = this.boundModels.get(config);
+		if (!pending) {
+			pending = (async () => {
+				const selection = Object.freeze({ ...config.resolved.credentialSlots });
+				const credentials = this.credentialSlots.bind(selection);
+				const models = buildModels(credentials, this.options.config.models?.providers, selection);
+				for (const [provider, slot] of Object.entries(selection)) {
+					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);
+					if (slot !== "default") await credentials.read(provider);
+				}
+				return models;
+			})();
+			this.boundModels.set(config, pending);
+		}
+		return pending;
 	}
 	private environment(config: RuntimeSessionConfig): ExecutionEnv {
 		if (config.resolved.env === "local") return localEnvironment(config.cwd);
@@ -209,6 +274,7 @@ export class Runtime {
 			: structuredClone(await this.options.resolveSession(session));
 		const usageBefore = saved?.config ? saved.usageBefore : await this.usage(session);
 		if (!saved?.config) await this.applyRequestedEffort(session, config, context);
+		await this.modelsFor(config);
 		await this.applyConfiguration(session, config);
 		if (!saved?.config) {
 			await this.harness.commit(async (tx) => {
@@ -255,10 +321,31 @@ export class Runtime {
 			const event = await this.options.readEvent?.(data.event);
 			if (event) events.push(event);
 		}
+		const overrides = events
+			.filter(
+				(event) =>
+					event.type === "session.input" &&
+					event.from?.startsWith("agent:") &&
+					(event.data as { taskOwned?: boolean }).taskOwned === true,
+			)
+			.map((event) => (event.data as { credentialSlots?: Record<string, string> }).credentialSlots)
+			.filter((value) => value !== undefined);
+		for (const override of overrides) {
+			if (!override || typeof override !== "object" || Array.isArray(override))
+				throw new Error("Invalid credential slot override");
+			for (const [provider, slot] of Object.entries(override)) {
+				validateSlotPart(provider);
+				validateSlotPart(slot);
+			}
+		}
+		config.resolved.credentialSlots = mergeCredentialSlots(config.resolved.credentialSlots, ...overrides);
 		const asked = requestedEffort(events);
 		if (!asked) return;
 		const slash = config.resolved.model.indexOf("/");
-		const model = this.models.getModel(config.resolved.model.slice(0, slash), config.resolved.model.slice(slash + 1));
+		const model = (await this.modelsFor(config)).getModel(
+			config.resolved.model.slice(0, slash),
+			config.resolved.model.slice(slash + 1),
+		);
 		try {
 			if (!model) throw new Error("Unknown model");
 			const resolution = resolveEffort(model, config.resolved.thinking as ModelThinkingLevel, asked.requested, true);
@@ -642,7 +729,7 @@ export class Runtime {
 		const agent = await conversation.agent(C);
 		const config = await this.sessionConfig(id);
 		const ref = agent.model;
-		const model = ref ? this.models.getModel(ref.provider, ref.modelId) : undefined;
+		const model = ref ? (await this.modelsFor(config)).getModel(ref.provider, ref.modelId) : undefined;
 		const view = await conversation.context(C);
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		const policy = { ...DEFAULT_COMPACTION_POLICY, ...this.options.config.compaction };
@@ -733,7 +820,7 @@ export class Runtime {
 		const content: Array<{ type: "text"; text: string } | { type: "image"; mimeType: string; data: string }> = [
 			{ type: "text", text: input.text },
 		];
-		const model = this.models.getModel(
+		const model = (await this.modelsFor(config)).getModel(
 			config.resolved.model.slice(0, config.resolved.model.indexOf("/")),
 			config.resolved.model.slice(config.resolved.model.indexOf("/") + 1),
 		);
@@ -814,7 +901,10 @@ export class Runtime {
 				input.text = `<runtime_clock utc="${new Date(now).toISOString()}">Elapsed ${Math.round((now - started) / 1000)} seconds at input preparation. Time/turn/token thresholds are reminders; explicit cancellation and real provider limits remain effective.</runtime_clock>\n\n${input.text}`;
 			}
 			const slash = config.resolved.model.indexOf("/");
-			const model = this.models.getModel(config.resolved.model.slice(0, slash), config.resolved.model.slice(slash + 1));
+			const model = (await this.modelsFor(config)).getModel(
+				config.resolved.model.slice(0, slash),
+				config.resolved.model.slice(slash + 1),
+			);
 			const images = view.messages.flatMap((message) =>
 				Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],
 			).length;
@@ -1428,7 +1518,7 @@ export class Runtime {
 		}
 	}
 	async login(provider: string, type: "api_key" | "oauth", interaction: Parameters<Models["login"]>[2]): Promise<void> {
-		await loginWithType(this.models, this.options.home, provider, type, interaction);
+		await loginProvider(this.options.home, this.options.config, provider, interaction, { method: type });
 	}
 
 	async writeNote(id: string, requestId: string, text: string): Promise<void> {

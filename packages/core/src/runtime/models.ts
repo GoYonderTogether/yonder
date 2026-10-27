@@ -1,7 +1,12 @@
+import { access } from "node:fs/promises";
+import { homedir } from "node:os";
+import { resolve } from "node:path";
+
 // Model merging derived from pi coding-agent 1.3.0, MIT; see THIRD_PARTY_NOTICES.md.
 import {
 	type AnyModel,
 	type Api,
+	type AuthContext,
 	type CredentialStore,
 	createModels,
 	createProvider,
@@ -187,8 +192,29 @@ function findModelDefaults(models: readonly AnyModel[], modelId: string, api?: A
 	);
 }
 
-export function buildModels(credentials: CredentialStore, configs: Record<string, unknown> = {}) {
-	const models = createModels({ credentials });
+export function buildModels(
+	credentials: CredentialStore,
+	configs: Record<string, unknown> = {},
+	credentialSlots: Readonly<Record<string, string>> = {},
+) {
+	const models = createModels({
+		credentials,
+		authContext: (provider) =>
+			({
+				...(credentialSlots[provider] && credentialSlots[provider] !== "default"
+					? { credentialMode: "explicit" as const }
+					: {}),
+				env: async (name) => process.env[name],
+				fileExists: async (path) => {
+					try {
+						await access(path.startsWith("~/") ? resolve(homedir(), path.slice(2)) : path);
+						return true;
+					} catch {
+						return false;
+					}
+				},
+			}) satisfies AuthContext,
+	});
 	for (const base of builtinProviders()) models.setProvider(base);
 	for (const [id, raw] of Object.entries(configs)) {
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error(`Invalid provider ${id}`);

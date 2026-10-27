@@ -19,6 +19,7 @@ import {
 	inspectSkills,
 	installedService,
 	loginProvider,
+	manageCredentialSlots,
 	manageService,
 	offlineQuery,
 	openKernel,
@@ -42,7 +43,8 @@ const usage = `Usage: yonder <command> [options]
 Commands:
   init [dir] [--owner <id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
-  login <provider>                登录模型供应商 · Authenticate provider
+  login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号
+  credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]  模型账号槽位
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
   awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS
@@ -431,6 +433,32 @@ async function run(args: string[]): Promise<number> {
 		const home = homeFor(options, true, target);
 		return print(initHome(home, owner, { isolated }), options.json);
 	}
+	if (command === "credentials" && rest[0] === "slots") {
+		const action = rest[1];
+		const provider = rest[2],
+			slot = rest[3];
+		const variable = rest[4] === "--env-ref" ? rest[5] : undefined;
+		if (
+			!action ||
+			!["list", "status", "create", "remove"].includes(action) ||
+			(action === "list"
+				? rest.length !== 2
+				: !provider || !slot || !(rest.length === 4 || (action === "create" && rest.length === 6 && variable)))
+		)
+			throw new UsageError(
+				"Usage: yonder credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]",
+			);
+		return print(
+			manageCredentialSlots(
+				homeFor(options),
+				action as "list" | "status" | "create" | "remove",
+				provider,
+				slot,
+				variable,
+			),
+			options.json,
+		);
+	}
 	if (command === "credentials") {
 		if (
 			rest.length !== 2 ||
@@ -458,14 +486,53 @@ async function run(args: string[]): Promise<number> {
 	}
 	if (command === "login") {
 		const provider = rest[0];
-		if (!provider || rest.length !== 1) throw new UsageError("Usage: yonder login <provider>");
+		const loginOptions: { slot?: string; replace?: boolean; method?: "oauth" | "api_key" } = {};
+		if (!provider || provider.startsWith("-"))
+			throw new UsageError("Usage: yonder login <provider> [--slot <name>] [--method oauth|api_key] [--replace]");
+		for (let i = 1; i < rest.length; i++) {
+			const arg = rest[i];
+			if (arg === "--replace" && !loginOptions.replace) loginOptions.replace = true;
+			else if (arg === "--slot" && !loginOptions.slot && rest[i + 1] && !rest[i + 1]!.startsWith("-"))
+				loginOptions.slot = rest[++i] as string;
+			else if (arg === "--method" && !loginOptions.method && ["oauth", "api_key"].includes(rest[i + 1] ?? ""))
+				loginOptions.method = rest[++i] as "oauth" | "api_key";
+			else throw new UsageError("Usage: yonder login <provider> [--slot <name>] [--method oauth|api_key] [--replace]");
+		}
+		if (!stdin.isTTY || !stderr.isTTY || options.json)
+			throw new Error(
+				"Provider login requires a local interactive TTY; authorization details are never emitted as JSON",
+			);
 		const home = homeFor(options);
+		stderr.write(
+			`Home: ${home}\nProvider: ${provider}; slot: ${loginOptions.slot ?? "default"}; ${loginOptions.replace ? "explicit replace" : "create only"}\n`,
+		);
+		const controller = new AbortController();
+		const cancel = () => controller.abort();
+		process.once("SIGINT", cancel);
 		const interaction: LoginInteraction = {
+			signal: controller.signal,
 			async prompt(prompt) {
 				stderr.write(`${prompt.message}\n`);
+				const signal = prompt.signal ? AbortSignal.any([controller.signal, prompt.signal]) : controller.signal;
+				signal.throwIfAborted();
+				if (prompt.type === "secret" || prompt.type === "manual_code") return readHiddenCredential(signal);
+				if (prompt.type === "select")
+					for (const option of prompt.options) stderr.write(`${option.id}: ${option.label}\n`);
 				const terminal = createInterface({ input: stdin, output: stderr });
 				try {
-					return await new Promise<string>((resolve) => terminal.question("> ", resolve));
+					return await new Promise<string>((resolve, reject) => {
+						const abort = () => {
+							terminal.close();
+							reject(new Error("Login cancelled"));
+						};
+						signal.addEventListener("abort", abort, { once: true });
+						terminal.question("> ", (answer) => {
+							signal.removeEventListener("abort", abort);
+							if (prompt.type === "select" && !prompt.options.some((option) => option.id === answer))
+								reject(new Error("Invalid authentication selection"));
+							else resolve(answer);
+						});
+					});
 				} finally {
 					terminal.close();
 				}
@@ -483,8 +550,16 @@ async function run(args: string[]): Promise<number> {
 				}
 			},
 		};
-		await loginProvider(home, provider, interaction);
-		output({ ok: true, provider }, options.json);
+		try {
+			await loginProvider(home, provider, interaction, loginOptions);
+		} catch {
+			throw new Error(
+				"Login failed or cancelled; inspect slot status before retrying (existing or changed account, unsupported authentication, or provider/storage failure)",
+			);
+		} finally {
+			process.removeListener("SIGINT", cancel);
+		}
+		output({ ok: true, provider, slot: loginOptions.slot ?? "default" }, options.json);
 		return 0;
 	}
 	if (command === "doctor") {

@@ -41,7 +41,7 @@ const AUTH_FILE_WRITE_OPTIONS = { encoding: "utf-8", mode: 0o600 } as const;
 
 export interface AuthStorageBackend {
 	withLockAsync<T>(
-		fn: (current: string | undefined) => Promise<LockResult<T>>,
+		fn: (current: string | undefined, persist: (next: string) => void) => Promise<LockResult<T>>,
 		options?: AuthOperationOptions,
 	): Promise<T>;
 }
@@ -160,7 +160,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 	}
 
 	async withLockAsync<T>(
-		fn: (current: string | undefined) => Promise<LockResult<T>>,
+		fn: (current: string | undefined, persist: (next: string) => void) => Promise<LockResult<T>>,
 		options?: AuthOperationOptions,
 	): Promise<T> {
 		options?.signal?.throwIfAborted();
@@ -187,7 +187,14 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 			options?.signal?.throwIfAborted();
 			if (this.strict) this.checkSafePath();
 			const current = existsSync(this.authPath) ? readFileSync(this.authPath, "utf-8") : undefined;
-			const { result, next } = await fn(current);
+			const persist = (next: string) => {
+				throwIfCompromised();
+				options?.signal?.throwIfAborted();
+				if (this.strict) this.atomicWrite(next);
+				else writeFileSync(this.authPath, next, AUTH_FILE_WRITE_OPTIONS);
+				throwIfCompromised();
+			};
+			const { result, next } = await fn(current, persist);
 			throwIfCompromised();
 			options?.signal?.throwIfAborted();
 			if (next !== undefined) {
@@ -235,8 +242,8 @@ function parse(content: string | undefined): Record<string, Credential> {
 }
 export class FileCredentials implements CredentialStore {
 	private backend: FileAuthStorageBackend;
-	constructor(path: string) {
-		this.backend = new FileAuthStorageBackend(path);
+	constructor(path: string, strict = false) {
+		this.backend = new FileAuthStorageBackend(path, strict);
 	}
 	async read(name: string, options?: AuthOperationOptions): Promise<Credential | undefined> {
 		return this.backend.withLockAsync(async (content) => {

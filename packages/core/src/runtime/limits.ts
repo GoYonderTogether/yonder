@@ -107,7 +107,7 @@ export class RunLimits {
 						);
 					const conversation = await this.deps.harness().conversation(api.conversationId, context);
 					const ref = (await conversation!.agent(context)).model;
-					const model = ref ? this.deps.models.getModel(ref.provider, ref.modelId) : undefined;
+					const model = ref ? api.models.getModel(ref.provider, ref.modelId) : undefined;
 					const limits = model?.inputLimits,
 						images = request.messages.flatMap((message) =>
 							Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],

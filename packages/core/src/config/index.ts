@@ -1,6 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type Capability, intersectChannelInstances, type Level, type Preset, type Profile } from "@yonder/sdk";
+import {
+	type Capability,
+	intersectChannelInstances,
+	type Level,
+	type Preset,
+	type Profile,
+	type SessionModels,
+} from "@yonder/sdk";
 import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
@@ -53,6 +60,13 @@ const levels: Record<Level, Capability[]> = {
 };
 export const defaultLimits = { maxTurns: 100, maxMinutes: 30, maxTokens: 200000, repeatBlock: 3, repeatStop: 5 };
 
+/** Each layer overrides only the providers it names; "default" is an explicit selection, not absence. */
+export function mergeCredentialSlots(
+	...layers: Array<SessionModels["credentialSlots"]>
+): NonNullable<SessionModels["credentialSlots"]> {
+	return Object.fromEntries(layers.flatMap((layer) => Object.entries(layer ?? {})));
+}
+
 export function resolveProfile(profile: Profile, defaults: Profile = {}, workspaceEnv = "local"): ResolvedProfile {
 	const security = profile.level !== undefined || profile.capabilities !== undefined ? profile : defaults;
 	const level = security.capabilities === undefined ? (security.level ?? "readonly") : undefined;
@@ -66,6 +80,7 @@ export function resolveProfile(profile: Profile, defaults: Profile = {}, workspa
 		env: workspaceEnv,
 		...defaults,
 		...profile,
+		credentialSlots: mergeCredentialSlots(defaults.credentialSlots, profile.credentialSlots),
 		level,
 		capabilities: [...(security.capabilities ?? levels[level ?? "readonly"])],
 		tools: { offer: ["*"], search: [], ...defaults.tools, ...profile.tools },
