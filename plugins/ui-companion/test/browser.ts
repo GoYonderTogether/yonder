@@ -42,7 +42,7 @@ export async function browser() {
 			child.kill();
 			await stopped;
 		}
-		await rm(directory, { recursive: true, force: true });
+		await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 		throw new Error(`Chrome did not start within 15 seconds: ${diagnostic}`);
 	}
 	const page = (await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json()) as {
@@ -88,10 +88,14 @@ export async function browser() {
 		},
 		async close() {
 			socket.close();
-			const stopped = once(child, "exit");
-			child.kill();
-			await stopped;
-			await rm(directory, { recursive: true, force: true });
+			if (child.exitCode === null && child.signalCode === null) {
+				const stopped = once(child, "exit");
+				child.kill();
+				await stopped;
+			}
+			// Chrome's renderer and GPU children outlive the main process for a moment and keep writing into the
+			// profile directory, so a plain recursive rm races them (ENOTEMPTY on .../Default); retry until gone.
+			await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 		},
 	};
 }
