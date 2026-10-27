@@ -3,6 +3,9 @@
 	"references": [
 		{
 			"path": "../pi-durable"
+		},
+		{
+			"path": "../execution-protocol"
 		}
 	]
 }

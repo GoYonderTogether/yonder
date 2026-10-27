@@ -8,6 +8,8 @@
 	},
 	"workspaces": [
 		"packages/pi-durable",
+		"packages/execution-protocol",
+		"packages/executor",
 		"packages/sdk",
 		"packages/core",
 		"packages/cli",
@@ -31,11 +33,12 @@
 		"plugins/memory",
 		"plugins/ui-companion",
 		"plugins/channel-card",
+		"plugins/devices",
 		"plugins/hermes-experience",
 		"plugins/tasks"
 	],
 	"scripts": {
-		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
+		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"lint": "biome check ."

@@ -5,6 +5,12 @@
 			"path": "packages/pi-durable"
 		},
 		{
+			"path": "packages/execution-protocol"
+		},
+		{
+			"path": "packages/executor"
+		},
+		{
 			"path": "packages/sdk"
 		},
 		{
@@ -69,6 +75,9 @@
 		},
 		{
 			"path": "plugins/channel-card"
+		},
+		{
+			"path": "plugins/devices"
 		},
 		{
 			"path": "plugins/ui-companion"
