@@ -455,7 +455,5 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 		expect(all).not.toContain(forbidden);
 	}
 	// Compiled constants stay stable and plain strings.
-	expect([commonPrompt, residentPrompt, runtimePrompt, cliPrompt].every((text) => text === text.trim())).toBe(
-		true,
-	);
+	expect([commonPrompt, residentPrompt, runtimePrompt, cliPrompt].every((text) => text === text.trim())).toBe(true);
 });
