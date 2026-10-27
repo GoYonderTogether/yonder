@@ -5,6 +5,12 @@ import type { ToolContext } from "@yonder/sdk";
 import { renderText, taskBoard } from "./board.js";
 import type { Store } from "./store.js";
 
+export interface PanelAgent {
+	id: string;
+	name: string;
+	avatarUrl?: string;
+}
+
 export interface ActivitySummary {
 	schemaVersion: 1;
 	observedAt: number;
@@ -20,6 +26,7 @@ export class BoardService {
 		private store: Store,
 		private locale: string,
 		private stallMinutes: number,
+		private agents: () => Promise<PanelAgent[]> = async () => [],
 	) {}
 	publish(ctx: ToolContext) {
 		if (!this.base) throw new Error("Task board service is not running");
@@ -35,56 +42,90 @@ export class BoardService {
 	}
 	async start() {
 		const server = createServer((request, response) => {
-			try {
-				const url = new URL(request.url!, this.base);
-				const caller = this.callers.get(url.pathname.slice(1));
-				if (
-					request.method !== "GET" ||
-					request.headers.host !== new URL(this.base).host ||
-					request.headers.origin ||
-					!caller
-				) {
-					response.writeHead(403).end("Denied");
-					return;
-				}
-				if (url.searchParams.get("view") === "activity") {
-					const agents = new Map<string, ActivitySummary["agents"][number]>();
-					// list() already applies caller visibility and returns each real task once.
-					// Do not aggregate the board's nested display rows or infer states from age.
-					for (const task of this.store.list(caller)) {
-						if (!task.ownerAgent || !["blocked", "review", "waiting-user"].includes(task.state)) continue;
-						let agent = agents.get(task.ownerAgent);
-						if (!agent) {
-							agent = { agentId: task.ownerAgent, blocked: 0, review: 0, waitingUser: 0 };
-							agents.set(task.ownerAgent, agent);
-						}
-						if (task.state === "blocked") agent.blocked++;
-						else if (task.state === "review") agent.review++;
-						else agent.waitingUser++;
+			void (async () => {
+				try {
+					const url = new URL(request.url!, this.base);
+					const caller = this.callers.get(url.pathname.slice(1));
+					if (
+						request.method !== "GET" ||
+						request.headers.host !== new URL(this.base).host ||
+						request.headers.origin ||
+						!caller
+					) {
+						response.writeHead(403).end("Denied");
+						return;
 					}
-					const summary: ActivitySummary = {
-						schemaVersion: 1,
-						observedAt: Date.now(),
-						agents: [...agents.values()].sort((a, b) => a.agentId.localeCompare(b.agentId)),
-					};
+					if (url.searchParams.get("view") === "activity") {
+						const agents = new Map<string, ActivitySummary["agents"][number]>();
+						// list() already applies caller visibility and returns each real task once.
+						// Do not aggregate the board's nested display rows or infer states from age.
+						for (const task of this.store.list(caller)) {
+							if (!task.ownerAgent || !["blocked", "review", "waiting-user"].includes(task.state)) continue;
+							let agent = agents.get(task.ownerAgent);
+							if (!agent) {
+								agent = { agentId: task.ownerAgent, blocked: 0, review: 0, waitingUser: 0 };
+								agents.set(task.ownerAgent, agent);
+							}
+							if (task.state === "blocked") agent.blocked++;
+							else if (task.state === "review") agent.review++;
+							else agent.waitingUser++;
+						}
+						const summary: ActivitySummary = {
+							schemaVersion: 1,
+							observedAt: Date.now(),
+							agents: [...agents.values()].sort((a, b) => a.agentId.localeCompare(b.agentId)),
+						};
+						response
+							.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" })
+							.end(JSON.stringify(summary));
+						return;
+					}
+					if (url.searchParams.get("view") === "panel") {
+						const visible = this.store.list(caller);
+						const ids = new Set(visible.map((task) => task.id));
+						const owners = new Set(visible.map((task) => task.ownerAgent).filter(Boolean));
+						const tasks = visible.map((task) => {
+							const history = this.store.get(task.id, caller).history;
+							const stateIndex = history.findLastIndex((event) => event.data.state !== undefined);
+							const relevant = ["waiting-user", "blocked"].includes(task.state) ? history.slice(stateIndex) : history;
+							const latest = relevant.findLast((event) => event.data.note?.trim() || event.data.deliverable?.trim());
+							return {
+								id: task.id,
+								title: task.title,
+								state: task.state,
+								ownerAgent: task.ownerAgent,
+								// A hidden parent is not looked up or projected, even as a title/id hint.
+								parent: task.parent && ids.has(task.parent) ? task.parent : null,
+								objective: task.objective,
+								progress: latest?.data.note ?? latest?.data.deliverable ?? null,
+							};
+						});
+						const agents = (await this.agents())
+							.filter((agent) => owners.has(agent.id))
+							.map(({ id, name, avatarUrl }) => ({ id, name, ...(avatarUrl ? { avatarUrl } : {}) }));
+						const selected = url.searchParams.get("id");
+						const selectedId = selected ? this.store.get(selected, caller).task.id : undefined;
+						const body = JSON.stringify({
+							board: { counts: taskBoard(visible, Date.now(), undefined, this.stallMinutes).counts },
+							panel: { tasks, agents, ...(selectedId ? { selectedId } : {}) },
+						});
+						response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(body);
+						return;
+					}
+					const id = url.searchParams.get("id");
+					const board = taskBoard(
+						this.store.list(caller),
+						Date.now(),
+						id ? this.store.get(id, caller) : undefined,
+						this.stallMinutes,
+					);
 					response
 						.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" })
-						.end(JSON.stringify(summary));
-					return;
+						.end(JSON.stringify({ board, text: renderText(board, this.locale) }));
+				} catch (error) {
+					response.writeHead(400).end(error instanceof Error ? error.message : String(error));
 				}
-				const id = url.searchParams.get("id");
-				const board = taskBoard(
-					this.store.list(caller),
-					Date.now(),
-					id ? this.store.get(id, caller) : undefined,
-					this.stallMinutes,
-				);
-				response
-					.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" })
-					.end(JSON.stringify({ board, text: renderText(board, this.locale) }));
-			} catch (error) {
-				response.writeHead(400).end(error instanceof Error ? error.message : String(error));
-			}
+			})();
 		});
 		server.listen(0, "127.0.0.1");
 		await once(server, "listening");

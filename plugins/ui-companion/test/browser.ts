@@ -22,10 +22,14 @@ export async function browser() {
 			`--user-data-dir=${directory}`,
 			"about:blank",
 		],
-		{ stdio: "ignore" },
+		{ stdio: ["ignore", "ignore", "pipe"] },
 	);
+	let diagnostic = "";
+	child.stderr?.on("data", (data) => {
+		diagnostic = (diagnostic + String(data)).slice(-4000);
+	});
 	let port = "";
-	for (let attempt = 0; attempt < 100 && !port; attempt++) {
+	for (let attempt = 0; attempt < 300 && !port; attempt++) {
 		try {
 			port = (await readFile(join(directory, "DevToolsActivePort"), "utf8")).split("\n")[0]!;
 		} catch {
@@ -33,8 +37,13 @@ export async function browser() {
 		}
 	}
 	if (!port) {
-		child.kill();
-		throw new Error("Chrome did not start");
+		if (child.exitCode === null) {
+			const stopped = once(child, "exit");
+			child.kill();
+			await stopped;
+		}
+		await rm(directory, { recursive: true, force: true });
+		throw new Error(`Chrome did not start within 15 seconds: ${diagnostic}`);
 	}
 	const page = (await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json()) as {
 		webSocketDebuggerUrl: string;
