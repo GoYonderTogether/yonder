@@ -7,6 +7,7 @@
 #   install  <host> <ref>   create user, unpack runtime, write config + service, restart
 #   status   <host>         service state, memory, versions
 #   rollback <host>         switch `current` back to the previous runtime and restart
+#   nginx    <host> maint|proxy [port]  add /console/ to the yonder.zethai.cn server block (backup, nginx -t, reload)
 #   uninstall <host> [--purge]  stop and remove the service; --purge also deletes user yonder and its data
 # host defaults to zeth-root, ref to HEAD. Needs root ssh (BatchMode) on the server.
 #
@@ -212,6 +213,55 @@ echo "rolled back: $cur -> $prev"
 EOS
 }
 
+# Adds only a marked `location /console/` block to /etc/nginx/conf.d/yonder.conf; nothing else is edited.
+# Undo: restore the printed backup file and `nginx -s reload`, or rerun with `maint`.
+cmd_nginx() {
+	local mode=${3:-}; local port=${4:-}
+	case "$mode" in maint|proxy) ;; *) die "nginx <host> maint|proxy [port]" ;; esac
+	if [ "$mode" = proxy ]; then case "$port" in ''|*[!0-9]*) die "proxy needs a numeric port" ;; esac; fi
+	"${SSH[@]}" "$HOST" "mkdir -p /usr/share/nginx/yonder-console && cat > /usr/share/nginx/yonder-console/index.html && chmod -R a+rX /usr/share/nginx/yonder-console" <"$REPO/deploy/node/maintenance.html"
+	"${SSH[@]}" "$HOST" "MODE=$mode PORT=$port bash -s" <<'EOS'
+set -euo pipefail
+F=/etc/nginx/conf.d/yonder.conf
+B=$F.bak-$(date +%Y%m%dT%H%M%SZ)
+cp -p "$F" "$B"; echo "backup: $B"
+python3 - "$F" <<'PY'
+import os,re,sys
+f=sys.argv[1]; s=open(f).read()
+mode=os.environ["MODE"]; port=os.environ["PORT"]
+s=re.sub(r"    # yonder-console begin\n.*?    # yonder-console end\n","",s,flags=re.S)
+if mode=="maint":
+    body="""    location = /console { return 308 /console/; }
+    location /console/ {
+        alias /usr/share/nginx/yonder-console/;
+        index index.html;
+        add_header Cache-Control "no-store" always;
+    }
+"""
+else:
+    body=f"""    location = /console {{ return 308 /console/; }}
+    location /console/ {{
+        proxy_pass http://127.0.0.1:{port}/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_buffering off;
+    }}
+"""
+block="    # yonder-console begin\n"+body+"    # yonder-console end\n"
+marker="    location / {\n"
+i=s.index(marker)
+s=s[:i]+block+s[i:]
+open(f,"w").write(s)
+PY
+if nginx -t 2>&1; then nginx -s reload && echo reloaded; else cp -p "$B" "$F"; echo "nginx -t failed, restored $B" >&2; exit 1; fi
+EOS
+}
+
 cmd_uninstall() {
 	"${SSH[@]}" "$HOST" "PURGE=${3:-} bash -s" <<'EOS'
 set -u
@@ -233,6 +283,7 @@ case "$CMD" in
 	install) cmd_install ;;
 	status) cmd_status ;;
 	rollback) cmd_rollback ;;
+	nginx) cmd_nginx "$@" ;;
 	uninstall) cmd_uninstall "$@" ;;
 	*) sed -n '2,12p' "$0"; exit 2 ;;
 esac
