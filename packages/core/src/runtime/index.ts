@@ -179,10 +179,11 @@ export class Runtime {
 					const config: RuntimeSessionConfig = saved?.config
 						? JSON.parse(saved.config)
 						: await runtime.sessionConfig(session);
+					const models = await runtime.modelsFor(config);
 					await runtime.harness.commit(async (tx) => {
 						(await tx.doc(ModelBindingDoc, target.conversationId, key, null)).config = JSON.stringify(config);
 					}, context);
-					return runtime.modelsFor(config);
+					return models;
 				},
 				registry: runtime.registry,
 				settings: {
@@ -212,7 +213,8 @@ export class Runtime {
 		if (!pending) {
 			pending = (async () => {
 				const selection = Object.freeze({ ...config.resolved.credentialSlots });
-				const credentials = this.credentialSlots.bind(selection);
+				config.credentialGenerations ??= await this.credentialSlots.capture(selection);
+				const credentials = this.credentialSlots.bind(selection, config.credentialGenerations);
 				const models = buildModels(credentials, this.options.config.models?.providers, selection);
 				for (const [provider, slot] of Object.entries(selection)) {
 					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);
@@ -1378,7 +1380,12 @@ export class Runtime {
 			if (skipped) await this.idleChanged(String(conversation.id)).catch((error) => this.options.onReport?.(error));
 			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
 			if (live?.run) {
-				await this.prepareRun(String(conversation.id), C);
+				try {
+					await this.prepareRun(String(conversation.id), C);
+				} catch (error) {
+					// A revoked binding faults only its native task on resume, not unrelated conversations/startup.
+					this.options.onReport?.(error);
+				}
 				this.interrupted.push({ session: String(conversation.id), run: String(live.run.inputs[0]) });
 			}
 			const records = await this.storage.scanSubmissions(

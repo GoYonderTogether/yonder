@@ -41,6 +41,7 @@ function descriptor(content: string | undefined): Descriptor | undefined {
 	if (
 		value.version !== 1 ||
 		typeof value.generation !== "string" ||
+		!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value.generation) ||
 		typeof value.removed !== "boolean" ||
 		!value.source ||
 		!["stored", "env-ref"].includes(value.source.kind) ||
@@ -92,6 +93,8 @@ export class CredentialSlotStore {
 		source: SlotSource = { kind: "stored" },
 		options?: AuthOperationOptions,
 	): Promise<void> {
+		if (slot === "default" && source.kind !== "stored")
+			throw new Error("Default slot does not support environment references");
 		// Validate the complete descriptor before creating any files.
 		const next: Descriptor = { version: 1, generation: randomUUID(), removed: false, source };
 		descriptor(JSON.stringify(next));
@@ -128,8 +131,6 @@ export class CredentialSlotStore {
 					const current = descriptor(content);
 					if (!current || current.removed || current.generation !== ticket.generation)
 						throw new Error("Credential account changed during login; result not saved");
-					current.generation = randomUUID();
-					persist(JSON.stringify(current));
 					await this.secrets(ticket.provider, ticket.slot).modify(
 						ticket.provider,
 						async (existing) => {
@@ -137,6 +138,8 @@ export class CredentialSlotStore {
 							if (existing && !ticket.replace) throw new Error("Credential already exists; result not saved");
 							// Commit has entered the secret lock: complete persistence and report the actual result.
 							options?.signal?.removeEventListener("abort", cancel);
+							current.generation = randomUUID();
+							persist(JSON.stringify(current));
 							return credential;
 						},
 						{ signal: waiting.signal },
@@ -202,8 +205,22 @@ export class CredentialSlotStore {
 		}
 		return result;
 	}
+	/** Non-secret account generations persisted in the run snapshot before the first request. */
+	async capture(selection: CredentialSlots): Promise<Record<string, string>> {
+		const generations: Record<string, string> = {};
+		for (const [provider, slot] of Object.entries(selection)) {
+			if (slot === "default") continue;
+			generations[provider] = await this.backend(provider, slot).withLockAsync(async (content) => {
+				const current = descriptor(content);
+				if (!current || current.removed) throw new Error(`Unknown credential slot: ${provider}/${slot}`);
+				return { result: current.generation };
+			});
+		}
+		return generations;
+	}
 	/** Immutable selection; unknown or removed named slots always fail, including at refresh time. */
-	bind(selection: CredentialSlots = {}): CredentialStore {
+	bind(selection: CredentialSlots = {}, generations: Readonly<Record<string, string>> = {}): CredentialStore {
+		const pinned = { ...generations };
 		const slots = Object.freeze({ ...selection });
 		for (const [provider, slot] of Object.entries(slots)) this.paths(provider, slot);
 		const access = async <T>(
@@ -217,6 +234,9 @@ export class CredentialSlotStore {
 			return this.backend(provider, slot).withLockAsync(async (content) => {
 				const current = descriptor(content);
 				if (!current || current.removed) throw new Error(`Unknown credential slot: ${provider}/${slot}`);
+				if (pinned[provider] !== undefined && pinned[provider] !== current.generation)
+					throw new Error("Credential account changed; frozen run cannot use its replacement");
+				pinned[provider] = current.generation;
 				return { result: await fn(this.secrets(provider, slot), current) };
 			}, options);
 		};
