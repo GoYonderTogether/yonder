@@ -34,6 +34,7 @@ export const session = (id: string | number): Ref => reference(`session:${id}`);
 export const plugin = (id: string): Ref => reference(`plugin:${id}`);
 
 export * from "./chat-commands.js";
+export * from "./health.js";
 
 /** Resource scope only; capabilities and source/ownership checks remain the caller's responsibility. */
 export function allowsChannelInstance(scope: { channelInstances?: readonly string[] }, instance: string): boolean {
