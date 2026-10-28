@@ -265,7 +265,7 @@ test("skills create/edit/patch/read support files and provenance, scripts are on
 		content: read.content.replace("Verify before saving.", "Read actual evidence."),
 	});
 	const meta = JSON.parse(await readFile(join(root, n, ".hermes-provenance.json"), "utf8"));
-	assert.equal(meta.owner, "hermes-experience");
+	assert.equal(meta.owner, "learning");
 	assert.equal(meta.createdBy, "foreground");
 	assert.ok(meta.modifications >= 11);
 	assert.equal((await stat(join(root, n, "SKILL.md"))).mode & 0o777, 0o600);
@@ -522,6 +522,30 @@ test("skill own unpinned archive/restore reversible; foreign, pinned and restore
 	await assert.rejects(
 		skillStore(root, { action: "restore", name: n, revision: before.revision, archive_id: again.archive_id }),
 		/destination_exists/,
+	);
+});
+test("skills saved under legacy hermes-experience owner stay editable and archivable", async (t) => {
+	const root = join(await fixture(t), "skills");
+	await skillStore(root, create());
+	const metaPath = join(root, n, ".hermes-provenance.json"),
+		meta = JSON.parse(await readFile(metaPath, "utf8"));
+	await writeFile(metaPath, JSON.stringify({ ...meta, owner: "hermes-experience" }));
+	const read = await readSkill(root);
+	await skillStore(root, {
+		action: "patch",
+		name: n,
+		revision: read.revision,
+		old_string: "Verify",
+		new_string: "Check",
+	});
+	const after = await readSkill(root);
+	assert.equal(JSON.parse(await readFile(metaPath, "utf8")).owner, "hermes-experience");
+	const archived = await skillStore(root, { action: "archive", name: n, revision: after.revision });
+	assert.equal(archived.archived, true);
+	await writeFile(join(archived.path, ".hermes-provenance.json"), JSON.stringify({ ...meta, owner: "other" }));
+	await assert.rejects(
+		skillStore(root, { action: "restore", name: n, revision: after.revision, archive_id: archived.archive_id }),
+		/archive_requires_owned/,
 	);
 });
 

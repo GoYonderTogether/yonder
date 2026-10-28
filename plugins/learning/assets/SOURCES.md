@@ -27,7 +27,7 @@ New guidance.mjs paraphrases these MIT upstream symbols:
 | Adapted feature | Condition in hermes-core renderer | Actual tool / limit |
 |---|---|---|
 | memory guidance | scoped Agent/profile, plugin enabled, >=1 memory target | memory_read; edit only exclusive-yonder, never disabled targets |
-| skill acquisition/reuse | above scope plus learning:true and skillDir | native skill_view + skill-creator method; bounded hermes-experience_skill_store replaces skill_manage for private SKILL.md and text support files |
+| skill acquisition/reuse | above scope plus learning:true and skillDir | native skill_view + skill-creator method; bounded learning_skill_store replaces skill_manage for private SKILL.md and text support files |
 | task completion | selected hermes-core + valid enabled scope | tools actually offered; no promise of terminal/browser/kanban/delegation |
 | off | recipe removes contexts/skills/tools offer and plugin selection | files retained, no selected index; old transcript not erased |
 

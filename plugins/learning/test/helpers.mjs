@@ -27,8 +27,9 @@ export async function registered(id, config) {
 	const root = resolve("plugins", id),
 		module = await import(join(root, "src/index.mjs"));
 	const c = createRegistrationCollector();
-	await module.default.setup({ ...c.api, config });
-	assert.deepEqual(await checkRegistrations(await readPluginManifest(root), c.registrations, root), []);
+	const manifest = await readPluginManifest(root);
+	await module.default.setup({ ...c.api, id: manifest.id, config });
+	assert.deepEqual(await checkRegistrations(manifest, c.registrations, root), []);
 	return c.registrations;
 }
 export const scope = (dir, extra = {}) => ({

@@ -9,7 +9,7 @@ const name = "hermes-learned-verify";
 test("bounded real save/read/update, user conflict, names/size/symlink/abort protection", async (t) => {
 	const dir = await fixture(t),
 		skillDir = join(dir, "skills");
-	const p = await registered("hermes-experience", { scopes: [scope(dir, { learning: true, skillDir })] });
+	const p = await registered("learning", { scopes: [scope(dir, { learning: true, skillDir })] });
 	const tool = p.tools.find((t) => t.name.endsWith("_skill_store"));
 	const call = async (a) => {
 		const r = await tool.execute({ name, ...a }, ctx());
@@ -47,7 +47,7 @@ test("conditional actual rendered contribution and native recipe on/off", async 
 	const dir = await fixture(t);
 	for (const enabled of [true, false])
 		for (const learning of [true, false]) {
-			const p = await registered("hermes-experience", {
+			const p = await registered("learning", {
 				enabled,
 				scopes: [scope(dir, { learning, skillDir: join(dir, "skills"), memory: false, user: false })],
 			});
@@ -59,10 +59,10 @@ test("conditional actual rendered contribution and native recipe on/off", async 
 			}
 			assert.match(text, /Finishing the job/);
 			assert.doesNotMatch(text, /Enabled targets|memory_edit/);
-			assert.equal(text.includes("hermes-experience_skill_store"), learning);
+			assert.equal(text.includes("learning_skill_store"), learning);
 		}
 	const p = runtimeProfile(true, false);
-	assert.ok(!p.tools.offer.includes("hermes-experience_skill_store"));
+	assert.ok(!p.tools.offer.includes("learning_skill_store"));
 	assert.deepEqual(p.skills, ["hermes-yonder"]);
 	const off = runtimeProfile(false);
 	assert.deepEqual(off.contexts, []);
@@ -73,7 +73,7 @@ test("conditional actual rendered contribution and native recipe on/off", async 
 test("legacy frontmatter misuse is repairable; full-content metadata is single, valid and scoped", async (t) => {
 	const dir = await fixture(t),
 		skillDir = join(dir, "skills");
-	const p = await registered("hermes-experience", { scopes: [scope(dir, { learning: true, skillDir })] });
+	const p = await registered("learning", { scopes: [scope(dir, { learning: true, skillDir })] });
 	const tool = p.tools.find((t) => t.name.endsWith("_skill_store"));
 	const call = async (a) => JSON.parse((await tool.execute({ name, ...a }, ctx())).text);
 	// Reproduces real review's legacy description + full SKILL.md in body. The

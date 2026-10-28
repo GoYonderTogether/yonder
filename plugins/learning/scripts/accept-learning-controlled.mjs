@@ -13,7 +13,9 @@ import { initHome, openKernel, packageVersion } from "@yonder/core";
 import { parse, stringify } from "yaml";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const pluginDir = resolve(process.env.YONDER_TEST_HERMES_PLUGIN ?? join(repo, "plugins/hermes-experience"));
+const pluginDir = resolve(process.env.YONDER_TEST_HERMES_PLUGIN ?? join(repo, "plugins/learning"));
+const manifest = JSON.parse(await readFile(join(pluginDir, "package.json"), "utf8"));
+const pluginId = manifest.yonder.id;
 const root = await mkdtemp("/private/tmp/hermes-learning-controlled-"),
 	home = join(root, "home");
 const evidenceDir = join(home, "evidence");
@@ -37,9 +39,9 @@ const body =
 	"# Release checklist\n\nFor a release checklist, return these steps in order: lint, test, tag.\nRead references/checks.md for the checks behind the sequence.\n";
 const support = "# Release checks\n\nRun lint first, then test, and create a tag only after both checks pass.\n";
 const reviewTools = [
-	"hermes-experience_review_memory_read",
-	"hermes-experience_review_memory_edit",
-	"hermes-experience_review_skill_store",
+	`${pluginId}_review_memory_read`,
+	`${pluginId}_review_memory_edit`,
+	`${pluginId}_review_skill_store`,
 ];
 const json = (x) => `${JSON.stringify(x, null, 2)}\n`;
 const checkpoint = (label, detail = {}) => {
@@ -258,7 +260,7 @@ try {
 	config.plugins = [
 		{ use: "@yonder/plugin-channel-cli" },
 		{
-			use: process.env.YONDER_TEST_HERMES_PLUGIN ? pluginDir : "@yonder/plugin-hermes-experience",
+			use: process.env.YONDER_TEST_HERMES_PLUGIN ? pluginDir : manifest.name,
 			config: {
 				scopes: [
 					{
@@ -314,7 +316,7 @@ try {
 			defaults: {
 				model: "openai/gpt-6.1-sol",
 				thinking: "medium",
-				plugins: ["hermes-experience"],
+				plugins: [pluginId],
 				contexts: ["hermes-memory"],
 				skills: ["hermes-learned-*"],
 				capabilities: ["read", "write"],
@@ -366,7 +368,7 @@ try {
 		const reply = await until(() => client.packets.slice(start).find((p) => p.type === "message"), "foreground reply");
 		return { event, end, text: reply.text, session: end.data.session };
 	}
-	const stateFile = join(home, ".yonder/plugins/hermes-experience/learning-state.json");
+	const stateFile = join(home, ".yonder/plugins", pluginId, "learning-state.json");
 	evidence.counterSamples = [];
 	const prompts = [
 		"The synthetic project release validation uses Node.js 22.",
@@ -618,10 +620,13 @@ try {
 	evidence.finished = new Date().toISOString();
 	evidence.exit = process.exitCode ?? 0;
 	evidence.pluginSources = {};
-	for (const file of ["index.mjs", "review.mjs", "review-prompts.mjs", "skill-store.mjs", "store.mjs"])
-		evidence.pluginSources[file] = createHash("sha256")
-			.update(await readFile(join(pluginDir, "dist", file)))
-			.digest("hex");
+	// The deprecated hermes-experience alias ships only index/recipe; absent files are recorded as null.
+	for (const file of ["index.mjs", "review.mjs", "review-prompts.mjs", "skill-store.mjs", "store.mjs"]) {
+		const bytes = await readFile(join(pluginDir, "dist", file)).catch((e) =>
+			e.code === "ENOENT" ? null : Promise.reject(e),
+		);
+		evidence.pluginSources[file] = bytes && createHash("sha256").update(bytes).digest("hex");
+	}
 	evidence.notTested = [
 		"actual Sol judgment/quality or Hermes upstream parity",
 		"production configuration/data or real credentials",

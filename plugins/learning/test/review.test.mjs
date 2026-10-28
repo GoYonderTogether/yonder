@@ -41,6 +41,7 @@ async function setup(t, extra = {}, options = {}) {
 		submit = () => new Promise(() => {});
 	const api = {
 		...c.api,
+		id: "learning",
 		config,
 		paths: { data },
 		log: { warn: (...a) => warnings.push(a) },
@@ -85,9 +86,9 @@ async function setup(t, extra = {}, options = {}) {
 	await plugin.setup(api);
 	assert.deepEqual(
 		await checkRegistrations(
-			await readPluginManifest(resolve("plugins/hermes-experience")),
+			await readPluginManifest(resolve("plugins/learning")),
 			c.registrations,
-			resolve("plugins/hermes-experience"),
+			resolve("plugins/learning"),
 		),
 		[],
 	);
@@ -273,7 +274,7 @@ test("actual registered hooks: 9/10 user turns and cycles, quiet15, merged lates
 		true,
 	);
 	assert.equal((await f.call("message_send", { text: "bad" }, c)).error, "review_tool_not_allowed_for_focus");
-	assert.equal((await f.call("hermes-experience_refine", {}, c)).error, "review_tool_not_allowed_for_focus");
+	assert.equal((await f.call("learning_refine", {}, c)).error, "review_tool_not_allowed_for_focus");
 	assert.ok(f.history.get("parent").every((i) => !i.text.includes("quiet, isolated")));
 	assert.equal(f.opened[0].parent, "parent");
 	assert.equal(f.opened[0].agent, null);
@@ -327,13 +328,13 @@ test("real mutation dispatch resets even on failure; counters and run/input dedu
 	await repeat(f, 9);
 	const a = await f.start();
 	const mem = await f.call(
-		"hermes-experience_memory_edit",
+		"learning_memory_edit",
 		{ target: "memory", revision: "0".repeat(64), action: "add", content: "bad" },
 		a.context,
 	);
 	assert.equal(mem.error, "conflict_stale_revision");
 	const skill = await f.call(
-		"hermes-experience_skill_store",
+		"learning_skill_store",
 		{ action: "create", name: "foreign", description: "bad", body: "bad" },
 		a.context,
 	);
@@ -493,18 +494,18 @@ test("unattended destructive memory is pending; explicit /refine is trusted atte
 	assert.equal(staged.staged, true);
 	assert.equal(staged.saved, false);
 	const front = ctx("alpha", "owner", "parent");
-	const pending = await f.call("hermes-experience_memory_pending", { action: "list" }, front);
+	const pending = await f.call("learning_memory_pending", { action: "list" }, front);
 	assert.equal(pending[0].id, staged.pending_id);
-	const record = await f.call("hermes-experience_memory_pending", { action: "read", id: staged.pending_id }, front);
+	const record = await f.call("learning_memory_pending", { action: "read", id: staged.pending_id }, front);
 	assert.equal(record.target, "memory");
 	assert.equal(
-		(await f.call("hermes-experience_memory_pending", { action: "apply", id: staged.pending_id }, front)).saved,
+		(await f.call("learning_memory_pending", { action: "apply", id: staged.pending_id }, front)).saved,
 		true,
 	);
 	const no = await f.turn({ text: "normal work" });
-	assert.equal((await f.call("hermes-experience_refine", {}, no.context)).error, "refine_requires_user_command");
+	assert.equal((await f.call("learning_refine", {}, no.context)).error, "refine_requires_user_command");
 	const explicit = await f.start({ text: "/refine memory" });
-	const queued = await f.call("hermes-experience_refine", { focus: "memory" }, explicit.context);
+	const queued = await f.call("learning_refine", { focus: "memory" }, explicit.context);
 	assert.equal(queued.attended, true);
 	await f.finish(explicit);
 	await f.tick();
@@ -536,10 +537,10 @@ test("review hard loop ceiling16 and detailed error fields survive wrapper seria
 	await assert.rejects(f.hook.beforeRequest([], r), /review_iteration_limit/);
 	f.setAbort(async () => {});
 	const a = await f.start(),
-		m = await f.call("hermes-experience_memory_read", { target: "memory" }, a.context);
+		m = await f.call("learning_memory_read", { target: "memory" }, a.context);
 	for (let i = 0; i < 4; i++) {
 		const bad = await f.call(
-			"hermes-experience_memory_edit",
+			"learning_memory_edit",
 			{ target: "memory", action: "add", revision: m.revision, content: "X".repeat(2300) },
 			a.context,
 		);
