@@ -140,7 +140,15 @@ export default definePlugin({
 					const id = agentOf(ctx);
 					const state = await states.read(id);
 					const items = checklist(await api.host.status(ctx), state);
-					return { text: JSON.stringify({ done: state.done ?? null, items }) };
+					// needsTask makes the one-task-per-item rule explicit and lets a resumed run continue where it stopped.
+					const needsTask = items.filter((item) => !item.task).map((item) => item.id);
+					// The tool result carries the next step, so the checklist holds even when the skill file was not read.
+					const next = state.done
+						? "Onboarding is done."
+						: needsTask.length
+							? `Before messaging the owner, create one task per item in needsTask (session todo tool if available, else tasks_open with title "引导：<title>", objective = detail, acceptance ["主人确认"]) and call onboarding_record {item, task} for each; then close ok items with tasks_done and ask one question about the first open item.`
+							: "All items have tasks; resume with the first item whose task is still open and ask one question.";
+					return { text: JSON.stringify({ done: state.done ?? null, next, needsTask, items }) };
 				} catch (error) {
 					return { isError: true, text: error instanceof Error ? error.message : String(error) };
 				}
