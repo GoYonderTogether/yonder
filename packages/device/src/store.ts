@@ -163,11 +163,14 @@ export class ExecutorStore {
 			closeSync(fd);
 		}
 		renameSync(temp, target);
-		const dir = openSync(this.home, "r");
-		try {
-			fsyncSync(dir);
-		} finally {
-			closeSync(dir);
+		// Windows does not support fsync on directory handles; the file itself was flushed above.
+		if (process.platform !== "win32") {
+			const dir = openSync(this.home, "r");
+			try {
+				fsyncSync(dir);
+			} finally {
+				closeSync(dir);
+			}
 		}
 	}
 	close(): void {
