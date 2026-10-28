@@ -20,6 +20,11 @@ describe("titleOf", () => {
 		expect(titleOf(base)).toBe("main");
 		expect(titleOf(base, new Map())).toBe("main");
 	});
+	it("distinguishes persistent conversations of the same Bot", () => {
+		expect(titleOf({ ...base, mode: "persistent", key: "conv:qq:group" }, new Map([["main", "贾维斯"]]))).toBe(
+			"贾维斯 · conv:qq:group",
+		);
+	});
 	it("keeps task titles", () => {
 		expect(
 			titleOf({ ...base, agent: null, mode: "task", id: "abcdef123", profile: "default" }, new Map([["main", "x"]])),

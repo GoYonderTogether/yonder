@@ -86,6 +86,21 @@ const requests = (id: string, event: string) =>
 describe("session scope isolation", () => {
 	it("remote read/write is forbidden on Bot methods; local and task access succeed", async () => {
 		const { bot, task, taskEvent, local, remote, call } = await start(false);
+		await expect
+			.poll(async () => {
+				const page = await call(local, "sessions.transcript", { id: bot.session, limit: 50 });
+				const transcript = page.body.result as unknown as { items: { event?: string }[] };
+				return transcript.items.some((item) => item.event === bot.event);
+			})
+			.toBe(true);
+		expect(await call(remote, "sessions.transcript", { id: bot.session, limit: 50 })).toMatchObject({ status: 403 });
+		const source = await call(local, "events.query", { query: { id: bot.event } });
+		expect(source.body.result?.events[0]).toMatchObject({
+			id: bot.event,
+			type: "message.in",
+			data: { text: "scope admission check" },
+			routes: expect.arrayContaining([expect.objectContaining({ session: bot.session })]),
+		});
 		for (const [method, params] of requests(bot.session, bot.event)) {
 			const denied = await call(remote, method, params);
 			expect(denied, method).toMatchObject({ status: 403, body: { ok: false, error: { code: "forbidden" } } });

@@ -11,6 +11,7 @@ import { Footer } from "../ui/Footer";
 import { CardStack, RightRail } from "../ui/RailStack";
 import { Transcript } from "../ui/Transcript";
 import { ImportBody, useImport } from "./ImportView";
+import { SessionSources } from "./SessionSources";
 
 /** 悬浮窗开关菜单：勾选 = 该面板现在是悬浮窗 */
 function FloatMenu({ session }: { session: string }) {
@@ -123,6 +124,7 @@ function RailSheet({ children, onClose }: { children: React.ReactNode; onClose()
 
 function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	const [rail, setRail] = useState(false);
+	const [sourcesOpen, setSourcesOpen] = useState(false);
 	const titleOf = useTitleOf();
 	const s = v.session;
 	const sub = v.running ? "正在回复…" : s?.closed ? "已结束" : s ? `${s.profile} · ${s.mode}` : undefined;
@@ -135,6 +137,10 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 						{v.error}
 					</p>
 				)}
+				<details className="border-b border-hairline" onToggle={(event) => setSourcesOpen(event.currentTarget.open)}>
+					<summary className="cursor-pointer px-4 py-2 text-small text-muted">来源与路由</summary>
+					{sourcesOpen && <SessionSources session={id} />}
+				</details>
 				{!v.ready ? (
 					<p className="flex-1 py-16 text-center text-small text-faint">连接中…</p>
 				) : (
