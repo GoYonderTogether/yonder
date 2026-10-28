@@ -23,7 +23,7 @@ test("review selects real git state and isolates Codex login", async () => {
 		git("add", "file");
 		git("commit", "-m", "initial");
 		const { api, registrations } = createRegistrationCollector();
-		await plugin.setup(api as never);
+		await plugin.setup({ ...api, paths: { data: dir } } as never);
 		const tool = registrations.tools.find((item) => item.name === "codex-companion_review");
 		if (!tool) throw new Error("review tool missing");
 		const ctx = {
@@ -36,9 +36,7 @@ test("review selects real git state and isolates Codex login", async () => {
 		} as ToolContext;
 		expect((await tool.execute({ codexHome: home, scope: "working-tree" }, ctx)).text).toContain("clean");
 		expect((await tool.execute({ codexHome: home, base: "main" }, ctx)).text).toContain("empty");
-		await expect(tool.execute({ codexHome: join(process.env.HOME ?? "/nonexistent", ".codex") }, ctx)).rejects.toThrow(
-			"default personal",
-		);
+		await expect(tool.execute({ codexHome: join(dir, "missing") }, ctx)).rejects.toThrow("codexHome must exist");
 		await expect(tool.execute({ codexHome: home, focus: "permissions" }, ctx)).rejects.toThrow("focus requires");
 		await writeFile(join(repo, "untracked"), "review me\n");
 		await expect(

@@ -29,7 +29,8 @@
 		"contributes": {
 			"tools": [
 				"codex-companion_review",
-				"codex-companion_task"
+				"codex-companion_task",
+				"codex-companion_candidates"
 			]
 		}
 	}

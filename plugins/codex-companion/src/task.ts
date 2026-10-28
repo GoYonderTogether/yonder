@@ -1,14 +1,37 @@
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { Tool, ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import { run } from "./index.js";
 
-export const taskTool: Tool = {
+const pathFor = (data: string, session: string) =>
+	join(data, `${createHash("sha256").update(session).digest("hex")}.json`);
+
+export const candidateTool = (data: string): Tool => ({
+	name: "codex-companion_candidates",
+	description: "List Codex threads started by this Yonder session for a rescue continuation.",
+	parameters: Type.Object({}, { additionalProperties: false }),
+	capabilities: ["read"],
+	async execute(_value, ctx) {
+		try {
+			return { text: await readFile(pathFor(data, ctx.session), "utf8") };
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") return { text: "[]" };
+			throw error;
+		}
+	},
+});
+
+export const taskTool = (data: string, writeEnabled: boolean): Tool => ({
 	name: "codex-companion_task",
-	description: "Delegate a read-only task to Codex. Resume uses an external Codex thread ID.",
+	description:
+		"Delegate a task to Codex; writing requires opt-in and write capability. Resume uses an external Codex thread ID.",
 	parameters: Type.Object(
 		{
-			codexHome: Type.String({ minLength: 1, description: "Absolute isolated Codex home with an authorized login." }),
+			codexHome: Type.String({ minLength: 1, description: "Absolute Codex home with an authorized login." }),
 			task: Type.String({ minLength: 1 }),
+			executionMode: Type.Optional(Type.Union([Type.Literal("wait"), Type.Literal("background")])),
 			write: Type.Optional(Type.Boolean()),
 			resume: Type.Optional(Type.String({ format: "uuid" })),
 			model: Type.Optional(Type.String({ minLength: 1 })),
@@ -37,25 +60,12 @@ export const taskTool: Tool = {
 		} = value as { codexHome: string; task: string; write?: boolean; resume?: string; model?: string; effort?: string };
 		if (!codexHome?.startsWith("/")) throw new Error("Provide an absolute authorized codexHome.");
 		if (!task?.trim()) throw new Error("Provide a task for Codex.");
-		if (write)
-			throw new Error("Codex write tasks are unavailable until execution-environment path restrictions are enforced.");
+		if (write && (!writeEnabled || !ctx.capabilities.includes("write")))
+			throw new Error("Codex write tasks require writeEnabled and the write capability.");
 		if (resume && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resume))
 			throw new Error("Invalid Codex thread ID.");
-		const isolation = await run(ctx, [
-			"sh",
-			"-c",
-			`target=$(cd "$1" && pwd -P) || exit 1
-personal=$(cd "$HOME/.codex" 2>/dev/null && pwd -P)
-configured=$(test -n "$CODEX_HOME" && cd "$CODEX_HOME" 2>/dev/null && pwd -P)
-for forbidden in "$personal" "$configured"; do
- test -z "$forbidden" && continue
- case "$target/" in "$forbidden/"*) exit 1;; esac
-done`,
-			"sh",
-			codexHome,
-		]);
-		if (isolation.exitCode !== 0)
-			throw new Error("codexHome must exist and must not be the default personal Codex home.");
+		const home = await run(ctx, ["test", "-d", codexHome]);
+		if (home.exitCode !== 0) throw new Error("codexHome must exist.");
 		const path = await run(ctx, ["printenv", "PATH"]);
 		if (path.exitCode !== 0) throw new Error("Execution environment PATH is unavailable.");
 		const args = [
@@ -63,7 +73,7 @@ done`,
 			"exec",
 			"--json",
 			"-s",
-			"read-only",
+			write ? "workspace-write" : "read-only",
 			"-c",
 			'approval_policy="never"',
 			...(model ? ["-m", model === "spark" ? "gpt-5.3-codex-spark" : model] : []),
@@ -85,6 +95,22 @@ done`,
 			if (event.type === "item.completed" && event.item?.type === "agent_message") output = event.item.text;
 		}
 		if (!output) throw new Error("Codex returned no final message.");
+		if (thread) {
+			await mkdir(data, { recursive: true });
+			const file = pathFor(data, ctx.session);
+			let previous: Array<{ id: string; task: string; cwd: string }> = [];
+			try {
+				previous = JSON.parse(await readFile(file, "utf8"));
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			}
+			await writeFile(
+				file,
+				JSON.stringify(
+					[{ id: thread, task, cwd: ctx.env.cwd }, ...previous.filter((item) => item.id !== thread)].slice(0, 20),
+				),
+			);
+		}
 		const ref = thread ? `\n[Codex thread: ${thread}]` : "";
 		if (Buffer.byteLength(output) <= 30_000) return { text: output + ref };
 		const cached = await ctx.cacheToolOutput?.(output);
@@ -92,4 +118,4 @@ done`,
 			text: `${output.slice(0, 30_000)}\n[Output truncated; ${cached ? `full output: ${cached}` : "cache unavailable"}]${ref}`,
 		};
 	},
-};
+});

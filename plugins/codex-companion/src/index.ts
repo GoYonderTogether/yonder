@@ -1,6 +1,6 @@
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
-import { taskTool } from "./task.js";
+import { candidateTool, taskTool } from "./task.js";
 
 export async function run(ctx: ToolContext, args: string[], env?: Record<string, string>) {
 	let stdout = "";
@@ -28,6 +28,7 @@ export async function run(ctx: ToolContext, args: string[], env?: Record<string,
 }
 
 export default definePlugin({
+	configSchema: Type.Object({ writeEnabled: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
 	setup(api) {
 		api.tools.register({
 			name: "codex-companion_review",
@@ -35,6 +36,7 @@ export default definePlugin({
 			parameters: Type.Object(
 				{
 					codexHome: Type.String({ minLength: 1, description: "Explicit Codex home containing the authorized login." }),
+					executionMode: Type.Optional(Type.Union([Type.Literal("wait"), Type.Literal("background")])),
 					scope: Type.Optional(
 						Type.Union([Type.Literal("auto"), Type.Literal("working-tree"), Type.Literal("branch")]),
 					),
@@ -64,21 +66,8 @@ export default definePlugin({
 				if (!codexHome?.startsWith("/")) throw new Error("Provide an absolute authorized codexHome.");
 				if (focus && !adversarial) throw new Error("focus requires adversarial review.");
 				if (base?.startsWith("-")) throw new Error("Invalid base ref.");
-				const isolation = await run(ctx, [
-					"sh",
-					"-c",
-					`target=$(cd "$1" && pwd -P) || exit 1
-personal=$(cd "$HOME/.codex" 2>/dev/null && pwd -P)
-configured=$(test -n "$CODEX_HOME" && cd "$CODEX_HOME" 2>/dev/null && pwd -P)
-for forbidden in "$personal" "$configured"; do
-  test -z "$forbidden" && continue
-  case "$target/" in "$forbidden/"*) exit 1;; esac
-done`,
-					"sh",
-					codexHome,
-				]);
-				if (isolation.exitCode !== 0)
-					throw new Error("codexHome must exist and must not be the default personal Codex home.");
+				const home = await run(ctx, ["test", "-d", codexHome]);
+				if (home.exitCode !== 0) throw new Error("codexHome must exist.");
 				const path = await run(ctx, ["printenv", "PATH"]);
 				if (path.exitCode !== 0) throw new Error("Execution environment PATH is unavailable.");
 				const status = await run(ctx, ["git", "status", "--short", "--untracked-files=all"]);
@@ -133,6 +122,9 @@ done`,
 				};
 			},
 		});
-		api.tools.register(taskTool);
+		api.tools.register(
+			taskTool(api.paths.data, (api.config as { writeEnabled?: boolean } | undefined)?.writeEnabled === true),
+		);
+		api.tools.register(candidateTool(api.paths.data));
 	},
 });

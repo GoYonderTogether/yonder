@@ -148,8 +148,9 @@ test.each(["scope", "full"])(
 					.map((part) => (part.type === "text" ? part.text : ""))
 					.join("") ?? "";
 			if (scenario === "scope") {
-				const id = JSON.parse(text(await call(first, "bash", { command: "printf ready; sleep 30", background: true })))
-					.background as string;
+				const id = JSON.parse(
+					text(await call(first, "bash", { command: "printf ready; sleep 30", executionMode: "background" })),
+				).background as string;
 				await expect.poll(() => internal.background.running.get(Number(id))?.output).toBe("ready");
 				expect(await runtime.backgroundList(first)).toContainEqual(expect.objectContaining({ id, name: "bash" }));
 				expect(await runtime.backgroundList(other)).toEqual([]);
