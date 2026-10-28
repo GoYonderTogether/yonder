@@ -266,12 +266,6 @@ function Wallet({ focus }: { focus?: string }) {
 	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	const cards = useQuery({ queryKey: ["cards"], queryFn: httpApi.cards });
 	const contacts = useQuery({ queryKey: ["contacts"], queryFn: httpApi.contacts });
-	if (session.isPending || cards.isPending || contacts.isPending)
-		return (
-			<p role="status" className="p-6">
-				正在加载名片…
-			</p>
-		);
 	if (session.isError || cards.isError || contacts.isError)
 		return (
 			<div role="alert" className="p-6">
@@ -286,6 +280,12 @@ function Wallet({ focus }: { focus?: string }) {
 					重试
 				</Button>
 			</div>
+		);
+	if (session.isPending || cards.isPending || contacts.isPending)
+		return (
+			<p role="status" className="p-6">
+				正在加载名片…
+			</p>
 		);
 	const actors = [session.data?.actor, ...(contacts.data ?? [])].filter((actor): actor is Actor => !!actor);
 	const items: { card?: Card; actor: Actor }[] = (cards.data ?? [])

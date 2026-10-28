@@ -37,5 +37,6 @@ describe("CardPage", () => {
 	it("renders loading", () => expect(render({ isPending: true }, {}, {})).toContain("正在加载名片"));
 	it("renders empty", () => expect(render({ data: null }, { data: [] }, { data: [] })).toContain("暂无名片"));
 	it("renders cards", () => expect(render({ data: { actor } }, { data: [card] }, { data: [] })).toContain("小明"));
-	it("renders error", () => expect(render({ isError: true }, {}, {})).toContain("加载名片失败"));
+	it("renders error while another request is pending", () =>
+		expect(render({ isError: true }, { isPending: true }, {})).toContain("加载名片失败"));
 });
