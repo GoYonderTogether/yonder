@@ -93,6 +93,7 @@ describe("gateway over a real kernel", () => {
 		expect(noCookie.status).toBe(401);
 		expect(noCookie.headers.get("content-security-policy")).toMatch(/script-src 'self'/);
 		expect(noCookie.headers.get("x-content-type-options")).toBe("nosniff");
+		expect(noCookie.headers.get("referrer-policy")).toBe("same-origin");
 		const evil = await fetch(`${base}/api/rpc/capabilities.get`, {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: "http://evil.example", cookie },

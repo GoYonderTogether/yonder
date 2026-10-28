@@ -1,6 +1,6 @@
 import { ChevronLeft, Layers, PanelRight } from "lucide-react";
 import { useState } from "react";
-import { titleOf } from "../lib/identity";
+import { isImported, titleOf } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
@@ -141,7 +141,11 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 				{s?.closed ? (
 					<p className="border-t border-hairline px-4 py-3 text-center text-small text-faint">会话已结束</p>
 				) : (
-					<Composer session={id} running={v.running} />
+					<Composer
+						session={id}
+						running={v.running}
+						bot={s?.mode === "main" && s.agent && !isImported(s) ? s.agent : undefined}
+					/>
 				)}
 				<Footer v={v} />
 				<FloatLayer session={id} v={v} />

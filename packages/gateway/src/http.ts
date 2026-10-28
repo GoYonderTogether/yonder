@@ -20,7 +20,9 @@ export function baseHeaders(): Record<string, string> {
 		"Content-Security-Policy": CSP,
 		"Cache-Control": "no-store",
 		"X-Content-Type-Options": "nosniff",
-		"Referrer-Policy": "no-referrer",
+		// same-origin, not no-referrer: with no-referrer browsers send `Origin: null` on the
+		// login form POST, which the origin check (rightly) rejects.
+		"Referrer-Policy": "same-origin",
 		"X-Frame-Options": "DENY",
 		"Cross-Origin-Resource-Policy": "same-origin",
 		"X-Yonder-Protocol": "1",

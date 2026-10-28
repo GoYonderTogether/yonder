@@ -4,8 +4,12 @@ import { rpc } from "../transport/client";
 
 type Busy = "followup" | "interrupt";
 
-/** 忙碌时可选「排队」或「打断」再发送，随时可中止；中文输入法组字期间 Enter 不发送。 */
-export function Composer({ session, running }: { session: string; running: boolean }) {
+/**
+ * 忙碌时可选「排队」或「打断」再发送，随时可中止；中文输入法组字期间 Enter 不发送。
+ * `bot` 是常驻 Bot 的 agent id：Bot 的 main 会话不是 task 会话，输入经控制台渠道 `bots.send`，
+ * 由 Bot 自己的绑定接收（contracts.md §10），排队/打断不适用。
+ */
+export function Composer({ session, running, bot }: { session: string; running: boolean; bot?: string }) {
 	const [text, setText] = useState("");
 	const [mode, setMode] = useState<Busy>("followup");
 	const [err, setErr] = useState("");
@@ -17,12 +21,14 @@ export function Composer({ session, running }: { session: string; running: boole
 		sending.current = true;
 		setErr("");
 		try {
-			await rpc("sessions.submit", {
-				id: session,
-				text: t,
-				requestId: crypto.randomUUID(),
-				...(running ? { busy: mode } : {}),
-			});
+			if (bot) await rpc("bots.send", { agent: bot, text: t, requestId: crypto.randomUUID() });
+			else
+				await rpc("sessions.submit", {
+					id: session,
+					text: t,
+					requestId: crypto.randomUUID(),
+					...(running ? { busy: mode } : {}),
+				});
 			setText("");
 		} catch (e) {
 			setErr(e instanceof Error ? e.message : "发送失败");
@@ -41,20 +47,22 @@ export function Composer({ session, running }: { session: string; running: boole
 					data-testid="busy-bar"
 				>
 					<span className="dot-hop inline-block size-1.5 rounded-full bg-online" />
-					正在运行，新消息将
-					<fieldset aria-label="忙碌时发送方式" className="m-0 flex rounded-full border-0 bg-tone p-0.5">
-						{(["followup", "interrupt"] as const).map((m) => (
-							<button
-								key={m}
-								type="button"
-								aria-pressed={mode === m}
-								onClick={() => setMode(m)}
-								className={`press rounded-full px-2.5 py-0.5 ${mode === m ? "bg-raised text-ink shadow-soft" : ""}`}
-							>
-								{m === "followup" ? "排队" : "打断"}
-							</button>
-						))}
-					</fieldset>
+					{bot ? "正在回复" : "正在运行，新消息将"}
+					{!bot && (
+						<fieldset aria-label="忙碌时发送方式" className="m-0 flex rounded-full border-0 bg-tone p-0.5">
+							{(["followup", "interrupt"] as const).map((m) => (
+								<button
+									key={m}
+									type="button"
+									aria-pressed={mode === m}
+									onClick={() => setMode(m)}
+									className={`press rounded-full px-2.5 py-0.5 ${mode === m ? "bg-raised text-ink shadow-soft" : ""}`}
+								>
+									{m === "followup" ? "排队" : "打断"}
+								</button>
+							))}
+						</fieldset>
+					)}
 					<button
 						type="button"
 						onClick={abort}
