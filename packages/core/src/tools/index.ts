@@ -21,6 +21,7 @@ import { modelProfiles } from "../runtime/model-profile.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { coreToolCapabilities } from "./catalog.js";
+import { requireCapability, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
 import { MAX_SOURCES, sourceBlock } from "./sources.js";
 
@@ -66,22 +67,6 @@ const attachmentSchema = Type.Object(
 	},
 	{ additionalProperties: false },
 );
-function requireCapability(ctx: ToolContext, capability: "admin" | "cross-agent" | "message" | "read") {
-	if (!ctx.capabilities.includes(capability)) throw new Error(`需要 ${capability} 能力。`);
-}
-async function withSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
-	signal.throwIfAborted();
-	let aborted: (() => void) | undefined;
-	const cancellation = new Promise<never>((_resolve, reject) => {
-		aborted = () => reject(signal.reason ?? new Error("工具调用已中止。"));
-		signal.addEventListener("abort", aborted, { once: true });
-	});
-	try {
-		return await Promise.race([work, cancellation]);
-	} finally {
-		if (aborted) signal.removeEventListener("abort", aborted);
-	}
-}
 export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const { store, agents, sessions, runtime, delivery, ask, getPreset } = options;
 	const tool = (definition: Omit<Tool, "capabilities">): Tool => ({
@@ -130,11 +115,17 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		const resolved = resolveProfile(selected, {}, parent.resolved.env, options.defaultModel);
 		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
 		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
-		const { capabilities, channelInstances, inherit } = presetSession(selected, resolved.env, {
-			...parentResolved,
-			capabilities: ctx.capabilities,
-			...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
-		});
+		const { capabilities, channelInstances, inherit } = presetSession(
+			selected,
+			resolved.env,
+			{
+				...parentResolved,
+				capabilities: ctx.capabilities,
+				...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
+			},
+			undefined,
+			parent.agent,
+		);
 		let session = await store.sessions.get(childId);
 		if (!session) {
 			session = {
