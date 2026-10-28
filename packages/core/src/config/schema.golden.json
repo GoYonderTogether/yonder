@@ -1,15 +1,7 @@
 {
 	"AgentSchema": {
 		"type": "object",
-		"required": [
-			"schema",
-			"id",
-			"name",
-			"owner",
-			"defaultProfile",
-			"profiles",
-			"bindings"
-		],
+		"required": ["schema", "id", "name", "owner", "defaultProfile", "profiles", "bindings"],
 		"properties": {
 			"schema": {
 				"type": "number",
@@ -94,9 +86,7 @@
 					},
 					"fallback": {
 						"type": "object",
-						"required": [
-							"models"
-						],
+						"required": ["models"],
 						"properties": {
 							"models": {
 								"type": "array",
@@ -393,9 +383,7 @@
 							},
 							"fallback": {
 								"type": "object",
-								"required": [
-									"models"
-								],
+								"required": ["models"],
 								"properties": {
 									"models": {
 										"type": "array",
@@ -644,11 +632,7 @@
 				"type": "array",
 				"items": {
 					"type": "object",
-					"required": [
-						"id",
-						"match",
-						"session"
-					],
+					"required": ["id", "match", "session"],
 					"properties": {
 						"id": {
 							"type": "string",
@@ -784,10 +768,7 @@
 								},
 								{
 									"type": "object",
-									"required": [
-										"mode",
-										"per"
-									],
+									"required": ["mode", "per"],
 									"properties": {
 										"mode": {
 											"type": "string",
@@ -867,9 +848,7 @@
 						},
 						"deliver": {
 							"type": "object",
-							"required": [
-								"to"
-							],
+							"required": ["to"],
 							"properties": {
 								"to": {
 									"type": "string",
@@ -1095,11 +1074,7 @@
 									},
 									"quiet": {
 										"type": "object",
-										"required": [
-											"timezone",
-											"start",
-											"end"
-										],
+										"required": ["timezone", "start", "end"],
 										"properties": {
 											"timezone": {
 												"type": "string",
@@ -1123,9 +1098,7 @@
 									},
 									"judge": {
 										"type": "object",
-										"required": [
-											"preset"
-										],
+										"required": ["preset"],
 										"properties": {
 											"preset": {
 												"type": "string",
@@ -1301,11 +1274,7 @@
 									},
 									"quiet": {
 										"type": "object",
-										"required": [
-											"timezone",
-											"start",
-											"end"
-										],
+										"required": ["timezone", "start", "end"],
 										"properties": {
 											"timezone": {
 												"type": "string",
@@ -1329,9 +1298,7 @@
 									},
 									"judge": {
 										"type": "object",
-										"required": [
-											"preset"
-										],
+										"required": ["preset"],
 										"properties": {
 											"preset": {
 												"type": "string",
@@ -1507,11 +1474,7 @@
 									},
 									"quiet": {
 										"type": "object",
-										"required": [
-											"timezone",
-											"start",
-											"end"
-										],
+										"required": ["timezone", "start", "end"],
 										"properties": {
 											"timezone": {
 												"type": "string",
@@ -1535,9 +1498,7 @@
 									},
 									"judge": {
 										"type": "object",
-										"required": [
-											"preset"
-										],
+										"required": ["preset"],
 										"properties": {
 											"preset": {
 												"type": "string",
@@ -1719,11 +1680,7 @@
 									},
 									"quiet": {
 										"type": "object",
-										"required": [
-											"timezone",
-											"start",
-											"end"
-										],
+										"required": ["timezone", "start", "end"],
 										"properties": {
 											"timezone": {
 												"type": "string",
@@ -1747,9 +1704,7 @@
 									},
 									"judge": {
 										"type": "object",
-										"required": [
-											"preset"
-										],
+										"required": ["preset"],
 										"properties": {
 											"preset": {
 												"type": "string",
@@ -1773,11 +1728,7 @@
 						"type": "array",
 						"items": {
 							"type": "object",
-							"required": [
-								"subject",
-								"agent",
-								"profile"
-							],
+							"required": ["subject", "agent", "profile"],
 							"properties": {
 								"subject": {
 									"type": "string",
@@ -1803,10 +1754,7 @@
 	},
 	"PresetSchema": {
 		"type": "object",
-		"required": [
-			"schema",
-			"description"
-		],
+		"required": ["schema", "description"],
 		"properties": {
 			"schema": {
 				"type": "number",
@@ -1868,9 +1816,7 @@
 			},
 			"fallback": {
 				"type": "object",
-				"required": [
-					"models"
-				],
+				"required": ["models"],
 				"properties": {
 					"models": {
 						"type": "array",
@@ -2115,9 +2061,7 @@
 	},
 	"YonderSchema": {
 		"type": "object",
-		"required": [
-			"schema"
-		],
+		"required": ["schema"],
 		"properties": {
 			"schema": {
 				"type": "number",
@@ -2143,9 +2087,7 @@
 				"type": "array",
 				"items": {
 					"type": "object",
-					"required": [
-						"use"
-					],
+					"required": ["use"],
 					"properties": {
 						"use": {
 							"type": "string",
@@ -2161,9 +2103,7 @@
 				"patternProperties": {
 					"^[a-z0-9-]+$": {
 						"type": "object",
-						"required": [
-							"type"
-						],
+						"required": ["type"],
 						"properties": {
 							"type": {
 								"type": "string",
@@ -2195,12 +2135,7 @@
 				"type": "array",
 				"items": {
 					"type": "object",
-					"required": [
-						"id",
-						"protocol",
-						"baseUrl",
-						"capabilities"
-					],
+					"required": ["id", "protocol", "baseUrl", "capabilities"],
 					"properties": {
 						"id": {
 							"type": "string",
@@ -2223,9 +2158,7 @@
 							"patternProperties": {
 								"^.*$": {
 									"type": "object",
-									"required": [
-										"models"
-									],
+									"required": ["models"],
 									"properties": {
 										"models": {
 											"type": "array",
@@ -2303,11 +2236,7 @@
 							},
 							"quiet": {
 								"type": "object",
-								"required": [
-									"timezone",
-									"start",
-									"end"
-								],
+								"required": ["timezone", "start", "end"],
 								"properties": {
 									"timezone": {
 										"type": "string",
@@ -2330,10 +2259,7 @@
 							},
 							"target": {
 								"type": "object",
-								"required": [
-									"to",
-									"via"
-								],
+								"required": ["to", "via"],
 								"properties": {
 									"to": {
 										"type": "string",
@@ -2379,9 +2305,7 @@
 				"patternProperties": {
 					"^[a-z0-9-]+$": {
 						"type": "object",
-						"required": [
-							"type"
-						],
+						"required": ["type"],
 						"properties": {
 							"type": {
 								"type": "string",
@@ -2440,10 +2364,7 @@
 				"type": "array",
 				"items": {
 					"type": "object",
-					"required": [
-						"id",
-						"workspace"
-					],
+					"required": ["id", "workspace"],
 					"properties": {
 						"id": {
 							"type": "string",
@@ -2513,18 +2434,13 @@
 			},
 			"identity": {
 				"type": "object",
-				"required": [
-					"persons"
-				],
+				"required": ["persons"],
 				"properties": {
 					"persons": {
 						"type": "array",
 						"items": {
 							"type": "object",
-							"required": [
-								"id",
-								"name"
-							],
+							"required": ["id", "name"],
 							"properties": {
 								"id": {
 									"type": "string",
