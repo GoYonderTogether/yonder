@@ -68,11 +68,14 @@ test("state transitions resume through active, reject shortcuts and retain termi
 		store.update(task.id, { state: "review" }, ctx);
 		store.done(task.id, "Delivered ledger", ["SQLite assertion", "Reopen assertion"], ctx);
 		expect(() => store.update(task.id, { title: "Changed" }, ctx)).toThrow("closed");
-		expect(new Store(root).get(task.id, ctx).task.state).toBe("done");
+		const reopened = new Store(root);
+		expect(reopened.get(task.id, ctx).task.state).toBe("done");
+		reopened.close();
 		const cancelled = store.open(content, ctx);
 		store.update(cancelled.id, { state: "cancelled" }, ctx);
 		expect(() => store.update(cancelled.id, { state: "active" }, ctx)).toThrow("closed");
 	} finally {
+		store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
@@ -102,6 +105,7 @@ test("done requires a deliverable and positional evidence for every revised acce
 			"c",
 		]);
 	} finally {
+		store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
@@ -140,6 +144,7 @@ test("visibility follows ownership and parent chains; cross-agent reads ongoing 
 		expect(() => store.get(preset.id, caller(null, "11"))).toThrow("not found");
 		expect(() => store.open({ ...content, parent: "missing" }, child)).toThrow("Parent task not found");
 	} finally {
+		store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
@@ -183,7 +188,9 @@ test("events only append, original history stays unchanged, reopening preserves 
 		expect(result.task.lastDeliveryAt).toBeTruthy();
 		reopened.update(task.id, { state: "cancelled" }, ctx);
 		expect(reopened.render(renderContext("7"))).toBeUndefined();
+		reopened.close();
 	} finally {
+		store.close();
 		await rm(root, { recursive: true, force: true });
 	}
 });
