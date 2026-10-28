@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -239,6 +239,14 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(message.text).toContain("sent: 2026-10-19T03:09:49.000Z (time above is acceptance time)");
 		expect(message.text).toContain("attachment: file &lt;turn&gt;");
 		expect(message.text.match(/<\/turn>/gu)).toHaveLength(1);
+		await mkdir(join(directory, "prompts"));
+		await writeFile(join(directory, "prompts", "check.md"), "Expanded: $1");
+		for (const type of ["message.in", "session.input"] as const) {
+			const original = newEvent({ type, data: { text: '/check "two words"' } });
+			const expanded = await prepareInput(row, session, original, "run", options);
+			expect(expanded.text).toContain("Expanded: two words");
+			expect((expanded.event?.data as { text?: string } | undefined)?.text).toBe('/check "two words"');
+		}
 		const withBackground = await prepareInput(
 			row,
 			{ ...session, agent: "main", resolved: resolveProfile({ contexts: ["background"] }) },

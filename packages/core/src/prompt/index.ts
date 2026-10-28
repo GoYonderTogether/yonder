@@ -16,6 +16,7 @@ import {
 import type { WorkspaceFiles } from "../config/index.js";
 import type { PromptPart, RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
 import { builtinPromptSections, promptSectionIds } from "./content.js";
+import { expandTemplate } from "./templates.js";
 
 /** Core context: no optional plugin or template fallback is needed for peer collaboration. */
 export const peerWorkspaceContext: ContextContribution = {
@@ -332,7 +333,7 @@ export async function prepareInput(
 			event.type === "runtime.continuation"
 				? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
 				: message
-					? data.text
+					? await expandTemplate(options.home, session.agent, data.text ?? "")
 					: JSON.stringify(event.data),
 			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]

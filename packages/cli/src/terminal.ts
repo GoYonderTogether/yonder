@@ -762,7 +762,8 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		editor.setText("");
 		guarded(async () => {
 			try {
-				if (text.startsWith("/") && !text.startsWith("//")) await command(text);
+				if (text.startsWith("/") && chatCommands.some((item) => item.name === text.slice(1).split(/\s/, 1)[0]))
+					await command(text);
 				else {
 					await submit(text.startsWith("//") ? text.slice(1) : text, busy);
 					editor.addToHistory(text);

@@ -17,6 +17,7 @@
 - `packages/coding-agent/src/core/auth-storage.ts` 的 `FileAuthStorageBackend` 异步文件锁与读写语义，复制并适配到 `packages/core/src/runtime/credentials.ts`。没有复制同步缓存、命令凭据解析或其他程序的凭据。
 - `packages/coding-agent/src/core/provider-composer.ts` 的模型字段缺省与合并逻辑，复制并适配到 `packages/core/src/runtime/models.ts`。
 - `packages/coding-agent/src/core/model-config.ts` 的模型配置校验 schema，复制到 `packages/core/src/runtime/model-schema.ts`。
+- [`packages/coding-agent/src/core/prompt-templates.ts`](https://github.com/earendil-works/pi/blob/v1.3.0/packages/coding-agent/src/core/prompt-templates.ts) 的参数解析和展开逻辑复制到 `packages/core/src/prompt/templates.ts`；frontmatter 处理参考同版本 `packages/coding-agent/src/utils/frontmatter.ts`，适配 Yonder 的模板目录和输入路径。适用下方完整 MIT 许可证。
 
 [原许可证](https://github.com/earendil-works/pi/blob/main/LICENSE)：
 
