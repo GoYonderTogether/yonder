@@ -12,6 +12,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let stage = "setup";
 		let failed = false;
+		let closeFailed = false;
 		const key = `ch03r4-${home}`;
 		const globals = globalThis as unknown as Record<
 			string,
@@ -312,7 +313,6 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			}
 			throw new Error(`CH03R4 ${stage}: ${reason}`);
 		} finally {
-			let closeFailed = false;
 			try {
 				await kernel?.close();
 			} catch {
@@ -325,7 +325,6 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 					console.error("CH03R4 credential cleanup failed");
 				});
 				console.error("CH03R4 retained home:", home);
-				if (closeFailed && !failed) throw new Error("CH03R4 service close failed");
 			} else {
 				await rm(home, { recursive: true, force: true }).catch(async () => {
 					await rm(join(home, "auth.json"), { force: true }).catch(() => {
@@ -336,6 +335,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 				});
 			}
 		}
+		if (closeFailed && !failed) throw new Error("CH03R4 service close failed");
 	},
 	450000,
 );
