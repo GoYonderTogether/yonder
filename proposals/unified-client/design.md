@@ -2,6 +2,7 @@
 
 > 状态：提案，待维护者批准。本文件不改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md`、`AGENTS.md`；需改的条款见第 10 节。
 > 日期：2026-10-27。输入优先级：[research/owner-requirements.md](research/owner-requirements.md) > Opus 决定 D1–D10 > 第一版 > `research/` B1/B2/A1/A2/A4/A5。
+> 说明：本文取代已删除的第一版（`design-v1.md`，见 git 历史）；正文里的「第一版」指它。
 > 约定：「事实」带路径。「建议」是本文的设计。「未核实」是没读到源码或没运行验证的内容。本版新核对：`plugins/hermes-experience` 与外部包的差异、`plugins/agent-presets/src/index.ts`、`packages/cli/src/index.ts:269,426-438,881`、`packages/cli/src/awake.ts:9-10,70-72`、`packages/core/src/runtime/quota-source.ts:156`、`scripts/` 目录。B1/B2 的数据直接引用，未重跑。
 
 ---
@@ -295,7 +296,7 @@ npm 包：
 2. `packages/gateway`（`@yonder/gateway`）在内核进程内与 `serveControl` 并列启动，只绑 `127.0.0.1`，把同一份方法表以 `POST /api/rpc/<method>` 与 `GET /api/stream`（WS，单页单连接，多路复用）暴露。`@yonder/gateway/protocol` 子路径只导出 schema 与类型，前端 `import type`，不需要代码生成器。
 3. 新增方法 `capabilities.get`（read）：返回 §1.3 的 `NodeFacts`。它直接从方法注册表与插件加载器导出，不另存一份。
 4. 活动汇总只留一个口径：`activity.summary/watch` 以 `kernel.terminal.activity()` 为准（`index.ts:759-770`）。
-5. 断线续传：`sessions.watch` 带不透明 `after` 游标，`ready` 帧带 `gap` 标志；游标与 `eventWatermark()` 的映射**未核实**，阶段 1 第一件事先读 `kernel.terminal.observe` 与 `events.query`，不通过就退化为总是 `gap:true` 并对账。
+5. 断线续传：`sessions.watch` 带不透明 `after` 游标，`ready` 帧带 `gap` 标志；语义与未核实的游标映射见 [contracts.md](contracts.md) §2.3。
 6. Windows：`control.sock` 在 Windows 用命名管道，见 §4.6。
 
 拒绝的备选（理由同第一版）：独立代理进程。它缺 schema 与 scope，多一个需要发现、保活、鉴权的服务；而远程鉴权需要方法级 scope。
@@ -452,15 +453,9 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 - 建议：`macos-helper` 不动，与壳选择无关。`packages/macos` 在阶段 1 改为订阅网关（回路径不变）；Tauri spike 通过且悬浮窗达到对等后，在阶段 6 末删除，改用同一个 Tauri 壳。**不并存两个长期的 macOS 壳。**
 - `PowerHelper`（防休眠特权助手，launchd 标签 `dev.yonder.harness.power`）是独立的系统服务，改名随 §3.2 做，不属于壳。
 
-**签名/公证、自动更新、Windows control 通道：**
+签名、公证与自动更新的规格见 [release-ci.md](release-ci.md) §8；已有更新逻辑（`plugins/channel-github/src/update-job.ts`、spec 09 的 `YONDER_INSTALL*`）如何衔接**未核实**，阶段 6 先读 spec 09 与 `yonder-service-host.mjs`。
 
-| 项 | 做法 |
-|---|---|
-| macOS | Developer ID Application 签名；`notarytool` 公证加 staple；内核 Node 二进制和 `macos-helper` 要同样签名并启用 hardened runtime。需要主人的 Apple Developer 账号 |
-| Windows | Authenticode（EV 证书或 Azure Trusted Signing）；无签名时 SmartScreen 会警告，P6 先发未签名预览并明示 |
-| Linux | AppImage/deb/rpm 附 SHA256SUMS 与 minisign 签名；不做仓库托管 |
-| 自动更新 | 壳更新用 Tauri updater（GitHub Releases `latest.json`）；内核更新随同一安装包。已有更新逻辑（`plugins/channel-github/src/update-job.ts`、spec 09 的 `YONDER_INSTALL*`）如何衔接**未核实**，阶段 6 先读 spec 09 与 `yonder-service-host.mjs` |
-| Windows control | `control.sock` 改为命名管道 `\\.\pipe\yonder-<home 哈希>`；Node `net.createServer().listen(pipePath)` 同一套 API，传输层改路径与权限（管道 ACL 限当前用户）。事实：spec 09 95-96 记录 Windows 多用户隔离未验收；壳只用 loopback 网关，不依赖管道，CLI 用管道 |
+**Windows control 通道：** `control.sock` 改为命名管道 `\\.\pipe\yonder-<home 哈希>`；Node `net.createServer().listen(pipePath)` 同一套 API，传输层改路径与权限（管道 ACL 限当前用户）。事实：spec 09 95-96 记录 Windows 多用户隔离未验收；壳只用 loopback 网关，不依赖管道，CLI 用管道。
 
 ### 4.7 能力清单实现
 
@@ -541,21 +536,10 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 
 ## 6. 分发与安装
 
-保留一条命令安装，同时提供 GitHub Releases 多平台安装包。事实：安装逻辑已存在（spec 09 与 `YONDER_INSTALL*` 环境变量，在 `plugins/channel-github/src/update-job.ts`、`scripts/test-helper-install.mjs` 等处出现，细节**未核实**）。
+保留一条命令安装，同时在 GitHub Releases 提供 Linux、macOS、Windows 安装包（dmg、msi/nsis、AppImage/deb/rpm），云站点使用同一份 `@yonder/app` 产物。产物矩阵、安装脚本、包管理器、版本号规则、签名、更新与回滚的唯一规格在 [release-ci.md](release-ci.md)（§3 产物、§6 安装与更新、§8 多端）。本文只保留与架构相关的两点：
 
-| 平台 | 包 | 阶段 |
-|---|---|---|
-| macOS | `.dmg`（含 `.app`，内含壳加内核）；`.pkg`（安装特权助手） | 阶段 6 |
-| Windows | `.msi`（或 NSIS `.exe`） | 阶段 6（先未签名预览） |
-| Linux | AppImage、`.deb`、`.rpm` | 阶段 6 |
-| 命令行 | `curl -fsSL <url> \| sh`（macOS/Linux）、`irm <url> \| iex`（Windows），保留 | 阶段 2 起沿用，阶段 6 补 Windows |
-| 包管理器 | Homebrew cask/formula、winget、scoop | 阶段 6 之后分期 |
-
-- 一条命令安装的内容与 dmg 内相同：同一份 `release/` 构建产物，由 GitHub Actions 为三平台各出一份，附 `SHA256SUMS`。
-- 版本号沿用现有 `0.2.<日期><序号>` 规则（`chore(release): 0.2.26102705`）。
-- 云站点（Web/mobile）使用同一份 `@yonder/app` 产物，由云仓部署，版本与桌面版本一致。
-- 签名与更新通道见 §4.6。
-- 回滚：安装包按版本保留在 Releases；`yonder migrate` 使用的备份允许回到旧版本布局（旧版不会读新路径，符号链接保证旧版仍能找到数据）。
+- 一条命令安装与桌面安装包的内核是同一份构建产物，由 GitHub Actions 出包。
+- 回滚时 `yonder migrate` 使用的备份允许回到旧版本布局（旧版不会读新路径，符号链接保证旧版仍能找到数据）。
 
 ---
 

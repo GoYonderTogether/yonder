@@ -477,6 +477,7 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 
 说明：
 
+- 事件名与载荷的定义只在 [contracts.md](contracts.md) §3，本表只列页面位置与数据来源。
 - E1 记的 `STALL_WARN_MS=120000` 是 120 秒，不是 12 分钟（E1 原文括号里写成"12 分钟"，疑为笔误）。
 - 底栏数据一次连接后拉一次全量，再靠事件增量；断线重连重新拉。
 - TUI 保持 pi 原生界面，不提供上表中除 pi 自带的那些之外的显示。TUI 能否显示 Todo 树取决于 pi-tui 的 widget，不在本方案范围，见 §12。
