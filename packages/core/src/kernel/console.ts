@@ -51,5 +51,11 @@ export function withConsoleBinding(agent: AgentConfig, config: YonderConfig): Ag
 	return { ...agent, bindings: [binding, ...agent.bindings] };
 }
 
+/** The implicit binding is runtime-only: never persist it into agent.yaml. */
+export const withoutConsoleBinding = (agent: AgentConfig): AgentConfig => ({
+	...agent,
+	bindings: agent.bindings.filter((binding) => binding.id !== CONSOLE_BINDING),
+});
+
 export const isConsoleBot = (agent: AgentConfig) =>
 	!agent.archivedAt && agent.bindings.some((binding) => [binding.match.channel].flat().includes(CONSOLE));

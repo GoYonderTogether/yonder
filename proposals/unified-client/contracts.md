@@ -434,7 +434,7 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 
 ## 10. 控制台作为渠道：与常驻 Bot 对话（新增）
 
-控制台是一个内置渠道 `console`（内核内置，不是插件；`channels.console` 保留，配置它会报错）。它复用现有渠道/账号/绑定模型，不另开唤醒路径（架构不变量 2）。
+控制台是一个内置渠道 `console`（内核内置，不是插件；`channels.console` 保留，配置它会报错）。内置 `console` 出现在 `LoadedPlugins.channels` 里（投递按渠道 id 查找，需要它），但没有插件归属，不进入 `plugins.list` 的 `instances`，也不会被 `start()` 启动。它复用现有渠道/账号/绑定模型，不另开唤醒路径（架构不变量 2）。
 
 - **对端**：已认证的控制台用户即主人，账号 `acct:console:owner`，会话引用 `conv:console:<agent>`。内核启动时若该账号未关联，则关联到首个 Bot 的 `owner` 人（`from: owner` 由此成立）。
 - **绑定（零配置）**：`gateway.enabled` 不为 `false` 时，每个有 `session: main` 绑定（`wake` 不是 `write`）的非归档 Agent 在加载时获得一条内存绑定 `{id: "@console", match: {channel: console, kind: dm, from: owner}, session: main, profile: <该 main 绑定的 profile>}`，不写盘。profile 取自既有 main 绑定以满足 02 §2.4。内置绑定用保留 id `@console`，用户绑定一律不被过滤；`agent.yaml` 里任何绑定若 id 为 `@console`，配置校验报错。`agent.yaml` 里显式写了 `channel: console` 的绑定则不注入，以显式为准。
@@ -451,3 +451,5 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 **节点 owner**：一个节点只有一个 owner，取首个控制台 Bot 的 `owner`。`bots.list` / `bots.send` 只覆盖 owner 与之相同的 Bot；其他 owner 的 Bot 被排除，每个启动时记一条 warn 日志。多 owner 需多个节点。
 
 **scope `owner`**：`Scope = read | write | admin | owner`。本机票据登录（`kind: local`）含 `owner`；远程访问令牌登录默认**不含**，需在 `yonder.yaml` 设 `gateway.remoteOwner: true` 才授予（默认 false，重启生效）。无 scope 时网关对 HTTP RPC 返回 403 `{ok:false,error:{code:"forbidden"}}`（此前 forbidden 也是 200，现统一为 403）；WS 订阅沿用 `end{reason:"forbidden"}`。`capabilities.get.methods` 与 `granted` 只列出本连接持有 scope 的方法。**远程隔离**：Bot 对话（所有非 task 会话，含共享 main 会话）额外要求 `owner` scope：`sessions.list` 只向无 `owner` 的连接返回 task 会话，`sessions.show/transcript/watch/abort/close` 对非 task 会话返回 forbidden（HTTP 403；WS `end{reason:"forbidden"}`，共享 feed 对每个订阅者单独检查）。因此远程令牌在未开 `gateway.remoteOwner: true` 时看不到也碰不到 Bot 对话。task 会话保持原有 read/write 行为。
+
+**已知缺口（待下一片，需 owner scope 校验）**：无 `owner` scope 的远程令牌（默认）虽看不到 Bot 会话（上文 sessions.* 隔离），但仍可经 `events.query`（按事件过滤，不按会话）读取、经 `sessions.notify`、`sessions.command` 和 `terminal.info`（按会话 id）作用于 Bot 对话。`events.query` 需按事件所属会话/渠道过滤，超出本片范围；其余三个需复用 `guardSession`。

@@ -27,8 +27,8 @@ export async function persistConsole(
 	msg: OutMessage,
 	event: string,
 	session?: SessionInfo,
-): Promise<Delivery> {
-	if (!isConsole(target)) return { ok: true };
+): Promise<Delivery | undefined> {
+	if (!isConsole(target)) return undefined;
 	const parsed = parseRef(target);
 	const bot = session?.agent ?? (parsed.kind === "conv" ? parsed.id : undefined);
 	const main = bot && (await store.sessions.list({ agent: bot, open: true })).find((row) => row.mode === "main");
