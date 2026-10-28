@@ -22,6 +22,7 @@ import type {
 	TSchema,
 	YEvent,
 } from "@yonder/sdk";
+import { API_VERSION } from "@yonder/sdk";
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
 import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
@@ -153,8 +154,22 @@ export async function loadPlugins(
 	claim("contexts", peerWorkspaceContext.id, "core");
 	for (const entry of config.plugins ?? []) {
 		const directory = await pluginDirectory(home, entry.use);
+		const pkg = JSON.parse(await readFile(resolve(directory, "package.json"), "utf8")) as {
+			version: string;
+			yonder?: { id?: unknown; apiVersion?: unknown };
+		};
+		const apiVersion = pkg.yonder?.apiVersion ?? 1;
+		if (typeof apiVersion === "number" && apiVersion > API_VERSION) {
+			// A plugin built for a newer plugin API is skipped so the remaining plugins still load (04 §6).
+			services.log.error("Plugin needs a newer Yonder (需要更新的 Yonder)", {
+				plugin: String(pkg.yonder?.id ?? entry.use),
+				apiVersion,
+				supported: API_VERSION,
+			});
+			continue;
+		}
 		const manifest = await readPluginManifest(directory);
-		const { version } = JSON.parse(await readFile(resolve(directory, "package.json"), "utf8")) as { version: string };
+		const { version } = pkg;
 		if (typeof version !== "string" || !version) throw new Error(`${manifest.id}: missing package version`);
 		info.push({ id: manifest.id, version, use: entry.use, directory, contributes: manifest.contributes });
 		if (pluginIds.has(manifest.id)) throw new Error(`${manifest.id}: plugin is listed more than once`);
