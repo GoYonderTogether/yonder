@@ -30,3 +30,17 @@ Rust 固定 `1.99.0`：上一轮 1.92.0 两次下载未完成；本机 Homebrew 
 `node --test apps/desktop/src-tauri/src/activity.test.cjs`：1 项通过，覆盖活动流结束后设置离线；真实 gateway 断线与杀死壳后恢复均未测。bundle ID 为 `dev.yonder.desktop`，已有 debug 包为 ad-hoc 签名。历史 `/usr/bin/log show --last 2h --style compact --predicate 'process == "usernoted" AND eventMessage CONTAINS "dev.yonder.desktop"'` 在 13:03:10 记录上一轮临时通知调用，授权状态为 Denied；系统识别了该调用，但这不是节点事件，不能证明通知展示或点击跳转，也不能据此断定 ad-hoc 签名不支持通知或前台抑制是原因。当前权限未确认。
 
 真实验收阻塞：修复提交推送后运行 `verify-copy.sh`，脚本报告验收 HOME `ch05r3` 仍在运行，拒绝更新共享副本；未停止其他任务进程。故 release 构建及体积、两壳各三次冷/热可交互计时、节点通知及点击、崩溃恢复和实际离线托盘均未验收。应在副本可更新后执行 `verify-copy.sh`、`verify-home.sh` 和 `real-check.sh`，再补上述实测；节点级通知契约需维护者确定。
+
+## D01r3（2026-10-28，未完成）
+
+**结论：保留 Swift。** 本轮未完成通知链路及真实桌面验收，既不足以证明 Tauri 可继续，也没有 Electron 的实测依据。
+
+| 项目 | Tauri | Swift |
+|---|---|---|
+| release 体积、冷/热启动各三次 | 未测 | 未测 |
+| 节点通知、系统通知与点击跳转 | 未完成 | 未完成 |
+| 杀死壳后恢复、gateway 断线托盘 | 未测 | 未测 |
+
+阻塞：`notifications.prefs.get/set` 的协议已声明，但 `packages/core/src/control/notify-methods.ts` 为空。`proposals/unified-client/contracts.md` §16 指定节点偏好支持 session id、`mentions`，而 `docs/spec/08-config.md` 指定 `yonder.yaml` 只接受 `conv:`、`mention` 且重启生效；需维护者统一权威和生效语义。现有 Tauri 推送只读客户端偏好，直接接入新节点事件无法保证节点免打扰；Swift 同样没有可用节点偏好接口。未合入半条链路，golden 及系统通知点击仍待完成。
+
+实现探索期间，`npx tsc -b packages/core apps/app` 通过；聚焦 vitest 首次运行 2 文件通过、2 文件失败（额外收集 `target/debug/runtime` 副本且缺 tsconfig），4 项测试通过；排除该构建副本后 4 文件、12 项通过。探索代码未保留，这些检查不能作为最终链路通过的证据。
