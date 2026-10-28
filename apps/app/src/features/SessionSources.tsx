@@ -8,7 +8,14 @@ type SourceEvent = {
 	ts: string;
 	from?: string;
 	conv?: string;
-	data: { text?: string; msgId?: string; kind?: string; attachments?: { kind: string; name?: string }[] };
+	data: {
+		text?: string;
+		msgId?: string;
+		kind?: string;
+		agent?: string;
+		summary?: string;
+		attachments?: { kind: string; name?: string }[];
+	};
 	routes?: {
 		agent: string;
 		session?: string;
@@ -53,6 +60,7 @@ export function SessionSources({ session, agent }: { session: string; agent?: st
 	return (
 		<div className="max-h-80 space-y-2 overflow-auto p-3 text-small">
 			{agent && <BotSources agent={agent} />}
+			<FoldedBatches agent={agent} />
 			<SessionTrace session={session} />
 			{query.data.hasMore && <p className="text-faint">仅显示最近 50 条转录对应的来源。</p>}
 			{query.data.events.length === 0 && <p className="text-faint">最近转录没有可读取的来源事件。</p>}
@@ -207,6 +215,49 @@ function BotSources({ agent }: { agent: string }) {
 						</button>
 					)}
 				</div>
+			)}
+		</details>
+	);
+}
+
+function FoldedBatches({ agent }: { agent?: string }) {
+	const [open, setOpen] = useState(false);
+	const [after, setAfter] = useState<string>();
+	const query = useQuery({
+		queryKey: ["folded-batches", agent, after],
+		queryFn: () =>
+			rpc<{ events: SourceEvent[]; next?: string }>("events.query", {
+				query: { type: "social.folded-ready", limit: 100, ...(after ? { after } : {}) },
+			}),
+		enabled: open && !!agent,
+		retry: false,
+	});
+	if (!agent) return null;
+	return (
+		<details onToggle={(event) => setOpen(event.currentTarget.open)}>
+			<summary className="cursor-pointer text-muted">群聊待整理批次</summary>
+			{query.isPending && <p className="text-faint">加载批次中…</p>}
+			{query.isError && (
+				<p role="alert" className="text-danger">
+					批次读取失败：{query.error.message}
+				</p>
+			)}
+			{query.data?.events
+				.filter((event) => event.data.agent === agent)
+				.map((event) => (
+					<p key={event.id} className="break-words">
+						{event.ts} · {event.conv} · {event.data.summary ?? "待整理"}
+					</p>
+				))}
+			{after && (
+				<button type="button" onClick={() => setAfter(undefined)} className="underline">
+					回到第一页
+				</button>
+			)}
+			{query.data?.next && (
+				<button type="button" onClick={() => setAfter(query.data?.next)} className="ml-2 underline">
+					下一页
+				</button>
 			)}
 		</details>
 	);

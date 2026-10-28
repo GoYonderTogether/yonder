@@ -1,11 +1,12 @@
 import type { EventInput, EventQuery, PluginAPI, SocialPolicy, YEvent } from "@yonder/sdk";
+import { recoverJudgment } from "./judge-recovery.js";
 
 interface Entry {
 	source: YEvent;
 	revision: string;
 	policy: SocialPolicy;
 }
-interface State {
+export interface State {
 	entries: Entry[];
 	pending?: EventInput;
 	timer?: ReturnType<typeof setTimeout>;
@@ -17,6 +18,7 @@ interface State {
 
 export class Batches {
 	private readonly groups = new Map<string, State>();
+	private readonly judging = new Map<string, YEvent>();
 	private readonly read = new Map<string, string>();
 	private readonly readAt = new Map<string, number>();
 	private readonly foldedThrough = new Map<string, string>();
@@ -63,10 +65,11 @@ export class Batches {
 			}
 		}
 		for await (const event of this.events({ type: "social.judge-start" })) {
-			const data = event.data as { agent?: string; through?: string };
+			const data = event.data as { agent?: string; through?: string; session?: string };
 			if (!event.conv || !data.agent || !data.through) continue;
 			const key = this.key(data.agent, event.conv);
 			if (data.through <= (this.read.get(key) ?? "")) continue;
+			if (data.session) this.judging.set(data.session, event);
 			const state = this.groups.get(key) ?? { entries: [] };
 			state.failed = true;
 			state.failedThrough = data.through;
@@ -192,6 +195,11 @@ export class Batches {
 	}
 	async finished(event: YEvent) {
 		const data = event.data as { inputs?: string[]; session?: string; status?: string };
+		const start = data.session && this.judging.get(data.session);
+		if (start)
+			await recoverJudgment(this.api, event, start, this.groups, this.judging, this.read, this.readAt, (key, state) =>
+				this.schedule(key, state),
+			);
 		for (const [key, state] of this.groups) {
 			const ids = (data.inputs ?? []).filter((id) => state.direct?.get(id) === data.session);
 			if (!ids.length) continue;
@@ -341,6 +349,15 @@ export class Batches {
 					through,
 					sourceEvents: entries.map((entry) => entry.source.id),
 					policyRevision: first.revision,
+					summary: `${entries.length} 条消息：${entries
+						.map((entry) =>
+							String((entry.source.data as { text?: unknown }).text ?? "")
+								.replace(/\s+/g, " ")
+								.trim(),
+						)
+						.filter(Boolean)
+						.join("；")
+						.slice(0, 200)}`,
 				},
 			});
 			this.foldedThrough.set(key, through);

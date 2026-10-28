@@ -4,6 +4,7 @@
 		"agent": "string",
 		"through": "string",
 		"sourceEvents": ["string"],
-		"policyRevision": "string"
+		"policyRevision": "string",
+		"summary": "string"
 	}
 }

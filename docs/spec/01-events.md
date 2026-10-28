@@ -154,9 +154,9 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 
 `routing.social-decision` 在 reason 为 batch 时可附生效策略快照 policy。social 插件以 `social.batch-read` 记录已处理游标、以 `social.batch-failed` 记录失败；data 包含 agent、through、msgId，parent 关联批次或完成事件。原消息仍是正文来源。
 
-judge 调用前追加 `social.judge-start`，按 agent 和 conv 统计滚动一小时预算；合法结果追加 `social.judge-result`，包含 action、sourceEvents、reason 和批次指针。恢复时已记录结果可继续处理，只有 start 而无结果的批次保留待处理，不重新发起判断。
+judge 调用前追加 `social.judge-start`，按 agent 和 conv 统计滚动一小时预算；合法结果追加 `social.judge-result`，包含 action、sourceEvents、reason 和批次指针。恢复时已记录结果可继续处理；已启动的 durable 判断运行恢复完成后，从其转录读取结果，重新检查准入并记录结果，不重新发起判断。未完成或无合法结果的批次保留待处理。
 
-folded 的 `routing.social-decision` 同样附策略快照；social 定时写入 `social.folded-ready`，记录 agent、through、sourceEvents、policyRevision 和稳定 msgId。该事实只是待整理批次，不表示摘要完成，不推进已读游标；重启按事实恢复定时与去重。
+folded 的 `routing.social-decision` 同样附策略快照；social 定时写入 `social.folded-ready`，记录 agent、through、sourceEvents、policyRevision、稳定 msgId 和单行 summary（消息数量及截取的原文）。Console 的会话来源可查看对应 Agent 的待整理批次。该事实不表示整理完成，不推进已读游标；重启按事实恢复定时与去重。
 
 ### 主动通知队列（CH-05r3）
 

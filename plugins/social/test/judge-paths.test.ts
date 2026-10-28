@@ -159,3 +159,29 @@ test("recovery leaves an unfinished judgment pending without a second call", asy
 	expect(ask).not.toHaveBeenCalled();
 	expect(ledger.some((e) => e.type === "social.batch-read")).toBe(false);
 });
+
+test("a durable judge completed after interruption is recovered without a second call", async () => {
+	const { api, ledger, open, ask } = setup(response("participate"));
+	(api.sessions as unknown as { transcript: () => Promise<unknown> }).transcript = async () => [
+		{ kind: "pi.assistant", text: response("participate").text },
+	];
+	ledger.push({
+		id: "003",
+		ts: new Date().toISOString(),
+		type: "social.judge-start",
+		conv: "conv:test:group",
+		data: { agent: "a", through: "001", session: "judge-session" },
+	});
+	ledger.push({
+		id: "004",
+		ts: new Date().toISOString(),
+		type: "run.end",
+		data: { session: "judge-session", status: "done" },
+	});
+	await run(api);
+	await run(api);
+	expect(open).not.toHaveBeenCalled();
+	expect(ask).toHaveBeenCalledTimes(1);
+	expect(ledger.filter((event) => event.type === "social.judge-result")).toHaveLength(1);
+	expect(ledger.filter((event) => event.type === "social.batch-read")).toHaveLength(1);
+});

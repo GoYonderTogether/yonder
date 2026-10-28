@@ -17,8 +17,20 @@ test("opens Bot sources separately and pages session trace through an empty page
 	const root = createRoot(container);
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	rpc.mockImplementation(
-		async (method: string, params: { id?: string; after?: string; query?: { agent?: string } }) => {
+		async (method: string, params: { id?: string; after?: string; query?: { agent?: string; type?: string } }) => {
 			if (method === "sessions.transcript") return { items: [], hasMore: false };
+			if (method === "events.query" && params.query?.type === "social.folded-ready")
+				return {
+					events: [
+						{
+							id: "folded",
+							ts: "time",
+							conv: "conv:test:group",
+							data: { agent: "bot", summary: "2 条消息：讨论发布" },
+						},
+						{ id: "other", ts: "time", data: { agent: "other", summary: "其他 Bot 内容" } },
+					],
+				};
 			if (method === "events.query" && params.query?.agent === "bot")
 				return {
 					events: [
@@ -56,6 +68,8 @@ test("opens Bot sources separately and pages session trace through an empty page
 		});
 		await vi.waitFor(() => expect(container.textContent).toContain("本页没有会话事件"));
 		await vi.waitFor(() => expect(container.textContent).toContain("group message"));
+		await vi.waitFor(() => expect(container.textContent).toContain("2 条消息：讨论发布"));
+		expect(container.textContent).not.toContain("其他 Bot 内容");
 		expect(container.querySelector('a[href="#/s/other"]')).not.toBeNull();
 		const next = [...container.querySelectorAll("button")].find((button) => button.textContent === "下一页");
 		await act(async () => next?.dispatchEvent(new window.Event("click", { bubbles: true })));

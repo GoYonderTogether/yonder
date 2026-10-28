@@ -77,9 +77,12 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
 			agent.social = {
 				enabled: true,
-				authorized: { conversations: ["conv:ch03r4:group", "conv:ch03r4:batch"] },
+				authorized: { conversations: ["conv:ch03r4:group", "conv:ch03r4:batch", "conv:ch03r4:chatter"] },
 				defaults: { group: { mode: "mention" } },
-				conversations: { "conv:ch03r4:batch": { mode: "batch", batch: { count: 2 }, judge: { preset: "judge" } } },
+				conversations: {
+					"conv:ch03r4:batch": { mode: "batch", batch: { count: 2 }, judge: { preset: "judge" } },
+					"conv:ch03r4:chatter": { mode: "batch", batch: { count: 2, delaySeconds: 3600 }, judge: { preset: "judge" } },
+				},
 			};
 			agent.bindings.push({
 				id: "batch",
@@ -101,6 +104,23 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 				conv: "conv:ch03r4:group",
 				data: { kind: "group", msgId, text, mentioned },
 			});
+			stage = "chatter accumulation";
+			await globals[key]!.emit({ ...input("batch-chatter", "今天天气不错。", false), conv: "conv:ch03r4:chatter" });
+			const accumulated = (await kernel.events.query({ type: "message.in", conv: "conv:ch03r4:chatter" })).events;
+			expect(accumulated).toHaveLength(1);
+			expect(accumulated[0]!.routes?.[0]).toMatchObject({ wake: "write" });
+			const decision = (await kernel.events.query({ type: "routing.social-decision" })).events.find(
+				(event) => event.parent === accumulated[0]!.id,
+			);
+			expect(decision?.data).toMatchObject({ reason: "batch" });
+			expect(
+				(await kernel.events.query({ type: "social.batch-read", conv: "conv:ch03r4:chatter" })).events,
+			).toHaveLength(0);
+			expect(
+				(await kernel.events.query({ type: "social.judge-start", conv: "conv:ch03r4:chatter" })).events,
+			).toHaveLength(0);
+			expect((await kernel.events.query({ type: "run.end" })).events).toHaveLength(0);
+			stage = "group mention";
 			await globals[key]!.emit(input("chatter", "今天的天气不错。", false));
 			const chatter = (await kernel.events.query({ type: "message.in", conv: "conv:ch03r4:group" })).events[0]!;
 			expect(chatter.routes?.[0]?.dropped).toBe("no-binding");
@@ -225,7 +245,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			};
 			expect(starts[0]!.data).toMatchObject({ agent: "main", through: ids[1] });
 			expect(judgment).toMatchObject({ through: ids[1], batch: { data: { sourceEvents: ids } } });
-			expect(["ignore", "summarize", "participate"]).toContain(judgment.action);
+			expect(["summarize", "participate"]).toContain(judgment.action);
 			expect(typeof judgment.reason).toBe("string");
 			expect(judgment.sourceEvents.every((id) => ids.includes(id))).toBe(true);
 			const judgeRuns = (await kernel.events.query({ type: "run.end" })).events.filter(

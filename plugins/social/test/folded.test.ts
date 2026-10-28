@@ -63,7 +63,7 @@ test("folded batches are timed, bounded and not duplicated after restart", async
 		expect(ledger.filter((event) => event.type === "social.folded-ready")).toHaveLength(0);
 		await vi.advanceTimersByTimeAsync(1);
 		expect(ledger.filter((event) => event.type === "social.folded-ready").map((event) => event.data)).toMatchObject([
-			{ through: "1", sourceEvents: ["1"] },
+			{ through: "1", sourceEvents: ["1"], summary: "1 条消息：1" },
 		]);
 		const current = {
 			"social.folded-ready": shape(ledger.find((event) => event.type === "social.folded-ready")?.data),
