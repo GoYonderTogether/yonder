@@ -16,20 +16,10 @@ import {
 	isModelType,
 	type Model,
 	type Provider,
-	type ProviderStreams,
 } from "@earendil-works/pi-ai";
-import { anthropicMessagesApi } from "@earendil-works/pi-ai/api/anthropic-messages.lazy";
-import { azureOpenAIResponsesApi } from "@earendil-works/pi-ai/api/azure-openai-responses.lazy";
-import { bedrockConverseStreamApi } from "@earendil-works/pi-ai/api/bedrock-converse-stream.lazy";
-import { googleGenerativeAIApi } from "@earendil-works/pi-ai/api/google-generative-ai.lazy";
-import { googleVertexApi } from "@earendil-works/pi-ai/api/google-vertex.lazy";
-import { mistralConversationsApi } from "@earendil-works/pi-ai/api/mistral-conversations.lazy";
-import { openAICodexResponsesApi } from "@earendil-works/pi-ai/api/openai-codex-responses.lazy";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
-import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
-import { piMessagesApi } from "@earendil-works/pi-ai/api/pi-messages.lazy";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { Errors } from "typebox/value";
+import { protocols } from "./model-protocols.js";
 import { ProviderConfigSchema } from "./model-schema.js";
 import { enableProviderTrace, traceCredentials, traceModel } from "./provider-trace.js";
 
@@ -45,18 +35,6 @@ export interface ModelsJsonProvider {
 	models?: ModelsJsonModel[];
 	modelOverrides?: Record<string, ModelsJsonModelOverride>;
 }
-const protocols: Record<string, () => ProviderStreams> = {
-	"anthropic-messages": anthropicMessagesApi,
-	"openai-completions": openAICompletionsApi,
-	"openai-responses": openAIResponsesApi,
-	"openai-codex-responses": openAICodexResponsesApi,
-	"azure-openai-responses": azureOpenAIResponsesApi,
-	"google-generative-ai": googleGenerativeAIApi,
-	"google-vertex": googleVertexApi,
-	"bedrock-converse-stream": bedrockConverseStreamApi,
-	"mistral-conversations": mistralConversationsApi,
-	"pi-messages": piMessagesApi,
-};
 function mergeCompat(
 	base: Model<Api>["compat"],
 	override: Model<Api>["compat"] | ModelsJsonModelOverride["compat"],
@@ -486,8 +464,14 @@ export function buildModels(
 		for (const provider of models.getProviders()) {
 			models.setProvider({
 				...provider,
-				stream: (model, context, options) => { traceModel(model, options?.apiKey); return provider.stream(model, context, options); },
-				streamSimple: (model, context, options) => { traceModel(model, options?.apiKey); return provider.streamSimple(model, context, options); },
+				stream: (model, context, options) => {
+					traceModel(model, options?.apiKey);
+					return provider.stream(model, context, options);
+				},
+				streamSimple: (model, context, options) => {
+					traceModel(model, options?.apiKey);
+					return provider.streamSimple(model, context, options);
+				},
 			});
 		}
 	if (timeouts.firstTokenMs || timeouts.totalMs)
