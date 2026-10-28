@@ -10,7 +10,7 @@ import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, SHOW, UPDATE } from "./promp
 import { type Open, Store, type Update } from "./store/index.js";
 import { registerTaskViews } from "./views.js";
 
-const string = { type: "string", minLength: 1, pattern: "\\S" };
+const string = { type: "string", minLength: 1, pattern: "[\\s\\S]*\\S[\\s\\S]*" };
 const strings = { type: "array", items: string };
 const obj = (properties: object, required = Object.keys(properties)): TSchema =>
 	({ type: "object", properties, required, additionalProperties: false }) as TSchema;
