@@ -144,6 +144,8 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 					(
 						(await scheduler.manage({ action: "history", id: pending[1]?.id }, ctx, false)) as Array<{ status: string }>
 					)[0]?.status,
+				// Windows runners are slow enough that a fired recovery can still be running after the 1s default.
+				{ timeout: 10_000 },
 			)
 			.toBe("done");
 		expect(await scheduler.manage({ action: "history", id: pending[0]?.id }, ctx, false)).toMatchObject([
