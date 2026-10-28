@@ -55,3 +55,5 @@ official-prompts.test.ts：3/3 通过。预算脚本最初在并行改动期间�
 最终措辞恢复“无必要轮询”后，按装配字节差计算的保守上界为 main 1999、default 1774、coding 1866；仍为 UTF-8/4 估算，非 tokenizer 计数。`task_continue` 的指南承接了结束前排入具体下一步并确认接纳的规则。
 
 第三轮推送后干净副本 `0edb8ee` 的全仓构建失败：并行的 code-intel 引用 SDK `ToolContext.authorizeFileWrite`，但副本中该字段尚未合入。原真实测试运行 1 个失败：短问答未调用 tasks 工具，委派阶段 120 秒内未观察到所等的 run.end；证据目录 `/tmp/yonder-pt01-nJu8Tn`。该失败不能作为闭环通过的证据。
+
+推送后的真实测试首轮：default 1 通过（coding 跳过）；coding 1 失败（default 跳过），执行者给出正确路径和模型，主管已验收，但报告以 `**STATUS: done**` 开头，未满足首字符为 `S`。coding 原始证据 `/tmp/yonder-pt01-EDstnW/evidence.json`。随后明确禁止 Markdown 包裹，需复跑。干净副本 `1a8499f` 构建通过，早前构建失败保留如上。

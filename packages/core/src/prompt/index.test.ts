@@ -439,7 +439,9 @@ test("model discipline follows the exact model id and task sessions must report 
 		expect((await systemSections(session, options)).includes(modelDiscipline)).toBe(expected);
 	}
 	const task = { id: "1", agent: null, profile: "default", cwd: process.cwd(), resolved: resolveProfile({}) };
-	expect(framework(task)).toContain("Your final report must start with STATUS: done|partial|blocked");
+	expect(framework(task)).toContain(
+		"Your final report must start with STATUS: done|partial|blocked (first character S; no Markdown wrapping)",
+	);
 	expect(framework(task)).toContain("Never end a task session empty or with NO_REPLY");
 	expect(framework({ ...task, agent: "main" })).toContain("If no reply is needed, output only NO_REPLY.");
 	expect(framework({ ...task, agent: "main" })).not.toContain("STATUS: done|partial|blocked");

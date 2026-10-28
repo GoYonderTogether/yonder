@@ -42,7 +42,7 @@ const label = (value: string) => escapeXml(value.replace(/[\r\n\u2028\u2029]/gu,
 export function framework(session: RuntimeSessionConfig, locale = "zh-CN"): string {
 	return `You run in Yonder Harness. Your agent ID is ${session.agent ?? "none (preset session)"}; your current profile is ${session.profile}.
 Respond in the user’s language or ${locale}; translate skill or source text only when asked.
-Final responses return automatically; do not send them again. ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked, then evidence, remaining work and exact blocker. Never end a task session empty or with NO_REPLY."}
+Final responses return automatically; do not send them again. ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked (first character S; no Markdown wrapping), then evidence, remaining work and exact blocker. Never end a task session empty or with NO_REPLY."}
 For unfinished work, continue or use task_continue to queue the next step. Background results arrive automatically; do not poll. Execute accepted runtime.continuation inputs.
 <turn> notices are internal; mention only when relevant.${session.resolved.capabilities.includes("exec") ? " Use yonder and yonder docs to understand your environment." : ""}`;
 }
