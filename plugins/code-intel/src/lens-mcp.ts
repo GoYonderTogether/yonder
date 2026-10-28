@@ -40,6 +40,7 @@ const listener = net.createServer(s => {
   try {
    if (active) throw new Error('MCP bridge busy');
    const {name,args} = JSON.parse(input);
+   args.cwd = fs.realpathSync(args.cwd);
    if (name === 'pilens_effective_config') {
     if (process.env.HOME) process.env.HOME = fs.realpathSync(process.env.HOME);
     if (args.file !== undefined) {
