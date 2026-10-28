@@ -1,0 +1,33 @@
+# Windows is not green yet (see scripts/e2e/ci-failures.md); move this job back into ci.yml once it passes.
+name: CI Windows
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 19 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows typecheck, build, test, lint
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-pi-durable-workspace.mjs
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json=windows-failures.json
+      - run: npm run lint
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-failures
+          path: windows-failures.json
