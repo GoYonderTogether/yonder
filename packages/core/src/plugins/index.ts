@@ -90,6 +90,9 @@ function pluginEvent(id: string, event: EventInput, channel?: string, multiAgent
 	return event;
 }
 
+/** A plugin's private state directory (`api.paths.data`). */
+export const pluginDataPath = (home: string, id: string) => join(home, ".yonder", "plugins", id);
+
 export async function pluginDirectory(home: string, use: string): Promise<string> {
 	if (isAbsolute(use) || use.startsWith(".")) return resolve(home, use);
 	const homeParent = pathToFileURL(join(home, "yonder-loader.mjs")).href;
@@ -290,7 +293,7 @@ export async function loadPlugins(
 			},
 			services: services.services,
 			models: services.models,
-			paths: { data: join(home, ".yonder", "plugins", manifest.id) },
+			paths: { data: pluginDataPath(home, manifest.id) },
 		};
 		try {
 			await plugin.setup(api);

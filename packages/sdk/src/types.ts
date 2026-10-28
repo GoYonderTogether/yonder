@@ -487,8 +487,8 @@ export interface PluginAPI {
 	sessions: SessionsAPI;
 	identity: IdentityAPI;
 	services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };
-	/** Read-only; the calling tool context must hold `admin`. */
-	host: { status(ctx: ToolContext): Promise<HostStatus> };
+	/** Read-only host facts. `status` needs an admin tool context; `modelReady` only says whether an agent's default model has auth. */
+	host: { status(ctx: ToolContext): Promise<HostStatus>; modelReady(agent: string): Promise<boolean> };
 	models: Models;
 	paths: { data: string };
 }

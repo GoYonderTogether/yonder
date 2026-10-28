@@ -215,7 +215,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			},
 			identity: store.identity(),
 			services: { resolve: (capability) => realRuntime().resolveService(capability) },
-			host: hostService(home, config, () => ({ runtime: realRuntime(), loaded, services, manageCredentialSlots })),
+			host: hostService(home, config, () => ({
+				runtime: realRuntime(),
+				loaded,
+				agents,
+				services,
+				manageCredentialSlots,
+			})),
 		};
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;

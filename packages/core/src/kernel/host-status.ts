@@ -1,8 +1,18 @@
 import type { HostStatus, Models, PluginAPI, ToolContext } from "@yonder/sdk";
 import { shippedChannelsFor } from "../bundles.js";
 import { gatewaySettings } from "../config/gateway.js";
-import type { YonderConfig } from "../config/index.js";
+import { type AgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
+
+/** `provider/id`; a value without "/" has no model id, so it is never a known model. */
+const splitModel = (model: string) => {
+	const slash = model.indexOf("/");
+	return slash < 0 ? { provider: model, id: "" } : { provider: model.slice(0, slash), id: model.slice(slash + 1) };
+};
+const authConfigured = async (models: Models, provider: string) =>
+	!!(await Promise.resolve()
+		.then(() => models.checkAuth(provider))
+		.catch(() => undefined));
 
 export async function hostStatus(
 	home: string,
@@ -13,14 +23,14 @@ export async function hostStatus(
 	credentials: Array<{ provider: string; slot: string; configured: boolean }>,
 ): Promise<HostStatus> {
 	const configured = plugins.info ?? [];
-	const provider = sessionModel.slice(0, sessionModel.indexOf("/"));
+	const { provider, id } = splitModel(sessionModel);
 	const gateway = await gatewaySettings(home);
 	return {
 		model: {
 			...(config.defaultModel ? { default: config.defaultModel } : {}),
 			session: sessionModel,
-			known: !!models.getModel(provider, sessionModel.slice(provider.length + 1)),
-			authConfigured: !!(await models.checkAuth(provider).catch(() => undefined)),
+			known: !!id && !!models.getModel(provider, id),
+			authConfigured: await authConfigured(models, provider),
 		},
 		channels: [...plugins.channels.keys()].map((instance) => ({
 			instance,
@@ -44,6 +54,7 @@ export function hostService(
 			sessionConfig(session: string): Promise<{ resolved: { capabilities: string[]; model: string } }>;
 		};
 		loaded: LoadedPlugins;
+		agents: Map<string, AgentConfig>;
 		services: { models: Models };
 		manageCredentialSlots(home: string, action: "list"): Promise<unknown>;
 	},
@@ -56,6 +67,16 @@ export function hostService(
 			if (!resolved.capabilities.includes("admin")) throw new Error("Host status requires admin");
 			const credentials = (await manageCredentialSlots(home, "list")) as HostStatus["credentials"];
 			return hostStatus(home, config, loaded, services.models, resolved.model, credentials);
+		},
+		async modelReady(id) {
+			const { agents, services } = deps();
+			const agent = agents.get(id);
+			const profile = agent?.profiles[agent.defaultProfile];
+			if (!agent || !profile) return false;
+			const { provider, id: model } = splitModel(
+				resolveProfile(profile, agent.defaults, "local", config.defaultModel).model,
+			);
+			return !!model && (await authConfigured(services.models, provider));
 		},
 	};
 }
