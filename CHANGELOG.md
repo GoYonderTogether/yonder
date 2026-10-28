@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Add optional `code-intel_module_report` using the pi-lens MCP backend.
+
+- code-intel 新增按需语法结构大纲工具，调用执行环境中的 ast-grep。
+
 - 新增可选 code-intel 插件，通过执行环境中的 CodeGraph 查询符号与调用关系。
 
 - QQ 群批次默认仅由 @Bot 或关键词触发，授权群保留原行为，支持按群配置参与方式。

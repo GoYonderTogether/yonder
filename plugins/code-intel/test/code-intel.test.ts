@@ -15,7 +15,7 @@ test("CodeGraph tool uses the selected execution environment and an actual index
 		await cp(resolve("packages/core/src/runtime/index.ts"), join(dir, "index.ts"));
 		const { api, registrations } = createRegistrationCollector();
 		await plugin.setup(api as never);
-		const tool = registrations.tools[0];
+		const tool = registrations.tools.find((item) => item.name === "code-intel_codegraph_explore");
 		if (!tool) throw new Error("tool missing");
 		expect(tool.name).toBe("code-intel_codegraph_explore");
 		expect(tool.capabilities).toEqual(["read", "exec"]);

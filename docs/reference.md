@@ -219,3 +219,5 @@ macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helpe
 ## code-intel（可选）
 
 - `code-intel_codegraph_explore`：通过执行环境内 CodeGraph 查询索引的源码与调用关系。
+- `code-intel_module_report`：通过 pi-lens MCP 读取模块符号大纲。
+- `code-intel_ast_grep_outline`：通过执行环境内 ast-grep 查看文件或目录的语法结构。

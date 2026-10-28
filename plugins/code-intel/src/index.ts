@@ -1,5 +1,8 @@
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
+import { moduleReport } from "./module-report.js";
+import { outline } from "./outline.js";
+import { readEnclosing } from "./read-enclosing.js";
 
 async function run(ctx: ToolContext, args: string[], cwd: string) {
 	let stdout = "",
@@ -30,6 +33,29 @@ async function run(ctx: ToolContext, args: string[], cwd: string) {
 
 export default definePlugin({
 	setup(api) {
+		api.tools.register({
+			name: "code-intel_module_report",
+			description: "Outline a source file with symbols, callbacks and recommended reads using pi-lens.",
+			parameters: Type.Object(
+				{
+					path: Type.String({ minLength: 1 }),
+					focus: Type.Optional(Type.String()),
+					view: Type.Optional(Type.Union([Type.Literal("compact"), Type.Literal("summary"), Type.Literal("default")])),
+					blastRadius: Type.Optional(Type.Boolean()),
+				},
+				{ additionalProperties: false },
+			),
+			capabilities: ["read", "exec"],
+			async execute(value, ctx) {
+				const { path, focus, view, blastRadius } = value as {
+					path: string;
+					focus?: string;
+					view?: string;
+					blastRadius?: boolean;
+				};
+				return moduleReport({ file: path, focus, view: view ?? "compact", blastRadius }, ctx);
+			},
+		});
 		api.tools.register({
 			name: "code-intel_codegraph_explore",
 			description: "Find source symbols, files, and their call relationships with CodeGraph.",
@@ -69,5 +95,7 @@ export default definePlugin({
 				};
 			},
 		});
+		api.tools.register(outline);
+		api.tools.register(readEnclosing);
 	},
 });
