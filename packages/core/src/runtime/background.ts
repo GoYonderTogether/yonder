@@ -7,8 +7,6 @@ import { setTimeout as sleep } from "node:timers/promises";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
 import {
-	defineDoc,
-	defineDocFamily,
 	defineExtension,
 	defineTask,
 	type Harness,
@@ -16,7 +14,6 @@ import {
 	type Task,
 	type TaskId,
 	type TaskOptions,
-	type TaskOutcome,
 	type ToolExecutionApi,
 	type ToolExecutionResult,
 	type ToolRegistration,
@@ -25,52 +22,12 @@ import {
 import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
+import { clean, failed, type Input, JobDoc, JobPointer, json, outcomeResult, type State } from "./background-docs.js";
 import { cid } from "./docs.js";
 import { cacheToolOutput } from "./tool-output-cache.js";
 
 const INTERRUPTED_RESULT =
 	"Task interrupted by restart; side effects may have occurred. Re-check state, avoid repeating completed actions, and resume.";
-
-const JobDoc = defineDocFamily({
-	kind: "yonder.background",
-	version: 1,
-	family: true,
-	scope: "conversation",
-	history: "latest",
-	fork: "initial",
-	initial: () => ({
-		name: "",
-		started: 0,
-		output: "",
-		next: 0,
-		detached: false as boolean,
-		notified: false as boolean,
-	}),
-});
-const JobPointer = defineDoc({
-	kind: "yonder.background-pointer",
-	version: 1,
-	scope: "task",
-	initial: () => ({ id: 0 }),
-});
-type Input = { name: string; args: JsonObject; callId: string; config: string };
-type State = { phase: "start" | "interrupted" };
-const clean = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-const failed = (error: unknown): ToolExecutionResult => ({
-	output: [{ type: "text", text: String(error) }],
-	isError: true,
-});
-const json = (value: unknown): ToolExecutionResult => ({ output: [{ type: "text", text: JSON.stringify(value) }] });
-const outcomeResult = (outcome: TaskOutcome<ToolExecutionResult>): ToolExecutionResult =>
-	outcome.status === "completed"
-		? outcome.result
-		: "result" in outcome && outcome.result
-			? outcome.result
-			: failed(
-					"error" in outcome
-						? outcome.error.message
-						: `${outcome.status}: ${outcome.reason ?? "Background task did not complete"}`,
-				);
 
 type LiveOutput = { output: string; next: number; write?: (text: string, eof?: boolean) => Promise<void> };
 
