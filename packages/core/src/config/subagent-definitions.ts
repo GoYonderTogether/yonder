@@ -18,7 +18,7 @@ export async function loadSubagentDefinitions(home: string): Promise<Map<string,
 		if (!root && entries.some((entry) => entry.isFile() && entry.name === "agent.yaml")) return;
 		for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
 			const file = join(directory, entry.name);
-			if (entry.isDirectory()) {
+			if (entry.isDirectory() && entry.name !== "prompts") {
 				await visit(file);
 			} else if (entry.isFile() && entry.name.endsWith(".md") && !entry.name.endsWith(".chain.md")) {
 				const text = await readFile(file, "utf8");

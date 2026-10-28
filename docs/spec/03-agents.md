@@ -276,7 +276,7 @@ yonder-development 的开发流程：任何独立代码仓库，所有改动都�
 
 提示词模板是用户输入的文本快捷方式，不是 system context 或 preset，也不改变角色、工具或权限。参照 pi 的 Markdown 模板：文件名为斜杠命令名，正文支持带引号的参数、`$1`、`$@`、`$ARGUMENTS`、默认值和参数切片。内置命令仍优先；未匹配的输入保持原样。CLI、console 和渠道应在共享输入路径展开，实际执行仍受原会话权限约束。
 
-模板依次从 `<home>/agents/<id>/prompts/*.md`、`<home>/prompts/*.md` 和所选工具所属插件的 `prompts/*.md` 发现，前者覆盖同名后者。插件模板 frontmatter 若指定 `tool`，只在该工具由 profile 的 offer 或 search 选中时生效。`$RAW_ARGUMENTS` 保留命令后参数文本中的引号与内部空白；`$ARGUMENTS` 保持既有分词拼接语义。无身份 task 会话按其 preset 名称依次查找 `<home>/agents/<preset>/prompts/*.md`（子 Agent 专属）和 `<home>/presets/<preset>/prompts/*.md`（执行者专属），再查 home 与所选插件；同名按先找到的模板覆盖。子 Agent 的名称沿用 pi 风格 Markdown 定义中的 `name`，与 task 的 preset 身份一致。不得把 preset 的角色或权限当作模板正文，亦不得通过模板扩大访问权限。
+模板依次从 `<home>/agents/<id>/prompts/*.md`、`<home>/prompts/*.md` 和所选工具所属插件的 `prompts/*.md` 发现，前者覆盖同名后者。插件模板 frontmatter 若指定 `tool`，只在该工具由 profile 的 offer 或 search 选中时生效。`$RAW_ARGUMENTS` 保留命令后参数文本中的引号与内部空白；`$ARGUMENTS` 保持既有分词拼接语义。无身份 task 会话按其 preset 名称依次查找 `<home>/agents/<preset>/prompts/*.md`（子 Agent 专属）和 `<home>/presets/<preset>/prompts/*.md`（执行者专属），再查 home 与所选插件；同名按先找到的模板覆盖。只有存在 pi 风格 Markdown 定义的 `name` 与 task preset 身份相同时才读取子 Agent 模板；定义文件可嵌套，模板目录本身不参与定义发现。常驻 Bot 的 profile 是自身配置档，不是 task preset，因此不加载同名 preset 模板。不得把 preset 的角色或权限当作模板正文，亦不得通过模板扩大访问权限。
 
 ## 11. 项目规则（O49 T11）
 

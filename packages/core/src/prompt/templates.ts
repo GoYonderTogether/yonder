@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
+import { loadSubagentDefinitions } from "../config/subagent-definitions.js";
 
 export function pluginTemplateDirs(
 	plugins: Array<{ id: string; directory: string }>,
@@ -18,14 +19,20 @@ export function pluginTemplateDirs(
 
 type TemplateDir = string | { directory: string; tools: string[] };
 
-function templateDirs(home: string, agent: string | null, profile: string, plugins: TemplateDir[]): TemplateDir[] {
+async function templateDirs(
+	home: string,
+	agent: string | null,
+	profile: string,
+	plugins: TemplateDir[],
+): Promise<TemplateDir[]> {
 	const safe = (value: string) =>
 		value && value !== "." && value !== ".." && !value.includes("/") && !value.includes("\\");
 	return [
 		...(agent && safe(agent) ? [join(home, "agents", agent, "prompts")] : []),
-		...(!agent && safe(profile)
-			? [join(home, "agents", profile, "prompts"), join(home, "presets", profile, "prompts")]
+		...(!agent && safe(profile) && (await loadSubagentDefinitions(home)).has(profile)
+			? [join(home, "agents", profile, "prompts")]
 			: []),
+		...(!agent && safe(profile) ? [join(home, "presets", profile, "prompts")] : []),
 		join(home, "prompts"),
 		...plugins,
 	];
@@ -64,7 +71,7 @@ export async function listTemplates(
 	pluginDirs: TemplateDir[] = [],
 ): Promise<Array<{ name: string; description: string }>> {
 	const result = new Map<string, { name: string; description: string }>();
-	for (const entry of templateDirs(home, agent, profile, pluginDirs)) {
+	for (const entry of await templateDirs(home, agent, profile, pluginDirs)) {
 		let names: string[];
 		try {
 			names = await readdir(typeof entry === "string" ? entry : entry.directory);
@@ -92,7 +99,7 @@ export async function expandTemplate(
 ): Promise<string> {
 	const match = /^\/([^\s/\\]+)(?:\s+([\s\S]*))?$/.exec(text);
 	if (!match || match[1] === "." || match[1] === "..") return text;
-	for (const entry of templateDirs(home, agent, profile, pluginDirs)) {
+	for (const entry of await templateDirs(home, agent, profile, pluginDirs)) {
 		const template = await readTemplate(entry, match[1] as string);
 		if (!template) continue;
 		const rawArgs = match[2] ?? "";

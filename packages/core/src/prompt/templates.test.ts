@@ -57,6 +57,11 @@ test("task templates use subagent then executor then home and list the same visi
 	try {
 		for (const path of ["agents/scout/prompts", "presets/scout/prompts", "prompts", "plugin/prompts"])
 			await mkdir(join(home, path), { recursive: true });
+		await mkdir(join(home, "agents/nested"));
+		await writeFile(
+			join(home, "agents/nested/different-filename.md"),
+			"---\nname: scout\ndescription: Scout\n---\nInspect.",
+		);
 		await writeFile(join(home, "agents/scout/prompts/check.md"), "---\ndescription: Child\n---\nchild $1");
 		await writeFile(join(home, "presets/scout/prompts/check.md"), "executor $1");
 		await writeFile(join(home, "presets/scout/prompts/execute.md"), "execute $1");
@@ -65,15 +70,25 @@ test("task templates use subagent then executor then home and list the same visi
 		const plugins = [{ directory: join(home, "plugin/prompts"), tools: ["selected"] }];
 		expect(await expandTemplate(home, null, '/check "two words"', plugins, "scout")).toBe("child two words");
 		expect(await expandTemplate(home, null, "/execute hi", plugins, "scout")).toBe("execute hi");
+		await writeFile(
+			join(home, "agents/scout/prompts/only-child.md"),
+			"---\nname: phantom\ndescription: Not an agent\n---\nchild only",
+		);
+		expect(await expandTemplate(home, "main", "/execute hi", plugins, "scout")).toBe("/execute hi");
+		expect(await expandTemplate(home, null, "/only-child", plugins, "other")).toBe("/only-child");
 		expect(await expandTemplate(home, null, "/plugin hi", plugins, "scout")).toBe("plugin hi");
 		expect(await listTemplates(home, null, "scout", plugins)).toEqual([
 			{ name: "check", description: "Child" },
+			{ name: "only-child", description: "Not an agent" },
 			{ name: "execute", description: "" },
 			{ name: "plugin", description: "Plugin" },
 		]);
 		expect(
 			await listTemplates(home, null, "scout", [{ directory: join(home, "plugin/prompts"), tools: [] }]),
 		).not.toContainEqual({ name: "plugin", description: "Plugin" });
+		await rm(join(home, "agents/nested/different-filename.md"));
+		expect(await expandTemplate(home, null, "/check hi", plugins, "scout")).toBe("executor hi");
+		expect(await expandTemplate(home, null, "/only-child", plugins, "phantom")).toBe("/only-child");
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

@@ -481,4 +481,4 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 
 ### 主 Agent 代批：任务模板层级
 
-无身份任务按 preset 名称依次查找 `agents/<preset>/prompts/`、`presets/<preset>/prompts/`、home 和选中工具的插件目录；子 Agent Markdown 定义的 name 与任务 preset 身份相同。模板只展开输入，不改变权限；补全与展开复用发现和过滤。
+无身份任务按 preset 名称依次查找 `agents/<preset>/prompts/`、`presets/<preset>/prompts/`、home 和选中工具的插件目录；子 Agent 模板仅在已发现的 Markdown 定义 name 与任务 preset 身份相同时生效，模板目录不参与定义发现；常驻 Bot 的 profile 不映射到同名 preset。模板只展开输入，不改变权限；补全与展开复用发现和过滤。
