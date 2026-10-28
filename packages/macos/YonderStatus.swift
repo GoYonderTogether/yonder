@@ -5,6 +5,8 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var item: NSStatusItem!
     private var companion: CompanionController!
     private var endpointTimer: Timer?
+    private var gateway: GatewayActivityClient!
+    private var gatewaySnapshot: ActivitySnapshot?
     private let menu = NSMenu()
     private let current = NSMenuItem(title: "打开悬浮窗", action: #selector(openCurrent), keyEquivalent: "")
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
@@ -48,9 +50,15 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let button = self?.item.button, let window = button.window else { return false }
             return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(point)
         }
+        // 网关开着时状态栏订阅 activity.watch；网关没开（--no-gateway）才读 status.json。
+        gateway = GatewayActivityClient(home: home)
+        gateway.onUpdate = { [weak self] snapshot in
+            self?.gatewaySnapshot = snapshot
+            self?.refreshActivity()
+        }
         refreshEndpoint()
         refreshActivity()
-        endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshEndpoint(); self?.refreshActivity() }
+        endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.gateway.ensure(); self?.refreshEndpoint(); self?.refreshActivity() }
         RunLoop.main.add(endpointTimer!, forMode: .common)
     }
     private func refreshEndpoint() {
@@ -62,7 +70,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openCurrent() { companion.showCurrent() }
     @objc private func openHistory() { companion.showHistory() }
     func applicationWillTerminate(_ notification: Notification) {
-        endpointTimer?.invalidate(); companion.stop()
+        endpointTimer?.invalidate(); gateway.stop(); companion.stop()
     }
 
     private func run(_ args: [String], completion: @escaping (Result<[String: Any], Error>) -> Void) {
@@ -96,28 +104,37 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         refreshActivity()
     }
 
-    /// 状态由服务自己写成 `.yonder/status.json`，这里只读文件。
+    /// 优先用网关的 activity.watch 推送；网关未开时退回服务写出的 `.yonder/status.json`，这里只读文件。
     /// 派生 `yonder service info` 每次都要付 Node 启动和整棵模块图加载，2 秒一次就是持续空转。
     private func refreshActivity() {
         var agents: [AgentActivity] = []
         var known = false
         var running = false
         var version = ""
-        let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/status.json")
-        if let data = try? Data(contentsOf: file),
-           let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-           info["ready"] as? Bool == true,
-           let rows = info["agents"] as? [[String: Any]] {
-            // 心跳：内容不变时服务每 10 秒刷新 observedAt。30 秒没动就说明服务已经不在了。
-            let observedAt = (info["observedAt"] as? Double ?? 0) / 1000
-            if Date().timeIntervalSince1970 - observedAt < 30 {
-                known = true
-                version = info["version"] as? String ?? ""
-                agents = rows.compactMap(AgentActivity.init)
-                running = agents.contains { $0.state == "running" } || (info["active"] as? Int ?? 0) > 0
+        var detail = ""
+        if let snapshot = gatewaySnapshot {
+            known = true
+            agents = snapshot.agents
+            running = snapshot.running > 0
+            detail = "网关 · 运行 \(snapshot.running) · 等待 \(snapshot.waiting) · 等你回答 \(snapshot.questions)"
+        } else {
+            let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/status.json")
+            if let data = try? Data(contentsOf: file),
+               let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+               info["ready"] as? Bool == true,
+               let rows = info["agents"] as? [[String: Any]] {
+                // 心跳：内容不变时服务每 10 秒刷新 observedAt。30 秒没动就说明服务已经不在了。
+                let observedAt = (info["observedAt"] as? Double ?? 0) / 1000
+                if Date().timeIntervalSince1970 - observedAt < 30 {
+                    known = true
+                    version = info["version"] as? String ?? ""
+                    agents = rows.compactMap(AgentActivity.init)
+                    running = agents.contains { $0.state == "running" } || (info["active"] as? Int ?? 0) > 0
+                    detail = "服务运行中 · \(version)"
+                }
             }
         }
-        self.status.title = known ? "服务运行中 · \(version)" : "服务未就绪 · 运行状态未知"
+        self.status.title = known ? detail : "服务未就绪 · 运行状态未知"
         self.companion.setActivity(agents, known: known)
         self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
         let image = NSImage(size: NSSize(width: 22, height: 22))
@@ -267,6 +284,19 @@ struct DesktopMain {
             }
             return
         }
+        // 针对真实网关：gateway.json → control.sock gateway.ticket → cookie → WebSocket activity.watch，打印首个快照。
+        if let index = CommandLine.arguments.firstIndex(of: "--check-gateway"), CommandLine.arguments.count > index + 1 {
+            let client = GatewayActivityClient(home: CommandLine.arguments[index + 1])
+            _ = NSApplication.shared
+            client.onUpdate = { snapshot in
+                guard let snapshot else { return }
+                print("gateway activity: running=\(snapshot.running) waiting=\(snapshot.waiting) questions=\(snapshot.questions) agents=\(snapshot.agents.map { $0.name + ":" + $0.state })")
+                exit(0)
+            }
+            client.ensure()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10) { print("gateway activity: no snapshot"); exit(1) }
+            RunLoop.main.run()
+        }
         if CommandLine.arguments.contains("--check") {
             checkCompanionGeometry()
             precondition(AgentActivity(["id": "main", "name": "main", "state": "unknown"]) == nil)
@@ -291,6 +321,13 @@ struct DesktopMain {
             precondition(flock(second, LOCK_EX | LOCK_NB) != 0)
             precondition(flock(first, LOCK_UN) == 0)
             precondition(flock(second, LOCK_EX | LOCK_NB) == 0)
+            let snapshot = parseActivitySummary(["running": 1, "waiting": 2, "questions": 3, "sessions": [],
+                                                 "agents": [["id": "main", "name": "Jarvis", "state": "running"]]])!
+            precondition(snapshot.running == 1 && snapshot.waiting == 2 && snapshot.questions == 3)
+            precondition(snapshot.agents.count == 1 && snapshot.agents[0].name == "Jarvis" && snapshot.agents[0].state == "running")
+            precondition(parseActivitySummary(["running": 1]) == nil && parseActivitySummary(["running": -1, "waiting": 0]) == nil)
+            precondition(readGatewayPort(try! JSONSerialization.data(withJSONObject: ["port": 7690, "pid": getpid()])) == 7690)
+            precondition(readGatewayPort(try! JSONSerialization.data(withJSONObject: ["port": 7690, "pid": 99999999])) == nil)
             print("Passed: desktop endpoint validation and single status host lock.")
             return
         }
