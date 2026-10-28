@@ -215,3 +215,7 @@ macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helpe
 | `yonder-clipboard capture --data <path> --ticket <id>` | 独立 package bin，交互 TTY 隐藏录入；不属于 yonder 核心子命令 |
 
 配置与 raw exec/Keychain ACL 边界见 [插件 README](../plugins/clipboard/README.md) 和 [spec/15](spec/15-clipboard-vault.md)。
+
+## code-intel（可选）
+
+- `code-intel_codegraph_explore`：通过执行环境内 CodeGraph 查询索引的源码与调用关系。

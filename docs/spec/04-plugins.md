@@ -75,6 +75,7 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 interface Tool {
   name: string;                        // `<pluginId>_<名字>`，如 qq_send_card；整体须匹配 ^[a-z][a-z0-9_-]{0,63}$
   description: string;
+  guidelines?: string[];               // 仅 schema 实际提供给模型时注入的可选指南
   parameters: TSchema;                 // TypeBox schema（typebox 包）；内核在调用前校验参数
   capabilities: Capability[];          // 需要的全部能力（05 §3），可为空数组
   execute(args: unknown, ctx: ToolContext): Promise<ToolResult>;
@@ -88,6 +89,7 @@ interface ToolContext {
   env: ExecutionEnv;                   // 本次运行的执行环境（05 §4）
   event?: YEvent;                      // 触发本次运行的入站事件
   signal: AbortSignal;                 // 运行被中止时触发；工具必须响应
+  cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>; // 本地工具缓存文本并返回路径，见 07 §4
 }
 interface ToolResult {
   text: string;                        // 给模型看的结果
@@ -115,6 +117,7 @@ interface RenderContext {
   profile: string;
   session: string;
   workspace: { read(path: string): Promise<string | undefined> };   // 相对工作区根；不存在返回 undefined
+  projectRules?: () => Promise<Array<{ path: string; content: string }>>; // 当前执行目录的项目规则与宿主全局规则
   event?: YEvent;                      // 仅 placement: turn，当前入站事件
   signal?: AbortSignal;                // 本次有限渲染预算；外部 IO 应响应
 }
@@ -122,6 +125,7 @@ interface RenderContext {
 
 - `files`：贡献要用的工作区文件。`scaffold: true` 时，agent 选用了这个贡献而文件不存在，内核按 `template` 生成；`protect` 指定修改它所需的能力（默认 `write`）。
 - `render` 返回 `undefined` 表示本次不贡献内容。`placement: system` 的贡献必须遵守 03 §5.1 的确定性规则，因此拿不到 `event`。
+- `projectRules` 是可选的新增能力，不改变 `workspace.read`；项目文件经当前执行环境读取，宿主全局文件单独读取。路径和内容不授权其他文件访问。
 - 只有 agent 或配置档的 `contexts` 列出了的贡献才会被调用（架构不变量 3）。
 
 ### 3.4 triggers — 定时、文件变化、Webhook 等事件源
@@ -318,3 +322,7 @@ interface PermissionProvider {
 `list` 仅返回已选择 provider 的静态描述，不执行权限探测。setup/检查不得调用 list/invoke 或触发申请。
 `status` 只查询，不可升级为 request；requested、unknown、denied 不可转换为 granted。
 门面平台无关，provider 自己保持平台、执行环境、OS 身份、外部服务及凭据边界，不另建授权数据库或审批队列。
+
+### 执行环境调用上下文
+
+SDK 导出 `executionContext(signal)`，以工具取消信号构造执行环境调用所需上下文；插件调用 `ToolContext.env` 时使用该上下文，进程与文件均由所选环境执行。

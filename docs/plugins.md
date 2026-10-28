@@ -371,3 +371,8 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **贡献**：工具 `devices_list`、`devices_describe`、`devices_apps`、`devices_open`、`devices_observe`、`devices_execute`、`devices_status`、`devices_cancel`、`devices_close`；按需 skill `devices`；生命周期 trigger `devices-connections` 只关闭自身连接。
 - **接入**：仅从显式配置的配对目录读取 W1 信任记录和现有 grant 快照；direct HTTPS 固定证书指纹，可选 Card relay。安装插件不自动注册设备，也不扩大任何 Agent 权限。
 - **边界**：命令在控制端先持久记录，结果以执行端权威账本为准；未知状态不自动重放。Card relay 不是端到端加密，执行端的常驻 Card 连接和真实 guest GUI 尚未验收。
+
+## code-intel：可选代码导航
+
+- **包**：`@yonder/plugin-code-intel`；**工具**：`code-intel_codegraph_explore`。
+- 在当前执行环境调用 CodeGraph，索引由用户初始化和刷新；需 `read`、`exec`。详见 [README](../plugins/code-intel/README.md)。

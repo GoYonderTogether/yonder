@@ -41,7 +41,8 @@
 		"plugins/secrets",
 		"plugins/hermes-experience",
 		"plugins/tasks",
-		"plugins/onboarding"
+		"plugins/onboarding",
+		"plugins/code-intel"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",

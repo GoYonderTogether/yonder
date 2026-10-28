@@ -191,3 +191,7 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 ## UI Companion 交互窗口
 
 `interaction` 提供结构化卡片工具及 `interaction.card` 视图。`interaction_present` 返回交互 id；`interaction_result` 按发起会话、agent 和配置档读取结果，等待可取消而不取消卡片，session.close 取消该会话的待处理卡片。卡片与答案持久化在插件私有数据目录。视图通过控制接口展示和接收答案，按修订号及步骤序号拒绝过期回答；卡片回答不构成其他工具的权限放行。插件不再提供独立 HTTP 服务。
+
+### code-intel（可选）
+
+`code-intel_codegraph_explore` 在当前执行环境通过 CodeGraph CLI 读取已建索引，接受 query、可选 maxFiles（默认 12）及 projectPath（默认工作区）；先检查索引状态，缺失或过期时给出初始化或刷新动作。仅选中插件时提供工具；不自动初始化、启动 watcher 或注入项目图。输出沿用运行时工具截断与缓存。工具需要 read 和 exec 能力。

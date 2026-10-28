@@ -102,6 +102,9 @@
 		},
 		{
 			"path": "plugins/onboarding"
+		},
+		{
+			"path": "plugins/code-intel"
 		}
 	]
 }
