@@ -3,6 +3,7 @@ import {
 	type ChainEntry,
 	chainKey,
 	chainRef,
+	DEFAULT_MODEL_HOLD_SECONDS,
 	DEFAULT_MODEL_PROBE_SECONDS,
 	holdSeconds,
 	modelChain,
@@ -33,6 +34,9 @@ export interface ModelWatchOptions {
 export class ModelWatch {
 	private timer: NodeJS.Timeout | undefined;
 	private probing = false;
+	/** Hold and probe window last used by `record`, so a failed probe extends the hold it was given (07 §6.1). */
+	private holdWindow = DEFAULT_MODEL_HOLD_SECONDS;
+	private probeWindow = DEFAULT_MODEL_PROBE_SECONDS;
 	constructor(private readonly options: ModelWatchOptions) {}
 
 	order(chain: readonly ChainEntry[], stops: QuotaStops | undefined): ChainEntry[] {
@@ -91,7 +95,12 @@ export class ModelWatch {
 			await health.clear([keys[0]!]);
 			return;
 		}
-		const unused = keys.slice(0, index);
+		// Only the first run that falls back judges the entries before it: re-holding an entry that is still held
+		// would push its `until` forward on every run and never let it back into the chain (G1 F4).
+		const unused = keys.slice(0, index).filter((key) => !health.held(key));
+		if (!unused.length) return;
+		this.holdWindow = hold;
+		this.probeWindow = probe;
 		await health.hold(unused, "fallback-used", hold, probe);
 		for (const key of unused)
 			this.options.onHealth?.({ key, state: "held", reason: "fallback-used", until: Date.now() + hold * 1000 });
@@ -120,7 +129,7 @@ export class ModelWatch {
 		const provider = rest.slice(0, slash);
 		const modelId = rest.slice(slash + 1);
 		const selection = { [provider]: key.slice(at + 1) };
-		let ok = false;
+		let outcome: "ok" | "throttled" | "broken" = "broken";
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 30000);
 		try {
@@ -139,15 +148,28 @@ export class ModelWatch {
 					{ maxTokens: 512, signal: controller.signal },
 				)
 				.result();
-			ok = message.stopReason !== "error";
+			// A throttled model answered: it is reachable, so it is not broken (G1 F5).
+			outcome =
+				message.stopReason !== "error"
+					? "ok"
+					: /rate.?limit|too many requests|\b429\b|overloaded|quota/i.test(message.errorMessage ?? "")
+						? "throttled"
+						: "broken";
 		} catch {
-			ok = false;
+			outcome = "broken";
 		} finally {
 			clearTimeout(timer);
 		}
-		if (ok) {
+		if (outcome === "ok") {
 			await health.clear([key]);
 			this.options.onHealth?.({ key, state: "recovered" });
-		} else await health.probed([key], DEFAULT_MODEL_PROBE_SECONDS);
+			return;
+		}
+		if (outcome === "throttled") {
+			await health.probed([key], this.probeWindow);
+			return;
+		}
+		// A failed probe extends the hold instead of only rescheduling the next probe (07 §6.1).
+		await health.hold([key], health.snapshot()[key]?.reason ?? "probe-failed", this.holdWindow, this.probeWindow);
 	}
 }
