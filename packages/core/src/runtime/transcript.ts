@@ -33,14 +33,24 @@ export function transcriptItem(entry: EntryRecord): TranscriptItem {
 	};
 }
 
-/** Read the pinned pi-durable 1.3.0 entry format without migrations, recovery or writes. Yonder does not fork conversations. */
+/** Read the pinned pi-durable 1.3.0 entry format without migrations, recovery or writes. */
 export async function readTranscript(
 	db: Db,
 	id: string,
 	range: { from?: number; limit?: number } = {},
 ): Promise<TranscriptItem[]> {
 	const rows = await db.all<{ record: string }>(
-		"SELECT record FROM pi_entries WHERE conversation_id = ? AND id >= ? ORDER BY id ASC LIMIT ?",
+		`WITH RECURSIVE chain(id, upper_id) AS (
+			SELECT id, NULL FROM pi_conversations WHERE id = ?
+			UNION ALL
+			SELECT json_extract(c.record, '$.parent.conversationId'),
+				min(coalesce(chain.upper_id, json_extract(c.record, '$.parent.at')), json_extract(c.record, '$.parent.at'))
+			FROM chain JOIN pi_conversations c ON c.id = chain.id
+			WHERE json_extract(c.record, '$.parent.conversationId') IS NOT NULL
+		)
+		SELECT e.record FROM chain JOIN pi_entries e ON e.conversation_id = chain.id
+		WHERE e.id >= ? AND (chain.upper_id IS NULL OR e.id <= chain.upper_id)
+		ORDER BY e.id ASC LIMIT ?`,
 		Number(id),
 		range.from ?? 0,
 		range.limit ?? 100,
