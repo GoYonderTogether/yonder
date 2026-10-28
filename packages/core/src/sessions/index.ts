@@ -25,6 +25,7 @@ import { SessionModelsSchema } from "../config/schema.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
 import { taskReport } from "../runtime/results.js";
 import type { Store } from "../store/index.js";
+import { createBranches } from "./branches.js";
 
 interface CreateSessionsOptions {
 	store: Store;
@@ -396,44 +397,7 @@ export function createSessions({
 		return runtime().notify(id, { ...input, from });
 	}
 
-	const branches = {
-		async tree(id: string) {
-			const rows = await store.sessions.list({ mode: "task" });
-			if (!rows.some((row) => row.id === id)) throw new Error(`Unknown standalone task session: ${id}`);
-			const nodes = await Promise.all(
-				rows.map(async (row) => {
-					const parent = await runtime().forkParent(row.id);
-					return { id: row.id, ...(parent ? { parent: parent.id, at: parent.at } : {}) };
-				}),
-			);
-			const byId = new Map(nodes.map((node) => [node.id, node]));
-			const root = (nodeId: string): string => {
-				const parent = byId.get(nodeId)?.parent;
-				return parent && byId.has(parent) ? root(parent) : nodeId;
-			};
-			return nodes.filter((node) => root(node.id) === root(id));
-		},
-		async fork(id: string, at: number) {
-			const parent = await store.sessions.get(id);
-			if (!parent || parent.mode !== "task") throw new Error("Only standalone task sessions can be forked");
-			const childId = await runtime().fork(id, at);
-			const child: SessionInfo = {
-				id: childId,
-				agent: null,
-				profile: parent.profile,
-				mode: "task",
-				key: randomUUID(),
-				version,
-				opened: new Date().toISOString(),
-			};
-			await store.sessions.put(child);
-			await store.events.record({
-				type: "session.open",
-				data: { session: childId, mode: "task", key: child.key, profile: child.profile },
-			});
-			return withPolicy(child);
-		},
-	};
+	const branches = createBranches(store, runtime, version, withPolicy);
 	const api: SessionsAPI = {
 		command,
 		notify: (id, input) => notifyFrom(id, input, "system:yonder"),

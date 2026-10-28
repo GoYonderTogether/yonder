@@ -34,6 +34,7 @@ import {
 import type { SessionInfo, SessionNotification, YEvent } from "@yonder/sdk";
 import { chatCommands } from "@yonder/sdk";
 import { CommandAutocomplete } from "./autocomplete.js";
+import { branchCommand } from "./branch-commands.js";
 import { CompactToolExecution, MessagePresentation } from "./message-presentation.js";
 import {
 	createChatViewport,
@@ -627,50 +628,20 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		const name = line.slice(1).trim();
 		if (name === "new") return newTask();
 		if (name === "resume") return resume();
-		if (name === "tree") {
+		if (name === "tree" || /^fork(?:\s+\d+)?$/.test(name)) {
 			if (!info || target.channel) throw new Error("请先选择独立任务 / Select a standalone task");
-			const branches = await call<Array<{ id: string; parent?: string; at?: number }>>("sessions.tree", {
-				id: info.session.id,
-			});
-			const labels = branches.map(
-				(branch) =>
-					`#${branch.id}${branch.parent ? ` ← #${branch.parent} @ ${branch.at}` : ""}${branch.id === info?.session.id ? " · 当前" : ""}`,
+			return branchCommand(
+				name,
+				info.session.id,
+				call,
+				choose,
+				async (id) => {
+					reset();
+					target = { session: id };
+					await watch(id);
+				},
+				notice,
 			);
-			const selected = await choose("分支 · Branches（已执行的工具副作用不会回滚）", labels);
-			const branch = selected ? branches[labels.indexOf(selected)] : undefined;
-			if (branch && branch.id !== info.session.id) {
-				reset();
-				target = { session: branch.id };
-				await watch(branch.id);
-			}
-			return;
-		}
-		if (/^fork(?:\s+\d+)?$/.test(name)) {
-			if (!info || target.channel) throw new Error("请先选择独立任务 / Select a standalone task");
-			const requested = name.split(/\s+/)[1];
-			const page = await call<{ items: Array<{ id: number; kind: string; text: string }>; hasMore: boolean }>(
-				"sessions.transcript",
-				{ id: info.session.id, limit: 500 },
-			);
-			const labels = page.items.map(
-				(entry) => `#${entry.id} · ${entry.kind} · ${entry.text.replace(/\s+/g, " ").slice(0, 100)}`,
-			);
-			const selected = requested
-				? undefined
-				: await choose(
-						`选择历史节点后分叉 · Fork after entry${page.hasMore ? " (latest 500; /fork ID for older)" : ""}；工具副作用不会回滚`,
-						labels,
-					);
-			const entry = selected ? page.items[labels.indexOf(selected)] : undefined;
-			const at = requested ? Number(requested) : entry?.id;
-			if (at !== undefined) {
-				const child = await call<SessionInfo>("sessions.fork", { id: info.session.id, at });
-				reset();
-				target = { session: child.id };
-				await watch(child.id);
-				notice("已执行的工具副作用不会回滚 / Tool side effects are not rolled back");
-			}
-			return;
 		}
 		if (name === "channel") {
 			const channels = await call<Channels>("terminal.channels");
