@@ -50,3 +50,5 @@
 完成增量后的复查：`npx tsc -b` 通过；改动涉及的 9 个代码、测试和 golden 文件 Biome 通过。来源视图、工具结果、session trace 定向检查 3 文件 3 测试通过；registry、session trace 和 events golden 关闭更新变量后 3 文件 5 测试通过。按测试支持的 `UPDATE_GOLDEN=1` 更新 methods golden，格式化后只增加 `sessions.trace`，旧方法保留；未新增 gateway 事件字段。最终 file-size 检查失败项已变为并行修改的 runtime/index.ts 1954 行，超过基线 2 行。以上保留前述初次检查的失败结果。
 
 后续预览：源码测试方式在进程启动前设置临时 HOME，并补充 siliconflow provider 元数据后，临时真实 gateway 与独立 Chrome 已启动；截图步骤无响应，未产出可交付截图，未验证新增面板。首次尝试未隔离操作系统 HOME，曾只读显示本机 pi 会话列表；该截图已删除，未修改主人数据。没有发送消息或调用模型。
+
+再次尝试独立 Chrome 原生 headless 截图：临时 gateway 启动，但 Chrome 20 秒超时，未产出截图；CDP 未记录逐命令日志，无法确认页面加载或卡住的位置。
