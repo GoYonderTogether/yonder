@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { PluginAPI, YEvent } from "@yonder/sdk";
 import { describe, expect, it, vi } from "vitest";
 import { applyRelease, notifyUpdate } from "../src/actions.js";
@@ -100,8 +100,8 @@ describe("program update notifications", () => {
 				data: {
 					updateId: "12345678-1234-1234-1234-123456789012",
 					repository: "https://github.com/GoYonderTogether/yonder.git",
-					install: "/unused/install",
-					home: "/unused/home",
+					install: resolve("/unused/install"),
+					home: resolve("/unused/home"),
 					version: "0.1.4",
 					verified: true,
 					status: "verified",
@@ -139,8 +139,8 @@ describe("program update notifications", () => {
 				data: {
 					updateId: "12345678-1234-1234-1234-123456789012",
 					repository: "https://github.com/GoYonderTogether/yonder.git",
-					install: "/unused/install",
-					home: "/unused/home",
+					install: resolve("/unused/install"),
+					home: resolve("/unused/home"),
 					verified: false,
 					status,
 				},

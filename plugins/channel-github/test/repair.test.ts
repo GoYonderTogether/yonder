@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { ChannelIO, PluginAPI, Tool, ToolContext } from "@yonder/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GithubChannel, marker } from "../src/channel.js";
@@ -232,15 +232,15 @@ it("rejects service-external updates outside macOS before dispatch", async () =>
 
 describe("actual service evidence", () => {
 	const request = {
-		install: "/private/tmp/yonder-install",
-		home: "/private/tmp/yonder-home",
+		install: resolve("/private/tmp/yonder-install"),
+		home: resolve("/private/tmp/yonder-home"),
 		repository: "GoYonderTogether/yonder",
 		tag: "v0.1.4",
 		version: "0.1.4",
 	} as Request;
 	const commit = "ae60bf2".padEnd(40, "0");
 	const actual = {
-		source: `${request.install}/versions/0.1.4`,
+		source: join(request.install, "versions", "0.1.4"),
 		install: request.install,
 		version: request.version,
 		origin: { tag: request.tag, repository: `https://github.com/${request.repository}.git`, commit },

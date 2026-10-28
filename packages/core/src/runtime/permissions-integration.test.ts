@@ -1,4 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import {
 	defineExtension,
@@ -35,7 +37,7 @@ const text = (result: ToolExecutionResult) =>
 // it supplies the ToolExecutionApi commit fixture and input snapshot, but executes the real
 // registered tool, background task and Runtime.adapter. It never writes toolInvocations.
 async function fixture(invoke: PermissionProvider["invoke"] = async () => raw) {
-	const home = await mkdtemp("/tmp/yonder-permission-integration-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let runtime: Runtime | undefined;
 	try {
 		const boundary: ToolContext[] = [];

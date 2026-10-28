@@ -1,4 +1,5 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
 import { checkPlugin } from "@yonder/sdk/testing";
@@ -8,7 +9,7 @@ import { createPermissionsTool } from "../tools/permissions.js";
 import { type KernelServices, loadPlugins } from "./index.js";
 
 async function fixture(setup: string, declared = ["permission-test.os"]) {
-	const home = await mkdtemp("/tmp/yonder-permission-loader-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	await writeFile(
 		join(home, "package.json"),
 		JSON.stringify({

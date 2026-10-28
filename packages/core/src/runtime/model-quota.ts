@@ -125,6 +125,10 @@ export class ModelQuota {
 		this.accounts.set(account, { ...window });
 		void this.persist();
 	}
+	/** Resolves once every reading recorded so far has reached the file. */
+	async flush(): Promise<void> {
+		await this.writing;
+	}
 	snapshot(): Record<string, QuotaWindow> {
 		return Object.fromEntries([...this.accounts.entries()].map(([key, value]) => [key, { ...value }]));
 	}

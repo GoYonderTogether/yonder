@@ -77,7 +77,8 @@ test("brand timeline is one third speed at every normal 60 Hz display frame, inc
 		}
 		expect(slow.frames).toBe(count + 2); // initial request plus one per frame; no dropped/throttled frames
 	}
-}, 20000);
+	// 16k geometry rebuilds cost ~2.5 s here but ~25 s on the macOS runner, so the 20 s default is too tight.
+}, 60000);
 
 test("source consumers share the same timeline and static native brand remains static", async () => {
 	expect(source).toContain("milliseconds / MOTION_TIME_SCALE / 1000");

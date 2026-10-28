@@ -1,11 +1,13 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("real home publishes agent and preset management without restarting or invoking a model", async () => {
-	const home = await mkdtemp("/tmp/yonder-management-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home, "owner", { model: testModel });
@@ -24,6 +26,9 @@ test("real home publishes agent and preset management without restarting or invo
 			value: { name: "管理验证", work: "配置验收", owner: "person:owner", bindings: [] },
 		});
 		expect(result).toMatchObject({ accepted: true, valid: true, messageEntry: true });
+		expect(parse(await readFile(`${home}/agents/managed/agent.yaml`, "utf8")).profiles.default.plugins).toContain(
+			"learning",
+		);
 		expect(await readFile(`${home}/agents/managed/memory/README.md`, "utf8")).toContain("#");
 		await manage({ action: "agents.update", id: "managed", value: { name: "更新名字", work: "更新工作" } });
 		expect(await manage({ action: "agents.show", id: "managed" })).toMatchObject({

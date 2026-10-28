@@ -49,11 +49,11 @@ function Row({ s, active, running }: { s: SessionInfo; active: boolean; running:
 			onSelect: () => setLevel(s.id, "all"),
 		},
 		{
-			key: "mention",
+			key: "mentions",
 			label: "免打扰：仅提问与审批",
 			icon: BellRing,
-			checked: level === "mention",
-			onSelect: () => setLevel(s.id, "mention"),
+			checked: level === "mentions",
+			onSelect: () => setLevel(s.id, "mentions"),
 		},
 		{
 			key: "mute",

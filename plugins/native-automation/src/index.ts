@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	definePlugin,
@@ -459,9 +459,9 @@ export default definePlugin({
 				if (["file-list", "file-export"].includes(String(args.action))) {
 					if (
 						typeof args.path !== "string" ||
-						!args.path.startsWith("/") ||
+						!isAbsolute(args.path) ||
 						args.path.includes("\0") ||
-						args.path.split("/").includes("..")
+						args.path.split(/[\\/]/).includes("..")
 					)
 						throw new Error("Expected absolute path without NUL or ..");
 					await requireOwnerOrigin(api, ctx);

@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { initHome } from "../kernel/home.js";
@@ -35,7 +36,7 @@ test("an existing home without defaultModel keeps the model it resolved before t
 });
 
 test("init writes the chosen model and refuses to create a home without one", async () => {
-	const home = await mkdtemp("/tmp/yonder-default-model-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		await expect(initHome(join(home, "none"))).rejects.toThrow("defaultModel");
 		await initHome(join(home, "set"), "owner", { model: "provider-x/model-y" });

@@ -48,6 +48,7 @@ test("board order, short refs across restart, evidence, parent visibility and pu
 		expect(reopened.get(open.ref, own).task.id).toBe(open.id);
 		expect(reopened.get(done.id, own).task.ref).toBe(done.ref);
 		expect(reopened.open(content, own).ref).toBe("T7");
+		reopened.close();
 	} finally {
 		await f.close();
 	}
@@ -115,9 +116,9 @@ test("digest is conditional, ordered, capped, destination-scoped and persisted; 
 		const result = await hook.beforeSend!(message, f.ctx);
 		expect(result!.message.text).toBe(`Reply\n\n等你 ${waiting.ref} Need the input\n卡住 ${task.ref} ${content.title}`);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
-		expect(
-			await digest(f.probe.api, new Store(f.probe.api.paths.data), {}).beforeSend!(message, f.ctx),
-		).toBeUndefined();
+		const reopened = new Store(f.probe.api.paths.data);
+		expect(await digest(f.probe.api, reopened, {}).beforeSend!(message, f.ctx)).toBeUndefined();
+		reopened.close();
 		f.store.done(task.ref, "Delivered", ["one", "two"], f.ctx);
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text).toContain(`已交付 ${task.ref}`);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();

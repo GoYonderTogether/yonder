@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ChannelIO, Hook, OutMessage, PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
@@ -11,7 +12,7 @@ export async function fixture(
 	config: Config = {},
 	options: { ui?: boolean; feishuBase?: string; avatarUrl?: string } = {},
 ) {
-	const home = await mkdtemp("/tmp/yonder-task-moments-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-task-moments-"));
 	const manifest = JSON.parse(await readFile(resolve("plugins/tasks/package.json"), "utf8"));
 	manifest.yonder.entry = "./probe.mjs";
 
@@ -117,6 +118,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		},
 		async close() {
 			await kernel.close();
+			store.close();
 			await rm(home, { recursive: true, force: true });
 		},
 	};

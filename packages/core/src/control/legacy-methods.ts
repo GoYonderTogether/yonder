@@ -15,7 +15,7 @@ import type { Attachment, EventQuery } from "@yonder/sdk";
 import { loadYonderConfig } from "../config/index.js";
 import { defaultPiSessionsDir, listPiSessions, showPiSession } from "../imports/pi-sessions.js";
 import type { Kernel } from "../kernel/index.js";
-import { guardSession, ownsBots, visibleSessionFilter } from "./guard.js";
+import { guardSession, ownsBots } from "./guard.js";
 import { MethodError } from "./method-types.js";
 import { dedupe } from "./submit-dedupe.js";
 
@@ -186,14 +186,29 @@ export const legacyMethods: MethodDef[] = [
 		params: obj({ query: Type.Optional(Type.Unknown()) }),
 		since: 1,
 		async handler(p, ctx) {
-			const page = await ctx.kernel.events.query((p.query ?? {}) as EventQuery);
-			const visible = await visibleSessionFilter(ctx);
-			if (!visible) return page;
-			// Without owner scope only events routed into task sessions are returned (contracts §14.3).
+			const query = (p.query ?? {}) as EventQuery;
+			const page = await ctx.kernel.events.query(query);
+			if (ownsBots(ctx)) return page;
+			// Without owner scope only events belonging to task sessions are returned (contracts §14.3).
 			const events = [];
 			for (const event of page.events) {
 				const ids = (event.routes ?? []).map((route) => route.session).filter((id) => id !== undefined);
-				if (ids.length > 0 && (await Promise.all(ids.map((id) => visible(id)))).every(Boolean)) events.push(event);
+				if ("session" in event.data && typeof event.data.session === "string") ids.push(event.data.session);
+				if (!ids.length) continue;
+				try {
+					let known = true;
+					for (const id of new Set(ids)) {
+						const session = await ctx.kernel.sessions.get(id);
+						if (!session) {
+							known = false;
+							continue;
+						}
+						await guardSession(ctx, id, session);
+					}
+					if (known) events.push(event);
+				} catch (error) {
+					if (!(error instanceof MethodError) || error.code !== "forbidden" || query.id) throw error;
+				}
 			}
 			return { ...page, events };
 		},

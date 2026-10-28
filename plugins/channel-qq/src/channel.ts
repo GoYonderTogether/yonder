@@ -130,7 +130,7 @@ export function mediaOf(
 					? MediaFileType.VIDEO
 					: MediaFileType.FILE;
 	if (attachment.uri.startsWith("https://")) return { fileType, source: { url: attachment.uri } };
-	if (!attachment.uri.startsWith("/")) throw new Error("QQ attachment must be an https URL or an absolute local path");
+	if (!isAbsolute(attachment.uri)) throw new Error("QQ attachment must be an https URL or an absolute local path");
 	const resolved = resolve(attachment.uri);
 	if (relative(resolve(root), resolved).startsWith("..") || isAbsolute(relative(resolve(root), resolved)))
 		throw new Error(`QQ local attachment is outside the allowlisted media root: ${attachment.uri}`);

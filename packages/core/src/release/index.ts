@@ -18,7 +18,7 @@ import {
 } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { homedir } from "node:os";
-import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, win32 } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, posix, relative, resolve, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { controlEndpoint, requestControl } from "../control/index.js";
@@ -330,7 +330,7 @@ function systemdEscape(value: string): string {
 const systemdExecArg = (value: string) => `"${systemdEscape(value).replaceAll("$", () => "$$")}"`;
 const systemdEnvironment = (value: string) => `"${systemdEscape(value)}"`;
 export function linuxServiceUnit(install: string, home: string, path = runtimePath(install)): string {
-	return `# YonderService=${JSON.stringify({ home, install })}\n[Unit]\nDescription=Yonder Harness\n[Service]\nType=simple\nExecStart=${systemdExecArg(join(install, "bin/yonder"))} start --home ${systemdExecArg(home)} --json\nEnvironment=${systemdEnvironment(`PATH=${path}`)}\nEnvironment=${systemdEnvironment(`YONDER_INSTALL=${install}`)}\nEnvironment=${systemdEnvironment(`YONDER_HOME=${home}`)}\nRestart=on-failure\nRestartSec=2\n[Install]\nWantedBy=default.target\n`;
+	return `# YonderService=${JSON.stringify({ home, install })}\n[Unit]\nDescription=Yonder Harness\n[Service]\nType=simple\nExecStart=${systemdExecArg(posix.join(install, "bin/yonder"))} start --home ${systemdExecArg(home)} --json\nEnvironment=${systemdEnvironment(`PATH=${path}`)}\nEnvironment=${systemdEnvironment(`YONDER_INSTALL=${install}`)}\nEnvironment=${systemdEnvironment(`YONDER_HOME=${home}`)}\nRestart=on-failure\nRestartSec=2\n[Install]\nWantedBy=default.target\n`;
 }
 
 async function manageLinuxService(action: ServiceAction, options: { home?: string }) {

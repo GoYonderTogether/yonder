@@ -341,7 +341,7 @@ async function recoverInterrupted(options: MigrateOptions): Promise<string | und
 		const kind = await probe(oldHome);
 		if (kind === "absent") {
 			if ((await probe(journal.tempLink)) === "symlink") await rename(journal.tempLink, oldHome);
-			else await symlink(newHome, oldHome);
+			else await symlink(newHome, oldHome, process.platform === "win32" ? "junction" : "dir");
 		} else if (kind !== "symlink" || (await realpath(oldHome).catch(() => "")) !== (await realpath(newHome)))
 			throw new MigrateError(`上次迁移中断，且旧路径已被占用，请人工处理：${oldHome}`);
 		await rm(journal.tempLink, { force: true });
@@ -409,7 +409,7 @@ export async function applyMigration(options: MigrateOptions): Promise<Migration
 				undo.push(async () => {
 					await rm(join(moved ? newHome : oldHome, JOURNAL), { force: true });
 				});
-				await symlink(newHome, tempLink);
+				await symlink(newHome, tempLink, process.platform === "win32" ? "junction" : "dir");
 				await assertStopped([oldHome, newHome], running);
 				await rename(oldHome, newHome);
 				moved = true;
