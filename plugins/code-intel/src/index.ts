@@ -1,5 +1,6 @@
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
+import { lspNavigation } from "./lsp-navigation.js";
 import { moduleReport } from "./module-report.js";
 import { outline } from "./outline.js";
 import { readEnclosing } from "./read-enclosing.js";
@@ -99,5 +100,6 @@ export default definePlugin({
 		api.tools.register(outline);
 		api.tools.register(readEnclosing);
 		api.tools.register(readSymbol);
+		api.tools.register(lspNavigation);
 	},
 });
