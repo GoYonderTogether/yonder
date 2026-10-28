@@ -219,7 +219,7 @@ describe("optional bookmarks", () => {
 			signal: new AbortController().signal,
 		} as ToolContext);
 		expect(result.isError).toBe(true);
-		expect(result.text).toContain("disabled");
+		expect(result.text).toContain(process.platform === "darwin" ? "disabled" : "supports only the macOS");
 	});
 	it("rejects foreign and remote calls without touching a browser", async () => {
 		const dir = await mkdtemp(join(tmpdir(), "yonder-bookmarks-denied-"));
@@ -248,7 +248,7 @@ describe("optional bookmarks", () => {
 					signal: new AbortController().signal,
 				} as ToolContext);
 				expect(result.isError).toBe(true);
-				expect(result.text).toContain(error);
+				expect(result.text).toContain(process.platform === "darwin" ? error : "supports only the macOS");
 			}
 		} finally {
 			await rm(dir, { recursive: true, force: true });
@@ -284,7 +284,7 @@ describe("extension management boundaries", () => {
 			signal: new AbortController().signal,
 		} as ToolContext);
 		expect(result.isError).toBe(true);
-		expect(result.text).toContain("extensionsEnabled");
+		expect(result.text).toContain(process.platform === "darwin" ? "extensionsEnabled" : "supports only the macOS");
 	});
 });
 

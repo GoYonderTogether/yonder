@@ -26,6 +26,7 @@ let query: ReturnType<typeof vi.fn>;
 let persisted: Map<string, YEvent>;
 beforeEach(async () => {
 	vi.clearAllMocks();
+	vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
 	persisted = new Map();
 	query = vi.fn(async ({ id }: { id: string }) => ({ events: persisted.has(id) ? [persisted.get(id)] : [] }));
 	data = await mkdtemp(join(tmpdir(), "yonder-permission-unit-"));
@@ -59,6 +60,7 @@ beforeEach(async () => {
 	} as unknown as PluginAPI);
 });
 afterEach(async () => {
+	vi.restoreAllMocks();
 	await rm(data, { recursive: true, force: true });
 });
 

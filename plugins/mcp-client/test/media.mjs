@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,9 +7,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import plugin from "../dist/index.js";
 
-const audioPath = "/System/Library/Sounds/Glass.aiff";
 const pngUrl = new URL("../../../skills/skill-creator/assets/skill-creator.png", import.meta.url);
 if (process.argv[2] === "server") {
+	const audioPath = process.argv[3];
 	const server = new McpServer({ name: "yonder-real-png-media", version: "1.0.0" });
 	server.registerTool("read_png", { inputSchema: {} }, async () => {
 		const bytes = await readFile(pngUrl);
@@ -18,7 +18,7 @@ if (process.argv[2] === "server") {
 				{ type: "text", text: "Actual local PNG file" },
 				{ type: "image", mimeType: "image/png", data: bytes.toString("base64") },
 				{ type: "resource", resource: { uri: pngUrl.href, mimeType: "image/png", blob: bytes.toString("base64") } },
-				{ type: "audio", mimeType: "audio/aiff", data: (await readFile(audioPath)).toString("base64") },
+				{ type: "audio", mimeType: "audio/wav", data: (await readFile(audioPath)).toString("base64") },
 			],
 			structuredContent: { uri: pngUrl.href, bytes: bytes.length },
 		};
@@ -29,6 +29,20 @@ if (process.argv[2] === "server") {
 	await server.connect(new StdioServerTransport());
 } else {
 	const data = await mkdtemp(join(tmpdir(), "yonder-mcp-media-"));
+	const audioPath = join(data, "fixture.wav");
+	const audio = Buffer.alloc(44 + 800, 128);
+	audio.write("RIFF", 0);
+	audio.writeUInt32LE(audio.length - 8, 4);
+	audio.write("WAVEfmt ", 8);
+	audio.writeUInt32LE(16, 16);
+	audio.writeUInt16LE(1, 20);
+	audio.writeUInt16LE(1, 22);
+	audio.writeUInt32LE(8000, 24);
+	audio.writeUInt32LE(8000, 28);
+	audio.writeUInt16LE(1, 32);
+	audio.writeUInt16LE(8, 34);
+	audio.write("data", 36);
+	audio.writeUInt32LE(800, 40);
 	const tools = new Map(),
 		triggers = [];
 	const ctx = {
@@ -38,11 +52,16 @@ if (process.argv[2] === "server") {
 		signal: new AbortController().signal,
 	};
 	try {
+		await writeFile(audioPath, audio);
 		await plugin.setup({
 			version: "1",
 			config: {
 				servers: {
-					png: { transport: "stdio", command: process.execPath, args: [fileURLToPath(import.meta.url), "server"] },
+					png: {
+						transport: "stdio",
+						command: process.execPath,
+						args: [fileURLToPath(import.meta.url), "server", audioPath],
+					},
 				},
 			},
 			paths: { data },
@@ -67,6 +86,7 @@ if (process.argv[2] === "server") {
 			await readFile(fileURLToPath(result.attachments.find((item) => item.kind === "audio").uri)),
 			await readFile(audioPath),
 		);
+		assert.equal(result.attachments.find((item) => item.kind === "audio").mime, "audio/wav");
 		const parsed = JSON.parse(result.text);
 		assert.equal(parsed.source.server, "png");
 		assert.equal(parsed.source.name, "read_png");
@@ -86,7 +106,7 @@ if (process.argv[2] === "server") {
 		assert.deepEqual(await readFile(fileURLToPath(resource.attachments[0].uri)), bytes);
 		assert.equal(JSON.parse(resource.text).result.contents[0].blob, undefined);
 		console.log(
-			"PASS: real SDK PNG tool image maps to images, actual macOS audio and embedded/read resource blobs map to byte-identical artifact attachments, provenance/text/structuredContent retained; no base64 in text",
+			"PASS: real SDK PNG tool image maps to images, WAV audio and embedded/read resource blobs map to byte-identical artifact attachments, provenance/text/structuredContent retained; no base64 in text",
 		);
 	} finally {
 		for (const trigger of triggers) await trigger.stop();

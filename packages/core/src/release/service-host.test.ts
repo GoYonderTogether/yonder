@@ -104,7 +104,9 @@ test("service host executes its entry point through the installed current symlin
 		await symlink(resolve("scripts"), join(root, "current"), "dir");
 		const result = spawnSync(process.execPath, [join(root, "current/yonder-service-host.mjs")], { encoding: "utf8" });
 		expect(result.status).toBe(1);
-		expect(result.stderr).toContain("Usage: yonder-service-host --home <home>");
+		expect(result.stderr).toContain(
+			process.platform === "darwin" ? "Usage: yonder-service-host --home <home>" : "Yonder service host requires macOS",
+		);
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

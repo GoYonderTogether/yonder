@@ -191,7 +191,8 @@ describe("comments", () => {
 	});
 });
 
-describe("update dispatch ownership", () => {
+// Service-external update dispatch uses the macOS launchd user domain.
+describe.skipIf(process.platform !== "darwin")("update dispatch ownership", () => {
 	it("cleans failed preparation and permits another release without ever invoking bootstrap", async () => {
 		boundary.copy.mockRejectedValue(new Error("runner copy failed"));
 		await expect(scheduleUpdate(api, channel(), release(1), signal())).rejects.toThrow("runner copy failed");
@@ -218,6 +219,15 @@ describe("update dispatch ownership", () => {
 		await expect(scheduleUpdate(api, channel(), release(2), signal())).rejects.toThrow("no terminal receipt");
 		expect(boundary.launch.mock.calls.filter(([args]) => args[0] === "bootstrap")).toHaveLength(1);
 	});
+});
+
+it("rejects service-external updates outside macOS before dispatch", async () => {
+	vi.spyOn(process, "platform", "get").mockReturnValue("linux");
+	await expect(scheduleUpdate(api, channel(), release(1), signal())).rejects.toThrow(
+		"Service-external updates require macOS launchd user domain",
+	);
+	expect(boundary.copy).not.toHaveBeenCalled();
+	expect(boundary.launch).not.toHaveBeenCalled();
 });
 
 describe("actual service evidence", () => {
