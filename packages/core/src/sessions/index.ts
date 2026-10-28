@@ -120,6 +120,18 @@ export function createSessions({
 		const caps = profile.resolved.capabilities;
 		if (!caps.includes("read")) throw new Error("当前来源没有读取会话权限");
 		const [name, ...args] = command.trim().split(/\s+/);
+		if (name === "bg") {
+			if (args.length === 0) return JSON.stringify(await runtime().backgroundList(id), null, 2);
+			const [action, jobId] = args;
+			if (args.length !== 2 || (action !== "logs" && action !== "kill") || !jobId || !/^\d+$/.test(jobId))
+				throw new Error("用法：/bg | /bg logs <id> | /bg kill <id>");
+			if (action === "kill" && !caps.includes("admin")) throw new Error("停止后台任务需要 admin 权限");
+			return JSON.stringify(
+				await runtime().backgroundAction(id, { action: action === "logs" ? "log" : "kill", id: jobId }),
+				null,
+				2,
+			);
+		}
 		const mutates = name === "compact" || (name === "model" && args.length > 0 && args[0] !== "list");
 		if (mutates && !caps.includes("admin")) throw new Error("修改模型或压缩需要 admin 权限");
 		if (name === "compact") {

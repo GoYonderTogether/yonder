@@ -83,12 +83,16 @@ test("help uses shared commands and excludes commands absent from the CLI", asyn
 		expect(result?.text).toContain("/skills");
 		expect(result?.text).toContain("/stop");
 		expect(result?.text).toContain("/model");
+		expect(result?.text).toContain("/effort");
 		expect(result?.text).toContain("/compact");
 		expect(result?.text).toContain("/status");
+		expect(result?.text).toContain("/bg");
 		expect(result?.text).not.toMatch(/\/history\b/);
 		expect(channelChatCommands.map(({ name }) => name)).toEqual([
 			"model",
+			"effort",
 			"status",
+			"bg",
 			"compact",
 			"session",
 			"connect",
@@ -177,7 +181,10 @@ test.each(["/refine skills\n保留原始文本", "/plugin-command argument", "/"
 test.each([
 	...chatCommands.map(({ name }) => `/${name}`),
 	"/model openai/gpt-6-luna",
+	"/effort high",
 	"/status details",
+	"/bg logs 1",
+	"/bg kill 1",
 	"/compact focus",
 	"/connect cli",
 ])("recognized builtin %s never falls through, even on a permission error", async (text) => {

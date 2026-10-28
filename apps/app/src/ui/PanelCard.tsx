@@ -83,7 +83,7 @@ export function PanelCard(p: PanelCardProps) {
 			</header>
 			{!collapsed && (
 				<div className={`scroll-y px-3 py-2.5 ${floating ? "max-h-72" : ""}`}>
-					<PanelBody kind={p.active} v={p.v} session={p.session} />
+					<PanelBody kind={p.active} v={p.v} session={p.session} placement={p.placement} />
 				</div>
 			)}
 		</section>

@@ -33,7 +33,7 @@ export async function runChannelCommand(
 	// Only consume recognized builtins. Plugin/model slash input keeps the normal admission path.
 	if (
 		!chatCommands.some((item) => item.name === command) &&
-		!/^(model|status|compact)(?:\s|$)/.test(command) &&
+		!/^(model|effort|status|bg|compact)(?:\s|$)/.test(command) &&
 		!/^connect(?:\s+[a-z0-9-]+)?$/.test(command)
 	)
 		return;
@@ -54,7 +54,7 @@ export async function runChannelCommand(
 			result.text = channelChatCommands.map((item) => `/${item.name} — ${item.description}`).join("\n");
 		else if (command === "session")
 			result.text = `Agent: ${session.agent}\nSession: ${session.id}\nMode: ${session.mode}\nProfile: ${session.profile}\nModel: ${profile.resolved.model}`;
-		else if (/^(model|status|compact)(?:\s|$)/.test(command))
+		else if (/^(model|effort|status|bg|compact)(?:\s|$)/.test(command))
 			result.text = await sessions.api.command(session.id, command);
 		else if (command === "skills")
 			result.text =

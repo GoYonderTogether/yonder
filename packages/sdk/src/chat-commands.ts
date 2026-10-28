@@ -4,7 +4,9 @@ export const chatCommands = [
 	{ name: "tree", description: "查看和切换分支 · Branches" },
 	{ name: "fork", description: "从历史节点创建分支 · Fork" },
 	{ name: "model", description: "模型、供应商与回退链 · Models" },
+	{ name: "effort", description: "思考档位 · Effort" },
 	{ name: "status", description: "上下文与后台任务 · Status" },
+	{ name: "bg", description: "后台任务、日志与停止 · Background jobs" },
 	{ name: "compact", description: "压缩当前上下文 · Compact" },
 	{ name: "session", description: "当前会话 · Session info" },
 	{ name: "hotkeys", description: "快捷键 · Hotkeys" },
@@ -16,6 +18,17 @@ export const chatCommands = [
 	{ name: "help", description: "帮助 · Help" },
 ];
 
-const channelCommandNames = new Set(["help", "session", "skills", "stop", "connect", "model", "status", "compact"]);
+const channelCommandNames = new Set([
+	"help",
+	"session",
+	"skills",
+	"stop",
+	"connect",
+	"model",
+	"effort",
+	"status",
+	"bg",
+	"compact",
+]);
 
 export const channelChatCommands = chatCommands.filter((command) => channelCommandNames.has(command.name));

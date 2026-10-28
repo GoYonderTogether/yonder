@@ -9,7 +9,6 @@ import { type KernelServices, loadPlugins } from "../plugins/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createStore } from "../store/index.js";
-import { builtinViews } from "./builtin.js";
 import { createViews } from "./index.js";
 
 const declaration = (id: string, placement: ViewDecl["placement"] = "rail"): ViewDecl => ({
@@ -42,7 +41,6 @@ it("collects views, rejects conflicts and plugin impersonation, filters placemen
 	views.register("tasks", declaration("tasks.spoof"), provider("other.page"));
 	await expect(views.data("tasks.spoof", "1")).rejects.toThrow("another view");
 	expect(views.list({ placement: "page", session: "1" })).toEqual([declaration("other.page", "page")]);
-	expect(builtinViews()).toEqual([]);
 	await expect(views.data(decl.id)).rejects.toMatchObject({ code: "invalid_params" });
 	expect((await views.data(decl.id, "1")).content).toEqual({ type: "markdown", text: "1" });
 	await expect(views.act("tasks.other", "go", undefined, "1")).rejects.toMatchObject({ code: "not_found" });

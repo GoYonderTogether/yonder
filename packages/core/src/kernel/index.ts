@@ -349,7 +349,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
-		for (const { decl, provider } of builtinViews()) loaded.views.register("core", decl, provider);
+		for (const { decl, provider } of builtinViews(realRuntime)) loaded.views.register("core", decl, provider);
 		runtime = await Runtime.open({
 			db,
 			home,
@@ -386,7 +386,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					if (end) await sessions.closeSession(id, end.status === "done" ? "completed" : end.status);
 				}
 			},
-			...backgroundHandlers({ store, runtime: realRuntime, delivery, report }),
+			...backgroundHandlers({ store, runtime: realRuntime, delivery, report, views: loaded.views }),
 			resolveSession: async (id) => {
 				const session = await sessions.resolveSession(id);
 				const protectedFiles = session.resolved.contexts

@@ -17,8 +17,10 @@ import {
 	type ToolRegistration,
 	type Tx,
 } from "@earendil-works/pi-durable";
+import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
+import { cid } from "./docs.js";
 
 const INTERRUPTED_RESULT =
 	"Task interrupted by restart; side effects may have occurred. Re-check state, avoid repeating completed actions, and resume.";
@@ -73,9 +75,17 @@ export function createBackground(options: {
 	execute(input: Input, api: ToolExecutionApi, context: Context): Promise<ToolExecutionResult>;
 	finished(session: string, id: string, name: string, result: ToolExecutionResult, origin?: YEvent): Promise<void>;
 	report(error: unknown): void;
+	changed?(session: string): void;
 	settled?(session: string): Promise<void>;
 }) {
 	const harness = options.harness;
+	const changed = (session: string) => {
+		try {
+			options.changed?.(session);
+		} catch (error) {
+			options.report(error);
+		}
+	};
 	const watchers = new Map<number, { controller: AbortController; done: Promise<void> }>();
 	const running = new Map<number, LiveOutput>();
 	const task = defineTask<Input, State, ToolExecutionResult>({
@@ -233,6 +243,7 @@ export function createBackground(options: {
 			while (!controller.signal.aborted) {
 				try {
 					await harness().waitForTask(id, withAbortSignal(controller.signal, C));
+					changed(session);
 					await notify(session, id);
 					return;
 				} catch (error) {
@@ -278,6 +289,7 @@ export function createBackground(options: {
 			await harness().commit(async (tx) => {
 				(await tx.doc(JobDoc, api.conversationId, String(id), null)).detached = true;
 			}, C);
+			changed(String(api.conversationId));
 			watch(String(api.conversationId), id);
 			const value = json({
 				background: String(id),
@@ -302,10 +314,79 @@ export function createBackground(options: {
 		const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
 		return { record, doc };
 	};
+	const action = async (
+		session: string,
+		args: { action: string; id: string; offset?: number; text?: string; eof?: boolean },
+		context: Context,
+	) => {
+		if (!/^[0-9]+$/.test(args.id) || !Number.isSafeInteger(Number(args.id)))
+			throw new Error("Invalid background job id");
+		const id = Number(args.id),
+			{ record, doc } = await inspect(session, id);
+		if (args.action === "kill") await harness().abortTask(id as TaskId, C);
+		if (args.action === "write") {
+			const write = running.get(id)?.write;
+			if (!write) return failed("This job has no writable stdin or has already ended");
+			await write(args.text ?? "", args.eof);
+		}
+		if (args.action === "wait" && record.state.status !== "terminal") {
+			const stop = new AbortController(),
+				timer = setTimeout(() => stop.abort(), 15000);
+			try {
+				await harness().waitForTask(
+					id as TaskId,
+					withAbortSignal(AbortSignal.any([stop.signal, context.abortSignal!]), C),
+				);
+			} catch (error) {
+				if (context.abortSignal?.aborted || !stop.signal.aborted) throw error;
+			} finally {
+				clearTimeout(timer);
+			}
+		}
+		const current = await inspect(session, id),
+			live = running.get(id),
+			output = live?.output ?? current.doc?.output ?? "",
+			next = live?.next ?? current.doc?.next ?? output.length,
+			base = next - output.length,
+			offset = Math.max(base, args.offset ?? base);
+		return {
+			id: args.id,
+			name: doc?.name,
+			started: doc?.started,
+			state: current.record.state,
+			output: output.slice(offset - base),
+			offset,
+			next,
+			truncated: (args.offset ?? base) < base,
+		};
+	};
 	return {
 		extension: defineExtension({ name: "yonder.background", tasks: [task] }),
 		run,
 		running,
+		async list(session: string, storage: SqliteStorage) {
+			const page = await storage.scanTasks(
+				{ conversationId: cid(session), kind: "yonder.background" },
+				Number.MAX_SAFE_INTEGER,
+				undefined,
+				C,
+			);
+			const jobs = await Promise.all(
+				page.items.map(async (row) => {
+					const { doc } = await inspect(session, row.id);
+					return doc?.detached
+						? { id: String(row.id), name: doc.name, started: doc.started, state: row.state }
+						: undefined;
+				}),
+			);
+			return jobs.filter((job) => job !== undefined);
+		},
+		async manage(session: string, args: { action: "status" | "log" | "kill"; id: string; offset?: number }) {
+			if (!["status", "log", "kill"].includes(args.action)) throw new Error("Invalid background action");
+			if (args.offset !== undefined && (!Number.isSafeInteger(args.offset) || args.offset < 0))
+				throw new Error("Invalid background log offset");
+			return action(session, args, C);
+		},
 		async pending(id: TaskId) {
 			const record = await harness().getTask(id as TaskId<ToolExecutionResult>, C);
 			if (!record) return false;
@@ -342,45 +423,8 @@ export function createBackground(options: {
 			deferred: true as const,
 			async execute(value: unknown, api: ToolExecutionApi, context: Context) {
 				const args = value as { action: string; id: string; offset?: number; text?: string; eof?: boolean };
-				const session = String(api.conversationId),
-					id = Number(args.id),
-					{ record, doc } = await inspect(session, id);
-				if (args.action === "kill") await harness().abortTask(id as TaskId, C);
-				if (args.action === "write") {
-					const write = running.get(id)?.write;
-					if (!write) return failed("This job has no writable stdin or has already ended");
-					await write(args.text ?? "", args.eof);
-				}
-				if (args.action === "wait" && record.state.status !== "terminal") {
-					const stop = new AbortController(),
-						timer = setTimeout(() => stop.abort(), 15000);
-					try {
-						await harness().waitForTask(
-							id as TaskId,
-							withAbortSignal(AbortSignal.any([stop.signal, context.abortSignal!]), C),
-						);
-					} catch (error) {
-						if (context.abortSignal?.aborted || !stop.signal.aborted) throw error;
-					} finally {
-						clearTimeout(timer);
-					}
-				}
-				const current = await inspect(session, id),
-					live = running.get(id),
-					output = live?.output ?? current.doc?.output ?? "",
-					next = live?.next ?? current.doc?.next ?? output.length,
-					base = next - output.length,
-					offset = Math.max(base, args.offset ?? base);
-				return json({
-					id: args.id,
-					name: doc?.name,
-					started: doc?.started,
-					state: current.record.state,
-					output: output.slice(offset - base),
-					offset,
-					next,
-					truncated: (args.offset ?? base) < base,
-				});
+				const result = await action(String(api.conversationId), args, context);
+				return "isError" in result ? result : json(result);
 			},
 		},
 	};

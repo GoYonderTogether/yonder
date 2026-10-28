@@ -1,4 +1,8 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleDashed, Loader } from "lucide-react";
+import { useEffect } from "react";
+import { rpc } from "../api/client";
+import { mux } from "../api/stream";
 import type { TodoItem } from "../api/types";
 import { tokens } from "../lib/format";
 import { titleOf } from "../lib/identity";
@@ -56,7 +60,57 @@ const STATE: Record<string, string> = {
 	done: "完成",
 	error: "出错",
 	aborted: "已中止",
+	completed: "完成",
+	terminal: "已结束",
 };
+
+function Background({ session, placement }: { session: string; placement: "rail" | "floating" }) {
+	const viewId = `core.background.${placement}`;
+	const queryKey = ["background-view", session, placement];
+	const qc = useQueryClient();
+	const query = useQuery({
+		queryKey,
+		queryFn: () =>
+			rpc<{ content: { type: "list"; items: { id: string; title: string; subtitle?: string }[] } }>("views.data", {
+				viewId,
+				session,
+			}),
+		retry: false,
+	});
+	useEffect(
+		() =>
+			mux.subscribe(
+				"views.watch",
+				{ session, placement },
+				{
+					onReady: () => {
+						void qc.invalidateQueries({ queryKey: ["background-view", session, placement] });
+					},
+					onEvent: (_type, data) => {
+						if ((data as { ids?: string[] }).ids?.includes(viewId))
+							void qc.invalidateQueries({ queryKey: ["background-view", session, placement] });
+					},
+				},
+			),
+		[qc, session, placement, viewId],
+	);
+	if (query.isPending) return <Empty t="正在读取后台任务" />;
+	if (query.isError) return <Empty t="后台任务读取失败" />;
+	const items = query.data.content.items;
+	if (!items.length) return <Empty t="没有后台任务" />;
+	return (
+		<ul className="flex flex-col gap-1">
+			{items.map((item) => (
+				<li key={item.id} className="flex items-center gap-2 text-small">
+					<span className="min-w-0 flex-1 truncate font-mono text-caption">
+						{item.title} · {item.id}
+					</span>
+					<span className="shrink-0 text-caption text-faint">{STATE[item.subtitle ?? ""] ?? item.subtitle}</span>
+				</li>
+			))}
+		</ul>
+	);
+}
 
 function Subtasks({ v, session }: { v: SessionView; session: string }) {
 	const all = useSessions();
@@ -153,7 +207,17 @@ function Context({ v }: { v: SessionView }) {
 }
 
 /** 面板正文：右栏卡片与悬浮窗共用，不分放置。缺数据一律诚实空态并标明缺哪个契约项。 */
-export function PanelBody({ kind, v, session }: { kind: PanelKind; v: SessionView; session: string }) {
+export function PanelBody({
+	kind,
+	v,
+	session,
+	placement = "rail",
+}: {
+	kind: PanelKind;
+	v: SessionView;
+	session: string;
+	placement?: "rail" | "floating";
+}) {
 	switch (kind) {
 		case "todos":
 			return v.todos.length ? <TodoTree items={v.todos} /> : <Empty t="暂无待办" need="todo.updated" />;
@@ -168,20 +232,7 @@ export function PanelBody({ kind, v, session }: { kind: PanelKind; v: SessionVie
 		case "context":
 			return <Context v={v} />;
 		case "background":
-			return v.background.length ? (
-				<ul className="flex flex-col gap-1">
-					{v.background.map((r) => (
-						<li key={r.id} className="flex items-center gap-2 text-small">
-							<span className="min-w-0 flex-1 truncate font-mono text-caption">{r.label}</span>
-							<span className="shrink-0 text-caption text-faint">
-								{r.state === "running" ? "运行中" : `已退出 ${r.exitCode ?? ""}`}
-							</span>
-						</li>
-					))}
-				</ul>
-			) : (
-				<Empty t="没有后台任务" need="background.updated" />
-			);
+			return <Background session={session} placement={placement} />;
 		case "wake":
 			return <Empty t="暂无 Bot 唤醒记录" need="events.query（awake 事件）" />;
 	}
@@ -194,8 +245,6 @@ export function countOf(kind: PanelKind, v: SessionView): string | undefined {
 			return v.todos.length ? `${v.todos.filter((t) => t.state === "done").length}/${v.todos.length}` : undefined;
 		case "subtasks":
 			return v.subtasks.length ? String(v.subtasks.length) : undefined;
-		case "background":
-			return v.background.length ? String(v.background.length) : undefined;
 		case "context":
 			return v.context ? `${Math.round(v.context.percent)}%` : undefined;
 		default:

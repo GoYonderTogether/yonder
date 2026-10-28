@@ -2,6 +2,7 @@ import { type createDelivery, sourceMessage } from "../delivery/index.js";
 import type { Runtime } from "../runtime/index.js";
 import type { RuntimeOptions } from "../runtime/types.js";
 import type { createStore } from "../store/index.js";
+import type { createViews } from "../views/index.js";
 
 /** Runtime callbacks that turn background tool results and run warnings into recorded events and session notes. */
 export function backgroundHandlers(ctx: {
@@ -9,9 +10,11 @@ export function backgroundHandlers(ctx: {
 	runtime: () => Runtime;
 	delivery: ReturnType<typeof createDelivery>;
 	report: (error: unknown) => void;
-}): Pick<RuntimeOptions, "onBackground" | "onWarning"> {
-	const { store, runtime: realRuntime, delivery, report } = ctx;
+	views: ReturnType<typeof createViews>;
+}): Pick<RuntimeOptions, "onBackground" | "onWarning" | "onBackgroundChanged"> {
+	const { store, runtime: realRuntime, delivery } = ctx;
 	return {
+		onBackgroundChanged: () => ctx.views.invalidate("core", ["core.background.rail", "core.background.floating"]),
 		onBackground: async (id, input) => {
 			const row = await store.sessions.get(id);
 			const origin = input.origin;

@@ -659,7 +659,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 			title();
 			return;
 		}
-		if (/^(model|status|compact)(?:\s|$)/.test(name)) {
+		if (/^(model|effort|status|bg|compact)(?:\s|$)/.test(name)) {
 			if (!info) throw new Error("请先选择会话");
 			notice(await call<string>("sessions.command", { id: info.session.id, command: name }));
 			await refresh();
