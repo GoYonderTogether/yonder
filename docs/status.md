@@ -20,7 +20,7 @@
 
 **已实现**：`agent-presets` 官方预设与常驻模板不再写 `model`，按内核默认模型解析；`yonder init --bundle core|default|full`（数据在 `packages/core/src/bundles.ts`，不是设计稿的 `distribution/bundles/*.json`，因为 tsc 不复制 JSON）；`core` 不写渠道实例与 `cli` 绑定；`default` 加载 channel-mcp 但没有 `type: mcp` 实例时不开端口；`channels list` 对未启用的 feishu/wechat-ilink/qq/github 返回 `随包提供，未启用`。规则见 [08 §6](spec/08-config.md#6-init-的发行包与随包渠道)。
 
-**已验证**：`packages/cli/src/bundles.test.ts` 用构建后的 CLI 真实启动临时 home：core 配置、未知包退出码 2、`channels list` 状态、channel-mcp 端口启用前连不上、写入实例重启后可连。**未测**：`init --bundle core` + `start --no-gateway` 真实模型对话（本机无 `YONDER_TEST_AUTH` 凭据，用例跳过）。**差距**：设计 §5.4 默认加载集里的 memory、cron、tasks、learning、channel-card、mcp-client 尚未进 `default`（memory 与 channel-wechat-ilink 需要主人级配置，不进任何包）；`presets show default` 只回原始预设，不显示解析后的模型；`docs/spec/12-terminal-interaction.md:44` 仍写 init 预设含 `openai/gpt-6-luna`，待维护者改。
+**已验证**：`packages/cli/src/bundles.test.ts` 用构建后的 CLI 真实启动临时 home：core 配置、未知包退出码 2、`channels list` 状态、channel-mcp 端口启用前连不上、写入实例重启后可连，非默认模型到新任务与常驻模板。**未测**：`init --bundle core` + `start --no-gateway` 真实模型对话（本机无 `YONDER_TEST_AUTH` 凭据，用例跳过）。**差距**：`presets show default` 只回原始预设，不显示解析后的模型；channel-wechat-ilink 需要主人配置，不进任何包。
 
 ## 统一客户端 gateway 线（2026-10-27，`lane/gateway-20261027`，待审核）
 

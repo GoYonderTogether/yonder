@@ -4,8 +4,8 @@
 
 ### Added
 
-- `yonder init --bundle core|default|full`（默认 `default`）：发行包决定 init 写入的插件与渠道实例。`core` 无渠道实例、不写 `cli` 绑定，`start --no-gateway` 后仍可用任务会话对话；`default` 额外加载 channel-mcp 但不监听（没有 `type: mcp` 实例就不开端口）；`full` 含其余随包插件。需要主人级配置的 `channel-wechat-ilink`、`memory` 不进任何包。
-- `yonder channels list` 对未启用的随包第三方渠道（feishu、wechat-ilink、qq、github）返回 `status: 随包提供，未启用 · Shipped, not enabled`，已启用实例的字段不变。
+- `yonder init --bundle core|default|full`（默认 `default`）：发行包决定 init 写入的插件与渠道实例。`core` 无渠道实例、不写 `cli` 绑定，`start --no-gateway` 后仍可用任务会话对话；`default` 按设计 §5.4 加载 cron、tasks、learning、channel-card、mcp-client、memory 与 channel-mcp（不监听，没有 `type: mcp` 实例就不开端口），memory 的 root/owner/timezone 由 init 填入；`full` 含其余随包插件。只有 `channel-wechat-ilink` 需要主人配置，不进任何包。`init` 必须带 `--model`，写入 `yonder.yaml.defaultModel`。
+- 随包未启用的第三方渠道（feishu、wechat-ilink、qq、github）由`channels.list {shipped:true}` 单独返回，仅含本次安装里可解析的插件；`channels.list` 的已配置条目不变，`yonder channels list` 依次打印两者。
 - 微信归档监听补齐入站标注：`wechat-archive.material` 的 data 增加 `channel`、`conversation`、批次去重的 `senders` 和一行通知用 `summary`（发送人加正文摘要，纯媒体与无正文分别记标记），消息正文与附件仍在 `messages`；同一会话是否提醒由 `notifications` 级别决定，监听保持只读、不自动回复。
 - 渠道通知级别：`yonder.yaml` 新增 `notifications`（`default` + 按 `conv` 覆盖，取值 `all`/`mention`/`mute`）。被绑定接纳的入站 `message.in` 与带 `data.summary` 的插件事件对每个路由会话写一条 `yonder.notification`（走 `sessions.notify`，不唤醒模型），`mention` 只在 `data.mentioned` 为真时通知，`mute` 只累积事件与未读（06 §9.1、08 §2）。
 - 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
