@@ -59,3 +59,9 @@ official-prompts.test.ts：3/3 通过。预算脚本最初在并行改动期间�
 推送后的真实测试首轮：default 1 通过（coding 跳过）；coding 1 失败（default 跳过），执行者给出正确路径和模型，主管已验收，但报告以 `**STATUS: done**` 开头，未满足首字符为 `S`。coding 原始证据 `/tmp/yonder-pt01-EDstnW/evidence.json`。随后明确禁止 Markdown 包裹，需复跑。干净副本 `1a8499f` 构建通过，早前构建失败保留如上。
 
 STATUS 字面格式修正已提交；复跑待完成。`verify-copy.sh` 后续多次提示其他验收 HOME `t05r3` 运行中，拒绝更新副本，未停止他人进程。现有 `verify-home.sh` 还会从主人 HOME 复制 gw 槽，本卡仅授权 siliconflow，故未运行该脚本或 `real-check.sh`。三角色最终上界按此次任务文本新增字节计算为 1999 / 1795 / 1887，非模型 tokenizer 实测。
+
+| 角色 | 改前估算 | 改后估算上界 |
+|---|---:|---:|
+| main | 2540 | 1999 |
+| default | 2203 | 1795 |
+| coding | 2305 | 1887 |
