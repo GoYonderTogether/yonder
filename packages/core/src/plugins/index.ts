@@ -35,6 +35,7 @@ export type KernelServices = Omit<
 	Pick<
 		PluginAPI,
 		| "permissions"
+		| "social"
 		| "agents"
 		| "events"
 		| "messages"
@@ -222,6 +223,7 @@ export async function loadPlugins(
 				warn: (message, data) => services.log.warn(message, { ...data, plugin: manifest.id }),
 				error: (message, data) => services.log.error(message, { ...data, plugin: manifest.id }),
 			},
+			...(manifest.id === "social" && services.social ? { social: services.social } : {}),
 			permissions: {
 				...register("permissions", registrationsApi.permissions.register),
 				list: (ctx) => {

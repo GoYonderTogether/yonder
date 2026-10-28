@@ -43,6 +43,7 @@ import { hostService } from "./host-status.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
+import { createSocial } from "./social.js";
 import { runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
@@ -118,6 +119,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		let router: ReturnType<typeof createRouter>;
 		let delivery: ReturnType<typeof createDelivery>;
 		let outbound: ReturnType<typeof outboundQueue>;
+		let social: ReturnType<typeof createSocial>;
 		const resolveExecutionOwner = async (owner: { session: string; agent: string | null; profile: string }) => {
 			const session = await store.sessions.get(owner.session);
 			if (!session || session.agent !== owner.agent || session.profile !== owner.profile)
@@ -133,6 +135,19 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			return (await realRuntime().sessionConfig(ctx.session)).resolved.plugins;
 		});
 		const services: KernelServices = {
+			social: {
+				inspect: (request, ctx) => {
+					if (!ctx) throw new Error("Tool context required");
+					return social.inspect(request, ctx);
+				},
+				update: (request, ctx) => {
+					if (!ctx) throw new Error("Tool context required");
+					return social.update(request, ctx);
+				},
+				resume: async () => {
+					throw new Error("Social resume unavailable");
+				},
+			},
 			permissions,
 			agents: {
 				list: async () =>
@@ -425,6 +440,29 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				}
 			if (errors.length) throw new Error(errors.join("; "));
 		};
+		social = createSocial({
+			home,
+			config,
+			agents,
+			assert: (ctx) => realRuntime().assertToolContext(ctx),
+			owner: async (agent, account) => (await store.identity().relation(agent, account)) === "owner",
+			target: async (conv) => {
+				const events = (await store.events.query({ type: "message.in", conv, limit: 1000 })).events;
+				const event = events.find((item) =>
+					["dm", "group", "channel"].includes(String((item.data as { kind?: unknown }).kind)),
+				);
+				if (!event) return undefined;
+				const kind = (event.data as { kind: "dm" | "group" | "channel" }).kind;
+				const person = event.from ? (await store.identity().account(event.from))?.person : undefined;
+				return { kind, ...(event.from ? { from: event.from } : {}), ...(person ? { person } : {}) };
+			},
+			record: (event) => store.events.record(event),
+			validate: (next) => validateCandidate(config, next, homePresets),
+			reload: async () => {
+				if (!watcher) throw new Error("Config watcher unavailable");
+				await watcher.reload();
+			},
+		});
 		let pendingRestart = "";
 		watcher = await watchConfig({
 			home,
@@ -469,6 +507,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
+			social,
 			channels: {
 				list: () =>
 					[...loaded.channels].map(([id, channel]) => ({

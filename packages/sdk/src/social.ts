@@ -1,4 +1,4 @@
-import type { Ref } from "./types.js";
+import type { Ref, ToolContext } from "./types.js";
 export type Participation = "direct" | "record" | "mention" | "batch" | "folded" | "mute";
 export type SocialSignal = "botMention" | "ownerMention" | "groupOwner" | "everyone" | "keyword";
 export interface SocialPolicy {
@@ -44,7 +44,10 @@ export interface NotificationIntent {
 }
 
 export interface SocialAPI {
-	inspect(request: { agent: string; conv: Ref; event?: string }): Promise<{
+	inspect(
+		request: { agent: string; conv: Ref; event?: string },
+		ctx?: ToolContext,
+	): Promise<{
 		policy: SocialPolicy;
 		sources: Record<string, string>;
 		revision: string;
@@ -53,18 +56,24 @@ export interface SocialAPI {
 		cursor?: string;
 		nextAt?: string;
 	}>;
-	update(request: {
-		agent: string;
-		conv: Ref;
-		expectedRevision: string;
-		patch: SocialPolicy & { mappings?: NonNullable<SocialConfig["mappings"]> };
-		reason: string;
-		dryRun?: boolean;
-	}): Promise<{ before: SocialPolicy; after: SocialPolicy; affected: Ref[]; revision: string }>;
-	resume(request: {
-		agent: string;
-		conv: Ref;
-		expectedRevision: string;
-		through: string;
-	}): Promise<{ accepted: boolean; revision: string }>;
+	update(
+		request: {
+			agent: string;
+			conv: Ref;
+			expectedRevision: string;
+			patch: SocialPolicy & { mappings?: NonNullable<SocialConfig["mappings"]> };
+			reason: string;
+			dryRun?: boolean;
+		},
+		ctx?: ToolContext,
+	): Promise<{ before: SocialPolicy; after: SocialPolicy; affected: Ref[]; revision: string }>;
+	resume(
+		request: {
+			agent: string;
+			conv: Ref;
+			expectedRevision: string;
+			through: string;
+		},
+		ctx?: ToolContext,
+	): Promise<{ accepted: boolean; revision: string }>;
 }
