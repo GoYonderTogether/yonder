@@ -184,7 +184,12 @@ function modelFromJson(
 		compat: mergeCompat(
 			siliconflowV32
 				? mergeCompat(
-						{ thinkingFormat: "qwen", supportsReasoningEffort: false, thinkingTokenBudgetField: "thinking_budget" },
+						{
+							thinkingFormat: "qwen",
+							supportsReasoningEffort: false,
+							supportsDeveloperRole: false,
+							thinkingTokenBudgetField: "thinking_budget",
+						},
 						providerConfig.compat,
 					)
 				: providerConfig.compat,

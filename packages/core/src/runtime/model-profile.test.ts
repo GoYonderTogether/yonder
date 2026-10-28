@@ -73,7 +73,12 @@ test("SiliconFlow V3.2 uses its documented thinking fields while explicit settin
 	);
 	expect(configured).toMatchObject({
 		reasoning: true,
-		compat: { thinkingFormat: "qwen", supportsReasoningEffort: false, thinkingTokenBudgetField: "thinking_budget" },
+		compat: {
+			thinkingFormat: "qwen",
+			supportsReasoningEffort: false,
+			supportsDeveloperRole: false,
+			thinkingTokenBudgetField: "thinking_budget",
+		},
 	});
 	const explicit = buildModels(credentials, {
 		siliconflow: { ...provider, models: [{ ...provider.models[0], reasoning: false }] },
