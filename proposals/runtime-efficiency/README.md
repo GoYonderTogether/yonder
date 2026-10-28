@@ -32,7 +32,7 @@ endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) {
 ```
 
 `refreshActivity()` 走 `run(["service", "info", "--home", home])`，`run()` 用
-`Process` 起 `~/.yonder-harness/bin/yonder service info --json`。
+`Process` 起 `~/.yonder/bin/yonder service info --json`。
 
 实测 10 秒内出现 6 个不同的 `service info` 进程（≈0.6 次/秒）。
 每次 spawn 要付：Node 启动 + 整棵模块图加载 + 打开 control socket + 退出。
@@ -124,7 +124,7 @@ const report = (error: unknown) => log("error", message(error));
  542  plugins/channel-wechat-ilink/src/channel.ts
  530  plugins/cron/src/index.ts
  524  packages/core/src/tools/index.ts
- 522  packages/executor/src/executor.ts
+ 522  packages/device/src/executor.ts
 ```
 
 `Runtime` 一个类挂了约 40 个方法，覆盖会话、模型、压缩、提交、任务、恢复、

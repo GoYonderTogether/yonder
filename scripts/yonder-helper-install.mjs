@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-const stableDirectory = () => join(homedir(), ".local/share/yonder-harness/helper");
+const stableDirectory = () => join(homedir(), ".local/share/yonder/helper");
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 function startIdentity(pid) {
 	const result = spawnSync("/bin/ps", ["-p", String(pid), "-o", "lstart="], { encoding: "utf8" });
@@ -58,7 +58,7 @@ export async function installHelper(root, directory = stableDirectory()) {
 	// A development checkout can only install into an explicit isolated directory.
 	// Production uses the selected installed release, including after rollback.
 	if (resolve(directory) === resolve(stableDirectory())) {
-		const install = process.env.YONDER_INSTALL ?? join(homedir(), ".yonder-harness");
+		const install = process.env.YONDER_INSTALL ?? join(homedir(), ".yonder");
 		if (root !== (await realpath(join(install, "current"))))
 			throw new Error(
 				"Production Helper installation requires the current installed release, not a development checkout",

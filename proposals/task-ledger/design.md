@@ -49,7 +49,7 @@ L0 内核事实  事件账本、session、task_run/agent_ask（已有，不改�
 ### L2 展示路由
 
 `tasks_show({target:'desktop'|'web'|'channel:<ref>', view:'board'|'detail', id?})`。账本只产出一个 `TaskBoard` JSON；谁渲染由 target 决定：
-- desktop / web：ui-companion 只做“渲染渠道”，接收 TaskBoard 渲染卡片列表（截图那种样式）；不再含任何任务逻辑。
+- desktop / web：interaction 只做“渲染渠道”，接收 TaskBoard 渲染卡片列表（截图那种样式）；不再含任何任务逻辑。
 - channel（飞书/微信/其他）：服务端把 TaskBoard 渲染成图片，经已有媒体出站发送。图片渲染选成熟方案（SVG 模板 + resvg），不自己写渲染器；不可用时退化为文字清单。
 - 回复尾部清单：程序化附加（不经模型），每条面向用户的回复末尾给“进行中 / 等你 / 已完成待确认”。这需要一个出站钩子；**我尚未核实现有钩子槽是否支持出站追加，落地前必须核对**（见 §5 未决项）。
 
@@ -69,7 +69,7 @@ L0 内核事实  事件账本、session、task_run/agent_ask（已有，不改�
 | P0 | 批准本提案；写 `docs/spec/17-task-ledger.md`、decisions 一条、更新 index | 我写，维护者批 | 文档合入 |
 | P1 | 账本存储 + 状态机 + 五个工具 + 可见范围 + 单测（真实存储，不模拟模型） | Codex | 构建/类型/lint/测试通过，原始结果入 status.md |
 | P2 | `turn` 贡献、continuation/审计提示语、滞留催办、`task_nudge` | 提示语我写；代码 Codex | 真实模型 `openai/gpt-6-luna` 跑 goal-mechanism §7 场景 2、3 |
-| P3 | `TaskBoard` + ui-companion 渲染渠道改造 + 图片渲染 + 回复尾部清单 | 代码 Codex；样式模板/文档同步/测试脚手架 Haiku | 桌面、网页、飞书图片三处实拍 |
+| P3 | `TaskBoard` + interaction 渲染渠道改造 + 图片渲染 + 回复尾部清单 | 代码 Codex；样式模板/文档同步/测试脚手架 Haiku | 桌面、网页、飞书图片三处实拍 |
 | P4 | 发版（沿用既有 Release → 升级 → 核验链） | Codex 执行，我审 | 正式版本在生产 home 就绪 |
 | P5 | 真实验收：经 MCP 通知 Jarvis、Hermes 复盘并把全部在办事项录入账本，我监督到全部完成或明确 blocked | 我 | 两个 Agent 的账本与对话审计一致 |
 

@@ -20,8 +20,8 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let powerState = NSMenuItem(title: "读取唤醒状态…", action: nil, keyEquivalent: "")
     private let update = NSMenuItem(title: "检查更新", action: #selector(checkUpdate), keyEquivalent: "")
     private let quit = NSMenuItem(title: "停止服务并退出", action: #selector(exitService), keyEquivalent: "q")
-    private let install = ProcessInfo.processInfo.environment["YONDER_INSTALL"] ?? NSHomeDirectory() + "/.yonder-harness"
-    private let home = ProcessInfo.processInfo.environment["YONDER_HOME"] ?? NSHomeDirectory() + "/.local/share/yonder-harness/home"
+    private let install = ProcessInfo.processInfo.environment["YONDER_INSTALL"] ?? NSHomeDirectory() + "/.yonder"
+    private let home = ProcessInfo.processInfo.environment["YONDER_HOME"] ?? NSHomeDirectory() + "/.local/share/yonder/home"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -54,7 +54,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         RunLoop.main.add(endpointTimer!, forMode: .common)
     }
     private func refreshEndpoint() {
-        let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/plugins/ui-companion/desktop.json")
+        let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/plugins/interaction/desktop.json")
         companion.setEndpoint((try? Data(contentsOf: file)).flatMap(DesktopEndpoint.read))
         current.isEnabled = companion.available; history.isEnabled = companion.available
         current.title = companion.available ? "打开悬浮窗" : "交互插件未就绪"
@@ -206,7 +206,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         }
-        if mode != "off" && (needsPowerUpdate || !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.harness.power.sock")) {
+        if mode != "off" && (needsPowerUpdate || !FileManager.default.fileExists(atPath: "/var/run/dev.yonder.power.sock")) {
             let alert = NSAlert()
             alert.messageText = "启用保持唤醒"
             alert.informativeText = "允许合盖期间继续执行，显示器仍可熄灭。首次安装或更新电源组件需要系统管理员授权。"
@@ -294,7 +294,7 @@ struct DesktopMain {
             print("Passed: desktop endpoint validation and single status host lock.")
             return
         }
-        let home = ProcessInfo.processInfo.environment["YONDER_HOME"] ?? NSHomeDirectory() + "/.local/share/yonder-harness/home"
+        let home = ProcessInfo.processInfo.environment["YONDER_HOME"] ?? NSHomeDirectory() + "/.local/share/yonder/home"
         let directory = URL(fileURLWithPath: home).appendingPathComponent(".yonder")
         do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
         catch { fputs("Cannot create status lock directory: \(error)\n", stderr); return }

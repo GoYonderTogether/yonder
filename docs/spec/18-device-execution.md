@@ -4,7 +4,7 @@
 
 ## 1. 包与身份
 
-`packages/execution-protocol` / `@yonder/execution-protocol` 是唯一源协议，版本 `0.2.26102510`，ESM，Node >=22.19，仅复用固定 `typebox@1.3.27` 与 Node 标准库，不依赖 SDK/core/pi/模型。SDK 重导出它的类型、schema 与协议 helper；full 插件只通过 `@yonder/sdk` 使用。执行端直接依赖 protocol，不生产依赖完整 SDK。现有 SDK 的模型依赖不在本次整体重构。
+`packages/protocol` / `@yonder/protocol` 是唯一源协议，版本 `0.2.26102510`，ESM，Node >=22.19，仅复用固定 `typebox@1.3.27` 与 Node 标准库，不依赖 SDK/core/pi/模型。SDK 重导出它的类型、schema 与协议 helper；full 插件只通过 `@yonder/sdk` 使用。执行端直接依赖 protocol，不生产依赖完整 SDK。现有 SDK 的模型依赖不在本次整体重构。
 
 - deviceId：本地生成的 UUID，绑定执行端密钥；重启/正常升级保留。
 - principalId：被明确配对的 full 控制宿主的 Ed25519 公钥 SPKI DER 的 SHA-256（小写 hex）。发送者消息身份、Card账号/deviceToken、设备名都不是执行主体。
@@ -98,18 +98,18 @@ DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets
 
 ## 6. 跨仓共享与工作包所有权
 
-protocol导出 `schema/execution-v1.json` 和只含外层信封的 `schema/relay-v1.json`；`npm run build -w @yonder/execution-protocol`生成（可单独运行 `node packages/execution-protocol/scripts/export-schema.mjs`）。Yonder是唯一源。Card W3只复制relay schema与`contract.lock.json`到`server/contracts/execution-v1/`，锁包含repository、精确W0 commit、schema SHA256、protocolVersion。复制由父会话从已审核本地W0导出，Card无需npm访问私有源仓或假设protocol已发布。Card校验外层并转发内层字节，不复制执行授权逻辑。
+protocol导出 `schema/execution-v1.json` 和只含外层信封的 `schema/relay-v1.json`；`npm run build -w @yonder/protocol`生成（可单独运行 `node packages/protocol/scripts/export-schema.mjs`）。Yonder是唯一源。Card W3只复制relay schema与`contract.lock.json`到`server/contracts/execution-v1/`，锁包含repository、精确W0 commit、schema SHA256、protocolVersion。复制由父会话从已审核本地W0导出，Card无需npm访问私有源仓或假设protocol已发布。Card校验外层并转发内层字节，不复制执行授权逻辑。
 
 公共版本/根manifest/lock/SDK/schema更新只有W0/集成者串行修改。字段不兼容更改必须重新审阅，更新共同版本/摘要与对应测试，不各仓加临时别名。
 
 | 包 | 允许编辑路径（相对所属repo） | 依赖与限制 |
 |---|---|---|
-| W0 | `packages/execution-protocol/**`, `packages/sdk/src/{index,types}.ts`, `packages/sdk/{package,tsconfig}.json`, root `package*.json`, `tsconfig.json`, `docs/spec/18-device-execution.md`, `docs/{architecture,index,decisions,status}.md`, `CHANGELOG.md`, `proposals/multidevice/**` | 公共文件唯一写者；不写daemon实现 |
-| W1 | Yonder `packages/executor/src/**`，但排除`backends/**`和`platform/**`；`packages/executor/test/**`但排除backends/platform；`packages/executor/README.md` | 依赖W0；拥有身份/grant/session、持久账本、唯一daemon锁/写锁、BackendProvider接口；manifest申请回W0 |
+| W0 | `packages/protocol/**`, `packages/sdk/src/{index,types}.ts`, `packages/sdk/{package,tsconfig}.json`, root `package*.json`, `tsconfig.json`, `docs/spec/18-device-execution.md`, `docs/{architecture,index,decisions,status}.md`, `CHANGELOG.md`, `proposals/multidevice/**` | 公共文件唯一写者；不写daemon实现 |
+| W1 | Yonder `packages/device/src/**`，但排除`backends/**`和`platform/**`；`packages/device/test/**`但排除backends/platform；`packages/device/README.md` | 依赖W0；拥有身份/grant/session、持久账本、唯一daemon锁/写锁、BackendProvider接口；manifest申请回W0 |
 | W2 | Yonder `plugins/devices/src/**`, `plugins/devices/test/**`, `plugins/devices/README.md` | 依赖W0；仅SDK，不动core/SDK/daemon；controller待发日志在插件私有数据目录；manifest回W0 |
 | W3 | Card `server/src/execution-relay.ts`, `server/test/execution-relay.test.ts`, `server/contracts/execution-v1/**`, `server/src/{index,app,realtime}.ts`接线，`deploy/{site.conf.template,dev-remote.sh,test.mjs}` | W0锁定摘要后；只窄relay/持续连接scope，不做执行账本/锁，不改聊天正文协议；manifest/迁移先交集成者 |
 | W4 | 父会话已单独分派的full平台包：现有 `packages/core/src/{release,control}/**`、平台service/IPC和构建脚本；具体以其任务白名单为准 | 同R独立树，可并行；不碰root manifest/lock、SDK、protocol、executor或Card；本W0不修改这些W4文件。executor平台adapter后续单独分配，只调用W1锁 |
-| W5 | Yonder `packages/executor/src/backends/**`, `packages/executor/test/backends/**` | W1先固定BackendProvider接口；只实现Linux guest内provider/应用清单/UI；不写身份/账本/锁/manifest，不改旧lab，VM唯一执行者另派 |
+| W5 | Yonder `packages/device/src/backends/**`, `packages/device/test/backends/**` | W1先固定BackendProvider接口；只实现Linux guest内provider/应用清单/UI；不写身份/账本/锁/manifest，不改旧lab，VM唯一执行者另派 |
 | W6 | 集成树的验收记录与必要接线；共享文件仅集成者 | W1/W2纯私网通过后接W3；审查P0后父会话派实现 |
 
 每包从R加W0本地提交分出新分支；Card从C加其协议锁定文档分出。W0 schema/SDK冻结前不派W1–W3产品实现。W4/W5可先只读调查；依赖关系不是授权他们启动VM。

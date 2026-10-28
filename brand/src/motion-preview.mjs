@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { browser } from "../../plugins/ui-companion/test/browser.ts";
+import { browser } from "../../plugins/interaction/test/browser.ts";
 
 const output = process.env.YONDER_UI_PREVIEW;
 if (!output) throw new Error("Set YONDER_UI_PREVIEW to an evidence directory");

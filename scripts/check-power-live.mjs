@@ -6,7 +6,7 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const disabled = () => /SleepDisabled\s+1/.test(execFileSync("/usr/bin/pmset", ["-g"], { encoding: "utf8" }));
 const connect = () =>
 	new Promise((resolve, reject) => {
-		const s = createConnection("/var/run/dev.yonder.harness.power.sock");
+		const s = createConnection("/var/run/dev.yonder.power.sock");
 		s.once("error", reject);
 		s.once("connect", () => resolve(s));
 	});

@@ -8,7 +8,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - **非交互**：除 `login`、`chat` 与交互终端中的无参数 TUI 入口外不读标准输入、不提问；缺参数就报错并给出用法。管理命令以 agent/脚本为主要使用方，人也能阅读；TUI 是人使用产品的基础入口，不能用 JSON 或逐行打印代替。
 - **`--json`**：每个命令都支持。有限命令输出一个 JSON 值（列表输出数组）；持续的 `start`、`chat` 输出一行一个 JSON 值（JSON Lines）。`login` 仅本机交互 TTY，拒绝 `--json`；提示走 stderr，stdout 只输出最终非秘密结果。不带时输出给人看的文本。
 - **退出码**：0 成功；1 失败（stderr 一行原因；带 `--json` 时 stdout 输出 `{ "error": "…" }`）；2 用法错误。
-- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 已安装唯一服务的 home > `~/.local/share/yonder-harness/home`（macOS/Linux）或 `%LOCALAPPDATA%\\YonderHarness\\home`（Windows）。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
+- **home**：`--home <dir>` > 环境变量 `YONDER_HOME` > 当前目录（含 `yonder.yaml` 时）> 已安装唯一服务的 home > `~/.local/share/yonder/home`（macOS/Linux）或 `%LOCALAPPDATA%\\YonderHarness\\home`（Windows）。harness 启动时把 `YONDER_HOME` 设为自己的 home，本机执行环境里运行的命令继承它，所以 agent 直接运行 `yonder` 就作用于自己所在的 home。
 - `help`、`--help`、`version`、`docs`、`changelog`、`update` 不要求已有 home（能解析到时仍使用）；`init` 的目标按位置参数 > `--home` > `YONDER_HOME` > 含配置的当前目录 > 已安装服务home > 默认全局home解析，不覆盖已有 yonder.yaml。`service install` 要求 home，其余 service 子命令从已安装的平台注册记录取得 home。
 - **帮助**：每个命令有 `--help`；`yonder help` 列出全部命令，命令名/参数保持英文，说明“中文 · English”。普通结果按命令呈现摘要、表格或正文，不默认打印调试对象；JSON 键与退出码不翻译。两种 Tab 补全见 12 §5；TUI 菜单、列表、布局和快捷键统一沿用固定版本 pi 原生实现，仅替换 Yonder 命令说明与内容（12 §2/4/6）。
 - **CLI 是管理面**：能运行它就能改配置、身份与会话（05 §3）。
@@ -17,7 +17,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 | 命令 | 作用 |
 |---|---|
-| `init [dir] [--owner <id>] [--isolated]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、ui-companion、agent-presets、web-tools 五款官方插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、name `Jarvis`、contexts `[jarvis-soul, jarvis-work]`、plugins `[context-files, agent-presets]`；CLI owner 私聊绑定到主会话且 stream 开启；默认先生成独立 peer profile/binding，`--isolated` 禁用（03 §2.4）；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另从官方插件生成 default 与选择 web-tools 的 research 任务配置，coding 直接用插件预设（03 §5.4.1、12 §3） |
+| `init [dir] [--owner <id>] [--isolated]` | 生成 home、`yonder.yaml`、一个 agent `main`；加载 channel-cli、context-files、interaction、agent-presets、web-tools 五款官方插件、cli 实例与 local 环境；agent 显式使用 `openai/gpt-6-luna`、owner 配置档 `bypass`、`tools.offer: ["*"]`、name `Jarvis`、contexts `[jarvis-soul, jarvis-work]`、plugins `[context-files, agent-presets]`；CLI owner 私聊绑定到主会话且 stream 开启；默认先生成独立 peer profile/binding，`--isolated` 禁用（03 §2.4）；生成所选上下文模板；`identity.persons` 登记 `person:<id>`（默认 `owner`）并关联 `acct:cli:local`。另从官方插件生成 default 与选择 web-tools 的 research 任务配置，coding 直接用插件预设（03 §5.4.1、12 §3） |
 | `login <provider> [--slot <name>] [--method oauth|api_key] [--replace]` | 供应商原生认证（07 §6.2），默认 default/create-only；秘密与手工 code 隐藏录入，显式选择认证能力，不记录认证 URL/code/token |
 | `credentials slots list` | 列出模型供应商 default 与已登记槽的白名单元数据，不列 named 服务密钥 |
 | `credentials slots status <provider> <slot>` | 元数据与真实 OAuth/API-key/交互登录能力，不刷新或执行 key command |
@@ -38,7 +38,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 | `docs [path] [--list]` | 输出当前版本 `docs/` 下的文件；不带参数输出 `docs/index.md` |
 | `update [--to <tag>\|latest\|beta] [--repo <url>]` | §4 |
 | `service install\|uninstall\|start\|stop\|restart\|status` | §6 |
-| `migrate [--dry-run \| --apply]` / `migrate --rollback <备份> [--dry-run] [--force]` | 把旧 `yonder-harness` 用户数据迁到新布局：运行目录移到 `~/.local/share/yonder/home` 并在旧路径留符号链接、`yonder.yaml` 与 `agents/*.yaml` 内旧插件 id/工具名改写（原文件留作 `.pre-migrate-<日期>`）、插件状态目录重命名、macOS power helper 的 launchd 标签改名。默认只预览。`--apply` 持服务同一把 home 锁（`.yonder/lock`）并在改名前再确认无服务在运行；先备份到 `<目录>.backup-<日期>/home`（含 `manifest.json`），再「临时名建链接 → 改名 → 链接就位」，日志 `.migrate-journal.json` 记录中间状态，任何一步出错自动还原，中断后重跑 `--apply` 会收尾。备份有意不含运行时 socket（`control.sock`、渠道 `*.sock`）与锁目录：它们只在运行期存在，服务启动时重建。launchd 步骤需管理员权限，与数据迁移分开报告，失败时打印剩余命令的原样文本，数据迁移不受影响。`--rollback` 先恢复到同级临时目录、原子换入、最后才删旧副本；要求旧路径是指向新目录的符号链接，且新目录中没有迁移完成后写入的文件，否则拒绝，`--force` 明确放弃这些数据后才继续；launchd 改名不自动回滚 |
+| `migrate [--dry-run \| --apply]` / `migrate --rollback <备份> [--dry-run] [--force]` | 把旧 `yonder` 用户数据迁到新布局：运行目录移到 `~/.local/share/yonder/home` 并在旧路径留符号链接、`yonder.yaml` 与 `agents/*.yaml` 内旧插件 id/工具名改写（原文件留作 `.pre-migrate-<日期>`）、插件状态目录重命名、macOS power helper 的 launchd 标签改名。默认只预览。`--apply` 持服务同一把 home 锁（`.yonder/lock`）并在改名前再确认无服务在运行；先备份到 `<目录>.backup-<日期>/home`（含 `manifest.json`），再「临时名建链接 → 改名 → 链接就位」，日志 `.migrate-journal.json` 记录中间状态，任何一步出错自动还原，中断后重跑 `--apply` 会收尾。备份有意不含运行时 socket（`control.sock`、渠道 `*.sock`）与锁目录：它们只在运行期存在，服务启动时重建。launchd 步骤需管理员权限，与数据迁移分开报告，失败时打印剩余命令的原样文本，数据迁移不受影响。`--rollback` 先恢复到同级临时目录、原子换入、最后才删旧副本；要求旧路径是指向新目录的符号链接，且新目录中没有迁移完成后写入的文件，否则拒绝，`--force` 明确放弃这些数据后才继续；launchd 改名不自动回滚 |
 | `completion zsh\|bash\|fish` | 输出 shell 补全脚本；无 home 也可输出静态脚本；不修改用户 shell 配置（12 §5.3） |
 
 除上述命令（含 `migrate`）、14 §4 的 agents/presets 管理及 13 §2 的 plugins list/show/add/remove、skills show/add/remove、models list、inspect 外，不增加其他命令。sessions submit 同时支持 13 §1.4 的可重复 --attachment <本地路径>。这些命令的精确参数与语义见 13，不在此复制第二份。
@@ -48,7 +48,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 ## 3. 安装布局
 
 ```
-<install>/                    默认 ~/.yonder-harness（Windows 为 %LOCALAPPDATA%\\YonderHarness），可用 YONDER_INSTALL 改
+<install>/                    默认 ~/.yonder（Windows 为 %LOCALAPPDATA%\\YonderHarness），可用 YONDER_INSTALL 改
   versions/<version>/         某个审核 tag 的构建安装，已 npm ci && npm run build，无 .git
   current -> versions/<version>   Unix 符号链接；Windows 目录 junction
   bin/yonder                  Unix shell wrapper
@@ -99,7 +99,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 ### 6.1 macOS 状态栏
 
-复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.yonder-harness`，默认数据目录 `~/.local/share/yonder-harness/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
+复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.yonder`，默认数据目录 `~/.local/share/yonder/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
 macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左右键均打开同一原生管理菜单，不因点击状态栏展开交互窗口；菜单含打开悬浮窗、交互历史、逐 Agent 的实际运行状态与任务摘要、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
@@ -109,7 +109,7 @@ macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home �
 
 只读命令 `yonder service info --home <home> --json` 返回实际服务进程的 version/commit/home/pid/ready/active/agents；agents 按已注册且未归档的 Agent 聚合原生运行、待执行输入和后台任务，包含空闲、运行、等待交互及每个活跃会话的短摘要和可见回复片段。仅读本机控制面，不暴露思考、工具参数或工具输出，不建立第二份任务状态；状态栏后台定期读取，失败显示未知，图标以活动标记区分运行与空闲。控制面未就绪时失败，不回退磁盘版本。`yonder update --check --json` 经本机既有 gh 登录态查询仓库最新正式 GitHub Release，返回 current/latest/updateAvailable/url，缺 gh、登录或正式发布时显示实际失败。不会安装或改配置。
 
-桌面交互入口默认就绪：init 将 ui-companion 加入全局插件列表；CLI start 对旧 home 复用 plugins 管理入口，按实际插件 id 检查并仅在缺失时补入官方包。已有自定义来源和 desktop:false 均保留，不改任何 Agent/预设的 plugins、tools 或权限。交互插件在私有 data 目录发布 desktop.json（运行时回环 url、实际 pid），状态栏仅读取当前 home 的 .yonder/plugins/ui-companion/desktop.json 并验证本机地址和进程存活；插件停止清理自身描述文件，宿主关闭旧页面与窗口。desktop:false 不向状态栏发布。UI 状态不复制到内核；业务工具/队列/历史仍由 ui-companion 插件负责。状态栏进程使用当前 home 的文件锁阻止重复启动；不依赖 Web 内容保证单实例。
+桌面交互入口默认就绪：init 将 interaction 加入全局插件列表；CLI start 对旧 home 复用 plugins 管理入口，按实际插件 id 检查并仅在缺失时补入官方包。已有自定义来源和 desktop:false 均保留，不改任何 Agent/预设的 plugins、tools 或权限。交互插件在私有 data 目录发布 desktop.json（运行时回环 url、实际 pid），状态栏仅读取当前 home 的 .yonder/plugins/interaction/desktop.json 并验证本机地址和进程存活；插件停止清理自身描述文件，宿主关闭旧页面与窗口。desktop:false 不向状态栏发布。UI 状态不复制到内核；业务工具/队列/历史仍由 interaction 插件负责。状态栏进程使用当前 home 的文件锁阻止重复启动；不依赖 Web 内容保证单实例。
 
 ## 7. 统一诊断
 
@@ -137,7 +137,7 @@ updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试�
 
 服务每秒续租；root helper 仅接受安装用户的本机 Unix socket，聚合所有连接的任务保护。需要时用 IOKit 防空闲睡眠并临时设置 SleepDisabled，最后一份租约断开、超过 5 秒未续租或任务结束时恢复自身改动；原本已禁用睡眠时不擅自关闭。root helper 持有恢复记录，重启时先恢复。服务/状态栏退出不遗留租约；菜单收起不释放任务保护。无授权与失败显示真实状态，不能标记已保护。
 
-CLI awake status/set/install 提供状态、布尔策略开关和用户主动授权入口；后台启动不弹授权。活动计数不唤醒模型，不复制会话存储。单纯历史会话和未来定时任务不计；等待 ui-companion_result 且没有其他实际执行的状态不计。MacToolkit 电源功能移除后交由 Yonder 单独管理。合盖、电池供电、服务崩溃恢复均需分开验证；不能把编译或热点连接当成物理合盖验收。
+CLI awake status/set/install 提供状态、布尔策略开关和用户主动授权入口；后台启动不弹授权。活动计数不唤醒模型，不复制会话存储。单纯历史会话和未来定时任务不计；等待 interaction_result 且没有其他实际执行的状态不计。MacToolkit 电源功能移除后交由 Yonder 单独管理。合盖、电池供电、服务崩溃恢复均需分开验证；不能把编译或热点连接当成物理合盖验收。
 
 电源组件协议带版本；升级后旧组件不标记为已保护，原菜单项提供更新操作并复用系统授权，不后台弹窗。持久 socket 每次调用须回收子进程/管道资源；构建自检重复真实 pmset 读取，无句柄增长。
 

@@ -79,7 +79,7 @@ test("global CLI discovers the default user home and preserves explicit override
 					encoding: "utf8",
 				}),
 			);
-		expect(version([]).home).toBe(join(root, ".local/share/yonder-harness/home"));
+		expect(version([]).home).toBe(join(root, ".local/share/yonder/home"));
 		expect(version([], { YONDER_HOME: join(root, "dev") }).home).toBe(join(root, "dev"));
 		expect(version(["--home", join(root, "explicit")], { YONDER_HOME: join(root, "dev") }).home).toBe(
 			join(root, "explicit"),
@@ -95,8 +95,8 @@ test("CLI start readies legacy desktop UI without changing Agent tools or an exp
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");
 		const config = parse(await readFile(file, "utf8"));
-		config.plugins = config.plugins.filter((entry: { use: string }) => entry.use !== "@yonder/plugin-ui-companion");
-		if (disabled) config.plugins.push({ use: "@yonder/plugin-ui-companion", config: { desktop: false } });
+		config.plugins = config.plugins.filter((entry: { use: string }) => entry.use !== "@yonder/plugin-interaction");
+		if (disabled) config.plugins.push({ use: "@yonder/plugin-interaction", config: { desktop: false } });
 		await writeFile(file, stringify(config));
 		const agent = await readFile(join(home, "agents/main/agent.yaml"), "utf8");
 		const cli = resolve("packages/cli/dist/index.js");
@@ -109,13 +109,13 @@ test("CLI start readies legacy desktop UI without changing Agent tools or an exp
 				})
 				.toBe(true);
 			const updated = parse(await readFile(file, "utf8"));
-			expect(updated.plugins.filter((entry: { use: string }) => entry.use === "@yonder/plugin-ui-companion")).toEqual([
+			expect(updated.plugins.filter((entry: { use: string }) => entry.use === "@yonder/plugin-interaction")).toEqual([
 				disabled
-					? { use: "@yonder/plugin-ui-companion", config: { desktop: false } }
-					: { use: "@yonder/plugin-ui-companion" },
+					? { use: "@yonder/plugin-interaction", config: { desktop: false } }
+					: { use: "@yonder/plugin-interaction" },
 			]);
 			expect(await readFile(join(home, "agents/main/agent.yaml"), "utf8")).toBe(agent);
-			const descriptor = join(home, ".yonder/plugins/ui-companion/desktop.json");
+			const descriptor = join(home, ".yonder/plugins/interaction/desktop.json");
 			if (disabled) await expect(readFile(descriptor, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 			else {
 				const endpoint = JSON.parse(await readFile(descriptor, "utf8"));

@@ -10,7 +10,7 @@ These rows describe runtime sessions, not task-ledger tasks.
 - `retrying`: current `pi.live` generation/fallback backoff, or compaction backoff
   with no simultaneous normal execution. `retryAt` is the native retry deadline.
   Error text is never projected. A resumed request immediately becomes `running`.
-- `waiting-input`: only the existing pure `ui-companion_result` interaction wait.
+- `waiting-input`: only the existing pure `interaction_result` interaction wait.
 - `blocked`: no current execution and a tracked terminal `activityIssue` exists.
   Its legacy `state` stays `idle`, not `waiting`.
 - `idle`: none of the above.

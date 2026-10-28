@@ -5,7 +5,7 @@
 			"path": "../pi-durable"
 		},
 		{
-			"path": "../execution-protocol"
+			"path": "../protocol"
 		}
 	]
 }

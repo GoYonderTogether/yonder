@@ -24,7 +24,7 @@
 |---|---|---|
 | 首次获取代码 | `git clone … && npm ci && npm run build` | `README.md:56-67` |
 | 装到版本目录 | `node packages/cli/dist/index.js update --to latest` | `README.md:60-62` |
-| 加 PATH | `export PATH="$HOME/.yonder-harness/bin:$PATH"`（**不写 shell 配置**） | `README.md:62`；本机 `grep yonder-harness ~/.zshrc ~/.zprofile ~/.zshenv` 无命中 |
+| 加 PATH | `export PATH="$HOME/.yonder/bin:$PATH"`（**不写 shell 配置**） | `README.md:62`；本机 `grep yonder ~/.zshrc ~/.zprofile ~/.zshenv` 无命中 |
 | 初始化 home | `yonder init` → 写 `yonder.yaml`、`agents/main`、`presets/` | `packages/core/src/kernel/home.ts:104-150` |
 | 注册后台服务 | `yonder service install --home <home>` | `packages/cli/src/index.ts:69`、`packages/core/src/release/index.ts:479-582` |
 | 桌面权限 helper | 首次桌面调用时 `installHelper()` 装 `Yonder Helper.app` | `scripts/yonder-helper-install.mjs`、`scripts/yonder-service-host.mjs` |
@@ -37,22 +37,22 @@
 | | macOS | Linux | Windows |
 |---|---|---|---|
 | **安装** | 有（`update --to latest`，需 Node+git；无 GUI 安装包） | 代码有、**未实机验收**（`docs/status.md:178`） | 代码有、**未实机验收**；且需 git/npm/node 才能装 |
-| **安装目录** | `~/.yonder-harness`（`YONDER_INSTALL` 可改） | 同左 | `%LOCALAPPDATA%\YonderHarness`（`index.ts:37`） |
-| **数据目录** | `~/.local/share/yonder-harness/home` | 同左 | `%LOCALAPPDATA%\YonderHarness\home`（`packages/cli/src/index.ts:267`、`docs/spec/09-cli-release.md:11`） |
+| **安装目录** | `~/.yonder`（`YONDER_INSTALL` 可改） | 同左 | `%LOCALAPPDATA%\YonderHarness`（`index.ts:37`） |
+| **数据目录** | `~/.local/share/yonder/home` | 同左 | `%LOCALAPPDATA%\YonderHarness\home`（`packages/cli/src/index.ts:267`、`docs/spec/09-cli-release.md:11`） |
 | **服务注册** | 两个 LaunchAgent：`dev.yonder.harness.plist`、`dev.yonder.harness.status.plist`（`index.ts:306-324`） | systemd **用户**单元 `~/.config/systemd/user/dev.yonder.harness.service`（`index.ts:331-374`） | Task Scheduler 登录任务 `Yonder Harness` + `<install>/bin/yonder-service.cmd` + `%LOCALAPPDATA%\YonderHarness\service.json`（`index.ts:375-478`） |
 | **卸载** | `service uninstall`：bootout + 删两个 plist（`index.ts:540-550`），**保留 home 与版本** | `disable --now` + 删单元（`index.ts:355`） | `/End` + `/Delete /F` + 删 `service.json`，**保留 home 与版本**（`index.ts:435`、`docs/spec/09-cli-release.md:95`） |
 | **迁移** | 无 | 无 | 无 |
 | **升级** | `yonder update`（显式）+ launchd 一次性作业自动升级（`updates.ts:104-146`） | 仅显式 `update`（`docs/spec/09-cli-release.md:74`） | 仅显式 `update`；且自动更新作业本身只支持 darwin（`updates.ts:79`） |
 
-版本布局：`<install>/versions/<version>`、`current` 为 Unix 符号链接 / Windows 目录 junction、`bin/yonder`（Unix sh）与 `bin/yonder.cmd`（`docs/spec/09-cli-release.md:48-56`、`index.ts:289-302`、`index.ts:583-597`）。切换是“先建新链接再 rename 覆盖”，Windows 先把旧 junction 改名留回退（`index.ts:700-760`）。保留最近 3 个版本（`index.ts:773`；本机实测 `~/.yonder-harness/versions/` 恰为 `0.2.26102702/704/705`）。
+版本布局：`<install>/versions/<version>`、`current` 为 Unix 符号链接 / Windows 目录 junction、`bin/yonder`（Unix sh）与 `bin/yonder.cmd`（`docs/spec/09-cli-release.md:48-56`、`index.ts:289-302`、`index.ts:583-597`）。切换是“先建新链接再 rename 覆盖”，Windows 先把旧 junction 改名留回退（`index.ts:700-760`）。保留最近 3 个版本（`index.ts:773`；本机实测 `~/.yonder/versions/` 恰为 `0.2.26102702/704/705`）。
 
 ### 1.3 实际写入的路径（本机实测）
 
-- `~/.yonder-harness/`：`bin/`、`current -> versions/0.2.26102705`、`versions/`（3 个）。
-- `~/.local/share/yonder-harness/`：`home/`、`helper/`（`Yonder Helper.app`、`permissions-state.json`、`permissions.lock`、`yonder-permissions`）、`archives/`、`deployment/`。
-- `~/Library/LaunchAgents/dev.yonder.harness.plist`（实测 ProgramArguments = `["~/.yonder-harness/bin/yonder-service","--home","~/.local/share/yonder-harness/home"]`，EnvironmentVariables 仅 PATH/YONDER_INSTALL/YONDER_HOME）。
+- `~/.yonder/`：`bin/`、`current -> versions/0.2.26102705`、`versions/`（3 个）。
+- `~/.local/share/yonder/`：`home/`、`helper/`（`Yonder Helper.app`、`permissions-state.json`、`permissions.lock`、`yonder-permissions`）、`archives/`、`deployment/`。
+- `~/Library/LaunchAgents/dev.yonder.harness.plist`（实测 ProgramArguments = `["~/.yonder/bin/yonder-service","--home","~/.local/share/yonder/home"]`，EnvironmentVariables 仅 PATH/YONDER_INSTALL/YONDER_HOME）。
 - `~/Library/LaunchAgents/dev.yonder.harness.status.plist`（ProgramArguments = `<install>/current/packages/macos/dist/YonderStatus.app/Contents/MacOS/YonderStatus`）。
-- 若跑过 `yonder awake install`：`/Library/PrivilegedHelperTools/dev.yonder.harness.power` 与 `/Library/LaunchDaemons/dev.yonder.harness.power.plist`（`packages/cli/src/awake.ts:63-92`，经 `osascript … with administrator privileges`）。
+- 若跑过 `yonder awake install`：`/Library/PrivilegedHelperTools/dev.yonder.power` 与 `/Library/LaunchDaemons/dev.yonder.power.plist`（`packages/cli/src/awake.ts:63-92`，经 `osascript … with administrator privileges`）。
 - PATH：**不写任何 shell 配置**，仅 wrapper 内嵌安装时 PATH（`index.ts:279-302`）。
 
 ### 1.4 发布产物
@@ -76,7 +76,7 @@
 | 版本切换 | 目录 junction，旧链接改名回退 | `index.ts:714-760` | 切换期有短暂入口空档（`docs/spec/09-cli-release.md:70`） |
 | wrapper | `yonder.cmd`，`%`→`%%`、`^`→`^^`，含 `\r\n"` 报错 | `index.ts:285-299` | — |
 | shell 执行 | 依赖 Git Bash：`where bash.exe`、`%ProgramFiles%\Git\bin\bash.exe` | `packages/pi-durable/src/env/node.ts:194,224` | **干净 Windows 机器必须另装 Git for Windows**，否则 shell 工具不可用 |
-| 进程管理 | `detached: false`、`taskkill.exe` 杀进程树 | `packages/pi-durable/src/env/node.ts:275,848`、`packages/executor/src/backends/process.ts:13,25` | — |
+| 进程管理 | `detached: false`、`taskkill.exe` 杀进程树 | `packages/pi-durable/src/env/node.ts:275,848`、`packages/device/src/backends/process.ts:13,25` | — |
 | 文件监视 | win32 强制 `polling` 模式 | `packages/pi-durable/src/env/node-watch.ts:184` | 大量文件时 CPU/延迟成本（推断） |
 | 路径逃逸判断 | 分隔符按 `\` 判断 | `packages/core/src/runtime/policy.ts:46` | — |
 | 凭据 EPERM | win32 容忍 `EPERM` | `packages/core/src/runtime/credentials.ts:30` | — |
@@ -101,15 +101,15 @@
 
 | 路径 | 内容 | 现状是否被清理 |
 |---|---|---|
-| `~/.yonder-harness/`（含 `versions/`、`bin/`、`.update.lock`、`.yonder-install.json`） | 代码 | 否 |
-| `~/.local/share/yonder-harness/home/` | 数据（`yonder.yaml`、`agents/`、`presets/`、`skills/`、`.yonder/`） | 否 |
+| `~/.yonder/`（含 `versions/`、`bin/`、`.update.lock`、`.yonder-install.json`） | 代码 | 否 |
+| `~/.local/share/yonder/home/` | 数据（`yonder.yaml`、`agents/`、`presets/`、`skills/`、`.yonder/`） | 否 |
 | `home/.yonder/state.db` | **1,184,567,296 B ≈ 1.18 GB**（另有 4.2 MB WAL） | 否 |
 | `home/.yonder/background/` | 8,892 项 | 否 |
 | `home/.yonder/{auth.json,auth.json.slots/,device-id,plugins/,backups/,logs/,service-host.json,status.json,awake.json}` | 凭据与运行时状态 | 否 |
-| `~/.local/share/yonder-harness/helper/` | `Yonder Helper.app`、`permissions-state.json`、`yonder-permissions` wrapper | 否 |
+| `~/.local/share/yonder/helper/` | `Yonder Helper.app`、`permissions-state.json`、`yonder-permissions` wrapper | 否 |
 | `~/Library/LaunchAgents/dev.yonder.harness{,.status}.plist` | 服务定义 | 是（service uninstall） |
-| `/Library/PrivilegedHelperTools/dev.yonder.harness.power` + `/Library/LaunchDaemons/dev.yonder.harness.power.plist` | root 特权守护进程 | 否（install.sh 里只有 bootout 后重装，无删除路径） |
-| shell PATH 里的 `~/.yonder-harness/bin` | 用户手工加的 export | 否 |
+| `/Library/PrivilegedHelperTools/dev.yonder.power` + `/Library/LaunchDaemons/dev.yonder.power.plist` | root 特权守护进程 | 否（install.sh 里只有 bootout 后重装，无删除路径） |
+| shell PATH 里的 `~/.yonder/bin` | 用户手工加的 export | 否 |
 | `<home>/.yonder/plugins/channel-cli/*.sock`、`control.sock`、`service-host.lock`、`status-ui.lock`、`install.lock` | 运行时套接字与锁 | 否 |
 
 推断：卸载测试的关键指标不是“删得掉”，而是**1.18 GB state.db 与 8,892 项 background 的删除耗时/失败恢复**，以及“卸载后 launchd 里不再有同名 Label”。
@@ -120,13 +120,13 @@
 
 1. **服务定义里的绝对路径**：macOS plist 的 `ProgramArguments`/`EnvironmentVariables`（`index.ts:306-315`，实测为 `<install>/bin/yonder-service --home <home>`）、Linux 单元首行 `# YonderService={"home":…,"install":…}` 与 `ExecStart`（`index.ts:331-334`）、Windows `<install>/bin/yonder-service.cmd` 与 `service.json`（`index.ts:375-478`）。design.md 自己也标注了“未核实其具体字段”（`design.md:268-286`）。
 2. **状态栏 plist 的 `statusExecutable`**：写死 `<install>/current/packages/macos/dist/YonderStatus.app/...`（`index.ts:42-43,316-324`）。
-3. **helper 的稳定目录**：`stableDirectory()` 固定为 `~/.local/share/yonder-harness/helper`（`scripts/yonder-helper-install.mjs`），且 `installHelper` 要求 `root === realpath(<install>/current)` 且存在 `.yonder-install.json`，否则抛 `Production Helper installation requires the current installed release, not a development checkout`。
+3. **helper 的稳定目录**：`stableDirectory()` 固定为 `~/.local/share/yonder/helper`（`scripts/yonder-helper-install.mjs`），且 `installHelper` 要求 `root === realpath(<install>/current)` 且存在 `.yonder-install.json`，否则抛 `Production Helper installation requires the current installed release, not a development checkout`。
 4. **wrapper 内嵌的 node 绝对路径**：`launcher()`/`windowsLauncher()` 把安装时 `process.execPath` 与 PATH 写死（`index.ts:279-302`）——换机器/换 node 版本必须重写。
 5. **命名管道名由 home 路径哈希决定**：home 搬家后管道名变化（`packages/core/src/control/index.ts:17-31`），迁移必须重注册服务，否则 CLI 连不上。
 6. **`service-host.json` 与 `launch.json` 中的绝对路径**：`scripts/yonder-service-host.mjs` 的 `onState` 原子写 `<home>/.yonder/service-host.json`，lease 目录在 `/tmp`。
 7. **一次性更新作业目录**：`<plugin data>/<instance>.updates/<releaseId>/{request.json,result.json,update-job.mjs,job.plist}`（`plugins/channel-github/src/updates.ts:17,104-146`），其中 request.json 含 install/home 绝对路径。
 8. **`awake.json`、`model-health.json`、`auth.json.slots/`、`device-id`**：属于用户数据，迁移只能搬不能改（`design.md:268-286` 第 3 条只提到 `.hermes-pending`）。
-9. **插件目录改名**：`plugins/hermes-experience` 与 `plugins/ui-companion` 仍在仓库里（`ls plugins` 23 项），本机 home 的 `.yonder/plugins/` 也有这两个目录 —— 迁移的“旧 id → 新 id”映射要同时处理**仓库内目录、home 内插件数据目录、`yonder.yaml` 引用、`<home>/.yonder/plugins/*/` 运行时文件**四处。
+9. **插件目录改名**：`plugins/hermes-experience` 与 `plugins/interaction` 仍在仓库里（`ls plugins` 23 项），本机 home 的 `.yonder/plugins/` 也有这两个目录 —— 迁移的“旧 id → 新 id”映射要同时处理**仓库内目录、home 内插件数据目录、`yonder.yaml` 引用、`<home>/.yonder/plugins/*/` 运行时文件**四处。
 10. **幂等与并发**：迁移期间必须拒绝并发（沿用 `.update.lock` 的模式，`index.ts:794-826`），否则迁移与自动升级会同时动 `current`。
 
 ---
@@ -244,10 +244,10 @@ UTM 有官方 Windows 11 指南：https://docs.getutm.app/guides/windows/ 。
 
 | | macOS | Linux | Windows |
 |---|---|---|---|
-| 代码 | `~/.yonder-harness/{versions,current,bin}` | 同左 | `%LOCALAPPDATA%\YonderHarness\{versions,current,bin}` |
-| 数据 | `~/.local/share/yonder-harness/home` | `~/.local/share/yonder-harness/home` | `%LOCALAPPDATA%\YonderHarness\home` |
+| 代码 | `~/.yonder/{versions,current,bin}` | 同左 | `%LOCALAPPDATA%\YonderHarness\{versions,current,bin}` |
+| 数据 | `~/.local/share/yonder/home` | `~/.local/share/yonder/home` | `%LOCALAPPDATA%\YonderHarness\home` |
 | 服务 | `~/Library/LaunchAgents/dev.yonder.harness{,.status}.plist` | `~/.config/systemd/user/dev.yonder.harness.service` | Task Scheduler `Yonder Harness` + `<install>\bin\yonder-service.cmd` + `service.json` |
-| 特权 | `/Library/PrivilegedHelperTools/dev.yonder.harness.power` + `/Library/LaunchDaemons/dev.yonder.harness.power.plist`（仅 `awake install`） | 无（不装系统级服务） | 无（不注册 SCM） |
+| 特权 | `/Library/PrivilegedHelperTools/dev.yonder.power` + `/Library/LaunchDaemons/dev.yonder.power.plist`（仅 `awake install`） | 无（不装系统级服务） | 无（不注册 SCM） |
 | 应用 | `/Applications/Yonder.app`（dmg，阶段 6） | AppImage/deb/rpm（阶段 6） | MSI/NSIS（阶段 6） |
 | 更新源 | GitHub Releases `latest.json`（Tauri updater）+ `versions/`（内核链） | 同左（Linux 仅显式 update，`docs/spec/09-cli-release.md:74`） | 同左 |
 

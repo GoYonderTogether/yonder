@@ -37,8 +37,8 @@ it.skipIf(!w1 || !card)(
 		disposals.push(() => rm(root, { recursive: true, force: true }));
 		const load = (path: string) => import(pathToFileURL(path).href);
 		const sourceFiles = [
-			join(w1!, "packages/executor/src/executor.ts"),
-			join(w1!, "packages/executor/src/store.ts"),
+			join(w1!, "packages/device/src/executor.ts"),
+			join(w1!, "packages/device/src/store.ts"),
 			join(card!, "server/src/execution-relay.ts"),
 			join(card!, "server/src/realtime.ts"),
 		];
@@ -51,8 +51,8 @@ it.skipIf(!w1 || !card)(
 				),
 			);
 		const sourceHashes = await hashes();
-		const { DeviceExecutor } = await load(join(w1!, "packages/executor/src/executor.ts"));
-		const { ControllerPairing } = await load(join(w1!, "packages/executor/src/store.ts"));
+		const { DeviceExecutor } = await load(join(w1!, "packages/device/src/executor.ts"));
+		const { ControllerPairing } = await load(join(w1!, "packages/device/src/store.ts"));
 		const { services } = await load(join(card!, "server/test/services.ts"));
 		const { human, device: cardDevice } = await load(join(card!, "server/test/chat-helpers.ts"));
 		const { createApp } = await load(join(card!, "server/src/app.ts"));

@@ -99,8 +99,8 @@ releases:
   approvedAuthors: [maintainer-login]
   policy: apply
   updater:
-    install: ~/.yonder-harness
-    home: ~/.local/share/yonder-harness/home
+    install: ~/.yonder
+    home: ~/.local/share/yonder/home
 ```
 
 这两个路径是默认部署目标，配置片段不会创建或修改它们。安装、home、launchd 服务需先按安装流程完成。只给获准更新的 profile 提供 `channel-github_update_schedule` 与 exec/admin/network，程序消费者不需要任意 shell；更新状态工具需 read/exec。maintainer profile 不选择调度工具。

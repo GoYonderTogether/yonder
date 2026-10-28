@@ -9,7 +9,7 @@
 3. 三个 pi 插件里只有 `pi-hermes-memory`（MIT，0.9.11）真的照搬了 Hermes 语义，并且**修掉了 Hermes 的两个坑**：默认 policy-only（不整篇注入）、写入走 `memory_add/replace/remove` 而不是整条覆盖、技能创建带同名+描述相似度拦截、容量满时自动 consolidation。
 4. Yonder 已经有两套记忆，互不相通：`plugins/memory`（person 级、按时间线记账、9 个 `memory_*` 工具、无淘汰机制）与 `plugins/hermes-experience`（agent 级 `MEMORY.md`/`USER.md`、Hermes 2200/1375 上限、每 10 turn 后台复盘、私有 `hermes-learned-*` 技能）。
 5. 本机实测：「自由生长」**在 `MEMORY.md`/技能上还没发生**（`agents/hermes/memories/MEMORY.md` 与 `USER.md` 都是 0 字节；全机只有 1 个学习技能），但**在日志式记忆上已经发生**：`~/Memory` 有 838 条记录、681 条未整理（81%）、403 条（48%）是无正文的图片占位记录，单个周文档已 69KB。
-6. 建议：不新开第三个插件，把「日志记忆 + 用户画像 + 实体笔记 + 经验技能」收进 `plugins/memory` 一个存储与一个工具面，按 `proposals/unified-client/research/F1-notes.md` 的主 Agent 裁定走方案 A，并把 `hermes-experience` 的记忆/技能部分**降级为它的写入后端**而不是并列第二套。
+6. 建议：不新开第三个插件，把「日志记忆 + 用户画像 + 实体笔记 + 经验技能」收进 `plugins/memory` 一个存储与一个工具面，按 `proposals/unified-client/research/F1-notes.md` 的主 Agent 裁定走方案 A，并把 `learning` 的记忆/技能部分**降级为它的写入后端**而不是并列第二套。
 
 ---
 
@@ -157,34 +157,34 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 - 写入门：只有**无人值守的破坏性记忆编辑**会 stage 到 `.hermes-pending`（`store.mjs:187-213`，单条上限 256KB）；技能写入**不排队**，直接落盘。
 - 提示词：`src/guidance.mjs:6` "Memory is the narrow exception: confirmed declarative facts useful across tasks, not procedures, transient progress or instructions. Never credentials."；`:14` 要求技能写「prerequisites, tested steps, verification evidence and limitations」。
 
-### 4.3 两个同名 `hermes-experience` 与 `hermes-workspace`
+### 4.3 两个同名 `learning` 与 `hermes-workspace`
 
 | 位置 | 版本 / license | 内容 | 谁更新 |
 |---|---|---|---|
 | `~/Documents/yonder-harness/plugins/hermes-experience` | 0.2.26102705 / Apache-2.0 | 官方包：`src/{store,skill-store,review,review-prompts,guidance,recipe,index}.mjs`（index 351 行、skill-store 434 行、review 528 行）+ `docs/learning-{runtime,store-api}.md` + `skills/hermes-yonder/SKILL.md` | **更新**：集成于 2026-10-24 提交 `7cf1a59`，随后随每次 release 更新（最新 `0211948` 2026-10-27 10:08） |
-| `~/Documents/yonder-hermes-extensions/packages/hermes-experience` | 0.1.1 / 无 license 字段 | 开发源：同样的 `index/review/skill-store/guidance/review-prompts`，但**没有 `store.mjs`**，index 132 行、review 233 行（约官方版一半） | 最后提交 `84def0e` 2026-10-27 08:10（`feat/hermes-learning-parity-20261025` 合并） |
+| `~/Documents/yonder-hermes-extensions/packages/learning` | 0.1.1 / 无 license 字段 | 开发源：同样的 `index/review/skill-store/guidance/review-prompts`，但**没有 `store.mjs`**，index 132 行、review 233 行（约官方版一半） | 最后提交 `84def0e` 2026-10-27 08:10（`feat/hermes-learning-parity-20261025` 合并） |
 | `~/Documents/yonder-hermes-extensions/packages/hermes-workspace` | 0.1.0 | 只有一个只读工具 `hermes-workspace_preview`（`index.mjs:11-18`），`preview.mjs` 只做目录 kind 判定（`missing/directory/file/symlink-refused`），注释写明 "No Hermes imports, config parsing, credential value reads or executable output"；源码停在 2026-10-21 | 已停更 |
 
 结论：**harness 里的那个是唯一维护版**，`yonder-hermes-extensions` 是它的开发源仓库（0.1.1 分支早于 parity 合并）；`hermes-workspace` 是一次未完成的「Hermes home 迁移预览」实验，与记忆功能无关，可归档。
 
-关于「learning 插件」：仓库与 npm 里**没有**名为 learning 的插件（`grep -rln 'learning' plugins/*/package.json` 只命中 `plugins/hermes-experience/package.json`）。所谓 learning 就是 `hermes-experience` 内部的技能学习子系统（`skill-store.mjs` + `review.mjs` + `<home>/.yonder/plugins/hermes-experience/learning-state.json`）。
+关于「learning 插件」：仓库与 npm 里**没有**名为 learning 的插件（`grep -rln 'learning' plugins/*/package.json` 只命中 `plugins/hermes-experience/package.json`）。所谓 learning 就是 `learning` 内部的技能学习子系统（`skill-store.mjs` + `review.mjs` + `<home>/.yonder/plugins/hermes-experience/learning-state.json`）。
 
 ### 4.4 本机真实数据：自由生长发生了吗
 
-配置（`~/.local/share/yonder-harness/home/yonder.yaml`）：
+配置（`~/.local/share/yonder/home/yonder.yaml`）：
 
 - `:26-32` memory 插件 `root: ~/Memory`，`owner: person:owner`，`allowedAgents: [main, memory-keeper]`，`capture.enabled: true`、`inlineMax: 400`。
-- `:64-71` hermes-experience 只对 **agent `hermes`** 开 scope（`memoryDir: .../agents/hermes/memories`、`writeMode: exclusive-yonder`、`learning: true`、`skillDir: .../agents/hermes/skills`）。
+- `:64-71` learning 只对 **agent `hermes`** 开 scope（`memoryDir: .../agents/hermes/memories`、`writeMode: exclusive-yonder`、`learning: true`、`skillDir: .../agents/hermes/skills`）。
 - `:176-178` `memory-keeper` 已 `archivedAt: 2026-10-27T15:15:00.000Z`。
 
 实测：
 
 | 指标 | 数值 | 证据 |
 |---|---|---|
-| `agents/hermes/memories/MEMORY.md` | **0 字节**（创建于 10-22 02:35，从未写入） | `ls -la ~/.local/share/yonder-harness/home/agents/hermes/memories` |
+| `agents/hermes/memories/MEMORY.md` | **0 字节**（创建于 10-22 02:35，从未写入） | `ls -la ~/.local/share/yonder/home/agents/hermes/memories` |
 | `agents/hermes/memories/USER.md` | **0 字节** | 同上 |
 | 全机 `hermes-learned-*` 技能 | **1 个**：`agents/hermes/skills/hermes-learned-release-acceptance`，SKILL.md 9,876 字节 + 1 个 references | `find . -name SKILL.md`（agents 下） |
-| home 级 `skills/` | 1 个（`rhythm-clues`） | `~/.local/share/yonder-harness/home/skills/rhythm-clues/SKILL.md` |
+| home 级 `skills/` | 1 个（`rhythm-clues`） | `~/.local/share/yonder/home/skills/rhythm-clues/SKILL.md` |
 | `~/Memory` 规模 | 352 文件 / 1.2MB / 118 个 timeline 文档（84 个周文档） | `find . -type f \| wc -l` |
 | 记录总数 | **838** 条 | `grep -rh '^- \[' timeline \| wc -l` |
 | 未整理 / 已整理 | **681 / 157**（未整理 81.3%） | `grep -rh '^- \[ \]'` / `'^- \[x\]'` |
@@ -207,7 +207,7 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 2. **注入预算按「拼接后整体截断」**：`contexts.ts:89`，导致 `mind.md` 被静默丢弃，没有「省略了几条」的提示（对比 pi-memory 的 16K 分级预算与 pi-hermes-memory 的截断声明）。
 3. **凭据明文进记录流**：`timeline/2026-10/2026-W44.md:179` 有一条 `{chat}` 记录直接包含 QQ AppID/Secret 明文（本报告不复述其值）。`docs/spec/15-memory.md` 只规定「正文一个字都不改」，没有 Hermes 那样的写入前 secret scan。
 4. **无淘汰、无 TTL、无合并**：见 §4.1。
-5. **`hermes-experience` 技能创建没有近重复拦截**：`src/skill-store.mjs` 只有同名冲突（`:240` `skill_already_exists`）与 revision 冲突（`:151`），没有 `pi-hermes-memory` 那种「近名 + 描述相似度」判定，即 #67582 的根因未修。
+5. **`learning` 技能创建没有近重复拦截**：`src/skill-store.mjs` 只有同名冲突（`:240` `skill_already_exists`）与 revision 冲突（`:151`），没有 `pi-hermes-memory` 那种「近名 + 描述相似度」判定，即 #67582 的根因未修。
 6. 文档悬空引用：`docs/decisions.md:128`（D45）写「用户个人资料库见 D50」，但现行 D50 是凭据录入（`docs/decisions.md:149`）。
 
 ---
@@ -265,7 +265,7 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 ### 7.2 存储与工具面
 
 - 存储全部落在现有 memory 根目录（`~/Memory`）：`me/`（L1）、`entities/<type>/<safe-id>.md`（L2，新增，`F1-notes.md:3.2`）、`timeline/`（L3）、`skills/`（L4，新增，指向 agent 的 skillDir 或根目录内 `skills/`）。
-- 工具面收敛为 `memory_*` 一族（现有 9 个 + `memory_note` + `memory_skill`）。`hermes-experience` 的 `memory_read/memory_edit/skill_store/memory_pending/refine` 不再对外暴露，改为内部实现细节或被删除（§7.8）。
+- 工具面收敛为 `memory_*` 一族（现有 9 个 + `memory_note` + `memory_skill`）。`learning` 的 `memory_read/memory_edit/skill_store/memory_pending/refine` 不再对外暴露，改为内部实现细节或被删除（§7.8）。
 
 ### 7.3 容量预算与淘汰
 
@@ -323,27 +323,27 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 
 反向要求：任何「记忆被写入/被淘汰」的动作必须在 `log.md` 留一行，`memory_status` 必须能回答「这条为什么没了」。
 
-### 7.8 与 `hermes-experience` / learning 的合并或删除
+### 7.8 与 `learning` / learning 的合并或删除
 
 现状是**三套并行**：`plugins/memory`（person 级日志）、`plugins/hermes-experience`（agent 级 MEMORY/USER + 技能学习）、`plugins/wechat-archive` 的素材事件。合并方案：
 
 | 组件 | 处置 | 理由 |
 |---|---|---|
-| `hermes-experience` 的 `MEMORY.md`/`USER.md` 存储与 2200/1375 语义（`src/store.mjs`） | **保留为 L1 的后端实现**，由 memory 插件调用；`memoryDir` 与 memory 根目录的关系二选一：或把 `MEMORY.md`/`USER.md` 搬进 `<root>/me/`，或让 L1 继续读写 agent 的 `memories/` 但由 memory 插件统一预算 | 避免两套预算、两套提示词、两套工具 |
-| `hermes-experience` 的后台复盘（`src/review.mjs`） | **保留为唯一复盘引擎**，把目标从「MEMORY.md/USER.md」扩到「L1+L2+L4」 | 它已经把 10 turn / 10 迭代 / 15 秒静默 / 破坏性 stage / `/refine` 都做对了，重写没有收益 |
-| `hermes-experience` 的 `skill_store`（`src/skill-store.mjs`） | **降级为 L4 的写入后端**（保留 `hermes-learned-*` 命名与 `.hermes-skill-archive`），上层加 §7.6 的提议/拦截/试用流程 | 它已有 revision 冲突与归档可恢复，缺的只是近重复拦截与提议队列 |
-| `hermes-experience` 的 5 个前台工具（`memory_read/memory_edit/skill_store/memory_pending/refine`） | **删除对外暴露**，能力并入 `memory_*`；`/refine` 保留为显式入口（改叫 `memory_refine` 或保留斜杠命令） | 工具面必须只有一个前缀，否则模型会选错 |
-| `hermes-experience` 的 `learning` 开关（`yonder.yaml:70`） | 合并为 memory 插件配置的 `learning.enabled`，默认 **true**（因为「每个 Agent 默认装上」） | 现状只有 `hermes` 一个 agent 开着，等于没装 |
+| `learning` 的 `MEMORY.md`/`USER.md` 存储与 2200/1375 语义（`src/store.mjs`） | **保留为 L1 的后端实现**，由 memory 插件调用；`memoryDir` 与 memory 根目录的关系二选一：或把 `MEMORY.md`/`USER.md` 搬进 `<root>/me/`，或让 L1 继续读写 agent 的 `memories/` 但由 memory 插件统一预算 | 避免两套预算、两套提示词、两套工具 |
+| `learning` 的后台复盘（`src/review.mjs`） | **保留为唯一复盘引擎**，把目标从「MEMORY.md/USER.md」扩到「L1+L2+L4」 | 它已经把 10 turn / 10 迭代 / 15 秒静默 / 破坏性 stage / `/refine` 都做对了，重写没有收益 |
+| `learning` 的 `skill_store`（`src/skill-store.mjs`） | **降级为 L4 的写入后端**（保留 `hermes-learned-*` 命名与 `.hermes-skill-archive`），上层加 §7.6 的提议/拦截/试用流程 | 它已有 revision 冲突与归档可恢复，缺的只是近重复拦截与提议队列 |
+| `learning` 的 5 个前台工具（`memory_read/memory_edit/skill_store/memory_pending/refine`） | **删除对外暴露**，能力并入 `memory_*`；`/refine` 保留为显式入口（改叫 `memory_refine` 或保留斜杠命令） | 工具面必须只有一个前缀，否则模型会选错 |
+| `learning` 的 `learning` 开关（`yonder.yaml:70`） | 合并为 memory 插件配置的 `learning.enabled`，默认 **true**（因为「每个 Agent 默认装上」） | 现状只有 `hermes` 一个 agent 开着，等于没装 |
 | `plugins/hermes-experience` 整包 | 合并完成后**标记 deprecated**，保留一个版本周期，随后从默认发行集移除；`NOTICE`/`assets/Hermes-MIT.txt` 随代码迁移到 memory 插件 | 避免两包各自维护 Hermes 归属 |
 | `packages/hermes-workspace`（`~/Documents/yonder-hermes-extensions`） | **归档删除**（只读预览实验，停更 6 天，功能价值 < 维护成本） | §4.3 |
-| `~/Documents/yonder-hermes-extensions` 整个仓库 | 保留为历史开发源，不再作为发布源；`README` 里加一行「已并入 yonder-harness」 | 版本号已落后（0.1.1 vs 0.2.26102705） |
+| `~/Documents/yonder-hermes-extensions` 整个仓库 | 保留为历史开发源，不再作为发布源；`README` 里加一行「已并入 yonder」 | 版本号已落后（0.1.1 vs 0.2.26102705） |
 | `plugins/memory` 的 6 个 skills | 保留，但补 2 个：`memory-entity-note`（实体笔记怎么用）、`memory-skill-curate`（提议/采纳/退役流程） | 现有 6 个只覆盖日志与复盘 |
 
 ### 7.9 实施顺序与验收
 
 1. **修缺陷**（不动设计）：`contexts.ts:100` 周文档路径、`contexts.ts:89` 分级截断 + 省略声明、`capture` 的 secret scan 与空正文过滤。
 2. **L2 实体笔记 + `memory_note`**：按 `F1-notes.md:3.5` 第一步，不碰 SDK。
-3. **L4 收编**：`hermes-experience` 的 store/skill-store 变成 memory 插件后端，工具面前缀统一。
+3. **L4 收编**：`learning` 的 store/skill-store 变成 memory 插件后端，工具面前缀统一。
 4. **L1 预算统一**：`MEMORY.md`/`USER.md` 进 memory 根目录，预算与 `me/` 合并。
 5. **整理引擎**：把 `review.mjs` 的目标从 2 个文件扩到 4 层，加确定性 stale/archive。
 6. **界面**：`yonder memory` CLI + 整理摘要卡。
@@ -360,4 +360,4 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 - **未核实**：`docs/decisions.md:128`（D45）「用户个人资料库见 D50」中的 D50 编号是否曾经指向资料库（现行 D50 是凭据录入，`:149`）。
 - **未核实**：`~/Memory` 的 403 条空正文记录里，有多少是 `wechat-archive` 的「仅元数据」占位（抽样看是 `媒体: image （仅元数据）`），未做全量归类。
 - **待决**（需维护者批准，按 `AGENTS.md` 第 7 条）：D41「不引入记忆引擎或自动注入」的替代文本；L1 是否搬进 memory 根目录（涉及已有 agent 的 `memories/` 路径迁移）；`plugins/hermes-experience` 的 deprecation 时点；是否给 SDK `RenderContext` 加 `model`（`F1-notes.md` 第二步已批准，但依赖 A 线排期）。
-- **未测**：本轮为只读调研，未运行任何测试，未实际执行 `memory_*` 工具；`plugins/memory` 的 8 条验收（`docs/spec/15-memory.md:314`）与 `hermes-experience` 的受控验收脚本 `scripts/accept-learning-controlled.mjs` 均未运行。
+- **未测**：本轮为只读调研，未运行任何测试，未实际执行 `memory_*` 工具；`plugins/memory` 的 8 条验收（`docs/spec/15-memory.md:314`）与 `learning` 的受控验收脚本 `scripts/accept-learning-controlled.mjs` 均未运行。

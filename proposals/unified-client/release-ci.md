@@ -6,7 +6,7 @@
 
 ### 1.1 决策
 
-1. 所有发布产物只在 `GoYonderTogether/yonder`（公开仓，原 `yonder-harness`）的 Actions 里构建。触发条件是 maintainer 推送 `v*` tag，或「准备发版」workflow 在合并发版 PR 后自动打 tag。本机不再打包、不再发版。
+1. 所有发布产物只在 `GoYonderTogether/yonder`（公开仓，原 `yonder`）的 Actions 里构建。触发条件是 maintainer 推送 `v*` tag，或「准备发版」workflow 在合并发版 PR 后自动打 tag。本机不再打包、不再发版。
 2. 核心运行时（CLI 加内核）按 6 个平台各出一个预构建包，内含官方 Node 24 LTS。包在对应的原生 runner 上组装，不做交叉编译（原因见 §3.2）。
 3. 桌面、手机、Web、npm、Docker、Homebrew、Scoop 的产物都从同一条 tag 流水线产出。`SHA256SUMS`、`release-manifest.json`、`latest.json` 由 `publish` job 统一生成并上传，避免矩阵 job 之间竞争写文件。
 4. 免费额度只靠公开仓的标准 runner。私有 `yonder-cloud` 只跑 Linux 小 job，预计每月约 150–250 分钟，上限 2,000。
@@ -280,7 +280,7 @@ jobs:
 
 说明：
 
-- `npm run build:core` 是新增脚本，只跑 `check-pi-ai-bundle`、`tsc -b`、`plugins/devices/build.mjs`、`ui-companion/build.mjs`，不含 `build-macos.mjs`。现有 `npm run build`（`package.json:41`）把 `build-macos.mjs` 直接串在里面，非 darwin 上是否能跳过未核实，所以要拆。
+- `npm run build:core` 是新增脚本，只跑 `check-pi-ai-bundle`、`tsc -b`、`plugins/devices/build.mjs`、`interaction/build.mjs`，不含 `build-macos.mjs`。现有 `npm run build`（`package.json:41`）把 `build-macos.mjs` 直接串在里面，非 darwin 上是否能跳过未核实，所以要拆。
 - 现有 `ci.yml` 的 `macos` job 保留一段过渡期，等 `swift` job 稳定后删除。
 - `swift_changed` 由 `static` job 用 `git diff --name-only origin/${{ github.base_ref }}...HEAD` 判断，不引入第三方 paths-filter。
 
@@ -447,12 +447,12 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 
 ### 6.1 安装目录与服务注册
 
-目录与 `design.md` §3 对齐（10-27 决定），不沿用旧的 `~/.yonder-harness`；服务名沿用 `research/C4-install.md` §6.1：
+目录与 `design.md` §3 对齐（10-27 决定），不沿用旧的 `~/.yonder`；服务名沿用 `research/C4-install.md` §6.1：
 
 | | macOS | Linux | Windows |
 |---|---|---|---|
 | 运行时 | `~/.local/share/yonder/runtime/<version>/`，`current` 软链指向当前版本 | 同左 | `%LOCALAPPDATA%\Yonder\runtime` |
-| 数据 | `~/.local/share/yonder/home`（旧安装在 `~/.local/share/yonder-harness/home`，由 `yonder migrate` 迁入，`design.md` §3.2） | 同左 | `%LOCALAPPDATA%\Yonder\home` |
+| 数据 | `~/.local/share/yonder/home`（旧安装在 `~/.local/share/yonder/home`，由 `yonder migrate` 迁入，`design.md` §3.2） | 同左 | `%LOCALAPPDATA%\Yonder\home` |
 | 命令入口 | `~/.local/bin/yonder` | 同左 | `yonder.cmd`，目录加入用户 PATH |
 | 服务 | `~/Library/LaunchAgents/dev.yonder.harness{,.status}.plist` | `~/.config/systemd/user/dev.yonder.harness.service` | 任务计划 `Yonder Harness` 加 `yonder-service.cmd` |
 
@@ -469,7 +469,7 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 4. 校验：包的 SHA256 与 `SHA256SUMS` 一致。若本机有 `minisign`，同时校验 `SHA256SUMS.minisig`，公钥内嵌在脚本里。没有 `minisign` 时只做 SHA256，并提示。安装完成后 `yonder` 自己再用 `node:crypto` 校验一次 minisig（包内带公钥）。
 5. 解压到 `<install>/versions/<v>.tmp`，校验 `.yonder-install.json`，改名为 `<v>`，再按现有「先建新链接再 rename 覆盖」切换 `current`（`packages/core/src/release/index.ts:700-760` 的做法）。持 `.update.lock`。
 6. 写 `bin/yonder`。提示 PATH，默认不改 shell 配置；交互且用户同意时才追加一行到 `~/.zshrc`/`~/.bashrc`。
-7. 检测旧安装：存在 `~/.local/share/yonder-harness/home`、或 launchd 里有 `dev.yonder.harness`、或旧的 `.yonder-install.json` 的 `source` 为 git 构建。命中则先 `yonder migrate --dry-run` 打印计划，用户确认（`--yes` 跳过）后执行 `yonder migrate`，再注册服务。
+7. 检测旧安装：存在 `~/.local/share/yonder/home`、或 launchd 里有 `dev.yonder.harness`、或旧的 `.yonder-install.json` 的 `source` 为 git 构建。命中则先 `yonder migrate --dry-run` 打印计划，用户确认（`--yes` 跳过）后执行 `yonder migrate`，再注册服务。
 8. 询问是否注册服务（`--service` 直接注册），执行 `yonder service install`。
 9. 任何一步失败，不动已有 `current`，清理临时目录，退出码 1。同版本再次运行直接返回，退出码 0。
 
@@ -493,7 +493,7 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 `yonder uninstall [--purge] [--keep-home] [--json]`，行为取 `research/C4-install.md` §6.1，清单取 §3.2：
 
 - 默认：停服务；删 LaunchAgent plist、systemd 单元、任务计划及 `service.json`；删 `<install>`。不删 home。
-- `--purge`：追加删 `~/.local/share/yonder-harness/home`（含约 1.18 GB 的 `state.db` 和 8,892 项 `background/`，需要进度输出和可中断）、`helper/`、`/Library/PrivilegedHelperTools/dev.yonder.harness.power` 与 `/Library/LaunchDaemons/dev.yonder.harness.power.plist`（一次管理员授权）、运行时 socket 和锁。PATH 里的手工 export 只打印提示，不改用户文件。
+- `--purge`：追加删 `~/.local/share/yonder/home`（含约 1.18 GB 的 `state.db` 和 8,892 项 `background/`，需要进度输出和可中断）、`helper/`、`/Library/PrivilegedHelperTools/dev.yonder.power` 与 `/Library/LaunchDaemons/dev.yonder.power.plist`（一次管理员授权）、运行时 socket 和锁。PATH 里的手工 export 只打印提示，不改用户文件。
 - 先打印将删除的路径，区分「数据/凭据」与「代码」。不存在也算成功。
 - 通过 brew/npm/scoop/docker 安装的，`yonder uninstall` 只清理服务和数据，不删包本身，并提示对应的卸载命令。
 

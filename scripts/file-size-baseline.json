@@ -47,7 +47,7 @@
 		"lines": 524,
 		"reason": "待拆分：createCoreTools 一次注册全部核心工具，应按工具域分组"
 	},
-	"packages/executor/src/executor.ts": {
+	"packages/device/src/executor.ts": {
 		"lines": 522,
 		"reason": "待拆分：DeviceExecutor 混合设备协议处理与命令调度"
 	}

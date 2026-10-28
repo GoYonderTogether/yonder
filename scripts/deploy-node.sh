@@ -119,7 +119,7 @@ local_glm_key() {
 	python3 - "$YONDER_GLM_KEY_FILE" <<'PY'
 import json, os, sys
 paths = [p for p in sys.argv[1:] if p]
-paths += ["~/.local/share/yonder-harness/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
+paths += ["~/.local/share/yonder/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
 for p in paths:
     try:
         k = json.load(open(os.path.expanduser(p)))["rightapi-glm"]["key"]

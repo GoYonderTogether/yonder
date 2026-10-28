@@ -10,10 +10,10 @@
 | 2 | 本机控制面 | `packages/core/src/control` | Node net (Unix socket/命名管道) | 由 `yonder start` 托管 | —（它就是内核入口） | 182 |
 | 3 | 状态面 | `packages/core/src/status` + `packages/cli/src/status-surface.ts` | 文件发布 | 随 `yonder start` 定时写文件 | 读 `.yonder/status.json` | ~250 |
 | 4 | macOS 状态栏 | `packages/macos/YonderStatus.swift` | AppKit | 独立常驻 app，读文件 | 读 `status.json`、`desktop.json` | 310 |
-| 5 | macOS 悬浮窗 | `packages/macos/Companion.swift` | AppKit + WKWebView | 由状态栏进程创建（NSPanel） | HTTP 到 ui-companion 服务 | 534 (+130 PowerHelper) |
+| 5 | macOS 悬浮窗 | `packages/macos/Companion.swift` | AppKit + WKWebView | 由状态栏进程创建（NSPanel） | HTTP 到 interaction 服务 | 534 (+130 PowerHelper) |
 | 6 | macOS Helper | `packages/macos-helper` | Swift 命令行/特权 Helper | 独立进程 | stdout JSON + AF_UNIX socket | ~1,500 |
-| 7 | ui-companion 服务端 | `plugins/ui-companion/src` | Node http | 插件触发器，随内核启动 | 内嵌于内核；写 `renderer.json`/`desktop.json` | 463 |
-| 8 | ui-companion 前端 | `plugins/ui-companion/web` | 原生 JS/CSS/HTML | 浏览器/WKWebView 加载 | fetch 同源 HTTP | ~1,850 |
+| 7 | interaction 服务端 | `plugins/interaction/src` | Node http | 插件触发器，随内核启动 | 内嵌于内核；写 `renderer.json`/`desktop.json` | 463 |
+| 8 | interaction 前端 | `plugins/interaction/web` | 原生 JS/CSS/HTML | 浏览器/WKWebView 加载 | fetch 同源 HTTP | ~1,850 |
 | 9 | channel-cli | `plugins/channel-cli/src/index.ts` | Node net | 随内核启动，监听渠道 socket | ChannelIO 事件 | 133 |
 | 10 | channel-card | `plugins/channel-card/src/channel.ts` | Node ws 客户端 | 随内核启动，出站连远端 relay | WebSocket `/ws/device` | 493 |
 | 11 | tasks 看板服务 | `plugins/tasks/src/service.ts` | Node http | 插件触发器，随内核启动 | 进程内直接读账本 Store | 142 |
@@ -46,14 +46,14 @@
 ### 2.4 macOS 状态栏（`packages/macos/YonderStatus.swift`）
 
 - **进程**：独立 AppKit app，每 2s 定时器（:53）。
-- **读**：`.yonder/status.json`（:106）驱动菜单 agent 列表与运行状态；`.yonder/plugins/ui-companion/desktop.json`（:57）发现悬浮窗端点并可拉起 Companion。
+- **读**：`.yonder/status.json`（:106）驱动菜单 agent 列表与运行状态；`.yonder/plugins/interaction/desktop.json`（:57）发现悬浮窗端点并可拉起 Companion。
 - **功能**：菜单显示当前/历史交互入口、agent 活动子菜单、power 状态、更新检查、退出（:44）。**只读文件，不发命令**（停止服务是杀进程/`yonder stop` 之外未见）。含 `--check-activity-http` 自测钩子（:258）。
 
 ### 2.5 macOS 悬浮窗（`packages/macos/Companion.swift`）
 
 - **进程**：由 YonderStatus 创建的 `CompanionController`/`CompanionPanel`（NSPanel + WKWebView，:146、:170）。
 - **通信**：加载 `desktop.json` 里的 `http://127.0.0.1:<port>/<secret>/` 页面（:414-421 强校验 loopback）；每 2s GET `activity-summary` 汇总（:284）渲染原生浮球 dock；WKScriptMessageHandler bridge 传 state/pending。
-- **无独立业务逻辑**，完全是 ui-companion web 前端的壳 + 原生活动汇总渲染。
+- **无独立业务逻辑**，完全是 interaction web 前端的壳 + 原生活动汇总渲染。
 
 ### 2.6 macOS Helper（`packages/macos-helper`）
 
@@ -61,15 +61,15 @@
 - **通信**：stdout JSON 记录 + 命令行子命令（YonderHelper.swift:139 `emit`）；提供权限探测/申请、AX 桌面窗口枚举、CGEvent 鼠标键盘、guide 弹窗（PermissionGuide.swift）。
 - **面向人**：主要是权限引导 UI 与自动化底座；与内核无直接协议，由插件（native-automation/clipboard 等）经执行环境调用。与 status/companion 无重复。
 
-### 2.7 ui-companion 服务端（`plugins/ui-companion/src/service.ts`）
+### 2.7 interaction 服务端（`plugins/interaction/src/service.ts`）
 
-- **进程**：插件触发器 `ui-companion-service`（index.ts:31），随内核启动；监听 `127.0.0.1` 随机端口（:214 `listen(0)`）。
+- **进程**：插件触发器 `interaction-service`（index.ts:31），随内核启动；监听 `127.0.0.1` 随机端口（:214 `listen(0)`）。
 - **鉴权**：URL 内嵌随机 secret 路径（:207 `randomUUID`），Host/Origin 校验（:178-183）；端点写 `renderer.json` / `desktop.json`（0600）供 Companion 发现（:234-249）。
 - **端点**（service.ts:176-276）：GET `""`(页面)、POST `board`(订阅看板源)、GET `activity-summary`、GET `board`/`board?id=`(代理 tasks 看板)、GET `state`、POST `answer`。
-- **工具**：`ui-companion_present` / `ui-companion_result`（index.ts:33-52），agent 用来向本机人提问并等待真实回答；持久化 `interactions.json`（0600）。
+- **工具**：`interaction_present` / `interaction_result`（index.ts:33-52），agent 用来向本机人提问并等待真实回答；持久化 `interactions.json`（0600）。
 - 活动汇总来自 tasks 看板的 `?view=activity`（service.ts:105-136 fetch 代理）。
 
-### 2.8 ui-companion 前端（`web/app.js` 等）
+### 2.8 interaction 前端（`web/app.js` 等）
 
 - 单页原生 JS，三形态：panel（浮动卡）/ inline / notice（#hash 切换）；`state.mjs` 纯函数卡片状态机（beginTask/completeStep）；支持 board/agents 场景（app.js:189-196）、历史步骤、draft 保存（localStorage）。
 - 与内核零直连：只 fetch 同源 `state`/`answer`/`board`。
@@ -85,15 +85,15 @@
 ### 2.11 tasks 看板服务（`plugins/tasks/src/service.ts`）
 
 - 插件触发器，`127.0.0.1` 随机端口（:126）；鉴权 = URL path 里的 per-caller UUID token（:30-39 `publish`），拒绝 Origin（:47-52）。
-- 端点：`?view=activity`（blocked/review/waitingUser 汇总 :54-83）、`?view=panel`（任务面板 JSON :84-112）、默认 board JSON+text（:113-120）。**只读**；渲染端是 ui-companion 前端与 `board.ts` 的文本/SVG/PNG（board.ts:76-119，供渠道发图）。
+- 端点：`?view=activity`（blocked/review/waitingUser 汇总 :54-83）、`?view=panel`（任务面板 JSON :84-112）、默认 board JSON+text（:113-120）。**只读**；渲染端是 interaction 前端与 `board.ts` 的文本/SVG/PNG（board.ts:76-119，供渠道发图）。
 
 ## 3. 重复 / 各自为政之处
 
 1. **三套"agent 活动汇总"**：`service.info`（cli/index.ts:759-770 `kernel.terminal.activity()`）、`status.json`（status-surface.ts:14-20 同一函数）、tasks `?view=activity`（service.ts:54-83 从账本另算）。字段结构（agentId + blocked/review/waitingUser + running）相近但来源与 schema 各写一份，Companion.swift:33-92 还有一份 Swift 侧解析/校验。
 2. **两套会话观察流**：控制面 `sessions.watch`（SSE 式 JSON 行）与渠道 `stream()`（channel-cli index.ts:107-117）；plain-chat、TUI 各自解析 `TerminalUpdate`。
-3. **两个本机 HTTP server**（ui-companion、tasks board）各自实现端口发现（secret path vs token path）、随机端口、`desktop.json`/token URL 约定，无共享 server 框架。
+3. **两个本机 HTTP server**（interaction、tasks board）各自实现端口发现（secret path vs token path）、随机端口、`desktop.json`/token URL 约定，无共享 server 框架。
 4. **两个终端入口**（TUI 控制面路径 vs channel-cli 渠道路径）语义不同（预设 task 会话 vs 绑定渠道会话），但呈现重复（plain-chat.ts 与 terminal.ts 都有消息流渲染简化版）。
-5. **看板有三种渲染**：JSON（service）、text/SVG/PNG（board.ts）、web（ui-companion 前端），同一数据三次投影。
+5. **看板有三种渲染**：JSON（service）、text/SVG/PNG（board.ts）、web（interaction 前端），同一数据三次投影。
 6. 状态传递有**三种机制并存**：文件（status.json/desktop.json/renderer.json）、socket（control.sock、channel-cli sock、PowerHelper socket）、远程 WS（channel-card、devices）。
 
 ## 4. 现有控制面 API 完整端点清单
@@ -128,7 +128,7 @@
 
 离线只读回退（服务未运行）：`management`、`sessions.list/show`、`events.query`、`identity.lookup`（home-management.ts:236-260）。
 
-其它非控制面 HTTP 端点：ui-companion（service.ts:176-276，6 个）、tasks board（service.ts:44-123，3 个 view）。
+其它非控制面 HTTP 端点：interaction（service.ts:176-276，6 个）、tasks board（service.ts:44-123，3 个 view）。
 
 ## 5. 统一网页客户端（管理常驻 bot 会话 + 临时 task 会话）能力评估
 
@@ -141,7 +141,7 @@
 
 **缺失 / 需要补**：
 - **无浏览器可用的传输**：控制面是 Unix socket + 行 JSON，浏览器无法直连；需一个 loopback HTTP/WebSocket 网关把控制面方法暴露出去（现在每个插件各造一个 http server，没有统一入口）。
-- **无鉴权模型**：控制面靠 socket 权限；HTTP 网关需要新的 token/secret 方案（现有 ui-companion secret-path 和 tasks token 是两套先例但语义不同）。
+- **无鉴权模型**：控制面靠 socket 权限；HTTP 网关需要新的 token/secret 方案（现有 interaction secret-path 和 tasks token 是两套先例但语义不同）。
 - **写操作经网页无审批边界**：`sessions.submit`/`management` 写操作目前只面向本机 CLI；spec/13 §2 明确"不另做 Web 控制台"，是规格约束而非技术缺口。
 - **观察流断线恢复不完整**：`sessions.watch` 断开即丢流式片段，靠 `sessions.show`/`events.query` 重放（spec/13 §1.3 已声明）；网页长时间挂机需自行做增量对账（`revision`/`observedAt`/`eventWatermark` 可用但无游标端点）。
 - **历史会话枚举/搜索**：`sessions.list` 有 filter（home-management.ts:248），但转录检索只有 `events.query`；面向人的搜索/过滤端点（按 agent、渠道、时间、文本）未单独暴露。

@@ -3,6 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const MAPPINGS = [
+	["packages/execution-protocol", "packages/protocol"],
+	["packages/executor", "packages/device"],
 	["@yonder/execution-protocol", "@yonder/protocol"],
 	["@yonder/plugin-hermes-experience", "@yonder/plugin-learning"],
 	["@yonder/plugin-ui-companion", "@yonder/plugin-interaction"],

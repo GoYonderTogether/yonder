@@ -97,7 +97,7 @@
 | `plugins/channel-github` | 1,691 | 423 |
 | `plugins/codex-tools` | 1,612 | 403 |
 | `plugins/channel-wechat-ilink` | 1,220 | 305 |
-| `plugins/ui-companion` | 1,135 | 284 |
+| `plugins/interaction` | 1,135 | 284 |
 | `plugins/mcp-client` | 1,120 | 280 |
 | `plugins/media-tools` | 907 | 227 |
 | `plugins/channel-qq` | 614 | 154 |
@@ -195,7 +195,7 @@
     路由是运行时的确定性逻辑。写成规约意味着模型可能选错会话，而代码本来就知道每条输入来自哪个 conv。
 
 11. `content.ts:92` — "One question per message: when several decisions are open, ask the one that blocks the next step, act on the answer, then ask the next. Never send a list of questions"
-    多轮问答是交互层（卡片/表单）该提供的结构。`ui-companion` 已经能渲染 `kind:'choice'|'form'` 卡片，却仍要求模型用散文遵守"一次一问"。
+    多轮问答是交互层（卡片/表单）该提供的结构。`interaction` 已经能渲染 `kind:'choice'|'form'` 卡片，却仍要求模型用散文遵守"一次一问"。
 
 12. `content.ts:92` — "Never ask the same question twice: if it is still open, carry on with the default and say so once."
     与上一条叠加后，模型面对"两个都必须确认的阻塞项"时无解：不能列问题、不能重复问、又不该擅自决定。
@@ -314,7 +314,7 @@
 | 场景 | 组成 | 约 token |
 |---|---|---|
 | 主 Agent（jarvis + feishu + memory + tasks + gpt-6-luna） | framework 382 + common 5,353 + resident 1,309 + runtime 4,102（含 discipline 110）+ tool-discovery 372 + cli 247 + skill 索引 300 + jarvis SOUL/AGENTS 1,675 | **13,740** |
-| 同上，工具定义 | core 892 + pi 基础 588 + 飞书 583 + tasks 467 + memory ~200 + cron 250 + media 227 + ui-companion 284 ≈ 3,500（+ schema 约 1.5×） | **3,500–5,500** |
+| 同上，工具定义 | core 892 + pi 基础 588 + 飞书 583 + tasks 467 + memory ~200 + cron 250 + media 227 + interaction 284 ≈ 3,500（+ schema 约 1.5×） | **3,500–5,500** |
 | 常驻 agent 合计（system + tools，不含历史） | | **≈ 17,000–19,000** |
 | coding task 会话（无 resident、无 SOUL/AGENTS） | framework 382 + common 5,353 + runtime 4,102 + tool-discovery 372 + cli 247 + skill 300 + task-general 1,450 + task-coding 2,350 | **≈ 14,500** |
 | research task 会话 | 同上，research 1,795 代替 coding | **≈ 13,900** |
@@ -433,6 +433,6 @@
 
 ## 附：本次审计的读取范围
 
-`packages/core/src/prompt/{content.ts,index.ts}`、`packages/core/src/kernel/peer.ts`、`packages/core/src/skills/index.ts`、`packages/core/src/tools/*`、`packages/pi-durable/src/harness/compaction.ts`、`packages/pi-durable/src/tools/{bash,edit,read,write}.ts`、`plugins/agent-presets/prompts/**`、`plugins/context-files/src/index.ts`、`plugins/memory/src/{index.ts,contexts.ts}`、`plugins/tasks/src/{index.ts,prompts.ts,moments.ts,store/append.ts}`、`plugins/mcp-client/src/index.ts`、`plugins/channel-{feishu,wechat-ilink,qq,github,card,cli,mcp}/src/*`、`plugins/{cron,devices,ui-companion,browser-skill,native-automation,codex-tools,media-tools,web-tools}/src/index.ts`、`docs/spec/03-agents.md`、`docs/prompts/*`、`skills/*/SKILL.md`、`plugins/*/skills/**/SKILL.md`。
+`packages/core/src/prompt/{content.ts,index.ts}`、`packages/core/src/kernel/peer.ts`、`packages/core/src/skills/index.ts`、`packages/core/src/tools/*`、`packages/pi-durable/src/harness/compaction.ts`、`packages/pi-durable/src/tools/{bash,edit,read,write}.ts`、`plugins/agent-presets/prompts/**`、`plugins/context-files/src/index.ts`、`plugins/memory/src/{index.ts,contexts.ts}`、`plugins/tasks/src/{index.ts,prompts.ts,moments.ts,store/append.ts}`、`plugins/mcp-client/src/index.ts`、`plugins/channel-{feishu,wechat-ilink,qq,github,card,cli,mcp}/src/*`、`plugins/{cron,devices,interaction,browser-skill,native-automation,codex-tools,media-tools,web-tools}/src/index.ts`、`docs/spec/03-agents.md`、`docs/prompts/*`、`skills/*/SKILL.md`、`plugins/*/skills/**/SKILL.md`。
 
-未读取：`packages/executor`、`packages/macos*`、`plugins/{clipboard,hermes-experience,wechat-archive}/src`（与模型可见文字无关，或仅注册工具）。
+未读取：`packages/device`、`packages/macos*`、`plugins/{clipboard,learning,wechat-archive}/src`（与模型可见文字无关，或仅注册工具）。

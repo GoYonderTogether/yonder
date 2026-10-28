@@ -37,7 +37,7 @@ export const shippedChannels = [
 /** 无渠道核心：只保证任务会话可用，init 仍能写出可用预设与工作区。 */
 const corePlugins = [
 	{ use: "@yonder/plugin-context-files" },
-	{ use: "@yonder/plugin-ui-companion" },
+	{ use: "@yonder/plugin-interaction" },
 	{ use: "@yonder/plugin-agent-presets" },
 	{ use: "@yonder/plugin-web-tools" },
 ];

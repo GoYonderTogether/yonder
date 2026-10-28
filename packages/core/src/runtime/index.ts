@@ -1736,12 +1736,12 @@ export class Runtime {
 		);
 		const pending = tasks.items.filter((task) => task.state.status !== "terminal");
 
-		if (pending.some((task) => (task.input as { name?: string }).name !== "ui-companion_result")) return true;
+		if (pending.some((task) => (task.input as { name?: string }).name !== "interaction_result")) return true;
 		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
 		if (inbox?.items.some((item) => item.mode !== "write")) return true;
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		const slots = live?.tools?.filter((slot) => slot.status !== "done") ?? [];
-		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "ui-companion_result"));
+		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "interaction_result"));
 	}
 
 	/** Owner-local presentation, projected from native live state, never reasoning or tool payloads. */
@@ -1772,7 +1772,7 @@ export class Runtime {
 			!queued &&
 			!live?.compactions?.length &&
 			tools.length > 0 &&
-			tools.every((name) => name === "ui-companion_result");
+			tools.every((name) => name === "interaction_result");
 		const runId = live?.run ? String(live.run.inputs[0]) : undefined;
 		const generationRetry = live?.run ? live.generation?.retry?.at : undefined;
 		const compactions = live?.compactions ?? [];

@@ -197,7 +197,7 @@ edited but do not acquire ownership just because they were edited. This is minim
 store-local provenance, not a global usage ledger/native scanner.
 
 Archive/restore are sole actions, not batch members. They require recorded ownership
-`learning` (or legacy `hermes-experience`, kept for skills saved before the rename) and `pinned:false`, exact body revision and a safe complete tree.
+`learning` (or legacy `learning`, kept for skills saved before the rename) and `pinned:false`, exact body revision and a safe complete tree.
 Archive atomically moves to `dirname(root)/.hermes-skill-archive/<name>--<uuid>`;
 restore refuses an existing destination, preserves all files/provenance, and never
 permanently deletes. This is still the private resident workspace, but **outside the

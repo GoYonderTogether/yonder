@@ -237,7 +237,7 @@ bytes 10-  payload
 
 ### 4.1 位置与形态
 
-调研曾建议放 `plugins/ui-companion` 的 `/mic` 路由。`design.md` §4.8 已决定删除 ui-companion 的 `service.ts` 与 `web/`，因此本设计改放 `apps/app/src/features/voice/`，随同一份前端产物发布。形态：
+调研曾建议放 `plugins/interaction` 的 `/mic` 路由。`design.md` §4.8 已决定删除 interaction 的 `service.ts` 与 `web/`，因此本设计改放 `apps/app/src/features/voice/`，随同一份前端产物发布。形态：
 
 - **React 组件与 hook**（`apps/app` 内部使用）：`<VoiceCapture>`、`useVoice()`。
 - **可嵌入页面**：`/#/embed/voice`，供不在 apps/app 内的宿主用 iframe 或 WebView 嵌入，通过 `postMessage` 交互（`{type:"voice.state"|"voice.final", ...}`）。宿主必须同源或在网关允许的 Origin 列表中，不做任意嵌入。

@@ -5,10 +5,10 @@
 			"path": "packages/pi-durable"
 		},
 		{
-			"path": "packages/execution-protocol"
+			"path": "packages/protocol"
 		},
 		{
-			"path": "packages/executor"
+			"path": "packages/device"
 		},
 		{
 			"path": "packages/sdk"
@@ -83,7 +83,7 @@
 			"path": "plugins/devices"
 		},
 		{
-			"path": "plugins/ui-companion"
+			"path": "plugins/interaction"
 		},
 		{
 			"path": "plugins/learning"

@@ -197,7 +197,7 @@ chatCommands · TUI
 
 BrowserSkill fork（D54）：`browser-skill_bookmarks` 的 tree / move(nodeId,parentId,index?) / create-folder(title,parentId,index?) / remove-empty-folder(nodeId)；`browser-skill_extensions` 的 list / enable(extensionId) / disable(extensionId)。均支持可选 session（仅恰有一个 owned session 时可省略）。插件 config：`bookmarksEnabled`、`extensionsEnabled` 默认 false，不代替主人 popup 授权。
 
-macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helper 自身 9 类非提示式探针（含 bundle/path/codeHash、lastCheckedAt、lastRequestedAt、nextStep）。人用 `~/.local/share/yonder-harness/helper/yonder-permissions status | request|guide|watch <kind>`；checkout 演示入口为 `scripts/demo-permissions.sh`，先 `npm run build`。不是 `yonder` 子命令；AI action 不提供授权。FDA/Files & Folders 为 unobservable，详见[验收记录](verification/mac-permissions.md)。
+macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helper 自身 9 类非提示式探针（含 bundle/path/codeHash、lastCheckedAt、lastRequestedAt、nextStep）。人用 `~/.local/share/yonder/helper/yonder-permissions status | request|guide|watch <kind>`；checkout 演示入口为 `scripts/demo-permissions.sh`，先 `npm run build`。不是 `yonder` 子命令；AI action 不提供授权。FDA/Files & Folders 为 unobservable，详见[验收记录](verification/mac-permissions.md)。
 
 ## Clipboard（D53）
 

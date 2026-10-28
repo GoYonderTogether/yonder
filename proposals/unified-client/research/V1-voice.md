@@ -244,7 +244,7 @@
 |---|---|---|---|---|
 | **Meta（Ray-Ban / Oakley / Ray-Ban Display）** | ✅ `facebook/meta-wearables-dat-ios` / `-android`（Swift Package / Maven，v1.0.1，2026-10 活跃） | ✅ README 明示 "video and audio streaming and photo capture" | ✅ 拍照 + 视频流；Display 版还有镜片 Web App | **最成熟**，但 developer preview + 需注册组织与 release channel，受 Meta Wearables Developer Terms 与 AUP 约束，Meta 会收集设备互联的遥测（可 `MWDAT.Analytics.OptOut` 关闭） |
 | **Rokid（Rokid Glasses）** | ✅ Glasses SDK + Phone SDK（CXR-M/CXR-L），x-docs.rokid.com | 部分（眼镜端 AI 常独占麦克风） | 拍照/录像经手机侧 SDK | 可用，但音频通道受限，需实测 |
-| **雷鸟 RayNeo（X3 Pro / iO）** | ✅ OpenXR Unity ARDK + Android；X3 Pro 是**独立 Android 设备** | ✅（就是 Android 麦克风） | ✅ | **对 Yonder 最有价值**：能直接跑一个 Android 节点，等于把 `packages/executor` 的设备节点搬上眼镜 |
+| **雷鸟 RayNeo（X3 Pro / iO）** | ✅ OpenXR Unity ARDK + Android；X3 Pro 是**独立 Android 设备** | ✅（就是 Android 麦克风） | ✅ | **对 Yonder 最有价值**：能直接跑一个 Android 节点，等于把 `packages/device` 的设备节点搬上眼镜 |
 | **Xreal（Air / One）** | ✅ XREAL SDK / NRSDK | ❌ | ❌ | **不适合**：显示为主，无摄像头/麦克风开放 |
 | **Brilliant Labs（Frame / Halo）** | ✅ `brilliantlabsAR/brilliant_sdk`，**BSD-3-Clause**，2026-10 活跃 | ✅（BLE 上音频流） | ✅ 拍照/相机 | **最开放**，Lua 5.4 设备端 VM + Python/Flutter/WebBluetooth 主机端；有官方模拟器（`halo-emulator`）可无硬件开发。缺点：BLE 带宽有限，不适合长时高码率音频 |
 | 参考：统一封装层 | `hkust-spark/xg-glass-sdk`（Apache-2.0，2026-10 活跃） | 接口统一，实际能力矩阵多为空 | RayNeo/INMO 有 JPEG 流 | 思路可借鉴（"四个接口：视频进、音频进、显示出、音频出"），但**别依赖**：它自己标注多数机型"Video stream: No" |
@@ -288,7 +288,7 @@
 
 - 设备执行契约 `docs/spec/18-device-execution.md` 是**请求/响应 RPC**：`commands.submit` / `commands.status` / `commands.cancel` + `CommandReceipt` 状态机（`accepted|running|succeeded|failed|cancelled|unknown`），并且明确"`unknown` receipt 是事实，不自动转换为可重试错误"。
 - 能力词表只有 `read|write|exec|network|message`（`docs/spec/18-device-execution.md` §3），**没有音频流/实时通道**。
-- 执行端 action 是注册表模式：`packages/executor/src/backend-provider.ts:14,26`（`actions: Readonly<Record<string, BackendAction>>`），实例见 `packages/executor/src/backends/linux.ts:13-14,121`（`["open","click","type","scroll","back"]`）。
+- 执行端 action 是注册表模式：`packages/device/src/backend-provider.ts:14,26`（`actions: Readonly<Record<string, BackendAction>>`），实例见 `packages/device/src/backends/linux.ts:13-14,121`（`["open","click","type","scroll","back"]`）。
 - **结论**：现有契约**不适合**承载"持续音频流"。两条可行路：
   - **A（不改契约）**：设备侧本地常驻录音 + 分段落盘，通过 `commands.submit` 上报"新录音段"（`message` 能力），或设备侧自己把段上传到 Yonder 的事件入口。适合"眼镜/手机作为采集端"。
   - **B（改契约）**：新增一条流式通道（`device.streams.*` 或复用 WSS 单独命名空间）。这是**设计变更**，按 `AGENTS.md` 第 7 条须维护者批准，不能自行补。
@@ -296,9 +296,9 @@
 
 ### 10.5 通用前端子组件放哪
 
-- `plugins/ui-companion` 已经是"本地 HTTP + 严格校验 + 可嵌入页面"的宿主：`plugins/ui-companion/src/service.ts:150` `createServer`，`:154-160` 校验 `Host`、`Origin`、secret path，`:145-149` 注入 `window.yonderSettings`，前端源码在 `plugins/ui-companion/web`（`build.mjs` 构建到 `dist/index.html`）。
+- `plugins/interaction` 已经是"本地 HTTP + 严格校验 + 可嵌入页面"的宿主：`plugins/interaction/src/service.ts:150` `createServer`，`:154-160` 校验 `Host`、`Origin`、secret path，`:145-149` 注入 `window.yonderSettings`，前端源码在 `plugins/interaction/web`（`build.mjs` 构建到 `dist/index.html`）。
 - 关键事实：服务绑 `127.0.0.1`，浏览器把 `127.0.0.1` 视为**安全上下文**，因此 `getUserMedia` 在该页面可用。
-- **结论**：麦克风申请与采集组件应作为 ui-companion 的一个新路由/新页面（`/mic`），供任何客户端以 iframe/WebView 嵌入；权限申请、设备选择、电平指示、录音状态机都在组件内，宿主只收 PCM/Opus 分片。这样"任何客户端、任何模块都能嵌入"不需要每个端各写一遍。
+- **结论**：麦克风申请与采集组件应作为 interaction 的一个新路由/新页面（`/mic`），供任何客户端以 iframe/WebView 嵌入；权限申请、设备选择、电平指示、录音状态机都在组件内，宿主只收 PCM/Opus 分片。这样"任何客户端、任何模块都能嵌入"不需要每个端各写一遍。
 - 注意与 §8 一致：**浏览器组件不做常驻**；常驻由原生侧（macOS helper / Android FGS / Tauri Rust 侧）负责。
 
 ### 10.6 触发与自主唤醒的落点
@@ -341,7 +341,7 @@ L6 存储与检索 事件/附件落盘 + 转录索引 + 声纹模板库（本地
 | 1 | 音频附件 MIME 修复：`packages/core/src/runtime/attachments.ts` 补 wav/mp3/m4a/opus/flac 探测 | 用 `sessions submit --attachment x.m4a` 灌入，事件里 `kind==="audio"` 且 `mime` 正确；现有单测全绿 |
 | 2 | 本地 ASR 工具：`media-tools` 新增 `*_audio_transcribe_local`（sherpa-onnx-node，SenseVoice 或流式 zipformer） | 一段 10s 中英混说音频，输出文本包含两种语言的关键词；无网络可用；单次调用 <2s（M 系列） |
 | 3 | 本地 TTS 工具：新增 `*_tts_speak`（sherpa-onnx VITS 中文） | 给定中文文本，产出 wav 附件并在 macOS 上播放；首包 <500ms；`services.tts` 配成云端时同一工具走云端分支 |
-| 4 | 采集组件：ui-companion 新增 `/mic` 页面（`getUserMedia` + 权限状态机 + 电平 + 录音按钮） | 首次进入触发系统授权弹窗；拒绝后给出可操作提示；录音 10s 生成可播放音频并投递到当前会话 |
+| 4 | 采集组件：interaction 新增 `/mic` 页面（`getUserMedia` + 权限状态机 + 电平 + 录音按钮） | 首次进入触发系统授权弹窗；拒绝后给出可操作提示；录音 10s 生成可播放音频并投递到当前会话 |
 | 5 | voice 触发器：`api.triggers.register` 把"录音段 + 转录"作为 `message.in` emit | 说一句话后，会话里出现一条带 `attachments:[audio]` 的输入事件，Agent 的回复能引用转录文本 |
 | 6 | 语音回复闭环：Agent 回复经 `message_send({attachments})` 投递音频 | 端到端（说完 → 听到回复）≤3s；音频附件在事件库可回放 |
 | 7 | 声纹注册与门控（离线版）：注册 3 条主人音频，对段打分 | 主人语音通过率 ≥95%，他人语音误通过 ≤5%（自录 20 段小集）；模板本地存储且可删除 |

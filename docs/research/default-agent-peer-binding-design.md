@@ -51,7 +51,7 @@ env 在生成时固定为工作区环境（当前 init/create 为 local），不
 独立 clone `/tmp/yonder-peer-20261024`，最终基线更新为官方 main `be4ae64a586067608850daffdc91df40fb618569`（含 0.2.26102313）。未改用户开发目录或线上 home；未合并、发版、重启服务或本地运行 permissions 脚本。
 
 - `npm ci --ignore-scripts` 完成；安装报告已有 4 条依赖漏洞（2 moderate / 2 high），本 PR 不顺带升级依赖。
-- `npx tsc -b` 通过；`node plugins/ui-companion/build.mjs` 通过。
+- `npx tsc -b` 通过；`node plugins/interaction/build.mjs` 通过。
 - `npx biome check packages plugins` 首次因新增文件格式/导入顺序报 9 errors；仅对本次改动 TypeScript 文件执行安全格式修正后通过，仍有 355 warnings / 13 infos，不把 warnings 声称为零。
 - CLI 首轮定向检查 3 passed / 2 failed：两个断言把 fish 的 `-l isolated` 误按 `--isolated` 字面比较；按 shell 真实语法修正，后续完整测试里的 CLI 用例通过。
 - 本地完整测试**只执行一次**：先构建 UI，持有 `/tmp/yonder-heavy-test.lock`，`npm test -- --maxWorkers=4` 得到 379 passed / 1 failed / 39 skipped（419 tests）；84 files passed / 1 failed / 19 skipped。唯一失败为旧插件注册测试仍期望不包含新的内置 `peer-workspace` context，已更新其明确列表；测试锁已释放。

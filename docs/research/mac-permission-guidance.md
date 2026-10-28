@@ -75,7 +75,7 @@ Apple 的 [Automation API](https://developer.apple.com/documentation/coreservice
 - `packages/macos-helper/` 固定同一 PermissionFlow SHA；MIT LICENSE/NOTICE 保留，不使用 FDA provider。只有显式 guide 创建 controller；promptForAccessibilityTrust=false。native status 直接读 AX/CG/AV/UN/按目标 Apple Events API。
 - `security find-identity -v -p codesigning` 实测 **1 valid identity**：Apple Development: zoran zeng (Z4A92U2M2T)。以该证书签名成功，`codesign --verify --strict` 通过；未要求主人接受任何提示。DR 包含 helper identifier、Apple anchor 与证书名称约束；不是仅用 path 或宽松 identifier 自定义 DR。
 - `open -n -g -W --stdin ... --stdout ... -a 'Yonder Helper.app'` 使用本机 `man open` 支持的 LaunchServices API，保持后台启动、不激活应用。stdin/stdout 是私有临时文件承接的 JSON，无网络服务。helper 自身用 CoreGraphics 截图与输入、AX 窗口读取，Node 不再 spawn JXA 或 screencapture。CLI 信号转发到 helper，取消标记防止尚未启动的请求稍后执行输入。
-- helper 位于 `~/.local/share/yonder-harness/helper/Yonder Helper.app`；state/lock/稳定 CLI 在 bundle 外。launcher 比较源 bundle 与已安装 bundle 的 CDHash，未变不替换，变更才校验签名并替换。请求与 status 共用文件锁、原子保存 JSON；状态保留同路径旧身份的历史用于 needs-restart 提示。无签名身份时构建明确回退 ad-hoc，更新可能要求重新授权，不保证 grant retention。
+- helper 位于 `~/.local/share/yonder/helper/Yonder Helper.app`；state/lock/稳定 CLI 在 bundle 外。launcher 比较源 bundle 与已安装 bundle 的 CDHash，未变不替换，变更才校验签名并替换。请求与 status 共用文件锁、原子保存 JSON；状态保留同路径旧身份的历史用于 needs-restart 提示。无签名身份时构建明确回退 ad-hoc，更新可能要求重新授权，不保证 grant retention。
 - 实机新身份 AX/Screen/Input **false**；AV Camera/Microphone raw=0；Notifications raw=0；Automation raw=-600（目标未运行）；FDA/Files & Folders unobservable。前述终端研究进程 true 没有被沿用到产品权限状态。PPID=1 是 LaunchServices 独立启动的佐证，不能代替 TCC 授权后的真人验收。
 - Phase 2 不调用 request/guide/watch。窗口跟随、拖放、真实输入、授权与撤销、重启与升级保留均未测；构建和状态机检查不替代这些证据。
 

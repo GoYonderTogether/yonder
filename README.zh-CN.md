@@ -60,8 +60,8 @@ node packages/cli/dist/index.js chat --home ~/yonder-home
 ### 安装为后台服务（macOS）
 
 ```sh
-node packages/cli/dist/index.js update --to latest   # 把最新发布标签构建到 ~/.yonder-harness/versions
-export PATH="$HOME/.yonder-harness/bin:$PATH"
+node packages/cli/dist/index.js update --to latest   # 把最新发布标签构建到 ~/.yonder/versions
+export PATH="$HOME/.yonder/bin:$PATH"
 yonder init && yonder login openai
 yonder service install                               # 为该 home 安装 launchd 服务
 yonder                                               # 进入常驻 main 会话

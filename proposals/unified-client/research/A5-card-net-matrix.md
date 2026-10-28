@@ -12,7 +12,7 @@
 
 | 仓库 | 可见性 | 大小 | 最后推送 | LICENSE | 描述 |
 |---|---|---|---|---|---|
-| `yonder-harness` | PUBLIC | 5554 KB | 2026-10-27T14:08Z | Apache-2.0 | 常驻 agent 内核，消息即事件 |
+| `yonder` | PUBLIC | 5554 KB | 2026-10-27T14:08Z | Apache-2.0 | 常驻 agent 内核，消息即事件 |
 | `yonder-web` | PRIVATE | 8279 KB | 2026-10-27T03:33Z | 无 | Yonder 名片网站（Web 应用与部署脚本，私有） |
 | `yondermesh` | PRIVATE | 2799 KB | 2026-10-21T01:35Z | 无 | Self-hosted Agent Context Bus（跨设备/CLI 让 agent 互相看见、互相查询、交接任务） |
 | `pi` | PUBLIC | 86290 KB | 2026-10-21T02:38Z | — | AI agent toolkit（上游 fork，非自研） |
@@ -21,7 +21,7 @@
 
 | 仓库 | 可见性 | 大小 | 最后推送 | LICENSE | 描述 |
 |---|---|---|---|---|---|
-| `yonder-harness` | PRIVATE | 2716 KB | 2026-10-21T01:21Z | Apache-2.0 | 空描述；内容为公开仓的旧镜像（见 1.3） |
+| `yonder` | PRIVATE | 2716 KB | 2026-10-21T01:21Z | Apache-2.0 | 空描述；内容为公开仓的旧镜像（见 1.3） |
 | `AI-Being` | PRIVATE | 82520 KB | 2026-10-17T01:04Z | 无 | 空描述；上阶段总仓（含 `net/`、`web/`、`desktop/`、`ios/`、`plugins/`） |
 | `being-net` | PRIVATE | 1349 KB | 2026-10-12T07:07Z | 无 | AI Being network: accounts, relay, web client |
 | `being` | PRIVATE | 19539 KB | 2026-10-05T09:35Z | 无 | Being — DeepSeek Harness 插件开发仓库 |
@@ -34,11 +34,11 @@
 
 `gh api user/orgs` 显示用户加入两个组织：`GoYonderTogether` 与 `Zeth-AI`。`Zeth-AI` 只有 1 个仓库 `zeth-ai`（PRIVATE，85343 KB，2026-09-21），名称与 Yonder/Card/Net/Being 无关；但它对应生产域名 `yonder.zethai.cn`（见 §4.1）。
 
-### 1.3 两个 `yonder-harness` 的关系（事实）
+### 1.3 两个 `yonder` 的关系（事实）
 
 - 本机 checkout `~/Documents/yonder-harness` 配有两个 remote：
   - `origin` → `https://github.com/GoYonderTogether/yonder-harness.git`（PUBLIC）
-  - `archive` → `https://github.com/zoran-xc/yonder-harness.git`（PRIVATE）
+  - `archive` → `https://github.com/zoran-xc/yonder.git`（PRIVATE）
 - `origin/main` 顶点 `0211948 chore(release): 0.2.26102705`（2026-10-27 10:08 -0400）；`archive/main` 顶点 `f3d384a docs: 完成中英文 README…`（2026-10-20 21:21 -0400）。私有仓是 7 天前的历史快照，未含 Card 插件/设备执行契约的后续提交。
 
 ---
@@ -59,10 +59,10 @@
 | `~/Documents/Codex/2026-10-26/task/artifacts/linux-full-rc-0.2.26102601-beta.1/repo` | — | `linux-full-rc` | `6362426` 2026-10-26 11:09 | 0 |
 | `~/Documents/Codex/2026-10-01/task-14/being-attention` | — | `attention-prototype` | 无提交 | 10 |
 
-- `yonder-card-web` 的 `git worktree list` 共 5 个工作树：主树、`/private/tmp/yonder-card-web-takeover-20261023/worktree`（`yonder/card-web-takeover-20261023`）、`~/.local/share/yonder-harness/home/development/yonder-web-ui-icons-20261027`（`fix/yonder-web-ui-icons-20261027`）、`card-w3`、`yonder-card-multidevice-w0`。
+- `yonder-card-web` 的 `git worktree list` 共 5 个工作树：主树、`/private/tmp/yonder-card-web-takeover-20261023/worktree`（`yonder/card-web-takeover-20261023`）、`~/.local/share/yonder/home/development/yonder-web-ui-icons-20261027`（`fix/yonder-web-ui-icons-20261027`）、`card-w3`、`yonder-card-multidevice-w0`。
 - `yonder-card-web` 分支 `zoran/live-dev` 相对 `origin/main`：**ahead 44 / behind 2**（`git rev-list --left-right --count origin/HEAD...HEAD` → `2 44`）。`main` 分支停在 `931e84c feat: 桌面三栏、通讯录卡包…（0.2.26102301）`。
 - `yonder-card-web` 未提交 5 项全部是 `artifacts/avatar-study-2026-10-26/` 下的 PNG/JSON 未跟踪文件。
-- `yonder-harness` 未提交 8 项含被改源码：`packages/core/src/runtime/model-chain.ts`、`model-watch.ts`、`model-chain.test.ts`、`proposals/local-model-gateway.md`、`.workbuddy-ai/memory/2026-10-27.md`，以及未跟踪 `packages/core/src/runtime/model-chain.ts.bak-order-20261027`、`proposals/unified-client/`、`proposals/workbuddy-hub-integration.md`、`.codegraph/`。
+- `yonder` 未提交 8 项含被改源码：`packages/core/src/runtime/model-chain.ts`、`model-watch.ts`、`model-chain.test.ts`、`proposals/local-model-gateway.md`、`.workbuddy-ai/memory/2026-10-27.md`，以及未跟踪 `packages/core/src/runtime/model-chain.ts.bak-order-20261027`、`proposals/unified-client/`、`proposals/workbuddy-hub-integration.md`、`.codegraph/`。
 - **`being-net` 与 `yondermesh` 本机均无 checkout**：`find ~ -maxdepth 5 -type d -name yondermesh` 无结果；`~/Documents` 下无 `being-net` 目录。`AI-Being` 目录已不存在（`ls ~/Documents/AI-Being` → No such file or directory）。
 - `~/Documents/_being-archive` 只剩归档：`ARCHIVE-README.md`、`CLEANUP-20261027.md`、`bundles/`（`AI-Being-final-20261027.bundle`、`being-final-20261027.bundle`、`AI-Being-decisions-worktree-20261016.bundle`、`being-merged.bundle`、`being-source.bundle`、`being-ui-nav-staging.bundle`、`being-ui-integration.bundle`）、`data/ai-being-data-20261012-0339.tgz`、`evidence/`、`manifests/`、`misc/`。原 `repos/` 7 个目录已移入 `~/.Trash/Documents-cleanup-20261027/`（`_being-archive/CLEANUP-20261027.md`）。
 
@@ -91,14 +91,14 @@
 ### 3.3 `yonder-hermes-extensions`
 
 - 定位：**不是 Card/Net 仓**，是 Yonder Harness 的第三方插件包集合，把 Hermes Agent 的既有能力接到 Yonder 的单一模型/会话循环上（`DESIGN.md:5-11`）。
-- 两个独立可加载包：`packages/hermes-experience`（记忆/技能）、`packages/hermes-workspace`（显式 home/profile 清单与接管预览）（`DESIGN.md:8-10`）。
+- 两个独立可加载包：`packages/learning`（记忆/技能）、`packages/hermes-workspace`（显式 home/profile 清单与接管预览）（`DESIGN.md:8-10`）。
 - 依赖只有公开 `@yonder/sdk` + Node 内置；`package.json` peerDependencies：`@yonder/core >=0.2.26102103 <0.3.0`、`yaml 2.9.1`；`engines node >=22.19`；版本 `0.1.1`。
 - 无 LICENSE 文件；`NOTICE` 说明"private first slice selects no distribution license for our new code yet"，并保留上游 Hermes MIT（`licenses/Hermes-MIT.txt`）与 Yonder SDK Apache-2.0 声明。
 - 与 Card/Net 无代码依赖；无 deploy/ 目录。
 
 ---
 
-## 4. 与 yonder-harness 的接口
+## 4. 与 yonder 的接口
 
 ### 4.1 channel-card ↔ Card（`docs/spec/16-card-plugin.md`）
 
@@ -151,8 +151,8 @@
 - 模型工具名（第 6 节）：`devices_list / devices_describe / devices_apps / devices_open / devices_observe / devices_execute / devices_status / devices_cancel / devices_close`；管理 CLI `yonder-executor init|serve|pair start|pair approve|pair connect|peers list|grants list|grants revoke`。
 
 实现落点：
-- `packages/execution-protocol/`：`src/schema.ts`、`src/index.ts`、`schema/execution-v1.json`、`schema/relay-v1.json`、`scripts/export-schema.mjs`、`README.md`。版本 `0.2.26102510`（spec 第 5 行）。
-- `packages/executor/src/card-connection.ts`：`CardDaemonConnection`，类注释 "Routing credential only: every incoming request still needs the executor's paired signature/grant."；`POST /api/execution/ticket` `{targetDeviceId}` 取 ticket（`card-connection.ts:66-72`），再以 `Authorization: Bearer` + `x-execution-relay-ticket` 连 `/ws/execution`（`:100-110`）；`maxPayload: 1_400_000`、`perMessageDeflate:false`、`followRedirects:false`；消息必须是 `type:'relay'` + `sourceDeviceId === peerDeviceId` + `Check(RelayFrameSchema, message.frame)`（`:129-136`）；ticket 正则 `^[A-Za-z0-9_-]{43}$`（`:93`）。
+- `packages/protocol/`：`src/schema.ts`、`src/index.ts`、`schema/execution-v1.json`、`schema/relay-v1.json`、`scripts/export-schema.mjs`、`README.md`。版本 `0.2.26102510`（spec 第 5 行）。
+- `packages/device/src/card-connection.ts`：`CardDaemonConnection`，类注释 "Routing credential only: every incoming request still needs the executor's paired signature/grant."；`POST /api/execution/ticket` `{targetDeviceId}` 取 ticket（`card-connection.ts:66-72`），再以 `Authorization: Bearer` + `x-execution-relay-ticket` 连 `/ws/execution`（`:100-110`）；`maxPayload: 1_400_000`、`perMessageDeflate:false`、`followRedirects:false`；消息必须是 `type:'relay'` + `sourceDeviceId === peerDeviceId` + `Check(RelayFrameSchema, message.frame)`（`:129-136`）；ticket 正则 `^[A-Za-z0-9_-]{43}$`（`:93`）。
 - `plugins/devices/src/connections.ts`：`card?: { baseUrl, credential, peerDeviceId }`（`:17`），经 `credentials.get(cardConfig.credential)` 取凭据（`:83`）；路由 `kind: "direct" | "card"`（`transport.ts:20`、`routes.ts:110`）。
 - `plugins/devices/README.md:3`：W0 base `0591eae69f45f6973259833e44386a421998b277`；插件"不实现 W1 pairing/daemon/authorization、W3 relay service"。
 - **Card 主树尚无 relay**：`~/Documents/yonder-card-web/server/src/` 无 `execution-relay.ts`，`index.ts`/`app.ts`/`realtime.ts` 无 `execution` 引用（`grep` 无命中）。relay 只存在于 worktree `…/yonder-card-multidevice-w0/server/src/execution-relay.ts`（113 行）与 `card-w3`，接线在 `server/src/app.ts:18`、`server/src/realtime.ts:11,34-35,146`。锁文件 `server/contracts/execution-v1/contract.lock.json`：`source.commit = 0591eae69f45f6973259833e44386a421998b277`、`schemaSha256 = d2b734f540c95b8bd9dd7c7abc31efd2693c6bd7ebf69ee51e6d6b0a2fadc39e`、`confidentiality: "relay-readable"`、`publishedNpmPackageRequired: false`。
@@ -188,14 +188,14 @@
 - 已有会话/agent/bot 界面：**有**。`pages/Chat.tsx`（会话与消息）、`components/chat/ChatDetail.tsx`、`components/chat/AiBadge.tsx`（注释："名字后的小「AI」标：Agent 会话与成员用"）、`components/chat/DeviceRow.tsx`、`pages/Me.tsx:79-95`（"我的 Agent" 区块，`contacts.filter(a => a.kind === 'agent' && a.ownerId === s.actor.id)`，空态文案"连接设备后，Agent 会出现在这里"）、`pages/Connect.tsx`（设备授权码确认 + `AddDeviceDialog` 邀请码，`Connect.tsx:14-40`）、`components/AgentPublicToggle.tsx`。
 - 品牌资产：`src/assets/brand/`（`yonder-mark.svg`、`yonder-mark-small.svg`、`yonder-tile-ink.svg`、`yonder-tile-small-ink.svg`）+ 独立 `brand/` 目录（`BRIEF.md`、`agent.svg`、`mark.svg`、`preview.html`、`v3/`、`v4/` 含 `a-road/b-bottle/c-slide/d-kite/e-wave/f-recede` 六方案 SVG 与 round1/round2 图）。
 
-### 5.2 与 `plugins/ui-companion/web` 的重复
+### 5.2 与 `plugins/interaction/web` 的重复
 
-- 技术栈不同：`ui-companion/web` 是**无框架原生 JS + 单文件 CSS**（`app.js`、`panel.mjs`、`state.mjs`、`activity.mjs`、`style.css`、`index.html`，`build.mjs` 把模板、CSS、品牌、脚本内联成单页）；Card web 是 React 19 + Vite + Tailwind。
-- **样式令牌是复制关系，且已写在文件头**：`~/Documents/yonder-harness/plugins/ui-companion/web/style.css:1-2` — "Visual tokens copied from yonder-card-web/src/styles.css at 1c5b692. Keep aligned with its DESIGN.md; this prototype only adapts window layout."
-- 品牌是共享单一源：`ui-companion/build.mjs:14` 读 `root/brand/src/yonder-mark.js`；`brand/README.md:3` — "`src/yonder-mark.js` 是标志几何和角色动效的唯一来源… Web 在构建时直接内联同一源文件，不另建一套 Logo。" 而 Card web 自己另存一套 `src/assets/brand/*.svg` 与 `brand/` 草案目录。
-- 组件无共享：`ui-companion/web/index.html` 用 `<svg><use href="#i-*"/></svg>` 符号表 + `web/assets/lucide/symbols.svg`；Card web 用 `lucide-react` 组件。两边都内联 Geist 字体（`ui-companion/web/assets/geist-latin-wght-normal.woff2` vs Card 的 `@fontsource-variable/geist`）。
-- 品牌/文案同源：`ui-companion/README.md:3` — "保留 ai-card Web 风格、唯一共享品牌角色、同锚点展开/收起、大区域拖拽与历史回溯"。
-- 功能重叠：ui-companion 有 `agents-view`（Agent 列表）、`board-view`（任务看板）、`history-view`（交互历史）、`task-view`（选择/补充想法）（`web/index.html` 各 `<section>`）；Card web 的 Agent 列表在 `pages/Me.tsx` / `pages/Contacts.tsx`，无看板/交互历史。
+- 技术栈不同：`interaction/web` 是**无框架原生 JS + 单文件 CSS**（`app.js`、`panel.mjs`、`state.mjs`、`activity.mjs`、`style.css`、`index.html`，`build.mjs` 把模板、CSS、品牌、脚本内联成单页）；Card web 是 React 19 + Vite + Tailwind。
+- **样式令牌是复制关系，且已写在文件头**：`~/Documents/yonder-harness/plugins/interaction/web/style.css:1-2` — "Visual tokens copied from yonder-card-web/src/styles.css at 1c5b692. Keep aligned with its DESIGN.md; this prototype only adapts window layout."
+- 品牌是共享单一源：`interaction/build.mjs:14` 读 `root/brand/src/yonder-mark.js`；`brand/README.md:3` — "`src/yonder-mark.js` 是标志几何和角色动效的唯一来源… Web 在构建时直接内联同一源文件，不另建一套 Logo。" 而 Card web 自己另存一套 `src/assets/brand/*.svg` 与 `brand/` 草案目录。
+- 组件无共享：`interaction/web/index.html` 用 `<svg><use href="#i-*"/></svg>` 符号表 + `web/assets/lucide/symbols.svg`；Card web 用 `lucide-react` 组件。两边都内联 Geist 字体（`interaction/web/assets/geist-latin-wght-normal.woff2` vs Card 的 `@fontsource-variable/geist`）。
+- 品牌/文案同源：`interaction/README.md:3` — "保留 ai-card Web 风格、唯一共享品牌角色、同锚点展开/收起、大区域拖拽与历史回溯"。
+- 功能重叠：interaction 有 `agents-view`（Agent 列表）、`board-view`（任务看板）、`history-view`（交互历史）、`task-view`（选择/补充想法）（`web/index.html` 各 `<section>`）；Card web 的 Agent 列表在 `pages/Me.tsx` / `pages/Contacts.tsx`，无看板/交互历史。
 
 ---
 
@@ -206,18 +206,18 @@
 | 能力 | 重复位置 |
 |---|---|
 | 账号/会话 | `yonder-card-web/server/src/auth.ts`（scrypt + token sha256）；`zoran-xc/being-net/apps/server/src/{app,network}.ts`；`AI-Being/net/**`（已删除本地，见 `server/PLAN.md:8` 引用路径 `~/Documents/AI-Being/net/apps/server/src/app.ts`） |
-| relay | Card `server/src/{realtime,execution-relay}.ts`（`/ws`、`/ws/device`、`/ws/execution` 三套）；`being-net` 的 relay；`yondermesh`（"Agent Context Bus"）；`packages/executor/src/card-connection.ts` 的执行 relay 客户端 |
-| 卡片/名片 | Card `src/components/card/*`、`src/components/wallet/CardStack.tsx`、`server/src/cards.ts`；`AI-Being/web`（旧名片前端）；`yonder-harness/proposals/ai-card/plugin.md`（已被 spec16 声明取代："`proposals/ai-card/plugin.md` 的 Tinode 方案已被取代"，`docs/spec/16-card-plugin.md:3`） |
-| 网页端 | `yonder-card-web/src`（React）；`plugins/ui-companion/web`（原生 JS 单页）；`AI-Being/web`（已删）；`being-net` 描述里的 "web client"（仓内无对应目录） |
-| 品牌资源 | `yonder-harness/brand/src/yonder-mark.js` + `brand/assets/{macos,png}`（声明唯一源）；`yonder-card-web/src/assets/brand/*.svg`；`yonder-card-web/brand/{mark,agent}.svg` + `v3/` + `v4/` 六方案；`plugins/ui-companion/web/assets/lucide/symbols.svg` |
-| 状态栏/菜单栏 | `yonder-harness/packages/macos/src/{YonderStatus,Companion,PowerHelper}.swift`；`plugins/ui-companion/README.md:6` 称构建 `packages/macos/dist/YonderStatus.app`（但 `plugins/ui-companion/build.mjs` 中 `grep macos` 无命中，只有 web 内联构建）；另有独立仓 `~/Documents/mac-toolkit`（无 remote，含 `Sources/`、`Resources/`、`Tests/`） |
-| 设计令牌 | `yonder-card-web/src/styles.css`（197 行，唯一权威）+ `plugins/ui-companion/web/style.css` 手工复制副本（注明"copied at 1c5b692"） |
+| relay | Card `server/src/{realtime,execution-relay}.ts`（`/ws`、`/ws/device`、`/ws/execution` 三套）；`being-net` 的 relay；`yondermesh`（"Agent Context Bus"）；`packages/device/src/card-connection.ts` 的执行 relay 客户端 |
+| 卡片/名片 | Card `src/components/card/*`、`src/components/wallet/CardStack.tsx`、`server/src/cards.ts`；`AI-Being/web`（旧名片前端）；`yonder/proposals/ai-card/plugin.md`（已被 spec16 声明取代："`proposals/ai-card/plugin.md` 的 Tinode 方案已被取代"，`docs/spec/16-card-plugin.md:3`） |
+| 网页端 | `yonder-card-web/src`（React）；`plugins/interaction/web`（原生 JS 单页）；`AI-Being/web`（已删）；`being-net` 描述里的 "web client"（仓内无对应目录） |
+| 品牌资源 | `yonder/brand/src/yonder-mark.js` + `brand/assets/{macos,png}`（声明唯一源）；`yonder-card-web/src/assets/brand/*.svg`；`yonder-card-web/brand/{mark,agent}.svg` + `v3/` + `v4/` 六方案；`plugins/interaction/web/assets/lucide/symbols.svg` |
+| 状态栏/菜单栏 | `yonder/packages/macos/src/{YonderStatus,Companion,PowerHelper}.swift`；`plugins/interaction/README.md:6` 称构建 `packages/macos/dist/YonderStatus.app`（但 `plugins/interaction/build.mjs` 中 `grep macos` 无命中，只有 web 内联构建）；另有独立仓 `~/Documents/mac-toolkit`（无 remote，含 `Sources/`、`Resources/`、`Tests/`） |
+| 设计令牌 | `yonder-card-web/src/styles.css`（197 行，唯一权威）+ `plugins/interaction/web/style.css` 手工复制副本（注明"copied at 1c5b692"） |
 | 设备/Agent 映射 | Card `server/src/devices.ts`（`/api/device/agents`）+ `server/migrations/002-device-agents.cjs`；harness `plugins/devices`（W1 `ControllerPairing` 目录 + `device-<UUID>.json`，见 `plugins/devices/README.md:12`）——两套设备身份命名空间，`execution-relay.ts:88` 注释明确："Card device UUIDs and W0 executor device IDs are distinct namespaces." |
 
 ### 6.2 仓库命名不一致
 
 - 仓库 `GoYonderTogether/yonder-web` ↔ 本地目录 `yonder-card-web` ↔ 前端包名 `yonder-card-web` ↔ 后端包名 `yonder-card-server` ↔ README 标题 `# Yonder Web`。
-- 同一 `yonder-harness` 存在于两个账号（GoYonderTogether PUBLIC / zoran-xc PRIVATE 旧镜像）。
+- 同一 `yonder` 存在于两个账号（GoYonderTogether PUBLIC / zoran-xc PRIVATE 旧镜像）。
 - "Net" 一词对应两个仓：`being-net`（旧）与 `yondermesh`（新），本机都无 checkout。
 - 分支名混三套前缀：`zoran/live-dev`、`codex/multidevice-w0-20261026`、`fix/…`、`yonder/…`；harness 侧 `archive/main`、`archive/private-main`、`archive/main-before-rightapi-20261023`、`yonder/{card-plugin,clipboard-vault,runtime-discipline}`。
 
@@ -225,11 +225,11 @@
 
 | 仓库 | 可见性 | LICENSE 文件 |
 |---|---|---|
-| `GoYonderTogether/yonder-harness` | PUBLIC | Apache-2.0（`yonder-harness/LICENSE` 首行 "Apache License Version 2.0"；`package.json:5` `"license": "Apache-2.0"`） |
+| `GoYonderTogether/yonder-harness` | PUBLIC | Apache-2.0（`yonder/LICENSE` 首行 "Apache License Version 2.0"；`package.json:5` `"license": "Apache-2.0"`） |
 | `GoYonderTogether/yonder-web` | PRIVATE | 无（`ls yonder-card-web/LICENSE*` → No such file） |
 | `GoYonderTogether/yondermesh` | PRIVATE | GitHub API `license: null` |
 | `GoYonderTogether/pi` | PUBLIC | 上游 pi 的许可（fork） |
-| `zoran-xc/yonder-harness` | PRIVATE | Apache-2.0 |
+| `zoran-xc/yonder` | PRIVATE | Apache-2.0 |
 | `zoran-xc/AI-Being` | PRIVATE | `null` |
 | `zoran-xc/being-net` | PRIVATE | `null` |
 | `zoran-xc/being` | PRIVATE | `null` |
@@ -249,12 +249,12 @@
 | `yonder-card-web/server/PLAN.md:8` | "**参照 AI-Being 的 net 后端**（`~/Documents/AI-Being/net/apps/server/src/app.ts`、`network.ts`，`net/test/services.ts`）… 复制写法，不要 import 那个仓库。" —— 指向已不存在的路径 |
 | `yonder-card-web/DESIGN.md:9` | 设计参照 "AI-Being（本机 `AI-Being/docs/product/design-principles.md`、`web/src/styles/tokens.css`）" —— 同样指向已删路径 |
 | `yonder-card-web/deploy/README.md:45` | 部署脚本"不会触碰 being-net、life-story、invest-agent、其他 nginx 站点及 `/opt/being-mobile/current`" —— 旧 being 站仍在同机 nginx 上 |
-| `yonder-harness/plugins/wechat-archive/README.md:3`、`NOTICE.md:1`、`src/source.ts:1` | 迁移自 `AI-Being/plugins/wechat-archive` |
-| `yonder-harness/plugins/channel-wechat-ilink/README.md:3`、`NOTICE.md:1`、`src/client.ts:1` | 迁移自 `AI-Being/plugins/wechat-ilink` |
-| `yonder-harness/plugins/web-tools/SOURCES.md:7`、`README.md:5`、`docs/spec/11-official-plugins.md:63,65`、`THIRD_PARTY_NOTICES.md:63,74` | 对照 AI-Being（"本机仓库未发现 LICENSE，不直接复制代码"）；不读 AI-Being 登录/密钥文件 |
-| `yonder-harness/docs/decisions.md:21,29,140` | D8 沿用 AI-Being 的配置格式；D11 说明 AI-Being 的登录键名/格式对不上；第 140 行记录微信双插件迁移指令 |
-| `yonder-harness/HANDOFF.md:25,28,29,34` | 指向 `~/.ai-being/providers.json` 等三份配置；"不要读写 `~/.ai-being` 下除上述三个文件以外的内容" |
-| `yonder-harness/docs/verification/wechat-plugins.md:3`、`docs/research/qq-group-participation.md:91` | 迁移/借鉴记录（含 `AI-Being/plugins/voice/agents/voice.md`） |
+| `yonder/plugins/wechat-archive/README.md:3`、`NOTICE.md:1`、`src/source.ts:1` | 迁移自 `AI-Being/plugins/wechat-archive` |
+| `yonder/plugins/channel-wechat-ilink/README.md:3`、`NOTICE.md:1`、`src/client.ts:1` | 迁移自 `AI-Being/plugins/wechat-ilink` |
+| `yonder/plugins/web-tools/SOURCES.md:7`、`README.md:5`、`docs/spec/11-official-plugins.md:63,65`、`THIRD_PARTY_NOTICES.md:63,74` | 对照 AI-Being（"本机仓库未发现 LICENSE，不直接复制代码"）；不读 AI-Being 登录/密钥文件 |
+| `yonder/docs/decisions.md:21,29,140` | D8 沿用 AI-Being 的配置格式；D11 说明 AI-Being 的登录键名/格式对不上；第 140 行记录微信双插件迁移指令 |
+| `yonder/HANDOFF.md:25,28,29,34` | 指向 `~/.ai-being/providers.json` 等三份配置；"不要读写 `~/.ai-being` 下除上述三个文件以外的内容" |
+| `yonder/docs/verification/wechat-plugins.md:3`、`docs/research/qq-group-participation.md:91` | 迁移/借鉴记录（含 `AI-Being/plugins/voice/agents/voice.md`） |
 | `personal-ai-lab/projects/persistent-being`、`personal-ai-lab/docs/persistent-being-*.md` | `personal-ai-lab` 仓内仍有 persistent-being 项目与验收文档 |
 
 运行时残留：
@@ -268,4 +268,4 @@
 - `yonder-card-web/docs/status.md:18`：2026-10-26 后端测试 71 项，"70 通过、1 失败"，失败项 `card conversation is 404 without session, card or DM`（`server/test/card-start.test.ts:70` 期望 404、实际 400，原因待排查）；同段声明"本次未进行浏览器端到端、Harness 联调或生产部署验收"。
 - `yonder-card-web/deploy/README.md:1`："待主人审核执行；未连接生产"。
 - harness 版本 `0.2.26102705`（`package.json:55`）高于 Card 版本 `0.2.26102301`；Card 主树 `main` 分支提交信息里的版本标记同样是 `0.2.26102301`，而 `zoran/live-dev` 已领先 44 个提交且未合并。
-- `yonder-card-web` 的 5 个 worktree 分布在 `/private/tmp`、`~/.local/share/yonder-harness/home/development`、`~/Documents/Codex/2026-10-26/` 三处，其中 `card-w3` 与 `yonder-card-multidevice-w0` 携带 relay 实现而主树没有。
+- `yonder-card-web` 的 5 个 worktree 分布在 `/private/tmp`、`~/.local/share/yonder/home/development`、`~/Documents/Codex/2026-10-26/` 三处，其中 `card-w3` 与 `yonder-card-multidevice-w0` 携带 relay 实现而主树没有。

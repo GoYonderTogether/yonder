@@ -327,11 +327,11 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 `@yonder/plugin-channel-card`：多 Agent 名片渠道（type card、multiAgent）。设备码登录、单条 WS、游标补收；工具 channel-card_card_push 仅起草调用 Agent 自己的名片。配置与限制见 [README](../plugins/channel-card/README.md) 和 [16](spec/16-card-plugin.md)。
 
-## ui-companion — 本地交互窗口
+## interaction — 本地交互窗口
 
-- **源码**：[入口](../plugins/ui-companion/src/index.ts) · [运行和验收](../plugins/ui-companion/README.md)
-- **贡献**：工具 `ui-companion_present`、`ui-companion_result`；触发器 `ui-companion-service` 托管回环服务。
-- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-ui-companion`，在实际 Agent/配置档选择 `ui-companion_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
+- **源码**：[入口](../plugins/interaction/src/index.ts) · [运行和验收](../plugins/interaction/README.md)
+- **贡献**：工具 `interaction_present`、`interaction_result`；触发器 `interaction-service` 托管回环服务。
+- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-interaction`，在实际 Agent/配置档选择 `interaction_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
 - **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
 
 
@@ -342,7 +342,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **功能**：现有 scaffold 仅为所选模板补缺失的 SOUL.md/AGENTS.md；按实际工作区渲染，新 init 的主 Agent 使用 Jarvis，普通 Agent 可经现有 create --preset 创建。
 - **边界**：不注册工具、事件订阅或服务；任务预设明确选择现有工具与能力，research 无 shell/写入/消息；不覆写已有文件，不给无身份 task 注入人格。插件内 Markdown 为唯一起始正文；[分层与来源](prompts/README.md)。
 
-## hermes-experience：可选精选记忆与静默学习
+## learning：可选精选记忆与静默学习
 
 - **包**：`@yonder/plugin-hermes-experience`；[安装、原 scope 迁移与验证](../plugins/hermes-experience/README.md)。
 - **贡献**：前台 memory_read/edit、skill_store、memory_pending、refine；三个仅 active grant 可用的内部 review 工具；hermes-memory/behavior/core 上下文、hermes-yonder 教学技能、hermes-study 与 hermes-learning-review 预设及学习 hooks/trigger。

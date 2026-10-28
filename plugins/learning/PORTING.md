@@ -1,4 +1,4 @@
-# Porting record: hermes-experience → plugin-learning
+# Porting record: learning → plugin-learning
 
 Basis: `proposals/unified-client/design.md` §2.4 (main-repo copy wins, rename to
 `plugin-learning`, port external-only changes item by item, never overwrite
@@ -11,7 +11,7 @@ Sources compared:
 
 ## Normalized comparison
 
-Method: copy the seven external `packages/hermes-experience/*.mjs` into a temporary
+Method: copy the seven external `packages/learning/*.mjs` into a temporary
 directory inside this repo, run `npx -y @biomejs/biome@2.5.15 check --write` with the
 repo `biome.json` (lint safe fixes + tab formatting), then `diff` against `src/*.mjs`.
 Plain `biome format` is not enough (it keeps single quotes and compact statements), and
@@ -61,6 +61,6 @@ byte-identical; `SOURCES.md` differs only in path wording.
   `learning-state.json` (design does not rename them; changing them would break
   configs `yonder migrate` does not cover yet).
 - Skill provenance owner: new skills record `learning`; the legacy owner
-  `hermes-experience` is still accepted for edit/archive/restore.
+  `learning` is still accepted for edit/archive/restore.
 - Tests: the 54 existing cases moved from `plugins/hermes-experience/test` unchanged
   in number; one case added for the legacy owner. Alias has its own 3 cases.

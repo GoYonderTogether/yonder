@@ -50,7 +50,7 @@ SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过�
 
 ## 展示（P3-1）
 
-- `tasks_show({target?, view?, id?})`：target 默认 `channel`，从本次输入或该 session 的事件账本取会话，程序发送 PNG；`json` 返回同一 TaskBoard。`desktop` / `web` 交给 ui-companion 并返回本机页面 URL；飞书总览优先发送就地更新卡，失败走既有 PNG/文字路径。view 默认 `board`，`detail` 必须给 id，包含目标、逐项证据、交付、完整事件时间线、子任务与来源。描述直接引用既有 SHOW，prompts.ts 未修改。
+- `tasks_show({target?, view?, id?})`：target 默认 `channel`，从本次输入或该 session 的事件账本取会话，程序发送 PNG；`json` 返回同一 TaskBoard。`desktop` / `web` 交给 interaction 并返回本机页面 URL；飞书总览优先发送就地更新卡，失败走既有 PNG/文字路径。view 默认 `board`，`detail` 必须给 id，包含目标、逐项证据、交付、完整事件时间线、子任务与来源。描述直接引用既有 SHOW，prompts.ts 未修改。
 - TaskBoard 是纯函数，输入已经按现有 own / parent / cross-agent 规则过滤的任务。四组固定为等你（waiting-user、review）、进行中（open、active）、阻塞、刚完成。done 满 30 分钟从总览及其子项省略，仍可显式查询 detail；不依赖实验 postRetain 开关。counts 统计所有可见任务，子任务也按自己的状态计数。
 - 短编号 `T1`、`T2`…按本账本创建顺序持久保存；旧账本按不可变 open 行顺序恢复编号，无须改写旧行。所有接受任务 id 的工具及 parent 同时接受短编号和 UUID。
 - `renderText(board, locale)` / `renderSvg(board, locale)` 为纯投影；locale 以 zh 开头时中文。验收 met 是已有 evidence 的非空项数，不判断证据质量。详情可读取 30 分钟以前的交付。
@@ -60,10 +60,10 @@ SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过�
 
 ## 私有看板协议
 
-SDK `services.resolve` 只能解析已配置服务，没有插件发布 API；本实现复用 ui-companion 的随机路径 loopback HTTP 与 0600 端点文件惯例，没有修改 SDK/core。
+SDK `services.resolve` 只能解析已配置服务，没有插件发布 API；本实现复用 interaction 的随机路径 loopback HTTP 与 0600 端点文件惯例，没有修改 SDK/core。
 
 - `tasks-board` Trigger 启停进程内服务。`tasks_show` 发布保留调用者 agent/session/profile/capabilities 可见范围的随机 URL；GET 返回 `{board, text}`，`?id=T<n>` 返回同范围详情，text 来自现有 renderText。每次请求从账本生成当前投影；不缓存任务、不唤醒模型，重启使旧 URL 失效。
-- 桌面/网页读取同 home 的 `ui-companion/renderer.json`，POST `board` 传 source URL 和可选 id。ui-companion 只轮询服务，不访问 tasks.sqlite；不存在的渲染器会返回工具错误。
+- 桌面/网页读取同 home 的 `interaction/renderer.json`，POST `board` 传 source URL 和可选 id。interaction 只轮询服务，不访问 tasks.sqlite；不存在的渲染器会返回工具错误。
 - 渠道按真实 conversation instance 查询 `channel-feishu/<instance>/task-board.json` 的 Attachment 路由声明（pid/mime）。有声明才经现有 messages.send 发 `Attachment {kind: file, mime: application/vnd.yonder.task-board+json, uri: source}`。没有声明保留原 PNG 路径；卡片发送失败也回到 PNG，resvg 失败再退为文字。tasks 不导入渠道代码。
 - `BoardItem.stalled` 由 tasks 以 active 且 idle ≥ 已有 stallMinutes（默认 30 分钟）生成；渲染器仅展示标记。
 
@@ -72,7 +72,7 @@ SDK `services.resolve` 只能解析已配置服务，没有插件发布 API；�
 ## Questions for the maintainer
 
 - 服务发布接口空缺按上述私有协议衔接；没有新增配置或工具。URL 是本机读取凭据，不能公开分享。
-- 展示订阅由 tasks_show 建立；ui-companion 同一窗口使用最近一次请求的可见范围，飞书同一会话使用最近一次请求的范围。首次展示前及进程重启后需要再次 tasks_show，不猜测代表哪个 Agent/人授权全账本。
+- 展示订阅由 tasks_show 建立；interaction 同一窗口使用最近一次请求的可见范围，飞书同一会话使用最近一次请求的范围。首次展示前及进程重启后需要再次 tasks_show，不猜测代表哪个 Agent/人授权全账本。
 - 飞书显式请求重发为新的最新消息，后续只更新这个新锚；旧消息保留历史。看板只读，不复用受管任务卡的确认按钮或来源过期规则。
 
 - §1 的箭头未列恢复路径：本实现 open → active，active → waiting-user / blocked / review；后三种可互转或回 active，并可 done；所有未关闭状态可 cancelled。done / cancelled 为终态，不重新打开；“reopen”指重开存储。
@@ -104,7 +104,7 @@ P2 使用真实 SQLite、插件 loader、kernel 与本地测试渠道；协议�
 
 ### 本轮验证（P3a renderers）
 
-`npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0；lint 0 errors / 461 warnings / 14 infos。`YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` 为 93 passed / 0 failed / 1 skipped（11 文件）；`npm test` 为 608 passed / 0 failed / 39 skipped（103 文件通过 / 19 跳过）。`node plugins/ui-companion/test/state.mjs` exit 0。真实 loader/kernel、本地协议服务、实际 Chrome 页面已验证；截图为 `/tmp/yonder-task-board-detail-overview.png` 和 `/tmp/yonder-task-board-detail.png`。
+`npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0；lint 0 errors / 461 warnings / 14 infos。`YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/interaction/test plugins/channel-feishu/test` 为 93 passed / 0 failed / 1 skipped（11 文件）；`npm test` 为 608 passed / 0 failed / 39 skipped（103 文件通过 / 19 跳过）。`node plugins/interaction/test/state.mjs` exit 0。真实 loader/kernel、本地协议服务、实际 Chrome 页面已验证；截图为 `/tmp/yonder-task-board-detail-overview.png` 和 `/tmp/yonder-task-board-detail.png`。
 
 原始失败保留：build 首次 4 个类型错误；聚焦前两轮各 91 passed / 2 failed / 1 skipped（首轮另有 1 unhandled rejection）；两插件 contract 5/2/0 后 6/1/0；UI 单文件 3/1/0 后 4/0/0。均修正测试夹具/计时器类型/Chrome 启动标签页导航竞争，未放宽断言或超时。完整命令、原因和每轮计数见 [docs/status.md](../../docs/status.md) 的 P3a renderers 条目。
 

@@ -145,7 +145,7 @@
 
 **对 Yonder 有直接参考价值的 20 个（按我的判断，非排名）**：`dsh-session-controller`、`dsh-api-session-controller`、`dsh-client-ui-conversation`、`dsh-client-ui-plugin-manager`、`dsh-plugin-manager`、`dsh-config-editor`、`dsh-hmr`、`dsh-goal`、`dsh-plan`、`dsh-schedule`、`dsh-user-questions`、`dsh-user-approval`、`dsh-client-ui-approval`、`dsh-compaction`、`dsh-token-meter`、`dsh-sandbox`、`dsh-attachment`、`dsh-client-resources`、`dsh-client-shortcuts`、`dsh-client-locale`。
 
-**与 Yonder 的结构差异（事实→推断）**：DSH 把「会话控制器 / API 控制器 / 客户端 UI」拆成三个包，`dsh-client-ui-*` 有 43 个；Yonder 的对应物是内核 `packages/core` 加插件 `ui-companion`/`tasks` 的渲染器。**推断**：DSH 的拆法适合「一个前端要装配 40+ 个可选界面块」的形态，而这正是 `design.md:452-464`（views 槽）想解决的问题——Yonder 若采纳 views 槽，DSH 的 `client-ui-*` 命名与粒度是现成的参照。
+**与 Yonder 的结构差异（事实→推断）**：DSH 把「会话控制器 / API 控制器 / 客户端 UI」拆成三个包，`dsh-client-ui-*` 有 43 个；Yonder 的对应物是内核 `packages/core` 加插件 `interaction`/`tasks` 的渲染器。**推断**：DSH 的拆法适合「一个前端要装配 40+ 个可选界面块」的形态，而这正是 `design.md:452-464`（views 槽）想解决的问题——Yonder 若采纳 views 槽，DSH 的 `client-ui-*` 命名与粒度是现成的参照。
 
 ---
 
@@ -194,18 +194,18 @@ Yonder 现状（`plugins/*/package.json` 的 `yonder.contributes`，逐包核对
 | context-files | contexts agents-md/user-md/soul-md/memory-md | pi: 无对应包（宿主内置 AGENTS.md）；DSH: `dsh-agent-instructions`、`dsh-system-prompt` | 已覆盖 |
 | cron | 2 tools + trigger | pi: 无（`pi-background-tasks` 43,619 是近似物）；DSH: `dsh-schedule` | 已覆盖 |
 | devices | 9 tools + skill + trigger | pi: 无；DSH: `dsh-computer-use`、`dsh-api-terminal-controller` | Yonder 独有（`design.md:500-520` 标注 daemon 与配对未完成） |
-| hermes-experience | 8+ tools（记忆读写/技能库/复盘/refine） | pi: `pi-hermes-memory`(24,392)、`gentle-engram`(21,567)、`pi-memory`(45,546) 同类 | 已覆盖（且比 pi 侧多「静默会话后复盘」） |
+| learning | 8+ tools（记忆读写/技能库/复盘/refine） | pi: `pi-hermes-memory`(24,392)、`gentle-engram`(21,567)、`pi-memory`(45,546) 同类 | 已覆盖（且比 pi 侧多「静默会话后复盘」） |
 | mcp-client | 2 tools + context + trigger | pi: `pi-mcp-extension`(650,490)、`pi-mcp-adapter`(1,447,560) | **已覆盖且是生态第一需求类** |
 | media-tools | 2 tools（出图/转写） | pi: 无头部对应；DSH: `dsh-experimental-speech-to-text` | 已覆盖 |
 | memory | 9 tools + 2 triggers + presets | pi: 记忆类前 50 里 6 个 | 已覆盖（Yonder 的 Markdown 方案与 `pi-memory` 同类） |
 | native-automation | 2 tools + permissions + trigger | pi: `pi-agent-browser-native`；DSH: `dsh-computer-use` | 已覆盖 |
 | tasks | 7 tools + context + 2 triggers + hook | pi: `rpiv-todo`(140,707)、`pi-goal-x`(70,084)、`pi-background-tasks`(43,619)；DSH: `dsh-goal`/`dsh-plan`/`dsh-jobs` | 已覆盖（Yonder 的账本形态比 pi 的 todo 更重） |
-| ui-companion | 2 tools + trigger | pi: `glimpseui`(23,490)、`pi-web-ui`(14,458)；DSH: `dsh-client-ui-*` | 已覆盖 |
+| interaction | 2 tools + trigger | pi: `glimpseui`(23,490)、`pi-web-ui`(14,458)；DSH: `dsh-client-ui-*` | 已覆盖 |
 | web-tools | 3 tools（search/extract/fetch） | pi: `pi-web-access`(934,847)、`pi-web-search`(71,967) | 已覆盖 |
 | wechat-archive | 7 tools + trigger | 两边都无 | Yonder 独有 |
 
 ### 5.1 Yonder 已覆盖的类（有对应生态需求的）
-任务/会话（tasks、cron、agent-presets）、记忆（memory、hermes-experience）、浏览器（browser-skill、native-automation）、搜索（web-tools）、MCP（mcp-client）、代码（codex-tools）、UI（ui-companion）、渠道（channel-*）、文件/上下文（context-files）、媒体（media-tools）。
+任务/会话（tasks、cron、agent-presets）、记忆（memory、learning）、浏览器（browser-skill、native-automation）、搜索（web-tools）、MCP（mcp-client）、代码（codex-tools）、UI（interaction）、渠道（channel-*）、文件/上下文（context-files）、媒体（media-tools）。
 
 ### 5.2 缺的高需求类（生态里下载量高、Yonder 没有独立插件）
 
@@ -215,7 +215,7 @@ Yonder 现状（`plugins/*/package.json` 的 `yonder.contributes`，逐包核对
 | **权限/安全策略** | `cc-safety-net` 72,288、`pi-permission-system` 56,054 | 有 `capabilities` 与 `permissions` 贡献（`native-automation` 用），但没有独立的策略插件 | 与 `design.md:73-128`「隐藏不是授权」互补 |
 | **用量/配额可见性** | `pi-usage` 55,437、`pi-fireworks-quota` 21,265、`pi-zhipu-usage` 12,038 | 只有内核 `quota-source.ts`（`design.md:1` 提到 `packages/core/src/runtime/quota-source.ts:156`） | 用户看不到「这个月花了多少」 |
 | **可观测/追踪** | `langfuse` 99,879、`langsmith` 88,004、`pi-otel` 13,131 | 无 | 面向开发者/排障，C 端可选 |
-| **结构化提问/审批卡** | `rpiv-ask-user-question` 220,314、`plannotator` 99,594、`pi-interview` 20,170 | `ui-companion` 的 present 卡片可承载，但**没有专门的提问卡工具**（`design.md:452-464` 计划加 `interaction.suggestions`） | 与 `design.md` §5.3 onboarding 直接相关 |
+| **结构化提问/审批卡** | `rpiv-ask-user-question` 220,314、`plannotator` 99,594、`pi-interview` 20,170 | `interaction` 的 present 卡片可承载，但**没有专门的提问卡工具**（`design.md:452-464` 计划加 `interaction.suggestions`） | 与 `design.md` §5.3 onboarding 直接相关 |
 | **计划/目标** | `pi-goal-x` 70,084、`plannotator` 99,594 | `tasks` 是账本，不是目标规划 | 中需求 |
 | **多 agent 协作/通信** | `pi-subagents` 631,440、`pi-intercom` 31,743、`agent-comms` 18,986 | 有 `plugins/agent-presets` 的 jarvis 协调模板，但无 subagent 工具 | 中需求，Yonder 的绑定唤醒是另一条路 |
 | **凭据注入/密钥代理** | `latchkey` 16,633、`cc-safety-net`（拦密钥文件） | 有 credentials 接口（`web-tools` README 提 `credential: tavily`） | 低 |
@@ -246,7 +246,7 @@ Yonder 现状（`plugins/*/package.json` 的 `yonder.contributes`，逐包核对
 | channel-cli | 无外部凭据的第二入口（`design.md:511`） |
 | channel-card | 登录前不联网（spec 16 §5），是 Bot 模式的产品前提 |
 | mcp-client | MCP 是 pi 生态第一需求（前 5 名占 2 个，合计 2.1M 下载），无服务器配置时空闲 |
-| interaction（由 ui-companion 改名，见 §6.4） | 提问卡是 pi 侧第 6 名（220,314）；onboarding 与 Bot 建议都靠它 |
+| interaction（由 interaction 改名，见 §6.4） | 提问卡是 pi 侧第 6 名（220,314）；onboarding 与 Bot 建议都靠它 |
 | **plugin-context-budget（新增）** | 补 §5.2 第一缺口：上下文压缩/缓存。参照 `billion-context` 的定位（压缩而非截断），先做「超阈值摘要 + 缓存友好前缀」，不做跨宿主代理 |
 
 **不建议默认**：`learning`（`design.md:508` 已定「加载但默认只读」——我同意，但它不属于「启用」而属于「装上待授权」，归第二档更准确）。
@@ -271,7 +271,7 @@ Yonder 现状（`plugins/*/package.json` 的 `yonder.contributes`，逐包核对
 
 | 插件 | 理由 |
 |---|---|
-| hermes-experience | 精选记忆/复盘/原生技能，属进阶体验；pi 侧同类 3 个包合计 91,505 下载，说明是细分需求 |
+| learning | 精选记忆/复盘/原生技能，属进阶体验；pi 侧同类 3 个包合计 91,505 下载，说明是细分需求 |
 | **plugin-subagents（新增）** | `pi-subagents` 631,440（第 5 名）是 pi 生态最重的「多 agent」需求；Yonder 有绑定唤醒，但缺显式委派。作为可选，避免默认引入调度复杂度 |
 | **plugin-observability（新增）** | `langfuse` 99,879 + `langsmith` 88,004 + `pi-otel` 13,131，面向开发者排障，C 端默认关 |
 | **plugin-plan（新增）** | 计划/目标（`pi-goal-x` 70,084、`plannotator` 99,594）；与 tasks 账本区分：tasks 记「做什么」，plan 记「为什么这么排」 |

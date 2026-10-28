@@ -132,7 +132,7 @@ export default definePlugin({
 				if (target === "json") return board;
 				const source = service.publish(ctx);
 				if (target === "desktop" || target === "web") {
-					const endpoint = JSON.parse(await readFile(join(api.paths.data, "../ui-companion/renderer.json"), "utf8"));
+					const endpoint = JSON.parse(await readFile(join(api.paths.data, "../interaction/renderer.json"), "utf8"));
 					const response = await fetch(`${endpoint.url}board`, {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
