@@ -13,7 +13,11 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 			use: "@yonder/plugin-ui-companion",
 		});
 		const file = `${home}/agents/main/agent.yaml`;
-		await writeFile(file, (await readFile(file, "utf8")).replace("      channel: cli\n", ""));
+		const agent = parse((await readFile(file, "utf8")).replace("      channel: cli\n", ""));
+		// 这条用例验证空 home；管家首次引导的唤醒由下一条用例覆盖。
+		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual(["onboarding", "owner", "peer"]);
+		agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
+		await writeFile(file, stringify(agent));
 		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });
 		await expect(initHome(home, "owner", { model: testModel })).rejects.toThrow();
 		const kernel = await openKernel(home);
@@ -40,6 +44,34 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 		try {
 			expect((await restarted.identity.account("acct:cli:local"))?.person).toBeUndefined();
 			expect((await restarted.identity.person("person:owner"))?.name).toBe("Renamed owner");
+		} finally {
+			await restarted.close();
+		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("first start wakes the butler for onboarding once, until onboarding.done", async () => {
+	const home = await mkdtemp("/tmp/yonder-onboarding-");
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const agent = parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8"), "agent.yaml");
+		expect(agent.defaults?.plugins).toEqual(expect.arrayContaining(["tasks", "onboarding"]));
+		expect(agent.defaults?.model).toBeUndefined();
+		const kernel = await openKernel(home);
+		try {
+			const started = (await kernel.events.query({ type: "onboarding.start" })).events;
+			expect(started).toMatchObject([{ from: "plugin:onboarding", conv: "conv:onboarding:main" }]);
+			expect((await kernel.sessions.list({})).map((session) => session.key)).toEqual(["main"]);
+		} finally {
+			await kernel.close();
+		}
+		await mkdir(`${home}/.yonder/plugins/onboarding/agents`, { recursive: true });
+		await writeFile(`${home}/.yonder/plugins/onboarding/agents/main.json`, JSON.stringify({ tasks: {}, done: "x" }));
+		const restarted = await openKernel(home);
+		try {
+			expect((await restarted.events.query({ type: "onboarding.start" })).events).toHaveLength(1);
 		} finally {
 			await restarted.close();
 		}

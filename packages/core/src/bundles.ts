@@ -53,6 +53,7 @@ const defaults: Bundle = {
 		{ use: "@yonder/plugin-channel-card" },
 		{ use: "@yonder/plugin-cron" },
 		{ use: "@yonder/plugin-tasks" },
+		{ use: "@yonder/plugin-onboarding" },
 		{ use: "@yonder/plugin-learning" },
 		{ use: "@yonder/plugin-mcp-client" },
 		// 记忆根目录放在 home 下、所有 agent 工作区之外；触发器与采集默认关闭，白名单为空。
