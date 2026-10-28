@@ -203,7 +203,10 @@ test.skipIf(!auth || !existsSync(auth))(
 							state: current.task.state,
 							runEnds: ends.length,
 							runStatus: (ends.at(-1)?.data as { status?: string } | undefined)?.status,
-							runReason: (ends.at(-1)?.data as { reason?: string } | undefined)?.reason,
+							runReason: (ends.at(-1)?.data as { reason?: string } | undefined)?.reason?.replaceAll(
+								JSON.parse(await readFile(auth, "utf8")).siliconflow.key,
+								"[redacted]",
+							),
 							selfChecks: inputs.length,
 							sent: f.probe.sent.length,
 						}),
