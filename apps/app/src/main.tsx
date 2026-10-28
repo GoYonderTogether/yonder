@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { upgradeLegacyLocation } from "./shell/legacyLinks";
 import { RpcError } from "./transport/client";
 
 const qc = new QueryClient({
@@ -16,6 +17,8 @@ const qc = new QueryClient({
 		},
 	},
 });
+
+upgradeLegacyLocation();
 
 const root = document.getElementById("root");
 if (root)
