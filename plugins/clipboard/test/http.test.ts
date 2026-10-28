@@ -16,7 +16,7 @@ test("actual allowlisted HTTPS body/header injection verifies TLS, discards resp
 	let server: ReturnType<typeof createServer> | undefined;
 	try {
 		execFileSync(
-			"/usr/bin/openssl",
+			"openssl",
 			[
 				"req",
 				"-x509",
@@ -61,7 +61,7 @@ test("actual allowlisted HTTPS body/header injection verifies TLS, discards resp
 			const consumer = { kind: "http", url, method: "POST", ...(header ? { header: "X-Clip-Secret" } : {}) };
 			return new Promise<string>((resolve, reject) => {
 				const child = spawn(process.execPath, ["--input-type=module", "-e", code, JSON.stringify(consumer)], {
-					env: { PATH: "/usr/bin:/bin", ...(trust ? { NODE_EXTRA_CA_CERTS: cert } : {}) },
+					env: { PATH: process.env.PATH, ...(trust ? { NODE_EXTRA_CA_CERTS: cert } : {}) },
 					stdio: ["pipe", "pipe", "ignore"],
 				});
 				let output = "";
