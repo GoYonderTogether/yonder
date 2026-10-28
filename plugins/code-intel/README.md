@@ -9,3 +9,5 @@ The tool's parameters and CLI invocation follow [pi-codegraph](https://github.co
 Outline invocation and read handles follow pi-lens 4.4.6 (MIT); see NOTICE.
 
 `code-intel_module_report` calls the pi-lens 4.4.6 MIT-licensed `pi-lens-mcp` executable installed in the selected execution environment (including its runtime dependencies). It accepts `path`, optional `focus`, `view` (`compact`, `summary`, `default`), and `blastRadius`; default is compact. A cold graph provides a syntax outline with explicit graph freshness; heuristic callback/risk details are distinguished by backend provenance. Output uses the runtime tool cache and truncation. Source: https://github.com/apmantza/pi-lens.
+
+For a reproducible standalone MCP installation in the execution environment, run `npm install --prefix <directory> --ignore-scripts pi-lens@4.4.6 @earendil-works/pi-coding-agent@1.3.0 @earendil-works/pi-tui@1.3.0 typebox@1.3.27`, and add `<directory>/node_modules/.bin` to its PATH. pi-lens declares these host packages as optional peers, but its MCP entry requires them in this version.

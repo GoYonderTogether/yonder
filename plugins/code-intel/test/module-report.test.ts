@@ -36,6 +36,18 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 			const result = await tool.execute({ path: "grep.ts", view: "default", focus: "grep" }, ctx);
 			expect(result.text).toContain("createGrepTool");
 			expect(result.text).toContain('"startLine":5');
+			const baseline = await tool.execute({ path: "grep.ts", view: "default" }, ctx);
+			const report = (text: string) => {
+				const match = text.match(/```json\n(.*?)\n```/s);
+				if (!match?.[1]) throw new Error("report JSON missing");
+				return JSON.parse(match[1]);
+			};
+			const focused = report(result.text);
+			const normal = report(baseline.text);
+			expect(focused.api).toEqual(normal.api);
+			expect(focused.internal).toEqual(normal.internal);
+			expect(focused.callbacks).toEqual(normal.callbacks);
+			expect(focused.recommendedReads[0].reason).toContain("matches focus");
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}
