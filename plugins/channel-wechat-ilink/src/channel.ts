@@ -52,6 +52,7 @@ export async function privateWrite(file: string, value: unknown): Promise<void> 
 export class IlinkChannel implements Channel {
 	readonly kinds = ["dm"];
 	readonly output: { stream: boolean; attachments: boolean };
+	readonly features: NonNullable<Channel["features"]>;
 	private readonly directory: string;
 	private state: State = { base: "https://ilinkai.weixin.qq.com", cursor: "", contexts: {}, seen: {} };
 	private readonly lifetime = new AbortController();
@@ -99,6 +100,7 @@ export class IlinkChannel implements Channel {
 	) {
 		this.directory = join(api.paths.data, id);
 		this.output = { stream: config.streaming !== false, attachments: true };
+		this.features = { identity: "account", quote: "id", streamMode: this.output.stream ? "message" : "none" };
 		this.client = createClient({
 			...options,
 			base: () => this.state.base,

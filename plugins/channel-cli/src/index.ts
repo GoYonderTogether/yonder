@@ -38,6 +38,7 @@ const channelProvider = (api: PluginAPI) =>
 				id,
 				kinds: ["dm"],
 				output: { stream: true, attachments: false },
+				features: { identity: "account", streamMode: "token" },
 				async start(channelIO) {
 					io = channelIO;
 					await mkdir(api.paths.data, { recursive: true });

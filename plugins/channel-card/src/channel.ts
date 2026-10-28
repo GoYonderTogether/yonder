@@ -22,6 +22,9 @@ export class CardChannel implements Channel {
 	readonly multiAgent = true;
 	readonly kinds = ["dm", "group", "notice"];
 	readonly output = { stream: false, attachments: false };
+	readonly features = { identity: "account", quote: "id", streamMode: "none" } satisfies NonNullable<
+		Channel["features"]
+	>;
 	readonly endpoint: string;
 	private token?: string;
 	private code: { code: string; url: string; expiresAt: string } | undefined;

@@ -30,6 +30,7 @@ export const marker = "<!-- yonder:channel-github:status -->";
 export class GithubChannel implements Channel {
 	readonly kinds = ["issue"];
 	readonly output = { stream: false, attachments: false };
+	readonly features = { identity: "account", streamMode: "none" } satisfies NonNullable<Channel["features"]>;
 	readonly client: Github;
 	state: "stopped" | "starting" | "ready" | "unavailable" = "stopped";
 	failure: string | undefined;

@@ -32,6 +32,7 @@ export default definePlugin({
 						id,
 						kinds: ["dm"],
 						output: { stream: false, attachments: false },
+						features: { identity: "account", streamMode: "none" },
 						async start(io) {
 							const http = createServer((request, response) => {
 								void (async () => {
