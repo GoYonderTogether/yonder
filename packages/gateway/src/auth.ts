@@ -59,10 +59,10 @@ export class Sessions {
 	private mac(payload: string) {
 		return createHmac("sha256", this.key).update(payload).digest("base64url");
 	}
-	sign(login: Login, accessHash?: string): string {
+	sign(login: Login, accessHash?: string, ttlMs = COOKIE_TTL_MS): string {
 		const payload = Buffer.from(
 			JSON.stringify({
-				exp: Date.now() + COOKIE_TTL_MS,
+				exp: Date.now() + ttlMs,
 				k: login,
 				g: accessHash ? sha256(accessHash).slice(0, 16) : "",
 			}),
@@ -70,6 +70,10 @@ export class Sessions {
 		return `${payload}.${this.mac(payload)}`;
 	}
 	verify(value: string | undefined, accessHash: string | undefined): Login | undefined {
+		return this.inspect(value, accessHash)?.login;
+	}
+	/** Like verify, but also returns the cookie's expiry (ms epoch) so open sockets can be re-checked. */
+	inspect(value: string | undefined, accessHash: string | undefined): { login: Login; exp: number } | undefined {
 		if (!value) return undefined;
 		const [payload, mac, extra] = value.split(".");
 		if (!payload || !mac || extra !== undefined || !safeEqual(mac, this.mac(payload))) return undefined;
@@ -81,9 +85,9 @@ export class Sessions {
 			return undefined;
 		}
 		if (typeof body.exp !== "number" || body.exp < Date.now()) return undefined;
-		if (body.k === "local") return "local";
+		if (body.k === "local") return { login: "local", exp: body.exp };
 		if (body.k === "remote" && accessHash && safeEqual(String(body.g), sha256(accessHash).slice(0, 16)))
-			return "remote";
+			return { login: "remote", exp: body.exp };
 		return undefined;
 	}
 }
@@ -96,12 +100,13 @@ export function cookieValue(header: string | undefined, name: string): string | 
 	return undefined;
 }
 
-/** Failed-login limiter: `limit` failures per `windowMs` per key. */
+/** Failed-login limiter: `limit` failures per `windowMs` per key; at most `maxKeys` keys are remembered. */
 export class Limiter {
 	private readonly hits = new Map<string, { count: number; since: number }>();
 	constructor(
 		private readonly limit = 10,
 		private readonly windowMs = 60_000,
+		private readonly maxKeys = 1024,
 	) {}
 	blocked(key: string): boolean {
 		const hit = this.hits.get(key);
@@ -110,7 +115,20 @@ export class Limiter {
 	}
 	fail(key: string) {
 		const hit = this.hits.get(key);
-		if (!hit || Date.now() - hit.since > this.windowMs) this.hits.set(key, { count: 1, since: Date.now() });
-		else hit.count++;
+		if (!hit || Date.now() - hit.since > this.windowMs) {
+			this.hits.delete(key);
+			if (this.hits.size >= this.maxKeys) this.makeRoom();
+			this.hits.set(key, { count: 1, since: Date.now() });
+		} else hit.count++;
+	}
+	/** Drop expired keys; if every key is live, drop the oldest (Map keeps insertion order). */
+	private makeRoom() {
+		const now = Date.now();
+		for (const [key, hit] of this.hits) if (now - hit.since > this.windowMs) this.hits.delete(key);
+		while (this.hits.size >= this.maxKeys) {
+			const oldest = this.hits.keys().next().value;
+			if (oldest === undefined) break;
+			this.hits.delete(oldest);
+		}
 	}
 }

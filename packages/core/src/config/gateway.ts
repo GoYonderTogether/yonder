@@ -11,6 +11,7 @@ export interface GatewaySettings {
 	publicOrigins: string[];
 	basePath: string;
 	accessTokenHash?: string;
+	trustProxy: boolean;
 }
 
 /** Gateway settings with defaults applied; read from yonder.yaml on every call so a rotated token takes effect without restart. */
@@ -21,6 +22,7 @@ export async function gatewaySettings(home: string): Promise<GatewaySettings> {
 		...(config.port === undefined ? {} : { port: config.port }),
 		publicOrigins: config.publicOrigins ?? [],
 		basePath: config.basePath ?? "/",
+		trustProxy: config.trustProxy ?? false,
 		...(config.accessTokenHash ? { accessTokenHash: config.accessTokenHash } : {}),
 	};
 }

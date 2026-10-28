@@ -29,6 +29,8 @@ export interface GatewayOptions {
 }
 export interface GatewayHandle extends GatewayHost {
 	port: number;
+	/** Open WebSockets and live feeds, for diagnostics and tests. */
+	stats(): { sockets: number; feeds: number };
 	close(): Promise<void>;
 }
 
@@ -36,6 +38,10 @@ const DEFAULT_PORT = 7690;
 const MAX_SUBS = 64;
 const SLOW_BYTES = 10 * 1024 * 1024;
 const IDLE_MS = 60_000;
+const MAX_SOCKETS = 32;
+const QUEUE_MAX = 1000;
+const isLoopback = (address: string | undefined) =>
+	address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 
 const defaultStatic = () => resolve(dirname(fileURLToPath(import.meta.url)), "../../../apps/app/dist");
 
@@ -51,6 +57,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 	const sessions = await Sessions.open(home);
 	const tickets = new Tickets();
 	const limiter = new Limiter();
+	const trustProxy = settings.trustProxy;
 	const feeds = new Feeds();
 	const staticDir = options.staticDir ?? defaultStatic();
 	const basePath = settings.basePath;
@@ -58,9 +65,15 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
 	// Re-read the stored hash shortly after changes so `ui token --rotate` takes effect without a restart.
 	let hashCache: { at: number; value: string | undefined } = { at: 0, value: undefined };
+	const refreshHash = async () => {
+		const value = (await gatewaySettings(home)).accessTokenHash;
+		const rotated = hashCache.at > 0 && value !== hashCache.value;
+		hashCache = { at: Date.now(), value };
+		// Rotation (or removal) invalidates every remote cookie, so remote sockets must not outlive it.
+		if (rotated) revoke("remote");
+	};
 	const accessHash = async () => {
-		if (Date.now() - hashCache.at > 1000)
-			hashCache = { at: Date.now(), value: (await gatewaySettings(home)).accessTokenHash };
+		if (Date.now() - hashCache.at > 1000) await refreshHash();
 		return hashCache.value;
 	};
 
@@ -88,19 +101,48 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 	async function loginOf(req: IncomingMessage): Promise<Login | undefined> {
 		return sessions.verify(cookieValue(req.headers.cookie, COOKIE), await accessHash());
 	}
-	const cookieHeader = (req: IncomingMessage, login: Login, hash: string | undefined) =>
-		`${COOKIE}=${sessions.sign(login, hash)}; Path=${basePath}; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_TTL_MS / 1000}${
+	const cookieHeader = (req: IncomingMessage, login: Login, hash: string | undefined, mount: string) =>
+		`${COOKIE}=${sessions.sign(login, hash)}; Path=${mount}; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_TTL_MS / 1000}${
 			secureFor(req.headers.host) ? "; Secure" : ""
 		}`;
 
-	/** Exchange a one-time ticket or the long-lived access token for a login kind. */
-	async function exchange(token: string): Promise<Login | undefined> {
-		if (limiter.blocked("login")) return undefined;
+	/** Throttling key: the socket peer, or the first X-Forwarded-For hop when a loopback proxy is explicitly trusted. */
+	function peerOf(req: IncomingMessage): string {
+		const address = req.socket.remoteAddress ?? "unknown";
+		if (trustProxy && isLoopback(address)) {
+			const first = String(req.headers["x-forwarded-for"] ?? "")
+				.split(",")[0]
+				?.trim();
+			if (first && first.length <= 64) return first;
+		}
+		return address;
+	}
+
+	/** Exchange a one-time ticket (and, only when `allowAccessToken`, the long-lived token) for a login kind. */
+	async function exchange(
+		req: IncomingMessage,
+		token: string,
+		allowAccessToken: boolean,
+	): Promise<Login | "limited" | undefined> {
+		// A valid one-time ticket on a loopback connection always works, so local recovery cannot be locked out.
+		if (isLoopback(req.socket.remoteAddress) && tickets.consume(token)) return "local";
+		const peer = peerOf(req);
+		if (limiter.blocked(peer)) return "limited";
 		if (tickets.consume(token)) return "local";
-		const hash = await accessHash();
-		if (hash && safeEqual(tokenHash(token), hash)) return "remote";
-		limiter.fail("login");
+		if (allowAccessToken) {
+			const hash = await accessHash();
+			if (hash && safeEqual(tokenHash(token), hash)) return "remote";
+		}
+		limiter.fail(peer);
 		return undefined;
+	}
+
+	const loopbackHost = (value: string | undefined) => value === `127.0.0.1:${port}` || value === `localhost:${port}`;
+	/** Strip the public base path when present. Loopback hosts also serve at `/`; the cookie Path follows the mount used. */
+	function route(req: IncomingMessage, rawPath: string): { pathname: string; mount: string } {
+		const prefixed = basePath !== "/" && (rawPath === basePath.slice(0, -1) || rawPath.startsWith(basePath));
+		const pathname = prefixed ? `/${rawPath.slice(basePath.length)}` : rawPath;
+		return { pathname, mount: prefixed || !loopbackHost(req.headers.host) ? basePath : "/" };
 	}
 
 	const ctxFor = (login: Login): HostCtx => ({ ...host, principal: principals[login], gateway: handle });
@@ -136,13 +178,14 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 	const server: Server = createServer(async (req, res) => {
 		try {
 			const url = new URL(req.url ?? "/", "http://gateway.invalid");
-			const api = url.pathname.startsWith("/api/");
+			const { pathname, mount } = route(req, url.pathname);
+			const api = pathname.startsWith("/api/");
 			const write = req.method !== "GET" && req.method !== "HEAD";
 			const refused = guard(req, api || write);
 			if (refused) return fail(res, 403, "forbidden", refused);
 
-			if (url.pathname === "/login") {
-				if (req.method === "GET") return send(res, 200, loginPage(basePath), "text/html; charset=utf-8");
+			if (pathname === "/login") {
+				if (req.method === "GET") return send(res, 200, loginPage(mount), "text/html; charset=utf-8");
 				if (req.method !== "POST") return fail(res, 405, "invalid_params", "method not allowed");
 				const type = req.headers["content-type"] ?? "";
 				const json = /^application\/json(;|$)/i.test(type);
@@ -155,52 +198,52 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 				} catch {
 					token = undefined;
 				}
-				if (limiter.blocked("login")) return fail(res, 429, "unavailable", "too many attempts; wait a minute");
-				const login = typeof token === "string" && token ? await exchange(token) : undefined;
+				const login = typeof token === "string" && token ? await exchange(req, token, true) : undefined;
+				if (login === "limited") return fail(res, 429, "unavailable", "too many attempts; wait a minute");
 				if (!login) {
 					if (json) return fail(res, 401, "forbidden", "invalid token");
-					return send(res, 401, loginPage(basePath, "令牌无效 · Invalid token"), "text/html; charset=utf-8");
+					return send(res, 401, loginPage(mount, "令牌无效 · Invalid token"), "text/html; charset=utf-8");
 				}
-				const cookie = { "Set-Cookie": cookieHeader(req, login, login === "remote" ? await accessHash() : undefined) };
+				const cookie = {
+					"Set-Cookie": cookieHeader(req, login, login === "remote" ? await accessHash() : undefined, mount),
+				};
 				if (json) return sendJson(res, 200, { ok: true, result: { kind: principals[login].kind } }, cookie);
-				return redirect(res, basePath, cookie);
+				return redirect(res, mount, cookie);
 			}
 
-			if (url.pathname === "/api/logout" && req.method === "POST") {
+			if (pathname === "/api/logout" && req.method === "POST") {
 				return sendJson(
 					res,
 					200,
 					{ ok: true, result: {} },
 					{
-						"Set-Cookie": `${COOKIE}=; Path=${basePath}; HttpOnly; SameSite=Strict; Max-Age=0`,
+						"Set-Cookie": `${COOKIE}=; Path=${mount}; HttpOnly; SameSite=Strict; Max-Age=0`,
 					},
 				);
 			}
 
-			// `?token=` on any page: one-time ticket (or access token) exchange, then a clean URL.
+			// `?token=` on any page: one-time tickets only (URLs end up in logs); the access token goes through POST /login.
 			const queryToken = url.searchParams.get("token");
 			if (queryToken && req.method === "GET" && !api) {
-				if (limiter.blocked("login")) return fail(res, 429, "unavailable", "too many attempts; wait a minute");
-				const login = await exchange(queryToken);
-				if (!login) return redirect(res, `${basePath}login`);
-				return redirect(res, basePath, {
-					"Set-Cookie": cookieHeader(req, login, login === "remote" ? await accessHash() : undefined),
-				});
+				const login = await exchange(req, queryToken, false);
+				if (login === "limited") return fail(res, 429, "unavailable", "too many attempts; wait a minute");
+				if (!login) return redirect(res, `${mount}login`);
+				return redirect(res, mount, { "Set-Cookie": cookieHeader(req, login, undefined, mount) });
 			}
 
 			const login = await loginOf(req);
 			if (!login) {
 				if (api) return fail(res, 401, "forbidden", "login required");
-				return redirect(res, `${basePath}login`);
+				return redirect(res, `${mount}login`);
 			}
 
-			if (url.pathname.startsWith("/api/rpc/")) {
+			if (pathname.startsWith("/api/rpc/")) {
 				if (req.method !== "POST") return fail(res, 405, "invalid_params", "use POST");
-				return await handleRpc(req, res, decodeURIComponent(url.pathname.slice("/api/rpc/".length)), login);
+				return await handleRpc(req, res, decodeURIComponent(pathname.slice("/api/rpc/".length)), login);
 			}
 			if (api) return fail(res, 404, "not_found", "unknown endpoint");
 			if (req.method !== "GET" && req.method !== "HEAD") return fail(res, 405, "invalid_params", "method not allowed");
-			if (await serveStatic(res, staticDir, url.pathname, basePath)) return;
+			if (await serveStatic(res, staticDir, pathname, mount)) return;
 			send(
 				res,
 				404,
@@ -216,7 +259,11 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
 	// ---- WebSocket /api/stream -------------------------------------------------
 	const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
-	const sockets = new Set<WebSocket>();
+	/** Every open socket with the credential it was admitted under; re-checked on each frame. */
+	const sockets = new Map<WebSocket, { login: Login; exp: number; hash: string | undefined }>();
+	function revoke(login: Login) {
+		for (const [ws, auth] of sockets) if (auth.login === login) ws.close(4401, "credentials revoked");
+	}
 
 	server.on("upgrade", async (req: IncomingMessage, socket: Socket, head: Buffer) => {
 		const reject = (status: number, text: string) => {
@@ -225,19 +272,24 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		};
 		try {
 			const url = new URL(req.url ?? "/", "http://gateway.invalid");
-			if (url.pathname !== "/api/stream") return reject(404, "Not Found");
+			if (route(req, url.pathname).pathname !== "/api/stream") return reject(404, "Not Found");
 			if (guard(req, true)) return reject(403, "Forbidden");
 			if (url.searchParams.get("v") && url.searchParams.get("v") !== "1") return reject(426, "Upgrade Required");
-			const login = await loginOf(req);
-			if (!login) return reject(401, "Unauthorized");
-			wss.handleUpgrade(req, socket, head, (ws) => connection(ws, login));
+			const hash = await accessHash();
+			const session = sessions.inspect(cookieValue(req.headers.cookie, COOKIE), hash);
+			if (!session) return reject(401, "Unauthorized");
+			if (sockets.size >= MAX_SOCKETS) return reject(503, "Service Unavailable");
+			wss.handleUpgrade(req, socket, head, (ws) => connection(ws, session.login, session.exp, hash));
 		} catch {
 			reject(500, "Internal Server Error");
 		}
 	});
 
-	function connection(ws: WebSocket, login: Login) {
-		sockets.add(ws);
+	function connection(ws: WebSocket, login: Login, exp: number, hash: string | undefined) {
+		sockets.set(ws, { login, exp, hash });
+		const expiry = setTimeout(() => ws.close(4401, "session expired"), Math.max(0, exp - Date.now()));
+		expiry.unref();
+		const stale = () => Date.now() >= exp || (login === "remote" && hashCache.value !== hash);
 		const principal: Principal = principals[login];
 		const subs = new Map<string, () => void>();
 		let lastSeen = Date.now();
@@ -270,12 +322,21 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		async function subscribe(sub: string, method: string, params: unknown, after: unknown) {
 			if (subs.has(sub)) return end(sub, "error", { code: "conflict", message: "duplicate sub id" });
 			if (subs.size >= MAX_SUBS) return end(sub, "error", { code: "unavailable", message: "too many subscriptions" });
-			subs.set(sub, () => {});
+			// Until the feed is joined, cancelling (unsub or socket close) only sets this flag.
+			let cancelled = false;
+			subs.set(sub, () => {
+				cancelled = true;
+			});
 			try {
 				const def = registry.prepare(method, params ?? {}, principal);
 				if (!def.stream) throw new MethodError("invalid_params", `${method} is not a stream method`);
 				const feed = await feeds.acquire(method, params ?? {}, ctxFor(login));
+				if (cancelled) {
+					feed.release();
+					return;
+				}
 				let ready = false;
+				let overflow = false;
 				const queue: FeedEvent[] = [];
 				let n = 0;
 				const emit = (event: FeedEvent) => {
@@ -296,7 +357,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 					push(event) {
 						if (event.seq <= covered) return;
 						if (ready) emit(event);
-						else queue.push(event);
+						else if (queue.length < QUEUE_MAX) queue.push(event);
+						else overflow = true;
 					},
 					end(reason, error) {
 						subs.delete(sub);
@@ -326,16 +388,21 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 					}
 				}
 				if (!subs.has(sub)) return;
+				// The snapshot was read after the cursor was captured and carries no revision, so events that arrived
+				// meanwhile may or may not be in it: flag a gap (client reconciles) and still deliver them afterwards.
+				const arrived = queue.length > 0 || overflow;
 				frame({
 					t: "ready",
 					sub,
-					gap: feed.resumable ? typeof after === "string" && after !== "" && !resumed : true,
+					gap: feed.resumable ? (typeof after === "string" && after !== "" && !resumed) || arrived : true,
 					cursor: feed.resumable ? `${feed.epoch}:${covered}` : "",
 					result,
 				});
 				for (const event of replay ?? []) if (event.seq <= covered) emit(event);
 				ready = true;
-				for (const event of queue) emit(event);
+				// On overflow the queue is incomplete; the ring (when it still holds them) supplies the rest.
+				const missed = overflow ? (feed.replay(`${feed.epoch}:${covered}`) ?? []) : queue;
+				for (const event of missed) emit(event);
 			} catch (error) {
 				subs.get(sub)?.();
 				subs.delete(sub);
@@ -346,12 +413,16 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
 		ws.on("message", (raw) => {
 			lastSeen = Date.now();
+			if (stale()) return ws.close(4401, "session expired");
 			let msg: { t?: unknown; sub?: unknown; method?: unknown; params?: unknown; after?: unknown; n?: unknown };
 			try {
 				msg = JSON.parse(raw.toString());
 			} catch {
 				return ws.close(1003, "invalid frame");
 			}
+			// Valid JSON is not necessarily a frame: `null`, numbers and arrays must not reach property reads.
+			if (typeof msg !== "object" || msg === null || Array.isArray(msg) || typeof msg.t !== "string")
+				return ws.close(1003, "invalid frame");
 			if (msg.t === "ping") return frame({ t: "pong", ...(msg.n === undefined ? {} : { n: msg.n }) });
 			if (typeof msg.sub !== "string" || !msg.sub) return;
 			if (msg.t === "unsub") {
@@ -364,6 +435,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		});
 		ws.on("close", () => {
 			clearInterval(idle);
+			clearTimeout(expiry);
 			sockets.delete(ws);
 			for (const dispose of subs.values()) dispose();
 			subs.clear();
@@ -398,14 +470,20 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		mode: 0o600,
 	});
 
+	await refreshHash();
+	const rotation = setInterval(() => void refreshHash().catch(() => {}), 1000);
+	rotation.unref();
+
 	const handle: GatewayHandle = {
 		port,
+		stats: () => ({ sockets: sockets.size, feeds: feeds.size }),
 		ticket() {
 			const ticket = tickets.issue();
 			return { token: ticket.token, expiresAt: new Date(ticket.expiresAt).toISOString(), port, basePath };
 		},
 		async close() {
-			for (const ws of sockets) {
+			clearInterval(rotation);
+			for (const ws of sockets.keys()) {
 				ws.send(JSON.stringify({ t: "end", sub: "*", reason: "shutdown" }));
 				ws.close(1001, "shutdown");
 			}
