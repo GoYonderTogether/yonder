@@ -3,9 +3,9 @@
 # pi-lens — 注入模型的提示词原文
 
 - 包: `pi-lens` 4.4.6
-- License: MIT (Copyright (c) 2026 Apostolos Mantzaris and pi-lens contributors) — `/Users/zoran/.pi/agent/npm/node_modules/pi-lens/LICENSE`
+- License: MIT (Copyright (c) 2026 Apostolos Mantzaris and pi-lens contributors) — `~/.pi/agent/npm/node_modules/pi-lens/LICENSE`
 - 仓库: https://github.com/apmantza/pi-lens
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/pi-lens/dist/index.js`（bundle）—— 每个 `create*Tool()` 返回对象的 `name`/`label`/`description`/`promptSnippet`；`TOOL_REGISTRY` 提供 `summary` 用于 `pi_lens_activate_tools` 的目录
+- 来源: `~/.pi/agent/npm/node_modules/pi-lens/dist/index.js`（bundle）—— 每个 `create*Tool()` 返回对象的 `name`/`label`/`description`/`promptSnippet`；`TOOL_REGISTRY` 提供 `summary` 用于 `pi_lens_activate_tools` 的目录
 - 注入方式: 7 个常驻工具 + `pi_lens_activate_tools` 常驻；5 个 situational 工具（ast_grep_search/ast_grep_replace/ast_grep_outline/lsp_navigation/lens_diagnostic_mark）默认不激活，由 `pi_lens_activate_tools` 通过 `pi.setActiveTools` 打开。工具 description 只放契约句 + 一个例子，运行期指导放在结果里
 - 另: `package.json.pi.skills = ["./skills"]`，4 个技能（pi-lens-ast-grep、pi-lens-lsp-navigation、pi-lens-write-ast-grep-rule、pi-lens-write-tree-sitter-rule）经 skills 段进入系统提示词；`updateLspStatus()` 用 `setStatus("pi-lens-lsp", …)` 写底栏状态
 

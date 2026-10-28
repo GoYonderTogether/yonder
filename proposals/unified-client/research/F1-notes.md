@@ -2,7 +2,7 @@
 
 # 跟着数据走的笔记：Yonder 只读调研报告
 
-调研范围：仓库 `/Users/zoran/Documents/yonder-harness`（`origin/main` 工作树），外部资料联网核对（文末列核实状态）。未修改任何文件。
+调研范围：仓库 `~/Documents/yonder-harness`（`origin/main` 工作树），外部资料联网核对（文末列核实状态）。未修改任何文件。
 
 ## 0. 结论先行
 

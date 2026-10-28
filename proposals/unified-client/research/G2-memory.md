@@ -8,7 +8,7 @@
 2. Hermes 已知的失败模式在 issue 里被量化过：152 个技能里 22 个零使用近重复、用户手工删 17 个（#67582）；`write_approval` 下 8.4 天攒 357 条零批准技能提议、21% 因锚点失效永久作废（#75130）；长期记忆**完全没有周期维护**，只有一道硬上限（#90035）。根因是「agent 同时是作者、执行者、质检者」，以及「维护机制默认关闭或不存在」。
 3. 三个 pi 插件里只有 `pi-hermes-memory`（MIT，0.9.11）真的照搬了 Hermes 语义，并且**修掉了 Hermes 的两个坑**：默认 policy-only（不整篇注入）、写入走 `memory_add/replace/remove` 而不是整条覆盖、技能创建带同名+描述相似度拦截、容量满时自动 consolidation。
 4. Yonder 已经有两套记忆，互不相通：`plugins/memory`（person 级、按时间线记账、9 个 `memory_*` 工具、无淘汰机制）与 `plugins/hermes-experience`（agent 级 `MEMORY.md`/`USER.md`、Hermes 2200/1375 上限、每 10 turn 后台复盘、私有 `hermes-learned-*` 技能）。
-5. 本机实测：「自由生长」**在 `MEMORY.md`/技能上还没发生**（`agents/hermes/memories/MEMORY.md` 与 `USER.md` 都是 0 字节；全机只有 1 个学习技能），但**在日志式记忆上已经发生**：`/Users/zoran/Memory` 有 838 条记录、681 条未整理（81%）、403 条（48%）是无正文的图片占位记录，单个周文档已 69KB。
+5. 本机实测：「自由生长」**在 `MEMORY.md`/技能上还没发生**（`agents/hermes/memories/MEMORY.md` 与 `USER.md` 都是 0 字节；全机只有 1 个学习技能），但**在日志式记忆上已经发生**：`~/Memory` 有 838 条记录、681 条未整理（81%）、403 条（48%）是无正文的图片占位记录，单个周文档已 69KB。
 6. 建议：不新开第三个插件，把「日志记忆 + 用户画像 + 实体笔记 + 经验技能」收进 `plugins/memory` 一个存储与一个工具面，按 `proposals/unified-client/research/F1-notes.md` 的主 Agent 裁定走方案 A，并把 `hermes-experience` 的记忆/技能部分**降级为它的写入后端**而不是并列第二套。
 
 ---
@@ -173,7 +173,7 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 
 配置（`~/.local/share/yonder-harness/home/yonder.yaml`）：
 
-- `:26-32` memory 插件 `root: /Users/zoran/Memory`，`owner: person:owner`，`allowedAgents: [main, memory-keeper]`，`capture.enabled: true`、`inlineMax: 400`。
+- `:26-32` memory 插件 `root: ~/Memory`，`owner: person:owner`，`allowedAgents: [main, memory-keeper]`，`capture.enabled: true`、`inlineMax: 400`。
 - `:64-71` hermes-experience 只对 **agent `hermes`** 开 scope（`memoryDir: .../agents/hermes/memories`、`writeMode: exclusive-yonder`、`learning: true`、`skillDir: .../agents/hermes/skills`）。
 - `:176-178` `memory-keeper` 已 `archivedAt: 2026-10-27T15:15:00.000Z`。
 
@@ -185,7 +185,7 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 | `agents/hermes/memories/USER.md` | **0 字节** | 同上 |
 | 全机 `hermes-learned-*` 技能 | **1 个**：`agents/hermes/skills/hermes-learned-release-acceptance`，SKILL.md 9,876 字节 + 1 个 references | `find . -name SKILL.md`（agents 下） |
 | home 级 `skills/` | 1 个（`rhythm-clues`） | `~/.local/share/yonder-harness/home/skills/rhythm-clues/SKILL.md` |
-| `/Users/zoran/Memory` 规模 | 352 文件 / 1.2MB / 118 个 timeline 文档（84 个周文档） | `find . -type f \| wc -l` |
+| `~/Memory` 规模 | 352 文件 / 1.2MB / 118 个 timeline 文档（84 个周文档） | `find . -type f \| wc -l` |
 | 记录总数 | **838** 条 | `grep -rh '^- \[' timeline \| wc -l` |
 | 未整理 / 已整理 | **681 / 157**（未整理 81.3%） | `grep -rh '^- \[ \]'` / `'^- \[x\]'` |
 | 无正文记录（仅图片元数据） | **403** 条（48.0%） | `sed` 去前缀后 `length<12` 计数 |
@@ -264,7 +264,7 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 
 ### 7.2 存储与工具面
 
-- 存储全部落在现有 memory 根目录（`/Users/zoran/Memory`）：`me/`（L1）、`entities/<type>/<safe-id>.md`（L2，新增，`F1-notes.md:3.2`）、`timeline/`（L3）、`skills/`（L4，新增，指向 agent 的 skillDir 或根目录内 `skills/`）。
+- 存储全部落在现有 memory 根目录（`~/Memory`）：`me/`（L1）、`entities/<type>/<safe-id>.md`（L2，新增，`F1-notes.md:3.2`）、`timeline/`（L3）、`skills/`（L4，新增，指向 agent 的 skillDir 或根目录内 `skills/`）。
 - 工具面收敛为 `memory_*` 一族（现有 9 个 + `memory_note` + `memory_skill`）。`hermes-experience` 的 `memory_read/memory_edit/skill_store/memory_pending/refine` 不再对外暴露，改为内部实现细节或被删除（§7.8）。
 
 ### 7.3 容量预算与淘汰
@@ -319,7 +319,7 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 
 1. **`yonder memory` CLI 子命令**（沿用 `docs/spec/13-observation-and-management.md:63-64` 的 CLI 家族，非交互 JSON）：`status`（四层容量条 + 未整理数 + 待采纳提议数 + 最老未整理天数）、`note <entity>`（读写实体笔记）、`review`（列出待整理记录）、`skills`（stale/待采纳/归档）、`pin`（管理 `STANDING.md`）。
 2. **卡片/渠道投影**（`plugins/channel-card` 现有思路）：整理完成后在聊天里给一条摘要卡「整理了 12 条 → me/now 3、计划 2、丢弃 7」，**不逐条播报**（Hermes 的 `display.memory_notifications` 就是 `off|on|verbose` 三档）。
-3. **文件本身**：`/Users/zoran/Memory` 是 Obsidian 库，用户可直接打开编辑；`log.md` 提供完整审计轨迹。
+3. **文件本身**：`~/Memory` 是 Obsidian 库，用户可直接打开编辑；`log.md` 提供完整审计轨迹。
 
 反向要求：任何「记忆被写入/被淘汰」的动作必须在 `log.md` 留一行，`memory_status` 必须能回答「这条为什么没了」。
 
@@ -358,6 +358,6 @@ Retry as ONE 'operations' batch that removes or shortens (patch) stale entries .
 - **未核实**：`pi-hermes-memory` 的 `similarity` 阈值具体数值（README 只说「high/low description similarity」，未给阈值），照抄时需自定。
 - **未核实**：Hermes `skills.creation_nudge_interval` 默认 15 只见于 issue #67582 的引用，未在 `hermes_cli/config_defaults.py` 中定位到该键。
 - **未核实**：`docs/decisions.md:128`（D45）「用户个人资料库见 D50」中的 D50 编号是否曾经指向资料库（现行 D50 是凭据录入，`:149`）。
-- **未核实**：`/Users/zoran/Memory` 的 403 条空正文记录里，有多少是 `wechat-archive` 的「仅元数据」占位（抽样看是 `媒体: image （仅元数据）`），未做全量归类。
+- **未核实**：`~/Memory` 的 403 条空正文记录里，有多少是 `wechat-archive` 的「仅元数据」占位（抽样看是 `媒体: image （仅元数据）`），未做全量归类。
 - **待决**（需维护者批准，按 `AGENTS.md` 第 7 条）：D41「不引入记忆引擎或自动注入」的替代文本；L1 是否搬进 memory 根目录（涉及已有 agent 的 `memories/` 路径迁移）；`plugins/hermes-experience` 的 deprecation 时点；是否给 SDK `RenderContext` 加 `model`（`F1-notes.md` 第二步已批准，但依赖 A 线排期）。
 - **未测**：本轮为只读调研，未运行任何测试，未实际执行 `memory_*` 工具；`plugins/memory` 的 8 条验收（`docs/spec/15-memory.md:314`）与 `hermes-experience` 的受控验收脚本 `scripts/accept-learning-controlled.mjs` 均未运行。

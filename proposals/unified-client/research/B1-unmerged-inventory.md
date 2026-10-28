@@ -34,17 +34,17 @@
 
 | 分支 / worktree | HEAD | 基准 | a/b | 已合入 | 规模 | 用途 | dry-merge vs origin/main | 建议 |
 |---|---|---|---|---|---|---|---|---|
-| zoran/live-dev（主 worktree `/Users/zoran/Documents/yonder-card-web`） | ce3f4d9 10-26 docs: describe full-stack web and documentation map | origin/main | 44/2 | 否，44 非等价 | 240 文件 +8435/−915 | 全栈 live 开发线（server/ + 身份/名片/群/短链） | 冲突 39：server/src/app.ts、auth.ts、cards.ts、chat.ts、devices.ts… | **MERGE**（变基到 origin/main）：唯一活跃开发线，已推 `origin/zoran/live-dev`；冲突集中在 server/ 与 src/App.tsx |
+| zoran/live-dev（主 worktree `~/Documents/yonder-card-web`） | ce3f4d9 10-26 docs: describe full-stack web and documentation map | origin/main | 44/2 | 否，44 非等价 | 240 文件 +8435/−915 | 全栈 live 开发线（server/ + 身份/名片/群/短链） | 冲突 39：server/src/app.ts、auth.ts、cards.ts、chat.ts、devices.ts… | **MERGE**（变基到 origin/main）：唯一活跃开发线，已推 `origin/zoran/live-dev`；冲突集中在 server/ 与 src/App.tsx |
 | codex/multidevice-w0-20261026（worktree `…/task/worktrees/yonder-card-multidevice-w0`） | ab456a5 10-26 fix(card): bound relay frames before WebSocket parsing | origin/main | 35/2 | 否，35 非等价 | 187 文件 +7962/−882 | Card 执行中继 W0（可选 relay 传输） | 冲突 39（同 live-dev） | **MERGE**：相对 live-dev 仅 3 个独有提交（ce3cb53 契约文档、513d14a relay transport、ab456a5 帧上限）；**未推送** |
 | fix/yonder-web-ui-icons-20261027（worktree `~/.local/share/yonder-harness/home/development/yonder-web-ui-icons-20261027`） | 887769b 10-26 fix(ui): use Lucide return arrow and separate execution from connectivity | live-dev ce3f4d9 | 44/2 | 否，44 非等价 | 238 文件 +8346/−891 | 返回箭头 + 执行/连通分离 | 冲突 39 | **SQUASH-MERGE**：相对 live-dev 只有 1 个提交，cherry-pick 即可；**未推送** |
 | main（本地） | 931e84c 10-23 feat: 桌面三栏、通讯录卡包…（0.2.26102301） | origin/main | 3/2 | 否，3 非等价，但 3 提交是 live-dev 的祖先 | 69 文件 +2951/−667 | 早期桌面三栏 | 冲突 11：src/App.tsx、src/components/CardView.tsx(add/add)、Shell.tsx、chat/DeviceRow.tsx(add/add)、wallet/ContactList.tsx(add/add)… | **ALREADY-IN（本地 main 重置到 origin/main）**：内容全部在 live-dev 内 |
 | yonder/card-web-takeover-20261023（worktree `/private/tmp/yonder-card-web-takeover-20261023/worktree`） | 7ca4b14 10-23 | origin/main | 0/1 | **是，origin/main 的祖先** | — | 卡包/通讯录/社交导航 | clean | **ALREADY-IN（删分支 + 删 /private/tmp worktree）** |
-| task-6/card-w3（detached worktree `/Users/zoran/Documents/Codex/2026-10-26/task-6/card-w3`） | 269e75f 10-26 fix(card): bound relay frames… | ce3cb53 | — | 无分支引用；树与 ab456a5 完全相同 | 与 W0 同 | relay 帧上限 | — | **ALREADY-IN（删 worktree）**：`git diff 269e75f ab456a5` 为空 |
+| task-6/card-w3（detached worktree `~/Documents/Codex/2026-10-26/task-6/card-w3`） | 269e75f 10-26 fix(card): bound relay frames… | ce3cb53 | — | 无分支引用；树与 ab456a5 完全相同 | 与 W0 同 | relay 帧上限 | — | **ALREADY-IN（删 worktree）**：`git diff 269e75f ab456a5` 为空 |
 | origin/design/owner-console（远端独有） | 72aa47d 10-24 docs: record owner-console backup decisions and implementation handoff | origin/main | 2/1 | 否，2 非等价 | 3 文件 +396 | owner console 云备份决策 | **clean** | **MERGE** |
 
 未提交：主 worktree 5 个未跟踪文件（`artifacts/avatar-study-2026-10-26/` 下 wallet-browser-debug.json + 4 张 png；该目录已有 20 个文件入库，整目录 8.8M）；4 个 worktree 工作区均 clean。
 
-## 4. /Users/zoran/Documents/Codex/2026-10-26/
+## 4. ~/Documents/Codex/2026-10-26/
 
 | 路径 | 归属 | HEAD | 已合入 | 规模 | 用途 | dry-merge | 建议 |
 |---|---|---|---|---|---|---|---|
@@ -94,8 +94,8 @@ vendored 校验：45014f2 的 `packages/durable`（209 文件）对 harness `pac
 
 ## (a) 应合并的重复检出
 
-1. **四个 pi 目录不是四份克隆**：`/Users/zoran/Documents/github/yonder-pi` 是唯一主仓（且是 **shallow clone**，`.git/shallow` 存在），`yonder-pi-compact-recovery`、`yonder-pi-fallback`、`yonder-pi-tool-discovery` 都是它的 `git worktree`；另外 `/private/tmp/{t61-pi,yonder-integration-pi,yonder-t63-pi}` 也是同一仓库的 worktree。分支 sha 四份完全一致 → 无需合并对象库，只需 `git worktree remove` 掉 `/private/tmp` 三个和已合入的两个 Documents worktree。
-2. **card-w3 与 W0 同树**：`/Users/zoran/Documents/Codex/2026-10-26/task-6/card-w3` 的 269e75f 与 `codex/multidevice-w0-20261026` 的 ab456a5 树相同 → 删 worktree，保留分支。
+1. **四个 pi 目录不是四份克隆**：`~/Documents/github/yonder-pi` 是唯一主仓（且是 **shallow clone**，`.git/shallow` 存在），`yonder-pi-compact-recovery`、`yonder-pi-fallback`、`yonder-pi-tool-discovery` 都是它的 `git worktree`；另外 `/private/tmp/{t61-pi,yonder-integration-pi,yonder-t63-pi}` 也是同一仓库的 worktree。分支 sha 四份完全一致 → 无需合并对象库，只需 `git worktree remove` 掉 `/private/tmp` 三个和已合入的两个 Documents worktree。
+2. **card-w3 与 W0 同树**：`~/Documents/Codex/2026-10-26/task-6/card-w3` 的 269e75f 与 `codex/multidevice-w0-20261026` 的 ab456a5 树相同 → 删 worktree，保留分支。
 3. **task-4/yonder-w1 是 harness 的整份克隆**（含 node_modules），其 origin 指向已删除的 worktree 路径；4 个提交在 main 中已 patch 等价 → 可直接删除整份检出。
 4. **harness `archive` remote 冗余**：`archive/main` = f3d384a = 本地 `archive/private-main`，等于第二份旧镜像 → 打 tag 后删 remote。
 5. **pi 两个分支指针重复**：`zoran/tool-search-relevance` 与 `zoran/model-fallback` 指向同一 sha 25f0239。

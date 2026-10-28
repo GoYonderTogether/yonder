@@ -3,9 +3,9 @@
 # billion-context — 注入模型的提示词原文
 
 - 包: `billion-context` 0.1.208
-- License: MIT (Copyright (c) 2026 ranxianglei) — `/Users/zoran/.pi/agent/npm/node_modules/billion-context/LICENSE`
+- License: MIT (Copyright (c) 2026 ranxianglei) — `~/.pi/agent/npm/node_modules/billion-context/LICENSE`
 - 仓库: https://github.com/ranxianglei/billion-context
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/billion-context/dist/agent/pi-native.js`（bundle）
+- 来源: `~/.pi/agent/npm/node_modules/billion-context/dist/agent/pi-native.js`（bundle）
 - 注入方式（两层，必须分开看）:
   1. **工具层**（本文件的 acp_delegate 部分）：`acp_delegate`、`acp_delegate_cancel`、`acp_delegate_wait`、`acp_status` 是真正的 pi 工具，由 `createSubagentsExtension()` 注册；`before_agent_start` 里 `addPromptSection(event, "acp_delegate", ACP_DELEGATE_PROMPT)` 写 `systemPromptOptions.sections.acp_delegate`
   2. **代理层**（compress/decompress/search_context 与全部 ACP 提示段）：billion-context 是本地 HTTP 代理，`FUNCTION_PROMPT_SECTIONS` 等文本由代理在线上请求里追加，不经过 pi 的 sections 机制；因此它们在会话里呈现为裸文本段（`ACP TAGS`、`TOOLS`、`COMPRESSION SUMMARIES IN CONTEXT`），没有 `<段名>` 包裹

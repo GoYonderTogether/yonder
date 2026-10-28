@@ -3,15 +3,15 @@
 # pi-subagents — 注入模型的提示词原文
 
 - 包: `pi-subagents` 0.83.0
-- License: MIT (Copyright (c) 2026 Nico Bailon) — `/Users/zoran/.pi/agent/npm/node_modules/pi-subagents/LICENSE`
+- License: MIT (Copyright (c) 2026 Nico Bailon) — `~/.pi/agent/npm/node_modules/pi-subagents/LICENSE`
 - 仓库: https://github.com/nicobailon/pi-subagents
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/pi-subagents/src/extension/tool-description.js`、`tool-activation.js`、`active-runs-prompt.js`、`/Users/zoran/.pi/agent/npm/node_modules/pi-subagents/src/agents/advertised-agent-prompt.js`
+- 来源: `~/.pi/agent/npm/node_modules/pi-subagents/src/extension/tool-description.js`、`tool-activation.js`、`active-runs-prompt.js`、`~/.pi/agent/npm/node_modules/pi-subagents/src/agents/advertised-agent-prompt.js`
 - 注入方式（三种）:
   1. `subagent` 工具的 `description` + `promptSnippet`（**没有 promptGuidelines**，授权规则写在 description 里，只陈述一次）
   2. `before_agent_start` 里写 `event.systemPromptOptions.sections.active_subagents` 与 `sections.advertised_subagents`（结构化段，靠 `diffSystemPromptSections` 增量更新）
   3. `context_with_system` 里给 `custom` 消息包 `<pi_subagents_notice type=… origin="automated message from the pi-subagents extension, not typed by the user">` 标记；不用 `context` 钩子，因为改消息列表会让 pi 折叠中途 system 消息、每轮丢前缀缓存
 - `toolDescriptionMode` 默认 `"full"`（`fullDescription = essentials + fullDetails`）；`"compact"` 只发 `essentials`；`"custom"` 读 `<projectConfigDir>/subagent-tool-description.md` 或 `<agentDir>/subagent-tool-description.md`，支持 `{{fullDescription}}`/`{{compact}}`/`{{safetyGuidance}}`/`{{agentDir}}`/`{{projectConfigDir}}` 占位符
-- 子 Agent 系统提示词另有 `/Users/zoran/.pi/agent/npm/node_modules/pi-subagents/agents/*.md`（13 个：claude-code、claude-code-writer、codex-exec、codex-exec-writer、cursor-agent、cursor-agent-writer、delegate、evidence-auditor、oracle、researcher、reviewer、scout、worker）与 `/Users/zoran/.pi/agent/npm/node_modules/pi-subagents/prompts/*.md`（council、gather-context-and-clarify、parallel-cleanup、parallel-research、parallel-review、review-loop）
+- 子 Agent 系统提示词另有 `~/.pi/agent/npm/node_modules/pi-subagents/agents/*.md`（13 个：claude-code、claude-code-writer、codex-exec、codex-exec-writer、cursor-agent、cursor-agent-writer、delegate、evidence-auditor、oracle、researcher、reviewer、scout、worker）与 `~/.pi/agent/npm/node_modules/pi-subagents/prompts/*.md`（council、gather-context-and-clarify、parallel-cleanup、parallel-research、parallel-review、review-loop）
 
 ## SUBAGENT_SAFETY_GUIDANCE（拼进每个内建 description，也拼进自定义 description）
 

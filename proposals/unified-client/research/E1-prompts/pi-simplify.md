@@ -3,9 +3,9 @@
 # pi-simplify — 注入模型的提示词原文
 
 - 包: `pi-simplify` 0.2.3
-- License: MIT（`package.json` 声明；**包内无 LICENSE 文件**）— `/Users/zoran/.pi/agent/npm/node_modules/pi-simplify/package.json`
+- License: MIT（`package.json` 声明；**包内无 LICENSE 文件**）— `~/.pi/agent/npm/node_modules/pi-simplify/package.json`
 - 仓库: https://github.com/MattDevy/pi-extensions (packages/pi-simplify)
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/pi-simplify/dist/prompt-builder.js` 的 `buildSimplifyPrompt(files)`
+- 来源: `~/.pi/agent/npm/node_modules/pi-simplify/dist/prompt-builder.js` 的 `buildSimplifyPrompt(files)`
 - 注入方式: **不注册工具**，只注册 `/simplify` 命令；命令把整段文本作为 user message 用 `pi.sendUserMessage(prompt, { deliverAs: "followUp" })` 发给模型
 
 ## buildSimplifyPrompt（`${fileList}` 处为变更文件清单）

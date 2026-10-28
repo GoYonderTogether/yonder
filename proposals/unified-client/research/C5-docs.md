@@ -2,7 +2,7 @@
 
 # Yonder 文档体系调研报告（只读）
 
-调研对象：`/Users/zoran/Documents/yonder-harness`，HEAD `0211948`（2026-10-27，`chore(release): 0.2.26102705`）。所有命令只读执行；未修改、未提交、未推送任何文件。参照仓：`/Users/zoran/Documents/github/yonder-pi-1.4`（pi 1.4）、`/Users/zoran/Documents/github/opencode`。设计目标：`proposals/unified-client/design.md`。
+调研对象：`~/Documents/yonder-harness`，HEAD `0211948`（2026-10-27，`chore(release): 0.2.26102705`）。所有命令只读执行；未修改、未提交、未推送任何文件。参照仓：`~/Documents/github/yonder-pi-1.4`（pi 1.4）、`~/Documents/github/opencode`。设计目标：`proposals/unified-client/design.md`。
 
 ## 0. 结论（先看这 8 条）
 
@@ -117,11 +117,11 @@
 ### 2.5 新发现（6 项）
 
 1. **`docs/index.md` 漏列 `spec/15-memory.md`**：表中只列 `spec/15-clipboard-vault.md`（`docs/index.md:26`），而 5 个文档引用 memory 规范 → memory 从"文档地图"不可达。同时写"当前版本 0.1"（`docs/index.md` 表头），实际 `package.json` version = `0.2.26102705`。
-2. **`docs/status.md` 双 H1**：第 1 行 `# 多设备执行 W0–W5 隔离集成（2026-10-26）` + 大段发布记录，第 7 行才是 `# 项目状态`。第 3 行含本机绝对路径 `/Users/zoran/Documents/Codex/2026-10-26/task/multidevice-handoff-2026-10-26.md`——**本机路径进了公开仓库**。
+2. **`docs/status.md` 双 H1**：第 1 行 `# 多设备执行 W0–W5 隔离集成（2026-10-26）` + 大段发布记录，第 7 行才是 `# 项目状态`。第 3 行含本机绝对路径 `~/Documents/Codex/2026-10-26/task/multidevice-handoff-2026-10-26.md`——**本机路径进了公开仓库**。
 3. **`docs/spec/04-plugins.md:35`**："共九个：channels、tools、contexts、triggers、envs、hooks、presets、skills、permissions"，但 §3 只有 `3.1`–`3.8` 八个小节，`permissions` 落在文末 `## 统一权限门面（permissions 槽）`（第 285 行）。design §10 要求补第 10 个槽 `views` 时一并改口径。
 4. **`docs/spec/16-card-plugin.md:3`** 引用 `yonder-card-web/server/src/{devices,realtime,chat,cards}.ts` 与 `proposals/ai-card/plugin.md`——后者所在目录**已不存在**（`ls proposals/` 无 `ai-card`），前者改名后应变 `yonder-cloud/server/...`。
 5. **7 处断链**（自写脚本遍历所有非 `node_modules` md）：`CHANGELOG.md` → `RELEASE-LOCATION-READY.md`；`docs/prompts/v5-draft.zh-CN.md` → `jarvis/{SOUL,AGENTS,SOURCES}.md`（3 处，实际在 `plugins/agent-presets/prompts/jarvis/`）；`plugins/native-automation/README.md` → `../../HANDOFF-LOCATION.md`；`skills/skill-creator/SKILL.md` → `references/{redlining,ooxml}.md`（2 处）。
-6. **`docs/` 会把内部记录当产品文档发出去**：`readDocs` 递归 `walk`（`packages/core/src/release/index.ts:125-137`），`yonder docs --list` 会列 `verification/…`、`research/…`、`verification/evidence/*.json`。而 `docs/verification/evidence/service-host-command-final-20261025.json` 里含 `/Users/zoran/.local/share/yonder-harness/...` 的进程快照。
+6. **`docs/` 会把内部记录当产品文档发出去**：`readDocs` 递归 `walk`（`packages/core/src/release/index.ts:125-137`），`yonder docs --list` 会列 `verification/…`、`research/…`、`verification/evidence/*.json`。而 `docs/verification/evidence/service-host-command-final-20261025.json` 里含 `~/.local/share/yonder-harness/...` 的进程快照。
 
 ## 3. 参照：pi 与 opencode 的布局
 
@@ -311,4 +311,4 @@ yonder/
 - `docs/plugins.md` 每个插件的工具清单与源码 `contributes` 的逐项差异——只抽查了 `memory`（用通配符掩盖，未发现明确错误），其余 22 个插件未核对。
 - `CONTRIBUTING.md` 内容在 design §10 里标为"未读、未核实"，我读了结构与章节（仓库布局/改动前/边界/fork 同步/检查/许可），但"仓库改名后路径与分支命名规则需同步"的具体条目未逐句核。
 - 公开仓库的 GitHub 元数据（`gh repo view`）：public、`hasWikiEnabled=true`（wiki 为空）、`hasDiscussionsEnabled=false`、`hasIssuesEnabled=true`、`isSecurityPolicyEnabled=true`、license apache-2.0、topics `[agent-runtime, ai-agent, plugins, typescript]`、0 star、最新 release `v0.2.26102701`（2026-10-27）。仓库描述仍是 "A resident agent kernel… Developer preview."，未含改名后的产品表述。
-- 迁移到 `apps/app` 的 Card 前端文档量（`/Users/zoran/Documents/yonder-card-consolidate`）：除 `node_modules` 外 35 个 md、约 2.9k 行（`docs/` 15 篇、`DESIGN.md` 85、`server/PLAN.md` 131、`deploy/` 2 篇、`brand/BRIEF*.md` 3 篇、`artifacts/` 6 篇），需在阶段 4 单独做一次"哪些进 `apps/app/docs`、哪些进 `verification/`"的分诊——本轮未逐篇判定归属。
+- 迁移到 `apps/app` 的 Card 前端文档量（`~/Documents/yonder-card-consolidate`）：除 `node_modules` 外 35 个 md、约 2.9k 行（`docs/` 15 篇、`DESIGN.md` 85、`server/PLAN.md` 131、`deploy/` 2 篇、`brand/BRIEF*.md` 3 篇、`artifacts/` 6 篇），需在阶段 4 单独做一次"哪些进 `apps/app/docs`、哪些进 `verification/`"的分诊——本轮未逐篇判定归属。

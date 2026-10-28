@@ -3,9 +3,9 @@
 # pi-background-tasks — 注入模型的提示词原文
 
 - 包: `pi-background-tasks` 2.6.10
-- License: ISC — `/Users/zoran/.pi/agent/npm/node_modules/pi-background-tasks/LICENSE`
+- License: ISC — `~/.pi/agent/npm/node_modules/pi-background-tasks/LICENSE`
 - 仓库: https://github.com/ismailsaleekh/pi-background-tasks
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/pi-background-tasks/dist/src/extension.js`（`pi.registerTool` 的 description/promptSnippet/promptGuidelines）；`BACKGROUND-TASKS-INSTRUCTIONS.md` 是包内维护者 AGENTS 网关，**不进模型上下文**
+- 来源: `~/.pi/agent/npm/node_modules/pi-background-tasks/dist/src/extension.js`（`pi.registerTool` 的 description/promptSnippet/promptGuidelines）；`BACKGROUND-TASKS-INSTRUCTIONS.md` 是包内维护者 AGENTS 网关，**不进模型上下文**
 - 注入方式: 每个 bg_* 工具的 description + promptSnippet + promptGuidelines 进系统提示词 rules 段；`createShellPolicyGuidanceHandler` 另在 `before_agent_start` 注入 shell 策略段落
 
 ## 工具定义

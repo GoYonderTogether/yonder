@@ -3,9 +3,9 @@
 # codex-computer-use-mcp — 注入模型的提示词原文
 
 - 包: `codex-computer-use-mcp` 0.6.2
-- License: MIT (Copyright (c) 2026 Thomas Mustier) — `/Users/zoran/.pi/agent/npm/node_modules/codex-computer-use-mcp/LICENSE`
+- License: MIT (Copyright (c) 2026 Thomas Mustier) — `~/.pi/agent/npm/node_modules/codex-computer-use-mcp/LICENSE`
 - 仓库: https://github.com/tmustier/codex-computer-use-mcp
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/codex-computer-use-mcp/integrations/pi/index.ts`（`COMPUTER_USE_NAMESPACE`，含 `description` 与 `instructions`）+ `/Users/zoran/.pi/agent/npm/node_modules/codex-computer-use-mcp/dist/tools.js`（`TOOL_METADATA[*].description`）
+- 来源: `~/.pi/agent/npm/node_modules/codex-computer-use-mcp/integrations/pi/index.ts`（`COMPUTER_USE_NAMESPACE`，含 `description` 与 `instructions`）+ `~/.pi/agent/npm/node_modules/codex-computer-use-mcp/dist/tools.js`（`TOOL_METADATA[*].description`）
 - 注入方式: 全部工具 `exposure: "codemode"` + `namespace: COMPUTER_USE_NAMESPACE`；namespace 的 `description` 与 `instructions` 进入 codemode 的脚本说明，工具本身不出现在主工具表
 
 ## Namespace description / instructions

@@ -3,9 +3,9 @@
 # pi-web-access — 注入模型的提示词原文
 
 - 包: `pi-web-access` 0.45.0
-- License: MIT (Copyright (c) 2025 Nico Bailon) — `/Users/zoran/.pi/agent/npm/node_modules/pi-web-access/LICENSE`
+- License: MIT (Copyright (c) 2025 Nico Bailon) — `~/.pi/agent/npm/node_modules/pi-web-access/LICENSE`
 - 仓库: https://github.com/nicobailon/pi-web-access
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/pi-web-access/dist/index.js` 中 5 处 `pi.registerTool({...})`（name/label/description/promptSnippet），以及 `tool-activation.ts` 的 `web_enable` loader
+- 来源: `~/.pi/agent/npm/node_modules/pi-web-access/dist/index.js` 中 5 处 `pi.registerTool({...})`（name/label/description/promptSnippet），以及 `tool-activation.ts` 的 `web_enable` loader
 - 注入方式: 工具默认**不激活**，由 `web_enable` 动态开启（`pi.setActiveTools`）；`web_enable` 的 promptSnippet 与各工具 promptSnippet 进 rules 段
 
 ## registerTool 定义（按源码顺序）

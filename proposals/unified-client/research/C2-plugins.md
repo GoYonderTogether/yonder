@@ -5,7 +5,7 @@
 > 口径与局限先说明，后面所有结论都以此为前提：
 > - **pi 侧数据**：`https://registry.npmjs.org/-/v1/search?text=keywords:pi-package&size=250&from=0..750`（取 1000 条）＋ `https://api.npmjs.org/downloads/point/last-month/<pkg>`（近 30 天，区间 2026-09-27 至 2026-10-26，见任一响应的 `start`/`end` 字段）。命令经 `~/.local/bin/agent-network run --`。
 > - **样本局限（重要）**：搜索结果 `total=12892`（即 npm 上带 `pi-package` 关键字的包总数），我只按相关性顺序取了前 1000 条；下载量解析成功 **453/1000**。失败原因已定位：批量接口对 scoped 包（`@scope/name`）返回 HTTP 400（`curl 'https://api.npmjs.org/downloads/point/last-month/@hypabolic/pi-hypa,billion-context'` → 400），逐个补查时又被限流（`error code: 1015`）。因此**前 50 榜对 scoped 包可能漏排**，凡 scoped 包的位次都算「下限值」。未核实项我会标注。
-> - **DeepSeek Harness 侧**：`/Users/zoran/Documents/deepseek-harness-src` 只读扫描 `packages/*/*/package.json`（316 个包）。**没有任何下载量/排名依据**，原因见 §3。
+> - **DeepSeek Harness 侧**：`~/Documents/deepseek-harness-src` 只读扫描 `packages/*/*/package.json`（316 个包）。**没有任何下载量/排名依据**，原因见 §3。
 > - 所有仓库文件均未修改。
 
 ---

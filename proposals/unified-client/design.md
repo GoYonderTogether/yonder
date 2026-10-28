@@ -339,7 +339,7 @@ E2EE 列远期：按 spec 18 口径「另行选用成熟端到端加密通道并
 
 ### 4.4 前端合并方案
 
-事实：Card 前端是 React 19、Vite 8、Tailwind 4、TanStack Query，位于 `/Users/zoran/Documents/yonder-card-web/src`（含 `App.tsx`、`api/`、`components/`、`lib/`、`pages/`、`store.ts`、`ui/`、`styles.css`）；`DESIGN.md` 在仓根。第一版核对到默认数据源为 mock（`src/api/index.ts:5` 的 `VITE_API === 'http' ? httpApi : mockApi`），**本版未重读该文件**。
+事实：Card 前端是 React 19、Vite 8、Tailwind 4、TanStack Query，位于 `~/Documents/yonder-card-web/src`（含 `App.tsx`、`api/`、`components/`、`lib/`、`pages/`、`store.ts`、`ui/`、`styles.css`）；`DESIGN.md` 在仓根。第一版核对到默认数据源为 mock（`src/api/index.ts:5` 的 `VITE_API === 'http' ? httpApi : mockApi`），**本版未重读该文件**。
 
 方案：
 
