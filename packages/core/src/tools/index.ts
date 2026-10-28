@@ -23,9 +23,9 @@ import type { Store } from "../store/index.js";
 import { coreToolCapabilities } from "./catalog.js";
 import { requireCapability, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
-import { MAX_SOURCES, sourceBlock } from "./sources.js";
+import { sourceBlock } from "./sources.js";
 import { createTaskControl } from "./task-control.js";
-import { asyncSchema, attachmentSchema } from "./tool-schema.js";
+import { asyncSchema, attachmentSchema, effortSchema, schema, sourcesSchema, text } from "./tool-schema.js";
 
 coreToolCapabilities.model_route = ["read"];
 interface CoreToolsOptions {
@@ -41,24 +41,6 @@ interface CoreToolsOptions {
 }
 const result = (value: unknown): ToolResult => ({ text: typeof value === "string" ? value : JSON.stringify(value) });
 const fail = (e: unknown): ToolResult => ({ text: e instanceof Error ? e.message : String(e), isError: true });
-const text = () => Type.String({ minLength: 1 });
-const schema = (fields: Record<string, import("typebox").TSchema>) =>
-	Type.Object(fields, { additionalProperties: false });
-const effortSchema = Type.Optional(
-	Type.String({
-		minLength: 1,
-		description:
-			"Optional per-run thinking override. Requires admin capability; otherwise omit this field and use the configured preset/profile thinking.",
-	}),
-);
-const sourcesSchema = Type.Optional(
-	Type.Array(text(), {
-		minItems: 1,
-		maxItems: MAX_SOURCES,
-		description:
-			"Optional exact inbound message IDs to quote from the current source conversation. Omit this field when not quoting or when no source conversation exists. Never send an empty array, prose or invented IDs. It is not required for delegation.",
-	}),
-);
 export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const { store, agents, sessions, runtime, delivery, ask, getPreset } = options;
 	const tool = (definition: Omit<Tool, "capabilities">): Tool => ({

@@ -61,30 +61,7 @@ export interface RunEndData {
 	effort?: { requested: string; effective: string; reason?: string; inputs: string[] };
 	usage: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
 }
-export interface SessionOpenData {
-	session: string;
-	mode: Mode;
-	key: string;
-	profile: string;
-}
-export interface SessionCloseData {
-	session: string;
-	reason: string;
-}
-export interface SessionInputData {
-	session: string;
-	text: string;
-}
-export interface IdentityLinkData {
-	account: Ref;
-	person: Ref;
-	linked: boolean;
-}
-export interface ConfigReloadData {
-	file: string;
-	ok: boolean;
-	errors?: string[];
-}
+export type * from "./event-data.js";
 export interface EventQuery {
 	/** Exact event ID; intersected with all other filters. */
 	id?: string;
