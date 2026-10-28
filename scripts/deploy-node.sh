@@ -22,7 +22,7 @@
 #
 # Rollback steps per server change (what `install` touches):
 #   - runtime/<version> is new; `rollback` flips `current` back, old versions are kept (last 3).
-#   - user yonder / linger / unit dev.yonder.harness.service: `uninstall <host> --purge` removes them.
+#   - user yonder / linger / unit dev.yonder.service: `uninstall <host> --purge` removes them.
 #   - home/ is created once and never overwritten except yonder.yaml, agents/main/agent.yaml,
 #     and .yonder/auth.json (only when absent); previous copies are saved as *.pre-deploy-<stamp>.
 set -euo pipefail
@@ -147,7 +147,7 @@ import json,sys
 json.dump({"rightapi-glm":{"type":"api_key","key":sys.stdin.read()}}, open(sys.argv[1], "w"))
 PY
 chown yonder:yonder "$d/auth.json"; chmod 600 "$d/auth.json"'
-		"${SSH[@]}" "$HOST" "runuser -u yonder -- env XDG_RUNTIME_DIR=/run/user/\$(id -u yonder) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\$(id -u yonder)/bus systemctl --user restart dev.yonder.harness.service"
+		"${SSH[@]}" "$HOST" "runuser -u yonder -- env XDG_RUNTIME_DIR=/run/user/\$(id -u yonder) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\$(id -u yonder)/bus systemctl --user restart dev.yonder.service"
 	else
 		remote_install_script | "${SSH[@]}" "$HOST" "VER=$ver bash -s"
 	fi
@@ -207,7 +207,12 @@ for pair in yonder.yaml:yonder.yaml agent.yaml:agents/main/agent.yaml; do
 	fi
 done
 Y mkdir -p "$HOMEDIR/.yonder"; Y chmod 700 "$HOMEDIR/.yonder"
-cat > /home/yonder/.config/systemd/user/dev.yonder.harness.service <<EOU
+# 旧节点（0.2）还装着 dev.yonder.harness.service：先停用并删掉旧单元，避免同名任务双开
+if [ -f /home/yonder/.config/systemd/user/dev.yonder.harness.service ]; then
+	Y systemctl --user disable --now dev.yonder.harness.service >/dev/null 2>&1 || true
+	rm -f /home/yonder/.config/systemd/user/dev.yonder.harness.service
+fi
+cat > /home/yonder/.config/systemd/user/dev.yonder.service <<EOU
 # YonderService={"home":"$HOMEDIR","install":"$R"}
 [Unit]
 Description=Yonder Harness (cloud node)
@@ -227,10 +232,10 @@ RestartSec=2
 [Install]
 WantedBy=default.target
 EOU
-chown yonder:yonder /home/yonder/.config/systemd/user/dev.yonder.harness.service
+chown yonder:yonder /home/yonder/.config/systemd/user/dev.yonder.service
 Y systemctl --user daemon-reload
-Y systemctl --user enable dev.yonder.harness.service >/dev/null 2>&1
-Y systemctl --user restart dev.yonder.harness.service
+Y systemctl --user enable dev.yonder.service >/dev/null 2>&1
+Y systemctl --user restart dev.yonder.service
 # keep the newest 3 runtimes plus current/previous
 cur=$(Y readlink "$R/current"); cur=${cur##*/}; pv=$(cat "$R/.previous" 2>/dev/null || true)
 ls -1t "$R" | grep -v -e '^bin$' -e '^current$' | tail -n +4 | while read -r d; do
@@ -248,7 +253,7 @@ UIDY=$(id -u yonder) || exit 1
 Y() { runuser -u yonder -- env HOME=/home/yonder XDG_RUNTIME_DIR=/run/user/$UIDY DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UIDY/bus "$@"; }
 R=/home/yonder/.local/share/yonder/runtime
 echo "current:  $(readlink $R/current)"; echo "previous: $(cat $R/.previous 2>/dev/null)"
-Y systemctl --user show dev.yonder.harness.service -p ActiveState,SubState,MainPID,MemoryCurrent,MemoryMax,MemorySwapMax,NRestarts
+Y systemctl --user show dev.yonder.service -p ActiveState,SubState,MainPID,MemoryCurrent,MemoryMax,MemorySwapMax,NRestarts
 Y /home/yonder/.local/bin/yonder version 2>&1 | head -n 3
 EOS
 }
@@ -265,10 +270,10 @@ prev=$(cat "$R/.previous" 2>/dev/null) || { echo "no previous runtime" >&2; exit
 cur=$(readlink "$R/current"); cur=${cur##*/}
 restore() { # switch back to $1 and restart
 	Y ln -sfn "$R/$1" "$R/.current.new"; Y mv -T "$R/.current.new" "$R/current"
-	Y systemctl --user restart dev.yonder.harness.service
+	Y systemctl --user restart dev.yonder.service
 }
 healthy() { # service active + gateway answers on loopback
-	Y systemctl --user is-active --quiet dev.yonder.harness.service || return 1
+	Y systemctl --user is-active --quiet dev.yonder.service || return 1
 	Y sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do
 		curl -fsS --max-time 2 "http://127.0.0.1:${YONDER_HEALTH_PORT:-7690}/login" >/dev/null 2>&1 && exit 0
 		sleep 1
@@ -343,8 +348,8 @@ set -u
 id yonder >/dev/null 2>&1 || { echo "no user yonder"; exit 0; }
 UIDY=$(id -u yonder)
 Y() { runuser -u yonder -- env HOME=/home/yonder XDG_RUNTIME_DIR=/run/user/$UIDY DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$UIDY/bus "$@"; }
-Y systemctl --user disable --now dev.yonder.harness.service
-rm -f /home/yonder/.config/systemd/user/dev.yonder.harness.service
+Y systemctl --user disable --now dev.yonder.service
+rm -f /home/yonder/.config/systemd/user/dev.yonder.service
 if [ "$PURGE" = "1" ]; then
 	loginctl disable-linger yonder; pkill -u yonder || true; userdel -r yonder; rm -rf /var/tmp/yonder-deploy
 	echo "purged user yonder and its data"
