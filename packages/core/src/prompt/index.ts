@@ -73,11 +73,13 @@ export interface PromptOptions {
 	now?: () => number;
 	contexts: Map<string, ContextContribution>;
 	workspace(session: RuntimeSessionConfig, signal?: AbortSignal): WorkspaceFiles;
+	projectRules?(session: RuntimeSessionConfig, signal?: AbortSignal): Promise<Array<{ path: string; content: string }>>;
 	identity: IdentityAPI;
 	models: Models;
 	setVersion(id: string, version: string): Promise<void>;
 	skillIndex?(session: RuntimeSessionConfig): Promise<string>;
 	toolIndex?(session: RuntimeSessionConfig): string | undefined;
+	templateDirs?(session: RuntimeSessionConfig): Array<{ directory: string; tools: string[] }>;
 	signal?: AbortSignal;
 }
 
@@ -86,6 +88,7 @@ function renderContext(
 	files: () => WorkspaceFiles,
 	event?: YEvent,
 	signal?: AbortSignal,
+	projectRules?: PromptOptions["projectRules"],
 ): RenderContext {
 	return {
 		agent: session.agent ?? "",
@@ -98,6 +101,7 @@ function renderContext(
 				return (await workspace.exists(path)) ? workspace.readFile(path) : undefined;
 			},
 		},
+		...(projectRules ? { projectRules: () => projectRules(session, signal) } : {}),
 		...(event ? { event } : {}),
 		...(signal ? { signal } : {}),
 	};
@@ -106,10 +110,16 @@ function renderContext(
 async function contributionParts(
 	session: RuntimeSessionConfig & { id: string },
 	placement: "system" | "turn",
-	options: Pick<PromptOptions, "contexts" | "workspace" | "signal">,
+	options: Pick<PromptOptions, "contexts" | "workspace" | "signal" | "projectRules">,
 	event?: YEvent,
 ): Promise<PromptPart[]> {
-	const context = renderContext(session, () => options.workspace(session, options.signal), event, options.signal);
+	const context = renderContext(
+		session,
+		() => options.workspace(session, options.signal),
+		event,
+		options.signal,
+		options.projectRules,
+	);
 	const sections: PromptPart[] = [];
 	for (const id of session.resolved.contexts) {
 		options.signal?.throwIfAborted();
@@ -125,7 +135,7 @@ async function contributionParts(
 async function contributions(
 	session: RuntimeSessionConfig & { id: string },
 	placement: "system" | "turn",
-	options: Pick<PromptOptions, "contexts" | "workspace" | "signal">,
+	options: Pick<PromptOptions, "contexts" | "workspace" | "signal" | "projectRules">,
 	event?: YEvent,
 ): Promise<string[]> {
 	return (await contributionParts(session, placement, options, event)).map((part) => part.text);
@@ -164,7 +174,7 @@ export async function scaffoldWorkspace(
 // pi appends profile.instructions after these sections.
 export async function systemSections(
 	session: RuntimeSessionConfig & { id: string },
-	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal"> &
+	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal" | "projectRules"> &
 		Partial<Pick<PromptOptions, "locale">>,
 ): Promise<string[]> {
 	return (await systemPromptParts(session, options)).map((part) => part.text);
@@ -173,7 +183,7 @@ export async function systemSections(
 /** The system sections with stable keys, so each part can be cached and patched on its own. */
 export async function systemPromptParts(
 	session: RuntimeSessionConfig & { id: string },
-	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal"> &
+	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal" | "projectRules"> &
 		Partial<Pick<PromptOptions, "locale">>,
 ): Promise<PromptPart[]> {
 	const prompt = session.resolved.prompt ?? {};
@@ -333,7 +343,7 @@ export async function prepareInput(
 			event.type === "runtime.continuation"
 				? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
 				: message
-					? await expandTemplate(options.home, session.agent, data.text ?? "")
+					? await expandTemplate(options.home, session.agent, data.text ?? "", options.templateDirs?.(session))
 					: JSON.stringify(event.data),
 			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]

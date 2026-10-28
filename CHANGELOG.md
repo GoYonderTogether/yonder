@@ -2,9 +2,11 @@
 
 ## [Unreleased]
 
+- Add optional read-only Codex task delegation and rescue prompt; write delegation, thread selection and explicit background routing remain pending.
+
 - 启用社交策略时，回复投递和重试前重新检查当前授权与静默状态，流式输出逐段复核。
 
-- 可选 Codex 审查工具增加挑战式审查与 focus；斜杠模板和显式等待/后台选择尚待接线。
+- 可选 Codex 审查工具增加挑战式审查、focus 和按工具选择的斜杠模板；显式等待/后台选择尚待接线。
 
 - 新增可选 advisor 显式咨询与默认关闭的结果记录。
 

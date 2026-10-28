@@ -1,7 +1,8 @@
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
+import { taskTool } from "./task.js";
 
-async function run(ctx: ToolContext, args: string[], env?: Record<string, string>) {
+export async function run(ctx: ToolContext, args: string[], env?: Record<string, string>) {
 	let stdout = "";
 	let stderr = "";
 	const result = await ctx.env.exec(
@@ -38,6 +39,10 @@ export default definePlugin({
 						Type.Union([Type.Literal("auto"), Type.Literal("working-tree"), Type.Literal("branch")]),
 					),
 					base: Type.Optional(Type.String({ minLength: 1 })),
+					adversarial: Type.Optional(
+						Type.Boolean({ description: "Challenge the implementation approach and assumptions." }),
+					),
+					focus: Type.Optional(Type.String({ description: "Verbatim focus for an adversarial review." })),
 				},
 				{ additionalProperties: false },
 			),
@@ -47,8 +52,17 @@ export default definePlugin({
 					codexHome,
 					scope = "auto",
 					base,
-				} = value as { codexHome: string; scope?: "auto" | "working-tree" | "branch"; base?: string };
+					adversarial = false,
+					focus,
+				} = value as {
+					codexHome: string;
+					scope?: "auto" | "working-tree" | "branch";
+					base?: string;
+					adversarial?: boolean;
+					focus?: string;
+				};
 				if (!codexHome?.startsWith("/")) throw new Error("Provide an absolute authorized codexHome.");
+				if (focus && !adversarial) throw new Error("focus requires adversarial review.");
 				if (base?.startsWith("-")) throw new Error("Invalid base ref.");
 				const isolation = await run(ctx, [
 					"sh",
@@ -94,12 +108,18 @@ done`,
 					ctx,
 					[
 						"codex",
-						"review",
+						...(adversarial ? ["exec"] : ["review"]),
 						"-c",
 						'sandbox_mode="read-only"',
 						"-c",
 						'approval_policy="never"',
-						...(branch ? ["--base", branch] : ["--uncommitted"]),
+						...(adversarial
+							? [
+									`Perform a read-only adversarial code review. Challenge the implementation approach, design choices, tradeoffs and assumptions; report only grounded, material risks with file and line references. Do not fix or modify anything. Review ${branch ? `the diff from ${branch}...HEAD` : "all working-tree changes including staged, unstaged and untracked files"}. User focus: ${focus ?? "none"}`,
+								]
+							: branch
+								? ["--base", branch]
+								: ["--uncommitted"]),
 					],
 					{ CODEX_HOME: codexHome, HOME: codexHome, PATH: path.stdout.trim() },
 				);
@@ -113,5 +133,6 @@ done`,
 				};
 			},
 		});
+		api.tools.register(taskTool);
 	},
 });

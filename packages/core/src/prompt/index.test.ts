@@ -247,6 +247,15 @@ test("custom events retain complete data and message labels cannot break the tur
 			expect(expanded.text).toContain("Expanded: two words");
 			expect((expanded.event?.data as { text?: string } | undefined)?.text).toBe('/check "two words"');
 		}
+		const rescue = newEvent({ type: "message.in", data: { text: '/codex:rescue --fresh "quoted task"' } });
+		const rescueInput = await prepareInput(row, session, rescue, "run", {
+			...options,
+			templateDirs: () => [
+				{ directory: join(process.cwd(), "plugins/codex-companion/prompts"), tools: ["codex-companion_task"] },
+			],
+		});
+		expect(rescueInput.text).toContain('Request: --fresh "quoted task"');
+		expect(rescueInput.text).toContain("Delegate this rescue request using codex-companion_task");
 		const withBackground = await prepareInput(
 			row,
 			{ ...session, agent: "main", resolved: resolveProfile({ contexts: ["background"] }) },

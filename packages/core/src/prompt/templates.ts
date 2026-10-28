@@ -2,11 +2,31 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
 
-export async function expandTemplate(home: string, agent: string | null, text: string): Promise<string> {
+export function pluginTemplateDirs(
+	plugins: Array<{ id: string; directory: string }>,
+	tools: Array<{ name: string; plugin?: string; exposure: string }>,
+): Array<{ directory: string; tools: string[] }> {
+	return plugins.flatMap((plugin) => {
+		const selected = tools.filter(
+			(tool) => tool.plugin === plugin.id && (tool.exposure === "offer" || tool.exposure === "search"),
+		);
+		return selected.length
+			? [{ directory: join(plugin.directory, "prompts"), tools: selected.map((tool) => tool.name) }]
+			: [];
+	});
+}
+
+export async function expandTemplate(
+	home: string,
+	agent: string | null,
+	text: string,
+	pluginDirs: Array<string | { directory: string; tools: string[] }> = [],
+): Promise<string> {
 	const match = /^\/([^\s/\\]+)(?:\s+([\s\S]*))?$/.exec(text);
 	if (!match || match[1] === "." || match[1] === "..") return text;
 	const directories = agent ? [join(home, "agents", agent, "prompts"), join(home, "prompts")] : [join(home, "prompts")];
-	for (const directory of directories) {
+	for (const entry of [...directories, ...pluginDirs]) {
+		const directory = typeof entry === "string" ? entry : entry.directory;
 		let content: string;
 		try {
 			content = await readFile(join(directory, `${match[1]}.md`), "utf8");
@@ -18,11 +38,13 @@ export async function expandTemplate(home: string, agent: string | null, text: s
 		if (content.startsWith("---")) {
 			const end = content.indexOf("\n---", 3);
 			if (end !== -1) {
-				if (content.slice(4, end)) parse(content.slice(4, end));
+				const metadata = content.slice(4, end) ? parse(content.slice(4, end)) : undefined;
+				if (typeof entry !== "string" && metadata?.tool && !entry.tools.includes(metadata.tool)) continue;
 				content = content.slice(end + 4).trim();
 			}
 		}
-		return substituteArgs(content, parseCommandArgs(match[2] ?? ""));
+		const rawArgs = match[2] ?? "";
+		return substituteArgs(content, parseCommandArgs(rawArgs), rawArgs);
 	}
 	return text;
 }
@@ -64,11 +86,11 @@ function parseCommandArgs(argsString: string): string[] {
 	return args;
 }
 
-function substituteArgs(content: string, args: string[]): string {
+function substituteArgs(content: string, args: string[], rawArgs: string): string {
 	const allArgs = args.join(" ");
 
 	return content.replace(
-		/\$\{(\d+|ARGUMENTS|@):-([^}]*)\}|\$\{@:(\d+)(?::(\d+))?\}|\$(ARGUMENTS|@|\d+)/g,
+		/\$\{(\d+|ARGUMENTS|@):-([^}]*)\}|\$\{@:(\d+)(?::(\d+))?\}|\$(RAW_ARGUMENTS|ARGUMENTS|@|\d+)/g,
 		(_match, defaultTarget, defaultValue, sliceStart, sliceLength, simple) => {
 			if (defaultTarget) {
 				const value =
@@ -87,6 +109,7 @@ function substituteArgs(content: string, args: string[]): string {
 				return args.slice(start).join(" ");
 			}
 
+			if (simple === "RAW_ARGUMENTS") return rawArgs;
 			if (simple === "ARGUMENTS" || simple === "@") {
 				return allArgs;
 			}

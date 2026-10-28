@@ -22,6 +22,7 @@ import {
 	systemPromptParts,
 	toolDiscoveryGuide,
 } from "../prompt/index.js";
+import { pluginTemplateDirs } from "../prompt/templates.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { runChannelCommand } from "../routing/commands.js";
 import { createRouter } from "../routing/index.js";
@@ -263,6 +264,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			setVersion: store.sessions.setVersion,
 			skillIndex: skills.index,
 			toolIndex: (session) => toolDiscoveryGuide(realRuntime().describeTools(session)),
+			templateDirs: (session) => pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(session)),
 		};
 		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
 			const session = await store.sessions.get(id);
