@@ -268,7 +268,8 @@ test("skills create/edit/patch/read support files and provenance, scripts are on
 	assert.equal(meta.owner, "learning");
 	assert.equal(meta.createdBy, "foreground");
 	assert.ok(meta.modifications >= 11);
-	assert.equal((await stat(join(root, n, "SKILL.md"))).mode & 0o777, 0o600);
+	// Windows does not expose POSIX permission bits.
+	if (process.platform !== "win32") assert.equal((await stat(join(root, n, "SKILL.md"))).mode & 0o777, 0o600);
 });
 test("skills background overwrite needs current review exact-file fresh read, not history revision", async (t) => {
 	const root = join(await fixture(t), "skills");
@@ -495,7 +496,7 @@ test("skill own unpinned archive/restore reversible; foreign, pinned and restore
 	assert.equal(archived.archived, true);
 	assert.equal((await readSkill(root)).revision, "absent");
 	assert.deepEqual(await listSkillArchives(root), [archived.archive_id]);
-	assert.ok(relative(root, archived.path).startsWith("../")); // native scans hidden dirs too
+	assert.equal(relative(root, archived.path).split(/[\\/]/)[0], ".."); // native scans hidden dirs too
 	assert.ok(!(await readdir(root)).includes(n));
 	assert.equal(await readFile(join(archived.path, "SKILL.md"), "utf8"), before.content);
 	const restored = await skillStore(root, {
