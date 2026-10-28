@@ -224,6 +224,13 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			await expect
 				.poll(
 					async () =>
+						(await kernel!.events.query({ type: "social.judge-result", conv: "conv:ch03r4:batch" })).events.length,
+					{ timeout: 90000 },
+				)
+				.toBe(1);
+			await expect
+				.poll(
+					async () =>
 						(await kernel!.events.query({ type: "social.batch-read", conv: "conv:ch03r4:batch" })).events.length,
 					{ timeout: 90000 },
 				)
