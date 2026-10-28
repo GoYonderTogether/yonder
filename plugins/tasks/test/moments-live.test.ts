@@ -203,6 +203,7 @@ test.skipIf(!auth || !existsSync(auth))(
 							state: current.task.state,
 							runEnds: ends.length,
 							runStatus: (ends.at(-1)?.data as { status?: string } | undefined)?.status,
+							runReason: (ends.at(-1)?.data as { reason?: string } | undefined)?.reason,
 							selfChecks: inputs.length,
 							sent: f.probe.sent.length,
 						}),
