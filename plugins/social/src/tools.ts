@@ -20,7 +20,7 @@ export function registerSocialTools(api: PluginAPI) {
 	api.tools.register({
 		name: "social_update",
 		description:
-			"Preview or apply a social reply policy change. First inspect, then preview. Ask the owner to send 确认 as a separate message after preview, then apply with dryRun false and the same arguments.",
+			"Preview or apply a social reply policy change. First inspect, then preview. For @-only replies set mode to mention and signals botMention to respond, ownerMention/groupOwner/everyone/keyword to record. Ask the owner to send 确认 as a separate message after preview, then apply with dryRun false and the same arguments.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{
