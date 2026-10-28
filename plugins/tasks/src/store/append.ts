@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import type { RenderContext, ToolContext } from "@yonder/sdk";
+import { parseRef, type RenderContext, type ToolContext } from "@yonder/sdk";
 import { TURN_ONE_LINE } from "../prompts.js";
 import {
 	applyEvent,
@@ -74,6 +74,14 @@ export function append(
 export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 	const parent = args.parent ? find(db, args.parent) : undefined;
 	if (args.parent && !parent) throw new Error("Parent task not found");
+	const origin = args.origin ?? ctx.event?.conv;
+	if (origin !== undefined) {
+		try {
+			if (parseRef(origin).kind !== "conv") throw new Error();
+		} catch {
+			throw new Error("Task origin must be a valid conversation reference (conv:channel:id)");
+		}
+	}
 	const now = new Date().toISOString();
 	const task: Task = {
 		id: randomUUID(),
@@ -90,7 +98,7 @@ export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 		state: "open",
 		deliverable: null,
 		evidence: [],
-		origin: args.origin ?? ctx.event?.conv ?? `session:${ctx.session}`,
+		...(origin ? { origin } : {}),
 		createdAt: now,
 		lastActivityAt: now,
 		lastDeliveryAt: null,

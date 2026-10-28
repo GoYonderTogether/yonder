@@ -8,7 +8,7 @@ import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { type Config, tick } from "../src/moments.js";
-import { NUDGE_INPUT, STALL_NOTICE, USER_WAIT_NOTICE } from "../src/prompts.js";
+import { NUDGE_INPUT, STALL_NOTICE } from "../src/prompts.js";
 import { Store } from "../src/store/index.js";
 
 const content = {
@@ -185,7 +185,7 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 	}
 }, 30000);
 
-test("user-wait aggregates by destination once per rolling day across restart without waking a model", async () => {
+test("user-wait defers delivery without exposing internal notes", async () => {
 	const f = await fixture();
 	try {
 		const task = f.store.open({ ...content, origin: "conv:reminder:person" }, f.ctx);
@@ -194,7 +194,7 @@ test("user-wait aggregates by destination once per rolling day across restart wi
 		const second = f.store.open({ ...content, title: "Another task", origin: "conv:reminder:person" }, f.ctx);
 		f.store.update(second.id, { state: "active" }, f.ctx);
 		f.store.update(second.id, { state: "waiting-user", note: "需要回复" }, f.ctx);
-		const noOrigin = f.store.open({ ...content, origin: "" }, f.ctx);
+		const noOrigin = f.store.open(content, f.ctx);
 		f.store.update(noOrigin.id, { state: "active" }, f.ctx);
 		f.store.update(noOrigin.id, { state: "waiting-user" }, f.ctx);
 		const now = Date.now() + 121 * 60000;
@@ -205,50 +205,14 @@ test("user-wait aggregates by destination once per rolling day across restart wi
 		const reopened = new Store(f.probe.api.paths.data);
 		await tick(f.probe.api, reopened, {}, now + 119 * 60000);
 		reopened.close();
-		expect(f.probe.sent.map((message) => message.text)).toEqual([
-			[
-				USER_WAIT_NOTICE(true, task.title, 121, "请提供 required-input.txt"),
-				USER_WAIT_NOTICE(true, second.title, 121, "需要回复"),
-			].join("\n"),
-		]);
-		expect(f.probe.sent[0]?.text).toContain("约 2 小时");
-		expect(USER_WAIT_NOTICE(true, "任务", 1280, "等待")).toContain("约 21 小时");
+		expect(f.probe.sent).toHaveLength(0);
 		expect(f.probe.requests).toHaveLength(0);
-		expect((await f.kernel().events.query({ type: "session.input" })).events).toHaveLength(0);
-		expect((await f.kernel().events.query({ type: "message.out" })).events).toHaveLength(1);
+		expect((await f.kernel().events.query({ type: "message.out" })).events).toHaveLength(0);
+		expect(f.store.get(task.id, f.ctx).history.at(-1)?.data).toMatchObject({
+			error: "Reminder deferred: owner-facing self-check is not available",
+		});
 		await tick(f.probe.api, f.store, {}, now + 24 * 60 * 60000);
-		expect(f.probe.sent).toHaveLength(2);
-		expect(f.probe.sent[1]?.text).toContain("Late task");
-	} finally {
-		await f.close();
-	}
-});
-
-test("failed or uncertain reminder delivery is not retried within the persisted window", async () => {
-	const f = await fixture();
-	try {
-		const task = f.store.open({ ...content, origin: "conv:reminder:person" }, f.ctx);
-		f.store.update(task.id, { state: "active" }, f.ctx);
-		f.store.update(task.id, { state: "waiting-user" }, f.ctx);
-		let attempts = 0;
-		const api = {
-			...f.probe.api,
-			messages: {
-				...f.probe.api.messages,
-				send: async () => {
-					attempts++;
-					throw new Error("unknown delivery");
-				},
-			},
-		};
-		const now = Date.now() + 121 * 60000;
-		await tick(api, f.store, {}, now);
-		const reopened = new Store(f.probe.api.paths.data);
-		await tick(api, reopened, {}, now + 60000);
-		await tick(api, reopened, {}, now + 24 * 60 * 60000);
-		reopened.close();
-		expect(attempts).toBe(2);
-		expect(f.store.get(task.id, f.ctx).history.filter((event) => event.kind === "moment-result")).toHaveLength(2);
+		expect(f.probe.sent).toHaveLength(0);
 	} finally {
 		await f.close();
 	}

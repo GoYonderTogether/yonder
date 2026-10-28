@@ -56,7 +56,10 @@ test("state transitions resume through active, reject shortcuts and retain termi
 		ctx = caller();
 	try {
 		const task = store.open(content, ctx);
-		expect(task).toMatchObject({ state: "open", ownerAgent: "main", session: "1", parent: null, origin: "session:1" });
+		expect(task).toMatchObject({ state: "open", ownerAgent: "main", session: "1", parent: null });
+		expect(task.origin).toBeUndefined();
+		expect(() => store.open({ ...content, origin: "free text" }, ctx)).toThrow("valid conversation reference");
+		expect(() => store.open({ ...content, origin: "session:1" }, ctx)).toThrow("valid conversation reference");
 		expect(() => store.update(task.id, { state: "review" }, ctx)).toThrow("Invalid task transition");
 		expect(() => store.done(task.id, "Delivered", ["one", "two"], ctx)).toThrow("Invalid task transition");
 		store.update(task.id, { state: "active" }, ctx);

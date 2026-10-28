@@ -1,5 +1,5 @@
 import type { PluginAPI, Trigger } from "@yonder/sdk";
-import { STALL_NOTICE, USER_WAIT_NOTICE } from "./prompts.js";
+import { STALL_NOTICE } from "./prompts.js";
 import type { Store } from "./store/index.js";
 
 export interface Config {
@@ -41,23 +41,13 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 	}
 	for (const [destination, group] of reminders) {
 		if (!store.claimReminder(destination, now)) continue;
-		try {
-			const text = group
-				.map(({ task, minutes, waitingFor }) =>
-					USER_WAIT_NOTICE(api.locale.startsWith("zh"), task.title, minutes, waitingFor),
-				)
-				.join("\n");
-			const result = await api.messages.send({ to: destination, text });
-			for (const { task } of group) store.momentResult(task.id, "user-wait", { result }, now);
-		} catch (error) {
-			for (const { task } of group)
-				store.momentResult(
-					task.id,
-					"user-wait",
-					{ error: error instanceof Error ? error.message : String(error) },
-					now,
-				);
-		}
+		for (const { task } of group)
+			store.momentResult(
+				task.id,
+				"user-wait",
+				{ error: "Reminder deferred: owner-facing self-check is not available" },
+				now,
+			);
 	}
 }
 
