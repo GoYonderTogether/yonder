@@ -11,6 +11,7 @@ import type { RuntimeOptions, RuntimeSessionConfig } from "./types.js";
 export function promptSections(
 	options: Pick<RuntimeOptions, "sections" | "sectionKeys">,
 	config: (session: string) => RuntimeSessionConfig | undefined,
+	guidelines: (name: string) => readonly string[] | undefined = () => undefined,
 ) {
 	const keys = ["yonder", ...(options.sectionKeys ?? []).filter((key) => key !== "yonder")];
 	// All sections of one render pass share the same input object; render the parts once per pass.
@@ -30,7 +31,23 @@ export function promptSections(
 		}
 		return pass;
 	};
-	return keys.map((key) =>
-		section(key, async (input, context) => (await parts(input, context)).get(key), { tag: false }),
-	);
+	return [
+		...keys.map((key) =>
+			section(key, async (input, context) => (await parts(input, context)).get(key), { tag: false }),
+		),
+		section(
+			"yonder-tool-guidelines",
+			(input) => {
+				const lines = [
+					...new Set(
+						[...input.agent.tools]
+							.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+							.flatMap((tool) => guidelines(tool.name) ?? []),
+					),
+				];
+				return lines.length ? `Tool guidelines:\n${lines.map((line) => `- ${line}`).join("\n")}` : undefined;
+			},
+			{ tag: false },
+		),
+	];
 }
