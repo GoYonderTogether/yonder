@@ -58,10 +58,9 @@ describe("frozen protocol contract", () => {
 		const replay = feed.replay(`${feed.epoch}:0`) ?? [];
 		expect(replay[0]?.seq).toBe(1);
 		expect(mapEvent("session.update", replay[0]?.data)).toEqual({ type: "context.updated", data: payload });
-		expect(mapEvent("session.update", { type: "event", name: "future.event", data: null })).toEqual({
-			type: "future.event",
-			data: null,
-		});
+		const unknown = eventValidation.unknownCarrier;
+		expect(mapEvent("session.update", { type: "event", name: "future.event", data: null })).toBeUndefined();
+		expect(eventValidation.unknownCarrier).toBe(unknown + 1);
 		feed.close();
 	});
 
@@ -77,7 +76,7 @@ describe("frozen protocol contract", () => {
 			data: { session: "s", status: "done" },
 		});
 		expect(mapEvent("session.update", { type: "event", data: null })).toBeUndefined();
-		expect(eventValidation).toEqual({ rejected: before + 2 });
+		expect(eventValidation.rejected).toBe(before + 2);
 		const totals = { input: 1, output: 2, cacheRead: 0, cacheWrite: 0, cost: 0 };
 		expect(validate("usage.updated", { session: "s", scope: "self", totals })).toBe(true);
 		expect(validate("usage.updated", { session: "s", scope: "self", totals: { ...totals, text: "private" } })).toBe(
