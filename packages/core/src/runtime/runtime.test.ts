@@ -45,8 +45,8 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 	expect(credentialPath("/tmp/home", "~/.yonder-credentials/auth.json")).toBe(
 		join(homedir(), ".yonder-credentials/auth.json"),
 	);
-	expect(credentialPath("/tmp/home")).toBe("/tmp/home/.yonder/auth.json");
-	const home = await mkdtemp(join(tmpdir(), "yonder-runtime-"));
+	expect(credentialPath("/tmp/home")).toBe(join("/tmp/home", ".yonder/auth.json"));
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let runtime: Runtime | undefined;
 	try {
 		const files = workspaceFiles(localEnvironment(home));
@@ -55,7 +55,8 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 		const credentials = new FileCredentials(join(home, ".yonder/auth.json"));
 		await Promise.all([credentials.modify("openai", async (current) => current), credentials.list()]);
 		expect(await credentials.get("openai")).toBeUndefined();
-		expect((await stat(join(home, ".yonder/auth.json"))).mode & 0o777).toBe(0o600);
+		// Windows exposes ACLs rather than POSIX file modes.
+		if (process.platform !== "win32") expect((await stat(join(home, ".yonder/auth.json"))).mode & 0o777).toBe(0o600);
 		const models = buildModels(credentials, {
 			openai: { modelOverrides: { "gpt-6-luna": { contextWindow: 64000 } } },
 			deepseek: {
