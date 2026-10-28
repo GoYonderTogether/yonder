@@ -12,6 +12,8 @@
 
 2026-10-28 第三轮：新 init 默认常驻 read/write/edit/bash，其他已选且有权限的工具按需搜索；未显式设置工具的配置档使用同一默认，已有显式 offer 且未设置 search 保持空 search。bash 的操作规则从描述移到指南。审计：默认以外的内核和所选插件工具均通过现有 catalog 的权限与插件选择过滤后按需加载，未选插件仍不可发现；未逐个重写各插件 schema。
 
-当前源码对应的五个默认工具参数 schema 以 JSON UTF-8 字节 / 4 上取整估算共 444（read 76、write 57、edit 194、bash 61、tool_search 55；逐项取整之和与整体不同），不含协议包装，不是实际模型 tokenizer。仅缩减描述或移动指南不改变参数契约；真实模型三项验收及实际请求 token 仍待干净副本验证。
+当前源码对应的五个默认工具参数 schema 以 JSON UTF-8 字节 / 4 上取整估算共 444（read 76、write 57、edit 194、bash 61、tool_search 55；逐项取整之和与整体不同），不含协议包装，不是实际模型 tokenizer。仅缩减描述或移动指南不改变参数契约；实际请求 token 仍待验证。
 
 第三轮真实验收：干净副本 HEAD 为 `12b259c`；`verify-copy.sh` 因其他卡验收 HOME 活跃拒绝更新，不能记为脚本成功。`verify-home.sh` 创建临时 HOME `pt02r3` 并启动成功，验收后已停止。指定真实模型 `siliconflow/deepseek-ai/DeepSeek-V3.2` 的 `real-check.sh` 三次均 done：搜索后调用为 `tool_search(find) → find → bash → bash`（42.7 秒）；错误后纠正为 `read(missing-pt02-file.yaml) → read(agent.yaml)`，模型报告 ENOENT 后纠正（45.0 秒）；按需加载非默认工具为 `tool_search(ls) → ls`（27.1 秒）。以上为 transcript 调用顺序；精确 token 未测，444 仅为上述字节估算。
+
+再次执行 `verify-copy.sh` 检出 `0edb8ee`（包含 `12b259c`），全仓 build 失败：并行修改的 `plugins/code-intel/src/ast-grep-replace.ts:46,48` 引用缺失的 `ToolContext.authorizeFileWrite`。本次真实模型三项结果来自先前已构建副本，不将本次构建记为通过。
