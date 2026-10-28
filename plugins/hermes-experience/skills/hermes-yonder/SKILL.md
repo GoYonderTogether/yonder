@@ -60,7 +60,7 @@ unavailable content instead of pretending to remember it.
 
 ## Quiet learning and explicit refine
 Genuine user runs count toward automatic memory review every 10 user inputs and
-skill review every 10 model iterations. Mutation dispatch resets its counter even
+skill review after each eligible completed user run. Mutation dispatch resets its counter even
 if the operation subsequently fails. Review starts after 15 seconds of quiet,
 merges the latest completed evidence and expires after 30 minutes. A foreground
 request revokes write authority before cancellation; an atomic write already
