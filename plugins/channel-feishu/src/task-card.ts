@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import type { PluginAPI, ToolContext, TSchema } from "@yonder/sdk";
@@ -14,14 +14,6 @@ export type TaskRow = {
 	assignee?: string;
 	forwardedVerbatim?: boolean;
 };
-type BoardReceipt = {
-	messageId: string;
-	revision: number;
-	text: string;
-	source: string;
-	state: "confirmed" | "unknown" | "pending";
-};
-export const boardMime = "application/vnd.yonder.task-board+json";
 type ShortLists = { advancing?: string[]; needsOwner?: string[] };
 type Source = { chat: string; sender: string; message: string; time: number };
 type Receipt = {
@@ -96,8 +88,6 @@ const sourceKey = (source: Source) => JSON.stringify([source.chat, source.sender
 
 /** Presentation receipts only: no task execution, transcript, queue or permissions. */
 export class FeishuTaskCards {
-	private readonly boards = new Map<string, BoardReceipt>();
-	private boardTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
 	private readonly receipts = new Map<string, Receipt>();
 	private readonly latest = new Map<string, Source>();
 	private tail: Promise<unknown> = Promise.resolve();
@@ -129,12 +119,6 @@ export class FeishuTaskCards {
 			const stored = object(JSON.parse(await readFile(join(this.directory, "task-cards.json"), "utf8")));
 			if (stored.version !== 1 || !Array.isArray(stored.receipts) || !Array.isArray(stored.latest))
 				throw new Error("Invalid Feishu task card receipt file");
-			for (const [target, value] of Object.entries(object(stored.boards))) {
-				const receipt = value as BoardReceipt;
-				// Published URLs belong to the old process. An explicit show reconnects them.
-				receipt.state = "unknown";
-				this.boards.set(target, receipt);
-			}
 			for (const value of stored.receipts) {
 				const row = value as Receipt;
 				if (
@@ -164,9 +148,6 @@ export class FeishuTaskCards {
 		}
 		this.ready = true;
 		await mkdir(this.directory, { recursive: true, mode: 0o700 });
-		await writeFile(join(this.directory, "task-board.json"), JSON.stringify({ pid: process.pid, mime: boardMime }), {
-			mode: 0o600,
-		});
 	}
 	private async save(): Promise<void> {
 		await mkdir(this.directory, { recursive: true, mode: 0o700 });
@@ -177,7 +158,6 @@ export class FeishuTaskCards {
 				version: 1,
 				receipts: [...this.receipts.values()],
 				latest: [...this.latest.values()],
-				boards: Object.fromEntries(this.boards),
 			}),
 			{ mode: 0o600 },
 		);
@@ -185,95 +165,9 @@ export class FeishuTaskCards {
 	}
 	async stop(): Promise<void> {
 		this.ready = false;
-		clearTimeout(this.boardTimer);
-		await unlink(join(this.directory, "task-board.json")).catch((error) => {
-			if (error.code !== "ENOENT") throw error;
-		});
 		await this.tail.catch(() => {});
 	}
-	private pollBoards() {
-		if (this.boardTimer || !this.ready) return;
-		this.boardTimer = globalThis.setTimeout(async () => {
-			try {
-				await this.refreshBoards();
-			} catch (error) {
-				this.api.log.warn("Task board refresh failed", { error: this.client.safe(error) });
-			} finally {
-				this.boardTimer = undefined;
-				this.pollBoards();
-			}
-		}, 2000);
-		this.boardTimer.unref();
-	}
-	private boardCard(row: BoardReceipt) {
-		const card = {
-			config: { update_multi: true },
-			header: { title: { tag: "plain_text", content: `任务看板 · v${row.revision}` } },
-			elements: [{ tag: "div", text: { tag: "plain_text", content: row.text } }],
-		};
-		if (Buffer.byteLength(JSON.stringify(card)) > 30000) throw new Error("Feishu task card exceeds 30000 bytes");
-		return card;
-	}
-	private async boardText(source: string, signal: AbortSignal) {
-		const url = new URL(source);
-		if (url.protocol !== "http:" || url.hostname !== "127.0.0.1") throw new Error("Invalid board source");
-		const response = await fetch(url, { signal, redirect: "error" });
-		if (!response.ok) throw new Error("Task board unavailable");
-		const data = (await response.json()) as { text?: unknown };
-		if (typeof data.text !== "string") throw new Error("Invalid task board");
-		return data.text;
-	}
-	/** Explicit requests always send the current board at the end of the conversation. */
-	showBoard(target: string, source: string, signal: AbortSignal): Promise<string> {
-		return this.serial(async () => {
-			const text = await this.boardText(source, signal);
-			const previous = this.boards.get(target);
-			const row: BoardReceipt = {
-				source,
-				text,
-				messageId: "",
-				revision: (previous?.revision ?? 0) + 1,
-				state: "pending",
-			};
-			const card = this.boardCard(row);
-			this.boards.set(target, row);
-			await this.save();
-			try {
-				row.messageId = await this.send(target, card, signal);
-				row.state = "confirmed";
-				await this.save();
-				this.pollBoards();
-				return row.messageId;
-			} catch (error) {
-				row.state = "unknown";
-				await this.save();
-				throw error;
-			}
-		});
-	}
-	async refreshBoards() {
-		return this.serial(async () => {
-			for (const row of this.boards.values()) {
-				if (row.state !== "confirmed") continue;
-				try {
-					const signal = AbortSignal.timeout(5000);
-					const text = await this.boardText(row.source, signal);
-					if (text === row.text) continue;
-					row.text = text;
-					row.revision++;
-					row.state = "pending";
-					await this.save();
-					await this.patchCard(row.messageId, this.boardCard(row), signal);
-					row.state = "confirmed";
-					await this.save();
-				} catch (error) {
-					row.state = "unknown";
-					await this.save();
-					this.api.log.warn("Task board update unavailable", { error: this.client.safe(error) });
-				}
-			}
-		});
-	}
+
 	private async patchCard(messageId: string, card: object, signal: AbortSignal) {
 		await setTimeout(Math.max(0, 250 - (Date.now() - this.lastPatch)), undefined, { signal });
 		this.lastPatch = Date.now();

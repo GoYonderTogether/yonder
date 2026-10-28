@@ -27,10 +27,6 @@
 		"lines": 621,
 		"reason": "待拆分：openKernel 装配全部服务，凭证与 provider 登录逻辑应移出"
 	},
-	"plugins/channel-feishu/src/task-card.ts": {
-		"lines": 599,
-		"reason": "待拆分：任务看板的卡片渲染与交互回调混写，应拆出渲染与动作处理"
-	},
 	"plugins/native-automation/src/index.ts": {
 		"lines": 571,
 		"reason": "待拆分：浏览器与应用自动化工具集散落在单一入口，应按目标平台拆分"
