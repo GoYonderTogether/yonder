@@ -1,4 +1,4 @@
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { lstat, open, readdir, realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
 
@@ -52,6 +52,8 @@ export interface ImportSummary {
 	started?: string;
 	modified: string;
 	bytes: number;
+	/** True when the file exceeded the read cap and only its leading complete lines were parsed. */
+	truncated: boolean;
 	messages: number;
 	title: string;
 	model?: string;
@@ -303,22 +305,81 @@ async function* walk(dir: string): AsyncGenerator<string> {
 	}
 }
 
-const cache = new Map<string, { key: string; parsed: ReturnType<typeof parsePiSession> }>();
+const MAX_FILE_BYTES = 32 * 1024 * 1024;
+const CACHE_BYTES = 64 * 1024 * 1024;
+const MAX_PARALLEL = 2;
+
+const cache = new Map<string, { key: string; bytes: number; parsed: ReturnType<typeof parsePiSession> }>();
+let cacheBytes = 0;
+let running = 0;
+const waiting: Array<() => void> = [];
+async function slot<T>(work: () => Promise<T>): Promise<T> {
+	if (running >= MAX_PARALLEL) await new Promise<void>((resolve) => waiting.push(resolve));
+	running++;
+	try {
+		return await work();
+	} finally {
+		running--;
+		waiting.shift()?.();
+	}
+}
+
+const notFound = (path: string) => Object.assign(new Error(`Unknown import: ${path}`), { code: "not_found" });
+
+/** Open by descriptor and compare it with the lstat of the same path, so a file swapped in after the check is refused. */
+async function readCapped(path: string) {
+	const before = await lstat(path);
+	if (!before.isFile()) throw notFound(path);
+	const handle = await open(path, "r");
+	try {
+		const info = await handle.stat();
+		if (info.ino !== before.ino || info.dev !== before.dev || !info.isFile()) throw notFound(path);
+		const length = Math.min(info.size, MAX_FILE_BYTES);
+		const buffer = Buffer.alloc(length);
+		let filled = 0;
+		while (filled < length) {
+			const { bytesRead } = await handle.read(buffer, filled, length - filled, filled);
+			if (!bytesRead) break;
+			filled += bytesRead;
+		}
+		const truncated = info.size > MAX_FILE_BYTES;
+		let end = filled;
+		// Never parse a half line: cut back to the last newline of a truncated read.
+		if (truncated) end = buffer.subarray(0, filled).lastIndexOf(0x0a) + 1;
+		return { text: buffer.subarray(0, end).toString("utf8"), info, truncated };
+	} finally {
+		await handle.close();
+	}
+}
+
 async function load(path: string) {
-	const info = await stat(path);
-	const key = `${info.mtimeMs}:${info.size}`;
-	const hit = cache.get(path);
-	if (hit?.key === key) return { parsed: hit.parsed, info };
-	const parsed = parsePiSession(await readFile(path, "utf8"));
-	cache.set(path, { key, parsed });
-	if (cache.size > 64) cache.delete(cache.keys().next().value as string);
-	return { parsed, info };
+	return slot(async () => {
+		const { text, info, truncated } = await readCapped(path);
+		const key = `${info.mtimeMs}:${info.size}`;
+		const hit = cache.get(path);
+		if (hit?.key === key) return { parsed: hit.parsed, info, truncated };
+		const parsed = parsePiSession(text);
+		const bytes = text.length;
+		if (hit) cacheBytes -= hit.bytes;
+		cache.delete(path);
+		cache.set(path, { key, bytes, parsed });
+		cacheBytes += bytes;
+		// Bounded by file count and by total source bytes; oldest entries go first.
+		while (cache.size > 64 || cacheBytes > CACHE_BYTES) {
+			const oldest = cache.keys().next().value as string | undefined;
+			if (oldest === undefined) break;
+			cacheBytes -= cache.get(oldest)?.bytes ?? 0;
+			cache.delete(oldest);
+		}
+		return { parsed, info, truncated };
+	});
 }
 function summaryOf(
 	root: string,
 	path: string,
 	parsed: ReturnType<typeof parsePiSession>,
 	info: { size: number; mtime: Date },
+	truncated: boolean,
 ): ImportSummary {
 	const { sessionId, cwd, started, messages, title, model } = parsed.summary;
 	return {
@@ -328,6 +389,7 @@ function summaryOf(
 		...(started ? { started } : {}),
 		modified: info.mtime.toISOString(),
 		bytes: info.size,
+		truncated,
 		messages,
 		title,
 		...(model ? { model } : {}),
@@ -338,8 +400,16 @@ export async function listPiSessions(dir: string, options: { cwd?: string; limit
 	const root = resolve(dir);
 	const rows: ImportSummary[] = [];
 	for await (const path of walk(root)) {
-		const { parsed, info } = await load(path);
-		const row = summaryOf(root, path, parsed, info);
+		let loaded: Awaited<ReturnType<typeof load>>;
+		try {
+			loaded = await load(path);
+		} catch (error) {
+			// A file that vanished or was swapped for a link while listing is skipped, not fatal.
+			if ((error as { code?: string }).code === "not_found" || (error as NodeJS.ErrnoException).code === "ENOENT")
+				continue;
+			throw error;
+		}
+		const row = summaryOf(root, path, loaded.parsed, loaded.info, loaded.truncated);
 		if (options.cwd === undefined || row.cwd === options.cwd) rows.push(row);
 	}
 	rows.sort((a, b) => b.modified.localeCompare(a.modified));
@@ -360,11 +430,11 @@ export async function showPiSession(
 	}
 	if (!path.startsWith(root + sep) || !path.endsWith(".jsonl"))
 		throw Object.assign(new Error(`Unknown import: ${id}`), { code: "not_found" });
-	const { parsed, info } = await load(path);
+	const { parsed, info, truncated } = await load(path);
 	const offset = options.offset ?? 0;
 	const limit = options.limit ?? 500;
 	return {
-		summary: summaryOf(root, path, parsed, info),
+		summary: summaryOf(root, path, parsed, info, truncated),
 		total: parsed.items.length,
 		offset,
 		hasMore: offset + limit < parsed.items.length,
