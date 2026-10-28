@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
@@ -20,7 +21,7 @@ const content = {
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 
 async function fixture(config: Config = {}, real = false) {
-	const home = await mkdtemp("/tmp/yonder-task-moments-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-task-moments-"));
 	const manifest = JSON.parse(await readFile(resolve("plugins/tasks/package.json"), "utf8"));
 	manifest.yonder.entry = "./probe.mjs";
 	manifest.yonder.contributes.hooks.push("hold");
@@ -116,6 +117,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		},
 		async close() {
 			await kernel.close();
+			store.close();
 			await rm(home, { recursive: true, force: true });
 		},
 	};
