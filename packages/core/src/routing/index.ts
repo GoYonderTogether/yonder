@@ -1,11 +1,12 @@
 import type { Channel, EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
-import { inboundNotification, type NotificationConfig, type NotificationLevel } from "../kernel/notifications.js";
+import type { NotificationConfig, NotificationLevel } from "../kernel/notifications.js";
 import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import { newEvent, type Store } from "../store/index.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
+import { createRoutedNotifications } from "./notifications.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 
 type Wake = "run" | "write";
@@ -48,17 +49,6 @@ export function createRouter({
 	onReport = () => {},
 }: CreateRouterOptions) {
 	const pending = new Map<string, Set<(result: RunResult) => void>>();
-	const notificationListeners = new Set<
-		(event: {
-			id: number;
-			from: string;
-			event: string;
-			text: string;
-			session: string;
-			conv?: string;
-			channel?: string;
-		}) => void
-	>();
 
 	const report = (error: unknown) => {
 		try {
@@ -67,6 +57,7 @@ export function createRouter({
 			/* Reporting cannot interrupt event delivery. */
 		}
 	};
+	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
 	const resultKey = (agent: string, event: string) => `${agent}\0${event}`;
 	const waitFor = (agent: string, event: string) => {
 		const key = resultKey(agent, event);
@@ -122,24 +113,8 @@ export function createRouter({
 				try {
 					const session = await store.sessions.get(routed.session);
 					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
-					const level = notificationLevel?.(event.conv, session.id);
-					const notification = inboundNotification(level ? { default: level } : notifications, event);
-					if (notification)
-						try {
-							const existed = await runtime().notificationRecorded(session.id, notification.from, notification.event);
-							const receipt = await runtime().notify(session.id, notification);
-							if (!existed)
-								for (const listener of notificationListeners)
-									listener({
-										id: receipt.entry,
-										...notification,
-										session: session.id,
-										...(event.conv ? { conv: event.conv } : {}),
-										...(channelOf(event.conv) ? { channel: channelOf(event.conv)! } : {}),
-									});
-						} catch (error) {
-							report(error);
-						}
+					const notification = routedNotifications.notify(session.id, event);
+					if (notification) await notification;
 					if (routed.wake === "run") {
 						const command = await onCommand?.(session, event);
 						if (command) {
@@ -478,20 +453,7 @@ export function createRouter({
 	}
 
 	return {
-		observeNotifications(
-			listener: (event: {
-				id: number;
-				from: string;
-				event: string;
-				text: string;
-				session: string;
-				conv?: string;
-				channel?: string;
-			}) => void,
-		) {
-			notificationListeners.add(listener);
-			return () => notificationListeners.delete(listener);
-		},
+		observeNotifications: routedNotifications.observe,
 		finishIdle,
 		finishRun: async (session: SessionInfo, _run: RuntimeRun) => finishIdle(session),
 		async recover(): Promise<Array<() => void>> {
