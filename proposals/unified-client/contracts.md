@@ -73,6 +73,7 @@ type Ok = { ok: true };
 | `sessions.list` | read | `{ filter?: { agent?: string; mode?: Mode; open?: boolean } }` | `SessionInfo[]` | 已有（`index.ts:806`） |
 | `sessions.show` | read | `{ id: string; limit?: number; before?: string; full?: boolean }` | `{ session: SessionInfo; items: TranscriptItem[]; nextBefore?: string }` | v1.1 目标见 §17；既有 include/transcript 兼容待定，见 §5 |
 | `sessions.transcript` | read | `{ id: string; before?: number; limit?: number }` | `{ items: TranscriptItem[]; hasMore: boolean }` | 新增·A（`kernel.sessions.transcript` 已有，`from/limit` 语义；`before` 倒序翻页要补）【已有底层】 |
+| `sessions.trace` | read | `{ id: string; after?: string }` | `{ events: YEvent[]; next?: string }` | 只读账本扫描；每页扫描 100 条，过滤后空页仍可有 next。仅返回明确关联本会话的事件；unknown 通过 attempt 的 session 关联；沿用会话可见权限。 |
 | `sessions.watch` | read | `{ id: string }`（续传 after 在 sub 帧上） | `SessionSnapshot`（新快照；成功续传沿用 `null`）；cursor 在 ready 帧上 | 既有传输见 §9.2；增补事件见 §15 |
 | `sessions.submit` | write | `{ id: string; requestId?: string; text: string; attachments?: Attachment[]; busy?: "followup"\|"steer"\|"interrupt" }` | `InputReceipt`（`{ event, session, deduped?: boolean }`） | 已有但要改：加 `requestId` 幂等（C1 缺口②） |
 | `sessions.abort` | write | `{ id }` | `Ok` | 已有 |

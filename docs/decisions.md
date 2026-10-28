@@ -475,3 +475,6 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 ## 2026-10-28 O49 Codex rescue 最小执行入口（主 Agent 代批）
 
 可选 codex-companion 增加 task 工具，通过当前执行环境调用 Codex CLI；子进程写路径约束尚未确认，写请求明确拒绝。Codex 线程 ID 仅是外部引用，不是 Yonder 会话。斜杠模板按选中工具发现，复用运行时后台与输出缓存；候选线程选择和显式后台路由仍待接线，不能把当前实现称作完整 rescue 闭环。
+## 2026-10-28：会话事件追踪（主 Agent 代批）
+
+`sessions.trace` 只读扫描现有事件账本，以路由、事件 session 或 unknown 对应 attempt 的 session 关联会话；沿用会话权限，不推断无会话的事件归属。扫描分页可能返回空页与 next。

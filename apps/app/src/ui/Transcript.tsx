@@ -89,6 +89,14 @@ function Bubble({ it }: { it: ChatItem }) {
 				通知 · {it.from}：{it.text}
 			</p>
 		);
+	if (it.role === "tool-result")
+		return (
+			<div className="mx-auto w-full max-w-[720px]">
+				<Fold icon={Wrench} title="工具结果" tid="tool-result">
+					<pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-caption">{it.text}</pre>
+				</Fold>
+			</div>
+		);
 
 	const mine = it.role === "user";
 	return (

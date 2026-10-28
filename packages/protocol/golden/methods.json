@@ -434,6 +434,24 @@
 				"type": "object"
 			}
 		},
+		"sessions.trace": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"after": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
 		"sessions.transcript": {
 			"scope": "read",
 			"since": 1,

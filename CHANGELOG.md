@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Console 展示 Bot 来源、会话事件与投递追踪，并保留历史工具结果。
+
 - Add optional read-only Codex task delegation and rescue prompt; write delegation, thread selection and explicit background routing remain pending.
 
 - 启用社交策略时，回复投递和重试前重新检查当前授权与静默状态，流式输出逐段复核。

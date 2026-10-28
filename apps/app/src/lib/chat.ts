@@ -11,7 +11,7 @@ export interface ToolCall {
 }
 export interface ChatItem {
 	id: string;
-	role: "user" | "assistant" | "summary" | "notice";
+	role: "user" | "assistant" | "summary" | "notice" | "tool-result";
 	text: string;
 	thinking?: string;
 	tools: ToolCall[];
@@ -138,8 +138,9 @@ export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 	for (const t of items) {
 		const id = `t${t.id}`;
 		if (t.kind === "pi.compaction") out.push({ id, role: "summary", text: t.text, tools: [] });
-		else if (t.kind === "pi.tool-result" || t.kind === "pi.tool") continue;
-		else if (t.kind === "pi.assistant" || t.kind === "pi.generation") {
+		else if (t.kind === "pi.tool-result" || t.kind === "pi.tool") {
+			if (t.text) out.push({ id, role: "tool-result", text: t.text, tools: [] });
+		} else if (t.kind === "pi.assistant" || t.kind === "pi.generation") {
 			if (!t.text.trim() && !t.tools?.length) continue;
 			out.push({
 				id,

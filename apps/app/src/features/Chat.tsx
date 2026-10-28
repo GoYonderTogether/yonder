@@ -139,7 +139,7 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 				)}
 				<details className="border-b border-hairline" onToggle={(event) => setSourcesOpen(event.currentTarget.open)}>
 					<summary className="cursor-pointer px-4 py-2 text-small text-muted">来源与路由</summary>
-					{sourcesOpen && <SessionSources session={id} />}
+					{sourcesOpen && <SessionSources session={id} agent={s?.agent ?? undefined} />}
 				</details>
 				{!v.ready ? (
 					<p className="flex-1 py-16 text-center text-small text-faint">连接中…</p>

@@ -8,8 +8,8 @@ function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 	return def as unknown as MethodDef;
 }
 
-import { visibleSessionFilter } from "./guard.js";
-import type { HostCtx } from "./method-types.js";
+import { guardSession, visibleSessionFilter } from "./guard.js";
+import { type HostCtx, MethodError } from "./method-types.js";
 
 async function activitySummary(ctx: HostCtx) {
 	const agents = await ctx.kernel.terminal.activity();
@@ -27,6 +27,43 @@ async function activitySummary(ctx: HostCtx) {
 }
 
 export const activityMethods: MethodDef[] = [
+	define({
+		name: "sessions.trace",
+		scope: "read",
+		params: obj({ id: Type.String({ minLength: 1 }), after: Type.Optional(Type.String({ minLength: 1 })) }),
+		since: 1,
+		async handler(p, ctx) {
+			const session = await ctx.kernel.sessions.get(p.id);
+			if (!session) throw new MethodError("not_found", `Unknown session: ${p.id}`);
+			await guardSession(ctx, p.id, session);
+			const page = await ctx.kernel.events.query({ ...(p.after ? { after: p.after } : {}), limit: 100 });
+			const events = [];
+			for (const event of page.events) {
+				const data = event.data as Record<string, unknown>;
+				let belongs = data.session === p.id || event.routes?.some((route) => route.session === p.id);
+				if (event.type === "message.unknown" && typeof data.attempt === "string") {
+					const attempt = (await ctx.kernel.events.query({ id: data.attempt })).events[0];
+					belongs = attempt?.type === "message.attempt" && (attempt.data as Record<string, unknown>).session === p.id;
+				}
+				if (!belongs) continue;
+				try {
+					const ids = (event.routes ?? []).flatMap((route) => (route.session ? [route.session] : []));
+					if (typeof data.session === "string") ids.push(data.session);
+					let known = true;
+					for (const id of new Set(ids)) {
+						const row = await ctx.kernel.sessions.get(id);
+						if (!row) known = false;
+						else await guardSession(ctx, id, row);
+					}
+					if (!known) continue;
+					events.push(event);
+				} catch (error) {
+					if (!(error instanceof MethodError) || error.code !== "forbidden") throw error;
+				}
+			}
+			return { events, ...(page.next ? { next: page.next } : {}) };
+		},
+	}),
 	define({
 		name: "activity.summary",
 		scope: "read",
