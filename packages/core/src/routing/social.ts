@@ -6,7 +6,7 @@ type Kind = "dm" | "group" | "channel";
 export function socialDecision(agent: AgentConfig, event: YEvent, person: string | undefined, channel?: Channel) {
 	const social = agent.social;
 	if (!social?.enabled || event.type !== "message.in") return undefined;
-	const data = event.data as { kind?: unknown; mentioned?: unknown; social?: SocialMessageData };
+	const data = event.data as { kind?: unknown; mentioned?: unknown; text?: unknown; social?: SocialMessageData };
 	const kind = data.kind;
 	const revision = createHash("sha256").update(JSON.stringify(social)).digest("hex");
 	const result = (reason: string, run = false) => ({ reason, run, revision });
@@ -46,7 +46,20 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 	if (typeof nativeMention === "boolean" && typeof data.mentioned === "boolean" && nativeMention !== data.mentioned)
 		return result("mention-conflict");
 	const mention = nativeMention === true || (nativeMention === undefined && data.mentioned === true);
-	if (mention && (policy.signals?.botMention ?? "respond") === "respond") return result("bot-mention", true);
+	const signals = [
+		["bot-mention", mention, policy.signals?.botMention ?? "respond"],
+		["owner-mention", data.social?.mentions?.owner === true, policy.signals?.ownerMention ?? "consider"],
+		["group-owner", data.social?.senderRole === "group-owner", policy.signals?.groupOwner ?? "consider"],
+		["everyone", data.social?.mentions?.everyone === true, policy.signals?.everyone ?? "consider"],
+		[
+			"keyword",
+			typeof data.text === "string" &&
+				policy.keywords?.some((word) => (data.text as string).normalize("NFC").includes(word.normalize("NFC"))),
+			policy.signals?.keyword ?? "consider",
+		],
+	] as const;
+	const responding = signals.find(([, matched, action]) => matched && action === "respond");
+	if (responding) return result(responding[0], true);
 	return result(mode);
 }
 

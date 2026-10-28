@@ -48,3 +48,16 @@ test("social scopes authorize independently and fail closed", () => {
 		false,
 	);
 });
+
+test("owner mentions respect the configured signal without granting authorization", () => {
+	const configured = {
+		...agent,
+		social: {
+			...agent.social!,
+			defaults: { group: { mode: "mention" as const, signals: { ownerMention: "respond" as const } } },
+		},
+	};
+	const event = message("group", "acct:chat:user", "conv:chat:group", { social: { mentions: { owner: true } } });
+	expect(socialDecision(configured, event, undefined)?.reason).toBe("owner-mention");
+	expect(socialDecision(configured, { ...event, conv: "conv:chat:other" }, undefined)?.reason).toBe("not-authorized");
+});
