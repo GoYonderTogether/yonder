@@ -1,8 +1,11 @@
+import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
+import type { EntryId } from "@earendil-works/pi-durable";
+import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { Models } from "@yonder/sdk";
+import { cid } from "./docs.js";
 import {
 	type ChainEntry,
 	chainKey,
-	chainRef,
 	DEFAULT_MODEL_HOLD_SECONDS,
 	DEFAULT_MODEL_PROBE_SECONDS,
 	holdSeconds,
@@ -21,8 +24,6 @@ export interface ModelWatchOptions {
 	gate: ModelGate;
 	/** A throwaway model collection bound to one credential selection, used only by the probe. */
 	models(selection: Readonly<Record<string, string>>): Models;
-	/** Index of the chain entry that produced a settled run, when the live run still reports it. */
-	liveIndex(session: string): Promise<number | undefined>;
 	onHealth?(event: { key: string; state: "held" | "recovered"; reason?: string; until?: number }): void;
 	onReport?(error: unknown): void;
 }
@@ -50,60 +51,43 @@ export class ModelWatch {
 		if (this.timer) clearInterval(this.timer);
 		this.timer = undefined;
 	}
-	/** Which chain entry answered this run: pi's index first, then the answered model. */
-	async chainIndex(session: string, config: RuntimeSessionConfig, run: RuntimeRun): Promise<number> {
-		const recorded = await this.options.liveIndex(session);
-		if (typeof recorded === "number") return recorded;
-		if (!run.model) return 0;
-		const chain = modelChain(config.resolved.model, config.resolved.fallback, config.resolved.credentialSlots);
-		const direct = chain.findIndex((entry) => chainRef(entry) === run.model);
-		if (direct >= 0) return direct;
-		try {
-			return Math.max(
-				0,
-				chain.findIndex((entry) => chainKey(entry) === refKey(run.model!, config.resolved.credentialSlots)),
-			);
-		} catch {
-			return 0;
-		}
-	}
-	/**
-	 * A run that finished on a later chain entry proves the earlier entries unusable; a run that failed the whole
-	 * chain proves all of them.
-	 */
-	async record(config: RuntimeSessionConfig, run: RuntimeRun, index: number): Promise<void> {
+	/** Record each failed candidate independently, using the model that pi actually attempted. */
+	async record(config: RuntimeSessionConfig, run: RuntimeRun, attempts: readonly unknown[]): Promise<void> {
 		const { health } = this.options;
 		const fallback = config.resolved.fallback;
 		const chain = modelChain(config.resolved.model, fallback, config.resolved.credentialSlots);
-		if (!chain.length) return;
-		const keys = chain.map(chainKey);
 		const hold = holdSeconds(fallback);
 		const probe = probeSeconds(fallback);
-		const failed = run.status === "error" && /^(model_error|no_model)\b/.test(run.reason ?? "");
-		if (failed) {
-			await health.hold(keys, run.reason ?? "model_error", hold, probe);
-			for (const key of keys)
-				this.options.onHealth?.({
-					key,
-					state: "held",
-					reason: run.reason ?? "model_error",
-					until: Date.now() + hold * 1000,
-				});
-			return;
-		}
-		if (index <= 0) {
-			await health.clear([keys[0]!]);
-			return;
-		}
-		// Only the first run that falls back judges the entries before it: re-holding an entry that is still held
-		// would push its `until` forward on every run and never let it back into the chain (G1 F4).
-		const unused = keys.slice(0, index).filter((key) => !health.held(key));
-		if (!unused.length) return;
 		this.holdWindow = hold;
 		this.probeWindow = probe;
-		await health.hold(unused, "fallback-used", hold, probe);
-		for (const key of unused)
-			this.options.onHealth?.({ key, state: "held", reason: "fallback-used", until: Date.now() + hold * 1000 });
+		for (const value of attempts) {
+			const attempt = value as { model?: { provider?: string; modelId?: string }; action?: string; error?: string };
+			if (
+				attempt.action !== "fallback" &&
+				!(attempt.action === "stop" && /fallback chain exhausted/i.test(attempt.error ?? ""))
+			)
+				continue;
+			const entry = chain.find(
+				(item) => item.provider === attempt.model?.provider && item.modelId === attempt.model?.modelId,
+			);
+			if (!entry) continue;
+			const key = chainKey(entry);
+			if (hold <= 0 || health.held(key)) continue;
+			const reason = attempt.error ?? "model_error";
+			const seconds =
+				/\b(?:401|403|404)\b|unauthorized|forbidden|authentication|invalid.api.key|model.not.found|quota|billing|insufficient.(?:balance|credit)/i.test(
+					reason,
+				)
+					? Math.max(hold, 86400)
+					: hold;
+			await health.hold([key], reason, seconds, probe);
+			this.options.onHealth?.({ key, state: "held", reason, until: Date.now() + seconds * 1000 });
+		}
+		if (run.status === "done" && run.model) {
+			const matching = chain.filter((entry) => `${entry.base}/${entry.modelId}` === run.model);
+			// An alias provider reports its base provider on success; do not clear a different account's hold.
+			if (matching.length <= 1) await health.clear([refKey(run.model, config.resolved.credentialSlots)]);
+		}
 	}
 	/** Minimal request to a held entry: no tools, no transcript, no usage. Success ends the hold immediately. */
 	private async probe(): Promise<void> {
@@ -170,6 +154,34 @@ export class ModelWatch {
 			return;
 		}
 		// A failed probe extends the hold instead of only rescheduling the next probe (07 §6.1).
-		await health.hold([key], health.snapshot()[key]?.reason ?? "probe-failed", this.holdWindow, this.probeWindow);
+		const previous = health.snapshot()[key];
+		if (previous && previous.until > Date.now() + this.holdWindow * 1000) await health.probed([key], this.probeWindow);
+		else await health.hold([key], previous?.reason ?? "probe-failed", this.holdWindow, this.probeWindow);
 	}
+}
+
+/** Read only attempts belonging to this receipt, stopping at the next run's user entry. */
+export async function runAttempts(
+	storage: SqliteStorage,
+	session: string,
+	placed: EntryId[],
+	answer?: EntryId,
+): Promise<unknown[]> {
+	if (!placed.length) return [];
+	const history = await storage.scanEntries(
+		{
+			conversationId: cid(session),
+			minEntryId: Math.min(...placed) as EntryId,
+			...(answer === undefined ? {} : { maxEntryId: answer }),
+		},
+		Number.MAX_SAFE_INTEGER,
+		undefined,
+		C,
+	);
+	const attempts: unknown[] = [];
+	for (const entry of history.items) {
+		if (entry.model?.some((message) => message.role === "user") && !placed.includes(entry.id)) break;
+		if (entry.kind === "pi.model-attempt") attempts.push(entry.data);
+	}
+	return attempts;
 }

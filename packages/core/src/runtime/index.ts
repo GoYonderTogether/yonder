@@ -87,7 +87,7 @@ import {
 import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
 import { accountKey, ModelQuota } from "./model-quota.js";
-import { ModelWatch } from "./model-watch.js";
+import { ModelWatch, runAttempts } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
 import { Outbox } from "./outbox.js";
@@ -185,7 +185,6 @@ export class Runtime {
 			gate: this.gate,
 			models: (selection) =>
 				buildModels(this.credentialSlots.bind(selection), this.options.config.models?.providers, selection),
-			liveIndex: async (session) => (await this.harness.snapshot(LiveDoc, cid(session), C))?.run?.modelFallback?.index,
 			onHealth: (event) => this.options.onModelHealth?.(event),
 			onReport: (error) => this.options.onReport?.(error),
 		});
@@ -1398,7 +1397,8 @@ export class Runtime {
 				inputs,
 				usage,
 			};
-			await this.watch.record(config, run, await this.watch.chainIndex(session, config, run));
+			const attempts = await runAttempts(this.storage, session, placed, answer?.id);
+			await this.watch.record(config, run, attempts);
 			await this.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
 			const active = this.limits.states.get(key);
 			active?.visibility.abort();
