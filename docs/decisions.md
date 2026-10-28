@@ -359,3 +359,7 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 安装根暂不改名，后续单独迁移：保留 `~/.yonder-harness` 的 versions/current/bin；当前 migrate 的备份、锁与回滚围绕用户 home，安装树迁移需另行处理 wrapper 与安装路径。
 
 2026-10-28 console 隐式绑定视为已授权渠道（不受 channelInstances 限制）
+
+## 2026-10-28 稳定性与兼容策略定为 spec/20（0.3 门槛）
+
+0.3 起公共契约（home 布局、公开环境变量、命令与包名、插件 id、hash 路由、gateway 方法与事件、views、yaml 配置、state.db、apiVersion）只增不删，写入 `docs/spec/20-stability.md` 作为唯一权威。弃用的别名/shim 至少保留 2 个 minor（0.3、0.4），最早 0.5 移除，并要求运行时 warn 与 CHANGELOG 条目；破坏性变更必须先记 decisions，再升 protocol/apiVersion/schema_version 并提供 migrate。内容取自稳定化清单已定项，不改 contracts.md。代价：之后的改名与删除都要先走迁移流程，周期变长；golden 文件由 S-C02…S-C07 逐步补齐，在此之前部分冻结项只靠评审守护。
