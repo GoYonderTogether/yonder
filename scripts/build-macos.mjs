@@ -14,7 +14,7 @@ if (process.platform === "darwin") {
 	writeFileSync(
 		`${contents}/Info.plist`,
 		`<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>YonderStatus</string><key>CFBundleIdentifier</key><string>dev.yonder.harness.status</string>
+<key>CFBundleExecutable</key><string>YonderStatus</string><key>CFBundleIdentifier</key><string>dev.yonder.status</string>
 <key>CFBundleName</key><string>Yonder Harness</string><key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${version}</string><key>LSUIElement</key><true/></dict></plist>`,
 	);
