@@ -41,7 +41,8 @@ import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
-import { applyMigration, defaultMigrateOptions, planMigration, rollbackMigration } from "./migrate.js";
+import { applyMigration, defaultMigrateOptions, planMigration } from "./migrate.js";
+import { formatMigration, rollbackMigration } from "./migrate-rollback.js";
 import { plainTaskChat } from "./plain-chat.js";
 import { startStatusSurface } from "./status-surface.js";
 import type { ChatTarget } from "./terminal.js";
@@ -70,7 +71,7 @@ Commands:
   plugins list|show|add|remove      插件管理 · Manage plugins
   models list                     模型目录 · Model catalog
   inspect [--agent <id>] [--profile <name>]  有效配置 · Effective configuration
-  migrate [--dry-run|--apply] | --rollback <backup> [--dry-run]  迁移旧数据目录与插件 id（默认只预览） · Migrate user data
+  migrate [--dry-run|--apply] | --rollback <backup> [--dry-run] [--force]  迁移旧数据目录与插件 id（默认只预览） · Migrate user data
   version                         版本与安装 · Version and installation
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
@@ -401,23 +402,28 @@ async function run(args: string[]): Promise<number> {
 		return 0;
 	}
 	if (command === "migrate") {
-		const migrateUsage = "Usage: yonder migrate [--dry-run | --apply] | --rollback <backup> [--dry-run]";
+		const migrateUsage = "Usage: yonder migrate [--dry-run | --apply] | --rollback <backup> [--dry-run] [--force]";
 		const flagged = (name: string) => rest.includes(name);
 		const rollbackAt = rest.indexOf("--rollback");
 		const backup = rollbackAt >= 0 ? rest[rollbackAt + 1] : undefined;
 		const stray = rest.filter(
 			(arg, index) =>
-				!["--dry-run", "--apply", "--rollback"].includes(arg) && !(rollbackAt >= 0 && index === rollbackAt + 1),
+				!["--dry-run", "--apply", "--rollback", "--force"].includes(arg) &&
+				!(rollbackAt >= 0 && index === rollbackAt + 1),
 		);
 		if (
 			stray.length ||
+			(flagged("--force") && rollbackAt < 0) ||
 			(flagged("--apply") && flagged("--dry-run")) ||
 			(rollbackAt >= 0 && (!backup || backup.startsWith("-")))
 		)
 			throw new UsageError(migrateUsage);
 		const defaults = defaultMigrateOptions();
 		if (backup) {
-			const result = await rollbackMigration(resolve(backup), { apply: !flagged("--dry-run") });
+			const result = await rollbackMigration(resolve(backup), {
+				apply: !flagged("--dry-run"),
+				force: flagged("--force"),
+			});
 			output(options.json ? result : result.lines.join("\n"), options.json);
 			return 0;
 		}
@@ -432,14 +438,7 @@ async function run(args: string[]): Promise<number> {
 			return plan.status === "blocked" ? 1 : 0;
 		}
 		const result = await applyMigration(defaults);
-		output(
-			options.json
-				? result
-				: result.applied
-					? [...result.lines, ...result.launchdErrors.map((e) => `launchd 失败：${e}`)].join("\n")
-					: "无需迁移 · Nothing to migrate",
-			options.json,
-		);
+		output(options.json ? result : formatMigration(result), options.json);
 		return result.launchdErrors.length ? 1 : 0;
 	}
 	if (command === "service") {

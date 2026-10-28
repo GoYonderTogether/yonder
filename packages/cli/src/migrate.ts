@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import {
+	chmod,
 	copyFile,
 	cp,
 	lstat,
@@ -17,9 +19,9 @@ import {
 } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { promisify } from "node:util";
-import { controlEndpoint } from "@yonder/core";
+import { controlEndpoint, lockHome } from "@yonder/core";
 
 /** User-data migration for `yonder migrate` (design §3.4). It never touches repo source. */
 export const PLUGIN_RENAMES: ReadonlyArray<readonly [string, string]> = [
@@ -74,6 +76,9 @@ export interface MigrationPlan {
 export interface MigrationResult extends MigrationPlan {
 	applied: boolean;
 	launchdErrors: string[];
+	/** launchd commands that ran / that did not run (the failed one first), separate from the data migration. */
+	launchdDone: string[][];
+	launchdPending: string[][];
 }
 export class MigrateError extends Error {}
 
@@ -106,7 +111,7 @@ export function homeLocked(home: string): Promise<boolean> {
 }
 
 type Kind = "absent" | "dir" | "symlink" | "other";
-async function probe(path: string): Promise<Kind> {
+export async function probe(path: string): Promise<Kind> {
 	try {
 		const info = await lstat(path);
 		return info.isSymbolicLink() ? "symlink" : info.isDirectory() ? "dir" : "other";
@@ -115,7 +120,10 @@ async function probe(path: string): Promise<Kind> {
 		throw error;
 	}
 }
-const exists = async (path: string) => (await probe(path)) !== "absent";
+/** Exact, copy-pasteable shell text for one argv. */
+export const shellLine = (argv: string[]) =>
+	argv.map((part) => (/^[A-Za-z0-9_@%+=:,./-]+$/u.test(part) ? part : `'${part.replaceAll("'", "'\\''")}'`)).join(" ");
+export const exists = async (path: string) => (await probe(path)) !== "absent";
 const stamp = (now: Date) => now.toISOString().slice(0, 10).replaceAll("-", "");
 
 async function uniquePath(base: string): Promise<string> {
@@ -164,6 +172,7 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 		if (await running(home)) conflicts.push(`服务正在运行（${home}），请先 yonder stop`);
 	const oldKind = await probe(oldHome);
 	const newKind = await probe(newHome);
+	const interrupted = Boolean(await findJournal(options));
 	let moving = false;
 	let source: string | undefined;
 	if (newKind === "symlink" || newKind === "other") conflicts.push(`新路径不是目录：${newHome}`);
@@ -183,6 +192,7 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 
 	const found = source ? await inspectFiles(source, conflicts) : { rewrites: [], renames: [] };
 	const lines: string[] = [];
+	if (interrupted) lines.push(`发现上次中断的迁移（${JOURNAL}），--apply 会先收尾再继续`);
 	const homeWork = moving || found.rewrites.length > 0 || found.renames.length > 0;
 	const now = options.now ?? new Date();
 	let backup: string | undefined;
@@ -208,7 +218,7 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 			commands.push(["mv", oldPlist, newPlist]);
 			commands.push(["launchctl", "bootstrap", "system", newPlist]);
 			lines.push(`launchd 标签 ${OLD_LABEL} → ${NEW_LABEL}（需管理员权限；仅 --apply 时执行）：`);
-			for (const command of commands) lines.push(`  ${command.map((part) => (part === "" ? "''" : part)).join(" ")}`);
+			for (const command of commands) lines.push(`  ${shellLine(command)}`);
 		}
 	}
 	const status = conflicts.length ? "blocked" : lines.length ? "ready" : "noop";
@@ -225,115 +235,248 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 	};
 }
 
-const MANIFEST = "manifest.json";
-interface Manifest {
+export const MANIFEST = "manifest.json";
+/** Written inside the home being moved (so it travels with the rename); a rerun reads it to finish a half-done move. */
+export const JOURNAL = ".migrate-journal.json";
+/** Files written after the migration finished by more than this are treated as new user data (mtime granularity). */
+export const MTIME_SLACK_MS = 1000;
+export interface Manifest {
 	version: 1;
 	date: string;
 	oldHome: string;
 	newHome: string;
 	source: string;
 	moved: boolean;
+	/** Set only once the data migration completed; rollback compares file mtimes against it. */
+	finishedAt?: string;
 }
-const notSocket = async (path: string) => !(await lstat(path)).isSocket();
-const copyTree = (from: string, to: string) =>
-	cp(from, to, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true, filter: notSocket });
+interface Journal {
+	version: 1;
+	oldHome: string;
+	newHome: string;
+	tempLink: string;
+	backup?: string;
+}
+export const suffix = () => randomBytes(4).toString("hex");
+
+/**
+ * The backup skips socket nodes and the lock directory on purpose. Sockets (control.sock, channel sockets such as
+ * .yonder/plugins/channel-cli/*.sock) are runtime-only: a server recreates them on start and a copied node is dead.
+ * The lock directory belongs to whoever holds it and must not be resurrected by a restore.
+ */
+export const copyTree = (from: string, to: string) =>
+	cp(from, to, {
+		recursive: true,
+		preserveTimestamps: true,
+		verbatimSymlinks: true,
+		filter: async (path) => !(await lstat(path)).isSocket() && path !== join(from, ".yonder/lock"),
+	});
 
 async function writeKeepingMode(file: string, text: string) {
-	const temporary = `${file}.${process.pid}.tmp`;
-	await writeFile(temporary, text, { mode: (await stat(file)).mode & 0o777 });
-	await rename(temporary, file);
+	const temporary = `${file}.${suffix()}.tmp`;
+	try {
+		const mode = (await stat(file)).mode & 0o777;
+		await writeFile(temporary, text, { flag: "wx" });
+		await chmod(temporary, mode);
+		await rename(temporary, file);
+	} finally {
+		await rm(temporary, { force: true });
+	}
+}
+
+/** Take the same home lock the service holds, so a server cannot start (or be running) mid-migration. */
+export async function lockQuietly(home: string): Promise<(finalHome?: string) => Promise<void>> {
+	await mkdir(join(home, ".yonder"), { recursive: true });
+	let unlock: () => Promise<void>;
+	try {
+		// The directory is renamed under the lock; a failed heartbeat touch is expected there, not a crash.
+		unlock = await lockHome(home, () => {});
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ELOCKED")
+			throw new MigrateError(`目录被服务占用（${home}），请先 yonder stop`);
+		throw error;
+	}
+	return async (finalHome) => {
+		await unlock().catch(() => {});
+		if (finalHome) await rm(join(finalHome, ".yonder/lock"), { recursive: true, force: true });
+	};
+}
+
+export async function assertStopped(homes: string[], running: (home: string) => Promise<boolean>) {
+	for (const home of new Set(homes))
+		if (await running(home)) throw new MigrateError(`服务正在运行（${home}），请先 yonder stop`);
+}
+
+async function readJournal(home: string): Promise<Journal | undefined> {
+	try {
+		const journal = JSON.parse(await readFile(join(home, JOURNAL), "utf8")) as Journal;
+		return journal.version === 1 ? journal : undefined;
+	} catch {
+		return undefined;
+	}
+}
+async function findJournal({ oldHome, newHome }: Pick<MigrateOptions, "oldHome" | "newHome">) {
+	for (const home of [newHome, oldHome]) {
+		const journal = await readJournal(home);
+		if (journal && journal.oldHome === oldHome && journal.newHome === newHome) return { home, journal };
+	}
+	return undefined;
+}
+const ownTempLink = (journal: Journal) =>
+	dirname(journal.tempLink) === dirname(journal.oldHome) &&
+	basename(journal.tempLink).startsWith(`${basename(journal.oldHome)}.migrate-`);
+
+/**
+ * A crash between rename(old→new) and the symlink leaves new without a link at old. The journal says which half-done
+ * state this is: still in old (nothing moved: drop it) or in new (moved: finish the link). Returns a note if it acted.
+ */
+async function recoverInterrupted(options: MigrateOptions): Promise<string | undefined> {
+	const found = await findJournal(options);
+	if (!found) return undefined;
+	const { oldHome, newHome } = options;
+	const { journal } = found;
+	await assertStopped([oldHome, newHome], options.running ?? homeLocked);
+	if (!ownTempLink(journal)) throw new MigrateError(`迁移日志无效，请人工检查：${join(found.home, JOURNAL)}`);
+	if (found.home === newHome) {
+		const kind = await probe(oldHome);
+		if (kind === "absent") {
+			if ((await probe(journal.tempLink)) === "symlink") await rename(journal.tempLink, oldHome);
+			else await symlink(newHome, oldHome);
+		} else if (kind !== "symlink" || (await realpath(oldHome).catch(() => "")) !== (await realpath(newHome)))
+			throw new MigrateError(`上次迁移中断，且旧路径已被占用，请人工处理：${oldHome}`);
+		await rm(journal.tempLink, { force: true });
+		await unlink(join(newHome, JOURNAL));
+		return `已收尾上次中断的迁移：${oldHome} → ${newHome} 符号链接已补上`;
+	}
+	if ((await probe(newHome)) !== "absent") return undefined;
+	await rm(journal.tempLink, { force: true });
+	await unlink(join(oldHome, JOURNAL));
+	return "已清理上次中断迁移留下的日志（数据未移动）";
 }
 
 export async function applyMigration(options: MigrateOptions): Promise<MigrationResult> {
+	const running = options.running ?? homeLocked;
+	const recovered = await recoverInterrupted(options);
 	const plan = await planMigration(options);
 	if (plan.status === "blocked") throw new MigrateError(`无法迁移：\n${plan.conflicts.join("\n")}`);
-	if (plan.status === "noop") return { ...plan, applied: false, launchdErrors: [] };
+	if (plan.status === "noop")
+		return {
+			...plan,
+			lines: recovered ? [recovered] : plan.lines,
+			applied: recovered !== undefined,
+			launchdErrors: [],
+			launchdDone: [],
+			launchdPending: [],
+		};
 	const date = stamp(options.now ?? new Date());
 	const { oldHome, newHome } = options;
-	const launchdErrors: string[] = [];
+	let backup: string | undefined;
 	let home = plan.source;
-	if (plan.backup && plan.source) {
-		await mkdir(plan.backup, { recursive: true });
-		await copyTree(plan.source, join(plan.backup, "home"));
-		const manifest: Manifest = {
-			version: 1,
-			date,
-			oldHome,
-			newHome,
-			source: plan.source,
-			moved: plan.moving,
-		};
-		await writeFile(join(plan.backup, MANIFEST), `${JSON.stringify(manifest, null, "\t")}\n`);
-	}
+	const release = plan.source ? await lockQuietly(plan.source) : async () => {};
+	const undo: Array<() => Promise<void>> = [];
+	const scratch: string[] = [];
+	let moved = false;
 	try {
-		if (plan.moving) {
-			await mkdir(dirname(newHome), { recursive: true });
-			await rename(oldHome, newHome);
-			await symlink(newHome, oldHome);
-			home = newHome;
-		}
-		if (home) {
-			for (const file of await yamlFiles(home)) {
-				let text: string;
-				try {
-					text = await readFile(file, "utf8");
-				} catch (error) {
-					if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
-					throw error;
-				}
-				const rewritten = rewriteText(text);
-				if (!rewritten.count) continue;
-				await copyFile(file, await uniquePath(`${file}.pre-migrate-${date}`), constants.COPYFILE_EXCL);
-				await writeKeepingMode(file, rewritten.text);
+		// Lock held: nothing can start now, but a server that was already up still owns control.sock.
+		await assertStopped([oldHome, newHome], running);
+		try {
+			if (plan.backup && plan.source) {
+				backup = await uniquePath(plan.backup);
+				await mkdir(backup);
+				await copyTree(plan.source, join(backup, "home"));
+				const manifest: Manifest = {
+					version: 1,
+					date,
+					oldHome,
+					newHome,
+					source: plan.source,
+					moved: plan.moving,
+				};
+				await writeFile(join(backup, MANIFEST), `${JSON.stringify(manifest, null, "\t")}\n`);
 			}
-			for (const item of plan.renames) await rename(item.from, item.to);
+		} catch (error) {
+			if (backup) await rm(backup, { recursive: true, force: true });
+			throw error;
 		}
-	} catch (error) {
-		throw new MigrateError(
-			`迁移中断：${error instanceof Error ? error.message : String(error)}${plan.backup ? `\n可用 yonder migrate --rollback ${plan.backup} 恢复` : ""}`,
-		);
+		try {
+			if (plan.moving) {
+				// Link at a temp name first, then two renames: old is never missing for longer than one rename.
+				const tempLink = join(dirname(oldHome), `${basename(oldHome)}.migrate-${suffix()}`);
+				scratch.push(tempLink);
+				await mkdir(dirname(newHome), { recursive: true });
+				const journal: Journal = { version: 1, oldHome, newHome, tempLink, ...(backup ? { backup } : {}) };
+				await writeFile(join(oldHome, JOURNAL), `${JSON.stringify(journal, null, "\t")}\n`);
+				undo.push(async () => {
+					await rm(join(moved ? newHome : oldHome, JOURNAL), { force: true });
+				});
+				await symlink(newHome, tempLink);
+				await assertStopped([oldHome, newHome], running);
+				await rename(oldHome, newHome);
+				moved = true;
+				undo.push(async () => {
+					if ((await probe(oldHome)) === "symlink") await unlink(oldHome);
+					if ((await probe(oldHome)) === "absent") await rename(newHome, oldHome);
+				});
+				await rename(tempLink, oldHome);
+				home = newHome;
+			}
+			if (home) {
+				for (const file of await yamlFiles(home)) {
+					let text: string;
+					try {
+						text = await readFile(file, "utf8");
+					} catch (error) {
+						if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+						throw error;
+					}
+					const rewritten = rewriteText(text);
+					if (!rewritten.count) continue;
+					const original = await uniquePath(`${file}.pre-migrate-${date}`);
+					await copyFile(file, original, constants.COPYFILE_EXCL);
+					undo.unshift(() => rename(original, file));
+					await writeKeepingMode(file, rewritten.text);
+				}
+				for (const item of plan.renames) {
+					await rename(item.from, item.to);
+					undo.unshift(() => rename(item.to, item.from));
+				}
+				if (moved) await unlink(join(home, JOURNAL));
+				if (backup)
+					await writeFile(
+						join(backup, MANIFEST),
+						`${JSON.stringify({ ...(JSON.parse(await readFile(join(backup, MANIFEST), "utf8")) as Manifest), finishedAt: new Date().toISOString() }, null, "\t")}\n`,
+					);
+			}
+		} catch (error) {
+			const failed: string[] = [];
+			// Content steps were unshifted (newest first); the journal and home-move undos follow, in that order.
+			for (const step of undo)
+				await step().catch((e: unknown) => failed.push(e instanceof Error ? e.message : String(e)));
+			throw new MigrateError(
+				`迁移中断，已${failed.length ? "尝试" : ""}还原：${error instanceof Error ? error.message : String(error)}${failed.length ? `\n还原未完全成功：${failed.join("；")}` : ""}${backup ? `\n可用 yonder migrate --rollback ${backup} 恢复；也可重跑 yonder migrate --apply 检查未完成状态` : ""}`,
+			);
+		}
+	} finally {
+		await Promise.all(scratch.map((path) => rm(path, { force: true })));
+		await release(home);
 	}
 	const run = options.run ?? defaultRun;
+	const launchdErrors: string[] = [];
+	const launchdDone: string[][] = [];
 	for (const command of plan.commands)
 		try {
 			await run(command);
+			launchdDone.push(command);
 		} catch (error) {
-			launchdErrors.push(`${command.join(" ")}: ${error instanceof Error ? error.message : String(error)}`);
+			launchdErrors.push(`${shellLine(command)}: ${error instanceof Error ? error.message : String(error)}`);
 			break;
 		}
-	return { ...plan, applied: true, launchdErrors };
-}
-
-export async function rollbackMigration(
-	backup: string,
-	options: Pick<MigrateOptions, "running"> & { apply?: boolean } = {},
-): Promise<{ restored: string; lines: string[]; applied: boolean }> {
-	let manifest: Manifest;
-	try {
-		manifest = JSON.parse(await readFile(join(backup, MANIFEST), "utf8")) as Manifest;
-	} catch {
-		throw new MigrateError(`不是有效的迁移备份：${backup}`);
-	}
-	if (manifest.version !== 1 || !(await exists(join(backup, "home"))))
-		throw new MigrateError(`不是有效的迁移备份：${backup}`);
-	const running = options.running ?? homeLocked;
-	for (const home of new Set([manifest.oldHome, manifest.newHome]))
-		if (await running(home)) throw new MigrateError(`服务正在运行（${home}），请先 yonder stop`);
-	const lines: string[] = [];
-	const kind = await probe(manifest.oldHome);
-	if (manifest.moved) {
-		if (kind !== "symlink" && kind !== "absent")
-			throw new MigrateError(`旧路径已存在真实内容，拒绝覆盖：${manifest.oldHome}`);
-		lines.push(`移除 ${manifest.newHome} 与旧路径符号链接`);
-	} else lines.push(`清空 ${manifest.source}`);
-	lines.push(`从 ${backup}/home 恢复 ${manifest.source}（迁移后产生的新数据会丢失）`);
-	lines.push("launchd 标签改名不会自动回滚；如已执行，请手动恢复旧标签");
-	if (!options.apply) return { restored: manifest.source, lines, applied: false };
-	if (manifest.moved) {
-		if (kind === "symlink") await unlink(manifest.oldHome);
-		await rm(manifest.newHome, { recursive: true, force: true });
-	} else await rm(manifest.source, { recursive: true, force: true });
-	await mkdir(dirname(manifest.source), { recursive: true });
-	await copyTree(join(backup, "home"), manifest.source);
-	return { restored: manifest.source, lines, applied: true };
+	return {
+		...plan,
+		...(backup ? { backup } : {}),
+		applied: true,
+		launchdErrors,
+		launchdDone,
+		launchdPending: plan.commands.slice(launchdDone.length),
+	};
 }

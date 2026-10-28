@@ -1,10 +1,26 @@
 import { execFileSync } from "node:child_process";
-import { lstat, mkdir, mkdtemp, readdir, readFile, readlink, rm, writeFile } from "node:fs/promises";
+import {
+	chmod,
+	lstat,
+	mkdir,
+	mkdtemp,
+	readdir,
+	readFile,
+	readlink,
+	rename,
+	rm,
+	stat,
+	symlink,
+	utimes,
+	writeFile,
+} from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { serveControl } from "@yonder/core";
 import { afterEach, expect, test } from "vitest";
-import { applyMigration, MigrateError, planMigration, rewriteText, rollbackMigration } from "./migrate.js";
+import { applyMigration, MigrateError, planMigration, rewriteText } from "./migrate.js";
+import { formatMigration, rollbackMigration } from "./migrate-rollback.js";
 
 const roots: string[] = [];
 afterEach(async () => Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))));
@@ -121,6 +137,28 @@ test("launchd commands are printed in the plan and only run on apply", async () 
 	expect(ran).toEqual(plan.commands);
 });
 
+test("a launchd failure is reported apart from the finished data migration, with exact recovery commands", async () => {
+	const { root, options, oldHome, newHome } = await fixture();
+	const daemons = join(root, "LaunchDaemons");
+	await mkdir(daemons);
+	await writeFile(join(daemons, "dev.yonder.harness.power.plist"), "x");
+	let n = 0;
+	const run = async () => {
+		if (++n === 2) throw new Error("boom");
+	};
+	const result = await applyMigration({ ...options, launchd: { daemons, helpers: join(root, "none") }, run });
+	expect(result.applied).toBe(true);
+	expect(await readlink(oldHome)).toBe(newHome);
+	expect(result.launchdDone).toHaveLength(1);
+	expect(result.launchdPending.map((c) => c[0])).toEqual(["sed", "mv", "launchctl"]);
+	const text = formatMigration(result);
+	expect(text).toContain("数据迁移：已完成");
+	expect(text).toContain("launchd：已执行 1/4 条，失败：");
+	expect(text).toContain(
+		`sudo sed -i '' 's/dev\\.yonder\\.harness\\.power/dev.yonder.power/g' ${join(daemons, "dev.yonder.harness.power.plist")}`,
+	);
+});
+
 test("conflicts block: both homes real, or plugin state target present", async () => {
 	const { options, newHome } = await fixture();
 	await mkdir(newHome, { recursive: true });
@@ -128,19 +166,166 @@ test("conflicts block: both homes real, or plugin state target present", async (
 	await expect(applyMigration(options)).rejects.toThrow("无法迁移");
 });
 
-test("CLI: migrate defaults to dry-run and rejects bad flags under an isolated HOME", async () => {
+test("secret file modes survive apply and rollback", async () => {
+	const { options, oldHome, newHome } = await fixture();
+	await writeFile(join(oldHome, "auth.json"), "{}", { mode: 0o600 });
+	await chmod(join(oldHome, "auth.json"), 0o600);
+	const { backup } = await applyMigration(options);
+	expect((await stat(join(newHome, "auth.json"))).mode & 0o777).toBe(0o600);
+	expect((await stat(join(newHome, "yonder.yaml"))).mode & 0o777).toBe(
+		(await stat(join(newHome, "yonder.yaml.pre-migrate-20261028"))).mode & 0o777,
+	);
+	await rollbackMigration(backup as string, { apply: true });
+	expect((await stat(join(oldHome, "auth.json"))).mode & 0o777).toBe(0o600);
+});
+
+test("runtime sockets are left out of the backup on purpose", async () => {
+	const { options, oldHome } = await fixture();
+	// Bind in a short path (unix socket limit), then move the bound node into the home.
+	const short = join("/tmp", `ym-${process.pid}.sock`);
+	const server = createServer();
+	await new Promise<void>((done) => server.listen(short, done));
+	await mkdir(join(oldHome, ".yonder"), { recursive: true });
+	await rename(short, join(oldHome, ".yonder/runtime.sock"));
+	try {
+		expect((await lstat(join(oldHome, ".yonder/runtime.sock"))).isSocket()).toBe(true);
+		const { backup } = await applyMigration(options);
+		await expect(lstat(join(backup as string, "home/.yonder/runtime.sock"))).rejects.toThrow();
+		expect(await readFile(join(backup as string, "home/yonder.yaml"), "utf8")).toBe(YAML);
+	} finally {
+		server.close();
+	}
+});
+
+test("a held home lock (the service's own) blocks apply", async () => {
+	const { options, oldHome } = await fixture();
+	const { lockHome } = await import("@yonder/core");
+	await mkdir(join(oldHome, ".yonder"), { recursive: true });
+	const unlock = await lockHome(oldHome);
+	try {
+		await expect(applyMigration(options)).rejects.toThrow("被服务占用");
+		expect((await lstat(oldHome)).isSymbolicLink()).toBe(false);
+	} finally {
+		await unlock();
+	}
+});
+
+test("half-done move (crash between the two renames) is finished by a rerun", async () => {
+	const { options, oldHome, newHome, root } = await fixture();
+	const tempLink = `${oldHome}.migrate-deadbeef`;
+	await writeFile(join(oldHome, ".migrate-journal.json"), JSON.stringify({ version: 1, oldHome, newHome, tempLink }));
+	await mkdir(join(root, "yonder"), { recursive: true });
+	await rename(oldHome, newHome);
+	await symlink(newHome, tempLink);
+	await expect(lstat(oldHome)).rejects.toThrow();
+	const dry = await planMigration(options);
+	expect(dry.lines.join("\n")).toContain("中断");
+	const result = await applyMigration(options);
+	expect(result.applied).toBe(true);
+	expect(await readlink(oldHome)).toBe(newHome);
+	await expect(lstat(tempLink)).rejects.toThrow();
+	await expect(lstat(join(newHome, ".migrate-journal.json"))).rejects.toThrow();
+	expect(await readFile(join(newHome, "yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
+});
+
+test("journal left before the move (nothing moved) is cleared and the move proceeds", async () => {
+	const { options, oldHome, newHome } = await fixture();
+	const tempLink = `${oldHome}.migrate-deadbeef`;
+	await symlink(newHome, tempLink);
+	await writeFile(join(oldHome, ".migrate-journal.json"), JSON.stringify({ version: 1, oldHome, newHome, tempLink }));
+	await applyMigration(options);
+	expect(await readlink(oldHome)).toBe(newHome);
+	await expect(lstat(tempLink)).rejects.toThrow();
+});
+
+test("a failure mid-apply puts the home back at the old path", async () => {
+	const { options, oldHome, newHome } = await fixture();
+	// The plugin-state rename is the last step; a read-only parent makes it fail after the yaml rewrites.
+	await chmod(join(oldHome, ".yonder/plugins"), 0o555);
+	try {
+		await expect(applyMigration(options)).rejects.toThrow("迁移中断");
+	} finally {
+		await chmod(join(oldHome, ".yonder/plugins"), 0o755);
+		await chmod(join(dirname(oldHome), "home.backup-20261028/home/.yonder/plugins"), 0o755);
+	}
+	expect((await lstat(oldHome)).isDirectory()).toBe(true);
+	await expect(lstat(newHome)).rejects.toThrow();
+	expect(await readFile(join(oldHome, "yonder.yaml"), "utf8")).toBe(YAML);
+	expect((await readdir(oldHome)).filter((n) => n.startsWith(".migrate-") || n.includes("pre-migrate"))).toEqual([]);
+	expect((await readdir(dirname(oldHome))).filter((n) => n.includes(".migrate-"))).toEqual([]);
+});
+
+test("a server appearing just before the rename aborts cleanly and leaves no journal or temp link", async () => {
+	const { options, oldHome, newHome } = await fixture();
+	let calls = 0;
+	// plan checks two homes, the post-lock check two more; the recheck right before rename is the fifth call.
+	const running = async () => ++calls > 4;
+	await expect(applyMigration({ ...options, running })).rejects.toThrow("迁移中断");
+	expect((await lstat(oldHome)).isDirectory()).toBe(true);
+	await expect(lstat(newHome)).rejects.toThrow();
+	expect((await readdir(oldHome)).includes(".migrate-journal.json")).toBe(false);
+	expect((await readdir(dirname(oldHome))).filter((n) => n.includes(".migrate-"))).toEqual([]);
+});
+
+test("rollback refuses data written after the migration unless --force", async () => {
+	const { options, oldHome, newHome } = await fixture();
+	const { backup } = await applyMigration(options);
+	await new Promise((r) => setTimeout(r, 1100));
+	await writeFile(join(newHome, "later.txt"), "new data");
+	await expect(rollbackMigration(backup as string, { apply: true })).rejects.toThrow("--force");
+	expect((await lstat(oldHome)).isSymbolicLink()).toBe(true);
+	expect(await readFile(join(newHome, "later.txt"), "utf8")).toBe("new data");
+	await rollbackMigration(backup as string, { apply: true, force: true });
+	expect((await lstat(oldHome)).isDirectory()).toBe(true);
+	await expect(lstat(join(oldHome, "later.txt"))).rejects.toThrow();
+	await expect(lstat(newHome)).rejects.toThrow();
+});
+
+test("rollback refuses when the old path is not the symlink to new", async () => {
+	const { options, oldHome } = await fixture();
+	const { backup } = await applyMigration(options);
+	await rm(oldHome);
+	await mkdir(oldHome);
+	await expect(rollbackMigration(backup as string, { apply: true })).rejects.toThrow("拒绝回滚");
+	await utimes(oldHome, new Date(), new Date());
+});
+
+test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH", async () => {
 	const home = await mkdtemp(join(tmpdir(), "ymigrate-cli-"));
 	roots.push(home);
-	await mkdir(join(home, ".local/share/yonder-harness/home"), { recursive: true });
-	await writeFile(join(home, ".local/share/yonder-harness/home/yonder.yaml"), YAML);
+	const share = join(home, ".local/share");
+	await mkdir(join(share, "yonder-harness/home"), { recursive: true });
+	await writeFile(join(share, "yonder-harness/home/yonder.yaml"), YAML);
+	// Real executables, not a mock library. mv/sed are no-ops too so the real /Library is never touched
+	// even on a Mac that still has the old power plist.
+	const bin = join(home, "bin");
+	const log = join(home, "calls.log");
+	await mkdir(bin);
+	for (const name of ["launchctl", "mv", "sed"]) {
+		await writeFile(join(bin, name), `#!/bin/sh\necho "${name} $*" >> '${log}'\nexit 0\n`, { mode: 0o755 });
+	}
 	const run = (...args: string[]) =>
 		execFileSync(process.execPath, [resolve("packages/cli/dist/index.js"), "migrate", ...args], {
 			encoding: "utf8",
-			env: { ...process.env, HOME: home, YONDER_HOME: "" },
+			env: { ...process.env, HOME: home, YONDER_HOME: "", PATH: bin + delimiter + dirname(process.execPath) },
 		});
 	expect(run()).toContain("dry-run");
-	expect((await lstat(join(home, ".local/share/yonder-harness/home"))).isSymbolicLink()).toBe(false);
-	// --apply is covered against injected paths above: through the CLI it would also run the
-	// real launchctl commands on a Mac that has the power helper installed.
+	expect((await lstat(join(share, "yonder-harness/home"))).isSymbolicLink()).toBe(false);
+	const out = run("--apply");
+	expect(out).toContain("数据迁移：已完成");
+	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
+	expect(await readFile(join(share, "yonder/home/yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
+	const calls = await readFile(log, "utf8").catch(() => "");
+	if (
+		await stat("/Library/LaunchDaemons/dev.yonder.harness.power.plist").then(
+			() => true,
+			() => false,
+		)
+	)
+		expect(calls).toContain("launchctl bootout system/dev.yonder.harness.power");
+	else expect(calls).toBe("");
+	expect(run("--apply")).toContain("数据迁移");
+	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
 	expect(() => run("--rollback")).toThrow();
+	expect(() => run("--force")).toThrow();
 });
