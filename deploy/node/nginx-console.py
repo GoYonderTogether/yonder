@@ -62,7 +62,6 @@ def transform(text: str, mode: str, port: str, origin_host: str) -> str:
                 loc = re.search(r"(?m)^[ \t]*location\s", text[start:close])
                 pos = start + loc.start() if loc else close
                 return text[:pos] + block + text[pos:]
-                return text[:i - 0] + "\n" + block.rstrip("\n") + "\n" + text[i:]
     raise LookupError(f"no server block with server_name {origin_host!r}")
 
 
