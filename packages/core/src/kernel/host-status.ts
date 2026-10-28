@@ -56,12 +56,13 @@ export function hostService(
 		loaded: LoadedPlugins;
 		agents: Map<string, AgentConfig>;
 		services: { models: Models };
-		manageCredentialSlots(home: string, action: "list"): Promise<unknown>;
 	},
 ): PluginAPI["host"] {
 	return {
 		async status(ctx) {
-			const { runtime, loaded, services, manageCredentialSlots } = deps();
+			const { runtime, loaded, services } = deps();
+			// Lazy: index.ts imports this module.
+			const { manageCredentialSlots } = await import("./index.js");
 			runtime.assertToolContext(ctx);
 			const { resolved } = await runtime.sessionConfig(ctx.session);
 			if (!resolved.capabilities.includes("admin")) throw new Error("Host status requires admin");
