@@ -321,7 +321,7 @@ export function createRouter({
 			const mapping = selected?.mapping;
 			const decision = policyAgent && socialDecision(policyAgent, event, person, channels?.get(instance ?? ""));
 			if (decision) diagnostics.push({ agent: agent.id, reason: decision.reason, revision: decision.revision });
-			if (decision && !decision.run) {
+			if (decision && !decision.run && decision.reason !== "batch") {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
@@ -362,7 +362,13 @@ export function createRouter({
 			const data = event.data as { mentioned?: unknown; social?: { mentions?: { bot?: boolean } } };
 			const mentioned = decision ? (data.social?.mentions?.bot ?? data.mentioned) === true : data.mentioned === true;
 			const wake: Wake =
-				(binding.wake ?? "run") === "mention" && !mentioned ? "write" : binding.wake === "write" ? "write" : "run";
+				decision?.reason === "batch"
+					? "write"
+					: (binding.wake ?? "run") === "mention" && !mentioned
+						? "write"
+						: binding.wake === "write"
+							? "write"
+							: "run";
 			routes.push({
 				agent: agent.id,
 				binding: binding.id,

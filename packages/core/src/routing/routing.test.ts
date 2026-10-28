@@ -312,6 +312,8 @@ bindings:
 		const owner2 = await emit("acct:other:owner", "conv:other:owner", "dm");
 		const group = await emit("acct:chat:owner", "conv:chat:group", "group", { mentioned: true });
 		const group2 = await emit("acct:chat:user", "conv:chat:group2", "group", { mentioned: true });
+		const batched = await emit("acct:chat:user", "conv:chat:group", "group");
+		expect(batched.routes?.[0]?.wake).toBe("write");
 		const stranger = await emit("acct:chat:user", "conv:chat:private", "dm");
 		expect(owner1.routes?.[0]?.session).toBe(owner2.routes?.[0]?.session);
 		expect(group.routes?.[0]?.binding).toBe("group");
@@ -320,7 +322,7 @@ bindings:
 		);
 		expect(stranger.routes?.[0]?.session).toBeUndefined();
 		const events = await store.events.query({ limit: 100 });
-		expect(events.events.filter((e) => e.type === "routing.social-decision")).toHaveLength(5);
+		expect(events.events.filter((e) => e.type === "routing.social-decision")).toHaveLength(6);
 	} finally {
 		await db.close();
 	}
