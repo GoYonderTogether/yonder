@@ -3,6 +3,7 @@ import { Type } from "typebox";
 import { astGrepSearch } from "./ast-grep-search.js";
 import { diagnosticMark, sessionDiagnostics } from "./diagnostic-mark.js";
 import { effectiveConfig } from "./effective-config.js";
+import { startLens, stopLens } from "./lens-mcp.js";
 import { lspNavigation } from "./lsp-navigation.js";
 import { moduleReport } from "./module-report.js";
 import { outline } from "./outline.js";
@@ -38,6 +39,15 @@ async function run(ctx: ToolContext, args: string[], cwd: string) {
 
 export default definePlugin({
 	setup(api) {
+		api.triggers.register({
+			id: "code-intel-cleanup",
+			async start() {
+				startLens();
+			},
+			async stop() {
+				await stopLens();
+			},
+		});
 		api.tools.register({
 			name: "code-intel_module_report",
 			description: "Outline a source file with symbols, callbacks and recommended reads using pi-lens.",
