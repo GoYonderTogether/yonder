@@ -68,7 +68,10 @@
 	"repository": "https://github.com/GoYonderTogether/yonder",
 	"version": "0.3.26102802",
 	"overrides": {
-		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"
+		"@earendil-works/pi-ai": "$@earendil-works/pi-ai",
+		"body-parser": "2.4.0",
+		"fast-uri": "3.1.9",
+		"undici": "8.12.2"
 	},
 	"dependencies": {
 		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-4dd234409db5a84c54530157c08a49de6a89f4b8-2d9bf64bf3cb.tgz"
