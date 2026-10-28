@@ -202,8 +202,9 @@ test("device flow, private token, agent identity, direct metadata and ack after 
 		{ key: "main", name: "Main", avatarUrl: "https://cdn.yonder.cn/main.png" },
 		{ key: "other", name: "Other", avatarUrl: null },
 	]);
-	expect((await stat(f.data)).mode & 0o777).toBe(0o700);
-	expect((await stat(join(f.data, "card-local.json"))).mode & 0o777).toBe(0o600);
+	// Windows does not expose POSIX permission bits.
+	if (process.platform !== "win32") expect((await stat(f.data)).mode & 0o777).toBe(0o700);
+	if (process.platform !== "win32") expect((await stat(join(f.data, "card-local.json"))).mode & 0o777).toBe(0o600);
 	expect(await readFile(join(f.data, "card-local.json"), "utf8")).toContain("contract-token");
 	let release!: () => void;
 	f.setAccept(
@@ -365,9 +366,10 @@ test.each([
 		auth: "Bearer contract-token",
 	});
 	await vi.waitFor(() => expect(f.frames.some((frame) => frame.type === "hello")).toBe(true));
-	expect((await stat(f.data)).mode & 0o777).toBe(0o700);
+	// Windows does not expose POSIX permission bits.
+	if (process.platform !== "win32") expect((await stat(f.data)).mode & 0o777).toBe(0o700);
 	const file = join(f.data, "card-local.json");
-	expect((await stat(file)).mode & 0o777).toBe(0o600);
+	if (process.platform !== "win32") expect((await stat(file)).mode & 0o777).toBe(0o600);
 	expect(JSON.parse(await readFile(file, "utf8"))).toEqual({ endpoint: f.endpoint, token: "contract-token" });
 	expect(JSON.stringify([result, vi.mocked(f.api.log.warn).mock.calls, f.events])).not.toContain(code);
 	expect(JSON.stringify([result, vi.mocked(f.api.log.warn).mock.calls, f.events])).not.toContain("contract-token");

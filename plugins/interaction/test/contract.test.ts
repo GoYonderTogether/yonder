@@ -85,7 +85,8 @@ it("publishes one private desktop endpoint instead of launching a second applica
 	await service.start();
 	try {
 		expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ url: service.url, pid: process.pid });
-		expect((await stat(path)).mode & 0o777).toBe(0o600);
+		// Windows does not expose POSIX permission bits.
+		if (process.platform !== "win32") expect((await stat(path)).mode & 0o777).toBe(0o600);
 		expect((await fetch(service.url)).status).toBe(200);
 	} finally {
 		await service.stop();
