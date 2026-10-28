@@ -4,7 +4,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import plugin from "./index.js";
 
 // HTTP response/argument boundary checks only; no model, provider or external request.
-function tools(credential?: string) {
+function tools(credential?: string, cacheToolOutput?: ToolContext["cacheToolOutput"]) {
 	const { api, registrations } = createRegistrationCollector();
 	plugin.setup({
 		...api,
@@ -14,10 +14,32 @@ function tools(credential?: string) {
 	return (name: string, args: unknown, signal = new AbortController().signal) => {
 		const tool = registrations.tools.find((tool) => tool.name === `web-tools_${name}`);
 		if (!tool) throw new Error(`Missing tool ${name}`);
-		return Promise.resolve().then(() => tool.execute(args, { signal } as ToolContext));
+		return Promise.resolve().then(() => tool.execute(args, { signal, cacheToolOutput } as ToolContext));
 	};
 }
 afterEach(() => vi.unstubAllGlobals());
+
+test("caches redacted output and reports incomplete HTTP bodies and cache failures", async () => {
+	const cache = vi.fn().mockResolvedValue("/tmp/tool-output.json");
+	const http = vi
+		.fn()
+		.mockResolvedValue(new Response(JSON.stringify({ results: [{ raw_content: `${"x".repeat(70000)} secret` }] })));
+	vi.stubGlobal("fetch", http);
+	const result = await tools("secret", cache)("extract", { urls: ["https://example.org"] });
+	expect(result.text).toContain("/tmp/tool-output.json; use read to paginate or grep to search");
+	expect(cache.mock.calls[0]?.[0]).toContain("[REDACTED]");
+	expect(cache.mock.calls[0]?.[0]).not.toContain("secret");
+	expect(cache.mock.calls[0]?.[1]).toEqual({ extension: "json" });
+	http.mockResolvedValueOnce(
+		new Response("x".repeat(2 * 1024 * 1024 + 1), { headers: { "content-type": "text/plain" } }),
+	);
+	const partial = await tools(undefined, cache)("fetch", { url: "https://example.org" });
+	expect(partial.text).toContain("HTTP body exceeded 2 MiB, cached output is incomplete");
+	expect(JSON.parse(cache.mock.calls[1]?.[0] ?? "null").truncated).toBe(true);
+	cache.mockRejectedValueOnce(new Error("cache failed"));
+	http.mockResolvedValueOnce(new Response("x".repeat(70000), { headers: { "content-type": "text/plain" } }));
+	await expect(tools(undefined, cache)("fetch", { url: "https://example.org" })).rejects.toThrow("cache failed");
+});
 
 test("direct execute validates the declared schema before credentials or HTTP", async () => {
 	const http = vi.fn();

@@ -1,3 +1,11 @@
+import type { Attachment } from "./messages.js";
+
+export type * from "./messages.js";
+
+import type { ChannelFeatures, NotificationIntent, SocialAPI } from "./social.js";
+
+export type * from "./social.js";
+
 import type { Credential, Message, Models } from "@earendil-works/pi-ai";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { TSchema } from "typebox";
@@ -29,29 +37,6 @@ export interface Route {
 	busy?: "followup" | "steer" | "interrupt";
 	waiting?: boolean;
 	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch";
-}
-export interface Attachment {
-	kind: "image" | "audio" | "video" | "file";
-	mime: string;
-	uri: string;
-	name?: string;
-	bytes?: number;
-}
-export interface MessageInData {
-	kind: string;
-	text: string;
-	attachments?: Attachment[];
-	mentioned?: boolean;
-	msgId?: string;
-	/** Original channel send time in epoch milliseconds; event.ts is acceptance time. */
-	createdAt?: string;
-	replyTo?: string;
-	/** Quoted message the sender replied to, as the platform exposes it (text only). */
-	quote?: { text?: string };
-	name?: string;
-	target?: string;
-	/** Source event ids quoted by agent_ask (06 §6.1). */
-	sources?: string[];
 }
 export interface MessageOutData {
 	text: string;
@@ -263,6 +248,7 @@ export interface Channel {
 	id: string;
 	kinds: string[];
 	output: { stream: boolean; attachments: boolean };
+	features?: ChannelFeatures;
 	login?(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult>;
 	start(io: ChannelIO): Promise<void>;
 	stop(signal?: AbortSignal): Promise<void>;
@@ -290,6 +276,7 @@ export interface AskResult {
 	results: RunResult[];
 }
 export interface OutMessage {
+	notification?: NotificationIntent;
 	text: string;
 	/** Automatic reply source; explicit replyTo still forces a quoted reply. */
 	sourceMessageId?: string;
@@ -333,6 +320,7 @@ export interface ToolContext {
 	/** Actual inputs of this native run, including placed steer inputs. */
 	events?: YEvent[];
 	signal: AbortSignal;
+	cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;
 }
 export interface ToolResult {
 	text: string;
@@ -351,6 +339,7 @@ export interface RenderContext {
 	profile: string;
 	session: string;
 	workspace: { read(path: string): Promise<string | undefined> };
+	projectRules?: () => Promise<Array<{ path: string; content: string }>>;
 	event?: YEvent;
 	signal?: AbortSignal;
 }
@@ -435,6 +424,7 @@ export interface PermissionsAPI {
 	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
 }
 export interface PluginAPI extends PluginViewsAPI {
+	social?: SocialAPI;
 	permissions: PermissionsAPI;
 	agents: { list(): Promise<{ id: string; name: string; avatarUrl?: string }[]> };
 	readonly version: string;
@@ -469,6 +459,7 @@ export interface PluginAPI extends PluginViewsAPI {
 				text: string;
 				replyTo?: string;
 				attachments?: Attachment[];
+				notification?: NotificationIntent;
 				signal?: AbortSignal;
 				/** Program delivery on behalf of this stored execution owner; revalidated by core. */
 				owner?: ExecutionOwner;

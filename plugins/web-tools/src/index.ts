@@ -1,5 +1,5 @@
 import { Readability } from "@mozilla/readability";
-import { definePlugin, type PluginAPI, type Tool, type TSchema } from "@yonder/sdk";
+import { definePlugin, type PluginAPI, type Tool, type ToolContext, type TSchema } from "@yonder/sdk";
 import { parseHTML } from "linkedom";
 import TurndownService from "turndown";
 import { Check } from "typebox/value";
@@ -22,11 +22,13 @@ function object(value: unknown): Record<string, unknown> {
 	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Arguments must be an object");
 	return value as Record<string, unknown>;
 }
-function output(value: object, key?: string) {
+async function output(value: object, ctx: ToolContext, key?: string, bodyTruncated = false) {
 	let text = JSON.stringify(value, null, 2);
 	if (key) text = text.split(key).join("[REDACTED]");
-	if (Buffer.byteLength(text) > MAX_OUTPUT)
-		text = `${Buffer.from(text).subarray(0, MAX_OUTPUT).toString("utf8")}\n[truncated: output limit 65536 bytes]`;
+	if (Buffer.byteLength(text) > MAX_OUTPUT) {
+		const path = await ctx.cacheToolOutput?.(text, { extension: "json" });
+		text = `${Buffer.from(text).subarray(0, MAX_OUTPUT).toString("utf8")}\n[truncated: output limit 65536 bytes; ${bodyTruncated ? "HTTP body exceeded 2 MiB, cached output is incomplete; " : ""}${path ? `cached at ${path}; use read to paginate or grep to search` : "cache unavailable"}]`;
+	}
 	return { text };
 }
 async function readBody(response: Response): Promise<{ text: string; truncated: boolean }> {
@@ -51,7 +53,8 @@ async function readBody(response: Response): Promise<{ text: string; truncated: 
 	}
 	return { text: Buffer.concat(chunks).toString("utf8"), truncated };
 }
-async function tavily(api: PluginAPI, credential: string, path: string, body: object, signal: AbortSignal) {
+async function tavily(api: PluginAPI, credential: string, path: string, body: object, ctx: ToolContext) {
+	const signal = ctx.signal;
 	const auth = await api.credentials.get(credential);
 	if (auth?.type !== "api_key" || !auth.key) throw new Error(`TAVILY_CREDENTIAL_MISSING: ${credential}`);
 	try {
@@ -70,7 +73,7 @@ async function tavily(api: PluginAPI, credential: string, path: string, body: ob
 		const data = object(JSON.parse(result.text));
 		if (!Array.isArray(data.results)) throw new Error("TAVILY_INVALID_RESPONSE");
 		return {
-			...output({ supplier: "tavily", ...data }, auth.key),
+			...(await output({ supplier: "tavily", ...data }, ctx, auth.key)),
 			...(path === "extract" &&
 			!(data.results as unknown[]).some(
 				(item) =>
@@ -132,7 +135,7 @@ export default definePlugin({
 				};
 				for (const field of ["time_range", "include_domains", "exclude_domains"])
 					if (a[field] !== undefined) body[field] = a[field];
-				return tavily(api, credential, "search", body, ctx.signal);
+				return tavily(api, credential, "search", body, ctx);
 			},
 		);
 		register(
@@ -157,7 +160,7 @@ export default definePlugin({
 						extract_depth: a.depth ?? "basic",
 						format: a.format ?? "markdown",
 					},
-					ctx.signal,
+					ctx,
 				);
 			},
 		);
@@ -195,13 +198,16 @@ export default definePlugin({
 						!mime.endsWith("+json")
 					) {
 						await response.body?.cancel();
-						return output({
-							source: "http-get",
-							url: url.href,
-							mime,
-							status: "unsupported_binary",
-							download: url.href,
-						});
+						return output(
+							{
+								source: "http-get",
+								url: url.href,
+								mime,
+								status: "unsupported_binary",
+								download: url.href,
+							},
+							ctx,
+						);
 					}
 					const body = await readBody(response);
 					let content = body.text;
@@ -236,7 +242,12 @@ export default definePlugin({
 									? article.textContent
 									: markdown.turndown(article.content ?? "");
 					}
-					return output({ source: "http-get", url: url.href, mime, format, title, truncated: body.truncated, content });
+					return output(
+						{ source: "http-get", url: url.href, mime, format, title, truncated: body.truncated, content },
+						ctx,
+						undefined,
+						body.truncated,
+					);
 				}
 				throw new Error("Too many redirects (maximum 5)");
 			},
