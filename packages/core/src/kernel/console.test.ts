@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -97,6 +97,28 @@ test("an explicit console binding overrides the implicit one and no user binding
 		const sent = await kernel.bots.send("main", "hi");
 		const input = (await kernel.events.query({ id: sent.event })).events[0];
 		expect(input?.routes).toEqual([expect.objectContaining({ binding: "console", session: sent.session })]);
+	} finally {
+		await kernel.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60_000);
+
+test("a node has one owner: bots.list and bots.send only cover Bots owned by it, others log one warning", async () => {
+	const home = await homeWithProbe();
+	const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
+	config.identity = { ...(config.identity ?? {}), persons: [...(config.identity?.persons ?? []), { id: "guest", name: "Guest" }] };
+	config.agents.push({ id: "other", workspace: "agents/other" });
+	await writeFile(join(home, "yonder.yaml"), stringify(config));
+	await cp(join(home, "agents/main"), join(home, "agents/other"), { recursive: true });
+	const file = join(home, "agents/other/agent.yaml");
+	const agent = parse(await readFile(file, "utf8"));
+	await writeFile(file, stringify({ ...agent, id: "other", name: "Other", owner: "person:guest" }));
+	const logs: string[] = [];
+	const kernel = await openKernel(home, { log: (level, message) => level === "warn" && logs.push(message) });
+	try {
+		expect((await kernel.bots.list()).map((bot) => bot.agent)).toEqual(["main"]);
+		await expect(kernel.bots.send("other", "hi")).rejects.toThrow("Unknown bot");
+		expect(logs.filter((line) => line.includes("Bot other"))).toHaveLength(1);
 	} finally {
 		await kernel.close();
 		await rm(home, { recursive: true, force: true });

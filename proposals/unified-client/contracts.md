@@ -435,15 +435,17 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 控制台是一个内置渠道 `console`（内核内置，不是插件；`channels.console` 保留，配置它会报错）。它复用现有渠道/账号/绑定模型，不另开唤醒路径（架构不变量 2）。
 
 - **对端**：已认证的控制台用户即主人，账号 `acct:console:owner`，会话引用 `conv:console:<agent>`。内核启动时若该账号未关联，则关联到首个 Bot 的 `owner` 人（`from: owner` 由此成立）。
-- **绑定（零配置）**：`gateway.enabled` 不为 `false` 时，每个有 `session: main` 绑定（`wake` 不是 `write`）的非归档 Agent 在加载时获得一条内存绑定 `{id: console, match: {channel: console, kind: dm, from: owner}, session: main, profile: <该 main 绑定的 profile>}`，不写盘。profile 取自既有 main 绑定以满足 02 §2.4。`agent.yaml` 里显式写了 `channel: console` 的绑定则不注入，以显式为准。
-- **会话语义**：进入该 Agent 唯一的 `main` 会话，与 CLI、飞书、QQ 同一会话、同一记忆（02 §1.1）。回复走正常投递，渠道 `send` 只确认；前端用 `sessions.watch` 看回复，不需要新流。
+- **绑定（零配置）**：`gateway.enabled` 不为 `false` 时，每个有 `session: main` 绑定（`wake` 不是 `write`）的非归档 Agent 在加载时获得一条内存绑定 `{id: "@console", match: {channel: console, kind: dm, from: owner}, session: main, profile: <该 main 绑定的 profile>}`，不写盘。profile 取自既有 main 绑定以满足 02 §2.4。内置绑定用保留 id `@console`，用户绑定一律不被过滤；`agent.yaml` 里任何绑定若 id 为 `@console`，配置校验报错。`agent.yaml` 里显式写了 `channel: console` 的绑定则不注入，以显式为准。
+- **会话语义**：进入该 Agent 唯一的 `main` 会话，与 CLI、飞书、QQ 同一会话、同一记忆（02 §1.1）。控制台观看共享的 main 会话是有意设计：主人能看到自己 Bot 的全部对话。回复走正常投递，已在会话记录里；前端用 `sessions.watch` 看回复，不需要新流。主动消息（message_send / 插件发送）发往控制台对端时，渠道 `send` 不再静默确认，而是把消息写成该 Bot main 会话的通知事件（`sessions.notify` 同机制），`sessions.watch` 可见；找不到打开的 main 会话时返回发送失败。主动发送按「owner 最近活跃账号」选目标时，除非本轮输入来自控制台，否则不会选中控制台账号。
 - **不支持**：斜杠命令（`onCommand` 只对 `config.channels` 里的渠道生效）、渠道级流式。
 
 | 方法 | scope | params | result |
 |---|---|---|---|
-| `bots.list` | owner | `{}` | `{ bots: { agent: string; name: string; work?: string; session?: string }[] }`，`session` 是已打开的 main 会话 id，尚无则省略 |
+| `bots.list` | owner | `{}` | `{ bots: { agent: string; name: string; work?: string; session?: string }[] }`，`session` 是已打开的 main 会话 id，尚无则省略。只含 owner 等于**节点 owner** 的 Bot |
 | `bots.send` | owner | `{ agent: string; text: string; requestId?: string }` | `{ event: string; session: string; deduped?: boolean }`，`session` 即 `sessions.watch` 的 id |
 
-为什么不扩展 `sessions.submit`：它只接受 task 会话（spec 02 §5），Bot 输入必须经渠道与绑定。`bots.send` 把一条 `message.in` 交给 `console` 渠道，由 Agent 自己的绑定决定是否接收；无绑定、归档、`profile-mismatch` 时抛错（`Bot X did not accept the message (<dropped>)`），未知 Agent 抛 `Unknown bot`。`requestId` 在 `bot:<agent>` 下按 10 分钟去重，同 `sessions.submit`。
+为什么不扩展 `sessions.submit`：它只接受 task 会话（spec 02 §5），Bot 输入必须经渠道与绑定。`bots.send` 把一条 `message.in` 交给 `console` 渠道，由 Agent 自己的绑定决定是否接收；无绑定、归档、`profile-mismatch` 时抛错（`Bot X did not accept the message (<dropped>)`），未知 Agent 或不属于节点 owner 的 Agent 抛 `Unknown bot`。`requestId` 在 `bot:<agent>` 下按 10 分钟去重，同 `sessions.submit`。
+
+**节点 owner**：一个节点只有一个 owner，取首个控制台 Bot 的 `owner`。`bots.list` / `bots.send` 只覆盖 owner 与之相同的 Bot；其他 owner 的 Bot 被排除，每个启动时记一条 warn 日志。多 owner 需多个节点。
 
 **scope `owner`**：`Scope = read | write | admin | owner`。本机票据登录（`kind: local`）含 `owner`；远程访问令牌登录默认**不含**，需在 `yonder.yaml` 设 `gateway.remoteOwner: true` 才授予（默认 false，重启生效）。无 scope 时网关对 HTTP RPC 返回 403 `{ok:false,error:{code:"forbidden"}}`（此前 forbidden 也是 200，现统一为 403）；WS 订阅沿用 `end{reason:"forbidden"}`。`capabilities.get.methods` 与 `granted` 只列出本连接持有 scope 的方法。读取 Bot 会话（`sessions.show/transcript/watch`）仍是 `read` scope，未收紧。

@@ -249,7 +249,12 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		}
 		// The console peer is the authenticated owner: link it to the main Bot's owner so `from: owner` holds (02 §4.1).
 		const consoleAccount = `acct:${CONSOLE}:owner`;
+		// A node has one owner: the first console Bot's. Bots owned by anyone else are not reachable from the console.
 		const consoleOwner = [...agents.values()].find(isConsoleBot)?.owner;
+		const consoleBots = () => [...agents.values()].filter((agent) => isConsoleBot(agent) && agent.owner === consoleOwner);
+		for (const agent of agents.values())
+			if (isConsoleBot(agent) && agent.owner !== consoleOwner)
+				log("warn", `Bot ${agent.id} 的 owner ${agent.owner} 不是本节点 owner ${consoleOwner}，控制台不会列出它`);
 		if (
 			consoleOwner &&
 			!(await store.identity().account(consoleAccount)) &&
@@ -529,7 +534,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			bots: {
 				list: async () =>
 					Promise.all(
-						[...agents.values()].filter(isConsoleBot).map(async (agent) => ({
+						consoleBots().map(async (agent) => ({
 							agent: agent.id,
 							name: agent.name,
 							...(agent.work ? { work: agent.work } : {}),
@@ -541,7 +546,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				/** Console → Bot: a normal message.in on the console channel; the agent's own binding decides everything else. */
 				send: async (agent: string, text: string) => {
 					const bot = agents.get(agent);
-					if (!bot || !isConsoleBot(bot)) throw new Error(`Unknown bot: ${agent}`);
+					if (!bot || !consoleBots().includes(bot)) throw new Error(`Unknown bot: ${agent}`);
 					const event = await router.emit({
 						type: "message.in",
 						from: consoleAccount as Ref,
