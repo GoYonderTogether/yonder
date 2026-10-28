@@ -1,7 +1,11 @@
-import { type OutMessage, parseRef, type YEvent } from "@yonder/sdk";
+import type { Delivery, OutMessage, SessionInfo } from "@yonder/sdk";
+import { parseRef, type YEvent } from "@yonder/sdk";
 import { CONSOLE } from "../kernel/console.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+
+/** Delivery scope; `proactive` marks an explicit send (tool or program), not a reply streamed from a run. */
+export type Scope = { channelInstances?: string[]; event?: YEvent; events?: YEvent[]; proactive?: boolean };
 
 const isConsole = (ref: string) => {
 	const parsed = parseRef(ref);
@@ -18,18 +22,21 @@ export const consoleAllowed = (ref: string, scope: { event?: YEvent; events?: YE
  * notification event, which `sessions.watch` shows. Without an open main session the delivery fails.
  */
 export async function persistConsole(
-	store: Store,
-	sessions: Sessions,
-	target: string,
+	{ store, sessions }: { store: Store; sessions: Sessions },
+	{ target }: { target: string },
 	msg: OutMessage,
 	event: string,
-	agent?: string | null,
-) {
-	if (!isConsole(target)) return;
+	session?: SessionInfo,
+): Promise<Delivery> {
+	if (!isConsole(target)) return { ok: true };
 	const parsed = parseRef(target);
-	const bot = agent ?? (parsed.kind === "conv" ? parsed.id : undefined);
-	if (!bot) throw new Error("无法确定接收消息的 Bot");
-	const main = (await store.sessions.list({ agent: bot, open: true })).find((row) => row.mode === "main");
-	if (!main) throw new Error(`Bot ${bot} 还没有主会话`);
-	await sessions.notifyFrom(main.id, { event, text: msg.text ?? "" }, `agent:${bot}`);
+	const bot = session?.agent ?? (parsed.kind === "conv" ? parsed.id : undefined);
+	const main = bot && (await store.sessions.list({ agent: bot, open: true })).find((row) => row.mode === "main");
+	if (!main) return { ok: false, error: `控制台消息未能写入会话：Bot ${bot ?? "?"} 还没有主会话` };
+	try {
+		await sessions.notifyFrom(main.id, { event, text: msg.text ?? "" }, `agent:${bot}`);
+		return { ok: true };
+	} catch (error) {
+		return { ok: false, error: `控制台消息未能写入会话：${error instanceof Error ? error.message : String(error)}` };
+	}
 }

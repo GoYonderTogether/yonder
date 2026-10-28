@@ -246,7 +246,6 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			for (const account of person.accounts ?? [])
 				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
 		}
-		const bots = await createBots(agents, store, (event) => router.emit(event as never), log);
 		const skills = skillsFor(home, config, loaded, log);
 		const loginChannel = async (
 			request: { instance?: string; action?: "start" | "poll"; verifyCode?: string },
@@ -521,7 +520,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					}),
 				};
 			},
-			bots,
+			bots: await createBots(agents, store, (event) => router.emit(event as never), log),
 			close,
 			eventWatermark: () => store.events.watermark(),
 			async awakeActivity() {

@@ -19,7 +19,7 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
-import { consoleAllowed, persistConsole } from "./console.js";
+import { consoleAllowed, persistConsole, type Scope } from "./console.js";
 import { createLedger } from "./ledger.js";
 import { createVisibility } from "./visibility.js";
 
@@ -116,8 +116,6 @@ export function stopNotice(reason: string): string {
 	}
 	return "运行已停止，这一轮没有完成。回我一句我可以重新开始；反复出现请管理员查看日志。";
 }
-/** `proactive`: an explicit send (tool or program), not a reply streamed from a run. */
-type Scope = { channelInstances?: string[]; event?: YEvent; events?: YEvent[]; proactive?: boolean };
 const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.agent}` : undefined);
 export function sourceMessage(event: YEvent): string | undefined {
 	const data = event.data as { msgId?: string; originals?: Array<{ messageId?: string; msgId?: string }> };
@@ -246,13 +244,7 @@ export function createDelivery(options: DeliveryOptions) {
 		} catch (error) {
 			return unknown(id, error);
 		}
-		if (scope.proactive && delivery.ok) {
-			try {
-				await persistConsole(store, sessions, resolved.target, outgoing, id, session?.agent);
-			} catch (error) {
-				delivery = { ok: false, error: `控制台消息未能写入会话：${message(error)}` };
-			}
-		}
+		if (scope.proactive && delivery.ok) delivery = await persistConsole(options, resolved, outgoing, id, session);
 		if (!delivery.ok && (delivery.uncertain || delivery.id))
 			return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
 		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id, messageId);
@@ -262,16 +254,14 @@ export function createDelivery(options: DeliveryOptions) {
 		}
 		return delivery;
 	}
-	/** Explicit sends from tools and programs; replies streamed from a run use `send` directly. */
 	const proactive = (
 		from: string | undefined,
-		request: MessageRequest,
+		msg: MessageRequest,
 		session: SessionInfo | undefined,
 		config: RuntimeSessionConfig | undefined,
 		signal: AbortSignal | undefined,
 		scope: Scope = config?.resolved ?? {},
-		parent?: string,
-	) => send(from, request, session, parent, config, signal, undefined, undefined, { ...scope, proactive: true });
+	) => send(from, msg, session, scope.event?.id, config, signal, undefined, undefined, { ...scope, proactive: true });
 	// The existing attempt ledger owns retry facts; timers only drive unresolved safe sends.
 	function retry(event: YEvent) {
 		if (retries.has(event.id) || lifetime.signal.aborted) return;
@@ -662,7 +652,7 @@ export function createDelivery(options: DeliveryOptions) {
 				} while (!found && after);
 				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
 			}
-			return proactive(fromSession(session), request, session, config, ctx.signal, ctx, ctx.event?.id);
+			return proactive(fromSession(session), request, session, config, ctx.signal, ctx);
 		},
 	};
 }
