@@ -216,11 +216,11 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 `code-intel_ast_grep_replace` 通过 pi-lens MCP 在临时副本预览结构替换，最小版本只接受一个工作区内常规文件。先预览再应用；应用前检查文件内容未变，并通过运行时写入保护检查。它需要 read、write、exec；应用检查和写入不构成跨进程原子操作。
 
-`codex-companion_review` 是可选原生 Codex 审查工具，需 read、exec 和显式授权的隔离 Codex home，在当前执行环境调用 Codex CLI，只读审查工作树（含未跟踪文件）或 base 分支；`scope` 支持 auto、working-tree、branch。输出接现有工具缓存和后台边界。`/codex:review` 尚待接线。
+`codex-companion_review` 是可选原生 Codex 审查工具，需 read、exec 和显式授权的 Codex home，在当前执行环境只读审查工作树或 base 分支；`scope` 支持 auto、working-tree、branch。`adversarial` 与 `focus` 用于挑战审查。选中工具时提供 `/codex:review` 和 `/codex:adversarial-review` 模板。
 
-该工具可选 `adversarial` 与 `focus`（后者仅适用于挑战审查），复用上述目标选择、隔离登录、只读执行和输出缓存；挑战实现路径、假设与取舍，不应用修改。选中工具时可发现 `/codex:adversarial-review` 模板并保留原始参数；显式等待或后台选择尚待接线，尚未完成完整命令验收。
+`codex-companion_task` 接受授权的 `codexHome`、`task`、可选 `write`、外部线程 ID `resume`、`model` 和 `effort`。写入默认关闭，须插件配置 `writeEnabled: true` 且调用方具备 write 能力。写入由 Codex workspace-write 沙箱约束，不经过 Yonder 文件工具的受保护路径策略；未指定模型和思考档位时沿用 Codex 默认值。`codex-companion_candidates` 列出当前 Yonder 会话最近的外部线程，`/codex:rescue` 可选择续接或新建。输出使用现有工具缓存。
 
-`codex-companion_task` 在当前执行环境调用 Codex CLI，接受显式授权的隔离 `codexHome`、原文 `task`、可选 `write`、外部线程 ID `resume`、`model` 和 `effort`。当前只读，写请求在启动前拒绝；未指定模型和思考档位时不覆盖 Codex 默认值。返回 Codex 末条回复及外部线程引用，长输出使用工具缓存。需要 read、exec，仅选中插件时提供；`/codex:rescue` 模板按选中工具发现，候选线程选择和显式后台选择尚待接线。
+上述工具可用 `executionMode` 选择 `wait` 或 `background`；后台复用共享后台任务和完成通知。未指定时沿用现有自动转后台行为。
 
 ### advisor（可选）
 

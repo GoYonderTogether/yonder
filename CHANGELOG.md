@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- code-intel 新增 AST 替换预览及受写权限保护的应用。
+
 - Console 页面按需加载，静态资源按版本缓存，并提示可用更新。
 
 - CLI 斜杠补全显示当前会话和预设可用的提示词模板。
@@ -10,15 +12,15 @@
 
 - Console 展示 Bot 来源、会话事件与投递追踪，并保留历史工具结果。
 
-- Add optional read-only Codex task delegation and rescue prompt; write delegation, thread selection and explicit background routing remain pending.
+- Codex delegation supports opt-in writes, rescue thread selection, explicit wait/background routing and the review prompt.
 
 - 启用社交策略时，回复投递和重试前重新检查当前授权与静默状态，流式输出逐段复核。
 
-- 可选 Codex 审查工具增加挑战式审查、focus 和按工具选择的斜杠模板；显式等待/后台选择尚待接线。
+- 可选 Codex 审查工具增加挑战式审查、focus 和按工具选择的斜杠模板。
 
 - 新增可选 advisor 显式咨询与默认关闭的结果记录。
 
-- Add optional Codex native review tool; slash template and explicit background selection remain pending.
+- Add optional Codex native review tool.
 
 - durable 流及 bash 截断时缓存原文；网页超 2 MiB 的文本响应保存完整原文并提供缓存读取路径；read/grep 拒绝直接访问其他会话的工具输出缓存。
 
