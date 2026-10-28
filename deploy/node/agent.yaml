@@ -1,6 +1,6 @@
 schema: 1
 id: main
-name: Jarvis
+name: 贾维斯
 owner: person:owner
 defaultProfile: owner
 defaults:
