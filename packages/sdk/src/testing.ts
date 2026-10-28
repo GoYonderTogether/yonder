@@ -231,6 +231,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			credentials: { get: unavailable },
 			execution: { resolve: unavailable, run: unavailable },
 			services: { resolve: unavailable },
+			host: { status: unavailable },
 			sessions: {
 				command: unavailable,
 				notify: unavailable,

@@ -36,6 +36,7 @@ import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
+import { hostService } from "./host-status.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, type TerminalSends, terminalUpdates } from "./observation-events.js";
@@ -214,6 +215,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			},
 			identity: store.identity(),
 			services: { resolve: (capability) => realRuntime().resolveService(capability) },
+			host: hostService(home, config, () => ({ runtime: realRuntime(), loaded, services, manageCredentialSlots })),
 		};
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;

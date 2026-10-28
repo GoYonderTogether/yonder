@@ -40,6 +40,7 @@ export type KernelServices = Omit<
 		| "sessions"
 		| "identity"
 		| "services"
+		| "host"
 		| "execution"
 		| "models"
 		| "log"
@@ -224,6 +225,7 @@ export async function loadPlugins(
 				},
 			},
 			agents: services.agents,
+			host: services.host,
 			credentials: services.credentials,
 			execution: services.execution,
 			sessions: {
