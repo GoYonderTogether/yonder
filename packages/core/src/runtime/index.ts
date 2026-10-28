@@ -103,7 +103,7 @@ export { inspectToolCatalog } from "./catalog.js";
 export { submissionOutcome } from "./docs.js";
 
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
-import { entryText as textOf, transcriptItem } from "./transcript.js";
+import { entryText as textOf, transcriptPage } from "./transcript.js";
 import type {
 	ModelFallbackEvent,
 	RuntimeActivityExecution,
@@ -1220,27 +1220,7 @@ export class Runtime {
 		id: string,
 		range: { from?: number; limit?: number; before?: number } = {},
 	): Promise<TranscriptItem[]> {
-		const conversation = await this.conversation(id);
-		if (range.before !== undefined) {
-			const page = await conversation.entries(
-				{
-					order: "descending",
-					...(range.before > Number.MAX_SAFE_INTEGER - 1 ? {} : { maxEntryId: (range.before - 1) as EntryId }),
-				},
-				range.limit ?? 100,
-				undefined,
-				C,
-			);
-			return page.items.map(transcriptItem).reverse();
-		}
-		// Push the bounds into the scan so a one-entry read does not decode the whole conversation.
-		const page = await conversation.entries(
-			{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
-			range.limit ?? 100,
-			undefined,
-			C,
-		);
-		return page.items.map(transcriptItem);
+		return transcriptPage(await this.conversation(id), range);
 	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
