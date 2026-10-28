@@ -148,6 +148,19 @@ export const YonderSchema = object({
 	agents: Type.Optional(
 		Type.Array(object({ id: text, workspace: text, env: Type.Optional(instanceId), archivedAt: Type.Optional(text) })),
 	),
+	gateway: Type.Optional(
+		object({
+			enabled: Type.Optional(Type.Boolean()),
+			port: Type.Optional(Type.Integer({ minimum: 1, maximum: 65535 })),
+			publicOrigins: Type.Optional(Type.Array(Type.String({ pattern: "^https?://[^/]+$" }), { uniqueItems: true })),
+			basePath: Type.Optional(Type.String({ pattern: "^/([A-Za-z0-9._~-]+/)*$" })),
+			/** sha256 of the long-lived remote access token; the token itself is never stored. */
+			accessTokenHash: Type.Optional(Type.String({ pattern: "^sha256:[0-9a-f]{64}$" })),
+			/** Trust X-Forwarded-For (first hop) from a loopback reverse proxy for per-client login throttling. */
+			trustProxy: Type.Optional(Type.Boolean()),
+		}),
+	),
+	imports: Type.Optional(object({ piSessionsDir: Type.Optional(text) })),
 	identity: Type.Optional(
 		object({
 			persons: Type.Array(

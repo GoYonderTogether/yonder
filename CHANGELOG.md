@@ -4,6 +4,9 @@
 
 ### Added
 
+- 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
+- 新包 `@yonder/gateway`：`POST /api/rpc/<method>`、`WS /api/stream`（ready/ev/end/pong 帧，`after` 续传与 `gap`），一次性票据（URL）或长期访问令牌（仅 `POST /login` 请求体）换 HMAC HttpOnly cookie，按对端限流登录失败（`gateway.trustProxy`），凭据到期/轮换后断开已建立的 WebSocket（4401），限制套接字、feed 与环形缓冲，校验 Host、Origin、Sec-Fetch-Site，严格 CSP，托管 `apps/app/dist`。配置 `gateway.port/publicOrigins/basePath/accessTokenHash/trustProxy/enabled`，支持去前缀的反向代理；`yonder start --no-gateway`、`yonder ui [--open]`、`yonder ui token --rotate`（配置只存 sha256）。
+- 只读导入 pi 会话：`imports.list`、`imports.show` 把 `~/.pi/agent/sessions/**/*.jsonl`（`imports.piSessionsDir` 可改）解析为对话条目、todo 快照与 usage 汇总，未知条目原样带出。
 - task 会话要求 STATUS 与实际证据；空或 `NO_REPLY` 回报由内核标为 `STATUS: unknown (no report)`，委派工具说明加入目标、材料、边界、完成标准、阻塞条件、回传格式六要素。
 - 后台续办没有新的可见输出时，共享 delivery 按 run.end 保存的意图补一条模板通知；主人交互运行静默五分钟发送事实心跳（最多六次，可编辑渠道复用同一条消息）。保留静默绑定，未知交付不重发。
 - luna/sol 家族按完整模型 ID 装入稳定的中文执行纪律段（`runtime.discipline`），不把每轮时间或计数放进 system。

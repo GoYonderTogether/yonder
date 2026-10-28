@@ -12,6 +12,7 @@
 		"packages/executor",
 		"packages/sdk",
 		"packages/core",
+		"packages/gateway",
 		"packages/cli",
 		"plugins/channel-cli",
 		"plugins/context-files",
