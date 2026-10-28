@@ -12,7 +12,7 @@ function input(policy: "notify" | "apply" = "apply") {
 	const channel = new GithubChannel(
 		"project",
 		{
-			repository: "GoYonderTogether/yonder-harness",
+			repository: "GoYonderTogether/yonder",
 			accounts: ["GoYonderTogether"],
 			labels: ["yonder-task"],
 			releases: {
@@ -28,7 +28,7 @@ function input(policy: "notify" | "apply" = "apply") {
 		ts: new Date().toISOString(),
 		type: "channel-github.release",
 		from: "plugin:channel-github",
-		conv: "conv:project:GoYonderTogether/yonder-harness:releases",
+		conv: "conv:project:GoYonderTogether/yonder:releases",
 		data: { repository: channel.config.repository, releaseId: "1", tag: "v0.1.4" },
 	};
 	const release = {
@@ -38,7 +38,7 @@ function input(policy: "notify" | "apply" = "apply") {
 		prerelease: false,
 		published_at: "2026-10-19T00:00:00Z",
 		author: { login: "GoYonderTogether" },
-		html_url: "https://github.com/GoYonderTogether/yonder-harness/releases/tag/v0.1.4",
+		html_url: "https://github.com/GoYonderTogether/yonder/releases/tag/v0.1.4",
 	};
 	return { channel, event, release, channels: new Map([[channel.id, channel]]) };
 }
@@ -48,7 +48,7 @@ describe("program release consumer", () => {
 		const get = vi.spyOn(channel.client, "get").mockResolvedValue(release);
 		const schedule = vi.fn().mockResolvedValue({ scheduled: true });
 		await applyRelease(api, channels, event, schedule);
-		expect(get.mock.calls[0]?.[0]).toBe("repos/GoYonderTogether/yonder-harness/releases/1");
+		expect(get.mock.calls[0]?.[0]).toBe("repos/GoYonderTogether/yonder/releases/1");
 		expect(schedule).toHaveBeenCalledWith(api, channel, release, expect.any(AbortSignal), { defer: true });
 	});
 	it.each(["0.1.4", "0.1.5"])("does not schedule a release at or below host %s", async (version) => {
@@ -61,7 +61,7 @@ describe("program release consumer", () => {
 	it("does nothing for notify policy or a foreign instance/repository/source", async () => {
 		for (const change of [
 			{},
-			{ conv: "conv:other:GoYonderTogether/yonder-harness:releases" },
+			{ conv: "conv:other:GoYonderTogether/yonder:releases" },
 			{ from: "acct:other:user" },
 			{ data: { repository: "other/repo", releaseId: "1" } },
 		]) {
@@ -99,7 +99,7 @@ describe("program update notifications", () => {
 				type: "release.update-result",
 				data: {
 					updateId: "12345678-1234-1234-1234-123456789012",
-					repository: "https://github.com/GoYonderTogether/yonder-harness.git",
+					repository: "https://github.com/GoYonderTogether/yonder.git",
 					install: resolve("/unused/install"),
 					home: resolve("/unused/home"),
 					version: "0.1.4",
@@ -138,7 +138,7 @@ describe("program update notifications", () => {
 				type: "release.update-result",
 				data: {
 					updateId: "12345678-1234-1234-1234-123456789012",
-					repository: "https://github.com/GoYonderTogether/yonder-harness.git",
+					repository: "https://github.com/GoYonderTogether/yonder.git",
 					install: resolve("/unused/install"),
 					home: resolve("/unused/home"),
 					verified: false,

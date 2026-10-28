@@ -23,7 +23,7 @@ test("offline update completion uses the existing ledger once and leaves no mode
 			updateId: randomUUID(),
 			install: join(home, "install"),
 			home,
-			repository: "https://github.com/GoYonderTogether/yonder-harness.git",
+			repository: "https://github.com/GoYonderTogether/yonder.git",
 			status: "failed-or-unknown",
 			verified: false,
 		};
@@ -94,7 +94,7 @@ test("a starting kernel's fresh lock is never taken over, a long-dead lock is", 
 			updateId: randomUUID(),
 			install: join(home, "install"),
 			home,
-			repository: "https://github.com/GoYonderTogether/yonder-harness.git",
+			repository: "https://github.com/GoYonderTogether/yonder.git",
 			status: "failed-or-unknown",
 			verified: false,
 		};

@@ -10,7 +10,7 @@
 
 ## 应让 Agent 真正找得到系统
 
-权威代码仓库为 https://github.com/GoYonderTogether/yonder-harness 。可使用当前授权 checkout，但不能假定普通用户本机有开发仓库。核心入口与接口用当前安装文档和真实源码核实：
+权威代码仓库为 https://github.com/GoYonderTogether/yonder 。可使用当前授权 checkout，但不能假定普通用户本机有开发仓库。核心入口与接口用当前安装文档和真实源码核实：
 
 | 需要核对 | 当前可查位置 |
 |---|---|

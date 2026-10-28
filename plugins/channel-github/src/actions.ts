@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import type { PluginAPI, YEvent } from "@yonder/sdk";
 import type { GithubChannel } from "./channel.js";
 import { object } from "./client.js";
-import { approvedRelease, compareVersions, releaseData } from "./releases.js";
+import { approvedRelease, compareVersions, releaseData, repositoryNames } from "./releases.js";
 import { scheduleUpdate } from "./updates.js";
 
 export async function applyRelease(
@@ -43,7 +43,9 @@ export async function notifyUpdate(api: PluginAPI, channels: Map<string, GithubC
 		const options = channel.config.releases;
 		if (!options?.notifyUpdates || !options.notifyTarget || !options.updater) continue;
 		if (
-			data.repository !== `https://github.com/${channel.config.repository}.git` ||
+			!repositoryNames(channel.config.repository).some(
+				(name) => data.repository === `https://github.com/${name}.git`,
+			) ||
 			data.install !== resolve(options.updater.install) ||
 			data.home !== resolve(options.updater.home)
 		)

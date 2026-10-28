@@ -42,14 +42,14 @@ const release = (id: number, author = "GoYonderTogether", extra = {}) => ({
 	prerelease: false,
 	published_at: "2026-10-18T00:00:00Z",
 	author: { login: author },
-	html_url: "https://github.com/GoYonderTogether/yonder-harness/releases/tag/v0.1.4",
+	html_url: "https://github.com/GoYonderTogether/yonder/releases/tag/v0.1.4",
 	...extra,
 });
 function channel() {
 	return new GithubChannel(
 		"github-project",
 		{
-			repository: "GoYonderTogether/yonder-harness",
+			repository: "GoYonderTogether/yonder",
 			accounts: ["GoYonderTogether"],
 			labels: ["yonder-task"],
 			releases: {
@@ -79,7 +79,7 @@ afterEach(async () => {
 
 describe("release baseline", () => {
 	it("saves every initial native id, then emits only new approved formal releases across restarts", async () => {
-		const client = new Github("GoYonderTogether/yonder-harness");
+		const client = new Github("GoYonderTogether/yonder");
 		const list = vi
 			.spyOn(client, "list")
 			.mockResolvedValue([release(1), release(2, "other"), release(3, "GoYonderTogether", { draft: true })]);
@@ -107,7 +107,7 @@ describe("release baseline", () => {
 		expect(io.emit).toHaveBeenCalledTimes(1);
 	});
 	it("does not establish a baseline when polling fails", async () => {
-		const client = new Github("GoYonderTogether/yonder-harness");
+		const client = new Github("GoYonderTogether/yonder");
 		const list = vi
 			.spyOn(client, "list")
 			.mockRejectedValueOnce(new Error("transport failed"))
@@ -120,7 +120,7 @@ describe("release baseline", () => {
 		expect(io.emit).not.toHaveBeenCalled();
 	});
 	it("does not accept events before baseline persistence succeeds", async () => {
-		const client = new Github("GoYonderTogether/yonder-harness");
+		const client = new Github("GoYonderTogether/yonder");
 		vi.spyOn(client, "list").mockResolvedValue([release(1)]);
 		const io = { emit: vi.fn() } as unknown as ChannelIO;
 		await mkdir(join(directory, "github-project.releases.json.tmp"));
@@ -154,7 +154,7 @@ describe("comments", () => {
 			.execute({ instance: "github-project", issue: 1, body: "status" }, ctx);
 		expect(send).toHaveBeenCalledWith(
 			{
-				to: "conv:github-project:GoYonderTogether/yonder-harness:issue:1",
+				to: "conv:github-project:GoYonderTogether/yonder:issue:1",
 				via: "github-project",
 				text: "status",
 				signal: ctx.signal,
@@ -234,7 +234,7 @@ describe("actual service evidence", () => {
 	const request = {
 		install: resolve("/private/tmp/yonder-install"),
 		home: resolve("/private/tmp/yonder-home"),
-		repository: "GoYonderTogether/yonder-harness",
+		repository: "GoYonderTogether/yonder",
 		tag: "v0.1.4",
 		version: "0.1.4",
 	} as Request;
@@ -255,19 +255,31 @@ describe("actual service evidence", () => {
 	);
 	it("rejects disk source outside the configured installation", () =>
 		expect(verifiedService(request, { ...actual, source: "/source-checkout" }, service, running)).toBe(false));
+	it("accepts a receipt recorded under the previous repository name", () =>
+		expect(
+			verifiedService(
+				request,
+				{
+					...actual,
+					origin: { ...actual.origin, repository: "https://github.com/GoYonderTogether/yonder-harness.git" },
+				},
+				service,
+				running,
+			),
+		).toBe(true));
 });
 
 describe("issue source protocol", () => {
 	it("uses all REST pages including a full page boundary", async () => {
-		const client = new Github("GoYonderTogether/yonder-harness");
+		const client = new Github("GoYonderTogether/yonder");
 		const get = vi
 			.spyOn(client, "get")
 			.mockResolvedValueOnce(Array.from({ length: 100 }, (_, index) => ({ id: index + 1 })))
 			.mockResolvedValueOnce([{ id: 101 }]);
 		expect(await client.list("issues?state=all", signal())).toHaveLength(101);
 		expect(get.mock.calls.map(([path]) => path)).toEqual([
-			"repos/GoYonderTogether/yonder-harness/issues?state=all&per_page=100&page=1",
-			"repos/GoYonderTogether/yonder-harness/issues?state=all&per_page=100&page=2",
+			"repos/GoYonderTogether/yonder/issues?state=all&per_page=100&page=1",
+			"repos/GoYonderTogether/yonder/issues?state=all&per_page=100&page=2",
 		]);
 	});
 	it("persists native ids across restart, retaining the inclusive same-second boundary and admission filters", async () => {
@@ -285,7 +297,7 @@ describe("issue source protocol", () => {
 		const run = async () => {
 			const c = new GithubChannel(
 				"github-project",
-				{ repository: "GoYonderTogether/yonder-harness", labels: ["yonder-task"], accounts: ["GoYonderTogether"] },
+				{ repository: "GoYonderTogether/yonder", labels: ["yonder-task"], accounts: ["GoYonderTogether"] },
 				api,
 			);
 			vi.spyOn(c.client, "get").mockImplementation(async (path) => {

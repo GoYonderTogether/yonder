@@ -16,11 +16,11 @@ This is a proposal, not evidence that every proposed behavior has been implement
 
 ### Public implementation references
 
-- [Default compaction policy](https://github.com/GoYonderTogether/yonder-harness/blob/0a7ce8f/packages/pi-durable/src/harness/agent.ts)
-- [Automatic compaction threshold](https://github.com/GoYonderTogether/yonder-harness/blob/0a7ce8f/packages/pi-durable/src/harness/generation.ts)
-- [Runtime limits and compaction configuration](https://github.com/GoYonderTogether/yonder-harness/blob/0a7ce8f/docs/spec/07-runtime.md)
-- [Runtime clock prompt assembly](https://github.com/GoYonderTogether/yonder-harness/blob/0a7ce8f/packages/core/src/prompt/index.ts)
-- [Cron timezone validation](https://github.com/GoYonderTogether/yonder-harness/blob/0a7ce8f/plugins/cron/src/schedule.ts)
+- [Default compaction policy](https://github.com/GoYonderTogether/yonder/blob/0a7ce8f/packages/pi-durable/src/harness/agent.ts)
+- [Automatic compaction threshold](https://github.com/GoYonderTogether/yonder/blob/0a7ce8f/packages/pi-durable/src/harness/generation.ts)
+- [Runtime limits and compaction configuration](https://github.com/GoYonderTogether/yonder/blob/0a7ce8f/docs/spec/07-runtime.md)
+- [Runtime clock prompt assembly](https://github.com/GoYonderTogether/yonder/blob/0a7ce8f/packages/core/src/prompt/index.ts)
+- [Cron timezone validation](https://github.com/GoYonderTogether/yonder/blob/0a7ce8f/plugins/cron/src/schedule.ts)
 
 ## Prompt changes
 

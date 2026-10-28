@@ -21,6 +21,17 @@ import {
 	windowsLauncher,
 	windowsServiceLauncher,
 } from "./index.js";
+import { canonicalRepository } from "./repository.js";
+
+/** GitHub redirects the previous name forever; installed clients may still report it. */
+test("canonical repository accepts the previous GitHub name after the rename", () => {
+	expect(canonicalRepository("https://github.com/GoYonderTogether/yonder-harness.git")).toBe(
+		"https://github.com/GoYonderTogether/yonder.git",
+	);
+	expect(canonicalRepository("https://github.com/GoYonderTogether/yonder")).toBe(
+		"https://github.com/GoYonderTogether/yonder.git",
+	);
+});
 
 test("default installation root preserves existing Unix installs", async () => {
 	if (process.platform === "win32") return;

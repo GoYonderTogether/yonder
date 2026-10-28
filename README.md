@@ -8,7 +8,7 @@
 
 [Status](docs/status.md) · [Documentation](docs/index.md) · [Plugins](docs/plugins.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [License](LICENSE)
 
-[![CI](https://github.com/GoYonderTogether/yonder-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/GoYonderTogether/yonder-harness/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/GoYonderTogether/yonder/actions/workflows/ci.yml/badge.svg)](https://github.com/GoYonderTogether/yonder/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 </div>
 
@@ -38,8 +38,8 @@ Read [docs/architecture.md](docs/architecture.md) first, then the specifications
 Requirements: macOS, Node.js 22.19 or newer, git. Optional: [ripgrep](https://github.com/BurntSushi/ripgrep) for the `grep` tool, [`gh`](https://cli.github.com) for the GitHub plugin, Chrome or Edge for browser automation.
 
 ```sh
-git clone https://github.com/GoYonderTogether/yonder-harness.git
-cd yonder-harness
+git clone https://github.com/GoYonderTogether/yonder.git
+cd yonder
 npm ci
 npm run build
 node packages/cli/dist/index.js init ~/yonder-home
