@@ -155,6 +155,7 @@ export function createDelivery(options: DeliveryOptions) {
 		(event.data as { waiting?: boolean }).waiting;
 	const visibility = createVisibility({
 		store,
+		proactiveNotificationsEnabled: (agent) => agents.get(agent)?.social?.enabled === true,
 		channelFor: (ref) => channels.get(channelId(ref) ?? ""),
 		lifetime,
 		streams,

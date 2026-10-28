@@ -24,7 +24,7 @@ import type { Sessions } from "../sessions/index.js";
 import { createStore, newEvent } from "../store/index.js";
 import { createDelivery } from "./index.js";
 
-async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
+async function setup(hooks?: Map<string, Hook[]>, selected: string[] = [], social = false) {
 	const db = await openDatabase(":memory:");
 	const store = await createStore(db, () => "person:owner");
 	const config: RuntimeSessionConfig = {
@@ -79,7 +79,7 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 	const delivery = createDelivery({
 		...(hooks ? { hooks } : {}),
 		store,
-		agents: new Map(),
+		agents: social ? new Map([["main", { social: { enabled: true } } as never]]) : new Map(),
 		channels: new Map([["test", channel]]),
 		runtime: () => ({ currentConfig: () => config }) as unknown as Runtime,
 		sessions: { resolveSession: async () => config } as unknown as Sessions,
@@ -649,6 +649,29 @@ test("restart delivers durable unattempted fallback, but never repeats unknown d
 		await x.delivery.recover();
 		await new Promise((r) => setTimeout(r, 20));
 		expect(send).toHaveBeenCalledTimes(1);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+test("social mode prevents heartbeat bypassing the notification policy", async () => {
+	const x = await setup(undefined, [], true);
+	try {
+		const send = vi.spyOn(x.channel, "send");
+		x.channel.edit = vi.fn(async () => ({ ok: true }));
+		await x.delivery.heartbeat(
+			x.session,
+			{
+				runId: "interactive",
+				started: Date.now() - 300001,
+				tools: 1,
+				config: x.config,
+				inputs: [x.event],
+			},
+			5,
+		);
+		expect(send).not.toHaveBeenCalled();
+		expect(x.channel.edit).not.toHaveBeenCalled();
 	} finally {
 		await x.delivery.close();
 		await x.db.close();

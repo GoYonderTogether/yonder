@@ -14,6 +14,7 @@ export interface CompletionNotice {
 
 export interface VisibilityDeps {
 	store: Store;
+	proactiveNotificationsEnabled(agent: string): boolean;
 	/** Native channel for a ref, or undefined when the ref has no channel or no such plugin. */
 	channelFor(ref: string): Channel | undefined;
 	lifetime: AbortController;
@@ -163,6 +164,8 @@ export function createVisibility(deps: VisibilityDeps) {
 		},
 		interval = 300000,
 	): Promise<number | undefined> {
+		// Until the outbound queue is wired, do not let heartbeats bypass its policy.
+		if (session.agent && deps.proactiveNotificationsEnabled(session.agent)) return;
 		const first = run.inputs[0];
 		if (!first || first.type !== "message.in" || !(await ownerSource(session, first, run.config))) return;
 		if (run.signal?.aborted || lifetime.signal.aborted) return;
