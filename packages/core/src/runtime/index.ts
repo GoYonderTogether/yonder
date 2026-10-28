@@ -99,6 +99,7 @@ import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
 import { runtimeNote } from "./runtime-note.js";
+import type { RuntimeOptions } from "./runtime-options.js";
 import { todoTool } from "./todo-tool.js";
 import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
 
@@ -109,7 +110,6 @@ export { submissionOutcome } from "./docs.js";
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptPage } from "./transcript.js";
 import type {
-	RuntimeOptions as BaseRuntimeOptions,
 	ModelFallbackEvent,
 	RuntimeActivityExecution,
 	RuntimeInput,
@@ -124,10 +124,6 @@ export { canonicalPath, localEnvironment, workspaceFiles } from "./env.js";
 export type { TerminalUpdate } from "./terminal.js";
 export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
-
-type RuntimeOptions = BaseRuntimeOptions & {
-	onSessionSettled?(event: import("@yonder/sdk").SessionSettledEv): Promise<void>;
-};
 
 export class Runtime {
 	private settledEvents = new Map<string, string>();
