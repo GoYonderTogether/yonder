@@ -1,10 +1,12 @@
 import AppKit
 import Darwin
 
+@MainActor
 final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var item: NSStatusItem!
     private var companion: CompanionController!
     private var endpointTimer: Timer?
+    private let gateway = GatewayClient()
     private let menu = NSMenu()
     private let current = NSMenuItem(title: "打开悬浮窗", action: #selector(openCurrent), keyEquivalent: "")
     private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
@@ -49,8 +51,9 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(point)
         }
         refreshEndpoint()
-        refreshActivity()
-        endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in self?.refreshEndpoint(); self?.refreshActivity() }
+        refreshActivity(nil)
+        gateway.start(home: home, executable: install + "/bin/yonder") { [weak self] in self?.refreshActivity($0) }
+        endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in Task { @MainActor in self?.refreshEndpoint() } }
         RunLoop.main.add(endpointTimer!, forMode: .common)
     }
     private func refreshEndpoint() {
@@ -62,7 +65,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openCurrent() { companion.showCurrent() }
     @objc private func openHistory() { companion.showHistory() }
     func applicationWillTerminate(_ notification: Notification) {
-        endpointTimer?.invalidate(); companion.stop()
+        endpointTimer?.invalidate(); gateway.stop(); companion.stop()
     }
 
     private func run(_ args: [String], completion: @escaping (Result<[String: Any], Error>) -> Void) {
@@ -93,31 +96,12 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         refreshPower()
         refreshEndpoint()
-        refreshActivity()
     }
 
-    /// 状态由服务自己写成 `.yonder/status.json`，这里只读文件。
-    /// 派生 `yonder service info` 每次都要付 Node 启动和整棵模块图加载，2 秒一次就是持续空转。
-    private func refreshActivity() {
-        var agents: [AgentActivity] = []
-        var known = false
-        var running = false
-        var version = ""
-        let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/status.json")
-        if let data = try? Data(contentsOf: file),
-           let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-           info["ready"] as? Bool == true,
-           let rows = info["agents"] as? [[String: Any]] {
-            // 心跳：内容不变时服务每 10 秒刷新 observedAt。30 秒没动就说明服务已经不在了。
-            let observedAt = (info["observedAt"] as? Double ?? 0) / 1000
-            if Date().timeIntervalSince1970 - observedAt < 30 {
-                known = true
-                version = info["version"] as? String ?? ""
-                agents = rows.compactMap(AgentActivity.init)
-                running = agents.contains { $0.state == "running" } || (info["active"] as? Int ?? 0) > 0
-            }
-        }
-        self.status.title = known ? "服务运行中 · \(version)" : "服务未就绪 · 运行状态未知"
+    private func refreshActivity(_ info: [String: Any]?) {
+        let activity = GatewayStatus(info)
+        let agents = activity.agents, known = activity.known, running = activity.running
+        self.status.title = known ? "服务运行中" : "服务未就绪 · 运行状态未知"
         self.companion.setActivity(agents, known: known)
         self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
         let image = NSImage(size: NSSize(width: 22, height: 22))
@@ -252,7 +236,48 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 
+// Adapt the contracted session rows to the existing read-only menu renderer.
+struct GatewayStatus {
+    let known: Bool
+    let running: Bool
+    let agents: [AgentActivity]
+    init(_ summary: [String: Any]?) {
+        known = summary != nil
+        running = (summary?["running"] as? Int ?? 0) > 0
+        agents = (summary?["sessions"] as? [[String: Any]] ?? []).compactMap { row in
+            guard let id = row["id"] as? String, let state = row["state"] as? String else { return nil }
+            return AgentActivity(["id": id, "name": id, "state": state])
+        }
+    }
+}
+
+func checkGatewayActivityCases(_ path: String) {
+    let data = try! Data(contentsOf: URL(fileURLWithPath: path))
+    let cases = try! JSONSerialization.jsonObject(with: data) as! [[String: Any]]
+    var checked = 0
+    for item in cases {
+        guard let frames = item["gatewayFrames"] as? [Any], let expected = item["gatewayExpected"] as? [String: Any] else { continue }
+        var summary: [String: Any]?
+        for frame in frames {
+            if frame is NSNull { summary = nil }
+            else {
+                do { if let next = try GatewayClient.activity(frame as! [String: Any]) { summary = next } }
+                catch { summary = nil }
+            }
+        }
+        let status = GatewayStatus(summary)
+        precondition(status.known == expected["known"] as! Bool, item["name"] as! String)
+        precondition(status.running == expected["running"] as! Bool, item["name"] as! String)
+        precondition(status.agents.map { $0.id } == expected["ids"] as! [String], item["name"] as! String)
+        checked += 1
+    }
+    precondition(checked == 2)
+    print("Passed: \(checked) gateway disconnect/reconnect snapshot cases.")
+}
+
+
 @main
+@MainActor
 struct DesktopMain {
     static func main() {
         if let index = CommandLine.arguments.firstIndex(of: "--check-activity-http"), CommandLine.arguments.count > index + 2 {
@@ -260,6 +285,7 @@ struct DesktopMain {
             return
         }
         if let index = CommandLine.arguments.firstIndex(of: "--check-activity"), CommandLine.arguments.count > index + 1 {
+            checkGatewayActivityCases(CommandLine.arguments[index + 1])
             let cases = checkActivityCases(CommandLine.arguments[index + 1])
             if let preview = CommandLine.arguments.firstIndex(of: "--preview-activity"), CommandLine.arguments.count > preview + 1 {
                 checkDynamicActivityAppearance(cases[0])

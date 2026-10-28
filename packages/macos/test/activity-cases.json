@@ -588,5 +588,117 @@
 			"label": "执行状态未知",
 			"emphasized": false
 		}
+	},
+	{
+		"name": "网关断连",
+		"agent": {
+			"id": "test",
+			"name": "网关断连",
+			"state": "idle",
+			"tasks": []
+		},
+		"known": false,
+		"summary": {},
+		"expected": {
+			"state": "unknown",
+			"label": "执行状态未知",
+			"emphasized": false
+		},
+		"gatewayFrames": [
+			{
+				"t": "ready",
+				"sub": "activity",
+				"gap": false,
+				"cursor": "test",
+				"result": {
+					"running": 1,
+					"waiting": 0,
+					"sessions": [
+						{
+							"id": "old",
+							"state": "running",
+							"since": "2026-10-28T00:00:00Z"
+						}
+					]
+				}
+			},
+			{
+				"t": "end",
+				"sub": "activity",
+				"reason": "shutdown"
+			}
+		],
+		"gatewayExpected": {
+			"known": false,
+			"running": false,
+			"ids": []
+		}
+	},
+	{
+		"name": "重连后首帧覆盖旧状态",
+		"agent": {
+			"id": "test",
+			"name": "重连后首帧覆盖旧状态",
+			"state": "idle",
+			"tasks": []
+		},
+		"known": true,
+		"summary": {},
+		"expected": {
+			"state": "idle",
+			"label": "无执行",
+			"emphasized": false
+		},
+		"gatewayFrames": [
+			{
+				"t": "ready",
+				"sub": "activity",
+				"gap": false,
+				"cursor": "test",
+				"result": {
+					"running": 1,
+					"waiting": 0,
+					"sessions": [
+						{
+							"id": "old",
+							"state": "running",
+							"since": "2026-10-28T00:00:00Z"
+						}
+					]
+				}
+			},
+			null,
+			{
+				"t": "ready",
+				"sub": "activity",
+				"gap": false,
+				"cursor": "new",
+				"result": {
+					"running": 0,
+					"waiting": 0,
+					"sessions": [
+						{
+							"id": "new",
+							"state": "idle",
+							"since": "2026-10-28T00:00:01Z"
+						}
+					]
+				}
+			},
+			{
+				"t": "ev",
+				"sub": "activity",
+				"type": "session.settled",
+				"data": {
+					"session": "old",
+					"status": "done"
+				}
+			}
+		],
+		"gatewayExpected": {
+			"known": true,
+			"running": false,
+			"ids": ["new"]
+		}
 	}
 ]
