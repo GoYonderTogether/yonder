@@ -44,6 +44,14 @@ export interface NotificationIntent {
 }
 
 export interface SocialAPI {
+	/** Recheck a pending batch against current routing and policy without admitting it. */
+	admitBatch(request: {
+		agent: string;
+		conv: Ref;
+		through: string;
+		sourceEvents: string[];
+		policyRevision: string;
+	}): Promise<{ session: string } | undefined>;
 	inspect(
 		request: { agent: string; conv: Ref; event?: string },
 		ctx?: ToolContext,

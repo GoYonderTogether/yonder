@@ -1,5 +1,7 @@
 import type { Delivery, ExecutionOwner, NotificationIntent } from "@yonder/sdk";
 import type { AgentConfig, YonderConfig } from "../config/index.js";
+import { channelOf, matches } from "../routing/matching.js";
+import { socialBindingAllowed, socialDecision } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import type { createDelivery } from "./index.js";
@@ -70,7 +72,7 @@ export function outboundQueue({
 				return { ok: true };
 			await store.events.record({
 				type: "notification.intent",
-				from: `plugin:${plugin}`,
+				from: plugin === "yonder" ? "system:yonder" : `plugin:${plugin}`,
 				data: { owner, plugin, text, notification, ownerRef: agent.owner },
 			});
 			return { ok: true };
@@ -158,6 +160,36 @@ export function outboundQueue({
 						(item.notification.expiresAt && Date.parse(item.notification.expiresAt) <= Date.now())
 					)
 						continue;
+					if (item.plugin === "yonder" && item.notification.key.startsWith("owner-mention:")) {
+						if (
+							target &&
+							(!target.to.startsWith("acct:") || (await store.identity().account(target.to))?.person !== agent.owner)
+						)
+							continue;
+						const source = await store.events.get(item.notification.sourceEvents[0] ?? "");
+						const route = source?.routes?.find(
+							(route) => route.agent === agent.id && route.session === row.id && !route.dropped,
+						);
+						const binding = agent.bindings.find((binding) => binding.id === route?.binding);
+						const person = source?.from?.startsWith("acct:")
+							? (await store.identity().account(source.from))?.person
+							: undefined;
+						const decision = source && socialDecision(agent, source, person);
+						const instance = channelOf(source?.conv);
+						const scope = agent.profiles[row.profile]?.channelInstances ?? agent.defaults?.channelInstances;
+						if (
+							!source ||
+							!binding ||
+							!decision ||
+							["denied", "not-authorized", "unsupported-kind", "quiet", "invalid-timezone", "record", "mute"].includes(
+								decision.reason,
+							) ||
+							!socialBindingAllowed(agent, source, person, binding) ||
+							!(await matches(binding, source, agent, store)) ||
+							(scope && (!instance || !scope.includes(instance)))
+						)
+							continue;
+					}
 					try {
 						const resolved = await sessions.resolveSession(row.id);
 						if (

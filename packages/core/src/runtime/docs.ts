@@ -13,6 +13,7 @@ export const SessionDoc = defineDoc({
 	fork: "current",
 	initial: () => ({
 		models: null as SessionModels | null,
+		judgment: false,
 		agent: null as string | null,
 		profile: "",
 		cwd: "",

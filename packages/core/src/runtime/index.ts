@@ -765,6 +765,7 @@ export class Runtime {
 		const state = await this.harness.snapshot(SessionDoc, cid(id), C);
 		if (!state) return;
 		return {
+			...(state.judgment ? { judgment: true } : {}),
 			...(state.models ? { models: structuredClone(state.models) } : {}),
 			agent: state.agent,
 			profile: state.profile,

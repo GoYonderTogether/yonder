@@ -341,3 +341,7 @@ Channel 可选 `features` 描述 identity（account/person-link/unknown）、men
 ### 独立任务的模型来源（T09r2）
 
 `SessionsAPI.open` 可选 `modelSource: { session, fallback? }`，来源必须是 Agent 非 task 会话；该选项不建立父子会话关系。任务复制该会话已解析的 credentialSlots，并依次选择 profile 的 `cheap`、`simple`、调用方的 fallback、来源主模型。来源会话已关闭时仍可使用；来源不存在或不符合条件时拒绝。Profile 的 `cheap` 和 `simple` 是可选的 `provider/model` 字符串。
+
+`judgment: true` 要求来源 profile 明确配置 cheap 或 simple，禁止 parent；强制 low、空 fallback、无工具、能力、插件、skill、上下文和 preset 指令。该限制随会话持久化并在恢复时重新应用，缺少低价模型则拒绝打开。
+
+仅 social 插件可调用 `social.admitBatch`：根据来源事件、会话、当前授权与 quiet、策略版本、渠道范围和批次 binding 只读复核；拒绝时不返回会话。调用方在模型输入和使用结果前均须复核。

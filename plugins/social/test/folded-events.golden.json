@@ -1,0 +1,9 @@
+{
+	"social.folded-ready": {
+		"msgId": "string",
+		"agent": "string",
+		"through": "string",
+		"sourceEvents": ["string"],
+		"policyRevision": "string"
+	}
+}

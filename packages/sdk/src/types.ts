@@ -132,6 +132,8 @@ export interface SessionsAPI {
 		preset: string;
 		/** Copy only model selection and credential slots from a session without making it the parent. */
 		modelSource?: { session: string; fallback?: string };
+		/** Require an isolated, low-cost judgment session. */
+		judgment?: boolean;
 		parent?: string;
 		capabilities?: Capability[];
 		close?: "run-end" | "manual";

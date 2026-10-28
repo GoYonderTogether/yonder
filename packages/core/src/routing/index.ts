@@ -4,6 +4,7 @@ import type { NotificationConfig, NotificationLevel } from "../kernel/notificati
 import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import { newEvent, type Store } from "../store/index.js";
+import { admitBatch } from "./admit-batch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
@@ -24,6 +25,7 @@ interface CreateRouterOptions {
 	notificationLevel?: (conv?: string, session?: string) => NotificationLevel;
 	notifications?: NotificationConfig;
 	socialBatchPlugin?: boolean;
+	onOwnerMention?: (session: SessionInfo, event: YEvent) => Promise<void>;
 	onStart?: (
 		session: SessionInfo,
 		event: YEvent,
@@ -43,6 +45,7 @@ export function createRouter({
 	notificationLevel,
 	notifications,
 	socialBatchPlugin,
+	onOwnerMention,
 	onStart,
 	onRun,
 	onCommand,
@@ -113,6 +116,13 @@ export function createRouter({
 				try {
 					const session = await store.sessions.get(routed.session);
 					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
+					const data = event.data as { kind?: unknown; social?: { mentions?: { owner?: boolean } } };
+					const ownerMention =
+						event.type === "message.in" &&
+						(data.kind === "group" || data.kind === "channel") &&
+						agents.get(routed.agent)?.social?.enabled === true &&
+						data.social?.mentions?.owner === true;
+					if (ownerMention) await onOwnerMention?.(session, event).catch(report);
 					const notification = routedNotifications.notify(session.id, event);
 					if (notification) await notification;
 					if (routed.wake === "run") {
@@ -122,7 +132,7 @@ export function createRouter({
 							return;
 						}
 					}
-					const data = event.data as { text?: string; attachments?: RuntimeInput["attachments"] };
+					const inputData = event.data as { text?: string; attachments?: RuntimeInput["attachments"] };
 					const waiter = event.routes?.find((route) => route.session === session.id)?.waiting ?? false;
 					const startedOutput = routed.wake === "run" ? onStart?.(session, event, waiter) : undefined;
 					const output = (part: OutputPart, runId?: string) => {
@@ -132,9 +142,9 @@ export function createRouter({
 							report(error);
 						}
 					};
-					const attachments = data.attachments;
+					const attachments = inputData.attachments;
 					const input: RuntimeInput = {
-						text: data.text ?? "",
+						text: inputData.text ?? "",
 						event,
 						wake: routed.wake,
 						busy: event.routes?.find((route) => route.session === session.id)?.busy ?? "steer",
@@ -346,9 +356,14 @@ export function createRouter({
 					agent: agent.id,
 					reason: decision.reason,
 					revision: decision.revision,
-					...(decision.reason === "batch" && "policy" in decision ? { policy: decision.policy } : {}),
+					...((decision.reason === "batch" || decision.reason === "folded") && "policy" in decision
+						? { policy: decision.policy }
+						: {}),
 				});
-			if (decision && !decision.run && decision.reason !== "batch") {
+			const ownerMention =
+				decision?.reason === "mention" &&
+				(event.data as { social?: { mentions?: { owner?: boolean } } }).social?.mentions?.owner === true;
+			if (decision && !decision.run && decision.reason !== "batch" && decision.reason !== "folded" && !ownerMention) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
@@ -412,7 +427,7 @@ export function createRouter({
 			const data = event.data as { mentioned?: unknown; social?: { mentions?: { bot?: boolean } } };
 			const mentioned = decision ? (data.social?.mentions?.bot ?? data.mentioned) === true : data.mentioned === true;
 			const wake: Wake =
-				decision?.reason === "batch"
+				decision?.reason === "batch" || decision?.reason === "folded" || ownerMention
 					? "write"
 					: (binding.wake ?? "run") === "mention" && !mentioned
 						? "write"
@@ -453,6 +468,8 @@ export function createRouter({
 	}
 
 	return {
+		admitBatch: (request: Parameters<typeof admitBatch>[0]) =>
+			admitBatch(request, { agents, store, ...(channels ? { channels } : {}) }),
 		observeNotifications: routedNotifications.observe,
 		finishIdle,
 		finishRun: async (session: SessionInfo, _run: RuntimeRun) => finishIdle(session),

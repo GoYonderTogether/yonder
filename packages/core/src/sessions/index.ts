@@ -66,11 +66,25 @@ export function createSessions({
 			if (!selected) throw new Error(`Unknown preset: ${row.profile}`);
 			const state = await runtime().sessionState(id);
 			if (!state) throw new Error(`Missing runtime session state: ${id}`);
+			const resolved = runtimeProfile(selected, state.env, state.capabilities, state.inherit, state.channelInstances);
+			if (state.judgment)
+				Object.assign(resolved, {
+					capabilities: [],
+					channelInstances: [],
+					plugins: [],
+					contexts: [],
+					skills: [],
+					tools: { offer: [], search: [] },
+					prompt: { sections: [] },
+					instructions: "",
+					thinking: "low",
+					fallback: { models: [] },
+				});
 			return {
 				agent: null,
 				profile: row.profile,
 				cwd: state.cwd,
-				resolved: runtimeProfile(selected, state.env, state.capabilities, state.inherit, state.channelInstances),
+				resolved,
 			};
 		}
 		if (!row.agent) throw new Error(`Agent session has no agent: ${id}`);
@@ -349,6 +363,11 @@ export function createSessions({
 			if (request.modelSource && (!source || !source.agent || source.mode === "task"))
 				throw new Error("Invalid model source session");
 			const sourceProfile = source ? await runtime().sessionConfig(source.id) : undefined;
+			if (
+				request.judgment &&
+				(!sourceProfile || request.parent || !(sourceProfile.resolved.cheap ?? sourceProfile.resolved.simple))
+			)
+				throw new Error("Judgment requires an explicit cheap or simple model source and no parent");
 			const parent = request.parent ? await store.sessions.get(request.parent) : undefined;
 			if (request.parent && !parent) throw new Error(`Unknown parent session: ${request.parent}`);
 			if (parent?.agent && agents.get(parent.agent)?.archivedAt) throw new Error(`Agent archived: ${parent.agent}`);
@@ -385,7 +404,9 @@ export function createSessions({
 						request.modelSource?.fallback ??
 						sourceProfile.resolved.model,
 					credentialSlots: sourceProfile.resolved.credentialSlots,
+					...(request.judgment ? { thinking: "low", fallback: { models: [] } } : {}),
 				};
+				if (request.judgment) state.judgment = true;
 				await runtime().setSessionState(id, state);
 			}
 			const session: SessionInfo = {

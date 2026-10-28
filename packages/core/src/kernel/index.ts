@@ -138,6 +138,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		const services: KernelServices = {
 			social: {
+				admitBatch: (request) => router.admitBatch(request),
 				inspect: (request, ctx) => {
 					if (!ctx) throw new Error("Tool context required");
 					return social.inspect(request, ctx);
@@ -340,6 +341,18 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			runtime: realRuntime,
 			agents,
 			notificationLevel: notifications.level,
+			onOwnerMention: async (session, event) => {
+				const owner = { session: session.id, agent: session.agent, profile: session.profile };
+				const current = await resolveExecutionOwner(owner);
+				if (!current.resolved.capabilities.includes("message"))
+					throw new Error("Owner notification requires message capability");
+				const result = await outbound.enqueue(owner, "yonder", `群消息提及了主人：${event.conv}`, {
+					kind: "decision",
+					key: `owner-mention:${event.id}`,
+					sourceEvents: [event.id],
+				});
+				if (!result.ok) throw new Error(result.error ?? "Owner notification could not be queued");
+			},
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
 				if (!channel || !loaded.channels.has(channel)) return Promise.resolve(undefined);

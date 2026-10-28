@@ -121,6 +121,7 @@ export interface RuntimeRun {
 }
 
 export interface RuntimeSessionState {
+	judgment?: boolean;
 	models?: SessionModels;
 	close?: "run-end" | "manual";
 	agent: string | null;

@@ -44,7 +44,8 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 			return result("invalid-timezone");
 		}
 	}
-	if (mode === "mute" || mode === "record" || mode === "folded") return result(mode);
+	if (mode === "folded") return { ...result(mode), policy };
+	if (mode === "mute" || mode === "record") return result(mode);
 	if (kind === "dm") return result("direct", mode === "direct");
 	const nativeMention = data.social?.mentions?.bot;
 	if (

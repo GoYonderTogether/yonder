@@ -154,6 +154,10 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 
 `routing.social-decision` 在 reason 为 batch 时可附生效策略快照 policy。social 插件以 `social.batch-read` 记录已处理游标、以 `social.batch-failed` 记录失败；data 包含 agent、through、msgId，parent 关联批次或完成事件。原消息仍是正文来源。
 
+judge 调用前追加 `social.judge-start`，按 agent 和 conv 统计滚动一小时预算；合法结果追加 `social.judge-result`，包含 action、sourceEvents、reason 和批次指针。恢复时已记录结果可继续处理，只有 start 而无结果的批次保留待处理，不重新发起判断。
+
+folded 的 `routing.social-decision` 同样附策略快照；social 定时写入 `social.folded-ready`，记录 agent、through、sourceEvents、policyRevision 和稳定 msgId。该事实只是待整理批次，不表示摘要完成，不推进已读游标；重启按事实恢复定时与去重。
+
 ### 主动通知队列（CH-05r3）
 
 `notification.intent` 为内核写入的持久通知意图，`from` 为真实插件，data 为 `{owner, plugin, text, notification, ownerRef}`；`owner` 为真实会话执行者，`notification` 含 kind/key/sourceEvents 及可选 expiresAt，ownerRef 是入队时主人身份。`notification.final` 的 data 含 `intents`（意图事件 ID 数组）、`status`（attempted 或 discarded），attempted 另含 `agent`。插件不能伪造这两类事件。发送前重查执行者、当前能力、主人和目标授权；撤权或过期丢弃。attempted 在投递前持久记录，崩溃后结果未知且不自动重发。无外发目标时写入主人 main 的 app-only 通知，不唤醒模型，不代表外部渠道送达。

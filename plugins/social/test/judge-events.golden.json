@@ -1,0 +1,32 @@
+{
+	"social.judge-start": {
+		"msgId": "string",
+		"agent": "string",
+		"through": "string",
+		"session": "string"
+	},
+	"social.judge-result": {
+		"msgId": "string",
+		"agent": "string",
+		"through": "string",
+		"action": "string",
+		"sourceEvents": [
+			"string"
+		],
+		"reason": "string",
+		"batch": {
+			"type": "string",
+			"from": "string",
+			"conv": "string",
+			"data": {
+				"msgId": "string",
+				"agent": "string",
+				"through": "string",
+				"sourceEvents": [
+					"string"
+				],
+				"policyRevision": "string"
+			}
+		}
+	}
+}

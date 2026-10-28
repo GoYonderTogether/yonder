@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 群批次可选 judge 使用受限低价模型，持久记录预算与判断结果，并在调用前重验授权和静默策略。
+
 - 本机验收可显式开启供应商请求与 SSE trace，支持 OpenAI completions 和 responses，并对已知鉴权信息脱敏。
 
 - 修复硅基流动 DeepSeek-V3.2 的 effort 状态和思考参数，不支持的档位显示中文提示。
