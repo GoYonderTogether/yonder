@@ -28,6 +28,7 @@
 
 ### Fixed
 
+- `permissions` 工具参数改为顶层对象（`action` 判别 + 可选 `provider`/`kind`/`timeout`），修复严格供应商 API 以 `type: null` 拒绝该工具 schema；参数校验仍在工具内。
 - 单次启动产生的 11,726 条 error 级"历史 submission 无原生回执"降为 1 条 `warn` 加周期汇总。
 - 任务账本每次读取都新建连接、`SELECT *` 全表并从头 replay 的问题。
 
