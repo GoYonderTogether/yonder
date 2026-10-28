@@ -48,7 +48,7 @@
 		"ci:remote": "node scripts/ci-remote.mjs",
 		"test:changed": "node scripts/test-changed.mjs",
 		"release:pack": "node scripts/release/pack-runtime.mjs",
-		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/interaction/build.mjs && npm run build:app",
+		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && npm run build:app",
 		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",

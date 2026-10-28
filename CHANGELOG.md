@@ -4,6 +4,8 @@
 
 ### Added
 
+- 删除 interaction 旧网页及其独立构建步骤。
+
 - tasks 退役独立 HTTP 看板，保留控制面视图、渠道图片和 JSON 输出。
 
 - interaction 退役独立 HTTP 服务，交互卡片通过控制面视图展示与回答。

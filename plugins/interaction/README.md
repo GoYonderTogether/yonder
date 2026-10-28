@@ -1,57 +1,30 @@
-# Yonder UI Companion
+# Yonder Interaction
 
-已确认的小窗现为独立 SDK 插件，源码从 proposals/interaction 迁入此目录。保留 ai-card Web 风格、唯一共享品牌角色、同锚点展开/收起、大区域拖拽与历史回溯。
+interaction 插件通过 `interaction.card` 视图呈现交互卡，并保存用户的真实回答。旧的独立 HTTP 服务、网页和桌面悬浮窗已退役。
 
 ## 加载
 
-在仓库运行 `npm run build`，会编译 TypeScript、构建离线 Web 页面，并在 macOS 编译主仓库唯一的 `packages/macos/dist/YonderStatus.app`。无需新增下载依赖。非 macOS 跳过状态栏宿主，仍提供网页。
-
-新 home 默认加载官方插件；已有 home 在 CLI start 时补齐，已有配置与 desktop:false 保留。开发时可用现有 CLI 指向本目录：
+在仓库运行 `npm run build`，再通过现有 CLI 安装插件：
 
 ```sh
 yonder plugins add /absolute/path/to/yonder/plugins/interaction --home /absolute/path/to/home
 ```
 
-也可以在目标 home 的 yonder.yaml 加入：
-
-```yaml
-plugins:
-  - use: /absolute/path/to/yonder/plugins/interaction
-    config:
-      desktop: true
-```
-
 在实际 Agent 的 defaults.plugins 或配置档 plugins 选入 interaction，tools.offer 选 `interaction_*`；呈现需要 message，读取需要 read。安装插件不会自动扩大任何 Agent 的工具权限。使用既有重启方式加载代码。
 
-## 真实调用闭环
+## 调用闭环
 
-1. Agent 调用 `interaction_present({card})`。插件校验并持久化，返回 id、url、noticeUrl、inlineUrl。macOS 由现有状态栏宿主读取插件发布的私有 desktop.json，待办先显示悬浮入口；desktop:false 不发布桌面入口，仅提供网页，用户或可信宿主自行打开返回的 URL。
-2. Agent 调用 `interaction_result({id,wait:true})`。等待使用 Harness 原有工具/后台执行生命周期；wait:false 查询当前状态。
-3. 用户选择或填写内容。服务以请求 id 和步骤序号接纳答案，拒绝重复和过期步骤；卡片有 next 时进入下一步。
-4. 完成默认隐藏浮窗与浮球，无待处理任务时不在桌面留入口；菜单栏仍可打开历史。result 返回 completed 和真实 steps（原卡片、选择 value、可读 answer、时间 at）。autoClose:false 保留窗口。交互只回到创建它的 session/agent/profile，不向其他 Agent 伪造事件或自动唤醒。
+1. Agent 调用 `interaction_present({card})`，插件校验并持久化卡片，返回请求 id 和 pending 状态。
+2. 客户端读取会话范围内的 `interaction.card` 视图，并通过 answer 操作提交回答。请求版本必须匹配当前视图，卡片有 next 时进入下一步。
+3. Agent 调用 `interaction_result({id,wait:true})` 等待真实回答；`wait:false` 查询当前状态。结果只提供给创建卡片的 session、agent 和 profile。
 
-card 必填：id、title、prompt、kind（choice/form）；choice 必须有 options（唯一 id、label）。可选 next 是下一张 card，可选 autoClose 默认 true。没有固定示例任务或模拟 Agent 回复。
+card 必填 id、title、prompt、kind（choice/form）；choice 必须有 options（唯一 id、label）。可选 next 是下一张 card，可选 autoClose 默认 true。卡片回答本身不授予执行其他工具的权限。
 
-取消等待保留卡片，可再次查询；session.close 取消该会话的未完成卡片。关闭小窗只收起，不代替取消。服务停止唤醒等待者并关闭监听器并清理自身 desktop.json；状态栏随之关闭旧交互页面。插件 data 目录的 interactions.json 保存队列和原始步骤，重启恢复；浏览器本地数据只保存展示状态和未提交草稿，清理网站数据不会删除服务端交互记录。
-
-## 窗口与宿主
-
-- 窗口与 56×56 悬浮入口共用边角锚点，拖动后再次展开不跳位。Logo 视图 52×52，原生使用高清品牌图。位置在当前宿主运行期间保留。
-- 首次放在离指针较远的角落，之后尊重用户位置；不读取其他应用内容。空白区域和入口均可拖拽。
-- 左右键均打开同一状态栏菜单，提供当前交互、历史、服务状态、检查更新及停止服务并退出；点击图标不再直接展开窗口。未启用插件时仍能管理服务，且交互入口显示未就绪。
-- 状态栏原生 NSPanel 使用 nonactivatingPanel、orderFrontRegardless、becomesKeyOnlyIfNeeded，不在出现时激活应用。macOS 13+ canJoinAllApplications 用于台前调度集合，另设 canJoinAllSpaces/fullScreenAuxiliary；Space 切换收起入口。系统级焦点、全屏/台前调度与多屏行为仍需实际验收。
-- url 是独立窗，noticeUrl 为页面浮窗提醒，inlineUrl 为无品牌核心内容且保留完成结果。支持 iframe 的本地 Web/聊天宿主可嵌入同一 URL；没有自动接入第三方 IM 或图片渠道。
-- 回环 URL 含每次启动随机路径，是本机交互访问凭据；只交给用户或可信本地宿主，不公开传播。服务器验证 Host、Origin、内容类型、体积和步骤。它不执行任意生成的 HTML 或脚本；卡片答案不构成其他工具的权限放行。
-
-## 风格和品牌
-
-直接沿用 `yonder-card-web` 的 DESIGN.md、src/styles.css、Button/Field（参考 1c5b692aa5ff40de9ee9c8105f96a564fb38aa98）：浅深色令牌、Geist、字号/圆角/阴影/曲线。未改 ai-card 工程；字体许可在 web/assets/Geist-LICENSE。正式共享样式源尚未抽包。
-
-角色构建时直接内联本仓库 brand/src/yonder-mark.js；输入倾听、完成反馈，不代表录音或模型状态。减少动态效果时显示静态 Logo。[OpenUI](https://www.openui.com/demos) 与 [assistant-ui](https://www.assistant-ui.com/elements) 仅作渐进交互参考，未引入其运行时。
+取消等待保留卡片，可再次查询；session.close 取消该会话的未完成卡片。插件 data 目录的 interactions.json 保存队列和原始步骤，重启后恢复。
 
 ## 验证
 
-以下为开发阶段的原始验证记录，正式发布验收追加在末尾，未测项不因发版自动通过。
+以下为退役前开发阶段的历史验证记录，不代表当前实现或安装版本的验收；未测项不因发版自动通过。
 
 ```sh
 node plugins/interaction/test/state.mjs
@@ -88,7 +61,7 @@ npm run build && npm run typecheck && npm test && npm run lint
 
 本机旧 home 已补入官方插件并重启；runtimeLoaded 为 true，端点返回 HTTP 200。新 home、缺插件的旧 home 与 desktop:false 均通过真实内核/CLI 子进程回归，Agent 配置未变。全仓 97 文件通过/17 跳过，414 测试通过/36 跳过，0 失败；build、typecheck、lint 通过（323 条既有警告、13 条提示），权限自检 36 通过/0 失败。默认测试未启用真实模型；状态栏鼠标与全屏/台前调度人工体验未在本轮验证。
 
-## TaskBoard 只读面板（2026-10-25）
+## 历史：TaskBoard 只读面板（2026-10-25，旧页面已退役）
 
 加载 tasks 和 interaction 后调用 tasks_show target web/desktop；两者均返回现有页面 URL，desktop:false 仍仅提供网页。界面沿用现有 ai-card 令牌和滚动面板：顶部计数、等你→进行中→阻塞→刚完成（默认收起），每项显示 T<n>、标题、状态、owner、elapsed/idle、验收进度和 tasks 提供的滞留标记；点击打开目标、逐项证据、交付、追加事件和嵌套子任务。面板没有修改任务的按钮。
 
