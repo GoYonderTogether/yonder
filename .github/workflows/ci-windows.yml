@@ -20,6 +20,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+      - run: choco install ripgrep -y --no-progress
       - run: npm ci
       - run: node scripts/check-pi-durable-workspace.mjs
       - run: npm run typecheck
