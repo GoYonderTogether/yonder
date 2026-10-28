@@ -374,5 +374,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 ## code-intel：可选代码导航
 
+- `code-intel_read_enclosing` 通过 pi-lens MCP 按位置读取包含符号；安装和参数见插件 README。
+
 - **包**：`@yonder/plugin-code-intel`；**工具**：`code-intel_codegraph_explore`、`code-intel_module_report`。
 - 在当前执行环境调用 CodeGraph，索引由用户初始化和刷新；需 `read`、`exec`。详见 [README](../plugins/code-intel/README.md)。
