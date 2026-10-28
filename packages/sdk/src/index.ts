@@ -35,6 +35,7 @@ export const plugin = (id: string): Ref => reference(`plugin:${id}`);
 
 export * from "./chat-commands.js";
 export * from "./health.js";
+export * from "./version.js";
 
 /** Resource scope only; capabilities and source/ownership checks remain the caller's responsibility. */
 export function allowsChannelInstance(scope: { channelInstances?: readonly string[] }, instance: string): boolean {
