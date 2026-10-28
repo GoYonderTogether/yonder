@@ -198,6 +198,12 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 `code-intel_lsp_navigation` 在所选执行环境调用 pi-lens 4.4.6 MCP，提供其 19 种 LSP operation 和 capabilities 发现；位置参数为 path、line、character，其他参数沿用后端 schema。仅选中插件且具备 read、write、exec 时提供。当前一次性 MCP 连接无法保证跨文件写入及取消，rename、rename_file、executeCommand 的 apply:true 返回明确错误；预览和其他操作依后端能力返回结果或错误。长输出使用现有运行时截断和缓存，缓存不补全后端已截断的内容。
 
+`code-intel_ast_grep_search` 在当前执行环境调用 pi-lens 4.4.6 MCP 的 `pilens_ast_grep_search`，需要 read、exec，仅选中插件时提供。接受 lang，pattern、rule 或 nodeKind，以及 paths、selector、context、insideKind、hasKind、hasDescendantKind、follows、precedes、strictness、skip、maxMatches、groupByFile、validateOnly、dump；沿用上游互斥和校验，rule 是数据而非 shell。maxMatches 默认 50、上限 200；validateOnly 只校验不扫描工作区。返回命中位置和 readSlice，零结果保留 suggestedDump；输出沿用运行时截断与缓存。
+
+`code-intel_lens_diagnostic_mark` 接受 `filePath`、1-based `line`、诊断 `message`、`disposition`（`false-positive`、`suppress`、`defer`、`flagged`），以及可选 `rule`、`tool`、`reason`；`suppress` 必须提供 rule。采用 pi-lens 4.4.6 的内容锚定：false-positive 严格绑定规则、消息、来源和规范化目标行；其余标记弱绑定规则、消息和来源。false-positive 与 flagged 持久，defer 按 Yonder session 隔离；suppress 在目标行上方写 `pi-lens-ignore` 并持久记录。每次标记记录日志，返回处理结果与作用域；需要 read、write、exec，重新探测实际诊断并拒绝找不到或等距歧义的目标；仅选中插件时提供，使用执行环境与现有运行时输出截断及缓存。本适配不声称存在 pi 的诊断事件总线或 Yonder 原生诊断总线。
+
+`code-intel_lens_diagnostics` 通过 pi-lens MCP 获取诊断，支持 path、paths、source、scope、mode、severity、waitMs 与 serverScope；需要 read、exec。默认单 path 分析消费项目持久标记和本会话 defer，显式 source=lsp 走后端原始探测（不消费会话标记），source=session 因 MCP 进程无会话缓存而返回不可用；其他后端路径不声称消费会话标记。分析禁用自动格式化、自动修复和测试。标记存于执行环境 cwd 的 `.pi-lens/cache/diagnostic-dispositions.json`，日志为 `.pi-lens/dispositions.log`。
+
 `code-intel_read_enclosing` 在当前执行环境通过 pi-lens 4.4.6 MCP 按 path 和 1-based line 读取最小包含符号或回调，支持 kinds、maxLines、onOversize（error 默认仅元数据、slice、outline）和 aroundLine；需要 read 与 exec。仅选中插件时提供，使用运行时输出缓存；pi-lens 内部读取记录不等于 Yonder edit 的读取检查。
 
 `code-intel_codegraph_explore` 在当前执行环境通过 CodeGraph CLI 读取已建索引，接受 query、可选 maxFiles（默认 12）及 projectPath（默认工作区）；先检查索引状态，缺失或过期时给出初始化或刷新动作。仅选中插件时提供工具；不自动初始化、启动 watcher 或注入项目图。输出沿用运行时工具截断与缓存。工具需要 read 和 exec 能力。
@@ -207,3 +213,5 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 `code-intel_read_symbol` 在当前执行环境调用 pi-lens 4.4.6 MCP，接受 file、symbol 及可选 kind；symbol 可为 module_report 的 callback handle。返回后端提供的源码和行范围；重名或失效时返回后端的候选或错误，不静默选择。需要 read、exec，仅选中插件时提供，长输出沿用运行时截断与缓存。pi-lens 的 read-guard 不构成 Yonder 的编辑前置条件。
 
 `code-intel_ast_grep_outline` 在当前执行环境调用 ast-grep 0.51.0 的 outline，接收文件或目录、语言和 items/view/type/match/pubMembers/globs，返回语法条目、嵌套成员与读取位置；不依赖 LSP 或索引。仅选中插件时按需提供，需要 read 和 exec 能力；长输出沿用运行时截断与缓存。
+
+`code-intel_ast_grep_replace` 通过 pi-lens MCP 在临时副本预览结构替换，最小版本只接受一个工作区内常规文件。先预览再应用；应用前检查文件内容未变，并通过运行时写入保护检查。它需要 read、write、exec；应用检查和写入不构成跨进程原子操作。

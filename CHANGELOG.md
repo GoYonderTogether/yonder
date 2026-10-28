@@ -6,6 +6,8 @@
 
 - Add optional `code-intel_lsp_navigation` through pi-lens MCP; applying cross-file changes is not yet available.
 
+- 可选 code-intel 新增诊断查询与处理标记，支持会话延期、持久标记和源码抑制注释。
+
 - 飞书投递重试复用稳定的分片 UUID；Channel.send 可接收可选 deliveryId。
 
 - 社交路由追加 `routing.social-decision` 事件，关联原始输入并记录策略版本与判定原因。

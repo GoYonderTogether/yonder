@@ -33,7 +33,9 @@
 				"code-intel_read_enclosing",
 				"code-intel_read_symbol",
 				"code-intel_effective_config",
-				"code-intel_lsp_navigation"
+				"code-intel_lsp_navigation",
+				"code-intel_lens_diagnostic_mark",
+				"code-intel_lens_diagnostics"
 			]
 		}
 	}
