@@ -1,8 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import {
 	type Attachment,
-	allowsChannelInstance,
-	assertChannelInstance,
 	type Channel,
 	type Delivery,
 	type EventInput,
@@ -16,6 +14,7 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
+import { allowsChannelInstance, assertChannelInstance } from "../kernel/console.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";

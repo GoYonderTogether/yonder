@@ -357,3 +357,5 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 ## 安装根兼容（2026-10-28 主人授权）
 
 安装根暂不改名，后续单独迁移：保留 `~/.yonder-harness` 的 versions/current/bin；当前 migrate 的备份、锁与回滚围绕用户 home，安装树迁移需另行处理 wrapper 与安装路径。
+
+2026-10-28 console 隐式绑定视为已授权渠道（不受 channelInstances 限制）
