@@ -3,7 +3,8 @@ import type { AgentConfig, Binding, YonderConfig } from "../config/index.js";
 
 /** Reserved instance id of the built-in console channel (the web console / gateway). */
 export const CONSOLE = "console";
-export const CONSOLE_BINDING = "console";
+/** Reserved binding id of the implicit console binding; agent config validation rejects it (config/index.ts). */
+export const CONSOLE_BINDING = "@console";
 
 /**
  * Built-in channel for the web console. Inbound messages are emitted by the kernel on behalf of the
@@ -47,7 +48,7 @@ export function withConsoleBinding(agent: AgentConfig, config: YonderConfig): Ag
 		profile: main.profile ?? agent.defaultProfile,
 		...(main.busy ? { busy: main.busy } : {}),
 	};
-	return { ...agent, bindings: [binding, ...agent.bindings.filter((item) => item.id !== CONSOLE_BINDING)] };
+	return { ...agent, bindings: [binding, ...agent.bindings] };
 }
 
 export const isConsoleBot = (agent: AgentConfig) =>
