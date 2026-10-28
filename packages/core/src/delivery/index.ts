@@ -19,6 +19,7 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+import { consoleAllowed, persistConsole, type Scope } from "./console.js";
 import { createLedger } from "./ledger.js";
 import { createVisibility } from "./visibility.js";
 
@@ -173,7 +174,7 @@ export function createDelivery(options: DeliveryOptions) {
 		request: MessageRequest,
 		agent?: string | null,
 		config?: RuntimeSessionConfig,
-		scope: { channelInstances?: string[] } = config?.resolved ?? {},
+		scope: Scope = config?.resolved ?? {},
 	): Promise<{ target: string; channel: Channel }> {
 		if (request.via) assertChannelInstance(scope, request.via);
 		let target = request.to;
@@ -191,6 +192,7 @@ export function createDelivery(options: DeliveryOptions) {
 				.filter(
 					(account) =>
 						account &&
+						consoleAllowed(account.ref, scope) &&
 						allowsChannelInstance(scope, channelId(account.ref) ?? "") &&
 						(!request.via || channelId(account.ref) === request.via),
 				)
@@ -215,7 +217,7 @@ export function createDelivery(options: DeliveryOptions) {
 		signal: AbortSignal = AbortSignal.timeout(60000),
 		runId?: string,
 		messageId?: string,
-		scope: { channelInstances?: string[] } = config?.resolved ?? {},
+		scope: Scope = config?.resolved ?? {},
 	): Promise<Delivery> {
 		for (const hook of selectedHooks(config)) {
 			const changed = await hook.beforeSend?.(
@@ -242,6 +244,7 @@ export function createDelivery(options: DeliveryOptions) {
 		} catch (error) {
 			return unknown(id, error);
 		}
+		if (scope.proactive) delivery = await persistConsole(options, resolved, outgoing, id, session, delivery);
 		if (!delivery.ok && (delivery.uncertain || delivery.id))
 			return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
 		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id, messageId);
@@ -251,6 +254,14 @@ export function createDelivery(options: DeliveryOptions) {
 		}
 		return delivery;
 	}
+	const proactive = (
+		from: string | undefined,
+		msg: MessageRequest,
+		session: SessionInfo | undefined,
+		config: RuntimeSessionConfig | undefined,
+		signal: AbortSignal | undefined,
+		scope: Scope = config?.resolved ?? {},
+	) => send(from, msg, session, scope.event?.id, config, signal, undefined, undefined, { ...scope, proactive: true });
 	// The existing attempt ledger owns retry facts; timers only drive unresolved safe sends.
 	function retry(event: YEvent) {
 		if (retries.has(event.id) || lifetime.signal.aborted) return;
@@ -578,7 +589,7 @@ export function createDelivery(options: DeliveryOptions) {
 		},
 		async sendPlugin(pluginId: string, request: MessageRequest): Promise<Delivery> {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };
-			return send(`plugin:${pluginId}`, request, undefined, undefined, undefined, request.signal);
+			return proactive(`plugin:${pluginId}`, request, undefined, undefined, request.signal);
 		},
 		async sendOwned(
 			pluginId: string,
@@ -588,7 +599,7 @@ export function createDelivery(options: DeliveryOptions) {
 		): Promise<Delivery> {
 			if (!config.resolved.capabilities.includes("message"))
 				return { ok: false, error: "Program delivery requires current message capability" };
-			return send(`plugin:${pluginId}`, request, session, undefined, config, request.signal);
+			return proactive(`plugin:${pluginId}`, request, session, config, request.signal);
 		},
 		async sendTool(ctx: ToolContext, request: MessageRequest): Promise<Delivery> {
 			const session = await store.sessions.get(ctx.session);
@@ -641,7 +652,7 @@ export function createDelivery(options: DeliveryOptions) {
 				} while (!found && after);
 				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
 			}
-			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal, undefined, undefined, ctx);
+			return proactive(fromSession(session), request, session, config, ctx.signal, ctx);
 		},
 	};
 }

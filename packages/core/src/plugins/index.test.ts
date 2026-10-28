@@ -60,7 +60,7 @@ it("loads both first-party plugins through the manifest and registration checks"
 			},
 			services,
 		);
-		expect([...plugins.channels.keys()]).toEqual(["cli"]);
+		expect([...plugins.channels.keys()]).toEqual(["console", "cli"]);
 		expect([...plugins.contexts.keys()]).toEqual(["peer-workspace", "agents-md", "user-md", "soul-md", "memory-md"]);
 		expect(plugins.envs.size).toBe(0);
 	} finally {
@@ -165,6 +165,22 @@ it("only the provider registration can allow a channel to emit target", async ()
 			else await expect(plugins.start({ emit, ask: unused })).rejects.toThrow("cannot specify target");
 			await plugins.stop();
 		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+it("rejects a user-declared channels.console because the id is reserved for the built-in console", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-plugin-console-"));
+	try {
+		const services = {} as unknown as KernelServices;
+		await expect(
+			loadPlugins(
+				home,
+				{ schema: 1, plugins: [{ use: "@yonder/plugin-channel-cli" }], channels: { console: { type: "cli" } } },
+				services,
+			),
+		).rejects.toThrow("channels.console: reserved for the built-in console channel");
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

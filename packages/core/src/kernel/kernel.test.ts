@@ -19,6 +19,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 		try {
 			expect((await kernel.identity.lookup("person:owner")).accounts.map((item) => item.ref)).toEqual([
 				"acct:cli:local",
+				"acct:console:owner",
 			]);
 			expect(await kernel.sessions.list({})).toEqual([]);
 			expect(await kernel.awakeActivity()).toEqual({ active: 0 });

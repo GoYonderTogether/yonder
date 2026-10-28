@@ -32,6 +32,7 @@ import { createCoreTools } from "../tools/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { backgroundHandlers } from "./background.js";
+import { createBots } from "./bots.js";
 import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
@@ -519,6 +520,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					}),
 				};
 			},
+			bots: await createBots(agents, store, (event) => router.emit(event as never), log),
 			close,
 			eventWatermark: () => store.events.watermark(),
 			async awakeActivity() {

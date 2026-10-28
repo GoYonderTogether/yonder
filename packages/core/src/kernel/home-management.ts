@@ -156,8 +156,10 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 			],
 			instances: [
 				...[...loaded.channels.keys()]
-					.filter((id) =>
-						((info.contributes as { channels?: string[] }).channels ?? []).includes(config.channels![id]!.type),
+					.filter(
+						(id) =>
+							config.channels?.[id] &&
+							((info.contributes as { channels?: string[] }).channels ?? []).includes(config.channels[id].type),
 					)
 					.map((id) => `channel:${id}`),
 				...[...loaded.envs.keys()]
