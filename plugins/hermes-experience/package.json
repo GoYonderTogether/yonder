@@ -1,6 +1,7 @@
 {
 	"name": "@yonder/plugin-hermes-experience",
 	"version": "0.3.26102801",
+	"deprecated": true,
 	"type": "module",
 	"yonder": {
 		"apiVersion": 1,
