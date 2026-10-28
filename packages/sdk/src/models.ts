@@ -8,7 +8,8 @@ export type SessionModels = {
 	thinking?: "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 	fallback?: {
 		models: string[];
-		/** Same model on other credential slots, tried before `models` (spec 03 §3, 07 §6.1). */
+		order?: "accounts-first" | "models-first";
+		/** Same model on other credential slots (spec 03 §3.1). */
 		accounts?: Record<string, string[]>;
 		/** Per slot model substitution, keyed by slot then `provider/model` (e.g. a limited account runs a smaller model). */
 		accountModels?: Record<string, Record<string, string>>;
@@ -34,7 +35,14 @@ export interface Profile extends SessionModels {
 	prompt?: { sections?: string[]; overrides?: Record<string, string> };
 	instructions?: string;
 	env?: string;
-	limits?: { maxTurns?: number; maxMinutes?: number; maxTokens?: number; repeatBlock?: number; repeatStop?: number };
+	limits?: {
+		maxTurns?: number;
+		maxMinutes?: number;
+		stuckMinutes?: number;
+		maxTokens?: number;
+		repeatBlock?: number;
+		repeatStop?: number;
+	};
 }
 /** A profile that belongs to no agent, used for temporary sessions. */
 export type Preset = Profile & { id: string; description: string };

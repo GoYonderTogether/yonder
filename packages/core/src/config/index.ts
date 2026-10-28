@@ -51,6 +51,7 @@ export type ResolvedProfile = Required<
 	fallback?: Profile["fallback"];
 	tools: Required<NonNullable<Profile["tools"]>>;
 	limits: Required<NonNullable<Profile["limits"]>>;
+	delegationCeilings?: DelegationCeiling[];
 };
 
 const levels: Record<Level, Capability[]> = {
@@ -58,7 +59,14 @@ const levels: Record<Level, Capability[]> = {
 	standard: ["read", "write", "exec", "network", "message"],
 	readonly: ["read"],
 };
-export const defaultLimits = { maxTurns: 100, maxMinutes: 30, maxTokens: 200000, repeatBlock: 3, repeatStop: 5 };
+export const defaultLimits = {
+	maxTurns: 100,
+	maxMinutes: 30,
+	stuckMinutes: 60,
+	maxTokens: 200000,
+	repeatBlock: 3,
+	repeatStop: 5,
+};
 
 /** Each layer overrides only the providers it names; "default" is an explicit selection, not absence. */
 export function mergeCredentialSlots(
@@ -116,10 +124,19 @@ export function resolveProfile(
 	} as ResolvedProfile;
 }
 
-export interface PresetInherit {
+export type PresetInherit = {
 	plugins: string[];
 	tools: { offer: string[]; search: string[] };
-}
+	skills?: string[];
+	ceilings?: DelegationCeiling[];
+	explicitSessionTools?: boolean;
+};
+
+export type DelegationCeiling = {
+	tools: { offer: string[]; search: string[] };
+	skills: string[];
+	explicitSessionTools: boolean;
+};
 
 /**
  * Capabilities and inherited tool surface for a preset session (spec 03 §4). A preset that sets no
@@ -131,6 +148,7 @@ export function presetSession(
 	env: string,
 	opener?: ResolvedProfile,
 	limit?: Capability[],
+	openerAgent?: string | null,
 ): { capabilities: Capability[]; channelInstances?: string[]; inherit?: PresetInherit } {
 	const own = preset.level !== undefined || preset.capabilities !== undefined;
 	const ceiling = opener?.capabilities;
@@ -147,6 +165,9 @@ export function presetSession(
 					inherit: {
 						plugins: [...opener.plugins],
 						tools: { offer: [...opener.tools.offer], search: [...opener.tools.search] },
+						skills: [...opener.skills],
+						ceilings: structuredClone(opener.delegationCeilings ?? []),
+						explicitSessionTools: openerAgent != null && openerAgent !== "main",
 					},
 				}
 			: {}),
@@ -168,11 +189,20 @@ export function presetProfile(
 	const inherited = inherit
 		? {
 				...resolved,
-				plugins: [...new Set([...inherit.plugins, ...(preset.plugins ?? [])])],
+				plugins: (preset.plugins ?? inherit.plugins).filter((plugin) => inherit.plugins.includes(plugin)),
 				tools: {
 					offer: preset.tools?.offer ?? inherit.tools.offer,
 					search: preset.tools?.search ?? inherit.tools.search,
 				},
+				skills: preset.skills ?? inherit.skills ?? [],
+				delegationCeilings: [
+					...(inherit.ceilings ?? []),
+					{
+						tools: inherit.tools,
+						skills: inherit.skills ?? [],
+						explicitSessionTools: inherit.explicitSessionTools ?? true,
+					},
+				],
 			}
 		: resolved;
 	if (!capabilities) return inherited;

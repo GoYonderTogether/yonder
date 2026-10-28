@@ -86,7 +86,7 @@ bindings: [ … ]                   # 见 02 §2
 | 字段 | 含义 |
 |---|---|
 | `model` | `provider/modelId`（07 §6） |
-| `fallback` | 可选 `{ models: [provider/modelId, ...], accounts: { [providerId]: [slot, ...] }, accountModels: { [slot]: { [provider/modelId]: provider/modelId } }, quotaStopPercent: { [slot]: 50 }, after: 3, hold: 600, probe: 60 }`；主模型连续失败达到 after 后按顺序回退：先换到 `models` 的第一个模型，再让主模型换用 `accounts` 里列出的其他账号（只对主模型生效），最后按 `models` 顺序换其余模型；`accountModels` 给某个槽换用同 provider 的其他模型（例如额度受限的账号只跑较小模型），对该槽的每个链条目生效，映射到其他 provider 的条目被忽略。`quotaStopPercent` 按槽设官方用量窗口的停用线：账号已用百分比达到该值且窗口未重置时不再被选中（07 §6.1）。成功响应清零计数，最后一个条目也只尝试 after 次。`hold` 秒内被判定不可用的条目不再作为新运行的起点，`probe` 秒在后台探测一次，成功后回到主模型。省略则沿用原生 retry。运行内的失败计数与当前模型限于本次运行。 |
+| `fallback` | 可选 `{ models: [provider/modelId, ...], accounts: { [providerId]: [slot, ...] }, accountModels: { [slot]: { [provider/modelId]: provider/modelId } }, quotaStopPercent: { [slot]: 50 }, after: 3, hold: 600, probe: 60, order?: accounts-first/models-first }`；链顺序及错误分类见 §3.1。`accountModels` 给某个槽换用同 provider 的其他模型，对该槽的每个链条目生效，映射到其他 provider 的条目被忽略。`quotaStopPercent` 按槽设官方用量窗口的停用线（07 §6.1）。省略 `fallback` 则沿用原生 retry；运行内的失败计数与当前模型限于本次运行。 |
 | `thinking` | `off` / `minimal` / `low` / `medium` / `high` / `xhigh` / `max` |
 | `credentialSlots` | 可选 `{ [providerId]: slotName }` 非秘密账户选择；defaults → profile → session 按 provider 合并，显式 `default` 覆盖继承；未选择的 provider 使用 default，不改变模型名。同一模型换用其他账号只经 `fallback.accounts` 进入运行内模型链 |
 | `level` 或 `capabilities` | 安全级别或显式能力列表（05 §2），二选一 |
@@ -98,7 +98,20 @@ bindings: [ … ]                   # 见 02 §2
 | `prompt` | `{ sections?: string[], overrides?: Record<string, string> }`，选择、排序或替换内置段落（§5.5） |
 | `instructions` | 追加在系统提示词最后 |
 | `env` | 工具在哪个执行环境运行；默认是工作区所在环境 |
-| `limits` | 覆盖运行软阈值与重复空转保护：`{ maxTurns, maxMinutes, maxTokens, repeatBlock, repeatStop }`（07 §5） |
+| `limits` | 覆盖运行软阈值与重复空转保护：`{ maxTurns, maxMinutes, stuckMinutes, maxTokens, repeatBlock, repeatStop }`（07 §5） |
+
+### 3.1 模型回退策略（O49 目标）
+
+回退链由首选模型、首选模型的其他账号和备用模型组成；顺序可配置，未指定顺序时保留现有配置的顺序与含义。已有字段和事件按 20 的兼容规则保留。运行期间按每个条目的实际错误分别决策，而不是把所有错误都计入同一个失败阈值：
+
+`fallback.order` 可选 `accounts-first` 或 `models-first`：分别在首选模型后先排其他账号或先排全部备用模型，组内保留配置顺序。省略时保留原顺序：首选模型、第一个备用模型、其他账号、其余备用模型；按实际模型和账号去重，保留首次出现。
+
+- 鉴权失败、模型不存在或额度耗尽：立即尝试下一个条目，并对失败条目长时间 hold。
+- 限流（429）：立即尝试下一个条目；服务端给出可解析的重置时间时 hold 至该时间，否则使用配置的 hold。不得将限流探测响应视为恢复成功。
+- 超时和服务端 5xx：当前条目失败达到 `after` 次后切换；每个条目的重试和退避独立计算。
+- 内容、参数或上下文错误：停止并报告原错误，不切换模型，也不将模型标为不健康。
+
+后台探测仅在真正成功后解除 hold；恢复首选条目后后续运行自动回到首选。一次回退期间向来源用户发送一次中文提示，恢复后再发送一次中文提示；沿用 `model.fallback` 的 fallback/recovered 事件与既有持久投递语义，doctor 展示链的条目与健康状态。无法可靠取得供应商的 reset 时间时不得虚构。该节是目标契约，实现与验证状态以 `docs/status.md` 为准。
 
 未写的字段取 `defaults`，再取内核默认。
 
@@ -113,13 +126,15 @@ bindings: [ … ]                   # 见 02 §2
 预设是不属于任何 agent 的配置档，放在 `<home>/presets/<id>.yaml`（`id` 取文件名），或由插件贡献（04 §3.7）。字段同 §3，另加必填的 `description`（一句话，会出现在 `task_run` 工具说明里）。SDK 类型：`Preset = Profile & { id: string; description: string }`，`Profile` 即 §3 的字段表。
 
 - 内核工具 `task_run({ preset, task, attachments?, effort?, credentialSlots? })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
-- 子会话默认继承发起方：预设没写 `level`/`capabilities` 就取发起方的能力，写了则与发起方相交；没写的 `tools.offer/search` 取发起方，`plugins` 为发起方所列加预设自己所列。预设只在显式写出时收窄。**禁止**借预设提权。contexts、model、thinking、fallback、credentialSlots、instructions 由预设决定，不继承父会话的模型账户配置或常驻身份；`task_run` 嵌套不超过两层。继承的插件与工具在开会话时固定保存，不因重载扩大。`channelInstances` 取父范围与预设范围交集（undefined 为单位元），创建时保存有效上限；无父则取预设范围，恢复与后续预设重载只能再相交，不放宽。
+- 子会话默认继承发起方：预设没写 `level`/`capabilities` 就取发起方的能力，写了则与发起方相交；没写的 `tools.offer/search`、`plugins`、`skills` 取发起方，写了则只能在发起方对应范围内选择。工具的 offer/search 分别取交集，通配符按实际工具名匹配；skills 按实际名称匹配。父为非 main 常驻 Agent 时，session_list/read 的逐名选择限制也传给子会话。**禁止**借预设提权。contexts、model、thinking、fallback、credentialSlots、instructions 由预设决定，不继承父会话的模型账户配置或常驻身份；`task_run` 嵌套不超过两层。父范围及祖先上限在开会话时固定保存，恢复与后续预设重载只能再收窄；旧会话未保存的 skills 上限按空范围处理。`channelInstances` 取父范围与预设范围交集（undefined 为单位元），创建时保存有效上限；无父则取预设范围，恢复与后续预设重载只能再相交，不放宽。
 - `task_run` 的按次 `credentialSlots` 与 `effort` 使用同一既有 admin 能力门槛，不增加权限机制。映射按 provider 覆盖预设自身的选择，与 effort 同级保存在结构化 `session.input.data` 中，重放使用原事件；仅影响该次运行，在运行配置快照前应用，不改写预设或父会话。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；预设没写能力时取 `capabilities`，写了则与之相交，插件应当传入它代表的外部调用方被允许的能力。
 - 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
 - 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
 ## 5. 提示词组装
+
+工具的可选 `guidelines` 仅在该次请求实际提供其 schema 时装入 system；按工具名稳定排序、逐条去重。按需发现后从后续请求起可见；未选插件、未授权及尚未发现的工具不注入。旧插件不提供该字段时行为不变。
 
 ### 5.1 三个位置
 
@@ -179,7 +194,9 @@ context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板�
 
 ### 5.4.1 官方任务预设
 
-同一插件提供 `default`（通用任务）、`coding`（实施与验证）、`research`（读取、调查与证据报告）。正文分别为 `prompts/tasks/general.md`、`coding.md`、`research.md`，经 `task-general`、`task-coding`、`task-research` 三个无工作区读取的 system context 加载；专业预设同时选择通用任务 context。渠道分身仍是同一常驻 Agent 的 profile，不新增人格；子任务与独立工作 session 使用同一 preset，只在发起方、历史和关闭方式上不同。
+同一插件提供 `default`（通用任务）、`coding`（实施与验证）、`research`（读取、调查与证据报告）。正文分别为 `prompts/tasks/general.md`、`coding.md`、`research.md`，经 `task-general`、`task-coding`、`task-research` system context 加载；专业预设同时选择通用任务 context。`task-general` 同时加载项目规则，不读取 Agent 人格工作区。渠道分身仍是同一常驻 Agent 的 profile，不新增人格；子任务与独立工作 session 使用同一 preset，只在发起方、历史和关闭方式上不同。
+
+项目规则先读取宿主 `~/.pi/agent`，再从执行环境的文件系统根逐级读到本次真实 cwd；每个目录依次选择 `AGENTS.override.md`、`AGENTS.md`、`AGENTS.MD`、`CLAUDE.md`、`CLAUDE.MD` 中第一个普通文件。按执行环境身份与规范路径去重，每份标注来源路径；每文件最多 32 KiB，总计最多 128 KiB，截断时标记 `[truncated]`。项目规则不扩展文件访问权限。嵌套 Git worktree 的主仓库规则遮蔽尚未实现。
 
 任务不装入常驻人格，不继承父会话全部历史或私人记忆。长期任务由常驻 Agent 负责，任务会话和项目交接资料承接进展；不因任务耗时长而新建 Agent。需要持续职责、关系与独立资产时才创建另一个常驻 Agent，并通过现有绑定交接。专业任务 context 也可显式选入常驻 profile，与其人格并用，不新增运行类型。
 
@@ -253,3 +270,19 @@ task 会话最终回复首行必须为 `STATUS: done|partial|blocked`，随后�
 发行包含完整上游skill-creator（含许可及引用资源）与简洁yonder-development，默认skills=[*]的所有agent及预设可发现，只有名字描述进入索引，正文仍由skill_view按需加载。显式skills选择/禁用和workspace/home覆盖仍有效，不以“默认”绕过用户过滤。现有本机agent配置中的显式白名单加入这两项，不强制未来配置。
 
 yonder-development 的开发流程：任何独立代码仓库，所有改动都直接在主分支上进行，不迁出分支，不建 worktree 或独立环境。同一目录允许 10 到 30 个 Agent 并行，内容大致不重叠即可；重叠时改不同的行，或等 5 到 10 秒再改，顺带提交别人的改动也可以。只有两种情况需要独立环境：特定版本发版时为该版本建发版环境；一批任务完成后，主 Agent 安排检出当时的 commit 做验证，同时开始下一批。主 Agent 不写代码、不改代码文件，只改提示词、规约和文档，落地执行全部交给子 Agent。 运行使用自身凭据，不覆盖正式 launchd。正式程序仅 update 更新，不在 versions/current 改源码；skill 不授予 push/发布权限，不自动创建 remote。
+
+## 10. 参数化提示词模板
+
+提示词模板是用户输入的文本快捷方式，不是 system context 或 preset，也不改变角色、工具或权限。参照 pi 的 Markdown 模板：文件名为斜杠命令名，正文支持带引号的参数、`$1`、`$@`、`$ARGUMENTS`、默认值和参数切片。内置命令仍优先；未匹配的输入保持原样。CLI、console 和渠道应在共享输入路径展开，实际执行仍受原会话权限约束。
+
+最低闭环从 `<home>/prompts/*.md` 和 `<home>/agents/<id>/prompts/*.md` 发现直接子文件，Bot 模板覆盖同名 home 模板。执行者、子 Agent 和插件模板的发现、覆盖及身份映射仍需补齐；不得把 preset 的角色或权限当作模板正文，亦不得通过模板扩大访问权限。
+
+## 11. 项目规则（O49 T11）
+
+项目规则与 Agent 人格工作区上下文分开。选中 `agent-presets` 的 `task-general` 上下文时，在 system 中按来源路径标注并装入规则；官方 default、coding、research 预设均选中该上下文，无 Agent 身份的任务也可加载。其他执行者或配置档只有选中该上下文或自行使用读取入口时才会加载，不能假定所有会话自动加载。
+
+先读取宿主 `~/.pi/agent` 中的全局规则，再通过会话实际执行环境从文件系统根到有效 cwd 依次读取祖先目录规则，包含 cwd。每个目录按 `AGENTS.override.md`、`AGENTS.md`、`AGENTS.MD`、`CLAUDE.md`、`CLAUDE.MD` 的顺序选择首个可读文件；缺失或非文件跳过，其他读取错误报出。按执行环境 id 和规范路径去重，保留首次出现的文件；UTF-8 内容去除开头 BOM。
+
+每文件最多读取 32 KiB，所有文件合计最多读取 128 KiB；截断的文件标记 `[truncated]`，总限额耗尽后停止扫描。限额不同于 pi 原生规则，是 Yonder 的上下文预算。执行环境须支持二进制读取和规范路径解析；全局规则始终使用宿主本地环境，不把宿主路径当作远程路径。
+
+当前尚未实现 pi 对嵌套 linked worktree 中主仓库同名规则的遮蔽；普通规范路径去重不能替代这一规则。项目规则与其他工作区上下文之间也尚无统一去重；任意未选择 `task-general` 的执行者自动加载仍未实现。以上是实现范围，不代表端到端或远程环境已验收。

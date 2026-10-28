@@ -688,15 +688,19 @@ test("long silent runs warn once, but recent tool activity prevents a stuck warn
 		const run = {
 			runId: "long",
 			started: Date.now() - 666 * 60000,
-			lastToolAt: Date.now(),
+			lastToolAt: Date.now() - 666 * 60000,
 			tools: 8,
-			config: x.config,
+			config: {
+				...x.config,
+				resolved: { ...x.config.resolved, limits: { ...x.config.resolved.limits, stuckMinutes: 1000 } },
+			},
 			inputs: [x.event],
 		};
 		await x.delivery.heartbeat(x.session, run, 1);
 		expect(x.sent[0]).toContain("约 11 小时");
 		await new Promise((r) => setTimeout(r, 5));
-		await x.delivery.heartbeat(x.session, { ...run, lastToolAt: run.started }, 1);
+		run.config.resolved.limits.stuckMinutes = 60;
+		await x.delivery.heartbeat(x.session, run, 1);
 		expect(x.sent[1]).toContain("疑似卡住");
 		expect(x.sent[1]).toContain("/stop");
 		await x.delivery.heartbeat(x.session, { ...run, lastToolAt: run.started }, 1);

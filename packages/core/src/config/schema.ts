@@ -19,6 +19,7 @@ export const SessionModelsSchema = object({
 	fallback: Type.Optional(
 		object({
 			models: Type.Array(Type.String({ pattern: "^[^/]+/.+$" }), { uniqueItems: true }),
+			order: Type.Optional(choice("accounts-first", "models-first")),
 			accounts: Type.Optional(
 				Type.Record(Type.String({ pattern: "^.+$" }), Type.Array(text, { uniqueItems: true }), {
 					additionalProperties: false,
@@ -69,6 +70,7 @@ const fields = {
 			maxTurns: Type.Optional(Type.Integer({ minimum: 1 })),
 			maxTokens: Type.Optional(Type.Integer({ minimum: 1 })),
 			maxMinutes: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+			stuckMinutes: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
 			repeatBlock: Type.Optional(Type.Integer({ minimum: 1 })),
 			repeatStop: Type.Optional(Type.Integer({ minimum: 1 })),
 		}),

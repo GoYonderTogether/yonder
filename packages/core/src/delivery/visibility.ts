@@ -178,7 +178,8 @@ export function createVisibility(deps: VisibilityDeps) {
 			(event) =>
 				event.type === "message.attempt" && (event.data as { runId?: string }).runId === `heartbeat:${run.runId}`,
 		);
-		const stuckAt = Math.max(run.started, run.lastToolAt ?? run.started) + 60 * 60000;
+		const stuckAt =
+			Math.max(run.started, run.lastToolAt ?? run.started) + run.config.resolved.limits.stuckMinutes * 60000;
 		const stuck = Date.now() >= stuckAt;
 		if (beats.some((event) => (event.data as { message?: string }).message === "heartbeat:stuck")) return;
 		if (beats.length >= 6 && !stuck) return Math.max(1, stuckAt - Date.now());
