@@ -3,6 +3,7 @@ import { Type } from "typebox";
 import { moduleReport } from "./module-report.js";
 import { outline } from "./outline.js";
 import { readEnclosing } from "./read-enclosing.js";
+import { readSymbol } from "./read-symbol.js";
 
 async function run(ctx: ToolContext, args: string[], cwd: string) {
 	let stdout = "",
@@ -97,5 +98,6 @@ export default definePlugin({
 		});
 		api.tools.register(outline);
 		api.tools.register(readEnclosing);
+		api.tools.register(readSymbol);
 	},
 });

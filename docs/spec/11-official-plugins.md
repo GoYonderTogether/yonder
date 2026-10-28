@@ -194,8 +194,12 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 ### code-intel（可选）
 
+`code-intel_read_enclosing` 在当前执行环境通过 pi-lens 4.4.6 MCP 按 path 和 1-based line 读取最小包含符号或回调，支持 kinds、maxLines、onOversize（error 默认仅元数据、slice、outline）和 aroundLine；需要 read 与 exec。仅选中插件时提供，使用运行时输出缓存；pi-lens 内部读取记录不等于 Yonder edit 的读取检查。
+
 `code-intel_codegraph_explore` 在当前执行环境通过 CodeGraph CLI 读取已建索引，接受 query、可选 maxFiles（默认 12）及 projectPath（默认工作区）；先检查索引状态，缺失或过期时给出初始化或刷新动作。仅选中插件时提供工具；不自动初始化、启动 watcher 或注入项目图。输出沿用运行时工具截断与缓存。工具需要 read 和 exec 能力。
 
 `code-intel_module_report` 在当前执行环境调用 pi-lens 4.4.6 的 MCP，接受 path 与可选 focus、view、blastRadius，默认 compact；冷图只提供语法大纲并注明缓存状态，跨文件引用保留自己的路径。依赖执行环境安装 pi-lens-mcp，需 read、exec；仅选中插件时提供工具，输出走运行时截断与缓存。
+
+`code-intel_read_symbol` 在当前执行环境调用 pi-lens 4.4.6 MCP，接受 file、symbol 及可选 kind；symbol 可为 module_report 的 callback handle。返回后端提供的源码和行范围；重名或失效时返回后端的候选或错误，不静默选择。需要 read、exec，仅选中插件时提供，长输出沿用运行时截断与缓存。pi-lens 的 read-guard 不构成 Yonder 的编辑前置条件。
 
 `code-intel_ast_grep_outline` 在当前执行环境调用 ast-grep 0.51.0 的 outline，接收文件或目录、语言和 items/view/type/match/pubMembers/globs，返回语法条目、嵌套成员与读取位置；不依赖 LSP 或索引。仅选中插件时按需提供，需要 read 和 exec 能力；长输出沿用运行时截断与缓存。

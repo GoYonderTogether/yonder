@@ -30,7 +30,8 @@
 				"code-intel_codegraph_explore",
 				"code-intel_module_report",
 				"code-intel_ast_grep_outline",
-				"code-intel_read_enclosing"
+				"code-intel_read_enclosing",
+				"code-intel_read_symbol"
 			]
 		}
 	}

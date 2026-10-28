@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Add optional `code-intel_read_enclosing` for position-based symbol reads through pi-lens MCP.
+
+- Add optional `code-intel_read_symbol` using the pi-lens MCP backend.
+
 - Add optional `code-intel_module_report` using the pi-lens MCP backend.
 
 - code-intel 新增按需语法结构大纲工具，调用执行环境中的 ast-grep。
