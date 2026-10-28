@@ -1,4 +1,4 @@
-import type { TranscriptItem } from "../transport/types";
+import type { TranscriptItem } from "../api/types";
 
 // 把内核两种形态（分页读的 TranscriptItem、实时流的 pi Message）统一成界面用的 ChatItem。
 export interface ToolCall {

@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
+import { logout, onUnauthorized, RpcError } from "./api/client";
+import { mux } from "./api/stream";
 import { Login } from "./features/Login";
 import { useFacts } from "./lib/queries";
 import { useRoute } from "./lib/useHash";
 import { PAGES, pageComponent } from "./shell/registry";
 import { Shell } from "./shell/Shell";
-import { logout, onUnauthorized, RpcError } from "./transport/client";
-import { mux } from "./transport/stream";
 
 export function App() {
 	const route = useRoute();

@@ -1,10 +1,10 @@
 import { Check, CircleDashed, Loader } from "lucide-react";
+import type { TodoItem } from "../api/types";
 import { tokens } from "../lib/format";
 import { titleOf } from "../lib/identity";
 import type { PanelKind } from "../lib/layout";
 import { useSessions } from "../lib/queries";
 import type { SessionView } from "../lib/useSession";
-import type { TodoItem } from "../transport/types";
 
 const Empty = ({ t, need }: { t: string; need?: string }) => (
 	<p className="text-caption text-faint">

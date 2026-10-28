@@ -1,14 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Loader, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { rpc } from "../api/client";
+import type { SessionInfo } from "../api/types";
 import { badge } from "../lib/format";
 import { groupOf, titleOf } from "../lib/identity";
 import { markRead, usePrefs } from "../lib/prefs";
 import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import type { SessionView } from "../lib/useSession";
-import { rpc } from "../transport/client";
-import type { SessionInfo } from "../transport/types";
 import { Avatar } from "./Avatar";
 
 type Status = "running" | "waiting" | "idle" | "done";

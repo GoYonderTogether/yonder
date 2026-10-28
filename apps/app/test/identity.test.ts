@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { SessionInfo } from "../src/api/types";
 import { titleOf } from "../src/lib/identity";
-import type { SessionInfo } from "../src/transport/types";
 
 const base: SessionInfo = {
 	id: "9",

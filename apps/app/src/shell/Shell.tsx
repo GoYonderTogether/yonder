@@ -1,4 +1,5 @@
 import { Suspense, useEffect } from "react";
+import { mux } from "../api/stream";
 import { Chat } from "../features/Chat";
 import { OnboardingCard } from "../features/messages/OnboardingCard";
 import { NotifyHost } from "../features/notify/NotifyHost";
@@ -6,7 +7,6 @@ import { Settings } from "../features/Settings";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { useRefetchOnReconnect } from "../lib/queries";
 import { useSession } from "../lib/useSession";
-import { mux } from "../transport/stream";
 import { Banner } from "../ui/Banner";
 import { Contacts } from "../ui/Contacts";
 import { SessionList } from "../ui/SessionList";

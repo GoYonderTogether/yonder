@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { rpc } from "../api/client";
 import { fromImport, type ImportShow } from "../lib/imports";
-import { rpc } from "../transport/client";
 import { Footer } from "../ui/Footer";
 import { Transcript } from "../ui/Transcript";
 

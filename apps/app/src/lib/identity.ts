@@ -1,4 +1,4 @@
-import type { SessionInfo } from "../transport/types";
+import type { SessionInfo } from "../api/types";
 
 export type Group = "bot" | "task" | "import";
 

@@ -1,6 +1,6 @@
 import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
-import { rpc } from "../transport/client";
+import { rpc } from "../api/client";
 
 type Busy = "followup" | "interrupt";
 

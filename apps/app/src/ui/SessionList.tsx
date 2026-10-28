@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { BellOff, BellRing, CheckCheck, Pin, PinOff, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { rpc } from "../api/client";
+import type { SessionInfo } from "../api/types";
 import type { ActionItem } from "../lib/actions";
 import { previewOf } from "../lib/chat";
 import { badge, clock } from "../lib/format";
@@ -10,8 +12,6 @@ import { markRead, setLevel, togglePin, usePrefs } from "../lib/prefs";
 import { useActivity, useBotNames, useImports, useSessions, useTail, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
-import { rpc } from "../transport/client";
-import type { SessionInfo } from "../transport/types";
 import { ActionMenu } from "./ActionMenu";
 import { Avatar } from "./Avatar";
 

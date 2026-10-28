@@ -1,6 +1,6 @@
 import { WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
-import { type ConnState, mux } from "../transport/stream";
+import { type ConnState, mux } from "../api/stream";
 
 export function Banner() {
 	const [s, setS] = useState<ConnState>(mux.state);

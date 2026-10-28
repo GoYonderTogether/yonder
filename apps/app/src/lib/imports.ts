@@ -1,4 +1,4 @@
-import type { TodoItem, UsageTotals } from "../transport/types";
+import type { TodoItem, UsageTotals } from "../api/types";
 import type { ChatItem } from "./chat";
 
 // imports.list / imports.show 的返回形状（packages/core/src/imports/pi-sessions.ts）。

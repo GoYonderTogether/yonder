@@ -1,7 +1,7 @@
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
+import { login } from "../api/client";
 import mark from "../assets/brand/yonder-mark.svg?inline"; // 内联：登出后网关会把未登录的静态资源请求重定向到登录页
-import { login } from "../transport/client";
 
 /** 粘贴访问令牌（`yonder ui token` 生成）换登录 cookie；令牌不在前端保存。 */
 export function Login({ onDone }: { onDone(): void }) {
