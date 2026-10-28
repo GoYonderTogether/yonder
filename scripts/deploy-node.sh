@@ -38,7 +38,7 @@ SSH=(ssh -o BatchMode=yes)
 die() { echo "deploy-node: $*" >&2; exit 1; }
 usage() { sed -n '2,17p' "$0"; exit 2; }
 
-# Private, gitignored overrides: YONDER_DEPLOY_HOST, YONDER_GLM_KEY_FILE, ...
+# Private, gitignored overrides: YONDER_DEPLOY_HOST, YONDER_SILICONFLOW_KEY_FILE, ...
 if [ -f "$REPO/deploy/node/local.env" ]; then
 	# shellcheck source=deploy/node/local.env.example disable=SC1091
 	. "$REPO/deploy/node/local.env"
@@ -113,16 +113,16 @@ cmd_push() {
 	echo "pushed $ver to $HOST:$REMOTE_TMP"
 }
 
-# The key is read locally (path configurable via YONDER_GLM_KEY_FILE in local.env) and sent
+# The key is read locally (path configurable via YONDER_SILICONFLOW_KEY_FILE in local.env) and sent
 # over ssh stdin only; it is never printed, logged, or stored in the repo.
-local_glm_key() {
-	python3 - "$YONDER_GLM_KEY_FILE" <<'PY'
+local_siliconflow_key() {
+	python3 - "${YONDER_SILICONFLOW_KEY_FILE:-}" <<'PY'
 import json, os, sys
 paths = [p for p in sys.argv[1:] if p]
-paths += ["~/.local/share/yonder/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
+paths += ["~/.local/share/yonder-harness/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
 for p in paths:
     try:
-        k = json.load(open(os.path.expanduser(p)))["rightapi-glm"]["key"]
+        k = json.load(open(os.path.expanduser(p)))["siliconflow"]["key"]
     except Exception:
         continue
     if k and not k.startswith("!"):
@@ -142,9 +142,9 @@ cmd_install() {
 		# Keep key data exclusively on the pipeline stdin
 		remote_install_script | "${SSH[@]}" "$HOST" "VER=$ver bash -s"
 		# shellcheck disable=SC2016
-		local_glm_key | "${SSH[@]}" "$HOST" 'umask 077; d=/home/yonder/.local/share/yonder/home/.yonder; install -d -o yonder -g yonder -m 700 "$d"; python3 - "$d/auth.json" <<"PY"
+		local_siliconflow_key | "${SSH[@]}" "$HOST" 'umask 077; d=/home/yonder/.local/share/yonder/home/.yonder; install -d -o yonder -g yonder -m 700 "$d"; python3 - "$d/auth.json" <<"PY"
 import json,sys
-json.dump({"rightapi-glm":{"type":"api_key","key":sys.stdin.read()}}, open(sys.argv[1], "w"))
+json.dump({"siliconflow":{"type":"api_key","key":sys.stdin.read()}}, open(sys.argv[1], "w"))
 PY
 chown yonder:yonder "$d/auth.json"; chmod 600 "$d/auth.json"'
 		"${SSH[@]}" "$HOST" "runuser -u yonder -- env XDG_RUNTIME_DIR=/run/user/\$(id -u yonder) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\$(id -u yonder)/bus systemctl --user restart dev.yonder.service"

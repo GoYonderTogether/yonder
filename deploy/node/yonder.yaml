@@ -23,35 +23,26 @@ identity:
         - acct:cli:local
 models:
   providers:
-    rightapi-glm:
-      baseUrl: https://www.rightapi.ai/v1
+    siliconflow:
+      baseUrl: https://api.siliconflow.cn/v1
       api: openai-completions
       authHeader: true
       models:
-        - id: glm-5.3-flash
-          name: GLM-5.3-Flash
+        - id: deepseek-ai/DeepSeek-V3.2
+          name: DeepSeek V3.2
           reasoning: true
-          input:
-            - text
-            - image
-          contextWindow: 1000000
-          maxTokens: 16384
+          input: [text]
+          contextWindow: 131072
+          maxTokens: 8192
           compat:
-            supportsStore: false
             supportsDeveloperRole: false
-            supportsReasoningEffort: true
-            maxTokensField: max_tokens
-            thinkingFormat: zai
-            supportsStrictMode: true
-            zaiToolStream: true
-          thinkingLevelMap:
-            off: null
-            minimal: null
-            low: low
-            medium: null
-            high: high
-            xhigh: null
-            max: max
+        - id: deepseek-ai/DeepSeek-V3
+          name: DeepSeek V3
+          input: [text]
+          contextWindow: 65536
+          maxTokens: 8192
+          compat:
+            supportsDeveloperRole: false
 # Cloud node: reachable only through the TLS reverse proxy (`deploy-node.sh nginx`).
 # `remoteOwner` lets the access-token login (cookie session) talk to the resident Bot;
 # the gateway itself listens on loopback only. The publicOrigins line is filled in by

@@ -8,10 +8,10 @@ For local private overrides, copy `local.env.example` to the gitignored `local.e
 
 - `YONDER_DEPLOY_HOST`: default destination host (optional; command argument takes priority).
 - `YONDER_PUBLIC_ORIGIN`: public `http(s)` origin (required for `nginx`; matching server block is selected by hostname).
-- `YONDER_GLM_KEY_FILE`: optional local auth JSON file to search for a `rightapi-glm.key`.
+- `YONDER_SILICONFLOW_KEY_FILE`: optional local auth JSON file to search for a `siliconflow.key`.
 - `YONDER_HEALTH_PORT`: rollback gateway health-check port; defaults to `7690` (the gateway port in `yonder.yaml`; probed at `/login`).
 
-Without `YONDER_GLM_KEY_FILE`, the installer checks the existing standard local auth-file paths in `scripts/deploy-node.sh`; the key is transferred only over stdin.
+Without `YONDER_SILICONFLOW_KEY_FILE`, the installer checks the existing standard local auth-file paths in `scripts/deploy-node.sh`; the key is transferred only over stdin.
 
 ## Commands and safeguards
 
