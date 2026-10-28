@@ -14,6 +14,8 @@ Yonder Harness
 │  ├─ edit — 修改已有文件内容
 │  ├─ bash — 在当前执行环境运行命令
 │  ├─ grep — 通过rg搜索有权访问的文件
+│  ├─ find — 按 glob 查找文件（默认当前目录、最多1000项；遵守 .gitignore，包含隐藏文件；执行环境须安装 fd 或 fdfind）
+│  ├─ ls — 列出目录（默认当前目录，含隐藏项，默认最多500项）
 │  └─ tool_search — 按需发现配置允许的工具
 ├─ Kernel实际模型工具
 │  ├─ message_send — 向明确人/账号/会话发送消息

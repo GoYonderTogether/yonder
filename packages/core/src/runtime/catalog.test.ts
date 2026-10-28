@@ -73,3 +73,58 @@ test("shared permissions is discovered as a core tool through offer/search catal
 	);
 	expect(offered.find((tool) => tool.name === "permissions")?.exposure).toBe("offer");
 });
+
+test("plugin tools enter the catalog only when selected and authorized", () => {
+	const tools = new Map([
+		[
+			"sample",
+			[
+				{
+					name: "sample_read",
+					description: "Read",
+					parameters: {} as never,
+					capabilities: ["read"],
+					guidelines: ["Read guidance"],
+					execute: async () => ({ content: [] }),
+				} as never,
+			],
+		],
+	]);
+	const config = {
+		agent: "main",
+		profile: "owner",
+		cwd: process.cwd(),
+		resolved: resolveProfile({
+			plugins: ["sample"],
+			capabilities: ["read"],
+			tools: { offer: ["sample_read"], search: [] },
+		}),
+	};
+	const exposure = (resolved: typeof config.resolved) =>
+		inspectToolCatalog({ ...config, resolved }, tools).find((item) => item.name === "sample_read")?.exposure;
+	expect(exposure(config.resolved)).toBe("offer");
+	expect(
+		exposure(
+			resolveProfile({ plugins: ["sample"], capabilities: ["read"], tools: { offer: [], search: ["sample_read"] } }),
+		),
+	).toBe("search");
+	expect(exposure(resolveProfile({ plugins: [], capabilities: ["read"], tools: { offer: ["sample_read"] } }))).toBe(
+		"plugin-not-selected",
+	);
+	expect(exposure(resolveProfile({ plugins: ["sample"], capabilities: [], tools: { offer: ["sample_read"] } }))).toBe(
+		"capability-denied",
+	);
+});
+
+test("find registration respects tool selection and read capability", () => {
+	const config = { agent: "main", profile: "owner", cwd: process.cwd() };
+	const exposure = (capabilities: string[], offer: string[], search: string[] = []) =>
+		inspectToolCatalog(
+			{ ...config, resolved: resolveProfile({ capabilities: capabilities as never, tools: { offer, search } }) },
+			new Map(),
+		).find((tool) => tool.name === "find");
+	expect(exposure(["read"], ["find"])).toMatchObject({ exposure: "offer", missing: [] });
+	expect(exposure(["read"], [], ["find"])?.exposure).toBe("search");
+	expect(exposure(["read"], [])?.exposure).toBe("not-selected");
+	expect(exposure([], ["find"])?.exposure).toBe("capability-denied");
+});

@@ -13,6 +13,7 @@
 
 来源：[earendil-works/pi](https://github.com/earendil-works/pi)，npm 包 `@earendil-works/pi-coding-agent@1.3.0`。
 
+- `packages/coding-agent/src/core/tools/find.ts` 的 glob 搜索、默认上限与截断交互作为 `packages/core/src/runtime/find.ts` 的行为参考；执行适配 Yonder 的执行环境。
 - `packages/coding-agent/src/core/auth-storage.ts` 的 `FileAuthStorageBackend` 异步文件锁与读写语义，复制并适配到 `packages/core/src/runtime/credentials.ts`。没有复制同步缓存、命令凭据解析或其他程序的凭据。
 - `packages/coding-agent/src/core/provider-composer.ts` 的模型字段缺省与合并逻辑，复制并适配到 `packages/core/src/runtime/models.ts`。
 - `packages/coding-agent/src/core/model-config.ts` 的模型配置校验 schema，复制到 `packages/core/src/runtime/model-schema.ts`。

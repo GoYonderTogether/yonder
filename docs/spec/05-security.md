@@ -38,6 +38,8 @@
 |---|---|
 | `read` | `read` |
 | `grep` | `read`；复用文件真实路径作用域，只执行固定检索程序与参数 |
+| `find` | `read`；经执行环境按 glob 搜索，复用文件真实路径作用域 |
+| `ls` | `read`；经执行环境列目录，复用文件真实路径作用域 |
 | `write`、`edit` | `write` |
 | `bash` | `exec` |
 | `message_send` | 无；发往本次运行来源以外需要 `message`（调用前判定） |

@@ -1,12 +1,14 @@
-import { dirname, isAbsolute, relative } from "node:path";
+import { dirname, isAbsolute, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import type { JsonObject } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import type { Capability, ExecutionEnv, ToolContext } from "@yonder/sdk";
+import { cacheDirectory } from "./tool-output-cache.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
 export interface PolicyDeps {
+	home: string;
 	capabilities: Map<string, Capability[]>;
 	environment(config: RuntimeSessionConfig): ExecutionEnv;
 	context(session: string, context: Context): Promise<ToolContext>;
@@ -26,8 +28,8 @@ export class ToolPolicy {
 		if (missing.length) return `缺少能力：${missing.join(", ")}`;
 		if (name === "process" && args.action === "write" && !config.resolved.capabilities.includes("exec"))
 			return "Writing process stdin requires exec capability";
-		if (!["read", "write", "edit", "grep"].includes(name)) return;
-		if (name === "grep" && args.path === undefined) args = { ...args, path: "." };
+		if (!["read", "write", "edit", "grep", "ls", "find"].includes(name)) return;
+		if ((name === "grep" || name === "ls" || name === "find") && args.path === undefined) args = { ...args, path: "." };
 		if (typeof args.path !== "string") return;
 		const env = this.deps.environment(config);
 		const canonical = async (path: string): Promise<string> => {
@@ -45,11 +47,21 @@ export class ToolPolicy {
 			const rel = relative(cwd, target);
 			if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
 				const ctx = await this.attachmentPaths(session, context);
-				const allowed = (name === "read" || name === "grep") && ctx.some((a) => a === target);
+				const cache = await canonical(cacheDirectory(this.deps.home, session));
+				const base = await canonical(join(this.deps.home, "cache", "tool-output"));
+				const cacheRel = relative(cache, target);
+				const inCache =
+					relative(base, cache) === session &&
+					!isAbsolute(cacheRel) &&
+					cacheRel !== ".." &&
+					!cacheRel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`);
+				const allowed =
+					(name === "read" || name === "grep") &&
+					(ctx.some((a) => a === target) || (env.id === "node:local" && inCache));
 				if (!allowed) return "文件路径超出当前工作区。";
 			}
 		}
-		if (name !== "read" && name !== "grep")
+		if (name !== "read" && name !== "grep" && name !== "ls" && name !== "find")
 			for (const file of [{ path: "agent.yaml", capability: "admin" as const }, ...(config.protectedFiles ?? [])]) {
 				const protectedPath = await canonical(getOrThrow(await env.joinPath([config.cwd, file.path], context)));
 				if (target === protectedPath && !config.resolved.capabilities.includes(file.capability))

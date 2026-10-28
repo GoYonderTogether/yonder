@@ -19,12 +19,22 @@ export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTo
 		const selected = !tool.plugin || config.resolved.plugins.includes(tool.plugin);
 		const explicit =
 			config.agent !== null && config.agent !== "main" && !tool.plugin && mainOnlyByDefault.has(tool.name);
-		const offered = explicit
-			? config.resolved.tools.offer.includes(tool.name)
-			: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name));
-		const searched = explicit
-			? config.resolved.tools.search.includes(tool.name)
-			: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name));
+		const matchesCeilings = (kind: "offer" | "search") =>
+			(config.resolved.delegationCeilings ?? []).every((ceiling) =>
+				ceiling.explicitSessionTools && !tool.plugin && mainOnlyByDefault.has(tool.name)
+					? ceiling.tools[kind].includes(tool.name)
+					: ceiling.tools[kind].some((pattern) => matchesGlob(pattern, tool.name)),
+			);
+		const offered =
+			matchesCeilings("offer") &&
+			(explicit
+				? config.resolved.tools.offer.includes(tool.name)
+				: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name)));
+		const searched =
+			matchesCeilings("search") &&
+			(explicit
+				? config.resolved.tools.search.includes(tool.name)
+				: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name)));
 		return {
 			...tool,
 			missing,
@@ -57,6 +67,8 @@ export function inspectToolCatalog(config: RuntimeSessionConfig, plugins: Map<st
 		...[
 			...Object.entries(coreToolCapabilities),
 			["grep", ["read"]] as [string, Capability[]],
+			["find", ["read"]] as [string, Capability[]],
+			["ls", ["read"]] as [string, Capability[]],
 			["tool_search", []] as [string, Capability[]],
 		].map(([name, capabilities]) => ({ name, capabilities })),
 		...[...plugins].flatMap(([plugin, tools]) =>
