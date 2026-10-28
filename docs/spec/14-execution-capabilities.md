@@ -87,7 +87,7 @@ watcher 读取注册候选，加载对应 agent.yaml，与 preset 一起走共�
 
 维护者在 Track C phase 2 批准可观测事实 + 请求历史：`unknown | not-granted | requested | granted | needs-restart | revoked-detected | unobservable`。boolean false 不区分未请求与拒绝；`requested` 仅表示 helper 曾发请求，带 lastRequestedAt，不代表 pending/denied。FDA、Files & Folders 不作全局猜测，返回 unobservable 与人工下一步。Automation 限定 System Events target，未运行/探测失败为 unknown。needs-restart 用于同路径代码身份变化且旧身份曾 granted，或 Screen Recording 当前进程 false 而同签名新进程 true 的情况，明确表示旧授权可能失效，不能承诺重启修复。
 
-单一 `Yonder Helper.app`（dev.yonder.harness.helper）在稳定目录 `~/.local/share/yonder-harness/helper/`；状态文件在 bundle 外，更新只在 cdhash 变化时替换 bundle。Apple Development/Developer ID 签名优先；无证书时 ad-hoc，并报告 hash 变化与重新授权风险。通过 LaunchServices 后台独立启动，stdin/stdout JSON、无网络。截图、鼠标、Unicode 输入、物理按键与窗口 AX 快照均在 helper 自身执行。 本 app 需要 TCC 资源的实际操作须走同一稳定签名原生权限宿主，不能只统一申请 UI；当前覆盖截图、输入与文件访问，不代表全部功能已迁移。外部 Node/Python 不自动继承其授权，文件与权限种类仍由 OS 分别授权。
+单一 `Yonder Helper.app`（dev.yonder.harness.helper）在稳定目录 `~/.local/share/yonder/helper/`；状态文件在 bundle 外，更新只在 cdhash 变化时替换 bundle。Apple Development/Developer ID 签名优先；无证书时 ad-hoc，并报告 hash 变化与重新授权风险。通过 LaunchServices 后台独立启动，stdin/stdout JSON、无网络。截图、鼠标、Unicode 输入、物理按键与窗口 AX 快照均在 helper 自身执行。 本 app 需要 TCC 资源的实际操作须走同一稳定签名原生权限宿主，不能只统一申请 UI；当前覆盖截图、输入与文件访问，不代表全部功能已迁移。外部 Node/Python 不自动继承其授权，文件与权限种类仍由 OS 分别授权。
 
 owner 已授权任务可用 native-automation_desktop 的 file-list / file-export（path 为绝对路径），复用上述可信 owner/续办来源及现有能力与取消。实际读文件在同一 Helper，不自动申请权限，不把 requested 当授权。file-list 只列一层 name/type/size/creationDate/modificationDate，符号链接标识且不跟随；file-export 只复制单个普通文件，拒绝目录与源符号链接，保留字节、大小、源 metadata，不修改原件。导出目标只能由插件生成唯一私有 artifacts 路径，不接受模型目的地或覆盖，返回真实 path 与 file attachment，不内嵌大文件。非法/相对路径、取消及 OS 错误（含 EPERM）须明确返回。
 

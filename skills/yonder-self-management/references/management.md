@@ -3,7 +3,7 @@
 ## 1. 三个目录
 
 - 安装根：`YONDER_INSTALL`，默认 `~/.yonder-harness`。`bin/yonder` 启动 `current` 指向的 `versions/<version>`；正式版本没有 `.git`，不是编辑仓库。`yonder version --json` 的 `source` 是当前 CLI 的代码位置，不一定是开发仓库。
-- 数据 home：显式 `--home` 优先，其次 `YONDER_HOME`、包含 `yonder.yaml` 的当前目录，然后是已安装服务的 home；无服务时默认 `~/.local/share/yonder-harness/home`。服务状态与 `service info` 可核对实际运行的 home、版本、commit、pid。
+- 数据 home：显式 `--home` 优先，其次 `YONDER_HOME`、包含 `yonder.yaml` 的当前目录，然后是已安装服务的 home；无服务时默认 `~/.local/share/yonder/home`。服务状态与 `service info` 可核对实际运行的 home、版本、commit、pid。
 - 开发仓库：由维护任务/agent 配置明确指定，不从安装的 `source` 推断。修改源码、构建成功和切换分支都不会改变服务正在执行的安装版。
 
 home 内：`yonder.yaml` 是插件、模型、服务、执行环境与 agent 注册表；`presets/*.yaml` 是临时任务配置；`skills/` 是共享技能；agent 的工作区由注册表中的 `workspace` 指定，相对路径相对 home。`.yonder/` 保存数据库、凭据、插件数据、附件、日志与控制 socket，不手改事件或会话数据库。运行日志在 `.yonder/logs/harness.log`。

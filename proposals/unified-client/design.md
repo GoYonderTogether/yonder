@@ -67,7 +67,7 @@
 |---|---|---|
 | Bot 读所有 session | 管家 profile 选入只读工具 `sessions_list` / `sessions_show`（事实：`packages/core/src/tools/catalog.ts` 已有会话类工具，精确名称与能力级别**未核实**）。读他人转录是新能力级别，建议在 spec 05 列为单独 capability，默认只给管家 | #3 插件提供，agent 选用；#5 能力加级别，不加审批层 |
 | Bot 在合适时机醒来 | 绑定。两个入口：定时（cron 插件已有）和「session 空闲或完成」事件。后者是否已存在**未核实**；不存在就新增事件类型 `session.settled`，事件只追加，不违反 #1 | #2 只经绑定唤醒 |
-| Bot 的建议送达与执行 | 建议走 `ui-companion` 的 present 卡片（已存在的信任边界交互），用户点同意才由 Bot 调写类工具（`tasks_*`、`sessions.submit` 等）。网关不加确认层 | #5 |
+| Bot 的建议送达与执行 | 建议走 `interaction` 的 present 卡片（已存在的信任边界交互），用户点同意才由 Bot 调写类工具（`tasks_*`、`sessions.submit` 等）。网关不加确认层 | #5 |
 
 用户可在单个 session 上标记「不让 Bot 读」。落点是 session 元数据，由读取工具过滤，具体字段**未核实**，阶段 4 开工前先读会话元数据结构。
 
@@ -451,7 +451,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 
 - 事实：`packages/macos/{Companion,PowerHelper,YonderStatus}.swift`（974 行）做状态栏与悬浮窗，每 2 秒读 `status.json`/`desktop.json`（`YonderStatus.swift:53,57,106`）；`packages/macos-helper`（7,584 行）是权限引导，服务 native-automation。
 - 建议：`macos-helper` 不动，与壳选择无关。`packages/macos` 在阶段 1 改为订阅网关（回路径不变）；Tauri spike 通过且悬浮窗达到对等后，在阶段 6 末删除，改用同一个 Tauri 壳。**不并存两个长期的 macOS 壳。**
-- `PowerHelper`（防休眠特权助手，launchd 标签 `dev.yonder.harness.power`）是独立的系统服务，改名随 §3.2 做，不属于壳。
+- `PowerHelper`（防休眠特权助手，launchd 标签 `dev.yonder.power`）是独立的系统服务，改名随 §3.2 做，不属于壳。
 
 签名、公证与自动更新的规格见 [release-ci.md](release-ci.md) §8；已有更新逻辑（`plugins/channel-github/src/update-job.ts`、spec 09 的 `YONDER_INSTALL*`）如何衔接**未核实**，阶段 6 先读 spec 09 与 `yonder-service-host.mjs`。
 
@@ -614,7 +614,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 |---|---|
 | AI-Being、being、being-net、yonder-being、being-releases | 逐个 bundle 加 GitHub archive；being-releases 是公开空仓，同样 archive 防误认为发布源 |
 | yondermesh | 主人已定为旧仓、与当前无关；本机无 checkout，用 `git clone --mirror` 取一份（只读网络访问，按 agent-network 技能配置）后 archive，不分析内容 |
-| `zoran-xc/yonder-harness`（本地 remote `archive`） | 本地分支 `archive/private-main` 打 tag `archive/private-main-20261020`，GitHub archive，删本地 `archive` remote。独有内容仅旧 pi patch 机制（B1 §1），已被 vendored `packages/pi-durable` 取代 |
+| `zoran-xc/yonder`（本地 remote `archive`） | 本地分支 `archive/private-main` 打 tag `archive/private-main-20261020`，GitHub archive，删本地 `archive` remote。独有内容仅旧 pi patch 机制（B1 §1），已被 vendored `packages/pi-durable` 取代 |
 | `yonder/trim-overbuilt`、`-r2`、`release/0.2.26102311`、`yonder/release-0.2.26102312`、`archive/main-before-rightapi-20261023` | 打 tag 后删分支。撤回目标已自然消失（B1 §2） |
 | `yonder/card-plugin` | 步骤 9 捞出 31 个文件后打 tag 删分支 |
 | ALREADY-IN 的 8 个分支与 3 个多余 worktree、`task-4/yonder-w1` 整份克隆 | `git cherry` 确认后删除（B1 §a） |
@@ -643,7 +643,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 按对目标的影响排序。保留第一版有效条目并更新；新增条目标「新」。
 
 1. **控制面 handler 在 cli 包。** 事实：`packages/cli/src/index.ts:724-841` 的 switch，手写校验，闭包依赖。影响：网关无法复用。建议：下沉为 core 的 TypeBox 注册表（§4.1）。时机：阶段 1 第一步；前置是 B1 步骤 6 先合。
-2. **6 处自起 loopback 服务。** 事实：channel-cli、channel-mcp、tasks/`service.ts`、ui-companion/`service.ts`、executor、core/control。人面向的只有 ui-companion 与 tasks。建议：这两处并入网关后退役，其余四处不动。时机：阶段 4。
+2. **6 处自起 loopback 服务。** 事实：channel-cli、channel-mcp、tasks/`service.ts`、interaction/`service.ts`、executor、core/control。人面向的只有 interaction 与 tasks。建议：这两处并入网关后退役，其余四处不动。时机：阶段 4。
 3. **三套活动汇总。** 事实：`service.info`（`index.ts:759-770`）、`status.json`（`status-surface.ts:14-20`）、tasks `?view=activity`（`service.ts:54-83`），Swift 侧 `Companion.swift:33-92` 还解析一份。建议：以 `kernel.terminal.activity()` 为唯一口径。时机：阶段 1 定义方法，阶段 4 切换各表面。
 4. **控制面无鉴权。** 事实：`control.sock` 靠文件权限，Windows 多用户隔离未验收（spec 09 95-96）。建议：网关独立鉴权，socket 不变；Windows 管道用 ACL。时机：阶段 1（网关）与阶段 6（管道）。
 5. **观察流断线无游标。** 事实：spec 13 §1.3。建议：`after` 与 `gap`（§4.1）。时机：阶段 1 最小版。
@@ -651,7 +651,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 7. **提案无状态。** 事实：12 个提案均无采纳标记，`task-ledger/design.md` 自述「待批准」但 D66 已采纳。建议：提案头加状态字段。本提案按此发布。
 8. **Card relay 未合主树，公开 spec 依赖私有实现。** 事实：relay 只在 worktree（`execution-relay.ts`，113 行），`zoran/live-dev` ahead 44。建议：§8.1 步骤 1–3，然后抽 `@yonder/protocol`。时机：阶段 5 前置。
 9. **设备身份两套命名空间。** 事实：Card 设备 UUID 与执行设备 ID 分离（`execution-relay.ts:88` 注释、`plugins/devices/README.md:12`）。建议：保持，UI 只做展示层映射并标注来源。
-10. **根 build 链。** 事实：`build` 串 5 步，含 devices、Swift、ui-companion 内联。建议：拆为 `build:ts`、`build:app`、`build:macos`（仅 darwin）、`build:desktop`。ui-companion 内联步骤随阶段 4 摘除。
+10. **根 build 链。** 事实：`build` 串 5 步，含 devices、Swift、interaction 内联。建议：拆为 `build:ts`、`build:app`、`build:macos`（仅 darwin）、`build:desktop`。interaction 内联步骤随阶段 4 摘除。
 11. **runtime 上帝对象。** `packages/core/src/runtime/index.ts` 1,899 行（`scripts/file-size-baseline.json` 登记「待拆分」）。pi 1.4 升级（§7）会碰它，**建议不在本方案内拆**，但升级前先确认测试基线。
 12. **品牌与令牌复制。** 随前端并入同仓后消解（§3.3）。
 13. **（新）预设写死模型。** `plugins/agent-presets/src/index.ts` 四处 `model: "openai/gpt-6-luna"`，与「用户只配模型」冲突。时机：阶段 3。
@@ -685,7 +685,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 | spec 18 | 不宣称 E2EE；Card W3 复制 relay schema | 增加远程控制的最低安全线与「中转可读」告知（§4.3）；relay 外层由 `@yonder/protocol` 统一导出；E2EE 列远期 |
 | 新增 spec 19 | 无 | 「客户端网关与能力清单」：方法注册表、scope、HTTP/WS 帧、鉴权、`gateway.json`、游标、`capabilities.get`、本机与远程差别 |
 | 新增 spec 20 | 无 | 「首次体验」：管家 Bot 预置、`onboarding.start/done`、清单项、默认插件分层。可并入 spec 03/08 以避免文档膨胀，由维护者定 |
-| `docs/decisions.md:189,195` | ui-companion「不改内核或增加 UI 槽」「采用插件自有回环服务」 | 新条目取代，删除旧文 |
+| `docs/decisions.md:189,195` | interaction「不改内核或增加 UI 槽」「采用插件自有回环服务」 | 新条目取代，删除旧文 |
 | `docs/decisions.md` 新条目 | — | 一个应用、开源边界、命名、远程先行、桌面壳、pi 1.4、废弃方向 |
 | 新增 `docs/archive.md` | — | §8.4 |
 | `CONTRIBUTING.md` | 工作方式 | 未读；仓库改名后路径与分支命名规则（`archive/<名>-<日期>`）需同步，**未核实**内容 |
@@ -783,7 +783,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 
 ### 阶段 4：应用合并、能力清单、views 与 Bot 联动
 
-范围：Card 前端并入 `apps/app`（§4.4）；能力清单；views 槽；`plugin-interaction` 拆分；退役 ui-companion 与 tasks 的 HTTP 服务；状态栏改为订阅 `activity.watch`；`session.settled` 事件（若不存在）；管家只读会话工具与建议卡。
+范围：Card 前端并入 `apps/app`（§4.4）；能力清单；views 槽；`plugin-interaction` 拆分；退役 interaction 与 tasks 的 HTTP 服务；状态栏改为订阅 `activity.watch`；`session.settled` 事件（若不存在）；管家只读会话工具与建议卡。
 
 验收：
 
@@ -795,7 +795,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 6. **Bot 联动：** 创建 2 个真实工作 session，其一结束；管家被 `session.settled`（或 cron）绑定唤醒，用 `sessions_list/show` 读取，产出「整理建议」卡片（真实模型）；用户点同意后任务账本中出现整理结果；标记为「不让 Bot 读」的 session 不出现在管家读取结果中。
 7. 安全回归同阶段 1，加 `views.act` 的参数校验（超长、类型错误、跨插件冒充 view id）。
 
-回滚：`status.json`/`desktop.json` 兼容期内可回退旧壳逻辑；ui-companion/tasks 旧服务在窗口结束前保留于历史，不立即物理删除。
+回滚：`status.json`/`desktop.json` 兼容期内可回退旧壳逻辑；interaction/tasks 旧服务在窗口结束前保留于历史，不立即物理删除。
 
 用户影响：悬浮窗外观改变；已装用户 `desktop.json` 在窗口期内仍生成；出现社交与 Bot 建议入口。
 

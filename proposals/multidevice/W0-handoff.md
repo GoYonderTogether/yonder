@@ -4,7 +4,7 @@ Yonder worktree：`/Users/zoran/Documents/Codex/2026-10-26/task/worktrees/yonder
 
 Card worktree：`/Users/zoran/Documents/Codex/2026-10-26/task/worktrees/yonder-card-multidevice-w0`，基线`a6d828653c0c73051c6fb1e467676378f4d4d800`。两仓分支均`codex/multidevice-w0-20261026`，创建时clean，没复制活动目录dirty内容。原Card在准备期间另有并发改动，因此其diff fingerprint改变，不把该fingerprint冒称未变证明；本任务对原目录仅调用只读Git与worktree add的Git元数据操作。
 
-规范：[18](../../docs/spec/18-device-execution.md)。机器真相：[schema.ts](../../packages/execution-protocol/src/schema.ts)，helper：[index.ts](../../packages/execution-protocol/src/index.ts)，测试：[index.test.ts](../../packages/execution-protocol/src/index.test.ts)。package=`@yonder/execution-protocol`，SDK仅重导出，没有整体拆pi。检查见[verification](W0-verification.md)。
+规范：[18](../../docs/spec/18-device-execution.md)。机器真相：[schema.ts](../../packages/protocol/src/schema.ts)，helper：[index.ts](../../packages/protocol/src/index.ts)，测试：[index.test.ts](../../packages/protocol/src/index.test.ts)。package=`@yonder/protocol`，SDK仅重导出，没有整体拆pi。检查见[verification](W0-verification.md)。
 
 ## 可分派输入
 
@@ -17,9 +17,9 @@ Card worktree：`/Users/zoran/Documents/Codex/2026-10-26/task/worktrees/yonder-c
 
 ## 路径所有权
 
-W0/集成者唯一写root package*.json/tsconfig.json、packages/execution-protocol/**、必要SDK exports/manifests与规范。各包manifest变更提回W0串行合并。
+W0/集成者唯一写root package*.json/tsconfig.json、packages/protocol/**、必要SDK exports/manifests与规范。各包manifest变更提回W0串行合并。
 
-W1：packages/executor/src/**，但排除backends/**和platform/**；同规则test/**。独占identity/authority/session/ledger/daemon锁/device写锁。先写packages/executor/src/backend-provider.ts接口供W5，后端不得自己做授权/账本/锁。
+W1：packages/device/src/**，但排除backends/**和platform/**；同规则test/**。独占identity/authority/session/ledger/daemon锁/device写锁。先写packages/device/src/backend-provider.ts接口供W5，后端不得自己做授权/账本/锁。
 
 W2：plugins/devices/src/**、test/**、README.md；仅SDK和Node标准库/已批准依赖，不改SDK/core/executor。实现devices_list/describe/apps/open/observe/execute/status/cancel/close，controller待发记录由插件私有data目录持久保存。
 
@@ -27,6 +27,6 @@ W3：Card server/src/execution-relay.ts、server/test/execution-relay.test.ts、
 
 W4：父会话既定独立任务拥有现有release/service/IPC和平台构建脚本，以及packages/core/src/index.ts的最小IPC导出。W0/W1/W2不碰这些文件；W4不碰root manifest/lock、protocol、SDK、executor或Card。executor安装adapter另按W1的锁接口集成。
 
-W5：仅packages/executor/src/backends/**与test/backends/**，等W1 BackendProvider接口稳定再编码。只做Linux guest provider/应用清单/UI，不改原lab配置、不实现身份/锁。VM生命周期唯一执行者另派。
+W5：仅packages/device/src/backends/**与test/backends/**，等W1 BackendProvider接口稳定再编码。只做Linux guest provider/应用清单/UI，不改原lab配置、不实现身份/锁。VM生命周期唯一执行者另派。
 
 所有Yonder实现包从R+本W0提交的精确SHA分支；Card从C+本地协议vendor提交分支。父会话P0复核通过后，W1、W2、W3可分别并行；W1/W2先验私网，随后接W3。W4已独立进行，不覆盖其工作。

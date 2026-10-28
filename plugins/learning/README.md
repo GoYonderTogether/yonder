@@ -11,7 +11,7 @@
 从旧包切到本包时，在 `yonder.yaml` 原有插件项中把 `use` 改为 `@yonder/plugin-learning`，保留 `config.enabled` 和每项 `config.scopes`（`agent`、`profiles`、绝对 `memoryDir`、`skillDir`、`learning`、`memory`、`user`、`writeMode`）不变。插件 id 是用户数据键，下列项随之变化，需手工或待 `yonder migrate`（§3.4）处理：
 
 - profile 的 `plugins` 里 `hermes-experience` 改为 `learning`；`tools.offer` 里 `hermes-experience_*` 改为 `learning_*`。
-- counters/dedup 从 `<home>/.yonder/plugins/learning/learning-state.json` 变为 `<home>/.yonder/plugins/learning/learning-state.json`；不搬运时计数从零开始，不影响记忆和技能本身。
+- counters/dedup 从 `<home>/.yonder/plugins/hermes-experience/learning-state.json` 变为 `<home>/.yonder/plugins/learning/learning-state.json`；不搬运时计数从零开始，不影响记忆和技能本身。
 - 不变：上下文 `hermes-memory`/`hermes-core`/`hermes-behavior`、技能 `hermes-yonder` 与 `hermes-learned-*`、preset `hermes-study`/`hermes-learning-review`、memoryDir 下 `MEMORY.md`/`USER.md`/`.hermes-pending`、skills 同级 `.hermes-skill-archive`。旧包保存的技能 provenance owner `hermes-experience` 仍被视为本插件所有，可继续编辑与归档。
 
 - `memoryDir` 仍为原授权的现有目录；没有复制、导入或移动。

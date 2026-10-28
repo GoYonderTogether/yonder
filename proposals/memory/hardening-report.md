@@ -1,6 +1,6 @@
 # Memory store hardening 与 G0 收尾
 
-日期：2026-10-22；仓库：`yonder-harness-memory`，分支 `zoran/memory-plugin`。只针对合成临时目录测试；未访问真实记忆、Obsidian 库、生产服务或凭据，未 push。
+日期：2026-10-22；仓库：`yonder-memory`，分支 `zoran/memory-plugin`。只针对合成临时目录测试；未访问真实记忆、Obsidian 库、生产服务或凭据，未 push。
 
 ## 原始要求与已核对事项
 

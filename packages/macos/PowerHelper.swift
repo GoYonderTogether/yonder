@@ -10,8 +10,8 @@ final class PowerLease {
 }
 
 @main struct PowerHelper {
-    static let socketPath = "/var/run/dev.yonder.harness.power.sock"
-    static let journal = "/var/run/dev.yonder.harness.power.restore"
+    static let socketPath = "/var/run/dev.yonder.power.sock"
+    static let journal = "/var/run/dev.yonder.power.restore"
     static let lock = NSLock()
     static let leases = PowerLease()
     static var assertion: IOPMAssertionID = 0

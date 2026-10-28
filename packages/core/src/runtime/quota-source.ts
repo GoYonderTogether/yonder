@@ -153,7 +153,7 @@ export class QuotaSource {
 				"ChatGPT-Account-ID": credential.accountId,
 				originator: "codex_cli_rs",
 				Accept: "application/json",
-				"User-Agent": "yonder-harness",
+				"User-Agent": "yonder",
 			},
 		});
 	}

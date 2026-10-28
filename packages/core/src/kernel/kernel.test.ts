@@ -14,7 +14,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 	try {
 		await initHome(home, "owner", { model: testModel });
 		expect(parse(await readFile(`${home}/yonder.yaml`, "utf8")).plugins).toContainEqual({
-			use: "@yonder/plugin-ui-companion",
+			use: "@yonder/plugin-interaction",
 		});
 		const file = `${home}/agents/main/agent.yaml`;
 		const agent = parse((await readFile(file, "utf8")).replace("      channel: cli\n", ""));
@@ -35,9 +35,9 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 			expect(await kernel.terminal.activity()).toEqual([
 				{ id: "main", name: expect.any(String), state: "idle", execution: { phase: "idle" }, tasks: [] },
 			]);
-			const endpoint = JSON.parse(await readFile(`${home}/.yonder/plugins/ui-companion/desktop.json`, "utf8"));
+			const endpoint = JSON.parse(await readFile(`${home}/.yonder/plugins/interaction/desktop.json`, "utf8"));
 			expect((await fetch(endpoint.url)).status).toBe(200);
-			expect(parse(await readFile(file, "utf8")).defaults.plugins).not.toContain("ui-companion");
+			expect(parse(await readFile(file, "utf8")).defaults.plugins).not.toContain("interaction");
 			await kernel.identity.unlink("acct:cli:local");
 			await kernel.identity.createPerson({ id: "owner", name: "Renamed owner" });
 		} finally {

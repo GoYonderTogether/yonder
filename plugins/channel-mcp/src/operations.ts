@@ -40,7 +40,7 @@ const eventQuery = z
 const json = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value ?? null) }] });
 
 export function createControlServer(api: PluginAPI, io: ChannelIO, channel: string, account: string): McpServer {
-	const server = new McpServer({ name: "yonder-harness", version });
+	const server = new McpServer({ name: "yonder", version });
 	const add = <T extends z.ZodType>(
 		name: string,
 		description: string,

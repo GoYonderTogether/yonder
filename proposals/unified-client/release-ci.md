@@ -6,7 +6,7 @@
 
 ### 1.1 决策
 
-1. 所有发布产物只在 `GoYonderTogether/yonder`（公开仓，原 `yonder-harness`）的 Actions 里构建。触发条件是 maintainer 推送 `v*` tag，或「准备发版」workflow 在合并发版 PR 后自动打 tag。本机不再打包、不再发版。
+1. 所有发布产物只在 `GoYonderTogether/yonder`（公开仓，原 `yonder`）的 Actions 里构建。触发条件是 maintainer 推送 `v*` tag，或「准备发版」workflow 在合并发版 PR 后自动打 tag。本机不再打包、不再发版。
 2. 核心运行时（CLI 加内核）按 6 个平台各出一个预构建包，内含官方 Node 24 LTS。包在对应的原生 runner 上组装，不做交叉编译（原因见 §3.2）。
 3. 桌面、手机、Web、npm、Docker、Homebrew、Scoop 的产物都从同一条 tag 流水线产出。`SHA256SUMS`、`release-manifest.json`、`latest.json` 由 `publish` job 统一生成并上传，避免矩阵 job 之间竞争写文件。
 4. 免费额度只靠公开仓的标准 runner。私有 `yonder-cloud` 只跑 Linux 小 job，预计每月约 150–250 分钟，上限 2,000。
@@ -280,7 +280,7 @@ jobs:
 
 说明：
 
-- `npm run build:core` 是新增脚本，只跑 `check-pi-ai-bundle`、`tsc -b`、`plugins/devices/build.mjs`、`ui-companion/build.mjs`，不含 `build-macos.mjs`。现有 `npm run build`（`package.json:41`）把 `build-macos.mjs` 直接串在里面，非 darwin 上是否能跳过未核实，所以要拆。
+- `npm run build:core` 是新增脚本，只跑 `check-pi-ai-bundle`、`tsc -b`、`plugins/devices/build.mjs`、`interaction/build.mjs`，不含 `build-macos.mjs`。现有 `npm run build`（`package.json:41`）把 `build-macos.mjs` 直接串在里面，非 darwin 上是否能跳过未核实，所以要拆。
 - 现有 `ci.yml` 的 `macos` job 保留一段过渡期，等 `swift` job 稳定后删除。
 - `swift_changed` 由 `static` job 用 `git diff --name-only origin/${{ github.base_ref }}...HEAD` 判断，不引入第三方 paths-filter。
 
@@ -493,7 +493,7 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 `yonder uninstall [--purge] [--keep-home] [--json]`，行为取 `research/C4-install.md` §6.1，清单取 §3.2：
 
 - 默认：停服务；删 LaunchAgent plist、systemd 单元、任务计划及 `service.json`；删 `<install>`。不删 home。
-- `--purge`：追加删 `~/.local/share/yonder-harness/home`（含约 1.18 GB 的 `state.db` 和 8,892 项 `background/`，需要进度输出和可中断）、`helper/`、`/Library/PrivilegedHelperTools/dev.yonder.harness.power` 与 `/Library/LaunchDaemons/dev.yonder.harness.power.plist`（一次管理员授权）、运行时 socket 和锁。PATH 里的手工 export 只打印提示，不改用户文件。
+- `--purge`：追加删 `~/.local/share/yonder/home`（含约 1.18 GB 的 `state.db` 和 8,892 项 `background/`，需要进度输出和可中断）、`helper/`、`/Library/PrivilegedHelperTools/dev.yonder.power` 与 `/Library/LaunchDaemons/dev.yonder.power.plist`（一次管理员授权）、运行时 socket 和锁。PATH 里的手工 export 只打印提示，不改用户文件。
 - 先打印将删除的路径，区分「数据/凭据」与「代码」。不存在也算成功。
 - 通过 brew/npm/scoop/docker 安装的，`yonder uninstall` 只清理服务和数据，不删包本身，并提示对应的卸载命令。
 

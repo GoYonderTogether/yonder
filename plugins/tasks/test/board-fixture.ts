@@ -54,7 +54,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 			locale: "zh-CN",
 			plugins: [
 				{ use: home, config },
-				...(options.ui ? [{ use: resolve("plugins/ui-companion"), config: { desktop: false } }] : []),
+				...(options.ui ? [{ use: resolve("plugins/interaction"), config: { desktop: false } }] : []),
 			],
 			agents: [{ id: "main", workspace: "./agents/main" }],
 			channels: { reminder: { type: "task-test" } },

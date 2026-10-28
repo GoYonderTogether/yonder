@@ -8,7 +8,7 @@
 
 更新：2026-10-27。版本 0.2.26102701，开发者预览。本页是“现在到哪了”的唯一入口：规范（`spec/`）是目标，本页记录现实与差距。
 
-本轮把分散的 W0/W2/W4 多设备执行、T61 观测与 T63 凭据槽位、状态栏与看板摘要、任务面板并入 main：`npm run build`、`npm run typecheck`、`npm run lint` 退出 0；默认 `npm test` 138 文件通过 / 22 跳过，856 用例通过 / 0 失败 / 43 跳过；`npm run test:node` 10 通过 / 0 失败。真实模型与真实后端验收未执行。ui-companion 的两个浏览器契约用例在 160 并发下曾因 Chrome 启动超时而失败，单独运行 5 用例全部通过，属并发下的不稳定，不是代码回归。
+本轮把分散的 W0/W2/W4 多设备执行、T61 观测与 T63 凭据槽位、状态栏与看板摘要、任务面板并入 main：`npm run build`、`npm run typecheck`、`npm run lint` 退出 0；默认 `npm test` 138 文件通过 / 22 跳过，856 用例通过 / 0 失败 / 43 跳过；`npm run test:node` 10 通过 / 0 失败。真实模型与真实后端验收未执行。interaction 的两个浏览器契约用例在 160 并发下曾因 Chrome 启动超时而失败，单独运行 5 用例全部通过，属并发下的不稳定，不是代码回归。
 
 运行时效率改造（同日）：新增 `signals`（信号分级与同类聚合）、`status`（状态面，`.yonder/status.json` + 10 秒心跳）、`retention`（日志轮转、后台日志合并、派生物正文回收）、`task_current` 投影表与文件行数门禁。`npm run build`、`npm run typecheck`、`npm run lint` 退出 0；默认 `npm test` 150 文件通过 / 22 跳过，915 用例通过 / 0 失败 / 43 跳过。状态面使空闲时不再派生 `service info` 进程；账本正文回收按 30 天、单轮 50 MB 预算执行。**未测**：真实服务在改造后连续运行 24 小时的 CPU 与内存曲线；账本回收在真实 home 上的实际释放量（抽样验证了 12/12 条正文在转录中有副本，但未跑全量回收）。
 
@@ -32,7 +32,7 @@
 
 **已实现**：`core/src/control/methods.ts` 方法注册表（control.sock 与网关共用，CLI switch 已迁入）；`@yonder/gateway`（HTTP RPC、WS 流 ready/ev/end/pong、`after` 续传与 `gap`、启动票据/长期访问令牌换 HMAC cookie、Host/Origin/Sec-Fetch-Site 校验、CSP、`basePath` 反向代理、托管 `apps/app/dist`）；`yonder start --no-gateway`、`yonder ui`、`yonder ui token --rotate`；`sessions.transcript` 倒序翻页、`submit` 的 `requestId` 幂等；只读 `imports.list/show` 导入 pi 会话。接口形状见 `proposals/unified-client/contracts.md` §9。
 
-**已验证**（临时 home 真实启动）：socket 与网关 6 个方法结果一致；错误 Host/Origin/跨站 403，无 cookie、伪造 cookie、错误令牌 401，启动票据二次使用失败；WS 断线后带 `after` 补发 7 条事件、陌生游标 `gap:true`；`--no-gateway` 不监听端口且 socket 正常；本机最大 yonder-harness pi 会话（65 行）完整导入 96 条、0 解析问题。`packages/gateway/test`（真实内核）与 `core/src/imports/pi-sessions.test.ts`（本机真实 pi 文件）通过。**未测**：真实 nginx 前缀转发（仅用 Host/Origin 头模拟 `https://yonder.zethai.cn/console/`）、`apps/app/dist` 实际页面（app 线未合入）、需要模型回复的长会话流。**安全评审修复**（同分支）：WS 帧校验（非对象/无字符串 `t` 关 1003）；套接字记录身份与到期，到期/每帧检查/轮换令牌以 4401 关闭；URL 只收一次性票据，长期令牌仅 `POST /login`；登录失败按对端限流（`gateway.trustProxy` 默认 false，回环票据不受限，表上限 1024）；feed 在订阅启动中取消不泄漏；套接字 32、feed 64、环形缓冲 8 MiB 上限，快照期间事件有界队列，溢出/期间有事件置 `gap`；`submit` 去重不误删新条目；回环在 `/` 与 `<basePath>` 下都可用，cookie Path 随挂载。**未做**：`gateway.audit` 事件、游标与事件库水位的映射（重启必 `gap`）、`requestId` 去重持久化、`SessionSnapshot` 的 model/usage/context；新增的 `gateway`、`imports` 配置项尚未写进 `docs/spec/`（设计变更待维护者批准）。
+**已验证**（临时 home 真实启动）：socket 与网关 6 个方法结果一致；错误 Host/Origin/跨站 403，无 cookie、伪造 cookie、错误令牌 401，启动票据二次使用失败；WS 断线后带 `after` 补发 7 条事件、陌生游标 `gap:true`；`--no-gateway` 不监听端口且 socket 正常；本机最大 yonder pi 会话（65 行）完整导入 96 条、0 解析问题。`packages/gateway/test`（真实内核）与 `core/src/imports/pi-sessions.test.ts`（本机真实 pi 文件）通过。**未测**：真实 nginx 前缀转发（仅用 Host/Origin 头模拟 `https://yonder.zethai.cn/console/`）、`apps/app/dist` 实际页面（app 线未合入）、需要模型回复的长会话流。**安全评审修复**（同分支）：WS 帧校验（非对象/无字符串 `t` 关 1003）；套接字记录身份与到期，到期/每帧检查/轮换令牌以 4401 关闭；URL 只收一次性票据，长期令牌仅 `POST /login`；登录失败按对端限流（`gateway.trustProxy` 默认 false，回环票据不受限，表上限 1024）；feed 在订阅启动中取消不泄漏；套接字 32、feed 64、环形缓冲 8 MiB 上限，快照期间事件有界队列，溢出/期间有事件置 `gap`；`submit` 去重不误删新条目；回环在 `/` 与 `<basePath>` 下都可用，cookie Path 随挂载。**未做**：`gateway.audit` 事件、游标与事件库水位的映射（重启必 `gap`）、`requestId` 去重持久化、`SessionSnapshot` 的 model/usage/context；新增的 `gateway`、`imports` 配置项尚未写进 `docs/spec/`（设计变更待维护者批准）。
 
 ## 任务回报与确定性可见性（2026-10-27，集成分支，待审核）
 
@@ -69,9 +69,9 @@
 
 仅在 `/Users/zoran/Documents/yonder-harness-tasks` 的 `feat/task-ledger-20261025` 实施，基于已提交的 P1/P2/P3-1、D66/D67。本轮一个逻辑提交覆盖三个插件；没有推送、发布、安装、修改生产 home 或操作已安装服务。
 
-**已实现**：tasks 在随机路径 loopback 服务发布调用者可见范围内的 `{board,text}`；ui-companion 现有页面显示固定四组、计数、任务字段、滞留标记、详情/逐项证据/交付/事件/嵌套子任务，每秒刷新，刚完成默认收起，刷新保留滚动；复用网页徽标及原生 state/attention/current 机制。飞书通过现有 Attachment 投递路由接收 source URL，每会话当前看板卡每两秒读取、文字变化时带递增版本 PATCH 原消息；显式请求重新发送为最新锚，发送失败回退现有 PNG/文字路径。没有 renderer 任务状态机或账本读取，没有管家视图、操作按钮、新工具或生产配置。
+**已实现**：tasks 在随机路径 loopback 服务发布调用者可见范围内的 `{board,text}`；interaction 现有页面显示固定四组、计数、任务字段、滞留标记、详情/逐项证据/交付/事件/嵌套子任务，每秒刷新，刚完成默认收起，刷新保留滚动；复用网页徽标及原生 state/attention/current 机制。飞书通过现有 Attachment 投递路由接收 source URL，每会话当前看板卡每两秒读取、文字变化时带递增版本 PATCH 原消息；显式请求重新发送为最新锚，发送失败回退现有 PNG/文字路径。没有 renderer 任务状态机或账本读取，没有管家视图、操作按钮、新工具或生产配置。
 
-SDK services 只有 resolve、没有发布注册接口，采用既有私有端点文件惯例；ui-companion 发布 renderer.json，飞书按实例发布 task-board.json 路由声明。tasks 不 import 其他插件，SDK/core/原生源码和全部受保护设计文档、prompts.ts 均未改。协议和最简单解释见三个插件 README 的 Questions for the maintainer：首次展示/重启需 tasks_show 建立范围；最近一次请求决定当前范围；飞书历史消息保留，只刷新最新锚；PATCH 不确定失败暂停该卡自动更新，显式 show 重接。
+SDK services 只有 resolve、没有发布注册接口，采用既有私有端点文件惯例；interaction 发布 renderer.json，飞书按实例发布 task-board.json 路由声明。tasks 不 import 其他插件，SDK/core/原生源码和全部受保护设计文档、prompts.ts 均未改。协议和最简单解释见三个插件 README 的 Questions for the maintainer：首次展示/重启需 tasks_show 建立范围；最近一次请求决定当前范围；飞书历史消息保留，只刷新最新锚；PATCH 不确定失败暂停该卡自动更新，显式 show 重接。
 
 **实际验证**：真实 loader/kernel、SQLite、ChannelIO 和本地 HTTP 协议服务；FeishuApi 仅把 HTTP transport 接到隔离的本地协议服务器，实例走真实 start/stop（隔离 home 无飞书凭据，外部连接未启动），没有模拟模型。网页使用后台独立 Chrome profile 与 CDP，读取真实服务页面，验证分组顺序/刚完成收起/详情/证据/子任务/跨 Agent 隔离/账本变化后自动刷新/长静默标记/滚动保持/悬浮入口/current 入口。测试按调用者自己的范围发布，外部 Agent 详情返回 400。飞书验证首次仅一条、无变化不 PATCH、变化 PATCH 同 ID 且版本增加、显式请求新 ID、后续只 PATCH 新 ID、平台拒绝时真实 PNG 上传和发送。浏览器无 Chrome 时该用例显式 skip；本机未跳过。
 
@@ -82,13 +82,13 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 | `npm run build` | 第一次 exit 2，4 个 TS 错误：promise setTimeout 与轮询函数同名造成 3 个类型错误，server 可选字段严格类型错误 1 个。改为 globalThis.setTimeout 和显式 undefined 联合类型后，4 次均 exit 0；含项目既有 macOS 编译/自检与网页资源构建，没有安装/启动原生应用 |
 | `npm run typecheck` | 两次 exit 0 |
 | `npm run lint` | 两次 exit 0；0 errors / 461 warnings / 14 infos |
-| `npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` | 首次 91 / 2 / 1，9 文件通过 / 2 文件失败，另有 1 unhandled rejection。测试夹具 active 直接 done 违反既有状态契约；HTTP FormData 错标 JSON 导致协议服务器解析异常和超时。修正夹具，不改状态机/断言/超时 |
-| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/ui-companion/test plugins/channel-feishu/test` | 首次 91 / 2 / 1：飞书夹具只启动卡片存储，实例仍 stopped；Chrome 启动标签页导航竞争。修正为真实实例 start/stop，浏览器独立测试标签页；最后两次均 93 / 0 / 1，11 文件通过 |
-| `npm test -- plugins/ui-companion/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 5 / 2 / 0，仍为上述实例生命周期与浏览器导航问题；增加协议/导航诊断，没有扩大超时 |
-| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/ui-companion/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 6 / 1 / 0，飞书已通过，Chrome 返回 net::ERR_ABORTED |
-| `npm test -- plugins/ui-companion/test/contract.test.ts` | 3 / 1 / 0，网络诊断确认导航被取消；改为独立测试标签页后通过 |
-| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/ui-companion/test/contract.test.ts` | 4 / 0 / 0，截图输出成功 |
-| `node plugins/ui-companion/test/state.mjs` | exit 0，既有状态自检通过（脚本没有测试计数汇总） |
+| `npm test -- plugins/tasks/test plugins/interaction/test plugins/channel-feishu/test` | 首次 91 / 2 / 1，9 文件通过 / 2 文件失败，另有 1 unhandled rejection。测试夹具 active 直接 done 违反既有状态契约；HTTP FormData 错标 JSON 导致协议服务器解析异常和超时。修正夹具，不改状态机/断言/超时 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/interaction/test plugins/channel-feishu/test` | 首次 91 / 2 / 1：飞书夹具只启动卡片存储，实例仍 stopped；Chrome 启动标签页导航竞争。修正为真实实例 start/stop，浏览器独立测试标签页；最后两次均 93 / 0 / 1，11 文件通过 |
+| `npm test -- plugins/interaction/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 5 / 2 / 0，仍为上述实例生命周期与浏览器导航问题；增加协议/导航诊断，没有扩大超时 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/interaction/test/contract.test.ts plugins/channel-feishu/test/contract.test.ts` | 6 / 1 / 0，飞书已通过，Chrome 返回 net::ERR_ABORTED |
+| `npm test -- plugins/interaction/test/contract.test.ts` | 3 / 1 / 0，网络诊断确认导航被取消；改为独立测试标签页后通过 |
+| `YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/interaction/test/contract.test.ts` | 4 / 0 / 0，截图输出成功 |
+| `node plugins/interaction/test/state.mjs` | exit 0，既有状态自检通过（脚本没有测试计数汇总） |
 | `npm test` | 608 / 0 / 39（647），103 文件通过 / 0 失败 / 19 跳过（122），默认运行未启用真实模型 |
 | `git diff --check` | exit 0 |
 
@@ -114,7 +114,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 | B `npx biome check --write plugins/tasks/src/board.ts plugins/tasks/src/digest.ts plugins/tasks/src/store.ts plugins/tasks/src/index.ts plugins/tasks/src/moments.ts plugins/tasks/package.json plugins/tasks/test` | 首次 2 errors / 20 warnings，修正 5 文件；escape 名称及隐式 any 待修 |
 | B `npx biome check --write plugins/tasks/src plugins/tasks/test/board.test.ts` | 首次 2 errors / 47 warnings，修正 3 文件；修正 escape → escapeXml、attachments 显式类型后重跑 0 errors / 47 warnings |
 | B `npx biome check plugins/tasks/src plugins/tasks/test/board.test.ts --diagnostic-level=error --max-diagnostics=100` | 修正前诊断确认上述 2 errors |
-| B `npm run build` | 首次 exit 2：EventQuery.conv 不能显式传 undefined；改为条件字段。之后构建均 exit 0，包含本地 macOS 构建和 ui-companion 静态资源构建；未安装或启动应用 |
+| B `npm run build` | 首次 exit 2：EventQuery.conv 不能显式传 undefined；改为条件字段。之后构建均 exit 0，包含本地 macOS 构建和 interaction 静态资源构建；未安装或启动应用 |
 | B `npm run typecheck` | 三次均 exit 0 |
 | B `npm run lint` | 三次均 exit 0；0 errors / 445 warnings / 14 infos |
 | B `npm test -- plugins/tasks/test` | 三次均 13 passed / 0 failed / 1 skipped（14），3 文件通过 |
@@ -144,7 +144,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 | A `npm run build`，首次 | exit 1；2 个测试 TypeScript 错误：kernel.events 不暴露 emit、submit 返回 union 未指定 wait:false；改用真实 PluginAPI 并明确回执类型 |
 | A `npx biome format --write packages/core/src/kernel/plugin-input.test.ts`（两次） | 均 exit 0，各格式化 1 文件 |
 | A `npm test -- packages/core/src/kernel/plugin-input.test.ts`，修正后 | 1 passed / 0 failed / 0 skipped；1 文件通过 |
-| A `npm run build`，修正后 | exit 0；原生构建、并发 power lease/64 次 pmset 与 ui-companion 构建通过；产物仅在 worktree |
+| A `npm run build`，修正后 | exit 0；原生构建、并发 power lease/64 次 pmset 与 interaction 构建通过；产物仅在 worktree |
 | A `npm run typecheck` | exit 0 |
 | A `npm run lint` | exit 0；0 errors / 396 warnings / 14 infos |
 | A `npm test` | 598 passed / 0 failed / 38 skipped（636）；101 文件通过 / 19 跳过（120） |
@@ -177,7 +177,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 | `npm install --package-lock-only --ignore-scripts --offline --no-audit --no-fund` | exit 0，更新 workspace 锁文件，无新增依赖 |
 | `npx biome check plugins/tasks` | 首次失败：6 errors / 8 warnings；格式问题（包括必须保留原文的 prompts.ts） |
 | `npx biome check --write biome.json plugins/tasks/package.json plugins/tasks/tsconfig.json plugins/tasks/src/index.ts plugins/tasks/src/store.ts plugins/tasks/test/tasks.test.ts` | exit 0，修正 5 文件，0 errors / 8 warnings；biome.json 仅对 prompts.ts 停用 formatter |
-| `npm run build` | 两次均 exit 0；含原生 macOS 构建、并发 power lease/64 次 pmset 检查、ui-companion 构建；产物仅在 worktree |
+| `npm run build` | 两次均 exit 0；含原生 macOS 构建、并发 power lease/64 次 pmset 检查、interaction 构建；产物仅在 worktree |
 | `npm run typecheck` | exit 0 |
 | `npm run lint` | exit 0；0 errors / 393 warnings / 14 infos（保留仓库警告） |
 | `npm test -- plugins/tasks/test/tasks.test.ts` | 6 passed / 0 failed / 0 skipped；1 文件通过 |
@@ -317,7 +317,7 @@ Phase 3 修复 PermissionFlow guide 的列表下沿定位，guide/watch 共用�
 
 ## UI Companion 与统一状态栏
 
-交互工具和私有回环服务在 plugins/ui-companion；唯一 macOS 宿主在 packages/macos，插件不再起第二个桌面应用。左键当前交互/历史，右键交互入口、服务状态、检查更新及停止服务并退出。默认完成隐藏浮窗和浮球，autoClose:false 可保留；不自动给未选择插件的 Agent 增加工具。端点/单实例锁/真实卡片回传有验证；全屏、台前调度与菜单左右键真人验收仍未完成。正式发布验证记录见插件 README。
+交互工具和私有回环服务在 plugins/interaction；唯一 macOS 宿主在 packages/macos，插件不再起第二个桌面应用。左键当前交互/历史，右键交互入口、服务状态、检查更新及停止服务并退出。默认完成隐藏浮窗和浮球，autoClose:false 可保留；不自动给未选择插件的 Agent 增加工具。端点/单实例锁/真实卡片回传有验证；全屏、台前调度与菜单左右键真人验收仍未完成。正式发布验证记录见插件 README。
 
 UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typecheck，413 测试通过/36 跳过，lint 退出成功。发布不自动启用 Agent 工具或修改用户权限；系统级桌面场景仍待人工验收。
 

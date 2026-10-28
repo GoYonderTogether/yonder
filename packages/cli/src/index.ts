@@ -270,7 +270,7 @@ async function run(args: string[]): Promise<number> {
 			(await installedService())?.home ??
 			(process.platform === "win32"
 				? join(env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "YonderHarness/home")
-				: join(homedir(), ".local/share/yonder-harness/home"));
+				: join(homedir(), ".local/share/yonder/home"));
 	const daily = !options.rest.length && !options.help && stdin.isTTY && stdout.isTTY && !options.json;
 	if (daily) options.rest.push("chat");
 	const [command, ...rest] = options.rest;
@@ -749,10 +749,10 @@ async function run(args: string[]): Promise<number> {
 		const plugins = (await offlineQuery(home, { method: "management", params: { action: "plugins.list" } })) as Array<{
 			id: string;
 		}>;
-		if (!plugins.some((plugin) => plugin.id === "ui-companion"))
+		if (!plugins.some((plugin) => plugin.id === "interaction"))
 			await offlineQuery(home, {
 				method: "management",
-				params: { action: "plugins.add", source: "@yonder/plugin-ui-companion" },
+				params: { action: "plugins.add", source: "@yonder/plugin-interaction" },
 			});
 		const kernel = await openKernel(home, {
 			log: (level, message, data) =>

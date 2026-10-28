@@ -41,14 +41,14 @@ try {
 		if (["full-disk-access", "files-and-folders"].includes(record.kind)) assert.equal(record.state, "unobservable");
 		passed++;
 	}
-	const app = join(homedir(), ".local/share/yonder-harness/helper/Yonder Helper.app");
+	const app = join(homedir(), ".local/share/yonder/helper/Yonder Helper.app");
 	const before = await stat(app);
 	const again = await call({ action: "status" });
 	assert.equal(again.isError, undefined, again.text);
 	assert.equal((await stat(app)).mtimeMs, before.mtimeMs);
 	passed++;
 	const state = JSON.parse(
-		await readFile(join(homedir(), ".local/share/yonder-harness/helper/permissions-state.json"), "utf8"),
+		await readFile(join(homedir(), ".local/share/yonder/helper/permissions-state.json"), "utf8"),
 	);
 	assert.equal(state.length, 9);
 	assert.deepEqual(

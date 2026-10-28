@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
-export const powerSocket = "/var/run/dev.yonder.harness.power.sock";
+export const powerSocket = "/var/run/dev.yonder.power.sock";
 const file = (home: string) => join(home, ".yonder/awake.json");
 export type AwakeMode = "off" | "tasks" | "always";
 export const awakeGraceMs = 15 * 60 * 1000;
@@ -67,9 +67,9 @@ export async function installPower() {
 	);
 	await lstat(source);
 	const directory = await mkdtemp(join(tmpdir(), "yonder-power-install-"));
-	const binary = "/Library/PrivilegedHelperTools/dev.yonder.harness.power";
-	const plist = "/Library/LaunchDaemons/dev.yonder.harness.power.plist";
-	const label = "dev.yonder.harness.power";
+	const binary = "/Library/PrivilegedHelperTools/dev.yonder.power";
+	const plist = "/Library/LaunchDaemons/dev.yonder.power.plist";
+	const label = "dev.yonder.power";
 	const contents = `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>Label</key><string>${label}</string><key>ProgramArguments</key><array><string>${binary}</string><string>--serve</string><string>${process.getuid()}</string></array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>3</integer></dict></plist>`;
 	await writeFile(join(directory, "power.plist"), contents, { mode: 0o600 });
 	await writeFile(

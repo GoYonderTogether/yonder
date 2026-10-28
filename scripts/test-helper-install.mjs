@@ -69,7 +69,7 @@ test("production guard accepts the real current artifact and rejects checkout wi
 	const user = join(evidence, "isolated-user"),
 		install = join(user, "install"),
 		root = join(install, "versions/candidate"),
-		home = join(user, ".local/share/yonder-harness/helper");
+		home = join(user, ".local/share/yonder/helper");
 	await mkdir(join(install, "versions"), { recursive: true });
 	await cp(second, root, { recursive: true });
 	await writeFile(join(root, ".yonder-install.json"), JSON.stringify({ version: "fixture" }));

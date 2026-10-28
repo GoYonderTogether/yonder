@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-const stableDirectory = () => join(homedir(), ".local/share/yonder-harness/helper");
+const stableDirectory = () => join(homedir(), ".local/share/yonder/helper");
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 function startIdentity(pid) {
 	const result = spawnSync("/bin/ps", ["-p", String(pid), "-o", "lstart="], { encoding: "utf8" });

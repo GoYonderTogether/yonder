@@ -83,7 +83,7 @@ export class AppServer {
 			await client.request(
 				"initialize",
 				{
-					clientInfo: { name: "yonder-harness", title: "Yonder Harness", version: "0.1.4" },
+					clientInfo: { name: "yonder", title: "Yonder Harness", version: "0.1.4" },
 					capabilities: { experimentalApi: true },
 				},
 				signal,

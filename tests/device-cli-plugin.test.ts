@@ -10,7 +10,7 @@ import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../plugins/devices/src/index.js";
 
-const cli = new URL("../packages/executor/dist/cli.js", import.meta.url).pathname;
+const cli = new URL("../packages/device/dist/cli.js", import.meta.url).pathname;
 const run = (args: string[], input?: unknown): Record<string, unknown> =>
 	JSON.parse(
 		execFileSync(process.execPath, [cli, ...args], {

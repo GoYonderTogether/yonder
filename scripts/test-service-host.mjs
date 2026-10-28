@@ -196,7 +196,7 @@ test("full Helper LaunchServices actually hosts built Node CLI start and control
 	const home = await mkdtemp(join(evidence, "real-cli-"));
 	await writeFile(
 		join(home, "yonder.yaml"),
-		"schema: 1\nplugins:\n  - use: '@yonder/plugin-ui-companion'\n    config:\n      desktop: false\nagents: []\n",
+		"schema: 1\nplugins:\n  - use: '@yonder/plugin-interaction'\n    config:\n      desktop: false\nagents: []\n",
 	);
 	const run = await start("real-cli", { home, direct: false, args: [cli, "start", "--home", home, "--json"] });
 	let info;

@@ -327,11 +327,11 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 `@yonder/plugin-channel-card`：多 Agent 名片渠道（type card、multiAgent）。设备码登录、单条 WS、游标补收；工具 channel-card_card_push 仅起草调用 Agent 自己的名片。配置与限制见 [README](../plugins/channel-card/README.md) 和 [16](spec/16-card-plugin.md)。
 
-## ui-companion — 本地交互窗口
+## interaction — 本地交互窗口
 
-- **源码**：[入口](../plugins/ui-companion/src/index.ts) · [运行和验收](../plugins/ui-companion/README.md)
-- **贡献**：工具 `ui-companion_present`、`ui-companion_result`；触发器 `ui-companion-service` 托管回环服务。
-- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-ui-companion`，在实际 Agent/配置档选择 `ui-companion_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
+- **源码**：[入口](../plugins/interaction/src/index.ts) · [运行和验收](../plugins/interaction/README.md)
+- **贡献**：工具 `interaction_present`、`interaction_result`；触发器 `interaction-service` 托管回环服务。
+- **使用**：在 plugins 加载本地目录或 `@yonder/plugin-interaction`，在实际 Agent/配置档选择 `interaction_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
 - **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
 
 

@@ -1,5 +1,5 @@
 {
-	"name": "yonder-harness",
+	"name": "yonder",
 	"private": true,
 	"type": "module",
 	"license": "Apache-2.0",
@@ -8,8 +8,8 @@
 	},
 	"workspaces": [
 		"packages/pi-durable",
-		"packages/execution-protocol",
-		"packages/executor",
+		"packages/protocol",
+		"packages/device",
 		"packages/sdk",
 		"packages/core",
 		"packages/gateway",
@@ -33,7 +33,7 @@
 		"plugins/clipboard",
 		"plugins/channel-qq",
 		"plugins/memory",
-		"plugins/ui-companion",
+		"plugins/interaction",
 		"plugins/channel-card",
 		"plugins/devices",
 		"plugins/learning",
@@ -42,11 +42,11 @@
 		"plugins/onboarding"
 	],
 	"scripts": {
-		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs && npm run build:app",
+		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/interaction/build.mjs && npm run build:app",
 		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
-		"test:node": "node --test scripts/export-model-observations.test.mjs",
+		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs",
 		"lint:size": "node scripts/check-file-size.mjs",
 		"lint": "biome check . && node scripts/check-file-size.mjs"
 	},

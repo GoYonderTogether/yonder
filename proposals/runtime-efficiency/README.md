@@ -124,7 +124,7 @@ const report = (error: unknown) => log("error", message(error));
  542  plugins/channel-wechat-ilink/src/channel.ts
  530  plugins/cron/src/index.ts
  524  packages/core/src/tools/index.ts
- 522  packages/executor/src/executor.ts
+ 522  packages/device/src/executor.ts
 ```
 
 `Runtime` 一个类挂了约 40 个方法，覆盖会话、模型、压缩、提交、任务、恢复、

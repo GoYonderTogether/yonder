@@ -118,7 +118,7 @@ nonisolated(unsafe) var cancellationFile: String?
 func checkCancellation() throws {
     if let cancellationFile, FileManager.default.fileExists(atPath: cancellationFile) { throw failure("Helper request cancelled before input") }
 }
-let stateDirectory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/yonder-harness/helper")
+let stateDirectory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/yonder/helper")
 @MainActor func status(_ identity: Identity, requestedKind: String? = nil, restartKind: String? = nil, interruptedKind: String? = nil) async throws -> [Record] {
     let current = await probes()
     try FileManager.default.createDirectory(at: stateDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
