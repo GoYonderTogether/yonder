@@ -1,9 +1,11 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # @juicesharp/rpiv-todo — 注入模型的提示词原文
 
 - 包: `@juicesharp/rpiv-todo` 2.15.0
-- License: MIT (Copyright (c) 2026 juicesharp) — `/Users/zoran/.pi/agent/npm/node_modules/@juicesharp/rpiv-todo/LICENSE`
+- License: MIT (Copyright (c) 2026 juicesharp) — `~/.pi/agent/npm/node_modules/@juicesharp/rpiv-todo/LICENSE`
 - 仓库: https://github.com/juicesharp/rpiv-mono (packages/rpiv-todo)
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/@juicesharp/rpiv-todo/todo.ts` — `DEFAULT_PROMPT_SNIPPET`、`DEFAULT_PROMPT_GUIDELINES`、`pi.registerTool` 的 `description`；`config.ts` 的 `guidance.promptSnippet/promptGuidelines` 可在用户配置里覆盖
+- 来源: `~/.pi/agent/npm/node_modules/@juicesharp/rpiv-todo/todo.ts` — `DEFAULT_PROMPT_SNIPPET`、`DEFAULT_PROMPT_GUIDELINES`、`pi.registerTool` 的 `description`；`config.ts` 的 `guidance.promptSnippet/promptGuidelines` 可在用户配置里覆盖
 
 ## 默认 promptSnippet / promptGuidelines（DEFAULT_*）
 

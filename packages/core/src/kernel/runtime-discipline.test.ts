@@ -1,6 +1,7 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
@@ -9,6 +10,9 @@ import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
+// Optional real model other than the default, e.g. workbuddy/deepseek-v4.1-flash; its provider comes from the pi catalog.
+const model = process.env.YONDER_TEST_MODEL;
+const catalog = process.env.YONDER_TEST_MODELS ?? resolve(homedir(), ".pi/agent/models.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna: task report, one silent background fallback and deterministic interactive heartbeat",
 	async () => {
@@ -20,10 +24,16 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			await initHome(home);
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
+			if (model) {
+				const provider = model.slice(0, model.indexOf("/"));
+				const providers = JSON.parse(readFileSync(catalog, "utf8")).providers;
+				config.models = { providers: { [provider]: providers[provider] } };
+			}
 			await writeFile(`${home}/yonder.yaml`, stringify(config));
 			const agentPath = `${home}/agents/main/agent.yaml`;
 			const agent = parse(await readFile(agentPath, "utf8"));
 			agent.defaults.contexts = [];
+			if (model) agent.defaults.model = model;
 			agent.profiles.owner.tools = { offer: ["task_run", "bash"] };
 			agent.profiles.owner.thinking = "low";
 			agent.bindings[0].stream = false;
@@ -31,6 +41,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			const presetPath = `${home}/presets/default.yaml`;
 			const preset = parse(await readFile(presetPath, "utf8"));
 			preset.thinking = "low";
+			if (model) preset.model = model;
 			preset.tools = { offer: ["read"] };
 			await writeFile(presetPath, stringify(preset));
 			kernel = await openKernel(home, {
@@ -156,7 +167,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			console.info(
 				JSON.stringify({
 					home,
-					model: "openai/gpt-6-luna",
+					model: model ?? "openai/gpt-6-luna",
 					report,
 					backgroundFallbacks: 1,
 					heartbeats: beats.map((e) => e.data),

@@ -6,6 +6,9 @@
 
 - 微信归档监听补齐入站标注：`wechat-archive.material` 的 data 增加 `channel`、`conversation`、批次去重的 `senders` 和一行通知用 `summary`（发送人加正文摘要，纯媒体与无正文分别记标记），消息正文与附件仍在 `messages`；同一会话是否提醒由 `notifications` 级别决定，监听保持只读、不自动回复。
 - 渠道通知级别：`yonder.yaml` 新增 `notifications`（`default` + 按 `conv` 覆盖，取值 `all`/`mention`/`mute`）。被绑定接纳的入站 `message.in` 与带 `data.summary` 的插件事件对每个路由会话写一条 `yonder.notification`（走 `sessions.notify`，不唤醒模型），`mention` 只在 `data.mentioned` 为真时通知，`mute` 只累积事件与未读（06 §9.1、08 §2）。
+- 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
+- 新包 `@yonder/gateway`：`POST /api/rpc/<method>`、`WS /api/stream`（ready/ev/end/pong 帧，`after` 续传与 `gap`），一次性票据（URL）或长期访问令牌（仅 `POST /login` 请求体）换 HMAC HttpOnly cookie，按对端限流登录失败（`gateway.trustProxy`），凭据到期/轮换后断开已建立的 WebSocket（4401），限制套接字、feed 与环形缓冲，校验 Host、Origin、Sec-Fetch-Site，严格 CSP，托管 `apps/app/dist`。配置 `gateway.port/publicOrigins/basePath/accessTokenHash/trustProxy/enabled`，支持去前缀的反向代理；`yonder start --no-gateway`、`yonder ui [--open]`、`yonder ui token --rotate`（配置只存 sha256）。
+- 只读导入 pi 会话：`imports.list`、`imports.show` 把 `~/.pi/agent/sessions/**/*.jsonl`（`imports.piSessionsDir` 可改）解析为对话条目、todo 快照与 usage 汇总，未知条目原样带出。
 - task 会话要求 STATUS 与实际证据；空或 `NO_REPLY` 回报由内核标为 `STATUS: unknown (no report)`，委派工具说明加入目标、材料、边界、完成标准、阻塞条件、回传格式六要素。
 - 后台续办没有新的可见输出时，共享 delivery 按 run.end 保存的意图补一条模板通知；主人交互运行静默五分钟发送事实心跳（最多六次，可编辑渠道复用同一条消息）。保留静默绑定，未知交付不重发。
 - luna/sol 家族按完整模型 ID 装入稳定的中文执行纪律段（`runtime.discipline`），不把每轮时间或计数放进 system。
@@ -28,6 +31,7 @@
 
 ### Fixed
 
+- `permissions` 工具参数改为顶层对象（`action` 判别 + 可选 `provider`/`kind`/`timeout`），修复严格供应商 API 以 `type: null` 拒绝该工具 schema；参数校验仍在工具内。
 - 单次启动产生的 11,726 条 error 级"历史 submission 无原生回执"降为 1 条 `warn` 加周期汇总。
 - 任务账本每次读取都新建连接、`SELECT *` 全表并从头 replay 的问题。
 

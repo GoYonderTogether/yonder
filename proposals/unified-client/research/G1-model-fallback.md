@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../agent-parity.md)
+
 # Yonder 多供应商模型回退调研报告
 
 > 只读调研，未修改任何文件、未提交。所有结论附文件路径与行号；无法核实的地方标注「未核实」。
@@ -145,7 +147,7 @@ return { retry, advance, error, delay: retry ? retryDelayMs(policy, attempt) : 0
 
 ## 3. 本机实证：为什么「没有回复」
 
-数据源：`/Users/zoran/.local/share/yonder-harness/home/.yonder/state.db`（注意同目录 `home/state.db` 是 0 字节空文件，真库在 `.yonder/` 下），只读 `file:state.db?immutable=1`。时间窗：近 3 天（截至 2026-10-27 14:52 EDT）。
+数据源：`~/.local/share/yonder-harness/home/.yonder/state.db`（注意同目录 `home/state.db` 是 0 字节空文件，真库在 `.yonder/` 下），只读 `file:state.db?immutable=1`。时间窗：近 3 天（截至 2026-10-27 14:52 EDT）。
 
 ### 3.1 run 结果分布
 

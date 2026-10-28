@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # Yonder fork 已移植到 pi v1.4.0 并推送
 
 **Commit:** `6da2e0ec7`，已推送到 `origin yonder/1.4`（v1.4.0 之上单个提交，57 个文件，+3712/−305）。`git diff v1.4.0 --stat` 里没有多余文件，也没有残留冲突标记。

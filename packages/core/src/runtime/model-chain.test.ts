@@ -30,7 +30,7 @@ describe("model chain", () => {
 			{ provider: "openai", modelId: "gpt-6.1-sol", base: "openai", slot: "default", account: false },
 		]);
 	});
-	it("tries the same model on other accounts before other models", () => {
+	it("runs the first fallback model before other accounts", () => {
 		const chain = modelChain(
 			"openai/gpt-6.1-sol",
 			{ models: ["rightapi-glm/glm-5.3-flash"], accounts: { openai: ["gpt2", "gpt3"] } },
@@ -38,11 +38,11 @@ describe("model chain", () => {
 		);
 		expect(chain.map(chainRef)).toEqual([
 			"openai/gpt-6.1-sol",
-			"openai#gpt3/gpt-6.1-sol",
 			"rightapi-glm/glm-5.3-flash",
+			"openai#gpt3/gpt-6.1-sol",
 		]);
 		expect(chain[0]!.slot).toBe("gpt2");
-		expect(chain[1]).toMatchObject({ base: "openai", slot: "gpt3", account: true });
+		expect(chain[2]).toMatchObject({ base: "openai", slot: "gpt3", account: true });
 	});
 	it("collapses entries that repeat the same model and account", () => {
 		const chain = modelChain(
@@ -64,8 +64,8 @@ describe("model chain", () => {
 		);
 		expect(chain.map((entry) => `${entry.provider}/${entry.modelId}`)).toEqual([
 			"openai/gpt-6.1-sol",
-			"openai#gpt2/gpt-6.1-terra",
 			"rightapi-glm/glm-5.3-flash",
+			"openai#gpt2/gpt-6.1-terra",
 		]);
 	});
 	it("applies the substitution to the primary slot too and ignores cross-provider mappings", () => {

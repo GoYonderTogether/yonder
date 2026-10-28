@@ -346,3 +346,5 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 ## 2026-10-27 微信归档入站标注与提醒（用户批准）
 
 主人要求微信客户端的消息能进入渠道监听。归档插件已经按会话批次发出 `wechat-archive.material`，但事件里没有可直接展示的发送人/摘要，因此补三处标注而不改事件类型：`channel: "wechat-archive"`、`conversation`、批次去重的 `senders`，以及一行 `summary`（单条 `发送人: 正文`，多条 `N 条消息（前三位发送人）：最后一条`，正文截断 60 字，纯媒体 `[<kind>]`，无正文 `[无正文]`；`media.kind` 为 `unknown` 时按无正文处理，因为 CLI 对未解析媒体统一给 unknown）。`summary` 只喂内核 `yonder.notification`，不替代正文，也不进模型消息。是否提醒由 yonder.yaml 的 `notifications` 按 `conv:wechat-archive:<chat>` 决定；微信批次没有 `mentioned`，所以 `mention` 级别对微信不提醒，需提醒用 `all`，这与 06 §9.1 的规则一致，不额外发明关键词提醒。监听保持只读：不新增发送工具、不自动回复，唤醒仍只由绑定决定（架构 5.2）。轮询间隔取自 `pollSeconds`，插件游标在私有 SQLite meta、源游标在稳定 consumer 名下，重启复用不重放。代价：摘要只有 60 字、只覆盖批次尾部，长批次要看 `messages`。
+
+2026-10-28 回退顺序：先换模型再换账号（维护者 WIP 采纳）

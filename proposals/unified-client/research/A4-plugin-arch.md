@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # Yonder Harness 架构审计（事实清单）
 
 ## 1. 插件模型（docs/）

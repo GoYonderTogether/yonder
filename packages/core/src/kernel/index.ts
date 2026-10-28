@@ -17,7 +17,8 @@ import {
 	type PromptOptions,
 	prepareInput,
 	scaffoldWorkspace,
-	systemSections,
+	systemPromptKeys,
+	systemPromptParts,
 	toolDiscoveryGuide,
 } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
@@ -35,6 +36,7 @@ import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
+import { observedRuntimeEvents, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
@@ -84,10 +86,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const config = await loadYonderConfig(home);
 		db = await openDatabase(join(home, ".yonder/state.db"));
 		observability.startRetention();
-		const terminalEnds = new Map<
-			string,
-			Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>
-		>();
+		const terminalEnds: TerminalSends = new Map();
+		const forwardUpdate = terminalUpdates(terminalEnds, report);
 		const agents = new Map<string, AgentConfig>();
 		const store = await createStore(
 			db,
@@ -97,14 +97,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				void plugins?.observe(event).catch(report);
 				if (event.type === "run.end") {
 					const id = String((event.data as { session?: string }).session ?? "");
-					for (const send of terminalEnds.get(id) ?? [])
-						void send({
-							type: "end",
-							session: id,
-							...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
-							eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
-							event,
-						}).catch(report);
+					forwardUpdate(id, {
+						type: "end",
+						session: id,
+						...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
+						eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
+						event,
+					});
 				}
 			},
 		);
@@ -317,6 +316,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			runtime: realRuntime,
 			sessions,
 			onReport: report,
+			log,
 		});
 		router = createRouter({
 			channels: loaded.channels,
@@ -393,8 +393,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 				return { ...session, protectedFiles };
 			},
-			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			sectionKeys: systemPromptKeys(loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
+			...observedRuntimeEvents(store, forwardUpdate),
 			onReport: report,
 		});
 		const validateCandidate = async (

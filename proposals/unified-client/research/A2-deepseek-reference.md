@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # DeepSeek Harness 前端架构调研报告
 
 ## 1. 四个 app 概览

@@ -12,7 +12,9 @@
 		"packages/executor",
 		"packages/sdk",
 		"packages/core",
+		"packages/gateway",
 		"packages/cli",
+		"apps/app",
 		"plugins/channel-cli",
 		"plugins/context-files",
 		"plugins/agent-presets",
@@ -38,7 +40,8 @@
 		"plugins/tasks"
 	],
 	"scripts": {
-		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs",
+		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs && npm run build:app",
+		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
 		"test:node": "node --test scripts/export-model-observations.test.mjs",
@@ -57,6 +60,6 @@
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"
 	},
 	"dependencies": {
-		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-45014f2a2250b789df4fc00441de54d4fda505f8-2d9bf64bf3cb.tgz"
+		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-234394f69439ba5b16b4d1b67042bbbec550f17d-2d9bf64bf3cb.tgz"
 	}
 }
