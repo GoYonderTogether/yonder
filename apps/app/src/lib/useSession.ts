@@ -101,7 +101,8 @@ function usageOf(u: SessionSnapshot["usage"] | UsageTotals | undefined): UsageSn
 	return "self" in u ? u : { self: u };
 }
 
-function reduce(s: SessionView, a: Act): SessionView {
+/** 纯 reducer：导出只为本目录外的单测能直接验证 gap 重置语义。 */
+export function reduce(s: SessionView, a: Act): SessionView {
 	if (a.k === "reset") return emptyView;
 	if (a.k === "older")
 		return {
