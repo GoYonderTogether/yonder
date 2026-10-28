@@ -484,6 +484,8 @@ export class Runtime {
 	}
 	private install() {
 		this.background = createBackground({
+			home: this.options.home,
+			cacheOutput: (snapshot) => this.environment(JSON.parse(snapshot).config).id === "node:local",
 			harness: () => this.harness,
 			changed: (session) => this.options.onBackgroundChanged?.(session),
 			config: async (session, context) => {

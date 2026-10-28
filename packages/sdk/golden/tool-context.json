@@ -1,0 +1,3 @@
+{
+	"cacheToolOutput": "cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;"
+}

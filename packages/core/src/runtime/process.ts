@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
-import { mkdir, open } from "node:fs/promises";
+import { mkdir, open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
 
 import { hostedProcessSpawner } from "./hosted-process.js";
+import { cacheToolOutput } from "./tool-output-cache.js";
 
 export function processTool(
 	home: string,
@@ -60,12 +61,16 @@ export function processTool(
 							completionFault = error;
 						},
 					);
-					let output = "",
+					let total = 0,
+						lines = 1,
+						output = "",
 						stderr = "",
 						writes = Promise.resolve(),
 						fault: unknown;
 					let pendingWrites = 0;
 					const append = (text: string, error = false) => {
+						total += Buffer.byteLength(text);
+						lines += (text.match(/\n/g) ?? []).length;
 						output = (output + text).slice(-65536);
 						if (error) stderr = (stderr + text).slice(-65536);
 						api.output(text);
@@ -149,12 +154,28 @@ export function processTool(
 						else if (completionFault) reject(completionFault);
 						else if (host && !result)
 							reject(new Error(`Hosted command exited without a verified result (${code}, ${signal})`));
-						else
+						else {
+							let cached: string | undefined;
+							let cacheFailed = false;
+							try {
+								if (total > 48 * 1024 || lines > 1990)
+									cached = await cacheToolOutput(
+										home,
+										String(api.conversationId),
+										"bash",
+										args,
+										await readFile(path, "utf8"),
+									);
+							} catch {
+								cacheFailed = true;
+							}
 							resolve({
 								output: [
 									{
 										type: "text",
 										text: JSON.stringify({
+											...(cacheFailed ? { cache: "Cache unavailable." } : {}),
+											...(cached ? { cache: `${cached}; use read to paginate or grep to search` } : {}),
 											output,
 											stderr,
 											exitCode: host ? result!.code : code,
@@ -166,6 +187,7 @@ export function processTool(
 								isError: (host ? result!.code : code) !== 0,
 								details: { pid: child.pid ?? 0, fullOutputPath: path },
 							});
+						}
 					});
 					if (context.abortSignal?.aborted) abort();
 					else context.abortSignal?.addEventListener("abort", abort, { once: true });

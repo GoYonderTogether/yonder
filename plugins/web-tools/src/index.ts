@@ -31,7 +31,7 @@ async function output(value: object, ctx: ToolContext, key?: string) {
 	}
 	return { text };
 }
-async function readBody(response: Response): Promise<{ text: string; truncated: boolean }> {
+async function readBody(response: Response, full = false): Promise<{ text: string; truncated: boolean }> {
 	const reader = response.body?.getReader();
 	const chunks: Uint8Array[] = [];
 	let size = 0;
@@ -41,11 +41,11 @@ async function readBody(response: Response): Promise<{ text: string; truncated: 
 			const chunk = await reader.read();
 			if (chunk.done) break;
 			const remaining = MAX_BODY - size;
-			chunks.push(chunk.value.subarray(0, remaining));
-			size += Math.min(remaining, chunk.value.length);
+			chunks.push(full ? chunk.value : chunk.value.subarray(0, remaining));
+			size += full ? chunk.value.length : Math.min(remaining, chunk.value.length);
 			if (chunk.value.length > remaining) {
 				truncated = true;
-				break;
+				if (!full) break;
 			}
 		}
 	} finally {
@@ -209,11 +209,7 @@ export default definePlugin({
 							ctx,
 						);
 					}
-					const body = await readBody(response);
-					if (body.truncated)
-						throw new Error(
-							"HTTP_BODY_TOO_LARGE: response exceeds 2 MiB; use an authorized source with a smaller response",
-						);
+					const body = await readBody(response, true);
 					let content = body.text;
 					let title: string | undefined;
 					if (["text/html", "application/xhtml+xml"].includes(mime)) {
@@ -245,6 +241,25 @@ export default definePlugin({
 								: format === "text"
 									? article.textContent
 									: markdown.turndown(article.content ?? "");
+					}
+					if (body.truncated) {
+						const path = await ctx.cacheToolOutput?.(body.text, { extension: "txt" });
+						content = Buffer.from(content)
+							.subarray(0, MAX_OUTPUT / 8)
+							.toString("utf8");
+						return output(
+							{
+								source: "http-get",
+								url: url.href,
+								mime,
+								format,
+								title,
+								truncated: true,
+								content,
+								original: path ? `cached at ${path}; use read to paginate or grep to search` : "cache unavailable",
+							},
+							ctx,
+						);
 					}
 					return output(
 						{ source: "http-get", url: url.href, mime, format, title, truncated: body.truncated, content },

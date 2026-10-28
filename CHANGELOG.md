@@ -20,7 +20,7 @@
 
 - Add optional Codex native review tool; slash template and explicit background selection remain pending.
 
-- 网页响应超过 2 MiB 时明确报错；read/grep 拒绝直接访问其他会话的工具输出缓存。
+- durable 流及 bash 截断时缓存原文；网页超 2 MiB 的文本响应保存完整原文并提供缓存读取路径；read/grep 拒绝直接访问其他会话的工具输出缓存。
 
 - Add optional `code-intel_effective_config` to explain redacted pi-lens configuration provenance and selection.
 

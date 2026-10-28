@@ -482,3 +482,8 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 ### 主 Agent 代批：任务模板层级
 
 无身份任务按 preset 名称依次查找 `agents/<preset>/prompts/`、`presets/<preset>/prompts/`、home 和选中工具的插件目录；子 Agent 模板仅在已发现的 Markdown 定义 name 与任务 preset 身份相同时生效，模板目录不参与定义发现；常驻 Bot 的 profile 不映射到同名 preset。模板只展开输入，不改变权限；补全与展开复用发现和过滤。
+
+
+### 2026-10-28：工具原文缓存补齐（主 Agent 代批）
+
+网页文本响应超过 2 MiB 时继续读取并缓存完整原文，输出保留截断内容与读取路径；沿用 SDK 字符串缓存接口，响应完整驻留内存。SDK 缓存 API 增加 golden。流式工具输出沿用会话缓存与索引，缓存失败不得声称原文可取回。

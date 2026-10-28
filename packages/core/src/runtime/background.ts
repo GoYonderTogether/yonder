@@ -1,3 +1,8 @@
+import { createWriteStream, mkdtempSync } from "node:fs";
+import { readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { finished as streamFinished } from "node:stream/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
@@ -21,6 +26,7 @@ import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 import { cid } from "./docs.js";
+import { cacheToolOutput } from "./tool-output-cache.js";
 
 const INTERRUPTED_RESULT =
 	"Task interrupted by restart; side effects may have occurred. Re-check state, avoid repeating completed actions, and resume.";
@@ -70,6 +76,8 @@ type LiveOutput = { output: string; next: number; write?: (text: string, eof?: b
 
 /** Native pi tasks own detached calls, their child conversations, cancellation and durable receipts. */
 export function createBackground(options: {
+	home?: string;
+	cacheOutput?(config: string): boolean;
 	harness(): Harness;
 	config(session: string, context: Context): Promise<string>;
 	execute(input: Input, api: ToolExecutionApi, context: Context): Promise<ToolExecutionResult>;
@@ -98,6 +106,10 @@ export function createBackground(options: {
 					live: LiveOutput = { output: "", next: 0 };
 				running.set(job.id, live);
 				let saved = false;
+				let outputBytes = 0,
+					outputLines = 1;
+				let capture: { dir: string; path: string; stream: ReturnType<typeof createWriteStream> } | undefined;
+				let captureFailed = false;
 				try {
 					await runtime.commit(async (tx) => {
 						Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
@@ -125,6 +137,27 @@ export function createBackground(options: {
 						conversation: runtime.conversation,
 						output(chunk) {
 							const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
+							outputBytes += Buffer.byteLength(text);
+							outputLines += (text.match(/\n/g) ?? []).length;
+							try {
+								if (
+									!captureFailed &&
+									options.home &&
+									options.cacheOutput?.(job.input.config) &&
+									job.input.name !== "bash"
+								) {
+									if (!capture) {
+										const dir = mkdtempSync(join(tmpdir(), "yonder-output-"));
+										const path = join(dir, "output");
+										capture = { dir, path, stream: createWriteStream(path, { mode: 0o600 }) };
+										capture.stream.on("error", options.report);
+									}
+									capture.stream.write(text);
+								}
+							} catch (error) {
+								captureFailed = true;
+								options.report(error);
+							}
 							live.next += text.length;
 							live.output = (live.output + text).slice(-65536);
 						},
@@ -169,6 +202,48 @@ export function createBackground(options: {
 							...(details !== undefined && result.details === undefined ? { details } : {}),
 							...(diagnostics.length ? { diagnostics: [...diagnostics, ...(result.diagnostics ?? [])] } : {}),
 						});
+						if (capture) {
+							try {
+								capture.stream.end();
+								await streamFinished(capture.stream);
+								if (!captureFailed && options.home && (outputBytes > 50 * 1024 || outputLines > 2000)) {
+									const path = await cacheToolOutput(
+										options.home,
+										String(job.conversationId),
+										job.input.name,
+										job.input.args,
+										await readFile(capture.path, "utf8"),
+									);
+									result = {
+										...result,
+										output: [
+											{
+												type: "text",
+												text: `Full output: ${path}. Use read to paginate or grep to search.`,
+											},
+											...(result.output ?? []),
+										],
+									};
+								}
+							} catch (error) {
+								options.report(error);
+								result = {
+									...result,
+									output: [
+										{ type: "text", text: "Output cache failed; full output is unavailable." },
+										...(result.output ?? []),
+									],
+								};
+							}
+						}
+						if (captureFailed)
+							result = {
+								...result,
+								output: [
+									{ type: "text", text: "Output cache failed; full output is unavailable." },
+									...(result.output ?? []),
+								],
+							};
 					} catch (error) {
 						if (context.abortSignal?.aborted) throw error;
 						result = failed(error);
@@ -182,6 +257,10 @@ export function createBackground(options: {
 					}, context);
 					saved = true;
 				} finally {
+					if (capture) {
+						capture.stream.destroy();
+						await rm(capture.dir, { recursive: true, force: true }).catch(options.report);
+					}
 					try {
 						// Cancellation ends the invocation context; retain its tail before releasing the live window.
 						if (!saved && live.next)

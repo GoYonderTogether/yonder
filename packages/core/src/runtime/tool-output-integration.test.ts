@@ -12,7 +12,7 @@ import {
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
@@ -50,8 +50,21 @@ test("SDK context cache and automatic cache run through the native background wr
 		const internal = runtime as unknown as {
 			harness: Harness;
 			tools: Map<string, ToolRegistration>;
+			backgroundTool(tool: ToolRegistration): ToolRegistration;
 			registry: { install(extension: ReturnType<typeof defineExtension>): void };
 		};
+		internal.tools.set(
+			"stream_probe",
+			internal.backgroundTool({
+				name: "stream_probe",
+				description: "stream check",
+				parameters: Type.Object({}),
+				async execute(_args, api) {
+					api.output(full.repeat(8));
+					return {};
+				},
+			}),
+		);
 		const driver = defineTask<JsonObject, { phase: "run" }, ToolExecutionResult>({
 			name: "cache-check",
 			version: 1,
@@ -80,7 +93,7 @@ test("SDK context cache and automatic cache run through the native background wr
 							return id;
 						},
 					} as ToolExecutionApi;
-					const tool = internal.tools.get("cache_probe");
+					const tool = internal.tools.get(String(job.input.tool ?? "cache_probe"));
 					if (!tool) throw new Error("cache tool missing");
 					const result = await tool.execute({}, api, context);
 					await task.commit(() => ({ status: "terminal", outcome: { status: "completed", result } }), context);
@@ -114,7 +127,39 @@ test("SDK context cache and automatic cache run through the native background wr
 		expect(await readFile(explicit, "utf8")).toBe(full);
 		expect(await readFile(automatic, "utf8")).toBe(full);
 		expect(explicit.endsWith(".json")).toBe(true);
+		const streamId = await internal.harness.commit(
+			(tx) =>
+				tx.createTask(
+					driver,
+					{ tool: "stream_probe" },
+					{ conversationId: Number(session) as never, ownership: { kind: "conversation" }, background: true },
+				),
+			C,
+		);
+		const streamed = await internal.harness.waitForTask(streamId, C);
+		if (streamed.state.outcome.status !== "completed") throw new Error("stream failed");
+		const hint = streamed.state.outcome.result.output?.find((part) => part.type === "text")?.text ?? "";
+		const streamPath = hint.match(/Full output: (.+?)\. Use read/)?.[1];
+		if (!streamPath) throw new Error(`stream cache path missing: ${hint.slice(0, 200)}`);
+		expect(await readFile(streamPath, "utf8")).toBe(full.repeat(8));
+		vi.stubEnv("TMPDIR", join(home, "missing"));
+		const failedCaptureId = await internal.harness.commit(
+			(tx) =>
+				tx.createTask(
+					driver,
+					{ tool: "stream_probe" },
+					{ conversationId: Number(session) as never, ownership: { kind: "conversation" }, background: true },
+				),
+			C,
+		);
+		const failedCapture = await internal.harness.waitForTask(failedCaptureId, C);
+		if (failedCapture.state.outcome.status !== "completed") throw new Error("capture failure interrupted tool");
+		expect(failedCapture.state.outcome.result.isError).not.toBe(true);
+		expect(failedCapture.state.outcome.result.output?.[0]).toMatchObject({
+			text: "Output cache failed; full output is unavailable.",
+		});
 	} finally {
+		vi.unstubAllEnvs();
 		await runtime?.close();
 		await rm(home, { recursive: true, force: true });
 	}

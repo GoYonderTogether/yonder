@@ -21,7 +21,7 @@ function tools(credential?: string, cacheToolOutput?: ToolContext["cacheToolOutp
 }
 afterEach(() => vi.unstubAllGlobals());
 
-test("caches redacted output and rejects oversized bodies and cache failures", async () => {
+test("caches redacted output and oversized original bodies and reports cache failures", async () => {
 	const cache = vi.fn().mockResolvedValue("/tmp/tool-output.json");
 	const http = vi
 		.fn()
@@ -35,8 +35,10 @@ test("caches redacted output and rejects oversized bodies and cache failures", a
 	http.mockResolvedValueOnce(
 		new Response(`${"x".repeat(2 * 1024 * 1024 + 1)} END_MARKER`, { headers: { "content-type": "text/plain" } }),
 	);
-	await expect(tools(undefined, cache)("fetch", { url: "https://example.org" })).rejects.toThrow("HTTP_BODY_TOO_LARGE");
-	expect(cache).toHaveBeenCalledTimes(1);
+	const oversized = await tools(undefined, cache)("fetch", { url: "https://example.org" });
+	expect(oversized.text).toContain("cached at /tmp/tool-output.json");
+	expect(cache.mock.calls[1]?.[0]).toContain("END_MARKER");
+	expect(cache.mock.calls[1]?.[1]).toEqual({ extension: "txt" });
 	cache.mockRejectedValueOnce(new Error("cache failed"));
 	http.mockResolvedValueOnce(new Response("x".repeat(70000), { headers: { "content-type": "text/plain" } }));
 	await expect(tools(undefined, cache)("fetch", { url: "https://example.org" })).rejects.toThrow("cache failed");
@@ -103,7 +105,7 @@ test("fetch preserves redirect URL, bounded content, binary and login/JS errors"
 	http.mockResolvedValueOnce(
 		new Response(new Uint8Array(2 * 1024 * 1024 + 1), { headers: { "content-type": "text/plain" } }),
 	);
-	await expect(run("fetch", { url: "https://example.org" })).rejects.toThrow("HTTP_BODY_TOO_LARGE");
+	expect((await run("fetch", { url: "https://example.org" })).text).toContain("cache unavailable");
 	http.mockResolvedValueOnce(new Response("binary", { headers: { "content-type": "image/png" } }));
 	expect(JSON.parse((await run("fetch", { url: "https://example.org" })).text).status).toBe("unsupported_binary");
 	http.mockResolvedValueOnce(new Response("", { status: 403 }));

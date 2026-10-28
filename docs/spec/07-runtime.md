@@ -41,9 +41,9 @@
 
 ## 4. 工具暴露
 
-- **工具输出缓存（O49 T05）：** 本地执行环境的 SDK 工具文本超过 50 KiB 或 2000 行时，截断前保存文本到 `<home>/cache/tool-output/<session>/<tool>-<id>.<ext>`，结果给出路径及 `read` 分页、`grep` 检索提示；本地会话可用这两个工具访问自己的缓存。`index.jsonl` 记录时间、工具、参数名、字节数和路径，不记录参数值。Web 工具在自身 65536 字节输出截断前通过 SDK 缓存 JSON；缓存失败不得声称原文可取回。
+- **工具输出缓存（O49 T05）：** 本地执行环境的 SDK 工具文本或 durable 工具流超过 50 KiB 或 2000 行时，截断前保存文本到 `<home>/cache/tool-output/<session>/<tool>-<id>.<ext>`，结果给出路径及 `read` 分页、`grep` 检索提示；本地会话可用这两个工具访问自己的缓存。`index.jsonl` 记录时间、工具、参数名、字节数和路径，不记录参数值。Web 工具在自身 65536 字节输出截断前通过 SDK 缓存 JSON；超过 2 MiB 的文本响应缓存完整原始正文。bash 截断时缓存完整日志；缓存失败不得声称原文可取回。
 - 缓存默认保留 7 天；可在 `<home>/cache/tool-output.json` 设置正整数 `keepDays`。清理在写入缓存时执行，不设总量上限或定时清理。
-- **遗留：** durable 原生工具的流式截断（包括 bash）不经 SDK 文本缓存；Web 响应读取上限为 2 MiB，超限部分没有保存，缓存仅为已读片段，不是完整原文。非本地执行环境不提供该缓存能力，不能声称已覆盖所有工具。
+- **遗留：** 非本地执行环境不提供该缓存能力，不能声称已覆盖所有工具。网页原文通过字符串接口缓存，完整响应驻留内存。
 
 - 配置档 `tools.offer` → `modelTools`（定义常驻）；`tools.search` → 工具在 `tools` 中、定义带 `deferred: true`、不在 `modelTools` 中，并选用 pi-durable 的 `createToolSearchExtension()`；模型调用 `tool_search` 后由 pi 写入 `modelTools.add`。
 - 两者都先经过能力过滤（05 §3）。

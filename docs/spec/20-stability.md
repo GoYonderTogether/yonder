@@ -65,6 +65,7 @@
 | 插件 `apiVersion` | SDK 导出 `API_VERSION`，加载器强制检查（测试随该卡） | S-C05 |
 | `state.db` schema | `y_meta.schema_version` 与迁移执行器测试（随该卡） | S-C06 |
 | views 协议 | `packages/sdk/src/views.golden.test.ts` ↔ `packages/sdk/golden/views.json` | S-C07 |
+| SDK 工具输出缓存 API | `packages/sdk/src/tool-context.golden.test.ts` ↔ `packages/sdk/golden/tool-context.json` | O49 T05 |
 | 聚合入口 | `scripts/check-stability.mjs` 一条命令跑全部冻结检查，进 CI | S-C08 |
 
 home 布局、环境变量、命令名、包名、插件 id、hash 路由目前没有独立 golden，由 S-C08 的聚合脚本或各自卡片补充；补齐前，改动这些项按 §4 走评审。
