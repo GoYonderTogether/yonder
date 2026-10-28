@@ -4,12 +4,10 @@ import Darwin
 @MainActor
 final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var item: NSStatusItem!
-    private var companion: CompanionController!
-    private var endpointTimer: Timer?
+    private var companionWeb: CompanionWeb!
     private let gateway = GatewayClient()
     private let menu = NSMenu()
     private let current = NSMenuItem(title: "打开悬浮窗", action: #selector(openCurrent), keyEquivalent: "")
-    private let history = NSMenuItem(title: "交互历史", action: #selector(openHistory), keyEquivalent: "")
     private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
     private var needsPowerUpdate = false
     private var agentItems: [NSMenuItem] = []
@@ -43,36 +41,19 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.menu = menu
         menu.delegate = self; menu.autoenablesItems = false
         status.isEnabled = false; powerState.isEnabled = false
-        for entry in [current, history, awakeOff, awakeTasks, awakeAlways, update, quit] { entry.target = self }
+        for entry in [current, awakeOff, awakeTasks, awakeAlways, update, quit] { entry.target = self }
         let awakeMenu = NSMenu()
         awakeMenu.autoenablesItems = false
         awakeOff.representedObject = "off"; awakeTasks.representedObject = "tasks"; awakeAlways.representedObject = "always"
         [awakeOff, awakeTasks, awakeAlways].forEach(awakeMenu.addItem)
         awake.submenu = awakeMenu
-        [current, history, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
-        companion = CompanionController(preferenceKey: home + ":companion-pinned")
-        companion.onVisibility = { [weak self] visible in self?.item.button?.state = visible ? .on : .off }
-        companion.isStatusClick = { [weak self] point in
-            guard let button = self?.item.button, let window = button.window else { return false }
-            return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(point)
-        }
-        refreshEndpoint()
+        [current, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
+        companionWeb = CompanionWeb(home: home, executable: install + "/bin/yonder")
         refreshActivity(nil)
         gateway.start(home: home, executable: install + "/bin/yonder") { [weak self] in self?.refreshActivity($0) }
-        endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in Task { @MainActor in self?.refreshEndpoint() } }
-        RunLoop.main.add(endpointTimer!, forMode: .common)
     }
-    private func refreshEndpoint() {
-        let file = URL(fileURLWithPath: home).appendingPathComponent(".yonder/plugins/interaction/desktop.json")
-        companion.setEndpoint((try? Data(contentsOf: file)).flatMap(DesktopEndpoint.read))
-        current.isEnabled = companion.available; history.isEnabled = companion.available
-        current.title = companion.available ? "打开悬浮窗" : "交互插件未就绪"
-    }
-    @objc private func openCurrent() { companion.showCurrent() }
-    @objc private func openHistory() { companion.showHistory() }
-    func applicationWillTerminate(_ notification: Notification) {
-        endpointTimer?.invalidate(); gateway.stop(); companion.stop()
-    }
+    @objc private func openCurrent() { companionWeb.show() }
+    func applicationWillTerminate(_ notification: Notification) { gateway.stop() }
 
     private func run(_ args: [String], completion: @escaping (Result<[String: Any], Error>) -> Void) {
         let executable = install + "/bin/yonder"
@@ -101,14 +82,12 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         refreshPower()
-        refreshEndpoint()
     }
 
     private func refreshActivity(_ info: [String: Any]?) {
         let activity = GatewayStatus(info)
         let agents = activity.agents, known = activity.known, running = activity.running
         self.status.title = known ? "服务运行中" : "服务未就绪 · 运行状态未知"
-        self.companion.setActivity(agents, known: known)
         self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
         let image = NSImage(size: NSSize(width: 22, height: 22))
         image.lockFocus()
@@ -120,7 +99,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         image.unlockFocus(); image.isTemplate = true
         self.item.button?.image = image
-        let key = "\(known):" + agents.map { $0.menuText + $0.tasks.map { $0.summary + $0.detail + $0.text }.joined(separator: "\n") }.joined(separator: "\n")
+        let key = "\(known):" + agents.map { $0.menuText }.joined(separator: "\n")
         guard self.activityKey != key else { return }
         self.activityKey = key
         self.agentItems.forEach { self.menu.removeItem($0) }; self.agentItems = []
@@ -129,17 +108,7 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let title = NSMenuItem(title: agent.menuText, action: nil, keyEquivalent: "")
             title.isEnabled = false
             self.menu.insertItem(title, at: index); index += 1; self.agentItems.append(title)
-            for task in agent.tasks {
-                let text = [String(task.summary.prefix(44)), task.detail].filter { !$0.isEmpty }.joined(separator: " · ")
-                let row = NSMenuItem(title: String(text.prefix(90)), action: nil, keyEquivalent: "")
-                row.isEnabled = false; row.indentationLevel = 1; row.toolTip = [task.summary, task.detail].joined(separator: " · ")
-                self.menu.insertItem(row, at: index); index += 1; self.agentItems.append(row)
-                if !task.text.isEmpty {
-                    let output = NSMenuItem(title: String(task.text.replacingOccurrences(of: "\n", with: " ").suffix(64)), action: nil, keyEquivalent: "")
-                    output.isEnabled = false; output.indentationLevel = 1; output.toolTip = task.text
-                    self.menu.insertItem(output, at: index); index += 1; self.agentItems.append(output)
-                }
-            }
+
         }
         if !self.agentItems.isEmpty {
             let separator = NSMenuItem.separator()
@@ -242,6 +211,20 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 
+struct AgentActivity {
+    let id: String
+    let state: String
+    init?(_ data: [String: Any]) {
+        guard let id = data["id"] as? String, let state = data["state"] as? String,
+              ["running", "waiting", "idle"].contains(state) else { return nil }
+        self.id = id; self.state = state
+    }
+    var menuText: String {
+        let label = state == "running" ? "运行中" : state == "waiting" ? "等你输入" : "无执行"
+        return "\(state == "running" ? "●" : state == "waiting" ? "◐" : "○") \(id) · \(label)"
+    }
+}
+
 // Adapt the contracted session rows to the existing read-only menu renderer.
 struct GatewayStatus {
     let known: Bool
@@ -286,31 +269,11 @@ func checkGatewayActivityCases(_ path: String) {
 @MainActor
 struct DesktopMain {
     static func main() {
-        if let index = CommandLine.arguments.firstIndex(of: "--check-activity-http"), CommandLine.arguments.count > index + 2 {
-            checkActivityHTTP(CommandLine.arguments[index + 1], fixture: CommandLine.arguments[index + 2])
-            return
-        }
         if let index = CommandLine.arguments.firstIndex(of: "--check-activity"), CommandLine.arguments.count > index + 1 {
             checkGatewayActivityCases(CommandLine.arguments[index + 1])
-            let cases = checkActivityCases(CommandLine.arguments[index + 1])
-            if let preview = CommandLine.arguments.firstIndex(of: "--preview-activity"), CommandLine.arguments.count > preview + 1 {
-                checkDynamicActivityAppearance(cases[0])
-                previewActivityCases(cases, directory: CommandLine.arguments[preview + 1])
-            }
             return
         }
         if CommandLine.arguments.contains("--check") {
-            checkCompanionGeometry()
-            precondition(AgentActivity(["id": "main", "name": "main", "state": "unknown"]) == nil)
-            let activity = AgentActivity(["id": "main", "name": "main", "state": "running", "tasks": [["detail": "执行 bash"]]])!
-            precondition(activity.label == "运行中" && activity.tasks[0].detail == "执行 bash")
-            let path = "/" + UUID().uuidString + "/"
-            let data = try! JSONSerialization.data(withJSONObject: ["url": "http://127.0.0.1:12345" + path, "pid": getpid()])
-            precondition(DesktopEndpoint.read(data) != nil)
-            for value in ["https://example.com" + path, "http://localhost:12345" + path, "http://127.0.0.1:12345/", "http://127.0.0.1:12345" + path + "?extra=1"] {
-                let invalid = try! JSONSerialization.data(withJSONObject: ["url": value, "pid": getpid()])
-                precondition(DesktopEndpoint.read(invalid) == nil)
-            }
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
             try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             defer { try? FileManager.default.removeItem(at: directory) }
@@ -323,7 +286,7 @@ struct DesktopMain {
             precondition(flock(second, LOCK_EX | LOCK_NB) != 0)
             precondition(flock(first, LOCK_UN) == 0)
             precondition(flock(second, LOCK_EX | LOCK_NB) == 0)
-            print("Passed: desktop endpoint validation and single status host lock.")
+            print("Passed: single status host lock.")
             return
         }
         let home = ProcessInfo.processInfo.environment["YONDER_HOME"] ?? NSHomeDirectory() + "/.local/share/yonder/home"
