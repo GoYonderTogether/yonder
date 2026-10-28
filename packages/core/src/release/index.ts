@@ -22,6 +22,7 @@ import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, win3
 import { fileURLToPath } from "node:url";
 
 import { controlEndpoint, requestControl } from "../control/index.js";
+import { canonicalRepository } from "./repository.js";
 import { recordUpdateResult, type UpdateResult } from "./result.js";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -779,15 +780,6 @@ async function installRelease(options: UpdateOptions = {}) {
 		...(restartRequired ? { message: "The harness is still running; restart it to use the new release." } : {}),
 		path: join(install, "bin"),
 	};
-}
-
-function canonicalRepository(repository: string): string {
-	if (!/^https?:\/\//u.test(repository)) return repository;
-	const url = new URL(repository);
-	url.username = "";
-	url.password = "";
-	if (url.hostname === "github.com") url.pathname = url.pathname.replace(/(?:\.git)?\/?$/u, ".git");
-	return url.href;
 }
 
 /** One update at a time per install: a second caller fails fast instead of racing in the same temp directory. */

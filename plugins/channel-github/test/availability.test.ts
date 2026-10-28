@@ -5,24 +5,19 @@ import type { ChannelIO, PluginAPI, RenderContext } from "@yonder/sdk";
 import { expect, it, vi } from "vitest";
 import { releaseAvailability } from "../src/availability.js";
 import { Github } from "../src/client.js";
-import { compareVersions, Releases } from "../src/releases.js";
+import { compareVersions, Releases, releaseData } from "../src/releases.js";
 
 it("caches approved baseline metadata; selected turn context only suggests a strictly newer version without requests", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "yonder-availability-"));
 	try {
 		const api = { paths: { data: directory }, log: { warn: vi.fn() } } as unknown as PluginAPI;
-		const releases = new Releases(
-			"project",
-			"GoYonderTogether/yonder-harness",
-			{ approvedAuthors: ["GoYonderTogether"] },
-			api,
-		);
-		const client = new Github("GoYonderTogether/yonder-harness");
+		const releases = new Releases("project", "GoYonderTogether/yonder", { approvedAuthors: ["GoYonderTogether"] }, api);
+		const client = new Github("GoYonderTogether/yonder");
 		const release = (id: number, version: string, extra = {}) => ({
 			id,
 			tag_name: `v${version}`,
 			author: { login: "GoYonderTogether" },
-			html_url: `https://github.com/GoYonderTogether/yonder-harness/releases/tag/v${version}`,
+			html_url: `https://github.com/GoYonderTogether/yonder/releases/tag/v${version}`,
 			published_at: "2026-10-19T00:00:00Z",
 			draft: false,
 			prerelease: false,
@@ -65,4 +60,15 @@ it("caches approved baseline metadata; selected turn context only suggests a str
 	} finally {
 		await rm(directory, { recursive: true, force: true });
 	}
+});
+
+it("accepts a release URL under the previous repository name after the rename", () => {
+	const release = {
+		id: 1,
+		tag_name: "v0.1.4",
+		html_url: "https://github.com/GoYonderTogether/yonder/releases/tag/v0.1.4",
+		author: { login: "GoYonderTogether" },
+		published_at: "2026-10-19T00:00:00Z",
+	};
+	expect(releaseData("GoYonderTogether/yonder-harness", release).repository).toBe("GoYonderTogether/yonder-harness");
 });

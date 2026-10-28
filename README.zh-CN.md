@@ -8,7 +8,7 @@
 
 [项目状态](docs/status.md) · [文档](docs/index.md) · [插件](docs/plugins.md) · [参与开发](CONTRIBUTING.md) · [安全](SECURITY.md) · [许可证](LICENSE)
 
-[![CI](https://github.com/GoYonderTogether/yonder-harness/actions/workflows/ci.yml/badge.svg)](https://github.com/GoYonderTogether/yonder-harness/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/GoYonderTogether/yonder/actions/workflows/ci.yml/badge.svg)](https://github.com/GoYonderTogether/yonder/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 </div>
 
@@ -38,8 +38,8 @@
 环境：macOS、Node.js 22.19 或更新版本、git。可选：[ripgrep](https://github.com/BurntSushi/ripgrep)（`grep` 工具）、[`gh`](https://cli.github.com)（GitHub 插件）、Chrome 或 Edge（浏览器自动化）。
 
 ```sh
-git clone https://github.com/GoYonderTogether/yonder-harness.git
-cd yonder-harness
+git clone https://github.com/GoYonderTogether/yonder.git
+cd yonder
 npm ci
 npm run build
 node packages/cli/dist/index.js init ~/yonder-home

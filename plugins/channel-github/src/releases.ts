@@ -66,10 +66,23 @@ export function approvedRelease(release: ObjectValue, config: ReleasesOptions): 
 		config.approvedAuthors.some((account) => account.toLowerCase() === login(release.author))
 	);
 }
+
+/** GitHub redirects a renamed repository forever, so the previous name still addresses the same repo. */
+const RENAMED_REPOSITORIES: Record<string, string[]> = {
+	"yonder-harness": ["yonder"],
+	yonder: ["yonder-harness"],
+};
+
+/** Every `owner/name` addressing this repository, the configured name first. */
+export function repositoryNames(repository: string): string[] {
+	const [owner, name] = repository.split("/");
+	if (!owner || !name) return [repository];
+	return [repository, ...(RENAMED_REPOSITORIES[name.toLowerCase()] ?? []).map((other) => `${owner}/${other}`)];
+}
 export function releaseData(repo: string, release: ObjectValue) {
 	const id = nativeId(release.id);
 	const url = String(release.html_url);
-	if (!url.startsWith(`https://github.com/${repo}/releases/`))
+	if (!repositoryNames(repo).some((name) => url.startsWith(`https://github.com/${name}/releases/`)))
 		throw new Error("Release source URL does not match configured repository");
 	return {
 		repository: repo,

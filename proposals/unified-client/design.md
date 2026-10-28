@@ -163,8 +163,8 @@ interface FeatureDef {
 
 | 仓库（目标名） | 可见性 | 职责 | 依赖 |
 |---|---|---|---|
-| `GoYonderTogether/yonder`（现 `yonder-harness`） | 公开，Apache-2.0 | 全部开源代码 | 第三方、pi fork |
-| `GoYonderTogether/yonder-cloud`（现 `yonder-web`，由 `server/`、`deploy/` 演化） | **私有，唯一闭源** | 账号、Card 社交服务端、托管 relay、部署、站点静态托管脚本 | `@yonder/protocol`、`@yonder/app` 发布产物（版本固定） |
+| `GoYonderTogether/yonder`（原 `yonder-harness`） | 公开，Apache-2.0 | 全部开源代码 | 第三方、pi fork |
+| `GoYonderTogether/yonder-cloud`（原 `yonder-web`，由 `server/`、`deploy/` 演化） | **私有，唯一闭源** | 账号、Card 社交服务端、托管 relay、部署、站点静态托管脚本 | `@yonder/protocol`、`@yonder/app` 发布产物（版本固定） |
 | `GoYonderTogether/pi` | 公开 | pi fork，分支 `yonder/1.4` | 上游 |
 | `yonder-hermes-extensions` | 本地无 remote | 并回主仓后归档（§2.4） | — |
 | `yonder-app`（发行仓） | 不建 | 发行用主仓 `release/` 与 GitHub Actions | — |

@@ -64,6 +64,21 @@ function json(result: CommandResult): Record<string, unknown> {
 	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("CLI did not return a JSON object");
 	return value as Record<string, unknown>;
 }
+
+/** GitHub redirects a renamed repository forever; a receipt written before the rename still describes this repository. */
+const RENAMED_REPOSITORIES: Record<string, string[]> = {
+	"yonder-harness": ["yonder"],
+	yonder: ["yonder-harness"],
+};
+
+function originMatches(origin: Record<string, unknown> | null, repository: string): boolean {
+	const [owner, name] = repository.split("/");
+	if (!owner || !name) return false;
+	return [name, ...(RENAMED_REPOSITORIES[name.toLowerCase()] ?? [])].some(
+		(candidate) => origin?.repository === `https://github.com/${owner}/${candidate}.git`,
+	);
+}
+
 export function verifiedService(
 	request: Request,
 	actual: Record<string, unknown>,
@@ -76,7 +91,7 @@ export function verifiedService(
 		actual.version === request.version &&
 		actual.install === request.install &&
 		origin?.tag === request.tag &&
-		origin?.repository === `https://github.com/${request.repository}.git` &&
+		originMatches(origin, request.repository) &&
 		typeof origin.commit === "string" &&
 		/^[a-f0-9]{40}$/.test(origin.commit) &&
 		service.loaded === true &&

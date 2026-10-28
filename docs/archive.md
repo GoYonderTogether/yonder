@@ -38,4 +38,4 @@
 
 ## 4. 命名
 
-仓库内部名称已从 `yonder-harness` 改为 `yonder`（包、路径、数据目录）。GitHub 仓库名暂未改，指向它的链接保持 `yonder-harness`。`yonder migrate` 负责把旧数据目录与 launchd 标签迁到新名字，因此迁移代码里仍会出现旧名。
+仓库内部名称已从 `yonder-harness` 改为 `yonder`（包、路径、数据目录）。GitHub 仓库名随后也改为 `yonder`（`yonder-web` 改为 `yonder-cloud`），旧 URL 由 GitHub 自动重定向。`yonder migrate` 负责把旧数据目录与 launchd 标签迁到新名字，因此迁移代码里仍会出现旧名。

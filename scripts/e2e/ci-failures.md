@@ -1,6 +1,6 @@
 # #108 三平台 CI 失败清单
 
-来源：[运行 40651312212](https://github.com/GoYonderTogether/yonder-harness/actions/runs/40651312212)，`gh run view 40651312212 --log-failed`；这是首次运行结果，不是修复或复测结果。旧 workflow `d7a0ec^:.github/workflows/ci-platforms.yml` 写有 `Linux/Windows not yet green`。
+来源：[运行 40651312212](https://github.com/GoYonderTogether/yonder/actions/runs/40651312212)，`gh run view 40651312212 --log-failed`；这是首次运行结果，不是修复或复测结果。旧 workflow `d7a0ec^:.github/workflows/ci-platforms.yml` 写有 `Linux/Windows not yet green`。
 
 | 平台 | 测试通过 | 失败 | 取消 | 跳过 | 测试文件通过 / 失败 / 跳过 |
 |---|---:|---:|---:|---:|---|

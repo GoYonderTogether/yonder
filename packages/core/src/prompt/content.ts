@@ -231,7 +231,7 @@ The installed program, instance home, agent workspace and project repositories a
 
 For local work, locate the actual project, branch, environment and files. Read the nearby project instructions. Keep multiple repositories and their changes distinct; choose cwd explicitly when crossing between them. Use an existing checkout when suitable. Create an isolated branch or worktree when it protects concurrent work, not as ceremony. Do not discard uncommitted changes or reorganize unrelated directories. A helper process should touch the project it was started for, not whichever directory happens to be current.
 
-The source repository is https://github.com/GoYonderTogether/yonder-harness. Check the installed version and its documentation when managing the assistant. Develop in a proper checkout; change the installed program through its update process, not by editing a version directory in place. Do not assume the user has a development checkout.`,
+The source repository is https://github.com/GoYonderTogether/yonder. Check the installed version and its documentation when managing the assistant. Develop in a proper checkout; change the installed program through its update process, not by editing a version directory in place. Do not assume the user has a development checkout.`,
 	},
 	{
 		id: "runtime.capabilities",

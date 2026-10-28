@@ -57,7 +57,7 @@
 		"typescript": "7.0.2",
 		"vitest": "5.0.5"
 	},
-	"repository": "https://github.com/GoYonderTogether/yonder-harness",
+	"repository": "https://github.com/GoYonderTogether/yonder",
 	"version": "0.2.26102705",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"

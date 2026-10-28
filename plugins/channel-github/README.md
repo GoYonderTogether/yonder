@@ -14,7 +14,7 @@ plugins:
 channels:
   github-project:
     type: github
-    repository: GoYonderTogether/yonder-harness
+    repository: GoYonderTogether/yonder
     accounts: [maintainer-login]
     labels: [yonder-task]
     pollSeconds: 60
@@ -32,7 +32,7 @@ bindings:
 
 该片段依赖已有 `maintainer` profile，不能单独作为完整 agent 配置。所需能力按工具授予：读 REST 为 network；评论需 network/message；创建 PR 需 network/write；本地 git 和文件修改使用既有执行环境与 bash/read/write/edit 的能力。运行工作区必须是独立任务工作树，不能指向安装 current。
 
-原始 issue、评论、来源 URL、作者与目标正文作为外部 JSON 数据进入 `message.in`。会话引用为 `conv:github-project:GoYonderTogether/yonder-harness:issue:<number>`；作者为 `acct:github-project:<login>`。不把外部正文变成 system 指令或授权。只有带配置标签的真正 issue 可接纳；PR 在 issues REST 中出现时被排除。未经授权账号不能唤醒 maintainer；评论工具/正常渠道输出加专用状态标记，轮询跳过当前登录账号的带标记状态评论，避免共用主人账号时无限自回复。
+原始 issue、评论、来源 URL、作者与目标正文作为外部 JSON 数据进入 `message.in`。会话引用为 `conv:github-project:GoYonderTogether/yonder:issue:<number>`；作者为 `acct:github-project:<login>`。不把外部正文变成 system 指令或授权。只有带配置标签的真正 issue 可接纳；PR 在 issues REST 中出现时被排除。未经授权账号不能唤醒 maintainer；评论工具/正常渠道输出加专用状态标记，轮询跳过当前登录账号的带标记状态评论，避免共用主人账号时无限自回复。
 
 ## 真实维护流程
 
@@ -65,7 +65,7 @@ bindings:
 channels:
   github-project:
     type: github
-    repository: GoYonderTogether/yonder-harness
+    repository: GoYonderTogether/yonder
     accounts: [maintainer-login]
     labels: [yonder-task]
     pollSeconds: 60
