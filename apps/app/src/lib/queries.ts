@@ -4,6 +4,7 @@ import { rpc } from "../transport/client";
 import { mux } from "../transport/stream";
 import type { ActivitySummary, ApprovalCard, NodeFacts, SessionInfo, TranscriptItem } from "../transport/types";
 import { type ChatItem, fromTranscript } from "./chat";
+import { titleOf } from "./identity";
 import type { ImportList } from "./imports";
 
 export const useFacts = () => useQuery({ queryKey: ["facts"], queryFn: () => rpc<NodeFacts>("capabilities.get") });
@@ -14,6 +15,29 @@ export const useSessions = () =>
 		queryFn: () => rpc<SessionInfo[]>("sessions.list", {}),
 		refetchInterval: 5000,
 	});
+
+const NO_NAMES: ReadonlyMap<string, string> = new Map();
+
+/** agent id → Bot 显示名。bots.list 需要 owner scope；没有权限或失败时为空表，标题退回 agent id。 */
+export const useBotNames = () =>
+	useQuery({
+		queryKey: ["bot-names"],
+		queryFn: async (): Promise<ReadonlyMap<string, string>> => {
+			try {
+				const r = await rpc<{ bots: { agent: string; name: string }[] }>("bots.list");
+				return new Map(r.bots.map((b) => [b.agent, b.name]));
+			} catch {
+				return NO_NAMES;
+			}
+		},
+		staleTime: 60_000,
+	}).data ?? NO_NAMES;
+
+/** 会话标题：Bot 用显示名。 */
+export function useTitleOf() {
+	const names = useBotNames();
+	return (s: SessionInfo) => titleOf(s, names);
+}
 
 export const useActivity = () =>
 	useQuery({
