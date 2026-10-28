@@ -7,10 +7,10 @@ import { definePlugin } from "@yonder/sdk";
 export default definePlugin({
 	...learning,
 	setup(api) {
-		api.log?.warn(
-			"plugin hermes-experience is deprecated; switch `use` to @yonder/plugin-learning (id learning) via `yonder migrate`",
-			{ replacement: "@yonder/plugin-learning" },
-		);
+		api.log?.warn("hermes-experience 已弃用，请改用 learning；将在 0.5 移除", {
+			replacement: "@yonder/plugin-learning",
+			removal: "0.5",
+		});
 		return learning.setup(api);
 	},
 });

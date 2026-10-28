@@ -30,7 +30,7 @@ test("deprecated alias keeps legacy id, tools and contributions and logs a depre
 	});
 	assert.deepEqual(await checkRegistrations(manifest, c.registrations, root), []);
 	assert.equal(warnings.length, 1);
-	assert.match(warnings[0], /deprecated.*@yonder\/plugin-learning/);
+	assert.equal(warnings[0], "hermes-experience 已弃用，请改用 learning；将在 0.5 移除");
 	assert.ok(c.registrations.presets.every((p) => p.plugins.includes("hermes-experience")));
 });
 
@@ -46,6 +46,7 @@ test("alias official package contract", async () => {
 	const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")),
 		harness = JSON.parse(await readFile("package.json", "utf8"));
 	assert.equal(pkg.name, "@yonder/plugin-hermes-experience");
+	assert.equal(pkg.deprecated, true);
 	assert.equal(pkg.version, harness.version);
 	assert.equal(pkg.dependencies["@yonder/plugin-learning"], harness.version);
 	assert.ok(harness.workspaces.includes("plugins/hermes-experience"));
