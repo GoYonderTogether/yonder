@@ -180,7 +180,7 @@ export class CredentialSlotStore {
 				result: {
 					provider,
 					slot,
-					configured: current?.source.kind === "env-ref" || !!credential,
+					configured: current?.source.kind === "env-ref" ? !!process.env[current.source.variable] : !!credential,
 					...(credential ? { type: credential.type } : {}),
 					sourceKind: current?.source.kind ?? "stored",
 				},
