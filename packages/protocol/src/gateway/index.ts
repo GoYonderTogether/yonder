@@ -9,6 +9,7 @@ export * from "./model.js";
 export * from "./notify.js";
 export * from "./session.js";
 export * from "./session-open.js";
+export * from "./social.js";
 export * from "./usage.js";
 export * from "./views.js";
 export * from "./work.js";
@@ -21,6 +22,7 @@ import { CapabilitiesChangedEvSchema } from "./capabilities.js";
 import { ModelChangedEvSchema, ModelFallbackEvSchema, ReplyFailedEvSchema } from "./model.js";
 import { NotificationEvSchema, SuggestionCreatedEvSchema } from "./notify.js";
 import { RunEndedEvSchema, SessionLifecycleEvSchema, SessionUpdateSchema, TranscriptItemSchema } from "./session.js";
+import { SocialPolicyChangeEvSchema } from "./social.js";
 import { CompactionEvSchema, ContextUpdatedEvSchema, UsageUpdatedEvSchema } from "./usage.js";
 import { ViewsChangedEvSchema } from "./views.js";
 import {
@@ -33,6 +35,7 @@ import {
 
 /** Payload schemas for the frozen event names. Unknown names remain forward compatible (§15). */
 export const EVENT_SCHEMAS = {
+	"social.policy-change": SocialPolicyChangeEvSchema,
 	"session.update": SessionUpdateSchema,
 	"activity.summary": ActivitySummaryEvSchema,
 	"transcript.item": TranscriptItemSchema,

@@ -503,6 +503,282 @@
 				"type": "object"
 			}
 		},
+		"social.inspect": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"agent": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"conv": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"event": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["agent", "conv"],
+				"type": "object"
+			}
+		},
+		"social.update": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"agent": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"conv": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"dryRun": {
+						"default": true,
+						"type": "boolean"
+					},
+					"expectedRevision": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"patch": {
+						"additionalProperties": false,
+						"properties": {
+							"batch": {
+								"additionalProperties": false,
+								"properties": {
+									"count": {
+										"maximum": 100,
+										"minimum": 1,
+										"type": "integer"
+									},
+									"delaySeconds": {
+										"maximum": 3600,
+										"minimum": 1,
+										"type": "integer"
+									},
+									"maxBytes": {
+										"maximum": 65536,
+										"minimum": 1024,
+										"type": "integer"
+									},
+									"maxMessages": {
+										"maximum": 100,
+										"minimum": 1,
+										"type": "integer"
+									},
+									"run": {
+										"type": "boolean"
+									}
+								},
+								"type": "object"
+							},
+							"foldedEverySeconds": {
+								"maximum": 86400,
+								"minimum": 300,
+								"type": "integer"
+							},
+							"judge": {
+								"additionalProperties": false,
+								"properties": {
+									"maxCallsPerHour": {
+										"maximum": 60,
+										"minimum": 1,
+										"type": "integer"
+									},
+									"preset": {
+										"minLength": 1,
+										"type": "string"
+									}
+								},
+								"required": ["preset"],
+								"type": "object"
+							},
+							"keywords": {
+								"items": {
+									"maxLength": 64,
+									"minLength": 1,
+									"type": "string"
+								},
+								"maxItems": 32,
+								"type": "array"
+							},
+							"mappings": {
+								"items": {
+									"properties": {
+										"agent": {
+											"minLength": 1,
+											"type": "string"
+										},
+										"profile": {
+											"minLength": 1,
+											"type": "string"
+										},
+										"subject": {
+											"minLength": 1,
+											"type": "string"
+										}
+									},
+									"required": ["subject", "agent", "profile"],
+									"type": "object"
+								},
+								"type": "array"
+							},
+							"minIntervalSeconds": {
+								"maximum": 3600,
+								"minimum": 1,
+								"type": "integer"
+							},
+							"mode": {
+								"anyOf": [
+									{
+										"const": "direct",
+										"type": "string"
+									},
+									{
+										"const": "record",
+										"type": "string"
+									},
+									{
+										"const": "mention",
+										"type": "string"
+									},
+									{
+										"const": "batch",
+										"type": "string"
+									},
+									{
+										"const": "folded",
+										"type": "string"
+									},
+									{
+										"const": "mute",
+										"type": "string"
+									}
+								]
+							},
+							"quiet": {
+								"additionalProperties": false,
+								"properties": {
+									"end": {
+										"pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+										"type": "string"
+									},
+									"start": {
+										"pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+										"type": "string"
+									},
+									"timezone": {
+										"minLength": 1,
+										"type": "string"
+									}
+								},
+								"required": ["timezone", "start", "end"],
+								"type": "object"
+							},
+							"signals": {
+								"additionalProperties": false,
+								"properties": {
+									"botMention": {
+										"anyOf": [
+											{
+												"const": "record",
+												"type": "string"
+											},
+											{
+												"const": "consider",
+												"type": "string"
+											},
+											{
+												"const": "respond",
+												"type": "string"
+											}
+										]
+									},
+									"everyone": {
+										"anyOf": [
+											{
+												"const": "record",
+												"type": "string"
+											},
+											{
+												"const": "consider",
+												"type": "string"
+											},
+											{
+												"const": "respond",
+												"type": "string"
+											}
+										]
+									},
+									"groupOwner": {
+										"anyOf": [
+											{
+												"const": "record",
+												"type": "string"
+											},
+											{
+												"const": "consider",
+												"type": "string"
+											},
+											{
+												"const": "respond",
+												"type": "string"
+											}
+										]
+									},
+									"keyword": {
+										"anyOf": [
+											{
+												"const": "record",
+												"type": "string"
+											},
+											{
+												"const": "consider",
+												"type": "string"
+											},
+											{
+												"const": "respond",
+												"type": "string"
+											}
+										]
+									},
+									"ownerMention": {
+										"anyOf": [
+											{
+												"const": "record",
+												"type": "string"
+											},
+											{
+												"const": "consider",
+												"type": "string"
+											},
+											{
+												"const": "respond",
+												"type": "string"
+											}
+										]
+									}
+								},
+								"type": "object"
+							}
+						},
+						"type": "object"
+					},
+					"reason": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["agent", "conv", "expectedRevision", "patch", "reason"],
+				"type": "object"
+			}
+		},
 		"stop": {
 			"scope": "admin",
 			"since": 1,

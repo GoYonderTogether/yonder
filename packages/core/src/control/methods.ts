@@ -10,6 +10,7 @@ import { allScopes, type HostCtx, type MethodDef, MethodError, type Principal, t
 import { notifyMethods } from "./notify-methods.js";
 import { sessionMethods as base } from "./session-methods.js";
 import { sessionOpenMethods } from "./session-open-methods.js";
+import { socialMethods } from "./social-methods.js";
 import { updateMethods } from "./update-methods.js";
 import { viewsMethods } from "./views-methods.js";
 
@@ -27,6 +28,7 @@ const defs: MethodDef[] = [
 	...approvalsMethods,
 	...botMethods,
 	...updateMethods,
+	...socialMethods,
 ];
 
 export interface MethodFacts {

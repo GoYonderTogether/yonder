@@ -332,9 +332,6 @@
 		"model.fallback": {
 			"required": ["from", "reason", "session", "state", "to"],
 			"fields": {
-				"inputs": {
-					"array": "string"
-				},
 				"from": {
 					"object": {
 						"required": ["model", "provider"],
@@ -344,6 +341,9 @@
 							"thinking": "string"
 						}
 					}
+				},
+				"inputs": {
+					"array": "string"
 				},
 				"reason": {
 					"union": [
@@ -651,6 +651,185 @@
 						}
 					]
 				}
+			}
+		},
+		"social.policy-change": {
+			"required": ["actor", "after", "before", "reason", "result", "revision"],
+			"fields": {
+				"actor": "string",
+				"after": {
+					"object": {
+						"required": [],
+						"fields": {
+							"batch": {
+								"object": {
+									"required": [],
+									"fields": {
+										"count": "integer",
+										"delaySeconds": "integer",
+										"maxBytes": "integer",
+										"maxMessages": "integer",
+										"run": "boolean"
+									}
+								}
+							},
+							"foldedEverySeconds": "integer",
+							"judge": {
+								"object": {
+									"required": ["preset"],
+									"fields": {
+										"maxCallsPerHour": "integer",
+										"preset": "string"
+									}
+								}
+							},
+							"keywords": {
+								"array": "string"
+							},
+							"minIntervalSeconds": "integer",
+							"mode": {
+								"union": [
+									{
+										"literal": "batch"
+									},
+									{
+										"literal": "direct"
+									},
+									{
+										"literal": "folded"
+									},
+									{
+										"literal": "mention"
+									},
+									{
+										"literal": "mute"
+									},
+									{
+										"literal": "record"
+									}
+								]
+							},
+							"quiet": {
+								"object": {
+									"required": ["end", "start", "timezone"],
+									"fields": {
+										"end": "string",
+										"start": "string",
+										"timezone": "string"
+									}
+								}
+							},
+							"signals": {
+								"record": {
+									"union": [
+										{
+											"literal": "consider"
+										},
+										{
+											"literal": "record"
+										},
+										{
+											"literal": "respond"
+										}
+									]
+								}
+							}
+						}
+					}
+				},
+				"before": {
+					"object": {
+						"required": [],
+						"fields": {
+							"batch": {
+								"object": {
+									"required": [],
+									"fields": {
+										"count": "integer",
+										"delaySeconds": "integer",
+										"maxBytes": "integer",
+										"maxMessages": "integer",
+										"run": "boolean"
+									}
+								}
+							},
+							"foldedEverySeconds": "integer",
+							"judge": {
+								"object": {
+									"required": ["preset"],
+									"fields": {
+										"maxCallsPerHour": "integer",
+										"preset": "string"
+									}
+								}
+							},
+							"keywords": {
+								"array": "string"
+							},
+							"minIntervalSeconds": "integer",
+							"mode": {
+								"union": [
+									{
+										"literal": "batch"
+									},
+									{
+										"literal": "direct"
+									},
+									{
+										"literal": "folded"
+									},
+									{
+										"literal": "mention"
+									},
+									{
+										"literal": "mute"
+									},
+									{
+										"literal": "record"
+									}
+								]
+							},
+							"quiet": {
+								"object": {
+									"required": ["end", "start", "timezone"],
+									"fields": {
+										"end": "string",
+										"start": "string",
+										"timezone": "string"
+									}
+								}
+							},
+							"signals": {
+								"record": {
+									"union": [
+										{
+											"literal": "consider"
+										},
+										{
+											"literal": "record"
+										},
+										{
+											"literal": "respond"
+										}
+									]
+								}
+							}
+						}
+					}
+				},
+				"reason": "string",
+				"result": {
+					"union": [
+						{
+							"literal": "applied"
+						},
+						{
+							"literal": "rejected"
+						}
+					]
+				},
+				"revision": "string",
+				"sourceEvent": "string"
 			}
 		},
 		"subtask.updated": {

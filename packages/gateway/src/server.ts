@@ -45,8 +45,9 @@ const QUEUE_MAX = 1000;
 const isLoopback = (address: string | undefined) =>
 	address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 const defaultStatic = () => resolve(dirname(fileURLToPath(import.meta.url)), "../../../apps/app/dist");
-function errorOf(error: unknown): { code: string; message: string } {
-	if (error instanceof MethodError) return { code: error.code, message: error.message };
+function errorOf(error: unknown): { code: string; message: string; data?: Record<string, string> } {
+	if (error instanceof MethodError)
+		return { code: error.code, message: error.message, ...(error.data ? { data: error.data } : {}) };
 	return { code: "error", message: error instanceof Error ? error.message : String(error) };
 }
 

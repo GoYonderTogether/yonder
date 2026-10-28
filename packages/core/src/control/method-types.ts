@@ -20,6 +20,7 @@ export class MethodError extends Error {
 	constructor(
 		public readonly code: ErrorCode,
 		message: string,
+		public readonly data?: Record<string, string>,
 	) {
 		super(message);
 		this.name = "MethodError";

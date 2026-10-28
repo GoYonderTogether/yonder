@@ -3,6 +3,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { join, win32 } from "node:path";
 import { createInterface } from "node:readline";
+import { MethodError } from "./method-types.js";
 
 export interface ControlRequest {
 	method: string;
@@ -81,7 +82,11 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 					ready = true;
 					await sending;
 				} catch (error) {
-					await write(socket, { ok: false, error: message(error) });
+					await write(socket, {
+						ok: false,
+						error: message(error),
+						...(error instanceof MethodError && error.data ? { data: error.data } : {}),
+					});
 				}
 			}
 		})().catch(() => socket.destroy());
