@@ -48,6 +48,7 @@ let kernel;
 const sockets = [];
 try {
  kernel = await openKernel(home);
+ for (const channel of ['front', 'reuse', 'revoked']) await kernel.identity.link(`acct:${channel}:local`, `person:${config.identity.persons[0].id}`);
  async function connect(channel) {
   const socket = createConnection(join(home, '.yonder/plugins/channel-cli', `${channel}.sock`));
   const packets = [];
