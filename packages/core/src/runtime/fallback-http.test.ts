@@ -83,7 +83,9 @@ test.each([
 			) as { models: Record<string, unknown> };
 			expect(Boolean(health.models["local/first@default"])).toBe(switches);
 			if (status === 429) {
-				expect((health.models["local/first@default"] as { resetUntil?: number }).resetUntil).toBeGreaterThan(Date.now());
+				expect((health.models["local/first@default"] as { resetUntil?: number }).resetUntil).toBeGreaterThan(
+					Date.now(),
+				);
 				expect((await runtime.submit(session, { text: "again" })).status).toBe("done");
 				expect(calls).toEqual(["first", "second", "second"]);
 				await new Promise((resolve) => setTimeout(resolve, 1100));
