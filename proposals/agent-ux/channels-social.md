@@ -260,3 +260,13 @@ CONTRIBUTING 全仓检查（同一并行工作区快照会变动，未修改代�
 - `npm test`：252 文件中 219 通过、4 失败、29 跳过；1340 测试中 1281 通过、4 失败、55 跳过，88.88 秒。失败分别为 gateway 契约未列 sessions.tree；飞书 board 首次请求期望 1 次实际 2 次；hermes-experience/learning skill 不同步；native-automation export 超时 20 秒。没有 focused 重跑覆盖原始结果。
 - 飞书 board 失败作为 CH-04/05 的排查输入：可能与发送 hook/摘要或并行变动有关，根因未定位；不是本轮真实平台重复回复复现。
 - `npm run lint` exit 1：828 文件，19 errors、580 warnings、16 infos；非本卡 Markdown 改动。日志临时保存在 `/tmp/yonder-x01-checks/`，不把临时路径当持久交付。
+
+## 12. CH-01 评审交接（2026-10-28）
+
+本提案仍待维护者评审，未发现批准记录；CH-01 只允许实施获准契约，因此尚未将拟议字段写入现行 spec、SDK、配置或 golden。需要维护者先明确：
+
+- 授权 DM 默认 direct 与现有 binding 的唤醒/会话规则如何衔接；profile 变更需关闭旧会话，不能覆盖既有会话固定 profile 的规则（02 §2）。
+- 主动通知 opt-in 与既有无元数据发送、入站通知 `all/mention/mute` 的兼容边界（06 §9、08 §2）。
+- §7 仅列工具语义；SDK social API 和控制面方法的完整请求、响应、事件形状及 `scope_denied`、`revision_conflict`、`unsupported_kind` 与既有错误协议的映射尚未定稿。静态配置引用存在性、目标实例的校验边界也需明确。
+
+这些事项决定公共契约与权限，不由实现卡自行补设计；本记录不表示运行功能或验收已完成。
