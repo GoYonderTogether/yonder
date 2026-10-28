@@ -256,7 +256,17 @@ export function createRouter({
 			return { event: previous, waits };
 		}
 		const event = newEvent(eventInput);
-		const inputData = event.data as { target?: unknown; kind?: unknown };
+		const inputData = event.data as {
+			target?: unknown;
+			kind?: unknown;
+			agent?: unknown;
+			through?: unknown;
+			policyRevision?: unknown;
+		};
+		const batchSource =
+			event.type === "social.batch-ready" && event.from === "plugin:social" && typeof inputData.through === "string"
+				? await store.events.get(inputData.through)
+				: undefined;
 		const internalTarget =
 			event.type === "message.in" &&
 			(channelOf(event.conv) === "agent" || channels?.get(channelOf(event.conv) ?? "")?.multiAgent === true) &&
@@ -284,6 +294,28 @@ export function createRouter({
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
+			if (event.type === "social.batch-ready") {
+				const sourceRoute = batchSource?.routes?.find(
+					(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
+				);
+				const sourcePerson = batchSource?.from?.startsWith("acct:")
+					? (await store.identity().account(batchSource.from))?.person
+					: undefined;
+				const decision =
+					batchSource &&
+					socialDecision(agent, batchSource, sourcePerson, channels?.get(channelOf(batchSource.conv) ?? ""));
+				if (
+					inputData.agent !== agent.id ||
+					!event.conv ||
+					event.conv !== batchSource?.conv ||
+					!sourceRoute?.session ||
+					decision?.reason !== "batch" ||
+					decision.revision !== inputData.policyRevision
+				) {
+					routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+					continue;
+				}
+			}
 			if (internalTarget && internalTarget !== agent.id) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
@@ -334,6 +366,16 @@ export function createRouter({
 					binding = candidate;
 					break;
 				}
+			if (
+				event.type === "social.batch-ready" &&
+				(binding?.match.type !== "social.batch-ready" ||
+					binding.reply !== "none" ||
+					binding.wake === "write" ||
+					binding.session === "main" ||
+					binding.session === "ephemeral" ||
+					binding.session.per !== "conv")
+			)
+				binding = undefined;
 			if (!binding) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
@@ -355,6 +397,19 @@ export function createRouter({
 			}
 			const { mode, key } = sessionKey(binding, event, person);
 			const ensured = await sessions.ensureAgent(agent.id, profile, key, mode);
+			if (
+				event.type === "social.batch-ready" &&
+				!batchSource?.routes?.some(
+					(route) =>
+						route.agent === agent.id &&
+						route.session === ensured.session.id &&
+						route.wake === "write" &&
+						!route.dropped,
+				)
+			) {
+				routes.push({ agent: agent.id, binding: binding.id, dropped: "no-binding" });
+				continue;
+			}
 			if (ensured.profileMismatch) {
 				routes.push({ agent: agent.id, binding: binding.id, dropped: "profile-mismatch" });
 				continue;
