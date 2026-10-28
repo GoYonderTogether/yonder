@@ -52,7 +52,7 @@
 		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
 		"test": "vitest run --exclude '**/dist/**'",
-		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs",
+		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs",
 		"lint:size": "node scripts/check-file-size.mjs",
 		"lint": "biome check . && node scripts/check-file-size.mjs"
 	},

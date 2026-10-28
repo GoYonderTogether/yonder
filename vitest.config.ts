@@ -5,14 +5,14 @@ export default defineConfig({
 	test: {
 		testTimeout: 20000,
 		hookTimeout: 20000,
-		// `scripts/export-model-observations.test.mjs`、`scripts/test/names-consistency.test.mjs` 用 node:test 编写；
-		// vitest 收集不到这些用例，留在默认 include 里会让整套测试报 "No test suite found"。
+		// node:test 文件由 npm run test:node 执行，避免 Vitest 报 "No test suite found"。
 		exclude: [
 			"**/node_modules/**",
 			"**/dist/**",
 			"scripts/export-model-observations.test.mjs",
 			"scripts/migrate/rename-yonder.test.mjs",
 			"scripts/test/names-consistency.test.mjs",
+			"packages/macos/test/install-root.test.mjs",
 		],
 	},
 });
