@@ -33,9 +33,8 @@
 
 ## 3. 已放弃的方向
 
-- **being / yondermesh**：独立的"Being 网络"与"上下文总线"方向不再单独维护。账号、设备与中继能力由 Card 后端和 `packages/device`（原 executor）承担；跨 Agent 的可见性由 gateway 与 tasks 插件承担。
+- **being / yondermesh**：独立的"Being 网络"与"上下文总线"方向不再单独维护，仓库只保留 bundle。
 - **hermes extensions**：本机的 hermes 扩展仓库已并入 `plugins/learning`。`plugins/hermes-experience` 保留为弃用的别名包，只转发到 `@yonder/plugin-learning`。
-- **Swift 状态栏读私有 HTTP**：改为只订阅 gateway，见 `docs/decisions.md`。
 
 ## 4. 命名
 
