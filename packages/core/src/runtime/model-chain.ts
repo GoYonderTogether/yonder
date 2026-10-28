@@ -84,9 +84,10 @@ export function modelChain(
 			account: false,
 		},
 	];
+	const accountEntries: ChainEntry[] = [];
 	for (const slot of fallback?.accounts?.[primary.provider] ?? []) {
 		if (slot === entries[0]!.slot) continue;
-		entries.push({
+		accountEntries.push({
 			provider: accountProvider(primary.provider, slot),
 			modelId: substitute(slot, primary.provider, primary.modelId),
 			base: primary.provider,
@@ -94,11 +95,12 @@ export function modelChain(
 			account: true,
 		});
 	}
+	const modelEntries: ChainEntry[] = [];
 	for (const ref of fallback?.models ?? []) {
 		if (ref === model) continue;
 		const { provider, modelId } = splitModelRef(ref);
 		const slot = slotFor(selection, provider);
-		entries.push({
+		modelEntries.push({
 			provider,
 			modelId: substitute(slot, provider, modelId),
 			base: provider,
@@ -106,6 +108,8 @@ export function modelChain(
 			account: false,
 		});
 	}
+	// Preferred order: primary → first fallback model (WorkBuddy) → other accounts (GPT2) → the rest.
+	entries.push(...modelEntries.slice(0, 1), ...accountEntries, ...modelEntries.slice(1));
 	const seen = new Set<string>();
 	return entries.filter((entry) => {
 		const key = chainKey(entry);
@@ -132,4 +136,15 @@ export function holdSeconds(fallback: FallbackChainConfig | undefined): number {
 }
 export function probeSeconds(fallback: FallbackChainConfig | undefined): number {
 	return Math.max(MIN_MODEL_PROBE_SECONDS, fallback?.probe ?? DEFAULT_MODEL_PROBE_SECONDS);
+}
+
+export type FallbackReason = "rate_limit" | "quota" | "unavailable" | "error";
+/** The `model.fallback` reason (contracts §3.3) from the provider error that made the chain move on. */
+export function fallbackReason(error: string | undefined): FallbackReason {
+	const text = error ?? "";
+	if (/quota|insufficient.?(balance|credit)|billing|usage limit|exceeded your current/i.test(text)) return "quota";
+	if (/rate.?limit|too many requests|\b429\b/i.test(text)) return "rate_limit";
+	if (/\b5\d{2}\b|overloaded|unavailable|timed? out|timeout|no first token|ECONN|fetch failed|connection/i.test(text))
+		return "unavailable";
+	return "error";
 }
