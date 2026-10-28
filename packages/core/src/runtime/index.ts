@@ -648,6 +648,14 @@ export class Runtime {
 						const ctx = await this.context(String(api.conversationId), context);
 						if (ctx.env.id === "node:local")
 							ctx.cacheToolOutput = toolOutputWriter(ctx, tool.name, args as object, this.options.home);
+						ctx.authorizeFileWrite = async (path) => {
+							this.assertToolContext(ctx);
+							const config = this.invocationConfigs.get(context)?.config ?? this.currentConfig(ctx.session);
+							if (!config) throw new Error("当前运行配置不存在。");
+							if (!config.resolved.capabilities.includes("write")) throw new Error("缺少能力：write");
+							const denied = await this.policy.denied("write", { path }, config, context, ctx.session);
+							if (denied) throw new Error(denied);
+						};
 						this.toolInvocations.set(ctx, { api, context });
 						try {
 							return toResult(await tool.execute(args, ctx));

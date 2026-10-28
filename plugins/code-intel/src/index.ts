@@ -1,5 +1,6 @@
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
+import { astGrepReplace } from "./ast-grep-replace.js";
 import { astGrepSearch } from "./ast-grep-search.js";
 import { diagnosticMark, sessionDiagnostics } from "./diagnostic-mark.js";
 import { effectiveConfig } from "./effective-config.js";
@@ -113,6 +114,7 @@ export default definePlugin({
 		api.tools.register(diagnosticMark);
 		api.tools.register(sessionDiagnostics(api.sessions));
 		api.tools.register(astGrepSearch);
+		api.tools.register(astGrepReplace);
 		api.tools.register(effectiveConfig);
 		api.tools.register(outline);
 		api.tools.register(readEnclosing);
