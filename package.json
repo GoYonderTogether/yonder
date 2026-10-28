@@ -57,6 +57,6 @@
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"
 	},
 	"dependencies": {
-		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-45014f2a2250b789df4fc00441de54d4fda505f8-2d9bf64bf3cb.tgz"
+		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-234394f69439ba5b16b4d1b67042bbbec550f17d-2d9bf64bf3cb.tgz"
 	}
 }
