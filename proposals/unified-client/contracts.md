@@ -367,3 +367,61 @@ interface NodeFacts {
 3. `model.fallback.reason` 枚举与 `model-chain.ts` 实际分类对齐后冻结。
 4. todo 数据源（tasks 账本还是独立插件）：影响 `TodoItem.state` 取值，不影响事件名。
 5. `approvals.list/answer` 与「审批只走 views.act」二选一：本文两者并列，B 线优先用专用方法，views 版本作为阶段 4 的通用入口。
+
+## 9. 网关线实现说明（新增）
+
+本节记录 gateway 线（`lane/gateway-20261027`）已落地的形状，供 B 线对接；标「新增」的条目是前文没有的方法或约定，需维护者确认。
+
+### 9.1 新增方法：导入 pi 会话（只读）
+
+| 方法 | scope | params | result | 状态 |
+|---|---|---|---|---|
+| `imports.list` | read | `{ cwd?: string; limit?: number }`（默认 200，最大 5000） | `{ dir: string; total: number; sessions: ImportSummary[] }`，按修改时间倒序 | 新增 |
+| `imports.show` | read | `{ id: string; offset?: number; limit?: number }`（默认 500） | `ImportShow` | 新增 |
+
+目录默认 `~/.pi/agent/sessions`，递归读取 `**/*.jsonl`；`yonder.yaml` 的 `imports.piSessionsDir` 可改（支持 `~`，相对路径按 home 解析）。`id` 是目录内的相对路径；越出目录或不存在返回 `not_found`。只读，不写 pi 文件。
+
+```ts
+interface ImportSummary { id: string; sessionId?: string; cwd?: string; started?: string; modified: string;
+  bytes: number; messages: number; title: string; model?: string }
+type ImportItem = { id: string; ts?: string } & (
+  | { kind: "user"; text: string }
+  | { kind: "assistant"; text: string; model?: string; stopReason?: string }
+  | { kind: "thinking"; text: string }
+  | { kind: "tool_call"; callId: string; name: string; args: unknown }
+  | { kind: "tool_result"; callId: string; name?: string; text: string; isError?: boolean }
+  | { kind: "compaction"; summary: string; tokensBefore?: number }
+  | { kind: "system"; text: string }
+  | { kind: "event"; event: string; text?: string; data?: unknown }   // model_change、thinking_level_change、custom 等
+  | { kind: "unknown"; type: string; raw: unknown });                  // 未知条目原样带出，不报错
+interface ImportShow {
+  summary: ImportSummary; total: number; offset: number; hasMore: boolean; items: ImportItem[];
+  todo: ImportTodo | null;          // 最后一次 todo 工具结果（details.tasks）的快照；无 todo 调用为 null
+  usage: { totals: UsageTotals; assistantMessages: number; byModel: Record<string, UsageTotals & { messages: number }> };
+  issues: { line: number; message: string }[];   // 无法解析的行
+}
+interface UsageTotals { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number }
+interface ImportTodo { items: { id: string; text: string; state: "todo"|"doing"|"done"|"cancelled"; order: number;
+  description?: string; activeForm?: string; blockedBy?: string[] }[]; done: number; total: number;
+  source: { entry: string; ts?: string } }
+```
+
+pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由前端按 `blockedBy` 呈现。`deleted` 映射为 `cancelled`，不计入 `total`。
+
+### 9.2 已实现的流与游标（新增）
+
+- `sessions.watch`：`ev.type = "session.update"`，`data` 为原 `SessionUpdate`（与 control.sock 的 `update` 字段相同）。`ready.result = { session, info, transcript }`；§1.3 `SessionSnapshot` 里的 `model/usage/context` 暂未给出（A 线事件落地后补）。
+- `activity.watch`：`ev.type = "activity.summary"`，`data` 为 `ActivitySummary`（`sessions[].since` 暂未给出）；易失型，每次 `gap:true`。
+- 游标：`<epoch>:<n>`，epoch 为网关进程内随机值，n 为该会话共享环形缓冲（2000 条，最后一个订阅退出后保留 5 分钟）中的序号。`after` 同 epoch 且仍在缓冲内则补发，否则 `gap:true` 加全新快照。网关重启必然 `gap:true`。§2.3 第 5 条的事件库水位映射未采用。
+- `seq` 每个 `sub` 从 1 起；补发的事件也从 1 起编号。
+
+### 9.3 网关 HTTP 与鉴权（新增）
+
+- 配置 `gateway: { enabled?: boolean; port?: number; publicOrigins?: string[]; basePath?: string; accessTokenHash?: string }`。默认端口 7690，占用时递增；只监听 127.0.0.1。`yonder start --no-gateway` 不启动网关。
+- `<home>/.yonder/gateway.json`（0600）：`{ port, pid, token, basePath }`，`token` 是一次性启动票据。`yonder ui` 经本机 socket 的 `gateway.ticket`（admin，`local:true`，不经网关）另取一次性票据，打印 `http://127.0.0.1:<port>/?token=<ticket>`。
+- `GET <任意页面>?token=` 用票据换 cookie 后 303 到干净地址；`GET /login` 登录页，`POST /login`（表单或 JSON `{token}`）用长期访问令牌换 cookie；`POST /api/logout` 清 cookie。
+- cookie `yonder_session`：HMAC 签名，HttpOnly、SameSite=Strict、24 小时、`Path=basePath`，来源是 https 公网地址时加 Secure。票据登录得 `read/write/admin`（`kind:"local"`），访问令牌登录得 `read/write`（`kind:"remote"`）；轮换令牌后旧 remote cookie 失效。
+- 校验：`Host` 必须是 `127.0.0.1:<port>`、`localhost:<port>` 或 `publicOrigins` 的 host；有 `Origin` 时必须同源或在 `publicOrigins` 内；`Sec-Fetch-Site: cross-site` 拒绝。失败 403；未登录的 API 401，页面 303 到 `<basePath>login`。RPC 只收 `application/json`（否则 415）。
+- 反向代理：nginx 去掉前缀后转发；`basePath`（如 `/console/`）只用于生成 cookie Path、重定向地址，并在 `index.html` 注入 `<base href>` 与 `<meta name="yonder-base-path">`。前端资源用相对路径。
+- 响应头：`Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; …; frame-ancestors 'none'`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-store`（静态资源除外）。
+- `sessions.submit` 的 `requestId` 去重存于进程内存（10 分钟），重启后失效；§1.3「沿用事件库」未采用。
