@@ -68,6 +68,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			agent.defaults.plugins = agent.defaults.plugins.filter((id: string) => id !== "onboarding" && id !== "tasks");
 			agent.defaults.contexts = [];
 			agent.defaults.cheap = "siliconflow/deepseek-ai/DeepSeek-V3.2";
+			delete agent.profiles[agent.defaultProfile].level;
 			agent.profiles[agent.defaultProfile].capabilities = ["message"];
 			await writeFile(join(home, "presets/judge.yaml"), "schema: 1\ndescription: judge\n");
 			agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
@@ -160,12 +161,15 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			await expect
 				.poll(
 					async () =>
-						(await kernel!.sessions.transcript(main.session)).filter((item) => item.kind === "yonder.notification")
-							.length,
+						(await kernel!.sessions.transcript(main.session)).filter(
+							(item) => item.kind === "yonder.notification" && item.event === intent.id,
+						).length,
 				)
 				.toBe(1);
 			expect(
-				(await kernel.sessions.transcript(main.session)).find((item) => item.kind === "yonder.notification"),
+				(await kernel.sessions.transcript(main.session)).find(
+					(item) => item.kind === "yonder.notification" && item.event === intent.id,
+				),
 			).toMatchObject({ event: intent.id, text: "群消息提及了主人：conv:ch03r4:group" });
 			await kernel.close();
 			kernel = await openKernel(home);
@@ -174,11 +178,17 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			expect((await kernel.events.query({ type: "notification.intent" })).events).toHaveLength(1);
 			expect((await kernel.events.query({ type: "notification.final" })).events).toHaveLength(1);
 			expect(
-				(await kernel.sessions.transcript(main.session)).filter((item) => item.kind === "yonder.notification"),
+				(await kernel.sessions.transcript(main.session)).filter(
+					(item) => item.kind === "yonder.notification" && item.event === intent.id,
+				),
 			).toHaveLength(1);
 
 			const batchInput = (msgId: string) => ({
-				...input(msgId, "群聊中的一条消息。", false),
+				...input(
+					msgId,
+					msgId === "batch-1" ? "群里的机器人能帮忙查一下明天的天气吗？" : "机器人查到结果后请告诉大家。",
+					false,
+				),
 				conv: "conv:ch03r4:batch",
 			});
 			await globals[key]!.emit(batchInput("batch-1"));
@@ -202,6 +212,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			const judgeSession = (starts[0]!.data as { session: string }).session;
 			const judgment = judgments[0]!.data as {
 				action: string;
+				reason: string;
 				through: string;
 				sourceEvents: string[];
 				batch: { data: { sourceEvents: string[] } };
@@ -209,6 +220,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			expect(starts[0]!.data).toMatchObject({ agent: "main", through: ids[1] });
 			expect(judgment).toMatchObject({ through: ids[1], batch: { data: { sourceEvents: ids } } });
 			expect(["ignore", "summarize", "participate"]).toContain(judgment.action);
+			expect(typeof judgment.reason).toBe("string");
 			expect(judgment.sourceEvents.every((id) => ids.includes(id))).toBe(true);
 			const judgeRuns = (await kernel.events.query({ type: "run.end" })).events.filter(
 				(event) => (event.data as { session?: string }).session === judgeSession,
@@ -218,6 +230,11 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			const judgeInput = (await kernel.events.query({ type: "session.input" })).events.find(
 				(event) => (event.data as { session?: string }).session === judgeSession,
 			)!;
+			const judgeText = (judgeInput.data as { text: string }).text;
+			expect(judgeText).toContain(
+				JSON.stringify(sources.map((event) => ({ id: event.id, text: (event.data as { text: string }).text }))),
+			);
+			expect(sources.every((event) => (event.data as { mentioned: boolean }).mentioned === false)).toBe(true);
 			expect((judgeRuns[0]!.data as { inputs: string[] }).inputs).toContain(judgeInput.id);
 			expect((await kernel.sessions.transcript(judgeSession)).every((item) => !item.tools?.length)).toBe(true);
 			const batches = (await kernel.events.query({ type: "social.batch-ready", conv: "conv:ch03r4:batch" })).events;
