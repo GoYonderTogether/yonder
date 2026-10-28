@@ -70,7 +70,7 @@ try {
   const transcript = await kernel.sessions.transcript(end.data.session, { limit: 1000 });
   const tools = transcript.flatMap((row) => row.tools ?? []).map((tool) => tool.name);
   const traceFiles = (await readdir(process.env.YONDER_PROVIDER_TRACE)).filter((name) => !traceBefore.has(name));
-  const turn = { event, runEndEvent: end.id, session: end.data.session, model: end.data.model, elapsedMs: Date.now() - start, tools, toolCount: tools.length, traceFiles };
+  const turn = { event, runId: end.data.runId, runEndEvent: end.id, session: end.data.session, model: end.data.model, elapsedMs: Date.now() - start, tools, toolCount: tools.length, traceFiles };
   evidence.turns.push(turn); await save(); return turn;
  }
  // Both tasks inspect the actual same temporary home's agent configuration.
