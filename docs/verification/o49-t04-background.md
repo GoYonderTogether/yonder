@@ -10,3 +10,4 @@
 - 真实模型 `siliconflow/deepseek-ai/DeepSeek-V3.2`，隔离临时 HOME：onboarding 和 console 输入合并时，初次发现后台完成虽唤醒模型但投递目标为空。修复来源选择后复验 1/1：首轮 run 10 结束，job 29 完成并以退出码 0 结束，run 40 唤醒并通过 `message.out` 成功向 `conv:console:main` 投递实际输出 `T04R2_BACKGROUND_COMPLETE`。重启后 `/bg` 与重启前一致，状态 terminal/completed，输出和退出码保留。临时凭据已删除。
 - 后台、权限、console 命令、路由命令、内置视图五个聚焦测试文件重跑 46/46 通过；原先超时的具体用例和堆栈未记录，未复现，根因仍未定位，不能称已修复。后台来源修复的聚焦测试 2/2 通过。
 - 本次 `npx biome check` 对后台修改文件通过（7 条警告）；`npx tsc -b` 曾通过，随后并行改动的 `model-watch.test.ts` 报类型错误；文件大小检查因并行改动的 `runtime/index.ts` 超基线 2 行失败。
+- [Console 截图](o49-t04-background/console.png)：隔离 HOME 中真实模型会话 2，经独立 gateway 和当前源码构建的页面展示后台任务 24「完成」、完成事件与模型回复；截图中的模型回复未复述输出，上述修复后复验另行确认实际输出投递。
