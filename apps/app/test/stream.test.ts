@@ -219,6 +219,56 @@ describe("Mux 帧序列", () => {
 		expect(h.events.map((e) => e.type)).toEqual(["a", "b"]);
 	});
 
+	it("seq 优先：seq 已过时，即使事件 id 是新的也丢弃", () => {
+		const { mux, sockets } = harness();
+		const h = record();
+		mux.subscribe("sessions.watch", { id: "1" }, h.handlers);
+		const ws = sockets[0] as FakeSocket;
+		ws.open();
+		ws.feed(readyFrame(false, "e1:0"));
+
+		ws.feed(ev(5, "e1:5", "run.ended", { id: "ev-a" }));
+		ws.feed(ev(5, "e1:5b", "run.ended", { id: "ev-b" }));
+		expect(h.events).toHaveLength(1);
+	});
+
+	it("id 台账按 sub 隔离：不同订阅的同名事件 id 互不影响", () => {
+		const { mux, sockets } = harness();
+		const a = record();
+		const b = record();
+		mux.subscribe("sessions.watch", { id: "1" }, a.handlers);
+		mux.subscribe("sessions.watch", { id: "2" }, b.handlers);
+		const ws = sockets[0] as FakeSocket;
+		ws.open();
+		ws.feed(readyFrame(false, "e1:0"));
+
+		ws.feed({ ...ev(1, "e1:1", "run.ended", { id: "ev-1" }), sub: "s1" });
+		ws.feed({ ...ev(1, "e1:2", "run.ended", { id: "ev-1" }), sub: "s2" });
+		expect(a.events).toHaveLength(1);
+		expect(b.events).toHaveLength(1);
+	});
+
+	it("id 台账有界：最旧的一条被挤出后不再去重", () => {
+		const { mux, sockets } = harness();
+		const h = record();
+		mux.subscribe("sessions.watch", { id: "1" }, h.handlers);
+		const ws = sockets[0] as FakeSocket;
+		ws.open();
+		ws.feed(readyFrame(false, "e1:0"));
+
+		for (let i = 0; i < 1000; i++) ws.feed(ev(i + 1, `e1:${i + 1}`, "run.ended", { id: `ev-${i}` }));
+		expect(h.events).toHaveLength(1000);
+
+		// 第 1001 个 id 挤掉 ev-0
+		ws.feed(ev(1001, "e1:1001", "run.ended", { id: "ev-1000" }));
+		ws.feed(ev(1002, "e1:1002", "run.ended", { id: "ev-0" }));
+		expect(h.events).toHaveLength(1002);
+
+		// 窗口内的仍在
+		ws.feed(ev(1003, "e1:1003", "run.ended", { id: "ev-1000" }));
+		expect(h.events).toHaveLength(1002);
+	});
+
 	it("ready 的 gap 原样交给 onReady", () => {
 		const { mux, sockets } = harness();
 		const h = record();
