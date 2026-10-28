@@ -16,6 +16,7 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
+import { CONSOLE } from "../kernel/console.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
@@ -158,7 +159,7 @@ export function createDelivery(options: DeliveryOptions) {
 		request: MessageRequest,
 		agent?: string | null,
 		config?: RuntimeSessionConfig,
-		scope: { channelInstances?: string[] } = config?.resolved ?? {},
+		scope: { channelInstances?: string[]; event?: YEvent; events?: YEvent[] } = config?.resolved ?? {},
 	): Promise<{ target: string; channel: Channel }> {
 		if (request.via) assertChannelInstance(scope, request.via);
 		let target = request.to;
@@ -172,10 +173,15 @@ export function createDelivery(options: DeliveryOptions) {
 		if (parsed.kind === "person") {
 			const person = await store.identity().person(target);
 			const accounts = person ? await Promise.all(person.accounts.map((ref) => store.identity().account(ref))) : [];
+			// The console is only a proactive target when it is where the current turn came from.
+			const consoleOrigin = (scope.events ?? (scope.event ? [scope.event] : [])).some(
+				(event) => event.conv && channelId(event.conv) === CONSOLE,
+			);
 			const selected = accounts
 				.filter(
 					(account) =>
 						account &&
+						(consoleOrigin || channelId(account.ref) !== CONSOLE) &&
 						allowsChannelInstance(scope, channelId(account.ref) ?? "") &&
 						(!request.via || channelId(account.ref) === request.via),
 				)
@@ -191,6 +197,14 @@ export function createDelivery(options: DeliveryOptions) {
 		if (!channel) throw new Error(`渠道未运行：${parsed.channel}`);
 		return { target, channel };
 	}
+	async function persistConsole(target: string, msg: OutMessage, event: string, agent?: string | null) {
+		const parsed = parseRef(target);
+		const bot = agent ?? (parsed.kind === "conv" ? parsed.id : undefined);
+		if (!bot) throw new Error("无法确定接收消息的 Bot");
+		const main = (await store.sessions.list({ agent: bot, open: true })).find((row) => row.mode === "main");
+		if (!main) throw new Error(`Bot ${bot} 还没有主会话`);
+		await sessions.notifyFrom(main.id, { event, text: msg.text ?? "" }, `agent:${bot}`);
+	}
 	async function send(
 		from: string | undefined,
 		request: MessageRequest,
@@ -200,7 +214,8 @@ export function createDelivery(options: DeliveryOptions) {
 		signal: AbortSignal = AbortSignal.timeout(60000),
 		runId?: string,
 		messageId?: string,
-		scope: { channelInstances?: string[] } = config?.resolved ?? {},
+		scope: { channelInstances?: string[]; event?: YEvent; events?: YEvent[] } = config?.resolved ?? {},
+		proactive = false,
 	): Promise<Delivery> {
 		for (const hook of selectedHooks(config)) {
 			const changed = await hook.beforeSend?.(
@@ -226,6 +241,14 @@ export function createDelivery(options: DeliveryOptions) {
 			delivery = await resolved.channel.send(resolved.target, outgoing, signal);
 		} catch (error) {
 			return unknown(id, error);
+		}
+		// The console has no transport: a proactive message is only delivered once it is a session event the owner can watch.
+		if (proactive && delivery.ok && channelId(resolved.target) === CONSOLE) {
+			try {
+				await persistConsole(resolved.target, outgoing, id, session?.agent);
+			} catch (error) {
+				delivery = { ok: false, error: `控制台消息未能写入会话：${message(error)}` };
+			}
 		}
 		if (!delivery.ok && (delivery.uncertain || delivery.id))
 			return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
@@ -557,7 +580,18 @@ export function createDelivery(options: DeliveryOptions) {
 		},
 		async sendPlugin(pluginId: string, request: MessageRequest): Promise<Delivery> {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };
-			return send(`plugin:${pluginId}`, request, undefined, undefined, undefined, request.signal);
+			return send(
+				`plugin:${pluginId}`,
+				request,
+				undefined,
+				undefined,
+				undefined,
+				request.signal,
+				undefined,
+				undefined,
+				undefined,
+				true,
+			);
 		},
 		async sendOwned(
 			pluginId: string,
@@ -567,7 +601,18 @@ export function createDelivery(options: DeliveryOptions) {
 		): Promise<Delivery> {
 			if (!config.resolved.capabilities.includes("message"))
 				return { ok: false, error: "Program delivery requires current message capability" };
-			return send(`plugin:${pluginId}`, request, session, undefined, config, request.signal);
+			return send(
+				`plugin:${pluginId}`,
+				request,
+				session,
+				undefined,
+				config,
+				request.signal,
+				undefined,
+				undefined,
+				undefined,
+				true,
+			);
 		},
 		async sendTool(ctx: ToolContext, request: MessageRequest): Promise<Delivery> {
 			const session = await store.sessions.get(ctx.session);
@@ -620,7 +665,18 @@ export function createDelivery(options: DeliveryOptions) {
 				} while (!found && after);
 				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
 			}
-			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal, undefined, undefined, ctx);
+			return send(
+				fromSession(session),
+				request,
+				session,
+				ctx.event?.id,
+				config,
+				ctx.signal,
+				undefined,
+				undefined,
+				ctx,
+				true,
+			);
 		},
 	};
 }
