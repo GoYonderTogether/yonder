@@ -127,3 +127,15 @@ test("a node has one owner: bots.list and bots.send only cover Bots owned by it,
 		await rm(home, { recursive: true, force: true });
 	}
 }, 60_000);
+
+test("plugins.list works with the built-in console channel loaded", async () => {
+	const home = await homeWithProbe();
+	const kernel = await openKernel(home);
+	try {
+		const plugins = (await kernel.management({ action: "plugins.list" } as never)) as Array<{ id: string }>;
+		expect(plugins.map((plugin) => plugin.id)).toContain("channel-cli");
+	} finally {
+		await kernel.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60_000);
