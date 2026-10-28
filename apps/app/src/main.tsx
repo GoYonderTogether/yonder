@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { RpcError } from "./api/client";
 import { upgradeLegacyLocation } from "./shell/legacyLinks";
+import { UpdateNotice } from "./ui/UpdateNotice";
 
 const qc = new QueryClient({
 	defaultOptions: {
@@ -26,6 +27,7 @@ if (root)
 		<StrictMode>
 			<QueryClientProvider client={qc}>
 				<App />
+				<UpdateNotice />
 			</QueryClientProvider>
 		</StrictMode>,
 	);
