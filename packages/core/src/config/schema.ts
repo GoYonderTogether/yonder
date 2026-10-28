@@ -144,6 +144,13 @@ export const YonderSchema = object({
 			maxDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
 		}),
 	),
+	/** Per-request model guards (G1 §6.3): no content within `firstTokenMs`, or the HTTP request past `totalMs`, fails it. */
+	timeouts: Type.Optional(
+		object({
+			firstTokenMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 2147483647 })),
+			totalMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 2147483647 })),
+		}),
+	),
 	compaction: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
 	agents: Type.Optional(
 		Type.Array(object({ id: text, workspace: text, env: Type.Optional(instanceId), archivedAt: Type.Optional(text) })),

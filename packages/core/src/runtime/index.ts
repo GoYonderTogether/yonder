@@ -93,7 +93,7 @@ import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
-import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
+import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
 
 export { attachmentFromPath } from "./attachments.js";
@@ -253,6 +253,9 @@ export class Runtime {
 					steeringMode: "all",
 					followUpMode: "all",
 					retry: retryPolicy(options.config.retry),
+					...(modelTimeouts(options.config.timeouts).totalMs
+						? { stream: { timeoutMs: modelTimeouts(options.config.timeouts).totalMs } }
+						: {}),
 					...(options.config.compaction ? { compaction: options.config.compaction } : {}),
 				},
 				beforeAgent: (target, context) => runtime.prepareRun(String(target.conversationId), context),
@@ -282,15 +285,22 @@ export class Runtime {
 				const aliases = fallbackAliases(config.resolved.fallback, selection, config.resolved.model);
 				config.credentialGenerations ??= await this.credentialSlots.capture(selection, aliases);
 				const credentials = this.credentialSlots.bind(selection, config.credentialGenerations, aliases);
-				const models = buildModels(credentials, this.options.config.models?.providers, selection, aliases, {
-					onProviderEvent: (provider, data) => {
-						const alias = parseAccountProvider(provider);
-						const account = alias
-							? accountKey(alias.provider, alias.slot)
-							: accountKey(provider, selection[provider] ?? "default");
-						this.quota.record(account, data);
+				const models = buildModels(
+					credentials,
+					this.options.config.models?.providers,
+					selection,
+					aliases,
+					{
+						onProviderEvent: (provider, data) => {
+							const alias = parseAccountProvider(provider);
+							const account = alias
+								? accountKey(alias.provider, alias.slot)
+								: accountKey(provider, selection[provider] ?? "default");
+							this.quota.record(account, data);
+						},
 					},
-				});
+					{ firstTokenMs: modelTimeouts(this.options.config.timeouts).firstTokenMs },
+				);
 				for (const [provider, slot] of Object.entries(selection)) {
 					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);
 					if (slot !== "default") await credentials.read(provider);

@@ -6,8 +6,10 @@ import { resolve } from "node:path";
 import {
 	type AnyModel,
 	type Api,
+	type AssistantMessageEventStream,
 	type AuthContext,
 	type CredentialStore,
+	createAssistantMessageEventStream,
 	createModels,
 	createProvider,
 	envApiKeyAuth,
@@ -224,12 +226,97 @@ function withTelemetry(provider: Provider, id: string, telemetry?: ModelsTelemet
 	};
 }
 
+/** Request guards from `yonder.yaml` `timeouts` (G1 §6.3). */
+export interface ModelTimeouts {
+	/** Abort a request that has produced no content (text, thinking or tool call) within this many ms. */
+	firstTokenMs?: number;
+}
+const CONTENT_EVENTS = new Set(["text_delta", "thinking_delta", "toolcall_start", "toolcall_delta"]);
+/**
+ * Fail a silent request instead of letting it hang until the SDK's 10-minute default: the stream is aborted when
+ * no content arrives within `firstTokenMs`, and the abort surfaces as a retryable `error` (not `aborted`) so the
+ * chain retries or moves to the next model. A caller's own abort still ends as `aborted`.
+ */
+export function firstTokenGuard(
+	start: (alive: () => void) => AssistantMessageEventStream,
+	abort: () => void,
+	ms: number,
+) {
+	const out = createAssistantMessageEventStream();
+	let timedOut = false;
+	const timer = setTimeout(() => {
+		timedOut = true;
+		abort();
+	}, ms);
+	// Raw provider events also count: a reasoning model may think silently for a long time while the
+	// provider keeps streaming progress events, and that request is alive, not stuck.
+	const stream = start(() => clearTimeout(timer));
+	void (async () => {
+		try {
+			for await (const event of stream) {
+				if (CONTENT_EVENTS.has(event.type)) clearTimeout(timer);
+				if (timedOut && event.type === "error") {
+					const error = {
+						...event.error,
+						stopReason: "error" as const,
+						errorMessage: `Request timed out: no first token within ${ms}ms`,
+					};
+					out.push({ type: "error", reason: "error", error });
+					continue;
+				}
+				out.push(event);
+			}
+			out.end();
+		} catch (error) {
+			out.end();
+			throw error;
+		} finally {
+			clearTimeout(timer);
+		}
+	})();
+	return out;
+}
+function withTimeouts(provider: Provider, timeouts: ModelTimeouts): Provider {
+	const ms = timeouts.firstTokenMs;
+	if (!ms) return provider;
+	const guard = <T extends { signal?: AbortSignal } | undefined>(
+		options: T,
+		run: (options: T) => AssistantMessageEventStream,
+	) => {
+		const controller = new AbortController();
+		const outer = options?.signal;
+		if (outer?.aborted) controller.abort(outer.reason);
+		outer?.addEventListener("abort", () => controller.abort(outer.reason), { once: true });
+		return firstTokenGuard(
+			(alive) =>
+				run({
+					...options,
+					signal: controller.signal,
+					onProviderStreamEvent: (data: unknown, model: Model<Api>) => {
+						alive();
+						return (
+							options as { onProviderStreamEvent?: (data: unknown, model: Model<Api>) => unknown } | undefined
+						)?.onProviderStreamEvent?.(data, model);
+					},
+				} as T),
+			() => controller.abort(),
+			ms,
+		);
+	};
+	return {
+		...provider,
+		stream: (model, context, options) => guard(options, (o) => provider.stream(model, context, o)),
+		streamSimple: (model, context, options) => guard(options, (o) => provider.streamSimple(model, context, o)),
+	};
+}
+
 export function buildModels(
 	credentials: CredentialStore,
 	configs: Record<string, unknown> = {},
 	credentialSlots: Readonly<Record<string, string>> = {},
 	aliases: Readonly<Record<string, { provider: string; slot: string }>> = {},
 	telemetry?: ModelsTelemetry,
+	timeouts: ModelTimeouts = {},
 ) {
 	const models = createModels({
 		credentials,
@@ -369,5 +456,7 @@ export function buildModels(
 			const provider = models.getProvider(id);
 			if (provider) models.setProvider(withTelemetry(provider, id, telemetry));
 		}
+	if (timeouts.firstTokenMs)
+		for (const provider of models.getProviders()) models.setProvider(withTimeouts(provider, timeouts));
 	return models;
 }
