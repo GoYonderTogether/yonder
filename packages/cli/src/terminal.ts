@@ -45,7 +45,7 @@ import {
 	WorkingStatusIndicator,
 	withBuiltInRenderers,
 } from "./pi-native.js";
-import { type ChatTarget, hideReplyMarker, sameDirectory } from "./terminal-support.js";
+import { type ChatTarget, hideReplyMarker, type Message, sameDirectory } from "./terminal-support.js";
 import { FooterComponent, type FooterView } from "./vendor/pi-footer.js";
 
 export { type ChatTarget, hideReplyMarker, sameDirectory } from "./terminal-support.js";
@@ -53,17 +53,6 @@ export { type ChatTarget, hideReplyMarker, sameDirectory } from "./terminal-supp
 type Info = Awaited<ReturnType<Kernel["terminal"]["info"]>>;
 type Presets = ReturnType<Kernel["terminal"]["presets"]>;
 type Channels = ReturnType<Kernel["terminal"]["channels"]>;
-type Assistant = NonNullable<ConstructorParameters<typeof AssistantMessageComponent>[0]>;
-type Message =
-	| Assistant
-	| { role: "user"; content: string | Array<{ type: string; text?: string }> }
-	| {
-			role: "toolResult";
-			toolCallId: string;
-			toolName: string;
-			content: Array<{ type: string; text?: string }>;
-			isError: boolean;
-	  };
 
 export { chatCommands };
 
