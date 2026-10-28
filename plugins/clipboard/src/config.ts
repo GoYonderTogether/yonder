@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 import type { ExecutionOwner } from "@yonder/sdk";
 
 export class ClipError extends Error {}
@@ -50,7 +51,7 @@ export function config(input: unknown): Config {
 				return fail("invalid_grant");
 			const readRoots = strings(g.readRoots),
 				writeRoots = strings(g.writeRoots);
-			if ([...readRoots, ...writeRoots].some((x) => !x.startsWith("/"))) return fail("absolute_roots_required");
+			if ([...readRoots, ...writeRoots].some((x) => !isAbsolute(x))) return fail("absolute_roots_required");
 			return {
 				agent: g.agent,
 				profile: g.profile,
@@ -75,9 +76,9 @@ export function config(input: unknown): Config {
 		if (c.kind === "child") {
 			if (
 				typeof c.file !== "string" ||
-				!c.file.startsWith("/") ||
+				!isAbsolute(c.file) ||
 				typeof c.cwd !== "string" ||
-				!c.cwd.startsWith("/") ||
+				!isAbsolute(c.cwd) ||
 				typeof c.variable !== "string" ||
 				!/^[A-Z_][A-Z0-9_]*$/.test(c.variable)
 			)

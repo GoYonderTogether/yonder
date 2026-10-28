@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { rm } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 import { pathToFileURL } from "node:url";
 import { fail } from "./config.js";
 import { readHiddenCredential } from "./hidden-input.js";
@@ -57,7 +58,7 @@ async function main() {
 	if (!allowed.length || args.length !== allowed.length * 2 || allowed.some((key, i) => args[i * 2] !== key))
 		fail("usage_prepare_or_capture");
 	const data = args[1]!;
-	if (!data.startsWith("/")) fail("absolute_data_path_required");
+	if (!isAbsolute(data)) fail("absolute_data_path_required");
 	if (action === "prepare") {
 		const store = new Store(data, { maxBytes: 65536, ttlSeconds: 86400 });
 		const operator = { agent: null, profile: "operator", session: "local" };
