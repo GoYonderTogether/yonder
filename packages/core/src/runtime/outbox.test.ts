@@ -6,6 +6,7 @@ import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "./db.js";
 import { cid, SessionDoc } from "./docs.js";
 import { Runtime } from "./index.js";
+import type { Outbox } from "./outbox.js";
 import type { TodoUpdatedEvent } from "./todo.js";
 import type { ModelFallbackEvent } from "./types.js";
 
@@ -41,6 +42,7 @@ it("events owed at a crash are delivered after restart and then cleared", async 
 		};
 		const fallback: ModelFallbackEvent = {
 			session,
+			inputs: ["input-a", "input-b"],
 			state: "fallback",
 			from: { provider: "p", model: "a" },
 			to: { provider: "p", model: "b" },
@@ -62,11 +64,11 @@ it("events owed at a crash are delivered after restart and then cleared", async 
 
 		const seen: string[] = [];
 		runtime = await open({
-			onModelFallback: async (event) => void seen.push(`fallback:${event.state}`),
+			onModelFallback: async (event) => void seen.push(`fallback:${event.state}:${event.inputs?.join(",")}`),
 			onTodo: async (event) => void seen.push(`todo:${event.total}`),
 		});
 		await runtime.recover();
-		expect(seen).toEqual(["fallback:fallback", "todo:1"]);
+		expect(seen).toEqual(["fallback:fallback:input-a,input-b", "todo:1"]);
 		await runtime.close();
 
 		runtime = await open({
@@ -74,9 +76,43 @@ it("events owed at a crash are delivered after restart and then cleared", async 
 			onTodo: async (event) => void seen.push(`again:${event.total}`),
 		});
 		await runtime.recover();
-		expect(seen).toEqual(["fallback:fallback", "todo:1"]);
+		expect(seen).toEqual(["fallback:fallback:input-a,input-b", "todo:1"]);
 	} finally {
 		await runtime?.close();
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+it("stores the actual run inputs with a fallback before handing it to the sink", async () => {
+	const home = mkdtempSync(join(realpathSync(tmpdir()), "yonder-outbox-inputs-"));
+	const config = { agent: null, profile: "outbox", cwd: home, resolved: resolveProfile({ model: "openai/primary" }) };
+	const runtime = await Runtime.open({
+		home,
+		db: await openDatabase(join(home, "state.db")),
+		config: { schema: 1, credentials: "auth.json", compaction: { enabled: false } },
+		resolveSession: async () => config,
+		onModelFallback: async () => {
+			throw new Error("sink unavailable");
+		},
+	});
+	try {
+		const session = await runtime.create({ agent: null, profile: "outbox", cwd: home });
+		const outbox = (runtime as unknown as { outbox: Outbox }).outbox;
+		await expect(
+			outbox.note(session, config, {
+				runId: "1",
+				model: "openai/backup",
+				status: "done",
+				text: "done",
+				inputs: ["actual-a", "actual-b"],
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+			}),
+		).rejects.toThrow("sink unavailable");
+		const harness = (runtime as unknown as { harness: import("@earendil-works/pi-durable").Harness }).harness;
+		const doc = await harness.snapshot(SessionDoc, cid(session), { signal: new AbortController().signal } as never);
+		expect(JSON.parse(doc!.outbox[0]!).data.inputs).toEqual(["actual-a", "actual-b"]);
+	} finally {
+		await runtime.close();
 		rmSync(home, { recursive: true, force: true });
 	}
 });

@@ -53,12 +53,13 @@ export class Outbox {
 		const event: ModelFallbackEvent = onPrimary
 			? {
 					session,
+					inputs: run.inputs,
 					state: "recovered",
 					from: { provider: episode!.provider, model: episode!.model },
 					to: primaryRef,
 					reason,
 				}
-			: { session, state: "fallback", from: primaryRef, to: actual, reason };
+			: { session, inputs: run.inputs, state: "fallback", from: primaryRef, to: actual, reason };
 		// The episode state and the event it owes are one durable step; delivery below, or after a restart, drains it.
 		await this.options.commit(session, async (tx) => {
 			const doc = await tx.doc(SessionDoc, cid(session));

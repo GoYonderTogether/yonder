@@ -28,6 +28,7 @@ export type ModelChangedEv = Static<typeof ModelChangedEvSchema>;
 export const ModelFallbackEvSchema = Type.Object(
 	{
 		session: T,
+		inputs: O(Type.Array(T)),
 		state: Type.Union([Type.Literal("fallback"), Type.Literal("recovered")]),
 		from: ModelRefSchema,
 		to: ModelRefSchema,

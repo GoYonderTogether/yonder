@@ -332,6 +332,9 @@
 		"model.fallback": {
 			"required": ["from", "reason", "session", "state", "to"],
 			"fields": {
+				"inputs": {
+					"array": "string"
+				},
 				"from": {
 					"object": {
 						"required": ["model", "provider"],

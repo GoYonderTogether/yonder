@@ -1,8 +1,10 @@
 import type { Channel, Delivery, OutMessage, SessionInfo, YEvent } from "@yonder/sdk";
 import type { Binding } from "../config/index.js";
 import type { RuntimeSessionConfig } from "../runtime/index.js";
+import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import type { MessageRequest } from "./index.js";
+import { createModelNotice } from "./model-notice.js";
 
 /** A background completion whose owner never saw output needs one conservative notice. */
 export interface CompletionNotice {
@@ -14,6 +16,7 @@ export interface CompletionNotice {
 
 export interface VisibilityDeps {
 	store: Store;
+	sessions: Sessions;
 	proactiveNotificationsEnabled(agent: string): boolean;
 	/** Native channel for a ref, or undefined when the ref has no channel or no such plugin. */
 	channelFor(ref: string): Channel | undefined;
@@ -64,6 +67,7 @@ export interface VisibilityDeps {
  */
 export function createVisibility(deps: VisibilityDeps) {
 	const { store, lifetime, streams, ready } = deps;
+	const modelNotice = createModelNotice(deps);
 	const visible = (event: YEvent) => (event.data as { delivery?: Delivery }).delivery?.ok === true;
 	const pendingOrVisible = (events: YEvent[], event: YEvent) =>
 		visible(event) ||
@@ -258,5 +262,15 @@ export function createVisibility(deps: VisibilityDeps) {
 				})().catch(deps.report);
 		}
 	}
-	return { complete, heartbeat, notices, replay };
+	return {
+		complete,
+		heartbeat,
+		notices,
+		modelNotice: modelNotice.send,
+		close: modelNotice.close,
+		async replay() {
+			await replay();
+			await modelNotice.replay();
+		},
+	};
 }
