@@ -10,8 +10,10 @@ import type { Credential, Message, Models } from "@earendil-works/pi-ai";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { TSchema } from "typebox";
 import type { Preset } from "./models.js";
+import type { SubagentTaskRequest } from "./subagents.js";
 import type { PluginViewsAPI } from "./views.js";
 
+export type { SubagentTaskRequest } from "./subagents.js";
 export type * from "./views.js";
 export type { Credential, ExecutionEnv, Message, Models, TSchema };
 export type Ref = string;
@@ -276,6 +278,8 @@ export interface AskResult {
 	results: RunResult[];
 }
 export interface OutMessage {
+	/** Stable delivery attempt identifier, reused on retry. */
+	deliveryId?: string;
 	notification?: NotificationIntent;
 	text: string;
 	/** Automatic reply source; explicit replyTo still forces a quoted reply. */
@@ -321,6 +325,8 @@ export interface ToolContext {
 	events?: YEvent[];
 	signal: AbortSignal;
 	cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;
+	/** Check the runtime file-write policy for a plugin mutation. */
+	checkFileWrite?(path: string): Promise<void>;
 }
 export interface ToolResult {
 	text: string;
@@ -479,6 +485,7 @@ export interface PluginAPI extends PluginViewsAPI {
 	};
 	credentials: { get(name: string): Promise<Credential | undefined> };
 	sessions: SessionsAPI;
+	subagents: { run(request: SubagentTaskRequest, ctx: ToolContext): Promise<ToolResult> };
 	identity: IdentityAPI;
 	services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };
 	/** Read-only host facts. `status` needs an admin tool context; `modelReady` only says whether an agent's default model has auth. */

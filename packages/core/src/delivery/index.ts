@@ -20,8 +20,10 @@ import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { consoleAllowed, persistConsole, type Scope } from "./console.js";
 import { createLedger } from "./ledger.js";
+import { sourceMessage } from "./model-notice.js";
 import { createVisibility } from "./visibility.js";
 
+export { sourceMessage };
 export interface MessageRequest {
 	to: string;
 	via?: string;
@@ -41,7 +43,6 @@ interface DeliveryOptions {
 	onReport?: (error: unknown) => void;
 	log?: (level: "info" | "warn" | "error", message: string, data?: object) => void;
 }
-
 /** Hold only the prefix that may still be the model's control marker. */
 export class ReplyText {
 	private pending = "";
@@ -116,11 +117,6 @@ export function stopNotice(reason: string): string {
 	return "运行已停止，这一轮没有完成。回我一句我可以重新开始；反复出现请管理员查看日志。";
 }
 const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.agent}` : undefined);
-export function sourceMessage(event: YEvent): string | undefined {
-	const data = event.data as { msgId?: string; originals?: Array<{ messageId?: string; msgId?: string }> };
-	const original = data.originals?.at(-1);
-	return original?.messageId ?? original?.msgId ?? data.msgId;
-}
 export function createDelivery(options: DeliveryOptions) {
 	const { store, agents, channels, sessions } = options;
 	const { attempt, record, unknown } = createLedger(store);
@@ -155,6 +151,7 @@ export function createDelivery(options: DeliveryOptions) {
 		(event.data as { waiting?: boolean }).waiting;
 	const visibility = createVisibility({
 		store,
+		sessions,
 		proactiveNotificationsEnabled: (agent) => agents.get(agent)?.social?.enabled === true,
 		channelFor: (ref) => channels.get(channelId(ref) ?? ""),
 		lifetime,
@@ -239,7 +236,7 @@ export function createDelivery(options: DeliveryOptions) {
 		if (!id) return { ok: false, error: "该消息/目标已有发送尝试，结果以持久确认或 unknown 为准，不自动重发" };
 		let delivery: Delivery;
 		try {
-			delivery = await resolved.channel.send(resolved.target, outgoing, signal);
+			delivery = await resolved.channel.send(resolved.target, { ...outgoing, deliveryId: id }, signal);
 		} catch (error) {
 			return unknown(id, error);
 		}
@@ -303,7 +300,7 @@ export function createDelivery(options: DeliveryOptions) {
 				try {
 					result = await channel.send(
 						data.target,
-						data.outgoing,
+						{ ...data.outgoing, deliveryId: event.id },
 						AbortSignal.any([lifetime.signal, AbortSignal.timeout(60000)]),
 					);
 				} catch (error) {
@@ -561,6 +558,7 @@ export function createDelivery(options: DeliveryOptions) {
 	}
 	return {
 		heartbeat: visibility.heartbeat,
+		modelNotice: visibility.modelNotice,
 		onStart,
 		onRun,
 		start,
@@ -568,6 +566,7 @@ export function createDelivery(options: DeliveryOptions) {
 			lifetime.abort();
 			start();
 			await Promise.all(retries.values());
+			await visibility.close();
 		},
 		async recover() {
 			for (const event of await store.events.unresolvedAttempts())

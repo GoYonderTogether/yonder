@@ -1,4 +1,7 @@
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { Worker } from "node:worker_threads";
 import { expect, test } from "vitest";
 import { renderPng, renderSvg, renderText, taskBoard } from "../src/board.js";
 import { digest } from "../src/digest.js";
@@ -152,6 +155,68 @@ test("away digest reads the real event ledger with an injected clock after two h
 		const message = { to: event.conv!, text: "Back" };
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text).toContain(`离开期间 · 等你 ${task.ref}`);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
+	} finally {
+		await f.close();
+	}
+});
+
+test("concurrent stores claim a task digest only once", async () => {
+	const f = await fixture();
+	try {
+		const task = f.store.open(content, f.ctx);
+		f.store.update(task.ref, { state: "active" }, f.ctx);
+		const blocked = f.store.update(task.ref, { state: "blocked" }, f.ctx);
+		const active = f.store.open(content, f.ctx);
+		f.store.update(active.ref, { state: "active" }, f.ctx);
+		const barrier = new SharedArrayBuffer(4);
+		const code = `const { parentPort, workerData } = require('node:worker_threads');
+		require('node:module').registerHooks({ resolve(specifier, context, nextResolve) {
+		    if (specifier.startsWith('.') && specifier.endsWith('.js')) {
+		      const source = new URL(specifier.slice(0, -3) + '.ts', context.parentURL);
+		      if (require('node:fs').existsSync(source)) return nextResolve(source.href, context);
+		    }
+		    return nextResolve(specifier, context);
+		  }});
+		(async () => {
+		  const { Store } = await import(workerData.module);
+		  const store = new Store(workerData.data);
+		  store.digestSeen(workerData.task, 'conv:reminder:person');
+		  parentPort.postMessage('ready');
+		  Atomics.wait(new Int32Array(workerData.barrier), 0, 0);
+		  parentPort.postMessage([store.claimDigest(workerData.task, 'conv:reminder:person', Date.now()), store.claimMoments(Date.now() + 31 * 60000, 30, 120, false).length]);
+		  store.close();
+		})().catch(error => { throw error; });`;
+		const workers = Array.from(
+			{ length: 2 },
+			() =>
+				new Worker(code, {
+					eval: true,
+					execArgv: ["--experimental-transform-types"],
+					workerData: {
+						module: pathToFileURL(resolve("plugins/tasks/src/store/index.ts")).href,
+						data: f.probe.api.paths.data,
+						task: blocked,
+						barrier,
+					},
+				}),
+		);
+		const results = workers.map(
+			(worker) =>
+				new Promise<[boolean, number]>((resolveResult, reject) => {
+					worker.on("message", (value) => {
+						if (Array.isArray(value)) resolveResult(value as [boolean, number]);
+					});
+					worker.on("error", reject);
+				}),
+		);
+		await Promise.all(
+			workers.map((worker) => new Promise<void>((resolveReady) => worker.once("message", () => resolveReady()))),
+		);
+		Atomics.store(new Int32Array(barrier), 0, 1);
+		Atomics.notify(new Int32Array(barrier), 0);
+		const claims = await Promise.all(results);
+		expect(claims.map(([digest]) => digest).sort()).toEqual([false, true]);
+		expect(claims.map(([, moments]) => moments).sort()).toEqual([0, 1]);
 	} finally {
 		await f.close();
 	}

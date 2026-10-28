@@ -307,8 +307,10 @@ test("safe unsent delivery is retried online and after reopening; unknown and pa
 	const x = await setup();
 	let online = false,
 		calls = 0;
+	const deliveryIds: (string | undefined)[] = [];
 	x.channel.send = async (_target, msg) => {
 		calls++;
+		deliveryIds.push(msg.deliveryId);
 		if (!online) return { ok: false, retryable: true, error: "ENOTFOUND before dispatch" };
 		x.sent.push(msg.text);
 		return { ok: true, id: "receipt" };
@@ -332,6 +334,9 @@ test("safe unsent delivery is retried online and after reopening; unknown and pa
 			await expect.poll(() => x.sent, { timeout: 5000 }).toContain(request.text);
 			expect(x.sent).toHaveLength(1);
 			expect((await x.store.events.query({ type: "message.attempt" })).events).toHaveLength(1);
+			expect(new Set(deliveryIds)).toEqual(
+				new Set([(await x.store.events.query({ type: "message.attempt" })).events[0]?.id]),
+			);
 			expect(await x.store.events.retryableAttempts()).toHaveLength(0);
 			for (const outcome of [
 				{ ok: false, uncertain: true, error: "receipt lost" },

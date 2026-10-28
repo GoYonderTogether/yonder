@@ -103,6 +103,8 @@ agent_ask({ agent: string, text: string, sources?: string[], effort?: string }) 
 
 渠道 send 失败时记录 message.out。Delivery.retryable 仅表示可确定整条消息尚未发送的瞬时故障（如 DNS/建连失败，或发消息前获取 token 时断网），且不得与 id/uncertain 并用。尚未显示的流式消息在关闭后保存完整正文，确认未发送时也沿普通send补达；已有可见卡片不补发副本。内核从原 message.attempt/message.out 保存的正文/目标/身份补达，沿同一尝试并记录每次结果，在线退避与重启均恢复，不重跑模型或业务工具；停止服务释放计时器。真实鉴权拒绝和确定业务错误不自动重试。部分成功或真正结果不确定记 message.unknown，不自动重发。历史尝试缺正文、结果未知时不猜测补达。
 
+内核向 Channel.send 的 OutMessage 附带可选 deliveryId，值为持久 message.attempt ID，同一尝试重试和重启恢复保持不变；渠道可据此生成平台幂等键。飞书对每个分片使用该 ID 和分片序号派生稳定 UUID；旧渠道可忽略该字段。平台去重时限不改变 unknown 不自动重发规则。
+
 ## 8. 普通模型发送
 
 普通评论/消息工具与 message_send 使用共同投递入口；模型代发须携带真实 ToolContext，保留 session/来源和发送尝试。附件按 05 的 read 能力、当前 env、真实 cwd/本轮附件规则验证；无 exec 不能借上传读取工作区外文件。供应商仅负责协议与本机/远程传输能力，无法支持当前 env 时明确拒绝。unknown 由 Delivery.uncertain 表达；消息组已部分发送时保留实际 id 和未知/失败事实，不重放整组。

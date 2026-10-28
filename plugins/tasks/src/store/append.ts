@@ -47,9 +47,10 @@ export function append(
 	kind: TaskEvent["kind"],
 	data: TaskEvent["data"],
 	now = Date.now(),
+	inTransaction = false,
 ): number {
 	const at = new Date(now).toISOString();
-	db.exec("BEGIN IMMEDIATE");
+	if (!inTransaction) db.exec("BEGIN IMMEDIATE");
 	try {
 		const result = db
 			.prepare("INSERT INTO events(task, kind, at, data) VALUES (?, ?, ?, ?)")
@@ -63,10 +64,10 @@ export function append(
 			const next = map.get(task);
 			if (next) writeRow(db, next);
 		}
-		db.exec("COMMIT");
+		if (!inTransaction) db.exec("COMMIT");
 		return seq;
 	} catch (error) {
-		db.exec("ROLLBACK");
+		if (!inTransaction) db.exec("ROLLBACK");
 		throw error;
 	}
 }
@@ -141,41 +142,48 @@ export function claimMoments(
 	userWaitMinutes: number,
 	postCompact: boolean,
 ) {
-	const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string }> = [];
-	// 只对状态命中、可能需要提醒的任务读历史，与账本总量无关。
-	for (const task of moments(db, postCompact)) {
-		const events = history(db, task.id);
-		const activity = events.filter((event) => !event.kind.startsWith("moment") && event.kind !== "digest").at(-1)!;
-		const done = events.find((event) => event.kind === "done");
-		const moment: Moment | undefined =
-			task.state === "active"
-				? "stall"
-				: task.state === "waiting-user" && task.origin
-					? "user-wait"
-					: task.state === "done" && postCompact
-						? "postCompact"
-						: undefined;
-		if (!moment) continue;
-		const last = events.findLast((event) => event.kind === "moment" && event.data.moment === moment);
-		const since =
-			moment === "postCompact"
-				? done!.at
-				: moment === "user-wait"
-					? events.findLast((event) => event.data.state === "waiting-user")!.at
-					: activity.at;
-		const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
-		if (moment === "postCompact" && last) continue;
-		if (moment === "user-wait" && last && Date.parse(last.at) >= Date.parse(since)) continue;
-		if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
-		append(db, task.id, "moment", { moment }, now);
-		due.push({
-			task,
-			moment,
-			minutes: Math.floor((now - Date.parse(since)) / 60000),
-			waitingFor: events.findLast((event) => event.data.note)?.data.note ?? task.objective,
-		});
+	db.exec("BEGIN IMMEDIATE");
+	try {
+		const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string }> = [];
+		// 只对状态命中、可能需要提醒的任务读历史，与账本总量无关。
+		for (const task of moments(db, postCompact)) {
+			const events = history(db, task.id);
+			const activity = events.filter((event) => !event.kind.startsWith("moment") && event.kind !== "digest").at(-1)!;
+			const done = events.find((event) => event.kind === "done");
+			const moment: Moment | undefined =
+				task.state === "active"
+					? "stall"
+					: task.state === "waiting-user" && task.origin
+						? "user-wait"
+						: task.state === "done" && postCompact
+							? "postCompact"
+							: undefined;
+			if (!moment) continue;
+			const last = events.findLast((event) => event.kind === "moment" && event.data.moment === moment);
+			const since =
+				moment === "postCompact"
+					? done!.at
+					: moment === "user-wait"
+						? events.findLast((event) => event.data.state === "waiting-user")!.at
+						: activity.at;
+			const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
+			if (moment === "postCompact" && last) continue;
+			if (moment === "user-wait" && last && Date.parse(last.at) >= Date.parse(since)) continue;
+			if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
+			append(db, task.id, "moment", { moment }, now, true);
+			due.push({
+				task,
+				moment,
+				minutes: Math.floor((now - Date.parse(since)) / 60000),
+				waitingFor: events.findLast((event) => event.data.note)?.data.note ?? task.objective,
+			});
+		}
+		db.exec("COMMIT");
+		return due;
+	} catch (error) {
+		db.exec("ROLLBACK");
+		throw error;
 	}
-	return due;
 }
 
 export function momentResult(
@@ -233,11 +241,19 @@ const digestFingerprint = (task: Task) =>
 	);
 
 export function claimDigest(db: DatabaseSync, task: Task, destination: string, now: number): boolean {
-	const fingerprint = digestFingerprint(task);
-	const last = digests(db, task.id).findLast((event) => event.data.destination === destination);
-	if (last?.data.fingerprint === fingerprint) return false;
-	append(db, task.id, "digest", { destination, fingerprint, lastDeliveryAt: task.lastDeliveryAt }, now);
-	return true;
+	db.exec("BEGIN IMMEDIATE");
+	try {
+		const fingerprint = digestFingerprint(task);
+		const last = digests(db, task.id).findLast((event) => event.data.destination === destination);
+		const claimed = last?.data.fingerprint !== fingerprint;
+		if (claimed)
+			append(db, task.id, "digest", { destination, fingerprint, lastDeliveryAt: task.lastDeliveryAt }, now, true);
+		db.exec("COMMIT");
+		return claimed;
+	} catch (error) {
+		db.exec("ROLLBACK");
+		throw error;
+	}
 }
 
 export function digestSeen(db: DatabaseSync, task: Task, destination: string): boolean {

@@ -17,6 +17,22 @@ function api() {
 	} as PluginAPI;
 }
 describe("Feishu protocol receipts (no network or model)", () => {
+	it("reuses a distinct UUID for each message part across delivery retries", async () => {
+		const channel = new FeishuChannel("test", { ...config, textChunkBytes: 256 }, api());
+		const request = vi.spyOn(channel, "rawSend").mockResolvedValue("om_sent");
+		const message = { text: "x".repeat(600), deliveryId: "attempt-1" };
+		await channel.send("conv:test:chat", message);
+		const first = request.mock.calls.map((call) => call[5]);
+		request.mockClear();
+		await channel.send("conv:test:chat", message);
+		const second = request.mock.calls.map((call) => call[5]);
+		expect(first.length).toBeGreaterThan(1);
+		expect(new Set(first).size).toBe(first.length);
+		expect(second).toEqual(first);
+		request.mockClear();
+		await channel.send("conv:test:chat", { ...message, deliveryId: "attempt-2" });
+		expect(request.mock.calls[0]?.[5]).not.toBe(first[0]);
+	});
 	it("distinguishes platform rejection from an unreadable send receipt", async () => {
 		const client = new FeishuApi(config, api());
 		for (const response of [

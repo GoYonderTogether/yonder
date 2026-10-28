@@ -1,5 +1,9 @@
 // Protocol semantics adapted from OpenClaw cafa09e and Hermes 6660547 (MIT; NOTICE.md).
+import { createHash } from "node:crypto";
 import { type Attachment, type OutputPart, parseRef, type TSchema } from "@yonder/sdk";
+
+export const deliveryUuid = (id: string | undefined, index: number) =>
+	id ? createHash("sha256").update(`${id}:${index}`).digest("hex").slice(0, 32) : undefined;
 
 export type ObjectValue = Record<string, unknown>;
 export const object = (value: unknown): ObjectValue =>

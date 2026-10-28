@@ -32,6 +32,7 @@ import {
 	type Config,
 	cancellable,
 	chunks,
+	deliveryUuid,
 	editMessage,
 	mimeFromBytes,
 	type ObjectValue,
@@ -612,13 +613,7 @@ export class FeishuChannel implements Channel {
 		return { toast: { type: "success", content: "Action received" } };
 	}
 	private recipient = (target: string) => recipientOf(target, this.id);
-	async rawSend(
-		target: string,
-		type: string,
-		content: object,
-		replyTo?: string,
-		signal?: AbortSignal,
-	): Promise<string> {
+	async rawSend(target: string, type: string, content: object, replyTo?: string, signal?: AbortSignal, uuid?: string) {
 		if (this.stopped) throw new Error("Feishu instance is stopped");
 		signal = signal ? AbortSignal.any([signal, this.lifetime.signal]) : this.lifetime.signal;
 		const recipient = this.recipient(target);
@@ -631,7 +626,7 @@ export class FeishuChannel implements Channel {
 			{
 				msg_type: type,
 				content: JSON.stringify(content),
-				uuid: randomUUID(),
+				uuid: uuid ?? randomUUID(),
 				...(replyTo ? { reply_in_thread: this.config.replyInThread ?? false } : { receive_id: recipient.id }),
 			},
 			signal,
@@ -642,6 +637,8 @@ export class FeishuChannel implements Channel {
 	}
 	async send(target: string, msg: OutMessage, signal?: AbortSignal): Promise<Delivery> {
 		let lastId: string | undefined;
+		let partIndex = 0;
+		const nextUuid = () => deliveryUuid(msg.deliveryId, partIndex++);
 		try {
 			const replyTo =
 				msg.sourceMessageId || msg.replyTo
@@ -665,11 +662,11 @@ export class FeishuChannel implements Channel {
 			const encode = (text: string) => payloadFor(text).content;
 			for (const part of chunks(msg.text, this.config.textChunkBytes ?? 18000, encode)) {
 				const payload = payloadFor(part);
-				lastId = await this.rawSend(target, payload.type, payload.content, replyTo, signal);
+				lastId = await this.rawSend(target, payload.type, payload.content, replyTo, signal, nextUuid());
 			}
 			for (const attachment of msg.attachments ?? []) {
 				const payload = await this.upload(attachment, signal);
-				lastId = await this.rawSend(target, payload.type, payload.content, replyTo, signal);
+				lastId = await this.rawSend(target, payload.type, payload.content, replyTo, signal, nextUuid());
 			}
 			if (!lastId) throw new Error("Feishu message contains no text or attachments");
 			return { ok: true, id: lastId };

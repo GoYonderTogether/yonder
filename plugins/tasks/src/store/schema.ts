@@ -11,6 +11,7 @@ export function connect(data: string): DatabaseSync {
 	mkdirSync(data, { recursive: true, mode: 0o700 });
 	const path = join(data, file);
 	const db = new DatabaseSync(path);
+	db.exec("PRAGMA busy_timeout = 5000");
 	chmodSync(path, 0o600);
 	db.exec(`CREATE TABLE IF NOT EXISTS events (
 		seq INTEGER PRIMARY KEY, task TEXT NOT NULL, kind TEXT NOT NULL, at TEXT NOT NULL, data TEXT NOT NULL
