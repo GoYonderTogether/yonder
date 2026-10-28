@@ -54,7 +54,6 @@ export function withConsoleBinding(agent: AgentConfig, config: YonderConfig): Ag
 		match: { channel: CONSOLE, kind: "dm", from: "owner" },
 		session: "main",
 		profile: main.profile ?? agent.defaultProfile,
-		...(main.busy ? { busy: main.busy } : {}),
 	};
 	return { ...agent, bindings: [binding, ...agent.bindings] };
 }

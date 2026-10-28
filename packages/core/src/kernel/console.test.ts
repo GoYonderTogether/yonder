@@ -41,6 +41,10 @@ async function homeWithProbe(gateway?: { enabled: boolean }) {
 
 test("console is a zero-config channel: the owner reaches the Bot's single main session", async () => {
 	const home = await homeWithProbe();
+	const file = join(home, "agents/main/agent.yaml");
+	const agent = parse(await readFile(file, "utf8"));
+	agent.bindings.find((binding: { session: unknown }) => binding.session === "main").busy = "interrupt";
+	await writeFile(file, stringify(agent));
 	const kernel = await openKernel(home);
 	try {
 		expect(await kernel.bots.list()).toEqual([{ agent: "main", name: "Jarvis", session: undefined }]);
@@ -50,7 +54,7 @@ test("console is a zero-config channel: the owner reaches the Bot's single main 
 		const input = (await kernel.events.query({ id: sent.event })).events[0];
 		expect(input).toMatchObject({ type: "message.in", from: "acct:console:owner", conv: "conv:console:main" });
 		expect(input?.routes).toEqual([
-			expect.objectContaining({ agent: "main", binding: "@console", session: sent.session }),
+			expect.objectContaining({ agent: "main", binding: "@console", session: sent.session, busy: "steer" }),
 		]);
 		// Same Bot session semantics as other channels: a second message lands in the same session; the Bot is listed with it.
 		expect((await kernel.bots.send("main", "再来一条")).session).toBe(sent.session);
@@ -94,11 +98,17 @@ test("a user binding named @console is rejected by config validation", async () 
 
 test("an explicit console binding overrides the implicit one and no user binding is dropped", async () => {
 	const home = await withBinding("console", "console");
+	const file = join(home, "agents/main/agent.yaml");
+	const agent = parse(await readFile(file, "utf8"));
+	agent.bindings.find((binding: { id: string }) => binding.id === "console").busy = "interrupt";
+	await writeFile(file, stringify(agent));
 	const kernel = await openKernel(home);
 	try {
 		const sent = await kernel.bots.send("main", "hi");
 		const input = (await kernel.events.query({ id: sent.event })).events[0];
-		expect(input?.routes).toEqual([expect.objectContaining({ binding: "console", session: sent.session })]);
+		expect(input?.routes).toEqual([
+			expect.objectContaining({ binding: "console", session: sent.session, busy: "interrupt" }),
+		]);
 	} finally {
 		await kernel.close();
 		await rm(home, { recursive: true, force: true });

@@ -2,16 +2,16 @@ import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { rpc } from "../api/client";
 
-type Busy = "followup" | "interrupt";
+type Busy = "steer" | "followup" | "interrupt";
 
 /**
- * 忙碌时可选「排队」或「打断」再发送，随时可中止；中文输入法组字期间 Enter 不发送。
+ * 忙碌时可选择发送方式，随时可中止；中文输入法组字期间 Enter 不发送。
  * `bot` 是常驻 Bot 的 agent id：Bot 的 main 会话不是 task 会话，输入经控制台渠道 `bots.send`，
  * 由 Bot 自己的绑定接收（contracts.md §10），排队/打断不适用。
  */
 export function Composer({ session, running, bot }: { session: string; running: boolean; bot?: string }) {
 	const [text, setText] = useState("");
-	const [mode, setMode] = useState<Busy>("followup");
+	const [mode, setMode] = useState<Busy>("steer");
 	const [err, setErr] = useState("");
 	const sending = useRef(false);
 
@@ -50,7 +50,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					{bot ? "正在回复" : "正在运行，新消息将"}
 					{!bot && (
 						<fieldset aria-label="忙碌时发送方式" className="m-0 flex rounded-full border-0 bg-tone p-0.5">
-							{(["followup", "interrupt"] as const).map((m) => (
+							{(["steer", "followup", "interrupt"] as const).map((m) => (
 								<button
 									key={m}
 									type="button"
@@ -58,7 +58,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 									onClick={() => setMode(m)}
 									className={`press rounded-full px-2.5 py-0.5 ${mode === m ? "bg-raised text-ink shadow-soft" : ""}`}
 								>
-									{m === "followup" ? "排队" : "打断"}
+									{m === "steer" ? "插话" : m === "followup" ? "排队" : "打断"}
 								</button>
 							))}
 						</fieldset>
