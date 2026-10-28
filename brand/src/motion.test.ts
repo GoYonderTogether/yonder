@@ -83,8 +83,8 @@ test("brand timeline is one third speed at every normal 60 Hz display frame, inc
 test("source consumers share the same timeline and static native brand remains static", async () => {
 	expect(source).toContain("milliseconds / MOTION_TIME_SCALE / 1000");
 	expect(source).not.toContain("setTimeout(");
-	const build = await readFile(new URL("../../plugins/interaction/build.mjs", import.meta.url), "utf8");
-	expect(build).toContain("brand/src/yonder-mark.js");
-	const native = await readFile(new URL("../../packages/macos/Companion.swift", import.meta.url), "utf8");
-	expect(native).toContain('forResource: "dock-mark"');
+	const preview = await readFile(new URL("../assets/preview.html", import.meta.url), "utf8");
+	expect(preview).toContain(source.replace(/^export /gm, ""));
+	const native = await readFile(new URL("../../packages/macos/YonderStatus.swift", import.meta.url), "utf8");
+	expect(native).toContain('forResource: "menubar-template"');
 });
