@@ -38,7 +38,7 @@ export const PAGES: Record<Page, PageDef> = {
 	me: {
 		tab: "me",
 		title: "我",
-		load: () => import("../features/social/Profile").then((m) => ({ default: m.Profile })),
+		load: () => import("../features/social/Profile").then((m) => ({ default: () => createElement(m.Profile, {}) })),
 	},
 	u: {
 		tab: "chats",
