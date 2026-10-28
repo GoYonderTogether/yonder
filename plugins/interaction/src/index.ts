@@ -2,6 +2,10 @@ import { definePlugin, type ToolContext, type ToolResult } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
 import { CompanionService } from "./service.js";
+import { registerSessionManage } from "./session-manage.js";
+import { registerSessionTools } from "./session-tools.js";
+import { registerSuggestions } from "./suggestions.js";
+import { registerViews } from "./views.js";
 
 const present = Type.Object({ card: Type.Unknown() }, { additionalProperties: false });
 const result = Type.Object(
@@ -12,6 +16,10 @@ const json = (value: unknown): ToolResult => ({ text: JSON.stringify(value) });
 export default definePlugin({
 	configSchema: Type.Object({ desktop: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
 	setup(api) {
+		registerViews(api);
+		registerSuggestions(api);
+		registerSessionTools(api);
+		registerSessionManage(api);
 		const service = new CompanionService(
 			api.paths.data,
 			((api.config ?? {}) as { desktop?: boolean }).desktop ?? true,

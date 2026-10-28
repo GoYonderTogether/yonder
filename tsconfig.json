@@ -89,6 +89,9 @@
 			"path": "plugins/learning"
 		},
 		{
+			"path": "plugins/secrets"
+		},
+		{
 			"path": "plugins/hermes-experience"
 		},
 		{

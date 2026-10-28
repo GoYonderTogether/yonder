@@ -9,6 +9,7 @@ import { type Config, moments } from "./moments.js";
 import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, SHOW, UPDATE } from "./prompts.js";
 import { BoardService } from "./service.js";
 import { type Open, Store, type Update } from "./store/index.js";
+import { registerTaskViews } from "./views.js";
 
 const string = { type: "string", minLength: 1, pattern: "\\S" };
 const strings = { type: "array", items: string };
@@ -33,6 +34,7 @@ export default definePlugin({
 	),
 	setup(api) {
 		const store = new Store(api.paths.data);
+		registerTaskViews(api, store);
 		const config = (api.config ?? {}) as Config;
 		const service = new BoardService(store, api.locale, config.stallMinutes ?? 30, () => api.agents.list());
 		api.triggers.register({ id: "tasks-board", start: () => service.start(), stop: () => service.stop() });
