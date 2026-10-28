@@ -32,6 +32,7 @@ if (process.platform === "darwin") {
 			"-module-cache-path",
 			join(tmpdir(), "yonder-swift-module-cache"),
 			"packages/macos/YonderStatus.swift",
+			"packages/macos/GatewayClient.swift",
 			"packages/macos/Companion.swift",
 			"-o",
 			`${contents}/MacOS/YonderStatus`,
