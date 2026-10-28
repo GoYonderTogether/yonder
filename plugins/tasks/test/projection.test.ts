@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ToolContext } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { BoardService } from "../src/service.js";
 import { Store } from "../src/store/index.js";
 import { replay, type Task, type TaskEvent } from "../src/store/project.js";
 
@@ -170,7 +169,6 @@ test("list and get read the projection, never the whole ledger", async () => {
 test("panel takes progress in one query instead of one get per task", async () => {
 	const root = await mkdtemp(join(tmpdir(), "yonder-panel-n1-"));
 	const store = new Store(root);
-	const service = new BoardService(store, "en", 30);
 	const spy = probe();
 	try {
 		const main = caller();
@@ -179,11 +177,10 @@ test("panel takes progress in one query instead of one get per task", async () =
 			store.update(task.id, { state: "active" }, main);
 			store.update(task.id, { state: "waiting-user", note: `waiting for ${title}` }, main);
 		}
-		await service.start();
-		const url = service.publish(main);
+		const tasks = store.list(main);
 		spy.clear();
-		const body = await (await fetch(`${url}?view=panel`)).json();
-		expect(body.panel.tasks.map((task: { progress: string }) => task.progress)).toEqual([
+		const progress = store.progress(tasks);
+		expect(tasks.map((task) => progress.get(task.id))).toEqual([
 			"waiting for One",
 			"waiting for Two",
 			"waiting for Three",
@@ -192,7 +189,6 @@ test("panel takes progress in one query instead of one get per task", async () =
 		expect(spy.seen.some((sql) => /FROM events WHERE task = \?/.test(sql))).toBe(false);
 	} finally {
 		spy.restore();
-		await service.stop();
 		store.close();
 		await rm(root, { recursive: true, force: true });
 	}

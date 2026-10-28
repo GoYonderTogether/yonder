@@ -66,7 +66,7 @@ test("loaded tasks_show returns board/detail JSON and sends a real PNG through t
 		for (const target of ["desktop", "web"])
 			expect(await f.call("show", { target })).toMatchObject({
 				isError: true,
-				text: expect.stringContaining("renderer.json"),
+				text: expect.stringContaining("Invalid target or view"),
 			});
 		expect((await f.call("show", { target: "json", view: "detail" })).isError).toBe(true);
 		const event = await f.probe.io.emit({

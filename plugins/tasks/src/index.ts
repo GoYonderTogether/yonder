@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type Attachment, type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
@@ -7,7 +7,6 @@ import { renderPng, renderText, taskBoard } from "./board.js";
 import { digest } from "./digest.js";
 import { type Config, moments } from "./moments.js";
 import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, SHOW, UPDATE } from "./prompts.js";
-import { BoardService } from "./service.js";
 import { type Open, Store, type Update } from "./store/index.js";
 import { registerTaskViews } from "./views.js";
 
@@ -36,15 +35,10 @@ export default definePlugin({
 		const store = new Store(api.paths.data);
 		registerTaskViews(api, store);
 		const config = (api.config ?? {}) as Config;
-		const service = new BoardService(store, api.locale, config.stallMinutes ?? 30, () => api.agents.list());
 		api.triggers.register({
 			id: "tasks-board",
-			start: () => service.start(),
-			// Kernel stop must release the SQLite handle; Windows cannot delete an open database file.
-			stop: async () => {
-				await service.stop();
-				store.close();
-			},
+			start: async () => {},
+			stop: async () => store.close(),
 		});
 		const add = (
 			name: string,
@@ -120,19 +114,13 @@ export default definePlugin({
 		add(
 			"show",
 			SHOW,
-			obj(
-				{ target: { enum: ["channel", "json", "desktop", "web"] }, view: { enum: ["board", "detail"] }, id: string },
-				[],
-			),
+			obj({ target: { enum: ["channel", "json"] }, view: { enum: ["board", "detail"] }, id: string }, []),
 			["read"],
 			async (args, ctx) => {
 				const target = args.target ?? "channel",
 					view = args.view ?? "board";
 
-				if (
-					!["channel", "json", "desktop", "web"].includes(target as string) ||
-					!["board", "detail"].includes(view as string)
-				)
+				if (!["channel", "json"].includes(target as string) || !["board", "detail"].includes(view as string))
 					throw new Error("Invalid target or view");
 				if (view === "detail" && !args.id) throw new Error("detail requires id");
 				const board = taskBoard(
@@ -142,18 +130,6 @@ export default definePlugin({
 					config.stallMinutes ?? 30,
 				);
 				if (target === "json") return board;
-				const source = service.publish(ctx);
-				if (target === "desktop" || target === "web") {
-					const endpoint = JSON.parse(await readFile(join(api.paths.data, "../interaction/renderer.json"), "utf8"));
-					const response = await fetch(`${endpoint.url}board`, {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ source, id: view === "detail" ? args.id : undefined }),
-						signal: ctx.signal,
-					});
-					if (!response.ok) throw new Error(await response.text());
-					return response.json();
-				}
 				let to = ctx.events?.findLast((event) => event.conv)?.conv ?? ctx.event?.conv;
 				if (!to) {
 					let after: string | undefined;
@@ -167,27 +143,6 @@ export default definePlugin({
 					} while (after);
 				}
 				if (!to) throw new Error("No channel conversation in the calling session");
-				if (view === "board") {
-					// The channel advertises its Attachment route beside its own private data.
-					try {
-						const instance = to.split(":")[1]!;
-						const route = JSON.parse(
-							await readFile(join(api.paths.data, "../channel-feishu", instance, "task-board.json"), "utf8"),
-						);
-						if (route.pid === process.pid) {
-							const delivery = await api.messages.send({
-								to,
-								text: "",
-								attachments: [{ kind: "file", mime: route.mime, uri: source }],
-								signal: ctx.signal,
-							});
-							if (delivery.ok) return delivery;
-						}
-					} catch (error) {
-						if ((error as NodeJS.ErrnoException).code !== "ENOENT")
-							api.log.warn("Task board card unavailable; using image", { error: String(error) });
-					}
-				}
 				let attachments: Attachment[] | undefined;
 				let text = "";
 				try {

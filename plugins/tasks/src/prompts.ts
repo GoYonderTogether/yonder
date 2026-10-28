@@ -10,7 +10,7 @@ export const LIST = `List tasks you can see: yours by default, and those of your
 
 export const GET = `Read one task with its full history and deliverable.`;
 
-export const SHOW = `Show the task board where the person is looking: desktop, web, or the current channel as an image. Use it when the person asks what is going on or when several tasks are in flight. Pick the place that fits where they are talking to you.`;
+export const SHOW = `Show the task board in the current channel as an image or return it as JSON. Use it when the person asks what is going on or when several tasks are in flight.`;
 
 export const NUDGE = `Steward only. Send an agent a reminder about one of its tasks that has gone quiet. State what you see and what you need back: continue, blocked, or waiting-user. It reaches the agent through its own session and binding.`;
 
