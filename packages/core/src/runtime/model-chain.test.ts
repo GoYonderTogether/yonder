@@ -44,6 +44,18 @@ describe("model chain", () => {
 		expect(chain[0]!.slot).toBe("gpt2");
 		expect(chain[2]).toMatchObject({ base: "openai", slot: "gpt3", account: true });
 	});
+	it.each([
+		[undefined, ["openai/main", "other/one", "openai#backup/main", "other/two"]],
+		["accounts-first", ["openai/main", "openai#backup/main", "other/one", "other/two"]],
+		["models-first", ["openai/main", "other/one", "other/two", "openai#backup/main"]],
+	] as const)("orders the chain with %s", (order, expected) => {
+		const chain = modelChain("openai/main", {
+			...(order ? { order } : {}),
+			models: ["other/one", "other/two", "other/one"],
+			accounts: { openai: ["backup", "backup"] },
+		});
+		expect(chain.map(chainRef)).toEqual(expected);
+	});
 	it("collapses entries that repeat the same model and account", () => {
 		const chain = modelChain(
 			"openai/gpt-6.1-sol",

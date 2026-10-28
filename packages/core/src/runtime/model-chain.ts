@@ -5,6 +5,7 @@
  */
 export interface FallbackChainConfig {
 	models?: readonly string[];
+	order?: "accounts-first" | "models-first";
 	accounts?: Readonly<Record<string, readonly string[]>>;
 	/** Per credential slot model substitution, e.g. a limited account runs the same role on a smaller model. */
 	accountModels?: Readonly<Record<string, Readonly<Record<string, string>>>>;
@@ -108,8 +109,9 @@ export function modelChain(
 			account: false,
 		});
 	}
-	// Preferred order: primary → first fallback model (WorkBuddy) → other accounts (GPT2) → the rest.
-	entries.push(...modelEntries.slice(0, 1), ...accountEntries, ...modelEntries.slice(1));
+	if (fallback?.order === "accounts-first") entries.push(...accountEntries, ...modelEntries);
+	else if (fallback?.order === "models-first") entries.push(...modelEntries, ...accountEntries);
+	else entries.push(...modelEntries.slice(0, 1), ...accountEntries, ...modelEntries.slice(1));
 	const seen = new Set<string>();
 	return entries.filter((entry) => {
 		const key = chainKey(entry);
