@@ -7,6 +7,7 @@ import {
 	readdir,
 	readFile,
 	readlink,
+	realpath,
 	rename,
 	rm,
 	stat,
@@ -75,7 +76,7 @@ test("apply migrates, keeps originals, and a second apply is a no-op", async () 
 	const { root, options, oldHome, newHome } = await fixture();
 	const result = await applyMigration(options);
 	expect(result.applied).toBe(true);
-	expect(await readlink(oldHome)).toBe(newHome);
+	expect(await realpath(oldHome)).toBe(await realpath(newHome));
 	expect(await readFile(join(newHome, "yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
 	expect(await readFile(join(newHome, "yonder.yaml.pre-migrate-20261028"), "utf8")).toBe(YAML);
 	expect(await readFile(join(newHome, "agents/main.yaml"), "utf8")).toBe("plugins: [learning, context-files]\n");
@@ -148,7 +149,7 @@ test("a launchd failure is reported apart from the finished data migration, with
 	};
 	const result = await applyMigration({ ...options, launchd: { daemons, helpers: join(root, "none") }, run });
 	expect(result.applied).toBe(true);
-	expect(await readlink(oldHome)).toBe(newHome);
+	expect(await realpath(oldHome)).toBe(await realpath(newHome));
 	expect(result.launchdDone).toHaveLength(1);
 	expect(result.launchdPending.map((c) => c[0])).toEqual(["sed", "mv", "launchctl"]);
 	const text = formatMigration(result);
@@ -216,13 +217,13 @@ test("half-done move (crash between the two renames) is finished by a rerun", as
 	await writeFile(join(oldHome, ".migrate-journal.json"), JSON.stringify({ version: 1, oldHome, newHome, tempLink }));
 	await mkdir(join(root, "yonder"), { recursive: true });
 	await rename(oldHome, newHome);
-	await symlink(newHome, tempLink);
+	await symlink(newHome, tempLink, process.platform === "win32" ? "junction" : "dir");
 	await expect(lstat(oldHome)).rejects.toThrow();
 	const dry = await planMigration(options);
 	expect(dry.lines.join("\n")).toContain("中断");
 	const result = await applyMigration(options);
 	expect(result.applied).toBe(true);
-	expect(await readlink(oldHome)).toBe(newHome);
+	expect(await realpath(oldHome)).toBe(await realpath(newHome));
 	await expect(lstat(tempLink)).rejects.toThrow();
 	await expect(lstat(join(newHome, ".migrate-journal.json"))).rejects.toThrow();
 	expect(await readFile(join(newHome, "yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
@@ -231,10 +232,10 @@ test("half-done move (crash between the two renames) is finished by a rerun", as
 test("journal left before the move (nothing moved) is cleared and the move proceeds", async () => {
 	const { options, oldHome, newHome } = await fixture();
 	const tempLink = `${oldHome}.migrate-deadbeef`;
-	await symlink(newHome, tempLink);
+	await symlink(newHome, tempLink, process.platform === "win32" ? "junction" : "dir");
 	await writeFile(join(oldHome, ".migrate-journal.json"), JSON.stringify({ version: 1, oldHome, newHome, tempLink }));
 	await applyMigration(options);
-	expect(await readlink(oldHome)).toBe(newHome);
+	expect(await realpath(oldHome)).toBe(await realpath(newHome));
 	await expect(lstat(tempLink)).rejects.toThrow();
 });
 
