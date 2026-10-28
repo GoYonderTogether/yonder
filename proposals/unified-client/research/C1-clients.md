@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # 参考客户端调研：pi、opencode、DeepSeek Harness → Yonder 统一应用
 
 ## 0. 结论速览

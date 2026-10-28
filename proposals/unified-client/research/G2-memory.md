@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../agent-parity.md)
+
 # Yonder 默认记忆插件调研：Hermes 记忆/技能机制、pi 生态方案与本机现状
 
 ## 0 结论摘要

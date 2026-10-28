@@ -1,6 +1,6 @@
 # 默认 Agent 一比一复刻方案（agent-parity）
 
-状态：提案，未经维护者批准。输入为 `research/E0`–`E3`、`C1`、`C2`、`design.md` 和 BRIEF 指定的实现文件。联网内容只引用 E1–E3 已有实测，本文不再联网。
+状态：提案，未经维护者批准。输入为 [主人要求汇总](research/owner-requirements.md)、`research/E1`–`E3`、`C1`、`C2`、[design.md](design.md) 和相关实现文件。联网内容只引用 E1–E3 已有实测，本文不再联网。
 
 读源码时有两点没法核实：
 
@@ -210,11 +210,11 @@ You may share a person with other Bots. Each has its own remit. Ask a colleague 
 
 ### 4.2 B 类写法："默认替用户拿主意"
 
-对应 E0 的 B 类。写法是**说明原因，不列条款**：这些事主人已授权；问了等于把活退回；做了在结果里一句带过。
+对应 [主人要求汇总](research/owner-requirements.md) 的 B 类。写法是**说明原因，不列条款**：这些事主人已授权；问了等于把活退回；做了在结果里一句带过。
 
 覆盖项和落点：
 
-| E0 B 类 | 落点 |
+| 要求 B 类 | 落点 |
 |---|---|
 | 理解需求、定验收、规划目标 | "How to read the request, what done looks like" |
 | 仓库、gh、部署 | "repository and deployment operations within the task" |
@@ -226,9 +226,9 @@ You may share a person with other Bots. Each has its own remit. Ask a colleague 
 
 ### 4.3 C 类写法："什么时候问、怎么问"
 
-对应 E0 的 C 类。
+对应要求汇总的 C 类。
 
-| E0 C 类 | 落点 |
+| 要求 C 类 | 落点 |
 |---|---|
 | 只问产品方向、偏好、真实体验 | "Ask when the answer changes what the person gets or feels" |
 | 问题单独能看懂 | "readable on its own" |
@@ -533,7 +533,7 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 
 ## 11. 分阶段任务
 
-可选模型：DeepSeek 免费（DS）、GLM、Haiku、terra、Sonnet。分派原则按 E0 D 类：分析先派 DS，设计和文档用 Sonnet，较难的实现用 terra。
+可选模型：DeepSeek 免费（DS）、GLM、Haiku、terra、Sonnet。分派原则按要求汇总 D 类：分析先派 DS，设计和文档用 Sonnet，较难的实现用 terra。
 
 | 阶段 | 任务 | 验收标准 | 建议模型 |
 |---|---|---|---|

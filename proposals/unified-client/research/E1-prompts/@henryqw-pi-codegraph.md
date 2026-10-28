@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # @henryqw/pi-codegraph — 注入模型的提示词原文
 
 - 包: `@henryqw/pi-codegraph` 0.7.3

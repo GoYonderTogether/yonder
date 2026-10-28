@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # Yonder 文档体系调研报告（只读）
 
 调研对象：`/Users/zoran/Documents/yonder-harness`，HEAD `0211948`（2026-10-27，`chore(release): 0.2.26102705`）。所有命令只读执行；未修改、未提交、未推送任何文件。参照仓：`/Users/zoran/Documents/github/yonder-pi-1.4`（pi 1.4）、`/Users/zoran/Documents/github/opencode`。设计目标：`proposals/unified-client/design.md`。

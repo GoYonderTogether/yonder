@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # pi-core — pi 本体拼装系统提示词的原文
 
 - 包: `@earendil-works/pi-coding-agent` 1.4.0

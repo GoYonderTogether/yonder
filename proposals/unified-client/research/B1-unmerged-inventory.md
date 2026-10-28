@@ -1,4 +1,6 @@
-I'll start by surveying the repos and their state.# Yonder 未合并工作清单（B1）
+> 证据材料，结论已并入 [design.md](../design.md)
+
+# Yonder 未合并工作清单（B1）
 
 基线：harness `main` @0211948（2026-10-27）｜Card `origin/main` @09e6f90（2026-10-24）｜pi `yonder/1.3`（远端 55e9146；vendored 基线 45014f2）
 只读核查，未做任何写操作。`a/b` = ahead/behind 相对该仓库主线；"非等价" = `git cherry` 中 `+` 的提交数。

@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # 插件生态前 50 调研：pi 与 DeepSeek Harness 对 Yonder 官方默认插件体系的参考
 
 > 口径与局限先说明，后面所有结论都以此为前提：

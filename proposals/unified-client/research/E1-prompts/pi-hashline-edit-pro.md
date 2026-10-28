@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # pi-hashline-edit-pro — 注入模型的提示词原文
 
 - 包: `pi-hashline-edit-pro` 7.1.1

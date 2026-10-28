@@ -1,7 +1,7 @@
 # Yonder 统一应用与分发架构：设计文档（第二版）
 
 > 状态：提案，待维护者批准。本文件不改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md`、`AGENTS.md`；需改的条款见第 10 节。
-> 日期：2026-10-27。输入优先级：`research/OWNER-DECISIONS.md` > Opus 决定 D1–D10 > 第一版 > `research/` B1/B2/A1/A2/A4/A5。
+> 日期：2026-10-27。输入优先级：[research/owner-requirements.md](research/owner-requirements.md) > Opus 决定 D1–D10 > 第一版 > `research/` B1/B2/A1/A2/A4/A5。
 > 约定：「事实」带路径。「建议」是本文的设计。「未核实」是没读到源码或没运行验证的内容。本版新核对：`plugins/hermes-experience` 与外部包的差异、`plugins/agent-presets/src/index.ts`、`packages/cli/src/index.ts:269,426-438,881`、`packages/cli/src/awake.ts:9-10,70-72`、`packages/core/src/runtime/quota-source.ts:156`、`scripts/` 目录。B1/B2 的数据直接引用，未重跑。
 
 ---

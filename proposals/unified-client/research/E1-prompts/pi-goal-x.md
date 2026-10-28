@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # pi-goal-x — 注入模型的提示词原文
 
 - 包: `pi-goal-x` 0.34.0

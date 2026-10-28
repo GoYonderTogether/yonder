@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [credentials.md](../credentials.md)
+
 # Yonder 密钥插件调研报告
 
 调研对象：`/Users/zoran/Documents/yonder-harness`（只读），本机 `~/.agents`、`~/Documents/vaultwarden-agent`，以及公开文档。所有结论标注文件:行号；未能在线核实的条目标注「未验证」。

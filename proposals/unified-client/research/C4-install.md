@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [release-ci.md](../release-ci.md)
+
 # 一键安装、卸载、迁移与客户端自动更新：现状与测试方案
 
 调研对象：`/Users/zoran/Documents/yonder-harness`（只读）。所有命令在本机 Apple M5 / macOS 27.2 / arm64 前台执行。未改动任何仓库文件，未提交、未推送。

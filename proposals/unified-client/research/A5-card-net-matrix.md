@@ -1,4 +1,6 @@
-I'll start by gathering the GitHub repository inventory and locating local checkouts in parallel.# Yonder 矩阵只读调研
+> 证据材料，结论已并入 [design.md](../design.md)
+
+# Yonder 矩阵只读调研
 
 调研时间：2026-10-27。全部为读取操作，未修改、未删除、未提交。
 
