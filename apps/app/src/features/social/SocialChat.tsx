@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { qk } from "../../api/keys";
 import { httpApi, type Message } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
@@ -30,7 +31,7 @@ export function SocialChat({ id }: { id: string }) {
 		queryFn: () => httpApi.messages(convId ?? ""),
 		enabled: !!convId,
 	});
-	const session = useQuery({ queryKey: ["social", "session"], queryFn: httpApi.session });
+	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	const lastSeq = messages.data?.at(-1)?.seq;
 	useEffect(() => {
 		if (convId && lastSeq !== undefined)

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { qk } from "../../api/keys";
 import { type Actor, type Card, httpApi } from "../../api/social";
 import { href, useRoute } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
@@ -31,7 +32,7 @@ function CardContent({
 		mutationFn: async () => {
 			if (!(await httpApi.session())) {
 				const anonymous = await httpApi.createAnonymous();
-				client.setQueryData(["social-session"], anonymous);
+				client.setQueryData(qk.socialSession, anonymous);
 			}
 			return card ? httpApi.startFromCard(card.id, "link") : httpApi.openDm(actor.id);
 		},
@@ -115,7 +116,7 @@ function PublicCard({ reference }: { reference: string }) {
 		queryFn: () => httpApi.card(cardId ?? ""),
 		enabled: !!cardId,
 	});
-	const session = useQuery({ queryKey: ["social-session"], queryFn: httpApi.session });
+	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	const [friendMessage, setFriendMessage] = useState("");
 	const client = useQueryClient();
 	const friend = useMutation({
@@ -262,7 +263,7 @@ function PublicCard({ reference }: { reference: string }) {
 
 function Wallet({ focus }: { focus?: string }) {
 	const [selected, setSelected] = useState(focus);
-	const session = useQuery({ queryKey: ["social-session"], queryFn: httpApi.session });
+	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	const cards = useQuery({ queryKey: ["cards"], queryFn: httpApi.cards });
 	const contacts = useQuery({ queryKey: ["contacts"], queryFn: httpApi.contacts });
 	if (session.isPending || cards.isPending || contacts.isPending)

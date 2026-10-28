@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Search, UserPlus, Wallet } from "lucide-react";
 import { useState } from "react";
+import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
 import { ContactList } from "./ContactList";
@@ -9,7 +10,7 @@ export function Contacts() {
 	const [q, setQ] = useState("");
 	const contacts = useQuery({ queryKey: ["contacts"], queryFn: httpApi.contacts });
 	const devices = useQuery({ queryKey: ["devices"], queryFn: httpApi.devices });
-	const session = useQuery({ queryKey: ["social-session"], queryFn: httpApi.session });
+	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	return (
 		<div className="flex h-full min-h-0 flex-col bg-ground">
 			<header className="flex items-center justify-between px-4 py-4">

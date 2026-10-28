@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
@@ -17,7 +18,7 @@ export function ContactDetail({ id }: { id: string }) {
 			return (await httpApi.actors([resolved?.id ?? id]))[0] ?? null;
 		},
 	});
-	const session = useQuery({ queryKey: ["social-session"], queryFn: httpApi.session });
+	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	const profile = useQuery({
 		queryKey: ["profile", actor.data?.id],
 		queryFn: () => (actor.data ? httpApi.profile(actor.data.id) : Promise.resolve(null)),

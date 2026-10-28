@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href, parse } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
@@ -25,7 +26,7 @@ export function SocialLogin() {
 			const session = await (mode === "login"
 				? httpApi.login({ email, password })
 				: httpApi.register({ email, password, name }));
-			qc.setQueryData(["social-session"], session);
+			qc.setQueryData(qk.socialSession, session);
 			// TODO: use a shared account-switch cache contract when one is available.
 			const next = query.get("next");
 			location.hash = href(next?.match(/^\/(?!\/)/) ? parse(`#${next}`) : { tab: "chats" });

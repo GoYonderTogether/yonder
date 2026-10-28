@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
 import { ActorAvatar } from "../../ui/kit/ActorAvatar";
@@ -8,7 +9,7 @@ import { Button } from "../../ui/kit/Button";
 export function GroupJoin({ token }: { token: string }) {
 	const qc = useQueryClient();
 	const group = useQuery({ queryKey: ["group", token], queryFn: () => httpApi.groupPreview(token) });
-	const session = useQuery({ queryKey: ["social-session"], queryFn: httpApi.session });
+	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const conversation = group.data?.member && group.data.convId ? (group.data.convCode ?? group.data.convId) : undefined;
@@ -53,7 +54,7 @@ export function GroupJoin({ token }: { token: string }) {
 		try {
 			if (!session.data) {
 				const anonymous = await httpApi.createAnonymous();
-				qc.setQueryData(["social-session"], anonymous);
+				qc.setQueryData(qk.socialSession, anonymous);
 			}
 			const conv = await httpApi.joinGroup(token);
 			void qc.invalidateQueries({ queryKey: ["convs"] });

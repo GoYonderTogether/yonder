@@ -3,6 +3,9 @@ import { PAGES } from "../src/shell/registry";
 import { PAGE_NAMES, parse } from "../src/shell/routes";
 
 describe("page registry", () => {
+	it("loads the profile for the me route", () => {
+		expect(PAGES.me.load).toBeTypeOf("function");
+	});
 	it("covers every route page", () => {
 		expect(Object.keys(PAGES).sort()).toEqual([...PAGE_NAMES].sort());
 	});

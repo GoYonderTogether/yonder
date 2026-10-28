@@ -35,7 +35,11 @@ export const PAGES: Record<Page, PageDef> = {
 		load: () => import("../features/social/CardPage").then((m) => ({ default: m.CardPage })),
 	},
 	work: { tab: "work", title: "工作" },
-	me: { tab: "me", title: "我" },
+	me: {
+		tab: "me",
+		title: "我",
+		load: () => import("../features/social/Profile").then((m) => ({ default: m.Profile })),
+	},
 	u: {
 		tab: "chats",
 		public: true,
