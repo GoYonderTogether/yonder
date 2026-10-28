@@ -48,3 +48,17 @@ Rust 固定 `1.99.0`：上一轮 1.92.0 两次下载未完成；本机 Homebrew 
 INF04 副本：`verify-copy.sh d01r3` 成功，副本 commit `02849e7c064d78729bf1e977b9fff2e295904214`，完整构建通过；`verify-home.sh d01r3 --copy d01r3` 启动成功，`real-check.sh` 使用 siliconflow/deepseek-ai/DeepSeek-V3.2 真实回复成功（6.5 秒），验收 HOME 已停止。副本中 Swift 构建产物 `du -sk` 为 516 KiB，不含 gateway/Node。
 
 Tauri release 构建尝试：副本执行 `npm run build` 在 `tauri: command not found` 退出；借用本机已有 CLI 后在线索引未完成而手动中断，离线重试报 `no matching package named tauri found`。因此 release 包体积未测；这不是桌面运行验收。
+
+## D01r4（2026-10-28）
+
+**结论：保留 Swift。** 节点偏好和两壳通知接线已实现，但系统通知、点击及离线外观没有完成真实验收；缺少 Electron 实测，不能据此转 Electron，也不能据构建成功判定 Tauri 可替代 Swift。
+
+| 项目 | Tauri | Swift |
+|---|---|---|
+| release 体积 | 660.84 MiB，含运行树 | 552 KiB，不含 Node/gateway，不可直接等量比较 |
+| 冷/热启动各三次 | 热启动至窗口出现 1.498、1.208、1.317 秒，中位 1.317 秒；不代表可交互，冷启动未计时 | 三次进程启动至网关 TCP 连接为 3.518、1.019、1.128 秒，中位 1.128 秒；未清缓存，非冷启动或页面可交互计时 |
+| 通知及点击 | 未验证 | 系统日志未发现该壳通知，弹出与点击未验证 |
+| 杀死壳后恢复 | SIGKILL 后 10 秒未自动恢复，手动重启三次成功 | SIGKILL 后 2 秒内未自动恢复，手动重启存活 |
+| gateway 断线托盘 | 操作交错且辅助功能权限不足，未验证 | 断线后进程存活且 TCP 连接为零；辅助功能权限返回 -1719，托盘外观未验证 |
+
+`c4164a8` 推送后，`verify-copy.sh d01r4` 完成并确认副本同 commit；`verify-home.sh` 成功启动，`real-check.sh` 真实模型回复成功（11.6 秒；另一次 173.2 秒）。验收 HOME 为 Tauri 检查临时将 basePath 设为 /console/ 并重启，检查后停止。联网 cargo fetch 首次在 crates.io 索引停滞并中断，离线缺 tauri 索引；命令级 rsproxy 源替换后 fetch 成功，池副本 release 编译通过。CLI 2.12.4 与独立 lockfile 原已精确锁定。Vitest target 排除用真实哨兵文件验证。core 聚焦测试最终 9 项通过；路由与运行时测试 4 项通过；gateway carrier 专项 1 通过、6 跳过。gateway 合跑原始结果 9 通过、1 失败，失败为并行 `social.policy-change` 未见 contracts。首次 core 类型检查因并行 provider-trace 测试 3 个类型错误失败，最终 core 类型检查通过；首次偏好聚焦测试 9 通过、3 失败，修正后重跑通过。Swift 编译通过，均不等同于系统通知验收。
