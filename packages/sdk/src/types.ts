@@ -315,6 +315,8 @@ export type OutputPart =
 export interface Tool {
 	name: string;
 	description: string;
+	/** Guidance included only when this tool is offered to the model. */
+	guidelines?: string[];
 	parameters: TSchema;
 	capabilities: Capability[];
 	execute(args: unknown, ctx: ToolContext): Promise<ToolResult>;

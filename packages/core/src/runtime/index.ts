@@ -568,7 +568,7 @@ export class Runtime {
 		const searchBase = createToolSearchExtension();
 		const search = {
 			...searchBase,
-			tools: searchBase.tools?.map((tool) => ({
+			tools: (searchBase.tools ?? []).map((tool) => ({
 				...tool,
 				description: "Find and load selected deferred tools for the next model request.",
 			})),

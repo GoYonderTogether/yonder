@@ -196,7 +196,11 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "message_send",
 			description:
-				"Send to a real recipient/channel or deliver actual attachments. Normal final text returns to the input source or waiting caller automatically; do not duplicate it or send a child task result separately to its parent. replyTo accepts a turn event id or native message id from the target conversation; the kernel verifies and converts it. Use owner or a verified person:/acct:/conv: reference, and via when a specific channel is intended. Attachment uri must be an actual supported reference, never a guessed path. A returned delivery result is not a read receipt; uncertain delivery must not be blindly resent.",
+				"Send a message or actual attachments to a verified recipient or channel. A delivery result is not a read receipt.",
+			guidelines: [
+				"Normal final text returns to its source automatically; do not duplicate it or send a child result separately to its parent.",
+				"For message_send use owner or a verified person:, acct:, or conv: reference, and via for a specific channel. replyTo accepts a target conversation event or native message id. Attachments must be actual supported references; verify uncertain delivery before retrying.",
+			],
 			parameters: schema({
 				to: Type.String({
 					minLength: 1,
@@ -352,7 +356,11 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "task_run",
-			description: `Delegate bounded work using an available preset. Include the goal, actual repository/cwd, relevant materials, allowed changes and finish condition; label root-cause guesses as hypotheses. Require the child's first line to be STATUS: done|partial|blocked, then actual evidence, remaining items and the exact blocker; a run status of done means only that the run ended, so verify it. Explicit attachments and sources travel to the child; sources quotes inbound messages verbatim from this source conversation. effort selects this run's thinking level; credentialSlots selects provider -> slot overrides for this run (both require admin). Omit credentialSlots to use only the preset's own model accounts, never the parent's. The child has no resident persona and cannot exceed your capabilities. After 15 seconds a background handle returns; completion automatically resumes you, so do not repeat the task or queue a poll. Check status/reason, evidence and actual artifacts before delivering. Available presets: ${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
+			description: `Delegate bounded work to an available preset. Available presets: ${(options.presets?.() ?? []).map((preset) => `${preset.id}: ${preset.description}`).join("；")}`,
+			guidelines: [
+				"For task_run include the goal, working location, materials, allowed changes and finish condition; label hypotheses. Ask for STATUS: done|partial|blocked, evidence and remaining work, then verify artifacts before delivery.",
+				"The child has no resident persona and cannot exceed your capabilities. Sources and attachments travel to it; effort and credentialSlots require admin. Credentials default to the preset, not the parent. After 15 seconds completion resumes you automatically; do not repeat or poll the task.",
+			],
 			parameters: schema({
 				preset: text(),
 				task: text(),
