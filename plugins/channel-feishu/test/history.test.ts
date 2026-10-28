@@ -58,6 +58,22 @@ async function harness(ledger: YEvent[] = [], options: { preserveWatermarks?: bo
 }
 
 describe("Feishu history protocol (no network/model)", () => {
+	it("does not treat a missing mention identity as the bot before bot info is available", async () => {
+		const { channel, internal, emitted } = await harness();
+		await internal.receive({
+			sender: { sender_type: "user", sender_id: { open_id: "user-a" }, tenant_key: "tenant" },
+			message: {
+				message_id: "missing-mention",
+				chat_id: "chat",
+				chat_type: "group",
+				message_type: "text",
+				content: '{"text":"hello"}',
+				mentions: [{ id: {} }],
+			},
+		});
+		expect(emitted[0].data).toMatchObject({ mentioned: false });
+		await channel.stop();
+	});
 	it("migrates old ledgers from the latest completed native timestamp and recovers the upgrade gap", async () => {
 		const event = (id: string, data: object, ts = 9000): YEvent => ({
 			id,

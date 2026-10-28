@@ -529,9 +529,9 @@ export class FeishuChannel implements Channel {
 			? message.mentions.map((value) => string(object(object(value).id).open_id))
 			: [];
 		const mentioned =
-			mentions.includes(this.botId) ||
+			(Boolean(this.botId) && mentions.includes(this.botId)) ||
 			mentions.includes("all") ||
-			parsed.mentions.includes(this.botId) ||
+			(Boolean(this.botId) && parsed.mentions.includes(this.botId)) ||
 			parsed.mentions.includes("all");
 		const input: EventInput = {
 			type: "message.in",
