@@ -115,7 +115,7 @@ function reduce(s: SessionView, a: Act): SessionView {
 			...s,
 			ready: true,
 			session: snap.session ?? s.session,
-			// 契约形状带 transcript；当前网关不带，由随后的 session.update snapshot 重建
+			// ready.result 带 transcript 时直接重建；否则等随后的 session.update snapshot
 			items: snap.transcript ? fromTranscript(snap.transcript.items) : s.items,
 			hasMore: snap.transcript?.hasMore ?? s.hasMore,
 			model: modelOf(snap) ?? s.model,

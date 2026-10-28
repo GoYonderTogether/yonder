@@ -100,7 +100,9 @@ export function applyMessage(
 	} else if (m.role === "compactionSummary" || m.role === "branchSummary") {
 		item = { id, role: "summary", text: m.summary ?? textOf(m), tools: [] };
 	} else return list;
-	const at = list.findIndex((x) => x.id === id);
+	let at = list.findIndex((x) => x.id === id);
+	// 流式阶段用临时 id "live"；落盘后的正式消息替换它，避免重复气泡
+	if (at < 0 && item.role === "assistant" && id !== "live") at = list.findIndex((x) => x.id === "live");
 	if (at < 0) return [...list, mergeTools(item, undefined)];
 	const next = list.slice();
 	next[at] = mergeTools(item, list[at]);
@@ -137,15 +139,20 @@ export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 		const id = `t${t.id}`;
 		if (t.kind === "pi.compaction") out.push({ id, role: "summary", text: t.text, tools: [] });
 		else if (t.kind === "pi.tool-result" || t.kind === "pi.tool") continue;
-		else if (t.kind === "pi.assistant" || t.kind === "pi.generation")
+		else if (t.kind === "pi.assistant" || t.kind === "pi.generation") {
+			if (!t.text.trim() && !t.tools?.length) continue;
 			out.push({
 				id,
 				role: "assistant",
 				text: t.text,
 				tools: (t.tools ?? []).map((x, i) => ({ id: `${id}.${i}`, name: x.name, args: x.args, done: true })),
 			});
-		else if (t.kind === "pi.user" || t.kind === "pi.inbox") {
+		}
+		// 当前网关的 transcript 里用户输入是 yonder.message（原文，无 <turn> 包装）
+		else if (t.kind === "pi.user" || t.kind === "pi.inbox" || t.kind === "yonder.message") {
 			const { body, channel } = splitTurn(t.text);
+			const last = out.at(-1);
+			if (last?.role === "user" && last.text === body) continue;
 			if (body.trim()) out.push({ id, role: "user", text: body, channel, from: t.from, tools: [] });
 		} else if (t.from && t.text) out.push({ id, role: "notice", text: t.text, from: t.from, tools: [] });
 	}
