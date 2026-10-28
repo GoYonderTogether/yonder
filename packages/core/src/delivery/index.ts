@@ -97,6 +97,18 @@ const channelId = (ref: string) => {
 export function stopNotice(reason: string): string {
 	if (/connection error|fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket|network/i.test(reason))
 		return "网络连接中断，这一轮没有完成。网络恢复后回我一句，我接着做。";
+	// A run that never got an answer must say so: the model chain is the one failure the person cannot see from the
+	// channel side, and silence reads as "Jarvis is ignoring me" (G1 §6.6 tier 3).
+	if (/^(model_error|no_model)\b/i.test(reason)) {
+		const brief = reason
+			.replace(/^(model_error|no_model)\s*[:：]?\s*/i, "")
+			.replace(/^Model (fallback chain|retries) exhausted \([^)]*\):\s*/i, "")
+			.replace(/\s+/g, " ")
+			.trim();
+		return brief
+			? `模型都不可用（model_error），这一轮没有完成。原因：${brief.length > 160 ? `${brief.slice(0, 160)}…` : brief}`
+			: "模型都不可用（model_error），这一轮没有完成。过一会儿回我一句，我重试。";
+	}
 	const brief = reason.replace(/\s+/g, " ").trim();
 	return `运行已停止：${brief.length > 160 ? `${brief.slice(0, 160)}…` : brief}。`;
 }

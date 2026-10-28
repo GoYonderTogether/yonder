@@ -13,3 +13,10 @@ test("other stops keep a short reason", () => {
 	expect(stopNotice("repeatStop")).toBe("运行已停止：repeatStop。");
 	expect(stopNotice("x".repeat(400))).toHaveLength("运行已停止：".length + 161 + 1);
 });
+
+test("an exhausted model chain tells the person the round did not finish", () => {
+	expect(
+		stopNotice("model_error: Model fallback chain exhausted (3 consecutive failures per model): 429 Too Many Requests"),
+	).toBe("模型都不可用（model_error），这一轮没有完成。原因：429 Too Many Requests");
+	expect(stopNotice("no_model")).toBe("模型都不可用（model_error），这一轮没有完成。过一会儿回我一句，我重试。");
+});
