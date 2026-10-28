@@ -248,6 +248,7 @@ export async function createStore(
 						...event.data,
 						outgoing: (event.data as { outgoing?: object }).outgoing ?? {
 							text: saved.text,
+							...(saved.sourceMessageId ? { sourceMessageId: saved.sourceMessageId } : {}),
 							...(saved.attachments ? { attachments: saved.attachments } : {}),
 						},
 						...(sender ? { from: sender } : {}),

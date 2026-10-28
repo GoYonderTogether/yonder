@@ -45,7 +45,12 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 	};
 	await store.sessions.put(session);
 	const event = newEvent(
-		{ type: "message.in", from: "acct:test:owner", conv: "conv:test:chat", data: { text: "check", kind: "dm" } },
+		{
+			type: "message.in",
+			from: "acct:test:owner",
+			conv: "conv:test:chat",
+			data: { text: "check", kind: "dm", msgId: "source" },
+		},
 		[{ agent: "main", session: "1", binding: "source", waiting: false }],
 	);
 	await store.events.append(event);
@@ -199,12 +204,18 @@ test("slow channels do not hold model termination; unknown progress does not swa
 
 test("an ordinary message that is a control-marker prefix is released at message end", async () => {
 	const x = await setup();
+	const send = vi.spyOn(x.channel, "send");
 	try {
 		x.emit({ type: "message_start", id: "short" });
 		x.emit({ type: "text", delta: "NO" });
 		x.emit({ type: "message_end", text: "NO" });
 		await expect.poll(() => x.sent.length).toBe(1);
 		expect(x.sent).toEqual(["NO"]);
+		expect(send).toHaveBeenCalledWith(
+			"conv:test:chat",
+			expect.objectContaining({ sourceMessageId: "source" }),
+			expect.any(AbortSignal),
+		);
 		await x.finish("NO", "short");
 		await new Promise((done) => setTimeout(done, 10));
 		expect(x.sent).toEqual(["NO"]);
@@ -308,6 +319,7 @@ test("shutdown during a retry dispatch preserves uncertainty and never replays a
 
 test("a wholly unsent streaming message recovers its full closed text from the same ledger after restart", async () => {
 	const x = await setup();
+	const send = vi.spyOn(x.channel, "send");
 	x.channel.stream = async () => ({ ok: false, retryable: true, error: "ENOTFOUND before card creation" });
 	try {
 		x.emit({ type: "message_start", id: "unsent" });
@@ -327,6 +339,11 @@ test("a wholly unsent streaming message recovers its full closed text from the s
 			await reopened.recover();
 			reopened.start();
 			await expect.poll(() => x.sent, { timeout: 5000 }).toEqual(["complete final body"]);
+			expect(send).toHaveBeenCalledWith(
+				"conv:test:chat",
+				expect.objectContaining({ sourceMessageId: "source" }),
+				expect.any(AbortSignal),
+			);
 			expect((await x.store.events.query({ type: "message.attempt" })).events).toHaveLength(1);
 			expect(await x.store.events.retryableAttempts()).toHaveLength(0);
 		} finally {

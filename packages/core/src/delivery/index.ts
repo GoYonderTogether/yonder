@@ -81,7 +81,7 @@ class OutputQueue implements AsyncIterable<OutputPart> {
 		}
 	}
 }
-interface StreamState {
+interface StreamState extends Pick<MessageRequest, "sourceMessageId"> {
 	target: string;
 	queue: OutputQueue;
 	gate: ReplyText;
@@ -121,7 +121,6 @@ export function sourceMessage(event: YEvent): string | undefined {
 	const original = data.originals?.at(-1);
 	return original?.messageId ?? original?.msgId ?? data.msgId;
 }
-
 export function createDelivery(options: DeliveryOptions) {
 	const { store, agents, channels, sessions } = options;
 	const { attempt, record, unknown } = createLedger(store);
@@ -342,7 +341,7 @@ export function createDelivery(options: DeliveryOptions) {
 				await record(
 					fromSession(session),
 					stream.target,
-					{ text },
+					{ text, ...(stream.sourceMessageId ? { sourceMessageId: stream.sourceMessageId } : {}) },
 					delivered,
 					session.id,
 					state.owner,
@@ -358,7 +357,8 @@ export function createDelivery(options: DeliveryOptions) {
 		event: YEvent,
 		waiter: boolean,
 	): ((part: OutputPart, runId?: string) => void) | undefined {
-		const target = event.conv;
+		const target = event.conv,
+			sourceMessageId = sourceMessage(event);
 		if (waiter || !target) return;
 		return (part, runId) => {
 			if (!runId || part.type === "final") return;
@@ -394,7 +394,7 @@ export function createDelivery(options: DeliveryOptions) {
 						await previous;
 						await send(
 							fromSession(session),
-							{ to: target, text },
+							{ to: target, text, ...(sourceMessageId ? { sourceMessageId } : {}) },
 							session,
 							event.id,
 							config,
@@ -410,6 +410,7 @@ export function createDelivery(options: DeliveryOptions) {
 			if (!state.current) {
 				state.current = {
 					target,
+					...(sourceMessageId ? { sourceMessageId } : {}),
 					queue: new OutputQueue(),
 					gate: new ReplyText(),
 					text: "",
