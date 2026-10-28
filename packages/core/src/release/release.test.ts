@@ -96,15 +96,17 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 		const wrapper = join(directory, "yonder"),
 			plist = join(directory, "service.plist");
 		await writeFile(wrapper, launcher(directory));
-		execFileSync("/bin/sh", ["-n", wrapper]);
+		// Shell syntax validation applies to the POSIX launcher only.
+		if (process.platform !== "win32") execFileSync("/bin/sh", ["-n", wrapper]);
 		const text = servicePlist(directory, directory);
 		await writeFile(plist, text);
-		expect(text).toContain("bin/yonder-service</string>");
+		expect(text).toContain(`${join("bin", "yonder-service")}</string>`);
 		expect(text).not.toContain("<string>start</string>");
 		expect(servicePlist(directory, directory, "/bin", false)).toContain("<string>--json</string>");
 		await writeFile(wrapper, serviceLauncher(directory));
-		execFileSync("/bin/sh", ["-n", wrapper]);
-		expect(await readFile(wrapper, "utf8")).toContain("current/scripts/yonder-service-host.mjs");
+		// Shell syntax validation applies to the POSIX launcher only.
+		if (process.platform !== "win32") execFileSync("/bin/sh", ["-n", wrapper]);
+		expect(await readFile(wrapper, "utf8")).toContain(join("current", "scripts", "yonder-service-host.mjs"));
 		expect(text).toContain("&amp;");
 		expect(text).toContain("&apos;");
 		expect(text.match(/<key>PATH<\/key>|<key>YONDER_INSTALL<\/key>|<key>YONDER_HOME<\/key>/gu) ?? []).toHaveLength(3);
