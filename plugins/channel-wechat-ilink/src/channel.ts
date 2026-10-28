@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -23,6 +23,9 @@ import {
 	type Item,
 	type Message,
 } from "./client.js";
+import { privateWrite } from "./private-write.js";
+
+export { privateWrite } from "./private-write.js";
 
 export interface Config {
 	person?: string | null;
@@ -42,12 +45,6 @@ interface State {
 	linked?: boolean;
 	contexts: Record<string, string>;
 	seen: Record<string, string>;
-}
-export async function privateWrite(file: string, value: unknown): Promise<void> {
-	const temp = `${file}.${randomUUID()}.tmp`;
-	await writeFile(temp, JSON.stringify(value), { mode: 0o600 });
-	await rename(temp, file);
-	await chmod(file, 0o600);
 }
 export class IlinkChannel implements Channel {
 	readonly kinds = ["dm"];
