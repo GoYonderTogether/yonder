@@ -1,6 +1,8 @@
+> 证据材料，结论已并入 [release-ci.md](../release-ci.md)
+
 # 一键安装、卸载、迁移与客户端自动更新：现状与测试方案
 
-调研对象：`/Users/zoran/Documents/yonder-harness`（只读）。所有命令在本机 Apple M5 / macOS 27.2 / arm64 前台执行。未改动任何仓库文件，未提交、未推送。
+调研对象：`~/Documents/yonder-harness`（只读）。所有命令在本机 Apple M5 / macOS 27.2 / arm64 前台执行。未改动任何仓库文件，未提交、未推送。
 
 ## 0. 结论摘要
 
@@ -48,7 +50,7 @@
 
 - `~/.yonder-harness/`：`bin/`、`current -> versions/0.2.26102705`、`versions/`（3 个）。
 - `~/.local/share/yonder-harness/`：`home/`、`helper/`（`Yonder Helper.app`、`permissions-state.json`、`permissions.lock`、`yonder-permissions`）、`archives/`、`deployment/`。
-- `~/Library/LaunchAgents/dev.yonder.harness.plist`（实测 ProgramArguments = `["/Users/zoran/.yonder-harness/bin/yonder-service","--home","/Users/zoran/.local/share/yonder-harness/home"]`，EnvironmentVariables 仅 PATH/YONDER_INSTALL/YONDER_HOME）。
+- `~/Library/LaunchAgents/dev.yonder.harness.plist`（实测 ProgramArguments = `["~/.yonder-harness/bin/yonder-service","--home","~/.local/share/yonder-harness/home"]`，EnvironmentVariables 仅 PATH/YONDER_INSTALL/YONDER_HOME）。
 - `~/Library/LaunchAgents/dev.yonder.harness.status.plist`（ProgramArguments = `<install>/current/packages/macos/dist/YonderStatus.app/Contents/MacOS/YonderStatus`）。
 - 若跑过 `yonder awake install`：`/Library/PrivilegedHelperTools/dev.yonder.harness.power` 与 `/Library/LaunchDaemons/dev.yonder.harness.power.plist`（`packages/cli/src/awake.ts:63-92`，经 `osascript … with administrator privileges`）。
 - PATH：**不写任何 shell 配置**，仅 wrapper 内嵌安装时 PATH（`index.ts:279-302`）。

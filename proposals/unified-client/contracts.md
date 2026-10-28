@@ -89,7 +89,7 @@ interface SessionSnapshot {          // sessions.watch ready.result，对 Sessio
   context: ContextSnapshot;
 }
 interface ActivitySummary {
-  running: number; waiting: number;  // 「在跑」「等你回答」：顶栏、托盘、悬浮窗同一个数
+  running: number; waiting: number;  // 「在跑」「等你回答」：图标栏、托盘、悬浮窗同一个数
   suggestions?: number;
   sessions: { id: string; state: "running"|"waiting"|"idle"|"error"; since: string }[];
 }
@@ -111,7 +111,7 @@ interface InputReceipt { event: string; session: string; deduped?: boolean }
 | `attachments.put` | write | `POST /api/attachments`，原始字节，头 `Content-Type`、可选 `X-Name` | `{ uri: string; bytes: number; mime: string }` | 新增·B（网关落盘到 home 下附件目录，返回的 `uri` 可直接放入 `submit.attachments`；socket 上不提供） |
 | `approvals.list` | read | `{ state?: "pending"\|"all" }` | `{ items: ApprovalCard[] }` | 新增·A（secrets 插件经 views/事件库读出；`credentials.md` §6.2） |
 | `approvals.answer` | write | `{ approvalId: string; decision: "approve"\|"deny" }` | `{ state: "answered"; by: string; first: boolean }` | 新增·A；同一 `approvalId` 只生效一次，重复回答 `first:false` |
-| `views.list` | read | `{ placement?: "rail"\|"main"\|"companion" }` | `{ views: ViewDocument[] }` | 新增·A（design §4.8；`ViewDocument` 类型归 SDK） |
+| `views.list` | read | `{ placement?: "rail"\|"floating"\|"main"\|"companion" }` | `{ views: ViewDocument[] }` | 新增·A（design §4.8；`ViewDocument` 类型归 SDK） |
 | `views.watch` | read | `{ placement? }` | 同 `views.list`，流式 | 新增·A |
 | `views.act` | write | `{ viewId: string; action: string; input?: unknown }` | `{ document?: ViewDocument }` | 新增·A |
 | `events.query` | read | `EventQuery`（sdk `types.ts`：`id,type,from,conv,agent,since,until,after,limit`） | `EventPage` | 已有 |
@@ -288,7 +288,7 @@ type ApprovalAnsweredEv  = { approvalId: string; state: "approved" | "denied" | 
 ### 3.6 views、通知
 
 ```ts
-interface ViewsChangedEv { placement: "rail" | "main" | "companion"; ids: string[]; badge?: Record<string, number> }
+interface ViewsChangedEv { placement: "rail" | "floating" | "main" | "companion"; ids: string[]; badge?: Record<string, number> }
 interface NotificationEv { id: number; from: string; event: string; text: string; session?: string } // = SessionNotification【已有】
 interface CapabilitiesChangedEv { reason: "plugin-reload" | "config-reload" }
 ```

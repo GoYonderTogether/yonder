@@ -1,8 +1,10 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # Yonder 社交模式与工作台 Bot 主对话：交互设计调研
 
 调研日期：2026-10-27。只读调研，未修改任何仓库。
 
-**调研范围与判据**：Card 前端（已上线）/Users/zoran/Documents/yonder-card-consolidate/src；旧前端 AI-Being（bundle 克隆到 /tmp/aibeing-ref）、/Users/zoran/Documents/github/yonder-being、/Users/zoran/Documents/github/grok-bot-0.18-reconstructed；内核 /Users/zoran/Documents/yonder-harness；目标设计 proposals/unified-client/design.md。
+**调研范围与判据**：Card 前端（已上线）~/Documents/yonder-card-consolidate/src；旧前端 AI-Being（bundle 克隆到 /tmp/aibeing-ref）、~/Documents/github/yonder-being、~/Documents/github/grok-bot-0.18-reconstructed；内核 ~/Documents/yonder-harness；目标设计 proposals/unified-client/design.md。
 
 ---
 

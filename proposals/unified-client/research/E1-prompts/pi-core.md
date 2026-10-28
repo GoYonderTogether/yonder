@@ -1,9 +1,11 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # pi-core — pi 本体拼装系统提示词的原文
 
 - 包: `@earendil-works/pi-coding-agent` 1.4.0
-- License: 见 `/Users/zoran/.local/share/mise/installs/node/24.21.0/lib/node_modules/@earendil-works/pi-coding-agent/LICENSE`（pi 自身许可，未在本次调研中复制正文）
+- License: 见 `~/.local/share/mise/installs/node/24.21.0/lib/node_modules/@earendil-works/pi-coding-agent/LICENSE`（pi 自身许可，未在本次调研中复制正文）
 - 仓库: https://github.com/earendil-works/pi
-- 来源: `/Users/zoran/.local/share/mise/installs/node/24.21.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/system-prompt.js`、`dist/core/skills.js`、`dist/core/resource-loader.js`、`dist/core/compaction/compaction.js`、`dist/core/settings-defaults.js`
+- 来源: `~/.local/share/mise/installs/node/24.21.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/system-prompt.js`、`dist/core/skills.js`、`dist/core/resource-loader.js`、`dist/core/compaction/compaction.js`、`dist/core/settings-defaults.js`
 - 说明: pi 的系统提示词不是一整段常量，而是 `buildSystemPromptSections()` 组装的分段结构。除 preamble 外，每段都包在 `<段名>\n…\n</段名>` 里，段名依次为 `tools`、`rules`、`docs`、`addendum`、`project_context`、`skills`、`cwd`，扩展可用 `event.systemPromptOptions.sections.<key>` 追加自定义段（`diffSystemPromptSections` 只把变化段以增量补丁发出，`null` 表示删除该段——这是保住前缀缓存的关键）。
 
 ## 1. preamble（无包裹标签）

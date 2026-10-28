@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # Yonder Harness 面向人的界面/客户端表面盘点
 
 ## 1. 总览
