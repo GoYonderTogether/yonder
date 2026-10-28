@@ -158,7 +158,7 @@ export function claimMoments(
 		const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
 		if (moment === "postCompact" && last) continue;
 		if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
-		append(db, task.id, "moment", { moment }, now);
+		if (moment !== "user-wait") append(db, task.id, "moment", { moment }, now);
 		due.push({
 			task,
 			moment,

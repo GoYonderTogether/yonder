@@ -23,5 +23,8 @@ export const STALL_NOTICE = (title: string, state: string, minutes: number) =>
 export const NUDGE_INPUT = (title: string, from: string, say: string) =>
   `Reminder from ${from} about task "${title}": ${say} Reply by continuing the work, or mark it blocked or waiting-user and name the one thing that stops it.`;
 
-export const USER_WAIT_NOTICE = (zh: boolean, title: string, minutes: number, waitingFor: string) =>
-  zh ? `任务「${title}」已等你 ${minutes} 分钟：${waitingFor}` : `Task "${title}" has been waiting on you for ${minutes} minutes: ${waitingFor}`;
+export const USER_WAIT_NOTICE = (zh: boolean, title: string, minutes: number, waitingFor: string) => {
+  const hours = Math.round(minutes / 60);
+  const duration = minutes >= 60 ? (zh ? `约 ${hours} 小时` : `about ${hours} ${hours === 1 ? "hour" : "hours"}`) : (zh ? `${minutes} 分钟` : `${minutes} minutes`);
+  return zh ? `任务「${title}」已等你 ${duration}：${waitingFor}` : `Task "${title}" has been waiting on you for ${duration}: ${waitingFor}`;
+};

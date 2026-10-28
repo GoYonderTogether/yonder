@@ -56,6 +56,14 @@ export class Store {
 	claimMoments(now: number, stallMinutes: number, userWaitMinutes: number, postCompact: boolean) {
 		return claimMoments(this.#handle, now, stallMinutes, userWaitMinutes, postCompact);
 	}
+	claimReminder(destination: string, now: number): boolean {
+		const result = this.#handle
+			.prepare(`INSERT INTO reminder_windows(destination, claimed) VALUES (?, ?)
+			ON CONFLICT(destination) DO UPDATE SET claimed = excluded.claimed
+			WHERE reminder_windows.claimed <= excluded.claimed - 86400000`)
+			.run(destination, now);
+		return Number(result.changes) === 1;
+	}
 	momentResult(id: string, moment: Moment, data: { result?: unknown; error?: string }, now: number): void {
 		momentResult(this.#handle, id, moment, data, now);
 	}

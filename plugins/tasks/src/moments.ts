@@ -10,12 +10,21 @@ export interface Config {
 }
 
 export async function tick(api: PluginAPI, store: Store, config: Config = {}, now = Date.now()) {
-	for (const { task, moment, minutes, waitingFor } of store.claimMoments(
+	const due = store.claimMoments(
 		now,
 		config.stallMinutes ?? 30,
 		config.userWaitMinutes ?? 120,
 		config.moments?.postCompact === true,
-	)) {
+	);
+	const reminders = new Map<string, typeof due>();
+	for (const item of due) {
+		if (item.moment === "user-wait" && item.task.origin) {
+			const group = reminders.get(item.task.origin) ?? [];
+			group.push(item);
+			reminders.set(item.task.origin, group);
+			continue;
+		}
+		const { task, moment, minutes } = item;
 		try {
 			const result =
 				moment === "stall"
@@ -24,15 +33,30 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 							{ text: STALL_NOTICE(task.title, task.state, minutes) },
 							{ busy: "followup" },
 						)
-					: moment === "user-wait"
-						? await api.messages.send({
-								to: task.origin!,
-								text: USER_WAIT_NOTICE(api.locale.startsWith("zh"), task.title, minutes, waitingFor),
-							})
-						: await api.sessions.command(task.session, "compact");
+					: await api.sessions.command(task.session, "compact");
 			store.momentResult(task.id, moment, { result }, now);
 		} catch (error) {
 			store.momentResult(task.id, moment, { error: error instanceof Error ? error.message : String(error) }, now);
+		}
+	}
+	for (const [destination, group] of reminders) {
+		if (!store.claimReminder(destination, now)) continue;
+		try {
+			const text = group
+				.map(({ task, minutes, waitingFor }) =>
+					USER_WAIT_NOTICE(api.locale.startsWith("zh"), task.title, minutes, waitingFor),
+				)
+				.join("\n");
+			const result = await api.messages.send({ to: destination, text });
+			for (const { task } of group) store.momentResult(task.id, "user-wait", { result }, now);
+		} catch (error) {
+			for (const { task } of group)
+				store.momentResult(
+					task.id,
+					"user-wait",
+					{ error: error instanceof Error ? error.message : String(error) },
+					now,
+				);
 		}
 	}
 }
