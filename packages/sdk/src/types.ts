@@ -375,6 +375,17 @@ export interface ToolCall {
 	args: object;
 }
 export type HookResult<T> = T | undefined | Promise<T | undefined>;
+/** Read-only host facts for setup guidance (`PluginAPI.host.status`); never carries secret values. */
+export interface HostStatus {
+	/** yonder.yaml `defaultModel` and the model the calling session resolves to. */
+	model: { default?: string; session: string; known: boolean; authConfigured: boolean };
+	channels: Array<{ instance: string; type: string; login: boolean }>;
+	plugins: Array<{ id: string; use: string }>;
+	/** Third-party channel plugins installed with this release but without an instance in yonder.yaml. */
+	shippedChannels: Array<{ type: string; plugin: string }>;
+	gateway: { enabled: boolean; port?: number };
+	credentials: Array<{ provider: string; slot: string; configured: boolean }>;
+}
 export interface ServiceEndpoint {
 	id: string;
 	protocol: string;
@@ -476,6 +487,8 @@ export interface PluginAPI {
 	sessions: SessionsAPI;
 	identity: IdentityAPI;
 	services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };
+	/** Read-only host facts. `status` needs an admin tool context; `modelReady` only says whether an agent's default model has auth. */
+	host: { status(ctx: ToolContext): Promise<HostStatus>; modelReady(agent: string): Promise<boolean> };
 	models: Models;
 	paths: { data: string };
 }

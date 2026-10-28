@@ -149,6 +149,11 @@ export async function initHome(
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
 	await mkdir(join(home, "presets"), { recursive: true });
+	// 管家（design §5.2/§5.3）：发行包带 onboarding 且它服务的 agent 就是 main 时，main 选入它与 tasks，
+	// 并由该插件写的 onboarding.start（conv:onboarding:<agent>）唤醒。
+	const entry = config.plugins?.find((plugin) => plugin.use === "@yonder/plugin-onboarding");
+	const butler = (entry?.config as { agent?: string } | undefined)?.agent ?? "main";
+	const onboarding = !!entry && butler === "main";
 	const agent: AgentConfig = withDefaultPeer(
 		{
 			schema: 1,
@@ -158,21 +163,34 @@ export async function initHome(
 			defaultProfile: "owner",
 			defaults: {
 				contexts: ["jarvis-soul", "jarvis-work"],
-				plugins: ["context-files", "agent-presets"],
+				plugins: ["context-files", "agent-presets", ...(onboarding ? ["tasks", "onboarding"] : [])],
 			},
 			profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
 			// 没有 cli 渠道实例的发行包（core）不写这条绑定，否则配置校验会报 unknown channel cli。
-			bindings: bundle.channels.cli
-				? [
-						{
-							id: "owner",
-							match: { channel: "cli", kind: "dm", from: "owner" },
-							session: "main",
-							profile: "owner",
-							stream: true,
-						},
-					]
-				: [],
+			bindings: [
+				...(bundle.channels.cli
+					? [
+							{
+								id: "owner",
+								match: { channel: "cli", kind: "dm", from: "owner" },
+								session: "main" as const,
+								profile: "owner",
+								stream: true,
+							},
+						]
+					: []),
+				// isolated 保守拒绝任何不限渠道的绑定（peer.ts canReceivePeerAsk），此时由主人主动要求继续引导。
+				...(onboarding && !options.isolated
+					? [
+							{
+								id: "onboarding",
+								match: { type: "onboarding.start", conv: `conv:onboarding:${butler}` },
+								session: "main" as const,
+								profile: "owner",
+							},
+						]
+					: []),
+			],
 		},
 		options.isolated,
 		"local",

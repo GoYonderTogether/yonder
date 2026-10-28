@@ -38,7 +38,8 @@
 		"plugins/devices",
 		"plugins/learning",
 		"plugins/hermes-experience",
-		"plugins/tasks"
+		"plugins/tasks",
+		"plugins/onboarding"
 	],
 	"scripts": {
 		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/ui-companion/build.mjs && npm run build:app",

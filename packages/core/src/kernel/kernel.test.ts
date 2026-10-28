@@ -1,8 +1,12 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseAgentConfig } from "../config/index.js";
 import { testModel } from "../config/test-support.js";
+import { pluginDataPath } from "../plugins/index.js";
 import { initHome, inspectHome, manageHome, offlineQuery, openKernel } from "./index.js";
 
 test("initialize, inspect, start, stop and query a real empty home", async () => {
@@ -13,7 +17,11 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 			use: "@yonder/plugin-ui-companion",
 		});
 		const file = `${home}/agents/main/agent.yaml`;
-		await writeFile(file, (await readFile(file, "utf8")).replace("      channel: cli\n", ""));
+		const agent = parse((await readFile(file, "utf8")).replace("      channel: cli\n", ""));
+		// 这条用例验证空 home；管家首次引导的唤醒由下一条用例覆盖。
+		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual(["onboarding", "owner", "peer"]);
+		agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
+		await writeFile(file, stringify(agent));
 		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });
 		await expect(initHome(home, "owner", { model: testModel })).rejects.toThrow();
 		const kernel = await openKernel(home);
@@ -47,6 +55,71 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("onboarding never wakes the butler while its default model has no auth", async () => {
+	const home = await mkdtemp("/tmp/yonder-onboarding-");
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const agent = parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8"), "agent.yaml");
+		expect(agent.defaults?.plugins).toEqual(expect.arrayContaining(["tasks", "onboarding"]));
+		expect(agent.defaults?.model).toBeUndefined();
+		expect(agent.bindings.find((binding) => binding.id === "onboarding")?.match).toEqual({
+			type: "onboarding.start",
+			conv: "conv:onboarding:main",
+		});
+		// A fresh home has no .yonder/auth.json, so the default model has no auth.
+		const kernel = await openKernel(home);
+		try {
+			expect((await kernel.events.query({ type: "onboarding.start" })).events).toEqual([]);
+			expect(await kernel.sessions.list({})).toEqual([]);
+		} finally {
+			await kernel.close();
+		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
+test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
+	"real first start: the butler runs an onboarding turn once, records one task per item, and is not woken again",
+	async () => {
+		const home = await mkdtemp("/tmp/yonder-onboarding-real-");
+		try {
+			await initHome(home, "owner", { model: testModel });
+			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
+			config.credentials = auth;
+			await writeFile(`${home}/yonder.yaml`, stringify(config));
+			const state = join(pluginDataPath(home, "onboarding"), "agents", "main.json");
+			const kernel = await openKernel(home);
+			try {
+				const [start] = (await kernel.events.query({ type: "onboarding.start" })).events;
+				expect(start).toMatchObject({ from: "plugin:onboarding", conv: "conv:onboarding:main" });
+				let ended: YEvent | undefined;
+				for (let i = 0; i < 180 && !ended; i++) {
+					await new Promise((done) => setTimeout(done, 1000));
+					ended = (await kernel.events.query({ type: "run.end", conv: "conv:onboarding:main" })).events[0];
+				}
+				expect(ended).toMatchObject({ from: "agent:main", data: { status: "done", inputs: [start!.id] } });
+				const recorded = JSON.parse(await readFile(state, "utf8"));
+				expect(Object.keys(recorded.tasks).sort()).toEqual(["channels", "credentials", "gateway", "model", "plugins"]);
+				expect(recorded.wakes).toBe(1);
+			} finally {
+				await kernel.close();
+			}
+			// Within the daily interval a restart does not wake again.
+			const restarted = await openKernel(home);
+			try {
+				expect((await restarted.events.query({ type: "onboarding.start" })).events).toHaveLength(1);
+			} finally {
+				await restarted.close();
+			}
+		} finally {
+			await rm(home, { recursive: true, force: true });
+		}
+	},
+	240_000,
+);
 
 test("reload validates references, scaffolds contexts and retains an open session's preset", async () => {
 	const home = await mkdtemp("/tmp/yonder-reload-");

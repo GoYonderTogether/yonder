@@ -196,6 +196,10 @@ interface PluginAPI {
   sessions: SessionsAPI;               // 02 §5
   identity: IdentityAPI;               // 02 §4.4
   services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };            // 每次读取当前凭据，07 §6.3
+  host: {                              // 只读宿主事实，见下（D59）
+    status(ctx: ToolContext): Promise<HostStatus>;
+    modelReady(agent: string): Promise<boolean>;
+  };
   models: Models;                      // pi-ai 的模型集合，纯类型重新导出
   paths: { data: string };             // <home>/.yonder/plugins/<id>/
 }
@@ -208,6 +212,8 @@ interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSche
 - `defineChannel` 约束 `ChannelProvider`。插件发送使用显式目标，不把全局插件关联到某个默认 agent。
 - `Preset` 的字段见 03 §4。
 - 插件**禁止**直接打开内核的 SQLite 表或 pi-durable 的存储。
+- `host.status(ctx)`：调用工具的会话须有 `admin`，否则报错。返回 `HostStatus`：`model`（`default` 为 `yonder.yaml.defaultModel`，`session` 为该会话解析出的模型，`known` 为 pi-ai 是否认识，`authConfigured` 为该供应商是否有可用凭据；没有 `/` 的模型 id 视为未知）、`channels`（已配置实例的 `instance`/`type`/`login`）、`plugins`（`id`/`use`）、`shippedChannels`（随包未启用的渠道，08 §6）、`gateway`（`enabled`/`port`）、`credentials`（凭据槽 `provider`/`slot`/`configured`；env-ref 槽仅在变量已设置时为 true）。不含任何秘密值、环境变量名或文件路径。
+- `host.modelReady(agent)`：该 agent 默认 profile 解析出的模型是否有可用凭据，只返回布尔值，不需要 ctx；供触发器在无模型可用时不唤醒 agent。未知 agent 返回 false。
 
 `ExecutionOwner = { session: string; agent: string | null; profile: string }`，`ResolvedExecution = { capabilities: Capability[]; channelInstances?: string[] }`。核心按存储会话核对 owner 并取当前有效配置；不得伪造 ToolContext 或把全部无 ctx 调用视为模型授权。SDK 的 `allowsChannelInstance(scope, instance)` / `assertChannelInstance(scope, instance)` 接受携带可选 channelInstances 的作用域；插件在平台访问前使用，不能自己读 home 推导。飞书 status/history/message/card/task-card 共用检查，省略实例的 status 只枚举授权实例，保留原能力、来源与归属约束。
 

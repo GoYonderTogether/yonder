@@ -93,6 +93,9 @@
 		},
 		{
 			"path": "plugins/tasks"
+		},
+		{
+			"path": "plugins/onboarding"
 		}
 	]
 }

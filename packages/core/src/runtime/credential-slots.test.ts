@@ -101,6 +101,9 @@ describe("credential slots", () => {
 		const { slots } = setup();
 		await slots.create("openai", "env", { kind: "env-ref", variable: "YONDER_T63_MISSING_TEST_ENV" });
 		await expect(slots.bind({ openai: "env" }).read("openai")).rejects.toThrow("reference is not configured");
+		// An unset reference is not a configured slot; status never names the variable.
+		const status = await slots.status("openai", "env");
+		expect(status).toEqual({ provider: "openai", slot: "env", configured: false, sourceKind: "env-ref" });
 	});
 	it("alias ids read another account of the same provider without changing the default", async () => {
 		const { slots } = setup();

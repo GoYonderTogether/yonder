@@ -41,6 +41,7 @@ export function inspectionServices(home: string, config: YonderConfig, log: Kern
 		messages: { send: unavailable },
 		execution: { run: unavailable, resolve: unavailable },
 		services: { resolve: unavailable },
+		host: { status: unavailable, modelReady: unavailable },
 		sessions: {
 			command: unavailable,
 			notify: unavailable,
