@@ -1,7 +1,9 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # pi-hashline-edit-pro — 注入模型的提示词原文
 
 - 包: `pi-hashline-edit-pro` 7.1.1
-- License: MIT (Copyright (c) 2026 RimuruW and Yugimob) — `/Users/zoran/.pi/agent/npm/node_modules/pi-hashline-edit-pro/LICENSE`
+- License: MIT (Copyright (c) 2026 RimuruW and Yugimob) — `~/.pi/agent/npm/node_modules/pi-hashline-edit-pro/LICENSE`
 - 仓库: https://github.com/YuGiMob/pi-hashline-edit-pro
 - 来源: `%s/tool-prompts/*.md`，由 `src/prompts.ts` 的 `loadP()/loadGuide()/loadGuidelines()` 读取；`<name>.md`=工具 description，`<name>-snippet.md`=promptSnippet，`<name>-guidelines.md`=promptGuidelines（每行 `- ` 一条）
 

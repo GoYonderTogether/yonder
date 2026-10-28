@@ -13,6 +13,13 @@ export function retryPolicy(config?: import("../config/index.js").YonderConfig["
 		maxAgentDelayMs: config?.maxDelayMs ?? 300000,
 	};
 }
+/**
+ * Request guards (G1 §6.3). Without them a silent provider holds a run for the SDK's 10-minute default.
+ * `0` disables a guard. `totalMs` is a whole-request deadline enforced by `requestGuard` in models.ts.
+ */
+export function modelTimeouts(config?: import("../config/index.js").YonderConfig["timeouts"]) {
+	return { firstTokenMs: config?.firstTokenMs ?? 20000, totalMs: config?.totalMs ?? 180000 };
+}
 export const RESTART_NOTICE =
 	"Task interrupted by restart. Re-check state, avoid repeating completed actions, and resume.";
 const NETWORK_NOTICE =
@@ -50,6 +57,7 @@ export function recoveryHooks(harness: () => Harness, maxRetries: number) {
 				const notes = (inbox?.items ?? []).flatMap((item) =>
 					item.mode === "write" && item.entry.kind === "yonder.runtime-note" ? (item.entry.model ?? []) : [],
 				);
+				// SAFETY: runtime notes are written by Yonder as pi user messages; the inbox types them as stored model JSON.
 				if (notes.length) return { messages: [...request.messages, ...(notes as unknown as Message[])] };
 			},
 			shouldRetry: (message) => transientModelError(message),

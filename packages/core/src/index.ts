@@ -1,5 +1,18 @@
+export { type GatewaySettings, gatewaySettings, setAccessTokenHash } from "./config/gateway.js";
 export type { ControlConnection, ControlRequest } from "./control/index.js";
 export { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./control/index.js";
+export type {
+	AwakeSnapshot,
+	ErrorCode,
+	GatewayHost,
+	HostCtx,
+	MethodDef,
+	MethodFacts,
+	Principal,
+	Scope,
+	StreamDef,
+} from "./control/methods.js";
+export { allScopes, controlHandler, MethodError, PROTOCOL, registry } from "./control/methods.js";
 export type { Kernel, KernelLog, LoginInteraction } from "./kernel/index.js";
 export {
 	initHome,

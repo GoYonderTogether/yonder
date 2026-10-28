@@ -1,6 +1,8 @@
-I'll start by exploring the local checkout and fetching the upstream tags.# B2 · pi 上游 v1.4.0 调研（Yonder fork `yonder/1.3` 视角）
+> 证据材料，结论已并入 [design.md](../design.md)
 
-调研基线：`/Users/zoran/Documents/github/yonder-pi`，已 fetch 上游 tag `v1.3.0`(71023aec1)、`v1.4.0`(4a080252f)。fork 侧被 harness 引入的提交是 `45014f2a2`（`packages/pi-durable/FORK_SOURCE.json`），不是本地陈旧分支 `yonder/1.3`(eca1f259b)。
+# B2 · pi 上游 v1.4.0 调研（Yonder fork `yonder/1.3` 视角）
+
+调研基线：`~/Documents/github/yonder-pi`，已 fetch 上游 tag `v1.3.0`(71023aec1)、`v1.4.0`(4a080252f)。fork 侧被 harness 引入的提交是 `45014f2a2`（`packages/pi-durable/FORK_SOURCE.json`），不是本地陈旧分支 `yonder/1.3`(eca1f259b)。
 
 ## 0 结论
 

@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../agent-parity.md)
+
 # E2：Yonder 进入模型上下文的文字审计
 
 只读审计。未修改任何文件，未触碰 git 状态（工作树里 `packages/core/src/kernel/runtime-discipline.test.ts` 的改动属于另一个 worker）。

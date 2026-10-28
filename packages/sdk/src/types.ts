@@ -45,6 +45,8 @@ export interface MessageInData {
 	/** Original channel send time in epoch milliseconds; event.ts is acceptance time. */
 	createdAt?: string;
 	replyTo?: string;
+	/** Quoted message the sender replied to, as the platform exposes it (text only). */
+	quote?: { text?: string };
 	name?: string;
 	target?: string;
 	/** Source event ids quoted by agent_ask (06 §6.1). */
@@ -126,7 +128,18 @@ export interface SessionUpdate {
 	session?: string;
 	runId?: string;
 	eventIds?: string[];
-	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox" | "notification";
+	type:
+		| "snapshot"
+		| "message"
+		| "tool"
+		| "state"
+		| "error"
+		| "end"
+		| "inbox"
+		| "notification"
+		| "model.fallback"
+		| "todo.updated";
+	/** `end`: the run.end event. `model.fallback` / `todo.updated`: the event payload (contracts §3.3, §3.4). */
 	event?: object;
 	id?: string;
 	message?: object;
@@ -170,7 +183,8 @@ export interface SessionsAPI {
 	): Promise<RunResult | InputReceipt>;
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;
-	transcript(id: string, range?: { from?: number; limit?: number }): Promise<TranscriptItem[]>;
+	/** `before` reads the newest `limit` items with id below it (returned ascending); it replaces `from`. */
+	transcript(id: string, range?: { from?: number; limit?: number; before?: number }): Promise<TranscriptItem[]>;
 	observe?(id: string, send: (update: SessionUpdate) => Promise<void>): Promise<() => Promise<void>>;
 }
 export interface SessionInfo {

@@ -1,6 +1,9 @@
 import { type ConversationId, defineDoc, defineDocFamily, type UsageState } from "@earendil-works/pi-durable";
 import type { Capability, SessionModels } from "@yonder/sdk";
-import type { RuntimeActivityExecution, RuntimeRun, RuntimeSessionConfig } from "./types.js";
+import type { TodoList, TodoUpdatedEvent } from "./todo.js";
+import type { ModelFallbackEvent, RuntimeActivityExecution, RuntimeRun, RuntimeSessionConfig } from "./types.js";
+
+export type OutboxEntry = { kind: "todo"; data: TodoUpdatedEvent } | { kind: "fallback"; data: ModelFallbackEvent };
 
 export const SessionDoc = defineDoc({
 	kind: "yonder.session",
@@ -21,6 +24,18 @@ export const SessionDoc = defineDoc({
 		// Only actual run starts advance this cursor; historical receipt replay cannot backfill issues.
 		activityRunId: null as string | null,
 		activityIssue: null as NonNullable<RuntimeActivityExecution["issue"]> | null,
+		// The fallback episode in progress: the model answering instead of the primary, and why it started.
+		fallback: null as {
+			provider: string;
+			model: string;
+			reason: "rate_limit" | "quota" | "unavailable" | "error";
+		} | null,
+		// The session's todo list (todo tool); absent in sessions created before the tool existed.
+		todos: null as TodoList | null,
+		// Events owed to observers, written in the same durable step as the state change they describe and
+		// removed once delivered; whatever a crash left behind is delivered again on restart (contracts §3).
+		// Entries are JSON of `OutboxEntry`.
+		outbox: [] as string[],
 	}),
 });
 export const cid = (id: string) => Number(id) as ConversationId;

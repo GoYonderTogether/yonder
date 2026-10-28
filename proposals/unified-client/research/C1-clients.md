@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [design.md](../design.md)
+
 # 参考客户端调研：pi、opencode、DeepSeek Harness → Yonder 统一应用
 
 ## 0. 结论速览
@@ -125,7 +127,7 @@
 ### 2.1 pi
 
 - 核心工具只有 `bash/edit/find/grep/ls/read/write`（`packages/coding-agent/src/core/tools/`），**没有 task/subagent/会话管理工具**。
-- `pi-subagents` 扩展（v0.83.0，MIT，`/Users/zoran/.pi/agent/npm/node_modules/pi-subagents`）提供单个 `subagent` 工具 + `subagents_enable` 延迟激活（`tool-reference.md:5`、`configuration.md:83-99`）。顶层 schema：`agent, task, workflow, args, async, model, cwd, worktree, output, action, id, message`，其余进 `options`（`tool-reference.md:104-108`）。
+- `pi-subagents` 扩展（v0.83.0，MIT，`~/.pi/agent/npm/node_modules/pi-subagents`）提供单个 `subagent` 工具 + `subagents_enable` 延迟激活（`tool-reference.md:5`、`configuration.md:83-99`）。顶层 schema：`agent, task, workflow, args, async, model, cwd, worktree, output, action, id, message`，其余进 `options`（`tool-reference.md:104-108`）。
 - 动作覆盖整套会话管理：`status`（fleet/transcript 视图）、`interrupt`、`stop`、`resume`（从子会话 jsonl 新起会话续写，独占 lease）、`steer`（`mode: steer|follow_up|auto`，3 秒内回执 delivered/queued）、`children.list`、`schedule.*`、`mission.*`、`worktree.cleanup`、`doctor`、`guide`（`tool-reference.md:330-410`）。
 - 权限不靠提示词：由 pi 的 tools allowlist / `excludeTools` / native child permission rules 决定（`configuration.md:742-744`）。
 

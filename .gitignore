@@ -8,3 +8,4 @@ HANDOFF.md
 
 .build/
 deploy/node/local.env
+.pi/

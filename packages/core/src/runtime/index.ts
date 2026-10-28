@@ -21,7 +21,6 @@ import {
 	RunReceiptDoc,
 	type RunReceiptState,
 	type Submission,
-	section,
 	selectCut,
 	type TaskId,
 	type ToolExecutionApi,
@@ -89,20 +88,24 @@ import { accountKey, ModelQuota } from "./model-quota.js";
 import { ModelWatch } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
+import { Outbox } from "./outbox.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
+import { promptSections } from "./prompt-sections.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
-import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
+import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
+import { todoTool } from "./todo-tool.js";
 
 export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
 export { submissionOutcome } from "./docs.js";
 
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
-import { entryText as textOf, transcriptItem } from "./transcript.js";
+import { entryText as textOf, transcriptPage } from "./transcript.js";
 import type {
+	ModelFallbackEvent,
 	RuntimeActivityExecution,
 	RuntimeInput,
 	RuntimeOptions,
@@ -120,6 +123,7 @@ export type * from "./types.js";
 
 export class Runtime {
 	private harness!: Harness;
+	private outbox!: Outbox;
 	private restoring = false;
 	private restartNotes = Promise.resolve();
 	private interrupted: Array<{ session: string; run: string }> = [];
@@ -268,6 +272,14 @@ export class Runtime {
 			},
 			C,
 		);
+		runtime.outbox = new Outbox({
+			harness: runtime.harness,
+			storage,
+			sinks: options,
+			commit: async (session, change) => {
+				await (await runtime.conversation(session)).commit(change, C);
+			},
+		});
 		await runtime.health.load();
 		await runtime.quota.load();
 		runtime.watch.start();
@@ -282,15 +294,22 @@ export class Runtime {
 				const aliases = fallbackAliases(config.resolved.fallback, selection, config.resolved.model);
 				config.credentialGenerations ??= await this.credentialSlots.capture(selection, aliases);
 				const credentials = this.credentialSlots.bind(selection, config.credentialGenerations, aliases);
-				const models = buildModels(credentials, this.options.config.models?.providers, selection, aliases, {
-					onProviderEvent: (provider, data) => {
-						const alias = parseAccountProvider(provider);
-						const account = alias
-							? accountKey(alias.provider, alias.slot)
-							: accountKey(provider, selection[provider] ?? "default");
-						this.quota.record(account, data);
+				const models = buildModels(
+					credentials,
+					this.options.config.models?.providers,
+					selection,
+					aliases,
+					{
+						onProviderEvent: (provider, data) => {
+							const alias = parseAccountProvider(provider);
+							const account = alias
+								? accountKey(alias.provider, alias.slot)
+								: accountKey(provider, selection[provider] ?? "default");
+							this.quota.record(account, data);
+						},
 					},
-				});
+					modelTimeouts(this.options.config.timeouts),
+				);
 				for (const [provider, slot] of Object.entries(selection)) {
 					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);
 					if (slot !== "default") await credentials.read(provider);
@@ -505,21 +524,7 @@ export class Runtime {
 
 		const core = defineExtension({
 			name: "yonder.core",
-			sections: [
-				section(
-					"yonder",
-					async (input, context) => {
-						await input.read.snapshot(SessionDoc, input.conversationId, context);
-						const config = this.currentConfig(String(input.conversationId));
-						if (!config) throw new Error("Missing active configuration");
-						const sections =
-							(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ??
-							[];
-						return sections.join("\n\n");
-					},
-					{ tag: false },
-				),
-			],
+			sections: promptSections(this.options, (id) => this.currentConfig(id)),
 			hooks: [
 				...this.limits.hooks(),
 				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),
@@ -544,6 +549,12 @@ export class Runtime {
 		this.registry.install(search);
 		this.extensions.set(search.name, search);
 		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);
+		const todo = todoTool((session) => this.outbox.deliver(session));
+		const todos = defineExtension({ name: "yonder.todo", tools: [todo] });
+		this.capabilities.set("todo", []);
+		this.registry.install(todos);
+		this.extensions.set(todos.name, todos);
+		this.tools.set("todo", todo);
 		const processes = defineExtension({ name: "yonder.process", tools: [this.background.tool] });
 		this.capabilities.set("process", []);
 		this.registry.install(processes);
@@ -738,6 +749,7 @@ export class Runtime {
 			"yonder.files",
 			"yonder.tools",
 			"yonder.background",
+			"yonder.todo",
 			"yonder.process",
 			...profile.plugins.map((id) => `plugin:${id}`),
 		];
@@ -1204,15 +1216,11 @@ export class Runtime {
 		return page.items.flatMap((entry) => entry.model ?? []);
 	}
 
-	async transcript(id: string, range: { from?: number; limit?: number } = {}): Promise<TranscriptItem[]> {
-		// Push the bounds into the scan so a one-entry read does not decode the whole conversation.
-		const page = await (await this.conversation(id)).entries(
-			{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
-			range.limit ?? 100,
-			undefined,
-			C,
-		);
-		return page.items.map(transcriptItem);
+	async transcript(
+		id: string,
+		range: { from?: number; limit?: number; before?: number } = {},
+	): Promise<TranscriptItem[]> {
+		return transcriptPage(await this.conversation(id), range);
 	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
@@ -1398,6 +1406,7 @@ export class Runtime {
 				usage,
 			};
 			await this.watch.record(config, run, await this.watch.chainIndex(session, config, run));
+			await this.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
 			const active = this.limits.states.get(key);
 			active?.visibility.abort();
 			clearTimeout(active?.timer);
@@ -1514,6 +1523,7 @@ export class Runtime {
 			}
 			// Settled runs skipped their idle hook; let waiters and sessions re-evaluate once per conversation.
 			if (skipped) await this.idleChanged(String(conversation.id)).catch((error) => this.options.onReport?.(error));
+			await this.outbox.deliver(String(conversation.id)).catch((error) => this.options.onReport?.(error));
 			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
 			if (live?.run) {
 				try {

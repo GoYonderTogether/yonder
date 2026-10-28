@@ -1,9 +1,11 @@
+> 证据材料，结论已并入 [agent-parity.md](../../agent-parity.md)
+
 # pi-goal-x — 注入模型的提示词原文
 
 - 包: `pi-goal-x` 0.34.0
-- License: MIT (Copyright (c) 2026 Lucas) — `/Users/zoran/.pi/agent/npm/node_modules/pi-goal-x/LICENSE`
+- License: MIT (Copyright (c) 2026 Lucas) — `~/.pi/agent/npm/node_modules/pi-goal-x/LICENSE`
 - 仓库: https://github.com/tmonk/pi-goal-x
-- 来源: `/Users/zoran/.pi/agent/npm/node_modules/pi-goal-x/extensions/goal-core-tools.ts`、`goal-task-tools.ts`、`goal-drafting.ts`、`goal-oracle.ts` 的 `pi.registerTool(defineTool({...}))`
+- 来源: `~/.pi/agent/npm/node_modules/pi-goal-x/extensions/goal-core-tools.ts`、`goal-task-tools.ts`、`goal-drafting.ts`、`goal-oracle.ts` 的 `pi.registerTool(defineTool({...}))`
 - 注入方式: 工具 description/promptSnippet/promptGuidelines 进系统提示词；**目标状态本身不写系统提示词**——`registerGoalContext` 注册 `pi.on("context_with_system")`，在消息列表尾部按需追加 state/counters 段落（`liveRetention` 逐字保留旧尾部以维持前缀缓存），并由 `before_provider_request` 做 `cacheGoalHistory`。命令树由 `GOAL_COMMANDS` 配置生成，根命令为 `/goal` 与 `/goal-settings`
 
 ## goal-core-tools.ts
