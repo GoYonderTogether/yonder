@@ -164,3 +164,6 @@ command before model admission. See the original external release handoff for ex
 evidence and responsible core functions. Automatic reviews and scoped storage are
 separately verified; owner-channel attended refine is blocked until main fixes
 native routing. Do not claim production/channel completeness from unit tests.
+# 复盘证据与确认
+
+后台复盘仅提议本轮成功工具结果支持的事实，提案带会话、运行、证据和低置信度。学习面板 `learning.status` 增加 owner 操作 `confirm` 和 `discard`，参数为 `{ id }`；确认后写入并可用既有 `undo` 撤销。当前复盘提案仅支持新增单条记忆和创建技能，默认仍关闭。

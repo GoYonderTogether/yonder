@@ -123,6 +123,7 @@ async function setup(t, extra = {}, options = {}) {
 			},
 		];
 		history.get("parent").push({ id: ++entrySerial, kind: "pi.user", text, event: event.id });
+		history.get("parent").push({ id: ++entrySerial, kind: "pi.tool-result", text: "Tests pass; user correction retained" });
 		for (let i = 0; i < loops; i++) await hook.beforeRequest(raw, context);
 		return { context, event, raw };
 	};
@@ -175,6 +176,7 @@ async function setup(t, extra = {}, options = {}) {
 		events,
 		history,
 		warnings,
+		view: c.registrations.views[0].provider,
 		tick,
 		setAbort: (fn) => {
 			abort = fn;
@@ -221,53 +223,19 @@ test("actual registered hooks: memory interval, quiet15, merged latest clone, sc
 	assert.equal(job.opts.wait, true);
 	const c = f.reviewContext(),
 		m = await f.call(REVIEW_TOOLS[0], { target: "memory" }, c);
-	const saved = await f.call(
-		REVIEW_TOOLS[1],
-		{ target: "memory", revision: m.revision, action: "add", content: "durable environment fact" },
-		c,
-	);
-	assert.equal(saved.saved, true);
+	const saved = await f.call(REVIEW_TOOLS[1], { target: "memory", revision: m.revision, action: "add", content: "durable environment fact", evidence: "Tests pass; user correction retained" }, c);
+	assert.equal(saved.pending, true);
+	assert.equal(saved.saved, false);
+	assert.ok(!(await readFile(join(f.root, "memories/MEMORY.md"), "utf8")).includes("durable environment fact"));
+	await f.view.act("confirm", { id: saved.id }, "parent");
+	assert.match(await readFile(join(f.root, "memories/MEMORY.md"), "utf8"), /durable environment fact/);
 	const name = "hermes-learned-release";
-	const create = await f.call(
-		REVIEW_TOOLS[2],
-		{
-			operations: [
-				{
-					action: "create",
-					name,
-					description: "Reusable release workflow",
-					body: "# Procedure\nRun tests. See references/checks.md.",
-				},
-				{ action: "write_file", name, file_path: "references/checks.md", file_content: "Verify actual result." },
-			],
-		},
-		c,
-	);
-	assert.equal(create.saved, true, JSON.stringify(create));
-	assert.match(await readFile(join(f.root, "skills", name, "references/checks.md"), "utf8"), /Verify actual/);
-	assert.equal(
-		(
-			await f.call(
-				REVIEW_TOOLS[2],
-				{
-					action: "patch",
-					name,
-					revision: create.results.find((r) => r.file_path === "SKILL.md").revision,
-					old_string: "Run tests.",
-					new_string: "Run checks.",
-				},
-				c,
-			)
-		).error.startsWith("fresh_read_required"),
-		true,
-	);
+	const create = await f.call(REVIEW_TOOLS[2], { action: "create", name, description: "Reusable release workflow", body: "# Procedure\nRun tests.", evidence: "Tests pass; user correction retained" }, c);
+	assert.equal(create.pending, true);
+	await f.view.act("confirm", { id: create.id }, "parent");
+	assert.match(await readFile(join(f.root, "skills", name, "SKILL.md"), "utf8"), /来源：会话 parent/);
 	const read = await f.call(REVIEW_TOOLS[2], { action: "read", name }, c);
 	assert.ok(read.content);
-	assert.equal(
-		(await f.call(REVIEW_TOOLS[2], { action: "patch", name, old_string: "Run tests.", new_string: "Run checks." }, c))
-			.saved,
-		true,
-	);
 	assert.equal((await f.call("message_send", { text: "bad" }, c)).error, "review_tool_not_allowed_for_focus");
 	assert.equal((await f.call("learning_refine", {}, c)).error, "review_tool_not_allowed_for_focus");
 	assert.ok(f.history.get("parent").every((i) => !i.text.includes("quiet, isolated")));
@@ -499,49 +467,16 @@ test("queued review survives parent close and trigger restart", async (t) => {
 	assert.equal(g.opened[0].parent, undefined);
 });
 
-test("unattended destructive memory is pending; explicit /refine is trusted attended and does not requeue", async (t) => {
-	const f = await setup(t);
-	await repeat(f);
-	await f.tick();
-	await until(() => f.submitted.length === 1);
-	const c = f.reviewContext(),
-		m = await f.call(REVIEW_TOOLS[0], { target: "memory" }, c);
-	const staged = await f.call(
-		REVIEW_TOOLS[1],
-		{ target: "memory", action: "patch", revision: m.revision, old_text: "synthetic note", content: "revised fact" },
-		c,
-	);
-	assert.equal(staged.staged, true);
-	assert.equal(staged.saved, false);
-	const front = ctx("alpha", "owner", "parent");
-	const pending = await f.call("learning_memory_pending", { action: "list" }, front);
-	assert.equal(pending[0].id, staged.pending_id);
-	const record = await f.call("learning_memory_pending", { action: "read", id: staged.pending_id }, front);
-	assert.equal(record.target, "memory");
-	assert.equal(
-		(await f.call("learning_memory_pending", { action: "apply", id: staged.pending_id }, front)).saved,
-		true,
-	);
-	const no = await f.turn({ text: "normal work" });
-	assert.equal((await f.call("learning_refine", {}, no.context)).error, "refine_requires_user_command");
-	const explicit = await f.start({ text: "/refine memory" });
-	const queued = await f.call("learning_refine", { focus: "memory" }, explicit.context);
-	assert.equal(queued.attended, true);
-	await f.finish(explicit);
-	await f.tick();
-	await until(() => f.submitted.length === 2);
-	const r = f.reviewContext(),
-		read = await f.call(REVIEW_TOOLS[0], { target: "memory" }, r);
-	const saved = await f.call(
-		REVIEW_TOOLS[1],
-		{ target: "memory", action: "patch", revision: read.revision, old_text: "revised fact", content: "attended fact" },
-		r,
-	);
-	assert.equal(saved.saved, true);
-	assert.equal(saved.staged, undefined);
-	await f.turn();
-	await f.tick();
-	await until(() => f.submitted.length === 3);
+test("destructive review writes are refused even for explicit refine", async (t) => {
+ const f = await setup(t);
+ await repeat(f); await f.tick(); await until(() => f.submitted.length === 1);
+ const c = f.reviewContext(), m = await f.call(REVIEW_TOOLS[0], { target: "memory" }, c);
+ const patch = { target: "memory", action: "patch", revision: m.revision, old_text: "synthetic note", content: "revised fact", evidence: "Tests pass; user correction retained" };
+ assert.equal((await f.call(REVIEW_TOOLS[1], patch, c)).error, "only_verified_add_supported");
+ const explicit = await f.start({ text: "/refine memory" });
+ assert.equal((await f.call("learning_refine", { focus: "memory" }, explicit.context)).attended, true);
+ await f.finish(explicit); await f.tick(); await until(() => f.submitted.length === 2);
+ assert.equal((await f.call(REVIEW_TOOLS[1], patch, f.reviewContext())).error, "only_verified_add_supported");
 });
 
 test("review hard loop ceiling16 and detailed error fields survive wrapper serialization", async (t) => {
@@ -587,7 +522,7 @@ test("registered wrappers recheck the revoked grant immediately before memory co
 		release,
 		atCommit = false;
 	f.api.sessions.get = async (id) => {
-		if (id === "parent" && ++calls === 3) {
+		if (id === "parent" && ++calls === 2) {
 			atCommit = true;
 			await new Promise((resolve) => {
 				release = resolve;
@@ -596,7 +531,7 @@ test("registered wrappers recheck the revoked grant immediately before memory co
 		return get(id);
 	};
 	const writing = f.tools[REVIEW_TOOLS[1]].execute(
-		{ target: "memory", action: "add", revision: m.revision, content: "must not commit" },
+		{ target: "memory", action: "add", revision: m.revision, content: "must not commit", evidence: "Tests pass; user correction retained" },
 		r,
 	);
 	await until(() => atCommit);

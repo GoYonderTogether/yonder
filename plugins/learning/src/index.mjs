@@ -19,6 +19,17 @@ import {
 
 const obj = (properties, required = []) => ({ type: "object", properties, required, additionalProperties: false });
 const str = { type: "string" };
+function verifiedEvidence(args, options) {
+ const evidence = args.evidence;
+ if (!options.review.session || !options.review.run || typeof evidence !== "string" || evidence.trim().length < 8) fail("verified_evidence_required");
+ const transcript = options.material.transcript ?? [];
+ const messages = options.material.messages ?? [];
+ const match = transcript.some((item) => item.kind === "pi.tool-result" && item.text.includes(evidence));
+ const success = messages.some((item) => item.role === "toolResult" && !item.isError && (typeof item.content === "string" ? item.content : (item.content ?? []).map((part) => part.text ?? "").join("\n")).includes(evidence));
+ if (!match || !success) fail("verified_evidence_required");
+ delete args.evidence;
+ return evidence;
+}
 const target = { type: "string", enum: ["memory", "user"] };
 const scopeSchema = obj(
 	{
@@ -82,6 +93,7 @@ export default definePlugin({
 		});
 		changes = createLearningViews(api, scopes, review);
 		review.onChange = (session, change) => changes.record(session, change);
+		review.propose = (session, proposal) => changes.propose(session, proposal);
 		changes.register();
 		const result = (value) => ({ text: JSON.stringify(value) });
 		const error = (e) => ({
@@ -241,24 +253,37 @@ export default definePlugin({
 			],
 			[
 				"memory_edit",
-				memoryEdit,
+				obj({ ...memoryEdit.properties, evidence: str }, ["target", "revision", "evidence"]),
 				async (a, ctx) => {
 					const { scope: s, options } = await review.grant(ctx, "memory");
 					writable(s);
 					if (s[a.target] === false) fail("target_disabled");
-					return editMemory(s.memoryDir, a, LIMITS[a.target], ctx.signal, options);
+					if (!(await options.isActive())) fail("review_inactive");
+					if (a.action !== "add" || typeof a.content !== "string" || a.operations) fail("only_verified_add_supported");
+					const evidence = verifiedEvidence(a, options);
+					return review.propose(options.review.session, { kind: "memory", args: a, source: options.review, evidence });
 				},
 				["read", "write"],
 			],
 			[
 				"skill_store",
-				skillSchema,
+				obj({ ...skillSchema.properties, evidence: str }),
 				async (a, ctx) => {
 					const { scope: s, options } = await review.grant(ctx, "skills");
 					learning(s);
-					return a.action === "list_archives"
-						? listSkillArchives(s.skillDir)
-						: skillStore(s.skillDir, a, ctx.signal, { ...options, pluginId: api.id });
+					if (a.action === "list_archives") return listSkillArchives(s.skillDir);
+					if (a.action === "read") return skillStore(s.skillDir, a, ctx.signal, { ...options, pluginId: api.id });
+					const ops = a.operations ?? [a];
+					for (const op of ops) {
+						const name = op.name ?? a.name;
+						const path = ["create", "edit", "save"].includes(op.action) || (op.action === "patch" && op.content !== undefined) ? "SKILL.md" : (op.file_path ?? "SKILL.md");
+						const mark = options.readMarks.files.get(`${name}/${path}`);
+						if (mark && op.revision === undefined) op.revision = mark.revision;
+					}
+					if (!(await options.isActive())) fail("review_inactive");
+					if (a.action !== "create" || a.operations) fail("only_verified_create_supported");
+					const evidence = verifiedEvidence(a, options);
+					return review.propose(options.review.session, { kind: "skill", args: a, source: options.review, evidence });
 				},
 				["read", "write"],
 			],

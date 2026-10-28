@@ -1,43 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { reviewLifecycle } from "./review-lifecycle.mjs";
 import { reviewPrompt } from "./review-prompts.mjs";
 import { createSkillReadMarks } from "./skill-store.mjs";
 import { fail } from "./store.mjs";
 
-export const REVIEW_PRESET = "hermes-learning-review";
-export const reviewTools = (id = "learning") => [
-	`${id}_review_memory_read`,
-	`${id}_review_memory_edit`,
-	`${id}_review_skill_store`,
-];
-export const REVIEW_TOOLS = reviewTools();
-const QUIET = 15000,
-	AGE = 30 * 60 * 1000;
-export const isUserInput = (e) =>
-	e?.type === "message.in" &&
-	e.from?.startsWith("acct:") &&
-	!e.from.startsWith("acct:agent:") &&
-	!e.conv?.startsWith("conv:agent:") &&
-	e.data?.kind !== "agent";
-const keyOf = (events) =>
-	events
-		.map((e) => e.id)
-		.sort()
-		.join("\0");
-const mergeFocus = (a, b) => (!a ? b : !b ? a : a === b ? a : "combined");
-const includesFocus = (focus, target) => focus === "combined" || focus === target;
-const timeout = (promise, ms) =>
-	new Promise((resolve) => {
-		const timer = setTimeout(resolve, ms);
-		promise
-			.catch(() => {})
-			.finally(() => {
-				clearTimeout(timer);
-				resolve();
-			});
-	});
-
+export { REVIEW_PRESET, REVIEW_TOOLS, reviewTools } from "./review-helpers.mjs";
+import { REVIEW_PRESET, reviewTools } from "./review-helpers.mjs";
+import { isUserInput, keyOf, mergeFocus, includesFocus, timeout, transcript, QUIET, AGE } from "./review-helpers.mjs";
+export { isUserInput } from "./review-helpers.mjs";
 // Plugin-owned authority. No persisted grant is EVER rehydrated. Session parent metadata
 // alone (including a task opened with the same preset) is not a write capability.
 export function createReview(api, config, resolveScope) {
@@ -273,17 +245,6 @@ export function createReview(api, config, resolveScope) {
 		}
 		await save();
 	}
-	async function transcript(id) {
-		const items = [];
-		let from = 0;
-		for (;;) {
-			const page = await api.sessions.transcript(id, { from, limit: 200 });
-			items.push(...page);
-			if (page.length < 200) break;
-			from = page.at(-1).id + 1;
-		}
-		return items;
-	}
 	async function end(e) {
 		if (!enabled()) return;
 		const d = e.data,
@@ -326,7 +287,7 @@ export function createReview(api, config, resolveScope) {
 		// read a next turn's final or use a next turn's material for an earlier run.
 		if (!snap || snap.key !== keyOf(events) || snap.generation !== s.generation) return;
 		const generation = s.generation;
-		const items = await transcript(d.session);
+		const items = await transcript(api, d.session);
 		if (s.generation !== generation || s.snapshot !== snap) return;
 		s.busy = false;
 		s.last = Date.now();
@@ -367,8 +328,9 @@ export function createReview(api, config, resolveScope) {
 				created: old?.created ?? Date.now(),
 				generation,
 				scope: p.scope,
-				material: structuredClone({ messages: snap.messages, transcript: items }),
+				material: structuredClone({ messages: snap.messages, transcript: items.slice(start) }),
 				parent: d.session,
+				run,
 			};
 			// Nudge intervals roll over at scheduling, independently of dispatch resets.
 			// A Nothing-to-save review must not run again on every subsequent turn.
@@ -381,7 +343,7 @@ export function createReview(api, config, resolveScope) {
 				...s.pending,
 				generation,
 				scope: p.scope,
-				material: structuredClone({ messages: snap.messages, transcript: items }),
+				material: structuredClone({ messages: snap.messages, transcript: items.slice(start) }),
 			};
 		}
 		c.pending = s.pending;
@@ -441,7 +403,7 @@ export function createReview(api, config, resolveScope) {
 		// Registration happens BEFORE submit. wait:true routes the result to this plugin,
 		// not to the parent/source conversation. Never await LLM from an event observer.
 		void api.sessions
-			.submit(session.id, { text: reviewPrompt(g.focus, g.material, g.scope, api.id) }, { wait: true })
+			.submit(session.id, { text: reviewPrompt(g.focus, g.material, g.scope, api.id, { session: g.parent, run: g.run }) }, { wait: true })
 			.then((result) => {
 				if (!active(g) && !(g.finished && s.generation === g.generation)) return;
 				g.result = { status: result.status, text: result.text, reason: result.reason };
@@ -473,7 +435,8 @@ export function createReview(api, config, resolveScope) {
 		return {
 			scope: g.scope,
 			options: {
-				review: { id: g.id, origin: "background_review", attended: g.attended },
+				review: { id: g.id, origin: "background_review", attended: g.attended, session: g.parent, run: g.run },
+				material: g.material,
 				isActive: async () => {
 					if (!active(g)) return false;
 					const p = await parent(g.parent, undefined, true).catch(() => null);
@@ -500,32 +463,7 @@ export function createReview(api, config, resolveScope) {
 			note: "Explicit review will run quietly after this user turn. No result is sent to the source.",
 		};
 	}
-	async function close(id) {
-		const g = grants.get(id);
-		if (g) {
-			revoke(g);
-			const s = live.get(g.parent);
-			if (s?.running === g) s.running = null;
-			return;
-		}
-		const s = live.get(id);
-		if (!s) return;
-		s.busy = false;
-		arm(id);
-	}
-	async function stop() {
-		stopped = true;
-		const cancellations = [];
-		for (const s of live.values()) {
-			s.generation++;
-			s.pending = null;
-			clearTimer(s);
-			if (s.running) cancellations.push(cleanup(s.running));
-			s.running = null;
-		}
-		await timeout(Promise.allSettled(cancellations), 2000);
-		await writes;
-	}
+	const { close, stop } = reviewLifecycle({ grants, live, arm, cleanup, clearTimer, timeout, writesDone: () => writes, stopNow: () => { stopped = true; } });
 	const reviewApi = {
 		status: async (id) => {
 			await ready();
