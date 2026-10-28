@@ -226,6 +226,23 @@ const defs: MethodDef[] = [
 		},
 	}),
 	define({
+		name: "bots.list",
+		scope: "owner",
+		params: noParams,
+		since: 1,
+		handler: async (_p, ctx) => ({ bots: await ctx.kernel.bots.list() }),
+	}),
+	define({
+		name: "bots.send",
+		scope: "owner",
+		params: obj({ agent: text, text, requestId: Type.Optional(text) }),
+		since: 1,
+		async handler(p, ctx) {
+			const run = () => ctx.kernel.bots.send(p.agent, p.text);
+			return p.requestId ? dedupe(`bot:${p.agent}`, p.requestId, run) : run();
+		},
+	}),
+	define({
 		name: "sessions.watch",
 		scope: "read",
 		params: id,

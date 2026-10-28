@@ -158,6 +158,8 @@ export const YonderSchema = object({
 			accessTokenHash: Type.Optional(Type.String({ pattern: "^sha256:[0-9a-f]{64}$" })),
 			/** Trust X-Forwarded-For (first hop) from a loopback reverse proxy for per-client login throttling. */
 			trustProxy: Type.Optional(Type.Boolean()),
+			/** Grant the `owner` scope (talk to resident Bots) to remote access-token logins. Off by default. */
+			remoteOwner: Type.Optional(Type.Boolean()),
 		}),
 	),
 	imports: Type.Optional(object({ piSessionsDir: Type.Optional(text) })),

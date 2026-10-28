@@ -1,0 +1,73 @@
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { expect, test } from "vitest";
+import { parse, stringify } from "yaml";
+import { initHome, openKernel } from "./index.js";
+
+// Real kernel, router and runtime. A real selected hook cancels the run before the provider request, so no model
+// (and no model stub) is involved: this verifies admission and routing, not model output.
+async function homeWithProbe(gateway?: { enabled: boolean }) {
+	const home = await mkdtemp("/tmp/yonder-console-");
+	await initHome(home);
+	await writeFile(
+		join(home, "package.json"),
+		JSON.stringify({
+			name: "console-probe",
+			version: "0.0.0",
+			type: "module",
+			yonder: { apiVersion: 1, id: "console-probe", entry: "./probe.mjs", contributes: { hooks: ["probe"] } },
+		}),
+	);
+	await writeFile(
+		join(home, "probe.mjs"),
+		`export default { setup(api) { api.hooks.register({ id: 'probe', async beforeRequest(messages, ctx) {
+  const cancelled = new Promise(resolve => ctx.signal.addEventListener('abort', resolve, {once:true}));
+  void api.sessions.abort(ctx.session);
+  await cancelled;
+} }); } };`,
+	);
+	const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
+	config.plugins.push({ use: home });
+	if (gateway) config.gateway = gateway;
+	await writeFile(join(home, "yonder.yaml"), stringify(config));
+	const agentFile = join(home, "agents/main/agent.yaml");
+	const agent = parse(await readFile(agentFile, "utf8"));
+	agent.defaults.plugins.push("console-probe");
+	await writeFile(agentFile, stringify(agent));
+	return home;
+}
+
+test("console is a zero-config channel: the owner reaches the Bot's single main session", async () => {
+	const home = await homeWithProbe();
+	const kernel = await openKernel(home);
+	try {
+		expect(await kernel.bots.list()).toEqual([{ agent: "main", name: "Jarvis", session: undefined }]);
+		const sent = await kernel.bots.send("main", "你好");
+		const session = await kernel.sessions.get(sent.session);
+		expect(session).toMatchObject({ agent: "main", mode: "main", key: "main", profile: "owner" });
+		const input = (await kernel.events.query({ id: sent.event })).events[0];
+		expect(input).toMatchObject({ type: "message.in", from: "acct:console:owner", conv: "conv:console:main" });
+		expect(input?.routes).toEqual([
+			expect.objectContaining({ agent: "main", binding: "console", session: sent.session }),
+		]);
+		// Same Bot session semantics as other channels: a second message lands in the same session; the Bot is listed with it.
+		expect((await kernel.bots.send("main", "再来一条")).session).toBe(sent.session);
+		expect((await kernel.bots.list())[0]?.session).toBe(sent.session);
+		await expect(kernel.bots.send("nobody", "hi")).rejects.toThrow("Unknown bot");
+	} finally {
+		await kernel.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60_000);
+
+test("console entry is absent when the gateway is disabled", async () => {
+	const home = await homeWithProbe({ enabled: false });
+	const kernel = await openKernel(home);
+	try {
+		expect(await kernel.bots.list()).toEqual([]);
+		await expect(kernel.bots.send("main", "hi")).rejects.toThrow("Unknown bot");
+	} finally {
+		await kernel.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60_000);

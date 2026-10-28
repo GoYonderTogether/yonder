@@ -4,8 +4,9 @@ import type { releaseInfo } from "../release/index.js";
 /** Protocol version of the method registry / gateway wire format (contracts.md §5). */
 export const PROTOCOL = 1;
 
-export type Scope = "read" | "write" | "admin";
-export const allScopes: Scope[] = ["read", "write", "admin"];
+/** `owner` = speak as the owner to resident Bots (bots.*); a remote token never has it unless the node enables gateway.remoteOwner. */
+export type Scope = "read" | "write" | "admin" | "owner";
+export const allScopes: Scope[] = ["read", "write", "admin", "owner"];
 export type ErrorCode =
 	| "unknown_method"
 	| "forbidden"

@@ -25,6 +25,7 @@ import type {
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
 import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
+import { CONSOLE, consoleChannel } from "../kernel/console.js";
 import { peerWorkspaceContext } from "../prompt/index.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
@@ -331,6 +332,8 @@ export async function loadPlugins(
 		listeners.push(...registrations.listeners.map((listener) => ({ pluginId: manifest.id, ...listener })));
 	}
 
+	if (config.channels?.[CONSOLE]) throw new Error(`channels.${CONSOLE}: reserved for the built-in console channel`);
+	channels.set(CONSOLE, consoleChannel());
 	for (const [id, value] of Object.entries(config.channels ?? {})) {
 		const found = channelProviders.get(value.type);
 		if (!found) throw new Error(`channels.${id}: no provider for type ${value.type}`);
@@ -378,6 +381,7 @@ export async function loadPlugins(
 		async start(io) {
 			try {
 				for (const [id, channel] of channels) {
+					if (id === CONSOLE) continue;
 					const owner = channelProviders.get(config.channels![id]!.type)!.pluginId;
 					await channel.start({
 						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),
