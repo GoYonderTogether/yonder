@@ -246,7 +246,7 @@ try {
 	});
 	const baseUrl = `http://127.0.0.1:${server.address().port}/v1`;
 	evidence.provider = { model: "openai/gpt-6.1-sol", api: "openai-completions", baseUrl, syntheticCredential: true };
-	await initHome(home, "fixture-owner", { isolated: true });
+	await initHome(home, "fixture-owner", { isolated: true, model: "openai/gpt-6.1-sol" });
 	// Drop only initHome's task presets in this fresh fixture: their plugin contexts
 	// are intentionally absent from this minimal two-plugin integration home.
 	for (const preset of ["default", "research"]) await rm(join(home, "presets", `${preset}.yaml`));

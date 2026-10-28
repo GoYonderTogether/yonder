@@ -45,7 +45,7 @@ const sockets = [];
 const logs = [];
 console.log(JSON.stringify({ home, evidence }));
 try {
-	await initHome(home, "isolated-slash-user", { isolated: true });
+	await initHome(home, "isolated-slash-user", { isolated: true, model: "openai/gpt-6.1-sol" });
 	await rm(join(home, "presets"), { recursive: true });
 	const workspace = join(home, "agents/main");
 	const memoryDir = join(workspace, "memories");
