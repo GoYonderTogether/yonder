@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-hermes-experience",
-	"version": "0.3.26102801",
+	"version": "0.3.26102802",
 	"deprecated": true,
 	"type": "module",
 	"yonder": {
@@ -58,7 +58,7 @@
 		"README.md"
 	],
 	"dependencies": {
-		"@yonder/plugin-learning": "0.3.26102801",
-		"@yonder/sdk": "0.3.26102801"
+		"@yonder/plugin-learning": "0.3.26102802",
+		"@yonder/sdk": "0.3.26102802"
 	}
 }
