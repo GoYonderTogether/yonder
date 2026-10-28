@@ -15,7 +15,6 @@ export default definePlugin({
 			api.presets.register({
 				id,
 				description,
-				model: "openai/gpt-6-luna",
 				plugins: [api.id],
 				contexts: id === "default" ? ["task-general"] : ["task-general", `task-${id}`],
 			});
@@ -45,7 +44,6 @@ export default definePlugin({
 			api.presets.register({
 				id,
 				description,
-				model: "openai/gpt-6-luna",
 				plugins: [api.id],
 				contexts,
 			});
