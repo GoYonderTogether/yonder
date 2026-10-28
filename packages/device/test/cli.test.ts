@@ -6,6 +6,7 @@ import { request } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TLSSocket } from "node:tls";
+import { fileURLToPath } from "node:url";
 import {
 	type Grant,
 	type RpcRequest,
@@ -17,7 +18,7 @@ import {
 import { afterEach, expect, test } from "vitest";
 import { type PairOffer, readDeviceTrust } from "../src/store.js";
 
-const cli = new URL("../dist/cli.js", import.meta.url).pathname;
+const cli = fileURLToPath(new URL("../dist/cli.js", import.meta.url));
 const homes: string[] = [];
 const children: ChildProcess[] = [];
 afterEach(async () => {

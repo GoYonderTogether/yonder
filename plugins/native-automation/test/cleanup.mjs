@@ -37,7 +37,8 @@ process.kill(second.child.pid, 0);
 await triggers[0].stop();
 assert.equal(children.size, 0);
 assert.throws(() => process.kill(second.child.pid, 0), { code: "ESRCH" });
-assert.equal(second.child.signalCode, "SIGKILL");
+// Windows terminates the process on SIGTERM without invoking a signal handler.
+assert.equal(second.child.signalCode, process.platform === "win32" ? "SIGTERM" : "SIGKILL");
 await Promise.all([first.done, second.done]);
 console.log(
 	"PASS: session.close waits for its real child close and preserves another session; stop waits for SIGTERM-resistant child SIGKILL+close; children map empty, both PIDs gone",

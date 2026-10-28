@@ -71,11 +71,13 @@ test("file destination is create-only, byte exact, 0600; roots and symlinks cann
 		await pasteFile(file, value, signal());
 		expect((await readFile(file)).equals(value)).toBe(true);
 		const fd = await import("node:fs/promises");
-		expect((await fd.stat(file)).mode & 0o777).toBe(0o600);
+		// POSIX permission bits only: Windows reports every file as 0o666 and has no group/other mode.
+		if (process.platform !== "win32") expect((await fd.stat(file)).mode & 0o777).toBe(0o600);
 		await expect(pasteFile(file, Buffer.from("overwrite"), signal())).rejects.toThrow();
 		expect((await readFile(file)).equals(value)).toBe(true);
 		await expect(allowedPath(join(outside, "x"), [root], true)).rejects.toThrow("granted");
-		await symlink(outside, join(root, "linked"));
+		// A junction is the Windows equivalent of a directory symlink and needs no extra privilege.
+		await symlink(outside, join(root, "linked"), process.platform === "win32" ? "junction" : "dir");
 		await expect(allowedPath(join(root, "linked/x"), [root], true)).rejects.toThrow("symlink");
 		const aborted = AbortSignal.abort();
 		await expect(pasteFile(join(root, "cancel"), value, aborted)).rejects.toThrow();

@@ -38,28 +38,35 @@ describe("Linux guest provider boundary", () => {
 			expect((await provider.apps("linux:desktop")).status).toBe("unsupported");
 		}
 	});
-	it("reads installed launchers only and honors a hidden user override", async () => {
-		const root = await mkdtemp(join(tmpdir(), "w5-app-inventory-"));
-		try {
-			const user = join(root, "user", "applications");
-			const system = join(root, "system", "applications");
-			await mkdir(user, { recursive: true });
-			await mkdir(system, { recursive: true });
-			await writeFile(join(user, "masked.desktop"), "[Desktop Entry]\nType=Application\nHidden=true\n");
-			await writeFile(join(system, "masked.desktop"), "[Desktop Entry]\nType=Application\nName=Masked\nExec=masked\n");
-			await writeFile(
-				join(system, "editor.desktop"),
-				"[Desktop Entry]\nType=Application\nName=Real Editor\nExec=editor\n[Desktop Action Fake]\nName=Not the app\n",
-			);
-			process.env.XDG_DATA_HOME = join(root, "user");
-			process.env.XDG_DATA_DIRS = join(root, "system");
-			const apps = await linuxApps(deviceId, "linux:desktop");
-			expect(apps.items).toEqual([{ id: "editor.desktop", name: "Real Editor" }]);
-			expect(apps.complete).toBe(true);
-		} finally {
-			await rm(root, { recursive: true, force: true });
-		}
-	});
+	// XDG launcher paths use POSIX path and colon semantics.
+	it.skipIf(process.platform === "win32")(
+		"reads installed launchers only and honors a hidden user override",
+		async () => {
+			const root = await mkdtemp(join(tmpdir(), "w5-app-inventory-"));
+			try {
+				const user = join(root, "user", "applications");
+				const system = join(root, "system", "applications");
+				await mkdir(user, { recursive: true });
+				await mkdir(system, { recursive: true });
+				await writeFile(join(user, "masked.desktop"), "[Desktop Entry]\nType=Application\nHidden=true\n");
+				await writeFile(
+					join(system, "masked.desktop"),
+					"[Desktop Entry]\nType=Application\nName=Masked\nExec=masked\n",
+				);
+				await writeFile(
+					join(system, "editor.desktop"),
+					"[Desktop Entry]\nType=Application\nName=Real Editor\nExec=editor\n[Desktop Action Fake]\nName=Not the app\n",
+				);
+				process.env.XDG_DATA_HOME = join(root, "user");
+				process.env.XDG_DATA_DIRS = join(root, "system");
+				const apps = await linuxApps(deviceId, "linux:desktop");
+				expect(apps.items).toEqual([{ id: "editor.desktop", name: "Real Editor" }]);
+				expect(apps.complete).toBe(true);
+			} finally {
+				await rm(root, { recursive: true, force: true });
+			}
+		},
+	);
 	it("parses only the desktop entry section", () => {
 		expect(desktopEntry("[Desktop Entry]\nType=Application\nName=A\\sB\n[Other]\nName=Wrong").Name).toBe("A B");
 	});
