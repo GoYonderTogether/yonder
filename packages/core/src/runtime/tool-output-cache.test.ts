@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { boundToolOutput, cacheToolOutput } from "./tool-output-cache.js";
@@ -18,6 +18,21 @@ test("caches truncated output with a searchable path and removes expired files",
 		);
 		expect(await readFile(streamed, "utf8")).toBe("first\nlast");
 		expect(await readFile(join(home, "cache/tool-output/1/index.jsonl"), "utf8")).toContain('"bytes":10');
+		await expect(
+			cacheToolOutput(
+				home,
+				"1",
+				"web",
+				{},
+				(async function* () {
+					yield Buffer.from("partial");
+					throw new Error("stream failed");
+				})(),
+			),
+		).rejects.toThrow("stream failed");
+		expect((await readdir(join(home, "cache/tool-output/1"))).sort()).toEqual(
+			["index.jsonl", streamed.split("/").pop()].sort(),
+		);
 		const old = await cacheToolOutput(home, "1", "web", { url: "private" }, "old");
 		const other = await cacheToolOutput(home, "2", "web", {}, "other session");
 		const date = new Date(Date.now() - 8 * 86400_000);
