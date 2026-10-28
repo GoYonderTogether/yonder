@@ -9,8 +9,9 @@ export interface NotificationConfig {
 	conversations?: Record<string, NotificationLevel>;
 }
 
-/** Notification body limit; the full text stays in the event and the transcript. */
+/** Notification body limit, counted in code points so surrogate pairs are never split. */
 const bodyLimit = 120;
+const truncate = (text: string): string => Array.from(text).slice(0, bodyLimit).join("");
 
 export function notificationLevel(config: NotificationConfig | undefined, conv?: string): NotificationLevel {
 	return (conv ? config?.conversations?.[conv] : undefined) ?? config?.default ?? "all";
@@ -40,5 +41,5 @@ export function inboundNotification(
 	if (level === "mention" && data.mentioned !== true) return;
 	const text = body(event);
 	if (!text) return;
-	return { from: event.from ?? "system:yonder", event: event.id, text: text.slice(0, bodyLimit) };
+	return { from: event.from ?? "system:yonder", event: event.id, text: truncate(text) };
 }

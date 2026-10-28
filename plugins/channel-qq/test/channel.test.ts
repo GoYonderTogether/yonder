@@ -1,14 +1,23 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dispatchEvent } from "@tencent-connect/qqbot-nodejs/protocol";
-import { checkPlugin } from "@yonder/sdk/testing";
+import { dispatchEvent, MediaFileType, type QQBotInboundMessage } from "@tencent-connect/qqbot-nodejs/protocol";
+import { checkPlugin, type PluginAPI } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, inspectHome } from "../../../packages/core/src/kernel/home.js";
-import { incoming, recipient, Spacing } from "../src/channel.js";
+import {
+	assertInsideMediaRoot,
+	droppedAttachments,
+	incoming,
+	mediaOf,
+	QQChannel,
+	quoteOf,
+	recipient,
+	Spacing,
+} from "../src/channel.js";
 import { configure, connect } from "../src/setup.js";
 
 test("cancelled QR setup does not contact the portal", async () => {
@@ -213,4 +222,138 @@ test("send spacing serializes requests and keeps the configured interval", async
 	const [first = 0, second = 0, third = 0] = at;
 	expect(second - first).toBeGreaterThanOrEqual(30);
 	expect(third - second).toBeGreaterThanOrEqual(30);
+});
+
+test("quoted replies are dropped without a reference index", () => {
+	expect(quoteOf({ msgElements: [{ content: "原文" }] } as QQBotInboundMessage)).toBeUndefined();
+	expect(quoteOf({ refMsgIdx: "REF1", msgElements: [{ content: "原文" }] } as QQBotInboundMessage)).toEqual({
+		text: "原文",
+	});
+});
+
+test("outbound local media is restricted to the allowlisted root", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-media-"));
+	try {
+		const root = join(home, "media");
+		await mkdir(root, { recursive: true });
+		await writeFile(join(root, "a.png"), "png");
+		await symlink("a.png", join(root, "inside.png"));
+		const outside = join(home, "outside.png");
+		await writeFile(outside, "png");
+		await symlink(outside, join(root, "escape.png"));
+		const image = { kind: "image" as const, mime: "image/png" };
+		expect(mediaOf({ ...image, uri: "https://gchat.qpic.cn/a.png" }, root)).toEqual({
+			fileType: MediaFileType.IMAGE,
+			source: { url: "https://gchat.qpic.cn/a.png" },
+		});
+		expect(mediaOf({ ...image, uri: join(root, "a.png") }, root).source).toEqual({ localPath: join(root, "a.png") });
+		expect(() => mediaOf({ ...image, uri: "/etc/passwd" }, root)).toThrow("outside the allowlisted media root");
+		expect(() => mediaOf({ ...image, uri: "../a.png" }, root)).toThrow("absolute local path");
+		await expect(assertInsideMediaRoot(join(root, "inside.png"), root)).resolves.toBeUndefined();
+		await expect(assertInsideMediaRoot(join(root, "escape.png"), root)).rejects.toThrow(
+			"escapes the allowlisted media root",
+		);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+function testChannel(home: string, bot: unknown): QQChannel {
+	const api = {
+		paths: { data: home },
+		log: { info() {}, warn() {}, error() {} },
+		credentials: { get: async () => ({ type: "api_key", key: "secret" }) },
+	} as unknown as PluginAPI;
+	const channel = new QQChannel("qq-main", { appId: "1", credential: "qq" }, api);
+	const internals = channel as unknown as { bot: unknown; state: string };
+	internals.bot = bot;
+	internals.state = "ready";
+	return channel;
+}
+
+test("sendMedia uploads allowlisted local files; a partial failure never resends the text", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-send-"));
+	try {
+		const root = join(home, "qq-main", "media");
+		await mkdir(root, { recursive: true });
+		const file = join(root, "a.png");
+		await writeFile(file, "png");
+		const calls: Array<[string, unknown]> = [];
+		let mediaCalls = 0;
+		const bot = {
+			send: async (request: unknown) => {
+				calls.push(["text", request]);
+				return { id: "TEXT1" };
+			},
+			sendMedia: async (request: unknown) => {
+				calls.push(["media", request]);
+				mediaCalls++;
+				if (mediaCalls === 1) return { message: { id: "MEDIA1" } };
+				throw new Error("upload boom");
+			},
+		};
+		const channel = testChannel(home, bot);
+		const media = { kind: "image" as const, mime: "image/png" };
+		const local = await channel.send("conv:qq-main:c2c:USER", {
+			text: "",
+			attachments: [{ ...media, uri: file }],
+		});
+		expect(local).toEqual({ ok: true, id: "MEDIA1" });
+		expect(calls[0]).toEqual([
+			"media",
+			{ target: { scope: "c2c", targetId: "USER" }, fileType: MediaFileType.IMAGE, localPath: file },
+		]);
+		// Text accepted, first media accepted, second media fails: unknown, not a resend.
+		calls.length = 0;
+		mediaCalls = 0;
+		const partial = await channel.send("conv:qq-main:c2c:USER", {
+			text: "你好",
+			attachments: [
+				{ ...media, uri: "https://gchat.qpic.cn/a.png" },
+				{ ...media, uri: file },
+			],
+		});
+		expect(partial).toEqual({
+			ok: false,
+			uncertain: true,
+			id: "TEXT1",
+			error: expect.stringContaining("2/3 accepted"),
+		});
+		expect(calls.filter(([kind]) => kind === "text")).toHaveLength(1);
+		// Text accepted without an id still counts as success.
+		calls.length = 0;
+		mediaCalls = 0;
+		const noId = await channel.send("conv:qq-main:c2c:USER", {
+			text: "你好",
+			attachments: [{ ...media, uri: "https://gchat.qpic.cn/a.png" }],
+		});
+		expect(noId).toEqual({ ok: true, id: "TEXT1" });
+		const plain = await testChannel(home, {
+			send: async () => ({}),
+			sendMedia: async () => ({ message: {} }),
+		}).send("conv:qq-main:c2c:USER", { text: "你好" });
+		expect(plain).toEqual({ ok: true });
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("non-https inbound attachments are dropped with a warning", () => {
+	const raw = {
+		id: randomBytes(16).toString("hex"),
+		content: "",
+		author: { user_openid: "USER" },
+		timestamp: new Date().toISOString(),
+		attachments: [
+			{ content_type: "image/png", url: "https://gchat.qpic.cn/a.png" },
+			{ content_type: "image/png", url: "http://insecure.example/b.png" },
+			{ content_type: "image/png", url: "file:///etc/passwd" },
+		],
+	};
+	const result = dispatchEvent("C2C_MESSAGE_CREATE", raw, "instance");
+	if (result.action !== "message") throw new Error("Tencent SDK did not parse the protocol event");
+	const msg = { ...result.msg, replyTarget: { scope: "c2c" as const, targetId: "USER" } };
+	const event = incoming("qq-main", { appId: "1", credential: "qq" }, msg);
+	if (!event) throw new Error("message with only attachments must still be accepted");
+	expect(droppedAttachments(msg, event)).toBe(2);
 });

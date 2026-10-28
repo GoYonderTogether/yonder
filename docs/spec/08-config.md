@@ -36,6 +36,7 @@ plugins:
 channels:                                # 渠道实例：id → 提供者 type 与实例配置（04 §3.1）
   cli: { type: cli }
   feishu-main: { type: feishu, appId: cli_a1b2, credential: feishu-main }   # 密钥在凭据文件里
+  qq-main: { type: qq, appId: 1234567890, credential: qq-main }             # 密钥在凭据文件里；sendIntervalMs 默认 500（两条发送的最小间隔 ms，可省略）
 
 notifications:                           # 通知级别，06 §9.1；可省略，默认 all
   default: mention                       # all 全部 | mention 仅 @我 | mute 免打扰

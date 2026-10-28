@@ -1,5 +1,5 @@
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, realpath } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import {
 	ApiError,
 	contentSanitizer,
@@ -32,6 +32,7 @@ export interface Config {
 	allowedGroups?: string[];
 	groupWindowSeconds?: number;
 	sendIntervalMs?: number;
+	localMediaRoot?: string;
 }
 const str = { type: "string", minLength: 1 };
 export const configSchema = {
@@ -45,6 +46,7 @@ export const configSchema = {
 		allowedGroups: { type: "array", items: str },
 		groupWindowSeconds: { type: "integer", minimum: 1, maximum: 3600 },
 		sendIntervalMs: { type: "integer", minimum: 0, maximum: 60000 },
+		localMediaRoot: { type: "string", minLength: 1 },
 	},
 };
 
@@ -77,6 +79,13 @@ export function attachmentsOf(items: InboundMedia[] | undefined): Attachment[] {
 	});
 }
 
+/** Count of inbound attachments the channel dropped (only https URLs are accepted). */
+export function droppedAttachments(msg: QQBotInboundMessage, event: EventInput): number {
+	const received = msg.attachments?.length ?? 0;
+	const kept = (event.data as { attachments?: unknown[] }).attachments?.length ?? 0;
+	return Math.max(0, received - kept);
+}
+
 /** A quoted reply only survives in msg_elements[0]; the reference index alone carries no text. */
 export function quoteOf(msg: QQBotInboundMessage): { text: string } | undefined {
 	const text = msg.msgElements?.[0]?.content?.trim();
@@ -103,11 +112,15 @@ export class Spacing {
 	}
 }
 
-/** Outbound media accepts an https URL or an absolute local path; the platform uploads both. */
-function mediaOf(attachment: Attachment): {
-	fileType: MediaFileType;
-	source: { url: string } | { localPath: string };
-} {
+/**
+ * Outbound media accepts an https URL or an absolute local path under `root`;
+ * the platform uploads both. Local paths are resolved and real-pathed, so a
+ * symlink that escapes the allowlisted root is rejected.
+ */
+export function mediaOf(
+	attachment: Attachment,
+	root: string,
+): { fileType: MediaFileType; source: { url: string } | { localPath: string } } {
 	const fileType =
 		attachment.kind === "image"
 			? MediaFileType.IMAGE
@@ -117,8 +130,19 @@ function mediaOf(attachment: Attachment): {
 					? MediaFileType.VIDEO
 					: MediaFileType.FILE;
 	if (attachment.uri.startsWith("https://")) return { fileType, source: { url: attachment.uri } };
-	if (attachment.uri.startsWith("/")) return { fileType, source: { localPath: attachment.uri } };
-	throw new Error("QQ attachment must be an https URL or an absolute local path");
+	if (!attachment.uri.startsWith("/")) throw new Error("QQ attachment must be an https URL or an absolute local path");
+	const resolved = resolve(attachment.uri);
+	if (relative(resolve(root), resolved).startsWith("..") || isAbsolute(relative(resolve(root), resolved)))
+		throw new Error(`QQ local attachment is outside the allowlisted media root: ${attachment.uri}`);
+	return { fileType, source: { localPath: resolved } };
+}
+
+/** Rejects a resolved local media path whose realpath leaves the allowlisted root, or that does not exist. */
+export async function assertInsideMediaRoot(localPath: string, root: string): Promise<void> {
+	const [realPath, realRoot] = await Promise.all([realpath(localPath), realpath(root)]);
+	const rel = relative(realRoot, realPath);
+	if (isAbsolute(rel) || rel === "" || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || rel === "..")
+		throw new Error(`QQ local attachment escapes the allowlisted media root: ${localPath}`);
 }
 
 export function incoming(
@@ -187,12 +211,15 @@ export class QQChannel implements Channel {
 	private sent = 0;
 	private readonly pending = new Set<Promise<unknown>>();
 	private readonly queue: Spacing;
+	private readonly mediaRoot: string;
 	private groups: GroupParticipation | undefined;
 	constructor(
 		readonly id: string,
 		readonly config: Config,
 		private readonly api: PluginAPI,
 	) {
+		// Local attachments are only accepted under this allowlisted root.
+		this.mediaRoot = resolve(config.localMediaRoot ?? join(api.paths.data, id, "media"));
 		this.queue = new Spacing(config.sendIntervalMs ?? 500);
 	}
 	status() {
@@ -255,10 +282,8 @@ export class QQChannel implements Channel {
 			if (this.state === "stopped") return;
 			const event = incoming(this.id, this.config, msg, ctx.state.mention?.wasMentioned ?? false);
 			if (!event) return;
-			const received = msg.attachments?.length ?? 0;
-			const kept = (event.data as { attachments?: unknown[] }).attachments?.length ?? 0;
-			if (received > kept)
-				this.api.log.warn("QQ inbound attachments dropped", { instance: this.id, dropped: received - kept });
+			const dropped = droppedAttachments(msg, event);
+			if (dropped > 0) this.api.log.warn("QQ inbound attachments dropped", { instance: this.id, dropped });
 			const work = io.emit(event);
 			this.pending.add(work);
 			try {
@@ -293,14 +318,19 @@ export class QQChannel implements Channel {
 		this.secret = "";
 	}
 	async send(target: string, message: OutMessage, signal?: AbortSignal): Promise<Delivery> {
-		let attempted = false;
+		// Per-item progress; declared outside try so the catch can report partial success.
+		let accepted = 0;
+		let firstId: string | undefined;
+		let total = 0;
 		try {
 			signal?.throwIfAborted();
-			if (!this.bot || this.state === "stopped" || this.state === "failed")
-				throw new Error("QQ channel is not running");
+			const bot = this.bot;
+			if (!bot || this.state === "stopped" || this.state === "failed") throw new Error("QQ channel is not running");
 			const text = message.text.trim();
 			if (!text && !message.attachments?.length) throw new Error("QQ reply is empty");
-			const media = (message.attachments ?? []).map(mediaOf);
+			const media = (message.attachments ?? []).map((item) => mediaOf(item, this.mediaRoot));
+			for (const item of media)
+				if ("localPath" in item.source) await assertInsideMediaRoot(item.source.localPath, this.mediaRoot);
 			const to = recipient(this.id, target);
 			const msgId = message.replyTo ?? message.sourceMessageId;
 			if (msgId) to.msgId = msgId;
@@ -311,11 +341,10 @@ export class QQChannel implements Channel {
 				this.store?.set(key, sequence, 60 * 60 * 1000);
 				this.store?.flush();
 			}
-			attempted = true;
-			const ids: string[] = [];
+			total = (text ? 1 : 0) + media.length;
 			if (text) {
 				const response = await this.queue.run(() =>
-					this.bot!.send({
+					bot.send({
 						target: to,
 						msgType: 0,
 						content: text,
@@ -323,23 +352,33 @@ export class QQChannel implements Channel {
 						extra: { msg_seq: sequence },
 					}),
 				);
-				if (response.id) ids.push(response.id);
+				accepted++;
+				if (response.id) firstId ??= response.id;
 			}
 			for (const item of media) {
 				const response = await this.queue.run(() =>
-					this.bot!.sendMedia({ target: to, fileType: item.fileType, ...item.source }),
+					bot.sendMedia({ target: to, fileType: item.fileType, ...item.source }),
 				);
-				if (response.message?.id) ids.push(response.message.id);
+				accepted++;
+				if (response.message?.id) firstId ??= response.message.id;
 			}
-			const id = ids[0];
-			if (!id) throw new Error("QQ response omitted message ID; delivery is unknown");
 			this.sent++;
-			return { ok: true, id };
+			// Text (or media) accepted without an id still counts as success.
+			return { ok: true, ...(firstId ? { id: firstId } : {}) };
 		} catch (error) {
 			// SDK requests do not expose cancellation. Once started, await their receipt;
 			// network failures and invalid responses cannot safely be replayed.
-			const uncertain =
-				attempted && (!(error instanceof ApiError) || error.httpStatus === 0 || error.httpStatus >= 500);
+			if (accepted > 0) {
+				// Partial success: keep the accepted id and report unknown so the core
+				// records message.unknown instead of replaying the whole group (06 §8).
+				return {
+					ok: false,
+					uncertain: true,
+					...(firstId ? { id: firstId } : {}),
+					error: `${this.safe(error)} (${accepted}/${total} accepted)`,
+				};
+			}
+			const uncertain = !(error instanceof ApiError) || error.httpStatus === 0 || error.httpStatus >= 500;
 			return { ok: false, error: this.safe(error), ...(uncertain ? { uncertain: true } : {}) };
 		}
 	}
