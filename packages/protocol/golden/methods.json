@@ -1,0 +1,530 @@
+{
+	"protocol": 1,
+	"methods": {
+		"activity.summary": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"activity.watch": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"awake.status": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"bots.list": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"bots.send": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"agent": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"requestId": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"text": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["agent", "text"],
+				"type": "object"
+			}
+		},
+		"capabilities.get": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"channels.list": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"shipped": {
+						"type": "boolean"
+					}
+				},
+				"type": "object"
+			}
+		},
+		"channels.login": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"events.query": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"query": {}
+				},
+				"type": "object"
+			}
+		},
+		"gateway.ticket": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"identity.link": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"account": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"person": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["account", "person"],
+				"type": "object"
+			}
+		},
+		"identity.lookup": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"ref": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["ref"],
+				"type": "object"
+			}
+		},
+		"identity.person": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"person": {
+						"properties": {
+							"id": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"name": {
+								"minLength": 1,
+								"type": "string"
+							},
+							"note": {
+								"type": "string"
+							}
+						},
+						"required": ["id", "name"],
+						"type": "object"
+					}
+				},
+				"required": ["person"],
+				"type": "object"
+			}
+		},
+		"identity.unlink": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"account": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["account"],
+				"type": "object"
+			}
+		},
+		"imports.list": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"cwd": {
+						"type": "string"
+					},
+					"limit": {
+						"maximum": 5000,
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"type": "object"
+			}
+		},
+		"imports.show": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"limit": {
+						"maximum": 100000,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"offset": {
+						"minimum": 0,
+						"type": "integer"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"management": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"release.result": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"data": {}
+				},
+				"required": ["data"],
+				"type": "object"
+			}
+		},
+		"service.info": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"sessions.abort": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.close": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.command": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"command": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id", "command"],
+				"type": "object"
+			}
+		},
+		"sessions.list": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"filter": {}
+				},
+				"type": "object"
+			}
+		},
+		"sessions.notify": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"event": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "event", "text"],
+				"type": "object"
+			}
+		},
+		"sessions.open": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"close": {
+						"anyOf": [
+							{
+								"const": "manual",
+								"type": "string"
+							},
+							{
+								"const": "run-end",
+								"type": "string"
+							}
+						]
+					},
+					"parent": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"preset": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["preset"],
+				"type": "object"
+			}
+		},
+		"sessions.show": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"include": {
+						"anyOf": [
+							{
+								"const": "meta",
+								"type": "string"
+							},
+							{
+								"const": "transcript",
+								"type": "string"
+							}
+						]
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.submit": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"attachments": {
+						"items": {},
+						"type": "array"
+					},
+					"busy": {
+						"anyOf": [
+							{
+								"const": "followup",
+								"type": "string"
+							},
+							{
+								"const": "steer",
+								"type": "string"
+							},
+							{
+								"const": "interrupt",
+								"type": "string"
+							}
+						]
+					},
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"requestId": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "text"],
+				"type": "object"
+			}
+		},
+		"sessions.transcript": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"before": {
+						"minimum": 0,
+						"type": "integer"
+					},
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"limit": {
+						"maximum": 500,
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.watch": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"stop": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"terminal.channels": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"terminal.dequeue": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"terminal.info": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"terminal.presets": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"terminal.queued": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"terminal.sessions": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		}
+	}
+}
