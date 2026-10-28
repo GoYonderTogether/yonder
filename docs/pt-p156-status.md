@@ -1,9 +1,7 @@
-# PT-P156 项目报告状态（2026-10-28）
+# P156r3 项目报告验证（2026-10-28）
 
-尚未交付 `code-intel_project_report`。实时检查 `plugins/code-intel` 的工具注册，未发现该工具；P001 的可选 code-intel 插件已经存在。pi-lens 4.4.6 文档描述 `project_report` 使用缓存 review graph，冷缓存返回 `available:false` 并后台构建，超过 `maxProjectFiles` 的项目记录跳过结果，后续调用不重复构建；`limit` 默认 10，`focus` 只重排，`view: compact` 返回文本。
+`code-intel_project_report` 复用选定执行环境内的共享 pi-lens MCP，冷缓存返回构建状态，热缓存返回报告。工具、契约和注册分别见提交 b7c3fa1、ed5462a、177667b；测试格式修正见 85f9fd2。
 
-实现 Agent 报告：本机 pi-lens 4.4.6 原安装缺少 peer `@earendil-works/pi-tui`；临时复制并链接现有 peer 和 typebox 后，`tools/list` 握手成功，名称为 `pilens_project_report`，schema 为 `cwd`、`limit`（number）、`focus`、`view`（default 或 compact）。此为代理实测记录，尚未独立复核。P159 的真实后端握手和冷索引检查命令及原始结果见 [PT-P159 状态](pt-p159-status.md)。当前 `plugins/code-intel/src/lens-mcp.ts` 每次响应后终止 MCP 子进程；P159 冷索引实测三次均返回 `available:false/building`。`ExecutionEnv.exec` 目前没有持久双向 stdin，现有 MCP 客户端是其他插件内部实现，不能跨插件导入。项目报告需要选定执行环境内共享 MCP 连接、后台构建生命周期和取消契约；不能另建脱离 T04 的后台进程或第二套索引。
+包级 TypeScript 与 Biome 通过；相关测试原始结果：常规运行 1 通过、1 跳过。首次干净副本真实后端运行 1 通过、1 失败（本机 pi-lens MCP 无执行权限）；临时复制后重试 1 通过、1 失败（测试错误地要求 JSON 冒号后无空格）。使用同一副本的真实后端直接调用：冷返回 available:false 且后台构建，同连接后续返回 available:true。真实模型 siliconflow/deepseek-ai/DeepSeek-V3.2 的工具调用测试 1 通过、0 失败、0 跳过。
 
-后续接入应复核该握手，复用共享生命周期和 T05 原文缓存，完成真实仓库冷/热报告、focus 范围、超过文件上限不重复构建、构建期间接收新消息，以及取消和错误路径验证。还需验证未选插件不注册、描述/schema token 增量、输出截断与缓存索引、核心 find/ls 不注入未选工具规则，并在临时 HOME 使用指定真实模型完成调用。上述 P156 验收均未完成；不得以 P159 的后端证据冒充 P156 验收。
-
-公开工具落地时按 PT-README 和 spec/20 同步规范、reference 和插件文档，补注册契约检查；工具没有通用 golden。pi-lens 4.4.6 声明 MIT 许可，来源及安装要求已记录在 [code-intel README](../plugins/code-intel/README.md)。
+干净副本全仓构建失败：并行的 ast-grep-replace 使用 SDK 未提供的 authorizeFileWrite；与本卡无关。更新后的测试尚未在干净副本重跑：共享验收 HOME 被其他任务使用，verify-copy.sh 拒绝更新。verify-home.sh 曾启动并已停止本卡 HOME；由于副本构建失败，未用 real-check.sh 声称完整 gateway 验收。
