@@ -19,6 +19,7 @@ export class Batches {
 	private readonly groups = new Map<string, State>();
 	private readonly read = new Map<string, string>();
 	private readonly readAt = new Map<string, number>();
+	private readonly legacyPending = new Map<string, string>();
 	private stopped = false;
 	private started = false;
 	constructor(private readonly api: PluginAPI) {}
@@ -36,16 +37,16 @@ export class Batches {
 	async start() {
 		// ponytail: startup scans the ledger; add an index if event volume makes recovery slow.
 		for await (const event of this.events({ type: "channel-qq.group-read" })) {
+			await this.legacyRead(event);
+		}
+		for await (const event of this.events({ type: "channel-qq.group-batch" })) {
 			const { through } = event.data as { through?: string };
 			if (!event.conv || !through) continue;
-			const source = (await this.api.events.query({ id: through, conv: event.conv, type: "message.in" })).events[0];
-			for (const route of source?.routes ?? []) {
-				if (route.wake !== "write" || route.dropped) continue;
+			for (const route of event.routes ?? []) {
+				if (route.wake !== "run" || route.dropped || !route.session) continue;
 				const key = this.key(route.agent, event.conv);
-				if (through > (this.read.get(key) ?? "")) {
-					this.read.set(key, through);
-					this.readAt.set(key, Date.parse(event.ts));
-				}
+				if (through > (this.read.get(key) ?? "") && through > (this.legacyPending.get(key) ?? ""))
+					this.legacyPending.set(key, through);
 			}
 		}
 		for await (const event of this.events({ type: "social.batch-read" })) {
@@ -56,6 +57,7 @@ export class Batches {
 					this.read.set(key, data.through);
 					this.readAt.set(key, Date.parse(event.ts));
 				}
+				if (data.through >= (this.legacyPending.get(key) ?? "")) this.legacyPending.delete(key);
 			}
 		}
 		for await (const event of this.events({ type: "social.batch-ready" })) {
@@ -86,6 +88,25 @@ export class Batches {
 		for (const [key, state] of this.groups) {
 			state.entries = state.entries.filter((entry) => entry.source.id > (this.read.get(key) ?? ""));
 			this.schedule(key, state);
+		}
+	}
+	async legacyRead(event: YEvent) {
+		const { through } = event.data as { through?: string };
+		if (!event.conv || !through) return;
+		const source = (await this.api.events.query({ id: through, conv: event.conv, type: "message.in" })).events[0];
+		for (const route of source?.routes ?? []) {
+			if (route.wake !== "write" || route.dropped) continue;
+			const key = this.key(route.agent, event.conv);
+			if (through > (this.read.get(key) ?? "")) {
+				this.read.set(key, through);
+				this.readAt.set(key, Date.parse(event.ts));
+			}
+			if (through >= (this.legacyPending.get(key) ?? "")) this.legacyPending.delete(key);
+			const state = this.groups.get(key);
+			if (state) {
+				state.entries = state.entries.filter((entry) => entry.source.id > through);
+				this.schedule(key, state);
+			}
 		}
 	}
 	direct(event: YEvent) {
@@ -175,6 +196,7 @@ export class Batches {
 			this.stopped ||
 			state.active ||
 			state.failed ||
+			this.legacyPending.has(key) ||
 			state.direct?.size ||
 			(!first && !state.pending)
 		)

@@ -2,6 +2,53 @@ import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { Batches } from "../src/batches.js";
 
+test("waits for an admitted QQ batch to finish before scheduling its unread successor", async () => {
+	vi.useFakeTimers();
+	const ts = new Date().toISOString();
+	const conv = "conv:qq:group:a";
+	const route = { agent: "a", binding: "b", session: "s", wake: "write" as const };
+	const ledger: YEvent[] = [
+		{ id: "1", ts, type: "message.in", conv, data: { text: "old" }, routes: [route] },
+		{ id: "2", ts, type: "channel-qq.group-batch", conv, data: { through: "1" }, routes: [{ ...route, wake: "run" }] },
+		{ id: "3", ts, type: "message.in", conv, data: { text: "new" }, routes: [route] },
+		{
+			id: "4",
+			ts,
+			type: "routing.social-decision",
+			parent: "3",
+			data: {
+				agent: "a",
+				reason: "batch",
+				revision: "r",
+				policy: { batch: { count: 1, run: true }, minIntervalSeconds: 0 },
+			},
+		},
+	];
+	const ask = vi.fn(async (input: EventInput) => ({ event: { ...input, id: "6", ts }, results: [{ status: "done" }] }));
+	const api = {
+		events: {
+			query: async (q: { id?: string; type?: string; conv?: string }) => ({
+				events: ledger.filter(
+					(e) => (!q.id || q.id === e.id) && (!q.type || q.type === e.type) && (!q.conv || q.conv === e.conv),
+				),
+			}),
+			ask,
+			emit: async (input: EventInput) => ({ ...input, id: "7", ts }),
+		},
+		log: { warn: vi.fn() },
+	} as unknown as PluginAPI;
+	const batches = new Batches(api);
+	await batches.start();
+	await vi.runAllTimersAsync();
+	expect(ask).not.toHaveBeenCalled();
+	await batches.legacyRead({ id: "5", ts, type: "channel-qq.group-read", conv, data: { through: "1" } });
+	await vi.runAllTimersAsync();
+	expect(ask).toHaveBeenCalledTimes(1);
+	expect(ask.mock.calls[0]?.[0].data).toMatchObject({ through: "3", sourceEvents: ["3"] });
+	await batches.stop();
+	vi.useRealTimers();
+});
+
 test("imports the QQ read cursor without moving it backwards on restart", async () => {
 	vi.useFakeTimers();
 	const ts = new Date().toISOString();
