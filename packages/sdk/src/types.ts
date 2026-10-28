@@ -153,6 +153,8 @@ export interface SessionsAPI {
 	get(id: string): Promise<SessionInfo | undefined>;
 	open(req: {
 		preset: string;
+		/** Copy only model selection and credential slots from a session without making it the parent. */
+		modelSource?: { session: string; fallback?: string };
 		parent?: string;
 		capabilities?: Capability[];
 		close?: "run-end" | "manual";
@@ -325,8 +327,6 @@ export interface ToolContext {
 	events?: YEvent[];
 	signal: AbortSignal;
 	cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;
-	/** Check the runtime file-write policy for a plugin mutation. */
-	checkFileWrite?(path: string): Promise<void>;
 }
 export interface ToolResult {
 	text: string;

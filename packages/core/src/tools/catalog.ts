@@ -6,6 +6,7 @@ export const coreToolCapabilities: Record<string, Capability[]> = {
 	agent_ask: ["message"],
 	parent_ask: [],
 	task_run: [],
+	task_control: [],
 	task_continue: [],
 	session_list: ["admin"],
 	session_read: ["admin"],

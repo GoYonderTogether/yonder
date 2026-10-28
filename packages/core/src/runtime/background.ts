@@ -273,7 +273,12 @@ export function createBackground(options: {
 			return pointer.id as TaskId<ToolExecutionResult>;
 		}, context);
 		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), tool.name === "bash" && args.background === true ? 0 : 15000);
+		const timer = setTimeout(
+			() => controller.abort(),
+			(tool.name === "bash" && args.background === true) || (tool.name === "task_run" && args.async === true)
+				? 0
+				: 15000,
+		);
 		try {
 			const done = await harness().waitForTask(
 				id,

@@ -127,9 +127,10 @@ bindings: [ … ]                   # 见 02 §2
 
 - 内核工具 `task_run({ preset, task, attachments?, effort?, credentialSlots? })`：用预设开一个 `task` 会话，把 `task` 作为输入，运行结束后把最终回复作为工具结果返回，会话关闭。基于 pi-durable 的子会话所有权，发起方中止时子会话一并中止。
 - 子会话默认继承发起方：预设没写 `level`/`capabilities` 就取发起方的能力，写了则与发起方相交；没写的 `tools.offer/search`、`plugins`、`skills` 取发起方，写了则只能在发起方对应范围内选择。工具的 offer/search 分别取交集，通配符按实际工具名匹配；skills 按实际名称匹配。父为非 main 常驻 Agent 时，session_list/read 的逐名选择限制也传给子会话。**禁止**借预设提权。contexts、model、thinking、fallback、credentialSlots、instructions 由预设决定，不继承父会话的模型账户配置或常驻身份；`task_run` 嵌套不超过两层。父范围及祖先上限在开会话时固定保存，恢复与后续预设重载只能再收窄；旧会话未保存的 skills 上限按空范围处理。`channelInstances` 取父范围与预设范围交集（undefined 为单位元），创建时保存有效上限；无父则取预设范围，恢复与后续预设重载只能再相交，不放宽。
+- `task_run` 可选 `async: true`，立即返回共享后台句柄 `{ background, tool, status, message }`，完成后续办主会话；子会话保持打开以供续办。默认行为不变。`task_control({ action, id, message? })` 使用本会话的后台 ID：`status`/`result` 读取后台状态与结果，`steer` 对运行中的子会话发送消息，`resume` 对已完成子会话继续输入；后两者必须给 `message`，其他会话的任务不可访问。继续运行仍经过共享后台边界，超过 15 秒返回句柄并在完成时回报。
 - `task_run` 的按次 `credentialSlots` 与 `effort` 使用同一既有 admin 能力门槛，不增加权限机制。映射按 provider 覆盖预设自身的选择，与 effort 同级保存在结构化 `session.input.data` 中，重放使用原事件；仅影响该次运行，在运行配置快照前应用，不改写预设或父会话。
 - 插件（例如 MCP 服务端渠道）用 `sessions.open({ preset, capabilities })` 打开预设会话、`submit` 驱动；预设没写能力时取 `capabilities`，写了则与之相交，插件应当传入它代表的外部调用方被允许的能力。
-- 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
+- 基础 TUI 的待审核方案（12）：独立任务使用 `sessions.open({ preset, close: 'manual' })`，首次发送才创建，连续追问沿用同一 conversation；没有 agent 身份、工作区或常驻绑定。默认 `run-end` 与非异步 `task_run` 仍一轮结束后关闭。init 生成无虚构人设的 default 预设，具体值见 12 §3；这不是新增 agent。
 - 有 parent 的预设会话在创建时保存实际父 cwd/env 与能力上限；无 parent 时 cwd 为 home、env 默认为 local。预设显式 env 优先。首次运行取当前预设能力与保存的父/调用方限制相交，不因重载扩大已授范围；已开始运行按原配置恢复。没有 agent 工作区，不读取工作区上下文贡献；system 保留框架、共同底座、运行约定、按能力选择的 CLI 导航、home/插件 skill 索引和 instructions；不装入常驻身份段。有效能力、cwd/env 与运行配置存在 pi 扩展文档中供恢复使用，不增加 Yonder 转录或会话表字段。
 
 ## 5. 提示词组装
@@ -259,7 +260,7 @@ Agent 与预设的热管理、归档与模板创建见 [14 §4](14-execution-cap
 
 ## 8. 子任务结果
 
-子任务输入附件由调用方显式选择，默认不继承父全部附件；每条附件保留原来源与既有读取范围。task_run 返回包含实际 child session、status、reason、text 和可选 attachments 的结构化正文。ToolResult 可携带显式 attachments，runtime 把这些真实产物引用存入该工具原生结果元数据并在本轮结果中保留；没有产物不造附件，不从自然语言猜路径，不扫描工作区搜集文件。结果引用不自动扩大父调用方权限，读取/发送仍校验；不增加 artifact 数据库。
+子任务输入附件由调用方显式选择，默认不继承父全部附件；每条附件保留原来源与既有读取范围。task_run 返回包含实际 child session、status、reason、text、可选 resultFile 和 attachments 的结构化正文；运行时提供输出缓存时 resultFile 指向保存完整结果的文件。ToolResult 可携带显式 attachments，runtime 把这些真实产物引用存入该工具原生结果元数据并在本轮结果中保留；没有产物不造附件，不从自然语言猜路径，不扫描工作区搜集文件。结果引用不自动扩大父调用方权限，读取/发送仍校验；不增加 artifact 数据库。
 
 task 会话最终回复首行必须为 `STATUS: done|partial|blocked`，随后列出实际验证证据（命令、测试、路径）、剩余项，blocked 必须说明准确所需条件。禁止以空文本或字面 `NO_REPLY` 结案；若仍出现，内核只把返回调用方的 text 规范化为 `STATUS: unknown (no report)`，不改变原生运行 status、不增加 outcome。`status: done` 仅表示运行正常结束，STATUS 是模型自述，调用方必须核实后再向主人报告。
 

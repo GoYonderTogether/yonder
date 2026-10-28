@@ -40,6 +40,7 @@ export type KernelServices = Omit<
 		| "messages"
 		| "credentials"
 		| "sessions"
+		| "subagents"
 		| "identity"
 		| "services"
 		| "host"
@@ -300,6 +301,12 @@ export async function loadPlugins(
 					denySetupWrite("sessions.observe");
 					if (!services.sessions.observe) throw new Error("Session observation unavailable");
 					return services.sessions.observe(id, send);
+				},
+			},
+			subagents: {
+				run: (request, ctx) => {
+					denySetupWrite("subagents.run");
+					return services.subagents.run(request, ctx);
 				},
 			},
 			identity: {

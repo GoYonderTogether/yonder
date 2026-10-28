@@ -40,10 +40,11 @@ import { type ManagementRequest, manageHome } from "./home-management.js";
 import { hostService } from "./host-status.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
-import { observedRuntimeEvents, type TerminalSends, terminalUpdates } from "./observation-events.js";
+import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
+import { runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
-import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
+import { credentialsAndModels, filesFor, loadAgents, projectRulesFor, skillsFor, unavailable } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { initHome, inspectHome } from "./home.js";
@@ -110,24 +111,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			if (!runtime) throw new Error("Runtime is not ready");
 			return runtime;
 		};
-		const observeSession = async (id: string, send: (update: import("@yonder/sdk").SessionUpdate) => Promise<void>) => {
-			if (!(await store.sessions.get(id))) throw new Error(`Unknown session: ${id}`);
-			const listeners = terminalEnds.get(id) ?? new Set();
-			listeners.add(send);
-			terminalEnds.set(id, listeners);
-			try {
-				const dispose = await realRuntime().observe(id, send);
-				return async () => {
-					listeners.delete(send);
-					if (!listeners.size) terminalEnds.delete(id);
-					await dispose();
-				};
-			} catch (error) {
-				listeners.delete(send);
-				if (!listeners.size) terminalEnds.delete(id);
-				throw error;
-			}
-		};
+		const observeSession = sessionObserver(store, terminalEnds, realRuntime);
 		let sessions: ReturnType<typeof createSessions>;
 		let router: ReturnType<typeof createRouter>;
 		let delivery: ReturnType<typeof createDelivery>;
@@ -193,6 +177,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				transcript: (id, range) => sessions.api.transcript(id, range),
 				observe: observeSession,
 			},
+			subagents: { run: (request, ctx) => runSubagent(realRuntime(), tools, request, ctx) },
 			execution: {
 				resolve: async (owner) => {
 					const { resolved } = await resolveExecutionOwner(owner);
@@ -272,6 +257,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			timezone: config.timezone ?? "Asia/Shanghai",
 			contexts: loaded.contexts,
 			workspace: (session, signal) => filesFor(home, config, loaded, session.agent ?? "", signal),
+			projectRules: (session, signal) => projectRulesFor(home, config, loaded, session, signal),
 			identity: store.identity(),
 			models: services.models,
 			setVersion: store.sessions.setVersion,
@@ -323,7 +309,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			notifications: config.notifications,
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
-				if (!channel || !config.channels?.[channel]) return Promise.resolve(undefined);
+				if (!channel || !loaded.channels.has(channel)) return Promise.resolve(undefined);
 				return runChannelCommand(session, event, {
 					store,
 					sessions,
@@ -397,7 +383,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
 			sectionKeys: systemPromptKeys(loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
-			...observedRuntimeEvents(store, forwardUpdate),
+			...observedRuntimeEvents(store, forwardUpdate, delivery.modelNotice),
 			onReport: report,
 		});
 		const validateCandidate = async (

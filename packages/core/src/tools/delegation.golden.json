@@ -1,0 +1,129 @@
+{
+	"task_control": {
+		"type": "object",
+		"required": ["action", "id"],
+		"properties": {
+			"action": {
+				"anyOf": [
+					{
+						"type": "string",
+						"const": "status"
+					},
+					{
+						"type": "string",
+						"const": "result"
+					},
+					{
+						"type": "string",
+						"const": "steer"
+					},
+					{
+						"type": "string",
+						"const": "resume"
+					}
+				]
+			},
+			"id": {
+				"type": "string",
+				"pattern": "^[0-9]+$"
+			},
+			"message": {
+				"type": "string",
+				"minLength": 1
+			}
+		},
+		"additionalProperties": false
+	},
+	"task_run": {
+		"type": "object",
+		"required": ["preset", "task"],
+		"properties": {
+			"preset": {
+				"type": "string",
+				"minLength": 1
+			},
+			"task": {
+				"type": "string",
+				"minLength": 1
+			},
+			"async": {
+				"type": "boolean",
+				"description": "Return a durable background ID immediately; completion is delivered automatically."
+			},
+			"sources": {
+				"type": "array",
+				"items": {
+					"type": "string",
+					"minLength": 1
+				},
+				"minItems": 1,
+				"maxItems": 10,
+				"description": "Optional exact inbound message IDs to quote from the current source conversation. Omit this field when not quoting or when no source conversation exists. Never send an empty array, prose or invented IDs. It is not required for delegation."
+			},
+			"effort": {
+				"type": "string",
+				"minLength": 1,
+				"description": "Optional per-run thinking override. Requires admin capability; otherwise omit this field and use the configured preset/profile thinking."
+			},
+			"credentialSlots": {
+				"type": "object",
+				"patternProperties": {
+					"^.+$": {
+						"type": "string",
+						"minLength": 1
+					}
+				},
+				"additionalProperties": false,
+				"description": "Optional non-secret provider -> credential slot map for this run. Requires admin, like effort. Merges per provider over the preset's own selection; explicit default resets an inherited slot. Never pass keys or tokens.",
+				"~optional": true
+			},
+			"attachments": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"required": ["kind", "mime", "uri"],
+					"properties": {
+						"kind": {
+							"anyOf": [
+								{
+									"type": "string",
+									"const": "image"
+								},
+								{
+									"type": "string",
+									"const": "audio"
+								},
+								{
+									"type": "string",
+									"const": "video"
+								},
+								{
+									"type": "string",
+									"const": "file"
+								}
+							]
+						},
+						"mime": {
+							"type": "string",
+							"minLength": 1
+						},
+						"uri": {
+							"type": "string",
+							"minLength": 1
+						},
+						"name": {
+							"type": "string",
+							"minLength": 1
+						},
+						"bytes": {
+							"type": "number",
+							"minimum": 0
+						}
+					},
+					"additionalProperties": false
+				}
+			}
+		},
+		"additionalProperties": false
+	}
+}

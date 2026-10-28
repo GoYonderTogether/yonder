@@ -24,6 +24,8 @@ import { coreToolCapabilities } from "./catalog.js";
 import { requireCapability, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
 import { MAX_SOURCES, sourceBlock } from "./sources.js";
+import { createTaskControl } from "./task-control.js";
+import { asyncSchema, attachmentSchema } from "./tool-schema.js";
 
 coreToolCapabilities.model_route = ["read"];
 interface CoreToolsOptions {
@@ -56,16 +58,6 @@ const sourcesSchema = Type.Optional(
 		description:
 			"Optional exact inbound message IDs to quote from the current source conversation. Omit this field when not quoting or when no source conversation exists. Never send an empty array, prose or invented IDs. It is not required for delegation.",
 	}),
-);
-const attachmentSchema = Type.Object(
-	{
-		kind: Type.Union([Type.Literal("image"), Type.Literal("audio"), Type.Literal("video"), Type.Literal("file")]),
-		mime: text(),
-		uri: text(),
-		name: Type.Optional(text()),
-		bytes: Type.Optional(Type.Number({ minimum: 0 })),
-	},
-	{ additionalProperties: false },
 );
 export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const { store, agents, sessions, runtime, delivery, ask, getPreset } = options;
@@ -108,6 +100,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		ctx: ToolContext,
 		effort?: string,
 		credentialSlots?: SessionModels["credentialSlots"],
+		retain = false,
 	): Promise<{ session: SessionInfo; event: YEvent; input: RuntimeInput }> {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
@@ -115,11 +108,17 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		const resolved = resolveProfile(selected, {}, parent.resolved.env, options.defaultModel);
 		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
 		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
-		const { capabilities, channelInstances, inherit } = presetSession(selected, resolved.env, {
-			...parentResolved,
-			capabilities: ctx.capabilities,
-			...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
-		});
+		const { capabilities, channelInstances, inherit } = presetSession(
+			selected,
+			resolved.env,
+			{
+				...parentResolved,
+				capabilities: ctx.capabilities,
+				...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
+			},
+			undefined,
+			parent.agent,
+		);
 		let session = await store.sessions.get(childId);
 		if (!session) {
 			session = {
@@ -148,6 +147,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				cwd: parent.cwd,
 				env: resolved.env,
 				capabilities,
+				...(retain ? { close: "manual" as const } : {}),
 				...(channelInstances === undefined ? {} : { channelInstances }),
 				...(inherit ? { inherit } : {}),
 			});
@@ -177,6 +177,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		return { session, event, input: { text: task, event, ...(attachments ? { attachments } : {}) } };
 	}
 	return [
+		createTaskControl({ runtime, sessions, store }),
 		createModelRouteTool((signal) => modelProfiles(runtime().models, signal)),
 		tool({
 			name: "message_send",
@@ -349,6 +350,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			parameters: schema({
 				preset: text(),
 				task: text(),
+				async: asyncSchema,
 				sources: sourcesSchema,
 				effort: effortSchema,
 				credentialSlots: Type.Optional({
@@ -366,6 +368,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 					effort?: string;
 					credentialSlots?: SessionModels["credentialSlots"];
 					attachments?: Attachment[];
+					async?: boolean;
 				};
 				await runtime().authorizeAttachments(ctx, request.attachments);
 				if (!getPreset(request.preset)) throw new Error(`未知预设：${request.preset}`);
@@ -391,6 +394,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 								ctx,
 								request.effort,
 								request.credentialSlots,
+								request.async,
 							)
 						).input;
 					} catch (error) {
@@ -398,11 +402,13 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 						throw error;
 					}
 				});
+				const resultFile = await ctx.cacheToolOutput?.(run.text);
 				return {
 					...result({
 						session: run.session,
 						status: run.status,
 						text: run.text,
+						...(resultFile ? { resultFile } : {}),
 						...(run.reason ? { reason: run.reason } : {}),
 						...(run.attachments?.length ? { attachments: run.attachments } : {}),
 					}),

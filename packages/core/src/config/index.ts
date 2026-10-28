@@ -20,6 +20,7 @@ import {
 	type YonderConfig,
 	YonderSchema,
 } from "./schema.js";
+import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export { watchConfig } from "./reload.js";
 export type { AgentConfig, Binding, YonderConfig } from "./schema.js";
@@ -458,5 +459,6 @@ export async function loadPresets(home: string): Promise<Map<string, Preset>> {
 		}
 	}
 	if (issues.length) throw new ConfigError(issues);
+	for (const [id, definition] of await loadSubagentDefinitions(home)) presets.set(id, definition);
 	return presets;
 }

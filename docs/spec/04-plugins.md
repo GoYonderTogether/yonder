@@ -198,6 +198,7 @@ interface PluginAPI {
   execution: { resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
   credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
+  subagents: { run(request: SubagentTaskRequest, ctx: ToolContext): Promise<ToolResult> }; // task_run 语义
   identity: IdentityAPI;               // 02 §4.4
   services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };            // 每次读取当前凭据，07 §6.3
   host: {                              // 只读宿主事实，见下（D59）
@@ -210,6 +211,7 @@ interface PluginAPI {
 interface PluginModule { setup(api: PluginAPI): void | Promise<void>; configSchema?: TSchema }
 ```
 
+- `subagents.run(request, ctx)`：插件工具可复用 `task_run` 委派；`request` 与 `task_run` 参数相同，`ctx` 必须是当前工具调用的真实上下文。返回同一结构化工具结果，沿用子会话权限上限、取消和 durable 所有权；该入口等待结果，暂不支持 `async`；不得在 setup 或脱离工具调用时使用。
 - `events.on`：事件写入并完成路由之后调用，只观察、不能拦截或修改；同一插件内按事件顺序逐个调用，处理器抛错只记日志。只能在 `setup` 里注册，收到的是进程启动之后写入的事件（之前的用 `query`）。
 - `Credential` 是 pi 的凭据类型（`{ type: 'api_key', key, env? } | { type: 'oauth', … }`），由 `@yonder/sdk` 以纯类型重新导出。
 - entry 的默认导出是 `PluginModule`。`definePlugin(m)` 原样返回 `m`，只做类型约束；`defineChannel`、`defineTool`、`defineContext`、`defineTrigger`、`defineHook` 同理。
@@ -332,3 +334,7 @@ SDK 导出 `executionContext(signal)`，以工具取消信号构造执行环境�
 Channel 可选 `features` 描述 identity（account/person-link/unknown）、mentions（bot/owner/everyone/accounts）、quote（none/id/content）、edit、retract、streamMode（none/message/token）、rateLimit（scope、max、windowSeconds）和 history（none/recent/cursor）。声明是事实而非授权；旧 Channel 不声明仍有效，只认可既有 output 与实际 edit 方法。不支持的编辑或撤回应反馈，不用新消息冒充；未知 mention 不等于 false。
 
 可选 SDK social API 提供 inspect、update、resume；它们与控制面同用一套策略和现有能力校验，具体形状见 unified-client contracts 的 CH-01 节。插件只写自身 `social.*` 事件，内核负责路由诊断。此契约不表示渠道或社交插件已运行。
+
+### 独立任务的模型来源（T09r2）
+
+`SessionsAPI.open` 可选 `modelSource: { session, fallback? }`，来源必须是 Agent 非 task 会话；该选项不建立父子会话关系。任务复制该会话已解析的 credentialSlots，并依次选择 profile 的 `cheap`、`simple`、调用方的 fallback、来源主模型。来源会话已关闭时仍可使用；来源不存在或不符合条件时拒绝。Profile 的 `cheap` 和 `simple` 是可选的 `provider/model` 字符串。

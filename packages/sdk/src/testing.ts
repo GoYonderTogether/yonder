@@ -276,6 +276,7 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 				close: unavailable,
 				transcript: unavailable,
 			},
+			subagents: { run: unavailable },
 			identity: {
 				account: unavailable,
 				person: unavailable,
