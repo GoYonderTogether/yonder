@@ -3,7 +3,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vitest";
@@ -16,7 +17,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna batches group inputs, reads shared memory, asks main and preserves quiet/read/recovery boundaries",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-qq-participation-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-qq-participation-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		let passed = false;
@@ -148,7 +149,7 @@ export default {setup(api){api.channels.register({type:'group-source',create(id)
 			expect(batches).toHaveLength(2);
 			expect(batches[0]?.data).toMatchObject({ count: 2, through: accepted[1]?.event.id });
 			await writeFile(
-				"/tmp/yonder-qq-participation-last.json",
+				join(tmpdir(), "yonder-qq-participation-last.json"),
 				JSON.stringify({
 					home,
 					events: (await kernel.events.query({ limit: 1000 })).events,
