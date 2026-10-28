@@ -18,14 +18,15 @@ test.each([
 	async (status, attempts, switches) => {
 		const home = await mkdtemp("/tmp/yonder-http-fallback-");
 		const calls: string[] = [];
+		let recovered = false;
 		const server = createServer(async (req, res) => {
 			let body = "";
 			for await (const chunk of req) body += chunk;
 			const model = (JSON.parse(body) as { model: string }).model;
 			calls.push(model);
-			if (model === "first") {
+			if (model === "first" && !recovered) {
 				if (status === 0) return;
-				res.writeHead(status, { "content-type": "application/json", "retry-after": "120" });
+				res.writeHead(status, { "content-type": "application/json", "retry-after": status === 429 ? "1" : "120" });
 				res.end(JSON.stringify({ error: { message: `${status} controlled failure` } }));
 				return;
 			}
@@ -81,6 +82,14 @@ test.each([
 				await readFile(`${home}/.yonder/model-health.json`, "utf8").catch(() => '{"models":{}}'),
 			) as { models: Record<string, unknown> };
 			expect(Boolean(health.models["local/first@default"])).toBe(switches);
+			if (status === 429) {
+				expect((await runtime.submit(session, { text: "again" })).status).toBe("done");
+				expect(calls).toEqual(["first", "second", "second"]);
+				await new Promise((resolve) => setTimeout(resolve, 1100));
+				recovered = true;
+				expect((await runtime.submit(session, { text: "after reset" })).status).toBe("done");
+				expect(calls).toEqual(["first", "second", "second", "first"]);
+			}
 		} finally {
 			await runtime.close();
 			server.closeAllConnections();

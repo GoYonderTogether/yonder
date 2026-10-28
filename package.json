@@ -75,6 +75,6 @@
 		"undici": "8.12.2"
 	},
 	"dependencies": {
-		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-4dd234409db5a84c54530157c08a49de6a89f4b8-2d9bf64bf3cb.tgz"
+		"@earendil-works/pi-ai": "file:./third_party/pi-ai/pi-ai-83cf9692c7eba80d611e9cab46783342f05b5eaf-b4c444bf31f5.tgz"
 	}
 }

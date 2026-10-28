@@ -27,6 +27,30 @@ export interface ModelWatchOptions {
 	onHealth?(event: { key: string; state: "held" | "recovered"; reason?: string; until?: number }): void;
 	onReport?(error: unknown): void;
 }
+/** Reset headers and provider error body are interpreted only for 429 responses. */
+export function rateLimitReset(error: string, now = Date.now()): number | undefined {
+	if (!/\b429\b|rate.?limit|too many requests/i.test(error)) return undefined;
+	const headers = error.match(/rate_limit_headers: (\{[^\n]+\})/i)?.[1];
+	let values: Record<string, string> = {};
+	try {
+		if (headers) values = JSON.parse(headers);
+	} catch {
+		/* malformed provider response */
+	}
+	const retryMs = Number(values["retry-after-ms"]);
+	if (values["retry-after-ms"] && Number.isFinite(retryMs) && retryMs > 0) return now + retryMs;
+	const retry = values["retry-after"];
+	if (retry) {
+		const seconds = Number(retry);
+		const at = Number.isFinite(seconds) ? now + seconds * 1000 : Date.parse(retry);
+		if (at > now) return at;
+	}
+	const raw = values["x-ratelimit-reset"] ?? error.match(/"(?:reset_at|resets_at|resetAt)"\s*:\s*"?([\w:.-]+)/i)?.[1];
+	if (!raw) return undefined;
+	const n = Number(raw);
+	const at = Number.isFinite(n) ? (n > 1e12 ? n : n > 1e9 ? n * 1000 : now + n * 1000) : Date.parse(raw);
+	return at > now ? at : undefined;
+}
 /**
  * Runtime side of model selection health: it orders a chain around failure holds and exhausted quota
  * windows, records the outcome of a run, and probes held entries in the background (07 §6.1).
@@ -64,7 +88,10 @@ export class ModelWatch {
 			const attempt = value as { model?: { provider?: string; modelId?: string }; action?: string; error?: string };
 			if (
 				attempt.action !== "fallback" &&
-				!(attempt.action === "stop" && /fallback chain exhausted/i.test(attempt.error ?? ""))
+				!(
+					attempt.action === "stop" &&
+					(/fallback chain exhausted/i.test(attempt.error ?? "") || rateLimitReset(attempt.error ?? "") !== undefined)
+				)
 			)
 				continue;
 			const entry = chain.find(
@@ -72,15 +99,18 @@ export class ModelWatch {
 			);
 			if (!entry) continue;
 			const key = chainKey(entry);
-			if (hold <= 0 || health.held(key)) continue;
+			if (health.held(key)) continue;
 			const reason = attempt.error ?? "model_error";
-			const seconds =
-				/\b(?:401|403|404)\b|unauthorized|forbidden|authentication|invalid.api.key|model.not.found|quota|billing|insufficient.(?:balance|credit)/i.test(
-					reason,
-				)
+			const resetUntil = rateLimitReset(reason);
+			if (hold <= 0 && !resetUntil) continue;
+			const seconds = resetUntil
+				? (resetUntil - Date.now()) / 1000
+				: /\b(?:401|403|404)\b|unauthorized|forbidden|authentication|invalid.api.key|model.not.found|quota|billing|insufficient.(?:balance|credit)/i.test(
+							reason,
+						)
 					? Math.max(hold, 86400)
 					: hold;
-			await health.hold([key], reason, seconds, probe);
+			await health.hold([key], reason, seconds, probe, 1, resetUntil);
 			this.options.onHealth?.({ key, state: "held", reason, until: Date.now() + seconds * 1000 });
 		}
 		if (run.status === "done" && run.model) {

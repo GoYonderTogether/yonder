@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { ModelHealth } from "./model-health.js";
 import type { ModelWatchOptions } from "./model-watch.js";
-import { ModelWatch } from "./model-watch.js";
+import { ModelWatch, rateLimitReset } from "./model-watch.js";
 import type { RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 test("records only failed candidates and clears the candidate that answered", async () => {
@@ -56,6 +56,25 @@ test("account aliases have separate holds and failed probes preserve the long ho
 		healthy = true;
 		await (watch as unknown as { probeOne(key: string): Promise<void> }).probeOne("a/one@other");
 		expect(health.held("a/one@other")).toBe(false);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("honors reset response metadata and delays probing until reset", async () => {
+	const home = await mkdtemp("/tmp/yonder-reset-");
+	try {
+		const now = Date.now();
+		expect(rateLimitReset('429 rate_limit_headers: {"retry-after":"120"}', now)).toBe(now + 120000);
+		expect(rateLimitReset('429 {"reset_at":1800000000}', now)).toBe(1800000000000);
+		let clock = now;
+		const health = new ModelHealth(join(home, "health.json"), () => clock);
+		await health.hold(["a"], "429", 120, 15, 1, now + 120000);
+		clock += 60000;
+		expect(health.due()).toEqual([]);
+		expect(health.held("a")).toBe(true);
+		clock += 60000;
+		expect(health.held("a")).toBe(false);
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

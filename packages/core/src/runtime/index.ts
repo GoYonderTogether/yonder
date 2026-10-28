@@ -832,7 +832,8 @@ export class Runtime {
 			modelChain(profile.model, profile.fallback, profile.credentialSlots),
 			profile.fallback?.quotaStopPercent,
 		);
-		const primary = chain[0] ?? splitModelRef(profile.model);
+		const primary = chain[0];
+		if (!primary) throw new Error("All models are rate limited until reset");
 		const model = { provider: primary.provider, modelId: primary.modelId };
 		const modelInfo = (await this.modelsFor(config)).getModel(model.provider, model.modelId);
 		const thinking = modelInfo

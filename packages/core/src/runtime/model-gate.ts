@@ -23,7 +23,10 @@ export class ModelGate {
 	order(chain: readonly ChainEntry[], stops: QuotaStops | undefined): ChainEntry[] {
 		const open: ChainEntry[] = [];
 		const blocked: ChainEntry[] = [];
-		for (const entry of chain) (this.blocked(entry, stops) ? blocked : open).push(entry);
+		for (const entry of chain) {
+			if ((this.health.snapshot()[chainKey(entry)]?.resetUntil ?? 0) > Date.now()) continue;
+			(this.blocked(entry, stops) ? blocked : open).push(entry);
+		}
 		return [...open, ...blocked];
 	}
 }

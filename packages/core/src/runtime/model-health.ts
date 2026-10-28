@@ -8,6 +8,8 @@ export interface ModelHealthRecord {
 	probeAt: number;
 	reason: string;
 	failures: number;
+	/** Rate-limit reset; this entry must not be requested until then. */
+	resetUntil?: number;
 }
 interface HealthFile {
 	version: 1;
@@ -63,14 +65,22 @@ export class ModelHealth {
 		for (const entry of entries) (this.held(key(entry)) ? held : healthy).push(entry);
 		return [...healthy, ...held];
 	}
-	async hold(keys: readonly string[], reason: string, seconds: number, probe: number, failures = 1): Promise<void> {
+	async hold(
+		keys: readonly string[],
+		reason: string,
+		seconds: number,
+		probe: number,
+		failures = 1,
+		resetUntil?: number,
+	): Promise<void> {
 		if (seconds <= 0 || !keys.length) return;
 		const at = this.now();
 		for (const key of keys) {
 			const prior = this.records.get(key);
 			this.records.set(key, {
 				until: at + seconds * 1000,
-				probeAt: at + Math.max(1, probe) * 1000,
+				probeAt: resetUntil ?? at + Math.max(1, probe) * 1000,
+				...(resetUntil ? { resetUntil } : {}),
 				reason,
 				failures: (prior?.failures ?? 0) + failures,
 			});

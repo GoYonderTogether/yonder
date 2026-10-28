@@ -3,7 +3,7 @@
 ## pi-durable 1.3.0 source fork
 
 - Vendored workspace: `packages/pi-durable`, npm name remains `@earendil-works/pi-durable`, version 1.3.0.
-- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `4dd234409db5a84c54530157c08a49de6a89f4b8`.
+- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `83cf9692c7eba80d611e9cab46783342f05b5eaf`.
 - Base: earendil-works/pi tag v1.3.0, `71023aec1546d6d677a65669c5665c0927ce0dd0`.
 - MIT, Copyright (c) 2025 Mario Zechner; full original license retained in [packages/pi-durable/LICENSE](packages/pi-durable/LICENSE). Boundary callback/abort queue continuation (D28), atomic run receipt (D29), retry hook and exhaustion reason (D44), interrupted-generation continuation (D49) are source changes described in FORK.md. No install-time patch remains.
 - Tool-search relevance rules adapt [Hermes Agent](https://github.com/NousResearch/hermes-agent/blob/bf0203a794a07aac3ff764972ab9087baa4e4f4e/tools/tool_search_catalog.py), MIT, Copyright (c) 2025 Nous Research; the full applicable license and reference are retained in [packages/pi-durable/FORK.md](packages/pi-durable/FORK.md).
