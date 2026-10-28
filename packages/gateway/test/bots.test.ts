@@ -4,6 +4,7 @@ import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/c
 import { afterAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { parse, stringify } from "yaml";
+import { testModel } from "../../core/src/config/test-support.js";
 import { tokenHash } from "../src/auth.js";
 import { startGateway } from "../src/index.js";
 
@@ -16,7 +17,7 @@ afterAll(async () => {
 
 async function start(remoteOwner: boolean) {
 	const home = await mkdtemp("/tmp/yonder-gateway-bots-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	await setAccessTokenHash(home, tokenHash(ACCESS));
 	if (remoteOwner) {
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
