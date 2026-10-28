@@ -10,16 +10,12 @@
 		"notification": {
 			"kind": "string",
 			"key": "string",
-			"sourceEvents": [
-				"string"
-			]
+			"sourceEvents": ["string"]
 		},
 		"ownerRef": "string"
 	},
 	"notification.final": {
-		"intents": [
-			"string"
-		],
+		"intents": ["string"],
 		"agent": "string",
 		"status": "string"
 	}
