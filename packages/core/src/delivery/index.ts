@@ -244,8 +244,7 @@ export function createDelivery(options: DeliveryOptions) {
 		} catch (error) {
 			return unknown(id, error);
 		}
-		if (scope.proactive && delivery.ok)
-			delivery = (await persistConsole(options, resolved, outgoing, id, session)) ?? delivery;
+		if (scope.proactive) delivery = await persistConsole(options, resolved, outgoing, id, session, delivery);
 		if (!delivery.ok && (delivery.uncertain || delivery.id))
 			return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
 		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id, messageId);
