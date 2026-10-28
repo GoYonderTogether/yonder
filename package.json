@@ -37,6 +37,7 @@
 		"plugins/channel-card",
 		"plugins/devices",
 		"plugins/learning",
+		"plugins/secrets",
 		"plugins/hermes-experience",
 		"plugins/tasks",
 		"plugins/onboarding"
