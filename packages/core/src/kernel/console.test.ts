@@ -106,7 +106,10 @@ test("an explicit console binding overrides the implicit one and no user binding
 test("a node has one owner: bots.list and bots.send only cover Bots owned by it, others log one warning", async () => {
 	const home = await homeWithProbe();
 	const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
-	config.identity = { ...(config.identity ?? {}), persons: [...(config.identity?.persons ?? []), { id: "guest", name: "Guest" }] };
+	config.identity = {
+		...(config.identity ?? {}),
+		persons: [...(config.identity?.persons ?? []), { id: "guest", name: "Guest" }],
+	};
 	config.agents.push({ id: "other", workspace: "agents/other" });
 	await writeFile(join(home, "yonder.yaml"), stringify(config));
 	await cp(join(home, "agents/main"), join(home, "agents/other"), { recursive: true });
