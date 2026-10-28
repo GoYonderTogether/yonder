@@ -28,9 +28,17 @@ fn set_activity(app: tauri::AppHandle, running: u32, waiting: u32) {
     }
 }
 
+#[tauri::command]
+fn set_offline(app: tauri::AppHandle) {
+    if let Some(tray) = app.tray_by_id("activity") {
+        let _ = tray.set_title(Some("离线"));
+        let _ = tray.set_tooltip(Some("离线"));
+    }
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_activity])
+        .invoke_handler(tauri::generate_handler![set_activity, set_offline])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
@@ -56,7 +64,7 @@ fn main() {
             let menu = tauri::menu::Menu::with_items(app, &[&open, &quit])?;
             let icon = tauri::image::Image::new_owned(vec![0, 100, 220, 255].repeat(16 * 16), 16, 16);
             tauri::tray::TrayIconBuilder::with_id("activity")
-                .icon(icon).menu(&menu).title("Yonder")
+                .icon(icon).menu(&menu).title("离线").tooltip("离线")
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => { if let Some(window) = app.get_webview_window("main") { let _ = window.show(); let _ = window.set_focus(); } },
                     "quit" => app.exit(0),

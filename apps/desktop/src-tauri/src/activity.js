@@ -13,6 +13,10 @@
 		socket.onmessage = ({ data }) => {
 			const frame = JSON.parse(data);
 			if (frame.sub !== "desktop-activity") return;
+			if (frame.t === "end") {
+				socket.close();
+				return;
+			}
 			const summary = frame.t === "ready" ? frame.result : frame.type === "activity.summary" ? frame.data : null;
 			if (Number.isInteger(summary?.running) && Number.isInteger(summary?.waiting)) {
 				window.__TAURI_INTERNALS__.invoke("set_activity", { running: summary.running, waiting: summary.waiting });
@@ -20,6 +24,7 @@
 		};
 		socket.onclose = () => {
 			clearInterval(heartbeat);
+			window.__TAURI_INTERNALS__.invoke("set_offline");
 			retry = setTimeout(connect, 2000);
 		};
 	};
