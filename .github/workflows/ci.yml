@@ -51,4 +51,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test -- --maxWorkers=4
+      - run: node scripts/check-stability.mjs
       - run: npm run lint
