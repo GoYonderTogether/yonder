@@ -29,6 +29,14 @@ function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 	return def as unknown as MethodDef;
 }
 
+/** Bot conversations (every non-task session) need `owner` scope; task sessions keep the plain read/write scopes. */
+const ownsBots = (ctx: HostCtx) => ctx.principal.scopes.includes("owner");
+async function guardSession(ctx: HostCtx, id: string, session?: { mode: string }) {
+	const row = session ?? (await ctx.kernel.sessions.get(id));
+	if (row && row.mode !== "task" && !ownsBots(ctx))
+		throw new MethodError("forbidden", "Bot conversations require owner scope");
+}
+
 async function activitySummary(kernel: Kernel) {
 	const agents = await kernel.terminal.activity();
 	const sessions = agents.flatMap((agent) =>
@@ -253,6 +261,7 @@ const defs: MethodDef[] = [
 			legacyFrame: (params, update) => ({ type: "update", session: params.id, update }),
 		},
 		async handler(p, ctx, signal, emit) {
+			await guardSession(ctx, p.id);
 			const info = await ctx.kernel.terminal.info(p.id);
 			const dispose = await ctx.kernel.terminal.observe(p.id, async (update) => emit(update));
 			if (signal.aborted) await dispose();
@@ -265,7 +274,10 @@ const defs: MethodDef[] = [
 		scope: "read",
 		params: obj({ filter: Type.Optional(Type.Unknown()) }),
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.list((p.filter ?? {}) as Parameters<Kernel["sessions"]["list"]>[0]),
+		async handler(p, ctx) {
+			const rows = await ctx.kernel.sessions.list((p.filter ?? {}) as Parameters<Kernel["sessions"]["list"]>[0]);
+			return ownsBots(ctx) ? rows : rows.filter((row) => row.mode === "task");
+		},
 	}),
 	define({
 		name: "sessions.show",
@@ -275,6 +287,7 @@ const defs: MethodDef[] = [
 		async handler(p, ctx) {
 			const session = await ctx.kernel.sessions.get(p.id);
 			if (!session) throw missing("session", p.id);
+			await guardSession(ctx, p.id, session);
 			// v1 keeps the transcript by default; `include:"meta"` is the slim form that becomes the default in v2.
 			if (p.include === "meta") return { session, info: await ctx.kernel.terminal.info(p.id) };
 			return { session, transcript: await ctx.kernel.sessions.transcript(p.id) };
@@ -290,7 +303,9 @@ const defs: MethodDef[] = [
 		}),
 		since: 1,
 		async handler(p, ctx) {
-			if (!(await ctx.kernel.sessions.get(p.id))) throw missing("session", p.id);
+			const session = await ctx.kernel.sessions.get(p.id);
+			if (!session) throw missing("session", p.id);
+			await guardSession(ctx, p.id, session);
 			const limit = p.limit ?? 50;
 			const rows = await ctx.kernel.sessions.transcript(p.id, {
 				before: p.before ?? Number.MAX_SAFE_INTEGER,
@@ -305,14 +320,22 @@ const defs: MethodDef[] = [
 		scope: "write",
 		params: id,
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.abort(p.id).then(() => ({ ok: true })),
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			await ctx.kernel.sessions.abort(p.id);
+			return { ok: true };
+		},
 	}),
 	define({
 		name: "sessions.close",
 		scope: "write",
 		params: id,
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.close(p.id).then(() => ({ ok: true })),
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			await ctx.kernel.sessions.close(p.id);
+			return { ok: true };
+		},
 	}),
 	define({
 		name: "activity.summary",

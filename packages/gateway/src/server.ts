@@ -336,6 +336,15 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 			try {
 				const def = registry.prepare(method, params ?? {}, principal);
 				if (!def.stream) throw new MethodError("invalid_params", `${method} is not a stream method`);
+				// Feeds are shared across principals, so the per-session check (Bot conversations need owner scope)
+				// runs for every subscriber, not only the one that started the feed.
+				if (method === "sessions.watch")
+					await registry.call(
+						"sessions.show",
+						{ id: (params as { id: string }).id, include: "meta" },
+						ctxFor(login),
+						new AbortController().signal,
+					);
 				const feed = await feeds.acquire(method, params ?? {}, ctxFor(login));
 				if (cancelled) {
 					feed.release();
