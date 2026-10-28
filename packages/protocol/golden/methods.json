@@ -222,6 +222,51 @@
 				"type": "object"
 			}
 		},
+		"notifications.prefs.get": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {},
+				"type": "object"
+			}
+		},
+		"notifications.prefs.set": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"conv": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"level": {
+						"anyOf": [
+							{
+								"const": "all",
+								"type": "string"
+							},
+							{
+								"const": "mention",
+								"type": "string"
+							},
+							{
+								"const": "mentions",
+								"type": "string"
+							},
+							{
+								"const": "mute",
+								"type": "string"
+							},
+							{
+								"type": "null"
+							}
+						]
+					}
+				},
+				"required": ["conv", "level"],
+				"type": "object"
+			}
+		},
 		"release.result": {
 			"scope": "admin",
 			"since": 1,

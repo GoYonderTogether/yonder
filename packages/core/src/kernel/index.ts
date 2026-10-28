@@ -42,6 +42,7 @@ import { type ManagementRequest, manageHome } from "./home-management.js";
 import { hostService } from "./host-status.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
+import { createNotificationPrefs } from "./notifications.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { createSocial } from "./social.js";
 import { runSubagent } from "./subagents.js";
@@ -110,6 +111,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				}
 			},
 		);
+		const notifications = await createNotificationPrefs(db, config.notifications);
 		const realRuntime = () => {
 			if (!runtime) throw new Error("Runtime is not ready");
 			return runtime;
@@ -337,7 +339,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			sessions,
 			runtime: realRuntime,
 			agents,
-			notifications: config.notifications,
+			notificationLevel: notifications.level,
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
 				if (!channel || !loaded.channels.has(channel)) return Promise.resolve(undefined);
@@ -508,6 +510,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
 			social,
+			notifications,
+			observeNotifications: router.observeNotifications,
 			channels: {
 				list: () =>
 					[...loaded.channels].map(([id, channel]) => ({

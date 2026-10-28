@@ -44,11 +44,13 @@ test("native program notifications persist once without model messages and repla
 		stop = await runtime.observe(session.id, async (update) => {
 			updates.push(update);
 		});
+		expect(await runtime.notificationRecorded(session.id, "plugin:verification", event.id)).toBe(false);
 		const receipt = await sessions.notifyFrom(
 			session.id,
 			{ event: event.id, text: "Native storage checked" },
 			"plugin:verification",
 		);
+		expect(await runtime.notificationRecorded(session.id, "plugin:verification", event.id)).toBe(true);
 		expect(receipt).toEqual({ session: session.id, event: event.id, entry: expect.any(Number), recorded: true });
 		expect(
 			await sessions.notifyFrom(

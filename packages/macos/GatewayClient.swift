@@ -5,7 +5,7 @@ final class GatewayClient {
     private var task: Task<Void, Never>?
     private var socket: URLSessionWebSocketTask?
 
-    func start(home: String, executable: String, receive: @escaping ([String: Any]?) -> Void) {
+    func start(home: String, executable: String, receive: @escaping ([String: Any]?) -> Void, notify: @escaping ([String: Any]) -> Void) {
         stop()
         task = Task {
             var delay: UInt64 = 2
@@ -50,6 +50,7 @@ final class GatewayClient {
                         @unknown default: throw URLError(.cannotParseResponse)
                         }
                         guard let frame = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw URLError(.cannotParseResponse) }
+                        if frame["sub"] as? String == "activity", frame["t"] as? String == "ev", frame["type"] as? String == "notification", let data = frame["data"] as? [String: Any] { notify(data) }
                         if let summary = try Self.activity(frame) {
                             delay = 2
                             receive(summary)

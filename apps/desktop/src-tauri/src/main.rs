@@ -29,6 +29,11 @@ fn set_activity(app: tauri::AppHandle, running: u32, waiting: u32) {
 }
 
 #[tauri::command]
+fn show_notification(app: tauri::AppHandle, session: String, text: String) {
+    let _ = app.notification().builder().title("Yonder").body(text).extra("session", session).show();
+}
+
+#[tauri::command]
 fn set_offline(app: tauri::AppHandle) {
     if let Some(tray) = app.tray_by_id("activity") {
         let _ = tray.set_title(Some("离线"));
@@ -38,7 +43,7 @@ fn set_offline(app: tauri::AppHandle) {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_activity, set_offline])
+        .invoke_handler(tauri::generate_handler![set_activity, set_offline, show_notification])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();

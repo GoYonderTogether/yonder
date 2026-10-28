@@ -64,6 +64,14 @@ describe("frozen protocol contract", () => {
 		feed.close();
 	});
 
+	it("projects node notifications", () => {
+		const data = { id: 1, from: "acct:x:y", event: "e", text: "test", session: "s", conv: "conv:x:y", channel: "x" };
+		expect(mapEvent("activity.summary", { type: "event", name: "notification", data })).toEqual({
+			type: "notification",
+			data,
+		});
+	});
+
 	it("rejects malformed known events and retains only a body-free counter", () => {
 		const before = eventValidation.rejected;
 		expect(

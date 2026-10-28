@@ -40,8 +40,8 @@ channels:                                # 渠道实例：id → 提供者 type 
   qq-main: { type: qq, appId: 1234567890, credential: qq-main }             # 密钥在凭据文件里；sendIntervalMs 默认 500（两条发送的最小间隔 ms，可省略）
 
 notifications:                           # 通知级别，06 §9.1；可省略，默认 all
-  default: mention                       # all 全部 | mention 仅 @我 | mute 免打扰
-  conversations:                         # 按会话覆盖；键必须是 conv ref
+  default: mention                       # all 全部 | mention/mentions 仅 @我 | mute 免打扰
+  conversations:                         # 按会话覆盖；键为 conv ref 或 session id
     conv:qq-main:group:7788: mute
 credentials: ~/.yonder-credentials/auth.json   # 可选，默认 .yonder/auth.json
 
@@ -83,7 +83,7 @@ identity:
 
 `identity.persons` 只用于初始化；之后的关联变化以存储为准，并写 `identity.link` 事件。
 
-`notifications` 可整体省略，等价于 `default: all` 且没有按会话覆盖。`default` 是所有会话的级别，`conversations` 的键必须是 `conv:` 引用、值是同一组级别；未知级别或非 `conv:` 键按结构校验失败拒绝。级别只决定是否产生通知记录，不改变事件接纳、绑定唤醒或未读累积（06 §9.1）。该字段随 `yonder.yaml` 其余字段在重启后生效。
+`notifications` 可整体省略，等价于 `default: all` 且没有按会话覆盖。`default` 是所有会话的级别，`conversations` 的键为 `conv:` 引用或 session id；`mention` 与 `mentions` 互为别名，读取后统一为 `mentions`，未知级别拒绝。yaml 是节点启动时读取的初始默认值；节点级运行时偏好保存在 `state.db`，覆盖 yaml，设置后立即生效。`notifications.prefs.get` 返回合并结果及各项来源（yaml 或 runtime）；详见 contracts §16。级别不改变事件接纳、绑定唤醒或未读累积（06 §9.1）。
 ## 3. 重载
 
 | 文件 | 何时生效 |

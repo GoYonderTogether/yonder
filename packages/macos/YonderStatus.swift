@@ -1,8 +1,9 @@
 import AppKit
 import Darwin
+import UserNotifications
 
 @MainActor
-final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
     private var item: NSStatusItem!
     private var companionWeb: CompanionWeb!
     private let gateway = GatewayClient()
@@ -50,7 +51,22 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
         [current, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
         companionWeb = CompanionWeb(home: home, executable: install + "/bin/yonder")
         refreshActivity(nil)
-        gateway.start(home: home, executable: install + "/bin/yonder") { [weak self] in self?.refreshActivity($0) }
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        gateway.start(home: home, executable: install + "/bin/yonder", receive: { [weak self] in self?.refreshActivity($0) }, notify: { data in
+            guard let session = data["session"] as? String, let text = data["text"] as? String else { return }
+            let content = UNMutableNotificationContent()
+            content.title = "Yonder"; content.body = text; content.userInfo = ["session": session]
+            center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        })
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let session = response.notification.request.content.userInfo["session"] as? String
+        Task { @MainActor in self.companionWeb.show(session: session); completionHandler() }
     }
     @objc private func openCurrent() { companionWeb.show() }
     func applicationWillTerminate(_ notification: Notification) { gateway.stop() }

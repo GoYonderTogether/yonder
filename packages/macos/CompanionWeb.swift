@@ -18,7 +18,7 @@ final class CompanionWeb {
         panel.contentView = web; panel.center()
     }
 
-    func show() {
+    func show(session sessionID: String? = nil) {
         let home = self.home, executable = self.executable
         DispatchQueue.global().async {
             let process = Process(), output = Pipe()
@@ -42,6 +42,7 @@ final class CompanionWeb {
                 if let loginError { throw loginError }
                 guard let cookie = session.configuration.httpCookieStorage?.cookies?.first(where: { $0.name == "yonder_session" }) else { throw URLError(.userAuthenticationRequired) }
                 url.path = "/console/"; url.percentEncodedQuery = "shell=desktop"
+                if let sessionID { url.fragment = "/s/" + sessionID.addingPercentEncoding(withAllowedCharacters: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~")))! }
                 guard let target = url.url else { throw URLError(.badURL) }
                 DispatchQueue.main.async {
                     self.web.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) {

@@ -16,11 +16,13 @@ export function notificationOf(entry: EntryRecord): Notification | undefined {
 	return { id: Number(entry.id), from: data.from, event: data.event, text: data.text };
 }
 
+export const notificationRequestId = (from: string, event: string) => `notification:${JSON.stringify([from, event])}`;
+
 export async function writeNotification(conversation: Conversation, input: Omit<Notification, "id">) {
 	const submission = await conversation.submit(
 		{
 			type: "write",
-			requestId: `notification:${JSON.stringify([input.from, input.event])}`,
+			requestId: notificationRequestId(input.from, input.event),
 			entry: { kind: "yonder.notification", data: { ...input } },
 		},
 		C,

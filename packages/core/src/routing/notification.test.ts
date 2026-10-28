@@ -120,6 +120,8 @@ bindings:
 			agents,
 			notifications: { default: "mention", conversations: { "conv:qq-main:group:LOUD": "all" } },
 		});
+		const emitted: Array<{ session: string; text: string }> = [];
+		const dispose = router.observeNotifications((event) => emitted.push(event));
 		const loud = "conv:qq-main:group:LOUD";
 		const quiet = await router.emit({
 			type: "message.in",
@@ -149,6 +151,30 @@ bindings:
 		if (!other) throw new Error("second routed session missing");
 		await expect.poll(() => notifications(other).then((rows) => rows.length)).toBe(1);
 		expect(await notifications(other)).toMatchObject([{ text: "全部提醒" }]);
+		await expect.poll(() => emitted.length).toBe(2);
+		expect(emitted).toEqual(
+			expect.arrayContaining([
+				{
+					id: expect.any(Number),
+					from: "acct:qq-main:OPENID1",
+					event: expect.any(String),
+					session,
+					conv,
+					channel: "qq-main",
+					text: "叫我了",
+				},
+				{
+					id: expect.any(Number),
+					from: "acct:qq-main:OPENID1",
+					event: loudEvent.id,
+					session: other,
+					conv: loud,
+					channel: "qq-main",
+					text: "全部提醒",
+				},
+			]),
+		);
+		dispose();
 		const unbound = await router.emit({
 			type: "message.in",
 			from: "acct:other:OPENID9",

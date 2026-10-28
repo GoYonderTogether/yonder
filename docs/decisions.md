@@ -380,7 +380,7 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 主人只配置模型；预设不带模型字面量，统一落到 `yonder.yaml` 的 `defaultModel`。`yonder init` 必须带 `--model`，把它写入该字段；没有任何模型来源且字段缺失时，解析时报中文配置错误并点名 `defaultModel`。旧 home 的处理选了加载器路径而非迁移命令：`yonder.yaml` 已登记 agent 却没有该字段，说明它早于本版本（此后 init 一定写入该字段），加载时把缺省视为升级前的 `openai/gpt-6-luna`，所以预设解析结果不变，不需要新增 `yonder migrate`（08 §1 本来也没有迁移命令）。代价：该常量只作为旧 home 兼容留在配置加载器一处；主人补写 `defaultModel` 即覆盖。
 ## 2026-10-27 渠道通知级别与入站通知（用户批准）
 
-主人要求 QQ 私聊/群聊正式可用并带标注与通知、微信客户端消息进入渠道监听。按 `proposals/unified-client/research/C3-social-ux.md` §3.4/§5.3 采用三档级别 `all`/`mention`/`mute`，写进 `yonder.yaml` 的 `notifications`（默认级别 + 按 `conv` 覆盖），由节点侧判定并作为权威来源；`mention` 复用事件里已有的 `data.mentioned`，不新增字段。只有被绑定路由接纳的 `message.in` 与显式带字符串 `data.summary` 的插件事件产生 `yonder.notification`（走 `sessions.notify`，不唤醒 Agent、不进模型消息），`mute` 不产生记录但事件与未读照常累积；客户端在正查看该会话时抑制系统通知只是兜底。C3 明确先不做折叠群、关键词提醒、分时段免打扰与按渠道单设级别，本轮同样不做。详见 06 §9.1、08 §2。代价：每个入站消息在每个路由到的会话产生一条 entry；级别改动需要重启（随 `yonder.yaml` 其余字段）。
+主人要求 QQ 私聊/群聊正式可用并带标注与通知、微信客户端消息进入渠道监听。按 `proposals/unified-client/research/C3-social-ux.md` §3.4/§5.3 采用三档级别 `all`/`mention`/`mute`，写进 `yonder.yaml` 的 `notifications`（默认级别 + 按 `conv` 覆盖），由节点侧判定并作为权威来源；`mention` 复用事件里已有的 `data.mentioned`，不新增字段。只有被绑定路由接纳的 `message.in` 与显式带字符串 `data.summary` 的插件事件产生 `yonder.notification`（走 `sessions.notify`，不唤醒 Agent、不进模型消息），`mute` 不产生记录但事件与未读照常累积；客户端在正查看该会话时抑制系统通知只是兜底。C3 明确先不做折叠群、关键词提醒、分时段免打扰与按渠道单设级别，本轮同样不做。详见 06 §9.1、08 §2。代价：每个入站消息在每个路由到的会话产生一条 entry；偏好生效语义见 D01r4。
 
 ## 2026-10-27 QQ 渠道媒体、引用与发送间隔（用户批准）
 
@@ -511,3 +511,7 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 ## 2026-10-28 DBG01r2 供应商 trace（用户批准）
 
 本机验收可显式开启供应商请求与 SSE trace，以排查 OpenAI 兼容协议；限定 provider baseUrl，脱敏已知鉴权头、指定正文模式和已加载的 credential 值，文件限制权限并清理 24 小时前的 trace。只支持 openai-completions 和 openai-responses，禁止在正式 HOME 开启；其他协议暂不支持。
+
+## 2026-10-28 D01r4 桌面通知偏好（主 Agent 代批）
+
+运行时以 contracts §16 为准：节点级通知偏好持久化在 state.db，设置立即生效；yaml 仅为启动时初始默认值，运行时覆盖优先，get 返回合并结果及逐项来源。键接受 conv 引用和 session id，mention 与 mentions 读入后统一为 mentions，保留旧 yaml 写法。节点按偏好与免打扰判定通知，再经 gateway 发送给桌面壳。

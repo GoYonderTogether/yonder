@@ -120,7 +120,7 @@ channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认�
 
 每条被绑定路由接纳的入站 `message.in`，以及显式带字符串 `data.summary` 的插件事件（如 wechat-archive 归档的入站消息），对每个路由到的会话写一条 `yonder.notification`：`from` 取事件来源，`event` 取原事件 id，`text` 取消息正文，无正文时取 `data.summary`，两者都为空时用 `[N 个附件]`，截断到 120 字符。写入走 `sessions.notify` 的原生 app-only entry，不唤醒 Agent、不进入模型消息；同一 `(from, event)` 重复写入返回原记录，重启后恢复的路由不会产生第二条。没有绑定或被丢弃的路由、以及内部运行事件（`agent.result`、`runtime.tool-result` 等）不产生通知。
 
-级别来自 `yonder.yaml` 的 `notifications`（08 §2）：`all` 每条都通知；`mention` 只在 `data.mentioned === true` 时通知；`mute` 不产生通知记录，事件与未读仍照常累积。级别在节点侧判定并作为权威来源；客户端在页面可见且正查看该会话时抑制系统通知只是额外兜底，不能替代节点侧过滤。通知只表达「有新内容需要主人知道」，不声称已读，也不改变 `message.out` 的投递状态。
+级别来自节点合并后的通知偏好（08 §2）：`all` 每条都通知；`mentions`（兼容 `mention`）只在 `data.mentioned === true` 时通知；`mute` 不产生通知记录，事件与未读仍照常累积。级别在节点侧判定并作为权威来源；客户端在页面可见且正查看该会话时抑制系统通知只是额外兜底，不能替代节点侧过滤。通知只表达「有新内容需要主人知道」，不声称已读，也不改变 `message.out` 的投递状态。
 
 ## 10. 确定性可见性
 

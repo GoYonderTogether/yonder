@@ -152,10 +152,12 @@ export const YonderSchema = object({
 	),
 	notifications: Type.Optional(
 		object({
-			default: Type.Optional(choice("all", "mention", "mute")),
+			default: Type.Optional(choice("all", "mention", "mentions", "mute")),
 			outbound: Type.Optional(outboundSchema),
 			conversations: Type.Optional(
-				Type.Record(ref("conv"), choice("all", "mention", "mute"), { additionalProperties: false }),
+				Type.Record(Type.String({ pattern: "^.+$" }), choice("all", "mention", "mentions", "mute"), {
+					additionalProperties: false,
+				}),
 			),
 		}),
 	),

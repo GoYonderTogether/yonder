@@ -595,8 +595,8 @@ type NotifyLevel = "all" | "mentions" | "mute";   // 默认 all；mute 仍累计
 
 | 方法 | scope | params | result |
 |---|---|---|---|
-| `notifications.prefs.get` | read | `{}` | `{ default: NotifyLevel; conversations: Record<string, NotifyLevel> }`，key 为会话引用（`conv:<channel>:<id>` 或 session id） |
-| `notifications.prefs.set` | write | `{ conv: string; level: NotifyLevel \| null }`（null 恢复默认；`conv:"*"` 改默认值） | `Ok` |
+| `notifications.prefs.get` | read | `{}` | `{ default: NotifyLevel; conversations: Record<string, NotifyLevel>; sources: { default: "yaml" \| "runtime"; conversations: Record<string, "yaml" \| "runtime"> } }`，key 为会话引用（`conv:<channel>:<id>` 或 session id） |
+| `notifications.prefs.set` | write | `{ conv: string; level: NotifyLevel \| "mention" \| null }`（null 删除该项运行时覆盖；`conv:"*"` 改默认值） | `Ok` |
 | `suggestions.list` | read | `{ session?: string }` | `{ items: Suggestion[] }` |
 | `suggestions.act` | write | `{ id: string; action: "accept"\|"dismiss" }` | `{ state: "accepted"\|"dismissed"; first: boolean }` |
 
@@ -605,8 +605,8 @@ interface Suggestion { id: string; session: string; by: string; kind: "organize"
 interface SuggestionCreatedEv { suggestion: Suggestion }
 ```
 
-- 偏好存放在节点 home（节点内跨设备一致），不放前端本地。社交（Card 云）会话的免打扰仍由 Card 后端存，见 API-R17；前端 `api/` 层用同一个 `NotifyLevel` 类型。
-- `notification` 事件（§3.6）新增可选字段 `session?: string`、`conv?: string`、`channel?: string`，前端按 `conv` 对照偏好决定是否推送/震动。免打扰判断在客户端也做一次，服务端对 `mute` 会话不置 `urgent`。
+- yaml 通知配置为节点启动时读取的初始默认值；运行时偏好存放在节点 home 的 `state.db`，覆盖 yaml，设置后立即生效，节点内跨设备一致。`get` 返回合并结果及每项来源；未配置的内建 `all` 标为 yaml。`mention` 和 `mentions` 读入后统一为 `mentions`。社交（Card 云）会话的免打扰仍由 Card 后端存，见 API-R17。
+- `notification` 事件（§3.6）可带 `session?: string`、`conv?: string`、`channel?: string`；节点按生效偏好和免打扰判定后发送，客户端可在当前会话抑制系统通知。
 
 
 ### §17 跨部门消费形状与实现归属（本卡写入 contracts.md 的正文）

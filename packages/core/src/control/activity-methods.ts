@@ -82,6 +82,11 @@ export const activityMethods: MethodDef[] = [
 			legacyFrame: (_params, update) => ({ type: "update", update }),
 		},
 		async handler(_p, ctx, signal, emit) {
+			const dispose = ctx.kernel.observeNotifications((notification) => {
+				void guardSession(ctx, notification.session)
+					.then(() => emit({ type: "event", name: "notification", data: notification }))
+					.catch(() => {});
+			});
 			const first = await activitySummary(ctx);
 			let last = JSON.stringify(first);
 			const timer = setInterval(() => {
@@ -94,7 +99,14 @@ export const activityMethods: MethodDef[] = [
 					})
 					.catch(() => {});
 			}, 2000);
-			signal.addEventListener("abort", () => clearInterval(timer), { once: true });
+			signal.addEventListener(
+				"abort",
+				() => {
+					clearInterval(timer);
+					dispose();
+				},
+				{ once: true },
+			);
 			return first;
 		},
 	}),

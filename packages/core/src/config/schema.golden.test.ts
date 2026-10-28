@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { AgentSchema, PresetSchema, YonderSchema } from "./schema.js";
 
@@ -19,7 +19,10 @@ function compatible(previous: Schema, current: Schema): boolean {
 	if (current.required?.some((name) => !previous.required?.includes(name))) return false;
 	for (const key of ["properties", "patternProperties"] as const) {
 		for (const [name, schema] of Object.entries(previous[key] ?? {})) {
-			if (!current[key]?.[name] || !compatible(schema, current[key][name])) return false;
+			const next =
+				current[key]?.[name] ??
+				(key === "patternProperties" && name === "^conv:.+" ? current[key]?.["^.+$"] : undefined);
+			if (!next || !compatible(schema, next)) return false;
 		}
 	}
 	if (previous.items && (!current.items || !compatible(previous.items, current.items))) return false;
@@ -41,6 +44,14 @@ test.each(Object.keys(schemas))("%s does not narrow its golden schema", (name) =
 	const previous = golden[name];
 	const current = schemas[name];
 	expect(previous && current && compatible(previous, current)).toBe(true);
+});
+
+test("updates the golden schema only after compatibility is verified", () => {
+	expect(Object.entries(schemas).every(([name, schema]) => golden[name] && compatible(golden[name], schema))).toBe(
+		true,
+	);
+	if (process.env.UPDATE_GOLDEN === "1")
+		writeFileSync(new URL("./schema.golden.json", import.meta.url), `${JSON.stringify(schemas, null, "\t")}\n`);
 });
 
 test("compatibility detects narrowing and permits optional fields and enum additions", () => {

@@ -89,7 +89,7 @@ import { ModelHealth } from "./model-health.js";
 import { accountKey, ModelQuota } from "./model-quota.js";
 import { ModelWatch, runAttempts } from "./model-watch.js";
 import { buildModels } from "./models.js";
-import { writeNotification } from "./notifications.js";
+import { notificationRequestId, writeNotification } from "./notifications.js";
 import { Outbox } from "./outbox.js";
 import { projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
@@ -1057,6 +1057,9 @@ export class Runtime {
 				}),
 			) as JsonObject,
 		};
+	}
+	async notificationRecorded(id: string, from: string, event: string) {
+		return Boolean(await this.storage.submissionByRequest(cid(id), notificationRequestId(from, event), C));
 	}
 	async notify(id: string, input: { from: string; event: string; text: string }) {
 		return writeNotification(await this.conversation(id), input);

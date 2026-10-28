@@ -17,6 +17,10 @@
 				socket.close();
 				return;
 			}
+			if (frame.t === "ev" && frame.type === "notification" && typeof frame.data?.session === "string" && typeof frame.data?.text === "string") {
+				window.__TAURI_INTERNALS__.invoke("show_notification", { session: frame.data.session, text: frame.data.text });
+				return;
+			}
 			const summary = frame.t === "ready" ? frame.result : frame.type === "activity.summary" ? frame.data : null;
 			if (Number.isInteger(summary?.running) && Number.isInteger(summary?.waiting)) {
 				window.__TAURI_INTERNALS__.invoke("set_activity", { running: summary.running, waiting: summary.waiting });

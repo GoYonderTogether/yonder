@@ -1,6 +1,6 @@
 import type { Channel, EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
-import { inboundNotification, type NotificationConfig } from "../kernel/notifications.js";
+import { inboundNotification, type NotificationConfig, type NotificationLevel } from "../kernel/notifications.js";
 import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import { newEvent, type Store } from "../store/index.js";
@@ -20,7 +20,8 @@ interface CreateRouterOptions {
 	sessions: Sessions;
 	runtime: () => Runtime;
 	agents: Map<string, AgentConfig>;
-	notifications?: NotificationConfig | undefined;
+	notificationLevel?: (conv?: string, session?: string) => NotificationLevel;
+	notifications?: NotificationConfig;
 	socialBatchPlugin?: boolean;
 	onStart?: (
 		session: SessionInfo,
@@ -38,6 +39,7 @@ export function createRouter({
 	sessions,
 	runtime,
 	agents,
+	notificationLevel,
 	notifications,
 	socialBatchPlugin,
 	onStart,
@@ -46,6 +48,17 @@ export function createRouter({
 	onReport = () => {},
 }: CreateRouterOptions) {
 	const pending = new Map<string, Set<(result: RunResult) => void>>();
+	const notificationListeners = new Set<
+		(event: {
+			id: number;
+			from: string;
+			event: string;
+			text: string;
+			session: string;
+			conv?: string;
+			channel?: string;
+		}) => void
+	>();
 
 	const report = (error: unknown) => {
 		try {
@@ -109,10 +122,21 @@ export function createRouter({
 				try {
 					const session = await store.sessions.get(routed.session);
 					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
-					const notification = inboundNotification(notifications, event);
+					const level = notificationLevel?.(event.conv, session.id);
+					const notification = inboundNotification(level ? { default: level } : notifications, event);
 					if (notification)
 						try {
-							await runtime().notify(session.id, notification);
+							const existed = await runtime().notificationRecorded(session.id, notification.from, notification.event);
+							const receipt = await runtime().notify(session.id, notification);
+							if (!existed)
+								for (const listener of notificationListeners)
+									listener({
+										id: receipt.entry,
+										...notification,
+										session: session.id,
+										...(event.conv ? { conv: event.conv } : {}),
+										...(channelOf(event.conv) ? { channel: channelOf(event.conv)! } : {}),
+									});
 						} catch (error) {
 							report(error);
 						}
@@ -454,6 +478,20 @@ export function createRouter({
 	}
 
 	return {
+		observeNotifications(
+			listener: (event: {
+				id: number;
+				from: string;
+				event: string;
+				text: string;
+				session: string;
+				conv?: string;
+				channel?: string;
+			}) => void,
+		) {
+			notificationListeners.add(listener);
+			return () => notificationListeners.delete(listener);
+		},
 		finishIdle,
 		finishRun: async (session: SessionInfo, _run: RuntimeRun) => finishIdle(session),
 		async recover(): Promise<Array<() => void>> {
