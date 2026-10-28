@@ -314,3 +314,17 @@ test("a completed self-check queues one concise decision reminder per destinatio
 		await f.close();
 	}
 });
+
+test("task string schema accepts full text while rejecting blank values", async () => {
+	const f = await fixture();
+	try {
+		const tool = f.probe.tools.find((item) => item.name === "tasks_get");
+		const schema = tool?.parameters as { properties: { id: { pattern: string } } };
+		const pattern = new RegExp(schema.properties.id.pattern, "u");
+		expect(pattern.test("9eb7dd39-bca3-4f8a-bbe7-6e9a562cf44c")).toBe(true);
+		expect(pattern.test("\n中文\n")).toBe(true);
+		expect(pattern.test(" \n\t")).toBe(false);
+	} finally {
+		await f.close();
+	}
+});
