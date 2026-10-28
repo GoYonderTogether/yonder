@@ -12,6 +12,7 @@ import type {
 } from "@yonder/sdk";
 import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js";
 import type { Db } from "./db.js";
+import type { TodoUpdatedEvent } from "./todo.js";
 export interface RuntimeSessionConfig {
 	agent: string | null;
 	profile: string;
@@ -25,6 +26,11 @@ export interface RuntimeSessionConfig {
 	bindings?: Binding[];
 	owner?: string;
 }
+export interface PromptPart {
+	key: string;
+	text: string;
+}
+
 export interface RuntimeOptions {
 	db: Db;
 	home: string;
@@ -33,7 +39,10 @@ export interface RuntimeOptions {
 	tools?: Tool[];
 	envs?: Map<string, ExecutionEnv>;
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
-	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
+	/** System prompt parts in order; keyed parts become their own pi section when `sectionKeys` declares the key. */
+	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<Array<string | PromptPart>>;
+	/** Every key `sections` may return, in default order. Keys must match `^[a-z][a-z0-9_-]*$`. */
+	sectionKeys?: readonly string[];
 	readEvent?(id: string): Promise<YEvent | undefined>;
 	/** True when this run already has its durable `run.end`; recover() then does not replay it. */
 	settled?(session: string, run: string): Promise<boolean>;
@@ -67,7 +76,21 @@ export interface RuntimeOptions {
 	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
 	/** Model health changed: a chain entry was held after a failed run, or a probe recovered it. */
 	onModelHealth?(event: { key: string; state: "held" | "recovered"; reason?: string; until?: number }): void;
+	/**
+	 * A session's answers moved to a fallback model, or came back to its primary (contracts §3.3 `model.fallback`).
+	 * Fires once when an episode starts and once when it ends, never in between.
+	 */
+	onModelFallback?(event: ModelFallbackEvent): Promise<void>;
+	/** The todo tool changed a session's list (contracts §3.4 `todo.updated`). */
+	onTodo?(event: TodoUpdatedEvent): Promise<void>;
 	onReport?(error: unknown): void;
+}
+export interface ModelFallbackEvent {
+	session: string;
+	state: "fallback" | "recovered";
+	from: { provider: string; model: string };
+	to: { provider: string; model: string };
+	reason: "rate_limit" | "quota" | "unavailable" | "error";
 }
 export interface RuntimeInput {
 	text: string;

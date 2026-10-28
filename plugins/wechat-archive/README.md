@@ -63,9 +63,13 @@ policy get/set/delete 需要 chat；set/delete 必须携带当前 expectedVersio
 
 首次启用从当前源游标建立消费起点；分页发现目录，优先按最后消息时间读取每轮至多两个会话的近期三条作初筛，历史由工具按需补查。三条样本不代表完整历史已读。
 
-增量先在插件私有 SQLite 事务中持久化消息与游标，再向源确认；采集确认不等于模型处理完成。资料按会话/源批次生成 `wechat-archive.material`，from 为 plugin:wechat-archive、conv 为 conv:wechat-archive:<chat>，data 含 externalContent、batchId、chat、policy、messages、keywordMatches、coverage。批次携带稳定 msgId，直接复用内核的持久输入去重；已接纳材料不会因确认回执丢失再次唤醒。
+增量先在插件私有 SQLite 事务中持久化消息与游标，再向源确认；采集确认不等于模型处理完成。资料按会话/源批次生成 `wechat-archive.material`，from 为 plugin:wechat-archive、conv 为 conv:wechat-archive:<chat>，data 含 externalContent、batchId、channel、conversation、chat、senders、summary、policy、messages、keywordMatches、coverage。`senders` 是批次里去重的发送人，`summary` 是一行提醒用摘要（`发送人: 正文`，多条为 `N 条消息（前三位发送人）：最后一条`，正文截断 60 字），两者只为通知记录服务，正文和附件仍在 messages。批次携带稳定 msgId，直接复用内核的持久输入去重；已接纳材料不会因确认回执丢失再次唤醒。
 
 immediate/watch 按采集批次交给绑定；periodic 等间隔到期交付积累批次；silent 不再查询正文或生成材料。keywords 是确定性匹配标记，重要性判断交给被绑定的 Agent。没有绑定就只留事件，不调用模型。
+
+唤醒只由绑定决定（没有绑定就只记事件、不调用模型）；是否给主人发提醒由 yonder.yaml 的 `notifications` 级别按 `conv:wechat-archive:<chat>` 决定：`all` 每批提醒，`mention` 对微信不提醒（微信批次没有 `mentioned`），`mute` 只累积未读。提醒写入内核 `yonder.notification` 记录，不唤醒模型、不进模型消息。监听是只读的：本插件没有发送工具，也不自动回复，回复仍由主人用微信客户端发出。
+
+轮询间隔取自 `pollSeconds`（最少 30 秒），插件把 `cursor:<key>`/`seed:<key>` 等游标持久化在自己的 SQLite meta，源侧游标按稳定 consumer 名（配置 consumer 加数据目录与凭据哈希）持久化，重启复用同一 consumer 和游标，不重放已确认批次。
 
 可在现有 Agent 绑定中加入：
 
