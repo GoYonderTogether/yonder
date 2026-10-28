@@ -232,7 +232,15 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		render();
 	};
 	const autocomplete = () =>
-		editor.setAutocompleteProvider(new CommandAutocomplete(chatCommands, info?.config.cwd ?? home));
+		editor.setAutocompleteProvider(
+			new CommandAutocomplete(chatCommands, info?.config.cwd ?? home, async () => {
+				const templates = await call<Array<{ name: string; description: string }>>(
+					"terminal.templates",
+					info ? { id: info.session.id } : target.channel ? {} : { preset: target.preset ?? "default" },
+				).catch(() => []);
+				return templates.map(({ name, description }) => ({ value: name, label: name, description }));
+			}),
+		);
 	const refresh = async (id = info?.session.id) => {
 		if (id) {
 			const epoch = viewEpoch;

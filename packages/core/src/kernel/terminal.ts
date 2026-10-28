@@ -1,6 +1,7 @@
 import type { Models, Preset } from "@yonder/sdk";
 import { type AgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
+import { listTemplates, pluginTemplateDirs } from "../prompt/templates.js";
 import { aggregateExecution } from "../runtime/activity.js";
 import type { Runtime } from "../runtime/index.js";
 import type { createSessions } from "../sessions/index.js";
@@ -135,6 +136,31 @@ export function terminalApi(ctx: {
 							: session.opened,
 					};
 				}),
+			);
+		},
+		async templates(id?: string, preset?: string) {
+			if (id) {
+				const active = await realRuntime().sessionConfig(id);
+				return listTemplates(
+					home,
+					active.agent,
+					active.profile,
+					pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(active)),
+				);
+			}
+			const selected = preset && (homePresets.get(preset) ?? loaded.presets.get(preset));
+			if (!selected) return listTemplates(home, null, "");
+			const active = {
+				agent: null,
+				profile: selected.id,
+				cwd: home,
+				resolved: resolveProfile(selected, {}, "local", config.defaultModel),
+			};
+			return listTemplates(
+				home,
+				null,
+				selected.id,
+				pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(active)),
 			);
 		},
 		submit: sessions.submitAccepted,

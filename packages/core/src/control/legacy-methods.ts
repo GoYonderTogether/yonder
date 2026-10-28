@@ -100,6 +100,16 @@ export const legacyMethods: MethodDef[] = [
 		handler: async (_p, ctx) => ctx.kernel.terminal.channels(),
 	}),
 	define({
+		name: "terminal.templates",
+		scope: "read",
+		params: obj({ id: Type.Optional(text), preset: Type.Optional(text) }),
+		since: 1,
+		async handler(p, ctx) {
+			if (p.id) await guardSession(ctx, p.id);
+			return ctx.kernel.terminal.templates(p.id, p.preset);
+		},
+	}),
+	define({
 		name: "terminal.queued",
 		scope: "read",
 		params: id,

@@ -121,7 +121,7 @@ interface InputReceipt { event: string; session: string; deduped?: boolean }
 
 #### 已有、保持原名、暂不进 B 线前端
 
-`awake.status`（read）、`channels.list`（read）、`channels.login`（admin，用 `connection.signal` 取消）、`release.result`、`sessions.notify`（write）、`management`（admin）、`terminal.sessions/presets/channels/queued/dequeue/info`、`service.info`（read，`local:true`）、`identity.lookup/link/unlink/person`、`stop`（admin，`local:true`）。迁入注册表时 scope 沿用上述标注，行为不变。
+`terminal.templates`（read，`{ id?: string, preset?: string }` → 模板名称与说明，按会话或草稿预设过滤）、`awake.status`（read）、`channels.list`（read）、`channels.login`（admin，用 `connection.signal` 取消）、`release.result`、`sessions.notify`（write）、`management`（admin）、`terminal.sessions/presets/channels/queued/dequeue/info`、`service.info`（read，`local:true`）、`identity.lookup/link/unlink/person`、`stop`（admin，`local:true`）。迁入注册表时 scope 沿用上述标注，行为不变。
 
 ## 2. 流帧协议
 

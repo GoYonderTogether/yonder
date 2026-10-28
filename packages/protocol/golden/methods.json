@@ -577,6 +577,23 @@
 				"type": "object"
 			}
 		},
+		"terminal.templates": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"preset": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			}
+		},
 		"views.act": {
 			"scope": "write",
 			"since": 1,

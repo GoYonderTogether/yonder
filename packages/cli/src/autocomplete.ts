@@ -1,7 +1,20 @@
-import { type AutocompleteSuggestions, CombinedAutocompleteProvider, fuzzyFilter } from "@earendil-works/pi-tui";
+import {
+	type AutocompleteItem,
+	type AutocompleteSuggestions,
+	CombinedAutocompleteProvider,
+	fuzzyFilter,
+	type SlashCommand,
+} from "@earendil-works/pi-tui";
 
 /** Localized command metadata uses pi's own fuzzy filter, completion and editor UI. */
 export class CommandAutocomplete extends CombinedAutocompleteProvider {
+	constructor(
+		commands: SlashCommand[],
+		basePath: string,
+		private templates: () => Promise<AutocompleteItem[]> = async () => [],
+	) {
+		super(commands, basePath);
+	}
 	override async getSuggestions(
 		lines: string[],
 		row: number,
@@ -14,7 +27,14 @@ export class CommandAutocomplete extends CombinedAutocompleteProvider {
 		if (!all) return null;
 		return {
 			prefix,
-			items: fuzzyFilter(all.items, prefix.slice(1), (item) => `${item.label} ${item.description ?? ""}`),
+			items: fuzzyFilter(
+				[
+					...all.items,
+					...(await this.templates()).filter((item) => !all.items.some((command) => command.value === item.value)),
+				],
+				prefix.slice(1),
+				(item) => `${item.label} ${item.description ?? ""}`,
+			),
 		};
 	}
 }

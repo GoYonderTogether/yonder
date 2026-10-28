@@ -14,3 +14,17 @@ test("localized Yonder commands use native completion and keep canonical command
 	const en = await provider.getSuggestions(["/res"], 0, 4, options);
 	expect(en?.items.some((item) => item.value === "resume")).toBe(true);
 });
+
+test("template names use native slash completion without shadowing commands", async () => {
+	const provider = new CommandAutocomplete(chatCommands, process.cwd(), async () => [
+		{ value: "review", label: "review", description: "Prompt template" },
+		{ value: "resume", label: "resume", description: "Prompt template" },
+	]);
+	const suggestions = await provider.getSuggestions(["/rev"], 0, 4, { signal: new AbortController().signal });
+	const item = suggestions?.items.find((entry) => entry.value === "review");
+	expect(item).toBeDefined();
+	if (!item || !suggestions) throw new Error("Missing template");
+	expect(provider.applyCompletion(["/rev"], 0, 4, item, suggestions.prefix).lines).toEqual(["/review "]);
+	const all = await provider.getSuggestions(["/"], 0, 1, { signal: new AbortController().signal });
+	expect(all?.items.filter((entry) => entry.value === "resume")).toHaveLength(1);
+});
