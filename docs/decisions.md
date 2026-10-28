@@ -507,3 +507,7 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 ### 2026-10-28：社交策略工具的确认与目标范围（主 Agent 代批）
 
 社交工具的应用必须先在同一会话预览，再由主人单独发送“确认”或“confirm”；随后同参数应用。控制面由具有 owner 与 admin 的调用者显式传入 `dryRun: false` 应用。目标通过已有入站事实确定类型；个人策略目前作用于其具体私聊会话，不自动扩展到其他渠道。无法确定类型或验证授权时拒绝。
+
+## 2026-10-28 DBG01r2 供应商 trace（用户批准）
+
+本机验收可显式开启供应商请求与 SSE trace，以排查 OpenAI 兼容协议；限定 provider baseUrl，脱敏已知鉴权头、指定正文模式和已加载的 credential 值，文件限制权限并清理 24 小时前的 trace。只支持 openai-completions 和 openai-responses，禁止在正式 HOME 开启；其他协议暂不支持。

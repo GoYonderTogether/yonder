@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 本机验收可显式开启供应商请求与 SSE trace，支持 OpenAI completions 和 responses，并对已知鉴权信息脱敏。
+
 - 修复硅基流动 DeepSeek-V3.2 的 effort 状态和思考参数，不支持的档位显示中文提示。
 
 - 主动通知支持持久汇总和发送前权限复核；任务自检后的决定提醒限频并限制长度。

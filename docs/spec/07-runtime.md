@@ -79,6 +79,8 @@
 - 任何 OpenAI 兼容、Anthropic 兼容的端点都只靠配置接入，**禁止**为单个供应商写适配代码。
 - 模型引用写作 `provider/modelId`。
 
+**供应商 trace。** 仅设置 `YONDER_PROVIDER_TRACE` 时开启，启动时打印醒目警告；trace 仅用于本机验收 HOME，禁止在用户正式 HOME 开启。支持 `openai-completions` 和 `openai-responses`，其他协议暂不支持。只记录配置的 provider baseUrl 下的请求和响应（包括 SSE），目录权限 0700、文件权限 0600，启动时删除超过 24 小时的 trace 文件。请求头中的 `authorization`、`x-api-key`、`api-key`、`cookie`、`x-goog-api-key`，正文中的 `sk-[A-Za-z0-9_-]{8,}`、`Bearer \S+` 以及已加载的 credential 值须脱敏；不承诺识别所有可能的秘密。
+
 配置档的 `fallback` 映射到 pi 原生 agent 的模型链与失败阈值。pi 在分类模型错误的同一事务中保存运行内模型索引、连续失败计数及重试 checkpoint；不重交输入、不重放已完成工具。所有模型 error（含鉴权、配额）计数；上下文超限沿用压缩、aborted 不回退。模型链耗尽保留真实错误。回退项与主模型相同或彼此重复时在配置给 pi 前剔除，剩下为空就等同未配置回退，沿用原生 retry（最多 10 次、退避至 5 分钟），因此临时断网不会在 3 次失败后直接停止；`yonder doctor` 对这种配置告警。给人看的停止提示不含供应商原始错误：网络类写成“网络连接中断，这一轮没有完成”，其余截断显示原因。聊天与摘要请求的 SDK 重试统一设为 0，每次请求由原生 checkpoint 计数和退避，避免 SDK 隐式重试叠加；未配置回退时仍按 retry 配置与 shouldRetry 分类处理。聊天与压缩共用 pi 的失败决策（错误分类、次数、退避、回退和耗尽提示），宿主通过同一 shouldRetry 分类函数提供策略。压缩任务在 checkpoint 固定模型链与阈值，摘要请求按相同阈值回退；阻塞压缩同步该轮运行的模型索引，后续生成继续使用成功的回退模型。手动压缩不修改正在生成的模型。
 
 失败尝试以无 model 正文的 `pi.model-attempt` entry 记录任务、操作类型、模型、次数、错误、后续动作及退避时间/目标模型，与重试 checkpoint 或终态同事务提交；不注入对话上下文，不新增队列。压缩耗尽提示包含重试或回退耗尽原因及最后错误，原历史保留。

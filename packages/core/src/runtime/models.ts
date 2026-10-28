@@ -31,6 +31,7 @@ import { piMessagesApi } from "@earendil-works/pi-ai/api/pi-messages.lazy";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { Errors } from "typebox/value";
 import { ProviderConfigSchema } from "./model-schema.js";
+import { enableProviderTrace, traceCredentials, traceModel } from "./provider-trace.js";
 
 export type ModelsJsonModelOverride = Partial<Omit<Model<Api>, "cost">> & { cost?: Partial<Model<Api>["cost"]> };
 export type ModelsJsonModel = Partial<Model<Api>> & { id: string };
@@ -341,8 +342,9 @@ export function buildModels(
 	telemetry?: ModelsTelemetry,
 	timeouts: ModelTimeouts = {},
 ) {
+	const trace = enableProviderTrace();
 	const models = createModels({
-		credentials,
+		credentials: trace ? traceCredentials(credentials) : credentials,
 		authContext: (provider) =>
 			({
 				...(credentialSlots[provider] && credentialSlots[provider] !== "default"
@@ -478,6 +480,14 @@ export function buildModels(
 			if (slot === "default") continue;
 			const provider = models.getProvider(id);
 			if (provider) models.setProvider(withTelemetry(provider, id, telemetry));
+		}
+	if (trace)
+		for (const provider of models.getProviders()) {
+			models.setProvider({
+				...provider,
+				stream: (model, context, options) => { traceModel(model, options?.apiKey); return provider.stream(model, context, options); },
+				streamSimple: (model, context, options) => { traceModel(model, options?.apiKey); return provider.streamSimple(model, context, options); },
+			});
 		}
 	if (timeouts.firstTokenMs || timeouts.totalMs)
 		for (const provider of models.getProviders()) models.setProvider(withTimeouts(provider, timeouts));
