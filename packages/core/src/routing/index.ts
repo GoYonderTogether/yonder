@@ -1,39 +1,19 @@
-import type { Channel, EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
+import type { EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
-import type { NotificationConfig, NotificationLevel } from "../kernel/notifications.js";
-import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
-import type { Sessions } from "../sessions/index.js";
+import type { RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import { newEvent, type Store } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
+import type { CreateRouterOptions } from "./types.js";
 
 type Wake = "run" | "write";
 interface RoutedRun {
 	agent: string;
 	session: string;
 	wake: Wake;
-}
-interface CreateRouterOptions {
-	channels?: Map<string, Channel>;
-	store: Store;
-	sessions: Sessions;
-	runtime: () => Runtime;
-	agents: Map<string, AgentConfig>;
-	notificationLevel?: (conv?: string, session?: string) => NotificationLevel;
-	notifications?: NotificationConfig;
-	socialBatchPlugin?: boolean;
-	onOwnerMention?: (session: SessionInfo, event: YEvent) => Promise<void>;
-	onStart?: (
-		session: SessionInfo,
-		event: YEvent,
-		waiter: boolean,
-	) => ((part: OutputPart, runId?: string) => void) | undefined;
-	onRun?: (session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean) => void | Promise<void>;
-	onCommand?: (session: SessionInfo, event: YEvent) => Promise<RunResult | undefined>;
-	onReport?: (error: unknown) => void;
 }
 
 export function createRouter({
