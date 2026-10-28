@@ -88,7 +88,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 	const info = await releaseInfo();
 	expect(info.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/u);
 	expect(await readDocs()).toContain("文档地图");
-	expect(await readDocs(undefined, true)).toContain("spec/09-cli-release.md");
+	expect(await readDocs(undefined, true)).toContain(join("spec", "09-cli-release.md"));
 	await expect(readDocs("../package.json")).rejects.toThrow("inside docs/");
 	expect(typeof (await readChangelog())).toBe("string");
 	const directory = await mkdtemp(join(tmpdir(), "ya & '-"));

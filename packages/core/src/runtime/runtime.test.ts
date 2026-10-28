@@ -1,6 +1,6 @@
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
@@ -45,7 +45,7 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 	expect(credentialPath("/tmp/home", "~/.yonder-credentials/auth.json")).toBe(
 		join(homedir(), ".yonder-credentials/auth.json"),
 	);
-	expect(credentialPath("/tmp/home")).toBe(join("/tmp/home", ".yonder/auth.json"));
+	expect(credentialPath("/tmp/home")).toBe(resolve("/tmp/home", ".yonder/auth.json"));
 	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let runtime: Runtime | undefined;
 	try {
