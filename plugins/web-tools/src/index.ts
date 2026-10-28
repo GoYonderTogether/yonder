@@ -8,6 +8,7 @@ const MAX_BODY = 2 * 1024 * 1024;
 const MAX_OUTPUT = 65536;
 const markdown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
 const string = { type: "string", minLength: 1, pattern: "\\S" };
+const urlString = { type: "string", minLength: 1 };
 const choice = (...values: string[]) => ({ type: "string", enum: values });
 const schema = (properties: object, required: string[]) =>
 	({ type: "object", properties, required, additionalProperties: false }) as TSchema;
@@ -158,7 +159,7 @@ export default definePlugin({
 			"Explicit Tavily Extract for public pages including JS-rendered content; no browser login is used. Returns supplier extraction, which may omit table cells, dates or metadata; not a lossless copy.",
 			schema(
 				{
-					urls: { type: "array", items: string, minItems: 1, maxItems: 20 },
+					urls: { type: "array", items: urlString, minItems: 1, maxItems: 20 },
 					depth: choice("basic", "advanced"),
 					format: choice("markdown", "text"),
 				},
@@ -182,7 +183,7 @@ export default definePlugin({
 		register(
 			"fetch",
 			"HTTP GET of a public page with bounded article extraction; all HTML formats return the extracted article and may omit tables or metadata, not the original page. Login pages require BrowserSkill; JS shells can use explicit extract. No automatic fallback.",
-			schema({ url: string, format: choice("markdown", "text", "html") }, ["url"]),
+			schema({ url: urlString, format: choice("markdown", "text", "html") }, ["url"]),
 			async (args, ctx) => {
 				const a = object(args);
 				let url = urlValue(a.url);
