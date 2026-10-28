@@ -129,6 +129,7 @@ test.skipIf(!process.env.YONDER_T08_AUTH_SOURCE)(
 						(await kernel!.events.query({ limit: 1000 })).events.filter(
 							(event) =>
 								event.type === "run.end" &&
+								(event.data as { status?: string }).status === "done" &&
 								children.some((child) => (event.data as { session?: string }).session === child.id),
 						).length,
 					{ timeout: 60000, interval: 500 },

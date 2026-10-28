@@ -8,6 +8,7 @@ test("task control restricts children and sends steer or resume to the original 
 	const runtime = {
 		backgroundChild: async () => ({ session: "2", state: { status } }),
 		backgroundAction: async () => ({ state: { status } }),
+		hasPendingWork: async () => false,
 	};
 	const tool = createTaskControl({
 		runtime: () => runtime,

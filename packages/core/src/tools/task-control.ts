@@ -36,7 +36,7 @@ export function createTaskControl(options: { runtime: () => Runtime; sessions: S
 						text: JSON.stringify(await runtime.backgroundAction(ctx.session, { action: "status", id: args.id })),
 					};
 				if (!args.message) throw new Error("message is required");
-				const running = child.state.status !== "terminal";
+				const running = child.state.status !== "terminal" || (await runtime.hasPendingWork(child.session));
 				if (args.action === "steer" && !running) throw new Error("Task has completed; use resume");
 				if (args.action === "resume" && running) throw new Error("Task is running; use steer");
 				if (session.closed) throw new Error("Task was not retained; launch with async=true to enable resume");
