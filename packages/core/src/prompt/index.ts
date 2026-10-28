@@ -295,6 +295,7 @@ export async function prepareInput(
 			`from: ${label(data.name ?? account?.name ?? event.from)} (${label(event.from)}${relation ? `, ${label(relation)}${account?.person ? `: ${label(account.person)}` : ""}` : ""})`,
 		);
 	}
+	if (data.quote?.text) lines.push(`quote: ${label(data.quote.text)}`);
 	const slash = session.resolved.model.indexOf("/");
 	const model = options.models.getModel(
 		session.resolved.model.slice(0, slash),

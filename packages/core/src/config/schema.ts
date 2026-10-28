@@ -136,6 +136,14 @@ export const YonderSchema = object({
 			}),
 		),
 	),
+	notifications: Type.Optional(
+		object({
+			default: Type.Optional(choice("all", "mention", "mute")),
+			conversations: Type.Optional(
+				Type.Record(ref("conv"), choice("all", "mention", "mute"), { additionalProperties: false }),
+			),
+		}),
+	),
 	envs: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	retry: Type.Optional(
 		object({
