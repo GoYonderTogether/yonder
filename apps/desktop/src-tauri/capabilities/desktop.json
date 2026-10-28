@@ -1,0 +1,6 @@
+{
+	"identifier": "desktop",
+	"windows": ["main"],
+	"remote": { "urls": ["http://127.0.0.1:*/console/*"] },
+	"permissions": ["core:default", "notification:default", "updater:default"]
+}

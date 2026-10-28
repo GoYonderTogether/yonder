@@ -1,0 +1,12 @@
+{
+	"name": "@yonder/desktop",
+	"private": true,
+	"version": "0.3.26102802",
+	"scripts": {
+		"build": "npm --prefix ../.. run build:app && npm run prepare-runtime && tauri build",
+		"prepare-runtime": "node prepare-runtime.mjs"
+	},
+	"devDependencies": {
+		"@tauri-apps/cli": "2.12.4"
+	}
+}

@@ -1,0 +1,6 @@
+node_modules/
+src-tauri/target/
+src-tauri/runtime/
+src-tauri/runtime.tar
+src-tauri/runtime.sha256
+src-tauri/gen/
