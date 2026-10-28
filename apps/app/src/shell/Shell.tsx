@@ -1,13 +1,8 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Chat } from "../features/Chat";
 import { OnboardingCard } from "../features/messages/OnboardingCard";
 import { NotifyHost } from "../features/notify/NotifyHost";
 import { Settings } from "../features/Settings";
-import { AddFriend } from "../features/social/AddFriend";
-import { CardPage } from "../features/social/CardPage";
-import { Connect } from "../features/social/Connect";
-import { ContactDetail } from "../features/social/ContactDetail";
-import { SocialChat } from "../features/social/SocialChat";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { useRefetchOnReconnect } from "../lib/queries";
 import { useSession } from "../lib/useSession";
@@ -19,6 +14,7 @@ import { TopBar } from "../ui/TopBar";
 import { WorkList } from "../ui/WorkList";
 import { EmptyPane } from "./EmptyPane";
 import { IconRail } from "./IconRail";
+import { PAGES, pageComponent } from "./registry";
 import { useMedia, useRoute } from "./routes";
 import { TabBar } from "./TabBar";
 
@@ -54,18 +50,12 @@ export function Shell({ onLogout }: { onLogout(): void }) {
 				<SessionList active={route.session} />
 			</>
 		);
-	const feature =
-		route.page === "c" && route.session ? (
-			<SocialChat id={route.session} />
-		) : route.page === "contacts" && route.session ? (
-			<ContactDetail id={route.session} />
-		) : route.page === "cards" ? (
-			<CardPage id={route.session} />
-		) : route.page === "friends/add" ? (
-			<AddFriend />
-		) : route.page === "connect" ? (
-			<Connect />
-		) : undefined;
+	const Page = route.page && !(PAGES[route.page].needsId && !route.session) ? pageComponent(route.page) : undefined;
+	const feature = Page ? (
+		<Suspense fallback={null}>
+			<Page id={route.session ?? ""} />
+		</Suspense>
+	) : undefined;
 	const hasChat = route.session && (route.page === "s" || route.page === "work");
 	const empty = route.tab === "work" ? "选择一个 Bot 或任务" : "选择一个会话开始";
 
