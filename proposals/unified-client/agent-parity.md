@@ -2,9 +2,9 @@
 
 状态：提案，未经维护者批准。输入为 [主人要求汇总](research/owner-requirements.md)、`research/E1`–`E3`、`C1`、`C2`、[design.md](design.md) 和相关实现文件。联网内容只引用 E1–E3 已有实测，本文不再联网。
 
-读源码时有两点没法核实：
+读源码时的两点说明：
 
-- `packages/core/src/prompt/content.ts` 现版（331 行）里**找不到 `runtime.discipline`**，`grep -rn "runtime.discipline" packages/core/src` 也无命中。E2 记的 `:299` 已过期，可能被另一个 worker 的改动（`kernel/runtime-discipline.test.ts`）移走了。
+- `runtime.discipline` 只在 PR #88 的整合分支（`integration/consolidate-20261027`）里，main 的 `content.ts` 里找不到它。PR #88 照原样合并，P2 再删掉这一段；P0 的行号核对以合并后的 main 为准。
 - 下文凡写 `content.ts:N` 的行号都取自 E2 的行号表，该表基于旧版文件，落地前必须逐段复核。
 
 ## 1. 摘要
@@ -12,7 +12,7 @@
 1. **复刻的是行为，不是进程结构。** Yonder 运行时是 pi-durable 加插件 SDK。13 个插件全部按 SDK 改写，不做 pi 扩展兼容层。判定标准见 §2.2。
 2. **pi 的核心设计是"分段加补丁"。** 系统提示词由多个段拼成，插件只能走 5 条路送字。Yonder 照此分段，状态类文字一律放消息尾部，不重写系统头。这样才保得住缓存命中（CH）。
 3. **主规划者身份是所有 Bot 共用的一段英文，约 700 词。** 它按"功能、原理、用户看到什么"写，结尾给出替用户做主和需要问用户的分界。单人 C 端的"不下场"解释为：简单的事直接做，规模化或可并行的才分派。
-4. **Yonder 自有提示词从约 11.9k token 压到主 Agent 系统段 5–6k。** 做法是删掉常识性规约，把投递去重、提及语法等硬保证下移到代码，并整段删除按模型追加的 `runtime.discipline`（如果它还在）。
+4. **Yonder 自有提示词从约 11.9k token 压到主 Agent 系统段 5–6k。** 做法是删掉常识性规约，把投递去重、提及语法等硬保证下移到代码，并整段删除按模型追加的 `runtime.discipline`（P2 执行）。
 5. **选模型：** models.dev 做主数据源，本地缓存档案，上下文里注入一张不超过 12 行的小表，再加 `model_route` 工具。它只决定降级链的第一个模型，`model-chain.ts` 的降级逻辑不动。价格不写进提示词。
 6. **上下文管理只留内核一套。** 沿用 pi-durable 的阈值摘要，再加两样 bili 的做法：尾偏折叠旧工具输出，以及缓存断点保护。每次压缩都发事件，界面上看得见节奏和 CH 变化。
 7. **界面落在 `apps/app`。** 底栏、右栏和 views 槽的数据全部来自网关事件。TUI 保持 pi 原生界面，不为它加 Yonder 专用部件。
@@ -165,6 +165,8 @@
 | skills 索引 | 0.3k | 0.3k | — |
 | SOUL/AGENTS/memory | 0.5k | 0.2k | — |
 | 合计 | **5.6k** | **6.0k–6.9k** | 渠道背景 ≤2.5k + `<turn>` 0.2k + 尾部增量 0.3k |
+
+任务会话上限 7k：hashline 精简到约 1.2k 是预算前提。E5 单独测精简前后的编辑成功率，成功率下降时任务会话预算放宽到 7.5k。
 
 对照现状：`content.ts` 全量约 11.9k token，加 framework、工具发现约 13.7k（E2 §0）。
 
@@ -335,7 +337,7 @@ When someone asks what you can do, describe what is actually installed and selec
 | `runtime.media` :259 | 移 | 移到 browser-skill、media-tools 说明 |
 | `runtime.delegation` :269 | 改 | 压缩成 5.2；受托执行者那段进任务版 preamble |
 | `runtime.background` :285 | 改 | 压缩，保留"不轮询"一条，进后台工具 guidelines |
-| `runtime.discipline` :299 | 删 | 决定 3；现版文件里已找不到，确认后同步删 `modelId` 匹配逻辑 |
+| `runtime.discipline` :299 | 删 | 决定 3；它在 PR #88 整合分支里，合并后由 P2 删除，同步删 `modelId` 匹配逻辑 |
 | `cliPrompt` :305 | 保留 | 仅 exec 能力时装载 |
 | `promptSectionIds` 与 `builtinPromptSections` | 改 | 列表按新段重建；`prompt.overrides` 的 ID 保持稳定 |
 
@@ -452,6 +454,7 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 - 每次折叠或摘要，在底栏短暂显示 `folded 82k→9k` 或 `compacted`，并在时间线留一条记录。
 - 紧随其后的几轮 CH 数字照常显示，用户能看到掉落和回升。
 - 事件：`compaction.started`、`compaction.finished`（见 §8）。
+- 压缩节奏只在 `apps/app` 显示。TUI 只显示 pi 原生底栏已有的内容。
 
 ## 8. 界面信息显示规格
 
@@ -501,7 +504,7 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 
 ## 10. E5 实测计划
 
-模型：`openai/gpt-6-luna`。配额用完换一个可用模型，并在报告里写明换了哪个，不混用比较。缺凭据则跳过并写"未测"。
+模型：先用 `workbuddy/deepseek-v4.1-flash`，需要对比时再用 `rightapi-glm/glm-5.3-flash`，不依赖 OpenAI 订阅配额。换模型要在报告里写明，不混用比较。缺凭据则跳过并写"未测"。
 
 对比方法：**新旧提示词各跑同一输入 3 次**，取中位数。旧版即当前 `content.ts` 全量装配，新版为 §3–§5。固定 temperature 参数不可用时，用三次取中位降噪。
 
@@ -537,7 +540,7 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 
 | 阶段 | 任务 | 验收标准 | 建议模型 |
 |---|---|---|---|
-| P0 | 复核 `content.ts` 现状：确认 `runtime.discipline` 是否仍在、各段实际行号 | 产出行号核对表；与 §5.7 差异列清 | DS |
+| P0 | 以合并 PR #88 后的 main 复核 `content.ts`：各段实际行号 | 产出行号核对表；与 §5.7 差异列清 | DS |
 | P1 | 分段装配改造：按会话类型选版本，段稳定性断言 | 单测：同会话两轮系统段字节相同；各类型选对版本 | terra |
 | P2 | 新提示词落地（规划者 + 六主题 + 受托执行者），删 `content.ts` 旧段 | 静态 token 落在 §3.4 区间；`official-prompts.test.ts` 更新并通过 | Sonnet 写，DS 跑检查 |
 | P3 | 投递层去重与 `NO_REPLY` 误用检查下移到代码 | 删除各渠道重复提示；E5 场景 7 重复投递为 0 | terra |
@@ -558,7 +561,7 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 
 ### 12.1 未验证项
 
-- `content.ts` 现版找不到 `runtime.discipline`，E2 行号整体可能过期（见开头）。
+- E2 行号表基于旧版 `content.ts`，整体可能过期（见开头）。
 - pi-durable 的指令分段是否已按段更新，未核实；`backgroundTokens` 语义未核实。
 - cc-safety-net 的规则引擎能否单独导出，未核实。
 - 问题队列的载体（interaction 插件工具名）、`plugins/tasks` 与 todo 插件的取舍，未核实。
@@ -580,14 +583,12 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 | 规划者"不下场"被弱模型理解成"什么都分派" | 成本反升 | 场景 1 测；必要时在受托版增加"小事不要再分派" |
 | 子会话继承规划者段 | 递归分派 | 受托版 preamble 不含分派指引，深度 2 层限制在代码里 |
 
-### 12.3 对已定决定的异议
+### 12.3 已定取舍
 
-1. **字数目标与 hashline 的冲突。** 决定 3 要求任务会话 6–7k，而 hashline 原版约 2.8k，加任务方法最长 2.3k，已逼近上限。预算表里假设把 hashline 精简到约 1.2k，这意味着要删 guideline，可能影响编辑精度。建议 E5 里单独测 hashline 精简前后的编辑成功率，再定是否放宽到 7.5k。
-2. **"TUI 保持 pi 原生界面"与"压缩节奏要看得见"。** 决定 6 要求用户界面能看到压缩节奏，决定 7 又让界面信息显示只落在 `apps/app`。TUI 用户因此看不到压缩事件。建议明确：TUI 只显示 pi 原生底栏已有的内容；如需压缩提示，走 pi-tui 允许的 UI 导出，由维护者决定。
-3. **新增 `guidelines` 字段与 `AGENTS.md`"规范没写的行为不要发明"。** §3.2 路径②需要改 spec 04 §3.2。我只提案，不自行补设计。
-4. **选择"改写"而非适配，会放弃 pi 生态后续更新。** 好处是边界干净，代价是上游改进需要手工同步。可接受，因为这些包的提示词本来就要按 Yonder 重排。
-5. **`(auto)` 语义。** pi 里它只是设置位，bili 取消压缩后仍显示 `(auto)`。本方案改为反映真实状态。这与"一比一复刻"有轻微出入，我认为应优先正确性。
-6. **小表放尾部而非系统段。** 决定 5 写"先在上下文里注入"，没有指定位置。放尾部会每日变化一次，所以我选尾部以保住系统头缓存。如果维护者希望放系统段，则每日首轮必定 CH 下降。
+- 选择"按 SDK 改写"而非适配 pi 扩展，放弃 pi 生态后续更新：边界干净，代价是上游改进需手工同步；这些包的提示词本来就要按 Yonder 重排。
+- `(auto)` 反映内核真实状态，而不是 pi 的纯设置位，与"一比一复刻"有轻微出入，优先正确性。
+- 选型小表放在尾部而非系统段：它每日变化一次，放尾部保住系统头缓存。
+- `ToolContribution.guidelines` 字段已批准，在 P13 写进 spec 04。
 
 ### 12.4 需维护者批准的设计变更清单
 
@@ -596,11 +597,11 @@ pi-durable 的 `DEFAULT_COMPACTION_POLICY`（`packages/pi-durable/src/harness/ag
 - spec 03 或 07：`model_route`、`models_list` 工具与档案目录 `model-catalog/`。
 - `docs/decisions.md`：记"按 SDK 改写，不做 pi 扩展兼容层"和"状态类文字只放尾部"两条，删掉过时内容而不是追加。
 - `AGENTS.md` 第 5 条（pi 版本号）沿用 design.md §末表中已有提案，本文不另提。
-### 12.5 主 Agent 裁定（10-27）
+### 12.5 决定记录
 
-- 开头的疑点：`runtime.discipline` 只在 PR #88 的整合分支（`integration/consolidate-20261027`）里，main 上还没有，所以 main 的 `content.ts` 里找不到它。PR #88 照原样合并，P2 再删掉这一段。P0 的行号核对要以合并后的 main 为准。
-- 异议 1：同意。E5 单独测 hashline 精简前后的编辑成功率；成功率下降时，任务会话预算放宽到 7.5k。
-- 异议 2：TUI 只显示 pi 原生底栏已有的内容，压缩节奏只在 `apps/app` 显示。
-- 异议 3：主人已授权主 Agent 做设计决定，`guidelines` 字段批准，在 P13 写进 spec 04。
-- 异议 4、5、6：同意。即按 SDK 改写；`(auto)` 反映真实状态；选型小表放在尾部。
-- 测试模型：E5 先用 `workbuddy/deepseek-v4.1-flash`，需要对比时再用 `rightapi-glm/glm-5.3-flash`，不依赖 OpenAI 订阅配额。
+- 10-27：`runtime.discipline` 随 PR #88 合并，P2 删除。
+- 10-27：hashline 精简前后的编辑成功率由 E5 单测；下降则任务会话预算放宽到 7.5k。
+- 10-27：TUI 只显示 pi 原生底栏内容，压缩节奏只在 `apps/app` 显示。
+- 10-27：主人授权主 Agent 做设计决定；`guidelines` 字段批准，P13 写入 spec 04。
+- 10-27：按 SDK 改写；`(auto)` 反映真实状态；选型小表放尾部。
+- 10-27：E5 测试模型改为 `workbuddy/deepseek-v4.1-flash`，对比用 `rightapi-glm/glm-5.3-flash`。
