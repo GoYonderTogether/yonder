@@ -115,17 +115,11 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		const resolved = resolveProfile(selected, {}, parent.resolved.env, options.defaultModel);
 		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
 		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
-		const { capabilities, channelInstances, inherit } = presetSession(
-			selected,
-			resolved.env,
-			{
-				...parentResolved,
-				capabilities: ctx.capabilities,
-				...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
-			},
-			undefined,
-			parent.agent,
-		);
+		const { capabilities, channelInstances, inherit } = presetSession(selected, resolved.env, {
+			...parentResolved,
+			capabilities: ctx.capabilities,
+			...(ctx.channelInstances === undefined ? {} : { channelInstances: ctx.channelInstances }),
+		});
 		let session = await store.sessions.get(childId);
 		if (!session) {
 			session = {
