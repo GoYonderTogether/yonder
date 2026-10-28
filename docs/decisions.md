@@ -2,6 +2,8 @@
 
 **D57 完整主程序的跨平台安装入口（2026-10-26）。** 在原有版本目录和 home 分离的发行链上，Linux 用 systemd 用户单元，Windows 用当前用户登录计划任务、目录 junction 和本机命名管道。Windows 不借 `sc.exe` 把普通 Node 进程冒充 SCM 服务；需要注销后常驻或异常自动重启时另做真正的 Windows 服务宿主。每个平台的运行结论必须有对应系统与架构的实测证据。
 
+**D59 默认管家与清单式首次引导（2026-10-28，统一客户端 design §5.2/§5.3 第一片）。** `init` 的 default 发行包加载 `@yonder/plugin-onboarding`，管家沿用现名 `main`（Jarvis），不写模型、用 `defaultModel`，选入 `tasks` 与 `onboarding`，并有一条 `onboarding.start` 绑定（`--isolated` 不写，因 peer 的保守检查拒绝不限渠道的绑定，由主人主动要求继续）。插件每次启动在未完成时写 `onboarding.start` 唤醒管家；只读工具 `onboarding_probe` 经新的内核接口 `api.host.status`（仅 admin，只给凭据槽是否已配置，不给值）列出模型、渠道（含随包未启用）、网关、凭据、插件五项；`onboarding_record` 把每项对应的任务 id 和完成时间存在插件数据目录 `agents/<agent>.json`，因此可恢复、不重复建任务，`{done:true}` 写 `onboarding.done` 后不再唤醒。任务列表用会话 todo 工具（目前内核没有），否则用 tasks 账本。design §2 要的跨会话只读工具已由 `session_list`/`session_read`（admin，读他人另需跨 agent 权限）提供，本片不新增；spec 05 的“读取他人会话转录”独立能力级别留待后续。代价：`api.host` 是新的插件接口面，规范 spec 04 的插件 API 一节尚未补，需维护者批准后同步。
+
 每条：决定、理由、代价。改决策先改这里。被后续决定取代的部分标“已被 Dxx 取代”。文中的 T/N/U/C/R/F/P/E/X 编号是实现批次，批次记录保存在维护者的私有归档，不影响理解各决定。
 
 **D1 运行时用 pi-durable，模型用 pi-ai。** 会话持久化与恢复、模型循环、工具执行、压缩、子会话、按需工具、用量统计、执行环境都已由 pi 实现并在生产中使用；自己写最容易出错。代价：pi-durable 标为实验性，接口可能变——用精确版本锁定和单一适配目录（07 §1）控制影响面。
