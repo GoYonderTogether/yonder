@@ -252,4 +252,4 @@ task 会话最终回复首行必须为 `STATUS: done|partial|blocked`，随后�
 
 发行包含完整上游skill-creator（含许可及引用资源）与简洁yonder-development，默认skills=[*]的所有agent及预设可发现，只有名字描述进入索引，正文仍由skill_view按需加载。显式skills选择/禁用和workspace/home覆盖仍有效，不以“默认”绕过用户过滤。现有本机agent配置中的显式白名单加入这两项，不强制未来配置。
 
-yonder-development提供可工作的建议：默认源码<home>/development/<name>或用户指定路径，普通插件独立git保存，官方代码改动常规fork/branch/PR；运行用隔离home与自身凭据，不覆盖正式launchd。正式程序仅update更新，不在versions/current改源码。用户可选择其他方式；skill不授予push/发布权限，不建立强制工作流或自动创建remote。
+yonder-development 的开发流程：任何独立代码仓库，所有改动都直接在主分支上进行，不迁出分支，不建 worktree 或独立环境。同一目录允许 10 到 30 个 Agent 并行，内容大致不重叠即可；重叠时改不同的行，或等 5 到 10 秒再改，顺带提交别人的改动也可以。只有两种情况需要独立环境：特定版本发版时为该版本建发版环境；一批任务完成后，主 Agent 安排检出当时的 commit 做验证，同时开始下一批。主 Agent 不写代码、不改代码文件，只改提示词、规约和文档，落地执行全部交给子 Agent。 运行使用自身凭据，不覆盖正式 launchd。正式程序仅 update 更新，不在 versions/current 改源码；skill 不授予 push/发布权限，不自动创建 remote。

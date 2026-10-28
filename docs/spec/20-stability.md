@@ -51,7 +51,7 @@
 2. 提升对应版本号：协议用 `protocol`，插件 API 用 `apiVersion`，`state.db` 用 `schema_version`，配置文件用其版本键。
 3. 提供迁移：`state.db` 迁移前备份（`VACUUM INTO`）且拒绝降级；home 或安装树迁移走 `yonder migrate`（09），可预览、可回滚。
 4. 旧形态按 §3 保留别名并发出 warn。
-5. 更新对应 golden 文件，并在 PR 说明里点名变更项。
+5. 更新对应 golden 文件，并在提交说明里点名变更项。
 
 ## 5. 自动检查
 

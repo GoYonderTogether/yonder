@@ -100,19 +100,19 @@ DeviceDescriptor 包含 role、OS版本、host/process架构、runtime、targets
 
 protocol导出 `schema/execution-v1.json` 和只含外层信封的 `schema/relay-v1.json`；`npm run build -w @yonder/protocol`生成（可单独运行 `node packages/protocol/scripts/export-schema.mjs`）。Yonder是唯一源。Card W3只复制relay schema与`contract.lock.json`到`server/contracts/execution-v1/`，锁包含repository、精确W0 commit、schema SHA256、protocolVersion。复制由父会话从已审核本地W0导出，Card无需npm访问私有源仓或假设protocol已发布。Card校验外层并转发内层字节，不复制执行授权逻辑。
 
-公共版本/根manifest/lock/SDK/schema更新只有W0/集成者串行修改。字段不兼容更改必须重新审阅，更新共同版本/摘要与对应测试，不各仓加临时别名。
+公共版本/根manifest/lock/SDK/schema更新协调不同的行，或等待 5 到 10 秒再修改。字段不兼容更改必须重新审阅，更新共同版本/摘要与对应测试，不各仓加临时别名。
 
 | 包 | 允许编辑路径（相对所属repo） | 依赖与限制 |
 |---|---|---|
-| W0 | `packages/protocol/**`, `packages/sdk/src/{index,types}.ts`, `packages/sdk/{package,tsconfig}.json`, root `package*.json`, `tsconfig.json`, `docs/spec/18-device-execution.md`, `docs/{architecture,index,decisions,status}.md`, `CHANGELOG.md`, `proposals/multidevice/**` | 公共文件唯一写者；不写daemon实现 |
+| W0 | `packages/protocol/**`, `packages/sdk/src/{index,types}.ts`, `packages/sdk/{package,tsconfig}.json`, root `package*.json`, `tsconfig.json`, `docs/spec/18-device-execution.md`, `docs/{architecture,index,decisions,status}.md`, `CHANGELOG.md`, `proposals/multidevice/**` | 不写daemon实现 |
 | W1 | Yonder `packages/device/src/**`，但排除`backends/**`和`platform/**`；`packages/device/test/**`但排除backends/platform；`packages/device/README.md` | 依赖W0；拥有身份/grant/session、持久账本、唯一daemon锁/写锁、BackendProvider接口；manifest申请回W0 |
 | W2 | Yonder `plugins/devices/src/**`, `plugins/devices/test/**`, `plugins/devices/README.md` | 依赖W0；仅SDK，不动core/SDK/daemon；controller待发日志在插件私有数据目录；manifest回W0 |
 | W3 | Card `server/src/execution-relay.ts`, `server/test/execution-relay.test.ts`, `server/contracts/execution-v1/**`, `server/src/{index,app,realtime}.ts`接线，`deploy/{site.conf.template,dev-remote.sh,test.mjs}` | W0锁定摘要后；只窄relay/持续连接scope，不做执行账本/锁，不改聊天正文协议；manifest/迁移先交集成者 |
-| W4 | 父会话已单独分派的full平台包：现有 `packages/core/src/{release,control}/**`、平台service/IPC和构建脚本；具体以其任务白名单为准 | 同R独立树，可并行；不碰root manifest/lock、SDK、protocol、executor或Card；本W0不修改这些W4文件。executor平台adapter后续单独分配，只调用W1锁 |
+| W4 | 父会话已单独分派的full平台包：现有 `packages/core/src/{release,control}/**`、平台service/IPC和构建脚本；具体以其任务白名单为准 | 同一主目录并行；不碰root manifest/lock、SDK、protocol、executor或Card；本W0不修改这些W4文件。executor平台adapter后续单独分配，只调用W1锁 |
 | W5 | Yonder `packages/device/src/backends/**`, `packages/device/test/backends/**` | W1先固定BackendProvider接口；只实现Linux guest内provider/应用清单/UI；不写身份/账本/锁/manifest，不改旧lab，VM唯一执行者另派 |
-| W6 | 集成树的验收记录与必要接线；共享文件仅集成者 | W1/W2纯私网通过后接W3；审查P0后父会话派实现 |
+| W6 | 验收记录与必要接线；共享文件按主分支并行规约协调 | W1/W2纯私网通过后接W3；审查P0后父会话派实现 |
 
-每包从R加W0本地提交分出新分支；Card从C加其协议锁定文档分出。W0 schema/SDK冻结前不派W1–W3产品实现。W4/W5可先只读调查；依赖关系不是授权他们启动VM。
+任何独立代码仓库，所有改动都直接在主分支上进行，不迁出分支，不建 worktree 或独立环境。同一目录允许 10 到 30 个 Agent 并行，内容大致不重叠即可；重叠时改不同的行，或等 5 到 10 秒再改，顺带提交别人的改动也可以。只有两种情况需要独立环境：特定版本发版时为该版本建发版环境；一批任务完成后，主 Agent 安排检出当时的 commit 做验证，同时开始下一批。主 Agent 不写代码、不改代码文件，只改提示词、规约和文档，落地执行全部交给子 Agent。W0 schema/SDK冻结前不派W1–W3产品实现。W4/W5可先只读调查；依赖关系不是授权他们启动VM。
 
 ## 7. 本轮检查与产品验收界限
 

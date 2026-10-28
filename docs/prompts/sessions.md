@@ -29,7 +29,7 @@ yonder chat --session <返回的session-id> --home <home>
 yonder sessions close <返回的session-id> --home <home> --json
 ```
 
-submit 的接纳回执不是完成结果；实际终态看 run.end 与会话转录。独立任务默认 cwd 是 home；子任务沿父 cwd/env，preset 可指定 env。做代码工作时在任务里明确真实仓库、分支、允许改动和验收，工具在跨仓库时显式选 cwd。不会自动把整个仓库或父历史复制进上下文。
+submit 的接纳回执不是完成结果；实际终态看 run.end 与会话转录。独立任务默认 cwd 是 home；子任务沿父 cwd/env，preset 可指定 env。做代码工作时在任务里明确真实仓库、允许改动和验收，工具在跨仓库时显式选 cwd。任何独立代码仓库，所有改动都直接在主分支上进行，不迁出分支，不建 worktree 或独立环境。同一目录允许 10 到 30 个 Agent 并行，内容大致不重叠即可；重叠时改不同的行，或等 5 到 10 秒再改，顺带提交别人的改动也可以。只有两种情况需要独立环境：特定版本发版时为该版本建发版环境；一批任务完成后，主 Agent 安排检出当时的 commit 做验证，同时开始下一批。主 Agent 不写代码、不改代码文件，只改提示词、规约和文档，落地执行全部交给子 Agent。不会自动把整个仓库或父历史复制进上下文。
 
 要持续拥有职责、身份和渠道入口，才使用 `yonder agents create <id> --preset default-agent --file <配置.json>`。真实 name/work/owner/bindings 必填；选 Jarvis 模板不会授予额外权限。实际参数以该版本 --help 为准。
 
