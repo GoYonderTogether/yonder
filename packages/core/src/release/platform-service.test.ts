@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { manageService } from "./index.js";
 
 test("Linux service commands register and control one user unit in an isolated command fixture", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-w4-systemd-"));
+	const root = await mkdtemp(join(tmpdir(), "ya-"));
 	const install = join(root, "install"),
 		home = join(root, "home"),
 		bin = join(root, "bin"),
@@ -67,7 +67,7 @@ test("Linux service commands register and control one user unit in an isolated c
 });
 
 test("Windows service commands register only a current-user logon task in a command fixture", async () => {
-	const root = await mkdtemp("/tmp/yonder-w4-task-");
+	const root = await mkdtemp(join(tmpdir(), "ya-"));
 	const install = join(root, "install"),
 		home = join(root, "home"),
 		bin = join(root, "bin"),

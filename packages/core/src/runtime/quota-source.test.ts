@@ -191,7 +191,8 @@ describe("quota source", () => {
 		});
 		expect(saved.last_refresh).toBe(new Date(now).toISOString());
 		expect(saved.unknown).toEqual({ keep: true });
-		expect(statSync(path).mode & 0o777).toBe(0o600);
+		// Windows exposes ACLs rather than POSIX file modes.
+		if (process.platform !== "win32") expect(statSync(path).mode & 0o777).toBe(0o600);
 	});
 	it("forces one refresh and retries the usage request after a 401", async () => {
 		const auth = join(root(), "auth.json");

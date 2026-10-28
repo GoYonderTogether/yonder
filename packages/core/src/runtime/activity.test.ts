@@ -1,4 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import type { Harness } from "@earendil-works/pi-durable";
 import { expect, test } from "vitest";
@@ -11,7 +13,7 @@ import { Runtime } from "./index.js";
 // Real Runtime.submit -> prompt section fault -> native scheduler settlement and receipt.
 // No provider or model response is simulated, and the failure occurs before any model request.
 test("terminal native failure persists; write-only admission and historical receipt replay cannot clear or backfill it", async () => {
-	const home = await mkdtemp("/tmp/yonder-activity-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	const options = {
 		home,
 		config: { schema: 1 as const, retry: { maxRetries: 0 } },
@@ -63,7 +65,7 @@ test("terminal native failure persists; write-only admission and historical rece
 });
 
 test("actual next run start clears old issue before the model request", async () => {
-	const home = await mkdtemp("/tmp/yonder-activity-start-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let hold = false;
 	let entered!: () => void;
 	let release!: () => void;
@@ -120,7 +122,7 @@ test("terminal activity includes open blocked sessions, preserves legacy idle, a
 	const { terminalApi } = await import("../kernel/terminal.js");
 	const { createStore } = await import("../store/index.js");
 	const { parseAgentConfig } = await import("../config/index.js");
-	const home = await mkdtemp("/tmp/yonder-activity-terminal-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	const db = await openDatabase(`${home}/state.db`);
 	const store = await createStore(db);
 	let hold = false;

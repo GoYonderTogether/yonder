@@ -1,4 +1,5 @@
 import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
@@ -12,7 +13,7 @@ afterEach(() => {
 async function fixture() {
 	vi.stubEnv("YONDER_SERVICE_REGISTRATION", undefined);
 	vi.stubEnv("YONDER_SERVICE_COMMAND_FD", undefined);
-	const home = await mkdtemp("/tmp/yonder-process-tool-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	const { processTool } = await import("./process.js");
 	const jobs = new Map<number, { output: string; write?: (text: string, eof?: boolean) => Promise<void> }>();
 	const tool = processTool(home, jobs);

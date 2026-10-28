@@ -95,7 +95,7 @@ export async function rollbackMigration(
 			try {
 				await rename(restoring, manifest.oldHome);
 			} catch (error) {
-				await symlink(manifest.newHome, manifest.oldHome);
+				await symlink(manifest.newHome, manifest.oldHome, process.platform === "win32" ? "junction" : "dir");
 				throw error;
 			}
 			await rm(manifest.newHome, { recursive: true, force: true });

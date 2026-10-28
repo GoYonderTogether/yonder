@@ -10,7 +10,7 @@ const unused = async (): Promise<never> => {
 };
 
 it("loads both first-party plugins through the manifest and registration checks", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-plugin-load-"));
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		const services = {
 			events: { emit: unused, ask: unused, query: unused },
@@ -69,7 +69,7 @@ it("loads both first-party plugins through the manifest and registration checks"
 });
 
 it("resolves home packages and serializes each plugin's observers without exposing mutable events", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-plugin-order-"));
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	const directory = join(home, "node_modules/audit-plugin");
 	const output = join(home, "observed.jsonl");
 	try {
@@ -117,7 +117,7 @@ export default { configSchema: {type: "object", required: ["output"], properties
 });
 
 it("only the provider registration can allow a channel to emit target", async () => {
-	const home = await mkdtemp("/tmp/yonder-channel-target-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		for (const allowed of [false, true]) {
 			const directory = join(home, `provider-${allowed}`);
@@ -171,7 +171,7 @@ it("only the provider registration can allow a channel to emit target", async ()
 });
 
 it("rejects a user-declared channels.console because the id is reserved for the built-in console", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-plugin-console-"));
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		const services = {} as unknown as KernelServices;
 		await expect(

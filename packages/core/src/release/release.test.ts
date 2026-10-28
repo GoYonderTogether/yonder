@@ -51,7 +51,7 @@ test("Linux user unit and Windows wrappers keep installed code separate from hom
 });
 
 test("version-link cleanup preserves real directories and links outside versions", async () => {
-	const install = await mkdtemp("/tmp/yonder-w4-links-");
+	const install = await mkdtemp(join(tmpdir(), "ya-"));
 	const current = join(install, "current"),
 		versions = join(install, "versions"),
 		version = join(versions, "0.2.1"),
@@ -88,23 +88,25 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 	const info = await releaseInfo();
 	expect(info.version).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/u);
 	expect(await readDocs()).toContain("文档地图");
-	expect(await readDocs(undefined, true)).toContain("spec/09-cli-release.md");
+	expect(await readDocs(undefined, true)).toContain(join("spec", "09-cli-release.md"));
 	await expect(readDocs("../package.json")).rejects.toThrow("inside docs/");
 	expect(typeof (await readChangelog())).toBe("string");
-	const directory = await mkdtemp(join(tmpdir(), "yonder-release & '"));
+	const directory = await mkdtemp(join(tmpdir(), "ya & '-"));
 	try {
 		const wrapper = join(directory, "yonder"),
 			plist = join(directory, "service.plist");
 		await writeFile(wrapper, launcher(directory));
-		execFileSync("/bin/sh", ["-n", wrapper]);
+		// Shell syntax validation applies to the POSIX launcher only.
+		if (process.platform !== "win32") execFileSync("/bin/sh", ["-n", wrapper]);
 		const text = servicePlist(directory, directory);
 		await writeFile(plist, text);
-		expect(text).toContain("bin/yonder-service</string>");
+		expect(text).toContain(`${join("bin", "yonder-service")}</string>`);
 		expect(text).not.toContain("<string>start</string>");
 		expect(servicePlist(directory, directory, "/bin", false)).toContain("<string>--json</string>");
 		await writeFile(wrapper, serviceLauncher(directory));
-		execFileSync("/bin/sh", ["-n", wrapper]);
-		expect(await readFile(wrapper, "utf8")).toContain("current/scripts/yonder-service-host.mjs");
+		// Shell syntax validation applies to the POSIX launcher only.
+		if (process.platform !== "win32") execFileSync("/bin/sh", ["-n", wrapper]);
+		expect(await readFile(wrapper, "utf8")).toContain(join("current", "scripts", "yonder-service-host.mjs"));
 		expect(text).toContain("&amp;");
 		expect(text).toContain("&apos;");
 		expect(text.match(/<key>PATH<\/key>|<key>YONDER_INSTALL<\/key>|<key>YONDER_HOME<\/key>/gu) ?? []).toHaveLength(3);
@@ -125,7 +127,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 test.skipIf(process.platform !== "darwin" || process.env.YONDER_TEST_LAUNCHD !== "1")(
 	"real launchd unload waits for the old process and registration before bootstrap",
 	async () => {
-		const root = await mkdtemp("/tmp/yonder-launchd-");
+		const root = await mkdtemp(join(tmpdir(), "ya-"));
 		const label = `dev.yonder.harness.check.${process.pid}`;
 		const service = `gui/${process.getuid?.()}/${label}`;
 		const plist = `${root}/check.plist`,
