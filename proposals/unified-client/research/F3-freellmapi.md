@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../agent-parity.md)
+
 ## 一、结论速览
 
 - **服务在运行**：`127.0.0.1:3001`（不是 48765/8000/18787），OpenAI 兼容 `/v1`，单端口同时承载 dashboard。
@@ -10,7 +12,7 @@
 
 ## 二、项目是什么
 
-仓库：`/Users/zoran/Documents/github/freellmapi`（上游 `tashfeenahmed/freellmapi`，MIT）。
+仓库：`~/Documents/github/freellmapi`（上游 `tashfeenahmed/freellmapi`，MIT）。
 
 定位：把多个免费 provider（34 个渠道 / 635 个免费 endpoint）聚合成**一个** OpenAI 兼容端点。路由器按实时速度、能力、可靠性打分选模型；遇到 429/5xx 自动 fallback、冷却、key 轮换。provider key 用 AES-256-GCM 加密存 SQLite；模型目录从 `freellmapi.co` 拉签名目录（免费版走 monthly 快照，比 live 目录落后约 300 个模型）。
 
@@ -20,7 +22,7 @@
 
 | 项 | 值 |
 |---|---|
-| 进程 | `node /Users/zoran/Documents/github/freellmapi/server/dist/index.js`（PID 44131） |
+| 进程 | `node ~/Documents/github/freellmapi/server/dist/index.js`（PID 44131） |
 | 端口 | `127.0.0.1:3001` |
 | 启动 | `node server/dist/index.js` |
 | 停止 | `kill "$(cat .run/server.pid)"` |

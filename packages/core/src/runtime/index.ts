@@ -1216,9 +1216,25 @@ export class Runtime {
 		return page.items.flatMap((entry) => entry.model ?? []);
 	}
 
-	async transcript(id: string, range: { from?: number; limit?: number } = {}): Promise<TranscriptItem[]> {
+	async transcript(
+		id: string,
+		range: { from?: number; limit?: number; before?: number } = {},
+	): Promise<TranscriptItem[]> {
+		const conversation = await this.conversation(id);
+		if (range.before !== undefined) {
+			const page = await conversation.entries(
+				{
+					order: "descending",
+					...(range.before > Number.MAX_SAFE_INTEGER - 1 ? {} : { maxEntryId: (range.before - 1) as EntryId }),
+				},
+				range.limit ?? 100,
+				undefined,
+				C,
+			);
+			return page.items.map(transcriptItem).reverse();
+		}
 		// Push the bounds into the scan so a one-entry read does not decode the whole conversation.
-		const page = await (await this.conversation(id)).entries(
+		const page = await conversation.entries(
 			{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
 			range.limit ?? 100,
 			undefined,

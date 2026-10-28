@@ -1,0 +1,25 @@
+{
+	"name": "@yonder/gateway",
+	"version": "0.2.26102705",
+	"type": "module",
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@yonder/core": "0.2.26102705",
+		"ws": "8.22.0"
+	},
+	"devDependencies": {
+		"@types/ws": "8.18.2"
+	}
+}
