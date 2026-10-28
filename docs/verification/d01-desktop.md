@@ -44,3 +44,7 @@ Rust 固定 `1.99.0`：上一轮 1.92.0 两次下载未完成；本机 Homebrew 
 阻塞：`notifications.prefs.get/set` 的协议已声明，但 `packages/core/src/control/notify-methods.ts` 为空。`proposals/unified-client/contracts.md` §16 指定节点偏好支持 session id、`mentions`，而 `docs/spec/08-config.md` 指定 `yonder.yaml` 只接受 `conv:`、`mention` 且重启生效；需维护者统一权威和生效语义。现有 Tauri 推送只读客户端偏好，直接接入新节点事件无法保证节点免打扰；Swift 同样没有可用节点偏好接口。未合入半条链路，golden 及系统通知点击仍待完成。
 
 实现探索期间，`npx tsc -b packages/core apps/app` 通过；聚焦 vitest 首次运行 2 文件通过、2 文件失败（额外收集 `target/debug/runtime` 副本且缺 tsconfig），4 项测试通过；排除该构建副本后 4 文件、12 项通过。探索代码未保留，这些检查不能作为最终链路通过的证据。
+
+INF04 副本：`verify-copy.sh d01r3` 成功，副本 commit `02849e7c064d78729bf1e977b9fff2e295904214`，完整构建通过；`verify-home.sh d01r3 --copy d01r3` 启动成功，`real-check.sh` 使用 siliconflow/deepseek-ai/DeepSeek-V3.2 真实回复成功（6.5 秒），验收 HOME 已停止。副本中 Swift 构建产物 `du -sk` 为 516 KiB，不含 gateway/Node。
+
+Tauri release 构建尝试：副本执行 `npm run build` 在 `tauri: command not found` 退出；借用本机已有 CLI 后在线索引未完成而手动中断，离线重试报 `no matching package named tauri found`。因此 release 包体积未测；这不是桌面运行验收。
