@@ -1,38 +1,17 @@
 {
 	"Placement": {
-		"enum": [
-			"floating",
-			"page",
-			"rail"
-		]
+		"enum": ["floating", "page", "rail"]
 	},
 	"Scope": {
-		"enum": [
-			"admin",
-			"owner",
-			"read",
-			"write"
-		]
+		"enum": ["admin", "owner", "read", "write"]
 	},
 	"BuiltinViewId": {
-		"enum": [
-			"attachments",
-			"background",
-			"context",
-			"goal",
-			"subagents",
-			"subtasks",
-			"todos",
-			"wakes"
-		]
+		"enum": ["attachments", "background", "context", "goal", "subagents", "subtasks", "todos", "wakes"]
 	},
 	"ViewContent": {
 		"variants": {
 			"markdown": {
-				"required": [
-					"text",
-					"type"
-				],
+				"required": ["text", "type"],
 				"properties": {
 					"text": {
 						"type": "string"
@@ -43,24 +22,15 @@
 				}
 			},
 			"list": {
-				"required": [
-					"items",
-					"type"
-				],
+				"required": ["items", "type"],
 				"properties": {
 					"items": {
 						"array": {
-							"required": [
-								"id",
-								"title"
-							],
+							"required": ["id", "title"],
 							"properties": {
 								"actions": {
 									"array": {
-										"required": [
-											"id",
-											"label"
-										],
+										"required": ["id", "label"],
 										"properties": {
 											"danger": {
 												"type": "boolean"
@@ -78,13 +48,7 @@
 									"type": "string"
 								},
 								"state": {
-									"enum": [
-										"doing",
-										"done",
-										"error",
-										"info",
-										"todo"
-									]
+									"enum": ["doing", "done", "error", "info", "todo"]
 								},
 								"subtitle": {
 									"type": "string"
@@ -101,17 +65,11 @@
 				}
 			},
 			"kv": {
-				"required": [
-					"rows",
-					"type"
-				],
+				"required": ["rows", "type"],
 				"properties": {
 					"rows": {
 						"array": {
-							"required": [
-								"k",
-								"v"
-							],
+							"required": ["k", "v"],
 							"properties": {
 								"k": {
 									"type": "string"
@@ -128,21 +86,14 @@
 				}
 			},
 			"choice": {
-				"required": [
-					"options",
-					"prompt",
-					"type"
-				],
+				"required": ["options", "prompt", "type"],
 				"properties": {
 					"multi": {
 						"type": "boolean"
 					},
 					"options": {
 						"array": {
-							"required": [
-								"id",
-								"label"
-							],
+							"required": ["id", "label"],
 							"properties": {
 								"id": {
 									"type": "string"
@@ -162,10 +113,7 @@
 				}
 			},
 			"input": {
-				"required": [
-					"prompt",
-					"type"
-				],
+				"required": ["prompt", "type"],
 				"properties": {
 					"placeholder": {
 						"type": "string"
@@ -182,11 +130,7 @@
 				}
 			},
 			"builtin": {
-				"required": [
-					"id",
-					"payload",
-					"type"
-				],
+				"required": ["id", "payload", "type"],
 				"properties": {
 					"id": {
 						"$ref": "BuiltinViewId"
@@ -202,21 +146,10 @@
 		}
 	},
 	"ViewDecl": {
-		"required": [
-			"id",
-			"placement",
-			"plugin",
-			"scope",
-			"title"
-		],
+		"required": ["id", "placement", "plugin", "scope", "title"],
 		"properties": {
 			"actScope": {
-				"enum": [
-					"admin",
-					"owner",
-					"read",
-					"write"
-				]
+				"enum": ["admin", "owner", "read", "write"]
 			},
 			"actions": {
 				"array": {
@@ -252,10 +185,7 @@
 				"type": "string"
 			},
 			"scope": {
-				"enum": [
-					"node",
-					"session"
-				]
+				"enum": ["node", "session"]
 			},
 			"title": {
 				"type": "string"
@@ -263,11 +193,7 @@
 		}
 	},
 	"ViewData": {
-		"required": [
-			"content",
-			"rev",
-			"viewId"
-		],
+		"required": ["content", "rev", "viewId"],
 		"properties": {
 			"badge": {
 				"type": "number"
@@ -284,10 +210,7 @@
 		}
 	},
 	"ViewsChangedEv": {
-		"required": [
-			"ids",
-			"placement"
-		],
+		"required": ["ids", "placement"],
 		"properties": {
 			"badge": {
 				"record": {
