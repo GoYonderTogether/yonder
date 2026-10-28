@@ -12,6 +12,7 @@ import type {
 } from "@yonder/sdk";
 import { parseRef, person } from "@yonder/sdk";
 import type { Db, DbExecutor, DbValue } from "../runtime/db.js";
+import { migrate } from "./migrations.js";
 
 const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 let lastTime = 0;
@@ -56,19 +57,7 @@ export async function createStore(
 	readOnly = false,
 	onEvent?: (event: YEvent) => void,
 ) {
-	if (!readOnly)
-		await db.exec(`
-		CREATE TABLE IF NOT EXISTS y_events (id TEXT PRIMARY KEY, ts TEXT NOT NULL, type TEXT NOT NULL, parent TEXT, "from" TEXT, conv TEXT, data TEXT NOT NULL, routes TEXT);
-		CREATE INDEX IF NOT EXISTS y_events_ts ON y_events(ts);
-		CREATE INDEX IF NOT EXISTS y_events_type ON y_events(type);
-		CREATE INDEX IF NOT EXISTS y_events_from ON y_events("from");
-		CREATE INDEX IF NOT EXISTS y_events_conv ON y_events(conv);
-		CREATE INDEX IF NOT EXISTS y_events_parent ON y_events(parent);
-		CREATE TABLE IF NOT EXISTS y_sessions (id INTEGER PRIMARY KEY, agent TEXT, profile TEXT NOT NULL, mode TEXT NOT NULL, key TEXT NOT NULL, parent INTEGER, version TEXT NOT NULL, opened TEXT NOT NULL, closed TEXT);
-		CREATE UNIQUE INDEX IF NOT EXISTS y_sessions_open_key ON y_sessions(COALESCE(agent, ''), key) WHERE closed IS NULL;
-		CREATE TABLE IF NOT EXISTS y_accounts (ref TEXT PRIMARY KEY, person TEXT, name TEXT, firstSeen TEXT NOT NULL, lastSeen TEXT NOT NULL);
-		CREATE TABLE IF NOT EXISTS y_persons (id TEXT PRIMARY KEY, name TEXT NOT NULL, note TEXT);
-	`);
+	if (!readOnly) await migrate(db);
 	async function insert(tx: DbExecutor, event: YEvent) {
 		await tx.run(
 			"INSERT INTO y_events VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
