@@ -1,4 +1,4 @@
-> 证据材料，结论已并入 [agent-parity.md](../agent-parity.md)
+> 证据材料，结论已并入 [notes.md](../notes.md)
 
 # 跟着数据走的笔记：Yonder 只读调研报告
 
@@ -205,9 +205,7 @@
 未能抓取（引用时只写链接、不引述原文）：`openai.com`（403）、`help.openai.com`（403）、`core.telegram.org`（TLS 失败）、`help.obsidian.md`（页面为 JS 渲染，仅 2.7KB 空壳）、`github.com/getzep/graphiti`（TLS 失败）、`docs.openclaw.ai`（TLS 失败，改用 GitHub raw）。
 
 Yonder 侧全部结论来自仓库内文件与行号，可直接复核；`plugins/memory` 的测试与实现细节按源码，未运行测试（只读调研）。
-## 主 Agent 裁定（10-27）
 
-- 采用方案 A：在 memory 插件里新增实体笔记区，并新增 `memory_note` 工具。
-- 第二步批准：给 SDK 的 `RenderContext` 加上 `model?: {provider, id}`，这样换模型时可以注入该模型的备注。
-- D41「不自动注入」被部分替代。实体备注会按上文表格的预算自动注入，日志式记忆仍然只能手工读取。这一条写进 decisions。
-- 实施归 A 线，排在 agent-parity P4 会话工具之后。实现按 §3.5 执行，不另写设计文档。
+## 裁定
+
+已采用方案 A，裁定记录见 [notes.md](../notes.md) §6。
