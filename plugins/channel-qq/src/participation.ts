@@ -31,6 +31,11 @@ export class GroupParticipation {
 		private readonly api: PluginAPI,
 		private readonly instance: string,
 		private readonly seconds: number,
+		private readonly config: {
+			allowedGroups?: string[];
+			groupParticipation?: Record<string, "all" | "mention" | "record">;
+			groupKeywords?: string[];
+		} = {},
 	) {}
 	private own(conv?: string): conv is string {
 		return conv?.startsWith(`conv:${this.instance}:group:`) === true;
@@ -79,9 +84,16 @@ export class GroupParticipation {
 		if (event.id <= (state.read ?? "") || event.id <= (state.latest ?? "")) return;
 		state.latest = event.id;
 		delete state.error;
-		const at = (event.data as { mentioned?: boolean }).mentioned
-			? Date.now()
-			: Date.parse(event.ts) + this.seconds * 1000;
+		const group = event.conv.slice(`conv:${this.instance}:group:`.length);
+		const mode =
+			this.config.groupParticipation?.[group] ?? (this.config.allowedGroups?.includes(group) ? "all" : "mention");
+		const data = event.data as { mentioned?: boolean; text?: string };
+		if (
+			mode === "record" ||
+			(mode === "mention" && !data.mentioned && !this.config.groupKeywords?.some((word) => data.text?.includes(word)))
+		)
+			return;
+		const at = data.mentioned ? Date.now() : Date.parse(event.ts) + this.seconds * 1000;
 		state.due = Math.min(state.due ?? at, at);
 		if (schedule) this.schedule(event.conv, state);
 	}
@@ -92,6 +104,7 @@ export class GroupParticipation {
 			this.stopped ||
 			state.active ||
 			state.error ||
+			(!state.pending && state.due === undefined) ||
 			(!state.pending && (!state.latest || state.latest <= (state.read ?? "")))
 		)
 			return;
@@ -162,8 +175,8 @@ export class GroupParticipation {
 		});
 		state.read = batch.through;
 		delete state.pending;
-		if (state.latest && state.latest > state.read) state.due ??= Date.now() + this.seconds * 1000;
-		else delete state.due;
+		if (batch.more) state.due ??= Date.now();
+		else if (!state.latest || state.latest <= state.read) delete state.due;
 	}
 	status() {
 		return [...this.groups].map(([conv, state]) => ({

@@ -31,6 +31,8 @@ export interface Config {
 	allowedUsers?: string[];
 	allowedGroups?: string[];
 	groupWindowSeconds?: number;
+	groupParticipation?: Record<string, "all" | "mention" | "record">;
+	groupKeywords?: string[];
 	sendIntervalMs?: number;
 	localMediaRoot?: string;
 }
@@ -45,6 +47,8 @@ export const configSchema = {
 		allowedUsers: { type: "array", items: str },
 		allowedGroups: { type: "array", items: str },
 		groupWindowSeconds: { type: "integer", minimum: 1, maximum: 3600 },
+		groupParticipation: { type: "object", additionalProperties: { enum: ["all", "mention", "record"] } },
+		groupKeywords: { type: "array", items: str },
 		sendIntervalMs: { type: "integer", minimum: 0, maximum: 60000 },
 		localMediaRoot: { type: "string", minLength: 1 },
 	},
@@ -247,7 +251,7 @@ export class QQChannel implements Channel {
 		await mkdir(directory, { recursive: true, mode: 0o700 });
 		this.store = new FileKVStore({ dir: directory, fileName: "gateway.json" });
 		if (this.config.groupWindowSeconds) {
-			this.groups = new GroupParticipation(this.api, this.id, this.config.groupWindowSeconds);
+			this.groups = new GroupParticipation(this.api, this.id, this.config.groupWindowSeconds, this.config);
 			await this.groups.start();
 		}
 		const bot = new QQBot({

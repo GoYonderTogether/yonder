@@ -47,7 +47,7 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 
 ## 群持续参与
 
-每条普通文字消息先写入本群的独立会话，不调用模型。非空窗口默认 60 秒，@ 提前结束等待；同群忙时合并待处理范围，不逐条积压模型运行。模型可保持安静，也可用 message_send 指定真实 replyTo 回复某条消息；replyTo 可直接使用原始消息头的 turn id 或原生 message ID，内核核实目标并转换。QQ 被动回复来源与显式引用分别传递，平台控制时效和额度。
+每条普通文字消息先写入本群的独立会话，不调用模型。默认仅 @Bot 或匹配 `groupKeywords` 的消息触发批次；`groupParticipation` 以群 OpenID 为键，支持 `all`、`mention`、`record`。未配置时 `allowedGroups` 显式授权的群保持 `all`，其余为 `mention`。窗口默认 60 秒，@ 提前结束等待；同群忙时合并待处理范围。QQ 入站暂不能可靠识别 @主人；通用群策略与轻量判断模型待 X01。模型可保持安静，也可用 message_send 指定真实 replyTo 回复某条消息；replyTo 可直接使用原始消息头的 turn id 或原生 message ID，内核核实目标并转换。QQ 被动回复来源与显式引用分别传递，平台控制时效和额度。
 
 插件保存的是账本中的批次与已覆盖范围，原文沿现有 conversation。单批最多 100 条，剩余消息继续保留未读；已经在会话里的背景不每轮重复注入。没有新消息不唤醒。批次失败显示在 status 中，留待新输入继续处理，不盲重发旧消息；重启通过既有批次身份接回原生运行。
 
