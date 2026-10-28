@@ -67,8 +67,10 @@ import {
 } from "./docs.js";
 import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
+import { createFindTool } from "./find.js";
 import { createGrepTool } from "./grep.js";
 import { RunLimits } from "./limits.js";
+import { createLsTool } from "./ls.js";
 import {
 	chainKey,
 	chainRef,
@@ -97,6 +99,7 @@ import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
 import { todoTool } from "./todo-tool.js";
+import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
 
 export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
@@ -144,6 +147,8 @@ export class Runtime {
 	private registry = createRegistry();
 	private background!: ReturnType<typeof createBackground>;
 	private rawTools = new Map<string, ToolRegistration>();
+	private sdkToolNames = new Set<string>();
+	private toolGuidelines = new Map<string, readonly string[]>();
 	private invocationConfigs = new WeakMap<
 		Context,
 		{ config: RuntimeSessionConfig; events: import("@yonder/sdk").YEvent[] }
@@ -189,6 +194,7 @@ export class Runtime {
 		);
 		this.models = buildModels(this.credentials, options.config.models?.providers);
 		this.policy = new ToolPolicy({
+			home: options.home,
 			capabilities: this.capabilities,
 			environment: (config) => this.environment(config),
 			context: (session, context) => this.context(session, context),
@@ -206,6 +212,7 @@ export class Runtime {
 					runId: state.id,
 					started: state.started,
 					tools: state.toolTasks.length,
+					lastToolAt: state.lastToolAt,
 					signal: state.visibility.signal,
 					config: state.config,
 					inputs: await this.sources(live?.run?.inputs ?? []),
@@ -401,6 +408,7 @@ export class Runtime {
 			session,
 			config,
 			started,
+			lastToolAt: saved?.config ? Date.now() : started,
 			warnings: new Set(saved?.warnings ?? []),
 			usageBefore,
 			toolTasks: [...(saved?.toolTasks ?? [])],
@@ -478,6 +486,7 @@ export class Runtime {
 	private install() {
 		this.background = createBackground({
 			harness: () => this.harness,
+			changed: (session) => this.options.onBackgroundChanged?.(session),
 			config: async (session, context) => {
 				const ctx = await this.context(session, context);
 				return JSON.stringify({
@@ -508,6 +517,8 @@ export class Runtime {
 								);
 								if (changed) result = toResult(changed.result);
 							}
+					if (this.sdkToolNames.has(input.name) && ctx.env.id === "node:local")
+						result = await cacheSdkResult(result, ctx, input, this.options);
 					return result;
 				} finally {
 					this.invocationConfigs.delete(context);
@@ -529,7 +540,11 @@ export class Runtime {
 
 		const core = defineExtension({
 			name: "yonder.core",
-			sections: promptSections(this.options, (id) => this.currentConfig(id)),
+			sections: promptSections(
+				this.options,
+				(id) => this.currentConfig(id),
+				(name) => this.toolGuidelines.get(name),
+			),
 			hooks: [
 				...this.limits.hooks(),
 				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),
@@ -550,7 +565,21 @@ export class Runtime {
 		});
 		this.registry.install(coding);
 		this.extensions.set(coding.name, coding);
-		const search = createToolSearchExtension();
+		const searchBase = createToolSearchExtension();
+		const search = {
+			...searchBase,
+			tools: searchBase.tools?.map((tool) => ({
+				...tool,
+				description: "Find and load selected deferred tools for the next model request.",
+			})),
+		};
+		this.toolGuidelines.set("tool_search", [
+			"Search for the needed tool by name or purpose; loaded tools become available on the next model request. Use tool_search for MCP tools.",
+		]);
+		this.toolGuidelines.set("process", [
+			"Use the returned background id, not an OS pid or Agent id. Completion is delivered automatically; inspect only for a dependent step or suspected stall, not in a polling loop.",
+			"Read state and incremental output before retrying. Killing an operation does not undo external effects; write sends stdin, not an instruction to an Agent.",
+		]);
 		this.registry.install(search);
 		this.extensions.set(search.name, search);
 		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);
@@ -565,7 +594,11 @@ export class Runtime {
 		this.registry.install(processes);
 		this.extensions.set(processes.name, processes);
 		this.tools.set("process", this.background.tool);
-		const builtins = this.adapter("yonder.tools", [createGrepTool(), ...(this.options.tools ?? [])], []);
+		const builtins = this.adapter(
+			"yonder.tools",
+			[createGrepTool(), createFindTool(), createLsTool(), ...(this.options.tools ?? [])],
+			[],
+		);
 		this.registry.install(builtins);
 		this.extensions.set(builtins.name, builtins);
 		for (const plugin of this.options.plugins ?? []) {
@@ -594,6 +627,8 @@ export class Runtime {
 	}
 	private adapter(name: string, tools: Tool[], hooks: Hook[]): Extension {
 		const registrations = tools.map((tool) => {
+			this.sdkToolNames.add(tool.name);
+			if (tool.guidelines) this.toolGuidelines.set(tool.name, tool.guidelines);
 			this.capabilities.set(tool.name, tool.capabilities);
 			const registration = this.backgroundTool(
 				defineTool({
@@ -606,6 +641,8 @@ export class Runtime {
 						: {}),
 					execute: async (args, api, context) => {
 						const ctx = await this.context(String(api.conversationId), context);
+						if (ctx.env.id === "node:local")
+							ctx.cacheToolOutput = toolOutputWriter(ctx, tool.name, args as object, this.options.home);
 						this.toolInvocations.set(ctx, { api, context });
 						try {
 							return toResult(await tool.execute(args, ctx));
@@ -807,6 +844,10 @@ export class Runtime {
 		);
 		const primary = chain[0] ?? splitModelRef(profile.model);
 		const model = { provider: primary.provider, modelId: primary.modelId };
+		const modelInfo = (await this.modelsFor(config)).getModel(model.provider, model.modelId);
+		const thinking = modelInfo
+			? resolveEffort(modelInfo, profile.thinking as ModelThinkingLevel).effective
+			: profile.thinking;
 		const alternatives = chain.slice(1);
 		const modelFallbacks = alternatives.length
 			? {
@@ -819,7 +860,7 @@ export class Runtime {
 			current &&
 			JSON.stringify(current.model) === JSON.stringify(model) &&
 			JSON.stringify(current.modelFallbacks ?? null) === JSON.stringify(modelFallbacks) &&
-			current.thinkingLevel === profile.thinking &&
+			current.thinkingLevel === thinking &&
 			JSON.stringify(current.extensions) === JSON.stringify(selected) &&
 			JSON.stringify(current.tools) === JSON.stringify(tools.map((t) => t.name)) &&
 			JSON.stringify(current.modelTools) === JSON.stringify(offered.map((t) => t.name)) &&
@@ -830,7 +871,7 @@ export class Runtime {
 				{
 					model,
 					modelFallbacks,
-					thinkingLevel: profile.thinking,
+					thinkingLevel: thinking,
 					extensions: selected.map((name) => {
 						const e = this.extensions.get(name);
 						if (!e) throw new Error(`Unknown runtime extension: ${name}`);
@@ -1784,6 +1825,13 @@ export class Runtime {
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		const slots = live?.tools?.filter((slot) => slot.status !== "done") ?? [];
 		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "interaction_result"));
+	}
+
+	async backgroundList(session: string) {
+		return this.background.list(session, this.storage);
+	}
+	async backgroundAction(session: string, args: { action: "status" | "log" | "kill"; id: string; offset?: number }) {
+		return this.background.manage(session, args);
 	}
 
 	/** Owner-local presentation, projected from native live state, never reasoning or tool payloads. */

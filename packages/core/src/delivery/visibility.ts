@@ -156,6 +156,7 @@ export function createVisibility(deps: VisibilityDeps) {
 			runId: string;
 			started: number;
 			tools: number;
+			lastToolAt?: number;
 			config: RuntimeSessionConfig;
 			signal?: AbortSignal;
 			inputs: YEvent[];
@@ -177,7 +178,10 @@ export function createVisibility(deps: VisibilityDeps) {
 			(event) =>
 				event.type === "message.attempt" && (event.data as { runId?: string }).runId === `heartbeat:${run.runId}`,
 		);
-		if (beats.length >= 6) return;
+		const stuckAt = Math.max(run.started, run.lastToolAt ?? run.started) + 60 * 60000;
+		const stuck = Date.now() >= stuckAt;
+		if (beats.some((event) => (event.data as { message?: string }).message === "heartbeat:stuck")) return;
+		if (beats.length >= 6 && !stuck) return Math.max(1, stuckAt - Date.now());
 		const latest = outputs.filter((event) => pendingOrVisible(outputs, event)).at(-1);
 		// Native stream deltas can be visible before the final delivery receipt.
 		const streamTime = Math.max(
@@ -188,7 +192,11 @@ export function createVisibility(deps: VisibilityDeps) {
 		);
 		const remaining = Math.max(latest ? Date.parse(latest.ts) : run.started, streamTime) + interval - Date.now();
 		if (remaining > 0) return remaining;
-		const text = `⏳ 仍在处理（已 ${Math.floor((Date.now() - run.started) / 60000)} 分钟，已执行 ${run.tools} 次工具）。`;
+		const minutes = Math.floor((Date.now() - run.started) / 60000);
+		const duration = minutes >= 60 ? `约 ${Math.round(minutes / 60)} 小时` : `${minutes} 分钟`;
+		const text = stuck
+			? `⚠️ 任务疑似卡住（已 ${duration}，长时间没有新工具调用）。可发送 /stop 停止，或继续等待。`
+			: `⏳ 仍在处理（已 ${duration}，已执行 ${run.tools} 次工具）。`;
 		const channel = deps.channelFor(target);
 		const receipt = outputs.find(
 			(event) =>
@@ -198,7 +206,7 @@ export function createVisibility(deps: VisibilityDeps) {
 				(event.data as { delivery?: Delivery }).delivery?.ok,
 		);
 		const messageId = (receipt?.data as { delivery?: Delivery } | undefined)?.delivery?.id;
-		const key = `heartbeat:${beats.length + 1}`;
+		const key = stuck ? "heartbeat:stuck" : `heartbeat:${beats.length + 1}`;
 		if (run.signal?.aborted || lifetime.signal.aborted) return;
 		const signal = AbortSignal.any([lifetime.signal, ...(run.signal ? [run.signal] : []), AbortSignal.timeout(60000)]);
 		if (channel?.edit && messageId) {
@@ -232,7 +240,7 @@ export function createVisibility(deps: VisibilityDeps) {
 				`heartbeat:${run.runId}`,
 				key,
 			);
-		return interval;
+		return stuck ? undefined : interval;
 	}
 	/** Restart replays only notices with no attempt yet; the ledger decides, not this loop. */
 	async function replay() {

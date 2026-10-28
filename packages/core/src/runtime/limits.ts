@@ -177,7 +177,10 @@ export class RunLimits {
 			hook(ToolTask, {
 				beforeTool: async (call, api, context) => {
 					const state = await this.runState(api, context);
-					if (!state.toolTasks.includes(api.taskId)) state.toolTasks.push(api.taskId);
+					if (!state.toolTasks.includes(api.taskId)) {
+						state.toolTasks.push(api.taskId);
+						state.lastToolAt = Date.now();
+					}
 					const callKey = { name: call.name, args: call.arguments };
 					const observing =
 						call.name === "process" && ["status", "log", "wait"].includes(String(call.arguments.action));

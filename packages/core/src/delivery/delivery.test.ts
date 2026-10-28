@@ -107,6 +107,85 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = []) {
 	return { db, store, delivery, channel, session, event, bubbles, sent, emit, finish, config };
 }
 
+test("fallback notices route only to their persisted inputs and replay without duplicate delivery", async () => {
+	const x = await setup();
+	try {
+		const second = newEvent(
+			{ type: "message.in", from: "acct:test:owner", conv: "conv:test:other", data: { text: "other", msgId: "other" } },
+			[{ agent: "main", session: "1", binding: "source", waiting: false }],
+		);
+		const ignored = newEvent(
+			{ type: "message.in", from: "acct:test:owner", conv: "conv:test:waiter", data: { text: "waiter" } },
+			[{ agent: "main", session: "1", binding: "source", waiting: true }],
+		);
+		await x.store.events.append(second);
+		await x.store.events.append(ignored);
+		const event = {
+			session: x.session.id,
+			inputs: [x.event.id, second.id, ignored.id],
+			state: "fallback" as const,
+			from: { provider: "a", model: "one" },
+			to: { provider: "b", model: "two" },
+			reason: "unavailable" as const,
+		};
+		await x.store.events.record({ type: "model.fallback", data: event });
+		x.delivery.modelNotice(event);
+		x.delivery.modelNotice(event);
+		await expect.poll(() => x.sent.length).toBe(2);
+		await x.delivery.recover();
+		await x.store.events.record({ type: "model.fallback", data: { ...event, state: "recovered" } });
+		await x.delivery.recover();
+		await expect.poll(() => x.sent.length).toBe(4);
+		const { inputs: _inputs, ...legacy } = event;
+		x.delivery.modelNotice(legacy);
+		await x.delivery.recover();
+		expect(x.sent).toEqual([
+			"首选模型暂不可用，已切换到备用模型。",
+			"首选模型暂不可用，已切换到备用模型。",
+			"首选模型已恢复，已切回首选模型。",
+			"首选模型已恢复，已切回首选模型。",
+		]);
+		const attempts = (await x.store.events.query({ type: "message.attempt" })).events;
+		expect(attempts.map((item) => item.conv).sort()).toEqual([
+			"conv:test:chat",
+			"conv:test:chat",
+			"conv:test:other",
+			"conv:test:other",
+		]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("fallback replay does not resend an attempt left unresolved by a crash", async () => {
+	const x = await setup();
+	try {
+		const event = {
+			session: x.session.id,
+			inputs: [x.event.id],
+			state: "fallback" as const,
+			from: { provider: "a", model: "one" },
+			to: { provider: "b", model: "two" },
+			reason: "unavailable" as const,
+		};
+		await x.store.events.record({ type: "model.fallback", data: event });
+		const attempt = await x.store.events.claimAttempt({
+			type: "message.attempt",
+			conv: x.event.conv!,
+			data: { session: x.session.id, runId: `model:fallback:${x.event.id}`, target: x.event.conv!, method: "send" },
+		});
+		await x.delivery.recover();
+		await expect.poll(async () => (await x.store.events.query({ type: "message.unknown" })).events.length).toBe(1);
+		await x.delivery.close();
+		expect(x.sent).toEqual([]);
+		expect((await x.store.events.query({ type: "message.unknown" })).events[0]?.data).toMatchObject({ attempt });
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
 test("messages close during tool work; progress and answer keep independent receipts without a new input", async () => {
 	const x = await setup();
 	try {
@@ -597,6 +676,31 @@ test("heartbeat uses facts, resets after visible output, edits one message and c
 		expect(
 			await x.delivery.heartbeat(x.session, { ...run, inputs: [{ ...x.event, type: "runtime.tool-result" }] }),
 		).toBeUndefined();
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("long silent runs warn once, but recent tool activity prevents a stuck warning", async () => {
+	const x = await setup();
+	try {
+		const run = {
+			runId: "long",
+			started: Date.now() - 666 * 60000,
+			lastToolAt: Date.now(),
+			tools: 8,
+			config: x.config,
+			inputs: [x.event],
+		};
+		await x.delivery.heartbeat(x.session, run, 1);
+		expect(x.sent[0]).toContain("约 11 小时");
+		await new Promise((r) => setTimeout(r, 5));
+		await x.delivery.heartbeat(x.session, { ...run, lastToolAt: run.started }, 1);
+		expect(x.sent[1]).toContain("疑似卡住");
+		expect(x.sent[1]).toContain("/stop");
+		await x.delivery.heartbeat(x.session, { ...run, lastToolAt: run.started }, 1);
+		expect(x.sent).toHaveLength(2);
 	} finally {
 		await x.delivery.close();
 		await x.db.close();

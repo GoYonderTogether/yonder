@@ -19,7 +19,7 @@ export const SessionDoc = defineDoc({
 		env: "local",
 		capabilities: null as Capability[] | null,
 		channelInstances: null as string[] | null,
-		inherit: null as { plugins: string[]; tools: { offer: string[]; search: string[] } } | null,
+		inherit: null as import("../config/index.js").PresetInherit | null,
 		close: "run-end" as "run-end" | "manual",
 		// Only actual run starts advance this cursor; historical receipt replay cannot backfill issues.
 		activityRunId: null as string | null,
@@ -79,6 +79,7 @@ export const RunDoc = defineDocFamily({
 export interface RunState {
 	visibility: AbortController;
 	started: number;
+	lastToolAt: number;
 	warnings: Set<string>;
 	error?: string;
 	toolTasks: number[];

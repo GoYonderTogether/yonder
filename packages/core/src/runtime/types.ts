@@ -60,6 +60,7 @@ export interface RuntimeOptions {
 			runId: string;
 			started: number;
 			tools: number;
+			lastToolAt: number;
 			config: RuntimeSessionConfig;
 			signal?: AbortSignal;
 			inputs: YEvent[];
@@ -68,6 +69,7 @@ export interface RuntimeOptions {
 	tickIntervalMs?: number | undefined;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
 	onIdle?(session: string): Promise<void>;
+	onBackgroundChanged?(session: string): void;
 	onBackground?(
 		session: string,
 		input: { id: string; name: string; result: ToolResult; origin?: YEvent },
@@ -87,6 +89,7 @@ export interface RuntimeOptions {
 }
 export interface ModelFallbackEvent {
 	session: string;
+	inputs?: string[];
 	state: "fallback" | "recovered";
 	from: { provider: string; model: string };
 	to: { provider: string; model: string };
@@ -128,7 +131,7 @@ export interface RuntimeSessionState {
 	/** Effective instance ceiling captured at creation, including the preset restriction. */
 	channelInstances?: string[];
 	/** Parent tool surface captured when a preset session opens; fields the preset leaves unset are taken from here. */
-	inherit?: { plugins: string[]; tools: { offer: string[]; search: string[] } };
+	inherit?: import("../config/index.js").PresetInherit;
 }
 
 /** Owner-local execution facts. Never includes native error text or tool payloads. */
