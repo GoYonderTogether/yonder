@@ -99,7 +99,17 @@ cmd_push() {
 	[ -f "$OUT/yonder-$ver.tar.gz" ] || die "missing $OUT/yonder-$ver.tar.gz (run build first)"
 	"${SSH[@]}" "$HOST" "mkdir -p $REMOTE_TMP && chmod 755 $REMOTE_TMP"
 	"${SSH[@]}" "$HOST" "cat > $REMOTE_TMP/yonder-$ver.tar.gz.part && mv $REMOTE_TMP/yonder-$ver.tar.gz.part $REMOTE_TMP/yonder-$ver.tar.gz && chmod 644 $REMOTE_TMP/yonder-$ver.tar.gz" <"$OUT/yonder-$ver.tar.gz"
-	COPYFILE_DISABLE=1 tar -C "$REPO/deploy/node" --exclude=local.env --exclude=local.env.example -czf - . | "${SSH[@]}" "$HOST" "cat > $REMOTE_TMP/config.tgz && chmod 644 $REMOTE_TMP/config.tgz"
+	local stage; stage=$(mktemp -d)
+	cp -R "$REPO/deploy/node/." "$stage/"
+	if [ -n "${YONDER_PUBLIC_ORIGIN:-}" ]; then
+		case "$YONDER_PUBLIC_ORIGIN" in *[!0-9A-Za-z.:/-]*) die "unsafe YONDER_PUBLIC_ORIGIN" ;; esac
+		sed -i.bak "s#__YONDER_PUBLIC_ORIGIN__#${YONDER_PUBLIC_ORIGIN%/}#" "$stage/yonder.yaml"
+	else
+		sed -i.bak '/__YONDER_PUBLIC_ORIGIN__/d' "$stage/yonder.yaml"
+	fi
+	rm -f "$stage/yonder.yaml.bak"
+	COPYFILE_DISABLE=1 tar -C "$stage" --exclude=local.env --exclude=local.env.example -czf - . | "${SSH[@]}" "$HOST" "cat > $REMOTE_TMP/config.tgz && chmod 644 $REMOTE_TMP/config.tgz"
+	rm -rf "$stage"
 	echo "pushed $ver to $HOST:$REMOTE_TMP"
 }
 
@@ -189,6 +199,11 @@ for pair in yonder.yaml:yonder.yaml agent.yaml:agents/main/agent.yaml; do
 	if ! cmp -s "$CFG/$src" "$dst"; then
 		[ -f "$dst" ] && Y cp -p "$dst" "$dst.pre-deploy-$STAMP"
 		Y cp "$CFG/$src" "$dst"
+		# the remote access token hash lives in yonder.yaml; carry it over the overlay
+		if [ "$src" = yonder.yaml ] && [ -f "$dst.pre-deploy-$STAMP" ]; then
+			hash=$(sed -n 's/^[[:space:]]*accessTokenHash:[[:space:]]*"\{0,1\}\(sha256:[0-9a-f]\{64\}\)"\{0,1\}[[:space:]]*$/\1/p' "$dst.pre-deploy-$STAMP" | head -n 1)
+			[ -z "$hash" ] || Y sed -i "/^gateway:/a\\  accessTokenHash: $hash" "$dst"
+		fi
 	fi
 done
 Y mkdir -p "$HOMEDIR/.yonder"; Y chmod 700 "$HOMEDIR/.yonder"
@@ -255,7 +270,7 @@ restore() { # switch back to $1 and restart
 healthy() { # service active + gateway answers on loopback
 	Y systemctl --user is-active --quiet dev.yonder.harness.service || return 1
 	Y sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do
-		curl -fsS --max-time 2 "http://127.0.0.1:${YONDER_HEALTH_PORT:-8787}/healthz" >/dev/null 2>&1 && exit 0
+		curl -fsS --max-time 2 "http://127.0.0.1:${YONDER_HEALTH_PORT:-7690}/login" >/dev/null 2>&1 && exit 0
 		sleep 1
 	done; exit 1'
 }

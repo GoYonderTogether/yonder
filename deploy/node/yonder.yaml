@@ -52,6 +52,17 @@ models:
             high: high
             xhigh: null
             max: max
+# Cloud node: reachable only through the TLS reverse proxy (`deploy-node.sh nginx`).
+# `remoteOwner` lets the access-token login (cookie session) talk to the resident Bot;
+# the gateway itself listens on loopback only. The publicOrigins line is filled in by
+# `deploy-node.sh push` from YONDER_PUBLIC_ORIGIN (and removed when it is unset).
+gateway:
+  enabled: true
+  port: 7690
+  basePath: /console/
+  trustProxy: true
+  remoteOwner: true
+  publicOrigins: ["__YONDER_PUBLIC_ORIGIN__"]
 compaction:
   enabled: true
   backgroundAtTokens: 272000
