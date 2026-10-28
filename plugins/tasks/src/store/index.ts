@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { RenderContext, ToolContext } from "@yonder/sdk";
 import { changeTask, claimDigest, claimMoments, digestSeen, momentResult, openTask, renderTurn } from "./append.js";
 import type { Moment, Open, Task, TaskEvent, Update } from "./project.js";
-import { all, get, list, progress } from "./query.js";
+import { all, get, history, list, progress } from "./query.js";
 import { connect, needsBackfill, rebuild as replayInto } from "./schema.js";
 
 export type { Moment, Open, State, Task, TaskContent, TaskEvent, Update } from "./project.js";
@@ -55,6 +55,9 @@ export class Store {
 	}
 	claimMoments(now: number, stallMinutes: number, userWaitMinutes: number, postCompact: boolean) {
 		return claimMoments(this.#handle, now, stallMinutes, userWaitMinutes, postCompact);
+	}
+	reminderCandidates() {
+		return all(this.#handle).map(({ task }) => ({ task, history: history(this.#handle, task.id) }));
 	}
 	claimReminder(destination: string, now: number): boolean {
 		const result = this.#handle

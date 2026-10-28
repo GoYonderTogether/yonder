@@ -278,3 +278,39 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	},
 	120000,
 );
+
+test("a completed self-check queues one concise decision reminder per destination per day", async () => {
+	const f = await fixture();
+	try {
+		const task = f.store.open({ ...content, title: "需决定", origin: "conv:reminder:person" }, f.ctx);
+		f.store.update(task.id, { state: "active" }, f.ctx);
+		f.store.update(task.id, { state: "waiting-user", note: "待选择" }, f.ctx);
+		const now = Date.now() + 121 * 60000;
+		f.store.claimMoments(now, 30, 120, false);
+		f.store.momentResult(task.id, "user-wait", { result: { event: "self-check" } }, now);
+		f.store.update(task.id, { state: "waiting-user", note: `需要你决定：${"选择".repeat(100)}` }, f.ctx);
+		const sent: Array<{ text: string; notification?: { kind: string } }> = [];
+		const api = {
+			...f.probe.api,
+			events: {
+				...f.probe.api.events,
+				query: async () => ({ events: [{ data: { status: "done", inputs: ["self-check"] } }] }),
+			},
+			messages: {
+				send: async (message: { text: string; notification?: { kind: string } }) => {
+					sent.push(message);
+					return { ok: true };
+				},
+			},
+		} as unknown as PluginAPI;
+		await tick(api, f.store, { userWaitMinutes: 100000 }, now);
+		await tick(api, f.store, { userWaitMinutes: 100000 }, now + 86400000 - 1);
+		expect(sent).toHaveLength(1);
+		await tick(api, f.store, { userWaitMinutes: 100000 }, now + 86400000);
+		expect(sent).toHaveLength(2);
+		expect(Array.from(sent[0]?.text ?? "").length).toBeLessThanOrEqual(120);
+		expect(sent[0]?.notification?.kind).toBe("decision");
+	} finally {
+		await f.close();
+	}
+});

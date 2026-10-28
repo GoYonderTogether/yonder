@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 主动通知支持持久汇总和发送前权限复核；任务自检后的决定提醒限频并限制长度。
+
 - Add optional code-intel symbol search through the shared pi-lens connection.
 
 - code-intel 新增 AST 替换预览及受写权限保护的应用。

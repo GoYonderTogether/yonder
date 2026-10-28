@@ -153,3 +153,7 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 `social.batch-ready` 和 `social.policy-change` 是插件事件，只能由 social 插件以自身身份发出；批次包含 `sourceEvents`、`through`、`policyRevision`，策略变更记录实际 actor、sourceEvent、before/after、reason、revision 和 result。核心路由诊断由核心追加事实，插件不得伪写核心事件。原消息、平台重投和合成批次分别记录，历史事件不修改。
 
 `routing.social-decision` 在 reason 为 batch 时可附生效策略快照 policy。social 插件以 `social.batch-read` 记录已处理游标、以 `social.batch-failed` 记录失败；data 包含 agent、through、msgId，parent 关联批次或完成事件。原消息仍是正文来源。
+
+### 主动通知队列（CH-05r3）
+
+`notification.intent` 为内核写入的持久通知意图，`from` 为真实插件，data 为 `{owner, plugin, text, notification, ownerRef}`；`owner` 为真实会话执行者，`notification` 含 kind/key/sourceEvents 及可选 expiresAt，ownerRef 是入队时主人身份。`notification.final` 的 data 含 `intents`（意图事件 ID 数组）、`status`（attempted 或 discarded），attempted 另含 `agent`。插件不能伪造这两类事件。发送前重查执行者、当前能力、主人和目标授权；撤权或过期丢弃。attempted 在投递前持久记录，崩溃后结果未知且不自动重发。无外发目标时写入主人 main 的 app-only 通知，不唤醒模型，不代表外部渠道送达。

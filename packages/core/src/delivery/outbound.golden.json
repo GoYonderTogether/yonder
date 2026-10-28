@@ -1,0 +1,26 @@
+{
+	"notification.intent": {
+		"owner": {
+			"agent": "string",
+			"session": "string",
+			"profile": "string"
+		},
+		"plugin": "string",
+		"text": "string",
+		"notification": {
+			"kind": "string",
+			"key": "string",
+			"sourceEvents": [
+				"string"
+			]
+		},
+		"ownerRef": "string"
+	},
+	"notification.final": {
+		"intents": [
+			"string"
+		],
+		"agent": "string",
+		"status": "string"
+	}
+}

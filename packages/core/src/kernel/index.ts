@@ -12,6 +12,7 @@ import {
 } from "../config/index.js";
 import { lockHome } from "../control/home-lock.js";
 import { createDelivery } from "../delivery/index.js";
+import { outboundQueue } from "../delivery/outbound.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import {
@@ -116,6 +117,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		let sessions: ReturnType<typeof createSessions>;
 		let router: ReturnType<typeof createRouter>;
 		let delivery: ReturnType<typeof createDelivery>;
+		let outbound: ReturnType<typeof outboundQueue>;
 		const resolveExecutionOwner = async (owner: { session: string; agent: string | null; profile: string }) => {
 			const session = await store.sessions.get(owner.session);
 			if (!session || session.agent !== owner.agent || session.profile !== owner.profile)
@@ -154,6 +156,16 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				send: async (request, pluginId, ctx) => {
 					const { owner, ...message } = request;
 					if (ctx) return delivery.sendTool(ctx, message);
+					if (message.notification && owner && agents.get(owner.agent ?? "")?.social?.enabled) {
+						try {
+							const current = await resolveExecutionOwner(owner);
+							if (!current.resolved.capabilities.includes("message"))
+								return { ok: false, error: "Program delivery requires current message capability" };
+							return outbound.enqueue(owner, pluginId, message.text, message.notification);
+						} catch (error) {
+							return { ok: false, error: error instanceof Error ? error.message : String(error) };
+						}
+					}
 					if (!owner) return delivery.sendPlugin(pluginId, message);
 					try {
 						const config = await resolveExecutionOwner(owner);
@@ -302,6 +314,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			onReport: report,
 			log,
 		});
+		outbound = outboundQueue({ store, sessions, agents, config, delivery: () => delivery });
 		router = createRouter({
 			channels: loaded.channels,
 			socialBatchPlugin: loaded.info?.some((plugin) => plugin.id === "social") ?? false,
@@ -441,7 +454,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				await store.events.record(event);
 			},
 		});
-		stopDelivery = () => delivery.close();
+		stopDelivery = async () => {
+			await outbound.stop();
+			await delivery.close();
+		};
 		await delivery.recover();
 		await runtime.recover();
 		const pendingInputs = [...(await router.recover()), ...(await sessions.recover())];
@@ -449,6 +465,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		for (const submit of pendingInputs) submit();
 		await loaded.start(router);
 		delivery.start();
+		outbound.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
