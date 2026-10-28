@@ -270,3 +270,23 @@ CONTRIBUTING 全仓检查（同一并行工作区快照会变动，未修改代�
 - §7 仅列工具语义；SDK social API 和控制面方法的完整请求、响应、事件形状及 `scope_denied`、`revision_conflict`、`unsupported_kind` 与既有错误协议的映射尚未定稿。静态配置引用存在性、目标实例的校验边界也需明确。
 
 这些事项决定公共契约与权限，不由实现卡自行补设计；本记录不表示运行功能或验收已完成。
+
+## 13. 维护者裁定（主 Agent 代批，2026-10-28 11:30）
+
+主人已授权主 Agent 代为决定需求理解、验收标准与契约（见 owner-requirements）。本提案整体**批准**：§4–§8 列出的拟议字段、类型与行为，按 docs/spec/20 作为只增契约生效。实现卡负责把它们写入 spec、SDK、配置 schema 和 golden，不需要再次评审。§12 的三个问题裁定如下：
+
+1. **授权 DM 默认 direct**：social 只能收窄已有 binding 的候选与唤醒，不新增唤醒路径。direct 的含义是沿用现有 binding 的唤醒与会话规则，不做任何改动。profile 变更只对新会话生效，已有会话保留固定的 profile，不强制关闭旧会话。用户想立刻切换时用 `/new` 或关闭会话。规则与 02 §2 一致。
+2. **主动通知兼容**：
+   - 不带元数据的旧式发送保持旧行为原样直通，按 reply 意图处理，不受新策略影响。
+   - 新的通知出口（§8）按 Agent 级 `social.enabled` 选择性启用。旧 home 默认关闭，新 init 默认开启。
+   - 入站通知偏好 `all/mention/mute` 只管入站方向，语义不变。
+   - 启用 social 后，主动通知受免打扰与汇总约束。
+   - 主人本机在 L01 切换时开启。
+3. **API 形状与错误映射**：由 CH-01 在 contracts.md 用 typebox 写全请求、响应、事件形状，并补 golden。错误码复用现有控制面协议：
+   - `scope_denied` 对应现有 `forbidden`（403），细节放 `data.reason`；
+   - `revision_conflict` 对应 `conflict`，响应里带当前 revision；现有协议没有 `conflict` 时，作为只增错误码新增；
+   - `unsupported_kind` 对应 `invalid_params`，细节写 `data.kind`。
+
+   静态配置引用在配置加载时校验：未知的 agent、渠道实例、peer 都报带路径的配置错误，与 bindings 的做法一致。目标实例必须存在，并且在该 Agent 的 channelInstances 内（console 例外）。
+
+**通用规则**：实现卡不得因为「等待维护者批准」而停止。本节没有覆盖到的细节，选择最保守的只增方案，在 docs/decisions.md 记为「主 Agent 代批」后继续实现。
