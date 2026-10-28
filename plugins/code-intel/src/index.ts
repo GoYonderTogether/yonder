@@ -7,6 +7,7 @@ import { startLens, stopLens } from "./lens-mcp.js";
 import { lspNavigation } from "./lsp-navigation.js";
 import { moduleReport } from "./module-report.js";
 import { outline } from "./outline.js";
+import { projectReport } from "./project-report.js";
 import { readEnclosing } from "./read-enclosing.js";
 import { readSymbol } from "./read-symbol.js";
 import { symbolSearch } from "./symbol-search.js";
@@ -118,6 +119,7 @@ export default definePlugin({
 		api.tools.register(outline);
 		api.tools.register(readEnclosing);
 		api.tools.register(readSymbol);
+		api.tools.register(projectReport);
 		api.tools.register(symbolSearch);
 		api.tools.register(lspNavigation);
 	},

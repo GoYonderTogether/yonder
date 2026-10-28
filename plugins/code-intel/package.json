@@ -29,6 +29,7 @@
 			"tools": [
 				"code-intel_codegraph_explore",
 				"code-intel_module_report",
+				"code-intel_project_report",
 				"code-intel_ast_grep_outline",
 				"code-intel_ast_grep_search",
 				"code-intel_read_enclosing",
