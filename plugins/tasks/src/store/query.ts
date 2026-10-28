@@ -12,6 +12,12 @@ export function all(db: DatabaseSync): Projected[] {
 		.map((row) => fromRow(row as Record<string, unknown>));
 }
 
+export function waitingUser(db: DatabaseSync): number {
+	return Number(
+		(db.prepare("SELECT COUNT(*) AS n FROM task_current WHERE state = 'waiting-user'").get() as { n: number }).n,
+	);
+}
+
 export function count(db: DatabaseSync): number {
 	return Number((db.prepare("SELECT COUNT(*) AS n FROM task_current").get() as { n: number }).n);
 }

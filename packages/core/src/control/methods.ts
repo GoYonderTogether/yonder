@@ -31,12 +31,12 @@ function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 
 async function activitySummary(kernel: Kernel) {
 	const agents = await kernel.terminal.activity();
-	const sessions = agents.flatMap((agent) =>
-		agent.tasks.map((task) => ({ id: task.id, agent: agent.id, state: task.state })),
-	);
+	const sessions = agents.flatMap((a) => a.tasks.map((task) => ({ id: task.id, agent: a.id, state: task.state })));
 	return {
 		running: sessions.filter((row) => row.state === "running").length,
 		waiting: sessions.filter((row) => row.state === "waiting").length,
+		questions: await kernel.terminal.questions(),
+		agents: agents.map(({ id, name, state }) => ({ id, name, state })),
 		sessions,
 	};
 }

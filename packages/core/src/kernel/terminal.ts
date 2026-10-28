@@ -81,6 +81,7 @@ export function terminalApi(ctx: {
 							: [];
 					}),
 				})),
+		questions: () => loaded.questions(),
 		async activity() {
 			const rows = await Promise.all(
 				(await store.sessions.list({ open: true })).map(async (session) => ({

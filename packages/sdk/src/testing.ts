@@ -45,6 +45,7 @@ export interface Registrations {
 	presets: Preset[];
 	skills: string[];
 	listeners: Array<{ type: string; handler: (event: YEvent) => void | Promise<void> }>;
+	questions: Array<() => number | Promise<number>>;
 }
 
 export async function readPluginManifest(dir: string): Promise<PluginManifest> {
@@ -83,6 +84,7 @@ export function createRegistrationCollector() {
 		presets: [],
 		skills: [],
 		listeners: [],
+		questions: [],
 	};
 	const collect = <T>(items: T[]) => ({
 		register: (item: T): void => {
@@ -99,6 +101,11 @@ export function createRegistrationCollector() {
 		hooks: collect(registrations.hooks),
 		presets: collect(registrations.presets),
 		skills: collect(registrations.skills),
+		activity: {
+			questions: (count: () => number | Promise<number>): void => {
+				registrations.questions.push(count);
+			},
+		},
 		events: {
 			on: (type: string, handler: (event: YEvent) => void | Promise<void>): void => {
 				registrations.listeners.push({ type, handler });

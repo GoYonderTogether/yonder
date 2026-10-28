@@ -424,6 +424,8 @@ export interface PluginAPI {
 	tools: { register(t: Tool): void };
 	contexts: { register(c: ContextContribution): void };
 	triggers: { register(t: Trigger): void };
+	/** Pending questions waiting for the user, summed into `activity.*`. Register during setup; not a manifest slot. */
+	activity: { questions(count: () => number | Promise<number>): void };
 	envs: { register(e: EnvProvider): void };
 	hooks: { register(h: Hook): void };
 	presets: { register(p: Preset): void };

@@ -70,6 +70,8 @@ export interface LoadedPlugins {
 	start(io: ChannelIO): Promise<void>;
 	stop(): Promise<void>;
 	observe(event: YEvent): Promise<void>;
+	/** Sum of questions plugins report as waiting for the user; a failing plugin counts 0. */
+	questions(): Promise<number>;
 }
 
 type Lifecycle = { pluginId: string; stop(): Promise<void> };
@@ -130,6 +132,7 @@ export async function loadPlugins(
 	const envProviders = new Map<string, { pluginId: string; provider: EnvProvider }>();
 	const triggers: Array<{ pluginId: string; trigger: Trigger }> = [];
 	const listeners: Listener[] = [];
+	const questionCounters: Array<{ pluginId: string; count: () => number | Promise<number> }> = [];
 	const observations = new Map<string, Promise<void>>();
 	const started: Lifecycle[] = [];
 	const pluginIds = new Set<string>();
@@ -211,6 +214,12 @@ export async function loadPlugins(
 			tools: register("tools", registrationsApi.tools.register),
 			contexts: register("contexts", registrationsApi.contexts.register),
 			triggers: register("triggers", registrationsApi.triggers.register),
+			activity: {
+				questions: (count) => {
+					if (!settingUp) throw new Error(`${manifest.id}: activity.questions may only be registered during setup`);
+					registrationsApi.activity.questions(count);
+				},
+			},
 			envs: register("envs", registrationsApi.envs.register),
 			hooks: register("hooks", registrationsApi.hooks.register),
 			presets: register("presets", registrationsApi.presets.register),
@@ -328,6 +337,7 @@ export async function loadPlugins(
 		tools.set(manifest.id, registrations.tools);
 		hooks.set(manifest.id, registrations.hooks);
 		triggers.push(...registrations.triggers.map((trigger) => ({ pluginId: manifest.id, trigger })));
+		questionCounters.push(...registrations.questions.map((count) => ({ pluginId: manifest.id, count })));
 		listeners.push(...registrations.listeners.map((listener) => ({ pluginId: manifest.id, ...listener })));
 	}
 
@@ -397,6 +407,18 @@ export async function loadPlugins(
 			}
 		},
 		stop,
+		async questions() {
+			let total = 0;
+			for (const { pluginId, count } of questionCounters) {
+				try {
+					const n = await count();
+					if (Number.isSafeInteger(n) && n > 0) total += n;
+				} catch (error) {
+					services.log.error("Plugin question counter failed", { plugin: pluginId, error: String(error) });
+				}
+			}
+			return total;
+		},
 		async observe(event) {
 			await Promise.all(
 				[...pluginIds].map((pluginId) => {

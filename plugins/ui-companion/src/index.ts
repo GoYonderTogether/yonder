@@ -18,6 +18,7 @@ export default definePlugin({
 			api.locale,
 			api.timezone,
 		);
+		api.activity.questions(() => service.pending());
 		api.triggers.register({ id: "ui-companion-service", start: () => service.start(), stop: () => service.stop() });
 		api.tools.register({
 			name: "ui-companion_present",

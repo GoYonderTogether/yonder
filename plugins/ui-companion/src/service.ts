@@ -91,6 +91,10 @@ export class CompanionService {
 	private changed() {
 		for (const notify of this.changes) notify();
 	}
+	/** Cards still waiting for an answer; feeds `activity.*` questions. */
+	pending() {
+		return this.records.filter((r) => !r.cancelled && !r.interaction.completed).length;
+	}
 	private active() {
 		return this.records.find((r) => !r.cancelled && !r.interaction.completed);
 	}

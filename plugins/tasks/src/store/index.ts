@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { RenderContext, ToolContext } from "@yonder/sdk";
 import { changeTask, claimDigest, claimMoments, digestSeen, momentResult, openTask, renderTurn } from "./append.js";
 import type { Moment, Open, Task, TaskEvent, Update } from "./project.js";
-import { get, list, progress } from "./query.js";
+import { get, list, progress, waitingUser } from "./query.js";
 import { connect, needsBackfill, rebuild as replayInto } from "./schema.js";
 
 export type { Moment, Open, State, Task, TaskContent, TaskEvent, Update } from "./project.js";
@@ -43,6 +43,10 @@ export class Store {
 	}
 	list(ctx: ToolContext): Task[] {
 		return list(this.#handle, ctx);
+	}
+	/** Tasks waiting for the user across all agents (not caller-scoped; a count only). */
+	waitingUser(): number {
+		return waitingUser(this.#handle);
 	}
 	get(id: string, ctx: ToolContext): { task: Task; history: TaskEvent[] } {
 		return get(this.#handle, id, ctx);
