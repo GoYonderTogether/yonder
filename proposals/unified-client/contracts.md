@@ -7,7 +7,7 @@
 
 ## 0. 总则
 
-1. TypeBox 是唯一源，本文的 TS interface 等同于 `Static<typeof Schema>`。`@yonder/gateway/protocol` 只导出 schema 与类型，前端 `import type`。
+1. TypeBox 是唯一源，本文的 TS interface 等同于 `Static<typeof Schema>`。`@yonder/protocol` 只导出 schema 与类型，前端 `import type`。
 2. 一元调用走 `POST /api/rpc/<method>`，流式调用走 `GET /api/stream`（WS，单连接多路复用）。本机 control socket 继续存在，同一份注册表，CLI 行为不变。
 3. 事件只追加、不改写，客户端必须容忍重复和乱序到达的未知类型（§5）。
 4. 凭据值、对话正文不得出现在 `usage.updated`、`context.updated`、`compaction.*`、审批事件里（`agent-parity.md` P8、`credentials.md` §6）。
@@ -19,7 +19,7 @@
 ```ts
 import type { TSchema } from "@sinclair/typebox";
 
-type Scope = "read" | "write" | "admin";
+type Scope = "read" | "write" | "admin" | "owner";
 
 interface MethodDef<P extends TSchema = TSchema, R extends TSchema = TSchema> {
   name: string;               // 见 §1.2 命名规则
@@ -48,10 +48,10 @@ interface HostCtx { kernel: Kernel; home: string; principal: Principal; releaseI
 ### 1.2 命名规则
 
 - 现有方法保持原名，一律不改。
-- 新方法：`<域>.<对象>[.<动作>]`，小写点分，域沿用现有（`sessions`、`events`、`channels`、`identity`），新域限 `capabilities`、`models`、`agents`、`attachments`、`activity`、`views`、`approvals`。
+- 新方法：`<域>.<对象>[.<动作>]`，小写点分，域沿用现有（`sessions`、`events`、`channels`、`identity`），新域包括 `capabilities`、`models`、`agents`、`attachments`、`activity`、`views`、`approvals`；本次增补 `workspaces`、`notifications`、`suggestions`、`update`（§13/§16/§17）。
 - 读：`list`、`get`、`show`。写：动词（`open`、`submit`、`abort`）。流式：以 `.watch` 结尾，且 `stream` 必填。
 - 现有 `terminal.*` 是 CLI 终端的内部口径，B 线不依赖，只依赖 `sessions.*`、`activity.*`。
-- 默认 scope：纯读 `read`；对会话的提交、中止、选模型 `write`；插件、渠道登录、`stop`、`management` 为 `admin`。远程默认不含 `admin`。
+- 默认 scope：纯读 `read`；对会话的提交、中止、选模型 `write`；插件、渠道登录、`stop`、`management` 为 `admin`。远程不含 `admin`；Bot 会话另需独立的 `owner`，`approvals.answer` 需 `owner`（§14）。
 
 ### 1.3 方法清单
 
@@ -71,22 +71,22 @@ type Ok = { ok: true };
 |---|---|---|---|---|
 | `capabilities.get` | read | `{}` | `NodeFacts`（§4） | 新增·B（从注册表与插件加载器导出） |
 | `sessions.list` | read | `{ filter?: { agent?: string; mode?: Mode; open?: boolean } }` | `SessionInfo[]` | 已有（`index.ts:806`） |
-| `sessions.show` | read | `{ id: string }` | `{ session: SessionInfo; info: TerminalInfo }` | 已有但要改：现版返回整份 transcript（`index.ts:811-816`），改为不含 transcript。旧形状保留到协议 v2，用 `include?: "transcript"` 兼容 |
+| `sessions.show` | read | `{ id: string; limit?: number; before?: string; full?: boolean }` | `{ session: SessionInfo; items: TranscriptItem[]; nextBefore?: string }` | v1.1 目标见 §17；既有 include/transcript 兼容待定，见 §5 |
 | `sessions.transcript` | read | `{ id: string; before?: number; limit?: number }` | `{ items: TranscriptItem[]; hasMore: boolean }` | 新增·A（`kernel.sessions.transcript` 已有，`from/limit` 语义；`before` 倒序翻页要补）【已有底层】 |
-| `sessions.watch` | read | `{ id: string; after?: Cursor }` | `{ snapshot: SessionSnapshot; cursor: Cursor }` | 已有但要改：补 `after` + `seq`（§2.3，C1 缺口①） |
+| `sessions.watch` | read | `{ id: string }`（续传 after 在 sub 帧上） | `SessionSnapshot`（新快照；成功续传沿用 `null`）；cursor 在 ready 帧上 | 既有传输见 §9.2；增补事件见 §15 |
 | `sessions.submit` | write | `{ id: string; requestId?: string; text: string; attachments?: Attachment[]; busy?: "followup"\|"steer"\|"interrupt" }` | `InputReceipt`（`{ event, session, deduped?: boolean }`） | 已有但要改：加 `requestId` 幂等（C1 缺口②） |
 | `sessions.abort` | write | `{ id }` | `Ok` | 已有 |
-| `activity.summary` | read | `{}` | `ActivitySummary` | 新增·B（包装 `kernel.terminal.activity()`，`index.ts:759-770` 现为 `service.info.agents`） |
-| `activity.watch` | read | `{ after?: Cursor }` | `{ summary: ActivitySummary; cursor: Cursor }` | 新增·B（流式，易失型，见 §2.4） |
+| `activity.summary` | read | `{ since?: string }`（ISO 时间） | `ActivitySummary` | 过滤与可见性见 §14/§17 |
+| `activity.watch` | read | `{}` | `ActivitySummary`；cursor 在 ready 帧上 | 易失型，见 §2.3；节点事件见 §15 |
 
 ```ts
 interface SessionSnapshot {          // sessions.watch ready.result，对 SessionUpdate{type:"snapshot"} 的结构化
   session: SessionInfo;
   info: TerminalInfo;                // 沿用 terminal.info 的结果【已有】
   transcript?: { items: TranscriptItem[]; hasMore: boolean }; // 最近一页，窗口大小由服务端定（默认 50）
-  model: ModelStatus;                // 见 §3.3
-  usage: UsageSnapshot;
-  context: ContextSnapshot;
+  model?: ModelStatus;               // 见 §3.3/§17，无数据源则省略
+  usage?: UsageSnapshot;
+  context?: ContextSnapshot;
 }
 interface ActivitySummary {
   running: number; waiting: number;  // 「在跑」「等你回答」：图标栏、托盘、悬浮窗同一个数
@@ -96,24 +96,24 @@ interface ActivitySummary {
 interface InputReceipt { event: string; session: string; deduped?: boolean }
 ```
 
-`requestId` 规则：同一 `(session, requestId)` 在 10 分钟内重复提交，返回第一次的 `InputReceipt` 且 `deduped:true`，不入队。服务端存储沿用事件库，不新建表。
+`requestId` 规则：同一 `(session, requestId)` 在 10 分钟内重复提交，返回第一次的 `InputReceipt` 且 `deduped:true`，不入队。既有实现存于进程内存，重启失效（§9.3）；本卡不新增存储机制。
 
 #### 阶段 2（选模型、新建、附件、审批、views）
 
 | 方法 | scope | params | result | 状态 |
 |---|---|---|---|---|
-| `sessions.open` | write | `{ preset: string; close?: "manual"\|"run-end"; parent?: string; agent?: string; model?: ModelRef }` | `SessionInfo` | 已有，扩参（C1 缺口③）；SDK `open` 已有 `parent`，control 层未透传，`agent/model` 为新增·A |
+| `sessions.open` | write | §13 扩参（preset/agent、model、workspace/cwd、title/prompt、close/parent、requestId） | `{ session: SessionInfo; model?: ModelStatus; deduped?: boolean }` | §13 为目标；既有返回 SessionInfo 的兼容待定，见 §5 |
 | `sessions.close` | write | `{ id }` | `Ok` | 已有 |
 | `sessions.command` | write | `{ id; command: string }` | `string` | 已有；文本命令保留作兼容，UI 不再拼 `/model` |
-| `sessions.model.set` | write | `{ id; provider: string; model: string; effort?: string }` | `{ model: ModelStatus }` | 新增·A（结构化替代 `/model`） |
+| `sessions.model.set` | write | `{ id: string; model: ModelRef }` | `{ model: ModelStatus }` | 新增·A（结构化替代 `/model`） |
 | `models.list` | read | `{ provider?: string }` | `{ providers: { id; models: { id; name; contextWindow: number; reasoning: boolean }[] }[] }` | 新增·A（现只能从 `terminal.info` 或 `/model list` 文本抠） |
 | `agents.list` | read | `{}` | `{ agents: { id; name; profile; presets: string[] }[] }` | 新增·A |
-| `attachments.put` | write | `POST /api/attachments`，原始字节，头 `Content-Type`、可选 `X-Name` | `{ uri: string; bytes: number; mime: string }` | 新增·B（网关落盘到 home 下附件目录，返回的 `uri` 可直接放入 `submit.attachments`；socket 上不提供） |
+| `attachments.put` | write | `POST /api/attachments` 原始字节，`Content-Type`、`X-Name`、`X-Session` | `AttachmentRef`（§17） | HTTP 别名；校验会话归属，socket 不提供 |
 | `approvals.list` | read | `{ state?: "pending"\|"all" }` | `{ items: ApprovalCard[] }` | 新增·A（secrets 插件经 views/事件库读出；`credentials.md` §6.2） |
-| `approvals.answer` | write | `{ approvalId: string; decision: "approve"\|"deny" }` | `{ state: "answered"; by: string; first: boolean }` | 新增·A；同一 `approvalId` 只生效一次，重复回答 `first:false` |
-| `views.list` | read | `{ placement?: "rail"\|"floating"\|"main"\|"companion" }` | `{ views: ViewDocument[] }` | 新增·A（design §4.8；`ViewDocument` 类型归 SDK） |
-| `views.watch` | read | `{ placement? }` | 同 `views.list`，流式 | 新增·A |
-| `views.act` | write | `{ viewId: string; action: string; input?: unknown }` | `{ document?: ViewDocument }` | 新增·A |
+| `approvals.answer` | owner | `{ approvalId: string; decision: "approve"\|"deny" }` | `{ state: "answered"; by: string; first: boolean }` | 新增·A；同一 `approvalId` 只生效一次，重复回答 `first:false` |
+| `views.list` | read | `{ placement?: Placement; session?: string }` | `{ views: ViewDecl[] }` | §11，placement 为 rail/floating/page |
+| `views.watch` | read | `{ placement?: Placement; session?: string }` | 同 `views.list`，流式 | §11，易失型 |
+| `views.act` | ViewDecl.actScope（默认 write，不低于 write） | `{ viewId: string; action: string; input?: unknown; session?: string }` | `{ content?: ViewContent }` | §11/§14 |
 | `events.query` | read | `EventQuery`（sdk `types.ts`：`id,type,from,conv,agent,since,until,after,limit`） | `EventPage` | 已有 |
 
 #### 已有、保持原名、暂不进 B 线前端
@@ -149,13 +149,11 @@ type ServerFrame =
 
 ### 2.3 游标与 gap 语义
 
-1. `seq`：每个 `sub` 内单调递增的整数，从 1 起，不保证跨连接连续。`cursor` 由服务端编码，包含节点 epoch（内核启动 id）与事件库水位，客户端续传时原样给回 `after`。
-2. 首次订阅不带 `after`：`ready.gap=false`，`result` 含当前快照，之后的 `ev` 都是快照之后的增量。
-3. 续传带 `after`：
-   - 游标可解析且对应水位仍在事件库内：`gap=false`，`ready` 之后先补发 `after` 之后漏掉的 `ev`（`seq` 接着游标之后的值），再切实时。
-   - epoch 不同（内核重启）、水位已被截断或无法解析：`gap=true`。`result` 里给全新快照，客户端丢弃本地增量缓存，以快照为准重建。
-4. 客户端去重：按 `(sub, seq)`，也按 `ev.data` 里的事件 id（有则）双重防护；落库内容断线恢复后不重复不丢（`design.md` §11 阶段 1 验收 2）。
-5. 游标与 `kernel.terminal.observe` / `eventWatermark()` 的映射【未核实】。A 线开工第一件事读 `kernel.terminal.observe` 与 `events.query`。若映射不成立，允许退化为「总是 `gap:true`」，协议不变；B 线按总是可能 `gap:true` 编码。
+1. `seq`：每个 `sub` 内单调递增，从 1 起；重订后的补发也从 1 起编号。`cursor` 沿用 §9.2 的既有环形缓冲游标，不使用事件库水位。
+2. 首次订阅不带 `after`：`result` 含当前快照。加载快照期间有事件到达则 `gap:true`，这些事件仍在 ready 后投递；客户端需容忍与快照重复（§9.2）。
+3. 续传带 `after`：同 epoch 且仍在缓冲内则补发，`ready.result=null`；否则 `gap:true` 并取全新快照。客户端丢弃旧增量缓存，以新快照重建。
+4. 客户端在同次订阅内按 `(sub, seq)` 去重；事件 id 存在时也按 id 去重。重订不能拿上一订阅的 seq 判断新事件。
+5. 缓冲保留、上限与重启后的 gap 沿用 §9.2，不承诺环形缓冲之外的续传。
 6. `activity.watch`、`views.watch` 是易失型（`resumable:false`）：不接受 `after`，每次订阅 `gap:true` 且 `result` 带完整当前状态。事件只用于增量刷新。
 7. `sessions.watch` 是可续型（`resumable:true`）。
 
@@ -167,7 +165,7 @@ type ServerFrame =
 
 ### 2.5 错误
 
-一元调用：HTTP 200 `{ok:true,result}` 或 `{ok:false,error:{code,message}}`，沿用 control 的 `ok/result/error` 形状（`control/index.ts` 的 `{ok:true,result}`、`{ok:false,error}`）。错误码字符串：`unknown_method`、`forbidden`、`invalid_params`、`not_found`、`conflict`、`unavailable`。现有 handler 抛出的纯字符串错误统一映射为 `{code:"error"}`，不得依赖文案。
+一元调用：成功 HTTP 200 `{ok:true,result}`；权限不足 HTTP 403 `{ok:false,error:{code:"forbidden"}}`（§14），其他方法错误 HTTP 200 `{ok:false,error:{code,message}}`，沿用 control 的 `ok/result/error` 形状（`control/index.ts` 的 `{ok:true,result}`、`{ok:false,error}`）。错误码字符串：`unknown_method`、`forbidden`、`invalid_params`、`not_found`、`conflict`、`unavailable`。现有 handler 抛出的纯字符串错误统一映射为 `{code:"error"}`，不得依赖文案。
 
 ## 3. 事件目录
 
@@ -178,7 +176,7 @@ type ServerFrame =
 | type | 订阅于 | 发出方（A 线模块） | B 线消费方 | 状态 |
 |---|---|---|---|---|
 | `session.update` | `sessions.watch` | `packages/core/src/kernel/terminal.ts` observe（`SessionUpdate`） | 中栏转录、输入框忙闲 | 已有（旧形状原样包装） |
-| `session.opened` / `session.closed` | `activity.watch`、`sessions.watch` | `kernel.sessions`（`session.open`/`session.close` 事件，`sdk/types.ts` `SessionOpenData/SessionCloseData`） | 左栏会话列表 | 已有（事件库）；流上投递·新增·B |
+| `session.opened` / `session.closed` | `activity.watch` | `kernel.sessions`（`session.open`/`session.close` 事件，`sdk/types.ts` `SessionOpenData/SessionCloseData`） | 左栏会话列表 | 已有（事件库）；流上投递·新增·B |
 | `session.settled` | `activity.watch` | `kernel`（会话空闲或完成）；`design.md` §1.2 称存在性【未核实】 | Bot 建议、托盘 | 新增·A |
 | `run.ended` | `sessions.watch` | `run.end` 事件（`RunEndData`） | 顶部状态、用量落账 | 已有（事件库），流上投递·新增·B |
 | `transcript.item` | `sessions.watch` | terminal observe 的 `message`/`tool` | 中栏转录 | 已有（等价于 `session.update`，新结构化形态见 3.2） |
@@ -187,9 +185,9 @@ type ServerFrame =
 | `compaction.started` / `compaction.finished` | `sessions.watch` | `packages/pi-durable/src/harness/compaction.ts` | 底栏提示、时间线 | 新增·A |
 | `model.changed` | `sessions.watch` | `runtime/index.ts` `modelStatus` 变化 | 底栏右段 | 新增·A |
 | `model.fallback` | `sessions.watch` | `packages/core/src/runtime/model-chain.ts` | 底栏黄标、时间线 | 新增·A |
-| `todo.updated` | `sessions.watch`、`views.watch` | `plugins/tasks` 或 todo 插件，经 `ctx.invalidate()` | 右栏 todo 树 | 新增·A（形态见 3.4） |
-| `subtask.updated` | `sessions.watch`、`activity.watch` | `modelStatus.tasks[]`、`task_run` 句柄 | 编辑区下方委派列表 | 新增·A |
-| `background.updated` | `sessions.watch`、`activity.watch` | `process` 工具句柄表 | 右栏后台任务 dock | 新增·A |
+| `todo.updated` | `sessions.watch` | `plugins/tasks` 或 todo 插件，经 `ctx.invalidate()` | 右栏 todo 树 | 新增·A（形态见 3.4） |
+| `subtask.updated` | `sessions.watch` | `modelStatus.tasks[]`、`task_run` 句柄 | 编辑区下方委派列表 | 新增·A |
+| `background.updated` | `sessions.watch` | `process` 工具句柄表 | 右栏后台任务 dock | 新增·A |
 | `approval.requested` / `approval.answered` | `activity.watch` | secrets 插件（原事件 `secrets.approval.requested/answered`） | 右栏「等你回答」、审批记录、托盘计数 | 新增·A |
 | `views.changed` | `views.watch` | 插件 `ctx.invalidate()` | 右栏、悬浮窗 | 新增·A |
 | `notification` | `activity.watch` | `sessions.notify` 与 `SessionNotification` | 通知中心、托盘 | 已有（`SessionNotification`）；节点级投递·新增·B |
@@ -240,13 +238,13 @@ interface ModelFallbackEv {
   session: string;
   state: "fallback" | "recovered";
   from: ModelRef; to: ModelRef;
-  reason: "rate_limit" | "quota" | "unavailable" | "error";  // 枚举以 model-chain.ts 实际分类为准，A 线核对后冻结
+  reason: "rate_limit" | "quota" | "unavailable" | "error";  // §17 固定枚举；超时归 unavailable
 }
-type UsageSnapshot = { self: UsageTotals; children?: UsageTotals; last?: UsageTotals & { cacheHitPct: number } };
-type ContextSnapshot = { tokens: number; window: number; percent: number; auto: boolean };
+type UsageSnapshot = { self: UsageTotals; children?: UsageTotals; last?: UsageTotals & { cacheHitPct: number }; lsp?: { name: string; state: string } };
+type ContextSnapshot = { tokens: number; window: number; percent: number; auto: boolean; parts?: { name: string; tokens: number }[] };
 ```
 
-阈值颜色（>70% 警告、>90% 错误）由前端定，事件不带。`model.fallback.state:"fallback"` 表示已切到备用，`"recovered"` 表示已回到首选；同一次回退至少各发一次，中间不重复。`model.changed` 与 `model.fallback` 同时发生时顺序固定：先 `model.fallback`，后 `model.changed{cause:"fallback"}`。
+阈值颜色（>70% 警告、>90% 错误）由前端定，事件不带。`model.fallback.state:"fallback"` 表示已切到备用，`"recovered"` 表示已回到首选；同一次回退至少各发一次，中间不重复。`model.changed` 与 `model.fallback` 同时发生时顺序固定：先 `model.fallback`，后 `model.changed{cause:"fallback"}`（恢复时为 `cause:"recover"`）。
 
 ### 3.4 todo、子任务、后台任务
 
@@ -290,14 +288,16 @@ type ApprovalAnsweredEv  = { approvalId: string; state: "approved" | "denied" | 
 ### 3.6 views、通知
 
 ```ts
-interface ViewsChangedEv { placement: "rail" | "floating" | "main" | "companion"; ids: string[]; badge?: Record<string, number> }
-interface NotificationEv { id: number; from: string; event: string; text: string; session?: string } // = SessionNotification【已有】
+interface ViewsChangedEv { placement: "rail" | "floating" | "page"; ids: string[]; badge?: Record<string, number> }
+interface NotificationEv { id: number; from: string; event: string; text: string; session?: string; conv?: string; channel?: string } // SessionNotification 的扩展（§16）
 interface CapabilitiesChangedEv { reason: "plugin-reload" | "config-reload" }
 ```
 
-`views.changed` 只提示哪些 view 变了，前端重取 `views.list`；`badge` 与 `activity.summary` 的计数使用同一源，三个表面显示同一个数。
+`views.changed` 只提示哪些 view 变了，前端重取 `views.list` 与受影响的 `views.data`（§11）；`badge` 与 `activity.summary` 的计数使用同一源，三个表面显示同一个数。
 
 ## 4. capabilities.get：NodeFacts
+
+以下为基础字段；v1.1 合并 §12 的 NodeFactsAddendum。features/limits 按字段扩展，保留已有成员；kind 与 auth.kind 同源。
 
 ```ts
 interface NodeFacts {
@@ -321,24 +321,24 @@ interface NodeFacts {
 2. 同一主版本内只增不删：新增方法、新增可选参数、新增结果字段、新增事件类型、新增枚举值都允许。删除、改名、改类型、收紧必填一律需要升 `protocol`，旧语义保留至少一个发布版本，并在 `MethodDef.deprecated` 里标明。
 3. 客户端必须：忽略未知 `ev.type`、未知字段、未知枚举值（按「其他」显示，不报错）；`seq` 不连续不报错。
 4. 服务端必须：忽略未知请求字段（不当作错误）；缺省的可选参数取旧行为。
-5. 客户端要求 `protocol` 的下限由 `FeatureDef.needs.methods` 隐含表达，另在应用启动检查 `NodeFacts.protocol >= APP_MIN_PROTOCOL`，不满足则提示更新节点并只开放只读。
-6. `sessions.show` 去掉 transcript 属破坏性改动，按第 2 条处理：v1 默认仍含 transcript，客户端传 `include:"meta"` 取瘦身形态；v2 起默认瘦身。
-7. 协议文档的权威位置：spec 19 初稿与 `@yonder/gateway/protocol` 的 schema；本文冻结期间有冲突以本文为准，需改时先改本文并在 `docs/decisions.md` 记一条（`AGENTS.md` 第 7 条）。
+5. 客户端按 §12 依次检查 `NodeFacts.protocol >= APP_MIN_PROTOCOL`、methods、features、events，不以插件名推断。
+6. §13/§17 固定 sessions.open/show 的目标形状；基线已实现 open 返回 SessionInfo、show 返回 transcript 或 include:"meta" 形态（§9.2），不是未实现提案。两者与目标结果存在兼容差异，过渡方式待主 Agent 定稿，不能按本卡直接删除既有返回字段或宣称兼容已验证；protocol 本卡仍为 1。
+7. 协议文档的权威位置：spec 19 初稿与 `@yonder/protocol` 的 schema；本文冻结期间有冲突以本文为准，需改时先改本文并在 `docs/decisions.md` 记一条（`AGENTS.md` 第 7 条）。
 
 ## 6. 实现归属汇总
 
 | 项 | 实现方 | 备注 |
 |---|---|---|
-| `packages/core/src/control/methods.ts` 注册表与 `MethodDef` | B | 唯一大重构，CLI 行为不变 |
-| `packages/gateway`（HTTP/WS、鉴权、游标编码、背压、`attachments.put`） | B | 游标编码依赖 A 的 observe 水位 |
+| `packages/core/src/control/methods.ts` 注册表与 `MethodDef` | API | 唯一大重构，CLI 行为不变 |
+| `packages/gateway`（HTTP/WS、鉴权、游标编码、背压、`attachments.put`） | API | 沿用 §9.2 的缓冲游标 |
 | `capabilities.get`、`activity.*`、`capabilities.changed` | B | 数据来自注册表与现有 `terminal.activity()` |
 | `sessions.transcript` 的 `before` 倒序分页、`sessions.watch` 的 `after/seq`、`submit.requestId` | A | 内核 `sessions` / `kernel/terminal.ts` |
-| `sessions.model.set`、`models.list`、`agents.list`、`open` 的 `agent/model` | A | `packages/core/src/sessions/index.ts` |
+| `sessions.model.set`、`models.list`、`agents.list`、`open` 的 `agent/model` | API + CORE | API 注册方法，CORE 提供会话/运行能力（§17） |
 | `usage.updated`、`context.updated`、`compaction.*`、`model.changed`、`model.fallback` | A | pi-durable + `runtime/index.ts` + `model-chain.ts` |
 | `todo.updated`、`subtask.updated`、`background.updated`、`session.settled` | A | tasks / process / kernel |
-| `approval.*`、`approvals.list/answer` | A（secrets 插件） | 依赖 `credentials.md` S2 |
-| `views.*`、`views.changed` | A（SDK 槽）+ B（渲染） | design §4.8，阶段 4 |
-| `apps/app` 全部消费端、`useStream` 合并进 TanStack Query 缓存 | B | |
+| `approval.*`、`approvals.list/answer` | CORE（生产者）+ API（方法/映射） | 接线待定，见 §17 |
+| `views.*`、`views.changed` | CORE（SDK 槽）+ API（方法/数据层）+ FE（渲染） | §11/§17 |
+| `apps/app/src/api` 数据层与流缓存 | API | §17；其余呈现归 FE |
 
 ## 7. A 线未完成时 B 线的临时替代
 
@@ -349,7 +349,7 @@ interface NodeFacts {
 | `sessions.watch` 无 `after/seq` | 网关给每路 `sub` 本地编号 `seq`；总是 `ready.gap=true`，每次重订都取 `sessions.show` 对账 | A 交付游标 |
 | `submit` 无 `requestId` | 网关在内存按 `(session, requestId)` 做 10 分钟去重，不透传给内核 | A 交付；去重迁到内核 |
 | `sessions.transcript` 无 `before` | 用 SDK 已有 `transcript(id,{from,limit})` 取尾页（先读总数再算 `from`），仍用 `sessions.show` 兜底 | A 交付倒序分页 |
-| `sessions.show` 含整份 transcript | 前端只取 `session` 字段，忽略 transcript；大会话先接受体积 | v2 瘦身 |
+| `sessions.show` 含整份 transcript | 既有形状见 §9.2；目标分页形状见 §17，兼容方式待定（§5） | 主 Agent 定稿后 API-09 落地 |
 | `usage.updated` | 用 `run.end` 事件（`RunEndData.usage`）每次运行结束累加；运行中不显示实时值 | A 交付 |
 | `context.updated`、`model.changed` | 轮询 `terminal.info`（含 `model`）每 3 秒；上下文占比暂不显示 | A 交付 |
 | `compaction.*` | 不显示；时间线暂缺压缩条目 | A 交付 |
@@ -365,14 +365,14 @@ interface NodeFacts {
 ## 8. 未决项（交维护者）
 
 1. `design.md` §11 阶段 1 的 8 个方法逐条清单与 §1.3 推定是否一致。
-2. 游标映射成立与否（§2.3 第 5 条）：A 线开工第一件事核实，结论写回本文。
-3. `model.fallback.reason` 枚举与 `model-chain.ts` 实际分类对齐后冻结。
+2. 游标使用既有环形缓冲（§9.2），事件库水位方案未采用；本次扩展沿用现有 seq/cursor。
+3. `model.fallback.reason` 已按 §17 固定，生产者由 CORE 对齐，API 不发明新枚举。
 4. todo 数据源（tasks 账本还是独立插件）：影响 `TodoItem.state` 取值，不影响事件名。
-5. `approvals.list/answer` 与「审批只走 views.act」二选一：本文两者并列，B 线优先用专用方法，views 版本作为阶段 4 的通用入口。
+5. 审批专用方法与 views 共用状态，外部形状按 §17；kernel/插件接线仍待定（Q03），不假设服务已存在。
 
 ## 9. 网关线实现说明（新增）
 
-本节记录 gateway 线（`lane/gateway-20261027`）已落地的形状，供 B 线对接；标「新增」的条目是前文没有的方法或约定，需维护者确认。
+本节记录 gateway 线（`lane/gateway-20261027`）已落地的基线形状，供 B 线对接；§11–§17 是后续目标，不代表本卡已实现；标「新增」的条目是前文没有的方法或约定，需维护者确认。
 
 ### 9.1 新增方法：导入 pi 会话（只读）
 
@@ -426,7 +426,7 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 - URL 只接受一次性票据：`GET <任意页面>?token=<ticket>` 换 cookie 后 303 到干净地址；URL 里的长期访问令牌一律不认（会进代理日志）。长期访问令牌只能用 `POST /login`（请求体 JSON `{token}`，登录页表单同样走请求体）换 cookie；`GET /login` 是登录页；`POST /api/logout` 清 cookie。
 - 登录失败按对端限流（每分钟 10 次，最多记 1024 个对端）：对端是 socket 远端地址；仅当配置 `gateway.trustProxy: true` 且连接来自回环时取 `X-Forwarded-For` 第一跳（默认 false，防伪造）。回环连接携带有效一次性票据时不受限流，本机恢复始终可用。
 - 已建立的 WebSocket 随凭据失效：连接记录登录身份与 cookie 到期时间，到期或每个入站帧发现过期即以 4401 关闭；`ui token --rotate` 后网关（1 秒内）以 4401 关闭所有 remote 套接字。非对象/缺少字符串 `t` 的帧以 1003 关闭。
-- cookie `yonder_session`：HMAC 签名，HttpOnly、SameSite=Strict、24 小时、`Path` 与请求挂载路径一致（经去前缀代理或 `<basePath>` 访问时为 `basePath`；回环 Host 直连 `/` 时为 `/`），来源是 https 公网地址时加 Secure。票据登录得 `read/write/admin`（`kind:"local"`），访问令牌登录得 `read/write`（`kind:"remote"`）；轮换令牌后旧 remote cookie 失效。
+- cookie `yonder_session`：HMAC 签名，HttpOnly、SameSite=Strict、24 小时、`Path` 与请求挂载路径一致（经去前缀代理或 `<basePath>` 访问时为 `basePath`；回环 Host 直连 `/` 时为 `/`），来源是 https 公网地址时加 Secure。票据登录得 `read/write/admin/owner`（`kind:"local"`），访问令牌登录得 `read/write`（`kind:"remote"`）；轮换令牌后旧 remote cookie 失效。
 - 校验：`Host` 必须是 `127.0.0.1:<port>`、`localhost:<port>` 或 `publicOrigins` 的 host；有 `Origin` 时必须同源或在 `publicOrigins` 内；API 与写请求带 `Sec-Fetch-Site` 且不是 `same-origin` 时拒绝。失败 403；未登录的 API 401，页面 303 到 `<basePath>login`。RPC 只收 `application/json`（否则 415）。
 - 反向代理：nginx 去掉前缀后转发；`basePath`（如 `/console/`）只用于生成 cookie Path、重定向地址，并在 `index.html` 注入 `<base href>` 与 `<meta name="yonder-base-path">`。前端资源用相对路径。回环 Host（`127.0.0.1`/`localhost`）的请求既可在 `/` 也可在 `<basePath>` 下访问，后者由网关去掉前缀；经代理的请求须转发公网 Host，否则会被当作回环直连并得到 `Path=/` 的 cookie。
 - 响应头：`Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; …; frame-ancestors 'none'`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-store`。
@@ -443,7 +443,7 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 
 | 方法 | scope | params | result |
 |---|---|---|---|
-| `bots.list` | owner | `{}` | `{ bots: { agent: string; name: string; work?: string; session?: string }[] }`，`session` 是已打开的 main 会话 id，尚无则省略。只含 owner 等于**节点 owner** 的 Bot |
+| `bots.list` | owner | `{}` | `{ bots: { agent: string; name: string; work?: string; session?: string; channels: string[]; sessionsOverview: number }[] }`，`session` 是已打开的 main 会话 id，尚无则省略。只含 owner 等于**节点 owner** 的 Bot；channels/sessionsOverview 为 §17 增补目标 |
 | `bots.send` | owner | `{ agent: string; text: string; requestId?: string }` | `{ event: string; session: string; deduped?: boolean }`，`session` 即 `sessions.watch` 的 id |
 
 为什么不扩展 `sessions.submit`：它只接受 task 会话（spec 02 §5），Bot 输入必须经渠道与绑定。`bots.send` 把一条 `message.in` 交给 `console` 渠道，由 Agent 自己的绑定决定是否接收；无绑定、归档、`profile-mismatch` 时抛错（`Bot X did not accept the message (<dropped>)`），未知 Agent 或不属于节点 owner 的 Agent 抛 `Unknown bot`。`requestId` 在 `bot:<agent>` 下按 10 分钟去重，同 `sessions.submit`。
@@ -452,7 +452,7 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 
 **scope `owner`**：`Scope = read | write | admin | owner`。本机票据登录（`kind: local`）含 `owner`；远程访问令牌登录默认**不含**，需在 `yonder.yaml` 设 `gateway.remoteOwner: true` 才授予（默认 false，重启生效）。无 scope 时网关对 HTTP RPC 返回 403 `{ok:false,error:{code:"forbidden"}}`（此前 forbidden 也是 200，现统一为 403）；WS 订阅沿用 `end{reason:"forbidden"}`。`capabilities.get.methods` 与 `granted` 只列出本连接持有 scope 的方法。**远程隔离**：Bot 对话（所有非 task 会话，含共享 main 会话）额外要求 `owner` scope：`sessions.list` 只向无 `owner` 的连接返回 task 会话，`sessions.show/transcript/watch/abort/close` 对非 task 会话返回 forbidden（HTTP 403；WS `end{reason:"forbidden"}`，共享 feed 对每个订阅者单独检查）。因此远程令牌在未开 `gateway.remoteOwner: true` 时看不到也碰不到 Bot 对话。task 会话保持原有 read/write 行为。
 
-**已知缺口（待下一片，需 owner scope 校验）**：无 `owner` scope 的远程令牌（默认）虽看不到 Bot 会话（上文 sessions.* 隔离），但仍可经 `events.query`（按事件过滤，不按会话）读取、经 `sessions.notify`、`sessions.command` 和 `terminal.info`（按会话 id）作用于 Bot 对话。`events.query` 需按事件所属会话/渠道过滤，超出本片范围；其余三个需复用 `guardSession`。
+**基线已知缺口（实现待后续 API 卡补齐；目标隔离规则见 §14）**：无 `owner` scope 的远程令牌（默认）虽看不到 Bot 会话（上文 sessions.* 隔离），但仍可经 `events.query`（按事件过滤，不按会话）读取、经 `sessions.notify`、`sessions.command` 和 `terminal.info`（按会话 id）作用于 Bot 对话。`events.query` 需按事件所属会话/渠道过滤，超出本片范围；其余三个需复用 `guardSession`。
 
 ### §11 views.*（插件视图槽，D3）
 
@@ -624,8 +624,10 @@ interface SuggestionCreatedEv { suggestion: Suggestion }
 
 流排序只用 §2 的 (sub,seq)/cursor，不增通用 rev；ViewData 自有 rev 不外推到 usage/work。views.changed 只在 views.watch；节点级通知在 activity.watch。事件实际生产者为 CORE-01/07/09/24/35；API-02 只校验映射，缺生产者不得宣称端到端通过。ContextSnapshot 可选 parts:{name:string,tokens:number}[]；UsageSnapshot 可选 lsp:{name:string,state:string}；无数据源则省略、不伪造 LSP Active。
 
-前端数据层导出（API-03/16/17/22/23/24/25/28）：rpc/openStream/qk、useCapabilities/useFeature/useHasMethod、useViews/useViewData/useViewAction、useSessionState/useFooterStats/useTodos/useWakes/useGoal、useNotifyPrefs/useSetNotifyLevel、useApprovals/useAnswerApproval、uploadAttachment、useSuggestions/useActSuggestion、useSocialAuth/useSocialConversations/useContacts、useNodes/useActiveNode/addNode/removeNode、useSessionCatalog/useOpenSession/useOnboarding。社交后端来源已按 Q01 确认为 GoYonderTogether/yonder-web（本机 ~/Documents/yonder-card-web，服务端 server/src）；本卡只定契约形状，不修改服务端。社交 ApiClient 与类型原样来自该 Card 参考源（API-17），登录态只有 API-24 持有；FE 文件中的 hook 只能做展示组合。
+前端数据层导出（API-03/16/17/22/23/24/25/28）：rpc/openStream/qk、useCapabilities/useFeature/useHasMethod、useViews/useViewData/useViewAction、useSessionState/useFooterStats/useTodos/useWakes/useGoal、useNotifyPrefs/useSetNotifyLevel、useApprovals/useAnswerApproval、uploadAttachment、useSuggestions/useActSuggestion、useSocialAuth/useSocialConversations/useContacts、useNodes/useActiveNode/addNode/removeNode、useSessionCatalog/useOpenSession/useOnboarding、useUpdateState/useDownloadUpdate/useApplyUpdate（API-26）。社交后端来源已按 Q01 确认为 GoYonderTogether/yonder-web（本机 ~/Documents/yonder-card-web，服务端 server/src）；本卡只定契约形状，不修改服务端。社交 ApiClient 与类型原样来自该 Card 参考源（API-17），登录态只有 API-24 持有；FE 文件中的 hook 只能做展示组合。
 
 审批/建议的 kernel 与插件接线位置待定，由主 Agent 落精确接口/文件再派 API-20/21，不能凭空假设 ctx.kernel.approvals/suggestions 已存在。Tauri 原生 updater 桥接不冒充网关 update.*，按 Q05 待定。
 
-其余待定项：Q02 管家清单语义、Q04 voice 协议（交 API-27）、Q06 Skill 多源与去重规则、Q07 工作展示页路径。它们不阻塞本卡，不在此猜测接口。
+其余待定项：Q02 三平台 CI 修复范围、Q04 voice 协议与原生常驻（交 API-27）、Q06 pi 1.4 成对产物与 host 调用点、Q07 多服务器目标与设备边界。它们不阻塞本卡，不在此猜测接口。
+
+契约核对遗留：API-09 的 ready.result 草案使用 items/running/streaming，而本卡 §17 要求沿用既有快照（§9.2）；具体过渡形状待主 Agent 定稿，与 §5 的 sessions.open/show 兼容差异一起处理。CORE-19 卡中旧 snooze 要求按本轮 Q03 裁定推迟，不进入本版契约。
