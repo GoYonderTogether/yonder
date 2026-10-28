@@ -73,6 +73,20 @@ describe("deploy/node/nginx-console.py", () => {
 		expect(apiBlock).not.toContain("yonder-console");
 	});
 
+	it("prefers the TLS server over an http redirect server with the same name", () => {
+		const conf = `server {
+    listen 80;
+    server_name console.example.com;
+    return 308 https://console.example.com$request_uri;
+}
+${ONE_SERVER}`;
+		const { status, file } = runTransform(conf, "proxy", "7690", "console.example.com");
+		expect(status).toBe(0);
+		const out = readFileSync(file, "utf8");
+		expect(out.match(/# yonder-console begin/g)).toHaveLength(1);
+		expect(out.indexOf("# yonder-console begin")).toBeGreaterThan(out.indexOf("listen 443 ssl;"));
+	});
+
 	it("is idempotent: rerunning does not duplicate the block", () => {
 		const first = runTransform(ONE_SERVER, "maint", "", "console.example.com");
 		expect(first.status).toBe(0);

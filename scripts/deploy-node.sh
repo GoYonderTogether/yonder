@@ -294,14 +294,13 @@ cmd_nginx() {
 	need_host
 	[ -n "${YONDER_PUBLIC_ORIGIN:-}" ] || die "YONDER_PUBLIC_ORIGIN is required for nginx commands (e.g. https://console.example.com)"
 	local origin_host
-	origin_host=$(python3 -c 'import os,sys,urllib.parse as u; h=u.urlparse(os.environ["YONDER_PUBLIC_ORIGIN"]).hostname or ""; print(h) if h else sys.exit(1)') \
+	origin_host=$(python3 -c 'import sys,urllib.parse as u; h=u.urlparse(sys.argv[1]).hostname or ""; print(h) if h else sys.exit(1)' "$YONDER_PUBLIC_ORIGIN") \
 		|| die "cannot parse host from YONDER_PUBLIC_ORIGIN: ${YONDER_PUBLIC_ORIGIN}"
 	local mode=${3:-}; local port=${4:-}
 	case "$mode" in maint|proxy) ;; *) die "nginx <host> maint|proxy [port]" ;; esac
 	if [ "$mode" = proxy ]; then case "$port" in ''|*[!0-9]*) die "proxy needs a numeric port" ;; esac; fi
 	"${SSH[@]}" "$HOST" "mkdir -p /usr/share/nginx/yonder-console && cat > /usr/share/nginx/yonder-console/index.html && chmod -R a+rX /usr/share/nginx/yonder-console" <"$REPO/deploy/node/maintenance.html"
 	"${SSH[@]}" "$HOST" "mkdir -p /var/tmp/yonder-deploy && cat > /var/tmp/yonder-deploy/nginx-console.py" <"$REPO/deploy/node/nginx-console.py"
-	"${SSH[@]}" "$HOST" "mkdir -p /usr/share/nginx/yonder-console && cat > /usr/share/nginx/yonder-console/index.html && chmod -R a+rX /usr/share/nginx/yonder-console" <"$REPO/deploy/node/maintenance.html"
 	"${SSH[@]}" "$HOST" "MODE=$mode PORT=$port ORIGIN_HOST=$origin_host bash -s" <<'EOS'
 set -euo pipefail
 F=/etc/nginx/conf.d/yonder.conf

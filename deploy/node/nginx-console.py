@@ -25,6 +25,7 @@ PROXY_BODY = """    location = /console { return 308 /console/; }
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -39,7 +40,9 @@ def transform(text: str, mode: str, port: str, origin_host: str) -> str:
     block = "    # yonder-console begin\n" + body + "    # yonder-console end\n"
     # Idempotent: drop any previous marked block first.
     text = re.sub(r"[ \t]*# yonder-console begin\n.*?[ \t]*# yonder-console end\n", "", text, flags=re.S)
-    # Find server blocks and pick the one whose server_name matches origin_host.
+    # Find server blocks whose server_name matches origin_host; prefer a TLS (`listen ... ssl`)
+    # block, so an http->https redirect server for the same name is left alone.
+    matches = []
     for m in re.finditer(r"(?m)^[ \t]*server\s*\{", text):
         start = m.end() - 1
         depth = 0
@@ -56,12 +59,15 @@ def transform(text: str, mode: str, port: str, origin_host: str) -> str:
             continue
         body = text[start:i]
         names = re.findall(r"server_name\s+([^;]+);", body)
-        for entry in names:
-            if origin_host in entry.split():
-                close = text.rfind("}", start, i + 1)
-                loc = re.search(r"(?m)^[ \t]*location\s", text[start:close])
-                pos = start + loc.start() if loc else close
-                return text[:pos] + block + text[pos:]
+        if any(origin_host in entry.split() for entry in names):
+            tls = re.search(r"(?m)^[ \t]*listen\s[^;]*\bssl\b", body) is not None
+            matches.append((tls, start, i))
+    if matches:
+        _, start, i = next((m for m in matches if m[0]), matches[0])
+        close = text.rfind("}", start, i + 1)
+        loc = re.search(r"(?m)^[ \t]*location\s", text[start:close])
+        pos = start + loc.start() if loc else close
+        return text[:pos] + block + text[pos:]
     raise LookupError(f"no server block with server_name {origin_host!r}")
 
 
