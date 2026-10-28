@@ -26,6 +26,9 @@
 		"id": "code-intel",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"triggers": [
+				"code-intel-cleanup"
+			],
 			"tools": [
 				"code-intel_codegraph_explore",
 				"code-intel_module_report",
