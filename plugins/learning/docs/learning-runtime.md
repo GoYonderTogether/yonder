@@ -42,8 +42,8 @@ internals. The source experience 0.1.1 implementation was validated against SDK
 6. Queue the due focus: memory, skills or combined. Skill review is due on each eligible completed user run; memory retains its 10-input interval. Wait 15 seconds of parent quiet,
    merge the latest completed evidence while retaining earliest queue time, expire
    at 30 minutes. Interrupted automatic work can requeue at most three times;
-   explicitly attended work cannot. Closing/off clears queued jobs.
-7. Open native `sessions.open({preset:'hermes-learning-review',parent,
+   explicitly attended work cannot. Closing the source session does not cancel review; disabling or stopping the plugin revokes active grants.
+7. Open independent native `sessions.open({preset:'hermes-learning-review',
    capabilities:['read','write'],close:'manual'})`. Opening is not authority.
    Recheck generation after open, then register the unique review grant **before**
    `submit({text}, {wait:true})`. The asynchronous submit result returns to the
@@ -51,16 +51,14 @@ internals. The source experience 0.1.1 implementation was validated against SDK
 8. Dedicated tool wrappers resolve real `ctx.session` to that grant. Ordinary task
    sessions, expired/restarted grants, forged model scope fields and unauthorized
    focus fail. Storage receives trusted `review`, `turnState`, `readMarks` and
-   `isActive`; the latter rechecks live generation plus actual parent scope/closed
+   `isActive`; the latter rechecks live generation plus actual parent scope
    state at the storage commit admission point. No fabricated `ctx.agent`.
-9. Completion, close, foreground generation change and trigger.stop revoke first.
+9. Completion, foreground generation change and trigger.stop revoke first. Closing the source session leaves its review running.
    Abort/close follow revocation; an admitted/committed atomic transaction is not
    retrospectively undone. Transient grants are never restored after restart.
 
 `api.paths.data/learning-state.json` atomically persists counters, handled native
-run IDs, handled human input IDs and dispatch-consumed memory input IDs. It stores
-no transcript or grant. Queue/evidence/grants are intentionally process-local and
-best effort, not durable exactly-once review jobs. Invalid existing state is not
+run IDs, handled human input IDs and dispatch-consumed memory input IDs. It stores the queued evidence snapshot and last review result; grants remain process-local. Pending reviews are requeued at startup, so interrupted work may execute again. Invalid existing state is not
 silently overwritten. Store error details (`done`, `success`, budget/current-entry,
 conflict/rollback fields) survive tool JSON serialization, not only message text.
 
@@ -90,7 +88,7 @@ to have an exact fork. Existing private skills named in prior skill/tool evidenc
 can be fresh-read; tasks do not inherit a parent's workspace or an unexposed full
 parent system skill index. No second discovery scanner is introduced.
 
-The review preset is fixed Sol/high, only read/write capabilities and its three
+The review uses the source profile cheap model, then simple, then plugin `config.model`, then the source main model. The source credential slots are copied into its independent task. It has only read/write capabilities and its three
 scoped tools, no shell, generic file writer, message, tool search or delegation.
 Its `maxTurns:16` native limit is soft; the plugin additionally enforces a **hard
 16-request ceiling** in beforeRequest. It does not claim an upstream aggregate
@@ -129,8 +127,7 @@ skills are written into configured workspace/skills with existing profile
 Recipe/manifest/guidance/teaching skill now expose these actual features. Full off
 removes plugin/context/skill selection; `enabled:false` refuses tools and schedules
 no work or IO. Native skills remain native files, so boolean-off alone does not
-remove independently selected skill descriptions. Removing scopes/profile mapping
-or actual session close denies further grants; plugin stop revokes all running
+remove independently selected skill descriptions. Removing scopes/profile mapping denies further grants; plugin stop revokes all running
 ones. There is no new per-review approval or extra operator setting.
 
 ## Prompt policy and non-goals

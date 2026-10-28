@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { defineContext, definePlugin, defineTool } from "@yonder/sdk";
 import { coreGuidance } from "./guidance.mjs";
+import { createLearningViews } from "./learning-views.mjs";
 import { createReview, REVIEW_PRESET, reviewTools } from "./review.mjs";
 import { listSkillArchives, skillStore } from "./skill-store.mjs";
 import {
@@ -33,7 +34,7 @@ const scopeSchema = obj(
 	["agent", "profiles", "memoryDir"],
 );
 export default definePlugin({
-	configSchema: obj({ enabled: { type: "boolean" }, scopes: { type: "array", items: scopeSchema } }),
+	configSchema: obj({ enabled: { type: "boolean" }, model: str, scopes: { type: "array", items: scopeSchema } }),
 	setup(api) {
 		// Official discovery/checkPlugin and plugins add may supply no scope yet.
 		// Empty registration grants no Agent access; existing configured objects stay live.
@@ -71,6 +72,7 @@ export default definePlugin({
 			if (!s) fail("scope_denied");
 			return s;
 		};
+		let changes;
 		const review = createReview(api, config, async (info) => {
 			const s = baseScope(info);
 			const canonical = await directory(s.memoryDir);
@@ -78,6 +80,9 @@ export default definePlugin({
 				if (other !== s && (await directory(other.memoryDir)) === canonical) fail("shared_directory_denied");
 			return s;
 		});
+		changes = createLearningViews(api, scopes, review);
+		review.onChange = (session, change) => changes.record(session, change);
+		changes.register();
 		const result = (value) => ({ text: JSON.stringify(value) });
 		const error = (e) => ({
 			...result({
@@ -285,7 +290,7 @@ export default definePlugin({
 		api.presets.register({
 			id: REVIEW_PRESET,
 			description: "Quiet plugin-owned learning review. Opening this preset alone grants no access.",
-			model: "openai/gpt-6.1-sol",
+			...(config.model ? { model: config.model } : {}),
 			thinking: "high",
 			capabilities: ["read", "write"],
 			plugins: [api.id],

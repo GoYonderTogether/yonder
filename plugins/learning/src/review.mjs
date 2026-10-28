@@ -94,12 +94,12 @@ export function createReview(api, config, resolveScope) {
 		durable.sessions[id] ??= { memory: 0, skills: 0, inputs: [], runs: [] };
 		return durable.sessions[id];
 	}
-	async function parent(id, ctx) {
+	async function parent(id, ctx, allowClosed = false) {
 		if (!enabled()) fail("module_disabled");
 		const info = await api.sessions.get(id);
 		if (
 			!info ||
-			info.closed ||
+			(info.closed && !allowClosed) ||
 			!info.agent ||
 			info.mode === "task" ||
 			(ctx && (ctx.agent !== info.agent || ctx.profile !== info.profile))
@@ -137,7 +137,13 @@ export function createReview(api, config, resolveScope) {
 		s.timer = setTimeout(
 			() => {
 				s.timer = null;
-				void launch(id).catch(warn);
+				void launch(id).catch(async (error) => {
+					warn(error);
+					counts(id).lastResult = { status: "error", reason: String(error) };
+					counts(id).pending = null;
+					s.pending = null;
+					await save();
+				});
 			},
 			Math.max(0, s.last + QUIET - Date.now()),
 		);
@@ -283,6 +289,7 @@ export function createReview(api, config, resolveScope) {
 		const d = e.data,
 			g = grants.get(d.session);
 		if (g) {
+			g.finished = true;
 			revoke(g);
 			const s = state(g.parent);
 			if (s.running === g) s.running = null;
@@ -365,6 +372,7 @@ export function createReview(api, config, resolveScope) {
 			};
 			// Nudge intervals roll over at scheduling, independently of dispatch resets.
 			// A Nothing-to-save review must not run again on every subsequent turn.
+			c.pending = s.pending;
 			if (memory) c.memory = 0;
 			if (skills) c.skills = 0;
 			await save();
@@ -376,6 +384,8 @@ export function createReview(api, config, resolveScope) {
 				material: structuredClone({ messages: snap.messages, transcript: items }),
 			};
 		}
+		c.pending = s.pending;
+		await save();
 		s.explicit = null;
 		arm(d.session);
 	}
@@ -385,13 +395,16 @@ export function createReview(api, config, resolveScope) {
 		if (!enabled() || !job || s.busy || s.running || s.opening) return;
 		if (Date.now() - job.created >= AGE) {
 			s.pending = null;
+			counts(id).pending = null;
+			counts(id).lastResult = { status: "expired", reason: "review_queue_expired" };
+			await save();
 			return;
 		}
 		if (s.last + QUIET > Date.now()) {
 			arm(id);
 			return;
 		}
-		const { scope } = await parent(id);
+		const { scope } = await parent(id, undefined, true);
 		if (!enabled() || s.pending !== job || s.generation !== job.generation || s.busy) return;
 		s.pending = null;
 		s.opening = job;
@@ -399,7 +412,7 @@ export function createReview(api, config, resolveScope) {
 		try {
 			session = await api.sessions.open({
 				preset: REVIEW_PRESET,
-				parent: id,
+				modelSource: { session: id, ...(config.model ? { fallback: config.model } : {}) },
 				capabilities: ["read", "write"],
 				close: "manual",
 			});
@@ -430,9 +443,19 @@ export function createReview(api, config, resolveScope) {
 		void api.sessions
 			.submit(session.id, { text: reviewPrompt(g.focus, g.material, g.scope, api.id) }, { wait: true })
 			.then((result) => {
-				g.result = { status: result.status, text: result.text };
+				if (!active(g) && !(g.finished && s.generation === g.generation)) return;
+				g.result = { status: result.status, text: result.text, reason: result.reason };
+				counts(id).lastResult = g.result;
+				counts(id).pending = null;
+				return save();
 			})
-			.catch(warn)
+			.catch(async (error) => {
+				warn(error);
+				if (!active(g) && !(g.finished && s.generation === g.generation)) return;
+				counts(id).lastResult = { status: "error", reason: String(error) };
+				counts(id).pending = null;
+				await save();
+			})
 			.finally(() => {
 				revoke(g);
 				if (s.running === g) s.running = null;
@@ -445,7 +468,7 @@ export function createReview(api, config, resolveScope) {
 		if (!g || !active(g) || ctx.agent !== null || ctx.profile !== REVIEW_PRESET)
 			fail("review_grant_required_or_expired");
 		if (!includesFocus(g.focus, focus)) fail("review_focus_denied");
-		const p = await parent(g.parent);
+		const p = await parent(g.parent, undefined, true);
 		if (p.scope !== g.scope || !active(g)) fail("review_grant_expired");
 		return {
 			scope: g.scope,
@@ -453,9 +476,10 @@ export function createReview(api, config, resolveScope) {
 				review: { id: g.id, origin: "background_review", attended: g.attended },
 				isActive: async () => {
 					if (!active(g)) return false;
-					const p = await parent(g.parent).catch(() => null);
+					const p = await parent(g.parent, undefined, true).catch(() => null);
 					return p?.scope === g.scope && active(g);
 				},
+				onChange: (change) => reviewApi.onChange?.(g.parent, change),
 				turnState: g.turnState,
 				readMarks: g.readMarks,
 				compactResult: true,
@@ -486,12 +510,8 @@ export function createReview(api, config, resolveScope) {
 		}
 		const s = live.get(id);
 		if (!s) return;
-		s.generation++;
-		s.pending = null;
-		clearTimer(s);
-		const running = s.running;
-		s.running = null;
-		await cleanup(running);
+		s.busy = false;
+		arm(id);
 	}
 	async function stop() {
 		stopped = true;
@@ -506,7 +526,11 @@ export function createReview(api, config, resolveScope) {
 		await timeout(Promise.allSettled(cancellations), 2000);
 		await writes;
 	}
-	return {
+	const reviewApi = {
+		status: async (id) => {
+			await ready();
+			return counts(id).lastResult ?? null;
+		},
 		beforeRequest,
 		beforeTool,
 		grant,
@@ -519,10 +543,20 @@ export function createReview(api, config, resolveScope) {
 			api.triggers.register({
 				id: "hermes-learning",
 				async start() {
-					if (config.enabled !== false) await ready();
+					if (config.enabled !== false) {
+						await ready();
+						for (const [id, c] of Object.entries(durable.sessions)) {
+							if (!c.pending) continue;
+							const s = state(id);
+							s.pending = c.pending;
+							s.generation = c.pending.generation;
+							arm(id);
+						}
+					}
 				},
 				stop,
 			});
 		},
 	};
+	return reviewApi;
 }

@@ -49,6 +49,8 @@ export const SessionModelsSchema = object({
 });
 const fields = {
 	...SessionModelsSchema.properties,
+	cheap: Type.Optional(Type.String({ pattern: "^[^/]+/.+$" })),
+	simple: Type.Optional(Type.String({ pattern: "^[^/]+/.+$" })),
 	level: Type.Optional(choice("bypass", "standard", "readonly")),
 	capabilities: Type.Optional(
 		Type.Array(choice("read", "write", "exec", "network", "message", "cross-agent", "admin")),

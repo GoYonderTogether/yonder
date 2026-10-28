@@ -235,6 +235,12 @@ export async function editMemory(dir, args, limit = LIMITS[args.target], signal,
 				await checkActive(signal, options);
 			});
 		else await checkActive(signal, options);
+		if (!noop && options.onChange) {
+			const removed = before.filter((entry) => !working.includes(entry));
+			const added = working.filter((entry) => !before.includes(entry));
+			for (let i = 0; i < Math.max(removed.length, added.length); i++)
+				await options.onChange({ kind: "memory", target, before: removed[i] ?? null, after: added[i] ?? null });
+		}
 		if (options.turnState) options.turnState.consolidationFailures = 0;
 		return success(noop ? raw : next, target, limit, options, noop);
 	} catch (e) {

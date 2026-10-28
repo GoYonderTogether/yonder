@@ -341,6 +341,23 @@ export async function skillStore(root, a, signal, options = {}) {
 				path: join(base, op.name, path),
 			};
 		});
+		if (options.onChange) {
+			for (const relative of touched) {
+				const [name, ...parts] = relative.split("/");
+				const path = parts.join("/");
+				const before = initial.get(relative),
+					after = working.get(relative);
+				if (before === after) continue;
+				await options.onChange({
+					kind: "skill",
+					target: name,
+					path,
+					before,
+					after,
+					...(path === "SKILL.md" && before === null ? { tree: await treeSnapshot(join(base, name)) } : {}),
+				});
+			}
+		}
 		// A fresh read remains valid across this review's own successful writes.
 		// Advance its CAS version, not its readAt; never mint a read for a new file.
 		const marks = marksFor(options);
@@ -414,6 +431,7 @@ async function transition(base, a, signal, options) {
 		const snap = await treeSnapshot(from),
 			metaRaw = await readText(join(from, META), MAX, null),
 			body = await readText(join(from, "SKILL.md"), MAX, null);
+		if (options.expectedTree !== undefined && options.expectedTree !== snap) fail("conflict_external_change");
 		const meta = metaRaw ? JSON.parse(metaRaw) : null;
 		if (!meta || !owned(meta, options) || meta.name !== a.name) fail("archive_requires_owned_skill");
 		if (meta.pinned) fail("pinned_skill");

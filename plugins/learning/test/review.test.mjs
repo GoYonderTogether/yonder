@@ -197,15 +197,12 @@ test("actual registered hooks: memory interval, quiet15, merged latest clone, sc
 		return new Promise(() => {});
 	});
 	await repeat(f, 9);
-	assert.deepEqual(
-		{ ...(await f.counters()) },
-		{
-			memory: 9,
-			skills: 0,
-			inputs: Array.from({ length: 9 }, (_, i) => `in-${i + 1}`),
-			runs: Array.from({ length: 9 }, (_, i) => `in-${i + 1}`),
-		},
-	);
+	assert.deepEqual(Object.fromEntries(Object.entries(await f.counters()).filter(([key]) => key !== "pending")), {
+		memory: 9,
+		skills: 0,
+		inputs: Array.from({ length: 9 }, (_, i) => `in-${i + 1}`),
+		runs: Array.from({ length: 9 }, (_, i) => `in-${i + 1}`),
+	});
 	const tenth = await f.turn({ text: "latest user correction" });
 	await f.tick(14999);
 	assert.equal(f.opened.length, 0);
@@ -274,7 +271,7 @@ test("actual registered hooks: memory interval, quiet15, merged latest clone, sc
 	assert.equal((await f.call("message_send", { text: "bad" }, c)).error, "review_tool_not_allowed_for_focus");
 	assert.equal((await f.call("learning_refine", {}, c)).error, "review_tool_not_allowed_for_focus");
 	assert.ok(f.history.get("parent").every((i) => !i.text.includes("quiet, isolated")));
-	assert.equal(f.opened[0].parent, "parent");
+	assert.equal(f.opened[0].parent, undefined);
 	assert.equal(f.opened[0].agent, null);
 	assert.equal((await f.counters()).memory, 0);
 	assert.equal((await f.counters()).skills, 0);
@@ -469,25 +466,37 @@ test("30min pending age-out and late run.end generation never clone the next for
 	assert.match(f.submitted[0].input.text, /NEXT/);
 });
 
-test("close/off revoke grants before abort and prevent new jobs; restart never revives running grant", async (t) => {
+test("parent close preserves running review; stop revokes grants and restart never revives grants", async (t) => {
 	const f = await setup(t);
 	await repeat(f);
 	await f.tick();
 	await until(() => f.submitted.length === 1);
 	const c = f.reviewContext();
 	await f.emit({ type: "session.close", data: { session: "parent" } });
-	assert.equal((await f.tools[REVIEW_TOOLS[0]].execute({ target: "memory" }, c)).isError, true);
-	assert.ok(f.aborted.includes(c.session));
-	assert.ok(f.closed.includes(c.session));
-	await f.turn();
-	await f.tick();
-	assert.equal(f.submitted.length, 1);
+	assert.equal((await f.tools[REVIEW_TOOLS[0]].execute({ target: "memory" }, c)).isError, undefined);
+	assert.ok(!f.aborted.includes(c.session));
+	assert.ok(!f.closed.includes(c.session));
 	const g = await setup(t, {}, { root: f.root, clock: false });
 	assert.equal((await g.tools[REVIEW_TOOLS[0]].execute({ target: "memory" }, c)).isError, true);
 	g.config.enabled = false;
 	const before = await readFile(join(g.data, "learning-state.json"), "utf8");
 	await g.turn();
 	assert.equal(await readFile(join(g.data, "learning-state.json"), "utf8"), before);
+});
+
+test("queued review survives parent close and trigger restart", async (t) => {
+	const f = await setup(t);
+	await f.turn();
+	f.api.sessions.get = async (id) =>
+		id === "parent" ? { id, agent: "alpha", profile: "owner", mode: "main", closed: "closed" } : undefined;
+	await f.emit({ type: "session.close", data: { session: "parent" } });
+	await f.trigger.stop();
+	const g = await setup(t, {}, { root: f.root, clock: false });
+	g.api.sessions.get = f.api.sessions.get;
+	await g.trigger.start();
+	await g.tick();
+	await until(() => g.submitted.length === 1);
+	assert.equal(g.opened[0].parent, undefined);
 });
 
 test("unattended destructive memory is pending; explicit /refine is trusted attended and does not requeue", async (t) => {

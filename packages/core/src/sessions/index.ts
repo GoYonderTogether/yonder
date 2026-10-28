@@ -1,17 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-import type {
-	Capability,
-	Input,
-	InputReceipt,
-	Preset,
-	RunResult,
-	SessionInfo,
-	SessionModels,
-	SessionsAPI,
-	YEvent,
-} from "@yonder/sdk";
-import { Check } from "typebox/value";
+import type { Capability, Input, InputReceipt, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
 import {
 	type AgentConfig,
 	mergeCredentialSlots,
@@ -21,11 +10,12 @@ import {
 	resolveProfile,
 	type YonderConfig,
 } from "../config/index.js";
-import { SessionModelsSchema } from "../config/schema.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
 import { taskReport } from "../runtime/results.js";
 import type { Store } from "../store/index.js";
 import { createBranches } from "./branches.js";
+import { notifySession, recoverSessionInputs } from "./inputs.js";
+import { configureModel, modelList } from "./model-list.js";
 
 interface CreateSessionsOptions {
 	store: Store;
@@ -132,58 +122,23 @@ export function createSessions({
 				2,
 			);
 		}
-		const mutates = name === "compact" || (name === "model" && args.length > 0 && args[0] !== "list");
+		const mutates =
+			name === "compact" ||
+			(name === "effort" && args.length > 0) ||
+			(name === "model" && args.length > 0 && args[0] !== "list");
 		if (mutates && !caps.includes("admin")) throw new Error("修改模型或压缩需要 admin 权限");
 		if (name === "compact") {
 			if (!caps.includes("network")) throw new Error("压缩需要 network 权限");
 			return `已提交上下文压缩 · Session: ${id} · Task: ${await runtime().compact(id, args.join(" ") || undefined)}\n/status 查看进度`;
 		}
-		if (name !== "model" && name !== "status") throw new Error("仅支持 model / status / compact");
+		if (name !== "model" && name !== "effort" && name !== "status")
+			throw new Error("仅支持 model / effort / status / compact");
 		if (name === "status" && args.length) throw new Error("用法：/status");
-		if (name === "model" && args[0] === "list") {
-			if (args.length > 2) throw new Error("用法：/model list [provider]");
-			const all = runtime().models.getProviders();
-			if (!args[1])
-				return `供应商：\n${all.map((p) => `${p.id} · ${p.getModels().length} models`).join("\n")}\n/model list <provider> 查看模型`;
-			const selected = all.find((p) => p.id === args[1]);
-			if (!selected) throw new Error(`Unknown provider: ${args[1]}`);
-			return (
-				selected
-					.getModels()
-					.map((m) => `${selected.id}/${m.id} · context ${m.contextWindow} · output ${m.maxTokens}`)
-					.join("\n") || "无模型"
-			);
-		}
+		if (name === "effort" && args.length > 1) throw new Error("用法：/effort [level|auto]");
+		if (name === "model" && args[0] === "list") return modelList(runtime(), args);
 		let changed = "";
-		if (name === "model" && args.length) {
-			const saved = (await runtime().sessionState(id))?.models ?? {};
-			const selected = (await resolveSession(id)).resolved;
-			let next: SessionModels | null;
-			if (args[0] === "reset" && args.length === 1) next = null;
-			else if (args[0] === "effort" && args.length === 2)
-				next = { ...saved, thinking: args[1] as NonNullable<SessionModels["thinking"]> };
-			else if (args[0] === "after" && args.length === 2)
-				next = {
-					...saved,
-					fallback: { ...selected.fallback, models: selected.fallback?.models ?? [], after: Number(args[1]) },
-				};
-			else if (args.every((arg) => /^[^/]+\/.+$/.test(arg)))
-				next = {
-					...saved,
-					model: args[0]!,
-					fallback: { ...selected.fallback, models: args.slice(1), after: selected.fallback?.after ?? 3 },
-				};
-			else throw new Error("用法：/model <provider/model> [fallback ...] | effort <level> | after <次数> | reset");
-			if (next && !Check(SessionModelsSchema, next))
-				throw new Error("无效模型设置：effort 必须是 off/minimal/low/medium/high/xhigh/max，after 必须是正整数");
-			for (const ref of [next?.model, ...(next?.fallback?.models ?? [])].filter((ref): ref is string => !!ref)) {
-				const slash = ref.indexOf("/");
-				if (!runtime().models.getModel(ref.slice(0, slash), ref.slice(slash + 1)))
-					throw new Error(`Unknown model: ${ref}`);
-			}
-			await runtime().configureModels(id, next);
-			changed = (await runtime().hasPendingWork(id)) ? "设置已保存，下次运行生效。\n" : "会话模型设置已保存。\n";
-		}
+		if ((name === "model" && args.length) || (name === "effort" && args.length))
+			changed = await configureModel(runtime(), id, name, args, (await resolveSession(id)).resolved);
 		const state = await runtime().modelStatus(id);
 		const channels = session.agent
 			? Object.entries(config.channels ?? {})
@@ -234,7 +189,7 @@ export function createSessions({
 				`回退: ${state.fallback?.models.join(" → ") || "未配置"} · 连续失败 ${state.failures} / ${state.fallback?.after ?? 3}`,
 				`会话绑定渠道: ${channels.join(", ") || "无"}`,
 				`进行中任务 / 子 Agent:\n${tasks.join("\n") || "无"}`,
-				"/model list [provider] · /model effort <level> · /compact [说明] · /status",
+				"/model list [provider] · /effort [level|auto] · /compact [说明] · /status",
 			].join("\n")
 		);
 	}
@@ -367,47 +322,13 @@ export function createSessions({
 		void run.catch(onReport);
 		return { event: event.id, session: id };
 	}
-	async function recover(): Promise<Array<() => void>> {
-		const pending: Array<() => void> = [];
-		let after: string | undefined;
-		do {
-			const page = await store.events.query({ type: "session.input", limit: 1000, ...(after ? { after } : {}) });
-			for (const event of page.events) {
-				const data = event.data as { session?: string; waiting?: boolean; busy?: string; taskOwned?: boolean };
-				if (
-					!data.session ||
-					data.taskOwned ||
-					(await store.events.runForInput(data.session, event.id)) ||
-					(await runtime().admitted(data.session, event.id))
-				)
-					continue;
-				const session = await store.sessions.get(data.session);
-				if (!session || session.closed || data.waiting === undefined || data.busy === undefined) {
-					onReport(new Error(`预设输入 ${event.id} 缺少可恢复接纳信息，不猜测重交`));
-					continue;
-				}
-				pending.push(() => {
-					void submitTaskEvent(session, event).catch(onReport);
-				});
-			}
-			after = page.next;
-		} while (after);
-		return pending;
-	}
-
+	const recover = () => recoverSessionInputs(store, runtime, submitTaskEvent, onReport);
 	async function withPolicy(row: SessionInfo): Promise<SessionInfo> {
 		return row.mode === "task" ? { ...row, close: (await runtime().sessionState(row.id))?.close ?? "run-end" } : row;
 	}
 
-	async function notifyFrom(id: string, input: { event: string; text: string }, from: string) {
-		if (!from.trim()) throw new Error("Notification requires a program source");
-		if (!input.event || typeof input.text !== "string" || !input.text.trim())
-			throw new Error("Notification requires an event and text");
-		const session = await store.sessions.get(id);
-		if (!session || session.closed || closing.has(id)) throw new Error(`Not an open session: ${id}`);
-		if (!(await store.events.get(input.event))) throw new Error(`Unknown notification event: ${input.event}`);
-		return runtime().notify(id, { ...input, from });
-	}
+	const notifyFrom = (id: string, input: { event: string; text: string }, from: string) =>
+		notifySession(store, runtime, closing, id, input, from);
 
 	const branches = createBranches(store, runtime, version, withPolicy);
 	const api: SessionsAPI = {
@@ -421,6 +342,10 @@ export function createSessions({
 		async open(request) {
 			const selected = preset(request.preset);
 			if (!selected) throw new Error(`Unknown preset: ${request.preset}`);
+			const source = request.modelSource ? await store.sessions.get(request.modelSource.session) : undefined;
+			if (request.modelSource && (!source || !source.agent || source.mode === "task"))
+				throw new Error("Invalid model source session");
+			const sourceProfile = source ? await runtime().sessionConfig(source.id) : undefined;
 			const parent = request.parent ? await store.sessions.get(request.parent) : undefined;
 			if (request.parent && !parent) throw new Error(`Unknown parent session: ${request.parent}`);
 			if (parent?.agent && agents.get(parent.agent)?.archivedAt) throw new Error(`Agent archived: ${parent.agent}`);
@@ -434,6 +359,7 @@ export function createSessions({
 				env,
 				parentProfile?.resolved,
 				request.capabilities,
+				parentProfile?.agent,
 			);
 			const key = randomUUID();
 			const id = await runtime().create({
@@ -446,6 +372,19 @@ export function createSessions({
 				...(inherit ? { inherit } : {}),
 				close: request.close ?? "run-end",
 			});
+			if (sourceProfile) {
+				const state = await runtime().sessionState(id);
+				if (!state) throw new Error(`Missing runtime session state: ${id}`);
+				state.models = {
+					model:
+						sourceProfile.resolved.cheap ??
+						sourceProfile.resolved.simple ??
+						request.modelSource?.fallback ??
+						sourceProfile.resolved.model,
+					credentialSlots: sourceProfile.resolved.credentialSlots,
+				};
+				await runtime().setSessionState(id, state);
+			}
 			const session: SessionInfo = {
 				id,
 				agent: null,

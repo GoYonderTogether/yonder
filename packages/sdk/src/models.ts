@@ -24,6 +24,10 @@ export type SessionModels = {
 };
 /** One configured way of running an agent: model, tools, instructions, level, execution environment. */
 export interface Profile extends SessionModels {
+	/** Optional model for inexpensive background judgments. */
+	cheap?: string;
+	/** Alternative inexpensive model when cheap is not configured. */
+	simple?: string;
 	level?: Level;
 	capabilities?: Capability[];
 	/** Undefined preserves legacy unrestricted access; [] permits no channel instances. */
