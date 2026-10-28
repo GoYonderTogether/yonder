@@ -163,11 +163,25 @@ describe("Mux 帧序列", () => {
 		ws.feed(ev(2, "e1:2", "run.ended", { id: "ev-1", status: "done" }));
 		expect(h.events).toHaveLength(1);
 
-		// session.update 的 data.id 是消息 id，流式增量重复用它，必须逐条投递
-		ws.feed(ev(3, "e1:3", "session.update", { type: "message", id: "live", message: { text: "a" }, streaming: true }));
-		ws.feed(ev(4, "e1:4", "session.update", { type: "message", id: "live", message: { text: "ab" }, streaming: true }));
+		// session.update 的 data.id 是消息 id，流式增量重复用它；事件 id 在 data.event.id
+		const delta = (text: string, eventId: string) => ({
+			type: "message",
+			id: "live",
+			event: { id: eventId, type: "message" },
+			message: { text },
+			streaming: true,
+		});
+		ws.feed(ev(3, "e1:3", "session.update", delta("a", "evt-1")));
+		ws.feed(ev(4, "e1:4", "session.update", delta("ab", "evt-2")));
 		expect(h.events).toHaveLength(3);
-		expect(h.events[2]).toMatchObject({ type: "session.update" });
+
+		// 同一条事件重放（同 event.id）仍要挡掉
+		ws.feed(ev(5, "e1:5", "session.update", delta("ab", "evt-2")));
+		expect(h.events).toHaveLength(3);
+
+		// 没有可识别事件 id 的帧不参与 id 去重，只由 seq 决定
+		ws.feed(ev(6, "e1:6", "session.update", { type: "state", running: false }));
+		expect(h.events).toHaveLength(4);
 	});
 
 	it("id 台账跨 ready 保留：重放的同一条事件不再投递", () => {
