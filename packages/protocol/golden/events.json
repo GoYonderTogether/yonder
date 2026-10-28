@@ -1,0 +1,904 @@
+{
+	"protocol": 1,
+	"events": {
+		"activity.summary": {
+			"required": ["running", "sessions", "waiting"],
+			"fields": {
+				"running": "number",
+				"sessions": {
+					"union": [
+						{
+							"array": {
+								"object": {
+									"required": ["agent", "id", "state"],
+									"fields": {
+										"agent": "string",
+										"id": "string",
+										"state": {
+											"union": [
+												{
+													"literal": "error"
+												},
+												{
+													"literal": "idle"
+												},
+												{
+													"literal": "running"
+												},
+												{
+													"literal": "waiting"
+												}
+											]
+										}
+									}
+								}
+							}
+						},
+						{
+							"array": {
+								"object": {
+									"required": ["id", "since", "state"],
+									"fields": {
+										"id": "string",
+										"since": "string",
+										"state": {
+											"union": [
+												{
+													"literal": "error"
+												},
+												{
+													"literal": "idle"
+												},
+												{
+													"literal": "running"
+												},
+												{
+													"literal": "waiting"
+												}
+											]
+										}
+									}
+								}
+							}
+						}
+					]
+				},
+				"suggestions": "number",
+				"waiting": "number"
+			}
+		},
+		"approval.answered": {
+			"required": ["answeredBy", "approvalId", "first", "state"],
+			"fields": {
+				"answeredBy": "string",
+				"approvalId": "string",
+				"first": "boolean",
+				"state": {
+					"union": [
+						{
+							"literal": "approved"
+						},
+						{
+							"literal": "denied"
+						},
+						{
+							"literal": "timeout"
+						}
+					]
+				}
+			}
+		},
+		"approval.requested": {
+			"required": ["card"],
+			"fields": {
+				"card": {
+					"object": {
+						"required": ["approvalId", "expiresAt", "level", "library", "ref", "requestedAt", "sink", "state"],
+						"fields": {
+							"answeredBy": "string",
+							"approvalId": "string",
+							"expiresAt": "string",
+							"field": "string",
+							"level": {
+								"literal": "L2"
+							},
+							"library": "string",
+							"reason": "string",
+							"ref": "string",
+							"requestedAt": "string",
+							"session": "string",
+							"sink": "string",
+							"state": {
+								"union": [
+									{
+										"literal": "approved"
+									},
+									{
+										"literal": "denied"
+									},
+									{
+										"literal": "pending"
+									},
+									{
+										"literal": "timeout"
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		"background.updated": {
+			"required": ["rows", "session"],
+			"fields": {
+				"rows": {
+					"array": {
+						"object": {
+							"required": ["id", "label", "startedAt", "state"],
+							"fields": {
+								"exitCode": "number",
+								"id": "string",
+								"label": "string",
+								"startedAt": "string",
+								"state": {
+									"union": [
+										{
+											"literal": "exited"
+										},
+										{
+											"literal": "running"
+										}
+									]
+								}
+							}
+						}
+					}
+				},
+				"session": "string"
+			}
+		},
+		"capabilities.changed": {
+			"required": ["reason"],
+			"fields": {
+				"reason": {
+					"union": [
+						{
+							"literal": "config-reload"
+						},
+						{
+							"literal": "plugin-reload"
+						}
+					]
+				}
+			}
+		},
+		"compaction.finished": {
+			"required": ["before", "kind", "session"],
+			"fields": {
+				"after": "number",
+				"before": "number",
+				"kind": {
+					"union": [
+						{
+							"literal": "auto"
+						},
+						{
+							"literal": "background"
+						},
+						{
+							"literal": "manual"
+						}
+					]
+				},
+				"ms": "number",
+				"ok": "boolean",
+				"session": "string"
+			}
+		},
+		"compaction.started": {
+			"required": ["before", "kind", "session"],
+			"fields": {
+				"after": "number",
+				"before": "number",
+				"kind": {
+					"union": [
+						{
+							"literal": "auto"
+						},
+						{
+							"literal": "background"
+						},
+						{
+							"literal": "manual"
+						}
+					]
+				},
+				"ms": "number",
+				"ok": "boolean",
+				"session": "string"
+			}
+		},
+		"context.updated": {
+			"required": ["auto", "percent", "session", "tokens", "window"],
+			"fields": {
+				"auto": "boolean",
+				"percent": "number",
+				"session": "string",
+				"tokens": "number",
+				"window": "number"
+			}
+		},
+		"goal.updated": {
+			"required": ["goal", "session"],
+			"fields": {
+				"goal": {
+					"union": [
+						"null",
+						{
+							"object": {
+								"required": ["state", "text", "updatedAt"],
+								"fields": {
+									"state": {
+										"union": [
+											{
+												"literal": "abandoned"
+											},
+											{
+												"literal": "active"
+											},
+											{
+												"literal": "done"
+											},
+											{
+												"literal": "paused"
+											}
+										]
+									},
+									"steps": {
+										"array": {
+											"object": {
+												"required": ["done", "text"],
+												"fields": {
+													"done": "boolean",
+													"text": "string"
+												}
+											}
+										}
+									},
+									"text": "string",
+									"updatedAt": "string"
+								}
+							}
+						}
+					]
+				},
+				"session": "string"
+			}
+		},
+		"model.changed": {
+			"required": ["cause", "session", "to"],
+			"fields": {
+				"cause": {
+					"union": [
+						{
+							"literal": "fallback"
+						},
+						{
+							"literal": "recover"
+						},
+						{
+							"literal": "route"
+						},
+						{
+							"literal": "user"
+						}
+					]
+				},
+				"from": {
+					"object": {
+						"required": ["model", "provider"],
+						"fields": {
+							"model": "string",
+							"provider": "string",
+							"thinking": "string"
+						}
+					}
+				},
+				"session": "string",
+				"to": {
+					"object": {
+						"required": ["model", "provider"],
+						"fields": {
+							"contextWindow": "number",
+							"model": "string",
+							"provider": "string",
+							"routedTo": {
+								"object": {
+									"required": ["model", "provider"],
+									"fields": {
+										"model": "string",
+										"provider": "string",
+										"thinking": "string"
+									}
+								}
+							},
+							"thinking": "string"
+						}
+					}
+				}
+			}
+		},
+		"model.fallback": {
+			"required": ["from", "reason", "session", "state", "to"],
+			"fields": {
+				"from": {
+					"object": {
+						"required": ["model", "provider"],
+						"fields": {
+							"model": "string",
+							"provider": "string",
+							"thinking": "string"
+						}
+					}
+				},
+				"reason": {
+					"union": [
+						{
+							"literal": "error"
+						},
+						{
+							"literal": "quota"
+						},
+						{
+							"literal": "rate_limit"
+						},
+						{
+							"literal": "unavailable"
+						}
+					]
+				},
+				"session": "string",
+				"state": {
+					"union": [
+						{
+							"literal": "fallback"
+						},
+						{
+							"literal": "recovered"
+						}
+					]
+				},
+				"to": {
+					"object": {
+						"required": ["model", "provider"],
+						"fields": {
+							"model": "string",
+							"provider": "string",
+							"thinking": "string"
+						}
+					}
+				}
+			}
+		},
+		"notification": {
+			"required": ["event", "from", "id", "text"],
+			"fields": {
+				"channel": "string",
+				"conv": "string",
+				"event": "string",
+				"from": "string",
+				"id": "number",
+				"session": "string",
+				"text": "string"
+			}
+		},
+		"reply.failed": {
+			"required": ["notice", "session", "willRetry"],
+			"fields": {
+				"notice": "string",
+				"session": "string",
+				"willRetry": "boolean"
+			}
+		},
+		"run.ended": {
+			"required": ["model", "session", "status", "usage"],
+			"fields": {
+				"model": "string",
+				"runId": "string",
+				"session": "string",
+				"status": {
+					"union": [
+						{
+							"literal": "aborted"
+						},
+						{
+							"literal": "done"
+						},
+						{
+							"literal": "error"
+						},
+						{
+							"literal": "limit"
+						}
+					]
+				},
+				"thinking": "string",
+				"usage": {
+					"object": {
+						"required": ["cacheRead", "cacheWrite", "cost", "input", "output"],
+						"fields": {
+							"cacheRead": "number",
+							"cacheWrite": "number",
+							"cost": "number",
+							"input": "number",
+							"output": "number"
+						}
+					}
+				}
+			}
+		},
+		"session.closed": {
+			"required": ["mode", "profile", "session"],
+			"fields": {
+				"mode": "string",
+				"profile": "string",
+				"reason": "string",
+				"session": "string"
+			}
+		},
+		"session.opened": {
+			"required": ["mode", "profile", "session"],
+			"fields": {
+				"mode": "string",
+				"profile": "string",
+				"reason": "string",
+				"session": "string"
+			}
+		},
+		"session.settled": {
+			"required": ["session", "status"],
+			"fields": {
+				"session": "string",
+				"status": {
+					"union": [
+						{
+							"literal": "aborted"
+						},
+						{
+							"literal": "done"
+						},
+						{
+							"literal": "error"
+						},
+						{
+							"literal": "idle"
+						}
+					]
+				}
+			}
+		},
+		"session.update": {
+			"required": ["type"],
+			"fields": {
+				"data": "unknown",
+				"error": "string",
+				"event": {
+					"object": {
+						"required": [],
+						"fields": {}
+					}
+				},
+				"eventIds": {
+					"array": "string"
+				},
+				"id": "string",
+				"inbox": {
+					"array": {
+						"object": {
+							"required": ["id", "mode"],
+							"fields": {
+								"id": "string",
+								"mode": "string"
+							}
+						}
+					}
+				},
+				"inputs": {
+					"array": "string"
+				},
+				"items": {
+					"array": {
+						"object": {
+							"required": ["id"],
+							"fields": {
+								"id": "string",
+								"message": {
+									"object": {
+										"required": [],
+										"fields": {}
+									}
+								},
+								"notification": {
+									"object": {
+										"required": ["event", "from", "id", "text"],
+										"fields": {
+											"event": "string",
+											"from": "string",
+											"id": "number",
+											"text": "string"
+										}
+									}
+								}
+							}
+						}
+					}
+				},
+				"message": {
+					"object": {
+						"required": [],
+						"fields": {}
+					}
+				},
+				"messages": {
+					"array": {
+						"object": {
+							"required": ["id", "message"],
+							"fields": {
+								"id": "string",
+								"message": {
+									"object": {
+										"required": [],
+										"fields": {}
+									}
+								}
+							}
+						}
+					}
+				},
+				"name": "string",
+				"notification": {
+					"object": {
+						"required": ["event", "from", "id", "text"],
+						"fields": {
+							"event": "string",
+							"from": "string",
+							"id": "number",
+							"text": "string"
+						}
+					}
+				},
+				"runId": "string",
+				"running": "boolean",
+				"session": "string",
+				"streaming": "boolean",
+				"tool": {
+					"object": {
+						"required": ["id", "name", "phase"],
+						"fields": {
+							"args": {
+								"object": {
+									"required": [],
+									"fields": {}
+								}
+							},
+							"id": "string",
+							"name": "string",
+							"phase": {
+								"union": [
+									{
+										"literal": "end"
+									},
+									{
+										"literal": "start"
+									},
+									{
+										"literal": "update"
+									}
+								]
+							},
+							"result": {
+								"object": {
+									"required": [],
+									"fields": {}
+								}
+							},
+							"text": "string"
+						}
+					}
+				},
+				"type": {
+					"union": [
+						{
+							"literal": "event"
+						},
+						{
+							"union": [
+								{
+									"literal": "end"
+								},
+								{
+									"literal": "error"
+								},
+								{
+									"literal": "inbox"
+								},
+								{
+									"literal": "message"
+								},
+								{
+									"literal": "model.fallback"
+								},
+								{
+									"literal": "notification"
+								},
+								{
+									"literal": "snapshot"
+								},
+								{
+									"literal": "state"
+								},
+								{
+									"literal": "todo.updated"
+								},
+								{
+									"literal": "tool"
+								}
+							]
+						}
+					]
+				}
+			}
+		},
+		"subtask.updated": {
+			"required": ["rows", "session"],
+			"fields": {
+				"rows": {
+					"array": {
+						"object": {
+							"required": ["id", "label", "session", "startedAt", "state"],
+							"fields": {
+								"id": "string",
+								"label": "string",
+								"lastOutputAt": "string",
+								"session": "string",
+								"startedAt": "string",
+								"state": {
+									"union": [
+										{
+											"literal": "aborted"
+										},
+										{
+											"literal": "done"
+										},
+										{
+											"literal": "error"
+										},
+										{
+											"literal": "running"
+										},
+										{
+											"literal": "waiting"
+										}
+									]
+								}
+							}
+						}
+					}
+				},
+				"session": "string"
+			}
+		},
+		"suggestion.created": {
+			"required": ["suggestion"],
+			"fields": {
+				"suggestion": {
+					"object": {
+						"required": ["body", "by", "createdAt", "id", "kind", "session", "state", "title"],
+						"fields": {
+							"body": "string",
+							"by": "string",
+							"createdAt": "string",
+							"id": "string",
+							"kind": {
+								"union": [
+									{
+										"literal": "followup"
+									},
+									{
+										"literal": "nudge"
+									},
+									{
+										"literal": "organize"
+									}
+								]
+							},
+							"session": "string",
+							"state": {
+								"union": [
+									{
+										"literal": "accepted"
+									},
+									{
+										"literal": "dismissed"
+									},
+									{
+										"literal": "pending"
+									}
+								]
+							},
+							"title": "string"
+						}
+					}
+				}
+			}
+		},
+		"todo.updated": {
+			"required": ["done", "items", "session", "total"],
+			"fields": {
+				"done": "number",
+				"items": {
+					"array": {
+						"object": {
+							"required": ["id", "order", "state", "text"],
+							"fields": {
+								"id": "string",
+								"order": "number",
+								"parent": "string",
+								"state": {
+									"union": [
+										{
+											"literal": "cancelled"
+										},
+										{
+											"literal": "doing"
+										},
+										{
+											"literal": "done"
+										},
+										{
+											"literal": "todo"
+										}
+									]
+								},
+								"text": "string"
+							}
+						}
+					}
+				},
+				"session": "string",
+				"total": "number"
+			}
+		},
+		"transcript.item": {
+			"required": ["id", "kind", "text"],
+			"fields": {
+				"event": "string",
+				"from": "string",
+				"id": "number",
+				"kind": "string",
+				"text": "string",
+				"tools": {
+					"array": {
+						"object": {
+							"required": ["args", "name"],
+							"fields": {
+								"args": {
+									"object": {
+										"required": [],
+										"fields": {}
+									}
+								},
+								"name": "string"
+							}
+						}
+					}
+				}
+			}
+		},
+		"usage.updated": {
+			"required": ["scope", "session", "totals"],
+			"fields": {
+				"last": {
+					"object": {
+						"required": ["cacheHitPct", "cacheRead", "cacheWrite", "cost", "input", "output"],
+						"fields": {
+							"cacheHitPct": "number",
+							"cacheRead": "number",
+							"cacheWrite": "number",
+							"cost": "number",
+							"input": "number",
+							"output": "number"
+						}
+					}
+				},
+				"scope": {
+					"union": [
+						{
+							"literal": "children"
+						},
+						{
+							"literal": "self"
+						}
+					]
+				},
+				"session": "string",
+				"totals": {
+					"object": {
+						"required": ["cacheRead", "cacheWrite", "cost", "input", "output"],
+						"fields": {
+							"cacheRead": "number",
+							"cacheWrite": "number",
+							"cost": "number",
+							"input": "number",
+							"output": "number"
+						}
+					}
+				}
+			}
+		},
+		"views.changed": {
+			"required": ["ids", "placement"],
+			"fields": {
+				"badge": {
+					"record": "number"
+				},
+				"ids": {
+					"array": "string"
+				},
+				"placement": {
+					"union": [
+						{
+							"literal": "floating"
+						},
+						{
+							"literal": "page"
+						},
+						{
+							"literal": "rail"
+						}
+					]
+				}
+			}
+		},
+		"wake.updated": {
+			"required": ["rows", "session"],
+			"fields": {
+				"rows": {
+					"array": {
+						"object": {
+							"required": ["at", "id", "source"],
+							"fields": {
+								"at": "string",
+								"channel": "string",
+								"from": "string",
+								"id": "string",
+								"source": {
+									"union": [
+										{
+											"literal": "channel"
+										},
+										{
+											"literal": "cron"
+										},
+										{
+											"literal": "manual"
+										},
+										{
+											"literal": "other"
+										},
+										{
+											"literal": "voice"
+										}
+									]
+								},
+								"summary": "string"
+							}
+						}
+					}
+				},
+				"session": "string"
+			}
+		}
+	}
+}
