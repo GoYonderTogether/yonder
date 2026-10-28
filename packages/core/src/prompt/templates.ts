@@ -34,7 +34,7 @@ function parseCommandArgs(argsString: string): string[] {
 	let inQuote: string | null = null;
 
 	for (let i = 0; i < argsString.length; i++) {
-		const char = argsString[i];
+		const char = argsString.charAt(i);
 
 		if (inQuote) {
 			if (char === inQuote) {
