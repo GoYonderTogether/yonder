@@ -98,6 +98,7 @@ import { promptSections } from "./prompt-sections.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
+import { runtimeNote } from "./runtime-note.js";
 import { todoTool } from "./todo-tool.js";
 import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
 
@@ -1692,24 +1693,7 @@ export class Runtime {
 	}
 
 	async writeNote(id: string, requestId: string, text: string): Promise<void> {
-		await (await this.conversation(id)).submit(
-			{
-				type: "write",
-				requestId,
-				entry: {
-					kind: "yonder.runtime-note",
-					data: { from: "system:yonder", text },
-					model: [
-						{
-							role: "user",
-							content: [{ type: "text", text: `<runtime_notice source="system:yonder">${text}</runtime_notice>` }],
-							timestamp: Date.now(),
-						},
-					],
-				},
-			},
-			C,
-		);
+		await (await this.conversation(id)).submit(runtimeNote(requestId, text), C);
 	}
 
 	async hasBackgroundWork(id: string, except?: number, input?: string): Promise<boolean> {
