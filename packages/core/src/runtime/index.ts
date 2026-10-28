@@ -1750,6 +1750,13 @@ export class Runtime {
 	async backgroundAction(session: string, args: { action: "status" | "log" | "kill"; id: string; offset?: number }) {
 		return this.background.manage(session, args);
 	}
+	async backgroundChild(session: string, id: string) {
+		const job = await this.background.manage(session, { action: "status", id });
+		if (!("name" in job) || job.name !== "task_run") throw new Error("Not a delegated task");
+		const page = await this.harness.commit((tx) => tx.scanConversations({ ownerTaskId: Number(id) as never }, 1), C);
+		if (!page.items[0]) throw new Error("Child task has not started");
+		return { session: String(page.items[0].id), state: job.state };
+	}
 
 	/** Owner-local presentation, projected from native live state, never reasoning or tool payloads. */
 	async activity(id: string) {

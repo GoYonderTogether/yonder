@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import {
 	type AgentConfig,
@@ -17,6 +18,7 @@ import {
 	workspaceFiles,
 } from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
+import { projectRules } from "../runtime/project-rules.js";
 import { createSkills } from "../skills/index.js";
 import { withConsoleBinding } from "./console.js";
 
@@ -86,6 +88,19 @@ export function filesFor(
 		exists: (path) => files.exists(resolve(cwd, path)),
 		list: (path) => files.list(resolve(cwd, path)),
 	};
+}
+
+export function projectRulesFor(
+	_home: string,
+	_config: YonderConfig,
+	plugins: LoadedPlugins,
+	session: RuntimeSessionConfig,
+	signal?: AbortSignal,
+) {
+	const env = session.resolved.env === "local" ? localEnvironment(session.cwd) : plugins.envs.get(session.resolved.env);
+	if (!env) throw new Error(`Unknown execution environment: ${session.resolved.env}`);
+	const globalDir = resolve(homedir(), ".pi/agent");
+	return projectRules(env, session.cwd, localEnvironment(globalDir), globalDir, signal);
 }
 
 export async function loadAgents(
