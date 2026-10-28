@@ -37,9 +37,10 @@ export function rateLimitReset(error: string, now = Date.now()): number | undefi
 	} catch {
 		/* malformed provider response */
 	}
-	const retryMs = Number(values["retry-after-ms"]);
-	if (values["retry-after-ms"] && Number.isFinite(retryMs) && retryMs > 0) return now + retryMs;
-	const retry = values["retry-after"];
+	const retryMsValue = values["retry-after-ms"] ?? error.match(/"retry_after_ms"\s*:\s*"?([\d.]+)/i)?.[1];
+	const retryMs = Number(retryMsValue);
+	if (retryMsValue && Number.isFinite(retryMs) && retryMs > 0) return now + retryMs;
+	const retry = values["retry-after"] ?? error.match(/"retry_after"\s*:\s*"?([\d.]+)/i)?.[1];
 	if (retry) {
 		const seconds = Number(retry);
 		const at = Number.isFinite(seconds) ? now + seconds * 1000 : Date.parse(retry);
@@ -99,9 +100,10 @@ export class ModelWatch {
 			);
 			if (!entry) continue;
 			const key = chainKey(entry);
-			if (health.held(key)) continue;
 			const reason = attempt.error ?? "model_error";
 			const resetUntil = rateLimitReset(reason);
+			const previous = health.snapshot()[key];
+			if (health.held(key) && (!resetUntil || (previous?.resetUntil ?? 0) >= resetUntil)) continue;
 			if (hold <= 0 && !resetUntil) continue;
 			const seconds = resetUntil
 				? (resetUntil - Date.now()) / 1000
@@ -144,6 +146,7 @@ export class ModelWatch {
 		const modelId = rest.slice(slash + 1);
 		const selection = { [provider]: key.slice(at + 1) };
 		let outcome: "ok" | "throttled" | "broken" = "broken";
+		let resetUntil: number | undefined;
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 30000);
 		try {
@@ -159,9 +162,17 @@ export class ModelWatch {
 					{ messages: [{ role: "user", content: [{ type: "text", text: "ping" }], timestamp: Date.now() }] },
 					// Reasoning models spend the budget thinking before any visible text: a tiny cap makes
 					// every probe an empty completion, so a healthy key can never clear its hold. 07 §6.1.
-					{ maxTokens: 512, signal: controller.signal },
+					{
+						maxTokens: 512,
+						signal: controller.signal,
+						onResponse: (response) => {
+							if (response.status === 429)
+								resetUntil = rateLimitReset(`429 rate_limit_headers: ${JSON.stringify(response.headers)}`);
+						},
+					},
 				)
 				.result();
+			resetUntil ??= rateLimitReset(message.errorMessage ?? "");
 			// A throttled model answered: it is reachable, so it is not broken (G1 F5).
 			outcome =
 				message.stopReason !== "error"
@@ -180,7 +191,9 @@ export class ModelWatch {
 			return;
 		}
 		if (outcome === "throttled") {
-			await health.probed([key], this.probeWindow);
+			if (resetUntil)
+				await health.hold([key], "429", (resetUntil - Date.now()) / 1000, this.probeWindow, 1, resetUntil);
+			else await health.probed([key], this.probeWindow);
 			return;
 		}
 		// A failed probe extends the hold instead of only rescheduling the next probe (07 §6.1).

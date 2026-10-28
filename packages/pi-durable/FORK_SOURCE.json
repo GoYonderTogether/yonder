@@ -1,7 +1,7 @@
 {
 	"repository": "https://github.com/GoYonderTogether/pi.git",
 	"branch": "yonder/1.3",
-	"commit": "83cf9692c7eba80d611e9cab46783342f05b5eaf",
+	"commit": "5414b87ae1909d708d4e188ba582d12486ebb0c5",
 	"upstream": "v1.3.0",
 	"upstreamCommit": "71023aec1546d6d677a65669c5665c0927ce0dd0"
 }

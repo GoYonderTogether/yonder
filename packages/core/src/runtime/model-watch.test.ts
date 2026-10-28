@@ -25,6 +25,15 @@ test("records only failed candidates and clears the candidate that answered", as
 		expect(health.snapshot()["b/two@default"]!.until - Date.now()).toBeGreaterThan(86_000_000);
 		expect(health.held("a/one@default")).toBe(false);
 		expect(health.held("c/three@default")).toBe(false);
+		await health.hold(["a/one@default"], "temporary", 600, 60);
+		await watch.record(config, run, [
+			{
+				model: { provider: "a", modelId: "one" },
+				action: "fallback",
+				error: '429 rate_limit_headers: {"retry-after":"120"}',
+			},
+		]);
+		expect(health.snapshot()["a/one@default"]?.resetUntil).toBeGreaterThan(Date.now() + 119000);
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}
@@ -67,6 +76,8 @@ test("honors reset response metadata and delays probing until reset", async () =
 		const now = Date.now();
 		expect(rateLimitReset('429 rate_limit_headers: {"retry-after":"120"}', now)).toBe(now + 120000);
 		expect(rateLimitReset('429 {"reset_at":1800000000}', now)).toBe(1800000000000);
+		expect(rateLimitReset('429 {"retry_after":30}', now)).toBe(now + 30000);
+		expect(rateLimitReset('429 {"retry_after_ms":300}', now)).toBe(now + 300);
 		let clock = now;
 		const health = new ModelHealth(join(home, "health.json"), () => clock);
 		await health.hold(["a"], "429", 120, 15, 1, now + 120000);
