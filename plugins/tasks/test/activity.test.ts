@@ -88,6 +88,7 @@ test("activity uses caller-visible real tasks once, with exact states and no tas
 		expect((await fetch(new URL(new URL(aURL).pathname, service.publish(a)))).status).toBe(403);
 	} finally {
 		await service.stop();
+		store.close();
 		await rm(directory, { recursive: true, force: true });
 	}
 });

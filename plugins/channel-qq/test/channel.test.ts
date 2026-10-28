@@ -95,7 +95,8 @@ test("scan completion preserves credentials and configures read-only group parti
 		const auth = JSON.parse(await readFile(authFile, "utf8"));
 		expect(auth.existing.key).toBe(before);
 		expect(auth["qq-qq-main"].key).toBe(secret);
-		expect((await stat(authFile)).mode & 0o777).toBe(0o600);
+		// Windows does not expose POSIX permission bits.
+		if (process.platform !== "win32") expect((await stat(authFile)).mode & 0o777).toBe(0o600);
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 		expect(JSON.stringify(config)).not.toContain(secret);
 		expect(config.channels["qq-main"].allowedUsers).toEqual(["OWNER"]);
@@ -248,7 +249,9 @@ test("outbound local media is restricted to the allowlisted root", async () => {
 			source: { url: "https://gchat.qpic.cn/a.png" },
 		});
 		expect(mediaOf({ ...image, uri: join(root, "a.png") }, root).source).toEqual({ localPath: join(root, "a.png") });
-		expect(() => mediaOf({ ...image, uri: "/etc/passwd" }, root)).toThrow("outside the allowlisted media root");
+		expect(() => mediaOf({ ...image, uri: join(home, "outside.png") }, root)).toThrow(
+			"outside the allowlisted media root",
+		);
 		expect(() => mediaOf({ ...image, uri: "../a.png" }, root)).toThrow("absolute local path");
 		await expect(assertInsideMediaRoot(join(root, "inside.png"), root)).resolves.toBeUndefined();
 		await expect(assertInsideMediaRoot(join(root, "escape.png"), root)).rejects.toThrow(

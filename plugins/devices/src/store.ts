@@ -64,15 +64,18 @@ async function save(path: string, value: unknown, exclusive = false): Promise<bo
 		});
 	}
 	// Newly created ancestors also need syncing before any first dispatch.
-	const stop = firstCreated ? dirname(firstCreated) : dir;
-	for (let current = dir; ; current = dirname(current)) {
-		const directory = await open(current, "r");
-		try {
-			await directory.sync();
-		} finally {
-			await directory.close();
+	// Windows rejects fsync on a directory handle (EPERM); NTFS journals metadata itself.
+	if (process.platform !== "win32") {
+		const stop = firstCreated ? dirname(firstCreated) : dir;
+		for (let current = dir; ; current = dirname(current)) {
+			const directory = await open(current, "r");
+			try {
+				await directory.sync();
+			} finally {
+				await directory.close();
+			}
+			if (current === stop) break;
 		}
-		if (current === stop) break;
 	}
 	return published;
 }

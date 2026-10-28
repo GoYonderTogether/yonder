@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
@@ -14,6 +15,11 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	expect(await checkPlugin(resolve(root, "plugins/context-files"))).toEqual([]);
 
 	const data = await mkdtemp(join(tmpdir(), "yonder-channel-cli-"));
+	const filePath = join(data, "test-cli.sock");
+	const socketPath =
+		process.platform === "win32"
+			? `\\\\.\\pipe\\yonder-cli-${createHash("sha256").update(resolve(filePath).toLowerCase()).digest("hex").slice(0, 32)}`
+			: filePath;
 	let provider!: ChannelProvider;
 	const plugin = (await import("../src/index.js")).default;
 	await plugin.setup({
@@ -33,7 +39,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 		"--input-type=module",
 		"-e",
 		'import {createServer} from "node:net"; createServer().listen(process.argv[1], () => console.log("ready"));',
-		join(data, "test-cli.sock"),
+		socketPath,
 	]);
 	await new Promise<void>((done) => stale.stdout.once("data", () => done()));
 	const exited = new Promise<void>((done) => stale.once("exit", () => done()));
@@ -49,7 +55,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 		},
 	});
 
-	const socket = createConnection(join(data, "test-cli.sock"));
+	const socket = createConnection(socketPath);
 	socket.setEncoding("utf8");
 	const lines = createInterface({ input: socket, crlfDelay: Infinity });
 	await new Promise<void>((resolveConnect, reject) => {
@@ -80,7 +86,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	expect(await multiline).toMatchObject({ data: { kind: "dm", text: "第一行\nsecond line" } });
 	expect((await ack).type).toBe("accepted");
 
-	const second = createConnection(join(data, "test-cli.sock"));
+	const second = createConnection(socketPath);
 	second.setEncoding("utf8");
 	const secondLines = createInterface({ input: second, crlfDelay: Infinity });
 	const rejection = (async () => {

@@ -65,6 +65,7 @@ test("panel projects only visible task/agent fields, hides invisible parents and
 		expect((await (await fetch(`${service.publish(worker)}?view=panel`)).json()).panel.agents).toEqual([]);
 	} finally {
 		await service.stop();
+		store.close();
 		await rm(dir, { recursive: true, force: true });
 	}
 });

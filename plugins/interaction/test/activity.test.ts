@@ -80,6 +80,7 @@ test("unpublished summary is private, read-only, and stays unpublished across re
 test("current caller board updates are fetched afresh and never merged or persisted", async () => {
 	const directory = await temporary();
 	const store = new Store(directory);
+	cleanups.push(async () => store.close());
 	const board = new BoardService(store, "en", 0);
 	await board.start();
 	cleanups.push(() => board.stop());

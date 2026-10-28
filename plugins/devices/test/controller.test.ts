@@ -243,7 +243,8 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 			expect(saved!.payloadSha256).toBe(commandDigest(encoded));
 			expect(saved!.origin).toMatchObject({ modelSessionId: ctx.session });
 			const path = join(data, "commands", peer.device.deviceId, publicKeyId(peer.device.controllerKey), `${id}.json`);
-			expect((await stat(path)).mode & 0o777).toBe(0o600);
+			// Windows does not expose POSIX permission bits.
+			if (process.platform !== "win32") expect((await stat(path)).mode & 0o777).toBe(0o600);
 		};
 		const execute = () =>
 			controller.execute(peer.device.deviceId, s.deviceSessionId, id, "test.process", { note: "fixed bytes" }, ctx);
