@@ -5,6 +5,7 @@ import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
+import { cacheToolOutput } from "../../../packages/core/src/runtime/tool-output-cache.js";
 import plugin from "../src/index.js";
 
 test("outline uses real ast-grep for TypeScript and Python", async () => {
@@ -35,24 +36,46 @@ test("outline uses real ast-grep for TypeScript and Python", async () => {
 	expect(files.some((file: { language: string }) => file.language === "Python")).toBe(true);
 	expect(result.text).toContain('"isImport":true');
 	expect(result.text).toContain('"read":');
+	const structure = JSON.parse(
+		(await tool.execute({ paths: ["packages/core/src/runtime/index.ts"], items: "all", view: "expanded" }, ctx)).text,
+	).outline[0].items;
+	expect(structure.some((item: { isExported: boolean }) => item.isExported)).toBe(true);
+	expect(
+		structure.some((item: { members?: { read?: unknown }[] }) => item.members?.some((member) => member.read)),
+	).toBe(true);
+	const filtered = JSON.parse(
+		(
+			await tool.execute(
+				{ paths: ["packages/core/src/runtime/index.ts"], items: "exports", type: ["class"], match: "Runtime" },
+				ctx,
+			)
+		).text,
+	).outline[0].items;
+	expect(
+		filtered.every(
+			(item: { name: string; symbolType: string; isExported: boolean }) =>
+				item.name.includes("Runtime") && item.symbolType === "class" && item.isExported,
+		),
+	).toBe(true);
 	const dir = await mkdtemp(join(tmpdir(), "outline-"));
 	try {
 		for (let i = 0; i < 51; i++) await cp("plugins/code-intel/src/index.ts", join(dir, `${i}.ts`));
-		let raw = "";
+		let cached = "";
 		const truncated = await tool.execute(
 			{ paths: [dir], items: "all" },
 			{
 				...ctx,
 				cacheToolOutput: async (text) => {
-					raw = text;
-					return "cache.json";
+					cached = await cacheToolOutput(dir, "1", tool.name, {}, text, "json");
+					return cached;
 				},
 			},
 		);
 		const output = JSON.parse(truncated.text);
 		expect(output.truncatedFiles).toBe(1);
-		expect(output.fullOutput).toBe("cache.json");
-		expect(JSON.parse(raw)).toHaveLength(51);
+		expect(output.fullOutput).toBe(cached);
+		expect(JSON.parse(await readFile(cached, "utf8"))).toHaveLength(51);
+		expect(await readFile(join(dir, "cache/tool-output/1/index.jsonl"), "utf8")).toContain(tool.name);
 		expect(await readFile("plugins/code-intel/src/index.ts", "utf8")).toContain("definePlugin");
 	} finally {
 		await rm(dir, { recursive: true, force: true });
