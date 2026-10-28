@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { expandTemplate, pluginTemplateDirs } from "./templates.js";
+import { expandTemplate, listTemplates, pluginTemplateDirs } from "./templates.js";
 
 test("prompt templates follow pi argument expansion and agent overrides", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-templates-"));
@@ -47,6 +47,33 @@ test("plugin rescue template is discovered only when its directory is selected",
 		const expanded = await expandTemplate(home, null, request, selected);
 		expect(expanded).toContain("codex-companion_task");
 		expect(expanded).toContain("--fresh --model spark investigate failure");
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("task templates use subagent then executor then home and list the same visible commands", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-task-templates-"));
+	try {
+		for (const path of ["agents/scout/prompts", "presets/scout/prompts", "prompts", "plugin/prompts"])
+			await mkdir(join(home, path), { recursive: true });
+		await writeFile(join(home, "agents/scout/prompts/check.md"), "---\ndescription: Child\n---\nchild $1");
+		await writeFile(join(home, "presets/scout/prompts/check.md"), "executor $1");
+		await writeFile(join(home, "presets/scout/prompts/execute.md"), "execute $1");
+		await writeFile(join(home, "prompts/check.md"), "home $1");
+		await writeFile(join(home, "plugin/prompts/plugin.md"), "---\ntool: selected\ndescription: Plugin\n---\nplugin $1");
+		const plugins = [{ directory: join(home, "plugin/prompts"), tools: ["selected"] }];
+		expect(await expandTemplate(home, null, '/check "two words"', plugins, "scout")).toBe("child two words");
+		expect(await expandTemplate(home, null, "/execute hi", plugins, "scout")).toBe("execute hi");
+		expect(await expandTemplate(home, null, "/plugin hi", plugins, "scout")).toBe("plugin hi");
+		expect(await listTemplates(home, null, "scout", plugins)).toEqual([
+			{ name: "check", description: "Child" },
+			{ name: "execute", description: "" },
+			{ name: "plugin", description: "Plugin" },
+		]);
+		expect(
+			await listTemplates(home, null, "scout", [{ directory: join(home, "plugin/prompts"), tools: [] }]),
+		).not.toContainEqual({ name: "plugin", description: "Plugin" });
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

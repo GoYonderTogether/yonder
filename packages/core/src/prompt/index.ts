@@ -343,7 +343,13 @@ export async function prepareInput(
 			event.type === "runtime.continuation"
 				? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
 				: message
-					? await expandTemplate(options.home, session.agent, data.text ?? "", options.templateDirs?.(session))
+					? await expandTemplate(
+							options.home,
+							session.agent,
+							data.text ?? "",
+							options.templateDirs?.(session),
+							session.profile,
+						)
 					: JSON.stringify(event.data),
 			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 无身份任务支持按子 Agent 名称和执行者 preset 分层发现参数化提示词模板。
+
 - Console 展示 Bot 来源、会话事件与投递追踪，并保留历史工具结果。
 
 - Add optional read-only Codex task delegation and rescue prompt; write delegation, thread selection and explicit background routing remain pending.

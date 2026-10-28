@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
 
@@ -16,35 +16,87 @@ export function pluginTemplateDirs(
 	});
 }
 
-export async function expandTemplate(
+type TemplateDir = string | { directory: string; tools: string[] };
+
+function templateDirs(home: string, agent: string | null, profile: string, plugins: TemplateDir[]): TemplateDir[] {
+	const safe = (value: string) =>
+		value && value !== "." && value !== ".." && !value.includes("/") && !value.includes("\\");
+	return [
+		...(agent && safe(agent) ? [join(home, "agents", agent, "prompts")] : []),
+		...(!agent && safe(profile)
+			? [join(home, "agents", profile, "prompts"), join(home, "presets", profile, "prompts")]
+			: []),
+		join(home, "prompts"),
+		...plugins,
+	];
+}
+
+async function readTemplate(
+	entry: TemplateDir,
+	name: string,
+): Promise<{ text: string; description: string } | undefined> {
+	const directory = typeof entry === "string" ? entry : entry.directory;
+	let content: string;
+	try {
+		content = await readFile(join(directory, `${name}.md`), "utf8");
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+		throw error;
+	}
+	content = content.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+	let description = "";
+	if (content.startsWith("---")) {
+		const end = content.indexOf("\n---", 3);
+		if (end !== -1) {
+			const metadata = content.slice(4, end) ? parse(content.slice(4, end)) : undefined;
+			if (typeof entry !== "string" && metadata?.tool && !entry.tools.includes(metadata.tool)) return undefined;
+			if (typeof metadata?.description === "string") description = metadata.description;
+			content = content.slice(end + 4).trim();
+		}
+	}
+	return { text: content, description };
+}
+
+export async function listTemplates(
 	home: string,
 	agent: string | null,
-	text: string,
-	pluginDirs: Array<string | { directory: string; tools: string[] }> = [],
-): Promise<string> {
-	const match = /^\/([^\s/\\]+)(?:\s+([\s\S]*))?$/.exec(text);
-	if (!match || match[1] === "." || match[1] === "..") return text;
-	const directories = agent ? [join(home, "agents", agent, "prompts"), join(home, "prompts")] : [join(home, "prompts")];
-	for (const entry of [...directories, ...pluginDirs]) {
-		const directory = typeof entry === "string" ? entry : entry.directory;
-		let content: string;
+	profile: string,
+	pluginDirs: TemplateDir[] = [],
+): Promise<Array<{ name: string; description: string }>> {
+	const result = new Map<string, { name: string; description: string }>();
+	for (const entry of templateDirs(home, agent, profile, pluginDirs)) {
+		let names: string[];
 		try {
-			content = await readFile(join(directory, `${match[1]}.md`), "utf8");
+			names = await readdir(typeof entry === "string" ? entry : entry.directory);
 		} catch (error) {
 			if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
 			throw error;
 		}
-		content = content.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-		if (content.startsWith("---")) {
-			const end = content.indexOf("\n---", 3);
-			if (end !== -1) {
-				const metadata = content.slice(4, end) ? parse(content.slice(4, end)) : undefined;
-				if (typeof entry !== "string" && metadata?.tool && !entry.tools.includes(metadata.tool)) continue;
-				content = content.slice(end + 4).trim();
-			}
+		for (const file of names.sort()) {
+			if (!file.endsWith(".md")) continue;
+			const name = file.slice(0, -3);
+			if (result.has(name)) continue;
+			const template = await readTemplate(entry, name);
+			if (template) result.set(name, { name, description: template.description });
 		}
+	}
+	return [...result.values()];
+}
+
+export async function expandTemplate(
+	home: string,
+	agent: string | null,
+	text: string,
+	pluginDirs: TemplateDir[] = [],
+	profile = "",
+): Promise<string> {
+	const match = /^\/([^\s/\\]+)(?:\s+([\s\S]*))?$/.exec(text);
+	if (!match || match[1] === "." || match[1] === "..") return text;
+	for (const entry of templateDirs(home, agent, profile, pluginDirs)) {
+		const template = await readTemplate(entry, match[1] as string);
+		if (!template) continue;
 		const rawArgs = match[2] ?? "";
-		return substituteArgs(content, parseCommandArgs(rawArgs), rawArgs);
+		return substituteArgs(template.text, parseCommandArgs(rawArgs), rawArgs);
 	}
 	return text;
 }

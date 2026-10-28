@@ -478,3 +478,7 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 ## 2026-10-28：会话事件追踪（主 Agent 代批）
 
 `sessions.trace` 只读扫描现有事件账本，以路由、事件 session 或 unknown 对应 attempt 的 session 关联会话；沿用会话权限，不推断无会话的事件归属。扫描分页可能返回空页与 next。
+
+### 主 Agent 代批：任务模板层级
+
+无身份任务按 preset 名称依次查找 `agents/<preset>/prompts/`、`presets/<preset>/prompts/`、home 和选中工具的插件目录；子 Agent Markdown 定义的 name 与任务 preset 身份相同。模板只展开输入，不改变权限；补全与展开复用发现和过滤。
