@@ -137,3 +137,14 @@ export function holdSeconds(fallback: FallbackChainConfig | undefined): number {
 export function probeSeconds(fallback: FallbackChainConfig | undefined): number {
 	return Math.max(MIN_MODEL_PROBE_SECONDS, fallback?.probe ?? DEFAULT_MODEL_PROBE_SECONDS);
 }
+
+export type FallbackReason = "rate_limit" | "quota" | "unavailable" | "error";
+/** The `model.fallback` reason (contracts §3.3) from the provider error that made the chain move on. */
+export function fallbackReason(error: string | undefined): FallbackReason {
+	const text = error ?? "";
+	if (/quota|insufficient.?(balance|credit)|billing|usage limit|exceeded your current/i.test(text)) return "quota";
+	if (/rate.?limit|too many requests|\b429\b/i.test(text)) return "rate_limit";
+	if (/\b5\d{2}\b|overloaded|unavailable|timed? out|timeout|no first token|ECONN|fetch failed|connection/i.test(text))
+		return "unavailable";
+	return "error";
+}

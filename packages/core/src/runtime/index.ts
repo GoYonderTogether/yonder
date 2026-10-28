@@ -81,6 +81,7 @@ import {
 	parseAccountProvider,
 	probeSeconds,
 	refKey,
+	fallbackReason,
 	splitModelRef,
 } from "./model-chain.js";
 import { ModelGate } from "./model-gate.js";
@@ -1224,6 +1225,49 @@ export class Runtime {
 		);
 		return page.items.map(transcriptItem);
 	}
+	/**
+	 * Track one fallback episode per session and report its edges (contracts §3.3): the first answered run on a
+	 * non-primary model starts it, the first answered run on the primary ends it. Runs without an answer say
+	 * nothing about which model works, so they change nothing.
+	 */
+	private async noteFallback(session: string, config: RuntimeSessionConfig, run: RuntimeRun, from?: number) {
+		if (!run.model || run.status !== "done" || !this.options.onModelFallback) return;
+		const primary = splitModelRef(config.resolved.model);
+		const primaryRef = { provider: primary.provider, model: primary.modelId };
+		const slash = run.model.indexOf("/");
+		const actual = { provider: run.model.slice(0, slash), model: run.model.slice(slash + 1) };
+		const onPrimary = actual.provider === primaryRef.provider && actual.model === primaryRef.model;
+		const episode = (await this.harness.snapshot(SessionDoc, cid(session), C))?.fallback ?? null;
+		if (onPrimary === !episode) return;
+		let reason = episode?.reason ?? "error";
+		if (!episode) {
+			const entries = await this.storage.scanEntries(
+				{ conversationId: cid(session), ...(from === undefined ? {} : { minEntryId: from as EntryId }) },
+				Number.MAX_SAFE_INTEGER,
+				undefined,
+				C,
+			);
+			const attempt = entries.items.findLast(
+				(entry) =>
+					entry.kind === "pi.model-attempt" && (entry.data as { action?: string } | undefined)?.action === "fallback",
+			);
+			reason = fallbackReason((attempt?.data as { error?: string } | undefined)?.error);
+		}
+		await (await this.conversation(session)).commit(async (tx) => {
+			(await tx.doc(SessionDoc, cid(session))).fallback = onPrimary ? null : { ...actual, reason };
+		}, C);
+		await this.options.onModelFallback(
+			onPrimary
+				? {
+						session,
+						state: "recovered",
+						from: { provider: episode!.provider, model: episode!.model },
+						to: primaryRef,
+						reason,
+					}
+				: { session, state: "fallback", from: primaryRef, to: actual, reason },
+		);
+	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
 			sum = emptyUsage();
@@ -1408,6 +1452,7 @@ export class Runtime {
 				usage,
 			};
 			await this.watch.record(config, run, await this.watch.chainIndex(session, config, run));
+			await this.noteFallback(session, config, run, placed.length ? Math.min(...placed) : undefined);
 			const active = this.limits.states.get(key);
 			active?.visibility.abort();
 			clearTimeout(active?.timer);

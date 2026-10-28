@@ -67,7 +67,19 @@ export interface RuntimeOptions {
 	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
 	/** Model health changed: a chain entry was held after a failed run, or a probe recovered it. */
 	onModelHealth?(event: { key: string; state: "held" | "recovered"; reason?: string; until?: number }): void;
+	/**
+	 * A session's answers moved to a fallback model, or came back to its primary (contracts §3.3 `model.fallback`).
+	 * Fires once when an episode starts and once when it ends, never in between.
+	 */
+	onModelFallback?(event: ModelFallbackEvent): Promise<void>;
 	onReport?(error: unknown): void;
+}
+export interface ModelFallbackEvent {
+	session: string;
+	state: "fallback" | "recovered";
+	from: { provider: string; model: string };
+	to: { provider: string; model: string };
+	reason: "rate_limit" | "quota" | "unavailable" | "error";
 }
 export interface RuntimeInput {
 	text: string;

@@ -21,6 +21,12 @@ export const SessionDoc = defineDoc({
 		// Only actual run starts advance this cursor; historical receipt replay cannot backfill issues.
 		activityRunId: null as string | null,
 		activityIssue: null as NonNullable<RuntimeActivityExecution["issue"]> | null,
+		// The fallback episode in progress: the model answering instead of the primary, and why it started.
+		fallback: null as {
+			provider: string;
+			model: string;
+			reason: "rate_limit" | "quota" | "unavailable" | "error";
+		} | null,
 	}),
 });
 export const cid = (id: string) => Number(id) as ConversationId;

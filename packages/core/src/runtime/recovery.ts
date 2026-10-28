@@ -57,6 +57,7 @@ export function recoveryHooks(harness: () => Harness, maxRetries: number) {
 				const notes = (inbox?.items ?? []).flatMap((item) =>
 					item.mode === "write" && item.entry.kind === "yonder.runtime-note" ? (item.entry.model ?? []) : [],
 				);
+				// SAFETY: runtime notes are written by Yonder as pi user messages; the inbox types them as stored model JSON.
 				if (notes.length) return { messages: [...request.messages, ...(notes as unknown as Message[])] };
 			},
 			shouldRetry: (message) => transientModelError(message),

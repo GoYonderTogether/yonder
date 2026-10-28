@@ -16,7 +16,9 @@ const workbuddy = () =>
 	(JSON.parse(readFileSync(catalog, "utf8")) as { providers: Record<string, unknown> }).providers.workbuddy as {
 		baseUrl: string;
 	};
-const ping = { messages: [{ role: "user" as const, content: "Reply with the single word: pong", timestamp: Date.now() }] };
+const ping = {
+	messages: [{ role: "user" as const, content: "Reply with the single word: pong", timestamp: Date.now() }],
+};
 
 test.skipIf(!ready)("a provider that never sends a first token fails retryably within firstTokenMs", async () => {
 	const sockets: Socket[] = [];

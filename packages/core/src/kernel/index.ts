@@ -394,6 +394,14 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			},
 			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
+			onModelFallback: async (event) => {
+				const session = await store.sessions.get(event.session);
+				await store.events.record({
+					type: "model.fallback",
+					...(session?.agent ? { from: `agent:${session.agent}` as const } : {}),
+					data: event,
+				});
+			},
 			onReport: report,
 		});
 		const validateCandidate = async (
