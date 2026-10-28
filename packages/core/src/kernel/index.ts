@@ -321,6 +321,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			runtime: realRuntime,
 			sessions,
 			onReport: report,
+			log,
 		});
 		router = createRouter({
 			channels: loaded.channels,

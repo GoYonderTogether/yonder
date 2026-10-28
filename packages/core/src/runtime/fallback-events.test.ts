@@ -132,7 +132,9 @@ test.skipIf(!real)(
 			const gaps = calls.slice(1).map((call, i) => call.at - calls[i]!.at);
 			expect(gaps[3]!).toBeLessThan(gaps[2]! + 1000);
 			expect(gaps[3]!).toBeLessThan(2500);
-			expect(stopNotice(failed.reason ?? "")).toMatch(/^模型都不可用（model_error），这一轮没有完成。原因：/u);
+			expect(stopNotice(failed.reason ?? "")).toMatch(
+				/^模型都不可用（model_error），这一轮没有完成。过一会儿回我一句/u,
+			);
 			expect(events).toHaveLength(2);
 		} finally {
 			await runtime.close();
