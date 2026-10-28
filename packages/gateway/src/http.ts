@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extname, join, normalize, sep } from "node:path";
+import { basename, extname, join, normalize, sep } from "node:path";
 
 export const CSP = [
 	"default-src 'self'",
@@ -125,7 +125,12 @@ export async function serveStatic(
 		const html = body.toString("utf8");
 		body = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => `${m}${tags}`) : `${tags}${html}`;
 	}
-	send(res, 200, body, type);
+	const cache = file.endsWith(`${sep}index.html`)
+		? "no-cache"
+		: /-[A-Za-z0-9_-]{8,}\.[^.]+$/.test(basename(file))
+			? "public, max-age=31536000, immutable"
+			: "no-store";
+	send(res, 200, body, type, { "Cache-Control": cache });
 	return true;
 }
 

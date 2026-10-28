@@ -1,4 +1,4 @@
-import { appendFile, mkdtemp, rm } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
@@ -43,9 +43,15 @@ beforeAll(async () => {
 	await initHome(home, "owner", { model: testModel });
 	await appendFile(`${home}/yonder.yaml`, "gateway:\n  basePath: /console/\n  trustProxy: true\n");
 	await setAccessTokenHash(home, tokenHash(ACCESS));
+	const staticDir = join(home, "static");
+	await mkdir(join(staticDir, "assets"), { recursive: true });
+	await writeFile(join(staticDir, "index.html"), "<head></head>");
+	await writeFile(join(staticDir, "assets", "app-AbCd1234.js"), "export {};");
+	await writeFile(join(staticDir, "version.json"), "{}");
 	kernel = await openKernel(home);
 	gateway = await startGateway({
 		home,
+		staticDir,
 		host: { kernel, home, releaseInfo: () => releaseInfo(home), awakeStatus: () => ({}), stop: () => {} },
 	});
 	base = `http://127.0.0.1:${gateway.port}`;
@@ -112,6 +118,20 @@ describe("gateway hardening", () => {
 		expect(((await rpc.json()) as { ok: boolean }).ok).toBe(true);
 		const ws = await open("/console/api/stream?v=1", { cookie });
 		ws.close();
+	});
+
+	it("sets cache policy for console static files and SPA fallback", async () => {
+		const cookie = cookieOf(await fetch(`${base}/console/?token=${gateway.ticket().token}`, { redirect: "manual" }));
+		for (const [path, cache] of [
+			["", "no-cache"],
+			["settings", "no-cache"],
+			["assets/app-AbCd1234.js", "public, max-age=31536000, immutable"],
+			["version.json", "no-store"],
+		]) {
+			const response = await fetch(`${base}/console/${path}`, { headers: { cookie } });
+			expect(response.status).toBe(200);
+			expect(response.headers.get("cache-control")).toBe(cache);
+		}
 	});
 
 	it("closes remote sockets when the access token is rotated", async () => {
