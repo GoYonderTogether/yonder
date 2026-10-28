@@ -1,6 +1,6 @@
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PermissionProvider, PluginAPI, Tool, ToolContext, YEvent } from "@yonder/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -371,7 +371,8 @@ describe("owner file actions, mocked transport and ordinary temp artifacts only"
 		const destinations: string[] = [];
 		transport.desktop.mockImplementation(async (args) => {
 			destinations.push(args.destination);
-			expect((await stat(args.destination.substring(0, args.destination.lastIndexOf("/")))).mode & 0o777).toBe(0o700);
+			// POSIX permission bits only: Windows reports every directory as 0o666.
+			if (process.platform !== "win32") expect((await stat(dirname(args.destination))).mode & 0o777).toBe(0o700);
 			await writeFile(args.destination, bytes, { flag: "wx" });
 			return { path: args.destination, size: bytes.length, metadata };
 		});
