@@ -106,6 +106,7 @@ export const BindingSchema = object({
 
 export const AgentSchema = object({
 	schema: Type.Literal(1),
+	version: Type.Optional(Type.Literal(1)),
 	id: text,
 	name: text,
 	avatarUrl: Type.Optional(text),
@@ -116,9 +117,15 @@ export const AgentSchema = object({
 	profiles: Type.Record(text, ProfileSchema),
 	bindings: Type.Array(BindingSchema),
 });
-export const PresetSchema = object({ schema: Type.Literal(1), description: text, ...fields });
+export const PresetSchema = object({
+	schema: Type.Literal(1),
+	version: Type.Optional(Type.Literal(1)),
+	description: text,
+	...fields,
+});
 export const YonderSchema = object({
 	schema: Type.Literal(1),
+	version: Type.Optional(Type.Literal(1)),
 	locale: Type.Optional(text),
 	timezone: Type.Optional(text),
 	defaultModel: Type.Optional(text),

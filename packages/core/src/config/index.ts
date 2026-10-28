@@ -195,6 +195,16 @@ function parse<T extends TSchema>(text: string, file: string, schema: T): Static
 	if (document.errors.length)
 		throw new ConfigError(document.errors.map(({ message }) => ({ file, path: "/", message })));
 	const value: unknown = document.toJS();
+	if (
+		value !== null &&
+		typeof value === "object" &&
+		"version" in value &&
+		typeof value.version === "number" &&
+		value.version > 1
+	)
+		throw new ConfigError([
+			{ file, path: "/version", message: `配置版本 ${value.version} 高于本程序支持的 1，请升级 Yonder` },
+		]);
 	const issues = Errors(schema, value).map((error) => ({
 		file,
 		path: error.instancePath || "/",
