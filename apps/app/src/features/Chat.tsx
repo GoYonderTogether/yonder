@@ -1,8 +1,9 @@
 import { ChevronLeft, Layers, PanelRight } from "lucide-react";
 import { useState } from "react";
-import { isImported, titleOf } from "../lib/identity";
+import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
+import { useTitleOf } from "../lib/queries";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
 import { Composer } from "../ui/Composer";
 import { FloatLayer } from "../ui/FloatLayer";
@@ -122,6 +123,7 @@ function RailSheet({ children, onClose }: { children: React.ReactNode; onClose()
 
 function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	const [rail, setRail] = useState(false);
+	const titleOf = useTitleOf();
 	const s = v.session;
 	const sub = v.running ? "正在回复…" : s?.closed ? "已结束" : s ? `${s.profile} · ${s.mode}` : undefined;
 	return (

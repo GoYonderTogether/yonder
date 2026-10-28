@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { badge } from "../lib/format";
 import { groupOf, titleOf } from "../lib/identity";
 import { markRead, usePrefs } from "../lib/prefs";
-import { useActivity, useSessions, useTail } from "../lib/queries";
+import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import type { SessionView } from "../lib/useSession";
 import { rpc } from "../transport/client";
@@ -18,6 +18,7 @@ const num = (id: string) => Number(id.replace(/\D/g, ""));
 
 function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; running: boolean }) {
 	const prefs = usePrefs();
+	const title = useTitleOf()(s);
 	const tail = useTail(s.id, running ? "run" : "idle");
 	const items = tail.data ?? [];
 	const lastId = items.reduce((m, i) => Math.max(m, num(i.id)), 0);
@@ -34,7 +35,7 @@ function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; runni
 			data-testid="bot-row"
 		>
 			<Avatar seed={s.agent ?? s.id} group="bot" size={32} dot={running} />
-			<span className="min-w-0 flex-1 truncate text-small font-medium">{titleOf(s)}</span>
+			<span className="min-w-0 flex-1 truncate text-small font-medium">{title}</span>
 			<span className="text-caption text-faint">{running ? "运行中" : "待命"}</span>
 			{unread > 0 && (
 				<span

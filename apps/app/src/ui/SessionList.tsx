@@ -7,7 +7,7 @@ import { badge, clock } from "../lib/format";
 import { GROUP_TITLE, type Group, groupOf, titleOf } from "../lib/identity";
 import { type ImportSummary, importRoute } from "../lib/imports";
 import { markRead, setLevel, togglePin, usePrefs } from "../lib/prefs";
-import { useActivity, useImports, useSessions, useTail } from "../lib/queries";
+import { useActivity, useBotNames, useImports, useSessions, useTail, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import { rpc } from "../transport/client";
@@ -19,6 +19,7 @@ const num = (id: string) => Number(id.replace(/\D/g, ""));
 
 function Row({ s, active, running }: { s: SessionInfo; active: boolean; running: boolean }) {
 	const prefs = usePrefs();
+	const title = useTitleOf()(s);
 	const tail = useTail(s.id, running ? "run" : "idle");
 	const items = tail.data ?? [];
 	const last = items[items.length - 1];
@@ -76,7 +77,7 @@ function Row({ s, active, running }: { s: SessionInfo; active: boolean; running:
 				<Avatar seed={s.agent ?? s.id} group={groupOf(s)} dot={running} />
 				<span className="min-w-0 flex-1">
 					<span className="flex items-baseline gap-2">
-						<span className="truncate text-body font-medium">{titleOf(s)}</span>
+						<span className="truncate text-body font-medium">{title}</span>
 						{level === "mute" && <BellOff size={13} className="shrink-0 text-faint" aria-label="免打扰" />}
 						<span className="ml-auto shrink-0 text-caption text-faint">
 							{clock(running ? undefined : (s.closed ?? s.opened))}
@@ -105,7 +106,7 @@ function Row({ s, active, running }: { s: SessionInfo; active: boolean; running:
 					</span>
 				</span>
 			</a>
-			{menu && <ActionMenu at={menu} title={titleOf(s)} actions={actions} onClose={() => setMenu(null)} />}
+			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
 		</>
 	);
 }
@@ -171,11 +172,12 @@ export function SessionList({ active, only }: { active?: string; only?: Group[] 
 		[activity.data],
 	);
 
+	const names = useBotNames();
 	const groups = useMemo(() => {
 		const by: Record<Group, SessionInfo[]> = { bot: [], task: [], import: [] };
 		for (const s of sessions.data ?? []) {
 			if (s.closed && s.id !== active) continue;
-			if (q && !titleOf(s).toLowerCase().includes(q.toLowerCase())) continue;
+			if (q && !titleOf(s, names).toLowerCase().includes(q.toLowerCase())) continue;
 			by[groupOf(s)].push(s);
 		}
 		for (const g of Object.values(by)) {
@@ -185,7 +187,7 @@ export function SessionList({ active, only }: { active?: string; only?: Group[] 
 			);
 		}
 		return by;
-	}, [sessions.data, q, prefs.pinned, active]);
+	}, [sessions.data, names, q, prefs.pinned, active]);
 
 	const importRows = useMemo(() => {
 		const rows = (imports.data?.sessions ?? []).filter((s) => !q || s.title.toLowerCase().includes(q.toLowerCase()));

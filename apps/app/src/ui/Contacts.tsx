@@ -1,11 +1,12 @@
-import { groupOf, titleOf } from "../lib/identity";
-import { useSessions } from "../lib/queries";
+import { groupOf } from "../lib/identity";
+import { useSessions, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import { Avatar } from "./Avatar";
 
 /** 通讯录：契约还没有联系人接口，只列出 sessions.list 里真实存在的常驻 Bot。 */
 export function Contacts() {
 	const sessions = useSessions();
+	const titleOf = useTitleOf();
 	const bots = (sessions.data ?? []).filter((s) => groupOf(s) === "bot" && !s.closed);
 	return (
 		<div className="scroll-y h-full" data-testid="contacts">
