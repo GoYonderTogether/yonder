@@ -161,6 +161,21 @@ export function applyTodo(list: TodoList, args: TodoArgs): { list?: TodoList; te
 			if (target && target !== task.status) {
 				if (!transitions[task.status].includes(target))
 					throw new Error(`Task #${task.id} cannot move from ${task.status} to ${target}`);
+				if (target === "in_progress") {
+					const active = tasks.find((item) => item.status === "in_progress" && item.id !== task.id);
+					if (active)
+						throw new Error(
+							`Task #${active.id} is already in_progress; complete or reset it before starting #${task.id}`,
+						);
+					const open = task.blockedBy.filter((n) => {
+						const status = tasks.find((item) => item.id === n)?.status;
+						return status !== undefined && status !== "completed" && status !== "deleted";
+					});
+					if (open.length)
+						throw new Error(
+							`Task #${task.id} is blocked by ${open.map((n) => `#${n}`).join(", ")}; finish those first`,
+						);
+				}
 				task.status = target;
 			}
 			if (args.action === "update") {

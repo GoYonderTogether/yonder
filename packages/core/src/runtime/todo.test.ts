@@ -56,3 +56,45 @@ test("invalid calls are rejected and leave the list unchanged", () => {
 	expect(run(list, { action: "update", id: 2, removeBlockedBy: [1] }).tasks[1]!.blockedBy).toEqual([]);
 	expect(list).toEqual(snapshot);
 });
+
+test("only one task may be in_progress at a time", () => {
+	const list = run(
+		emptyTodos(),
+		{ action: "create", subject: "First" },
+		{ action: "create", subject: "Second" },
+		{ action: "update", id: 1, status: "in_progress" },
+	);
+	expect(() => applyTodo(list, { action: "update", id: 2, status: "in_progress" })).toThrow(
+		"Task #1 is already in_progress; complete or reset it before starting #2",
+	);
+	// Re-asserting the active task is not a second start, and finishing it frees the slot.
+	expect(() =>
+		applyTodo(list, { action: "update", id: 1, status: "in_progress", activeForm: "working" }),
+	).not.toThrow();
+	const done = run(
+		list,
+		{ action: "update", id: 1, status: "completed" },
+		{ action: "update", id: 2, status: "in_progress" },
+	);
+	expect(done.tasks.map((task) => task.status)).toEqual(["completed", "in_progress"]);
+});
+
+test("a task with unfinished blockers cannot start, and starts once they finish or are deleted", () => {
+	const list = run(
+		emptyTodos(),
+		{ action: "create", subject: "Design" },
+		{ action: "create", subject: "Build", blockedBy: [1] },
+	);
+	expect(() => applyTodo(list, { action: "update", id: 2, status: "in_progress" })).toThrow(
+		"Task #2 is blocked by #1; finish those first",
+	);
+	expect(list.tasks[1]?.status).toBe("pending");
+	const finished = run(list, { action: "update", id: 1, status: "completed" });
+	expect(applyTodo(finished, { action: "update", id: 2, status: "in_progress" }).list?.tasks[1]?.status).toBe(
+		"in_progress",
+	);
+	const dropped = run(list, { action: "delete", id: 1 });
+	expect(applyTodo(dropped, { action: "update", id: 2, status: "in_progress" }).list?.tasks[1]?.status).toBe(
+		"in_progress",
+	);
+});
