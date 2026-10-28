@@ -22,6 +22,12 @@ export class SocialError extends Error {
 	}
 }
 const revision = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const effectivePolicy = (defaults?: SocialPolicy, override?: SocialPolicy): SocialPolicy => ({
+	...defaults,
+	...override,
+	...(defaults?.batch || override?.batch ? { batch: { ...defaults?.batch, ...override?.batch } } : {}),
+	...(defaults?.signals || override?.signals ? { signals: { ...defaults?.signals, ...override?.signals } } : {}),
+});
 export function createSocial(options: {
 	home: string;
 	config: YonderConfig;
@@ -74,13 +80,14 @@ export function createSocial(options: {
 				throw new SocialError("forbidden", "An owner direct message is required", { reason: "scope_denied" });
 		}
 		const defaultScope = target.defaults?.channelInstances;
-		if (defaultScope && !defaultScope.includes(instance))
+		const profileScope = target.profiles[target.defaultProfile]?.channelInstances;
+		if ((defaultScope && !defaultScope.includes(instance)) || (profileScope && !profileScope.includes(instance)))
 			throw new SocialError("forbidden", "Channel outside target scope", { reason: "scope_denied" });
 		return { target, kind: source.kind };
 	};
 	const inspect = async (request: Inspect, caller: Caller) => {
 		const { target: agent, kind } = await authorize(request.agent, request.conv, caller, false);
-		const policy = { ...agent.social?.defaults?.[kind], ...agent.social?.conversations?.[request.conv] };
+		const policy = effectivePolicy(agent.social?.defaults?.[kind], agent.social?.conversations?.[request.conv]);
 		return {
 			policy,
 			sources: Object.fromEntries(
@@ -90,8 +97,8 @@ export function createSocial(options: {
 				]),
 			),
 			revision: revision(agent.social),
-			capabilityGaps: [],
-			routeReason: "configured",
+			capabilityGaps: ["Channel capabilities not evaluated"],
+			routeReason: "not evaluated",
 		};
 	};
 	const update = async (request: Update, caller: Caller) => {
@@ -118,7 +125,7 @@ export function createSocial(options: {
 			const document = parseDocument(original);
 			const disk = parseAgentConfig(document.toString(), file, request.agent);
 			current = revision(disk.social);
-			before = { ...disk.social?.defaults?.[kind], ...disk.social?.conversations?.[request.conv] };
+			before = effectivePolicy(disk.social?.defaults?.[kind], disk.social?.conversations?.[request.conv]);
 			if (request.expectedRevision !== current)
 				throw new SocialError("conflict", "Policy revision changed", { currentRevision: current });
 			const { mappings, ...patch } = request.patch;
@@ -127,7 +134,10 @@ export function createSocial(options: {
 			if (errors.length) throw new SocialError("invalid_params", errors.map((e) => e.message).join("; "));
 			if (patch.judge && patch.judge.preset !== before.judge?.preset)
 				throw new SocialError("forbidden", "Judge must already be configured", { reason: "scope_denied" });
-			after = { ...before, ...patch };
+			after = effectivePolicy(disk.social?.defaults?.[kind], {
+				...disk.social?.conversations?.[request.conv],
+				...patch,
+			});
 			if ("session" in caller) {
 				const fingerprint = revision([
 					request.agent,
