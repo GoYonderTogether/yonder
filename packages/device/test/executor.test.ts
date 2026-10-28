@@ -127,6 +127,7 @@ async function fixture() {
 		transport: "direct" | "relay" = "relay",
 		requestId = randomUUID(),
 	): Promise<RpcResponse> => {
+		const issuedAt = Date.now();
 		const request = {
 			protocol: "yonder.execution",
 			version: 1,
@@ -134,8 +135,8 @@ async function fixture() {
 			requestId,
 			principalId: proof.controllerFingerprint,
 			deviceId: executor.deviceId,
-			issuedAt: Date.now(),
-			expiresAt: Date.now() + 60_000,
+			issuedAt,
+			expiresAt: issuedAt + 60_000,
 			method,
 			params,
 		} as RpcRequest;

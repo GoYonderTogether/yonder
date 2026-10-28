@@ -266,8 +266,10 @@ for (const method of ["device.sessions.open", "device.sessions.close", "grants.r
 				{ stdio: "ignore" },
 			);
 			children.push(child);
-			const [, signal] = await once(child, "exit");
-			expect(signal).toBe("SIGKILL");
+			const [exitCode, signal] = await once(child, "exit");
+			// A self-terminated process reports an exit code rather than a signal on Windows.
+			if (process.platform === "win32") expect(exitCode).toBe(1);
+			else expect(signal).toBe("SIGKILL");
 			const recovered = new DeviceExecutor(f.home, f.provider);
 			executors.add(recovered);
 			const key = `${request.principalId}:${request.requestId}`;
