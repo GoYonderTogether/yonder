@@ -210,7 +210,7 @@ export async function search(config: Config, args: SearchArgs, signal: AbortSign
 			for (const variant of new Set([term, term.normalize("NFKC")])) {
 				for (const row of await grep(root, variant, signal)) {
 					if (!row.data.path?.text || !row.data.line_number) continue;
-					const path = relative(base, row.data.path.text);
+					const path = relative(base, row.data.path.text).replaceAll("\\", "/");
 					if (path.split(/[\\/]/).some((p) => p.startsWith(".") || p === "node_modules")) continue;
 					await safePath(base, path);
 					const key = loc.prefix + path;

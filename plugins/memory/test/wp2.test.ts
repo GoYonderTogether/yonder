@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { DateTime } from "luxon";
@@ -157,11 +157,8 @@ it("re-reads a real intervening user edit once and refuses a second conflict wit
 	).rejects.toThrow("after one retry");
 	expect(calls).toBe(2);
 	expect(await readFile(file, "utf8")).toBe("用户冲突 2\n");
-	expect(await readdir(dirnameOf(file))).toEqual(["edit.md"]);
+	expect(await readdir(dirname(file))).toEqual(["edit.md"]);
 });
-function dirnameOf(file: string) {
-	return file.slice(0, file.lastIndexOf("/"));
-}
 it("backs up long notes and material verbatim with origin/title and emits only material", async () => {
 	const root = await temp(),
 		r = await setup(root, { capture: { inlineMax: 10 } }),
