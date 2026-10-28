@@ -24,7 +24,7 @@
 #   - runtime/<version> is new; `rollback` flips `current` back, old versions are kept (last 3).
 #   - user yonder / linger / unit dev.yonder.service: `uninstall <host> --purge` removes them.
 #   - home/ is created once and never overwritten except yonder.yaml, agents/main/agent.yaml,
-#     and .yonder/auth.json (only when absent); previous copies are saved as *.pre-deploy-<stamp>.
+#     SOUL.md, AGENTS.md, and .yonder/auth.json (only when absent); previous copies are saved as *.pre-deploy-<stamp>.
 set -euo pipefail
 
 CMD=${1:-}
@@ -194,7 +194,7 @@ fi
 if [ ! -f "$HOMEDIR/yonder.yaml" ]; then Y "$R/bin/yonder" init "$HOMEDIR" >/dev/null; fi
 Y mkdir -p /home/yonder/.config/yonder
 CFG=$(mktemp -d); tar -xzf /var/tmp/yonder-deploy/config.tgz -C "$CFG"; chmod -R a+rX "$CFG"
-for pair in yonder.yaml:yonder.yaml agent.yaml:agents/main/agent.yaml; do
+for pair in yonder.yaml:yonder.yaml agent.yaml:agents/main/agent.yaml SOUL.md:agents/main/SOUL.md AGENTS.md:agents/main/AGENTS.md; do
 	src=${pair%%:*}; dst=$HOMEDIR/${pair#*:}
 	if ! cmp -s "$CFG/$src" "$dst"; then
 		[ -f "$dst" ] && Y cp -p "$dst" "$dst.pre-deploy-$STAMP"
