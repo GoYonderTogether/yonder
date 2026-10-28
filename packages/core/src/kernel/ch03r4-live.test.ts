@@ -212,7 +212,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			const batchInput = (msgId: string) => ({
 				...input(
 					msgId,
-					msgId === "batch-1" ? "群里的机器人能帮忙查一下明天的天气吗？" : "机器人查到结果后请告诉大家。",
+					msgId === "batch-1" ? "群里的机器人，17 加 25 等于多少？" : "请机器人直接告诉大家结果，不用调用工具。",
 					false,
 				),
 				conv: "conv:ch03r4:batch",
