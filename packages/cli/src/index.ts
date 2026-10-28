@@ -175,12 +175,11 @@ function fail(error: unknown, json: boolean, code = 1): number {
 	if (json) output({ error: message }, true);
 	return code;
 }
-/** 已配置渠道原样在前，随包提供但未启用的渠道（channels.shipped）接在后面供显示。 */
-async function channelsList(home: string) {
-	const configured = (await requestControl(home, { method: "channels.list" })) as unknown[];
-	const shipped = (await requestControl(home, { method: "channels.list", params: { shipped: true } })) as unknown[];
-	return [...configured, ...shipped];
-}
+/** 已配置渠道原样在前，随包提供但未启用的渠道（channels.list {shipped:true}）接在后面供显示。 */
+const channelsList = (home: string) =>
+	Promise.all([{}, { shipped: true }].map((params) => requestControl(home, { method: "channels.list", params }))).then(
+		(lists) => (lists as unknown[][]).flat(),
+	);
 
 function homeFor(options: Options, init = false, target?: string): string {
 	if (init && target) return resolve(target);
@@ -486,14 +485,7 @@ async function run(args: string[]): Promise<number> {
 		if (bundle !== undefined && !bundleIds.includes(bundle as (typeof bundleIds)[number]))
 			throw new UsageError(`init --bundle accepts ${bundleIds.join(", ")}`);
 		if (
-			rest.some(
-				(item) =>
-					item.startsWith("-") &&
-					item !== "--owner" &&
-					item !== "--bundle" &&
-					item !== "--model" &&
-					item !== "--isolated",
-			) ||
+			rest.some((item) => item.startsWith("-") && !["--owner", "--bundle", "--model", "--isolated"].includes(item)) ||
 			rest.filter((item, index) => !item.startsWith("-") && !value(index)).length > 1
 		)
 			throw new UsageError(
