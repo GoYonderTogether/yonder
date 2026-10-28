@@ -108,6 +108,15 @@ export class Feeds {
 		return this.feeds.size + this.starting.size;
 	}
 	async acquire(method: string, params: unknown, ctx: HostCtx): Promise<Feed> {
+		// Feeds are shared across principals, so the per-session check (Bot conversations need owner scope)
+		// runs for every subscriber, not only the one that started the feed.
+		if (method === "sessions.watch")
+			await registry.call(
+				"sessions.show",
+				{ ...(params as object), include: "meta" },
+				ctx,
+				new AbortController().signal,
+			);
 		const key = `${method}\u0000${JSON.stringify(params)}`;
 		const live = this.feeds.get(key);
 		if (live && !live.closed) return live;

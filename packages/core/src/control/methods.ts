@@ -14,6 +14,7 @@ import {
 	type Principal,
 	type Scope,
 } from "./method-types.js";
+import { sessionMethods } from "./session-methods.js";
 import { dedupe } from "./submit-dedupe.js";
 
 export * from "./method-types.js";
@@ -48,8 +49,6 @@ async function importsDir(home: string) {
 	const { resolve } = await import("node:path");
 	return resolve(home, configured.replace(/^~(?=$|\/)/, homedir()));
 }
-
-const missing = (kind: string, value: string) => new MethodError("not_found", `Unknown ${kind}: ${value}`);
 
 const defs: MethodDef[] = [
 	define({
@@ -226,77 +225,23 @@ const defs: MethodDef[] = [
 		},
 	}),
 	define({
-		name: "sessions.watch",
-		scope: "read",
-		params: id,
+		name: "bots.list",
+		scope: "owner",
+		params: noParams,
 		since: 1,
-		stream: {
-			type: "session.update",
-			resumable: true,
-			legacyFrame: (params, update) => ({ type: "update", session: params.id, update }),
-		},
-		async handler(p, ctx, signal, emit) {
-			const info = await ctx.kernel.terminal.info(p.id);
-			const dispose = await ctx.kernel.terminal.observe(p.id, async (update) => emit(update));
-			if (signal.aborted) await dispose();
-			else signal.addEventListener("abort", () => void dispose(), { once: true });
-			return info;
-		},
+		handler: async (_p, ctx) => ({ bots: await ctx.kernel.bots.list() }),
 	}),
 	define({
-		name: "sessions.list",
-		scope: "read",
-		params: obj({ filter: Type.Optional(Type.Unknown()) }),
-		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.list((p.filter ?? {}) as Parameters<Kernel["sessions"]["list"]>[0]),
-	}),
-	define({
-		name: "sessions.show",
-		scope: "read",
-		params: obj({ id: text, include: Type.Optional(Type.Union([Type.Literal("meta"), Type.Literal("transcript")])) }),
+		name: "bots.send",
+		scope: "owner",
+		params: obj({ agent: text, text, requestId: Type.Optional(text) }),
 		since: 1,
 		async handler(p, ctx) {
-			const session = await ctx.kernel.sessions.get(p.id);
-			if (!session) throw missing("session", p.id);
-			// v1 keeps the transcript by default; `include:"meta"` is the slim form that becomes the default in v2.
-			if (p.include === "meta") return { session, info: await ctx.kernel.terminal.info(p.id) };
-			return { session, transcript: await ctx.kernel.sessions.transcript(p.id) };
+			const run = () => ctx.kernel.bots.send(p.agent, p.text);
+			return p.requestId ? dedupe(`bot:${p.agent}`, p.requestId, run) : run();
 		},
 	}),
-	define({
-		name: "sessions.transcript",
-		scope: "read",
-		params: obj({
-			id: text,
-			before: Type.Optional(Type.Integer({ minimum: 0 })),
-			limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
-		}),
-		since: 1,
-		async handler(p, ctx) {
-			if (!(await ctx.kernel.sessions.get(p.id))) throw missing("session", p.id);
-			const limit = p.limit ?? 50;
-			const rows = await ctx.kernel.sessions.transcript(p.id, {
-				before: p.before ?? Number.MAX_SAFE_INTEGER,
-				limit: limit + 1,
-			});
-			const hasMore = rows.length > limit;
-			return { items: hasMore ? rows.slice(1) : rows, hasMore };
-		},
-	}),
-	define({
-		name: "sessions.abort",
-		scope: "write",
-		params: id,
-		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.abort(p.id).then(() => ({ ok: true })),
-	}),
-	define({
-		name: "sessions.close",
-		scope: "write",
-		params: id,
-		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.close(p.id).then(() => ({ ok: true })),
-	}),
+	...sessionMethods,
 	define({
 		name: "activity.summary",
 		scope: "read",

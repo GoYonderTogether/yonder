@@ -269,6 +269,8 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 	const seen = new Set<string>();
 	for (const [index, binding] of agent.bindings.entries()) {
 		const path = `/bindings/${index}`;
+		if (binding.id === "@console")
+			issues.push({ file, path: `${path}/id`, message: "绑定 id @console 为内置控制台入口保留" });
 		if (seen.has(binding.id)) issues.push({ file, path: `${path}/id`, message: "绑定 id 重复" });
 		seen.add(binding.id);
 		if (!((binding.profile ?? agent.defaultProfile) in agent.profiles))

@@ -137,7 +137,7 @@ agent 在 `agent.yaml` 里声明 `owner: person:<id>`。对某个 agent 而言�
 - `known`：账号关联到了某个人，但不是 owner；
 - `stranger`：账号没有关联到任何人。
 
-所以同一个人可以是 A 的 owner、B 的 known——关系是相对 agent 计算的，不存储。
+所以同一个人可以是 A 的 owner、B 的 known——关系是相对 agent 计算的，不存储。一个节点只有一个 owner（首个控制台 Bot 的 owner）：控制台（`bots.list` / `bots.send`）只覆盖 owner 与之相同的 Bot，其余 Bot 被排除并记一条 warn 日志（contracts §10）。
 
 ### 4.3 能查到什么
 
