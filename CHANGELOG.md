@@ -4,7 +4,7 @@
 
 ### Added
 
-- `yonder migrate`：迁移旧 `yonder-harness` 用户数据（运行目录、插件 id/工具名、插件状态目录、power helper 的 launchd 标签），默认 dry-run，`--apply` 执行，`--rollback <备份>` 恢复（`--dry-run` 仅预览）。
+- `yonder migrate`：迁移旧 `yonder-harness` 用户数据（运行目录、插件 id/工具名、插件状态目录、power helper 的 launchd 标签），默认 dry-run，`--apply` 执行，`--rollback <备份>` 恢复（`--dry-run` 仅预览；迁移后有新写入数据时拒绝，`--force` 放弃）。持 home 锁、日志与自动还原使中断可恢复，launchd 步骤与数据迁移分开报告。
 - 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
 - 新包 `@yonder/gateway`：`POST /api/rpc/<method>`、`WS /api/stream`（ready/ev/end/pong 帧，`after` 续传与 `gap`），一次性票据（URL）或长期访问令牌（仅 `POST /login` 请求体）换 HMAC HttpOnly cookie，按对端限流登录失败（`gateway.trustProxy`），凭据到期/轮换后断开已建立的 WebSocket（4401），限制套接字、feed 与环形缓冲，校验 Host、Origin、Sec-Fetch-Site，严格 CSP，托管 `apps/app/dist`。配置 `gateway.port/publicOrigins/basePath/accessTokenHash/trustProxy/enabled`，支持去前缀的反向代理；`yonder start --no-gateway`、`yonder ui [--open]`、`yonder ui token --rotate`（配置只存 sha256）。
 - 只读导入 pi 会话：`imports.list`、`imports.show` 把 `~/.pi/agent/sessions/**/*.jsonl`（`imports.piSessionsDir` 可改）解析为对话条目、todo 快照与 usage 汇总，未知条目原样带出。
