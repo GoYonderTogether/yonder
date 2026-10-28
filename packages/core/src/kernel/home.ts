@@ -149,8 +149,11 @@ export async function initHome(
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
 	await mkdir(join(home, "presets"), { recursive: true });
-	// 管家（design §5.2/§5.3）：发行包带 onboarding 时，main 选入它与 tasks，并由 onboarding.start 唤醒。
-	const onboarding = bundle.plugins.some((plugin) => plugin.use === "@yonder/plugin-onboarding");
+	// 管家（design §5.2/§5.3）：发行包带 onboarding 且它服务的 agent 就是 main 时，main 选入它与 tasks，
+	// 并由该插件写的 onboarding.start（conv:onboarding:<agent>）唤醒。
+	const entry = config.plugins?.find((plugin) => plugin.use === "@yonder/plugin-onboarding");
+	const butler = (entry?.config as { agent?: string } | undefined)?.agent ?? "main";
+	const onboarding = !!entry && butler === "main";
 	const agent: AgentConfig = withDefaultPeer(
 		{
 			schema: 1,
@@ -181,7 +184,7 @@ export async function initHome(
 					? [
 							{
 								id: "onboarding",
-								match: { type: "onboarding.start", conv: "conv:onboarding:main" },
+								match: { type: "onboarding.start", conv: `conv:onboarding:${butler}` },
 								session: "main" as const,
 								profile: "owner",
 							},
