@@ -90,7 +90,7 @@ test("global CLI discovers the default user home and preserves explicit override
 	}
 });
 
-test("CLI start readies legacy desktop UI without changing Agent tools or an explicit desktop opt-out", async () => {
+test("CLI start preserves interaction configuration and Agent tools without publishing a retired desktop endpoint", async () => {
 	for (const disabled of [false, true]) {
 		const home = await mkdtemp(join(tmpdir(), "ya-"));
 		await initHome(home, "owner", { model: testModel });
@@ -117,11 +117,7 @@ test("CLI start readies legacy desktop UI without changing Agent tools or an exp
 			]);
 			expect(await readFile(join(home, "agents/main/agent.yaml"), "utf8")).toBe(agent);
 			const descriptor = join(home, ".yonder/plugins/interaction/desktop.json");
-			if (disabled) await expect(readFile(descriptor, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
-			else {
-				const endpoint = JSON.parse(await readFile(descriptor, "utf8"));
-				expect((await fetch(endpoint.url)).status).toBe(200);
-			}
+			await expect(readFile(descriptor, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
 			child.kill("SIGTERM");
 			await exited;

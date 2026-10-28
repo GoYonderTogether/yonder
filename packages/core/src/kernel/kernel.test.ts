@@ -36,8 +36,12 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 			expect(await kernel.terminal.activity()).toEqual([
 				{ id: "main", name: expect.any(String), state: "idle", execution: { phase: "idle" }, tasks: [] },
 			]);
-			const endpoint = JSON.parse(await readFile(`${home}/.yonder/plugins/interaction/desktop.json`, "utf8"));
-			expect((await fetch(endpoint.url)).status).toBe(200);
+			expect(kernel.views.list({})).toEqual(
+				expect.arrayContaining([expect.objectContaining({ id: "interaction.card" })]),
+			);
+			await expect(readFile(`${home}/.yonder/plugins/interaction/desktop.json`, "utf8")).rejects.toMatchObject({
+				code: "ENOENT",
+			});
 			expect(parse(await readFile(file, "utf8")).defaults.plugins).not.toContain("interaction");
 			await kernel.identity.unlink("acct:cli:local");
 			await kernel.identity.createPerson({ id: "owner", name: "Renamed owner" });
