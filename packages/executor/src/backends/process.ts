@@ -29,6 +29,26 @@ export function runProcess(
 				}
 			}
 		};
+		// A process forked concurrently with the group kill can join the owned group after that
+		// single SIGKILL was delivered, so the group is re-signalled and drained before settling.
+		const drainOwnedGroup = async (): Promise<void> => {
+			if (process.platform === "win32" || !child.pid) return;
+			const group = -child.pid;
+			const deadline = Date.now() + 2_000;
+			while (Date.now() < deadline) {
+				try {
+					process.kill(group, 0);
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code === "ESRCH") return;
+				}
+				try {
+					process.kill(group, "SIGKILL");
+				} catch {
+					// The group vanished between the probe and the signal.
+				}
+				await new Promise((done) => setTimeout(done, 5));
+			}
+		};
 		const abort = () => stop(new DOMException("Driver stopped after cancellation", "AbortError"));
 		const timeout = setTimeout(() => stop(new Error("Driver timed out")), options.timeoutMs ?? 45_000);
 		options.signal?.addEventListener("abort", abort, { once: true });
@@ -48,8 +68,11 @@ export function runProcess(
 		child.on("close", (code) => {
 			clearTimeout(timeout);
 			options.signal?.removeEventListener("abort", abort);
-			if (failure) reject(failure);
-			else if (code !== 0) reject(new Error(`Driver exited with code ${code}`));
+			const reason = failure;
+			if (reason) {
+				// Do not settle an aborted action while the owned group it started is still alive.
+				void drainOwnedGroup().then(() => reject(reason));
+			} else if (code !== 0) reject(new Error(`Driver exited with code ${code}`));
 			else resolve(stdout);
 		});
 	});
