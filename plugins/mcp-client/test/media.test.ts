@@ -5,7 +5,6 @@ import { expect, it } from "vitest";
 type Run = { code: number | string | null; signal: string | null; stdout: string; stderr: string };
 
 const script = fileURLToPath(new URL("./media.mjs", import.meta.url));
-// The script reads the repository's skill PNG and the macOS system sound, and runs from the repository root.
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
 it("runs the local MCP media mapping script to exit 0", async () => {
