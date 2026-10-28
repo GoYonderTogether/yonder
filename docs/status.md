@@ -16,6 +16,12 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 统一客户端 gateway 线（2026-10-27，`lane/gateway-20261027`，待审核）
+
+**已实现**：`core/src/control/methods.ts` 方法注册表（control.sock 与网关共用，CLI switch 已迁入）；`@yonder/gateway`（HTTP RPC、WS 流 ready/ev/end/pong、`after` 续传与 `gap`、启动票据/长期访问令牌换 HMAC cookie、Host/Origin/Sec-Fetch-Site 校验、CSP、`basePath` 反向代理、托管 `apps/app/dist`）；`yonder start --no-gateway`、`yonder ui`、`yonder ui token --rotate`；`sessions.transcript` 倒序翻页、`submit` 的 `requestId` 幂等；只读 `imports.list/show` 导入 pi 会话。接口形状见 `proposals/unified-client/contracts.md` §9。
+
+**已验证**（临时 home 真实启动）：socket 与网关 6 个方法结果一致；错误 Host/Origin/跨站 403，无 cookie、伪造 cookie、错误令牌 401，启动票据二次使用失败；WS 断线后带 `after` 补发 7 条事件、陌生游标 `gap:true`；`--no-gateway` 不监听端口且 socket 正常；本机最大 yonder-harness pi 会话（65 行）完整导入 96 条、0 解析问题。`packages/gateway/test`（真实内核）与 `core/src/imports/pi-sessions.test.ts`（本机真实 pi 文件）通过。**未测**：真实 nginx 前缀转发（仅用 Host/Origin 头模拟 `https://yonder.zethai.cn/console/`）、`apps/app/dist` 实际页面（app 线未合入）、需要模型回复的长会话流。**未做**：`gateway.audit` 事件、游标与事件库水位的映射（重启必 `gap`）、`requestId` 去重持久化、`SessionSnapshot` 的 model/usage/context；新增的 `gateway`、`imports` 配置项尚未写进 `docs/spec/`（设计变更待维护者批准）。
+
 ## 任务回报与确定性可见性（2026-10-27，集成分支，待审核）
 
 `yonder/runtime-discipline`（`58a9850`，原决策 D57）按当前主线重新落地：task 会话的最终回报必须以 `STATUS: done|partial|blocked` 起头并给实际证据，空回报与 `NO_REPLY` 归一为 `STATUS: unknown (no report)`（原生 status 与转录不变）；`agent_ask` / `task_run` 描述要求目标、材料、完成标准、边界、遇阻条件和证据；后台完成在续办收尾后按可见事实发一条兜底，`run.end` 保存通知意图、重启只补尚未尝试的；静默心跳复用运行软提醒计时器，生产 5 分钟、每轮最多 6 次、不调用模型；`runtime.discipline` 纪律段只在 modelId 完整匹配 `^gpt-\d+(?:\.\d+)?-(?:luna|sol)$` 时装入，可被 `prompt.sections` 排除。决策按现行惯例记为 `## 2026-10-27 任务回报与确定性运行可见性`（D57–D67 已被占用）。
