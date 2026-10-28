@@ -174,7 +174,11 @@ export function processTool(
 										type: "text",
 										text: JSON.stringify({
 											...(cacheFailed ? { cache: "Cache unavailable." } : {}),
-											...(cached ? { cache: `${cached}; use read to paginate or grep to search` } : {}),
+											...(cached
+												? {
+														cache: `${cached}; lines 1-${Math.max(1, lines - (output.endsWith("\n") ? 1 : 0))}; use read to paginate or grep to search`,
+													}
+												: {}),
 											output,
 											stderr,
 											exitCode: host ? result!.code : code,

@@ -58,6 +58,7 @@ test("truncated bash output is indexed with its complete original", async () => 
 		if (!item || item.type !== "text") throw new Error("bash returned no text result");
 		const value = JSON.parse(item.text);
 		const path = value.cache.split("; ")[0];
+		expect(value.cache).toContain("lines 1-2");
 		expect(await readFile(path, "utf8")).toBe(`BEGIN\n${"x".repeat(70000)}END\n`);
 		expect(await readFile(join(f.home, "cache/tool-output/1/index.jsonl"), "utf8")).toContain(path);
 	} finally {
