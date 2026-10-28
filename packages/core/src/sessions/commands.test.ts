@@ -51,7 +51,9 @@ test("session model commands persist, remain isolated, validate input and report
 		await expect(kernel.sessions.command(first.id, "model effort openai/gpt-6-luna")).rejects.toThrow("无效模型设置");
 		await expect(kernel.sessions.command(first.id, "model effort high extra")).rejects.toThrow("用法：/model");
 		expect(await kernel.sessions.command(first.id, "model")).toContain("主模型: openai/gpt-6.1-sol");
-		await kernel.sessions.command(first.id, "effort minimal");
+		expect(await kernel.sessions.command(first.id, "effort minimal")).toContain(
+			"当前模型不支持 effort minimal，实际使用 low",
+		);
 		expect(await kernel.sessions.command(first.id, "effort")).toContain("Effort: low");
 		await kernel.sessions.command(first.id, "model reset");
 		expect(await kernel.sessions.command(first.id, "model")).toContain("主模型: openai/gpt-6-luna");

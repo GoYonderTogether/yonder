@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复硅基流动 DeepSeek-V3.2 的 effort 状态和思考参数，不支持的档位显示中文提示。
+
 - 主动通知支持持久汇总和发送前权限复核；任务自检后的决定提醒限频并限制长度。
 
 - Add optional code-intel symbol search through the shared pi-lens connection.

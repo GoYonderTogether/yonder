@@ -59,3 +59,24 @@ test("provider declarations use the existing merged catalog and credential avail
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("SiliconFlow V3.2 uses its documented thinking fields while explicit settings win", () => {
+	const provider = {
+		api: "openai-completions",
+		baseUrl: "https://api.siliconflow.cn/v1",
+		models: [{ id: "deepseek-ai/DeepSeek-V3.2" }],
+	};
+	const credentials = new FileCredentials(join(tmpdir(), "unused-yonder-auth.json"));
+	const configured = buildModels(credentials, { siliconflow: provider }).getModel(
+		"siliconflow",
+		provider.models[0]!.id,
+	);
+	expect(configured).toMatchObject({
+		reasoning: true,
+		compat: { thinkingFormat: "qwen", supportsReasoningEffort: false, thinkingTokenBudgetField: "thinking_budget" },
+	});
+	const explicit = buildModels(credentials, {
+		siliconflow: { ...provider, models: [{ ...provider.models[0], reasoning: false }] },
+	}).getModel("siliconflow", provider.models[0]!.id);
+	expect(explicit?.reasoning).toBe(false);
+});

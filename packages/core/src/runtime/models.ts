@@ -150,6 +150,7 @@ function modelFromJson(
 	providerConfig: ModelsJsonProvider,
 	defaults: Model<Api> | undefined,
 ): Model<Api> {
+	const siliconflowV32 = providerId === "siliconflow" && definition.id === "deepseek-ai/DeepSeek-V3.2";
 	const api = definition.api ?? providerConfig.api ?? defaults?.api;
 	if (!api) {
 		throw new Error(
@@ -170,7 +171,7 @@ function modelFromJson(
 		api: api as Api,
 		provider: providerId,
 		baseUrl,
-		reasoning: definition.reasoning ?? false,
+		reasoning: definition.reasoning ?? siliconflowV32,
 		thinkingLevelMap: definition.thinkingLevelMap,
 		input: (definition.input ?? ["text"]) as ("text" | "image")[],
 		inputLimits: definition.inputLimits,
@@ -180,7 +181,15 @@ function modelFromJson(
 		maxTokens: definition.maxTokens ?? 16384,
 		samplingParams: definition.samplingParams,
 		samplingParamsByThinkingLevel: definition.samplingParamsByThinkingLevel,
-		compat: mergeCompat(providerConfig.compat, definition.compat),
+		compat: mergeCompat(
+			siliconflowV32
+				? mergeCompat(
+						{ thinkingFormat: "qwen", supportsReasoningEffort: false, thinkingTokenBudgetField: "thinking_budget" },
+						providerConfig.compat,
+					)
+				: providerConfig.compat,
+			definition.compat,
+		),
 	} as Model<Api>;
 }
 

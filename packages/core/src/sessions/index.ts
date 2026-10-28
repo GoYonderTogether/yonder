@@ -140,6 +140,9 @@ export function createSessions({
 		if ((name === "model" && args.length) || (name === "effort" && args.length))
 			changed = await configureModel(runtime(), id, name, args, (await resolveSession(id)).resolved);
 		const state = await runtime().modelStatus(id);
+		const requested = name === "effort" ? args[0] : name === "model" && args[0] === "effort" ? args[1] : undefined;
+		if (requested && requested !== "auto" && !state.running && state.thinking !== requested)
+			changed += `当前模型不支持 effort ${requested}，实际使用 ${state.thinking}。\n`;
 		const channels = session.agent
 			? Object.entries(config.channels ?? {})
 					.filter(([channel]) =>
