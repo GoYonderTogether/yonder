@@ -304,6 +304,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		router = createRouter({
 			channels: loaded.channels,
+			socialBatchPlugin: loaded.info?.some((plugin) => plugin.id === "social") ?? false,
 			store,
 			sessions,
 			runtime: realRuntime,

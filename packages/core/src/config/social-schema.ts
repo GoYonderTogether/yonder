@@ -21,6 +21,7 @@ export const socialPolicySchema = object({
 	mode: Type.Optional(choice("direct", "record", "mention", "batch", "folded", "mute")),
 	batch: Type.Optional(
 		object({
+			run: Type.Optional(Type.Boolean()),
 			count: number(1, 100),
 			delaySeconds: number(1, 3600),
 			maxMessages: number(1, 100),

@@ -33,6 +33,7 @@
 		"plugins/channel-wechat-ilink",
 		"plugins/clipboard",
 		"plugins/channel-qq",
+		"plugins/social",
 		"plugins/memory",
 		"plugins/interaction",
 		"plugins/channel-card",

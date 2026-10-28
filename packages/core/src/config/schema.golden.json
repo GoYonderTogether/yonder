@@ -965,6 +965,9 @@
 									"batch": {
 										"type": "object",
 										"properties": {
+											"run": {
+												"type": "boolean"
+											},
 											"count": {
 												"type": "integer",
 												"minimum": 1,
@@ -1165,6 +1168,9 @@
 									"batch": {
 										"type": "object",
 										"properties": {
+											"run": {
+												"type": "boolean"
+											},
 											"count": {
 												"type": "integer",
 												"minimum": 1,
@@ -1365,6 +1371,9 @@
 									"batch": {
 										"type": "object",
 										"properties": {
+											"run": {
+												"type": "boolean"
+											},
 											"count": {
 												"type": "integer",
 												"minimum": 1,
@@ -1571,6 +1580,9 @@
 									"batch": {
 										"type": "object",
 										"properties": {
+											"run": {
+												"type": "boolean"
+											},
 											"count": {
 												"type": "integer",
 												"minimum": 1,

@@ -3,7 +3,7 @@ export type Participation = "direct" | "record" | "mention" | "batch" | "folded"
 export type SocialSignal = "botMention" | "ownerMention" | "groupOwner" | "everyone" | "keyword";
 export interface SocialPolicy {
 	mode?: Participation;
-	batch?: { count?: number; delaySeconds?: number; maxMessages?: number; maxBytes?: number };
+	batch?: { count?: number; delaySeconds?: number; maxMessages?: number; maxBytes?: number; run?: boolean };
 	minIntervalSeconds?: number;
 	signals?: Partial<Record<SocialSignal, "record" | "consider" | "respond">>;
 	keywords?: string[];

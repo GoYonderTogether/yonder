@@ -79,3 +79,18 @@ test("an @all legacy mention is not a bot mention under social policy", () => {
 		run: true,
 	});
 });
+
+test("conversation batch and signal settings retain unspecified group defaults", () => {
+	const configured = {
+		...agent,
+		social: {
+			...agent.social,
+			defaults: { group: { batch: { run: true, delaySeconds: 60 }, signals: { everyone: "respond" as const } } },
+			conversations: { "conv:chat:group": { batch: { count: 5 }, signals: { keyword: "record" as const } } },
+		},
+	};
+	const decision = socialDecision(configured as unknown as typeof agent, message("group"), undefined);
+	expect(decision && "policy" in decision && decision.policy.batch).toEqual({ run: true, delaySeconds: 60, count: 5 });
+	const everyone = message("group", "acct:chat:user", "conv:chat:group", { social: { mentions: { everyone: true } } });
+	expect(socialDecision(configured as unknown as typeof agent, everyone, undefined)?.reason).toBe("everyone");
+});

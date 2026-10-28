@@ -1,0 +1,30 @@
+{
+	"routing.social-decision": {
+		"agent": "string",
+		"reason": "string",
+		"revision": "string",
+		"policy": {
+			"batch": {
+				"count": "number",
+				"run": "boolean"
+			}
+		}
+	},
+	"social.batch-ready": {
+		"msgId": "string",
+		"agent": "string",
+		"through": "string",
+		"sourceEvents": ["string"],
+		"policyRevision": "string"
+	},
+	"social.batch-failed": {
+		"msgId": "string",
+		"agent": "string",
+		"through": "string"
+	},
+	"social.batch-read": {
+		"msgId": "string",
+		"agent": "string",
+		"through": "string"
+	}
+}

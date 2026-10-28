@@ -20,6 +20,7 @@ interface CreateRouterOptions {
 	runtime: () => Runtime;
 	agents: Map<string, AgentConfig>;
 	notifications?: NotificationConfig | undefined;
+	socialBatchPlugin?: boolean;
 	onStart?: (
 		session: SessionInfo,
 		event: YEvent,
@@ -37,6 +38,7 @@ export function createRouter({
 	runtime,
 	agents,
 	notifications,
+	socialBatchPlugin,
 	onStart,
 	onRun,
 	onCommand,
@@ -217,6 +219,10 @@ export function createRouter({
 			event.type === "social.batch-ready" && event.from === "plugin:social" && typeof inputData.through === "string"
 				? await store.events.get(inputData.through)
 				: undefined;
+		const legacySource =
+			event.type === "channel-qq.group-batch" && typeof inputData.through === "string"
+				? await store.events.get(inputData.through)
+				: undefined;
 		const sourceIds = Array.isArray(inputData.sourceEvents) ? inputData.sourceEvents : [];
 		const batchSources =
 			event.type === "social.batch-ready" &&
@@ -249,10 +255,58 @@ export function createRouter({
 		}));
 		const winningSubject = subjects.find((subject) => mappings.some((item) => item.mapping?.subject === subject));
 		const winningMappings = mappings.filter((item) => item.mapping?.subject === winningSubject && item.mapping);
-		const diagnostics: Array<{ agent: string; reason: string; revision: string }> = [];
+		const diagnostics: Array<{ agent: string; reason: string; revision: string; policy?: object }> = [];
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
+			if (socialBatchPlugin && agent.social?.enabled && legacySource && legacySource.conv === event.conv) {
+				const sourceRoute = legacySource.routes?.find(
+					(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
+				);
+				const sourcePerson = legacySource.from?.startsWith("acct:")
+					? (await store.identity().account(legacySource.from))?.person
+					: undefined;
+				const decision = socialDecision(
+					agent,
+					legacySource,
+					sourcePerson,
+					channels?.get(channelOf(legacySource.conv) ?? ""),
+				);
+				if (
+					sourceRoute?.session &&
+					decision?.reason === "batch" &&
+					"policy" in decision &&
+					(decision.policy.batch?.run !== true || decision.policy.judge)
+				) {
+					routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+					continue;
+				}
+				const probe = { ...event, type: "social.batch-ready", from: "plugin:social" };
+				let binding: Binding | undefined;
+				for (const candidate of agent.bindings) {
+					if (await matches(candidate, probe, agent, store)) {
+						binding = candidate;
+						break;
+					}
+				}
+				if (
+					sourceRoute?.session &&
+					decision?.reason === "batch" &&
+					binding?.match.type === "social.batch-ready" &&
+					binding.reply === "none" &&
+					binding.wake !== "write" &&
+					binding.session !== "main" &&
+					binding.session !== "ephemeral" &&
+					binding.session.per === "conv"
+				) {
+					const { mode, key } = sessionKey(binding, probe, undefined);
+					const target = await sessions.ensureAgent(agent.id, binding.profile ?? agent.defaultProfile, key, mode);
+					if (!target.profileMismatch && target.session.id === sourceRoute.session) {
+						routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+						continue;
+					}
+				}
+			}
 			if (event.type === "social.batch-ready") {
 				const sourceRoute = batchSource?.routes?.find(
 					(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
@@ -325,7 +379,13 @@ export function createRouter({
 			const policyAgent = selected?.owner;
 			const mapping = selected?.mapping;
 			const decision = policyAgent && socialDecision(policyAgent, event, person, channels?.get(instance ?? ""));
-			if (decision) diagnostics.push({ agent: agent.id, reason: decision.reason, revision: decision.revision });
+			if (decision)
+				diagnostics.push({
+					agent: agent.id,
+					reason: decision.reason,
+					revision: decision.revision,
+					...(decision.reason === "batch" && "policy" in decision ? { policy: decision.policy } : {}),
+				});
 			if (decision && !decision.run && decision.reason !== "batch") {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;

@@ -151,3 +151,5 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 `message.in.data.social` 可选，形状为 `{mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
 
 `social.batch-ready` 和 `social.policy-change` 是插件事件，只能由 social 插件以自身身份发出；批次包含 `sourceEvents`、`through`、`policyRevision`，策略变更记录实际 actor、sourceEvent、before/after、reason、revision 和 result。核心路由诊断由核心追加事实，插件不得伪写核心事件。原消息、平台重投和合成批次分别记录，历史事件不修改。
+
+`routing.social-decision` 在 reason 为 batch 时可附生效策略快照 policy。social 插件以 `social.batch-read` 记录已处理游标、以 `social.batch-failed` 记录失败；data 包含 agent、through、msgId，parent 关联批次或完成事件。原消息仍是正文来源。

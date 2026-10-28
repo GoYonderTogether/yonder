@@ -21,9 +21,13 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 		!!(event.from && social.authorized?.accounts?.includes(event.from)) ||
 		!!(person && social.authorized?.people?.includes(person));
 	if (!authorized) return result("not-authorized");
+	const defaults = social.defaults?.[kind as Kind];
+	const override = event.conv ? social.conversations?.[event.conv] : undefined;
 	const policy = {
-		...social.defaults?.[kind as Kind],
-		...(event.conv ? social.conversations?.[event.conv] : undefined),
+		...defaults,
+		...override,
+		...(defaults?.batch || override?.batch ? { batch: { ...defaults?.batch, ...override?.batch } } : {}),
+		...(defaults?.signals || override?.signals ? { signals: { ...defaults?.signals, ...override?.signals } } : {}),
 	};
 	const mode: string = policy.mode ?? (kind === "dm" ? "direct" : "batch");
 	if (policy.quiet) {
@@ -67,7 +71,7 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 	] as const;
 	const responding = signals.find(([, matched, action]) => matched && action === "respond");
 	if (responding) return result(responding[0], true);
-	return result(mode);
+	return { ...result(mode), policy };
 }
 
 export function socialBindingAllowed(

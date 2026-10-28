@@ -283,6 +283,8 @@ social:
   enabled: true
   authorized:
     conversations: ["conv:chat:group", "conv:chat:group2"]
+  defaults:
+    group: { batch: { run: true } }
 bindings:
   - id: owner
     match: { from: owner }
@@ -294,6 +296,9 @@ bindings:
     match: { type: social.batch-ready }
     session: { mode: persistent, per: conv }
     reply: none
+  - id: qq-legacy
+    match: { type: channel-qq.group-batch }
+    session: { mode: persistent, per: conv }
 `);
 		const agents = new Map([[agent.id, agent]]);
 		const keys = new Map<string, string>();
@@ -307,6 +312,7 @@ bindings:
 			store,
 			sessions,
 			agents,
+			socialBatchPlugin: true,
 			runtime: () => {
 				throw new Error("No model");
 			},
@@ -332,9 +338,40 @@ bindings:
 		expect((await batch({ agent: "other" })).routes?.[0]?.session).toBeUndefined();
 		expect((await batch({ sourceEvents: [group2.id, batched.id] })).routes?.[0]?.session).toBeUndefined();
 		expect((await batch({ sourceEvents: [] })).routes?.[0]?.session).toBeUndefined();
+		const legacy = await router.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:chat:group",
+			data: { through: batched.id },
+		});
+		expect(legacy.routes?.[0]?.dropped).toBe("no-binding");
+		const unboundLegacy = await router.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:chat:group",
+			data: {},
+		});
+		expect(unboundLegacy.routes?.[0]?.binding).toBe("qq-legacy");
+		const legacyRouter = createRouter({
+			store,
+			sessions,
+			socialBatchPlugin: true,
+			agents: new Map([[agent.id, { ...agent, bindings: agent.bindings.filter((item) => item.id !== "batch") }]]),
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const noSocialBinding = await legacyRouter.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:chat:group",
+			data: { through: batched.id },
+		});
+		expect(noSocialBinding.routes?.[0]?.binding).toBe("qq-legacy");
 		const stranger = await emit("acct:chat:user", "conv:chat:private", "dm");
 		expect(owner1.routes?.[0]?.session).toBe(owner2.routes?.[0]?.session);
 		expect(group.routes?.[0]?.binding).toBe("group");
+		expect(group.routes?.[0]?.wake).toBe("run");
 		expect(new Set([owner1.routes?.[0]?.session, group.routes?.[0]?.session, group2.routes?.[0]?.session]).size).toBe(
 			3,
 		);
