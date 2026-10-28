@@ -105,10 +105,10 @@ export { submissionOutcome } from "./docs.js";
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptPage } from "./transcript.js";
 import type {
+	RuntimeOptions as BaseRuntimeOptions,
 	ModelFallbackEvent,
 	RuntimeActivityExecution,
 	RuntimeInput,
-	RuntimeOptions,
 	RuntimeRun,
 	RuntimeSessionConfig,
 	RuntimeSessionState,
@@ -121,7 +121,12 @@ export type { TerminalUpdate } from "./terminal.js";
 export { readTranscript } from "./transcript.js";
 export type * from "./types.js";
 
+type RuntimeOptions = BaseRuntimeOptions & {
+	onSessionSettled?(event: import("@yonder/sdk").SessionSettledEv): Promise<void>;
+};
+
 export class Runtime {
+	private settledEvents = new Map<string, string>();
 	private harness!: Harness;
 	private outbox!: Outbox;
 	private restoring = false;
@@ -1511,6 +1516,7 @@ export class Runtime {
 					// A run whose run.end is durable was fully settled before this start. Replaying every historical run
 					// made startup grow with runs x conversation size (about two minutes for Jarvis' main session).
 					if (await this.options.settled?.(String(conversation.id), doc.key!)) {
+						this.settledEvents.set(String(conversation.id), doc.key!);
 						skipped = true;
 						continue;
 					}
@@ -1590,6 +1596,12 @@ export class Runtime {
 	private async idleChanged(session: string): Promise<void> {
 		for (const changed of this.idleWaiters.get(session) ?? []) changed();
 		await this.options.onIdle?.(session);
+		if (!this.options.onSessionSettled || (await this.hasPendingWork(session))) return;
+		const result = await this.lastResult(session);
+		if (result && this.settledEvents.get(session) !== result.runId) {
+			this.settledEvents.set(session, result.runId);
+			await this.options.onSessionSettled?.({ session, status: result.status === "limit" ? "idle" : result.status });
+		}
 	}
 
 	private async causedBy(source: import("@yonder/sdk").YEvent | undefined, input: string): Promise<boolean> {

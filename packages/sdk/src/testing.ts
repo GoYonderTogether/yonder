@@ -13,10 +13,13 @@ import type {
 	Preset,
 	Tool,
 	Trigger,
+	ViewDecl,
+	ViewProvider,
 	YEvent,
 } from "./types.js";
 
 const slots = [
+	"views",
 	"channels",
 	"tools",
 	"contexts",
@@ -35,6 +38,7 @@ export interface PluginManifest {
 	contributes: Partial<Record<Slot, string[]>>;
 }
 export interface Registrations {
+	views: Array<{ decl: ViewDecl; provider: ViewProvider }>;
 	permissions: PermissionProvider[];
 	channels: ChannelProvider[];
 	tools: Tool[];
@@ -73,6 +77,7 @@ export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 
 export function createRegistrationCollector() {
 	const registrations: Registrations = {
+		views: [],
 		permissions: [],
 		channels: [],
 		tools: [],
@@ -90,6 +95,12 @@ export function createRegistrationCollector() {
 		},
 	});
 	const api = {
+		invalidate: (_ids?: string[], _badge?: number): void => {},
+		views: {
+			register: (decl: ViewDecl, provider: ViewProvider): void => {
+				registrations.views.push({ decl, provider });
+			},
+		},
 		permissions: collect(registrations.permissions),
 		channels: collect(registrations.channels),
 		tools: collect(registrations.tools),
@@ -116,6 +127,7 @@ export async function checkRegistrations(
 	const errors: string[] = [];
 	const report = (message: string) => errors.push(`${manifest.id}: ${message}`);
 	const names: Record<Slot, string[]> = {
+		views: registrations.views.map((value) => value.decl.id),
 		permissions: registrations.permissions.map((value) => value.id),
 		channels: registrations.channels.map((value) => value.type),
 		envs: registrations.envs.map((value) => value.type),
@@ -126,6 +138,20 @@ export async function checkRegistrations(
 		presets: registrations.presets.map((value) => value.id),
 		skills: [],
 	};
+	for (const { decl, provider } of registrations.views) {
+		if (
+			decl.plugin !== manifest.id ||
+			!decl.id.startsWith(`${manifest.id}.`) ||
+			decl.id.length <= manifest.id.length + 1
+		)
+			report(`view ${decl.id}: expected own plugin namespace`);
+		if (
+			!["rail", "floating", "page"].includes(decl.placement) ||
+			!["session", "node"].includes(decl.scope) ||
+			typeof provider.data !== "function"
+		)
+			report(`view ${decl.id}: invalid provider contract`);
+	}
 	for (const provider of registrations.permissions) {
 		if (typeof provider.id !== "string" || (provider.id !== manifest.id && !provider.id.startsWith(`${manifest.id}.`)))
 			report(`permission ${provider.id}: expected own plugin namespace`);

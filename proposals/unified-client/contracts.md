@@ -470,6 +470,7 @@ interface ViewDecl {
   data?: string;                  // 取数方法名，默认 "views.data"；必须是 read 方法
   icon?: string;                  // lucide 图标名，未知则前端用默认
   order?: number;                 // 同 placement 内升序，默认 100
+  actions?: string[];             // 可选 action 白名单
   actScope?: Scope;               // views.act 需要的 scope，默认 "write"
   needs?: { methods?: string[] };
 }
@@ -496,6 +497,13 @@ interface ViewData { viewId: string; rev: number; content: ViewContent; badge?: 
 - 内置视图的 `views.data` 返回 `{type:"builtin", id, payload}`，payload 就是对应事件的最新全量：todos→`TodoUpdatedEv`，subtasks→`SubtaskUpdatedEv`，background→`BackgroundUpdatedEv`，context→`ContextSnapshot`，wakes→`WakeUpdatedEv`，goal→`GoalUpdatedEv`（§15），attachments→`{ items: AttachmentRow[] }`，subagents→`SubtaskUpdatedEv`。
 - 插件视图的 `data` 若不是默认的 `views.data`，该方法必须以 `viewId`/`session` 为参数并返回 `ViewData`。
 - 错误：视图声明冲突（重复 id）在插件加载时报错，不进 `views.list`。
+
+#### 主 Agent 裁定 10-28
+
+- 插件在 setup 时用 `ctx.views.register(decl, provider)` 注册；provider 签名保持 §17，不带 ctx 参数，通过 setup 的 ctx 闭包访问宿主。
+- 插件 ctx 新增 `invalidate(ids?: string[], badge?: number): void`。省略 ids 表示该插件全部视图；ids 只能引用该插件自己声明的视图，否则抛错。按 placement 分组发 `views.changed {placement, ids, badge?}`；同一 tick 的调用用 microtask 合并。badge 沿用 §3.6 的 Record<string, number>，传入的数值应用于本次失效的各 id。
+- `ViewDecl.actions?: string[]` 为可选 action 白名单；未声明则不限制。action 必须匹配 `^[a-z0-9][a-z0-9_.-]{0,63}$`。
+- input 只能为 undefined、null 或普通 JSON 对象；存在 input 时 JSON.stringify 后的 UTF-8 字节数不超过 16384。违反任一 action/input 规则返回 `invalid_params`，不调用 provider。
 
 ### §12 capabilities.get 增补（NodeFacts v1.1）
 
