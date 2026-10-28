@@ -28,6 +28,30 @@ const defaults = {
 	periodicMinutes: 1440,
 	evidence: [] as number[],
 };
+/** A batch row's archived messages, as normalized by `safeMessage`. */
+interface ArchivedMessage {
+	sender?: string | null;
+	text?: string;
+	direction?: string;
+	media?: { kind?: string };
+}
+
+/** One-line hint for the kernel notification record; the messages themselves stay in `data.messages`. */
+export function batchSummary(messages: readonly ArchivedMessage[]): string {
+	const incoming = messages.filter((item) => item.direction !== "outgoing");
+	const pick = incoming.length ? incoming : messages;
+	const body = (item: ArchivedMessage): string => {
+		const text = (item.text ?? "").trim().slice(0, 60);
+		const kind = item.media?.kind && item.media.kind !== "unknown" ? item.media.kind : "";
+		return text || (kind ? `[${kind}]` : "[无正文]");
+	};
+	const last = pick[pick.length - 1];
+	if (!last) return "";
+	if (pick.length === 1) return last.sender ? `${last.sender}: ${body(last)}` : body(last);
+	const senders = [...new Set(pick.map((item) => item.sender).filter((name): name is string => Boolean(name)))];
+	const names = senders.length ? `（${senders.slice(0, 3).join("、")}）` : "";
+	return `${pick.length} 条消息${names}：${body(last)}`;
+}
 export class Archive {
 	private db: DatabaseSync | undefined;
 	private readonly lifetime = new AbortController();
@@ -424,6 +448,7 @@ export class Archive {
 			const rows = this.db!.prepare("SELECT payload FROM messages WHERE batch=? AND emitted=0 ORDER BY id").all(
 				String(batch.id),
 			);
+			const messages = rows.map((r) => JSON.parse(String(r.payload)) as ArchivedMessage & { text: string });
 			await emit({
 				type: "wechat-archive.material",
 				from: "plugin:wechat-archive",
@@ -432,12 +457,14 @@ export class Archive {
 					externalContent: true,
 					batchId: batch.id,
 					msgId: batch.id,
+					channel: "wechat-archive",
+					conversation,
 					chat,
+					senders: [...new Set(messages.map((m) => m.sender).filter((n): n is string => Boolean(n)))],
+					summary: batchSummary(messages),
 					policy,
-					messages: rows.map((r) => JSON.parse(String(r.payload))),
-					keywordMatches: policy.keywords.filter((k: string) =>
-						rows.some((r) => JSON.parse(String(r.payload)).text.includes(k)),
-					),
+					messages,
+					keywordMatches: policy.keywords.filter((k: string) => messages.some((m) => m.text.includes(k))),
 					coverage: "local archive only; incomplete",
 				},
 			});
