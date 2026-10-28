@@ -61,10 +61,18 @@ test("provider trace is opt-in, redacts credentials and records SSE", async () =
 			expect(content).not.toContain(secret);
 		expect(content).toContain('"type":"sse"');
 		expect(content).toContain("data: [REDACTED]");
-		const records = content.trim().split("\n").map((line) => JSON.parse(line));
+		const records = content
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line));
 		expect(records.every((record) => !Number.isNaN(Date.parse(record.timestamp)))).toBe(true);
-		expect(records.find((record) => record.type === "response")).toMatchObject({ status: 200, headers: { "x-ratelimit-remaining": "9" } });
-		expect(records.findIndex((record) => record.type === "first_byte")).toBeGreaterThan(records.findIndex((record) => record.type === "response"));
+		expect(records.find((record) => record.type === "response")).toMatchObject({
+			status: 200,
+			headers: { "x-ratelimit-remaining": "9" },
+		});
+		expect(records.findIndex((record) => record.type === "first_byte")).toBeGreaterThan(
+			records.findIndex((record) => record.type === "response"),
+		);
 		expect(content).not.toContain("private");
 	} finally {
 		globalThis.fetch = original;
