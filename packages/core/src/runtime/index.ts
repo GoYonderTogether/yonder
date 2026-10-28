@@ -98,6 +98,7 @@ import { promptParts } from "./prompt-parts.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
+import { applyTodo, emptyTodos, type TodoArgs, todoDescription, todoEvent, todoParameters } from "./todo.js";
 
 export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
@@ -565,6 +566,27 @@ export class Runtime {
 		this.registry.install(search);
 		this.extensions.set(search.name, search);
 		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);
+		const todo = defineTool({
+			name: "todo",
+			description: todoDescription,
+			parameters: todoParameters,
+			execute: async (args, api, context) => {
+				const outcome = await api.commit(async (tx) => {
+					const doc = await tx.doc(SessionDoc, api.conversationId);
+					// SAFETY: pi-durable validated args against todoParameters, which TodoArgs mirrors.
+					const result = applyTodo(doc.todos ?? emptyTodos(), args as unknown as TodoArgs);
+					if (result.list) doc.todos = result.list;
+					return result;
+				}, context);
+				if (outcome.list) await this.options.onTodo?.(todoEvent(String(api.conversationId), outcome.list));
+				return { output: [{ type: "text", text: outcome.text }] };
+			},
+		});
+		const todos = defineExtension({ name: "yonder.todo", tools: [todo] });
+		this.capabilities.set("todo", []);
+		this.registry.install(todos);
+		this.extensions.set(todos.name, todos);
+		this.tools.set("todo", todo);
 		const processes = defineExtension({ name: "yonder.process", tools: [this.background.tool] });
 		this.capabilities.set("process", []);
 		this.registry.install(processes);
@@ -759,6 +781,7 @@ export class Runtime {
 			"yonder.files",
 			"yonder.tools",
 			"yonder.background",
+			"yonder.todo",
 			"yonder.process",
 			...profile.plugins.map((id) => `plugin:${id}`),
 		];

@@ -404,6 +404,14 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					data: event,
 				});
 			},
+			onTodo: async (event) => {
+				const session = await store.sessions.get(event.session);
+				await store.events.record({
+					type: "todo.updated",
+					...(session?.agent ? { from: `agent:${session.agent}` as const } : {}),
+					data: event,
+				});
+			},
 			onReport: report,
 		});
 		const validateCandidate = async (

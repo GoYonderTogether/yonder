@@ -12,6 +12,7 @@ import type {
 } from "@yonder/sdk";
 import type { Binding, ResolvedProfile, YonderConfig } from "../config/index.js";
 import type { Db } from "./db.js";
+import type { TodoUpdatedEvent } from "./todo.js";
 export interface RuntimeSessionConfig {
 	agent: string | null;
 	profile: string;
@@ -80,6 +81,8 @@ export interface RuntimeOptions {
 	 * Fires once when an episode starts and once when it ends, never in between.
 	 */
 	onModelFallback?(event: ModelFallbackEvent): Promise<void>;
+	/** The todo tool changed a session's list (contracts §3.4 `todo.updated`). */
+	onTodo?(event: TodoUpdatedEvent): Promise<void>;
 	onReport?(error: unknown): void;
 }
 export interface ModelFallbackEvent {

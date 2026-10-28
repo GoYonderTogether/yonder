@@ -1,5 +1,6 @@
 import { type ConversationId, defineDoc, defineDocFamily, type UsageState } from "@earendil-works/pi-durable";
 import type { Capability, SessionModels } from "@yonder/sdk";
+import type { TodoList } from "./todo.js";
 import type { RuntimeActivityExecution, RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 export const SessionDoc = defineDoc({
@@ -27,6 +28,8 @@ export const SessionDoc = defineDoc({
 			model: string;
 			reason: "rate_limit" | "quota" | "unavailable" | "error";
 		} | null,
+		// The session's todo list (todo tool); absent in sessions created before the tool existed.
+		todos: null as TodoList | null,
 	}),
 });
 export const cid = (id: string) => Number(id) as ConversationId;
