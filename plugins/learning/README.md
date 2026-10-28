@@ -29,7 +29,7 @@
 
 内部 `learning_review_memory_read`、`review_memory_edit`、`review_skill_store` 仅供插件自己创建且仍持有效 grant 的无身份 `hermes-learning-review` task；直接打开该 preset 不会获权。复盘固定 Sol/high、read/write、专用三个工具，无 shell、通用文件写入、消息或派发能力。`hermes-study` 是单独只读学习 preset。
 
-真实用户输入每 10 turn 到期记忆复盘，每 10 模型迭代到期技能复盘，等待前台安静 15 秒。前台抢占先撤 grant 再取消。自动新增记忆直接保存，破坏性修改静默进入 pending；前台及可信显式 `/refine` 不加这层等待。新技能由 Harness 原生索引发现，通过 `skill_view` 按需读取正文和支持文件，没有第二套 scanner。完整 API、取消/去重/重启语义及差异见 [Learning runtime](docs/learning-runtime.md)、[Learning store API](docs/learning-store-api.md) 和实际教学技能。
+真实用户输入每 10 turn 到期记忆复盘；每个符合条件且完成的授权前台用户回合触发技能复盘，等待前台安静 15 秒。前台抢占先撤 grant 再取消。自动新增记忆直接保存，破坏性修改静默进入 pending；前台及可信显式 `/refine` 不加这层等待。新技能由 Harness 原生索引发现，通过 `skill_view` 按需读取正文和支持文件，没有第二套 scanner。完整 API、取消/去重/重启语义及差异见 [Learning runtime](docs/learning-runtime.md)、[Learning store API](docs/learning-store-api.md) 和实际教学技能。
 
 完整停用应从目标 profile 移除插件、相关 contexts 和 skills 选择；`enabled: false` 拒绝插件 I/O，但不会替你移除原生独立选择的技能或历史转录。
 

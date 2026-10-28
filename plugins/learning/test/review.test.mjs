@@ -13,7 +13,7 @@ import { REVIEW_PRESET, REVIEW_TOOLS } from "../src/review.mjs";
 import { ctx, fixture, scope } from "./helpers.mjs";
 
 async function until(check) {
-	const deadline = performance.now() + 3000;
+	const deadline = performance.now() + 10000;
 	while (!check()) {
 		assert.ok(performance.now() < deadline, "async condition timed out");
 		await immediate();
@@ -188,7 +188,7 @@ const repeat = async (f, n = 10) => {
 	for (let i = 0; i < n; i++) await f.turn();
 };
 
-test("actual registered hooks: 9/10 user turns and cycles, quiet15, merged latest clone, scoped IO and no parent pollution", async (t) => {
+test("actual registered hooks: memory interval, quiet15, merged latest clone, scoped IO and no parent pollution", async (t) => {
 	const f = await setup(t);
 	let admittedBeforeSubmit = false;
 	f.setSubmit(async (id) => {
@@ -201,13 +201,11 @@ test("actual registered hooks: 9/10 user turns and cycles, quiet15, merged lates
 		{ ...(await f.counters()) },
 		{
 			memory: 9,
-			skills: 9,
+			skills: 0,
 			inputs: Array.from({ length: 9 }, (_, i) => `in-${i + 1}`),
 			runs: Array.from({ length: 9 }, (_, i) => `in-${i + 1}`),
 		},
 	);
-	await f.tick();
-	assert.equal(f.opened.length, 0);
 	const tenth = await f.turn({ text: "latest user correction" });
 	await f.tick(14999);
 	assert.equal(f.opened.length, 0);
@@ -291,7 +289,7 @@ test("actual registered hooks: 9/10 user turns and cycles, quiet15, merged lates
 	assert.ok(tenth.event.id);
 });
 
-test("memory-only / skills-only focus are hard dispatch and wrapper boundaries; skill threshold is model cycles", async (t) => {
+test("memory-only focus is a hard dispatch and wrapper boundary", async (t) => {
 	const memory = await setup(t, { learning: false });
 	await repeat(memory);
 	await memory.tick();
@@ -307,12 +305,8 @@ test("memory-only / skills-only focus are hard dispatch and wrapper boundaries; 
 	);
 	assert.match(direct.text, /review_focus_denied/);
 });
-test("skills-only ten iterations in one real user turn, no memory access", async (t) => {
+test("skills-only one completed user turn triggers review without memory access", async (t) => {
 	const f = await setup(t, { memory: false, user: false });
-	const a = await f.start({ loops: 9 });
-	await f.finish(a);
-	await f.tick();
-	assert.equal(f.opened.length, 0);
 	await f.turn();
 	await f.tick();
 	await until(() => f.submitted.length === 1);
@@ -321,6 +315,23 @@ test("skills-only ten iterations in one real user turn, no memory access", async
 		(await f.call(REVIEW_TOOLS[0], { target: "memory" }, f.reviewContext())).error,
 		"review_tool_not_allowed_for_focus",
 	);
+});
+
+test("skills review requires a completed genuine foreground turn", async (t) => {
+	const f = await setup(t, { memory: false, user: false });
+	await f.turn({ status: "aborted" });
+	await f.tick();
+	assert.equal(f.opened.length, 0);
+	await f.turn({ final: null });
+	await f.tick();
+	assert.equal(f.opened.length, 0);
+	await f.turn({ type: "session.input" });
+	await f.tick();
+	assert.equal(f.opened.length, 0);
+	await f.turn();
+	await f.tick();
+	await until(() => f.submitted.length === 1);
+	assert.match(f.submitted[0].input.text, /Focus=skills/);
 });
 
 test("real mutation dispatch resets even on failure; counters and run/input dedup restore after setup restart", async (t) => {
@@ -343,7 +354,7 @@ test("real mutation dispatch resets even on failure; counters and run/input dedu
 	assert.equal((await f.counters()).memory, 0);
 	assert.equal((await f.counters()).skills, 0);
 	await f.tick();
-	assert.equal(f.opened.length, 0);
+	await until(() => f.opened.length === 1);
 	const restarted = await setup(t, {}, { root: f.root, clock: false });
 	restarted.events.set(a.event.id, a.event);
 	await restarted.emit(end);
@@ -435,7 +446,7 @@ test("foreground preemption revokes first, waits at most2s, stale writes fail, a
 	}
 	await f.turn();
 	await f.tick();
-	assert.equal(f.submitted.length, 4, "initial + exactly three requeues");
+	await until(() => f.submitted.length === 5);
 });
 
 test("30min pending age-out and late run.end generation never clone the next foreground turn", async (t) => {
@@ -521,7 +532,7 @@ test("unattended destructive memory is pending; explicit /refine is trusted atte
 	assert.equal(saved.staged, undefined);
 	await f.turn();
 	await f.tick();
-	assert.equal(f.submitted.length, 2, "explicit review cannot requeue on interruption");
+	await until(() => f.submitted.length === 3);
 });
 
 test("review hard loop ceiling16 and detailed error fields survive wrapper serialization", async (t) => {

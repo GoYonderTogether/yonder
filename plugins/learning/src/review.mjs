@@ -349,7 +349,7 @@ export function createReview(api, config, resolveScope) {
 			c.memory >= 10 &&
 			p.scope.writeMode === "exclusive-yonder" &&
 			(p.scope.memory !== false || p.scope.user !== false);
-		const skills = c.skills >= 10 && p.scope.learning === true && !!p.scope.skillDir;
+		const skills = p.scope.learning === true && !!p.scope.skillDir;
 		const focus = s.explicit?.focus ?? (memory && skills ? "combined" : memory ? "memory" : skills ? "skills" : null);
 		if (focus) {
 			const old = s.pending;
