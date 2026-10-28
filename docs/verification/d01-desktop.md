@@ -11,3 +11,22 @@
 - 待办：正式 macOS Developer ID 签名及公证需 Apple Developer 账号；本卡本机验收只需 ad-hoc 签名。
 
 - 精简运行树检查：工作区符号链接断链 0、树外链接 0；内置 Node 执行该树的 CLI 并向临时 gateway 获取一次性票据成功。运行树按归档 SHA-256 分目录，避免更新时复用旧版本。
+
+## D01r2 补充（2026-10-28）
+
+**结论：保留 Swift。** Tauri 仍缺节点事件到系统通知的完整链路；本轮真实桌面验收也未完成，不能判定继续 Tauri 通过，亦没有 Electron 实测支持切换。
+
+| 项目 | Tauri spike | 现有 Swift 壳 |
+|---|---|---|
+| 体积 | debug 706.53 MiB，含运行树；release 未测 | 现有 `packages/macos/dist/YonderStatus.app` 516 KiB（`du -sk`），不含 gateway/Node 运行树；不可直接等量比较 |
+| 启动 | 上轮首次 32 秒内观察到页面；冷、热各三次及可交互时间未测 | 同方法冷、热各三次未测 |
+| 通知 | `activity.watch` 只有计数，缺节点通知生产/订阅与发送；点击回调存在但端到端未测 | 本轮未测 |
+| 托盘 | 断线或订阅结束设为离线，恢复摘要后更新；单元测试通过，真实断线未测 | 本轮未测 |
+| 更新 | updater 插件已注册，但公钥和更新源为空，真实更新未测 | 菜单提供 CLI 更新检查，本轮未测真实更新 |
+| 跨平台 | Tauri 可作为跨平台技术候选，Windows/Linux 构建、托盘、通知及运行均未实测 | 仅 macOS；Windows/Linux 不适用 |
+
+Rust 固定 `1.99.0`：上一轮 1.92.0 两次下载未完成；本机 Homebrew 1.99.0 的 `cargo check --locked --offline` 使用已有 rsproxy 缓存通过。rustup 的 1.99.0 manifest 可取得，但组件下载未完成，不能声称 rustup 安装成功。
+
+`node --test apps/desktop/src-tauri/src/activity.test.cjs`：1 项通过，覆盖活动流结束后设置离线；真实 gateway 断线与杀死壳后恢复均未测。bundle ID 为 `dev.yonder.desktop`，已有 debug 包为 ad-hoc 签名。历史 `/usr/bin/log show --last 2h --style compact --predicate 'process == "usernoted" AND eventMessage CONTAINS "dev.yonder.desktop"'` 在 13:03:10 记录上一轮临时通知调用，授权状态为 Denied；系统识别了该调用，但这不是节点事件，不能证明通知展示或点击跳转，也不能据此断定 ad-hoc 签名不支持通知或前台抑制是原因。当前权限未确认。
+
+真实验收阻塞：修复提交推送后运行 `verify-copy.sh`，脚本报告验收 HOME `ch05r3` 仍在运行，拒绝更新共享副本；未停止其他任务进程。故 release 构建及体积、两壳各三次冷/热可交互计时、节点通知及点击、崩溃恢复和实际离线托盘均未验收。应在副本可更新后执行 `verify-copy.sh`、`verify-home.sh` 和 `real-check.sh`，再补上述实测；节点级通知契约需维护者确定。
