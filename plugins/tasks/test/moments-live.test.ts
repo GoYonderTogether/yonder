@@ -193,11 +193,13 @@ test.skipIf(!auth || !existsSync(auth))(
 						.poll(async () => (await f.kernel().events.query({ type: "run.end" })).events.length, { timeout: 180000 })
 						.toBeGreaterThan(0);
 					const current = f.store.get(task.id, f.ctx);
+					const transcript = await f.kernel().sessions.transcript(f.ctx.session);
 					const ends = (await f.kernel().events.query({ type: "run.end" })).events;
 					const inputs = (await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" })).events;
 					console.log(
 						JSON.stringify({
 							case: item.expected,
+							transcript: transcript.map(({ kind, text, tools }) => ({ kind, text, tools })),
 							state: current.task.state,
 							runEnds: ends.length,
 							runStatus: (ends.at(-1)?.data as { status?: string } | undefined)?.status,
