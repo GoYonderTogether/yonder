@@ -137,8 +137,8 @@ test("system sections are deterministic and only selected contexts render", asyn
 			"Selected context",
 		]);
 		expect([selected, unselected]).toEqual([2, 0]);
-		expect(framework(session)).toContain("Use zh-CN as the default language for user-facing responses");
-		expect(framework(session, "en-US")).toContain("Use en-US as the default language for user-facing responses");
+		expect(framework(session)).toContain("Respond in the user’s language or zh-CN");
+		expect(framework(session, "en-US")).toContain("Respond in the user’s language or en-US");
 		expect(framework(session).split(/\s+/u).length).toBeLessThanOrEqual(250);
 		expect(framework(session)).not.toContain("yonder docs");
 	} finally {
@@ -440,7 +440,7 @@ test("model discipline follows the exact model id and task sessions must report 
 	}
 	const task = { id: "1", agent: null, profile: "default", cwd: process.cwd(), resolved: resolveProfile({}) };
 	expect(framework(task)).toContain("Your final report must start with STATUS: done|partial|blocked");
-	expect(framework(task)).toContain("Never end a task session with empty text or NO_REPLY");
+	expect(framework(task)).toContain("Never end a task session empty or with NO_REPLY");
 	expect(framework({ ...task, agent: "main" })).toContain("If no reply is needed, output only NO_REPLY.");
 	expect(framework({ ...task, agent: "main" })).not.toContain("STATUS: done|partial|blocked");
 });
@@ -449,7 +449,7 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	const all = [commonPrompt, residentPrompt, runtimePrompt, cliPrompt].join("\n");
 	const words = all.trim().split(/\s+/u).length;
 	expect(words).toBeLessThanOrEqual(1500);
-	expect(commonPrompt).toContain("complete authorized work");
+	expect(commonPrompt).toContain("Complete authorized work");
 	expect(commonPrompt).toContain("Keep credentials and private information out of chat");
 	expect(residentPrompt).toContain("Delegate sustained execution to a suitable available executor");
 	expect(residentPrompt).toContain("Short conversation does not require a task record");

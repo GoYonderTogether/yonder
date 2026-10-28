@@ -313,6 +313,9 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 			name: "task_continue",
 			description:
 				"将已获授权任务的具体下一步排入本会话；接纳后可以结束阶段汇报，后续会自动执行。后台工具已有完成通知时不要重复安排等待。",
+			guidelines: [
+				"Before ending with unfinished authorized work, queue its concrete next step and confirm acceptance. A promise in prose does not schedule work; execute accepted continuations when they arrive.",
+			],
 			parameters: schema({ text: text() }),
 			execute: async (args, ctx) => {
 				if (await runtime().hasOtherBackgroundWork(ctx))
