@@ -1,0 +1,230 @@
+{
+	"Placement": {
+		"enum": ["floating", "page", "rail"]
+	},
+	"Scope": {
+		"enum": ["admin", "owner", "read", "write"]
+	},
+	"BuiltinViewId": {
+		"enum": ["attachments", "background", "context", "goal", "subagents", "subtasks", "todos", "wakes"]
+	},
+	"ViewContent": {
+		"variants": {
+			"markdown": {
+				"required": ["text", "type"],
+				"properties": {
+					"text": {
+						"type": "string"
+					},
+					"type": {
+						"const": "markdown"
+					}
+				}
+			},
+			"list": {
+				"required": ["items", "type"],
+				"properties": {
+					"items": {
+						"array": {
+							"required": ["id", "title"],
+							"properties": {
+								"actions": {
+									"array": {
+										"required": ["id", "label"],
+										"properties": {
+											"danger": {
+												"type": "boolean"
+											},
+											"id": {
+												"type": "string"
+											},
+											"label": {
+												"type": "string"
+											}
+										}
+									}
+								},
+								"id": {
+									"type": "string"
+								},
+								"state": {
+									"enum": ["doing", "done", "error", "info", "todo"]
+								},
+								"subtitle": {
+									"type": "string"
+								},
+								"title": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"type": {
+						"const": "list"
+					}
+				}
+			},
+			"kv": {
+				"required": ["rows", "type"],
+				"properties": {
+					"rows": {
+						"array": {
+							"required": ["k", "v"],
+							"properties": {
+								"k": {
+									"type": "string"
+								},
+								"v": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"type": {
+						"const": "kv"
+					}
+				}
+			},
+			"choice": {
+				"required": ["options", "prompt", "type"],
+				"properties": {
+					"multi": {
+						"type": "boolean"
+					},
+					"options": {
+						"array": {
+							"required": ["id", "label"],
+							"properties": {
+								"id": {
+									"type": "string"
+								},
+								"label": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"prompt": {
+						"type": "string"
+					},
+					"type": {
+						"const": "choice"
+					}
+				}
+			},
+			"input": {
+				"required": ["prompt", "type"],
+				"properties": {
+					"placeholder": {
+						"type": "string"
+					},
+					"prompt": {
+						"type": "string"
+					},
+					"secret": {
+						"const": false
+					},
+					"type": {
+						"const": "input"
+					}
+				}
+			},
+			"builtin": {
+				"required": ["id", "payload", "type"],
+				"properties": {
+					"id": {
+						"$ref": "BuiltinViewId"
+					},
+					"payload": {
+						"type": "unknown"
+					},
+					"type": {
+						"const": "builtin"
+					}
+				}
+			}
+		}
+	},
+	"ViewDecl": {
+		"required": ["id", "placement", "plugin", "scope", "title"],
+		"properties": {
+			"actScope": {
+				"enum": ["admin", "owner", "read", "write"]
+			},
+			"actions": {
+				"array": {
+					"type": "string"
+				}
+			},
+			"data": {
+				"type": "string"
+			},
+			"icon": {
+				"type": "string"
+			},
+			"id": {
+				"type": "string"
+			},
+			"needs": {
+				"required": [],
+				"properties": {
+					"methods": {
+						"array": {
+							"type": "string"
+						}
+					}
+				}
+			},
+			"order": {
+				"type": "number"
+			},
+			"placement": {
+				"$ref": "Placement"
+			},
+			"plugin": {
+				"type": "string"
+			},
+			"scope": {
+				"enum": ["node", "session"]
+			},
+			"title": {
+				"type": "string"
+			}
+		}
+	},
+	"ViewData": {
+		"required": ["content", "rev", "viewId"],
+		"properties": {
+			"badge": {
+				"type": "number"
+			},
+			"content": {
+				"$ref": "ViewContent"
+			},
+			"rev": {
+				"type": "number"
+			},
+			"viewId": {
+				"type": "string"
+			}
+		}
+	},
+	"ViewsChangedEv": {
+		"required": ["ids", "placement"],
+		"properties": {
+			"badge": {
+				"record": {
+					"type": "number"
+				}
+			},
+			"ids": {
+				"array": {
+					"type": "string"
+				}
+			},
+			"placement": {
+				"$ref": "Placement"
+			}
+		}
+	}
+}

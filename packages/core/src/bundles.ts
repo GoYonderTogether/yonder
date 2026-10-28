@@ -34,12 +34,13 @@ export const shippedChannels = [
 	{ type: "github", plugin: "@yonder/plugin-channel-github" },
 ] as const;
 
-/** 无渠道核心：只保证任务会话可用，init 仍能写出可用预设与工作区。 */
+/** 第一档：默认启用；core 是其中无渠道的最小集。 */
 const corePlugins = [
 	{ use: "@yonder/plugin-context-files" },
 	{ use: "@yonder/plugin-interaction" },
 	{ use: "@yonder/plugin-agent-presets" },
 	{ use: "@yonder/plugin-web-tools" },
+	{ use: "@yonder/plugin-learning" },
 ];
 
 const core: Bundle = { plugins: corePlugins, channels: {} };
@@ -54,7 +55,6 @@ const defaults: Bundle = {
 		{ use: "@yonder/plugin-cron" },
 		{ use: "@yonder/plugin-tasks" },
 		{ use: "@yonder/plugin-onboarding" },
-		{ use: "@yonder/plugin-learning" },
 		{ use: "@yonder/plugin-mcp-client" },
 		// 记忆根目录放在 home 下、所有 agent 工作区之外；触发器与采集默认关闭，白名单为空。
 		{
@@ -68,6 +68,7 @@ const defaults: Bundle = {
 /** 需要主人级插件配置、init 无法替主人选择的渠道：只能 plugins add 显式加入并写配置。 */
 const needsOwnerConfig = new Set(["@yonder/plugin-channel-wechat-ilink"]);
 
+/** 第三档：可选插件仅在显式选择 full 时加载；secrets 需单独安装。session 工具属于内核，不是插件。 */
 const full: Bundle = {
 	plugins: [
 		...defaults.plugins,

@@ -1,0 +1,3 @@
+- 截图：`node apps/app/scripts/shoot.mjs --url http://127.0.0.1:4173/#/contacts --out /tmp/x.png --w 390 --h 844`；预设 `--preset phone|tablet|desktop`（390×844 / 820×1180 / 1280×800），`--all` 一次输出三张到 `--out` 目录。
+- `--serve` 先启动 `vite preview`（需已 `npm run build -w @yonder/app`），此时 `--url '#/'` 相对 `http://127.0.0.1:4173/`；`--port` 改端口，`--wait` 调整加载后等待毫秒数（默认 800）。
+- 本机 Chrome/Chromium/Edge 无头 + CDP，零依赖；找不到浏览器会报错，可用 `CHROME_PATH` 指定。

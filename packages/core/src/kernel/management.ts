@@ -93,6 +93,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					state.config.defaultModel,
 				);
 				const { level, capabilities, ...rest } = selected;
+				rest.plugins = [...new Set([...rest.plugins, "learning"])];
 				generated = parseAgentConfig(
 					stringify({
 						schema: 1,

@@ -82,7 +82,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 ## 5. 发布
 
-- **版本号**：`0.<minor>.<YYMMDDNN>`，YYMMDD 是两位年份的发布日期，NN 是当天递增序号（如 `0.2.26102001`）。**正式版**是无后缀版本，对应 GitHub 正式 Release；**测试版**加 `-beta.N` 后缀（如 `0.2.26102001-beta.1`），对应 GitHub 预发布（prerelease）。同一 X.Y.Z 下测试版先于正式版（semver）。自动更新、`update --check`、`update --to latest` 与发布监听只认正式版；安装测试版需显式 `update --to beta` 或指定标签。版本方案变更时递增 minor，保证次序单调。
+- **版本号**：`0.<minor>.<YYMMDDNN>`，YYMMDD 是两位年份的发布日期，NN 是当天递增序号；本次切换至 `0.3.26102801`，根与所有 workspace 包版本一致，`packages/pi-durable` 保留其上游版本。**正式版**是无后缀版本，对应 GitHub 正式 Release；**测试版**加 `-beta.N` 后缀（如 `0.3.26102801-beta.1`），对应 GitHub 预发布（prerelease）。同一 X.Y.Z 下测试版先于正式版（semver）。自动更新、`update --check`、`update --to latest` 与发布监听只认正式版；安装测试版需显式 `update --to beta` 或指定标签。版本方案变更时递增 minor，保证次序单调。
 - 每次变更把对外可见的变化记在根目录 `CHANGELOG.md` 顶部的 `## [Unreleased]`（小节用 Added / Changed / Fixed / Removed）。发布时统一所有包版本与 CHANGELOG，打标签 vx.y.z 并推送，使用 gh 创建该标签的正式 GitHub Release；本地阶段标签不推送，也不等于 Release。发布 watcher 接实际 Release 对象，不把标签当发布通知（10 §3）。
 - `yonder changelog --from a --to b`：输出 `CHANGELOG.md`（当前版本里的）中版本在 (a, b] 之间的各节；`--to` 缺省为当前版本，`--from` 缺省为 `--to` 的上一个版本。
 
