@@ -318,7 +318,7 @@ test.each(["scope", "full"])(
 				summary: "",
 				text: "",
 			});
-			expect(await runtime.hasPendingWork(first, source.id)).toBe(true);
+			expect(await runtime.hasPendingWork(first, scopedSource.id)).toBe(true);
 			expect(
 				await runtime.hasPendingWork(first, newEvent({ type: "message.in", data: { text: "independent request" } }).id),
 			).toBe(false);
