@@ -40,7 +40,7 @@ export const emptyView: SessionView = {
 
 type Act =
 	| { k: "reset" }
-	| { k: "snapshot"; snap: SessionSnapshot }
+	| { k: "snapshot"; snap: SessionSnapshot; gap: boolean }
 	| { k: "ev"; type: string; data: Record<string, unknown> }
 	| { k: "older"; items: ChatItem[]; hasMore: boolean };
 
@@ -111,16 +111,23 @@ function reduce(s: SessionView, a: Act): SessionView {
 		};
 	if (a.k === "snapshot") {
 		const { snap } = a;
+		// gap=true：服务端丢了游标，本地增量全部作废，只按快照重建（contracts §2.3.3）。
+		const gap = a.gap;
 		return {
 			...s,
 			ready: true,
 			session: snap.session ?? s.session,
 			// ready.result 带 transcript 时直接重建；否则等随后的 session.update snapshot
-			items: snap.transcript ? fromTranscript(snap.transcript.items) : s.items,
-			hasMore: snap.transcript?.hasMore ?? s.hasMore,
-			model: modelOf(snap) ?? s.model,
-			usage: usageOf(snap.usage) ?? s.usage,
-			context: snap.context ?? s.context,
+			items: snap.transcript ? fromTranscript(snap.transcript.items) : gap ? [] : s.items,
+			hasMore: snap.transcript?.hasMore ?? (gap ? false : s.hasMore),
+			model: modelOf(snap) ?? (gap ? undefined : s.model),
+			usage: usageOf(snap.usage) ?? (gap ? undefined : s.usage),
+			context: snap.context ?? (gap ? undefined : s.context),
+			// 全量替换的事件（todo/subtask/background）在 gap 后同样不作数，等重订后的最新一条。
+			todos: gap ? [] : s.todos,
+			subtasks: gap ? [] : s.subtasks,
+			background: gap ? [] : s.background,
+			error: gap ? undefined : s.error,
 		};
 	}
 	const d = a.data;
@@ -159,7 +166,7 @@ export function useSession(id: string | undefined): LiveView {
 			"sessions.watch",
 			{ id },
 			{
-				onReady: (result) => dispatch({ k: "snapshot", snap: result as SessionSnapshot }),
+				onReady: (result, gap) => dispatch({ k: "snapshot", snap: result as SessionSnapshot, gap }),
 				onEvent: (type, data) => dispatch({ k: "ev", type, data: (data ?? {}) as Record<string, unknown> }),
 			},
 		);
@@ -173,7 +180,9 @@ export function useSession(id: string | undefined): LiveView {
 			.then((r) =>
 				dispatch({
 					k: "snapshot",
+					// sessions.show 是权威元信息，不是增量补齐，不算 gap。
 					snap: { ...((r as { info?: SessionSnapshot }).info ?? {}), session: r.session } as SessionSnapshot,
+					gap: false,
 				}),
 			)
 			.catch(() => undefined);
