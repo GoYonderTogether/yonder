@@ -15,7 +15,7 @@ export function retryPolicy(config?: import("../config/index.js").YonderConfig["
 }
 /**
  * Request guards (G1 §6.3). Without them a silent provider holds a run for the SDK's 10-minute default.
- * `0` disables a guard. `totalMs` is pi-ai `timeoutMs`, applied by each adapter's HTTP client.
+ * `0` disables a guard. `totalMs` is a whole-request deadline enforced by `requestGuard` in models.ts.
  */
 export function modelTimeouts(config?: import("../config/index.js").YonderConfig["timeouts"]) {
 	return { firstTokenMs: config?.firstTokenMs ?? 20000, totalMs: config?.totalMs ?? 180000 };

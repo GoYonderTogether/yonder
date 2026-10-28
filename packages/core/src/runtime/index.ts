@@ -257,9 +257,6 @@ export class Runtime {
 					steeringMode: "all",
 					followUpMode: "all",
 					retry: retryPolicy(options.config.retry),
-					...(modelTimeouts(options.config.timeouts).totalMs
-						? { stream: { timeoutMs: modelTimeouts(options.config.timeouts).totalMs } }
-						: {}),
 					...(options.config.compaction ? { compaction: options.config.compaction } : {}),
 				},
 				beforeAgent: (target, context) => runtime.prepareRun(String(target.conversationId), context),
@@ -303,7 +300,7 @@ export class Runtime {
 							this.quota.record(account, data);
 						},
 					},
-					{ firstTokenMs: modelTimeouts(this.options.config.timeouts).firstTokenMs },
+					modelTimeouts(this.options.config.timeouts),
 				);
 				for (const [provider, slot] of Object.entries(selection)) {
 					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);

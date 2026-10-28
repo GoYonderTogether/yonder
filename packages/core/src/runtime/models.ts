@@ -226,40 +226,45 @@ function withTelemetry(provider: Provider, id: string, telemetry?: ModelsTelemet
 	};
 }
 
-/** Request guards from `yonder.yaml` `timeouts` (G1 §6.3). */
+/** Request guards from `yonder.yaml` `timeouts` (G1 §6.3). `0` or unset disables a guard. */
 export interface ModelTimeouts {
 	/** Abort a request that has produced no content (text, thinking or tool call) within this many ms. */
 	firstTokenMs?: number;
+	/** Abort a request that has not finished within this many ms, headers and every later stream chunk included. */
+	totalMs?: number;
 }
 const CONTENT_EVENTS = new Set(["text_delta", "thinking_delta", "toolcall_start", "toolcall_delta"]);
 /**
- * Fail a silent request instead of letting it hang until the SDK's 10-minute default: the stream is aborted when
- * no content arrives within `firstTokenMs`, and the abort surfaces as a retryable `error` (not `aborted`) so the
- * chain retries or moves to the next model. A caller's own abort still ends as `aborted`.
+ * Fail a silent or stalled request instead of letting it hang until the SDK's 10-minute default. The stream is
+ * aborted when no content arrives within `firstTokenMs` or the whole request outlives `totalMs`; the abort
+ * surfaces as a retryable `error` (not `aborted`) so the chain retries or moves to the next model. A caller's own
+ * abort still ends as `aborted`. Both timers are cleared on every exit path.
  */
-export function firstTokenGuard(
+export function requestGuard(
 	start: (alive: () => void) => AssistantMessageEventStream,
 	abort: () => void,
-	ms: number,
+	{ firstTokenMs, totalMs }: ModelTimeouts,
 ) {
 	const out = createAssistantMessageEventStream();
-	let timedOut = false;
-	const timer = setTimeout(() => {
-		timedOut = true;
+	let timedOut: string | undefined;
+	const expire = (reason: string) => () => {
+		timedOut ??= reason;
 		abort();
-	}, ms);
+	};
+	const first = firstTokenMs ? setTimeout(expire(`no first token within ${firstTokenMs}ms`), firstTokenMs) : undefined;
+	const total = totalMs ? setTimeout(expire(`exceeded ${totalMs}ms total`), totalMs) : undefined;
 	// Raw provider events also count: a reasoning model may think silently for a long time while the
 	// provider keeps streaming progress events, and that request is alive, not stuck.
-	const stream = start(() => clearTimeout(timer));
+	const stream = start(() => clearTimeout(first));
 	void (async () => {
 		try {
 			for await (const event of stream) {
-				if (CONTENT_EVENTS.has(event.type)) clearTimeout(timer);
+				if (CONTENT_EVENTS.has(event.type)) clearTimeout(first);
 				if (timedOut && event.type === "error") {
 					const error = {
 						...event.error,
 						stopReason: "error" as const,
-						errorMessage: `Request timed out: no first token within ${ms}ms`,
+						errorMessage: `Request timed out: ${timedOut}`,
 					};
 					out.push({ type: "error", reason: "error", error });
 					continue;
@@ -271,23 +276,24 @@ export function firstTokenGuard(
 			out.end();
 			throw error;
 		} finally {
-			clearTimeout(timer);
+			clearTimeout(first);
+			clearTimeout(total);
 		}
 	})();
 	return out;
 }
 function withTimeouts(provider: Provider, timeouts: ModelTimeouts): Provider {
-	const ms = timeouts.firstTokenMs;
-	if (!ms) return provider;
+	if (!timeouts.firstTokenMs && !timeouts.totalMs) return provider;
 	const guard = <T extends { signal?: AbortSignal } | undefined>(
 		options: T,
 		run: (options: T) => AssistantMessageEventStream,
 	) => {
 		const controller = new AbortController();
 		const outer = options?.signal;
-		if (outer?.aborted) controller.abort(outer.reason);
-		outer?.addEventListener("abort", () => controller.abort(outer.reason), { once: true });
-		return firstTokenGuard(
+		const forward = () => controller.abort(outer?.reason);
+		if (outer?.aborted) forward();
+		else outer?.addEventListener("abort", forward, { once: true });
+		const stream = requestGuard(
 			(alive) =>
 				run({
 					...options,
@@ -300,8 +306,11 @@ function withTimeouts(provider: Provider, timeouts: ModelTimeouts): Provider {
 					},
 				} as T),
 			() => controller.abort(),
-			ms,
+			timeouts,
 		);
+		// Completion, failure and cancel all end the stream; drop the caller-signal listener with it.
+		void stream.result().finally(() => outer?.removeEventListener("abort", forward));
+		return stream;
 	};
 	return {
 		...provider,
@@ -456,7 +465,7 @@ export function buildModels(
 			const provider = models.getProvider(id);
 			if (provider) models.setProvider(withTelemetry(provider, id, telemetry));
 		}
-	if (timeouts.firstTokenMs)
+	if (timeouts.firstTokenMs || timeouts.totalMs)
 		for (const provider of models.getProviders()) models.setProvider(withTimeouts(provider, timeouts));
 	return models;
 }
