@@ -363,3 +363,7 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 ## 2026-10-28 稳定性与兼容策略定为 spec/20（0.3 门槛）
 
 0.3 起公共契约（home 布局、公开环境变量、命令与包名、插件 id、hash 路由、gateway 方法与事件、views、yaml 配置、state.db、apiVersion）只增不删，写入 `docs/spec/20-stability.md` 作为唯一权威。弃用的别名/shim 至少保留 2 个 minor（0.3、0.4），最早 0.5 移除，并要求运行时 warn 与 CHANGELOG 条目；破坏性变更必须先记 decisions，再升 protocol/apiVersion/schema_version 并提供 migrate。内容取自稳定化清单已定项，不改 contracts.md。代价：之后的改名与删除都要先走迁移流程，周期变长；golden 文件由 S-C02…S-C07 逐步补齐，在此之前部分冻结项只靠评审守护。
+
+## 2026-10-28 插件 API 版本兼容规则（主人授权）
+
+S-C05 将现有兼容规则补入 04 §6：缺省为 1，接受旧版本，跳过高于 SDK `API_VERSION` 的插件并记录错误，其他插件继续加载；非整数清单无效。此项记录已批准的稳定化规则，不增加新运行行为。

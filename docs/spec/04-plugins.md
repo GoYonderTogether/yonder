@@ -230,13 +230,13 @@ setup 无副作用是可信插件的开发契约；内核在 setup 阶段拒绝�
 
 ## 6. 版本
 
-- `apiVersion` 是整数，内核声明它支持的集合；不在集合内的插件拒绝加载，并说明需要哪个版本。当前为 `1`。
+- `yonder.apiVersion` 是整数，缺省视为 `1`；SDK 导出当前支持的 `API_VERSION`（现为 `1`）。旧版本仍可加载；高于当前支持版本的插件跳过加载并记录需要更新 Yonder 的错误，不阻断其他插件。非整数清单无效。
 - 插件 API 的不兼容变更（包括 01 §5 列出的事件变更）必须提升 `apiVersion`。
 - 包版本用 semver。0.x 期间 MINOR 可以不兼容，但必须写迁移说明；1.0 在至少三个真实插件（含一个渠道、一个执行环境）不改接口地跑通后冻结。
 
 ## 7. 契约测试
 
-`@yonder/sdk/testing` 提供 `checkPlugin(dir): Promise<string[]>`：读清单、加载、用一个只记录注册的 `PluginAPI` 调用 `setup`、比对声明与注册、检查每个工具都声明了 `capabilities` 且名字以 `<pluginId>_` 开头并符合 §3.2 的格式、检查 `apiVersion` 在支持集合内。返回问题列表，空列表表示通过。每个插件的测试都必须调用它。
+`@yonder/sdk/testing` 提供 `checkPlugin(dir): Promise<string[]>`：读清单、加载、用一个只记录注册的 `PluginAPI` 调用 `setup`、比对声明与注册、检查每个工具都声明了 `capabilities` 且名字以 `<pluginId>_` 开头并符合 §3.2 的格式、检查 `apiVersion` 符合 §6。返回问题列表，空列表表示通过。每个插件的测试都必须调用它。
 
 ## 8. 留给以后的能力用哪个接口
 

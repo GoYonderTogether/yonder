@@ -27,6 +27,10 @@
 - 任务账本读模型：新增 `task_current` 投影表，`list`/`get`/`activity` 只查投影；面板视图从"每个任务一次全量重放"改为一次批量查询。
 - 文件行数门禁：`scripts/check-file-size.mjs` 与 `scripts/file-size-baseline.json`，超过 500 行且未登记即失败，基线只减不增。
 
+### Deprecated
+
+- `@yonder/plugin-hermes-experience` 已弃用，请改用 `@yonder/plugin-learning`；旧别名将在 0.5 移除。
+
 ### Changed
 
 - 官方任务预设 `default`/`coding`/`research` 与常驻模板不再写死模型，改由配置的默认模型解析；`init` 生成的 `presets/*.yaml` 不再含 `model`。
