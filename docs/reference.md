@@ -6,7 +6,7 @@
 
 ## 1. 核心
 
-可选 `codex-companion_review` 支持原生只读审查及可选 `adversarial`、`focus` 挑战式审查；须选择插件与工具并提供隔离登录。斜杠模板及显式等待/后台选择尚未接线。
+可选 `codex-companion_review` 支持原生只读审查及可选 `adversarial`、`focus` 挑战式审查；须选择插件与工具并提供隔离登录。`/codex:adversarial-review` 模板随所选工具发现，显式等待/后台选择尚未接线。
 
 ```text
 Yonder Harness

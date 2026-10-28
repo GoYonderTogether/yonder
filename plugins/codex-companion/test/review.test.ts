@@ -24,7 +24,7 @@ test("review selects real git state and isolates Codex login", async () => {
 		git("commit", "-m", "initial");
 		const { api, registrations } = createRegistrationCollector();
 		await plugin.setup(api as never);
-		const tool = registrations.tools[0];
+		const tool = registrations.tools.find((item) => item.name === "codex-companion_review");
 		if (!tool) throw new Error("review tool missing");
 		const ctx = {
 			agent: null,
@@ -39,7 +39,14 @@ test("review selects real git state and isolates Codex login", async () => {
 		await expect(tool.execute({ codexHome: join(process.env.HOME ?? "/nonexistent", ".codex") }, ctx)).rejects.toThrow(
 			"default personal",
 		);
+		await expect(tool.execute({ codexHome: home, focus: "permissions" }, ctx)).rejects.toThrow("focus requires");
 		await writeFile(join(repo, "untracked"), "review me\n");
+		await expect(
+			tool.execute(
+				{ codexHome: home, adversarial: true, focus: "permissions" },
+				{ ...ctx, signal: AbortSignal.timeout(4000) },
+			),
+		).rejects.toThrow();
 		await expect(tool.execute({ codexHome: home }, { ...ctx, signal: AbortSignal.timeout(4000) })).rejects.toThrow();
 		const signal = AbortSignal.abort();
 		await expect(tool.execute({ codexHome: home }, { ...ctx, signal })).rejects.toThrow();
