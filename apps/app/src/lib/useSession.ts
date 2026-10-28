@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from "react";
-import { rpc } from "../transport/client";
-import { mux } from "../transport/stream";
+import { rpc } from "../api/client";
+import { mux } from "../api/stream";
 import type {
 	BackgroundRow,
 	ContextSnapshot,
@@ -11,7 +11,7 @@ import type {
 	TodoItem,
 	UsageSnapshot,
 	UsageTotals,
-} from "../transport/types";
+} from "../api/types";
 import { applyMessage, applyToolUpdate, type ChatItem, fromTranscript } from "./chat";
 
 export interface SessionView {
@@ -86,7 +86,8 @@ function reduceUpdate(s: SessionView, u: UpdateShape): SessionView {
 function modelOf(snap: SessionSnapshot): ModelStatus | undefined {
 	const m = snap.model as (Partial<ModelStatus> & { id?: string }) | undefined;
 	if (!m?.provider) return undefined;
-	const thinking = m.thinking ?? snap.config?.resolved?.thinking;
+	const configuredThinking = snap.config?.resolved?.thinking;
+	const thinking = m.thinking ?? (typeof configuredThinking === "string" ? configuredThinking : undefined);
 	return {
 		provider: m.provider,
 		model: m.model ?? m.id ?? "",
@@ -182,7 +183,7 @@ export function useSession(id: string | undefined): LiveView {
 				dispatch({
 					k: "snapshot",
 					// sessions.show 是权威元信息，不是增量补齐，不算 gap。
-					snap: { ...((r as { info?: SessionSnapshot }).info ?? {}), session: r.session } as SessionSnapshot,
+					snap: { ...(r.info ?? {}), session: r.session } as unknown as SessionSnapshot,
 					gap: false,
 				}),
 			)

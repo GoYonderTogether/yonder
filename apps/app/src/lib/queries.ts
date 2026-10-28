@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { rpc } from "../transport/client";
-import { mux } from "../transport/stream";
-import type { ActivitySummary, ApprovalCard, NodeFacts, SessionInfo, TranscriptItem } from "../transport/types";
+import { rpc } from "../api/client";
+import { mux } from "../api/stream";
+import type { ActivitySummary, ApprovalCard, NodeFacts, SessionInfo, TranscriptItem } from "../api/types";
 import { type ChatItem, fromTranscript } from "./chat";
 import { titleOf } from "./identity";
 import type { ImportList } from "./imports";

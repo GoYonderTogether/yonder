@@ -82,6 +82,12 @@ export const SessionSnapshotSchema = Type.Object(
 	{
 		session: SessionInfoSchema,
 		info: TerminalInfoSchema,
+		config: Type.Optional(
+			Type.Object(
+				{ resolved: Type.Optional(Type.Record(Type.String(), Type.Unknown())) },
+				{ additionalProperties: true },
+			),
+		),
 		transcript: O(Type.Object({ items: A(TranscriptItemSchema), hasMore: B }, { additionalProperties: false })),
 		model: O(ModelStatusSchema),
 		usage: O(UsageSnapshotSchema),

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Mux, type StreamHandlers, type StreamSocket } from "../src/transport/stream";
+import { Mux, type StreamHandlers, type StreamSocket } from "../src/api/stream";
 
 /** 直接喂帧的假连接：Mux 只要求最小面，不需要网关。 */
 class FakeSocket implements StreamSocket {
