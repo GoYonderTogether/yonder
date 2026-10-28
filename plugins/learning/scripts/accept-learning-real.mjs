@@ -74,8 +74,10 @@ try {
   evidence.turns.push(turn); await save(); return turn;
  }
  // Both tasks inspect the actual same temporary home's agent configuration.
- const task = `请用 read 工具读取 ${agentPath}，确认其中 id 与 defaultProfile 的实际值，并简短回答。`;
- const first = await say(clients[0], `/refine memory ${task} 完成读取后调用 learning_refine，focus 设为 memory，复盘本轮工具验证的配置事实。`);
+ const task = process.argv[3] === 'package'
+  ? `请用 read 工具读取 ${join(process.cwd(), 'plugins/learning/package.json')}，确认该插件的包名和版本，并简短回答。`
+  : `请用 read 工具读取 ${agentPath}，确认其中 id 与 defaultProfile 的实际值，并简短回答。`;
+ const first = await say(clients[0], `/refine memory ${task} 完成读取后调用 learning_refine，focus 设为 memory，复盘本轮工具验证的事实。`);
  assert.ok(first.tools.includes('read'), 'first task must actually use read');
  assert.ok(first.tools.includes('learning_refine'), 'first task must request the review');
  const proposal = await until(async () => {
@@ -92,7 +94,7 @@ try {
  assert.ok(memory.trim(), 'confirmed memory must be nonempty');
  const second = await say(clients[1], task);
  assert.notEqual(second.session, first.session);
- const traceBody = async (files) => (await Promise.all(files.map(async (f) => (await readFile(join(process.env.YONDER_PROVIDER_TRACE, f), 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line)).filter((entry) => entry.type === 'request').map((entry) => JSON.parse(entry.body).messages ?? []).filter((messages) => messages.some((message) => message.role === 'user' && JSON.stringify(message.content).includes('defaultProfile')) && !messages.some((message) => JSON.stringify(message.content).includes('You are a quiet, isolated Yonder-native learning review'))).flat().map((message) => typeof message.content === 'string' ? message.content : JSON.stringify(message.content)).join('\n')))).join('\n');
+ const traceBody = async (files) => (await Promise.all(files.map(async (f) => (await readFile(join(process.env.YONDER_PROVIDER_TRACE, f), 'utf8')).split('\n').filter(Boolean).map((line) => JSON.parse(line)).filter((entry) => entry.type === 'request').map((entry) => JSON.parse(entry.body).messages ?? []).filter((messages) => messages.some((message) => message.role === 'user' && JSON.stringify(message.content).includes(task)) && !messages.some((message) => JSON.stringify(message.content).includes('You are a quiet, isolated Yonder-native learning review'))).flat().map((message) => typeof message.content === 'string' ? message.content : JSON.stringify(message.content)).join('\n')))).join('\n');
  const secondTrace = await traceBody(second.traceFiles);
  assert.ok(change.subtitle && secondTrace.includes(JSON.stringify(change.subtitle).slice(1, -1)), 'new session request must contain confirmed entry');
  await kernel.views.act('learning.status', 'undo', { id: change.id }, first.session);
