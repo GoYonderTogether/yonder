@@ -20,11 +20,26 @@ test("rename codemod is idempotent and skips protected paths", (t) => {
 	put("node_modules/kept/index.js", "yonder-harness");
 	put("dist/kept.js", "yonder-harness");
 	put("packages/pi-durable/src/kept.ts", "yonder-harness");
+	put("packages/cli/src/migrate.ts", "yonder-harness");
+	put("plugins/hermes-experience/package.json", "hermes-experience");
+	put("README.md", "https://github.com/GoYonderTogether/yonder-harness; cd yonder-harness; yonder-harness");
 
 	assert.ok(migrate(root, { apply: true }).changes.length > 0);
 	assert.deepEqual(migrate(root, { apply: true }).changes, []);
 	assert.match(fs.readFileSync(path.join(root, "package.json"), "utf8"), /@yonder\/device/);
 	assert.match(fs.readFileSync(path.join(root, "src/a.ts"), "utf8"), /learning/);
-	for (const name of ["docs/archive.md", "CHANGELOG.md", "node_modules/kept/index.js", "dist/kept.js", "packages/pi-durable/src/kept.ts"])
+	for (const name of [
+		"docs/archive.md",
+		"CHANGELOG.md",
+		"node_modules/kept/index.js",
+		"dist/kept.js",
+		"packages/pi-durable/src/kept.ts",
+		"packages/cli/src/migrate.ts",
+	])
 		assert.equal(fs.readFileSync(path.join(root, name), "utf8"), "yonder-harness");
+	assert.equal(fs.readFileSync(path.join(root, "plugins/hermes-experience/package.json"), "utf8"), "hermes-experience");
+	assert.equal(
+		fs.readFileSync(path.join(root, "README.md"), "utf8"),
+		"https://github.com/GoYonderTogether/yonder-harness; cd yonder-harness; yonder",
+	);
 });
