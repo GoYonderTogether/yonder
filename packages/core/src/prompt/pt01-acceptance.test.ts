@@ -46,6 +46,9 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1").each(["default", "coding"])(
 				"main",
 				`请将只读子任务派给 ${preset} 预设：读取 ${sourcePath}，确认文档规定的默认真实测试模型。子任务报告必须以 STATUS: done|partial|blocked 开头，包含路径和模型。收到结果后核对实际证据，正确才在最终答复写“验收通过”，并报告路径和模型。不要修改文件。`,
 			);
+			await expect
+				.poll(async () => (await running.sessions.list({})).some((s) => s.agent === "main"), { timeout: 5000 })
+				.toBe(true);
 			const main = (await running.sessions.list({})).find((s) => s.agent === "main")!;
 			await expect
 				.poll(
@@ -55,7 +58,15 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1").each(["default", "coding"])(
 						);
 						if (children.length !== 1) return false;
 						const events = (await running.events.query({ limit: 1000 })).events;
-						const completion = events.find((e) => e.type === "runtime.tool-result" && e.parent === receipt.event);
+						const completion = events.find((e) => {
+							const data = e.data as { session?: string; tool?: string; text?: string };
+							return (
+								e.type === "runtime.tool-result" &&
+								data.session === main.id &&
+								data.tool === "task_run" &&
+								data.text?.includes(`"session":"${children[0]?.id}"`)
+							);
+						});
 						const childEnd = events.find(
 							(e) => e.type === "run.end" && (e.data as { session?: string }).session === children[0]?.id,
 						);
