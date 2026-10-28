@@ -3,7 +3,7 @@ import { useState } from "react";
 import { login } from "../api/client";
 import mark from "../assets/brand/yonder-mark.svg?inline"; // 内联：登出后网关会把未登录的静态资源请求重定向到登录页
 
-/** 粘贴访问令牌（`yonder ui token` 生成）换登录 cookie；令牌不在前端保存。 */
+/** 粘贴访问令牌（`yonder ui token --rotate` 生成）换登录 cookie；令牌不在前端保存。 */
 export function Login({ onDone }: { onDone(): void }) {
 	const [token, setToken] = useState("");
 	const [err, setErr] = useState("");
@@ -29,7 +29,8 @@ export function Login({ onDone }: { onDone(): void }) {
 				<img src={mark} alt="" className="mb-4 size-10" />
 				<h1 className="text-title font-semibold">登录 Yonder 控制台</h1>
 				<p className="mt-1 text-small text-muted">
-					在运行 Yonder 的电脑上执行 <code className="font-mono">yonder ui token</code>，把访问令牌粘贴到这里。
+					在运行 Yonder 的电脑上执行 <code className="font-mono">yonder ui token --rotate</code>
+					，把生成的访问令牌粘贴到这里。此操作会使旧令牌失效。
 				</p>
 				<label htmlFor="token" className="mt-5 block text-small font-medium">
 					访问令牌
