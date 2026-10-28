@@ -352,3 +352,200 @@ body,
 .md pre {
 	white-space: pre-wrap;
 }
+
+/* 氛围：极大、极淡的色块，只在名片页顶部。 */
+.ambient {
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	height: 520px;
+	overflow: hidden;
+	pointer-events: none;
+	-webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent);
+	mask-image: linear-gradient(to bottom, #000 20%, transparent);
+}
+.ambient::before {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: -240px;
+	width: 900px;
+	height: 700px;
+	translate: -50% 0;
+	border-radius: 9999px;
+	background: radial-gradient(closest-side, oklch(0.85 0.09 var(--h)), transparent);
+	opacity: 0.16;
+	filter: blur(60px);
+}
+@media (prefers-color-scheme: dark) {
+	.ambient::before {
+		background: radial-gradient(closest-side, oklch(0.6 0.12 var(--h)), transparent);
+		opacity: 0.2;
+	}
+}
+
+/* 零星光点：几个小点缓慢明灭。 */
+.sparkle {
+	position: absolute;
+	width: 3px;
+	height: 3px;
+	border-radius: 9999px;
+	background: var(--muted);
+	animation: twinkle 5s ease-in-out infinite;
+	animation-delay: calc(var(--i, 0) * -0.9s);
+}
+@keyframes twinkle {
+	0%,
+	100% {
+		opacity: 0;
+		transform: scale(0.8);
+	}
+	50% {
+		opacity: 0.5;
+		transform: scale(1.2);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.sparkle {
+		animation: none;
+		opacity: 0.25;
+	}
+}
+
+/* Route-backed name cards; 768px is the same breakpoint as the app shell. */
+.card-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+	background: color-mix(in srgb, var(--ink) 30%, transparent);
+	animation: fade var(--d2) var(--ease);
+}
+.card-layer {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+	display: flex;
+	flex-direction: column;
+	height: 100dvh;
+	background: var(--ground);
+	outline: none;
+}
+.card-face {
+	animation: fade var(--d2) var(--ease) both;
+}
+.card-face-edit {
+	--card-angle: -90deg;
+}
+@keyframes card-flip {
+	from {
+		opacity: 0;
+		transform: perspective(1200px) rotateY(var(--card-angle, 90deg));
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+.card-view {
+	position: relative;
+	min-height: 100%;
+}
+.card-public {
+	height: 100dvh;
+}
+.card-bottom {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: 1;
+	padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+	background: var(--ground);
+}
+.card-chooser {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	z-index: 50;
+	width: min(440px, calc(100% - 32px));
+	max-height: calc(100dvh - 32px);
+	overflow-y: auto;
+	transform: translate(-50%, -50%);
+	border-radius: var(--radius-card);
+	background: var(--raised);
+	padding: 24px;
+	box-shadow: var(--shadow-float);
+}
+.card-menu {
+	z-index: 50;
+}
+.card-qr {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	height: 100dvh;
+	background: var(--accent);
+	color: var(--on-accent);
+}
+@media (min-width: 768px) {
+	.card-face {
+		animation-name: card-flip;
+	}
+	.card-layer {
+		inset: auto;
+		top: 50%;
+		left: 50%;
+		width: min(1040px, calc(100% - 64px));
+		height: min(820px, calc(100dvh - 64px));
+		transform: translate(-50%, -50%);
+		border-radius: var(--radius-card);
+		box-shadow: var(--shadow-float);
+		overflow: hidden;
+	}
+	.card-qr {
+		inset: auto;
+		top: 50%;
+		left: 50%;
+		width: min(480px, calc(100% - 64px));
+		height: auto;
+		max-height: calc(100dvh - 32px);
+		overflow-y: auto;
+		transform: translate(-50%, -50%);
+		border-radius: var(--radius-card);
+		background: var(--raised);
+		color: var(--ink);
+		box-shadow: var(--shadow-float);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.card-face {
+		animation: fade var(--d2) var(--ease) both;
+	}
+}
+
+/* Exported name cards keep a white paper and black QR in every theme. */
+:root {
+	--share-paper: #ffffff;
+	--share-ink: #111111;
+	--share-tone: #e9e8e4;
+}
+.card-image {
+	display: block;
+	width: 100%;
+	aspect-ratio: 8 / 5;
+	object-fit: contain;
+	border-radius: var(--radius-card);
+}
+.profile-actions {
+	display: flex;
+	gap: 12px;
+}
+@media (max-width: 767px) {
+	.profile-actions {
+		position: fixed;
+		inset-inline: 0;
+		bottom: 0;
+		z-index: 2;
+		padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+		background: var(--ground);
+	}
+}
