@@ -12,7 +12,11 @@
 			"import": "./dist/index.js"
 		},
 		"./schema/execution-v1.json": "./schema/execution-v1.json",
-		"./schema/relay-v1.json": "./schema/relay-v1.json"
+		"./schema/relay-v1.json": "./schema/relay-v1.json",
+		"./gateway": {
+			"types": "./dist/gateway/index.d.ts",
+			"import": "./dist/gateway/index.js"
+		}
 	},
 	"files": [
 		"dist",

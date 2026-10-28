@@ -1,3 +1,4 @@
+import { EVENT_TYPES } from "@yonder/protocol/gateway";
 import Type, { type TSchema } from "typebox";
 import type { MethodDef } from "./method-types.js";
 
@@ -28,7 +29,7 @@ export const capabilitiesMethods: MethodDef[] = [
 				kind: ctx.principal.kind,
 				version: { yonder: info.version, commit: info.origin?.commit ?? null },
 				methods: registry.facts(ctx.principal),
-				events: ["session.update", "activity.summary"],
+				events: EVENT_TYPES,
 				plugins: plugins.map((plugin) => ({ id: plugin.id, version: plugin.version ?? "", views: [] })),
 				granted: ctx.principal.scopes,
 				limits: { maxSubs: 64, attachmentMaxBytes: 0, transcriptPage: 50 },

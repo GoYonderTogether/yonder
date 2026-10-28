@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { testModel } from "../../core/src/config/test-support.js";
 import { type GatewayHandle, startGateway } from "../src/index.js";
+import { EVENT_TYPES } from "../src/protocol/index.js";
 
 // Real kernel in a temporary home; no model credentials are needed because nothing here waits for a model reply.
 let home: string;
@@ -106,6 +107,7 @@ describe("gateway over a real kernel", () => {
 
 	it("answers like the registry and keeps local-only methods off the gateway", async () => {
 		const caps = await rpc("capabilities.get", {}, { cookie, origin: base });
+		expect(caps.result?.events).toEqual(EVENT_TYPES);
 		expect(caps.result).toMatchObject({ protocol: 1, kind: "local" });
 		const presets = await rpc("terminal.presets", {}, { cookie, origin: base });
 		const direct = await registry.call(
