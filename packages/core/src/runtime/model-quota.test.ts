@@ -65,7 +65,7 @@ describe("official quota", () => {
 		quota.record(accountKey("openai", "gpt2"), { rate_limits: { primary: { used_percent: 10 } } });
 		clock += 1000;
 		quota.record(accountKey("openai", "gpt2"), { rate_limits: { primary: { used_percent: 70 } } });
-		await new Promise((resolve) => setTimeout(resolve, 20));
+		await quota.flush();
 		const reopened = new ModelQuota(path, () => clock);
 		await reopened.load();
 		expect(reopened.window(accountKey("openai", "gpt2"))?.usedPercent).toBe(70);
