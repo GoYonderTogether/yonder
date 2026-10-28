@@ -14,7 +14,7 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
-import type { RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
+import type { PromptPart, RuntimeInput, RuntimeSessionConfig } from "../runtime/index.js";
 import { builtinPromptSections, promptSectionIds } from "./content.js";
 
 /** Core context: no optional plugin or template fallback is needed for peer collaboration. */
@@ -102,23 +102,48 @@ function renderContext(
 	};
 }
 
-async function contributions(
+async function contributionParts(
 	session: RuntimeSessionConfig & { id: string },
 	placement: "system" | "turn",
 	options: Pick<PromptOptions, "contexts" | "workspace" | "signal">,
 	event?: YEvent,
-): Promise<string[]> {
+): Promise<PromptPart[]> {
 	const context = renderContext(session, () => options.workspace(session, options.signal), event, options.signal);
-	const sections: string[] = [];
+	const sections: PromptPart[] = [];
 	for (const id of session.resolved.contexts) {
 		options.signal?.throwIfAborted();
 		const contribution = options.contexts.get(id);
 		if (!contribution) throw new Error(`Unknown context: ${id}`);
 		if (contribution.placement !== placement) continue;
 		const text = await contribution.render(context);
-		if (text) sections.push(text);
+		if (text) sections.push({ key: promptKey(`context.${id}`), text });
 	}
 	return sections;
+}
+
+async function contributions(
+	session: RuntimeSessionConfig & { id: string },
+	placement: "system" | "turn",
+	options: Pick<PromptOptions, "contexts" | "workspace" | "signal">,
+	event?: YEvent,
+): Promise<string[]> {
+	return (await contributionParts(session, placement, options, event)).map((part) => part.text);
+}
+
+/** pi section key for a prompt part id: lowercase, with characters outside `[a-z0-9_-]` replaced by `-`. */
+export function promptKey(id: string): string {
+	return id.toLowerCase().replace(/[^a-z0-9_-]/gu, "-");
+}
+
+/** Every key `systemPromptParts` can produce for these contexts, in default order. */
+export function systemPromptKeys(contexts: ReadonlyMap<string, ContextContribution>): string[] {
+	return [
+		...promptSectionIds.map(promptKey),
+		"skills",
+		...[...contexts]
+			.filter(([, contribution]) => contribution.placement === "system")
+			.map(([id]) => promptKey(`context.${id}`)),
+	];
 }
 
 export async function scaffoldWorkspace(
@@ -141,8 +166,17 @@ export async function systemSections(
 	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal"> &
 		Partial<Pick<PromptOptions, "locale">>,
 ): Promise<string[]> {
+	return (await systemPromptParts(session, options)).map((part) => part.text);
+}
+
+/** The system sections with stable keys, so each part can be cached and patched on its own. */
+export async function systemPromptParts(
+	session: RuntimeSessionConfig & { id: string },
+	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal"> &
+		Partial<Pick<PromptOptions, "locale">>,
+): Promise<PromptPart[]> {
 	const prompt = session.resolved.prompt ?? {};
-	const sections: string[] = [];
+	const sections: PromptPart[] = [];
 	const selected = prompt.sections ?? promptSectionIds;
 	const model = session.resolved.model.slice(session.resolved.model.indexOf("/") + 1);
 	for (const id of selected) {
@@ -160,11 +194,11 @@ export async function systemSections(
 		}
 		if (original === undefined) throw new Error(`Unknown prompt section: ${id}`);
 		const text = prompt.overrides?.[id] ?? original;
-		if (text.trim()) sections.push(text);
+		if (text.trim()) sections.push({ key: promptKey(id), text });
 	}
 	const skills = await options.skillIndex?.(session);
-	if (skills) sections.push(skills);
-	sections.push(...(await contributions(session, "system", options)));
+	if (skills) sections.push({ key: "skills", text: skills });
+	sections.push(...(await contributionParts(session, "system", options)));
 	return sections;
 }
 
@@ -261,6 +295,7 @@ export async function prepareInput(
 			`from: ${label(data.name ?? account?.name ?? event.from)} (${label(event.from)}${relation ? `, ${label(relation)}${account?.person ? `: ${label(account.person)}` : ""}` : ""})`,
 		);
 	}
+	if (data.quote?.text) lines.push(`quote: ${label(data.quote.text)}`);
 	const slash = session.resolved.model.indexOf("/");
 	const model = options.models.getModel(
 		session.resolved.model.slice(0, slash),

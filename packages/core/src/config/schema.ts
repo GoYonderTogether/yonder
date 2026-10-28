@@ -136,12 +136,27 @@ export const YonderSchema = object({
 			}),
 		),
 	),
+	notifications: Type.Optional(
+		object({
+			default: Type.Optional(choice("all", "mention", "mute")),
+			conversations: Type.Optional(
+				Type.Record(ref("conv"), choice("all", "mention", "mute"), { additionalProperties: false }),
+			),
+		}),
+	),
 	envs: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	retry: Type.Optional(
 		object({
 			maxRetries: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })),
 			baseDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
 			maxDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
+		}),
+	),
+	/** Per-request model guards (G1 §6.3): no content within `firstTokenMs`, or the HTTP request past `totalMs`, fails it. */
+	timeouts: Type.Optional(
+		object({
+			firstTokenMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 2147483647 })),
+			totalMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 2147483647 })),
 		}),
 	),
 	compaction: Type.Optional(Type.Record(Type.String(), Type.Unknown())),

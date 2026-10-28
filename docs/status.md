@@ -334,3 +334,11 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 ## Agent 状态与固定悬浮入口（0.2.26102505）
 
 状态栏、菜单与悬浮入口接入逐 Agent 的真实运行/等待/空闲状态；菜单和浮窗显示当前输入、执行步骤与生成中的可见回复短片段。图钉按 home 保存，固定后收起保留同锚点入口，鼠标移出且无输入/拖动时自动收起。默认完成自动收起与左右键统一菜单保持。build/typecheck/lint 与全仓 605/0/39 通过；原生实际交互与焦点边界不由构建推定，见 [验证记录](verification/agent-status-companion.md)。
+
+## 2026-10-27 渠道通知级别、QQ 媒体与微信监听（lane/channels-20261027）
+
+内核新增入站通知：每条被绑定接纳的 `message.in` 与带字符串 `data.summary` 的插件事件，按 yonder.yaml `notifications` 级别（all/mention/mute，可按 `conv:` 覆盖）写一条 `yonder.notification`，走 sessions.notify 的 app-only entry，不唤醒模型、不进模型消息。QQ 渠道补齐入站附件（`attachments`，只接纳 https URL）、引用原文（`quote.text` 进入本轮提示）、出站 image/audio/video/file 与 `sendIntervalMs` 串行间隔（默认 500 毫秒）。微信归档批次增加 channel/conversation/senders/summary 标注供提醒使用。
+
+验证：`npm run typecheck`、`npm run lint`、`npm run build` 通过；`npx vitest run packages/core/src/routing`（42 通过 / 1 跳过，跳过项是需要 `YONDER_TEST_REAL=1` 的真实模型群批测试）、`plugins/channel-qq`（6 通过 / 1 跳过）、`plugins/wechat-archive`（2 通过）、`packages/core/src/prompt`、`packages/core/src/kernel`、`tests/wechat.test.ts` 通过。用真实编译产物 `parseYonderConfig` 读主人正在跑的 yonder.yaml：13 个渠道正常解析、`notifications` 缺省为 undefined（旧配置不需要改）；同一解析器拒绝 `default: loud` 与非 `conv:` 键。微信侧真实冒烟用本机归档：`wechat-context status` 报 540083 条/983 会话、上次同步 ok；`fetch-new --consumer lane-channels-smoke --from-now` 建立游标 540083，随后 `check-new` 报 0 条新、再次 `fetch-new` 返回 0 条并保留同一游标，证明真实增量与游标持久化可用。
+
+**未测**：QQ 真实平台联调（本机 yonder.yaml 的三个 QQ 实例已占用全部 WebSocket 连接，抢连会打断在跑的服务，交主 Agent 联调）；真实微信新消息触发的模型唤醒与提醒端到端（本线没有产生新的微信消息，不伪造）；媒体发送在平台的序号与限流实测；网页端/桌面端消费 notification 事件的节点级扇出（属 B 线）。

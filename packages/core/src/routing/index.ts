@@ -1,5 +1,6 @@
 import type { Channel, EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
+import { inboundNotification, type NotificationConfig } from "../kernel/notifications.js";
 import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import { newEvent, type Store } from "../store/index.js";
@@ -16,6 +17,7 @@ interface CreateRouterOptions {
 	sessions: Sessions;
 	runtime: () => Runtime;
 	agents: Map<string, AgentConfig>;
+	notifications?: NotificationConfig | undefined;
 	onStart?: (
 		session: SessionInfo,
 		event: YEvent,
@@ -80,6 +82,7 @@ export function createRouter({
 	sessions,
 	runtime,
 	agents,
+	notifications,
 	onStart,
 	onRun,
 	onCommand,
@@ -149,6 +152,13 @@ export function createRouter({
 				try {
 					const session = await store.sessions.get(routed.session);
 					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
+					const notification = inboundNotification(notifications, event);
+					if (notification)
+						try {
+							await runtime().notify(session.id, notification);
+						} catch (error) {
+							report(error);
+						}
 					if (routed.wake === "run") {
 						const command = await onCommand?.(session, event);
 						if (command) {
@@ -218,6 +228,7 @@ export function createRouter({
 							...(run.reason ? { reason: run.reason } : {}),
 						});
 				}
+				return;
 			}),
 		);
 	}

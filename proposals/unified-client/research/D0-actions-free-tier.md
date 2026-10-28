@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [release-ci.md](../release-ci.md)
+
 # GitHub Actions 免费额度（10-27 核实）
 
 来源：github/docs 仓库 main 分支原文（`data/reusables/actions/supported-github-runners.md`、`content/billing/reference/product-usage-included.md`、`content/actions/reference/limits.md`），以及 docs.github.com 的 larger runners 页面。

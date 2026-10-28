@@ -86,6 +86,9 @@
 			"path": "plugins/ui-companion"
 		},
 		{
+			"path": "plugins/learning"
+		},
+		{
 			"path": "plugins/hermes-experience"
 		},
 		{

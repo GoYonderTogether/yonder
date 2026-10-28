@@ -3,7 +3,7 @@
 ## pi-durable 1.3.0 source fork
 
 - Vendored workspace: `packages/pi-durable`, npm name remains `@earendil-works/pi-durable`, version 1.3.0.
-- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `45014f2a2250b789df4fc00441de54d4fda505f8`.
+- Fork: [GoYonderTogether/pi](https://github.com/GoYonderTogether/pi/tree/yonder/1.3/packages/durable), branch `yonder/1.3`, source commit `234394f69439ba5b16b4d1b67042bbbec550f17d`.
 - Base: earendil-works/pi tag v1.3.0, `71023aec1546d6d677a65669c5665c0927ce0dd0`.
 - MIT, Copyright (c) 2025 Mario Zechner; full original license retained in [packages/pi-durable/LICENSE](packages/pi-durable/LICENSE). Boundary callback/abort queue continuation (D28), atomic run receipt (D29), retry hook and exhaustion reason (D44), interrupted-generation continuation (D49) are source changes described in FORK.md. No install-time patch remains.
 - Tool-search relevance rules adapt [Hermes Agent](https://github.com/NousResearch/hermes-agent/blob/bf0203a794a07aac3ff764972ab9087baa4e4f4e/tools/tool_search_catalog.py), MIT, Copyright (c) 2025 Nous Research; the full applicable license and reference are retained in [packages/pi-durable/FORK.md](packages/pi-durable/FORK.md).
@@ -89,5 +89,5 @@ Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinne
 
 ## Hermes experience adaptation
 
-- `plugins/hermes-experience` adapts Hermes Agent memory, skill and review policy at `4dcef215cfe41bd2d02c2d1dad6e257a18101216`, with earlier response-style guidance at `0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0`. MIT, Copyright (c) 2025 Nous Research.
-- Exact source symbols, qualifications and retained permission are in [NOTICE](plugins/hermes-experience/NOTICE), [SOURCES.md](plugins/hermes-experience/assets/SOURCES.md) and [Hermes-MIT.txt](plugins/hermes-experience/assets/Hermes-MIT.txt). New native adapter contributions follow this repository’s Apache-2.0 license. No Python runtime or upstream skill corpus is bundled.
+- `plugins/learning` (formerly `plugins/hermes-experience`, which remains as a deprecated alias) adapts Hermes Agent memory, skill and review policy at `4dcef215cfe41bd2d02c2d1dad6e257a18101216`, with earlier response-style guidance at `0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0`. MIT, Copyright (c) 2025 Nous Research.
+- Exact source symbols, qualifications and retained permission are in [NOTICE](plugins/learning/NOTICE), [SOURCES.md](plugins/learning/assets/SOURCES.md) and [Hermes-MIT.txt](plugins/learning/assets/Hermes-MIT.txt). New native adapter contributions follow this repository’s Apache-2.0 license. No Python runtime or upstream skill corpus is bundled.

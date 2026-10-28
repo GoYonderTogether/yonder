@@ -300,7 +300,7 @@ macOS 桌面通过稳定路径的签名 Yonder Helper.app 执行。permissions/s
 
 ## 微信归档与 iLink
 
-- `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
+- `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道、不自动回复。入站为 `wechat-archive.material`（conv `conv:wechat-archive:<chat>`，data 带 channel/conversation/senders/summary），`notifications` 级别决定是否提醒，轮询间隔与游标持久化在插件私有 SQLite 与稳定 consumer 名下。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
 - `@yonder/plugin-channel-wechat-ilink`：wechat-ilink 私聊渠道及 status/login/message 工具；首个配置实例默认关联明确配置的主人，后续实例独立关联。模型权限、会话与投递沿用现有系统。详见[iLink 插件](../plugins/channel-wechat-ilink/README.md)。
 - 实现/验证/真实微信未测项见[微信迁移验收](verification/wechat-plugins.md)。
 
@@ -319,8 +319,8 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - **包**：`@yonder/plugin-channel-qq`；[使用与扫码配置](../plugins/channel-qq/README.md)
 - **贡献**：渠道提供者 `qq`；工具 `channel-qq_status`（read）。
-- **输入**：官方 WebSocket 的 C2C、群 @ 与平台已开放的普通群消息，写 `message.in`，保留原生 msgId、时间、发送者、会话及 mentioned。默认群绑定普通消息只写入会话，@ 唤醒。
-- **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
+- **输入**：官方 WebSocket 的 C2C、群 @ 与平台已开放的普通群消息，写 `message.in`，保留原生 msgId、时间、发送者、会话、mentioned、附件与引用原文。默认群绑定普通消息只写入会话，@ 唤醒。
+- **输出**：官方文字与 image/audio/video/file 媒体 API，经共享投递返回平台消息 ID；请求按 `sendIntervalMs`（默认 500 毫秒）串行间隔，未知结果不重发。无流式、频道或 Webhook。
 - **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立只读分身、非空 60 秒分桶和显式定向发送。全量权限须由群主在具体群聊内管理该机器人时逐群配置，机器人的全局设置不能替代。
 
 ## channel-card

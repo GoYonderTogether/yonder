@@ -18,6 +18,11 @@
 	},
 	"overrides": [
 		{
+			"includes": ["apps/app/**/*.css"],
+			"css": { "parser": { "tailwindDirectives": true } },
+			"linter": { "rules": { "style": { "noDescendingSpecificity": "off" } } }
+		},
+		{
 			"includes": ["plugins/tasks/src/prompts.ts"],
 			"formatter": {
 				"enabled": false

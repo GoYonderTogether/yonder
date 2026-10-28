@@ -1,0 +1,66 @@
+{
+	"name": "@yonder/plugin-learning",
+	"version": "0.2.26102705",
+	"type": "module",
+	"yonder": {
+		"apiVersion": 1,
+		"id": "learning",
+		"entry": "./dist/index.mjs",
+		"contributes": {
+			"tools": [
+				"learning_memory_read",
+				"learning_memory_edit",
+				"learning_skill_store",
+				"learning_memory_pending",
+				"learning_refine",
+				"learning_review_memory_read",
+				"learning_review_memory_edit",
+				"learning_review_skill_store"
+			],
+			"contexts": [
+				"hermes-memory",
+				"hermes-behavior",
+				"hermes-core"
+			],
+			"skills": [
+				"hermes-yonder"
+			],
+			"presets": [
+				"hermes-study",
+				"hermes-learning-review"
+			],
+			"hooks": [
+				"hermes-learning"
+			],
+			"triggers": [
+				"hermes-learning"
+			]
+		}
+	},
+	"license": "Apache-2.0",
+	"engines": {
+		"node": ">=22.19"
+	},
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./recipe": {
+			"types": "./dist/recipe.d.mts",
+			"import": "./dist/recipe.mjs"
+		}
+	},
+	"files": [
+		"dist",
+		"assets",
+		"skills",
+		"docs",
+		"README.md",
+		"NOTICE"
+	],
+	"dependencies": {
+		"@yonder/sdk": "0.2.26102705",
+		"yaml": "2.9.1"
+	}
+}

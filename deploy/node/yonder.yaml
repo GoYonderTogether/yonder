@@ -1,0 +1,57 @@
+schema: 1
+locale: zh-CN
+timezone: Asia/Shanghai
+plugins:
+  - use: "@yonder/plugin-channel-cli"
+  - use: "@yonder/plugin-context-files"
+  - use: "@yonder/plugin-agent-presets"
+  - use: "@yonder/plugin-web-tools"
+channels:
+  cli:
+    type: cli
+envs:
+  local:
+    type: local
+agents:
+  - id: main
+    workspace: ./agents/main
+identity:
+  persons:
+    - id: owner
+      name: owner
+      accounts:
+        - acct:cli:local
+models:
+  providers:
+    rightapi-glm:
+      baseUrl: https://www.rightapi.ai/v1
+      api: openai-completions
+      authHeader: true
+      models:
+        - id: glm-5.3-flash
+          name: GLM-5.3-Flash
+          reasoning: true
+          input:
+            - text
+            - image
+          contextWindow: 1000000
+          maxTokens: 16384
+          compat:
+            supportsStore: false
+            supportsDeveloperRole: false
+            supportsReasoningEffort: true
+            maxTokensField: max_tokens
+            thinkingFormat: zai
+            supportsStrictMode: true
+            zaiToolStream: true
+          thinkingLevelMap:
+            off: null
+            minimal: null
+            low: low
+            medium: null
+            high: high
+            xhigh: null
+            max: max
+compaction:
+  enabled: true
+  backgroundAtTokens: 272000

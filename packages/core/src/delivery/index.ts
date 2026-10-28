@@ -40,6 +40,7 @@ interface DeliveryOptions {
 	runtime: () => Runtime;
 	sessions: Sessions;
 	onReport?: (error: unknown) => void;
+	log?: (level: "info" | "warn" | "error", message: string, data?: object) => void;
 }
 
 /** Hold only the prefix that may still be the model's control marker. */
@@ -94,12 +95,26 @@ const channelId = (ref: string) => {
 	const parsed = parseRef(ref);
 	return parsed.kind === "acct" || parsed.kind === "conv" ? parsed.channel : undefined;
 };
-/** What the person sees when a run stops: the effect and what to do, not the provider's raw error. */
+/**
+ * What the person sees when a run stops: a safe category and what to do next, in Chinese. The raw reason (provider
+ * text, URLs, internal codes) is never sent to a channel; it stays in the log and in the `run.end` event.
+ */
 export function stopNotice(reason: string): string {
 	if (/connection error|fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket|network/i.test(reason))
 		return "网络连接中断，这一轮没有完成。网络恢复后回我一句，我接着做。";
-	const brief = reason.replace(/\s+/g, " ").trim();
-	return `运行已停止：${brief.length > 160 ? `${brief.slice(0, 160)}…` : brief}。`;
+	// A run that never got an answer must say so: the model chain is the one failure the person cannot see from the
+	// channel side, and silence reads as "Jarvis is ignoring me" (G1 §6.6 tier 3).
+	if (/^(model_error|no_model)\b/i.test(reason)) {
+		if (/\b(401|403)\b|unauthori[sz]ed|forbidden|invalid[ _-]?api[ _-]?key|authentication|credential/i.test(reason))
+			return "模型账号验证失败，这一轮没有完成。请管理员检查模型凭据后再回我一句。";
+		if (/\b429\b|rate[ _-]?limit|quota|too many requests|insufficient|billing/i.test(reason))
+			return "模型请求太频繁或额度用完，这一轮没有完成。过一会儿回我一句，我重试；持续出现请管理员检查额度。";
+		if (/timed? ?out|timeout/i.test(reason)) return "模型响应超时，这一轮没有完成。过一会儿回我一句，我重试。";
+		if (/\b5\d\d\b|overloaded|unavailable/i.test(reason))
+			return "模型服务暂时不可用，这一轮没有完成。过一会儿回我一句，我重试。";
+		return "模型都不可用（model_error），这一轮没有完成。过一会儿回我一句，我重试；持续出现请管理员查看日志。";
+	}
+	return "运行已停止，这一轮没有完成。回我一句我可以重新开始；反复出现请管理员查看日志。";
 }
 /** `proactive`: an explicit send (tool or program), not a reply streamed from a run. */
 type Scope = { channelInstances?: string[]; event?: YEvent; events?: YEvent[]; proactive?: boolean };
@@ -465,6 +480,12 @@ export function createDelivery(options: DeliveryOptions) {
 		];
 		const hasWaiter = actual.some((event) => waiting(session, event) === true);
 		const stopped = run.status !== "done";
+		if (stopped)
+			options.log?.("warn", "Run stopped; channel got a category notice", {
+				session,
+				status: run.status,
+				reason: run.reason,
+			});
 		const finalText = stopped ? stopNotice(run.reason ?? run.status) : run.text.trim() === "NO_REPLY" ? "" : run.text;
 		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? sources : [];
 		const destination =

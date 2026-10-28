@@ -1,3 +1,5 @@
+> 证据材料，结论已并入 [agent-parity.md](../agent-parity.md)
+
 # Yonder 自主选模型：数据源与机制调研（E3）
 
 ## 范围与口径

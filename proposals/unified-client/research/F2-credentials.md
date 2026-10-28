@@ -1,6 +1,8 @@
+> 证据材料，结论已并入 [credentials.md](../credentials.md)
+
 # Yonder 密钥插件调研报告
 
-调研对象：`/Users/zoran/Documents/yonder-harness`（只读），本机 `~/.agents`、`~/Documents/vaultwarden-agent`，以及公开文档。所有结论标注文件:行号；未能在线核实的条目标注「未验证」。
+调研对象：`~/Documents/yonder-harness`（只读），本机 `~/.agents`、`~/Documents/vaultwarden-agent`，以及公开文档。所有结论标注文件:行号；未能在线核实的条目标注「未验证」。
 
 ---
 
@@ -51,7 +53,7 @@
 
 ### 2.1 规约层
 
-`~/.agents/skills/credential-use/SKILL.md`：首选自托管 Vaultwarden（`https://vault.xcyyds.top`），默认 `automation` 账号；取用只有一种形状 `agent-vault run <引用文件> -- <受信任命令及参数>`；`status`/`list` 只返回状态与元数据；`create`/`update` 走 JSON stdin、返回值不含秘密；个人库需 `--profile owner` 且必须显式授权。旧 1Password 入口保留：`agent-with-secrets <引用文件> -- <命令>`，文件只接受 `KEY=op://` 引用、注释与空行。规约同时写明边界："同一 macOS 用户下 profile 只是权限分配，不能隔离不可信 Agent"。
+`~/.agents/skills/credential-use/SKILL.md`：首选自托管 Vaultwarden（`<自托管 Vaultwarden 地址>`），默认 `automation` 账号；取用只有一种形状 `agent-vault run <引用文件> -- <受信任命令及参数>`；`status`/`list` 只返回状态与元数据；`create`/`update` 走 JSON stdin、返回值不含秘密；个人库需 `--profile owner` 且必须显式授权。旧 1Password 入口保留：`agent-with-secrets <引用文件> -- <命令>`，文件只接受 `KEY=op://` 引用、注释与空行。规约同时写明边界："同一 macOS 用户下 profile 只是权限分配，不能隔离不可信 Agent"。
 
 ### 2.2 引用格式
 

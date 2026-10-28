@@ -89,7 +89,7 @@ interface SessionSnapshot {          // sessions.watch ready.result，对 Sessio
   context: ContextSnapshot;
 }
 interface ActivitySummary {
-  running: number; waiting: number;  // 「在跑」「等你回答」：顶栏、托盘、悬浮窗同一个数
+  running: number; waiting: number;  // 「在跑」「等你回答」：图标栏、托盘、悬浮窗同一个数
   suggestions?: number;
   sessions: { id: string; state: "running"|"waiting"|"idle"|"error"; since: string }[];
 }
@@ -111,7 +111,7 @@ interface InputReceipt { event: string; session: string; deduped?: boolean }
 | `attachments.put` | write | `POST /api/attachments`，原始字节，头 `Content-Type`、可选 `X-Name` | `{ uri: string; bytes: number; mime: string }` | 新增·B（网关落盘到 home 下附件目录，返回的 `uri` 可直接放入 `submit.attachments`；socket 上不提供） |
 | `approvals.list` | read | `{ state?: "pending"\|"all" }` | `{ items: ApprovalCard[] }` | 新增·A（secrets 插件经 views/事件库读出；`credentials.md` §6.2） |
 | `approvals.answer` | write | `{ approvalId: string; decision: "approve"\|"deny" }` | `{ state: "answered"; by: string; first: boolean }` | 新增·A；同一 `approvalId` 只生效一次，重复回答 `first:false` |
-| `views.list` | read | `{ placement?: "rail"\|"main"\|"companion" }` | `{ views: ViewDocument[] }` | 新增·A（design §4.8；`ViewDocument` 类型归 SDK） |
+| `views.list` | read | `{ placement?: "rail"\|"floating"\|"main"\|"companion" }` | `{ views: ViewDocument[] }` | 新增·A（design §4.8；`ViewDocument` 类型归 SDK） |
 | `views.watch` | read | `{ placement? }` | 同 `views.list`，流式 | 新增·A |
 | `views.act` | write | `{ viewId: string; action: string; input?: unknown }` | `{ document?: ViewDocument }` | 新增·A |
 | `events.query` | read | `EventQuery`（sdk `types.ts`：`id,type,from,conv,agent,since,until,after,limit`） | `EventPage` | 已有 |
@@ -267,6 +267,8 @@ interface BackgroundUpdatedEv { session: string; rows: BackgroundRow[] }
 
 三者都用「全量替换」语义，不做 diff，因此丢帧后以任何一条最新事件或快照为准，对 `gap` 天然健壮。todo 的数据源是 `plugins/tasks` 账本还是独立 todo 插件，由 A 线在 `agent-parity.md` 的 rpiv-todo 评估后定；事件形状不变。
 
+**落库与事件的原子性（`model.fallback`、`todo.updated`）。** pi-durable 的 `commit` 只覆盖它自己的文档，事件库是另一套写入，两者不能放进同一事务。因此采用「同一持久步骤写欠条，事后投递」：状态变更（todo 列表、回退状态）与待发事件的 JSON 在同一次 `commit` 里写入 `yonder.session` 文档的 `outbox`；之后调用 `onTodo` / `onModelFallback`（写事件库并推给 `sessions.watch` 订阅者），投递完成再提交移除这几条。进程在两步之间崩溃时，`Runtime.recover()` 启动时对每个会话重发遗留的 `outbox`。语义是至少一次：崩溃发生在「已投递、未移除」之间会重复一条；两种 payload 都是全量/状态替换（见上），重复无害，客户端仍按事件 id 或最新一条为准。重启后重发的事件没有在线订阅者，只进事件库。
+
 ### 3.5 审批（`credentials.md` §6）
 
 ```ts
@@ -288,7 +290,7 @@ type ApprovalAnsweredEv  = { approvalId: string; state: "approved" | "denied" | 
 ### 3.6 views、通知
 
 ```ts
-interface ViewsChangedEv { placement: "rail" | "main" | "companion"; ids: string[]; badge?: Record<string, number> }
+interface ViewsChangedEv { placement: "rail" | "floating" | "main" | "companion"; ids: string[]; badge?: Record<string, number> }
 interface NotificationEv { id: number; from: string; event: string; text: string; session?: string } // = SessionNotification【已有】
 interface CapabilitiesChangedEv { reason: "plugin-reload" | "config-reload" }
 ```

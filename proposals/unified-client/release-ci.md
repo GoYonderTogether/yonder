@@ -11,7 +11,7 @@
 3. 桌面、手机、Web、npm、Docker、Homebrew、Scoop 的产物都从同一条 tag 流水线产出。`SHA256SUMS`、`release-manifest.json`、`latest.json` 由 `publish` job 统一生成并上传，避免矩阵 job 之间竞争写文件。
 4. 免费额度只靠公开仓的标准 runner。私有 `yonder-cloud` 只跑 Linux 小 job，预计每月约 150–250 分钟，上限 2,000。
 5. 本机只留与改动相关的快速单测。重型测试（Swift、service-host e2e、安装/卸载/迁移 e2e、全平台矩阵）全部由 `npm run ci:remote` 触发远端 workflow。
-6. 对已定决策提出 5 条异议和补充，见 §13.3。其中 npm 的 `@yonder` scope 与 pi-ai/pi-durable 打包问题，以及 MSI 版本号上限，需要维护者先决定。
+6. npm 包用 `bundleDependencies` 带上 fork 的 pi-ai 与 vendored pi-durable。`@yonder` scope 能否注册需要主人登录 npm 确认（§13.2）。取舍与决定见 §13.3、§13.4。
 
 ### 1.2 产物矩阵（概要，详见 §3）
 
@@ -447,15 +447,15 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 
 ### 6.1 安装目录与服务注册
 
-沿用 `research/C4-install.md` §6.1 的规格：
+目录与 `design.md` §3 对齐（10-27 决定），不沿用旧的 `~/.yonder-harness`；服务名沿用 `research/C4-install.md` §6.1：
 
 | | macOS | Linux | Windows |
 |---|---|---|---|
-| 代码 | `~/.yonder-harness/{versions,current,bin}` | 同左 | `%LOCALAPPDATA%\YonderHarness\{versions,current,bin}` |
-| 数据 | `~/.local/share/yonder-harness/home`（迁移后为 `~/.local/share/yonder/home`，`design.md` §3.2） | 同左 | `%LOCALAPPDATA%\YonderHarness\home` |
+| 运行时 | `~/.local/share/yonder/runtime/<version>/`，`current` 软链指向当前版本 | 同左 | `%LOCALAPPDATA%\Yonder\runtime` |
+| 数据 | `~/.local/share/yonder/home`（旧安装在 `~/.local/share/yonder-harness/home`，由 `yonder migrate` 迁入，`design.md` §3.2） | 同左 | `%LOCALAPPDATA%\Yonder\home` |
+| 命令入口 | `~/.local/bin/yonder` | 同左 | `yonder.cmd`，目录加入用户 PATH |
 | 服务 | `~/Library/LaunchAgents/dev.yonder.harness{,.status}.plist` | `~/.config/systemd/user/dev.yonder.harness.service` | 任务计划 `Yonder Harness` 加 `yonder-service.cmd` |
 
-安装目录是否随产品改名（`~/.yonder-harness` 是否改为 `~/.yonder`）规格没有写，本设计不改，列入 §13.2 待决。
 
 ### 6.2 `install.sh` 行为规格（POSIX sh）
 
@@ -486,7 +486,7 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 - `current` 用目录 junction（`index.ts:714-760`）。
 - PATH 写用户级环境变量 `[Environment]::SetEnvironmentVariable('Path', …, 'User')`，新终端生效。
 - 检查 `bash.exe`（`where bash.exe`、`%ProgramFiles%\Git\bin\bash.exe`）。缺失时警告，因为 shell 工具依赖 Git Bash（`research/C4-install.md` §2）。询问后才执行 `winget install --id Git.Git`，不静默安装。
-- 任务计划的 `/TR` 命令超过 262 字符会失败（`index.ts:375-478`）。默认安装路径 `%LOCALAPPDATA%\YonderHarness` 短于该限制；自定义前缀过长时，脚本在写任务前先计算长度并报错。
+- 任务计划的 `/TR` 命令超过 262 字符会失败（`index.ts:375-478`）。默认安装路径 `%LOCALAPPDATA%\Yonder` 短于该限制；自定义前缀过长时，脚本在写任务前先计算长度并报错。
 
 ### 6.4 卸载
 
@@ -698,7 +698,7 @@ GitHub 托管 runner 在境外，目标是阿里云国内机房（`yonder.zethai
 
 - 连通性：跨境 SSH 会受丢包和延迟影响（未实测）。在 `deploy` job 里给 `ssh` 设 `ConnectTimeout=20`、`ServerAliveInterval=15`、`ServerAliveCountMax=4`，整个 job `timeout-minutes: 15`，失败后重试一次，禁止无限重试。
 - 防火墙：GitHub runner 的出口 IP 范围很大（`api.github.com/meta` 的 `actions` 字段，数千个网段），无法在安全组里逐个放行。做法：SSH 端口对公网开放，仅靠密钥认证、`restrict`、强制命令、`fail2ban`、可选改非标准端口来防护。需要主人在阿里云安全组确认端口策略。
-- 备选（连通性差时）：服务器侧拉取。服务器上的 systemd timer 定期读取受信任的版本指针，下载公开仓的产物并用同样的校验流程安装，不需要入站 SSH。该方案放进 §13.3 作为备选，是否采用由主人决定。
+- 备选（连通性差时）：服务器侧拉取。服务器上的 systemd timer 定期读取受信任的版本指针，下载公开仓的产物并用同样的校验流程安装，不需要入站 SSH。部署先用推（SSH 加 `deploy-gate`），跨境 SSH 不稳定时再改为拉（§13.3）。
 - 现有 `deploy/net.sh` 为绕过本机 Clash 而写，在 Actions 里不需要，迁移时删除相关逻辑。
 
 ### 9.5 预算
@@ -724,7 +724,7 @@ GitHub 托管 runner 在境外，目标是阿里云国内机房（`yonder.zethai
 | 其他 | secret scanning 与 push protection 打开；CODEOWNERS 覆盖 `.github/`、`scripts/install.*`、`release/` |
 | 供应链 | 全部 Release 资产附 `SHA256SUMS`、minisign 签名与 `attest-build-provenance`；Docker 镜像同样做 attestation；npm 带 provenance |
 
-`release` 环境没有 required reviewers。原因：6 路矩阵每个 job 都引用该环境，设了审批会在每个 job 弹出确认（多个 job 是否合并成一次审批未核实，不依赖这一点）。人工把关放在两处：发版 PR 的审阅合并，以及 tag 规则集。如果需要 draft 转 published 前的二次确认，可在 `publish` 里再引用一个只含 reviewer、不含密钥的环境（见 §13.3 的建议）。
+`release` 环境没有 required reviewers。原因：6 路矩阵每个 job 都引用该环境，设了审批会在每个 job 弹出确认（多个 job 是否合并成一次审批未核实，不依赖这一点）。人工把关放在两处：发版 PR 的审阅合并，以及 tag 规则集。不设 draft 转 published 前的二次确认环境（主人已授权主 Agent 负责发版；只有 `production` 部署保留审批，见 §13.3 的建议）。
 
 ### 10.2 密钥清单
 
@@ -802,7 +802,7 @@ GitHub 托管 runner 在境外，目标是阿里云国内机房（`yonder.zethai
 | `design.md` §11 阶段 6 | 一条命令安装在三平台干净环境各跑一次 | 以 `e2e-install` 替代手工验证；真机验证仍保留人工走查 |
 | `yonder-cloud/deploy/` | 本机 `deploy.sh`、`net.sh`、`install.sh` 随包上传 | 拆成「CI 构建」与「受限 SSH 触发」；`install.sh` 改为服务器预置副本 |
 
-## 13. 风险、未核实项、对已定决策的异议
+## 13. 风险、未核实项与已定取舍
 
 ### 13.1 风险
 
@@ -814,7 +814,7 @@ GitHub 托管 runner 在境外，目标是阿里云国内机房（`yonder.zethai
 | 无 Apple 账号期间 Helper 权限随升级重置 | 用户升级后需重新授权 | 发布说明明示；账号到位后改为 Developer ID，TCC 身份稳定 |
 | Windows 无签名期间 SmartScreen 警告 | 用户安装体验差 | 先发预览并明示；S4 申请 SignPath |
 | 滚动 `channel-beta` Release 与 GitHub 的「不可变 Release」功能冲突（该功能的具体行为未核实） | 若主人开启不可变 Release，beta 通道更新会失败 | 本设计默认不开启；若要开启，改用独立的 `channels` 分支存放清单 |
-| `release` 环境无审批 | 任何拿到 `v*` tag 推送权限的人都能触发带密钥的构建 | tag 规则集限定维护者；`verify` 校验提交在 main 祖先链上；审批式二次确认见 §13.3 |
+| `release` 环境无审批 | 任何拿到 `v*` tag 推送权限的人都能触发带密钥的构建 | tag 规则集限定维护者；`verify` 校验提交在 main 祖先链上；不设审批环境，见 §13.3 |
 | 单个 maintainer 掌管全部密钥 | 丢失无法恢复 | 备份 Tauri、minisign、Android keystore（私有密码库）；公钥写入仓库 |
 
 ### 13.2 未核实项
@@ -822,7 +822,7 @@ GitHub 托管 runner 在境外，目标是阿里云国内机房（`yonder.zethai
 | 项 | 状态 |
 |---|---|
 | npm `@yonder` scope | 实测：`registry.npmjs.org/-/v1/search?text=scope:yonder` 返回 0 个包；`@yonder/cli`、`core`、`sdk`、`protocol`、`gateway`、`app`、`desktop` 的 registry 查询均为 404。**无法据此断定 scope 可注册**：npm 的 scope 属于用户或组织，空 scope 也可能已被占用，`npmjs.com/org/yonder` 对本次请求返回 403，没拿到页面。裸名 `yonder` 已被占用（HTTP 200）。需要主人登录 npm 后执行 `npm org create yonder` 或查看 `https://www.npmjs.com/org/yonder`，被占用则改用 `@goyonder` 或 `@yonder-ai`，该改名需同步 `design.md` §3.2 |
-| npm 打包 | 实测：`packages/core/package.json:21-22` 与 `packages/sdk/package.json:20-21` 依赖 `@earendil-works/pi-ai@1.3.0`、`@earendil-works/pi-durable@1.3.0`；主仓 `package.json:56-60` 用 `overrides` 把 pi-ai 重定向到 `third_party/pi-ai/*.tgz`（fork），`packages/pi-durable` 的包名也在别人的 scope 下。直接把 `@yonder/cli` 发到 npm，消费者安装时会拿到上游 pi-ai，而不是 fork，还会尝试解析并不属于我们的 `@earendil-works/pi-durable`。需要维护者在两种方案中选一：(a) `@yonder/cli` 用 `bundleDependencies` 把 fork 的 pi-ai tarball 和 vendored pi-durable 打进包里；(b) 把 fork 以我们自己的 scope 重新命名后发布。本设计假设 (a)，`pack-runtime.mjs` 与 npm 包共用同一份裁剪逻辑 |
+| npm 打包 | 已定用 `bundleDependencies`（§13.3）。依据：`packages/core/package.json:21-22` 与 `packages/sdk/package.json:20-21` 依赖 `@earendil-works/pi-ai@1.3.0`、`@earendil-works/pi-durable@1.3.0`；主仓 `package.json:56-60` 用 `overrides` 把 pi-ai 重定向到 `third_party/pi-ai/*.tgz`（fork）；直接发布会让消费者拿到上游 pi-ai |
 | 原生模块 | 已核实（见 §3.2）：无 `better-sqlite3`，`node:sqlite` 内置；原生部分只有 pi-tui 全平台预编译和 `@resvg/resvg-js` 的平台 optional dependency。`resvg` 其他平台的 optional 包是否都有 win32-arm64 构建，未核实，S2 在 `windows-11-arm` 上实测 |
 | Tauri 移动端构建前提 | 已核实：Xcode、`JAVA_HOME`、`ANDROID_HOME`、`NDK_HOME`、SDK Platform、Platform-Tools、NDK（`v2.tauri.app/start/prerequisites/`）；iOS 签名要 99 美元/年的 Apple Developer 账号加 Apple 设备（`distribute/sign/ios/`）；Android 签名走 `keystore.properties`（`distribute/sign/android/`）。macOS 15 镜像预装 NDK 27.3/28.2/29.0 与 Android Command Line Tools 16.0（`runner-images`）。未核实：`ubuntu-24.04` 镜像的 NDK 版本、`macos-26` 的 Xcode 版本是否满足 Tauri 与 App Store 要求 |
 | sidecar 在移动端不可用 | `v2.tauri.app/develop/sidecar/` 页面没有直接说明；依据是移动系统的进程策略，属推断，S6 实测 |
@@ -831,33 +831,26 @@ GitHub 托管 runner 在境外，目标是阿里云国内机房（`yonder.zethai
 | 平台配置文件 `tauri.android.conf.json` 等 | 凭记忆，S6 实测 |
 | Linux runner 上用户级 systemd | 未核实，`e2e-install` 的 Linux 用例做了降级 |
 | 阿里云防火墙与 SSH 端口策略 | 未核实，需要主人确认 |
-| 安装目录是否改名 | 规格未写，沿用 `~/.yonder-harness` |
 | `build-macos.mjs` 在非 darwin 上的行为 | 未核实，故拆 `build:core` |
 | Windows arm64 的 Tauri 构建、Linux arm64 AppImage | 未核实，S5 实测 |
 
-### 13.3 对已定决策的异议与补充
+### 13.3 已定取舍
 
-1. **（异议）第 2 条「npm 包（带 provenance）」与现有依赖结构冲突。** 理由见 §13.2 的「npm 打包」：fork 的 pi-ai 和 vendored 的 pi-durable 无法通过普通依赖声明发布。需要先定 (a) 或 (b)，npm 发布才能进入 S4。
-2. **（异议）第 4 条「正式版走 stable」的实现方式。** `releases/latest` 会排除 prerelease，stable 用它没有问题；beta 需要另一个入口。本设计增加滚动 Release `channel-beta`，它由 App token 更新，需要在 tag 规则集里为 `channel-*` 单独设白名单。如果不接受滚动 tag，beta 只能让客户端调 GitHub API 列表，会遇到匿名限速。
-3. **（异议）第 9 条与「准备发版自动开 PR」的相容性。** 用 `GITHUB_TOKEN` 开的 PR 不会触发 CI，必需检查永远缺失。必须引入 GitHub App（或 PAT）。这不改变决策方向，但新增一项外部资源。
-4. **（补充）MSI 版本。** `0.<minor>.<YYMMDDNN>` 与 MSI 版本格式可能不兼容（§3.3）。Windows 的 `wix.version` 需要单独映射，不影响 NSIS 与 updater。
-5. **（补充）第 3 条「检测到旧安装就调用 `yonder migrate`」。** `migrate` 当前不存在（`research/C4-install.md` §0），`install.sh` 的这一分支要等 S2 里 `migrate` 实现后才能验收。
-6. **（建议）minisign 签 `SHA256SUMS`。** 已定决策只写了 `SHA256SUMS` 和 attestation。同源的 SHA256 只能防传输损坏，不能防 Release 被篡改，`gh attestation verify` 需要用户装 `gh`。所以加一道 minisign，成本是一个密钥。
-7. **（建议）draft 转 published 前的二次确认。** 新增一个只含 required reviewers、不含密钥的环境（例如 `publish`），`publish` job 引用它。是否采用由维护者定；不采用也能工作。
-8. **（备选）部署由推改拉。** 若 §9.4 的跨境 SSH 稳定性不达标，服务器侧拉取可以去掉入站 SSH 和公开的 22 端口，代价是部署延迟和回滚响应变慢。
-### 13.4 主 Agent 对异议的裁定（10-27）
+- **npm 打包。** `@yonder/cli` 用 `bundleDependencies` 带上 fork 的 pi-ai tarball 和 vendored pi-durable，与 `pack-runtime.mjs` 共用裁剪逻辑；不另外发布 fork 包，避免多维护一条发版链。
+- **beta 通道。** 滚动 Release `channel-beta`，在 tag 规则集里为 `channel-*` 单独设白名单，只允许 App 推送。不用滚动 tag 时 beta 只能调 GitHub API 列表，会遇到匿名限速。
+- **准备发版自动开 PR。** 用 `GITHUB_TOKEN` 开的 PR 不触发 CI，所以引入 GitHub App `yonder-release-bot`，列入外部资源，需主人在网页上创建并安装。
+- **MSI 版本。** `0.<minor>.<YYMMDDNN>` 与 MSI 格式可能不兼容（§3.3），Windows 的 `wix.version` 由 `version-check.mjs` 单独生成映射，不影响 NSIS 与 updater。
+- **`yonder migrate`。** 当前不存在（`research/C4-install.md` §0），`install.sh` 的 migrate 分支随 S2 的 `yonder migrate` 一起验收。
+- **校验。** minisign 签 `SHA256SUMS`：同源 SHA256 只防传输损坏，`gh attestation verify` 需要用户装 `gh`。
+- **发布审批。** 不设 `publish` 审批环境；只有 `production` 部署保留审批。
+- **部署方式。** 先用推（SSH 加 `deploy-gate`）；跨境 SSH 不稳定时改为服务器侧拉取，代价是部署延迟和回滚响应变慢。
+- **npm scope。** `@yonder` 是否可注册需要主人登录 npm 查看。被占用就整体改用 `@goyonder`，并同步 `design.md` §3.2。
 
-1. npm 打包选 (a)：`@yonder/cli` 用 `bundleDependencies` 带上 fork 的 pi-ai tarball 和 vendored pi-durable，与 `pack-runtime.mjs` 共用裁剪逻辑。不另外发布 fork 包，避免多维护一条发版链。
-2. 接受滚动 Release `channel-beta`。在 tag 规则集里给 `channel-*` 单独设白名单，只允许 App 推送。
-3. 接受引入 GitHub App `yonder-release-bot`，列入外部资源：需主人在网页上创建并安装。
-4. 接受 MSI 版本单独映射，由 `version-check.mjs` 生成。
-5. `install.sh` 的 migrate 分支随 S2 的 `yonder migrate` 一起验收。
-6. 接受 minisign 签 `SHA256SUMS`。
-7. 不设额外的 `publish` 审批环境。主人已授权主 Agent 负责发版；只有 `production` 部署保留审批。
-8. 部署先用推（SSH 加 `deploy-gate`）；跨境 SSH 不稳定时再改为拉。
-9. 安装目录与 `design.md` §3 对齐，不沿用 `~/.yonder-harness`：
-   - 运行时放 `~/.local/share/yonder/runtime/<version>/`，`current` 是指向当前版本的软链。
-   - 用户数据放 `~/.local/share/yonder/home`。
-   - Windows 分别用 `%LOCALAPPDATA%\Yonder\runtime` 和 `%LOCALAPPDATA%\Yonder\home`。
-   - 命令入口放 `~/.local/bin/yonder`（Windows 加入用户 PATH）。
-10. npm scope `@yonder` 是否可注册，需要主人登录 npm 查看。被占用就整体改用 `@goyonder`，并同步 `design.md` §3.2。
+### 13.4 决定记录
+
+- 10-27：npm 打包选 `bundleDependencies`。
+- 10-27：接受滚动 Release `channel-beta` 与 GitHub App `yonder-release-bot`。
+- 10-27：接受 MSI 版本单独映射、minisign 签 `SHA256SUMS`。
+- 10-27：不设 `publish` 审批环境，主人授权主 Agent 负责发版。
+- 10-27：部署先推后拉。
+- 10-27：安装目录与 `design.md` §3 对齐（`~/.local/share/yonder/{runtime,home}`、`~/.local/bin/yonder`）。
