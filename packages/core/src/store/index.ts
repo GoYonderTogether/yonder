@@ -119,6 +119,18 @@ export async function createStore(
 			if (result.id === event.id) onEvent?.(result);
 			return result;
 		},
+		async appendWithFacts(event: YEvent, facts: EventInput[]) {
+			const added: YEvent[] = [];
+			const result = await db.transaction(async (tx) => {
+				const previous = await findInput(tx, event);
+				if (previous) return previous;
+				added.push(await insert(tx, event));
+				for (const fact of facts) added.push(await insert(tx, newEvent(fact)));
+				return event;
+			});
+			for (const item of added) onEvent?.(item);
+			return result;
+		},
 		record: (input: EventInput, routes?: Route[]): Promise<YEvent> => events.append(newEvent(input, routes)),
 		async runForInput(session: string, input: string): Promise<YEvent | undefined> {
 			const row = await db.get<EventRow>(

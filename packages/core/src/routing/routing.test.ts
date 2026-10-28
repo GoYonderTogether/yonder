@@ -263,3 +263,233 @@ test("multiAgent targets only its own bound agent; ordinary channels cannot targ
 		await db.close();
 	}
 });
+
+test("social router isolates owner DMs and authorized groups and records its decisions", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:chat:owner", "person:owner");
+		await store.identity().link("acct:other:owner", "person:owner");
+		const agent = parseAgentConfig(`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: guest
+profiles:
+  guest: { level: readonly }
+social:
+  enabled: true
+  authorized:
+    conversations: ["conv:chat:group", "conv:chat:group2"]
+bindings:
+  - id: owner
+    match: { from: owner }
+    session: main
+  - id: group
+    match: { kind: group }
+    session: { mode: persistent, per: conv }
+`);
+		const agents = new Map([[agent.id, agent]]);
+		const keys = new Map<string, string>();
+		const sessions = {
+			ensureAgent: async (_agent: string, _profile: string, key: string) => {
+				if (!keys.has(key)) keys.set(key, String(keys.size + 1));
+				return { session: { id: keys.get(key) }, profileMismatch: false };
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const router = createRouter({
+			store,
+			sessions,
+			agents,
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const emit = (from: string, conv: string, kind: string, extra = {}) =>
+			router.emit({ type: "message.in", from, conv, data: { kind, ...extra } });
+		const owner1 = await emit("acct:chat:owner", "conv:chat:owner", "dm");
+		const owner2 = await emit("acct:other:owner", "conv:other:owner", "dm");
+		const group = await emit("acct:chat:owner", "conv:chat:group", "group", { mentioned: true });
+		const group2 = await emit("acct:chat:user", "conv:chat:group2", "group", { mentioned: true });
+		const stranger = await emit("acct:chat:user", "conv:chat:private", "dm");
+		expect(owner1.routes?.[0]?.session).toBe(owner2.routes?.[0]?.session);
+		expect(group.routes?.[0]?.binding).toBe("group");
+		expect(new Set([owner1.routes?.[0]?.session, group.routes?.[0]?.session, group2.routes?.[0]?.session]).size).toBe(
+			3,
+		);
+		expect(stranger.routes?.[0]?.session).toBeUndefined();
+		const events = await store.events.query({ limit: 100 });
+		expect(events.events.filter((e) => e.type === "routing.social-decision")).toHaveLength(5);
+	} finally {
+		await db.close();
+	}
+});
+
+test("social mapping limits the candidates without bypassing their bindings", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string, extra: object, bindings: object[]) =>
+			parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id,
+					name: id,
+					owner: "person:owner",
+					defaultProfile: "guest",
+					profiles: { guest: { level: "readonly" } },
+					bindings,
+					...extra,
+				}),
+			);
+		const match = { id: "group", match: { kind: "group" }, session: { mode: "persistent", per: "conv" } };
+		const main = make(
+			"main",
+			{
+				social: {
+					enabled: true,
+					authorized: { conversations: ["conv:chat:group"] },
+					mappings: [{ subject: "conv:chat:group", agent: "child", profile: "guest" }],
+				},
+			},
+			[match],
+		);
+		const child = make("child", {}, [match]);
+		const legacy = make("legacy", {}, [match]);
+		const agents = new Map([
+			[main.id, main],
+			[child.id, child],
+			[legacy.id, legacy],
+		]);
+		const sessions = {
+			ensureAgent: async (id: string) => ({ session: { id }, profileMismatch: false }),
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const router = createRouter({
+			store,
+			sessions,
+			agents,
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true },
+		});
+		expect(event.routes?.filter((route) => route.session).map((route) => route.agent)).toEqual(["child"]);
+		child.bindings = [];
+		const unbound = await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true },
+		});
+		expect(unbound.routes?.every((route) => !route.session)).toBe(true);
+	} finally {
+		await db.close();
+	}
+});
+
+test("social scope does not steal other instances or legacy fan-out with real sessions", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string, instance?: string) =>
+			parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id,
+					name: id,
+					owner: "person:owner",
+					defaultProfile: "guest",
+					profiles: { guest: { level: "readonly", ...(instance ? { channelInstances: [instance] } : {}) } },
+					bindings: [
+						{ id: "input", match: { kind: "dm" }, session: { mode: "persistent", per: "conv" }, wake: "write" },
+					],
+					...(instance ? { social: { enabled: true, authorized: { accounts: [`acct:${instance}:user`] } } } : {}),
+				}),
+			);
+		const list = [make("social-a", "a"), make("social-b", "b"), make("legacy1"), make("legacy2")];
+		const agents = new Map(list.map((agent) => [agent.id, agent]));
+		let next = 0;
+		const runtime = {
+			create: async () => String(++next),
+			submit: async () => ({}),
+			notify: async () => {},
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents,
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/social-scope",
+			config: { agents: list.map((a) => ({ id: a.id, workspace: `./agents/${a.id}` })) } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const router = createRouter({ store, sessions, agents, runtime: () => runtime });
+		const send = (instance: string) =>
+			router.emit({
+				type: "message.in",
+				from: `acct:${instance}:user`,
+				conv: `conv:${instance}:dm`,
+				data: { kind: "dm" },
+			});
+		const a = await send("a");
+		const b = await send("b");
+		expect(a.routes?.filter((r) => r.session).map((r) => r.agent)).toEqual(["social-a", "legacy1", "legacy2"]);
+		expect(b.routes?.filter((r) => r.session).map((r) => r.agent)).toEqual(["social-b", "legacy1", "legacy2"]);
+		expect((await store.sessions.get(a.routes![0]!.session!))?.key).toBe("conv:conv:a:dm");
+	} finally {
+		await db.close();
+	}
+});
+
+test("social decision and input roll back together when audit storage fails", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await db.run(
+			"CREATE TRIGGER fail_social BEFORE INSERT ON y_events WHEN NEW.type = 'routing.social-decision' BEGIN SELECT RAISE(ABORT, 'audit failure'); END",
+		);
+		const agent = parseAgentConfig(
+			JSON.stringify({
+				schema: 1,
+				id: "main",
+				name: "main",
+				owner: "person:owner",
+				defaultProfile: "guest",
+				profiles: { guest: {} },
+				bindings: [],
+				social: { enabled: true },
+			}),
+		);
+		const router = createRouter({
+			store,
+			agents: new Map([[agent.id, agent]]),
+			sessions: {} as Parameters<typeof createRouter>[0]["sessions"],
+			runtime: () => {
+				throw new Error("No model");
+			},
+		});
+		const input = {
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:dm",
+			data: { kind: "dm", msgId: "id" },
+		};
+		await expect(router.emit(input)).rejects.toThrow("audit failure");
+		expect(await store.events.findInput(input)).toBeUndefined();
+		await db.run("DROP TRIGGER fail_social");
+		expect((await router.emit(input)).routes?.[0]?.dropped).toBe("no-binding");
+		expect((await store.events.query({ limit: 100 })).events.map((e) => e.type)).toEqual([
+			"message.in",
+			"routing.social-decision",
+		]);
+	} finally {
+		await db.close();
+	}
+});

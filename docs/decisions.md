@@ -1,5 +1,7 @@
 # 决策记录
 
+**2026-10-28 O49 T14r2 投递幂等键（主 Agent 代批）。** OutMessage 增加可选 deliveryId，复用持久 attempt ID，飞书按分片派生 UUID；旧插件可忽略。代价是平台去重受其有效期限制，未知结果仍不自动重发。
+
 **2026-10-28 O49 PT-P157 包含符号（主人授权）。** 可选 code-intel 在执行环境内调用 pi-lens 4.4.6 MCP，按位置读取最小包含符号；超长默认仅返回元数据。
 
 **2026-10-28 O49 PT-P155 模块报告（主人授权）。** 可选 code-intel 通过执行环境内 pi-lens MCP 提供文件符号报告；默认 compact，focus 仅重排，跨文件结果保留来源路径。
@@ -433,3 +435,13 @@ S-C05 将现有兼容规则补入 04 §6：缺省为 1，接受旧版本，跳�
 批准 channels-social 提案 §4–§8 的只增契约。direct 只沿现有 binding，不提升 write；profile 变化只影响新会话，现有会话保留固定 profile。旧无 notification 元数据发送保持原行为；新主动出口由 Agent 的 social.enabled opt-in，旧 home 默认关闭、新 init 明确开启，入站通知级别不变。关系不增加权限系统，插件 social.* 与核心路由事实各归其所有者。
 
 控制面 scope_denied 映射 forbidden（data.reason），revision_conflict 映射已有 conflict 并返回当前 revision，unsupported_kind 映射 invalid_params（data.kind）；静态引用加载时检查，目标实例须属于 Agent 的 channelInstances，console 例外。增量契约不代表对应运行或真实渠道验收已完成。
+
+CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关联原始入站事件，data 记录 agent、reason 和 social 配置的 SHA-256 内容版本 revision（主 Agent 代批）。它只记录确定性路由事实，不复制转录或由插件伪写。
+
+## 2026-10-28 O49 T08 插件委派入口（主 Agent 代批）
+
+插件工具使用 `api.subagents.run(request, ctx)` 复用 `task_run`，绑定真实工具调用上下文，沿用既有权限上限、取消和 durable 子会话，不增加存储或独立授权。
+
+## 2026-10-28 O49 诊断处理标记（主 Agent 代批）
+
+可选 code-intel 按 pi-lens 4.4.6 的标记语义提供直接工具；defer 按 Yonder 会话隔离，suppress 需要写能力并写源码注释，其他持久标记与日志保存在项目作用域。pi-lens 未通过 MCP 暴露标记，使用最小 host-neutral 适配；不建立 Yonder 诊断总线，不复制 pi 事件总线或转录。标记消费须由诊断入口显式接入，不能声称所有诊断已自动过滤。

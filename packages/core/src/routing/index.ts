@@ -4,6 +4,7 @@ import { inboundNotification, type NotificationConfig } from "../kernel/notifica
 import type { Runtime, RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import { newEvent, type Store } from "../store/index.js";
+import { socialBindingAllowed, socialDecision } from "./social.js";
 
 type Wake = "run" | "write";
 interface RoutedRun {
@@ -49,7 +50,11 @@ async function matches(binding: Binding, event: YEvent, agent: AgentConfig, stor
 		const account = await store.identity().account(event.from);
 		const relation = !account?.person ? "stranger" : account.person === agent.owner ? "owner" : "known";
 		for (const value of expected) {
-			if (value === relation) return true;
+			if (
+				value === relation &&
+				!(agent.social?.enabled && value === "owner" && event.type === "message.in" && data.kind !== "dm")
+			)
+				return true;
 			if (value.startsWith("acct:") && value === event.from) return true;
 			if (value.startsWith("person:") && account?.person === value) return true;
 		}
@@ -259,6 +264,23 @@ export function createRouter({
 				? inputData.target
 				: undefined;
 		const routes: NonNullable<YEvent["routes"]> = [];
+		const person = event.from?.startsWith("acct:") ? (await store.identity().account(event.from))?.person : undefined;
+		const instance = channelOf(event.conv);
+		const socialAgents = [...agents.values()].filter((agent) => {
+			if (!agent.social?.enabled || event.type !== "message.in" || internalTarget || instance === "agent") return false;
+			const scope = agent.profiles[agent.defaultProfile]?.channelInstances ?? agent.defaults?.channelInstances;
+			return instance === "console" || !scope || (!!instance && scope.includes(instance));
+		});
+		const subjects = [event.conv, event.from, person].filter((value): value is string => !!value);
+		const mappings = socialAgents.map((owner) => ({
+			owner,
+			mapping: subjects
+				.map((subject) => owner.social?.mappings?.find((item) => item.subject === subject))
+				.find(Boolean),
+		}));
+		const winningSubject = subjects.find((subject) => mappings.some((item) => item.mapping?.subject === subject));
+		const winningMappings = mappings.filter((item) => item.mapping?.subject === winningSubject && item.mapping);
+		const diagnostics: Array<{ agent: string; reason: string; revision: string }> = [];
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
@@ -268,6 +290,39 @@ export function createRouter({
 			}
 			if (agent.archivedAt) {
 				routes.push({ agent: agent.id, binding: null, dropped: "agent-disabled" });
+				continue;
+			}
+			if (
+				agent.social?.enabled &&
+				event.type === "message.in" &&
+				!internalTarget &&
+				instance !== "agent" &&
+				!socialAgents.includes(agent)
+			) {
+				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+				continue;
+			}
+			if (winningMappings.length && (winningMappings.length !== 1 || winningMappings[0]?.mapping?.agent !== agent.id)) {
+				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+				continue;
+			}
+			const own = mappings.find((item) => item.owner.id === agent.id);
+			const targeted = winningMappings.filter((item) => item.mapping?.agent === agent.id);
+			if (own?.mapping && own.mapping.agent !== agent.id) {
+				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+				continue;
+			}
+			if (targeted.length > 1) {
+				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+				continue;
+			}
+			const selected = targeted[0] ?? own;
+			const policyAgent = selected?.owner;
+			const mapping = selected?.mapping;
+			const decision = policyAgent && socialDecision(policyAgent, event, person, channels?.get(instance ?? ""));
+			if (decision) diagnostics.push({ agent: agent.id, reason: decision.reason, revision: decision.revision });
+			if (decision && !decision.run) {
+				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
 			let binding: Binding | undefined;
@@ -284,20 +339,30 @@ export function createRouter({
 				continue;
 			}
 			const profile = binding.profile ?? agent.defaultProfile;
-			const person = event.from?.startsWith("acct:") ? (await store.identity().account(event.from))?.person : undefined;
+			const scope = agent.profiles[profile]?.channelInstances ?? agent.defaults?.channelInstances;
+			if (decision && instance !== "console" && scope && (!instance || !scope.includes(instance))) {
+				diagnostics.push({ agent: agent.id, reason: "channel-outside-scope", revision: decision.revision });
+				routes.push({ agent: agent.id, binding: binding.id, dropped: "no-binding" });
+				continue;
+			}
+			if (
+				(decision && policyAgent && !socialBindingAllowed(policyAgent, event, person, binding)) ||
+				(mapping && mapping.profile !== profile)
+			) {
+				if (decision) diagnostics.push({ agent: agent.id, reason: "unsafe-binding", revision: decision.revision });
+				routes.push({ agent: agent.id, binding: binding.id, dropped: "no-binding" });
+				continue;
+			}
 			const { mode, key } = sessionKey(binding, event, person);
 			const ensured = await sessions.ensureAgent(agent.id, profile, key, mode);
 			if (ensured.profileMismatch) {
 				routes.push({ agent: agent.id, binding: binding.id, dropped: "profile-mismatch" });
 				continue;
 			}
-			const data = event.data as { mentioned?: unknown };
+			const data = event.data as { mentioned?: unknown; social?: { mentions?: { bot?: boolean } } };
+			const mentioned = decision ? (data.social?.mentions?.bot ?? data.mentioned) === true : data.mentioned === true;
 			const wake: Wake =
-				(binding.wake ?? "run") === "mention" && data.mentioned !== true
-					? "write"
-					: binding.wake === "write"
-						? "write"
-						: "run";
+				(binding.wake ?? "run") === "mention" && !mentioned ? "write" : binding.wake === "write" ? "write" : "run";
 			routes.push({
 				agent: agent.id,
 				binding: binding.id,
@@ -310,7 +375,12 @@ export function createRouter({
 			if (waiting && wake === "run") waits.push(waitFor(agent.id, event.id));
 		}
 		event.routes = routes;
-		const stored = await store.events.append(event);
+		const stored = diagnostics.length
+			? await store.events.appendWithFacts(
+					event,
+					diagnostics.map((data) => ({ type: "routing.social-decision", parent: event.id, data })),
+				)
+			: await store.events.append(event);
 		if (stored.id !== event.id) {
 			for (const run of runs)
 				finish(run.agent, event.id, {

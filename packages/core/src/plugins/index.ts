@@ -81,6 +81,7 @@ type Lifecycle = { pluginId: string; stop(): Promise<void> };
 type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
 
 function pluginEvent(id: string, event: EventInput, channel?: string, multiAgent = false): EventInput {
+	if (event.type === "routing.social-decision") throw new Error(`${id}: routing.social-decision is a core event`);
 	if (event.type === "message.in" && channel) {
 		if (
 			!event.from?.startsWith(`acct:${channel}:`) ||

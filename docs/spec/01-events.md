@@ -52,6 +52,7 @@ interface YEvent {
 | `session.input` | 内核 | 调用方：`agent:` / `plugin:` | — | `{ session, text, attachments? }`：经会话接口直接提交给预设会话的输入（02 §5）；parent 只能是上游事件 id，父会话留在会话元数据 |
 | `identity.link` | 内核 | 执行者 | — | `{ account, person, linked: boolean }` |
 | `config.reload` | 内核 | — | — | `{ file, ok, errors? }` |
+| `routing.social-decision` | 内核 | — | — | `{ agent, reason, revision }`；`parent` 指向原入站事件，revision 是所用 social 配置的 SHA-256 内容版本，reason 为本次判定原因 |
 
 插件自定义类型**必须**以插件 id 开头：`<pluginId>.<name>`，例如 `trigger-cron.fired`、`qq.recall`。插件**禁止**写入上表中的类型，`message.in` 除外（只有渠道写）。
 

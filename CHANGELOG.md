@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 飞书投递重试复用稳定的分片 UUID；Channel.send 可接收可选 deliveryId。
+
+- 社交路由追加 `routing.social-decision` 事件，关联原始输入并记录策略版本与判定原因。
+
 - 定义可选社交配置、渠道能力和通知意图的增量契约；旧配置及发送行为保持兼容，社交运行接线待后续实现。
 
 - Add optional `code-intel_read_enclosing` for position-based symbol reads through pi-lens MCP.
