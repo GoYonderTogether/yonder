@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { executionContext, type Tool, type ToolContext } from "@yonder/sdk";
+import { executionContext, type SessionsAPI, type Tool, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import { callLens } from "./lens-mcp.js";
 
@@ -217,6 +217,34 @@ export const diagnosticMark: Tool = {
 		};
 	},
 };
+export function sessionDiagnostics(sessions: SessionsAPI): Tool {
+	return {
+		...diagnostics,
+		async execute(value, ctx) {
+			const args = value as { source?: string; path?: string; paths?: string[] };
+			if (args.source !== "session" && (args.source || args.path || args.paths?.length))
+				return diagnostics.execute(value, ctx);
+			const paths = new Set<string>();
+			let from = 0;
+			for (;;) {
+				const page = await sessions.transcript(ctx.session, { from, limit: 200 });
+				for (const item of page)
+					for (const call of item.tools ?? []) {
+						const path = (call.args as { path?: unknown }).path;
+						if ((call.name === "edit" || call.name === "write") && typeof path === "string") paths.add(path);
+					}
+				if (page.length < 200) break;
+				from = (page.at(-1)?.id ?? from) + 1;
+			}
+			if (!paths.size) return { text: "No edit or write tool calls found in this session; no files were checked." };
+			return callLens(
+				"pilens_diagnostics",
+				{ ...args, source: "lsp", scope: "paths", paths: [...paths], path: undefined },
+				ctx,
+			);
+		},
+	};
+}
 export const diagnostics: Tool = {
 	name: "code-intel_lens_diagnostics",
 	description: "Analyze current diagnostics for one source file with pi-lens.",

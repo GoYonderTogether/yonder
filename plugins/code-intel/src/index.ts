@@ -1,7 +1,7 @@
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import { astGrepSearch } from "./ast-grep-search.js";
-import { diagnosticMark, diagnostics } from "./diagnostic-mark.js";
+import { diagnosticMark, sessionDiagnostics } from "./diagnostic-mark.js";
 import { effectiveConfig } from "./effective-config.js";
 import { lspNavigation } from "./lsp-navigation.js";
 import { moduleReport } from "./module-report.js";
@@ -101,7 +101,7 @@ export default definePlugin({
 			},
 		});
 		api.tools.register(diagnosticMark);
-		api.tools.register(diagnostics);
+		api.tools.register(sessionDiagnostics(api.sessions));
 		api.tools.register(astGrepSearch);
 		api.tools.register(effectiveConfig);
 		api.tools.register(outline);
