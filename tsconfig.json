@@ -108,6 +108,9 @@
 		},
 		{
 			"path": "plugins/codex-companion"
+		},
+		{
+			"path": "plugins/advisor"
 		}
 	]
 }

@@ -43,7 +43,8 @@
 		"plugins/tasks",
 		"plugins/onboarding",
 		"plugins/code-intel",
-		"plugins/codex-companion"
+		"plugins/codex-companion",
+		"plugins/advisor"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",
