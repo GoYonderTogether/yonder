@@ -165,8 +165,9 @@ export function claimMoments(
 					: activity.at;
 		const window = moment === "stall" ? stallMinutes : moment === "user-wait" ? userWaitMinutes : 15;
 		if (moment === "postCompact" && last) continue;
+		if (moment === "user-wait" && last && Date.parse(last.at) >= Date.parse(since)) continue;
 		if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
-		if (moment !== "user-wait") append(db, task.id, "moment", { moment }, now);
+		append(db, task.id, "moment", { moment }, now);
 		due.push({
 			task,
 			moment,

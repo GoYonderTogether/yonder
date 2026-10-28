@@ -16,14 +16,7 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 		config.userWaitMinutes ?? 120,
 		config.moments?.postCompact === true,
 	);
-	const reminders = new Map<string, typeof due>();
 	for (const item of due) {
-		if (item.moment === "user-wait" && item.task.origin) {
-			const group = reminders.get(item.task.origin) ?? [];
-			group.push(item);
-			reminders.set(item.task.origin, group);
-			continue;
-		}
 		const { task, moment, minutes } = item;
 		try {
 			const result =
@@ -33,21 +26,19 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 							{ text: STALL_NOTICE(task.title, task.state, minutes) },
 							{ busy: "followup" },
 						)
-					: await api.sessions.command(task.session, "compact");
+					: moment === "user-wait"
+						? await api.sessions.submit(
+								task.session,
+								{
+									text: `请自检任务 ${task.ref}（${task.title}）。先核对当前证据：已完成则按任务完成契约记录；已过期则取消并记录原因；能自己处理则转为 active 并继续执行；确实需要主人决定则保留 waiting-user 并记录具体问题和选项。不要发送提醒。`,
+								},
+								{ busy: "followup" },
+							)
+						: await api.sessions.command(task.session, "compact");
 			store.momentResult(task.id, moment, { result }, now);
 		} catch (error) {
 			store.momentResult(task.id, moment, { error: error instanceof Error ? error.message : String(error) }, now);
 		}
-	}
-	for (const [destination, group] of reminders) {
-		if (!store.claimReminder(destination, now)) continue;
-		for (const { task } of group)
-			store.momentResult(
-				task.id,
-				"user-wait",
-				{ error: "Reminder deferred: owner-facing self-check is not available" },
-				now,
-			);
 	}
 }
 

@@ -185,7 +185,7 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 	}
 }, 30000);
 
-test("user-wait defers delivery without exposing internal notes", async () => {
+test("user-wait submits one self-check per waiting state without sending reminders", async () => {
 	const f = await fixture();
 	try {
 		const task = f.store.open({ ...content, origin: "conv:reminder:person" }, f.ctx);
@@ -206,13 +206,15 @@ test("user-wait defers delivery without exposing internal notes", async () => {
 		await tick(f.probe.api, reopened, {}, now + 119 * 60000);
 		reopened.close();
 		expect(f.probe.sent).toHaveLength(0);
-		expect(f.probe.requests).toHaveLength(0);
 		expect((await f.kernel().events.query({ type: "message.out" })).events).toHaveLength(0);
-		expect(f.store.get(task.id, f.ctx).history.at(-1)?.data).toMatchObject({
-			error: "Reminder deferred: owner-facing self-check is not available",
-		});
+		const inputs = await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" });
+		expect(inputs.events).toHaveLength(3);
+		expect(String(inputs.events[0]?.data.text)).toContain("自检任务");
+		expect(String(inputs.events[0]?.data.text)).not.toContain("required-input.txt");
+		expect(f.store.get(task.id, f.ctx).history.at(-1)?.data).toMatchObject({ moment: "user-wait" });
 		await tick(f.probe.api, f.store, {}, now + 24 * 60 * 60000);
 		expect(f.probe.sent).toHaveLength(0);
+		expect((await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" })).events).toHaveLength(3);
 	} finally {
 		await f.close();
 	}
