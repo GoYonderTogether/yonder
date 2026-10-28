@@ -63,3 +63,19 @@ test("owner mentions respect the configured signal without granting authorizatio
 		socialDecision(configured as unknown as typeof agent, { ...event, conv: "conv:chat:other" }, undefined)?.reason,
 	).toBe("not-authorized");
 });
+
+test("an @all legacy mention is not a bot mention under social policy", () => {
+	const event = message("group", "acct:chat:user", "conv:chat:group", {
+		mentioned: true,
+		social: { mentions: { bot: false, everyone: true } },
+	});
+	expect(socialDecision(agent, event, undefined)).toMatchObject({ reason: "batch", run: false });
+	const respond = {
+		...agent,
+		social: { ...agent.social, defaults: { group: { signals: { everyone: "respond" as const } } } },
+	};
+	expect(socialDecision(respond as unknown as typeof agent, event, undefined)).toMatchObject({
+		reason: "everyone",
+		run: true,
+	});
+});

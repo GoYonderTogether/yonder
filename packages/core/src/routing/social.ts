@@ -43,9 +43,16 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 	if (mode === "mute" || mode === "record" || mode === "folded") return result(mode);
 	if (kind === "dm") return result("direct", mode === "direct");
 	const nativeMention = data.social?.mentions?.bot;
-	if (typeof nativeMention === "boolean" && typeof data.mentioned === "boolean" && nativeMention !== data.mentioned)
+	if (
+		typeof nativeMention === "boolean" &&
+		typeof data.mentioned === "boolean" &&
+		nativeMention !== data.mentioned &&
+		!(nativeMention === false && data.mentioned && data.social?.mentions?.everyone === true)
+	)
 		return result("mention-conflict");
-	const mention = nativeMention === true || (nativeMention === undefined && data.mentioned === true);
+	const mention =
+		nativeMention === true ||
+		(nativeMention === undefined && data.mentioned === true && data.social?.mentions?.everyone !== true);
 	const signals = [
 		["bot-mention", mention, policy.signals?.botMention ?? "respond"],
 		["owner-mention", data.social?.mentions?.owner === true, policy.signals?.ownerMention ?? "consider"],

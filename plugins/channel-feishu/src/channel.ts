@@ -537,11 +537,9 @@ export class FeishuChannel implements Channel {
 		const mentions = Array.isArray(message.mentions)
 			? message.mentions.map((value) => string(object(object(value).id).open_id))
 			: [];
-		const mentioned =
-			(Boolean(this.botId) && mentions.includes(this.botId)) ||
-			mentions.includes("all") ||
-			(Boolean(this.botId) && parsed.mentions.includes(this.botId)) ||
-			parsed.mentions.includes("all");
+		const botMentioned = Boolean(this.botId) && [...mentions, ...parsed.mentions].includes(this.botId);
+		const everyoneMentioned = [...mentions, ...parsed.mentions].includes("all");
+		const mentioned = botMentioned || everyoneMentioned;
 		const input: EventInput = {
 			type: "message.in",
 			from: acct(this.id, senderId),
@@ -550,6 +548,7 @@ export class FeishuChannel implements Channel {
 				kind: message.chat_type === "p2p" ? "dm" : "group",
 				text: [parsed.text, ...failures].join("\n"),
 				mentioned,
+				social: { mentions: { ...(this.botId ? { bot: botMentioned } : {}), everyone: everyoneMentioned } },
 				msgId: messageId,
 				...(attachments.length ? { attachments } : {}),
 				...(string(message.parent_id) ? { replyTo: string(message.parent_id) } : {}),

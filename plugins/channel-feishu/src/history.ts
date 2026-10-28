@@ -151,6 +151,12 @@ export function mergedInput(batch: Prepared[], id: string): EventInput {
 	if (!first) throw new Error("Recovery batch is empty");
 	const data = batch.map((row) => object(row.input.data));
 	const attachments = data.flatMap((row) => (Array.isArray(row.attachments) ? (row.attachments as Attachment[]) : []));
+	const mention = (key: string) => {
+		const facts = data.map((row) => object(object(row.social).mentions)[key]);
+		return facts.includes(true) ? true : facts.every((fact) => fact === false) ? false : undefined;
+	};
+	const bot = mention("bot");
+	const everyone = mention("everyone");
 	return {
 		...first.input,
 		data: {
@@ -158,6 +164,12 @@ export function mergedInput(batch: Prepared[], id: string): EventInput {
 			msgId: id,
 			text: batch.map((row) => recoveryHeader(row) + string(object(row.input.data).text)).join("\n\n"),
 			mentioned: data.some((row) => row.mentioned),
+			social: {
+				mentions: {
+					...(bot === undefined ? {} : { bot }),
+					...(everyone === undefined ? {} : { everyone }),
+				},
+			},
 			attachments,
 			recovery: true,
 			originals: batch.map((row) => row.original),

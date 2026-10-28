@@ -58,6 +58,35 @@ async function harness(ledger: YEvent[] = [], options: { preserveWatermarks?: bo
 }
 
 describe("Feishu history protocol (no network/model)", () => {
+	it("preserves unknown mention facts while merging recovery messages", () => {
+		const row = (data: object): Prepared => ({
+			key: "key",
+			input: { type: "message.in", data },
+			original: { messageId: "id", text: "text", createdAt: "1792378639000" },
+		});
+		const unknown = row({ text: "a", mentioned: true });
+		const known = row({ text: "b", social: { mentions: { bot: false, everyone: false } } });
+		expect(mergedInput([unknown, known], "batch").data).toMatchObject({ mentioned: true, social: { mentions: {} } });
+		expect(mergedInput([known], "batch").data).toMatchObject({ social: { mentions: { bot: false, everyone: false } } });
+		const mentioned = row({ text: "c", social: { mentions: { bot: true } } });
+		expect(mergedInput([unknown, mentioned], "batch").data).toMatchObject({ social: { mentions: { bot: true } } });
+	});
+	it("preserves legacy mention while identifying @all separately", async () => {
+		const { channel, internal, emitted } = await harness();
+		await internal.receive({
+			sender: { sender_type: "user", sender_id: { open_id: "user-a" }, tenant_key: "tenant" },
+			message: {
+				message_id: "all",
+				chat_id: "chat",
+				chat_type: "group",
+				message_type: "text",
+				content: '{"text":"hello"}',
+				mentions: [{ id: { open_id: "all" } }],
+			},
+		});
+		expect(emitted[0].data).toMatchObject({ mentioned: true, social: { mentions: { everyone: true } } });
+		await channel.stop();
+	});
 	it("does not treat a missing mention identity as the bot before bot info is available", async () => {
 		const { channel, internal, emitted } = await harness();
 		await internal.receive({
