@@ -3,6 +3,31 @@ import { executionContext, type ToolContext } from "@yonder/sdk";
 // Run the stdio MCP protocol in the selected execution environment; exec itself has no stdin API.
 const client = `
 const {spawn} = require('node:child_process');
+if (process.argv[1] === 'pilens_effective_config') {
+ const fs = require('node:fs'), path = require('node:path');
+ if (process.env.HOME) process.env.HOME = fs.realpathSync(process.env.HOME);
+ const args = JSON.parse(process.argv[2]);
+ if (args.file !== undefined) {
+  const root = fs.realpathSync(args.cwd);
+  let target = path.resolve(args.cwd, args.file);
+  const relativeInput = path.relative(args.cwd, target);
+  if (relativeInput === '..' || relativeInput.startsWith('..' + path.sep) || path.isAbsolute(relativeInput)) {
+   console.error('file is outside cwd'); process.exit(1);
+  }
+  args.file = relativeInput;
+  while (!fs.existsSync(target)) {
+   const parent = path.dirname(target);
+   if (parent === target) break;
+   target = parent;
+  }
+  const real = fs.realpathSync(target), relative = path.relative(root, real);
+  if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
+   console.error('file is outside cwd'); process.exit(1);
+  }
+ }
+ args.cwd = fs.realpathSync(args.cwd);
+ process.argv[2] = JSON.stringify(args);
+}
 const child = spawn('pi-lens-mcp', [], {stdio: ['pipe', 'pipe', 'pipe']});
 let buffer = '', errors = '';
 const send = value => child.stdin.write(JSON.stringify(value) + '\\n');
