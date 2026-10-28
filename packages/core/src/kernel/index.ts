@@ -1,7 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset } from "@yonder/sdk";
-import lockfile from "proper-lockfile";
 import { shippedChannelsFor } from "../bundles.js";
 import {
 	type AgentConfig,
@@ -11,6 +10,7 @@ import {
 	watchConfig,
 	type YonderConfig,
 } from "../config/index.js";
+import { lockHome } from "../control/home-lock.js";
 import { createDelivery } from "../delivery/index.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
@@ -57,10 +57,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	const observability = createObservability({ home, log, db: () => db });
 	const report = observability.report;
 	await mkdir(join(home, ".yonder"), { recursive: true });
-	const unlock = await lockfile.lock(home, {
-		realpath: false,
-		lockfilePath: join(home, ".yonder/lock"),
-	});
+	const unlock = await lockHome(home);
 	let runtime: Runtime | undefined;
 	let plugins: LoadedPlugins | undefined;
 	let watcher: Awaited<ReturnType<typeof watchConfig>> | undefined;

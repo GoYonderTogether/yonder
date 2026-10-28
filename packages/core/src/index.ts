@@ -9,6 +9,7 @@ export {
 	shippedDisabledChannels,
 } from "./bundles.js";
 export { type GatewaySettings, gatewaySettings, setAccessTokenHash } from "./config/gateway.js";
+export { lockHome } from "./control/home-lock.js";
 export type { ControlConnection, ControlRequest } from "./control/index.js";
 export { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./control/index.js";
 export type {

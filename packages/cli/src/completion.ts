@@ -1,7 +1,7 @@
 const commands =
-	"init login credentials channels doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service completion";
+	"init login credentials channels doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service migrate completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file --poll --verify-code --slot --method --replace --env-ref";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file --poll --verify-code --slot --method --replace --env-ref --dry-run --apply --rollback";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -15,7 +15,7 @@ _yonder() {
     'start:启动 · Start' 'stop:停止 · Stop' 'chat:聊天 · Chat'
     'sessions:会话 · Sessions' 'events:事件 · Events' 'identity:身份 · Identity'
     'agents:智能体 · Agents' 'presets:预设 · Presets' 'plugins:插件 · Plugins' 'models:模型 · Models' 'inspect:配置 · Configuration' 'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
-    'docs:文档 · Docs' 'update:更新 · Update' 'service:服务 · Service'
+    'docs:文档 · Docs' 'update:更新 · Update' 'service:服务 · Service' 'migrate:迁移 · Migrate'
     'completion:补全 · Completion'
   )
   if (( CURRENT == 2 )); then _describe '命令 · Command' commands; return; fi
