@@ -17,11 +17,14 @@ import { CredentialSlotsSchema } from "../config/schema.js";
 import type { DeliveryService } from "../delivery/index.js";
 import { canReceivePeerAsk } from "../kernel/peer.js";
 import type { Runtime, RuntimeInput } from "../runtime/index.js";
+import { modelProfiles } from "../runtime/model-profile.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { coreToolCapabilities } from "./catalog.js";
+import { createModelRouteTool } from "./model-route.js";
 import { MAX_SOURCES, sourceBlock } from "./sources.js";
 
+coreToolCapabilities.model_route = ["read"];
 interface CoreToolsOptions {
 	store: Store;
 	agents: Map<string, AgentConfig>;
@@ -66,7 +69,6 @@ const attachmentSchema = Type.Object(
 function requireCapability(ctx: ToolContext, capability: "admin" | "cross-agent" | "message" | "read") {
 	if (!ctx.capabilities.includes(capability)) throw new Error(`需要 ${capability} 能力。`);
 }
-
 async function withSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
 	signal.throwIfAborted();
 	let aborted: (() => void) | undefined;
@@ -80,7 +82,6 @@ async function withSignal<T>(work: Promise<T>, signal: AbortSignal): Promise<T> 
 		if (aborted) signal.removeEventListener("abort", aborted);
 	}
 }
-
 export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const { store, agents, sessions, runtime, delivery, ask, getPreset } = options;
 	const tool = (definition: Omit<Tool, "capabilities">): Tool => ({
@@ -191,6 +192,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		return { session, event, input: { text: task, event, ...(attachments ? { attachments } : {}) } };
 	}
 	return [
+		createModelRouteTool((signal) => modelProfiles(runtime().models, signal)),
 		tool({
 			name: "message_send",
 			description:
