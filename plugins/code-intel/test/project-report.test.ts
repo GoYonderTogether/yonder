@@ -27,13 +27,13 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 			await copyFile(resolve("packages/sdk/src/index.ts"), join(dir, "index.ts"));
 			const ctx = { env: new NodeExecutionEnv({ cwd: dir }), signal: new AbortController().signal } as ToolContext;
 			const first = await tool.execute({ view: "default" }, ctx);
-			expect(first.text).toContain('"available":false');
+			expect(first.text).toMatch(/"available"\s*:\s*false/);
 			let warm = first;
-			for (let i = 0; i < 20 && warm.text.includes('"available":false'); i++) {
+			for (let i = 0; i < 20 && /"available"\s*:\s*false/.test(warm.text); i++) {
 				await new Promise((resolve) => setTimeout(resolve, 1000));
 				warm = await tool.execute({ view: "default" }, ctx);
 			}
-			expect(warm.text).toContain('"available":true');
+			expect(warm.text).toMatch(/"available"\s*:\s*true/);
 		} finally {
 			stopLens();
 			await rm(dir, { recursive: true, force: true });
