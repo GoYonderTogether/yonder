@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
-import { systemSections } from "../prompt/index.js";
+import { systemPromptKeys, systemPromptParts } from "../prompt/index.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
@@ -16,8 +16,9 @@ test("runtime clocks persist in prepared inputs without changing stable system s
 		db,
 		config: { schema: 1 },
 		resolveSession: async () => config,
+		sectionKeys: systemPromptKeys(new Map()),
 		sections: (session) =>
-			systemSections(session, {
+			systemPromptParts(session, {
 				contexts: new Map(),
 				workspace: () => {
 					throw new Error("Preset has no Agent workspace");
@@ -45,6 +46,14 @@ test("runtime clocks persist in prepared inputs without changing stable system s
 			.flatMap((entry) => entry.model ?? [])
 			.map((message) => Object.values(message.sections ?? {}).join("\n\n"));
 		expect(systems.length).toBeGreaterThan(0);
+		// Each prompt part is its own pi section, so a later change patches one key instead of the whole block.
+		const keys = entries
+			.filter((entry) => entry.kind === "pi.system")
+			.flatMap((entry) => entry.model ?? [])
+			.flatMap((message) => Object.keys(message.sections ?? {}));
+		expect(keys).toContain("framework");
+		expect(keys).toContain("common-writing");
+		expect(keys).not.toContain("yonder");
 		expect(new Set(systems).size).toBe(1);
 		expect(systems.join("\n")).not.toContain('<runtime_clock utc="');
 		const prepared = entries

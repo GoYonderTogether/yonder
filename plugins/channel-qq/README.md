@@ -35,7 +35,7 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 
 `channel-qq_status` 返回最近连接状态、实际接纳/发送计数和配置入口。Agent 需要在配置档的 `plugins` 中选择 `channel-qq` 才能调用该工具；渠道收发本身由 channels 和 bindings 启用。发送使用内核 `message_send`，不另设插件发送接口。
 
-首版不支持媒体发送、流式、频道或 Webhook。接纳 QQ 官方 `GROUP_AT_MESSAGE_CREATE` 与 `GROUP_MESSAGE_CREATE`；后者需要在平台开启“接收所有消息”，见[官方群全量事件说明](https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/group_message_create.html)。平台未开放时，代码无法取得普通消息。
+入站媒体映射为 `message.in` 的 `attachments`（`content_type` 决定 image/audio/video/file，只接纳 https URL），引用回复的原文取 `msg_elements[0]` 写入 `quote.text`；只有附件没有正文的消息同样接纳。出站媒体用 `message_send` 的附件，接受 https URL 或绝对本地路径，一次回复先发文字再逐条发媒体，音频按文件发送。所有请求按 `sendIntervalMs`（实例配置，默认 500 毫秒，0–60000）串行间隔发送，避免平台限流；平台限流或 5xx 仍是 uncertain，不盲重发。不支持流式、频道或 Webhook。接纳 QQ 官方 `GROUP_AT_MESSAGE_CREATE` 与 `GROUP_MESSAGE_CREATE`；后者需要在平台开启“接收所有消息”，见[官方群全量事件说明](https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/group_message_create.html)。平台未开放时，代码无法取得普通消息。
 
 ## 群主必须在具体群聊内设置
 

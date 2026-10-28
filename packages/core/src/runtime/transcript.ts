@@ -1,4 +1,5 @@
-import type { EntryRecord } from "@earendil-works/pi-durable";
+import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
+import type { Conversation, EntryId, EntryRecord } from "@earendil-works/pi-durable";
 import type { TranscriptItem } from "@yonder/sdk";
 import type { Db } from "./db.js";
 import { notificationOf } from "./notifications.js";
@@ -45,4 +46,33 @@ export async function readTranscript(
 		range.limit ?? 100,
 	);
 	return rows.map((row) => transcriptItem(JSON.parse(row.record) as EntryRecord));
+}
+
+/**
+ * Page a conversation's transcript, keeping the bounds inside the scan so a one-entry read
+ * does not decode the whole conversation. `before` pages newest-first and returns ascending.
+ */
+export async function transcriptPage(
+	conversation: Conversation,
+	range: { from?: number; limit?: number; before?: number } = {},
+): Promise<TranscriptItem[]> {
+	if (range.before !== undefined) {
+		const page = await conversation.entries(
+			{
+				order: "descending",
+				...(range.before > Number.MAX_SAFE_INTEGER - 1 ? {} : { maxEntryId: (range.before - 1) as EntryId }),
+			},
+			range.limit ?? 100,
+			undefined,
+			C,
+		);
+		return page.items.map(transcriptItem).reverse();
+	}
+	const page = await conversation.entries(
+		{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
+		range.limit ?? 100,
+		undefined,
+		C,
+	);
+	return page.items.map(transcriptItem);
 }
