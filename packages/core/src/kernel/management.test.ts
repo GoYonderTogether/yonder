@@ -26,6 +26,9 @@ test("real home publishes agent and preset management without restarting or invo
 			value: { name: "管理验证", work: "配置验收", owner: "person:owner", bindings: [] },
 		});
 		expect(result).toMatchObject({ accepted: true, valid: true, messageEntry: true });
+		expect(parse(await readFile(`${home}/agents/managed/agent.yaml`, "utf8")).profiles.default.plugins).toContain(
+			"learning",
+		);
 		expect(await readFile(`${home}/agents/managed/memory/README.md`, "utf8")).toContain("#");
 		await manage({ action: "agents.update", id: "managed", value: { name: "更新名字", work: "更新工作" } });
 		expect(await manage({ action: "agents.show", id: "managed" })).toMatchObject({

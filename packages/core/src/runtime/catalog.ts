@@ -12,10 +12,19 @@ export const capabilityMap: Record<string, Capability[]> = {
 	tool_search: [],
 };
 export type CatalogTool = { name: string; capabilities: Capability[]; plugin?: string };
+const mainOnlyByDefault = new Set(["session_list", "session_read"]);
 export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTool[]) {
 	const tools = catalog.map((tool) => {
 		const missing = tool.capabilities.filter((capability) => !config.resolved.capabilities.includes(capability));
 		const selected = !tool.plugin || config.resolved.plugins.includes(tool.plugin);
+		const explicit =
+			config.agent !== null && config.agent !== "main" && !tool.plugin && mainOnlyByDefault.has(tool.name);
+		const offered = explicit
+			? config.resolved.tools.offer.includes(tool.name)
+			: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name));
+		const searched = explicit
+			? config.resolved.tools.search.includes(tool.name)
+			: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name));
 		return {
 			...tool,
 			missing,
@@ -25,9 +34,9 @@ export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTo
 					? "capability-denied"
 					: !config.agent && tool.name === "agent_ask"
 						? "not-selected"
-						: config.resolved.tools.offer.some((pattern) => matchesGlob(pattern, tool.name))
+						: offered
 							? "offer"
-							: config.resolved.tools.search.some((pattern) => matchesGlob(pattern, tool.name))
+							: searched
 								? "search"
 								: "not-selected",
 		};
