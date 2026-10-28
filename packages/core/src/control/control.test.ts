@@ -18,7 +18,7 @@ const homes: string[] = [];
 afterEach(async () => Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true }))));
 
 test("control socket exchanges one JSON line and returns handler errors", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yctl-"));
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	homes.push(home);
 	const server = await serveControl(home, async (request) => {
 		if (request.method === "fail") throw new Error("expected failure");
@@ -36,13 +36,13 @@ test("control socket exchanges one JSON line and returns handler errors", async 
 });
 
 test("missing control socket rejects normally so CLI can use offline queries", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yctl-"));
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	homes.push(home);
 	await expect(requestControl(home, { method: "sessions.list" })).rejects.toMatchObject({ code: "ENOENT" });
 });
 
 test("stream acknowledges before queued updates and releases observer on disconnect", async () => {
-	const home = await mkdtemp("/tmp/ywatch-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	homes.push(home);
 	let disconnected = false;
 	const server = await serveControl(home, async (_request, connection) => {

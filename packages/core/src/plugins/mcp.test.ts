@@ -3,7 +3,8 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
@@ -23,7 +24,7 @@ const data = (result: Awaited<ReturnType<Client["callTool"]>>) => {
 };
 
 async function setup(real = false) {
-	const home = await mkdtemp("/tmp/yonder-mcp-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	await initHome(home, "owner", { model: testModel });
 	const token = randomBytes(32).toString("base64url");
 	const credential = `n02-mcp-${randomUUID()}`;

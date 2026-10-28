@@ -51,7 +51,7 @@ test("Linux user unit and Windows wrappers keep installed code separate from hom
 });
 
 test("version-link cleanup preserves real directories and links outside versions", async () => {
-	const install = await mkdtemp("/tmp/yonder-w4-links-");
+	const install = await mkdtemp(join(tmpdir(), "ya-"));
 	const current = join(install, "current"),
 		versions = join(install, "versions"),
 		version = join(versions, "0.2.1"),
@@ -91,7 +91,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 	expect(await readDocs(undefined, true)).toContain("spec/09-cli-release.md");
 	await expect(readDocs("../package.json")).rejects.toThrow("inside docs/");
 	expect(typeof (await readChangelog())).toBe("string");
-	const directory = await mkdtemp(join(tmpdir(), "yonder-release & '"));
+	const directory = await mkdtemp(join(tmpdir(), "ya & '-"));
 	try {
 		const wrapper = join(directory, "yonder"),
 			plist = join(directory, "service.plist");
@@ -125,7 +125,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 test.skipIf(process.platform !== "darwin" || process.env.YONDER_TEST_LAUNCHD !== "1")(
 	"real launchd unload waits for the old process and registration before bootstrap",
 	async () => {
-		const root = await mkdtemp("/tmp/yonder-launchd-");
+		const root = await mkdtemp(join(tmpdir(), "ya-"));
 		const label = `dev.yonder.harness.check.${process.pid}`;
 		const service = `gui/${process.getuid?.()}/${label}`;
 		const plist = `${root}/check.plist`,

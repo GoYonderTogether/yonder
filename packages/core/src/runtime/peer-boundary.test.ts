@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
@@ -13,7 +14,7 @@ import { ToolPolicy } from "./policy.js";
 
 // Real filesystem and execution environment; no model is involved in policy checks.
 test("peer read/grep canonical boundary rejects traversal, absolute and symlink escape; quoted source attachments confer no exception", async () => {
-	const root = await mkdtemp("/tmp/yonder-peer-boundary-");
+	const root = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		const cwd = join(root, "workspace");
 		await mkdir(cwd);
@@ -82,7 +83,7 @@ test("peer read/grep canonical boundary rejects traversal, absolute and symlink 
 });
 
 test("recursive grep never follows workspace symlinks into external files or directories", async () => {
-	const root = await mkdtemp("/tmp/yonder-peer-grep-");
+	const root = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		const cwd = join(root, "workspace");
 		await mkdir(cwd);

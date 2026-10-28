@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
@@ -8,7 +9,7 @@ import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("plugin reminders reach resident sessions, queue followups and preserve task submission", async () => {
-	const home = await mkdtemp("/tmp/yonder-plugin-input-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home, "input-test", { model: testModel, isolated: true });

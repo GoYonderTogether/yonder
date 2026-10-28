@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
@@ -10,7 +11,7 @@ import { pluginDataPath } from "../plugins/index.js";
 import { initHome, inspectHome, manageHome, offlineQuery, openKernel } from "./index.js";
 
 test("initialize, inspect, start, stop and query a real empty home", async () => {
-	const home = await mkdtemp("/tmp/yonder-kernel-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		await initHome(home, "owner", { model: testModel });
 		expect(parse(await readFile(`${home}/yonder.yaml`, "utf8")).plugins).toContainEqual({
@@ -57,7 +58,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 });
 
 test("onboarding never wakes the butler while its default model has no auth", async () => {
-	const home = await mkdtemp("/tmp/yonder-onboarding-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const agent = parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8"), "agent.yaml");
@@ -84,7 +85,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real first start: the butler runs an onboarding turn once, records one task per item, and is not woken again",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-onboarding-real-");
+		const home = await mkdtemp(join(tmpdir(), "ya-"));
 		try {
 			await initHome(home, "owner", { model: testModel });
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
@@ -122,7 +123,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 );
 
 test("reload validates references, scaffolds contexts and retains an open session's preset", async () => {
-	const home = await mkdtemp("/tmp/yonder-reload-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home, "owner", { model: testModel });
@@ -170,7 +171,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 }, 30000);
 
 test("offline inspection uses the common tool policy and includes preset plugin references", async () => {
-	const home = await mkdtemp("/tmp/yonder-inspect-");
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
