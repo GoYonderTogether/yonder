@@ -357,6 +357,14 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **范围**：默认自己的任务及 parent 链下子任务；`cross-agent` 只读其他 Agent 进行中任务。工具与上下文须由 profile 显式选用。
 - **边界**：P1 不含提醒、nudge、展示投影、回复尾部清单或复盘时点；未做模型及生产验收。
 
+## onboarding：管家首次引导
+
+- **包**：`@yonder/plugin-onboarding`，id `onboarding`；[README](../plugins/onboarding/README.md)、[源码](../plugins/onboarding/src/index.ts)。default 发行包加载，`init` 让 `main` 选入它与 `tasks` 并绑定 `onboarding.start`（D59）。
+- **贡献**：触发器 `onboarding-start`；工具 `onboarding_probe`（read、admin）与 `onboarding_record`（write、admin）；skill `onboarding`。
+- **行为**：未完成、未关闭且默认模型有凭据时唤醒管家，每 24 小时最多一次、累计最多 5 次；probe 经 `api.host.status` 给出模型→渠道→网关→凭据→插件清单，管家每项建一条任务（会话 todo 优先，否则 tasks 账本）。
+- **存储**：插件 data 下 `agents/<agent>.json`（任务引用、`done`、`dismissed`、唤醒计数），读改写串行。配置 `agent`（默认 `main`）、`enabled`（默认 true）。
+- **边界**：设备、账号、权限、演示等后续步骤与控制台清单界面未做；账本任务是否仍存在由管家用 `tasks_get` 核对。
+
 ## devices：已配对设备控制
 
 - **包**：`@yonder/plugin-devices`，id `devices`；[README](../plugins/devices/README.md)、[源码](../plugins/devices/src/index.ts)。

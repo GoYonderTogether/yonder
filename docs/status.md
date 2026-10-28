@@ -16,6 +16,12 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 默认管家与清单式首次引导（2026-10-28，PR #105，待审核）
+
+**已实现**：`@yonder/plugin-onboarding` 进 default 发行包；`init` 让 `main`（Jarvis，不写模型）选入 tasks/onboarding 并绑定 `onboarding.start`（`--isolated` 不写）；新插件接口 `api.host.status`/`modelReady`（04 §4）；唤醒有界（无凭据不唤醒、24 小时一次、累计 5 次、`enabled: false` 或 `{dismissed: true}` 关闭）；状态按配置的 agent 存，会话 todo 中已删除的任务重新列入；env-ref 凭据槽仅在变量已设置时算已配置。规则见 D59。
+
+**已验证**：onboarding 插件单测（唤醒上限含模型持续失败场景、todo 校验、串行写）、内核测试（无凭据不唤醒、绑定 conv），以及临时 home 里只配 siliconflow `deepseek-ai/DeepSeek-V3.2` 的真实运行：init → start，管家调 probe，每项建一条 todo（#1–#5）并逐项记录，重启 `resume:true` 不重复建任务（该次运行早于唤醒上限改动）。**未测**：`kernel.test.ts` 中真实模型用例需 `YONDER_TEST_REAL=1` 与 `YONDER_TEST_AUTH`，本机缺凭据时跳过。**差距**：spec 05“读取他人会话转录”的独立能力级别未做（现有 `session_list`/`session_read` 需 admin 与跨 agent 权限）；设备、账号、权限、演示步骤与控制台清单界面未做。
+
 ## 默认集与发行包（2026-10-28，`feat/defaults-bundles-20261028`，待审核）
 
 **已实现**：`agent-presets` 官方预设与常驻模板不再写 `model`，按内核默认模型解析；`yonder init --bundle core|default|full`（数据在 `packages/core/src/bundles.ts`，不是设计稿的 `distribution/bundles/*.json`，因为 tsc 不复制 JSON）；`core` 不写渠道实例与 `cli` 绑定；`default` 加载 channel-mcp 但没有 `type: mcp` 实例时不开端口；`channels list` 对未启用的 feishu/wechat-ilink/qq/github 返回 `随包提供，未启用`。规则见 [08 §6](spec/08-config.md#6-init-的发行包与随包渠道)。
