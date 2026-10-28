@@ -267,6 +267,8 @@ interface BackgroundUpdatedEv { session: string; rows: BackgroundRow[] }
 
 三者都用「全量替换」语义，不做 diff，因此丢帧后以任何一条最新事件或快照为准，对 `gap` 天然健壮。todo 的数据源是 `plugins/tasks` 账本还是独立 todo 插件，由 A 线在 `agent-parity.md` 的 rpiv-todo 评估后定；事件形状不变。
 
+**落库与事件的原子性（`model.fallback`、`todo.updated`）。** pi-durable 的 `commit` 只覆盖它自己的文档，事件库是另一套写入，两者不能放进同一事务。因此采用「同一持久步骤写欠条，事后投递」：状态变更（todo 列表、回退状态）与待发事件的 JSON 在同一次 `commit` 里写入 `yonder.session` 文档的 `outbox`；之后调用 `onTodo` / `onModelFallback`（写事件库并推给 `sessions.watch` 订阅者），投递完成再提交移除这几条。进程在两步之间崩溃时，`Runtime.recover()` 启动时对每个会话重发遗留的 `outbox`。语义是至少一次：崩溃发生在「已投递、未移除」之间会重复一条；两种 payload 都是全量/状态替换（见上），重复无害，客户端仍按事件 id 或最新一条为准。重启后重发的事件没有在线订阅者，只进事件库。
+
 ### 3.5 审批（`credentials.md` §6）
 
 ```ts
