@@ -104,8 +104,15 @@ export const outline: Tool = {
 			items: file.items.slice(0, 200).map((item) => withRead(file.path, item)),
 			...(file.items.length > 200 ? { truncatedItems: file.items.length - 200 } : {}),
 		}));
+		const truncated = files.length > 50 || files.slice(0, 50).some((file) => file.items.length > 200);
+		const cached =
+			truncated && ctx.cacheToolOutput ? await ctx.cacheToolOutput(stdout, { extension: "json" }) : undefined;
 		return {
-			text: JSON.stringify({ outline: selected, ...(files.length > 50 ? { truncatedFiles: files.length - 50 } : {}) }),
+			text: JSON.stringify({
+				outline: selected,
+				...(files.length > 50 ? { truncatedFiles: files.length - 50 } : {}),
+				...(cached ? { fullOutput: cached, next: "Use read or grep to inspect the cached output." } : {}),
+			}),
 		};
 	},
 };
