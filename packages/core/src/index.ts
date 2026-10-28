@@ -5,7 +5,8 @@ export {
 	bundleIds,
 	bundles,
 	shippedChannels,
-	withShippedChannels,
+	shippedChannelsFor,
+	shippedDisabledChannels,
 } from "./bundles.js";
 export { type GatewaySettings, gatewaySettings, setAccessTokenHash } from "./config/gateway.js";
 export type { ControlConnection, ControlRequest } from "./control/index.js";

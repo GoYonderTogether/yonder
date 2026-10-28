@@ -31,14 +31,10 @@ interface CoreToolsOptions {
 	ask(input: EventInput): Promise<AskResult>;
 	getPreset(id: string): Preset | undefined;
 	presets?: () => Preset[];
-	/** yonder.yaml defaultModel: the model of presets that name none. */
 	defaultModel?: string;
 }
 const result = (value: unknown): ToolResult => ({ text: typeof value === "string" ? value : JSON.stringify(value) });
-const fail = (error: unknown): ToolResult => ({
-	text: error instanceof Error ? error.message : String(error),
-	isError: true,
-});
+const fail = (e: unknown): ToolResult => ({ text: e instanceof Error ? e.message : String(e), isError: true });
 const text = () => Type.String({ minLength: 1 });
 const schema = (fields: Record<string, import("typebox").TSchema>) =>
 	Type.Object(fields, { additionalProperties: false });

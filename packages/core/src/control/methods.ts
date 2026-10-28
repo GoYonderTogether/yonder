@@ -86,9 +86,9 @@ const defs: MethodDef[] = [
 	define({
 		name: "channels.list",
 		scope: "read",
-		params: noParams,
+		params: obj({ shipped: Type.Optional(Type.Boolean()) }),
 		since: 1,
-		handler: async (_p, ctx) => ctx.kernel.channels.list(),
+		handler: async (p, ctx) => (p.shipped ? ctx.kernel.channels.shipped() : ctx.kernel.channels.list()),
 	}),
 	define({
 		name: "channels.login",

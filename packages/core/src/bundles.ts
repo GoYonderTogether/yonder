@@ -3,10 +3,26 @@
  * core 不含任何渠道，只保证任务会话可用；default 是加载但默认只启用 cli 的日常集；
  * full 含全部随包插件。
  */
+import { join } from "node:path";
+import type { YonderConfig } from "./config/index.js";
+import { pluginDirectory } from "./plugins/index.js";
+
 export type BundleId = "core" | "default" | "full";
 
+/** init 已知的值：memory 之类必填主人级配置的插件用它填默认（全部自动行为仍关闭）。 */
+interface BundleContext {
+	home: string;
+	owner: string;
+	timezone: string;
+}
+
+interface BundlePlugin {
+	use: string;
+	config?: (context: BundleContext) => unknown;
+}
+
 export interface Bundle {
-	plugins: Array<{ use: string }>;
+	plugins: BundlePlugin[];
 	channels: Record<string, { type: string }>;
 }
 
@@ -18,33 +34,42 @@ export const shippedChannels = [
 	{ type: "github", plugin: "@yonder/plugin-channel-github" },
 ] as const;
 
+/** 无渠道核心：只保证任务会话可用，init 仍能写出可用预设与工作区。 */
+const corePlugins = [
+	{ use: "@yonder/plugin-context-files" },
+	{ use: "@yonder/plugin-ui-companion" },
+	{ use: "@yonder/plugin-agent-presets" },
+	{ use: "@yonder/plugin-web-tools" },
+];
+
+const core: Bundle = { plugins: corePlugins, channels: {} };
+
+/** 设计 §5.4 的默认加载集：渠道 cli、channel-mcp（不监听）、channel-card（未登录空闲）与本机小插件。 */
 const defaults: Bundle = {
 	plugins: [
 		{ use: "@yonder/plugin-channel-cli" },
-		{ use: "@yonder/plugin-context-files" },
-		{ use: "@yonder/plugin-ui-companion" },
-		{ use: "@yonder/plugin-agent-presets" },
-		{ use: "@yonder/plugin-web-tools" },
+		...corePlugins,
 		{ use: "@yonder/plugin-channel-mcp" },
+		{ use: "@yonder/plugin-channel-card" },
+		{ use: "@yonder/plugin-cron" },
+		{ use: "@yonder/plugin-tasks" },
+		{ use: "@yonder/plugin-learning" },
+		{ use: "@yonder/plugin-mcp-client" },
+		// 记忆根目录放在 home 下、所有 agent 工作区之外；触发器与采集默认关闭，白名单为空。
+		{
+			use: "@yonder/plugin-memory",
+			config: ({ home, owner, timezone }) => ({ root: join(home, "memory"), owner: `person:${owner}`, timezone }),
+		},
 	],
 	channels: { cli: { type: "cli" } },
 };
 
-/** 无渠道核心：去掉渠道插件后 init 仍能写出可用预设与工作区。 */
-const core: Bundle = {
-	plugins: defaults.plugins.filter(
-		({ use }) => use !== "@yonder/plugin-channel-cli" && use !== "@yonder/plugin-channel-mcp",
-	),
-	channels: {},
-};
-
-/** 需要主人级插件配置、init 无法替主人选择的插件：只能 plugins add 显式加入并写配置。 */
-const needsOwnerConfig = new Set(["@yonder/plugin-channel-wechat-ilink", "@yonder/plugin-memory"]);
+/** 需要主人级插件配置、init 无法替主人选择的渠道：只能 plugins add 显式加入并写配置。 */
+const needsOwnerConfig = new Set(["@yonder/plugin-channel-wechat-ilink"]);
 
 const full: Bundle = {
 	plugins: [
 		...defaults.plugins,
-		{ use: "@yonder/plugin-channel-card" },
 		...shippedChannels.filter(({ plugin }) => !needsOwnerConfig.has(plugin)).map(({ plugin }) => ({ use: plugin })),
 		{ use: "@yonder/plugin-clipboard" },
 		{ use: "@yonder/plugin-native-automation" },
@@ -52,10 +77,6 @@ const full: Bundle = {
 		{ use: "@yonder/plugin-wechat-archive" },
 		{ use: "@yonder/plugin-codex-tools" },
 		{ use: "@yonder/plugin-media-tools" },
-		{ use: "@yonder/plugin-mcp-client" },
-		{ use: "@yonder/plugin-cron" },
-		{ use: "@yonder/plugin-tasks" },
-		{ use: "@yonder/plugin-hermes-experience" },
 		{ use: "@yonder/plugin-devices" },
 	],
 	channels: defaults.channels,
@@ -70,13 +91,31 @@ export function bundleFor(id: string): Bundle {
 	return bundles[id as BundleId];
 }
 
-/** 已启用实例原样返回，再补上同 type 尚无实例的随包渠道（随包提供，未启用）。 */
-export function withShippedChannels<T extends { type?: string | undefined }>(enabled: T[]) {
-	const types = new Set(enabled.map((channel) => channel.type));
-	return [
-		...enabled,
-		...shippedChannels
-			.filter(({ type }) => !types.has(type))
-			.map(({ type, plugin }) => ({ type, plugin, status: "随包提供，未启用 · Shipped, not enabled" })),
-	];
+/**
+ * 随包提供、但当前没有同 type 实例的第三方渠道。只列本次安装里插件实际可解析的项，
+ * 单独成列，不改动已配置渠道的条目（channels.list 保持原样）。
+ */
+export async function shippedDisabledChannels(
+	enabledTypes: Iterable<string | undefined>,
+	resolvable: (plugin: string) => Promise<boolean>,
+) {
+	const types = new Set(enabledTypes);
+	const candidates = shippedChannels.filter(({ type }) => !types.has(type));
+	const found = await Promise.all(
+		candidates.map(async (channel) => ((await resolvable(channel.plugin)) ? channel : undefined)),
+	);
+	return found
+		.filter((channel) => channel !== undefined)
+		.map(({ type, plugin }) => ({ type, plugin, status: "随包提供，未启用 · Shipped, not enabled" }));
 }
+
+/** 本次安装里实际可解析的随包未启用渠道；`yonder.yaml.channels` 已有同 type 实例的不再列出。 */
+export const shippedChannelsFor = (home: string, config: YonderConfig) =>
+	shippedDisabledChannels(
+		Object.values(config.channels ?? {}).map((channel) => channel.type),
+		(plugin) =>
+			pluginDirectory(home, plugin).then(
+				() => true,
+				() => false,
+			),
+	);

@@ -16,6 +16,14 @@ import { scaffoldWorkspace } from "../prompt/index.js";
 import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
+/** Distinct contexts of every profile of an agent, resolved against the home's default model. */
+export function profileContexts(agent: AgentConfig, defaultModel?: string): string[] {
+	const contexts = Object.values(agent.profiles).flatMap(
+		(profile) => resolveProfile(profile, agent.defaults, "local", defaultModel).contexts,
+	);
+	return [...new Set(contexts)];
+}
+
 export function protectSessions(
 	config: YonderConfig,
 	candidate: YonderConfig,
@@ -122,7 +130,10 @@ export async function initHome(
 		locale: "zh-CN",
 		timezone: "Asia/Shanghai",
 		...(options.model ? { defaultModel: options.model } : {}),
-		plugins: bundle.plugins,
+		plugins: bundle.plugins.map(({ use, config }) => ({
+			use,
+			...(config ? { config: config({ home, owner, timezone: "Asia/Shanghai" }) } : {}),
+		})),
 		channels: bundle.channels,
 		envs: { local: { type: "local" } },
 		agents: [{ id: "main", workspace: "./agents/main" }],

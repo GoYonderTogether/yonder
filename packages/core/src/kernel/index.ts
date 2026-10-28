@@ -2,7 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
-import { withShippedChannels } from "../bundles.js";
+import { shippedChannelsFor } from "../bundles.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -33,7 +33,7 @@ import { createCoreTools } from "../tools/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { backgroundHandlers } from "./background.js";
-import { configurationErrors, protectSessions } from "./home.js";
+import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
@@ -232,13 +232,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const scaffoldAgent = (agent: AgentConfig, candidate = config) =>
 			scaffoldWorkspace(
 				filesFor(home, candidate, loaded, agent.id),
-				[
-					...new Set(
-						Object.values(agent.profiles).flatMap(
-							(profile) => resolveProfile(profile, agent.defaults, "local", candidate.defaultModel).contexts,
-						),
-					),
-				],
+				profileContexts(agent, candidate.defaultModel),
 				loaded.contexts,
 			);
 		for (const agent of agents.values()) await scaffoldAgent(agent);
@@ -468,13 +462,12 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		return {
 			channels: {
 				list: () =>
-					withShippedChannels(
-						[...loaded.channels].map(([id, channel]) => ({
-							instance: id,
-							type: config.channels?.[id]?.type,
-							login: Boolean(channel.login),
-						})),
-					),
+					[...loaded.channels].map(([id, channel]) => ({
+						instance: id,
+						type: config.channels?.[id]?.type,
+						login: Boolean(channel.login),
+					})),
+				shipped: () => shippedChannelsFor(home, config),
 				login: loginChannel,
 			},
 			sessions: { ...sessions.api, observe: observeSession },

@@ -172,6 +172,13 @@ function fail(error: unknown, json: boolean, code = 1): number {
 	if (json) output({ error: message }, true);
 	return code;
 }
+/** 已配置渠道原样在前，随包提供但未启用的渠道（channels.shipped）接在后面供显示。 */
+async function channelsList(home: string) {
+	const configured = (await requestControl(home, { method: "channels.list" })) as unknown[];
+	const shipped = (await requestControl(home, { method: "channels.list", params: { shipped: true } })) as unknown[];
+	return [...configured, ...shipped];
+}
+
 function homeFor(options: Options, init = false, target?: string): string {
 	if (init && target) return resolve(target);
 	if (options.home) return resolve(options.home);
@@ -363,8 +370,7 @@ async function run(args: string[]): Promise<number> {
 	}
 	if (command === "channels") {
 		const [action, ...values] = rest;
-		if (action === "list" && !values.length)
-			return print(requestControl(homeFor(options), { method: "channels.list" }), options.json);
+		if (action === "list" && !values.length) return print(channelsList(homeFor(options)), options.json);
 		if (action !== "login")
 			throw new UsageError("Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]");
 		let instance: string | undefined,
