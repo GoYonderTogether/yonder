@@ -36,10 +36,12 @@ export function createFindTool(): Tool {
 				current = parent;
 			}
 			const fullPath = pattern.includes("/");
-			const effectivePattern =
+			const windows = /^[A-Za-z]:[\\/]|^\\\\/.test(dir);
+			let effectivePattern =
 				fullPath && !pattern.startsWith("/") && !pattern.startsWith("**/") && pattern !== "**"
 					? `**/${pattern}`
 					: pattern;
+			if (windows && fullPath) effectivePattern = effectivePattern.replaceAll("/", String.raw`[/\\]`);
 			const args = [
 				"--glob",
 				"--color=never",
@@ -50,7 +52,7 @@ export function createFindTool(): Tool {
 				...(fullPath ? ["--full-path"] : []),
 				"--",
 				effectivePattern,
-				".",
+				dir,
 			];
 			let output = "",
 				error = "";
@@ -78,13 +80,13 @@ export function createFindTool(): Tool {
 				);
 			if (result.value.exitCode !== 0 && !output)
 				throw new Error(error.trim() || `fd exited with ${result.value.exitCode}`);
-			const windows = /^[A-Za-z]:[\\/]|^\\\\/.test(dir);
 			const entries = output
 				.split("\n")
 				.filter(Boolean)
 				.map((line) => {
 					const name = windows ? line.replaceAll("\\", "/") : line;
-					return name.replace(/^\.\//, "");
+					const root = (windows ? dir.replaceAll("\\", "/") : dir).replace(/\/$/, "");
+					return name.startsWith(`${root}/`) ? name.slice(root.length + 1) : name.replace(/^\.\//, "");
 				});
 			if (!entries.length) return { text: "No files found matching pattern" };
 			const shown: string[] = [];

@@ -57,6 +57,7 @@ test.skipIf(spawnSync("fd", ["--version"]).error)(
 	async () => {
 		const { BACKGROUND_CONTEXT } = await import("@earendil-works/chord/context");
 		const { createGrepTool } = await import("./grep.js");
+		const { createReadTool } = await import("@earendil-works/pi-durable/tools");
 		const { cacheToolOutput } = await import("./tool-output-cache.js");
 		const home = await mkdtemp(join(tmpdir(), "yonder-find-cache-"));
 		try {
@@ -97,10 +98,17 @@ test.skipIf(spawnSync("fd", ["--version"]).error)(
 			const limited = await createFindTool().execute({ pattern: "*.ts", limit: 3 }, ctx);
 			const cachePath = limited.text.match(/Acquired output: (.+?)\. Use read/)?.[1];
 			expect(cachePath).toBeTruthy();
-			const cached = await env.readTextFile(cachePath!, BACKGROUND_CONTEXT);
+			if (!cachePath) throw new Error("cache path missing");
+			const read = await createReadTool().execute(
+				{ path: cachePath },
+				{ env } as import("@earendil-works/pi-durable").ToolExecutionApi,
+				BACKGROUND_CONTEXT,
+			);
+			const cached = await env.readTextFile(cachePath, BACKGROUND_CONTEXT);
 			expect(cached.ok).toBe(true);
 			if (!cached.ok) throw cached.error;
-			const first = cached.value.split("\n")[0]!;
+			expect(read.output?.find((part) => part.type === "text")?.text).toBe(cached.value);
+			const first = cached.value.split("\n")[0] ?? "";
 			const grep = await createGrepTool().execute({ pattern: first, path: cachePath, literal: true }, ctx);
 			expect(JSON.parse(grep.text).matches[0].text).toBe(first);
 			const index = await env.readTextFile(join(home, "cache/tool-output/1/index.jsonl"), BACKGROUND_CONTEXT);
