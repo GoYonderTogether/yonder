@@ -258,8 +258,8 @@ export const diagnostics: Tool = {
 			};
 		if (args.source === "lsp" || args.paths?.length)
 			return callLens("pilens_diagnostics", { ...args, source: "lsp" }, ctx);
-		const result = await probe(ctx, args.path);
-		const file = await pathOf(ctx, args.path),
+		const result = await probe(ctx, args.path!);
+		const file = await pathOf(ctx, args.path!),
 			root = await pathOf(ctx, ".");
 		const relative = file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
 		if (result.isError) return result;
