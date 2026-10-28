@@ -22,12 +22,12 @@ function object(value: unknown): Record<string, unknown> {
 	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Arguments must be an object");
 	return value as Record<string, unknown>;
 }
-async function output(value: object, ctx: ToolContext, key?: string, bodyTruncated = false) {
+async function output(value: object, ctx: ToolContext, key?: string) {
 	let text = JSON.stringify(value, null, 2);
 	if (key) text = text.split(key).join("[REDACTED]");
 	if (Buffer.byteLength(text) > MAX_OUTPUT) {
 		const path = await ctx.cacheToolOutput?.(text, { extension: "json" });
-		text = `${Buffer.from(text).subarray(0, MAX_OUTPUT).toString("utf8")}\n[truncated: output limit 65536 bytes; ${bodyTruncated ? "HTTP body exceeded 2 MiB, cached output is incomplete; " : ""}${path ? `cached at ${path}; use read to paginate or grep to search` : "cache unavailable"}]`;
+		text = `${Buffer.from(text).subarray(0, MAX_OUTPUT).toString("utf8")}\n[truncated: output limit 65536 bytes; ${path ? `cached at ${path}; use read to paginate or grep to search` : "cache unavailable"}]`;
 	}
 	return { text };
 }
@@ -210,6 +210,10 @@ export default definePlugin({
 						);
 					}
 					const body = await readBody(response);
+					if (body.truncated)
+						throw new Error(
+							"HTTP_BODY_TOO_LARGE: response exceeds 2 MiB; use an authorized source with a smaller response",
+						);
 					let content = body.text;
 					let title: string | undefined;
 					if (["text/html", "application/xhtml+xml"].includes(mime)) {
@@ -245,8 +249,6 @@ export default definePlugin({
 					return output(
 						{ source: "http-get", url: url.href, mime, format, title, truncated: body.truncated, content },
 						ctx,
-						undefined,
-						body.truncated,
 					);
 				}
 				throw new Error("Too many redirects (maximum 5)");

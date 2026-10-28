@@ -43,6 +43,20 @@ export class ToolPolicy {
 		};
 		const target = await canonical(args.path),
 			cwd = await canonical(config.cwd);
+		if (env.id === "node:local" && (name === "read" || name === "grep")) {
+			const base = await canonical(join(this.deps.home, "cache", "tool-output"));
+			const rel = relative(base, target);
+			if (!isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {
+				const own = await canonical(cacheDirectory(this.deps.home, session));
+				const ownRel = relative(own, target);
+				if (
+					isAbsolute(ownRel) ||
+					ownRel === ".." ||
+					ownRel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)
+				)
+					return "缓存路径超出当前会话。";
+			}
+		}
 		if (!config.resolved.capabilities.includes("exec")) {
 			const rel = relative(cwd, target);
 			if (isAbsolute(rel) || rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)) {

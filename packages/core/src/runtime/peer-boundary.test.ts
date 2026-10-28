@@ -62,6 +62,9 @@ test("peer read/grep canonical boundary rejects traversal, absolute and symlink 
 		for (const tool of ["read", "grep"]) {
 			expect(await policy.denied(tool, { path: cachePath }, config, BACKGROUND_CONTEXT, "1")).toBeUndefined();
 			expect(await policy.denied(tool, { path: cachePath }, config, BACKGROUND_CONTEXT, "2")).toContain("超出");
+			const execConfig = { ...config, resolved: resolveProfile({ capabilities: ["read", "exec"] }) };
+			expect(await policy.denied(tool, { path: cachePath }, execConfig, BACKGROUND_CONTEXT, "1")).toBeUndefined();
+			expect(await policy.denied(tool, { path: cachePath }, execConfig, BACKGROUND_CONTEXT, "2")).toContain("超出");
 		}
 		for (const tool of ["read", "grep", "ls"]) {
 			for (const path of ["../outside.txt", outside, "escape"])
