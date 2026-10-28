@@ -32,7 +32,7 @@ import { getOrThrow } from "@earendil-works/pi-durable/env";
 import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
 import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
-import { createCodingTools, DEFAULT_IMAGE_LIMITS, type ImageProcessor } from "@earendil-works/pi-durable/tools";
+import { createCodingTools, type ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type {
 	Attachment,
 	Capability,
@@ -48,7 +48,6 @@ import type {
 } from "@yonder/sdk";
 import { Type } from "typebox";
 import { mergeCredentialSlots } from "../config/index.js";
-import { imageMime } from "./attachments.js";
 import { loginProvider } from "./auth.js";
 import { createBackground } from "./background.js";
 import { forkConversation, forkParent } from "./branches.js";
@@ -69,6 +68,7 @@ import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createFindTool } from "./find.js";
 import { createGrepTool } from "./grep.js";
+import { inputContent } from "./input-content.js";
 import { RunLimits } from "./limits.js";
 import { createLsTool } from "./ls.js";
 import {
@@ -91,7 +91,7 @@ import { ModelWatch } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
 import { Outbox } from "./outbox.js";
-import { imageData, projectOutput } from "./output.js";
+import { projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
 import { promptSections } from "./prompt-sections.js";
@@ -960,69 +960,6 @@ export class Runtime {
 		if (!value) throw new Error(`Unknown conversation: ${id}`);
 		return value;
 	}
-	private async inputContent(
-		config: RuntimeSessionConfig,
-		input: RuntimeInput,
-		preparation: Context,
-		remainingImages = Infinity,
-		remainingBytes = Infinity,
-	) {
-		const env = this.environment(config);
-		const content: Array<{ type: "text"; text: string } | { type: "image"; mimeType: string; data: string }> = [
-			{ type: "text", text: input.text },
-		];
-		const model = (await this.modelsFor(config)).getModel(
-			config.resolved.model.slice(0, config.resolved.model.indexOf("/")),
-			config.resolved.model.slice(config.resolved.model.indexOf("/") + 1),
-		);
-		let count = 0;
-		const actual = new Map<string, { mime: string; bytes: number }>();
-		for (const attachment of input.attachments ?? [])
-			if (attachment.kind === "image") {
-				const bytes = attachment.uri.startsWith("data:")
-					? Buffer.from(imageData(attachment.uri), "base64")
-					: getOrThrow(
-							await env.readBinaryFile(
-								attachment.uri.startsWith("file:") ? fileURLToPath(attachment.uri) : attachment.uri,
-								preparation,
-							),
-						);
-				const mime = imageMime(bytes),
-					resize = model?.inputLimits?.images?.resize;
-				actual.set(attachment.uri, { mime: mime ?? attachment.mime, bytes: bytes.byteLength });
-				const image =
-					mime &&
-					model?.input.includes("image") &&
-					count < Math.min(remainingImages, model.inputLimits?.images?.maxPerMessage ?? Infinity)
-						? await (await this.imageProcessor()).prepare(bytes, mime, {
-								maxWidth: resize?.maxWidth ?? DEFAULT_IMAGE_LIMITS.maxWidth,
-								maxHeight: resize?.maxHeight ?? DEFAULT_IMAGE_LIMITS.maxHeight,
-								maxBytes: resize?.maxBytes ?? DEFAULT_IMAGE_LIMITS.maxBytes,
-							})
-						: undefined;
-				preparation.abortSignal?.throwIfAborted();
-				if (
-					image &&
-					Buffer.byteLength(JSON.stringify(content)) + Buffer.byteLength(image.data) + 128 <= remainingBytes
-				) {
-					content.push({ type: "image", mimeType: image.mimeType, data: image.data });
-					count++;
-				} else
-					content.push({
-						type: "text",
-						text: `attachment: ${attachment.name ?? attachment.kind} ${attachment.uri} (${mime ?? attachment.mime}, ${bytes.byteLength} bytes); image could not be supplied within this model's input limits`,
-					});
-			}
-
-		if (input.event) {
-			const attachments = (input.event.data as { attachments?: import("@yonder/sdk").Attachment[] }).attachments ?? [];
-			input.event = {
-				...input.event,
-				data: { ...input.event.data, attachments: attachments.map((item) => ({ ...item, ...actual.get(item.uri) })) },
-			};
-		}
-		return content;
-	}
 	private async preparePlacedInputs(
 		session: string,
 		config: RuntimeSessionConfig,
@@ -1059,12 +996,15 @@ export class Runtime {
 			const images = view.messages.flatMap((message) =>
 				Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],
 			).length;
-			const content = await this.inputContent(
+			const content = await inputContent(
 				config,
 				input,
 				context,
 				(model?.inputLimits?.images?.maxPerRequest ?? Infinity) - images,
 				(model?.inputLimits?.maxRequestBytes ?? Infinity) - Buffer.byteLength(JSON.stringify(view.messages)),
+				(config) => this.environment(config),
+				(config) => this.modelsFor(config),
+				() => this.imageProcessor(),
 			);
 			await this.harness.commit(async (tx) => {
 				await tx.appendEntry(cid(session), {
