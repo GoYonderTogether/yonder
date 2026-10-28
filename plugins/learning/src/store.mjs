@@ -27,8 +27,22 @@ export async function checkActive(signal, options = {}) {
 export async function readText(path, max = 65536, missing = "") {
 	let file;
 	try {
+		// Windows ignores O_NOFOLLOW; verify the opened file still matches a non-link path.
+		const before = process.platform === "win32" ? await lstat(path) : null;
+		if (before?.isSymbolicLink()) fail("unsafe_or_oversized_memory_file");
 		file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
 		const st = await file.stat();
+		if (before) {
+			const after = await lstat(path);
+			if (
+				after.isSymbolicLink() ||
+				before.dev !== st.dev ||
+				before.ino !== st.ino ||
+				after.dev !== st.dev ||
+				after.ino !== st.ino
+			)
+				fail("unsafe_or_oversized_memory_file");
+		}
 		if (!st.isFile() || st.nlink !== 1 || st.size > max) fail("unsafe_or_oversized_memory_file");
 		const bytes = await file.readFile();
 		if (bytes.length > max) fail("oversized_memory_file");
