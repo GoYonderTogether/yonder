@@ -149,4 +149,4 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 
 ## 跨渠道模型与运行命令
 
-飞书、微信、CLI 等文本渠道共用 `/model`、`/status`、`/compact [instructions]`。`/model` 与 `/status` 展示当前供应商/模型、上下文窗口与估计用量、可否压缩及原因、effort、回退链/失败计数、当前 Agent 绑定的渠道以及当前会话与后代的后台任务/子 Agent session/task id。`/model list [provider]` 列出供应商和模型；`/model <provider/model> [fallback ...]` 设置会话模型链，`/model effort <level>` 设置会话 effort，`/model after <positive integer>` 设置连续失败阈值。读命令需要 read；设置和压缩需要 admin，压缩还需要 network。读命令不调用模型。命令结果沿原来源投递并保留原有命令去重，不由渠道各自实现。
+飞书、微信、CLI 和网页 console 共用 `/model`、`/effort [level|auto]`、`/status`、`/compact [instructions]`。`/model` 与 `/status` 展示当前供应商/模型、上下文窗口与估计用量、可否压缩及原因、effort、回退链/失败计数、当前 Agent 绑定的渠道以及当前会话与后代的后台任务/子 Agent session/task id。`/model list [provider]` 列出供应商和模型；`/model <provider/model> [fallback ...]` 设置会话模型链，`/effort` 查看、`/effort <level|auto>` 设置会话 effort，`/model after <positive integer>` 设置连续失败阈值。旧 `/model effort` 保留至少到 0.4，使用时提示改用 `/effort`，最早 0.5 移除。读命令需要 read；设置和压缩需要 admin，压缩还需要 network。读命令不调用模型。命令结果沿原来源投递并保留原有命令去重，不由渠道各自实现。
