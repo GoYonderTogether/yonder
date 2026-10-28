@@ -10,6 +10,8 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 	async () => {
 		const home = await mkdtemp("/tmp/yonder-ch03r4-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+		let stage = "setup";
+		let failed = false;
 		const key = `ch03r4-${home}`;
 		const globals = globalThis as unknown as Record<
 			string,
@@ -91,6 +93,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			});
 			await writeFile(agentPath, stringify(agent));
 			kernel = await openKernel(home);
+			stage = "group mention";
 			const input = (msgId: string, text: string, mentioned: boolean) => ({
 				type: "message.in",
 				from: "acct:ch03r4:user",
@@ -127,6 +130,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 			expect((await kernel.events.query({ type: "run.end" })).events).toHaveLength(runs);
 			expect(globals[key]!.sent).toHaveLength(sent);
 
+			stage = "owner notification";
 			const main = await kernel.bots.send("main", "请简短回复你好。");
 			await expect
 				.poll(
@@ -183,6 +187,7 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 				),
 			).toHaveLength(1);
 
+			stage = "social batch";
 			const batchInput = (msgId: string) => ({
 				...input(
 					msgId,
@@ -262,10 +267,74 @@ test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 				(await kernel.events.query({ type: "social.judge-result", conv: "conv:ch03r4:batch" })).events,
 			).toHaveLength(1);
 			expect(globals[key]!.sent).toHaveLength(sent);
+		} catch (error) {
+			failed = true;
+			const reason =
+				error instanceof Error && error.message === "YONDER_CH03R4_AUTH_SOURCE is required"
+					? "auth source missing"
+					: error instanceof Error && error.message === "siliconflow slot unavailable"
+						? "auth slot unavailable"
+						: error instanceof Error && error.name === "AssertionError"
+							? "assertion failed"
+							: "operation failed";
+			const line = error instanceof Error ? error.stack?.match(/ch03r4-live\.test\.ts:(\d+):\d+/)?.[1] : undefined;
+			console.error("CH03R4 failure:", { stage, reason, line });
+			if (kernel) {
+				try {
+					for (const type of [
+						"social.judge-start",
+						"social.judge-result",
+						"social.batch-failed",
+						"social.batch-ready",
+						"social.batch-read",
+						"run.end",
+					]) {
+						const events = (await kernel.events.query({ type })).events;
+						const id = (value: unknown) =>
+							typeof value === "string" && /^[0-9A-HJKMNP-TV-Z]{26}$/.test(value) ? value : undefined;
+						console.error(
+							type,
+							events.map((event) => {
+								const data = event.data as { status?: unknown; action?: unknown; through?: unknown };
+								return {
+									id: id(event.id),
+									parent: id(event.parent),
+									through: id(data.through),
+									status: ["done", "error", "aborted", "limit"].find((value) => value === data.status),
+									action: ["ignore", "summarize", "participate"].find((value) => value === data.action),
+								};
+							}),
+						);
+					}
+				} catch {
+					console.error("CH03R4 diagnostics unavailable");
+				}
+			}
+			throw new Error(`CH03R4 ${stage}: ${reason}`);
 		} finally {
-			await kernel?.close();
+			let closeFailed = false;
+			try {
+				await kernel?.close();
+			} catch {
+				console.error("CH03R4 service close failed");
+				closeFailed = true;
+			}
 			delete globals[key];
-			await rm(home, { recursive: true, force: true });
+			if (failed || closeFailed) {
+				await rm(join(home, "auth.json"), { force: true }).catch(() => {
+					console.error("CH03R4 credential cleanup failed");
+				});
+				console.error("CH03R4 retained home:", home);
+				if (closeFailed && !failed) throw new Error("CH03R4 service close failed");
+			} else {
+				await rm(home, { recursive: true, force: true }).catch(async () => {
+					await rm(join(home, "auth.json"), { force: true }).catch(() => {
+						console.error("CH03R4 credential cleanup failed");
+					});
+					console.error("CH03R4 retained home:", home);
+					throw new Error("CH03R4 temporary home cleanup failed");
+				});
+			}
 		}
 	},
 	450000,
