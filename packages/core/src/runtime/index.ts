@@ -18,6 +18,7 @@ import {
 	InboxDoc,
 	type JsonObject,
 	LiveDoc,
+	type PromptInput,
 	RunReceiptDoc,
 	type RunReceiptState,
 	type Submission,
@@ -76,12 +77,12 @@ import {
 	DEFAULT_FALLBACK_AFTER,
 	DEFAULT_MODEL_PROBE_SECONDS,
 	fallbackAliases,
+	fallbackReason,
 	holdSeconds,
 	modelChain,
 	parseAccountProvider,
 	probeSeconds,
 	refKey,
-	fallbackReason,
 	splitModelRef,
 } from "./model-chain.js";
 import { ModelGate } from "./model-gate.js";
@@ -93,6 +94,7 @@ import { writeNotification } from "./notifications.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
+import { promptParts } from "./prompt-parts.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
@@ -514,23 +516,31 @@ export class Runtime {
 		this.registry.install(this.background.extension);
 		this.extensions.set(this.background.extension.name, this.background.extension);
 
+		// One pi section per prompt part, so a changed part patches only itself and the cached prefix survives.
+		// Parts without a declared key, or out of declared order, keep the legacy single "yonder" block.
+		const keys = ["yonder", ...(this.options.sectionKeys ?? []).filter((key) => key !== "yonder")];
+		// All sections of one render pass share the same input object; render the parts once per pass.
+		const passes = new WeakMap<object, Promise<Map<string, string>>>();
+		const parts = (input: PromptInput<ToolRegistration>, context: Context) => {
+			let pass = passes.get(input);
+			if (!pass) {
+				pass = (async () => {
+					await input.read.snapshot(SessionDoc, input.conversationId, context);
+					const config = this.currentConfig(String(input.conversationId));
+					if (!config) throw new Error("Missing active configuration");
+					const rendered =
+						(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ?? [];
+					return promptParts(rendered, keys);
+				})();
+				passes.set(input, pass);
+			}
+			return pass;
+		};
 		const core = defineExtension({
 			name: "yonder.core",
-			sections: [
-				section(
-					"yonder",
-					async (input, context) => {
-						await input.read.snapshot(SessionDoc, input.conversationId, context);
-						const config = this.currentConfig(String(input.conversationId));
-						if (!config) throw new Error("Missing active configuration");
-						const sections =
-							(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ??
-							[];
-						return sections.join("\n\n");
-					},
-					{ tag: false },
-				),
-			],
+			sections: keys.map((key) =>
+				section(key, async (input, context) => (await parts(input, context)).get(key), { tag: false }),
+			),
 			hooks: [
 				...this.limits.hooks(),
 				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),

@@ -25,6 +25,11 @@ export interface RuntimeSessionConfig {
 	bindings?: Binding[];
 	owner?: string;
 }
+export interface PromptPart {
+	key: string;
+	text: string;
+}
+
 export interface RuntimeOptions {
 	db: Db;
 	home: string;
@@ -33,7 +38,10 @@ export interface RuntimeOptions {
 	tools?: Tool[];
 	envs?: Map<string, ExecutionEnv>;
 	resolveSession(id: string): Promise<RuntimeSessionConfig>;
-	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<string[]>;
+	/** System prompt parts in order; keyed parts become their own pi section when `sectionKeys` declares the key. */
+	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<Array<string | PromptPart>>;
+	/** Every key `sections` may return, in default order. Keys must match `^[a-z][a-z0-9_-]*$`. */
+	sectionKeys?: readonly string[];
 	readEvent?(id: string): Promise<YEvent | undefined>;
 	/** True when this run already has its durable `run.end`; recover() then does not replay it. */
 	settled?(session: string, run: string): Promise<boolean>;

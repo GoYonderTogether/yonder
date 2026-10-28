@@ -17,7 +17,8 @@ import {
 	type PromptOptions,
 	prepareInput,
 	scaffoldWorkspace,
-	systemSections,
+	systemPromptKeys,
+	systemPromptParts,
 	toolDiscoveryGuide,
 } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
@@ -392,7 +393,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 				return { ...session, protectedFiles };
 			},
-			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			sectionKeys: systemPromptKeys(loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
 			onModelFallback: async (event) => {
 				const session = await store.sessions.get(event.session);
