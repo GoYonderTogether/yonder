@@ -182,7 +182,7 @@ export function incoming(
 			...(attachments.length ? { attachments } : {}),
 			...(quote ? { quote } : {}),
 			msgId: msg.messageId,
-			...(group ? { mentioned } : {}),
+			...(group ? { mentioned, social: { mentions: { bot: mentioned }, nativeKind: msg.rawEventType } } : {}),
 			...(Number.isFinite(createdAt) ? { createdAt: String(createdAt) } : {}),
 			...(msg.senderName ? { name: msg.senderName } : {}),
 		},
@@ -205,6 +205,9 @@ export function recipient(id: string, target: string): ReplyTarget {
 export class QQChannel implements Channel {
 	readonly kinds = ["dm", "group"];
 	readonly output = { stream: false, attachments: true };
+	readonly features = { identity: "account", mentions: ["bot"], streamMode: "none" } satisfies NonNullable<
+		Channel["features"]
+	>;
 	private bot: QQBot | undefined;
 	private store: FileKVStore | undefined;
 	private work: Promise<void> | undefined;

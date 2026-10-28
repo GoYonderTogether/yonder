@@ -35,3 +35,23 @@ test("group admission schedules only configured triggers and keeps authorized gr
 	]);
 	groups.stop();
 });
+
+test("conflicting old and new mention facts do not trigger participation", () => {
+	const warnings: unknown[] = [];
+	const groups = new GroupParticipation(
+		{ log: { warn: (...args: unknown[]) => warnings.push(args) } } as unknown as PluginAPI,
+		"qq",
+		60,
+	);
+	groups.accept({
+		id: "1",
+		ts: new Date().toISOString(),
+		type: "message.in",
+		conv: "conv:qq:group:g",
+		data: { mentioned: true, social: { mentions: { bot: false } } },
+		routes: [{ wake: "write" }],
+	} as YEvent);
+	expect(groups.status()[0]?.nextAt).toBeUndefined();
+	expect(warnings).toHaveLength(1);
+	groups.stop();
+});

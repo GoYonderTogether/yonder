@@ -48,6 +48,7 @@ import { FeishuTaskCards } from "./task-card.js";
 export class FeishuChannel implements Channel {
 	readonly kinds = ["dm", "group"];
 	readonly output: { stream: boolean; attachments: boolean };
+	readonly features: NonNullable<Channel["features"]>;
 	readonly client: FeishuApi;
 	private readonly connection: FeishuConnection;
 	private readonly interaction: FeishuInteraction;
@@ -75,6 +76,13 @@ export class FeishuChannel implements Channel {
 		this.directory = join(api.paths.data, id);
 		this.client = new FeishuApi(config, api);
 		this.output = { stream: config.streaming !== false, attachments: true };
+		this.features = {
+			identity: "account",
+			quote: "id",
+			edit: true,
+			streamMode: this.output.stream ? "message" : "none",
+			history: "cursor",
+		};
 		this.connection = new FeishuConnection(id, this.client, api, () => this.ready());
 		this.interaction = new FeishuInteraction(id, this.client, api);
 		this.taskCards = new FeishuTaskCards(id, this.client, api, (target, card, signal) =>

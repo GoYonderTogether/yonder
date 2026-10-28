@@ -87,13 +87,17 @@ export class GroupParticipation {
 		const group = event.conv.slice(`conv:${this.instance}:group:`.length);
 		const mode =
 			this.config.groupParticipation?.[group] ?? (this.config.allowedGroups?.includes(group) ? "all" : "mention");
-		const data = event.data as { mentioned?: boolean; text?: string };
+		const data = event.data as { mentioned?: boolean; social?: { mentions?: { bot?: boolean } }; text?: string };
+		const socialMention = data.social?.mentions?.bot;
+		const conflict = socialMention !== undefined && data.mentioned !== undefined && socialMention !== data.mentioned;
+		if (conflict) this.api.log.warn("QQ conflicting bot mention facts", { event: event.id, conv: event.conv });
+		const mentioned = !conflict && (socialMention ?? data.mentioned ?? false);
 		if (
 			mode === "record" ||
-			(mode === "mention" && !data.mentioned && !this.config.groupKeywords?.some((word) => data.text?.includes(word)))
+			(mode === "mention" && !mentioned && !this.config.groupKeywords?.some((word) => data.text?.includes(word)))
 		)
 			return;
-		const at = data.mentioned ? Date.now() : Date.parse(event.ts) + this.seconds * 1000;
+		const at = mentioned ? Date.now() : Date.parse(event.ts) + this.seconds * 1000;
 		state.due = Math.min(state.due ?? at, at);
 		if (schedule) this.schedule(event.conv, state);
 	}

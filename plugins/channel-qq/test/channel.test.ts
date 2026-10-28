@@ -60,6 +60,7 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 		expect(input?.data).toMatchObject({ kind, text: raw.content, msgId: raw.id });
 		if (kind === "group") {
 			expect(input?.data.mentioned).toBe(event === "GROUP_AT_MESSAGE_CREATE");
+			expect(input?.data.social).toEqual({ mentions: { bot: event === "GROUP_AT_MESSAGE_CREATE" }, nativeKind: event });
 			expect(
 				incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, mentions: [{ is_you: true }] })?.data.mentioned,
 			).toBe(true);
