@@ -316,15 +316,18 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
 	expect(await readFile(join(share, "yonder/home/yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
 	const calls = await readFile(log, "utf8").catch(() => "");
-	if (
-		await stat("/Library/LaunchDaemons/dev.yonder.harness.power.plist").then(
-			() => true,
-			() => false,
-		)
-	)
-		expect(calls).toContain("launchctl bootout system/dev.yonder.harness.power");
+	// The launchd step depends on the real /Library (read-only here: mv/sed are no-ops), so it differs per machine.
+	const legacyPlist = await stat("/Library/LaunchDaemons/dev.yonder.harness.power.plist").then(
+		() => true,
+		() => false,
+	);
+	if (legacyPlist) expect(calls).toContain("launchctl bootout system/dev.yonder.harness.power");
 	else expect(calls).toBe("");
-	expect(run("--apply")).toContain("数据迁移");
+	// Rerun: no data work left; only the (still unrenamed) launchd label remains where the old plist exists.
+	const again = run("--apply");
+	expect(again).not.toContain("移动");
+	if (legacyPlist) expect(again).toContain("launchd：已全部执行");
+	else expect(again).toContain("Nothing to migrate");
 	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
 	expect(() => run("--rollback")).toThrow();
 	expect(() => run("--force")).toThrow();
