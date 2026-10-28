@@ -571,7 +571,7 @@ interface NodeFactsAddendum {
 
 ### §15 扩展事件载体与补充事件
 
-1. 内核/插件产生的会话级事件（`usage.updated`、`context.updated`、`compaction.*`、`model.*`、`todo.updated`、`subtask.updated`、`background.updated`、`wake.updated`、`goal.updated`）统一用 `SessionUpdate{type:"event", name:string, data:unknown}` 进入 `kernel.terminal.observe`；网关在 `sessions.watch` 上转成 `ev{type:name, data}`（`seq/cursor` 沿用现有缓冲）。不认识的 `name` 照转。
+1. 内核/插件产生的会话级事件（`usage.updated`、`context.updated`、`compaction.*`、`model.*`、`todo.updated`、`subtask.updated`、`background.updated`、`wake.updated`、`goal.updated`）统一用 `SessionUpdate{type:"event", name:string, data:unknown}` 进入 `kernel.terminal.observe`；网关在 `sessions.watch` 上转成 `ev{type:name, data}`（`seq/cursor` 沿用现有缓冲）。不认识的 `name` 丢弃并计数（网关只转发 协议里冻结的事件名；主 Agent 裁定 10-28：未知 carrier 丢弃）。
 2. 节点级事件（`session.opened/closed/settled`、`notification`、`approval.*`、`suggestion.created`、`capabilities.changed`）在 `activity.watch` 上以 `ev{type:name}` 投递。
 3. 新增事件形状：
 

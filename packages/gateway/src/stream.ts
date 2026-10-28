@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { type HostCtx, MethodError, registry } from "@yonder/core";
+import { sessionMetadata } from "./snapshot.js";
 
 export const RING = 2000;
 export const RING_BYTES = 8 * 1024 * 1024;
@@ -110,13 +111,7 @@ export class Feeds {
 	async acquire(method: string, params: unknown, ctx: HostCtx): Promise<Feed> {
 		// Feeds are shared across principals, so the per-session check (Bot conversations need owner scope)
 		// runs for every subscriber, not only the one that started the feed.
-		if (method === "sessions.watch")
-			await registry.call(
-				"sessions.show",
-				{ ...(params as object), include: "meta" },
-				ctx,
-				new AbortController().signal,
-			);
+		if (method === "sessions.watch") await sessionMetadata((params as { id: string }).id, ctx);
 		const key = `${method}\u0000${JSON.stringify(params)}`;
 		const live = this.feeds.get(key);
 		if (live && !live.closed) return live;
