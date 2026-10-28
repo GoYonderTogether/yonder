@@ -43,9 +43,11 @@ test("peer read/grep canonical boundary rejects traversal, absolute and symlink 
 			events: [event],
 		});
 		const policy = new ToolPolicy({
+			home: root,
 			capabilities: new Map([
 				["read", ["read"]],
 				["grep", ["read"]],
+				["ls", ["read"]],
 			]),
 			environment: () => env,
 			context: async () => ctx(),
@@ -56,7 +58,12 @@ test("peer read/grep canonical boundary rejects traversal, absolute and symlink 
 			cwd,
 			resolved: resolveProfile({ capabilities: ["read", "message"] }),
 		};
+		const cachePath = await (await import("./tool-output-cache.js")).cacheToolOutput(root, "1", "test", {}, "cached");
 		for (const tool of ["read", "grep"]) {
+			expect(await policy.denied(tool, { path: cachePath }, config, BACKGROUND_CONTEXT, "1")).toBeUndefined();
+			expect(await policy.denied(tool, { path: cachePath }, config, BACKGROUND_CONTEXT, "2")).toContain("超出");
+		}
+		for (const tool of ["read", "grep", "ls"]) {
 			for (const path of ["../outside.txt", outside, "escape"])
 				expect(await policy.denied(tool, { path }, config, BACKGROUND_CONTEXT, "1")).toContain("超出");
 			expect(await policy.denied(tool, { path: "inside-link" }, config, BACKGROUND_CONTEXT, "1")).toBeUndefined();
