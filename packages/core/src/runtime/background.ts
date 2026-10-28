@@ -228,7 +228,10 @@ export function createBackground(options: {
 		const outcome = record.state.outcome;
 		if (outcome.status !== "aborted") {
 			const snapshot = JSON.parse((record.input as unknown as Input).config);
-			await options.finished(session, String(id), doc.name, outcomeResult(outcome), snapshot.events[0]);
+			const messages = snapshot.events.filter((event: YEvent) => event.type === "message.in");
+			const origin =
+				snapshot.events[0]?.type !== "message.in" && messages.length === 1 ? messages[0] : snapshot.events[0];
+			await options.finished(session, String(id), doc.name, outcomeResult(outcome), origin);
 		}
 		await harness().commit(async (tx) => {
 			(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;

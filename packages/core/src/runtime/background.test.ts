@@ -29,7 +29,7 @@ test.each(["scope", "full"])(
 		const home = await mkdtemp(join(tmpdir(), "yonder-background-"));
 		const reports: unknown[] = [];
 		let failedAdmission = false;
-		const notifications: Array<{ session: string; id: string }> = [];
+		const notifications: Array<{ session: string; id: string; origin?: YEvent }> = [];
 		const changes: string[] = [];
 		let idle = 0;
 		let runtime: Runtime | undefined;
@@ -54,7 +54,7 @@ test.each(["scope", "full"])(
 						failedAdmission = true;
 						throw new Error("acceptance: continuation admission temporarily unavailable");
 					}
-					notifications.push({ session, id: value.id });
+					notifications.push({ session, id: value.id, ...(value.origin ? { origin: value.origin } : {}) });
 				},
 			});
 			const internal = runtime as unknown as {
@@ -65,7 +65,7 @@ test.each(["scope", "full"])(
 				registry: { install(extension: ReturnType<typeof defineExtension>): void };
 			};
 			const driver = defineTask<
-				{ name: string; args: JsonObject; event?: YEvent },
+				{ name: string; args: JsonObject; event?: YEvent | YEvent[] },
 				{ phase: "run" },
 				ToolExecutionResult
 			>({
@@ -101,7 +101,7 @@ test.each(["scope", "full"])(
 						if (job.input.event)
 							internal.invocationConfigs.set(context, {
 								config: await runtime!.sessionConfig(String(job.conversationId)),
-								events: [job.input.event],
+								events: Array.isArray(job.input.event) ? job.input.event : [job.input.event],
 							});
 						let result: ToolExecutionResult;
 						try {
@@ -124,7 +124,7 @@ test.each(["scope", "full"])(
 			const other = await runtime.create({ agent: null, profile: "default", cwd: home });
 			await runtime.configure(first);
 			await runtime.configure(other);
-			const start = (session: string, name: string, args: JsonObject, event?: YEvent) =>
+			const start = (session: string, name: string, args: JsonObject, event?: YEvent | YEvent[]) =>
 				internal.harness.commit(
 					(tx) =>
 						tx.createTask(
@@ -140,7 +140,7 @@ test.each(["scope", "full"])(
 					throw new Error(`Native task failed: ${JSON.stringify(task.state.outcome)}`);
 				return task.state.outcome.result;
 			};
-			const call = async (session: string, name: string, args: JsonObject, event?: YEvent) =>
+			const call = async (session: string, name: string, args: JsonObject, event?: YEvent | YEvent[]) =>
 				done(await start(session, name, args, event));
 			const text = (result: ToolExecutionResult) =>
 				result.output
@@ -189,8 +189,13 @@ test.each(["scope", "full"])(
 			const search = await call(first, "bash", { command: "cat; grep -H 'native stdin file match' stdin.txt" });
 			expect(JSON.parse(text(search))).toMatchObject({ output: "stdin.txt:native stdin file match\n", exitCode: 0 });
 
+			const source = newEvent({ type: "message.in", data: { text: "background request" } });
+			const onboarding = newEvent({ type: "onboarding.start", data: {} });
 			const began = Date.now();
-			const yielded = await call(first, "bash", { command: "printf 'started'; sleep 16; printf 'finished'" });
+			const yielded = await call(first, "bash", { command: "printf 'started'; sleep 16; printf 'finished'" }, [
+				onboarding,
+				source,
+			]);
 			expect(Date.now() - began).toBeGreaterThanOrEqual(14900);
 			// Upper bound tolerates scheduler load; the live "not terminal" check below proves it yielded early.
 			expect(Date.now() - began).toBeLessThan(18000);
@@ -208,6 +213,7 @@ test.each(["scope", "full"])(
 			expect(internal.background.running.size).toBe(0);
 			expect(reports.some((e) => String(e).includes("admission temporarily unavailable"))).toBe(true);
 			expect(notifications.filter((item) => item.id === id)).toHaveLength(1);
+			expect(notifications.find((item) => item.id === id)?.origin?.id).toBe(source.id);
 			await expect.poll(() => idle).toBe(1);
 
 			const input = JSON.parse(text(await call(first, "bash", { command: "cat", stdin: true, background: true })))
@@ -268,7 +274,7 @@ test.each(["scope", "full"])(
 			);
 			expect(retained).toMatchObject({ output: "NEW_TAIL", next: 70008, state: { outcome: { status: "aborted" } } });
 
-			const source = newEvent({ type: "message.in", data: { text: "native background scope check" } });
+			const scopedSource = newEvent({ type: "message.in", data: { text: "native background scope check" } });
 			const interactive = JSON.parse(
 				text(
 					await call(
@@ -279,7 +285,7 @@ test.each(["scope", "full"])(
 							background: true,
 							stdin: true,
 						},
-						source,
+						scopedSource,
 					),
 				),
 			).background as string;
