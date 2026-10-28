@@ -54,8 +54,11 @@ export interface HostCtx {
 export type AwakeSnapshot = Record<string, unknown>;
 export type LegacyFrame = Record<string, unknown>;
 
+/** Extended SDK carrier; socket retains the wrapper, gateway projects its name/data. */
+export type ControlEvent = Extract<import("@yonder/sdk").SessionUpdate, { type: "event" }>;
+
 export interface StreamDef {
-	/** `ev.type` of the frames this stream emits; frame `data` is the value passed to `emit`. */
+	/** `ev.type` of the frames this stream emits; frame `data` is the value passed to `emit` (ControlEvent overrides type/data). */
 	type: string;
 	resumable: boolean;
 	/** Shape of the control.sock line for this stream (unchanged from before the registry). */

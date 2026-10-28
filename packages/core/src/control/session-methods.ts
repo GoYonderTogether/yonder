@@ -1,6 +1,7 @@
 import Type, { type TSchema } from "typebox";
 import type { Kernel } from "../kernel/index.js";
-import { type HostCtx, type MethodDef, MethodError } from "./method-types.js";
+import { guardSession, ownsBots } from "./guard.js";
+import { type MethodDef, MethodError } from "./method-types.js";
 
 const text = Type.String({ minLength: 1 });
 const obj = <T extends Record<string, TSchema>>(properties: T) => Type.Object(properties);
@@ -9,14 +10,6 @@ const missing = (kind: string, value: string) => new MethodError("not_found", `U
 function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 	// SAFETY: handler params are validated against def.params by registry.prepare before any handler runs.
 	return def as unknown as MethodDef;
-}
-
-/** Bot conversations (every non-task session) need `owner` scope; task sessions keep the plain read/write scopes. */
-const ownsBots = (ctx: HostCtx) => ctx.principal.scopes.includes("owner");
-async function guardSession(ctx: HostCtx, id: string, session?: { mode: string }) {
-	const row = session ?? (await ctx.kernel.sessions.get(id));
-	if (row && row.mode !== "task" && !ownsBots(ctx))
-		throw new MethodError("forbidden", "Bot conversations require owner scope");
 }
 
 /** sessions.* control methods (contracts §1, §10 remote isolation). */

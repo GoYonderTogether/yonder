@@ -18,7 +18,10 @@ import {
 	Tickets,
 	tokenHash,
 } from "./auth.js";
+import { mapEvent } from "./events.js";
 import { BodyError, fail, loginPage, readBody, redirect, send, sendJson, serveStatic } from "./http.js";
+import { mountRoutes } from "./routes/index.js";
+import { sessionSnapshot } from "./snapshot.js";
 import { type FeedEvent, Feeds, type Listener } from "./stream.js";
 
 export type GatewayHostCtx = Omit<HostCtx, "principal" | "gateway">;
@@ -341,15 +344,18 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 				let overflow = false;
 				const queue: FeedEvent[] = [];
 				let n = 0;
+				const eventType = def.stream.type;
 				const emit = (event: FeedEvent) => {
+					const mapped = mapEvent(eventType, event.data);
+					if (!mapped) return;
 					frame({
 						t: "ev",
 						sub,
 						seq: ++n,
 						cursor: feed.resumable ? `${feed.epoch}:${event.seq}` : "",
-						type: def.stream?.type,
+						type: mapped.type,
 						ts: event.ts,
-						data: event.data,
+						data: mapped.data,
 					});
 				};
 				// Synchronously decide replay vs fresh and start listening, so no event falls between the two.
@@ -377,16 +383,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 				if (!resumed) {
 					result = feed.initial;
 					if (method === "sessions.watch") {
-						const id = (params as { id: string }).id;
-						const ctx = ctxFor(login);
-						const meta = (await registry.call(
-							"sessions.show",
-							{ id, include: "meta" },
-							ctx,
-							new AbortController().signal,
-						)) as object;
-						const transcript = await registry.call("sessions.transcript", { id }, ctx, new AbortController().signal);
-						result = { ...meta, transcript };
+						result = await sessionSnapshot((params as { id: string }).id, ctxFor(login));
 					}
 				}
 				if (!subs.has(sub)) return;
@@ -444,6 +441,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		});
 		ws.on("error", () => ws.terminate());
 	}
+
+	mountRoutes(server, host);
 
 	// ---- listen -----------------------------------------------------------------
 	const listenOn = (candidate: number) =>
