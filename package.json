@@ -43,6 +43,10 @@
 		"plugins/onboarding"
 	],
 	"scripts": {
+		"version:check": "node scripts/version-check.mjs --check",
+		"ci:remote": "node scripts/ci-remote.mjs",
+		"test:changed": "node scripts/test-changed.mjs",
+		"release:pack": "node scripts/release/pack-runtime.mjs",
 		"build": "node scripts/check-pi-ai-bundle.mjs && tsc -b && node plugins/devices/build.mjs && node scripts/build-macos.mjs && node plugins/interaction/build.mjs && npm run build:app",
 		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
@@ -58,7 +62,7 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder",
-	"version": "0.2.26102705",
+	"version": "0.3.26102801",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai"
 	},

@@ -37,7 +37,7 @@ test("default installation root preserves existing Unix installs", async () => {
 	if (process.platform === "win32") return;
 	vi.stubEnv("YONDER_INSTALL", undefined);
 	try {
-		expect((await releaseInfo()).install).toBe(join(homedir(), ".yonder-harness"));
+		expect((await releaseInfo()).install).toBe(join(homedir(), ".local/share/yonder/install"));
 	} finally {
 		vi.unstubAllEnvs();
 	}

@@ -53,7 +53,7 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 			process.env.PATH = `${bin}:${before.path}`;
 			process.env.YONDER_INSTALL = install;
 			await manageService("install", { home });
-			const plist = join(root, "Library/LaunchAgents/dev.yonder.harness.plist");
+			const plist = join(root, "Library/LaunchAgents/dev.yonder.service.plist");
 			expect(await readFile(plist, "utf8")).toContain("bin/yonder-service</string>");
 			expect(await readFile(join(install, "bin/yonder-service"), "utf8")).toContain(
 				"current/scripts/yonder-service-host.mjs",
@@ -78,7 +78,7 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 				.trim()
 				.split("\n")
 				.map((line) => JSON.parse(line) as string[]);
-			const main = `gui/${process.getuid?.()}/dev.yonder.harness`;
+			const main = `gui/${process.getuid?.()}/dev.yonder.service`;
 			expect(calls.filter((c) => c[0] === "bootout" && c[1] === main)).toHaveLength(2);
 			expect(calls.some((c) => c[0] === "kickstart" && c.includes("-k") && c.at(-1) === main)).toBe(false);
 			// A rollback to an older product artifact without host support restores
