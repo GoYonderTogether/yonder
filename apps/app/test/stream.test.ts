@@ -151,6 +151,25 @@ describe("Mux 帧序列", () => {
 		expect(ws.subFrames()[2]).toMatchObject({ t: "sub", after: "e2:0" });
 	});
 
+	it("按事件 id 去重，但不误杀流式 session.update", () => {
+		const { mux, sockets } = harness();
+		const h = record();
+		mux.subscribe("sessions.watch", { id: "1" }, h.handlers);
+		const ws = sockets[0] as FakeSocket;
+		ws.open();
+		ws.feed(readyFrame(false, "e1:0"));
+
+		ws.feed(ev(1, "e1:1", "run.ended", { id: "ev-1", status: "done" }));
+		ws.feed(ev(2, "e1:2", "run.ended", { id: "ev-1", status: "done" }));
+		expect(h.events).toHaveLength(1);
+
+		// session.update 的 data.id 是消息 id，流式增量重复用它，必须逐条投递
+		ws.feed(ev(3, "e1:3", "session.update", { type: "message", id: "live", message: { text: "a" }, streaming: true }));
+		ws.feed(ev(4, "e1:4", "session.update", { type: "message", id: "live", message: { text: "ab" }, streaming: true }));
+		expect(h.events).toHaveLength(3);
+		expect(h.events[2]).toMatchObject({ type: "session.update" });
+	});
+
 	it("同一 ready 窗口内按 seq 去重", () => {
 		const { mux, sockets } = harness();
 		const h = record();

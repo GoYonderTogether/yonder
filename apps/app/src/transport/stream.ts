@@ -16,6 +16,8 @@ interface Sub {
 	lastSeq: number;
 	/** 已发 sub 帧、等 ready：并发重订只发一次。 */
 	pending: boolean;
+	/** 契约 §2.3.4 的二次去重窗口（有界，seq 已是主防线）。 */
+	seen: Set<string>;
 	handlers: StreamHandlers;
 }
 
@@ -30,6 +32,24 @@ export interface StreamSocket {
 	onerror: (() => void) | null;
 }
 const OPEN = 1;
+const SEEN_MAX = 1000;
+
+/**
+ * 契约 §2.3.4：ev.data 带事件 id 时按 id 去重。
+ * session.update 的 data.id 是消息 id，流式增量会重复用它（core runtime/terminal.ts），只能认 data.event.id。
+ */
+function eventIdOf(f: Extract<ServerFrame, { t: "ev" }>): string | undefined {
+	const data = f.data;
+	if (!data || typeof data !== "object") return undefined;
+	const d = data as { id?: unknown; event?: unknown };
+	if (f.type === "session.update") {
+		const event = d.event;
+		if (!event || typeof event !== "object") return undefined;
+		const id = (event as { id?: unknown }).id;
+		return typeof id === "string" ? id : undefined;
+	}
+	return typeof d.id === "string" ? d.id : undefined;
+}
 
 /** 单连接多路复用（contracts §2）。断线指数退避重连，带 after 游标重订，补齐漏掉的事件。 */
 export class Mux {
@@ -68,6 +88,7 @@ export class Mux {
 			params,
 			lastSeq: 0,
 			pending: false,
+			seen: new Set(),
 			handlers,
 		};
 		this.subs.set(sub.sub, sub);
@@ -143,9 +164,19 @@ export class Mux {
 			// 基线归零，否则重启后 seq=1 的事件会被当成旧帧丢掉。
 			s.pending = false;
 			s.lastSeq = 0;
+			s.seen.clear();
 			s.cursor = f.cursor;
 			s.handlers.onReady(f.result, f.gap);
 		} else if (f.t === "ev") {
+			const id = eventIdOf(f);
+			if (id !== undefined) {
+				if (s.seen.has(id)) return;
+				s.seen.add(id);
+				if (s.seen.size > SEEN_MAX) {
+					const oldest = s.seen.values().next().value;
+					if (oldest !== undefined) s.seen.delete(oldest);
+				}
+			}
 			// 按 (sub, seq) 去重；seq 不连续不报错
 			if (f.seq <= s.lastSeq) return;
 			s.lastSeq = f.seq;
