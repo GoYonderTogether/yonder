@@ -38,7 +38,9 @@ const golden = JSON.parse(readFileSync(new URL("./schema.golden.json", import.me
 const schemas = JSON.parse(JSON.stringify({ AgentSchema, PresetSchema, YonderSchema })) as Record<string, Schema>;
 
 test.each(Object.keys(schemas))("%s does not narrow its golden schema", (name) => {
-	expect(compatible(golden[name], schemas[name])).toBe(true);
+	const previous = golden[name];
+	const current = schemas[name];
+	expect(previous && current && compatible(previous, current)).toBe(true);
 });
 
 test("compatibility detects narrowing and permits optional fields and enum additions", () => {
