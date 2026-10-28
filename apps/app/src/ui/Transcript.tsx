@@ -1,0 +1,161 @@
+import { Brain, ChevronRight, Copy, Globe, Layers, Terminal, Wrench } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ActionItem } from "../lib/actions";
+import { type ChatItem, channelName, type ToolCall } from "../lib/chat";
+import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
+import { ActionMenu } from "./ActionMenu";
+import { Markdown } from "./Markdown";
+
+function Fold({
+	icon: Icon,
+	title,
+	hint,
+	children,
+	tid,
+}: {
+	icon: typeof Wrench;
+	title: string;
+	hint?: string;
+	children: React.ReactNode;
+	tid: string;
+}) {
+	const [open, setOpen] = useState(false);
+	return (
+		<div className="rounded-control border border-hairline bg-raised text-small" data-testid={tid}>
+			<button
+				type="button"
+				aria-expanded={open}
+				onClick={() => setOpen(!open)}
+				className="press flex w-full items-center gap-2 px-3 py-2 text-left text-muted"
+			>
+				<ChevronRight size={14} className={`transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
+				<Icon size={14} aria-hidden />
+				<span className="font-medium">{title}</span>
+				{hint && <span className="min-w-0 flex-1 truncate font-mono text-caption text-faint">{hint}</span>}
+			</button>
+			{open && <div className="border-t border-hairline px-3 py-2">{children}</div>}
+		</div>
+	);
+}
+
+const brief = (args: unknown) => {
+	if (!args || typeof args !== "object") return "";
+	const v = Object.values(args as Record<string, unknown>)[0];
+	return typeof v === "string" ? v.slice(0, 80) : "";
+};
+
+function Tool({ t }: { t: ToolCall }) {
+	return (
+		<Fold icon={Wrench} title={t.name} hint={brief(t.args)} tid="tool-card">
+			<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-caption text-muted">
+				{JSON.stringify(t.args ?? {}, null, 2)}
+			</pre>
+			{t.result !== undefined && (
+				<pre
+					className={`mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-caption ${t.isError ? "text-danger" : "text-ink"}`}
+				>
+					{t.result}
+				</pre>
+			)}
+			{!t.done && <p className="mt-1 text-caption text-faint">执行中…</p>}
+		</Fold>
+	);
+}
+
+function Bubble({ it }: { it: ChatItem }) {
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
+	const actions: ActionItem[] = [
+		{ key: "copy", label: "复制", icon: Copy, onSelect: () => void navigator.clipboard?.writeText(it.text) },
+	];
+
+	if (it.role === "summary")
+		return (
+			<div
+				className="mx-auto w-full max-w-[720px] rounded-control border border-dashed border-hairline bg-tone/50 px-3 py-2"
+				data-testid="summary"
+			>
+				<div className="mb-1 flex items-center gap-1.5 text-caption text-faint">
+					<Layers size={13} aria-hidden /> 上下文已压缩 · 摘要
+				</div>
+				<div className="text-small text-muted">
+					<Markdown text={it.text} />
+				</div>
+			</div>
+		);
+	if (it.role === "notice")
+		return (
+			<p className="mx-auto text-caption text-faint">
+				通知 · {it.from}：{it.text}
+			</p>
+		);
+
+	const mine = it.role === "user";
+	return (
+		<div className={`mx-auto flex w-full max-w-[720px] flex-col gap-1.5 ${mine ? "items-end" : "items-start"}`}>
+			{mine && (
+				<span className="flex items-center gap-1 text-caption text-faint" data-testid="channel-badge">
+					{it.channel ? <Globe size={12} aria-hidden /> : <Terminal size={12} aria-hidden />} {channelName(it.channel)}
+				</span>
+			)}
+			{it.thinking && (
+				<div className="w-full max-w-[85%]">
+					<Fold icon={Brain} title="思考" tid="thinking">
+						<p className="whitespace-pre-wrap text-small text-muted">{it.thinking}</p>
+					</Fold>
+				</div>
+			)}
+			{it.text && (
+				<div
+					{...trigger}
+					className={`no-select max-w-[85%] rounded-bubble px-3.5 py-2 text-body break-words ${mine ? "bg-accent text-on-accent" : "bg-tone"}`}
+					data-testid={mine ? "bubble-user" : "bubble-bot"}
+				>
+					{mine ? <p className="whitespace-pre-wrap">{it.text}</p> : <Markdown text={it.text} />}
+				</div>
+			)}
+			{it.tools.map((t) => (
+				<div key={t.id} className="w-full max-w-[85%]">
+					<Tool t={t} />
+				</div>
+			))}
+			{it.streaming && <span className="text-caption text-faint">正在输入…</span>}
+			{menu && <ActionMenu at={menu} title="消息" actions={actions} onClose={() => setMenu(null)} />}
+		</div>
+	);
+}
+
+export function Transcript({ items, hasMore, onOlder }: { items: ChatItem[]; hasMore: boolean; onOlder(): void }) {
+	const box = useRef<HTMLDivElement>(null);
+	const stick = useRef(true);
+	useLayoutEffect(() => {
+		const el = box.current;
+		if (el && stick.current) el.scrollTop = el.scrollHeight;
+	});
+	useEffect(() => {
+		const el = box.current;
+		if (el) el.scrollTop = el.scrollHeight;
+	}, []);
+	return (
+		<div
+			ref={box}
+			className="scroll-y min-h-0 flex-1 px-3 py-4"
+			onScroll={(e) => {
+				const el = e.currentTarget;
+				stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+			}}
+		>
+			<div className="flex flex-col gap-3">
+				{hasMore && (
+					<button type="button" onClick={onOlder} className="press mx-auto text-caption text-muted underline">
+						加载更早的消息
+					</button>
+				)}
+				{items.length === 0 && <p className="py-16 text-center text-small text-faint">还没有消息</p>}
+				{items.map((it) => (
+					<Bubble key={it.id} it={it} />
+				))}
+			</div>
+		</div>
+	);
+}
