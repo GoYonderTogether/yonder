@@ -16,13 +16,22 @@ function tools(credential?: string, cacheToolOutput?: ToolContext["cacheToolOutp
 	return (name: string, args: unknown, signal = new AbortController().signal) => {
 		const tool = registrations.tools.find((tool) => tool.name === `web-tools_${name}`);
 		if (!tool) throw new Error(`Missing tool ${name}`);
-		return Promise.resolve().then(() => tool.execute(args, { signal, cacheToolOutput } as ToolContext));
+		return Promise.resolve().then(() =>
+			tool.execute(args, { signal, cacheToolOutput, cacheToolOutputStream: cacheToolOutput } as unknown as ToolContext),
+		);
 	};
 }
 afterEach(() => vi.unstubAllGlobals());
 
 test("caches redacted output and oversized original bodies and reports cache failures", async () => {
-	const cache = vi.fn().mockResolvedValue("/tmp/tool-output.json");
+	const cache = vi.fn(async (value: string | AsyncIterable<Uint8Array>, _options?: { extension?: string }) => {
+		if (typeof value !== "string") {
+			let bytes = 0;
+			for await (const chunk of value) bytes += chunk.byteLength;
+			expect(bytes).toBe(2 * 1024 * 1024 + 12);
+		}
+		return "/tmp/tool-output.json";
+	});
 	const http = vi
 		.fn()
 		.mockResolvedValue(new Response(JSON.stringify({ results: [{ raw_content: `${"x".repeat(70000)} secret` }] })));
@@ -37,7 +46,7 @@ test("caches redacted output and oversized original bodies and reports cache fai
 	);
 	const oversized = await tools(undefined, cache)("fetch", { url: "https://example.org" });
 	expect(oversized.text).toContain("cached at /tmp/tool-output.json");
-	expect(cache.mock.calls[1]?.[0]).toContain("END_MARKER");
+	expect(typeof cache.mock.calls[1]?.[0]).toBe("object");
 	expect(cache.mock.calls[1]?.[1]).toEqual({ extension: "txt" });
 	cache.mockRejectedValueOnce(new Error("cache failed"));
 	http.mockResolvedValueOnce(new Response("x".repeat(70000), { headers: { "content-type": "text/plain" } }));

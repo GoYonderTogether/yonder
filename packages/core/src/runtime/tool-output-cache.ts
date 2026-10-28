@@ -17,7 +17,7 @@ export async function cacheToolOutput(
 	session: string,
 	tool: string,
 	args: object,
-	text: string,
+	text: string | AsyncIterable<Uint8Array>,
 	extension = "txt",
 ): Promise<string> {
 	const operation = pending.then(() => save(home, session, tool, args, text, extension));
@@ -28,7 +28,14 @@ export async function cacheToolOutput(
 	return operation;
 }
 
-async function save(home: string, session: string, tool: string, args: object, text: string, extension: string) {
+async function save(
+	home: string,
+	session: string,
+	tool: string,
+	args: object,
+	text: string | AsyncIterable<Uint8Array>,
+	extension: string,
+) {
 	if (!/^[a-zA-Z0-9]{1,10}$/.test(extension)) throw new Error("Invalid cache extension");
 	const dir = cacheDirectory(home, session);
 	await mkdir(dir, { recursive: true, mode: 0o700 });
@@ -89,11 +96,12 @@ async function save(home: string, session: string, tool: string, args: object, t
 	}
 	const filename = tool.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 100) || "tool";
 	const path = join(dir, `${filename}-${randomUUID()}.${extension}`);
-	await writeFile(path, text, { mode: 0o600, flag: "wx" });
 	try {
+		await writeFile(path, text, { mode: 0o600, flag: "wx" });
+		const bytes = (await stat(path)).size;
 		await appendFile(
 			join(dir, "index.jsonl"),
-			`${JSON.stringify({ time: new Date(now).toISOString(), tool, args: Object.keys(args), bytes: Buffer.byteLength(text), path })}\n`,
+			`${JSON.stringify({ time: new Date(now).toISOString(), tool, args: Object.keys(args), bytes, path })}\n`,
 			{ mode: 0o600 },
 		);
 	} catch (error) {
@@ -115,7 +123,7 @@ export async function boundToolOutput(text: string, save: () => Promise<string>)
 }
 
 export function toolOutputWriter(ctx: ToolContext, tool: string, args: object, home: string) {
-	return (text: string, options?: { extension?: string }) => {
+	return (text: string | AsyncIterable<Uint8Array>, options?: { extension?: string }) => {
 		ctx.signal.throwIfAborted();
 		return cacheToolOutput(home, ctx.session, tool, args, text, options?.extension);
 	};

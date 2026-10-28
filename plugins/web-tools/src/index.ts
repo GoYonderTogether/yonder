@@ -31,27 +31,42 @@ async function output(value: object, ctx: ToolContext, key?: string) {
 	}
 	return { text };
 }
-async function readBody(response: Response, full = false): Promise<{ text: string; truncated: boolean }> {
+async function readBody(
+	response: Response,
+	cache?: ToolContext["cacheToolOutputStream"],
+): Promise<{ text: string; truncated: boolean; path?: string }> {
 	const reader = response.body?.getReader();
 	const chunks: Uint8Array[] = [];
 	let size = 0;
-	let truncated = false;
 	try {
 		while (reader) {
 			const chunk = await reader.read();
 			if (chunk.done) break;
 			const remaining = MAX_BODY - size;
-			chunks.push(full ? chunk.value : chunk.value.subarray(0, remaining));
-			size += full ? chunk.value.length : Math.min(remaining, chunk.value.length);
 			if (chunk.value.length > remaining) {
-				truncated = true;
-				if (!full) break;
+				const prefix = chunk.value.subarray(0, remaining);
+				chunks.push(prefix);
+				const path = await cache?.(
+					(async function* () {
+						yield* chunks;
+						yield chunk.value.subarray(remaining);
+						while (true) {
+							const next = await reader.read();
+							if (next.done) break;
+							yield next.value;
+						}
+					})(),
+					{ extension: "txt" },
+				);
+				return { text: Buffer.concat(chunks).toString("utf8"), truncated: true, ...(path ? { path } : {}) };
 			}
+			chunks.push(chunk.value);
+			size += chunk.value.length;
 		}
 	} finally {
 		await reader?.cancel();
 	}
-	return { text: Buffer.concat(chunks).toString("utf8"), truncated };
+	return { text: Buffer.concat(chunks).toString("utf8"), truncated: false };
 }
 async function tavily(api: PluginAPI, credential: string, path: string, body: object, ctx: ToolContext) {
 	const signal = ctx.signal;
@@ -209,7 +224,7 @@ export default definePlugin({
 							ctx,
 						);
 					}
-					const body = await readBody(response, true);
+					const body = await readBody(response, ctx.cacheToolOutputStream);
 					let content = body.text;
 					let title: string | undefined;
 					if (["text/html", "application/xhtml+xml"].includes(mime)) {
@@ -243,7 +258,7 @@ export default definePlugin({
 									: markdown.turndown(article.content ?? "");
 					}
 					if (body.truncated) {
-						const path = await ctx.cacheToolOutput?.(body.text, { extension: "txt" });
+						const path = body.path;
 						content = Buffer.from(content)
 							.subarray(0, MAX_OUTPUT / 8)
 							.toString("utf8");

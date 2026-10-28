@@ -1,3 +1,5 @@
 {
-	"cacheToolOutput": "cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;"
+	"cacheToolOutput": "cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;",
+	"cacheToolOutputStream": "cacheToolOutputStream?(chunks: AsyncIterable<Uint8Array>, options?: { extension?: string }): Promise<string>;",
+	"authorizeFileWrite": "authorizeFileWrite?(path: string): Promise<void>;"
 }

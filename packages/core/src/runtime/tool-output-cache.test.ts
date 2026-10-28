@@ -6,6 +6,18 @@ import { boundToolOutput, cacheToolOutput } from "./tool-output-cache.js";
 test("caches truncated output with a searchable path and removes expired files", async () => {
 	const home = await mkdtemp("/tmp/yonder-output-");
 	try {
+		const streamed = await cacheToolOutput(
+			home,
+			"1",
+			"web",
+			{},
+			(async function* () {
+				yield Buffer.from("first\n");
+				yield Buffer.from("last");
+			})(),
+		);
+		expect(await readFile(streamed, "utf8")).toBe("first\nlast");
+		expect(await readFile(join(home, "cache/tool-output/1/index.jsonl"), "utf8")).toContain('"bytes":10');
 		const old = await cacheToolOutput(home, "1", "web", { url: "private" }, "old");
 		const other = await cacheToolOutput(home, "2", "web", {}, "other session");
 		const date = new Date(Date.now() - 8 * 86400_000);
