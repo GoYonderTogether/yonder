@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add optional `code-intel_lsp_navigation` through pi-lens MCP; applying cross-file changes is not yet available.
+
 - 飞书投递重试复用稳定的分片 UUID；Channel.send 可接收可选 deliveryId。
 
 - 社交路由追加 `routing.social-decision` 事件，关联原始输入并记录策略版本与判定原因。

@@ -218,6 +218,8 @@ macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helpe
 
 ## code-intel（可选）
 
+- `code-intel_lsp_navigation`：通过 pi-lens MCP 进行 LSP 导航及能力发现；跨文件写入目前不可用。
+
 - `code-intel_read_enclosing`：按文件和行读取最小包含符号或回调；超长时可选择错误、片段或大纲。
 
 - `code-intel_codegraph_explore`：通过执行环境内 CodeGraph 查询索引的源码与调用关系。

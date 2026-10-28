@@ -194,6 +194,8 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 ### code-intel（可选）
 
+`code-intel_lsp_navigation` 在所选执行环境调用 pi-lens 4.4.6 MCP，提供其 19 种 LSP operation 和 capabilities 发现；位置参数为 path、line、character，其他参数沿用后端 schema。仅选中插件且具备 read、write、exec 时提供。当前一次性 MCP 连接无法保证跨文件写入及取消，rename、rename_file、executeCommand 的 apply:true 返回明确错误；预览和其他操作依后端能力返回结果或错误。长输出使用现有运行时截断和缓存，缓存不补全后端已截断的内容。
+
 `code-intel_read_enclosing` 在当前执行环境通过 pi-lens 4.4.6 MCP 按 path 和 1-based line 读取最小包含符号或回调，支持 kinds、maxLines、onOversize（error 默认仅元数据、slice、outline）和 aroundLine；需要 read 与 exec。仅选中插件时提供，使用运行时输出缓存；pi-lens 内部读取记录不等于 Yonder edit 的读取检查。
 
 `code-intel_codegraph_explore` 在当前执行环境通过 CodeGraph CLI 读取已建索引，接受 query、可选 maxFiles（默认 12）及 projectPath（默认工作区）；先检查索引状态，缺失或过期时给出初始化或刷新动作。仅选中插件时提供工具；不自动初始化、启动 watcher 或注入项目图。输出沿用运行时工具截断与缓存。工具需要 read 和 exec 能力。
