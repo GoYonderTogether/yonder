@@ -1,4 +1,3 @@
-import { realpathSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -46,13 +45,11 @@ import {
 	WorkingStatusIndicator,
 	withBuiltInRenderers,
 } from "./pi-native.js";
+import { type ChatTarget, hideReplyMarker, sameDirectory } from "./terminal-support.js";
 import { FooterComponent, type FooterView } from "./vendor/pi-footer.js";
 
-export interface ChatTarget {
-	preset?: string;
-	session?: string;
-	channel?: string;
-}
+export { type ChatTarget, hideReplyMarker, sameDirectory } from "./terminal-support.js";
+
 type Info = Awaited<ReturnType<Kernel["terminal"]["info"]>>;
 type Presets = ReturnType<Kernel["terminal"]["presets"]>;
 type Channels = ReturnType<Kernel["terminal"]["channels"]>;
@@ -69,19 +66,6 @@ type Message =
 	  };
 
 export { chatCommands };
-
-/** Compare existing local directory aliases without treating missing/remote paths as the same folder. */
-export const hideReplyMarker = (text: string, streaming: boolean) =>
-	Boolean(text.trim()) && (streaming ? "NO_REPLY".startsWith(text.trim()) : text.trim() === "NO_REPLY");
-
-export function sameDirectory(left: string, right: string): boolean {
-	if (left === right) return true;
-	try {
-		return realpathSync(left) === realpathSync(right);
-	} catch {
-		return false;
-	}
-}
 
 /** Native pi 1.3.0 component tree and actions; Yonder supplies content, transport and the spec/12 §6 presentation adapter. */
 export async function runTerminal(home: string, initial: ChatTarget = {}) {
