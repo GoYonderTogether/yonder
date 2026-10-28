@@ -9,7 +9,9 @@ export async function guardSession(ctx: HostCtx, id: string, session?: { mode: s
 }
 
 /** Ids of the sessions a caller without `owner` may see; `undefined` means no restriction. */
-export async function visibleSessionFilter(ctx: HostCtx): Promise<((id: string | undefined) => Promise<boolean>) | undefined> {
+export async function visibleSessionFilter(
+	ctx: HostCtx,
+): Promise<((id: string | undefined) => Promise<boolean>) | undefined> {
 	if (ownsBots(ctx)) return undefined;
 	const cache = new Map<string, boolean>();
 	return async (id) => {
