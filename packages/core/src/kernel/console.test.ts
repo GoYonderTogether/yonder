@@ -42,8 +42,11 @@ test("console is a zero-config channel: the owner reaches the Bot's single main 
 	const home = await homeWithProbe();
 	const kernel = await openKernel(home);
 	try {
-		expect(await kernel.bots.list()).toEqual([{ agent: "main", name: "Jarvis", session: undefined }]);
+		// 首次启动的引导已唤醒管家，main 会话先于主人第一条消息存在（D59）。
+		const [bot] = await kernel.bots.list();
+		expect(bot).toMatchObject({ agent: "main", name: "Jarvis" });
 		const sent = await kernel.bots.send("main", "你好");
+		expect(sent.session).toBe(bot?.session);
 		const session = await kernel.sessions.get(sent.session);
 		expect(session).toMatchObject({ agent: "main", mode: "main", key: "main", profile: "owner" });
 		const input = (await kernel.events.query({ id: sent.event })).events[0];
