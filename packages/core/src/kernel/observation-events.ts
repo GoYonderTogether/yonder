@@ -3,6 +3,15 @@ import type { TodoUpdatedEvent } from "../runtime/todo.js";
 import type { ModelFallbackEvent } from "../runtime/types.js";
 import type { Store } from "../store/index.js";
 
+/** Terminal listeners per session; a run end and a recorded runtime event both fan out to them. */
+export type TerminalSends = Map<string, Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>>;
+
+/** Fan one update out to a session's terminal listeners; a failing listener must not block the others. */
+export function terminalUpdates(ends: TerminalSends, report: (error: unknown) => void) {
+	return (session: string, update: import("../runtime/index.js").TerminalUpdate) => {
+		for (const send of ends.get(session) ?? []) void send(update).catch(report);
+	};
+}
 /**
  * Runtime events that are both recorded and shown to session observers (contracts §3.3, §3.4). Recording comes
  * first; the observer copy is the same payload, so `sessions.watch` clients see what `events.query` returns.

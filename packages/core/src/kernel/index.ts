@@ -36,7 +36,7 @@ import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
-import { observedRuntimeEvents } from "./observation-events.js";
+import { observedRuntimeEvents, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
@@ -86,13 +86,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const config = await loadYonderConfig(home);
 		db = await openDatabase(join(home, ".yonder/state.db"));
 		observability.startRetention();
-		const terminalEnds = new Map<
-			string,
-			Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>
-		>();
-		const forwardUpdate = (id: string, update: import("../runtime/index.js").TerminalUpdate) => {
-			for (const send of terminalEnds.get(id) ?? []) void send(update).catch(report);
-		};
+		const terminalEnds: TerminalSends = new Map();
+		const forwardUpdate = terminalUpdates(terminalEnds, report);
 		const agents = new Map<string, AgentConfig>();
 		const store = await createStore(
 			db,
