@@ -19,37 +19,17 @@ import {
 } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { homedir } from "node:os";
-import { basename, dirname, join, relative } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { controlEndpoint, lockHome } from "@yonder/core";
+import { moveInstall, planInstall } from "./migrate-install.js";
+import { planServices, userServiceStopped } from "./migrate-services.js";
+import { rewriteText, shellLine } from "./migrate-text.js";
 
-/** User-data migration for `yonder migrate` (design §3.4). It never touches repo source. */
-export const PLUGIN_RENAMES: ReadonlyArray<readonly [string, string]> = [
-	["hermes-experience", "learning"],
-	["ui-companion", "interaction"],
-];
 const OLD_LABEL = "dev.yonder.harness.power";
 const NEW_LABEL = "dev.yonder.power";
-// Dash goes last so it is a literal, not a range ("@-_" would swallow "[").
-const TOKEN = "A-Za-z0-9./@-";
 
-const rules = PLUGIN_RENAMES.flatMap(([from, to]) => [
-	[new RegExp(`@yonder/plugin-${from}(?![${TOKEN}])`, "gu"), `@yonder/plugin-${to}`] as const,
-	// Underscore may follow (tool names such as hermes-experience_recall) but not precede.
-	[new RegExp(`(?<![A-Za-z0-9./@_-])${from}(?![${TOKEN}])`, "gu"), to] as const,
-]);
-
-export function rewriteText(text: string): { text: string; count: number } {
-	let count = 0;
-	let result = text;
-	for (const [pattern, replacement] of rules)
-		result = result.replace(pattern, () => {
-			count++;
-			return replacement;
-		});
-	return { text: result, count };
-}
-
+export { PLUGIN_RENAMES, rewriteText } from "./migrate-text.js";
 export interface LaunchdPaths {
 	daemons: string;
 	helpers: string;
@@ -57,6 +37,9 @@ export interface LaunchdPaths {
 export interface MigrateOptions {
 	oldHome: string;
 	newHome: string;
+	oldInstall?: string;
+	newInstall?: string;
+	platform?: NodeJS.Platform;
 	now?: Date;
 	launchd?: LaunchdPaths;
 	run?: (argv: string[]) => Promise<void>;
@@ -67,6 +50,7 @@ export interface MigrationPlan {
 	conflicts: string[];
 	lines: string[];
 	moving: boolean;
+	installMoving: boolean;
 	source?: string;
 	backup?: string;
 	rewrites: Array<{ file: string; count: number }>;
@@ -87,6 +71,8 @@ export function defaultMigrateOptions(): MigrateOptions {
 	return {
 		oldHome: join(share, "yonder-harness/home"),
 		newHome: join(share, "yonder/home"),
+		oldInstall: join(homedir(), ".yonder-harness"),
+		newInstall: join(share, "yonder/install"),
 		...(process.platform === "darwin"
 			? { launchd: { daemons: "/Library/LaunchDaemons", helpers: "/Library/PrivilegedHelperTools" } }
 			: {}),
@@ -96,9 +82,8 @@ export function defaultMigrateOptions(): MigrateOptions {
 const execFileAsync = promisify(execFile);
 const defaultRun = async (argv: string[]) => {
 	const [file, ...args] = argv;
-	if (file) await execFileAsync(file, args);
+	if (file && !(await userServiceStopped(argv))) await execFileAsync(file, args);
 };
-/** A live server owns the control socket; a stale socket file refuses the connection. */
 export function homeLocked(home: string): Promise<boolean> {
 	return new Promise((resolve) => {
 		const socket = createConnection(controlEndpoint(home));
@@ -120,9 +105,7 @@ export async function probe(path: string): Promise<Kind> {
 		throw error;
 	}
 }
-/** Exact, copy-pasteable shell text for one argv. */
-export const shellLine = (argv: string[]) =>
-	argv.map((part) => (/^[A-Za-z0-9_@%+=:,./-]+$/u.test(part) ? part : `'${part.replaceAll("'", "'\\''")}'`)).join(" ");
+export { shellLine } from "./migrate-text.js";
 export const exists = async (path: string) => (await probe(path)) !== "absent";
 const stamp = (now: Date) => now.toISOString().slice(0, 10).replaceAll("-", "");
 
@@ -172,7 +155,13 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 		if (await running(home)) conflicts.push(`服务正在运行（${home}），请先 yonder stop`);
 	const oldKind = await probe(oldHome);
 	const newKind = await probe(newHome);
-	const interrupted = Boolean(await findJournal(options));
+	const interrupted =
+		Boolean(await findJournal(options)) ||
+		Boolean(
+			options.oldInstall &&
+				options.newInstall &&
+				(await findJournal({ oldHome: options.oldInstall, newHome: options.newInstall })),
+		);
 	let moving = false;
 	let source: string | undefined;
 	if (newKind === "symlink" || newKind === "other") conflicts.push(`新路径不是目录：${newHome}`);
@@ -190,16 +179,20 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 	} else if (oldKind === "other") conflicts.push(`旧路径不是目录：${oldHome}`);
 	else if (newKind === "dir") source = newHome;
 
+	const { oldInstall, newInstall } = options;
+	const installMoving = await planInstall(options, conflicts);
 	const found = source ? await inspectFiles(source, conflicts) : { rewrites: [], renames: [] };
 	const lines: string[] = [];
 	if (interrupted) lines.push(`发现上次中断的迁移（${JOURNAL}），--apply 会先收尾再继续`);
 	const homeWork = moving || found.rewrites.length > 0 || found.renames.length > 0;
 	const now = options.now ?? new Date();
 	let backup: string | undefined;
-	if (homeWork && source) {
-		backup = await uniquePath(join(dirname(source), `${basename(source)}.backup-${stamp(now)}`));
-		lines.push(`备份 ${source} → ${backup}/home`);
+	if ((homeWork && source) || installMoving) {
+		const backupSource = source ?? (oldInstall as string);
+		backup = await uniquePath(join(dirname(backupSource), `${basename(backupSource)}.backup-${stamp(now)}`));
+		lines.push(`备份 ${backupSource} → ${backup}`);
 	}
+	if (installMoving) lines.push(`移动 ${oldInstall} → ${newInstall}，并在旧路径留符号链接`);
 	if (moving) lines.push(`移动 ${oldHome} → ${newHome}，并在旧路径留符号链接`);
 	for (const item of found.rewrites)
 		lines.push(`改写 ${item.file}（${item.count} 处），原文件保留为 ${item.file}.pre-migrate-${stamp(now)}`);
@@ -221,12 +214,18 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 			for (const command of commands) lines.push(`  ${shellLine(command)}`);
 		}
 	}
+	const services = await planServices(options, conflicts);
+	if (services.length) {
+		lines.push("迁移用户服务标签：", ...services.map((command) => `  ${shellLine(command)}`));
+		commands.push(...services);
+	}
 	const status = conflicts.length ? "blocked" : lines.length ? "ready" : "noop";
 	return {
 		status,
 		conflicts,
 		lines,
 		moving,
+		installMoving,
 		...(source ? { source } : {}),
 		...(backup ? { backup } : {}),
 		rewrites: found.rewrites,
@@ -236,9 +235,7 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 }
 
 export const MANIFEST = "manifest.json";
-/** Written inside the home being moved (so it travels with the rename); a rerun reads it to finish a half-done move. */
 export const JOURNAL = ".migrate-journal.json";
-/** Files written after the migration finished by more than this are treated as new user data (mtime granularity). */
 export const MTIME_SLACK_MS = 1000;
 export interface Manifest {
 	version: 1;
@@ -247,6 +244,10 @@ export interface Manifest {
 	newHome: string;
 	source: string;
 	moved: boolean;
+	oldInstall?: string;
+	newInstall?: string;
+	installMoved?: boolean;
+	hasHome?: boolean;
 	/** Set only once the data migration completed; rollback compares file mtimes against it. */
 	finishedAt?: string;
 }
@@ -330,7 +331,7 @@ const ownTempLink = (journal: Journal) =>
  * A crash between rename(old→new) and the symlink leaves new without a link at old. The journal says which half-done
  * state this is: still in old (nothing moved: drop it) or in new (moved: finish the link). Returns a note if it acted.
  */
-async function recoverInterrupted(options: MigrateOptions): Promise<string | undefined> {
+async function recoverInterrupted(options: MigrateOptions, keepJournal = false): Promise<string | undefined> {
 	const found = await findJournal(options);
 	if (!found) return undefined;
 	const { oldHome, newHome } = options;
@@ -345,7 +346,7 @@ async function recoverInterrupted(options: MigrateOptions): Promise<string | und
 		} else if (kind !== "symlink" || (await realpath(oldHome).catch(() => "")) !== (await realpath(newHome)))
 			throw new MigrateError(`上次迁移中断，且旧路径已被占用，请人工处理：${oldHome}`);
 		await rm(journal.tempLink, { force: true });
-		await unlink(join(newHome, JOURNAL));
+		if (!keepJournal) await unlink(join(newHome, JOURNAL));
 		return `已收尾上次中断的迁移：${oldHome} → ${newHome} 符号链接已补上`;
 	}
 	if ((await probe(newHome)) !== "absent") return undefined;
@@ -356,7 +357,17 @@ async function recoverInterrupted(options: MigrateOptions): Promise<string | und
 
 export async function applyMigration(options: MigrateOptions): Promise<MigrationResult> {
 	const running = options.running ?? homeLocked;
-	const recovered = await recoverInterrupted(options);
+	const installOptions =
+		options.oldInstall && options.newInstall
+			? { ...options, oldHome: options.oldInstall, newHome: options.newInstall, running: async () => false }
+			: undefined;
+	if (installOptions && (await findJournal(installOptions)))
+		await assertStopped([options.oldHome, options.newHome], running);
+	const installJournal = installOptions ? await findJournal(installOptions) : undefined;
+	const priorBackup =
+		installJournal && installJournal.home === options.newInstall ? installJournal.journal.backup : undefined;
+	const installRecovered = installOptions ? await recoverInterrupted(installOptions, Boolean(priorBackup)) : undefined;
+	const recovered = (await recoverInterrupted(options)) ?? installRecovered;
 	const plan = await planMigration(options);
 	if (plan.status === "blocked") throw new MigrateError(`无法迁移：\n${plan.conflicts.join("\n")}`);
 	if (plan.status === "noop")
@@ -377,19 +388,24 @@ export async function applyMigration(options: MigrateOptions): Promise<Migration
 	const scratch: string[] = [];
 	let moved = false;
 	try {
-		// Lock held: nothing can start now, but a server that was already up still owns control.sock.
 		await assertStopped([oldHome, newHome], running);
 		try {
-			if (plan.backup && plan.source) {
+			if (priorBackup) backup = priorBackup;
+			else if (plan.backup) {
 				backup = await uniquePath(plan.backup);
 				await mkdir(backup);
-				await copyTree(plan.source, join(backup, "home"));
+				if (plan.source) await copyTree(plan.source, join(backup, "home"));
+				if (plan.installMoving && options.oldInstall) await copyTree(options.oldInstall, join(backup, "install"));
 				const manifest: Manifest = {
 					version: 1,
 					date,
 					oldHome,
 					newHome,
-					source: plan.source,
+					source: plan.source ?? (options.oldInstall as string),
+					hasHome: Boolean(plan.source),
+					...(plan.installMoving
+						? { oldInstall: options.oldInstall, newInstall: options.newInstall, installMoved: true }
+						: {}),
 					moved: plan.moving,
 				};
 				await writeFile(join(backup, MANIFEST), `${JSON.stringify(manifest, null, "\t")}\n`);
@@ -399,8 +415,8 @@ export async function applyMigration(options: MigrateOptions): Promise<Migration
 			throw error;
 		}
 		try {
+			if (plan.installMoving) await moveInstall(options, undo, scratch, backup);
 			if (plan.moving) {
-				// Link at a temp name first, then two renames: old is never missing for longer than one rename.
 				const tempLink = join(dirname(oldHome), `${basename(oldHome)}.migrate-${suffix()}`);
 				scratch.push(tempLink);
 				await mkdir(dirname(newHome), { recursive: true });
@@ -441,15 +457,16 @@ export async function applyMigration(options: MigrateOptions): Promise<Migration
 					undo.unshift(() => rename(item.to, item.from));
 				}
 				if (moved) await unlink(join(home, JOURNAL));
-				if (backup)
-					await writeFile(
-						join(backup, MANIFEST),
-						`${JSON.stringify({ ...(JSON.parse(await readFile(join(backup, MANIFEST), "utf8")) as Manifest), finishedAt: new Date().toISOString() }, null, "\t")}\n`,
-					);
 			}
+			if (backup)
+				await writeFile(
+					join(backup, MANIFEST),
+					`${JSON.stringify({ ...(JSON.parse(await readFile(join(backup, MANIFEST), "utf8")) as Manifest), finishedAt: new Date().toISOString() }, null, "\t")}\n`,
+				);
+			if ((plan.installMoving || priorBackup) && options.newInstall)
+				await rm(join(options.newInstall, JOURNAL), { force: true });
 		} catch (error) {
 			const failed: string[] = [];
-			// Content steps were unshifted (newest first); the journal and home-move undos follow, in that order.
 			for (const step of undo)
 				await step().catch((e: unknown) => failed.push(e instanceof Error ? e.message : String(e)));
 			throw new MigrateError(

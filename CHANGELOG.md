@@ -41,7 +41,7 @@
 
 ### Fixed
 
-- 改名保留 `~/.yonder-harness` 安装根，恢复迁移说明中的旧名及 learning 的旧技能 owner 兼容；codemod 不再映射 hermes-experience，保留弃用别名包。
+- 安装根迁至 `~/.local/share/yonder/install`；`yonder migrate` 保留旧路径链接两个 minor，迁移旧服务标签，并支持安装根与数据目录联合回滚。learning 旧技能 owner 兼容仍保留；codemod 不再映射 hermes-experience，保留弃用别名包。
 
 - `permissions` 工具参数改为顶层对象（`action` 判别 + 可选 `provider`/`kind`/`timeout`），修复严格供应商 API 以 `type: null` 拒绝该工具 schema；参数校验仍在工具内。
 - 单次启动产生的 11,726 条 error 级"历史 submission 无原生回执"降为 1 条 `warn` 加周期汇总。

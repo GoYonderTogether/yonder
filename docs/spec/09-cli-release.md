@@ -38,7 +38,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 | `docs [path] [--list]` | 输出当前版本 `docs/` 下的文件；不带参数输出 `docs/index.md` |
 | `update [--to <tag>\|latest\|beta] [--repo <url>]` | §4 |
 | `service install\|uninstall\|start\|stop\|restart\|status` | §6 |
-| `migrate [--dry-run \| --apply]` / `migrate --rollback <备份> [--dry-run] [--force]` | 把旧 `yonder-harness` 用户数据迁到新布局：运行目录移到 `~/.local/share/yonder/home` 并在旧路径留符号链接、`yonder.yaml` 与 `agents/*.yaml` 内旧插件 id/工具名改写（原文件留作 `.pre-migrate-<日期>`）、插件状态目录重命名、macOS power helper 的 launchd 标签改名。默认只预览。`--apply` 持服务同一把 home 锁（`.yonder/lock`）并在改名前再确认无服务在运行；先备份到 `<目录>.backup-<日期>/home`（含 `manifest.json`），再「临时名建链接 → 改名 → 链接就位」，日志 `.migrate-journal.json` 记录中间状态，任何一步出错自动还原，中断后重跑 `--apply` 会收尾。备份有意不含运行时 socket（`control.sock`、渠道 `*.sock`）与锁目录：它们只在运行期存在，服务启动时重建。launchd 步骤需管理员权限，与数据迁移分开报告，失败时打印剩余命令的原样文本，数据迁移不受影响。`--rollback` 先恢复到同级临时目录、原子换入、最后才删旧副本；要求旧路径是指向新目录的符号链接，且新目录中没有迁移完成后写入的文件，否则拒绝，`--force` 明确放弃这些数据后才继续；launchd 改名不自动回滚 |
+| `migrate [--dry-run \| --apply]` / `migrate --rollback <备份> [--dry-run] [--force]` | 把旧安装根和 `yonder-harness` 用户数据迁到新布局：安装根移到 `~/.local/share/yonder/install`，旧 `~/.yonder-harness` 留符号链接至少两个 minor（0.3、0.4）；运行目录移到 `~/.local/share/yonder/home` 并在旧路径留符号链接、`yonder.yaml` 与 `agents/*.yaml` 内旧插件 id/工具名改写（原文件留作 `.pre-migrate-<日期>`）、插件状态目录重命名、旧用户服务标签及 macOS power helper 的 launchd 标签改名。默认只预览。`--apply` 持服务同一把 home 锁（`.yonder/lock`）并在改名前再确认无服务在运行；先备份到 `<目录>.backup-<日期>/home`（含 `manifest.json`），再「临时名建链接 → 改名 → 链接就位」，日志 `.migrate-journal.json` 记录中间状态，任何一步出错自动还原，中断后重跑 `--apply` 会收尾。备份有意不含运行时 socket（`control.sock`、渠道 `*.sock`）与锁目录：它们只在运行期存在，服务启动时重建。launchd 步骤需管理员权限，与数据迁移分开报告，失败时打印剩余命令的原样文本，数据迁移不受影响。`--rollback` 同时恢复数据目录和安装根，先恢复到同级临时目录、原子换入、最后才删旧副本；要求旧路径是指向新目录的符号链接，且新目录中没有迁移完成后写入的文件，否则拒绝，`--force` 明确放弃这些数据后才继续；服务标签改名不自动回滚 |
 | `completion zsh\|bash\|fish` | 输出 shell 补全脚本；无 home 也可输出静态脚本；不修改用户 shell 配置（12 §5.3） |
 
 除上述命令（含 `migrate`）、14 §4 的 agents/presets 管理及 13 §2 的 plugins list/show/add/remove、skills show/add/remove、models list、inspect 外，不增加其他命令。sessions submit 同时支持 13 §1.4 的可重复 --attachment <本地路径>。这些命令的精确参数与语义见 13，不在此复制第二份。
@@ -48,7 +48,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 ## 3. 安装布局
 
 ```
-<install>/                    默认 ~/.yonder-harness（Windows 为 %LOCALAPPDATA%\\YonderHarness），可用 YONDER_INSTALL 改
+<install>/                    默认 ~/.local/share/yonder/install，可用 YONDER_INSTALL 改
   versions/<version>/         某个审核 tag 的构建安装，已 npm ci && npm run build，无 .git
   current -> versions/<version>   Unix 符号链接；Windows 目录 junction
   bin/yonder                  Unix shell wrapper
@@ -88,22 +88,22 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 ## 6. 后台服务
 
-- macOS `service install`：写 `~/Library/LaunchAgents/dev.yonder.harness.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。
+- macOS `service install`：写 `~/Library/LaunchAgents/dev.yonder.service.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。
 - `start`：已加载用 `launchctl kickstart`，未加载但 plist 存在用 `bootstrap`；`stop` 用 `bootout`，保留 plist；`restart` 对已加载服务用 `kickstart -k`，未加载时用 `bootstrap`；`status` 用 `print`；`uninstall` 卸载已加载服务后删除 plist。
 - plist 的 EnvironmentVariables 仅保存 PATH、YONDER_INSTALL、YONDER_HOME；PATH 含安装 bin、安装时 node 所在目录及安装时 PATH。服务验证必须包含 stop → start，以及从后台 agent 调用 yonder docs、node、npm、git。
 - 进程异常退出由 launchd 拉起；运行恢复按 07 §3.1 接好输入/结束关联后启用 pi 调度，重新打开文件不代表完成恢复。
-- Linux 使用 systemd **用户**单元 `dev.yonder.harness.service`，放在 `$XDG_CONFIG_HOME/systemd/user`（缺省 `~/.config/systemd/user`）。`service install` 写单元并 `daemon-reload`、`enable --now`；start/stop/restart/status/uninstall 对该用户单元操作。ExecStart 使用已安装 wrapper、固定 home；日志由 journald 保管。无需 root，不安装系统级服务。
+- Linux 使用 systemd **用户**单元 `dev.yonder.service`，放在 `$XDG_CONFIG_HOME/systemd/user`（缺省 `~/.config/systemd/user`）。`service install` 写单元并 `daemon-reload`、`enable --now`；start/stop/restart/status/uninstall 对该用户单元操作。ExecStart 使用已安装 wrapper、固定 home；日志由 journald 保管。无需 root，不安装系统级服务。
 - Windows 使用当前用户的 Task Scheduler 登录任务 `Yonder Harness` 作为后台入口；不注册需要管理员权限的 SCM 服务。`service install` 在 `<install>/bin` 保存只含 home/install/node 路径的启动脚本，并在 `%LOCALAPPDATA%\\YonderHarness` 保存注册记录；start/stop/restart/status/uninstall 使用 `schtasks`，卸载保留 home 与版本。任务在当前用户会话启动，不承诺注销后运行或崩溃后自动重启。Windows 控制面与 CLI 渠道使用本机命名管道，管道名由规范化 home 路径摘要决定，不暴露 TCP 端口。
 - Windows 管道当前显式关闭 Node 的 `readableAll`/`writableAll`，但跨账户隔离尚无实机证明。验收门槛：Windows ARM64 上同一普通用户可连控制面和 CLI 渠道，另一独立普通用户对两条管道均被拒绝，且任务重启后仍成立；若默认 DACL 不满足，需在创建管道时将 DACL 限定为安装用户 SID（及系统必需主体）并在无法施加时拒绝启动，或增加绑定仅该用户可读本地凭据的认证。未完成前不得将 Windows 本机控制面标为多用户安全通过。
 - Linux/Windows 的 full 首版是 CLI/TUI 与内核；macOS Helper、状态栏、屏幕/电源辅助能力仅在 macOS 启用。实际安装、启动、Agent 创建、控制、重启连接、卸载按 OS 与架构单独验收，构建成功不等于运行通过。
 
 ### 6.1 macOS 状态栏
 
-复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.yonder-harness`，默认数据目录 `~/.local/share/yonder/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
+复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.local/share/yonder/install`，默认数据目录 `~/.local/share/yonder/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
 macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左右键均打开同一原生管理菜单，不因点击状态栏展开交互窗口；菜单含打开悬浮窗、交互历史、逐 Agent 的实际运行状态与任务摘要、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
-服务沿用现有 dev.yonder.harness；图标采用一个用户 launchd 登录项 dev.yonder.harness.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。交互浮窗与浮球由同一状态栏进程承载，不增加第二个桌面应用、常驻管理器、自动更新机制、设置页、安装平台或特权助手。
+服务使用 dev.yonder.service；图标采用一个用户 launchd 登录项 dev.yonder.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。交互浮窗与浮球由同一状态栏进程承载，不增加第二个桌面应用、常驻管理器、自动更新机制、设置页、安装平台或特权助手。
 
 状态栏源码位于 packages/macos/，使用系统 swiftc；构建/安装接入既有发行流程。安装版保存构建后的 .app；程序调用安装 bin/yonder 固定 argv，不拼 shell，不读凭据。状态/更新检查需要相应真实结果，不以图标显示等价于服务运行。macOS 状态栏操作和屏幕预览需要真实运行证据。
 

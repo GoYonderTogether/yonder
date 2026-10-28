@@ -295,6 +295,8 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	const home = await mkdtemp(join(tmpdir(), "ymigrate-cli-"));
 	roots.push(home);
 	const share = join(home, ".local/share");
+	await mkdir(join(home, ".yonder-harness"), { recursive: true });
+	await writeFile(join(home, ".yonder-harness/version"), "old");
 	await mkdir(join(share, "yonder-harness/home"), { recursive: true });
 	await writeFile(join(share, "yonder-harness/home/yonder.yaml"), YAML);
 	// Real executables, not a mock library. mv/sed are no-ops too so the real /Library is never touched
@@ -308,7 +310,13 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	const run = (...args: string[]) =>
 		execFileSync(process.execPath, [resolve("packages/cli/dist/index.js"), "migrate", ...args], {
 			encoding: "utf8",
-			env: { ...process.env, HOME: home, YONDER_HOME: "", PATH: bin + delimiter + dirname(process.execPath) },
+			env: {
+				...process.env,
+				HOME: home,
+				XDG_CONFIG_HOME: join(home, ".config"),
+				YONDER_HOME: "",
+				PATH: bin + delimiter + dirname(process.execPath),
+			},
 		});
 	expect(run()).toContain("dry-run");
 	expect((await lstat(join(share, "yonder-harness/home"))).isSymbolicLink()).toBe(false);
@@ -316,6 +324,8 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	expect(out).toContain("数据迁移：已完成");
 	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
 	expect(await readFile(join(share, "yonder/home/yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
+	expect(await readlink(join(home, ".yonder-harness"))).toBe(".local/share/yonder/install");
+	expect(await readFile(join(share, "yonder/install/version"), "utf8")).toBe("old");
 	const calls = await readFile(log, "utf8").catch(() => "");
 	// The launchd step depends on the real /Library (read-only here: mv/sed are no-ops), so it differs per machine.
 	const legacyPlist = await stat("/Library/LaunchDaemons/dev.yonder.harness.power.plist").then(
@@ -332,4 +342,93 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
 	expect(() => run("--rollback")).toThrow();
 	expect(() => run("--force")).toThrow();
+});
+
+test("install root dry-run, repeated apply and rollback restore both roots", async () => {
+	const { root, options, oldHome, newHome } = await fixture();
+	const oldInstall = join(root, ".yonder-harness");
+	const newInstall = join(root, ".local/share/yonder/install");
+	await mkdir(oldInstall);
+	await writeFile(join(oldInstall, "version"), "old");
+	const opts = { ...options, oldInstall, newInstall };
+	const before = await snapshot(root);
+	expect((await planMigration(opts)).installMoving).toBe(true);
+	expect(await snapshot(root)).toEqual(before);
+	const { backup } = await applyMigration(opts);
+	expect(await readlink(oldInstall)).toBe(".local/share/yonder/install");
+	expect(await readFile(join(newInstall, "version"), "utf8")).toBe("old");
+	expect((await applyMigration(opts)).status).toBe("noop");
+	await rollbackMigration(backup as string, { apply: true });
+	expect((await lstat(oldHome)).isDirectory()).toBe(true);
+	expect((await lstat(oldInstall)).isDirectory()).toBe(true);
+	expect(await readFile(join(oldInstall, "version"), "utf8")).toBe("old");
+	await expect(lstat(newHome)).rejects.toThrow();
+	await expect(lstat(newInstall)).rejects.toThrow();
+});
+
+test("install conflict refuses migration and rollback", async () => {
+	const { root, options } = await fixture();
+	const oldInstall = join(root, ".yonder-harness");
+	const newInstall = join(root, ".local/share/yonder/install");
+	await mkdir(oldInstall);
+	await mkdir(newInstall, { recursive: true });
+	const opts = { ...options, oldInstall, newInstall };
+	expect((await planMigration(opts)).status).toBe("blocked");
+	await rm(newInstall, { recursive: true });
+	const { backup } = await applyMigration(opts);
+	await rm(oldInstall);
+	await mkdir(oldInstall);
+	await expect(rollbackMigration(backup as string, { apply: true })).rejects.toThrow("拒绝回滚");
+});
+
+test("installation-only migration and rollback, including Windows link target", async () => {
+	const root = await mkdtemp(join(tmpdir(), "ymigrate-install-"));
+	roots.push(root);
+	const oldInstall = join(root, ".yonder-harness");
+	const newInstall = join(root, ".local/share/yonder/install");
+	await mkdir(oldInstall);
+	await writeFile(join(oldInstall, "version"), "old");
+	const options = {
+		oldHome: join(root, "old-home"),
+		newHome: join(root, "new-home"),
+		oldInstall,
+		newInstall,
+		platform: "win32" as const,
+	};
+	const { backup } = await applyMigration(options);
+	expect(await readlink(oldInstall)).toBe(newInstall);
+	await rollbackMigration(backup as string, { apply: true });
+	expect(await readFile(join(oldInstall, "version"), "utf8")).toBe("old");
+	await expect(lstat(newInstall)).rejects.toThrow();
+});
+
+test("resuming an interrupted combined migration retains the original rollback backup", async () => {
+	const { root, options, oldHome, newHome } = await fixture();
+	const oldInstall = join(root, ".yonder-harness");
+	const newInstall = join(root, ".local/share/yonder/install");
+	await mkdir(oldInstall);
+	await writeFile(join(oldInstall, "version"), "old");
+	const opts = { ...options, oldInstall, newInstall };
+	const { backup } = await applyMigration(opts);
+	const manifestFile = join(backup as string, "manifest.json");
+	const manifest = JSON.parse(await readFile(manifestFile, "utf8"));
+	delete manifest.finishedAt;
+	await writeFile(manifestFile, JSON.stringify(manifest));
+	await writeFile(
+		join(newInstall, ".migrate-journal.json"),
+		JSON.stringify({
+			version: 1,
+			oldHome: oldInstall,
+			newHome: newInstall,
+			tempLink: `${oldInstall}.migrate-deadbeef`,
+			backup,
+		}),
+	);
+	const resumed = await applyMigration(opts);
+	expect(resumed.backup).toBe(backup);
+	await rollbackMigration(backup as string, { apply: true });
+	expect((await lstat(oldHome)).isDirectory()).toBe(true);
+	expect((await lstat(oldInstall)).isDirectory()).toBe(true);
+	await expect(lstat(newHome)).rejects.toThrow();
+	await expect(lstat(newInstall)).rejects.toThrow();
 });
