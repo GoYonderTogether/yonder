@@ -1,6 +1,6 @@
 # Learning runtime
 
-Implementation: `plugins/hermes-experience/src/{index,review,review-prompts}.mjs`.
+Implementation: `plugins/learning/src/{index,review,review-prompts}.mjs`.
 Storage signatures/transaction limits: [Learning store API](learning-store-api.md).
 Upstream policy: NousResearch/hermes-agent at
 `4dcef215cfe41bd2d02c2d1dad6e257a18101216`, MIT, Copyright (c) 2025 Nous Research;
@@ -104,19 +104,19 @@ prompt instructions.
 
 ## Foreground / review tools
 
-- `hermes-experience_memory_read/edit`: compatible legacy shapes plus atomic
+- `learning_memory_read/edit`: compatible legacy shapes plus atomic
   operations batch/new_text alias, detailed terminal/error fields.
-- `hermes-experience_memory_pending`: list/read/apply/discard actual proposals.
+- `learning_memory_pending`: list/read/apply/discard actual proposals.
   Applying requires the proposal's exact source version; stale/error records stay.
-- `hermes-experience_skill_store`: read/save/create/edit/patch, support files,
+- `learning_skill_store`: read/save/create/edit/patch, support files,
   batch, list_archives/archive/restore. Existing files retain CAS; native scripts
   are only text, not executed. Archive ownership/pinned limits are enforced by store.
-- `hermes-experience_refine`: a real callable attended entry. The current trusted
+- `learning_refine`: a real callable attended entry. The current trusted
   human input must begin `/refine`; model arguments contain only optional focus.
   It queues after this turn and does not requeue after interruption. Explicit
   focus replaces any queued automatic focus rather than expanding permission.
-- Internal `hermes-experience_review_memory_read/edit` and
-  `hermes-experience_review_skill_store`: use the same storage with trusted grant
+- Internal `learning_review_memory_read/edit` and
+  `learning_review_skill_store`: use the same storage with trusted grant
   options. Exact-file fresh reads use this skill store, not native task skill_view.
 
 Unattended memory add saves automatically; destructive patch/remove/mixed batches

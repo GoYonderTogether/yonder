@@ -89,5 +89,5 @@ Yonder Helper links PermissionFlow (MIT), Copyright (c) 2026 小弟调调, pinne
 
 ## Hermes experience adaptation
 
-- `plugins/hermes-experience` adapts Hermes Agent memory, skill and review policy at `4dcef215cfe41bd2d02c2d1dad6e257a18101216`, with earlier response-style guidance at `0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0`. MIT, Copyright (c) 2025 Nous Research.
-- Exact source symbols, qualifications and retained permission are in [NOTICE](plugins/hermes-experience/NOTICE), [SOURCES.md](plugins/hermes-experience/assets/SOURCES.md) and [Hermes-MIT.txt](plugins/hermes-experience/assets/Hermes-MIT.txt). New native adapter contributions follow this repository’s Apache-2.0 license. No Python runtime or upstream skill corpus is bundled.
+- `plugins/learning` (formerly `plugins/hermes-experience`, which remains as a deprecated alias) adapts Hermes Agent memory, skill and review policy at `4dcef215cfe41bd2d02c2d1dad6e257a18101216`, with earlier response-style guidance at `0eb4f62a8b35ff3b0454a8dbdbd3a7b55a6849b0`. MIT, Copyright (c) 2025 Nous Research.
+- Exact source symbols, qualifications and retained permission are in [NOTICE](plugins/learning/NOTICE), [SOURCES.md](plugins/learning/assets/SOURCES.md) and [Hermes-MIT.txt](plugins/learning/assets/Hermes-MIT.txt). New native adapter contributions follow this repository’s Apache-2.0 license. No Python runtime or upstream skill corpus is bundled.

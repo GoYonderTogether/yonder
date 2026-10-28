@@ -16,7 +16,8 @@ const auth = process.env.YONDER_TEST_AUTH;
 assert.ok(packed && auth, "Set HERMES_PACKED_ROOT and YONDER_TEST_AUTH");
 const pluginDir = resolve(packed);
 const manifest = JSON.parse(await readFile(join(pluginDir, "package.json"), "utf8"));
-assert.equal(manifest.name, "@yonder/plugin-hermes-experience");
+assert.equal(manifest.name, "@yonder/plugin-learning");
+const id = manifest.yonder.id;
 assert.equal(manifest.version, packageVersion);
 await access(auth);
 const home = await mkdtemp("/tmp/yonder-official-refine-");
@@ -105,12 +106,12 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 					model: result.model,
 					thinking: result.thinking,
 					capabilities: ["read", "write"],
-					plugins: ["hermes-experience", "slash-audit"],
+					plugins: [id, "slash-audit"],
 					contexts: [],
 					skills: [],
-					tools: { offer: ["hermes-experience_refine"], search: [] },
+					tools: { offer: [`${id}_refine`], search: [] },
 					instructions:
-						"This is an isolated routing acceptance fixture, not a real owner conversation. For the genuine /refine input, call hermes-experience_refine exactly once with focus skills. Do not call other tools. After a successful result, reply briefly. No skill or memory writing is requested.",
+						"This is an isolated routing acceptance fixture, not a real owner conversation. For the genuine /refine input, call learning_refine exactly once with focus skills. Do not call other tools. After a successful result, reply briefly. No skill or memory writing is requested.",
 				},
 			},
 			bindings: [
@@ -119,7 +120,7 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 		}),
 	);
 	kernel = await openKernel(home, { log: (level, message, data) => logs.push({ level, message, data }) });
-	result.loaded = await kernel.management({ action: "plugins.show", id: "hermes-experience" });
+	result.loaded = await kernel.management({ action: "plugins.show", id });
 	assert.equal(result.loaded.runtimeLoaded, true);
 	assert.equal(result.loaded.directory, pluginDir);
 	assert.equal(result.loaded.version, packageVersion);
@@ -174,7 +175,7 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 	const transcript = await kernel.sessions.transcript(input.routes[0].session, { limit: 1000 });
 	await save("transcript.json", transcript);
 	const tools = transcript.flatMap((item) => item.tools ?? []);
-	assert.equal(tools.filter((tool) => tool.name === "hermes-experience_refine").length, 1);
+	assert.equal(tools.filter((tool) => tool.name === `${id}_refine`).length, 1);
 	const replies = transcript.filter((item) => item.kind === "pi.tool-result");
 	assert.ok(
 		replies.some((item) => {
@@ -188,7 +189,7 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 		"actual Hermes attended refine success required",
 	);
 	const hooks = (await readFile(join(evidence, "hooks.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
-	const call = hooks.find((h) => h.phase === "beforeTool" && h.call.name === "hermes-experience_refine");
+	const call = hooks.find((h) => h.phase === "beforeTool" && h.call.name === `${id}_refine`);
 	assert.ok(call);
 	assert.equal(call.agent, "main");
 	assert.equal(call.profile, "source");
@@ -231,7 +232,7 @@ export default {setup(api){api.hooks.register({id:'audit',async beforeRequest(me
 	const reviewTranscript = await kernel.sessions.transcript(review.session.id, { limit: 1000 });
 	await save("review-transcript.json", reviewTranscript);
 	const reviewTools = reviewTranscript.flatMap((item) => item.tools ?? []);
-	assert.ok(reviewTools.every((tool) => tool.name === "hermes-experience_review_skill_store"));
+	assert.ok(reviewTools.every((tool) => tool.name === `${id}_review_skill_store`));
 	const parentAfter = await kernel.sessions.transcript(end.data.session, { limit: 1000 });
 	await save("parent-after.json", parentAfter);
 	assert.deepEqual(parentAfter, parentBefore);
