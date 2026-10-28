@@ -36,6 +36,7 @@ import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
+import { observedRuntimeEvents } from "./observation-events.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
@@ -89,6 +90,9 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			string,
 			Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>
 		>();
+		const forwardUpdate = (id: string, update: import("../runtime/index.js").TerminalUpdate) => {
+			for (const send of terminalEnds.get(id) ?? []) void send(update).catch(report);
+		};
 		const agents = new Map<string, AgentConfig>();
 		const store = await createStore(
 			db,
@@ -98,14 +102,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				void plugins?.observe(event).catch(report);
 				if (event.type === "run.end") {
 					const id = String((event.data as { session?: string }).session ?? "");
-					for (const send of terminalEnds.get(id) ?? [])
-						void send({
-							type: "end",
-							session: id,
-							...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
-							eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
-							event,
-						}).catch(report);
+					forwardUpdate(id, {
+						type: "end",
+						session: id,
+						...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
+						eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
+						event,
+					});
 				}
 			},
 		);
@@ -396,22 +399,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
 			sectionKeys: systemPromptKeys(loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
-			onModelFallback: async (event) => {
-				const session = await store.sessions.get(event.session);
-				await store.events.record({
-					type: "model.fallback",
-					...(session?.agent ? { from: `agent:${session.agent}` as const } : {}),
-					data: event,
-				});
-			},
-			onTodo: async (event) => {
-				const session = await store.sessions.get(event.session);
-				await store.events.record({
-					type: "todo.updated",
-					...(session?.agent ? { from: `agent:${session.agent}` as const } : {}),
-					data: event,
-				});
-			},
+			...observedRuntimeEvents(store, forwardUpdate),
 			onReport: report,
 		});
 		const validateCandidate = async (

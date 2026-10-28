@@ -126,7 +126,18 @@ export interface SessionUpdate {
 	session?: string;
 	runId?: string;
 	eventIds?: string[];
-	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox" | "notification";
+	type:
+		| "snapshot"
+		| "message"
+		| "tool"
+		| "state"
+		| "error"
+		| "end"
+		| "inbox"
+		| "notification"
+		| "model.fallback"
+		| "todo.updated";
+	/** `end`: the run.end event. `model.fallback` / `todo.updated`: the event payload (contracts §3.3, §3.4). */
 	event?: object;
 	id?: string;
 	message?: object;
