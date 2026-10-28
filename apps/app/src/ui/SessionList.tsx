@@ -1,4 +1,5 @@
-import { BellOff, BellRing, CheckCheck, Pin, PinOff, Search } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { BellOff, BellRing, CheckCheck, Pin, PinOff, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { ActionItem } from "../lib/actions";
 import { previewOf } from "../lib/chat";
@@ -9,6 +10,7 @@ import { markRead, setLevel, togglePin, usePrefs } from "../lib/prefs";
 import { useActivity, useImports, useSessions, useTail } from "../lib/queries";
 import { href } from "../lib/useHash";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
+import { rpc } from "../transport/client";
 import type { SessionInfo } from "../transport/types";
 import { ActionMenu } from "./ActionMenu";
 import { Avatar } from "./Avatar";
@@ -59,9 +61,7 @@ function Row({ s, active, running }: { s: SessionInfo; active: boolean; running:
 			checked: level === "mute",
 			onSelect: () => setLevel(s.id, "mute"),
 		},
-		...(unread > 0
-			? [{ key: "read", label: "标为已读", icon: CheckCheck, onSelect: () => markRead(s.id, lastId) }]
-			: []),
+		{ key: "read", label: "标为已读", icon: CheckCheck, onSelect: () => markRead(s.id, lastId) },
 	];
 
 	return (
@@ -151,6 +151,21 @@ export function SessionList({ active, only }: { active?: string; only?: Group[] 
 	const activity = useActivity();
 	const prefs = usePrefs();
 	const [q, setQ] = useState("");
+	const [opening, setOpening] = useState(false);
+	const qc = useQueryClient();
+	// 新建任务会话：sessions.open 默认预设，手动关闭（与原生 TUI 的 /new 一致）
+	const openTask = async () => {
+		setOpening(true);
+		try {
+			const s = await rpc<SessionInfo>("sessions.open", { preset: "default", close: "manual" });
+			await qc.invalidateQueries({ queryKey: ["sessions"] });
+			location.hash = href({ tab: "chats", session: s.id });
+		} catch (e) {
+			alert(e instanceof Error ? e.message : "新建失败");
+		} finally {
+			setOpening(false);
+		}
+	};
 	const running = useMemo(
 		() => new Set(activity.data?.sessions.filter((x) => x.state === "running").map((x) => x.id)),
 		[activity.data],
@@ -184,8 +199,8 @@ export function SessionList({ active, only }: { active?: string; only?: Group[] 
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<div className="px-4 pt-3 pb-2">
-				<label className="field flex items-center gap-2 rounded-control bg-tone px-3 py-2">
+			<div className="flex items-center gap-2 px-4 pt-3 pb-2">
+				<label className="field flex min-w-0 flex-1 items-center gap-2 rounded-control bg-tone px-3 py-2">
 					<Search size={16} className="text-faint" aria-hidden />
 					<input
 						value={q}
@@ -194,6 +209,17 @@ export function SessionList({ active, only }: { active?: string; only?: Group[] 
 						className="min-w-0 flex-1 bg-transparent text-small outline-none placeholder:text-faint"
 					/>
 				</label>
+				<button
+					type="button"
+					onClick={() => void openTask()}
+					disabled={opening}
+					aria-label="新建任务"
+					title="新建任务"
+					className="press grid size-9 shrink-0 place-items-center rounded-full bg-tone disabled:opacity-40"
+					data-testid="new-task"
+				>
+					<Plus size={18} aria-hidden />
+				</button>
 			</div>
 			<div className="scroll-y min-h-0 flex-1">
 				{sessions.isLoading && <p className="px-4 py-6 text-small text-faint">加载中…</p>}
