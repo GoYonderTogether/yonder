@@ -27,6 +27,7 @@
 | 1 | [spec/16-card-plugin.md](spec/16-card-plugin.md) | 名片渠道：设备授权、全部 Agent 登记、多路消息、补收与名片草稿 | 写 card 插件 |
 | 1 | [spec/17-task-ledger.md](spec/17-task-ledger.md) | 统一任务账本：对象与状态、工具、可见范围、时点机制、展示分层 | 写 tasks 插件或用它 |
 | 1 | [spec/18-device-execution.md](spec/18-device-execution.md) | 无模型设备执行契约、双端身份、命令状态与工作包边界（W0，后端待实现） | 设备执行相关开发 |
+| 1 | [spec/20-stability.md](spec/20-stability.md) | 0.3 起不可破坏的冻结清单、弃用与破坏性变更流程、golden 检查 | 改任何公共契约 |
 | 2 | [plugins.md](plugins.md) | 官方插件清单：贡献、事件、工具 | 用或写插件 |
 | 2 | [prompts/README.md](prompts/README.md) | 系统底座、两类官方常驻模板、来源映射与小上下文配置入口 | 调整 Agent 提示词 |
 | 2 | [reference.md](reference.md) | 核心工具、CLI 命令、SDK 接口的注册名参考 | 查名字时 |
