@@ -376,6 +376,8 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - `code-intel_lsp_navigation` 提供 LSP 导航和能力发现；目前不支持应用跨文件写入。
 
+- `code-intel_ast_grep_search` 通过 pi-lens MCP 搜索 AST；安装和参数见插件 README。
+
 - `code-intel_read_enclosing` 通过 pi-lens MCP 按位置读取包含符号；安装和参数见插件 README。
 
 - **包**：`@yonder/plugin-code-intel`；**工具**：`code-intel_codegraph_explore`、`code-intel_module_report`。
