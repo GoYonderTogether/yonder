@@ -67,6 +67,38 @@ async function put(root: string, path: string, text: string, date = "2026-01-01"
 	const ms = new Date(date).getTime() / 1000;
 	await utimes(file, ms, ms);
 }
+it("reads daily records and weekly, monthly and yearly plans and reviews from their actual paths", async () => {
+	const r = await setup();
+	await r.note("跨年日记录", "2025-12-31");
+	const week = "timeline/2026-01/2026-W01.md";
+	const month = "timeline/2026-01/month.md";
+	const year = "life/2025.md";
+	expect((await r.run("memory_read", { week: "2026-W01" })).text).toContain("跨年日记录");
+	for (const [scope, period, path] of [
+		["week", "2026-W01", week],
+		["month", "2026-01", month],
+		["year", "2025", year],
+	] as const) {
+		const result = await r.run("memory_plan", { op: "get", scope, period });
+		expect(result.path).toBe(path);
+		expect(result.text).toBe(await readFile(join(r.root, path), "utf8"));
+	}
+	for (const [scope, period, name, path] of [
+		["week", "2026-W01", "复盘", week],
+		["month", "2026-01", "月复盘", month],
+	]) {
+		const result = await r.run("memory_review", {
+			op: "section",
+			scope,
+			period,
+			name,
+			mode: "append",
+			text: "回顾内容",
+		});
+		expect(result.path).toBe(path);
+		expect((await r.run("memory_plan", { op: "get", scope, period })).text).toContain("回顾内容");
+	}
+});
 it("matches packaged registrations with search/read declared", async () => {
 	expect(await checkPlugin(fileURLToPath(new URL("..", import.meta.url)))).toEqual([]);
 });

@@ -17,11 +17,11 @@ describe("memory contexts identity boundary", () => {
 		const root = await mkdtemp(join(tmpdir(), "memory-wp7-"));
 		roots.push(root);
 		await mkdir(join(root, "me"));
-		await mkdir(join(root, "timeline"));
+		await mkdir(join(root, "timeline/2026-10"), { recursive: true });
 		await mkdir(join(root, "private"));
 		await writeFile(join(root, "me/now.md"), "safe current fact");
 		await writeFile(join(root, "me/profile.md"), "---\nprivate: true\n---\nSECRET");
-		await writeFile(join(root, "timeline/2026-W43.md"), "## 本周计划\n- [ ] task\n");
+		await writeFile(join(root, "timeline/2026-10/2026-W43.md"), "## 本周计划\n- [ ] task\n");
 		await writeFile(join(root, "private/2026-10.md"), "SECRET");
 		const contexts: any[] = [];
 		const api: any = {
@@ -63,6 +63,16 @@ describe("memory contexts identity boundary", () => {
 				event: { type: "message.in", from: "acct:owner", conv: "conv:approved" },
 			}),
 		).toContain("task");
+		vi.setSystemTime(new Date("2025-12-31T12:00:00Z"));
+		await mkdir(join(root, "timeline/2026-01"), { recursive: true });
+		await writeFile(join(root, "timeline/2026-01/2026-W01.md"), "## 本周计划\n- [ ] cross-year task\n");
+		expect(
+			await week.render({
+				workspace,
+				agent: "agent:test",
+				event: { type: "message.in", from: "acct:owner", conv: "conv:approved" },
+			}),
+		).toContain("cross-year task");
 		expect(await week.render({ workspace })).toBeUndefined();
 		expect(
 			await week.render({

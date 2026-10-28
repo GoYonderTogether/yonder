@@ -1,5 +1,8 @@
 import { DateTime } from "luxon";
 
+export const monthPath = (month: string) => `timeline/${month}/month.md`;
+export const yearPath = (year: string | number) => `life/${year}.md`;
+
 export function moment(zone: string, when?: string): DateTime {
 	const now = DateTime.now().setZone(zone);
 	const date = when === undefined ? now : DateTime.fromISO(when, { zone });

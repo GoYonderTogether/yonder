@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
 import { type Static, Type } from "typebox";
 import { stringify } from "yaml";
-import { heading, moment, monthTemplate, weekInfo, weekTemplate } from "./calendar.js";
+import { heading, moment, monthPath, monthTemplate, weekInfo, weekTemplate, yearPath } from "./calendar.js";
 import type { Config } from "./config.js";
 import { formatRecord, type Source, sourceOrigins } from "./records.js";
 import type { Store, WriteContext } from "./store.js";
@@ -71,8 +71,8 @@ export async function capture(
 	}
 	const path = args.private ? `private/${date.toFormat("yyyy-MM")}.md` : info.path;
 	if (!args.private) {
-		await store.ensure(`timeline/${info.month}/month.md`, monthTemplate(), meta);
-		await store.ensure(`life/${date.year}.md`, "## 年度目标\n## 提议\n## 历史\n", meta);
+		await store.ensure(monthPath(info.month), monthTemplate(), meta);
+		await store.ensure(yearPath(date.year), "## 年度目标\n## 提议\n## 历史\n", meta);
 	}
 	await store.append(
 		path,

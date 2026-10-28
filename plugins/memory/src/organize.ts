@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
 import { DateTime } from "luxon";
 import { Type } from "typebox";
-import { monthTemplate, weekDate, weekInfo, weekTemplate } from "./calendar.js";
+import { monthPath, monthTemplate, weekDate, weekInfo, weekTemplate, yearPath } from "./calendar.js";
 import { recordId } from "./capture.js";
 import type { Config } from "./config.js";
 import { metadata, readText, textFiles } from "./files.js";
@@ -161,12 +161,12 @@ export class Organizer {
 		if (scope === "month") {
 			const value = args.period ?? now.toFormat("yyyy-MM");
 			if (!/^\d{4}-\d{2}$/.test(value) || !DateTime.fromISO(`${value}-01`).isValid) throw new Error("Invalid month");
-			return { path: `timeline/${value}/month.md`, template: monthTemplate(), target: "月目标" };
+			return { path: monthPath(value), template: monthTemplate(), target: "月目标" };
 		}
 		if (scope === "year") {
 			const value = args.period ?? String(now.year);
 			if (!/^\d{4}$/.test(value)) throw new Error("Invalid year");
-			return { path: `life/${value}.md`, template: "## 年度目标\n## 提议\n## 历史\n", target: "年度目标" };
+			return { path: yearPath(value), template: "## 年度目标\n## 提议\n## 历史\n", target: "年度目标" };
 		}
 		return { path: "life/vision.md", template: "## 愿景\n## 提议\n## 历史\n", target: "愿景" };
 	}
