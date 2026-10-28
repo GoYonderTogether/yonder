@@ -1,12 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Login } from "./features/Login";
-import { CardPage } from "./features/social/CardPage";
-import { GroupJoin } from "./features/social/GroupJoin";
-import { Install } from "./features/social/Install";
-import { Profile } from "./features/social/Profile";
 import { useFacts } from "./lib/queries";
 import { useRoute } from "./lib/useHash";
+import { PAGES, pageComponent } from "./shell/registry";
 import { Shell } from "./shell/Shell";
 import { logout, onUnauthorized, RpcError } from "./transport/client";
 import { mux } from "./transport/stream";
@@ -22,10 +19,13 @@ export function App() {
 		else if (facts.error instanceof RpcError && facts.error.code === "unauthorized") setAuthed(false);
 	}, [facts.data, facts.error]);
 
-	if (route.page === "u") return <CardPage id={route.session ?? ""} />;
-	if (route.page === "p") return <Profile accountId={route.session ?? ""} />;
-	if (route.page === "g") return <GroupJoin token={route.session ?? ""} />;
-	if (route.page === "get") return <Install />;
+	const PublicPage = route.page && PAGES[route.page].public ? pageComponent(route.page) : undefined;
+	if (PublicPage)
+		return (
+			<Suspense fallback={null}>
+				<PublicPage id={route.session ?? ""} />
+			</Suspense>
+		);
 
 	if (authed === false)
 		return (

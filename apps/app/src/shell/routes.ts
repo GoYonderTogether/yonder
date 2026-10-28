@@ -1,19 +1,22 @@
 import { useEffect, useState } from "react";
 
 export type Tab = "chats" | "contacts" | "work" | "me";
-export type Page =
-	| "s"
-	| "c"
-	| "contacts"
-	| "cards"
-	| "work"
-	| "me"
-	| "u"
-	| "p"
-	| "g"
-	| "get"
-	| "friends/add"
-	| "connect";
+export const PAGE_NAMES = [
+	"s",
+	"c",
+	"contacts",
+	"cards",
+	"work",
+	"me",
+	"u",
+	"p",
+	"g",
+	"get",
+	"friends/add",
+	"connect",
+	"market",
+] as const;
+export type Page = (typeof PAGE_NAMES)[number];
 export type Route = { tab: Tab; session?: string; page?: Page };
 
 export function parse(hash: string): Route {
@@ -22,8 +25,7 @@ export function parse(hash: string): Route {
 	const id = page === "friends/add" ? undefined : parts[1];
 	const tab: Tab =
 		page === "contacts" || page === "cards" ? "contacts" : page === "work" ? "work" : page === "me" ? "me" : "chats";
-	const pages: string[] = ["s", "c", "contacts", "cards", "work", "me", "u", "p", "g", "get", "friends/add", "connect"];
-	if (!pages.includes(page)) return { tab: "chats" };
+	if (!(PAGE_NAMES as readonly string[]).includes(page)) return { tab: "chats" };
 	try {
 		return { tab, page: page as Page, ...(id ? { session: decodeURIComponent(id) } : {}) };
 	} catch {

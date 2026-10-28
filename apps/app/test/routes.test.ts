@@ -19,6 +19,7 @@ describe("hash routes", () => {
 			"#/get",
 			"#/friends/add",
 			"#/connect",
+			"#/market",
 		]) {
 			expect(href(parse(hash))).toBe(hash);
 		}
