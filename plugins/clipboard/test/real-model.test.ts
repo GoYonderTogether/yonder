@@ -7,6 +7,7 @@ import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../../../packages/core/src/config/test-support.js";
 import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
 import { Store } from "../src/store.js";
 import { containsBodyFragment } from "./body-leakage.js";
@@ -79,7 +80,7 @@ test.skipIf(!enabled)(
 			clip: Awaited<ReturnType<Store["save"]>> | undefined,
 			store: Store | undefined;
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const configFile = join(home, "yonder.yaml"),
 				c = parse(await readFile(configFile, "utf8"));
 			c.credentials = auth;

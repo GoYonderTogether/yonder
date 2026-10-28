@@ -1,8 +1,9 @@
 import { allowsChannelInstance, assertChannelInstance, intersectChannelInstances } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { expect, test } from "vitest";
-import { presetProfile, presetSession, resolveProfile } from "./index.js";
+import { presetSession } from "./index.js";
 import { PresetSchema, ProfileSchema } from "./schema.js";
+import { presetProfile, resolveProfile } from "./test-support.js";
 
 test("scope schema, defaults replacement, legacy compatibility and admin/bypass constraints", () => {
 	for (const channelInstances of [undefined, [], ["a"], ["a", "b"]]) {

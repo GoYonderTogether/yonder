@@ -8,6 +8,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { FileCredentials } from "../runtime/credentials.js";
 import { openDatabase } from "../runtime/db.js";
 import { buildModels } from "../runtime/models.js";
@@ -89,7 +90,7 @@ for (const tool of ["agent_ask", "task_run"] as const) {
 				childProcess = undefined;
 			};
 			try {
-				await initHome(home);
+				await initHome(home, "owner", { model: testModel });
 				await mkdir(`${home}/source`);
 				const command = `node -e 'const fs=require("node:fs");const value=require("node:crypto").randomUUID();fs.appendFileSync("${home}/effect",value+"\\n");process.stdout.write(value)'`;
 				const task = `Call bash exactly once with command: ${command}. Return the actual token from stdout. Never repeat the command, including after connection failures or restart.`;

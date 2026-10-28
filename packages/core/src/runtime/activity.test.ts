@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import type { Harness } from "@earendil-works/pi-durable";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { aggregateExecution } from "./activity.js";
 import { openDatabase } from "./db.js";
 import { cid, SessionDoc } from "./docs.js";

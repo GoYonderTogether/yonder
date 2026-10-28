@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { systemPromptKeys, systemPromptParts } from "../prompt/index.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";

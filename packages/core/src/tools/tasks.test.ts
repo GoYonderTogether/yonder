@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
@@ -14,7 +15,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		const outside = await mkdtemp("/tmp/yonder-outside-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			await writeFile(`${home}/input.txt`, "explicit-task-input");
 			await writeFile(`${outside}/denied.txt`, "scope-check");
 			const plugin = `${home}/artifacts`;
@@ -111,7 +112,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		const home = await mkdtemp("/tmp/yonder-child-abort-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const path = `${home}/yonder.yaml`,
 				config = parse(await readFile(path, "utf8"));
 			config.credentials = auth;

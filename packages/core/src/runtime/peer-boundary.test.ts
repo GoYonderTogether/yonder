@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ToolContext, YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { createSkills } from "../skills/index.js";
 import { sourceBlock } from "../tools/sources.js";
 import { localEnvironment } from "./env.js";

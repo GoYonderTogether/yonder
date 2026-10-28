@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { FileCredentials } from "./credentials.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";

@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 // Real model (repo default test model): the console and the CLI share one main session; each reply goes back to its origin.
@@ -17,7 +18,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let socket: Socket | undefined;
 		const cli: string[] = [];
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
 			await writeFile(`${home}/yonder.yaml`, stringify(config));

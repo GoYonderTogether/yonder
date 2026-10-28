@@ -1,6 +1,6 @@
 import type { Channel, SessionInfo } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { consoleChannel } from "../kernel/console.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeSessionConfig } from "../runtime/index.js";

@@ -9,6 +9,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 import { FileCredentials } from "../runtime/credentials.js";
 
@@ -23,7 +24,7 @@ const data = (result: Awaited<ReturnType<Client["callTool"]>>) => {
 
 async function setup(real = false) {
 	const home = await mkdtemp("/tmp/yonder-mcp-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	const token = randomBytes(32).toString("base64url");
 	const credential = `n02-mcp-${randomUUID()}`;
 	const credentials = new FileCredentials(real ? auth : `${home}/.yonder/auth.json`);
@@ -41,7 +42,7 @@ async function setup(real = false) {
 	};
 	try {
 		const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
-		config.plugins.push({ use: "@yonder/plugin-channel-mcp" });
+		// init 的 default 发行包已加载 channel-mcp，这里只启用一个 mcp 实例。
 		config.channels.control = { type: "mcp", port: 0, credential, account: "codex" };
 		config.identity.persons[0].accounts.push("acct:control:codex");
 		if (real) {

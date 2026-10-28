@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { inspectToolCatalog } from "./catalog.js";
 
 test("only resident Agents can offer agent_ask even when a preset selects every tool", () => {

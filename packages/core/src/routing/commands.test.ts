@@ -2,6 +2,7 @@ import type { RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import { channelChatCommands, chatCommands } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parseAgentConfig, type YonderConfig } from "../config/index.js";
+import { testModel } from "../config/test-support.js";
 import type { DeliveryService } from "../delivery/index.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime } from "../runtime/index.js";
@@ -48,7 +49,7 @@ bindings: []
 		homePresets: new Map(),
 		pluginPresets: new Map(),
 		home: "/tmp/yonder-command-test",
-		config: { schema: 1, agents: [{ id: "main", workspace: "." }] } satisfies YonderConfig,
+		config: { schema: 1, defaultModel: testModel, agents: [{ id: "main", workspace: "." }] } satisfies YonderConfig,
 		version: "0.1.0",
 		runtime: () => runtime,
 	});

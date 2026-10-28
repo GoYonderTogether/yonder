@@ -2,6 +2,7 @@ import { appendFile, mkdtemp, rm } from "node:fs/promises";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { testModel } from "../../core/src/config/test-support.js";
 import { Sessions, tokenHash } from "../src/auth.js";
 import { type GatewayHandle, startGateway } from "../src/index.js";
 
@@ -37,7 +38,7 @@ const settled = async (check: () => boolean) => {
 
 beforeAll(async () => {
 	home = await mkdtemp("/tmp/yonder-gateway-hard-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	await appendFile(`${home}/yonder.yaml`, "gateway:\n  basePath: /console/\n  trustProxy: true\n");
 	await setAccessTokenHash(home, tokenHash(ACCESS));
 	kernel = await openKernel(home);

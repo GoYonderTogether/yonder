@@ -41,7 +41,7 @@ TUI 随 CLI 安装，不要求人另装插件。channel-cli 仍只负责常驻 a
 
 - home按09解析：显式参数/环境及明确当前home优先，然后唯一安装服务home与默认全局home；未初始化时显示既有init/login/service install命令。
 - 服务未启动时给出 `yonder start` / 已安装服务的 `yonder service start`，保留用户输入；TUI 不隐式安装或启动后台服务。
-- 新 home 的 init 额外生成 `presets/default.yaml`：真实默认模型 `openai/gpt-6-luna`、level `standard`、tools.offer `["*"]`，plugins/contexts 为空，不写示例人设。模型与实际可用工具在界面展示。standard 含 exec，不宣称主机文件隔离（05 §3）。旧 home 缺该预设时提供真实预设选择和创建说明，不在启动 TUI 时修改配置。
+- 新 home 的 init 额外生成 `presets/default.yaml`：模型不写字面量，沿用 yonder.yaml 的 `defaultModel`（`yonder init --model <provider/modelId>` 写入）、level `standard`、tools.offer `["*"]`，plugins/contexts 为空，不写示例人设。模型与实际可用工具在界面展示。standard 含 exec，不宣称主机文件隔离（05 §3）。旧 home 缺该预设时提供真实预设选择和创建说明，不在启动 TUI 时修改配置。
 - 任务默认 cwd 为 home、env 取预设或 local，沿用 03 §4；界面必须显示实际路径。当前 shell 的 cwd 不暗中覆盖服务端 cwd。
 - 未登录时说明当前模型需要的 provider 及 `yonder login <provider>`；不展示凭据值。命令失败留在界面显示原因，不把输入丢掉。
 

@@ -6,6 +6,7 @@ import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, manageHome, openKernel } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
@@ -16,7 +17,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const sockets: Socket[] = [];
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
 			config.channels.alt = { type: "cli" };

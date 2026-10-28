@@ -2,19 +2,20 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseAgentConfig } from "../config/index.js";
+import { testModel } from "../config/test-support.js";
 import { initHome, inspectHome, manageHome, offlineQuery, openKernel } from "./index.js";
 
 test("initialize, inspect, start, stop and query a real empty home", async () => {
 	const home = await mkdtemp("/tmp/yonder-kernel-");
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		expect(parse(await readFile(`${home}/yonder.yaml`, "utf8")).plugins).toContainEqual({
 			use: "@yonder/plugin-ui-companion",
 		});
 		const file = `${home}/agents/main/agent.yaml`;
 		await writeFile(file, (await readFile(file, "utf8")).replace("      channel: cli\n", ""));
 		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });
-		await expect(initHome(home)).rejects.toThrow();
+		await expect(initHome(home, "owner", { model: testModel })).rejects.toThrow();
 		const kernel = await openKernel(home);
 		try {
 			expect((await kernel.identity.lookup("person:owner")).accounts.map((item) => item.ref)).toEqual([
@@ -51,7 +52,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 	const home = await mkdtemp("/tmp/yonder-reload-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		await mkdir(`${home}/presets`, { recursive: true });
 		const preset = `${home}/presets/maintenance.yaml`;
 		await writeFile(
@@ -98,7 +99,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 test("offline inspection uses the common tool policy and includes preset plugin references", async () => {
 	const home = await mkdtemp("/tmp/yonder-inspect-");
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 		config.plugins.push({ use: "@yonder/plugin-browser-skill" });
 		await writeFile(`${home}/yonder.yaml`, stringify(config));

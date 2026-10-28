@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("native channel unknown slash reaches selected runtime hooks unchanged; builtins and unbound sources do not", async () => {
@@ -12,7 +13,7 @@ test("native channel unknown slash reaches selected runtime hooks unchanged; bui
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	const sockets: Socket[] = [];
 	try {
-		await initHome(home, "isolated-routing-user", { isolated: true });
+		await initHome(home, "isolated-routing-user", { model: testModel, isolated: true });
 		await rm(join(home, "presets"), { recursive: true });
 		const capture = join(home, "hook.json");
 		await writeFile(

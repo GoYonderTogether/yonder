@@ -1,3 +1,13 @@
+export {
+	type Bundle,
+	type BundleId,
+	bundleFor,
+	bundleIds,
+	bundles,
+	shippedChannels,
+	shippedChannelsFor,
+	shippedDisabledChannels,
+} from "./bundles.js";
 export { type GatewaySettings, gatewaySettings, setAccessTokenHash } from "./config/gateway.js";
 export { lockHome } from "./control/home-lock.js";
 export type { ControlConnection, ControlRequest } from "./control/index.js";

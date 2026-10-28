@@ -16,9 +16,9 @@ export function canReceivePeerAsk(agent: AgentConfig): boolean {
 }
 
 /** The peer profile and binding a new agent would get, as YAML to add to an older agent.yaml. */
-export function peerFix(agent: AgentConfig, workspaceEnv = "local"): string | undefined {
+export function peerFix(agent: AgentConfig, workspaceEnv = "local", defaultModel?: string): string | undefined {
 	try {
-		const fixed = withDefaultPeer(agent, false, workspaceEnv);
+		const fixed = withDefaultPeer(agent, false, workspaceEnv, defaultModel);
 		return stringify({ profiles: { peer: fixed.profiles.peer }, bindings: [fixed.bindings[0]] });
 	} catch {
 		return undefined;
@@ -26,14 +26,19 @@ export function peerFix(agent: AgentConfig, workspaceEnv = "local"): string | un
 }
 
 /** Creation only: deliberately does not change existing Agent configurations on load. */
-export function withDefaultPeer(agent: AgentConfig, isolated: unknown = false, workspaceEnv = "local"): AgentConfig {
+export function withDefaultPeer(
+	agent: AgentConfig,
+	isolated: unknown = false,
+	workspaceEnv = "local",
+	defaultModel?: string,
+): AgentConfig {
 	if (typeof isolated !== "boolean") throw new Error("isolated must be a boolean");
 	if (isolated) {
 		if (canReceivePeerAsk(agent)) throw new Error("isolated cannot receive agent/agent through explicit bindings");
 		return agent;
 	}
 	if (agent.bindings.some((b) => b.id === "peer") || agent.profiles.peer) throw new Error("peer id collision");
-	const main = resolveProfile(agent.profiles[agent.defaultProfile]!, agent.defaults, workspaceEnv);
+	const main = resolveProfile(agent.profiles[agent.defaultProfile]!, agent.defaults, workspaceEnv, defaultModel);
 	const peer: Profile = {
 		model: main.model,
 		thinking: main.thinking,

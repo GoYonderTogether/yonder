@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
 	attachmentFromPath,
+	bundleIds,
 	checkRelease,
 	cliChannelEndpoint,
 	compareVersions,
@@ -50,7 +51,7 @@ import type { ChatTarget } from "./terminal.js";
 const usage = `Usage: yonder <command> [options]
 
 Commands:
-  init [dir] [--owner <id>] [--isolated]  初始化数据目录 · Create a home
+  init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号
   credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]  模型账号槽位
@@ -174,6 +175,12 @@ function fail(error: unknown, json: boolean, code = 1): number {
 	if (json) output({ error: message }, true);
 	return code;
 }
+/** 已配置渠道原样在前，随包提供但未启用的渠道（channels.list {shipped:true}）接在后面供显示。 */
+const channelsList = (home: string) =>
+	Promise.all([{}, { shipped: true }].map((params) => requestControl(home, { method: "channels.list", params }))).then(
+		(lists) => (lists as unknown[][]).flat(),
+	);
+
 function homeFor(options: Options, init = false, target?: string): string {
 	if (init && target) return resolve(target);
 	if (options.home) return resolve(options.home);
@@ -365,8 +372,7 @@ async function run(args: string[]): Promise<number> {
 	}
 	if (command === "channels") {
 		const [action, ...values] = rest;
-		if (action === "list" && !values.length)
-			return print(requestControl(homeFor(options), { method: "channels.list" }), options.json);
+		if (action === "list" && !values.length) return print(channelsList(homeFor(options)), options.json);
 		if (action !== "login")
 			throw new UsageError("Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]");
 		let instance: string | undefined,
@@ -462,19 +468,34 @@ async function run(args: string[]): Promise<number> {
 
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
+		const bundleIndex = rest.indexOf("--bundle");
+		const modelIndex = rest.indexOf("--model");
+		const model = modelIndex >= 0 ? rest[modelIndex + 1] : undefined;
 		const isolated = rest.includes("--isolated");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
-		const target = rest.find(
-			(value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1),
-		);
+		const bundle = bundleIndex >= 0 ? rest[bundleIndex + 1] : undefined;
+		const value = (index: number) =>
+			(ownerIndex >= 0 && index === ownerIndex + 1) ||
+			(bundleIndex >= 0 && index === bundleIndex + 1) ||
+			(modelIndex >= 0 && index === modelIndex + 1);
+		const target = rest.find((item, index) => !item.startsWith("-") && !value(index));
 		if (ownerIndex >= 0 && (!owner || owner.startsWith("-"))) throw new UsageError("init --owner requires an id");
+		if (bundleIndex >= 0 && (!bundle || bundle.startsWith("-"))) throw new UsageError("init --bundle requires an id");
+		if (modelIndex >= 0 && (!model || model.startsWith("-"))) throw new UsageError("init --model requires provider/id");
+		if (bundle !== undefined && !bundleIds.includes(bundle as (typeof bundleIds)[number]))
+			throw new UsageError(`init --bundle accepts ${bundleIds.join(", ")}`);
 		if (
-			rest.some((value) => value.startsWith("-") && value !== "--owner" && value !== "--isolated") ||
-			rest.filter((value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1)).length > 1
+			rest.some((item) => item.startsWith("-") && !["--owner", "--bundle", "--model", "--isolated"].includes(item)) ||
+			rest.filter((item, index) => !item.startsWith("-") && !value(index)).length > 1
 		)
-			throw new UsageError("Usage: yonder init [dir] [--owner <id>] [--isolated]");
+			throw new UsageError(
+				"Usage: yonder init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]",
+			);
 		const home = homeFor(options, true, target);
-		return print(initHome(home, owner, { isolated }), options.json);
+		return print(
+			initHome(home, owner, { isolated, ...(bundle ? { bundle } : {}), ...(model ? { model } : {}) }),
+			options.json,
+		);
 	}
 	if (command === "credentials" && rest[0] === "slots") {
 		const action = rest[1];

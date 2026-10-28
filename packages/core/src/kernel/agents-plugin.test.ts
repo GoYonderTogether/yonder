@@ -2,13 +2,14 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("PluginAPI.agents.list is live, enabled-only and returns detached id/name values", async () => {
 	const home = await mkdtemp("/tmp/yonder-agent-list-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const directory = join(home, "probe");
 		await mkdir(directory);
 		await writeFile(

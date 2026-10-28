@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { createStore } from "../store/index.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";

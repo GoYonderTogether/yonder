@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import type { Channel, EventInput, PluginAPI, ToolContext } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
+import { testModel } from "../packages/core/src/config/test-support.js";
 import { openDatabase } from "../packages/core/src/runtime/db.js";
 import { createStore } from "../packages/core/src/store/index.js";
 import { createClient } from "../plugins/channel-wechat-ilink/src/client.js";
@@ -410,7 +411,7 @@ async function kernelHome(real = false) {
 	const { initHome, inspectHome, openKernel } = await import("../packages/core/src/kernel/index.js");
 	const { parse, stringify } = await import("yaml");
 	const home = await mkdtemp("/tmp/yonder-wechat-kernel-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 	config.plugins.push(
 		{ use: "@yonder/plugin-channel-wechat-ilink", config: { owner: "person:owner" } },

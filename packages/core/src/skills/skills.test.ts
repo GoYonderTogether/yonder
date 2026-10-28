@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { createSkills } from "./index.js";
 import { addLocalSkill, removeLocalSkill } from "./manage.js";

@@ -31,12 +31,10 @@ interface CoreToolsOptions {
 	ask(input: EventInput): Promise<AskResult>;
 	getPreset(id: string): Preset | undefined;
 	presets?: () => Preset[];
+	defaultModel?: string;
 }
 const result = (value: unknown): ToolResult => ({ text: typeof value === "string" ? value : JSON.stringify(value) });
-const fail = (error: unknown): ToolResult => ({
-	text: error instanceof Error ? error.message : String(error),
-	isError: true,
-});
+const fail = (e: unknown): ToolResult => ({ text: e instanceof Error ? e.message : String(e), isError: true });
 const text = () => Type.String({ minLength: 1 });
 const schema = (fields: Record<string, import("typebox").TSchema>) =>
 	Type.Object(fields, { additionalProperties: false });
@@ -128,7 +126,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
 		const parent = await runtime().sessionConfig(ctx.session);
-		const resolved = resolveProfile(selected, {}, parent.resolved.env);
+		const resolved = resolveProfile(selected, {}, parent.resolved.env, options.defaultModel);
 		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
 		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
 		const { capabilities, channelInstances, inherit } = presetSession(selected, resolved.env, {

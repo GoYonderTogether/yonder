@@ -7,7 +7,7 @@ import type { RenderContext, ToolContext } from "@yonder/sdk";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
-import { resolveProfile } from "../../../packages/core/src/config/index.js";
+import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { inspectionServices } from "../../../packages/core/src/kernel/workspace.js";
 import { loadPlugins } from "../../../packages/core/src/plugins/index.js";

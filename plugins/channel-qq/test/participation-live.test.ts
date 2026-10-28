@@ -8,6 +8,7 @@ import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../../../packages/core/src/config/test-support.js";
 import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
 import { groupInstructions } from "../src/participation.js";
 
@@ -20,7 +21,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let socket: Socket | undefined;
 		let passed = false;
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const fixture = `${home}/source`;
 			await mkdir(fixture);
 			await writeFile(

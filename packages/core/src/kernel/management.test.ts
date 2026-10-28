@@ -1,13 +1,14 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("real home publishes agent and preset management without restarting or invoking a model", async () => {
 	const home = await mkdtemp("/tmp/yonder-management-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		kernel = await openKernel(home);
 		const manage = kernel.management;
 		await manage({

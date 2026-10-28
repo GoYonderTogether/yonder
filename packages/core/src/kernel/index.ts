@@ -1,6 +1,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset } from "@yonder/sdk";
+import { shippedChannelsFor } from "../bundles.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -33,7 +34,7 @@ import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
-import { configurationErrors, protectSessions } from "./home.js";
+import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
@@ -229,11 +230,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const scaffoldAgent = (agent: AgentConfig, candidate = config) =>
 			scaffoldWorkspace(
 				filesFor(home, candidate, loaded, agent.id),
-				[
-					...new Set(
-						Object.values(agent.profiles).flatMap((profile) => resolveProfile(profile, agent.defaults).contexts),
-					),
-				],
+				profileContexts(agent, candidate.defaultModel),
 				loaded.contexts,
 			);
 		for (const agent of agents.values()) await scaffoldAgent(agent);
@@ -347,6 +344,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			ask: router.ask,
 			getPreset: sessions.getPreset,
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
+			...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
 		});
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
@@ -467,6 +465,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 						type: config.channels?.[id]?.type,
 						login: Boolean(channel.login),
 					})),
+				shipped: () => shippedChannelsFor(home, config),
 				login: loginChannel,
 			},
 			sessions: { ...sessions.api, observe: observeSession },
