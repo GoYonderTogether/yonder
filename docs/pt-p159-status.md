@@ -36,3 +36,9 @@ JS
 ```
 
 结果：3 次均退出 0 且 `available:false/building`；本次尚未验证模型调用、Yonder 工具注册/未选择隔离、输出截断与 T05、运行中取消或新改动刷新。后续接线必须复用单一 MCP 通路、保留上游 BM25 和执行环境边界，并完成这些验收、spec20 文档及契约检查。
+
+## P159r3 验收（2026-10-28）
+
+`code-intel_symbol_search` 已接入共享 MCP 连接。干净验收副本 c160442 的真实 pi-lens 4.4.6：冷调用返回 building，热调用命中 `parseRef`；追加 `uniquelyFreshSymbolP159` 后，同连接 warm `pilens_analyze`（30.9 秒）再搜索命中新增符号。真实 analyze 运行 2003ms 后取消返回 AbortError，随后同连接搜索成功；symbol_search 发出客户端进程后 20ms 取消返回 AbortError，但未证明服务器已收到该请求。临时脚本为 `/tmp/p159-verify.uzEL8v/check.mjs` 和 `cancel.mjs`。
+
+更新副本至 c78c294 后，隔离 HOME 使用真实模型 siliconflow/deepseek-ai/DeepSeek-V3.2，模型两次调用 `code-intel_symbol_search`，两次 toolResult 均无错误，返回 index.ts 命中；事件保存在 `~/Documents/yonder-verify/homes/p159r3/.yonder/state.db`。隔离服务已停止。包级 tsc、相关 vitest 1/1 与 Biome 通过；Biome 首次格式失败，修正后通过。首次模型启动因 cleanup trigger 未声明失败，c78c294 修复后通过。两次 verify-copy 全仓构建均因并行 AST 替换引用未提交的 `ToolContext.authorizeFileWrite` 失败，模型验收使用副本已有构建产物；干净全量构建仍未通过。
