@@ -18,11 +18,9 @@ import {
 	InboxDoc,
 	type JsonObject,
 	LiveDoc,
-	type PromptInput,
 	RunReceiptDoc,
 	type RunReceiptState,
 	type Submission,
-	section,
 	selectCut,
 	type TaskId,
 	type ToolExecutionApi,
@@ -61,7 +59,6 @@ import {
 	cid,
 	emptyUsage,
 	ModelBindingDoc,
-	type OutboxEntry,
 	RunDoc,
 	type RunState,
 	SessionDoc,
@@ -78,7 +75,6 @@ import {
 	DEFAULT_FALLBACK_AFTER,
 	DEFAULT_MODEL_PROBE_SECONDS,
 	fallbackAliases,
-	fallbackReason,
 	holdSeconds,
 	modelChain,
 	parseAccountProvider,
@@ -92,14 +88,15 @@ import { accountKey, ModelQuota } from "./model-quota.js";
 import { ModelWatch } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { writeNotification } from "./notifications.js";
+import { Outbox } from "./outbox.js";
 import { imageData, projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
-import { promptParts } from "./prompt-parts.js";
+import { promptSections } from "./prompt-sections.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
-import { applyTodo, emptyTodos, type TodoArgs, todoDescription, todoEvent, todoParameters } from "./todo.js";
+import { todoTool } from "./todo-tool.js";
 
 export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
@@ -126,6 +123,7 @@ export type * from "./types.js";
 
 export class Runtime {
 	private harness!: Harness;
+	private outbox!: Outbox;
 	private restoring = false;
 	private restartNotes = Promise.resolve();
 	private interrupted: Array<{ session: string; run: string }> = [];
@@ -274,6 +272,14 @@ export class Runtime {
 			},
 			C,
 		);
+		runtime.outbox = new Outbox({
+			harness: runtime.harness,
+			storage,
+			sinks: options,
+			commit: async (session, change) => {
+				await (await runtime.conversation(session)).commit(change, C);
+			},
+		});
 		await runtime.health.load();
 		await runtime.quota.load();
 		runtime.watch.start();
@@ -516,31 +522,9 @@ export class Runtime {
 		this.registry.install(this.background.extension);
 		this.extensions.set(this.background.extension.name, this.background.extension);
 
-		// One pi section per prompt part, so a changed part patches only itself and the cached prefix survives.
-		// Parts without a declared key, or out of declared order, keep the legacy single "yonder" block.
-		const keys = ["yonder", ...(this.options.sectionKeys ?? []).filter((key) => key !== "yonder")];
-		// All sections of one render pass share the same input object; render the parts once per pass.
-		const passes = new WeakMap<object, Promise<Map<string, string>>>();
-		const parts = (input: PromptInput<ToolRegistration>, context: Context) => {
-			let pass = passes.get(input);
-			if (!pass) {
-				pass = (async () => {
-					await input.read.snapshot(SessionDoc, input.conversationId, context);
-					const config = this.currentConfig(String(input.conversationId));
-					if (!config) throw new Error("Missing active configuration");
-					const rendered =
-						(await this.options.sections?.({ ...config, id: String(input.conversationId) }, context.abortSignal)) ?? [];
-					return promptParts(rendered, keys);
-				})();
-				passes.set(input, pass);
-			}
-			return pass;
-		};
 		const core = defineExtension({
 			name: "yonder.core",
-			sections: keys.map((key) =>
-				section(key, async (input, context) => (await parts(input, context)).get(key), { tag: false }),
-			),
+			sections: promptSections(this.options, (id) => this.currentConfig(id)),
 			hooks: [
 				...this.limits.hooks(),
 				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),
@@ -565,31 +549,7 @@ export class Runtime {
 		this.registry.install(search);
 		this.extensions.set(search.name, search);
 		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);
-		const todo = defineTool({
-			name: "todo",
-			description: todoDescription,
-			parameters: todoParameters,
-			execute: async (args, api, context) => {
-				const outcome = await api.commit(async (tx) => {
-					const doc = await tx.doc(SessionDoc, api.conversationId);
-					// SAFETY: pi-durable validated args against todoParameters, which TodoArgs mirrors.
-					const result = applyTodo(doc.todos ?? emptyTodos(), args as unknown as TodoArgs);
-					if (result.list) {
-						doc.todos = result.list;
-						doc.outbox = [
-							...(doc.outbox ?? []),
-							JSON.stringify({
-								kind: "todo",
-								data: todoEvent(String(api.conversationId), result.list),
-							} satisfies OutboxEntry),
-						];
-					}
-					return result;
-				}, context);
-				if (outcome.list) await this.deliverOutbox(String(api.conversationId));
-				return { output: [{ type: "text", text: outcome.text }] };
-			},
-		});
+		const todo = todoTool((session) => this.outbox.deliver(session));
 		const todos = defineExtension({ name: "yonder.todo", tools: [todo] });
 		this.capabilities.set("todo", []);
 		this.registry.install(todos);
@@ -1266,77 +1226,6 @@ export class Runtime {
 		);
 		return page.items.map(transcriptItem);
 	}
-	/**
-	 * Track one fallback episode per session and report its edges (contracts §3.3): the first answered run on a
-	 * non-primary model starts it, the first answered run on the primary ends it. Runs without an answer say
-	 * nothing about which model works, so they change nothing.
-	 */
-	private async noteFallback(session: string, config: RuntimeSessionConfig, run: RuntimeRun, from?: number) {
-		if (!run.model || run.status !== "done" || !this.options.onModelFallback) return;
-		const primary = splitModelRef(config.resolved.model);
-		const primaryRef = { provider: primary.provider, model: primary.modelId };
-		const slash = run.model.indexOf("/");
-		const actual = { provider: run.model.slice(0, slash), model: run.model.slice(slash + 1) };
-		const onPrimary = actual.provider === primaryRef.provider && actual.model === primaryRef.model;
-		const episode = (await this.harness.snapshot(SessionDoc, cid(session), C))?.fallback ?? null;
-		if (onPrimary === !episode) return;
-		let reason = episode?.reason ?? "error";
-		if (!episode) {
-			const entries = await this.storage.scanEntries(
-				{ conversationId: cid(session), ...(from === undefined ? {} : { minEntryId: from as EntryId }) },
-				Number.MAX_SAFE_INTEGER,
-				undefined,
-				C,
-			);
-			const attempt = entries.items.findLast(
-				(entry) =>
-					entry.kind === "pi.model-attempt" && (entry.data as { action?: string } | undefined)?.action === "fallback",
-			);
-			reason = fallbackReason((attempt?.data as { error?: string } | undefined)?.error);
-		}
-		const event: ModelFallbackEvent = onPrimary
-			? {
-					session,
-					state: "recovered",
-					from: { provider: episode!.provider, model: episode!.model },
-					to: primaryRef,
-					reason,
-				}
-			: { session, state: "fallback", from: primaryRef, to: actual, reason };
-		// The episode state and the event it owes are one durable step; delivery below, or after a restart, drains it.
-		await (await this.conversation(session)).commit(async (tx) => {
-			const doc = await tx.doc(SessionDoc, cid(session));
-			doc.fallback = onPrimary ? null : { ...actual, reason };
-			doc.outbox = [...(doc.outbox ?? []), JSON.stringify({ kind: "fallback", data: event } satisfies OutboxEntry)];
-		}, C);
-		await this.deliverOutbox(session);
-	}
-	private readonly delivering = new Map<string, Promise<void>>();
-	/**
-	 * Hand owed observer events to the host, then remove exactly those from the outbox. A crash between handing
-	 * over and removing repeats the event after restart (at-least-once); both payloads replace state wholesale.
-	 */
-	private deliverOutbox(session: string): Promise<void> {
-		const run = (this.delivering.get(session) ?? Promise.resolve()).then(async () => {
-			const due = (await this.harness.snapshot(SessionDoc, cid(session), C))?.outbox ?? [];
-			if (!due.length) return;
-			for (const raw of due) {
-				const entry = JSON.parse(raw) as OutboxEntry;
-				if (entry.kind === "todo") await this.options.onTodo?.(entry.data);
-				else await this.options.onModelFallback?.(entry.data);
-			}
-			await this.harness.commit(async (tx) => {
-				const doc = await tx.doc(SessionDoc, cid(session));
-				doc.outbox = (doc.outbox ?? []).slice(due.length);
-			}, C);
-		});
-		const settled = run.catch(() => {});
-		this.delivering.set(session, settled);
-		void settled.then(() => {
-			if (this.delivering.get(session) === settled) this.delivering.delete(session);
-		});
-		return run;
-	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
 			sum = emptyUsage();
@@ -1521,7 +1410,7 @@ export class Runtime {
 				usage,
 			};
 			await this.watch.record(config, run, await this.watch.chainIndex(session, config, run));
-			await this.noteFallback(session, config, run, placed.length ? Math.min(...placed) : undefined);
+			await this.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
 			const active = this.limits.states.get(key);
 			active?.visibility.abort();
 			clearTimeout(active?.timer);
@@ -1638,7 +1527,7 @@ export class Runtime {
 			}
 			// Settled runs skipped their idle hook; let waiters and sessions re-evaluate once per conversation.
 			if (skipped) await this.idleChanged(String(conversation.id)).catch((error) => this.options.onReport?.(error));
-			await this.deliverOutbox(String(conversation.id)).catch((error) => this.options.onReport?.(error));
+			await this.outbox.deliver(String(conversation.id)).catch((error) => this.options.onReport?.(error));
 			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
 			if (live?.run) {
 				try {
