@@ -32,6 +32,7 @@
 				"code-intel_ast_grep_outline",
 				"code-intel_read_enclosing",
 				"code-intel_read_symbol",
+				"code-intel_symbol_search",
 				"code-intel_effective_config",
 				"code-intel_lsp_navigation",
 				"code-intel_lens_diagnostic_mark",

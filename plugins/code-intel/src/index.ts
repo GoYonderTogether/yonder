@@ -9,6 +9,7 @@ import { moduleReport } from "./module-report.js";
 import { outline } from "./outline.js";
 import { readEnclosing } from "./read-enclosing.js";
 import { readSymbol } from "./read-symbol.js";
+import { symbolSearch } from "./symbol-search.js";
 
 async function run(ctx: ToolContext, args: string[], cwd: string) {
 	let stdout = "",
@@ -117,6 +118,7 @@ export default definePlugin({
 		api.tools.register(outline);
 		api.tools.register(readEnclosing);
 		api.tools.register(readSymbol);
+		api.tools.register(symbolSearch);
 		api.tools.register(lspNavigation);
 	},
 });

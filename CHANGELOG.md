@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add optional code-intel symbol search through the shared pi-lens connection.
+
 - code-intel 新增 AST 替换预览及受写权限保护的应用。
 
 - Console 页面按需加载，静态资源按版本缓存，并提示可用更新。

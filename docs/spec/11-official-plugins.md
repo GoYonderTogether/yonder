@@ -194,6 +194,8 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 ### code-intel（可选）
 
+`code-intel_symbol_search` 在选定执行环境通过共享 pi-lens MCP 连接搜索标识符，接受 query 和可选 limit、paths、lang；冷索引构建中返回后端状态供重试。需要 read、exec，仅选中插件时提供，输出沿用运行时截断与缓存。
+
 `code-intel_effective_config` 在选定执行环境调用 pi-lens 4.4.6 MCP，接受可选 file（须解析到 cwd 内），返回脱敏的配置来源、工具开关及该文件的语言、server 和 runner 选择理由；上游不返回全部配置值。环境变量值和命令参数不得输出，home 内路径使用相对 home 表示；越界返回错误。需要 read、exec，仅选中插件时提供，运行时截断与缓存只能保存已脱敏的后端结果。
 
 `code-intel_lsp_navigation` 在所选执行环境调用 pi-lens 4.4.6 MCP，提供其 19 种 LSP operation 和 capabilities 发现；位置参数为 path、line、character，其他参数沿用后端 schema。仅选中插件且具备 read、write、exec 时提供。当前一次性 MCP 连接无法保证跨文件写入及取消，rename、rename_file、executeCommand 的 apply:true 返回明确错误；预览和其他操作依后端能力返回结果或错误。长输出使用现有运行时截断和缓存，缓存不补全后端已截断的内容。
