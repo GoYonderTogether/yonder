@@ -325,11 +325,13 @@ bindings:
 				type: "social.batch-ready",
 				from: "plugin:social",
 				conv: "conv:chat:group",
-				data: { agent: "main", through: batched.id, policyRevision: revision, ...extra },
+				data: { agent: "main", through: batched.id, sourceEvents: [batched.id], policyRevision: revision, ...extra },
 			});
 		expect((await batch()).routes?.[0]?.session).toBe(batched.routes?.[0]?.session);
 		expect((await batch({ policyRevision: "stale" })).routes?.[0]?.session).toBeUndefined();
 		expect((await batch({ agent: "other" })).routes?.[0]?.session).toBeUndefined();
+		expect((await batch({ sourceEvents: [group2.id, batched.id] })).routes?.[0]?.session).toBeUndefined();
+		expect((await batch({ sourceEvents: [] })).routes?.[0]?.session).toBeUndefined();
 		const stranger = await emit("acct:chat:user", "conv:chat:private", "dm");
 		expect(owner1.routes?.[0]?.session).toBe(owner2.routes?.[0]?.session);
 		expect(group.routes?.[0]?.binding).toBe("group");

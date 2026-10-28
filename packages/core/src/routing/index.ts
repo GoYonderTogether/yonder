@@ -262,11 +262,21 @@ export function createRouter({
 			agent?: unknown;
 			through?: unknown;
 			policyRevision?: unknown;
+			sourceEvents?: unknown;
 		};
 		const batchSource =
 			event.type === "social.batch-ready" && event.from === "plugin:social" && typeof inputData.through === "string"
 				? await store.events.get(inputData.through)
 				: undefined;
+		const sourceIds = Array.isArray(inputData.sourceEvents) ? inputData.sourceEvents : [];
+		const batchSources =
+			event.type === "social.batch-ready" &&
+			sourceIds.length > 0 &&
+			sourceIds.length <= 100 &&
+			sourceIds.every((id, index) => typeof id === "string" && (!index || sourceIds[index - 1] < id)) &&
+			sourceIds.at(-1) === inputData.through
+				? await Promise.all(sourceIds.map((id) => store.events.get(id)))
+				: [];
 		const internalTarget =
 			event.type === "message.in" &&
 			(channelOf(event.conv) === "agent" || channels?.get(channelOf(event.conv) ?? "")?.multiAgent === true) &&
@@ -309,6 +319,20 @@ export function createRouter({
 					!event.conv ||
 					event.conv !== batchSource?.conv ||
 					!sourceRoute?.session ||
+					batchSources.length !== sourceIds.length ||
+					!batchSources.length ||
+					batchSources.some(
+						(source) =>
+							source?.type !== "message.in" ||
+							source.conv !== event.conv ||
+							!source.routes?.some(
+								(route) =>
+									route.agent === agent.id &&
+									route.session === sourceRoute.session &&
+									route.wake === "write" &&
+									!route.dropped,
+							),
+					) ||
 					decision?.reason !== "batch" ||
 					decision.revision !== inputData.policyRevision
 				) {

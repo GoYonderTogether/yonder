@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 网页响应超过 2 MiB 时明确报错；read/grep 拒绝直接访问其他会话的工具输出缓存。
+
 - Add optional `code-intel_effective_config` to explain redacted pi-lens configuration provenance and selection.
 
 - Add optional `code-intel_lsp_navigation` through pi-lens MCP; applying cross-file changes is not yet available.

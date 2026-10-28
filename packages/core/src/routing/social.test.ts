@@ -58,6 +58,8 @@ test("owner mentions respect the configured signal without granting authorizatio
 		},
 	};
 	const event = message("group", "acct:chat:user", "conv:chat:group", { social: { mentions: { owner: true } } });
-	expect(socialDecision(configured, event, undefined)?.reason).toBe("owner-mention");
-	expect(socialDecision(configured, { ...event, conv: "conv:chat:other" }, undefined)?.reason).toBe("not-authorized");
+	expect(socialDecision(configured as unknown as typeof agent, event, undefined)?.reason).toBe("owner-mention");
+	expect(
+		socialDecision(configured as unknown as typeof agent, { ...event, conv: "conv:chat:other" }, undefined)?.reason,
+	).toBe("not-authorized");
 });
