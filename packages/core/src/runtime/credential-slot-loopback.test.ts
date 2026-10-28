@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { CredentialSlotStore } from "./credential-slots.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";

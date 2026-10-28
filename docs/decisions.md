@@ -2,6 +2,8 @@
 
 **D57 完整主程序的跨平台安装入口（2026-10-26）。** 在原有版本目录和 home 分离的发行链上，Linux 用 systemd 用户单元，Windows 用当前用户登录计划任务、目录 junction 和本机命名管道。Windows 不借 `sc.exe` 把普通 Node 进程冒充 SCM 服务；需要注销后常驻或异常自动重启时另做真正的 Windows 服务宿主。每个平台的运行结论必须有对应系统与架构的实测证据。
 
+**D59 默认管家与清单式首次引导（2026-10-28，统一客户端 design §5.2/§5.3 第一片；维护者已批准（10-28 主 Agent 代批，主人授权合并））。** `init` 的 default 发行包加载 `@yonder/plugin-onboarding`，管家沿用现名 `main`（Jarvis），不写模型、用 `defaultModel`，选入 `tasks` 与 `onboarding`，并有一条 `onboarding.start` 绑定（`--isolated` 不写，因 peer 的保守检查拒绝不限渠道的绑定，由主人主动要求继续）。插件启动时在未完成、未关闭（`enabled: false` 或 `{dismissed:true}`）、默认模型有凭据（`api.host.modelReady`）且距上次满 24 小时、累计不到 5 次时写 `onboarding.start`（conv `conv:onboarding:<agent>`）唤醒管家，避免模型失败时每次启动都重试；只读工具 `onboarding_probe` 经新的内核接口 `api.host.status`（仅 admin，只给凭据槽是否已配置，不给值）列出模型、渠道（含随包未启用）、网关、凭据、插件五项；工具只服务配置的 agent；`onboarding_record` 把每项对应的任务引用（todo 或账本）、完成/关闭时间与唤醒计数存在插件数据目录 `agents/<agent>.json`，读改写串行，因此可恢复、不重复建任务；会话 todo 里已删除的任务按 `todo.updated` 事件重新列入，`{done:true}` 写 `onboarding.done` 后不再唤醒。任务列表优先用内核会话 `todo` 工具，否则用 tasks 账本。design §2 要的跨会话只读工具已由 `session_list`/`session_read`（admin，读他人另需跨 agent 权限）提供，本片不新增；spec 05 的“读取他人会话转录”独立能力级别留待后续。`api.host` 写进 04 §4。代价：新增插件接口面；账本任务是否仍存在只能由管家用 `tasks_get` 核对。
+
 每条：决定、理由、代价。改决策先改这里。被后续决定取代的部分标“已被 Dxx 取代”。文中的 T/N/U/C/R/F/P/E/X 编号是实现批次，批次记录保存在维护者的私有归档，不影响理解各决定。
 
 **D1 运行时用 pi-durable，模型用 pi-ai。** 会话持久化与恢复、模型循环、工具执行、压缩、子会话、按需工具、用量统计、执行环境都已由 pi 实现并在生产中使用；自己写最容易出错。代价：pi-durable 标为实验性，接口可能变——用精确版本锁定和单一适配目录（07 §1）控制影响面。
@@ -334,3 +336,20 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 ## 2026-10-27 自主决策、目标先行、够用就停（维护者批准）
 
 日常常驻 agent 会把本可自己执行的权限与命令操作推给主人，让其等待数小时；对简单任务反复验证、独立审查、造一次性脚本与回执；钻牛角尖、无法收敛；没有目标与验收标准就连续运行数小时。共同底座因此补入这些规则：不把自己能做的事推给主人（只问主人独有的决定、凭据与必须在场的动作，附默认做法并继续不被阻塞的部分；确实需要人时一句话说明做不到什么、谁能做）；目标先行（目标、可观察验收、时间或轮次预算，软提醒即收尾信号，两个目标冲突时选一个并说明理由）；够用就停（验证一次用最便宜能失败的检查，文档不独立审查，已被检查覆盖的改动不再找人复核，并行工作线至多两条，状态表与“需要你”区块有内容才出现，不为一行台账单独发起模型调用，命令写明路径或超时）；典型死磕场景（小失败两次内修好、绕开或报告，新需求记录不实现，不为三行配置改动用候选/快照/回执的流程，等待通知而不是轮询）。本轮按当前 `content.ts` 的既有分节并入 `common.work`、`common.updates`、`common.autonomy`、`common.authority` 与常驻身份的目标句，不新增 section id；context-files 的 AGENTS.md 模板用途句提到目标与验收。不改工具、权限与内核行为。代价：底座多约 300 词；“两条工作线”“半小时内不前置调研”是经验阈值，需按真实对话调整；对话中未必处处守约，要靠真实运行观察。
+
+## 2026-10-28 默认模型由配置给出，旧 home 缺字段沿用旧模型（PR #100 审查）
+
+主人只配置模型；预设不带模型字面量，统一落到 `yonder.yaml` 的 `defaultModel`。`yonder init` 必须带 `--model`，把它写入该字段；没有任何模型来源且字段缺失时，解析时报中文配置错误并点名 `defaultModel`。旧 home 的处理选了加载器路径而非迁移命令：`yonder.yaml` 已登记 agent 却没有该字段，说明它早于本版本（此后 init 一定写入该字段），加载时把缺省视为升级前的 `openai/gpt-6-luna`，所以预设解析结果不变，不需要新增 `yonder migrate`（08 §1 本来也没有迁移命令）。代价：该常量只作为旧 home 兼容留在配置加载器一处；主人补写 `defaultModel` 即覆盖。
+## 2026-10-27 渠道通知级别与入站通知（用户批准）
+
+主人要求 QQ 私聊/群聊正式可用并带标注与通知、微信客户端消息进入渠道监听。按 `proposals/unified-client/research/C3-social-ux.md` §3.4/§5.3 采用三档级别 `all`/`mention`/`mute`，写进 `yonder.yaml` 的 `notifications`（默认级别 + 按 `conv` 覆盖），由节点侧判定并作为权威来源；`mention` 复用事件里已有的 `data.mentioned`，不新增字段。只有被绑定路由接纳的 `message.in` 与显式带字符串 `data.summary` 的插件事件产生 `yonder.notification`（走 `sessions.notify`，不唤醒 Agent、不进模型消息），`mute` 不产生记录但事件与未读照常累积；客户端在正查看该会话时抑制系统通知只是兜底。C3 明确先不做折叠群、关键词提醒、分时段免打扰与按渠道单设级别，本轮同样不做。详见 06 §9.1、08 §2。代价：每个入站消息在每个路由到的会话产生一条 entry；级别改动需要重启（随 `yonder.yaml` 其余字段）。
+
+## 2026-10-27 QQ 渠道媒体、引用与发送间隔（用户批准）
+
+主人要求 QQ 私聊与群聊正式可用。腾讯 SDK 1.0.4 已提供入站 `attachments`/`msg_elements` 与 `sendMedia`，插件此前的「只发文字」是插件层缺口而非平台限制，因此直接补在插件里：入站媒体映射为 `message.in` 的 `attachments`（`content_type` 决定 kind，只接纳 https URL，其他 URI 丢弃不猜测），引用回复原文取 `msg_elements[0].content` 写入新增的 `quote.text`（参考索引本身不含正文，缓存未命中时只有这一处来源），并进入本轮提示的 `quote:` 行；只有附件没有正文的消息不再被丢弃。出站接受 https URL 或绝对本地路径的 image/audio/video/file，音频按文件发送，不声称原生语音气泡；一次回复先发文字再逐条发媒体，复用被动回复的 msg_seq 计数。新增实例配置 `sendIntervalMs`（默认 500，0–60000 毫秒），所有发送与媒体上传经插件内串行间隔器，平台限流与 5xx 仍是 uncertain，不盲重发。重连继续由 SDK 的 ready/resumed/failed 状态机负责，不另建重试循环；媒体发送不携带 msg_seq 是已知限制。详见 11 §15。代价：媒体上传占用同一间隔队列，多附件回复会变慢。
+
+## 2026-10-27 微信归档入站标注与提醒（用户批准）
+
+主人要求微信客户端的消息能进入渠道监听。归档插件已经按会话批次发出 `wechat-archive.material`，但事件里没有可直接展示的发送人/摘要，因此补三处标注而不改事件类型：`channel: "wechat-archive"`、`conversation`、批次去重的 `senders`，以及一行 `summary`（单条 `发送人: 正文`，多条 `N 条消息（前三位发送人）：最后一条`，正文截断 60 字，纯媒体 `[<kind>]`，无正文 `[无正文]`；`media.kind` 为 `unknown` 时按无正文处理，因为 CLI 对未解析媒体统一给 unknown）。`summary` 只喂内核 `yonder.notification`，不替代正文，也不进模型消息。是否提醒由 yonder.yaml 的 `notifications` 按 `conv:wechat-archive:<chat>` 决定；微信批次没有 `mentioned`，所以 `mention` 级别对微信不提醒，需提醒用 `all`，这与 06 §9.1 的规则一致，不额外发明关键词提醒。监听保持只读：不新增发送工具、不自动回复，唤醒仍只由绑定决定（架构 5.2）。轮询间隔取自 `pollSeconds`，插件游标在私有 SQLite meta、源游标在稳定 consumer 名下，重启复用不重放。代价：摘要只有 60 字、只覆盖批次尾部，长批次要看 `messages`。
+
+2026-10-28 回退顺序：先换模型再换账号（维护者 WIP 采纳）

@@ -25,6 +25,7 @@ import type {
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
 import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
+import { CONSOLE, consoleChannel } from "../kernel/console.js";
 import { peerWorkspaceContext } from "../prompt/index.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
@@ -39,6 +40,7 @@ export type KernelServices = Omit<
 		| "sessions"
 		| "identity"
 		| "services"
+		| "host"
 		| "execution"
 		| "models"
 		| "log"
@@ -87,6 +89,9 @@ function pluginEvent(id: string, event: EventInput, channel?: string, multiAgent
 		throw new Error(`${id}: event type must start with ${id}.`);
 	return event;
 }
+
+/** A plugin's private state directory (`api.paths.data`). */
+export const pluginDataPath = (home: string, id: string) => join(home, ".yonder", "plugins", id);
 
 export async function pluginDirectory(home: string, use: string): Promise<string> {
 	if (isAbsolute(use) || use.startsWith(".")) return resolve(home, use);
@@ -223,6 +228,7 @@ export async function loadPlugins(
 				},
 			},
 			agents: services.agents,
+			host: services.host,
 			credentials: services.credentials,
 			execution: services.execution,
 			sessions: {
@@ -287,7 +293,7 @@ export async function loadPlugins(
 			},
 			services: services.services,
 			models: services.models,
-			paths: { data: join(home, ".yonder", "plugins", manifest.id) },
+			paths: { data: pluginDataPath(home, manifest.id) },
 		};
 		try {
 			await plugin.setup(api);
@@ -331,6 +337,8 @@ export async function loadPlugins(
 		listeners.push(...registrations.listeners.map((listener) => ({ pluginId: manifest.id, ...listener })));
 	}
 
+	if (config.channels?.[CONSOLE]) throw new Error(`channels.${CONSOLE}: reserved for the built-in console channel`);
+	channels.set(CONSOLE, consoleChannel());
 	for (const [id, value] of Object.entries(config.channels ?? {})) {
 		const found = channelProviders.get(value.type);
 		if (!found) throw new Error(`channels.${id}: no provider for type ${value.type}`);
@@ -378,6 +386,7 @@ export async function loadPlugins(
 		async start(io) {
 			try {
 				for (const [id, channel] of channels) {
+					if (id === CONSOLE) continue;
 					const owner = channelProviders.get(config.channels![id]!.type)!.pluginId;
 					await channel.start({
 						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),

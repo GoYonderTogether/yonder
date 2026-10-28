@@ -19,6 +19,7 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+import { consoleAllowed, persistConsole, type Scope } from "./console.js";
 import { createLedger } from "./ledger.js";
 import { createVisibility } from "./visibility.js";
 
@@ -39,6 +40,7 @@ interface DeliveryOptions {
 	runtime: () => Runtime;
 	sessions: Sessions;
 	onReport?: (error: unknown) => void;
+	log?: (level: "info" | "warn" | "error", message: string, data?: object) => void;
 }
 
 /** Hold only the prefix that may still be the model's control marker. */
@@ -93,12 +95,26 @@ const channelId = (ref: string) => {
 	const parsed = parseRef(ref);
 	return parsed.kind === "acct" || parsed.kind === "conv" ? parsed.channel : undefined;
 };
-/** What the person sees when a run stops: the effect and what to do, not the provider's raw error. */
+/**
+ * What the person sees when a run stops: a safe category and what to do next, in Chinese. The raw reason (provider
+ * text, URLs, internal codes) is never sent to a channel; it stays in the log and in the `run.end` event.
+ */
 export function stopNotice(reason: string): string {
 	if (/connection error|fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket|network/i.test(reason))
 		return "网络连接中断，这一轮没有完成。网络恢复后回我一句，我接着做。";
-	const brief = reason.replace(/\s+/g, " ").trim();
-	return `运行已停止：${brief.length > 160 ? `${brief.slice(0, 160)}…` : brief}。`;
+	// A run that never got an answer must say so: the model chain is the one failure the person cannot see from the
+	// channel side, and silence reads as "Jarvis is ignoring me" (G1 §6.6 tier 3).
+	if (/^(model_error|no_model)\b/i.test(reason)) {
+		if (/\b(401|403)\b|unauthori[sz]ed|forbidden|invalid[ _-]?api[ _-]?key|authentication|credential/i.test(reason))
+			return "模型账号验证失败，这一轮没有完成。请管理员检查模型凭据后再回我一句。";
+		if (/\b429\b|rate[ _-]?limit|quota|too many requests|insufficient|billing/i.test(reason))
+			return "模型请求太频繁或额度用完，这一轮没有完成。过一会儿回我一句，我重试；持续出现请管理员检查额度。";
+		if (/timed? ?out|timeout/i.test(reason)) return "模型响应超时，这一轮没有完成。过一会儿回我一句，我重试。";
+		if (/\b5\d\d\b|overloaded|unavailable/i.test(reason))
+			return "模型服务暂时不可用，这一轮没有完成。过一会儿回我一句，我重试。";
+		return "模型都不可用（model_error），这一轮没有完成。过一会儿回我一句，我重试；持续出现请管理员查看日志。";
+	}
+	return "运行已停止，这一轮没有完成。回我一句我可以重新开始；反复出现请管理员查看日志。";
 }
 const fromSession = (session: SessionInfo) => (session.agent ? `agent:${session.agent}` : undefined);
 export function sourceMessage(event: YEvent): string | undefined {
@@ -158,7 +174,7 @@ export function createDelivery(options: DeliveryOptions) {
 		request: MessageRequest,
 		agent?: string | null,
 		config?: RuntimeSessionConfig,
-		scope: { channelInstances?: string[] } = config?.resolved ?? {},
+		scope: Scope = config?.resolved ?? {},
 	): Promise<{ target: string; channel: Channel }> {
 		if (request.via) assertChannelInstance(scope, request.via);
 		let target = request.to;
@@ -176,6 +192,7 @@ export function createDelivery(options: DeliveryOptions) {
 				.filter(
 					(account) =>
 						account &&
+						consoleAllowed(account.ref, scope) &&
 						allowsChannelInstance(scope, channelId(account.ref) ?? "") &&
 						(!request.via || channelId(account.ref) === request.via),
 				)
@@ -200,7 +217,7 @@ export function createDelivery(options: DeliveryOptions) {
 		signal: AbortSignal = AbortSignal.timeout(60000),
 		runId?: string,
 		messageId?: string,
-		scope: { channelInstances?: string[] } = config?.resolved ?? {},
+		scope: Scope = config?.resolved ?? {},
 	): Promise<Delivery> {
 		for (const hook of selectedHooks(config)) {
 			const changed = await hook.beforeSend?.(
@@ -227,6 +244,7 @@ export function createDelivery(options: DeliveryOptions) {
 		} catch (error) {
 			return unknown(id, error);
 		}
+		if (scope.proactive) delivery = await persistConsole(options, resolved, outgoing, id, session, delivery);
 		if (!delivery.ok && (delivery.uncertain || delivery.id))
 			return unknown(id, delivery.error ?? "渠道未确认结果", delivery);
 		await record(from, resolved.target, outgoing, delivery, session?.id, parent, id, messageId);
@@ -236,6 +254,14 @@ export function createDelivery(options: DeliveryOptions) {
 		}
 		return delivery;
 	}
+	const proactive = (
+		from: string | undefined,
+		msg: MessageRequest,
+		session: SessionInfo | undefined,
+		config: RuntimeSessionConfig | undefined,
+		signal: AbortSignal | undefined,
+		scope: Scope = config?.resolved ?? {},
+	) => send(from, msg, session, scope.event?.id, config, signal, undefined, undefined, { ...scope, proactive: true });
 	// The existing attempt ledger owns retry facts; timers only drive unresolved safe sends.
 	function retry(event: YEvent) {
 		if (retries.has(event.id) || lifetime.signal.aborted) return;
@@ -444,6 +470,12 @@ export function createDelivery(options: DeliveryOptions) {
 		];
 		const hasWaiter = actual.some((event) => waiting(session, event) === true);
 		const stopped = run.status !== "done";
+		if (stopped)
+			options.log?.("warn", "Run stopped; channel got a category notice", {
+				session,
+				status: run.status,
+				reason: run.reason,
+			});
 		const finalText = stopped ? stopNotice(run.reason ?? run.status) : run.text.trim() === "NO_REPLY" ? "" : run.text;
 		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? sources : [];
 		const destination =
@@ -557,7 +589,7 @@ export function createDelivery(options: DeliveryOptions) {
 		},
 		async sendPlugin(pluginId: string, request: MessageRequest): Promise<Delivery> {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };
-			return send(`plugin:${pluginId}`, request, undefined, undefined, undefined, request.signal);
+			return proactive(`plugin:${pluginId}`, request, undefined, undefined, request.signal);
 		},
 		async sendOwned(
 			pluginId: string,
@@ -567,7 +599,7 @@ export function createDelivery(options: DeliveryOptions) {
 		): Promise<Delivery> {
 			if (!config.resolved.capabilities.includes("message"))
 				return { ok: false, error: "Program delivery requires current message capability" };
-			return send(`plugin:${pluginId}`, request, session, undefined, config, request.signal);
+			return proactive(`plugin:${pluginId}`, request, session, config, request.signal);
 		},
 		async sendTool(ctx: ToolContext, request: MessageRequest): Promise<Delivery> {
 			const session = await store.sessions.get(ctx.session);
@@ -620,7 +652,7 @@ export function createDelivery(options: DeliveryOptions) {
 				} while (!found && after);
 				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
 			}
-			return send(fromSession(session), request, session, ctx.event?.id, config, ctx.signal, undefined, undefined, ctx);
+			return proactive(fromSession(session), request, session, config, ctx.signal, ctx);
 		},
 	};
 }

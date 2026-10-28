@@ -12,7 +12,7 @@ import {
 } from "@earendil-works/pi-durable";
 import type { PermissionProvider, PermissionRequest, ToolContext, YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { createPermissions } from "../permissions.js";
 import { newEvent } from "../store/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset, SessionInfo } from "@yonder/sdk";
 import { stringify } from "yaml";
+import { bundleFor } from "../bundles.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -14,6 +15,14 @@ import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
 import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
+
+/** Distinct contexts of every profile of an agent, resolved against the home's default model. */
+export function profileContexts(agent: AgentConfig, defaultModel?: string): string[] {
+	const contexts = Object.values(agent.profiles).flatMap(
+		(profile) => resolveProfile(profile, agent.defaults, "local", defaultModel).contexts,
+	);
+	return [...new Set(contexts)];
+}
 
 export function protectSessions(
 	config: YonderConfig,
@@ -38,8 +47,8 @@ export function protectSessions(
 			const envChanged =
 				oldProfile &&
 				newProfile &&
-				resolveProfile(oldProfile, previous?.defaults, before?.env).env !==
-					resolveProfile(newProfile, next?.defaults, after?.env).env;
+				resolveProfile(oldProfile, previous?.defaults, before?.env, config.defaultModel).env !==
+					resolveProfile(newProfile, next?.defaults, after?.env, candidate.defaultModel).env;
 			if (before?.workspace !== after?.workspace || before?.env !== after?.env || envChanged)
 				errors.push(`session ${session.id}: close before changing workspace/env`);
 		} else if (presets.has(session.profile) && !nextPresets.has(session.profile))
@@ -75,6 +84,7 @@ export function configurationErrors(
 				profile,
 				agent.defaults,
 				config.agents?.find((item) => item.id === agent.id)?.env,
+				config.defaultModel,
 			);
 			validateProfile(`${agent.id}/${name}`, selected);
 		}
@@ -97,13 +107,21 @@ export function configurationErrors(
 					errors.push(`${agent.id}/${binding.id}: no selected channel declares kind ${kind}`);
 		}
 	}
-	for (const [id, preset] of presets) validateProfile(`preset:${id}`, resolveProfile(preset));
+	for (const [id, preset] of presets)
+		validateProfile(`preset:${id}`, resolveProfile(preset, {}, "local", config.defaultModel));
 	return errors;
 }
 
-export async function initHome(home: string, owner = "owner", options: { isolated?: boolean } = {}) {
+export async function initHome(
+	home: string,
+	owner = "owner",
+	options: { isolated?: boolean; bundle?: string; model?: string } = {},
+) {
 	if (options.isolated !== undefined && typeof options.isolated !== "boolean")
 		throw new Error("isolated must be a boolean");
+	const bundle = bundleFor(options.bundle ?? "default");
+	if (!options.model)
+		throw new Error("未指定默认模型：请用 --model <provider/modelId> 初始化，它会写入 yonder.yaml 的 defaultModel");
 	home = resolve(home);
 	const directory = join(home, "agents/main");
 	await mkdir(directory, { recursive: true });
@@ -111,20 +129,31 @@ export async function initHome(home: string, owner = "owner", options: { isolate
 		schema: 1,
 		locale: "zh-CN",
 		timezone: "Asia/Shanghai",
-		plugins: [
-			{ use: "@yonder/plugin-channel-cli" },
-			{ use: "@yonder/plugin-context-files" },
-			{ use: "@yonder/plugin-ui-companion" },
-			{ use: "@yonder/plugin-agent-presets" },
-			{ use: "@yonder/plugin-web-tools" },
-		],
-		channels: { cli: { type: "cli" } },
+		...(options.model ? { defaultModel: options.model } : {}),
+		plugins: bundle.plugins.map(({ use, config }) => ({
+			use,
+			...(config ? { config: config({ home, owner, timezone: "Asia/Shanghai" }) } : {}),
+		})),
+		channels: bundle.channels,
 		envs: { local: { type: "local" } },
 		agents: [{ id: "main", workspace: "./agents/main" }],
-		identity: { persons: [{ id: owner, name: owner, accounts: ["acct:cli:local"] }] },
+		identity: {
+			persons: [
+				{
+					id: owner,
+					name: owner,
+					accounts: Object.keys(bundle.channels).includes("cli") ? ["acct:cli:local"] : [],
+				},
+			],
+		},
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
 	await mkdir(join(home, "presets"), { recursive: true });
+	// 管家（design §5.2/§5.3）：发行包带 onboarding 且它服务的 agent 就是 main 时，main 选入它与 tasks，
+	// 并由该插件写的 onboarding.start（conv:onboarding:<agent>）唤醒。
+	const entry = config.plugins?.find((plugin) => plugin.use === "@yonder/plugin-onboarding");
+	const butler = (entry?.config as { agent?: string } | undefined)?.agent ?? "main";
+	const onboarding = !!entry && butler === "main";
 	const agent: AgentConfig = withDefaultPeer(
 		{
 			schema: 1,
@@ -133,22 +162,39 @@ export async function initHome(home: string, owner = "owner", options: { isolate
 			owner: `person:${owner}`,
 			defaultProfile: "owner",
 			defaults: {
-				model: "openai/gpt-6-luna",
 				contexts: ["jarvis-soul", "jarvis-work"],
-				plugins: ["context-files", "agent-presets"],
+				plugins: ["context-files", "agent-presets", ...(onboarding ? ["tasks", "onboarding"] : [])],
 			},
 			profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
+			// 没有 cli 渠道实例的发行包（core）不写这条绑定，否则配置校验会报 unknown channel cli。
 			bindings: [
-				{
-					id: "owner",
-					match: { channel: "cli", kind: "dm", from: "owner" },
-					session: "main",
-					profile: "owner",
-					stream: true,
-				},
+				...(bundle.channels.cli
+					? [
+							{
+								id: "owner",
+								match: { channel: "cli", kind: "dm", from: "owner" },
+								session: "main" as const,
+								profile: "owner",
+								stream: true,
+							},
+						]
+					: []),
+				// isolated 保守拒绝任何不限渠道的绑定（peer.ts canReceivePeerAsk），此时由主人主动要求继续引导。
+				...(onboarding && !options.isolated
+					? [
+							{
+								id: "onboarding",
+								match: { type: "onboarding.start", conv: `conv:onboarding:${butler}` },
+								session: "main" as const,
+								profile: "owner",
+							},
+						]
+					: []),
 			],
 		},
 		options.isolated,
+		"local",
+		config.defaultModel,
 	);
 	await writeFile(join(directory, "agent.yaml"), stringify(agent), { flag: "wx" });
 	const plugins = await loadPlugins(
@@ -177,7 +223,7 @@ export async function initHome(home: string, owner = "owner", options: { isolate
 		profileFor(home, config, agent).resolved.contexts,
 		plugins.contexts,
 	);
-	return { home, agent: "main", model: "openai/gpt-6-luna" };
+	return { home, agent: "main", model: config.defaultModel };
 }
 
 export async function inspectHome(home: string): Promise<{ ok: boolean; errors: string[]; warnings: string[] }> {
@@ -216,7 +262,7 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 			if (agent.archivedAt) continue;
 			const env = config.agents?.find((item) => item.id === agent.id)?.env;
 			for (const [name, profile] of Object.entries(agent.profiles)) {
-				const { model, fallback } = resolveProfile(profile, agent.defaults, env);
+				const { model, fallback } = resolveProfile(profile, agent.defaults, env, config.defaultModel);
 				const accounts = fallback?.accounts?.[model.slice(0, model.indexOf("/"))] ?? [];
 				if (fallback?.models.length && !accounts.length && fallback.models.every((ref) => ref === model))
 					warnings.push(
@@ -224,7 +270,7 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 					);
 			}
 			if (!canReceivePeerAsk(agent)) {
-				const fix = peerFix(agent, env);
+				const fix = peerFix(agent, env, config.defaultModel);
 				warnings.push(
 					`${agent.id}: 其他 agent 的 agent_ask 收不到它（没有 channel=agent、kind=agent 的绑定；若是有意隔离可忽略）。${fix ? `加入 agent.yaml：\n${fix}` : "它已有同名 peer 配置，请检查绑定。"}`,
 				);

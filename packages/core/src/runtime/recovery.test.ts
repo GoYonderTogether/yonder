@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { Readable } from "node:stream";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile, testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 import { FileCredentials } from "./credentials.js";
 import { openDatabase } from "./db.js";
@@ -113,7 +113,7 @@ test.skipIf(!real)(
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: ReturnType<typeof createConnection> | undefined;
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
 			config.retry = { maxRetries: 3, baseDelayMs: 2000, maxDelayMs: 2100 };

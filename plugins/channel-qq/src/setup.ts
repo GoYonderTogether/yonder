@@ -121,7 +121,8 @@ export async function configure(
 		});
 		if (!options.groupProfile) {
 			const agent = current.agent.toJSON();
-			const model = agent.profiles[current.profile].model ?? agent.defaults?.model;
+			const model =
+				agent.profiles[current.profile].model ?? agent.defaults?.model ?? current.config.get("defaultModel");
 			if (!model) throw new Error("Group chat requires a configured model");
 			current.agent.setIn(["profiles", current.groupProfile], {
 				model,

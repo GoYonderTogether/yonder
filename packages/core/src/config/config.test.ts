@@ -2,7 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadYonderConfig, matchesGlob, parseAgentConfig, parseYonderConfig, resolveProfile } from "./index.js";
+import { loadYonderConfig, matchesGlob, parseAgentConfig, parseYonderConfig } from "./index.js";
+import { resolveProfile } from "./test-support.js";
 
 describe("config basics", () => {
 	it("loads default locale/timezone through the real home config loader", async () => {

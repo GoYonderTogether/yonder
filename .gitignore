@@ -7,3 +7,5 @@ HANDOFF.md
 .claude/
 
 .build/
+deploy/node/local.env
+.pi/

@@ -6,6 +6,7 @@ import { join, resolve } from "node:path";
 import { initHome } from "@yonder/core";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../../core/src/config/test-support.js";
 
 test("CLI runs through the installed current symlink", async () => {
 	const directory = await mkdtemp("/tmp/yonder-entry-");
@@ -91,7 +92,7 @@ test("global CLI discovers the default user home and preserves explicit override
 test("CLI start readies legacy desktop UI without changing Agent tools or an explicit desktop opt-out", async () => {
 	for (const disabled of [false, true]) {
 		const home = await mkdtemp("/tmp/yonder-ui-default-");
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");
 		const config = parse(await readFile(file, "utf8"));
 		config.plugins = config.plugins.filter((entry: { use: string }) => entry.use !== "@yonder/plugin-ui-companion");

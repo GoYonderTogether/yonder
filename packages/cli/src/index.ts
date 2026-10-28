@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import type { LoginInteraction } from "@yonder/core";
 import {
 	attachmentFromPath,
+	bundleIds,
 	checkRelease,
 	cliChannelEndpoint,
 	compareVersions,
@@ -41,6 +42,8 @@ import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
+import { applyMigration, defaultMigrateOptions, planMigration } from "./migrate.js";
+import { formatMigration, rollbackMigration } from "./migrate-rollback.js";
 import { plainTaskChat } from "./plain-chat.js";
 import { startStatusSurface } from "./status-surface.js";
 import type { ChatTarget } from "./terminal.js";
@@ -48,7 +51,7 @@ import type { ChatTarget } from "./terminal.js";
 const usage = `Usage: yonder <command> [options]
 
 Commands:
-  init [dir] [--owner <id>] [--isolated]  初始化数据目录 · Create a home
+  init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号
   credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]  模型账号槽位
@@ -69,6 +72,7 @@ Commands:
   plugins list|show|add|remove      插件管理 · Manage plugins
   models list                     模型目录 · Model catalog
   inspect [--agent <id>] [--profile <name>]  有效配置 · Effective configuration
+  migrate [--dry-run|--apply] | --rollback <backup> [--dry-run] [--force]  迁移旧数据目录与插件 id（默认只预览） · Migrate user data
   version                         版本与安装 · Version and installation
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
@@ -171,6 +175,12 @@ function fail(error: unknown, json: boolean, code = 1): number {
 	if (json) output({ error: message }, true);
 	return code;
 }
+/** 已配置渠道原样在前，随包提供但未启用的渠道（channels.list {shipped:true}）接在后面供显示。 */
+const channelsList = (home: string) =>
+	Promise.all([{}, { shipped: true }].map((params) => requestControl(home, { method: "channels.list", params }))).then(
+		(lists) => (lists as unknown[][]).flat(),
+	);
+
 function homeFor(options: Options, init = false, target?: string): string {
 	if (init && target) return resolve(target);
 	if (options.home) return resolve(options.home);
@@ -362,8 +372,7 @@ async function run(args: string[]): Promise<number> {
 	}
 	if (command === "channels") {
 		const [action, ...values] = rest;
-		if (action === "list" && !values.length)
-			return print(requestControl(homeFor(options), { method: "channels.list" }), options.json);
+		if (action === "list" && !values.length) return print(channelsList(homeFor(options)), options.json);
 		if (action !== "login")
 			throw new UsageError("Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]");
 		let instance: string | undefined,
@@ -398,6 +407,46 @@ async function run(args: string[]): Promise<number> {
 		}
 		return 0;
 	}
+	if (command === "migrate") {
+		const migrateUsage = "Usage: yonder migrate [--dry-run | --apply] | --rollback <backup> [--dry-run] [--force]";
+		const flagged = (name: string) => rest.includes(name);
+		const rollbackAt = rest.indexOf("--rollback");
+		const backup = rollbackAt >= 0 ? rest[rollbackAt + 1] : undefined;
+		const stray = rest.filter(
+			(arg, index) =>
+				!["--dry-run", "--apply", "--rollback", "--force"].includes(arg) &&
+				!(rollbackAt >= 0 && index === rollbackAt + 1),
+		);
+		if (
+			stray.length ||
+			(flagged("--force") && rollbackAt < 0) ||
+			(flagged("--apply") && flagged("--dry-run")) ||
+			(rollbackAt >= 0 && (!backup || backup.startsWith("-")))
+		)
+			throw new UsageError(migrateUsage);
+		const defaults = defaultMigrateOptions();
+		if (backup) {
+			const result = await rollbackMigration(resolve(backup), {
+				apply: !flagged("--dry-run"),
+				force: flagged("--force"),
+			});
+			output(options.json ? result : result.lines.join("\n"), options.json);
+			return 0;
+		}
+		if (!flagged("--apply")) {
+			const plan = await planMigration(defaults);
+			const text = [
+				...plan.conflicts,
+				...(plan.lines.length ? plan.lines : plan.conflicts.length ? [] : ["无需迁移 · Nothing to migrate"]),
+				...(plan.status === "ready" ? ["（dry-run；加 --apply 执行）"] : []),
+			].join("\n");
+			output(options.json ? plan : text, options.json);
+			return plan.status === "blocked" ? 1 : 0;
+		}
+		const result = await applyMigration(defaults);
+		output(options.json ? result : formatMigration(result), options.json);
+		return result.launchdErrors.length ? 1 : 0;
+	}
 	if (command === "service") {
 		const action = rest[0];
 		if (action === "info" && rest.length === 1)
@@ -419,19 +468,34 @@ async function run(args: string[]): Promise<number> {
 
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
+		const bundleIndex = rest.indexOf("--bundle");
+		const modelIndex = rest.indexOf("--model");
+		const model = modelIndex >= 0 ? rest[modelIndex + 1] : undefined;
 		const isolated = rest.includes("--isolated");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
-		const target = rest.find(
-			(value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1),
-		);
+		const bundle = bundleIndex >= 0 ? rest[bundleIndex + 1] : undefined;
+		const value = (index: number) =>
+			(ownerIndex >= 0 && index === ownerIndex + 1) ||
+			(bundleIndex >= 0 && index === bundleIndex + 1) ||
+			(modelIndex >= 0 && index === modelIndex + 1);
+		const target = rest.find((item, index) => !item.startsWith("-") && !value(index));
 		if (ownerIndex >= 0 && (!owner || owner.startsWith("-"))) throw new UsageError("init --owner requires an id");
+		if (bundleIndex >= 0 && (!bundle || bundle.startsWith("-"))) throw new UsageError("init --bundle requires an id");
+		if (modelIndex >= 0 && (!model || model.startsWith("-"))) throw new UsageError("init --model requires provider/id");
+		if (bundle !== undefined && !bundleIds.includes(bundle as (typeof bundleIds)[number]))
+			throw new UsageError(`init --bundle accepts ${bundleIds.join(", ")}`);
 		if (
-			rest.some((value) => value.startsWith("-") && value !== "--owner" && value !== "--isolated") ||
-			rest.filter((value, index) => !value.startsWith("-") && !(ownerIndex >= 0 && index === ownerIndex + 1)).length > 1
+			rest.some((item) => item.startsWith("-") && !["--owner", "--bundle", "--model", "--isolated"].includes(item)) ||
+			rest.filter((item, index) => !item.startsWith("-") && !value(index)).length > 1
 		)
-			throw new UsageError("Usage: yonder init [dir] [--owner <id>] [--isolated]");
+			throw new UsageError(
+				"Usage: yonder init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]",
+			);
 		const home = homeFor(options, true, target);
-		return print(initHome(home, owner, { isolated }), options.json);
+		return print(
+			initHome(home, owner, { isolated, ...(bundle ? { bundle } : {}), ...(model ? { model } : {}) }),
+			options.json,
+		);
 	}
 	if (command === "credentials" && rest[0] === "slots") {
 		const action = rest[1];

@@ -1,10 +1,11 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { expect, test } from "vitest";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 
 test("session model commands persist, remain isolated, validate input and report native compact availability without inference", async () => {
 	const home = await mkdtemp("/tmp/yonder-model-commands-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	await writeFile(
 		`${home}/presets/command-owner.yaml`,
 		"schema: 1\ndescription: Session command verification\nlevel: bypass\nmodel: openai/gpt-6-luna\n",

@@ -1,7 +1,7 @@
 import type { SessionModels, ToolContext } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile, testModel } from "../config/test-support.js";
 import type { DeliveryService } from "../delivery/index.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeInput, RuntimeSessionState } from "../runtime/index.js";
@@ -52,6 +52,7 @@ async function setup() {
 		ask: async () => {
 			throw new Error("No model in protocol tests");
 		},
+		defaultModel: testModel,
 		getPreset: () => ({ id: "slots", description: "Slot input protocol", credentialSlots: { openai: "preset" } }),
 	});
 	const tool = tools.find((t) => t.name === "task_run");

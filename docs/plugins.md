@@ -300,7 +300,7 @@ macOS 桌面通过稳定路径的签名 Yonder Helper.app 执行。permissions/s
 
 ## 微信归档与 iLink
 
-- `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
+- `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道、不自动回复。入站为 `wechat-archive.material`（conv `conv:wechat-archive:<chat>`，data 带 channel/conversation/senders/summary），`notifications` 级别决定是否提醒，轮询间隔与游标持久化在插件私有 SQLite 与稳定 consumer 名下。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
 - `@yonder/plugin-channel-wechat-ilink`：wechat-ilink 私聊渠道及 status/login/message 工具；首个配置实例默认关联明确配置的主人，后续实例独立关联。模型权限、会话与投递沿用现有系统。详见[iLink 插件](../plugins/channel-wechat-ilink/README.md)。
 - 实现/验证/真实微信未测项见[微信迁移验收](verification/wechat-plugins.md)。
 
@@ -319,8 +319,8 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - **包**：`@yonder/plugin-channel-qq`；[使用与扫码配置](../plugins/channel-qq/README.md)
 - **贡献**：渠道提供者 `qq`；工具 `channel-qq_status`（read）。
-- **输入**：官方 WebSocket 的 C2C、群 @ 与平台已开放的普通群消息，写 `message.in`，保留原生 msgId、时间、发送者、会话及 mentioned。默认群绑定普通消息只写入会话，@ 唤醒。
-- **输出**：官方文字 API，经共享投递返回平台消息 ID；未知结果不重发。首版无媒体/流式/频道/Webhook。
+- **输入**：官方 WebSocket 的 C2C、群 @ 与平台已开放的普通群消息，写 `message.in`，保留原生 msgId、时间、发送者、会话、mentioned、附件与引用原文。默认群绑定普通消息只写入会话，@ 唤醒。
+- **输出**：官方文字与 image/audio/video/file 媒体 API，经共享投递返回平台消息 ID；请求按 `sendIntervalMs`（默认 500 毫秒）串行间隔，未知结果不重发。无流式、频道或 Webhook。
 - **配置**：显式本机 `yonder-qq setup` 输出官方扫码链接/二维码，可打开浏览器；密钥存既有凭据文件，私聊仅扫码用户，群默认独立只读分身、非空 60 秒分桶和显式定向发送。全量权限须由群主在具体群聊内管理该机器人时逐群配置，机器人的全局设置不能替代。
 
 ## channel-card
@@ -356,6 +356,14 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **存储**：插件 data 下 SQLite 只追加事件，回放得到当前状态与历史；完成要求交付和逐项证据，插件不判断验收。
 - **范围**：默认自己的任务及 parent 链下子任务；`cross-agent` 只读其他 Agent 进行中任务。工具与上下文须由 profile 显式选用。
 - **边界**：P1 不含提醒、nudge、展示投影、回复尾部清单或复盘时点；未做模型及生产验收。
+
+## onboarding：管家首次引导
+
+- **包**：`@yonder/plugin-onboarding`，id `onboarding`；[README](../plugins/onboarding/README.md)、[源码](../plugins/onboarding/src/index.ts)。default 发行包加载，`init` 让 `main` 选入它与 `tasks` 并绑定 `onboarding.start`（D59）。
+- **贡献**：触发器 `onboarding-start`；工具 `onboarding_probe`（read、admin）与 `onboarding_record`（write、admin）；skill `onboarding`。
+- **行为**：未完成、未关闭且默认模型有凭据时唤醒管家，每 24 小时最多一次、累计最多 5 次；probe 经 `api.host.status` 给出模型→渠道→网关→凭据→插件清单，管家每项建一条任务（会话 todo 优先，否则 tasks 账本）。
+- **存储**：插件 data 下 `agents/<agent>.json`（任务引用、`done`、`dismissed`、唤醒计数），读改写串行。配置 `agent`（默认 `main`）、`enabled`（默认 true）。
+- **边界**：设备、账号、权限、演示等后续步骤与控制台清单界面未做；账本任务是否仍存在由管家用 `tasks_get` 核对。
 
 ## devices：已配对设备控制
 

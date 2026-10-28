@@ -11,6 +11,7 @@ import {
 	cookieValue,
 	Limiter,
 	type Login,
+	principalOf,
 	principals,
 	Sessions,
 	safeEqual,
@@ -144,8 +145,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		const pathname = prefixed ? `/${rawPath.slice(basePath.length)}` : rawPath;
 		return { pathname, mount: prefixed || !loopbackHost(req.headers.host) ? basePath : "/" };
 	}
-
-	const ctxFor = (login: Login): HostCtx => ({ ...host, principal: principals[login], gateway: handle });
+	const principalFor = (login: Login) => principalOf(login, settings.remoteOwner);
+	const ctxFor = (login: Login): HostCtx => ({ ...host, principal: principalFor(login), gateway: handle });
 
 	async function handleRpc(
 		req: IncomingMessage,
@@ -167,11 +168,12 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		const abort = new AbortController();
 		res.on("close", () => abort.abort());
 		try {
-			const def = registry.prepare(method, params, principals[login]);
+			const def = registry.prepare(method, params, principalFor(login));
 			if (def.stream) throw new MethodError("invalid_params", `${method} is a stream; use /api/stream`);
 			sendJson(res, 200, { ok: true, result: await registry.call(method, params, ctxFor(login), abort.signal) });
 		} catch (error) {
-			sendJson(res, 200, { ok: false, error: errorOf(error) });
+			const info = errorOf(error);
+			sendJson(res, info.code === "forbidden" ? 403 : 200, { ok: false, error: info });
 		}
 	}
 
@@ -290,7 +292,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		const expiry = setTimeout(() => ws.close(4401, "session expired"), Math.max(0, exp - Date.now()));
 		expiry.unref();
 		const stale = () => Date.now() >= exp || (login === "remote" && hashCache.value !== hash);
-		const principal: Principal = principals[login];
+		const principal: Principal = principalFor(login);
 		const subs = new Map<string, () => void>();
 		let lastSeen = Date.now();
 		const frame = (value: unknown) => {

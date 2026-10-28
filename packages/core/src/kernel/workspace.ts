@@ -18,6 +18,7 @@ import {
 } from "../runtime/index.js";
 import { buildModels } from "../runtime/models.js";
 import { createSkills } from "../skills/index.js";
+import { withConsoleBinding } from "./console.js";
 
 export type KernelLog = (level: "info" | "warn" | "error", message: string, data?: object) => void;
 export const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -40,6 +41,7 @@ export function inspectionServices(home: string, config: YonderConfig, log: Kern
 		messages: { send: unavailable },
 		execution: { run: unavailable, resolve: unavailable },
 		services: { resolve: unavailable },
+		host: { status: unavailable, modelReady: unavailable },
 		sessions: {
 			command: unavailable,
 			notify: unavailable,
@@ -94,8 +96,13 @@ export async function loadAgents(
 	for (const entry of config.agents ?? []) {
 		if (agents.has(entry.id)) throw new Error(`Duplicate agent: ${entry.id}`);
 		agents.set(entry.id, {
-			...(await loadAgentConfig(filesFor(home, config, plugins, entry.id), entry.id)),
-			...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}),
+			...withConsoleBinding(
+				{
+					...(await loadAgentConfig(filesFor(home, config, plugins, entry.id), entry.id)),
+					...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}),
+				},
+				config,
+			),
 		});
 	}
 	return agents;
@@ -138,7 +145,7 @@ export function profileFor(
 		agent: agent.id,
 		profile,
 		cwd: resolve(home, entry.workspace),
-		resolved: resolveProfile(selected, agent.defaults, entry.env),
+		resolved: resolveProfile(selected, agent.defaults, entry.env, config.defaultModel),
 	};
 }
 

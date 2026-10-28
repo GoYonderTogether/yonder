@@ -4,6 +4,12 @@
 
 ### Added
 
+- 默认管家与首次引导：default 发行包加载 `@yonder/plugin-onboarding`；`init` 让 `main` 选入 tasks/onboarding 并绑定 `onboarding.start`。未完成且默认模型有凭据时唤醒管家（24 小时一次、累计最多 5 次，`enabled: false` 或主人关闭后不再唤醒），`onboarding_probe` 经新的 `api.host.status`（admin、只读）检查模型、渠道、网关、凭据、插件，按清单用 tasks 账本建任务，任务 id 存在插件状态里，可恢复、不重复（D59）。
+- `yonder init --bundle core|default|full`（默认 `default`）：发行包决定 init 写入的插件与渠道实例。`core` 无渠道实例、不写 `cli` 绑定，`start --no-gateway` 后仍可用任务会话对话；`default` 按设计 §5.4 加载 cron、tasks、learning、channel-card、mcp-client、memory 与 channel-mcp（不监听，没有 `type: mcp` 实例就不开端口），memory 的 root/owner/timezone 由 init 填入；`full` 含其余随包插件。只有 `channel-wechat-ilink` 需要主人配置，不进任何包。`init` 必须带 `--model`，写入 `yonder.yaml.defaultModel`。
+- 随包未启用的第三方渠道（feishu、wechat-ilink、qq、github）由`channels.list {shipped:true}` 单独返回，仅含本次安装里可解析的插件；`channels.list` 的已配置条目不变，`yonder channels list` 依次打印两者。
+- `yonder migrate`：迁移旧 `yonder-harness` 用户数据（运行目录、插件 id/工具名、插件状态目录、power helper 的 launchd 标签），默认 dry-run，`--apply` 执行，`--rollback <备份>` 恢复（`--dry-run` 仅预览；迁移后有新写入数据时拒绝，`--force` 放弃）。持 home 锁、日志与自动还原使中断可恢复，launchd 步骤与数据迁移分开报告。
+- 微信归档监听补齐入站标注：`wechat-archive.material` 的 data 增加 `channel`、`conversation`、批次去重的 `senders` 和一行通知用 `summary`（发送人加正文摘要，纯媒体与无正文分别记标记），消息正文与附件仍在 `messages`；同一会话是否提醒由 `notifications` 级别决定，监听保持只读、不自动回复。
+- 渠道通知级别：`yonder.yaml` 新增 `notifications`（`default` + 按 `conv` 覆盖，取值 `all`/`mention`/`mute`）。被绑定接纳的入站 `message.in` 与带 `data.summary` 的插件事件对每个路由会话写一条 `yonder.notification`（走 `sessions.notify`，不唤醒模型），`mention` 只在 `data.mentioned` 为真时通知，`mute` 只累积事件与未读（06 §9.1、08 §2）。
 - 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
 - 新包 `@yonder/gateway`：`POST /api/rpc/<method>`、`WS /api/stream`（ready/ev/end/pong 帧，`after` 续传与 `gap`），一次性票据（URL）或长期访问令牌（仅 `POST /login` 请求体）换 HMAC HttpOnly cookie，按对端限流登录失败（`gateway.trustProxy`），凭据到期/轮换后断开已建立的 WebSocket（4401），限制套接字、feed 与环形缓冲，校验 Host、Origin、Sec-Fetch-Site，严格 CSP，托管 `apps/app/dist`。配置 `gateway.port/publicOrigins/basePath/accessTokenHash/trustProxy/enabled`，支持去前缀的反向代理；`yonder start --no-gateway`、`yonder ui [--open]`、`yonder ui token --rotate`（配置只存 sha256）。
 - 只读导入 pi 会话：`imports.list`、`imports.show` 把 `~/.pi/agent/sessions/**/*.jsonl`（`imports.piSessionsDir` 可改）解析为对话条目、todo 快照与 usage 汇总，未知条目原样带出。
@@ -23,11 +29,14 @@
 
 ### Changed
 
+- 官方任务预设 `default`/`coding`/`research` 与常驻模板不再写死模型，改由配置的默认模型解析；`init` 生成的 `presets/*.yaml` 不再含 `model`。
+- QQ 渠道补齐媒体、引用和限流：入站附件映射为 `attachments`（只接纳 https URL），引用回复原文写入新增的 `quote.text` 并进入本轮提示，只有附件没有正文的消息也接纳；出站接受 https URL 或本地路径的 image/audio/video/file，先发文字再逐条发媒体；所有请求按新增实例配置 `sendIntervalMs`（默认 500 毫秒）串行间隔。
 - 内置提示词底座补入自主（不把自己能做的事推给主人）、目标先行、够用就停与常见死磕场景，并写清命令路径/超时、台账批量记录、两条工作线上限；AGENTS.md 模板用途句提到目标与验收。
 - `npm run lint` 现在包含文件行数检查。
 
 ### Fixed
 
+- `permissions` 工具参数改为顶层对象（`action` 判别 + 可选 `provider`/`kind`/`timeout`），修复严格供应商 API 以 `type: null` 拒绝该工具 schema；参数校验仍在工具内。
 - 单次启动产生的 11,726 条 error 级"历史 submission 无原生回执"降为 1 条 `warn` 加周期汇总。
 - 任务账本每次读取都新建连接、`SELECT *` 全表并从头 replay 的问题。
 

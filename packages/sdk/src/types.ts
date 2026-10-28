@@ -45,6 +45,8 @@ export interface MessageInData {
 	/** Original channel send time in epoch milliseconds; event.ts is acceptance time. */
 	createdAt?: string;
 	replyTo?: string;
+	/** Quoted message the sender replied to, as the platform exposes it (text only). */
+	quote?: { text?: string };
 	name?: string;
 	target?: string;
 	/** Source event ids quoted by agent_ask (06 §6.1). */
@@ -126,7 +128,18 @@ export interface SessionUpdate {
 	session?: string;
 	runId?: string;
 	eventIds?: string[];
-	type: "snapshot" | "message" | "tool" | "state" | "error" | "end" | "inbox" | "notification";
+	type:
+		| "snapshot"
+		| "message"
+		| "tool"
+		| "state"
+		| "error"
+		| "end"
+		| "inbox"
+		| "notification"
+		| "model.fallback"
+		| "todo.updated";
+	/** `end`: the run.end event. `model.fallback` / `todo.updated`: the event payload (contracts §3.3, §3.4). */
 	event?: object;
 	id?: string;
 	message?: object;
@@ -362,6 +375,17 @@ export interface ToolCall {
 	args: object;
 }
 export type HookResult<T> = T | undefined | Promise<T | undefined>;
+/** Read-only host facts for setup guidance (`PluginAPI.host.status`); never carries secret values. */
+export interface HostStatus {
+	/** yonder.yaml `defaultModel` and the model the calling session resolves to. */
+	model: { default?: string; session: string; known: boolean; authConfigured: boolean };
+	channels: Array<{ instance: string; type: string; login: boolean }>;
+	plugins: Array<{ id: string; use: string }>;
+	/** Third-party channel plugins installed with this release but without an instance in yonder.yaml. */
+	shippedChannels: Array<{ type: string; plugin: string }>;
+	gateway: { enabled: boolean; port?: number };
+	credentials: Array<{ provider: string; slot: string; configured: boolean }>;
+}
 export interface ServiceEndpoint {
 	id: string;
 	protocol: string;
@@ -463,6 +487,8 @@ export interface PluginAPI {
 	sessions: SessionsAPI;
 	identity: IdentityAPI;
 	services: { resolve(capability: string): Promise<ServiceEndpoint | undefined> };
+	/** Read-only host facts. `status` needs an admin tool context; `modelReady` only says whether an agent's default model has auth. */
+	host: { status(ctx: ToolContext): Promise<HostStatus>; modelReady(agent: string): Promise<boolean> };
 	models: Models;
 	paths: { data: string };
 }

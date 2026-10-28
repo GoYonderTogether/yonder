@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { initHome, openKernel, registry, releaseInfo } from "@yonder/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
+import { testModel } from "../../core/src/config/test-support.js";
 import { type GatewayHandle, startGateway } from "../src/index.js";
 
 // Real kernel in a temporary home; no model credentials are needed because nothing here waits for a model reply.
@@ -48,7 +49,7 @@ const rpc = async (method: string, params: unknown = {}, headers: Record<string,
 
 beforeAll(async () => {
 	home = await mkdtemp("/tmp/yonder-gateway-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	kernel = await openKernel(home);
 	gateway = await startGateway({
 		home,
@@ -93,6 +94,7 @@ describe("gateway over a real kernel", () => {
 		expect(noCookie.status).toBe(401);
 		expect(noCookie.headers.get("content-security-policy")).toMatch(/script-src 'self'/);
 		expect(noCookie.headers.get("x-content-type-options")).toBe("nosniff");
+		expect(noCookie.headers.get("referrer-policy")).toBe("same-origin");
 		const evil = await fetch(`${base}/api/rpc/capabilities.get`, {
 			method: "POST",
 			headers: { "content-type": "application/json", origin: "http://evil.example", cookie },

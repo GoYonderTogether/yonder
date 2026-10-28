@@ -121,6 +121,7 @@ export const YonderSchema = object({
 	schema: Type.Literal(1),
 	locale: Type.Optional(text),
 	timezone: Type.Optional(text),
+	defaultModel: Type.Optional(text),
 	plugins: Type.Optional(Type.Array(object({ use: text, config: Type.Optional(Type.Unknown()) }))),
 	channels: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	credentials: Type.Optional(text),
@@ -136,12 +137,27 @@ export const YonderSchema = object({
 			}),
 		),
 	),
+	notifications: Type.Optional(
+		object({
+			default: Type.Optional(choice("all", "mention", "mute")),
+			conversations: Type.Optional(
+				Type.Record(ref("conv"), choice("all", "mention", "mute"), { additionalProperties: false }),
+			),
+		}),
+	),
 	envs: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	retry: Type.Optional(
 		object({
 			maxRetries: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })),
 			baseDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
 			maxDelayMs: Type.Optional(Type.Integer({ minimum: 1, maximum: 2147483647 })),
+		}),
+	),
+	/** Per-request model guards (G1 §6.3): no content within `firstTokenMs`, or the HTTP request past `totalMs`, fails it. */
+	timeouts: Type.Optional(
+		object({
+			firstTokenMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 2147483647 })),
+			totalMs: Type.Optional(Type.Integer({ minimum: 0, maximum: 2147483647 })),
 		}),
 	),
 	compaction: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
@@ -158,6 +174,8 @@ export const YonderSchema = object({
 			accessTokenHash: Type.Optional(Type.String({ pattern: "^sha256:[0-9a-f]{64}$" })),
 			/** Trust X-Forwarded-For (first hop) from a loopback reverse proxy for per-client login throttling. */
 			trustProxy: Type.Optional(Type.Boolean()),
+			/** Grant the `owner` scope (talk to resident Bots) to remote access-token logins. Off by default. */
+			remoteOwner: Type.Optional(Type.Boolean()),
 		}),
 	),
 	imports: Type.Optional(object({ piSessionsDir: Type.Optional(text) })),

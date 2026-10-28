@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import { type ConversationId, type Harness, LiveDoc } from "@earendil-works/pi-durable";
 import { expect, it } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { CredentialSlotStore } from "./credential-slots.js";
 import { openDatabase } from "./db.js";
 import { RunDoc } from "./docs.js";

@@ -14,6 +14,7 @@ import {
 	type YonderConfig,
 } from "../config/index.js";
 
+import { withConsoleBinding, withoutConsoleBinding } from "./console.js";
 import { withDefaultPeer } from "./peer.js";
 
 export interface ObjectRequest {
@@ -85,7 +86,12 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 				if (!value || !value.name || !value.work || !value.owner || !Array.isArray(value.bindings))
 					throw new Error("name, work, owner and explicit bindings are required");
 				const { id: _id, description: _description, ...profile } = preset;
-				const selected = resolveProfile({ ...profile, ...((value.profile as Profile) ?? {}) });
+				const selected = resolveProfile(
+					{ ...profile, ...((value.profile as Profile) ?? {}) },
+					{},
+					"local",
+					state.config.defaultModel,
+				);
 				const { level, capabilities, ...rest } = selected;
 				generated = parseAgentConfig(
 					stringify({
@@ -102,11 +108,11 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					"agent.yaml",
 					id,
 				);
-				generated = withDefaultPeer(generated, value.isolated);
+				generated = withDefaultPeer(generated, value.isolated, "local", config.defaultModel);
 				config.agents = [...(config.agents ?? []), { id, workspace: `./agents/${id}` }];
 				const files = state.files(config, id);
 				if (await files.exists(".")) throw new Error(`Workspace already exists: ${resolve(home, `agents/${id}`)}`);
-				agents.set(id, generated);
+				agents.set(id, withConsoleBinding(generated, config));
 			} else {
 				if (!prior || !entry) throw new Error(`Unknown agent: ${id}`);
 				if (["archive", "remove"].includes(action!)) {
@@ -131,9 +137,12 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 						if (await state.files(config, id).exists("."))
 							throw new Error("New workspace already exists; directory migration/overwrite is not supported");
 					}
-					const { archivedAt: _, ...stored } = prior;
+					const { archivedAt: _, ...stored } = withoutConsoleBinding(prior);
 					const candidate = parseAgentConfig(stringify({ ...stored, ...patch }), "agent.yaml", id);
-					agents.set(id, { ...candidate, ...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}) });
+					agents.set(
+						id,
+						withConsoleBinding({ ...candidate, ...(entry.archivedAt ? { archivedAt: entry.archivedAt } : {}) }, config),
+					);
 					text = stringify(candidate);
 					file = "agent.yaml";
 				}

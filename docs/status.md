@@ -16,6 +16,18 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 默认管家与清单式首次引导（2026-10-28，PR #105，待审核）
+
+**已实现**：`@yonder/plugin-onboarding` 进 default 发行包；`init` 让 `main`（Jarvis，不写模型）选入 tasks/onboarding 并绑定 `onboarding.start`（`--isolated` 不写）；新插件接口 `api.host.status`/`modelReady`（04 §4）；唤醒有界（无凭据不唤醒、24 小时一次、累计 5 次、`enabled: false` 或 `{dismissed: true}` 关闭）；状态按配置的 agent 存，会话 todo 中已删除的任务重新列入；env-ref 凭据槽仅在变量已设置时算已配置。规则见 D59。
+
+**已验证**：onboarding 插件单测（唤醒上限含模型持续失败场景、todo 校验、串行写）、内核测试（无凭据不唤醒、绑定 conv），以及临时 home 里只配 siliconflow `deepseek-ai/DeepSeek-V3.2` 的真实运行：init → start，管家调 probe，每项建一条 todo（#1–#5）并逐项记录，重启 `resume:true` 不重复建任务（该次运行早于唤醒上限改动）。**未测**：`kernel.test.ts` 中真实模型用例需 `YONDER_TEST_REAL=1` 与 `YONDER_TEST_AUTH`，本机缺凭据时跳过。**差距**：spec 05“读取他人会话转录”的独立能力级别未做（现有 `session_list`/`session_read` 需 admin 与跨 agent 权限）；设备、账号、权限、演示步骤与控制台清单界面未做。
+
+## 默认集与发行包（2026-10-28，`feat/defaults-bundles-20261028`，待审核）
+
+**已实现**：`agent-presets` 官方预设与常驻模板不再写 `model`，按内核默认模型解析；`yonder init --bundle core|default|full`（数据在 `packages/core/src/bundles.ts`，不是设计稿的 `distribution/bundles/*.json`，因为 tsc 不复制 JSON）；`core` 不写渠道实例与 `cli` 绑定；`default` 加载 channel-mcp 但没有 `type: mcp` 实例时不开端口；`channels list` 对未启用的 feishu/wechat-ilink/qq/github 返回 `随包提供，未启用`。规则见 [08 §6](spec/08-config.md#6-init-的发行包与随包渠道)。
+
+**已验证**：`packages/cli/src/bundles.test.ts` 用构建后的 CLI 真实启动临时 home：core 配置、未知包退出码 2、`channels list` 状态、channel-mcp 端口启用前连不上、写入实例重启后可连，非默认模型到新任务与常驻模板。**未测**：`init --bundle core` + `start --no-gateway` 真实模型对话（本机无 `YONDER_TEST_AUTH` 凭据，用例跳过）。**差距**：`presets show default` 只回原始预设，不显示解析后的模型；channel-wechat-ilink 需要主人配置，不进任何包。
+
 ## 统一客户端 gateway 线（2026-10-27，`lane/gateway-20261027`，待审核）
 
 **已实现**：`core/src/control/methods.ts` 方法注册表（control.sock 与网关共用，CLI switch 已迁入）；`@yonder/gateway`（HTTP RPC、WS 流 ready/ev/end/pong、`after` 续传与 `gap`、启动票据/长期访问令牌换 HMAC cookie、Host/Origin/Sec-Fetch-Site 校验、CSP、`basePath` 反向代理、托管 `apps/app/dist`）；`yonder start --no-gateway`、`yonder ui`、`yonder ui token --rotate`；`sessions.transcript` 倒序翻页、`submit` 的 `requestId` 幂等；只读 `imports.list/show` 导入 pi 会话。接口形状见 `proposals/unified-client/contracts.md` §9。
@@ -334,3 +346,11 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 ## Agent 状态与固定悬浮入口（0.2.26102505）
 
 状态栏、菜单与悬浮入口接入逐 Agent 的真实运行/等待/空闲状态；菜单和浮窗显示当前输入、执行步骤与生成中的可见回复短片段。图钉按 home 保存，固定后收起保留同锚点入口，鼠标移出且无输入/拖动时自动收起。默认完成自动收起与左右键统一菜单保持。build/typecheck/lint 与全仓 605/0/39 通过；原生实际交互与焦点边界不由构建推定，见 [验证记录](verification/agent-status-companion.md)。
+
+## 2026-10-27 渠道通知级别、QQ 媒体与微信监听（lane/channels-20261027）
+
+内核新增入站通知：每条被绑定接纳的 `message.in` 与带字符串 `data.summary` 的插件事件，按 yonder.yaml `notifications` 级别（all/mention/mute，可按 `conv:` 覆盖）写一条 `yonder.notification`，走 sessions.notify 的 app-only entry，不唤醒模型、不进模型消息。QQ 渠道补齐入站附件（`attachments`，只接纳 https URL）、引用原文（`quote.text` 进入本轮提示）、出站 image/audio/video/file 与 `sendIntervalMs` 串行间隔（默认 500 毫秒）。微信归档批次增加 channel/conversation/senders/summary 标注供提醒使用。
+
+验证：`npm run typecheck`、`npm run lint`、`npm run build` 通过；`npx vitest run packages/core/src/routing`（42 通过 / 1 跳过，跳过项是需要 `YONDER_TEST_REAL=1` 的真实模型群批测试）、`plugins/channel-qq`（6 通过 / 1 跳过）、`plugins/wechat-archive`（2 通过）、`packages/core/src/prompt`、`packages/core/src/kernel`、`tests/wechat.test.ts` 通过。用真实编译产物 `parseYonderConfig` 读主人正在跑的 yonder.yaml：13 个渠道正常解析、`notifications` 缺省为 undefined（旧配置不需要改）；同一解析器拒绝 `default: loud` 与非 `conv:` 键。微信侧真实冒烟用本机归档：`wechat-context status` 报 540083 条/983 会话、上次同步 ok；`fetch-new --consumer lane-channels-smoke --from-now` 建立游标 540083，随后 `check-new` 报 0 条新、再次 `fetch-new` 返回 0 条并保留同一游标，证明真实增量与游标持久化可用。
+
+**未测**：QQ 真实平台联调（本机 yonder.yaml 的三个 QQ 实例已占用全部 WebSocket 连接，抢连会打断在跑的服务，交主 Agent 联调）；真实微信新消息触发的模型唤醒与提醒端到端（本线没有产生新的微信消息，不伪造）；媒体发送在平台的序号与限流实测；网页端/桌面端消费 notification 事件的节点级扇出（属 B 线）。

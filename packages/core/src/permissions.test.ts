@@ -78,6 +78,10 @@ describe("permissions tool → actual registry → provider", () => {
 	it.each([
 		{},
 		{ action: "list", kind: "camera" },
+		{ action: "list", provider: "permission-test.os" },
+		{ action: "list", timeout: 1 },
+		{ action: "status", provider: "permission-test.os" },
+		{ action: "status", kind: "camera" },
 		{ ...request, action: "all" },
 		{ ...request, timeout: 0 },
 		{ ...request, timeout: Number.NaN },

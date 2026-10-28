@@ -17,7 +17,7 @@ test("NO_REPLY fragments stay private, ordinary progress is released without los
 
 // Protocol driver only: real SQLite receipts and delivery, no simulated model.
 import type { Channel, Hook, OutputPart, SessionInfo } from "@yonder/sdk";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";

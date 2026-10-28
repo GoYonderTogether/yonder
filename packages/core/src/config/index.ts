@@ -67,11 +67,37 @@ export function mergeCredentialSlots(
 	return Object.fromEntries(layers.flatMap((layer) => Object.entries(layer ?? {})));
 }
 
-export function resolveProfile(profile: Profile, defaults: Profile = {}, workspaceEnv = "local"): ResolvedProfile {
+/** Level and capabilities depend on no model, so permission checks need no configured default model. */
+function securityOf(profile: Profile, defaults: Profile): { level?: Level; capabilities: Capability[] } {
 	const security = profile.level !== undefined || profile.capabilities !== undefined ? profile : defaults;
 	const level = security.capabilities === undefined ? (security.level ?? "readonly") : undefined;
+	return { level, capabilities: [...(security.capabilities ?? levels[level ?? "readonly"])] } as {
+		level?: Level;
+		capabilities: Capability[];
+	};
+}
+
+/**
+ * `defaultModel` is yonder.yaml's global default model; a profile's own model, then the agent defaults', win.
+ * With none of the three there is no model to run, so fail naming the field (spec 08 §2).
+ */
+export function resolveProfile(
+	profile: Profile,
+	defaults: Profile = {},
+	workspaceEnv = "local",
+	defaultModel?: string,
+): ResolvedProfile {
+	const model = profile.model ?? defaults.model ?? defaultModel;
+	if (model === undefined)
+		throw new ConfigError([
+			{
+				file: "yonder.yaml",
+				path: "/defaultModel",
+				message: "未配置默认模型：请在 yonder.yaml 设置 defaultModel（格式 provider/modelId）",
+			},
+		]);
+	const { level, capabilities } = securityOf(profile, defaults);
 	return {
-		model: "openai/gpt-6-luna",
 		thinking: "medium",
 		plugins: [],
 		contexts: [],
@@ -80,9 +106,10 @@ export function resolveProfile(profile: Profile, defaults: Profile = {}, workspa
 		env: workspaceEnv,
 		...defaults,
 		...profile,
+		model,
 		credentialSlots: mergeCredentialSlots(defaults.credentialSlots, profile.credentialSlots),
 		level,
-		capabilities: [...(security.capabilities ?? levels[level ?? "readonly"])],
+		capabilities,
 		tools: { offer: ["*"], search: [], ...defaults.tools, ...profile.tools },
 		limits: { ...defaultLimits, ...defaults.limits, ...profile.limits },
 		prompt: { ...defaults.prompt, ...profile.prompt },
@@ -107,7 +134,7 @@ export function presetSession(
 ): { capabilities: Capability[]; channelInstances?: string[]; inherit?: PresetInherit } {
 	const own = preset.level !== undefined || preset.capabilities !== undefined;
 	const ceiling = opener?.capabilities;
-	const base = own || !(ceiling ?? limit) ? resolveProfile(preset, {}, env).capabilities : [...(ceiling ?? limit!)];
+	const base = own || !(ceiling ?? limit) ? securityOf(preset, {}).capabilities : [...(ceiling ?? limit!)];
 	const capabilities = base.filter(
 		(capability) => (ceiling ?? base).includes(capability) && (!limit || limit.includes(capability)),
 	);
@@ -133,8 +160,9 @@ export function presetProfile(
 	capabilities?: Capability[],
 	inherit?: PresetInherit,
 	channelInstances?: string[],
+	defaultModel?: string,
 ): ResolvedProfile {
-	const resolved = resolveProfile(preset, {}, env);
+	const resolved = resolveProfile(preset, {}, env, defaultModel);
 	const scope = intersectChannelInstances(channelInstances, resolved.channelInstances);
 	if (scope !== undefined) resolved.channelInstances = scope;
 	const inherited = inherit
@@ -241,6 +269,8 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 	const seen = new Set<string>();
 	for (const [index, binding] of agent.bindings.entries()) {
 		const path = `/bindings/${index}`;
+		if (binding.id === "@console")
+			issues.push({ file, path: `${path}/id`, message: "绑定 id @console 为内置控制台入口保留" });
 		if (seen.has(binding.id)) issues.push({ file, path: `${path}/id`, message: "绑定 id 重复" });
 		seen.add(binding.id);
 		if (!((binding.profile ?? agent.defaultProfile) in agent.profiles))
@@ -272,9 +302,22 @@ export function parsePresetConfig(text: string, id: string, file = `${id}.yaml`)
 	return { id, ...preset };
 }
 
+/**
+ * Homes created before `defaultModel` existed always register agents and never name the field; their
+ * model-less presets resolved to this model, so absence in such a home keeps it (docs/decisions.md).
+ * Every home created since writes `defaultModel` explicitly.
+ */
+const legacyDefaultModel = "openai/gpt-6-luna";
+
 export function parseYonderConfig(text: string, file: string): YonderConfig {
 	const parsed = parse(text, file, YonderSchema);
-	const config = { ...parsed, locale: parsed.locale ?? "zh-CN", timezone: parsed.timezone ?? "Asia/Shanghai" };
+	const legacy = parsed.defaultModel === undefined && (parsed.agents?.length ?? 0) > 0;
+	const config = {
+		...parsed,
+		...(legacy ? { defaultModel: legacyDefaultModel } : {}),
+		locale: parsed.locale ?? "zh-CN",
+		timezone: parsed.timezone ?? "Asia/Shanghai",
+	};
 	const issues: ConfigIssue[] = [];
 	try {
 		new Intl.DateTimeFormat(config.locale);

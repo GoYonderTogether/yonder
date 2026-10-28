@@ -90,7 +90,13 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 			scaffold: async (candidate, agent) => {
 				await scaffoldWorkspace(
 					filesFor(home, candidate, loaded, agent.id),
-					[...new Set(Object.values(agent.profiles).flatMap((p) => resolveProfile(p, agent.defaults).contexts))],
+					[
+						...new Set(
+							Object.values(agent.profiles).flatMap(
+								(p) => resolveProfile(p, agent.defaults, "local", candidate.defaultModel).contexts,
+							),
+						),
+					],
 					loaded.contexts,
 				);
 			},
@@ -134,8 +140,8 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 				...[...presets]
 					.filter(
 						([, preset]) =>
-							resolveProfile(preset).plugins.includes(info.id) ||
-							resolveProfile(preset).contexts.some((id) =>
+							resolveProfile(preset, {}, "local", config.defaultModel).plugins.includes(info.id) ||
+							resolveProfile(preset, {}, "local", config.defaultModel).contexts.some((id) =>
 								((info.contributes as { contexts?: string[] }).contexts ?? []).includes(id),
 							),
 					)
@@ -143,7 +149,7 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 				...[...agents.values()].flatMap((agent) =>
 					Object.keys(agent.profiles)
 						.filter((profile) => {
-							const selected = resolveProfile(agent.profiles[profile]!, agent.defaults);
+							const selected = resolveProfile(agent.profiles[profile]!, agent.defaults, "local", config.defaultModel);
 							return (
 								selected.plugins.includes(info.id) ||
 								selected.contexts.some((id) =>
@@ -156,8 +162,10 @@ export async function manageHome(home: string, request: ManagementRequest, runni
 			],
 			instances: [
 				...[...loaded.channels.keys()]
-					.filter((id) =>
-						((info.contributes as { channels?: string[] }).channels ?? []).includes(config.channels![id]!.type),
+					.filter(
+						(id) =>
+							config.channels?.[id] &&
+							((info.contributes as { channels?: string[] }).channels ?? []).includes(config.channels[id].type),
 					)
 					.map((id) => `channel:${id}`),
 				...[...loaded.envs.keys()]

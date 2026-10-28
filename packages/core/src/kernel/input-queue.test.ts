@@ -6,6 +6,7 @@ import { createInterface } from "node:readline";
 import type { OutputPart, SessionUpdate, YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
@@ -20,7 +21,7 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 			let stop: (() => Promise<void>) | undefined;
 			const packets: Array<OutputPart | { type: "accepted"; event: YEvent }> = [];
 			try {
-				await initHome(home);
+				await initHome(home, "owner", { model: testModel });
 				const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 				config.credentials = auth;
 				config.channels.interrupt = { type: "cli" };

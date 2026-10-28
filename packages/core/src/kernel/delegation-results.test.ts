@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import { initHome, openKernel } from "./index.js";
 
@@ -14,7 +15,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		const home = await mkdtemp("/tmp/yonder-delegation-results-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const commands = [1, 2].map(
 				(n) =>
 					`sleep 17; node -e 'const token=require("node:crypto").randomUUID();require("node:fs").writeFileSync("${home}/child-${n}.txt",token);process.stdout.write("RESULT_${n}="+token)'`,

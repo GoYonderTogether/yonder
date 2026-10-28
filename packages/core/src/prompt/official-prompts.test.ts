@@ -3,7 +3,8 @@ import { fileURLToPath } from "node:url";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
-import { loadPresets, loadYonderConfig, parseAgentConfig, resolveProfile } from "../config/index.js";
+import { loadPresets, loadYonderConfig, parseAgentConfig } from "../config/index.js";
+import { resolveProfile, testModel } from "../config/test-support.js";
 import { initHome, inspectHome, openKernel } from "../kernel/index.js";
 import { filesFor, inspectionServices, profileFor } from "../kernel/workspace.js";
 import { loadPlugins } from "../plugins/index.js";
@@ -17,7 +18,7 @@ test("official resident templates load, scaffold and stay out of identity-less t
 	const home = await mkdtemp("/tmp/yonder-official-prompts-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		kernel = await openKernel(home);
 		await kernel.management({
 			action: "agents.create",
@@ -126,7 +127,7 @@ test("official tasks select real tools, share work-session presets and allow sho
 	const home = await mkdtemp("/tmp/yonder-task-presets-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const config = await loadYonderConfig(home);
 		const plugins = await loadPlugins(
 			home,
@@ -194,7 +195,7 @@ test("official tasks select real tools, share work-session presets and allow sho
 test("adding task presets keeps older homes without web-tools and customized default presets valid", async () => {
 	const home = await mkdtemp("/tmp/yonder-existing-presets-");
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const config = await loadYonderConfig(home);
 		config.plugins = config.plugins!.filter((plugin) => plugin.use !== "@yonder/plugin-web-tools");
 		await writeFile(`${home}/yonder.yaml`, stringify(config));

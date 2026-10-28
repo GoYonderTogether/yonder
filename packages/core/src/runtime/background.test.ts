@@ -14,7 +14,7 @@ import {
 } from "@earendil-works/pi-durable";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { newEvent } from "../store/index.js";
 import type { createBackground } from "./background.js";
 import { openDatabase } from "./db.js";

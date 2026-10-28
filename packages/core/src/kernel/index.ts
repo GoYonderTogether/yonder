@@ -1,7 +1,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset } from "@yonder/sdk";
-import lockfile from "proper-lockfile";
+import { shippedChannelsFor } from "../bundles.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -10,6 +10,7 @@ import {
 	watchConfig,
 	type YonderConfig,
 } from "../config/index.js";
+import { lockHome } from "../control/home-lock.js";
 import { createDelivery } from "../delivery/index.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
@@ -17,7 +18,8 @@ import {
 	type PromptOptions,
 	prepareInput,
 	scaffoldWorkspace,
-	systemSections,
+	systemPromptKeys,
+	systemPromptParts,
 	toolDiscoveryGuide,
 } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
@@ -31,10 +33,13 @@ import { createCoreTools } from "../tools/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { backgroundHandlers } from "./background.js";
-import { configurationErrors, protectSessions } from "./home.js";
+import { createBots } from "./bots.js";
+import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
+import { hostService } from "./host-status.js";
 import { manageObjects } from "./management.js";
 import { createObservability } from "./observability.js";
+import { observedRuntimeEvents, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
@@ -53,10 +58,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	const observability = createObservability({ home, log, db: () => db });
 	const report = observability.report;
 	await mkdir(join(home, ".yonder"), { recursive: true });
-	const unlock = await lockfile.lock(home, {
-		realpath: false,
-		lockfilePath: join(home, ".yonder/lock"),
-	});
+	const unlock = await lockHome(home);
 	let runtime: Runtime | undefined;
 	let plugins: LoadedPlugins | undefined;
 	let watcher: Awaited<ReturnType<typeof watchConfig>> | undefined;
@@ -84,10 +86,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const config = await loadYonderConfig(home);
 		db = await openDatabase(join(home, ".yonder/state.db"));
 		observability.startRetention();
-		const terminalEnds = new Map<
-			string,
-			Set<(update: import("../runtime/index.js").TerminalUpdate) => Promise<void>>
-		>();
+		const terminalEnds: TerminalSends = new Map();
+		const forwardUpdate = terminalUpdates(terminalEnds, report);
 		const agents = new Map<string, AgentConfig>();
 		const store = await createStore(
 			db,
@@ -97,14 +97,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				void plugins?.observe(event).catch(report);
 				if (event.type === "run.end") {
 					const id = String((event.data as { session?: string }).session ?? "");
-					for (const send of terminalEnds.get(id) ?? [])
-						void send({
-							type: "end",
-							session: id,
-							...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
-							eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
-							event,
-						}).catch(report);
+					forwardUpdate(id, {
+						type: "end",
+						session: id,
+						...((event.data as { runId?: string }).runId ? { runId: (event.data as { runId: string }).runId } : {}),
+						eventIds: (event.data as { inputs?: string[] }).inputs ?? [],
+						event,
+					});
 				}
 			},
 		);
@@ -216,6 +215,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			},
 			identity: store.identity(),
 			services: { resolve: (capability) => realRuntime().resolveService(capability) },
+			host: hostService(home, config, () => ({ runtime: realRuntime(), loaded, agents, services })),
 		};
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;
@@ -232,11 +232,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const scaffoldAgent = (agent: AgentConfig, candidate = config) =>
 			scaffoldWorkspace(
 				filesFor(home, candidate, loaded, agent.id),
-				[
-					...new Set(
-						Object.values(agent.profiles).flatMap((profile) => resolveProfile(profile, agent.defaults).contexts),
-					),
-				],
+				profileContexts(agent, candidate.defaultModel),
 				loaded.contexts,
 			);
 		for (const agent of agents.values()) await scaffoldAgent(agent);
@@ -317,6 +313,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			runtime: realRuntime,
 			sessions,
 			onReport: report,
+			log,
 		});
 		router = createRouter({
 			channels: loaded.channels,
@@ -324,6 +321,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			sessions,
 			runtime: realRuntime,
 			agents,
+			notifications: config.notifications,
 			onCommand: (session, event) => {
 				const channel = event.conv?.split(":")[1];
 				if (!channel || !config.channels?.[channel]) return Promise.resolve(undefined);
@@ -348,6 +346,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			ask: router.ask,
 			getPreset: sessions.getPreset,
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
+			...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
 		});
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
@@ -392,8 +391,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 				return { ...session, protectedFiles };
 			},
-			sections: (session, signal) => systemSections(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
+			sectionKeys: systemPromptKeys(loaded.contexts),
 			onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
+			...observedRuntimeEvents(store, forwardUpdate),
 			onReport: report,
 		});
 		const validateCandidate = async (
@@ -466,6 +467,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 						type: config.channels?.[id]?.type,
 						login: Boolean(channel.login),
 					})),
+				shipped: () => shippedChannelsFor(home, config),
 				login: loginChannel,
 			},
 			sessions: { ...sessions.api, observe: observeSession },
@@ -516,6 +518,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					}),
 				};
 			},
+			bots: await createBots(agents, store, (event) => router.emit(event as never), log),
 			close,
 			eventWatermark: () => store.events.watermark(),
 			async awakeActivity() {

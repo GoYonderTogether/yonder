@@ -4,13 +4,14 @@ import { pathToFileURL } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("plugin reminders reach resident sessions, queue followups and preserve task submission", async () => {
 	const home = await mkdtemp("/tmp/yonder-plugin-input-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home, "input-test", { isolated: true });
+		await initHome(home, "input-test", { model: testModel, isolated: true });
 		await rm(join(home, "presets"), { recursive: true });
 		await writeFile(
 			join(home, "package.json"),

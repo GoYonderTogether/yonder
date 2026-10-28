@@ -14,7 +14,8 @@ export async function plainTaskChat(home: string, target: ChatTarget, json: bool
 		if (first.done) return;
 
 		let session = target.session;
-		const call = <T>(method: string, params: object) => requestControl(home, { method, params }) as Promise<T>;
+		const call = <T>(method: string, params: Record<string, unknown>) =>
+			requestControl(home, { method, params }) as Promise<T>;
 		if (!session)
 			session = (await call<SessionInfo>("sessions.open", { preset: target.preset ?? "default", close: "manual" })).id;
 		const id = session;

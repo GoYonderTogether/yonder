@@ -26,6 +26,7 @@
 schema: 1
 locale: zh-CN                          # 可省略，默认中文；可显式覆盖为有效 Intl locale
 timezone: Asia/Shanghai                 # 可省略，默认北京时间；必须是有效 IANA 时区
+defaultModel: provider/modelId          # 全局默认模型（provider/modelId）；不写模型的预设与配置档都用它。代码不含任何模型常量
 
 plugins:
   - use: "@yonder/plugin-channel-cli"
@@ -36,7 +37,12 @@ plugins:
 channels:                                # 渠道实例：id → 提供者 type 与实例配置（04 §3.1）
   cli: { type: cli }
   feishu-main: { type: feishu, appId: cli_a1b2, credential: feishu-main }   # 密钥在凭据文件里
+  qq-main: { type: qq, appId: 1234567890, credential: qq-main }             # 密钥在凭据文件里；sendIntervalMs 默认 500（两条发送的最小间隔 ms，可省略）
 
+notifications:                           # 通知级别，06 §9.1；可省略，默认 all
+  default: mention                       # all 全部 | mention 仅 @我 | mute 免打扰
+  conversations:                         # 按会话覆盖；键必须是 conv ref
+    conv:qq-main:group:7788: mute
 credentials: ~/.yonder-credentials/auth.json   # 可选，默认 .yonder/auth.json
 
 models:
@@ -77,6 +83,7 @@ identity:
 
 `identity.persons` 只用于初始化；之后的关联变化以存储为准，并写 `identity.link` 事件。
 
+`notifications` 可整体省略，等价于 `default: all` 且没有按会话覆盖。`default` 是所有会话的级别，`conversations` 的键必须是 `conv:` 引用、值是同一组级别；未知级别或非 `conv:` 键按结构校验失败拒绝。级别只决定是否产生通知记录，不改变事件接纳、绑定唤醒或未读累积（06 §9.1）。该字段随 `yonder.yaml` 其余字段在重启后生效。
 ## 3. 重载
 
 | 文件 | 何时生效 |
@@ -126,3 +133,20 @@ bindings:
 ## 5. 提示词预算
 
 Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段落、`prompt.overrides` 替换正文，包括空列表关闭内置正文。沿现有 contexts/skills/tools/plugins/instructions 分别选择其他上下文来源，不自动根据模型名裁剪。字段与继承见 [03 §5.5](03-agents.md#55-小上下文模型与段落配置)，完整配置示例和稳定 id 见 [提示词配置](../prompts/configuration.md)。
+
+## 6. init 的发行包与随包渠道
+
+`yonder init [dir] [--owner <id>] [--bundle core|default|full] --model <provider/modelId> [--isolated]` 由发行包决定写进 `yonder.yaml` 的插件与渠道实例；`initHome(home, owner, { bundle })` 走同一写入路径，默认 `default`，未知包 id 直接拒绝并列出可选值。
+
+| 包 | 写入的插件 | 渠道实例 |
+|---|---|---|
+| `core` | context-files、ui-companion、agent-presets、web-tools | 无 |
+| `default` | core 加 channel-cli、channel-mcp | `cli: { type: cli }` |
+| `full` | default 加其余随包插件：channel-card、channel-feishu、channel-github、channel-qq、clipboard、native-automation、browser-skill、wechat-archive、codex-tools、media-tools、mcp-client、cron、tasks、hermes-experience、devices | 同 `default` |
+
+- `core` 不写渠道实例，也不写 `cli` 绑定（`agents/main/agent.yaml` 只留 peer 绑定），否则渠道校验会报 unknown channel。`init --bundle core` + `start --no-gateway` 之后只能通过任务会话（`yonder chat --preset <id>`）对话；日常渠道聊天需要 `default` 或自行添加渠道。
+- `default` 按设计 §5.4 写入：channel-cli、context-files、ui-companion、agent-presets、web-tools、channel-mcp（不监听）、channel-card（未登录空闲）、cron、tasks、learning（无 scope 配置时不授权任何 Agent 记忆访问）、mcp-client、memory。memory 的必填配置由 init 填入：`root: <home>/memory`（所有 agent 工作区之外）、`owner: person:<owner>`、`timezone`；触发器、采集与白名单都不开，因此不读任何数据。`core` 只含 context-files、ui-companion、agent-presets、web-tools；`full` = `default` + 全部其余随包插件（旧 `hermes-experience` 已由 `learning` 取代，不同时加载）。只有 `channel-wechat-ilink`（`config.owner`）需要主人选择，用 `plugins add` 显式加入。
+- 第三方渠道 feishu、wechat-ilink、qq、github 随包提供但 init 不启用。`channels.list` 与 `yonder channels list` 的已配置渠道条目（`instance`/`type`/`login`）保持原样；随包未启用的渠道由同一控制方法的可选参数 `channels.list {shipped:true}` 单独返回 `type`/`plugin`/`status: 随包提供，未启用 · Shipped, not enabled`，只列本次安装里插件包实际可解析、且 `yonder.yaml.channels` 尚无同 type 实例的项。CLI 的 `channels list` 把两者依次打印。启用就是在 `yonder.yaml.channels` 加实例并重启。
+- `channel-mcp` 随 `default` 加载但不监听：没有 `type: mcp` 的渠道实例时不开端口；写入实例（`port`、`credential`、`account`，可选 `origins`）并重启后才在 `127.0.0.1` 上监听，凭据缺失时请求一律拒绝。
+- init 生成的 `presets/default.yaml` 与 `presets/research.yaml`、agent-presets 的任务与常驻模板都不写 `model`，按 `yonder.yaml` 的 `defaultModel` 解析；更换默认模型只改这一个字段。`--model` 必填并写入 `defaultModel`，缺失时 init 报「未指定默认模型」。配置档、agent defaults 自己写了模型则优先。没有任何模型来源时运行报「未配置默认模型」并点名 `defaultModel`。
+- 旧 home（`yonder.yaml` 已登记 agent、没有 `defaultModel`）沿用升级前的解析结果 `openai/gpt-6-luna`，行为不变；想换模型就补写该字段（决定见 decisions）。

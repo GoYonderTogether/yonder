@@ -5,15 +5,9 @@ import { openDatabase } from "../runtime/db.js";
 import type { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
-import {
-	mergeCredentialSlots,
-	parseAgentConfig,
-	parsePresetConfig,
-	presetProfile,
-	presetSession,
-	resolveProfile,
-} from "./index.js";
+import { mergeCredentialSlots, parseAgentConfig, parsePresetConfig, presetSession } from "./index.js";
 import { PresetSchema, ProfileSchema, SessionModelsSchema } from "./schema.js";
+import { presetProfile, resolveProfile, testModel } from "./test-support.js";
 
 const agentConfig = (defaults = {}, profile = {}) =>
 	parseAgentConfig(
@@ -114,7 +108,7 @@ test("real session resolver merges saved session maps over defaults/profile with
 			homePresets: new Map([[preset.id, preset]]),
 			pluginPresets: new Map(),
 			home: "/tmp",
-			config: { schema: 1, agents: [{ id: "main", workspace: "main" }] },
+			config: { schema: 1, defaultModel: testModel, agents: [{ id: "main", workspace: "main" }] },
 			version: "check",
 			runtime: () => runtime,
 		});

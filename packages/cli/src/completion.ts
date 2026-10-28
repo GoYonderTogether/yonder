@@ -1,7 +1,7 @@
 const commands =
-	"init login credentials channels doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service completion";
+	"init login credentials channels doctor start stop chat sessions events identity skills agents presets plugins models inspect version changelog docs update service migrate completion";
 const options =
-	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file --poll --verify-code --slot --method --replace --env-ref";
+	"--home --help --json --preset --session --channel --plain --keep-open --attachment --event --text --agent --profile --mode --open --owner --type --from --conv --since --until --after --limit --to --repo --list --check --file --poll --verify-code --slot --method --replace --env-ref --dry-run --apply --rollback";
 
 /** Shell-native completion. Dynamic requests are read-only and never launch a model. */
 export function completion(shell: string): string {
@@ -15,7 +15,7 @@ _yonder() {
     'start:启动 · Start' 'stop:停止 · Stop' 'chat:聊天 · Chat'
     'sessions:会话 · Sessions' 'events:事件 · Events' 'identity:身份 · Identity'
     'agents:智能体 · Agents' 'presets:预设 · Presets' 'plugins:插件 · Plugins' 'models:模型 · Models' 'inspect:配置 · Configuration' 'skills:技能 · Skills' 'version:版本 · Version' 'changelog:变更 · Changelog'
-    'docs:文档 · Docs' 'update:更新 · Update' 'service:服务 · Service'
+    'docs:文档 · Docs' 'update:更新 · Update' 'service:服务 · Service' 'migrate:迁移 · Migrate'
     'completion:补全 · Completion'
   )
   if (( CURRENT == 2 )); then _describe '命令 · Command' commands; return; fi
@@ -40,7 +40,7 @@ _yonder() {
     identity) (( CURRENT == 3 )) && { compadd lookup link unlink person; return; };;
     completion) compadd zsh bash fish; return;;
   esac
-  [[ $words[2] == init ]] && compadd -- --isolated
+  [[ $words[2] == init ]] && compadd -- --isolated --bundle core default full
   compadd -- ${options}
   _files
 }
@@ -86,7 +86,7 @@ _yonder() {
       completion) choices='zsh bash fish';;
     esac
   fi
-  [[ $\{COMP_WORDS[1]} == init ]] && choices="$choices --isolated"
+  [[ $\{COMP_WORDS[1]} == init ]] && choices="$choices --isolated --bundle core default full"
   COMPREPLY=($(compgen -W "$choices" -- "$cur"))
   if [[ $cur != -* && $\{#COMPREPLY[@]} == 0 ]]; then COMPREPLY=($(compgen -f -- "$cur")); fi
 }
@@ -127,6 +127,7 @@ complete -c yonder -l channel -r -a '(__yonder_values channels)' -d '渠道 · C
 complete -c yonder -l help -d '帮助 · Help'
 complete -c yonder -l json -d 'JSON 输出 · JSON output'
 complete -c yonder -n '__fish_seen_subcommand_from init' -l isolated -d '隔离模式 · Isolated mode'
+complete -c yonder -n '__fish_seen_subcommand_from init' -l bundle -r -a 'core default full' -d '发行包 · Bundle'
 complete -c yonder -l plain -d '逐行输出 · Plain output'
 `;
 	throw new Error("Usage: yonder completion zsh|bash|fish");
