@@ -1,22 +1,24 @@
-import { Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { mux } from "../api/stream";
 import { Chat } from "../features/Chat";
 import { OnboardingCard } from "../features/messages/OnboardingCard";
 import { NotifyHost } from "../features/notify/NotifyHost";
-import { Settings } from "../features/Settings";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { useRefetchOnReconnect } from "../lib/queries";
 import { useSession } from "../lib/useSession";
 import { Banner } from "../ui/Banner";
-import { Contacts } from "../ui/Contacts";
 import { SessionList } from "../ui/SessionList";
 import { TopBar } from "../ui/TopBar";
-import { WorkList } from "../ui/WorkList";
 import { EmptyPane } from "./EmptyPane";
 import { IconRail } from "./IconRail";
+import { PageSkeleton } from "./PageSkeleton";
 import { PAGES, pageComponent } from "./registry";
 import { useMedia, useRoute } from "./routes";
 import { TabBar } from "./TabBar";
+
+const Settings = lazy(() => import("../features/Settings").then((m) => ({ default: m.Settings })));
+const Contacts = lazy(() => import("../ui/Contacts").then((m) => ({ default: m.Contacts })));
+const WorkList = lazy(() => import("../ui/WorkList").then((m) => ({ default: m.WorkList })));
 
 function Title({ children }: { children: React.ReactNode }) {
 	return <h1 className="pt-safe px-4 pt-3 pb-1 text-title font-semibold">{children}</h1>;
@@ -52,7 +54,7 @@ export function Shell({ onLogout }: { onLogout(): void }) {
 		);
 	const Page = route.page && !(PAGES[route.page].needsId && !route.session) ? pageComponent(route.page) : undefined;
 	const feature = Page ? (
-		<Suspense fallback={null}>
+		<Suspense fallback={<PageSkeleton />}>
 			<Page id={route.session ?? ""} />
 		</Suspense>
 	) : undefined;
@@ -68,7 +70,9 @@ export function Shell({ onLogout }: { onLogout(): void }) {
 				<OnboardingCard />
 				<div className="flex min-h-0 flex-1">
 					<IconRail route={route} />
-					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">{side}</aside>
+					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">
+						<Suspense fallback={<PageSkeleton />}>{side}</Suspense>
+					</aside>
 					{feature !== undefined ? (
 						feature
 					) : hasChat && route.session ? (
@@ -94,7 +98,9 @@ export function Shell({ onLogout }: { onLogout(): void }) {
 				</div>
 			) : (
 				<>
-					<main className="flex min-h-0 flex-1 flex-col">{side}</main>
+					<main className="flex min-h-0 flex-1 flex-col">
+						<Suspense fallback={<PageSkeleton />}>{side}</Suspense>
+					</main>
 					<TabBar route={route} />
 				</>
 			)}

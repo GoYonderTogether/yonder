@@ -5,6 +5,7 @@ import { mux } from "./api/stream";
 import { Login } from "./features/Login";
 import { useFacts } from "./lib/queries";
 import { useRoute } from "./lib/useHash";
+import { PageSkeleton } from "./shell/PageSkeleton";
 import { PAGES, pageComponent } from "./shell/registry";
 import { Shell } from "./shell/Shell";
 
@@ -22,7 +23,7 @@ export function App() {
 	const PublicPage = route.page && PAGES[route.page].public ? pageComponent(route.page) : undefined;
 	if (PublicPage)
 		return (
-			<Suspense fallback={null}>
+			<Suspense fallback={<PageSkeleton />}>
 				<PublicPage id={route.session ?? ""} />
 			</Suspense>
 		);
