@@ -37,7 +37,7 @@ test("Linux service commands register and control one user unit in an isolated c
 		process.env.YONDER_W4_STATE = state;
 		process.env.YONDER_W4_CALLS = calls;
 		expect(await manageService("install", { home })).toMatchObject({ installed: true, loaded: true, pid: 1234 });
-		const unit = await readFile(join(root, "config/systemd/user/dev.yonder.harness.service"), "utf8");
+		const unit = await readFile(join(root, "config/systemd/user/dev.yonder.service"), "utf8");
 		expect(unit).toContain(`--home "${home}"`);
 		expect(await manageService("stop")).toMatchObject({ installed: true, loaded: false });
 		expect(await manageService("start")).toMatchObject({ installed: true, loaded: true });
@@ -47,8 +47,8 @@ test("Linux service commands register and control one user unit in an isolated c
 			.trim()
 			.split("\n")
 			.map((line) => JSON.parse(line) as string[]);
-		expect(executed).toContainEqual(["--user", "enable", "dev.yonder.harness.service"]);
-		expect(executed).toContainEqual(["--user", "disable", "--now", "dev.yonder.harness.service"]);
+		expect(executed).toContainEqual(["--user", "enable", "dev.yonder.service"]);
+		expect(executed).toContainEqual(["--user", "disable", "--now", "dev.yonder.service"]);
 	} finally {
 		if (platform) Object.defineProperty(process, "platform", platform);
 		for (const [key, value] of Object.entries(before)) {

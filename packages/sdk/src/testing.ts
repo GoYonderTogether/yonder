@@ -17,6 +17,7 @@ import type {
 	ViewProvider,
 	YEvent,
 } from "./types.js";
+import { API_VERSION } from "./version.js";
 
 const slots = [
 	"views",
@@ -60,7 +61,13 @@ export async function readPluginManifest(dir: string): Promise<PluginManifest> {
 		throw new Error(`${id}: invalid plugin id`);
 	if (["message", "task", "session", "identity", "agent", "skill", "tool", "release"].includes(manifest.id))
 		throw new Error(`${id}: reserved plugin id`);
-	if (manifest.apiVersion !== 1) throw new Error(`${id}: unsupported apiVersion ${manifest.apiVersion}; supported: 1`);
+	// Missing apiVersion means 1; older versions stay loadable, newer ones need a newer Yonder (04 §6).
+	manifest.apiVersion ??= 1;
+	if (!Number.isInteger(manifest.apiVersion)) throw new Error(`${id}: invalid apiVersion ${manifest.apiVersion}`);
+	if (manifest.apiVersion > API_VERSION)
+		throw new Error(
+			`${id}: requires a newer Yonder (apiVersion ${manifest.apiVersion}; supported up to ${API_VERSION})`,
+		);
 	if (typeof manifest.entry !== "string" || !manifest.entry) throw new Error(`${id}: missing entry`);
 	if (!manifest.contributes || typeof manifest.contributes !== "object" || Array.isArray(manifest.contributes))
 		throw new Error(`${id}: invalid contributes`);

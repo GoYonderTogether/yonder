@@ -62,7 +62,7 @@ test("onboarding never wakes the butler while its default model has no auth", as
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const agent = parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8"), "agent.yaml");
-		expect(agent.defaults?.plugins).toEqual(expect.arrayContaining(["tasks", "onboarding"]));
+		expect(agent.defaults?.plugins).toEqual(expect.arrayContaining(["tasks", "onboarding", "learning"]));
 		expect(agent.defaults?.model).toBeUndefined();
 		expect(agent.bindings.find((binding) => binding.id === "onboarding")?.match).toEqual({
 			type: "onboarding.start",

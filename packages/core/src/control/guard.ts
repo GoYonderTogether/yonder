@@ -1,4 +1,9 @@
-import { type HostCtx, MethodError } from "./method-types.js";
+import { type HostCtx, MethodError, type Principal } from "./method-types.js";
+
+/** Filter session rows already carrying their mode; owner callers retain every row. */
+export function filterTaskOnly<T extends { mode: string }>(principal: Principal, items: T[]): T[] {
+	return principal.scopes.includes("owner") ? items : items.filter((item) => item.mode === "task");
+}
 
 /** Bot conversations (every non-task session) need `owner` scope; task sessions keep the plain read/write scopes. */
 export const ownsBots = (ctx: HostCtx) => ctx.principal.scopes.includes("owner");

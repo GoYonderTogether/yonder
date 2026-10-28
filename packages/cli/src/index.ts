@@ -77,6 +77,7 @@ Commands:
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
   update [--check | --to <tag>|latest|beta] [--repo <url>]  安装与更新 · Install or update
+  uninstall [--purge] [--keep-home] [--json] [--dry-run]  卸载 · Uninstall
   service install|uninstall|start|stop|restart|status|info  服务管理 · Manage service
   completion zsh|bash|fish         shell 补全脚本 · Shell completion
 `;
@@ -446,6 +447,10 @@ async function run(args: string[]): Promise<number> {
 		const result = await applyMigration(defaults);
 		output(options.json ? result : formatMigration(result), options.json);
 		return result.launchdErrors.length ? 1 : 0;
+	}
+	if (command === "uninstall") {
+		const { uninstall } = await import("./uninstall.js");
+		return uninstall(rest, options.json, optionalHome(options));
 	}
 	if (command === "service") {
 		const action = rest[0];

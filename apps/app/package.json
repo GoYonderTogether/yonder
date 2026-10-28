@@ -1,7 +1,7 @@
 {
 	"name": "@yonder/app",
 	"private": true,
-	"version": "0.2.26102802",
+	"version": "0.3.26102801",
 	"type": "module",
 	"license": "Apache-2.0",
 	"scripts": {
