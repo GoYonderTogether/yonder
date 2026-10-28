@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 
-export type Route = { tab: "chats" | "tasks" | "devices" | "me"; session?: string };
+/** 与图标栏一一对应：消息 / 通讯录 / 工作 / 我。会话 id 跟在后面。 */
+export type Tab = "chats" | "contacts" | "work" | "me";
+export type Route = { tab: Tab; session?: string };
 
 export function parse(hash: string): Route {
 	const p = hash.replace(/^#\/?/, "").split("/");
 	if (p[0] === "s" && p[1]) return { tab: "chats", session: decodeURIComponent(p[1]) };
-	if (p[0] === "tasks" || p[0] === "devices" || p[0] === "me")
+	if (p[0] === "contacts" || p[0] === "work" || p[0] === "me")
 		return { tab: p[0], session: p[1] ? decodeURIComponent(p[1]) : undefined };
 	return { tab: "chats" };
 }

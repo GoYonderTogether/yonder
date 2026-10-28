@@ -28,7 +28,7 @@ export interface SessionView {
 	background: BackgroundRow[];
 	error?: string;
 }
-const initial: SessionView = {
+export const emptyView: SessionView = {
 	ready: false,
 	items: [],
 	hasMore: false,
@@ -102,7 +102,7 @@ function usageOf(u: SessionSnapshot["usage"] | UsageTotals | undefined): UsageSn
 }
 
 function reduce(s: SessionView, a: Act): SessionView {
-	if (a.k === "reset") return initial;
+	if (a.k === "reset") return emptyView;
 	if (a.k === "older")
 		return {
 			...s,
@@ -149,8 +149,9 @@ function reduce(s: SessionView, a: Act): SessionView {
 }
 
 /** 订阅一个会话：sessions.watch 的快照 + 增量，断线重连由 mux 带游标补齐。 */
-export function useSession(id: string | undefined): SessionView & { loadOlder(): void } {
-	const [view, dispatch] = useReducer(reduce, initial);
+export type LiveView = SessionView & { loadOlder(): void };
+export function useSession(id: string | undefined): LiveView {
+	const [view, dispatch] = useReducer(reduce, emptyView);
 	useEffect(() => {
 		dispatch({ k: "reset" });
 		if (!id) return;
