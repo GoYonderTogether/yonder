@@ -42,7 +42,8 @@
 		"plugins/hermes-experience",
 		"plugins/tasks",
 		"plugins/onboarding",
-		"plugins/code-intel"
+		"plugins/code-intel",
+		"plugins/codex-companion"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",

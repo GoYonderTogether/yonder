@@ -198,7 +198,7 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 `code-intel_lsp_navigation` 在所选执行环境调用 pi-lens 4.4.6 MCP，提供其 19 种 LSP operation 和 capabilities 发现；位置参数为 path、line、character，其他参数沿用后端 schema。仅选中插件且具备 read、write、exec 时提供。当前一次性 MCP 连接无法保证跨文件写入及取消，rename、rename_file、executeCommand 的 apply:true 返回明确错误；预览和其他操作依后端能力返回结果或错误。长输出使用现有运行时截断和缓存，缓存不补全后端已截断的内容。
 
-`code-intel_ast_grep_search` 在当前执行环境调用 pi-lens 4.4.6 MCP 的 `pilens_ast_grep_search`，需要 read、exec，仅选中插件时提供。接受 lang，pattern、rule 或 nodeKind，以及 paths、selector、context、insideKind、hasKind、hasDescendantKind、follows、precedes、strictness、skip、maxMatches、groupByFile、validateOnly、dump；沿用上游互斥和校验，rule 是数据而非 shell。maxMatches 默认 50、上限 200；validateOnly 只校验不扫描工作区。返回命中位置和 readSlice，零结果保留 suggestedDump；输出沿用运行时截断与缓存。
+`code-intel_ast_grep_search` 在当前执行环境调用 pi-lens 4.4.6 MCP 的 `pilens_ast_grep_search`，需要 read、exec，仅选中插件时提供。接受 lang，pattern、rule 或 nodeKind，以及 paths、selector、context、insideKind、hasKind、hasDescendantKind、follows、precedes、strictness、skip、maxMatches、groupByFile、validateOnly、dump；沿用上游互斥和校验，rule 是数据而非 shell。maxMatches 默认 50、上限 200；validateOnly 只校验不扫描工作区。返回文本中的命中位置和零结果 dump 提示；pi-lens MCP 不返回结构化 readSlice 或 suggestedDump。输出沿用运行时截断与缓存。
 
 `code-intel_lens_diagnostic_mark` 接受 `filePath`、1-based `line`、诊断 `message`、`disposition`（`false-positive`、`suppress`、`defer`、`flagged`），以及可选 `rule`、`tool`、`reason`；`suppress` 必须提供 rule。采用 pi-lens 4.4.6 的内容锚定：false-positive 严格绑定规则、消息、来源和规范化目标行；其余标记弱绑定规则、消息和来源。false-positive 与 flagged 持久，defer 按 Yonder session 隔离；suppress 在目标行上方写 `pi-lens-ignore` 并持久记录。每次标记记录日志，返回处理结果与作用域；需要 read、write、exec，重新探测实际诊断并拒绝找不到或等距歧义的目标；仅选中插件时提供，使用执行环境与现有运行时输出截断及缓存。本适配不声称存在 pi 的诊断事件总线或 Yonder 原生诊断总线。
 
@@ -215,3 +215,5 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 `code-intel_ast_grep_outline` 在当前执行环境调用 ast-grep 0.51.0 的 outline，接收文件或目录、语言和 items/view/type/match/pubMembers/globs，返回语法条目、嵌套成员与读取位置；不依赖 LSP 或索引。仅选中插件时按需提供，需要 read 和 exec 能力；长输出沿用运行时截断与缓存。
 
 `code-intel_ast_grep_replace` 通过 pi-lens MCP 在临时副本预览结构替换，最小版本只接受一个工作区内常规文件。先预览再应用；应用前检查文件内容未变，并通过运行时写入保护检查。它需要 read、write、exec；应用检查和写入不构成跨进程原子操作。
+
+`codex-companion_review` 是可选原生 Codex 审查工具，需 read、exec 和显式授权的隔离 Codex home，在当前执行环境调用 Codex CLI，只读审查工作树（含未跟踪文件）或 base 分支；`scope` 支持 auto、working-tree、branch。输出接现有工具缓存和后台边界。插件模板注册及显式等待/后台选择尚待接线，不将工具等同于 `/codex:review` 完整入口。

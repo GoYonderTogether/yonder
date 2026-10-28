@@ -1,0 +1,9 @@
+# Codex companion
+
+Optional native Codex review tool. Install the OpenAI Codex CLI (`npm install -g @openai/codex`) in the selected execution environment and supply an absolute `codexHome` containing an explicitly authorized login. The tool runs in that environment with read-only sandbox settings; it does not use the owner's default Codex home. Select the plugin and `codex-companion_review` for the profile. `scope` accepts `auto`, `working-tree`, or `branch`; `base` selects a branch comparison. Auto chooses the working tree when it contains tracked or untracked changes, otherwise compares the default branch. Runtime cancellation and output caching apply.
+
+`/codex:review` template registration, explicit wait/background selection and completion notification are not yet wired; use the tool directly in the meantime. Codex CLI and authentication are separate from the Yonder model provider.
+
+Review targeting follows pi-codex 0.1.1, Apache-2.0, https://github.com/quantmind-br/pi-codex.
+
+Verification (2026-10-28): `npx vitest run plugins/codex-companion/test/review.test.ts` passed 1 test using a temporary real Git repository and empty isolated Codex home. Empty working-tree and branch ranges, untracked selection, personal-home rejection and cancellation were exercised. The untracked Codex invocation was cancelled after four seconds; authenticated review, verbatim result, background notification, selection UI, token budget and cache indexing remain unverified. `npx biome check plugins/codex-companion` passed. `node scripts/check-file-size.mjs` failed on concurrent `packages/core/src/routing/index.ts` (522 lines). `npx tsc -b` failed in concurrent `kernel/index.ts` and `code-intel/src/diagnostic-mark.ts`; no error was reported for this plugin. The first test run was cancelled after the unauthenticated CLI did not complete promptly. No real Yonder model call was run.

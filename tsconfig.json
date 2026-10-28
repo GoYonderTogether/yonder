@@ -105,6 +105,9 @@
 		},
 		{
 			"path": "plugins/code-intel"
+		},
+		{
+			"path": "plugins/codex-companion"
 		}
 	]
 }
