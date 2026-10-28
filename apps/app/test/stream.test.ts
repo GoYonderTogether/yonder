@@ -170,6 +170,28 @@ describe("Mux 帧序列", () => {
 		expect(h.events[2]).toMatchObject({ type: "session.update" });
 	});
 
+	it("id 台账跨 ready 保留：重放的同一条事件不再投递", () => {
+		const { mux, sockets } = harness();
+		const h = record();
+		mux.subscribe("sessions.watch", { id: "1" }, h.handlers);
+		const ws = sockets[0] as FakeSocket;
+		ws.open();
+		ws.feed(readyFrame(false, "e1:0"));
+
+		ws.feed(ev(1, "e1:1", "run.ended", { id: "ev-1", status: "done" }));
+		expect(h.events).toHaveLength(1);
+
+		// 新 ready 后 seq 从 1 重来，但同一条 ledger 事件重放仍算重复
+		ws.feed(readyFrame(true, "e2:0"));
+		ws.feed(ev(1, "e2:1", "run.ended", { id: "ev-1", status: "done" }));
+		expect(h.events).toHaveLength(1);
+		expect(h.ready).toHaveLength(2);
+
+		// 新事件照常投递
+		ws.feed(ev(2, "e2:2", "run.ended", { id: "ev-2", status: "done" }));
+		expect(h.events).toHaveLength(2);
+	});
+
 	it("同一 ready 窗口内按 seq 去重", () => {
 		const { mux, sockets } = harness();
 		const h = record();

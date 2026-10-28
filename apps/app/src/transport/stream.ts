@@ -161,10 +161,10 @@ export class Mux {
 		if (!s) return;
 		if (f.t === "ready") {
 			// 新一次 ready（重连、gap 补齐、slow-consumer 重订）后 seq 从 1 重新开始（contracts §2.3.1）：
-			// 基线归零，否则重启后 seq=1 的事件会被当成旧帧丢掉。
+			// 基线归零，否则重启后 seq=1 的事件会被当成旧帧丢掉。id 台账不跟着清：事件 id 是全局唯一
+			// ULID（core store newEvent），跨 ready 重放的同一条事件仍要挡住。
 			s.pending = false;
 			s.lastSeq = 0;
-			s.seen.clear();
 			s.cursor = f.cursor;
 			s.handlers.onReady(f.result, f.gap);
 		} else if (f.t === "ev") {
