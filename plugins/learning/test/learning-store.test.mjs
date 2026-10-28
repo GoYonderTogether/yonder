@@ -524,12 +524,12 @@ test("skill own unpinned archive/restore reversible; foreign, pinned and restore
 		/destination_exists/,
 	);
 });
-test("skills saved under legacy learning owner stay editable and archivable", async (t) => {
+test("skills saved under legacy hermes-experience owner stay editable and archivable", async (t) => {
 	const root = join(await fixture(t), "skills");
 	await skillStore(root, create());
 	const metaPath = join(root, n, ".hermes-provenance.json"),
 		meta = JSON.parse(await readFile(metaPath, "utf8"));
-	await writeFile(metaPath, JSON.stringify({ ...meta, owner: "learning" }));
+	await writeFile(metaPath, JSON.stringify({ ...meta, owner: "hermes-experience" }));
 	const read = await readSkill(root);
 	await skillStore(root, {
 		action: "patch",
@@ -539,7 +539,7 @@ test("skills saved under legacy learning owner stay editable and archivable", as
 		new_string: "Check",
 	});
 	const after = await readSkill(root);
-	assert.equal(JSON.parse(await readFile(metaPath, "utf8")).owner, "learning");
+	assert.equal(JSON.parse(await readFile(metaPath, "utf8")).owner, "hermes-experience");
 	const archived = await skillStore(root, { action: "archive", name: n, revision: after.revision });
 	assert.equal(archived.archived, true);
 	await writeFile(join(archived.path, ".hermes-provenance.json"), JSON.stringify({ ...meta, owner: "other" }));

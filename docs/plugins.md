@@ -342,7 +342,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **功能**：现有 scaffold 仅为所选模板补缺失的 SOUL.md/AGENTS.md；按实际工作区渲染，新 init 的主 Agent 使用 Jarvis，普通 Agent 可经现有 create --preset 创建。
 - **边界**：不注册工具、事件订阅或服务；任务预设明确选择现有工具与能力，research 无 shell/写入/消息；不覆写已有文件，不给无身份 task 注入人格。插件内 Markdown 为唯一起始正文；[分层与来源](prompts/README.md)。
 
-## learning：可选精选记忆与静默学习
+## hermes-experience：可选精选记忆与静默学习
 
 - **包**：`@yonder/plugin-hermes-experience`；[安装、原 scope 迁移与验证](../plugins/hermes-experience/README.md)。
 - **贡献**：前台 memory_read/edit、skill_store、memory_pending、refine；三个仅 active grant 可用的内部 review 工具；hermes-memory/behavior/core 上下文、hermes-yonder 教学技能、hermes-study 与 hermes-learning-review 预设及学习 hooks/trigger。

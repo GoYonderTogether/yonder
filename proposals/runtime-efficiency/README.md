@@ -32,7 +32,7 @@ endpointTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) {
 ```
 
 `refreshActivity()` 走 `run(["service", "info", "--home", home])`，`run()` 用
-`Process` 起 `~/.yonder/bin/yonder service info --json`。
+`Process` 起 `~/.yonder-harness/bin/yonder service info --json`。
 
 实测 10 秒内出现 6 个不同的 `service info` 进程（≈0.6 次/秒）。
 每次 spawn 要付：Node 启动 + 整棵模块图加载 + 打开 control socket + 退出。

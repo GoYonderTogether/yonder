@@ -620,7 +620,7 @@ try {
 	evidence.finished = new Date().toISOString();
 	evidence.exit = process.exitCode ?? 0;
 	evidence.pluginSources = {};
-	// The deprecated learning alias ships only index/recipe; absent files are recorded as null.
+	// The deprecated hermes-experience alias ships only index/recipe; absent files are recorded as null.
 	for (const file of ["index.mjs", "review.mjs", "review-prompts.mjs", "skill-store.mjs", "store.mjs"]) {
 		const bytes = await readFile(join(pluginDir, "dist", file)).catch((e) =>
 			e.code === "ENOENT" ? null : Promise.reject(e),

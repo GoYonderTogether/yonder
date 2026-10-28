@@ -6,13 +6,13 @@
 
 主仓库 `npm ci && npm run build` 会构建本 workspace；发行安装器从 tag 构建时也包含它。`yonder plugins add @yonder/plugin-learning` 可发现包，未配置 scope 时不授予任何 Agent 记忆访问。插件安装不等于 profile 选入。
 
-本包由 `@yonder/plugin-hermes-experience` 改名而来（设计见 `proposals/unified-client/design.md` §2.4、§3.2）。旧包现为弃用别名：它以旧 id `learning`、旧工具名 `learning_*` 再导出本插件并在加载时记一条 warn，所以未改动的 `yonder.yaml` 仍可加载。不要同时加载新旧两个包（contexts/presets/skill id 相同，会报 contribution conflict）。
+本包由 `@yonder/plugin-hermes-experience` 改名而来（设计见 `proposals/unified-client/design.md` §2.4、§3.2）。旧包现为弃用别名：它以旧 id `hermes-experience`、旧工具名 `hermes-experience_*` 再导出本插件并在加载时记一条 warn，所以未改动的 `yonder.yaml` 仍可加载。不要同时加载新旧两个包（contexts/presets/skill id 相同，会报 contribution conflict）。
 
 从旧包切到本包时，在 `yonder.yaml` 原有插件项中把 `use` 改为 `@yonder/plugin-learning`，保留 `config.enabled` 和每项 `config.scopes`（`agent`、`profiles`、绝对 `memoryDir`、`skillDir`、`learning`、`memory`、`user`、`writeMode`）不变。插件 id 是用户数据键，下列项随之变化，需手工或待 `yonder migrate`（§3.4）处理：
 
-- profile 的 `plugins` 里 `learning` 改为 `learning`；`tools.offer` 里 `learning_*` 改为 `learning_*`。
-- counters/dedup 从 `<home>/.yonder/plugins/learning/learning-state.json` 变为 `<home>/.yonder/plugins/learning/learning-state.json`；不搬运时计数从零开始，不影响记忆和技能本身。
-- 不变：上下文 `hermes-memory`/`hermes-core`/`hermes-behavior`、技能 `hermes-yonder` 与 `hermes-learned-*`、preset `hermes-study`/`hermes-learning-review`、memoryDir 下 `MEMORY.md`/`USER.md`/`.hermes-pending`、skills 同级 `.hermes-skill-archive`。旧包保存的技能 provenance owner `learning` 仍被视为本插件所有，可继续编辑与归档。
+- profile 的 `plugins` 里 `hermes-experience` 改为 `learning`；`tools.offer` 里 `hermes-experience_*` 改为 `learning_*`。
+- counters/dedup 从 `<home>/.yonder/plugins/hermes-experience/learning-state.json` 变为 `<home>/.yonder/plugins/learning/learning-state.json`；不搬运时计数从零开始，不影响记忆和技能本身。
+- 不变：上下文 `hermes-memory`/`hermes-core`/`hermes-behavior`、技能 `hermes-yonder` 与 `hermes-learned-*`、preset `hermes-study`/`hermes-learning-review`、memoryDir 下 `MEMORY.md`/`USER.md`/`.hermes-pending`、skills 同级 `.hermes-skill-archive`。旧包保存的技能 provenance owner `hermes-experience` 仍被视为本插件所有，可继续编辑与归档。
 
 - `memoryDir` 仍为原授权的现有目录；没有复制、导入或移动。
 - `skillDir` 如配置，必须为 memoryDir 的同级 `skills`，并与该 resident 原生 workspace/skills 对齐；只写 `hermes-learned-*` 私有技能。

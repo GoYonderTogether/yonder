@@ -20,9 +20,9 @@
 
 **插件能否贡献 UI / HTTP 路由 / 网页**：**没有对应的插件槽**。SDK 槽表中无 UI/HTTP 槽。但事实上有插件自行起回环 HTTP 服务：
 - `channel-mcp`：loopback `/mcp` Streamable HTTP/SSE（plugins.md §04）。
-- `interaction`：127.0.0.1 随机端口 + 随机路径的网页卡片服务（plugins.md "interaction" 节；`plugins/interaction/src/service.ts` 有 `createServer`）。
+- `ui-companion`：127.0.0.1 随机端口 + 随机路径的网页卡片服务（plugins.md "ui-companion" 节；`plugins/ui-companion/src/service.ts` 有 `createServer`）。
 - `tasks`：`plugins/tasks/src/service.ts` 也有 `createServer`（看板/服务页，docs/spec/17-task-ledger.md 配套）。
-- macOS 非激活 NSPanel 等原生 UI 由主仓库状态栏宿主承载，插件只发布 `desktop.json`（plugins.md interaction 节）。
+- macOS 非激活 NSPanel 等原生 UI 由主仓库状态栏宿主承载，插件只发布 `desktop.json`（plugins.md ui-companion 节）。
 
 即：UI/HTTP 都是插件自己实现的自定义 trigger + 服务，不是内核契约能力。
 
@@ -36,8 +36,8 @@
 | `@yonder/cli` | 3,280 | pi-coding-agent, pi-tui | core, sdk | CLI/TUI 客户端 |
 | `@yonder/pi-durable` | 25,665 | chord, pi-ai, pi-codemode, photon, diff, typebox | — | vendored pi 会话/任务/文档运行时（`check-file-size.mjs:9` 明确豁免其文件大小规范，"第三方 vendored 源码"） |
 | `@yonder/sdk` | 1,152 | pi-ai, pi-durable, typebox, yaml | execution-protocol | 插件 API 类型 + testing 契约 |
-| `@yonder/device` | 2,946 | typebox, ws | execution-protocol | 远程/设备执行端 |
-| `@yonder/protocol` | 484 | typebox | — | 多设备执行契约 W0 schema（proposals/multidevice/W0-handoff.md 引用） |
+| `@yonder/executor` | 2,946 | typebox, ws | execution-protocol | 远程/设备执行端 |
+| `@yonder/execution-protocol` | 484 | typebox | — | 多设备执行契约 W0 schema（proposals/multidevice/W0-handoff.md 引用） |
 | `packages/macos` | 974 行 Swift（Companion 534 / YonderStatus 310 / PowerHelper 130） | — | — | 状态栏/桌面宿主 |
 | `packages/macos-helper` | 7,584 行 Swift 总计（ServiceHost 572、YonderHelper 330 等，含 Tests/patches） | SwiftPM | — | 权限 Helper |
 
@@ -53,13 +53,13 @@
 | native-automation | 1,649 | playwright-core, typebox | 2 工具、1 触发器、1 permissions provider |
 | browser-skill | 1,608 | typebox | 9 工具、1 skill、1 触发器 |
 | channel-github | 1,952 | typebox | 渠道 github、9 工具、1 上下文 |
-| interaction | 1,352 | typebox | 2 工具、1 触发器 |
+| ui-companion | 1,352 | typebox | 2 工具、1 触发器 |
 | channel-qq | 1,149 | @tencent-connect/qqbot-nodejs, qqbot-connector, proper-lockfile, yaml | 渠道 qq、1 工具 |
 | channel-wechat-ilink | 1,118 | silk-wasm, typebox | 渠道 wechat-ilink、3 工具 |
 | channel-card | 1,088 | typebox, ws | 渠道 card、1 工具 |
 | cron | 1,017 | cron-parser, typebox | 2 工具、1 触发器 |
 | wechat-archive | 641 | typebox | 7 工具、1 触发器 |
-| learning | 1,723（.ts+.mjs） | yaml | 8 工具、3 上下文、1 skill、2 预设、1 hook、1 触发器 |
+| hermes-experience | 1,723（.ts+.mjs） | yaml | 8 工具、3 上下文、1 skill、2 预设、1 hook、1 触发器 |
 | mcp-client | 512 | @modelcontextprotocol/sdk, typebox | 2 工具、1 上下文、1 触发器 |
 | codex-tools | 746 | typebox | 4 工具、1 触发器 |
 | web-tools | 359 | @mozilla/readability, linkedom, turndown, typebox | 3 工具 |
@@ -139,7 +139,7 @@
 
 **a) 同一能力多处实现**
 - **文件锁**：`proper-lockfile` 同时是 core（runtime/credentials.ts、release/result.ts、kernel/home-management.ts、kernel/management.ts、kernel/index.ts）与插件（memory/store.ts、channel-qq/setup.ts）的直接依赖——SDK 未提供共享封装。
-- **回环 HTTP/WS 服务**：至少 6 处各自 `createServer`/WS（channel-cli、channel-mcp、tasks/src/service.ts、interaction/src/service.ts、executor/executor.ts、core/control/index.ts），无共享 loopback 基建。
+- **回环 HTTP/WS 服务**：至少 6 处各自 `createServer`/WS（channel-cli、channel-mcp、tasks/src/service.ts、ui-companion/src/service.ts、executor/executor.ts、core/control/index.ts），无共享 loopback 基建。
 - **文档计数漂移**：04 §3 "共九个槽" vs 文末 permissions 章节；plugins.md 各节工具清单与 package.json contributes 不完全一致（tasks、memory 等）。
 - **spec 编号冲突**：15-memory 与 15-clipboard-vault 共用 15 号。
 
@@ -147,10 +147,10 @@
 
 **c) 构建脚本复杂度**
 - `scripts/` 35 个脚本 + fixtures，共 4,479 行；其中 10 个 `test-service-host*.mjs`（Node 自写测试框架），另有 Python 脚本 2 个、shell 1 个。
-- 根 `build` 链：`check-pi-ai-bundle.mjs && tsc -b && plugins/devices/build.mjs && scripts/build-macos.mjs && plugins/interaction/build.mjs`——单一 build 内联 5 步、含插件目录专属构建与 Swift 构建。
+- 根 `build` 链：`check-pi-ai-bundle.mjs && tsc -b && plugins/devices/build.mjs && scripts/build-macos.mjs && plugins/ui-companion/build.mjs`——单一 build 内联 5 步、含插件目录专属构建与 Swift 构建。
 - 测试命令分叉：`test`（vitest）与 `test:node`（node --test，仅 scripts/export-model-observations.test.mjs）。
 
-**d) 测试分布**（.test.ts，排除 dist）：core/runtime 32、core/kernel 16、memory 12、channel-feishu 8、cli 6、tasks 6、interaction 5、native-automation 5、clipboard 5、channel-github 4、executor 4、core/tools 4、core/release 4、core/prompt 4、core/config 4、根 tests/ 3（device-cli-plugin 396 行、wechat-ilink-diagnostics、wechat）。core 其余子目录（delivery、routing、retention、store、plugins、sessions、skills、signals、control、status）各 ≤4 或无。scripts 有 1 个 node --test 文件。veriication/ 下另有大量 markdown 验收记录（38 个文件），测试事实与验收记录双轨并存。
+**d) 测试分布**（.test.ts，排除 dist）：core/runtime 32、core/kernel 16、memory 12、channel-feishu 8、cli 6、tasks 6、ui-companion 5、native-automation 5、clipboard 5、channel-github 4、executor 4、core/tools 4、core/release 4、core/prompt 4、core/config 4、根 tests/ 3（device-cli-plugin 396 行、wechat-ilink-diagnostics、wechat）。core 其余子目录（delivery、routing、retention、store、plugins、sessions、skills、signals、control、status）各 ≤4 或无。scripts 有 1 个 node --test 文件。veriication/ 下另有大量 markdown 验收记录（38 个文件），测试事实与验收记录双轨并存。
 
 **e) 未跟踪/备份文件**（git status）
 - 备份文件：`packages/core/src/runtime/model-chain.ts.bak-order-20261027`（未跟踪），及 `packages/core/dist/runtime/model-chain.js.bak-order-20261027`；同域 `model-chain.ts`、`model-chain.test.ts`、`model-watch.ts` 有未提交修改。

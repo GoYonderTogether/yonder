@@ -447,12 +447,12 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 
 ### 6.1 安装目录与服务注册
 
-目录与 `design.md` §3 对齐（10-27 决定），不沿用旧的 `~/.yonder`；服务名沿用 `research/C4-install.md` §6.1：
+目录与 `design.md` §3 对齐（10-27 决定），不沿用旧的 `~/.yonder-harness`；服务名沿用 `research/C4-install.md` §6.1：
 
 | | macOS | Linux | Windows |
 |---|---|---|---|
 | 运行时 | `~/.local/share/yonder/runtime/<version>/`，`current` 软链指向当前版本 | 同左 | `%LOCALAPPDATA%\Yonder\runtime` |
-| 数据 | `~/.local/share/yonder/home`（旧安装在 `~/.local/share/yonder/home`，由 `yonder migrate` 迁入，`design.md` §3.2） | 同左 | `%LOCALAPPDATA%\Yonder\home` |
+| 数据 | `~/.local/share/yonder/home`（旧安装在 `~/.local/share/yonder-harness/home`，由 `yonder migrate` 迁入，`design.md` §3.2） | 同左 | `%LOCALAPPDATA%\Yonder\home` |
 | 命令入口 | `~/.local/bin/yonder` | 同左 | `yonder.cmd`，目录加入用户 PATH |
 | 服务 | `~/Library/LaunchAgents/dev.yonder.harness{,.status}.plist` | `~/.config/systemd/user/dev.yonder.harness.service` | 任务计划 `Yonder Harness` 加 `yonder-service.cmd` |
 
@@ -469,7 +469,7 @@ macOS 分两个 job 时（arm64、x64）并发数仍受 `mac-heavy` 组限制。
 4. 校验：包的 SHA256 与 `SHA256SUMS` 一致。若本机有 `minisign`，同时校验 `SHA256SUMS.minisig`，公钥内嵌在脚本里。没有 `minisign` 时只做 SHA256，并提示。安装完成后 `yonder` 自己再用 `node:crypto` 校验一次 minisig（包内带公钥）。
 5. 解压到 `<install>/versions/<v>.tmp`，校验 `.yonder-install.json`，改名为 `<v>`，再按现有「先建新链接再 rename 覆盖」切换 `current`（`packages/core/src/release/index.ts:700-760` 的做法）。持 `.update.lock`。
 6. 写 `bin/yonder`。提示 PATH，默认不改 shell 配置；交互且用户同意时才追加一行到 `~/.zshrc`/`~/.bashrc`。
-7. 检测旧安装：存在 `~/.local/share/yonder/home`、或 launchd 里有 `dev.yonder.harness`、或旧的 `.yonder-install.json` 的 `source` 为 git 构建。命中则先 `yonder migrate --dry-run` 打印计划，用户确认（`--yes` 跳过）后执行 `yonder migrate`，再注册服务。
+7. 检测旧安装：存在 `~/.local/share/yonder-harness/home`、或 launchd 里有 `dev.yonder.harness`、或旧的 `.yonder-install.json` 的 `source` 为 git 构建。命中则先 `yonder migrate --dry-run` 打印计划，用户确认（`--yes` 跳过）后执行 `yonder migrate`，再注册服务。
 8. 询问是否注册服务（`--service` 直接注册），执行 `yonder service install`。
 9. 任何一步失败，不动已有 `current`，清理临时目录，退出码 1。同版本再次运行直接返回，退出码 0。
 

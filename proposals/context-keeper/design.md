@@ -128,7 +128,7 @@ profiles:
 |---|---|---|---|
 | A 内核小改 | 内核为每个会话记空闲计时，到点调 `compact()` | 无新接口；直接用 pi | 把"何时复盘/压缩"的策略放进内核，违反"内核最小"（架构 §3：内核不负责 skill 自动整理策略）；阈值、模板、复盘都要写进内核配置 |
 | B 官方默认插件（推荐） | 插件 `context-keeper`：`events.on('run.end')` 起计时，到点读会话上下文规模，空闲则调 `sessions.compact` | 策略在插件，内核只多两个通用接口；与 memory 插件同模式（只用槽与 `events.on`）；可单独关闭 | 需要新增 SDK 接口；插件重启要靠事件重建计时 |
-| C 复用 learning | 用它做复盘与压缩 | 已存在 | 查证后不可用：它没有任何计时或压缩能力，只提供记忆读写工具、skill_store、上下文和提示词引导（`index.mjs`、`guidance.mjs`，全包 231 行，无 `setTimeout`/`events.on`）；它是按 agent 限定的第三方适配（hermes 专用 scope），且不是官方默认。可以借鉴的只有"把可复用流程写进 skill 而不是记忆"的引导，用于第三期 |
+| C 复用 hermes-experience | 用它做复盘与压缩 | 已存在 | 查证后不可用：它没有任何计时或压缩能力，只提供记忆读写工具、skill_store、上下文和提示词引导（`index.mjs`、`guidance.mjs`，全包 231 行，无 `setTimeout`/`events.on`）；它是按 agent 限定的第三方适配（hermes 专用 scope），且不是官方默认。可以借鉴的只有"把可复用流程写进 skill 而不是记忆"的引导，用于第三期 |
 
 推荐 B。理由：满足"官方默认启用的插件、不引入第二套状态系统、内核最小"；内核新增的只是能力（压缩一个会话、查询上下文规模），策略全在插件。
 
@@ -203,7 +203,7 @@ interface SessionsAPI {
 2. 在 agent.yaml 的 `bindings` 里增加一条（由内核默认模板或 `yonder init` 加入，需维护者批准）：`match: { type: context-keeper.checkpoint }`，`session: main`，`profile: owner`，`reply: none`。
 3. 这次运行的提示词是固定模板（§4.2），要求把目标、验收、已做/未做、外部副作用真实状态写入台账并核对。运行结束后 `run.end.inputs` 含该事件 id，插件据此立刻执行 `compact`（不再等 30 分钟）。
 4. 确定性校验：用 `sessions.transcript` 看这次运行的工具调用里是否至少有一次写入 `memory/tasks/` 下文件；没有则写 `context-keeper.degraded` 事件并仍然压缩（压缩不应被模型不听话卡住），不重试复盘。
-5. learning 的 skill_store 思路可作为复盘的一部分：复盘提示词可提示"可复用流程存为 skill"，但那是各 agent 自己选的 skill/工具，不由本插件依赖。
+5. hermes-experience 的 skill_store 思路可作为复盘的一部分：复盘提示词可提示"可复用流程存为 skill"，但那是各 agent 自己选的 skill/工具，不由本插件依赖。
 
 复盘本身有成本（一次完整运行 + 缓存冷读 130k），所以只在 `review: true` 且上下文 ≥ `minTokens` 时做；`reply: none` 避免打扰主人。
 

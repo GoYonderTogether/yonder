@@ -9,7 +9,7 @@ import { atomicText, checkActive, digest, directory, fail, readText } from "./st
 const META = ".hermes-provenance.json";
 // Provenance owner is persisted user data: skills saved before the plugin rename
 // keep the legacy owner id and must stay editable and archivable.
-const LEGACY_OWNER = "learning";
+const LEGACY_OWNER = "hermes-experience";
 const ownerOf = (options) => options.pluginId ?? "learning";
 const owned = (meta, options) => meta.owner === ownerOf(options) || meta.owner === LEGACY_OWNER;
 const MAX = 32768,

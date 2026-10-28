@@ -6,10 +6,8 @@ export const MAPPINGS = [
 	["packages/execution-protocol", "packages/protocol"],
 	["packages/executor", "packages/device"],
 	["@yonder/execution-protocol", "@yonder/protocol"],
-	["@yonder/plugin-hermes-experience", "@yonder/plugin-learning"],
 	["@yonder/plugin-ui-companion", "@yonder/plugin-interaction"],
 	["@yonder/executor", "@yonder/device"],
-	["hermes-experience", "learning"],
 	["ui-companion", "interaction"],
 	["yonder-harness", "yonder"],
 	["~/.local/share/yonder-harness", "~/.local/share/yonder"],
@@ -45,11 +43,15 @@ const SKIP_PREFIXES = [
 	"packages/cli/src/migrate",
 	"scripts/migrate/",
 	"docs/verification/",
+	"proposals/unified-client/",
+	".workbuddy-ai/memory/",
 	"plugins/hermes-experience/",
 	"third_party/",
 ];
 // Literals that must survive: the GitHub repo is not renamed yet, local checkout paths and the alias package stay.
 const PROTECTED = [
+	".yonder-harness",
+	"把旧 `yonder-harness`",
 	"GoYonderTogether/yonder-harness",
 	"Documents/yonder-harness",
 	"cd yonder-harness",
@@ -62,6 +64,7 @@ function shouldSkip(relative) {
 	return (
 		parts.some((part) => SKIP_DIRS.has(part)) ||
 		relative === "docs/archive.md" ||
+		relative === "docs/decisions.md" ||
 		SKIP_PREFIXES.some((prefix) => relative.startsWith(prefix)) ||
 		/(^|\/)CHANGELOG(?:\.[^/]*)?$/.test(relative) ||
 		SKIP_FILES.has(path.basename(relative))

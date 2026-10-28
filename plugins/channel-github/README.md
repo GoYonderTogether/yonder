@@ -99,7 +99,7 @@ releases:
   approvedAuthors: [maintainer-login]
   policy: apply
   updater:
-    install: ~/.yonder
+    install: ~/.yonder-harness
     home: ~/.local/share/yonder/home
 ```
 

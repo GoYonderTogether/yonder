@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import {
 	compareVersions,
 	latestRelease,
@@ -21,6 +21,16 @@ import {
 	windowsLauncher,
 	windowsServiceLauncher,
 } from "./index.js";
+
+test("default installation root preserves existing Unix installs", async () => {
+	if (process.platform === "win32") return;
+	vi.stubEnv("YONDER_INSTALL", undefined);
+	try {
+		expect((await releaseInfo()).install).toBe(join(homedir(), ".yonder-harness"));
+	} finally {
+		vi.unstubAllEnvs();
+	}
+});
 
 test("Linux user unit and Windows wrappers keep installed code separate from home", () => {
 	const unit = linuxServiceUnit("/opt/yonder app", "/tmp/agent home", "/usr/bin:/bin");

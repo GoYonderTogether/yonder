@@ -147,7 +147,7 @@ return { retry, advance, error, delay: retry ? retryDelayMs(policy, attempt) : 0
 
 ## 3. 本机实证：为什么「没有回复」
 
-数据源：`~/.local/share/yonder/home/.yonder/state.db`（注意同目录 `home/state.db` 是 0 字节空文件，真库在 `.yonder/` 下），只读 `file:state.db?immutable=1`。时间窗：近 3 天（截至 2026-10-27 14:52 EDT）。
+数据源：`~/.local/share/yonder-harness/home/.yonder/state.db`（注意同目录 `home/state.db` 是 0 字节空文件，真库在 `.yonder/` 下），只读 `file:state.db?immutable=1`。时间窗：近 3 天（截至 2026-10-27 14:52 EDT）。
 
 ### 3.1 run 结果分布
 

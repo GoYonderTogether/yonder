@@ -203,7 +203,7 @@ fork 历史是 **squash 的根提交**（`eca1f259b` 无父提交），所以 v1
 - **`Harness.wake()` / `onWake` / `setTimer`**：harness 的 cron、background job、服务宿主可据此休眠，而不是自建轮询。
 - **durable `telemetry` + pi-ai `AI_TELEMETRY_SCHEMA` + `pi-telemetry/render` 的 `renderTrace()`**：T61 的 `pi.model-observation` 与 `scripts/export-model-observations.mjs`（读 `observation.version`/`observation.timing.*`/`observation.usage.*`）是自建同构能力，中期可迁移并删掉半个 pi-ai fork。
 - **`restartLimit` / `Harness.retryTask` / `blocked` 原因**：可替代 harness 的 credential-slot-recovery 之外的自建崩溃循环处理（现状 grep 无 `restartLimit`）。
-- **`identity`**：harness 目前只有 `packages/core/src/runtime/quota-source.ts:156` 的 `"User-Agent": "yonder"`（自建 HTTP 客户端，与模型请求无关），模型请求可统一走上游 identity。
+- **`identity`**：harness 目前只有 `packages/core/src/runtime/quota-source.ts:156` 的 `"User-Agent": "yonder-harness"`（自建 HTTP 客户端，与模型请求无关），模型请求可统一走上游 identity。
 
 ### 4.5 同步流程（`scripts/sync-pi-durable.mjs`）
 
@@ -240,7 +240,7 @@ fork 历史是 **squash 的根提交**（`eca1f259b` 无父提交），所以 v1
 ```
 npm run lint                 # biome check . + scripts/check-file-size.mjs
 npm run typecheck            # tsc -b --force
-npm run build                # 含 check-pi-ai-bundle.mjs → tsc -b → devices/macos/interaction
+npm run build                # 含 check-pi-ai-bundle.mjs → tsc -b → devices/macos/ui-companion
 npm test                     # vitest run --exclude '**/dist/**'
 npm run test:node            # node --test scripts/export-model-observations.test.mjs
 node scripts/check-pi-durable-workspace.mjs

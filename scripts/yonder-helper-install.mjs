@@ -58,7 +58,7 @@ export async function installHelper(root, directory = stableDirectory()) {
 	// A development checkout can only install into an explicit isolated directory.
 	// Production uses the selected installed release, including after rollback.
 	if (resolve(directory) === resolve(stableDirectory())) {
-		const install = process.env.YONDER_INSTALL ?? join(homedir(), ".yonder");
+		const install = process.env.YONDER_INSTALL ?? join(homedir(), ".yonder-harness");
 		if (root !== (await realpath(join(install, "current"))))
 			throw new Error(
 				"Production Helper installation requires the current installed release, not a development checkout",

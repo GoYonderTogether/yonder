@@ -15,6 +15,9 @@ test("rename codemod is idempotent and skips protected paths", (t) => {
 	};
 	put("package.json", '{"name":"@yonder/executor","dependencies":{"@yonder/execution-protocol":"1"}}');
 	put("src/a.ts", 'import "hermes-experience"; // yonder-harness');
+	put("install.ts", 'const root = ".yonder-harness";');
+	put("docs/migrate.md", "把旧 `yonder-harness` 用户数据");
+	put("plugins/learning/src/owner.mjs", 'const old = "hermes-experience";');
 	put("docs/archive.md", "yonder-harness");
 	put("CHANGELOG.md", "yonder-harness");
 	put("node_modules/kept/index.js", "yonder-harness");
@@ -24,10 +27,15 @@ test("rename codemod is idempotent and skips protected paths", (t) => {
 	put("plugins/hermes-experience/package.json", "hermes-experience");
 	put("README.md", "https://github.com/GoYonderTogether/yonder-harness; cd yonder-harness; yonder-harness");
 
+	const kept = ["install.ts", "docs/migrate.md", "plugins/learning/src/owner.mjs"].map((name) => [
+		name,
+		fs.readFileSync(path.join(root, name), "utf8"),
+	]);
 	assert.ok(migrate(root, { apply: true }).changes.length > 0);
 	assert.deepEqual(migrate(root, { apply: true }).changes, []);
+	for (const [name, text] of kept) assert.equal(fs.readFileSync(path.join(root, name), "utf8"), text);
 	assert.match(fs.readFileSync(path.join(root, "package.json"), "utf8"), /@yonder\/device/);
-	assert.match(fs.readFileSync(path.join(root, "src/a.ts"), "utf8"), /learning/);
+	assert.match(fs.readFileSync(path.join(root, "src/a.ts"), "utf8"), /hermes-experience/);
 	for (const name of [
 		"docs/archive.md",
 		"CHANGELOG.md",

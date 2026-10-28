@@ -5,17 +5,17 @@
 基线：harness `main` @0211948（2026-10-27）｜Card `origin/main` @09e6f90（2026-10-24）｜pi `yonder/1.3`（远端 55e9146；vendored 基线 45014f2）
 只读核查，未做任何写操作。`a/b` = ahead/behind 相对该仓库主线；"非等价" = `git cherry` 中 `+` 的提交数。
 
-## 1. yonder 本地分支（remote: origin=GoYonderTogether，archive=zoran-xc 旧镜像）
+## 1. yonder-harness 本地分支（remote: origin=GoYonderTogether，archive=zoran-xc 旧镜像）
 
 | 分支 | HEAD | 基准 | a/b | 已合入 | 规模 | 用途 | dry-merge vs main | 建议 |
 |---|---|---|---|---|---|---|---|---|
 | yonder/runtime-discipline | 58a9850 10-27 docs(runtime): record runtime discipline guarantees and tests | d3537b2 | 1/307 | 否，1 非等价 | 27 文件 +914/−29 | 运行时纪律保证与测试 | 冲突 10：CHANGELOG.md、docs/decisions.md、docs/spec/03-agents.md、06-delivery.md、docs/status.md、delivery.test.ts、prompt/index.test.ts、prompt/index.ts、runtime/index.ts、limits.ts | **MERGE**（变基重放）：main 完全没有 `docs/verification/runtime-discipline.md` 与 `packages/core/src/kernel/runtime-discipline.test.ts`；但 runtime/delivery 代码已被 main 大改（runtime/index.ts main 侧多 51 行、delivery/index.ts main 侧多 202 行），需人工重放 |
-| yonder/card-plugin | 28ae1bf 10-27 feat(card): add card channel plugin with device login and multi-agent routing | aaf23e3 | 19/352 | 否，14 非等价 | 142 文件 +9673/−99 | 名片渠道 + companion UI + 微信迁移合集 | 冲突 10+：CHANGELOG.md、THIRD_PARTY_NOTICES.md、biome.json、brand/README.md、brand/src/yonder-mark.js（add/add）、docs/architecture.md、docs/decisions.md、docs/index.md、docs/plugins.md、docs/spec/01-events.md | **SPLIT + ARCHIVE**：`plugins/channel-card`、`plugins/interaction`、`plugins/channel-wechat-ilink`、`plugins/wechat-archive`、`plugins/clipboard` 都已在 main（85 个新增文件中 29 个与 main 逐字节相同、25 个是更旧版本）；main 仍缺 31 个：`brand/assets/**`、`brand/scripts/build.mjs`、`proposals/ai-card/*`、`proposals/card-studio/*` → 只捞这些，分支打 tag 归档 |
+| yonder/card-plugin | 28ae1bf 10-27 feat(card): add card channel plugin with device login and multi-agent routing | aaf23e3 | 19/352 | 否，14 非等价 | 142 文件 +9673/−99 | 名片渠道 + companion UI + 微信迁移合集 | 冲突 10+：CHANGELOG.md、THIRD_PARTY_NOTICES.md、biome.json、brand/README.md、brand/src/yonder-mark.js（add/add）、docs/architecture.md、docs/decisions.md、docs/index.md、docs/plugins.md、docs/spec/01-events.md | **SPLIT + ARCHIVE**：`plugins/channel-card`、`plugins/ui-companion`、`plugins/channel-wechat-ilink`、`plugins/wechat-archive`、`plugins/clipboard` 都已在 main（85 个新增文件中 29 个与 main 逐字节相同、25 个是更旧版本）；main 仍缺 31 个：`brand/assets/**`、`brand/scripts/build.mjs`、`proposals/ai-card/*`、`proposals/card-studio/*` → 只捞这些，分支打 tag 归档 |
 | yonder/clipboard-vault | fdc88b6 10-27 feat(clipboard): add clipboard vault plugin workspace | f820996 | 2/328 | 否，2 非等价 | 33 文件 +1991/−7 | 剪贴板/Keychain 保管库 | 冲突 10+：CHANGELOG.md、docs/decisions.md、docs/index.md、docs/plugins.md、docs/reference.md、docs/spec/04-plugins.md、package-lock.json、package.json、delivery.test.ts、packages/sdk/src/types.ts | **ALREADY-IN（删）**：19 个新增文件中 16 个与 main 相同，3 个不同（`plugins/clipboard/package.json` 2/2、`test/clipboard.test.ts` main 多 34 行、`test/real-model.test.ts` main 多 111 行）→ main 更新，分支是旧版本 |
 | archive/main-before-rightapi-20261023 | dfb9f5f 10-21 docs: 添加 AI 名片与 Agent 聊天平台最小闭环设计草案 | aaf23e3 | 7/352 | 否，4 非等价 | 64 文件 +3600/−58 | rightapi 改造前快照 | 冲突 10+：CHANGELOG.md、THIRD_PARTY_NOTICES.md、docs/decisions.md、docs/plugins.md、docs/spec/04/09/11、package-lock.json、package.json、packages/cli/src/completion.test.ts | **ARCHIVE（tag）**：25 个新增文件中 11 个与 main 相同、8 个更旧；main 仅缺 `proposals/ai-card/*` 6 个文件（与 card-plugin 重复） |
 | archive/private-main | f3d384a 10-20 docs: 完成中英文 README… | 无共同祖先 | 156/371 | 否 | 721 文件 +1579/−100604 | 旧私有镜像（sha 与 remote `archive/main` 相同） | `git merge-tree` 报 refusing to merge unrelated histories | **ARCHIVE（tag）+ 删 archive remote**：独有仅 `patches/pi-durable-1.3.0.patch`(10986B)、`scripts/apply-pi-patch.mjs`、`packages/core/src/runtime/patch.test.ts`、`docs/prompts/builtin.zh-CN.md`；main 已改用 vendored `packages/pi-durable`（无 patches/ 机制） |
 
-## 2. yonder 远端分支（本地已有同名 remote 引用；`gh api` 显示无额外远端独有分支）
+## 2. yonder-harness 远端分支（本地已有同名 remote 引用；`gh api` 显示无额外远端独有分支）
 
 | 分支 | HEAD | a/b | 已合入 | 规模 | 用途 | dry-merge vs main | 建议 |
 |---|---|---|---|---|---|---|---|
@@ -36,7 +36,7 @@
 |---|---|---|---|---|---|---|---|---|
 | zoran/live-dev（主 worktree `~/Documents/yonder-card-web`） | ce3f4d9 10-26 docs: describe full-stack web and documentation map | origin/main | 44/2 | 否，44 非等价 | 240 文件 +8435/−915 | 全栈 live 开发线（server/ + 身份/名片/群/短链） | 冲突 39：server/src/app.ts、auth.ts、cards.ts、chat.ts、devices.ts… | **MERGE**（变基到 origin/main）：唯一活跃开发线，已推 `origin/zoran/live-dev`；冲突集中在 server/ 与 src/App.tsx |
 | codex/multidevice-w0-20261026（worktree `…/task/worktrees/yonder-card-multidevice-w0`） | ab456a5 10-26 fix(card): bound relay frames before WebSocket parsing | origin/main | 35/2 | 否，35 非等价 | 187 文件 +7962/−882 | Card 执行中继 W0（可选 relay 传输） | 冲突 39（同 live-dev） | **MERGE**：相对 live-dev 仅 3 个独有提交（ce3cb53 契约文档、513d14a relay transport、ab456a5 帧上限）；**未推送** |
-| fix/yonder-web-ui-icons-20261027（worktree `~/.local/share/yonder/home/development/yonder-web-ui-icons-20261027`） | 887769b 10-26 fix(ui): use Lucide return arrow and separate execution from connectivity | live-dev ce3f4d9 | 44/2 | 否，44 非等价 | 238 文件 +8346/−891 | 返回箭头 + 执行/连通分离 | 冲突 39 | **SQUASH-MERGE**：相对 live-dev 只有 1 个提交，cherry-pick 即可；**未推送** |
+| fix/yonder-web-ui-icons-20261027（worktree `~/.local/share/yonder-harness/home/development/yonder-web-ui-icons-20261027`） | 887769b 10-26 fix(ui): use Lucide return arrow and separate execution from connectivity | live-dev ce3f4d9 | 44/2 | 否，44 非等价 | 238 文件 +8346/−891 | 返回箭头 + 执行/连通分离 | 冲突 39 | **SQUASH-MERGE**：相对 live-dev 只有 1 个提交，cherry-pick 即可；**未推送** |
 | main（本地） | 931e84c 10-23 feat: 桌面三栏、通讯录卡包…（0.2.26102301） | origin/main | 3/2 | 否，3 非等价，但 3 提交是 live-dev 的祖先 | 69 文件 +2951/−667 | 早期桌面三栏 | 冲突 11：src/App.tsx、src/components/CardView.tsx(add/add)、Shell.tsx、chat/DeviceRow.tsx(add/add)、wallet/ContactList.tsx(add/add)… | **ALREADY-IN（本地 main 重置到 origin/main）**：内容全部在 live-dev 内 |
 | yonder/card-web-takeover-20261023（worktree `/private/tmp/yonder-card-web-takeover-20261023/worktree`） | 7ca4b14 10-23 | origin/main | 0/1 | **是，origin/main 的祖先** | — | 卡包/通讯录/社交导航 | clean | **ALREADY-IN（删分支 + 删 /private/tmp worktree）** |
 | task-6/card-w3（detached worktree `~/Documents/Codex/2026-10-26/task-6/card-w3`） | 269e75f 10-26 fix(card): bound relay frames… | ce3cb53 | — | 无分支引用；树与 ab456a5 完全相同 | 与 W0 同 | relay 帧上限 | — | **ALREADY-IN（删 worktree）**：`git diff 269e75f ab456a5` 为空 |
@@ -48,7 +48,7 @@
 
 | 路径 | 归属 | HEAD | 已合入 | 规模 | 用途 | dry-merge | 建议 |
 |---|---|---|---|---|---|---|---|
-| task-4/yonder-w1 | harness 的**整份克隆**（origin 指向已不存在的 `…/task/worktrees/yonder-multidevice-w0`，死链） | detached 98763d9 10-26 feat(executor): bind optional persistent Card relay to daemon（本地分支 codex/multidevice-w0-20261026 = 0591eae） | **是**：d8bb080、ac29e39、3896910、98763d9 四个提交 `git cherry main` 全为 `-`（patch 等价） | 10 文件 +2279 | executor：签名设备台账、HTTPS daemon+配对 CLI、daemon 独占/RPC 原子化、Card relay 绑定 | vs harness main：5 个 add/add 冲突 `packages/device/{README.md,src/cli.ts,src/executor.ts,test/executor.test.ts,test/regressions.test.ts}` | **ALREADY-IN（删检出）**：main 已有同功能且更全（`packages/device/src/backends/linux*`、`agent-device-worker.ts`、`fence daemon` 修复） |
+| task-4/yonder-w1 | harness 的**整份克隆**（origin 指向已不存在的 `…/task/worktrees/yonder-multidevice-w0`，死链） | detached 98763d9 10-26 feat(executor): bind optional persistent Card relay to daemon（本地分支 codex/multidevice-w0-20261026 = 0591eae） | **是**：d8bb080、ac29e39、3896910、98763d9 四个提交 `git cherry main` 全为 `-`（patch 等价） | 10 文件 +2279 | executor：签名设备台账、HTTPS daemon+配对 CLI、daemon 独占/RPC 原子化、Card relay 绑定 | vs harness main：5 个 add/add 冲突 `packages/executor/{README.md,src/cli.ts,src/executor.ts,test/executor.test.ts,test/regressions.test.ts}` | **ALREADY-IN（删检出）**：main 已有同功能且更全（`packages/executor/src/backends/linux*`、`agent-device-worker.ts`、`fence daemon` 修复） |
 | task/worktrees/yonder-card-multidevice-w0 | card-web worktree | ab456a5 | 见上表 | — | Card relay W0 | — | 走 §3 的 W0 行 |
 | task-6/card-w3 | card-web worktree | 269e75f | 与 ab456a5 同树 | — | — | — | 删 worktree |
 | task/、task-2/ | 非 git 仓库 | — | — | md/证据文件 | `multidevice-plan.md`、`integration-progress.md`、`w0-*-evidence.json`、`multidevice-admission-review.md` | — | 保留为证据；task-3/5/7 是空目录 |
@@ -104,7 +104,7 @@ vendored 校验：45014f2 的 `packages/durable`（209 文件）对 harness `pac
 
 1. **card-web**：`zoran/live-dev` 变基到 `origin/main`（44/2，39 冲突集中在 `server/src/*`），推 `origin/zoran/live-dev`。
 2. **card-web**：cherry-pick 887769b（ui-icons，1 提交）到 live-dev。
-3. **card-web**：cherry-pick ce3cb53 + 513d14a + ab456a5（relay W0）到 live-dev。**依赖**：harness 侧 executor 已具备 `packages/device/src/card-connection.ts`（main 的 eef9f51 / 246961e 已合），故 harness 无需再动，Card 侧先落地即可对接。
+3. **card-web**：cherry-pick ce3cb53 + 513d14a + ab456a5（relay W0）到 live-dev。**依赖**：harness 侧 executor 已具备 `packages/executor/src/card-connection.ts`（main 的 eef9f51 / 246961e 已合），故 harness 无需再动，Card 侧先落地即可对接。
 4. **card-web**：合 `origin/design/owner-console`（clean，3 文件）。
 5. **harness**：先合 **PR #59** `yonder/proposals-delta`（clean，纯文档，零风险）。
 6. **harness**：`yonder/default-agent-peer-binding`（30 文件 +798，含 `kernel/peer.ts`；先解 docs/spec/03-agents.md、09-cli-release.md 冲突）。
@@ -121,4 +121,4 @@ vendored 校验：45014f2 的 `packages/durable`（209 文件）对 harness `pac
 - **card-web 已入库的验证截图**：`artifacts/avatar-study-2026-10-26/` 已有 20 个文件入库（整目录 8.8M），另有 5 个未跟踪。
 - **可能含敏感数据的文件（仅列名，未读值）**：`artifacts/avatar-study-2026-10-26/wallet-browser-debug.json`（430K 浏览器调试转储，可能含 cookie/token/localStorage）；`fresh-runtime-presence.json`、`live-export-bundle-check.json`、`renderer-cors-check.json`；harness 改动中的 `proposals/local-model-gateway.md` 与 `.workbuddy-ai/memory/2026-10-27.md` 涉及 provider/账号描述，提交前确认无明文 key。
 - **本地 main 与 origin/main 不同步**（card-web：本地 main 3/2，且其 3 提交只在 live-dev 里；harness 两个 archive 分支含义不同，一个是镜像一个是快照）→ 易误判"已合入"。
-- **未核实**：`stash@{1}` 那 3 行差异是否已无价值；`yonder/runtime-discipline` 的代码部分是否已被 main 完全超车（main 侧 delivery/index.ts 反而多 202 行，方向需人工比对）；`yonder/card-plugin` 中 25 个"不同"文件中 interaction/channel-wechat-ilink 的最新意图归谁（分支 10-23 提交 vs main 10-23 提交，语义需 owner 判断）。
+- **未核实**：`stash@{1}` 那 3 行差异是否已无价值；`yonder/runtime-discipline` 的代码部分是否已被 main 完全超车（main 侧 delivery/index.ts 反而多 202 行，方向需人工比对）；`yonder/card-plugin` 中 25 个"不同"文件中 ui-companion/channel-wechat-ilink 的最新意图归谁（分支 10-23 提交 vs main 10-23 提交，语义需 owner 判断）。

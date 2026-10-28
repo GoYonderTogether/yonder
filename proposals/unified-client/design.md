@@ -163,7 +163,7 @@ interface FeatureDef {
 
 | 仓库（目标名） | 可见性 | 职责 | 依赖 |
 |---|---|---|---|
-| `GoYonderTogether/yonder`（现 `yonder`） | 公开，Apache-2.0 | 全部开源代码 | 第三方、pi fork |
+| `GoYonderTogether/yonder`（现 `yonder-harness`） | 公开，Apache-2.0 | 全部开源代码 | 第三方、pi fork |
 | `GoYonderTogether/yonder-cloud`（现 `yonder-web`，由 `server/`、`deploy/` 演化） | **私有，唯一闭源** | 账号、Card 社交服务端、托管 relay、部署、站点静态托管脚本 | `@yonder/protocol`、`@yonder/app` 发布产物（版本固定） |
 | `GoYonderTogether/pi` | 公开 | pi fork，分支 `yonder/1.4` | 上游 |
 | `yonder-hermes-extensions` | 本地无 remote | 并回主仓后归档（§2.4） | — |
@@ -177,13 +177,13 @@ interface FeatureDef {
 
 建议：
 
-- `@yonder/protocol` 合并 `@yonder/protocol`（已有 `src/schema.ts` 单一源、`relay-v1.json`、`contract.lock.json` 模式，见 spec 18 §6）与云设备/中转协议（spec 16 已写明的 `/api/device/*`、`/ws/device` 帧）。协议文字以主仓为权威，云按锁文件对齐。
+- `@yonder/protocol` 合并 `@yonder/execution-protocol`（已有 `src/schema.ts` 单一源、`relay-v1.json`、`contract.lock.json` 模式，见 spec 18 §6）与云设备/中转协议（spec 16 已写明的 `/api/device/*`、`/ws/device` 帧）。协议文字以主仓为权威，云按锁文件对齐。
 - 主仓 CI 检查「不得出现对 `yonder-cloud` 的路径引用」：`grep -rn "yonder-cloud\|yonder-card-web" packages apps plugins docs --include=*.ts --include=*.json --include=*.md` 只允许 `docs/archive.md` 与迁移说明命中。
 - 契约测试对着参考 relay 或回环契约服务器跑（spec 16 §5 已有），不再需要私有仓。真实云联调留在 `yonder-cloud` 的集成作业。
 
 ### 2.4 hermes 两份代码的关系（已核实）
 
-| | 外部 `yonder-hermes-extensions/packages/learning` | 主仓 `plugins/hermes-experience` |
+| | 外部 `yonder-hermes-extensions/packages/hermes-experience` | 主仓 `plugins/hermes-experience` |
 |---|---|---|
 | 版本 | 0.1.1（CHANGELOG：本地候选，未发布，`private: true`） | `0.2.26102705`（随主仓统一版本） |
 | 源码 | 7 个 `.mjs`，共 64,091 字节 | 同名 7 个 `.mjs`（在 `src/`），共 70,044 字节，另有 `docs/`、`skills/hermes-yonder`、`test/`、`dist/` |
@@ -195,7 +195,7 @@ interface FeatureDef {
 决定：
 
 - **以主仓版为准，改名 `plugin-learning`。** 不是「用外部更新的替换主仓」：两边功能面看起来同为 0.1.1，主仓版带文档、技能和测试，已集成。若归一化比对后外部有主仓没有的改动，用 `git format-patch` 式逐条移植，不整体覆盖。
-- **改名的真实代价：** 插件 id 是用户数据的键。受影响：`yonder.yaml` 的 `use` 与 `config.scopes`、agent/profile 选入的工具名 `learning_*`、运行时状态 `<home>/.yonder/plugins/hermes-experience/learning-state.json`、`.hermes-pending` 与 `.hermes-skill-archive` 目录。处理见 §3.4 `yonder migrate`。
+- **改名的真实代价：** 插件 id 是用户数据的键。受影响：`yonder.yaml` 的 `use` 与 `config.scopes`、agent/profile 选入的工具名 `hermes-experience_*`、运行时状态 `<home>/.yonder/plugins/hermes-experience/learning-state.json`、`.hermes-pending` 与 `.hermes-skill-archive` 目录。处理见 §3.4 `yonder migrate`。
 - 与 `plugins/memory`（spec 15）的功能边界要在改名时写清：memory 管事件驱动的记忆整理，learning 管会话后复盘、私有技能与 pending。边界写不清就是命名没做对，这是 §12 R7。
 - **`hermes-workspace`（0.1.0，57 行，工具 `hermes-workspace_preview`）：** 只读预览 Hermes 主目录布局，固定源 commit `0eb4f62a…`，无 Hermes 导入、不读凭据。它不是长期功能，是一次性迁移预览，建议并入 `yonder migrate` 的 `hermes` 子步骤（工具化后给管家 onboarding 用），不单独成插件。
 - 外部仓库：先推 private remote（B1 §6 指出当前零备份），标 tag `archive/hermes-extensions-20261027`，再 GitHub archive。
@@ -217,19 +217,19 @@ interface FeatureDef {
 | `GoYonderTogether/yonder-harness` | `GoYonderTogether/yonder` | GitHub 自动重定向旧 URL；本地目录 `~/Documents/yonder-harness` → `~/Documents/yonder` |
 | `GoYonderTogether/yonder-web`（本地 `yonder-card-web`） | `GoYonderTogether/yonder-cloud` | 私有；`src/` 前端迁入主仓 `apps/app`，仓内只剩 `server/`、`deploy/` |
 | `yonder-hermes-extensions` | 归档 | §2.4 |
-| `zoran-xc/yonder`、`AI-Being`、`being`、`being-net`、`yonder-being`、`being-releases`、`yondermesh` | 归档 | §8 |
+| `zoran-xc/yonder-harness`、`AI-Being`、`being`、`being-net`、`yonder-being`、`being-releases`、`yondermesh` | 归档 | §8 |
 
 npm 包：
 
 | 旧 | 新 |
 |---|---|
 | `@yonder/core`、`@yonder/sdk`、`@yonder/cli` | 不变（cli 的 bin 仍为 `yonder`） |
-| `@yonder/protocol` | `@yonder/protocol`（合并云设备与中转协议） |
-| `@yonder/device` | `@yonder/device`（Opus 复核后定，§12 R9） |
+| `@yonder/execution-protocol` | `@yonder/protocol`（合并云设备与中转协议） |
+| `@yonder/executor` | `@yonder/device`（Opus 复核后定，§12 R9） |
 | `@yonder/pi-durable` | 不变（上游衍生，保留） |
 | 新增 | `@yonder/gateway`、`@yonder/app`、`@yonder/desktop`、`@yonder/design`、`@yonder/relay`（参考 relay） |
 | `@yonder/plugin-hermes-experience` | `@yonder/plugin-learning` |
-| `@yonder/plugin-interaction` | `@yonder/plugin-interaction`（拆分后只剩提问卡工具与存储，服务与页面退役，§4.8） |
+| `@yonder/plugin-ui-companion` | `@yonder/plugin-interaction`（拆分后只剩提问卡工具与存储，服务与页面退役，§4.8） |
 | `@yonder/plugin-codex-tools` | 以功能命名（**内容未核实**，阶段 2 读源码后定） |
 | 其余插件 | 已按功能或平台命名（`channel-*`、`tasks`、`cron`、`memory`、`web-tools`…），不动 |
 
@@ -238,14 +238,14 @@ npm 包：
 | 旧 | 新 |
 |---|---|
 | `yonder-executor` | `yonder device …`（子命令）；保留 `yonder-executor` shim 两个版本 |
-| launchd 标签与 helper：`dev.yonder.power`（`packages/cli/src/awake.ts:9,70-72`，路径含 `/Library/PrivilegedHelperTools/…`、`/Library/LaunchDaemons/…`） | `dev.yonder.power` |
-| `User-Agent: yonder`（`packages/core/src/runtime/quota-source.ts:156`） | `yonder/<version>` |
+| launchd 标签与 helper：`dev.yonder.harness.power`（`packages/cli/src/awake.ts:9,70-72`，路径含 `/Library/PrivilegedHelperTools/…`、`/Library/LaunchDaemons/…`） | `dev.yonder.power` |
+| `User-Agent: yonder-harness`（`packages/core/src/runtime/quota-source.ts:156`） | `yonder/<version>` |
 
 运行时目录与环境变量：
 
 | 旧 | 新 | 备注 |
 |---|---|---|
-| `~/.local/share/yonder/home`（`packages/cli/src/index.ts:269`） | `~/.local/share/yonder/home` | 迁移后在旧路径留符号链接 |
+| `~/.local/share/yonder-harness/home`（`packages/cli/src/index.ts:269`） | `~/.local/share/yonder/home` | 迁移后在旧路径留符号链接 |
 | `<home>/.yonder/`（`awake.json`、`logs`、`plugins/<id>`、`auth.json` 等） | 不变 | 已是产品名 |
 | `~/.ai-being/` | 不动 | 用户数据，由主人处理 |
 | 环境变量 `YONDER_*` | 不变 | 仓库内无 `YONDER_HARNESS_*`（已 grep）；仅 `YONDER_CARD_ROOT`（3 处，测试用）改 `YONDER_CLOUD_ROOT` |
@@ -258,10 +258,10 @@ npm 包：
 | 重复 | 处理 |
 |---|---|
 | 品牌：`brand/src/yonder-mark.js`、Card 另存 SVG 与草案 | 唯一源 `packages/design/brand/`（`@yonder/design`），Card 副本删 |
-| 设计令牌：Card `src/styles.css`（197 行，115 个 `--` 令牌）与 interaction `style.css:1-2` 复制 | 令牌随前端并入同仓后直接放 `packages/design/tokens.css`，两处引用 |
+| 设计令牌：Card `src/styles.css`（197 行，115 个 `--` 令牌）与 ui-companion `style.css:1-2` 复制 | 令牌随前端并入同仓后直接放 `packages/design/tokens.css`，两处引用 |
 | 图标：lucide 子集两份 | `@yonder/design` 一份 |
 | pi 多个目录 | 实为 1 仓库加 6 个 worktree（B1 §5/§a），清理见 §8 |
-| 同名插件 learning | §2.4 |
+| 同名插件 hermes-experience | §2.4 |
 | 4 个 Card 名字（`yonder-web`/`card-web`/`card-server`/`Yonder Web`） | 云端：`yonder-cloud`；前端：`@yonder/app`；不再有「Card Web」 |
 
 前端并入主仓后，令牌「先复制再反转权威」的跨仓步骤不再需要（第一版 §3.6 的麻烦消失）。
@@ -271,13 +271,13 @@ npm 包：
 目标：已有用户升级后不丢数据、不需要手改配置，旧名给出明确提示。
 
 - **`yonder migrate`（新子命令，一次性，幂等，先备份）：**
-  1. 若 `~/.local/share/yonder/home` 存在而新路径不存在：`mv` 到新路径，旧路径留符号链接。`yonder service install` 提示重新注册 launchd（服务文件里写死了旧路径，**未核实**其具体字段，阶段 2 读 `yonder-service-host.mjs` 确认）。
-  2. 重写 `yonder.yaml` 和 `agents/*.yaml` 中的旧插件 id 与工具名（`learning` → `learning`，`interaction` → `interaction`）；原文件备份为 `*.pre-migrate-<日期>`。
+  1. 若 `~/.local/share/yonder-harness/home` 存在而新路径不存在：`mv` 到新路径，旧路径留符号链接。`yonder service install` 提示重新注册 launchd（服务文件里写死了旧路径，**未核实**其具体字段，阶段 2 读 `yonder-service-host.mjs` 确认）。
+  2. 重写 `yonder.yaml` 和 `agents/*.yaml` 中的旧插件 id 与工具名（`hermes-experience` → `learning`，`ui-companion` → `interaction`）；原文件备份为 `*.pre-migrate-<日期>`。
   3. 移动 `<home>/.yonder/plugins/hermes-experience/` → `…/learning/`。`memoryDir` 下的 `.hermes-pending` 等用户目录不动（README 声明 memoryDir 是用户授权的现有目录）。
   4. 打印将要做的操作；加 `--dry-run`。
 - **读取兼容期：** 内核启动时若发现旧路径是真实目录（未迁移），仍从旧路径读并提示 `yonder migrate`，保持两个发布版本，之后移除。
 - **插件 id：不做长期别名机制。** 缺口只在升级那一刻，由 `migrate` 解决。加载时遇到旧 id 报错明确指向新 id 与 `yonder migrate`。
-- **CLI 别名：** `yonder` 保留两个版本的 shim，打印弃用提示后转 `yonder`。
+- **CLI 别名：** `yonder-harness` 保留两个版本的 shim，打印弃用提示后转 `yonder`。
 - **npm：** 若旧包名已发布（**未核实**，`plugins add` 的文档暗示可能已发布），对旧包发最后一版并 `npm deprecate`，指向新名。
 - **GitHub：** 仓库改名后旧 URL 自动重定向；README 顶部注明改名，不另建占位仓。
 - **验收：** §11 阶段 2。
@@ -473,7 +473,7 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 
 - 每个 view 增加可选 `requires`（同 `FeatureDef.needs` 的子集），由 §4.7 的 `visible()` 判断。
 - Bot 的建议是一类 view：`interaction.suggestions`，由管家 Bot 用提问卡工具写入，前端渲染为「建议」卡片，操作经 `views.act`。
-- interaction 迁移：保留 `present/result` 工具和 `interactions.json` 存储，作为 `plugin-interaction`；删除 `service.ts`、`web/`、`desktop.json`/`renderer.json` 写入与 `build.mjs`。tasks 同样删 HTTP 服务，`board.ts` 渲染保留供 IM 出图。
+- ui-companion 迁移：保留 `present/result` 工具和 `interactions.json` 存储，作为 `plugin-interaction`；删除 `service.ts`、`web/`、`desktop.json`/`renderer.json` 写入与 `build.mjs`。tasks 同样删 HTTP 服务，`board.ts` 渲染保留供 IM 出图。
 - 冲突处理沿用 `claim(slot,name,pluginId)`（`packages/core/src/plugins/index.ts:131`）。
 
 ---
@@ -753,10 +753,10 @@ DSH 借鉴不变：只借模式（WS 多路、Cookie 防线、槽位面板），
 
 验收：
 
-1. `grep -rIn "yonder" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist .` 仅命中 `docs/archive.md`、迁移说明与 CHANGELOG 历史。
-2. 用主人真实 home 的**副本**测迁移：`cp -a ~/.local/share/yonder/home /tmp/yonder-home-old`，执行 `yonder migrate --dry-run` 再 `yonder migrate`，之后 `yonder start`；会话列表、learning 状态、凭据均在；再运行 `yonder migrate` 无变化（幂等）。
-3. 旧入口：`yonder --version` 打印弃用提示并转发；旧插件 id 加载报错信息指向新 id。
-4. `yonder service install` 后重启，服务带新路径与新 launchd 标签（macOS 真机）；旧 `dev.yonder.power` 助手卸载安装路径验证（需管理员授权，主人在场）。
+1. `grep -rIn "yonder-harness" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist .` 仅命中 `docs/archive.md`、迁移说明与 CHANGELOG 历史。
+2. 用主人真实 home 的**副本**测迁移：`cp -a ~/.local/share/yonder-harness/home /tmp/yonder-home-old`，执行 `yonder migrate --dry-run` 再 `yonder migrate`，之后 `yonder start`；会话列表、learning 状态、凭据均在；再运行 `yonder migrate` 无变化（幂等）。
+3. 旧入口：`yonder-harness --version` 打印弃用提示并转发；旧插件 id 加载报错信息指向新 id。
+4. `yonder service install` 后重启，服务带新路径与新 launchd 标签（macOS 真机）；旧 `dev.yonder.harness.power` 助手卸载安装路径验证（需管理员授权，主人在场）。
 5. `npm run build && npm test`；`gh repo view` 确认旧 URL 重定向到新名（`curl -sI https://github.com/GoYonderTogether/yonder-harness` 返回 301）。
 
 回滚：`migrate` 的备份与符号链接可反向；包改名在单独提交里，可整体 revert；旧 shim 仍在。

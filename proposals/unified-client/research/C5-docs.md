@@ -9,7 +9,7 @@
 1. **文档不缺，缺的是分层与单一来源。** 全仓 190+ 个 md：`docs/` 70 个（1.1M）、`proposals/` 27 个、`plugins/` 58 个、根目录 10 个。问题不是覆盖率，而是同一事实有 2–3 份副本（`docs/plugins.md` 与 `docs/spec/11-official-plugins.md` 覆盖同一批 23 个插件；`docs/prompts/README.md` 与 `docs/prompts/v5-draft.zh-CN.md` 重叠）。
 2. **`docs/` 不只是文档，它是运行时 API。** `packages/core/src/release/index.ts:122-149` 的 `readDocs()` 把安装目录下 `docs/` 递归列举，默认入口 `docs/index.md`；`yonder docs --list` 会把 `verification/`、`research/`、`evidence/*.json` 一起暴露给用户和 agent。任何"把内部记录挪走/归档"的决定都必须先考虑这条链路，且 `docs/index.md` 不能删。
 3. **已知 4 个问题全部核实成立**，另有 6 个新发现（见 §2）：`docs/index.md` 漏列 `spec/15-memory.md`（memory 规范从文档地图不可达）、`docs/status.md` 有两个 H1 且泄漏本机绝对路径、`docs/spec/04-plugins.md:35` 的"共九个"与 §3 结构不符、`docs/spec/16-card-plugin.md:3` 引用已删除的 `proposals/ai-card/plugin.md` 与外部仓路径。
-4. **改名面比预期小但很散。** 随仓库发布的文档里 `yonder` 96 处 / 34 个文件、`Yonder Harness` 21 处 / 14 个文件、`AI-Being` 15 处 / 11 个文件；`Card Web`/`Yonder Net`/`轻客户端` 在现行文档中已是 0 处（只活在 `proposals/`）。真正麻烦的是 22 个 `docs/verification/*.md` 里的路径与命令。
+4. **改名面比预期小但很散。** 随仓库发布的文档里 `yonder-harness` 96 处 / 34 个文件、`Yonder Harness` 21 处 / 14 个文件、`AI-Being` 15 处 / 11 个文件；`Card Web`/`Yonder Net`/`轻客户端` 在现行文档中已是 0 处（只活在 `proposals/`）。真正麻烦的是 22 个 `docs/verification/*.md` 里的路径与命令。
 5. **对照 pi：根 README 只做门面，深度文档跟随代码位置。** pi 根目录没有 `docs/`，`packages/coding-agent/docs/` 下 33 篇、`packages/chord/docs/` 3 篇，每包都有 `README.md` + `CHANGELOG.md`（共 108 个 md）。opencode 把文档做成 MDX 站点（`packages/web/src/content/docs`，33 篇 + 20 种语言，`docs-locale-sync.yml` 同步）。
 6. **对照 opencode：治理文件是开源仓库的硬门槛。** opencode 有 `.github/CODEOWNERS`、`TEAM_MEMBERS`、3 个 issue 模板 + PR 模板、约 30 个 workflow；yonder 有双语 issue/PR 模板和 1 个 CI job，缺 CODEOWNERS、依赖更新、文档检查。
 7. **本仓库没有任何文档自动化检查。** `npm run lint` = `biome check . && node scripts/check-file-size.mjs`（`package.json` scripts）。实际已积累 7 处断链 + 2 处非链接死引用 + 1 处 spec 编号冲突 + `docs/index.md` 漏文件——都是机器可查的。
@@ -23,7 +23,7 @@
 
 | 文件 | 行 | 最后提交 | 用途 | 读者 | 状态 |
 |---|---|---|---|---|---|
-| `README.md` | 129 | 2026-10-22 | 产品门面：定位、Quick start、日常命令、安全模型、文档索引 | 用户 | 现行；5 处 `yonder` |
+| `README.md` | 129 | 2026-10-22 | 产品门面：定位、Quick start、日常命令、安全模型、文档索引 | 用户 | 现行；5 处 `yonder-harness` |
 | `README.zh-CN.md` | 127 | 2026-10-20 | 同上中文版，章节一一对应 | 用户 | 落后英文版 2 天，非逐行同步 |
 | `AGENTS.md` | 9 | 2026-10-20 | 仓库内 agent 的 7 条硬规则（读序、边界、无 mock、pi 只在 `packages/core/src/runtime/` 引入、设计变更须批准） | agent | 现行；第 5 条（pi v1.3.0）与第 7 条（docs 清单）待改 |
 | `CLAUDE.md` | 1 | 2026-10-20 | 单行 `@AGENTS.md` 转发 | agent | 现行 |
@@ -100,7 +100,7 @@
 
 ### 2.2 `plugins.md` 与 `contributes` 漂移（部分成立，另有更严重的结构问题）
 
-- **编号已坏**（`grep -n '^##' docs/plugins.md`）：出现两个 `## 04`（`04 channel-mcp`、`04 browser-skill`），缺 `13`；`微信归档与 iLink`、`Clipboard / Keychain（D53）`、`channel-card`、`interaction`、`agent-presets`、`learning`、`tasks`、`devices` 共 8 节**无编号**。`docs/spec/11-official-plugins.md` 同样混乱（`## 微信双插件`、`## 15. QQ 官方机器人渠道`、`## UI Companion 交互窗口`）。
+- **编号已坏**（`grep -n '^##' docs/plugins.md`）：出现两个 `## 04`（`04 channel-mcp`、`04 browser-skill`），缺 `13`；`微信归档与 iLink`、`Clipboard / Keychain（D53）`、`channel-card`、`ui-companion`、`agent-presets`、`hermes-experience`、`tasks`、`devices` 共 8 节**无编号**。`docs/spec/11-official-plugins.md` 同样混乱（`## 微信双插件`、`## 15. QQ 官方机器人渠道`、`## UI Companion 交互窗口`）。
 - 漂移本身：`design.md:645` 与 `proposals/unified-client/research/A4-plugin-arch.md` 记录"`docs/plugins.md` 的工具清单与 `contributes` 有差异"。我抽查 `memory` 一节（`docs/plugins.md:41-47`）写"工具 `memory_*`"，源码实际注册 9 个（`memory_bootstrap`、`memory_capture`、`memory_import`、`memory_me`、`memory_plan`、`memory_read`、`memory_review`、`memory_search`、`memory_status`）——用通配符掩盖了差异，**逐插件核对未核实**。
 - 更严重的是**双份来源**：`docs/plugins.md`（365 行）与 `docs/spec/11-official-plugins.md`（200 行）覆盖同一批 23 个插件，粒度不同、编号都坏。
 
@@ -112,7 +112,7 @@
 
 ### 2.4 `HANDOFF.md` 引用 `~/.ai-being`（成立，但不污染公开仓库）
 
-`HANDOFF.md` 60 行：称"仓库里只有文档、LICENSE 与账本文件，没有代码"（实际是完整 monorepo）、指向不存在的 `docs/tasks/`（T00/T01/T02 任务制）、指向私有仓 `github.com/zoran-xc/yonder`、引用 `~/.ai-being/{models,auth,providers}.json` 7 处。`.gitignore` 第 4 行是 `HANDOFF.md`，`git ls-files HANDOFF.md` 为空——**它不在仓库里**，只污染本机 agent 的判断。处理：直接删，有效内容并入 `docs/status.md`。
+`HANDOFF.md` 60 行：称"仓库里只有文档、LICENSE 与账本文件，没有代码"（实际是完整 monorepo）、指向不存在的 `docs/tasks/`（T00/T01/T02 任务制）、指向私有仓 `github.com/zoran-xc/yonder-harness`、引用 `~/.ai-being/{models,auth,providers}.json` 7 处。`.gitignore` 第 4 行是 `HANDOFF.md`，`git ls-files HANDOFF.md` 为空——**它不在仓库里**，只污染本机 agent 的判断。处理：直接删，有效内容并入 `docs/status.md`。
 
 ### 2.5 新发现（6 项）
 
@@ -121,7 +121,7 @@
 3. **`docs/spec/04-plugins.md:35`**："共九个：channels、tools、contexts、triggers、envs、hooks、presets、skills、permissions"，但 §3 只有 `3.1`–`3.8` 八个小节，`permissions` 落在文末 `## 统一权限门面（permissions 槽）`（第 285 行）。design §10 要求补第 10 个槽 `views` 时一并改口径。
 4. **`docs/spec/16-card-plugin.md:3`** 引用 `yonder-card-web/server/src/{devices,realtime,chat,cards}.ts` 与 `proposals/ai-card/plugin.md`——后者所在目录**已不存在**（`ls proposals/` 无 `ai-card`），前者改名后应变 `yonder-cloud/server/...`。
 5. **7 处断链**（自写脚本遍历所有非 `node_modules` md）：`CHANGELOG.md` → `RELEASE-LOCATION-READY.md`；`docs/prompts/v5-draft.zh-CN.md` → `jarvis/{SOUL,AGENTS,SOURCES}.md`（3 处，实际在 `plugins/agent-presets/prompts/jarvis/`）；`plugins/native-automation/README.md` → `../../HANDOFF-LOCATION.md`；`skills/skill-creator/SKILL.md` → `references/{redlining,ooxml}.md`（2 处）。
-6. **`docs/` 会把内部记录当产品文档发出去**：`readDocs` 递归 `walk`（`packages/core/src/release/index.ts:125-137`），`yonder docs --list` 会列 `verification/…`、`research/…`、`verification/evidence/*.json`。而 `docs/verification/evidence/service-host-command-final-20261025.json` 里含 `~/.local/share/yonder/...` 的进程快照。
+6. **`docs/` 会把内部记录当产品文档发出去**：`readDocs` 递归 `walk`（`packages/core/src/release/index.ts:125-137`），`yonder docs --list` 会列 `verification/…`、`research/…`、`verification/evidence/*.json`。而 `docs/verification/evidence/service-host-command-final-20261025.json` 里含 `~/.local/share/yonder-harness/...` 的进程快照。
 
 ## 3. 参照：pi 与 opencode 的布局
 
@@ -140,30 +140,30 @@
 2. **文档跟随代码**：pi 用 `packages/<pkg>/docs/` 就近维护；yonder 因 `yonder docs` 必须保留根 `docs/`，但应补 `packages/{core,cli,sdk}/README.md`，把"这包负责什么、不许做什么"写在包旁边。
 3. **治理文件是门槛**：opencode 的 `CODEOWNERS` + `TEAM_MEMBERS` 解决了"谁能批设计变更"；yonder 的等价物只写在 `AGENTS.md:7` 一句话里，外部贡献者看不到。
 
-## 4. 改名影响面（`yonder` → `yonder`）
+## 4. 改名影响面（`yonder-harness` → `yonder`）
 
 统计范围：随仓库发布的文档 = 根目录 md + `docs/` + `packages/` + `plugins/` + `skills/` + `brand/`（不含 `proposals/`、`node_modules`）。
 
 | 词 | 命中数 | 文件数 | 主要位置 |
 |---|---|---|---|
-| `yonder` | 96 | 34 | `package.json:2,54`；`docs/status.md` 6；`docs/spec/09-cli-release.md` 3；`plugins/channel-github/README.md` 5；`docs/verification/` **22 个文件**；`README.md` 5 |
+| `yonder-harness` | 96 | 34 | `package.json:2,54`；`docs/status.md` 6；`docs/spec/09-cli-release.md` 3；`plugins/channel-github/README.md` 5；`docs/verification/` **22 个文件**；`README.md` 5 |
 | `Yonder Harness` | 21 | 14 | README 中英各 5；`docs/architecture.md:3`（"Yonder Harness 是一个常驻的 agent 内核"）；各 spec 首句 |
 | `Harness`（其余单独出现） | 34 | — | `docs/spec/11`、`plugins/*/README`、`CODE_OF_CONDUCT.md` |
 | `AI-Being` | 15 | 11 | `docs/decisions.md` 3、`docs/spec/11-official-plugins.md` 2、`THIRD_PARTY_NOTICES.md` 2、`plugins/{wechat-archive,web-tools,channel-wechat-ilink}/` 5、`docs/verification/wechat-plugins.md` 1、`docs/research/qq-group-participation.md` 1（另 `HANDOFF.md` 7 处，未跟踪） |
-| `card-web` | 3 | 3 | `docs/spec/16-card-plugin.md:3`、`docs/decisions.md:240`、`plugins/interaction/README.md:48` |
+| `card-web` | 3 | 3 | `docs/spec/16-card-plugin.md:3`、`docs/decisions.md:240`、`plugins/ui-companion/README.md:48` |
 | `Card Web` / `Yonder Net` / `轻客户端` | 0 | 0 | 只存在于 `proposals/unified-client/*`（未跟踪） |
 
 按目录分布（含 `harness` 的文件）：`docs/verification/` 22、`plugins/` 14、`docs/spec/` 9、根目录 7（README、README.zh-CN、CONTRIBUTING、SECURITY、CODE_OF_CONDUCT、CHANGELOG、THIRD_PARTY_NOTICES）、`skills/` 4、`docs/` 顶层 4、`packages/` 1、`docs/research/` 1。
 
 代码层（不在"文档"口径内，但必须同批改，均已核实）：
 
-- `package.json:2` `"name": "yonder"`、`:54` `"repository": ".../yonder"`。
-- `packages/cli/src/awake.ts:9` `powerSocket = "/var/run/dev.yonder.power.sock"`、`:70` `/Library/PrivilegedHelperTools/dev.yonder.power`、`:71` `/Library/LaunchDaemons/dev.yonder.power.plist`。
-- `packages/core/src/runtime/quota-source.ts:156` `"User-Agent": "yonder"`。
-- `packages/cli/src/index.ts:269` `join(homedir(), ".local/share/yonder/home")`。
-- `plugins/codex-tools/src/app-server.ts:86` `clientInfo: { name: "yonder", title: "Yonder Harness", version: "0.1.4" }`（版本号也停在 0.1.4）。
-- `plugins/channel-mcp/src/operations.ts:43` `new McpServer({ name: "yonder" })`。
-- `plugins/native-automation/test/permissions.mjs:44,51` 与 `docs/verification/evidence/*.json` 里的 `.local/share/yonder/...` 路径。
+- `package.json:2` `"name": "yonder-harness"`、`:54` `"repository": ".../yonder-harness"`。
+- `packages/cli/src/awake.ts:9` `powerSocket = "/var/run/dev.yonder.harness.power.sock"`、`:70` `/Library/PrivilegedHelperTools/dev.yonder.harness.power`、`:71` `/Library/LaunchDaemons/dev.yonder.harness.power.plist`。
+- `packages/core/src/runtime/quota-source.ts:156` `"User-Agent": "yonder-harness"`。
+- `packages/cli/src/index.ts:269` `join(homedir(), ".local/share/yonder-harness/home")`。
+- `plugins/codex-tools/src/app-server.ts:86` `clientInfo: { name: "yonder-harness", title: "Yonder Harness", version: "0.1.4" }`（版本号也停在 0.1.4）。
+- `plugins/channel-mcp/src/operations.ts:43` `new McpServer({ name: "yonder-harness" })`。
+- `plugins/native-automation/test/permissions.mjs:44,51` 与 `docs/verification/evidence/*.json` 里的 `.local/share/yonder-harness/...` 路径。
 
 **建议的分批**：(a) 纯文档批——README 两份、`docs/spec/09`、`docs/status.md`、`plugins/*/README`，一次提交；(b) 验收记录批——`docs/verification/` 22 个文件里的命令与路径（属历史记录，改路径会失真，建议**不改正文**，只在文件头加一行"路径为改名前记录"，并把整个目录移出 `docs/`）；(c) 代码批——按 design §3.2 与 §11 阶段 2 统一做，含兼容期符号链接。
 
@@ -299,7 +299,7 @@ yonder/
 ## 8. 落地顺序（与 design.md §11 阶段 0 对齐）
 
 1. **零风险清理（不需批准）**：删 `HANDOFF.md`、删 `docs/prompts/v5-draft.zh-CN.md`、修 7 处断链、删 `docs/status.md` 第 1–6 行的本机路径、给 `docs/index.md` 补 `15-memory.md` 与版本号。
-2. **加检查脚本（先有栅栏再搬东西）**：`scripts/check-docs.mjs`，0 依赖，四条断言——(a) 相对链接目标存在；(b) `docs/spec/*` 编号唯一；(c) `docs/index.md` 覆盖 `docs/` 下全部 md；(d) 禁用词表（`yonder`、`Yonder Harness`、`AI-Being`、`Card Web`、`Yonder Net`、`轻客户端`）命中即失败。挂进 `npm run lint`（与现有 `scripts/check-file-size.mjs` 同一模式）。
+2. **加检查脚本（先有栅栏再搬东西）**：`scripts/check-docs.mjs`，0 依赖，四条断言——(a) 相对链接目标存在；(b) `docs/spec/*` 编号唯一；(c) `docs/index.md` 覆盖 `docs/` 下全部 md；(d) 禁用词表（`yonder-harness`、`Yonder Harness`、`AI-Being`、`Card Web`、`Yonder Net`、`轻客户端`）命中即失败。挂进 `npm run lint`（与现有 `scripts/check-file-size.mjs` 同一模式）。
 3. **搬家（需维护者批准，一次提交）**：`docs/verification/` → `verification/`、`docs/research/` → `research/`，同步改所有引用。
 4. **合并与重编号（需批准）**：`spec/11` 并入 `plugins.md`；`15-clipboard-vault` → `21`；`decisions.md` 编号归位；`proposals` 状态头。
 5. **改名（design §11 阶段 2）**：文档批 + 代码批分开提交，按 §4 的三批走。

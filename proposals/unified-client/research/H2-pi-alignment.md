@@ -85,14 +85,14 @@
 **2. memory**
 - 功能：9 个工具 + 6 个 skill + 预设 + 上下文（`memory-core`），状态在 `.memory/state.json`（`plugins/memory/src/bootstrap.ts:63,182,196`），后台整理并发 `memory.attention` 事件（`:220-225`）。
 - pi 对应：**无**（13 个插件里没有 memory 插件；pi core 只加载 AGENTS.md）。
-- 结论：**保留为 Yonder 特色**（吸收 learning）｜规模 **M**
+- 结论：**保留为 Yonder 特色**（吸收 hermes-experience）｜规模 **M**
 - 理由：pi 侧的「记忆」就是 AGENTS.md + skills，模型靠 `read` 自己看。Yonder 有检索、有后台整理、有需要主人确认的提案——这是产品差异，不是落后。
 
-**3. learning**
+**3. hermes-experience**
 - 功能：行为/记忆/核心上下文 + 原生技能 + 复盘 + 待确认队列；`plugins/hermes-experience/src/store.mjs:64` 直接写 `MEMORY.md`/`USER.md`，pending 目录 `.hermes-pending`。
 - pi 对应：**无**（最接近的是 pi-lens 的 skill 注册 + pi core skills）。
 - 结论：**合并进 memory**（删掉独立包）｜规模 **M**
-- 理由：它和 memory、context-files 三方写同一批文件：context-files 注入 `MEMORY.md`/`USER.md`，memory 管 `.memory/`，learning 又写 `MEMORY.md`/`USER.md`。用户能感到的差别是「同一个记忆在不同轮里内容不一致、谁赢取决于插件顺序」。这是最该收敛的一处。
+- 理由：它和 memory、context-files 三方写同一批文件：context-files 注入 `MEMORY.md`/`USER.md`，memory 管 `.memory/`，hermes-experience 又写 `MEMORY.md`/`USER.md`。用户能感到的差别是「同一个记忆在不同轮里内容不一致、谁赢取决于插件顺序」。这是最该收敛的一处。
 
 **4. context-files**
 - 功能：4 个 `placement:"system"` 上下文——`AGENTS.md`、`USER.md`、`SOUL.md`、`MEMORY.md`，只从 workspace 根读，带 scaffold 模板且未编辑过则不注入（`plugins/context-files/src/index.ts:5-13`）。
@@ -136,7 +136,7 @@
 - 结论：**照 pi 重构**｜规模 **M**
 - 理由：pi 是核心能力，有 `pi mcp add` CLI、有 `/mcp` 交互面板、能逐 server 设 exposure 与 enable/disable。Yonder 是插件，配置面更窄，且 MCP 工具默认全常驻。
 
-**11. interaction**
+**11. ui-companion**
 - 功能：结构化卡片（present/result）。
 - pi 对应：**无**（pi 1.4.0 core 与 dist 全无 `elicit`；rpiv-ask-user-question 未装）。
 - 结论：**保留为 Yonder 特色**｜规模 —
@@ -173,7 +173,7 @@
 - 理由：数据源本身是 Yonder 独有的。
 
 **17–23. channel-cli / channel-card / channel-feishu / channel-mcp / channel-slack / channel-telegram / channel-wechat**
-- 功能：多渠道收发、渠道身份、每轮渠道上下文、卡片渲染；`channel-mcp` 是**服务端**（`plugins/channel-mcp/src/operations.ts:43-50` 暴露 15 个 `yonder` MCP 工具：`sessions_*`、`identity_*`、`messages_send`）。
+- 功能：多渠道收发、渠道身份、每轮渠道上下文、卡片渲染；`channel-mcp` 是**服务端**（`plugins/channel-mcp/src/operations.ts:43-50` 暴露 15 个 `yonder-harness` MCP 工具：`sessions_*`、`identity_*`、`messages_send`）。
 - pi 对应：**无**（C2：生态里渠道类只占 1.6%，pi 侧为零）。
 - 结论：**保留**（这是要留下的核心）；仅把「往模型里送字」的部分按 pi 五条路径收口｜规模 **M**（仅收口部分）
 - 理由：pi 的 5 条注入路径是 ①工具 description ②`promptSnippet/promptGuidelines` ③`systemPromptOptions.sections.*` ④`before_agent_start` 返回 `{message}` ⑤自己 `sendUserMessage()`。Yonder 渠道目前主要靠 ④ 的等价物（`placement:"turn"` 的 `<turn>` 块）与拼进用户消息，需要按 agent-parity §3.3 限制「每轮渠道增量 ≤3k」并把状态类文字只走 `placement:"turn"`。`channel-mcp` 的 `sessions_*` 与 agent-parity §9 拟新增的核心 `session_*` 工具应共用实现，否则会有两套语义。
@@ -230,7 +230,7 @@
 7. `tasks` → rpiv-todo 形态（单工具 + `blockedBy` + overlay + 尾部 `<todo>` 摘要）。规模 **M**。
 8. `web-tools` → 落盘 + `get_search_content` + 懒加载。规模 **M**。
 9. `browser-skill` / `codex-tools` / `mcp-client` → 降常驻、走 skill 或 codemode 命名空间。规模 **M**。
-10. `memory` 吸收 `learning`；`context-files` 删 `memory-md` 段。规模 **M**。
+10. `memory` 吸收 `hermes-experience`；`context-files` 删 `memory-md` 段。规模 **M**。
 11. `context-files` 按 pi 的 AGENTS/CLAUDE 加载链（含 worktree 去重）。规模 **S**。
 
 **P3（渠道与内核收口）**

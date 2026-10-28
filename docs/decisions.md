@@ -188,17 +188,17 @@ AI permissions/status 不发起请求，保持非提示式。2026-10-24 主人�
 
 ## UI Companion 由已确认原型接入插件（2026-10-22 用户批准）
 
-用户确认菜单栏小窗、共享 Logo、同锚点收起和渐进卡片后要求直接接入插件。源码从 proposals/interaction 迁入 plugins/interaction，删除原型固定设计任务，沿用 SDK tools/triggers，不改内核或增加 UI 槽。present 提交并返回真实请求 id，result 在原会话可取消地等待实际输入；采用插件自有回环服务和主仓库状态栏非激活宿主，复用同一 Web 渲染。插件私有文件保存交互历史，不复制模型转录。唯一状态栏同时承载交互与服务管理。结构化卡片、独立窗/提醒/内嵌为本期边界；生成 HTML 执行、图片渠道及语音另议。
+用户确认菜单栏小窗、共享 Logo、同锚点收起和渐进卡片后要求直接接入插件。源码从 proposals/ui-companion 迁入 plugins/ui-companion，删除原型固定设计任务，沿用 SDK tools/triggers，不改内核或增加 UI 槽。present 提交并返回真实请求 id，result 在原会话可取消地等待实际输入；采用插件自有回环服务和主仓库状态栏非激活宿主，复用同一 Web 渲染。插件私有文件保存交互历史，不复制模型转录。唯一状态栏同时承载交互与服务管理。结构化卡片、独立窗/提醒/内嵌为本期边界；生成 HTML 执行、图片渠道及语音另议。
 
 2026-10-22 用户进一步确认：完成的交互默认同时隐藏浮窗与悬浮入口；仅待处理任务保留浮球，下一任务自动重现，菜单栏保留历史入口。autoClose:false 仍可保留完成窗口，内嵌结果仍保留。
 
 ## 2026-10-23 合并状态栏与 UI Companion（用户要求直接合入当前仓库）
 
-状态栏留在 packages/macos，继续归安装/服务客户端；交互数据、工具和回环 Web 保留在 interaction 插件。移除插件独立 App 和 NSStatusItem，通过插件私有 desktop.json 把当前回环页面交给同 home 的唯一状态栏。左键当前交互/历史，右键交互入口、服务状态、检查更新与停止服务并退出；任务默认完成后仍同时隐藏浮窗与浮球。现有未提交的 channel-card 工作必须完整保留。
+状态栏留在 packages/macos，继续归安装/服务客户端；交互数据、工具和回环 Web 保留在 ui-companion 插件。移除插件独立 App 和 NSStatusItem，通过插件私有 desktop.json 把当前回环页面交给同 home 的唯一状态栏。左键当前交互/历史，右键交互入口、服务状态、检查更新与停止服务并退出；任务默认完成后仍同时隐藏浮窗与浮球。现有未提交的 channel-card 工作必须完整保留。
 
 ## 2026-10-23 桌面入口默认就绪修复（用户反馈已更新却提示插件未就绪）
 
-0.2.26102302 只随发行提供 UI 插件，旧 home 未配置时没有端点，状态栏因此不可用。默认加载桌面服务与授予 Agent 工具是不同职责：init 全局加载 interaction；CLI start 按已注册插件 id 为旧 home 补齐，复用现有管理入口做原子校验写入。已有来源与 desktop:false 保留，不改 Agent/预设的插件选择或权限。
+0.2.26102302 只随发行提供 UI 插件，旧 home 未配置时没有端点，状态栏因此不可用。默认加载桌面服务与授予 Agent 工具是不同职责：init 全局加载 ui-companion；CLI start 按已注册插件 id 为旧 home 补齐，复用现有管理入口做原子校验写入。已有来源与 desktop:false 保留，不改 Agent/预设的插件选择或权限。
 
 ## D59 上下文窗口与提前后台压缩（2026-10-23）
 
@@ -277,7 +277,7 @@ web-tools 是可选实际能力，不能让旧 home 只加载 agent-presets 就�
 
 ## D66 统一任务账本作为官方插件 tasks（2026-10-25 主人批准）
 
-背景：主人在飞书只有两个窗口，十几条任务线只存在于模型上下文里，串了、压缩了、做一半停了都无人知晓，Agent 之间互不可见。决定：(1) 官方插件 tasks，追加式账本，复刻 Codex `/goal`（持久目标、每次唤醒重现、软预算、完成前对照证据），不复刻已被业界默认关闭的 `update_plan` 清单；(2) 可见范围沿用能力模型：默认自己，主 Agent 加自己 sub-agent，持有 cross-agent 的配置档（管家，非新角色）可见全部并可催办；(3) 接受“滞留催办”等时点机制：带来源标记的输入，去重限频，不阻断、不截断，完成判定仍归模型；(4) 完成后复盘 / 留存为默认关闭的实验时点，复用 learning 静默复盘通道，按真实模型对照后再决定默认；完成后压缩待 context-keeper 提供 sessions.compact；(5) 展示分层：账本只产 TaskBoard，interaction 只做渲染渠道，IM 渠道用图片或文字，回复尾部清单经 beforeSend 程序化追加；(6) 底座提示词任务段同步修改，并更新本机常驻 Agent 的 AGENTS.md。规范见 [17](spec/17-task-ledger.md)，设计依据见 proposals/task-ledger。
+背景：主人在飞书只有两个窗口，十几条任务线只存在于模型上下文里，串了、压缩了、做一半停了都无人知晓，Agent 之间互不可见。决定：(1) 官方插件 tasks，追加式账本，复刻 Codex `/goal`（持久目标、每次唤醒重现、软预算、完成前对照证据），不复刻已被业界默认关闭的 `update_plan` 清单；(2) 可见范围沿用能力模型：默认自己，主 Agent 加自己 sub-agent，持有 cross-agent 的配置档（管家，非新角色）可见全部并可催办；(3) 接受“滞留催办”等时点机制：带来源标记的输入，去重限频，不阻断、不截断，完成判定仍归模型；(4) 完成后复盘 / 留存为默认关闭的实验时点，复用 hermes-experience 静默复盘通道，按真实模型对照后再决定默认；完成后压缩待 context-keeper 提供 sessions.compact；(5) 展示分层：账本只产 TaskBoard，ui-companion 只做渲染渠道，IM 渠道用图片或文字，回复尾部清单经 beforeSend 程序化追加；(6) 底座提示词任务段同步修改，并更新本机常驻 Agent 的 AGENTS.md。规范见 [17](spec/17-task-ledger.md)，设计依据见 proposals/task-ledger。
 
 
 ## D67 插件可向打开的常驻会话投递系统提醒（2026-10-25 主人批准）
@@ -353,3 +353,7 @@ task 最终回报使用 `STATUS: done|partial|blocked`、实际证据、剩余�
 主人要求微信客户端的消息能进入渠道监听。归档插件已经按会话批次发出 `wechat-archive.material`，但事件里没有可直接展示的发送人/摘要，因此补三处标注而不改事件类型：`channel: "wechat-archive"`、`conversation`、批次去重的 `senders`，以及一行 `summary`（单条 `发送人: 正文`，多条 `N 条消息（前三位发送人）：最后一条`，正文截断 60 字，纯媒体 `[<kind>]`，无正文 `[无正文]`；`media.kind` 为 `unknown` 时按无正文处理，因为 CLI 对未解析媒体统一给 unknown）。`summary` 只喂内核 `yonder.notification`，不替代正文，也不进模型消息。是否提醒由 yonder.yaml 的 `notifications` 按 `conv:wechat-archive:<chat>` 决定；微信批次没有 `mentioned`，所以 `mention` 级别对微信不提醒，需提醒用 `all`，这与 06 §9.1 的规则一致，不额外发明关键词提醒。监听保持只读：不新增发送工具、不自动回复，唤醒仍只由绑定决定（架构 5.2）。轮询间隔取自 `pollSeconds`，插件游标在私有 SQLite meta、源游标在稳定 consumer 名下，重启复用不重放。代价：摘要只有 60 字、只覆盖批次尾部，长批次要看 `messages`。
 
 2026-10-28 回退顺序：先换模型再换账号（维护者 WIP 采纳）
+
+## 安装根兼容（2026-10-28 主人授权）
+
+安装根暂不改名，后续单独迁移：保留 `~/.yonder-harness` 的 versions/current/bin；当前 migrate 的备份、锁与回滚围绕用户 home，安装树迁移需另行处理 wrapper 与安装路径。

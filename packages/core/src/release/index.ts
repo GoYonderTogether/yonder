@@ -33,7 +33,9 @@ const statusExecutable = (install: string) =>
 const plistPath = () => join(homedir(), "Library/LaunchAgents", `${label}.plist`);
 const windowsData = () => resolve(process.env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "YonderHarness");
 const installPath = () =>
-	resolve(process.env.YONDER_INSTALL ?? (process.platform === "win32" ? windowsData() : join(homedir(), ".yonder")));
+	resolve(
+		process.env.YONDER_INSTALL ?? (process.platform === "win32" ? windowsData() : join(homedir(), ".yonder-harness")),
+	);
 const linuxUnitPath = () =>
 	join(resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config")), "systemd/user", `${label}.service`);
 const windowsServicePath = () => join(windowsData(), "service.json");
