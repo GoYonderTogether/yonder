@@ -41,7 +41,7 @@ async function setup(real = false) {
 	};
 	try {
 		const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
-		config.plugins.push({ use: "@yonder/plugin-channel-mcp" });
+		// init 的 default 发行包已加载 channel-mcp，这里只启用一个 mcp 实例。
 		config.channels.control = { type: "mcp", port: 0, credential, account: "codex" };
 		config.identity.persons[0].accounts.push("acct:control:codex");
 		if (real) {

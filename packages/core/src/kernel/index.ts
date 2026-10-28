@@ -2,6 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
+import { withShippedChannels } from "../bundles.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -461,11 +462,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		return {
 			channels: {
 				list: () =>
-					[...loaded.channels].map(([id, channel]) => ({
-						instance: id,
-						type: config.channels?.[id]?.type,
-						login: Boolean(channel.login),
-					})),
+					withShippedChannels(
+						[...loaded.channels].map(([id, channel]) => ({
+							instance: id,
+							type: config.channels?.[id]?.type,
+							login: Boolean(channel.login),
+						})),
+					),
 				login: loginChannel,
 			},
 			sessions: { ...sessions.api, observe: observeSession },

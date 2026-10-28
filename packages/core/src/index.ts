@@ -1,3 +1,12 @@
+export {
+	type Bundle,
+	type BundleId,
+	bundleFor,
+	bundleIds,
+	bundles,
+	shippedChannels,
+	withShippedChannels,
+} from "./bundles.js";
 export { type GatewaySettings, gatewaySettings, setAccessTokenHash } from "./config/gateway.js";
 export type { ControlConnection, ControlRequest } from "./control/index.js";
 export { cliChannelEndpoint, controlEndpoint, observeControl, requestControl, serveControl } from "./control/index.js";

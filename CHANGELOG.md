@@ -4,6 +4,8 @@
 
 ### Added
 
+- `yonder init --bundle core|default|full`（默认 `default`）：发行包决定 init 写入的插件与渠道实例。`core` 无渠道实例、不写 `cli` 绑定，`start --no-gateway` 后仍可用任务会话对话；`default` 额外加载 channel-mcp 但不监听（没有 `type: mcp` 实例就不开端口）；`full` 含其余随包插件。需要主人级配置的 `channel-wechat-ilink`、`memory` 不进任何包。
+- `yonder channels list` 对未启用的随包第三方渠道（feishu、wechat-ilink、qq、github）返回 `status: 随包提供，未启用 · Shipped, not enabled`，已启用实例的字段不变。
 - 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
 - 新包 `@yonder/gateway`：`POST /api/rpc/<method>`、`WS /api/stream`（ready/ev/end/pong 帧，`after` 续传与 `gap`），一次性票据（URL）或长期访问令牌（仅 `POST /login` 请求体）换 HMAC HttpOnly cookie，按对端限流登录失败（`gateway.trustProxy`），凭据到期/轮换后断开已建立的 WebSocket（4401），限制套接字、feed 与环形缓冲，校验 Host、Origin、Sec-Fetch-Site，严格 CSP，托管 `apps/app/dist`。配置 `gateway.port/publicOrigins/basePath/accessTokenHash/trustProxy/enabled`，支持去前缀的反向代理；`yonder start --no-gateway`、`yonder ui [--open]`、`yonder ui token --rotate`（配置只存 sha256）。
 - 只读导入 pi 会话：`imports.list`、`imports.show` 把 `~/.pi/agent/sessions/**/*.jsonl`（`imports.piSessionsDir` 可改）解析为对话条目、todo 快照与 usage 汇总，未知条目原样带出。
@@ -23,6 +25,7 @@
 
 ### Changed
 
+- 官方任务预设 `default`/`coding`/`research` 与常驻模板不再写死模型，改由配置的默认模型解析；`init` 生成的 `presets/*.yaml` 不再含 `model`。
 - 内置提示词底座补入自主（不把自己能做的事推给主人）、目标先行、够用就停与常见死磕场景，并写清命令路径/超时、台账批量记录、两条工作线上限；AGENTS.md 模板用途句提到目标与验收。
 - `npm run lint` 现在包含文件行数检查。
 

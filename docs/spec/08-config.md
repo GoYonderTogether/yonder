@@ -126,3 +126,19 @@ bindings:
 ## 5. 提示词预算
 
 Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段落、`prompt.overrides` 替换正文，包括空列表关闭内置正文。沿现有 contexts/skills/tools/plugins/instructions 分别选择其他上下文来源，不自动根据模型名裁剪。字段与继承见 [03 §5.5](03-agents.md#55-小上下文模型与段落配置)，完整配置示例和稳定 id 见 [提示词配置](../prompts/configuration.md)。
+
+## 6. init 的发行包与随包渠道
+
+`yonder init [dir] [--owner <id>] [--bundle core|default|full] [--isolated]` 由发行包决定写进 `yonder.yaml` 的插件与渠道实例；`initHome(home, owner, { bundle })` 走同一写入路径，默认 `default`，未知包 id 直接拒绝并列出可选值。
+
+| 包 | 写入的插件 | 渠道实例 |
+|---|---|---|
+| `core` | context-files、ui-companion、agent-presets、web-tools | 无 |
+| `default` | core 加 channel-cli、channel-mcp | `cli: { type: cli }` |
+| `full` | default 加其余随包插件：channel-card、channel-feishu、channel-github、channel-qq、clipboard、native-automation、browser-skill、wechat-archive、codex-tools、media-tools、mcp-client、cron、tasks、hermes-experience、devices | 同 `default` |
+
+- `core` 不写渠道实例，也不写 `cli` 绑定（`agents/main/agent.yaml` 只留 peer 绑定），否则渠道校验会报 unknown channel。`init --bundle core` + `start --no-gateway` 之后只能通过任务会话（`yonder chat --preset <id>`）对话；日常渠道聊天需要 `default` 或自行添加渠道。
+- 需要主人级插件配置、init 无法替主人选择的插件不进任何包：`channel-wechat-ilink`（`config.owner`）与 `memory`（`root`/`owner`/`timezone`）用 `plugins add` 显式加入并写配置。统一客户端目标里的默认加载集（memory、cron、tasks、learning、channel-card、mcp-client）尚未全部由 init 写入，见 [状态](../status.md)。
+- 第三方渠道 feishu、wechat-ilink、qq、github 随包提供但 init 不启用：`yonder channels list` 对已启用实例返回 `instance`/`type`/`login`，对未启用的随包渠道返回 `type`/`plugin` 与 `status: 随包提供，未启用 · Shipped, not enabled`。启用就是在 `yonder.yaml.channels` 加实例并重启；同一个 type 已有实例时不再重复列出。
+- `channel-mcp` 随 `default` 加载但不监听：没有 `type: mcp` 的渠道实例时不开端口；写入实例（`port`、`credential`、`account`，可选 `origins`）并重启后才在 `127.0.0.1` 上监听，凭据缺失时请求一律拒绝。
+- init 生成的 `presets/default.yaml` 与 `presets/research.yaml` 不写 `model`，按内核默认模型解析（[03 §3](03-agents.md)）；更换默认模型不需要改预设。

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Models, Preset, SessionInfo } from "@yonder/sdk";
 import { stringify } from "yaml";
+import { bundleFor } from "../bundles.js";
 import {
 	type AgentConfig,
 	loadPresets,
@@ -101,9 +102,10 @@ export function configurationErrors(
 	return errors;
 }
 
-export async function initHome(home: string, owner = "owner", options: { isolated?: boolean } = {}) {
+export async function initHome(home: string, owner = "owner", options: { isolated?: boolean; bundle?: string } = {}) {
 	if (options.isolated !== undefined && typeof options.isolated !== "boolean")
 		throw new Error("isolated must be a boolean");
+	const bundle = bundleFor(options.bundle ?? "default");
 	home = resolve(home);
 	const directory = join(home, "agents/main");
 	await mkdir(directory, { recursive: true });
@@ -111,17 +113,19 @@ export async function initHome(home: string, owner = "owner", options: { isolate
 		schema: 1,
 		locale: "zh-CN",
 		timezone: "Asia/Shanghai",
-		plugins: [
-			{ use: "@yonder/plugin-channel-cli" },
-			{ use: "@yonder/plugin-context-files" },
-			{ use: "@yonder/plugin-ui-companion" },
-			{ use: "@yonder/plugin-agent-presets" },
-			{ use: "@yonder/plugin-web-tools" },
-		],
-		channels: { cli: { type: "cli" } },
+		plugins: bundle.plugins,
+		channels: bundle.channels,
 		envs: { local: { type: "local" } },
 		agents: [{ id: "main", workspace: "./agents/main" }],
-		identity: { persons: [{ id: owner, name: owner, accounts: ["acct:cli:local"] }] },
+		identity: {
+			persons: [
+				{
+					id: owner,
+					name: owner,
+					accounts: Object.keys(bundle.channels).includes("cli") ? ["acct:cli:local"] : [],
+				},
+			],
+		},
 	};
 	await writeFile(join(home, "yonder.yaml"), stringify(config), { flag: "wx" });
 	await mkdir(join(home, "presets"), { recursive: true });
@@ -138,15 +142,18 @@ export async function initHome(home: string, owner = "owner", options: { isolate
 				plugins: ["context-files", "agent-presets"],
 			},
 			profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
-			bindings: [
-				{
-					id: "owner",
-					match: { channel: "cli", kind: "dm", from: "owner" },
-					session: "main",
-					profile: "owner",
-					stream: true,
-				},
-			],
+			// 没有 cli 渠道实例的发行包（core）不写这条绑定，否则配置校验会报 unknown channel cli。
+			bindings: bundle.channels.cli
+				? [
+						{
+							id: "owner",
+							match: { channel: "cli", kind: "dm", from: "owner" },
+							session: "main",
+							profile: "owner",
+							stream: true,
+						},
+					]
+				: [],
 		},
 		options.isolated,
 	);
