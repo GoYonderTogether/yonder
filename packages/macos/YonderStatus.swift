@@ -22,7 +22,13 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let powerState = NSMenuItem(title: "读取唤醒状态…", action: nil, keyEquivalent: "")
     private let update = NSMenuItem(title: "检查更新", action: #selector(checkUpdate), keyEquivalent: "")
     private let quit = NSMenuItem(title: "停止服务并退出", action: #selector(exitService), keyEquivalent: "q")
-    private let install = ProcessInfo.processInfo.environment["YONDER_INSTALL"] ?? NSHomeDirectory() + "/.yonder-harness"
+    private let install: String = {
+        if let install = ProcessInfo.processInfo.environment["YONDER_INSTALL"] { return install }
+        let current = NSHomeDirectory() + "/.local/share/yonder/install"
+        let legacy = NSHomeDirectory() + "/.yonder-harness"
+        // Remove this migration fallback after two minor releases.
+        return !FileManager.default.fileExists(atPath: current) && FileManager.default.fileExists(atPath: legacy) ? legacy : current
+    }()
     private let home = ProcessInfo.processInfo.environment["YONDER_HOME"] ?? NSHomeDirectory() + "/.local/share/yonder/home"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
