@@ -61,7 +61,9 @@ export default definePlugin({
 				async execute(args, ctx) {
 					try {
 						ctx.signal.throwIfAborted();
-						return { text: JSON.stringify(await run(args as Record<string, unknown>, ctx)) };
+						const result = await run(args as Record<string, unknown>, ctx);
+						if (["open", "update", "done"].includes(name)) api.invalidate(["tasks.board"]);
+						return { text: JSON.stringify(result) };
 					} catch (error) {
 						return { text: error instanceof Error ? error.message : String(error), isError: true };
 					}

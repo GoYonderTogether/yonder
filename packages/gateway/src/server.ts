@@ -23,7 +23,6 @@ import { BodyError, fail, loginPage, readBody, redirect, send, sendJson, serveSt
 import { mountRoutes } from "./routes/index.js";
 import { sessionSnapshot } from "./snapshot.js";
 import { type FeedEvent, Feeds, type Listener } from "./stream.js";
-
 export type GatewayHostCtx = Omit<HostCtx, "principal" | "gateway">;
 export interface GatewayOptions {
 	home: string;
@@ -37,7 +36,6 @@ export interface GatewayHandle extends GatewayHost {
 	stats(): { sockets: number; feeds: number };
 	close(): Promise<void>;
 }
-
 const DEFAULT_PORT = 7690;
 const MAX_SUBS = 64;
 const SLOW_BYTES = 10 * 1024 * 1024;
@@ -46,9 +44,7 @@ const MAX_SOCKETS = 32;
 const QUEUE_MAX = 1000;
 const isLoopback = (address: string | undefined) =>
 	address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
-
 const defaultStatic = () => resolve(dirname(fileURLToPath(import.meta.url)), "../../../apps/app/dist");
-
 function errorOf(error: unknown): { code: string; message: string } {
 	if (error instanceof MethodError) return { code: error.code, message: error.message };
 	return { code: "error", message: error instanceof Error ? error.message : String(error) };
@@ -335,6 +331,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 			try {
 				const def = registry.prepare(method, params ?? {}, principal);
 				if (!def.stream) throw new MethodError("invalid_params", `${method} is not a stream method`);
+				if (!def.stream.resumable && after !== undefined)
+					throw new MethodError("invalid_params", `${method} does not accept after`);
 				const feed = await feeds.acquire(method, params ?? {}, ctxFor(login));
 				if (cancelled) {
 					feed.release();
@@ -385,6 +383,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 					if (method === "sessions.watch") {
 						result = await sessionSnapshot((params as { id: string }).id, ctxFor(login));
 					}
+					if (method === "views.watch")
+						result = await registry.call("views.list", params ?? {}, ctxFor(login), new AbortController().signal);
 				}
 				if (!subs.has(sub)) return;
 				// The snapshot was read after the cursor was captured and carries no revision, so events that arrived

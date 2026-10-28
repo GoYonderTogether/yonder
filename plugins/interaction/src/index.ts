@@ -16,7 +16,6 @@ const json = (value: unknown): ToolResult => ({ text: JSON.stringify(value) });
 export default definePlugin({
 	configSchema: Type.Object({ desktop: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
 	setup(api) {
-		registerViews(api);
 		registerSuggestions(api);
 		registerSessionTools(api);
 		registerSessionManage(api);
@@ -26,6 +25,7 @@ export default definePlugin({
 			api.locale,
 			api.timezone,
 		);
+		registerViews(api, service);
 		api.triggers.register({ id: "interaction-service", start: () => service.start(), stop: () => service.stop() });
 		api.tools.register({
 			name: "interaction_present",

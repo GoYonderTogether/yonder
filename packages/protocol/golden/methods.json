@@ -525,6 +525,105 @@
 				"properties": {},
 				"type": "object"
 			}
+		},
+		"views.act": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"action": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"input": {},
+					"session": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"viewId": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["viewId", "action"],
+				"type": "object"
+			}
+		},
+		"views.data": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"session": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"viewId": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["viewId"],
+				"type": "object"
+			}
+		},
+		"views.list": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"placement": {
+						"anyOf": [
+							{
+								"const": "rail",
+								"type": "string"
+							},
+							{
+								"const": "floating",
+								"type": "string"
+							},
+							{
+								"const": "page",
+								"type": "string"
+							}
+						]
+					},
+					"session": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			}
+		},
+		"views.watch": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"placement": {
+						"anyOf": [
+							{
+								"const": "rail",
+								"type": "string"
+							},
+							{
+								"const": "floating",
+								"type": "string"
+							},
+							{
+								"const": "page",
+								"type": "string"
+							}
+						]
+					},
+					"session": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			}
 		}
 	}
 }

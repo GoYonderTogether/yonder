@@ -173,3 +173,25 @@ describe("gateway hardening", () => {
 		ws.close();
 	});
 });
+
+it("serves views RPC and a fresh non-resumable views stream", async () => {
+	const cookie = await localCookie();
+	const response = await fetch(`${base}/api/rpc/views.list`, {
+		method: "POST",
+		headers: { cookie, origin: base, "content-type": "application/json" },
+		body: "{}",
+	});
+	const body = (await response.json()) as { ok: boolean; result: { views: unknown[] } };
+	expect(body.ok).toBe(true);
+	expect(Array.isArray(body.result.views)).toBe(true);
+	const ws = await connect({ cookie });
+	const next = () =>
+		new Promise<Record<string, unknown>>((resolve) => ws.once("message", (data) => resolve(JSON.parse(String(data)))));
+	const ready = next();
+	ws.send(JSON.stringify({ t: "sub", sub: "views", method: "views.watch", params: {} }));
+	expect(await ready).toMatchObject({ t: "ready", sub: "views", gap: true, result: body.result });
+	const end = next();
+	ws.send(JSON.stringify({ t: "sub", sub: "after", method: "views.watch", params: {}, after: "cursor" }));
+	expect(await end).toMatchObject({ t: "end", sub: "after", error: { code: "invalid_params" } });
+	ws.close();
+});

@@ -25,6 +25,9 @@
 		"id": "tasks",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"views": [
+				"tasks.board"
+			],
 			"tools": [
 				"tasks_open",
 				"tasks_update",

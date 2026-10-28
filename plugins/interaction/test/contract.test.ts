@@ -100,3 +100,44 @@ it("publishes one private desktop endpoint instead of launching a second applica
 		await browserOnly.stop();
 	}
 });
+
+it("exposes the current session card, answers it and invalidates the view", async () => {
+	const { createRegistrationCollector } = await import("@yonder/sdk/testing");
+	const { registerViews } = await import("../src/views.js");
+	const directory = await mkdtemp(join(tmpdir(), "yonder-ui-view-"));
+	const service = new CompanionService(directory, false);
+	const { api, registrations } = createRegistrationCollector();
+	const invalidations: string[][] = [];
+	api.invalidate = (ids) => invalidations.push(ids ?? []);
+	registerViews(api, service);
+	const view = registrations.views[0];
+	if (!view?.provider.act) throw new Error("View action missing");
+	const act = view.provider.act;
+	expect(view.decl).toMatchObject({
+		id: "interaction.card",
+		placement: "floating",
+		scope: "session",
+		actScope: "owner",
+	});
+	await service.start();
+	try {
+		const owner = { agent: "agent", session: "session", profile: "default" };
+		const presented = await service.present(
+			{ id: "question", title: "Question", prompt: "Choose", kind: "choice", options: [{ id: "yes", label: "Yes" }] },
+			owner,
+		);
+		expect(invalidations).toEqual([["interaction.card"]]);
+		const data = await view.provider.data(owner.session);
+		expect(data.content).toEqual({ type: "choice", prompt: "Choose", options: [{ id: "yes", label: "Yes" }] });
+		expect((await view.provider.data("other")).content).toEqual({ type: "list", items: [] });
+		await expect(act("answer", { rev: data.rev - 1, answer: "yes" }, owner.session)).rejects.toMatchObject({
+			code: "invalid_params",
+		});
+		await act("answer", { rev: data.rev, answer: "yes" }, owner.session);
+		expect(invalidations).toEqual([["interaction.card"], ["interaction.card"]]);
+		expect((await service.result(presented.id, owner, false, new AbortController().signal)).status).toBe("completed");
+		expect((await view.provider.data(owner.session)).content).toEqual({ type: "list", items: [] });
+	} finally {
+		await service.stop();
+	}
+});

@@ -62,6 +62,8 @@ export class CompanionService {
 	private server: Server | undefined;
 	private tail: Promise<unknown> = Promise.resolve();
 	private changes = new Set<() => void>();
+	private viewChanged: (() => void) | undefined;
+	private viewRevision = 0;
 	private base = "";
 	private stopped = true;
 	private boardSource: string | undefined;
@@ -89,7 +91,19 @@ export class CompanionService {
 		return next;
 	}
 	private changed() {
+		this.viewRevision++;
+		this.viewChanged?.();
 		for (const notify of this.changes) notify();
+	}
+	onViewChanged(notify: () => void) {
+		this.viewChanged = notify;
+	}
+	view(session?: string) {
+		const record = this.active();
+		return {
+			revision: this.viewRevision,
+			interaction: session && record?.owner.session === session ? record.interaction : undefined,
+		};
 	}
 	private active() {
 		return this.records.find((r) => !r.cancelled && !r.interaction.completed);

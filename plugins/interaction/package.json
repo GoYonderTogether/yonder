@@ -31,6 +31,9 @@
 		"id": "interaction",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"views": [
+				"interaction.card"
+			],
 			"tools": [
 				"interaction_present",
 				"interaction_result"

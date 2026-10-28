@@ -112,7 +112,8 @@ export class Feeds {
 		// Feeds are shared across principals, so the per-session check (Bot conversations need owner scope)
 		// runs for every subscriber, not only the one that started the feed.
 		if (method === "sessions.watch") await sessionMetadata((params as { id: string }).id, ctx);
-		const key = `${method}\u0000${JSON.stringify(params)}`;
+		if (method === "views.watch") await registry.call("views.list", params, ctx, new AbortController().signal);
+		const key = `${method}\u0000${JSON.stringify(params)}\u0000${JSON.stringify(ctx.principal.scopes)}`;
 		const live = this.feeds.get(key);
 		if (live && !live.closed) return live;
 		const pending = this.starting.get(key);
