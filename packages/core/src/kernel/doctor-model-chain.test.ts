@@ -8,6 +8,35 @@ import { ModelHealth } from "../runtime/model-health.js";
 import { ModelQuota } from "../runtime/model-quota.js";
 import { initHome, inspectHome } from "./home.js";
 
+test("doctor advises old SiliconFlow homes to set system role compatibility", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-siliconflow-"));
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const file = join(home, "yonder.yaml");
+		const config = parse(await readFile(file, "utf8"));
+		config.models = {
+			providers: {
+				siliconflow: {
+					api: "openai-completions",
+					baseUrl: "https://api.siliconflow.cn/v1",
+					models: [{ id: "deepseek-ai/DeepSeek-V3.2" }],
+				},
+			},
+		};
+		await writeFile(file, stringify(config));
+		expect((await inspectHome(home)).warnings).toEqual(
+			expect.arrayContaining([expect.stringContaining("supportsDeveloperRole: false")]),
+		);
+		config.models.providers.siliconflow.compat = { supportsDeveloperRole: false };
+		await writeFile(file, stringify(config));
+		expect((await inspectHome(home)).warnings).not.toEqual(
+			expect.arrayContaining([expect.stringContaining("supportsDeveloperRole: false")]),
+		);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60000);
+
 test("doctor reports configured chain and persisted hold and quota gates", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-"));
 	try {

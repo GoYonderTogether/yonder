@@ -188,7 +188,6 @@ function modelFromJson(
 						{
 							thinkingFormat: "qwen",
 							supportsReasoningEffort: false,
-							supportsDeveloperRole: false,
 							thinkingTokenBudgetField: "thinking_budget",
 						},
 						providerConfig.compat,
@@ -367,7 +366,9 @@ export function buildModels(
 		const issues = Errors(ProviderConfigSchema, raw);
 		if (issues.length)
 			throw new Error(`Invalid provider ${id}: ${issues.map((e) => `${e.instancePath}: ${e.message}`).join("; ")}`);
-		const config = raw as ModelsJsonProvider;
+		const input = raw as ModelsJsonProvider;
+		const config =
+			id === "siliconflow" ? { ...input, compat: mergeCompat({ supportsDeveloperRole: false }, input.compat) } : input;
 		const base = models.getProvider(id);
 		const getModels = (): Model<Api>[] => {
 			const values: Model<Api>[] = (base?.getModels() ?? []).map(

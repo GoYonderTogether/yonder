@@ -235,6 +235,13 @@ export async function inspectHome(home: string) {
 	const warnings = ["exec 可运行任意程序；主机中的 yonder CLI 等同于管理权限。文件能力规则不构成沙箱。"];
 	try {
 		const config = await loadYonderConfig(home);
+		const siliconflow = config.models?.providers?.siliconflow as
+			| { compat?: { supportsDeveloperRole?: boolean } }
+			| undefined;
+		if (siliconflow && siliconflow.compat?.supportsDeveloperRole !== false)
+			warnings.push(
+				"SiliconFlow 不支持 developer role；在 yonder.yaml 的 models.providers.siliconflow.compat 设置 supportsDeveloperRole: false。未显式设置时已使用此默认值。",
+			);
 		const services = inspectionServices(home, config, (level, text) => {
 			if (level !== "info") warnings.push(text);
 		});

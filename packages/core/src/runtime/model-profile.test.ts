@@ -84,4 +84,12 @@ test("SiliconFlow V3.2 uses its documented thinking fields while explicit settin
 		siliconflow: { ...provider, models: [{ ...provider.models[0], reasoning: false }] },
 	}).getModel("siliconflow", provider.models[0]!.id);
 	expect(explicit?.reasoning).toBe(false);
+	const other = buildModels(credentials, {
+		siliconflow: { ...provider, models: [{ id: "other" }] },
+	}).getModel("siliconflow", "other");
+	expect(other?.compat).toMatchObject({ supportsDeveloperRole: false });
+	const override = buildModels(credentials, {
+		siliconflow: { ...provider, compat: { supportsDeveloperRole: true } },
+	}).getModel("siliconflow", provider.models[0]!.id);
+	expect(override?.compat).toMatchObject({ supportsDeveloperRole: true });
 });
