@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
 import { afterAll, describe, expect, it } from "vitest";
@@ -16,7 +17,7 @@ afterAll(async () => {
 });
 
 async function start(remoteOwner: boolean) {
-	const home = await mkdtemp("/tmp/yonder-gateway-bots-");
+	const home = await mkdtemp(join(tmpdir(), "ygb-"));
 	await initHome(home, "owner", { model: testModel });
 	await setAccessTokenHash(home, tokenHash(ACCESS));
 	if (remoteOwner) {

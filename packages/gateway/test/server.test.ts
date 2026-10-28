@@ -1,5 +1,6 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { request } from "node:http";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initHome, openKernel, registry, releaseInfo } from "@yonder/core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -48,7 +49,7 @@ const rpc = async (method: string, params: unknown = {}, headers: Record<string,
 	).json()) as { ok: boolean; result?: Record<string, unknown>; error?: { code: string } };
 
 beforeAll(async () => {
-	home = await mkdtemp("/tmp/yonder-gateway-");
+	home = await mkdtemp(join(tmpdir(), "yg-"));
 	await initHome(home, "owner", { model: testModel });
 	kernel = await openKernel(home);
 	gateway = await startGateway({
