@@ -33,3 +33,43 @@ jobs:
       - run: node scripts/yonder-permissions.mjs self-check
       - run: npm test -- --maxWorkers=4
       - run: npm run lint
+
+  linux:
+    name: Linux typecheck, build, test, lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: sudo apt-get install -y ripgrep
+      - run: npm ci
+      - run: node scripts/check-pi-durable-workspace.mjs
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test -- --maxWorkers=4
+      - run: npm run lint
+
+  windows:
+    name: Windows typecheck, build, test, lint
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-pi-durable-workspace.mjs
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json=windows-failures.json
+      - run: npm run lint
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-failures
+          path: windows-failures.json
