@@ -194,6 +194,8 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 ### code-intel（可选）
 
+`code-intel_project_report` 通过执行环境内的共享 pi-lens MCP 返回项目结构报告，接受可选 limit、focus 和 view；冷缓存返回 unavailable 并在后台构建，后续调用可读取热报告。需要 read、exec，仅选中插件时提供，输出沿用运行时截断与缓存。
+
 `code-intel_symbol_search` 在选定执行环境通过共享 pi-lens MCP 连接搜索标识符，接受 query 和可选 limit、paths、lang；冷索引构建中返回后端状态供重试。需要 read、exec，仅选中插件时提供，输出沿用运行时截断与缓存。
 
 `code-intel_effective_config` 在选定执行环境调用 pi-lens 4.4.6 MCP，接受可选 file（须解析到 cwd 内），返回脱敏的配置来源、工具开关及该文件的语言、server 和 runner 选择理由；上游不返回全部配置值。环境变量值和命令参数不得输出，home 内路径使用相对 home 表示；越界返回错误。需要 read、exec，仅选中插件时提供，运行时截断与缓存只能保存已脱敏的后端结果。
