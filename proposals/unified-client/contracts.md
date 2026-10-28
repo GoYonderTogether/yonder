@@ -1,6 +1,6 @@
 # Unified Client A/B 接口契约 v1（冻结稿）
 
-> 状态：提案，待维护者批准。冻结 A 线（内核）与 B 线（control 注册表、`packages/gateway`、`apps/app`、macOS 壳）之间的接口。本文不改 `docs/spec/`；落地为 spec 19 时再走设计变更。
+> 状态：提案，待维护者批准。v1.1 增补 §11–§17，protocol 仍为 1（兼容已有传输，统一未实现的提案形状）。冻结 A 线（内核）与 B 线（control 注册表、`packages/gateway`、`apps/app`、macOS 壳）之间的接口。本文不改 `docs/spec/`；落地为 spec 19 时再走设计变更。
 > 标记：【已有】代码里存在。【新增·A】内核线实现。【新增·B】应用线实现。【未核实】没读到源码，开工第一步先核。
 > 输入：`design.md` §4.1/§4.8/§11，`agent-parity.md` §8，`research/C1-clients.md`，`credentials.md` §6，`packages/cli/src/index.ts:724-841`，`packages/core/src/control/index.ts`，`packages/sdk/src/types.ts`。
 > 局限：`design.md` 的 §11 阶段 1 只读到「8 个读/提交方法 + `capabilities.get`」，没找到那 8 个的逐条清单。下面按 §4.1 与 C1 缺口推定（见 §1.3），请 B 线对一下。
@@ -453,3 +453,179 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 **scope `owner`**：`Scope = read | write | admin | owner`。本机票据登录（`kind: local`）含 `owner`；远程访问令牌登录默认**不含**，需在 `yonder.yaml` 设 `gateway.remoteOwner: true` 才授予（默认 false，重启生效）。无 scope 时网关对 HTTP RPC 返回 403 `{ok:false,error:{code:"forbidden"}}`（此前 forbidden 也是 200，现统一为 403）；WS 订阅沿用 `end{reason:"forbidden"}`。`capabilities.get.methods` 与 `granted` 只列出本连接持有 scope 的方法。**远程隔离**：Bot 对话（所有非 task 会话，含共享 main 会话）额外要求 `owner` scope：`sessions.list` 只向无 `owner` 的连接返回 task 会话，`sessions.show/transcript/watch/abort/close` 对非 task 会话返回 forbidden（HTTP 403；WS `end{reason:"forbidden"}`，共享 feed 对每个订阅者单独检查）。因此远程令牌在未开 `gateway.remoteOwner: true` 时看不到也碰不到 Bot 对话。task 会话保持原有 read/write 行为。
 
 **已知缺口（待下一片，需 owner scope 校验）**：无 `owner` scope 的远程令牌（默认）虽看不到 Bot 会话（上文 sessions.* 隔离），但仍可经 `events.query`（按事件过滤，不按会话）读取、经 `sessions.notify`、`sessions.command` 和 `terminal.info`（按会话 id）作用于 Bot 对话。`events.query` 需按事件所属会话/渠道过滤，超出本片范围；其余三个需复用 `guardSession`。
+
+### §11 views.*（插件视图槽，D3）
+
+```ts
+type Placement = "rail" | "floating" | "page";
+type BuiltinViewId = "todos" | "goal" | "subtasks" | "attachments" | "context" | "background" | "subagents" | "wakes";
+
+// 插件在 core 的 views 槽里声明；内置视图由 core 自己声明（id 为 BuiltinViewId）
+interface ViewDecl {
+  id: string;                     // 内置用 BuiltinViewId；插件用 "<pluginId>.<name>"，全节点唯一
+  plugin: string;                 // 内置为 "core"
+  title: string;
+  placement: Placement;
+  scope: "session" | "node";      // session：随当前会话变；node：与会话无关
+  data?: string;                  // 取数方法名，默认 "views.data"；必须是 read 方法
+  icon?: string;                  // lucide 图标名，未知则前端用默认
+  order?: number;                 // 同 placement 内升序，默认 100
+  actScope?: Scope;               // views.act 需要的 scope，默认 "write"
+  needs?: { methods?: string[] };
+}
+
+type ViewContent =                // 插件视图只能返回这几种，前端不执行插件代码
+  | { type: "markdown"; text: string }
+  | { type: "list"; items: { id: string; title: string; subtitle?: string; state?: "todo"|"doing"|"done"|"error"|"info"; actions?: { id: string; label: string; danger?: boolean }[] }[] }
+  | { type: "kv"; rows: { k: string; v: string }[] }
+  | { type: "choice"; prompt: string; options: { id: string; label: string }[]; multi?: boolean }
+  | { type: "input"; prompt: string; placeholder?: string; secret?: false }   // 不得收集密钥，secret 恒为 false
+  | { type: "builtin"; id: BuiltinViewId; payload: unknown };                // payload 形状见 §3.3/§3.4/§15
+
+interface ViewData { viewId: string; rev: number; content: ViewContent; badge?: number }
+```
+
+| 方法 | scope | params | result |
+|---|---|---|---|
+| `views.list` | read | `{ placement?: Placement; session?: string }` | `{ views: ViewDecl[] }`（只含本连接有权限、且 `needs.methods` 全满足的视图） |
+| `views.data` | read | `{ viewId: string; session?: string }` | `ViewData`；`scope:"session"` 的视图缺 `session` 返回 `invalid_params`；未知 viewId 返回 `not_found` |
+| `views.watch` | read | `{ placement?: Placement; session?: string }` | 流式，易失型（§2.3 第 6 条）；ready.result 同 `views.list`；事件 `views.changed` |
+| `views.act` | 取 `ViewDecl.actScope`（默认 write） | `{ viewId: string; action: string; input?: unknown; session?: string }` | `{ content?: ViewContent }` |
+
+- `views.changed` 的 data 沿用 §3.6 `ViewsChangedEv`，placement 取值改为 Placement。前端收到后重取 `views.list` 与受影响 viewId 的 `views.data`。
+- 内置视图的 `views.data` 返回 `{type:"builtin", id, payload}`，payload 就是对应事件的最新全量：todos→`TodoUpdatedEv`，subtasks→`SubtaskUpdatedEv`，background→`BackgroundUpdatedEv`，context→`ContextSnapshot`，wakes→`WakeUpdatedEv`，goal→`GoalUpdatedEv`（§15），attachments→`{ items: AttachmentRow[] }`，subagents→`SubtaskUpdatedEv`。
+- 插件视图的 `data` 若不是默认的 `views.data`，该方法必须以 `viewId`/`session` 为参数并返回 `ViewData`。
+- 错误：视图声明冲突（重复 id）在插件加载时报错，不进 `views.list`。
+
+### §12 capabilities.get 增补（NodeFacts v1.1）
+
+在 §4 的 `NodeFacts` 上新增（全部为事实，不含 UI 决定）：
+
+```ts
+interface NodeFactsAddendum {
+  minor: number;                                   // 本文增补版本，v1.1 为 1；protocol 仍为 1
+  node: { id: string; name: string };              // 多节点客户端区分来源（API-R20）
+  views: ViewDecl[];                               // 同 views.list 无参结果，免一次往返
+  models: { select: boolean };                     // 是否支持 sessions.model.set / models.list
+  remoteSession: {
+    create: boolean;                               // 本连接能否 sessions.open
+    modes: Mode[];                                 // 本连接能创建的 mode（远程默认只有 ["task"]）
+    agents: string[];                              // 可指定的 agent id（agents.list 同源）
+    workspaces: boolean;                           // 是否有 workspaces.list 可用
+  };
+  features: {                                      // 追加到 NodeFacts.features
+    attachments: boolean;                          // attachments.put 可用
+    notifications: boolean;                        // notifications.* 可用
+    approvals: boolean;                            // approvals.* 可用
+    suggestions: boolean;                          // suggestions.* 可用
+  };
+  limits: { attachmentMaxBytes: number };          // 不再恒为 0；不可用时为 0 且 features.attachments=false
+  auth: { kind: "local" | "remote"; owner: boolean };
+}
+```
+
+- `events` 数组补全：本节点会发的所有 type（含 §15 的 `wake.updated`、`goal.updated`、`suggestion.created`），前端据此决定显示哪些底栏段和右栏卡。
+- `plugins[].views` 填该插件声明的 viewId。
+- 前端判定顺序：`protocol >= APP_MIN_PROTOCOL` → `methods` 中有无所需方法 → `features` → `events`。不得按插件名判断。
+
+### §13 远程创建与管理会话
+
+沿用 `sessions.open`（不新增 `sessions.create`），扩参并补管理方法：
+
+| 方法 | scope | params | result |
+|---|---|---|---|
+| `workspaces.list` | read | `{}` | `{ roots: { id: string; label: string; path?: string }[] }`；远程连接不返回 `path`（只给 id 与 label） |
+| `sessions.open` | write | `{ preset?: string; agent?: string; model?: ModelRef; workspace?: string; cwd?: string; title?: string; prompt?: string; close?: "manual"\|"run-end"; parent?: string; requestId?: string }` | `{ session: SessionInfo; model?: ModelStatus; deduped?: boolean }` |
+| `sessions.rename` | write | `{ id: string; title: string }`（title 1–80 字符） | `Ok` |
+| `sessions.search` | read | `{ query: string; mode?: Mode; limit?: number }`（limit 默认 20，最大 100） | `{ items: { session: SessionInfo; title?: string; snippet?: string }[] }` |
+| `sessions.abort` / `sessions.close` | write | 已有，不变 | `Ok` |
+
+规则：
+1. `preset` 与 `agent` 至少给一个；都给时 `agent` 必须是该 preset 允许的 agent，否则 `invalid_params`。
+2. `workspace` 取 `workspaces.list` 的 id，远程连接只能用它；`cwd`（绝对路径）仅 `kind:"local"` 连接可用，远程传 `cwd` 返回 `forbidden`。两者都缺则用 preset 默认工作目录。
+3. 远程连接只能创建 `mode:"task"`；创建 persistent/main 需要 `owner` scope（§14）。`capabilities.get.remoteSession.modes` 如实反映。
+4. `prompt` 给出则创建后立即作为首条输入提交（等价于 open 后 `sessions.submit`，同一 `requestId` 幂等）。
+5. `requestId` 对 `(principal, requestId)` 10 分钟内幂等，重复返回第一次结果并带 `deduped:true`。
+6. `title` 缺省由服务端按首条输入生成；`sessions.rename` 只改显示名，不改 id。
+7. 事件：成功后节点级发 `session.opened`（§3.1），`activity.watch` 订阅者可见。
+8. agent 侧的会话管理工具（CORE 实现）与这些方法同一实现，不另起口径。
+
+### §14 scope 与隔离规则
+
+1. 四级：`read` ⊂ `write` ⊂ `admin`，`owner` 独立（说「以主人身份对 Bot 说话/看 Bot 对话」）。本机票据：全部四级；远程访问令牌：`read`+`write`，`gateway.remoteOwner:true` 时加 `owner`；`admin` 永不给远程。
+2. 会话分类：`task`（mode 为 task）与 `bot`（其余 mode，含共享 main）。bot 类会话的所有读写需要 `owner`（§10 已有，本条把规则推到所有入口）。
+3. 所有按会话 id 或按事件过滤取数的方法必须过同一个 `guardSession`：`sessions.*`、`terminal.info`、`sessions.command`、`sessions.notify`、`events.query`（按事件所属会话/渠道过滤，无 `owner` 时只返回 task 会话事件）、`views.data/act`（session 参数）、`approvals.*`、`attachments.*`（附件属于会话时）。
+4. 流订阅（`sessions.watch`、`views.watch`、`activity.watch`）：`sub` 时校验一次；`activity.watch` 对无 `owner` 的连接，`ActivitySummary.sessions` 只含 task 会话，计数同样只算 task。
+5. `local:true` 方法（`stop`、`service.*`、`gateway.ticket`、凭据读取）永不出现在远程 `capabilities.get.methods`。
+6. 新方法默认 scope：读 `read`、对 task 会话写 `write`、对 Bot 说话 `owner`、插件/渠道登录/改配置 `admin`；`approvals.answer` 需要 `owner`；`views.act` 取视图声明的 `actScope`，但不得低于 `write`。
+7. 违反：HTTP 403 `{ok:false,error:{code:"forbidden"}}`；WS `end{reason:"forbidden"}`。不得用 404 伪装不存在，除非该会话对本连接本就不可见（`sessions.list` 里没有）才返回 `not_found`。
+8. 日志与审计：`approvals.answer`、`views.act`、`sessions.open` 记 principal.id 与 requestId，不记正文。
+
+### §15 扩展事件载体与补充事件
+
+1. 内核/插件产生的会话级事件（`usage.updated`、`context.updated`、`compaction.*`、`model.*`、`todo.updated`、`subtask.updated`、`background.updated`、`wake.updated`、`goal.updated`）统一用 `SessionUpdate{type:"event", name:string, data:unknown}` 进入 `kernel.terminal.observe`；网关在 `sessions.watch` 上转成 `ev{type:name, data}`（`seq/cursor` 沿用现有缓冲）。不认识的 `name` 照转。
+2. 节点级事件（`session.opened/closed/settled`、`notification`、`approval.*`、`suggestion.created`、`capabilities.changed`）在 `activity.watch` 上以 `ev{type:name}` 投递。
+3. 新增事件形状：
+
+```ts
+interface WakeRow { id: string; at: string; source: "channel" | "cron" | "voice" | "manual" | "other"; channel?: string; from?: string; summary?: string }
+interface WakeUpdatedEv { session: string; rows: WakeRow[] }          // 最近 20 条，全量替换
+interface GoalUpdatedEv { session: string; goal: null | { text: string; state: "active"|"paused"|"done"|"abandoned"; steps?: { text: string; done: boolean }[]; updatedAt: string } }
+interface AttachmentRow { id: string; uri: string; name?: string; mime: string; bytes?: number; at: string; from?: "user" | "agent" }
+```
+   `wake.updated`、`goal.updated` 与 §3.4 三者同为全量替换语义。
+
+### §16 通知偏好与建议卡
+
+```ts
+type NotifyLevel = "all" | "mentions" | "mute";   // 默认 all；mute 仍累计未读，只是不推送/不震动
+```
+
+| 方法 | scope | params | result |
+|---|---|---|---|
+| `notifications.prefs.get` | read | `{}` | `{ default: NotifyLevel; conversations: Record<string, NotifyLevel> }`，key 为会话引用（`conv:<channel>:<id>` 或 session id） |
+| `notifications.prefs.set` | write | `{ conv: string; level: NotifyLevel \| null }`（null 恢复默认；`conv:"*"` 改默认值） | `Ok` |
+| `suggestions.list` | read | `{ session?: string }` | `{ items: Suggestion[] }` |
+| `suggestions.act` | write | `{ id: string; action: "accept"\|"dismiss" }` | `{ state: "accepted"\|"dismissed"; first: boolean }` |
+
+```ts
+interface Suggestion { id: string; session: string; by: string; kind: "organize" | "nudge" | "followup"; title: string; body: string; createdAt: string; state: "pending"|"accepted"|"dismissed" }
+interface SuggestionCreatedEv { suggestion: Suggestion }
+```
+
+- 偏好存放在节点 home（节点内跨设备一致），不放前端本地。社交（Card 云）会话的免打扰仍由 Card 后端存，见 API-R17；前端 `api/` 层用同一个 `NotifyLevel` 类型。
+- `notification` 事件（§3.6）新增可选字段 `session?: string`、`conv?: string`、`channel?: string`，前端按 `conv` 对照偏好决定是否推送/震动。免打扰判断在客户端也做一次，服务端对 `mute` 会话不置 `urgent`。
+
+
+### §17 跨部门消费形状与实现归属（本卡写入 contracts.md 的正文）
+
+本节统一已有提案冲突，不新增功能域。§3.3 的既有类型优先；API-02 是第 1 波共享 schema 唯一写者。API 的后续方法卡使用这些类型，FE/CORE/DIST 不自定同名类型。
+
+| 消费方 | 固定契约 | 提供卡 |
+|---|---|---|
+| CORE-01/04/05/06、FE-13 | §11 ViewDecl / ViewData / ViewContent；裸内置 id；插件 id 带前缀；board 用 list，progress 用 kv，按钮用 list.actions；禁止 ViewDocument 第二套变体 | API-01/02/05/16 |
+| FE-12、CORE-23 | §13 sessions.open；ModelRef 为 {provider,model,thinking?}；workspace 是目录 id，cwd 仅 local；不可自造 sessions.create | API-07/28 |
+| FE-19、CORE-24/35 | UsageUpdatedEv/ContextUpdatedEv/CompactionEv 完整沿用 §3.3；CH=cacheRead/(input+cacheRead+cacheWrite)，分母零不显示；compaction.started/finished，失败为 finished{ok:false} | API-02/10/22 |
+| CORE-07/09、FE-19 | ModelChangedEv、ModelFallbackEv 沿用 §3.3；恢复用 model.fallback{state:"recovered"}，不另设 model.recovered；reason 沿用 rate_limit/quota/unavailable/error，超时归 unavailable | API-02/11 |
+| CORE-01/19、DIST-03 | SessionSettledEv={session:string,status:"idle"\|"done"\|"error"\|"aborted"}；节点流 activity.watch；同一运行只发一次 | API-02/13 |
+| CORE-09 | reply.failed：{session:string,notice:string,willRetry:boolean}，notice 非空中文且不含敏感正文 | API-02/11 |
+| FE-15/20 | SessionUpdate 与 TranscriptItem 保留 SDK 形状，消息可选 channel/fromName；thinking 块与正文分开，不另造 kind 与真实 SDK 冲突；bots.list 增 channels:string[]、sessionsOverview:number | API-02/09/19/21 |
+| FE-09/17 | NotifyLevel=all/mentions/mute，旧 mention 仅迁移输入；mute 仍计未读，不系统通知/震动；notification 在 §3.6 形状上增 session?/conv?/channel? | API-18/23/24 |
+| CORE-17、FE 审批调用 | ApprovalCard 沿用 §3.5；approvals.list({state?:"pending"\|"all"})→{items:ApprovalCard[]}；answer({approvalId,decision:"approve"\|"deny"})→{state:"answered",by:string,first:boolean}，scope=owner；事件 approval.requested/approval.answered（不叫 resolved） | API-20 |
+| FE 附件/语音 | attachments.put 是 HTTP 别名：POST /api/attachments 原始字节，Content-Type/X-Name/X-Session；结果 AttachmentRef={uri:string,bytes:number,mime:string,name?:string}，直接填 SDK Input.attachments；GET 同源 uri 校验归属；不返回无 uri 的独立 id | API-14/23 |
+| CORE-19、FE-23 | §16 Suggestion；suggestions.list/act 与 view 共享状态，accept/dismiss；主 Agent 已裁定 snooze 推迟，本版只定 accept/dismiss | API-21/23 |
+| FE-04、DIST-05/12 | window.__YONDER_SHELL__?: "desktop"\|"mobile"；不注入表示 Web；?shell 值同一白名单；客户端壳不属于 NodeFacts，不使用 facts.shell；平台外观本地检测 | API-15 |
+| DIST-19、FE-18 | UpdateState={state:"idle"\|"checking"\|"downloading"\|"ready"\|"applying"\|"failed",current:string,latest?:string,progress?:number,error?:string}；update.status({})→UpdateState；update.download({})→UpdateState；update.apply({})→{ok:boolean,hint?:string}；三方法 local:true，read/admin/admin；download 内先检查版本，apply 必须点击 | CORE-26、API-26 |
+| FE-22 | 使用既有 todos builtin view 展示管家 onboarding 清单（TodoUpdatedEv），不新增 onboarding RPC；24 小时/5 次仅前端显示规则 | CORE-20、API-28 |
+
+`KernelViews`（CORE-01 提供、API-05 调用）：list({placement?,session?})→ViewDecl[]；data(viewId,session?)→ViewData；act(viewId,action,input?,session?)→{content?:ViewContent}；watch({placement?,session?})→异步 ViewsChangedEv 流；API 调用前按 principal/guardSession 过滤。SDK `api.views.register(decl,provider)` 的 provider.data(session?)→ViewData、provider.act(action,input?,session?)→{content?:ViewContent}；invalidate 发 §3.6 的 ViewsChangedEv。data 方法名缺省 views.data，不创建网关内第二套注册表。
+
+快照与流：sessions.show({id,limit?,before?,full?})→{session:SessionInfo,items:TranscriptItem[],nextBefore?:string}，limit 默认 50，full 仅 local；sessions.watch ready.result 沿用已有快照并加可选 model/usage/context。已有 SessionInfo/SessionUpdate/ActivitySummary/ApprovalCard 与 §3.3/3.4 的形状直接引用，不复制改名；ActivitySummary 的 session 过滤前后计数一致。activity.summary({since?:string}) 的 since 为 ISO 时间，仅过滤会话列表的最后活动时间，其他汇总不得带出隐藏会话。
+
+流排序只用 §2 的 (sub,seq)/cursor，不增通用 rev；ViewData 自有 rev 不外推到 usage/work。views.changed 只在 views.watch；节点级通知在 activity.watch。事件实际生产者为 CORE-01/07/09/24/35；API-02 只校验映射，缺生产者不得宣称端到端通过。ContextSnapshot 可选 parts:{name:string,tokens:number}[]；UsageSnapshot 可选 lsp:{name:string,state:string}；无数据源则省略、不伪造 LSP Active。
+
+前端数据层导出（API-03/16/17/22/23/24/25/28）：rpc/openStream/qk、useCapabilities/useFeature/useHasMethod、useViews/useViewData/useViewAction、useSessionState/useFooterStats/useTodos/useWakes/useGoal、useNotifyPrefs/useSetNotifyLevel、useApprovals/useAnswerApproval、uploadAttachment、useSuggestions/useActSuggestion、useSocialAuth/useSocialConversations/useContacts、useNodes/useActiveNode/addNode/removeNode、useSessionCatalog/useOpenSession/useOnboarding。社交后端来源已按 Q01 确认为 GoYonderTogether/yonder-web（本机 ~/Documents/yonder-card-web，服务端 server/src）；本卡只定契约形状，不修改服务端。社交 ApiClient 与类型原样来自该 Card 参考源（API-17），登录态只有 API-24 持有；FE 文件中的 hook 只能做展示组合。
+
+审批/建议的 kernel 与插件接线位置待定，由主 Agent 落精确接口/文件再派 API-20/21，不能凭空假设 ctx.kernel.approvals/suggestions 已存在。Tauri 原生 updater 桥接不冒充网关 update.*，按 Q05 待定。
+
+其余待定项：Q02 管家清单语义、Q04 voice 协议（交 API-27）、Q06 Skill 多源与去重规则、Q07 工作展示页路径。它们不阻塞本卡，不在此猜测接口。
