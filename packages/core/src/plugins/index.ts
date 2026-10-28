@@ -27,6 +27,7 @@ import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
 import { CONSOLE, consoleChannel } from "../kernel/console.js";
 import { peerWorkspaceContext } from "../prompt/index.js";
+import { createViews } from "../views/index.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
@@ -60,6 +61,7 @@ export type KernelServices = Omit<
 };
 
 export interface LoadedPlugins {
+	views: ReturnType<typeof createViews>;
 	channels: Map<string, Channel>;
 	envs: Map<string, ExecutionEnv>;
 	tools: Map<string, Tool[]>;
@@ -122,6 +124,7 @@ export async function loadPlugins(
 	config: YonderConfig,
 	services: KernelServices,
 ): Promise<LoadedPlugins> {
+	const views = createViews();
 	const channels = new Map<string, Channel>();
 	const envs = new Map<string, ExecutionEnv>();
 	const tools = new Map<string, Tool[]>();
@@ -215,6 +218,16 @@ export async function loadPlugins(
 			channels: register("channels", registrationsApi.channels.register),
 			tools: register("tools", registrationsApi.tools.register),
 			contexts: register("contexts", registrationsApi.contexts.register),
+			views: {
+				register: (decl, provider) => {
+					register("views", (value: typeof decl) => {
+						claim("views", value.id, manifest.id);
+						views.register(manifest.id, value, provider);
+						registrationsApi.views.register(value, provider);
+					}).register(decl);
+				},
+			},
+			invalidate: (ids, badge) => views.invalidate(manifest.id, ids, badge),
 			triggers: register("triggers", registrationsApi.triggers.register),
 			envs: register("envs", registrationsApi.envs.register),
 			hooks: register("hooks", registrationsApi.hooks.register),
@@ -374,6 +387,7 @@ export async function loadPlugins(
 		if (failure) throw failure;
 	};
 	return {
+		views,
 		channels,
 		envs,
 		tools,

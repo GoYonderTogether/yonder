@@ -2,13 +2,14 @@ import type { Credential, Message, Models } from "@earendil-works/pi-ai";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { TSchema } from "typebox";
 import type { Preset } from "./models.js";
+import type { PluginViewsAPI } from "./views.js";
 
+export type * from "./views.js";
 export type { Credential, ExecutionEnv, Message, Models, TSchema };
 export type Ref = string;
 export type Capability = "read" | "write" | "exec" | "network" | "message" | "cross-agent" | "admin";
 export type Level = "bypass" | "standard" | "readonly";
 export type Mode = "main" | "persistent" | "ephemeral" | "task";
-
 export interface YEvent {
 	id: string;
 	ts: string;
@@ -97,7 +98,6 @@ export interface ConfigReloadData {
 	ok: boolean;
 	errors?: string[];
 }
-
 export interface EventQuery {
 	/** Exact event ID; intersected with all other filters. */
 	id?: string;
@@ -111,12 +111,10 @@ export interface EventQuery {
 	limit?: number;
 }
 export type { Preset, Profile, SessionModels } from "./models.js";
-
 export interface EventPage {
 	events: YEvent[];
 	next?: string;
 }
-
 export interface SessionNotification {
 	id: number;
 	from: string;
@@ -124,7 +122,7 @@ export interface SessionNotification {
 	text: string;
 }
 
-export interface SessionUpdate {
+interface SessionUpdateBase {
 	session?: string;
 	runId?: string;
 	eventIds?: string[];
@@ -153,6 +151,9 @@ export interface SessionUpdate {
 	tool?: { id: string; name: string; args?: object; phase: "start" | "update" | "end"; text?: string; result?: object };
 	error?: string;
 }
+export type SessionUpdate =
+	| SessionUpdateBase
+	| (Omit<SessionUpdateBase, "type"> & { type: "event"; name: string; data: unknown });
 
 export interface SessionsAPI {
 	/** Deterministic model/status/compact commands, scoped to this session and its capabilities. */
@@ -431,7 +432,7 @@ export interface PermissionsAPI {
 	list(ctx: ToolContext): Promise<Array<Pick<PermissionProvider, "id" | "scope" | "kinds">>>;
 	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
 }
-export interface PluginAPI {
+export interface PluginAPI extends PluginViewsAPI {
 	permissions: PermissionsAPI;
 	agents: { list(): Promise<{ id: string; name: string; avatarUrl?: string }[]> };
 	readonly version: string;

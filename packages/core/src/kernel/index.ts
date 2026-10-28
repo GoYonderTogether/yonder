@@ -32,6 +32,7 @@ import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
+import { builtinViews } from "../views/builtin.js";
 import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
@@ -43,14 +44,12 @@ import { observedRuntimeEvents, type TerminalSends, terminalUpdates } from "./ob
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
-
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { initHome, inspectHome } from "./home.js";
 export { type ManagementRequest, manageHome, offlineQuery } from "./home-management.js";
 export type { KernelLog } from "./workspace.js";
 export { inspectSkills } from "./workspace.js";
-
 export async function openKernel(home: string, options: KernelOptions = {}) {
 	home = resolve(home);
 	process.env.YONDER_HOME = home;
@@ -350,6 +349,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
+		for (const { decl, provider } of builtinViews()) loaded.views.register("core", decl, provider);
 		runtime = await Runtime.open({
 			db,
 			home,
@@ -369,6 +369,9 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			},
 			...ticks(store, delivery, options.test),
 			onRun: completeRun,
+			onSessionSettled: async (data) => {
+				await store.events.record({ type: "session.settled", data });
+			},
 			onIdle: async (id) => {
 				const session = await store.sessions.get(id);
 				if (!session) return;
@@ -470,6 +473,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				shipped: () => shippedChannelsFor(home, config),
 				login: loginChannel,
 			},
+			views: loaded.views.api,
 			sessions: { ...sessions.api, observe: observeSession },
 			releaseResult: (data: UpdateResult) => {
 				if (resolve(data.home) !== home) throw new Error("Update result belongs to another home");
@@ -547,7 +551,6 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		throw error;
 	}
 }
-
 export async function loginProvider(
 	home: string,
 	provider: string,
@@ -559,14 +562,12 @@ export async function loginProvider(
 }
 export type LoginInteraction = Parameters<Models["login"]>[2];
 export type Kernel = Awaited<ReturnType<typeof openKernel>>;
-
 /** Store a new non-model named API key without opening the kernel database. */
 export async function setNamedCredential(home: string, name: string, key: string, signal?: AbortSignal): Promise<void> {
 	const { credentialPath, storeNamedCredential } = await import("../runtime/credentials.js");
 	const config = await loadYonderConfig(home);
 	await storeNamedCredential(credentialPath(home, config.credentials), name, key, signal);
 }
-
 /** Local operator slot management; returns metadata only and never opens the runtime database. */
 export async function manageCredentialSlots(
 	home: string,
