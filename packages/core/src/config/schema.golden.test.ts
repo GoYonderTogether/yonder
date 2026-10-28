@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 import { AgentSchema, PresetSchema, YonderSchema } from "./schema.js";
 
@@ -50,8 +52,11 @@ test("updates the golden schema only after compatibility is verified", () => {
 	expect(Object.entries(schemas).every(([name, schema]) => golden[name] && compatible(golden[name], schema))).toBe(
 		true,
 	);
-	if (process.env.UPDATE_GOLDEN === "1")
-		writeFileSync(new URL("./schema.golden.json", import.meta.url), `${JSON.stringify(schemas, null, "\t")}\n`);
+	if (process.env.UPDATE_GOLDEN === "1") {
+		const path = new URL("./schema.golden.json", import.meta.url);
+		writeFileSync(path, `${JSON.stringify(schemas, null, "\t")}\n`);
+		execFileSync("npx", ["biome", "format", "--write", fileURLToPath(path)]);
+	}
 });
 
 test("compatibility detects narrowing and permits optional fields and enum additions", () => {

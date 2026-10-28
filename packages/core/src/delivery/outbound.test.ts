@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 
 const shape = (value: unknown): unknown =>
@@ -63,6 +65,9 @@ test("digest survives restart and rechecks every queued owner's capability", asy
 		]),
 	);
 	const golden = new URL("./outbound.golden.json", import.meta.url);
-	if (process.env.UPDATE_GOLDEN === "1") writeFileSync(golden, `${JSON.stringify(actual, null, "\t")}\n`);
+	if (process.env.UPDATE_GOLDEN === "1") {
+		writeFileSync(golden, `${JSON.stringify(actual, null, "\t")}\n`);
+		execFileSync("npx", ["biome", "format", "--write", fileURLToPath(golden)]);
+	}
 	expect(actual).toEqual(JSON.parse(readFileSync(golden, "utf8")));
 });

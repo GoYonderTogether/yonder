@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
 import { createCoreTools } from "./index.js";
 
@@ -27,7 +29,10 @@ test("delegation tool schemas remain additive", () => {
 	const current = JSON.parse(
 		JSON.stringify(Object.fromEntries(tools.map((tool) => [tool.name, tool.parameters]))),
 	) as Schema;
-	if (process.env.UPDATE_GOLDEN === "1") writeFileSync(path, `${JSON.stringify(current, null, "\t")}\n`);
+	if (process.env.UPDATE_GOLDEN === "1") {
+		writeFileSync(path, `${JSON.stringify(current, null, "\t")}\n`);
+		execFileSync("npx", ["biome", "format", "--write", fileURLToPath(path)]);
+	}
 	const golden = JSON.parse(readFileSync(path, "utf8")) as Schema;
 	compatible(golden, current);
 });

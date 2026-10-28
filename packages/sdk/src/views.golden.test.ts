@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { expect, expectTypeOf, test } from "vitest";
 import type { BuiltinViewId, Placement, ViewContent, ViewData, ViewDecl, ViewsChangedEv } from "./views.js";
 
@@ -180,7 +182,10 @@ test("SDK views types match the gateway TypeBox schema", async () => {
 
 test("views protocol keeps every golden shape (golden ⊆ current)", async () => {
 	const current = await currentShapes();
-	if (process.env.UPDATE_GOLDEN === "1") writeFileSync(GOLDEN, `${JSON.stringify(current, null, "\t")}\n`);
+	if (process.env.UPDATE_GOLDEN === "1") {
+		writeFileSync(GOLDEN, `${JSON.stringify(current, null, "\t")}\n`);
+		execFileSync("npx", ["biome", "format", "--write", fileURLToPath(GOLDEN)]);
+	}
 	const golden = JSON.parse(readFileSync(GOLDEN, "utf8")) as Record<string, Shape>;
 	const violations: string[] = [];
 	for (const [name, shape] of Object.entries(golden)) {

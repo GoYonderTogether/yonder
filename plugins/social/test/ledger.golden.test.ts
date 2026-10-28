@@ -1,6 +1,8 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { EventInput, PluginAPI } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
@@ -99,7 +101,10 @@ test("SQLite routing facts rebuild a pending batch across restart and retain the
 			"social.batch-failed": shape(failed?.data),
 			"social.batch-read": shape(read?.data),
 		};
-		if (process.env.UPDATE_GOLDEN === "1") await writeFile(golden, `${JSON.stringify(current, null, "\t")}\n`);
+		if (process.env.UPDATE_GOLDEN === "1") {
+			await writeFile(golden, `${JSON.stringify(current, null, "\t")}\n`);
+			execFileSync("npx", ["biome", "format", "--write", fileURLToPath(golden)]);
+		}
 		expect(current).toEqual(JSON.parse(await readFile(golden, "utf8")));
 		await db.close();
 	} finally {

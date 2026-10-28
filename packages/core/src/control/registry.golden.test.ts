@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,7 +7,7 @@ import { PROTOCOL, registry } from "./methods.js";
 
 // Control-plane method golden (contracts.md §5: protocol=1, add-only).
 // Regenerate with `UPDATE_GOLDEN=1 npx vitest run packages/core/src/control/registry.golden.test.ts`,
-// then `npx biome format --write packages/protocol/golden`.
+// formatting runs automatically.
 const goldenPath = fileURLToPath(new URL("../../../protocol/golden/methods.json", import.meta.url));
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -109,6 +110,7 @@ test("control method registry stays backward compatible with the golden (golden 
 	if (process.env.UPDATE_GOLDEN === "1") {
 		mkdirSync(dirname(goldenPath), { recursive: true });
 		writeFileSync(goldenPath, `${JSON.stringify(now, null, "\t")}\n`);
+		execFileSync("npx", ["biome", "format", "--write", goldenPath]);
 	}
 	const golden = JSON.parse(readFileSync(goldenPath, "utf8")) as Golden;
 	expect(diff(golden, now)).toEqual([]);

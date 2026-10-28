@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { PROTOCOL } from "@yonder/core";
 import { describe, expect, it } from "vitest";
 import { EVENT_SCHEMAS } from "./protocol/index.js";
@@ -9,7 +11,7 @@ import { EVENT_SCHEMAS } from "./protocol/index.js";
  * 规则是 golden ⊆ 当前（同 S-C02，不是全等）：
  * 删事件、改名字、删字段、改字段类型、新增必填字段会失败；新增事件类型或新增可选字段不会。
  * 重写基线：`UPDATE_GOLDEN=1 npx vitest run packages/gateway/src/events.golden.test.ts`，
- * 随后 `npx biome format --write packages/protocol/golden/events.json`（与 protocol 导出 schema 的做法一致）。
+ * 格式化会自动执行。
  */
 type Scalar = "string" | "number" | "integer" | "boolean" | "null" | "unknown";
 type Shape =
@@ -133,7 +135,10 @@ function violations(golden: Shape, current: Shape, path: string, out: string[] =
 
 describe("事件契约 golden (S-C03)", () => {
 	it("golden 冻结的事件类型、必有字段与字段类型仍然成立（golden ⊆ 当前）", () => {
-		if (process.env.UPDATE_GOLDEN === "1") writeFileSync(goldenUrl, `${JSON.stringify(currentGolden(), null, "\t")}\n`);
+		if (process.env.UPDATE_GOLDEN === "1") {
+			writeFileSync(goldenUrl, `${JSON.stringify(currentGolden(), null, "\t")}\n`);
+			execFileSync("npx", ["biome", "format", "--write", fileURLToPath(goldenUrl)]);
+		}
 		const golden = JSON.parse(readFileSync(goldenUrl, "utf8")) as Golden;
 		expect(golden.protocol).toBe(PROTOCOL);
 

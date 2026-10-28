@@ -1,4 +1,6 @@
+import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { Batches } from "../src/batches.js";
@@ -66,7 +68,10 @@ test("folded batches are timed, bounded and not duplicated after restart", async
 		const current = {
 			"social.folded-ready": shape(ledger.find((event) => event.type === "social.folded-ready")?.data),
 		};
-		if (process.env.UPDATE_GOLDEN === "1") await writeFile(golden, `${JSON.stringify(current, null, "\t")}\n`);
+		if (process.env.UPDATE_GOLDEN === "1") {
+			await writeFile(golden, `${JSON.stringify(current, null, "\t")}\n`);
+			execFileSync("npx", ["biome", "format", "--write", fileURLToPath(golden)]);
+		}
 		expect(current).toEqual(JSON.parse(await readFile(golden, "utf8")));
 		await first.stop();
 		const restored = new Batches(api);
