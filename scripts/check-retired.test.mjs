@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { join } from "node:path";
-import { test } from "node:test";
 import { WebSocketServer } from "ws";
 import {
 	missingInteractionViews,
@@ -13,6 +12,8 @@ import {
 	streamReady,
 	TARGETS,
 } from "./check-retired.mjs";
+
+const { test } = await import(process.env.VITEST ? "vitest" : "node:test");
 
 const view = (overrides) => ({
 	id: "x.one",
