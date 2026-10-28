@@ -1,5 +1,7 @@
 # T09r2 真实学习闭环验收
 
+T09r3 重验准备：已同步 main，将在推送后使用独立验收副本；真实 A/B、撤销与样本尚待验证。验收 HOME 不得导入 siliconflow 以外的凭据。
+
 状态：未完成。2026-10-28 首次启动隔离验收时，共享 `packages/core/dist` 不一致：`kernel/index.js` 引用 `workspace.js` 尚未导出的 `projectRulesFor`，Node 在加载阶段报错，未调用模型、未生成记忆或技能。
 
 随后执行 `npx tsc -b packages/core` 失败：其他并行改动涉及 `config/subagent-definitions.ts` 的 `Dirent` 类型、`kernel/index.ts` 的 `projectRulesFor` 和 `prompt/templates.ts` 的可选字符串。需在共享构建恢复后，以临时 HOME、仅导入 siliconflow 凭据槽，重新执行会话 A → 关闭会话 → 复盘 → 新会话 B 的真实验收，并在此附实际产物原文。当前不声称学习或召回成功。
