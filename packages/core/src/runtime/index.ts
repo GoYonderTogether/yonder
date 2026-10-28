@@ -61,6 +61,7 @@ import {
 	cid,
 	emptyUsage,
 	ModelBindingDoc,
+	type OutboxEntry,
 	RunDoc,
 	type RunState,
 	SessionDoc,
@@ -107,6 +108,7 @@ export { submissionOutcome } from "./docs.js";
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptItem } from "./transcript.js";
 import type {
+	ModelFallbackEvent,
 	RuntimeActivityExecution,
 	RuntimeInput,
 	RuntimeOptions,
@@ -572,10 +574,19 @@ export class Runtime {
 					const doc = await tx.doc(SessionDoc, api.conversationId);
 					// SAFETY: pi-durable validated args against todoParameters, which TodoArgs mirrors.
 					const result = applyTodo(doc.todos ?? emptyTodos(), args as unknown as TodoArgs);
-					if (result.list) doc.todos = result.list;
+					if (result.list) {
+						doc.todos = result.list;
+						doc.outbox = [
+							...(doc.outbox ?? []),
+							JSON.stringify({
+								kind: "todo",
+								data: todoEvent(String(api.conversationId), result.list),
+							} satisfies OutboxEntry),
+						];
+					}
 					return result;
 				}, context);
-				if (outcome.list) await this.options.onTodo?.(todoEvent(String(api.conversationId), outcome.list));
+				if (outcome.list) await this.deliverOutbox(String(api.conversationId));
 				return { output: [{ type: "text", text: outcome.text }] };
 			},
 		});
@@ -1283,20 +1294,48 @@ export class Runtime {
 			);
 			reason = fallbackReason((attempt?.data as { error?: string } | undefined)?.error);
 		}
+		const event: ModelFallbackEvent = onPrimary
+			? {
+					session,
+					state: "recovered",
+					from: { provider: episode!.provider, model: episode!.model },
+					to: primaryRef,
+					reason,
+				}
+			: { session, state: "fallback", from: primaryRef, to: actual, reason };
+		// The episode state and the event it owes are one durable step; delivery below, or after a restart, drains it.
 		await (await this.conversation(session)).commit(async (tx) => {
-			(await tx.doc(SessionDoc, cid(session))).fallback = onPrimary ? null : { ...actual, reason };
+			const doc = await tx.doc(SessionDoc, cid(session));
+			doc.fallback = onPrimary ? null : { ...actual, reason };
+			doc.outbox = [...(doc.outbox ?? []), JSON.stringify({ kind: "fallback", data: event } satisfies OutboxEntry)];
 		}, C);
-		await this.options.onModelFallback(
-			onPrimary
-				? {
-						session,
-						state: "recovered",
-						from: { provider: episode!.provider, model: episode!.model },
-						to: primaryRef,
-						reason,
-					}
-				: { session, state: "fallback", from: primaryRef, to: actual, reason },
-		);
+		await this.deliverOutbox(session);
+	}
+	private readonly delivering = new Map<string, Promise<void>>();
+	/**
+	 * Hand owed observer events to the host, then remove exactly those from the outbox. A crash between handing
+	 * over and removing repeats the event after restart (at-least-once); both payloads replace state wholesale.
+	 */
+	private deliverOutbox(session: string): Promise<void> {
+		const run = (this.delivering.get(session) ?? Promise.resolve()).then(async () => {
+			const due = (await this.harness.snapshot(SessionDoc, cid(session), C))?.outbox ?? [];
+			if (!due.length) return;
+			for (const raw of due) {
+				const entry = JSON.parse(raw) as OutboxEntry;
+				if (entry.kind === "todo") await this.options.onTodo?.(entry.data);
+				else await this.options.onModelFallback?.(entry.data);
+			}
+			await this.harness.commit(async (tx) => {
+				const doc = await tx.doc(SessionDoc, cid(session));
+				doc.outbox = (doc.outbox ?? []).slice(due.length);
+			}, C);
+		});
+		const settled = run.catch(() => {});
+		this.delivering.set(session, settled);
+		void settled.then(() => {
+			if (this.delivering.get(session) === settled) this.delivering.delete(session);
+		});
+		return run;
 	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
@@ -1599,6 +1638,7 @@ export class Runtime {
 			}
 			// Settled runs skipped their idle hook; let waiters and sessions re-evaluate once per conversation.
 			if (skipped) await this.idleChanged(String(conversation.id)).catch((error) => this.options.onReport?.(error));
+			await this.deliverOutbox(String(conversation.id)).catch((error) => this.options.onReport?.(error));
 			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
 			if (live?.run) {
 				try {

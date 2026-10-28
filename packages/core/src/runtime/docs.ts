@@ -1,7 +1,9 @@
 import { type ConversationId, defineDoc, defineDocFamily, type UsageState } from "@earendil-works/pi-durable";
 import type { Capability, SessionModels } from "@yonder/sdk";
-import type { TodoList } from "./todo.js";
-import type { RuntimeActivityExecution, RuntimeRun, RuntimeSessionConfig } from "./types.js";
+import type { TodoList, TodoUpdatedEvent } from "./todo.js";
+import type { ModelFallbackEvent, RuntimeActivityExecution, RuntimeRun, RuntimeSessionConfig } from "./types.js";
+
+export type OutboxEntry = { kind: "todo"; data: TodoUpdatedEvent } | { kind: "fallback"; data: ModelFallbackEvent };
 
 export const SessionDoc = defineDoc({
 	kind: "yonder.session",
@@ -30,6 +32,10 @@ export const SessionDoc = defineDoc({
 		} | null,
 		// The session's todo list (todo tool); absent in sessions created before the tool existed.
 		todos: null as TodoList | null,
+		// Events owed to observers, written in the same durable step as the state change they describe and
+		// removed once delivered; whatever a crash left behind is delivered again on restart (contracts §3).
+		// Entries are JSON of `OutboxEntry`.
+		outbox: [] as string[],
 	}),
 });
 export const cid = (id: string) => Number(id) as ConversationId;
