@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendFileSync, chmodSync, mkdirSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { Credential, CredentialStore, Model, Api } from "@earendil-works/pi-ai";
+import type { Api, Credential, CredentialStore, Model } from "@earendil-works/pi-ai";
 
 const sensitiveHeaders = new Set(["authorization", "x-api-key", "api-key", "cookie", "x-goog-api-key"]);
 let state: { directory: string; bases: Set<string>; secrets: Set<string> } | undefined;
@@ -22,10 +22,17 @@ export function enableProviderTrace(): boolean {
 	const original = globalThis.fetch;
 	globalThis.fetch = async (input, init) => {
 		const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
-		if (![...state!.bases].some((base) => {
-			const candidate = new URL(base);
-			return url.origin === candidate.origin && (url.pathname === candidate.pathname.replace(/\/$/, "") || url.pathname.startsWith(`${candidate.pathname.replace(/\/$/, "")}/`));
-		})) return original(input, init);
+		if (
+			![...state!.bases].some((base) => {
+				const candidate = new URL(base);
+				return (
+					url.origin === candidate.origin &&
+					(url.pathname === candidate.pathname.replace(/\/$/, "") ||
+						url.pathname.startsWith(`${candidate.pathname.replace(/\/$/, "")}/`))
+				);
+			})
+		)
+			return original(input, init);
 		const request = new Request(input, init);
 		const file = join(state!.directory, `${Date.now()}-${randomUUID()}.jsonl`);
 		const redact = (value: string) => {
@@ -35,9 +42,22 @@ export function enableProviderTrace(): boolean {
 			}
 			return value.replace(/sk-[A-Za-z0-9_-]{8,}/g, "[REDACTED]").replace(/Bearer \S+/gi, "Bearer [REDACTED]");
 		};
-		const write = (value: unknown) => appendFileSync(file, `${JSON.stringify(value, (_key, item) => typeof item === "string" ? redact(item) : item)}\n`, { mode: 0o600 });
-		const headers = Object.fromEntries([...request.headers].map(([key, value]) => [key, sensitiveHeaders.has(key.toLowerCase()) ? "[REDACTED]" : value]));
-		write({ type: "request", url: request.url, method: request.method, headers, body: request.body ? await request.clone().text() : "" });
+		const write = (value: unknown) =>
+			appendFileSync(
+				file,
+				`${JSON.stringify(value, (_key, item) => (typeof item === "string" ? redact(item) : item))}\n`,
+				{ mode: 0o600 },
+			);
+		const headers = Object.fromEntries(
+			[...request.headers].map(([key, value]) => [key, sensitiveHeaders.has(key.toLowerCase()) ? "[REDACTED]" : value]),
+		);
+		write({
+			type: "request",
+			url: request.url,
+			method: request.method,
+			headers,
+			body: request.body ? await request.clone().text() : "",
+		});
 		try {
 			const response = await original(request);
 			write({ type: "response", status: response.status });
@@ -52,12 +72,18 @@ export function enableProviderTrace(): boolean {
 						const lines = pending.split("\n");
 						pending = lines.pop()!;
 						for (const line of lines) write({ type: "sse", line });
-						if (done) { if (pending) write({ type: "sse", line: pending }); break; }
+						if (done) {
+							if (pending) write({ type: "sse", line: pending });
+							break;
+						}
 					}
 				})().catch(() => {});
 			}
 			return response;
-		} catch (error) { write({ type: "error", error: String(error) }); throw error; }
+		} catch (error) {
+			write({ type: "error", error: String(error) });
+			throw error;
+		}
 	};
 	return true;
 }
@@ -72,15 +98,20 @@ export function traceCredentials(store: CredentialStore): CredentialStore {
 	const collect = (credential: Credential | undefined) => {
 		if (credential?.type === "api_key") {
 			if (credential.key) state!.secrets.add(credential.key);
-			for (const value of Object.values(credential.env ?? {})) if (typeof value === "string" && value) state!.secrets.add(value);
+			for (const value of Object.values(credential.env ?? {}))
+				if (typeof value === "string" && value) state!.secrets.add(value);
 		}
-		if (credential?.type === "oauth") { if (credential.access) state!.secrets.add(credential.access); if (credential.refresh) state!.secrets.add(credential.refresh); }
+		if (credential?.type === "oauth") {
+			if (credential.access) state!.secrets.add(credential.access);
+			if (credential.refresh) state!.secrets.add(credential.refresh);
+		}
 		return credential;
 	};
 	return {
 		read: async (...args) => collect(await store.read(...args)),
 		list: (...args) => store.list(...args),
 		delete: (...args) => store.delete(...args),
-		modify: async (id, fn, options) => collect(await store.modify(id, async (value) => collect(await fn(collect(value))), options)),
+		modify: async (id, fn, options) =>
+			collect(await store.modify(id, async (value) => collect(await fn(collect(value))), options)),
 	};
 }

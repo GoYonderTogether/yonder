@@ -2,10 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { parseYonderConfig } from "../config/index.js";
 import { createNotificationPrefs } from "../kernel/notifications.js";
 import { openDatabase } from "../runtime/db.js";
 import { migrate } from "../store/migrations.js";
-import { parseYonderConfig } from "../config/index.js";
 import { type HostCtx, registry, socketPrincipal } from "./methods.js";
 
 test("notification preferences merge startup defaults, persist, normalize and apply immediately", async () => {

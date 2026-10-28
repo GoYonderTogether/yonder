@@ -17,7 +17,12 @@
 				socket.close();
 				return;
 			}
-			if (frame.t === "ev" && frame.type === "notification" && typeof frame.data?.session === "string" && typeof frame.data?.text === "string") {
+			if (
+				frame.t === "ev" &&
+				frame.type === "notification" &&
+				typeof frame.data?.session === "string" &&
+				typeof frame.data?.text === "string"
+			) {
 				window.__TAURI_INTERNALS__.invoke("show_notification", { session: frame.data.session, text: frame.data.text });
 				return;
 			}
