@@ -1,6 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Models, Preset, Ref } from "@yonder/sdk";
+import type { Models, Preset } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import {
 	type AgentConfig,
@@ -31,7 +31,7 @@ import { createCoreTools } from "../tools/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { backgroundHandlers } from "./background.js";
-import { CONSOLE, isConsoleBot } from "./console.js";
+import { createBots } from "./bots.js";
 import { configurationErrors, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { manageObjects } from "./management.js";
@@ -247,20 +247,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			for (const account of person.accounts ?? [])
 				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
 		}
-		// The console peer is the authenticated owner: link it to the main Bot's owner so `from: owner` holds (02 §4.1).
-		const consoleAccount = `acct:${CONSOLE}:owner`;
-		// A node has one owner: the first console Bot's. Bots owned by anyone else are not reachable from the console.
-		const consoleOwner = [...agents.values()].find(isConsoleBot)?.owner;
-		const consoleBots = () => [...agents.values()].filter((agent) => isConsoleBot(agent) && agent.owner === consoleOwner);
-		for (const agent of agents.values())
-			if (isConsoleBot(agent) && agent.owner !== consoleOwner)
-				log("warn", `Bot ${agent.id} 的 owner ${agent.owner} 不是本节点 owner ${consoleOwner}，控制台不会列出它`);
-		if (
-			consoleOwner &&
-			!(await store.identity().account(consoleAccount)) &&
-			(await store.identity().person(consoleOwner))
-		)
-			await store.identity().link(consoleAccount, consoleOwner);
+		const bots = await createBots(agents, store, (event) => router.emit(event as never), log);
 		const skills = skillsFor(home, config, loaded, log);
 		const loginChannel = async (
 			request: { instance?: string; action?: "start" | "poll"; verifyCode?: string },
@@ -531,34 +518,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					}),
 				};
 			},
-			bots: {
-				list: async () =>
-					Promise.all(
-						consoleBots().map(async (agent) => ({
-							agent: agent.id,
-							name: agent.name,
-							...(agent.work ? { work: agent.work } : {}),
-							session: (await store.sessions.list({ agent: agent.id, open: true })).find(
-								(session) => session.mode === "main",
-							)?.id,
-						})),
-					),
-				/** Console → Bot: a normal message.in on the console channel; the agent's own binding decides everything else. */
-				send: async (agent: string, text: string) => {
-					const bot = agents.get(agent);
-					if (!bot || !consoleBots().includes(bot)) throw new Error(`Unknown bot: ${agent}`);
-					const event = await router.emit({
-						type: "message.in",
-						from: consoleAccount as Ref,
-						conv: `conv:${CONSOLE}:${agent}` as Ref,
-						data: { kind: "dm", text, target: agent },
-					});
-					const route = event.routes?.find((item) => item.agent === agent);
-					if (!route?.session)
-						throw new Error(`Bot ${agent} did not accept the message (${route?.dropped ?? "no route"})`);
-					return { event: event.id, session: route.session };
-				},
-			},
+			bots,
 			close,
 			eventWatermark: () => store.events.watermark(),
 			async awakeActivity() {
