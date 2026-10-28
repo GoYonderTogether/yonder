@@ -7,3 +7,19 @@ export async function guardSession(ctx: HostCtx, id: string, session?: { mode: s
 	if (row && row.mode !== "task" && !ownsBots(ctx))
 		throw new MethodError("forbidden", "Bot conversations require owner scope");
 }
+
+/** Ids of the sessions a caller without `owner` may see; `undefined` means no restriction. */
+export async function visibleSessionFilter(ctx: HostCtx): Promise<((id: string | undefined) => Promise<boolean>) | undefined> {
+	if (ownsBots(ctx)) return undefined;
+	const cache = new Map<string, boolean>();
+	return async (id) => {
+		if (!id) return false;
+		let ok = cache.get(id);
+		if (ok === undefined) {
+			const row = await ctx.kernel.sessions.get(id);
+			ok = row?.mode === "task";
+			cache.set(id, ok);
+		}
+		return ok;
+	};
+}

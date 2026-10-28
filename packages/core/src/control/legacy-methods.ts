@@ -15,6 +15,7 @@ import type { Attachment, EventQuery } from "@yonder/sdk";
 import { loadYonderConfig } from "../config/index.js";
 import { defaultPiSessionsDir, listPiSessions, showPiSession } from "../imports/pi-sessions.js";
 import type { Kernel } from "../kernel/index.js";
+import { guardSession, ownsBots, visibleSessionFilter } from "./guard.js";
 import { MethodError } from "./method-types.js";
 import { dedupe } from "./submit-dedupe.js";
 
@@ -61,7 +62,10 @@ export const legacyMethods: MethodDef[] = [
 		scope: "write",
 		params: obj({ id: text, event: text, text: Type.String() }),
 		since: 1,
-		handler: async (params, ctx) => ctx.kernel.notify(params.id, { event: params.event, text: params.text }),
+		async handler(params, ctx) {
+			await guardSession(ctx, params.id);
+			return ctx.kernel.notify(params.id, { event: params.event, text: params.text });
+		},
 	}),
 	define({
 		name: "management",
@@ -76,7 +80,10 @@ export const legacyMethods: MethodDef[] = [
 		scope: "read",
 		params: noParams,
 		since: 1,
-		handler: async (_p, ctx) => ctx.kernel.terminal.list(),
+		async handler(_p, ctx) {
+			const rows = await ctx.kernel.terminal.list();
+			return ownsBots(ctx) ? rows : rows.filter((row) => row.mode === "task");
+		},
 	}),
 	define({
 		name: "terminal.presets",
@@ -97,21 +104,30 @@ export const legacyMethods: MethodDef[] = [
 		scope: "read",
 		params: id,
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.terminal.queued(p.id),
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			return ctx.kernel.terminal.queued(p.id);
+		},
 	}),
 	define({
 		name: "terminal.dequeue",
 		scope: "write",
 		params: id,
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.terminal.queued(p.id, true),
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			return ctx.kernel.terminal.queued(p.id, true);
+		},
 	}),
 	define({
 		name: "terminal.info",
 		scope: "read",
 		params: id,
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.terminal.info(p.id),
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			return ctx.kernel.terminal.info(p.id);
+		},
 	}),
 	define({
 		name: "service.info",
@@ -137,7 +153,10 @@ export const legacyMethods: MethodDef[] = [
 		scope: "write",
 		params: obj({ id: text, command: text }),
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.sessions.command(p.id, p.command),
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			return ctx.kernel.sessions.command(p.id, p.command);
+		},
 	}),
 	define({
 		name: "sessions.submit",
@@ -151,6 +170,7 @@ export const legacyMethods: MethodDef[] = [
 		}),
 		since: 1,
 		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
 			const run = () =>
 				ctx.kernel.terminal.submit(
 					p.id,
@@ -165,7 +185,18 @@ export const legacyMethods: MethodDef[] = [
 		scope: "read",
 		params: obj({ query: Type.Optional(Type.Unknown()) }),
 		since: 1,
-		handler: async (p, ctx) => ctx.kernel.events.query((p.query ?? {}) as EventQuery),
+		async handler(p, ctx) {
+			const page = await ctx.kernel.events.query((p.query ?? {}) as EventQuery);
+			const visible = await visibleSessionFilter(ctx);
+			if (!visible) return page;
+			// Without owner scope only events routed into task sessions are returned (contracts §14.3).
+			const events = [];
+			for (const event of page.events) {
+				const ids = (event.routes ?? []).map((route) => route.session).filter((id) => id !== undefined);
+				if (ids.length > 0 && (await Promise.all(ids.map((id) => visible(id)))).every(Boolean)) events.push(event);
+			}
+			return { ...page, events };
+		},
 	}),
 	define({
 		name: "identity.lookup",
