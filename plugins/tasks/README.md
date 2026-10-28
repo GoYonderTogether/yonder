@@ -22,7 +22,7 @@ tools:
 - `tasks_get`：id，返回任务及完整事件历史。
 - `tasks_nudge`：id、say，要求 `cross-agent`；通过 `sessions.submit(..., {busy: "followup"})` 提醒目标任务的 owner session，拒绝不存在或已关闭的任务。NUDGE_INPUT 的 from 使用真实调用方 Agent 名（无 Agent 时用 session 引用）；持久输入事件的真实程序来源仍为 `plugin:tasks`，不携带人类授权。
 
-`tasks-turn` 首次或内容改变后提供完整任务，其余输入只提供维护者的一行文本；每个 session 分别跟踪渲染版本，同一入站事件重复渲染不重复计数，重启后保留。budget 只记录，无硬限制。模型文本 `src/prompts.ts` 保持维护者原文，Biome 只对此文件停用格式化。
+`tasks-turn` 首次或内容改变后提供完整任务，其余输入只提供维护者的一行文本；每个 session 分别跟踪渲染版本，同一入站事件重复渲染不重复计数，重启后保留。budget 只记录，无硬限制。模型文本位于 `src/prompts.ts`，Biome 只对此文件停用格式化。
 
 ## Moments（P2）
 
@@ -50,7 +50,7 @@ SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过�
 
 ## 展示（P3-1）
 
-- `tasks_show({target?, view?, id?})`：target 默认 `channel`，从本次输入或该 session 的事件账本取会话，程序发送 PNG；`json` 返回同一 TaskBoard。`desktop` / `web` 交给 interaction 并返回本机页面 URL；飞书总览优先发送就地更新卡，失败走既有 PNG/文字路径。view 默认 `board`，`detail` 必须给 id，包含目标、逐项证据、交付、完整事件时间线、子任务与来源。描述直接引用既有 SHOW，prompts.ts 未修改。
+- `tasks_show({target?, view?, id?})`：target 默认 `channel`，从本次输入或该 session 的事件账本取会话，程序发送 PNG；`json` 返回同一 TaskBoard。图片渲染失败时发送文字。view 默认 `board`，`detail` 必须给 id，包含目标、逐项证据、交付、完整事件时间线、子任务与来源。
 - TaskBoard 是纯函数，输入已经按现有 own / parent / cross-agent 规则过滤的任务。四组固定为等你（waiting-user、review）、进行中（open、active）、阻塞、刚完成。done 满 30 分钟从总览及其子项省略，仍可显式查询 detail；不依赖实验 postRetain 开关。counts 统计所有可见任务，子任务也按自己的状态计数。
 - 短编号 `T1`、`T2`…按本账本创建顺序持久保存；旧账本按不可变 open 行顺序恢复编号，无须改写旧行。所有接受任务 id 的工具及 parent 同时接受短编号和 UUID。
 - `renderText(board, locale)` / `renderSvg(board, locale)` 为纯投影；locale 以 zh 开头时中文。验收 met 是已有 evidence 的非空项数，不判断证据质量。详情可读取 30 分钟以前的交付。
@@ -58,22 +58,11 @@ SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过�
 - `tasks-digest` 在选择 tasks 的 profile 上默认开启；仅对有真实人类 message.in 记录的目标、sender 自己的任务追加。等你优先，其次阻塞、交付，最多五行；仅进行中且无新交付时不追加。相同状态版本/交付对同一目的地只展示一次，重启保留去重。附件无文本、Agent 等非人类目标、插件自身程序消息均不追加。
 - 从 `events.query` 读取目标会话的人类输入时间，超过两小时间隔的首次回复使用“离开期间”措辞；不依赖模型记忆。配置只增加 `tailDigest: {enabled?: boolean, lines?: number}`，默认 true / 5，lines 为 1–5。
 
-## 私有看板协议
+## Views
 
-SDK `services.resolve` 只能解析已配置服务，没有插件发布 API；本实现复用 interaction 的随机路径 loopback HTTP 与 0600 端点文件惯例，没有修改 SDK/core。
-
-- `tasks-board` Trigger 启停进程内服务。`tasks_show` 发布保留调用者 agent/session/profile/capabilities 可见范围的随机 URL；GET 返回 `{board, text}`，`?id=T<n>` 返回同范围详情，text 来自现有 renderText。每次请求从账本生成当前投影；不缓存任务、不唤醒模型，重启使旧 URL 失效。
-- 桌面/网页读取同 home 的 `interaction/renderer.json`，POST `board` 传 source URL 和可选 id。interaction 只轮询服务，不访问 tasks.sqlite；不存在的渲染器会返回工具错误。
-- 渠道按真实 conversation instance 查询 `channel-feishu/<instance>/task-board.json` 的 Attachment 路由声明（pid/mime）。有声明才经现有 messages.send 发 `Attachment {kind: file, mime: application/vnd.yonder.task-board+json, uri: source}`。没有声明保留原 PNG 路径；卡片发送失败也回到 PNG，resvg 失败再退为文字。tasks 不导入渠道代码。
-- `BoardItem.stalled` 由 tasks 以 active 且 idle ≥ 已有 stallMinutes（默认 30 分钟）生成；渲染器仅展示标记。
-
-不含按 Agent 分行的管家视图、后台输出尾部、停止/取消按钮或原生代码变更。
+`tasks.board` 是按 session 限定的只读列表视图；任务打开、更新或完成时通知客户端刷新。`tasks-board` Trigger 在关闭时释放 SQLite 句柄。
 
 ## Questions for the maintainer
-
-- 服务发布接口空缺按上述私有协议衔接；没有新增配置或工具。URL 是本机读取凭据，不能公开分享。
-- 展示订阅由 tasks_show 建立；interaction 同一窗口使用最近一次请求的可见范围，飞书同一会话使用最近一次请求的范围。首次展示前及进程重启后需要再次 tasks_show，不猜测代表哪个 Agent/人授权全账本。
-- 飞书显式请求重发为新的最新消息，后续只更新这个新锚；旧消息保留历史。看板只读，不复用受管任务卡的确认按钮或来源过期规则。
 
 - §1 的箭头未列恢复路径：本实现 open → active，active → waiting-user / blocked / review；后三种可互转或回 active，并可 done；所有未关闭状态可 cancelled。done / cancelled 为终态，不重新打开；“reopen”指重开存储。
 - §3 未指定预设会话的归属：ownerAgent 为 null 时按创建 session 隔离。同一常驻 Agent 的 profiles 共用归属，读写仍受各自能力限制。
@@ -86,13 +75,13 @@ SDK `services.resolve` 只能解析已配置服务，没有插件发布 API；�
 - P1 缺少渠道来源时仍保留 session:<id> origin；user-wait 不猜渠道，交现有 messages.send 处理，失败结果写账本。真正缺失/空 origin 不触发。
 - §5 未规定 tasks_list 的刚完成输出结构：保留已有数组，在每项增加 recentlyDone 标记；保持原可见范围，不扩大跨 Agent 对已关闭任务的读取权限。
 
-- P3-1 按本次维护者任务约定采用每账本稳定编号、`channel|json|desktop|web` 和回来摘要；spec §6.5/6.6 更广的渠道选择仍留到后续；桌面与网页已由本轮补齐。本次未改 spec/17。
+- 每账本使用稳定编号，`tasks_show` 支持 `channel` 和 `json`；桌面与网页通过 views 展示。
 - SDK 无通用“收件人是人类”标记：以目的地实际 message.in 的 acct/person 来源为依据，Agent/plugin/system 来源不算人；owner 别名未解析为具体 Ref 时不猜目的地。渠道仍负责自身机器人消息过滤。
 - 摘要的“无变化不出现”解释为每目的地按任务状态内容版本去重；waiting/review/blocked 改变后可再提示。发送前记录摘要，跟 P2 时点相同：发送失败/崩溃可能漏一次提醒，不猜测重发副作用。
 - 旧任务只有 done 时保存逐项 evidence，所以现有工具写出的 met 通常为 0 或 total；P3-1 不另加写入协议。elapsed 在终态停止，idle 从 lastActivityAt 算；open 归入进行中，cancelled 不在总览展示。
 - 详情保留完整 JSON 时间线；图片按固定字符数折行。未新增主题、模板、图片缓存或模型/后台日志字段；后者不在本次明确字段范围。
 
-## Verification
+## Verification（历史记录，不能代表当前版本的验收）
 
 P3-1：`npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0（lint 0 errors / 445 warnings / 14 infos）；`npm test -- plugins/tasks/test` 为 13 passed / 0 failed / 1 skipped；`npm test` 为 606 passed / 0 failed / 39 skipped。`YONDER_TEST_REAL=1 YONDER_TEST_AUTH=/Users/zoran/Documents/yonder-harness/.yonder/auth.json agent-network run -- npm test -- plugins/tasks/test/moments.test.ts` 为 4 passed / 0 failed / 0 skipped，真实 Luna stall 已测。PNG 本地协议发送和文件头已验证。
 
@@ -102,7 +91,7 @@ P2 使用真实 SQLite、插件 loader、kernel 与本地测试渠道；协议�
 
 最终检查：build/typecheck/lint 均 exit 0（lint 0 errors / 405 warnings / 14 infos）；`npm test -- plugins/tasks/test packages/core/src/kernel/plugin-input.test.ts` 为 10 passed / 0 failed / 1 skipped；`npm test` 为 601 passed / 0 failed / 39 skipped。实际命令、原始失败/修正及完整计数见 [docs/status.md](../../docs/status.md) 的“任务账本 P2”条目。新增一个 opt-in `openai/gpt-6-luna` stall 用例：`YONDER_TEST_REAL=1 npm test -- plugins/tasks/test/moments.test.ts`；缺少 worktree 测试凭据时跳过并记为未测。未接触生产 home、安装或服务，未推送、发布。
 
-### 本轮验证（P3a renderers）
+### 历史验证（P3a renderers）
 
 `npm run build`、`npm run typecheck`、`npm run lint` 最终 exit 0；lint 0 errors / 461 warnings / 14 infos。`YONDER_BOARD_SCREENSHOT=/tmp/yonder-task-board-detail.png npm test -- plugins/tasks/test plugins/interaction/test plugins/channel-feishu/test` 为 93 passed / 0 failed / 1 skipped（11 文件）；`npm test` 为 608 passed / 0 failed / 39 skipped（103 文件通过 / 19 跳过）。`node plugins/interaction/test/state.mjs` exit 0。真实 loader/kernel、本地协议服务、实际 Chrome 页面已验证；截图为 `/tmp/yonder-task-board-detail-overview.png` 和 `/tmp/yonder-task-board-detail.png`。
 
