@@ -117,3 +117,20 @@ test("console delivery fails visibly when the Bot has no open main session", asy
 		await x.db.close();
 	}
 });
+
+test("console remains authorized under a channel scope while other channels are rejected", async () => {
+	const x = await setup("console");
+	try {
+		const ctx = { ...x.ctx, channelInstances: ["feishu"] };
+		expect(
+			await x.delivery.sendTool(ctx as never, { to: "conv:console:main", via: "console", text: "hello" }),
+		).toMatchObject({ ok: true });
+		expect(await x.delivery.sendTool(ctx as never, { to: "conv:test:main", text: "no" })).toMatchObject({
+			ok: false,
+			error: "Channel instance not authorized: test",
+		});
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});

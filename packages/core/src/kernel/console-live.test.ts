@@ -58,3 +58,39 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	},
 	200_000,
 );
+
+test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
+	"console replies are delivered with a restricted channel scope",
+	async () => {
+		const home = await mkdtemp("/tmp/yonder-console-scope-");
+		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
+		try {
+			await initHome(home, "owner", { model: testModel });
+			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
+			config.credentials = auth;
+			await writeFile(`${home}/yonder.yaml`, stringify(config));
+			const agentPath = `${home}/agents/main/agent.yaml`;
+			const agent = parse(await readFile(agentPath, "utf8"));
+			agent.defaults.channelInstances = ["feishu"];
+			await writeFile(agentPath, stringify(agent));
+			kernel = await openKernel(home);
+			const running = kernel;
+			await running.bots.send("main", "Reply with exactly: CONSOLE_SCOPE_OK");
+			const replies = async () =>
+				(await running.events.query({ type: "message.out" })).events.filter(
+					(event) => (event.data as { to?: string }).to === "conv:console:main",
+				);
+			await expect.poll(async () => (await replies()).length, { timeout: 90_000 }).toBeGreaterThan(0);
+			expect(
+				(await replies()).some((event) => {
+					const data = event.data as { text: string; delivery: { ok: boolean } };
+					return data.text.includes("CONSOLE_SCOPE_OK") && data.delivery.ok;
+				}),
+			).toBe(true);
+		} finally {
+			await kernel?.close();
+			await rm(home, { recursive: true, force: true });
+		}
+	},
+	120_000,
+);

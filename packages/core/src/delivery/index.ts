@@ -1,8 +1,8 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import {
 	type Attachment,
-	allowsChannelInstance,
-	assertChannelInstance,
+	allowsChannelInstance as sdkAllowsChannelInstance,
+	assertChannelInstance as sdkAssertChannelInstance,
 	type Channel,
 	type Delivery,
 	type EventInput,
@@ -16,6 +16,7 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
+import { CONSOLE } from "../kernel/console.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
@@ -90,6 +91,11 @@ interface StreamState {
 	text: string;
 	attempt?: string;
 }
+const allowsChannelInstance = (scope: { channelInstances?: readonly string[] }, instance: string) =>
+	instance === CONSOLE || sdkAllowsChannelInstance(scope, instance);
+const assertChannelInstance = (scope: { channelInstances?: readonly string[] }, instance: string) => {
+	if (instance !== CONSOLE) sdkAssertChannelInstance(scope, instance);
+};
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
 const channelId = (ref: string) => {
 	const parsed = parseRef(ref);
