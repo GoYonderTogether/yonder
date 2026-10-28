@@ -2,6 +2,33 @@ import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { inspectToolCatalog } from "./catalog.js";
 
+test("session tools default to main and require exact selection for other agents", () => {
+	const config = { agent: "main", profile: "owner", cwd: process.cwd(), resolved: resolveProfile({ level: "bypass" }) };
+	const exposure = (agent: string, offer: string[], search: string[] = []) =>
+		inspectToolCatalog(
+			{ ...config, agent, resolved: resolveProfile({ level: "bypass", tools: { offer, search } }) },
+			new Map(),
+		);
+	for (const name of ["session_list", "session_read"]) {
+		expect(exposure("main", ["*"]).find((tool) => tool.name === name)?.exposure).toBe("offer");
+		expect(exposure("other", ["*"]).find((tool) => tool.name === name)?.exposure).toBe("not-selected");
+		expect(exposure("other", ["session_*"]).find((tool) => tool.name === name)?.exposure).toBe("not-selected");
+		expect(exposure("other", ["*", name]).find((tool) => tool.name === name)?.exposure).toBe("offer");
+		expect(exposure("other", ["*"], [name]).find((tool) => tool.name === name)?.exposure).toBe("search");
+	}
+	expect(exposure("other", ["*"]).find((tool) => tool.name === "process")?.exposure).toBe("offer");
+	expect(
+		inspectToolCatalog(
+			{
+				...config,
+				agent: "other",
+				resolved: resolveProfile({ level: "readonly", tools: { offer: ["session_read"] } }),
+			},
+			new Map(),
+		).find((tool) => tool.name === "session_read")?.exposure,
+	).toBe("capability-denied");
+});
+
 test("only resident Agents can offer agent_ask even when a preset selects every tool", () => {
 	const config = {
 		agent: "main" as string | null,

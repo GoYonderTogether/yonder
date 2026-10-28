@@ -102,6 +102,10 @@ bindings: [ … ]                   # 见 02 §2
 
 未写的字段取 `defaults`，再取内核默认。
 
+新建 home 的 main 与通过 `agents.create` 新建的 Agent 默认选入 `learning`；已有配置不迁移。旧 home 未加载该插件时，须先显式添加插件才能创建新 Agent。插件的记忆与学习访问仍须独立配置授权，peer 配置档仍按自身列表覆盖。
+
+`session_list`、`session_read` 是内核工具：main 按通常的工具选择规则提供；其他常驻 Agent 必须在 `agent.yaml` 的 `tools.offer` 或 `tools.search` 中逐个写出完整工具名，通配符不启用它们。能力检查仍然生效；无 Agent 身份的预设会话沿用通常规则。
+
 内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`、`prompt: {}`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools`、`limits`、`prompt` 与 `credentialSlots` 按键覆盖；`prompt.sections` 和 `prompt.overrides` 各自整项替换，不按 id 合并。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
 
 ## 4. 预设与临时会话
