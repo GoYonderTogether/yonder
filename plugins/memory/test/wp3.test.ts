@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
@@ -67,7 +68,7 @@ async function put(root: string, path: string, text: string, date = "2026-01-01"
 	await utimes(file, ms, ms);
 }
 it("matches packaged registrations with search/read declared", async () => {
-	expect(await checkPlugin(new URL("..", import.meta.url).pathname)).toEqual([]);
+	expect(await checkPlugin(fileURLToPath(new URL("..", import.meta.url)))).toEqual([]);
 });
 it("searches Chinese substrings and input NFKC variants literally without modifying text", async () => {
 	const r = await setup();

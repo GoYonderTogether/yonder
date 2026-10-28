@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "vitest";
 import { ctx, fixture, registered, scope } from "./helpers.mjs";
 
@@ -38,8 +38,8 @@ test("cross-Agent/profile/task denial; no caller-chosen memory directory", async
 });
 test("disabled module and both target switches touch no filesystem and return no prompts", async () => {
 	for (const config of [
-		{ enabled: false, scopes: [scope("/nonexistent")] },
-		{ scopes: [scope("/nonexistent", { memory: false, user: false })] },
+		{ enabled: false, scopes: [scope(resolve("nonexistent"))] },
+		{ scopes: [scope(resolve("nonexistent"), { memory: false, user: false })] },
 	]) {
 		const p = await registered("learning", config);
 		assert.equal(await p.contexts[0].render(ctx()), undefined);
@@ -70,7 +70,7 @@ test("canonical aliases cannot share another Agent memory store", async (t) => {
 // Invalid targets must be denied BEFORE even resolving a configured path.
 // The ToolContext env is the host ExecutionEnv (no id field): scope dirs are host paths, so no env.id gate exists.
 test("invalid target refuses before filesystem access", async () => {
-	const p = await registered("learning", { scopes: [scope("/nonexistent")] });
+	const p = await registered("learning", { scopes: [scope(resolve("nonexistent"))] });
 	for (const tool of p.tools.slice(0, 2))
 		assert.match((await tool.execute({ target: "other" }, ctx())).text, /invalid_target/);
 });
