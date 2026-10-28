@@ -21,6 +21,11 @@ import type { Store } from "../store/index.js";
 import { consoleAllowed, persistConsole, type Scope } from "./console.js";
 import { createLedger } from "./ledger.js";
 import { sourceMessage } from "./model-notice.js";
+import { OutputQueue, ReplyText } from "./reply-text.js";
+import { createReplyGuard, guardStream } from "./social-guard.js";
+
+export { ReplyText } from "./reply-text.js";
+
 import { createVisibility } from "./visibility.js";
 
 export { sourceMessage };
@@ -42,45 +47,6 @@ interface DeliveryOptions {
 	sessions: Sessions;
 	onReport?: (error: unknown) => void;
 	log?: (level: "info" | "warn" | "error", message: string, data?: object) => void;
-}
-/** Hold only the prefix that may still be the model's control marker. */
-export class ReplyText {
-	private pending = "";
-	private released = false;
-	push(delta: string): string {
-		if (this.released) return delta;
-		this.pending += delta;
-		if ("NO_REPLY".startsWith(this.pending.trimStart()) || this.pending.trim() === "NO_REPLY") return "";
-		this.released = true;
-		const text = this.pending;
-		this.pending = "";
-		return text;
-	}
-}
-class OutputQueue implements AsyncIterable<OutputPart> {
-	private pending: OutputPart[] = [];
-	private wake: (() => void) | undefined;
-	private ended = false;
-	push(part: OutputPart) {
-		if (this.ended) return;
-		this.pending.push(part);
-		this.wake?.();
-		this.wake = undefined;
-	}
-	end() {
-		this.ended = true;
-		this.wake?.();
-		this.wake = undefined;
-	}
-	async *[Symbol.asyncIterator](): AsyncIterator<OutputPart> {
-		while (true) {
-			while (this.pending.length) yield this.pending.shift() as OutputPart;
-			if (this.ended) return;
-			await new Promise<void>((resolve) => {
-				this.wake = resolve;
-			});
-		}
-	}
 }
 interface StreamState extends Pick<MessageRequest, "sourceMessageId"> {
 	target: string;
@@ -204,6 +170,7 @@ export function createDelivery(options: DeliveryOptions) {
 		if (!channel) throw new Error(`渠道未运行：${parsed.channel}`);
 		return { target, channel };
 	}
+	const checkReply = createReplyGuard({ sessions, agents, store, channels });
 	async function send(
 		from: string | undefined,
 		request: MessageRequest,
@@ -225,6 +192,7 @@ export function createDelivery(options: DeliveryOptions) {
 		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
 			resolved = await resolveTarget(request, session?.agent, config, scope);
+			if (session) await checkReply(session.id, resolved.target, parent);
 		} catch (error) {
 			const delivery = { ok: false, error: message(error) };
 			const { signal: _signal, ...outgoing } = request;
@@ -277,6 +245,7 @@ export function createDelivery(options: DeliveryOptions) {
 					try {
 						const config = await sessions.resolveSession(data.session);
 						assertChannelInstance(config.resolved, channelId(data.target) ?? "");
+						await checkReply(data.session, data.target, event.parent);
 						if (data.from?.startsWith("plugin:") && !config.resolved.capabilities.includes("message"))
 							throw new Error("Program delivery requires current message capability");
 					} catch (error) {
@@ -428,11 +397,20 @@ export function createDelivery(options: DeliveryOptions) {
 				stream.delivery = (async () => {
 					await ready;
 					await previous;
+					try {
+						await checkReply(session.id, target, event.id);
+					} catch (error) {
+						return { ok: false, error: message(error) };
+					}
 					const id = await attempt(target, "stream", session.id, event.id, runId, messageId);
 					if (!id) return { ok: false, uncertain: true, error: "该消息已有渠道尝试，不自动重新开流" };
 					stream.attempt = id;
 					try {
-						const delivered = await channel.stream!(target, stream.queue, sourceMessage(event));
+						const delivered = await channel.stream!(
+							target,
+							guardStream(stream.queue, () => checkReply(session.id, target, event.id)),
+							sourceMessage(event),
+						);
 						return !delivered.ok && delivered.uncertain
 							? unknown(id, delivered.error ?? "渠道未确认结果", delivered)
 							: delivered;

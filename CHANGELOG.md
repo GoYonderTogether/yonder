@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- 启用社交策略时，回复投递和重试前重新检查当前授权与静默状态，流式输出逐段复核。
+
+- 可选 Codex 审查工具增加挑战式审查与 focus；斜杠模板和显式等待/后台选择尚待接线。
+
+- 新增可选 advisor 显式咨询与默认关闭的结果记录。
+
 - Add optional Codex native review tool; slash template and explicit background selection remain pending.
 
 - 网页响应超过 2 MiB 时明确报错；read/grep 拒绝直接访问其他会话的工具输出缓存。

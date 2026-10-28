@@ -76,10 +76,13 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = [], socia
 			return { ok: true };
 		},
 	};
+	const agents = social
+		? new Map([["main", { owner: "person:owner", social: { enabled: true } } as never]])
+		: new Map();
 	const delivery = createDelivery({
 		...(hooks ? { hooks } : {}),
 		store,
-		agents: social ? new Map([["main", { social: { enabled: true } } as never]]) : new Map(),
+		agents,
 		channels: new Map([["test", channel]]),
 		runtime: () => ({ currentConfig: () => config }) as unknown as Runtime,
 		sessions: { resolveSession: async () => config } as unknown as Sessions,
@@ -104,7 +107,7 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = [], socia
 		await store.events.recordRun(end.ending);
 		end.deliver();
 	};
-	return { db, store, delivery, channel, session, event, bubbles, sent, emit, finish, config };
+	return { db, store, delivery, channel, session, event, bubbles, sent, emit, finish, config, agents };
 }
 
 test("fallback notices route only to their persisted inputs and replay without duplicate delivery", async () => {
@@ -783,6 +786,77 @@ test("a stream that stops producing text still receives a silence heartbeat", as
 		expect(x.sent[0]).toMatch(/^⏳/u);
 		await x.finish("NO_REPLY");
 		await expect.poll(() => x.bubbles[0]?.closed).toBe(true);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("queued replies recheck mute before send and stream", async () => {
+	const x = await setup(undefined, [], true);
+	try {
+		x.agents.set("main", {
+			owner: "person:owner",
+			social: { enabled: true, conversations: { "conv:test:chat": { mode: "mute" } } },
+		} as never);
+		x.emit({ type: "message_start", id: "m1" });
+		x.emit({ type: "text", delta: "secret" });
+		x.emit({ type: "message_end", text: "secret" });
+		await x.finish("secret", "m1");
+		await expect
+			.poll(async () => (await x.store.events.query({ type: "message.out" })).events.length)
+			.toBeGreaterThan(0);
+		await x.delivery.close();
+		expect(x.sent).toEqual([]);
+		expect(x.bubbles).toEqual([]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("stream stops consuming after social authorization is revoked", async () => {
+	const x = await setup(undefined, [], true);
+	const received: string[] = [];
+	x.channel.stream = async (_target, parts) => {
+		for await (const part of parts) if (part.type === "text") received.push(part.delta);
+		return { ok: true };
+	};
+	try {
+		x.emit({ type: "message_start", id: "m" });
+		x.emit({ type: "text", delta: "first" });
+		await expect.poll(() => received).toEqual(["first"]);
+		x.agents.set("main", { owner: "person:owner", social: { enabled: true, denied: ["conv:test:chat"] } } as never);
+		x.emit({ type: "text", delta: "secret" });
+		x.emit({ type: "message_end", text: "firstsecret" });
+		await x.finish("firstsecret", "m");
+		await expect
+			.poll(async () => (await x.store.events.query({ type: "message.unknown" })).events.length)
+			.toBeGreaterThan(0);
+		expect(received).toEqual(["first"]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("retry rechecks social mute before dispatch", async () => {
+	const x = await setup(undefined, [], true);
+	let calls = 0;
+	x.channel.send = async () => {
+		calls++;
+		return { ok: false, retryable: true };
+	};
+	try {
+		x.config.bindings![0]!.stream = false;
+		await x.finish("reply", "m");
+		await expect.poll(() => calls).toBe(1);
+		x.agents.set("main", {
+			owner: "person:owner",
+			social: { enabled: true, conversations: { "conv:test:chat": { mode: "mute" } } },
+		} as never);
+		await expect.poll(async () => (await x.store.events.retryableAttempts()).length, { timeout: 5000 }).toBe(0);
+		expect(calls).toBe(1);
 	} finally {
 		await x.delivery.close();
 		await x.db.close();
