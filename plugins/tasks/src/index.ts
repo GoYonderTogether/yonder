@@ -35,7 +35,15 @@ export default definePlugin({
 		const store = new Store(api.paths.data);
 		const config = (api.config ?? {}) as Config;
 		const service = new BoardService(store, api.locale, config.stallMinutes ?? 30, () => api.agents.list());
-		api.triggers.register({ id: "tasks-board", start: () => service.start(), stop: () => service.stop() });
+		api.triggers.register({
+			id: "tasks-board",
+			start: () => service.start(),
+			// Kernel stop must release the SQLite handle; Windows cannot delete an open database file.
+			stop: async () => {
+				await service.stop();
+				store.close();
+			},
+		});
 		const add = (
 			name: string,
 			description: string,
