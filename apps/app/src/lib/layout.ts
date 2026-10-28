@@ -1,7 +1,16 @@
 import { useSyncExternalStore } from "react";
 
 // 右栏卡片栈与悬浮窗布局：按会话存 localStorage；右栏开关与宽度全局一份。
-export type PanelKind = "todos" | "goal" | "subtasks" | "attachments" | "views" | "context" | "background" | "wake";
+export type PanelKind =
+	| "todos"
+	| "goal"
+	| "subtasks"
+	| "attachments"
+	| "views"
+	| "context"
+	| "background"
+	| "wake"
+	| `view:${string}`;
 
 export const PANEL_TITLE: Record<PanelKind, string> = {
 	todos: "待办",
@@ -13,6 +22,9 @@ export const PANEL_TITLE: Record<PanelKind, string> = {
 	background: "后台任务",
 	wake: "唤醒历史",
 };
+export function panelTitle(kind: PanelKind, viewTitles: Record<string, string>): string {
+	return kind.startsWith("view:") ? (viewTitles[kind.slice(5)] ?? kind.slice(5)) : (PANEL_TITLE[kind] ?? kind);
+}
 /** 悬浮窗菜单里可开的面板 */
 export const FLOATABLE: PanelKind[] = ["context", "background", "subtasks", "wake", "todos", "goal"];
 

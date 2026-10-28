@@ -22,24 +22,22 @@ import { basename, delimiter, dirname, isAbsolute, join, posix, relative, resolv
 import { fileURLToPath } from "node:url";
 
 import { controlEndpoint, requestControl } from "../control/index.js";
+import { installRoot, SERVICE_LABEL as label, STATUS_LABEL as statusLabel } from "./names.js";
 import { recordUpdateResult, type UpdateResult } from "./result.js";
 
+export * from "./names.js";
+
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
-const label = "dev.yonder.harness";
-const statusLabel = "dev.yonder.harness.status";
 const statusPlistPath = () => join(homedir(), "Library/LaunchAgents", `${statusLabel}.plist`);
 const statusExecutable = (install: string) =>
 	join(install, "current/packages/macos/dist/YonderStatus.app/Contents/MacOS/YonderStatus");
 const plistPath = () => join(homedir(), "Library/LaunchAgents", `${label}.plist`);
 const windowsData = () => resolve(process.env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "YonderHarness");
-const installPath = () =>
-	resolve(
-		process.env.YONDER_INSTALL ?? (process.platform === "win32" ? windowsData() : join(homedir(), ".yonder-harness")),
-	);
+const installPath = () => installRoot(process.env);
 const linuxUnitPath = () =>
-	join(resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config")), "systemd/user", `${label}.service`);
+	join(resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config")), "systemd/user", label);
 const windowsServicePath = () => join(windowsData(), "service.json");
-const windowsTask = "Yonder Harness";
+const windowsTask = label;
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 const xml = (value: string) =>
 	value
@@ -334,7 +332,7 @@ export function linuxServiceUnit(install: string, home: string, path = runtimePa
 
 async function manageLinuxService(action: ServiceAction, options: { home?: string }) {
 	let installed = await installedService();
-	const unit = `${label}.service`;
+	const unit = label;
 	const systemctl = (args: string[], allowFailure = false) =>
 		command("systemctl", ["--user", ...args], { allowFailure });
 	if (action === "install") {
