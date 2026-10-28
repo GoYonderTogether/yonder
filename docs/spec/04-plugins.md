@@ -320,8 +320,6 @@ interface PermissionProvider {
 }
 ```
 
-插件工具可通过 `ctx.authorizeFileWrite(path)` 请求内核按当前运行配置检查文件真实路径、写能力及受保护文件；不提供该接口的上下文不得执行依赖此授权的写入。
-
 内核只有一个 registry，同一实例服务核心工具与插件。调用必须传递原始真实 `ToolContext`，核心校验它在运行中的工具调用登记中（仅伪造会话引用不足以调用），保留取消、来源与能力；只允许当前 session/profile 选择的插件 provider。
 `list` 仅返回已选择 provider 的静态描述，不执行权限探测。setup/检查不得调用 list/invoke 或触发申请。
 `status` 只查询，不可升级为 request；requested、unknown、denied 不可转换为 granted。

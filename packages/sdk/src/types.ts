@@ -327,8 +327,6 @@ export interface ToolContext {
 	events?: YEvent[];
 	signal: AbortSignal;
 	cacheToolOutput?(text: string, options?: { extension?: string }): Promise<string>;
-	/** Authorize a file write using the active run policy. */
-	authorizeFileWrite?(path: string): Promise<void>;
 }
 export interface ToolResult {
 	text: string;
