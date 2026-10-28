@@ -35,12 +35,27 @@ export class Batches {
 	}
 	async start() {
 		// ponytail: startup scans the ledger; add an index if event volume makes recovery slow.
+		for await (const event of this.events({ type: "channel-qq.group-read" })) {
+			const { through } = event.data as { through?: string };
+			if (!event.conv || !through) continue;
+			const source = (await this.api.events.query({ id: through, conv: event.conv, type: "message.in" })).events[0];
+			for (const route of source?.routes ?? []) {
+				if (route.wake !== "write" || route.dropped) continue;
+				const key = this.key(route.agent, event.conv);
+				if (through > (this.read.get(key) ?? "")) {
+					this.read.set(key, through);
+					this.readAt.set(key, Date.parse(event.ts));
+				}
+			}
+		}
 		for await (const event of this.events({ type: "social.batch-read" })) {
 			const data = event.data as { agent?: string; through?: string };
 			if (data.agent && event.conv && data.through) {
 				const key = this.key(data.agent, event.conv);
-				this.read.set(key, data.through);
-				this.readAt.set(key, Date.parse(event.ts));
+				if (data.through > (this.read.get(key) ?? "")) {
+					this.read.set(key, data.through);
+					this.readAt.set(key, Date.parse(event.ts));
+				}
 			}
 		}
 		for await (const event of this.events({ type: "social.batch-ready" })) {

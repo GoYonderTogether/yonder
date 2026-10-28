@@ -2,6 +2,49 @@ import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { Batches } from "../src/batches.js";
 
+test("imports the QQ read cursor without moving it backwards on restart", async () => {
+	vi.useFakeTimers();
+	const ts = new Date().toISOString();
+	const source: YEvent = {
+		id: "2",
+		ts,
+		type: "message.in",
+		conv: "conv:qq:group:a",
+		data: { text: "old" },
+		routes: [{ agent: "a", binding: "b", session: "s", wake: "write" }],
+	};
+	const ledger: YEvent[] = [
+		source,
+		{ id: "3", ts, type: "channel-qq.group-read", conv: source.conv, data: { through: "2" } },
+		{ id: "4", ts, type: "social.batch-read", conv: source.conv, data: { agent: "a", through: "1" } },
+		{
+			id: "5",
+			ts,
+			type: "routing.social-decision",
+			parent: "2",
+			data: { agent: "a", reason: "batch", revision: "r", policy: { batch: { count: 1, run: true } } },
+		},
+	];
+	const ask = vi.fn();
+	const api = {
+		events: {
+			query: async (q: { id?: string; type?: string; conv?: string }) => ({
+				events: ledger.filter(
+					(e) => (!q.id || q.id === e.id) && (!q.type || q.type === e.type) && (!q.conv || q.conv === e.conv),
+				),
+			}),
+			ask,
+		},
+		log: { warn: vi.fn() },
+	} as unknown as PluginAPI;
+	const batches = new Batches(api);
+	await batches.start();
+	await vi.runAllTimersAsync();
+	expect(ask).not.toHaveBeenCalled();
+	await batches.stop();
+	vi.useRealTimers();
+});
+
 test.each([{}, { batch: { run: true, count: 1 }, judge: { preset: "cheap" } }])(
 	"default and unimplemented judge policies retain unread messages across restart: %o",
 	async (policy) => {
