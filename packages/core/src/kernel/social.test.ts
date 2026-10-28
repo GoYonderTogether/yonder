@@ -73,6 +73,19 @@ test("owner confirmation gates policy change, persists it, and records rejection
 		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.mode).toBe("mention");
 		expect(events.map((e) => (e.data as { result: string }).result)).toEqual(["rejected", "applied"]);
 		await expect(service.update({ ...request, dryRun: false }, confirmed)).rejects.toThrow();
+		await service.auditDenied(
+			{ id: "gateway:remote", kind: "remote", transport: "gateway", scopes: ["read"] },
+			{ conv: "conv:test:group", reason: "secret" },
+			"forbidden",
+		);
+		expect(events.at(-1)?.data).toEqual({
+			actor: "gateway:remote",
+			before: {},
+			after: {},
+			reason: "forbidden",
+			revision: "unknown",
+			result: "rejected",
+		});
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

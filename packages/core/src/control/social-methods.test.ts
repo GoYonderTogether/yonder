@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { SocialError } from "../kernel/social.js";
 import { type HostCtx, MethodError, registry, socketPrincipal } from "./methods.js";
 
@@ -26,4 +26,22 @@ test("social control methods validate, pass the principal, and expose structured
 		),
 	).rejects.toMatchObject({ code: "conflict", data: { currentRevision: "2" } } satisfies Partial<MethodError>);
 	expect(() => registry.prepare("social.update", { agent: "a" }, principal)).toThrow(MethodError);
+});
+
+test("pre-handler social update rejections are audited and never reach the handler", async () => {
+	const principal = { id: "gateway:remote", transport: "gateway", kind: "remote", scopes: ["read"] };
+	const auditDenied = vi.fn(async () => {});
+	const update = vi.fn();
+	const ctx = { principal, kernel: { social: { auditDenied, update } } } as unknown as HostCtx;
+	const params = { agent: "main", conv: "conv:test:group", expectedRevision: "r", patch: {}, reason: "private" };
+	await expect(registry.call("social.update", params, ctx, new AbortController().signal)).rejects.toMatchObject({
+		code: "forbidden",
+	});
+	expect(auditDenied).toHaveBeenCalledWith(principal, params, "forbidden");
+	expect(update).not.toHaveBeenCalled();
+	const admin = { ...ctx, principal: socketPrincipal };
+	await expect(registry.prepareCall("social.update", { conv: "bad" }, admin)).rejects.toMatchObject({
+		code: "invalid_params",
+	});
+	expect(auditDenied).toHaveBeenCalledWith(socketPrincipal, { conv: "bad" }, "invalid_params");
 });

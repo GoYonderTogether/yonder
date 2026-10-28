@@ -13,3 +13,5 @@
 `npx tsc -b packages/core plugins/social` 通过；`npx vitest run packages/core/src/kernel/social.test.ts plugins/social/test/batches.test.ts --exclude 'apps/desktop/**'`：2 文件、6 测试通过，0 失败、0 跳过。先前包含 routing 的运行：2 文件失败、2 通过；1 个测试因临时尝试改变 mention 语义失败，改动已撤回；desktop 构建副本缺 tsconfig 导致另一文件加载失败。Biome 定向检查退出 0，原有警告及少量非空断言警告。
 
 未完成：跨渠道 person 全局覆盖、已有映射调整、resume、非本地工作区原子更新、控制面入口前权限拒绝审计；无已记录目标消息时拒绝。真实模型与真实渠道尚未验证，不能将上述测试视为渠道验收。
+
+控制面前置拒绝补充：`social.update` 在方法权限或参数校验阶段被拒时，也追加 `social.policy-change`；记录认证后的 principal、拒绝类别及可验证格式的目标，不记录未经校验的请求正文。HTTP、WebSocket 订阅入口和 control.sock 均复用该校验。`npx tsc -b packages/core packages/gateway` 通过；定向 vitest 3 文件、4 测试通过、0 失败/跳过；Biome 定向检查通过，2 条既有非空断言警告。本次未启动真实 gateway；网络端到端验收未测。

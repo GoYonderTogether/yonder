@@ -35,7 +35,7 @@ export function createSocial(options: {
 	assert(ctx: ToolContext): void;
 	owner(agent: string, account: string): Promise<boolean>;
 	target(conv: string): Promise<{ kind: "dm" | "group" | "channel"; from?: string; person?: string } | undefined>;
-	record(event: { type: string; from: string; conv: string; data: object }): Promise<unknown>;
+	record(event: { type: string; from: string; conv?: string; data: object }): Promise<unknown>;
 	validate(agents: Map<string, AgentConfig>): Promise<void>;
 	reload(): Promise<void>;
 }) {
@@ -230,5 +230,18 @@ export function createSocial(options: {
 			await unlock?.();
 		}
 	};
-	return { inspect, update };
+	const auditDenied = async (principal: Principal, params: unknown, reason: "forbidden" | "invalid_params") => {
+		const candidate = params && typeof params === "object" ? (params as { conv?: unknown }).conv : undefined;
+		const conv =
+			typeof candidate === "string" && candidate.length <= 2048 && /^conv:[a-z0-9-]+:\S+$/.test(candidate)
+				? candidate
+				: undefined;
+		await options.record({
+			type: "social.policy-change",
+			from: "plugin:social",
+			...(conv ? { conv } : {}),
+			data: { actor: principal.id, before: {}, after: {}, reason, revision: "unknown", result: "rejected" },
+		});
+	};
+	return { inspect, update, auditDenied };
 }

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { Socket } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type GatewayHost, gatewaySettings, type HostCtx, MethodError, type Principal, registry } from "@yonder/core";
+import { type GatewayHost, gatewaySettings, type HostCtx, MethodError, registry } from "@yonder/core";
 import { type WebSocket, WebSocketServer } from "ws";
 import {
 	COOKIE,
@@ -168,7 +168,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		const abort = new AbortController();
 		res.on("close", () => abort.abort());
 		try {
-			const def = registry.prepare(method, params, principalFor(login));
+			const def = await registry.prepareCall(method, params, ctxFor(login));
 			if (def.stream) throw new MethodError("invalid_params", `${method} is a stream; use /api/stream`);
 			sendJson(res, 200, { ok: true, result: await registry.call(method, params, ctxFor(login), abort.signal) });
 		} catch (error) {
@@ -292,7 +292,6 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		const expiry = setTimeout(() => ws.close(4401, "session expired"), Math.max(0, exp - Date.now()));
 		expiry.unref();
 		const stale = () => Date.now() >= exp || (login === "remote" && hashCache.value !== hash);
-		const principal: Principal = principalFor(login);
 		const subs = new Map<string, () => void>();
 		let lastSeen = Date.now();
 		const frame = (value: unknown) => {
@@ -330,7 +329,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 				cancelled = true;
 			});
 			try {
-				const def = registry.prepare(method, params ?? {}, principal);
+				const def = await registry.prepareCall(method, params ?? {}, ctxFor(login));
 				if (!def.stream) throw new MethodError("invalid_params", `${method} is not a stream method`);
 				if (!def.stream.resumable && after !== undefined)
 					throw new MethodError("invalid_params", `${method} does not accept after`);

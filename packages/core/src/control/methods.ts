@@ -71,6 +71,20 @@ export const registry = {
 			);
 		return def;
 	},
+	/** Prepare a request with audit for policy updates rejected before their handler. */
+	async prepareCall(name: string, params: unknown, ctx: HostCtx): Promise<MethodDef> {
+		try {
+			return registry.prepare(name, params, ctx.principal);
+		} catch (error) {
+			if (
+				name === "social.update" &&
+				error instanceof MethodError &&
+				(error.code === "forbidden" || error.code === "invalid_params")
+			)
+				await ctx.kernel.social.auditDenied(ctx.principal, params, error.code);
+			throw error;
+		}
+	},
 	async call(
 		name: string,
 		params: unknown,
@@ -78,7 +92,7 @@ export const registry = {
 		signal: AbortSignal,
 		emit: (value: unknown) => Promise<void> = async () => {},
 	): Promise<unknown> {
-		const def = registry.prepare(name, params ?? {}, ctx.principal);
+		const def = await registry.prepareCall(name, params ?? {}, ctx);
 		return def.handler(params ?? {}, ctx, signal, emit);
 	},
 };
