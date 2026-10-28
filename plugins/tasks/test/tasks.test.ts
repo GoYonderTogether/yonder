@@ -229,6 +229,14 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 		expect(JSON.stringify(inspection)).toContain("tasks_open");
 		const services = inspectionServices(home, config, () => {});
 		const loaded = await loadPlugins(home, config, services);
+		await loaded.start({
+			emit: async () => {
+				throw new Error("Unexpected event");
+			},
+			ask: async () => {
+				throw new Error("Unexpected request");
+			},
+		});
 		const tools = loaded.tools.get("tasks")!;
 		expect(tools.map((t) => t.description)).toEqual([OPEN, UPDATE, DONE, LIST, GET, NUDGE, SHOW]);
 		const call = (name: string, args: object, ctx = caller()) =>

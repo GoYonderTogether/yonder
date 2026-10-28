@@ -174,7 +174,9 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 		await tick(f.probe.api, f.store, {}, now);
 		const before = (await inputs()).events.length;
 		await f.restart();
-		await tick(f.probe.api, new Store(f.probe.api.paths.data), {}, now + 29 * 60000);
+		const reopened = new Store(f.probe.api.paths.data);
+		await tick(f.probe.api, reopened, {}, now + 29 * 60000);
+		reopened.close();
 		expect((await inputs()).events).toHaveLength(before);
 		await tick(f.probe.api, f.store, {}, now + 30 * 60000);
 		expect((await inputs()).events).toHaveLength(before + 1);
@@ -194,7 +196,9 @@ test("user-wait delivers one localized program message per window without waking
 		f.store.update(noOrigin.id, { state: "waiting-user" }, f.ctx);
 		const now = Date.now() + 121 * 60000;
 		await tick(f.probe.api, f.store, {}, now);
-		await tick(f.probe.api, new Store(f.probe.api.paths.data), {}, now + 119 * 60000);
+		const reopened = new Store(f.probe.api.paths.data);
+		await tick(f.probe.api, reopened, {}, now + 119 * 60000);
+		reopened.close();
 		expect(f.probe.sent.map((message) => message.text)).toEqual([
 			USER_WAIT_NOTICE(true, task.title, 121, "请提供 required-input.txt"),
 		]);
@@ -222,7 +226,9 @@ test("postCompact is off by default, records the real command error once when en
 		expect(f.store.get(task.id, f.ctx).history.filter((event) => event.kind === "moment")).toHaveLength(0);
 		const config = { moments: { postCompact: true } };
 		await tick(f.probe.api, f.store, config, now + 16 * 60000);
-		await tick(f.probe.api, new Store(f.probe.api.paths.data), config, now + 32 * 60000);
+		const reopened = new Store(f.probe.api.paths.data);
+		await tick(f.probe.api, reopened, config, now + 32 * 60000);
+		reopened.close();
 		const history = f.store.get(task.id, f.ctx).history;
 		expect(history.filter((event) => event.kind === "moment")).toHaveLength(1);
 		expect(history.at(-1)).toMatchObject({
