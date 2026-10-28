@@ -6,6 +6,8 @@
 
 ## 1. 核心
 
+可选 `codex-companion_review` 支持原生只读审查及可选 `adversarial`、`focus` 挑战式审查；须选择插件与工具并提供隔离登录。斜杠模板及显式等待/后台选择尚未接线。
+
 ```text
 Yonder Harness
 ├─ 原生runtime工具
@@ -234,3 +236,5 @@ macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helpe
 - `code-intel_module_report`：通过 pi-lens MCP 读取模块符号大纲。
 - `code-intel_read_symbol`：通过 pi-lens MCP 按文件和符号名或回调句柄读取源码。
 - `code-intel_ast_grep_outline`：通过执行环境内 ast-grep 查看文件或目录的语法结构。
+
+可选 advisor 插件提供 `advisor_consult` 与 `advisor_record_advisor_outcome`；参数和状态边界见 [11](spec/11-official-plugins.md)。

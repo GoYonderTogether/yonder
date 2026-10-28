@@ -382,3 +382,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - **包**：`@yonder/plugin-code-intel`；**工具**：`code-intel_codegraph_explore`、`code-intel_module_report`。
 - 在当前执行环境调用 CodeGraph，索引由用户初始化和刷新；需 `read`、`exec`。详见 [README](../plugins/code-intel/README.md)。
+
+## advisor：可选咨询及结果记录
+
+- **包**：`@yonder/plugin-advisor`；**工具**：`advisor_consult`、`advisor_record_advisor_outcome`。仅选中插件时提供，默认关闭结果记录；配置与重启边界见 [README](../plugins/advisor/README.md)。

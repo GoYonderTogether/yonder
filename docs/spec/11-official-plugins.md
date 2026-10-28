@@ -217,3 +217,11 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 `code-intel_ast_grep_replace` 通过 pi-lens MCP 在临时副本预览结构替换，最小版本只接受一个工作区内常规文件。先预览再应用；应用前检查文件内容未变，并通过运行时写入保护检查。它需要 read、write、exec；应用检查和写入不构成跨进程原子操作。
 
 `codex-companion_review` 是可选原生 Codex 审查工具，需 read、exec 和显式授权的隔离 Codex home，在当前执行环境调用 Codex CLI，只读审查工作树（含未跟踪文件）或 base 分支；`scope` 支持 auto、working-tree、branch。输出接现有工具缓存和后台边界。插件模板注册及显式等待/后台选择尚待接线，不将工具等同于 `/codex:review` 完整入口。
+
+O49 PT-P129 代批目标：该工具增加可选 `adversarial` 与 `focus`，复用上述目标选择、隔离登录、只读执行和输出缓存；挑战实现路径、假设与取舍，不应用修改。`/codex:adversarial-review` 模板、显式等待或后台选择及原始参数保留仍待接线，工具参数不等于该斜杠入口已交付。
+
+`codex-companion_task` 在当前执行环境调用 Codex CLI，接受显式授权的隔离 `codexHome`、原文 `task`、可选 `write`、外部线程 ID `resume`、`model` 和 `effort`。默认只读，写入需要调用方已有 write 能力；未指定模型和思考档位时不覆盖 Codex 默认值。返回 Codex 末条回复及外部线程引用，长输出使用工具缓存。需要 read、exec，仅选中插件时提供；斜杠模板、候选线程选择和显式后台选择尚待接线。
+
+### advisor（可选）
+
+`advisor_consult` 接收 `preset` 和 `task`，通过 SDK 委派入口执行一次显式咨询，成功返回咨询文本和 adviceId；长输出使用现有工具输出缓存。`advisor_record_advisor_outcome` 接收 adviceId、adoption（followed、not-followed、unknown）和 validationStatus（passed、failed、not-run、unknown），返回 recorded 及原因。仅选中插件的会话可调用；`outcomeLogging` 默认 false，关闭时不写记录。开启后只接受当前会话、当前进程签发且尚未记录的 ID；并发记录先预留，成功后提交，写失败释放并允许重试。重启后旧 ID 失效。插件私有状态仅保存加盐 advice HMAC、时间、采纳及验证状态，不保存咨询全文或转录。
