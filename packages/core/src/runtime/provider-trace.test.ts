@@ -15,7 +15,7 @@ test("provider trace is opt-in, redacts credentials and records SSE", async () =
 	utimesSync(join(directory, "old.jsonl"), new Date(0), new Date(0));
 	const original = globalThis.fetch;
 	const server = createServer((_req, res) => {
-		res.writeHead(200, { "content-type": "text/event-stream" });
+		res.writeHead(200, { "content-type": "text/event-stream", "x-ratelimit-remaining": "9", "set-cookie": "private" });
 		res.write("data: sk-abcdefgh");
 		res.end("ijkl credential-secret\n\n");
 	}).listen(0, "127.0.0.1");
@@ -61,6 +61,11 @@ test("provider trace is opt-in, redacts credentials and records SSE", async () =
 			expect(content).not.toContain(secret);
 		expect(content).toContain('"type":"sse"');
 		expect(content).toContain("data: [REDACTED]");
+		const records = content.trim().split("\n").map((line) => JSON.parse(line));
+		expect(records.every((record) => !Number.isNaN(Date.parse(record.timestamp)))).toBe(true);
+		expect(records.find((record) => record.type === "response")).toMatchObject({ status: 200, headers: { "x-ratelimit-remaining": "9" } });
+		expect(records.findIndex((record) => record.type === "first_byte")).toBeGreaterThan(records.findIndex((record) => record.type === "response"));
+		expect(content).not.toContain("private");
 	} finally {
 		globalThis.fetch = original;
 		delete process.env.YONDER_PROVIDER_TRACE;

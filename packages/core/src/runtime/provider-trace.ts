@@ -45,7 +45,7 @@ export function enableProviderTrace(): boolean {
 		const write = (value: unknown) =>
 			appendFileSync(
 				file,
-				`${JSON.stringify(value, (_key, item) => (typeof item === "string" ? redact(item) : item))}\n`,
+				`${JSON.stringify({ timestamp: new Date().toISOString(), ...(value as object) }, (_key, item) => (typeof item === "string" ? redact(item) : item))}\n`,
 				{ mode: 0o600 },
 			);
 		const headers = Object.fromEntries(
@@ -60,14 +60,22 @@ export function enableProviderTrace(): boolean {
 		});
 		try {
 			const response = await original(request);
-			write({ type: "response", status: response.status });
+			const headers = Object.fromEntries(
+				[...response.headers].filter(([key]) => /^(?:x-)?ratelimit-|^retry-after$|^date$/i.test(key)),
+			);
+			write({ type: "response", status: response.status, headers });
 			if (response.body) {
 				void (async () => {
 					const reader = response.clone().body!.getReader();
 					const decoder = new TextDecoder();
 					let pending = "";
+					let first = true;
 					while (true) {
 						const { value, done } = await reader.read();
+						if (first && value?.byteLength) {
+							write({ type: "first_byte" });
+							first = false;
+						}
 						pending += decoder.decode(value, { stream: !done });
 						const lines = pending.split("\n");
 						pending = lines.pop()!;
