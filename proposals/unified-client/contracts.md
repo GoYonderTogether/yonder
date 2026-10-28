@@ -421,7 +421,7 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 - `<home>/.yonder/gateway.json`（0600）：`{ port, pid, token, basePath }`，`token` 是一次性启动票据。`yonder ui` 经本机 socket 的 `gateway.ticket`（admin，`local:true`，不经网关）另取一次性票据，打印 `http://127.0.0.1:<port>/?token=<ticket>`。
 - `GET <任意页面>?token=` 用票据换 cookie 后 303 到干净地址；`GET /login` 登录页，`POST /login`（表单或 JSON `{token}`）用长期访问令牌换 cookie；`POST /api/logout` 清 cookie。
 - cookie `yonder_session`：HMAC 签名，HttpOnly、SameSite=Strict、24 小时、`Path=basePath`，来源是 https 公网地址时加 Secure。票据登录得 `read/write/admin`（`kind:"local"`），访问令牌登录得 `read/write`（`kind:"remote"`）；轮换令牌后旧 remote cookie 失效。
-- 校验：`Host` 必须是 `127.0.0.1:<port>`、`localhost:<port>` 或 `publicOrigins` 的 host；有 `Origin` 时必须同源或在 `publicOrigins` 内；`Sec-Fetch-Site: cross-site` 拒绝。失败 403；未登录的 API 401，页面 303 到 `<basePath>login`。RPC 只收 `application/json`（否则 415）。
+- 校验：`Host` 必须是 `127.0.0.1:<port>`、`localhost:<port>` 或 `publicOrigins` 的 host；有 `Origin` 时必须同源或在 `publicOrigins` 内；API 与写请求带 `Sec-Fetch-Site` 且不是 `same-origin` 时拒绝。失败 403；未登录的 API 401，页面 303 到 `<basePath>login`。RPC 只收 `application/json`（否则 415）。
 - 反向代理：nginx 去掉前缀后转发；`basePath`（如 `/console/`）只用于生成 cookie Path、重定向地址，并在 `index.html` 注入 `<base href>` 与 `<meta name="yonder-base-path">`。前端资源用相对路径。
-- 响应头：`Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; …; frame-ancestors 'none'`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-store`（静态资源除外）。
+- 响应头：`Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; …; frame-ancestors 'none'`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-store`。
 - `sessions.submit` 的 `requestId` 去重存于进程内存（10 分钟），重启后失效；§1.3「沿用事件库」未采用。
