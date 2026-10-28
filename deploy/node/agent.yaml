@@ -6,7 +6,7 @@ defaultProfile: owner
 defaults:
   model: siliconflow/deepseek-ai/DeepSeek-V3.2
   fallback:
-    models: [siliconflow/deepseek-ai/DeepSeek-V3]
+    models: [siliconflow/deepseek-ai/DeepSeek-V3, gw/deepseek-v4.1-flash]
   contexts:
     - jarvis-soul
     - jarvis-work
