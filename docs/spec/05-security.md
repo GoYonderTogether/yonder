@@ -78,3 +78,7 @@ envs:
 ## 5. 明确不在这一层的东西
 
 审批、人工确认、验收、沙箱策略、速率限制。它们需要时以钩子插件或执行环境插件实现。
+
+### 社交范围（CH-01）
+
+社交关系、@信号和渠道能力声明不授予工具能力，不增加第二套权限系统。inspect 仅能读取当前会话，跨会话需 admin，跨 Agent 还需 cross-agent；update/resume 需 admin，跨 Agent 还需 cross-agent，所有操作检查 channelInstances。策略 patch 不得改变 owner、identity link 或 capabilities；授权变更走既有管理边界，外部群正文不能形成授权。readonly 不构成私人文件沙箱，隔离私人材料需独立工作区或执行环境。

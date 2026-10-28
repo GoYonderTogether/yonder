@@ -1,4 +1,5 @@
 import Type, { type Static, type TLiteral, type TSchema } from "typebox";
+import { outboundSchema, socialSchema } from "./social-schema.js";
 
 const object = <T extends Record<string, TSchema>>(properties: T) =>
 	Type.Object(properties, { additionalProperties: false });
@@ -118,6 +119,7 @@ export const AgentSchema = object({
 	defaults: Type.Optional(ProfileSchema),
 	profiles: Type.Record(text, ProfileSchema),
 	bindings: Type.Array(BindingSchema),
+	social: Type.Optional(socialSchema),
 });
 export const PresetSchema = object({
 	schema: Type.Literal(1),
@@ -149,6 +151,7 @@ export const YonderSchema = object({
 	notifications: Type.Optional(
 		object({
 			default: Type.Optional(choice("all", "mention", "mute")),
+			outbound: Type.Optional(outboundSchema),
 			conversations: Type.Optional(
 				Type.Record(ref("conv"), choice("all", "mention", "mute"), { additionalProperties: false }),
 			),

@@ -432,4 +432,4 @@ S-C05 将现有兼容规则补入 04 §6：缺省为 1，接受旧版本，跳�
 
 批准 channels-social 提案 §4–§8 的只增契约。direct 只沿现有 binding，不提升 write；profile 变化只影响新会话，现有会话保留固定 profile。旧无 notification 元数据发送保持原行为；新主动出口由 Agent 的 social.enabled opt-in，旧 home 默认关闭、新 init 明确开启，入站通知级别不变。关系不增加权限系统，插件 social.* 与核心路由事实各归其所有者。
 
-控制面 scope_denied 映射 forbidden（data.reason），revision_conflict 映射只增 conflict 并返回当前 revision，unsupported_kind 映射 invalid_params（data.kind）；静态引用加载时检查，目标实例须属于 Agent 的 channelInstances，console 例外。增量契约不代表对应运行或真实渠道验收已完成。
+控制面 scope_denied 映射 forbidden（data.reason），revision_conflict 映射已有 conflict 并返回当前 revision，unsupported_kind 映射 invalid_params（data.kind）；静态引用加载时检查，目标实例须属于 Agent 的 channelInstances，console 例外。增量契约不代表对应运行或真实渠道验收已完成。

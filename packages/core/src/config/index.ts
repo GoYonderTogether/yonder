@@ -331,6 +331,39 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 			}
 		}
 	}
+	const policies = [
+		...Object.entries(agent.social?.defaults ?? {}).map(
+			([key, policy]) => [`/social/defaults/${key}`, policy] as const,
+		),
+		...Object.entries(agent.social?.conversations ?? {}).map(
+			([key, policy]) => [`/social/conversations/${key}`, policy] as const,
+		),
+	];
+	for (const [path, policy] of policies) {
+		if (!policy) continue;
+		if (
+			(path.endsWith("/dm") && policy.mode && !["direct", "record", "mute"].includes(policy.mode)) ||
+			((path.endsWith("/group") || path.endsWith("/channel")) && policy.mode === "direct")
+		)
+			issues.push({ file, path: `${path}/mode`, message: "不支持的会话模式" });
+		if (policy.quiet) {
+			if (policy.quiet.start === policy.quiet.end)
+				issues.push({ file, path: `${path}/quiet`, message: "开始和结束不能相同" });
+			try {
+				new Intl.DateTimeFormat("en", { timeZone: policy.quiet.timezone });
+			} catch {
+				issues.push({ file, path: `${path}/quiet/timezone`, message: "无效的 IANA 时区" });
+			}
+		}
+	}
+	const subjects = new Set<string>();
+	for (const [index, mapping] of (agent.social?.mappings ?? []).entries()) {
+		if (subjects.has(mapping.subject))
+			issues.push({ file, path: `/social/mappings/${index}/subject`, message: "映射主体重复" });
+		subjects.add(mapping.subject);
+		if (mapping.agent === agent.id && !(mapping.profile in agent.profiles))
+			issues.push({ file, path: `/social/mappings/${index}/profile`, message: "配置档不存在" });
+	}
 	if (issues.length) throw new ConfigError(issues);
 	return agent;
 }
@@ -369,6 +402,22 @@ export function parseYonderConfig(text: string, file: string): YonderConfig {
 	} catch {
 		issues.push({ file, path: "/timezone", message: "timezone: invalid IANA timezone" });
 	}
+	const quiet = config.notifications?.outbound?.quiet;
+	if (quiet) {
+		if (quiet.start === quiet.end)
+			issues.push({ file, path: "/notifications/outbound/quiet", message: "开始和结束不能相同" });
+		try {
+			new Intl.DateTimeFormat("en", { timeZone: quiet.timezone });
+		} catch {
+			issues.push({ file, path: "/notifications/outbound/quiet/timezone", message: "无效的 IANA 时区" });
+		}
+	}
+	const target = config.notifications?.outbound?.target;
+	if (
+		target &&
+		(target.to.split(":")[1] !== target.via || (target.via !== "console" && !config.channels?.[target.via]))
+	)
+		issues.push({ file, path: "/notifications/outbound/target", message: "目标实例不存在或与目标引用不一致" });
 	if (config.channels?.agent) issues.push({ file, path: "/channels/agent", message: "agent 渠道保留给内核" });
 	if (issues.length) throw new ConfigError(issues);
 	return config;

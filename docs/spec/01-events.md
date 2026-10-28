@@ -144,3 +144,9 @@ agent.result 只投影一个等待输入的原生最终结果，parent 指向该
 message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬时失败在 message.out.delivery.retryable 中明确表示。补达调用前写 message.retry（data.attempt 指向原尝试），调用后的回执仍关联原尝试；重启时在途补达没有确认则记 unknown，不能把更早一次安全失败当成最新事实重发。
 
 多 Agent 渠道同一原生消息可分别投给不同 Agent；入站去重身份为渠道实例 + type + msgId + data.target（普通渠道无 target）。保留原生 msgId，不把 Agent 拼入原生 id。
+
+### 社交事件的所有者（CH-01）
+
+`message.in.data.social` 可选，形状为 `{mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
+
+`social.batch-ready` 和 `social.policy-change` 是插件事件，只能由 social 插件以自身身份发出；批次包含 `sourceEvents`、`through`、`policyRevision`，策略变更记录实际 actor、sourceEvent、before/after、reason、revision 和 result。核心路由诊断由核心追加事实，插件不得伪写核心事件。原消息、平台重投和合成批次分别记录，历史事件不修改。

@@ -238,6 +238,7 @@ interface ModelStatus extends ModelRef { contextWindow?: number; routedTo?: Mode
 interface ModelChangedEv { session: string; from?: ModelRef; to: ModelStatus; cause: "user" | "route" | "fallback" | "recover" }
 interface ModelFallbackEv {
   session: string;
+  inputs?: string[];                                 // 实际运行输入事件 ID；旧事件可缺省
   state: "fallback" | "recovered";
   from: ModelRef; to: ModelRef;
   reason: "rate_limit" | "quota" | "unavailable" | "error";  // §17 固定枚举；超时归 unavailable
@@ -641,3 +642,45 @@ interface SuggestionCreatedEv { suggestion: Suggestion }
 其余待定项：Q02 三平台 CI 修复范围、Q04 voice 协议与原生常驻（交 API-27）、Q06 pi 1.4 成对产物与 host 调用点、Q07 多服务器目标与设备边界。它们不阻塞本卡，不在此猜测接口。
 
 契约核对遗留：API-09 的 ready.result 草案使用 items/running/streaming，而本卡 §17 要求沿用既有快照（§9.2）；具体过渡形状待主 Agent 定稿，与 §5 的 sessions.open/show 兼容差异一起处理。CORE-19 卡中旧 snooze 要求按本轮 Q03 裁定推迟，不进入本版契约。
+
+### CH-01 社交控制面契约（主 Agent 代批；运行接线待 CH-06）
+
+以下 TypeBox 仅定义可选增量，不表示方法已经注册。gateway 对请求未知字段保持既有兼容；静态配置仍依 config 校验。Ref 与 revision 为非空字符串，时间为 ISO 8601；具体 Ref 存在性和 channelInstances 在加载或调用时检查。
+
+```ts
+import { Type } from '@sinclair/typebox';
+const NonEmpty = Type.String({ minLength: 1 });
+const Ref = NonEmpty;
+const Revision = NonEmpty;
+const Quiet = Type.Object({ timezone: NonEmpty, start: Type.String({ pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }), end: Type.String({ pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }) }); // IANA，start != end，可跨午夜
+const Action = Type.Union([Type.Literal('record'), Type.Literal('consider'), Type.Literal('respond')]);
+const Batch = Type.Object({ count: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), delaySeconds: Type.Optional(Type.Integer({ minimum: 1, maximum: 3600 })), maxMessages: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })), maxBytes: Type.Optional(Type.Integer({ minimum: 1024, maximum: 65536 })) });
+const Policy = Type.Object({
+  mode: Type.Optional(Type.Union(['direct', 'record', 'mention', 'batch', 'folded', 'mute'].map(Type.Literal))),
+  batch: Type.Optional(Batch), minIntervalSeconds: Type.Optional(Type.Integer({ minimum: 1, maximum: 3600 })),
+  signals: Type.Optional(Type.Object({ botMention: Type.Optional(Action), ownerMention: Type.Optional(Action), groupOwner: Type.Optional(Action), everyone: Type.Optional(Action), keyword: Type.Optional(Action) })),
+  keywords: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 64 }), { maxItems: 32 })), quiet: Type.Optional(Quiet),
+  foldedEverySeconds: Type.Optional(Type.Integer({ minimum: 300, maximum: 86400 })),
+  judge: Type.Optional(Type.Object({ preset: NonEmpty, maxCallsPerHour: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })) }))
+});
+const Mapping = Type.Object({ subject: Ref, agent: NonEmpty, profile: NonEmpty });
+const Patch = Type.Composite([Policy, Type.Object({ mappings: Type.Optional(Type.Array(Mapping)) })]);
+const InspectParams = Type.Object({ agent: NonEmpty, conv: Ref, event: Type.Optional(NonEmpty) });
+const InspectResult = Type.Object({ policy: Policy, sources: Type.Record(Type.String(), Type.String()), revision: Revision, capabilityGaps: Type.Array(Type.String()), routeReason: Type.String(), cursor: Type.Optional(Type.String()), nextAt: Type.Optional(Type.String({ format: 'date-time' })) });
+const UpdateParams = Type.Object({ agent: NonEmpty, conv: Ref, expectedRevision: Revision, patch: Patch, reason: NonEmpty, dryRun: Type.Optional(Type.Boolean({ default: true })) });
+const UpdateResult = Type.Object({ before: Policy, after: Policy, affected: Type.Array(Ref), revision: Revision });
+const ResumeParams = Type.Object({ agent: NonEmpty, conv: Ref, expectedRevision: Revision, through: NonEmpty });
+const ResumeResult = Type.Object({ accepted: Type.Boolean(), revision: Revision });
+const BatchReady = Type.Object({ sourceEvents: Type.Array(NonEmpty), through: NonEmpty, policyRevision: Revision });
+const PolicyChange = Type.Object({ actor: NonEmpty, sourceEvent: Type.Optional(NonEmpty), before: Policy, after: Policy, reason: NonEmpty, revision: Revision, result: Type.Union([Type.Literal('applied'), Type.Literal('rejected')]) });
+const NotificationIntent = Type.Object({ kind: Type.Union(['progress', 'decision', 'digest', 'failure'].map(Type.Literal)), key: NonEmpty, sourceEvents: Type.Array(NonEmpty), expiresAt: Type.Optional(Type.String({ format: 'date-time' })) });
+```
+
+| 方法 | scope | params | result |
+|---|---|---|---|
+| `social.inspect` | read（当前会话；跨会话 admin，跨 Agent 加 cross-agent） | InspectParams | InspectResult |
+| `social.update` | admin（跨 Agent 加 cross-agent） | UpdateParams | UpdateResult |
+
+SDK/插件另提供 `social.resume`（ResumeParams → ResumeResult，同 update 权限），不新增控制面 resume 方法。dryRun 默认 true；只允许修改既有策略和已配置 judge/映射，不修改 owner、身份 link、capabilities 或新增授权。每次更新校验、比较 revision、原子替换；失败保留旧配置。两个 `social.*` 事件是插件事件，核心路由诊断由核心追加，不能伪写。
+
+错误沿用既有协议：scope_denied → `forbidden`（403，`data.reason`），revision_conflict → `conflict`（`data.currentRevision`），unsupported_kind → `invalid_params`（`data.kind`）。gateway 使用对象错误；control.sock 现有 `error` 字符串不变，细节只能通过可选旁路字段承载。CH-06 实现时贯通并测试。CH-01 不注册占位方法，因此 registry/protocol golden 当前无此方法增量，注册后同步更新 golden。

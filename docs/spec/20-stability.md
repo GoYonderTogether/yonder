@@ -68,3 +68,7 @@
 | 聚合入口 | `scripts/check-stability.mjs` 一条命令跑全部冻结检查，进 CI | S-C08 |
 
 home 布局、环境变量、命令名、包名、插件 id、hash 路由目前没有独立 golden，由 S-C08 的聚合脚本或各自卡片补充；补齐前，改动这些项按 §4 走评审。
+
+### 社交增量兼容（CH-01）
+
+SocialConfig、SocialPolicy、Channel.features、message.in.data.social、通知元数据和 social 方法均为可选增量；旧配置、旧 Channel 与旧事件继续有效。新配置 schema、控制面方法/协议和 SDK 公共形状均须更新对应 golden；按测试支持的 `UPDATE_GOLDEN=1` 更新后，关闭该变量重跑，并确认旧字段子集未丢失。旧 QQ 事件 reader/shim 和弃用配置至少保留两个 minor，弃用时 warn 并写 CHANGELOG。

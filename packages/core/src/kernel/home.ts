@@ -11,8 +11,13 @@ import {
 	resolveProfile,
 	type YonderConfig,
 } from "../config/index.js";
+import { socialReferenceErrors } from "../config/social-validation.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
+import { chainKey, modelChain } from "../runtime/model-chain.js";
+import { ModelGate } from "../runtime/model-gate.js";
+import { ModelHealth } from "../runtime/model-health.js";
+import { accountKey, ModelQuota } from "../runtime/model-quota.js";
 import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
@@ -64,7 +69,7 @@ export function configurationErrors(
 	models: Models,
 	presets: Map<string, Preset>,
 ): string[] {
-	const errors: string[] = [];
+	const errors: string[] = socialReferenceErrors(config, agents);
 	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
 		errors.push(...promptErrors(selected.prompt).map((error) => `${name}: ${error}`));
 		for (const ref of [selected.model, ...(selected.fallback?.models ?? [])]) {
@@ -226,7 +231,7 @@ export async function initHome(
 	return { home, agent: "main", model: config.defaultModel };
 }
 
-export async function inspectHome(home: string): Promise<{ ok: boolean; errors: string[]; warnings: string[] }> {
+export async function inspectHome(home: string) {
 	const warnings = ["exec 可运行任意程序；主机中的 yonder CLI 等同于管理权限。文件能力规则不构成沙箱。"];
 	try {
 		const config = await loadYonderConfig(home);
@@ -243,6 +248,64 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 			services.models,
 			new Map([...plugins.presets, ...presets]),
 		);
+		const health = new ModelHealth(join(home, ".yonder", "model-health.json"));
+		const quota = new ModelQuota(join(home, ".yonder", "model-quota.json"));
+		try {
+			await Promise.all([health.load(), quota.load()]);
+		} catch (error) {
+			return { ok: false, errors: [...errors, `model chain state unavailable: ${message(error)}`], warnings };
+		}
+		const gate = new ModelGate(health, quota);
+		const healthRecords = health.snapshot();
+		const modelChains: {
+			profile: string;
+			entries: {
+				model: string;
+				slot: string;
+				startOrder: number;
+				held: boolean;
+				quotaBlocked: boolean;
+				holdUntil?: number;
+				probeAt?: number;
+			}[];
+		}[] = [];
+		const addChain = (name: string, selected: ReturnType<typeof resolveProfile>) => {
+			let chain: ReturnType<typeof modelChain>;
+			try {
+				chain = modelChain(selected.model, selected.fallback, selected.credentialSlots);
+			} catch (error) {
+				errors.push(`${name}: model chain unavailable: ${message(error)}`);
+				return;
+			}
+			const ordered = gate.order(chain, selected.fallback?.quotaStopPercent);
+			modelChains.push({
+				profile: name,
+				entries: chain.map((entry) => {
+					const key = chainKey(entry);
+					const held = health.held(key);
+					const record = healthRecords[key];
+					return {
+						model: `${entry.base}/${entry.modelId}`,
+						slot: entry.slot,
+						startOrder: ordered.indexOf(entry) + 1,
+						held,
+						quotaBlocked: quota.blocked(
+							accountKey(entry.base, entry.slot),
+							selected.fallback?.quotaStopPercent?.[entry.slot],
+						),
+						...(held && record ? { holdUntil: record.until, probeAt: record.probeAt } : {}),
+					};
+				}),
+			});
+		};
+		for (const agent of agents.values()) {
+			if (agent.archivedAt) continue;
+			const env = config.agents?.find((item) => item.id === agent.id)?.env;
+			for (const [name, profile] of Object.entries(agent.profiles))
+				addChain(`${agent.id}/${name}`, resolveProfile(profile, agent.defaults, env, config.defaultModel));
+		}
+		for (const [id, preset] of new Map([...plugins.presets, ...presets]))
+			addChain(`preset:${id}`, resolveProfile(preset, {}, "local", config.defaultModel));
 		const skills = skillsFor(home, config, plugins, () => {});
 		for (const agent of agents.values())
 			for (const profile of Object.keys(agent.profiles)) {
@@ -276,7 +339,7 @@ export async function inspectHome(home: string): Promise<{ ok: boolean; errors: 
 				);
 			}
 		}
-		return { ok: errors.length === 0, errors, warnings: [...new Set(warnings)] };
+		return { ok: errors.length === 0, errors, warnings: [...new Set(warnings)], modelChains };
 	} catch (error) {
 		return { ok: false, errors: [message(error)], warnings };
 	}

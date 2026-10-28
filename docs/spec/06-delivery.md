@@ -127,3 +127,9 @@ channel-card 以匹配 ref 的 sent 回执作为平台接纳；15 秒无确认�
 兜底意图随 `run.end` 保存，以 completion/session/target 为稳定发送身份，使用现有 attempt/out/unknown 与确定未发送重试规则；重启补办尚无尝试的意图，已尝试且不确定的绝不自动重发。发送与本地确认之间崩溃保留 unknown，不声称 exactly-once。
 
 主人消息启动的交互运行仍活跃、连续 5 分钟无主人可见输出时，无模型调用地发送 `⏳ 仍在处理（已 N 分钟，已执行 M 次工具）。`；每隔至少 5 分钟一次，每轮最多 6 次。任何可见输出重置静默时间，运行终结/取消或服务关闭取消计时；cron、后台续办和 agent_ask 不启用。N 在不足一小时时以分钟显示，否则以约数小时显示；M 为原生已执行工具任务数。运行及最近一次新工具调用均超过 `limits.stuckMinutes`（默认 60 分钟）时，发送一次疑似卡住提示，提供 /stop 或继续等待，不再重复心跳；达到六次普通心跳后仍等待这一判断。重启恢复时从恢复时间重新计算工具静默时间。复用既有运行软提醒计时器；首响应当前只有 ack-before-tools 提示词，没有独立计时器。支持 `Channel.edit` 的渠道更新同一心跳消息（原生消息 API 编辑，未知结果不重试），其他渠道发送短消息。当前身份/配置没有语言字段，默认中文，不从自由文本猜测，不新增生产配置旋钮；测试可经宿主 `openKernel` 的 `test.heartbeatIntervalMs` 注入缩短间隔，生产固定 5 分钟。
+
+### 主动通知意图（CH-01）
+
+发送元数据可选 `notification: {kind: 'progress'|'decision'|'digest'|'failure'; key: string; sourceEvents: string[]; expiresAt?: string}`。旧发送缺此字段按原 reply 语义直通；既有入站 all/mention/mute 保持原义。Agent 的 `social.enabled` 为新主动通知出口的 opt-in：旧 home 默认关闭，新 init 明确开启；开启后自动通知遵守 outbound 的 quiet、off 和汇总，显式主人指令与来源回复仍沿既有语义。
+
+主动意图按 Bot、实际收件人和稳定业务 key 合并，复用 delivery attempt/out/unknown；unknown 不自动换渠道重发，取消或撤权后不得发送。目标未配置时只在 console 可见，不猜最近渠道。主动提醒必须标记意图，不能从文本推断或冒充主人显式指令。

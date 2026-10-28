@@ -150,3 +150,15 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 - `channel-mcp` 随 `default` 加载但不监听：没有 `type: mcp` 的渠道实例时不开端口；写入实例（`port`、`credential`、`account`，可选 `origins`）并重启后才在 `127.0.0.1` 上监听，凭据缺失时请求一律拒绝。
 - init 生成的 `presets/default.yaml` 与 `presets/research.yaml`、agent-presets 的任务与常驻模板都不写 `model`，按 `yonder.yaml` 的 `defaultModel` 解析；更换默认模型只改这一个字段。`--model` 必填并写入 `defaultModel`，缺失时 init 报「未指定默认模型」。配置档、agent defaults 自己写了模型则优先。没有任何模型来源时运行报「未配置默认模型」并点名 `defaultModel`。
 - 旧 home（`yonder.yaml` 已登记 agent、没有 `defaultModel`）沿用升级前的解析结果 `openai/gpt-6-luna`，行为不变；想换模型就补写该字段（决定见 decisions）。
+
+## 社交策略与主动通知（CH-01）
+
+每个 agent.yaml 可选 `social`：`enabled` 默认 false；`authorized` 可列 people/accounts/conversations，`friends` 为 person/acct，`denied` 为 person/acct/conv；`defaults` 按 dm/group/channel 给策略，`conversations` 按精确 conv 覆盖，`mappings` 包含 subject、agent、profile。缺少 social 保持原行为；新 init 可明确启用。字段形状及信号默认值见 [渠道社交提案 §5](../../proposals/agent-ux/channels-social.md#52-类型定义与字段约束)，以本节和 §13 裁定为准。
+
+策略字段 mode、batch、minIntervalSeconds、signals、keywords、quiet、foldedEverySeconds、judge 均可选。覆盖按字段合并：内置默认 < defaults[kind] < conv；数组整体替换，空数组清空，不接受 null。count 1–100、delaySeconds 1–3600、maxMessages 1–100、maxBytes 1024–65536、minIntervalSeconds 1–3600、foldedEverySeconds 300–86400、judge.maxCallsPerHour 1–60；keywords 最多 32 项且每项 1–64 字符。quiet 的 timezone 为 IANA、start/end 为 HH:mm，可跨午夜但相等无效。DM 仅 direct/record/mute；group/channel 禁止 direct。
+
+引用须存在，目标 Agent/profile 与渠道实例须存在，目标实例须在该 Agent 的 channelInstances 内（console 例外）；同级映射冲突拒绝。静态配置未知字段按既有 config 规则校验；gateway 请求按其协议兼容未知字段。加载或热重载校验失败保留旧配置并报告路径，revision 是 agent.yaml 的内容版本；更新先校验、比较 revision，再原子替换。
+
+`notifications.outbound` 可选：mode 为 off/digest/immediate，默认 digest；digestEverySeconds 默认 21600、范围 300–86400；maxItems 默认 5、范围 1–20；quiet 同上；decisionRepeat 为 never；target 为 `{to: Ref, via: string}`，必须显式指定账号或会话及实例，省略为 console-only。旧 home 不启用新出口。
+
+默认 batch 为 count 20、delaySeconds 60、maxMessages 100、maxBytes 16384，minIntervalSeconds 60；foldedEverySeconds 21600，judge 关闭，启用后 maxCallsPerHour 默认 6。信号默认 botMention=respond，其余 ownerMention/groupOwner/everyone/keyword=consider；keywords 默认空，按 Unicode NFC 字面匹配。quiet 未配置时不猜时区或睡眠时间。

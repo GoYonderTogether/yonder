@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 定义可选社交配置、渠道能力和通知意图的增量契约；旧配置及发送行为保持兼容，社交运行接线待后续实现。
+
 - Add optional `code-intel_read_enclosing` for position-based symbol reads through pi-lens MCP.
 
 - Add optional `code-intel_read_symbol` using the pi-lens MCP backend.
