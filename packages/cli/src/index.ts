@@ -758,7 +758,11 @@ async function run(args: string[]): Promise<number> {
 			await setAccessTokenHash(home, `sha256:${createHash("sha256").update(token).digest("hex")}`);
 			const origin = settings.publicOrigins[0] ?? "";
 			output(
-				{ token, login: `${origin}${settings.basePath}login`, note: "shown once; the old token is now invalid" },
+				{
+					token,
+					login: `${origin}${settings.basePath}login`,
+					note: "shown once; the old token is now invalid. Paste it on the login page or POST it as JSON {token} to login; never put it in a URL (only one-time tickets work there)",
+				},
 				options.json,
 			);
 			return 0;

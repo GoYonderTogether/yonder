@@ -412,16 +412,20 @@ pi 的 todo 是平铺列表加 `blockedBy`，没有父子字段；「树」由�
 
 - `sessions.watch`：`ev.type = "session.update"`，`data` 为原 `SessionUpdate`（与 control.sock 的 `update` 字段相同）。`ready.result = { session, info, transcript }`；§1.3 `SessionSnapshot` 里的 `model/usage/context` 暂未给出（A 线事件落地后补）。
 - `activity.watch`：`ev.type = "activity.summary"`，`data` 为 `ActivitySummary`（`sessions[].since` 暂未给出）；易失型，每次 `gap:true`。
-- 游标：`<epoch>:<n>`，epoch 为网关进程内随机值，n 为该会话共享环形缓冲（2000 条，最后一个订阅退出后保留 5 分钟）中的序号。`after` 同 epoch 且仍在缓冲内则补发，否则 `gap:true` 加全新快照。网关重启必然 `gap:true`。§2.3 第 5 条的事件库水位映射未采用。
+- 游标：`<epoch>:<n>`，epoch 为网关进程内随机值，n 为该会话共享环形缓冲（2000 条，最后一个订阅退出后保留 5 分钟）中的序号。缓冲同时按条数（2000）和字节（8 MiB）限界，先超者丢最旧。`after` 同 epoch 且仍在缓冲内则补发，否则 `gap:true` 加全新快照。网关重启必然 `gap:true`。§2.3 第 5 条的事件库水位映射未采用。
+- 快照与游标的原子性：`ready.cursor` 在取快照前确定，快照本身不带修订号或水位，无法按序号裁剪。因此首次订阅（含无法续传的重订）若在加载快照期间已有事件到达，`ready.gap=true`（客户端以快照为准对账），这些事件仍在 `ready` 之后投递（可能与快照重复，客户端须容忍重复）。加载期间的事件队列上限 1000 条；溢出则丢弃队列、`gap=true`，并尽量从环形缓冲按 `cursor` 之后补发。
+- 全局限额：同时最多 32 个 WebSocket（超出 503）、64 个共享 feed（超出订阅得 `end{error:{code:"unavailable"}}`）；订阅尚在启动时 `unsub` 或断线，feed 不留泄漏。
 - `seq` 每个 `sub` 从 1 起；补发的事件也从 1 起编号。
 
 ### 9.3 网关 HTTP 与鉴权（新增）
 
-- 配置 `gateway: { enabled?: boolean; port?: number; publicOrigins?: string[]; basePath?: string; accessTokenHash?: string }`。默认端口 7690，占用时递增；只监听 127.0.0.1。`yonder start --no-gateway` 不启动网关。
-- `<home>/.yonder/gateway.json`（0600）：`{ port, pid, token, basePath }`，`token` 是一次性启动票据。`yonder ui` 经本机 socket 的 `gateway.ticket`（admin，`local:true`，不经网关）另取一次性票据，打印 `http://127.0.0.1:<port>/?token=<ticket>`。
-- `GET <任意页面>?token=` 用票据换 cookie 后 303 到干净地址；`GET /login` 登录页，`POST /login`（表单或 JSON `{token}`）用长期访问令牌换 cookie；`POST /api/logout` 清 cookie。
-- cookie `yonder_session`：HMAC 签名，HttpOnly、SameSite=Strict、24 小时、`Path=basePath`，来源是 https 公网地址时加 Secure。票据登录得 `read/write/admin`（`kind:"local"`），访问令牌登录得 `read/write`（`kind:"remote"`）；轮换令牌后旧 remote cookie 失效。
+- 配置 `gateway: { enabled?: boolean; port?: number; publicOrigins?: string[]; basePath?: string; accessTokenHash?: string; trustProxy?: boolean }`。默认端口 7690，占用时递增；只监听 127.0.0.1。`yonder start --no-gateway` 不启动网关。
+- `<home>/.yonder/gateway.json`（0600）：`{ port, pid, token, basePath }`，`token` 是一次性启动票据。`yonder ui` 经本机 socket 的 `gateway.ticket`（admin，`local:true`，不经网关）另取一次性票据，打印 `http://127.0.0.1:<port>/?token=<ticket>`（回环地址同时在 `/` 与 `<basePath>` 下提供页面和 API）。
+- URL 只接受一次性票据：`GET <任意页面>?token=<ticket>` 换 cookie 后 303 到干净地址；URL 里的长期访问令牌一律不认（会进代理日志）。长期访问令牌只能用 `POST /login`（请求体 JSON `{token}`，登录页表单同样走请求体）换 cookie；`GET /login` 是登录页；`POST /api/logout` 清 cookie。
+- 登录失败按对端限流（每分钟 10 次，最多记 1024 个对端）：对端是 socket 远端地址；仅当配置 `gateway.trustProxy: true` 且连接来自回环时取 `X-Forwarded-For` 第一跳（默认 false，防伪造）。回环连接携带有效一次性票据时不受限流，本机恢复始终可用。
+- 已建立的 WebSocket 随凭据失效：连接记录登录身份与 cookie 到期时间，到期或每个入站帧发现过期即以 4401 关闭；`ui token --rotate` 后网关（1 秒内）以 4401 关闭所有 remote 套接字。非对象/缺少字符串 `t` 的帧以 1003 关闭。
+- cookie `yonder_session`：HMAC 签名，HttpOnly、SameSite=Strict、24 小时、`Path` 与请求挂载路径一致（经去前缀代理或 `<basePath>` 访问时为 `basePath`；回环 Host 直连 `/` 时为 `/`），来源是 https 公网地址时加 Secure。票据登录得 `read/write/admin`（`kind:"local"`），访问令牌登录得 `read/write`（`kind:"remote"`）；轮换令牌后旧 remote cookie 失效。
 - 校验：`Host` 必须是 `127.0.0.1:<port>`、`localhost:<port>` 或 `publicOrigins` 的 host；有 `Origin` 时必须同源或在 `publicOrigins` 内；API 与写请求带 `Sec-Fetch-Site` 且不是 `same-origin` 时拒绝。失败 403；未登录的 API 401，页面 303 到 `<basePath>login`。RPC 只收 `application/json`（否则 415）。
-- 反向代理：nginx 去掉前缀后转发；`basePath`（如 `/console/`）只用于生成 cookie Path、重定向地址，并在 `index.html` 注入 `<base href>` 与 `<meta name="yonder-base-path">`。前端资源用相对路径。
+- 反向代理：nginx 去掉前缀后转发；`basePath`（如 `/console/`）只用于生成 cookie Path、重定向地址，并在 `index.html` 注入 `<base href>` 与 `<meta name="yonder-base-path">`。前端资源用相对路径。回环 Host（`127.0.0.1`/`localhost`）的请求既可在 `/` 也可在 `<basePath>` 下访问，后者由网关去掉前缀；经代理的请求须转发公网 Host，否则会被当作回环直连并得到 `Path=/` 的 cookie。
 - 响应头：`Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; …; frame-ancestors 'none'`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-store`。
 - `sessions.submit` 的 `requestId` 去重存于进程内存（10 分钟），重启后失效；§1.3「沿用事件库」未采用。
