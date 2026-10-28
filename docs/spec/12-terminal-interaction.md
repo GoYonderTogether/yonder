@@ -84,7 +84,7 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 | `/close` 关闭任务 · Close task | 关闭 manual task，保留历史；运行中用原生确认选择器明确中止并关闭 |
 | `/help` 帮助 · Help | 在原生命令呈现方式下说明 Yonder 命令与操作 |
 
-退出沿用 pi 的退出动作，不再要求独立 `/exit` 命令。上游模型切换、fork/tree、分享等没有 Yonder 后端契约的能力，不伪装可用；不把上游全部业务功能自动算作本次范围。已有等价能力必须复用原入口，不因“Yonder 特点”另造一套。
+退出沿用 pi 的退出动作，不再要求独立 `/exit` 命令。没有 Yonder 后端契约的上游能力不伪装可用；不把上游全部业务功能自动算作本次范围。已有等价能力必须复用原入口，不因“Yonder 特点”另造一套。
 
 ### 5.3 补全与双语
 

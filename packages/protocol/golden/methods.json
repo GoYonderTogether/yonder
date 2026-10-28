@@ -287,6 +287,25 @@
 				"type": "object"
 			}
 		},
+		"sessions.fork": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"at": {
+						"maximum": 9007199254740991,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id", "at"],
+				"type": "object"
+			}
+		},
 		"sessions.list": {
 			"scope": "read",
 			"since": 1,
@@ -432,6 +451,20 @@
 						"maximum": 500,
 						"minimum": 1,
 						"type": "integer"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.tree": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
 					}
 				},
 				"required": ["id"],

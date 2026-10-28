@@ -474,7 +474,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				login: loginChannel,
 			},
 			views: loaded.views.api,
-			sessions: { ...sessions.api, observe: observeSession },
+			sessions: { ...sessions.api, ...sessions.branches, observe: observeSession },
 			releaseResult: (data: UpdateResult) => {
 				if (resolve(data.home) !== home) throw new Error("Update result belongs to another home");
 				return router.emit(updateResultEvent(data));

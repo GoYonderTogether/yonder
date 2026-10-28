@@ -103,6 +103,8 @@ interface InputReceipt { event: string; session: string; deduped?: boolean }
 | 方法 | scope | params | result | 状态 |
 |---|---|---|---|---|
 | `sessions.open` | write | §13 扩参（preset/agent、model、workspace/cwd、title/prompt、close/parent、requestId） | `{ session: SessionInfo; model?: ModelStatus; deduped?: boolean }` | §13 为目标；既有返回 SessionInfo 的兼容待定，见 §5 |
+| `sessions.fork` | write | `{ id: string, at: integer }` | `SessionInfo` | 独立 task 在可见节点之后创建分叉；已执行的副作用不回滚 |
+| `sessions.tree` | read | `{ id: string }` | `{ id: string, parent?: string, at?: integer }[]` | 同一独立 task 分叉族；不包含转录正文 |
 | `sessions.close` | write | `{ id }` | `Ok` | 已有 |
 | `sessions.command` | write | `{ id; command: string }` | `string` | 已有；文本命令保留作兼容，UI 不再拼 `/model` |
 | `sessions.model.set` | write | `{ id: string; model: ModelRef }` | `{ model: ModelStatus }` | 新增·A（结构化替代 `/model`） |

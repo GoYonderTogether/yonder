@@ -1,6 +1,8 @@
 export const chatCommands = [
 	{ name: "new", description: "新建会话 · New session" },
 	{ name: "resume", description: "继续会话 · Resume session" },
+	{ name: "tree", description: "查看和切换分支 · Branches" },
+	{ name: "fork", description: "从历史节点创建分支 · Fork" },
 	{ name: "model", description: "模型、供应商与回退链 · Models" },
 	{ name: "status", description: "上下文与后台任务 · Status" },
 	{ name: "compact", description: "压缩当前上下文 · Compact" },

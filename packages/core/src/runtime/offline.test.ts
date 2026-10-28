@@ -1,8 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
-import type { ConversationId, EntryId } from "@earendil-works/pi-durable";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
@@ -22,12 +20,12 @@ test("offline transcript matches the live conversation over an actual read-only 
 		const id = await runtime.create({ agent: null, profile: "default", cwd: home });
 		await runtime.submit(id, { text: "Offline transcript verification", wake: "write" });
 		const online = await runtime.transcript(id);
-		const parent = await runtime["harness"].conversation(Number(id) as ConversationId, C);
 		const first = online[0];
-		if (!parent || !first) throw new Error("Missing parent conversation or entry");
-		const child = await parent.fork(first.id as EntryId, { ownership: { kind: "ownerless" } }, C);
-		await runtime.submit(String(child.id), { text: "Forked transcript verification", wake: "write" });
-		const childOnline = await runtime.transcript(String(child.id));
+		if (!first) throw new Error("Missing parent entry");
+		const child = await runtime.fork(id, first.id);
+		await expect(runtime.fork(id, first.id + 1)).rejects.toThrow("not visible");
+		await runtime.submit(child, { text: "Forked transcript verification", wake: "write" });
+		const childOnline = await runtime.transcript(child);
 		const childEntry = childOnline[1];
 		if (!childEntry) throw new Error("Missing child entry");
 		await runtime.close();
@@ -35,10 +33,8 @@ test("offline transcript matches the live conversation over an actual read-only 
 		const db = await openDatabase(path, true);
 		try {
 			expect(await readTranscript(db, id)).toEqual(online);
-			expect(await readTranscript(db, String(child.id))).toEqual(childOnline);
-			expect(await readTranscript(db, String(child.id), { from: childEntry.id, limit: 1 })).toEqual(
-				childOnline.slice(1, 2),
-			);
+			expect(await readTranscript(db, child)).toEqual(childOnline);
+			expect(await readTranscript(db, child, { from: childEntry.id, limit: 1 })).toEqual(childOnline.slice(1, 2));
 			expect(await readTranscript(db, id, { from: (online[0]?.id ?? 0) + 1 })).toEqual([]);
 			await expect(db.run("CREATE TABLE forbidden_write (id INTEGER)")).rejects.toThrow();
 		} finally {

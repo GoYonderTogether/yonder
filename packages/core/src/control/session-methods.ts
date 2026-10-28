@@ -15,6 +15,26 @@ function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 /** sessions.* control methods (contracts §1, §10 remote isolation). */
 export const sessionMethods: MethodDef[] = [
 	define({
+		name: "sessions.tree",
+		scope: "read",
+		params: id,
+		since: 1,
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			return ctx.kernel.sessions.tree(p.id);
+		},
+	}),
+	define({
+		name: "sessions.fork",
+		scope: "write",
+		params: obj({ id: text, at: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }) }),
+		since: 1,
+		async handler(p, ctx) {
+			await guardSession(ctx, p.id);
+			return ctx.kernel.sessions.fork(p.id, p.at);
+		},
+	}),
+	define({
 		name: "sessions.watch",
 		scope: "read",
 		params: id,

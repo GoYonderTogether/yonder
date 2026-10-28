@@ -704,6 +704,36 @@ export class Runtime {
 		);
 		return String(conversation.id);
 	}
+	async fork(id: string, at: number): Promise<string> {
+		if (await this.hasPendingWork(id)) throw new Error("Cannot fork a session with pending work");
+		const parent = await this.conversation(id);
+		const entries = await parent.entries({ minEntryId: at as EntryId, maxEntryId: at as EntryId }, 1, undefined, C);
+		if (entries.items[0]?.id !== at) throw new Error(`Entry ${at} is not visible in session ${id}`);
+		const child = await parent.fork(
+			at as EntryId,
+			{
+				ownership: { kind: "ownerless" },
+				init: async (tx, childId) => {
+					const state = await tx.doc(SessionDoc, childId);
+					state.close = "manual";
+					state.outbox = [];
+					state.activityRunId = null;
+					state.activityIssue = null;
+					state.fallback = null;
+				},
+			},
+			C,
+		);
+		return String(child.id);
+	}
+	async forkParent(id: string): Promise<{ id: string; at: number } | undefined> {
+		const row = await this.options.db.get<{ record: string }>(
+			"SELECT record FROM pi_conversations WHERE id = ?",
+			Number(id),
+		);
+		const parent = row && (JSON.parse(row.record) as { parent?: { conversationId: number; at: number } }).parent;
+		return parent ? { id: String(parent.conversationId), at: parent.at } : undefined;
+	}
 	async sessionState(id: string): Promise<RuntimeSessionState | undefined> {
 		const state = await this.harness.snapshot(SessionDoc, cid(id), C);
 		if (!state) return;
