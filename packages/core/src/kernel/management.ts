@@ -85,7 +85,12 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 				if (!value || !value.name || !value.work || !value.owner || !Array.isArray(value.bindings))
 					throw new Error("name, work, owner and explicit bindings are required");
 				const { id: _id, description: _description, ...profile } = preset;
-				const selected = resolveProfile({ ...profile, ...((value.profile as Profile) ?? {}) });
+				const selected = resolveProfile(
+					{ ...profile, ...((value.profile as Profile) ?? {}) },
+					{},
+					"local",
+					state.config.defaultModel,
+				);
 				const { level, capabilities, ...rest } = selected;
 				generated = parseAgentConfig(
 					stringify({
@@ -102,7 +107,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					"agent.yaml",
 					id,
 				);
-				generated = withDefaultPeer(generated, value.isolated);
+				generated = withDefaultPeer(generated, value.isolated, "local", config.defaultModel);
 				config.agents = [...(config.agents ?? []), { id, workspace: `./agents/${id}` }];
 				const files = state.files(config, id);
 				if (await files.exists(".")) throw new Error(`Workspace already exists: ${resolve(home, `agents/${id}`)}`);

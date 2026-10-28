@@ -31,6 +31,8 @@ interface CoreToolsOptions {
 	ask(input: EventInput): Promise<AskResult>;
 	getPreset(id: string): Preset | undefined;
 	presets?: () => Preset[];
+	/** yonder.yaml defaultModel: the model of presets that name none. */
+	defaultModel?: string;
 }
 const result = (value: unknown): ToolResult => ({ text: typeof value === "string" ? value : JSON.stringify(value) });
 const fail = (error: unknown): ToolResult => ({
@@ -128,7 +130,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
 		const parent = await runtime().sessionConfig(ctx.session);
-		const resolved = resolveProfile(selected, {}, parent.resolved.env);
+		const resolved = resolveProfile(selected, {}, parent.resolved.env, options.defaultModel);
 		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
 		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
 		const { capabilities, channelInstances, inherit } = presetSession(selected, resolved.env, {

@@ -9,6 +9,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 import { FileCredentials } from "../runtime/credentials.js";
 
@@ -23,7 +24,7 @@ const data = (result: Awaited<ReturnType<Client["callTool"]>>) => {
 
 async function setup(real = false) {
 	const home = await mkdtemp("/tmp/yonder-mcp-");
-	await initHome(home);
+	await initHome(home, "owner", { model: testModel });
 	const token = randomBytes(32).toString("base64url");
 	const credential = `n02-mcp-${randomUUID()}`;
 	const credentials = new FileCredentials(real ? auth : `${home}/.yonder/auth.json`);

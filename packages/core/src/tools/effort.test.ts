@@ -8,6 +8,7 @@ import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
@@ -19,7 +20,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		const sockets: Socket[] = [];
 		const clients: Array<{ channel: string; packets: Array<{ type: string; text?: string; event?: YEvent }> }> = [];
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
 			config.channels.plain = { type: "cli" };

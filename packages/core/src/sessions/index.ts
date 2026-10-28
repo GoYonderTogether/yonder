@@ -60,7 +60,7 @@ export function createSessions({
 		capabilities?: Capability[],
 		inherit?: RuntimeSessionState["inherit"],
 		channelInstances?: string[],
-	): ResolvedProfile => presetProfile(profile, env, capabilities, inherit, channelInstances);
+	): ResolvedProfile => presetProfile(profile, env, capabilities, inherit, channelInstances, config.defaultModel);
 	const workspace = (agent: string) => {
 		const entry = config.agents?.find((candidate) => candidate.id === agent);
 		if (!entry) throw new Error(`Unknown agent workspace: ${agent}`);
@@ -92,7 +92,7 @@ export function createSessions({
 			agent: row.agent,
 			profile: row.profile,
 			cwd,
-			resolved: resolveProfile(selected, agent.defaults, env),
+			resolved: resolveProfile(selected, agent.defaults, env, config.defaultModel),
 			bindings: agent.bindings,
 			owner: agent.owner,
 		};

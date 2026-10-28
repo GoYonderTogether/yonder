@@ -53,7 +53,7 @@ async function start(home: string) {
 test("init --bundle core writes no channel, no channel binding and model-free presets", async () => {
 	const home = await mkdtemp("/tmp/yonder-bundle-core-");
 	try {
-		invoke(["init", home, "--bundle", "core", "--json"]);
+		invoke(["init", home, "--bundle", "core", "--model", "openai/gpt-6-luna", "--json"]);
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 		expect(config.plugins.filter((entry: { use: string }) => entry.use.includes("channel"))).toEqual([]);
 		expect(config.channels).toEqual({});
@@ -87,7 +87,7 @@ test("channels list reports shipped third-party channels as not enabled", async 
 	const home = await mkdtemp("/tmp/yonder-bundle-channels-");
 	let stop: (() => Promise<void>) | undefined;
 	try {
-		invoke(["init", home, "--json"]);
+		invoke(["init", home, "--model", "openai/gpt-6-luna", "--json"]);
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 		expect(config.channels).toEqual({ cli: { type: "cli" } });
 		stop = await start(home);
@@ -112,7 +112,7 @@ test("channel-mcp opens no port until an mcp channel instance is enabled", async
 	const port = await freePort();
 	let stop: (() => Promise<void>) | undefined;
 	try {
-		invoke(["init", home, "--json"]);
+		invoke(["init", home, "--model", "openai/gpt-6-luna", "--json"]);
 		stop = await start(home);
 		expect(await listening(port)).toBe(false);
 		await stop();
@@ -136,7 +136,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		const home = await mkdtemp("/tmp/yonder-bundle-chat-");
 		let stop: (() => Promise<void>) | undefined;
 		try {
-			invoke(["init", home, "--bundle", "core", "--json"]);
+			invoke(["init", home, "--bundle", "core", "--model", "openai/gpt-6-luna", "--json"]);
 			const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 			config.credentials = auth;
 			await writeFile(join(home, "yonder.yaml"), stringify(config));

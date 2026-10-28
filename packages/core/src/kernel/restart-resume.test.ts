@@ -4,6 +4,7 @@ import { createConnection } from "node:net";
 import { resolve } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
@@ -12,7 +13,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	async () => {
 		const home = await mkdtemp("/tmp/yonder-restart-live-");
 		try {
-			await initHome(home);
+			await initHome(home, "owner", { model: testModel });
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
 			config.credentials = auth;
 			await writeFile(`${home}/yonder.yaml`, stringify(config));

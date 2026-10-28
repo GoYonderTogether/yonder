@@ -235,7 +235,9 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				filesFor(home, candidate, loaded, agent.id),
 				[
 					...new Set(
-						Object.values(agent.profiles).flatMap((profile) => resolveProfile(profile, agent.defaults).contexts),
+						Object.values(agent.profiles).flatMap(
+							(profile) => resolveProfile(profile, agent.defaults, "local", candidate.defaultModel).contexts,
+						),
 					),
 				],
 				loaded.contexts,
@@ -349,6 +351,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			ask: router.ask,
 			getPreset: sessions.getPreset,
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
+			...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
 		});
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));

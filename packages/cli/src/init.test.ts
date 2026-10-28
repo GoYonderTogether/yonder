@@ -15,8 +15,8 @@ test("init generates the peer binding by default and omits it with --isolated", 
 	try {
 		const normalHome = join(root, "normal");
 		const isolatedHome = join(root, "isolated");
-		invoke(["init", normalHome, "--json"]);
-		invoke(["init", isolatedHome, "--isolated", "--json"]);
+		invoke(["init", normalHome, "--model", "openai/gpt-6-luna", "--json"]);
+		invoke(["init", isolatedHome, "--isolated", "--model", "openai/gpt-6-luna", "--json"]);
 
 		const readBindings = async (home: string) => {
 			const config = parse(await readFile(join(home, "agents/main/agent.yaml"), "utf8"));

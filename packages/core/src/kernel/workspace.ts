@@ -138,7 +138,7 @@ export function profileFor(
 		agent: agent.id,
 		profile,
 		cwd: resolve(home, entry.workspace),
-		resolved: resolveProfile(selected, agent.defaults, entry.env),
+		resolved: resolveProfile(selected, agent.defaults, entry.env, config.defaultModel),
 	};
 }
 

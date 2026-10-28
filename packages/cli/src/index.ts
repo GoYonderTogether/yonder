@@ -49,7 +49,7 @@ import type { ChatTarget } from "./terminal.js";
 const usage = `Usage: yonder <command> [options]
 
 Commands:
-  init [dir] [--owner <id>] [--bundle core|default|full] [--isolated]  初始化数据目录 · Create a home
+  init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]  初始化数据目录 · Create a home
   channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
   login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号
   credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]  模型账号槽位
@@ -421,23 +421,40 @@ async function run(args: string[]): Promise<number> {
 	if (command === "init") {
 		const ownerIndex = rest.indexOf("--owner");
 		const bundleIndex = rest.indexOf("--bundle");
+		const modelIndex = rest.indexOf("--model");
+		const model = modelIndex >= 0 ? rest[modelIndex + 1] : undefined;
 		const isolated = rest.includes("--isolated");
 		const owner = ownerIndex >= 0 ? rest[ownerIndex + 1] : "owner";
 		const bundle = bundleIndex >= 0 ? rest[bundleIndex + 1] : undefined;
 		const value = (index: number) =>
-			(ownerIndex >= 0 && index === ownerIndex + 1) || (bundleIndex >= 0 && index === bundleIndex + 1);
+			(ownerIndex >= 0 && index === ownerIndex + 1) ||
+			(bundleIndex >= 0 && index === bundleIndex + 1) ||
+			(modelIndex >= 0 && index === modelIndex + 1);
 		const target = rest.find((item, index) => !item.startsWith("-") && !value(index));
 		if (ownerIndex >= 0 && (!owner || owner.startsWith("-"))) throw new UsageError("init --owner requires an id");
 		if (bundleIndex >= 0 && (!bundle || bundle.startsWith("-"))) throw new UsageError("init --bundle requires an id");
+		if (modelIndex >= 0 && (!model || model.startsWith("-"))) throw new UsageError("init --model requires provider/id");
 		if (bundle !== undefined && !bundleIds.includes(bundle as (typeof bundleIds)[number]))
 			throw new UsageError(`init --bundle accepts ${bundleIds.join(", ")}`);
 		if (
-			rest.some((item) => item.startsWith("-") && item !== "--owner" && item !== "--bundle" && item !== "--isolated") ||
+			rest.some(
+				(item) =>
+					item.startsWith("-") &&
+					item !== "--owner" &&
+					item !== "--bundle" &&
+					item !== "--model" &&
+					item !== "--isolated",
+			) ||
 			rest.filter((item, index) => !item.startsWith("-") && !value(index)).length > 1
 		)
-			throw new UsageError("Usage: yonder init [dir] [--owner <id>] [--bundle core|default|full] [--isolated]");
+			throw new UsageError(
+				"Usage: yonder init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]",
+			);
 		const home = homeFor(options, true, target);
-		return print(initHome(home, owner, { isolated, ...(bundle ? { bundle } : {}) }), options.json);
+		return print(
+			initHome(home, owner, { isolated, ...(bundle ? { bundle } : {}), ...(model ? { model } : {}) }),
+			options.json,
+		);
 	}
 	if (command === "credentials" && rest[0] === "slots") {
 		const action = rest[1];

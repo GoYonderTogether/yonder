@@ -62,6 +62,7 @@ export default {
 			join(home, "yonder.yaml"),
 			stringify({
 				schema: 1,
+				defaultModel: "openai/gpt-6-luna",
 				plugins: [{ use: "./probe" }],
 				channels: { a: { type: "scope-protocol" }, b: { type: "scope-protocol" } },
 				agents: [],

@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { presetProfile, presetSession, resolveProfile } from "./index.js";
+import { presetSession } from "./index.js";
+import { presetProfile, resolveProfile } from "./test-support.js";
 
 const opener = resolveProfile(
 	{

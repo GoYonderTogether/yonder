@@ -7,6 +7,7 @@ import { dispatchEvent } from "@tencent-connect/qqbot-nodejs/protocol";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
+import { testModel } from "../../../packages/core/src/config/test-support.js";
 import { initHome, inspectHome } from "../../../packages/core/src/kernel/home.js";
 import { incoming, recipient } from "../src/channel.js";
 import { configure, connect } from "../src/setup.js";
@@ -73,7 +74,7 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 test("scan completion preserves credentials and configures read-only group participation through bindings", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-qq-config-"));
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const options = { home, agent: "main", instance: "qq-main" };
 		const authFile = join(home, ".yonder/auth.json");
 		await mkdir(join(home, ".yonder"), { recursive: true });

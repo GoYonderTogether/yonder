@@ -2,7 +2,8 @@ import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { type AgentConfig, parseAgentConfig, resolveProfile } from "../config/index.js";
+import { type AgentConfig, parseAgentConfig } from "../config/index.js";
+import { resolveProfile, testModel } from "../config/test-support.js";
 import { createDelivery } from "../delivery/index.js";
 import { loadPlugins } from "../plugins/index.js";
 import { peerWorkspaceContext, systemSections } from "../prompt/index.js";
@@ -106,7 +107,7 @@ test("init and all preset creation paths generate peer; isolated input is creati
 	const isolatedHome = await mkdtemp("/tmp/yonder-peer-isolated-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
-		await initHome(home);
+		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "agents/main/agent.yaml");
 		const initial = parse(await readFile(file, "utf8"));
 		expect(initial.bindings[0]).toMatchObject({ id: "peer", profile: "peer", reply: "none" });
@@ -174,12 +175,12 @@ test("init and all preset creation paths generate peer; isolated input is creati
 				value: { ...input, bindings: [{ id: "peer", match: { channel: "cli" }, session: "main" }] },
 			}),
 		).rejects.toThrow("collision");
-		await initHome(isolatedHome, "owner", { isolated: true });
+		await initHome(isolatedHome, "owner", { model: testModel, isolated: true });
 		const isolatedMain = parse(await readFile(join(isolatedHome, "agents/main/agent.yaml"), "utf8"));
 		expect(isolatedMain.profiles.peer).toBeUndefined();
 		expect(isolatedMain.bindings.map((b: { id: string }) => b.id)).toEqual(["owner"]);
 		await expect(
-			initHome(join(isolatedHome, "invalid"), "owner", { isolated: "true" as unknown as boolean }),
+			initHome(join(isolatedHome, "invalid"), "owner", { model: testModel, isolated: "true" as unknown as boolean }),
 		).rejects.toThrow("boolean");
 	} finally {
 		await kernel?.close();
@@ -201,7 +202,7 @@ test("core workspace context works without plugins, loads only own two files, re
 		await files.writeFile("SOUL.md", "OWN-SOUL");
 		await files.writeFile("AGENTS.md", "OWN-WORK");
 		await files.writeFile("memory/private.md", "DO-NOT-PRELOAD");
-		const agent = withDefaultPeer(base());
+		const agent = withDefaultPeer(base(), false, "local", testModel);
 		const session = { ...profileFor(home, config, agent, "peer"), id: "context" };
 		const options = { contexts: plugins.contexts, workspace: () => files };
 		const text = (await systemSections(session, options)).join("\n");
@@ -241,12 +242,12 @@ test("actual router chooses generated ephemeral peer ahead of broad owner, paren
 	let runtime: Runtime | undefined;
 	try {
 		const store = await createStore(db);
-		const agent = withDefaultPeer(base());
+		const agent = withDefaultPeer(base(), false, "local", testModel);
 		// Passive admission exercises real routing/session/runtime without a model or fabricated reply.
 		agent.bindings[0]!.wake = "write";
 		agent.bindings[1]!.wake = "write";
 		const agents = new Map([[agent.id, agent]]);
-		const config = { schema: 1 as const, agents: [{ id: "main", workspace: home }] };
+		const config = { schema: 1 as const, defaultModel: testModel, agents: [{ id: "main", workspace: home }] };
 		const sessions = createSessions({
 			store,
 			agents,

@@ -26,6 +26,7 @@
 schema: 1
 locale: zh-CN                          # 可省略，默认中文；可显式覆盖为有效 Intl locale
 timezone: Asia/Shanghai                 # 可省略，默认北京时间；必须是有效 IANA 时区
+defaultModel: provider/modelId          # 全局默认模型（provider/modelId）；不写模型的预设与配置档都用它。代码不含任何模型常量
 
 plugins:
   - use: "@yonder/plugin-channel-cli"
@@ -129,7 +130,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 ## 6. init 的发行包与随包渠道
 
-`yonder init [dir] [--owner <id>] [--bundle core|default|full] [--isolated]` 由发行包决定写进 `yonder.yaml` 的插件与渠道实例；`initHome(home, owner, { bundle })` 走同一写入路径，默认 `default`，未知包 id 直接拒绝并列出可选值。
+`yonder init [dir] [--owner <id>] [--bundle core|default|full] --model <provider/modelId> [--isolated]` 由发行包决定写进 `yonder.yaml` 的插件与渠道实例；`initHome(home, owner, { bundle })` 走同一写入路径，默认 `default`，未知包 id 直接拒绝并列出可选值。
 
 | 包 | 写入的插件 | 渠道实例 |
 |---|---|---|
@@ -141,4 +142,5 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 - 需要主人级插件配置、init 无法替主人选择的插件不进任何包：`channel-wechat-ilink`（`config.owner`）与 `memory`（`root`/`owner`/`timezone`）用 `plugins add` 显式加入并写配置。统一客户端目标里的默认加载集（memory、cron、tasks、learning、channel-card、mcp-client）尚未全部由 init 写入，见 [状态](../status.md)。
 - 第三方渠道 feishu、wechat-ilink、qq、github 随包提供但 init 不启用：`yonder channels list` 对已启用实例返回 `instance`/`type`/`login`，对未启用的随包渠道返回 `type`/`plugin` 与 `status: 随包提供，未启用 · Shipped, not enabled`。启用就是在 `yonder.yaml.channels` 加实例并重启；同一个 type 已有实例时不再重复列出。
 - `channel-mcp` 随 `default` 加载但不监听：没有 `type: mcp` 的渠道实例时不开端口；写入实例（`port`、`credential`、`account`，可选 `origins`）并重启后才在 `127.0.0.1` 上监听，凭据缺失时请求一律拒绝。
-- init 生成的 `presets/default.yaml` 与 `presets/research.yaml` 不写 `model`，按内核默认模型解析（[03 §3](03-agents.md)）；更换默认模型不需要改预设。
+- init 生成的 `presets/default.yaml` 与 `presets/research.yaml`、agent-presets 的任务与常驻模板都不写 `model`，按 `yonder.yaml` 的 `defaultModel` 解析；更换默认模型只改这一个字段。`--model` 必填并写入 `defaultModel`，缺失时 init 报「未指定默认模型」。配置档、agent defaults 自己写了模型则优先。没有任何模型来源时运行报「未配置默认模型」并点名 `defaultModel`。
+- 旧 home（`yonder.yaml` 已登记 agent、没有 `defaultModel`）沿用升级前的解析结果 `openai/gpt-6-luna`，行为不变；想换模型就补写该字段（决定见 decisions）。

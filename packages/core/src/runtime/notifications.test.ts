@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionUpdate } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile } from "../config/test-support.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { openDatabase } from "./db.js";

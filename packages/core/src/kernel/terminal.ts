@@ -39,7 +39,7 @@ export function terminalApi(ctx: {
 	return {
 		presets: () =>
 			[...new Map([...loaded.presets, ...homePresets]).values()].map((preset) => {
-				const profile = resolveProfile(preset),
+				const profile = resolveProfile(preset, {}, "local", config.defaultModel),
 					slash = profile.model.indexOf("/");
 				const model = models.getModel(profile.model.slice(0, slash), profile.model.slice(slash + 1));
 				return {

@@ -1,6 +1,6 @@
 import type { Channel, Delivery, Hook, ToolContext } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
-import { resolveProfile } from "../config/index.js";
+import { resolveProfile, testModel } from "../config/test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
@@ -75,6 +75,7 @@ async function setup(hook?: Hook) {
 	});
 	delivery.start();
 	const tools = createCoreTools({
+		defaultModel: testModel,
 		store,
 		agents: new Map(),
 		sessions,
