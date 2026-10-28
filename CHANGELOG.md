@@ -4,6 +4,7 @@
 
 ### Added
 
+- `yonder migrate`：迁移旧 `yonder-harness` 用户数据（运行目录、插件 id/工具名、插件状态目录、power helper 的 launchd 标签），默认 dry-run，`--apply` 执行，`--rollback <备份>` 恢复（`--dry-run` 仅预览；迁移后有新写入数据时拒绝，`--force` 放弃）。持 home 锁、日志与自动还原使中断可恢复，launchd 步骤与数据迁移分开报告。
 - 微信归档监听补齐入站标注：`wechat-archive.material` 的 data 增加 `channel`、`conversation`、批次去重的 `senders` 和一行通知用 `summary`（发送人加正文摘要，纯媒体与无正文分别记标记），消息正文与附件仍在 `messages`；同一会话是否提醒由 `notifications` 级别决定，监听保持只读、不自动回复。
 - 渠道通知级别：`yonder.yaml` 新增 `notifications`（`default` + 按 `conv` 覆盖，取值 `all`/`mention`/`mute`）。被绑定接纳的入站 `message.in` 与带 `data.summary` 的插件事件对每个路由会话写一条 `yonder.notification`（走 `sessions.notify`，不唤醒模型），`mention` 只在 `data.mentioned` 为真时通知，`mute` 只累积事件与未读（06 §9.1、08 §2）。
 - 控制方法注册表（`core/src/control/methods.ts`）：control.sock 与网关共用同一份方法定义（scope、参数校验、流类型、`local` 标记），原 CLI 内的 switch 迁入，socket 行为不变；新增 `capabilities.get`、`sessions.transcript`（`before` 倒序翻页）、`activity.summary/watch`，`sessions.submit` 支持 `requestId` 10 分钟幂等。
