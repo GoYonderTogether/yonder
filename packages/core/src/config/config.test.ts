@@ -6,6 +6,10 @@ import { loadYonderConfig, matchesGlob, parseAgentConfig, parseYonderConfig } fr
 import { resolveProfile } from "./test-support.js";
 
 describe("config basics", () => {
+	it("uses core tools by default while preserving explicit offers", () => {
+		expect(resolveProfile({}).tools).toEqual({ offer: ["read", "write", "edit", "bash"], search: ["*"] });
+		expect(resolveProfile({ tools: { offer: ["read"] } }).tools).toEqual({ offer: ["read"], search: [] });
+	});
 	it("loads default locale/timezone through the real home config loader", async () => {
 		const home = await mkdtemp(join(tmpdir(), "yonder-locale-config-"));
 		try {

@@ -119,7 +119,7 @@ bindings: [ … ]                   # 见 02 §2
 
 `session_list`、`session_read` 是内核工具：main 按通常的工具选择规则提供；其他常驻 Agent 必须在 `agent.yaml` 的 `tools.offer` 或 `tools.search` 中逐个写出完整工具名，通配符不启用它们。能力检查仍然生效；无 Agent 身份的预设会话沿用通常规则。
 
-内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: ["*"], search: [] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`、`prompt: {}`；`env` 取工作区环境，`limits` 取 07 §5。数组整项替换；`tools`、`limits`、`prompt` 与 `credentialSlots` 按键覆盖；`prompt.sections` 和 `prompt.overrides` 各自整项替换，不按 id 合并。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
+内核默认：`model: openai/gpt-6-luna`、`thinking: medium`、`level: readonly`、`plugins: []`、`tools: { offer: [read, write, edit, bash], search: ["*"] }`、`contexts: []`、`skills: ["*"]`、`instructions: ""`、`prompt: {}`；`env` 取工作区环境，`limits` 取 07 §5。显式设置 `offer` 而未设置 `search` 时，沿用空 search，避免扩大已有配置；显式的 defaults/profile 按字段继承。数组整项替换；`tools`、`limits`、`prompt` 与 `credentialSlots` 按键覆盖；`prompt.sections` 和 `prompt.overrides` 各自整项替换，不按 id 合并。`level` 与 `capabilities` 是同一组选项，配置档指定任一个就替换 defaults 的这一组，不能把两个来源合并成冲突。其余字段按字段覆盖。通配只支持 `*`（任意字符串）与 `?`（单字符），不引入路径 glob 语言。
 
 ## 4. 预设与临时会话
 

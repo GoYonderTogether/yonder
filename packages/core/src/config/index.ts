@@ -119,7 +119,12 @@ export function resolveProfile(
 		credentialSlots: mergeCredentialSlots(defaults.credentialSlots, profile.credentialSlots),
 		level,
 		capabilities,
-		tools: { offer: ["*"], search: [], ...defaults.tools, ...profile.tools },
+		tools: {
+			offer: ["read", "write", "edit", "bash"],
+			search: defaults.tools?.offer || profile.tools?.offer ? [] : ["*"],
+			...defaults.tools,
+			...profile.tools,
+		},
 		limits: { ...defaultLimits, ...defaults.limits, ...profile.limits },
 		prompt: { ...defaults.prompt, ...profile.prompt },
 	} as ResolvedProfile;

@@ -14,8 +14,7 @@ export function processTool(
 	return {
 		name: "bash",
 		deferred: true,
-		description:
-			"Run a shell command in the execution workspace. Calls lasting 15 seconds return a background id automatically; background=true yields immediately. Use process for logs, stdin, status or cancellation. timeout is a soft elapsed-time reminder, not a kill limit. Output is bounded; full stdout/stderr is retained in the reported log file. For builds, installs and long scripts, use background=true and continue independent work; completion arrives automatically. Keep the actual handle for a development server or watcher, and stop it when no longer needed. Set cwd to the intended repository; do not confuse this process with a child Agent. Do not use shell detachment to escape lifecycle ownership. Stdin is closed by default; set stdin=true only for commands that need process.write, then finish input with eof=true. Shell pipelines are supported; this is not a PTY. Specify a search path when searching files.",
+		description: "Run a shell command in the execution workspace; long commands continue in the background.",
 		parameters: Type.Object(
 			{
 				command: Type.String(),
