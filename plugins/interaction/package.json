@@ -16,11 +16,9 @@
 		"dist/*.js",
 		"dist/*.d.ts",
 		"dist/*.map",
-		"dist/index.html",
-		"web/state.mjs",
-		"web/state.d.mts",
-		"README.md",
-		"web/assets/Geist-LICENSE"
+		"state.mjs",
+		"state.d.mts",
+		"README.md"
 	],
 	"dependencies": {
 		"@yonder/sdk": "0.3.26102801",

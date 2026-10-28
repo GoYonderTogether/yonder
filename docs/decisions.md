@@ -1,5 +1,7 @@
 # 决策记录
 
+**2026-10-28 交互入口退役。** interaction 卡片经控制面视图展示与回答，保留插件私有状态，移除独立 HTTP 服务；代价是旧回环页面 URL 不再提供。
+
 **D57 完整主程序的跨平台安装入口（2026-10-26）。** 在原有版本目录和 home 分离的发行链上，Linux 用 systemd 用户单元，Windows 用当前用户登录计划任务、目录 junction 和本机命名管道。Windows 不借 `sc.exe` 把普通 Node 进程冒充 SCM 服务；需要注销后常驻或异常自动重启时另做真正的 Windows 服务宿主。每个平台的运行结论必须有对应系统与架构的实测证据。
 
 **D59 默认管家与清单式首次引导（2026-10-28，统一客户端 design §5.2/§5.3 第一片；维护者已批准（10-28 主 Agent 代批，主人授权合并））。** `init` 的 default 发行包加载 `@yonder/plugin-onboarding`，管家沿用现名 `main`（Jarvis），不写模型、用 `defaultModel`，选入 `tasks` 与 `onboarding`，并有一条 `onboarding.start` 绑定（`--isolated` 不写，因 peer 的保守检查拒绝不限渠道的绑定，由主人主动要求继续）。插件启动时在未完成、未关闭（`enabled: false` 或 `{dismissed:true}`）、默认模型有凭据（`api.host.modelReady`）且距上次满 24 小时、累计不到 5 次时写 `onboarding.start`（conv `conv:onboarding:<agent>`）唤醒管家，避免模型失败时每次启动都重试；只读工具 `onboarding_probe` 经新的内核接口 `api.host.status`（仅 admin，只给凭据槽是否已配置，不给值）列出模型、渠道（含随包未启用）、网关、凭据、插件五项；工具只服务配置的 agent；`onboarding_record` 把每项对应的任务引用（todo 或账本）、完成/关闭时间与唤醒计数存在插件数据目录 `agents/<agent>.json`，读改写串行，因此可恢复、不重复建任务；会话 todo 里已删除的任务按 `todo.updated` 事件重新列入，`{done:true}` 写 `onboarding.done` 后不再唤醒。任务列表优先用内核会话 `todo` 工具，否则用 tasks 账本。design §2 要的跨会话只读工具已由 `session_list`/`session_read`（admin，读他人另需跨 agent 权限）提供，本片不新增；spec 05 的“读取他人会话转录”独立能力级别留待后续。`api.host` 写进 04 §4。代价：新增插件接口面；账本任务是否仍存在只能由管家用 `tasks_get` 核对。

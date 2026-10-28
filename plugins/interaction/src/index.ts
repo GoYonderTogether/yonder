@@ -1,7 +1,7 @@
 import { definePlugin, type ToolContext, type ToolResult } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
-import { CompanionService } from "./service.js";
+import { CompanionService } from "./interaction-store.js";
 import { registerSessionManage } from "./session-manage.js";
 import { registerSessionTools } from "./session-tools.js";
 import { registerSuggestions } from "./suggestions.js";
@@ -19,18 +19,13 @@ export default definePlugin({
 		registerSuggestions(api);
 		registerSessionTools(api);
 		registerSessionManage(api);
-		const service = new CompanionService(
-			api.paths.data,
-			((api.config ?? {}) as { desktop?: boolean }).desktop ?? true,
-			api.locale,
-			api.timezone,
-		);
+		const service = new CompanionService(api.paths.data);
 		registerViews(api, service);
 		api.triggers.register({ id: "interaction-service", start: () => service.start(), stop: () => service.stop() });
 		api.tools.register({
 			name: "interaction_present",
 			description:
-				"Present an interactive local Yonder card. Card: {id,title,prompt,kind:'choice'|'form',options?:[{id,label}],next?:card,autoClose?:boolean}. Default completion collapses the window. Returns request id and local URLs for popup/notice/brandless inline embedding. Desktop appearance does not activate another app. Call interaction_result with the returned id and wait:true to receive the actual user's steps in this session. Never use this card alone as authorization to execute another tool. Use for a real decision that benefits from a local card: one natural self-contained question, short verified choices, no invented accounts or options. This UI is on the Yonder host; a remote chat user may not see it, so use their chat/channel instead when appropriate. Read the actual result before proceeding; dismissal or timeout is not approval.",
+				"Present an interactive local Yonder card. Card: {id,title,prompt,kind:'choice'|'form',options?:[{id,label}],next?:card,autoClose?:boolean}. Default completion collapses the window. Returns a request id. Call interaction_result with the returned id and wait:true to receive the actual user's steps in this session. Never use this card alone as authorization to execute another tool. Use for a real decision that benefits from a local card: one natural self-contained question, short verified choices, no invented accounts or options.  Read the actual result before proceeding; dismissal or timeout is not approval.",
 			parameters: present,
 			capabilities: ["message"],
 			async execute(input, ctx) {

@@ -4,6 +4,8 @@
 
 ### Added
 
+- interaction 退役独立 HTTP 服务，交互卡片通过控制面视图展示与回答。
+
 - 控制接口接入 `views.list/data/act/watch`，interaction 提问卡与 tasks 看板注册为插件视图。
 - 默认管家与首次引导：default 发行包加载 `@yonder/plugin-onboarding`；`init` 让 `main` 选入 tasks/onboarding 并绑定 `onboarding.start`。未完成且默认模型有凭据时唤醒管家（24 小时一次、累计最多 5 次，`enabled: false` 或主人关闭后不再唤醒），`onboarding_probe` 经新的 `api.host.status`（admin、只读）检查模型、渠道、网关、凭据、插件，按清单用 tasks 账本建任务，任务 id 存在插件状态里，可恢复、不重复（D59）。
 - `yonder init --bundle core|default|full`（默认 `default`）：发行包决定 init 写入的插件与渠道实例。`core` 无渠道实例、不写 `cli` 绑定，`start --no-gateway` 后仍可用任务会话对话；`default` 按设计 §5.4 加载 cron、tasks、learning、channel-card、mcp-client、memory 与 channel-mcp（不监听，没有 `type: mcp` 实例就不开端口），memory 的 root/owner/timezone 由 init 填入；`full` 含其余随包插件。只有 `channel-wechat-ilink` 需要主人配置，不进任何包。`init` 必须带 `--model`，写入 `yonder.yaml.defaultModel`。

@@ -1,5 +1,5 @@
 import type { PluginAPI, ViewContent } from "@yonder/sdk";
-import type { CompanionService } from "./service.js";
+import type { CompanionService } from "./interaction-store.js";
 
 const id = "interaction.card";
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { beginTask, completeStep, emptyState, readState, validateCard } from "../web/state.mjs";
+import { beginTask, completeStep, emptyState, readState, validateCard } from "../state.mjs";
 
 const initialTask = {
 	id: "ui-review",

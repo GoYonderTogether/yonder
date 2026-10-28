@@ -16,6 +16,10 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## 交互 HTTP 退役（2026-10-28）
+
+interaction 不再启动独立 HTTP 服务；卡片状态保留在插件私有存储，经控制面视图展示与回答。旧网页和桌面入口的实际替代体验尚需运行验收。
+
 ## 默认管家与清单式首次引导（2026-10-28，PR #105，待审核）
 
 **已实现**：`@yonder/plugin-onboarding` 进 default 发行包；`init` 让 `main`（Jarvis，不写模型）选入 tasks/onboarding 并绑定 `onboarding.start`（`--isolated` 不写）；新插件接口 `api.host.status`/`modelReady`（04 §4）；唤醒有界（无凭据不唤醒、24 小时一次、累计 5 次、`enabled: false` 或 `{dismissed: true}` 关闭）；状态按配置的 agent 存，会话 todo 中已删除的任务重新列入；env-ref 凭据槽仅在变量已设置时算已配置。规则见 D59。
