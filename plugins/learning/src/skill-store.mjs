@@ -7,6 +7,11 @@ import { atomicText, checkActive, digest, directory, fail, readText } from "./st
 // MIT upstream behavioral reference: tools/skill_manager_{tool,batch,guards}.py.
 // Native Yonder alone discovers these skills; saved scripts are never executed.
 const META = ".hermes-provenance.json";
+// Provenance owner is persisted user data: skills saved before the plugin rename
+// keep the legacy owner id and must stay editable and archivable.
+const LEGACY_OWNER = "hermes-experience";
+const ownerOf = (options) => options.pluginId ?? "learning";
+const owned = (meta, options) => meta.owner === ownerOf(options) || meta.owner === LEGACY_OWNER;
 const MAX = 32768,
 	SUPPORT_MAX = 1024 * 1024;
 const fileLimit = (relative) => (["SKILL.md", META].includes(relative.split("/").at(-1)) ? MAX : SUPPORT_MAX);
@@ -264,12 +269,12 @@ export async function skillStore(root, a, signal, options = {}) {
 				: {
 						schema: 1,
 						name,
-						owner: body === null ? "hermes-experience" : null,
+						owner: body === null ? ownerOf(options) : null,
 						createdAt: new Date().toISOString(),
 						createdBy: options.review?.origin ?? "foreground",
 						pinned: false,
 					};
-			if (meta.owner !== null && meta.owner !== "hermes-experience") fail("foreign_skill_ownership");
+			if (meta.owner !== null && !owned(meta, options)) fail("foreign_skill_ownership");
 			meta = {
 				...meta,
 				modifiedAt: new Date().toISOString(),
@@ -410,7 +415,7 @@ async function transition(base, a, signal, options) {
 			metaRaw = await readText(join(from, META), MAX, null),
 			body = await readText(join(from, "SKILL.md"), MAX, null);
 		const meta = metaRaw ? JSON.parse(metaRaw) : null;
-		if (meta?.owner !== "hermes-experience" || meta.name !== a.name) fail("archive_requires_owned_skill");
+		if (!meta || !owned(meta, options) || meta.name !== a.name) fail("archive_requires_owned_skill");
 		if (meta.pinned) fail("pinned_skill");
 		if (a.revision !== version(body)) fail("conflict_stale_revision");
 		fresh(options, a.name, "SKILL.md", body);

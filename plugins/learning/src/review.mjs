@@ -6,11 +6,12 @@ import { createSkillReadMarks } from "./skill-store.mjs";
 import { fail } from "./store.mjs";
 
 export const REVIEW_PRESET = "hermes-learning-review";
-export const REVIEW_TOOLS = [
-	"hermes-experience_review_memory_read",
-	"hermes-experience_review_memory_edit",
-	"hermes-experience_review_skill_store",
+export const reviewTools = (id = "learning") => [
+	`${id}_review_memory_read`,
+	`${id}_review_memory_edit`,
+	`${id}_review_skill_store`,
 ];
+export const REVIEW_TOOLS = reviewTools();
 const QUIET = 15000,
 	AGE = 30 * 60 * 1000;
 export const isUserInput = (e) =>
@@ -41,7 +42,9 @@ const timeout = (promise, ms) =>
 // alone (including a task opened with the same preset) is not a write capability.
 export function createReview(api, config, resolveScope) {
 	const live = new Map(),
-		grants = new Map();
+		grants = new Map(),
+		tool = (name) => `${api.id}_${name}`,
+		tools = reviewTools(api.id);
 	let stopped = false,
 		durable = { version: 1, sessions: {} },
 		loaded,
@@ -224,16 +227,16 @@ export function createReview(api, config, resolveScope) {
 	}
 	async function beforeTool(call, ctx) {
 		const g = grants.get(ctx.session);
-		if (g || ctx.profile === REVIEW_PRESET || REVIEW_TOOLS.includes(call.name)) {
+		if (g || ctx.profile === REVIEW_PRESET || tools.includes(call.name)) {
 			if (!g || !active(g)) return { block: "review_grant_required_or_expired" };
 			const allowed = [];
-			if (includesFocus(g.focus, "memory")) allowed.push(...REVIEW_TOOLS.slice(0, 2));
-			if (includesFocus(g.focus, "skills")) allowed.push(REVIEW_TOOLS[2]);
+			if (includesFocus(g.focus, "memory")) allowed.push(...tools.slice(0, 2));
+			if (includesFocus(g.focus, "skills")) allowed.push(tools[2]);
 			if (!allowed.includes(call.name)) return { block: "review_tool_not_allowed_for_focus" };
 			const mutation =
-				call.name === REVIEW_TOOLS[1]
+				call.name === tools[1]
 					? "memory"
-					: call.name === REVIEW_TOOLS[2] && !["read", "list_archives"].includes(call.args.action)
+					: call.name === tools[2] && !["read", "list_archives"].includes(call.args.action)
 						? "skills"
 						: null;
 			if (mutation) {
@@ -245,12 +248,9 @@ export function createReview(api, config, resolveScope) {
 		}
 		if (!enabled() || !ctx.agent) return;
 		const memory =
-			call.name === "hermes-experience_memory_edit" ||
-			(call.name === "hermes-experience_memory_pending" && call.args.action === "apply");
+			call.name === tool("memory_edit") || (call.name === tool("memory_pending") && call.args.action === "apply");
 		const skill =
-			call.name === "hermes-experience_skill_store" &&
-			call.args.action !== "read" &&
-			call.args.action !== "list_archives";
+			call.name === tool("skill_store") && call.args.action !== "read" && call.args.action !== "list_archives";
 		if (!memory && !skill) return;
 		try {
 			await parent(ctx.session, ctx);
@@ -428,7 +428,7 @@ export function createReview(api, config, resolveScope) {
 		// Registration happens BEFORE submit. wait:true routes the result to this plugin,
 		// not to the parent/source conversation. Never await LLM from an event observer.
 		void api.sessions
-			.submit(session.id, { text: reviewPrompt(g.focus, g.material, g.scope) }, { wait: true })
+			.submit(session.id, { text: reviewPrompt(g.focus, g.material, g.scope, api.id) }, { wait: true })
 			.then((result) => {
 				g.result = { status: result.status, text: result.text };
 			})

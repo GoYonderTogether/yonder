@@ -8,14 +8,14 @@ import { ctx, registered } from "./helpers.mjs";
 const root = fileURLToPath(new URL("..", import.meta.url));
 test("official dist manifest satisfies the SDK contract without implicit scope", async () => {
 	assert.deepEqual(await checkPlugin(root), []);
-	const p = await registered("hermes-experience", {});
+	const p = await registered("learning", {});
 	assert.match((await p.tools[0].execute({ target: "memory" }, ctx())).text, /scope_denied/);
 	for (const c of p.contexts) assert.equal(await c.render(ctx()), undefined);
 });
 test("official package follows release version/dependencies and includes all runtime assets", async () => {
 	const pkg = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 	const harness = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8"));
-	assert.equal(pkg.name, "@yonder/plugin-hermes-experience");
+	assert.equal(pkg.name, "@yonder/plugin-learning");
 	assert.equal(pkg.version, harness.version);
 	assert.equal(pkg.dependencies["@yonder/sdk"], harness.version);
 	assert.equal(pkg.dependencies.yaml, "2.9.1");
@@ -30,5 +30,5 @@ test("official package follows release version/dependencies and includes all run
 		"NOTICE",
 	])
 		assert.ok((await readFile(new URL(`../${file}`, import.meta.url))).length, file);
-	assert.ok(harness.workspaces.includes("plugins/hermes-experience"));
+	assert.ok(harness.workspaces.includes("plugins/learning"));
 });

@@ -35,6 +35,7 @@
 		"plugins/ui-companion",
 		"plugins/channel-card",
 		"plugins/devices",
+		"plugins/learning",
 		"plugins/hermes-experience",
 		"plugins/tasks"
 	],
