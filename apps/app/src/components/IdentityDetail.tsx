@@ -21,7 +21,8 @@ export function IdentityDetail({
 	showCode = true,
 }: {
 	actor: Actor;
-	card?: Profile["card"];
+	/** 名片页传完整名片（含 title）；个人页只有 Profile 的摘要卡，没有 title */
+	card?: (NonNullable<Profile["card"]> & { title?: string }) | null;
 	summary?: string | null;
 	agents?: Actor[];
 	owner?: Actor | null;
@@ -41,6 +42,8 @@ export function IdentityDetail({
 	const face = card?.face;
 	const palette = THEMES[face?.theme ?? "mist"];
 	const headline = face?.headline?.trim() || card?.tagline || card?.summary || summary || actor.summary;
+	// 名片页大标题用名片标题（J-03 步骤 8 / JV2-J03-11）；与账号名不同时，账号名退到副标题。
+	const title = card?.title?.trim() || actor.name;
 	return (
 		<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
 			<section aria-label="身份资料" className="overflow-hidden rounded-[24px] bg-raised shadow-soft">
@@ -70,7 +73,8 @@ export function IdentityDetail({
 							<Avatar actor={actor} size={72} online={agent ? !!actor.online : undefined} />
 						</div>
 						<div className="min-w-0 flex-1 pt-3">
-							<h1 className="break-words text-[22px] leading-tight font-semibold tracking-tight">{actor.name}</h1>
+							<h1 className="break-words text-[22px] leading-tight font-semibold tracking-tight">{title}</h1>
+							{title !== actor.name && <p className="mt-1 break-words text-small text-muted">{actor.name}</p>}
 							{showCode && actor.code && <p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>}
 							{agent && (
 								<p className="mt-1 flex items-center gap-1.5 text-caption text-muted">

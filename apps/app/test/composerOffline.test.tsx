@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Composer } from "../src/pages/Chat";
 
-const api = vi.hoisted(() => ({ send: vi.fn() }));
+const api = vi.hoisted(() => ({ send: vi.fn(), actors: vi.fn() }));
 const toast = vi.hoisted(() => vi.fn());
 vi.mock("../src/api", () => ({ api }));
 vi.mock("../src/cache", () => ({ selectAccount: vi.fn() }));
@@ -15,7 +15,7 @@ vi.mock("../src/components/VerifySheet", () => ({ VerifySheet: () => null }));
 
 let container: HTMLElement;
 let root: Root;
-const mount = async (offline: boolean) => {
+const mount = async (offline: boolean, agentId?: string) => {
 	const { document, window } = parseHTML("<html><body></body></html>");
 	vi.stubGlobal("window", window);
 	vi.stubGlobal("document", document);
@@ -28,7 +28,7 @@ const mount = async (offline: boolean) => {
 		root.render(
 			<QueryClientProvider client={new QueryClient()}>
 				<MemoryRouter>
-					<Composer convId="c1" offline={offline} onSend={() => {}} />
+					<Composer convId="c1" offline={offline} agentId={agentId} onSend={() => {}} />
 				</MemoryRouter>
 			</QueryClientProvider>,
 		),
@@ -63,6 +63,19 @@ describe("给离线 Bot 发消息", () => {
 		await mount(true);
 		await sendText("你好");
 		expect(toast).toHaveBeenCalledWith("Bot 离线，消息已保存，上线后送达");
+	});
+	it("页面缓存仍显示在线、发送时重取到离线，也提示（JV2-J07-R2-02）", async () => {
+		api.actors.mockResolvedValue([{ id: "b1", kind: "agent", name: "Bot", online: false }]);
+		await mount(false, "b1");
+		await sendText("你好");
+		expect(api.actors).toHaveBeenCalledWith(["b1"]);
+		expect(toast).toHaveBeenCalledWith("Bot 离线，消息已保存，上线后送达");
+	});
+	it("重取到在线不提示", async () => {
+		api.actors.mockResolvedValue([{ id: "b1", kind: "agent", name: "Bot", online: true }]);
+		await mount(false, "b1");
+		await sendText("你好");
+		expect(toast).not.toHaveBeenCalled();
 	});
 	it("在线 Bot 不提示", async () => {
 		await mount(false);

@@ -69,7 +69,11 @@ export const httpApi: ApiClient = {
 		await request(`/share-links/${encodeURIComponent(token)}/revoke`, json("POST"));
 	},
 	groupPreview: (token) => request(`/groups/${encodeURIComponent(token)}`, {}, true),
-	joinGroup: (token) => request<Conversation>(`/groups/${encodeURIComponent(token)}/join`, json("POST")),
+	joinGroup: (token, share) =>
+		request<Conversation>(
+			`/groups/${encodeURIComponent(token)}/join${share ? `?share=${encodeURIComponent(share)}` : ""}`,
+			json("POST"),
+		),
 	leaveConversation: (convId) => request(`/conversations/${encodeURIComponent(convId)}/leave`, json("POST")),
 	markRead: (convId, seq) => request(`/conversations/${encodeURIComponent(convId)}/read`, json("POST", { seq })),
 	subscribe(listener) {
@@ -90,6 +94,8 @@ export const httpApi: ApiClient = {
 				try {
 					const frame = JSON.parse(data) as { type?: string; message?: Message };
 					if (frame.type === "message" && frame.message) listener(frame.message);
+					// 设备上下线时服务端推 presence：通知页面重取联系人，Bot 在线状态与离线提示不靠刷新页面。
+					else if (frame.type === "presence") window.dispatchEvent(new Event("yonder:presence"));
 				} catch {}
 			};
 			ws.onerror = () => ws.close();

@@ -139,6 +139,12 @@ export function ChatShell() {
 		[qc],
 	);
 
+	useEffect(() => {
+		const refresh = () => void qc.invalidateQueries({ queryKey: ["actors"] });
+		window.addEventListener("yonder:presence", refresh);
+		return () => window.removeEventListener("yonder:presence", refresh);
+	}, [qc]);
+
 	const noSocial = isError && !convs && socialUnavailable(error);
 	const shown = (convs ?? []).filter((c) => c.title.includes(q.trim()));
 	return (
@@ -447,6 +453,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					key={id}
 					convId={id}
 					offline={other?.kind === "agent" && !agentOnline}
+					agentId={other?.kind === "agent" ? other.id : undefined}
 					onSend={() => agentOnline && setTyping(true)}
 				/>
 			)}
@@ -550,7 +557,18 @@ function Bubble({
 	);
 }
 
-export function Composer({ convId, offline, onSend }: { convId: string; offline: boolean; onSend: () => void }) {
+export function Composer({
+	convId,
+	offline,
+	agentId,
+	onSend,
+}: {
+	convId: string;
+	offline: boolean;
+	/** 私聊对象是 Bot 时传入：发完后重新取它的在线状态，避免页面里缓存的「在线」过期而漏掉离线提示 */
+	agentId?: string;
+	onSend: () => void;
+}) {
 	const [text, setText] = useState("");
 	const ref = useRef<HTMLTextAreaElement>(null);
 	const loc = useLocation();
@@ -591,7 +609,11 @@ export function Composer({ convId, offline, onSend }: { convId: string; offline:
 			setText("");
 			if (ref.current) ref.current.style.height = "";
 			onSend();
-			if (offline) toast("Bot 离线，消息已保存，上线后送达");
+			if (agentId) {
+				const [fresh] = await api.actors([agentId]).catch(() => [] as Actor[]);
+				void qc.invalidateQueries({ queryKey: ["actors"] });
+				if (fresh ? !fresh.online : offline) toast("Bot 离线，消息已保存，上线后送达");
+			} else if (offline) toast("Bot 离线，消息已保存，上线后送达");
 		} catch (error) {
 			if (needsVerify(error)) {
 				held.current = body;

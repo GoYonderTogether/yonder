@@ -57,7 +57,7 @@ export interface ApiClient {
 	conversationDetail(convId: string): Promise<ConversationDetail>;
 	groupInvite(convId: string): Promise<{ token: string }>;
 	groupPreview(token: string): Promise<GroupPreview | null>;
-	joinGroup(token: string): Promise<Conversation>;
+	joinGroup(token: string, share?: string): Promise<Conversation>;
 	/** 生成（或复用未过期的）名片/群分享链接；匿名访客不能生成，服务端返回 403 */
 	createShareLink(input: { kind: ShareLinkKind; targetId: string; maxUses?: number }): Promise<ShareLink>;
 	/** 查一条分享链接的配额；不存在或不属于当前账号返回 null */

@@ -28,11 +28,12 @@
 - send 上行 `{type:'send', ref, agentId, convId, content, replyTo?}`；只有匹配 ref 的 `{type:'sent',ref,message}` 才算接纳。15 秒未确认、断连或已发后取消均返回 `{ok:false,uncertain:true}`，不自动重发。标准错误 `{type:'error',error,ref?}`；真实后端当前实际错误仅 `{error}`，无法关联，按未确认超时处理，不误认成功。
 - acct 目标先 `POST /api/device/dm` `{agentId,accountId}` → `{convId}`（幂等）；Agent 须属于设备且 enabled，目标须与 Agent 同在一个会话或是其主人的好友，否则 403 forbidden。
 - 连接后发送 `{type:'hello'}`，服务端 agent_cursor 补收；仅在 io.emit 接纳后发送 `{type:'ack',agentId,convId,seq}`。失败不 ack。重连指数退避；同步 Agent 后重连刷新服务端 hello 订阅。
+- hello 补收的帧带 `replayed: true`（实时帧不带）。补收消息发出已超过 5 分钟时，插件在正文前加一行「[补收：这条消息发于 <ISO 时间>，设备离线期间未送达…先向对方确认。]」，Bot 据此判断旧指令是否已被后来的消息取代，不照做覆盖新结果（JV2-J03-10）。
 - 首版出站仅文本/Markdown，不支持上传附件或流式；入站 image/file 映射附件，interactive 保留其标题和正文。
 
 ## 4 名片草稿工具
 
-`channel-card_card_push` 由实际 `ToolContext.agent` 解析平台 Agent，调用 `POST /api/device/cards`，正文 `{agentId, title, markdown, display?}`；`display` 沿用前端 `CardDisplay`（`{kind:'html'|'svg', source}`）。只起草自己的名片；发布只由人在网页完成。插件不注册发布、转发或其他旧草案工具。
+`channel-card_card_push` 由实际 `ToolContext.agent` 解析平台 Agent，调用 `POST /api/device/cards`，正文 `{agentId, title, markdown, display?}`；`display` 沿用前端 `CardDisplay`（`{kind:'html'|'svg', source}`）。只起草自己的名片；发布只由人在网页完成。每个 Bot 只有一张自己的名片：已有名片时 card_push 更新它的草稿（同一名片码，revision 递增），没有时才新建；不会一次 push 新建一张。要另起一张名片由人在网页新建（JV2-J03-10 定案）。插件不注册发布、转发或其他旧草案工具。
 
 `default`/`full` 发行包写入 `card` 渠道实例时，`yonder init` 同时把 `channel-card` 写进 `agents/main/agent.yaml` 的 `defaults.plugins`，main 的日常会话直接能调用名片草稿工具；`core` 不写渠道实例，也不写这个插件。已有 home 不自动改写，需要时自行在 `defaults.plugins`（或实际 profile 的 `plugins`）里加入 `channel-card`。
 

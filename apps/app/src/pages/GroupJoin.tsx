@@ -2,10 +2,11 @@ import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
 import { selectAccount } from "../cache";
 import { entityRef } from "../lib/entityRef";
+import { verifyErrorText } from "../lib/verify";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
@@ -14,6 +15,8 @@ import { toast } from "../ui/Toast";
 /** 群二维码页 /g/:token：显示群名与成员头像，加入后进群；已在群里的人直接进群。 */
 export function GroupJoin() {
 	const { token = "" } = useParams();
+	const [params] = useSearchParams();
+	const share = params.get("share") ?? undefined;
 	const nav = useNavigate();
 	const qc = useQueryClient();
 	const session = useStore($session);
@@ -38,11 +41,11 @@ export function GroupJoin() {
 				selectAccount(anonymous.actor.id, qc);
 				$session.set(anonymous);
 			}
-			const conv = await api.joinGroup(token);
+			const conv = await api.joinGroup(token, share);
 			void qc.invalidateQueries({ queryKey: ["convs"] });
 			nav(`/c/${entityRef(conv)}`, { replace: true });
 		} catch (error) {
-			toast(error instanceof Error ? error.message : "加入失败", true);
+			toast(verifyErrorText(error, "加入失败"), true);
 		} finally {
 			setBusy(false);
 		}
