@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- Console 个人页区分加载中、无会话、访客、正式账号和请求失败五种社交登录态：无会话直接给登录入口，访客提示「注册后可加好友」，失败可重试；登录/注册表单按服务端规则做邮箱格式与密码 ≥8 位校验、字段级错误、提交中禁用且保留输入；Agent 公开开关保存中禁用并显示失败原因。
+
+- Console 用户气泡显示渠道色块图标与渠道名：覆盖 cli、card、wechat、wechat-ilink、qq、feishu、github、mcp、agent、cron、pi，实例 id（qq-main）归一到渠道类型；用中性色块 SVG，不用品牌 logo，缺失来源仍显示控制台默认。
+
 - Console 设置页分为账号（网关/社交）、通知全局偏好、节点、关于（版本与更新）和退出；节点可添加远程网关并校验协议与 node.id，更新只在 ready 后出现应用按钮，后端没有 update.* 时显示不可用。
 
 - Console 底栏显示真实用量与上下文：↑输入 ↓输出 R W CH、子 Agent 汇总、LSP、ctx%/窗口 (auto)、(provider) 模型 • 思考档；缺失字段省略。

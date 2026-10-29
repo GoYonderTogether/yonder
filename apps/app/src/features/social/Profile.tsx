@@ -11,6 +11,7 @@ import { Field } from "../../ui/kit/Field";
 import { toast } from "../../ui/kit/Toast";
 import { Window } from "../../ui/kit/Window";
 import { AgentPublicToggle } from "./AgentPublicToggle";
+import { messageOf, socialSessionState } from "./lib/session";
 import { SocialLogin } from "./SocialLogin";
 
 const actorHref = (actor: Actor) => href({ tab: "chats", page: "p", session: actor.code ?? actor.id });
@@ -32,21 +33,22 @@ function PublicProfile({ accountId }: { accountId: string }) {
 	const id = short ? resolved.data?.id : accountId;
 	const query = useQuery({ queryKey: ["profile", id], queryFn: () => httpApi.profile(id as string), enabled: !!id });
 	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
-	if ((short && resolved.isPending) || (id && query.isPending) || session.isPending)
+	const auth = socialSessionState({ data: session.data, error: session.error });
+	if ((short && resolved.isPending) || (id && query.isPending) || auth.status === "unknown")
 		return (
 			<p role="status" className="p-6 text-small text-muted">
 				正在加载资料…
 			</p>
 		);
-	if (resolved.isError || query.isError || session.isError)
+	if (resolved.isError || query.isError || auth.status === "error")
 		return (
 			<div role="alert" className="p-6">
-				<p>加载资料失败</p>
+				<p>加载资料失败{auth.status === "error" ? `：${auth.message}` : ""}</p>
 				<Button
 					onClick={() => {
 						if (resolved.isError) void resolved.refetch();
 						if (query.isError) void query.refetch();
-						if (session.isError) void session.refetch();
+						if (auth.status === "error") void session.refetch();
 					}}
 				>
 					重试
@@ -218,30 +220,46 @@ function PublicProfile({ accountId }: { accountId: string }) {
 function Me() {
 	const client = useQueryClient();
 	const session = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session });
+	const auth = socialSessionState({ data: session.data, error: session.error });
 	const contacts = useQuery({
 		queryKey: ["contacts"],
 		queryFn: httpApi.contacts,
-		enabled: !!session.data && !session.data.actor.anonymous,
+		enabled: auth.status === "human",
 	});
 	const [settings, setSettings] = useState(false);
 	const [editing, setEditing] = useState(false);
 	const [name, setName] = useState("");
 	const [busy, setBusy] = useState(false);
-	if (session.isPending)
+	if (auth.status === "unknown")
 		return (
 			<p role="status" className="p-6">
 				正在加载资料…
 			</p>
 		);
-	if (session.isError)
+	if (auth.status === "error")
 		return (
 			<div role="alert" className="p-6">
-				加载资料失败 <Button onClick={() => void session.refetch()}>重试</Button>
+				加载资料失败：{auth.message} <Button onClick={() => void session.refetch()}>重试</Button>
 			</div>
 		);
-	if (!session.data) return <SocialLogin />;
-	const actor = session.data.actor;
+	if (auth.status === "guest")
+		return (
+			<main className="scroll-y h-full bg-ground">
+				<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
+					<section aria-label="登录入口" className="rounded-card bg-raised p-5">
+						<h1 className="text-[22px] font-semibold">登录或注册</h1>
+						<p className="mt-1 text-small text-muted">登录后可以加好友、管理 Agent 与设备。</p>
+					</section>
+					<SocialLogin />
+				</div>
+			</main>
+		);
+	const actor = auth.actor;
 	const agents = contacts.data?.filter((a) => a.kind === "agent" && a.ownerId === actor.id) ?? [];
+	const startEditing = () => {
+		setName(actor.name);
+		setEditing(true);
+	};
 	const save = async () => {
 		setBusy(true);
 		try {
@@ -251,7 +269,7 @@ function Me() {
 			setEditing(false);
 			toast("已保存");
 		} catch (error) {
-			toast(error instanceof Error ? error.message : "保存失败", true);
+			toast(messageOf(error, "保存失败"), true);
 		} finally {
 			setBusy(false);
 		}
@@ -274,13 +292,26 @@ function Me() {
 			<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
 				<section aria-label="我的身份" className="flex items-center gap-4 rounded-card bg-raised p-5">
 					<ActorAvatar seed={actor.id} group="bot" size={64} />
-					<div>
+					<div className="min-w-0 flex-1">
 						<h1 className="text-[22px] font-semibold">{actor.name}</h1>
 						{actor.code && <p className="text-small text-muted">ID · {actor.code}</p>}
 					</div>
+					{!actor.anonymous && (
+						<Button size="sm" onClick={startEditing}>
+							编辑昵称
+						</Button>
+					)}
 				</section>
 				{actor.anonymous ? (
-					<SocialLogin />
+					<>
+						<section aria-label="注册引导" className="rounded-card bg-raised p-5">
+							<h2 className="font-medium">注册后可加好友</h2>
+							<p className="mt-1 text-small text-muted">
+								你现在是访客账号，可以聊天、加入群聊；注册后还能加好友、管理 Agent 与设备，已有记录会保留。
+							</p>
+						</section>
+						<SocialLogin />
+					</>
 				) : (
 					<>
 						<section aria-label="我的 Agent" className="overflow-hidden rounded-card bg-raised">
@@ -347,16 +378,7 @@ function Me() {
 			</div>
 			<Window open={settings && !editing} onOpenChange={setSettings} title="设置">
 				<div className="flex flex-col gap-3 p-5">
-					{!actor.anonymous && (
-						<Button
-							onClick={() => {
-								setName(actor.name);
-								setEditing(true);
-							}}
-						>
-							账号昵称
-						</Button>
-					)}
+					{!actor.anonymous && <Button onClick={startEditing}>账号昵称</Button>}
 					<Button disabled={busy} onClick={() => void logout()}>
 						退出登录
 					</Button>

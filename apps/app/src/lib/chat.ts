@@ -15,8 +15,10 @@ export interface ChatItem {
 	text: string;
 	thinking?: string;
 	tools: ToolCall[];
-	/** 用户消息的来源渠道（来自 <turn channel="…">），无则是本机控制台 */
+	/** 用户消息的来源渠道（<turn channel="…"> 或内核给的 channel），无则是本机控制台 */
 	channel?: string;
+	/** 发送者显示名，仅在内核提供 fromName 时存在（T-API-19） */
+	fromName?: string;
 	from?: string;
 	streaming?: boolean;
 }
@@ -35,6 +37,9 @@ interface PiMessage {
 	toolCallId?: string;
 	isError?: boolean;
 	summary?: string;
+	/** T-API-19：session.update 的消息项可带来源渠道与发送者名；没有就不猜。 */
+	channel?: string;
+	fromName?: string;
 }
 
 const TURN = /^<turn\b([^>]*)>[\s\S]*?<\/turn>\s*/;
@@ -77,7 +82,7 @@ export function applyMessage(
 	let item: ChatItem;
 	if (m.role === "user") {
 		const { body, channel } = splitTurn(textOf(m));
-		item = { id, role: "user", text: body, channel, tools: [] };
+		item = { id, role: "user", text: body, channel: channel ?? m.channel, fromName: m.fromName, tools: [] };
 	} else if (m.role === "assistant") {
 		const bs = blocks(m);
 		item = {
@@ -149,12 +154,23 @@ export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 				tools: (t.tools ?? []).map((x, i) => ({ id: `${id}.${i}`, name: x.name, args: x.args, done: true })),
 			});
 		}
-		// 当前网关的 transcript 里用户输入是 yonder.message（原文，无 <turn> 包装）
+		// 当前网关的 transcript 里用户输入是 yonder.message（原文，无 <turn> 包装）。
+		// T-API-19 起消息项可带 channel/fromName；没有就沿用控制台默认，不按 id 猜。
 		else if (t.kind === "pi.user" || t.kind === "pi.inbox" || t.kind === "yonder.message") {
 			const { body, channel } = splitTurn(t.text);
+			const meta = t as TranscriptItem & { channel?: string; fromName?: string };
 			const last = out.at(-1);
 			if (last?.role === "user" && last.text === body) continue;
-			if (body.trim()) out.push({ id, role: "user", text: body, channel, from: t.from, tools: [] });
+			if (body.trim())
+				out.push({
+					id,
+					role: "user",
+					text: body,
+					channel: channel ?? meta.channel,
+					fromName: meta.fromName,
+					from: t.from,
+					tools: [],
+				});
 		} else if (t.from && t.text) out.push({ id, role: "notice", text: t.text, from: t.from, tools: [] });
 	}
 	return out;
@@ -162,6 +178,7 @@ export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 
 const CHANNEL_NAMES: Record<string, string> = {
 	cli: "终端",
+	console: "控制台",
 	card: "名片",
 	wechat: "微信",
 	"wechat-ilink": "微信",
@@ -173,8 +190,22 @@ const CHANNEL_NAMES: Record<string, string> = {
 	cron: "定时",
 	pi: "pi",
 };
+
+/**
+ * 渠道实例 id → 渠道类型：`qq-main`/`feishu-main` 是实例，`wechat-ilink` 本身就是类型。
+ * 只按已知类型与 `-` 前缀归一，未知实例原样返回，不猜。
+ */
+export function channelType(channel?: string): string | undefined {
+	if (!channel) return undefined;
+	if (Object.hasOwn(CHANNEL_NAMES, channel)) return channel;
+	const dash = channel.indexOf("-");
+	const prefix = dash > 0 ? channel.slice(0, dash) : "";
+	return prefix && Object.hasOwn(CHANNEL_NAMES, prefix) ? prefix : channel;
+}
+
 /** 渠道标识：文字加中性图标，不用品牌 logo（C3 §2.4 许可约束）。 */
-export const channelName = (channel?: string) => (channel ? (CHANNEL_NAMES[channel] ?? channel) : "控制台");
+export const channelName = (channel?: string) =>
+	channel ? (CHANNEL_NAMES[channelType(channel) ?? channel] ?? channel) : "控制台";
 
 export function previewOf(item: ChatItem | undefined): string {
 	if (!item) return "";

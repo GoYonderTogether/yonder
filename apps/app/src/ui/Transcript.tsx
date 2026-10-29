@@ -1,5 +1,6 @@
-import { Brain, ChevronRight, Copy, Globe, Layers, Terminal, Wrench } from "lucide-react";
+import { Brain, ChevronRight, Copy, Layers, Wrench } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChannelIcon } from "../features/messages/ChannelIcon";
 import type { ActionItem } from "../lib/actions";
 import { type ChatItem, channelName, type ToolCall } from "../lib/chat";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
@@ -102,8 +103,10 @@ function Bubble({ it }: { it: ChatItem }) {
 	return (
 		<div className={`mx-auto flex w-full max-w-[720px] flex-col gap-1.5 ${mine ? "items-end" : "items-start"}`}>
 			{mine && (
-				<span className="flex items-center gap-1 text-caption text-faint" data-testid="channel-badge">
-					{it.channel ? <Globe size={12} aria-hidden /> : <Terminal size={12} aria-hidden />} {channelName(it.channel)}
+				<span className="flex max-w-full items-center gap-1 text-caption text-faint" data-testid="channel-badge">
+					<ChannelIcon channel={it.channel} size={14} />
+					{channelName(it.channel)}
+					{it.fromName && <span className="truncate text-faint">· {it.fromName}</span>}
 				</span>
 			)}
 			{it.thinking && (
