@@ -1,14 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { QRCodeCanvas } from "qrcode.react";
 import { useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import { qk } from "../../api/keys";
 import { type Actor, type Card, httpApi } from "../../api/social";
 import { href, useRoute } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
 import { CardFaceView } from "./card/CardFace";
 import { renderCardImage } from "./card/image";
-import { THEMES } from "./card/themes";
+import { IdentityDetail } from "./IdentityDetail";
+import { IdentityQr } from "./IdentityQr";
 import { rememberShareToken, shareLinkKey, shareLinkUrl } from "./lib/shareLinks";
 import { ShareLinks } from "./ShareLinks";
 
@@ -201,96 +201,38 @@ function PublicCard({ reference }: { reference: string }) {
 			</p>
 		);
 	const actor = profile.data.actor;
+	const self = actor.id === session.data?.actor.id;
+	const ownedAgent = actor.kind === "agent" && actor.ownerId === session.data?.actor.id;
 	return (
-		<main className="mx-auto w-full max-w-3xl p-5">
-			<section aria-label="身份资料" className="overflow-hidden rounded-[24px] bg-raised shadow-lg">
-				<div
-					className="h-32 overflow-hidden lg:h-40"
-					style={{
-						background: `linear-gradient(120deg, ${THEMES[card.data.face?.theme ?? "mist"].from}, ${THEMES[card.data.face?.theme ?? "mist"].to})`,
-					}}
-				>
-					{card.data.display ? (
-						<iframe
-							title="资料背景"
-							sandbox=""
-							srcDoc={
-								card.data.display.kind === "svg"
-									? `<style>html,body{margin:0;height:100%}svg{width:100%;height:100%}</style>${card.data.display.source}`
-									: card.data.display.source
-							}
-							className="pointer-events-none h-full w-full border-0"
-						/>
-					) : (
-						card.data.face?.sticker?.url && (
-							<img src={card.data.face.sticker.url} alt="" className="h-full w-full object-cover" />
-						)
-					)}
-				</div>
-				<div className="px-5 pb-5">
-					<h1 className="pt-4 text-[22px] font-semibold">{actor.name}</h1>
-					{actor.code && <p className="text-caption text-muted">ID · {actor.code}</p>}
-					<p className="mt-3 text-muted">
-						{card.data.face?.headline || card.data.tagline || card.data.summary || profile.data.summary}
-					</p>
-					{card.data.face?.tags && (
-						<ul className="mt-3 flex flex-wrap gap-2">
-							{card.data.face.tags.map((tag) => (
-								<li key={tag} className="rounded-full bg-tone px-3 py-1 text-caption">
-									{tag}
-								</li>
-							))}
-						</ul>
-					)}
-					<CardContent
-						card={card.data}
-						actor={actor}
-						publicView={actor.id !== session.data?.actor.id}
-						showFace={false}
-					/>
-				</div>
-			</section>
-			{actor.id !== session.data?.actor.id && (!actor.ownerId || actor.ownerId !== session.data?.actor.id) && (
-				<Button
-					className="mt-4"
-					onClick={() => {
-						if (!session.data || session.data.actor.anonymous) setFriendMessage("注册后可加好友，聊天无需注册");
-						else friend.mutate(actor.ownerId ?? actor.id);
-					}}
-				>
-					加好友
-				</Button>
-			)}
-			{friendMessage && <p role="status">{friendMessage}</p>}
-			{card.data.markdown && (
-				<section aria-label="介绍" className="mt-5 rounded-card bg-raised p-5">
-					<h2>介绍</h2>
-					<article className="break-words">
-						<ReactMarkdown>{card.data.markdown}</ReactMarkdown>
-					</article>
-				</section>
-			)}
-			{profile.data.agents.length > 0 && (
-				<section aria-label="公开 Agent" className="mt-5 rounded-card bg-raised p-5">
-					<h2>公开 Agent</h2>
-					<ul>
-						{profile.data.agents.map((agent) => (
-							<li key={agent.id}>
-								<a className="block py-3" href={href({ tab: "chats", page: "p", session: agent.code ?? agent.id })}>
-									{agent.name}
-								</a>
-							</li>
-						))}
-					</ul>
-				</section>
-			)}
-			{profile.data.owner && (
-				<a
-					className="mt-5 block"
-					href={href({ tab: "chats", page: "p", session: profile.data.owner.code ?? profile.data.owner.id })}
-				>
-					主人 · {profile.data.owner.name}
-				</a>
+		<main className="scroll-y min-h-0 flex-1 bg-ground">
+			<IdentityDetail
+				actor={actor}
+				card={card.data}
+				summary={profile.data.summary}
+				agents={profile.data.agents}
+				owner={profile.data.owner}
+				qr={<IdentityQr actor={actor} cardId={card.data.status === "published" ? card.data.id : profile.data.card?.id} />}
+				actions={
+					<div className="flex flex-wrap gap-2">
+						<CardContent card={card.data} actor={actor} publicView={!self} showFace={false} />
+						{!self && !ownedAgent && (
+							<Button
+								className="h-11"
+								onClick={() => {
+									if (!session.data || session.data.actor.anonymous) setFriendMessage("注册后可加好友，聊天无需注册");
+									else friend.mutate(actor.ownerId ?? actor.id);
+								}}
+							>
+								加好友
+							</Button>
+						)}
+					</div>
+				}
+			/>
+			{friendMessage && (
+				<p role="status" className="px-4 text-small text-muted">
+					{friendMessage}
+				</p>
 			)}
 		</main>
 	);
