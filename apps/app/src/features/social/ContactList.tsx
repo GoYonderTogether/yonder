@@ -2,8 +2,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
 import { useState } from "react";
 import { type Actor, type Device, httpApi } from "../../api/social";
+import { contactRowMenu } from "../../lib/menus";
+import { type MenuAnchor, useMenuTrigger } from "../../lib/useLongPress";
 import { href } from "../../shell/routes";
+import { ActionMenu } from "../../ui/ActionMenu";
 import { ActorAvatar } from "../../ui/kit/ActorAvatar";
+import { toast } from "../../ui/kit/Toast";
 import { DeviceSheet } from "./DeviceSheet";
 import { contactGroups } from "./lib/contactGroups";
 
@@ -13,6 +17,42 @@ const tabs = [
 	{ id: "devices", label: "设备" },
 ] as const;
 type Tab = (typeof tabs)[number]["id"];
+
+/** 联系人行：点按进资料，右键/长按弹菜单；发消息走 httpApi.openDm 再进会话。 */
+function ContactRow({ a, meId }: { a: Actor; meId?: string }) {
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
+	const open = () => {
+		location.hash = href({ tab: "contacts", page: "contacts", session: a.code ?? a.id });
+	};
+	const message = async () => {
+		try {
+			const conv = await httpApi.openDm(a.id);
+			location.hash = href({ tab: "chats", page: "c", session: conv.code ?? conv.id });
+		} catch (e) {
+			toast(e instanceof Error ? e.message : "无法打开会话", true);
+		}
+	};
+	const actions = contactRowMenu({ actor: a, meId, message: () => void message(), profile: open });
+	return (
+		<li>
+			<a
+				href={href({ tab: "contacts", page: "contacts", session: a.code ?? a.id })}
+				{...trigger}
+				title={a.name}
+				className="press no-select flex min-h-14 items-center gap-3 rounded-control px-2 py-2 hover:bg-tone"
+			>
+				<ActorAvatar seed={a.id} group="bot" size={40} dot={a.kind === "agent" && a.online} />
+				<span className="min-w-0">
+					<span className="block truncate font-medium">{a.name}</span>
+					{(a.note || a.summary) && <span className="block truncate text-small text-muted">{a.note || a.summary}</span>}
+				</span>
+			</a>
+			{menu && <ActionMenu at={menu} title={a.name} actions={actions} onClose={() => setMenu(null)} />}
+		</li>
+	);
+}
+
 export function ContactList({
 	contacts,
 	devices,
@@ -31,20 +71,7 @@ export function ContactList({
 	const qc = useQueryClient();
 	const filtered = contacts.filter((a) => a.name.toLocaleLowerCase().includes(q.trim().toLocaleLowerCase()));
 	const items = filtered.filter((a) => a.kind === (tab === "friends" ? "human" : "agent"));
-	const row = (a: Actor) => (
-		<li key={a.id}>
-			<a
-				href={href({ tab: "contacts", page: "contacts", session: a.code ?? a.id })}
-				className="press flex min-h-14 items-center gap-3 rounded-control px-2 py-2 hover:bg-tone"
-			>
-				<ActorAvatar seed={a.id} group="bot" size={40} dot={a.kind === "agent" && a.online} />
-				<span className="min-w-0">
-					<span className="block truncate font-medium">{a.name}</span>
-					{(a.note || a.summary) && <span className="block truncate text-small text-muted">{a.note || a.summary}</span>}
-				</span>
-			</a>
-		</li>
-	);
+	const row = (a: Actor) => <ContactRow key={a.id} a={a} meId={meId} />;
 	return (
 		<>
 			<a

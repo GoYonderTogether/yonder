@@ -5,9 +5,11 @@ import { rpc } from "../api/client";
 import type { SessionInfo } from "../api/types";
 import { badge } from "../lib/format";
 import { titleOf } from "../lib/identity";
+import { botRowMenu, taskRowMenu } from "../lib/menus";
 import { markRead, usePrefs } from "../lib/prefs";
 import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
+import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import type { SessionView } from "../lib/useSession";
 import {
 	groupWork,
@@ -19,7 +21,9 @@ import {
 	toggleFolds,
 	useFolds,
 } from "../lib/work";
+import { ActionMenu } from "./ActionMenu";
 import { Avatar } from "./Avatar";
+import { toast } from "./kit/Toast";
 
 const num = (id: string) => Number(id.replace(/\D/g, ""));
 
@@ -31,29 +35,37 @@ function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; runni
 	const lastId = items.reduce((m, i) => Math.max(m, num(i.id)), 0);
 	const readTo = prefs.read[s.id];
 	const unread = active ? 0 : items.filter((i) => i.role !== "user" && num(i.id) > (readTo ?? lastId)).length;
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
+	const actions = botRowMenu({ title, open: () => (location.hash = href({ tab: "work", session: s.id })) });
 	useEffect(() => {
 		if (active && lastId > 0) markRead(s.id, lastId);
 	}, [active, lastId, s.id]);
 	return (
-		<a
-			href={href({ tab: "work", session: s.id })}
-			aria-current={active ? "page" : undefined}
-			className={`press flex items-center gap-2.5 px-4 py-2 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
-			data-testid="bot-row"
-		>
-			<Avatar seed={s.agent ?? s.id} group="bot" size={32} dot={running} />
-			<span className="min-w-0 flex-1 truncate text-small font-medium">{title}</span>
-			<span className="text-caption text-faint">{running ? "运行中" : "待命"}</span>
-			{unread > 0 && (
-				<span
-					role="img"
-					className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-caption leading-none text-white"
-					aria-label={`${unread} 条未读`}
-				>
-					{badge(unread)}
-				</span>
-			)}
-		</a>
+		<>
+			<a
+				href={href({ tab: "work", session: s.id })}
+				{...trigger}
+				title={title}
+				aria-current={active ? "page" : undefined}
+				className={`press no-select flex items-center gap-2.5 px-4 py-2 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
+				data-testid="bot-row"
+			>
+				<Avatar seed={s.agent ?? s.id} group="bot" size={32} dot={running} />
+				<span className="min-w-0 flex-1 truncate text-small font-medium">{title}</span>
+				<span className="text-caption text-faint">{running ? "运行中" : "待命"}</span>
+				{unread > 0 && (
+					<span
+						role="img"
+						className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-caption leading-none text-white"
+						aria-label={`${unread} 条未读`}
+					>
+						{badge(unread)}
+					</span>
+				)}
+			</a>
+			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
+		</>
 	);
 }
 
@@ -70,26 +82,50 @@ function TaskRow({
 	since?: string;
 	v?: SessionView;
 }) {
+	const prefs = usePrefs();
+	const qc = useQueryClient();
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
+	const title = titleOf(s);
+	// 关闭会话是不可逆的：先确认，再走控制面 sessions.close，失败用 toast 反馈
+	const close = async () => {
+		if (!confirm(`关闭「${title}」后不能继续对话，确定关闭？`)) return;
+		try {
+			await rpc("sessions.close", { id: s.id });
+			await qc.invalidateQueries({ queryKey: ["sessions"] });
+		} catch (e) {
+			toast(e instanceof Error ? e.message : "关闭失败", true);
+		}
+	};
+	const actions = taskRowMenu({
+		session: s,
+		pinned: prefs.pinned.includes(s.id),
+		open: () => (location.hash = href({ tab: "work", session: s.id })),
+		close: () => void close(),
+	});
 	// 只有当前打开的任务有逐条进度（todo/子任务来自它的 sessions.watch）；其余行不伪造
 	const todo = v?.todos.length ? `${v.todos.filter((t) => t.state === "done").length}/${v.todos.length}` : undefined;
 	const subs = v?.subtasks.length;
 	return (
-		<a
-			href={href({ tab: "work", session: s.id })}
-			aria-current={active ? "page" : undefined}
-			className={`press flex items-center gap-2 px-4 py-2 pl-7 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
-			data-testid="task-row"
-		>
-			{status === "running" && <Loader size={13} className="shrink-0 animate-spin text-online" aria-label="运行中" />}
-			<span className={`min-w-0 flex-1 truncate text-small ${status === "done" ? "text-muted" : ""}`}>
-				{titleOf(s)}
-			</span>
-			{todo && <span className="shrink-0 font-mono text-caption text-muted">待办 {todo}</span>}
-			{subs ? <span className="shrink-0 text-caption text-muted">{subs} 子任务</span> : null}
-			{status === "running" && !todo && since && (
-				<span className="shrink-0 text-caption text-faint">自 {since.slice(11, 16)}</span>
-			)}
-		</a>
+		<>
+			<a
+				href={href({ tab: "work", session: s.id })}
+				{...trigger}
+				title={title}
+				aria-current={active ? "page" : undefined}
+				className={`press no-select flex items-center gap-2 px-4 py-2 pl-7 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
+				data-testid="task-row"
+			>
+				{status === "running" && <Loader size={13} className="shrink-0 animate-spin text-online" aria-label="运行中" />}
+				<span className={`min-w-0 flex-1 truncate text-small ${status === "done" ? "text-muted" : ""}`}>{title}</span>
+				{todo && <span className="shrink-0 font-mono text-caption text-muted">待办 {todo}</span>}
+				{subs ? <span className="shrink-0 text-caption text-muted">{subs} 子任务</span> : null}
+				{status === "running" && !todo && since && (
+					<span className="shrink-0 text-caption text-faint">自 {since.slice(11, 16)}</span>
+				)}
+			</a>
+			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
+		</>
 	);
 }
 

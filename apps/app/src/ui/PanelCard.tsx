@@ -1,7 +1,10 @@
 import { ChevronDown, ChevronUp, GripVertical, PanelRightClose, PictureInPicture2 } from "lucide-react";
-import type { HTMLAttributes, Ref } from "react";
+import { type HTMLAttributes, type Ref, useState } from "react";
 import { dock, type PanelKind, panelTitle, setActive, toggleFloat } from "../lib/layout";
+import { panelMenu } from "../lib/menus";
+import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import type { SessionView } from "../lib/useSession";
+import { ActionMenu } from "./ActionMenu";
 import { countOf, PanelBody } from "./PanelBody";
 
 export interface PanelCardProps {
@@ -23,8 +26,25 @@ export function PanelCard(p: PanelCardProps) {
 	const floating = p.placement === "floating";
 	const collapsed = floating && p.collapsed;
 	const count = countOf(p.active, p.v);
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
+	// 长按只认标题区本身：从把手、tabs、停靠/收起按钮按下时交给按钮自己的点击，避免长按吞掉操作。
+	const headerTrigger = {
+		...trigger,
+		onPointerDown(e: React.PointerEvent) {
+			if ((e.target as HTMLElement).closest("button")) return;
+			trigger.onPointerDown(e);
+		},
+	};
 	// 动态视图（view:<id>）没有内置标题，交给 panelTitle 退回视图 id，避免出现 undefined。
 	const titleOf = (kind: PanelKind) => panelTitle(kind, {});
+	const actions = panelMenu({
+		session: p.session,
+		placement: p.placement,
+		kind: p.active,
+		collapsed,
+		onToggleCollapse: p.onToggleCollapse,
+	});
 	return (
 		<section
 			className={`flex min-h-0 flex-col overflow-hidden bg-raised ${floating ? "w-72 rounded-card shadow-float" : "rounded-card shadow-soft"}`}
@@ -32,7 +52,11 @@ export function PanelCard(p: PanelCardProps) {
 			data-kind={p.active}
 			aria-label={titleOf(p.active)}
 		>
-			<header className="flex items-center gap-1 border-b border-hairline px-1.5 py-1">
+			<header
+				{...headerTrigger}
+				title={`${titleOf(p.active)}（右键或长按打开菜单）`}
+				className="flex items-center gap-1 border-b border-hairline px-1.5 py-1"
+			>
 				<button
 					type="button"
 					ref={p.handleRef}
@@ -76,6 +100,7 @@ export function PanelCard(p: PanelCardProps) {
 						type="button"
 						onClick={p.onToggleCollapse}
 						aria-label={collapsed ? "展开" : "收起"}
+						title={collapsed ? "展开" : "收起"}
 						aria-expanded={!collapsed}
 						className="press grid size-7 shrink-0 place-items-center rounded-control text-faint"
 					>
@@ -88,6 +113,7 @@ export function PanelCard(p: PanelCardProps) {
 					<PanelBody kind={p.active} v={p.v} session={p.session} placement={p.placement} />
 				</div>
 			)}
+			{menu && <ActionMenu at={menu} title={titleOf(p.active)} actions={actions} onClose={() => setMenu(null)} />}
 		</section>
 	);
 }
