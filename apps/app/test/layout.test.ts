@@ -15,7 +15,7 @@ describe("panel layout", () => {
 		["view:plugin.status", "插件状态"],
 		["view:unknown", "unknown"],
 	] as const)("titles %s", async (kind, title) => {
-		const { panelTitle } = await import("../src/lib/layout");
+		const { panelTitle } = await import("../src/work/lib/layout");
 		expect(panelTitle(kind, { "plugin.status": "插件状态" })).toBe(title);
 	});
 
@@ -25,14 +25,14 @@ describe("panel layout", () => {
 			float: [{ id: "float", kind: "wake", x: 1, y: 2, collapsed: true }],
 		};
 		localStorage.setItem("yonder.layout.old", JSON.stringify(saved));
-		const { getLayout, setLayout } = await import("../src/lib/layout");
+		const { getLayout, setLayout } = await import("../src/work/lib/layout");
 		expect(getLayout("old")).toEqual(saved);
 		setLayout("old", getLayout("old"));
 		expect(JSON.parse(localStorage.getItem("yonder.layout.old") ?? "null")).toEqual(saved);
 	});
 
 	it("persists dynamic views in the same layout format", async () => {
-		const { getLayout, toggleFloat } = await import("../src/lib/layout");
+		const { getLayout, toggleFloat } = await import("../src/work/lib/layout");
 		toggleFloat("dynamic", "view:plugin.status");
 		expect(getLayout("dynamic").float[0]?.kind).toBe("view:plugin.status");
 		expect(JSON.parse(localStorage.getItem("yonder.layout.dynamic") ?? "null")).toEqual(getLayout("dynamic"));

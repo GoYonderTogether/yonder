@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.hoisted(() => vi.fn());
-vi.mock("../../src/api/client", () => ({ rpc }));
+vi.mock("../../src/work/api/client", () => ({ rpc }));
 
 const facts = (over: { methods?: Record<string, unknown>; events?: string[]; kind?: "local" | "remote" } = {}) => ({
 	protocol: 1,
@@ -72,7 +72,7 @@ describe("useCapabilities / useHasMethod", () => {
 			if (method === "capabilities.get") return facts();
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useCapabilities, useHasMethod } = await import("../../src/api/capabilities");
+		const { useCapabilities, useHasMethod } = await import("../../src/work/api/capabilities");
 		const caps = await renderHook(() => useCapabilities());
 		await vi.waitFor(() => expect(caps.latest().data?.node.id).toBe("n1"));
 		expect(rpc).toHaveBeenCalledWith("capabilities.get", {}, undefined, undefined);
@@ -93,7 +93,7 @@ describe("useCapabilities / useHasMethod", () => {
 			if (method === "capabilities.get") return facts({ kind: "remote" });
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useCapabilities } = await import("../../src/api/capabilities");
+		const { useCapabilities } = await import("../../src/work/api/capabilities");
 		const node = { id: "cloud-1", name: "云", origin: "https://cloud.example" };
 		const caps = await renderHook(() => useCapabilities(node));
 		await vi.waitFor(() => expect(caps.latest().data?.kind).toBe("remote"));
@@ -108,7 +108,7 @@ describe("useFeature", () => {
 			if (method === "capabilities.get") return facts({ methods: {} });
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useFeature } = await import("../../src/api/capabilities");
+		const { useFeature } = await import("../../src/work/api/capabilities");
 		const view = await renderHook(() => useFeature("work", { shell: "web" }));
 		// 事实回来前先按「未登录」隐藏，回来后给出真正缺的方法。
 		await vi.waitFor(() => expect(view.latest().reason).toContain("sessions.list"));
@@ -122,7 +122,7 @@ describe("useFeature", () => {
 			if (method === "capabilities.get") return facts();
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useFeature } = await import("../../src/api/capabilities");
+		const { useFeature } = await import("../../src/work/api/capabilities");
 		const work = await renderHook(() => useFeature("work", { shell: "web" }));
 		await vi.waitFor(() => expect(work.latest().visible).toBe(true));
 		expect(work.latest().reason).toBeUndefined();
@@ -134,7 +134,7 @@ describe("useFeature", () => {
 			if (method === "capabilities.get") return facts();
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useFeature } = await import("../../src/api/capabilities");
+		const { useFeature } = await import("../../src/work/api/capabilities");
 		const desktop = await renderHook(() => useFeature("topbar", { shell: "desktop" }));
 		expect(desktop.latest().visible).toBe(true);
 		await desktop.unmount();
@@ -148,7 +148,7 @@ describe("useFeature", () => {
 
 	it("社交功能按传入的登录态判定，与节点事实无关", async () => {
 		rpc.mockImplementation(() => new Promise(() => undefined));
-		const { useFeature } = await import("../../src/api/capabilities");
+		const { useFeature } = await import("../../src/work/api/capabilities");
 		const guest = await renderHook(() => useFeature("contacts", { shell: "web" }));
 		expect(guest.latest().state).toBe("disabled");
 		await guest.unmount();

@@ -3,10 +3,10 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Install } from "../../src/features/social/Install";
+import { Install } from "../../src/work/features/social/Install";
 
 const createInvite = vi.hoisted(() => vi.fn());
-vi.mock("../../src/api/social", () => ({ httpApi: { createInvite }, SocialError: class extends Error {} }));
+vi.mock("../../src/work/api/social", () => ({ httpApi: { createInvite }, SocialError: class extends Error {} }));
 
 let container: HTMLElement;
 let root: Root;

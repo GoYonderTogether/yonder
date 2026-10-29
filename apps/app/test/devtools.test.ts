@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyStateOverride, DevtoolsStateError, forcedQueryState, isForcedState } from "../src/devtools/stateOverride";
+import { applyStateOverride, DevtoolsStateError, forcedQueryState, isForcedState } from "../src/work/devtools/stateOverride";
 import {
 	DEVTOOLS_STORAGE_KEY,
 	groupInviteHash,
@@ -20,7 +20,7 @@ import {
 	themeAttribute,
 	VIEWPORT_PRESETS,
 	viewportOf,
-} from "../src/devtools/viewState";
+} from "../src/work/devtools/viewState";
 
 beforeEach(() => {
 	const values = new Map<string, string>();

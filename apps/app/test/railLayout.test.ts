@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampFloatPosition, FLOAT_GRIP, moveCard, moveTo, reorderCards, sameOrder } from "../src/lib/railLayout";
+import { clampFloatPosition, FLOAT_GRIP, moveCard, moveTo, reorderCards, sameOrder } from "../src/work/lib/railLayout";
 
 const ids = ["a", "b", "c", "d"];
 

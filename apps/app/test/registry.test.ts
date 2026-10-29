@@ -1,10 +1,10 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { PAGES } from "../src/shell/registry";
-import { PAGE_NAMES, parse } from "../src/shell/routes";
+import { PAGES } from "../src/work/shell/registry";
+import { PAGE_NAMES, parse } from "../src/work/shell/routes";
 
-vi.mock("../src/features/social/Profile", () => ({
+vi.mock("../src/work/features/social/Profile", () => ({
 	Profile: ({ accountId }: { accountId?: string }) => createElement("span", null, accountId ?? "me"),
 }));
 

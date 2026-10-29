@@ -1,14 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
 import { toast } from "../../ui/kit/Toast";
+import { AgentPublicToggle } from "./AgentPublicToggle";
 import { Switch } from "./DeviceSheet";
 import { IdentityDetail } from "./IdentityDetail";
 import { socialLoadError, socialUnavailable } from "./lib/socialError";
+
+const deviceLabel = (kind: string) => (kind === "cloud" || kind === "server" ? "云端" : "本地");
+
 export function ContactDetail({ id }: { id: string }) {
 	const qc = useQueryClient();
 	const [busy, setBusy] = useState(false);
@@ -28,6 +32,7 @@ export function ContactDetail({ id }: { id: string }) {
 	const devices = useQuery({ queryKey: ["devices"], queryFn: httpApi.devices });
 	const a = actor.data;
 	const mine = a?.kind === "agent" && a.ownerId === session.data?.actor.id;
+	const self = !!a && a.id === session.data?.actor.id;
 	const message = async () => {
 		if (!a) return;
 		setBusy(true);
@@ -67,11 +72,16 @@ export function ContactDetail({ id }: { id: string }) {
 	const device = devices.data?.find((d) => d.id === a?.deviceId);
 	return (
 		<div className="flex h-full flex-col bg-ground">
-			<header className="flex items-center gap-3 p-4">
-				<a aria-label="返回通讯录" href={href({ tab: "contacts" })} className="rounded-full p-2 hover:bg-tone">
+			{/* 与名片站 AppBar 同版式：h-14、返回按钮 -ml-2、标题 15px 半粗。 */}
+			<header className="relative z-10 flex h-14 shrink-0 items-center gap-2 px-4">
+				<a
+					aria-label="返回通讯录"
+					href={href({ tab: "contacts" })}
+					className="press -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-tone"
+				>
 					<ArrowLeft size={20} />
 				</a>
-				<h1>资料</h1>
+				<h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">资料</h1>
 			</header>
 			<div className="scroll-y min-h-0 flex-1">
 				{actor.isPending ? (
@@ -109,49 +119,53 @@ export function ContactDetail({ id }: { id: string }) {
 						agents={profile.data?.agents}
 						owner={profile.data?.owner}
 						actions={
-							a.id !== session.data?.actor.id && (
-								<Button variant="primary" disabled={busy} onClick={() => void message()}>
+							!self && (
+								<Button variant="primary" className="h-11 self-start" disabled={busy} onClick={() => void message()}>
+									<MessageCircle size={16} />
 									发消息
 								</Button>
 							)
 						}
 					>
-						<dl className="rounded-card bg-tone px-4">
-							{a.note && (
-								<div className="flex gap-4 py-3">
-									<dt>备注</dt>
-									<dd>{a.note}</dd>
-								</div>
-							)}
-							{device && (
-								<div className="flex gap-4 py-3">
-									<dt>所在设备</dt>
-									<dd>
-										{device.name} · {device.online ? "在线" : "离线"}
-									</dd>
-								</div>
-							)}
-							{mine && (
-								<div className="flex items-center justify-between py-3">
-									<dt>联网</dt>
-									<dd>
-										<Switch on={!!a.online} onChange={(v) => void online(v)} label={`${a.name} 联网`} />
-									</dd>
-								</div>
-							)}
-							{mine && (
-								<div className="flex items-center justify-between py-3">
-									<dt>公开到我的个人主页</dt>
-									<dd>
-										<Switch
-											on={!!a.public}
-											onChange={(v) => void setPublic(v)}
-											label={`${a.name} 公开到我的个人主页`}
-										/>
-									</dd>
-								</div>
-							)}
-						</dl>
+						{(!!a.note || !!device || mine) && (
+							<dl className="flex flex-col divide-y divide-hairline rounded-card bg-tone px-5">
+								{a.note && (
+									<div className="flex gap-4 py-3 text-small">
+										<dt className="w-16 shrink-0 text-muted">备注</dt>
+										<dd className="min-w-0 flex-1 break-words">{a.note}</dd>
+									</div>
+								)}
+								{device && (
+									<div className="flex gap-4 py-3 text-small">
+										<dt className="w-16 shrink-0 text-muted">所在设备</dt>
+										<dd className="min-w-0 flex-1 break-words">
+											{device.name} · {deviceLabel(device.kind)} · {device.online ? "在线" : "离线"}
+										</dd>
+									</div>
+								)}
+								{mine && (
+									<div className="flex items-center justify-between py-3 text-small">
+										<dt className="text-muted">联网</dt>
+										<dd>
+											<Switch on={!!a.online} onChange={(v) => void online(v)} label={`${a.name} 联网`} />
+										</dd>
+									</div>
+								)}
+								{mine && (
+									<div className="flex items-center justify-between py-3 text-small">
+										<dt className="text-muted">公开到我的个人主页</dt>
+										<dd>
+											<Switch
+												on={!!a.public}
+												onChange={(v) => void setPublic(v)}
+												label={`${a.name} 公开到我的个人主页`}
+											/>
+										</dd>
+									</div>
+								)}
+							</dl>
+						)}
+						{mine && <AgentPublicToggle actor={a} />}
 					</IdentityDetail>
 				)}
 			</div>

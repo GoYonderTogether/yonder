@@ -3,10 +3,10 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SocialLogin } from "../../src/features/social/SocialLogin";
+import { SocialLogin } from "../../src/work/features/social/SocialLogin";
 
 const api = vi.hoisted(() => ({ sendCode: vi.fn(), verifyCode: vi.fn() }));
-vi.mock("../../src/api/social", () => ({ httpApi: api }));
+vi.mock("../../src/work/api/social", () => ({ httpApi: api }));
 
 let container: HTMLElement;
 let root: Root;

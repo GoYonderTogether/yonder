@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { type GroupPreview, httpApi } from "../../src/api/social";
-import { GroupJoin } from "../../src/features/social/GroupJoin";
+import { type GroupPreview, httpApi } from "../../src/work/api/social";
+import { GroupJoin } from "../../src/work/features/social/GroupJoin";
 
-vi.mock("../../src/api/social", () => ({ httpApi: { groupPreview: vi.fn(), session: vi.fn() } }));
+vi.mock("../../src/work/api/social", () => ({ httpApi: { groupPreview: vi.fn(), session: vi.fn() } }));
 
 const fixture: GroupPreview = {
 	title: "群聊",

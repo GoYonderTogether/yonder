@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test } from "vitest";
-import { Composer } from "../src/ui/Composer";
+import { Composer } from "../src/work/ui/Composer";
 
 test("a running task defaults to steering and retains explicit queue and interrupt choices", () => {
 	const html = renderToStaticMarkup(<Composer session="task" running />);

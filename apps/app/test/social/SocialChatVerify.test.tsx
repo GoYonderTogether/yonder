@@ -3,7 +3,7 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SocialChat } from "../../src/features/social/SocialChat";
+import { SocialChat } from "../../src/work/features/social/SocialChat";
 
 const api = vi.hoisted(() => ({
 	resolve: vi.fn(),
@@ -15,7 +15,7 @@ const api = vi.hoisted(() => ({
 	sendCode: vi.fn(),
 	verifyCode: vi.fn(),
 }));
-vi.mock("../../src/api/social", () => ({ httpApi: api }));
+vi.mock("../../src/work/api/social", () => ({ httpApi: api }));
 
 let container: HTMLElement;
 let root: Root;

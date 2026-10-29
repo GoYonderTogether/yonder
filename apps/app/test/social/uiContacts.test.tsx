@@ -1,20 +1,20 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { Contacts } from "../../src/ui/Contacts";
+import { Contacts } from "../../src/work/ui/Contacts";
 
 /**
  * 通讯录侧栏列出 sessions.list 里真实的常驻 Bot。失败、空、有数据是三种状态：
  * 失败必须给错误与重试，不能渲染成「没有常驻 Bot」。
  */
 const state = vi.hoisted(() => ({ sessions: {} as Record<string, unknown> }));
-vi.mock("../../src/lib/queries", () => ({
+vi.mock("../../src/work/lib/queries", () => ({
 	useSessions: () => state.sessions,
 	useTitleOf: () => (s: { id: string }) => `Bot ${s.id}`,
 }));
-vi.mock("../../src/lib/useHash", () => ({
+vi.mock("../../src/work/lib/useHash", () => ({
 	href: (route: Record<string, string>) => `#/${route.tab ?? ""}`,
 }));
-vi.mock("../../src/ui/Avatar", () => ({ Avatar: () => null }));
+vi.mock("../../src/work/ui/Avatar", () => ({ Avatar: () => null }));
 
 const bot = { id: "main", mode: "main", agent: "main", profile: "owner", key: "main", closed: undefined };
 

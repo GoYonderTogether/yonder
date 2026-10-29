@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SessionInfo } from "../src/api/types";
+import type { SessionInfo } from "../src/work/api/types";
 
 const base: SessionInfo = { id: "1", agent: null, profile: "default", mode: "task", key: "", version: "1", opened: "" };
 const task = (id: string, opened: string, patch: Partial<SessionInfo> = {}): SessionInfo => ({
@@ -37,14 +37,14 @@ describe("taskStatus", () => {
 		["2026-10-28T10:00:00.000Z", "running", "done"],
 		["2026-10-28T10:00:00.000Z", undefined, "done"],
 	] as const)("closed=%s with activity %s is %s", async (closed, state, expected) => {
-		const { taskStatus } = await import("../src/lib/work");
+		const { taskStatus } = await import("../src/work/lib/work");
 		expect(taskStatus(task("1", "2026-10-01T00:00:00.000Z", closed ? { closed } : {}), state)).toBe(expected);
 	});
 });
 
 describe("groupWork", () => {
 	it("separates bots from tasks and drops closed bots and imported sessions", async () => {
-		const { groupWork } = await import("../src/lib/work");
+		const { groupWork } = await import("../src/work/lib/work");
 		const sessions = [
 			bot("b1"),
 			bot("b2", { closed: "2026-10-02T00:00:00.000Z" }),
@@ -61,7 +61,7 @@ describe("groupWork", () => {
 	});
 
 	it("buckets tasks by activity and sorts each bucket newest-opened first", async () => {
-		const { groupWork } = await import("../src/lib/work");
+		const { groupWork } = await import("../src/work/lib/work");
 		const sessions = [
 			task("a", "2026-10-01T00:00:00.000Z"),
 			task("b", "2026-10-05T00:00:00.000Z"),
@@ -79,7 +79,7 @@ describe("groupWork", () => {
 	});
 
 	it("counts every task for the progress bar", async () => {
-		const { groupWork, progressOf } = await import("../src/lib/work");
+		const { groupWork, progressOf } = await import("../src/work/lib/work");
 		const sessions = [
 			task("a", "2026-10-01T00:00:00.000Z"),
 			task("b", "2026-10-02T00:00:00.000Z", { closed: "2026-10-03T00:00:00.000Z" }),
@@ -92,7 +92,7 @@ describe("groupWork", () => {
 
 describe("folds", () => {
 	it("collapses only done by default", async () => {
-		const { defaultOpen, isOpen } = await import("../src/lib/work");
+		const { defaultOpen, isOpen } = await import("../src/work/lib/work");
 		expect(["running", "waiting", "idle", "bot"].map((k) => defaultOpen(k as "bot"))).toEqual([true, true, true, true]);
 		expect(defaultOpen("done")).toBe(false);
 		expect(isOpen({}, "done")).toBe(false);
@@ -101,7 +101,7 @@ describe("folds", () => {
 	});
 
 	it("toggles without mutating the previous state", async () => {
-		const { toggleFold } = await import("../src/lib/work");
+		const { toggleFold } = await import("../src/work/lib/work");
 		const before = {};
 		expect(toggleFold(before, "done")).toEqual({ done: true });
 		expect(toggleFold({ done: true }, "done")).toEqual({ done: false });
@@ -120,19 +120,19 @@ describe("folds", () => {
 		['{"done":"yes","running":1,"idle":false}', { idle: false }],
 		['{"unknown":true,"bot":false}', { bot: false }],
 	] as const)("parses %s as %o", async (raw, expected) => {
-		const { parseFolds } = await import("../src/lib/work");
+		const { parseFolds } = await import("../src/work/lib/work");
 		expect(parseFolds(raw)).toEqual(expected);
 	});
 
 	it("persists manual toggles across reloads", async () => {
-		const first = await import("../src/lib/work");
+		const first = await import("../src/work/lib/work");
 		expect(first.isOpen(first.parseFolds(localStorage.getItem("yonder.work.fold")), "done")).toBe(false);
 		first.toggleFolds("done");
 		first.toggleFolds("bot");
 		expect(JSON.parse(localStorage.getItem("yonder.work.fold") ?? "null")).toEqual({ done: true, bot: false });
 
 		vi.resetModules();
-		const second = await import("../src/lib/work");
+		const second = await import("../src/work/lib/work");
 		const folds = second.parseFolds(localStorage.getItem("yonder.work.fold"));
 		expect(second.isOpen(folds, "done")).toBe(true);
 		expect(second.isOpen(folds, "bot")).toBe(false);

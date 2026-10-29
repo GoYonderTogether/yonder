@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { frameOf, layoutMode, type Screen } from "../src/shell/layoutMode";
-import { breakpointOf } from "../src/shell/useBreakpoint";
+import { frameOf, layoutMode, type Screen } from "../src/work/shell/layoutMode";
+import { breakpointOf } from "../src/work/shell/useBreakpoint";
 
 const SCREENS: Screen[] = ["list", "session", "settings", "page"];
 

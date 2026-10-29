@@ -3,10 +3,10 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
-import { AgentPublicToggle } from "../../src/features/social/AgentPublicToggle";
+import { AgentPublicToggle } from "../../src/work/features/social/AgentPublicToggle";
 
 const api = vi.hoisted(() => ({ setAgentPublic: vi.fn() }));
-vi.mock("../../src/api/social", () => ({ httpApi: api }));
+vi.mock("../../src/work/api/social", () => ({ httpApi: api }));
 
 it("updates the public setting and invalidates the owner's contact", async () => {
 	const { document, window } = parseHTML("<html><body></body></html>");

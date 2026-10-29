@@ -2,7 +2,7 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
-import { UpdateNotice } from "../src/ui/UpdateNotice";
+import { UpdateNotice } from "../src/work/ui/UpdateNotice";
 
 test("checks for updates on focus and every five minutes without refreshing", async () => {
 	const { window } = parseHTML("<html><body><div id='root'></div></body></html>");

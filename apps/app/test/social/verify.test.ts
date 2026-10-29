@@ -16,7 +16,7 @@ import {
 	validateTarget,
 	verifyErrorText,
 	verifyReducer,
-} from "../../src/features/social/lib/session";
+} from "../../src/work/features/social/lib/session";
 
 /** 依次跑事件，返回最终状态；用来把状态机写成可读的路径。 */
 function run(events: Parameters<typeof verifyReducer>[1][], from: VerifyFormState = initialVerifyForm) {

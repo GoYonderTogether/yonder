@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { Profile } from "../../src/features/social/Profile";
+import { Profile } from "../../src/work/features/social/Profile";
 
 function render(client: QueryClient) {
 	return renderToStaticMarkup(

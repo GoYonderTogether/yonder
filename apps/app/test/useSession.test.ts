@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { SessionSnapshot } from "../src/api/types";
-import { emptyView, reduce, type SessionView } from "../src/lib/useSession";
+import type { SessionSnapshot } from "../src/work/api/types";
+import { emptyView, reduce, type SessionView } from "../src/work/lib/useSession";
 
 // 上一轮连接留下的本地增量：gap 之后这些都不作数。
 const stale: SessionView = {

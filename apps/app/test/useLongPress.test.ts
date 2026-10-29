@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HAPTIC_MS, HOLD_MS, holdCancelled, holdPolicy, keyboardAnchor, MOVE_PX } from "../src/lib/useLongPress";
+import { HAPTIC_MS, HOLD_MS, holdCancelled, holdPolicy, keyboardAnchor, MOVE_PX } from "../src/work/lib/useLongPress";
 
 describe("hold policy", () => {
 	it("arms long press for touch and pen, not for mouse", () => {

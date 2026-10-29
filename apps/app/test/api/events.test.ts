@@ -1,8 +1,8 @@
 import type { UsageTotals } from "@yonder/gateway/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSessionStateStore } from "../../src/api/events";
-import { footerStats, reduceSessionState } from "../../src/api/session-state";
-import { Mux, type StreamSocket } from "../../src/api/stream";
+import { createSessionStateStore } from "../../src/work/api/events";
+import { footerStats, reduceSessionState } from "../../src/work/api/session-state";
+import { Mux, type StreamSocket } from "../../src/work/api/stream";
 
 /** 直接喂帧的假连接：Mux 只要求最小面，不需要网关。 */
 class FakeSocket implements StreamSocket {

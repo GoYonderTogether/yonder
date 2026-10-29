@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SocialError } from "../../src/api/social/http";
-import { Contacts } from "../../src/features/social/Contacts";
+import { SocialError } from "../../src/work/api/social/http";
+import { Contacts } from "../../src/work/features/social/Contacts";
 
 const state = vi.hoisted(() => ({ contacts: {} as Record<string, unknown>, devices: {} as Record<string, unknown> }));
 vi.mock("@tanstack/react-query", () => ({
@@ -13,7 +13,7 @@ vi.mock("@tanstack/react-query", () => ({
 				: { data: { actor: { id: "me" } } },
 	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
-vi.mock("../../src/api/social", () => ({
+vi.mock("../../src/work/api/social", () => ({
 	httpApi: { contacts: vi.fn(), devices: vi.fn(), session: vi.fn(), conversations: vi.fn() },
 }));
 describe("Contacts", () => {

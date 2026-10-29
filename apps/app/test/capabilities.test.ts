@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { NodeFacts } from "../src/api/types";
-import { clientFacts, nodeCapabilityFacts, readShell, shellOf } from "../src/capabilities/facts";
+import type { NodeFacts } from "../src/work/api/types";
+import { clientFacts, nodeCapabilityFacts, readShell, shellOf } from "../src/work/capabilities/facts";
 import {
 	FEATURE_IDS,
 	FEATURES,
@@ -8,7 +8,7 @@ import {
 	type FeatureId,
 	featureContext,
 	featureVisible,
-} from "../src/capabilities/features";
+} from "../src/work/capabilities/features";
 
 /** 一份完整的 NodeFacts，按 contracts §4/§12 的形状；局部覆盖只改需要的字段。 */
 function facts(over: Partial<NodeFacts> = {}): NodeFacts {

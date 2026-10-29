@@ -2,11 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NodeConfig } from "../src/api/nodes";
-import { consoleRows, consoleTarget } from "../src/features/console/ConsoleSwitcher";
-import { PAGES } from "../src/shell/registry";
-import { href, PAGE_NAMES, parse } from "../src/shell/routes";
-import { NAV } from "../src/shell/TabBar";
+import type { NodeConfig } from "../src/work/api/nodes";
+import { consoleRows, consoleTarget } from "../src/work/features/console/ConsoleSwitcher";
+import { PAGES } from "../src/work/shell/registry";
+import { href, PAGE_NAMES, parse } from "../src/work/shell/routes";
+import { NAV } from "../src/work/shell/TabBar";
 
 const local: NodeConfig = { id: "local", name: "本机" };
 const studio: NodeConfig = { id: "n2", name: "书房", origin: "https://studio.test:7690/console" };
@@ -84,7 +84,7 @@ describe("ConsoleSwitcher 渲染", () => {
 	});
 
 	it("explains it only controls this machine when no remote node is added", async () => {
-		const { ConsoleSwitcher } = await import("../src/features/console/ConsoleSwitcher");
+		const { ConsoleSwitcher } = await import("../src/work/features/console/ConsoleSwitcher");
 		const html = render(createElement(ConsoleSwitcher));
 		expect(html).toContain("只控制本机");
 		expect(html).toContain("添加设备");
@@ -94,7 +94,7 @@ describe("ConsoleSwitcher 渲染", () => {
 
 	it("lists remote nodes with the remote scope limits spelled out", async () => {
 		localStorage.setItem("yonder.nodes", JSON.stringify([local, studio]));
-		const { ConsoleSwitcher } = await import("../src/features/console/ConsoleSwitcher");
+		const { ConsoleSwitcher } = await import("../src/work/features/console/ConsoleSwitcher");
 		const html = render(createElement(ConsoleSwitcher));
 		expect(html).toContain("书房");
 		expect(html).toContain("https://studio.test:7690/console");

@@ -56,7 +56,7 @@ function stubFetch(handler: (url: string, init: RequestInit) => unknown) {
 
 describe("节点存储", () => {
 	it("默认只有本机节点，本机不可删除", async () => {
-		const { nodeList, activeNode, removeNode, LOCAL_NODE } = await import("../../src/api/nodes");
+		const { nodeList, activeNode, removeNode, LOCAL_NODE } = await import("../../src/work/api/nodes");
 		expect(nodeList()).toEqual([LOCAL_NODE]);
 		expect(activeNode().id).toBe("local");
 		removeNode(LOCAL_NODE.id);
@@ -65,19 +65,19 @@ describe("节点存储", () => {
 
 	it("从 localStorage 的 yonder.nodes 读取，本机恒在首位", async () => {
 		localStorage.setItem("yonder.nodes", JSON.stringify([{ id: "cloud-1", name: "云", origin: "https://c.example" }]));
-		const { nodeList } = await import("../../src/api/nodes");
+		const { nodeList } = await import("../../src/work/api/nodes");
 		expect(nodeList().map((node) => node.id)).toEqual(["local", "cloud-1"]);
 	});
 
 	it("记录损坏时退回只有本机", async () => {
 		localStorage.setItem("yonder.nodes", "{not json");
-		const { nodeList } = await import("../../src/api/nodes");
+		const { nodeList } = await import("../../src/work/api/nodes");
 		expect(nodeList().map((node) => node.id)).toEqual(["local"]);
 	});
 
 	it("切换当前节点", async () => {
 		localStorage.setItem("yonder.nodes", JSON.stringify([{ id: "cloud-1", name: "云", origin: "https://c" }]));
-		const { setActiveNode, activeNode } = await import("../../src/api/nodes");
+		const { setActiveNode, activeNode } = await import("../../src/work/api/nodes");
 		setActiveNode("cloud-1");
 		expect(activeNode().id).toBe("cloud-1");
 		// 不存在的 id 不改变选择
@@ -89,7 +89,7 @@ describe("节点存储", () => {
 describe("添加与删除节点", () => {
 	it("添加节点先登录、再用 capabilities.get 读真实 node.id", async () => {
 		const calls = stubFetch((url) => (url.endsWith("/login") ? {} : facts({ id: "cloud-1", name: "云服务器" })));
-		const { addNode } = await import("../../src/api/nodes");
+		const { addNode } = await import("../../src/work/api/nodes");
 		const node = await addNode({ origin: "https://cloud.example:7690/console/", token: "t" });
 		expect(node).toEqual({
 			id: "cloud-1",
@@ -107,7 +107,7 @@ describe("添加与删除节点", () => {
 
 	it("重复 id 拒绝添加", async () => {
 		stubFetch(() => facts({ id: "cloud-1", name: "云" }));
-		const { addNode, nodeList } = await import("../../src/api/nodes");
+		const { addNode, nodeList } = await import("../../src/work/api/nodes");
 		await addNode({ origin: "https://cloud.example" });
 		await expect(addNode({ origin: "https://other.example" })).rejects.toThrow("已经添加过");
 		expect(nodeList()).toHaveLength(2);
@@ -115,19 +115,19 @@ describe("添加与删除节点", () => {
 
 	it("协议版本不一致拒绝添加", async () => {
 		stubFetch(() => facts({ id: "cloud-2", name: "旧节点" }, 2));
-		const { addNode, nodeList } = await import("../../src/api/nodes");
+		const { addNode, nodeList } = await import("../../src/work/api/nodes");
 		await expect(addNode({ origin: "https://old.example" })).rejects.toThrow("协议版本");
 		expect(nodeList()).toHaveLength(1);
 	});
 
 	it("节点没有 node.id 时拒绝", async () => {
 		stubFetch(() => facts({ id: "", name: "" }));
-		const { addNode } = await import("../../src/api/nodes");
+		const { addNode } = await import("../../src/work/api/nodes");
 		await expect(addNode({ origin: "https://x.example" })).rejects.toThrow("node.id");
 	});
 
 	it("规范化地址：拒绝非 http(s)，去掉结尾斜杠但保留挂载路径", async () => {
-		const { normalizeOrigin } = await import("../../src/api/nodes");
+		const { normalizeOrigin } = await import("../../src/work/api/nodes");
 		expect(() => normalizeOrigin("ftp://x")).toThrow();
 		expect(() => normalizeOrigin("not a url")).toThrow();
 		expect(normalizeOrigin("https://h:1/a/")).toBe("https://h:1/a");
@@ -136,7 +136,7 @@ describe("添加与删除节点", () => {
 
 	it("删除节点清理它的查询，不影响本机与其他节点", async () => {
 		const { QueryClient } = await import("@tanstack/react-query");
-		const { qk } = await import("../../src/api/keys");
+		const { qk } = await import("../../src/work/api/keys");
 		const client = new QueryClient();
 		client.setQueryData(qk.sessions("local"), [{ id: "local-1" }]);
 		client.setQueryData(qk.sessions("cloud-1"), [{ id: "cloud-1" }]);
@@ -144,7 +144,7 @@ describe("添加与删除节点", () => {
 		client.setQueryData(qk.sessions("cloud-2"), [{ id: "cloud-2" }]);
 
 		stubFetch(() => facts({ id: "cloud-1", name: "云" }));
-		const { addNode, removeNode } = await import("../../src/api/nodes");
+		const { addNode, removeNode } = await import("../../src/work/api/nodes");
 		await addNode({ origin: "https://cloud.example" });
 		removeNode("cloud-1", client);
 
@@ -156,7 +156,7 @@ describe("添加与删除节点", () => {
 
 	it("删除当前节点时退回本机", async () => {
 		localStorage.setItem("yonder.nodes", JSON.stringify([{ id: "cloud-1", name: "云", origin: "https://c.example" }]));
-		const { setActiveNode, activeNode, removeNode } = await import("../../src/api/nodes");
+		const { setActiveNode, activeNode, removeNode } = await import("../../src/work/api/nodes");
 		setActiveNode("cloud-1");
 		removeNode("cloud-1");
 		expect(activeNode().id).toBe("local");
@@ -165,7 +165,7 @@ describe("添加与删除节点", () => {
 
 describe("多节点查询 key", () => {
 	it("首段是节点 id，两节点缓存互不污染", async () => {
-		const { qk } = await import("../../src/api/keys");
+		const { qk } = await import("../../src/work/api/keys");
 		expect(qk.sessions()).toEqual(["local", "sessions"]);
 		expect(qk.sessions("cloud-1")).toEqual(["cloud-1", "sessions"]);
 		expect(qk.capabilities("cloud-1")).toEqual(["cloud-1", "capabilities"]);

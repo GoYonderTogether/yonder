@@ -3,10 +3,10 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, test, vi } from "vitest";
-import { SessionSources } from "../src/features/SessionSources";
+import { SessionSources } from "../src/work/features/SessionSources";
 
 const rpc = vi.hoisted(() => vi.fn());
-vi.mock("../src/api/client", () => ({ rpc }));
+vi.mock("../src/work/api/client", () => ({ rpc }));
 
 test("opens Bot sources separately and pages session trace through an empty page", async () => {
 	const { window } = parseHTML("<html><body><div id='root'></div></body></html>");

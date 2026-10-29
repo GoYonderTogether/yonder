@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { fromTranscript } from "../src/lib/chat";
+import { fromTranscript } from "../src/work/lib/chat";
 
 test("retains durable tool results in their original order", () => {
 	const items = fromTranscript([

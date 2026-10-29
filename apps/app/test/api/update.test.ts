@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.hoisted(() => vi.fn());
-vi.mock("../../src/api/client", () => ({ rpc }));
+vi.mock("../../src/work/api/client", () => ({ rpc }));
 
 const facts = (over: { kind?: "local" | "remote"; methods?: Record<string, unknown> } = {}) => ({
 	protocol: 1,
@@ -77,7 +77,7 @@ describe("useUpdateState", () => {
 			if (method === "update.status") return { state: "ready", current: "0.3.0", latest: "0.3.1", progress: 1 };
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useUpdateState } = await import("../../src/api/update");
+		const { useUpdateState } = await import("../../src/work/api/update");
 		const view = await renderHook(() => useUpdateState());
 		await vi.waitFor(() => expect(view.latest().state?.state).toBe("ready"));
 		expect(view.latest().available).toBe(true);
@@ -91,7 +91,7 @@ describe("useUpdateState", () => {
 			if (method === "capabilities.get") return facts({ methods: {} });
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useUpdateState } = await import("../../src/api/update");
+		const { useUpdateState } = await import("../../src/work/api/update");
 		const view = await renderHook(() => useUpdateState());
 		await vi.waitFor(() => expect(view.latest().reason).toBeDefined());
 		expect(view.latest().available).toBe(false);
@@ -106,7 +106,7 @@ describe("useUpdateState", () => {
 			if (method === "capabilities.get") return facts({ kind: "remote" });
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useUpdateState } = await import("../../src/api/update");
+		const { useUpdateState } = await import("../../src/work/api/update");
 		const view = await renderHook(() => useUpdateState());
 		await vi.waitFor(() => expect(view.latest().reason).toBeDefined());
 		expect(view.latest().available).toBe(false);
@@ -116,7 +116,7 @@ describe("useUpdateState", () => {
 
 	it("节点事实还没回来时既不可用也不报错", async () => {
 		rpc.mockImplementation(() => new Promise(() => undefined));
-		const { useUpdateState } = await import("../../src/api/update");
+		const { useUpdateState } = await import("../../src/work/api/update");
 		const view = await renderHook(() => useUpdateState());
 		expect(view.latest().available).toBe(false);
 		expect(view.latest().state).toBeUndefined();
@@ -129,7 +129,7 @@ describe("useUpdateState", () => {
 			if (method === "capabilities.get") return facts({ kind: "remote" });
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useUpdateState } = await import("../../src/api/update");
+		const { useUpdateState } = await import("../../src/work/api/update");
 		const node = { id: "cloud-1", name: "云", origin: "https://cloud.example" };
 		const view = await renderHook(() => useUpdateState(node));
 		expect(view.latest().available).toBe(false);
@@ -146,7 +146,7 @@ describe("下载与应用", () => {
 			if (method === "update.apply") return { ok: true };
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useDownloadUpdate, useApplyUpdate } = await import("../../src/api/update");
+		const { useDownloadUpdate, useApplyUpdate } = await import("../../src/work/api/update");
 		const download = await renderHook(() => useDownloadUpdate());
 		await act(async () => {
 			await download.latest().mutateAsync();
@@ -169,7 +169,7 @@ describe("下载与应用", () => {
 			if (method === "update.apply") return { ok: false, hint: "brew upgrade yonder" };
 			throw new Error(`Unexpected ${method}`);
 		});
-		const { useApplyUpdate } = await import("../../src/api/update");
+		const { useApplyUpdate } = await import("../../src/work/api/update");
 		const apply = await renderHook(() => useApplyUpdate());
 		let result: { ok: boolean; hint?: string } | undefined;
 		await act(async () => {

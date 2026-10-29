@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SocialChat } from "../../src/features/social/SocialChat";
+import { SocialChat } from "../../src/work/features/social/SocialChat";
 
 const state = vi.hoisted(() => ({ mode: "loading" }));
 vi.mock("@tanstack/react-query", () => ({
@@ -25,7 +25,7 @@ vi.mock("@tanstack/react-query", () => ({
 		};
 	},
 }));
-vi.mock("../../src/api/social", () => ({
+vi.mock("../../src/work/api/social", () => ({
 	httpApi: {
 		resolve: vi.fn(),
 		conversationDetail: vi.fn(),

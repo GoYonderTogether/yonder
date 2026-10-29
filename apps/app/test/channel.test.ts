@@ -2,9 +2,9 @@ import { MessageSquare, Monitor } from "lucide-react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { TranscriptItem } from "../src/api/types";
-import { ChannelIcon, channelGlyph } from "../src/features/messages/ChannelIcon";
-import { applyMessage, channelName, channelType, fromTranscript, splitTurn } from "../src/lib/chat";
+import type { TranscriptItem } from "../src/work/api/types";
+import { ChannelIcon, channelGlyph } from "../src/work/features/messages/ChannelIcon";
+import { applyMessage, channelName, channelType, fromTranscript, splitTurn } from "../src/work/lib/chat";
 
 const CHANNELS = [
 	["cli", "终端"],

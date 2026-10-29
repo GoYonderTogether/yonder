@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { LOCAL_NODE } from "../src/api/nodes";
-import type { NodeFacts } from "../src/api/types";
-import type { UpdateView } from "../src/api/update";
+import { LOCAL_NODE } from "../src/work/api/nodes";
+import type { NodeFacts } from "../src/work/api/types";
+import type { UpdateView } from "../src/work/api/update";
 import {
 	aboutRows,
 	accountRows,
@@ -11,7 +11,7 @@ import {
 	parseNodeOrigin,
 	updateSummary,
 	versionText,
-} from "../src/features/settings/rows";
+} from "../src/work/features/settings/rows";
 
 const facts = (over: Partial<NodeFacts> = {}): NodeFacts => ({
 	protocol: 1,
@@ -173,7 +173,7 @@ describe("Settings 组件", () => {
 		const { parseHTML } = await import("linkedom");
 		const { act, createElement } = await import("react");
 		const { createRoot } = await import("react-dom/client");
-		const { Settings } = await import("../src/features/Settings");
+		const { Settings } = await import("../src/work/features/Settings");
 		const { window } = parseHTML("<html><body><div id='root'></div></body></html>");
 		vi.stubGlobal("window", window);
 		vi.stubGlobal("document", window.document);

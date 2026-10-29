@@ -8,7 +8,7 @@ import {
 	shareLinkUrl,
 	shareLinkView,
 	shortToken,
-} from "../../src/features/social/lib/shareLinks";
+} from "../../src/work/features/social/lib/shareLinks";
 
 const NOW = Date.parse("2026-10-29T12:00:00.000Z");
 const inDays = (days: number) => new Date(NOW + days * 86_400_000).toISOString();

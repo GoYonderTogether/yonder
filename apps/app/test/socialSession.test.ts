@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "../src/api/social/types";
+import type { Session } from "../src/work/api/social/types";
 import {
 	messageOf,
 	PASSWORD_MIN,
@@ -7,7 +7,7 @@ import {
 	socialRegisterInput,
 	socialSessionState,
 	validateSocialForm,
-} from "../src/features/social/lib/session";
+} from "../src/work/features/social/lib/session";
 
 const human: Session = { actor: { id: "u1", name: "正式账号", kind: "human" } };
 const anonymous: Session = { actor: { id: "a1", name: "访客", kind: "human", anonymous: true } };

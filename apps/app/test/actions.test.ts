@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { action, choiceItem, menuItems, stepIndex, toggleItem } from "../src/lib/actions";
+import { action, choiceItem, menuItems, stepIndex, toggleItem } from "../src/work/lib/actions";
 
 const noop = () => {};
 

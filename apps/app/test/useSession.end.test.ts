@@ -2,7 +2,7 @@ import { parseHTML } from "linkedom";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { emptyView, reduce, type SessionView, useSession } from "../src/lib/useSession";
+import { emptyView, reduce, type SessionView, useSession } from "../src/work/lib/useSession";
 
 /**
  * 服务端 end 帧（contracts §2.2）直接喂给真实的 Mux + 假 socket，验证 useSession 的 onEnd 接线。
@@ -38,8 +38,8 @@ const fake = vi.hoisted(() => {
 	return { FakeSocket, sockets };
 });
 
-vi.mock("../src/api/stream", async (importOriginal) => {
-	const actual = await importOriginal<typeof import("../src/api/stream")>();
+vi.mock("../src/work/api/stream", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../src/work/api/stream")>();
 	const mux = new actual.Mux({
 		create: () => {
 			const ws = new fake.FakeSocket();
@@ -102,7 +102,7 @@ async function endAfterReady(reason: string) {
 
 beforeEach(async () => {
 	// mux 是模块级单例：清掉上一个用例的订阅与连接，每个用例从一条新连接开始。
-	const { mux } = await import("../src/api/stream");
+	const { mux } = await import("../src/work/api/stream");
 	mux.reset();
 	fake.sockets.length = 0;
 	// useSession 另有 sessions.show 元信息刷新；这里不需要网关。

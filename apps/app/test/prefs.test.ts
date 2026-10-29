@@ -19,7 +19,7 @@ describe("notification preferences", () => {
 		["mentions", false, "mute"],
 		[undefined, false, "mute"],
 	] as const)("resolves %s with enabled=%s", async (conv, enabled, expected) => {
-		const { effectiveLevel } = await import("../src/lib/prefs");
+		const { effectiveLevel } = await import("../src/work/lib/prefs");
 		expect(effectiveLevel(conv, { enabled, vibrate: true, previews: true })).toBe(expected);
 	});
 
@@ -28,7 +28,7 @@ describe("notification preferences", () => {
 			"yonder.prefs",
 			JSON.stringify({ pinned: ["a"], level: { a: "mention", b: "mute" }, read: { a: 42 } }),
 		);
-		const { setNotifyPrefs } = await import("../src/lib/prefs");
+		const { setNotifyPrefs } = await import("../src/work/lib/prefs");
 		setNotifyPrefs({ vibrate: false });
 		expect(JSON.parse(localStorage.getItem("yonder.prefs") ?? "null")).toEqual({
 			pinned: ["a"],

@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SocialError } from "../../src/api/social/http";
-import { ContactDetail } from "../../src/features/social/ContactDetail";
+import { SocialError } from "../../src/work/api/social/http";
+import { ContactDetail } from "../../src/work/features/social/ContactDetail";
 
 /**
  * 资料页有三种不同结局：接口不存在/不可达（网关没代理社交）、加载失败（可重试）、查无此人（真的 404 结果）。
@@ -14,7 +14,7 @@ vi.mock("@tanstack/react-query", () => ({
 		queryKey[0] === "contact" ? state.actor : { data: queryKey[0] === "devices" ? [] : null, isPending: false },
 	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
-vi.mock("../../src/api/social", () => ({
+vi.mock("../../src/work/api/social", () => ({
 	httpApi: {
 		resolve: vi.fn(),
 		actors: vi.fn(),
@@ -24,10 +24,10 @@ vi.mock("../../src/api/social", () => ({
 		openDm: vi.fn(),
 	},
 }));
-vi.mock("../../src/ui/kit/Toast", () => ({ toast: vi.fn() }));
-vi.mock("../../src/ui/kit/Button", () => ({ Button: () => null }));
-vi.mock("../../src/features/social/DeviceSheet", () => ({ Switch: () => null }));
-vi.mock("../../src/features/social/IdentityDetail", () => ({
+vi.mock("../../src/work/ui/kit/Toast", () => ({ toast: vi.fn() }));
+vi.mock("../../src/work/ui/kit/Button", () => ({ Button: () => null }));
+vi.mock("../../src/work/features/social/DeviceSheet", () => ({ Switch: () => null }));
+vi.mock("../../src/work/features/social/IdentityDetail", () => ({
 	IdentityDetail: ({ actor }: { actor: { name: string } }) => <div>资料 {actor.name}</div>,
 }));
 

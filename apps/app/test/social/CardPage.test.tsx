@@ -7,9 +7,9 @@ vi.mock("@tanstack/react-query", () => ({
 	useMutation: () => ({ mutate: vi.fn() }),
 	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
-vi.mock("../../src/shell/routes", () => ({ useRoute: () => ({ page: "cards" }), href: () => "#/u/card" }));
+vi.mock("../../src/work/shell/routes", () => ({ useRoute: () => ({ page: "cards" }), href: () => "#/u/card" }));
 
-import { CardPage } from "../../src/features/social/CardPage";
+import { CardPage } from "../../src/work/features/social/CardPage";
 
 beforeEach(() => {
 	query.mockReset();

@@ -1,13 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AddFriend } from "../../src/features/social/AddFriend";
+import { AddFriend } from "../../src/work/features/social/AddFriend";
 
 const state = vi.hoisted(() => ({ cards: {} as Record<string, unknown> }));
 vi.mock("@tanstack/react-query", () => ({
 	useQuery: ({ queryKey }: { queryKey: string[] }) => (queryKey[0] === "cards" ? state.cards : {}),
 	useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
-vi.mock("../../src/api/social", () => ({
+vi.mock("../../src/work/api/social", () => ({
 	httpApi: { cards: vi.fn(), resolve: vi.fn(), card: vi.fn(), profile: vi.fn() },
 }));
 

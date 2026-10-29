@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpApi, SocialError } from "../../../src/api/social";
+import { httpApi, SocialError } from "../../../src/work/api/social";
 
 afterEach(() => {
 	vi.unstubAllGlobals();

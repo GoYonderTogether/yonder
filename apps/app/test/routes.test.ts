@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { href, parse } from "../src/shell/routes";
+import { href, parse } from "../src/work/shell/routes";
 
 describe("hash routes", () => {
 	it("recognizes and round trips each route", () => {

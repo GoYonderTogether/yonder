@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { qk } from "../../src/api";
+import { qk } from "../../src/work/api";
 
 describe("query keys", () => {
 	it("scopes keys to the local or selected node", () => {

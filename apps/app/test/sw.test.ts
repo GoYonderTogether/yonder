@@ -181,7 +181,7 @@ test("pwa 按 base href 注册 worker，不硬编码 /，也不在 controllercha
 	vi.stubGlobal("navigator", { serviceWorker: { register } });
 	vi.stubGlobal("document", { baseURI: "https://console.test/console/" });
 	try {
-		const { registerConsoleWorker } = await import("../src/pwa");
+		const { registerConsoleWorker } = await import("../src/work/pwa");
 		registerConsoleWorker();
 		expect(register).toHaveBeenCalledTimes(1);
 		const [script, options] = register.mock.calls[0] as [URL, Record<string, unknown>];
@@ -198,7 +198,7 @@ test("pwa 在本机 basePath=/ 下注册根 scope，且注册失败不抛出", a
 	vi.stubGlobal("document", { baseURI: "http://127.0.0.1:18787/" });
 	const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 	try {
-		const { registerConsoleWorker } = await import("../src/pwa");
+		const { registerConsoleWorker } = await import("../src/work/pwa");
 		expect(() => registerConsoleWorker()).not.toThrow();
 		const [script, options] = register.mock.calls[0] as [URL, Record<string, unknown>];
 		expect(String(script)).toBe("http://127.0.0.1:18787/yonder-sw.js");
@@ -215,7 +215,7 @@ test("pwa 在不支持 serviceWorker 的浏览器里直接返回", async () => {
 	vi.stubGlobal("navigator", {});
 	vi.stubGlobal("document", { baseURI: "https://console.test/console/" });
 	try {
-		const { registerConsoleWorker } = await import("../src/pwa");
+		const { registerConsoleWorker } = await import("../src/work/pwa");
 		expect(() => registerConsoleWorker()).not.toThrow();
 	} finally {
 		vi.unstubAllGlobals();
