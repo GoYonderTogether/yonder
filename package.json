@@ -45,7 +45,8 @@
 		"plugins/onboarding",
 		"plugins/code-intel",
 		"plugins/codex-companion",
-		"plugins/advisor"
+		"plugins/advisor",
+		"plugins/market"
 	],
 	"scripts": {
 		"version:check": "node scripts/version-check.mjs --check",

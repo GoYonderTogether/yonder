@@ -114,6 +114,9 @@
 		},
 		{
 			"path": "plugins/advisor"
+		},
+		{
+			"path": "plugins/market"
 		}
 	]
 }
