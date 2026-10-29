@@ -1,8 +1,9 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { HASH_SEP } from "@earendil-works/pi-durable/tools";
 import type { ToolContext, YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
@@ -115,7 +116,21 @@ test("recursive grep never follows workspace symlinks into external files or dir
 		);
 		expect(result.text).toContain("BOUNDARY-INSIDE");
 		expect(result.text).not.toContain("BOUNDARY-OUTSIDE");
-		expect(JSON.parse(result.text).matches).toHaveLength(1);
+		// One hit is one `line:│ anchor│content` row, and its anchor edits that line without another read.
+		expect(result.text.match(/BOUNDARY-INSIDE/g)).toHaveLength(1);
+		const row = result.text.split("\n").find((line) => line.includes("BOUNDARY-INSIDE")) ?? "";
+		const [gutter, served] = row.split(`${HASH_SEP} `);
+		expect(gutter).toBe("1:");
+		const [anchor = "", ...rest] = (served ?? "").split(HASH_SEP);
+		expect(anchor).toMatch(/^[a-z]{5}$/);
+		expect(rest.join(HASH_SEP)).toBe("BOUNDARY-INSIDE");
+		const { createReplaceTool } = await import("@earendil-works/pi-durable/tools");
+		await createReplaceTool().execute(
+			{ path: "inside.txt", remove_from: anchor, remove_to: anchor, text: "EDITED" },
+			{ env: localEnvironment(cwd) } as import("@earendil-works/pi-durable").ToolExecutionApi,
+			BACKGROUND_CONTEXT,
+		);
+		expect(await readFile(join(cwd, "inside.txt"), "utf8")).toBe("EDITED");
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

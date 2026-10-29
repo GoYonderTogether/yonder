@@ -116,7 +116,15 @@ test.skipIf(spawnSync("fd", ["--version"]).error)(
 			expect(rows.map((row) => row.slice(6))).toEqual(cached.value.replace(/\n$/, "").split("\n"));
 			const first = cached.value.split("\n")[0] ?? "";
 			const grep = await createGrepTool().execute({ pattern: first, path: cachePath, literal: true }, ctx);
-			expect(JSON.parse(grep.text).matches[0].text).toBe(first);
+			// A grep hit is a served row too, so the line comes back behind its anchor, editable without another read.
+			const hit =
+				grep.text
+					.split("\n")
+					.find((line) => line.includes(`${HASH_SEP} `))
+					?.split(`${HASH_SEP} `)[1] ?? "";
+			const [grepAnchor, ...grepRest] = hit.split(HASH_SEP);
+			expect(grepAnchor).toMatch(/^[a-z]{5}$/);
+			expect(grepRest.join(HASH_SEP)).toBe(first);
 			const index = await env.readTextFile(join(home, "cache/tool-output/1/index.jsonl"), BACKGROUND_CONTEXT);
 			expect(index.ok && JSON.parse(index.value).tool).toBe("find");
 		} finally {
