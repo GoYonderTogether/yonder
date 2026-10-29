@@ -8,6 +8,7 @@ import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
 import { AccountSecurity } from "../components/AccountSecurity";
 import { CreateBotDialog } from "../components/CreateBotDialog";
+import { MyCard } from "../components/MyCard";
 import { MyMarket } from "../components/market/MarketStats";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
@@ -181,6 +182,7 @@ export function Me() {
 					</>
 				) : (
 					<>
+						<MyCard />
 						<MyMarket />
 						<section aria-label="我的 Bot" className="overflow-hidden rounded-card bg-raised">
 							<div className="flex items-center justify-between px-5 pt-4 pb-2">

@@ -11,6 +11,7 @@ import { AiBadge } from "../components/chat/AiBadge";
 import { AnonHint } from "../components/chat/AnonHint";
 import { ChatDetail } from "../components/chat/ChatDetail";
 import { DeviceRow } from "../components/chat/DeviceRow";
+import { NextSteps } from "../components/chat/NextSteps";
 import { EmptyPane } from "../components/EmptyPane";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
@@ -100,6 +101,21 @@ export function ChatShell() {
 		if (desktop && !id && defaultConv) nav(`/c/${defaultConv.id}`, { replace: true });
 	}, [desktop, id, defaultConv, nav]);
 
+	// 云端只建 Bot 账号不建会话：新用户首屏会看不到小歪，这里补开一次私聊。
+	const botId = defaultBot?.id;
+	const noBotConv = !isLoading && !!convs && !!botId && !defaultConv;
+	const opened = useRef<string | undefined>(undefined);
+	useEffect(() => {
+		if (!noBotConv || !botId || opened.current === botId) return;
+		opened.current = botId;
+		api
+			.openDm(botId)
+			.then(() => qc.invalidateQueries({ queryKey: ["convs"] }))
+			.catch(() => {
+				opened.current = undefined;
+			});
+	}, [noBotConv, botId, qc]);
+
 	useEffect(
 		() =>
 			api.subscribe((m) => {
@@ -147,6 +163,7 @@ export function ChatShell() {
 					</>
 				)}
 				<DeviceRow />
+				{!isLoading && !isError && <NextSteps />}
 				<nav className="scroll-y flex-1 px-2 pb-2">
 					{isLoading &&
 						Array.from({ length: 4 }, (_, i) => (

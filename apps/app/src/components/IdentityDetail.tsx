@@ -18,6 +18,7 @@ export function IdentityDetail({
 	qr,
 	children,
 	publicView = false,
+	showCode = true,
 }: {
 	actor: Actor;
 	card?: Profile["card"];
@@ -28,6 +29,8 @@ export function IdentityDetail({
 	qr?: ReactNode;
 	children?: ReactNode;
 	publicView?: boolean;
+	/** 名片页的地址用名片码，账号码与之不同，在名片页隐藏以免两个码混淆 */
+	showCode?: boolean;
 }) {
 	const loc = useLocation();
 	const [expandedFor, setExpandedFor] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export function IdentityDetail({
 						</div>
 						<div className="min-w-0 flex-1 pt-3">
 							<h1 className="break-words text-[22px] leading-tight font-semibold tracking-tight">{actor.name}</h1>
-							{actor.code && <p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>}
+							{showCode && actor.code && <p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>}
 							{agent && (
 								<p className="mt-1 flex items-center gap-1.5 text-caption text-muted">
 									<Status online={!!actor.online} />

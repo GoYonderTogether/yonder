@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
 import { selectAccount } from "../cache";
 import { AppBar } from "../components/AppBar";
@@ -10,6 +10,7 @@ import { IdentityDetail } from "../components/IdentityDetail";
 import { IdentityQr } from "../components/IdentityQr";
 import { useStartChat } from "../lib/cardActions";
 import { entityRef } from "../lib/entityRef";
+import { wantCardLogin } from "../lib/myCard";
 import { useAppBack } from "../lib/navigation";
 import { useEntityId } from "../lib/useEntityId";
 import { $session } from "../store";
@@ -21,10 +22,13 @@ export function PublicIdentity({
 	accountId,
 	cardId,
 	source = "link",
+	share,
 }: {
 	accountId?: string;
 	cardId?: string;
 	source?: "scan" | "link";
+	/** 访客是通过哪条分享链接来的；带去登录页做拉新归因 */
+	share?: string | null;
 }) {
 	const account = useEntityId("actor", accountId);
 	const cardRef = useEntityId("card", cardId);
@@ -143,6 +147,7 @@ export function PublicIdentity({
 			agents={profile.agents}
 			owner={profile.owner}
 			publicView
+			showCode={!cardId}
 			qr={
 				<IdentityQr
 					actor={actor}
@@ -165,7 +170,16 @@ export function PublicIdentity({
 					)}
 				</div>
 			}
-		/>
+		>
+			{!self && (
+				<Link
+					to={!session || session.actor.anonymous ? wantCardLogin(share) : "/me?card=new"}
+					className="press self-center rounded-full px-4 py-2 text-small text-muted underline underline-offset-4 hover:text-ink"
+				>
+					我也要一张
+				</Link>
+			)}
+		</IdentityDetail>
 	);
 }
 
@@ -190,7 +204,12 @@ export function CardPage() {
 				}
 			/>
 			<div className="scroll-y min-h-0 flex-1">
-				<PublicIdentity accountId={accountId} cardId={id} source={params.get("s") === "scan" ? "scan" : "link"} />
+				<PublicIdentity
+					accountId={accountId}
+					cardId={id}
+					source={params.get("s") === "scan" ? "scan" : "link"}
+					share={params.get("share")}
+				/>
 			</div>
 		</div>
 	);
