@@ -8,7 +8,7 @@ import { openDatabase } from "../runtime/db.js";
 import type { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
-import { chatCommand, runChannelCommand } from "./commands.js";
+import { chatCommand, extraSlashCommands, runChannelCommand } from "./commands.js";
 
 async function setup(level = "readonly", capabilities?: string[]) {
 	const db = await openDatabase(":memory:");
@@ -37,8 +37,18 @@ bindings: []
 	);
 	await store.sessions.put(session);
 	const aborted: string[] = [];
+	const bg: unknown[] = [];
 	const runtime = {
 		sessionState: async () => undefined,
+		sessionConfig: async () => ({ resolved: { capabilities: capabilities ?? ["read", "admin", "network"] } }),
+		backgroundList: async (id: string) => {
+			bg.push(["list", id]);
+			return [];
+		},
+		backgroundAction: async (id: string, action: unknown) => {
+			bg.push([id, action]);
+			return { ok: true };
+		},
 		abort: async (id: string) => {
 			aborted.push(id);
 		},
@@ -60,7 +70,7 @@ bindings: []
 			return { ok: true };
 		},
 	} as DeliveryService;
-	return { db, store, session, sessions, sends, delivery, aborted };
+	return { db, store, session, sessions, sends, delivery, aborted, bg };
 }
 
 const skills = async () => ({ skills: [], issues: [], index: "", estimatedTokens: 0 });
@@ -230,5 +240,66 @@ test("connect commands require admin+network and use the shared channel login wi
 		} finally {
 			await ctx.db.close();
 		}
+	}
+});
+
+test("extra slash commands and bg aliases route to their handlers", async () => {
+	const ctx = await setup("bypass");
+	try {
+		let reloads = 0;
+		const services = {
+			store: ctx.store,
+			sessions: ctx.sessions,
+			delivery: ctx.delivery,
+			skills,
+			reload: async () => {
+				reloads++;
+			},
+		};
+		const run = (id: string, text: string) => runChannelCommand(ctx.session, event(id, text), services);
+		expect(extraSlashCommands.find(({ name }) => name === "kill")?.argumentHint).toBe("<id>");
+		await run("x-jobs", "/jobs");
+		await run("x-logs", "/logs 3");
+		await run("x-kill", "/kill 3");
+		expect(ctx.bg).toEqual([
+			["list", "1"],
+			["1", { action: "log", id: "3" }],
+			["1", { action: "kill", id: "3" }],
+		]);
+		expect((await run("x-kill-bad", "/kill abc"))?.status).toBe("error");
+		expect((await run("x-reload", "/reload"))?.text).toContain("Reloaded");
+		expect(reloads).toBe(1);
+		expect((await run("x-name", "/name 周报讨论"))?.text).toContain("周报讨论");
+		expect((await ctx.store.sessions.get("1"))?.title).toBe("周报讨论");
+		expect((await run("x-trust", "/trust /tmp/project"))?.status).toBe("done");
+		expect((await ctx.store.events.query({ type: "session.trust" })).events[0]?.data).toMatchObject({
+			directory: "/tmp/project",
+		});
+		expect((await run("x-copy-none", "/copy"))?.status).toBe("error");
+		await ctx.store.events.record({
+			type: "message.out",
+			conv: "conv:feishu:thread",
+			data: { text: "上一条回复", session: "1", to: "conv:feishu:thread", delivery: {} },
+		});
+		expect((await run("x-copy", "/copy"))?.text).toBe("上一条回复");
+		const settings = JSON.parse((await run("x-settings", "/settings"))?.text ?? "{}");
+		expect(settings).toMatchObject({ session: "1", agent: "main", title: "周报讨论" });
+	} finally {
+		await ctx.db.close();
+	}
+});
+
+test("admin-only extra commands are refused without admin", async () => {
+	const ctx = await setup("readonly");
+	try {
+		const result = await runChannelCommand(ctx.session, event("x-ro", "/name x"), {
+			store: ctx.store,
+			sessions: ctx.sessions,
+			delivery: ctx.delivery,
+			skills,
+		});
+		expect(result).toMatchObject({ status: "error", text: "/name 需要 admin 权限" });
+	} finally {
+		await ctx.db.close();
 	}
 });
