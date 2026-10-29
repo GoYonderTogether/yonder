@@ -27,7 +27,7 @@
 		"entry": "./dist/index.js",
 		"contributes": {
 			"tools": [
-				"ask_advisor",
+				"advisor_ask_advisor",
 				"advisor_consult",
 				"advisor_record_advisor_outcome"
 			]

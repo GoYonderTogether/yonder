@@ -18,7 +18,7 @@ test("outcome reservation is session scoped, retryable and expires on restart", 
 		};
 		await plugin.setup(api as never);
 		expect(collector.registrations.tools.map((t) => t.name)).toEqual([
-			"ask_advisor",
+			"advisor_ask_advisor",
 			"advisor_consult",
 			"advisor_record_advisor_outcome",
 		]);
@@ -49,7 +49,7 @@ test("outcome reservation is session scoped, retryable and expires on restart", 
 	}
 });
 
-test("ask_advisor defaults the preset, composes the request and validates follow-ups", async () => {
+test("advisor_ask_advisor defaults the preset, composes the request and validates follow-ups", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "advisor-"));
 	try {
 		const collector = createRegistrationCollector();
@@ -67,7 +67,7 @@ test("ask_advisor defaults the preset, composes the request and validates follow
 		};
 		await plugin.setup(api as never);
 		const ask = collector.registrations.tools[0];
-		if (!ask) throw new Error("missing ask_advisor");
+		if (!ask) throw new Error("missing advisor_ask_advisor");
 		const ctx = { session: "one", signal: new AbortController().signal } as ToolContext;
 		expect((await ask.execute({}, ctx)).text).toEqual(expect.stringMatching(/^adviceId: [\w-]+\nadvice$/));
 		expect(requests[0]).toEqual({ preset: "default", task: expect.stringContaining("second opinion") });

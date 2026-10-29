@@ -237,4 +237,4 @@ macOS 权限：native-automation_desktop 的 `permissions`/`status` 返回 helpe
 - `code-intel_read_symbol`：通过 pi-lens MCP 按文件和符号名或回调句柄读取源码。
 - `code-intel_ast_grep_outline`：通过执行环境内 ast-grep 查看文件或目录的语法结构。
 
-可选 advisor 插件提供 `ask_advisor`（旧名 `advisor_consult` 别名）与 `advisor_record_advisor_outcome`；参数和状态边界见 [11](spec/11-official-plugins.md)。
+可选 advisor 插件提供 `advisor_ask_advisor`（旧名 `advisor_consult` 别名）与 `advisor_record_advisor_outcome`；参数和状态边界见 [11](spec/11-official-plugins.md)。

@@ -17,7 +17,7 @@ const validation = Type.Union([
 	Type.Literal("unknown"),
 ]);
 
-/** `init` always writes this preset, so an empty `ask_advisor` call has a target without extra configuration. */
+/** `init` always writes this preset, so an empty `advisor_ask_advisor` call has a target without extra configuration. */
 const defaultPreset = "default";
 const contextualReview = "Give a second opinion on the current task, risks, proposed direction, and validation.";
 
@@ -73,7 +73,7 @@ export default definePlugin({
 		};
 
 		api.tools.register({
-			name: "ask_advisor",
+			name: "advisor_ask_advisor",
 			description:
 				"Consult the on-demand Advisor model for strategic guidance. Call with an empty object for a contextual review; attach an optional draft for concrete plan or completion review. Use followUp with the adviceId of an earlier consultation in this session and a new question to continue it without restating the context; do not combine followUp with draft.",
 			parameters: Type.Object(
@@ -118,7 +118,7 @@ export default definePlugin({
 		api.tools.register({
 			name: "advisor_consult",
 			description:
-				"Deprecated alias of ask_advisor: consult a task preset and return advice with an ID for optional outcome recording.",
+				"Deprecated alias of advisor_ask_advisor: consult a task preset and return advice with an ID for optional outcome recording.",
 			parameters: Type.Object(
 				{ preset: Type.String({ minLength: 1 }), task: Type.String({ minLength: 1 }) },
 				{ additionalProperties: false },

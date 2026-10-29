@@ -12,7 +12,7 @@ const model = "workbuddy/deepseek-v4.1-flash";
  * Credentials are read from a home that already holds the workbuddy slot; nothing is printed.
  */
 test.skipIf(process.env.YONDER_ADVISOR_REAL !== "1")(
-	"ask_advisor starts a consultation from an empty object and the old name still works",
+	"advisor_ask_advisor starts a consultation from an empty object and the old name still works",
 	async () => {
 		const home = await mkdtemp("/tmp/yonder-advisor-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
@@ -41,11 +41,11 @@ test.skipIf(process.env.YONDER_ADVISOR_REAL !== "1")(
 			agent.defaults.contexts = [];
 			agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
 			agent.profiles.owner.tools = {
-				offer: ["ask_advisor", "advisor_consult", "advisor_record_advisor_outcome"],
+				offer: ["advisor_ask_advisor", "advisor_consult", "advisor_record_advisor_outcome"],
 				search: [],
 			};
 			await writeFile(agentPath, stringify(agent));
-			// `ask_advisor` consults the `default` preset unless plugin config names another one.
+			// `advisor_ask_advisor` consults the `default` preset unless plugin config names another one.
 			await writeFile(
 				join(home, "presets/default.yaml"),
 				stringify({
@@ -73,11 +73,11 @@ test.skipIf(process.env.YONDER_ADVISOR_REAL !== "1")(
 
 			const empty = await kernel.bots.send(
 				"main",
-				'Call ask_advisor exactly once with an empty object "{}" as its arguments and no parameters. Then repeat the adviceId the tool returned.',
+				'Call advisor_ask_advisor exactly once with an empty object "{}" as its arguments and no parameters. Then repeat the adviceId the tool returned.',
 			);
 			await settle(empty.event);
 			const first = (await kernel.sessions.transcript(empty.session!)).flatMap((entry) => entry.tools ?? []);
-			const consulted = first.filter((call) => call.name === "ask_advisor");
+			const consulted = first.filter((call) => call.name === "advisor_ask_advisor");
 			expect(consulted).toHaveLength(1);
 			expect(consulted[0]?.args).toEqual({});
 
