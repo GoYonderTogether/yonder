@@ -2,14 +2,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Preset } from "@yonder/sdk";
 import { shippedChannelsFor } from "../bundles.js";
-import {
-	type AgentConfig,
-	loadPresets,
-	loadYonderConfig,
-	resolveProfile,
-	watchConfig,
-	type YonderConfig,
-} from "../config/index.js";
+import { type AgentConfig, loadPresets, loadYonderConfig, watchConfig, type YonderConfig } from "../config/index.js";
 import { lockHome } from "../control/home-lock.js";
 import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";

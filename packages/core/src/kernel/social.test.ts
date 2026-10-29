@@ -90,3 +90,68 @@ test("owner confirmation gates policy change, persists it, and records rejection
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("bot gate injects a low-weight hint only after bot chatter crosses the window threshold", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-social-gate-"));
+	try {
+		const raw = JSON.stringify({
+			schema: 1,
+			id: "main",
+			name: "Main",
+			owner: "person:owner",
+			defaultProfile: "default",
+			profiles: { default: {} },
+			bindings: [],
+			social: { enabled: true, authorized: { conversations: ["conv:test:group"] } },
+		});
+		const agents = new Map([["main", parseAgentConfig(raw)]]);
+		const recorded: Array<{ type: string; conv?: string; data: object }> = [];
+		const service = createSocial({
+			home,
+			config: { agents: [{ id: "main", workspace: "." }] } as YonderConfig,
+			agents,
+			assert: () => {},
+			owner: async () => true,
+			target: async () => ({ kind: "group" }),
+			record: async (event) => {
+				recorded.push(event);
+			},
+			validate: async () => {},
+			reload: async () => {},
+		});
+		const now = Date.parse("2026-10-29T12:00:00.000Z");
+		const minutesAgo = (minutes: number) => now - minutes * 60_000;
+		const bots = (minutes: number[]) => minutes.map((minute) => ({ at: minutesAgo(minute), bot: true }));
+		// 一个 15 分钟窗口里 3 条机器人消息正好等于阈值，不触发也不记账。
+		const quiet = await service.botGate({ agent: "main", conv: "conv:test:group", events: bots([13, 7, 1]), now });
+		expect(quiet).toEqual({ inject: false, frequencies: [0, 0, 0] });
+		expect(recorded).toHaveLength(0);
+		// 第 4 条触发：附前 3 个窗口的频率，记一条低权重的结构化事件供下一回合使用。
+		const gated = await service.botGate({
+			agent: "main",
+			conv: "conv:test:group",
+			events: bots([44, 31, 13, 12, 7, 1]),
+			now,
+		});
+		expect(gated).toEqual({
+			inject: true,
+			frequencies: [0, 2, 0],
+			hint: { windowMin: 15, threshold: 3, count: 4, frequencies: [0, 2, 0] },
+		});
+		expect(recorded.at(-1)).toMatchObject({
+			type: "social.bot-gate",
+			conv: "conv:test:group",
+			data: { agent: "main", source: "bot", weight: "low", count: 4 },
+		});
+		// 真人的消息不计入机器人频率。
+		const humans = [13, 7, 1].map((minute) => ({ at: minutesAgo(minute), bot: false }));
+		expect(
+			await service.botGate({ agent: "main", conv: "conv:test:group", events: [...bots([13, 7]), ...humans], now }),
+		).toMatchObject({ inject: false });
+		await expect(service.botGate({ agent: "ghost", conv: "conv:test:group", events: [], now })).rejects.toThrow(
+			"Unknown agent",
+		);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});

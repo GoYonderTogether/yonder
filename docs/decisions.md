@@ -705,3 +705,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 三处提醒（`maxTurns`/`maxTokens`/`maxMinutes`）的文案统一由 `RunLimits.limitText` 产出：写明撞的是哪个上限、已用多少、上限多少，并给出下一步——「回复『继续』可以接着做」。原文案只对模型说话（English），主人这边看不到为什么会半途停下。
 - 只改文案，不改行为与默认值：仍然是 architecture 第 5 节第 7 条的「只提醒、不截断」，`maxTurns` 100 / `maxMinutes` 30 / `maxTokens` 200000 不变；提醒照旧写成 `runtime.warning` 事件与会话里的 runtime note（主人可见、模型上下文也看得到），会话可以继续运行。
 - 验证：`packages/core/src/runtime/limits.test.ts` 补断言（提醒文案含「回复『继续』可以接着做」、转录里有这句、同一会话再提交仍能正常结束）。真实模型复测本次未做：`openai/gpt-6-luna` 的额度已用尽，隔离 HOME 里没有 workbuddy/rightapi 的凭据，如实记为未测。
+
+## 2026-10-29 IMP-17 机器人闸门接入内核（主 Agent 代批）
+
+- 闸门的窗口/阈值数学放 `packages/core/src/kernel/social.ts`（`botGateCounts` + 服务方法 `botGate`），口径与 `plugins/social/src/bot-gate.ts` 的 `evaluateBotGate` 完全一致（窗口左开右闭、默认 15 分钟/3 条/3 个历史窗口，`social.botGate` 覆盖）：内核不能反向依赖插件源码，所以这一份是同口径的最小实现，两处改口径时要同步。
+- 触发时只记一条结构化事件 `social.bot-gate`（`agent`、`conv`、`source: "bot"`、`weight: "low"`、窗口条数与历史频率），文案留给 O52；模型沿用既有 mute / 继续机制处理，不新增停止通道。
+- 未接线部分与原因：本卡的允许路径只有 `kernel/social.ts` 与其测试，而真正的调用点（`routing/social.ts` 的 `socialDecision` 或 `routing/index.ts` 的路由决定）不在其中；另外「这条消息来自机器人」这一分类输入目前内核侧拿不到——G-10 只给了 `mentions.bot`（是否被 @），渠道事件里没有发送方是 Bot 的标记，`botGate` 因此要求调用方传入 `{at, bot}`。补齐这两点（调用点 + 来源标注）后即可满足 C5 的端到端验收，本卡只交付可用的判定与记账。

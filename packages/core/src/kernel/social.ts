@@ -6,7 +6,7 @@ import lockfile from "proper-lockfile";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import { type AgentConfig, parseAgentConfig, type YonderConfig } from "../config/index.js";
-import { socialPolicySchema } from "../config/social-schema.js";
+import { socialDefaults, socialPolicySchema } from "../config/social-schema.js";
 import type { Principal } from "../control/method-types.js";
 
 type Inspect = Parameters<SocialAPI["inspect"]>[0];
@@ -28,6 +28,45 @@ const effectivePolicy = (defaults?: SocialPolicy, override?: SocialPolicy): Soci
 	...(defaults?.batch || override?.batch ? { batch: { ...defaults?.batch, ...override?.batch } } : {}),
 	...(defaults?.signals || override?.signals ? { signals: { ...defaults?.signals, ...override?.signals } } : {}),
 });
+/** C5 机器人闸门（IMP-17）：窗口左开右闭，与 `plugins/social/src/bot-gate.ts` 的 `evaluateBotGate` 同口径。 */
+export interface BotGateEvent {
+	/** 消息时间：ISO 8601 或 epoch 毫秒。 */
+	at: string | number;
+	/** 来自另一个机器人/AI 账号时为 true；内核侧只统计这种来源，权重低于真人。 */
+	bot: boolean;
+}
+export interface BotGateHint {
+	windowMin: number;
+	threshold: number;
+	count: number;
+	frequencies: number[];
+}
+export function botGateCounts(
+	events: readonly BotGateEvent[],
+	now: string | number,
+	cfg?: { windowMin?: number; threshold?: number; history?: number },
+): { inject: boolean; frequencies: number[]; hint?: BotGateHint } {
+	const positive = (value: number | undefined, fallback: number): number =>
+		Number.isFinite(value) && (value as number) > 0 ? Math.floor(value as number) : fallback;
+	const windowMin = positive(cfg?.windowMin ?? socialDefaults.botGate.windowMin, 15);
+	const threshold = positive(cfg?.threshold ?? socialDefaults.botGate.threshold, 3);
+	const history = positive(cfg?.history ?? socialDefaults.botGate.history, 3);
+	const at = typeof now === "number" ? now : Date.parse(now);
+	const window = windowMin * 60_000;
+	const times = events
+		.filter((event) => event.bot)
+		.map((event) => (typeof event.at === "number" ? event.at : Date.parse(event.at)))
+		.filter((value) => Number.isFinite(value));
+	// 窗口左开右闭：落在边界上的消息归后一个窗口。
+	const count = (start: number, end: number) => times.filter((value) => value > start && value <= end).length;
+	const frequencies = Array.from({ length: history }, (_, index) =>
+		count(at - (history - index + 1) * window, at - (history - index) * window),
+	);
+	const current = count(at - window, at);
+	if (!Number.isFinite(at) || current <= threshold) return { inject: false, frequencies };
+	return { inject: true, frequencies, hint: { windowMin, threshold, count: current, frequencies } };
+}
+
 export function createSocial(options: {
 	home: string;
 	config: YonderConfig;
@@ -243,5 +282,27 @@ export function createSocial(options: {
 			data: { actor: principal.id, before: {}, after: {}, reason, revision: "unknown", result: "rejected" },
 		});
 	};
-	return { inspect, update, auditDenied };
+	/**
+	 * 触发时只记一条结构化提示事件（不含措辞，文案归 O52），下一次回合由事件窗口带给模型；
+	 * 模型仍用既有的 mute / 继续机制处理，不新增停止通道。
+	 */
+	const botGate = async (request: {
+		agent: string;
+		conv: string;
+		events: readonly BotGateEvent[];
+		now?: string | number;
+	}) => {
+		const target = options.agents.get(request.agent);
+		if (!target) throw new SocialError("invalid_params", "Unknown agent");
+		const result = botGateCounts(request.events, request.now ?? Date.now(), target.social?.botGate);
+		if (result.inject && result.hint)
+			await options.record({
+				type: "social.bot-gate",
+				from: "plugin:social",
+				conv: request.conv,
+				data: { agent: request.agent, source: "bot", weight: "low", ...result.hint },
+			});
+		return result;
+	};
+	return { inspect, update, auditDenied, botGate };
 }
