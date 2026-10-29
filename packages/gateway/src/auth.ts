@@ -21,11 +21,16 @@ export const principals = {
 	local: { id: "gateway:local", transport: "gateway", kind: "local", scopes: ["read", "write", "admin", "owner"] },
 	remote: { id: "gateway:remote", transport: "gateway", kind: "remote", scopes: ["read", "write"] },
 } as const satisfies Record<string, Principal>;
-/** Remote logins only get `owner` when the node opts in (gateway.remoteOwner). */
-export const principalOf = (login: Login, remoteOwner: boolean): Principal =>
-	login === "remote" && remoteOwner
-		? { ...principals.remote, scopes: [...principals.remote.scopes, "owner"] }
-		: principals[login];
+/** Remote logins only get `owner` when the node opts in (gateway.remoteOwner), `admin` when gateway.remoteAdmin is on. */
+export const principalOf = (login: Login, remoteOwner: boolean, remoteAdmin = false): Principal => {
+	if (login !== "remote") return principals[login];
+	const scopes: Principal["scopes"] = [
+		...principals.remote.scopes,
+		...(remoteAdmin ? (["admin"] as const) : []),
+		...(remoteOwner ? (["owner"] as const) : []),
+	];
+	return scopes.length === principals.remote.scopes.length ? principals.remote : { ...principals.remote, scopes };
+};
 export type Login = keyof typeof principals;
 
 /** One-time login tickets: the startup token plus any minted later. Only hashes are kept. */

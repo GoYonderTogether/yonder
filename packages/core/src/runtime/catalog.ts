@@ -10,6 +10,10 @@ export const capabilityMap: Record<string, Capability[]> = {
 	edit: ["write"],
 	replace: ["write"],
 	replace_match: ["write"],
+	insert: ["write"],
+	copy: ["write"],
+	move: ["write"],
+	undo_last_change: ["write"],
 	bash: ["exec"],
 	tool_search: [],
 };

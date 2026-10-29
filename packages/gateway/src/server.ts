@@ -145,7 +145,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 		const pathname = prefixed ? `/${rawPath.slice(basePath.length)}` : rawPath;
 		return { pathname, mount: prefixed || !loopbackHost(req.headers.host) ? basePath : "/" };
 	}
-	const principalFor = (login: Login) => principalOf(login, settings.remoteOwner);
+	const principalFor = (login: Login) => principalOf(login, settings.remoteOwner, settings.remoteAdmin);
 	const ctxFor = (login: Login): HostCtx => ({ ...host, principal: principalFor(login), gateway: handle });
 
 	async function handleRpc(

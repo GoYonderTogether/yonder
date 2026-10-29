@@ -4,6 +4,7 @@ import { approvalsMethods } from "./approvals-methods.js";
 import { botMethods } from "./bot-methods.js";
 import { capabilitiesMethods } from "./capabilities-methods.js";
 import { catalogMethods } from "./catalog-methods.js";
+import { configMethods } from "./config-methods.js";
 import type { ControlHandler } from "./index.js";
 import { legacyMethods } from "./legacy-methods.js";
 import { allScopes, type HostCtx, type MethodDef, MethodError, type Principal, type Scope } from "./method-types.js";
@@ -20,6 +21,7 @@ const defs: MethodDef[] = [
 	...base,
 	...capabilitiesMethods,
 	...viewsMethods,
+	...configMethods,
 	...catalogMethods,
 	...sessionOpenMethods,
 	...legacyMethods,

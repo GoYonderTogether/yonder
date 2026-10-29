@@ -97,6 +97,55 @@
 				"type": "object"
 			}
 		},
+		"config.get": {
+			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"agent": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"type": "object"
+			}
+		},
+		"config.update": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"agent": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"expectedRevision": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"patch": {
+						"patternProperties": {
+							"^.*$": {}
+						},
+						"type": "object"
+					},
+					"scope": {
+						"anyOf": [
+							{
+								"const": "agent",
+								"type": "string"
+							},
+							{
+								"const": "home",
+								"type": "string"
+							}
+						]
+					}
+				},
+				"required": ["expectedRevision", "patch"],
+				"type": "object"
+			}
+		},
 		"events.query": {
 			"scope": "read",
 			"since": 1,

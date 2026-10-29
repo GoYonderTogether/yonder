@@ -2937,6 +2937,9 @@
 					},
 					"remoteOwner": {
 						"type": "boolean"
+					},
+					"remoteAdmin": {
+						"type": "boolean"
 					}
 				},
 				"additionalProperties": false

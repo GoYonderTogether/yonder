@@ -16,14 +16,20 @@ export interface PolicyDeps {
 }
 
 /**
- * The file a call touches: the one its `path` names, or for an anchor edit the one file whose anchors it quotes.
- * Undefined when neither is known, so the edit itself reports the anchors it cannot resolve.
+ * The files a call touches: the one its `path` names, and every file whose anchors it quotes, because `copy` and
+ * `move` reach a second file by anchor alone. Empty when nothing is known, so the edit itself reports the anchors
+ * it cannot resolve.
  */
-function checkedPath(args: JsonObject): string | undefined {
-	if (typeof args.path === "string") return args.path;
-	const anchors = [args.remove_from, args.replace_from].filter((value): value is string => typeof value === "string");
-	const owners = new Set(anchors.flatMap((anchor) => anchorOwners(anchor)));
-	return owners.size === 1 ? [...owners][0] : undefined;
+function checkedPaths(args: JsonObject): string[] {
+	const paths = new Set<string>();
+	if (typeof args.path === "string") paths.add(args.path);
+	const fields = ["anchor", "remove_from", "remove_to", "replace_from", "replace_to", "source_from", "source_to"];
+	for (const field of fields) {
+		const value = args[field];
+		if (typeof value !== "string") continue;
+		for (const owner of anchorOwners(value)) paths.add(owner);
+	}
+	return [...paths];
 }
 
 /** Capability, workspace-boundary and protected-file checks applied before a tool runs. */
@@ -40,10 +46,36 @@ export class ToolPolicy {
 		if (missing.length) return `缺少能力：${missing.join(", ")}`;
 		if (name === "process" && args.action === "write" && !config.resolved.capabilities.includes("exec"))
 			return "Writing process stdin requires exec capability";
-		if (!["read", "write", "edit", "replace", "replace_match", "grep", "ls", "find"].includes(name)) return;
+		const guarded = [
+			"read",
+			"write",
+			"edit",
+			"replace",
+			"replace_match",
+			"insert",
+			"copy",
+			"move",
+			"undo_last_change",
+			"grep",
+			"ls",
+			"find",
+		];
+		if (!guarded.includes(name)) return;
 		if ((name === "grep" || name === "ls" || name === "find") && args.path === undefined) args = { ...args, path: "." };
-		const path = checkedPath(args);
-		if (path === undefined) return;
+		for (const path of checkedPaths(args)) {
+			const reason = await this.deniedPath(name, path, config, context, session);
+			if (reason !== undefined) return reason;
+		}
+	}
+
+	/** Checks one target path of a call; `denied` loops over every file its anchors name. */
+	private async deniedPath(
+		name: string,
+		path: string,
+		config: RuntimeSessionConfig,
+		context: Context,
+		session: string,
+	): Promise<string | undefined> {
 		const env = this.deps.environment(config);
 		const canonical = async (path: string): Promise<string> => {
 			const result = await env.canonicalPath(path, context);

@@ -139,7 +139,7 @@ test("anchor edit tools are offered and gated by the write capability", () => {
 			},
 			new Map(),
 		);
-	for (const name of ["replace", "replace_match"]) {
+	for (const name of ["replace", "replace_match", "insert", "copy", "move", "undo_last_change"]) {
 		expect(catalog(["read", "write"]).find((tool) => tool.name === name)).toMatchObject({
 			exposure: "offer",
 			capabilities: ["write"],

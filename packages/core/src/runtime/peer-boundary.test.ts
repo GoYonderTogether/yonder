@@ -152,6 +152,10 @@ test("anchor edits are checked against the file that served the anchors, with or
 			capabilities: new Map([
 				["read", ["read"]],
 				["replace", ["write"]],
+				["insert", ["write"]],
+				["copy", ["write"]],
+				["move", ["write"]],
+				["undo_last_change", ["write"]],
 			]),
 			environment: () => env,
 			context: async () => ({
@@ -189,6 +193,30 @@ test("anchor edits are checked against the file that served the anchors, with or
 		expect(
 			await policy.denied("replace", edit(await anchorOf(join(cwd, "inside.txt"))), config, BACKGROUND_CONTEXT, "1"),
 		).toBeUndefined();
+		// The anchor write tools are gated the same way, and copy/move are checked in both files their anchors name.
+		const inside = await anchorOf(join(cwd, "inside.txt"));
+		expect(
+			await policy.denied(
+				"insert",
+				{ anchor: await anchorOf(join(cwd, "agent.yaml")), direction: "after", text: "x" },
+				config,
+				BACKGROUND_CONTEXT,
+				"1",
+			),
+		).toContain("受保护文件");
+		for (const name of ["copy", "move"])
+			expect(
+				await policy.denied(
+					name,
+					{ source_from: inside, source_to: inside, anchor: await anchorOf(outside), direction: "after" },
+					config,
+					BACKGROUND_CONTEXT,
+					"1",
+				),
+			).toContain("超出");
+		expect(
+			await policy.denied("undo_last_change", { path: join(cwd, "agent.yaml") }, config, BACKGROUND_CONTEXT, "1"),
+		).toContain("受保护文件");
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}

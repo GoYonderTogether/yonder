@@ -232,6 +232,8 @@ export const YonderSchema = object({
 			trustProxy: Type.Optional(Type.Boolean()),
 			/** Grant the `owner` scope (talk to resident Bots) to remote access-token logins. Off by default. */
 			remoteOwner: Type.Optional(Type.Boolean()),
+			/** Grant the `admin` scope (config.update, social.update, management) to remote access-token logins. Off by default. */
+			remoteAdmin: Type.Optional(Type.Boolean()),
 		}),
 	),
 	imports: Type.Optional(object({ piSessionsDir: Type.Optional(text) })),
