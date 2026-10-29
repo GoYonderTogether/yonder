@@ -235,3 +235,11 @@ submit 的 wait:false（默认）返回本次实际 session.input 的 InputRecei
 可选 social 配置只收窄原事件的候选 Agent 与唤醒，不新增绕过 binding 的路径；批次只能由预先配置的 `social.batch-ready` binding 接纳。拒绝优先，映射依次为精确 conv、账号、person、默认 Agent；同级冲突拒绝配置。主人已验证 DM 可沿已有 binding 进入 main；授权人和群使用隔离会话，不进入主人 main。关系只由明确配置建立，好友或群主不自动获得权限。
 
 主人或授权人 DM 默认 direct，仅沿已有 binding 的唤醒语义，不能把 write 提升为 run；好友或陌生人默认 record。授权群默认 batch，其他 group/channel 默认 record。profile 改动只作用于新会话，已有会话保留固定 profile；需要立即切换时显式 `/new` 或关闭会话。
+
+### 运行结束与关闭原因（BE-05）
+
+一次运行结束后是否关闭会话由关闭策略决定（`packages/core/src/sessions/close-policy.ts` 的 `closeOnRunEnd`）。`ephemeral` 会话不承载后续输入，任何结束都关闭，关闭原因在成功时为 `completed`，否则是本次状态 `error`/`aborted`/`limit`。`task` 会话只在本次运行 `status: done` 且其 `close` 不是 `manual` 时按 `completed` 关闭；失败、中止、超限或 `manual` 都保持打开，可以继续 `submit`，后台回报仍落回同一会话。这样做的代价是失败的 task 会话要手动关闭，按年龄或空闲清理留作后续卡（决定见 `docs/decisions.md`）。`main`、`persistent` 不按本策略关闭。
+
+### 分叉与 Bot 会话视图（FIX-core-02）
+
+`sessions.fork` 只接受独立 task 会话，非 task 父会话返回 `invalid_params`（`Only standalone task sessions can be forked`）；分叉最多两层，父会话本身已有 `parent` 时再 fork 返回 `invalid_params`（`Fork depth is limited to two layers`）。子会话的 `parent` 记父会话 id，父会话保留。`bots.overview` 返回该 Bot 的全部会话，包括 `parent` 指向该 Bot main 会话的子会话，不再按有无 `parent` 过滤。`sessions.tree`、终端 `/tree` 与 `/fork` 的既有行为不变。

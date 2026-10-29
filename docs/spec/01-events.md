@@ -161,3 +161,17 @@ folded 的 `routing.social-decision` 同样附策略快照；social 定时写入
 ### 主动通知队列（CH-05r3）
 
 `notification.intent` 为内核写入的持久通知意图，`from` 为真实插件，data 为 `{owner, plugin, text, notification, ownerRef}`；`owner` 为真实会话执行者，`notification` 含 kind/key/sourceEvents 及可选 expiresAt，ownerRef 是入队时主人身份。`notification.final` 的 data 含 `intents`（意图事件 ID 数组）、`status`（attempted 或 discarded），attempted 另含 `agent`。插件不能伪造这两类事件。发送前重查执行者、当前能力、主人和目标授权；撤权或过期丢弃。attempted 在投递前持久记录，崩溃后结果未知且不自动重发。无外发目标时写入主人 main 的 app-only 通知，不唤醒模型，不代表外部渠道送达。
+
+### 运行期配置、预算与信任事件（O51 IMP-34，只增不改）
+
+`config.change`、`budget.exceeded`、`session.trust` 是内核写入的事实事件，插件不得伪写；它们是 §3 总表之外的追加类型，旧客户端按「未知 type 忽略」处理，不需要升级。
+
+- `config.change`：`from` 为 `control:config`，data 为 `{actor, scope, agent, fields[], before, after, revision}`，只在 `config.update` 成功落盘后记一条；`before`/`after` 是红视图，不含凭据与 provider 密钥。`config.reload` 仍表示配置文件被重载，两者不互相替代。
+- `budget.exceeded`：运行结束后检查 `budget` 三项上限，任一首次越过记一条，data 为 `{session, kind, limit, value, state{tokens,minutes,wakeups}, limits, action}`；同一会话同一 `kind` 只记一次，重复检查不重复写。`run.end` 的 `usage` 仍是唯一用量事实，本事件只做越线标记，不修正 `run.end`。
+- `session.trust`：渠道命令 `/trust` 记录主人信任某目录的事实，data 为 `{session, directory}`；它只留记录，不改变权限，也不写入任何授权表。
+
+### 任务提醒与任务账本（TASK01 C10，只增不改）
+
+任务账本不自己发提醒，也不自己做跨任务的提醒限流：需要现在就让主人看到时，按上文「主动通知队列」写 `notification.intent`，是否、何时、投递到哪由队列与 `notifications.outbound` 决定；任务侧只负责把结论写回账本。旧 `claimReminder` 的「每目标 24 小时一次」只属于旧路径，新出口不继承该频率，两条路径不得对同一任务状态同时生效（见 17「提醒与自检」）。
+
+落地前，`plugins/tasks` 仍按 17 §5 的 moment 表运行；本节描述的是队列接手后的口径，不是对当前行为的追溯描述。

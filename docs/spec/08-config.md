@@ -164,3 +164,27 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 `notifications.outbound` 可选：mode 为 off/digest/immediate，默认 digest；digestEverySeconds 默认 21600、范围 300–86400；maxItems 默认 5、范围 1–20；quiet 同上；decisionRepeat 为 never；target 为 `{to: Ref, via: string}`，必须显式指定账号或会话及实例，省略为 console-only。旧 home 不启用新出口。
 
 默认 batch 为 run false、count 20、delaySeconds 60、maxMessages 100、maxBytes 16384，minIntervalSeconds 60；run 为 true 时允许无 judge 的批次直接运行，未配置或为 false 时保留未读。judge 显式配置后使用来源配置档的 cheap 或 simple，缺失或失败时保留未读，不回退主模型；foldedEverySeconds 21600，judge 关闭，启用后 maxCallsPerHour 默认 6。信号默认 botMention=respond，其余 ownerMention/groupOwner/everyone/keyword=consider；keywords 默认空，按 Unicode NFC 字面匹配。quiet 未配置时不猜时区或睡眠时间。
+
+## 运行期预算与配置视图键（O51 IMP-02/IMP-34，只增不改）
+
+`yonder.yaml` 在前文之外还有以下可选键，全部缺省即旧行为，默认值不写进示例人设：
+
+| 键 | 取值 | 说明 |
+|---|---|---|
+| `models.chain` | provider 或 `provider/model` 的数组，唯一 | 兜底链顺序，按序回退 |
+| `models.priceCapPerMTokenYuan` | ≥0 的数字 | 按量付费模型的单价上限（元/百万 token），输入与输出都不得超 |
+| `budget.tokens` | 整数，0 或缺省为不限 | 单会话累计 token 上限 |
+| `budget.maxMinutes` | 数字，0 或缺省为不限 | 单会话打开后的分钟上限 |
+| `budget.maxWakeups` | 整数，0 或缺省为不限 | 单会话运行次数上限 |
+| `budget.overBudget` | `record`（默认）或 `stop` | 超限处理；本版内核按 `record` 只记录并显示 |
+| `outsiders.ownerShareDailyTokens`、`outsiders.perPersonDailyTokens`、`outsiders.guestPerQrDailyTokens` | 整数或 `12.5K`/`3M` 字符串 | 外人每日 token 额度 |
+| `outsiders.requireLoginForQuota` | 布尔 | 是否要求登录才计入额度 |
+| `outsiders.guestMaxRounds` | 0–1000 | 访客单次最长轮数 |
+| `outsiders.guestPerSourceDailyRounds` | ≥0 整数 | 访客按来源的每日轮数 |
+| `outsiders.capabilities` | `chat`、`web_search`、`public_docs` 的子集 | 外人可用的能力 |
+| `outsiders.publicDocs` | 路径数组 | 主人标记为公开、外人只能读这些目录或条目 |
+| `defaults.channelPolicy` | `open`（默认）或 `closed` | 未配白名单的渠道：放行走外人额度，或只允许主人与白名单 |
+
+这些键的机器可读形状由 `packages/core/src/config/schema.golden.json` 守护（20 §5），改键即改 golden。控制面通过 `config.get` 的 `home` 视图读取，通过 `config.update` 的 home 白名单写入（contracts.md「O51 IMP-34 运行期契约同步」）；home 段写入需要重启内核才生效，agent 段写入即时重载。
+
+`agents/<id>/agent.yaml` 的可选键另有：配置档或 defaults 内的 `limits.maxTokens`（正整数），以及本文件下文社交策略中的 `social` 段。

@@ -1059,3 +1059,27 @@ const MarketWatch = Type.Object({                        // → /watch-tasks 及
 5. `request`/`idea`/`job` 类帖子在 `check` 搜索中的范围：伙伴匹配只返回 `item`/`service`；本契约 `GET /listings` 不按 kind 过滤，`check` 缺省只搜 `item`/`service`，是否放开待定。
 
 **实现归属**：MK02 云端表与接口（真实 PostgreSQL 测试）；MK04 `plugins/market`（含 cron 登记与 views）；MK03 前端；工具 description 文案由提示词设计流程补充。
+
+### O51 IMP-34 运行期契约同步（只增不改，2026-10-29）
+
+本批新增的方法、事件、配置键与工具按 §2 允许的变化登记在此；既有条款一字不改，散落的一行说明由本节补全形状。
+
+**方法 `config.get`（read，since 1）**。参数 `{ agent?: string }`，缺省 `main`；未知 Agent 返回 `not_found`。结果 `{ agent, profile, model, cheap, simple, fallback, limits{ maxTokens }, social, revision, home }`：前段是该 Agent 生效后的配置视图（defaults 与当前配置档合并，凭据与 `providers` 永不返回），`home` 段是 home 视图 `{ models{ chain, priceCapPerMTokenYuan }, budget, outsiders, revision }`。两个 `revision` 都是所见视图稳定 JSON 的 sha256，未配置的字段一律给 `null`，不猜默认值。
+
+**方法 `config.update`（admin，since 1）**。参数 `{ agent?, scope?: "agent"|"home", expectedRevision, patch }`，缺省 `scope: "agent"`。`expectedRevision` 与目标 scope 当前 `revision` 不等时返回 `conflict`（message `Config revision changed`，`data.currentRevision` 给出当前值），停在写入之前。`patch` 是白名单对象，未知键与空 patch 一律 `invalid_params`：agent 段收 `model`、`cheap`、`simple`、`limits.maxTokens`、`social`，走既有 `management` 的 `agents.update`（校验后原子写入，失败回滚原文件）；home 段收 `model`（写入 `defaultModel`）与 `outsiders.*`（只收 08 列出的额度键），先按 yonder.yaml schema 校验再原子替换（临时文件 + rename），失败回滚。结果 `{ scope, applied[], restartRequired, …agent 视图, home }`：`applied` 是本次实际写入的顶层键，agent 段 `restartRequired: false`，home 段 `restartRequired: true`（非 Agent 键由内核启动时读取，需重启生效）。每次成功写入追加一条 `config.change`。
+
+**事件 `config.change`（内核事实）**。`from: "control:config"`，data 为 `{ actor, scope, agent, fields[], before, after, revision }`；`before`/`after` 是对应 scope 的红视图，只说明谁改了什么、改完的 revision，不含凭据与 provider 密钥。它与 `config.reload`（配置文件被重载）是两件事，互不替代。
+
+**事件 `budget.exceeded`（内核事实）**。一次运行结束后检查 `budget` 的三项上限，任一首次越过就写一条，data 为 `{ session, kind, limit, value, state{tokens,minutes,wakeups}, limits, action }`：`kind` 取 `tokens|minutes|wakeups`，`limit` 是配置上限，`value` 是触发时的实际值，`limits` 是生效的全部上限（未配置项缺席），`action` 是生效处理方式。同一会话同一 `kind` 只写一次，重复检查不重复记。取值口径：token 取已结束 `run.end` 用量加本次运行，唤醒数取已结束运行数加本次，时长按 `y_sessions.opened`（无行时退到最早一条 `run.end`）。`overBudget: record` 只记录并显示；`stop` 保留在 schema 里，本版内核仍按 `record` 处理。
+
+**配置键**（08 §2 的增补，机器可读形状在 `packages/core/src/config/schema.golden.json`）：`models.chain`（兜底链顺序，条目为 provider 或 `provider/model`，唯一）、`models.priceCapPerMTokenYuan`（按量付费模型单价上限，元/百万 token，输入与输出都不得超）、`budget.{tokens,maxMinutes,maxWakeups,overBudget}`（0 或缺省为不限；`overBudget` 取 `record|stop`）、`outsiders.{ownerShareDailyTokens,perPersonDailyTokens,requireLoginForQuota,guestMaxRounds,guestPerQrDailyTokens,guestPerSourceDailyRounds,capabilities,publicDocs}`（额度键接受整数或 `12.5K`/`3M` 字符串）、`defaults.channelPolicy`（`open|closed`）。全部可选，缺省走旧行为；键与 golden 的对应关系见 20 §5。
+
+**共享斜杠命令增补（IMP-23）**。CLI、console 与文本渠道共用同一份常量（`packages/sdk/src/chat-commands.ts` 与 `packages/core/src/routing/commands.ts` 的 `extraSlashCommands`），`/help` 与清单同源：`/reload`、`/copy`、`/name <标题>`、`/trust <目录>`、`/settings`、`/jobs`、`/logs <id>`、`/kill <id>`。`/reload` 需要后端提供重载能力（缺失时报「当前服务不支持重载」），`/reload`、`/name`、`/trust` 需要 admin，非 admin 返回 `/<name> 需要 admin 权限`。`/trust <目录>` 只记录 `session.trust` 事件（data `{session, directory}`），不改变任何权限。`/jobs`、`/logs <id>`、`/kill <id>` 是 `/bg` 系列的别名，要求数字后台 id，分别映射到既有 `sessions.command` 的 `bg`、`bg logs <id>`、`bg kill <id>`；`/copy` 返回本会话最近一条 `message.out` 文本，没有则报「没有可复制的回复」；`/settings` 返回 `{agent, session, profile, mode, title, model, thinking, capabilities}` 的只读 JSON。全部是确定性命令，不唤醒模型，结果沿原来源投递并复用渠道命令去重（01 渠道命令执行事实）。
+
+**`subagent` 工具（IMP-24）**。内核工具，与 `task_run`/`task_control` 同条件提供，参数 `{ action: "run"|"list"|"status"|"stop", options?: object }`，除 `action` 外的参数一律放进 `options`。`run` 等价 `task_run`（`options` 即其参数）；`status`、`stop` 需要 `options.id`（数字后台 id），分别等价 `task_control` 的 status 与 kill；`list` 只列本会话由 `task_run` 建的后台任务。委派规则与 `task_run` 完全一致（预设、`credentialSlots`、附件、两层嵌套上限、admin 校验），不新开授权路径、不放宽限额；工具 schema 进 `packages/core/src/tools/delegation.golden.json`，description 文案由提示词流程另写。
+
+**`channel-feishu_scopes` 工具（飞书 scope 自查与申请）**。插件工具，名为 `<pluginId>_<name>`；参数 `{ instance, action: "status"|"apply", scopes?: string[] }`，能力 `read`+`network`，`apply` 另需 admin。`status` 读飞书 `GET /application/v6/scopes`，返回 `{granted, pending, notConfigured, consoleUrl, applyAttempts}`；`apply` 向 `POST /application/v6/scopes/apply` 提交全部已加入应用但未授权的 scope，没有待授权项或申请次数达上限时跳过（当前上限 8，在飞书每版本 10 次的官方限制之内），次数记在插件私有 `scope-apply.json`。结果为 `{ok:true,…}` 或 `{ok:false, uncertain?, error}` 并置 `isError`；鉴权错误 `99991672`/`99991679` 的既有诊断在脱敏后追加一行提示，指向本工具与开发者后台 `consoleUrl`。
+
+**会话分叉与 Bot 视图（FIX-core-02）**。`sessions.fork` 只接受独立 task 会话，否则 `invalid_params`（`Only standalone task sessions can be forked`）；最多两层，父会话本身已有 `parent` 时再 fork 返回 `invalid_params`（`Fork depth is limited to two layers`）；子会话的 `parent` 记父会话 id，父会话保留。`bots.overview` 返回该 Bot 的全部会话，含 `parent` 指向该 Bot main 会话的子会话，不再按有无 `parent` 过滤。
+
+**运行结束时的关闭（BE-05）**。关闭与否由关闭策略决定（`packages/core/src/sessions/close-policy.ts` 的 `closeOnRunEnd`）：`ephemeral` 会话任何结束都关闭，关闭原因在成功时为 `completed`，否则是本次状态 `error`/`aborted`/`limit`；`task` 会话只在本次运行 `status: done` 且其 `close` 不是 `manual` 时按 `completed` 关闭；其余情况保持打开，可继续 `submit`，后台回报仍落回同一会话。代价是失败的 task 会话需要手动清理，按年龄或空闲清理留作后续卡（决定见 `docs/decisions.md`）。`main`、`persistent` 不受本策略影响。

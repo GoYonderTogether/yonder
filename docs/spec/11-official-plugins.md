@@ -140,6 +140,15 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 
 - 模型可使用既有channel-feishu_message.replyTo指定原生消息ID，或用card工具的replyTo显式引用；可在平台原生文本/Markdown/卡片内容中使用对应at标记选择艾特。状态返回实际renderMode，工具说明区分text/post-md的user_id与卡片的id语法；不新增泛化mentions协议。背景原生消息与发送者ID供工具选择，工具仍按既有能力放行。主动工具答复后可NO_REPLY避免自动再发。
 
+### 7.6 scope 自查与申请（O51，只增不改）
+
+`channel-feishu_scopes`（按 `<pluginId>_<name>` 命名）参数为 `{ instance, action: "status"|"apply", scopes?: string[] }`（`scopes` 最多 50 项），能力 `read` 与 `network`，`apply` 另需 admin（否则报 `Applying Feishu scopes requires admin`），不放宽任何既有工具。
+
+- `status` 读飞书 `GET /application/v6/scopes`，返回 `{granted, pending, notConfigured, consoleUrl, applyAttempts}`：`granted` 是 `grant_status` 为 1 的项，其余已加入应用的项为待授权，`consoleUrl` 指向开发者后台该应用的权限页。
+- `apply` 只提交已经加到应用里的待授权 scope（`POST /application/v6/scopes/apply`）；没有待授权项时跳过，申请次数达上限后不再申请（当前上限 8，飞书官方每个版本上限 10 之内），次数记在插件私有 `scope-apply.json`。
+- 默认 scope 集为 `im:message`、`im:message:send_as_bot`、`im:resource`、`cardkit:card:write`；补齐权限本身仍在开发者后台由主人完成并发版，工具只做自查与申请。
+- 结果为 `{ok:true,…}` 或 `{ok:false, uncertain?, error}` 并置 `isError`；结果不确定时不宣称已授权。
+- 鉴权错误 `99991672`、`99991679` 的既有诊断在脱敏后追加一行提示，指向本工具与开发者后台，不把应用凭据或 token 写进诊断。
 ## 8. 上游复用
 
 允许直接移植成熟功能模块并保留必要来源/许可记录，适配为本项目 SDK。选择以覆盖本规范契约、状态所有权清楚、依赖少、可维护为依据；不复制整套 OpenClaw/Hermes/OpenCode 内核，也不删除其实现中本任务真实需要的取消、输入边界或协议行为。

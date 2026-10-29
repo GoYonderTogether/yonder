@@ -130,3 +130,11 @@ guide/watch 支持 `0 < timeout <= 600`（默认 600 秒），status/request 不
 仅 macOS 有实际原生 driver；其他平台返回实际平台与 unsupported 原因，不伪造签名或 grant。SDK 门面允许其他平台注册真实 provider。
 
 共同原生提示词要求主动查询、申请/引导、检查后继续已授权任务，不让主人重复授权或代跑命令搬文件；只把 OS 必须本人完成的密码、生物识别或批准交给真人。安装和 owner 意图不是 OS grant 的证据，既有凭据、来源与隔离边界不变。
+
+## subagent 工具（O51 IMP-24，只增不改）
+
+`subagent` 是内核工具，与 `task_run`、`task_control` 同条件提供，把既有委派与后台管理收成一个入口：参数 `{ action: "run"|"list"|"status"|"stop", options?: object }`，除 `action` 外的参数一律放进 `options`。
+
+- `run` 等价 `task_run`（`options` 即其参数，支持 `effort` 等既有字段）；`status`、`stop` 需要 `options.id`（数字后台 id），分别等价 `task_control` 的 status 与 kill；`list` 只列本会话由 `task_run` 建的后台任务。
+- 委派规则与 `task_run` 完全一致：预设、`credentialSlots`、附件、两层嵌套上限与 admin 校验都沿用，不新增授权路径，也不放宽任何限额。
+- 工具 schema 进 `packages/core/src/tools/delegation.golden.json`；description 与 `promptGuidelines` 文案由提示词流程另写，本节不定。

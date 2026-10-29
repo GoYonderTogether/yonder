@@ -99,3 +99,11 @@ P3a（本期）：TaskBoard、总览与详情、文字尾部清单、桌面/网�
 ### 社交通知兼容（CH-01）
 
 启用 social 主动通知出口后，user-wait 产生有稳定任务状态 key 的通知意图，不直接发送；tailDigest 不再附到无关回复。同一任务状态不能同时走旧 moments 和新出口。旧配置仍按旧行为运行；任务事实与 board 保留。确定性计时不唤醒模型；已有工作继续经原生后台输入接纳。
+
+### 提醒与自检（O51 TASK01 C10，只增不改）
+
+任务账本不直接给主人发提醒，也不做跨任务提醒限流。滞留与用户待办改由「催主 Agent 自检」处理：任务状态为 `active` 或 `review` 且 15–30 分钟没有新进展时，向负责该任务的会话提交一次自检输入（`stallMinutes` 默认 20，在 15–30 之间抖动以避免同时唤醒）；每个任务每个窗口最多一次，不做 24 小时跨任务上限。自检要求 Agent 先用 `tasks_get` 读取任务、验收点与全部历史，再按真实证据选择：全部验收点有证据则 `tasks_done`（逐条附证据）；能自己推进则 `tasks_update` 回 `active` 并写下下一步；同一个具体阻塞连续三次挡住下一步才 `blocked`；确实需要主人决定则保持 `waiting-user`，把问题写成 `需要你决定：<一句话问题>（选项 A/B）`（≤120 字、不用内部术语）放进 note；过期或不继续则 `cancelled`。自检本身不发送任何提醒消息，也不得为了让任务通过而修改 objective 或验收点。
+
+主动触达一律走通知队列（01「主动通知队列」）：需要现在就让主人看到时写 `notification.intent`，频率与时段由队列的 `notifications.outbound` 决定。旧的 `userWaitMinutes` 配置与 user-wait 时点、`claimReminder` 的 24 小时限流随本次改造移除，只保留 `stallMinutes`；`moments` 开关继续表示实验时点，时点表只增不减。
+
+实现状态：本次只改文档，`plugins/tasks` 仍按 §5 的时点表与 §7 的 `userWaitMinutes` 运行（`moments.ts` 的提醒投递与 `store/index.ts` 的 `claimReminder` 尚未移除，TASK01 C1/C3 落地后本节生效）。落地时删除 §5 末句的 24 小时上限，本节以外的条款不改。

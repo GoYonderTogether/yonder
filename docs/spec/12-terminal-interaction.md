@@ -150,3 +150,14 @@ init、login、doctor、start/stop、sessions、events、identity、skills、ver
 ## 跨渠道模型与运行命令
 
 飞书、微信、CLI 和网页 console 共用 `/model`、`/effort [level|auto]`、`/status`、`/compact [instructions]`。`/model` 与 `/status` 展示当前供应商/模型、上下文窗口与估计用量、可否压缩及原因、effort、回退链/失败计数、当前 Agent 绑定的渠道以及当前会话与后代的后台任务/子 Agent session/task id。`/model list [provider]` 列出供应商和模型；`/model <provider/model> [fallback ...]` 设置会话模型链，`/effort` 查看、`/effort <level|auto>` 设置会话 effort，`/model after <positive integer>` 设置连续失败阈值。旧 `/model effort` 保留至少到 0.4，使用时提示改用 `/effort`，最早 0.5 移除。读命令需要 read；设置和压缩需要 admin，压缩还需要 network。读命令不调用模型。命令结果沿原来源投递并保留原有命令去重，不由渠道各自实现。
+
+### 追加的共享斜杠命令（O51 IMP-23，只增不改）
+
+CLI、console 与文本渠道共用同一份命令常量（SDK 的 `chat-commands` 与内核 routing 的 `extraSlashCommands`），`/help` 与本清单同源：`/reload`、`/copy`、`/name <标题>`、`/trust <目录>`、`/settings`、`/jobs`、`/logs <id>`、`/kill <id>`。
+
+- 说明沿用已有双语 label（如 `/reload` 重载配置 · Reload config），规范名与参数保持英文，进 §5.3 的补全与搜索。
+- `/reload` 重载配置，需要后端提供重载能力，缺失时如实报「当前服务不支持重载」；`/reload`、`/name`、`/trust` 需要 admin，非 admin 返回 `/<name> 需要 admin 权限`。
+- `/name <标题>` 改本会话标题；`/trust <目录>` 只记录 `session.trust` 事件，不改变任何权限。
+- `/jobs`、`/logs <id>`、`/kill <id>` 是 `/bg` 系列的别名，要求数字后台 id，行为与 `/bg`、`/bg logs <id>`、`/bg kill <id>` 一致。
+- `/copy` 返回本会话最近一条已发出的回复文本，没有回复时明确说明；`/settings` 返回 agent、会话、配置档、模式、标题、模型、思考等级与能力的只读视图。
+- 全部是确定性命令，不唤醒模型；执行事实与去重沿用 01「渠道命令执行事实」，渠道不各自实现。
