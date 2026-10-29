@@ -1,10 +1,10 @@
-import { vi } from "vitest";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
 import { setImmediate as immediate } from "node:timers/promises";
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
+import { vi } from "vitest";
 import plugin from "../src/index.mjs";
 import { REVIEW_PRESET } from "../src/review.mjs";
 import { ctx, fixture, scope } from "./helpers.mjs";
@@ -120,7 +120,9 @@ export async function setup(t, extra = {}, options = {}) {
 			},
 		];
 		history.get("parent").push({ id: ++entrySerial, kind: "pi.user", text, event: event.id });
-		history.get("parent").push({ id: ++entrySerial, kind: "pi.tool-result", text: "Tests pass; user correction retained" });
+		history
+			.get("parent")
+			.push({ id: ++entrySerial, kind: "pi.tool-result", text: "Tests pass; user correction retained" });
 		for (let i = 0; i < loops; i++) await hook.beforeRequest(raw, context);
 		return { context, event, raw };
 	};

@@ -12,7 +12,7 @@ import plugin from "../src/index.mjs";
 import { REVIEW_PRESET, REVIEW_TOOLS } from "../src/review.mjs";
 import { ctx, fixture, scope } from "./helpers.mjs";
 
-import { setup, until, repeat } from "./review-fixture.mjs";
+import { repeat, setup, until } from "./review-fixture.mjs";
 
 test("actual registered hooks: memory interval, quiet15, merged latest clone, scoped IO and no parent pollution", async (t) => {
 	const f = await setup(t);
@@ -47,14 +47,34 @@ test("actual registered hooks: memory interval, quiet15, merged latest clone, sc
 	assert.equal(job.opts.wait, true);
 	const c = f.reviewContext(),
 		m = await f.call(REVIEW_TOOLS[0], { target: "memory" }, c);
-	const saved = await f.call(REVIEW_TOOLS[1], { target: "memory", revision: m.revision, action: "add", content: "durable environment fact", evidence: "Tests pass; user correction retained" }, c);
+	const saved = await f.call(
+		REVIEW_TOOLS[1],
+		{
+			target: "memory",
+			revision: m.revision,
+			action: "add",
+			content: "durable environment fact",
+			evidence: "Tests pass; user correction retained",
+		},
+		c,
+	);
 	assert.equal(saved.pending, true);
 	assert.equal(saved.saved, false);
 	assert.ok(!(await readFile(join(f.root, "memories/MEMORY.md"), "utf8")).includes("durable environment fact"));
 	await f.view.act("confirm", { id: saved.id }, "parent");
 	assert.match(await readFile(join(f.root, "memories/MEMORY.md"), "utf8"), /durable environment fact/);
 	const name = "hermes-learned-release";
-	const create = await f.call(REVIEW_TOOLS[2], { action: "create", name, description: "Reusable release workflow", body: "# Procedure\nRun tests.", evidence: "Tests pass; user correction retained" }, c);
+	const create = await f.call(
+		REVIEW_TOOLS[2],
+		{
+			action: "create",
+			name,
+			description: "Reusable release workflow",
+			body: "# Procedure\nRun tests.",
+			evidence: "Tests pass; user correction retained",
+		},
+		c,
+	);
 	assert.equal(create.pending, true);
 	await f.view.act("confirm", { id: create.id }, "parent");
 	assert.match(await readFile(join(f.root, "skills", name, "SKILL.md"), "utf8"), /来源：会话 parent/);
@@ -292,15 +312,27 @@ test("queued review survives parent close and trigger restart", async (t) => {
 });
 
 test("destructive review writes are refused even for explicit refine", async (t) => {
- const f = await setup(t);
- await repeat(f); await f.tick(); await until(() => f.submitted.length === 1);
- const c = f.reviewContext(), m = await f.call(REVIEW_TOOLS[0], { target: "memory" }, c);
- const patch = { target: "memory", action: "patch", revision: m.revision, old_text: "synthetic note", content: "revised fact", evidence: "Tests pass; user correction retained" };
- assert.equal((await f.call(REVIEW_TOOLS[1], patch, c)).error, "only_verified_add_supported");
- const explicit = await f.start({ text: "/refine memory" });
- assert.equal((await f.call("learning_refine", { focus: "memory" }, explicit.context)).attended, true);
- await f.finish(explicit); await f.tick(); await until(() => f.submitted.length === 2);
- assert.equal((await f.call(REVIEW_TOOLS[1], patch, f.reviewContext())).error, "only_verified_add_supported");
+	const f = await setup(t);
+	await repeat(f);
+	await f.tick();
+	await until(() => f.submitted.length === 1);
+	const c = f.reviewContext(),
+		m = await f.call(REVIEW_TOOLS[0], { target: "memory" }, c);
+	const patch = {
+		target: "memory",
+		action: "patch",
+		revision: m.revision,
+		old_text: "synthetic note",
+		content: "revised fact",
+		evidence: "Tests pass; user correction retained",
+	};
+	assert.equal((await f.call(REVIEW_TOOLS[1], patch, c)).error, "only_verified_add_supported");
+	const explicit = await f.start({ text: "/refine memory" });
+	assert.equal((await f.call("learning_refine", { focus: "memory" }, explicit.context)).attended, true);
+	await f.finish(explicit);
+	await f.tick();
+	await until(() => f.submitted.length === 2);
+	assert.equal((await f.call(REVIEW_TOOLS[1], patch, f.reviewContext())).error, "only_verified_add_supported");
 });
 
 test("review hard loop ceiling16 and detailed error fields survive wrapper serialization", async (t) => {
@@ -355,7 +387,13 @@ test("registered wrappers recheck the revoked grant immediately before memory co
 		return get(id);
 	};
 	const writing = f.tools[REVIEW_TOOLS[1]].execute(
-		{ target: "memory", action: "add", revision: m.revision, content: "must not commit", evidence: "Tests pass; user correction retained" },
+		{
+			target: "memory",
+			action: "add",
+			revision: m.revision,
+			content: "must not commit",
+			evidence: "Tests pass; user correction retained",
+		},
 		r,
 	);
 	await until(() => atCommit);

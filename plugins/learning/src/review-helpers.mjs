@@ -1,6 +1,11 @@
-export const QUIET = 15000, AGE = 30 * 60 * 1000;
+export const QUIET = 15000,
+	AGE = 30 * 60 * 1000;
 export const REVIEW_PRESET = "hermes-learning-review";
-export const reviewTools = (id = "learning") => [`${id}_review_memory_read`, `${id}_review_memory_edit`, `${id}_review_skill_store`];
+export const reviewTools = (id = "learning") => [
+	`${id}_review_memory_read`,
+	`${id}_review_memory_edit`,
+	`${id}_review_skill_store`,
+];
 export const REVIEW_TOOLS = reviewTools();
 export const isUserInput = (e) =>
 	e?.type === "message.in" &&
@@ -26,15 +31,14 @@ export const timeout = (promise, ms) =>
 			});
 	});
 
-
 export async function transcript(api, id) {
-		const items = [];
-		let from = 0;
-		for (;;) {
-			const page = await api.sessions.transcript(id, { from, limit: 200 });
-			items.push(...page);
-			if (page.length < 200) break;
-			from = page.at(-1).id + 1;
-		}
-		return items;
+	const items = [];
+	let from = 0;
+	for (;;) {
+		const page = await api.sessions.transcript(id, { from, limit: 200 });
+		items.push(...page);
+		if (page.length < 200) break;
+		from = page.at(-1).id + 1;
 	}
+	return items;
+}

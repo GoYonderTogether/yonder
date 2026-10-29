@@ -20,15 +20,24 @@ import {
 const obj = (properties, required = []) => ({ type: "object", properties, required, additionalProperties: false });
 const str = { type: "string" };
 function verifiedEvidence(args, options) {
- const evidence = args.evidence;
- if (!options.review.session || !options.review.run || typeof evidence !== "string" || evidence.trim().length < 8) fail("verified_evidence_required");
- const transcript = options.material.transcript ?? [];
- const messages = options.material.messages ?? [];
- const match = transcript.some((item) => item.kind === "pi.tool-result" && item.text.includes(evidence));
- const success = messages.some((item) => item.role === "toolResult" && !item.isError && (typeof item.content === "string" ? item.content : (item.content ?? []).map((part) => part.text ?? "").join("\n")).includes(evidence));
- if (!match || !success) fail("verified_evidence_required");
- delete args.evidence;
- return evidence;
+	const evidence = args.evidence;
+	if (!options.review.session || !options.review.run || typeof evidence !== "string" || evidence.trim().length < 8)
+		fail("verified_evidence_required");
+	const transcript = options.material.transcript ?? [];
+	const messages = options.material.messages ?? [];
+	const match = transcript.some((item) => item.kind === "pi.tool-result" && item.text.includes(evidence));
+	const success = messages.some(
+		(item) =>
+			item.role === "toolResult" &&
+			!item.isError &&
+			(typeof item.content === "string"
+				? item.content
+				: (item.content ?? []).map((part) => part.text ?? "").join("\n")
+			).includes(evidence),
+	);
+	if (!match || !success) fail("verified_evidence_required");
+	delete args.evidence;
+	return evidence;
 }
 const target = { type: "string", enum: ["memory", "user"] };
 const scopeSchema = obj(
@@ -276,7 +285,10 @@ export default definePlugin({
 					const ops = a.operations ?? [a];
 					for (const op of ops) {
 						const name = op.name ?? a.name;
-						const path = ["create", "edit", "save"].includes(op.action) || (op.action === "patch" && op.content !== undefined) ? "SKILL.md" : (op.file_path ?? "SKILL.md");
+						const path =
+							["create", "edit", "save"].includes(op.action) || (op.action === "patch" && op.content !== undefined)
+								? "SKILL.md"
+								: (op.file_path ?? "SKILL.md");
 						const mark = options.readMarks.files.get(`${name}/${path}`);
 						if (mark && op.revision === undefined) op.revision = mark.revision;
 					}

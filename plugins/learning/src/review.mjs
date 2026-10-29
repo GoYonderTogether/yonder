@@ -7,8 +7,20 @@ import { createSkillReadMarks } from "./skill-store.mjs";
 import { fail } from "./store.mjs";
 
 export { REVIEW_PRESET, REVIEW_TOOLS, reviewTools } from "./review-helpers.mjs";
-import { REVIEW_PRESET, reviewTools } from "./review-helpers.mjs";
-import { isUserInput, keyOf, mergeFocus, includesFocus, timeout, transcript, QUIET, AGE } from "./review-helpers.mjs";
+
+import {
+	AGE,
+	includesFocus,
+	isUserInput,
+	keyOf,
+	mergeFocus,
+	QUIET,
+	REVIEW_PRESET,
+	reviewTools,
+	timeout,
+	transcript,
+} from "./review-helpers.mjs";
+
 export { isUserInput } from "./review-helpers.mjs";
 // Plugin-owned authority. No persisted grant is EVER rehydrated. Session parent metadata
 // alone (including a task opened with the same preset) is not a write capability.
@@ -403,7 +415,11 @@ export function createReview(api, config, resolveScope) {
 		// Registration happens BEFORE submit. wait:true routes the result to this plugin,
 		// not to the parent/source conversation. Never await LLM from an event observer.
 		void api.sessions
-			.submit(session.id, { text: reviewPrompt(g.focus, g.material, g.scope, api.id, { session: g.parent, run: g.run }) }, { wait: true })
+			.submit(
+				session.id,
+				{ text: reviewPrompt(g.focus, g.material, g.scope, api.id, { session: g.parent, run: g.run }) },
+				{ wait: true },
+			)
 			.then((result) => {
 				if (!active(g) && !(g.finished && s.generation === g.generation)) return;
 				g.result = { status: result.status, text: result.text, reason: result.reason };
@@ -463,7 +479,18 @@ export function createReview(api, config, resolveScope) {
 			note: "Explicit review will run quietly after this user turn. No result is sent to the source.",
 		};
 	}
-	const { close, stop } = reviewLifecycle({ grants, live, arm, cleanup, clearTimer, timeout, writesDone: () => writes, stopNow: () => { stopped = true; } });
+	const { close, stop } = reviewLifecycle({
+		grants,
+		live,
+		arm,
+		cleanup,
+		clearTimer,
+		timeout,
+		writesDone: () => writes,
+		stopNow: () => {
+			stopped = true;
+		},
+	});
 	const reviewApi = {
 		status: async (id) => {
 			await ready();

@@ -80,20 +80,43 @@ test("created skill is archived on undo and changed skills are protected", async
 	assert.equal((await skillStore(s.skillDir, { action: "read", name: "hermes-learned-weekly" })).content, null);
 });
 
-
 test("review proposal stays inactive until confirmation and can be undone", async (t) => {
- const root = await fixture(t), s = scope(root);
- let provider;
- const api = { id: "learning", paths: { data: join(root, "data") }, invalidate() {}, views: { register(_decl, p) { provider = p; } }, sessions: { async get() { return { agent: "alpha", profile: "owner" }; } } };
- const views = createLearningViews(api, [s], { async status() { return null; } });
- views.register();
- const initial = await readMemory(s.memoryDir, "memory");
- const proposal = await views.propose("1", { kind: "memory", args: { target: "memory", revision: initial.revision, action: "add", content: "verified" }, source: { session: "1", run: "run-1" }, evidence: "verified command output" });
- assert.deepEqual((await readMemory(s.memoryDir, "memory")).entries, initial.entries);
- assert.match((await provider.data("1")).content.items[1].subtitle, /run-1/);
- await provider.act("confirm", { id: proposal.id }, "1");
- assert.match((await readMemory(s.memoryDir, "memory")).entries.at(-1), /verified[\s\S]*run-1[\s\S]*置信度/);
- const data = await provider.data("1");
- await provider.act("undo", { id: data.content.items.at(-1).id }, "1");
- assert.deepEqual((await readMemory(s.memoryDir, "memory")).entries, initial.entries);
+	const root = await fixture(t),
+		s = scope(root);
+	let provider;
+	const api = {
+		id: "learning",
+		paths: { data: join(root, "data") },
+		invalidate() {},
+		views: {
+			register(_decl, p) {
+				provider = p;
+			},
+		},
+		sessions: {
+			async get() {
+				return { agent: "alpha", profile: "owner" };
+			},
+		},
+	};
+	const views = createLearningViews(api, [s], {
+		async status() {
+			return null;
+		},
+	});
+	views.register();
+	const initial = await readMemory(s.memoryDir, "memory");
+	const proposal = await views.propose("1", {
+		kind: "memory",
+		args: { target: "memory", revision: initial.revision, action: "add", content: "verified" },
+		source: { session: "1", run: "run-1" },
+		evidence: "verified command output",
+	});
+	assert.deepEqual((await readMemory(s.memoryDir, "memory")).entries, initial.entries);
+	assert.match((await provider.data("1")).content.items[1].subtitle, /run-1/);
+	await provider.act("confirm", { id: proposal.id }, "1");
+	assert.match((await readMemory(s.memoryDir, "memory")).entries.at(-1), /verified[\s\S]*run-1[\s\S]*置信度/);
+	const data = await provider.data("1");
+	await provider.act("undo", { id: data.content.items.at(-1).id }, "1");
+	assert.deepEqual((await readMemory(s.memoryDir, "memory")).entries, initial.entries);
 });

@@ -87,15 +87,29 @@ export function createLearningViews(api, scopes, review) {
 									...records.map((r) => ({
 										id: r.id,
 										title: r.pending ? `待确认（低置信度）: ${r.kind}` : `${r.kind}: ${r.target}`,
-										subtitle: r.pending ? `来源会话 ${r.source.session}，运行 ${r.source.run}：证据：${r.evidence}；${JSON.stringify(r.args)}` : r.undone ? "已撤销" : (r.after ?? "已删除"),
-										...(r.pending ? { actions: [{ id: "confirm", label: "确认" }, { id: "discard", label: "丢弃" }] } : !r.undone ? { actions: [{ id: "undo", label: "撤销" }] } : {}),
+										subtitle: r.pending
+											? `来源会话 ${r.source.session}，运行 ${r.source.run}：证据：${r.evidence}；${JSON.stringify(r.args)}`
+											: r.undone
+												? "已撤销"
+												: (r.after ?? "已删除"),
+										...(r.pending
+											? {
+													actions: [
+														{ id: "confirm", label: "确认" },
+														{ id: "discard", label: "丢弃" },
+													],
+												}
+											: !r.undone
+												? { actions: [{ id: "undo", label: "撤销" }] }
+												: {}),
 									})),
 								],
 							},
 						};
 					},
 					async act(action, input, session) {
-						if (!["undo", "confirm", "discard"].includes(action) || typeof input?.id !== "string") throw new Error("invalid_action");
+						if (!["undo", "confirm", "discard"].includes(action) || typeof input?.id !== "string")
+							throw new Error("invalid_action");
 						return serialize(async () => {
 							const scope = await scopeFor(session),
 								records = await load();
@@ -109,7 +123,8 @@ export function createLearningViews(api, scopes, review) {
 									const suffix = `\n\n来源：会话 ${change.source.session}，运行 ${change.source.run}；置信度：低（主人已确认）；证据：${change.evidence}`;
 									const args = structuredClone(change.args);
 									if (change.kind === "memory") {
-										if (args.action !== "add" || typeof args.content !== "string") throw new Error("only_verified_add_supported");
+										if (args.action !== "add" || typeof args.content !== "string")
+											throw new Error("only_verified_add_supported");
 										args.content += suffix;
 									} else {
 										if (args.action !== "create") throw new Error("only_verified_create_supported");
@@ -117,14 +132,26 @@ export function createLearningViews(api, scopes, review) {
 										else if (typeof args.body === "string") args.body += suffix;
 										else throw new Error("invalid_content");
 									}
-									if (change.kind === "memory" && scope.writeMode === "exclusive-yonder" && scope[change.args.target] !== false)
+									if (
+										change.kind === "memory" &&
+										scope.writeMode === "exclusive-yonder" &&
+										scope[change.args.target] !== false
+									)
 										await editMemory(scope.memoryDir, args, LIMITS[args.target], undefined, options);
 									else if (change.kind === "skill" && scope.learning && scope.skillDir)
 										await skillStore(scope.skillDir, args, undefined, options);
 									else throw new Error("proposal_unavailable");
-									for (const item of changes) records.push({ id: randomUUID(), session, ...item, source: change.source, confidence: "owner-confirmed" });
+									for (const item of changes)
+										records.push({
+											id: randomUUID(),
+											session,
+											...item,
+											source: change.source,
+											confidence: "owner-confirmed",
+										});
 								}
-								change.pending = false; change.undone = true;
+								change.pending = false;
+								change.undone = true;
 								await save(records);
 								return {};
 							}
