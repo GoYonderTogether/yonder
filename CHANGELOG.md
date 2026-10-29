@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26102907] - 2026-10-29
+
+### Fixed
+
+- core：老 home 启动时补 card-visitor 绑定（先写 .bak、幂等），doctor 报告缺口并支持 doctor --fix (VC-1)
+
 ## [0.3.26102906] - 2026-10-29
 
 ### Fixed
