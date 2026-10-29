@@ -1,10 +1,13 @@
 import {
+	Archive,
+	ArchiveRestore,
 	ChevronDown,
 	ChevronUp,
-	CircleX,
 	Copy,
+	GitFork,
 	MessageSquare,
 	PanelRightClose,
+	Pencil,
 	PictureInPicture2,
 	Pin,
 	PinOff,
@@ -13,7 +16,6 @@ import type { SessionInfo } from "../api/types";
 import { type ActionItem, action, menuItems, toggleItem } from "./actions";
 import { dock, type PanelKind, toggleFloat } from "./layout";
 import { togglePin } from "./prefs";
-import { taskStatus } from "./work";
 
 // 各行的统一上下文菜单。只构造真实已有动作：导航、RPC 这类需要页面上下文的手势由调用方传入，
 // 置顶、复制、面板布局直接复用 lib/prefs 与 lib/layout 的现有函数。
@@ -27,13 +29,22 @@ export function botRowMenu(o: { title: string; open(): void }): ActionItem[] {
 	]);
 }
 
-/** 任务行：打开会话、关闭会话、置顶；已关闭的任务不再显示关闭项。 */
-export function taskRowMenu(o: { session: SessionInfo; pinned: boolean; open(): void; close(): void }): ActionItem[] {
-	const closed = taskStatus(o.session) === "done";
+/** 任务行：打开、重命名、置顶、从这里分出、归档（已完成的显示恢复）。关闭走归档，不再单列。 */
+export function taskRowMenu(o: {
+	session: SessionInfo;
+	pinned: boolean;
+	archived: boolean;
+	open(): void;
+	rename(): void;
+	fork(): void;
+	archive(): void;
+}): ActionItem[] {
 	return menuItems([
-		action("open", "打开会话", o.open, { icon: MessageSquare }),
-		!closed && action("close", "关闭会话", o.close, { icon: CircleX, danger: true }),
+		action("open", "打开", o.open, { icon: MessageSquare }),
+		action("rename", "重命名", o.rename, { icon: Pencil }),
 		toggleItem("pin", o.pinned, "取消置顶", "置顶", () => togglePin(o.session.id), o.pinned ? PinOff : Pin),
+		action("fork", "从这里分出", o.fork, { icon: GitFork }),
+		action("archive", o.archived ? "恢复到进行中" : "归档", o.archive, { icon: o.archived ? ArchiveRestore : Archive }),
 	]);
 }
 

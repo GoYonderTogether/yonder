@@ -18,6 +18,7 @@ export function titleOf(s: SessionInfo, names?: ReadonlyMap<string, string>): st
 		const name = (s.agent && names?.get(s.agent)) || s.agent || s.profile;
 		return s.mode === "persistent" ? `${name} · ${s.key}` : name;
 	}
-	return `${s.profile} · ${s.id.slice(0, 6)}`;
+	const named = (s as { title?: string }).title;
+	return named || `${s.profile} · ${s.id.slice(0, 6)}`;
 }
 export const GROUP_TITLE: Record<Group, string> = { bot: "Bot", task: "任务", import: "导入的 pi 会话" };

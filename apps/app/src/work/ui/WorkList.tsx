@@ -1,38 +1,31 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Loader, MonitorSmartphone, Plus } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, MonitorSmartphone, Plus } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { rpc } from "../api/client";
 import { useActiveNode, useNodes } from "../api/nodes";
 import type { SessionInfo } from "../api/types";
-import { badge } from "../lib/format";
-import { titleOf } from "../lib/identity";
-import { botRowMenu, taskRowMenu } from "../lib/menus";
-import { markRead, usePrefs } from "../lib/prefs";
-import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
-import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
-import type { SessionView } from "../lib/useSession";
+import { usePrefs } from "../lib/prefs";
+import { useActivity, useSessions, useTitleOf } from "../lib/queries";
 import {
 	groupWork,
 	isOpen,
-	progressOf,
-	STATUS_TITLE,
-	TASK_ORDER,
 	type TaskStatus,
+	TIME_ORDER,
+	TIME_TITLE,
 	toggleFolds,
 	useFolds,
+	type WorkSession,
 } from "../lib/work";
 import { workPath } from "../shell/workRoutes";
-import { ActionMenu } from "./ActionMenu";
 import { Avatar } from "./Avatar";
 import { toast } from "./kit/Toast";
+import { TaskRow } from "./WorkRows";
 
-const num = (id: string) => Number(id.replace(/\D/g, ""));
+/** 进行中最多直接显示的条数，其余折叠到「展开其余」。 */
+const RUNNING_SHOWN = 5;
 
-/**
- * 控制台入口：「工作」就是控制任何接入设备的地方，所以入口放在工作列表顶部，
- * 不新增一级导航（FE-R02 / O27）。节点切换、远程打开与添加设备都在 #/console。
- */
+/** 控制台入口：节点切换、远程打开与添加设备都在 /work/console（FE-R02 / O27）。 */
 function ConsoleEntry() {
 	const nodes = useNodes();
 	const active = useActiveNode();
@@ -54,156 +47,54 @@ function ConsoleEntry() {
 	);
 }
 
-function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; running: boolean }) {
-	const navigate = useNavigate();
-	const prefs = usePrefs();
-	const title = useTitleOf()(s);
-	const tail = useTail(s.id, running ? "run" : "idle");
-	const items = tail.data ?? [];
-	const lastId = items.reduce((m, i) => Math.max(m, num(i.id)), 0);
-	const readTo = prefs.read[s.id];
-	const unread = active ? 0 : items.filter((i) => i.role !== "user" && num(i.id) > (readTo ?? lastId)).length;
-	const [menu, setMenu] = useState<MenuAnchor | null>(null);
-	const trigger = useMenuTrigger(setMenu);
-	const actions = botRowMenu({ title, open: () => navigate(workPath({ session: s.id })) });
-	useEffect(() => {
-		if (active && lastId > 0) markRead(s.id, lastId);
-	}, [active, lastId, s.id]);
+/** Bot 头像一排：只有 ≥2 个 Bot 才出现；点头像 = 进入该 Bot 主对话（不是筛选）。 */
+function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: string; running: Set<string> }) {
+	const titleOf = useTitleOf();
+	if (bots.length < 2) return null;
 	return (
-		<>
-			<Link
-				to={workPath({ session: s.id })}
-				{...trigger}
-				title={title}
-				aria-current={active ? "page" : undefined}
-				className={`press no-select flex items-center gap-2.5 px-4 py-2 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
-				data-testid="bot-row"
-			>
-				<Avatar seed={s.agent ?? s.id} group="bot" size={32} dot={running} />
-				<span className="min-w-0 flex-1 truncate text-small font-medium">{title}</span>
-				<span className="text-caption text-faint">{running ? "运行中" : "待命"}</span>
-				{unread > 0 && (
-					<span
-						role="img"
-						className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-1 text-caption leading-none text-white"
-						aria-label={`${unread} 条未读`}
-					>
-						{badge(unread)}
-					</span>
-				)}
-			</Link>
-			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
-		</>
+		<nav aria-label="Bot" className="flex gap-3 overflow-x-auto px-4 pt-3 pb-1" data-testid="bot-strip">
+			{bots.map((s) => (
+				<Link
+					key={s.id}
+					to={workPath({ session: s.id })}
+					title={titleOf(s)}
+					aria-current={s.id === active ? "page" : undefined}
+					className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${s.id === active ? "bg-tone" : ""}`}
+					data-testid="bot-avatar"
+				>
+					<Avatar seed={s.agent ?? s.id} group="bot" size={36} dot={running.has(s.id)} />
+					<span className="w-full truncate text-center text-caption text-muted">{titleOf(s)}</span>
+				</Link>
+			))}
+		</nav>
 	);
 }
 
-function TaskRow({
-	s,
-	active,
-	status,
-	since,
-	v,
-}: {
-	s: SessionInfo;
-	active: boolean;
-	status: TaskStatus;
-	since?: string;
-	v?: SessionView;
-}) {
-	const navigate = useNavigate();
-	const prefs = usePrefs();
-	const qc = useQueryClient();
-	const [menu, setMenu] = useState<MenuAnchor | null>(null);
-	const trigger = useMenuTrigger(setMenu);
-	const title = titleOf(s);
-	// 关闭会话是不可逆的：先确认，再走控制面 sessions.close，失败用 toast 反馈
-	const close = async () => {
-		if (!confirm(`关闭「${title}」后不能继续对话，确定关闭？`)) return;
-		try {
-			await rpc("sessions.close", { id: s.id });
-			await qc.invalidateQueries({ queryKey: ["sessions"] });
-		} catch (e) {
-			toast(e instanceof Error ? e.message : "关闭失败", true);
-		}
-	};
-	const actions = taskRowMenu({
-		session: s,
-		pinned: prefs.pinned.includes(s.id),
-		open: () => navigate(workPath({ session: s.id })),
-		close: () => void close(),
-	});
-	// 只有当前打开的任务有逐条进度（todo/子任务来自它的 sessions.watch）；其余行不伪造
-	const todo = v?.todos.length ? `${v.todos.filter((t) => t.state === "done").length}/${v.todos.length}` : undefined;
-	const subs = v?.subtasks.length;
-	return (
-		<>
-			<Link
-				to={workPath({ session: s.id })}
-				{...trigger}
-				title={title}
-				aria-current={active ? "page" : undefined}
-				className={`press no-select flex items-center gap-2 px-4 py-2 pl-7 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
-				data-testid="task-row"
-			>
-				{status === "running" && <Loader size={13} className="shrink-0 animate-spin text-online" aria-label="运行中" />}
-				<span className={`min-w-0 flex-1 truncate text-small ${status === "done" ? "text-muted" : ""}`}>{title}</span>
-				{todo && <span className="shrink-0 font-mono text-caption text-muted">待办 {todo}</span>}
-				{subs ? <span className="shrink-0 text-caption text-muted">{subs} 子任务</span> : null}
-				{status === "running" && !todo && since && (
-					<span className="shrink-0 text-caption text-faint">自 {since.slice(11, 16)}</span>
-				)}
-			</Link>
-			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
-		</>
-	);
-}
+const Heading = ({ title }: { title: string }) => <h2 className="px-4 pt-3 pb-1 text-caption text-faint">{title}</h2>;
 
-function Group({
-	testId,
-	title,
-	rows,
-	open,
-	onToggle,
-	children,
-}: {
-	testId: string;
-	title: string;
-	rows?: number;
-	open: boolean;
-	onToggle(): void;
-	children: React.ReactNode;
-}) {
-	return (
-		<section data-testid={testId} data-open={open}>
-			<button
-				type="button"
-				onClick={onToggle}
-				aria-expanded={open}
-				className="press flex w-full items-center gap-1.5 px-4 py-1.5 text-caption text-faint"
-			>
-				{open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-				{title}
-				{rows !== undefined && <span className="ml-auto font-mono">{rows}</span>}
-			</button>
-			{open && children}
-		</section>
-	);
-}
-
-/** 工作模式第二列：上半 Bot（常驻 Agent），下半任务会话按状态分组。 */
-export function WorkList({ active, view }: { active?: string; view?: SessionView }) {
+/**
+ * 「工作」侧边栏（WORK-UX 第三轮）：新建任务、Bot 头像一排、需要你、进行中、置顶、
+ * 今天/昨天/更早、已完成（折叠）。不显示设备卡片、类型标签、编号、轮次、数字。
+ */
+export function WorkList({ active }: { active?: string }) {
 	const navigate = useNavigate();
 	const sessions = useSessions();
 	const activity = useActivity();
+	const prefs = usePrefs();
 	const qc = useQueryClient();
-	// 折叠状态（Bot 区与四个任务分组）由 lib/work 持久化，已完成默认收起
 	const folds = useFolds();
 	const [opening, setOpening] = useState(false);
 
 	const state = useMemo(() => new Map(activity.data?.sessions.map((x) => [x.id, x])), [activity.data]);
-	const { bots, byStatus } = useMemo(() => groupWork(sessions.data ?? [], state), [sessions.data, state]);
+	const g = useMemo(
+		() => groupWork((sessions.data ?? []) as WorkSession[], state, { pinned: prefs.pinned, archived: prefs.archived }),
+		[sessions.data, state, prefs.pinned, prefs.archived],
+	);
+	const runningBots = useMemo(
+		() => new Set(g.bots.filter((s) => state.get(s.id)?.state === "running").map((s) => s.id)),
+		[g.bots, state],
+	);
 
-	const { total, done } = progressOf(byStatus);
 	const openTask = async () => {
 		setOpening(true);
 		try {
@@ -211,70 +102,89 @@ export function WorkList({ active, view }: { active?: string; view?: SessionView
 			await qc.invalidateQueries({ queryKey: ["sessions"] });
 			navigate(workPath({ session: s.id }));
 		} catch (e) {
-			alert(e instanceof Error ? e.message : "新建失败");
+			toast(e instanceof Error ? e.message : "新建失败", true);
 		} finally {
 			setOpening(false);
 		}
 	};
+	const row = (s: WorkSession, status: TaskStatus, pinned = false) => (
+		<TaskRow key={s.id} s={s} active={s.id === active} status={status} pinned={pinned} archived={status === "done"} />
+	);
+	const moreOpen = isOpen(folds, "runningMore");
+	const doneOpen = isOpen(folds, "done");
+	const shownRunning = moreOpen ? g.running : g.running.slice(0, RUNNING_SHOWN);
+	const empty =
+		sessions.data &&
+		g.needsYou.length + g.running.length + g.pinned.length + g.done.length === 0 &&
+		TIME_ORDER.every((k) => g.byTime[k].length === 0);
 
 	return (
 		<div className="scroll-y h-full" data-testid="work-list">
-			<ConsoleEntry />
-			<div className="pt-2">
-				{sessions.isLoading && <p className="px-4 py-2 text-small text-faint">加载中…</p>}
-				{sessions.isError && <p className="px-4 py-2 text-small text-danger">会话加载失败，稍后自动重试。</p>}
-				<Group testId="bot-group" title="Bot" open={isOpen(folds, "bot")} onToggle={() => toggleFolds("bot")}>
-					{sessions.data && bots.length === 0 && <p className="px-4 py-2 text-caption text-faint">没有常驻 Bot</p>}
-					{bots.map((s) => (
-						<BotRow key={s.id} s={s} active={s.id === active} running={state.get(s.id)?.state === "running"} />
-					))}
-				</Group>
-			</div>
-
-			<div className="mt-2 flex items-center gap-2 border-t border-hairline px-4 pt-3 pb-1">
-				<h2 className="text-caption text-faint">任务</h2>
-				{total > 0 && (
-					<span className="flex items-center gap-1.5 text-caption text-faint" data-testid="task-progress">
-						<span className="h-1 w-14 overflow-hidden rounded-full bg-tone">
-							<span className="block h-full bg-online" style={{ width: `${(done / total) * 100}%` }} />
-						</span>
-						{done}/{total}
-					</span>
-				)}
+			<div className="px-4 pt-1">
 				<button
 					type="button"
 					onClick={() => void openTask()}
 					disabled={opening}
-					aria-label="新建任务"
-					title="新建任务"
-					className="press ml-auto grid size-7 place-items-center rounded-full bg-tone disabled:opacity-40"
+					className="press flex w-full items-center gap-2 rounded-control bg-tone px-3 py-2 text-small disabled:opacity-40"
 					data-testid="new-task"
 				>
-					<Plus size={15} aria-hidden />
+					<Plus size={16} aria-hidden /> 新任务
 				</button>
 			</div>
-			{sessions.data && total === 0 && <p className="px-4 py-2 text-caption text-faint">还没有任务会话</p>}
-			{TASK_ORDER.filter((k) => byStatus[k].length > 0).map((k) => (
-				<Group
-					key={k}
-					testId={`task-group-${k}`}
-					title={STATUS_TITLE[k]}
-					rows={byStatus[k].length}
-					open={isOpen(folds, k)}
-					onToggle={() => toggleFolds(k)}
-				>
-					{byStatus[k].map((s) => (
-						<TaskRow
-							key={s.id}
-							s={s}
-							active={s.id === active}
-							status={k}
-							since={state.get(s.id)?.since}
-							v={s.id === active ? view : undefined}
-						/>
-					))}
-				</Group>
+			<BotStrip bots={g.bots} active={active} running={runningBots} />
+			<ConsoleEntry />
+			{sessions.isLoading && <p className="px-4 py-2 text-small text-faint">加载中…</p>}
+			{sessions.isError && <p className="px-4 py-2 text-small text-danger">会话加载失败，稍后自动重试。</p>}
+			{empty && <p className="px-4 py-3 text-caption text-faint">还没有任务。点「新任务」开始。</p>}
+
+			{g.needsYou.length > 0 && (
+				<section data-testid="group-needs-you">
+					<Heading title="需要你" />
+					{g.needsYou.map((s) => row(s, "waiting"))}
+				</section>
+			)}
+			{g.running.length > 0 && (
+				<section data-testid="group-running">
+					<Heading title="进行中" />
+					{shownRunning.map((s) => row(s, "running"))}
+					{g.running.length > RUNNING_SHOWN && (
+						<button
+							type="button"
+							onClick={() => toggleFolds("runningMore")}
+							className="press px-4 py-1.5 text-caption text-muted"
+							data-testid="running-more"
+						>
+							{moreOpen ? "收起" : "展开其余"}
+						</button>
+					)}
+				</section>
+			)}
+			{g.pinned.length > 0 && (
+				<section data-testid="group-pinned">
+					<Heading title="长期任务" />
+					{g.pinned.map((s) => row(s, "idle", true))}
+				</section>
+			)}
+			{TIME_ORDER.filter((k) => g.byTime[k].length > 0).map((k) => (
+				<section key={k} data-testid={`group-${k}`}>
+					<Heading title={TIME_TITLE[k]} />
+					{g.byTime[k].map((s) => row(s, "idle"))}
+				</section>
 			))}
+			{g.done.length > 0 && (
+				<section data-testid="group-done" data-open={doneOpen}>
+					<button
+						type="button"
+						onClick={() => toggleFolds("done")}
+						aria-expanded={doneOpen}
+						className="press mt-2 flex w-full items-center gap-1.5 px-4 py-1.5 text-caption text-faint"
+					>
+						{doneOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+						已完成
+					</button>
+					{doneOpen && g.done.map((s) => row(s, "done"))}
+				</section>
+			)}
 		</div>
 	);
 }

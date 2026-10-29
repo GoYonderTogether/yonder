@@ -32,6 +32,7 @@ describe("notification preferences", () => {
 		setNotifyPrefs({ vibrate: false });
 		expect(JSON.parse(localStorage.getItem("yonder.prefs") ?? "null")).toEqual({
 			pinned: ["a"],
+			archived: [],
 			level: { a: "mentions", b: "mute" },
 			read: { a: 42 },
 			notify: { enabled: true, vibrate: false, previews: true },

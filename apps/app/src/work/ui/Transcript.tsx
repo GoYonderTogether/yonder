@@ -63,7 +63,7 @@ function Tool({ t }: { t: ToolCall }) {
 	);
 }
 
-function Bubble({ it }: { it: ChatItem }) {
+function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
 	const actions: ActionItem[] = [
@@ -102,7 +102,7 @@ function Bubble({ it }: { it: ChatItem }) {
 	const mine = it.role === "user";
 	return (
 		<div className={`mx-auto flex w-full max-w-[720px] flex-col gap-1.5 ${mine ? "items-end" : "items-start"}`}>
-			{mine && (
+			{mine && showChannel && (
 				<span className="flex max-w-full items-center gap-1 text-caption text-faint" data-testid="channel-badge">
 					<ChannelIcon channel={it.channel} size={14} />
 					{channelName(it.channel)}
@@ -136,7 +136,19 @@ function Bubble({ it }: { it: ChatItem }) {
 	);
 }
 
-export function Transcript({ items, hasMore, onOlder }: { items: ChatItem[]; hasMore: boolean; onOlder(): void }) {
+export function Transcript({
+	items,
+	hasMore,
+	onOlder,
+	children,
+}: {
+	items: ChatItem[];
+	hasMore: boolean;
+	onOlder(): void;
+	children?: React.ReactNode;
+}) {
+	// 同一对话来自 ≥2 个渠道时才显示渠道标识
+	const channels = new Set(items.filter((i) => i.role === "user").map((i) => channelName(i.channel))).size >= 2;
 	const box = useRef<HTMLDivElement>(null);
 	const stick = useRef(true);
 	useLayoutEffect(() => {
@@ -164,8 +176,9 @@ export function Transcript({ items, hasMore, onOlder }: { items: ChatItem[]; has
 				)}
 				{items.length === 0 && <p className="py-16 text-center text-small text-faint">还没有消息</p>}
 				{items.map((it) => (
-					<Bubble key={it.id} it={it} />
+					<Bubble key={it.id} it={it} showChannel={channels} />
 				))}
+				{children}
 			</div>
 		</div>
 	);

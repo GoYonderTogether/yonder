@@ -41,33 +41,48 @@ describe("botRowMenu", () => {
 });
 
 describe("taskRowMenu", () => {
-	it("打开中的任务有打开、关闭、置顶三项", async () => {
+	const mk = (o: Partial<Parameters<typeof import("../src/work/lib/menus").taskRowMenu>[0]> = {}) => ({
+		session: openTask,
+		pinned: false,
+		archived: false,
+		open: noop,
+		rename: noop,
+		fork: noop,
+		archive: noop,
+		...o,
+	});
+
+	it("有打开、重命名、置顶、从这里分出、归档", async () => {
 		const { taskRowMenu } = await import("../src/work/lib/menus");
-		const items = taskRowMenu({ session: openTask, pinned: false, open: noop, close: noop });
-		expect(items.map((i) => i.key)).toEqual(["open", "close", "pin"]);
+		const items = taskRowMenu(mk());
+		expect(items.map((i) => i.key)).toEqual(["open", "rename", "pin", "fork", "archive"]);
 		expect(items.find((i) => i.key === "pin")?.label).toBe("置顶");
+		expect(items.find((i) => i.key === "archive")?.label).toBe("归档");
 	});
 
-	it("已关闭的任务不显示关闭项", async () => {
+	it("已完成的任务显示恢复", async () => {
 		const { taskRowMenu } = await import("../src/work/lib/menus");
-		const items = taskRowMenu({ session: closedTask, pinned: false, open: noop, close: noop });
-		expect(items.map((i) => i.key)).toEqual(["open", "pin"]);
+		expect(taskRowMenu(mk({ session: closedTask, archived: true })).find((i) => i.key === "archive")?.label).toBe(
+			"恢复到进行中",
+		);
 	});
 
-	it("已置顶的任务显示取消置顶，点选写回 prefs", async () => {
+	it("已置顶显示取消置顶，点选写回 prefs", async () => {
 		const { taskRowMenu } = await import("../src/work/lib/menus");
-		const items = taskRowMenu({ session: openTask, pinned: true, open: noop, close: noop });
-		const pin = items.find((i) => i.key === "pin");
+		const pin = taskRowMenu(mk({ pinned: true })).find((i) => i.key === "pin");
 		expect(pin?.label).toBe("取消置顶");
 		pin?.onSelect();
 		expect(JSON.parse(localStorage.getItem("yonder.prefs") ?? "{}").pinned).toEqual(["s1"]);
 	});
 
-	it("关闭项走调用方给的关闭动作", async () => {
+	it("重命名、分出、归档走调用方动作", async () => {
 		const { taskRowMenu } = await import("../src/work/lib/menus");
-		const close = vi.fn();
-		taskRowMenu({ session: openTask, pinned: false, open: noop, close })[1]?.onSelect();
-		expect(close).toHaveBeenCalledOnce();
+		const rename = vi.fn();
+		const fork = vi.fn();
+		const archive = vi.fn();
+		const items = taskRowMenu(mk({ rename, fork, archive }));
+		for (const k of ["rename", "fork", "archive"]) items.find((i) => i.key === k)?.onSelect();
+		expect([rename, fork, archive].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
 	});
 });
 

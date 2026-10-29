@@ -1,6 +1,7 @@
 import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { rpc } from "../api/client";
+import { AssistBar, AssistMenu } from "./ComposerAssist";
 
 type Busy = "steer" | "followup" | "interrupt";
 
@@ -73,6 +74,8 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					</button>
 				</div>
 			)}
+			{!bot && <AssistBar />}
+			<AssistMenu text={text} session={session} onPick={setText} />
 			{err && (
 				<p role="alert" className="mx-auto mb-1 max-w-[720px] text-caption text-danger">
 					{err}

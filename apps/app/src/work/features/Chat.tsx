@@ -1,4 +1,4 @@
-import { ChevronLeft, Layers, PanelRight } from "lucide-react";
+import { ChevronLeft, Layers, PanelRight, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { isImported } from "../lib/identity";
@@ -7,11 +7,13 @@ import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPre
 import { useTitleOf } from "../lib/queries";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
+import { ChannelPanel } from "../ui/ChannelPanel";
 import { Composer } from "../ui/Composer";
 import { FloatLayer } from "../ui/FloatLayer";
 import { Footer } from "../ui/Footer";
 import { CardStack, RightRail } from "../ui/RailStack";
 import { Transcript } from "../ui/Transcript";
+import { WorkCards } from "../ui/WorkCards";
 import { ImportBody, useImport } from "./ImportView";
 import { SessionSources } from "./SessionSources";
 
@@ -69,12 +71,14 @@ function Header({
 	wide,
 	session,
 	onRail,
+	onChannels,
 }: {
 	title: string;
 	sub?: string;
 	wide: boolean;
 	session: string;
 	onRail(): void;
+	onChannels?(): void;
 }) {
 	const rail = useRailPref();
 	return (
@@ -88,6 +92,18 @@ function Header({
 				<h1 className="truncate text-body font-semibold">{title}</h1>
 				{sub && <p className="truncate text-caption text-faint">{sub}</p>}
 			</div>
+			{onChannels && (
+				<button
+					type="button"
+					onClick={onChannels}
+					aria-label="渠道与子会话"
+					title="渠道与子会话"
+					className="press grid size-9 place-items-center rounded-full"
+					data-testid="open-channels"
+				>
+					<Radio size={19} aria-hidden />
+				</button>
+			)}
 			<FloatMenu session={session} />
 			<button
 				type="button"
@@ -140,13 +156,22 @@ function RailSheet({ children, onClose }: { children: React.ReactNode; onClose()
 function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	const [rail, setRail] = useState(false);
 	const [sourcesOpen, setSourcesOpen] = useState(false);
+	const [channels, setChannels] = useState(false);
 	const titleOf = useTitleOf();
 	const s = v.session;
-	const sub = v.running ? "正在回复…" : s?.closed ? "已结束" : s ? `${s.profile} · ${s.mode}` : undefined;
+	const isBot = s?.mode === "main" && !!s.agent && !isImported(s);
+	const sub = v.running ? "正在回复…" : s?.closed ? "已结束" : undefined;
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="聊天">
-				<Header title={s ? titleOf(s) : "会话"} sub={sub} wide={wide} session={id} onRail={() => setRail(true)} />
+				<Header
+					title={s ? titleOf(s) : "会话"}
+					sub={sub}
+					wide={wide}
+					session={id}
+					onRail={() => setRail(true)}
+					onChannels={isBot ? () => setChannels((o) => !o) : undefined}
+				/>
 				{v.error && (
 					<p role="alert" className="bg-danger/10 px-4 py-1.5 text-caption text-danger">
 						{v.error}
@@ -159,7 +184,9 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 				{!v.ready ? (
 					<p className="flex-1 py-16 text-center text-small text-faint">连接中…</p>
 				) : (
-					<Transcript items={v.items} hasMore={v.hasMore} onOlder={v.loadOlder} />
+					<Transcript items={v.items} hasMore={v.hasMore} onOlder={v.loadOlder}>
+						<WorkCards subtasks={v.subtasks} background={v.background} />
+					</Transcript>
 				)}
 				{s?.closed ? (
 					<p className="border-t border-hairline px-4 py-3 text-center text-small text-faint">会话已结束</p>
@@ -173,7 +200,8 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 				<Footer v={v} />
 				<FloatLayer session={id} v={v} />
 			</section>
-			{wide ? (
+			{channels && s?.agent && <ChannelPanel bot={s.agent} wide={wide} onClose={() => setChannels(false)} />}
+			{wide && !channels ? (
 				<RightRail session={id} v={v} />
 			) : (
 				rail && (

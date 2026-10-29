@@ -2,66 +2,119 @@ import { useSyncExternalStore } from "react";
 import type { ActivitySummary, SessionInfo } from "../api/types";
 import { groupOf } from "./identity";
 
-// 工作列表的任务分组、默认折叠与折叠持久化。折叠只存客户端，不改内核契约。
+// 工作列表的分组、默认折叠与折叠持久化。折叠、归档、置顶目前只存客户端，不改内核契约。
 export type TaskStatus = "running" | "waiting" | "idle" | "done";
 export type ActivityState = ActivitySummary["sessions"][number]["state"];
 type ActivitySession = ActivitySummary["sessions"][number];
 
+/** contracts.md §18 的 session 增补字段；后端未实现时都缺省。 */
+export interface WorkbenchFields {
+	owner?: { kind: "owner" | "bot"; id: string };
+	archivedAt?: number;
+	needsOwner?: { reason: string; since: number };
+	channels?: string[];
+	parent?: string;
+	pinned?: boolean;
+	title?: string;
+}
+export type WorkSession = SessionInfo & WorkbenchFields;
+
 export const TASK_ORDER: TaskStatus[] = ["running", "waiting", "idle", "done"];
 export const STATUS_TITLE: Record<TaskStatus, string> = {
-	running: "运行中",
-	waiting: "等你回答",
+	running: "进行中",
+	waiting: "需要你",
 	idle: "待命",
 	done: "已完成",
 };
 
-/** 已关闭的任务算完成；活动摘要只区分运行中、等你回答，其余（含 error 与缺失）按待命。 */
-export function taskStatus(s: SessionInfo, state?: ActivityState): TaskStatus {
-	if (s.closed) return "done";
+/** 已关闭或已归档的任务算完成；活动摘要只区分运行中、等你回答，其余（含 error 与缺失）按待命。 */
+export function taskStatus(s: WorkSession, state?: ActivityState, archived: readonly string[] = []): TaskStatus {
+	if (s.closed || s.archivedAt || archived.includes(s.id)) return "done";
+	if (s.needsOwner || state === "waiting") return "waiting";
 	if (state === "running") return "running";
-	if (state === "waiting") return "waiting";
 	return "idle";
+}
+
+export type TimeKey = "today" | "yesterday" | "earlier";
+export const TIME_ORDER: TimeKey[] = ["today", "yesterday", "earlier"];
+export const TIME_TITLE: Record<TimeKey, string> = { today: "今天", yesterday: "昨天", earlier: "更早" };
+
+/** 按本地日历日分组；无法解析的时间算更早。 */
+export function timeKey(iso: string, now: Date = new Date()): TimeKey {
+	const t = new Date(iso);
+	if (Number.isNaN(t.getTime())) return "earlier";
+	const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+	const diff = Math.round((day(now) - day(t)) / 86_400_000);
+	return diff <= 0 ? "today" : diff === 1 ? "yesterday" : "earlier";
 }
 
 export interface WorkGroups {
 	/** 常驻 Bot，按会话列表原顺序；已关闭的不列。 */
-	bots: SessionInfo[];
-	byStatus: Record<TaskStatus, SessionInfo[]>;
+	bots: WorkSession[];
+	/** 需要主人的任务（Bot 递上来的、或在等回答）。 */
+	needsYou: WorkSession[];
+	/** 进行中（运行中）。 */
+	running: WorkSession[];
+	/** 置顶的长期任务，顺序按 pinned 偏好。 */
+	pinned: WorkSession[];
+	byTime: Record<TimeKey, WorkSession[]>;
+	/** 已完成 = 关闭或归档。 */
+	done: WorkSession[];
 }
 
-/** 纯分组：Bot 与任务分开，任务按状态归组，组内按打开时间倒序。导入的 pi 会话不参与。 */
+export interface GroupOpts {
+	pinned?: readonly string[];
+	archived?: readonly string[];
+	now?: Date;
+}
+
+/**
+ * 纯分组：Bot 单列；任务按「需要你 / 进行中 / 置顶 / 今天昨天更早 / 已完成」归组，组内按打开时间倒序。
+ * Bot 发起的任务默认只挂在 Bot 下，除非它递上来（needsOwner）。导入的 pi 会话不参与。
+ */
 export function groupWork(
-	sessions: readonly SessionInfo[],
+	sessions: readonly WorkSession[],
 	state: ReadonlyMap<string, ActivitySession> = new Map(),
+	opts: GroupOpts = {},
 ): WorkGroups {
-	const bots: SessionInfo[] = [];
-	const byStatus: Record<TaskStatus, SessionInfo[]> = { running: [], waiting: [], idle: [], done: [] };
+	const pins = opts.pinned ?? [];
+	const out: WorkGroups = {
+		bots: [],
+		needsYou: [],
+		running: [],
+		pinned: [],
+		byTime: { today: [], yesterday: [], earlier: [] },
+		done: [],
+	};
 	for (const s of sessions) {
 		const g = groupOf(s);
 		if (g === "bot") {
-			if (!s.closed) bots.push(s);
-		} else if (g === "task") {
-			byStatus[taskStatus(s, state.get(s.id)?.state)].push(s);
+			if (!s.closed) out.bots.push(s);
+			continue;
 		}
+		if (g !== "task") continue;
+		const status = taskStatus(s, state.get(s.id)?.state, opts.archived);
+		if (s.owner?.kind === "bot" && !s.needsOwner) continue;
+		if (status === "done") out.done.push(s);
+		else if (status === "waiting") out.needsYou.push(s);
+		else if (pins.includes(s.id) || s.pinned) out.pinned.push(s);
+		else if (status === "running") out.running.push(s);
+		else out.byTime[timeKey(s.opened, opts.now)].push(s);
 	}
-	for (const list of Object.values(byStatus)) list.sort((a, b) => b.opened.localeCompare(a.opened));
-	return { bots, byStatus };
+	const newest = (a: WorkSession, b: WorkSession) => b.opened.localeCompare(a.opened);
+	for (const list of [out.needsYou, out.running, out.done, ...Object.values(out.byTime)]) list.sort(newest);
+	out.pinned.sort((a, b) => pins.indexOf(a.id) - pins.indexOf(b.id));
+	return out;
 }
 
-/** 任务进度条用的计数：已完成 / 全部任务。 */
-export function progressOf(byStatus: Record<TaskStatus, SessionInfo[]>): { total: number; done: number } {
-	const total = TASK_ORDER.reduce((n, k) => n + byStatus[k].length, 0);
-	return { total, done: byStatus.done.length };
-}
-
-// 折叠状态：Bot 区与四个任务分组各一份；已完成默认收起，其余默认展开。
-export type FoldKey = TaskStatus | "bot";
+// 折叠状态：「已完成」与「进行中更多」默认收起。
+export type FoldKey = "done" | "runningMore";
 /** 只记录用户手动切换过的分组；没有记录的分组走默认值。 */
 export type Folds = Partial<Record<FoldKey, boolean>>;
-const FOLD_KEYS: FoldKey[] = [...TASK_ORDER, "bot"];
+const FOLD_KEYS: FoldKey[] = ["done", "runningMore"];
 const KEY = "yonder.work.fold";
 
-export const defaultOpen = (key: FoldKey): boolean => key !== "done";
+export const defaultOpen = (_key: FoldKey): boolean => false;
 export const isOpen = (folds: Folds, key: FoldKey): boolean => folds[key] ?? defaultOpen(key);
 export const toggleFold = (folds: Folds, key: FoldKey): Folds => ({ ...folds, [key]: !isOpen(folds, key) });
 
