@@ -1,5 +1,6 @@
 import type { PluginAPI } from "@yonder/sdk";
 import { type Config, type ObjectValue, object, string } from "./protocol.js";
+import { scopeHint } from "./scopes.js";
 
 /** A request may have reached Feishu without a conclusive protocol receipt. */
 export class FeishuRequestError extends Error {
@@ -118,12 +119,15 @@ export class FeishuApi {
 		if (!response.ok || result.code !== 0) {
 			const violations = object(result.error).permission_violations;
 			const scopes = Array.isArray(violations) ? violations.map((v) => string(object(v).subject)).filter(Boolean) : [];
+			const hint =
+				result.code === 99991672 || result.code === 99991679 ? scopeHint(this.config.domain, this.config.appId) : "";
 			throw new FeishuRequestError(
-				this.safe(
+				// The hint holds only a fixed console URL, so it is appended after URL redaction.
+				`${this.safe(
 					new Error(
 						`Feishu ${operation}: ${response.ok ? "" : `HTTP ${response.status}; `}code=${String(result.code)}${string(result.msg) ? `; msg=${string(result.msg)}` : ""}${scopes.length ? `; required permissions=${scopes.join(",")}` : ""}${result.code !== 0 ? "; check application scopes, publication and tenant access" : ""}`,
 					),
-				),
+				)}${hint}`,
 				!response.ok && response.status >= 500,
 			);
 		}

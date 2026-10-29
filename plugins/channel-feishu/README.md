@@ -34,6 +34,7 @@
 profile 必须明确选用本插件工具。`channelInstances` 未配置时保留旧版无限制兼容；配置为实际实例 id 名单后，status/history/message/card/task-card（含 rawSend）仅可访问名单内实例，`[]` 无实例，admin/bypass 不豁免。defaults/profile/preset 沿既有继承规则，bindings 不自动授予出站范围。省略 instance 的 status 只返回授权列表；仍保留 history 来源/admin 与 task-card 的真实输入、会话/Agent 归属检查。这是工具/API 作用域，不是 macOS 沙箱。工具名均在清单中：
 
 - `channel-feishu_status`：可选 instance，查询实际内存连接状态（connected/reconnecting/not-ready 等），不触发连接或发送。
+- `channel-feishu_scopes`：instance、action=status|apply、可选 scopes。status 返回 granted/pending/notConfigured 与开发者后台链接；apply 需 admin，仅在有“已配置未授权”的 scope 时调用 `/application/v6/scopes/apply`（接口无 scope 参数），次数记在实例数据目录 scope-apply.json，达 8 次拒绝。未配置的 scope 必须由主人在后台添加并发版。
 - `channel-feishu_message`：instance、to、text、可选 attachments/replyTo；经 `api.messages.send`，由既有 message.out 记录。to 必须是同实例的 acct/conv 引用。普通回复也通过 Channel.send/stream。
 - `channel-feishu_card`：instance、to、可选 replyTo；传 card 原生 JSON，或 templateId/templateVersion/variables（缺 templateId 时使用实例默认），互斥。成功保留真实消息 id，写 channel-feishu.card-sent 事件和工具转录。事件落盘失败返回已发送 id，禁止据此重发。
 

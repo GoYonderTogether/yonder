@@ -38,6 +38,7 @@
 			"tools": [
 				"channel-feishu_status",
 				"channel-feishu_history",
+				"channel-feishu_scopes",
 				"channel-feishu_card",
 				"channel-feishu_task_card",
 				"channel-feishu_message"

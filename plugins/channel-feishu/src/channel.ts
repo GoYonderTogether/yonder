@@ -44,6 +44,7 @@ import {
 	string,
 	textPayload,
 } from "./protocol.js";
+import { FeishuScopes } from "./scopes.js";
 import { FeishuTaskCards } from "./task-card.js";
 
 export class FeishuChannel implements Channel {
@@ -51,6 +52,7 @@ export class FeishuChannel implements Channel {
 	readonly output: { stream: boolean; attachments: boolean };
 	readonly features: NonNullable<Channel["features"]>;
 	readonly client: FeishuApi;
+	readonly scopes: FeishuScopes;
 	private readonly connection: FeishuConnection;
 	private readonly interaction: FeishuInteraction;
 	readonly taskCards: FeishuTaskCards;
@@ -76,6 +78,7 @@ export class FeishuChannel implements Channel {
 	) {
 		this.directory = join(api.paths.data, id);
 		this.client = new FeishuApi(config, api);
+		this.scopes = new FeishuScopes(this.client, this.directory);
 		this.output = { stream: config.streaming !== false, attachments: true };
 		this.features = {
 			identity: "account",

@@ -73,7 +73,7 @@ describe("Feishu protocol receipts (no network or model)", () => {
 			await expect(
 				client.request("/im/v1/chats/chat/members?member_id_type=open_id", "POST", {}),
 			).rejects.toMatchObject({
-				message: `Feishu /im/v1/chats/chat/members: HTTP ${status}; code=99991672; msg=Access denied; required permissions=im:chat.members:read,im:chat:readonly; check application scopes, publication and tenant access`,
+				message: `Feishu /im/v1/chats/chat/members: HTTP ${status}; code=99991672; msg=Access denied; required permissions=im:chat.members:read,im:chat:readonly; check application scopes, publication and tenant access; call channel-feishu_scopes (action=status|apply) to inspect or apply scopes that are already added to the app, or have the owner add them and publish a version at https://open.feishu.cn/app/protocol-test/auth`,
 				uncertain: status >= 500,
 			});
 		}
@@ -150,7 +150,7 @@ describe("Feishu protocol receipts (no network or model)", () => {
 		try {
 			await expect(client.request("/im/v1/messages", "POST", {})).rejects.toMatchObject({
 				message:
-					"Feishu /im/v1/messages: HTTP 400; code=99991672; msg=[redacted] [redacted] untrusted-message; required permissions=im:message [redacted] [redacted]; check application scopes, publication and tenant access",
+					"Feishu /im/v1/messages: HTTP 400; code=99991672; msg=[redacted] [redacted] untrusted-message; required permissions=im:message [redacted] [redacted]; check application scopes, publication and tenant access; call channel-feishu_scopes (action=status|apply) to inspect or apply scopes that are already added to the app, or have the owner add them and publish a version at https://open.feishu.cn/app/protocol-test/auth",
 				uncertain: false,
 			});
 			expect(fetch).toHaveBeenCalledTimes(2);

@@ -11,7 +11,7 @@ import {
 } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { FeishuChannel } from "./channel.js";
-import { uncertain } from "./client.js";
+import { FeishuRequestError, uncertain } from "./client.js";
 import { conversationContext } from "./conversation.js";
 import { type Config, configSchema, object, required, string } from "./protocol.js";
 import { taskCardParameters } from "./task-card.js";
@@ -109,6 +109,53 @@ export default definePlugin({
 					};
 				} catch (error) {
 					return { text: error instanceof Error ? error.message : "Feishu status failed", isError: true };
+				}
+			},
+		});
+		register({
+			name: "channel-feishu_scopes",
+			description:
+				"Inspect or apply Feishu application scopes (permissions) of an instance. status lists which requested scopes are granted, pending admin approval, or not configured. apply (admin only; external effect) asks the tenant admin to approve scopes already added to the app version; it cannot add scopes, and the API ignores the scopes list (it applies all pending scopes). Scopes not configured must be added by the owner in the developer console (link in result) and published. Apply is skipped when nothing is pending and capped by a recorded attempt count (Feishu allows 10 per app version).",
+			parameters: {
+				type: "object",
+				additionalProperties: false,
+				required: ["instance", "action"],
+				properties: {
+					instance: str,
+					action: { enum: ["status", "apply"] },
+					scopes: { type: "array", items: str, maxItems: 50 },
+				},
+			} as TSchema,
+			capabilities: ["read", "network"],
+			async execute(input, ctx) {
+				let channel: FeishuChannel | undefined;
+				try {
+					const resolved = resolve(input, ctx);
+					channel = resolved.channel;
+					const scopes = Array.isArray(resolved.args.scopes)
+						? resolved.args.scopes.map(string).filter(Boolean)
+						: undefined;
+					if (resolved.args.action === "apply") {
+						if (!ctx.capabilities.includes("admin")) throw new Error("Applying Feishu scopes requires admin");
+						return { text: JSON.stringify({ ok: true, ...(await channel.scopes.apply(scopes, ctx.signal)) }) };
+					}
+					return { text: JSON.stringify({ ok: true, ...(await channel.scopes.status(scopes, ctx.signal)) }) };
+				} catch (error) {
+					return {
+						text: JSON.stringify({
+							ok: false,
+							...(uncertain(error) ? { uncertain: true } : {}),
+							error:
+								error instanceof FeishuRequestError
+									? error.message
+									: channel
+										? channel.client.safe(error)
+										: error instanceof Error
+											? error.message
+											: "Feishu scopes failed",
+						}),
+						isError: true,
+					};
 				}
 			},
 		});

@@ -211,6 +211,7 @@
   - `channel-feishu.task-card-updated`：受管任务状态卡创建或更新，携带 receipt、revision 与来源消息。
 - **可调用工具**：
   - `channel-feishu_status`：查询连接、机器人身份、补收及渲染状态。
+  - `channel-feishu_scopes`：action=status 查询请求 scope 的已授权/待审批/未配置；action=apply（需 admin）仅对已加入应用版本、未授权的 scope 向租户管理员发起申请（接口不接受 scope 列表，按应用全部待审批项申请），有本地记录次数上限 8（官方每应用版本 10 次）。未配置的 scope 只能由主人在开发者后台添加并发版。99991672/99991679 错误会附带本工具提示与后台链接。
   - `channel-feishu_history`：分页查询获准会话或线程的指定时间区间历史。
   - `channel-feishu_message`：通过共享投递发送文字或多媒体，并可指定原生replyTo。
   - `channel-feishu_card`：发送原生自定义或模板卡片，并可指定原生replyTo。
