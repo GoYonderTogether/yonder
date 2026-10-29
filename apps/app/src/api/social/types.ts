@@ -23,6 +23,9 @@ export interface Actor {
 	public?: boolean;
 	summary?: string | null;
 	note?: string;
+	/** 当前账号绑定的登录手机号/邮箱；只在本人会话的 actor 上返回，公开资料不带 */
+	phone?: string | null;
+	email?: string | null;
 }
 
 export type MessageContent =
@@ -157,4 +160,29 @@ export type ReferenceKind = "actor" | "card" | "conversation" | "device";
 export interface ResolvedReference {
 	id: string;
 	code: string;
+}
+
+/** 验证码登录的两种方式：手机短信、邮箱；首次验证即注册，不设密码。 */
+export type VerifyKind = "phone" | "email";
+
+/** POST /api/auth/code/send 的入参；shareToken 只有从分享链接进来时才有。 */
+export interface CodeSendInput {
+	kind: VerifyKind;
+	target: string;
+	shareToken?: string;
+}
+
+/** 发送结果；retryAfter 是服务端给出的重发冷却秒数。 */
+export interface CodeSent {
+	sent: true;
+	retryAfter: number;
+}
+
+/** POST /api/auth/code/verify 的入参；name 只给首次注册时用。 */
+export interface CodeVerifyInput {
+	kind: VerifyKind;
+	target: string;
+	code: string;
+	shareToken?: string;
+	name?: string;
 }

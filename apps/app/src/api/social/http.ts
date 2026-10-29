@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import type { Actor, Card, Conversation, Device, Message, Session } from "./types";
+import type { Actor, Card, CodeSent, Conversation, Device, Message, Session } from "./types";
 
 export class SocialError extends Error {
 	constructor(
@@ -36,8 +36,14 @@ const json = (method: string, body?: unknown): RequestInit => ({
 export const httpApi: Omit<ApiClient, "subscribe"> = {
 	resolve: (kind, reference) => request(`/resolve/${kind}/${encodeURIComponent(reference)}`, {}, true),
 	session: () => request<Session | null>("/session"),
+	/** @deprecated 邮箱+密码注册；登录已改为验证码，保留不删。 */
 	register: (input) => request("/auth/register", json("POST", input)),
+	/** @deprecated 邮箱+密码登录；登录已改为验证码，保留不删。 */
 	login: (input) => request("/auth/login", json("POST", input)),
+	sendCode: (input) => request<CodeSent>("/auth/code/send", json("POST", input)),
+	verifyCode: (input) => request<Session>("/auth/code/verify", json("POST", input)),
+	sendBindCode: (kind, target) => request<CodeSent>(`/me/${kind}/send-code`, json("POST", { [kind]: target })),
+	confirmBindCode: (kind, target, code) => request<void>(`/me/${kind}/confirm`, json("POST", { [kind]: target, code })),
 	createAnonymous: () => request("/auth/anonymous", json("POST")),
 	logout: () => request("/auth/logout", json("POST")),
 	updateProfile: (input) => request<Actor>("/me", json("PATCH", input)),

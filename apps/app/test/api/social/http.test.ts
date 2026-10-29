@@ -50,4 +50,30 @@ describe("social HTTP client", () => {
 		await expect(httpApi.card("missing")).resolves.toBeNull();
 		await expect(httpApi.messages("missing")).rejects.toMatchObject({ status: 404, code: "not_found" });
 	});
+
+	it("posts verification codes and account bindings to the code endpoints", async () => {
+		vi.stubEnv("VITE_SOCIAL_BASE", "");
+		const fetchMock = vi.fn().mockImplementation(async () => new Response('{"sent":true,"retryAfter":60}'));
+		vi.stubGlobal("fetch", fetchMock);
+		await expect(httpApi.sendCode({ kind: "phone", target: "13800001234", shareToken: "st" })).resolves.toEqual({
+			sent: true,
+			retryAfter: 60,
+		});
+		await httpApi.verifyCode({ kind: "email", target: "a@b.co", code: "123456" });
+		await httpApi.sendBindCode("phone", "13800001234");
+		await httpApi.confirmBindCode("email", "a@b.co", "123456");
+		const calls = fetchMock.mock.calls as [string, { method: string; body: string }][];
+		expect(calls.map(([url, init]) => [url, init.method])).toEqual([
+			["/api/auth/code/send", "POST"],
+			["/api/auth/code/verify", "POST"],
+			["/api/me/phone/send-code", "POST"],
+			["/api/me/email/confirm", "POST"],
+		]);
+		expect(calls.map(([, init]) => JSON.parse(init.body))).toEqual([
+			{ kind: "phone", target: "13800001234", shareToken: "st" },
+			{ kind: "email", target: "a@b.co", code: "123456" },
+			{ phone: "13800001234" },
+			{ email: "a@b.co", code: "123456" },
+		]);
+	});
 });

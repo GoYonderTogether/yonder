@@ -1,6 +1,9 @@
 import type {
 	Actor,
 	Card,
+	CodeSendInput,
+	CodeSent,
+	CodeVerifyInput,
 	Conversation,
 	ConversationDetail,
 	Device,
@@ -12,6 +15,7 @@ import type {
 	ReferenceKind,
 	ResolvedReference,
 	Session,
+	VerifyKind,
 } from "./types";
 
 /**
@@ -20,10 +24,18 @@ import type {
  */
 export interface ApiClient {
 	resolve(kind: ReferenceKind, reference: string): Promise<ResolvedReference | null>;
-	// 账号（邮箱 + 密码，不验证邮箱）
-	session(): Promise<Session | null>;
+	/** @deprecated 邮箱+密码注册；登录已改为验证码（sendCode/verifyCode），保留只为不打断其他调用方。 */
 	register(input: { email: string; password: string; name: string }): Promise<Session>;
+	/** @deprecated 邮箱+密码登录；登录已改为验证码（sendCode/verifyCode），保留只为不打断其他调用方。 */
 	login(input: { email: string; password: string }): Promise<Session>;
+	/** 发送短信/邮箱验证码；访客从分享链接进来时带 shareToken。冷却中 429，发送失败 502。 */
+	sendCode(input: CodeSendInput): Promise<CodeSent>;
+	/** 校验验证码并登录；首次验证即注册，Set-Cookie 后返回当前身份。 */
+	verifyCode(input: CodeVerifyInput): Promise<Session>;
+	/** 给已登录账号绑定/换绑手机号或邮箱：先发码，再 confirm；成功后服务端撤销所有会话。 */
+	sendBindCode(kind: VerifyKind, target: string): Promise<CodeSent>;
+	confirmBindCode(kind: VerifyKind, target: string, code: string): Promise<void>;
+	session(): Promise<Session | null>;
 	/** 访客点“和 TA 聊天”时创建匿名账号 */
 	createAnonymous(): Promise<Session>;
 	logout(): Promise<void>;
