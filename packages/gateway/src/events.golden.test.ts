@@ -10,6 +10,8 @@ import { EVENT_SCHEMAS } from "./protocol/index.js";
  *
  * 规则是 golden ⊆ 当前（同 S-C02，不是全等）：
  * 删事件、改名字、删字段、改字段类型、新增必填字段会失败；新增事件类型或新增可选字段不会。
+ * 待实现（contracts.md §18 工作台 W01，本文件暂不冻结）：事件 `session.updated`、方法 `sessions.archive/unarchive/pin/unpin`、`bots.overview`
+ * 及 session 新增可选字段尚无后端；实现后重写基线收入 golden。
  * 重写基线：`UPDATE_GOLDEN=1 npx vitest run packages/gateway/src/events.golden.test.ts`，
  * 格式化会自动执行。
  */

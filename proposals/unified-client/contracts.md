@@ -724,3 +724,52 @@ SDK/插件另提供 `social.resume`（ResumeParams → ResumeResult，同 update
 | `judge.model` | `cheap`（模型槽名或 provider/model） |
 | `snapshot.enabled` | `true` |
 | `botGate` | `windowMin: 15`、`threshold: 3`、`history: 3` |
+
+### §18 工作台（W01）
+
+来源：`yonder-lead/program/fe/WORK-UX.md` 第三轮。只增不改（spec/20）。全部【新增·A】，后端未实现前前端如实空态。
+
+**session 增补字段**（`SessionInfo` 的可选扩展，旧客户端忽略）：
+
+```ts
+interface SessionWorkbenchFields {
+  owner?: { kind: "owner" | "bot"; id: string };   // 谁发起；缺省视为 owner。Bot 发起的任务默认只挂在 Bot 下
+  archivedAt?: number;                              // 毫秒时间戳；有值 = 已完成（归档由人或有权限者触发，不自动归档）
+  needsOwner?: { reason: string; since: number };   // Bot 递上来；有值则进「需要你」组
+  title?: string;                                   // 小模型命名（≤12 字），§13 sessions.rename 改过即锁定
+  channels?: string[];                              // 该对话来源渠道 id；≥2 个前端才显示渠道标识
+  parent?: string;                                  // fork 来源会话 id，最多两层；第三层 fork 返回 invalid_params
+  pinned?: boolean;                                 // 置顶 = 长期任务，永不归档提示
+}
+```
+
+**方法**
+
+| 方法 | scope | params | result | 说明 |
+|---|---|---|---|---|
+| `sessions.archive` | write | `{ id }` | `Ok` | 设 `archivedAt`；幂等。Bot 会话需 `owner` scope（§14） |
+| `sessions.unarchive` | write | `{ id }` | `Ok` | 清 `archivedAt`；幂等 |
+| `sessions.pin` / `sessions.unpin` | write | `{ id }` | `Ok` | 设/清 `pinned`；幂等 |
+| `sessions.rename` | write | 已有（§13） | `Ok` | 不新增 |
+| `bots.overview` | owner | `{ bot: string }` | `{ channels: { id: string; label: string; kind: string; lastActiveAt?: number }[]; sessions: { session: SessionInfo }[] }` | 渠道列表 + 该 Bot 的子会话（含 `parent` 指向 main）。未知 Bot 或非节点 owner 的 Bot：`not_found`（同 `bots.send`） |
+
+- 错误码：未知会话 `not_found`；无权限 `forbidden`；`parent` 超两层 `invalid_params`。
+- `sessions.list` 默认不含已归档；`filter` 增加可选 `archived?: boolean`（true 只返回已归档）和 `pinned?: boolean`。
+- 事件：沿用 §15 carrier，`SessionUpdate{type:"event", name, data}`。新增事件名 `session.updated`（data：`{ id; patch: Partial<SessionWorkbenchFields> }`），节点级由 `activity.watch` 转发，会话级由 `sessions.watch` 转 `ev{type:"session.updated"}`。不认识该名的客户端丢弃。`needsOwner` 出现时额外走 §16 通知。
+
+**工具**（agent 侧，与上述方法同一实现，不另起口径，§13 第 8 条）
+
+| 工具 | 谁能用 | 参数 | 效果 |
+|---|---|---|---|
+| `session_archive` | Bot；持有 `session.manage` 的会话 | `{ id?: string }`（缺省当前会话） | 等同 `sessions.archive`；Bot 只能归档自己名下会话，否则 `forbidden`。「需要你 14 天」由 Bot 询问后调用它 |
+| `session_hand_up` | Bot 名下会话 | `{ reason: string }` | 设 `needsOwner{reason, since}`，发 `session.updated` 与通知；主人处理后清除并回到 Bot 名下 |
+| `bot_ask` | 基础会话（无人设） | `{ bot: string; question: string }` | 向 Bot 提问并返回答复；不改变会话归属 |
+| `bot_request` | 基础会话 | `{ bot: string; action: string; detail: string }` | 向 Bot 申请/请其协助操作；Bot 侧按自身审批策略处理，结果返回 |
+| `bot_attach` | 基础会话 | `{ bot: string }` | 把当前会话挂为该 Bot 子会话（设 `parent` 为其 main），获得询问主会话的权限；仅主人授权后生效，否则 `forbidden` |
+
+- 权限：这组工具只对基础会话与上表所列会话开放，不进入外人（outsiders）能力白名单；`bot_*` 目标 Bot 必须属于节点 owner，否则 `not_found`。
+- 与 scope 的关系：不新增 Scope 值。工具执行时按调用者所属主体检查同名方法所需 scope（archive/pin = write，Bot 会话 = owner）；`session.manage` 是会话授权位，不是 `Scope`。
+- 错误码沿用 `forbidden` / `not_found` / `invalid_params`；Bot 未接收 `bot_ask`/`bot_request` 时返回 `Bot X did not accept the request (<reason>)`（同 `bots.send` 口径）。
+- `bots.list` 的 `channels` / `sessionsOverview` 即 `bots.overview` 的汇总。
+
+**实现归属**：A 线内核（会话字段、方法、工具、事件、小模型命名）；B 线 gateway 注册方法与事件转发；apps/app 在后端未实现前对新字段显示空态，dev 原型可用 mock 层并标 `// PROTOTYPE:`。
