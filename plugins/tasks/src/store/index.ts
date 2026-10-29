@@ -2,7 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { RenderContext, ToolContext } from "@yonder/sdk";
 import { changeTask, claimDigest, claimMoments, digestSeen, momentResult, openTask, renderTurn } from "./append.js";
 import type { Moment, Open, Task, TaskEvent, Update } from "./project.js";
-import { all, get, history, list, progress } from "./query.js";
+import { all, find, get, history, list, progress } from "./query.js";
 import { connect, needsBackfill, rebuild as replayInto } from "./schema.js";
 
 export type { Moment, Open, State, Task, TaskContent, TaskEvent, Update } from "./project.js";
@@ -56,16 +56,10 @@ export class Store {
 	claimMoments(now: number, stallMinutes: number, userWaitMinutes: number, postCompact: boolean) {
 		return claimMoments(this.#handle, now, stallMinutes, userWaitMinutes, postCompact);
 	}
-	reminderCandidates() {
-		return all(this.#handle).map(({ task }) => ({ task, history: history(this.#handle, task.id) }));
-	}
-	claimReminder(destination: string, now: number): boolean {
-		const result = this.#handle
-			.prepare(`INSERT INTO reminder_windows(destination, claimed) VALUES (?, ?)
-			ON CONFLICT(destination) DO UPDATE SET claimed = excluded.claimed
-			WHERE reminder_windows.claimed <= excluded.claimed - 86400000`)
-			.run(destination, now);
-		return Number(result.changes) === 1;
+	/** stall 投递前的二次校验：读 claim 之后的任务与历史，不走按调用方过滤的 get。 */
+	taskById(id: string): { task: Task; history: TaskEvent[] } | undefined {
+		const task = find(this.#handle, id);
+		return task ? { task, history: history(this.#handle, task.id) } : undefined;
 	}
 	momentResult(id: string, moment: Moment, data: { result?: unknown; error?: string }, now: number): void {
 		momentResult(this.#handle, id, moment, data, now);
@@ -79,7 +73,7 @@ export class Store {
 	claimDigest(task: Task, destination: string, now: number): boolean {
 		return claimDigest(this.#handle, task, destination, now);
 	}
-	digestSeen(task: Task, destination: string): boolean {
-		return digestSeen(this.#handle, task, destination);
+	digestSeen(task: Task, destination: string, now = Date.now()): boolean {
+		return digestSeen(this.#handle, task, destination, now);
 	}
 }

@@ -34,7 +34,6 @@
 				"tasks_done",
 				"tasks_list",
 				"tasks_get",
-				"tasks_nudge",
 				"tasks_show"
 			],
 			"contexts": [

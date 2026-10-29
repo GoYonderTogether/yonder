@@ -59,7 +59,7 @@ export function digest(api: PluginAPI, store: Store, config: Config, now = Date.
 				state === "waiting-user" || state === "review" ? 0 : state === "blocked" ? 1 : 2;
 			const candidates = tasks
 				.filter((t) => t.state === "waiting-user" || t.state === "review" || t.state === "blocked" || t.lastDeliveryAt)
-				.filter((t) => t.state !== "cancelled" && !store.digestSeen(t, message.to))
+				.filter((t) => t.state !== "cancelled" && !store.digestSeen(t, message.to, time))
 				.sort((a, b) => priority(a.state) - priority(b.state));
 			const lines: string[] = [];
 			const zh = api.locale.startsWith("zh");

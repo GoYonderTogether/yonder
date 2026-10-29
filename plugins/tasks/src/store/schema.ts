@@ -18,7 +18,6 @@ export function connect(data: string): DatabaseSync {
 	)`);
 	// 读路径按 task 取单个任务的历史，没有这个索引就退化成全表扫。
 	db.exec("CREATE INDEX IF NOT EXISTS events_task ON events(task, seq)");
-	db.exec("CREATE TABLE IF NOT EXISTS reminder_windows (destination TEXT PRIMARY KEY, claimed INTEGER NOT NULL)");
 	db.exec(`CREATE TABLE IF NOT EXISTS task_current (
 		id TEXT PRIMARY KEY,
 		ref TEXT NOT NULL,

@@ -144,7 +144,7 @@ export function claimMoments(
 ) {
 	db.exec("BEGIN IMMEDIATE");
 	try {
-		const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string }> = [];
+		const due: Array<{ task: Task; moment: Moment; minutes: number; waitingFor: string; seq: number }> = [];
 		// 只对状态命中、可能需要提醒的任务读历史，与账本总量无关。
 		for (const task of moments(db, postCompact)) {
 			const events = history(db, task.id);
@@ -170,12 +170,13 @@ export function claimMoments(
 			if (moment === "postCompact" && last) continue;
 			if (moment === "user-wait" && last && Date.parse(last.at) >= Date.parse(since)) continue;
 			if (now - Math.max(Date.parse(since), last ? Date.parse(last.at) : 0) < window * 60000) continue;
-			append(db, task.id, "moment", { moment }, now, true);
+			const seq = append(db, task.id, "moment", { moment }, now, true);
 			due.push({
 				task,
 				moment,
 				minutes: Math.floor((now - Date.parse(since)) / 60000),
 				waitingFor: events.findLast((event) => event.data.note)?.data.note ?? task.objective,
+				seq,
 			});
 		}
 		db.exec("COMMIT");
@@ -240,12 +241,21 @@ const digestFingerprint = (task: Task) =>
 			: [task.lastDeliveryAt, task.deliverable],
 	);
 
-export function claimDigest(db: DatabaseSync, task: Task, destination: string, now: number): boolean {
+/** 尾部进展按 (destination, fingerprint) 判重，但只压住 TTL 内的重复：更久之后再出现是同一条进展的新提醒。 */
+export const DIGEST_TTL_MS = 6 * 3600000;
+
+export function claimDigest(
+	db: DatabaseSync,
+	task: Task,
+	destination: string,
+	now: number,
+	ttl = DIGEST_TTL_MS,
+): boolean {
 	db.exec("BEGIN IMMEDIATE");
 	try {
 		const fingerprint = digestFingerprint(task);
 		const last = digests(db, task.id).findLast((event) => event.data.destination === destination);
-		const claimed = last?.data.fingerprint !== fingerprint;
+		const claimed = last?.data.fingerprint !== fingerprint || now - Date.parse(last.at) >= ttl;
 		if (claimed)
 			append(db, task.id, "digest", { destination, fingerprint, lastDeliveryAt: task.lastDeliveryAt }, now, true);
 		db.exec("COMMIT");
@@ -256,10 +266,17 @@ export function claimDigest(db: DatabaseSync, task: Task, destination: string, n
 	}
 }
 
-export function digestSeen(db: DatabaseSync, task: Task, destination: string): boolean {
+export function digestSeen(
+	db: DatabaseSync,
+	task: Task,
+	destination: string,
+	now = Date.now(),
+	ttl = DIGEST_TTL_MS,
+): boolean {
 	return digests(db, task.id).some(
 		(event) =>
 			event.data.destination === destination &&
+			now - Date.parse(event.at) < ttl &&
 			(event.data.fingerprint === digestFingerprint(task) ||
 				(!["waiting-user", "review", "blocked"].includes(task.state) &&
 					event.data.lastDeliveryAt === task.lastDeliveryAt)),

@@ -5,6 +5,7 @@ import { Worker } from "node:worker_threads";
 import { expect, test } from "vitest";
 import { renderPng, renderSvg, renderText, taskBoard } from "../src/board.js";
 import { digest } from "../src/digest.js";
+import { DIGEST_TTL_MS } from "../src/store/append.js";
 import { Store } from "../src/store/index.js";
 import { fixture } from "./board-fixture.js";
 
@@ -155,6 +156,36 @@ test("away digest reads the real event ledger with an injected clock after two h
 		const message = { to: event.conv!, text: "Back" };
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text).toContain(`离开期间 · 等你 ${task.ref}`);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
+	} finally {
+		await f.close();
+	}
+});
+
+test("a tail digest repeats after the TTL instead of staying silenced forever", async () => {
+	const f = await fixture();
+	try {
+		const event = await f.probe.io.emit({
+			type: "message.in",
+			from: "acct:reminder:person",
+			conv: "conv:reminder:person",
+			data: { kind: "dm", text: "Status?" },
+		});
+		const task = f.store.open(content, f.ctx);
+		f.store.update(task.ref, { state: "active" }, f.ctx);
+		f.store.update(task.ref, { state: "blocked" }, f.ctx);
+		const base = Date.parse(event.ts);
+		const message = { to: event.conv!, text: "Reply" };
+		const at = (offset: number) => digest(f.probe.api, f.store, {}, () => base + offset);
+		expect((await at(0).beforeSend!(message, f.ctx))!.message.text).toContain(`卡住 ${task.ref}`);
+		expect(await at(DIGEST_TTL_MS - 1).beforeSend!(message, f.ctx)).toBeUndefined();
+		expect((await at(DIGEST_TTL_MS).beforeSend!(message, f.ctx))!.message.text).toContain(`卡住 ${task.ref}`);
+		// 换一个目的地，这份 TTL 记录同样要到期才重新认领。
+		const current = f.store.get(task.ref, f.ctx).task;
+		expect(f.store.claimDigest(current, "conv:other", base)).toBe(true);
+		expect(f.store.digestSeen(current, "conv:other", base + DIGEST_TTL_MS - 1)).toBe(true);
+		expect(f.store.claimDigest(current, "conv:other", base + DIGEST_TTL_MS - 1)).toBe(false);
+		expect(f.store.digestSeen(current, "conv:other", base + DIGEST_TTL_MS)).toBe(false);
+		expect(f.store.claimDigest(current, "conv:other", base + DIGEST_TTL_MS)).toBe(true);
 	} finally {
 		await f.close();
 	}

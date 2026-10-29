@@ -12,7 +12,7 @@ import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { inspectionServices } from "../../../packages/core/src/kernel/workspace.js";
 import { loadPlugins } from "../../../packages/core/src/plugins/index.js";
 import { prepareInput } from "../../../packages/core/src/prompt/index.js";
-import { DONE, GET, LIST, NUDGE, OPEN, SHOW, TURN_ONE_LINE, UPDATE } from "../src/prompts.js";
+import { DONE, GET, LIST, OPEN, SHOW, TURN_ONE_LINE, UPDATE } from "../src/prompts.js";
 import { Store, type Task } from "../src/store/index.js";
 
 // Protocol fixtures only. SQLite, plugin loading and kernel are real; no model calls.
@@ -241,7 +241,7 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 			},
 		});
 		const tools = loaded.tools.get("tasks")!;
-		expect(tools.map((t) => t.description)).toEqual([OPEN, UPDATE, DONE, LIST, GET, NUDGE, SHOW]);
+		expect(tools.map((t) => t.description)).toEqual([OPEN, UPDATE, DONE, LIST, GET, SHOW]);
 		const call = (name: string, args: object, ctx = caller()) =>
 			tools.find((t) => t.name === `tasks_${name}`)!.execute(args, ctx);
 		const opened = await call("open", content);

@@ -5,8 +5,8 @@ import { pathToFileURL } from "node:url";
 import { type Attachment, type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
 import { renderPng, renderText, taskBoard } from "./board.js";
 import { digest } from "./digest.js";
-import { type Config, moments } from "./moments.js";
-import { DONE, GET, LIST, NUDGE, NUDGE_INPUT, OPEN, SHOW, UPDATE } from "./prompts.js";
+import { type Config, moments, stallWindow } from "./moments.js";
+import { DONE, GET, LIST, OPEN, SHOW, UPDATE } from "./prompts.js";
 import { type Open, Store, type Update } from "./store/index.js";
 import { registerTaskViews } from "./views.js";
 
@@ -25,7 +25,7 @@ export default definePlugin({
 	configSchema: obj(
 		{
 			tailDigest: obj({ enabled: { type: "boolean" }, lines: { type: "integer", minimum: 1, maximum: 5 } }, []),
-			stallMinutes: { type: "number", exclusiveMinimum: 0 },
+			stallMinutes: { type: "number", minimum: 15, maximum: 30 },
 			userWaitMinutes: { type: "number", exclusiveMinimum: 0 },
 			moments: obj({ postCompact: { type: "boolean" }, postRetain: { type: "boolean" } }, []),
 		},
@@ -100,17 +100,6 @@ export default definePlugin({
 			})),
 		);
 		add("get", GET, obj({ id: string }), ["read"], (args, ctx) => store.get(args.id as string, ctx));
-		add("nudge", NUDGE, obj({ id: string, say: string }), ["cross-agent"], async (args, ctx) => {
-			const { task } = store.get(args.id as string, ctx);
-			if (task.state === "done" || task.state === "cancelled") throw new Error("Task is closed");
-			return api.sessions.submit(
-				task.session,
-				{
-					text: NUDGE_INPUT(task.title, ctx.agent ?? `session:${ctx.session}`, args.say as string),
-				},
-				{ busy: "followup" },
-			);
-		});
 		add(
 			"show",
 			SHOW,
@@ -127,7 +116,7 @@ export default definePlugin({
 					store.list(ctx),
 					Date.now(),
 					view === "detail" ? store.get(args.id as string, ctx) : undefined,
-					config.stallMinutes ?? 30,
+					stallWindow(config.stallMinutes),
 				);
 				if (target === "json") return board;
 				let to = ctx.events?.findLast((event) => event.conv)?.conv ?? ctx.event?.conv;

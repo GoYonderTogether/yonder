@@ -7,8 +7,8 @@ import type { PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
-import { type Config, tick } from "../src/moments.js";
-import { NUDGE_INPUT, STALL_NOTICE } from "../src/prompts.js";
+import { type Config, stallWindow, tick } from "../src/moments.js";
+import { STALL_NOTICE } from "../src/prompts.js";
 import { Store } from "../src/store/index.js";
 
 const content = {
@@ -123,7 +123,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
 	};
 }
 
-test("stall uses ledger windows, skips other states and survives a kernel restart; nudge reaches the owner", async () => {
+test("stall uses ledger windows, skips other states and survives a kernel restart", async () => {
 	const f = await fixture();
 	try {
 		const task = f.store.open(content, f.ctx);
@@ -147,27 +147,20 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 			busy: "followup",
 			text: STALL_NOTICE(task.title, "active", 31),
 		});
-		await tick(f.probe.api, f.store, {}, now + 29 * 60000);
+		// 默认窗口 20 分钟，允许 15–30。
+		expect([stallWindow(), stallWindow(5), stallWindow(90)]).toEqual([20, 15, 30]);
+		// 只给主 Agent 写事件：不向主人发消息，也不经过任何渠道。
+		expect(f.probe.sent).toHaveLength(0);
+		expect((await f.kernel().events.query({ type: "message.out" })).events).toHaveLength(0);
+		await tick(f.probe.api, f.store, {}, now + 19 * 60000);
 		expect((await inputs()).events).toHaveLength(1);
-		const nudged = await f.call(
-			"nudge",
-			{ id: task.id, say: "Report the missing input" },
-			{ ...f.ctx, agent: "steward" },
-		);
-		expect(nudged.isError).not.toBe(true);
-		const nudge = (await inputs()).events.at(-1)!;
-		expect(nudge.data).toMatchObject({
-			session: f.ctx.session,
-			text: NUDGE_INPUT(task.title, "steward", "Report the missing input"),
-			busy: "followup",
-		});
-		await expect
-			.poll(async () => (await f.kernel().terminal.queued(f.ctx.session)).map((entry) => entry.event))
-			.toContain(nudge.id);
+		// 到点才再催一次。
+		await tick(f.probe.api, f.store, {}, now + 21 * 60000);
+		expect((await inputs()).events).toHaveLength(2);
+		// 取消之后即使窗口到了也不再催：二次校验要求任务仍 active。
 		f.store.update(task.id, { state: "cancelled" }, f.ctx);
-		expect((await f.call("nudge", { id: task.id, say: "closed" })).isError).toBe(true);
-		expect((await f.call("nudge", { id: "missing", say: "missing" })).isError).toBe(true);
-		expect(f.probe.tools.find((tool) => tool.name === "tasks_nudge")?.capabilities).toEqual(["cross-agent"]);
+		await tick(f.probe.api, f.store, {}, now + 60 * 60000);
+		expect((await inputs()).events).toHaveLength(2);
 		// Keep a second active task to verify persisted window claims across a real restart.
 		const active = f.store.open(content, f.ctx);
 		f.store.update(active.id, { state: "active" }, f.ctx);
@@ -175,10 +168,10 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 		const before = (await inputs()).events.length;
 		await f.restart();
 		const reopened = new Store(f.probe.api.paths.data);
-		await tick(f.probe.api, reopened, {}, now + 29 * 60000);
+		await tick(f.probe.api, reopened, {}, now + 19 * 60000);
 		reopened.close();
 		expect((await inputs()).events).toHaveLength(before);
-		await tick(f.probe.api, f.store, {}, now + 30 * 60000);
+		await tick(f.probe.api, f.store, {}, now + 21 * 60000);
 		expect((await inputs()).events).toHaveLength(before + 1);
 	} finally {
 		await f.close();
@@ -278,42 +271,6 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	},
 	120000,
 );
-
-test("a completed self-check queues one concise decision reminder per destination per day", async () => {
-	const f = await fixture();
-	try {
-		const task = f.store.open({ ...content, title: "需决定", origin: "conv:reminder:person" }, f.ctx);
-		f.store.update(task.id, { state: "active" }, f.ctx);
-		f.store.update(task.id, { state: "waiting-user", note: "待选择" }, f.ctx);
-		const now = Date.now() + 121 * 60000;
-		f.store.claimMoments(now, 30, 120, false);
-		f.store.momentResult(task.id, "user-wait", { result: { event: "self-check" } }, now);
-		f.store.update(task.id, { state: "waiting-user", note: `需要你决定：${"选择".repeat(100)}` }, f.ctx);
-		const sent: Array<{ text: string; notification?: { kind: string } }> = [];
-		const api = {
-			...f.probe.api,
-			events: {
-				...f.probe.api.events,
-				query: async () => ({ events: [{ data: { status: "done", inputs: ["self-check"] } }] }),
-			},
-			messages: {
-				send: async (message: { text: string; notification?: { kind: string } }) => {
-					sent.push(message);
-					return { ok: true };
-				},
-			},
-		} as unknown as PluginAPI;
-		await tick(api, f.store, { userWaitMinutes: 100000 }, now);
-		await tick(api, f.store, { userWaitMinutes: 100000 }, now + 86400000 - 1);
-		expect(sent).toHaveLength(1);
-		await tick(api, f.store, { userWaitMinutes: 100000 }, now + 86400000);
-		expect(sent).toHaveLength(2);
-		expect(Array.from(sent[0]?.text ?? "").length).toBeLessThanOrEqual(120);
-		expect(sent[0]?.notification?.kind).toBe("decision");
-	} finally {
-		await f.close();
-	}
-});
 
 test("task string schema accepts full text while rejecting blank values", async () => {
 	const f = await fixture();
