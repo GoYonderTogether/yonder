@@ -12,9 +12,11 @@ export function Switch({ on, onChange, label }: { on: boolean; onChange: (value:
 			aria-checked={on}
 			aria-label={label}
 			onClick={() => onChange(!on)}
-			className={`relative h-6 w-10 rounded-full ${on ? "bg-accent" : "bg-tone-2"}`}
+			className={`press relative h-6 w-10 shrink-0 rounded-full transition-colors ${on ? "bg-accent" : "bg-tone-2"}`}
 		>
-			<span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-raised ${on ? "translate-x-4" : ""}`} />
+			<span
+				className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-raised shadow-sm transition-transform ${on ? "translate-x-4" : ""}`}
+			/>
 		</button>
 	);
 }
@@ -54,10 +56,12 @@ export function DeviceSheet({
 	return (
 		<Window open={open} onOpenChange={onOpenChange} title="设备">
 			<div className="flex flex-col gap-5 p-5">
-				{device.code && <p className="text-small text-muted">设备 ID · {device.code}</p>}
+				{device.code && <p className="select-text text-small text-muted">设备 ID · {device.code}</p>}
 				<Field label="名称" value={name} onChange={(e) => setName(e.target.value)} />
-				<div className="flex items-center justify-between rounded-card bg-tone p-4">
-					<span>联网 · {agents} 个 Agent</span>
+				<div className="flex items-center justify-between rounded-card bg-tone px-4 py-3">
+					<span className="text-body">
+						联网<span className="ml-2 text-[13px] text-muted">{agents} 个 Agent</span>
+					</span>
 					<Switch on={online} onChange={(v) => void power(v)} label="这台设备联网" />
 				</div>
 				<div className="flex gap-2">
