@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
+- Console 底栏显示真实用量与上下文：↑输入 ↓输出 R W CH、子 Agent 汇总、LSP、ctx%/窗口 (auto)、(provider) 模型 • 思考档；缺失字段省略。
+
 - Console 右栏卡片与悬浮窗共用同一卡片组件：卡片栈布局计算抽成纯函数 `lib/railLayout.ts`，右栏卡片可 Alt+↑/↓ 键盘换位，悬浮窗拖动坐标统一夹进主区域，手机上的右栏抽屉支持 Esc 关闭并把焦点放到返回键。
+
+- Console 迁入单一 Service Worker 与 manifest：只缓存带哈希的静态资源，不拦截导航、`/api`、`/ws`，按网关注入的 base href 工作，并显式放行 `/console/` 部署。
 
 - Console 上下文菜单改用手机断点 640，方向键在菜单项间循环，长按时长与震动抽成可测纯函数，菜单项统一由 `lib/actions.ts` 构造。
 

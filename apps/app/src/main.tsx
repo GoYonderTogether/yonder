@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { RpcError } from "./api/client";
+import { registerConsoleWorker } from "./pwa";
 import { upgradeLegacyLocation } from "./shell/legacyLinks";
 import { UpdateNotice } from "./ui/UpdateNotice";
 
@@ -20,6 +21,7 @@ const qc = new QueryClient({
 });
 
 upgradeLegacyLocation();
+registerConsoleWorker();
 
 const root = document.getElementById("root");
 if (root)
