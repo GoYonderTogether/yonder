@@ -1,5 +1,6 @@
 import type { Delivery, ExecutionOwner, NotificationIntent } from "@yonder/sdk";
 import type { AgentConfig, YonderConfig } from "../config/index.js";
+import { allowsChannelInstance } from "../kernel/console.js";
 import { channelOf, matches } from "../routing/matching.js";
 import { socialBindingAllowed, socialDecision } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";
@@ -194,7 +195,7 @@ export function outboundQueue({
 						const resolved = await sessions.resolveSession(row.id);
 						if (
 							!resolved.resolved.capabilities.includes("message") ||
-							(target && resolved.resolved.channelInstances && !resolved.resolved.channelInstances.includes(target.via))
+							(target && !allowsChannelInstance(resolved.resolved, target.via))
 						)
 							continue;
 						active.push(event);

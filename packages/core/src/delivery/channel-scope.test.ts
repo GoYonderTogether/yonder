@@ -1,6 +1,7 @@
 import type { Channel, Delivery, Hook, ToolContext } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { resolveProfile, testModel } from "../config/test-support.js";
+import { consoleChannel } from "../kernel/console.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeSessionConfig, RuntimeSessionState } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
@@ -47,7 +48,15 @@ async function setup(hook?: Hook) {
 			throw new Error("Protocol initialization complete; no model started");
 		},
 	} as unknown as Runtime;
-	const sessions = { version: "check", resolveSession: async () => config } as unknown as Sessions;
+	const notified: Array<{ id: string; text: string }> = [];
+	const sessions = {
+		version: "check",
+		resolveSession: async () => config,
+		notifyFrom: async (id: string, input: { text: string }) => {
+			notified.push({ id, text: input.text });
+			return { session: id, event: "notice", entry: 1, recorded: true };
+		},
+	} as unknown as Sessions;
 	const counters = ["a", "b"].map((id) => ({
 		id,
 		send: vi.fn(async (_to: string, _msg: unknown): Promise<Delivery> => ({ ok: true })),
@@ -65,6 +74,8 @@ async function setup(hook?: Hook) {
 			} as Channel,
 		]),
 	);
+	// 主人的控制台是内核自带内部渠道，和真实内核一样始终在渠道表里。
+	channels.set("console", consoleChannel());
 	const delivery = createDelivery({
 		store,
 		agents: new Map(),
@@ -94,7 +105,7 @@ async function setup(hook?: Hook) {
 		channelInstances: ["a"],
 		signal: new AbortController().signal,
 	} as ToolContext;
-	return { db, store, delivery, counters, ctx, tools, saved, config, session };
+	return { db, store, delivery, counters, ctx, tools, saved, config, session, notified };
 }
 
 test("generic send and message_send reject B before platform access, including admin and source B", async () => {
@@ -183,6 +194,33 @@ test.each([false, true])(
 		}
 	},
 );
+
+test("console delivery stays authorized on both the profile and delegate paths", async () => {
+	const x = await setup();
+	try {
+		// Profile path: the agent restricts instances to a, yet its own console is the owner's.
+		expect(await x.delivery.sendTool(x.ctx, { to: "conv:console:main", text: "profile" })).toMatchObject({
+			ok: true,
+		});
+		// Delegate path: task_run hands the child the intersection scope ([] here); the console survives it.
+		expect(
+			await x.delivery.sendTool(
+				{ ...x.ctx, channelInstances: [], capabilities: ["message"] },
+				{ to: "conv:console:main", text: "delegate" },
+			),
+		).toMatchObject({ ok: true });
+		expect(x.notified).toEqual([
+			{ id: "1", text: "profile" },
+			{ id: "1", text: "delegate" },
+		]);
+		expect(
+			await x.delivery.sendTool({ ...x.ctx, channelInstances: [] }, { to: "conv:a:chat", text: "no" }),
+		).toMatchObject({ ok: false, error: "Channel instance not authorized: a" });
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
 
 test.each(["scope", "program-message"])(
 	"retry rechecks %s revocation and records a terminal denial without platform dispatch",

@@ -71,3 +71,51 @@ test("digest survives restart and rechecks every queued owner's capability", asy
 	}
 	expect(actual).toEqual(JSON.parse(readFileSync(golden, "utf8")));
 });
+
+test("the console stays an allowed owner notification target under a channel scope", async () => {
+	const events: Array<{ id: string; type: string; ts: string; data: unknown }> = [];
+	const agent = {
+		social: { enabled: true, authorized: { conversations: ["conv:console:main"] } },
+		owner: "person:owner",
+	};
+	const sent: Array<{ to: string; text: string }> = [];
+	const store = {
+		events: {
+			query: async ({ type }: { type: string }) => ({ events: events.filter((e) => e.type === type) }),
+			get: async (id: string) => events.find((e) => e.id === id),
+			record: async (input: { type: string; data: unknown }) => {
+				const event = { ...input, id: String(events.length + 1), ts: new Date(0).toISOString() };
+				events.push(event);
+				return event;
+			},
+		},
+		sessions: { get: async (id: string) => ({ id, agent: "bot", profile: "main" }) },
+	};
+	const sessions = {
+		// 主人的控制台是内部渠道：档位限定 feishu 也不影响它。
+		resolveSession: async () => ({ resolved: { capabilities: ["message"], channelInstances: ["feishu"] } }),
+		notifyFrom: async () => {},
+	};
+	const delivery = {
+		sendOwned: async (_plugin: string, request: { to: string; text: string }) => {
+			sent.push({ to: request.to, text: request.text });
+			return { ok: true };
+		},
+	};
+	const queue = outboundQueue({
+		store,
+		sessions,
+		agents: new Map([["bot", agent]]),
+		config: { notifications: { outbound: { mode: "immediate", target: { to: "conv:console:main", via: "console" } } } },
+		delivery: () => delivery,
+	} as unknown as Parameters<typeof outboundQueue>[0]);
+	await store.events.record({ type: "source", data: {} });
+	await queue.enqueue({ agent: "bot", session: "1", profile: "main" }, "tasks", "需要决定", {
+		kind: "decision",
+		key: "task:console",
+		sourceEvents: ["1"],
+	});
+	await queue.flush();
+	expect(sent).toEqual([{ to: "conv:console:main", text: "需要决定" }]);
+	expect(events.find((event) => event.type === "notification.final")?.data).toMatchObject({ status: "attempted" });
+});
