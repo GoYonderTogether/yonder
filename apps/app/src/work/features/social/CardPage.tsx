@@ -358,20 +358,24 @@ function Wallet({ focus }: { focus?: string }) {
 	const current = items[index];
 	if (!current) return null;
 	return (
-		<main className="mx-auto w-full max-w-[380px] px-4 py-5">
-			<header className="flex justify-between">
+		/* 与名片站 wallet/CardStack 同一副牌：内容列 380、卡片区 300、叠卡位移 8px/旋转 2°。 */
+		<main className="mx-auto flex w-full max-w-[380px] flex-col items-center gap-4 px-4 py-5">
+			<header className="flex w-full items-center justify-between gap-3 text-small">
 				<h1 className="font-semibold">我的名片</h1>
-				<span aria-live="polite">
+				<span aria-live="polite" className="text-muted">
 					{index + 1} / {items.length}
 				</span>
 			</header>
-			<div className="relative mx-auto mt-8 max-w-[300px]">
+			<div className="relative mt-4 aspect-[3/4.3] w-full max-w-[300px]">
 				{items.slice(1, 3).map(({ card, actor }, i) => (
 					<div
 						key={card?.id ?? actor.id}
 						aria-hidden="true"
-						className="absolute inset-0 rounded-[8%] bg-tone shadow-lg"
-						style={{ transform: `translateY(${-8 * (i + 1)}px) rotate(${2 * (i + 1)}deg)` }}
+						className="absolute inset-0 origin-bottom bg-tone shadow-soft"
+						style={{
+							borderRadius: "8% / 5.58%",
+							transform: `translateY(${-8 * (i + 1)}px) rotate(${2 * (i + 1)}deg) scale(${1 - Math.min(i + 1, 2) * 0.035})`,
+						}}
 					/>
 				))}
 				<div className="relative">
@@ -379,7 +383,7 @@ function Wallet({ focus }: { focus?: string }) {
 						<button
 							type="button"
 							aria-label="查看下一张名片"
-							className="absolute inset-x-0 top-0 z-10 aspect-[3/4.3] rounded-[8%] focus-visible:outline-2 focus-visible:outline-accent"
+							className="absolute inset-0 z-10 rounded-[24px] outline-offset-4 focus-visible:outline-2 focus-visible:outline-accent"
 							onClick={() =>
 								setSelected(items[(index + 1) % items.length]?.card?.id ?? items[(index + 1) % items.length]?.actor.id)
 							}
@@ -388,22 +392,29 @@ function Wallet({ focus }: { focus?: string }) {
 					<CardContent card={current.card} actor={current.actor} />
 				</div>
 			</div>
-			<a
-				className="mt-4 block text-center"
-				href={href({ tab: "contacts", page: "contacts", session: current.actor.code ?? current.actor.id })}
-			>
-				查看详情
-			</a>
-			{items.length > 1 && (
-				<Button
-					className="mt-4 w-full"
-					onClick={() =>
-						setSelected(items[(index + 1) % items.length]?.card?.id ?? items[(index + 1) % items.length]?.actor.id)
-					}
+			<p className="max-w-full truncate text-small font-medium">
+				{current.card?.title || current.actor.name}
+				{current.card?.kind === "persona" ? " · 历史身份卡" : ""}
+			</p>
+			{items.length > 1 && <p className="text-caption text-muted">点名片翻到下一张</p>}
+			<div className="flex flex-wrap justify-center gap-2">
+				<a
+					className="press inline-flex h-11 items-center justify-center rounded-full bg-tone px-4 text-small font-medium text-ink hover:bg-tone-2"
+					href={href({ tab: "contacts", page: "contacts", session: current.actor.code ?? current.actor.id })}
 				>
-					下一张名片
-				</Button>
-			)}
+					查看详情
+				</a>
+				{items.length > 1 && (
+					<Button
+						className="h-11"
+						onClick={() =>
+							setSelected(items[(index + 1) % items.length]?.card?.id ?? items[(index + 1) % items.length]?.actor.id)
+						}
+					>
+						下一张名片
+					</Button>
+				)}
+			</div>
 		</main>
 	);
 }
