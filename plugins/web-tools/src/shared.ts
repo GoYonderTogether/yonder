@@ -32,10 +32,11 @@ async function output(value: object, ctx: ToolContext, key?: string) {
 	}
 	return { text };
 }
-async function readBody(
+async function readBytes(
 	response: Response,
 	cache?: ToolContext["cacheToolOutputStream"],
-): Promise<{ text: string; truncated: boolean; path?: string }> {
+	extension = "txt",
+): Promise<{ bytes: Uint8Array; truncated: boolean; path?: string }> {
 	const reader = response.body?.getReader();
 	const chunks: Uint8Array[] = [];
 	let size = 0;
@@ -57,9 +58,9 @@ async function readBody(
 							yield next.value;
 						}
 					})(),
-					{ extension: "txt" },
+					{ extension },
 				);
-				return { text: Buffer.concat(chunks).toString("utf8"), truncated: true, ...(path ? { path } : {}) };
+				return { bytes: Buffer.concat(chunks), truncated: true, ...(path ? { path } : {}) };
 			}
 			chunks.push(chunk.value);
 			size += chunk.value.length;
@@ -67,7 +68,84 @@ async function readBody(
 	} finally {
 		await reader?.cancel();
 	}
-	return { text: Buffer.concat(chunks).toString("utf8"), truncated: false };
+	return { bytes: Buffer.concat(chunks), truncated: false };
+}
+async function readBody(
+	response: Response,
+	cache?: ToolContext["cacheToolOutputStream"],
+): Promise<{ text: string; truncated: boolean; path?: string }> {
+	const body = await readBytes(response, cache);
+	return {
+		text: Buffer.from(body.bytes).toString("utf8"),
+		truncated: body.truncated,
+		...(body.path ? { path: body.path } : {}),
+	};
+}
+const REDIRECTS = [301, 302, 303, 307, 308];
+/** Text-ish bodies are read; anything else is reported as binary without downloading it. */
+function readable(mime: string): boolean {
+	return (
+		mime.startsWith("text/") ||
+		mime.endsWith("+json") ||
+		[
+			"application/xhtml+xml",
+			"application/json",
+			"application/xml",
+			"application/pdf",
+			"application/x-pdf",
+			"application/octet-stream",
+		].includes(mime)
+	);
+}
+export type HttpResult =
+	| { kind: "body"; url: URL; mime: string; bytes: Uint8Array; truncated: boolean; path?: string }
+	| { kind: "binary"; url: URL; mime: string };
+async function httpGet(
+	input: URL,
+	ctx: ToolContext,
+	options: { accept?: string; extension?: string } = {},
+): Promise<HttpResult> {
+	let url = input;
+	const signal = AbortSignal.any([ctx.signal, AbortSignal.timeout(30000)]);
+	for (let redirects = 0; redirects <= 5; redirects++) {
+		signal.throwIfAborted();
+		const response = await fetch(url, {
+			method: "GET",
+			credentials: "omit",
+			redirect: "manual",
+			signal,
+			...(options.accept ? { headers: { accept: options.accept } } : {}),
+		});
+		if (REDIRECTS.includes(response.status)) {
+			await response.body?.cancel();
+			const next = response.headers.get("location");
+			if (!next) throw new Error("Redirect missing Location");
+			url = urlValue(new URL(next, url).href);
+			continue;
+		}
+		if (!response.ok) {
+			await response.body?.cancel();
+			throw new Error(
+				`HTTP ${response.status} ${url.href}${[401, 403].includes(response.status) ? "; use BrowserSkill with an authorized login" : ""}`,
+			);
+		}
+		const mime =
+			response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "application/octet-stream";
+		if (!readable(mime)) {
+			await response.body?.cancel();
+			return { kind: "binary", url, mime };
+		}
+		const body = await readBytes(response, ctx.cacheToolOutputStream, options.extension ?? "txt");
+		return {
+			kind: "body",
+			url,
+			mime,
+			bytes: body.bytes,
+			truncated: body.truncated,
+			...(body.path ? { path: body.path } : {}),
+		};
+	}
+	throw new Error("Too many redirects (maximum 5)");
 }
 
-export { choice, MAX_BODY, MAX_OUTPUT, object, output, readBody, redact, schema, string, urlString, urlValue };
+export { choice, httpGet, MAX_BODY, MAX_OUTPUT, object, output, readBody, redact, schema, string, urlString, urlValue };

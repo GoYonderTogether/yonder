@@ -121,16 +121,31 @@ export default definePlugin({
 						},
 						ctx,
 					);
-				const base = { source: "http-get", url: page.url, mime: page.mime, format, title: page.title };
-				if (!page.truncated) return output({ ...base, truncated: false, content: page.content }, ctx);
+				const base = {
+					source: page.source,
+					url: page.url,
+					mime: page.mime,
+					format: page.format,
+					...(page.doc ? { doc: page.doc } : {}),
+					...(page.pages ? { pages: page.pages } : {}),
+					title: page.title,
+				};
+				const payload = page.truncated
+					? {
+							...base,
+							truncated: true,
+							content: page.content,
+							original: page.path
+								? `cached at ${page.path}; use read to paginate or grep to search`
+								: "cache unavailable",
+						}
+					: { ...base, truncated: false, content: page.content };
+				const stored = await ctx.cacheToolOutput?.(JSON.stringify(payload, null, 2), { extension: "json" });
 				return output(
 					{
-						...base,
-						truncated: true,
-						content: page.content,
-						original: page.path
-							? `cached at ${page.path}; use read to paginate or grep to search`
-							: "cache unavailable",
+						...payload,
+						responseId: stored ?? null,
+						...(stored ? {} : { storage: "cache unavailable; results are only in this reply" }),
 					},
 					ctx,
 				);

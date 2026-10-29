@@ -593,3 +593,7 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 ## 2026-10-29 IMP-19 外人额度账本与访客防批量上限（主 Agent 代批）
 
 `packages/core/src/kernel/quota.ts` 是外人额度的唯一判定与记账处：日界线按主人时区（`quotaDay`，缺省 `Asia/Shanghai`），主人分享池、每人每日上限、访客轮数与防批量上限全部按 `(day, scope, key)` 记在自建表 `y_quota_days`（首次使用 `CREATE TABLE IF NOT EXISTS`，不动 migrations 版本与 `CURRENT_SCHEMA_VERSION`）。卡里没给定值的两项按最保守取值：`outsiders.guestPerQrDailyTokens` 缺省 50 000（缺省分享池 500K 的十分之一，一张二维码最多花掉十分之一），`outsiders.guestPerSourceDailyRounds` 缺省 6（访客 3 轮的两倍，够同一台设备重进一次，挡住批量换身份白嫖）。拒绝顺序固定为 主人池 → 访客轮数 → 来源轮数 → 二维码额度 →（`requireLoginForQuota: false` 时）每人每日，保证「登录后可继续」的引导不会在池子已经耗尽时被误发。访客消耗一律计入主人分享池；未登录的访客不写入个人账，只有 `requireLoginForQuota: false` 时才按来源计入每人每日上限。接进内核（准入前 `remaining`、结束后 `charge`）在 IMP-25。
+
+## 2026-10-29 IMP-29 fetch 识别 PDF 与 GitHub 并落库回读（主 Agent 代批）
+
+`web-tools_fetch` 在 HTML 正文之外识别 PDF 与 github.com 链接：PDF 按 `application/pdf` / `%PDF-` 魔数判定，用自研 `plugins/web-tools/src/pdf.ts`（FlateDecode + ToUnicode/Widths 解析）抽文本，不引入新依赖；github.com 的 `/blob|raw/<ref>/<path>` 走 `raw.githubusercontent.com`，仓库根走 `api.github.com/repos/<slug>` 并附 README，`/tree/<ref>/<path>` 走 contents 列表，403/429 报 `GITHUB_RATE_LIMIT`。抓取结果整份 JSON 落库到工具输出缓存并返回 `responseId`，可用 `web-tools_get_search_content` 分页或检索回读。代价：只解 FlateDecode、无扫描件 OCR、匿名 GitHub API 有速率限制；工具描述与插件提示词未改（卡里禁止改）。
