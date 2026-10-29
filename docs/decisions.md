@@ -558,7 +558,7 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 
 1. 用户 id 禁止由手机号 HMAC 派生。旧系统用 `u + HMAC(JWT_SECRET, phone)[:10]` 作为 userId，换绑手机后旧号被他人拿到即可登录原账号（账号接管）。新实现必须用随机 UUID；换绑只改绑定字段，id 不变。
 2. 禁止任何「空白名单=放行」逻辑。旧系统 `AUTH_NO_CODE_LOGIN=1` 且白名单为空时，isWhitelisted 对任意手机号返回 true，等于全员免码。新实现不提供免码登录开关。
-3. 验证码必须存 Redis 并带 TTL。旧系统存进程内 Map，重启即失、多实例各算各的；比较必须恒定时间，旧 Yonder 用 `!==` 比较无盐 SHA-256 摘要。
+3. 验证码必须存持久存储（PostgreSQL `auth_codes` 表）并带过期语义，禁止进程内 Map，禁止放在 dev/prod 共用的 Redis 库；比较必须恒定时间。原因：dev 与 prod 共用 Redis DB 7，放 Redis 会互相覆盖；现有 Redis 只用于限流与 pub/sub。改造面审计已定实现为 PostgreSQL `auth_codes` 表（`target_type`、`target_hash`、`scene`、`code_hash`、`expires_at`、`attempts`、`consumed_at` 加索引，迁移 010），冷却与失败计数也走 PG，Redis 只保留限流计数。旧系统存进程内 Map，重启即失、多实例各算各的；旧 Yonder 用 `!==` 比较无盐 SHA-256 摘要。
 4. 发码失败不得返回 `sent:true`，也不得消耗冷却；旧系统两者都会。
 5. 换绑、重置类 confirm 端点同样要有失败次数限制；旧系统只有登录有限制。
 6. 换绑手机/邮箱成功后撤销该账号所有既有会话，要求重新登录。旧 JWT 不可撤销、30 天有效。
