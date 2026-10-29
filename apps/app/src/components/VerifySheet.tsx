@@ -160,7 +160,7 @@ export function CodeForm<Result>({
 						disabled={!canSendCode(state)}
 						onClick={() => void sendCode()}
 					>
-						{state.phase === "sending" ? "发送中…" : resendLabel(state.seconds)}
+						{state.phase === "sending" ? "发送中…" : state.sent ? resendLabel(state.seconds) : "发送验证码"}
 					</Button>
 				</div>
 				{fieldErrors.target && (
