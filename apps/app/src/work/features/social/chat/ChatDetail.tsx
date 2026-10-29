@@ -1,14 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { type ConversationDetail, httpApi } from "../../../api/social";
-import { href } from "../../../shell/routes";
 import { cn } from "../../../lib/cn";
-import { rememberShareToken, shareLinkKey, shareLinkUrl } from "../lib/shareLinks";
+import { href } from "../../../shell/routes";
 import { SocialAvatar, Status } from "../IdentityAvatar";
-import { AiBadge } from "./AiBadge";
+import { rememberShareToken, shareLinkKey, shareLinkUrl } from "../lib/shareLinks";
 import { ShareLinks } from "../ShareLinks";
+import { AiBadge } from "./AiBadge";
 
 /** 分组块：tone/50 底、16px 圆角、块间 8px。与名片站 chat/ChatDetail 的 Section 同参数。 */
 function Section({ children, className }: { children: ReactNode; className?: string }) {

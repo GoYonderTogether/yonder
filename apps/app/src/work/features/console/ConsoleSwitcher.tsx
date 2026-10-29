@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Monitor, Plus, Trash2 } from "lucide-react";
-import { LOCAL_NODE, type NodeConfig, removeNode, setActiveNode, useActiveNode, useNodes } from "../../api/nodes";
-import { cn } from "../../lib/cn";
 import { Link } from "react-router";
 import { appBase } from "../../../lib/base";
+import { LOCAL_NODE, type NodeConfig, removeNode, setActiveNode, useActiveNode, useNodes } from "../../api/nodes";
+import { cn } from "../../lib/cn";
 import { workPath } from "../../shell/workRoutes";
 import { Button } from "../../ui/kit/Button";
 import { toast } from "../../ui/kit/Toast";

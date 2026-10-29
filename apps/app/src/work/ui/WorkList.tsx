@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Loader, MonitorSmartphone, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { rpc } from "../api/client";
 import { useActiveNode, useNodes } from "../api/nodes";
 import type { SessionInfo } from "../api/types";
@@ -9,8 +10,6 @@ import { titleOf } from "../lib/identity";
 import { botRowMenu, taskRowMenu } from "../lib/menus";
 import { markRead, usePrefs } from "../lib/prefs";
 import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
-import { Link, useNavigate } from "react-router";
-import { workPath } from "../shell/workRoutes";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import type { SessionView } from "../lib/useSession";
 import {
@@ -23,6 +22,7 @@ import {
 	toggleFolds,
 	useFolds,
 } from "../lib/work";
+import { workPath } from "../shell/workRoutes";
 import { ActionMenu } from "./ActionMenu";
 import { Avatar } from "./Avatar";
 import { toast } from "./kit/Toast";

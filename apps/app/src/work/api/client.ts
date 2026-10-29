@@ -29,7 +29,9 @@ export interface NodeTarget {
  * 鉴权是网关签发的 HttpOnly cookie，前端不保存令牌。
  */
 const baseOf = (node?: NodeTarget) =>
-	node?.origin ? new URL(node.origin.endsWith("/") ? node.origin : `${node.origin}/`) : new URL(appBase(), location.origin);
+	node?.origin
+		? new URL(node.origin.endsWith("/") ? node.origin : `${node.origin}/`)
+		: new URL(appBase(), location.origin);
 
 const remote = (node?: NodeTarget) => (node?.origin ? { credentials: "include" as const } : {});
 

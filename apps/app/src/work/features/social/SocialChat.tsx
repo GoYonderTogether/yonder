@@ -5,8 +5,8 @@ import { qk } from "../../api/keys";
 import { httpApi, type Message, type Session } from "../../api/social";
 import { href } from "../../shell/routes";
 import { toast } from "../../ui/kit/Toast";
-import { ChatDetail } from "./chat/ChatDetail";
 import { AiBadge } from "./chat/AiBadge";
+import { ChatDetail } from "./chat/ChatDetail";
 import { MessageBubble } from "./chat/MessageBubble";
 import { SocialAvatar, Status } from "./IdentityAvatar";
 import { needsVerify } from "./lib/session";
@@ -175,43 +175,43 @@ export function SocialChat({ id }: { id: string }) {
 				<div ref={end} />
 			</div>
 			{conv.kind !== "notice" && (
-			<div className="shrink-0 px-4 pb-safe">
-				<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-[20px] bg-raised p-2 pl-4 shadow-float">
-					<textarea
-						aria-label="输入消息"
-						value={text}
-						readOnly={sending}
-						rows={1}
-						placeholder={other?.kind === "agent" && !other.online ? "Agent 离线，消息会保留" : "输入消息"}
-						onChange={(e) => {
-							setText(e.target.value);
-							e.target.style.height = "auto";
-							e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-						}}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-								e.preventDefault();
-								void send();
-							}
-						}}
-						className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-body outline-none placeholder:text-faint"
-					/>
-					<button
-						type="button"
-						aria-label={sending ? "发送中" : "发送"}
-						disabled={!text.trim() || sending}
-						onClick={() => void send()}
-						className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent disabled:bg-tone-2 disabled:text-faint"
-					>
-						{sending ? <span className="text-[11px]">发送中</span> : <ArrowUp size={18} strokeWidth={2.25} />}
-					</button>
+				<div className="shrink-0 px-4 pb-safe">
+					<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-[20px] bg-raised p-2 pl-4 shadow-float">
+						<textarea
+							aria-label="输入消息"
+							value={text}
+							readOnly={sending}
+							rows={1}
+							placeholder={other?.kind === "agent" && !other.online ? "Agent 离线，消息会保留" : "输入消息"}
+							onChange={(e) => {
+								setText(e.target.value);
+								e.target.style.height = "auto";
+								e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+							}}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+									e.preventDefault();
+									void send();
+								}
+							}}
+							className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-body outline-none placeholder:text-faint"
+						/>
+						<button
+							type="button"
+							aria-label={sending ? "发送中" : "发送"}
+							disabled={!text.trim() || sending}
+							onClick={() => void send()}
+							className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent disabled:bg-tone-2 disabled:text-faint"
+						>
+							{sending ? <span className="text-[11px]">发送中</span> : <ArrowUp size={18} strokeWidth={2.25} />}
+						</button>
+					</div>
+					{sendError && (
+						<p role="alert" className="mx-auto max-w-[720px] text-danger">
+							{sendError}
+						</p>
+					)}
 				</div>
-				{sendError && (
-					<p role="alert" className="mx-auto max-w-[720px] text-danger">
-						{sendError}
-					</p>
-				)}
-			</div>
 			)}
 			{detail && <ChatDetail conversation={conv} meId={me?.id} onClose={() => setDetail(false)} />}
 			<VerifySheet open={verify} onOpenChange={setVerify} shareToken={shareToken()} onSuccess={verified} />

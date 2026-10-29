@@ -1,6 +1,11 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyStateOverride, DevtoolsStateError, forcedQueryState, isForcedState } from "../src/work/devtools/stateOverride";
+import {
+	applyStateOverride,
+	DevtoolsStateError,
+	forcedQueryState,
+	isForcedState,
+} from "../src/work/devtools/stateOverride";
 import {
 	DEVTOOLS_STORAGE_KEY,
 	groupInvitePath,

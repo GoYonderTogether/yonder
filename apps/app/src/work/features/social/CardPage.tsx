@@ -211,7 +211,9 @@ function PublicCard({ reference }: { reference: string }) {
 				summary={profile.data.summary}
 				agents={profile.data.agents}
 				owner={profile.data.owner}
-				qr={<IdentityQr actor={actor} cardId={card.data.status === "published" ? card.data.id : profile.data.card?.id} />}
+				qr={
+					<IdentityQr actor={actor} cardId={card.data.status === "published" ? card.data.id : profile.data.card?.id} />
+				}
 				actions={
 					<div className="flex flex-wrap gap-2">
 						<CardContent card={card.data} actor={actor} publicView={!self} showFace={false} />

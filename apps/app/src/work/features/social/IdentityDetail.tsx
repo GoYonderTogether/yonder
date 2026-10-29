@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import type { Actor, Profile } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Markdown } from "../../ui/Markdown";
-import { SocialAvatar, Status } from "./IdentityAvatar";
 import { THEMES } from "./card/themes";
+import { SocialAvatar, Status } from "./IdentityAvatar";
 
 /**
  * 资料页的身份头图 + 介绍，与名片站 components/IdentityDetail 同一套版式：

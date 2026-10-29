@@ -1,13 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
-import { MemoryRouter } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { NodeConfig } from "../src/work/api/nodes";
+import { consoleRows, consoleTarget } from "../src/work/features/console/ConsoleSwitcher";
 import { PAGES } from "../src/work/shell/registry";
 import { href, PAGE_NAMES, parse } from "../src/work/shell/routes";
 import { NAV } from "../src/work/shell/TabBar";
-import type { NodeConfig } from "../src/work/api/nodes";
-import { consoleRows, consoleTarget } from "../src/work/features/console/ConsoleSwitcher";
 
 const local: NodeConfig = { id: "local", name: "本机" };
 const studio: NodeConfig = { id: "n2", name: "书房", origin: "https://studio.test:7690/console" };

@@ -18,6 +18,9 @@ const { values: opt } = parseArgs({
 		out: { type: "string" },
 		threshold: { type: "string", default: "0.01" },
 		wait: { type: "string", default: "1200" },
+		// 只截部分页面/宽度：--pages messages=/,work=/work --widths 390,1440（登录页总是第一张）
+		pages: { type: "string" },
+		widths: { type: "string" },
 	},
 });
 function fail(msg) {
@@ -26,12 +29,12 @@ function fail(msg) {
 }
 if (!opt.a || !opt.b || !opt.out) fail("需要 --a --b --out");
 
-const WIDTHS = [
+const ALL_WIDTHS = [
 	[390, 844],
 	[820, 1180],
 	[1440, 900],
 ];
-const PAGES = [
+const ALL_PAGES = [
 	["login", "/login"],
 	["messages", "/"],
 	["chat", "/c/c-1"],
@@ -42,6 +45,11 @@ const PAGES = [
 	["me", "/me"],
 	["public-card", "/u/k-7"],
 ];
+
+const WIDTHS = opt.widths
+	? opt.widths.split(",").map((w) => ALL_WIDTHS.find(([x]) => x === Number(w)) ?? fail(`未知宽度 ${w}`))
+	: ALL_WIDTHS;
+const PAGES = opt.pages ? [ALL_PAGES[0], ...opt.pages.split(",").map((item) => item.split("=", 2))] : ALL_PAGES;
 
 function findChrome() {
 	const env = process.env.CHROME_PATH;

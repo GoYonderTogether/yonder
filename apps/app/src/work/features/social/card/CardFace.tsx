@@ -138,10 +138,7 @@ export function CardFaceView({ actor, card }: { actor: Actor; card?: Card }) {
 						{actor.name}
 					</span>
 					{(actor.kind === "agent" || actor.online !== undefined) && (
-						<span
-							className="flex items-center opacity-70"
-							style={{ fontSize: u(3.4), gap: u(1.6) }}
-						>
+						<span className="flex items-center opacity-70" style={{ fontSize: u(3.4), gap: u(1.6) }}>
 							{actor.kind === "agent" && "Agent"}
 							{actor.kind === "agent" && (
 								<>

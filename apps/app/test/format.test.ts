@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { childrenLine, contextLine, footerSegments, lspLine, modelLine, tokens, usageLine } from "../src/work/lib/format";
+import {
+	childrenLine,
+	contextLine,
+	footerSegments,
+	lspLine,
+	modelLine,
+	tokens,
+	usageLine,
+} from "../src/work/lib/format";
 
 const totals = (input: number, output: number, cacheRead = 0, cacheWrite = 0) => ({
 	input,

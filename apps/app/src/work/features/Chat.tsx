@@ -1,12 +1,12 @@
 import { ChevronLeft, Layers, PanelRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { workPath } from "../shell/workRoutes";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
 import { useTitleOf } from "../lib/queries";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
+import { workPath } from "../shell/workRoutes";
 import { Composer } from "../ui/Composer";
 import { FloatLayer } from "../ui/FloatLayer";
 import { Footer } from "../ui/Footer";

@@ -104,7 +104,10 @@ export function Connect() {
 						<Monitor size={28} />
 					</span>
 					<p className="text-title font-semibold">{connected.name} 已连接</p>
-					<a href={contacts} className="press inline-flex h-11 items-center justify-center rounded-full bg-accent px-5 text-small font-medium text-on-accent hover:opacity-90">
+					<a
+						href={contacts}
+						className="press inline-flex h-11 items-center justify-center rounded-full bg-accent px-5 text-small font-medium text-on-accent hover:opacity-90"
+					>
 						去联系人
 					</a>
 				</div>

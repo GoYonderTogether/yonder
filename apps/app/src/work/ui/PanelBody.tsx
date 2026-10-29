@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleDashed, Loader } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router";
-import { workPath } from "../shell/workRoutes";
 import { rpc } from "../api/client";
 import { mux } from "../api/stream";
 import type { TodoItem } from "../api/types";
@@ -11,6 +10,7 @@ import { titleOf } from "../lib/identity";
 import type { PanelKind } from "../lib/layout";
 import { useSessions } from "../lib/queries";
 import type { SessionView } from "../lib/useSession";
+import { workPath } from "../shell/workRoutes";
 
 const Empty = ({ t, need }: { t: string; need?: string }) => (
 	<p className="text-caption text-faint">

@@ -202,9 +202,7 @@ export function AddFriend() {
 												href={href({ tab: "contacts", page: "u", session: card.code ?? card.id })}
 											>
 												<span className="block text-small font-medium">{card.title}</span>
-												{card.tagline && (
-													<span className="block text-caption text-muted">{card.tagline}</span>
-												)}
+												{card.tagline && <span className="block text-caption text-muted">{card.tagline}</span>}
 											</a>
 										</li>
 									))}

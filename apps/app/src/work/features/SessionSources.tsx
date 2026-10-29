@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
-import { workPath } from "../shell/workRoutes";
 import { rpc } from "../api/client";
 import type { TranscriptItem } from "../api/types";
+import { workPath } from "../shell/workRoutes";
 
 type SourceEvent = {
 	id: string;

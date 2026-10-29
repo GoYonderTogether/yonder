@@ -49,6 +49,7 @@ function Row({
 	trail?: React.ReactNode;
 }) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: 行内含按钮，外层不能再是 <button>（FP02 删除）
 		<div
 			role="button"
 			tabIndex={0}
@@ -98,7 +99,9 @@ function ContactRow({ a, meId }: { a: Actor; meId?: string }) {
 				<SocialAvatar actor={a} size={40} online={a.kind === "agent" ? !!a.online : undefined} />
 				<span className="min-w-0 flex-1">
 					<span className="block truncate text-small font-medium">{a.name}</span>
-					{(a.note || a.summary) && <span className="block truncate text-caption text-muted">{a.note || a.summary}</span>}
+					{(a.note || a.summary) && (
+						<span className="block truncate text-caption text-muted">{a.note || a.summary}</span>
+					)}
 				</span>
 			</a>
 			{menu && <ActionMenu at={menu} title={a.name} actions={actions} onClose={() => setMenu(null)} />}
@@ -170,7 +173,15 @@ function Agents({
 	].filter((group) => group.items.length);
 	if (!all.length)
 		return (
-			<Row onClick={onAdd} lead={<Icon><Plus size={20} /></Icon>} title="添加设备" />
+			<Row
+				onClick={onAdd}
+				lead={
+					<Icon>
+						<Plus size={20} />
+					</Icon>
+				}
+				title="添加设备"
+			/>
 		);
 	return (
 		<>
@@ -230,7 +241,15 @@ function Devices({
 				);
 			})}
 			<li>
-				<Row onClick={onAdd} lead={<Icon><Plus size={20} /></Icon>} title="添加设备" />
+				<Row
+					onClick={onAdd}
+					lead={
+						<Icon>
+							<Plus size={20} />
+						</Icon>
+					}
+					title="添加设备"
+				/>
 			</li>
 		</ul>
 	);
@@ -267,6 +286,7 @@ export function ContactList({
 					</Icon>
 					<span className="min-w-0 flex-1 text-small font-medium">新的朋友</span>
 				</a>
+				{/* biome-ignore lint/a11y/useSemanticElements: 行内含按钮，外层不能再是 <button>（FP02 删除） */}
 				<div
 					role="button"
 					tabIndex={0}
@@ -286,7 +306,10 @@ export function ContactList({
 					<span className="min-w-0 flex-1 text-small font-medium">群聊</span>
 					<span className="flex items-center gap-1 text-caption text-faint">
 						{groupsOpen && groups.data ? groups.data.filter((g) => g.kind === "group").length : ""}
-						<ChevronRight size={16} className={groupsOpen ? "rotate-90 transition-transform" : "transition-transform"} />
+						<ChevronRight
+							size={16}
+							className={groupsOpen ? "rotate-90 transition-transform" : "transition-transform"}
+						/>
 					</span>
 				</div>
 				{groupsOpen && (
@@ -344,13 +367,7 @@ export function ContactList({
 				))}
 			</div>
 			{tab === "devices" ? (
-				<Devices
-					devices={devices}
-					contacts={contacts}
-					q={q}
-					onAdd={addDevice}
-					onOpen={setDevice}
-				/>
+				<Devices devices={devices} contacts={contacts} q={q} onAdd={addDevice} onOpen={setDevice} />
 			) : tab === "friends" && !friends.length ? (
 				<div className="py-6 text-center text-muted" data-testid="contacts-empty">
 					<p>暂无联系人</p>

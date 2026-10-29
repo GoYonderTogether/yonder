@@ -1,5 +1,5 @@
-import { useState } from "react";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import type { Actor } from "../../api/social";
 import { cn } from "../../lib/cn";
 import { Logo } from "../../ui/kit/Logo";
@@ -58,5 +58,7 @@ export function SocialAvatar({
 
 /** 状态规范：绿色在线，灰色离线；没有状态就不渲染。 */
 export function Status({ online, className }: { online: boolean; className?: string }) {
-	return <span className={cn("inline-block h-2.5 w-2.5 rounded-full", online ? "bg-online" : "bg-offline", className)} />;
+	return (
+		<span className={cn("inline-block h-2.5 w-2.5 rounded-full", online ? "bg-online" : "bg-offline", className)} />
+	);
 }

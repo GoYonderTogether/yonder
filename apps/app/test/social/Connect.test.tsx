@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { httpApi } from "../../src/work/api/social";
 import { Connect } from "../../src/work/features/social/Connect";
 
-vi.mock("../../src/work/api/social", () => ({ httpApi: { deviceCode: vi.fn(), devices: vi.fn(), createInvite: vi.fn() } }));
+vi.mock("../../src/work/api/social", () => ({
+	httpApi: { deviceCode: vi.fn(), devices: vi.fn(), createInvite: vi.fn() },
+}));
 
 beforeEach(() => {
 	vi.stubGlobal("location", { search: "?code=123", hash: "#/connect", origin: "https://example.test" });
