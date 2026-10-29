@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { rpc } from "../api/client";
 import { mux } from "../api/stream";
 import type { TodoItem } from "../api/types";
+import { ViewHost } from "../features/views/ViewHost";
 import { tokens } from "../lib/format";
 import { titleOf } from "../lib/identity";
 import type { PanelKind } from "../lib/layout";
@@ -12,12 +13,7 @@ import { useSessions } from "../lib/queries";
 import type { SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
 
-const Empty = ({ t, need }: { t: string; need?: string }) => (
-	<p className="text-caption text-faint">
-		{t}
-		{need && <span className="block font-mono">需要 {need}</span>}
-	</p>
-);
+export const Empty = ({ t }: { t: string }) => <p className="text-caption text-faint">{t}</p>;
 
 function TodoRow({ item, depth }: { item: TodoItem; depth: number }) {
 	const done = item.state === "done";
@@ -157,7 +153,7 @@ function Context({ v }: { v: SessionView }) {
 	const c = v.context;
 	const u = v.usage?.self;
 	const win = c?.window ?? v.model?.contextWindow;
-	if (!c && !u && !win) return <Empty t="上下文用量还没有上报" need="context.updated" />;
+	if (!c && !u && !win) return <Empty t="上下文用量还没有上报" />;
 	const pct = c ? Math.min(100, c.percent) : 0;
 	const tone = !c ? "bg-muted" : c.percent > 90 ? "bg-danger" : c.percent > 70 ? "bg-[#b7791f]" : "bg-accent";
 	const rows: [string, number][] = u
@@ -208,7 +204,7 @@ function Context({ v }: { v: SessionView }) {
 	);
 }
 
-/** 面板正文：右栏卡片与悬浮窗共用，不分放置。缺数据一律诚实空态并标明缺哪个契约项。 */
+/** 面板正文：右栏卡片与悬浮窗共用，不分放置。缺数据用一句人话的空态。 */
 export function PanelBody({
 	kind,
 	v,
@@ -222,21 +218,21 @@ export function PanelBody({
 }) {
 	switch (kind) {
 		case "todos":
-			return v.todos.length ? <TodoTree items={v.todos} /> : <Empty t="暂无待办" need="todo.updated" />;
+			return v.todos.length ? <TodoTree items={v.todos} /> : <Empty t="暂无待办" />;
 		case "goal":
-			return <Empty t="当前节点没有 goal 接口" need="goal 读取方法（契约未定义）" />;
+			return <Empty t="还没有设定目标" />;
 		case "subtasks":
 			return <Subtasks v={v} session={session} />;
 		case "attachments":
-			return <Empty t="这个会话没有可列出的附件" need="attachments 列表方法（契约仅有 attachments.put）" />;
+			return <Empty t="这个会话还没有附件" />;
 		case "views":
-			return <Empty t="没有插件贡献的视图" need="views.list" />;
+			return <ViewHost session={session} />;
 		case "context":
 			return <Context v={v} />;
 		case "background":
 			return <Background session={session} placement={placement} />;
 		case "wake":
-			return <Empty t="暂无 Bot 唤醒记录" need="events.query（awake 事件）" />;
+			return <Empty t="暂无 Bot 唤醒记录" />;
 	}
 }
 
