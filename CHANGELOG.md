@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Console 新增开发/演示用「视图切换」浮窗：默认不渲染，`?devtools=1` 或 localStorage `yonder.devtools` 才懒加载这块代码。浮窗可做断点预设（390×844 / 820×1180 / 1280×800，iframe 里开完整应用，断点按 iframe 的 `window.innerWidth` 计算）、路由快捷跳转（消息、通讯录、工作、我、`#/u/:id`、`#/g/:token`、`#/connect`、`#/get`）、身份入口（社交未登录/真实创建匿名访客/去登录，网关登出并重载）、节点切换（复用 `api/nodes`，远程节点另给新标签打开）、主题预览（`html[data-devtools-theme]` 叠同一套 token）与状态模拟（直接改真实查询缓存的 pending / 带标记错误 / 空数组，页面用自己的分支渲染，退出时恢复并重取）。所有数据仍来自真实网关，不造假数据；开关解析、断点映射、状态补丁与恢复都有纯函数单测。
+
 - Console 外壳按三档断点渲染平板布局：新增纯函数 `shell/layoutMode.ts`，由 `breakpointOf`（手机 <640 / 平板 640–1024 / 桌面 >1024）推出导航、列、第二列与右栏模式，再由页型（列表 / 会话 / 设置 / 功能页）决定第二列去向。平板此前被当成手机（只有 1024 一档），现在是图标栏 + 主区：列表按需叠成覆盖层、打开会话即收起，右栏仍走 Chat 自己的覆盖层/抽屉，不提前变三栏；桌面保持三栏常驻，手机保持单列 + 底栏。`Shell.tsx` 据此走单一渲染路径，保留原有 Suspense/lazy、路由与全部 data-testid，仅新增 `data-testid="list-overlay"`。表驱动单测覆盖三档 × 四类页。
 
 - Console 新增能力清单与桌面壳顶栏判定：`capabilities/features.ts` 用一张功能表描述顶栏、工作、常驻 Bot、通讯录、名片、私信、节点、更新、右栏卡片、底栏用量与系统通知的可见性，按 contracts §12 顺序（protocol → methods → features → events）判定，缺方法或节点版本较旧时给出原因而不是按插件名猜测；`lib/shell.ts` 只认壳注入的 `window.__YONDER_SHELL__`（`desktop`/`mobile`，未注入=web），不再从节点事实推断客户端壳；`api/capabilities.ts` 提供 `useCapabilities`/`useHasMethod`/`useFeature`。顶栏仍只在桌面壳渲染。
