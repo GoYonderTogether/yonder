@@ -83,7 +83,10 @@ export default { configSchema: tasks.configSchema, setup(value) {
 			bindings: [{ id: "seed", match: { type: "tasks.seed" }, session: "main", wake: "write" }],
 		}),
 	);
-	let kernel = await openKernel(home, { log() {} });
+	// 账本只追加；这里同时留下内核日志，提醒失败的可读警告要能被验证。
+	const logs: Array<[string, string]> = [];
+	const log = (level: string, message: string) => logs.push([level, message]);
+	let kernel = await openKernel(home, { log });
 	const probe = (await import(pathToFileURL(join(home, "probe.mjs")).href)) as {
 		api: PluginAPI;
 		tools: Tool[];
@@ -110,10 +113,11 @@ export default { configSchema: tasks.configSchema, setup(value) {
 		ctx,
 		store,
 		call,
+		logs,
 		kernel: () => kernel,
 		async restart() {
 			await kernel.close();
-			kernel = await openKernel(home, { log() {} });
+			kernel = await openKernel(home, { log });
 		},
 		async close() {
 			await kernel.close();
@@ -135,7 +139,12 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 			if (state === "done") {
 				f.store.update(other.id, { state: "review" }, f.ctx);
 				f.store.done(other.id, "Delivered", ["one", "two"], f.ctx);
-			} else f.store.update(other.id, { state, ...(state === "blocked" ? { note: "Missing input" } : {}) }, f.ctx);
+			} else if (state === "blocked") {
+				// 阻塞要同一说法连续报三轮。
+				f.store.update(other.id, { note: "Missing input" }, f.ctx);
+				f.store.update(other.id, { note: "Missing input" }, f.ctx);
+				f.store.update(other.id, { state, note: "Missing input" }, f.ctx);
+			} else f.store.update(other.id, { state }, f.ctx);
 		}
 		const now = Date.now() + 31 * 60000;
 		await tick(f.probe.api, f.store, {}, now);
@@ -208,6 +217,45 @@ test("user-wait submits one self-check per waiting state without sending reminde
 		await tick(f.probe.api, f.store, {}, now + 24 * 60 * 60000);
 		expect(f.probe.sent).toHaveLength(0);
 		expect((await f.kernel().events.query({ type: "session.input", from: "plugin:tasks" })).events).toHaveLength(3);
+	} finally {
+		await f.close();
+	}
+});
+
+test("a failed reminder is recorded once and not repeated until the task progresses", async () => {
+	const f = await fixture();
+	try {
+		// 任务会话已经不在：提醒发不出去，origin 也只是记录来源，不会被当成投递目标。
+		const orphan = { ...f.ctx, session: "missing-session" };
+		const task = f.store.open({ ...content, title: "Orphan", origin: "conv:reminder:person" }, orphan);
+		f.store.update(task.id, { state: "active" }, orphan);
+		f.store.update(task.id, { state: "waiting-user", note: "请提供 required-input.txt" }, orphan);
+		const history = (id = task.id) => f.store.get(id, orphan).history;
+		const warnings = () => f.logs.filter(([, msg]) => msg.startsWith("Task reminder failed"));
+		const window = Date.now() + 121 * 60000;
+		await tick(f.probe.api, f.store, {}, window);
+		expect(f.probe.requests).toHaveLength(0);
+		expect(history().at(-1)).toMatchObject({
+			kind: "moment-result",
+			data: { moment: "user-wait", error: expect.stringContaining("session") },
+		});
+		expect(warnings()).toHaveLength(1);
+		// 同一批连续失败只记 1 次：再过几个窗口也不再发、不再记。
+		await tick(f.probe.api, f.store, {}, window + 121 * 60000);
+		await tick(f.probe.api, f.store, {}, window + 400 * 60000);
+		expect(history().filter((event) => event.kind === "moment")).toHaveLength(1);
+		expect(history().filter((event) => event.kind === "moment-result")).toHaveLength(1);
+		expect(warnings()).toHaveLength(1);
+		// 失败之后有了新进展，就允许再提醒一次。
+		const resumed = f.store.open({ ...content, title: "Resumed", origin: "conv:reminder:person" }, orphan);
+		f.store.update(resumed.id, { state: "active" }, orphan);
+		f.store.update(resumed.id, { state: "waiting-user", note: "等待确认" }, orphan);
+		f.store.momentResult(resumed.id, "user-wait", { error: "Not an open task session: missing-session" }, Date.now());
+		f.store.update(resumed.id, { note: "已补充证据" }, orphan);
+		await tick(f.probe.api, f.store, {}, window);
+		// 新进展之后重新提醒一次（再次失败，所以 moment-result 变成两条）。
+		expect(history(resumed.id).filter((event) => event.kind === "moment")).toHaveLength(1);
+		expect(history(resumed.id).filter((event) => event.kind === "moment-result")).toHaveLength(2);
 	} finally {
 		await f.close();
 	}

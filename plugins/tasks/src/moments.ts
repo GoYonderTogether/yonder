@@ -1,12 +1,15 @@
 import type { PluginAPI, Trigger } from "@yonder/sdk";
 import { STALL_NOTICE } from "./prompts.js";
 import type { Store } from "./store/index.js";
+import { countsAsActivity } from "./store/project.js";
 
 export interface Config {
 	stallMinutes?: number;
 	tailDigest?: { enabled?: boolean; lines?: number };
 	userWaitMinutes?: number;
 	moments?: { postCompact?: boolean; postRetain?: boolean };
+	/** 完成审计：tasks_done 前另开只读会话复核；enabled=false 才跳过。 */
+	audit?: { enabled?: boolean; preset?: string };
 }
 /** 主人定的停滞窗口：默认 20 分钟，只接受 15–30。 */
 export const DEFAULT_STALL_MINUTES = 20;
@@ -16,9 +19,7 @@ export const stallWindow = (minutes?: number) => Math.min(30, Math.max(15, minut
 async function stallTarget(api: PluginAPI, store: Store, id: string, claimed: number) {
 	const current = store.taskById(id);
 	if (!current || current.task.state !== "active") return undefined;
-	const progressed = current.history.some(
-		(event) => event.seq > claimed && !event.kind.startsWith("moment") && event.kind !== "digest",
-	);
+	const progressed = current.history.some((event) => event.seq > claimed && countsAsActivity(event.kind));
 	if (progressed) return undefined;
 	return (await api.sessions.get(current.task.session)) ? current.task : undefined;
 }
@@ -56,7 +57,15 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 			}
 			store.momentResult(task.id, moment, { result }, now);
 		} catch (error) {
-			store.momentResult(task.id, moment, { error: error instanceof Error ? error.message : String(error) }, now);
+			// 提醒只进任务自己的会话：origin 是记录来源，不是投递目标，旧的自由文本也不会被当成目标。
+			const reason = error instanceof Error ? error.message : String(error);
+			store.momentResult(task.id, moment, { error: reason }, now);
+			api.log.warn("Task reminder failed; not retried until the task progresses", {
+				task: task.ref,
+				moment,
+				session: task.session,
+				error: reason,
+			});
 		}
 	}
 }

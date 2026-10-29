@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { parseRef, type RenderContext, type ToolContext } from "@yonder/sdk";
 import { TURN_ONE_LINE } from "../prompts.js";
+import { auditorRejection } from "../views.js";
 import {
+	type AuditResult,
 	applyEvent,
+	countsAsActivity,
 	type Moment,
 	type Open,
 	ongoing,
@@ -38,7 +41,7 @@ export function writeRow(db: DatabaseSync, projected: Projected): void {
 	);
 }
 
-const projects = new Set<TaskEvent["kind"]>(["open", "update", "done", "wake"]);
+const projects = new Set<TaskEvent["kind"]>(["open", "update", "done", "wake", "audit", "spend"]);
 
 /** 事件与投影必须一起落地：读到半个状态比读得慢更糟。 */
 export function append(
@@ -103,6 +106,26 @@ function checkParent(db: DatabaseSync, parentId: string, task?: Task): Task {
 	return parent;
 }
 
+/** 同一阻塞要连续报三次才允许标 blocked：投递、用量和审计事件不算一轮报告。 */
+export const BLOCKER_ROUNDS = 3;
+
+const quiet = (kind: TaskEvent["kind"]) =>
+	kind === "wake" || kind === "spend" || kind === "audit" || kind === "digest" || kind.startsWith("moment");
+
+const normalizeBlocker = (note: string) => note.replace(/\s+/gu, " ").trim().toLowerCase();
+
+/** 从最近一条报告往回数：同一个阻塞连着报了几轮，遇到别的进展就停。 */
+function blockerRounds(db: DatabaseSync, id: string, note: string): number {
+	const wanted = normalizeBlocker(note);
+	let rounds = 0;
+	for (const event of history(db, id).reverse()) {
+		if (quiet(event.kind)) continue;
+		if (event.kind !== "update" || !event.data.note || normalizeBlocker(event.data.note) !== wanted) break;
+		rounds += 1;
+	}
+	return rounds;
+}
+
 export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 	const parent = args.parent ? checkParent(db, args.parent) : undefined;
 	const origin = args.origin ?? ctx.event?.conv;
@@ -154,8 +177,15 @@ function change(
 	if (!ongoing(task)) throw new Error("Task is closed");
 	if (patch.state && patch.state !== task.state && !transitions[task.state].includes(patch.state))
 		throw new Error(`Invalid task transition: ${task.state} -> ${patch.state}`);
-	if (patch.state === "blocked" && patch.state !== task.state && !patch.note?.trim())
-		throw new Error("Blocking a task requires a note saying what blocks it");
+	if (patch.state === "blocked" && patch.state !== task.state) {
+		const note = patch.note?.trim();
+		if (!note) throw new Error("Blocking a task requires a note saying what blocks it");
+		const rounds = blockerRounds(db, task.id, note) + 1;
+		if (rounds < BLOCKER_ROUNDS)
+			throw new Error(
+				`Blocking needs the same blocker reported on ${BLOCKER_ROUNDS} consecutive updates; this is report ${rounds} of ${BLOCKER_ROUNDS}. Keep the task active, report the blocker again with tasks_update next turn, and mark it blocked on report ${BLOCKER_ROUNDS}.`,
+			);
+	}
 	if (patch.parent !== undefined && patch.parent !== null && patch.parent !== task.parent)
 		patch.parent = checkParent(db, patch.parent, task).id;
 	if (
@@ -213,8 +243,9 @@ export function claimMoments(
 		// 只对状态命中、可能需要提醒的任务读历史，与账本总量无关。
 		for (const task of moments(db, postCompact)) {
 			const events = history(db, task.id);
-			const activity = events.filter((event) => !event.kind.startsWith("moment") && event.kind !== "digest").at(-1)!;
+			const activity = events.filter((event) => countsAsActivity(event.kind)).at(-1)!;
 			const done = events.find((event) => event.kind === "done");
+			// origin 只记录来源：自检输入一律投到任务的会话里，旧的自由文本 origin 不会被当成目标。
 			const moment: Moment | undefined =
 				task.state === "active"
 					? "stall"
@@ -224,6 +255,11 @@ export function claimMoments(
 							? "postCompact"
 							: undefined;
 			if (!moment) continue;
+			// 连续失败只记一次：上一次提醒失败后没有新进展，就不再按窗口重发（BE-01）。
+			const failed = events.findLast(
+				(event) => event.kind === "moment-result" && event.data.moment === moment && Boolean(event.data.error),
+			);
+			if (failed && !events.some((event) => event.seq > failed.seq && countsAsActivity(event.kind))) continue;
 			const last = events.findLast((event) => event.kind === "moment" && event.data.moment === moment);
 			const since =
 				moment === "postCompact"
@@ -262,6 +298,31 @@ export function momentResult(
 	append(db, id, "moment-result", { moment, ...data }, now);
 }
 
+/** 审计结论进账本：驳回也要落库，下一轮渲染据此注入审计员的反对意见。 */
+export function recordAudit(db: DatabaseSync, id: string, result: Omit<AuditResult, "at">, now = Date.now()): void {
+	append(db, id, "audit", { auditResult: { ...result, at: new Date(now).toISOString() } }, now);
+}
+
+/**
+ * 结算 token 用量。`used` 是会话累计值，只增不减；用量不算进度，所以不推进 revision。
+ * `warned` 记下收尾提示已注入，避免每轮重复。
+ */
+export function spendTokens(
+	db: DatabaseSync,
+	id: string,
+	used: number,
+	warned: boolean,
+	now = Date.now(),
+): Task | undefined {
+	const task = find(db, id);
+	if (!task) return undefined;
+	const budget = { ...task.budget, used: Math.max(task.budget.used ?? 0, used) };
+	if (warned) budget.warned = true;
+	if (budget.used === (task.budget.used ?? 0) && Boolean(budget.warned) === Boolean(task.budget.warned)) return task;
+	append(db, id, "spend", { budget }, now);
+	return { ...task, budget };
+}
+
 export function renderTurn(db: DatabaseSync, ctx: RenderContext): string | undefined {
 	ctx.signal?.throwIfAborted();
 	const now = Date.now();
@@ -283,10 +344,13 @@ export function renderTurn(db: DatabaseSync, ctx: RenderContext): string | undef
 			task.wakeups + Number(counted),
 			minutes(task.lastDeliveryAt ?? task.createdAt, now),
 		);
-		lines.push(
+		const block =
 			mark?.revision === revision
 				? line
-				: `${line}\n${JSON.stringify({ ...task, wakeups: task.wakeups + Number(counted) })}`,
+				: `${line}\n${JSON.stringify({ ...task, wakeups: task.wakeups + Number(counted) })}`;
+		// 驳回意见紧挨任务块：每次渲染都带，压缩丢了历史也还在。
+		lines.push(
+			task.auditResult?.verdict === "rejected" ? `${auditorRejection(task.auditResult.reason)}\n${block}` : block,
 		);
 		if (counted || mark?.revision !== revision)
 			append(db, task.id, "wake", {

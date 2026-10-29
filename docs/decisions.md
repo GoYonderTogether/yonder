@@ -718,3 +718,10 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 导航：`navigate/back/forward/reload` 之后核对返回的 `final_url`。停在空白页算失败；落到别的 URL 算重定向，按非错误返回并提示改用 fetch 取原始内容、或用 observe 重新取 refs。
 - `parseBskJson` 的超时错误补了 hint（超时不等于没生效，先看 out / final_url 再决定是否重试）。
 - 验证：新增 `plugins/browser-skill/test/download-navigation.test.ts`，用真实本地 HTTP 服务（分块慢发的 1.5MB 文件、302 重定向）验证完成信号、重定向与空白页提示、超时 hint；另用本机 bsk 对同一本地站点实测了 `navigate`（`final_url`）与 `download`（`byte_size`）的真实返回形状。
+
+## 2026-10-29 FIX-be-delivery 投递层后端修复（主 Agent 代批 10-29）
+
+- BE-01：`bfd076c` 已把提醒改成投进任务自己的会话，origin 不再进投递，本卡只补剩下的一半——同一批提醒连续失败只记 1 次：`claimMoments` 见到上一次 `moment-result` 是错误、且失败之后没有任何进展事件（`countsAsActivity`）时跳过，不再按 121 分钟窗口重发；failure 同时用 `api.log.warn` 记一条可读警告。`waiting-user` 的触发条件仍按「有 origin 记录」判定：旧账本里的自由文本 origin 不会成为投递目标，提醒仍落到任务会话（保守只增不改，不改旧任务的提醒资格）。`docs/spec/17-task-ledger.md` 里「旧非法目标的安全回退仍未实现」这句话据此次实现已过时，按规约改 spec 属设计变更，等维护者确认后再删。
+- BE-02：正文校验只放在 `sessions/inputs.ts` 的 `notifySession`（`persistConsole` 的唯一出口），有附件即可，无正文无附件才报错；附件判定读它引用的 `message.out` 事件上的 `attachments`，因此 `persistConsole` 本身不需要改。
+- BE-03：`kernel/console.ts` 的 `allowsChannelInstance` 已覆盖投递、路由、社会档位校验；漏的是主人主动通知队列（`delivery/outbound.ts`）仍用裸数组判定 `target.via`，档位不含 console 时把发往控制台的通知当作 discarded 丢掉，已改用同一个 console 感知的判定。`kernel/social.ts` 的 social 工具仍按裸数组校验调用方与目标档位：那是社交设置读写而不是往控制台发消息，本次不动。
+- BE-08：附件解析在 `plugins/channel-qq/src/channel.ts`（卡的允许文件只列了 `src/index.ts`，解析器实体在 channel.ts）：`file:` 引用、`~/` 与相对 home 的路径先解析成绝对路径，再按 `localMediaRoot` 白名单校验；解析不了或不在白名单的附件跳过并记一条含允许目录的可读警告，正文和可发附件照常发出，整条消息不再因为一个附件作废。
