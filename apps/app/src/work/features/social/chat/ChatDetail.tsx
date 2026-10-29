@@ -1,13 +1,23 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { type ConversationDetail, httpApi } from "../../../api/social";
 import { href } from "../../../shell/routes";
-import { ActorAvatar } from "../../../ui/kit/ActorAvatar";
-import { Button } from "../../../ui/kit/Button";
+import { cn } from "../../../lib/cn";
 import { rememberShareToken, shareLinkKey, shareLinkUrl } from "../lib/shareLinks";
+import { SocialAvatar, Status } from "../IdentityAvatar";
+import { AiBadge } from "./AiBadge";
 import { ShareLinks } from "../ShareLinks";
+
+/** 分组块：tone/50 底、16px 圆角、块间 8px。与名片站 chat/ChatDetail 的 Section 同参数。 */
+function Section({ children, className }: { children: ReactNode; className?: string }) {
+	return <section className={cn("mx-3 my-2 overflow-hidden rounded-card bg-tone/50", className)}>{children}</section>;
+}
+
+function Row({ children }: { children: ReactNode }) {
+	return <div className="flex h-12 w-full items-center gap-3 px-4 text-small">{children}</div>;
+}
 
 export function ChatDetail({
 	conversation,
@@ -26,6 +36,7 @@ export function ChatDetail({
 		enabled: conversation.kind === "group",
 	});
 	const members = conversation.kind === "dm" ? conversation.members.filter((m) => m.id !== meId) : conversation.members;
+	const other = conversation.kind === "dm" ? members[0] : undefined;
 	// 群二维码改用服务端分享链接：访客凭 ?share= 登录时按链接计配额。非成员/访客生成失败时退回群邀请地址。
 	const share = useQuery({
 		queryKey: ["social", "share-link", conversation.id],
@@ -53,72 +64,136 @@ export function ChatDetail({
 			setError(e instanceof Error ? e.message : "退出失败");
 		}
 	};
-	return (
-		<aside
-			aria-label="聊天详情"
-			className="absolute inset-0 z-20 flex flex-col bg-raised lg:inset-y-0 lg:right-0 lg:left-auto lg:w-80 lg:shadow-float"
-		>
-			<header className="flex h-14 shrink-0 items-center justify-between px-4">
-				<h2 className="font-semibold">聊天详情</h2>
-				<Button variant="ghost" size="icon" aria-label="关闭聊天详情" onClick={onClose}>
-					<X size={18} />
-				</Button>
-			</header>
-			<div className="scroll-y flex-1 overflow-y-auto p-3">
-				<section className="rounded-card bg-tone/50 p-4">
-					<p className="pb-3 text-[13px] text-muted">
-						{conversation.kind === "group" ? `群成员 ${members.length}` : "联系人"}
-					</p>
-					<ul className="grid grid-cols-4 gap-3">
-						{members.map((member) => (
-							<li key={member.id}>
+	const body =
+		conversation.kind === "group" ? (
+			<>
+				<Section className="p-4">
+					<p className="pb-3 text-[13px] text-muted">群成员 {conversation.members.length}</p>
+					<ul className="grid grid-cols-4 gap-y-4">
+						{conversation.members.map((member) => (
+							<li key={member.id} className="min-w-0">
 								<a
 									href={href({ tab: "contacts", page: "contacts", session: member.code ?? member.id })}
-									className="flex flex-col items-center gap-1"
+									className="press flex flex-col items-center gap-1.5 px-1"
 								>
-									<ActorAvatar seed={member.id} group={member.kind === "agent" ? "bot" : "import"} size={44} />
-									<span className="max-w-full truncate text-[12px]">
-										{member.name}
-										{member.kind === "agent" && " · AI"}
+									<SocialAvatar actor={member} size={44} />
+									<span className="flex w-full items-center justify-center gap-1">
+										<span className="truncate text-caption">{member.name}</span>
+										{member.kind === "agent" && <AiBadge />}
 									</span>
 								</a>
 							</li>
 						))}
 					</ul>
-				</section>
-				{conversation.kind === "dm" && members[0] && (
-					<div className="my-3 flex flex-col items-center gap-3 rounded-card bg-tone/50 p-5">
+				</Section>
+				<Section>
+					<Row>
+						<span className="text-muted">群名称</span>
+						<span className="ml-auto truncate">{conversation.title}</span>
+					</Row>
+				</Section>
+				<Section className="flex flex-col items-center gap-3 p-5">
+					{qrValue ? (
+						<div className="rounded-control bg-white p-3">
+							<QRCodeSVG value={qrValue} size={140} />
+						</div>
+					) : (
+						<div className="skeleton h-[164px] w-[164px] rounded-control" />
+					)}
+					{invite.isError && <p role="alert">群二维码加载失败</p>}
+					<p className="text-caption text-muted">群二维码</p>
+					<ShareLinks kind="group" targetId={conversation.id} label={conversation.title} hash={inviteHash} />
+				</Section>
+				<div className="px-3 py-4">
+					<button
+						type="button"
+						onClick={() => void leave()}
+						className="press flex h-11 w-full items-center justify-center rounded-full bg-tone text-small font-medium text-danger hover:bg-tone-2"
+					>
+						退出群聊
+					</button>
+				</div>
+			</>
+		) : (
+			<>
+				{other && (
+					<Section>
+						<a
+							href={href({ tab: "contacts", page: "contacts", session: other.code ?? other.id })}
+							className="press flex items-center gap-3 p-4 hover:bg-tone/60"
+						>
+							<SocialAvatar actor={other} size={48} online={other.kind === "agent" ? !!other.online : undefined} />
+							<span className="min-w-0 flex-1">
+								<span className="flex items-center gap-1.5">
+									<span className="truncate text-body font-medium">{other.name}</span>
+									{other.kind === "agent" && <AiBadge />}
+								</span>
+								{other.note && <span className="block truncate text-[13px] text-muted">{other.note}</span>}
+							</span>
+							<ChevronRight size={16} className="text-faint" />
+						</a>
+					</Section>
+				)}
+				{other && (
+					<Section className="flex flex-col items-center gap-3 p-5">
 						<div className="rounded-control bg-white p-3">
 							<QRCodeSVG
-								value={`${location.origin}${href({ tab: "chats", page: "p", session: members[0].code ?? members[0].id })}`}
+								value={`${location.origin}${location.pathname}${href({
+									tab: "chats",
+									page: "p",
+									session: other.code ?? other.id,
+								})}`}
 								size={140}
 							/>
 						</div>
-						<p className="text-[12px] text-muted">{members[0].name} 的二维码</p>
-					</div>
+						<p className="text-caption text-muted">{other.name} 的二维码</p>
+					</Section>
 				)}
-				{conversation.kind === "group" && (
-					<>
-						<p className="my-3 rounded-card bg-tone/50 p-4">
-							群名称 <span className="float-right">{conversation.title}</span>
-						</p>
-						<div className="flex flex-col items-center gap-3 rounded-card bg-tone/50 p-5">
-							{qrValue && (
-								<div className="rounded-control bg-white p-3">
-									<QRCodeSVG value={qrValue} size={140} />
-								</div>
-							)}
-							{invite.isError && <p role="alert">群二维码加载失败</p>}
-							<p className="text-[12px] text-muted">群二维码</p>
-							<ShareLinks kind="group" targetId={conversation.id} label={conversation.title} hash={inviteHash} />
-						</div>
-						<Button className="mt-4 w-full text-danger" onClick={() => void leave()}>
-							退出群聊
-						</Button>
-					</>
+				{other?.kind === "agent" && (
+					<Section>
+						<Row>
+							<span className="text-muted">在线状态</span>
+							<span className="ml-auto flex items-center gap-2">
+								<Status online={!!other.online} className="h-1.5 w-1.5" />
+								{other.online ? "在线" : "离线"}
+							</span>
+						</Row>
+					</Section>
 				)}
-				{error && <p role="alert">{error}</p>}
+			</>
+		);
+	return (
+		<aside
+			aria-label="聊天详情"
+			className="rise absolute inset-0 z-20 flex flex-col bg-raised lg:inset-y-0 lg:right-0 lg:left-auto lg:w-80 lg:shadow-float"
+		>
+			<header className="flex h-14 shrink-0 items-center justify-between pr-2 pl-5">
+				<h2 className="text-[15px] font-semibold">聊天详情</h2>
+				<button
+					type="button"
+					aria-label="关闭聊天详情"
+					onClick={onClose}
+					className="press flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-tone"
+				>
+					<X size={18} />
+				</button>
+			</header>
+			<div className="scroll-y flex-1 overflow-y-auto pb-safe">
+				{body}
+				{error && (
+					<p role="alert" className="px-4 pb-4 text-small text-danger">
+						{error}
+					</p>
+				)}
 			</div>
+			<a
+				href={href({ tab: "chats" })}
+				aria-label="返回消息"
+				className="press flex h-11 shrink-0 items-center justify-center gap-1 text-small text-muted hover:bg-tone"
+			>
+				<ArrowLeft size={16} />
+				返回消息
+			</a>
 		</aside>
 	);
 }
