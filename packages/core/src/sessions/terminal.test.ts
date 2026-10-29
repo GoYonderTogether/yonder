@@ -76,6 +76,21 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				(await kernel.sessions.submit(once.id, { text: "Reply only: one-shot-complete" }, { wait: true }))?.status,
 			).toBe("done");
 			expect((await kernel.sessions.get(once.id))?.closed).toBeTruthy();
+
+			// 失败的运行（这里用中止）不能让 run-end 会话失去可继续性：后台回报和「继续」还要落回同一会话（BE-05）。
+			const interrupted = await kernel.sessions.open({ preset: "default" });
+			let running = false;
+			const stopInterrupted = await kernel.terminal.observe(interrupted.id, async (update) => {
+				if (update.type === "tool" && update.tool?.phase === "start") running = true;
+			});
+			await kernel.terminal.submit(interrupted.id, {
+				text: "Call bash now with command: sleep 10; printf interrupted-check. Wait for the tool before replying.",
+			});
+			await expect.poll(() => running, { timeout: 30000 }).toBe(true);
+			await kernel.sessions.abort(interrupted.id);
+			expect((await kernel.sessions.get(interrupted.id))?.closed).toBeUndefined();
+			await stopInterrupted();
+			await kernel.sessions.close(interrupted.id);
 			await kernel.sessions.close(session.id);
 			expect((await kernel.sessions.get(session.id))?.closed).toBeTruthy();
 			await expect(kernel.sessions.submit(session.id, { text: "must reject" })).rejects.toThrow("Not an open task");

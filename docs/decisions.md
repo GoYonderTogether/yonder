@@ -777,3 +777,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 新增 `scripts/build-tsc.mjs`：tsc 之后用 `distDrift()` 核对，删除受影响工程的 `dist`（含其中 tsbuildinfo）重建一次；重建后仍不一致才失败。`npm run build` 改走该入口。
 - `scripts/check-dist-sync.mjs` 增加 `owningProject()` 并在直接运行时才做检查，便于被构建脚本 import。
 - 真实验证在 /tmp 的干净 clone 里做（构建、人为制造陈旧产物后自愈、空 HOME 跑 `doctor`），完成后删除；未改 tsconfig 的 tsbuildinfo 位置（范围内最小改动）。
+
+## 2026-10-29 BE-05 运行失败不再让 task 会话失去可继续性（主 Agent 代批 10-29）
+- 现象：task 会话只要这次运行没成功（error/limit/aborted）就按 run.status 关闭，随后后台回报或主人的「继续」撞上「Not an open task session: 2」，这句技术细节被当命令输出回灌主会话。
+- 改动：把「这次运行结束后要不要关会话」收成一个函数 `packages/core/src/sessions/close-policy.ts` 的 `closeOnRunEnd`——ephemeral 行为不变（一次运行后总关），task 只在 `status === "done"` 且策略不是 `manual` 时按 run-end 关闭；`kernel/index.ts` 的 `completeRun` 与 `onIdle` 都改走它。拒绝继续一个已关闭会话的行为不变（spec 12 §7 不允许把一轮任务改成可续聊任务）。
+- 取舍：失败且主人不再继续的 run-end 任务会话会一直开着（overview 里可见），没有自动回收；换来的是失败原因留在原会话、后台回报有落点。若以后要回收，应按时长/空闲清理，而不是在失败瞬间关掉。
+- 验证：新增 `packages/core/src/sessions/close-on-run.test.ts`（ephemeral 四状态、task 四状态、manual/run-end、main/persistent 不关）；`terminal.test.ts` 补 run-end 会话被中止后仍 `closed === undefined`（该用例与同文件其他用例一样以 `YONDER_TEST_REAL=1` 为门槛跑真实模型）。

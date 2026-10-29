@@ -21,6 +21,7 @@ import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
+import { closeOnRunEnd } from "../sessions/close-policy.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { createCoreTools } from "../tools/index.js";
@@ -290,6 +291,11 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			toolIndex: (session) => toolDiscoveryGuide(realRuntime().describeTools(session)),
 			templateDirs: (session) => pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(session)),
 		};
+		/** 运行结束后的关闭原因：task 会话读一次运行期策略，失败的运行不关闭（见 sessions 的 closeOnRunEnd）。 */
+		const closeReason = async (id: string, mode: import("@yonder/sdk").SessionInfo["mode"], status: string) => {
+			const close = mode === "task" ? (await realRuntime().sessionState(id))?.close : undefined;
+			return closeOnRunEnd(mode, status as import("@yonder/sdk").RunResult["status"], close);
+		};
 		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
 			const session = await store.sessions.get(id);
 			if (!session) throw new Error(`Missing runtime session: ${id}`);
@@ -298,12 +304,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			await store.events.recordRun(completion.ending);
 			completion.deliver();
 			await router.finishRun(session, run);
-			if (
-				!(await realRuntime().hasPendingWork(id)) &&
-				(session.mode === "ephemeral" ||
-					(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual"))
-			)
-				await sessions.closeSession(id, run.status === "done" ? "completed" : run.status);
+			if (!(await realRuntime().hasPendingWork(id))) {
+				const close = await closeReason(id, session.mode, run.status);
+				if (close) await sessions.closeSession(id, close);
+			}
 		};
 		sessions = createSessions({
 			store,
@@ -404,14 +408,10 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				const session = await store.sessions.get(id);
 				if (!session) return;
 				await router.finishIdle(session);
-				if (
-					!(await realRuntime().hasPendingWork(id)) &&
-					!session.closed &&
-					(session.mode === "ephemeral" ||
-						(session.mode === "task" && (await realRuntime().sessionState(id))?.close !== "manual"))
-				) {
+				if (!session.closed && !(await realRuntime().hasPendingWork(id))) {
 					const end = await realRuntime().lastResult(id);
-					if (end) await sessions.closeSession(id, end.status === "done" ? "completed" : end.status);
+					const close = end ? await closeReason(id, session.mode, end.status) : undefined;
+					if (close) await sessions.closeSession(id, close);
 				}
 			},
 			...backgroundHandlers({ store, runtime: realRuntime, delivery, report, views: loaded.views }),

@@ -65,6 +65,22 @@ export function targetBinding(
 	};
 }
 
+/** 点名消息被丢弃时的可诊断原因（spec 03：不可路由要留可诊断原因）；返回 undefined 表示不必报告。 */
+export function targetDropReason(event: YEvent, agentId: string, fromOwner: boolean): Error | undefined {
+	const instance = channelOf(event.conv);
+	if (!instance || instance === "agent") return undefined;
+	const kind = (event.data as { kind?: unknown }).kind;
+	return new Error(
+		`点名消息无法路由：${event.conv} 点名 ${agentId}，但该 Agent 没有可命中的绑定（渠道 ${instance}，类型 ${String(kind ?? "未知")}，发起人${fromOwner ? "是 owner" : "不是 owner"}）`,
+	);
+}
+
+/** 点名了不存在的 Agent。 */
+export function unknownTargetReason(event: YEvent, target: string): Error | undefined {
+	if (channelOf(event.conv) === "agent") return undefined;
+	return new Error(`点名消息无法路由：${event.conv ?? "?"} 点名 ${target}，但没有这个 Agent`);
+}
+
 export function sessionKey(
 	binding: Binding,
 	event: YEvent,
