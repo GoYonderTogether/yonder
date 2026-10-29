@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
@@ -22,21 +21,28 @@ import { basename, delimiter, dirname, isAbsolute, join, posix, relative, resolv
 import { fileURLToPath } from "node:url";
 
 import { controlEndpoint, requestControl } from "../control/index.js";
-import { installRoot, SERVICE_LABEL as label, STATUS_LABEL as statusLabel } from "./names.js";
+import { command } from "./exec.js";
+import {
+	installRoot,
+	SERVICE_LABEL as label,
+	SERVICE_LABELS,
+	STATUS_LABELS,
+	STATUS_LABEL as statusLabel,
+} from "./names.js";
 import { canonicalRepository } from "./repository.js";
 import { recordUpdateResult, type UpdateResult } from "./result.js";
 
 export * from "./names.js";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
-const statusPlistPath = () => join(homedir(), "Library/LaunchAgents", `${statusLabel}.plist`);
+const statusPlistPath = (name = statusLabel) => join(homedir(), "Library/LaunchAgents", `${name}.plist`);
 const statusExecutable = (install: string) =>
 	join(install, "current/packages/macos/dist/YonderStatus.app/Contents/MacOS/YonderStatus");
-const plistPath = () => join(homedir(), "Library/LaunchAgents", `${label}.plist`);
+const plistPath = (name = label) => join(homedir(), "Library/LaunchAgents", `${name}.plist`);
 const windowsData = () => resolve(process.env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "YonderHarness");
 const installPath = () => installRoot(process.env);
-const linuxUnitPath = () =>
-	join(resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config")), "systemd/user", label);
+const linuxUnitPath = (unit = label) =>
+	join(resolve(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config")), "systemd/user", unit);
 const windowsServicePath = () => join(windowsData(), "service.json");
 const windowsTask = label;
 const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
@@ -48,6 +54,11 @@ const xml = (value: string) =>
 		.replaceAll('"', "&quot;")
 		.replaceAll("'", "&apos;");
 const domain = () => `gui/${process.getuid?.()}`;
+/** The label this machine actually runs: the current one first, then pre-S-N01 spellings still loaded. */
+async function loadedLabel(names: string[]): Promise<string | undefined> {
+	for (const name of names)
+		if ((await command("launchctl", ["print", `${domain()}/${name}`], { allowFailure: true })).code === 0) return name;
+}
 const versionPattern = /^(?:v)?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
 
 /** Semver ordering: a pre-release (for example `-beta.1`) sorts before the same X.Y.Z without one. */
@@ -179,39 +190,6 @@ export async function readChangelog(from?: string, to?: string): Promise<string>
 		to ?? (await manifest(join(sourceRoot, "packages/cli"))).version,
 	);
 }
-interface CommandResult {
-	code: number;
-	stdout: string;
-	stderr: string;
-}
-function command(
-	program: string,
-	args: string[],
-	options: { cwd?: string; env?: NodeJS.ProcessEnv; allowFailure?: boolean } = {},
-): Promise<CommandResult> {
-	return new Promise((resolve, reject) => {
-		const child = spawn(program, args, {
-			cwd: options.cwd,
-			env: options.env ?? process.env,
-			stdio: ["ignore", "pipe", "pipe"],
-		});
-		let stdout = "",
-			stderr = "";
-		child.stdout.on("data", (chunk) => {
-			stdout += chunk;
-		});
-		child.stderr.on("data", (chunk) => {
-			stderr += chunk;
-		});
-		child.once("error", reject);
-		child.once("close", (code) => {
-			const result = { code: code ?? 1, stdout, stderr };
-			if (result.code && !options.allowFailure)
-				reject(new Error(`${program} failed (${result.code}): ${stderr.trim() || stdout.trim()}`));
-			else resolve(result);
-		});
-	});
-}
 function npmCommand(args: string[], options: { cwd: string; env: NodeJS.ProcessEnv }) {
 	return process.platform === "win32"
 		? command("cmd.exe", ["/d", "/s", "/c", "npm", ...args], options)
@@ -243,16 +221,18 @@ interface ServiceInstallation {
 	home: string;
 	install: string;
 	plist: string;
+	label?: string;
 }
 export async function installedService(): Promise<ServiceInstallation | undefined> {
 	if (process.platform === "linux") {
-		if (!existsSync(linuxUnitPath())) return;
-		const unit = await readFile(linuxUnitPath(), "utf8");
-		const record = /^# YonderService=(.+)$/mu.exec(unit)?.[1];
+		const unit = SERVICE_LABELS.find((candidate) => existsSync(linuxUnitPath(candidate)));
+		if (!unit) return;
+		const text = await readFile(linuxUnitPath(unit), "utf8");
+		const record = /^# YonderService=(.+)$/mu.exec(text)?.[1];
 		if (!record) throw new Error("Installed systemd unit is missing its Yonder service record");
 		const { home, install } = JSON.parse(record) as { home?: string; install?: string };
 		if (!home || !install) throw new Error("Installed systemd unit is missing its home or install");
-		return { home, install, plist: linuxUnitPath() };
+		return { home, install, plist: linuxUnitPath(unit), label: unit };
 	}
 	if (process.platform === "win32") {
 		if (!existsSync(windowsServicePath())) return;
@@ -263,8 +243,9 @@ export async function installedService(): Promise<ServiceInstallation | undefine
 		if (!home || !install) throw new Error("Installed Windows task is missing its home or install");
 		return { home, install, plist: windowsServicePath() };
 	}
-	if (process.platform !== "darwin" || !existsSync(plistPath())) return;
-	const result = await command("plutil", ["-convert", "json", "-o", "-", plistPath()]);
+	const name = SERVICE_LABELS.find((candidate) => existsSync(plistPath(candidate)));
+	if (process.platform !== "darwin" || !name) return;
+	const result = await command("plutil", ["-convert", "json", "-o", "-", plistPath(name)]);
 	const plist = JSON.parse(result.stdout) as {
 		ProgramArguments?: string[];
 		EnvironmentVariables?: Record<string, string>;
@@ -273,7 +254,12 @@ export async function installedService(): Promise<ServiceInstallation | undefine
 		home = args[args.indexOf("--home") + 1];
 	if (!args.includes("--home") || !home || !args[0])
 		throw new Error("Installed service plist is missing its home or executable");
-	return { home, install: plist.EnvironmentVariables?.YONDER_INSTALL ?? dirname(dirname(args[0])), plist: plistPath() };
+	return {
+		home,
+		install: plist.EnvironmentVariables?.YONDER_INSTALL ?? dirname(dirname(args[0])),
+		plist: plistPath(name),
+		label: name,
+	};
 }
 function runtimePath(install: string): string {
 	return [...new Set([join(install, "bin"), dirname(process.execPath), ...(process.env.PATH ?? "").split(delimiter)])]
@@ -333,7 +319,7 @@ export function linuxServiceUnit(install: string, home: string, path = runtimePa
 
 async function manageLinuxService(action: ServiceAction, options: { home?: string }) {
 	let installed = await installedService();
-	const unit = label;
+	const unit = installed?.label ?? label;
 	const systemctl = (args: string[], allowFailure = false) =>
 		command("systemctl", ["--user", ...args], { allowFailure });
 	if (action === "install") {
@@ -347,11 +333,11 @@ async function manageLinuxService(action: ServiceAction, options: { home?: strin
 		await systemctl(["daemon-reload"]);
 		await systemctl(["enable", unit]);
 		await systemctl(["restart", unit]);
-		installed = { home, install, plist: linuxUnitPath() };
+		installed = { home, install, plist: linuxUnitPath(), label: unit };
 	} else if (action === "uninstall") {
 		if (installed) {
 			await systemctl(["disable", "--now", unit]);
-			await rm(linuxUnitPath());
+			await rm(linuxUnitPath(unit));
 			await systemctl(["daemon-reload"]);
 		}
 		return { installed: false, loaded: false };
@@ -366,6 +352,7 @@ async function manageLinuxService(action: ServiceAction, options: { home?: strin
 		installed: !!installed,
 		loaded: active,
 		...(installed ? { home: installed.home, install: installed.install, plist: installed.plist } : {}),
+		label: unit,
 		state: /^ActiveState=(.+)$/mu.exec(state.stdout)?.[1] ?? "inactive",
 		pid,
 	};
@@ -471,6 +458,7 @@ interface ServiceStatus {
 	home?: string;
 	install?: string;
 	plist?: string;
+	label?: string;
 	state?: string;
 	pid?: number | null;
 	launcherPid?: number | null;
@@ -481,7 +469,8 @@ export async function manageService(action: ServiceAction, options: { home?: str
 	if (process.platform !== "darwin")
 		throw new Error("Yonder Harness background services currently support macOS launchd only");
 	let installed = await installedService();
-	const service = `${domain()}/${label}`;
+	const name = installed?.label ?? (await loadedLabel(SERVICE_LABELS)) ?? label;
+	const service = `${domain()}/${name}`;
 	const loaded = async () => (await command("launchctl", ["print", service], { allowFailure: true })).code === 0;
 	if (action === "install") {
 		if (!options.home) throw new Error("service install requires --home");
@@ -502,12 +491,15 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		}
 		await writeFile(plistPath(), servicePlist(install, home, runtimePath(install), hosted), { mode: 0o600 });
 		await command("launchctl", ["bootstrap", domain(), plistPath()]);
-		installed = { home, install, plist: plistPath() };
-		const statusService = `${domain()}/${statusLabel}`;
+		installed = { home, install, plist: plistPath(), label };
+		if (name !== label) await rm(plistPath(name), { force: true });
+		const statusName = (await loadedLabel(STATUS_LABELS)) ?? statusLabel;
+		const statusService = `${domain()}/${statusName}`;
 		if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code === 0)
 			await unloadService(statusService);
 		await writeFile(statusPlistPath(), statusPlist(install, home), { mode: 0o600 });
 		await command("launchctl", ["bootstrap", domain(), statusPlistPath()]);
+		if (statusName !== statusLabel) await rm(statusPlistPath(statusName), { force: true });
 	} else if (action === "status") {
 		const status = await command("launchctl", ["print", service], { allowFailure: true });
 		const launcherPid = Number(/^\s*pid = (\d+)$/mu.exec(status.stdout)?.[1]) || null;
@@ -531,6 +523,7 @@ export async function manageService(action: ServiceAction, options: { home?: str
 			installed: !!installed,
 			loaded: status.code === 0,
 			...(installed ? { home: installed.home, install: installed.install, plist: installed.plist } : {}),
+			label: name,
 			...(status.code === 0
 				? {
 						state: /^\s*state = (.+)$/mu.exec(status.stdout)?.[1] ?? "loaded",
@@ -541,11 +534,10 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		};
 	} else if (action === "uninstall") {
 		if (await loaded()) await unloadService(service);
-		const statusService = `${domain()}/${statusLabel}`;
-		if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code === 0)
-			await unloadService(statusService);
-		await rm(statusPlistPath(), { force: true });
-		if (installed) await rm(installed.plist);
+		const statusName = await loadedLabel(STATUS_LABELS);
+		if (statusName) await unloadService(`${domain()}/${statusName}`);
+		for (const candidate of STATUS_LABELS) await rm(statusPlistPath(candidate), { force: true });
+		for (const candidate of SERVICE_LABELS) await rm(plistPath(candidate), { force: true });
 		return { installed: false, loaded: false };
 	} else {
 		if (!installed) throw new Error("Yonder Harness service is not installed");
@@ -558,13 +550,14 @@ export async function manageService(action: ServiceAction, options: { home?: str
 			await command("launchctl", ["bootstrap", domain(), installed.plist]);
 		} else if (running) await command("launchctl", ["kickstart", service]);
 		else await command("launchctl", ["bootstrap", domain(), installed.plist]);
-		if (action === "start" && existsSync(statusPlistPath())) {
-			const statusService = `${domain()}/${statusLabel}`;
+		const statusName = (await loadedLabel(STATUS_LABELS)) ?? statusLabel;
+		const statusService = `${domain()}/${statusName}`;
+		const statusPlist = statusPlistPath(statusName);
+		if (action === "start" && existsSync(statusPlist)) {
 			if ((await command("launchctl", ["print", statusService], { allowFailure: true })).code !== 0)
-				await command("launchctl", ["bootstrap", domain(), statusPlistPath()]);
+				await command("launchctl", ["bootstrap", domain(), statusPlist]);
 			else await command("launchctl", ["kickstart", statusService]);
 		} else if (action === "restart") {
-			const statusService = `${domain()}/${statusLabel}`;
 			const state = await command("launchctl", ["print", statusService], { allowFailure: true });
 			if (state.code === 0 && /^\s*pid = \d+$/mu.test(state.stdout))
 				await command("launchctl", ["kickstart", "-k", statusService]);
@@ -576,6 +569,7 @@ export async function manageService(action: ServiceAction, options: { home?: str
 		home: installed.home,
 		install: installed.install,
 		plist: installed.plist,
+		label: installed.label ?? name,
 	};
 }
 /** Refuse to move or remove anything except a link into this install's own version directory. */

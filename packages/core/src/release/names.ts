@@ -7,6 +7,9 @@ export const STATUS_LABEL = "dev.yonder.status";
 export const HELPER_ID = "dev.yonder.harness.helper";
 export const LEGACY_INSTALL_DIR = ".yonder-harness";
 export const LEGACY_LABELS = ["dev.yonder.harness", "dev.yonder.harness.service", "dev.yonder.harness.status"];
+// Pre-S-N01 spellings still installed on machines that have not migrated: launchd files and systemd unit names.
+export const SERVICE_LABELS = [SERVICE_LABEL, "dev.yonder.harness", "dev.yonder.harness.service"];
+export const STATUS_LABELS = [STATUS_LABEL, "dev.yonder.harness.status"];
 export const LEGACY_HOME_DIR = "yonder-harness";
 
 export function installRoot(env: NodeJS.ProcessEnv): string {

@@ -8,7 +8,9 @@ import {
 	LEGACY_INSTALL_DIR,
 	LEGACY_LABELS,
 	SERVICE_LABEL,
+	SERVICE_LABELS,
 	STATUS_LABEL,
+	STATUS_LABELS,
 } from "./names.js";
 
 test("installation and service names preserve migration identifiers", () => {
@@ -20,4 +22,6 @@ test("installation and service names preserve migration identifiers", () => {
 	expect(LEGACY_INSTALL_DIR).toBe(".yonder-harness");
 	expect(LEGACY_HOME_DIR).toBe("yonder-harness");
 	expect(LEGACY_LABELS).toEqual(["dev.yonder.harness", "dev.yonder.harness.service", "dev.yonder.harness.status"]);
+	expect(SERVICE_LABELS).toEqual(["dev.yonder.service", "dev.yonder.harness", "dev.yonder.harness.service"]);
+	expect(STATUS_LABELS).toEqual(["dev.yonder.status", "dev.yonder.harness.status"]);
 });
