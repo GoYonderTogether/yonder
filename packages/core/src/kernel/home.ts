@@ -170,7 +170,15 @@ export async function initHome(
 			defaultProfile: "owner",
 			defaults: {
 				contexts: ["jarvis-soul", "jarvis-work"],
-				plugins: ["context-files", "agent-presets", "learning", ...(onboarding ? ["tasks", "onboarding"] : [])],
+				// 名片渠道随包写进 channels 时，main 默认拿到它的 card_push 工具（JV2-J03-01）：
+				// 起名片的工具在插件里，不在 Agent 清单时模型只能自己改 agent.yaml。
+				plugins: [
+					"context-files",
+					"agent-presets",
+					"learning",
+					...(bundle.channels.card ? ["channel-card"] : []),
+					...(onboarding ? ["tasks", "onboarding"] : []),
+				],
 			},
 			// 名片群只读档案（SOC01 G-01）：群会话不继承主人能力，被 @ 时只读回答。
 			profiles: {

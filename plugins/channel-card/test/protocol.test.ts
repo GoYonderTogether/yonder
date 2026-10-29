@@ -479,3 +479,38 @@ test("G-10 device frames carry platform mention metadata and fall back to mentio
 	// 帧里的 mentioned 原样保留，旧消费方行为不变。
 	expect(f.events.map((event) => (event.data as { mentioned: boolean }).mentioned)).toEqual([false, true, true]);
 });
+
+test("card draft failures name the cause: no Agent identity and an unregistered Agent (JV2-J03-02)", async () => {
+	const f = await fixture();
+	await f.login();
+	const { api, registrations } = createRegistrationCollector();
+	await plugin.setup({ ...f.api, ...api } as PluginAPI);
+	const channel = (await registrations.channels[0]!.create("tool", { endpoint: f.endpoint })) as CardChannel;
+	cleanups.push(() => channel.stop());
+	await channel.start({
+		emit: async () => {
+			throw new Error("unused");
+		},
+		ask: async () => {
+			throw new Error("unused");
+		},
+	});
+	await channel.login("start", signal());
+	await channel.login("poll", signal());
+	const tool = registrations.tools[0]!;
+	// A task/preset session has no Agent identity: say so instead of "check instance and Agent registration".
+	const anonymous = (await tool.execute({ instance: "tool", title: "T", markdown: "B" }, {
+		agent: null,
+		signal: signal(),
+	} as unknown as ToolContext)) as { isError?: boolean; text: string };
+	expect(anonymous.isError).toBe(true);
+	expect(anonymous.text).toContain("needs an Agent identity");
+	expect(anonymous.text).toContain("yonder chat");
+	const missing = (await tool.execute({ instance: "tool", title: "T", markdown: "B" }, {
+		agent: "nobody",
+		signal: signal(),
+	} as ToolContext)) as { isError?: boolean; text: string };
+	expect(missing.isError).toBe(true);
+	expect(missing.text).toContain('Agent "nobody" is not registered');
+	expect(missing.text).toContain("yonder channels login card");
+});

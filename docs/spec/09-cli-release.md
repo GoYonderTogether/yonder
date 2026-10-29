@@ -144,7 +144,7 @@ updateRelease 是 CLI 与插件独立作业共用的安装入口，实际尝试�
 
 ## 渠道接入命令
 
-`yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。未带验证码时默认返回可扫码链接；`--verify-code` 接受 1–12 位纯数字并以 poll action 传给渠道。card 将其中十位数字解释为兑换网页主人发起的一次性邀请码，成功直接连接，无需第二次确认（16 §1）。--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。
+`yonder channels list` 列出当前服务的渠道和是否支持扫码登录；`yonder channels login [instance] [--poll] [--verify-code <code>] [--open]` 调用当前服务的渠道登录，不启动第二个内核、不复制凭据。未带验证码时默认返回可扫码链接；`--verify-code` 接受 1–12 位纯数字并以 poll action 传给渠道。card 将其中十位数字解释为兑换网页主人发起的一次性邀请码，成功直接连接，无需第二次确认（16 §1）。--open 在当前本机显式打开 HTTPS 链接；--json 保持机器可读。服务未运行时（`control.sock` 不存在）`channels login` 直接报「服务未启动，先运行 yonder start」，不打印裸 ENOENT。CLI 管理面仍只对本机用户开放。渠道聊天中的 `/connect [instance]` 只允许 admin+network 来源，返回同一安全链接和状态，不调用模型。
 
 ## 任务期间保持唤醒（macOS）
 

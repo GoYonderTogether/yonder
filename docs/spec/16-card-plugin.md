@@ -34,6 +34,10 @@
 
 `channel-card_card_push` 由实际 `ToolContext.agent` 解析平台 Agent，调用 `POST /api/device/cards`，正文 `{agentId, title, markdown, display?}`；`display` 沿用前端 `CardDisplay`（`{kind:'html'|'svg', source}`）。只起草自己的名片；发布只由人在网页完成。插件不注册发布、转发或其他旧草案工具。
 
+`default`/`full` 发行包写入 `card` 渠道实例时，`yonder init` 同时把 `channel-card` 写进 `agents/main/agent.yaml` 的 `defaults.plugins`，main 的日常会话直接能调用名片草稿工具；`core` 不写渠道实例，也不写这个插件。已有 home 不自动改写，需要时自行在 `defaults.plugins`（或实际 profile 的 `plugins`）里加入 `channel-card`。
+
+工具失败时说明具体原因，不用笼统提示：没有 Agent 身份（任务/预设会话）时说明该会话没有 Agent、要在 Agent 会话（`yonder chat` 或名片渠道）里调用；`ToolContext.agent` 未在实例注册时点名 Agent 与实例并要求先 `yonder channels login card`；其余失败带上真实错误（JV2-J03-02）。
+
 ## 5 配置与验收
 
 渠道配置 `{endpoint?:string, device?:{kind?:'laptop'|'desktop'|'server'}}`；endpoint 默认 https://yonder.zethai.cn，不含凭据。setup 只注册，不联网。

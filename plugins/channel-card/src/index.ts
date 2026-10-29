@@ -55,10 +55,26 @@ export default definePlugin({
 				const { instance, ...data } = input;
 				const channel = instances.get(instance);
 				if (!channel) return { isError: true, text: "Unknown card instance" };
+				// 任务/预设会话没有 Agent 身份，cardPush 一定失败；直接说清原因，别让模型去猜（JV2-J03-02）。
+				if (!ctx.agent)
+					return {
+						isError: true,
+						text: "Card draft needs an Agent identity: this session has none (task/preset sessions have no Agent). Call it from the main Agent session — `yonder chat` or a message in the card channel — or draft the card from there. · 名片起草需要 Agent 身份，任务会话没有 Agent：请在 Agent 会话（yonder chat）或名片渠道里调用。",
+					};
 				try {
 					return { text: JSON.stringify(await channel.cardPush(ctx.agent, data, ctx.signal)) };
-				} catch {
-					return { isError: true, text: "Card draft failed; check instance and Agent registration" };
+				} catch (error) {
+					// 未注册 = 本 home 还没登录 card 渠道或该 Agent 不在登记表里；其它失败带上真实原因。
+					if (error instanceof Error && error.message === "Card Agent not registered")
+						return {
+							isError: true,
+							text: `Card draft failed: Agent "${ctx.agent}" is not registered on card instance "${instance}". Run \`yonder channels login card\` in this home (it registers every enabled Agent), then retry. · 这个 Agent 未在 card 实例注册：先在该 home 执行 yonder channels login card 完成登录与登记，再重试。`,
+						};
+					const reason = error instanceof Error ? error.message : String(error);
+					return {
+						isError: true,
+						text: `Card draft failed: ${reason}. The request to POST /api/device/cards did not succeed; retry after checking the card instance connection. · 名片起草失败：${reason}；确认 card 实例连接后重试。`,
+					};
 				}
 			},
 		});

@@ -20,7 +20,13 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 		const file = `${home}/agents/main/agent.yaml`;
 		const agent = parse((await readFile(file, "utf8")).replace("      channel: cli\n", ""));
 		// 这条用例验证空 home；管家首次引导的唤醒由下一条用例覆盖。
-		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual(["card-group", "card-owner", "onboarding", "owner", "peer"]);
+		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual([
+			"card-group",
+			"card-owner",
+			"onboarding",
+			"owner",
+			"peer",
+		]);
 		agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
 		await writeFile(file, stringify(agent));
 		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });
@@ -214,5 +220,38 @@ test("offline inspection uses the common tool policy and includes preset plugin 
 		expect(await manageHome(home, { action: "models.list" })).toHaveProperty("models");
 	} finally {
 		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("a card channel instance gives the main Agent the card tools by default (JV2-J03-01)", async () => {
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const core = await mkdtemp(join(tmpdir(), "ya-"));
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const agent = parseAgentConfig(await readFile(`${home}/agents/main/agent.yaml`, "utf8"), "agent.yaml");
+		expect(agent.defaults?.plugins).toContain("channel-card");
+		// 主人的 cli DM 与名片 DM 都进 main 主会话，owner 档案放行全部工具，card_push 才可达（JV2-J03-08）。
+		expect(agent.bindings).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					match: { channel: "cli", kind: "dm", from: "owner" },
+					session: "main",
+					profile: "owner",
+				}),
+				expect.objectContaining({
+					match: { channel: "card", kind: "dm", from: "owner" },
+					session: "main",
+					profile: "owner",
+				}),
+			]),
+		);
+		expect(agent.profiles?.owner?.tools?.offer).toContain("*");
+		// core 不写 card 渠道实例，main 也就不该挂它的插件（否则配置校验会报不存在的插件）。
+		await initHome(core, "owner", { model: testModel, bundle: "core" });
+		const coreAgent = parseAgentConfig(await readFile(`${core}/agents/main/agent.yaml`, "utf8"), "agent.yaml");
+		expect(coreAgent.defaults?.plugins ?? []).not.toContain("channel-card");
+	} finally {
+		await rm(home, { recursive: true, force: true });
+		await rm(core, { recursive: true, force: true });
 	}
 });

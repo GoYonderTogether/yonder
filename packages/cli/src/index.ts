@@ -40,6 +40,7 @@ import {
 import { startGateway } from "@yonder/gateway";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
+import { loginChannel } from "./channels-login.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
 import { applyMigration, defaultMigrateOptions, planMigration } from "./migrate.js";
@@ -243,6 +244,13 @@ async function chat(home: string, instance: string, json: boolean) {
 			socket.once("connect", resolve);
 			socket.once("error", reject);
 			lines.once("error", reject);
+		}).catch((error: NodeJS.ErrnoException) => {
+			// 名片等非 cli 渠道没有本地会话 socket；直接报 ENOENT 会误导成服务问题（JV2-J03-08）。
+			if (instance !== "cli" && (error.code === "ENOENT" || error.code === "ECONNREFUSED"))
+				throw new Error(
+					`渠道 ${instance} 没有本地对话入口 / Channel ${instance} has no local chat endpoint. 主人与 main Agent 对话请用 yonder chat --channel cli（名片起草工具在该会话可用）；或在 ${instance} 渠道直接发消息。`,
+				);
+			throw error;
 		});
 		socket.once("close", () => terminal.close());
 		for await (const line of terminal) {
@@ -391,14 +399,12 @@ async function run(args: string[]): Promise<number> {
 			} else if (!value.startsWith("-") && !instance) instance = value;
 			else throw new UsageError("Invalid channels login option");
 		}
-		const result = (await requestControl(homeFor(options), {
-			method: "channels.login",
-			params: {
-				...(instance ? { instance } : {}),
-				action: poll ? "poll" : "start",
-				...(verifyCode ? { verifyCode } : {}),
-			},
-		})) as { qrcodeUrl?: string };
+		// 服务没起来时 control.sock 的 ENOENT 由 loginChannel 翻成「先运行 yonder start」（JV2-J02-01）。
+		const result = await loginChannel(homeFor(options), {
+			...(instance ? { instance } : {}),
+			action: poll ? "poll" : "start",
+			...(verifyCode ? { verifyCode } : {}),
+		});
 		output(result, options.json);
 		if (open && result.qrcodeUrl) {
 			const url = new URL(result.qrcodeUrl);
