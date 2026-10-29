@@ -92,12 +92,16 @@ describe("shareLinkUrl", () => {
 	const link = { token: "tok/en", url: "https://card.example/?share=tok%2Fen" };
 
 	it("keeps the target path and appends the server token as ?share", () => {
-		expect(shareLinkUrl(link, "/u/abc123", "https://card.example")).toBe("https://card.example/u/abc123?share=tok%2Fen");
+		expect(shareLinkUrl(link, "/u/abc123", "https://card.example")).toBe(
+			"https://card.example/u/abc123?share=tok%2Fen",
+		);
 		expect(shareLinkUrl(link, "/g/token", "https://card.example")).toBe("https://card.example/g/token?share=tok%2Fen");
 	});
 
 	it("falls back to the link token when the server url is missing or unparseable", () => {
-		expect(shareLinkUrl({ token: "local" }, "/u/a", "https://card.example")).toBe("https://card.example/u/a?share=local");
+		expect(shareLinkUrl({ token: "local" }, "/u/a", "https://card.example")).toBe(
+			"https://card.example/u/a?share=local",
+		);
 		expect(shareLinkUrl({ token: "local", url: "http://[bad" }, "/u/a", "https://card.example")).toBe(
 			"https://card.example/u/a?share=local",
 		);
