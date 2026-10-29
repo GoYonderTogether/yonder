@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, GripVertical, PanelRightClose, PictureInPicture2 } from "lucide-react";
 import type { HTMLAttributes, Ref } from "react";
-import { dock, PANEL_TITLE, type PanelKind, setActive, toggleFloat } from "../lib/layout";
+import { dock, type PanelKind, panelTitle, setActive, toggleFloat } from "../lib/layout";
 import type { SessionView } from "../lib/useSession";
 import { countOf, PanelBody } from "./PanelBody";
 
@@ -23,12 +23,14 @@ export function PanelCard(p: PanelCardProps) {
 	const floating = p.placement === "floating";
 	const collapsed = floating && p.collapsed;
 	const count = countOf(p.active, p.v);
+	// 动态视图（view:<id>）没有内置标题，交给 panelTitle 退回视图 id，避免出现 undefined。
+	const titleOf = (kind: PanelKind) => panelTitle(kind, {});
 	return (
 		<section
 			className={`flex min-h-0 flex-col overflow-hidden bg-raised ${floating ? "w-72 rounded-card shadow-float" : "rounded-card shadow-soft"}`}
 			data-testid={`panel-${p.placement}`}
 			data-kind={p.active}
-			aria-label={PANEL_TITLE[p.active]}
+			aria-label={titleOf(p.active)}
 		>
 			<header className="flex items-center gap-1 border-b border-hairline px-1.5 py-1">
 				<button
@@ -52,12 +54,12 @@ export function PanelCard(p: PanelCardProps) {
 								onClick={() => setActive(p.session, p.cardId, t)}
 								className={`press shrink-0 rounded-control px-2 py-1 text-caption ${t === p.active ? "bg-tone text-ink" : "text-faint"}`}
 							>
-								{PANEL_TITLE[t]}
+								{titleOf(t)}
 							</button>
 						))}
 					</div>
 				) : (
-					<h3 className="min-w-0 flex-1 truncate px-1 text-small font-medium">{PANEL_TITLE[p.active]}</h3>
+					<h3 className="min-w-0 flex-1 truncate px-1 text-small font-medium">{titleOf(p.active)}</h3>
 				)}
 				{count && !collapsed && <span className="shrink-0 text-caption text-faint">{count}</span>}
 				<button

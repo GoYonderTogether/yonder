@@ -1,5 +1,5 @@
 import { ChevronLeft, Layers, PanelRight } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
@@ -101,13 +101,26 @@ function Header({
 	);
 }
 
-/** 窄屏上右栏作为全屏层叠页 */
+/** 窄屏上右栏作为全屏抽屉：Esc 关闭，打开时焦点落到返回按钮。 */
 function RailSheet({ children, onClose }: { children: React.ReactNode; onClose(): void }) {
+	const close = useRef<HTMLButtonElement>(null);
+	// onClose 每次渲染都是新函数；用 ref 取最新值，效果只在挂载时跑一次，避免每次会话事件都把焦点抢回返回键。
+	const latest = useRef(onClose);
+	latest.current = onClose;
+	useEffect(() => {
+		close.current?.focus();
+		const key = (e: KeyboardEvent) => {
+			if (e.key === "Escape") latest.current();
+		};
+		addEventListener("keydown", key);
+		return () => removeEventListener("keydown", key);
+	}, []);
 	return (
 		<div className="fixed inset-0 z-40 flex flex-col bg-list" role="dialog" aria-modal="true" aria-label="待办与任务">
 			<header className="pt-safe flex items-center border-b border-hairline px-2 py-2">
 				<button
 					type="button"
+					ref={close}
 					onClick={onClose}
 					aria-label="返回"
 					className="press grid size-9 place-items-center rounded-full"

@@ -1,6 +1,7 @@
 import { PanelTop } from "lucide-react";
 import { useRef } from "react";
 import { type FloatCard, PANEL_TITLE, patchFloat, useLayout } from "../lib/layout";
+import { clampFloatPosition } from "../lib/railLayout";
 import type { SessionView } from "../lib/useSession";
 import { PanelCard } from "./PanelCard";
 
@@ -16,14 +17,17 @@ function Floating({ f, session, v }: { f: FloatCard; session: string; v: Session
 			if (!s) return;
 			const host = (e.currentTarget as HTMLElement).closest<HTMLElement>("[data-float-host]");
 			const box = host?.getBoundingClientRect();
-			const x = s.x + e.clientX - s.px;
-			const y = s.y + e.clientY - s.py;
-			patchFloat(session, f.id, {
-				x: Math.max(0, box ? Math.min(x, box.width - 56) : x),
-				y: Math.max(0, box ? Math.min(y, box.height - 40) : y),
-			});
+			const { x, y } = clampFloatPosition(
+				s.x + e.clientX - s.px,
+				s.y + e.clientY - s.py,
+				box ? { width: box.width, height: box.height } : undefined,
+			);
+			patchFloat(session, f.id, { x, y });
 		},
 		onPointerUp() {
+			start.current = null;
+		},
+		onPointerCancel() {
 			start.current = null;
 		},
 	};

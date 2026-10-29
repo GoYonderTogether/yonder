@@ -15,12 +15,34 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRef } from "react";
-import { RAIL_MAX, RAIL_MIN, type RailCard, reorderRail, setRailPref, useLayout, useRailPref } from "../lib/layout";
+import {
+	getLayout,
+	RAIL_MAX,
+	RAIL_MIN,
+	type RailCard,
+	reorderRail,
+	setRailPref,
+	useLayout,
+	useRailPref,
+} from "../lib/layout";
+import { moveCard, reorderCards, sameOrder } from "../lib/railLayout";
 import type { SessionView } from "../lib/useSession";
 import { PanelCard } from "./PanelCard";
 
 function SortableCard({ card, session, v }: { card: RailCard; session: string; v: SessionView }) {
 	const s = useSortable({ id: card.id });
+	// dnd-kit 的键盘拖拽也挂在把手的 onKeyDown 上：先让它处理，空格/回车照常进入拖拽。
+	const dragKeyDown = s.listeners?.onKeyDown as ((e: React.KeyboardEvent) => void) | undefined;
+	// 键盘换位：Alt+↑/↓ 直接把卡片上下挪一格并立即持久化，不必先按空格进入拖拽。
+	const onKeyDown = (e: React.KeyboardEvent) => {
+		dragKeyDown?.(e);
+		if (s.isDragging) return;
+		if (!e.altKey || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+		e.preventDefault();
+		const ids = getLayout(session).rail.map((c) => c.id);
+		const next = moveCard(ids, card.id, e.key === "ArrowUp" ? -1 : 1);
+		if (!sameOrder(ids, next)) reorderRail(session, next);
+	};
 	return (
 		<div
 			ref={s.setNodeRef}
@@ -38,13 +60,13 @@ function SortableCard({ card, session, v }: { card: RailCard; session: string; v
 				tabs={card.tabs}
 				active={card.active}
 				handleRef={s.setActivatorNodeRef}
-				handleProps={{ ...s.attributes, ...s.listeners }}
+				handleProps={{ ...s.attributes, ...s.listeners, onKeyDown }}
 			/>
 		</div>
 	);
 }
 
-/** 卡片栈：dnd-kit 上下拖拽重排，顺序按会话持久化。窄屏全屏层叠页里也用它。 */
+/** 卡片栈：dnd-kit 上下拖拽重排，顺序按会话持久化。窄屏全屏抽屉里也用它。 */
 export function CardStack({ session, v }: { session: string; v: SessionView }) {
 	const layout = useLayout(session);
 	const sensors = useSensors(
@@ -53,13 +75,8 @@ export function CardStack({ session, v }: { session: string; v: SessionView }) {
 	);
 	const ids = layout.rail.map((c) => c.id);
 	const end = (e: DragEndEvent) => {
-		if (!e.over || e.active.id === e.over.id) return;
-		const from = ids.indexOf(String(e.active.id));
-		const to = ids.indexOf(String(e.over.id));
-		if (from < 0 || to < 0) return;
-		const next = [...ids];
-		next.splice(to, 0, ...next.splice(from, 1));
-		reorderRail(session, next);
+		const next = reorderCards(ids, String(e.active.id), e.over ? String(e.over.id) : "");
+		if (!sameOrder(ids, next)) reorderRail(session, next);
 	};
 	return (
 		<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={end}>
