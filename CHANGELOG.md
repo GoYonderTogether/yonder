@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Console 外壳按三档断点渲染平板布局：新增纯函数 `shell/layoutMode.ts`，由 `breakpointOf`（手机 <640 / 平板 640–1024 / 桌面 >1024）推出导航、列、第二列与右栏模式，再由页型（列表 / 会话 / 设置 / 功能页）决定第二列去向。平板此前被当成手机（只有 1024 一档），现在是图标栏 + 主区：列表按需叠成覆盖层、打开会话即收起，右栏仍走 Chat 自己的覆盖层/抽屉，不提前变三栏；桌面保持三栏常驻，手机保持单列 + 底栏。`Shell.tsx` 据此走单一渲染路径，保留原有 Suspense/lazy、路由与全部 data-testid，仅新增 `data-testid="list-overlay"`。表驱动单测覆盖三档 × 四类页。
+
 - Console 新增能力清单与桌面壳顶栏判定：`capabilities/features.ts` 用一张功能表描述顶栏、工作、常驻 Bot、通讯录、名片、私信、节点、更新、右栏卡片、底栏用量与系统通知的可见性，按 contracts §12 顺序（protocol → methods → features → events）判定，缺方法或节点版本较旧时给出原因而不是按插件名猜测；`lib/shell.ts` 只认壳注入的 `window.__YONDER_SHELL__`（`desktop`/`mobile`，未注入=web），不再从节点事实推断客户端壳；`api/capabilities.ts` 提供 `useCapabilities`/`useHasMethod`/`useFeature`。顶栏仍只在桌面壳渲染。
 
 - Console 增加控制台入口（`#/console`）：工作列表顶部进入，在已接入节点间切换并打开对应设备的控制台——本机同源跳转，远程节点在新标签打开它自己的 origin；列出节点 id/名称/地址、当前节点高亮、添加设备与移除节点，未添加远程节点时说明「只控制本机」，远程节点如实标注默认无 owner scope、看不到 Bot 对话。导航仍是消息/通讯录/工作三项，不新增一级入口。

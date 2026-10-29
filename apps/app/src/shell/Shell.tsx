@@ -11,10 +11,12 @@ import { SessionList } from "../ui/SessionList";
 import { TopBar } from "../ui/TopBar";
 import { EmptyPane } from "./EmptyPane";
 import { IconRail } from "./IconRail";
+import { frameOf, type Screen } from "./layoutMode";
 import { PageSkeleton } from "./PageSkeleton";
 import { PAGES, pageComponent } from "./registry";
-import { useMedia, useRoute } from "./routes";
+import { useRoute } from "./routes";
 import { TabBar } from "./TabBar";
+import { useBreakpoint } from "./useBreakpoint";
 
 const Settings = lazy(() => import("../features/Settings").then((m) => ({ default: m.Settings })));
 const Contacts = lazy(() => import("../ui/Contacts").then((m) => ({ default: m.Contacts })));
@@ -26,7 +28,7 @@ function Title({ children }: { children: React.ReactNode }) {
 
 export function Shell({ onLogout }: { onLogout(): void }) {
 	const route = useRoute();
-	const wide = useMedia("(min-width: 1024px)");
+	const breakpoint = useBreakpoint();
 	useRefetchOnReconnect();
 	// 保持一条活动订阅：连接状态驱动断线提示与重连补齐
 	useEffect(() => mux.subscribe("activity.watch", {}, { onReady: () => undefined, onEvent: () => undefined }), []);
@@ -60,50 +62,44 @@ export function Shell({ onLogout }: { onLogout(): void }) {
 	) : undefined;
 	const hasChat = route.session && (route.page === "s" || route.page === "work");
 	const empty = route.tab === "work" ? "选择一个 Bot 或任务" : "选择一个会话开始";
+	// 页型只看当前路由：设置（#/me）、其它功能页、会话、列表；档位差异全交给 layoutMode。
+	const screen: Screen =
+		route.page === "me" ? "settings" : feature !== undefined ? "page" : hasChat && route.session ? "session" : "list";
+	const frame = frameOf(breakpoint, screen);
 
-	if (wide)
-		return (
-			<div className="flex h-dvh flex-col">
-				<TopBar title="Yonder" />
-				<Banner />
-				<NotifyHost />
-				<OnboardingCard />
-				<div className="flex min-h-0 flex-1">
-					<IconRail route={route} />
-					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">
-						<Suspense fallback={<PageSkeleton />}>{side}</Suspense>
-					</aside>
-					{feature !== undefined ? (
-						feature
-					) : hasChat && route.session ? (
-						<Chat id={route.session} wide v={view} />
-					) : (
-						<EmptyPane message={empty} />
-					)}
-				</div>
-			</div>
-		);
-
+	const sideContent = <Suspense fallback={<PageSkeleton />}>{side}</Suspense>;
+	// 主区优先级与拆分前一致：功能页 > 会话 > 列表（手机占满主区）/ 空态。
+	const main =
+		feature ??
+		(hasChat && route.session ? (
+			<Chat id={route.session} wide={frame.chatWide} v={view} />
+		) : frame.side === "main" ? (
+			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
+		) : (
+			<EmptyPane message={empty} />
+		));
 	return (
 		<div className="flex h-dvh flex-col bg-list">
 			<TopBar title="Yonder" />
 			<Banner />
 			<NotifyHost />
 			<OnboardingCard />
-			{feature !== undefined ? (
-				feature
-			) : hasChat && route.session ? (
-				<div className="flex min-h-0 flex-1">
-					<Chat id={route.session} wide={false} v={view} />
+			<div className="flex min-h-0 flex-1">
+				{frame.mode.nav === "iconrail" && <IconRail route={route} />}
+				{frame.side === "column" && (
+					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">{sideContent}</aside>
+				)}
+				<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+					<div className={`flex min-h-0 min-w-0 flex-1 ${frame.chatWide ? "flex-row" : "flex-col"}`}>{main}</div>
+					{/* 平板：列表按需叠成覆盖层，打开会话或功能页即收起 */}
+					{frame.side === "overlay" && (
+						<div className="absolute inset-0 z-20 flex flex-col bg-list" data-testid="list-overlay">
+							{sideContent}
+						</div>
+					)}
+					{frame.tabBar && <TabBar route={route} />}
 				</div>
-			) : (
-				<>
-					<main className="flex min-h-0 flex-1 flex-col">
-						<Suspense fallback={<PageSkeleton />}>{side}</Suspense>
-					</main>
-					<TabBar route={route} />
-				</>
-			)}
+			</div>
 		</div>
 	);
 }
