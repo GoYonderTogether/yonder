@@ -4,16 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { rpc } from "../api/client";
 import type { SessionInfo } from "../api/types";
 import { badge } from "../lib/format";
-import { groupOf, titleOf } from "../lib/identity";
+import { titleOf } from "../lib/identity";
 import { markRead, usePrefs } from "../lib/prefs";
 import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import type { SessionView } from "../lib/useSession";
+import {
+	groupWork,
+	isOpen,
+	progressOf,
+	STATUS_TITLE,
+	TASK_ORDER,
+	type TaskStatus,
+	toggleFolds,
+	useFolds,
+} from "../lib/work";
 import { Avatar } from "./Avatar";
 
-type Status = "running" | "waiting" | "idle" | "done";
-const STATUS_TITLE: Record<Status, string> = { running: "运行中", waiting: "等你回答", idle: "待命", done: "已完成" };
-const ORDER: Status[] = ["running", "waiting", "idle", "done"];
 const num = (id: string) => Number(id.replace(/\D/g, ""));
 
 function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; running: boolean }) {
@@ -59,7 +66,7 @@ function TaskRow({
 }: {
 	s: SessionInfo;
 	active: boolean;
-	status: Status;
+	status: TaskStatus;
 	since?: string;
 	v?: SessionView;
 }) {
@@ -87,20 +94,22 @@ function TaskRow({
 }
 
 function Group({
-	status,
+	testId,
+	title,
 	rows,
 	open,
 	onToggle,
 	children,
 }: {
-	status: Status;
-	rows: number;
+	testId: string;
+	title: string;
+	rows?: number;
 	open: boolean;
 	onToggle(): void;
 	children: React.ReactNode;
 }) {
 	return (
-		<section data-testid={`task-group-${status}`} data-open={open}>
+		<section data-testid={testId} data-open={open}>
 			<button
 				type="button"
 				onClick={onToggle}
@@ -108,8 +117,8 @@ function Group({
 				className="press flex w-full items-center gap-1.5 px-4 py-1.5 text-caption text-faint"
 			>
 				{open ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-				{STATUS_TITLE[status]}
-				<span className="ml-auto font-mono">{rows}</span>
+				{title}
+				{rows !== undefined && <span className="ml-auto font-mono">{rows}</span>}
 			</button>
 			{open && children}
 		</section>
@@ -121,29 +130,14 @@ export function WorkList({ active, view }: { active?: string; view?: SessionView
 	const sessions = useSessions();
 	const activity = useActivity();
 	const qc = useQueryClient();
-	// 用户手动展开/收起覆盖默认：已完成默认收起，其余默认展开
-	const [manual, setManual] = useState<Partial<Record<Status, boolean>>>({});
+	// 折叠状态（Bot 区与四个任务分组）由 lib/work 持久化，已完成默认收起
+	const folds = useFolds();
 	const [opening, setOpening] = useState(false);
 
 	const state = useMemo(() => new Map(activity.data?.sessions.map((x) => [x.id, x])), [activity.data]);
-	const { bots, byStatus } = useMemo(() => {
-		const bots: SessionInfo[] = [];
-		const byStatus: Record<Status, SessionInfo[]> = { running: [], waiting: [], idle: [], done: [] };
-		for (const s of sessions.data ?? []) {
-			const g = groupOf(s);
-			if (g === "bot") bots.push(s);
-			else if (g === "task") {
-				const a = state.get(s.id)?.state;
-				const st: Status = s.closed ? "done" : a === "running" ? "running" : a === "waiting" ? "waiting" : "idle";
-				byStatus[st].push(s);
-			}
-		}
-		for (const l of Object.values(byStatus)) l.sort((a, b) => b.opened.localeCompare(a.opened));
-		return { bots: bots.filter((b) => !b.closed), byStatus };
-	}, [sessions.data, state]);
+	const { bots, byStatus } = useMemo(() => groupWork(sessions.data ?? [], state), [sessions.data, state]);
 
-	const total = ORDER.reduce((n, k) => n + byStatus[k].length, 0);
-	const done = byStatus.done.length;
+	const { total, done } = progressOf(byStatus);
 	const openTask = async () => {
 		setOpening(true);
 		try {
@@ -159,13 +153,16 @@ export function WorkList({ active, view }: { active?: string; view?: SessionView
 
 	return (
 		<div className="scroll-y h-full" data-testid="work-list">
-			<h2 className="px-4 pt-3 pb-1 text-caption text-faint">Bot</h2>
-			{sessions.isLoading && <p className="px-4 py-2 text-small text-faint">加载中…</p>}
-			{sessions.isError && <p className="px-4 py-2 text-small text-danger">会话加载失败，稍后自动重试。</p>}
-			{sessions.data && bots.length === 0 && <p className="px-4 py-2 text-caption text-faint">没有常驻 Bot</p>}
-			{bots.map((s) => (
-				<BotRow key={s.id} s={s} active={s.id === active} running={state.get(s.id)?.state === "running"} />
-			))}
+			<div className="pt-2">
+				{sessions.isLoading && <p className="px-4 py-2 text-small text-faint">加载中…</p>}
+				{sessions.isError && <p className="px-4 py-2 text-small text-danger">会话加载失败，稍后自动重试。</p>}
+				<Group testId="bot-group" title="Bot" open={isOpen(folds, "bot")} onToggle={() => toggleFolds("bot")}>
+					{sessions.data && bots.length === 0 && <p className="px-4 py-2 text-caption text-faint">没有常驻 Bot</p>}
+					{bots.map((s) => (
+						<BotRow key={s.id} s={s} active={s.id === active} running={state.get(s.id)?.state === "running"} />
+					))}
+				</Group>
+			</div>
 
 			<div className="mt-2 flex items-center gap-2 border-t border-hairline px-4 pt-3 pb-1">
 				<h2 className="text-caption text-faint">任务</h2>
@@ -190,29 +187,27 @@ export function WorkList({ active, view }: { active?: string; view?: SessionView
 				</button>
 			</div>
 			{sessions.data && total === 0 && <p className="px-4 py-2 text-caption text-faint">还没有任务会话</p>}
-			{ORDER.filter((k) => byStatus[k].length > 0).map((k) => {
-				const open = manual[k] ?? k !== "done";
-				return (
-					<Group
-						key={k}
-						status={k}
-						rows={byStatus[k].length}
-						open={open}
-						onToggle={() => setManual((m) => ({ ...m, [k]: !open }))}
-					>
-						{byStatus[k].map((s) => (
-							<TaskRow
-								key={s.id}
-								s={s}
-								active={s.id === active}
-								status={k}
-								since={state.get(s.id)?.since}
-								v={s.id === active ? view : undefined}
-							/>
-						))}
-					</Group>
-				);
-			})}
+			{TASK_ORDER.filter((k) => byStatus[k].length > 0).map((k) => (
+				<Group
+					key={k}
+					testId={`task-group-${k}`}
+					title={STATUS_TITLE[k]}
+					rows={byStatus[k].length}
+					open={isOpen(folds, k)}
+					onToggle={() => toggleFolds(k)}
+				>
+					{byStatus[k].map((s) => (
+						<TaskRow
+							key={s.id}
+							s={s}
+							active={s.id === active}
+							status={k}
+							since={state.get(s.id)?.since}
+							v={s.id === active ? view : undefined}
+						/>
+					))}
+				</Group>
+			))}
 		</div>
 	);
 }
