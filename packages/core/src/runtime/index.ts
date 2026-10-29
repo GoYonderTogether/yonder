@@ -48,6 +48,7 @@ import type {
 } from "@yonder/sdk";
 import { Type } from "typebox";
 import { mergeCredentialSlots } from "../config/index.js";
+import { defaultLazyGroups, lazyGroupOf } from "../tools/catalog.js";
 import { loginProvider } from "./auth.js";
 import { createBackground } from "./background.js";
 import { forkConversation, forkParent } from "./branches.js";
@@ -154,6 +155,7 @@ export class Runtime {
 	private tools = new Map<string, ToolRegistration>();
 	private capabilities = new Map<string, Capability[]>(Object.entries(capabilityMap));
 	private configured = new Map<string, RuntimeSessionConfig>();
+	private activeLazy = new Set<string>();
 	private submissions = new Map<string, { event?: RuntimeInput["event"] }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
 	private readonly credentialSlots: CredentialSlotStore;
@@ -789,7 +791,26 @@ export class Runtime {
 					...(extension?.name.startsWith("plugin:") ? { plugin: extension.name.slice(7) } : {}),
 				};
 			}),
+			this.activeLazy,
 		);
+	}
+	/** X7：把懒加载分组提升为常驻工具；tool_search 命中同一分组时也走这里，重新配置后即可直接调用。 */
+	async activateTools(id: string, names: string[]): Promise<string[]> {
+		const activated = this.lazyGroupsOf(id, names);
+		for (const group of activated) this.activeLazy.add(group);
+		if (activated.length) await this.configure(id);
+		return activated;
+	}
+	/** X7：撤销显式激活，分组内的工具回到 tool_search 命中后才载入。 */
+	async deactivateTools(id: string, names: string[]): Promise<string[]> {
+		const deactivated = this.lazyGroupsOf(id, names);
+		for (const group of deactivated) this.activeLazy.delete(group);
+		if (deactivated.length) await this.configure(id);
+		return deactivated;
+	}
+	private lazyGroupsOf(id: string, names: string[]): string[] {
+		const groups = this.configured.get(id)?.resolved.tools.lazyGroups ?? defaultLazyGroups;
+		return [...new Set(names.flatMap((name) => lazyGroupOf(name, groups) ?? []))];
 	}
 	async configure(id: string): Promise<void> {
 		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return;

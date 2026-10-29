@@ -1,7 +1,7 @@
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import type { Capability, Tool } from "@yonder/sdk";
 import { matchesGlob } from "../config/index.js";
-import { coreToolCapabilities } from "../tools/catalog.js";
+import { coreToolCapabilities, lazyGroupOf } from "../tools/catalog.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
 export const capabilityMap: Record<string, Capability[]> = {
@@ -21,7 +21,11 @@ export type CatalogTool = { name: string; capabilities: Capability[]; plugin?: s
 const mainOnlyByDefault = new Set(["session_list", "session_read"]);
 /** Optional workbench tools (contracts §18): a wildcard never offers them, only their full name does. */
 const explicitOnly = new Set(["session_archive", "session_hand_up", "bot_ask", "bot_request", "bot_attach"]);
-export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTool[]) {
+export function describeCatalog(
+	config: RuntimeSessionConfig,
+	catalog: CatalogTool[],
+	active: ReadonlySet<string> = new Set(),
+) {
 	const tools = catalog.map((tool) => {
 		const missing = tool.capabilities.filter((capability) => !config.resolved.capabilities.includes(capability));
 		const selected = !tool.plugin || config.resolved.plugins.includes(tool.plugin);
@@ -61,6 +65,12 @@ export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTo
 								: "not-selected",
 		};
 	});
+	// X7 懒加载：分组内的工具默认只在 tool_search 命中后才载入，显式激活（active）后恢复常驻。
+	const lazyGroups = config.resolved.tools.lazyGroups ?? [];
+	for (const tool of tools) {
+		const group = tool.exposure === "offer" ? lazyGroupOf(tool.name, lazyGroups) : undefined;
+		if (group && !active.has(group)) tool.exposure = "search";
+	}
 	const search = tools.find((tool) => tool.name === "tool_search");
 	if (search)
 		search.exposure = tools.some((tool) => tool.name !== "tool_search" && tool.exposure === "search")
@@ -68,21 +78,29 @@ export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTo
 			: "not-selected";
 	return tools;
 }
-export function inspectToolCatalog(config: RuntimeSessionConfig, plugins: Map<string, Tool[]>) {
-	return describeCatalog(config, [
-		...(createCodingTools().tools ?? []).map((tool) => ({
-			name: tool.name,
-			capabilities: capabilityMap[tool.name] ?? [],
-		})),
-		...[
-			...Object.entries(coreToolCapabilities),
-			["grep", ["read"]] as [string, Capability[]],
-			["find", ["read"]] as [string, Capability[]],
-			["ls", ["read"]] as [string, Capability[]],
-			["tool_search", []] as [string, Capability[]],
-		].map(([name, capabilities]) => ({ name, capabilities })),
-		...[...plugins].flatMap(([plugin, tools]) =>
-			tools.map((tool) => ({ name: tool.name, capabilities: tool.capabilities, plugin })),
-		),
-	]);
+export function inspectToolCatalog(
+	config: RuntimeSessionConfig,
+	plugins: Map<string, Tool[]>,
+	active: ReadonlySet<string> = new Set(),
+) {
+	return describeCatalog(
+		config,
+		[
+			...(createCodingTools().tools ?? []).map((tool) => ({
+				name: tool.name,
+				capabilities: capabilityMap[tool.name] ?? [],
+			})),
+			...[
+				...Object.entries(coreToolCapabilities),
+				["grep", ["read"]] as [string, Capability[]],
+				["find", ["read"]] as [string, Capability[]],
+				["ls", ["read"]] as [string, Capability[]],
+				["tool_search", []] as [string, Capability[]],
+			].map(([name, capabilities]) => ({ name, capabilities })),
+			...[...plugins].flatMap(([plugin, tools]) =>
+				tools.map((tool) => ({ name: tool.name, capabilities: tool.capabilities, plugin })),
+			),
+		],
+		active,
+	);
 }

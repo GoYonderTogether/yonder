@@ -365,6 +365,8 @@ export function createSessions({
 	const branches = createBranches(store, runtime, version, withPolicy);
 	const api: SessionsAPI = {
 		command,
+		activateTools: (id, names) => runtime().activateTools(id, names),
+		deactivateTools: (id, names) => runtime().deactivateTools(id, names),
 		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
 		list: async (filter) => Promise.all((await store.sessions.list(filter)).map(withPolicy)),
 		get: async (id) => {

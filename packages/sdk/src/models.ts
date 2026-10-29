@@ -33,7 +33,11 @@ export interface Profile extends SessionModels {
 	/** Undefined preserves legacy unrestricted access; [] permits no channel instances. */
 	channelInstances?: string[];
 	plugins?: string[];
-	tools?: { offer?: string[]; search?: string[] };
+	tools?: {
+		offer?: string[];
+		search?: string[] /** 懒加载分组（X7）：属于这些分组的工具默认只经 tool_search 载入。 */;
+		lazyGroups?: string[];
+	};
 	contexts?: string[];
 	skills?: string[];
 	prompt?: { sections?: string[]; overrides?: Record<string, string> };

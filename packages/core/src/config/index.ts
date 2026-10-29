@@ -12,6 +12,7 @@ import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import { promptSectionIds } from "../prompt/content.js";
+import { defaultLazyGroups } from "../tools/catalog.js";
 import {
 	defaultBudget,
 	defaultModelChain,
@@ -127,7 +128,7 @@ export function resolveProfile(
 		credentialSlots: mergeCredentialSlots(defaults.credentialSlots, profile.credentialSlots),
 		level,
 		capabilities,
-		tools: { offer: ["*"], search: [], ...defaults.tools, ...profile.tools },
+		tools: { offer: ["*"], search: [], lazyGroups: [...defaultLazyGroups], ...defaults.tools, ...profile.tools },
 		limits: { ...defaultLimits, ...defaults.limits, ...profile.limits },
 		prompt: { ...defaults.prompt, ...profile.prompt },
 	} as ResolvedProfile;
@@ -202,6 +203,7 @@ export function presetProfile(
 				tools: {
 					offer: preset.tools?.offer ?? inherit.tools.offer,
 					search: preset.tools?.search ?? inherit.tools.search,
+					lazyGroups: preset.tools?.lazyGroups ?? [...defaultLazyGroups],
 				},
 				skills: preset.skills ?? inherit.skills ?? [],
 				delegationCeilings: [

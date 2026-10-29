@@ -59,7 +59,14 @@ const fields = {
 	),
 	channelInstances: Type.Optional(Type.Array(instanceId, { uniqueItems: true })),
 	plugins: Type.Optional(strings),
-	tools: Type.Optional(object({ offer: Type.Optional(strings), search: Type.Optional(strings) })),
+	tools: Type.Optional(
+		object({
+			offer: Type.Optional(strings),
+			search: Type.Optional(strings),
+			/** 懒加载分组（X7）：属于这些分组的工具默认不进常驻工具表；空数组表示全部常驻。默认为代码智能。 */
+			lazyGroups: Type.Optional(strings),
+		}),
+	),
 	contexts: Type.Optional(strings),
 	skills: Type.Optional(strings),
 	prompt: Type.Optional(
