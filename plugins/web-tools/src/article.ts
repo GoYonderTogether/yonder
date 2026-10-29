@@ -81,6 +81,7 @@ export async function fetchPage(input: string, format: PageFormat, ctx: ToolCont
 			/enable javascript|javascript (?:is )?required|loading[. …]*$|加载中|请.*javascript/i.test(visible)
 		)
 			throw new Error(`JS_CONTENT_UNAVAILABLE: ${response.url.href}; use explicit Tavily extract`);
+		// SAFETY: Readability accepts a DOM document; this module already parsed `document` from the fetched HTML.
 		const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0]).parse();
 		if (!article?.textContent?.trim())
 			throw new Error(`ARTICLE_UNAVAILABLE: ${response.url.href}; JS pages may use explicit Tavily extract`);

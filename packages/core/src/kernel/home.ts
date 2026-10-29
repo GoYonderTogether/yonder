@@ -171,7 +171,11 @@ export async function initHome(
 				contexts: ["jarvis-soul", "jarvis-work"],
 				plugins: ["context-files", "agent-presets", "learning", ...(onboarding ? ["tasks", "onboarding"] : [])],
 			},
-			profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
+			// 名片群只读档案（SOC01 G-01）：群会话不继承主人能力，被 @ 时只读回答。
+			profiles: {
+				owner: { level: "bypass", tools: { offer: ["*"] } },
+				...(bundle.channels.card ? { readonly: { level: "readonly" as const } } : {}),
+			},
 			// 没有 cli 渠道实例的发行包（core）不写这条绑定，否则配置校验会报 unknown channel cli。
 			bindings: [
 				...(bundle.channels.cli
@@ -182,6 +186,24 @@ export async function initHome(
 								session: "main" as const,
 								profile: "owner",
 								stream: true,
+							},
+						]
+					: []),
+				// 名片渠道默认脚手架（SOC01 G-01）：主人的 DM 直接进主对话，群消息各自持久会话、只被 @ 时唤醒。
+				...(bundle.channels.card
+					? [
+							{
+								id: "card-owner",
+								match: { channel: "card", kind: "dm", from: "owner" },
+								session: "main" as const,
+								profile: "owner",
+							},
+							{
+								id: "card-group",
+								match: { channel: "card", kind: "group" },
+								session: { mode: "persistent" as const, per: "conv" as const },
+								profile: "readonly",
+								wake: "mention" as const,
 							},
 						]
 					: []),

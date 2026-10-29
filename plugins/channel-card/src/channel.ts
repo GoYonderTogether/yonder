@@ -2,7 +2,16 @@ import { randomUUID } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
-import type { Attachment, Channel, ChannelIO, ChannelLoginResult, Delivery, OutMessage, PluginAPI } from "@yonder/sdk";
+import type {
+	Attachment,
+	Channel,
+	ChannelIO,
+	ChannelLoginResult,
+	Delivery,
+	OutMessage,
+	PluginAPI,
+	Ref,
+} from "@yonder/sdk";
 import WebSocket from "ws";
 
 export interface Config {
@@ -121,6 +130,25 @@ export class CardChannel implements Channel {
 	private warn(message: string): void {
 		this.api.log.warn(message, { instance: this.id });
 	}
+	/**
+	 * SOC01 G-02：设备授权只把「设备 owner 自己的账号」关联到本实例各 Agent 的 owner。
+	 * 账号取自设备令牌可见的 /api/session actor（主人本人），不取消息里的 senderId，陌生账号无法借道成为 owner。
+	 */
+	private async linkOwner(agents: Array<{ id: string; owner?: Ref }>): Promise<void> {
+		const session = (await this.request("/api/session")) as { actor?: { id?: unknown } } | undefined;
+		const actor = session?.actor?.id;
+		if (typeof actor !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(actor)) throw new Error("Invalid card session");
+		for (const agent of agents) {
+			if (!agent.owner) continue;
+			const account = `acct:${this.id}:${agent.id}:${actor}` as Ref;
+			if (await this.api.identity.account(account)) continue;
+			if (!(await this.api.identity.person(agent.owner))) {
+				this.warn(`Owner ${agent.owner} is unknown; ${agent.id} keeps its card account unlinked`);
+				continue;
+			}
+			await this.api.identity.link(account, agent.owner);
+		}
+	}
 	async syncAgents(): Promise<void> {
 		if (!this.token || this.stopped) return;
 		const agents = await this.api.agents.list();
@@ -138,6 +166,10 @@ export class CardChannel implements Channel {
 			throw new Error("Invalid card Agent mapping");
 		if (this.stopped) return;
 		this.mappings = new Map(rows.map((r) => [r.key, r.id]));
+		// SOC01 G-02：授权完成后把设备主人自己的账号关联到各 Agent 的 owner，DM 才会判为 owner 进入主对话。
+		await this.linkOwner(agents).catch((error: unknown) => {
+			this.warn(`Owner identity link skipped: ${(error as Error).message}`);
+		});
 		// Backend hello subscriptions are fixed for the lifetime of a connection.
 		if (this.socket) this.socket.close();
 		else this.connect();

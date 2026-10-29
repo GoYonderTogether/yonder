@@ -6,9 +6,12 @@ plugins:
   - use: "@yonder/plugin-context-files"
   - use: "@yonder/plugin-agent-presets"
   - use: "@yonder/plugin-web-tools"
+  - use: "@yonder/plugin-channel-card"
 channels:
   cli:
     type: cli
+  card:
+    type: card
 envs:
   local:
     type: local

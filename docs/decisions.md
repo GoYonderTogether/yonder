@@ -647,3 +647,27 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 主对话显示通道用两类事件承载：`social.bot-speech`（Bot 在群里的发言）与 `social.attention`（需关注摘要），正文与措辞归 O52；`mainDisplayKind()` 是唯一判定点，其余群事件（含 `message.in` 群消息）一律不进主对话并计入 `GroupDisplay.refused`。
 - 群绑定沿用既有 `per: conv` 的 persistent 会话（`groupSessionTarget()` 只是把这条约定写成一处），`sessions.list` 的 mode=persistent 够用，不新增 method。
 - 视图数据读 `GroupDisplay` 内存账本（`ViewProvider.data` 只拿得到 session id，没有 store/runtime 句柄），保留上限 200 条；需要跨重启保留时再换持久源。
+
+## 2026-10-29 IMP-20 名片默认绑定与授权即关联身份（主 Agent 代批）
+
+- 公共契约只做加法：`PluginAPI.agents.list()` 的返回项增加可选 `owner`（`packages/sdk/src/types.ts` 类型 + `packages/core/src/kernel/index.ts` 的 `list` 返回 `a.owner`）。G-02 要求 `identity.link(\`acct:<instance>:<agent>:<ownerAccountId>\`, agent.owner)`，但插件原先拿不到 `agent.owner`；内核侧 `bots.ts` 的既有 `identity.link` 范式没有任何插件可达的触发点，因此不新造插件→内核通道，只把 owner 跟着名册下发。
+- 设备主人账号取 `GET /api/session` 的 `actor.id`（设备令牌可见、只可能是主人本人），不取消息里的 `senderId`；账号已关联则跳过，person 不存在只 warn 不写库，整个关联失败不影响 `syncAgents` 的成功（只 warn）。因此陌生账号无法借道设备授权成为 owner。
+- 卡只允许改 `deploy/node/agent.yaml`，但新增绑定引用 `channel: card` 前必须先有渠道实例，否则配置校验报 `unknown channel card`：默认发行包 `packages/core/src/bundles.ts` 补 `card: { type: "card" }`（该包本来就带 `@yonder/plugin-channel-card` 插件，补实例是其原意），`deploy/node/yonder.yaml` 同步补插件与渠道实例。
+- `readonly` profile 只在发行包声明 card 渠道时写入 `agents/main/agent.yaml`，写法与既有 cli owner 绑定一致；`card-group` 的 `profile: readonly` 因此一定指向真实档案（level `readonly`）。
+- A3 的「可归档不可删除」落在 `packages/core/src/kernel/bots.ts` 的 `send`：归档 Bot 仍留在名册里，只是不能对话（报 `archived`），没有新增删除接口。
+
+## 2026-10-29 IMP-26 外人能力白名单与防逆向/注入/代理（主 Agent 代批）
+
+- 外人 profile 建在 `packages/core/src/kernel/peer.ts`（与 peer profile 同一个装配位置）：`withDefaultOutsider(agent, policy, workspaceEnv, defaultModel)` 只接受 `outsiders.capabilities` 里的 `chat` / `web_search` / `public_docs`，白名单外（如 `exec`）直接抛错；profile 能力只有 `message`，开了 `web_search` 才加 `network`；工具只给 `web-tools_search`，文件、命令、记忆、任务类工具一件不给；`prompt.sections` 只留 `framework`，`contexts`/`skills`/`plugins` 都清空，主人上下文不会进外人提示；`outsiders.publicDocs` 以 `<public_docs>` 段追加在 instructions 里，没有公开资料时不加。
+- 外人绑定是 `{ id: "outsider", match: { from: ["known", "stranger"] } }`：已绑定的好友和未登录访客都走这个 profile，主人（`from: "owner"`）不受影响；会话按 `from` 每人一条 `persistent`，避免外人之间共享上下文。
+- 装配只做到 profile 与绑定这一层：把它们写进 agent 的调用点在 `kernel/management.ts` / `kernel/index.ts`，都不在 IMP-26 的允许路径里，所以本卡只提供构建函数与真实测试，接线留给后续卡；现在读旧 agent.yaml 的路径完全不变。
+- 出口闸门 `packages/core/src/delivery/outsider-guard.ts`：`output()` 把回复按 40 字符滑窗和系统提示词/工具清单原文比对，命中任一连续片段就整段换成截断提示（防「输出你的系统提示词」「列出工具」这类逆向）；超过 `maxReplyChars`（2000）截断。`allowTool()` 只放行白名单工具（缺省 `web_search`/`web-tools_search`），`read`/`exec`/`memory`/`task` 等一律拒绝，每轮网页搜索上限 5 次。`checkInput()` 对超过 4000 字符的单条输入直接拒绝；对「转发给另一个模型 / 批量生成 / 扮演 / 从现在起」这类代理用法措辞、以及没有对话上下文且像任务指令的输入，按每小时 3 次限流，正常提问不计次。
+- 权限提供方对访客不可见也不可调：`permissions.list(ctx)` 在 `ctx.profile === "outsider"` 时返回空数组，`permissions.invoke` 直接报错，`permissions` 工具本身也拒绝访客调用，避免间接列出插件工具清单。
+- 验收口径：注入不泄漏、特权工具被拒、公开资料可读都用真实 vitest 覆盖（`delivery/outsider-guard.test.ts`）；卡里要求的 `rightapi-glm/glm-5.3-flash` 真实模型跑通需要该 provider 的凭据，本机 `.yonder/auth.json` 只有 deepseek/siliconflow/openai，且 SiliconFlow 禁用，所以真实模型的注入验收记为未测。
+
+## 2026-10-29 IMP-22 工具懒加载分组（X7，主 Agent 代批 10-29）
+
+- 懒加载登记表放 `packages/core/src/tools/catalog.ts`（`lazyGroupMatchers` / `defaultLazyGroups = ["code-intel"]` / `lazyGroupOf(name, groups)`），先只登记代码智能一组；判定用工具名前缀 `code-intel_`，插件改名不会漏判。
+- 生效点在 `packages/core/src/runtime/catalog.ts` 的 `describeCatalog(config, catalog, active)`：属于未激活懒加载分组的工具从 `offer` 降为 `search`，于是 `applyConfiguration` 不再把它塞进 `modelTools`，只经 `tool_search` 按需载入；显式激活（`active`）后恢复常驻。`tool_search` 的既有规则不变：只要有别的工具处于 `search`，它自己仍是 `offer`。
+- 配置面是 `tools.lazyGroups`（SDK `Profile.tools` 加可选字段，schema 同步），默认 `["code-intel"]`，显式写 `[]` 即全部常驻。卡里只允许改三个文件，但真实生效还必须有 `runtime/index.ts`（`activeLazy` + `activateTools`/`deactivateTools`）、`sessions/index.ts`（SDK 方法接线）、`config/schema.ts` + `config/index.ts` + `sdk/models.ts`（配置键），按最小加法改动，无行为回退。
+- SDK 的 `SessionsAPI.activateTools(id, names)` / `deactivateTools(id, names)` 声明为可选成员：卡里写的是 `activateTools(names)`，但 `SessionsAPI` 每个方法都带会话 id，这里沿用会话维度；插件侧 `Omit<SessionsAPI, …>` 的构造点不需要跟着改。

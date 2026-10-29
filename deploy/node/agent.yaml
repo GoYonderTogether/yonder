@@ -114,3 +114,21 @@ bindings:
     session: main
     profile: owner
     stream: true
+  # SOC01 G-01：名片渠道默认两条绑定。主人的 DM 直接进主对话；群消息各自
+  # 持久会话，只读到 profile、仅被 @ 时唤醒。
+  - id: card-owner
+    match:
+      channel: card
+      kind: dm
+      from: owner
+    session: main
+    profile: owner
+  - id: card-group
+    match:
+      channel: card
+      kind: group
+    session:
+      mode: persistent
+      per: conv
+    profile: readonly
+    wake: mention

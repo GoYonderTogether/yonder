@@ -5,11 +5,16 @@ const MAX_OUTPUT = 65536;
 const string = { type: "string", minLength: 1, pattern: "\\S" };
 const urlString = { type: "string", minLength: 1 };
 const choice = (...values: string[]) => ({ type: "string", enum: values });
-const schema = (properties: object, required: string[]) =>
+const schema = (properties: unknown, required: string[]) =>
 	({ type: "object", properties, required, additionalProperties: false }) as TSchema;
 const urlValue = (value: unknown): URL => {
 	if (typeof value !== "string") throw new Error("HTTP URL required");
-	const url = new URL(value);
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new Error("HTTP URL required");
+	}
 	if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
 		throw new Error("Public HTTP(S) URL without credentials required");
 	return url;
@@ -23,7 +28,7 @@ function redact(message: string, ...secrets: Array<string | undefined>) {
 	for (const secret of secrets) if (secret) text = text.split(secret).join("[REDACTED]");
 	return text;
 }
-async function output(value: object, ctx: ToolContext, key?: string) {
+async function output(value: unknown, ctx: ToolContext, key?: string) {
 	let text = JSON.stringify(value, null, 2);
 	if (key) text = text.split(key).join("[REDACTED]");
 	if (Buffer.byteLength(text) > MAX_OUTPUT) {

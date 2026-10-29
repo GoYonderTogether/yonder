@@ -62,7 +62,8 @@ const defaults: Bundle = {
 			config: ({ home, owner, timezone }) => ({ root: join(home, "memory"), owner: `person:${owner}`, timezone }),
 		},
 	],
-	channels: { cli: { type: "cli" } },
+	// 名片渠道实例默认写入（SOC01 G-01）：未登录时只注册、不联网，`yonder channels login card` 才连接。
+	channels: { cli: { type: "cli" }, card: { type: "card" } },
 };
 
 /** 需要主人级插件配置、init 无法替主人选择的渠道：只能 plugins add 显式加入并写配置。 */

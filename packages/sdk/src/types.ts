@@ -123,6 +123,10 @@ export type SessionFilter = { agent?: string; mode?: Mode; open?: boolean; archi
 export interface SessionsAPI {
 	/** Deterministic model/status/compact commands, scoped to this session and its capabilities. */
 	command(id: string, command: string): Promise<string>;
+	/** X7 按需激活：把 `names` 命中的懒加载分组提升为常驻工具，返回被激活的分组名。 */
+	activateTools?(id: string, names: string[]): Promise<string[]>;
+	/** X7 撤销激活：分组内的工具回到 tool_search 命中后才载入。 */
+	deactivateTools?(id: string, names: string[]): Promise<string[]>;
 	notify(
 		id: string,
 		input: { event: string; text: string },

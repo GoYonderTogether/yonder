@@ -36,6 +36,8 @@ export async function createBots(agents: Map<string, AgentConfig>, store: Store,
 		send: async (agent: string, text: string) => {
 			const bot = agents.get(agent);
 			if (!bot || !bots().includes(bot)) throw new Error(`Unknown bot: ${agent}`);
+			// SOC01 A3：云端/控制台只能归档 Bot，不能删除；归档后仍留在名册里，恢复即可继续对话。
+			if (bot.archivedAt) throw new Error(`Bot ${agent} is archived: archive instead of delete, restore it to talk`);
 			const event = await emit({
 				type: "message.in",
 				from: account as Ref,
