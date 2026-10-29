@@ -14,7 +14,7 @@
 | 包名 | `@yonder/*` 全部包名 | 04 |
 | 插件 id | 随包插件的 id 与其工具名前缀 `<pluginId>_`；id 格式 `[a-z][a-z0-9-]*` | 04 §1、§3.2 |
 | helper 标识 | macOS helper bundle id `dev.yonder.harness.helper`（绑定 TCC 授权与签名）与 power helper `dev.yonder.power`：永久冻结，不随任何改名变化 | 05 |
-| hash 路由 | `apps/app` 的 `#/…` 路由字符串（含 `#/s/<id>`、`#/contacts`、`#/work`、`#/me` 等已发布路径） | S-F03 |
+| 路由（path） | `apps/app` 的路径路由，basename 取 `BASE_URL`（云端 `/`，节点网关 `/console/`）；冻结清单见 §1.1。旧 `#/…` 只作为 §1.1 列出的别名保留 | D2、S-F03 |
 | gateway 方法 | 方法名、`scope`、`since`、参数与结果 schema；`protocol = 1` | contracts.md §1、§5 |
 | gateway 事件 | `ev.type` 清单及各类型的必有字段；`seq` 语义 | contracts.md §3 |
 | views 协议 | placement（`rail`/`floating`/`page`）、`ViewDecl`、`ViewData`、`ViewsChangedEv` 的形状 | contracts.md、`@yonder/sdk` |
@@ -24,6 +24,31 @@
 | SDK `apiVersion` | 插件 `package.json` 的 `yonder.apiVersion`（当前 `1`）与内核支持的集合；缺省视为 `1` | 04 §6 |
 
 内部实现不在冻结之列：未导出的函数与模块、`scripts/yonder-*.mjs` 辅助脚本、日志文件名（`harness.log`、`status.log`）、launchd/systemd 标签的实现细节（由迁移负责，见 §3）。
+
+### 1.1 路由清单
+
+路由用 `react-router` 的 `BrowserRouter`，`basename` 由 `apps/app/src/lib/base.ts` 的 `appBase()` 给出：`<meta name="yonder-base-path">` 存在时用它（网关托管一律带尾斜杠），否则取构建时的 `BASE_URL`。云端是 `/`，本机节点网关是 `/console/`；网关对 `/console/*` 的未命中请求回退 `index.html` 并注入挂载路径，静态资源缓存规则不变。依据 D2（`docs/decisions.md` 2026-10-29），撤销 S-F03 的 hash 路由。
+
+冻结路径（`apps/app/src/App.tsx`、`apps/app/src/work/shell/workRoutes.ts`）：
+
+| 路径 | 页面 | 公共 |
+|---|---|---|
+| `/` | 消息（`ChatShell` 空态） | 否 |
+| `/c/:id` | 会话 | 否 |
+| `/login` | 登录 | 是 |
+| `/contacts/:id?` | 通讯录 | 否 |
+| `/cards/:id?`、`/cards/:id/edit` | 名片（重定向到通讯录） | 否 |
+| `/friends/add` | 加好友 | 否 |
+| `/connect` | 连接设备 | 是 |
+| `/me` | 我 | 否 |
+| `/work`、`/work/:session`、`/work/console`、`/work/market`、`/work/settings` | 工作区（`/work/*` 懒加载） | 否 |
+| `/u/:id`、`/p/:accountId` | 公开名片与资料 | 是 |
+| `/g/:token` | 入群 | 是 |
+| `/get` | 安装 | 是 |
+
+旧 `#/…` 别名由 `apps/app/src/legacyLinks.ts` 在启动时改写为真实路径，查询串一并保留：`#/`→`/`，`#/s/<id>`→`/work/<id>`，`#/work*`→`/work*`，`#/console`、`#/market`→`/work/console`、`/work/market`，`#/c`、`#/contacts`、`#/cards`、`#/me`、`#/u`、`#/p`、`#/g`、`#/get`、`#/connect`、`#/friends` 各加前导斜杠后同名映射；无法识别的 hash 原样保留。
+
+hash 路由按 §3 弃用：至少保留 0.3、0.4 两个 minor，最早 0.5 移除。移除前须补齐 §3 第 2 点的运行时 warn 与 `CHANGELOG.md` 条目，并按 §4 记一条 decisions。别名映射表本身随冻结清单一并保护，只增不删。
 
 ## 2. 允许的变化
 
@@ -68,7 +93,7 @@
 | SDK 工具输出缓存 API | `packages/sdk/src/tool-context.golden.test.ts` ↔ `packages/sdk/golden/tool-context.json` | O49 T05 |
 | 聚合入口 | `scripts/check-stability.mjs` 一条命令跑全部冻结检查，进 CI | S-C08 |
 
-home 布局、环境变量、命令名、包名、插件 id、hash 路由目前没有独立 golden，由 S-C08 的聚合脚本或各自卡片补充；补齐前，改动这些项按 §4 走评审。
+home 布局、环境变量、命令名、包名、插件 id、路由（§1.1）目前没有独立 golden，由 S-C08 的聚合脚本或各自卡片补充；补齐前，改动这些项按 §4 走评审。路由的旧 `#/…` 别名由 `apps/app/test/legacyLinks.test.ts` 守护，缺 warn 与 CHANGELOG 两条待补。
 
 ### 社交增量兼容（CH-01）
 
