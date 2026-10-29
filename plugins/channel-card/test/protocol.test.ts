@@ -356,7 +356,11 @@ test("failed emit never ack; card tool takes identity only from ToolContext", as
 	await channel.login("poll", signal());
 	const tool = registrations.tools[0]!;
 	const ctx = { agent: "other", signal: signal() } as ToolContext;
-	expect(await tool.execute({ instance: "tool", title: "Title", markdown: "Body" }, ctx)).not.toHaveProperty("isError");
+	const pushed = await tool.execute({ instance: "tool", title: "Title", markdown: "Body" }, ctx);
+	expect(pushed).not.toHaveProperty("isError");
+	const pushedBody = JSON.parse((pushed as { text: string }).text);
+	expect(pushedBody.publishUrl).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/me$/);
+	expect(pushedBody.next).toContain(pushedBody.publishUrl);
 	expect(f.calls.find((c) => c.path === "/api/device/cards")?.body).toEqual({
 		agentId: "platform-other",
 		title: "Title",

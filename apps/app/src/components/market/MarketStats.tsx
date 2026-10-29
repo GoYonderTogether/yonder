@@ -8,6 +8,8 @@ import type { Listing } from "../../market/types";
 export function MyMarket() {
 	const { state } = useMarketState();
 	const mine = state.listings.filter((l) => l.mine);
+	// 示例数据不当真实浏览数展示（UX-04）；有真实数据的发布才显示这一行
+	const real = mine.filter((l) => l.metricSource !== "sample");
 	return (
 		<section aria-label="我的市场" className="overflow-hidden rounded-card bg-raised">
 			<div className="grid grid-cols-4 gap-1 px-2 py-5">
@@ -31,15 +33,19 @@ export function MyMarket() {
 					</Link>
 				))}
 			</div>
-			<Link
-				to="/me/market/stats"
-				className="press flex min-h-14 items-center gap-3 border-t border-hairline px-5 hover:bg-tone"
-			>
-				<Eye size={19} className="text-muted" />
-				<span className="flex-1 text-small">浏览数据</span>
-				<span className="text-small text-muted">{compactCount(mine.reduce((n, l) => n + viewCount(l), 0))} 次浏览</span>
-				<ChevronRight size={15} className="text-faint" />
-			</Link>
+			{real.length > 0 && (
+				<Link
+					to="/me/market/stats"
+					className="press flex min-h-14 items-center gap-3 border-t border-hairline px-5 hover:bg-tone"
+				>
+					<Eye size={19} className="text-muted" />
+					<span className="flex-1 text-small">浏览数据</span>
+					<span className="text-small text-muted">
+						{compactCount(real.reduce((n, l) => n + viewCount(l), 0))} 次浏览
+					</span>
+					<ChevronRight size={15} className="text-faint" />
+				</Link>
+			)}
 		</section>
 	);
 }

@@ -62,7 +62,17 @@ export default definePlugin({
 						text: "Card draft needs an Agent identity: this session has none (task/preset sessions have no Agent). Call it from the main Agent session — `yonder chat` or a message in the card channel — or draft the card from there. · 名片起草需要 Agent 身份，任务会话没有 Agent：请在 Agent 会话（yonder chat）或名片渠道里调用。",
 					};
 				try {
-					return { text: JSON.stringify(await channel.cardPush(ctx.agent, data, ctx.signal)) };
+					const draft = await channel.cardPush(ctx.agent, data, ctx.signal);
+					// 起草不会自动发布：把发布入口一并交给调用方转述给主人（UX-07）。
+					const publishUrl = `${channel.endpoint}/me`;
+					const result = draft && typeof draft === "object" ? draft : { draft };
+					return {
+						text: JSON.stringify({
+							...result,
+							publishUrl,
+							next: `Draft saved, not published. Tell the owner to open ${publishUrl} and tap Publish. · 草稿已保存，尚未发布：请到 ${publishUrl} 点「发布」。`,
+						}),
+					};
 				} catch (error) {
 					// 未注册 = 本 home 还没登录 card 渠道或该 Agent 不在登记表里；其它失败带上真实原因。
 					if (error instanceof Error && error.message === "Card Agent not registered")

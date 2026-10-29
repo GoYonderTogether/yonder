@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { Card } from "../api/types";
 import { appPath } from "../lib/base";
@@ -29,6 +29,12 @@ export function BotCards() {
 	const [form, setForm] = useState<Form>({ title: "", tagline: "", markdown: "" });
 	const [busy, setBusy] = useState(false);
 	const [qrId, setQrId] = useState<string | null>(null);
+	const top = useRef<HTMLElement>(null);
+	const hasPending = pendingBotCards(botCards(cardsQuery.data, me?.id ?? "")).length > 0;
+	// 有待发布的 Bot 草稿时，进入 /me 直接滚到这一块（UX-07：从提示链接点进来就看到「发布」）
+	useEffect(() => {
+		if (hasPending) top.current?.scrollIntoView({ block: "start" });
+	}, [hasPending]);
 	if (!me || me.anonymous) return null;
 	const cards = botCards(cardsQuery.data, me.id);
 	if (!cards.length) return null;
@@ -77,7 +83,11 @@ export function BotCards() {
 			setEditId(null);
 		}, "丢弃失败");
 	return (
-		<section aria-label="Bot 的名片" className="rounded-card bg-raised p-5">
+		<section
+			ref={top}
+			aria-label="Bot 的名片"
+			className={`rounded-card bg-raised p-5${pending.length ? " ring-2 ring-accent" : ""}`}
+		>
 			<h2 className="text-small font-medium text-muted">Bot 的名片</h2>
 			{pending.length > 0 && (
 				<p role="status" className="mt-2 text-small font-medium">

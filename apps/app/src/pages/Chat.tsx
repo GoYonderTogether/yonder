@@ -75,7 +75,12 @@ function BotRows({ q }: { q: string }) {
 
 function useActors(ids: string[]) {
 	const key = [...new Set(ids)].sort().join(",");
-	const { data } = useQuery({ queryKey: ["actors", key], queryFn: () => api.actors(key ? key.split(",") : []) });
+	// 在线态每 15 秒刷新一次（窗口可见时），设备断开后聊天页不会长期显示「在线」。
+	const { data } = useQuery({
+		queryKey: ["actors", key],
+		queryFn: () => api.actors(key ? key.split(",") : []),
+		refetchInterval: 15_000,
+	});
 	return useMemo(() => new Map((data ?? []).map((a) => [a.id, a])), [data]);
 }
 
@@ -448,12 +453,16 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					<div ref={end} />
 				</div>
 			</div>
+			{offlineAgent && (
+				<p className="mx-auto mb-2 text-center text-[13px] text-muted">电脑离线，消息会在上线后处理</p>
+			)}
 			{conv?.kind !== "notice" && (
 				<Composer
 					key={id}
 					convId={id}
 					offline={other?.kind === "agent" && !agentOnline}
 					agentId={other?.kind === "agent" ? other.id : undefined}
+					cloudBot={other?.kind === "agent" && !other.deviceId && other.ownerId === me?.id}
 					onSend={() => agentOnline && setTyping(true)}
 				/>
 			)}
@@ -561,10 +570,13 @@ export function Composer({
 	convId,
 	offline,
 	agentId,
+	cloudBot,
 	onSend,
 }: {
 	convId: string;
 	offline: boolean;
+	/** 对方是没有设备的云端 Bot（小歪）：只能引导，不是「离线」 */
+	cloudBot?: boolean;
 	/** 私聊对象是 Bot 时传入：发完后重新取它的在线状态，避免页面里缓存的「在线」过期而漏掉离线提示 */
 	agentId?: string;
 	onSend: () => void;
@@ -641,7 +653,7 @@ export function Composer({
 					value={text}
 					readOnly={sending}
 					rows={1}
-					placeholder={offline ? "Bot 离线，消息会保留，上线后送达" : "输入消息"}
+					placeholder={cloudBot ? "小歪暂时只能帮你开始" : offline ? "Bot 离线，消息会保留，上线后送达" : "输入消息"}
 					onChange={(e) => {
 						setText(e.target.value);
 						e.target.style.height = "auto";
