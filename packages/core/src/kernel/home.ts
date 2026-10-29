@@ -207,6 +207,13 @@ export async function initHome(
 								session: "main" as const,
 								profile: "owner",
 							},
+							// 访客（名片二维码/链接进来的非主人）私聊：每个会话一个持久只读会话，访客轮数与额度由 quota 层管。
+							{
+								id: "card-visitor",
+								match: { channel: "card", kind: "dm", from: ["known", "stranger"] },
+								session: { mode: "persistent" as const, per: "conv" as const },
+								profile: "readonly",
+							},
 							{
 								id: "card-group",
 								match: { channel: "card", kind: "group" },

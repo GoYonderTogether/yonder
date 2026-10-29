@@ -23,6 +23,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual([
 			"card-group",
 			"card-owner",
+			"card-visitor",
 			"onboarding",
 			"owner",
 			"peer",

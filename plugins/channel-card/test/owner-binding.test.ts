@@ -127,6 +127,12 @@ test("SOC01 G-02: device authorization links the owner's own account so its DM e
 	// 同一会话里别人的账号不会因为设备授权变成 owner。
 	const stranger = { ...dm, from: "acct:card-local:main:visitor" as Ref };
 	expect(await matches(binding, stranger, agent, store)).toBe(false);
+	// 访客私聊命中 card-visitor（只读档案），主人的 DM 不命中它。
+	const visitor = agent.bindings.find((item) => item.id === "card-visitor")!;
+	expect(visitor.profile).toBe("readonly");
+	expect(await matches(visitor, stranger, agent, store)).toBe(true);
+	expect(await matches(visitor, dm, agent, store)).toBe(false);
+	expect(sessionKey(visitor, stranger)).toEqual({ mode: "persistent", key: "conv:conv:card:room-1" });
 	// 群绑定只按会话各开持久会话，唤醒条件是 @。
 	const group = agent.bindings.find((item) => item.id === "card-group")!;
 	expect(sessionKey(group, { ...dm, conv: "conv:card:group-1" as Ref })).toEqual({
