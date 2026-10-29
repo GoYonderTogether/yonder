@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -8,6 +8,7 @@ import { FileCredentials } from "../runtime/credentials.js";
 import { openDatabase } from "../runtime/db.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { buildModels } from "../runtime/models.js";
+import { createSkills } from "../skills/index.js";
 import { createStore, newEvent } from "../store/index.js";
 import {
 	builtinPromptSections,
@@ -473,4 +474,65 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	}
 	// Compiled constants stay stable and plain strings.
 	expect([commonPrompt, residentPrompt, runtimePrompt, cliPrompt].every((text) => text === text.trim())).toBe(true);
+});
+
+test("/skill:<name> injects the selected skill body into the run input", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "yonder-skill-command-"));
+	const db = await openDatabase(join(directory, "state.db"));
+	try {
+		const body = "Step one: open the ledger and record the date.";
+		await mkdir(join(directory, "skills", "ledger"), { recursive: true });
+		await writeFile(
+			join(directory, "skills", "ledger", "SKILL.md"),
+			`---\nname: ledger\ndescription: Keep the household ledger.\n---\n\n${body}\n`,
+		);
+		const store = await createStore(db);
+		// Real discovery over a real home directory; no stub skill index or fake model.
+		const skills = createSkills({ home: directory, pluginDirs: [] });
+		const row = {
+			id: "1",
+			agent: null,
+			profile: "check",
+			mode: "task" as const,
+			key: "check",
+			version: "0.1.0",
+			opened: "2026-10-23T06:00:00.000Z",
+		};
+		const session = { agent: null, profile: row.profile, cwd: directory, resolved: resolveProfile({}) };
+		const options: PromptOptions = {
+			home: directory,
+			version: row.version,
+			locale: "zh-CN",
+			timezone: "Asia/Shanghai",
+			contexts: new Map(),
+			workspace: () => workspaceFiles(localEnvironment(directory)),
+			identity: store.identity(),
+			models: buildModels(new FileCredentials(join(directory, "auth.json"))),
+			setVersion: store.sessions.setVersion,
+			skillIndex: skills.index,
+			skillCommand: skills.command,
+		};
+		const loaded = await prepareInput(
+			row,
+			session,
+			newEvent({ type: "message.in", data: { text: "/skill:ledger record today's rent" } }),
+			"run",
+			options,
+		);
+		expect(loaded.text).toContain(body);
+		expect(loaded.text).toContain(`Skill directory: ${await realpath(join(directory, "skills", "ledger"))}`);
+		expect(loaded.text).toContain("record today's rent");
+		const plain = await prepareInput(
+			row,
+			session,
+			newEvent({ type: "message.in", data: { text: "record today's rent" } }),
+			"run",
+			options,
+		);
+		expect(plain.text).toContain("record today's rent");
+		expect(plain.text).not.toContain(body);
+	} finally {
+		await db.close();
+		await rm(directory, { recursive: true, force: true });
+	}
 });

@@ -78,6 +78,8 @@ export interface PromptOptions {
 	models: Models;
 	setVersion(id: string, version: string): Promise<void>;
 	skillIndex?(session: RuntimeSessionConfig): Promise<string>;
+	/** `/skill:<name> [request]` forces that skill to load; undefined for any other input. */
+	skillCommand?(session: RuntimeSessionConfig, text: string): Promise<string | undefined>;
 	toolIndex?(session: RuntimeSessionConfig): string | undefined;
 	templateDirs?(session: RuntimeSessionConfig): Array<{ directory: string; tools: string[] }>;
 	signal?: AbortSignal;
@@ -254,6 +256,12 @@ export function formatClock(now: number, locale: string, timezone: string): { ut
 	};
 }
 
+/** `/skill:<name>` replaces the input with that skill's SKILL.md text; other input passes through. */
+async function messageText(options: PromptOptions, session: RuntimeSessionConfig, text: string): Promise<string> {
+	const skill = await options.skillCommand?.(session, text);
+	return expandTemplate(options.home, session.agent, skill ?? text, options.templateDirs?.(session), session.profile);
+}
+
 export async function prepareInput(
 	row: SessionInfo,
 	session: RuntimeSessionConfig,
@@ -340,13 +348,7 @@ export async function prepareInput(
 			event.type === "runtime.continuation"
 				? `[Continue the original authorized task now]\n${(event.data as { text?: string }).text ?? ""}`
 				: message
-					? await expandTemplate(
-							options.home,
-							session.agent,
-							data.text ?? "",
-							options.templateDirs?.(session),
-							session.profile,
-						)
+					? await messageText(options, session, data.text ?? "")
 					: JSON.stringify(event.data),
 			...(await contributions({ ...session, id: row.id }, "turn", options, preparedEvent)),
 		]

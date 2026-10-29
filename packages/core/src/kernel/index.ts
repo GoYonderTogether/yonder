@@ -293,6 +293,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			models: services.models,
 			setVersion: store.sessions.setVersion,
 			skillIndex: skills.index,
+			skillCommand: skills.command,
 			toolIndex: (session) => toolDiscoveryGuide(realRuntime().describeTools(session)),
 			templateDirs: (session) => pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(session)),
 		};

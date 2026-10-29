@@ -568,3 +568,15 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 8. 发送验证码一律不透露目标是否已注册。旧 Yonder 用 404/409 明示，可枚举账号。
 
 待决项：微信扫码登录可行性待调研；匿名访客消息额度具体条数；全局短信日预算；腾讯云登录模板报备；老账号迁移细节待实现时定。
+
+## 2026-10-29 任务账本时点与摘要的实际行为（主 Agent 代批）
+
+IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 同步：滞留时点默认 N = 20 分钟（`stallMinutes` 只接受 15–30，`stallWindow` 再夹一次），只对 `active` 生效；`cancelled` 不产生任何时点输入，`done` 只在显式开启 `postCompact` 时压一次上下文，不与 `user-wait` 共用通道。尾部摘要的去重按 (目的地, 进展指纹) 记账，但只在 6 小时内（`DIGEST_TTL_MS`）压制重复，超过 TTL 后同一条进展会再提醒一次；`cancelled` 任务不进摘要。`tasks_nudge` 工具与其 NUDGE / NUDGE_INPUT 提示词常量一起移除（不再注册、没有测试引用），`cross-agent` 只保留读其他 Agent 进行中任务的能力，管家不再有跨 Agent 提醒入口；需要提醒时走既有渠道消息，不新造第二种投递路径。
+
+## 2026-10-29 web-tools 搜索按配置顺序回退（主 Agent 代批）
+
+`web-tools_search` 不再固定 Tavily：配置 `providers: [{name, credential?}]` 按数组顺序逐家尝试，第一家成功即返回，失败供应商与错误写在该 query 的 `failed` 里，全部失败报 `SEARCH_FAILED`；未配置 `providers` 时只有 Tavily，旧行为不变。可选供应商为 tavily / brave / serper，显式 `extract` 仍只走 Tavily。工具描述随之改为“按配置的供应商顺序检索，第一家成功即返回”，不再写死 Tavily。理由：主人要求搜索不被单一供应商的额度或可用性绑死，且失败要可见，不能把一家失败悄悄变成另一家的成功。
+
+## 2026-10-29 IMP-10 skill 来源、索引格式与 `/skill:<name>` 接线（主 Agent 代批）
+
+`skills.command`（9e0474b 写入、此前无人调用）接进 `prepareInput`：`PromptOptions` 新增可选 `skillCommand(session, text)`，内核传 `skills.command`；消息文本先过它，返回正文再走提示词模板展开，返回 `undefined`（非 `/skill:` 输入）就按原文本走，模板展开行为不变。内核的 `skillsFor` 同时补 `userHome: homedir()`，用户级 `~/.agents/skills` 才真的进入发现范围——之前这个参数没人传，用户级技能静默不生效。找不到 skill 时抛错让该次运行失败并显示原因，不改写成普通文本，避免主人以为技能已加载。索引格式与来源清单按实现更新到 spec 03 §6：索引改为 `<available_skills><skill><name>/<description>/<location></skill></available_skills>`，`location` 是 `SKILL.md` 绝对路径；来源补上用户级 `~/.agents/skills` 与仓库内 `.agents/skills`、`.pi/skills`。验收：`packages/core/src/prompt/index.test.ts` 用真实 home 目录、真实发现与真实 `SKILL.md` 断言 `/skill:ledger` 的正文与路径进入输入，普通消息不含正文。

@@ -127,6 +127,7 @@ export async function loadAgents(
 export function skillsFor(home: string, config: YonderConfig, plugins: LoadedPlugins, log: KernelLog) {
 	return createSkills({
 		home,
+		userHome: homedir(),
 		pluginDirs: plugins.skillDirs,
 		...(plugins.skillSources ? { pluginSources: plugins.skillSources } : {}),
 		onIssue: (issue) => log("warn", `${issue.path}: ${issue.message}`),

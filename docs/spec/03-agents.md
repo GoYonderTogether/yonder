@@ -228,25 +228,35 @@ context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板�
 **来源**（同名时排前者生效，`doctor` 报告被遮蔽的）：
 
 1. agent 工作区的 `skills/`（经执行环境读取）；
-2. home 的 `skills/`；
-3. 插件贡献（04 §3.8）；
-4. 安装代码根目录skills/内置技能。
+2. 用户级 `~/.agents/skills`（主机目录，跨仓库共享）；
+3. home 的 `skills/`；
+4. 仓库根到工作目录逐级的 `.agents/skills/`，以及工作目录的 `.pi/skills/`；
+5. 插件贡献（04 §3.8）；
+6. 安装代码根目录 `skills/` 内置技能。
 
-预设会话没有工作区，使用home、插件及内置来源。目录按 `**/SKILL.md` 递归发现。
+预设会话没有工作区，使用用户级、home、项目、插件及内置来源。目录按 `**/SKILL.md` 递归发现：含 `SKILL.md` 的目录本身是 skill，不再向下递归；发现根目录下的单个 `.md` 文件也算 skill；点开头的条目与 `node_modules` 跳过，`.gitignore` / `.ignore` / `.fdignore` 生效。
 
 **选择**：配置档的 `skills` 通配列表（默认 `["*"]`）；访客类分身可以设为 `[]`。
 
-**索引**：system 第 ⑦ 段（§5.1），按 `name` 排序，每个 skill 只有名字与描述，格式：
+**索引**：system 第 ⑦ 段（§5.1），按 `name` 排序，每个 skill 只有名字、描述与 `SKILL.md` 的绝对路径，格式：
 
 ```
-<skills>
-<skill name="pdf-tools">Extract text and tables from PDF files. Use when …</skill>
-</skills>
+<available_skills>
+  <skill>
+    <name>pdf-tools</name>
+    <description>Extract text and tables from PDF files. Use when …</description>
+    <location>/Users/me/.agents/skills/pdf-tools/SKILL.md</location>
+  </skill>
+</available_skills>
 ```
+
+`location` 是可直接读的绝对路径，模型可以先用文件工具读整份 `SKILL.md` 再照着做，不必先调 `skill_view`。没有任何可选 skill 时整段省略。
 
 索引在每次组装提示词时重新生成（skill 有变化才会改变 system）。索引超过 4000 个估算 token（字符数 ÷ 4）时 `doctor` 警告，内核不截断。
 
 **读取**：内置工具 `skill_view({ name, path? })` 返回 `SKILL.md` 全文，或 skill 目录内的某个文件（`path` 相对 skill 目录，不能越出）。结果开头注明 skill 目录的绝对路径与所在位置（工作区所在执行环境，或主机）。`skill_view` 不需要能力，只能读本配置档选中的 skill；运行 skill 里的脚本仍需 `exec`，且只有脚本所在位置与本次运行的执行环境相同时才可行。
+
+**主动加载**：输入 `/skill:<name> [请求]` 时，内核在实际组装本次输入时把该 skill 的 `SKILL.md` 全文换到消息位置（同样是 `skill_view` 的文本，含绝对路径与位置），`[请求]` 原文接在后面作为本次请求；没有 `[请求]` 就只加载正文。只认当前配置档选中且未被遮蔽的 skill，找不到时该次运行以“未找到当前配置档选中的 skill：<name>”报错，不静默退化成普通文本。skill 正文替换之后再走提示词模板展开，其他输入不变。
 
 **自己写 skill**：agent 用普通文件工具在工作区 `skills/<name>/SKILL.md` 写入（需要 `write`），下一次运行即进入索引。内核不自动生成、合并或删除 skill；自动整理之类的策略由插件实现。
 
