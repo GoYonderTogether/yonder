@@ -1,5 +1,8 @@
 export const QUIET = 15000,
 	AGE = 30 * 60 * 1000;
+// pi's run.end carries no tool-call count, so skill review is spent on real tool calls
+// rather than turns: quiet turns must not queue a review of nothing.
+export const TOOL_CALL_THRESHOLD = 8;
 export const REVIEW_PRESET = "hermes-learning-review";
 export const reviewTools = (id = "learning") => [
 	`${id}_review_memory_read`,

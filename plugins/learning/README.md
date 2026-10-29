@@ -33,6 +33,8 @@
 
 完整停用应从目标 profile 移除插件、相关 contexts 和 skills 选择；`enabled: false` 拒绝插件 I/O，但不会替你移除原生独立选择的技能或历史转录。
 
+可选 `config.review.toolCallThreshold`（正整数，默认 8）：前台用户回合累计的工具调用数达到该值才排队一次静默技能复盘，记忆复盘仍按 10 次用户输入。
+
 ## 构建、回归、受控原生验收
 
 ```sh

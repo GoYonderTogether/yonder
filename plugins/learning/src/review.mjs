@@ -17,6 +17,7 @@ import {
 	QUIET,
 	REVIEW_PRESET,
 	reviewTools,
+	TOOL_CALL_THRESHOLD,
 	timeout,
 	transcript,
 } from "./review-helpers.mjs";
@@ -35,6 +36,7 @@ export function createReview(api, config, resolveScope) {
 		writes = Promise.resolve();
 	const file = () => join(api.paths.data, "learning-state.json");
 	const enabled = () => !stopped && config.enabled !== false;
+	const toolCallThreshold = config.review?.toolCallThreshold ?? TOOL_CALL_THRESHOLD;
 	const warn = (e) => api.log?.warn("Hermes learning review failed", { error: String(e) });
 	const ready = () =>
 		(loaded ??= (async () => {
@@ -208,12 +210,6 @@ export function createReview(api, config, resolveScope) {
 			messages: structuredClone(messages),
 			scope: p.scope,
 		};
-		// Count actual model iterations only in a genuine user run, not tool completion,
-		// continuation, review or ordinary child runs. All iterations in that run count.
-		if (events.some(isUserInput) && p.scope.learning === true && p.scope.skillDir) {
-			counts(ctx.session).skills++;
-			await save();
-		}
 	}
 	async function beforeTool(call, ctx) {
 		const g = grants.get(ctx.session);
@@ -310,6 +306,12 @@ export function createReview(api, config, resolveScope) {
 		}
 		const start = items.findLastIndex((item) => (d.inputs ?? []).includes(item.event));
 		const tail = start < 0 ? [] : items.slice(start + 1);
+		// Tool calls, not turns: run.end carries no count, so the run's transcript tail is it.
+		// Interrupted runs still did the work, so count before the final-answer gate.
+		if (p.scope.learning === true && p.scope.skillDir) {
+			c.skills += tail.reduce((total, item) => total + (item.tools?.length ?? 0), 0);
+			await save();
+		}
 		// SDK .04 projects pi.assistant but omits stopReason. status=aborted/limit
 		// supplies the interruption bit; an actual terminal assistant text is required
 		// independently of status. error+final is allowed, matching upstream finalizer.
@@ -329,7 +331,7 @@ export function createReview(api, config, resolveScope) {
 			c.memory >= 10 &&
 			p.scope.writeMode === "exclusive-yonder" &&
 			(p.scope.memory !== false || p.scope.user !== false);
-		const skills = p.scope.learning === true && !!p.scope.skillDir;
+		const skills = p.scope.learning === true && !!p.scope.skillDir && c.skills >= toolCallThreshold;
 		const focus = s.explicit?.focus ?? (memory && skills ? "combined" : memory ? "memory" : skills ? "skills" : null);
 		if (focus) {
 			const old = s.pending;

@@ -22,6 +22,33 @@ test("real SDK manifest contract; registered tool persists and new session rende
 	assert.doesNotMatch(before, /NEW_SESSION_SENTINEL/);
 	assert.match(await readFile(join(root, "memories/MEMORY.md"), "utf8"), /NEW_SESSION_SENTINEL/);
 });
+test("registered memory tool writes several entries in one operations batch; single-item args still work", async (t) => {
+	const root = await fixture(t),
+		p = await registered("learning", { scopes: [scope(root)] });
+	const [read, edit] = p.tools;
+	const m = JSON.parse((await read.execute({ target: "memory" }, ctx())).text);
+	const batch = await edit.execute(
+		{
+			target: "memory",
+			revision: m.revision,
+			operations: [
+				{ action: "add", content: "BATCH_ONE" },
+				{ action: "add", content: "BATCH_TWO" },
+				{ action: "add", content: "BATCH_THREE" },
+			],
+		},
+		ctx(),
+	);
+	assert.ok(!batch.isError, batch.text);
+	const after = JSON.parse((await read.execute({ target: "memory" }, ctx())).text);
+	const single = await edit.execute(
+		{ target: "memory", action: "add", revision: after.revision, content: "SINGLE_FOUR" },
+		ctx(),
+	);
+	assert.ok(!single.isError, single.text);
+	const disk = await readFile(join(root, "memories/MEMORY.md"), "utf8");
+	for (const s of ["BATCH_ONE", "BATCH_TWO", "BATCH_THREE", "SINGLE_FOUR"]) assert.match(disk, new RegExp(s));
+});
 test("cross-Agent/profile/task denial; no caller-chosen memory directory", async (t) => {
 	const root = await fixture(t),
 		p = await registered("learning", { scopes: [scope(root)] });

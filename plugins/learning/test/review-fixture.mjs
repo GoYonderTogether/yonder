@@ -107,6 +107,8 @@ export async function setup(t, extra = {}, options = {}) {
 		from = "acct:test:owner",
 		text = `Verified workflow ${eventSerial + 1}`,
 		loops = 1,
+		// Tool calls the model made in this run; defaults to the skill-review threshold.
+		toolCalls = 8,
 	} = {}) => {
 		const event = { id: `in-${++eventSerial}`, type, from, conv: "conv:test:private", data: { text, kind: "dm" } };
 		events.set(event.id, event);
@@ -120,6 +122,13 @@ export async function setup(t, extra = {}, options = {}) {
 			},
 		];
 		history.get("parent").push({ id: ++entrySerial, kind: "pi.user", text, event: event.id });
+		if (toolCalls > 0)
+			history.get("parent").push({
+				id: ++entrySerial,
+				kind: "pi.assistant",
+				text: "",
+				tools: Array.from({ length: toolCalls }, (_, i) => ({ name: "verify", args: { step: i } })),
+			});
 		history
 			.get("parent")
 			.push({ id: ++entrySerial, kind: "pi.tool-result", text: "Tests pass; user correction retained" });

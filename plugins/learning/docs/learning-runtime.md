@@ -23,8 +23,11 @@ internals. The source experience 0.1.1 implementation was validated against SDK
    workspace skill root. No model identity/path/scope/attended arguments are used.
 3. Genuine human-channel `message.in` events (not the internal agent channel) count
    once on `run.end`, based on its actual input IDs, default memory interval 10.
-   Each foreground `beforeRequest` iteration in a genuine user run counts once
-   toward the persisted skill counter; each eligible completed user run schedules skill review when learning and skillDir are enabled. Task input, internal-agent input, continuation and
+   Tool calls in a genuine user run count toward the persisted skill counter on
+   `run.end`: `RunEndData` has no tool-call count, so the run's transcript tail
+   (`tools` on its `pi.assistant` items) is summed, interrupted runs included.
+   Skill review is due once the counter reaches `config.review.toolCallThreshold`
+   (default 8) with learning and skillDir enabled. Task input, internal-agent input, continuation and
    tool-completion-only runs are excluded. A normal identity-less child never
    qualifies as a parent, regardless of preset name or parent metadata.
 4. A mutation entering the native `beforeTool` dispatch hook resets its parent
@@ -39,7 +42,7 @@ internals. The source experience 0.1.1 implementation was validated against SDK
    insufficient; `error` with a real terminal answer is not arbitrarily excluded.
    A generation/key mismatch discards a late capture rather than using the next
    turn's final/material. No raw DB access or presumed RunEndData.text field.
-6. Queue the due focus: memory, skills or combined. Skill review is due on each eligible completed user run; memory retains its 10-input interval. Wait 15 seconds of parent quiet,
+6. Queue the due focus: memory, skills or combined. Skill review is due on an eligible completed user run once the tool-call counter reaches its threshold; memory retains its 10-input interval. Wait 15 seconds of parent quiet,
    merge the latest completed evidence while retaining earliest queue time, expire
    at 30 minutes. Interrupted automatic work can requeue at most three times;
    explicitly attended work cannot. Closing the source session does not cancel review; disabling or stopping the plugin revokes active grants.
@@ -66,7 +69,7 @@ conflict/rollback fields) survive tool JSON serialization, not only message text
 
 | Public contract | Use | Important qualification |
 |---|---|---|
-| Hook.beforeRequest(messages,ctx) | clone materials; skill iterations; preempt | before model request, not raw input admission; system/tools/cache-prefix are not an exposed fork contract |
+| Hook.beforeRequest(messages,ctx) | clone materials; preempt | before model request, not raw input admission; system/tools/cache-prefix are not an exposed fork contract |
 | ToolContext.events/event | trusted current run input provenance | no historical transcript text is promoted to attended authority |
 | Hook.beforeTool(call,ctx) | hard whitelist/focus; dispatch resets | native pre-dispatch hook, not a post-success counter |
 | events.on('run.end') / RunEndData.inputs,runId,status | user counter, dedup, final gate, queue | no invented final text/interrupted/cutoff fields |

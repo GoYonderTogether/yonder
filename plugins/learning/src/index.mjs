@@ -54,7 +54,12 @@ const scopeSchema = obj(
 	["agent", "profiles", "memoryDir"],
 );
 export default definePlugin({
-	configSchema: obj({ enabled: { type: "boolean" }, model: str, scopes: { type: "array", items: scopeSchema } }),
+	configSchema: obj({
+		enabled: { type: "boolean" },
+		model: str,
+		scopes: { type: "array", items: scopeSchema },
+		review: obj({ toolCallThreshold: { type: "integer", minimum: 1 } }),
+	}),
 	setup(api) {
 		// Official discovery/checkPlugin and plugins add may supply no scope yet.
 		// Empty registration grants no Agent access; existing configured objects stay live.

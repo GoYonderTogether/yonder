@@ -126,6 +126,47 @@ test("skills-only one completed user turn triggers review without memory access"
 	);
 });
 
+test("skills review spends tool calls: below threshold never triggers, reaching it triggers once", async (t) => {
+	const f = await setup(t, { memory: false, user: false });
+	// Evidence: run.end has no tool-call count, so the run's transcript tail is counted.
+	await f.turn({ toolCalls: 7 });
+	await f.tick();
+	assert.equal(f.opened.length, 0);
+	assert.equal((await f.counters()).skills, 7);
+	await f.turn({ toolCalls: 0 });
+	await f.tick();
+	assert.equal(f.opened.length, 0);
+	await f.turn({ toolCalls: 1 });
+	await f.tick();
+	await until(() => f.submitted.length === 1);
+	assert.match(f.submitted[0].input.text, /Focus=skills/);
+	assert.equal((await f.counters()).skills, 0);
+	await f.turn({ toolCalls: 1 });
+	await f.tick(60000);
+	assert.equal(f.submitted.length, 1);
+});
+
+test("learning.review.toolCallThreshold overrides the default threshold", async (t) => {
+	const root = await fixture(t);
+	const f = await setup(
+		t,
+		{},
+		{
+			root,
+			config: {
+				review: { toolCallThreshold: 2 },
+				scopes: [scope(root, { learning: true, skillDir: join(root, "skills"), memory: false, user: false })],
+			},
+		},
+	);
+	await f.turn({ toolCalls: 1 });
+	await f.tick();
+	assert.equal(f.opened.length, 0);
+	await f.turn({ toolCalls: 1 });
+	await f.tick();
+	await until(() => f.submitted.length === 1);
+});
+
 test("skills review requires a completed genuine foreground turn", async (t) => {
 	const f = await setup(t, { memory: false, user: false });
 	await f.turn({ status: "aborted" });
