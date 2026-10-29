@@ -1,6 +1,7 @@
 import { QrCode } from "lucide-react";
 import { useState } from "react";
 import type { Actor, Profile } from "../api/types";
+import { appPath } from "../lib/base";
 import { entityRef } from "../lib/entityRef";
 import { QrDialog } from "./CardShare";
 
@@ -19,7 +20,9 @@ export function IdentityQr({
 }) {
 	const [open, setOpen] = useState(false);
 	if (actor.anonymous || (actor.kind === "agent" && !actor.public)) return null;
-	const url = `${location.origin}${actor.kind === "agent" || !cardId ? `/p/${entityRef(actor)}` : `/u/${card?.code ?? cardId}`}`;
+	// 地址要带部署 base：网关托管时应用在 /console/ 下，丢 base 的二维码会落到站点根。
+	const path = actor.kind === "agent" || !cardId ? `/p/${entityRef(actor)}` : `/u/${card?.code ?? cardId}`;
+	const url = `${location.origin}${appPath(path)}`;
 	return (
 		<>
 			<button

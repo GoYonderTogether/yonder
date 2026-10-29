@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { Actor, Card, Device } from "../api/types";
 import type { CardFaceProps } from "../components/card/CardFace";
 import { $session } from "../store";
+import { appPath } from "./base";
 import { entityRef } from "./entityRef";
 
 /** 名片页的一行 / 一张卡：我的名片、我的 Agent（有无名片都有）、收到的名片。 */
@@ -17,7 +18,7 @@ export interface CardItem {
 }
 
 export const cardUrl = (i: CardItem) =>
-	`${location.origin}${i.actor.kind === "agent" || !i.card ? `/p/${entityRef(i.actor)}` : `/u/${entityRef(i.card)}`}`;
+	`${location.origin}${appPath(i.actor.kind === "agent" || !i.card ? `/p/${entityRef(i.actor)}` : `/u/${entityRef(i.card)}`)}`;
 export { canShareCard } from "./cardSharing";
 export const deviceLabel = (d: Pick<Device, "kind">) => (d.kind === "cloud" || d.kind === "server" ? "云端" : "本地");
 export const itemName = (i: CardItem) =>

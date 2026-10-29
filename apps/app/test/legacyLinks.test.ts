@@ -33,4 +33,13 @@ describe("legacyLinks", () => {
 		expect(replaceState).toHaveBeenCalledWith(null, "", "/console/work/abc?devtools=1");
 		vi.unstubAllGlobals();
 	});
+
+	it("把云端现行的 ?share=…#/u/<码> 压成挂载路径下的路径形态并保留 share", () => {
+		const replaceState = vi.fn();
+		vi.stubGlobal("location", { hash: "#/u/abc123", search: "?share=tok" });
+		vi.stubGlobal("history", { state: null, replaceState });
+		upgradeLegacyLocation("/console/");
+		expect(replaceState).toHaveBeenCalledWith(null, "", "/console/u/abc123?share=tok");
+		vi.unstubAllGlobals();
+	});
 });

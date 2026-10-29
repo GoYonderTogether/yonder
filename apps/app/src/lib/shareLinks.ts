@@ -1,4 +1,5 @@
 import type { ShareLink, ShareLinkKind } from "../api/types";
+import { appPath } from "./base";
 
 /**
  * 分享链接配额的界面事实：服务端记录 token、已用次数、上限、过期与吊销时间，
@@ -76,6 +77,8 @@ export function shortToken(token: string, head = 6): string {
  * 服务端返回的 url 固定是 `PUBLIC_ORIGIN/?share=<token>`，不指向被分享的名片/群；
  * 直接拿它做二维码会打开站点根页。这里只取其中的 share token，拼到 origin 与目标路径后面：
  * 二维码仍然落到被分享的页面，登录/加入时 Login 与 Composer 能读到 `?share=` 计入配额。
+ * 地址要带上部署 base（网关托管时是 "/console/"），否则二维码会落到站点根而不是应用；
+ * `path` 可带 base（调用方常传 `url.slice(origin.length)`）也可不带，appPath 两种都归一。
  */
 export function shareLinkUrl(link: Pick<ShareLink, "token" | "url">, path: string, origin: string): string {
 	let token = link.token;
@@ -84,7 +87,7 @@ export function shareLinkUrl(link: Pick<ShareLink, "token" | "url">, path: strin
 			token = new URL(link.url, origin).searchParams.get("share") ?? link.token;
 		} catch {}
 	}
-	return `${origin}${path}?share=${encodeURIComponent(token)}`;
+	return `${origin}${appPath(path)}?share=${encodeURIComponent(token)}`;
 }
 
 /**

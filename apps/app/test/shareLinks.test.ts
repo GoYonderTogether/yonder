@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	forgetToken,
 	MAX_SHARE_LINKS_PER_TARGET,
@@ -105,6 +105,15 @@ describe("shareLinkUrl", () => {
 		expect(shareLinkUrl({ token: "local", url: "http://[bad" }, "/u/a", "https://card.example")).toBe(
 			"https://card.example/u/a?share=local",
 		);
+	});
+
+	it("带上部署 base：网关托管的 /console/ 不丢失，调用方传入的路径已含 base 时也不重复", () => {
+		vi.stubGlobal("document", { querySelector: () => ({ getAttribute: () => "/console/" }) });
+		const expected = "https://card.example/console/u/abc123?share=tok%2Fen";
+		expect(shareLinkUrl(link, "/u/abc123", "https://card.example")).toBe(expected);
+		// IdentityQr / CardShare 传的是 url.slice(origin.length)，本身已带 base
+		expect(shareLinkUrl(link, "/console/u/abc123", "https://card.example")).toBe(expected);
+		vi.unstubAllGlobals();
 	});
 });
 

@@ -5,6 +5,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../../api";
 import type { Actor, ConversationDetail } from "../../api/types";
+import { appPath } from "../../lib/base";
 import { cn } from "../../lib/cn";
 import { entityRef } from "../../lib/entityRef";
 import { internalState } from "../../lib/navigation";
@@ -108,7 +109,7 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 	if (!other) return null;
 	const device = devices.find((x) => x.id === other.deviceId);
 	const owner = owners[0];
-	const profile = `${location.origin}/p/${entityRef(other)}`;
+	const profile = `${location.origin}${appPath(`/p/${entityRef(other)}`)}`;
 	return (
 		<>
 			<Section>
@@ -171,7 +172,7 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 	const invitePath = invite ? `/g/${invite.token}` : "";
 	const qrValue = useShareUrl(
 		{ kind: "group", targetId: d.id, path: invitePath },
-		`${location.origin}${invitePath}`,
+		`${location.origin}${appPath(invitePath)}`,
 		!!invite,
 	);
 	const leave = async () => {
