@@ -1,36 +1,70 @@
 import { AtSign, Slash } from "lucide-react";
+import { rpc } from "../api/client";
 import { archiveSession } from "../api/work";
 import { groupOf } from "../lib/identity";
 import { useSessions, useTitleOf } from "../lib/queries";
 import { toast } from "./kit/Toast";
 
-/** 内核已有 bot_attach（契约 §18），界面还没有选 Bot 的流程：入口做出来，点了如实说明怎么走。 */
-export const INVITE_PENDING =
-	"邀请 Bot 参与还没接到界面：节点已支持 bot_attach（契约 §18），可以让助手把当前会话挂到某个 Bot 下。";
-export const invitePending = () => toast(INVITE_PENDING, true);
+/** 会话命令（网关 sessions.command，仅 model / effort / status / compact）；结果与错误都以提示呈现。 */
+export async function runCommand(session: string, command: string): Promise<void> {
+	try {
+		toast(await rpc<string>("sessions.command", { id: session, command }));
+	} catch (e) {
+		toast(e instanceof Error ? e.message : "命令失败", true);
+	}
+}
+
+/** 邀请 Bot：没有专门的网关方法，请助手调用内核 bot_attach 把当前会话挂到该 Bot 下（契约 §18）。 */
+export async function inviteBot(session: string, bot: string, name = bot): Promise<void> {
+	try {
+		await rpc("sessions.submit", {
+			id: session,
+			text: `@${name} 请调用 bot_attach，把当前会话挂到 Bot ${bot} 下，邀请它一起处理。`,
+			requestId: crypto.randomUUID(),
+		});
+		toast(`已请助手邀请 ${name}`);
+	} catch (e) {
+		toast(e instanceof Error ? e.message : "邀请失败", true);
+	}
+}
 
 export interface SlashCommand {
 	key: string;
 	label: string;
 	hint: string;
+	/** 需要继续输入的命令：选中后把这段文字填进输入框，不直接执行。 */
+	fill?: string;
 	run(): void;
 }
 
-/** / 命令：归档是本机真实动作；邀请与分出依赖后端，如实提示。 */
+const ALIASES: Record<string, string> = { "/模型": "model", "/思考": "effort", "/状态": "status", "/压缩": "compact" };
+
+/** 输入的整行是 /模型 /思考 /状态 /压缩 [参数] 时返回对应 sessions.command 文本，否则 null。 */
+export function parseSlash(text: string): string | null {
+	const [head, ...rest] = text.trim().split(/\s+/);
+	const name = head ? ALIASES[head] : undefined;
+	return name ? [name, ...rest].join(" ") : null;
+}
+
+/** / 命令：归档是本机真实动作；模型/思考/状态/压缩走 sessions.command。 */
 export function slashCommands(session: string): SlashCommand[] {
 	return [
-		{ key: "invite", label: "/邀请", hint: "邀请 Bot 一起做", run: invitePending },
+		{ key: "invite", label: "/邀请", hint: "邀请 Bot 一起做", fill: "@", run: () => {} },
 		{ key: "archive", label: "/归档", hint: "标为已完成", run: () => void archiveSession(session) },
+		{ key: "model", label: "/模型", hint: "查看或切换模型，如 /模型 provider/id", fill: "/模型 ", run: () => {} },
+		{ key: "effort", label: "/思考", hint: "思考档位，如 /思考 high 或 auto", fill: "/思考 ", run: () => {} },
+		{ key: "status", label: "/状态", hint: "当前模型与会话状态", run: () => void runCommand(session, "status") },
+		{ key: "compact", label: "/压缩", hint: "压缩上下文", run: () => void runCommand(session, "compact") },
 	];
 }
 
 /** 输入框上方的浮动入口：[@ 邀请]。 */
-export function AssistBar() {
+export function AssistBar({ onInvite }: { onInvite(): void }) {
 	return (
 		<div className="mx-auto mb-1.5 flex max-w-[720px] gap-2" data-testid="assist-bar">
 			<button
 				type="button"
-				onClick={invitePending}
+				onClick={onInvite}
 				className="press flex items-center gap-1 rounded-full border border-hairline bg-raised px-2.5 py-1 text-caption text-muted"
 				data-testid="invite-bot"
 			>
@@ -68,7 +102,7 @@ function AssistList({ text, session, onPick }: { text: string; session: string; 
 							type="button"
 							role="menuitem"
 							onClick={() => {
-								invitePending();
+								void inviteBot(session, s.agent ?? s.profile, titleOf(s));
 								onPick(text.replace(/@\S*$/, ""));
 							}}
 							className="press flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-small hover:bg-tone"
@@ -87,8 +121,11 @@ function AssistList({ text, session, onPick }: { text: string; session: string; 
 							type="button"
 							role="menuitem"
 							onClick={() => {
-								c.run();
-								onPick("");
+								if (c.fill) onPick(c.fill);
+								else {
+									c.run();
+									onPick("");
+								}
 							}}
 							className="press flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-small hover:bg-tone"
 						>

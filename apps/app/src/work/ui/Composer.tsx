@@ -1,7 +1,7 @@
 import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { rpc } from "../api/client";
-import { AssistBar, AssistMenu } from "./ComposerAssist";
+import { AssistBar, AssistMenu, parseSlash, runCommand } from "./ComposerAssist";
 
 type Busy = "steer" | "followup" | "interrupt";
 
@@ -22,6 +22,12 @@ export function Composer({ session, running, bot }: { session: string; running: 
 		sending.current = true;
 		setErr("");
 		try {
+			const cmd = parseSlash(t);
+			if (cmd) {
+				setText("");
+				await runCommand(session, cmd);
+				return;
+			}
 			if (bot) await rpc("bots.send", { agent: bot, text: t, requestId: crypto.randomUUID() });
 			else
 				await rpc("sessions.submit", {
@@ -74,7 +80,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					</button>
 				</div>
 			)}
-			{!bot && <AssistBar />}
+			{!bot && <AssistBar onInvite={() => setText("@")} />}
 			<AssistMenu text={text} session={session} onPick={setText} />
 			{err && (
 				<p role="alert" className="mx-auto mb-1 max-w-[720px] text-caption text-danger">
