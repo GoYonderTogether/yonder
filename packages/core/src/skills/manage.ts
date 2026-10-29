@@ -33,6 +33,7 @@ export async function addLocalSkill(
 	const origin = await realpath(resolve(source));
 	if (!(await lstat(origin)).isDirectory()) throw new Error("导入来源必须是含 SKILL.md 的本机目录");
 	const metadata = parseSkillFrontmatter(await readFile(join(origin, "SKILL.md"), "utf8"));
+	if (metadata.warnings.length) throw new Error(metadata.warnings.join("；"));
 	await checkResources(origin);
 	const root = await managedRoot(target, true);
 	const directory = join(root, metadata.name);
