@@ -233,6 +233,8 @@ export function createSessions({
 				key,
 				version,
 				opened: new Date().toISOString(),
+				// Bot conversations belong to the Bot; the owner reaches them through owner scope (contracts §14).
+				owner: { kind: "bot", id: agentId },
 			};
 			await store.sessions.put(session);
 			await store.events.record({

@@ -138,3 +138,51 @@ test("event query exact id is parameterized and intersects other filters", async
 		await db.close();
 	}
 });
+
+test("session workbench fields round-trip while older rows read as the owner", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const opened = new Date().toISOString();
+		await store.sessions.put({ id: "1", agent: null, profile: "p", mode: "task", key: "k1", version: "v", opened });
+		await store.sessions.put({
+			id: "2",
+			agent: "main",
+			profile: "owner",
+			mode: "main",
+			key: "k2",
+			version: "v",
+			opened,
+			owner: { kind: "bot", id: "main" },
+		});
+		expect((await store.sessions.get("1"))?.owner).toEqual({ kind: "owner", id: "owner" });
+		expect((await store.sessions.get("2"))?.owner).toEqual({ kind: "bot", id: "main" });
+		expect((await store.sessions.get("1"))?.archivedAt).toBeUndefined();
+		await store.sessions.update("1", {
+			archivedAt: 1234,
+			pinned: true,
+			title: "改过的名字",
+			needsOwner: { reason: "要我批", since: 99 },
+			channels: ["qq", "console"],
+		});
+		expect(await store.sessions.get("1")).toMatchObject({
+			archivedAt: 1234,
+			pinned: true,
+			title: "改过的名字",
+			needsOwner: { reason: "要我批", since: 99 },
+			channels: ["qq", "console"],
+		});
+		// Finished work leaves the default list; clearing the archive brings it back.
+		expect(await store.sessions.list()).toEqual([expect.objectContaining({ id: "2" })]);
+		expect(await store.sessions.list({ archived: true })).toEqual([expect.objectContaining({ id: "1" })]);
+		expect(await store.sessions.list({ archived: true, pinned: true })).toHaveLength(1);
+		await store.sessions.update("1", { archivedAt: null, pinned: null, title: null });
+		const cleared = await store.sessions.get("1");
+		expect(cleared?.archivedAt).toBeUndefined();
+		expect(cleared?.pinned).toBeUndefined();
+		expect(cleared?.title).toBeUndefined();
+		expect(await store.sessions.list()).toHaveLength(2);
+	} finally {
+		await db.close();
+	}
+});

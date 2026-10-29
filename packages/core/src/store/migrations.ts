@@ -23,6 +23,18 @@ export const MIGRATIONS: Migration[] = [
 		CREATE TABLE IF NOT EXISTS y_persons (id TEXT PRIMARY KEY, name TEXT NOT NULL, note TEXT);
 	`,
 	},
+	{
+		// Workbench state (contracts §18): every column is additive and nullable or defaulted, so v1 rows read back unchanged.
+		version: 2,
+		up: `
+		ALTER TABLE y_sessions ADD COLUMN owner TEXT;
+		ALTER TABLE y_sessions ADD COLUMN archived_at INTEGER;
+		ALTER TABLE y_sessions ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;
+		ALTER TABLE y_sessions ADD COLUMN needs_owner TEXT;
+		ALTER TABLE y_sessions ADD COLUMN title TEXT;
+		ALTER TABLE y_sessions ADD COLUMN channels TEXT;
+		`,
+	},
 ];
 
 export const CURRENT_SCHEMA_VERSION = Math.max(...MIGRATIONS.map((m) => m.version));

@@ -38,6 +38,13 @@ export const SessionInfoSchema = Type.Object(
 		closed: O(T),
 		parent: O(T),
 		close: O(Type.Union([Type.Literal("manual"), Type.Literal("run-end")])),
+		// Workbench state (contracts §18); every field is optional so older rows stay valid.
+		owner: O(Type.Object({ kind: Type.Union([Type.Literal("owner"), Type.Literal("bot")]), id: T })),
+		archivedAt: O(N),
+		pinned: O(Type.Boolean()),
+		needsOwner: O(Type.Object({ reason: T, since: N })),
+		title: O(T),
+		channels: O(Type.Array(T)),
 	},
 	{ additionalProperties: false },
 );

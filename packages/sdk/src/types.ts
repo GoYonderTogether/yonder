@@ -156,6 +156,11 @@ export interface SessionsAPI {
 	transcript(id: string, range?: { from?: number; limit?: number; before?: number }): Promise<TranscriptItem[]>;
 	observe?(id: string, send: (update: SessionUpdate) => Promise<void>): Promise<() => Promise<void>>;
 }
+/** Who started the conversation: the owner, or the Bot whose agent opened it. */
+export interface SessionOwner {
+	kind: "owner" | "bot";
+	id: string;
+}
 export interface SessionInfo {
 	close?: "run-end" | "manual";
 	id: string;
@@ -167,6 +172,17 @@ export interface SessionInfo {
 	version: string;
 	opened: string;
 	closed?: string;
+	/** Read as the owner when the stored row predates this field. */
+	owner?: SessionOwner;
+	/** Milliseconds since epoch; a value means the session is done (contracts §18). */
+	archivedAt?: number;
+	/** Set by `session_hand_up`: the Bot asks the owner to take over. */
+	needsOwner?: { reason: string; since: number };
+	/** Model- or owner-given title; a manual rename locks it (§13). */
+	title?: string;
+	/** Channel instances this conversation belongs to; the UI shows a badge from two up. */
+	channels?: string[];
+	pinned?: boolean;
 }
 export interface Input {
 	text: string;

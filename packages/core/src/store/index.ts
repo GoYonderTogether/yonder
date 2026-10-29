@@ -1,18 +1,9 @@
 import { randomBytes } from "node:crypto";
-import type {
-	AccountInfo,
-	EventInput,
-	EventPage,
-	EventQuery,
-	IdentityAPI,
-	Ref,
-	Route,
-	SessionInfo,
-	YEvent,
-} from "@yonder/sdk";
+import type { AccountInfo, EventInput, EventPage, EventQuery, IdentityAPI, Ref, Route, YEvent } from "@yonder/sdk";
 import { parseRef, person } from "@yonder/sdk";
 import type { Db, DbExecutor, DbValue } from "../runtime/db.js";
 import { migrate } from "./migrations.js";
+import { sessionStore } from "./sessions.js";
 
 const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 let lastTime = 0;
@@ -41,14 +32,6 @@ function defined<T extends object>(row: T): T {
 function eventRow(row: EventRow): YEvent {
 	const { data, routes, ...rest } = row;
 	return { ...defined(rest), data: JSON.parse(data), ...(routes ? { routes: JSON.parse(routes) } : {}) };
-}
-function sessionRow(row: SessionInfo): SessionInfo {
-	return {
-		...defined(row),
-		agent: row.agent,
-		id: String(row.id),
-		...(row.parent != null ? { parent: String(row.parent) } : {}),
-	};
 }
 
 export async function createStore(
@@ -318,57 +301,7 @@ export async function createStore(
 			};
 		},
 	};
-	const sessions = {
-		async put(session: SessionInfo) {
-			await db.run(
-				"INSERT INTO y_sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-				Number(session.id),
-				session.agent,
-				session.profile,
-				session.mode,
-				session.key,
-				session.parent ? Number(session.parent) : null,
-				session.version,
-				session.opened,
-				session.closed ?? null,
-			);
-			return session;
-		},
-		async get(id: string) {
-			const row = await db.get<SessionInfo>("SELECT * FROM y_sessions WHERE id = ?", id);
-			return row && sessionRow(row);
-		},
-		async find(agent: string | null, key: string) {
-			const row = await db.get<SessionInfo>(
-				"SELECT * FROM y_sessions WHERE agent IS ? AND key = ? AND closed IS NULL",
-				agent,
-				key,
-			);
-			return row && sessionRow(row);
-		},
-		async list(filter: { agent?: string; mode?: SessionInfo["mode"]; open?: boolean } = {}) {
-			const where: string[] = [],
-				values: DbValue[] = [];
-			if (filter.agent !== undefined) {
-				where.push("agent = ?");
-				values.push(filter.agent);
-			}
-			if (filter.mode) {
-				where.push("mode = ?");
-				values.push(filter.mode);
-			}
-			if (filter.open !== undefined) where.push(`closed IS ${filter.open ? "" : "NOT "}NULL`);
-			return (
-				await db.all<SessionInfo>(
-					`SELECT * FROM y_sessions ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id`,
-					...values,
-				)
-			).map(sessionRow);
-		},
-		close: (id: string) =>
-			db.run("UPDATE y_sessions SET closed = ? WHERE id = ? AND closed IS NULL", new Date().toISOString(), id),
-		setVersion: (id: string, version: string) => db.run("UPDATE y_sessions SET version = ? WHERE id = ?", version, id),
-	};
+	const sessions = sessionStore(db);
 	function identity(actor?: Ref): IdentityAPI {
 		const api: IdentityAPI = {
 			async account(ref) {

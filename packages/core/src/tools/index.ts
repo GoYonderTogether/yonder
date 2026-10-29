@@ -20,6 +20,7 @@ import type { Runtime, RuntimeInput } from "../runtime/index.js";
 import { modelProfiles } from "../runtime/model-profile.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+import { ownerIdentity } from "../store/sessions.js";
 import { coreToolCapabilities } from "./catalog.js";
 import { requireCapability, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
@@ -112,6 +113,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				parent: ctx.session,
 				version: sessions.version,
 				opened: new Date().toISOString(),
+				owner: ctx.agent ? { kind: "bot", id: ctx.agent } : ownerIdentity,
 			};
 			await store.sessions.put(session);
 
