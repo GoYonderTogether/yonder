@@ -162,7 +162,7 @@ describe("session state 归约", () => {
 		stop();
 	});
 
-	it("children 的 usage.updated 只替换子 Agent 汇总，不丢 self/last", () => {
+	it("children 的 usage.updated 只替换子 Bot 汇总，不丢 self/last", () => {
 		const { sockets, store } = harness();
 		const stop = store.subscribe("s1", () => undefined);
 		const ws = sockets[0] as FakeSocket;

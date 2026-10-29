@@ -27,7 +27,7 @@ export function DeviceRow() {
 		>
 			<Status online className="h-1.5 w-1.5 shrink-0" />
 			<span className="min-w-0 flex-1 truncate">
-				{where} {agents} 个 Agent 在线
+				{where} {agents} 个 Bot 在线
 			</span>
 			<ChevronRight size={16} className="shrink-0 text-faint" />
 		</Link>

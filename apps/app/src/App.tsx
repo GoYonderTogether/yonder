@@ -22,7 +22,6 @@ const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login
 const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Market })));
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
-const PersonalAgent = lazy(() => import("./pages/PersonalAgent").then((m) => ({ default: m.PersonalAgent })));
 
 function Private({ children }: { children: ReactNode }) {
 	const s = useStore($session);
@@ -75,7 +74,7 @@ export function App() {
 							</Private>
 						}
 					>
-						<Route path="/pa" element={<PersonalAgent />} />
+						<Route path="/pa" element={<Navigate to="/" replace />} />
 						<Route path="/market" element={<Market />} />
 						<Route path="/market/search" element={<Market />} />
 						<Route path="/market/category/:channel" element={<Market />} />

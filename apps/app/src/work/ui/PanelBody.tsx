@@ -146,7 +146,7 @@ function Subtasks({ v, session }: { v: SessionView; session: string }) {
 				))}
 			</ul>
 		);
-	return <Empty t="没有委派的子 Agent" />;
+	return <Empty t="没有委派的子 Bot" />;
 }
 
 function Context({ v }: { v: SessionView }) {

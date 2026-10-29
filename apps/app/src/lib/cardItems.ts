@@ -38,7 +38,7 @@ export function faceProps(i: CardItem): CardFaceProps {
 		face: c?.face,
 		display: c?.display,
 		online: agent ? !!i.actor.online : undefined,
-		badge: agent ? "Agent" : undefined,
+		badge: agent ? "Bot" : undefined,
 	};
 }
 

@@ -802,3 +802,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 ## 2026-10-29 PA→Bot 用户可见文案统一（主人 10-29）
 - 主人 10-29：用户可见的 PA 统一改为 Bot。
 - 范围取最小：只改 apps/app/src 里的用户可见文案（market 的 BuyerAgent/ListingDetail、Market 页、Chat 页 toast、PersonalAgent 页标题/按钮/说明/aria-label、PersonalAgentGate 报错）。代码标识符（`PersonalAgent`、`usePersonalAgent`、`sendToPA`、`askPA`）、路由 `/pa`、接口字段、飞书 `archetype=PersonalAgent` 一律不动，避免破坏链接与契约。`apps/desktop`、`packages/cli`、`docs/` 与 README 里没有命中 `\bPA\b`/`Personal Agent`/`个人代理`/`个人智能体` 的用户文案；`bp/THESIS.md` 命中的是行业分析与媒体转述，不是产品文案，不改。
+
+## 2026-10-29 账号默认 Bot 小歪（主人 10-29）
+- 主人 10-29：账号默认 Bot 小歪，创建只需名字，网页 Agent 统一称 Bot。
+- 网页：登录后直接进聊天列表（桌面端默认打开小歪的会话），PersonalAgentGate 不再拦截；`/pa` 重定向到 `/`；删除选择/创建引导页。「我」页「我的 Bot」旁的「新建 Bot」只要名字。用户可见的 Agent 一律写 Bot，代码标识符、接口字段、路由不改。
+- 契约增补（网页 → 社交服务，见 docs/spec/16-card-plugin.md「默认 Bot 与云端创建」）：`POST /api/me/default-bot`（幂等）、`POST /api/bots`。服务端实现在 yonder-cloud 仓库，本仓库只含客户端与 mock，未做服务端。
+- 主 Agent 代批 10-29：账号内「没有任何自己的 Bot」包含设备接入的本地 Bot；已接入设备的账号不会再多出小歪。

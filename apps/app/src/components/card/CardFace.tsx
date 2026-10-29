@@ -202,7 +202,7 @@ export function CardQrView({
 	theme?: CardFace["theme"];
 }) {
 	if (actor.kind === "agent" && actor.public !== true)
-		return <p className="p-6 text-small text-muted">此 Agent 未公开，无法分享二维码</p>;
+		return <p className="p-6 text-small text-muted">此 Bot 未公开，无法分享二维码</p>;
 	const t = THEMES[theme];
 	const agent = actor.kind === "agent";
 	return (
@@ -239,7 +239,7 @@ export function CardQrView({
 				{actor.name}
 			</p>
 			<p className="absolute right-[8%] left-[24%] text-left opacity-70" style={{ top: u(20), fontSize: u(3.8) }}>
-				{agent ? `Agent · ${actor.online ? "在线" : "离线"}` : "个人名片"}
+				{agent ? `Bot · ${actor.online ? "在线" : "离线"}` : "个人名片"}
 			</p>
 			<p
 				className="absolute inset-x-[8%] line-clamp-2 break-words opacity-80"

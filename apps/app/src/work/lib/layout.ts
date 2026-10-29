@@ -15,7 +15,7 @@ export type PanelKind =
 export const PANEL_TITLE: Record<PanelKind, string> = {
 	todos: "待办",
 	goal: "目标",
-	subtasks: "子 Agent",
+	subtasks: "子 Bot",
 	attachments: "附件",
 	views: "视图",
 	context: "上下文",

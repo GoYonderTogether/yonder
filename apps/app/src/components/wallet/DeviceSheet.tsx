@@ -69,7 +69,7 @@ export function DeviceSheet({
 		try {
 			await api.setDeviceOnline(device.id, v);
 			onChanged();
-			toast(v ? `${device.name} 上的 Agent 已联网` : `${device.name} 上的 Agent 已断开`);
+			toast(v ? `${device.name} 上的 Bot 已联网` : `${device.name} 上的 Bot 已断开`);
 		} catch (error) {
 			toast(error instanceof Error ? error.message : "更新失败", true);
 		}
@@ -85,12 +85,12 @@ export function DeviceSheet({
 						</span>
 						设备
 					</Dialog.Title>
-					<Dialog.Description className="sr-only">改名，或开关这台设备上全部 Agent 的联网</Dialog.Description>
+					<Dialog.Description className="sr-only">改名，或开关这台设备上全部 Bot 的联网</Dialog.Description>
 					{device.code && <p className="select-text text-small text-muted">设备 ID · {device.code}</p>}
 					<Field label="名称" value={name} onChange={(e) => setName(e.target.value)} />
 					<div className="flex items-center justify-between rounded-card bg-tone px-4 py-3">
 						<span className="text-[15px]">
-							联网<span className="ml-2 text-[13px] text-muted">{agents} 个 Agent</span>
+							联网<span className="ml-2 text-[13px] text-muted">{agents} 个 Bot</span>
 						</span>
 						<Switch on={device.online} onChange={power} label="这台设备联网" />
 					</div>

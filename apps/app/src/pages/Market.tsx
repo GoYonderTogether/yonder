@@ -549,7 +549,7 @@ export function Market() {
 						<p className="mk-muted">{detail.metricSource === "sample" ? "示例统计 · 非实时数据" : "当前记录"}</p>
 						<div className="mk-stats-grid">
 							{[
-								{ label: "Agent 浏览", value: detail.metrics.agentViews },
+								{ label: "Bot 浏览", value: detail.metrics.agentViews },
 								{ label: "加入候选", value: detail.metrics.shortlists },
 								{ label: "用户浏览", value: detail.metrics.humanViews },
 								{ label: "收到咨询", value: detail.metrics.inquiries },
@@ -560,7 +560,7 @@ export function Market() {
 								</div>
 							))}
 						</div>
-						<p className="mk-form-hint">Agent 浏览与真人浏览分别统计。连接真实市场后，这里会展示新增曝光与咨询。</p>
+						<p className="mk-form-hint">Bot 浏览与真人浏览分别统计。连接真实市场后，这里会展示新增曝光与咨询。</p>
 					</div>
 				)}
 			</MarketDialog>

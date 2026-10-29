@@ -50,9 +50,7 @@ export function ListingCard({
 					<span>{listing.seller}</span>
 				</div>
 				<div className="mk-card-meta">
-					<span
-						title={listing.metricSource === "sample" ? "示例浏览量，包含 Agent 与用户浏览" : "Agent 与用户浏览合计"}
-					>
+					<span title={listing.metricSource === "sample" ? "示例浏览量，包含 Bot 与用户浏览" : "Bot 与用户浏览合计"}>
 						<Eye size={13} />
 						{compactCount(viewCount(listing))} 浏览
 					</span>

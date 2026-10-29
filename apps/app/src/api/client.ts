@@ -101,4 +101,11 @@ export interface ApiClient {
 	contacts(): Promise<Actor[]>;
 	/** 开关某个 Agent 的联网（关闭后它不再接收平台消息） */
 	setAgentOnline(agentId: string, online: boolean): Promise<Actor>;
+	/** 新建云端 Bot：只需名字，模型与预设等用服务端默认值。 */
+	createBot(input: { name: string }): Promise<Actor>;
+	/**
+	 * 幂等：账号没有任何自己的 Bot 时由服务端创建默认 Bot（小歪 / Yonder Bot）并开好会话；已有则原样返回已有的。
+	 * 服务端在账号行锁内判断，重复登录与并发请求不会产生多个。
+	 */
+	ensureDefaultBot(input: { name: string; englishName: string }): Promise<Actor>;
 }

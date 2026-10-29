@@ -121,6 +121,8 @@ export const httpApi: ApiClient = {
 	setDeviceOnline: (deviceId, online) =>
 		request(`/devices/${encodeURIComponent(deviceId)}/online`, json("PUT", { online })),
 	contacts: () => request<Actor[]>("/contacts"),
+	createBot: (input) => request<Actor>("/bots", json("POST", input)),
+	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),
 	setAgentOnline: (agentId, online) =>
 		request(`/agents/${encodeURIComponent(agentId)}/online`, json("PUT", { online })),
 	deviceCode: (code) => request(`/device/code?code=${encodeURIComponent(code)}`),

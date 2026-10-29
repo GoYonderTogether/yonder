@@ -186,7 +186,7 @@ const CHANNEL_NAMES: Record<string, string> = {
 	feishu: "飞书",
 	github: "GitHub",
 	mcp: "外部 AI",
-	agent: "Agent",
+	agent: "Bot",
 	cron: "定时",
 	pi: "pi",
 };

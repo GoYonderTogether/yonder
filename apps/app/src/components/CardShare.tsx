@@ -55,7 +55,7 @@ export function CardShare({
 			active = false;
 		};
 	}, [sig]);
-	if (!allowed) return <p className="p-4 text-small text-muted">此 Agent 未公开，无法分享二维码</p>;
+	if (!allowed) return <p className="p-4 text-small text-muted">此 Bot 未公开，无法分享二维码</p>;
 	return (
 		<div className="mx-auto flex w-full max-w-[360px] flex-col gap-4">
 			<div hidden>

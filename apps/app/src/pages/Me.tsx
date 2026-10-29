@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
 import { AccountSecurity } from "../components/AccountSecurity";
+import { CreateBotDialog } from "../components/CreateBotDialog";
 import { MyMarket } from "../components/market/MarketStats";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
@@ -151,6 +152,7 @@ export function Me() {
 	const nav = useNavigate();
 	const loc = useLocation();
 	const [settings, setSettings] = useState(false);
+	const [creatingBot, setCreatingBot] = useState(false);
 	const contactsQuery = useQuery({
 		queryKey: ["contacts"],
 		queryFn: api.contacts,
@@ -170,7 +172,7 @@ export function Me() {
 						<section aria-label="注册引导" className="rounded-card bg-raised p-5">
 							<h2 className="font-medium">注册后可加好友</h2>
 							<p className="mt-1 text-small text-muted">
-								你现在是访客账号，可以聊天、加入群聊；注册后还能加好友、管理 Agent 与设备，已有记录会保留。
+								你现在是访客账号，可以聊天、加入群聊；注册后还能加好友、管理 Bot 与设备，已有记录会保留。
 							</p>
 						</section>
 						<Button variant="primary" onClick={() => nav("/login")}>
@@ -180,10 +182,15 @@ export function Me() {
 				) : (
 					<>
 						<MyMarket />
-						<section aria-label="我的 Agent" className="overflow-hidden rounded-card bg-raised">
+						<section aria-label="我的 Bot" className="overflow-hidden rounded-card bg-raised">
 							<div className="flex items-center justify-between px-5 pt-4 pb-2">
-								<h2 className="text-small font-medium text-muted">我的 Agent</h2>
-								<span className="text-caption text-muted">{agents.length} 位</span>
+								<h2 className="text-small font-medium text-muted">我的 Bot</h2>
+								<span className="flex items-center gap-3 text-caption text-muted">
+									{agents.length} 位
+									<Button size="sm" onClick={() => setCreatingBot(true)}>
+										新建 Bot
+									</Button>
+								</span>
 							</div>
 							<div className="divide-y divide-hairline">
 								{agents.slice(0, 3).map((a) => (
@@ -219,7 +226,7 @@ export function Me() {
 							)}
 							{failure ? (
 								<div className="flex items-center justify-between gap-3 px-5 py-4 text-small text-muted">
-									<p role="alert">{socialLoadError(failure, "加载 Agent 失败")}</p>
+									<p role="alert">{socialLoadError(failure, "加载 Bot 失败")}</p>
 									<Button size="sm" onClick={() => void contactsQuery.refetch()}>
 										重试
 									</Button>
@@ -227,10 +234,11 @@ export function Me() {
 							) : (
 								!agents.length &&
 								!contactsQuery.isPending && (
-									<p className="px-5 py-4 text-small text-muted">连接设备后，Agent 会出现在这里</p>
+									<p className="px-5 py-4 text-small text-muted">连接设备后，Bot 会出现在这里</p>
 								)
 							)}
 						</section>
+						<CreateBotDialog open={creatingBot} onOpenChange={setCreatingBot} />
 						<div className="overflow-hidden rounded-card bg-raised">
 							<Item to="/contacts?tab=devices" icon={Monitor} label="设备" />
 						</div>

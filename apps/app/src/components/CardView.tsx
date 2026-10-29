@@ -62,7 +62,7 @@ export function CardActions({ item, row }: { item: CardItem; row?: boolean }) {
 			)}
 			{!share && (
 				<span className="self-center text-caption text-muted">
-					{item.actor.kind === "agent" && !item.actor.public ? "私有 Agent · 仅本人可见" : "未发布 · 暂不可分享"}
+					{item.actor.kind === "agent" && !item.actor.public ? "私有 Bot · 仅本人可见" : "未发布 · 暂不可分享"}
 				</span>
 			)}
 			<CardShareDialog item={item} open={sharing} onOpenChange={setSharing} />

@@ -59,7 +59,7 @@ export function WorkCards({ subtasks, background }: { subtasks: SubtaskRow[]; ba
 			{subtasks.map((t) => (
 				<Card key={t.id} icon={Bot} title={t.label} state={SUB_STATE[t.state]} tid="subagent-card">
 					<Link to={workPath({ session: t.session })} className="underline">
-						打开这个子 Agent 的对话
+						打开这个子 Bot 的对话
 					</Link>
 				</Card>
 			))}

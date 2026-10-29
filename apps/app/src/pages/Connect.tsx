@@ -162,8 +162,8 @@ export function AddDeviceDialog({
 											</span>
 										</div>
 										<div>
-											<p className="text-body font-medium">让 Agent 帮我连接</p>
-											<p className="text-small text-muted">把下面提示词发给电脑上的 Agent</p>
+											<p className="text-body font-medium">让 Bot 帮我连接</p>
+											<p className="text-small text-muted">把下面提示词发给电脑上的 Bot</p>
 										</div>
 									</div>
 									<pre

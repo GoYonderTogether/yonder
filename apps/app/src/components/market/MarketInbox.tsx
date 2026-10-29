@@ -160,7 +160,7 @@ function Conversation({
 				{!messages.length && (
 					<div className="mk-chat-intro">
 						<MessageCircle size={27} />
-						<p>打个招呼，或让 Agent 整理想问的问题。</p>
+						<p>打个招呼，或让 Bot 整理想问的问题。</p>
 					</div>
 				)}
 				{messages.map((m) => (

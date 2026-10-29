@@ -111,7 +111,7 @@ export async function renderCardImage({
 	ctx.textBaseline = "top";
 	// Header starts after the avatar; QR position and quiet zone stay unchanged.
 	text(name, 9, 7, 700, 1, true);
-	text(agent ? `Agent · ${online ? "在线" : "离线"}` : "个人名片", 20, 3.8, 400, 0.7, true);
+	text(agent ? `Bot · ${online ? "在线" : "离线"}` : "个人名片", 20, 3.8, 400, 0.7, true);
 	ctx.font = `400 ${4 * u}px ${family}`;
 	const words = [...(headline ?? "")];
 	let line = "",

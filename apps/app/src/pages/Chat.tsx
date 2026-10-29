@@ -19,6 +19,7 @@ import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
 import { entityRef } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
+import { usePersonalAgent } from "../lib/personalAgent";
 import { socialUnavailable } from "../lib/socialError";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
@@ -91,6 +92,13 @@ export function ChatShell() {
 	const actors = useActors((convs ?? []).flatMap((c) => c.memberIds));
 	const me = useStore($session)?.actor;
 	const desktop = useDesktop();
+	const nav = useNavigate();
+	const { agent: defaultBot } = usePersonalAgent();
+	const defaultConv = defaultBot && convs?.find((c) => c.kind === "dm" && c.memberIds.includes(defaultBot.id));
+	// 桌面端进入聊天列表时默认打开自己的 Bot（小歪）；移动端保留列表。
+	useEffect(() => {
+		if (desktop && !id && defaultConv) nav(`/c/${defaultConv.id}`, { replace: true });
+	}, [desktop, id, defaultConv, nav]);
 
 	useEffect(
 		() =>
@@ -322,7 +330,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 	const offlineAgent = other?.kind === "agent" && !other.online;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 切换会话时重置
 	useEffect(() => {
-		if (offlineAgent) toast("Agent 离线，消息会保留，上线后收到");
+		if (offlineAgent) toast("Bot 离线，消息会保留，上线后收到");
 	}, [offlineAgent, id]);
 	return (
 		<>
@@ -465,7 +473,7 @@ function Bubble({
 				{group && !mine && first && sender && (
 					<span className="px-1 text-[12px] text-muted">
 						{sender.name}
-						{sender.kind === "agent" && " · Agent"}
+						{sender.kind === "agent" && " · Bot"}
 					</span>
 				)}
 				<div
@@ -571,7 +579,7 @@ export function Composer({ convId, offline, onSend }: { convId: string; offline:
 					value={text}
 					readOnly={sending}
 					rows={1}
-					placeholder={offline ? "Agent 离线，消息会保留" : "输入消息"}
+					placeholder={offline ? "Bot 离线，消息会保留" : "输入消息"}
 					onChange={(e) => {
 						setText(e.target.value);
 						e.target.style.height = "auto";

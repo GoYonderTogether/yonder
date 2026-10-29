@@ -24,7 +24,7 @@ import { DeviceSheet, deviceIcon, Switch } from "./DeviceSheet";
 export type ContactTab = "friends" | "agents" | "devices";
 export const TABS: { id: ContactTab; label: string }[] = [
 	{ id: "friends", label: "好友" },
-	{ id: "agents", label: "Agent" },
+	{ id: "agents", label: "Bot" },
 	{ id: "devices", label: "设备" },
 ];
 
@@ -300,8 +300,8 @@ function Agents({
 	const loose = own.filter((a) => !placed.has(a.id));
 	const all = [
 		...groups,
-		{ key: "loose", head: <span>我的 Agent</span>, items: loose },
-		{ key: "others", head: <span>公开 Agent</span>, items: others },
+		{ key: "loose", head: <span>我的 Bot</span>, items: loose },
+		{ key: "others", head: <span>公开 Bot</span>, items: others },
 	].filter((g) => g.items.length);
 	if (!all.length)
 		return (
@@ -345,7 +345,7 @@ function Devices({
 		try {
 			await api.setDeviceOnline(d.id, v);
 			refresh();
-			toast(v ? `${d.name} 上的 Agent 已联网` : `${d.name} 上的 Agent 已断开`);
+			toast(v ? `${d.name} 上的 Bot 已联网` : `${d.name} 上的 Bot 已断开`);
 		} catch (error) {
 			toast(error instanceof Error ? error.message : "更新失败", true);
 		}
@@ -365,7 +365,7 @@ function Devices({
 								</Icon>
 							}
 							title={d.name}
-							sub={`${deviceLabel(d)} · ${count} 个 Agent${d.current ? " · 本机" : ""}`}
+							sub={`${deviceLabel(d)} · ${count} 个 Bot${d.current ? " · 本机" : ""}`}
 							trail={
 								<>
 									<Status online={d.online} />

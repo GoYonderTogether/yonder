@@ -60,11 +60,11 @@ export function MarketStats({ listings, onStats }: { listings: Listing[]; onStat
 			<div className="mk-exposure-total">
 				<span>发布累计浏览</span>
 				<strong>{(totals.agent + totals.human).toLocaleString()}</strong>
-				<p>包含 Agent 发现与用户浏览</p>
+				<p>包含 Bot 发现与用户浏览</p>
 			</div>
 			<div className="mk-stats-grid">
 				{[
-					{ label: "Agent 浏览", value: totals.agent },
+					{ label: "Bot 浏览", value: totals.agent },
 					{ label: "用户浏览", value: totals.human },
 					{ label: "加入候选", value: totals.shortlisted },
 					{ label: "收到咨询", value: totals.inquiries },

@@ -72,7 +72,7 @@ export function IdentityDetail({
 							{agent && (
 								<p className="mt-1 flex items-center gap-1.5 text-caption text-muted">
 									<Status online={!!actor.online} />
-									Agent · {actor.online ? "在线" : "离线"}
+									Bot · {actor.online ? "在线" : "离线"}
 								</p>
 							)}
 						</div>
@@ -108,8 +108,8 @@ export function IdentityDetail({
 				</section>
 			)}
 			{!!agents.length && (
-				<section aria-label={publicView ? "公开 Agent" : "Agent"} className="overflow-hidden rounded-card bg-raised">
-					<h2 className="px-5 pt-4 pb-2 text-small font-medium text-muted">{publicView ? "公开 Agent" : "Agent"}</h2>
+				<section aria-label={publicView ? "公开 Bot" : "Bot"} className="overflow-hidden rounded-card bg-raised">
+					<h2 className="px-5 pt-4 pb-2 text-small font-medium text-muted">{publicView ? "公开 Bot" : "Bot"}</h2>
 					<div className="divide-y divide-hairline">
 						{visibleAgents.map((a) => (
 							<Link

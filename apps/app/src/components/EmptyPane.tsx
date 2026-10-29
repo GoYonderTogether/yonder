@@ -23,7 +23,7 @@ export function EmptyPane() {
 	return (
 		<div className="fade m-auto flex max-w-xs flex-col items-center px-6 text-center">
 			<p className="text-[20px] font-semibold tracking-tight">还没有设备</p>
-			<p className="mt-2 text-[14px] text-muted">添加设备后，电脑上的 Agent 会出现在这里。</p>
+			<p className="mt-2 text-[14px] text-muted">添加设备后，电脑上的 Bot 会出现在这里。</p>
 			<Button variant="primary" className="mt-5" onClick={() => setAdding(true)}>
 				添加设备
 			</Button>

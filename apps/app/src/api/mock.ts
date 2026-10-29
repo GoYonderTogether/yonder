@@ -15,7 +15,7 @@ const devices = new Map<string, Device>([
 const agent1: Actor = {
 	id: "a-1",
 	kind: "agent",
-	name: "个人 Agent",
+	name: "个人 Bot",
 	deviceId: "d-1",
 	ownerId: me.id,
 	online: true,
@@ -26,7 +26,7 @@ const agent1: Actor = {
 const agent2: Actor = {
 	id: "a-2",
 	kind: "agent",
-	name: "工作 Agent",
+	name: "工作 Bot",
 	deviceId: "d-2",
 	ownerId: me.id,
 	online: true,
@@ -35,7 +35,7 @@ const agent2: Actor = {
 const agent3: Actor = {
 	id: "a-3",
 	kind: "agent",
-	name: "研究 Agent",
+	name: "研究 Bot",
 	deviceId: "d-1",
 	ownerId: me.id,
 	online: false,
@@ -69,9 +69,9 @@ const cards = new Map<string, Card>(
 				kind: "agent",
 				ownerId: agent1.id,
 				respondentId: agent1.id,
-				title: "个人 Agent",
+				title: "个人 Bot",
 				tagline: "日常助手，在线可直接聊",
-				markdown: "# 个人 Agent\n\n这里是名片正文，支持 **Markdown**。\n",
+				markdown: "# 个人 Bot\n\n这里是名片正文，支持 **Markdown**。\n",
 				face: { theme: "night", tags: ["日常", "提醒"] },
 				display: undefined,
 			}),
@@ -128,7 +128,7 @@ const friends = new Set([friend.id]);
 const owns = (c: Card) =>
 	!!session && (c.ownerId === session.actor.id || actors.get(c.ownerId)?.ownerId === session.actor.id);
 const convs: Conversation[] = [
-	{ id: "c-g", kind: "group", title: "我的 Agent 们", memberIds: [me.id, agent1.id, agent2.id, agent3.id], unread: 0 },
+	{ id: "c-g", kind: "group", title: "我的 Bot 们", memberIds: [me.id, agent1.id, agent2.id, agent3.id], unread: 0 },
 	{ id: "c-1", kind: "dm", title: agent1.name, memberIds: [me.id, agent1.id], unread: 0 },
 	{ id: "c-2", kind: "dm", title: agent2.name, memberIds: [me.id, agent2.id], unread: 1 },
 	{ id: "c-n", kind: "notice", title: "通知与审批", memberIds: [me.id], unread: 1 },
@@ -144,14 +144,14 @@ const push = (convId: string, senderId: string, content: MessageContent): Messag
 };
 push("c-g", agent1.id, {
 	type: "markdown",
-	text: "这是你的 Agent 群，接入 Yonder 的 Agent 都在这里。**@** 谁，谁来回答。",
+	text: "这是你的 Bot 群，接入 Yonder 的 Bot 都在这里。**@** 谁，谁来回答。",
 });
-push("c-1", agent1.id, { type: "markdown", text: "你好，我是你的个人 Agent。**我在线**，可以直接聊。" });
+push("c-1", agent1.id, { type: "markdown", text: "你好，我是你的个人 Bot。**我在线**，可以直接聊。" });
 push("c-2", agent2.id, { type: "text", text: "客户的方案我整理好了。" });
 push("c-n", agent1.id, {
 	type: "interactive",
 	title: "名片待审核",
-	body: "Agent 起草了自己的名片，请预览后发布。",
+	body: "Bot 起草了自己的名片，请预览后发布。",
 	actions: [{ id: "review", label: "去审核" }],
 	state: "pending",
 	link: "/cards/k-1",
@@ -499,10 +499,33 @@ export const mockApi: ApiClient = {
 			.filter((a) => a.ownerId === session?.actor.id || friends.has(a.id))
 			.map((a) => ({ ...a }));
 	},
+	async createBot({ name }) {
+		await wait();
+		const owner = session?.actor.id ?? me.id;
+		const bot: Actor = {
+			id: `a-${now()}`,
+			kind: "agent",
+			name: name.trim(),
+			ownerId: owner,
+			online: true,
+			public: false,
+		};
+		actors.set(bot.id, bot);
+		return { ...bot };
+	},
+	async ensureDefaultBot({ name }) {
+		await wait();
+		const owner = session?.actor.id ?? me.id;
+		const own = [...actors.values()].find((a) => a.kind === "agent" && a.ownerId === owner);
+		if (own) return { ...own };
+		const bot = await mockApi.createBot({ name });
+		await mockApi.openDm(bot.id);
+		return bot;
+	},
 	async setAgentOnline(id, online) {
 		await wait();
 		const a = actors.get(id);
-		if (!a) throw new Error("没有这个 Agent");
+		if (!a) throw new Error("没有这个 Bot");
 		a.online = online;
 		return { ...a };
 	},

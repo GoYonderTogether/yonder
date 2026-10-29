@@ -61,7 +61,7 @@ describe("Me 页按登录态", () => {
 		$session.set({ actor: human });
 		api.contacts.mockRejectedValue(Object.assign(new Error("boom"), { status: 500 }));
 		await render(<Me />);
-		expect(container.querySelector('[role="alert"]')?.textContent).toBe("加载 Agent 失败：boom");
+		expect(container.querySelector('[role="alert"]')?.textContent).toBe("加载 Bot 失败：boom");
 		expect(container.textContent).not.toContain("连接设备后");
 	});
 
@@ -70,7 +70,7 @@ describe("Me 页按登录态", () => {
 		api.contacts.mockResolvedValue([]);
 		await render(<Me />);
 		expect(container.querySelector('[role="alert"]')).toBeNull();
-		expect(container.textContent).toContain("连接设备后，Agent 会出现在这里");
+		expect(container.textContent).toContain("连接设备后，Bot 会出现在这里");
 	});
 });
 

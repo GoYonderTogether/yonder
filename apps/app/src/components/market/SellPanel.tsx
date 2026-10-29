@@ -375,7 +375,7 @@ export function PublishDialog({
 							</label>
 							<label className="mk-toggle-row">
 								<span>
-									<strong>允许 Agent 发现</strong>
+									<strong>允许 Bot 发现</strong>
 									<small>让合适的需求主动找到你</small>
 								</span>
 								<input
@@ -399,7 +399,7 @@ export function PublishDialog({
 							<p className="mk-description">{form.description}</p>
 							<div className="mk-review-delivery">
 								{form.delivery}
-								<span>{form.discoverable ? "Agent 可发现" : "不参与 Agent 匹配"}</span>
+								<span>{form.discoverable ? "Bot 可发现" : "不参与 Bot 匹配"}</span>
 							</div>
 							<p className="mk-form-hint">此预览发布到当前浏览器，内容不会对外交易。</p>
 						</div>
