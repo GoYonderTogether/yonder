@@ -156,12 +156,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				list: async () =>
 					[...agents.values()]
 						.filter((a) => !a.archivedAt)
-						.map((a) => ({
-							id: a.id,
-							name: a.name,
-							owner: a.owner,
-							...(a.avatarUrl ? { avatarUrl: a.avatarUrl } : {}),
-						})),
+						.map(({ id, name, owner, avatarUrl }) => ({ id, name, owner, ...(avatarUrl ? { avatarUrl } : {}) })),
 			},
 			...credentialsAndModels(home, config),
 			log: {

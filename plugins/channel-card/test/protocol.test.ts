@@ -127,7 +127,13 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 		await channel.login("poll", signal());
 		await vi.waitFor(() => expect(frames.some((f) => f.type === "hello")).toBe(true));
 	}
-	const sendInput = (agent = "main", seq = 1, kind = "dm", mentioned = true) => {
+	const sendInput = (
+		agent = "main",
+		seq = 1,
+		kind = "dm",
+		mentioned = true,
+		social?: { mentions: { bot: boolean } },
+	) => {
 		const ws = [...wss.clients].find((ws) => ws.readyState === WebSocket.OPEN)!;
 		ws.send(
 			JSON.stringify({
@@ -136,6 +142,7 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 				convId: "room",
 				convKind: kind,
 				mentioned,
+				...(social ? { social } : {}),
 				message: {
 					id: `message-${seq}`,
 					senderId: "human",
@@ -227,6 +234,7 @@ test("device flow, private token, agent identity, direct metadata and ack after 
 			target: "other",
 			text: "hello",
 			mentioned: false,
+			social: { mentions: { bot: false } },
 			msgId: "message-7",
 			replyTo: "previous",
 			createdAt: "1720000000000",
@@ -439,3 +447,17 @@ test.each(["", "123", "12345678901", "abcdefghij"])(
 		expect(f.calls).toHaveLength(0);
 	},
 );
+
+test("G-10 device frames carry platform mention metadata and fall back to mentioned", async () => {
+	const f = await fixture();
+	await f.login();
+	f.sendInput("main", 11, "group", false, { mentions: { bot: true } });
+	f.sendInput("main", 12, "group", true);
+	f.sendInput("main", 13, "group", true, { mentions: { bot: false } });
+	await vi.waitFor(() => expect(f.events).toHaveLength(3));
+	expect(
+		f.events.map((event) => (event.data as { social: { mentions: { bot: boolean } } }).social.mentions.bot),
+	).toEqual([true, true, false]);
+	// 帧里的 mentioned 原样保留，旧消费方行为不变。
+	expect(f.events.map((event) => (event.data as { mentioned: boolean }).mentioned)).toEqual([false, true, true]);
+});

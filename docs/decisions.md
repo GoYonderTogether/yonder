@@ -687,3 +687,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 只读视图 `core.budget`（`views/budget.ts`）显示三项用量/上限与超限处理方式，badge 为超限项数；注册点在 `packages/core/src/kernel/index.ts`（本卡未放开该路径，与 `views/social-group.ts` 同一处理），前端渲染另卡。
 - 改动范围说明：卡里允许路径只列了 `sessions/**`、`views/budget*.ts`、`runtime/index.ts`。实际在 `runtime/index.ts` 只加了一行调用（`receiptRun` 里 `await checkBudget(this.options, session, usage)`），并按 500 行基线删掉同文件 6 个未使用的 model-chain 导入，净减 9 行；该文件基线 1952 行、本卡开工时 HEAD 已是 1963 行（别的卡造成的），本卡过后 1954 行，仍超出基线 2 行但不是本卡引入。
 - 测试里用 `onRun` 回调补写 `run.end`（与内核 delivery 同形）后再断言三种超限事件，因为脱离内核的 Runtime 单测没有 delivery 写事件这一步；真实模型测试同时断言两次运行都是 `done`（超限不中断）。
+
+## 2026-10-29 IMP-31 名片 @ 元数据与开 DM 收口（主 Agent 代批）
+
+- G-10：设备帧新增可选 `social.mentions.bot`。card-web 用消息体里客户端标出的 `mentions`（账号 id 数组，`messageInput` 校验并规范化为小写 uuid）判定机器人是否被 @，消息体没标时回落到既有的 `text.includes('@名字')`；帧里的 `mentioned` 字段原样保留，旧消费方行为不变。插件侧 `socialMentions()` 只透传这个布尔值，字段缺失时回落到帧里的 `mentioned`，因此旧服务端也满足契约。
+- G-09：非访客开 DM 也要求「目标有已发布名片 / 互为好友 / 目标是自己拥有的 agent」（`canOpenDm()`），访客分支保持原样（只会更严不会更松：访客本就无好友、无 agent）。
+- 范围说明：卡只列了 card-web 的 `server/src/{chat,realtime}.ts`，但真实验收必须改 `server/test/{chat,realtime}.test.ts`（该仓库的测试基座是真实 PostgreSQL + Redis + `node --test`）：既有「DM 幂等」用例补了互加好友的前置——新契约下两个陌生人不再能直接开 DM，其余断言不变；新增了「非访客开 DM 需要真实关系」与「原生 mention 优先于文本包含」两个用例。

@@ -27,6 +27,17 @@ interface Message {
 	content: { type: string; text?: string; url?: string; name?: string; bytes?: number; title?: string; body?: string };
 }
 
+/** G-10：只透传设备帧里的 `social.mentions.bot`，其余形状（含缺失）视为未提供。 */
+function socialMentions(value: unknown, mentioned: boolean): { mentions: { bot: boolean } } {
+	const record =
+		value && typeof value === "object" && !Array.isArray(value) ? (value as { mentions?: unknown }) : undefined;
+	const mentions =
+		record?.mentions && typeof record.mentions === "object" && !Array.isArray(record.mentions)
+			? (record.mentions as { bot?: unknown })
+			: undefined;
+	return { mentions: { bot: typeof mentions?.bot === "boolean" ? mentions.bot : mentioned } };
+}
+
 export class CardChannel implements Channel {
 	readonly multiAgent = true;
 	readonly kinds = ["dm", "group", "notice"];
@@ -372,6 +383,8 @@ export class CardChannel implements Channel {
 				kind: data.convKind,
 				target: agent,
 				mentioned: data.mentioned,
+				// G-10：设备帧可选带平台原生 @ 元数据，缺失时回落到帧里的 mentioned（服务端已按文本包含回落）。
+				social: socialMentions(data.social, data.mentioned),
 				text,
 				msgId: m.id,
 				createdAt: String(m.createdAt),
