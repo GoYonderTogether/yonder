@@ -218,6 +218,9 @@ export const mockApi: ApiClient = {
 		return null;
 	},
 	async revokeShareLink() {},
+	async shareLinkStatus() {
+		return { state: "active" as const };
+	},
 	async sendCode() {
 		await wait();
 		return { sent: true as const, retryAfter: 60 };

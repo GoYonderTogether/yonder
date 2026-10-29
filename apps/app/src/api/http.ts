@@ -90,6 +90,12 @@ export const httpApi: ApiClient = {
 	revokeShareLink: async (token) => {
 		await request(`/share-links/${encodeURIComponent(token)}/revoke`, json("POST"));
 	},
+	shareLinkStatus: (token) =>
+		request<{ state: "active" | "share_exhausted" | "share_expired" | "share_revoked" } | null>(
+			`/share-links/${encodeURIComponent(token)}/status`,
+			{},
+			true,
+		),
 	groupPreview: (token) => request(`/groups/${encodeURIComponent(token)}`, {}, true),
 	joinGroup: (token, share) =>
 		request<Conversation>(

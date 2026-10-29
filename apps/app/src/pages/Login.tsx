@@ -1,10 +1,11 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import type { Session } from "../api/types";
 import { selectAccount } from "../cache";
 import { VerifyCodeForm } from "../components/VerifySheet";
+import { verifyErrorText } from "../lib/verify";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
@@ -25,6 +26,16 @@ export function Login() {
 	const [name, setName] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
+	const shareToken = query.get("share") ?? undefined;
+	// 打开链接就查一次配额状态：已过期/吊销/用完时立刻提示，不等访客点「发送验证码」。
+	const shareStatus = useQuery({
+		queryKey: ["share-status", shareToken],
+		queryFn: () => api.shareLinkStatus(shareToken ?? ""),
+		enabled: !!shareToken,
+		retry: false,
+	});
+	const shareError =
+		shareStatus.data && shareStatus.data.state !== "active" ? verifyErrorText({ code: shareStatus.data.state }) : "";
 
 	const submit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -63,7 +74,12 @@ export function Login() {
 						<h1 className="display">登录或注册</h1>
 						<p className="mt-1 text-[13px] text-muted">用手机号或邮箱收验证码，首次验证即注册，不需要密码。</p>
 					</div>
-					<VerifyCodeForm shareToken={query.get("share") ?? undefined} onSuccess={done} />
+					{shareError && (
+						<p role="alert" className="text-[13px] text-danger">
+							{shareError}
+						</p>
+					)}
+					<VerifyCodeForm shareToken={shareToken} onSuccess={done} />
 					<button
 						type="button"
 						className="press self-start text-[14px] text-muted hover:text-ink"
