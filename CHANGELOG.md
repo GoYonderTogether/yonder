@@ -2,6 +2,189 @@
 
 ## [Unreleased]
 
+## [0.3.26102901] - 2026-10-29
+
+### Added
+
+- core：add social.groups gateway method (FIX-social-02)
+- tasks：完成审计与 token 预算（补齐 e3b2048 依赖的实现）
+- app：composer invite bot, slash model/effort/status/compact, footer model picker (FIX-work-02)
+- social：机器人闸门接入内核（IMP-17）
+- card：设备帧 @ 元数据透传与开 DM 收口（IMP-31）
+- core：预算三项同时生效、超限只记录并给只读视图（IMP-13）
+- core：auto-title task sessions after the first finished run (E2E-05)
+- core：外人能力白名单与防逆向/注入/代理（IMP-26）
+- core：代码智能工具组默认懒加载，可用 tool_search 或显式激活载入（IMP-22 X7）
+- card：默认名片绑定与授权即关联身份（IMP-20）
+- core：keep group messages out of the main conversation (IMP-18)
+- core：额度与访客接入内核闸门（IMP-25）
+- core：models.chain 驱动兜底链、禁 SiliconFlow、单价上限（IMP-12）
+- social：merge over-rate batches into a snapshot and judge with the cheap model (IMP-15)
+- pi-durable：补齐 insert/copy/move/undo 锚点工具，grep 出锚点行，write 拦锚点抄写（IMP-11）
+- tasks：contract/lightweight/parent constraints and atomic updates batch (IMP-27)
+- social：add group tags and AI tag/mode tools (IMP-16)
+- web-tools：fetch 识别 PDF 与 GitHub 链接并落库回读（IMP-29）
+- core：外人额度账本与访客防批量上限（IMP-19）
+- social：add group listen mode engine (IMP-14)
+- app：wire work UI to workbench methods (contracts §18)
+- core：optional workbench tools for Bots and the base session (contracts §18)
+- core：workbench session methods and bots.overview (contracts §18)
+- core：store workbench session fields (contracts §18)
+- market：新增市场插件与五个市场工具（MK04）
+- app：工作台侧边栏与任务视图按 WORK-UX 第三轮重做（W01）
+- market：移植伙伴市场前端（MK01，/market 五屏 + 市场草稿带入聊天）
+- app：没有网关时 /work 显示「本页需要连接 Yonder 节点」与说明链接，不再停在连接中 (FP02 收尾)
+- app：dev 预览免手动登录（网关票据自动换 cookie + 原型预置会话）
+- social：「我」页按登录态区分访客引导与 Agent 加载失败，公开开关行内提示 (FP02-7)
+- social：通讯录区分加载失败、节点没有社交服务与真的空 (FP02-6)
+- social：通讯录联系人行加右键、长按与键盘菜单 (FP02-5)
+- social：名片和群二维码改用服务端分享链接，显示剩余次数与天数 (FP02-4)
+- social：账号与安全，显示脱敏绑定并可换绑，入口在「我」页设置 (FP02-3)
+- social：访客额度用完弹登录窗，登录后自动续发 (FP02-2)
+- runtime：expose hashline replace/replace_match to agents (IMP-01)
+- social：手机号或邮箱验证码登录，放进 /login 原页面 (FP02-1)
+- skills：/skill:<name> 接进 prepareInput，用户级 skills 与索引格式对齐实现（IMP-10）
+- app：dev 演示固定 5180 + 网关/社交分流代理，加名片站对照截图脚本（FP01 D7/D8）
+- app：名片站底座接入工作区——BrowserRouter、/work/* 懒加载、Shell 加「工作」入口（FP01 D2/D5）
+- social：设备弹窗、加号菜单与建群窗口对齐名片站
+- social：公开名片页复用 IdentityDetail，与线上资料页同一版式
+- social：卡包叠卡与操作按钮行对齐名片站 CardStack
+- social：设备连接页倒计时环与「我」页列表行对齐名片站
+- social：添加朋友、群邀请、安装页对齐名片站的页头与间距
+- core：新增 bg_run/bg_status/bg_logs/bg_kill 四个后台工具与 pi 结构完成通知 (IMP-06)
+- social：聊天详情按名片站分组卡片重排
+- social：会话页标题栏、气泡分组与输入条对齐名片站
+- social：名片卡面按卡宽 cqw 缩放，对齐线上名片站
+- web-tools：web_search 对齐 pi 参数、多供应商顺序回退与结果落库回读 (IMP-07)
+- code-intel：add upstream params and 40 KiB result contract (IMP-05)
+- skills：照 pi 补齐发现位置与递归规则，索引带 SKILL.md 绝对路径，新增 /skill:name 加载 (IMP-10)
+- pi-durable：hashline anchors with read/replace/replace_match (IMP-01)
+- social：名片与群二维码改用服务端分享链接并显示配额
+- social：分享链接的剩余天数、状态与地址拼接纯函数
+- api：社交客户端支持分享链接配额
+- social：账号与安全页显示脱敏绑定并可换绑
+- social：访客额度用尽弹登录窗并续发
+- social：登录页改为手机/邮箱验证码
+- social：验证码表单状态机、校验、脱敏与错误文案
+- social：验证码登录与账号绑定的 API 契约
+- app：开发用视图切换浮窗
+- config：IMP-02 新增模型链、预算、外人额度、渠道策略与社交监听配置键（只增不改）
+- app：tablet layout mode between phone and desktop
+- app：capability feature table and desktop-only top bar (T-FE-04)
+- app：console entry with node switcher under work tab
+- tasks：stall 只催主 Agent，尾部进展去重改 6 小时 TTL
+- app：工作列表、通讯录与面板卡片接统一上下文菜单
+- app：个人页与社交登录区分登录态
+- app：settings sections plus node and update data layer (T-FE-18)
+- social：C5 bot gate pure decision function
+- models：systemAsUser compat for providers that drop system
+- app：底栏用量、子 Agent、LSP 与上下文信息
+- app：会话元信息共享 reducer 与 session hooks
+- app：unify rail cards and floating panels on one layout core
+- app：unify context menu breakpoint, keyboard nav and long-press helpers
+- app：fold work-list groups with persisted state
+- expose social policy control methods
+- social：add opt-in durable group batching
+- add optional advisor outcome recording
+- persist learning reviews and expose learning changes
+- add optional native codex review tool
+- notify model fallback at input source
+- delegate durable subagent tasks
+- configure model fallback ordering
+- isolate social routing scopes
+- add social configuration contract
+- code-intel：read source by symbol
+- code-intel：add pi-lens module reports
+- tasks：request one waiting-task self-check
+- add guidance for selected core tools
+
+### Fixed
+
+- core：控制台通知的附件从投递尝试事件的 outgoing 读（BE-02 补）
+- tasks：提醒连续失败只记一次，不再每两小时重发（BE-01）
+- browser-skill：下载等到完成信号、导航校验最终 URL 并给可执行提示（BE-09）
+- card：endpoint 与确认链接的 URL 解析不再抛出未处理异常
+- channel-qq：附件引用统一解析成绝对路径，单个附件失败不再丢整条消息（BE-08）
+- core：doctor 把 peer 绑定缺失的影响与修法写清楚（BE-13）
+- core：上限提醒改成主人看得懂的中文并说明怎么接着做（BE-07）
+- delivery：主人的控制台不受档位渠道限制（BE-03）
+- build：dist 与源码不一致时构建门禁直接失败（BE-11）
+- core：控制台附件消息没有正文也能落库（BE-02）
+- app：网关托管控制台无社交服务时直接进入工作（E2E-01/02）
+- app：右栏空状态改用人话，视图接入 views.list/views.act（E2E-09、E2E-10）
+- social：read judge output from the transcript and accept fenced JSON (IMP-15)
+- core：锚点写工具的路径与能力闸（IMP-11 必要调整）
+- app：drop legacy pinned/archived keys when loading prefs
+- app：sort pinned tasks by opened time; tests follow kernel pin
+- app：default task row pin flag to false
+- lock：add plugins/market workspace to package-lock
+- protocol：carry session.updated workbench events (contracts §18)
+- app：市场照片署名 JSON 按 biome 格式化
+- market：还原寻找面板的 autoFocus，避免焦点落到关闭按钮
+- app：任务无标题时不显示编号后缀
+- social：验证码按钮未发码前显示「发送验证码」 (FP02-1)
+- core：follow the service label actually installed on this machine
+- app：修 apps/app 五处 lint 报错；对照截图脚本先切到邮箱密码表单再登录
+- migrate：尊重 YONDER_HOME、非默认 home 跳过系统服务、超长 socket 回退短路径
+- ci：node:test 的 .cjs 用例改由 test:node 执行；CodeGraph 索引用例在缺 CLI 的环境跳过
+- delivery：conv-less inputs never break the console turn check
+- social：资料页去掉重复的公开开关，只保留资料表里那一行
+- runtime：传输层失败不再冷却模型，网络恢复后立即回到主模型 (RESUME01)
+- app：通讯录区分加载失败、节点无社交服务与真的空
+- app：useSession 处理 mux end 帧，避免会话永久停在「连接中…」
+- core：capabilities.get 补齐 NodeFacts v1.1 字段
+- app：主题预览跟随 agent-orb 纯色与 ambient 移除
+- models：keep system sections and tools when moving system to user
+- delivery：a console turn replies only in the console
+- main-health：preserve cleanup error outside finally
+- main-health：format regenerated golden files
+- main-health：format social judge golden
+- main-health：extract private account file writer
+- main-health：extract router options type
+- code-intel：declare cleanup and register AST replacement
+- main-health：extract credential commands
+- main-health：extract model protocol registry
+- main-health：extract routing notifications
+- main-health：format runtime and desktop files
+- main-health：extract runtime option type
+- main-health：extract legacy batch routing
+- main-health：fix desktop and golden checks
+- main-health：extract runtime note construction
+- main-health：extract background task documents
+- main-health：split tool schemas and event types
+- code-intel：declare MCP lifecycle trigger
+- code-intel：resolve workspace path for LSP
+- code-intel：declare ast grep search tool
+- code-intel：authorize AST replacement writes
+- feishu：distinguish everyone from bot mentions
+- code-intel：reuse workspace MCP connections
+- code-intel：probe session edited files for diagnostics
+- main-health：format JSON files
+- track fallback health per model attempt
+- main-health：include missing runtime implementations
+- main-health：narrow diagnostic path type
+- main-health：split routing matching helpers
+- track resumed subagent activity
+- sync categorized model fallback recovery
+- deduplicate Feishu delivery retries and task claims
+- main-health：correct template character type
+- main-health：preserve pending tool change
+- main-health：extract core tool helpers
+- main-health：format config schema golden
+- synchronize Hermes learning skill guidance
+- avoid false Feishu bot mentions
+- restore proactive permission guidance
+- tasks：stop unsafe waiting reminders
+- use valid tool guidelines section key
+
+### Changed
+
+- app：删除旧社交重写 features/social 与 hash 外壳（IconRail/TabBar/registry/routes/useHash 等）及其测试 (FP02 收尾)
+- app：现有工作侧代码整体迁到 src/work/（FP01 D4）
+- runtime：extract input content preparation
+- extract terminal helpers
+- extract session branch handling
+
 ## [0.3.26102803] - 2026-10-29
 
 - 断网、合盖或代理中断后，主模型不再被冷却 10 分钟：连接被拒/重置/中断、DNS 失败、请求超时这类没拿到供应商响应的失败不再写入 `.yonder/model-health.json` 的持有，网络恢复后的下一次运行直接回到主模型；离线期间探测失败也只重排下一次探测，不延长持有。401/403/404/429/5xx 等供应商真实应答的冷却规则不变。
