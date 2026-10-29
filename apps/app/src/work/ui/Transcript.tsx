@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
 import type { ActionItem } from "../lib/actions";
 import { type ChatItem, channelName, type ToolCall } from "../lib/chat";
+import { useBotNames } from "../lib/queries";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import { ActionMenu } from "./ActionMenu";
 import { Markdown } from "./Markdown";
@@ -63,6 +64,28 @@ function Tool({ t }: { t: ToolCall }) {
 	);
 }
 
+/**
+ * 通知行的来源显示名：控制台主人是「你」，Bot 用显示名；其他（外部账号、会话 id、未知 Bot）不显示来源。
+ * 内部 id 不给用户看，所以这里只认已知规则，认不出就整段省掉。
+ */
+export function fromLabel(from: string | undefined, names?: ReadonlyMap<string, string>): string | undefined {
+	if (!from) return undefined;
+	if (from === "acct:console:owner") return "你";
+	const bot = /^(?:acct:)?agent:(.+)$/.exec(from)?.[1];
+	return bot ? names?.get(bot) : undefined;
+}
+
+/** 通知行：来源名已知时写「通知 · 你：」，未知只写「通知：」。 */
+function Notice({ it }: { it: ChatItem }) {
+	const names = useBotNames();
+	const from = fromLabel(it.from, names);
+	return (
+		<p className="mx-auto text-caption text-faint" data-testid="notice">
+			{from ? `通知 · ${from}：${it.text}` : `通知：${it.text}`}
+		</p>
+	);
+}
+
 function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
@@ -84,12 +107,7 @@ function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
 				</div>
 			</div>
 		);
-	if (it.role === "notice")
-		return (
-			<p className="mx-auto text-caption text-faint">
-				通知 · {it.from}：{it.text}
-			</p>
-		);
+	if (it.role === "notice") return <Notice it={it} />;
 	if (it.role === "tool-result")
 		return (
 			<div className="mx-auto w-full max-w-[720px]">

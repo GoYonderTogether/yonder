@@ -1,6 +1,7 @@
 import { ChevronLeft, Layers, PanelRight, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { RpcError, rpc } from "../api/client";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
@@ -153,6 +154,51 @@ function RailSheet({ children, onClose }: { children: React.ReactNode; onClose()
 	);
 }
 
+/**
+ * 会话不存在：sessions.show 报 not_found 才算，其他失败（离线、权限、网关报错）沿用原有提示。
+ * 只查一次，id 变化才重查；判成不存在后不再等 sessions.watch 的重连。
+ */
+function useMissingSession(id: string): boolean {
+	const [missing, setMissing] = useState(false);
+	useEffect(() => {
+		const ctl = new AbortController();
+		setMissing(false);
+		rpc("sessions.show", { id, include: "meta" }, ctl.signal).catch((e: unknown) => {
+			if (!ctl.signal.aborted && e instanceof RpcError && e.code === "not_found") setMissing(true);
+		});
+		return () => ctl.abort();
+	}, [id]);
+	return missing;
+}
+
+/** 找不到会话：用户语言的说明 + 回到列表的入口，不显示「正在重试」，也没有输入框。 */
+function Missing({ wide }: { wide: boolean }) {
+	return (
+		<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="会话">
+			<header className="pt-safe flex items-center gap-1 border-b border-hairline bg-ground/90 px-2 py-2">
+				{!wide && (
+					<Link to={workPath()} aria-label="返回" className="press grid size-9 place-items-center rounded-full">
+						<ChevronLeft size={22} aria-hidden />
+					</Link>
+				)}
+				<h1 className="min-w-0 flex-1 truncate text-center text-body font-semibold">会话</h1>
+				{!wide && <span className="size-9" />}
+			</header>
+			<div
+				role="alert"
+				data-testid="session-missing"
+				className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"
+			>
+				<p className="text-body font-semibold">找不到这个会话</p>
+				<p className="text-small text-faint">它可能已被删除或归档，链接也可能已经过期。</p>
+				<Link to={workPath()} className="press rounded-control bg-tone px-4 py-2 text-small underline">
+					回到会话列表
+				</Link>
+			</div>
+		</section>
+	);
+}
+
 function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	const [rail, setRail] = useState(false);
 	const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -161,6 +207,8 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	const s = v.session;
 	const isBot = s?.mode === "main" && !!s.agent && !isImported(s);
 	const sub = v.running ? "正在回复…" : s?.closed ? "已结束" : undefined;
+	const missing = useMissingSession(id);
+	if (missing) return <Missing wide={wide} />;
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="聊天">
