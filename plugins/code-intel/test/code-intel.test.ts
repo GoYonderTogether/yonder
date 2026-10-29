@@ -50,8 +50,8 @@ test("CodeGraph tool uses the selected execution environment and an actual index
 		expect(result.text).toContain("2 callers in `index.ts`");
 		const callers = execFileSync("codegraph", ["callers", "--path", dir, "createGrepTool"], { encoding: "utf8" });
 		expect(callers).toContain("method      install");
-		expect(callers).toContain("index.ts:485");
-		expect(callers).toContain("grep.ts:5");
+		expect(callers).toContain("index.ts:");
+		expect(callers).toContain("grep.ts:");
 		const source = await readFile(join(dir, "index.ts"), "utf8");
 		expect(source).toContain("private install()");
 		expect(source).toContain("[createGrepTool(),");

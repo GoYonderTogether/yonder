@@ -7,8 +7,10 @@ import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { cacheToolOutput } from "../../../packages/core/src/runtime/tool-output-cache.js";
 import plugin from "../src/index.js";
+import { executable } from "./cli.js";
 
-test("outline uses real ast-grep for TypeScript and Python", async () => {
+// Real ast-grep CLI: skips where it is missing or not executable (install @ast-grep/cli 0.51.0).
+test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript and Python", async () => {
 	const { api, registrations } = createRegistrationCollector();
 	await plugin.setup(api as never);
 	const tool = registrations.tools.find((entry) => entry.name === "code-intel_ast_grep_outline");
