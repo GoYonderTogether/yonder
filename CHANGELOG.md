@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26102906] - 2026-10-29
+
+### Fixed
+
+- core：名片渠道默认加 card-visitor 绑定，访客私聊不再 no-binding 被丢弃 (VC-1)
+- app：BrowserRouter 移到按账号换 key 的 PersistenceProvider 外，匿名访客点「开始聊天」后不再停在名片页 (VC-1)
+- app：BrowserRouter 关闭 transition，匿名访客点「开始聊天」后页面停在名片页不进会话 (VC-1)
+- console 令牌登录后进工作台、云端不探本机网关、manifest 走 BASE_URL、/c/<账号id> 自动开私聊、离线 Bot 送达提示、单个渠道实例配置非法时跳过并由 doctor 报告 (JV2-J07-05/J14-01/J14-02/J07-01/J03-09/J09-03)
+
+### Added
+
+- app：/me 显示 Bot 起草的名片，网页编辑、发布、丢弃并给二维码 (JV2-J03-03/04)
+
 ## [0.3.26102905] - 2026-10-29
 
 ### Fixed
