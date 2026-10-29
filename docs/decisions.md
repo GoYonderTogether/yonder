@@ -758,3 +758,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 卡里只要求「读 notifications.prefs.get、改后调 set」，但 set 的参数是 `{conv, level}` 的会话级免打扰，而通知分区的三个开关是全局的：`通知` 开关映射为默认值 `conv:"*"`（开=`all`、关=`mute`），改完立即在节点生效并跨设备一致；震动与消息预览在契约 §16 里没有字段，仍只存本机浏览器（`lib/prefs.ts` 不改）。
 - 网关不可用（无网关、未登录、方法缺失）时整块退回本机 `usePrefs` 存储，写入不发 set；文案按连接状态区分「存在节点上」与「先记在这台设备」，不再写「只保存在这台设备的浏览器里」。会话级的全部提醒/仅 @/免打扰入口保持原样（消息列表长按或右键）。
 - 未做：卡的范围不含 `Settings.tsx` 顶部那句「会话置顶、免打扰和已读位置只保存在这台设备的浏览器里」，该句与已读位置的本地存储一致（契约 §6.3），本轮不动；`useNotifyPrefs/useSetNotifyLevel` 这对契约 §17 的导出仍缺，需要改 `api/**` 时另开卡。
+
+## 2026-10-29 BE-14 MCP 凭据错误可执行、OAuth 缺口登记（主 Agent 代批 10-29）
+- `plugins/mcp-client/src/index.ts` 的 `credentialMap` 把一条笼统的「requires api_key」拆成三种可执行错误：reference 未登记、reference 是 OAuth 登录（不是可复用密钥）、API key 没有值；都点名该 reference 并给出 `yonder credentials set <name> --home <home>`，不实现交互式登录（scope 内最保守做法：真实待授权信息 + 文档）。
+- 工具描述里「interactive OAuth login is not implemented here」改为说明 OAuth-only 服务需自行授权后把访问令牌存成命名 API key 再在 headerCredentials 引用，错误会指出具体 reference。
+- 能力缺口登记在 `docs/spec/14-execution-capabilities.md` §3 与 `docs/plugins.md` mcp-client 边界。
+- 新增 `plugins/mcp-client/test/credentials.test.ts`（用 `@yonder/sdk/testing` 的 `createRegistrationCollector` 注入 credentials 桩）覆盖三种错误；不触网。

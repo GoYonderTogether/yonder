@@ -277,7 +277,7 @@
 - **功能**：
   - 连接/断开/状态/忘记，发现/调用工具、读取资源、获取prompt；stdio、StreamableHTTP、SSE。
   - 图片与附件映射真实产物。
-- **边界**：OAuth-only服务仍需另有授权，不复制账号。
+- **边界**：OAuth-only服务仍需另有授权，不复制账号；插件不做交互式登录，OAuth 登录不是可复用密钥，错误里写明该 reference 需换成 `yonder credentials set <name>` 存储的访问令牌。
 
 ## 12 native-automation：无宿主浏览器/桌面替代
 

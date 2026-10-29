@@ -28,7 +28,7 @@ cron 保留 job.owner 的真实 session/agent/profile；创建与更新 delivery
 
 官方独立mcp-client复用已安装官方MCP SDK，支持stdio与StreamableHTTP（及SDK SSE兼容入口）、持久连接、按需连接/重连、发现/调用工具、资源列出/读取、prompt列出/获取、状态/断开。配置服务或经工具显式连接，作用域明确；工具名保留server和原名，不一次常驻注入所有schema。server instructions/prompts是外部资料，只在所选上下文/工具结果按来源呈现，不能升级为系统安全规则。
 
-stdio需要exec，HTTP需要network，返回给模型的通用调用保守保留服务对应能力边界；不能让readonly借MCP越权。凭据沿credentials引用，禁止回显secret。连接失败给具体诊断；重连不重放未知结果工具。取消沿signal，关服清连接/子进程。OAuth使用SDK现有协议或返回真实待授权信息，不复制其他客户端账号。
+stdio需要exec，HTTP需要network，返回给模型的通用调用保守保留服务对应能力边界；不能让readonly借MCP越权。凭据沿credentials引用，禁止回显secret。连接失败给具体诊断；重连不重放未知结果工具。取消沿signal，关服清连接/子进程。OAuth使用SDK现有协议或返回真实待授权信息，不复制其他客户端账号。当前 mcp-client 不实现交互式 OAuth 登录（能力缺口）：OAuth 凭据属于模型 provider 登录，不是可复用的 MCP 密钥，连接时按缺失或不可用返回该 reference 的真实待授权信息，并指向用 `yonder credentials set <name>` 存成命名 API key 的静态令牌；不导出他人登录、不切账号绕过。
 
 ## 4 Agent热管理
 
