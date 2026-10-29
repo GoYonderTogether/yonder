@@ -2,7 +2,7 @@
  * 开发工具浮窗的样式。只在本浮窗与主题模拟里使用；普通用户体验不受影响。
  * 主题模拟：现有令牌只在 packages/design/src/tokens.css 里按 prefers-color-scheme 切换，
  * 这里用 <html data-devtools-theme> 在同一套变量上再声明一遍亮/暗值（值必须与 tokens.css 一致）。
- * 局限：只覆盖令牌与两处装饰渐变（agent-orb、ambient）；页面里其它直接写死的颜色不受影响。
+ * 局限：只覆盖令牌与 agent-orb 的纯色；页面里其它直接写死的颜色不受影响。
  */
 :root[data-devtools-theme="light"] {
 	color-scheme: light;
@@ -54,25 +54,11 @@
 	--mist: radial-gradient(900px 520px at 18% -8%, rgb(255 255 255 / 0.06), transparent 70%);
 }
 
-/* 两处装饰渐变在 tokens.css 里按 prefers-color-scheme 写死，模拟主题时一并覆盖。 */
+/* agent-orb 的纯色按 prefers-color-scheme 写死，模拟主题时一并覆盖。 */
 [data-devtools-theme="light"] .agent-orb {
-	background:
-		radial-gradient(120% 120% at 28% 22%, oklch(0.9 0.06 var(--h)), transparent 55%),
-		linear-gradient(150deg, oklch(0.8 0.1 var(--h)), oklch(0.64 0.14 calc(var(--h) + 28)));
-}
-
-[data-devtools-theme="light"] .ambient::before {
-	background: radial-gradient(closest-side, oklch(0.85 0.09 var(--h)), transparent);
-	opacity: 0.16;
+	background: oklch(0.52 0.13 var(--h));
 }
 
 [data-devtools-theme="dark"] .agent-orb {
-	background:
-		radial-gradient(120% 120% at 28% 22%, oklch(0.8 0.08 var(--h) / 0.7), transparent 55%),
-		linear-gradient(150deg, oklch(0.66 0.11 var(--h)), oklch(0.5 0.13 calc(var(--h) + 28)));
-}
-
-[data-devtools-theme="dark"] .ambient::before {
-	background: radial-gradient(closest-side, oklch(0.6 0.12 var(--h)), transparent);
-	opacity: 0.2;
+	background: oklch(0.53 0.13 var(--h));
 }
