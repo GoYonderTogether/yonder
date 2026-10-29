@@ -77,9 +77,16 @@ export class IlinkChannel implements Channel {
 					if (["wait", "scaned", "scaned_but_redirect", "binded_redirect"].includes(result.status))
 						this.scheduleLogin();
 				})
-				.catch(() => {
-					this.loginStatus = "error";
-					this.api.log.warn("iLink login polling failed", { instance: this.id });
+				.catch((error) => {
+					// Network blips and 5xx must not end the scan: keep polling until the QR expires.
+					const retry = error instanceof IlinkRequestError && !error.rejected;
+					this.loginStatus = retry ? "wait" : "error";
+					this.api.log.warn("iLink login polling failed", {
+						instance: this.id,
+						retry,
+						...(error instanceof IlinkRequestError ? error.diagnostic : {}),
+					});
+					if (retry) this.scheduleLogin();
 				})
 				.finally(() => {
 					this.loginPolling = undefined;
@@ -199,12 +206,22 @@ export class IlinkChannel implements Channel {
 		this.timer = setTimeout(() => {
 			this.timer = undefined;
 			this.polling = this.poll()
-				.catch(() => {
-					this.failure = "ILINK_POLL_FAILED";
+				.catch((error) => {
+					// -14 is a server-side session timeout: only a new QR login recovers it.
+					const expired = error instanceof IlinkRequestError && (error.errcode === -14 || error.ret === -14);
+					const failure = expired ? "ILINK_SESSION_EXPIRED" : "ILINK_POLL_FAILED";
+					if (this.failure !== failure)
+						this.api.log.warn(
+							expired
+								? "iLink session expired; run `yonder channels login` to scan again"
+								: "iLink message polling failed",
+							{ instance: this.id, ...(error instanceof IlinkRequestError ? error.diagnostic : {}) },
+						);
+					this.failure = failure;
 				})
 				.finally(() => {
 					this.polling = undefined;
-					this.schedule(this.failure ? 5000 : 1000);
+					this.schedule(this.failure === "ILINK_SESSION_EXPIRED" ? 60000 : this.failure ? 5000 : 1000);
 				});
 		}, delay);
 		this.timer.unref();
