@@ -91,7 +91,7 @@ test("channels list reports shipped third-party channels as not enabled", async 
 	try {
 		invoke(["init", home, "--model", "openai/gpt-6-luna", "--json"]);
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
-		expect(config.channels).toEqual({ cli: { type: "cli" } });
+		expect(config.channels).toEqual({ cli: { type: "cli" }, card: { type: "card" } });
 		stop = await start(home);
 		const channels = JSON.parse(invoke(["channels", "list", "--home", home, "--json"])) as Array<{
 			instance?: string;

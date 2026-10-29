@@ -728,3 +728,6 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 
 ## 2026-10-29 FIX-social-02 social.groups 列群方法（主 Agent 代批 10-29）
 新增只读 admin 方法 social.groups：从 message.in 事件取该 agent 的群会话，标签/模式取 social.inspect 生效策略（tags 缺省 medium/normal，mode 缺省 batch），无权限会话略过；SDK SocialPolicy 暂无 tags 字段，按结构读取。protocol golden 只增补。
+
+## 2026-10-29 BE-15 修 origin/main 7 个 vitest 失败（主 Agent 代批 10-29）
+实现均为有意变更（f8daeb1 IMP-20 默认名片渠道与 card-owner/card-group 绑定；cf892e2 IMP-22 lazyGroups 默认 code-intel；agents.list 带 owner；44e0e13 IMP-21 config.get/update），测试期望过期，已更新为新行为，断言未放宽；contracts.md 只增补 config.get/config.update 两个方法。

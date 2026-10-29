@@ -7,8 +7,8 @@ import { resolveProfile } from "./test-support.js";
 
 describe("config basics", () => {
 	it("offers all tools by default while preserving explicit offers", () => {
-		expect(resolveProfile({}).tools).toEqual({ offer: ["*"], search: [] });
-		expect(resolveProfile({ tools: { offer: ["read"] } }).tools).toEqual({ offer: ["read"], search: [] });
+		expect(resolveProfile({}).tools).toEqual({ offer: ["*"], search: [], lazyGroups: ["code-intel"] });
+		expect(resolveProfile({ tools: { offer: ["read"] } }).tools).toEqual({ offer: ["read"], search: [], lazyGroups: ["code-intel"] });
 	});
 	it("loads default locale/timezone through the real home config loader", async () => {
 		const home = await mkdtemp(join(tmpdir(), "yonder-locale-config-"));
@@ -65,7 +65,7 @@ bindings: []
 		);
 		const profile = resolveProfile(agent.profiles.guest!, agent.defaults, "local");
 		expect(profile.contexts).toEqual(["one"]);
-		expect(profile.tools).toEqual({ offer: ["custom"], search: ["find"] });
+		expect(profile.tools).toEqual({ offer: ["custom"], search: ["find"], lazyGroups: ["code-intel"] });
 		expect(profile.limits).toEqual({
 			maxTurns: 20,
 			maxMinutes: 5,

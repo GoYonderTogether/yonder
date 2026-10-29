@@ -20,7 +20,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 		const file = `${home}/agents/main/agent.yaml`;
 		const agent = parse((await readFile(file, "utf8")).replace("      channel: cli\n", ""));
 		// 这条用例验证空 home；管家首次引导的唤醒由下一条用例覆盖。
-		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual(["onboarding", "owner", "peer"]);
+		expect(agent.bindings.map((binding: { id: string }) => binding.id).sort()).toEqual(["card-group", "card-owner", "onboarding", "owner", "peer"]);
 		agent.bindings = agent.bindings.filter((binding: { id: string }) => binding.id !== "onboarding");
 		await writeFile(file, stringify(agent));
 		expect(await inspectHome(home)).toMatchObject({ ok: true, errors: [] });

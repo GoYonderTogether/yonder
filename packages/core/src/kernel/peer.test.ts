@@ -179,7 +179,7 @@ test("init and all preset creation paths generate peer; isolated input is creati
 		await initHome(isolatedHome, "owner", { model: testModel, isolated: true });
 		const isolatedMain = parse(await readFile(join(isolatedHome, "agents/main/agent.yaml"), "utf8"));
 		expect(isolatedMain.profiles.peer).toBeUndefined();
-		expect(isolatedMain.bindings.map((b: { id: string }) => b.id)).toEqual(["owner"]);
+		expect(isolatedMain.bindings.map((b: { id: string }) => b.id)).toEqual(["owner", "card-owner", "card-group"]);
 		await expect(
 			initHome(join(isolatedHome, "invalid"), "owner", { model: testModel, isolated: "true" as unknown as boolean }),
 		).rejects.toThrow("boolean");

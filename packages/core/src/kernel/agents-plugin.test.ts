@@ -51,7 +51,7 @@ test("PluginAPI.agents.list is live, enabled-only and returns detached id/name v
 			JSON.parse(
 				(await kernel!.channels.login({ instance: "probe", action: "poll" }, new AbortController().signal)).status,
 			);
-		expect(await list()).toEqual([{ id: "main", name: "Jarvis" }]);
+		expect(await list()).toEqual([{ id: "main", name: "Jarvis", owner: "person:owner" }]);
 		const incoming = (await kernel.events.query({ type: "message.in", conv: "conv:probe:room" })).events[0]!;
 		expect(incoming.routes?.[0]).toMatchObject({ dropped: "no-binding", binding: null });
 		await kernel.management({
@@ -66,8 +66,8 @@ test("PluginAPI.agents.list is live, enabled-only and returns detached id/name v
 			value: { name: "Extra", work: "Verification", owner: "person:owner", bindings: [] },
 		});
 		expect(await list()).toEqual([
-			{ id: "main", name: "Jarvis" },
-			{ id: "extra", name: "Extra" },
+			{ id: "main", name: "Jarvis", owner: "person:owner" },
+			{ id: "extra", name: "Extra", owner: "person:owner" },
 		]);
 		await kernel.management({
 			action: "agents.update",
@@ -77,14 +77,16 @@ test("PluginAPI.agents.list is live, enabled-only and returns detached id/name v
 		expect(await list()).toContainEqual({
 			id: "extra",
 			name: "Renamed",
+			owner: "person:owner",
 			avatarUrl: "https://cdn.yonder.cn/renamed.png",
 		});
 		await kernel.management({ action: "agents.archive", id: "extra" });
-		expect(await list()).toEqual([{ id: "main", name: "Jarvis" }]);
+		expect(await list()).toEqual([{ id: "main", name: "Jarvis", owner: "person:owner" }]);
 		await kernel.management({ action: "agents.restore", id: "extra" });
 		expect(await list()).toContainEqual({
 			id: "extra",
 			name: "Renamed",
+			owner: "person:owner",
 			avatarUrl: "https://cdn.yonder.cn/renamed.png",
 		});
 	} finally {
