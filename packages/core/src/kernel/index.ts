@@ -25,7 +25,6 @@ import {
 } from "../prompt/index.js";
 import { pluginTemplateDirs } from "../prompt/templates.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
-import { runChannelCommand } from "../routing/commands.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
@@ -44,6 +43,7 @@ import { manageObjects } from "./management.js";
 import { createNotificationPrefs } from "./notifications.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
+import { quotaWire } from "./quota-wire.js";
 import { createSocial } from "./social.js";
 import { runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
@@ -301,6 +301,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			const session = await store.sessions.get(id);
 			if (!session) throw new Error(`Missing runtime session: ${id}`);
 			const completion = await delivery.onRun(session, run, []);
+			await gate.settle(id, run);
 			await store.events.recordRun(completion.ending);
 			completion.deliver();
 			await router.finishRun(session, run);
@@ -335,6 +336,16 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			log,
 		});
 		outbound = outboundQueue({ store, sessions, agents, config, delivery: () => delivery });
+		const gate = quotaWire({
+			db,
+			config,
+			store,
+			sessions,
+			delivery,
+			channels: loaded.channels,
+			skills: skills.inspect,
+			loginChannel,
+		});
 		router = createRouter({
 			channels: loaded.channels,
 			socialBatchPlugin: loaded.info?.some((plugin) => plugin.id === "social") ?? false,
@@ -355,17 +366,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				});
 				if (!result.ok) throw new Error(result.error ?? "Owner notification could not be queued");
 			},
-			onCommand: (session, event) => {
-				const channel = event.conv?.split(":")[1];
-				if (!channel || !loaded.channels.has(channel)) return Promise.resolve(undefined);
-				return runChannelCommand(session, event, {
-					store,
-					sessions,
-					delivery,
-					skills: skills.inspect,
-					login: (instance) => loginChannel(instance ? { instance } : {}, new AbortController().signal),
-				});
-			},
+			onCommand: (session, event) => gate.command(session, event),
 			onStart: delivery.onStart,
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,

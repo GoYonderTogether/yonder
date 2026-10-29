@@ -632,3 +632,11 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 链里出现 SiliconFlow 是 doctor 的 error 而不是 warning：主人 10-28 23:40 明确不用，属于必须改配置的错误；单价超 `models.priceCapPerMTokenYuan` 只是告警（还有一个可用模型，链不该因此判为坏）。
 - 改动范围说明：卡里允许路径只列了 `tools/model-route.ts`、`kernel/host-status.ts` 与 `deploy/**`，但让 `models.chain` 真正驱动运行时必须改 `packages/core/src/runtime/index.ts` 的 `applyConfiguration`，doctor 要出新检查必须在 `packages/core/src/kernel/home.ts` 的 `inspectHome` 里接上，另外新增了 `packages/core/src/runtime/model-chain-config.ts` 与其真实测试 `model-chain-config.test.ts`（卡里的验收要求真实 vitest 证明落到 glm）。`runtime/index.ts` 已登记 500 行基线且「只减不增」，为抵消本卡新增的行数，同文件删掉两个未使用的导入（`chainKey`、`ModelFallbackEvent`），净增 0 行。
 - 本机与云端模板统一为 WorkBuddy 主、`rightapi-glm/glm-5.3-flash` 回退（`deploy/node/yonder.yaml` 的 `models.chain` + `agent.yaml` 的 `defaults.model`/`fallback.models`/peer 模型）；两处顺序需同步改。
+
+## 2026-10-29 IMP-25 额度与访客接入内核（主 Agent 代批）
+
+- 新增 `packages/core/src/kernel/quota-wire.ts`：卡里允许路径只有 `kernel/index.ts`、`runtime/index.ts` 与 `kernel/quota-wire.test.ts`，但 `kernel/index.ts` 已登记 621 行基线且只减不增，闸门代码放进去就必然超基线；因此放进与允许测试文件同名的 `quota-wire.ts`，`kernel/index.ts` 里把原来内联的 `onCommand` 渠道命令逻辑一并收进该模块（`onCommand` 11 行变 1 行），加一行 import、一行 `settle`，文件仍是 621 行。
+- 分层映射：`store.identity().relation()` 判主人（`owner`，不限额度）；已绑定账号的人（授权人 / 好友 / 登录外人）统一按 `outsiders.perPersonDailyTokens` 封顶，配置里没有区分「授权人」与「好友」的字段，最保守的做法是都走较高的每人额度；未绑定账号的是访客，按二维码额度与来源轮数封顶。层级只看每条事件的 `from`，不看会话行，同一会话换人说话会跟着换层。
+- 访客的二维码维度当前取该轮会话 `conv`，来源维度取事件 `from`：渠道插件还没提供设备/IP 哈希，先用手上唯一稳定的来源标识；换账号可绕过来源轮数上限，是已知缺口，等渠道侧给出哈希再替换。
+- `defaults.channelPolicy` 为 `closed` 时未绑定账号的每一轮直接拒绝（原因 `channel_closed`），为 `open`（缺省）时走访客额度。两种拒绝都追加 `outsider.rejected` 结构化事件（`reason`/`tier`/`remaining`/`login: "/connect"`/`hint`），并用 `delivery.sendCommand` 把中文引导语发回原会话，不经 `stopNotice`，所以文案不受运行结束通知表限制。
+- 放行前用 `remaining` 预检，访客同时记一轮；拒绝的那一轮不占轮数。用量在运行结束后 `settle` 记账，token 数为 `usage` 的 `input + output + cacheRead + cacheWrite`（与预算统计口径一致），并用 `run.end` 事件去重，避免重放或重复回调重复计费。
