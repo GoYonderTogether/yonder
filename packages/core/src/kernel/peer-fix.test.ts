@@ -42,7 +42,9 @@ test("init 建出来的 agent 自带 peer 绑定，老 agent 缺少时 doctor �
 			bindings: agent.bindings.filter((binding) => binding.match.channel === "cli"),
 		} as AgentConfig;
 		await writeFile(file, stringify(legacy));
-		const warning = (await inspectHome(home)).warnings.find((item) => item.startsWith("main: "))!;
+		const warning = (await inspectHome(home)).warnings.find(
+			(item) => item.startsWith("main: ") && item.includes("agent_ask"),
+		)!;
 		expect(warning).toContain("agent_ask");
 		expect(warning).toContain("agents/main/agent.yaml");
 		expect(warning).toContain("yonder doctor");

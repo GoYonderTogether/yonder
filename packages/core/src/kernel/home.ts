@@ -19,6 +19,7 @@ import { chainKey, modelChain } from "../runtime/model-chain.js";
 import { ModelGate } from "../runtime/model-gate.js";
 import { ModelHealth } from "../runtime/model-health.js";
 import { accountKey, ModelQuota } from "../runtime/model-quota.js";
+import { cardVisitorGaps, cardVisitorWarning } from "./card-visitor.js";
 import { type ChainEntryReport, chainCredentialMissing, modelChainIssues, unusableChainError } from "./host-status.js";
 import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
@@ -297,6 +298,7 @@ export async function inspectHome(home: string) {
 					`${plugin.id} 已弃用：运行 yonder migrate 预览迁移计划，yonder migrate --apply 执行——它会改写 yonder.yaml 里的插件名，并把 .yonder/plugins/${plugin.id} 的状态目录一起迁到新插件（原文件保留 .pre-migrate 备份）。服务在跑时先 yonder stop；改完运行 yonder doctor 复查。`,
 				);
 		const agents = await loadAgents(home, config, plugins);
+		for (const gap of await cardVisitorGaps(home, config)) warnings.push(cardVisitorWarning(gap, home));
 		const presets = await loadPresets(home);
 		const channelFailures = [...plugins.channelErrors].map(
 			([id, reason]) =>

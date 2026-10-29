@@ -26,6 +26,7 @@ import {
 	loginProvider,
 	manageCredentialSlots,
 	manageService,
+	migrateCardVisitor,
 	offlineQuery,
 	openKernel,
 	readChangelog,
@@ -638,7 +639,13 @@ async function run(args: string[]): Promise<number> {
 		return 0;
 	}
 	if (command === "doctor") {
-		if (rest.length) throw new UsageError("Usage: yonder doctor");
+		if (rest.length > 1 || (rest.length === 1 && rest[0] !== "--fix"))
+			throw new UsageError("Usage: yonder doctor [--fix]");
+		if (rest[0] === "--fix") {
+			const fixed = await migrateCardVisitor(homeFor(options));
+			for (const item of fixed) stderr.write(`已补 ${item.agent} 的 card-visitor 绑定，备份 ${item.backup}\n`);
+			if (!fixed.length) stderr.write("无需修复\n");
+		}
 		const result = await inspectHome(homeFor(options));
 		if (options.json) output(result, true);
 		else {

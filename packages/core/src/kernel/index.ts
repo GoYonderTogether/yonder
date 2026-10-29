@@ -30,6 +30,7 @@ import { createSkillTool } from "../tools/skill-view.js";
 import { builtinViews } from "../views/builtin.js";
 import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
+import { migrateCardVisitor } from "./card-visitor.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { hostService } from "./host-status.js";
@@ -45,6 +46,7 @@ import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, projectRulesFor, skillsFor, unavailable } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
+export { migrateCardVisitor } from "./card-visitor.js";
 export { initHome, inspectHome } from "./home.js";
 export { type ManagementRequest, manageHome, offlineQuery } from "./home-management.js";
 export type { KernelLog } from "./workspace.js";
@@ -228,6 +230,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		};
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;
+		// 升级迁移：老 home 补 card-visitor 绑定（幂等，先写 .bak）；失败只记警告，不挡启动。
+		try {
+			for (const item of await migrateCardVisitor(home, config))
+				log("info", `已补 ${item.agent} 的 card-visitor 绑定，备份 ${item.backup}`);
+		} catch (error) {
+			log("warn", `card-visitor 迁移失败：${error instanceof Error ? error.message : String(error)}`);
+		}
 		for (const [id, agent] of await loadAgents(home, config, loaded)) agents.set(id, agent);
 		const homePresets = await loadPresets(home);
 		const errors = configurationErrors(

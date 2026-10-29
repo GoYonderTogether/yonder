@@ -32,6 +32,7 @@ export {
 	loginProvider,
 	manageCredentialSlots,
 	manageHome,
+	migrateCardVisitor,
 	offlineQuery,
 	openKernel,
 	packageVersion,
