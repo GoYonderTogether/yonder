@@ -10,6 +10,7 @@ export default defineConfig({
 			"**/node_modules/**",
 			"**/dist/**",
 			"apps/desktop/src-tauri/target/**",
+			"**/*.test.cjs",
 			"scripts/export-model-observations.test.mjs",
 			"scripts/migrate/rename-yonder.test.mjs",
 			"scripts/test/names-consistency.test.mjs",
