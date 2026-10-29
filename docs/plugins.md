@@ -150,9 +150,9 @@
 - **贡献**：
   - 工具：`web-tools_search`、`web-tools_extract`、`web-tools_fetch`，见下
 - **订阅事件**：无
-- **外部输入**：Tavily（检索与抽取）；`web-tools_fetch` 的有界HTTP GET
+- **外部输入**：搜索供应商 tavily / brave / serper（按 `providers` 顺序回退），抽取固定 Tavily；`web-tools_fetch` 的有界HTTP GET
 - **可调用工具**：
-  - `web-tools_search`：调用Tavily检索公开网页并返回来源。
+  - `web-tools_search`：按配置的供应商顺序检索公开网页，第一家成功即返回，失败供应商写进 `failed`。
   - `web-tools_extract`：调用Tavily抽取指定URL的正文。
   - `web-tools_fetch`：执行有界HTTP GET并处理支持的文本、HTML、JSON或Markdown。
 - **边界**：登录/JS页面、二进制文档和原文结构保真有明确边界；不以空正文伪装成功，不冒充浏览器。
@@ -352,7 +352,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 ## tasks：任务账本（P1）
 
 - **包**：`@yonder/plugin-tasks`，id `tasks`；[README](../plugins/tasks/README.md)、[源码](../plugins/tasks/src/index.ts)。
-- **贡献**：工具 `tasks_open`、`tasks_update`、`tasks_done`、`tasks_list`、`tasks_get`；turn 上下文 `tasks-turn`。
+- **贡献**：工具 `tasks_open`、`tasks_update`、`tasks_done`、`tasks_list`、`tasks_get`、`tasks_show`；turn 上下文 `tasks-turn`，以及时点 `tasks-moments`、尾部摘要 `tasks-digest` 与只读视图 `tasks.board`。
 - **存储**：插件 data 下 SQLite 只追加事件，回放得到当前状态与历史；完成要求交付和逐项证据，插件不判断验收。
 - **范围**：默认自己的任务及 parent 链下子任务；`cross-agent` 只读其他 Agent 进行中任务。工具与上下文须由 profile 显式选用。
 - **边界**：P1 不含提醒、nudge、展示投影、回复尾部清单或复盘时点；未做模型及生产验收。

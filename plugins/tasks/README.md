@@ -13,14 +13,13 @@ tools:
   search: []
 ```
 
-合并进已有配置，不替换其他选择。工具写操作要求 `write`，读操作要求 `read`。管家 profile 额外选择 `cross-agent`，可读取并催办其他 Agent 的进行中任务；普通 Agent 可读自己的任务及其 parent 链下的子任务，不能修改子 Agent 的任务。预设会话的任务归该 session。
+合并进已有配置，不替换其他选择。工具写操作要求 `write`，读操作要求 `read`。管家 profile 额外选择 `cross-agent`，可读取其他 Agent 的进行中任务；普通 Agent 可读自己的任务及其 parent 链下的子任务，不能修改子 Agent 的任务。预设会话的任务归该 session。
 
 - `tasks_open`：title、objective、acceptance（2–5 条）、nonGoals；可选 budget、parent、origin。归属取真实 ToolContext。
 - `tasks_update`：id 及要修改的内容、state、deliverable 或 note；保留完整历史。
 - `tasks_done`：id、deliverable、evidence；evidence 按 acceptance 的顺序逐项对应，条数必须相等且每项非空。
 - `tasks_list`：列出调用方可见的任务，保持数组返回；每项增加 `recentlyDone` 布尔值（postRetain 开启且 done 未满 30 分钟时为 true）。
 - `tasks_get`：id，返回任务及完整事件历史。
-- `tasks_nudge`：id、say，要求 `cross-agent`；通过 `sessions.submit(..., {busy: "followup"})` 提醒目标任务的 owner session，拒绝不存在或已关闭的任务。NUDGE_INPUT 的 from 使用真实调用方 Agent 名（无 Agent 时用 session 引用）；持久输入事件的真实程序来源仍为 `plugin:tasks`，不携带人类授权。
 
 `tasks-turn` 首次或内容改变后提供完整任务，其余输入只提供维护者的一行文本；每个 session 分别跟踪渲染版本，同一入站事件重复渲染不重复计数，重启后保留。budget 只记录，无硬限制。模型文本位于 `src/prompts.ts`，Biome 只对此文件停用格式化。
 
@@ -28,7 +27,7 @@ tools:
 
 `tasks-moments` Trigger 启动时检查一次，之后每次检查结束约 60 秒再检查。到期从 SQLite 账本时间推导；触发前追加 `moment` 行，随后追加 `moment-result`（回执/结果或错误），重启不重复触发已记录窗口。无需模型做定时判断。
 
-- **stall** 默认开启：active 任务连续 30 分钟无账本活动时，向它的 owner session 提交 STALL_NOTICE，busy 为 followup。下一次至少间隔另一个 stallMinutes。open / waiting-user / blocked / review / done / cancelled 不触发 stall。
+- **stall** 默认开启：active 任务连续 20 分钟（默认值；`stallMinutes` 限定 15–30）无账本活动时，向它的 owner session 提交 STALL_NOTICE，busy 为 followup。下一次至少间隔另一个 stallMinutes。open / waiting-user / blocked / review / done / cancelled 不触发 stall。cancelled 任务不再收到任何时点输入；done 只在开启 postCompact 时压一次上下文。
 - **user-wait** 默认开启：waiting-user 持续 120 分钟后，程序直接用 `api.messages.send` 把 USER_WAIT_NOTICE 发到任务 origin，不唤醒模型；locale 以 zh 开头时中文。每个 userWaitMinutes 窗口一次，无 origin 静默跳过。
 - **postCompact** 默认关闭：done 满 15 分钟后调用一次 `sessions.command(session, "compact")`，记录真实返回或错误。现有会话能力检查照常生效；提交压缩的回执不代表压缩完成。
 - **postRetain** 默认关闭：开启后，done 未满 30 分钟的可见任务在 tasks_list 中带 `recentlyDone: true`。从持久 done 时间推导，不新增清理作业，也不删除历史。
@@ -39,7 +38,7 @@ tools:
 plugins:
   - use: "@yonder/plugin-tasks"
     config:
-      stallMinutes: 30
+      stallMinutes: 20
       userWaitMinutes: 120
       moments:
         postCompact: false
@@ -55,7 +54,7 @@ SessionInfo 没有后台工作或已接纳 continuation 字段，**本期跳过�
 - 短编号 `T1`、`T2`…按本账本创建顺序持久保存；旧账本按不可变 open 行顺序恢复编号，无须改写旧行。所有接受任务 id 的工具及 parent 同时接受短编号和 UUID。
 - `renderText(board, locale)` / `renderSvg(board, locale)` 为纯投影；locale 以 zh 开头时中文。验收 met 是已有 evidence 的非空项数，不判断证据质量。详情可读取 30 分钟以前的交付。
 - 精确依赖 resvg 2.6.2，把 SVG 转成 PNG，文件保存在插件 data 目录，经现有 `Attachment {kind: image, mime: image/png, uri: file:...}` 发出。**resvg 安装、加载或渲染不可用时退化为文字**，不自制栅格器。PNG 文件保留供既有附件路径使用；无新增清理定时器。
-- `tasks-digest` 在选择 tasks 的 profile 上默认开启；仅对有真实人类 message.in 记录的目标、sender 自己的任务追加。等你优先，其次阻塞、交付，最多五行；仅进行中且无新交付时不追加。相同状态版本/交付对同一目的地只展示一次，重启保留去重。附件无文本、Agent 等非人类目标、插件自身程序消息均不追加。
+- `tasks-digest` 在选择 tasks 的 profile 上默认开启；仅对有真实人类 message.in 记录的目标、sender 自己的任务追加。等你优先，其次阻塞、交付，最多五行；仅进行中且无新交付时不追加。同一目的地对同一进展指纹 6 小时内只展示一次（`DIGEST_TTL_MS`），超过后才允许再次提醒；去重记录持久，重启保留。cancelled 任务不追加。附件无文本、Agent 等非人类目标、插件自身程序消息均不追加。
 - 从 `events.query` 读取目标会话的人类输入时间，超过两小时间隔的首次回复使用“离开期间”措辞；不依赖模型记忆。配置只增加 `tailDigest: {enabled?: boolean, lines?: number}`，默认 true / 5，lines 为 1–5。
 
 ## Views

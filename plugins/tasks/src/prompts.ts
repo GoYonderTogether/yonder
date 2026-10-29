@@ -12,7 +12,6 @@ export const GET = `Read one task with its full history and deliverable.`;
 
 export const SHOW = `Show the task board in the current channel as an image or return it as JSON. Use it when the person asks what is going on or when several tasks are in flight.`;
 
-export const NUDGE = `Steward only. Send an agent a reminder about one of its tasks that has gone quiet. State what you see and what you need back: continue, blocked, or waiting-user. It reaches the agent through its own session and binding.`;
 
 export const TURN_ONE_LINE = (title: string, state: string, elapsed: string, wakeups: number, sinceDelivery: string) =>
   `Task "${title}": ${state}, ${elapsed} in, ${wakeups} wake-ups, ${sinceDelivery} since the last delivery.`;
@@ -20,8 +19,6 @@ export const TURN_ONE_LINE = (title: string, state: string, elapsed: string, wak
 export const STALL_NOTICE = (title: string, state: string, minutes: number) =>
   `Task "${title}" has had no progress for ${minutes} minutes (state: ${state}). If work remains, continue it; if a specific fact or capability stops you, mark it blocked and name it; if you need the person, mark it waiting-user and name the one thing. If it is finished, close it with the evidence.`;
 
-export const NUDGE_INPUT = (title: string, from: string, say: string) =>
-  `Reminder from ${from} about task "${title}": ${say} Reply by continuing the work, or mark it blocked or waiting-user and name the one thing that stops it.`;
 
 export const USER_WAIT_NOTICE = (zh: boolean, title: string, minutes: number, waitingFor: string) => {
   const hours = Math.round(minutes / 60);

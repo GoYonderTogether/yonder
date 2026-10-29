@@ -12,16 +12,15 @@
 
 ## 2 工具
 
-`tasks_open`、`tasks_update`、`tasks_done`、`tasks_list`、`tasks_get`、`tasks_show`、`tasks_nudge`。目标机制照搬 Codex `/goal`：持久目标、每次唤醒重现、软预算、完成前对照证据；不照搬 `update_plan` 清单（业界已将其默认关闭）。工具描述文本是唯一的使用指引，不另设上下文文件。
+`tasks_open`、`tasks_update`、`tasks_done`、`tasks_list`、`tasks_get`、`tasks_show`。目标机制照搬 Codex `/goal`：持久目标、每次唤醒重现、软预算、完成前对照证据；不照搬 `update_plan` 清单（业界已将其默认关闭）。工具描述文本是唯一的使用指引，不另设上下文文件。
 
 ## 3 可见范围
 
 沿用能力模型，不建新权限体系：
 - 默认只读写自己的任务；
 - 主 Agent 另可读自己 sub-agent（`parent` 链）的任务；
-- 持有 `cross-agent` 能力的配置档（管家）可读全部 Agent 进行中的任务，并可调用 `tasks_nudge`。管家不是新角色类型。
+- 持有 `cross-agent` 能力的配置档（管家）可读全部 Agent 进行中的任务。管家不是新角色类型。
 
-`tasks_nudge` 以带来源标记的输入投递到目标 Agent 自己的会话，经其自己的绑定，不绕过任何路由。
 
 ## 4 每次唤醒的重现
 
@@ -33,7 +32,7 @@
 
 | 时点 | 做什么 | 默认 |
 |---|---|---|
-| 滞留 | active 任务超过 N 分钟无进展，且没有后台等待或已接纳的 `task_continue`：提示当前状态，请在继续 / blocked / waiting-user 中选一 | 开 |
+| 滞留 | active 任务超过 N 分钟无进展（N 默认 20，`stallMinutes` 限定 15–30），且没有后台等待或已接纳的 `task_continue`：提示当前状态，请在继续 / blocked / waiting-user 中选一 | 开 |
 | 用户待办 | waiting-user 超过 M 分钟：先由负责该任务的 Agent 自检，仅将确需主人决定的事项纳入提醒汇总 | 开 |
 | 完成后压缩 | done 后 15 分钟对该任务所在会话触发一次上下文压缩，经 `sessions.command(id, "compact")` | 关，实验开关 |
 | 完成后留存 | done 后 30 分钟内，任务仍在“刚完成”分组，用户再提到时可检索其交付；之后折叠 | 关，实验开关 |
@@ -99,4 +98,4 @@ P3a（本期）：TaskBoard、总览与详情、文字尾部清单、桌面/网�
 
 ### 社交通知兼容（CH-01）
 
-启用 social 主动通知出口后，user-wait 产生有稳定任务状态 key 的通知意图，不直接发送；tailDigest 不再附到无关回复。同一任务状态不能同时走旧 moments 和新出口。旧配置仍按旧行为运行；任务事实、board 和手动 nudge 保留。确定性计时不唤醒模型；已有工作继续经原生后台输入接纳。
+启用 social 主动通知出口后，user-wait 产生有稳定任务状态 key 的通知意图，不直接发送；tailDigest 不再附到无关回复。同一任务状态不能同时走旧 moments 和新出口。旧配置仍按旧行为运行；任务事实与 board 保留。确定性计时不唤醒模型；已有工作继续经原生后台输入接纳。

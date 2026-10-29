@@ -113,7 +113,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 ## 任务账本 P3-1（2026-10-25，任务分支待审核）
 
 - 仅 `/Users/zoran/Documents/yonder-harness-tasks`，`feat/task-ledger-20261025`。A `45c69e1` 为 SDK 类型及真实内核投递组件测试；B 为本节记录的 tasks 展示。未推送、发布、安装或操作生产服务；指定 auth 文件仅作为真实模型测试凭据入口。
-- **已实现**：TaskBoard 纯数据投影、固定四组及计数、30 分钟刚完成窗口、每账本稳定 T<n>/UUID 兼容、原可见范围、验收证据计数与父子树；tasks_show board/detail JSON、文字/SVG/resvg PNG；程序附件发送；默认启用的 beforeSend 尾部摘要、每目的地持久去重、事件账本推导的两小时离开摘要。仍无桌面/网页端点、飞书卡、管家视图、后台输出尾部。
+- **已实现**：TaskBoard 纯数据投影、固定四组及计数、30 分钟刚完成窗口、每账本稳定 T<n>/UUID 兼容、原可见范围、验收证据计数与父子树；tasks_show board/detail JSON、文字/SVG/resvg PNG；程序附件发送；默认启用的 beforeSend 尾部摘要、每目的地持久去重（同一进展指纹 6 小时 TTL，`DIGEST_TTL_MS`）、事件账本推导的两小时离开摘要。仍无桌面/网页端点、飞书卡、管家视图、后台输出尾部。
 - **实际验证**：真实 SQLite、loader、kernel、本地 ChannelIO 与附件文件；纯 SVG 被 resvg 真实解析，PNG 文件头校验通过，实际图片已查看（本机 `/tmp/tasks-p3-board.png`）。摘要测试调用真实注册 hook 和事件查询 API，不模拟模型；SDK 测试沿用真实内核 createDelivery/SQLite 协议驱动，未把手工 ToolContext 当真实工具调用。真实 Luna stall 用例单独启用并通过。
 
 原始命令与结果（通过 / 失败 / 跳过；保留失败尝试）：
@@ -144,8 +144,8 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 
 - 范围：仅 `/Users/zoran/Documents/yonder-harness-tasks`，`feat/task-ledger-20261025`；A `abdc211` 为 core 输入通路，B 为 tasks P2。没有推送、发布、生产 home 修改、安装或服务操作；基础分支继续保留 P1 提交。
 - **A 已实现**：仅插件 `sessions.submit → submitFrom` 可向打开的 main/persistent 会话投递；复用原 session.input 落盘、runtime submission、当前 profile/capabilities、busy 队列及恢复机制。事件来源 `plugin:<id>`，模型输入明确为系统提醒、不携带人类授权，不补造 parent/owner 来源。普通 submit 保持 task-only。SDK 仅补注释；spec/02 §5 只更正原本禁止插件向 resident submit 的一句；不改 architecture/decisions。
-- **P2 已实现**：`tasks-moments` Trigger 启动检查并每轮结束约 60 秒再检查；从账本时间推导到期，先追加 moment，再记录 moment-result（API 回执或错误），跨重启按窗口去重。stall 默认 30 分钟、仅 active、followup 到 owner session；user-wait 默认 120 分钟、直发 origin、中文 locale 本地化、不唤醒模型；tasks_nudge 需 cross-agent，以调用方 Agent 名构造维护者 NUDGE_INPUT，输入事件仍为 plugin:tasks。postCompact 默认关闭，done 15 分钟后调用 compact 一次；postRetain 默认关闭，done 30 分钟内 tasks_list 每项 recentlyDone 为 true。只接受 stallMinutes/userWaitMinutes/moments 三个配置键。
-- **实际验证边界**：临时 SQLite、真实插件 loader/kernel/runtime admission、本地协议渠道；beforeRequest 暂停/取消 provider 请求，没有模拟模型。覆盖两个 resident mode、来源与当前能力、busy followup 入队、关闭/未知拒绝、task 输入、持久事件；P2 覆盖非 active 不 stall、窗口内一次、下个窗口重发、真实 kernel 重启不重发、用户通知无模型、缺 origin 跳过、催办到 owner/关闭或缺失拒绝、postCompact 默认关/开启调用后记录真实能力错误且只尝试一次、recentlyDone 30 分钟边界。
+- **P2 已实现**：`tasks-moments` Trigger 启动检查并每轮结束约 60 秒再检查；从账本时间推导到期，先追加 moment，再记录 moment-result（API 回执或错误），跨重启按窗口去重。stall 默认 20 分钟（`stallWindow` 取 15–30）、仅 active、followup 到 owner session；user-wait 默认 120 分钟、直发 origin、中文 locale 本地化、不唤醒模型；cancelled 不产生任何时点，done 只在开启 postCompact 时压缩一次。此后的 `tasks_nudge` 工具已移除（不再注册、无测试，prompts.ts 里的 NUDGE / NUDGE_INPUT 一并删除），跨 Agent 只保留读权限。postCompact 默认关闭，done 15 分钟后调用 compact 一次；postRetain 默认关闭，done 30 分钟内 tasks_list 每项 recentlyDone 为 true。只接受 stallMinutes/userWaitMinutes/moments 三个配置键。
+- **实际验证边界**：临时 SQLite、真实插件 loader/kernel/runtime admission、本地协议渠道；beforeRequest 暂停/取消 provider 请求，没有模拟模型。覆盖两个 resident mode、来源与当前能力、busy followup 入队、关闭/未知拒绝、task 输入、持久事件；P2 覆盖非 active 不 stall、窗口内一次、下个窗口重发、真实 kernel 重启不重发、用户通知无模型、缺 origin 跳过、已移除的 tasks_nudge 当时的 owner 投递与关闭/缺失拒绝、postCompact 默认关/开启调用后记录真实能力错误且只尝试一次、recentlyDone 30 分钟边界。
 
 本次原始命令记录（通过 / 失败 / 跳过；未用后一次成功覆盖失败）：
 
@@ -173,7 +173,7 @@ SDK services 只有 resolve、没有发布注册接口，采用既有私有端�
 | B `npx biome check plugins/tasks/README.md docs/status.md CHANGELOG.md` | exit 1；0 files processed，Biome 不处理这些 Markdown 路径；不算文档 lint 通过 |
 | `git diff --check` | exit 0，无空白错误 |
 
-- 模型原文 `plugins/tasks/src/prompts.ts` 未修改，与 A 及其父提交一致；当前 SHA-256 `4ab808d9f2bfec93efc111838f897e492a09262af09c0e43d24d72aaae52d59c`（本次实测，不回写历史 P1 记录）。工具与时点直接引用原文常量。
+- 模型原文 `plugins/tasks/src/prompts.ts` 未修改，与 A 及其父提交一致；当前 SHA-256 `4ab808d9f2bfec93efc111838f897e492a09262af09c0e43d24d72aaae52d59c`（本次实测，不回写历史 P1 记录）。工具与时点直接引用原文常量。此后 IMP-04 删掉未使用的 NUDGE / NUDGE_INPUT，该文件哈希已变，本条哈希仅作当时的记录。
 - **维护者问题/本期解释**见 [README](../plugins/tasks/README.md#questions-for-the-maintainer)：stall 把 wake 计为账本活动、排除 moment 行；等待从 waiting-user 状态时间起算；waitingFor 最近 note/缺省 objective。先记触发再外调，崩溃窗口可能漏送而不重放未知副作用；postCompact 每任务一次。最近完成保持数组并增加布尔标记，不扩大关闭任务的跨 Agent 可见范围。P1 的 session:<id> origin 继续交已有消息 API 处理，不猜渠道。
 - **明确跳过条件**：SessionInfo 无后台等待/已接纳 continuation 字段，因此按本次授权不判定这项 stall 排除条件。
 - **未测**：新增真实 Luna stall 行为（缺凭据）及其余 38 项默认跳过测试；postCompact 成功压缩/模型完成（协议测试验证的是真实 admin 能力拒绝与错误落账）；真实用户渠道、实际 60 秒墙钟等待、spec 17 §9 的 n≥10 对照、干净 npm ci、生产 Agent/服务、发布升级和生产账本对照。未实现 tasks_show、TaskBoard、投影、尾部摘要或任何完成后复盘时点。

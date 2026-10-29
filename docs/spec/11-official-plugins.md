@@ -58,9 +58,10 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - grep 需要 read，作用域沿用文件工具真实路径规则；不能用只读 grep 调任意 shell，不能跟随符号链接绕过边界。缺 rg 时给出具体依赖诊断，不实现第二个递归搜索引擎。
 - 采用 OpenCode/Hermes 的成熟功能语义，在本项目 runtime 中适配已有 ExecutionEnv；这项基础工具允许进入 core/runtime，但不把插件供应商实现放进去。
 
-### 5.2 Tavily 搜索
+### 5.2 Web 搜索（供应商回退）
 
-- `web-tools` 通过已有 credentials 接口读取 Tavily 凭据引用，独立接通 Search 与 Extract；不读取或复制 AI-Being 的登录/密钥文件。
+- `web-tools` 通过已有 credentials 接口读取各供应商的凭据引用，独立接通 Search 与 Extract；不读取或复制 AI-Being 的登录/密钥文件。
+- 搜索按配置 `providers` 的顺序逐家尝试（tavily / brave / serper），第一家成功即返回；失败过的供应商及其错误写在该 query 的 `failed` 里，全部失败报 `SEARCH_FAILED`。未配置 `providers` 时只走 Tavily，行为不变。显式 Extract 仍只走 Tavily。
 - 搜索支持 query、结果数、general/news、时间范围、包含/排除域、basic/advanced；返回标题、URL、摘要、供应商、时间/相关性等供应商实际提供字段。网络错误与无结果区分，输出不含密钥。
 - 参考 AI-Being 的现有功能，与 OpenClaw/Hermes/OpenCode 对比后移植所需单元；不迁移旧的 Being 配置系统。
 
