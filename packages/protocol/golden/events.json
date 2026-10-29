@@ -653,6 +653,76 @@
 				}
 			}
 		},
+		"session.updated": {
+			"required": ["id", "patch"],
+			"fields": {
+				"id": "string",
+				"patch": {
+					"object": {
+						"required": [],
+						"fields": {
+							"archivedAt": {
+								"union": ["null", "number"]
+							},
+							"channels": {
+								"union": [
+									"null",
+									{
+										"array": "string"
+									}
+								]
+							},
+							"needsOwner": {
+								"union": [
+									"null",
+									{
+										"object": {
+											"required": ["reason", "since"],
+											"fields": {
+												"reason": "string",
+												"since": "number"
+											}
+										}
+									}
+								]
+							},
+							"owner": {
+								"union": [
+									"null",
+									{
+										"object": {
+											"required": ["id", "kind"],
+											"fields": {
+												"id": "string",
+												"kind": {
+													"union": [
+														{
+															"literal": "bot"
+														},
+														{
+															"literal": "owner"
+														}
+													]
+												}
+											}
+										}
+									}
+								]
+							},
+							"parent": {
+								"union": ["null", "string"]
+							},
+							"pinned": {
+								"union": ["boolean", "null"]
+							},
+							"title": {
+								"union": ["null", "string"]
+							}
+						}
+					}
+				}
+			}
+		},
 		"social.policy-change": {
 			"required": ["actor", "after", "before", "reason", "result", "revision"],
 			"fields": {

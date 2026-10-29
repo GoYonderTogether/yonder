@@ -21,7 +21,13 @@ import { ApprovalAnsweredEvSchema, ApprovalRequestedEvSchema } from "./approvals
 import { CapabilitiesChangedEvSchema } from "./capabilities.js";
 import { ModelChangedEvSchema, ModelFallbackEvSchema, ReplyFailedEvSchema } from "./model.js";
 import { NotificationEvSchema, SuggestionCreatedEvSchema } from "./notify.js";
-import { RunEndedEvSchema, SessionLifecycleEvSchema, SessionUpdateSchema, TranscriptItemSchema } from "./session.js";
+import {
+	RunEndedEvSchema,
+	SessionLifecycleEvSchema,
+	SessionUpdatedEvSchema,
+	SessionUpdateSchema,
+	TranscriptItemSchema,
+} from "./session.js";
 import { SocialPolicyChangeEvSchema } from "./social.js";
 import { CompactionEvSchema, ContextUpdatedEvSchema, UsageUpdatedEvSchema } from "./usage.js";
 import { ViewsChangedEvSchema } from "./views.js";
@@ -37,6 +43,7 @@ import {
 export const EVENT_SCHEMAS = {
 	"social.policy-change": SocialPolicyChangeEvSchema,
 	"session.update": SessionUpdateSchema,
+	"session.updated": SessionUpdatedEvSchema,
 	"activity.summary": ActivitySummaryEvSchema,
 	"transcript.item": TranscriptItemSchema,
 	"session.opened": SessionLifecycleEvSchema,

@@ -50,6 +50,35 @@ export const SessionInfoSchema = Type.Object(
 );
 export type SessionInfo = Static<typeof SessionInfoSchema>;
 
+/** contracts §18 `session.updated`: only the workbench fields that changed; `null` clears one. */
+export const SessionWorkbenchPatchSchema = Type.Object(
+	{
+		owner: O(
+			Type.Union([
+				Type.Object(
+					{ kind: Type.Union([Type.Literal("owner"), Type.Literal("bot")]), id: T },
+					{ additionalProperties: false },
+				),
+				Type.Null(),
+			]),
+		),
+		archivedAt: O(Type.Union([N, Type.Null()])),
+		pinned: O(Type.Union([B, Type.Null()])),
+		needsOwner: O(Type.Union([Type.Object({ reason: T, since: N }, { additionalProperties: false }), Type.Null()])),
+		title: O(Type.Union([T, Type.Null()])),
+		channels: O(Type.Union([A(T), Type.Null()])),
+		parent: O(Type.Union([T, Type.Null()])),
+	},
+	{ additionalProperties: false },
+);
+export type SessionWorkbenchPatch = Static<typeof SessionWorkbenchPatchSchema>;
+
+export const SessionUpdatedEvSchema = Type.Object(
+	{ id: T, patch: SessionWorkbenchPatchSchema },
+	{ additionalProperties: false },
+);
+export type SessionUpdatedEv = Static<typeof SessionUpdatedEvSchema>;
+
 export const TranscriptItemSchema = Type.Object(
 	{
 		from: O(T),
