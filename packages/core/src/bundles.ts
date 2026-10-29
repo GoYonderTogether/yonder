@@ -80,6 +80,7 @@ const full: Bundle = {
 		{ use: "@yonder/plugin-codex-tools" },
 		{ use: "@yonder/plugin-media-tools" },
 		{ use: "@yonder/plugin-devices" },
+		{ use: "@yonder/plugin-market" },
 	],
 	channels: defaults.channels,
 };

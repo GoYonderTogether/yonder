@@ -386,3 +386,18 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 ## advisor：可选咨询及结果记录
 
 - **包**：`@yonder/plugin-advisor`；**工具**：`advisor_ask_advisor`（旧名 `advisor_consult` 保留为别名）、`advisor_record_advisor_outcome`。仅选中插件时提供，默认关闭结果记录；配置与重启边界见 [README](../plugins/advisor/README.md)。
+
+## market：社交云端市场
+
+- **包**：`@yonder/plugin-market`，id `market`；[README](../plugins/market/README.md)、[源码](../plugins/market/src/index.ts)。只在 `full` 发行包加载，`core`/`default` 不含，需显式加入 `plugins` 并配置设备令牌。
+- **贡献**：工具 `market_search`、`market_get`、`market_publish`、`market_inquire`、`market_watch`（均需 `network`）；视图 `market.panel`（rail/session）；触发器 `market`（只驱动本插件的找东西排程）。
+- **接入**：配置 `{ "endpoint": "https://yonder.zethai.cn", "credential": "market" }`；`endpoint` 缺省与 channel-card 相同的社交云端，`credential` 是 `yonder.yaml` credentials 里的设备令牌引用（缺省 `market`），须解析为 `api_key`。缺凭据时工具回 `not_signed_in` 且不发请求。
+- **可调用工具**（契约 §19.4/§19.7）：
+  - `market_search`：`q`、`kind`、`category`、`city`、`min`、`max`、`sort`、`limit`（默认 10）、`cursor`；回 `{items, nextCursor?}`。
+  - `market_get`：`id`；`includeInquiries` 仅对自己的发布有效，额外回 `{inquiries}`。
+  - `market_publish`：`action` create/update/pause/resume，全部要求 `ownerApproved: true`，否则回 `approval_required` 且不发请求；create 先在本地校验 kind/category/title/description/price/location。
+  - `market_inquire`：list/read 无需确认；send/reply 要求 `ownerApproved: true`。
+  - `market_watch`：create/list/update/delete/check；`check` 只返回云端没提示过的新匹配，是否已提示以云端 seenIds 为准。
+- **找东西排程**：create/update 后本插件按 `frequency`（hourly/daily，manual 不排程）自行计时，到点调 `POST /watch-tasks/:id/check`；有新匹配时把卡片（标题 + 每条 title、价格、地点、id）写进创建者 Agent 开着的主对话，只通知主人，不联系卖家。`list` 以云端为准重建本地排程。
+- **视图**：`market.panel` 列「我的发布」「收到的询问（未读数）」「找东西任务」，数据取自 §19.4 的既有接口，不另设后端。
+- **边界**：不创建 cron 作业（spec/15 不允许插件自建作业），排程由本插件触发器驱动，不出现在 `cron list`，插件未加载时不检查；图片上传、限流数值、审核举报与 `ownerApproved` 升级内核审批仍未定（契约 §19.9）。工具说明文案由提示词流程维护，本插件只提供 schema 与行为。
