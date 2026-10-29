@@ -1,4 +1,4 @@
-import type { RunResult, SessionInfo, YEvent } from "@yonder/sdk";
+import type { Attachment, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { Runtime } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 
@@ -40,14 +40,20 @@ export async function notifySession(
 	runtime: () => Runtime,
 	closing: Set<string>,
 	id: string,
-	input: { event: string; text: string },
+	input: { event: string; text: string; attachments?: Attachment[] },
 	from: string,
 ) {
 	if (!from.trim()) throw new Error("Notification requires a program source");
-	if (!input.event || typeof input.text !== "string" || !input.text.trim())
-		throw new Error("Notification requires an event and text");
+	if (!from.trim()) throw new Error("Notification requires a program source");
+	if (!input.event || typeof input.text !== "string") throw new Error("Notification requires an event and text");
 	const session = await store.sessions.get(id);
 	if (!session || session.closed || closing.has(id)) throw new Error(`Not an open session: ${id}`);
-	if (!(await store.events.get(input.event))) throw new Error(`Unknown notification event: ${input.event}`);
-	return runtime().notify(id, { ...input, from });
+	const source = await store.events.get(input.event);
+	if (!source) throw new Error(`Unknown notification event: ${input.event}`);
+	// 06 §2：只带附件的消息正文为空也是完整消息；附件记在该消息事件上。
+	const attachments =
+		input.attachments ?? (source.data as { attachments?: Attachment[] } | undefined)?.attachments ?? [];
+	if (!input.text.trim() && !attachments.length)
+		throw new Error("Notification requires an event and text or an attachment");
+	return runtime().notify(id, { ...input, from, ...(attachments.length ? { attachments } : {}) });
 }

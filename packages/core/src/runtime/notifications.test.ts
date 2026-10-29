@@ -123,3 +123,59 @@ test("native program notifications persist once without model messages and repla
 		await rm(home, { recursive: true, force: true });
 	}
 });
+
+test("an attachment-only notification is recorded while an empty one still fails", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-notifications-media-"));
+	const path = join(home, "state.db");
+	let runtime: Runtime | undefined;
+	try {
+		const db = await openDatabase(path);
+		const store = await createStore(db);
+		const options = {
+			home,
+			config: { schema: 1 as const },
+			resolveSession: async () => ({ agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) }),
+			onRun: async () => {},
+		};
+		runtime = await Runtime.open({ ...options, db });
+		const current = runtime;
+		const sessions = createSessions({
+			store,
+			home,
+			config: { schema: 1 },
+			version: "notification-check",
+			agents: new Map(),
+			pluginPresets: new Map(),
+			homePresets: new Map([["default", { id: "default", description: "Native notification check" }]]),
+			runtime: () => current,
+		});
+		const session = await sessions.api.open({ preset: "default", close: "manual" });
+		const attachment = { kind: "image" as const, mime: "image/png", uri: "file:///tmp/board.png", name: "board.png" };
+		// The console has no transport: a delivered attachment-only message is the message.out event itself.
+		const media = await store.events.record({
+			type: "message.out",
+			from: "agent:main",
+			conv: "conv:console:main",
+			data: { to: "conv:console:main", text: "", attachments: [attachment], delivery: { ok: true } },
+		});
+		expect(await sessions.notifyFrom(session.id, { event: media.id, text: "" }, "agent:main")).toMatchObject({
+			session: session.id,
+			event: media.id,
+			recorded: true,
+		});
+		expect((await runtime.transcript(session.id))[0]).toMatchObject({ kind: "yonder.notification", text: "" });
+		const empty = await store.events.record({
+			type: "message.out",
+			from: "agent:main",
+			conv: "conv:console:main",
+			data: { to: "conv:console:main", text: "", delivery: { ok: true } },
+		});
+		await expect(sessions.notifyFrom(session.id, { event: empty.id, text: "" }, "agent:main")).rejects.toThrow(
+			"Notification requires an event and text or an attachment",
+		);
+		await sessions.api.close(session.id);
+	} finally {
+		await runtime?.close();
+		await rm(home, { recursive: true, force: true });
+	}
+});
