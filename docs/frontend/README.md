@@ -3,7 +3,7 @@
 > 这不是规范，也不改设计。这里只记录**当前实现里能读到的事实**：路由是什么、页面由谁渲染、数据从哪个 hook 与哪个协议方法来、哪些状态有证据、哪些只是目标。
 > 规范以 `docs/spec/` 为准，目标页面树在维护者私有目录（见文末链接）；两者与实现不一致时，以规范和页面树为目标，以本文和 `state-matrix.md` 为实现证据。
 
-- 证据基线：`10fef489cbf1`（2026-10-29 01:46 -04）。行号会随并行开发漂移，检索时优先用符号名（组件名、方法名、导出函数名）。
+- 证据基线：`35b81d171f13`（2026-10-29 01:55 -04；行号按此 commit 复核）。行号会随并行开发漂移，检索时优先用符号名（组件名、方法名、导出函数名）。核对该基线后 `apps/app` 仍在被并行修改，若行号对不上，以当前源码与符号为准。
 - 本目录三份文件：本文件（入口与路由/数据映射）、[state-matrix.md](state-matrix.md)（每页必须覆盖的状态组合）、[review.md](review.md)（Hallmark 静态检查原始结果与适用边界）。
 - 私有参考资料（不在本仓库，正文不依赖它们才能读）：`/Users/zoran/Documents/yonder-lead/program/page-tree.md`、`.../program/requirements/FE.md`、`.../program/tasks/FE/T-FE-04.md`、`.../program/tasks/FE/T-FE-10.md`。
 
@@ -59,9 +59,9 @@
 ## 4. 规范目标与实现证据的差异（要点）
 
 1. **公开路由绕过网关登录，但只绕过外壳门控，不绕过网关本身。** `App` 在 `authed` 判定之前直接渲染 `public: true` 的页面（`App.tsx:23-29`），所以浏览器不会被重定向去粘贴令牌；但页面发出的 `/api/*` 请求仍由网关决定 401/404，静态资源也仍由网关托管。真实网关下「公开页可用」只对社交后端成立，对同源网关接口不成立。
-2. **`#/me` 的归属矛盾。** 注册表把 `me` 指向社交 `Profile`（`registry.ts:38-42`），而外壳把 `route.tab === "me"` 渲染成 `Settings` 侧栏（`Shell.tsx:40-41`）。桌面宽屏下主区是社交个人页、侧栏是网关设置；手机/功能页形态下侧栏不渲染（`Shell.tsx:70-82`、`layoutMode.ts:74-78`），设置只能从社交个人页里那个「设置」弹窗进（`Profile.tsx:371-386`）。两个「设置」不是同一套内容：`Settings` 是网关账号/节点/通知/关于/退出，`Profile` 弹窗是社交昵称与社交退出。
+2. **`#/me` 的归属矛盾。** 注册表把 `me` 指向社交 `Profile`（`registry.ts:38-42`），而外壳把 `route.tab === "me"` 渲染成 `Settings` 侧栏（`Shell.tsx:40-41`）。桌面宽屏下主区是社交个人页、侧栏是网关设置；手机形态下第二列落在主区（`layoutMode.ts:74-78` 的 `sideOf`），功能页/会话形态下两侧都不渲染（`Shell.tsx:70-82,93-100`），设置只能从社交个人页里那个「设置」弹窗进（`Profile.tsx:379-400`）。两个「设置」不是同一套内容：`Settings` 是网关账号/节点/通知/关于/退出，`Profile` 弹窗是社交昵称、账号与安全（绑定/换绑）与社交退出。
 3. **能力表已落地但还没有消费方。** `capabilities/facts.ts`、`capabilities/features.ts`、`api/capabilities.ts` 已有（提交 `dea93f8`，T-FE-04），`useFeature` 也在 `api/capabilities.ts:48` 导出；但 `git grep "useFeature("` 在 `apps/app/src` 里只命中定义处，UI 尚未按表隐藏/禁用。顶栏现在只由 `window.__YONDER_SHELL__` 注入决定（`lib/shell.ts:9-11`、`ui/TopBar.tsx:7-9`），不再从节点事实推断——这是相对派单时「未实现」的新事实，是否视为 T-FE-04 完成需维护者确认。
-4. **T-FE-10 的交付物已在仓库里。** `features/social/lib/session.ts` 用纯函数把社交会话映射为 unknown/guest/anonymous/human/error 五态（`:14-33`），`Profile` 与 `SocialLogin` 已接（`Profile.tsx:223-245`、`SocialLogin.tsx:19-73`）；`test/socialSession.test.ts` 覆盖映射与表单校验。是否作为卡片的最终验收仍以维护者为准。
+4. **T-FE-10 的交付物已在仓库里，并已扩到验证码登录。** `features/social/lib/session.ts` 用纯函数把社交会话映射为 unknown/guest/anonymous/human/error 五态（`:14-33`），`Profile` 已接（`Profile.tsx:233-256`）。`SocialLogin` 现在只是 `VerifyCodeForm` 的外壳（`SocialLogin.tsx:13-38`）：手机/邮箱收验证码、首次验证即注册、没有密码；表单状态机与错误分类在 `features/social/VerifySheet.tsx`（`CodeForm`、`VerifyCodeForm`、`VerifySheet`）与 `lib/session.ts` 的 `verifyErrorText`/`needsVerify`。`test/socialSession.test.ts`、`test/social/verify.test.ts` 覆盖映射、校验与错误文案。`#/me` 设置弹窗里的「账号与安全」用 `AccountSecurity.tsx` 做绑定/换绑，换绑后清本地社交缓存（服务端已撤销会话）。是否作为卡片的最终验收仍以维护者为准。
 5. **`capabilities.get` 的返回与 `NodeFacts` schema 不一致。** schema 要求 `minor`、`node`、`views`、`models`、`remoteSession`、`auth`（`packages/protocol/src/gateway/capabilities.ts:16-51`），处理器只返回 `protocol/kind/version/methods/events/plugins/granted/limits/features`（`capabilities-methods.ts:27-37`）。前端类型按 schema 断言，运行时字段缺失：`api/nodes.ts:122-124` 对 `facts.node?.id` 做兜底并报「节点没有返回 node.id」，即添加远程节点在当前网关上必然失败。网关不校验响应体，所以不会在服务端报错。
 6. **动态能力/数据缺失混在一起。** `#/market` 是纯占位文案（`features/market/Market.tsx:1-2`）；右栏 `goal`/`attachments`/`views`/`wake` 面板一律诚实空态并标出缺哪项契约（`ui/PanelBody.tsx:225-237`）；`background` 面板依赖 `views.data` 的 `core.background.<placement>`（`:68,74-85`），它是当前唯一真实消费 views 的地方。
 7. **通知只有桌面壳原生一条路。** `NotifyHost` 要求同时有 `__YONDER_SHELL__` 与 `__TAURI_INTERNALS__`，否则直接 return（`features/notify/NotifyHost.tsx:8-20`）；没有 Web Notification、没有 `showNotification`（`public/yonder-sw.js` 只缓存 `assets/`，并旁路 `/api`、`/ws` 与导航，`:9-11,51-57`）；协议里有 `notification` 事件（`packages/protocol/src/gateway/notify.ts:13-17`），但 `activity.watch` 才是当前订阅入口。

@@ -130,11 +130,11 @@ Hallmark 的「Floor」大部分是面向营销页的；对 `apps/app` 这种 ap
 
 | 检查 | 命令 | 结果 |
 |---|---|---|
-| 类型检查 | `npm run typecheck -w @yonder/app` | 01:42 与 01:48 两次均退出码 0（`adaefd1ba96b` / `10fef489cbf1`） |
+| 类型检查 | `npm run typecheck -w @yonder/app` | 01:42、01:48、01:58 三次均退出码 0（`adaefd1ba96b` / `10fef489cbf1` / `35b81d171f13`） |
 | 前端测试（01:48） | `npx vitest run apps/app/test` | **43 文件 / 366 用例：358 通过，8 失败**。失败在 `test/social/SocialChat.test.tsx`（2，`ReferenceError: location is not defined`）与 `test/social/SocialLogin.test.tsx`（6，测试仍按邮箱密码表单断言，而组件已改为验证码/手机号文案）。属并行开发中的测试与实现不同步 |
-| 前端测试（01:54） | 同上 | **46 文件 / 408 通过，0 失败**。期间有并行提交补上了 `VerifySheet`/`AccountSecurity` 的测试并改了两处旧断言；**不是本任务修复**，本任务没有改 `apps/app` 源码 |
+| 前端测试（01:54、01:58） | 同上 | **46 文件 / 408 通过，0 失败**（两次一致）。期间有并行提交补上了 `VerifySheet`/`AccountSecurity` 的测试并改了两处旧断言；**不是本任务修复**，本任务没有改 `apps/app` 源码 |
 | Biome（01:42） | `npx biome check apps/app/src` | 3 个错误（`capabilities/features.ts` 格式类），并行提交产生 |
-| Biome（01:54） | 同上 | 124 文件，无错误 |
-| Hallmark lint | 见 §2/§3 | 首跑 5 FAIL/1 REFLEX/2 WARN（65 文件）；复跑 49 FAIL/1 REFLEX/2 WARN（72 文件），差异原因已列 |
+| Biome（01:54、01:58） | 同上 | 124 文件，无错误 |
+| Hallmark lint | 见 §2/§3 | 首跑 5 FAIL/1 REFLEX/2 WARN（65 文件）；01:58 复跑 49 FAIL/1 REFLEX/2 WARN（72 文件），差异原因已列 |
 | 浏览器 render | — | **未测** |
 | 真实网关 / 社交 / 设备 | — | **未测** |

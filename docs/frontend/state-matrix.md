@@ -1,15 +1,15 @@
 # 前端状态矩阵（页 × 维度 × 状态）
 
 > 事实文档，不是规范。「目标显示」一栏是**为讨论准备的候选**，不是已批准设计；需要产品决定的地方集中在 §6。任何一条与 `docs/spec/`、页面树冲突时，以后两者为准。
-> 证据基线：`10fef489cbf1`。路径相对仓库根；检索优先用符号名。
+> 证据基线：`35b81d171f13`（行号按此 commit 复核）。路径相对仓库根；检索优先用符号名。
 
 ## 1. 这不是笛卡尔积
 
 维度之间并不独立组合。下面每张页面表只列**该页真实可能同时出现**的组合，其余组合要么在架构上不可达，要么应折叠成同一种显示。三条已由主 Agent 确定的独立性事实（本文按此组织，不自行改动）：
 
 1. **公开路由绕过 gateway 登录，但不绕过 gateway 本身。** `App` 先渲染 `public: true` 页面再判 `authed`（`apps/app/src/App.tsx:23-29`），所以 `#/u`、`#/p`、`#/g`、`#/get`、`#/connect` 不会把浏览器踢到令牌登录页；但页面自己发的 `/api/*` 仍由网关按登录态回答（`packages/gateway/src/server.ts:236-247`）。
-2. **网关登录与社交登录是两条独立事实。** 网关登录态来自 `capabilities.get` 是否成功（`App.tsx:15-21`）；社交登录态来自社交后端 `/api/session`（`apps/app/src/features/social/Profile.tsx:222-223`，纯函数映射在 `features/social/lib/session.ts:14-33`）。两条都可能有 unknown / no / yes / error，且可以任意交叉。
-3. **设备绑定、设备在线、节点可达是三个独立事实。** 绑定来自社交后端 `/api/devices`（`api/social/http.ts:79-83` 的 `devices`、`DeviceSheet`），在线是节点给的 `Device.online`/`Actor.online` 布尔，节点可达是网关 WS 连接状态（`apps/app/src/api/stream.ts:4` 的 `connecting | open | down`）。社交后端不可达时，绑定与在线都无从谈起，但网关仍可能可达；反之亦然。
+2. **网关登录与社交登录是两条独立事实。** 网关登录态来自 `capabilities.get` 是否成功（`App.tsx:15-21`）；社交登录态来自社交后端 `/api/session`（`apps/app/src/features/social/Profile.tsx:35-36`，纯函数映射在 `features/social/lib/session.ts:14-33`）。两条都可能有 unknown / no / yes / error，且可以任意交叉。
+3. **设备绑定、设备在线、节点可达是三个独立事实。** 绑定来自社交后端 `/api/devices`（`api/social/http.ts:85-94` 的 `devices`/`createInvite`/`deviceCode`/`confirmDevice`、`DeviceSheet`），在线是节点给的 `Device.online`/`Actor.online` 布尔，节点可达是网关 WS 连接状态（`apps/app/src/api/stream.ts:4` 的 `connecting | open | down`）。社交后端不可达时，绑定与在线都无从谈起，但网关仍可能可达；反之亦然。
 
 其余折叠规则：
 
@@ -27,7 +27,7 @@
 | `forbidden` | 已登录但没有该 scope | `RpcError.code === "forbidden"`（`api/client.ts:65`，网关 `/api/rpc` 403 或 body 内 code，`server.ts:176`）；WS `end{reason:"forbidden"}`（`server.ts:409`） | 远程令牌无 owner 看 Bot 会话；非 owner 调 `bots.*` |
 | `unsupported` | 方法/契约不存在 | `RpcError.code === "unknown_method"`（`packages/core/src/control/methods.ts:63`）；或 `capabilities.get` 的 `methods` 里没有该方法 | `update.*` 空表、`approvals.*` 空表、views 未注册 |
 | `unbound` | 服务在、实体未绑定 | `Device.online`、`Actor.deviceId`、`Agent.online`；`Profile` 的「连接设备后，Agent 会出现在这里」 | 社交账号存在但没绑定任何设备/Agent |
-| `offline` | 实体存在但当前不可达 | `mux.state === "down"`（`ui/Banner.tsx:5-16`）；`Device.online === false`；`Actor.online === false`；`SocialChat` 的「Agent 离线，消息会保留」（`:148`） | 断网、桌面壳未启动、远程节点关机 |
+| `offline` | 实体存在但当前不可达 | `mux.state === "down"`（`ui/Banner.tsx:5-16`）；`Device.online === false`；`Actor.online === false`；`SocialChat` 的「Agent 离线，消息会保留」（`SocialChat.tsx:170`） | 断网、桌面壳未启动、远程节点关机 |
 
 补充：`gateway error` 与 `gateway unknown` 在 `App` 里被合并成同一屏文案（`App.tsx:40-45`：`facts.isError ? 无法连接网关：… : 连接中…`），但两者语义不同（连不上 vs 还没连），见 §6 第 1 项。
 
@@ -39,9 +39,9 @@
 
 | 组合 | 目标显示（候选） | 现状证据 | 缺口 |
 |---|---|---|---|
-| social pending | 骨架/「正在加载资料…」 | `CardPage.tsx:135-145`；`Profile.tsx:37-42` | — |
-| social empty（id 无对应） | 「这个资料不存在或无法访问」+ 返回 | `CardPage.tsx:162-167`；`Profile.tsx:56-62` | — |
-| social error（网络/5xx） | 「加载资料失败」+ 重试 | `CardPage.tsx:146-161`；`Profile.tsx:43-54` | — |
+| social pending | 骨架/「正在加载资料…」 | `CardPage.tsx:135-145`；`Profile.tsx:38-42` | — |
+| social empty（id 无对应） | 「这个资料不存在或无法访问」+ 返回 | `CardPage.tsx:162-167`；`Profile.tsx:58-64` | — |
+| social error（网络/5xx） | 「加载资料失败」+ 重试 | `CardPage.tsx:146-161`；`Profile.tsx:44-57` | — |
 | **社交后端未接入（网关 404）** | 应显示「社交服务未接入」，**不能**说「不存在」 | `api/social/http.ts:21`：任何 404 一律 `null`；网关对未知 `/api/*` 返回 404（`server.ts:246`） | 现会被渲染成「这个资料不存在」——把 `unsupported` 误报成 `empty` |
 | gateway no + social human | 页面照常可用；不出现「登录网关」提示 | `App.tsx:23-29` 先渲染 public | — |
 | social anonymous | 可看；「开始聊天」会复用访客身份（`CardPage.tsx:33-38`） | 已有 | 「加好友」提示注册（`CardPage.tsx` 好友按钮分支） |
@@ -122,16 +122,16 @@
 
 | 组合 | 目标显示（候选） | 现状证据 | 缺口 |
 |---|---|---|---|
-| pending | 「正在加载会话…」 | `SocialChat.tsx:62-67` | — |
-| 会话不存在（resolve 404） | 「会话不存在或无法访问」+ 回消息 | `:88-96` | 与「社交后端未接入」不可分（`http.ts:21`） |
-| error | 「会话加载失败。」+ 重试 | `:68-87` | — |
-| empty（无消息） | 「还没有消息」 | `:136` | — |
-| DM 对方 Agent 离线 | 输入框提示「Agent 离线，消息会保留」 | `:148` | 发送仍可点，符合候选 |
-| social no | 页面不强制登录；发送 401 显示错误 | `http.ts:20-27` | 无「先登录」引导；`resolve` 也可能 401 |
-| 新消息到达 | 无实时更新，仅手动刷新 | `:43` TODO | 「消息不实时」是当前最大缺口之一 |
-| 发送失败 | 行内 `role=alert` | `:172-176` | — |
-| markRead 失败 | toast「标记已读失败」 | `:36-39` | — |
-| 群聊 / notice | 群不显示对方在线标签；notice 不可输入 | `:118-122,140` | — |
+| pending | 「正在加载会话…」 | `SocialChat.tsx:85-90` | — |
+| 会话不存在（resolve 404） | 「会话不存在或无法访问」+ 回消息 | `:111-118` | 与「社交后端未接入」不可分（`http.ts:21`） |
+| error | 「会话加载失败。」+ 重试 | `:91-110` | — |
+| empty（无消息） | 「还没有消息」 | `:158` | — |
+| DM 对方 Agent 离线 | 输入框提示「Agent 离线，消息会保留」 | `:170` | 发送仍可点，符合候选 |
+| social no | 页面不强制登录；发消息遇访客额度用尽时弹验证码窗，保留待发内容并在验证成功后重发 | `:66-82`、`:202`；`needsVerify` 在 `lib/session.ts:207-215` | 只有 `verify_required` 走这条；其他 401 仍只显示错误；`resolve` 也可能 401 |
+| 新消息到达 | 无实时更新，仅手动刷新 | `:54` TODO | 「消息不实时」是当前最大缺口之一 |
+| 发送失败 | 行内 `role=alert` | `:194-198` | — |
+| markRead 失败 | toast「标记已读失败」 | `:49` | — |
+| 群聊 / notice | 群不显示对方在线标签；notice 不可输入 | `:140,162` | — |
 
 ### 3.8 通讯录 `#/contacts`（外壳侧栏）
 
@@ -168,19 +168,19 @@
 
 | 组合 | 目标显示（候选） | 现状证据 | 缺口 |
 |---|---|---|---|
-| 主区社交 personal：social unknown | 「正在加载资料…」 | `Profile.tsx:233-238` | — |
-| social error | 「加载资料失败：<原因>」+ 重试 | `:239-244` | — |
-| social guest | 「登录或注册」+ 登录表单 | `:245-256` | — |
-| social anonymous | 身份卡 + 「注册后可加好友」+ 登录表单 | `:305-314` | — |
-| social human + agents pending | 「正在加载 Agent…」 | `:322-325` | — |
-| + agents error | 「加载 Agent 失败」+ 重试 | `:326-329` | — |
-| + agents empty | 「连接设备后，Agent 会出现在这里」 | `:353` | 对应 `unbound`，文案已区分于 error |
+| 主区社交 personal：social unknown | 「正在加载资料…」 | `Profile.tsx:234-239` | — |
+| social error | 「加载资料失败：<原因>」+ 重试 | `:240-245` | — |
+| social guest | 「登录或注册」+ 登录表单 | `:246-258` | — |
+| social anonymous | 身份卡 + 「注册后可加好友」+ 登录表单 | `:314-323` | — |
+| social human + agents pending | 「正在加载 Agent…」 | `:330-333` | — |
+| + agents error | 「加载 Agent 失败」+ 重试 | `:334-337` | — |
+| + agents empty | 「连接设备后，Agent 会出现在这里」 | `:361` | 对应 `unbound`，文案已区分于 error |
 | 侧栏 `Settings`：facts pending | 「加载中…」 | `Settings.tsx:29` | — |
 | facts error | 原始错误消息 | `:30` | 未包装成「网关不可达」 |
 | 节点列表 | 本机恒在 + 远程地址 | `NodesSection.tsx:14-125` | 无「节点不可达」态；`nodes.ts` 只存地址与 active，不做健康检查 |
 | 更新 | `update.status` 不存在时「当前网关没有提供更新方法」 | `api/update.ts:55`；`update-methods.ts:3` 空表 | 正确区分 `unsupported`；但 `state.state === "idle"` 的「检查并下载」按钮永远不可达（方法不存在） |
 | 更新远程节点 | 「远程连接不能操作本机更新」 | `api/update.ts:54` | — |
-| 退出登录 | 退出社交 / 退出网关是两个按钮 | `Profile.tsx:382`（社交）；`Settings.tsx:43-49`（网关） | 用户可能只退一边；是否需要联动待定 |
+| 退出登录 | 退出社交 / 退出网关是两个按钮 | `Profile.tsx:396-398`（社交，账号与安全分区之后）；`Settings.tsx:43-49`（网关） | 用户可能只退一边；是否需要联动待定 |
 | 未登录社交但已登录网关 | `#/me` 显示社交登录，同时侧栏显示网关设置 | 现状 | 「我」同时代表两个账号，命名待定 |
 
 ### 3.11 通知 / PWA
