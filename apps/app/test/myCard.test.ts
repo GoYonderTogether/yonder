@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Card } from "../src/api/types";
-import { canSaveCard, draftInput, formFromCard, pickMyCard, wantCardLogin } from "../src/lib/myCard";
+import {
+	botCards,
+	botDraftInput,
+	canSaveCard,
+	draftInput,
+	formFromCard,
+	pendingBotCards,
+	pickMyCard,
+	wantCardLogin,
+} from "../src/lib/myCard";
 
 const card = (o: Partial<Card>): Card => ({
 	id: "c",
@@ -46,5 +55,32 @@ describe("myCard", () => {
 	it("login link carries next and the share token only when present", () => {
 		expect(wantCardLogin()).toBe("/login?next=%2Fme%3Fcard%3Dnew");
 		expect(wantCardLogin("tok")).toBe("/login?next=%2Fme%3Fcard%3Dnew&share=tok");
+	});
+});
+
+describe("bot cards", () => {
+	const list = [
+		card({ id: "me-default", kind: "default" }),
+		card({ id: "b1", ownerId: "bot", kind: "agent", updatedAt: 1 }),
+		card({ id: "b2", ownerId: "bot", kind: "agent", status: "published", updatedAt: 2 }),
+		card({ id: "recv", ownerId: "other", mine: false }),
+	];
+	it("lists only cards owned by my bots, newest first", () => {
+		expect(botCards(list, "me").map((c) => c.id)).toEqual(["b2", "b1"]);
+		expect(botCards(undefined, "me")).toEqual([]);
+	});
+	it("pending are the unpublished ones", () => {
+		expect(pendingBotCards(botCards(list, "me")).map((c) => c.id)).toEqual(["b1"]);
+	});
+	it("keeps the bot's display and face when saving", () => {
+		const c = card({ display: { kind: "svg", source: "<svg/>" }, face: { theme: "ink" } });
+		expect(botDraftInput(c, { title: " 店 ", tagline: " 简 ", markdown: " 介绍 " })).toEqual({
+			title: "店",
+			tagline: "简",
+			markdown: "介绍",
+			display: c.display,
+			face: c.face,
+		});
+		expect(botDraftInput(card({}), { title: "a", tagline: "", markdown: "" })).not.toHaveProperty("display");
 	});
 });

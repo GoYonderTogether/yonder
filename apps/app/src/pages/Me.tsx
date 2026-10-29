@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
 import { AccountSecurity } from "../components/AccountSecurity";
+import { BotCards } from "../components/BotCards";
 import { CreateBotDialog } from "../components/CreateBotDialog";
 import { MyCard } from "../components/MyCard";
 import { MyMarket } from "../components/market/MarketStats";
@@ -182,6 +183,7 @@ export function Me() {
 					</>
 				) : (
 					<>
+						<BotCards />
 						<MyCard />
 						<MyMarket />
 						<section aria-label="我的 Bot" className="overflow-hidden rounded-card bg-raised">
