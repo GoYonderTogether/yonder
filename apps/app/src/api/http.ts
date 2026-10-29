@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import type { Actor, Card, CodeSent, Conversation, Device, Message, MessageContent, Session, ShareLink } from "./types";
+import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
 
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
 const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? "";

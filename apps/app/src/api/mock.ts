@@ -453,12 +453,15 @@ export const mockApi: ApiClient = {
 							.filter((a) => a.ownerId === id && a.public)
 							.map((a) => ({ ...a, summary: [...published.values()].find((c) => c.ownerId === a.id)?.summary ?? null }))
 					: [],
-			owner: actor.ownerId ? { ...actors.get(actor.ownerId)! } : null,
+			owner: (() => {
+				const owner = actor.ownerId ? actors.get(actor.ownerId) : undefined;
+				return owner ? { ...owner } : null;
+			})(),
 		};
 	},
 	async setAgentPublic(id, isPublic) {
 		const actor = actors.get(id);
-		if (!actor || actor.kind !== "agent" || actor.ownerId !== session?.actor.id) throw new Error("只有主人可以设置");
+		if (actor?.kind !== "agent" || actor.ownerId !== session?.actor.id) throw new Error("只有主人可以设置");
 		actor.public = isPublic;
 		return { ...actor };
 	},

@@ -14,7 +14,7 @@ import { $session } from "../../store";
 import { Avatar, Status } from "../../ui/Avatar";
 import { Button } from "../../ui/Button";
 import { toast } from "../../ui/Toast";
-import { AppBar, BackButton } from "../AppBar";
+import { AppBar } from "../AppBar";
 import { ShareLinks } from "../ShareLinks";
 import { AiBadge } from "./AiBadge";
 
@@ -102,7 +102,7 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 	});
 	const { data: owners = [] } = useQuery({
 		queryKey: ["actors", other?.ownerId],
-		queryFn: () => api.actors([other!.ownerId!]),
+		queryFn: () => api.actors(other?.ownerId ? [other.ownerId] : []),
 		enabled: !!other?.ownerId,
 	});
 	if (!other) return null;
@@ -163,7 +163,7 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 	);
 }
 
-function GroupDetail({ d, onClose }: { d: ConversationDetail; onClose: () => void }) {
+function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 	const nav = useNavigate();
 	const loc = useLocation();
 	const qc = useQueryClient();

@@ -63,20 +63,16 @@ export function PlusMenu() {
 			</DropdownMenu.Root>
 			<Suspense fallback={<span role="status">正在加载…</span>}>
 				{win === "group" && <GroupWindow open onOpenChange={close} />}
-				{desktop && (
-					<>
-						{win === "device" && (
-							<AddDeviceDialog
-								open
-								onOpenChange={close}
-								onConnected={() => {
-									qc.invalidateQueries({ queryKey: ["devices"] });
-									qc.invalidateQueries({ queryKey: ["contacts"] });
-									nav("/contacts");
-								}}
-							/>
-						)}
-					</>
+				{desktop && win === "device" && (
+					<AddDeviceDialog
+						open
+						onOpenChange={close}
+						onConnected={() => {
+							qc.invalidateQueries({ queryKey: ["devices"] });
+							qc.invalidateQueries({ queryKey: ["contacts"] });
+							nav("/contacts");
+						}}
+					/>
 				)}
 			</Suspense>
 		</>

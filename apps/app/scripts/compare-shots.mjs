@@ -207,7 +207,7 @@ async function openBrowser() {
 const evalJs = async (cdp, expression) => {
 	const r = await cdp.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
 	if (r.exceptionDetails)
-		throw new Error(r.exceptionDetails.text + " " + (r.exceptionDetails.exception?.description ?? ""));
+		throw new Error(`${r.exceptionDetails.text} ${r.exceptionDetails.exception?.description ?? ""}`);
 	return r.result.value;
 };
 
@@ -238,6 +238,12 @@ async function shootSite(base, w, h, wait) {
 		await sleep(Number(wait));
 		const snap = async (name) => out.set(name, (await cdp.send("Page.captureScreenshot", { format: "png" })).data);
 		await snap("login");
+		// 移植版登录页默认是验证码表单（FP02-1），原型数据仍用邮箱+密码登录。
+		await evalJs(
+			cdp,
+			`[...document.querySelectorAll("button")].find((b) => b.textContent === "用邮箱和密码登录")?.click()`,
+		);
+		await sleep(300);
 		await type(cdp, 'input[autocomplete="username"]', "demo@example.com");
 		await type(cdp, 'input[type="password"]', "demo-password");
 		await evalJs(cdp, `document.querySelector("form").requestSubmit()`);
