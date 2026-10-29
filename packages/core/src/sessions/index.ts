@@ -17,6 +17,7 @@ import { createBranches } from "./branches.js";
 import { notifySession, recoverSessionInputs } from "./inputs.js";
 import { configureModel, modelList } from "./model-list.js";
 import { botOverview } from "./overview.js";
+import { autoTitle } from "./titles.js";
 import { createWorkbench, type Forward } from "./workbench.js";
 
 interface CreateSessionsOptions {
@@ -301,6 +302,15 @@ export function createSessions({
 				requestId: `event:${event.id}`,
 				attachments: data.attachments ?? [],
 			});
+			if (session.mode === "task" && run.status === "done")
+				void autoTitle({
+					id: session.id,
+					input: data.text,
+					reply: run.text,
+					store,
+					runtime: runtime(),
+					workbench,
+				}).catch(onReport);
 			return {
 				agent: session.agent,
 				session: session.id,
