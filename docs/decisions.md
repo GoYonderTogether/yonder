@@ -733,3 +733,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 实现均为有意变更（f8daeb1 IMP-20 默认名片渠道与 card-owner/card-group 绑定；cf892e2 IMP-22 lazyGroups 默认 code-intel；agents.list 带 owner；44e0e13 IMP-21 config.get/update），测试期望过期，已更新为新行为，断言未放宽；contracts.md 只增补 config.get/config.update 两个方法。
 - IMP-24：新增 subagent 管理动作工具（run/list/status/stop，参数全放 options），仅在 kernel/subagents.ts 导出，未注册进工具表（卡未允许改 kernel/index.ts）；主 Agent 代批 10-29
 - IMP-23：命令表增量放在 core/routing/commands.ts（extraSlashCommands），sdk chatCommands 未改（卡仅允许 routing 文件）；/trust 仅记录 session.trust 事件；/reload 经可选 services.reload。主 Agent 代批 10-29
+
+## 2026-10-29 BE-10 更新自检说明失败事实并可重试（主 Agent 代批 10-29）
+- 核验规则抽到 `packages/core/src/release/verify.ts` 的 `verificationMismatch`，按服务/launchd/安装记录逐条给出不匹配事实，替代笼统的「Updated service is not ready」；失败回执再附服务日志尾部（遇到密钥字样整段省略）与两类实测证据的对策：缺 fd 4 命令能力指向 `yonder service install`，缺包（如 `@yonder/plugin-ui-companion` 已改名）指向 `npm run build:clean`。
+- 新增 `verifyRelease()` 重试入口：不重装、不改 `current`，只对运行中的服务重做核验并新记一条 release.update-result，解决「失败后再 update 只会返回未更新、拿不到 verified 回执」。
+- CLI 未加 `--verify`/`verify` 子命令：卡的范围只到 `packages/core/src/release/**`、`plugins/mcp-client/**`、构建脚本与 tsconfig，`packages/cli` 正被其他 Agent 并发修改；CLI/渠道侧接线留给后续卡。
+- `packages/core/src/runtime/hosted-process.ts:20` 的 fail-closed 错误补上可执行原因（fd 4 必须是 helper socket），判定行为不变。

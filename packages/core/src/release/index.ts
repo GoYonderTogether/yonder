@@ -31,6 +31,7 @@ import {
 } from "./names.js";
 import { canonicalRepository } from "./repository.js";
 import { recordUpdateResult, type UpdateResult } from "./result.js";
+import { describeVerificationFailure, serviceLogTail, verificationMismatch } from "./verify.js";
 
 export * from "./names.js";
 
@@ -807,6 +808,55 @@ async function acquireUpdateLock(install: string): Promise<() => Promise<void>> 
 	}
 }
 
+type ServiceFacts = NonNullable<UpdateResult["service"]>;
+type ServiceSnapshot = Awaited<ReturnType<typeof manageService>>;
+interface ReleaseSource {
+	version: string;
+	home: string;
+	install: string;
+	repository: string;
+	origin: { tag?: string; commit?: string; repository?: string };
+}
+
+/** One read of the running release. Every fact comes from the service; nothing is inferred from disk. */
+async function checkRunningRelease(input: ReleaseSource): Promise<{ service: ServiceFacts } | { reason: string }> {
+	let service: ServiceFacts;
+	try {
+		service = (await requestControl(input.home, { method: "service.info" })) as ServiceFacts;
+	} catch (error) {
+		return {
+			reason: `the service did not answer service.info: ${error instanceof Error ? error.message : String(error)}`,
+		};
+	}
+	let status: ServiceSnapshot;
+	try {
+		status = await manageService("status");
+	} catch (error) {
+		return { reason: `service status failed: ${error instanceof Error ? error.message : String(error)}` };
+	}
+	let current: string | undefined, directory: string | undefined;
+	try {
+		current = await realpath(join(input.install, "current"));
+		directory = await realpath(join(input.install, "versions", input.version));
+	} catch {
+		/* A missing or dangling link is one of the mismatches below. */
+	}
+	const reason = verificationMismatch({ ...input, service, status, current, directory });
+	return reason ? { reason } : { service };
+}
+
+/** The 30 s self-check: the running service must answer with the release that was just installed. */
+async function waitForRunningRelease(input: ReleaseSource) {
+	const deadline = Date.now() + 30000;
+	let last: { service: ServiceFacts } | { reason: string } = { reason: "Updated service is not ready" };
+	do {
+		last = await checkRunningRelease(input);
+		if ("service" in last) return last;
+		if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 1000));
+	} while (Date.now() < deadline);
+	return last;
+}
+
 /** Shared by direct CLI updates and the existing service-external update job. */
 export async function updateRelease(options: UpdateOptions = {}) {
 	const release = await acquireUpdateLock(installPath());
@@ -814,6 +864,59 @@ export async function updateRelease(options: UpdateOptions = {}) {
 		return await performUpdate(options);
 	} finally {
 		await release();
+	}
+}
+
+/**
+ * Re-check the installed release and record a fresh receipt without installing anything: the retry entry for a
+ * failed-or-unknown self-check (09 §9). The facts still come from the running service and the receipt keeps the
+ * version that is actually installed, so a re-check cannot claim work that did not happen.
+ */
+export async function verifyRelease(options: { home?: string; onProgress?: (message: string) => void } = {}) {
+	const install = installPath(),
+		registration = await installedService();
+	const home = registration && resolve(registration.install) === install ? registration.home : options.home;
+	if (!home) throw new Error("No installed service home to verify; install the service or pass --home <dir>");
+	const version = await currentVersion(install);
+	if (!version) throw new Error("No release is installed; run `yonder update --to <tag>` first");
+	const directory = join(install, "versions", version);
+	let origin: { commit: string; tag: string; repository: string };
+	try {
+		origin = JSON.parse(await readFile(join(directory, ".yonder-install.json"), "utf8")) as typeof origin;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+		throw new Error(`Release ${version} has no install record; update again to install a verifiable release`);
+	}
+	const receipt: UpdateResult = {
+		updateId: randomUUID(),
+		install,
+		home: resolve(home),
+		repository: canonicalRepository(origin.repository),
+		version,
+		tag: origin.tag,
+		commit: origin.commit,
+		verified: false,
+		status: "failed-or-unknown",
+	};
+	options.onProgress?.(`Verifying the installed release ${version} without installing it again.`);
+	const checked = await waitForRunningRelease({
+		version,
+		home: receipt.home,
+		install,
+		repository: receipt.repository,
+		origin,
+	});
+	if ("service" in checked) {
+		receipt.service = checked.service;
+		receipt.verified = true;
+		receipt.status = "verified";
+	} else receipt.error = describeVerificationFailure(checked.reason, await serviceLogTail(receipt.home), receipt.home);
+	try {
+		return { ...receipt, event: await recordUpdateResult(receipt) };
+	} catch (error) {
+		const eventError = error instanceof Error ? error.message : String(error);
+		options.onProgress?.(`Verification result was not recorded: ${eventError}`);
+		return { ...receipt, eventError };
 	}
 }
 
@@ -880,40 +983,19 @@ async function performUpdate(options: UpdateOptions) {
 		) {
 			receipt.status = "restart-required";
 		} else {
-			const deadline = Date.now() + 30000;
-			let lastError = "Updated service is not ready";
-			do {
-				try {
-					const service = (await requestControl(receipt.home, { method: "service.info" })) as NonNullable<
-						UpdateResult["service"]
-					>;
-					const status = await manageService("status");
-					if (
-						service.ready === true &&
-						service.version === result.version &&
-						service.commit === origin.commit &&
-						service.home === receipt.home &&
-						service.pid > 0 &&
-						status.loaded === true &&
-						status.pid === service.pid &&
-						status.install === install &&
-						status.home === receipt.home &&
-						origin.tag === receipt.tag &&
-						canonicalRepository(origin.repository) === repository &&
-						/^[a-f0-9]{40}$/u.test(origin.commit) &&
-						(await realpath(join(install, "current"))) === (await realpath(directory))
-					) {
-						receipt.service = service;
-						receipt.verified = true;
-						receipt.status = "verified";
-						break;
-					}
-				} catch (error) {
-					lastError = error instanceof Error ? error.message : String(error);
-				}
-				if (Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 1000));
-			} while (Date.now() < deadline);
-			if (!receipt.verified) receipt.error = lastError;
+			const checked = await waitForRunningRelease({
+				version: result.version,
+				home: receipt.home,
+				install,
+				repository,
+				origin,
+			});
+			if ("service" in checked) {
+				receipt.service = checked.service;
+				receipt.verified = true;
+				receipt.status = "verified";
+			} else
+				receipt.error = describeVerificationFailure(checked.reason, await serviceLogTail(receipt.home), receipt.home);
 		}
 	} catch (error) {
 		receipt.error = error instanceof Error ? error.message : String(error);

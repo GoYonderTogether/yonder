@@ -46,6 +46,7 @@ export {
 	readDocs,
 	releaseInfo,
 	updateRelease,
+	verifyRelease,
 } from "./release/index.js";
 export type { RuntimeActivityExecution, TerminalUpdate } from "./runtime/index.js";
 export { attachmentFromPath } from "./runtime/index.js";

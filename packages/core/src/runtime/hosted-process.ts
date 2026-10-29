@@ -17,7 +17,9 @@ function hostedCommand() {
 	let opened = false;
 	try {
 		if (process.env.YONDER_SERVICE_COMMAND_FD !== "4" || !fstatSync(4).isSocket())
-			throw new Error("Service command capability is missing or invalid");
+			throw new Error(
+				"Service command capability is missing or invalid: fd 4 must be the helper socket; start the service through the installed launcher so the helper supplies it",
+			);
 		opened = true;
 		const buffer = Buffer.alloc(16384);
 		let size = 0;
