@@ -110,6 +110,33 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = [], socia
 	return { db, store, delivery, channel, session, event, bubbles, sent, emit, finish, config, agents };
 }
 
+for (const [name, from, expected] of [
+	["card visitors do not get", ["known", "stranger"], 0],
+	["owner DMs keep", "owner", 1],
+] as const) {
+	test(`fallback notices: ${name} the notice`, async () => {
+		const x = await setup();
+		try {
+			x.config.bindings = [{ id: "source", match: { channel: "card", from }, session: "main", stream: true }] as never;
+			const event = {
+				session: x.session.id,
+				inputs: [x.event.id],
+				state: "fallback" as const,
+				from: { provider: "a", model: "one" },
+				to: { provider: "b", model: "two" },
+				reason: "unavailable" as const,
+			};
+			x.delivery.modelNotice(event);
+			x.delivery.modelNotice({ ...event, state: "recovered" });
+			await new Promise((resolve) => setTimeout(resolve, 300));
+			expect(x.sent.length).toBe(expected * 2);
+		} finally {
+			await x.delivery.close();
+			await x.db.close();
+		}
+	});
+}
+
 test("fallback notices route only to their persisted inputs and replay without duplicate delivery", async () => {
 	const x = await setup();
 	try {

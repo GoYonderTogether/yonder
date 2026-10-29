@@ -1,4 +1,5 @@
 import type { YEvent } from "@yonder/sdk";
+import type { Binding } from "../config/index.js";
 import type { ModelFallbackEvent } from "../runtime/types.js";
 import type { Sessions } from "../sessions/index.js";
 import type { VisibilityDeps } from "./visibility.js";
@@ -7,6 +8,14 @@ export function sourceMessage(event: YEvent): string | undefined {
 	const data = event.data as { msgId?: string; originals?: Array<{ messageId?: string; msgId?: string }> };
 	const original = data.originals?.at(-1);
 	return original?.messageId ?? original?.msgId ?? data.msgId;
+}
+
+/** card 渠道上不含 owner 的绑定即名片访客：回退提示只给主人看，不发给访客（JV2-J04-02）。 */
+function visitorBinding(binding: Binding | undefined): boolean {
+	if (!binding) return false;
+	const channels = [binding.match.channel ?? []].flat();
+	const from = [binding.match.from ?? []].flat();
+	return channels.some((id) => id === "card" || id.startsWith("card-")) && !from.includes("owner");
 }
 
 export function createModelNotice(
@@ -37,7 +46,8 @@ export function createModelNotice(
 							deps.waiting(session, input) === false &&
 							input.conv &&
 							deps.channelFor(input.conv) &&
-							(deps.binding(session, input, config)?.reply ?? "auto") === "auto",
+							(deps.binding(session, input, config)?.reply ?? "auto") === "auto" &&
+							!visitorBinding(deps.binding(session, input, config)),
 					)
 					.map((input) => [input.conv!, input]),
 			);

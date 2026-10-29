@@ -121,7 +121,9 @@ describe("needsVerify", () => {
 	it("only true for the verify_required error code", () => {
 		expect(needsVerify({ status: 403, code: "verify_required" })).toBe(true);
 		expect(needsVerify({ status: 403, code: "share_expired" })).toBe(false);
-		expect(needsVerify(new Error("verify_required"))).toBe(false);
+		// http 客户端抛出的是 Error(message) + status，没有 code 字段（JV2-J05-01 的根因）。
+		expect(needsVerify(Object.assign(new Error("verify_required"), { status: 403 }))).toBe(true);
+		expect(needsVerify(Object.assign(new Error("forbidden"), { status: 403 }))).toBe(false);
 		expect(needsVerify(undefined)).toBe(false);
 	});
 });

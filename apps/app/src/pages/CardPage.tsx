@@ -160,7 +160,7 @@ export function PublicIdentity({
 				<div className="flex flex-wrap gap-2">
 					{!self && (
 						<Button variant="primary" className="h-11" disabled={busyProfile || starting} onClick={hi}>
-							开始聊天
+							和 TA 聊天
 						</Button>
 					)}
 					{!self && !ownedAgent && (

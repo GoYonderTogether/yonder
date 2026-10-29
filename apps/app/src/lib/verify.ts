@@ -130,9 +130,10 @@ export const VERIFY_REQUIRED = "verify_required";
 
 /** 发消息的错误是否是访客超限（该弹登录窗，而不是普通发送失败）。 */
 export function needsVerify(error: unknown): boolean {
-	return (
-		!!error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === VERIFY_REQUIRED
-	);
+	if (!error || typeof error !== "object") return false;
+	// http 客户端的错误没有 code 字段，错误码在 message 里（{"error":"verify_required"} 解析而来）。
+	const { code, message } = error as { code?: unknown; message?: unknown };
+	return code === VERIFY_REQUIRED || message === VERIFY_REQUIRED;
 }
 
 /** 默认重发冷却秒数；服务端给了 retryAfter 就以服务端为准。 */
