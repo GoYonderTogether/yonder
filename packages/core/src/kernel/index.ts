@@ -39,7 +39,7 @@ import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { quotaWire } from "./quota-wire.js";
 import { createSocial } from "./social.js";
-import { runSubagent } from "./subagents.js";
+import { createSubagentTool, runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
 import { credentialsAndModels, filesFor, loadAgents, projectRulesFor, skillsFor, unavailable } from "./workspace.js";
@@ -342,6 +342,11 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			channels: loaded.channels,
 			skills: skills.inspect,
 			loginChannel,
+			// 现有重载能力：watcher 在 watchConfig 之后赋值，调用时才解析。
+			reload: async () => {
+				if (!watcher) throw new Error("Config watcher unavailable");
+				await watcher.reload();
+			},
 		});
 		router = createRouter({
 			channels: loaded.channels,
@@ -381,6 +386,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
+		// SA1：管理动作入口，与 task_run/task_control 同条件提供（权限、预设与两层嵌套限制由 task_run 判定）。
+		tools.push(createSubagentTool(realRuntime, () => tools));
 		for (const { decl, provider } of builtinViews(realRuntime)) loaded.views.register("core", decl, provider);
 		runtime = await Runtime.open({
 			db,

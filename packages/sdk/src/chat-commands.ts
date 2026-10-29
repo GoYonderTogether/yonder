@@ -15,6 +15,14 @@ export const chatCommands = [
 	{ name: "skills", description: "技能 · Skills" },
 	{ name: "stop", description: "中止运行 · Stop" },
 	{ name: "close", description: "关闭任务 · Close task" },
+	{ name: "reload", description: "重载配置 · Reload config", argumentHint: "" },
+	{ name: "copy", description: "复制最近回复 · Copy last reply", argumentHint: "" },
+	{ name: "name", description: "命名会话 · Name session", argumentHint: "<标题>" },
+	{ name: "trust", description: "记录目录信任 · Trust directory", argumentHint: "<目录>" },
+	{ name: "settings", description: "设置视图 · Settings", argumentHint: "" },
+	{ name: "jobs", description: "后台任务 · Background jobs（/bg 别名）", argumentHint: "" },
+	{ name: "logs", description: "后台任务日志 · Background job logs（/bg logs 别名）", argumentHint: "<id>" },
+	{ name: "kill", description: "停止后台任务 · Stop background job（/bg kill 别名）", argumentHint: "<id>" },
 	{ name: "help", description: "帮助 · Help" },
 ];
 
@@ -29,6 +37,15 @@ const channelCommandNames = new Set([
 	"status",
 	"bg",
 	"compact",
+	// IMP-23：渠道命令表在 routing/commands.ts 里已实现，这里同步给渠道 /help 用。
+	"reload",
+	"copy",
+	"name",
+	"trust",
+	"settings",
+	"jobs",
+	"logs",
+	"kill",
 ]);
 
 export const channelChatCommands = chatCommands.filter((command) => channelCommandNames.has(command.name));

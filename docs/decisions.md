@@ -783,3 +783,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 改动：把「这次运行结束后要不要关会话」收成一个函数 `packages/core/src/sessions/close-policy.ts` 的 `closeOnRunEnd`——ephemeral 行为不变（一次运行后总关），task 只在 `status === "done"` 且策略不是 `manual` 时按 run-end 关闭；`kernel/index.ts` 的 `completeRun` 与 `onIdle` 都改走它。拒绝继续一个已关闭会话的行为不变（spec 12 §7 不允许把一轮任务改成可续聊任务）。
 - 取舍：失败且主人不再继续的 run-end 任务会话会一直开着（overview 里可见），没有自动回收；换来的是失败原因留在原会话、后台回报有落点。若以后要回收，应按时长/空闲清理，而不是在失败瞬间关掉。
 - 验证：新增 `packages/core/src/sessions/close-on-run.test.ts`（ephemeral 四状态、task 四状态、manual/run-end、main/persistent 不关）；`terminal.test.ts` 补 run-end 会话被中止后仍 `closed === undefined`（该用例与同文件其他用例一样以 `YONDER_TEST_REAL=1` 为门槛跑真实模型）。
+
+## 2026-10-29 IMP-23/IMP-24 遗留收口：注册 subagent 工具、命令表补齐（主 Agent 代批 10-29）
+- IMP-24：`createSubagentTool` 在 `packages/core/src/kernel/index.ts` 与 task_run/task_control 同条件注册（不做能力过滤）；权限、未知预设与「最多两层嵌套」仍由 task_run 判定，subagent 只做参数转发，不重复实现规则。`runtime/index.ts` 的 replay safe 白名单不动：subagent 被中断时按 unsafe 上报，比自动重放一次派发安全。
+- IMP-24 验证：新增 `packages/core/src/kernel/subagents.test.ts`，用桩 store/runtime 只解析嵌套深度——第三层 action=run 以「任务已嵌套两层」拒绝且没有派发，第二层仍进入 runTask。
+- IMP-23：`packages/sdk/src/chat-commands.ts` 的 chatCommands 在 help 之前补 /reload /copy /name /trust /settings 与 /jobs /logs /kill（带 argumentHint，name/trust 用 <标题>/<目录>，logs/kill 用 <id>），channelCommandNames 同步这 8 个名字，终端补全与 /help 因而可见；commands.test.ts 的期望数组只增不删。`kernel/quota-wire.ts` 的 ChannelServices 增可选 `reload`，kernel 侧接现有 watcher.reload（没有新造重载实现）。
+- 未做：CLI 侧 `packages/cli/src/terminal.ts` 的命令分发只实现了原有命令，这些命令在终端输入时仍落到「未知命令」；本卡只要求补全与 /help 可见，CLI 侧实现另开卡。

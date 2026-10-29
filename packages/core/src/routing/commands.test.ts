@@ -108,6 +108,14 @@ test("help uses shared commands and excludes commands absent from the CLI", asyn
 			"connect",
 			"skills",
 			"stop",
+			"reload",
+			"copy",
+			"name",
+			"trust",
+			"settings",
+			"jobs",
+			"logs",
+			"kill",
 			"help",
 		]);
 		expect(chatCommands.some(({ name }) => name === "history")).toBe(false);

@@ -18,6 +18,8 @@ interface ChannelServices {
 	delivery: DeliveryService;
 	skills: (profile: RuntimeSessionConfig) => Promise<SkillsReport>;
 	loginChannel?: (request: { instance?: string }, signal: AbortSignal) => Promise<ChannelLoginResult>;
+	/** 现有配置重载入口；未提供时 /reload 保持“当前服务不支持重载”。 */
+	reload?: () => Promise<unknown>;
 }
 
 export interface QuotaWireOptions extends ChannelServices {
@@ -70,12 +72,13 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 	});
 
 	function channelServices(): Parameters<typeof runChannelCommand>[2] {
-		const { store, sessions, delivery, skills, loginChannel } = options;
+		const { store, sessions, delivery, skills, loginChannel, reload } = options;
 		return {
 			store,
 			sessions,
 			delivery,
 			skills,
+			...(reload ? { reload } : {}),
 			...(loginChannel
 				? {
 						login: (instance?: string) =>
