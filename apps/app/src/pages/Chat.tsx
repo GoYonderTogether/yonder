@@ -4,7 +4,8 @@ import { ArrowUp, Bell, Ellipsis, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
-import type { Actor, Conversation as Conv, Message } from "../api/types";
+import type { Actor, Conversation as Conv, Message, Session } from "../api/types";
+import { selectAccount } from "../cache";
 import { AppBar, BackButton } from "../components/AppBar";
 import { AiBadge } from "../components/chat/AiBadge";
 import { AnonHint } from "../components/chat/AnonHint";
@@ -14,11 +15,13 @@ import { EmptyPane } from "../components/EmptyPane";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
 import { PlusMenu } from "../components/PlusMenu";
+import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
 import { entityRef } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
+import { needsVerify } from "../lib/verify";
 import { $session } from "../store";
 import { Avatar, Status } from "../ui/Avatar";
 import { toast } from "../ui/Toast";
@@ -466,19 +469,21 @@ function Bubble({
 	);
 }
 
-function Composer({ convId, offline, onSend }: { convId: string; offline: boolean; onSend: () => void }) {
+export function Composer({ convId, offline, onSend }: { convId: string; offline: boolean; onSend: () => void }) {
 	const [text, setText] = useState("");
 	const ref = useRef<HTMLTextAreaElement>(null);
 	const qc = useQueryClient();
 	const [sending, setSending] = useState(false);
 	const pending = useRef(false);
-	const send = async () => {
-		const t = text.trim();
-		if (!t || pending.current) return;
+	const [verify, setVerify] = useState(false);
+	/** 访客额度用尽时把待发内容留住，登录后原样重发。 */
+	const held = useRef("");
+	const send = async (body = text.trim()) => {
+		if (!body || pending.current) return;
 		pending.current = true;
 		setSending(true);
 		try {
-			const message = await api.send(convId, { type: "markdown", text: t });
+			const message = await api.send(convId, { type: "markdown", text: body });
 			qc.setQueryData<Message[]>(["msgs", convId], (old) =>
 				old?.some((m) => m.id === message.id) ? old : [...(old ?? []), message],
 			);
@@ -487,11 +492,23 @@ function Composer({ convId, offline, onSend }: { convId: string; offline: boolea
 			if (ref.current) ref.current.style.height = "";
 			onSend();
 		} catch (error) {
+			if (needsVerify(error)) {
+				held.current = body;
+				setVerify(true);
+				return;
+			}
 			toast(error instanceof Error ? error.message : "发送失败，请重试", true);
 		} finally {
 			pending.current = false;
 			setSending(false);
 		}
+	};
+	const verified = (session: Session) => {
+		selectAccount(session.actor.id, qc);
+		$session.set(session);
+		const body = held.current;
+		held.current = "";
+		if (body) void send(body);
 	};
 	return (
 		<div className="shrink-0 px-4 pb-safe">
@@ -510,14 +527,14 @@ function Composer({ convId, offline, onSend }: { convId: string; offline: boolea
 					onKeyDown={(e) => {
 						if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 							e.preventDefault();
-							send();
+							void send();
 						}
 					}}
 					className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-[15px] outline-none placeholder:text-faint"
 				/>
 				<button
 					type="button"
-					onClick={send}
+					onClick={() => void send()}
 					disabled={!text.trim() || sending}
 					aria-label={sending ? "发送中" : "发送"}
 					className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent disabled:bg-tone-2 disabled:text-faint"
@@ -525,6 +542,12 @@ function Composer({ convId, offline, onSend }: { convId: string; offline: boolea
 					{sending ? <span className="text-[11px]">发送中</span> : <ArrowUp size={18} strokeWidth={2.25} />}
 				</button>
 			</div>
+			<VerifySheet
+				open={verify}
+				onOpenChange={setVerify}
+				shareToken={new URLSearchParams(location.search).get("share") ?? undefined}
+				onSuccess={verified}
+			/>
 		</div>
 	);
 }
