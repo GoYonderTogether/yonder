@@ -255,7 +255,7 @@ test("custom events retain complete data and message labels cannot break the tur
 			],
 		});
 		expect(rescueInput.text).toContain('Request: --fresh "quoted task"');
-		expect(rescueInput.text).toContain("Delegate this rescue request using codex-companion_task");
+		expect(rescueInput.text).toContain("Delegate using codex-companion_task. Pass the task text unchanged");
 		const withBackground = await prepareInput(
 			row,
 			{ ...session, agent: "main", resolved: resolveProfile({ contexts: ["background"] }) },
