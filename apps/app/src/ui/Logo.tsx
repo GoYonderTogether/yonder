@@ -1,7 +1,7 @@
 import mark from "../assets/brand/yonder-mark.svg?raw";
 import markSmall from "../assets/brand/yonder-mark-small.svg?raw";
 
-// 标志"同望"，唯一来源是 yonder-harness 的 brand/；这里只引用生成物，不改形状。
+// 标志"同望"，唯一来源是仓库 brand/；这里只引用生成物，不改形状。
 const inline = (svg: string) =>
 	svg
 		.replace(/ width="\d+" height="\d+"/, ' width="100%" height="100%"')
