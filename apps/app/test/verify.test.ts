@@ -115,6 +115,11 @@ describe("verifyErrorText", () => {
 		for (const code of ["share_exhausted", "share_expired", "share_revoked"])
 			expect(verifyErrorText({ status: 403, code })).toContain("分享链接");
 	});
+	it("shows the remaining lock time from the locked response", () => {
+		expect(verifyErrorText({ code: "locked", retryAfter: 600 })).toBe("尝试次数过多，请 10 分钟后再试");
+		expect(verifyErrorText({ code: "locked", retryAfter: 30 })).toBe("尝试次数过多，请 30 秒后再试");
+		expect(verifyErrorText({ code: "locked" })).toBe("尝试次数过多，请稍后再试");
+	});
 });
 
 describe("needsVerify", () => {

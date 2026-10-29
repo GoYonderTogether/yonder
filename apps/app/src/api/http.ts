@@ -20,11 +20,14 @@ async function request<T>(path: string, init: RequestInit = {}, missingAsNull = 
 		if (response.status === 401) window.dispatchEvent(new Event("yonder:unauthorized"));
 		if (missingAsNull && response.status === 404) return null as T;
 		let message = response.statusText;
+		let retryAfter: number | undefined;
 		try {
-			message = (JSON.parse(text) as { error?: string }).error ?? message;
+			const body = JSON.parse(text) as { error?: string; retryAfter?: number };
+			message = body.error ?? message;
+			retryAfter = body.retryAfter;
 		} catch {}
-		// status 让页面区分「节点没有社交服务」（404）与其他失败。
-		throw Object.assign(new Error(message), { status: response.status });
+		// status 让页面区分「节点没有社交服务」（404）与其他失败；retryAfter 来自锁定响应的剩余秒数。
+		throw Object.assign(new Error(message), { status: response.status, retryAfter });
 	}
 	return (text ? JSON.parse(text) : undefined) as T;
 }

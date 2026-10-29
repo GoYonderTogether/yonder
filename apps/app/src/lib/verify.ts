@@ -78,6 +78,18 @@ export function resendLabel(seconds: number): string {
  */
 export type VerifyPhase = "idle" | "sending" | "countdown" | "verifying" | "error";
 
+/** 锁定时服务端给出剩余秒数（retryAfter），按分钟或秒显示；缺失时退回通用文案。 */
+function lockedText(error: unknown): string {
+	const retry =
+		error && typeof error === "object" && "retryAfter" in error
+			? Number((error as { retryAfter?: unknown }).retryAfter)
+			: NaN;
+	if (!Number.isFinite(retry) || retry <= 0) return "尝试次数过多，请稍后再试";
+	return retry >= 60
+		? `尝试次数过多，请 ${Math.ceil(retry / 60)} 分钟后再试`
+		: `尝试次数过多，请 ${Math.ceil(retry)} 秒后再试`;
+}
+
 /**
  * 服务端错误码 → 用户能看懂的一句话。未知错误用原始信息，再退回兜底。
  * 分类来自卡站契约：invalid_code/locked 来自 verify，share_* 来自分享链接配额，
@@ -98,7 +110,7 @@ export function verifyErrorText(error: unknown, fallback = "验证失败，请�
 		case "invalid_code":
 			return "验证码不正确，请重新输入";
 		case "locked":
-			return "尝试次数过多，请稍后再试";
+			return lockedText(error);
 		case "share_exhausted":
 			return "这个分享链接的名额已用完，请让分享者重新生成";
 		case "share_expired":
