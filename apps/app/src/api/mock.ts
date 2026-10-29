@@ -187,6 +187,22 @@ export const mockApi: ApiClient = {
 		session = { actor: me };
 		return session;
 	},
+	async sendCode() {
+		await wait();
+		return { sent: true as const, retryAfter: 60 };
+	},
+	async verifyCode() {
+		await wait();
+		session = { actor: me };
+		return session;
+	},
+	async sendBindCode() {
+		await wait();
+		return { sent: true as const, retryAfter: 60 };
+	},
+	async confirmBindCode() {
+		await wait();
+	},
 	async login() {
 		await wait();
 		session = { actor: me };

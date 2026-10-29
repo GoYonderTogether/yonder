@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import type { Actor, Card, Conversation, Device, Message, MessageContent, Session } from "./types";
+import type { Actor, Card, CodeSent, Conversation, Device, Message, MessageContent, Session } from "./types";
 
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
 const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? "";
@@ -32,6 +32,10 @@ export const httpApi: ApiClient = {
 	session: () => request<Session | null>("/session"),
 	register: (input) => request("/auth/register", json("POST", input)),
 	login: (input) => request("/auth/login", json("POST", input)),
+	sendCode: (input) => request<CodeSent>("/auth/code/send", json("POST", input)),
+	verifyCode: (input) => request<Session>("/auth/code/verify", json("POST", input)),
+	sendBindCode: (kind, target) => request<CodeSent>(`/me/${kind}/send-code`, json("POST", { [kind]: target })),
+	confirmBindCode: (kind, target, code) => request<void>(`/me/${kind}/confirm`, json("POST", { [kind]: target, code })),
 	createAnonymous: () => request("/auth/anonymous", json("POST")),
 	logout: () => request("/auth/logout", json("POST")),
 	updateProfile: (input) => request<Actor>("/me", json("PATCH", input)),

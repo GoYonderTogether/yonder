@@ -2,8 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { api } from "../api";
+import type { Session } from "../api/types";
 import { selectAccount } from "../cache";
 import { $session } from "../store";
+import { VerifyCodeForm } from "../components/VerifySheet";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Logo } from "../ui/Logo";
@@ -16,6 +18,7 @@ export function Login() {
 	const query = new URLSearchParams(loc.search);
 	const next =
 		(loc.state as { next?: string } | null)?.next ?? (query.get("next")?.match(/^\/(?!\/)/) ? query.get("next")! : "/");
+	const [usePassword, setUsePassword] = useState(false);
 	const [mode, setMode] = useState<"login" | "register">(query.get("mode") === "register" ? "register" : "login");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
@@ -44,6 +47,34 @@ export function Login() {
 			setBusy(false);
 		}
 	};
+
+	const done = (s: Session) => {
+		selectAccount(s.actor.id, qc);
+		$session.set(s);
+		nav(next, { replace: true });
+	};
+
+	if (!usePassword) {
+		return (
+			<div className="flex h-full items-center justify-center p-4">
+				<div className="rise flex w-full max-w-sm flex-col gap-5">
+					<Logo size={36} />
+					<div>
+						<h1 className="display">登录或注册</h1>
+						<p className="mt-1 text-[13px] text-muted">用手机号或邮箱收验证码，首次验证即注册，不需要密码。</p>
+					</div>
+					<VerifyCodeForm shareToken={query.get("share") ?? undefined} onSuccess={done} />
+					<button
+						type="button"
+						className="press self-start text-[14px] text-muted hover:text-ink"
+						onClick={() => setUsePassword(true)}
+					>
+						用邮箱和密码登录
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex h-full items-center justify-center p-4">
@@ -82,6 +113,13 @@ export function Login() {
 					onClick={() => setMode(mode === "login" ? "register" : "login")}
 				>
 					{mode === "login" ? "没有账号？注册" : "已有账号？登录"}
+				</button>
+				<button
+					type="button"
+					className="press self-start text-[14px] text-muted hover:text-ink"
+					onClick={() => setUsePassword(false)}
+				>
+					用验证码登录
 				</button>
 			</form>
 		</div>
