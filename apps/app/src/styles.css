@@ -250,17 +250,15 @@ body {
 	border-radius: 12px;
 }
 
-/* Agent 头像：全项目唯一的彩色。柔和的渐变球，只换色相。 */
+/* Agent 头像：全项目唯一的彩色。平铺纯色，只换色相。
+ * 白色图标（.text-white）对底色最差 ≥4.5:1：亮色 oklch(0.52 0.13) 最差 4.87:1，
+ * 暗色 oklch(0.53 0.13) 最差 4.68:1（按全部 360 个色相、直接夹到 sRGB 计算）。 */
 .agent-orb {
-	background:
-		radial-gradient(120% 120% at 28% 22%, oklch(0.9 0.06 var(--h)), transparent 55%),
-		linear-gradient(150deg, oklch(0.8 0.1 var(--h)), oklch(0.64 0.14 calc(var(--h) + 28)));
+	background: oklch(0.52 0.13 var(--h));
 }
 @media (prefers-color-scheme: dark) {
 	.agent-orb {
-		background:
-			radial-gradient(120% 120% at 28% 22%, oklch(0.8 0.08 var(--h) / 0.7), transparent 55%),
-			linear-gradient(150deg, oklch(0.66 0.11 var(--h)), oklch(0.5 0.13 calc(var(--h) + 28)));
+		background: oklch(0.53 0.13 var(--h));
 	}
 }
 
@@ -287,65 +285,6 @@ body,
 }
 .md pre {
 	white-space: pre-wrap;
-}
-
-/* 氛围：极大、极淡的色块，只在名片页顶部。 */
-.ambient {
-	position: absolute;
-	inset-inline: 0;
-	top: 0;
-	height: 520px;
-	overflow: hidden;
-	pointer-events: none;
-	-webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent);
-	mask-image: linear-gradient(to bottom, #000 20%, transparent);
-}
-.ambient::before {
-	content: "";
-	position: absolute;
-	left: 50%;
-	top: -240px;
-	width: 900px;
-	height: 700px;
-	translate: -50% 0;
-	border-radius: 9999px;
-	background: radial-gradient(closest-side, oklch(0.85 0.09 var(--h)), transparent);
-	opacity: 0.16;
-	filter: blur(60px);
-}
-@media (prefers-color-scheme: dark) {
-	.ambient::before {
-		background: radial-gradient(closest-side, oklch(0.6 0.12 var(--h)), transparent);
-		opacity: 0.2;
-	}
-}
-
-/* 零星光点：几个小点缓慢明灭。 */
-.sparkle {
-	position: absolute;
-	width: 3px;
-	height: 3px;
-	border-radius: 9999px;
-	background: var(--muted);
-	animation: twinkle 5s ease-in-out infinite;
-	animation-delay: calc(var(--i, 0) * -0.9s);
-}
-@keyframes twinkle {
-	0%,
-	100% {
-		opacity: 0;
-		transform: scale(0.8);
-	}
-	50% {
-		opacity: 0.5;
-		transform: scale(1.2);
-	}
-}
-@media (prefers-reduced-motion: reduce) {
-	.sparkle {
-		animation: none;
-		opacity: 0.25;
-	}
 }
 
 /* Route-backed name cards; 768px is the same breakpoint as the app shell. */
