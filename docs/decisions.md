@@ -693,3 +693,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - G-10：设备帧新增可选 `social.mentions.bot`。card-web 用消息体里客户端标出的 `mentions`（账号 id 数组，`messageInput` 校验并规范化为小写 uuid）判定机器人是否被 @，消息体没标时回落到既有的 `text.includes('@名字')`；帧里的 `mentioned` 字段原样保留，旧消费方行为不变。插件侧 `socialMentions()` 只透传这个布尔值，字段缺失时回落到帧里的 `mentioned`，因此旧服务端也满足契约。
 - G-09：非访客开 DM 也要求「目标有已发布名片 / 互为好友 / 目标是自己拥有的 agent」（`canOpenDm()`），访客分支保持原样（只会更严不会更松：访客本就无好友、无 agent）。
 - 范围说明：卡只列了 card-web 的 `server/src/{chat,realtime}.ts`，但真实验收必须改 `server/test/{chat,realtime}.test.ts`（该仓库的测试基座是真实 PostgreSQL + Redis + `node --test`）：既有「DM 幂等」用例补了互加好友的前置——新契约下两个陌生人不再能直接开 DM，其余断言不变；新增了「非访客开 DM 需要真实关系」与「原生 mention 优先于文本包含」两个用例。
+
+## 2026-10-29 BE-11 构建产物与源码一致性门禁（主 Agent 代批 10-29）
+
+- 现象复现：在一份干净 clone 里跑完 `npm run build` 后，把 `packages/core/dist/tools/model-route.js` 改成不导出 `modelChainRefs`（模拟被打断/被手工改过的构建），再跑 `tsc -b` 退出码 0 且不修复——increment 状态（`dist/tsconfig.tsbuildinfo`，本身也被 `.gitignore` 忽略）只比源码时间戳，从不检查 dist 内容，于是不一致的产物会一直留着，`node packages/cli/dist/index.js doctor` 直接 `SyntaxError: … does not provide an export named 'modelChainRefs'`。
+- 门禁：新增 `scripts/check-dist-sync.mjs`（`npm run check:dist`），按根 `tsconfig.json` 的 project references 逐包比对，每个 `src/**/*.ts` 必须有对应 dist 模块、不旧于源码、且源码里运行时会产出的导出名（function/const/class/let/var/enum，及 `export {}` 列表；`export type {}` 与 interface/type 不算）都能在 dist 里找到；不一致就列出条目并以 `npm run build:clean` 收尾退出 1。
+- `npm run build` 在 `tsc -b` 之后接这道门禁；另加 `build:clean`（删各包 dist 后重跑 build）。只在 dist 与源码不一致时失败，正常构建无额外行为变化。
