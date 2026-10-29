@@ -14,7 +14,88 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# 发版门禁（scripts/release/ci-status.mjs REQUIRED_CHECKS）只认下面两个汇总 job 的名字；
+# 其余并行 job 只是它们的 needs，改名或删除汇总 job 会让发版永远等不到。
+env:
+  NODE_OPTIONS: --no-warnings
+
 jobs:
+  linux-typecheck:
+    name: Linux typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-pi-durable-workspace.mjs
+      - run: npm run typecheck
+
+  linux-lint:
+    name: Linux lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  linux-checks:
+    name: Linux build, node tests, stability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: command -v rg >/dev/null || sudo apt-get install -y ripgrep
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:node
+      - run: node scripts/check-stability.mjs
+
+  linux-test:
+    name: Linux test (${{ matrix.shard }}/4)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: command -v rg >/dev/null || sudo apt-get install -y ripgrep
+      - run: command -v zsh >/dev/null || { sudo apt-get update && sudo apt-get install -y zsh; }
+      - run: npm ci
+      - run: npm run build
+      - run: npm test -- --maxWorkers=4 --shard=${{ matrix.shard }}/4
+
+  linux:
+    name: Linux typecheck, build, test, lint
+    if: ${{ always() }}
+    needs: [linux-typecheck, linux-lint, linux-checks, linux-test]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo '${{ toJSON(needs) }}'
+          test "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" = "false"
+
+  # macOS runner 排队常超过 5 分钟：完整 vitest 只在 Linux 跑，这里保留类型检查、完整构建
+  # （含 build-macos.mjs）、node:test 与平台相关包的测试子集。
   macos:
     name: macOS typecheck, build, test, lint
     runs-on: macos-latest
@@ -31,27 +112,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: node scripts/yonder-permissions.mjs self-check
-      - run: npm test -- --maxWorkers=4
+      - run: npm test -- --maxWorkers=4 packages/macos packages/device packages/cli plugins/native-automation plugins/clipboard plugins/devices
       - run: npm run test:node
-      - run: npm run lint
-
-  linux:
-    name: Linux typecheck, build, test, lint
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - run: sudo apt-get install -y ripgrep
-      - run: sudo apt-get update && sudo apt-get install -y zsh
-      - run: npm ci
-      - run: node scripts/check-pi-durable-workspace.mjs
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test -- --maxWorkers=4
-      - run: npm run test:node
-      - run: node scripts/check-stability.mjs
-      - run: npm run lint
