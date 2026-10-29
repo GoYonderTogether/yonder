@@ -10,7 +10,7 @@ test.each([
 	[401, 1, true, true],
 	[404, 1, true, true],
 	[429, 1, true, true],
-	[500, 3, true, true],
+	[500, 1, true, true],
 	// A request that never got an answer says nothing about the candidate: it switches and records no hold.
 	[0, 3, true, false],
 	[400, 1, false, false],

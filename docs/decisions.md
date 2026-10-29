@@ -815,3 +815,4 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - QQ 群：持续在场与群分身（wake: write + group-batch、persistent per:conv、reply: none）机制早已存在，缺口是未列入 allowedGroups/groupParticipation 的群默认 `mention`，主人不 @ 说「在吗」只被记录。增补：发言账号已关联到人（identity.account().person 非空）时按 @ 处理，立即触发批次；陌生人仍需 @/关键词/`all`。不改变 `record` 与未关联账号的默认，保持只增不改。
 - 主 Bot 忙时私聊：各渠道 owner 绑定已是 `busy: steer`（新消息并入运行中的回合），群在独立 persistent 会话，不占 main 会话；未新增机制。
 - 主 Agent 代批 10-29（CH-01）：输入准备时单个附件下载失败（QQ 语音链接过期 HTTP 400）曾让整轮 `faulted`；群批次因游标不前进而反复带上这条消息，群分身永久失败。改为该附件在提示中标注 `unavailable: download failed or expired`（不回显带签名的原链接），其余内容照常；中止信号仍照常抛出。
+- 主 Agent 代批 10-29: 网关 5xx/号池耗尽/冷却/日额度文案经 UPSTREAM_MARK 在首次失败即回退下一候选（原需 after 次失败+退避），4xx 参数错误不回退；hold/probe 沿用既有记录。

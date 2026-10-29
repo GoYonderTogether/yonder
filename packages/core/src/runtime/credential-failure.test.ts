@@ -4,8 +4,8 @@ import { type AssistantMessage, createAssistantMessageEventStream } from "@earen
 import { expect, test } from "vitest";
 import { modelRecovery } from "../../../../node_modules/@earendil-works/pi-durable/dist/harness/model-recovery.js";
 import { resolveProfile } from "../config/test-support.js";
-import { credentialFailure, withCredentialMark } from "./credential-failure.js";
-import { modelChain } from "./model-chain.js";
+import { credentialFailure, upstreamFailure, withCredentialMark } from "./credential-failure.js";
+import { fallbackReason, modelChain } from "./model-chain.js";
 import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
 import { ModelQuota } from "./model-quota.js";
@@ -62,4 +62,30 @@ test("the credential-failed candidate is held, other candidates run, and a recov
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
+});
+
+const gateway503 =
+	'503 {"message":"no usable account for realm \'intl\': all are disabled, cooling down, expired or parked by the daily token limit","type":"server_error","code":503}';
+async function markedUpstream(text: string): Promise<string | undefined> {
+	const stream = createAssistantMessageEventStream();
+	stream.push({ type: "error", reason: "error", error: failed(text) });
+	stream.end();
+	return (await withCredentialMark(stream, "workbuddy").result()).errorMessage;
+}
+
+test("gateway 5xx / pool exhaustion advances the chain on the first failure", async () => {
+	expect(modelRecovery(failed(gateway503), policy, 1, true, fallback).advance).toBe(false);
+	for (const raw of [gateway503, "502 Bad Gateway", "Overloaded", "all accounts cooling down"]) {
+		const text = (await markedUpstream(raw)) ?? "";
+		expect(text).toContain(raw);
+		expect(modelRecovery(failed(text), policy, 1, true, fallback).advance).toBe(true);
+		expect(fallbackReason(text)).toBe("unavailable");
+	}
+	expect(upstreamFailure("429 too many requests")).toBe(false); // already immediate in pi-durable
+});
+
+test("parameter errors do not fall back", async () => {
+	const raw = "400 invalid_request_error: bad temperature";
+	expect(upstreamFailure(raw)).toBe(false);
+	expect(modelRecovery(failed((await markedUpstream(raw)) ?? ""), policy, 1, false, fallback).advance).toBe(false);
 });
