@@ -3,7 +3,7 @@ import { MessageCircle, Monitor, Store, Users } from "lucide-react";
 import { Suspense } from "react";
 import { NavLink, Outlet, useMatch } from "react-router";
 import { cn } from "../lib/cn";
-import { useWorkEntry } from "../lib/useWorkEntry";
+import { useSocialService, useWorkEntry } from "../lib/useWorkEntry";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 import { Logo } from "../ui/Logo";
@@ -19,6 +19,7 @@ const meItem = { to: "/me", label: "我", icon: null };
 export function Shell() {
 	const me = useStore($session)?.actor;
 	const work = useWorkEntry();
+	const social = useSocialService();
 	const items = [chatItem, marketItem, contactsItem, ...(work ? [workItem] : []), meItem];
 	const workMatch = useMatch("/work/:id");
 	const hidden =
@@ -78,7 +79,7 @@ export function Shell() {
 				</NavLink>
 			</nav>
 			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
-				{import.meta.env.VITE_API !== "http" && (
+				{import.meta.env.VITE_API !== "http" && social !== "none" && (
 					<div role="status" className="shrink-0 bg-tone-2 px-3 py-1 text-center text-[12px] text-muted">
 						本地原型模式 · 展示数据仅供界面验收，不代表真实用户
 					</div>

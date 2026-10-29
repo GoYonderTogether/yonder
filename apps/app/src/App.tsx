@@ -4,6 +4,7 @@ import { lazy, type ReactNode, Suspense, useEffect } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { PageLoading } from "./components/PageLoading";
 import { PersonalAgentGate } from "./components/PersonalAgentGate";
+import { useSocialService } from "./lib/useWorkEntry";
 import { $session } from "./store";
 import { Toaster } from "./ui/Toast";
 
@@ -40,6 +41,21 @@ export function App() {
 	useEffect(() => {
 		if (session) qc.setQueryData(["session", session.actor.id], session);
 	}, [session, qc]);
+	const social = useSocialService();
+	if (social === "pending") return <PageLoading />;
+	if (social === "none")
+		return (
+			<>
+				<Toaster />
+				<Suspense fallback={<PageLoading />}>
+					<Routes>
+						<Route path="/get" element={<Install />} />
+						<Route path="/work/*" element={<WorkRoot />} />
+						<Route path="*" element={<Navigate to="/work" replace />} />
+					</Routes>
+				</Suspense>
+			</>
+		);
 	return (
 		<>
 			<Toaster />

@@ -676,3 +676,4 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 
 - 验收 HOME 实测暴露两处必须按真实行为补的细节：`sessions.open({judgment: true})` 要求来源会话已有 cheap/simple 模型槽，没有就报 `Judgment requires...`；`sessions.submit` 的 `text` 在真实运行里为空，判定结果只在转录 `pi.assistant` 项里。`createJudge` 因此改为：`preset` 取来源会话自己的 profile，没有 cheap/simple 槽时退回普通判定会话（模型仍由来源会话解析），文本先读 `submit` 结果、为空再读转录最后一条 `pi.assistant`。
 - 真实 glm-5.3-flash 会把判定包在 ```json 代码块或一段说明里，`parseJudgement` 改为取第一个完整 JSON 对象（原实现只接受裸 JSON，真实调用恒失败）。
+- 主 Agent 代批 10-29（FIX-shell-01）：网关托管构建的「无社交服务」判定为「同源 capabilities.get 可达（含 401）且 GET /api/session 为 404」，此时只保留 /work 与 /get，其余路由重定向到 /work，不显示原型横幅，PersonalAgentGate 放行；VITE_API=http 或网关不可达（vite dev + mock）保持原行为。
