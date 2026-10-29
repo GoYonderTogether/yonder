@@ -19,17 +19,20 @@ export function MyCard() {
 	const [params] = useSearchParams();
 	const query = useQuery({ queryKey: ["cards"], queryFn: api.cards, enabled: !!me && !me.anonymous });
 	const [editing, setEditing] = useState(params.get("card") === "new");
-	const [form, setForm] = useState<MyCardForm>({ name: "", tagline: "", greeting: "" });
+	const [draft, setDraft] = useState<MyCardForm | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [qr, setQr] = useState(false);
 	if (!me || me.anonymous) return null;
 	const card = pickMyCard(query.data, me.id);
+	// 未改动时跟随服务端数据，所以从 ?card=new 直接进来也能带出当前名字和介绍
+	const form = draft ?? formFromCard(card, me.name);
+	const setForm = setDraft;
 	const ready = !!query.data;
 	const code = card?.code ?? card?.id;
 	const path = code ? appPath(`/u/${code}`) : "";
 	const url = code ? `${location.origin}${path}` : "";
 	const edit = () => {
-		setForm(formFromCard(card, me.name));
+		setDraft(null);
 		setEditing(true);
 	};
 	const save = async () => {
