@@ -13,6 +13,13 @@ import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import { promptSectionIds } from "../prompt/content.js";
 import {
+	defaultBudget,
+	defaultModelChain,
+	defaultOutsiders,
+	defaultPriceCapPerMTokenYuan,
+	socialWithDefaults,
+} from "./defaults.js";
+import {
 	type AgentConfig,
 	AgentSchema,
 	type Binding,
@@ -20,13 +27,6 @@ import {
 	type YonderConfig,
 	YonderSchema,
 } from "./schema.js";
-import {
-	defaultBudget,
-	defaultModelChain,
-	defaultOutsiders,
-	defaultPriceCapPerMTokenYuan,
-	socialWithDefaults,
-} from "./defaults.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export { tokenAmount } from "./defaults.js";

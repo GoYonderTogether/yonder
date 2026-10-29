@@ -6,9 +6,16 @@ import { parse } from "yaml";
 import { matchesGlob, type WorkspaceFiles } from "../config/index.js";
 import { canonicalPath } from "../runtime/env.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
-import { addIgnoreRules, ignoreFileNames, ignored, type IgnoreRule } from "./ignore.js";
+import { addIgnoreRules, type IgnoreRule, ignored, ignoreFileNames } from "./ignore.js";
 
-export type SkillSource = "workspace" | "home" | "agents" | "project-agents" | "project" | "builtin" | `plugin:${string}`;
+export type SkillSource =
+	| "workspace"
+	| "home"
+	| "agents"
+	| "project-agents"
+	| "project"
+	| "builtin"
+	| `plugin:${string}`;
 const builtinRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 interface SkillFiles {
 	root: string;
@@ -424,7 +431,9 @@ export function createSkills({ home, userHome, pluginDirs, pluginSources, worksp
 			skill,
 			shadowed: report.skills
 				.filter((candidate) => candidate.name === name && candidate.shadowed)
-				.map(({ files: _f, env: _e, relativeDirectory: _r, file: _p, fileName: _n, absoluteFile: _a, ...info }) => info),
+				.map(
+					({ files: _f, env: _e, relativeDirectory: _r, file: _p, fileName: _n, absoluteFile: _a, ...info }) => info,
+				),
 			content: (await readSkill(winner)).text,
 		};
 	}

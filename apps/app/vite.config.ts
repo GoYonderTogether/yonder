@@ -113,7 +113,10 @@ const prototypeAutoLogin = (): Plugin => ({
 	transform(code, id) {
 		if (!id.endsWith("/src/api/mock.ts")) return;
 		if (!code.includes(MOCK_SESSION_INIT)) throw new Error("原型预置会话失效：mock.ts 的 session 初始化写法变了");
-		return code.replace(MOCK_SESSION_INIT, 'let session: Session | null = { actor: { id: "u-me", kind: "human", name: "我" } };');
+		return code.replace(
+			MOCK_SESSION_INIT,
+			'let session: Session | null = { actor: { id: "u-me", kind: "human", name: "我" } };',
+		);
 	},
 });
 
