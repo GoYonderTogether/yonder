@@ -206,19 +206,21 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 `code-intel_lens_diagnostic_mark` 接受 `filePath`、1-based `line`、诊断 `message`、`disposition`（`false-positive`、`suppress`、`defer`、`flagged`），以及可选 `rule`、`tool`、`reason`；`suppress` 必须提供 rule。采用 pi-lens 4.4.6 的内容锚定：false-positive 严格绑定规则、消息、来源和规范化目标行；其余标记弱绑定规则、消息和来源。false-positive 与 flagged 持久，defer 按 Yonder session 隔离；suppress 在目标行上方写 `pi-lens-ignore` 并持久记录。每次标记记录日志，返回处理结果与作用域；需要 read、write、exec，重新探测实际诊断并拒绝找不到或等距歧义的目标；仅选中插件时提供，使用执行环境与现有运行时输出截断及缓存。本适配不声称存在 pi 的诊断事件总线或 Yonder 原生诊断总线。
 
-`code-intel_lens_diagnostics` 通过 pi-lens MCP 获取诊断，支持 path、paths、source、scope、mode、severity、waitMs 与 serverScope；需要 read、exec。默认单 path 分析消费项目持久标记和本会话 defer，显式 source=lsp 走后端原始探测（不消费会话标记），source=session 因 MCP 进程无会话缓存而返回不可用；其他后端路径不声称消费会话标记。分析禁用自动格式化、自动修复和测试。标记存于执行环境 cwd 的 `.pi-lens/cache/diagnostic-dispositions.json`，日志为 `.pi-lens/dispositions.log`。
+`code-intel_lens_diagnostics` 通过 pi-lens MCP 获取诊断，支持 path、paths、source、scope、mode、severity、waitMs、serverScope，以及原样透传给后端的 concurrency、refreshRunners（布尔或 cached/cheap/all/none）、maxProjectFiles、maxLspFiles、includeGenerated、analysisRoot；需要 read、exec。默认单 path 分析消费项目持久标记和本会话 defer，显式 source=lsp 走后端原始探测（不消费会话标记），source=session 因 MCP 进程无会话缓存而返回不可用；其他后端路径不声称消费会话标记。分析禁用自动格式化、自动修复和测试。标记存于执行环境 cwd 的 `.pi-lens/cache/diagnostic-dispositions.json`，日志为 `.pi-lens/dispositions.log`。
 
 `code-intel_read_enclosing` 在当前执行环境通过 pi-lens 4.4.6 MCP 按 path 和 1-based line 读取最小包含符号或回调，支持 kinds、maxLines、onOversize（error 默认仅元数据、slice、outline）和 aroundLine；需要 read 与 exec。仅选中插件时提供，使用运行时输出缓存；pi-lens 内部读取记录不等于 Yonder edit 的读取检查。
 
 `code-intel_codegraph_explore` 在当前执行环境通过 CodeGraph CLI 读取已建索引，接受 query、可选 maxFiles（默认 12）及 projectPath（默认工作区）；先检查索引状态，缺失或过期时给出初始化或刷新动作。仅选中插件时提供工具；不自动初始化、启动 watcher 或注入项目图。输出沿用运行时工具截断与缓存。工具需要 read 和 exec 能力。
 
-`code-intel_module_report` 在当前执行环境调用 pi-lens 4.4.6 的 MCP，接受 path 与可选 focus、view、blastRadius，默认 compact；冷图只提供语法大纲并注明缓存状态，跨文件引用保留自己的路径。依赖执行环境安装 pi-lens-mcp，需 read、exec；仅选中插件时提供工具，输出走运行时截断与缓存。
+`code-intel_module_report` 在当前执行环境调用 pi-lens 4.4.6 的 MCP，接受 path 与可选 focus、view、blastRadius、maxRefsPerSymbol、blastRadiusDepth、callGraph、maxCallGraphEntries，view 缺省由后端决定（default）；冷图只提供语法大纲并注明缓存状态，跨文件引用保留自己的路径。依赖执行环境安装 pi-lens-mcp，需 read、exec；仅选中插件时提供工具，输出走运行时截断与缓存。
 
-`code-intel_read_symbol` 在当前执行环境调用 pi-lens 4.4.6 MCP，接受 file、symbol 及可选 kind；symbol 可为 module_report 的 callback handle。返回后端提供的源码和行范围；重名或失效时返回后端的候选或错误，不静默选择。需要 read、exec，仅选中插件时提供，长输出沿用运行时截断与缓存。pi-lens 的 read-guard 不构成 Yonder 的编辑前置条件。
+`code-intel_read_symbol` 在当前执行环境调用 pi-lens 4.4.6 MCP，接受 path、symbol 及可选 kind，旧参数 file 保留为 path 的别名；symbol 可为 module_report 的 callback handle。返回后端提供的源码和行范围；重名或失效时返回后端的候选或错误，不静默选择。需要 read、exec，仅选中插件时提供，长输出沿用运行时截断与缓存。pi-lens 的 read-guard 不构成 Yonder 的编辑前置条件。
 
 `code-intel_ast_grep_outline` 在当前执行环境调用 ast-grep 0.51.0 的 outline，接收文件或目录、语言和 items/view/type/match/pubMembers/globs，返回语法条目、嵌套成员与读取位置；不依赖 LSP 或索引。仅选中插件时按需提供，需要 read 和 exec 能力；长输出沿用运行时截断与缓存。
 
-`code-intel_ast_grep_replace` 通过 pi-lens MCP 在临时副本预览结构替换，最小版本只接受一个工作区内常规文件。先预览再应用；应用前检查文件内容未变，并通过运行时写入保护检查。它需要 read、write、exec；应用检查和写入不构成跨进程原子操作。
+`code-intel_ast_grep_replace` 通过 pi-lens MCP 在临时副本预览结构替换，最小版本只接受一个工作区内常规文件。可选结构过滤 insideKind、hasKind、hasDescendantKind（与 hasKind 互斥）、follows、precedes 合成 ast-grep 规则；先预览再应用，过滤条件属于预览快照的一部分；应用前检查文件内容未变，并通过运行时写入保护检查。它需要 read、write、exec；应用检查和写入不构成跨进程原子操作。
+
+code-intel 工具结果统一限制在 40 KiB 内，超出时保留首尾并插入截断标记；结果末尾附 `usage tokens=<n> elapsed-ms=<n> bytes=<n> truncated=<true|false>`（tokens 为 bytes/4 向上取整），后端已带同格式页脚且未超限时不重复追加。
 
 `codex-companion_review` 是可选原生 Codex 审查工具，需 read、exec 和显式授权的 Codex home，在当前执行环境只读审查工作树或 base 分支；`scope` 支持 auto、working-tree、branch。`adversarial` 与 `focus` 用于挑战审查。选中工具时提供 `/codex:review` 和 `/codex:adversarial-review` 模板。
 

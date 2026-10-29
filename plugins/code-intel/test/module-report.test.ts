@@ -48,6 +48,20 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 			expect(focused.internal).toEqual(normal.internal);
 			expect(focused.callbacks).toEqual(normal.callbacks);
 			expect(focused.recommendedReads[0].reason).toContain("matches focus");
+			const extended = await tool.execute(
+				{
+					path: "grep.ts",
+					maxRefsPerSymbol: 1,
+					blastRadius: true,
+					blastRadiusDepth: 1,
+					callGraph: true,
+					maxCallGraphEntries: 1,
+				},
+				ctx,
+			);
+			expect(extended.isError).not.toBe(true);
+			expect(report(extended.text).api).toEqual(normal.api);
+			console.log("MODULE_REPORT_EXTENDED", extended.text.slice(0, 400), extended.text.slice(-200));
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}

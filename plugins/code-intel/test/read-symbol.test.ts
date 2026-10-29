@@ -18,7 +18,7 @@ async function tools() {
 test("read symbol registration remains additive", async () => {
 	const tool = (await tools()).find((item) => item.name === "code-intel_read_symbol");
 	expect(tool?.capabilities).toEqual(["read", "exec"]);
-	expect(tool?.parameters.required).toEqual(["file", "symbol"]);
+	expect(tool?.parameters.required).toEqual(["symbol"]);
 	if (!tool) throw new Error("missing tool");
 	const descriptor = JSON.stringify({ name: tool.name, description: tool.description, parameters: tool.parameters });
 	console.log("READ_SYMBOL_DESCRIPTOR_BYTES", Buffer.byteLength(descriptor));
@@ -58,9 +58,10 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 				env: new NodeExecutionEnv({ cwd: dir }),
 				signal: new AbortController().signal,
 			} as ToolContext;
-			const hello = await tool.execute({ file: "source.ts", symbol: "hello" }, ctx);
+			const hello = await tool.execute({ path: "source.ts", symbol: "hello" }, ctx);
 			expect(hello.text).toContain('export function hello() {\n  return "hello";\n}');
 			expect(hello.text).toContain("source.ts:1-3");
+			expect((await tool.execute({ file: "source.ts", symbol: "hello" }, ctx)).text).toContain("source.ts:1-3");
 			const member = await tool.execute({ file: "source.ts", symbol: "Greeter.greet" }, ctx);
 			expect(member.text).toContain('  greet() { return "hi"; }');
 			const result = await report.execute({ path: "source.ts", view: "default" }, ctx);

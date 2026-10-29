@@ -266,6 +266,25 @@ export const diagnostics: Tool = {
 			),
 			waitMs: Type.Optional(Type.Number()),
 			serverScope: Type.Optional(Type.Union([Type.Literal("primary"), Type.Literal("all")])),
+			concurrency: Type.Optional(Type.Number({ description: "Source=lsp batch concurrency (maximum 16)." })),
+			refreshRunners: Type.Optional(
+				Type.Union(
+					[
+						Type.Boolean(),
+						Type.Union([Type.Literal("cached"), Type.Literal("cheap"), Type.Literal("all"), Type.Literal("none")]),
+					],
+					{ description: "Analyzer refresh mode for full view." },
+				),
+			),
+			maxProjectFiles: Type.Optional(Type.Number({ description: "Project-file limit for cheap runners." })),
+			maxLspFiles: Type.Optional(Type.Number({ description: "File limit for the LSP sweep." })),
+			includeGenerated: Type.Optional(Type.Boolean({ description: "Include generated-name paths in full scans." })),
+			analysisRoot: Type.Optional(
+				Type.String({
+					description:
+						"Explicit project directory for heavyweight analyzers; it must exist and resolve strictly below the home directory.",
+				}),
+			),
 		},
 		{ additionalProperties: false },
 	),

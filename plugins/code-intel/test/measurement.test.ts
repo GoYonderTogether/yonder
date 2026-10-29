@@ -16,7 +16,7 @@ test("module report selection and descriptor size", async () => {
 	const tool = registrations.tools.find((x) => x.name === "code-intel_module_report");
 	if (!tool) throw new Error("tool missing");
 	const description = JSON.stringify({ name: tool.name, description: tool.description, parameters: tool.parameters });
-	expect(Buffer.byteLength(description)).toBe(454);
+	expect(Buffer.byteLength(description)).toBe(964);
 	const catalog = inspectToolCatalog(
 		{
 			agent: null,

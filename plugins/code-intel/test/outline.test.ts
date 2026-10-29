@@ -9,6 +9,9 @@ import { cacheToolOutput } from "../../../packages/core/src/runtime/tool-output-
 import plugin from "../src/index.js";
 import { executable } from "./cli.js";
 
+const withoutFooter = (text: string) =>
+	text.replace(/\nusage tokens=\d+ elapsed-ms=\d+ bytes=\d+ truncated=(true|false)$/, "");
+
 // Real ast-grep CLI: skips where it is missing or not executable (install @ast-grep/cli 0.51.0).
 test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript and Python", async () => {
 	const { api, registrations } = createRegistrationCollector();
@@ -32,14 +35,17 @@ test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript 
 		},
 		ctx,
 	);
-	const files = JSON.parse(result.text).outline;
+	const files = JSON.parse(withoutFooter(result.text)).outline;
 	expect(files).toHaveLength(2);
 	expect(files.some((file: { language: string }) => file.language === "TypeScript")).toBe(true);
 	expect(files.some((file: { language: string }) => file.language === "Python")).toBe(true);
 	expect(result.text).toContain('"isImport":true');
 	expect(result.text).toContain('"read":');
 	const structure = JSON.parse(
-		(await tool.execute({ paths: ["packages/core/src/runtime/index.ts"], items: "all", view: "expanded" }, ctx)).text,
+		withoutFooter(
+			(await tool.execute({ paths: ["packages/core/src/runtime/outbox.ts"], items: "all", view: "expanded" }, ctx))
+				.text,
+		),
 	).outline[0].items;
 	expect(structure.some((item: { isExported: boolean }) => item.isExported)).toBe(true);
 	expect(
@@ -51,7 +57,7 @@ test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript 
 				{ paths: ["packages/core/src/runtime/index.ts"], items: "exports", type: ["class"], match: "Runtime" },
 				ctx,
 			)
-		).text,
+		).text.replace(/\nusage tokens=.*$/, ""),
 	).outline[0].items;
 	expect(
 		filtered.every(
@@ -73,7 +79,7 @@ test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript 
 				},
 			},
 		);
-		const output = JSON.parse(truncated.text);
+		const output = JSON.parse(withoutFooter(truncated.text));
 		expect(output.truncatedFiles).toBe(1);
 		expect(output.fullOutput).toBe(cached);
 		expect(JSON.parse(await readFile(cached, "utf8"))).toHaveLength(51);

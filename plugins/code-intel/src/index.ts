@@ -1,4 +1,4 @@
-import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
+import { definePlugin, executionContext, type Tool, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import { astGrepReplace } from "./ast-grep-replace.js";
 import { astGrepSearch } from "./ast-grep-search.js";
@@ -11,6 +11,7 @@ import { outline } from "./outline.js";
 import { projectReport } from "./project-report.js";
 import { readEnclosing } from "./read-enclosing.js";
 import { readSymbol } from "./read-symbol.js";
+import { withResultContract } from "./result-contract.js";
 import { symbolSearch } from "./symbol-search.js";
 
 async function run(ctx: ToolContext, args: string[], cwd: string) {
@@ -42,6 +43,7 @@ async function run(ctx: ToolContext, args: string[], cwd: string) {
 
 export default definePlugin({
 	setup(api) {
+		const register = (tool: Tool) => api.tools.register(withResultContract(tool));
 		api.triggers.register({
 			id: "code-intel-cleanup",
 			async start() {
@@ -51,7 +53,7 @@ export default definePlugin({
 				await stopLens();
 			},
 		});
-		api.tools.register({
+		register({
 			name: "code-intel_module_report",
 			description: "Outline a source file with symbols, callbacks and recommended reads using pi-lens.",
 			parameters: Type.Object(
@@ -60,21 +62,31 @@ export default definePlugin({
 					focus: Type.Optional(Type.String()),
 					view: Type.Optional(Type.Union([Type.Literal("compact"), Type.Literal("summary"), Type.Literal("default")])),
 					blastRadius: Type.Optional(Type.Boolean()),
+					maxRefsPerSymbol: Type.Optional(
+						Type.Number({ description: "Cap on who-uses-this entries per symbol (default 10)." }),
+					),
+					blastRadiusDepth: Type.Optional(
+						Type.Number({ description: "Max hops for the blast-radius walk (default 3). Only used with blastRadius." }),
+					),
+					callGraph: Type.Optional(
+						Type.Boolean({
+							description:
+								"Include bounded derived callers/callees from the cached FunctionCallGraph; cold or stale cache state is explicit.",
+						}),
+					),
+					maxCallGraphEntries: Type.Optional(
+						Type.Number({ description: "Per-direction cap for call-graph relations (default 20)." }),
+					),
 				},
 				{ additionalProperties: false },
 			),
 			capabilities: ["read", "exec"],
 			async execute(value, ctx) {
-				const { path, focus, view, blastRadius } = value as {
-					path: string;
-					focus?: string;
-					view?: string;
-					blastRadius?: boolean;
-				};
-				return moduleReport({ file: path, focus, view: view ?? "compact", blastRadius }, ctx);
+				const { path, ...args } = value as { path: string } & Record<string, unknown>;
+				return moduleReport({ ...args, file: path }, ctx);
 			},
 		});
-		api.tools.register({
+		register({
 			name: "code-intel_codegraph_explore",
 			description: "Find source symbols, files, and their call relationships with CodeGraph.",
 			parameters: Type.Object(
@@ -113,16 +125,16 @@ export default definePlugin({
 				};
 			},
 		});
-		api.tools.register(diagnosticMark);
-		api.tools.register(sessionDiagnostics(api.sessions));
-		api.tools.register(astGrepSearch);
-		api.tools.register(astGrepReplace);
-		api.tools.register(effectiveConfig);
-		api.tools.register(outline);
-		api.tools.register(readEnclosing);
-		api.tools.register(readSymbol);
-		api.tools.register(symbolSearch);
-		api.tools.register(projectReport);
-		api.tools.register(lspNavigation);
+		register(diagnosticMark);
+		register(sessionDiagnostics(api.sessions));
+		register(astGrepSearch);
+		register(astGrepReplace);
+		register(effectiveConfig);
+		register(outline);
+		register(readEnclosing);
+		register(readSymbol);
+		register(symbolSearch);
+		register(projectReport);
+		register(lspNavigation);
 	},
 });
