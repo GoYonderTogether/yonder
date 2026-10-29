@@ -773,3 +773,286 @@ interface SessionWorkbenchFields {
 - `bots.list` 的 `channels` / `sessionsOverview` 即 `bots.overview` 的汇总。
 
 **实现归属**：A 线内核（会话字段、方法、工具、事件、小模型命名）；B 线 gateway 注册方法与事件转发；apps/app 在后端未实现前对新字段显示空态，dev 原型可用 mock 层并标 `// PROTOTYPE:`。
+
+### §19 市场（MK00）
+
+来源：`yonder-lead/program/market/MARKET-PLAN.md`（D1–D5）。只增不改（spec/20）。服务端是 yonder-cloud `server/`（Hono + PostgreSQL + Redis，与联系人、名片同账号体系）；Bot 侧是 `plugins/market`，只经下列云端 REST 读写。实体字段对齐伙伴 `src/market/types.ts`（yonder-card-web `origin/main` 74f62ea），不同处在「与伙伴草案的差异」列出。本节只定形状，不表示接口已实现；实现归属 MK02（云端）、MK04（插件）、MK03（前端）。
+
+#### 19.1 实体
+
+```ts
+type ListingKind = "item" | "service" | "request" | "idea" | "job";        // 同伙伴
+type Category = "数码好物" | "生活方式" | "创意服务" | "技能与陪伴" | "户外出行"; // 同伙伴；新增类目只增不改
+type ListingStatus = "active" | "paused";                                   // 替代伙伴的 paused?: boolean
+type Actor = "human" | "agent";                                             // 访问者类型，仅用于 metrics
+
+interface Listing {
+  id: string;                      // 服务端生成 uuid
+  kind: ListingKind;
+  category: Category;
+  title: string;                   // 1..80
+  description: string;             // 1..4000
+  price: number;                   // ≥0，单位元；0 表示面议/免费，由 unit 说明
+  unit: string;                    // ≤16，如 "" | "/次" | "/小时"
+  images: string[];                // 0..9 个 URL；见 19.5。替代伙伴单个 image
+  imagePosition?: string;          // CSS object-position，原样保留
+  sellerId: string;                // 账号 id；服务端写入，客户端不可传
+  seller: string;                  // 展示名，服务端从账号取，不是创建入参
+  sellerRole: string;              // ≤32，卖家自填
+  location: string;                // 城市名或 "线上"
+  tags: string[];                  // ≤10 个，每个 ≤24
+  facts: { label: string; value: string }[]; // ≤12 项
+  delivery: string;                // ≤200
+  missing: string[];               // 待确认事项，≤10
+  agent: boolean;                  // 发布者有 Bot 代为沟通
+  discoverable: boolean;           // 缺省 true；false 时不进搜索，仅凭 id 可读
+  status: ListingStatus;
+  createdAt: number;               // 毫秒
+  updatedAt: number;
+  metrics: ListingMetrics;         // 仅卖家本人可见完整值；他人只见 saves、likes
+  mine?: boolean;                  // 由服务端按调用者算出，不存储
+  saved?: boolean; liked?: boolean; // 同上，仅登录用户
+}
+interface ListingMetrics {
+  humanViews: number; agentViews: number;   // 按天去重后的累计，见 19.4 metrics
+  shortlists: number;                       // 被收藏次数（= saves 数）
+  likes: number;
+  inquiries: number;                        // 收到询问的会话数
+}
+
+interface Inquiry {                // 一个帖子 × 一个询问者 = 一个会话（伙伴按帖子聚合，这里加上询问者维度）
+  id: string; listingId: string;
+  title: string;                   // 创建时帖子标题快照
+  sellerId: string; seller: string;
+  askerId: string; asker: string;
+  messages: InquiryMessage[];      // 列表接口不含，详情接口含
+  lastMessage: InquiryMessage;
+  unread: number;                  // 调用者视角
+  createdAt: number; updatedAt: number;
+}
+interface InquiryMessage { id: string; senderId: string; actor: Actor; body: string; createdAt: number } // body 1..2000
+
+interface SearchBrief {            // 同伙伴，frequency 改为机器值
+  text: string;                    // 1..500
+  category: Category | "any";
+  budget: number;                  // ≥0；0 = 不限
+  location: string;                // "any" 或城市
+  priority: "best" | "price" | "local";
+}
+interface WatchTask {              // 伙伴的 AgentTask
+  id: string; ownerId: string;
+  title: string;                   // ≤22，缺省取 text 首句
+  brief: SearchBrief;
+  frequency: "hourly" | "daily" | "manual";
+  active: boolean;
+  botId?: string;                  // 执行任务的 Bot；缺省 = 主人在 Bot 侧选定的那个
+  checkedAt: number;               // 上次检查，0 = 未检查
+  seenIds: string[];               // 已提示过的 listing id，服务端保留最近 200 个
+  createdAt: number;
+}
+interface Save { listingId: string; createdAt: number }   // 联合键 (accountId, listingId)
+interface Like { listingId: string; createdAt: number }   // 同上
+// compare：账号下至多 4 个 listingId 的有序集合，不是独立实体。
+```
+
+与伙伴草案的差异（D2 允许）：`image`→`images[]`；`paused`→`status`；`mine` 由服务端算；`metricSource:'sample'` 不入契约，演示数据只在 dev 原型模式存在；`Inquiry` 增加询问者与 `actor`；`frequency`/`priority`/`category:'不限'` 改机器值，展示文案由前端映射；`Match`（score/reasons/tradeoff）不是实体，搜索只返回排序后的 Listing，解释由 Bot 在对话中给出，前端若要展示规则匹配留在 `// PROTOTYPE:`。
+
+#### 19.2 通用约定
+
+- 路径前缀 `/api/market`；JSON；时间为毫秒整数；分页用 `?limit=1..50`（缺省 20）+ `?cursor=`（不透明字符串），响应 `{ items, nextCursor?: string }`。
+- 错误沿用 yonder-cloud 现有形状：HTTP 状态 + `{ "error": "<code>" }`。码：`invalid_request`(400，字段非法或缺失；`message` 可选，不含用户输入原文) | `unauthorized`(401，未登录) | `forbidden`(403) | `verify_required`(403，匿名访客尝试写操作，与现有 `guestMaxMessages` 同口径) | `not_found`(404，含「不是你的」资源，不泄露存在性) | `conflict`(409，如对比已满、重复任务) | `payload_too_large`(413) | `rate_limited`(429，带 `Retry-After`) | `rate_limit_unavailable`(503，Redis 不可用时拒绝而不是放行)。
+- 同源与 CSRF：非 GET 请求沿用现有 origin 检查，Bot 用 Bearer 不受 cookie 约束。
+
+#### 19.3 鉴权主体
+
+| 主体 | 凭据 | 权限 |
+|---|---|---|
+| 访客（未登录，或匿名账号） | 无 / 匿名会话 | 只读：listings 列表与详情。无 saves/likes/compare/inquiries/watch-tasks/metrics 读写；浏览计数按 human 记（19.4）。匿名账号的写操作返回 `verify_required` |
+| 登录用户（human） | 网页会话 cookie | 读全部公开内容；创建/修改/暂停自己的帖子；询问；saves/likes/compare/watch-tasks 仅本人 |
+| Bot（agent） | 现有设备令牌（`kind='device'`），绑定主人账号 | 以主人代表身份调用，权限不超过主人；所有写入与浏览带 `actor:"agent"`。见下 |
+
+Bot 规则：服务端从会话类型判定 `agent`，客户端不能自报；Bot 的 `sellerId`/`askerId` 就是主人账号 id，消息上 `actor:"agent"` 让对方看见这是代发。Bot 只能调用 19.4 标注「Bot」的接口；其余（saves、likes、compare）返回 `forbidden`。「对外联系、发布、承诺价格前先问主人」是 Bot 侧工具约束（19.7），云端不做替代审批，但会限流（19.6）。
+
+#### 19.4 REST 接口
+
+「谁」列：访=访客可调；人=登录用户；Bot=设备令牌可调。
+
+**listings**
+
+| 方法 路径 | 谁 | 说明 |
+|---|---|---|
+| `GET /listings` | 访 人 Bot | 查询参数：`q`（空格分词，全部命中标题/描述/标签/卖家/城市）、`kind`、`category`、`city`、`min`、`max`（价格，`min>max` 返回 `invalid_request`）、`sort=relevance\|newest\|price_asc\|price_desc`（缺省 relevance）、`mine=1`（仅自己，需登录，含 paused）、`limit`、`cursor`。只返回 `status=active` 且 `discoverable≠false` 的他人帖子。结果项不含 `metrics` 明细（只含 `likes`、`shortlists`），自己的帖子含完整 |
+| `GET /listings/:id` | 访 人 Bot | 他人 `paused` 帖子返回 `not_found`；`discoverable=false` 凭 id 可读。**记一次浏览**（见 metrics） |
+| `POST /listings` | 人 Bot | body 为 Listing 去掉 `id/sellerId/seller/status/createdAt/updatedAt/metrics/mine/saved/liked`；返回完整 Listing，`status="active"`。Bot 创建的帖子 `agent` 强制 true |
+| `PATCH /listings/:id` | 人 Bot | 仅卖家本人；可改上述可写字段；`kind` 不可改（`invalid_request`）。非本人 `not_found` |
+| `POST /listings/:id/pause` / `/resume` | 人 Bot | 仅卖家本人；设 `status`；幂等 |
+
+不提供物理删除：下架 = pause。账号删除时由云端级联清理（MK02 定）。
+
+**inquiries**（按帖子聚合会话）
+
+| 方法 路径 | 谁 | 说明 |
+|---|---|---|
+| `GET /inquiries` | 人 Bot | 当前账号参与的会话（作为询问者或卖家），按 `updatedAt` 倒序，分页；不含 messages。`?listingId=` 过滤。`?role=asker\|seller` 过滤 |
+| `GET /inquiries/:id` | 人 Bot | 参与者可读，含 messages（按 createdAt 升序，分页 `limit` 默认 50）；读取即把调用者 `unread` 清零 |
+| `POST /listings/:id/inquiries` | 人 Bot | body `{ body }`。同一 (帖子, 询问者) 已有会话则追加消息，否则新建；返回 Inquiry。不能询问自己的帖子（`forbidden`），不能询问 paused 帖子（`not_found`） |
+| `POST /inquiries/:id/messages` | 人 Bot | body `{ body }`；卖家回复或询问者追问；返回新消息 |
+
+消息推送沿用云端既有 realtime 通道，事件名 `market.inquiry.message`（payload：`{ inquiryId, message }`），只发给会话两个参与者。
+
+**saves / likes / compare（仅本人，仅登录用户，Bot 不可用）**
+
+| 方法 路径 | 说明 |
+|---|---|
+| `GET /saves` · `PUT /saves/:listingId` · `DELETE /saves/:listingId` | 列出（返回 Listing，已 paused 的仍列出并带 `status`）· 添加（幂等）· 取消（幂等）。添加他人 paused 帖子 `not_found` |
+| `GET /likes` · `PUT /likes/:listingId` · `DELETE /likes/:listingId` | 同上；不能点赞自己的帖子（`forbidden`） |
+| `GET /compare` · `PUT /compare/:listingId` · `DELETE /compare/:listingId` | 有序，最多 4 个，超出 `conflict`；`GET` 返回 Listing 数组 |
+
+**watch-tasks（找东西任务）**
+
+| 方法 路径 | 谁 | 说明 |
+|---|---|---|
+| `GET /watch-tasks` | 人 Bot | 仅本人；分页 |
+| `POST /watch-tasks` | 人 Bot | body `{ brief, frequency, title?, botId?, active? }`；每账号最多 20 个，超出 `conflict` |
+| `PATCH /watch-tasks/:id` | 人 Bot | 可改 `brief/frequency/title/botId/active`；非本人 `not_found` |
+| `DELETE /watch-tasks/:id` | 人 Bot | 幂等 |
+| `POST /watch-tasks/:id/check` | 人 Bot | 用任务的 brief 执行一次搜索，返回 `{ items: Listing[] }` = 未在 `seenIds` 中的新结果，并把它们写入 `seenIds`、更新 `checkedAt`。**服务端是「是否已提示」的唯一状态**，插件的 cron 只负责定时调用它 |
+
+匹配规则：云端 `GET /listings` 与 `check` 共用同一个服务端搜索（`q` + category + city + `budget` 为价格上限硬限制 + priority 排序）。关键词规则不进契约；MK02 实现时以 PostgreSQL 全文检索或等价手段，实现细节不属本契约。
+
+**metrics**
+
+| 方法 路径 | 谁 | 说明 |
+|---|---|---|
+| `GET /listings/:id/metrics` | 人 Bot | 仅卖家本人，返回 `ListingMetrics` + `daily: { day: "YYYY-MM-DD", humanViews: number, agentViews: number }[]`（最近 30 天，按服务端 UTC 日） |
+
+浏览计数没有独立写接口，由 `GET /listings/:id` 在服务端记录（客户端不能刷）：
+- 类型：Bot 设备令牌 → `agent`；其余（含访客、登录用户网页）→ `human`。
+- 去重：同一「访问者键」同一天同一帖子只记一次。访问者键 = 登录/Bot 为账号 id（Bot 与主人的 human 浏览**分开计**，因为 actor 不同）；访客为 IP 的哈希（不存原始 IP）。
+- 卖家看自己的帖子不计。`agentViews` 仅以服务端记录的 Bot 访问为准（D2）。
+
+#### 19.5 图片
+
+- 现状：云端没有通用上传接口，网关侧 `uploadAttachment` 属会话附件，不用于市场。本契约**不新增上传接口**。
+- `images` 项只接受：`https://` 外链 URL，或内置图路径（以 `/market/` 开头，指向前端随包静态资源）。其他协议（`data:`、`http:`、`javascript:`、`file:`）一律 `invalid_request`。单个 URL ≤ 500 字符。云端不抓取、不转存外链。
+- 前端伙伴版允许把本地图片转 data URL 存 localStorage，那是 dev 原型行为，不进云端。上传能力需要时另开契约（云端存储与审核策略待维护者定，见未决项）。
+
+#### 19.6 限流
+
+沿用云端 `rateLimit`（Redis 窗口计数，超限 429 + `Retry-After`，Redis 不可用 503），按账号 id 计；访客按 IP。写类 Bot 与主人**共用**同一账号额度，另对 Bot 单独更紧：
+
+| 范围 | 登录用户 | Bot |
+|---|---|---|
+| 读（listings 列表/详情，每分钟） | 120 | 60 |
+| `POST /listings`（每小时） | 10 | 3 |
+| `PATCH`/pause/resume（每小时） | 60 | 20 |
+| 发询问消息（每分钟 / 每天） | 10 / 100 | 3 / 30 |
+| 对同一帖子新开询问（每天） | 20 帖 | 5 帖 |
+| watch-task `check`（每分钟） | 10 | 10 |
+| 其余写（saves/likes/compare/watch-tasks，每分钟） | 60 | 不可用 |
+| 访客读（每分钟，按 IP） | 60 | — |
+
+数值为首版起点，MK02 可调整但须同步本表。匿名账号写操作先返回 `verify_required`，不进入额度。
+
+#### 19.7 plugins/market 工具
+
+插件只经 19.4 的 REST 与云端交互，使用设备令牌；未登录云端或令牌缺失时，工具返回 `not_signed_in`（由 `error` 字段给出，不抛异常）。工具名与参数 schema 如下（TypeBox，`Optional` 表示可选）。**description 文案不在本节定**，由提示词设计流程另写。
+
+```ts
+import { Type } from "@sinclair/typebox";
+const Kind = Type.Union(["item","service","request","idea","job"].map(Type.Literal));
+const Cat  = Type.Union(["数码好物","生活方式","创意服务","技能与陪伴","户外出行"].map(Type.Literal));
+const Id   = Type.String({ minLength: 1, maxLength: 64 });
+
+const MarketSearch = Type.Object({                       // → GET /listings
+  q: Type.Optional(Type.String({ maxLength: 200 })),
+  kind: Type.Optional(Kind), category: Type.Optional(Cat),
+  city: Type.Optional(Type.String({ maxLength: 32 })),
+  min: Type.Optional(Type.Number({ minimum: 0 })), max: Type.Optional(Type.Number({ minimum: 0 })),
+  sort: Type.Optional(Type.Union(["relevance","newest","price_asc","price_desc"].map(Type.Literal))),
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50, default: 10 })),
+  cursor: Type.Optional(Type.String()),
+});
+const MarketGet = Type.Object({                          // → GET /listings/:id（带 Bot 浏览计数）
+  id: Id, includeInquiries: Type.Optional(Type.Boolean({ default: false })), // true 且为卖家本人时附带 GET /inquiries?listingId=
+});
+const MarketPublish = Type.Object({                      // → POST|PATCH /listings、pause/resume
+  action: Type.Union(["create","update","pause","resume"].map(Type.Literal)),
+  id: Type.Optional(Id),                                  // update/pause/resume 必填
+  listing: Type.Optional(Type.Object({                    // create 必填 kind/category/title/description/price/location；update 只传要改的
+    kind: Type.Optional(Kind), category: Type.Optional(Cat),
+    title: Type.Optional(Type.String({ minLength: 1, maxLength: 80 })),
+    description: Type.Optional(Type.String({ minLength: 1, maxLength: 4000 })),
+    price: Type.Optional(Type.Number({ minimum: 0 })), unit: Type.Optional(Type.String({ maxLength: 16 })),
+    images: Type.Optional(Type.Array(Type.String({ maxLength: 500 }), { maxItems: 9 })),
+    sellerRole: Type.Optional(Type.String({ maxLength: 32 })),
+    location: Type.Optional(Type.String({ maxLength: 32 })),
+    tags: Type.Optional(Type.Array(Type.String({ maxLength: 24 }), { maxItems: 10 })),
+    facts: Type.Optional(Type.Array(Type.Object({ label: Type.String(), value: Type.String() }), { maxItems: 12 })),
+    delivery: Type.Optional(Type.String({ maxLength: 200 })),
+    missing: Type.Optional(Type.Array(Type.String(), { maxItems: 10 })),
+    discoverable: Type.Optional(Type.Boolean()),
+  })),
+  ownerApproved: Type.Boolean(),                          // 必须为 true，见下「主人确认」
+});
+const MarketInquire = Type.Object({                      // → POST /listings/:id/inquiries | POST /inquiries/:id/messages | GET /inquiries
+  action: Type.Union(["send","reply","list","read"].map(Type.Literal)),
+  listingId: Type.Optional(Id),                           // send 必填
+  inquiryId: Type.Optional(Id),                           // reply/read 必填
+  body: Type.Optional(Type.String({ minLength: 1, maxLength: 2000 })), // send/reply 必填
+  ownerApproved: Type.Optional(Type.Boolean()),           // send/reply 必须为 true；list/read 不需要
+});
+const MarketWatch = Type.Object({                        // → /watch-tasks 及 check
+  action: Type.Union(["create","list","update","delete","check"].map(Type.Literal)),
+  id: Type.Optional(Id),                                  // update/delete/check 必填
+  brief: Type.Optional(Type.Object({
+    text: Type.String({ minLength: 1, maxLength: 500 }),
+    category: Type.Union([Cat, Type.Literal("any")]),
+    budget: Type.Number({ minimum: 0 }), location: Type.String({ maxLength: 32 }),
+    priority: Type.Union(["best","price","local"].map(Type.Literal)),
+  })),
+  frequency: Type.Optional(Type.Union(["hourly","daily","manual"].map(Type.Literal))),
+  active: Type.Optional(Type.Boolean()),
+  title: Type.Optional(Type.String({ maxLength: 22 })),
+});
+```
+
+结果统一 `{ ok: true, ... }` 或 `{ ok: false, error: <19.2 错误码 | "not_signed_in" | "approval_required"> }`；`market_search` 返回 `{ items, nextCursor? }`，其余返回对应实体。
+
+**权限**（工具级，沿用 spec 的能力模型，不新增 Scope）：
+
+| 工具 | 能力 | 需要主人确认 |
+|---|---|---|
+| `market_search` / `market_get` | `network` + 云端已登录 | 否（只读；会记一次 `agentViews`） |
+| `market_watch` | 同上 | `create`/`update`（改 brief、改 `active`）要；`list`/`check`/`delete` 不要 |
+| `market_inquire` | 同上 | `send`/`reply` 要；`list`/`read` 不要 |
+| `market_publish` | 同上 | 全部 action 要 |
+
+不对外人（outsiders）开放：这五个工具不在 `outsiders.capabilities` 白名单内，外人会话里不可见（D5、§18 同口径）。
+
+**主人确认（D5）**：对外联系（`market_inquire` 的 `send`/`reply`）、发布（`market_publish` 的 `create`/`update`/`pause`/`resume`）、含价格或承诺（帖子 `price`、询问/回复正文里出现价格、折扣、「我愿意以…买/卖」类表述）的操作，Bot 必须先把完整待发内容（目标帖子、正文、价格）交给主人，得到明确同意后才可调用，并传 `ownerApproved:true`。工具层规则：
+1. `ownerApproved` 缺失或为 false 时，工具**不调用云端**，直接返回 `{ ok:false, error:"approval_required" }`。
+2. 一次同意只覆盖当次展示的那条内容；内容改动、换帖子、换收件人都要重新问。
+3. 不做支付、担保、物流；Bot 不得代主人下单或付款，也不得承诺云端以外的交付。
+4. `ownerApproved` 只是 Bot 自述，云端不校验；真正的约束是提示词与 19.6 的 Bot 限流。需要强制审批时走 §3.5 审批事件，接线位置待定（见 19.9），本节不假设 `ctx.kernel.approvals` 已存在。
+
+**找东西任务的执行（D4）**：`market_watch` 的 `create` 在云端建任务后，插件向 `cron` 插件登记一个 preset 作业（按 `frequency`：hourly=每小时、daily=每天；manual 不登记；作业归创建者 Agent，timezone 取主人时区）。到点作业调用 `POST /watch-tasks/:id/check`；返回非空时在 Bot 主对话发一张结果卡片（标题 + 每条 title/price/location/链接），**只通知主人，不自动联系卖家**。`update(active:false)`、`delete` 同步停用或删除对应 cron 作业。云端任务与 cron 作业不一致（如 cron 已被删）时以云端为准，插件在下次 `list` 时重建缺失作业。
+
+**views 面板**（MK04 范围，形状沿用 §11）：`market` 视图至少展示「我的发布」「收到的询问（未读数）」「找东西任务」；数据取自 19.4，不另设后端。
+
+#### 19.8 迁移说明
+
+- localStorage 键 `yonder-market-demo:v1:<账号>` 下的数据（14 条 `metricSource:'sample'` 演示帖子、本地 saves/likes/compare/inquiries/tasks）**不迁移到云端**：既无真实卖家，也不是用户创建的内容。这些数据只在 dev 原型模式下读取，代码须标 `// PROTOTYPE:`。
+- 生产模式不读、不写该键，也不主动清除（保留用户文件）。同一浏览器里的旧键可能残留，无副作用。
+- 前端 `store.ts` 切换到 19.4 的接口（MK03）；dev 原型模式与生产模式的开关沿用 apps/app 现有的原型开关，不新增配置键。
+- 云端无历史数据可导入；首批真实帖子由用户发布产生。
+
+#### 19.9 未决项（交维护者）
+
+1. 图片上传：是否由云端提供存储（对象存储、大小与格式、内容审核），还是长期只支持外链与内置图。
+2. 工具层的 `ownerApproved` 是否升级为内核审批（§3.5）以强制执行；需主 Agent 先定审批接线。
+3. 限流表（19.6）具体数值是否沿用首版起点。
+4. 帖子内容审核与举报（不在 MK00 范围，伙伴版也没有）。
+5. `request`/`idea`/`job` 类帖子在 `check` 搜索中的范围：伙伴匹配只返回 `item`/`service`；本契约 `GET /listings` 不按 kind 过滤，`check` 缺省只搜 `item`/`service`，是否放开待定。
+
+**实现归属**：MK02 云端表与接口（真实 PostgreSQL 测试）；MK04 `plugins/market`（含 cron 登记与 views）；MK03 前端；工具 description 文案由提示词设计流程补充。
