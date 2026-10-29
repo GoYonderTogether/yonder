@@ -60,8 +60,8 @@ This opens the pi 1.3.0 native terminal UI on a standalone, resumable task (the 
 ### Install as a service (macOS)
 
 ```sh
-node packages/cli/dist/index.js update --to latest   # builds the latest release tag into ~/.yonder-harness/versions
-export PATH="$HOME/.yonder-harness/bin:$PATH"
+node packages/cli/dist/index.js update --to latest   # builds the latest release tag into ~/.local/share/yonder/install/versions
+export PATH="$HOME/.local/share/yonder/install/bin:$PATH"
 yonder init && yonder login openai
 yonder service install                               # launchd service for this home
 yonder                                               # attach to the resident main session

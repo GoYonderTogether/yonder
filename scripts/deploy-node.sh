@@ -121,7 +121,7 @@ local_cloud_auth() {
 	python3 - "${YONDER_AUTH_KEY_FILE:-${YONDER_SILICONFLOW_KEY_FILE:-}}" <<'PY'
 import json, os, sys
 paths = [p for p in sys.argv[1:] if p]
-paths += ["~/.local/share/yonder-harness/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
+paths += ["~/.local/share/yonder/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
 wanted = ("rightapi-glm", "workbuddy")
 out = {}
 for p in paths:
