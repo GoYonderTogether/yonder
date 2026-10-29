@@ -118,7 +118,8 @@ interface SessionUpdateBase {
 export type SessionUpdate =
 	| SessionUpdateBase
 	| (Omit<SessionUpdateBase, "type"> & { type: "event"; name: string; data: unknown });
-
+/** Workbench narrowing for `sessions.list`; archived rows stay out unless `archived` asks for them (contracts §18). */
+export type SessionFilter = { agent?: string; mode?: Mode; open?: boolean; archived?: boolean; pinned?: boolean };
 export interface SessionsAPI {
 	/** Deterministic model/status/compact commands, scoped to this session and its capabilities. */
 	command(id: string, command: string): Promise<string>;
@@ -126,7 +127,7 @@ export interface SessionsAPI {
 		id: string,
 		input: { event: string; text: string },
 	): Promise<{ session: string; event: string; entry: number; recorded: true }>;
-	list(filter: { agent?: string; mode?: Mode; open?: boolean }): Promise<SessionInfo[]>;
+	list(filter: SessionFilter): Promise<SessionInfo[]>;
 	get(id: string): Promise<SessionInfo | undefined>;
 	open(req: {
 		preset: string;

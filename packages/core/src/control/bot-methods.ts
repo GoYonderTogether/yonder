@@ -1,5 +1,5 @@
 import Type, { type TSchema } from "typebox";
-import type { MethodDef } from "./method-types.js";
+import { type MethodDef, MethodError } from "./method-types.js";
 
 const text = Type.String({ minLength: 1 });
 const obj = <T extends Record<string, TSchema>>(properties: T) => Type.Object(properties);
@@ -27,6 +27,18 @@ export const botMethods: MethodDef[] = [
 		async handler(p, ctx) {
 			const run = () => ctx.kernel.bots.send(p.agent, p.text);
 			return p.requestId ? dedupe(`bot:${p.agent}`, p.requestId, run) : run();
+		},
+	}),
+	define({
+		name: "bots.overview",
+		scope: "owner",
+		params: obj({ bot: text }),
+		since: 1,
+		async handler(p, ctx) {
+			const known = await ctx.kernel.bots.list();
+			if (!known.some((bot) => bot.agent === p.bot)) throw new MethodError("not_found", `Unknown bot: ${p.bot}`);
+			const { channels, sessions } = await ctx.kernel.sessions.botOverview(p.bot);
+			return { channels, sessions: sessions.map((session) => ({ session })) };
 		},
 	}),
 ];

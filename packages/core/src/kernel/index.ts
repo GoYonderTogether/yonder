@@ -322,6 +322,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			runtime: realRuntime,
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
+			forward: forwardUpdate,
 		});
 		delivery = createDelivery({
 			hooks: loaded.hooks,
@@ -537,7 +538,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				login: loginChannel,
 			},
 			views: loaded.views.api,
-			sessions: { ...sessions.api, ...sessions.branches, observe: observeSession },
+			sessions: { ...sessions.api, ...sessions.branches, ...sessions.workbench, observe: observeSession },
 			releaseResult: (data: UpdateResult) => {
 				if (resolve(data.home) !== home) throw new Error("Update result belongs to another home");
 				return router.emit(updateResultEvent(data));

@@ -1,12 +1,19 @@
 import Type, { type TSchema } from "typebox";
 import type { Kernel } from "../kernel/index.js";
 import { guardSession, ownsBots } from "./guard.js";
-import { type MethodDef, MethodError } from "./method-types.js";
+import { type HostCtx, type MethodDef, MethodError } from "./method-types.js";
 
 const text = Type.String({ minLength: 1 });
 const obj = <T extends Record<string, TSchema>>(properties: T) => Type.Object(properties);
 const id = obj({ id: text });
 const missing = (kind: string, value: string) => new MethodError("not_found", `Unknown ${kind}: ${value}`);
+/** Unknown ids are `not_found`; Bot conversations need the owner scope (contracts §14). */
+async function load(ctx: HostCtx, id: string) {
+	const session = await ctx.kernel.sessions.get(id);
+	if (!session) throw missing("session", id);
+	await guardSession(ctx, id, session);
+	return session;
+}
 function define<P extends TSchema>(def: MethodDef<P>): MethodDef {
 	// SAFETY: handler params are validated against def.params by registry.prepare before any handler runs.
 	return def as unknown as MethodDef;
@@ -118,6 +125,61 @@ export const sessionMethods: MethodDef[] = [
 		async handler(p, ctx) {
 			await guardSession(ctx, p.id);
 			await ctx.kernel.sessions.close(p.id);
+			return { ok: true };
+		},
+	}),
+	define({
+		name: "sessions.archive",
+		scope: "write",
+		params: id,
+		since: 1,
+		async handler(p, ctx) {
+			await load(ctx, p.id);
+			await ctx.kernel.sessions.archive(p.id);
+			return { ok: true };
+		},
+	}),
+	define({
+		name: "sessions.unarchive",
+		scope: "write",
+		params: id,
+		since: 1,
+		async handler(p, ctx) {
+			await load(ctx, p.id);
+			await ctx.kernel.sessions.unarchive(p.id);
+			return { ok: true };
+		},
+	}),
+	define({
+		name: "sessions.pin",
+		scope: "write",
+		params: id,
+		since: 1,
+		async handler(p, ctx) {
+			await load(ctx, p.id);
+			await ctx.kernel.sessions.pin(p.id);
+			return { ok: true };
+		},
+	}),
+	define({
+		name: "sessions.unpin",
+		scope: "write",
+		params: id,
+		since: 1,
+		async handler(p, ctx) {
+			await load(ctx, p.id);
+			await ctx.kernel.sessions.unpin(p.id);
+			return { ok: true };
+		},
+	}),
+	define({
+		name: "sessions.rename",
+		scope: "write",
+		params: obj({ id: text, title: Type.String({ minLength: 1, maxLength: 80 }) }),
+		since: 1,
+		async handler(p, ctx) {
+			await load(ctx, p.id);
+			await ctx.kernel.sessions.rename(p.id, p.title);
 			return { ok: true };
 		},
 	}),

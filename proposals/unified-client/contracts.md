@@ -753,6 +753,8 @@ interface SessionWorkbenchFields {
 | `sessions.rename` | write | 已有（§13） | `Ok` | 不新增 |
 | `bots.overview` | owner | `{ bot: string }` | `{ channels: { id: string; label: string; kind: string; lastActiveAt?: number }[]; sessions: { session: SessionInfo }[] }` | 渠道列表 + 该 Bot 的子会话（含 `parent` 指向 main）。未知 Bot 或非节点 owner 的 Bot：`not_found`（同 `bots.send`） |
 
+以上 `sessions.archive` / `unarchive` / `pin` / `unpin`、`sessions.rename`（§13）与 `bots.overview` 均为只增不改（add-only）：不修改既有方法的 scope、参数与返回形状。主 Agent 代批 10-29。已实现：`packages/core/src/control/session-methods.ts`、`packages/core/src/control/bot-methods.ts`，`session.updated` 经 `sessions.watch` 的 §15 carrier 转发。
+
 - 错误码：未知会话 `not_found`；无权限 `forbidden`；`parent` 超两层 `invalid_params`。
 - `sessions.list` 默认不含已归档；`filter` 增加可选 `archived?: boolean`（true 只返回已归档）和 `pinned?: boolean`。
 - 事件：沿用 §15 carrier，`SessionUpdate{type:"event", name, data}`。新增事件名 `session.updated`（data：`{ id; patch: Partial<SessionWorkbenchFields> }`），节点级由 `activity.watch` 转发，会话级由 `sessions.watch` 转 `ev{type:"session.updated"}`。不认识该名的客户端丢弃。`needsOwner` 出现时额外走 §16 通知。

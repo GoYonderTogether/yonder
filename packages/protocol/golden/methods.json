@@ -33,6 +33,20 @@
 				"type": "object"
 			}
 		},
+		"bots.overview": {
+			"scope": "owner",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"bot": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["bot"],
+				"type": "object"
+			}
+		},
 		"bots.send": {
 			"scope": "owner",
 			"since": 1,
@@ -300,6 +314,20 @@
 				"type": "object"
 			}
 		},
+		"sessions.archive": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
 		"sessions.close": {
 			"scope": "write",
 			"since": 1,
@@ -409,6 +437,39 @@
 					}
 				},
 				"required": ["preset"],
+				"type": "object"
+			}
+		},
+		"sessions.pin": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.rename": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					},
+					"title": {
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id", "title"],
 				"type": "object"
 			}
 		},
@@ -522,6 +583,34 @@
 		},
 		"sessions.tree": {
 			"scope": "read",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.unarchive": {
+			"scope": "write",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"id": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["id"],
+				"type": "object"
+			}
+		},
+		"sessions.unpin": {
+			"scope": "write",
 			"since": 1,
 			"paramsSchema": {
 				"properties": {
@@ -805,6 +894,44 @@
 											},
 											{
 												"const": "respond",
+												"type": "string"
+											}
+										]
+									}
+								},
+								"type": "object"
+							},
+							"tags": {
+								"additionalProperties": false,
+								"properties": {
+									"rhythm": {
+										"anyOf": [
+											{
+												"const": "low",
+												"type": "string"
+											},
+											{
+												"const": "normal",
+												"type": "string"
+											},
+											{
+												"const": "high",
+												"type": "string"
+											}
+										]
+									},
+									"value": {
+										"anyOf": [
+											{
+												"const": "high",
+												"type": "string"
+											},
+											{
+												"const": "medium",
+												"type": "string"
+											},
+											{
+												"const": "low",
 												"type": "string"
 											}
 										]

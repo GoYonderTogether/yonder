@@ -16,6 +16,8 @@ import type { Store } from "../store/index.js";
 import { createBranches } from "./branches.js";
 import { notifySession, recoverSessionInputs } from "./inputs.js";
 import { configureModel, modelList } from "./model-list.js";
+import { botOverview } from "./overview.js";
+import { createWorkbench, type Forward } from "./workbench.js";
 
 interface CreateSessionsOptions {
 	store: Store;
@@ -27,6 +29,8 @@ interface CreateSessionsOptions {
 	version: string;
 	runtime: () => Runtime;
 	onRun?: (session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean) => void | Promise<void>;
+	/** Live `session.updated` fan-out to `sessions.watch` (contracts §18); absent where nothing watches. */
+	forward?: Forward;
 	onReport?: (error: unknown) => void;
 }
 
@@ -41,6 +45,7 @@ export function createSessions({
 	runtime,
 	onRun,
 	onReport = () => {},
+	forward,
 }: CreateSessionsOptions) {
 	const closing = new Set<string>();
 	const opening = new Map<string, Promise<{ session: SessionInfo; profileMismatch: boolean }>>();
@@ -349,6 +354,14 @@ export function createSessions({
 	const notifyFrom = (id: string, input: { event: string; text: string }, from: string) =>
 		notifySession(store, runtime, closing, id, input, from);
 
+	const overview = botOverview(config, agents, store, withPolicy);
+	const workbench = createWorkbench({
+		store,
+		...(forward ? { forward } : {}),
+		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
+		botOverview: overview,
+	});
+
 	const branches = createBranches(store, runtime, version, withPolicy);
 	const api: SessionsAPI = {
 		command,
@@ -448,6 +461,7 @@ export function createSessions({
 	return {
 		api,
 		branches,
+		workbench,
 		recover,
 		notifyFrom,
 		submitFrom(
