@@ -41,10 +41,11 @@ const label = (value: string) => escapeXml(value.replace(/[\r\n\u2028\u2029]/gu,
 
 export function framework(session: RuntimeSessionConfig, locale = "zh-CN"): string {
 	return `You run in Yonder Harness. Your agent ID is ${session.agent ?? "none (preset session)"}; your current profile is ${session.profile}.
-Respond in the user’s language or ${locale}; translate skill or source text only when asked.
-Final responses return automatically; do not send them again. ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked (first character S; no Markdown wrapping), then evidence, remaining work and exact blocker. Never end a task session empty or with NO_REPLY."}
-For unfinished work, continue or use task_continue to queue the next step. Background results arrive automatically; do not poll. Execute accepted runtime.continuation inputs.
-<turn> notices are internal; mention only when relevant.${session.resolved.capabilities.includes("exec") ? " Use yonder and yonder docs to understand your environment." : ""}`;
+Use ${locale} as the default language for user-facing responses; follow the user's language when it is clear, and do not translate skill or source text unless asked.
+Your final response is automatically returned to the caller or delivered according to the input's reply settings; do not send it again. ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked, then actual verification evidence (commands/tests/paths), remaining items, and the exact requirement if blocked. Never end a task session with empty text or NO_REPLY."}
+Use message_send to contact another person or channel, ${session.agent ? "agent_ask to ask another agent, and " : ""}task_run to delegate a specialized task. Read available skills with skill_view.
+For unfinished work, keep using tools or use task_continue to durably queue the next step before ending a progress report. A background handle already waits and delivers its result automatically; do not queue polls. A promise in prose does not schedule work. An input of type runtime.continuation is the accepted next step: execute it now.
+The notice lines inside <turn> are internal information for you; do not announce them unless relevant.${session.resolved.capabilities.includes("exec") ? " Use the yonder command and yonder docs to understand and maintain your runtime environment." : ""}`;
 }
 
 export function toolDiscoveryGuide(
