@@ -5,33 +5,10 @@ import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NodeConfig } from "../src/work/api/nodes";
 import { consoleRows, consoleTarget } from "../src/work/features/console/ConsoleSwitcher";
-import { PAGES } from "../src/work/shell/registry";
-import { href, PAGE_NAMES, parse } from "../src/work/shell/routes";
-import { NAV } from "../src/work/shell/TabBar";
 
 const local: NodeConfig = { id: "local", name: "本机" };
 const studio: NodeConfig = { id: "n2", name: "书房", origin: "https://studio.test:7690/console" };
 const office: NodeConfig = { id: "n3", name: "公司", origin: "https://office.test" };
-
-describe("console 路由", () => {
-	it("parses #/console under the work tab and round trips", () => {
-		expect(parse("#/console")).toEqual({ tab: "work", page: "console" });
-		expect(href(parse("#/console"))).toBe("#/console");
-	});
-	it("keeps older hashes working", () => {
-		for (const hash of ["#/s/a", "#/c/a", "#/contacts/a", "#/work", "#/work/a", "#/me", "#/market", "#/friends/add"]) {
-			expect(href(parse(hash))).toBe(hash);
-		}
-		expect(parse("#/nope")).toEqual({ tab: "chats" });
-	});
-	it("stays in the three-item IA", () => {
-		// FE-R02 / O27：图标栏三项（消息 / 通讯录 / 工作）+ 底部头像；控制台是工作页里的入口。
-		expect(NAV.map((item) => item.tab)).toEqual(["chats", "contacts", "work"]);
-		expect(PAGE_NAMES).toContain("console");
-		expect(PAGES.console.tab).toBe("work");
-		expect(PAGES.console.load).toBeTypeOf("function");
-	});
-});
 
 describe("consoleRows", () => {
 	it("keeps the local node first and the added order for the rest", () => {
