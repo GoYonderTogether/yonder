@@ -17,7 +17,8 @@ async function request<T>(path: string, init: RequestInit = {}, missingAsNull = 
 		try {
 			message = (JSON.parse(text) as { error?: string }).error ?? message;
 		} catch {}
-		throw new Error(message);
+		// status 让页面区分「节点没有社交服务」（404）与其他失败。
+		throw Object.assign(new Error(message), { status: response.status });
 	}
 	return (text ? JSON.parse(text) : undefined) as T;
 }

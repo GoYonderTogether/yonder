@@ -13,6 +13,7 @@ import { WalletBoard, WalletStrip } from "../components/wallet/DesktopWallet";
 import { MobileWallet } from "../components/wallet/Wallet";
 import { cn } from "../lib/cn";
 import { internalState } from "../lib/navigation";
+import { socialLoadError } from "../lib/socialError";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
 import { $session } from "../store";
@@ -74,22 +75,23 @@ export function Contacts() {
 		enabled: !!id && !known,
 	});
 	const selected = known ?? detail.data;
+	const loading = resolved.pending || (!!id && detail.isPending);
+	const failure = resolved.failure ?? (detail.isError ? detail.error : null);
 	const detailPane = selected ? (
 		<ContactDetail key={selected.id} a={selected} desktop={desktop} />
 	) : ref ? (
 		<div className="flex h-full flex-col bg-ground">
 			<AppBar title="联系人" left={<BackButton to="/contacts" />} />
 			<div className="flex flex-1 flex-col items-center justify-center gap-4 p-6 text-muted">
-				<p role={detail.isError || resolved.error ? "alert" : "status"}>
-					{resolved.pending || (id && detail.isPending)
+				<p role={failure ? "alert" : "status"}>
+					{loading
 						? "正在加载联系人…"
-						: detail.isError || resolved.error
-							? "加载联系人失败"
+						: failure
+							? socialLoadError(failure, "加载联系人失败")
 							: "联系人不存在或无法访问"}
 				</p>
-				{!(resolved.pending || (id && detail.isPending)) && (
-					<Button onClick={() => void (id ? detail.refetch() : resolved.retry())}>重试</Button>
-				)}
+				{!loading && failure && <Button onClick={() => void (id ? detail.refetch() : resolved.retry())}>重试</Button>}
+				{!loading && !failure && <Button onClick={() => nav("/friends/add")}>添加好友</Button>}
 				<Button onClick={() => nav("/contacts")}>返回通讯录</Button>
 			</div>
 		</div>

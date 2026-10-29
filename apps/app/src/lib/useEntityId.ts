@@ -14,6 +14,7 @@ export function useEntityId(kind: "actor" | "card" | "conversation" | "device", 
 		id: short ? query.data?.id : ref,
 		pending: short && query.isPending,
 		error: short && query.isError,
+		failure: short ? query.error : null,
 		retry: query.refetch,
 	};
 }

@@ -10,9 +10,11 @@ import { cn } from "../../lib/cn";
 import { contactRowMenu } from "../../lib/contactMenu";
 import { entityRef } from "../../lib/entityRef";
 import { internalState } from "../../lib/navigation";
+import { socialLoadError } from "../../lib/socialError";
 import { AddDeviceDialog } from "../../pages/Connect";
 import { $session } from "../../store";
 import { Avatar, Status } from "../../ui/Avatar";
+import { Button } from "../../ui/Button";
 import { toast } from "../../ui/Toast";
 import type { ActionItem } from "../../work/lib/actions";
 import { type MenuAnchor, useMenuTrigger } from "../../work/lib/useLongPress";
@@ -45,13 +47,22 @@ function letterOf(name: string) {
 
 function useContactData() {
 	const qc = useQueryClient();
-	const { data: contacts = [] } = useQuery({ queryKey: ["contacts"], queryFn: api.contacts });
+	const contactsQuery = useQuery({ queryKey: ["contacts"], queryFn: api.contacts });
+	const contacts = contactsQuery.data ?? [];
 	const { data: devices = [] } = useQuery({ queryKey: ["devices"], queryFn: api.devices });
 	const { data: convs = [] } = useQuery({ queryKey: ["convs"], queryFn: api.conversations });
 	const refresh = () => {
 		for (const key of ["contacts", "devices", "actors"]) qc.invalidateQueries({ queryKey: [key] });
 	};
-	return { contacts, devices, groups: convs.filter((c) => c.kind === "group"), refresh };
+	return {
+		contacts,
+		// 已有数据时后台刷新失败不打断列表；只有拿不到联系人才显示失败。
+		failure: contactsQuery.data ? null : contactsQuery.error,
+		retry: () => void contactsQuery.refetch(),
+		devices,
+		groups: convs.filter((c) => c.kind === "group"),
+		refresh,
+	};
 }
 
 const Header = ({ children, desktop }: { children: ReactNode; desktop?: boolean }) => (
@@ -403,7 +414,7 @@ export function ContactList({
 	active?: string;
 	meId: string;
 }) {
-	const { contacts, devices, refresh } = useContactData();
+	const { contacts, failure, retry, devices, refresh } = useContactData();
 	const [adding, setAdding] = useState(false);
 	const hit = (a: Actor) => !q.trim() || a.name.includes(q.trim());
 	const friends = contacts.filter((a) => a.kind === "human" && hit(a));
@@ -416,6 +427,13 @@ export function ContactList({
 			<Agents list={agents} devices={devices} meId={meId} active={active} onAdd={() => setAdding(true)} />
 		) : (
 			<Devices devices={shownDevices} contacts={contacts} onAdd={() => setAdding(true)} refresh={refresh} />
+		);
+	if (failure)
+		return (
+			<div className="flex flex-col items-start gap-3 px-2.5 py-4 text-small text-muted">
+				<p role="alert">{socialLoadError(failure, "加载联系人失败")}</p>
+				<Button onClick={retry}>重试</Button>
+			</div>
 		);
 	return (
 		<>
