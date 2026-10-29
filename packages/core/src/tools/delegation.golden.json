@@ -125,5 +125,37 @@
 			}
 		},
 		"additionalProperties": false
+	},
+	"subagent": {
+		"type": "object",
+		"required": ["action"],
+		"properties": {
+			"action": {
+				"anyOf": [
+					{
+						"type": "string",
+						"const": "run"
+					},
+					{
+						"type": "string",
+						"const": "list"
+					},
+					{
+						"type": "string",
+						"const": "status"
+					},
+					{
+						"type": "string",
+						"const": "stop"
+					}
+				]
+			},
+			"options": {
+				"type": "object",
+				"properties": {},
+				"additionalProperties": true
+			}
+		},
+		"additionalProperties": false
 	}
 }
