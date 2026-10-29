@@ -134,6 +134,22 @@ describe("gateway hardening", () => {
 		}
 	});
 
+	it("falls back to index.html for BrowserRouter deep links under the base path, injecting the mount", async () => {
+		const cookie = cookieOf(await fetch(`${base}/console/?token=${gateway.ticket().token}`, { redirect: "manual" }));
+		for (const path of ["work", "work/abc%20d", "work/console", "c/42", "friends/add"]) {
+			const response = await fetch(`${base}/console/${path}`, { headers: { cookie } });
+			expect(response.status).toBe(200);
+			expect(response.headers.get("content-type")).toMatch(/text\/html/);
+			expect(response.headers.get("cache-control")).toBe("no-cache");
+			const html = await response.text();
+			expect(html).toContain('<base href="/console/">');
+			expect(html).toContain('<meta name="yonder-base-path" content="/console/">');
+		}
+		// 带扩展名的缺失资源仍是 404，不会被当成页面。
+		const missing = await fetch(`${base}/console/assets/nope-AbCd1234.js`, { headers: { cookie } });
+		expect(missing.status).toBe(404);
+	});
+
 	it("closes remote sockets when the access token is rotated", async () => {
 		const cookie = cookieOf(await login(ACCESS, { "x-forwarded-for": "198.51.100.7" }));
 		const remote = await connect({ cookie });
