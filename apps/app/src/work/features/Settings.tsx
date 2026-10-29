@@ -4,6 +4,7 @@ import { qk } from "../api/keys";
 import { httpApi } from "../api/social";
 import { useFacts } from "../lib/queries";
 import { AboutSection } from "./settings/AboutSection";
+import { ChannelsSection } from "./settings/ChannelsSection";
 import { NodesSection } from "./settings/NodesSection";
 import { NotifySection } from "./settings/NotifySection";
 import { accountRows } from "./settings/rows";
@@ -38,6 +39,7 @@ export function Settings({ onLogout }: { onLogout(): void }) {
 				</dl>
 			</section>
 			<NotifySection />
+			<ChannelsSection />
 			<NodesSection />
 			<AboutSection />
 			<button
