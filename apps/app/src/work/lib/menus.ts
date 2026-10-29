@@ -3,15 +3,12 @@ import {
 	ChevronUp,
 	CircleX,
 	Copy,
-	IdCard,
-	MessageCircle,
 	MessageSquare,
 	PanelRightClose,
 	PictureInPicture2,
 	Pin,
 	PinOff,
 } from "lucide-react";
-import type { Actor } from "../api/social/types";
 import type { SessionInfo } from "../api/types";
 import { type ActionItem, action, menuItems, toggleItem } from "./actions";
 import { dock, type PanelKind, toggleFloat } from "./layout";
@@ -37,15 +34,6 @@ export function taskRowMenu(o: { session: SessionInfo; pinned: boolean; open(): 
 		action("open", "打开会话", o.open, { icon: MessageSquare }),
 		!closed && action("close", "关闭会话", o.close, { icon: CircleX, danger: true }),
 		toggleItem("pin", o.pinned, "取消置顶", "置顶", () => togglePin(o.session.id), o.pinned ? PinOff : Pin),
-	]);
-}
-
-/** 联系人行：发消息、打开资料；自己不发消息给自己（与资料页一致）。 */
-export function contactRowMenu(o: { actor: Actor; meId?: string; message(): void; profile(): void }): ActionItem[] {
-	const self = o.meId !== undefined && o.actor.id === o.meId;
-	return menuItems([
-		!self && action("message", "发消息", o.message, { icon: MessageCircle }),
-		action("profile", "打开资料", o.profile, { icon: IdCard }),
 	]);
 }
 

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Laptop, Monitor, Plus, Server, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { type Actor, type Device, httpApi } from "../../api/social";
-import { contactRowMenu } from "../../lib/menus";
+import { contactRowMenu } from "../../../lib/contactMenu";
 import { type MenuAnchor, useMenuTrigger } from "../../lib/useLongPress";
 import { href } from "../../shell/routes";
 import { ActionMenu } from "../../ui/ActionMenu";

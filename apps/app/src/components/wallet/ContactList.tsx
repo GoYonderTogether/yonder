@@ -1,3 +1,4 @@
+import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Plus, UserPlus, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -6,11 +7,16 @@ import { api } from "../../api";
 import type { Actor, Device } from "../../api/types";
 import { deviceLabel } from "../../lib/cardItems";
 import { cn } from "../../lib/cn";
+import { contactRowMenu } from "../../lib/contactMenu";
 import { entityRef } from "../../lib/entityRef";
 import { internalState } from "../../lib/navigation";
 import { AddDeviceDialog } from "../../pages/Connect";
+import { $session } from "../../store";
 import { Avatar, Status } from "../../ui/Avatar";
 import { toast } from "../../ui/Toast";
+import type { ActionItem } from "../../work/lib/actions";
+import { type MenuAnchor, useMenuTrigger } from "../../work/lib/useLongPress";
+import { ActionMenu } from "../../work/ui/ActionMenu";
 import { DeviceSheet, deviceIcon, Switch } from "./DeviceSheet";
 
 export type ContactTab = "friends" | "agents" | "devices";
@@ -62,6 +68,7 @@ function Row({
 	sub,
 	trail,
 	active,
+	menu,
 }: {
 	to?: string;
 	onClick?: () => void;
@@ -70,8 +77,12 @@ function Row({
 	sub?: string | null;
 	trail?: ReactNode;
 	active?: boolean;
+	/** 右键、长按或 Shift+F10 打开的菜单 */
+	menu?: ActionItem[];
 }) {
 	const loc = useLocation();
+	const [at, setAt] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setAt);
 	const cls = cn(
 		"press flex w-full min-h-14 items-center gap-3 rounded-control px-2.5 py-2 text-left hover:bg-tone/60",
 		active && "bg-raised shadow-soft hover:bg-raised",
@@ -88,9 +99,12 @@ function Row({
 	);
 	if (to)
 		return (
-			<Link to={to} state={internalState(loc)} className={cls}>
-				{body}
-			</Link>
+			<>
+				<Link to={to} state={internalState(loc)} className={cn(cls, menu && "no-select")} {...(menu ? trigger : {})}>
+					{body}
+				</Link>
+				{menu && at && <ActionMenu at={at} title={title} actions={menu} onClose={() => setAt(null)} />}
+			</>
 		);
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: 行内含按钮（开关等），外层不能再是 <button>
@@ -183,8 +197,21 @@ export function FixedRows() {
 
 function ActorRow({ a, active }: { a: Actor; active?: boolean }) {
 	const agent = a.kind === "agent";
+	const nav = useNavigate();
+	const loc = useLocation();
+	const meId = useStore($session)?.actor.id;
+	const profile = () => nav(`/contacts/${entityRef(a)}`, { state: internalState(loc) });
+	const message = async () => {
+		try {
+			const conv = await api.openDm(a.id);
+			nav(`/c/${entityRef(conv)}`);
+		} catch (error) {
+			toast(error instanceof Error ? error.message : "无法打开会话", true);
+		}
+	};
 	return (
 		<Row
+			menu={contactRowMenu({ actor: a, meId, message: () => void message(), profile })}
 			to={`/contacts/${entityRef(a)}`}
 			active={active}
 			lead={<Avatar actor={a} size={40} online={agent ? !!a.online : undefined} />}

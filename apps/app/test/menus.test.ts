@@ -71,32 +71,6 @@ describe("taskRowMenu", () => {
 	});
 });
 
-describe("contactRowMenu", () => {
-	it("联系人行有发消息与打开资料", async () => {
-		const { contactRowMenu } = await import("../src/work/lib/menus");
-		const message = vi.fn();
-		const profile = vi.fn();
-		const items = contactRowMenu({ actor, meId: "me", message, profile });
-		expect(items.map((i) => i.key)).toEqual(["message", "profile"]);
-		items[0]?.onSelect();
-		items[1]?.onSelect();
-		expect(message).toHaveBeenCalledOnce();
-		expect(profile).toHaveBeenCalledOnce();
-	});
-
-	it("自己不显示发消息", async () => {
-		const { contactRowMenu } = await import("../src/work/lib/menus");
-		const items = contactRowMenu({ actor, meId: "a1", message: noop, profile: noop });
-		expect(items.map((i) => i.key)).toEqual(["profile"]);
-	});
-
-	it("不知道当前身份时保留发消息（与资料页一致）", async () => {
-		const { contactRowMenu } = await import("../src/work/lib/menus");
-		const items = contactRowMenu({ actor, message: noop, profile: noop });
-		expect(items.map((i) => i.key)).toEqual(["message", "profile"]);
-	});
-});
-
 describe("panelMenu", () => {
 	it("右栏卡片只有弹出悬浮窗", async () => {
 		const { panelMenu } = await import("../src/work/lib/menus");
