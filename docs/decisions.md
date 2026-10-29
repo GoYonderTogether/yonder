@@ -677,3 +677,13 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 验收 HOME 实测暴露两处必须按真实行为补的细节：`sessions.open({judgment: true})` 要求来源会话已有 cheap/simple 模型槽，没有就报 `Judgment requires...`；`sessions.submit` 的 `text` 在真实运行里为空，判定结果只在转录 `pi.assistant` 项里。`createJudge` 因此改为：`preset` 取来源会话自己的 profile，没有 cheap/simple 槽时退回普通判定会话（模型仍由来源会话解析），文本先读 `submit` 结果、为空再读转录最后一条 `pi.assistant`。
 - 真实 glm-5.3-flash 会把判定包在 ```json 代码块或一段说明里，`parseJudgement` 改为取第一个完整 JSON 对象（原实现只接受裸 JSON，真实调用恒失败）。
 - 主 Agent 代批 10-29（FIX-shell-01）：网关托管构建的「无社交服务」判定为「同源 capabilities.get 可达（含 401）且 GET /api/session 为 404」，此时只保留 /work 与 /get，其余路由重定向到 /work，不显示原型横幅，PersonalAgentGate 放行；VITE_API=http 或网关不可达（vite dev + mock）保持原行为。
+
+## 2026-10-29 IMP-13 预算三项同时生效、超限只记录（主 Agent 代批）
+
+- 三项上限（`budget.tokens`、`budget.maxMinutes`、`budget.maxWakeups`）各自生效，缺省或 0 表示不限；判定是「超过」而不是「达到」。未配置任何上限时 `checkBudget` 直接返回、不查库，普通 home 的运行路径与开销与以前完全一致。
+- 用量来源固定为三处：token 取 `run.end` 事件的 `usage.input + usage.output`（累计已结束运行），再补上本次运行自己的用量；唤醒数取同一张表的 `run.end` 条数加本次；时长取 `y_sessions.opened`，没有会话行时退回最早一次 `run.end` 的 `ts`。选 `run.end` 而不是 pi 的 `pi.usage` 文档，是因为那是我们自己的事件表（契约 §3）且内核 delivery 已为每次运行写它；pi 文档的内容在 `pi_document_revisions` 里，直接解析等于抄 pi-durable 的内部存储。
+- `budget.exceeded` 每个会话每类只写一次：先查同会话同类事件是否存在，不靠进程内状态，重启后也不会重复刷屏。事件带 `kind`、`limit`、`value`、当时的完整 `state` 与 `limits`。
+- `budget.overBudget` 首版一律只记录、不中断（M5）；`stop` 已经能被配置和显示，但真正中断运行留给后续卡，事件里的 `action` 如实写当前取值。
+- 只读视图 `core.budget`（`views/budget.ts`）显示三项用量/上限与超限处理方式，badge 为超限项数；注册点在 `packages/core/src/kernel/index.ts`（本卡未放开该路径，与 `views/social-group.ts` 同一处理），前端渲染另卡。
+- 改动范围说明：卡里允许路径只列了 `sessions/**`、`views/budget*.ts`、`runtime/index.ts`。实际在 `runtime/index.ts` 只加了一行调用（`receiptRun` 里 `await checkBudget(this.options, session, usage)`），并按 500 行基线删掉同文件 6 个未使用的 model-chain 导入，净减 9 行；该文件基线 1952 行、本卡开工时 HEAD 已是 1963 行（别的卡造成的），本卡过后 1954 行，仍超出基线 2 行但不是本卡引入。
+- 测试里用 `onRun` 回调补写 `run.end`（与内核 delivery 同形）后再断言三种超限事件，因为脱离内核的 Runtime 单测没有 delivery 写事件这一步；真实模型测试同时断言两次运行都是 `done`（超限不中断）。

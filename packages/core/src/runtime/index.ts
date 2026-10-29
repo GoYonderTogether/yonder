@@ -48,6 +48,7 @@ import type {
 } from "@yonder/sdk";
 import { Type } from "typebox";
 import { mergeCredentialSlots } from "../config/index.js";
+import { checkBudget } from "../sessions/budget.js";
 import { defaultLazyGroups, lazyGroupOf } from "../tools/catalog.js";
 import { loginProvider } from "./auth.js";
 import { createBackground } from "./background.js";
@@ -72,18 +73,7 @@ import { createGrepTool } from "./grep.js";
 import { inputContent } from "./input-content.js";
 import { RunLimits } from "./limits.js";
 import { createLsTool } from "./ls.js";
-import {
-	chainRef,
-	DEFAULT_FALLBACK_AFTER,
-	DEFAULT_MODEL_PROBE_SECONDS,
-	fallbackAliases,
-	holdSeconds,
-	modelChain,
-	parseAccountProvider,
-	probeSeconds,
-	refKey,
-	splitModelRef,
-} from "./model-chain.js";
+import { DEFAULT_FALLBACK_AFTER, fallbackAliases, modelChain, parseAccountProvider } from "./model-chain.js";
 import { chainFallback } from "./model-chain-config.js";
 import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
@@ -1429,6 +1419,7 @@ export class Runtime {
 				usage,
 			};
 			const attempts = await runAttempts(this.storage, session, placed, answer?.id);
+			await checkBudget(this.options, session, usage);
 			await this.watch.record(config, run, attempts);
 			await this.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
 			const active = this.limits.states.get(key);
