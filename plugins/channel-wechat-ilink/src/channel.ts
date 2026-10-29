@@ -18,10 +18,12 @@ import {
 import {
 	checkedServerBase,
 	createClient,
+	failureInfo,
 	IlinkRequestError,
 	type IlinkStage,
 	type Item,
 	type Message,
+	messageContent,
 } from "./client.js";
 import { privateWrite } from "./private-write.js";
 
@@ -79,13 +81,9 @@ export class IlinkChannel implements Channel {
 				})
 				.catch((error) => {
 					// Network blips and 5xx must not end the scan: keep polling until the QR expires.
-					const retry = error instanceof IlinkRequestError && !error.rejected;
+					const { diagnostic, retry } = failureInfo(error);
 					this.loginStatus = retry ? "wait" : "error";
-					this.api.log.warn("iLink login polling failed", {
-						instance: this.id,
-						retry,
-						...(error instanceof IlinkRequestError ? error.diagnostic : {}),
-					});
+					this.api.log.warn("iLink login polling failed", { instance: this.id, retry, ...diagnostic });
 					if (retry) this.scheduleLogin();
 				})
 				.finally(() => {
@@ -207,16 +205,13 @@ export class IlinkChannel implements Channel {
 			this.timer = undefined;
 			this.polling = this.poll()
 				.catch((error) => {
-					// -14 is a server-side session timeout: only a new QR login recovers it.
-					const expired = error instanceof IlinkRequestError && (error.errcode === -14 || error.ret === -14);
+					const { diagnostic, expired } = failureInfo(error);
 					const failure = expired ? "ILINK_SESSION_EXPIRED" : "ILINK_POLL_FAILED";
 					if (this.failure !== failure)
-						this.api.log.warn(
-							expired
-								? "iLink session expired; run `yonder channels login` to scan again"
-								: "iLink message polling failed",
-							{ instance: this.id, ...(error instanceof IlinkRequestError ? error.diagnostic : {}) },
-						);
+						this.api.log.warn(expired ? "iLink session expired; run `yonder channels login`" : "iLink polling failed", {
+							instance: this.id,
+							...diagnostic,
+						});
 					this.failure = failure;
 				})
 				.finally(() => {
@@ -263,21 +258,7 @@ export class IlinkChannel implements Channel {
 			await this.save();
 		}
 		if (this.state.seen[key]) return;
-		const attachments: Attachment[] = [],
-			text: string[] = [];
-		let replyTo: string | undefined;
-		for (const item of message.item_list ?? []) {
-			if (item.type === 1) text.push(item.text_item?.text ?? "");
-			if (item.type === 3 && item.voice_item?.text) text.push(`[微信附带转写，未经核对] ${item.voice_item.text}`);
-			attachments.push(...(await this.client.download(item)));
-			if (item.ref_msg) {
-				replyTo ??= item.ref_msg.svr_id;
-				text.push(
-					`[引用 ${item.ref_msg.svr_id ?? ""}] ${item.ref_msg.title ?? ""} ${item.ref_msg.message_item?.text_item?.text ?? ""}`,
-				);
-				if (item.ref_msg.message_item) attachments.push(...(await this.client.download(item.ref_msg.message_item)));
-			}
-		}
+		const { text, attachments, replyTo } = await messageContent(message, this.client.download);
 		if (!text.join("").trim() && !attachments.length) text.push("[微信消息类型暂不支持]");
 		// Native msgId uses the kernel admission ledger, including after an unknown receipt.
 		const event = await this.io!.emit({

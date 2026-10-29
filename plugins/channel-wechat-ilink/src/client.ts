@@ -81,6 +81,34 @@ export type IlinkStage =
 	| "cdn-download"
 	| "sendmessage";
 type FailureReason = "transport" | "http" | "ret" | "invalid-response";
+/** Safe-to-log fields of a failed request, plus whether the server ended the login session (-14). */
+export function failureInfo(error: unknown): { diagnostic: object; expired: boolean; retry: boolean } {
+	const known = error instanceof IlinkRequestError ? error : undefined;
+	return {
+		diagnostic: known?.diagnostic ?? {},
+		expired: known?.errcode === -14 || known?.ret === -14,
+		retry: known !== undefined && !known.rejected,
+	};
+}
+/** Flattens an inbound message into text lines, downloaded media and the quoted message id. */
+export async function messageContent(message: Message, download: (item: Item) => Promise<Attachment[]>) {
+	const attachments: Attachment[] = [],
+		text: string[] = [];
+	let replyTo: string | undefined;
+	for (const item of message.item_list ?? []) {
+		if (item.type === 1) text.push(item.text_item?.text ?? "");
+		if (item.type === 3 && item.voice_item?.text) text.push(`[微信附带转写，未经核对] ${item.voice_item.text}`);
+		attachments.push(...(await download(item)));
+		if (item.ref_msg) {
+			replyTo ??= item.ref_msg.svr_id;
+			text.push(
+				`[引用 ${item.ref_msg.svr_id ?? ""}] ${item.ref_msg.title ?? ""} ${item.ref_msg.message_item?.text_item?.text ?? ""}`,
+			);
+			if (item.ref_msg.message_item) attachments.push(...(await download(item.ref_msg.message_item)));
+		}
+	}
+	return { text, attachments, replyTo };
+}
 export class IlinkRequestError extends Error {
 	readonly httpStatus: number | undefined;
 	readonly ret: number | undefined;
