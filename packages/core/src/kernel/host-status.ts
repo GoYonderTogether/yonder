@@ -3,6 +3,7 @@ import { shippedChannelsFor } from "../bundles.js";
 import { gatewaySettings } from "../config/gateway.js";
 import { type AgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
+import { modelChainRefs } from "../tools/model-route.js";
 
 /** `provider/id`; a value without "/" has no model id, so it is never a known model. */
 const splitModel = (model: string) => {
@@ -13,7 +14,39 @@ const authConfigured = async (models: Models, provider: string) =>
 	!!(await Promise.resolve()
 		.then(() => models.checkAuth(provider))
 		.catch(() => undefined));
+/**
+ * pi 的模型目录单价是 USD/百万 token，价格上限是元/百万 token（主人 23:40）。换算用固定参考汇率：
+ * 宁可多报一个贵模型，也不放过一个超上限的。主 Agent 代批 10-29（docs/decisions.md）。
+ */
+const yuanPerUsd = 7.2;
+const yuan = (usd: number) => Math.round(usd * yuanPerUsd * 100) / 100;
 
+/**
+ * Doctor 的兜底链检查（M1 改版、M2、Q1 作废）：链里出现 SiliconFlow 是错误（主人 10-28 23:40 明确不用），
+ * 链上模型输入或输出单价超过 `models.priceCapPerMTokenYuan` 是告警。只查链上的模型，未配单价的模型不猜。
+ */
+export function modelChainIssues(config: YonderConfig, models: Models): { errors: string[]; warnings: string[] } {
+	const chain = config.models?.chain ?? [];
+	const cap = config.models?.priceCapPerMTokenYuan;
+	const errors: string[] = [];
+	const warnings: string[] = [];
+	if (chain.some((entry) => entry === "siliconflow" || entry.startsWith("siliconflow/")))
+		errors.push(
+			"models.chain 里不能有 SiliconFlow：主人 10-28 23:40 明确不使用（成本太高），兜底链是 workbuddy → rightapi-glm/glm-5.3-flash。请从 yonder.yaml 的 models.chain 删掉 siliconflow 条目。",
+		);
+	if (cap === undefined) return { errors, warnings };
+	for (const ref of modelChainRefs(chain, config.models?.providers, config.defaultModel)) {
+		const { provider, id } = splitModel(ref);
+		const cost = models.getModel(provider, id)?.cost;
+		const input = cost?.input === null || cost?.input === undefined ? null : yuan(cost.input);
+		const output = cost?.output === null || cost?.output === undefined ? null : yuan(cost.output);
+		if ((input ?? 0) <= cap && (output ?? 0) <= cap) continue;
+		warnings.push(
+			`${ref}: 单价超过 models.priceCapPerMTokenYuan ${cap} 元/百万 token（输入 ${input === null ? "未知" : `${input} 元`}，输出 ${output === null ? "未知" : `${output} 元`}）；按量付费模型只接受输入、输出单价都不超过 ${cap} 元的。`,
+		);
+	}
+	return { errors, warnings };
+}
 export async function hostStatus(
 	home: string,
 	config: YonderConfig,

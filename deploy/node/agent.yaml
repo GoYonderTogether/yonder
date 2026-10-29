@@ -4,11 +4,12 @@ name: 贾维斯
 owner: person:owner
 defaultProfile: owner
 defaults:
-  # Cloud order: rightapi-glm first (no SiliconFlow DeepSeek, owner m04909), then the
-  # workbuddy pool over the reverse tunnel only when that tunnel is up.
-  model: rightapi-glm/glm-5.3-flash
+  # M2 (owner 10-28 23:40): the WorkBuddy free pool first, rightapi-glm/glm-5.3-flash as the
+  # fallback; no SiliconFlow DeepSeek anywhere. yonder.yaml `models.chain` holds the same order
+  # for every other profile in this home, so keep the two in step.
+  model: workbuddy/deepseek-v4.1-flash
   fallback:
-    models: [workbuddy/deepseek-v4.1-flash]
+    models: [rightapi-glm/glm-5.3-flash]
   contexts:
     - jarvis-soul
     - jarvis-work
@@ -22,7 +23,7 @@ profiles:
       offer:
         - "*"
   peer:
-    model: rightapi-glm/glm-5.3-flash
+    model: workbuddy/deepseek-v4.1-flash
     thinking: medium
     capabilities:
       - read

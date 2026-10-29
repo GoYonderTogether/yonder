@@ -8,7 +8,7 @@ import { type ModelProfile, modelProfile } from "../runtime/model-profile.js";
 import { buildModels } from "../runtime/models.js";
 import { coreToolCapabilities } from "./catalog.js";
 import { createCoreTools } from "./index.js";
-import { createModelRouteTool, routeModel } from "./model-route.js";
+import { createModelRouteTool, modelChainRefs, routeModel } from "./model-route.js";
 
 // Real offline catalog entries; only selection metadata is varied to exercise ordering.
 const home = mkdtempSync(join(tmpdir(), "yonder-model-route-"));
@@ -125,4 +125,26 @@ test("registered tool requires read and only returns recommendations", async () 
 	const registered = createCoreTools({} as Parameters<typeof createCoreTools>[0]);
 	expect(registered.find((entry) => entry.name === "model_route")?.capabilities).toEqual(["read"]);
 	expect(coreToolCapabilities.model_route).toEqual(["read"]);
+});
+
+test("models.chain expands to configured provider/model refs only", () => {
+	const providers = {
+		// A bare provider entry means its first configured model.
+		workbuddy: { models: [{ id: "deepseek-v4.1-flash" }, { id: "other" }] },
+		"rightapi-glm": { models: ["glm-5.3-flash"] },
+		// A configured provider without a model list has nothing to fall back to.
+		empty: {},
+	};
+	// Unconfigured providers drop out (S2): a home without them keeps its single model.
+	expect(modelChainRefs(["workbuddy", "rightapi-glm/glm-5.3-flash", "siliconflow", "openai"], providers)).toEqual([
+		"workbuddy/deepseek-v4.1-flash",
+		"rightapi-glm/glm-5.3-flash",
+	]);
+	// The primary model is where the run already starts, and a repeated entry never burns twice.
+	expect(
+		modelChainRefs(["workbuddy", "workbuddy/deepseek-v4.1-flash"], providers, "workbuddy/deepseek-v4.1-flash"),
+	).toEqual([]);
+	expect(modelChainRefs(["empty"], providers)).toEqual([]);
+	expect(modelChainRefs(["workbuddy"], undefined)).toEqual([]);
+	expect(modelChainRefs([], providers)).toEqual([]);
 });

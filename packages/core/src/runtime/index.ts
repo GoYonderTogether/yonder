@@ -72,7 +72,6 @@ import { inputContent } from "./input-content.js";
 import { RunLimits } from "./limits.js";
 import { createLsTool } from "./ls.js";
 import {
-	chainKey,
 	chainRef,
 	DEFAULT_FALLBACK_AFTER,
 	DEFAULT_MODEL_PROBE_SECONDS,
@@ -84,6 +83,7 @@ import {
 	refKey,
 	splitModelRef,
 } from "./model-chain.js";
+import { chainFallback } from "./model-chain-config.js";
 import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
 import { accountKey, ModelQuota } from "./model-quota.js";
@@ -111,7 +111,6 @@ export { submissionOutcome } from "./docs.js";
 import { observeTerminal, type TerminalUpdate } from "./terminal.js";
 import { entryText as textOf, transcriptPage } from "./transcript.js";
 import type {
-	ModelFallbackEvent,
 	RuntimeActivityExecution,
 	RuntimeInput,
 	RuntimeRun,
@@ -818,11 +817,12 @@ export class Runtime {
 		}
 		const tools = [...new Set([...offered, ...deferred])];
 		const conversation = await this.conversation(id);
-		this.pollQuota(profile.fallback, profile.credentialSlots);
+		const fallback = chainFallback(profile, this.options.config.models);
+		this.pollQuota(fallback, profile.credentialSlots);
 		// Held or over-quota entries are not a starting model: they move to the back of the chain.
 		const chain = this.watch.order(
-			modelChain(profile.model, profile.fallback, profile.credentialSlots),
-			profile.fallback?.quotaStopPercent,
+			modelChain(profile.model, fallback, profile.credentialSlots),
+			fallback?.quotaStopPercent,
 		);
 		const primary = chain[0];
 		if (!primary) throw new Error("All models are rate limited until reset");
@@ -835,7 +835,7 @@ export class Runtime {
 		const modelFallbacks = alternatives.length
 			? {
 					models: alternatives.map((entry) => ({ provider: entry.provider, modelId: entry.modelId })),
-					after: profile.fallback?.after ?? DEFAULT_FALLBACK_AFTER,
+					after: fallback?.after ?? DEFAULT_FALLBACK_AFTER,
 				}
 			: null;
 		const current = await this.harness.snapshot(AgentDoc, cid(id), C);

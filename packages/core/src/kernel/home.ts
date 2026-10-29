@@ -18,6 +18,7 @@ import { chainKey, modelChain } from "../runtime/model-chain.js";
 import { ModelGate } from "../runtime/model-gate.js";
 import { ModelHealth } from "../runtime/model-health.js";
 import { accountKey, ModelQuota } from "../runtime/model-quota.js";
+import { modelChainIssues } from "./host-status.js";
 import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
@@ -260,6 +261,9 @@ export async function inspectHome(home: string) {
 			services.models,
 			new Map([...plugins.presets, ...presets]),
 		);
+		const chainIssues = modelChainIssues(config, services.models);
+		errors.push(...chainIssues.errors);
+		warnings.push(...chainIssues.warnings);
 		const health = new ModelHealth(join(home, ".yonder", "model-health.json"));
 		const quota = new ModelQuota(join(home, ".yonder", "model-quota.json"));
 		try {

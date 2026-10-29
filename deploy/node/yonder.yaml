@@ -22,6 +22,13 @@ identity:
       accounts:
         - acct:cli:local
 models:
+  # M2 (owner 10-28 23:40): WorkBuddy free pool first, rightapi-glm/glm-5.3-flash as the fallback.
+  # SiliconFlow DeepSeek is not in this chain at all (cost too high). A pay-as-you-go model is only
+  # acceptable when both its input and output price stay at or below 0.6 yuan per million tokens.
+  chain:
+    - workbuddy
+    - rightapi-glm/glm-5.3-flash
+  priceCapPerMTokenYuan: 0.6
   providers:
     rightapi-glm:
       baseUrl: https://www.rightapi.ai/v1
@@ -43,7 +50,7 @@ models:
     # WorkBuddy free pool (no SiliconFlow DeepSeek anywhere in this chain). The cloud has no
     # local workbuddy hub, so this provider is only reachable through the INF01 reverse tunnel
     # (127.0.0.1:13001 -> local hub 127.0.0.1:8788, see yonder-lead/lanes/evidence/gw-tunnel.md).
-    # It is the fallback, not the primary: rightapi-glm goes first (agent.yaml defaults.model).
+    # It is the primary (M2): rightapi-glm/glm-5.3-flash is the fallback when the tunnel is down.
     workbuddy:
       baseUrl: http://127.0.0.1:13001/v1
       api: openai-completions

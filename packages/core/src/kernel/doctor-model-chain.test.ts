@@ -123,3 +123,53 @@ test("doctor reports configured chain and persisted hold and quota gates", async
 		await rm(home, { recursive: true, force: true });
 	}
 }, 60000);
+
+test("doctor rejects SiliconFlow in models.chain and warns above the price cap", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-chain-"));
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const file = join(home, "yonder.yaml");
+		const config = parse(await readFile(file, "utf8"));
+		// pi's catalog prices are USD per million tokens: 0.11 USD is 0.79 yuan at the fixed 7.2 reference,
+		// which is above the 0.6 yuan cap the owner set for pay-as-you-go models.
+		const workbuddy = {
+			api: "openai-completions",
+			baseUrl: "http://127.0.0.1:8788/v1",
+			models: [{ id: "deepseek-v4.1-flash", cost: { input: 0.11, output: 0.11, cacheRead: 0, cacheWrite: 0 } }],
+		};
+		config.models = {
+			priceCapPerMTokenYuan: 0.6,
+			chain: ["workbuddy", "siliconflow"],
+			providers: {
+				workbuddy,
+				siliconflow: {
+					api: "openai-completions",
+					baseUrl: "https://api.siliconflow.cn/v1",
+					models: [{ id: "deepseek-ai/DeepSeek-V3.2" }],
+					compat: { supportsDeveloperRole: false },
+				},
+			},
+		};
+		await writeFile(file, stringify(config));
+		const report = await inspectHome(home);
+		expect(report.errors).toEqual(
+			expect.arrayContaining([expect.stringContaining("models.chain 里不能有 SiliconFlow")]),
+		);
+		expect(report.warnings).toEqual(
+			expect.arrayContaining([expect.stringContaining("单价超过 models.priceCapPerMTokenYuan 0.6")]),
+		);
+		// Dropping SiliconFlow clears the error; a model under the cap clears the warning.
+		config.models.chain = ["workbuddy"];
+		config.models.providers.workbuddy.models[0].cost = { input: 0.05, output: 0.05, cacheRead: 0, cacheWrite: 0 };
+		await writeFile(file, stringify(config));
+		const clean = await inspectHome(home);
+		expect(clean.errors).not.toEqual(
+			expect.arrayContaining([expect.stringContaining("models.chain 里不能有 SiliconFlow")]),
+		);
+		expect(clean.warnings).not.toEqual(
+			expect.arrayContaining([expect.stringContaining("单价超过 models.priceCapPerMTokenYuan")]),
+		);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60000);
