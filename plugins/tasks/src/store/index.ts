@@ -8,13 +8,15 @@ import {
 	digestSeen,
 	momentResult,
 	openTask,
+	recordAudit,
 	renderTurn,
+	spendTokens,
 } from "./append.js";
-import type { Moment, Open, Task, TaskEvent, Update, UpdateItem } from "./project.js";
+import type { AuditResult, Moment, Open, Task, TaskEvent, Update, UpdateItem } from "./project.js";
 import { all, find, get, history, list, progress } from "./query.js";
 import { connect, needsBackfill, rebuild as replayInto } from "./schema.js";
 
-export type { Moment, Open, State, Task, TaskContent, TaskEvent, Update, UpdateItem } from "./project.js";
+export type { AuditResult, Moment, Open, State, Task, TaskContent, TaskEvent, Update, UpdateItem } from "./project.js";
 
 export class Store {
 	// 常驻连接：每次读都重开数据库要付打开、chmod、建表三份代价。
@@ -76,6 +78,14 @@ export class Store {
 	}
 	momentResult(id: string, moment: Moment, data: { result?: unknown; error?: string }, now: number): void {
 		momentResult(this.#handle, id, moment, data, now);
+	}
+	/** 记一条审计结论：驳回也落库，渲染与下一轮据此注入反对意见。 */
+	recordAudit(id: string, result: Omit<AuditResult, "at">, now = Date.now()): void {
+		recordAudit(this.#handle, id, result, now);
+	}
+	/** 结算生命周期 token 用量；用量只增不减，不算任务进展。 */
+	spend(id: string, used: number, warned: boolean, now = Date.now()): Task | undefined {
+		return spendTokens(this.#handle, id, used, warned, now);
 	}
 	recentlyDone(task: Task, now = Date.now()): boolean {
 		return task.state === "done" && now - Date.parse(task.lastActivityAt) < 30 * 60000;

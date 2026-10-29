@@ -65,6 +65,8 @@ test("blocking a task requires a note saying what blocks it", async () => {
 			"Blocking a task requires a note saying what blocks it",
 		);
 		expect(store.get(task.id, ctx).task.state).toBe("active");
+		store.update(task.id, { note: "Missing required-input.txt" }, ctx);
+		store.update(task.id, { note: "Missing required-input.txt" }, ctx);
 		expect(store.update(task.id, { state: "blocked", note: "Missing required-input.txt" }, ctx).state).toBe("blocked");
 		// 已经在阻塞态时补别的字段不再要求重复写原因。
 		expect(store.update(task.id, { objective: "Reworded objective" }, ctx).state).toBe("blocked");

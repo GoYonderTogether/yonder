@@ -13,8 +13,15 @@ export const GET = `Read one task with its full history and deliverable.`;
 export const SHOW = `Show the task board in the current channel as an image or return it as JSON. Use it when the person asks what is going on or when several tasks are in flight.`;
 
 
-export const TURN_ONE_LINE = (title: string, state: string, elapsed: string, wakeups: number, sinceDelivery: string) =>
-  `Task "${title}": ${state}, ${elapsed} in, ${wakeups} wake-ups, ${sinceDelivery} since the last delivery.`;
+export const TURN_ONE_LINE = (
+  ref: string,
+  title: string,
+  state: string,
+  elapsed: string,
+  wakeups: number,
+  sinceDelivery: string,
+) =>
+  `Task ${ref} "${title}": ${state}, ${elapsed} in, ${wakeups} wake-ups, ${sinceDelivery} since the last delivery.`;
 
 export const STALL_NOTICE = (title: string, state: string, minutes: number) =>
   `Task "${title}" has had no progress for ${minutes} minutes (state: ${state}). If work remains, continue it; if a specific fact or capability stops you, mark it blocked and name it; if you need the person, mark it waiting-user and name the one thing. If it is finished, close it with the evidence.`;

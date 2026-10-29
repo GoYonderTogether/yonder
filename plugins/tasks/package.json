@@ -44,7 +44,8 @@
 				"tasks-board"
 			],
 			"hooks": [
-				"tasks-digest"
+				"tasks-digest",
+				"tasks-budget"
 			]
 		}
 	}

@@ -6,7 +6,16 @@ export interface TaskContent {
 	objective: string;
 	acceptance: string[];
 	nonGoals: string[];
-	budget: { wallMinutes?: number; wakeups?: number };
+	budget: {
+		wallMinutes?: number;
+		wakeups?: number;
+		/** 生命周期 token 上限；触顶后只注入一次收尾提示。 */
+		tokens?: number;
+		/** 账本累计的 token 用量；由插件写入，调用方不能设。 */
+		used?: number;
+		/** 收尾提示已经注入过；由插件写入。 */
+		warned?: boolean;
+	};
 	/** Verification contract the closer must satisfy; defaults to the acceptance points joined. */
 	contract?: string;
 	/** A small child task that does not gate its parent's completion. */
@@ -26,6 +35,18 @@ export interface Task extends TaskContent {
 	lastActivityAt: string;
 	lastDeliveryAt: string | null;
 	wakeups: number;
+	/** 最近一次完成审计的结论；驳回时任务保持未关闭。 */
+	auditResult?: AuditResult;
+}
+/** 独立只读审计的结论：末行 `<approved/>` 才算通过。 */
+export interface AuditResult {
+	verdict: "approved" | "rejected";
+	reason: string;
+	/** 审计会话使用的预设。 */
+	preset: string;
+	/** 审计会话 id，便于回看审计记录。 */
+	session: string;
+	at: string;
 }
 export type Open = Omit<TaskContent, "budget"> & {
 	budget?: TaskContent["budget"];
@@ -44,7 +65,7 @@ export type UpdateItem = Update & { id: string };
 export interface TaskEvent {
 	seq: number;
 	task: string;
-	kind: "open" | "update" | "done" | "wake" | "moment" | "moment-result" | "digest";
+	kind: "open" | "update" | "done" | "wake" | "audit" | "spend" | "moment" | "moment-result" | "digest";
 	at: string;
 	data: Partial<Task> & {
 		destination?: string;
@@ -77,6 +98,9 @@ export const transitions: Record<State, State[]> = {
 	cancelled: [],
 };
 export const ongoing = (task: Task) => task.state !== "done" && task.state !== "cancelled";
+/** 算作任务进展的事件：提醒投递、用量结算与审计记录都不算。 */
+export const countsAsActivity = (kind: TaskEvent["kind"]) =>
+	!kind.startsWith("moment") && kind !== "digest" && kind !== "spend" && kind !== "audit";
 export const own = (task: Task, ctx: Pick<ToolContext, "agent" | "session">) =>
 	task.ownerAgent === null ? ctx.agent === null && task.session === ctx.session : task.ownerAgent === ctx.agent;
 
@@ -98,6 +122,11 @@ export function applyEvent(map: Map<string, Projected>, event: TaskEvent): void 
 	if (!current) return;
 	if (event.kind === "wake") {
 		if (event.data.counted !== false) current.task.wakeups++;
+		return;
+	}
+	// 用量只改预算，不算进度：不推进 revision，免得每轮请求都重放详情。
+	if (event.kind === "spend") {
+		Object.assign(current.task, event.data);
 		return;
 	}
 	const { note: _, ...patch } = event.data;

@@ -65,6 +65,11 @@ test("state transitions resume through active, reject shortcuts and retain termi
 		store.update(task.id, { state: "active" }, ctx);
 		expect(() => store.done(task.id, "Delivered", ["one", "two"], ctx)).toThrow("Invalid task transition");
 		for (const state of ["waiting-user", "blocked", "review"] as const) {
+			// 阻塞要同一说法连续报三轮；先空转两轮，第三轮才允许置 blocked。
+			if (state === "blocked") {
+				store.update(task.id, { note: `Fixture enters ${state}` }, ctx);
+				store.update(task.id, { note: `Fixture enters ${state}` }, ctx);
+			}
 			store.update(task.id, { state, note: `Fixture enters ${state}` }, ctx);
 			store.update(task.id, { state: "active" }, ctx);
 		}
@@ -170,11 +175,11 @@ test("events only append, original history stays unchanged, reopening preserves 
 		const first = store.render(renderContext())!;
 		expect(first).toContain(content.objective);
 		for (const acceptance of content.acceptance) expect(first).toContain(acceptance);
-		expect(store.render(renderContext("2"))).toBe(TURN_ONE_LINE(content.title, "open", "0m", 2, "0m"));
+		expect(store.render(renderContext("2"))).toBe(TURN_ONE_LINE("T1", content.title, "open", "0m", 2, "0m"));
 		store.render(renderContext("2"));
 		expect(store.get(task.id, ctx).task.wakeups).toBe(2);
 		const reopened = new Store(root);
-		expect(reopened.render(renderContext("3"))).toBe(TURN_ONE_LINE(content.title, "open", "0m", 3, "0m"));
+		expect(reopened.render(renderContext("3"))).toBe(TURN_ONE_LINE("T1", content.title, "open", "0m", 3, "0m"));
 		reopened.update(task.id, { state: "active", deliverable: "Partial result", objective: "Updated objective" }, ctx);
 		expect(reopened.render(renderContext("4"))).toContain("Updated objective");
 		expect(reopened.render(renderContext("5"))).not.toContain("Updated objective");
@@ -210,7 +215,8 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 		};
 		const config = {
 			schema: 1 as const,
-			plugins: [{ use: resolve("plugins/tasks") }],
+			// 完成审计要真模型；这个用例只验接线，所以显式关掉审计。
+			plugins: [{ use: resolve("plugins/tasks"), config: { audit: { enabled: false } } }],
 			agents: [{ id: "main", workspace: "./agents/main" }],
 		};
 		await mkdir(join(home, "agents/main"), { recursive: true });
@@ -267,7 +273,7 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 		const input = async (id: string) =>
 			prepareInput({ id: "1", version: "test" } as never, session, renderContext(id).event!, "run", options);
 		expect((await input("first")).text).toContain(content.objective);
-		expect((await input("second")).text).toContain(TURN_ONE_LINE(content.title, "open", "0m", 2, "0m"));
+		expect((await input("second")).text).toContain(TURN_ONE_LINE("T1", content.title, "open", "0m", 2, "0m"));
 		await call("update", { id: task.id, state: "active", objective: "Changed through loaded tool" });
 		expect((await input("third")).text).toContain("Changed through loaded tool");
 		// 批量更新共用一个事务：第二条不合法时，第一条也不落地。

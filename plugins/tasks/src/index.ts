@@ -2,24 +2,42 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { type Attachment, type Capability, definePlugin, type ToolContext, type TSchema } from "@yonder/sdk";
+import {
+	type Attachment,
+	type Capability,
+	definePlugin,
+	type Hook,
+	type Message,
+	type PluginAPI,
+	type ToolContext,
+	type TSchema,
+} from "@yonder/sdk";
 import { renderPng, renderText, taskBoard } from "./board.js";
 import { digest } from "./digest.js";
 import { type Config, moments, stallWindow } from "./moments.js";
 import { DONE, GET, LIST, OPEN, SHOW, UPDATE } from "./prompts.js";
-import { type Open, Store, type Update, type UpdateItem } from "./store/index.js";
-import { registerTaskViews } from "./views.js";
+import { type AuditResult, type Open, Store, type Task, type Update, type UpdateItem } from "./store/index.js";
+import { ongoing, own } from "./store/project.js";
+import { auditPrompt, budgetReached, parseAuditVerdict, registerTaskViews } from "./views.js";
 
 const string = { type: "string", minLength: 1, pattern: "[\\s\\S]*\\S[\\s\\S]*" };
 const strings = { type: "array", items: string };
-const obj = (properties: object, required = Object.keys(properties)): TSchema =>
+const obj = (properties: Record<string, TSchema>, required = Object.keys(properties)): TSchema =>
 	({ type: "object", properties, required, additionalProperties: false }) as TSchema;
 const content = {
 	title: string,
 	objective: string,
 	acceptance: { ...strings, minItems: 2, maxItems: 5 },
 	nonGoals: strings,
-	budget: obj({ wallMinutes: { type: "number", exclusiveMinimum: 0 }, wakeups: { type: "integer", minimum: 1 } }, []),
+	budget: obj(
+		{
+			wallMinutes: { type: "number", exclusiveMinimum: 0 },
+			wakeups: { type: "integer", minimum: 1 },
+			// 生命周期 token 上限：触顶只注入一次收尾提示，任务不会因此关闭。
+			tokens: { type: "integer", minimum: 1 },
+		},
+		[],
+	),
 	contract: string,
 	lightweight: { type: "boolean" },
 	parent: string,
@@ -31,6 +49,67 @@ const change = {
 	deliverable: string,
 	note: string,
 };
+/** 完成审计：另开一个只读会话复核，末行 `<approved/>` 才算通过；审计的不是被审计的会话，所以不会死等自己。 */
+async function auditCompletion(
+	api: PluginAPI,
+	config: Config,
+	ctx: ToolContext,
+	task: Task,
+	deliverable: string,
+	evidence: string[],
+): Promise<Omit<AuditResult, "at">> {
+	const preset = config.audit?.preset ?? "default";
+	const auditor = await api.sessions.open({
+		preset,
+		// 模型源必须是带主 Agent 的普通会话：预设会话和任务会话都用不了。
+		...(ctx.agent ? { modelSource: { session: ctx.session } } : {}),
+		capabilities: ["read"],
+		close: "run-end",
+	});
+	try {
+		const run = await api.sessions.submit(
+			auditor.id,
+			{ text: auditPrompt(task, deliverable, evidence) },
+			{ wait: true },
+		);
+		if (run.status !== "done")
+			return {
+				verdict: "rejected",
+				reason: `the auditor run ended as ${run.status}${run.reason ? `: ${run.reason}` : ""}`,
+				preset,
+				session: auditor.id,
+			};
+		return { ...parseAuditVerdict(run.text), preset, session: auditor.id };
+	} finally {
+		await api.sessions
+			.close(auditor.id)
+			.catch((error: unknown) => api.log.warn("Audit session close failed", { error: String(error) }));
+	}
+}
+
+/** 每轮请求前按会话累计 token 结算一次；触顶只注入一次收尾提示。 */
+function budgetHook(store: Store): Hook {
+	return {
+		id: "tasks-budget",
+		async beforeRequest(messages, ctx) {
+			const tasks = store.list(ctx).filter((task) => own(task, ctx) && ongoing(task) && task.budget.tokens);
+			if (!tasks.length) return undefined;
+			const spent = messages.reduce(
+				(sum, message) => (message.role === "assistant" ? sum + message.usage.input + message.usage.output : sum),
+				0,
+			);
+			const notes: string[] = [];
+			for (const task of tasks) {
+				const reached = spent >= (task.budget.tokens ?? 0) && !task.budget.warned;
+				const charged = store.spend(task.id, spent, reached);
+				if (reached && charged) notes.push(budgetReached(charged, spent));
+			}
+			if (!notes.length) return undefined;
+			return { messages: [...messages, { role: "user", content: notes.join("\n\n"), timestamp: Date.now() }] };
+		},
+	};
+}
+
 export default definePlugin({
 	configSchema: obj(
 		{
@@ -38,6 +117,7 @@ export default definePlugin({
 			stallMinutes: { type: "number", minimum: 15, maximum: 30 },
 			userWaitMinutes: { type: "number", exclusiveMinimum: 0 },
 			moments: obj({ postCompact: { type: "boolean" }, postRetain: { type: "boolean" } }, []),
+			audit: obj({ enabled: { type: "boolean" }, preset: string }, []),
 		},
 		[],
 	),
@@ -78,6 +158,7 @@ export default definePlugin({
 			OPEN,
 			obj({ ...content, origin: string }, ["title", "objective", "acceptance", "nonGoals"]),
 			["write"],
+			// SAFETY: typebox 已按 Open 校验参数，这里只需把校验过的对象交给存储层。
 			(args, ctx) => store.open(args as unknown as Open, ctx),
 		);
 		add(
@@ -107,7 +188,20 @@ export default definePlugin({
 			DONE,
 			obj({ id: string, deliverable: string, evidence: { ...strings, minItems: 2, maxItems: 5 } }),
 			["write"],
-			(args, ctx) => store.done(args.id as string, args.deliverable as string, args.evidence as string[], ctx),
+			async (args, ctx) => {
+				const id = args.id as string,
+					deliverable = args.deliverable as string,
+					evidence = args.evidence as string[];
+				// 先审后关：审计员只看任务契约和这次交的证据，通过才真的关闭。
+				if (config.audit?.enabled !== false) {
+					const task = store.get(id, ctx).task;
+					const result = await auditCompletion(api, config, ctx, task, deliverable, evidence);
+					store.recordAudit(task.id, result);
+					if (result.verdict !== "approved")
+						throw new Error(`An independent auditor rejected this completion: ${result.reason}`);
+				}
+				return store.done(id, deliverable, evidence, ctx);
+			},
 		);
 		add("list", LIST, obj({}), ["read"], (_args, ctx) =>
 			store.list(ctx).map((task) => ({
@@ -167,6 +261,7 @@ export default definePlugin({
 			},
 		);
 		api.hooks.register(digest(api, store, config));
+		api.hooks.register(budgetHook(store));
 
 		api.contexts.register({ id: "tasks-turn", placement: "turn", render: (ctx) => store.render(ctx) });
 		api.triggers.register(moments(api, store, config));

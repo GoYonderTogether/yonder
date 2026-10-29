@@ -338,6 +338,7 @@ export function renderTurn(db: DatabaseSync, ctx: RenderContext): string | undef
 		const mark = marks.get(task.id);
 		const counted = !ctx.event || mark?.event !== ctx.event.id;
 		const line = TURN_ONE_LINE(
+			task.ref,
 			task.title,
 			task.state,
 			minutes(task.createdAt, now),
