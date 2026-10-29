@@ -1,41 +1,25 @@
 import { useEffect, useReducer } from "react";
 import { rpc } from "../api/client";
+import { emptySessionState, reduceSessionState, type SessionState } from "../api/session-state";
 import { mux } from "../api/stream";
-import type {
-	BackgroundRow,
-	ContextSnapshot,
-	ModelStatus,
-	SessionInfo,
-	SessionSnapshot,
-	SubtaskRow,
-	TodoItem,
-	UsageSnapshot,
-	UsageTotals,
-} from "../api/types";
+import type { SessionInfo, SessionSnapshot } from "../api/types";
 import { applyMessage, applyToolUpdate, type ChatItem, fromTranscript } from "./chat";
 
-export interface SessionView {
+/** 会话视图：转录/运行态在本地维护，元信息（用量、上下文、模型、todo…）归约见 api/session-state。 */
+export interface SessionView extends SessionState {
 	ready: boolean;
 	session?: SessionInfo;
 	items: ChatItem[];
 	hasMore: boolean;
 	running: boolean;
-	model?: ModelStatus;
-	usage?: UsageSnapshot;
-	context?: ContextSnapshot;
-	todos: TodoItem[];
-	subtasks: SubtaskRow[];
-	background: BackgroundRow[];
 	error?: string;
 }
 export const emptyView: SessionView = {
+	...emptySessionState(),
 	ready: false,
 	items: [],
 	hasMore: false,
 	running: false,
-	todos: [],
-	subtasks: [],
-	background: [],
 };
 
 type Act =
@@ -82,24 +66,10 @@ function reduceUpdate(s: SessionView, u: UpdateShape): SessionView {
 	}
 }
 
-/** 当前网关 sessions.watch 的 ready.result 是 terminal.info：model 为 {id,provider,contextWindow}，思考档在 config.resolved。 */
-function modelOf(snap: SessionSnapshot): ModelStatus | undefined {
-	const m = snap.model as (Partial<ModelStatus> & { id?: string }) | undefined;
-	if (!m?.provider) return undefined;
-	const configuredThinking = snap.config?.resolved?.thinking;
-	const thinking = m.thinking ?? (typeof configuredThinking === "string" ? configuredThinking : undefined);
-	return {
-		provider: m.provider,
-		model: m.model ?? m.id ?? "",
-		...(m.contextWindow ? { contextWindow: m.contextWindow } : {}),
-		...(thinking ? { thinking } : {}),
-		...(m.routedTo ? { routedTo: m.routedTo } : {}),
-	};
-}
-/** 契约是 {self,children}；当前网关给扁平 UsageTotals。两种都收。 */
-function usageOf(u: SessionSnapshot["usage"] | UsageTotals | undefined): UsageSnapshot | undefined {
-	if (!u) return undefined;
-	return "self" in u ? u : { self: u };
+/** 元信息动作走 api/session-state 的共享 reducer，这里只并入转录与运行态字段。 */
+function withMeta(s: SessionView, action: Parameters<typeof reduceSessionState>[1]): SessionView {
+	const meta = reduceSessionState(s, action);
+	return meta === s ? s : { ...s, ...meta };
 }
 
 /** 纯 reducer：导出只为本目录外的单测能直接验证 gap 重置语义。 */
@@ -112,48 +82,29 @@ export function reduce(s: SessionView, a: Act): SessionView {
 			hasMore: a.hasMore,
 		};
 	if (a.k === "snapshot") {
-		const { snap } = a;
+		const { snap, gap } = a;
 		// gap=true：服务端丢了游标，本地增量全部作废，只按快照重建（contracts §2.3.3）。
-		const gap = a.gap;
-		return {
+		// ready.result 带 transcript 时直接重建；否则等随后的 session.update snapshot。
+		const chat: SessionView = {
 			...s,
 			ready: true,
 			session: snap.session ?? s.session,
-			// ready.result 带 transcript 时直接重建；否则等随后的 session.update snapshot
 			items: snap.transcript ? fromTranscript(snap.transcript.items) : gap ? [] : s.items,
 			hasMore: snap.transcript?.hasMore ?? (gap ? false : s.hasMore),
-			model: modelOf(snap) ?? (gap ? undefined : s.model),
-			usage: usageOf(snap.usage) ?? (gap ? undefined : s.usage),
-			context: snap.context ?? (gap ? undefined : s.context),
-			// 全量替换的事件（todo/subtask/background）在 gap 后同样不作数，等重订后的最新一条。
-			todos: gap ? [] : s.todos,
-			subtasks: gap ? [] : s.subtasks,
-			background: gap ? [] : s.background,
 			error: gap ? undefined : s.error,
 		};
+		return withMeta(chat, { k: "snapshot", snap, gap });
 	}
 	const d = a.data;
 	switch (a.type) {
 		case "session.update":
 			// SAFETY: session.update 的 data 即 SDK SessionUpdate；reduceUpdate 对未知 type 直接忽略。
 			return reduceUpdate(s, d as unknown as UpdateShape);
-		case "usage.updated":
-			return { ...s, usage: { self: d.totals as UsageTotals, children: s.usage?.children } };
-		case "context.updated":
-			// SAFETY: context.updated 的 data 形状见 contracts §3.3，与 ContextSnapshot 同字段。
-			return { ...s, context: d as unknown as ContextSnapshot };
-		case "model.changed":
-			return { ...s, model: d.to as ModelStatus };
-		case "todo.updated":
-			return { ...s, todos: (d.items as TodoItem[]) ?? [] };
-		case "subtask.updated":
-			return { ...s, subtasks: (d.rows as SubtaskRow[]) ?? [] };
-		case "background.updated":
-			return { ...s, background: (d.rows as BackgroundRow[]) ?? [] };
 		case "run.ended":
 			return { ...s, running: false };
 		default:
-			return s;
+			// usage/context/model/todo/subtask/background/wake/goal/compaction：全量替换，未知类型忽略。
+			return withMeta(s, { k: "event", type: a.type, data: d });
 	}
 }
 
