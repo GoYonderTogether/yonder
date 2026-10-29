@@ -457,7 +457,7 @@ export function createBackground(options: {
 		tool: {
 			name: "process",
 			description:
-				"Manage this session's background operation: status, log, wait (up to 15 seconds), write stdin, or kill. Logs use absolute offset/next cursors; truncated means the prefix was discarded. The original result remains available. Write accepts eof=true to end stdin.",
+				"Manage a background tool or command owned by this session: status, log, wait (up to 15 seconds), write stdin, or kill. Write accepts eof=true to end stdin. Logs use absolute character offset/next cursors; truncated means the requested prefix was discarded. The original tool result remains available after completion. Use the returned background id, not an OS pid or Agent id. Completion is delivered automatically; inspect only for a dependent step or a suspected stall, not in a polling loop. Read state and incremental output before claiming progress or retrying. kill stops the owned operation; it does not undo external effects, and write is stdin, not an instruction message to an Agent.",
 			parameters: Type.Object(
 				{
 					action: Type.Union(["status", "log", "wait", "write", "kill"].map((x) => Type.Literal(x))),

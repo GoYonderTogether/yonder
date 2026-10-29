@@ -563,25 +563,7 @@ export class Runtime {
 		});
 		this.registry.install(coding);
 		this.extensions.set(coding.name, coding);
-		const searchBase = createToolSearchExtension();
-		const search = {
-			...searchBase,
-			tools: (searchBase.tools ?? []).map((tool) => ({
-				...tool,
-				description: "Find and load selected deferred tools for the next model request.",
-			})),
-		};
-		this.toolGuidelines.set("tool_search", [
-			"Search for the needed tool by name or purpose; loaded tools become available on the next model request. Use tool_search for MCP tools.",
-		]);
-		this.toolGuidelines.set("bash", [
-			"Calls lasting 15 seconds return a background id; background=true yields immediately. Use process for logs, stdin, status or cancellation. Completion arrives automatically; timeout is a soft reminder, not a kill limit. Full output is retained in the reported log file.",
-			"Set cwd to the intended repository and specify a search path. For builds, installs and long scripts, use background=true. Keep the handle for a development server or watcher and stop it when no longer needed; do not use shell detachment. Stdin is closed by default; set stdin=true for process.write and finish with eof=true. Shell pipelines are supported; this is not a PTY.",
-		]);
-		this.toolGuidelines.set("process", [
-			"Use the returned background id, not an OS pid or Agent id. Completion is delivered automatically; inspect only for a dependent step or suspected stall, not in a polling loop.",
-			"Read state and incremental output before retrying. Killing an operation does not undo external effects; write sends stdin, not an instruction to an Agent.",
-		]);
+		const search = createToolSearchExtension();
 		this.registry.install(search);
 		this.extensions.set(search.name, search);
 		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);

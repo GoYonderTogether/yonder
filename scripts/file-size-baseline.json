@@ -39,10 +39,6 @@
 		"lines": 530,
 		"reason": "待拆分：Scheduler 兼做 cron 解析、任务执行与持久化"
 	},
-	"packages/core/src/tools/index.ts": {
-		"lines": 524,
-		"reason": "待拆分：createCoreTools 一次注册全部核心工具，应按工具域分组"
-	},
 	"packages/device/src/executor.ts": {
 		"lines": 522,
 		"reason": "待拆分：DeviceExecutor 混合设备协议处理与命令调度"
