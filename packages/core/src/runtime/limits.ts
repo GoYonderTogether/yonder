@@ -45,7 +45,7 @@ export class RunLimits {
 						await this.warn(
 							state,
 							"maxMinutes",
-							`Task has run for ${state.config.resolved.limits.maxMinutes} minutes. If the goal is met, deliver the result; otherwise carry on and report what changed.`,
+							this.limitText("maxMinutes", state, `已运行 ${state.config.resolved.limits.maxMinutes} 分钟`),
 						);
 					const delay = await this.deps.onTick?.(state);
 					if (
@@ -59,6 +59,12 @@ export class RunLimits {
 			Math.max(1, Math.min(next, state.warnings.has("maxMinutes") ? Infinity : state.deadline - Date.now())),
 		);
 		state.timer.unref();
+	}
+	/** 上限只提醒、不中止（architecture 第 5 节第 7 条）：这句同时进主人可见的会话备注和模型上下文。 */
+	private limitText(kind: "maxTurns" | "maxTokens" | "maxMinutes", state: RunState, used: string): string {
+		const limits = state.config.resolved.limits;
+		const limit = kind === "maxTurns" ? limits.maxTurns : kind === "maxTokens" ? limits.maxTokens : limits.maxMinutes;
+		return `这次回复因为达到 ${kind} 上限（${used}，上限 ${limit}）被截断，回复「继续」可以接着做。目标已完成就直接交付；没完成就继续做，并在交付时说明还剩什么。`;
 	}
 	private async warn(state: RunState, kind: string, text: string): Promise<void> {
 		if (state.warnings.has(kind)) return;
@@ -113,11 +119,7 @@ export class RunLimits {
 					const state = await this.runState(api, context);
 					if (state.reason) await this.stop(context, state, state.reason);
 					if (state.turns >= state.config.resolved.limits.maxTurns)
-						await this.warn(
-							state,
-							"maxTurns",
-							`Task has used ${state.turns} model turns. If the goal is met, deliver the result; otherwise carry on.`,
-						);
+						await this.warn(state, "maxTurns", this.limitText("maxTurns", state, `已用 ${state.turns} 轮`));
 					const conversation = await this.deps.harness().conversation(api.conversationId, context);
 					const ref = (await conversation!.agent(context)).model;
 					const model = ref ? api.models.getModel(ref.provider, ref.modelId) : undefined;
@@ -161,16 +163,12 @@ export class RunLimits {
 						0,
 					);
 					if (state.turns >= state.config.resolved.limits.maxTurns)
-						await this.warn(
-							state,
-							"maxTurns",
-							`Task has used ${state.turns} model turns. If the goal is met, deliver the result; otherwise carry on.`,
-						);
+						await this.warn(state, "maxTurns", this.limitText("maxTurns", state, `已用 ${state.turns} 轮`));
 					if (tokens >= state.config.resolved.limits.maxTokens)
 						await this.warn(
 							state,
 							"maxTokens",
-							`This run has used ${tokens} new input and output tokens. If the goal is met, deliver the result; otherwise carry on and say what remains when you report.`,
+							this.limitText("maxTokens", state, `本次已用 ${Math.round(tokens)} 个新输入与输出 tokens`),
 						);
 				},
 			}),

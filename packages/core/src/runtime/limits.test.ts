@@ -12,7 +12,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	async () => {
 		const home = await mkdtemp("/tmp/yonder-limits-");
 		let runtime: Runtime | undefined;
-		const warnings: Array<{ session: string; kind: string }> = [];
+		const warnings: Array<{ session: string; kind: string; text: string }> = [];
 		try {
 			let profile = resolveProfile({
 				capabilities: ["read"],
@@ -24,7 +24,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 				db: await openDatabase(`${home}/state.db`),
 				config: { schema: 1, credentials: auth },
 				onWarning: async (session, warning) => {
-					warnings.push({ session, kind: warning.kind });
+					warnings.push({ session, kind: warning.kind, text: warning.text });
 				},
 				resolveSession: async () => ({ agent: null, profile: "check", cwd: home, resolved: profile }),
 			});
@@ -37,6 +37,13 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			expect(warnings.filter((item) => item.session === denied && item.kind === "maxTurns")).toHaveLength(1);
 			const transcript = await runtime.transcript(denied);
 			expect(transcript.some((item) => item.text?.includes("文件路径超出当前工作区"))).toBe(true);
+			// BE-07：上限只提醒、不截断，主人要看到中文说明并能接着说「继续」。
+			const reminder = warnings.find((item) => item.session === denied && item.kind === "maxTurns");
+			expect(reminder?.text).toContain("maxTurns");
+			expect(reminder?.text).toContain("回复「继续」可以接着做");
+			expect(transcript.some((item) => item.text?.includes("回复「继续」可以接着做"))).toBe(true);
+			const continued = await runtime.submit(denied, { text: "Reply with the single word OK." });
+			expect(continued.status, JSON.stringify(continued)).toBe("done");
 			expect(transcript.filter((item) => item.kind === "pi.assistant").length).toBeGreaterThanOrEqual(2);
 			console.info(
 				JSON.stringify({

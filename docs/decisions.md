@@ -699,3 +699,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 现象复现：在一份干净 clone 里跑完 `npm run build` 后，把 `packages/core/dist/tools/model-route.js` 改成不导出 `modelChainRefs`（模拟被打断/被手工改过的构建），再跑 `tsc -b` 退出码 0 且不修复——increment 状态（`dist/tsconfig.tsbuildinfo`，本身也被 `.gitignore` 忽略）只比源码时间戳，从不检查 dist 内容，于是不一致的产物会一直留着，`node packages/cli/dist/index.js doctor` 直接 `SyntaxError: … does not provide an export named 'modelChainRefs'`。
 - 门禁：新增 `scripts/check-dist-sync.mjs`（`npm run check:dist`），按根 `tsconfig.json` 的 project references 逐包比对，每个 `src/**/*.ts` 必须有对应 dist 模块、不旧于源码、且源码里运行时会产出的导出名（function/const/class/let/var/enum，及 `export {}` 列表；`export type {}` 与 interface/type 不算）都能在 dist 里找到；不一致就列出条目并以 `npm run build:clean` 收尾退出 1。
 - `npm run build` 在 `tsc -b` 之后接这道门禁；另加 `build:clean`（删各包 dist 后重跑 build）。只在 dist 与源码不一致时失败，正常构建无额外行为变化。
+
+## 2026-10-29 BE-07 上限提醒改成主人看得懂的中文（主 Agent 代批 10-29）
+
+- 三处提醒（`maxTurns`/`maxTokens`/`maxMinutes`）的文案统一由 `RunLimits.limitText` 产出：写明撞的是哪个上限、已用多少、上限多少，并给出下一步——「回复『继续』可以接着做」。原文案只对模型说话（English），主人这边看不到为什么会半途停下。
+- 只改文案，不改行为与默认值：仍然是 architecture 第 5 节第 7 条的「只提醒、不截断」，`maxTurns` 100 / `maxMinutes` 30 / `maxTokens` 200000 不变；提醒照旧写成 `runtime.warning` 事件与会话里的 runtime note（主人可见、模型上下文也看得到），会话可以继续运行。
+- 验证：`packages/core/src/runtime/limits.test.ts` 补断言（提醒文案含「回复『继续』可以接着做」、转录里有这句、同一会话再提交仍能正常结束）。真实模型复测本次未做：`openai/gpt-6-luna` 的额度已用尽，隔离 HOME 里没有 workbuddy/rightapi 的凭据，如实记为未测。
