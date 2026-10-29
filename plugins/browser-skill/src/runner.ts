@@ -334,6 +334,8 @@ export function parseBskJson(result: BskRunResult, commandLabel: string): unknow
 		throw new BskError(`bsk ${commandLabel} timed out; inspect state before retrying any side effect`, {
 			timedOut: true,
 			data: native,
+			// BE-09：超时不等于没生效，先给出查哪儿、换什么办法，别让模型只能放弃。
+			hint: "超时不等于没生效：下载先看 out 路径里有没有这个文件（大小不再增长就是写完了），导航先看 final_url 或 observe 当前页；确认没结果再重试，公开内容改用 fetch 直接取。",
 		});
 	}
 	const body = result.stdout.trim();

@@ -711,3 +711,10 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 闸门的窗口/阈值数学放 `packages/core/src/kernel/social.ts`（`botGateCounts` + 服务方法 `botGate`），口径与 `plugins/social/src/bot-gate.ts` 的 `evaluateBotGate` 完全一致（窗口左开右闭、默认 15 分钟/3 条/3 个历史窗口，`social.botGate` 覆盖）：内核不能反向依赖插件源码，所以这一份是同口径的最小实现，两处改口径时要同步。
 - 触发时只记一条结构化事件 `social.bot-gate`（`agent`、`conv`、`source: "bot"`、`weight: "low"`、窗口条数与历史频率），文案留给 O52；模型沿用既有 mute / 继续机制处理，不新增停止通道。
 - 未接线部分与原因：本卡的允许路径只有 `kernel/social.ts` 与其测试，而真正的调用点（`routing/social.ts` 的 `socialDecision` 或 `routing/index.ts` 的路由决定）不在其中；另外「这条消息来自机器人」这一分类输入目前内核侧拿不到——G-10 只给了 `mentions.bot`（是否被 @），渠道事件里没有发送方是 Bot 的标记，`botGate` 因此要求调用方传入 `{at, bot}`。补齐这两点（调用点 + 来源标注）后即可满足 C5 的端到端验收，本卡只交付可用的判定与记账。
+
+## 2026-10-29 BE-09 下载等到完成信号、导航校验最终 URL（主 Agent 代批 10-29）
+
+- 下载：bsk daemon 的「下载完成」等待有它自己的超时，超时并不代表没写成。现在超时后先看目标文件（`settledDownload`：大小连续两次不再增长即视为完整）——完整就按成功返回并注明 `completedAfterTimeout`，不完整才报错，并给出可执行下一步（改用 fetch 直接取 URL、换下载入口、加大 timeoutMs、先看 out 里的半成品）。
+- 导航：`navigate/back/forward/reload` 之后核对返回的 `final_url`。停在空白页算失败；落到别的 URL 算重定向，按非错误返回并提示改用 fetch 取原始内容、或用 observe 重新取 refs。
+- `parseBskJson` 的超时错误补了 hint（超时不等于没生效，先看 out / final_url 再决定是否重试）。
+- 验证：新增 `plugins/browser-skill/test/download-navigation.test.ts`，用真实本地 HTTP 服务（分块慢发的 1.5MB 文件、302 重定向）验证完成信号、重定向与空白页提示、超时 hint；另用本机 bsk 对同一本地站点实测了 `navigate`（`final_url`）与 `download`（`byte_size`）的真实返回形状。

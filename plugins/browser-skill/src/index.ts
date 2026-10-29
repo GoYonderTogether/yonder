@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,6 +67,60 @@ export function daemonAbsent(value: unknown): boolean {
 		value.exitCode === 2 &&
 		value.message.includes("automatic daemon startup is disabled (BSK_AUTO_START=0)")
 	);
+}
+
+/** 下载完成信号：文件已在本地落盘，且大小连续两次不再增长（bsk 自己的等待超时也可能已经写好）。 */
+export async function settledDownload(path: string, budgetMs = 10000): Promise<{ size: number; complete: boolean }> {
+	const deadline = Date.now() + budgetMs;
+	let previous = 0;
+	let stable = 0;
+	while (Date.now() < deadline) {
+		const size = await stat(path).then(
+			(info) => info.size,
+			() => 0,
+		);
+		if (size > 0 && size === previous) {
+			if (++stable >= 2) return { size, complete: true };
+		} else stable = 0;
+		previous = size;
+		await new Promise((resolve) => setTimeout(resolve, 300));
+	}
+	return { size: previous, complete: false };
+}
+
+const comparable = (value: string): string => {
+	try {
+		const url = new URL(value);
+		url.hash = "";
+		return url.href.replace(/\/$/, "");
+	} catch {
+		return value;
+	}
+};
+
+/**
+ * 导航后核对最终 URL（BE-09）：到了目标就返回 undefined；停在空白页算失败，
+ * 落到别的 URL 算重定向——两种情况都给可执行的下一步，而不是默默当成功。
+ */
+export function navigationNotice(
+	requested: string | undefined,
+	result: unknown,
+): { error: boolean; finalUrl: string; hint: string } | undefined {
+	const finalUrl = String((result as { final_url?: unknown } | null)?.final_url ?? "");
+	if (!finalUrl || finalUrl.startsWith("about:"))
+		return {
+			error: true,
+			finalUrl,
+			hint: requested
+				? `页面没有到达 ${requested}（停在 ${finalUrl || "空白页"}）：改用 fetch 工具直接读这个 URL；或先导航到站点首页，再用点击/选择器进入目标页，然后 observe 确认。`
+				: "导航后没有可用的 URL（停在空白页）：用 observe 看当前页面，或重新导航到明确的目标 URL 再重试。",
+		};
+	if (!requested || comparable(requested) === comparable(finalUrl)) return undefined;
+	return {
+		error: false,
+		finalUrl,
+		hint: `最终 URL 是 ${finalUrl}，不是请求的 ${requested}（站点重定向）。要 ${requested} 的原始内容就用 fetch 工具直接取；要继续在这个页面操作就用 observe 重新取 refs。`,
+	};
 }
 
 /** Opens only a fixed official store, not an arbitrary URL or shell command. */
@@ -269,6 +323,34 @@ export default definePlugin({
 								await rm(directory, { recursive: true, force: true });
 							}
 						}
+						if (group === "file" && args.action === "download") {
+							const out = String(args.out);
+							try {
+								const reply = await run(argv, ctx.signal, record.requestId);
+								return text({ command: "download", result: reply });
+							} catch (error) {
+								if (!(error instanceof BskError) || !(error.timedOut || error.message.includes("did not complete")))
+									throw error;
+								// daemon 的「下载完成」等待是它自己的超时；文件可能已经写好，先确认再报失败。
+								const settled = await settledDownload(out);
+								if (settled.complete)
+									return text({
+										command: "download",
+										result: { path: out, byte_size: settled.size, completedAfterTimeout: true },
+										hint: "bsk 的下载等待超时了，但文件已经完整落盘（大小不再增长）；不要重复下载。",
+									});
+								throw new BskError(
+									`bsk download failed: 目标文件在超时内没有完成（${out}${settled.size > 0 ? ` 目前 ${settled.size} 字节，可能只写了一部分` : " 还没有出现"}）`,
+									{
+										code: error.code,
+										exitCode: error.exitCode ?? null,
+										timedOut: true,
+										data: error.data,
+										hint: "改用 fetch 工具直接取这个 URL（公开文件最快）；或换一个下载入口（页面上的链接/按钮）重新触发；也可以给 download 传更大的 timeoutMs。重试前先看 out 路径里已有的内容，避免重复副作用。",
+									},
+								);
+							}
+						}
 						const result = await run(argv, ctx.signal, record.requestId);
 						const state = result as { reached?: string; satisfied?: boolean; outcome?: string; ok?: boolean } | null;
 						const unmet =
@@ -276,6 +358,15 @@ export default definePlugin({
 							state?.satisfied === false ||
 							state?.ok === false ||
 							["cancelled", "timed_out", "disabled"].includes(state?.outcome ?? "");
+						const notice =
+							group === "page" && ["navigate", "back", "forward", "reload"].includes(String(args.action))
+								? navigationNotice(args.action === "navigate" ? String(args.url ?? "") : undefined, result)
+								: undefined;
+						if (notice)
+							return text(
+								{ command: argv[0], result, finalUrl: notice.finalUrl, hint: notice.hint },
+								unmet || notice.error,
+							);
 						return text({ command: argv[0], result }, unmet);
 					},
 					ctx.signal,
