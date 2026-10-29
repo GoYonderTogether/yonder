@@ -1,4 +1,4 @@
-import { wsUrl } from "./client";
+import { type NodeTarget, wsUrl } from "./client";
 import type { ServerFrame } from "./types";
 
 export type ConnState = "connecting" | "open" | "down";
@@ -62,14 +62,26 @@ export class Mux {
 	private ping?: ReturnType<typeof setInterval>;
 	private lastFrame = 0;
 	state: ConnState = "connecting";
+	private readonly socket: { create(url: string): StreamSocket; url(): string };
 
-	constructor(
-		private readonly socket: { create(url: string): StreamSocket; url(): string } = {
-			// SAFETY: WebSocket 的回调带事件参数，Mux 只把 open/close/error 当触发信号；这里按最小面收窄。
-			create: (url) => new WebSocket(url) as unknown as StreamSocket,
-			url: wsUrl,
-		},
-	) {}
+	/**
+	 * 缺省连接当前页面同源网关；给 node 时连该节点的 origin（多节点各自一个 Mux）。
+	 * 测试可直接注入 socket 工厂。
+	 */
+	constructor(socket?: { create(url: string): StreamSocket; url(): string }, node?: NodeTarget) {
+		this.socket =
+			socket ??
+			(node?.origin
+				? {
+						create: (url) => new WebSocket(url) as unknown as StreamSocket,
+						url: () => wsUrl(node),
+					}
+				: {
+						// SAFETY: WebSocket 的回调带事件参数，Mux 只把 open/close/error 当触发信号；这里按最小面收窄。
+						create: (url) => new WebSocket(url) as unknown as StreamSocket,
+						url: wsUrl,
+					});
+	}
 
 	onState(fn: (s: ConnState) => void) {
 		this.listeners.add(fn);
