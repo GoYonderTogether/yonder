@@ -640,3 +640,10 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 访客的二维码维度当前取该轮会话 `conv`，来源维度取事件 `from`：渠道插件还没提供设备/IP 哈希，先用手上唯一稳定的来源标识；换账号可绕过来源轮数上限，是已知缺口，等渠道侧给出哈希再替换。
 - `defaults.channelPolicy` 为 `closed` 时未绑定账号的每一轮直接拒绝（原因 `channel_closed`），为 `open`（缺省）时走访客额度。两种拒绝都追加 `outsider.rejected` 结构化事件（`reason`/`tier`/`remaining`/`login: "/connect"`/`hint`），并用 `delivery.sendCommand` 把中文引导语发回原会话，不经 `stopNotice`，所以文案不受运行结束通知表限制。
 - 放行前用 `remaining` 预检，访客同时记一轮；拒绝的那一轮不占轮数。用量在运行结束后 `settle` 记账，token 数为 `usage` 的 `input + output + cacheRead + cacheWrite`（与预算统计口径一致），并用 `run.end` 事件去重，避免重放或重复回调重复计费。
+
+## 2026-10-29 IMP-18 群消息不进主对话、主对话只显示 Bot 群发言与摘要（主 Agent 代批）
+
+- 卡里只放开 `routing/group-session.ts` 与 `views/social-*.ts`，没有放开 `packages/core/src/kernel/index.ts`，所以 `packages/core/src/views/social-group.ts` 的 `socialDisplayView()` 只导出与 `builtinViews` 同形的声明与数据源，注册点随控制台群列表卡（SOC01 G-03）落到 kernel；本卡不新造注册通道。
+- 主对话显示通道用两类事件承载：`social.bot-speech`（Bot 在群里的发言）与 `social.attention`（需关注摘要），正文与措辞归 O52；`mainDisplayKind()` 是唯一判定点，其余群事件（含 `message.in` 群消息）一律不进主对话并计入 `GroupDisplay.refused`。
+- 群绑定沿用既有 `per: conv` 的 persistent 会话（`groupSessionTarget()` 只是把这条约定写成一处），`sessions.list` 的 mode=persistent 够用，不新增 method。
+- 视图数据读 `GroupDisplay` 内存账本（`ViewProvider.data` 只拿得到 session id，没有 store/runtime 句柄），保留上限 200 条；需要跨重启保留时再换持久源。
