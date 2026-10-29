@@ -151,12 +151,16 @@ test("an attachment-only notification is recorded while an empty one still fails
 		});
 		const session = await sessions.api.open({ preset: "default", close: "manual" });
 		const attachment = { kind: "image" as const, mime: "image/png", uri: "file:///tmp/board.png", name: "board.png" };
-		// The console has no transport: a delivered attachment-only message is the message.out event itself.
+		// 控制台没有传输层：persistConsole 引用的就是投递尝试事件，附件在 outgoing 里。
 		const media = await store.events.record({
-			type: "message.out",
+			type: "message.attempt",
 			from: "agent:main",
 			conv: "conv:console:main",
-			data: { to: "conv:console:main", text: "", attachments: [attachment], delivery: { ok: true } },
+			data: {
+				target: "conv:console:main",
+				method: "send",
+				outgoing: { to: "conv:console:main", text: "", attachments: [attachment] },
+			},
 		});
 		expect(await sessions.notifyFrom(session.id, { event: media.id, text: "" }, "agent:main")).toMatchObject({
 			session: session.id,

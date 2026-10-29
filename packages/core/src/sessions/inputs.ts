@@ -44,15 +44,15 @@ export async function notifySession(
 	from: string,
 ) {
 	if (!from.trim()) throw new Error("Notification requires a program source");
-	if (!from.trim()) throw new Error("Notification requires a program source");
 	if (!input.event || typeof input.text !== "string") throw new Error("Notification requires an event and text");
 	const session = await store.sessions.get(id);
 	if (!session || session.closed || closing.has(id)) throw new Error(`Not an open session: ${id}`);
 	const source = await store.events.get(input.event);
 	if (!source) throw new Error(`Unknown notification event: ${input.event}`);
-	// 06 §2：只带附件的消息正文为空也是完整消息；附件记在该消息事件上。
-	const attachments =
-		input.attachments ?? (source.data as { attachments?: Attachment[] } | undefined)?.attachments ?? [];
+	// 06 §2：只带附件的消息正文为空也是完整消息。控制台消息引用的是投递尝试事件
+	// （附件在 `outgoing` 里），已确认的输出事件则把附件放在正文同级。
+	const data = source.data as { attachments?: Attachment[]; outgoing?: { attachments?: Attachment[] } } | undefined;
+	const attachments = input.attachments ?? data?.attachments ?? data?.outgoing?.attachments ?? [];
 	if (!input.text.trim() && !attachments.length)
 		throw new Error("Notification requires an event and text or an attachment");
 	return runtime().notify(id, { ...input, from, ...(attachments.length ? { attachments } : {}) });
