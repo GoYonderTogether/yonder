@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router";
 import { expect, test, vi } from "vitest";
 import { SessionSources } from "../src/work/features/SessionSources";
 
@@ -54,7 +55,9 @@ test("opens Bot sources separately and pages session trace through an empty page
 		await act(async () => {
 			root.render(
 				<QueryClientProvider client={client}>
-					<SessionSources session="main" agent="bot" />
+					<MemoryRouter>
+						<SessionSources session="main" agent="bot" />
+					</MemoryRouter>
 				</QueryClientProvider>,
 			);
 		});
@@ -70,7 +73,7 @@ test("opens Bot sources separately and pages session trace through an empty page
 		await vi.waitFor(() => expect(container.textContent).toContain("group message"));
 		await vi.waitFor(() => expect(container.textContent).toContain("2 条消息：讨论发布"));
 		expect(container.textContent).not.toContain("其他 Bot 内容");
-		expect(container.querySelector('a[href="#/s/other"]')).not.toBeNull();
+		expect(container.querySelector('a[href="/work/other"]')).not.toBeNull();
 		const next = [...container.querySelectorAll("button")].find((button) => button.textContent === "下一页");
 		await act(async () => next?.dispatchEvent(new window.Event("click", { bubbles: true })));
 		await vi.waitFor(() => expect(container.textContent).toContain("message.unknown"));

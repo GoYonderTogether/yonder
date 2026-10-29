@@ -9,7 +9,8 @@ import { titleOf } from "../lib/identity";
 import { botRowMenu, taskRowMenu } from "../lib/menus";
 import { markRead, usePrefs } from "../lib/prefs";
 import { useActivity, useSessions, useTail, useTitleOf } from "../lib/queries";
-import { href } from "../lib/useHash";
+import { Link, useNavigate } from "react-router";
+import { workPath } from "../shell/workRoutes";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import type { SessionView } from "../lib/useSession";
 import {
@@ -38,8 +39,8 @@ function ConsoleEntry() {
 	const name = active.name || active.id;
 	const summary = nodes.length > 1 ? `${name} · ${nodes.length} 个节点` : "只控制本机";
 	return (
-		<a
-			href={href({ tab: "work", page: "console" })}
+		<Link
+			to={workPath({ page: "console" })}
 			className="press mx-4 mt-2 flex items-center gap-2 rounded-card bg-raised px-3 py-2"
 			data-testid="console-entry"
 		>
@@ -49,11 +50,12 @@ function ConsoleEntry() {
 				<span className="block truncate text-caption text-faint">{summary}</span>
 			</span>
 			<ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />
-		</a>
+		</Link>
 	);
 }
 
 function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; running: boolean }) {
+	const navigate = useNavigate();
 	const prefs = usePrefs();
 	const title = useTitleOf()(s);
 	const tail = useTail(s.id, running ? "run" : "idle");
@@ -63,14 +65,14 @@ function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; runni
 	const unread = active ? 0 : items.filter((i) => i.role !== "user" && num(i.id) > (readTo ?? lastId)).length;
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
-	const actions = botRowMenu({ title, open: () => (location.hash = href({ tab: "work", session: s.id })) });
+	const actions = botRowMenu({ title, open: () => navigate(workPath({ session: s.id })) });
 	useEffect(() => {
 		if (active && lastId > 0) markRead(s.id, lastId);
 	}, [active, lastId, s.id]);
 	return (
 		<>
-			<a
-				href={href({ tab: "work", session: s.id })}
+			<Link
+				to={workPath({ session: s.id })}
 				{...trigger}
 				title={title}
 				aria-current={active ? "page" : undefined}
@@ -89,7 +91,7 @@ function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; runni
 						{badge(unread)}
 					</span>
 				)}
-			</a>
+			</Link>
 			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
 		</>
 	);
@@ -108,6 +110,7 @@ function TaskRow({
 	since?: string;
 	v?: SessionView;
 }) {
+	const navigate = useNavigate();
 	const prefs = usePrefs();
 	const qc = useQueryClient();
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
@@ -126,7 +129,7 @@ function TaskRow({
 	const actions = taskRowMenu({
 		session: s,
 		pinned: prefs.pinned.includes(s.id),
-		open: () => (location.hash = href({ tab: "work", session: s.id })),
+		open: () => navigate(workPath({ session: s.id })),
 		close: () => void close(),
 	});
 	// 只有当前打开的任务有逐条进度（todo/子任务来自它的 sessions.watch）；其余行不伪造
@@ -134,8 +137,8 @@ function TaskRow({
 	const subs = v?.subtasks.length;
 	return (
 		<>
-			<a
-				href={href({ tab: "work", session: s.id })}
+			<Link
+				to={workPath({ session: s.id })}
 				{...trigger}
 				title={title}
 				aria-current={active ? "page" : undefined}
@@ -149,7 +152,7 @@ function TaskRow({
 				{status === "running" && !todo && since && (
 					<span className="shrink-0 text-caption text-faint">自 {since.slice(11, 16)}</span>
 				)}
-			</a>
+			</Link>
 			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
 		</>
 	);
@@ -189,6 +192,7 @@ function Group({
 
 /** 工作模式第二列：上半 Bot（常驻 Agent），下半任务会话按状态分组。 */
 export function WorkList({ active, view }: { active?: string; view?: SessionView }) {
+	const navigate = useNavigate();
 	const sessions = useSessions();
 	const activity = useActivity();
 	const qc = useQueryClient();
@@ -205,7 +209,7 @@ export function WorkList({ active, view }: { active?: string; view?: SessionView
 		try {
 			const s = await rpc<SessionInfo>("sessions.open", { preset: "default", close: "manual" });
 			await qc.invalidateQueries({ queryKey: ["sessions"] });
-			location.hash = href({ tab: "work", session: s.id });
+			navigate(workPath({ session: s.id }));
 		} catch (e) {
 			alert(e instanceof Error ? e.message : "新建失败");
 		} finally {

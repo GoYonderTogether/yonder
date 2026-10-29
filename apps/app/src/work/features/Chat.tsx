@@ -1,5 +1,7 @@
 import { ChevronLeft, Layers, PanelRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
+import { workPath } from "../shell/workRoutes";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
@@ -78,9 +80,9 @@ function Header({
 	return (
 		<header className="pt-safe flex items-center gap-1 border-b border-hairline bg-ground/90 px-2 py-2 backdrop-blur">
 			{!wide && (
-				<a href="#/" aria-label="返回" className="press grid size-9 place-items-center rounded-full">
+				<Link to={workPath()} aria-label="返回" className="press grid size-9 place-items-center rounded-full">
 					<ChevronLeft size={22} aria-hidden />
-				</a>
+				</Link>
 			)}
 			<div className={`min-w-0 flex-1 ${wide ? "px-2" : "text-center"}`}>
 				<h1 className="truncate text-body font-semibold">{title}</h1>

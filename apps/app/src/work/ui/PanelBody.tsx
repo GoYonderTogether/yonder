@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleDashed, Loader } from "lucide-react";
 import { useEffect } from "react";
+import { Link } from "react-router";
+import { workPath } from "../shell/workRoutes";
 import { rpc } from "../api/client";
 import { mux } from "../api/stream";
 import type { TodoItem } from "../api/types";
@@ -121,12 +123,12 @@ function Subtasks({ v, session }: { v: SessionView; session: string }) {
 			<ul className="flex flex-col gap-1">
 				{v.subtasks.map((r) => (
 					<li key={r.id} className="flex items-center gap-2 text-small">
-						<a
-							href={`#/s/${encodeURIComponent(r.session)}`}
+						<Link
+							to={workPath({ session: r.session })}
 							className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
 						>
 							{r.label}
-						</a>
+						</Link>
 						<span className="shrink-0 text-caption text-faint">{STATE[r.state] ?? r.state}</span>
 					</li>
 				))}
@@ -137,12 +139,12 @@ function Subtasks({ v, session }: { v: SessionView; session: string }) {
 			<ul className="flex flex-col gap-1">
 				{kids.map((s) => (
 					<li key={s.id} className="flex items-center gap-2 text-small">
-						<a
-							href={`#/s/${encodeURIComponent(s.id)}`}
+						<Link
+							to={workPath({ session: s.id })}
 							className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
 						>
 							{titleOf(s)}
-						</a>
+						</Link>
 						<span className="shrink-0 text-caption text-faint">{s.closed ? "已结束" : "进行中"}</span>
 					</li>
 				))}

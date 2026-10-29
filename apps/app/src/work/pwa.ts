@@ -1,5 +1,7 @@
+import { appUrl } from "../lib/base";
+
 /**
- * 注册控制台唯一的 Service Worker。脚本地址按网关注入的 <base href> 解析，
+ * 注册控制台唯一的 Service Worker。脚本地址按应用挂载路径（lib/base）解析，
  * 因此本机 "/" 与云端 "/console/" 都不需要硬编码路径；SW 的 scope 就是脚本所在目录。
  *
  * 更新不循环：worker 不接管导航、不缓存 index.html，也从不 reload 或跳转页面。
@@ -10,7 +12,7 @@ export function registerConsoleWorker(): void {
 	if (!("serviceWorker" in navigator)) return;
 	const failed = (error: unknown) => console.warn("控制台缓存注册失败，下次打开时重试", error);
 	try {
-		const script = new URL("yonder-sw.js", document.baseURI);
+		const script = appUrl("yonder-sw.js");
 		navigator.serviceWorker
 			.register(script, { scope: new URL("./", script).pathname, updateViaCache: "none" })
 			.catch(failed);

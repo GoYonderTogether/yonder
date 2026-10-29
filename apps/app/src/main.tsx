@@ -9,7 +9,9 @@ import { api } from './api'
 import { App } from './App'
 import { ACCOUNT_KEY, CACHE_GC_TIME, CACHE_MAX_AGE, CACHE_PREFIX, CACHE_SCHEMA, clearPersistedCache, readCachedSession, selectAccount } from './cache'
 import { $session } from './store'
-import { registerPageCache } from './pageCache'
+import { appBase, routerBasename } from './lib/base'
+import { upgradeLegacyLocation } from './legacyLinks'
+import { registerConsoleWorker } from './work/pwa'
 import './styles.css'
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 0, gcTime: CACHE_GC_TIME, refetchOnWindowFocus: false, refetchOnReconnect: true } } })
@@ -27,6 +29,7 @@ function PersistenceProvider({ children }: { children: React.ReactNode }) {
   </PersistQueryClientProvider>
 }
 
+upgradeLegacyLocation(appBase())
 $session.set(readCachedSession())
 
 function Bootstrap() {
@@ -59,11 +62,11 @@ function Bootstrap() {
   const retry = <button className="underline" onClick={() => setAttempt((n) => n + 1)}>重试</button>
   if (session === undefined) return <div role="status" className="flex h-full items-center justify-center gap-2 text-muted">{error ? <>连接失败，{retry}</> : '正在加载…'}</div>
   return <>
-    <PersistenceProvider><BrowserRouter><App /></BrowserRouter></PersistenceProvider>
+    <PersistenceProvider><BrowserRouter basename={routerBasename()}><App /></BrowserRouter></PersistenceProvider>
     {error && <div role="status" className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 gap-2 rounded-control bg-raised px-4 py-2 text-small shadow-float">暂时无法同步，正在显示缓存。{retry}</div>}
   </>
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><QueryClientProvider client={qc}><Bootstrap /></QueryClientProvider></StrictMode>)
 
-registerPageCache(import.meta.env.VITE_LIVE_DEV === '1')
+registerConsoleWorker()

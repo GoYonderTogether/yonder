@@ -17,6 +17,7 @@ const ChatShell = lazy(() => import('./pages/Chat').then((m) => ({ default: m.Ch
 const Connect = lazy(() => import('./pages/Connect').then((m) => ({ default: m.Connect })))
 const Install = lazy(() => import('./pages/Install').then((m) => ({ default: m.Install })))
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
+const WorkRoot = lazy(() => import('./work/WorkRoot'))
 const Me = lazy(() => import('./pages/Me').then((m) => ({ default: m.Me })))
 
 function Private({ children }: { children: ReactNode }) {
@@ -46,6 +47,7 @@ export function App() {
         <Route path="/contacts/:id?" element={<Contacts />} />
         <Route path="/connect" element={<Connect />} />
         <Route path="/me" element={<Me />} />
+        <Route path="/work/*" element={<WorkRoot />} />
         <Route element={<ChatShell />}>
           <Route path="/" element={null} />
           <Route path="/c/:id" element={<Conversation />} />

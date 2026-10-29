@@ -6,8 +6,8 @@
 	"license": "Apache-2.0",
 	"scripts": {
 		"dev": "vite",
-		"build": "tsc --noEmit -p tsconfig.json && vite build",
-		"typecheck": "tsc --noEmit -p tsconfig.json"
+		"build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json && vite build",
+		"typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "6.3.1",

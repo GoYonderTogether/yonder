@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router";
+import { workPath } from "../shell/workRoutes";
 import { rpc } from "../api/client";
 import type { TranscriptItem } from "../api/types";
 
@@ -195,9 +197,9 @@ function BotSources({ agent }: { agent: string }) {
 											<>
 												{" "}
 												·{" "}
-												<a className="underline" href={`#/s/${encodeURIComponent(route.session)}`}>
+												<Link className="underline" to={workPath({ session: route.session })}>
 													会话 {route.session}
-												</a>
+												</Link>
 											</>
 										)}
 									</p>

@@ -1,4 +1,3 @@
-import { href } from "../shell/routes";
 import { breakpointOf } from "../shell/useBreakpoint";
 
 /**
@@ -116,29 +115,30 @@ export function themeAttribute(choice: ThemeChoice): "light" | "dark" | null {
 export interface RouteJump {
 	key: string;
 	label: string;
-	hash: string;
+	/** router 内路径（不含挂载前缀）。 */
+	path: string;
 }
 
 /** 固定路由快捷跳转；资料与群邀请需要 id，走下面的构造函数。 */
 export const ROUTE_JUMPS: readonly RouteJump[] = [
-	{ key: "chats", label: "消息", hash: href({ tab: "chats" }) },
-	{ key: "contacts", label: "通讯录", hash: href({ tab: "contacts" }) },
-	{ key: "work", label: "工作", hash: href({ tab: "work" }) },
-	{ key: "me", label: "我", hash: href({ tab: "me" }) },
-	{ key: "connect", label: "连接", hash: href({ tab: "chats", page: "connect" }) },
-	{ key: "get", label: "安装", hash: href({ tab: "chats", page: "get" }) },
+	{ key: "chats", label: "消息", path: "/" },
+	{ key: "contacts", label: "通讯录", path: "/contacts" },
+	{ key: "work", label: "工作", path: "/work" },
+	{ key: "me", label: "我", path: "/me" },
+	{ key: "connect", label: "连接", path: "/connect" },
+	{ key: "get", label: "安装", path: "/get" },
 ] as const;
 
-/** #/u/:id 公开名片；空输入返回 undefined。 */
-export function publicCardHash(id: string): string | undefined {
+/** /u/:id 公开名片；空输入返回 undefined。 */
+export function publicCardPath(id: string): string | undefined {
 	const value = id.trim();
-	return value ? href({ tab: "chats", page: "u", session: value }) : undefined;
+	return value ? `/u/${encodeURIComponent(value)}` : undefined;
 }
 
-/** #/g/:token 群邀请；空输入返回 undefined。 */
-export function groupInviteHash(token: string): string | undefined {
+/** /g/:token 群邀请；空输入返回 undefined。 */
+export function groupInvitePath(token: string): string | undefined {
 	const value = token.trim();
-	return value ? href({ tab: "chats", page: "g", session: value }) : undefined;
+	return value ? `/g/${encodeURIComponent(value)}` : undefined;
 }
 
 export type StateMode = "none" | "loading" | "empty" | "error";

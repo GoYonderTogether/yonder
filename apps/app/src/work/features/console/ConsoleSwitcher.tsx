@@ -2,14 +2,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Monitor, Plus, Trash2 } from "lucide-react";
 import { LOCAL_NODE, type NodeConfig, removeNode, setActiveNode, useActiveNode, useNodes } from "../../api/nodes";
 import { cn } from "../../lib/cn";
-import { href } from "../../shell/routes";
+import { Link } from "react-router";
+import { appBase } from "../../../lib/base";
+import { workPath } from "../../shell/workRoutes";
 import { Button } from "../../ui/kit/Button";
 import { toast } from "../../ui/kit/Toast";
 
-const workHref = href({ tab: "work" });
-const connectHref = href({ tab: "chats", page: "connect" });
+const workHref = workPath();
 /** 本机控制台的首页就是当前这个客户端（消息列表）；控制台页只是它的一个入口。 */
-export const CONSOLE_HOME = href({ tab: "chats" });
+export const CONSOLE_HOME = "/";
 
 /** 控制台页的一行：节点本身 + 展示用的地址与可做的动作。 */
 export interface ConsoleRow {
@@ -81,7 +82,7 @@ export function ConsoleSwitcher() {
 			return;
 		}
 		if (target.external) window.open(target.href, "_blank", "noopener");
-		else location.assign(target.href);
+		else location.assign(`${appBase()}${target.href.replace(/^\//, "")}`);
 	};
 
 	const remove = (row: ConsoleRow) => {
@@ -92,9 +93,9 @@ export function ConsoleSwitcher() {
 	return (
 		<div className="scroll-y h-full" data-testid="console-switcher">
 			<header className="flex items-center gap-3 px-4 pt-safe pb-1">
-				<a aria-label="返回工作" href={workHref} className="press rounded-full p-2 hover:bg-tone">
+				<Link aria-label="返回工作" to={workHref} className="press rounded-full p-2 hover:bg-tone">
 					<ArrowLeft size={20} aria-hidden />
-				</a>
+				</Link>
 				<h1 className="text-title font-semibold">控制台</h1>
 			</header>
 			<p className="px-4 pb-2 text-caption text-faint">
@@ -178,13 +179,13 @@ export function ConsoleSwitcher() {
 						</p>
 					</>
 				)}
-				<a
-					href={connectHref}
+				<Link
+					to="/connect"
 					className="press mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-tone px-3 text-[13px] font-medium text-ink hover:bg-tone-2"
 					data-testid="console-add-device"
 				>
 					<Plus size={15} aria-hidden /> 添加设备
-				</a>
+				</Link>
 			</section>
 
 			{hasRemote && (

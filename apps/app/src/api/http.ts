@@ -1,8 +1,11 @@
 import type { ApiClient } from './client'
 import type { Actor, Card, Device, Conversation, Message, MessageContent, Session } from './types'
 
+/** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
+const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? ''
+
 async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
-  const response = await fetch(`/api${path}`, { credentials: 'same-origin', ...init })
+  const response = await fetch(`${SOCIAL_BASE}/api${path}`, { credentials: SOCIAL_BASE ? 'include' : 'same-origin', ...init })
   const text = await response.text()
   if (!response.ok) {
     if (response.status === 401) window.dispatchEvent(new Event('yonder:unauthorized'))
@@ -49,8 +52,9 @@ export const httpApi: ApiClient = {
     let socket: WebSocket | undefined
     const connect = () => {
       if (!active) return
-      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const ws = new WebSocket(`${protocol}//${location.host}/ws`)
+      const origin = new URL(SOCIAL_BASE || '/', location.href)
+      const protocol = origin.protocol === 'https:' ? 'wss:' : 'ws:'
+      const ws = new WebSocket(`${protocol}//${origin.host}/ws`)
       socket = ws
       ws.onopen = () => { delay = 1000 }
       ws.onmessage = ({ data }) => {

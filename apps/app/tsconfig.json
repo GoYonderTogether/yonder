@@ -6,10 +6,11 @@
 		"moduleResolution": "Bundler",
 		"jsx": "react-jsx",
 		"strict": true,
-		"noUncheckedIndexedAccess": true,
 		"skipLibCheck": true,
 		"noEmit": true,
+		"isolatedModules": true,
 		"types": ["vite/client"]
 	},
-	"include": ["src", "vite.config.ts"]
+	"include": ["src", "vite.config.ts"],
+	"exclude": ["src/work/**/*.test.ts"]
 }

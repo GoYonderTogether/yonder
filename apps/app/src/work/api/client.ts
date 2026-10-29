@@ -1,3 +1,4 @@
+import { appBase } from "../../lib/base";
 import type { ServerFrame } from "./types";
 
 export class RpcError extends Error {
@@ -23,12 +24,12 @@ export interface NodeTarget {
 }
 
 /**
- * 网关会给 index.html 注入 <base href=basePath>，所有接口用相对地址按它解析：
+ * 同源接口按应用挂载路径（lib/base 的 appBase，网关注入的 yonder-base-path）解析，与当前路由深度无关：
  * 本机 basePath="/" → /api/…；线上 /console/ → /console/api/…（反代剥掉前缀）。
  * 鉴权是网关签发的 HttpOnly cookie，前端不保存令牌。
  */
 const baseOf = (node?: NodeTarget) =>
-	node?.origin ? new URL(node.origin.endsWith("/") ? node.origin : `${node.origin}/`) : document.baseURI;
+	node?.origin ? new URL(node.origin.endsWith("/") ? node.origin : `${node.origin}/`) : new URL(appBase(), location.origin);
 
 const remote = (node?: NodeTarget) => (node?.origin ? { credentials: "include" as const } : {});
 
@@ -79,7 +80,7 @@ export async function login(token: string, node?: NodeTarget): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
-	await fetch(new URL("api/logout", document.baseURI), { method: "POST" });
+	await fetch(new URL("api/logout", baseOf()), { method: "POST" });
 }
 
 export function wsUrl(node?: NodeTarget): string {

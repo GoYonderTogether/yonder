@@ -1,22 +1,26 @@
 import { useStore } from '@nanostores/react'
-import { MessageCircle, Users } from 'lucide-react'
+import { MessageCircle, Monitor, Users } from 'lucide-react'
 import { Suspense } from 'react'
 import { NavLink, Outlet, useMatch } from 'react-router'
 import { cn } from '../lib/cn'
+import { useWorkEntry } from '../lib/useWorkEntry'
+import { WORK_PAGES } from '../work/shell/workRoutes'
 import { PageLoading } from './PageLoading'
 import { $session } from '../store'
 import { Avatar } from '../ui/Avatar'
 import { Logo } from '../ui/Logo'
 
-const items = [
-  { to: '/', label: '消息', icon: MessageCircle },
-  { to: '/contacts', label: '通讯录', icon: Users },
-  { to: '/me', label: '我', icon: null },
-]
+const chatItem = { to: '/', label: '消息', icon: MessageCircle }
+const contactsItem = { to: '/contacts', label: '通讯录', icon: Users }
+const workItem = { to: '/work', label: '工作', icon: Monitor }
+const meItem = { to: '/me', label: '我', icon: null }
 
 export function Shell() {
   const me = useStore($session)?.actor
-  const hidden = [useMatch('/c/:id'), useMatch('/contacts/:id')].some(Boolean)
+  const work = useWorkEntry()
+  const items = [chatItem, contactsItem, ...(work ? [workItem] : []), meItem]
+  const workMatch = useMatch('/work/:id')
+  const hidden = [useMatch('/c/:id'), useMatch('/contacts/:id')].some(Boolean) || (!!workMatch && !(WORK_PAGES as readonly string[]).includes(workMatch.params.id ?? ''))
   const active = (path: string) => path === '/' ? location.pathname === '/' || location.pathname.startsWith('/c/') : location.pathname.startsWith(path)
   const mobileLinks = items.map(({ to, label, icon: Icon }) => (
     <NavLink key={to} to={to} aria-label={label} title={label}

@@ -1,19 +1,19 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bug, Monitor, Smartphone, Tablet, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { logout as gatewayLogout } from "../api/client";
 import { qk } from "../api/keys";
 import { setActiveNode, useActiveNode, useNodes } from "../api/nodes";
 import { httpApi } from "../api/social";
 import { mux } from "../api/stream";
 import { cn } from "../lib/cn";
-import { href } from "../shell/routes";
 import { applyStateOverride } from "./stateOverride";
 import {
-	groupInviteHash,
+	groupInvitePath,
 	presetBreakpoint,
 	previewUrl,
-	publicCardHash,
+	publicCardPath,
 	ROUTE_JUMPS,
 	STATE_MODES,
 	type StateMode,
@@ -34,6 +34,7 @@ import "./devtools.css";
  */
 export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 	const qc = useQueryClient();
+	const navigate = useNavigate();
 	const [open, setOpen] = useState(true);
 	const [theme, setTheme] = useState<ThemeChoice>("system");
 	const [stateMode, setStateMode] = useState<StateMode>("none");
@@ -81,8 +82,8 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 		onDisable();
 	};
 
-	const go = (hash: string | undefined) => {
-		if (hash) location.hash = hash;
+	const go = (path: string | undefined) => {
+		if (path) navigate(path);
 	};
 
 	const logoutGateway = async () => {
@@ -219,7 +220,7 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 						<Section title="路由">
 							<div className="flex flex-wrap gap-1">
 								{ROUTE_JUMPS.map((jump) => (
-									<button key={jump.key} type="button" onClick={() => go(jump.hash)} className={btn(false)}>
+									<button key={jump.key} type="button" onClick={() => go(jump.path)} className={btn(false)}>
 										{jump.label}
 									</button>
 								))}
@@ -235,7 +236,7 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 								<button
 									type="button"
 									disabled={!cardId.trim()}
-									onClick={() => go(publicCardHash(cardId))}
+									onClick={() => go(publicCardPath(cardId))}
 									className={btn(false)}
 								>
 									名片
@@ -252,7 +253,7 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 								<button
 									type="button"
 									disabled={!groupToken.trim()}
-									onClick={() => go(groupInviteHash(groupToken))}
+									onClick={() => go(groupInvitePath(groupToken))}
 									className={btn(false)}
 								>
 									群邀请
@@ -272,7 +273,7 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 									type="button"
 									onClick={() => {
 										setSocialError("");
-										go(href({ tab: "me" }));
+										go("/me");
 									}}
 									className={btn(false)}
 									title="正式账号要真实登录凭据，不做模拟登录"

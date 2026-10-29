@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
+import { MemoryRouter } from "react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NodeConfig } from "../src/work/api/nodes";
-import { consoleRows, consoleTarget } from "../src/work/features/console/ConsoleSwitcher";
 import { PAGES } from "../src/work/shell/registry";
 import { href, PAGE_NAMES, parse } from "../src/work/shell/routes";
 import { NAV } from "../src/work/shell/TabBar";
+import type { NodeConfig } from "../src/work/api/nodes";
+import { consoleRows, consoleTarget } from "../src/work/features/console/ConsoleSwitcher";
 
 const local: NodeConfig = { id: "local", name: "本机" };
 const studio: NodeConfig = { id: "n2", name: "书房", origin: "https://studio.test:7690/console" };
@@ -64,7 +65,7 @@ describe("consoleRows", () => {
 describe("consoleTarget", () => {
 	it("opens the local console in place and remote ones externally", () => {
 		expect(consoleTarget(local)?.external).toBe(false);
-		expect(consoleTarget(local)?.href).toBe("#/");
+		expect(consoleTarget(local)?.href).toBe("/");
 		expect(consoleTarget(studio)).toEqual({ href: "https://studio.test:7690/console", external: true });
 	});
 	it("has no target for a remote node without an address", () => {
@@ -108,7 +109,7 @@ function render(node: React.ReactElement) {
 		createElement(
 			QueryClientProvider,
 			{ client: new QueryClient({ defaultOptions: { queries: { retry: false } } }) },
-			node,
+			createElement(MemoryRouter, null, node),
 		),
 	);
 }

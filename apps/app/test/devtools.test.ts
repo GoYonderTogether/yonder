@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyStateOverride, DevtoolsStateError, forcedQueryState, isForcedState } from "../src/work/devtools/stateOverride";
 import {
 	DEVTOOLS_STORAGE_KEY,
-	groupInviteHash,
+	groupInvitePath,
 	mergeStateOverrides,
 	NO_STATE_OVERRIDE,
 	parseStateMode,
 	presetBreakpoint,
 	previewUrl,
-	publicCardHash,
+	publicCardPath,
 	ROUTE_JUMPS,
 	readDevtoolsEnabled,
 	STATE_MODES,
@@ -127,21 +127,21 @@ describe("theme", () => {
 
 describe("route jumps", () => {
 	it("covers the fixed pages from the shell parser", () => {
-		expect(Object.fromEntries(ROUTE_JUMPS.map((jump) => [jump.key, jump.hash]))).toEqual({
-			chats: "#/",
-			contacts: "#/contacts",
-			work: "#/work",
-			me: "#/me",
-			connect: "#/connect",
-			get: "#/get",
+		expect(Object.fromEntries(ROUTE_JUMPS.map((jump) => [jump.key, jump.path]))).toEqual({
+			chats: "/",
+			contacts: "/contacts",
+			work: "/work",
+			me: "/me",
+			connect: "/connect",
+			get: "/get",
 		});
 	});
 
-	it("builds public card and group invite hashes and rejects empty input", () => {
-		expect(publicCardHash("ABC123")).toBe("#/u/ABC123");
-		expect(publicCardHash("  ")).toBeUndefined();
-		expect(groupInviteHash("tok en")).toBe("#/g/tok%20en");
-		expect(groupInviteHash("")).toBeUndefined();
+	it("builds public card and group invite paths and rejects empty input", () => {
+		expect(publicCardPath("ABC123")).toBe("/u/ABC123");
+		expect(publicCardPath("  ")).toBeUndefined();
+		expect(groupInvitePath("tok en")).toBe("/g/tok%20en");
+		expect(groupInvitePath("")).toBeUndefined();
 	});
 });
 
