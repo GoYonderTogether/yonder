@@ -17,9 +17,22 @@ const commit: string | null = existsSync(new URL(".git", root))
 		? (JSON.parse(readFileSync(origin, "utf8")).commit ?? null)
 		: null;
 
-const gateway = process.env.YONDER_GATEWAY ?? "http://127.0.0.1:18787";
-const social = process.env.YONDER_SOCIAL ?? "http://127.0.0.1:18030";
-const toGateway = { target: gateway, ws: true };
+// 网关默认指向演示实例（~/Documents/yonder-demo-fe，18795）；社交服务默认云端，二选一见 deploy/DEV.md 的做法：
+// YONDER_SOCIAL=http://127.0.0.1:18030 可改用本机测试后端。
+const gateway = process.env.YONDER_GATEWAY ?? "http://127.0.0.1:18795";
+const social = process.env.YONDER_SOCIAL ?? "https://yonder.zethai.cn";
+/** 目标服务按 Origin 做来源检查，所以把浏览器的 Origin 改写成目标自己的。 */
+const proxyTo = (target: string, ws = false) => ({
+	target,
+	ws,
+	changeOrigin: true,
+	configure: (proxy: {
+		on(event: string, fn: (req: { setHeader(name: string, value: string): void }) => void): void;
+	}) => {
+		proxy.on("proxyReq", (req) => req.setHeader("origin", target));
+		proxy.on("proxyReqWs", (req) => req.setHeader("origin", target));
+	},
+});
 
 export default defineConfig({
 	base: process.env.YONDER_APP_BASE ?? "./",
@@ -41,13 +54,13 @@ export default defineConfig({
 		port: 5180,
 		strictPort: true,
 		proxy: {
-			"/api/rpc": toGateway,
-			"/api/stream": toGateway,
-			"/api/logout": toGateway,
+			"/api/rpc": proxyTo(gateway),
+			"/api/stream": proxyTo(gateway, true),
+			"/api/logout": proxyTo(gateway),
 			// 名片站也有 /login 页面：只有登录表单的 POST 才属于网关。
-			"/login": { ...toGateway, bypass: (req) => (req.method === "POST" ? undefined : req.url) },
-			"/api": { target: social },
-			"/ws": { target: social, ws: true },
+			"/login": { ...proxyTo(gateway), bypass: (req) => (req.method === "POST" ? undefined : req.url) },
+			"/api": proxyTo(social),
+			"/ws": proxyTo(social, true),
 		},
 	},
 });
