@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
-import { $session } from "../src/store";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Login } from "../src/pages/Login";
+import { $session } from "../src/store";
 
 const api = vi.hoisted(() => ({ sendCode: vi.fn(), verifyCode: vi.fn() }));
 vi.mock("../src/api", () => ({ api }));

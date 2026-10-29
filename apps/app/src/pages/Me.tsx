@@ -1,10 +1,12 @@
 import { useStore } from "@nanostores/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Monitor, Settings } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
+import { clearPersistedCache, selectAccount } from "../cache";
+import { AccountSecurity } from "../components/AccountSecurity";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
@@ -32,7 +34,7 @@ function Sheet({
 				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
 				<Dialog.Content
 					aria-describedby={undefined}
-					className="rise fixed inset-x-0 bottom-0 z-50 flex flex-col gap-5 rounded-t-[24px] bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[24px]"
+					className="rise fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col gap-5 overflow-y-auto rounded-t-[24px] bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[24px]"
 				>
 					<Dialog.Title className="text-[20px] font-semibold tracking-tight">{title}</Dialog.Title>
 					{children}
@@ -75,6 +77,16 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 	const logout = useLogout();
 	const me = useStore($session)?.actor;
 	const [profile, setProfile] = useState(false);
+	const nav = useNavigate();
+	const qc = useQueryClient();
+	/** 换绑后服务端已撤销所有会话：本地不再调 logout，只清缓存回到登录页。 */
+	const signedOut = () => {
+		clearPersistedCache(qc);
+		selectAccount(null, qc);
+		$session.set(null);
+		onOpenChange(false);
+		nav("/login");
+	};
 	return (
 		<>
 			<Sheet open={open && !profile} onOpenChange={onOpenChange} title="设置">
@@ -82,6 +94,12 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 					<Button className="h-11" onClick={() => setProfile(true)}>
 						账号昵称
 					</Button>
+				)}
+				{!me?.anonymous && me && (
+					<section aria-label="账号与安全" className="flex flex-col gap-3">
+						<h2 className="text-small font-medium text-muted">账号与安全</h2>
+						<AccountSecurity actor={me} onSignedOut={signedOut} />
+					</section>
 				)}
 				<Button className="h-11 text-danger" onClick={logout}>
 					退出登录

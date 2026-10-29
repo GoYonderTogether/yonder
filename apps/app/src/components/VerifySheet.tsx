@@ -1,9 +1,6 @@
 import { useEffect, useId, useReducer, useState } from "react";
 import { api } from "../api";
 import type { CodeSent, Session, VerifyKind } from "../api/types";
-import { Button } from "../ui/Button";
-import { Field } from "../ui/Field";
-import { Window } from "../ui/Window";
 import {
 	canSendCode,
 	canVerifyCode,
@@ -14,6 +11,9 @@ import {
 	validateTarget,
 	verifyReducer,
 } from "../lib/verify";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Window } from "../ui/Window";
 
 const TABS: { kind: VerifyKind; label: string }[] = [
 	{ kind: "phone", label: "手机号" },

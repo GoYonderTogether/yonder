@@ -67,7 +67,13 @@ describe("Composer 访客额度", () => {
 		expect(api.send).toHaveBeenCalledTimes(1);
 
 		const session = { actor: { id: "u1", name: "我", kind: "human" } };
-		api.send.mockResolvedValue({ id: "m2", convId: "c1", seq: 1, senderId: "u1", content: { type: "text", text: "x" } });
+		api.send.mockResolvedValue({
+			id: "m2",
+			convId: "c1",
+			seq: 1,
+			senderId: "u1",
+			content: { type: "text", text: "x" },
+		});
 		await act(async () => sheet.props?.onSuccess(session));
 		expect($session.get()).toEqual(session);
 		expect(api.send).toHaveBeenLastCalledWith("c1", { type: "markdown", text: "你好" });
