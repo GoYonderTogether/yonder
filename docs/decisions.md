@@ -671,3 +671,8 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 生效点在 `packages/core/src/runtime/catalog.ts` 的 `describeCatalog(config, catalog, active)`：属于未激活懒加载分组的工具从 `offer` 降为 `search`，于是 `applyConfiguration` 不再把它塞进 `modelTools`，只经 `tool_search` 按需载入；显式激活（`active`）后恢复常驻。`tool_search` 的既有规则不变：只要有别的工具处于 `search`，它自己仍是 `offer`。
 - 配置面是 `tools.lazyGroups`（SDK `Profile.tools` 加可选字段，schema 同步），默认 `["code-intel"]`，显式写 `[]` 即全部常驻。卡里只允许改三个文件，但真实生效还必须有 `runtime/index.ts`（`activeLazy` + `activateTools`/`deactivateTools`）、`sessions/index.ts`（SDK 方法接线）、`config/schema.ts` + `config/index.ts` + `sdk/models.ts`（配置键），按最小加法改动，无行为回退。
 - SDK 的 `SessionsAPI.activateTools(id, names)` / `deactivateTools(id, names)` 声明为可选成员：卡里写的是 `activateTools(names)`，但 `SessionsAPI` 每个方法都带会话 id，这里沿用会话维度；插件侧 `Omit<SessionsAPI, …>` 的构造点不需要跟着改。
+
+## 2026-10-29 IMP-15 判定会话的开会方式与输出解析（主 Agent 代批）
+
+- 验收 HOME 实测暴露两处必须按真实行为补的细节：`sessions.open({judgment: true})` 要求来源会话已有 cheap/simple 模型槽，没有就报 `Judgment requires...`；`sessions.submit` 的 `text` 在真实运行里为空，判定结果只在转录 `pi.assistant` 项里。`createJudge` 因此改为：`preset` 取来源会话自己的 profile，没有 cheap/simple 槽时退回普通判定会话（模型仍由来源会话解析），文本先读 `submit` 结果、为空再读转录最后一条 `pi.assistant`。
+- 真实 glm-5.3-flash 会把判定包在 ```json 代码块或一段说明里，`parseJudgement` 改为取第一个完整 JSON 对象（原实现只接受裸 JSON，真实调用恒失败）。

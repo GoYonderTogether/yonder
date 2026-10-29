@@ -92,6 +92,20 @@ test("判定输出校验：动作、来源事件与理由都要合法", () => {
 	expect(parseJudgement('{"action":"ignore","sourceEvents":["a"]}', ["a"])).toBeUndefined();
 });
 
+test("真实模型的围栏/前后说明也能解析", () => {
+	expect(parseJudgement('```json\n{"action":"ignore","sourceEvents":[],"reason":"成员日常闲聊"}\n```', ["a"])).toEqual({
+		action: "ignore",
+		sourceEvents: [],
+		reason: "成员日常闲聊",
+	});
+	expect(
+		parseJudgement('判定如下：\n```json\n{"action":"participate","sourceEvents":["a"],"reason":"问到主人"}\n```', [
+			"a",
+		]),
+	).toMatchObject({ action: "participate", sourceEvents: ["a"] });
+	expect(parseJudgement("没有 JSON", ["a"])).toBeUndefined();
+});
+
 test("只接管带 messages 与 trigger 的批次事件", () => {
 	const messages = [message("一")];
 	expect(queueFromEvent({ conv, data: { messages, trigger: "window" } })).toEqual({

@@ -36,12 +36,8 @@ export function judgeModel(config: unknown): string {
 
 /** 从判定会话的最后一条文本里取出判定结果；ids 是允许引用的来源事件。 */
 export function parseJudgement(text: string, ids: string[]): Judgement | undefined {
-	let output: { action?: unknown; sourceEvents?: unknown; reason?: unknown };
-	try {
-		output = JSON.parse(text);
-	} catch {
-		return undefined;
-	}
+	const output = firstObject(text);
+	if (!output) return undefined;
 	if (
 		!["ignore", "summarize", "participate"].includes(String(output.action)) ||
 		!Array.isArray(output.sourceEvents) ||
@@ -50,6 +46,21 @@ export function parseJudgement(text: string, ids: string[]): Judgement | undefin
 	)
 		return undefined;
 	return { action: output.action as JudgeAction, sourceEvents: output.sourceEvents as string[], reason: output.reason };
+}
+
+/** 真实模型的判定常被包在 ```json 代码块或一段说明里：取第一个完整 JSON 对象。 */
+function firstObject(text: string): { action?: unknown; sourceEvents?: unknown; reason?: unknown } | undefined {
+	const start = text.indexOf("{");
+	if (start < 0) return undefined;
+	for (let end = text.lastIndexOf("}"); end > start; end = text.lastIndexOf("}", end - 1)) {
+		try {
+			const value = JSON.parse(text.slice(start, end + 1));
+			if (value && typeof value === "object") return value as { action?: unknown };
+		} catch {
+			// 继续缩到最后一次成功的 {...}
+		}
+	}
+	return undefined;
 }
 
 export function judgePrompt(request: JudgeRequest): string {
@@ -72,18 +83,30 @@ export function createJudge(api: PluginAPI): Judge {
 		const sources = await api.sessions.list({ mode: "persistent", open: true });
 		const source = sources.find((session) => session.key === `conv:${request.conv}`) ?? sources[0];
 		if (!source) return undefined;
-		const task = await api.sessions.open({
-			preset: request.model,
-			modelSource: { session: source.id },
-			judgment: true,
-		});
+		const explicit = request.model.includes("/") ? request.model : undefined;
+		const open = (judgment: boolean) =>
+			api.sessions.open({
+				preset: source.profile,
+				modelSource: { session: source.id, ...(explicit ? { fallback: explicit } : {}) },
+				judgment,
+			});
+		let task: Awaited<ReturnType<typeof open>>;
+		try {
+			task = await open(true);
+		} catch (error) {
+			// 没有配 cheap/simple 模型槽时判定会话开不起来：退回普通会话，模型仍按来源会话解析。
+			if (!(error instanceof Error) || !error.message.startsWith("Judgment requires")) throw error;
+			task = await open(false);
+		}
 		try {
 			const result = await api.sessions.submit(task.id, { text: judgePrompt(request) }, { wait: true });
 			if (result.status !== "done") return undefined;
-			return parseJudgement(
-				result.text,
-				request.messages.map((message) => message.id),
-			);
+			const ids = request.messages.map((message) => message.id);
+			const judged = parseJudgement(result.text, ids);
+			if (judged) return judged;
+			const transcript = await api.sessions.transcript(task.id, { before: Number.MAX_SAFE_INTEGER, limit: 100 });
+			const text = transcript.filter((item) => item.kind === "pi.assistant").at(-1)?.text ?? "";
+			return parseJudgement(text, ids);
 		} finally {
 			await api.sessions.close(task.id);
 		}
