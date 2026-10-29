@@ -24,7 +24,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 | `credentials slots create <provider> <slot> [--env-ref <variable>]` | 创建槽描述，已有项拒绝；env-ref 只存变量名 |
 | `credentials slots remove <provider> <slot>` | 只删除指定槽的该供应商账号，保留 generation 墓碑；default 不删除其他 provider/named key |
 | `credentials set <name> --home <dir>` | 本机隐藏录入一项命名 API key（07 §6.2）：仅交互 TTY，不接受秘密参数、管道或 `--json`；已有同名项（含 OAuth）一概拒绝，不提供读取、轮换、删除；与 OAuth 共用凭据文件锁，原子写入，文件须为本用户单链接 0600 普通文件，路径中不得有 symlink 或他人可写目录。运行中的服务不必停止 |
-| `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；说明 05 §3 关于 `exec` 的限制 |
+| `doctor` | 校验配置、插件、绑定的 `kind`、skill（03 §6）；模型链整条跑不通时逐个候选报原因；已弃用插件给出 `yonder migrate` 迁移路径（04 §2）；说明 05 §3 关于 `exec` 的限制 |
 | `start` | 前台运行 harness：持锁、开控制接口、日志写标准输出 |
 | `stop` | 经控制接口让运行中的进程退出 |
 | 无参数 / `chat [--preset <id> \| --session <id> \| --channel <实例>] [--plain \| --json]` | TTY 默认进入新任务 TUI（default 预设，发送才创建），可选继续 task 或指定渠道；任务走控制面，渠道连接 `<home>/.yonder/plugins/channel-cli/<实例>.sock`。plain/JSONL 与非 TTY 规则见 12 §3 |

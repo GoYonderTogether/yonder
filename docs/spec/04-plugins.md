@@ -29,6 +29,7 @@
 - `id`：`[a-z][a-z0-9-]*`，全局唯一。`message`、`task`、`session`、`identity`、`agent`、`skill`、`tool`、`release` 保留给内核（它们是内置工具名的前缀）。
 - `contributes`：槽名 → 贡献名列表。`channels` 与 `envs` 列的是提供者的 `type`（实例由 `yonder.yaml` 配置），其余列贡献的 id 或名字。
 - 加载时内核比对实际注册与声明，不一致即拒绝加载，并说明是哪个插件、哪一项。
+- 弃用：`package.json` 顶层的 `"deprecated": true` 表示该插件已有替代品。内核照常加载它（旧 home 不能因此起不来），但 `yonder doctor` 对它告警并给出迁移路径——`yonder migrate` 预览、`yonder migrate --apply` 执行：按替代插件改写 `yonder.yaml` 与 `agents/*.yaml` 里的插件 id（原文件留 `.pre-migrate-<日期>` 备份），并把 `.yonder/plugins/<旧 id>` 的状态目录一起改名。服务在跑时先 `yonder stop`。弃用不改变插件 API 版本语义（§6）。
 
 ## 3. 插件槽
 

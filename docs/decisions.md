@@ -764,3 +764,10 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 工具描述里「interactive OAuth login is not implemented here」改为说明 OAuth-only 服务需自行授权后把访问令牌存成命名 API key 再在 headerCredentials 引用，错误会指出具体 reference。
 - 能力缺口登记在 `docs/spec/14-execution-capabilities.md` §3 与 `docs/plugins.md` mcp-client 边界。
 - 新增 `plugins/mcp-client/test/credentials.test.ts`（用 `@yonder/sdk/testing` 的 `createRegistrationCollector` 注入 credentials 桩）覆盖三种错误；不触网。
+
+## 2026-10-29 BE-12 弃用插件的迁移路径（主 Agent 代批 10-29）
+
+- 现场：主人 `yonder.yaml` 仍启用已弃用的 `hermes-experience`，`yonder doctor --json` 只有插件自己打的一句「已弃用，请改用 learning；将在 0.5 移除」，没有可执行的下一步——`yonder migrate` 早就会把 `hermes-experience` 改写成 `learning` 并迁移 `.yonder/plugins/hermes-experience`，只是没人告诉主人。
+- 改动：`plugins/index.ts` 读 `package.json` 顶层的 `deprecated: true`，写进 `LoadedPlugins.info[].deprecated`（只增字段，消费方不用改）；`kernel/home.ts` 的 `inspectHome` 对每个弃用插件 push 一条 warning：先 `yonder stop`，`yonder migrate` 预览、`yonder migrate --apply` 执行（改写 `yonder.yaml` 与 `agents/*.yaml` 的插件 id、迁移状态目录、原文件留 `.pre-migrate` 备份），改完 `yonder doctor` 复查。
+- 取舍：弃用仍是告警而不是错误。旧 home 因为弃用插件起不来是更坏的失败；插件本身的运行期 warning 保留（它对运行时日志有意义），doctor 的这条补的是迁移路径而不只是替代品名字。
+- 验证：新增 `doctor-deprecated-plugin.test.ts`，用真实 home 把 `@yonder/plugin-learning` 换成真实的 `@yonder/plugin-hermes-experience`（连同 agent 默认插件名），断言 doctor 告警含 `yonder migrate` 与状态目录路径、`errors` 为空；换回 `learning` 后告警消失。`docs/spec/04-plugins.md` 补 §2 的弃用契约，`09-cli-release.md` 更新 doctor 行。

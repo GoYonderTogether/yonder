@@ -274,6 +274,12 @@ export async function inspectHome(home: string) {
 			if (level !== "info") warnings.push(text);
 		});
 		const plugins = await loadPlugins(home, config, services);
+		// BE-12：已弃用插件必须给出可执行的迁移路径，而不只是「请改用 X」。
+		for (const plugin of plugins.info ?? [])
+			if (plugin.deprecated)
+				warnings.push(
+					`${plugin.id} 已弃用：运行 yonder migrate 预览迁移计划，yonder migrate --apply 执行——它会改写 yonder.yaml 里的插件名，并把 .yonder/plugins/${plugin.id} 的状态目录一起迁到新插件（原文件保留 .pre-migrate 备份）。服务在跑时先 yonder stop；改完运行 yonder doctor 复查。`,
+				);
 		const agents = await loadAgents(home, config, plugins);
 		const presets = await loadPresets(home);
 		const errors = configurationErrors(

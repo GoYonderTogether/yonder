@@ -73,7 +73,15 @@ export interface LoadedPlugins {
 	presets: Map<string, Preset>;
 	skillDirs: string[];
 	skillSources?: ReadonlyMap<string, string>;
-	info?: Array<{ id: string; version: string; use: string; directory: string; contributes: object }>;
+	info?: Array<{
+		id: string;
+		version: string;
+		use: string;
+		directory: string;
+		contributes: object;
+		/** package.json 标了 `deprecated: true`；doctor 据此提示 `yonder migrate` 的迁移路径。 */
+		deprecated?: boolean;
+	}>;
 	start(io: ChannelIO): Promise<void>;
 	stop(): Promise<void>;
 	observe(event: YEvent): Promise<void>;
@@ -161,6 +169,7 @@ export async function loadPlugins(
 		const pkg = JSON.parse(await readFile(resolve(directory, "package.json"), "utf8")) as {
 			version: string;
 			yonder?: { id?: unknown; apiVersion?: unknown };
+			deprecated?: unknown;
 		};
 		const apiVersion = pkg.yonder?.apiVersion ?? 1;
 		if (typeof apiVersion === "number" && apiVersion > API_VERSION) {
@@ -175,7 +184,14 @@ export async function loadPlugins(
 		const manifest = await readPluginManifest(directory);
 		const { version } = pkg;
 		if (typeof version !== "string" || !version) throw new Error(`${manifest.id}: missing package version`);
-		info.push({ id: manifest.id, version, use: entry.use, directory, contributes: manifest.contributes });
+		info.push({
+			id: manifest.id,
+			version,
+			use: entry.use,
+			directory,
+			contributes: manifest.contributes,
+			...(pkg.deprecated === true ? { deprecated: true } : {}),
+		});
 		if (pluginIds.has(manifest.id)) throw new Error(`${manifest.id}: plugin is listed more than once`);
 		pluginIds.add(manifest.id);
 		const loaded = await import(pathToFileURL(resolve(directory, manifest.entry)).href);
