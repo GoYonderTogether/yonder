@@ -789,3 +789,8 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - IMP-24 验证：新增 `packages/core/src/kernel/subagents.test.ts`，用桩 store/runtime 只解析嵌套深度——第三层 action=run 以「任务已嵌套两层」拒绝且没有派发，第二层仍进入 runTask。
 - IMP-23：`packages/sdk/src/chat-commands.ts` 的 chatCommands 在 help 之前补 /reload /copy /name /trust /settings 与 /jobs /logs /kill（带 argumentHint，name/trust 用 <标题>/<目录>，logs/kill 用 <id>），channelCommandNames 同步这 8 个名字，终端补全与 /help 因而可见；commands.test.ts 的期望数组只增不删。`kernel/quota-wire.ts` 的 ChannelServices 增可选 `reload`，kernel 侧接现有 watcher.reload（没有新造重载实现）。
 - 未做：CLI 侧 `packages/cli/src/terminal.ts` 的命令分发只实现了原有命令，这些命令在终端输入时仍落到「未知命令」；本卡只要求补全与 /help 可见，CLI 侧实现另开卡。
+
+## 2026-10-29 FIX-social-01 设置页社交分区（主 Agent 代批 10-29）
+- 新增 `apps/app/src/work/features/settings/SocialSection.tsx`，挂在 `apps/app/src/work/features/Settings.tsx` 渠道分区之后：默认层是 `social.groups` 的群列表（mode/tags 为生效值），点开单个群是覆盖层，用 `social.inspect` 的 `sources` 标出每个键是「会话覆盖」还是「默认（group）」。修改走 `social.update`：reason 必填，先 `dryRun` 预览 before/after，再带 `expectedRevision` 真正写入。
+- 只提交改动过的键；改一维标签时把另一维的生效值一起带上，避免会话级 `tags` 覆盖掉另一半（`social.update` 的 patch 是整块替换）。
+- 问题（本卡不改核心，留给后续卡）：`social.inspect` 不返回 `judge.model`（只返回 policy.judge.preset），也没有任何 token 额度字段，界面这两项如实写「网关未返回」；`social.groups` 的 `mode` 缺省值写死 "batch"，与 `social.listen.mode` 的 realtime/batch/mention/digest 不是同一套枚举，因此界面的「监听模式」只呈现 policy.mode。

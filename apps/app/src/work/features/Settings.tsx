@@ -8,6 +8,7 @@ import { ChannelsSection } from "./settings/ChannelsSection";
 import { NodesSection } from "./settings/NodesSection";
 import { NotifySection } from "./settings/NotifySection";
 import { accountRows } from "./settings/rows";
+import { SocialSection } from "./settings/SocialSection";
 
 /**
  * 「我」/ 头像进入的个人页与设置：账号（网关/社交）、通知、节点、关于（版本、更新）、退出。
@@ -40,6 +41,7 @@ export function Settings({ onLogout }: { onLogout(): void }) {
 			</section>
 			<NotifySection />
 			<ChannelsSection />
+			<SocialSection />
 			<NodesSection />
 			<AboutSection />
 			<button
