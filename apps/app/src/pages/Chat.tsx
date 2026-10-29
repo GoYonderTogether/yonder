@@ -18,7 +18,7 @@ import { Markdown } from "../components/Markdown";
 import { PlusMenu } from "../components/PlusMenu";
 import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
-import { entityRef } from "../lib/entityRef";
+import { entityRef, isShortCode } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
 import { usePersonalAgent } from "../lib/personalAgent";
 import { socialUnavailable } from "../lib/socialError";
@@ -276,9 +276,22 @@ function ConvRow({
 
 const forbidden = (error: unknown) => (error as { status?: number } | null)?.status === 403;
 
+/** 会话路由只认短码与 UUID；mock 会话 id 形如 c-1。其他路径按「页面不存在」处理。 */
+const routableConversation = (ref: string) =>
+	isShortCode(ref) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ref) || /^c-/.test(ref);
+
 export function Conversation() {
 	const { id: ref } = useParams();
 	const resolved = useEntityId("conversation", ref);
+	if (ref && !routableConversation(ref))
+		return (
+			<div className="flex h-full flex-col items-center justify-center gap-4 p-6">
+				<h1 className="text-title font-semibold">会话不存在或无法访问</h1>
+				<Link to="/" className="text-small underline">
+					回到消息
+				</Link>
+			</div>
+		);
 	if (resolved.pending)
 		return (
 			<p role="status" className="p-6 text-muted">
@@ -453,9 +466,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					<div ref={end} />
 				</div>
 			</div>
-			{offlineAgent && (
-				<p className="mx-auto mb-2 text-center text-[13px] text-muted">电脑离线，消息会在上线后处理</p>
-			)}
+			{offlineAgent && <p className="mx-auto mb-2 text-center text-[13px] text-muted">电脑离线，消息会在上线后处理</p>}
 			{conv?.kind !== "notice" && (
 				<Composer
 					key={id}
@@ -608,6 +619,7 @@ export function Composer({
 	const [verify, setVerify] = useState(false);
 	/** 访客额度用尽时把待发内容留住，登录后原样重发。 */
 	const held = useRef("");
+	const guest = useStore($session)?.guest;
 	const send = async (body = text.trim()) => {
 		if (!body || pending.current) return;
 		pending.current = true;
@@ -619,6 +631,9 @@ export function Composer({
 			);
 			void qc.invalidateQueries({ queryKey: ["convs"] });
 			setText("");
+			const session = $session.get();
+			if (session?.guest)
+				$session.set({ ...session, guest: { ...session.guest, remaining: Math.max(0, session.guest.remaining - 1) } });
 			if (ref.current) ref.current.style.height = "";
 			onSend();
 			if (agentId) {
@@ -647,6 +662,9 @@ export function Composer({
 	};
 	return (
 		<div className="shrink-0 px-4 pb-safe">
+			{guest && guest.remaining > 0 && guest.remaining <= 3 && (
+				<p className="mx-auto mb-2 text-center text-[13px] text-muted">还可发 {guest.remaining} 条，登录后无限制</p>
+			)}
 			<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-[20px] bg-raised p-2 pl-4 shadow-float">
 				<textarea
 					ref={ref}

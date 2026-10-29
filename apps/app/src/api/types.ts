@@ -114,6 +114,8 @@ export interface Card {
 
 export interface Session {
 	actor: Actor;
+	/** 匿名访客的剩余发言额度（额度为 0 即不限时不下发）。 */
+	guest?: { max: number; remaining: number };
 }
 
 export type DeviceKind = "laptop" | "desktop" | "server" | "cloud";

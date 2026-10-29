@@ -49,7 +49,8 @@ function useContactData() {
 	const qc = useQueryClient();
 	const contactsQuery = useQuery({ queryKey: ["contacts"], queryFn: api.contacts });
 	const contacts = contactsQuery.data ?? [];
-	const { data: devices = [] } = useQuery({ queryKey: ["devices"], queryFn: api.devices });
+	// 设备在线态每 15 秒刷新（窗口可见时），断开后设备页无需手动刷新。
+	const { data: devices = [] } = useQuery({ queryKey: ["devices"], queryFn: api.devices, refetchInterval: 15_000 });
 	const { data: convs = [] } = useQuery({ queryKey: ["convs"], queryFn: api.conversations });
 	const refresh = () => {
 		for (const key of ["contacts", "devices", "actors"]) qc.invalidateQueries({ queryKey: [key] });
@@ -365,7 +366,7 @@ function Devices({
 								</Icon>
 							}
 							title={d.name}
-							sub={`${deviceLabel(d)} · ${count} 个 Bot${d.current ? " · 本机" : ""}`}
+							sub={`${deviceLabel(d)} · ${count} 个 Bot · ${d.online ? "在线" : "离线"}${d.current ? " · 本机" : ""}`}
 							trail={
 								<>
 									<Status online={d.online} />
