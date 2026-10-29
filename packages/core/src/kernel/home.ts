@@ -18,7 +18,7 @@ import { chainKey, modelChain } from "../runtime/model-chain.js";
 import { ModelGate } from "../runtime/model-gate.js";
 import { ModelHealth } from "../runtime/model-health.js";
 import { accountKey, ModelQuota } from "../runtime/model-quota.js";
-import { modelChainIssues } from "./host-status.js";
+import { type ChainEntryReport, chainCredentialMissing, modelChainIssues, unusableChainError } from "./host-status.js";
 import { canReceivePeerAsk, peerFix, withDefaultPeer } from "./peer.js";
 import { filesFor, inspectionServices, loadAgents, message, profileFor, skillsFor } from "./workspace.js";
 
@@ -295,18 +295,7 @@ export async function inspectHome(home: string) {
 		}
 		const gate = new ModelGate(health, quota);
 		const healthRecords = health.snapshot();
-		const modelChains: {
-			profile: string;
-			entries: {
-				model: string;
-				slot: string;
-				startOrder: number;
-				held: boolean;
-				quotaBlocked: boolean;
-				holdUntil?: number;
-				probeAt?: number;
-			}[];
-		}[] = [];
+		const modelChains: Array<{ profile: string; entries: ChainEntryReport[] }> = [];
 		const addChain = (name: string, selected: ReturnType<typeof resolveProfile>) => {
 			let chain: ReturnType<typeof modelChain>;
 			try {
@@ -344,6 +333,15 @@ export async function inspectHome(home: string) {
 		}
 		for (const [id, preset] of new Map([...plugins.presets, ...presets]))
 			addChain(`preset:${id}`, resolveProfile(preset, {}, "local", config.defaultModel));
+		// BE-06：一条链上一个能跑的候选都没有时就报错——只列 held/quotaBlocked 曾让 doctor 在整条链耗尽时仍 ok=true。
+		for (const chain of modelChains) {
+			const missing = await chainCredentialMissing(home, config, services.models, chain.entries);
+			chain.entries = chain.entries.map((entry, index) =>
+				missing.has(index) ? { ...entry, credentialMissing: true } : entry,
+			);
+			const error = unusableChainError(chain.profile, chain.entries);
+			if (error) errors.push(error);
+		}
 		const skills = skillsFor(home, config, plugins, () => {});
 		for (const agent of agents.values())
 			for (const profile of Object.keys(agent.profiles)) {

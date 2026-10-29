@@ -4,7 +4,7 @@ import type { RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import { newEvent, type Store } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
-import { channelOf, matches, sessionKey } from "./matching.js";
+import { channelOf, matches, sessionKey, targetBinding } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
@@ -366,7 +366,17 @@ export function createRouter({
 					binding.session.per !== "conv")
 			)
 				binding = undefined;
+			// 点名叫到本 Agent 却没命中任何配置绑定：multiAgent 渠道（card、console）的主人私聊走零配置
+			// 点名入口，其余情况仍然丢弃，但要留下可诊断的原因（spec 03「不可路由要留可诊断原因」）。
+			if (!binding && internalTarget === agent.id)
+				binding = targetBinding(agent, event, instance, !!person && person === agent.owner);
 			if (!binding) {
+				if (internalTarget === agent.id && instance !== "agent")
+					report(
+						new Error(
+							`点名消息无法路由：${event.conv ?? "?"} 点名 ${agent.id}，但该 Agent 没有可命中的绑定（渠道 ${instance ?? "未知"}，类型 ${String((event.data as { kind?: unknown }).kind ?? "未知")}，发起人${person && person === agent.owner ? "是 owner" : "不是 owner"}）`,
+						),
+					);
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
@@ -425,6 +435,8 @@ export function createRouter({
 			runs.push({ agent: agent.id, session: ensured.session.id, wake });
 			if (waiting && wake === "run") waits.push(waitFor(agent.id, event.id));
 		}
+		if (internalTarget && instance !== "agent" && !agents.has(internalTarget))
+			report(new Error(`点名消息无法路由：${event.conv ?? "?"} 点名 ${internalTarget}，但没有这个 Agent`));
 		event.routes = routes;
 		const stored = diagnostics.length
 			? await store.events.appendWithFacts(

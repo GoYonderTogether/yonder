@@ -550,3 +550,91 @@ test("social decision and input roll back together when audit storage fails", as
 		await db.close();
 	}
 });
+
+test("a multiAgent card DM naming an Agent without a card binding enters its main session", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:card:keeper:actor", "person:owner");
+		const make = (id: string) =>
+			parseAgentConfig(
+				`schema: 1
+id: ${id}
+name: ${id}
+owner: person:owner
+defaultProfile: owner
+profiles:
+  owner: { level: bypass }
+bindings:
+  - id: cli-owner
+    match: { channel: cli, from: owner }
+    session: main
+`,
+				"agent.yaml",
+				id,
+			);
+		const ensured: string[][] = [];
+		const sessions = {
+			ensureAgent: async (agent: string, profile: string, key: string, mode: string) => {
+				ensured.push([agent, profile, key, mode]);
+				return { session: { id: `sess-${agent}`, agent, profile }, profileMismatch: false };
+			},
+		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		const reported: string[] = [];
+		const router = createRouter({
+			store,
+			sessions,
+			agents: new Map([
+				["keeper", make("keeper")],
+				["other", make("other")],
+			]),
+			channels: new Map<string, import("@yonder/sdk").Channel>([
+				["card", { multiAgent: true } as import("@yonder/sdk").Channel],
+			]),
+			runtime: () => {
+				throw new Error("No model");
+			},
+			onReport: (error: unknown) => reported.push((error as Error).message),
+		});
+		const routeless = () => reported.filter((message) => message.startsWith("点名消息无法路由"));
+		const mine = await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:actor",
+			conv: "conv:card:keeper:dm",
+			data: { target: "keeper", kind: "dm", text: "在吗" },
+		});
+		// keeper 没有任何 card 绑定：隐式点名入口用 main 会话接住主人的私聊，别的 Agent 仍为 no-binding。
+		expect(mine.routes?.map((route) => [route.agent, route.binding, route.session, route.dropped])).toEqual([
+			["keeper", "@target", "sess-keeper", undefined],
+			["other", null, undefined, "no-binding"],
+		]);
+		expect(ensured).toEqual([["keeper", "owner", "main", "main"]]);
+		expect(routeless()).toEqual([]);
+		const stranger = await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:stranger",
+			conv: "conv:card:keeper:dm",
+			data: { target: "keeper", kind: "dm", text: "hi" },
+		});
+		expect(stranger.routes?.every((route) => route.dropped === "no-binding")).toBe(true);
+		expect(routeless().at(-1)).toContain("不是 owner");
+		const group = await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:actor",
+			conv: "conv:card:keeper:group",
+			data: { target: "keeper", kind: "group", text: "hi" },
+		});
+		expect(group.routes?.every((route) => route.dropped === "no-binding")).toBe(true);
+		expect(routeless().at(-1)).toContain("类型 group");
+		await router.emit({
+			type: "message.in",
+			from: "acct:card:keeper:actor",
+			conv: "conv:card:keeper:dm",
+			data: { target: "ghost", kind: "dm", text: "hi" },
+		});
+		expect(routeless().at(-1)).toContain("没有这个 Agent");
+	} finally {
+		await db.close();
+	}
+});

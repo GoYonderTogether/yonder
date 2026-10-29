@@ -86,7 +86,9 @@ test("doctor reports configured chain and persisted hold and quota gates", async
 		});
 		await quota.flush();
 		const report = await inspectHome(home);
-		expect(report.errors).toEqual([]);
+		// 两个候选分别被失败冷却和额度停用线挡住，整条链跑不通，doctor 必须报错（BE-06）。
+		expect(report.ok).toBe(false);
+		expect(report.errors).toEqual(expect.arrayContaining([expect.stringContaining("main/owner: 整条模型链都跑不通")]));
 		const chain = report.modelChains?.find((item) => item.profile === "main/owner");
 		expect(chain?.entries).toEqual([
 			expect.objectContaining({

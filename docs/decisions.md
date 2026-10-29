@@ -739,3 +739,17 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 新增 `verifyRelease()` 重试入口：不重装、不改 `current`，只对运行中的服务重做核验并新记一条 release.update-result，解决「失败后再 update 只会返回未更新、拿不到 verified 回执」。
 - CLI 未加 `--verify`/`verify` 子命令：卡的范围只到 `packages/core/src/release/**`、`plugins/mcp-client/**`、构建脚本与 tsconfig，`packages/cli` 正被其他 Agent 并发修改；CLI/渠道侧接线留给后续卡。
 - `packages/core/src/runtime/hosted-process.ts:20` 的 fail-closed 错误补上可执行原因（fd 4 必须是 helper socket），判定行为不变。
+
+## 2026-10-29 BE-04 名片渠道点名消息的零配置入口（主 Agent 代批 10-29）
+
+- 丢因在 `packages/core/src/routing/index.ts`：点名叫到某个 Agent 却没命中任何配置绑定时直接 push `dropped:"no-binding"`，既没有事实也没有日志；而 card 绑定只有新脚手架（IMP-20）才有，主人现有配置一条都没有。
+- 修法：`packages/core/src/routing/matching.ts` 新增 `targetBinding()`，multiAgent 渠道（card、console）里**主人私聊**（`kind: dm`、发起人 `person === agent.owner`）点名某 Agent、且该 Agent 有 main 绑定时，合成绑定 `@target`（session `main`，配置档取该 Agent main 绑定的配置档）接住消息。选在 routing 里合成而不是像 `@console` 那样在加载期注入，是因为本卡的范围只有 routing、内核主文件与会话；语义上仍是目标 Agent 自己的绑定，所以 spec 16 §2 与 D61/G2 的「目标须命中自己的绑定」不需要改。
+- 其余不可路由的点名（非主人、群消息、Agent 没有 main 绑定、点名不存在的 Agent）保持丢弃，但改用 `onReport` 报一条含会话、渠道、消息类型与 owner 判定的警告，让「为什么没回」可诊断；不新增事件类型，避免动 `plugins/index.ts` 的核心类型白名单与 protocol golden。
+- 代价：主人私聊点名一个没有为 card 写绑定的 Agent 时，会被它的 main 会话接住（和 `@console` 一致），而不是报错让主人去写绑定。
+
+## 2026-10-29 BE-06 整条模型链跑不通时的明确错误（主 Agent 代批 10-29）
+
+- 现场：30 次 `run.end` 全是 `model_error`（ChatGPT 订阅额度、链耗尽 + 连接错误、首 token 超时、全模型 429、503「没有可用凭据」），但隔离 HOME 的 `yonder doctor` 给 `ok: true`、`errors: []`——doctor 只输出了每个候选的 `held`/`quotaBlocked`，没有「整个链一个能跑的都没有」这一层结论。
+- 改动：`kernel/host-status.ts` 新增 `chainCredentialMissing`（本 home `models.providers` 声明过的供应商，default 槽问 pi 的 `checkAuth`，命名槽读 `<auth>.slots/<provider>/<slot>.meta.json` 元数据）与 `unusableChainError`；`kernel/home.ts` 的 `inspectHome` 给每个候选补 `credentialMissing`，一条链上没有可跑候选就 push 一条错误（逐个候选原因 + 冷却到期时间 + 修复方向 + `yonder doctor` 复查）。`yonder doctor --json` 只增字段。
+- 取舍：`credentialMissing` 只对本 home 在 `models.providers` 里声明过的供应商下结论。内建目录里没登录的供应商算「还没登录」而不是「凭据坏了」，否则所有刚初始化的 home 都会被判链断。凭据槽状态读不出来时按「不知道」处理（不报缺凭据），与运行时 `checkAuth` 不发网络请求的既有行为一致。
+- 已知影响：`doctor-model-chain.test.ts` 里那条「两个候选分别被持有与额度停用」的用例原本断言 `errors: []`，现在它确实是跑不通的链，断言改为要求出现错误（未放宽断言，改为新契约）。新增 `doctor-chain-dead.test.ts` 用真实 home + 真实凭据槽（env-ref）验证未声明供应商不误判、整条链缺凭据报错、补上槽凭据后该候选不再标缺凭据。
