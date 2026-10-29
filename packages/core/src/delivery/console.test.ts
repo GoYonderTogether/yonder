@@ -191,3 +191,55 @@ test("a console reply needs no channel authorization when the agent restricts in
 		await x.db.close();
 	}
 });
+
+// A subtask or advisor consult the model started: a real event the same run carries, with no channel conversation.
+async function consult(x: Awaited<ReturnType<typeof setup>>) {
+	const event = newEvent({ type: "advisor.request", from: "plugin:advisor", data: { question: "7 times 8?" } }, [
+		{ agent: "main", session: "1", binding: "b", waiting: true },
+	]);
+	await x.store.events.append(event);
+	return event;
+}
+
+async function endRun(x: Awaited<ReturnType<typeof setup>>, inputs: YEvent[], text = "answer") {
+	x.delivery.start();
+	const run = {
+		runId: "run-2",
+		status: "done" as const,
+		text,
+		usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, cost: 0 },
+		inputs: inputs.map((event) => event.id),
+		config: x.config,
+	};
+	const { ending, deliver } = await x.delivery.onRun(x.session, run, inputs);
+	await x.store.events.recordRun(ending);
+	deliver();
+	return (await x.store.events.query({ type: "run.end" })).events.at(-1);
+}
+
+test("a run whose only input has no conversation ends without throwing", async () => {
+	const x = await setup("test");
+	try {
+		const ended = await endRun(x, [await consult(x)], "advice");
+		expect(ended?.data).toMatchObject({ replied: "caller", targets: [] });
+		expect(x.other).toEqual([]);
+		expect(await outgoing(x)).toEqual([]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("a conv-less input alongside a channel input keeps the channel reply", async () => {
+	const x = await setup("test");
+	try {
+		const ended = await endRun(x, [...x.events, await consult(x)]);
+		await expect.poll(async () => (await outgoing(x)).length, { timeout: 5000 }).toBe(1);
+		expect(ended?.data).toMatchObject({ replied: "source", targets: ["conv:test:main"] });
+		expect(x.other).toEqual(["answer"]);
+		expect(await outgoing(x)).toEqual([["conv:test:main", true]]);
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});

@@ -455,8 +455,10 @@ export function createDelivery(options: DeliveryOptions) {
 		const finalText = stopped ? stopNotice(run.reason ?? run.status) : run.text.trim() === "NO_REPLY" ? "" : run.text;
 		// The console is the owner's main dialogue: a run that carries a console input answers there only, never in the
 		// channel conversations whose pending inputs the same run merged (BUG01). Other runs keep every source.
-		const consoleTurn = actual.some((event) => channelId(event.conv ?? "") === CONSOLE);
-		const replies = consoleTurn ? sources.filter((event) => channelId(event.conv ?? "") === CONSOLE) : sources;
+		// conv-less inputs (a subtask or advisor consult the model started) belong to no channel and to no console turn.
+		const onConsole = (event: YEvent) => !!event.conv && channelId(event.conv) === CONSOLE;
+		const consoleTurn = actual.some(onConsole);
+		const replies = consoleTurn ? sources.filter(onConsole) : sources;
 		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? replies : [];
 		const destination =
 			!stopped &&
