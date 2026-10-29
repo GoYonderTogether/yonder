@@ -2,132 +2,73 @@
 
 ## [Unreleased]
 
+## [0.3.26102803] - 2026-10-29
+
 - 断网、合盖或代理中断后，主模型不再被冷却 10 分钟：连接被拒/重置/中断、DNS 失败、请求超时这类没拿到供应商响应的失败不再写入 `.yonder/model-health.json` 的持有，网络恢复后的下一次运行直接回到主模型；离线期间探测失败也只重排下一次探测，不延长持有。401/403/404/429/5xx 等供应商真实应答的冷却规则不变。
-
 - 通讯录区分「加载失败」「节点没有社交服务」「真的为空」：`ui/Contacts`（`#/contacts` 侧栏）失败时显示 `role="alert"` 与重试，不再和「没有常驻 Bot」同屏；`features/social/Contacts` 与 `ContactDetail` 把网关 404 或 fetch 直接失败（当前节点没有代理社交接口）显示为「当前节点没有提供社交服务」，其他错误显示具体原因与重试，只有接口返回空结果才说「联系人不存在」；真实空态给「添加好友」入口。分类与文案在 `features/social/lib/socialError.ts`，三种状态各有单测。
-
 - `sessions.watch` 被服务端 `end` 帧结束时，会话不再永远停在「连接中…」：`useSession` 接上 `onEnd`，`forbidden` 提示「没有权限查看这个会话」，`error` 提示连接出错并保留已有数据（mux 仍按契约带游标自动重订，重订后的 `ready` 清除提示），其他 reason（`closed`/`shutdown`/未知）给通用提示并保留数据，原始 reason 不上屏。补假 socket 喂 end 帧的单测（含重订回放）。
-
 - `capabilities.get` 补齐 `NodeFactsSchema` 的 v1.1 字段：`minor`（1）、`node`（`{id,name}` 取本机 hostname，来源见下）、`views`（与 `views.list` 无参同源）、`models.select`、`remoteSession`（`sessions.open` 能否用、当前只有 `task`、`workspaces.list` 是否在表）、`auth`（`kind` + 是否持 `owner`），`plugins[].views` 改取插件清单 `contributes.views`，`features` 的 `attachments`/`notifications`/`approvals`/`suggestions` 按注册表事实给出。此前返回缺这些字段，apps/app 添加远程节点读 `facts.node.id` 必然失败。补 `Check(NodeFactsSchema, result)` 单测。节点 id/name 的取值来源契约未定义（本机 hostname，与 spec 16 设备名同源），已记待维护者确认。
-
 - Console 分享二维码/链接改走服务端分享配额：名片页「分享名片」与群聊详情的群二维码先调 `POST /api/share-links`（`kind` + `targetId`），服务端复用同目标未过期链接，二维码与「复制链接」使用带 `?share=<token>` 的地址，访客凭它登录/加入时按链接计成功验证的新访客；只对本人或本人 Agent 的名片生成，别人的名片、访客身份、生成失败时退回原普通地址。`api/social` 新增 `ShareLink` 类型与 `createShareLink` / `getShareLink` / `revokeShareLink`。名片分享区与群聊详情新增「分享链接」窗口（复用 `Window`），列出本机生成过的链接：token 短显示、已用/上限、剩余天数，可复制、可吊销；状态按 `share_exhausted` / `share_expired` / `share_revoked` 给出中文提示。本机索引存在 localStorage `yonder.shareLinks`（服务端没有按目标列出链接的接口），换设备看不到旧记录。剩余天数与状态换算、分享地址拼接为纯函数并有单测。
-
 - Console 社交登录改为验证码：登录页只有手机 / 邮箱两个 tab，发码（按服务端 `retryAfter` 倒计时）→ 填 6 位码 → 登录，首次验证即注册，不出现密码框；字段级校验手机（`/^1[3-9]\d{9}$/`）与邮箱格式，错误按 `invalid_code` / `locked` / `share_exhausted` / `share_expired` / `share_revoked` / 429 / 502 逐类给出中文文案。访客额度用尽时发消息返回 403 `verify_required`，聊天页弹 `VerifySheet` 复用同一表单（带分享链接的 `shareToken` 透传），验证成功后关闭并原样重发那条消息，不再静默拦截。「我」页设置的「账号与安全」显示脱敏后的已绑手机 / 邮箱（`138****1234`、`a****@example.com`），可绑定或换绑，`phone_taken` / `email_taken` 提示已被占用，换绑成功后提示重新登录。`api/social` 新增 `sendCode` / `verifyCode` / `sendBindCode` / `confirmBindCode`，旧 `login` / `register` 标记 deprecated 但保留。
-
 - Console 的 Bot 与图标头像去掉渐变与光晕，改为一律平铺纯色：`.agent-orb` 只剩一条 `oklch()` 底色（亮色 `0.52 0.13`、暗色 `0.53 0.13`），色相仍按原派生逻辑取，每个 Bot 还是自己的颜色；白图标对底色按全部色相验算，最差亮色 4.87:1、暗色 4.68:1。名片页顶部的氛围光晕 `.ambient` 与星光 `.sparkle` 按「不要光晕」一并删除（含 `@keyframes twinkle` 与全仓库无引用的 `ui/kit/Aura.tsx`），开发浮窗的主题模拟同步改为纯色覆盖。名片卡面的主题渐变保持不变。
-
 - Console 新增开发/演示用「视图切换」浮窗：默认不渲染，`?devtools=1` 或 localStorage `yonder.devtools` 才懒加载这块代码。浮窗可做断点预设（390×844 / 820×1180 / 1280×800，iframe 里开完整应用，断点按 iframe 的 `window.innerWidth` 计算）、路由快捷跳转（消息、通讯录、工作、我、`#/u/:id`、`#/g/:token`、`#/connect`、`#/get`）、身份入口（社交未登录/真实创建匿名访客/去登录，网关登出并重载）、节点切换（复用 `api/nodes`，远程节点另给新标签打开）、主题预览（`html[data-devtools-theme]` 叠同一套 token）与状态模拟（直接改真实查询缓存的 pending / 带标记错误 / 空数组，页面用自己的分支渲染，退出时恢复并重取）。所有数据仍来自真实网关，不造假数据；开关解析、断点映射、状态补丁与恢复都有纯函数单测。
-
 - Console 外壳按三档断点渲染平板布局：新增纯函数 `shell/layoutMode.ts`，由 `breakpointOf`（手机 <640 / 平板 640–1024 / 桌面 >1024）推出导航、列、第二列与右栏模式，再由页型（列表 / 会话 / 设置 / 功能页）决定第二列去向。平板此前被当成手机（只有 1024 一档），现在是图标栏 + 主区：列表按需叠成覆盖层、打开会话即收起，右栏仍走 Chat 自己的覆盖层/抽屉，不提前变三栏；桌面保持三栏常驻，手机保持单列 + 底栏。`Shell.tsx` 据此走单一渲染路径，保留原有 Suspense/lazy、路由与全部 data-testid，仅新增 `data-testid="list-overlay"`。表驱动单测覆盖三档 × 四类页。
-
 - Console 新增能力清单与桌面壳顶栏判定：`capabilities/features.ts` 用一张功能表描述顶栏、工作、常驻 Bot、通讯录、名片、私信、节点、更新、右栏卡片、底栏用量与系统通知的可见性，按 contracts §12 顺序（protocol → methods → features → events）判定，缺方法或节点版本较旧时给出原因而不是按插件名猜测；`lib/shell.ts` 只认壳注入的 `window.__YONDER_SHELL__`（`desktop`/`mobile`，未注入=web），不再从节点事实推断客户端壳；`api/capabilities.ts` 提供 `useCapabilities`/`useHasMethod`/`useFeature`。顶栏仍只在桌面壳渲染。
-
 - Console 增加控制台入口（`#/console`）：工作列表顶部进入，在已接入节点间切换并打开对应设备的控制台——本机同源跳转，远程节点在新标签打开它自己的 origin；列出节点 id/名称/地址、当前节点高亮、添加设备与移除节点，未添加远程节点时说明「只控制本机」，远程节点如实标注默认无 owner scope、看不到 Bot 对话。导航仍是消息/通讯录/工作三项，不新增一级入口。
-
 - Console 工作列表的 Bot 行与任务行、通讯录联系人行、右栏卡片与悬浮窗标题区接上统一上下文菜单（右键、触屏长按+震动、Shift+F10/菜单键）：菜单项由 `lib/menus.ts` 构造，对应打开会话、复制标题、关闭会话（确认后调 sessions.close）、置顶、发消息（openDm）、打开资料、停靠/弹出/收起；悬停显示标题，行内原有的链接、折叠与进度条不变。
-
 - Console 个人页区分加载中、无会话、访客、正式账号和请求失败五种社交登录态：无会话直接给登录入口，访客提示「注册后可加好友」，失败可重试；登录/注册表单按服务端规则做邮箱格式与密码 ≥8 位校验、字段级错误、提交中禁用且保留输入；Agent 公开开关保存中禁用并显示失败原因。
-
 - Console 用户气泡显示渠道色块图标与渠道名：覆盖 cli、card、wechat、wechat-ilink、qq、feishu、github、mcp、agent、cron、pi，实例 id（qq-main）归一到渠道类型；用中性色块 SVG，不用品牌 logo，缺失来源仍显示控制台默认。
-
 - Console 设置页分为账号（网关/社交）、通知全局偏好、节点、关于（版本与更新）和退出；节点可添加远程网关并校验协议与 node.id，更新只在 ready 后出现应用按钮，后端没有 update.* 时显示不可用。
-
 - Console 底栏显示真实用量与上下文：↑输入 ↓输出 R W CH、子 Agent 汇总、LSP、ctx%/窗口 (auto)、(provider) 模型 • 思考档；缺失字段省略。
-
 - Console 右栏卡片与悬浮窗共用同一卡片组件：卡片栈布局计算抽成纯函数 `lib/railLayout.ts`，右栏卡片可 Alt+↑/↓ 键盘换位，悬浮窗拖动坐标统一夹进主区域，手机上的右栏抽屉支持 Esc 关闭并把焦点放到返回键。
-
 - Console 迁入单一 Service Worker 与 manifest：只缓存带哈希的静态资源，不拦截导航、`/api`、`/ws`，按网关注入的 base href 工作，并显式放行 `/console/` 部署。
-
 - Console 上下文菜单改用手机断点 640，方向键在菜单项间循环，长按时长与震动抽成可测纯函数，菜单项统一由 `lib/actions.ts` 构造。
-
 - 工作列表按运行中、等你回答、待命、已完成分组，Bot 区与各分组可折叠且状态持久保存，已完成默认收起。
-
 - 群聊 folded 待整理批次生成单行摘要，可在 Console 会话来源中查看。
-
 - 学习复盘的证据提案先进入待确认，主人确认后写入并可撤销，保留来源和置信度。
-
 - 群批次可选 judge 使用受限低价模型，持久记录预算与判断结果，并在调用前重验授权和静默策略。
-
 - 本机验收可显式开启供应商请求与 SSE trace，支持 OpenAI completions 和 responses，并对已知鉴权信息脱敏。
-
 - 修复硅基流动 DeepSeek-V3.2 的 effort 状态和思考参数，不支持的档位显示中文提示。
-
 - 主动通知支持持久汇总和发送前权限复核；任务自检后的决定提醒限频并限制长度。
-
 - Add optional code-intel symbol search through the shared pi-lens connection.
-
 - code-intel 新增 AST 替换预览及受写权限保护的应用。
-
 - Console 页面按需加载，静态资源按版本缓存，并提示可用更新。
-
 - CLI 斜杠补全显示当前会话和预设可用的提示词模板。
-
 - 无身份任务支持按子 Agent 名称和执行者 preset 分层发现参数化提示词模板。
-
 - Console 展示 Bot 来源、会话事件与投递追踪，并保留历史工具结果。
-
 - Codex delegation supports opt-in writes, rescue thread selection, explicit wait/background routing and the review prompt.
-
 - 启用社交策略时，回复投递和重试前重新检查当前授权与静默状态，流式输出逐段复核。
-
 - 可选 Codex 审查工具增加挑战式审查、focus 和按工具选择的斜杠模板。
-
 - 新增可选 advisor 显式咨询与默认关闭的结果记录。
-
 - Add optional Codex native review tool.
-
 - durable 流及 bash 截断时缓存原文；网页超 2 MiB 的文本响应保存完整原文并提供缓存读取路径；read/grep 拒绝直接访问其他会话的工具输出缓存。
-
 - Add optional `code-intel_effective_config` to explain redacted pi-lens configuration provenance and selection.
-
 - Add optional `code-intel_lsp_navigation` through pi-lens MCP; applying cross-file changes is not yet available.
-
 - 可选 code-intel 新增诊断查询与处理标记，支持会话延期、持久标记和源码抑制注释。
-
 - 飞书投递重试复用稳定的分片 UUID；Channel.send 可接收可选 deliveryId。
-
 - 社交路由追加 `routing.social-decision` 事件，关联原始输入并记录策略版本与判定原因。
-
 - 定义可选社交配置、渠道能力和通知意图的增量契约；旧配置及发送行为保持兼容，社交运行接线待后续实现。
-
 - Add optional `code-intel_read_enclosing` for position-based symbol reads through pi-lens MCP.
-
 - Add optional `code-intel_read_symbol` using the pi-lens MCP backend.
-
 - Add optional `code-intel_module_report` using the pi-lens MCP backend.
-
 - code-intel 新增按需语法结构大纲工具，调用执行环境中的 ast-grep。
-
 - 新增可选 code-intel 插件，通过执行环境中的 CodeGraph 查询符号与调用关系。
-
 - QQ 群批次默认仅由 @Bot 或关键词触发，授权群保留原行为，支持按群配置参与方式。
-
 - 精简共同提示词与官方角色模板，明确主管分派验收、执行者报告与续办；保留既有段落键。
-
 - 飞书任务看板卡及其取数轮询退役，保留其他飞书任务卡功能。
-
 - 隐式 console 绑定不再继承其他绑定的 busy 策略，网页 task 输入默认 steer；文档明确 busy 配置及同会话合并边界，并新增 O49 T03 场景矩阵，审批、后台等场景待实测。
-
 - 名片页在任一请求失败时及时显示错误与重试入口。
 
 ### Added
 
 - 新增会话隔离的 `/bg` 后台任务列表、日志和停止命令，以及 console 后台任务面板。
-
 - 新增只读 `find` 工具，通过执行环境按 glob 查找文件，遵守 .gitignore 并包含隐藏文件。
-
 - 新增只读 `ls` 工具，通过执行环境列目录，按 pi 的排序和截断方式返回结果。
-
 - 新增 `/effort [level|auto]`；`/model effort` 已弃用，保留至 0.4 并提示新命令，最早 0.5 移除。
-
 - 社交个人页支持修改昵称、退出登录与设置 Agent 公开状态。
-
 - 删除 interaction 旧网页及其独立构建步骤。
-
 - tasks 退役独立 HTTP 看板，保留控制面视图、渠道图片和 JSON 输出。
-
 - interaction 退役独立 HTTP 服务，交互卡片通过控制面视图展示与回答。
-
 - 控制接口接入 `views.list/data/act/watch`，interaction 提问卡与 tasks 看板注册为插件视图。
 - 默认管家与首次引导：default 发行包加载 `@yonder/plugin-onboarding`；`init` 让 `main` 选入 tasks/onboarding 并绑定 `onboarding.start`。未完成且默认模型有凭据时唤醒管家（24 小时一次、累计最多 5 次，`enabled: false` 或主人关闭后不再唤醒），`onboarding_probe` 经新的 `api.host.status`（admin、只读）检查模型、渠道、网关、凭据、插件，按清单用 tasks 账本建任务，任务 id 存在插件状态里，可恢复、不重复（D59）。
 - `yonder init --bundle core|default|full`（默认 `default`）：发行包决定 init 写入的插件与渠道实例。`core` 无渠道实例、不写 `cli` 绑定，`start --no-gateway` 后仍可用任务会话对话；`default` 按设计 §5.4 加载 cron、tasks、learning、channel-card、mcp-client、memory 与 channel-mcp（不监听，没有 `type: mcp` 实例就不开端口），memory 的 root/owner/timezone 由 init 填入；`full` 含其余随包插件。只有 `channel-wechat-ilink` 需要主人配置，不进任何包。`init` 必须带 `--model`，写入 `yonder.yaml.defaultModel`。
@@ -143,14 +84,76 @@
 - luna/sol 家族按完整模型 ID 装入稳定的中文执行纪律段（`runtime.discipline`），不把每轮时间或计数放进 system。
 - 模型账号回退：`fallback.accounts` 让主模型换用同一供应商的其他凭据槽，`fallback.accountModels` 按槽换成同供应商的其他模型（额度受限的账号跑较小模型），`fallback.hold`/`probe` 让失败模型在冷却期内不占用运行起点并由后台最小请求恢复。官方用量窗口从响应里的 `rate_limits` 只读取用，按 `provider@slot` 落盘；配置了 `fallback.quotaStopPercent` 的槽每 60 秒另查一次官方用量接口，未配置时不多发请求。`fallback.quotaStopPercent` 给某个槽设停用线，窗口重置后自动恢复。账号回退在运行时以只读别名供应商 `<provider>#<slot>` 实现，别名不进配置；调用适配器前把 provider 重写回真实 id，避免共享订阅按别名判定为不支持的能力。
 - 官方用量读取自动刷新转换到槽旁的 Codex 凭据：访问令牌过期或距过期不足 60 秒时按 Codex 刷新协议刷新并原子写回，用量接口返回 401 时强制刷新一次并只重试一次；并发刷新合并为一次，刷新失败按不可用处理且不写文件。pi OAuth 凭据与调用方接口不变。
-
-
 - 信号分级与同类聚合（`core/src/signals`）：`report` 按稳定错误码分级，同类首次输出完整上下文、之后只计数、每分钟汇总一条；未知码默认 `warn` 而不是 `error`。
 - 状态面（`core/src/status`）：服务把"现在怎么样"原子写入 `.yonder/status.json`，内容不变时只按 10 秒心跳刷新 `observedAt`，空闲只付一次索引查询。菜单栏改读该文件，不再每 2 秒派生 `yonder service info` 进程。
 - 保留引擎（`core/src/retention`）：日志按大小轮转保留 3 份、后台日志目录合并为滚动文件、派生物正文按 30 天回收，单轮 50 MB 预算，失败只记 `skipped` 不中断。
 - 账本正文回收：`yonder.background` 终态记录的 `state.outcome` 正文剥离为摘要（保留 `status`、字节数、sha256、首尾各 2 KB）。正文仍在同会话转录 `pi_entries` 中（本机抽样 12/12 命中），属去重不是丢数据。
 - 任务账本读模型：新增 `task_current` 投影表，`list`/`get`/`activity` 只查投影；面板视图从"每个任务一次全量重放"改为一次批量查询。
 - 文件行数门禁：`scripts/check-file-size.mjs` 与 `scripts/file-size-baseline.json`，超过 500 行且未登记即失败，基线只减不增。
+- app：没有网关时 /work 显示「本页需要连接 Yonder 节点」与说明链接，不再停在连接中 (FP02 收尾)
+- app：dev 预览免手动登录（网关票据自动换 cookie + 原型预置会话）
+- social：「我」页按登录态区分访客引导与 Agent 加载失败，公开开关行内提示 (FP02-7)
+- social：通讯录区分加载失败、节点没有社交服务与真的空 (FP02-6)
+- social：通讯录联系人行加右键、长按与键盘菜单 (FP02-5)
+- social：名片和群二维码改用服务端分享链接，显示剩余次数与天数 (FP02-4)
+- social：账号与安全，显示脱敏绑定并可换绑，入口在「我」页设置 (FP02-3)
+- social：访客额度用完弹登录窗，登录后自动续发 (FP02-2)
+- runtime：expose hashline replace/replace_match to agents (IMP-01)
+- social：手机号或邮箱验证码登录，放进 /login 原页面 (FP02-1)
+- skills：/skill:<name> 接进 prepareInput，用户级 skills 与索引格式对齐实现（IMP-10）
+- app：dev 演示固定 5180 + 网关/社交分流代理，加名片站对照截图脚本（FP01 D7/D8）
+- app：名片站底座接入工作区——BrowserRouter、/work/* 懒加载、Shell 加「工作」入口（FP01 D2/D5）
+- social：设备弹窗、加号菜单与建群窗口对齐名片站
+- social：公开名片页复用 IdentityDetail，与线上资料页同一版式
+- social：卡包叠卡与操作按钮行对齐名片站 CardStack
+- social：设备连接页倒计时环与「我」页列表行对齐名片站
+- social：添加朋友、群邀请、安装页对齐名片站的页头与间距
+- core：新增 bg_run/bg_status/bg_logs/bg_kill 四个后台工具与 pi 结构完成通知 (IMP-06)
+- social：聊天详情按名片站分组卡片重排
+- social：会话页标题栏、气泡分组与输入条对齐名片站
+- social：名片卡面按卡宽 cqw 缩放，对齐线上名片站
+- web-tools：web_search 对齐 pi 参数、多供应商顺序回退与结果落库回读 (IMP-07)
+- code-intel：add upstream params and 40 KiB result contract (IMP-05)
+- skills：照 pi 补齐发现位置与递归规则，索引带 SKILL.md 绝对路径，新增 /skill:name 加载 (IMP-10)
+- pi-durable：hashline anchors with read/replace/replace_match (IMP-01)
+- social：名片与群二维码改用服务端分享链接并显示配额
+- social：分享链接的剩余天数、状态与地址拼接纯函数
+- api：社交客户端支持分享链接配额
+- social：账号与安全页显示脱敏绑定并可换绑
+- social：访客额度用尽弹登录窗并续发
+- social：登录页改为手机/邮箱验证码
+- social：验证码表单状态机、校验、脱敏与错误文案
+- social：验证码登录与账号绑定的 API 契约
+- app：开发用视图切换浮窗
+- config：IMP-02 新增模型链、预算、外人额度、渠道策略与社交监听配置键（只增不改）
+- app：tablet layout mode between phone and desktop
+- app：capability feature table and desktop-only top bar (T-FE-04)
+- app：console entry with node switcher under work tab
+- tasks：stall 只催主 Agent，尾部进展去重改 6 小时 TTL
+- app：工作列表、通讯录与面板卡片接统一上下文菜单
+- app：个人页与社交登录区分登录态
+- app：settings sections plus node and update data layer (T-FE-18)
+- social：C5 bot gate pure decision function
+- models：systemAsUser compat for providers that drop system
+- app：底栏用量、子 Agent、LSP 与上下文信息
+- app：会话元信息共享 reducer 与 session hooks
+- app：unify rail cards and floating panels on one layout core
+- app：unify context menu breakpoint, keyboard nav and long-press helpers
+- app：fold work-list groups with persisted state
+- expose social policy control methods
+- social：add opt-in durable group batching
+- add optional advisor outcome recording
+- persist learning reviews and expose learning changes
+- add optional native codex review tool
+- notify model fallback at input source
+- delegate durable subagent tasks
+- configure model fallback ordering
+- isolate social routing scopes
+- add social configuration contract
+- code-intel：read source by symbol
+- code-intel：add pi-lens module reports
+- tasks：request one waiting-task self-check
+- add guidance for selected core tools
 
 ### Deprecated
 
@@ -162,14 +165,72 @@
 - QQ 渠道补齐媒体、引用和限流：入站附件映射为 `attachments`（只接纳 https URL），引用回复原文写入新增的 `quote.text` 并进入本轮提示，只有附件没有正文的消息也接纳；出站接受 https URL 或本地路径的 image/audio/video/file，先发文字再逐条发媒体；所有请求按新增实例配置 `sendIntervalMs`（默认 500 毫秒）串行间隔。
 - 内置提示词底座补入自主（不把自己能做的事推给主人）、目标先行、够用就停与常见死磕场景，并写清命令路径/超时、台账批量记录、两条工作线上限；AGENTS.md 模板用途句提到目标与验收。
 - `npm run lint` 现在包含文件行数检查。
+- app：删除旧社交重写 features/social 与 hash 外壳（IconRail/TabBar/registry/routes/useHash 等）及其测试 (FP02 收尾)
+- app：现有工作侧代码整体迁到 src/work/（FP01 D4）
+- runtime：extract input content preparation
+- extract terminal helpers
+- extract session branch handling
 
 ### Fixed
 
 - 安装根迁至 `~/.local/share/yonder/install`；`yonder migrate` 保留旧路径链接两个 minor，迁移旧服务标签，并支持安装根与数据目录联合回滚。learning 旧技能 owner 兼容仍保留；codemod 不再映射 hermes-experience，保留弃用别名包。
-
 - `permissions` 工具参数改为顶层对象（`action` 判别 + 可选 `provider`/`kind`/`timeout`），修复严格供应商 API 以 `type: null` 拒绝该工具 schema；参数校验仍在工具内。
 - 单次启动产生的 11,726 条 error 级"历史 submission 无原生回执"降为 1 条 `warn` 加周期汇总。
 - 任务账本每次读取都新建连接、`SELECT *` 全表并从头 replay 的问题。
+- social：验证码按钮未发码前显示「发送验证码」 (FP02-1)
+- core：follow the service label actually installed on this machine
+- app：修 apps/app 五处 lint 报错；对照截图脚本先切到邮箱密码表单再登录
+- migrate：尊重 YONDER_HOME、非默认 home 跳过系统服务、超长 socket 回退短路径
+- ci：node:test 的 .cjs 用例改由 test:node 执行；CodeGraph 索引用例在缺 CLI 的环境跳过
+- delivery：conv-less inputs never break the console turn check
+- social：资料页去掉重复的公开开关，只保留资料表里那一行
+- runtime：传输层失败不再冷却模型，网络恢复后立即回到主模型 (RESUME01)
+- app：通讯录区分加载失败、节点无社交服务与真的空
+- app：useSession 处理 mux end 帧，避免会话永久停在「连接中…」
+- core：capabilities.get 补齐 NodeFacts v1.1 字段
+- app：主题预览跟随 agent-orb 纯色与 ambient 移除
+- models：keep system sections and tools when moving system to user
+- delivery：a console turn replies only in the console
+- main-health：preserve cleanup error outside finally
+- main-health：format regenerated golden files
+- main-health：format social judge golden
+- main-health：extract private account file writer
+- main-health：extract router options type
+- code-intel：declare cleanup and register AST replacement
+- main-health：extract credential commands
+- main-health：extract model protocol registry
+- main-health：extract routing notifications
+- main-health：format runtime and desktop files
+- main-health：extract runtime option type
+- main-health：extract legacy batch routing
+- main-health：fix desktop and golden checks
+- main-health：extract runtime note construction
+- main-health：extract background task documents
+- main-health：split tool schemas and event types
+- code-intel：declare MCP lifecycle trigger
+- code-intel：resolve workspace path for LSP
+- code-intel：declare ast grep search tool
+- code-intel：authorize AST replacement writes
+- feishu：distinguish everyone from bot mentions
+- code-intel：reuse workspace MCP connections
+- code-intel：probe session edited files for diagnostics
+- main-health：format JSON files
+- track fallback health per model attempt
+- main-health：include missing runtime implementations
+- main-health：narrow diagnostic path type
+- main-health：split routing matching helpers
+- track resumed subagent activity
+- sync categorized model fallback recovery
+- deduplicate Feishu delivery retries and task claims
+- main-health：correct template character type
+- main-health：preserve pending tool change
+- main-health：extract core tool helpers
+- main-health：format config schema golden
+- synchronize Hermes learning skill guidance
+- avoid false Feishu bot mentions
+- restore proactive permission guidance
+- tasks：stop unsafe waiting reminders
+- use valid tool guidelines section key
 
 ## [0.3.26102802] - 2026-10-28
 
