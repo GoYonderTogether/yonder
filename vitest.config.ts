@@ -14,6 +14,7 @@ export default defineConfig({
 			"scripts/migrate/rename-yonder.test.mjs",
 			"scripts/test/names-consistency.test.mjs",
 			"packages/macos/test/install-root.test.mjs",
+			"scripts/release/**/*.test.mjs",
 		],
 	},
 });

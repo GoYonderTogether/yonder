@@ -17,3 +17,7 @@ plugins/*/src/**/*.js.map
 plugins/*/src/**/*.d.ts
 plugins/*/src/**/*.d.ts.map
 .vitest/
+
+# 发版附件与 Release 正文（scripts/release/pack-runtime.mjs 产出）
+dist-release/
+release-notes.md

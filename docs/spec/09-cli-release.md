@@ -86,6 +86,19 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - 每次变更把对外可见的变化记在根目录 `CHANGELOG.md` 顶部的 `## [Unreleased]`（小节用 Added / Changed / Fixed / Removed）。发布时统一所有包版本与 CHANGELOG，打标签 vx.y.z 并推送，使用 gh 创建该标签的正式 GitHub Release；本地阶段标签不推送，也不等于 Release。发布 watcher 接实际 Release 对象，不把标签当发布通知（10 §3）。
 - `yonder changelog --from a --to b`：输出 `CHANGELOG.md`（当前版本里的）中版本在 (a, b] 之间的各节；`--to` 缺省为当前版本，`--from` 缺省为 `--to` 的上一个版本。
 
+### 5.1 CI 发版
+
+正式版只由 `.github/workflows/release.yml` 发布，不在本机手工改版本、打标签或建 Release。
+
+- **谁、何时触发**：主 Agent 在代码稍稳定后，每 2 到 3 个功能提交、且该提交的 CI 已经绿时触发：`gh workflow run release.yml -f ref=main`（可选 `-f version=<版本>`，须高于已有最高标签）。
+- **前提**：`scripts/release/version.mjs --assert-unreleased` 拒绝重复发版，即目标提交已带正式标签，或它是某个 `chore(release)` 提交的父提交。`scripts/release/ci-status.mjs` 经 `gh api` 查询该提交的 check-runs，`ci.yml` 的 macOS 与 Linux 两项都要成功（同名只看最新一次，最多等 15 分钟），否则失败退出。
+- **版本**：未给版本时取 UTC 当天 YYMMDD，NN 在已有同日标签上加一。
+- **改动**：`scripts/release/bump-versions.mjs` 把根与所有 workspace 包（`packages/pi-durable` 除外）的版本和内部 `@yonder/*` 依赖改成新版本，并以 `npm install --package-lock-only` 更新 lockfile。`scripts/release/changelog.mjs` 把 `## [Unreleased]` 的手写条目连同上一标签到目标提交之间的 feat/fix/perf/refactor/revert 提交（按 Added/Fixed/Changed/Removed 分组）写成新版本小节；其他类型与无前缀提交不列。
+- **提交与标签**：CI 提交 `chore(release): <版本>`，打 `v<版本>`，`version-check.mjs --tag` 核对后构建、打包，先推送标签，再把发版提交 rebase 到最新 main 并推送；main 同步失败时 Release 照常创建，作业报错，由主 Agent 手动合回。
+- **Release**：正文是 CHANGELOG 的该版本小节；附件是 `scripts/release/pack-runtime.mjs` 对每个非 private workspace 包 `npm pack` 生成的 `.tgz` 与 `SHA256SUMS`。`yonder update` 与首次安装按 §3/§4 从标签 `git clone` 并本机构建，不读取附件；附件供离线核对与按包安装。
+- **本机预演**：上述脚本都支持 `--dry-run`，只打印将改的文件、CHANGELOG 小节或打包清单，不写入。
+- **云端部署不进 CI**：CI 没有服务器凭据。Release 发布后，云端仍由维护者在本机用 `scripts/deploy-node.sh build/push/install <host> <tag>` 经 SSH 部署，失败用 `rollback` 回退。
+
 ## 6. 后台服务
 
 - macOS `service install`：写 `~/Library/LaunchAgents/dev.yonder.service.plist`——`ProgramArguments = [<install>/bin/yonder, start, --home, <home>]`、`RunAtLoad`、`KeepAlive`、标准输出与错误写 `<home>/.yonder/logs/harness.log`——再 `launchctl bootstrap gui/<uid>`。一台机器一个服务，对应一个 home。

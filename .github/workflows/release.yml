@@ -1,0 +1,106 @@
+# 发版走 CI：该 commit 的 CI 已经绿、且当天序号未用过时，由这里统一包版本、写 CHANGELOG、打 tag 并建 Release。
+# 云端部署不在这里：CI 拿不到服务器凭据，仍用 scripts/deploy-node.sh 走 SSH。
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 要发版的 commit、分支或标签
+        required: false
+        default: main
+        type: string
+      version:
+        description: 显式版本号 0.<minor>.<YYMMDDNN>，留空按当天序号递增
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  checks: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag, CHANGELOG and GitHub Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'main' }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: sudo apt-get update && sudo apt-get install -y ripgrep zsh
+      - name: 同一 commit 不重复发版
+        run: node scripts/release/version.mjs --assert-unreleased
+      - name: 该 commit 的 CI 必须已经绿
+        run: node scripts/release/ci-status.mjs --sha "$(git rev-parse HEAD)" --wait 900
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 计算版本
+        id: version
+        run: echo "version=$(node scripts/release/version.mjs --next ${INPUT_VERSION:+--version "$INPUT_VERSION"})" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+      - run: npm ci
+      - name: 统一所有 workspace 包版本
+        run: node scripts/release/bump-versions.mjs --version "$VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+      - name: 写 CHANGELOG 小节
+        run: node scripts/release/changelog.mjs --build --version "$VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+      - name: 提交并发版 tag
+        run: |
+          git config user.name "yonder-release"
+          git config user.email "release@yonder.local"
+          git add -A
+          git commit -m "chore(release): $VERSION"
+          git tag "v$VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+      - name: 版本一致性
+        run: node scripts/version-check.mjs --tag "v$VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+      - run: npm run build
+      - name: 打安装附件与 SHA256SUMS
+        run: node scripts/release/pack-runtime.mjs --out dist-release
+      - name: 推送 tag
+        run: git push origin "v$VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+      - name: 创建 GitHub Release
+        run: |
+          node scripts/release/changelog.mjs --body "$VERSION" > release-notes.md
+          gh release create "v$VERSION" \
+            --title "Yonder $VERSION" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            dist-release/*.tgz dist-release/SHA256SUMS
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 发版期间 main 可能已有新提交：把发版提交 rebase 上去再推；失败时 Release 已在，作业报错由主 Agent 手动合回
+      - name: 发版提交合回 main
+        run: |
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin "HEAD:main"; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            git reset --hard "v$VERSION"
+            sleep 10
+          done
+          exit 1
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
