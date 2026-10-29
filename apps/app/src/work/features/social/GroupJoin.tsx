@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
-import { ActorAvatar } from "../../ui/kit/ActorAvatar";
 import { Button } from "../../ui/kit/Button";
+import { SocialAvatar } from "./IdentityAvatar";
 
 export function GroupJoin({ token }: { token: string }) {
 	const qc = useQueryClient();
@@ -70,25 +70,12 @@ export function GroupJoin({ token }: { token: string }) {
 			<div className="mx-auto flex max-w-sm flex-col items-center gap-6 px-4 py-16 text-center">
 				<div className="rise flex flex-col gap-1">
 					<h1 className="display">{group.data.title}</h1>
-					<p className="text-[14px] text-muted">{group.data.memberCount} 人</p>
+					<p className="text-small text-muted">{group.data.memberCount} 人</p>
 				</div>
 				<ul className="rise flex flex-wrap justify-center gap-3" style={{ animationDelay: "60ms" }}>
 					{group.data.members.slice(0, 12).map((member) => (
 						<li key={member.id} title={member.name} aria-label={member.name}>
-							{member.avatarUrl ? (
-								<img
-									src={member.avatarUrl}
-									alt=""
-									referrerPolicy="no-referrer"
-									className="size-11 rounded-full object-cover"
-								/>
-							) : member.kind === "agent" ? (
-								<ActorAvatar seed={member.id} group="bot" />
-							) : (
-								<span className="flex size-11 items-center justify-center rounded-full bg-tone-2 font-medium text-muted">
-									{member.name.slice(0, 1)}
-								</span>
-							)}
+							<SocialAvatar actor={member} size={44} />
 						</li>
 					))}
 				</ul>

@@ -42,10 +42,11 @@ export function Install() {
 		}
 	};
 	return (
-		<div className="scroll-y h-full">
-			<div className="mx-auto max-w-2xl px-4 pt-10 pb-16 md:px-6 md:pt-20">
-				<h1 className="display rise">拥有自己的 Agent</h1>
-				<div className="mt-6 flex gap-2" role="tablist" aria-label="连接方式">
+		/* 与名片站 AppBar.Page 同版式：内容列最大 720、h1 display 档、页内块间距 6。 */
+		<div className="scroll-y h-full bg-ground">
+			<div className="mx-auto max-w-2xl px-4 pb-16 lg:px-6 lg:pb-10">
+				<h1 className="display rise pt-6 pb-6 lg:pt-10">拥有自己的 Agent</h1>
+				<div className="mt-2 flex gap-2" role="tablist" aria-label="连接方式">
 					{(["prompt", "terminal"] as const).map((key) => (
 						<button
 							type="button"
@@ -53,7 +54,7 @@ export function Install() {
 							role="tab"
 							aria-selected={tab === key}
 							onClick={() => setTab(key)}
-							className={`press rounded-full px-4 py-2 text-small focus-visible:outline-2 focus-visible:outline-offset-2 ${tab === key ? "bg-accent text-on-accent" : "bg-tone text-muted"}`}
+							className={`press h-9 rounded-full px-4 text-small focus-visible:outline-2 focus-visible:outline-offset-2 ${tab === key ? "bg-accent text-on-accent" : "bg-tone text-muted"}`}
 						>
 							{key === "prompt" ? "提示词" : "终端命令"}
 						</button>

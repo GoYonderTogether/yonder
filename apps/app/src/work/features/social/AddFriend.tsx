@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Card, httpApi, type Profile } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
-import { Field } from "../../ui/kit/Field";
 import { toast } from "../../ui/kit/Toast";
 import { profileRoute } from "./lib/links";
 
@@ -112,89 +111,107 @@ export function AddFriend() {
 		}
 	};
 	return (
-		<div className="h-full overflow-y-auto bg-ground p-4">
-			<div className="mx-auto max-w-2xl">
-				<h1 className="mb-6 text-xl font-semibold">添加朋友</h1>
-				<section aria-label="查找朋友" className="flex flex-col gap-4">
-					<form
-						className="flex flex-col gap-4"
-						onSubmit={(e) => {
-							e.preventDefault();
-							open(value);
-						}}
-					>
-						<Field label="ID 或名片、主页链接" value={value} onChange={(e) => setValue(e.target.value)} />
-						<div className="flex gap-2">
-							<Button variant="primary" type="submit">
-								查找朋友
-							</Button>
-							<Button type="button" onClick={() => setScanning(true)}>
-								扫一扫
-							</Button>
-						</div>
-					</form>
-					{scanning && (
-						<div className="flex flex-col gap-3">
-							<video ref={video} muted playsInline aria-label="扫码相机" className="w-full max-w-md rounded-card" />
-							<Button onClick={() => setScanning(false)}>停止扫码</Button>
-						</div>
-					)}
-					{result && (
-						<section aria-label="查找结果" className="rounded-card bg-tone/40 p-4">
-							<div className="flex justify-between">
-								<h2>查找结果</h2>
-								<Button variant="ghost" onClick={() => setResult(undefined)}>
-									关闭结果
+		/* 与名片站 AppBar.Page 同版式：内容列最大 720、h1 用 display 档、块间距 6。 */
+		<div className="scroll-y h-full bg-ground">
+			<div className="mx-auto px-4 pb-24 lg:px-6 lg:pb-10 max-w-2xl">
+				<h1 className="display rise pt-6 pb-6 lg:pt-10">添加朋友</h1>
+				<div className="rise flex flex-col gap-6" style={{ animationDelay: "60ms" }}>
+					<section aria-label="查找朋友" className="flex flex-col gap-4">
+						<form
+							className="flex flex-col gap-4"
+							onSubmit={(e) => {
+								e.preventDefault();
+								open(value);
+							}}
+						>
+							<label className="flex flex-col gap-2 text-small">
+								ID 或名片、主页链接
+								<input
+									value={value}
+									onChange={(e) => setValue(e.target.value)}
+									className="field min-h-11 rounded-control bg-tone px-3 text-body text-ink outline-none placeholder:text-faint"
+								/>
+							</label>
+							<div className="flex gap-2">
+								<Button variant="primary" className="min-h-11" type="submit">
+									查找朋友
+								</Button>
+								<Button className="min-h-11" type="button" onClick={() => setScanning(true)}>
+									扫一扫
 								</Button>
 							</div>
-							{(short && resolved.isPending) || (!!id && identity.isPending) ? (
-								<p role="status">正在查找…</p>
-							) : resolved.isError || identity.isError ? (
-								<p role="alert">查找失败，请重试</p>
-							) : !identity.data ? (
-								<p>未找到朋友</p>
-							) : (
-								<div className="flex items-center justify-between gap-3">
-									<span>{"actor" in identity.data ? identity.data.actor.name : identity.data.title}</span>
-									<Button variant="primary" onClick={() => void add()}>
-										{result.page === "u" ? "开始聊天" : "添加朋友"}
+						</form>
+						{scanning && (
+							<div className="flex flex-col gap-3">
+								<video ref={video} muted playsInline aria-label="扫码相机" className="w-full max-w-md rounded-card" />
+								<Button onClick={() => setScanning(false)}>停止扫码</Button>
+							</div>
+						)}
+						{result && (
+							<section aria-label="查找结果" className="rounded-card bg-tone/40">
+								<div className="flex items-center justify-between px-4 pt-3">
+									<h2 className="text-small font-medium">查找结果</h2>
+									<Button variant="ghost" onClick={() => setResult(undefined)}>
+										关闭结果
 									</Button>
 								</div>
-							)}
-						</section>
-					)}
-				</section>
-				<section aria-label="我的名片与 Agent" className="mt-6 border-t border-hairline pt-6">
-					<h2 className="mb-4 text-small font-medium text-muted">我的名片与 Agent</h2>
-					{cards.isPending ? (
-						<p role="status">正在加载名片…</p>
-					) : cards.isError ? (
-						<p role="alert">
-							加载名片失败{" "}
-							<button className="underline" type="button" onClick={() => void cards.refetch()}>
-								重试
-							</button>
-						</p>
-					) : !cards.data.some((card) => card.mine) ? (
-						<p>暂无名片</p>
-					) : (
-						<ul className="flex flex-col gap-2">
-							{cards.data
-								.filter((card) => card.mine)
-								.map((card) => (
-									<li key={card.id}>
-										<a
-											className="block rounded-card bg-raised p-4 hover:bg-tone"
-											href={href({ tab: "contacts", page: "u", session: card.code ?? card.id })}
-										>
-											{card.title}
-											{card.tagline && <span className="block text-small text-muted">{card.tagline}</span>}
-										</a>
-									</li>
-								))}
-						</ul>
-					)}
-				</section>
+								<div className="px-4 pb-4">
+									{(short && resolved.isPending) || (!!id && identity.isPending) ? (
+										<p role="status">正在查找…</p>
+									) : resolved.isError || identity.isError ? (
+										<p role="alert">查找失败，请重试</p>
+									) : !identity.data ? (
+										<p>未找到朋友</p>
+									) : (
+										<div className="flex items-center justify-between gap-3">
+											<span className="min-w-0 truncate text-body font-medium">
+												{"actor" in identity.data ? identity.data.actor.name : identity.data.title}
+											</span>
+											<Button variant="primary" className="h-11" onClick={() => void add()}>
+												{result.page === "u" ? "开始聊天" : "添加朋友"}
+											</Button>
+										</div>
+									)}
+								</div>
+							</section>
+						)}
+					</section>
+					<section aria-label="我的名片与 Agent" className="border-t border-hairline pt-6">
+						<h2 className="mb-4 text-small font-medium text-muted">我的名片与 Agent</h2>
+						{cards.isPending ? (
+							<p role="status" className="text-small text-muted">
+								正在加载名片…
+							</p>
+						) : cards.isError ? (
+							<p role="alert" className="text-small text-muted">
+								加载名片失败{" "}
+								<button className="underline" type="button" onClick={() => void cards.refetch()}>
+									重试
+								</button>
+							</p>
+						) : !cards.data.some((card) => card.mine) ? (
+							<p className="text-small text-muted">暂无名片</p>
+						) : (
+							<ul className="flex flex-col gap-2">
+								{cards.data
+									.filter((card) => card.mine)
+									.map((card) => (
+										<li key={card.id}>
+											<a
+												className="press block rounded-card bg-raised p-4 hover:bg-tone/60"
+												href={href({ tab: "contacts", page: "u", session: card.code ?? card.id })}
+											>
+												<span className="block text-small font-medium">{card.title}</span>
+												{card.tagline && (
+													<span className="block text-caption text-muted">{card.tagline}</span>
+												)}
+											</a>
+										</li>
+									))}
+							</ul>
+						)}
+					</section>
+				</div>
 			</div>
 		</div>
 	);
