@@ -4,9 +4,9 @@ name: 贾维斯
 owner: person:owner
 defaultProfile: owner
 defaults:
-  model: siliconflow/deepseek-ai/DeepSeek-V3.2
+  model: workbuddy/deepseek-v4.1-flash
   fallback:
-    models: [siliconflow/deepseek-ai/DeepSeek-V3, gw/deepseek-v4.1-flash]
+    models: [rightapi-glm/glm-5.3-flash]
   contexts:
     - jarvis-soul
     - jarvis-work
@@ -20,7 +20,7 @@ profiles:
       offer:
         - "*"
   peer:
-    model: siliconflow/deepseek-ai/DeepSeek-V3.2
+    model: workbuddy/deepseek-v4.1-flash
     thinking: medium
     capabilities:
       - read
