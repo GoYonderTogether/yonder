@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Console 新增能力清单与桌面壳顶栏判定：`capabilities/features.ts` 用一张功能表描述顶栏、工作、常驻 Bot、通讯录、名片、私信、节点、更新、右栏卡片、底栏用量与系统通知的可见性，按 contracts §12 顺序（protocol → methods → features → events）判定，缺方法或节点版本较旧时给出原因而不是按插件名猜测；`lib/shell.ts` 只认壳注入的 `window.__YONDER_SHELL__`（`desktop`/`mobile`，未注入=web），不再从节点事实推断客户端壳；`api/capabilities.ts` 提供 `useCapabilities`/`useHasMethod`/`useFeature`。顶栏仍只在桌面壳渲染。
+
 - Console 增加控制台入口（`#/console`）：工作列表顶部进入，在已接入节点间切换并打开对应设备的控制台——本机同源跳转，远程节点在新标签打开它自己的 origin；列出节点 id/名称/地址、当前节点高亮、添加设备与移除节点，未添加远程节点时说明「只控制本机」，远程节点如实标注默认无 owner scope、看不到 Bot 对话。导航仍是消息/通讯录/工作三项，不新增一级入口。
 
 - Console 工作列表的 Bot 行与任务行、通讯录联系人行、右栏卡片与悬浮窗标题区接上统一上下文菜单（右键、触屏长按+震动、Shift+F10/菜单键）：菜单项由 `lib/menus.ts` 构造，对应打开会话、复制标题、关闭会话（确认后调 sessions.close）、置顶、发消息（openDm）、打开资料、停靠/弹出/收起；悬停显示标题，行内原有的链接、折叠与进度条不变。

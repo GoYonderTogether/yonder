@@ -1,7 +1,7 @@
 import { useShell } from "../lib/shell";
 
 /**
- * 桌面壳顶部栏：只在壳里渲染（浏览器不渲染）。
+ * 桌面壳顶部栏：只在桌面壳里渲染（浏览器、手机壳都不渲染）。
  * 左侧给 macOS 红绿灯留 80px；右侧给 Windows 标题栏按钮留 140px。整条可拖动窗口。
  */
 export function TopBar({ title }: { title: string }) {

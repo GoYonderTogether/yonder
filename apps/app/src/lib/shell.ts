@@ -1,19 +1,12 @@
-import { useFacts } from "./queries";
+import { clientFacts, type Shell } from "../capabilities/facts";
 
-declare global {
-	interface Window {
-		__YONDER_SHELL__?: { platform?: string } | boolean | string;
-	}
-}
+export type { Shell } from "../capabilities/facts";
 
 /**
- * 桌面壳模式：壳注入 window.__YONDER_SHELL__，或节点事实里 shell=desktop。
- * 浏览器访问两者都没有，不渲染顶部栏。
+ * 客户端壳：只认壳注入的 window.__YONDER_SHELL__（"desktop" | "mobile" 字符串，不注入=web）。
+ * 节点事实里没有客户端壳字段，不从 NodeFacts 推断；平台外观（mac）才用本机检测。
  */
-export function useShell(): { desktop: boolean; mac: boolean } {
-	const facts = useFacts().data as ({ shell?: string; capabilities?: { shell?: string } } & object) | undefined;
-	const injected = typeof window !== "undefined" ? window.__YONDER_SHELL__ : undefined;
-	const desktop = Boolean(injected) || facts?.shell === "desktop" || facts?.capabilities?.shell === "desktop";
-	const platform = typeof injected === "object" && injected.platform ? injected.platform : (navigator.platform ?? "");
-	return { desktop, mac: /mac/i.test(platform) };
+export function useShell(): { shell: Shell; desktop: boolean; mac: boolean } {
+	const facts = clientFacts();
+	return { shell: facts.shell, desktop: facts.shell === "desktop", mac: facts.mac };
 }
