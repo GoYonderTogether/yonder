@@ -32,6 +32,7 @@
 			"tools": [
 				"web-tools_search",
 				"web-tools_extract",
+				"web-tools_get_search_content",
 				"web-tools_fetch"
 			]
 		}
