@@ -121,6 +121,64 @@ test("recursive grep never follows workspace symlinks into external files or dir
 	}
 });
 
+test("anchor edits are checked against the file that served the anchors, with or without a path", async () => {
+	const { createReadTool } = await import("@earendil-works/pi-durable/tools");
+	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	try {
+		const cwd = join(root, "workspace");
+		await mkdir(cwd);
+		const outside = join(root, "outside.txt");
+		await writeFile(outside, "OUTSIDE-PRIVATE");
+		await writeFile(join(cwd, "inside.txt"), "INSIDE");
+		await writeFile(join(cwd, "agent.yaml"), "id: main");
+		const env = localEnvironment(cwd);
+		const policy = new ToolPolicy({
+			home: root,
+			capabilities: new Map([
+				["read", ["read"]],
+				["replace", ["write"]],
+			]),
+			environment: () => env,
+			context: async () => ({
+				agent: "main",
+				profile: "peer",
+				session: "1",
+				capabilities: ["read", "write"],
+				env,
+				signal: new AbortController().signal,
+			}),
+		});
+		const config = {
+			agent: "main",
+			profile: "peer",
+			cwd,
+			resolved: resolveProfile({ capabilities: ["read", "write"] }),
+		};
+		const anchorOf = async (path: string): Promise<string> => {
+			const read = await createReadTool().execute(
+				{ path },
+				{ env } as import("@earendil-works/pi-durable").ToolExecutionApi,
+				BACKGROUND_CONTEXT,
+			);
+			const row = (read.output ?? []).find((part) => part.type === "text");
+			if (row?.type !== "text") throw new Error("read served no row");
+			return row.text.slice(0, 5);
+		};
+		const edit = (anchor: string) => ({ remove_from: anchor, remove_to: anchor, text: "EDITED" });
+		expect(await policy.denied("replace", edit(await anchorOf(outside)), config, BACKGROUND_CONTEXT, "1")).toContain(
+			"超出",
+		);
+		expect(
+			await policy.denied("replace", edit(await anchorOf(join(cwd, "agent.yaml"))), config, BACKGROUND_CONTEXT, "1"),
+		).toContain("受保护文件");
+		expect(
+			await policy.denied("replace", edit(await anchorOf(join(cwd, "inside.txt"))), config, BACKGROUND_CONTEXT, "1"),
+		).toBeUndefined();
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test("skills=[] refuses view and returns empty index without touching workspace or external skill roots", async () => {
 	const skills = createSkills({
 		home: "/nonexistent-peer-home",

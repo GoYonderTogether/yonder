@@ -8,6 +8,8 @@ export const capabilityMap: Record<string, Capability[]> = {
 	read: ["read"],
 	write: ["write"],
 	edit: ["write"],
+	replace: ["write"],
+	replace_match: ["write"],
 	bash: ["exec"],
 	tool_search: [],
 };

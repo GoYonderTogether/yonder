@@ -47,6 +47,7 @@
 
 - 配置档 `tools.offer` → `modelTools`（定义常驻）；`tools.search` → 工具在 `tools` 中、定义带 `deferred: true`、不在 `modelTools` 中，并选用 pi-durable 的 `createToolSearchExtension()`；模型调用 `tool_search` 后由 pi 写入 `modelTools.add`。
 - 两者都先经过能力过滤（05 §3）。
+- **文件锚点工具（IMP-01，主 Agent 代批）：** durable 文件工具集为 `read`、`write`、`edit`、`replace`、`replace_match`、`bash`。`read` 的每个文本行以 `anchor│内容` 返回，锚点只对被读到的那个文件有效；`replace` / `replace_match` 按锚点改文件，`path` 可省略（取锚点所属文件），一次只改一个文件。两者按 `write` 能力暴露与校验；路径省略时能力、工作区边界和受保护文件检查按锚点所属文件判定，解析不出唯一文件时交工具自己报告过期锚点。
 - 弱模型或语音场景用少量 `offer`；工具多的常驻 agent 用 `search`；编码场景以 `bash` 为主、命令用法写进上下文。三种方式都只是配置，内核不区分场景。
 
 ## 5. 时间、用量与停止

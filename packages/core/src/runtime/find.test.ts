@@ -57,7 +57,7 @@ test.skipIf(spawnSync("fd", ["--version"]).error)(
 	async () => {
 		const { BACKGROUND_CONTEXT } = await import("@earendil-works/chord/context");
 		const { createGrepTool } = await import("./grep.js");
-		const { createReadTool } = await import("@earendil-works/pi-durable/tools");
+		const { createReadTool, HASH_SEP } = await import("@earendil-works/pi-durable/tools");
 		const { cacheToolOutput } = await import("./tool-output-cache.js");
 		const home = await mkdtemp(join(tmpdir(), "yonder-find-cache-"));
 		try {
@@ -107,7 +107,13 @@ test.skipIf(spawnSync("fd", ["--version"]).error)(
 			const cached = await env.readTextFile(cachePath, BACKGROUND_CONTEXT);
 			expect(cached.ok).toBe(true);
 			if (!cached.ok) throw cached.error;
-			expect(read.output?.find((part) => part.type === "text")?.text).toBe(cached.value);
+			// `read` serves one anchor row per line, so every cached line comes back behind its anchor and the separator.
+			const rows = (read.output?.find((part) => part.type === "text")?.text ?? "").split("\n");
+			for (const row of rows) {
+				expect(row.slice(0, 5)).toMatch(/^[a-z]{5}$/);
+				expect(row.charAt(5)).toBe(HASH_SEP);
+			}
+			expect(rows.map((row) => row.slice(6))).toEqual(cached.value.replace(/\n$/, "").split("\n"));
 			const first = cached.value.split("\n")[0] ?? "";
 			const grep = await createGrepTool().execute({ pattern: first, path: cachePath, literal: true }, ctx);
 			expect(JSON.parse(grep.text).matches[0].text).toBe(first);

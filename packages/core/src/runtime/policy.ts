@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import type { JsonObject } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
+import { anchorOwners } from "@earendil-works/pi-durable/tools";
 import type { Capability, ExecutionEnv, ToolContext } from "@yonder/sdk";
 import { cacheDirectory } from "./tool-output-cache.js";
 import type { RuntimeSessionConfig } from "./types.js";
@@ -12,6 +13,17 @@ export interface PolicyDeps {
 	capabilities: Map<string, Capability[]>;
 	environment(config: RuntimeSessionConfig): ExecutionEnv;
 	context(session: string, context: Context): Promise<ToolContext>;
+}
+
+/**
+ * The file a call touches: the one its `path` names, or for an anchor edit the one file whose anchors it quotes.
+ * Undefined when neither is known, so the edit itself reports the anchors it cannot resolve.
+ */
+function checkedPath(args: JsonObject): string | undefined {
+	if (typeof args.path === "string") return args.path;
+	const anchors = [args.remove_from, args.replace_from].filter((value): value is string => typeof value === "string");
+	const owners = new Set(anchors.flatMap((anchor) => anchorOwners(anchor)));
+	return owners.size === 1 ? [...owners][0] : undefined;
 }
 
 /** Capability, workspace-boundary and protected-file checks applied before a tool runs. */
@@ -28,9 +40,10 @@ export class ToolPolicy {
 		if (missing.length) return `缺少能力：${missing.join(", ")}`;
 		if (name === "process" && args.action === "write" && !config.resolved.capabilities.includes("exec"))
 			return "Writing process stdin requires exec capability";
-		if (!["read", "write", "edit", "grep", "ls", "find"].includes(name)) return;
+		if (!["read", "write", "edit", "replace", "replace_match", "grep", "ls", "find"].includes(name)) return;
 		if ((name === "grep" || name === "ls" || name === "find") && args.path === undefined) args = { ...args, path: "." };
-		if (typeof args.path !== "string") return;
+		const path = checkedPath(args);
+		if (path === undefined) return;
 		const env = this.deps.environment(config);
 		const canonical = async (path: string): Promise<string> => {
 			const result = await env.canonicalPath(path, context);
@@ -41,7 +54,7 @@ export class ToolPolicy {
 			if (parent === absolute) throw result.error;
 			return getOrThrow(await env.joinPath([await canonical(parent), absolute.slice(parent.length)], context));
 		};
-		const target = await canonical(args.path),
+		const target = await canonical(path),
 			cwd = await canonical(config.cwd);
 		if (env.id === "node:local" && (name === "read" || name === "grep")) {
 			const base = await canonical(join(this.deps.home, "cache", "tool-output"));

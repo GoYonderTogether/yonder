@@ -128,3 +128,23 @@ test("find registration respects tool selection and read capability", () => {
 	expect(exposure(["read"], [])?.exposure).toBe("not-selected");
 	expect(exposure([], ["find"])?.exposure).toBe("capability-denied");
 });
+
+test("anchor edit tools are offered and gated by the write capability", () => {
+	const config = { agent: "main", profile: "owner", cwd: process.cwd() };
+	const catalog = (capabilities: string[]) =>
+		inspectToolCatalog(
+			{
+				...config,
+				resolved: resolveProfile({ capabilities: capabilities as never, tools: { offer: ["*"], search: [] } }),
+			},
+			new Map(),
+		);
+	for (const name of ["replace", "replace_match"]) {
+		expect(catalog(["read", "write"]).find((tool) => tool.name === name)).toMatchObject({
+			exposure: "offer",
+			capabilities: ["write"],
+			missing: [],
+		});
+		expect(catalog(["read"]).find((tool) => tool.name === name)?.exposure).toBe("capability-denied");
+	}
+});
