@@ -27,6 +27,24 @@ export interface ModelWatchOptions {
 	onHealth?(event: { key: string; state: "held" | "recovered"; reason?: string; until?: number }): void;
 	onReport?(error: unknown): void;
 }
+/**
+ * A failure that never reached the model: no answer and no provider status. Dropped sockets, refused connections,
+ * DNS failures and request timeouts say nothing about a candidate's health, so they must not hold it — otherwise a
+ * host that was asleep or offline keeps a healthy model out of the chain after the network returns (07 §6.1).
+ */
+export function transportFailure(error: string | undefined): boolean {
+	const text = error ?? "";
+	if (!text) return false;
+	if (
+		/\b(?:4\d\d|5\d\d)\b|quota|billing|insufficient|rate.?limit|too many requests|unauthoriz|forbidden|authentication|invalid.api.key|model.not.found|context|schema|abort|repeatStop/i.test(
+			text,
+		)
+	)
+		return false;
+	return /ECONNREFUSED|ECONNRESET|ECONNABORTED|EPIPE|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ENETUNREACH|EHOSTUNREACH|socket hang up|other side closed|fetch failed|terminated|network error|connection (?:error|reset|refused|closed|aborted)|timed? out|no first token|ended without|premature close/i.test(
+		text,
+	);
+}
 /** Reset headers and provider error body are interpreted only for 429 responses. */
 export function rateLimitReset(error: string, now = Date.now()): number | undefined {
 	if (!/\b429\b|rate.?limit|too many requests/i.test(error)) return undefined;
@@ -102,6 +120,7 @@ export class ModelWatch {
 			const key = chainKey(entry);
 			const reason = attempt.error ?? "model_error";
 			const resetUntil = rateLimitReset(reason);
+			if (!resetUntil && transportFailure(reason)) continue;
 			const previous = health.snapshot()[key];
 			if (health.held(key) && (!resetUntil || (previous?.resetUntil ?? 0) >= resetUntil)) continue;
 			if (hold <= 0 && !resetUntil) continue;
@@ -146,6 +165,7 @@ export class ModelWatch {
 		const modelId = rest.slice(slash + 1);
 		const selection = { [provider]: key.slice(at + 1) };
 		let outcome: "ok" | "throttled" | "broken" = "broken";
+		let failure: string | undefined;
 		let resetUntil: number | undefined;
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), 30000);
@@ -180,8 +200,10 @@ export class ModelWatch {
 					: /rate.?limit|too many requests|\b429\b|overloaded|quota/i.test(message.errorMessage ?? "")
 						? "throttled"
 						: "broken";
-		} catch {
+			failure = message.errorMessage ?? "";
+		} catch (error) {
 			outcome = "broken";
+			failure = error instanceof Error ? error.message : String(error);
 		} finally {
 			clearTimeout(timer);
 		}
@@ -194,6 +216,11 @@ export class ModelWatch {
 			if (resetUntil)
 				await health.hold([key], "429", (resetUntil - Date.now()) / 1000, this.probeWindow, 1, resetUntil);
 			else await health.probed([key], this.probeWindow);
+			return;
+		}
+		// A host that is still offline is no evidence against the candidate: reschedule the probe, add no hold.
+		if (transportFailure(failure)) {
+			await health.probed([key], this.probeWindow);
 			return;
 		}
 		// A failed probe extends the hold instead of only rescheduling the next probe (07 §6.1).

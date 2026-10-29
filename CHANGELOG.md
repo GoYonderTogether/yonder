@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 断网、合盖或代理中断后，主模型不再被冷却 10 分钟：连接被拒/重置/中断、DNS 失败、请求超时这类没拿到供应商响应的失败不再写入 `.yonder/model-health.json` 的持有，网络恢复后的下一次运行直接回到主模型；离线期间探测失败也只重排下一次探测，不延长持有。401/403/404/429/5xx 等供应商真实应答的冷却规则不变。
+
 - 通讯录区分「加载失败」「节点没有社交服务」「真的为空」：`ui/Contacts`（`#/contacts` 侧栏）失败时显示 `role="alert"` 与重试，不再和「没有常驻 Bot」同屏；`features/social/Contacts` 与 `ContactDetail` 把网关 404 或 fetch 直接失败（当前节点没有代理社交接口）显示为「当前节点没有提供社交服务」，其他错误显示具体原因与重试，只有接口返回空结果才说「联系人不存在」；真实空态给「添加好友」入口。分类与文案在 `features/social/lib/socialError.ts`，三种状态各有单测。
 
 - `sessions.watch` 被服务端 `end` 帧结束时，会话不再永远停在「连接中…」：`useSession` 接上 `onEnd`，`forbidden` 提示「没有权限查看这个会话」，`error` 提示连接出错并保留已有数据（mux 仍按契约带游标自动重订，重订后的 `ready` 清除提示），其他 reason（`closed`/`shutdown`/未知）给通用提示并保留数据，原始 reason 不上屏。补假 socket 喂 end 帧的单测（含重订回放）。

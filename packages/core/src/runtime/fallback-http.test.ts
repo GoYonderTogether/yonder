@@ -7,15 +7,16 @@ import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
 test.each([
-	[401, 1, true],
-	[404, 1, true],
-	[429, 1, true],
-	[500, 3, true],
-	[0, 3, true],
-	[400, 1, false],
+	[401, 1, true, true],
+	[404, 1, true, true],
+	[429, 1, true, true],
+	[500, 3, true, true],
+	// A request that never got an answer says nothing about the candidate: it switches and records no hold.
+	[0, 3, true, false],
+	[400, 1, false, false],
 ])(
 	"HTTP %i follows the native fallback policy",
-	async (status, attempts, switches) => {
+	async (status, attempts, switches, held) => {
 		const home = await mkdtemp("/tmp/yonder-http-fallback-");
 		const calls: string[] = [];
 		let recovered = false;
@@ -81,7 +82,7 @@ test.each([
 			const health = JSON.parse(
 				await readFile(`${home}/.yonder/model-health.json`, "utf8").catch(() => '{"models":{}}'),
 			) as { models: Record<string, unknown> };
-			expect(Boolean(health.models["local/first@default"])).toBe(switches);
+			expect(Boolean(health.models["local/first@default"])).toBe(held);
 			if (status === 429) {
 				expect((health.models["local/first@default"] as { resetUntil?: number }).resetUntil).toBeGreaterThan(
 					Date.now(),
