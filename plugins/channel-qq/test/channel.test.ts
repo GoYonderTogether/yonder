@@ -341,6 +341,35 @@ test("an unresolvable attachment is skipped with a readable warning while the te
 	}
 });
 
+test("a textless reply whose every attachment is skipped fails with the reason instead of sending nothing", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-empty-"));
+	try {
+		const calls: string[] = [];
+		const channel = testChannel(home, {
+			send: async () => {
+				calls.push("text");
+				return { id: "TEXT1" };
+			},
+			sendMedia: async () => {
+				calls.push("media");
+				return { message: { id: "MEDIA1" } };
+			},
+		});
+		// 正文为空、唯一附件又解析不了：不能悄悄发一条空消息，跳过原因要交回去。
+		const result = await channel.send("conv:qq-main:c2c:USER", {
+			text: "   ",
+			attachments: [{ kind: "file", mime: "application/pdf", uri: "http://example.com/a.pdf", name: "a.pdf" }],
+		});
+		expect(result).toMatchObject({
+			ok: false,
+			error: expect.stringContaining("a.pdf：只支持 https 链接：http://example.com/a.pdf"),
+		});
+		expect(calls).toEqual([]);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
 test("sendMedia uploads allowlisted local files; a partial failure never resends the text", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-qq-send-"));
 	try {
