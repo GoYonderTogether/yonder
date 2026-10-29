@@ -170,7 +170,7 @@ export async function initHome(
 				contexts: ["jarvis-soul", "jarvis-work"],
 				plugins: ["context-files", "agent-presets", "learning", ...(onboarding ? ["tasks", "onboarding"] : [])],
 			},
-			profiles: { owner: { level: "bypass", tools: { offer: ["read", "write", "edit", "bash"], search: ["*"] } } },
+			profiles: { owner: { level: "bypass", tools: { offer: ["*"] } } },
 			// 没有 cli 渠道实例的发行包（core）不写这条绑定，否则配置校验会报 unknown channel cli。
 			bindings: [
 				...(bundle.channels.cli
