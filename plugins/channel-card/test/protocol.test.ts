@@ -313,6 +313,24 @@ test("used and real invalid_code terminate polling; background confirmation and 
 	await vi.waitFor(() => expect(f.list.mock.calls.length).toBe(count + 1));
 });
 
+test("start survives an unreachable card service when a credential exists", async () => {
+	const f = await fixture();
+	await f.login();
+	await f.channel.stop();
+	f.list.mockRejectedValueOnce(new Error("CERT_HAS_EXPIRED"));
+	await expect(
+		f.channel.start({
+			emit: async () => {
+				throw new Error("unused");
+			},
+			ask: async () => {
+				throw new Error("unused");
+			},
+		}),
+	).resolves.toBeUndefined();
+	expect(f.api.log.warn).toHaveBeenCalledWith(expect.stringContaining("CERT_HAS_EXPIRED"), expect.anything());
+});
+
 test("failed emit never ack; card tool takes identity only from ToolContext", async () => {
 	const f = await fixture();
 	await f.login();

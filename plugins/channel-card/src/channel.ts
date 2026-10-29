@@ -135,7 +135,9 @@ export class CardChannel implements Channel {
 			if ((error as NodeJS.ErrnoException).code !== "ENOENT")
 				throw new Error("Card credential state invalid or endpoint changed");
 		}
-		if (this.token) await this.syncAgents();
+		// 名片服务不可达（如证书过期）只告警，由定时同步重试；不能让它拖垮整个 harness 启动。
+		if (this.token)
+			await this.syncAgents().catch((error: unknown) => this.warn(`Agent sync failed: ${(error as Error).message}`));
 		else await this.api.agents.list();
 		this.syncTimer = setInterval(() => {
 			if (this.token) void this.syncAgents().catch(() => this.warn("Agent sync failed"));
