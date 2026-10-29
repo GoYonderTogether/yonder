@@ -4,6 +4,12 @@ import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, Sha
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
 const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? "";
 
+/**
+ * 社交服务所在源站（缺省同源，不看应用挂载路径）：网关托管时应用在 /console/ 下，
+ * 而社交 API 仍在源站根，别拿 appBase 去拼社交端点。
+ */
+export const socialOrigin = (): URL => new URL(SOCIAL_BASE || "/", location.href);
+
 async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
 	const response = await fetch(`${SOCIAL_BASE}/api${path}`, {
 		credentials: SOCIAL_BASE ? "include" : "same-origin",
@@ -73,7 +79,7 @@ export const httpApi: ApiClient = {
 		let socket: WebSocket | undefined;
 		const connect = () => {
 			if (!active) return;
-			const origin = new URL(SOCIAL_BASE || "/", location.href);
+			const origin = socialOrigin();
 			const protocol = origin.protocol === "https:" ? "wss:" : "ws:";
 			const ws = new WebSocket(`${protocol}//${origin.host}/ws`);
 			socket = ws;

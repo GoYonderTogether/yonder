@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { socialOrigin } from "../api/http";
 import { RpcError, rpc } from "../work/api/client";
 import type { NodeFacts } from "../work/api/types";
 import { featureContext, featureVisible } from "../work/capabilities/features";
-import { appBase } from "./base";
 
 /**
  * 「工作」入口是否显示：由能力表（work/capabilities/features.ts 的 work）决定。
@@ -38,7 +38,11 @@ export function socialServiceOf(probe: { gatewayReachable: boolean; sessionStatu
 	return probe.gatewayReachable && probe.sessionStatus === 404 ? "none" : "present";
 }
 
-async function probeSocialService(): Promise<SocialService> {
+/**
+ * 探一次同源网关与社交服务：网关用应用挂载路径（/console/api/…），社交服务用 api/http.ts 同一个源站
+ * （缺省根，VITE_SOCIAL_BASE 可改）。两者混用会把网关注入的 401 当成「社交服务在线」。
+ */
+export async function probeSocialService(): Promise<SocialService> {
 	let gatewayReachable = false;
 	try {
 		await rpc("capabilities.get");
@@ -49,7 +53,7 @@ async function probeSocialService(): Promise<SocialService> {
 	if (!gatewayReachable) return "present";
 	let sessionStatus: number | null = null;
 	try {
-		sessionStatus = (await fetch(new URL("api/session", new URL(appBase(), location.origin)))).status;
+		sessionStatus = (await fetch(new URL("api/session", socialOrigin()))).status;
 	} catch {
 		/* 保持 null：按有社交服务处理 */
 	}
