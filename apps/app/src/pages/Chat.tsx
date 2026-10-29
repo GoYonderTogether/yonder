@@ -19,6 +19,7 @@ import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
 import { entityRef } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
+import { socialUnavailable } from "../lib/socialError";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
 import { needsVerify } from "../lib/verify";
@@ -26,6 +27,7 @@ import { readMarketDraft } from "../market/handoff";
 import { $session } from "../store";
 import { Avatar, Status } from "../ui/Avatar";
 import { toast } from "../ui/Toast";
+import { rpc } from "../work/api/client";
 
 const preview = (m?: Message) => {
 	if (!m) return "还没有消息";
@@ -41,6 +43,34 @@ const preview = (m?: Message) => {
 const clock = (t: number) =>
 	new Date(t).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
 
+/** 节点没有社交服务时，「消息」列出本节点的 Bot；点进去就是「工作」里同一个主会话。 */
+function BotRows({ q }: { q: string }) {
+	const { data, isError } = useQuery({
+		queryKey: ["bots-list"],
+		queryFn: () => rpc<{ bots: { agent: string; name: string; session?: string }[] }>("bots.list"),
+		retry: false,
+	});
+	const bots = (data?.bots ?? []).filter((b) => b.session && b.name.includes(q.trim()));
+	if (isError) return <p className="px-3 py-6 text-[14px] text-faint">没有可用的社交服务，也无法读取本节点的 Bot。</p>;
+	if (!bots.length) return <p className="px-3 py-6 text-[14px] text-faint">还没有 Bot 会话。</p>;
+	return (
+		<>
+			{bots.map((b) => (
+				<Link
+					key={b.agent}
+					to={`/work/${encodeURIComponent(b.session as string)}`}
+					className="press flex items-center gap-3 rounded-control px-2.5 py-2.5 hover:bg-tone"
+				>
+					<span className="flex h-10 w-10 items-center justify-center rounded-full bg-tone text-[16px]">
+						{b.name.slice(0, 1)}
+					</span>
+					<span className="truncate text-[15px] text-ink">{b.name}</span>
+				</Link>
+			))}
+		</>
+	);
+}
+
 function useActors(ids: string[]) {
 	const key = [...new Set(ids)].sort().join(",");
 	const { data } = useQuery({ queryKey: ["actors", key], queryFn: () => api.actors(key ? key.split(",") : []) });
@@ -55,6 +85,7 @@ export function ChatShell() {
 		data: convs,
 		isLoading,
 		isError,
+		error,
 		refetch,
 	} = useQuery({ queryKey: ["convs"], queryFn: api.conversations, refetchOnWindowFocus: true });
 	const actors = useActors((convs ?? []).flatMap((c) => c.memberIds));
@@ -84,6 +115,7 @@ export function ChatShell() {
 		[qc],
 	);
 
+	const noSocial = isError && !convs && socialUnavailable(error);
 	const shown = (convs ?? []).filter((c) => c.title.includes(q.trim()));
 	return (
 		<div className="flex h-full">
@@ -119,7 +151,8 @@ export function ChatShell() {
 								</span>
 							</div>
 						))}
-					{isError && (
+					{noSocial && <BotRows q={q} />}
+					{isError && !noSocial && (
 						<p role="status" className="px-3 py-2 text-small text-muted">
 							{convs ? "同步失败，仍显示已有会话。" : "会话加载失败。"}
 							<button type="button" className="underline" onClick={() => void refetch()}>
