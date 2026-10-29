@@ -90,6 +90,8 @@
 
 `yonder doctor` 展开每条链的候选（模型、槽、排序、是否被持有或额度停用）。一条链上一个能跑的候选都没有时 doctor 报错，逐个写明原因（失败冷却到期时间、额度停用线、本 home 声明过的供应商缺可用凭据）和修复方向，而不是只打印 `ok: true` 让主人在运行时逐轮收 `model_error`。
 
+**凭据类不可恢复错误。** OAuth 刷新被拒（`invalid_grant`、4xx）、缺 key、凭据读取失败发生在请求发出之前，原先文本不含鉴权关键字，链会把它当作「不可重试且不换候选」直接停止本次运行。现在这类错误在模型层被改写为 `authentication failed (credential unavailable; run \`yonder login <provider> --replace\`): <原文>`，按 401/403 处理：当次运行立即换下一个候选并继续；该 `provider/modelId@slot` 持有 24 小时（日志 `Model health` 告警一次）。同一供应商凭据独立的其他槽不受影响；参数类 4xx、仅网络失败的刷新不改写、不回退。`yonder doctor` 对这类持有给出警告和修复命令。重新登录后由探测（正常鉴权）成功清除持有，下一次运行回到原候选，不新增恢复机制。
+
 **429 重置期。** 供应商返回 429 且提供重置时间时，按响应头 `retry-after`、`retry-after-ms`、`x-ratelimit-reset` 或响应体的重置时间持有该模型和凭据槽，期间不请求也不探测；到期后恢复原链顺序。所有候选都在重置期时停止本次运行。未提供有效重置时间时沿用普通失败冷却。
 
 **官方用量窗口。** 供应商在正常响应里带回账户的用量窗口（`rate_limits`：`used_percent`、`window_minutes`、`resets_at`）。运行时在供应商事件上只读地取这份数据，按 `provider@slot` 记在 `<home>/.yonder/model-quota.json`，取 5 小时窗口（`window_minutes` 最接近 300 的那个），窗口重置时间缺失时按窗口长度推算。配置档 `fallback.quotaStopPercent` 给某个槽设停用线：已用百分比达到该值且窗口未重置时，该账号不参与链条排序的前半段（与失败持有同样只移到链尾）。这份数据先由正常响应只读刷新；某个槽被 `fallback.quotaStopPercent` 设线时，运行时每 60 秒向官方用量接口查一次（2026-10-27 用户批准，见 decisions），未设线时不发额外请求，接口请求本身不发起模型调用。停用与恢复都由窗口的 `resets_at` 决定，不靠探测。查询用运行时已有的槽内凭据：与模型槽并存的转换 Codex 凭据（`<slot>.codex.auth.json`），或槽文件本身是 Codex `tokens` 结构时，访问令牌已过期或距过期不足 60 秒就先按 Codex 刷新协议刷新，再发用量请求；接口返回 401 时强制刷新一次并只重试一次。刷新结果原地原子写回同一文件（0600，保留未知字段，`last_refresh` 为注入时钟的 ISO 时间），同一路径的并发刷新合并为一次，写前重读文件以免重复轮换；刷新失败（网络、非 2xx、缺 `access_token`）按不可用处理，不抛错也不写文件。pi OAuth 凭据不在这里刷新，过期仍按不可用处理。

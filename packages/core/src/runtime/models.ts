@@ -19,6 +19,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { builtinProviders } from "@earendil-works/pi-ai/providers/all";
 import { Errors } from "typebox/value";
+import { withCredentialMark } from "./credential-failure.js";
 import { protocols } from "./model-protocols.js";
 import { ProviderConfigSchema } from "./model-schema.js";
 import { enableProviderTrace, traceCredentials, traceModel } from "./provider-trace.js";
@@ -486,5 +487,11 @@ export function buildModels(
 		}
 	if (timeouts.firstTokenMs || timeouts.totalMs)
 		for (const provider of models.getProviders()) models.setProvider(withTimeouts(provider, timeouts));
+	// Auth resolution runs in `models.stream*`, above every provider wrapper, so credential errors are marked here.
+	for (const name of ["stream", "streamSimple"] as const) {
+		const original = models[name].bind(models);
+		models[name] = ((model: Model<Api>, context: never, options: never) =>
+			withCredentialMark(original(model, context, options), model.provider)) as typeof models.stream;
+	}
 	return models;
 }

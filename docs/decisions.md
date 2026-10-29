@@ -808,3 +808,4 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 网页：登录后直接进聊天列表（桌面端默认打开小歪的会话），PersonalAgentGate 不再拦截；`/pa` 重定向到 `/`；删除选择/创建引导页。「我」页「我的 Bot」旁的「新建 Bot」只要名字。用户可见的 Agent 一律写 Bot，代码标识符、接口字段、路由不改。
 - 契约增补（网页 → 社交服务，见 docs/spec/16-card-plugin.md「默认 Bot 与云端创建」）：`POST /api/me/default-bot`（幂等）、`POST /api/bots`。服务端实现在 yonder-cloud 仓库，本仓库只含客户端与 mock，未做服务端。
 - 主 Agent 代批 10-29：账号内「没有任何自己的 Bot」包含设备接入的本地 Bot；已接入设备的账号不会再多出小歪。
+- 主 Agent 代批 10-29：模型链遇凭据类不可恢复错误（OAuth invalid_grant、缺 key）在模型层标记为鉴权失败，当次运行回退下一候选，该槽持有 24 小时并由现有探测在重新登录后恢复；doctor 警告提示 `yonder login <provider> --replace`。见 docs/spec/07-runtime.md §6.1。

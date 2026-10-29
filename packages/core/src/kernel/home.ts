@@ -14,6 +14,7 @@ import {
 import { socialReferenceErrors } from "../config/social-validation.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
+import { CREDENTIAL_MARK } from "../runtime/credential-failure.js";
 import { chainKey, modelChain } from "../runtime/model-chain.js";
 import { ModelGate } from "../runtime/model-gate.js";
 import { ModelHealth } from "../runtime/model-health.js";
@@ -348,6 +349,12 @@ export async function inspectHome(home: string) {
 			const error = unusableChainError(chain.profile, chain.entries);
 			if (error) errors.push(error);
 		}
+		// 凭据类不可恢复错误（OAuth invalid_grant、缺 key）会让候选进入冷却并回退；提示主人重新登录。
+		for (const [key, record] of Object.entries(healthRecords))
+			if (record.until > Date.now() && record.reason.includes(CREDENTIAL_MARK))
+				warnings.push(
+					`${key}: 凭据不可用，运行已回退到下一个候选；重新登录后自动恢复：${record.reason.match(/run `([^`]+)`/)?.[1] ?? "yonder login <provider> --replace"}`,
+				);
 		const skills = skillsFor(home, config, plugins, () => {});
 		for (const agent of agents.values())
 			for (const profile of Object.keys(agent.profiles)) {
