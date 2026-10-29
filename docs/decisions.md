@@ -608,3 +608,11 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - `tasks_update` 的顶层 `id` 改为可选：给 `id` 走单项更新，给 `updates[]`（1–100 条，每项必须带 `id`）走同一个事务的批量更新，任一条不合法整批回滚；两者同时给报 `Pass either id or updates, not both`，都不给报 `update requires id or updates`。
 - `packages/core/src/runtime/todo.ts` 的 `completed` 只能迁到 `deleted`（C9 单向），同时只有一个进行中的报错文案改为 `Task #N is already in progress; complete or reset it before starting #M`（T3 可读化，语义不变）。
 - 改动范围说明：卡里允许路径只列了 `store/schema.ts`、`store/append.ts`、`todo.ts` 与 `plugins/tasks/test/**`，但 `contract`/`lightweight`/`parent` 的类型在 `plugins/tasks/src/store/project.ts`、存储入口在 `store/index.ts`、工具 schema 在 `plugins/tasks/src/index.ts`，C9/T3 的既有断言在 `packages/core/src/runtime/todo.test.ts`；这几处只做完成本卡所必需的追加改动。`metadata` 的工具描述与 prompts 文案未改（归 O52）。
+
+## 2026-10-29 IMP-14/15/16 群监听模式、快照合并与群标签（主 Agent 代批）
+
+- 插件只依赖 `@yonder/sdk`，读不到 `packages/core/src/config/social-schema.ts` 的默认值：`plugins/social/src/modes.ts` 的 `listenDefaults`、`tags.ts` 的 `tagDefaults`/`modeDefaults` 各留一份同值副本，改内核默认值时需同步这三处。
+- `social.judge.model` 在 Agent 级配置里，插件侧目前没有读取路径（`PluginAPI.config` 是插件自己的 `yonder.yaml` 配置）；`plugins/social/src/snapshots.ts` 的 `judgeModel()` 先读插件配置的同名字段，缺省 `cheap`，Agent 级下发留给后续 core 卡，不在此处新造 API。
+- 判定沿用 `sessions.open({judgment: true})` 的便宜模型槽（`packages/core/src/sessions/index.ts` 要求显式 cheap/simple 模型来源），因此槽名直接作 preset；具体 provider/model 名暂仍落在便宜槽上。
+- 快照只接管带 `messages`/`trigger` 的 `social.batch-ready`（监听模式引擎排出的批次）；旧 `Batches` 路径的批次没有这两个字段，继续走原来的 `ask` 流程，互不影响。注入文案归 O52，这里只发 `social.snapshot-reply` 事实事件（`unread` 为全部未读）。
+- 群标签/模式工具沿用内核既有的「预览 → 主人私聊确认」权限路径，`group_*` 工具描述保持最小功能描述（文案归 O52）；`plugins/social/package.json` 的 `contributes.tools` 未增列新工具：不在此卡允许路径内，且运行时不对该字段做校验。
