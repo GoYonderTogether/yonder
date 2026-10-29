@@ -194,6 +194,7 @@ type ServerFrame =
 | `approval.requested` / `approval.answered` | `activity.watch` | secrets 插件（原事件 `secrets.approval.requested/answered`） | 右栏「等你回答」、审批记录、托盘计数 | 新增·A |
 | `views.changed` | `views.watch` | 插件 `ctx.invalidate()` | 右栏、悬浮窗 | 新增·A |
 | `notification` | `activity.watch` | `sessions.notify` 与 `SessionNotification` | 通知中心、托盘 | 已有（`SessionNotification`）；节点级投递·新增·B |
+| `social.policy-change` | —（只进事件库，未上流） | `packages/core/src/kernel/social.ts` `options.record`（`from: plugin:social`） | 暂无（审计事实） | 已有（CH-06r3，形状见 §15.3） |
 | `capabilities.changed` | `activity.watch` | 插件重载（`config.reload` 事件，`ConfigReloadData`） | 前端重拉 `capabilities.get` | 新增·B |
 
 ### 3.2 会话生命周期与 transcript
@@ -584,8 +585,11 @@ interface WakeRow { id: string; at: string; source: "channel" | "cron" | "voice"
 interface WakeUpdatedEv { session: string; rows: WakeRow[] }          // 最近 20 条，全量替换
 interface GoalUpdatedEv { session: string; goal: null | { text: string; state: "active"|"paused"|"done"|"abandoned"; steps?: { text: string; done: boolean }[]; updatedAt: string } }
 interface AttachmentRow { id: string; uri: string; name?: string; mime: string; bytes?: number; at: string; from?: "user" | "agent" }
+interface SocialPolicyEv { mode?: "direct"|"record"|"mention"|"batch"|"folded"|"mute"; batch?: { count?: number; delaySeconds?: number; maxMessages?: number; maxBytes?: number; run?: boolean }; minIntervalSeconds?: number; signals?: Record<string, "record"|"consider"|"respond">; keywords?: string[]; quiet?: { timezone: string; start: string; end: string }; foldedEverySeconds?: number; judge?: { preset: string; maxCallsPerHour?: number } }
+interface SocialPolicyChangeEv { actor: string; sourceEvent?: string; before: SocialPolicyEv; after: SocialPolicyEv; reason: string; revision: string; result: "applied" | "rejected" }   // social.policy-change：插件审计事实，成功与拒绝都记录
 ```
    `wake.updated`、`goal.updated` 与 §3.4 三者同为全量替换语义。
+   `social.policy-change` 只追加进事件库（`from: plugin:social`），当前没有任何 watch 流投递它；字段以 `packages/protocol/src/gateway/social.ts` 的 `SocialPolicyChangeEvSchema` 为准。
 
 ### §16 通知偏好与建议卡
 
