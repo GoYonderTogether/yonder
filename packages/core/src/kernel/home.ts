@@ -370,10 +370,13 @@ export async function inspectHome(home: string) {
 						`${agent.id}/${name}: fallback 只有主模型 ${model} 本身，等于没有备用；已按无备用处理，沿用自动重试。`,
 					);
 			}
+			// BE-13：这条链路断了主人要能看懂影响、知道改哪个文件、改完怎么复查。
 			if (!canReceivePeerAsk(agent)) {
 				const fix = peerFix(agent, env, config.defaultModel);
+				const workspace = config.agents?.find((item) => item.id === agent.id)?.workspace ?? `./agents/${agent.id}`;
+				const file = `${workspace.replace(/^\.\//, "").replace(/\/$/, "")}/agent.yaml`;
 				warnings.push(
-					`${agent.id}: 其他 agent 的 agent_ask 收不到它（没有 channel=agent、kind=agent 的绑定；若是有意隔离可忽略）。${fix ? `加入 agent.yaml：\n${fix}` : "它已有同名 peer 配置，请检查绑定。"}`,
+					`${agent.id}: 别的 agent 用 agent_ask 问它时永远送不到——它没有 channel=agent、kind=agent 的绑定，peer 协作链在这里断开（调用方只会拿到「这是配置缺口」，不是它拒绝）。有意隔离可以忽略。修复：在 ${file} 里补上下面这段，然后运行 yonder doctor 复查。${fix ? `\n${fix}` : "它已有同名 peer 配置，请检查绑定。"}`,
 				);
 			}
 		}
