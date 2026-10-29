@@ -5,7 +5,15 @@ export default definePlugin({
 	async setup(api) {
 		for (const name of ["general", "coding", "research"]) {
 			const text = await readFile(new URL(`../prompts/tasks/${name}.md`, import.meta.url), "utf8");
-			api.contexts.register({ id: `task-${name}`, placement: "system", render: () => text.trim() });
+			api.contexts.register({
+				id: `task-${name}`,
+				placement: "system",
+				async render(ctx) {
+					if (name !== "general" || !ctx.projectRules) return text.trim();
+					const rules = await ctx.projectRules();
+					return [text.trim(), ...rules.map((rule) => `# ${rule.path}\n\n${rule.content}`)].join("\n\n");
+				},
+			});
 		}
 		for (const [id, description] of [
 			["default", "Complete a bounded general task with explicit inputs and verifiable results."],
