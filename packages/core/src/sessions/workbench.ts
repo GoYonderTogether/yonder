@@ -46,6 +46,7 @@ export function createWorkbench({
 		pin: (id: string) => apply(id, { pinned: true }),
 		unpin: (id: string) => apply(id, { pinned: false }),
 		rename: (id: string, title: string) => apply(id, { title }),
+		attach: (id: string, parent: string) => apply(id, { parent }),
 		async handUp(id: string, reason: string) {
 			const session = await apply(id, { needsOwner: { reason, since: Date.now() } }, reason);
 			await notify(id, { event: "session.hand-up", text: reason });

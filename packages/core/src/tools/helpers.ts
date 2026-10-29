@@ -1,4 +1,20 @@
-import type { ToolContext } from "@yonder/sdk";
+import type { Tool, ToolContext, ToolResult } from "@yonder/sdk";
+import { coreToolCapabilities } from "./catalog.js";
+
+export const fail = (e: unknown): ToolResult => ({ text: e instanceof Error ? e.message : String(e), isError: true });
+/** Capability metadata comes from the catalog; every failure becomes a tool result instead of a thrown call. */
+export const tool = (definition: Omit<Tool, "capabilities">): Tool => ({
+	capabilities: coreToolCapabilities[definition.name]!,
+	...definition,
+	execute: async (args, ctx) => {
+		try {
+			ctx.signal.throwIfAborted();
+			return await definition.execute(args, ctx);
+		} catch (error) {
+			return fail(error);
+		}
+	},
+});
 
 export function requireCapability(ctx: ToolContext, capability: "admin" | "cross-agent" | "message" | "read") {
 	if (!ctx.capabilities.includes(capability)) throw new Error(`需要 ${capability} 能力。`);

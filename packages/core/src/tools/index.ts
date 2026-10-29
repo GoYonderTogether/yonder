@@ -22,11 +22,12 @@ import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { ownerIdentity } from "../store/sessions.js";
 import { coreToolCapabilities } from "./catalog.js";
-import { requireCapability, withSignal } from "./helpers.js";
+import { fail, requireCapability, tool, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
 import { sourceBlock } from "./sources.js";
 import { createTaskControl } from "./task-control.js";
 import { asyncSchema, attachmentSchema, effortSchema, schema, sourcesSchema, text } from "./tool-schema.js";
+import { createWorkbenchTools } from "./workbench.js";
 
 coreToolCapabilities.model_route = ["read"];
 interface CoreToolsOptions {
@@ -41,21 +42,8 @@ interface CoreToolsOptions {
 	defaultModel?: string;
 }
 const result = (value: unknown): ToolResult => ({ text: typeof value === "string" ? value : JSON.stringify(value) });
-const fail = (e: unknown): ToolResult => ({ text: e instanceof Error ? e.message : String(e), isError: true });
 export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	const { store, agents, sessions, runtime, delivery, ask, getPreset } = options;
-	const tool = (definition: Omit<Tool, "capabilities">): Tool => ({
-		capabilities: coreToolCapabilities[definition.name]!,
-		...definition,
-		execute: async (args, ctx) => {
-			try {
-				ctx.signal.throwIfAborted();
-				return await definition.execute(args, ctx);
-			} catch (error) {
-				return fail(error);
-			}
-		},
-	});
 	const sameAgent = (session: SessionInfo, ctx: ToolContext) => {
 		if (session.agent !== ctx.agent) requireCapability(ctx, "cross-agent");
 	};
@@ -495,5 +483,6 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				return result({ ok: true });
 			},
 		}),
+		...createWorkbenchTools({ store, agents, sessions, ask, runtime }),
 	];
 }

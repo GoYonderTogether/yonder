@@ -15,12 +15,16 @@ export const capabilityMap: Record<string, Capability[]> = {
 };
 export type CatalogTool = { name: string; capabilities: Capability[]; plugin?: string };
 const mainOnlyByDefault = new Set(["session_list", "session_read"]);
+/** Optional workbench tools (contracts §18): a wildcard never offers them, only their full name does. */
+const explicitOnly = new Set(["session_archive", "session_hand_up", "bot_ask", "bot_request", "bot_attach"]);
 export function describeCatalog(config: RuntimeSessionConfig, catalog: CatalogTool[]) {
 	const tools = catalog.map((tool) => {
 		const missing = tool.capabilities.filter((capability) => !config.resolved.capabilities.includes(capability));
 		const selected = !tool.plugin || config.resolved.plugins.includes(tool.plugin);
 		const explicit =
-			config.agent !== null && config.agent !== "main" && !tool.plugin && mainOnlyByDefault.has(tool.name);
+			!tool.plugin &&
+			(explicitOnly.has(tool.name) ||
+				(config.agent !== null && config.agent !== "main" && mainOnlyByDefault.has(tool.name)));
 		const matchesCeilings = (kind: "offer" | "search") =>
 			(config.resolved.delegationCeilings ?? []).every((ceiling) =>
 				ceiling.explicitSessionTools && !tool.plugin && mainOnlyByDefault.has(tool.name)

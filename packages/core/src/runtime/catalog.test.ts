@@ -148,3 +148,19 @@ test("anchor edit tools are offered and gated by the write capability", () => {
 		expect(catalog(["read"]).find((tool) => tool.name === name)?.exposure).toBe("capability-denied");
 	}
 });
+
+test("workbench tools stay out of wildcard offers and need their exact name", () => {
+	const config = { agent: "main" as string | null, profile: "owner", cwd: process.cwd() };
+	const exposure = (agent: string | null, offer: string[], search: string[] = []) =>
+		inspectToolCatalog(
+			{ ...config, agent, resolved: resolveProfile({ level: "bypass", tools: { offer, search } }) },
+			new Map(),
+		);
+	for (const name of ["session_archive", "session_hand_up", "bot_ask", "bot_request", "bot_attach"]) {
+		expect(exposure("main", ["*"]).find((tool) => tool.name === name)?.exposure).toBe("not-selected");
+		expect(exposure(null, ["*"]).find((tool) => tool.name === name)?.exposure).toBe("not-selected");
+		expect(exposure("main", ["*", name]).find((tool) => tool.name === name)?.exposure).toBe("offer");
+		expect(exposure(null, [name]).find((tool) => tool.name === name)?.exposure).toBe("offer");
+		expect(exposure("main", ["*"], [name]).find((tool) => tool.name === name)?.exposure).toBe("search");
+	}
+});

@@ -773,6 +773,7 @@ interface SessionWorkbenchFields {
 - 与 scope 的关系：不新增 Scope 值。工具执行时按调用者所属主体检查同名方法所需 scope（archive/pin = write，Bot 会话 = owner）；`session.manage` 是会话授权位，不是 `Scope`。
 - 错误码沿用 `forbidden` / `not_found` / `invalid_params`；Bot 未接收 `bot_ask`/`bot_request` 时返回 `Bot X did not accept the request (<reason>)`（同 `bots.send` 口径）。
 - `bots.list` 的 `channels` / `sessionsOverview` 即 `bots.overview` 的汇总。
+- 已实现（主 Agent 代批 10-29）：`packages/core/src/tools/workbench.ts`，能力表在 `packages/core/src/tools/catalog.ts`，`packages/core/src/runtime/catalog.ts` 的 `explicitOnly` 让 `tools.offer` 的通配符不覆盖这五个工具（只有写出完整名字才启用）。落地偏差：`session.manage` 目前没有对应字段，`session_archive` 以「调用者自己的会话，或自己名下 Bot 的会话」为授权判据；审批项尚未实现（`approvals-methods.ts` 为空），`bot_request` 以 `kind:"dm"` 消息把 `{action, detail}` 交给目标 Bot，由它按自身策略处理并返回答复；`bot_attach` 只改 `parent`，基础会话本身即主人会话，视为已授权。
 
 **实现归属**：A 线内核（会话字段、方法、工具、事件、小模型命名）；B 线 gateway 注册方法与事件转发；apps/app 在后端未实现前对新字段显示空态，dev 原型可用 mock 层并标 `// PROTOTYPE:`。
 
