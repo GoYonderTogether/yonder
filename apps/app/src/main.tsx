@@ -128,7 +128,7 @@ function Bootstrap() {
 	return (
 		<>
 			<PersistenceProvider>
-				<BrowserRouter basename={routerBasename()}>
+				<BrowserRouter basename={routerBasename()} useTransitions={false}>
 					<App />
 				</BrowserRouter>
 			</PersistenceProvider>
