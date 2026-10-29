@@ -9,6 +9,8 @@ import { Button } from "../../ui/kit/Button";
 import { CardFaceView } from "./card/CardFace";
 import { renderCardImage } from "./card/image";
 import { THEMES } from "./card/themes";
+import { rememberShareToken, shareLinkKey, shareLinkUrl } from "./lib/shareLinks";
+import { ShareLinks } from "./ShareLinks";
 
 function CardContent({
 	card,
@@ -27,7 +29,39 @@ function CardContent({
 	const [image, setImage] = useState("");
 	const [message, setMessage] = useState("");
 	const canShare = (!card || card.status === "published") && (actor.kind !== "agent" || actor.public === true);
-	const url = `${location.origin}${location.pathname}${href({ tab: "chats", page: actor.kind === "agent" || !card ? "p" : "u", session: actor.kind === "agent" || !card ? (actor.code ?? actor.id) : (card.code ?? card.id) })}`;
+	const base = `${location.origin}${location.pathname}`;
+	const hash = href({
+		tab: "chats",
+		page: actor.kind === "agent" || !card ? "p" : "u",
+		session: actor.kind === "agent" || !card ? (actor.code ?? actor.id) : (card.code ?? card.id),
+	});
+	const plainUrl = `${base}${hash}`;
+	/**
+	 * 分享二维码/链接优先用服务端生成的分享链接（`?share=<token>`），访客凭它登录时服务端才计配额。
+	 * 只有自己的名片（含自己 Agent 的名片，即 card.mine）能生成；别人的名片、访客身份退回普通地址。
+	 */
+	const [share, setShare] = useState<{ id: string; url: string }>();
+	const link = useMutation({
+		mutationFn: async () => {
+			if (!card?.mine) return "";
+			const session = await httpApi.session();
+			if (!session || session.actor.anonymous) return "";
+			const created = await httpApi.createShareLink({ kind: "card", targetId: card.id });
+			rememberShareToken(shareLinkKey("card", card.id), created.token);
+			return shareLinkUrl(created, hash, base);
+		},
+		onSuccess: (generated) => {
+			if (generated) setShare({ id: card?.id ?? actor.id, url: generated });
+		},
+		onError: () => setMessage("分享链接生成失败，已改用普通链接"),
+	});
+	const url = share?.id === (card?.id ?? actor.id) ? share.url : plainUrl;
+	const toggleSharing = () => {
+		const next = !sharing;
+		setSharing(next);
+		// 每次打开分享都请求一次：服务端对同一名片会复用未过期的链接，不会每次都新增配额。
+		if (next) link.mutate();
+	};
 	const start = useMutation({
 		mutationFn: async () => {
 			if (!(await httpApi.session())) {
@@ -52,7 +86,7 @@ function CardContent({
 						开始聊天
 					</Button>
 				)}
-				{canShare && <Button onClick={() => setSharing(!sharing)}>分享名片</Button>}
+				{canShare && <Button onClick={toggleSharing}>分享名片</Button>}
 			</div>
 			{message && (
 				<p role="alert" className="mt-2 text-center">
@@ -97,6 +131,7 @@ function CardContent({
 					>
 						复制链接
 					</Button>
+					{card?.mine && <ShareLinks kind="card" targetId={card.id} label={actor.name} hash={hash} />}
 				</section>
 			)}
 		</>

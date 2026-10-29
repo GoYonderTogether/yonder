@@ -6,6 +6,8 @@ import { type ConversationDetail, httpApi } from "../../../api/social";
 import { href } from "../../../shell/routes";
 import { ActorAvatar } from "../../../ui/kit/ActorAvatar";
 import { Button } from "../../../ui/kit/Button";
+import { rememberShareToken, shareLinkKey, shareLinkUrl } from "../lib/shareLinks";
+import { ShareLinks } from "../ShareLinks";
 
 export function ChatDetail({
 	conversation,
@@ -24,6 +26,24 @@ export function ChatDetail({
 		enabled: conversation.kind === "group",
 	});
 	const members = conversation.kind === "dm" ? conversation.members.filter((m) => m.id !== meId) : conversation.members;
+	// 群二维码改用服务端分享链接：访客凭 ?share= 登录时按链接计配额。非成员/访客生成失败时退回群邀请地址。
+	const share = useQuery({
+		queryKey: ["social", "share-link", conversation.id],
+		queryFn: async () => {
+			const created = await httpApi.createShareLink({ kind: "group", targetId: conversation.id });
+			rememberShareToken(shareLinkKey("group", conversation.id), created.token);
+			return created;
+		},
+		enabled: conversation.kind === "group" && !!invite.data,
+		retry: false,
+	});
+	const inviteHash = invite.data ? href({ tab: "chats", page: "g", session: invite.data.token }) : "";
+	const inviteUrl = `${location.origin}${location.pathname}`;
+	const qrValue = share.data
+		? shareLinkUrl(share.data, inviteHash, inviteUrl)
+		: invite.data
+			? `${inviteUrl}${inviteHash}`
+			: "";
 	const leave = async () => {
 		try {
 			await httpApi.leaveConversation(conversation.id);
@@ -83,16 +103,14 @@ export function ChatDetail({
 							群名称 <span className="float-right">{conversation.title}</span>
 						</p>
 						<div className="flex flex-col items-center gap-3 rounded-card bg-tone/50 p-5">
-							{invite.data && (
+							{qrValue && (
 								<div className="rounded-control bg-white p-3">
-									<QRCodeSVG
-										value={`${location.origin}${href({ tab: "chats", page: "g", session: invite.data.token })}`}
-										size={140}
-									/>
+									<QRCodeSVG value={qrValue} size={140} />
 								</div>
 							)}
 							{invite.isError && <p role="alert">群二维码加载失败</p>}
 							<p className="text-[12px] text-muted">群二维码</p>
+							<ShareLinks kind="group" targetId={conversation.id} label={conversation.title} hash={inviteHash} />
 						</div>
 						<Button className="mt-4 w-full text-danger" onClick={() => void leave()}>
 							退出群聊
