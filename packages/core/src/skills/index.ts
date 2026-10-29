@@ -161,7 +161,11 @@ export function createSkills({ home, pluginDirs, pluginSources, workspace, onIss
 				const fullFile = join(source.root, found.file);
 				try {
 					const parsed = parseSkillFrontmatter(await source.files.readFile(found.file));
-					const selected = (session.resolved.skills ?? ["*"]).some((pattern) => matchesGlob(pattern, parsed.name));
+					const selected =
+						(session.resolved.skills ?? ["*"]).some((pattern) => matchesGlob(pattern, parsed.name)) &&
+						(session.resolved.delegationCeilings ?? []).every((ceiling) =>
+							ceiling.skills.some((pattern) => matchesGlob(pattern, parsed.name)),
+						);
 					const directory = resolve(source.root, found.directory);
 					const entry: SkillEntry = {
 						...parsed,

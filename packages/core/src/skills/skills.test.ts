@@ -2,10 +2,39 @@ import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/test-support.js";
+import { presetSession } from "../config/index.js";
+import { presetProfile, resolveProfile } from "../config/test-support.js";
 import { localEnvironment, workspaceFiles } from "../runtime/env.js";
 import { createSkills } from "./index.js";
 import { addLocalSkill, removeLocalSkill } from "./manage.js";
+
+test("child skill selection and skill_view cannot escape a saved parent ceiling", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-skill-ceiling-"));
+	try {
+		for (const name of ["notes-public", "private"]) {
+			await mkdir(join(home, "skills", name), { recursive: true });
+			await writeFile(
+				join(home, "skills", name, "SKILL.md"),
+				`---\nname: ${name}\ndescription: Test skill\n---\n${name}`,
+			);
+		}
+		const opener = resolveProfile({ skills: ["notes-*"] });
+		const saved = presetSession({}, "local", opener);
+		const child = presetProfile(
+			{ skills: ["*"] },
+			"local",
+			saved.capabilities,
+			JSON.parse(JSON.stringify(saved.inherit)),
+		);
+		const session = { agent: null, profile: "child", cwd: home, resolved: child };
+		const skills = createSkills({ home, pluginDirs: [] });
+		expect((await skills.view(session, "notes-public")).text).toContain("notes-public");
+		await expect(skills.view(session, "private")).rejects.toThrow();
+		expect((await skills.inspect(session)).skills.find((skill) => skill.name === "private")?.selected).toBe(false);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
 
 test("workspace skill shadows home and skill_view stays inside its directory", async () => {
 	const root = await mkdtemp(join(tmpdir(), "yonder-skills-"));
