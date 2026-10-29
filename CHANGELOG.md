@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+## [0.3.26102902] - 2026-10-29
+
+### Added
+
+- channel-feishu：one-click PersonalAgent app creation with full scopes via channels.login
+- learning：所有 Bot 默认学习，预设与按会话可信度的写入策略
+- settings：设置页增加社交分区（FIX-social-01/E2E-13）
+- kernel：注册 subagent 工具、补齐渠道命令表（IMP-24/IMP-23 收口）
+- channel-feishu：channel-feishu_scopes tool and scope hint on 99991672/99991679
+- BE-12：弃用插件在 doctor 里给出 yonder migrate 迁移路径
+- settings：通知偏好改走网关 notifications.prefs（FIX-settings-01）
+- core：add /reload /copy /name /trust /settings and /jobs /logs /kill aliases (IMP-23)
+- IMP-24：subagent management-action tool (run/list/status/stop)
+- app：设置页增加渠道接入 channels.list/login (FIX-channels-01)
+- app：无社交服务时「消息」列出 bots.list 的 Bot，链到工作页同一主会话 (FIX-msg-01)
+
+### Fixed
+
+- channel-card：名片服务不可达时启动只告警，不再拖垮 harness 启动
+- sessions：运行失败不再关闭 task 会话，失败后仍可继续（BE-05）
+- mcp-client：凭据错误指明 reference 与授权方式，登记 OAuth 缺口（BE-14）
+- routing：名片渠道主人私聊点名走零配置入口并留下丢弃原因（BE-04）
+- release：更新自检逐条说明未核验事实并可重试（BE-10）
+- app：找不到会话的状态与通知来源显示名（FIX-work-03）
+- core：fork records parent (two-layer cap) and bots.overview returns Bot sessions (FIX-core-02)
+
 ## [0.3.26102901] - 2026-10-29
 
 ### Added
