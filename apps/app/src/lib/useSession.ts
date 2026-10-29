@@ -24,9 +24,24 @@ export const emptyView: SessionView = {
 
 type Act =
 	| { k: "reset" }
-	| { k: "snapshot"; snap: SessionSnapshot; gap: boolean }
+	/** stream=true：来自 sessions.watch 的 ready（不是 sessions.show 的元信息刷新），成功后清掉订阅结束的提示。 */
+	| { k: "snapshot"; snap: SessionSnapshot; gap: boolean; stream?: boolean }
 	| { k: "ev"; type: string; data: Record<string, unknown> }
-	| { k: "older"; items: ChatItem[]; hasMore: boolean };
+	| { k: "older"; items: ChatItem[]; hasMore: boolean }
+	| { k: "end"; reason: string };
+
+/**
+ * 服务端 end 帧（contracts §2.2）的 reason → 界面提示。
+ * error 时 mux 会带游标自动重订（§2.4），所以文案说「正在重试」；其余 reason 不自动重订，如实说明。
+ * 未知 reason 只给通用提示，不把原始值直接塞进界面。
+ */
+const END_TEXT: Record<string, string> = {
+	forbidden: "没有权限查看这个会话",
+	error: "会话连接出错，正在重试…",
+	closed: "会话订阅已结束，已显示最后收到的内容",
+	shutdown: "节点正在关闭，连接已断开",
+};
+const endText = (reason: string): string => END_TEXT[reason] ?? "会话订阅已结束，已显示最后收到的内容";
 
 interface UpdateShape {
 	type: string;
@@ -81,6 +96,7 @@ export function reduce(s: SessionView, a: Act): SessionView {
 			items: [...a.items, ...s.items.filter((i) => !a.items.some((o) => o.id === i.id))],
 			hasMore: a.hasMore,
 		};
+	if (a.k === "end") return { ...s, running: false, error: endText(a.reason) };
 	if (a.k === "snapshot") {
 		const { snap, gap } = a;
 		// gap=true：服务端丢了游标，本地增量全部作废，只按快照重建（contracts §2.3.3）。
@@ -91,7 +107,9 @@ export function reduce(s: SessionView, a: Act): SessionView {
 			session: snap.session ?? s.session,
 			items: snap.transcript ? fromTranscript(snap.transcript.items) : gap ? [] : s.items,
 			hasMore: snap.transcript?.hasMore ?? (gap ? false : s.hasMore),
-			error: gap ? undefined : s.error,
+			// 一次成功的流快照说明订阅已经恢复（例如 end{error} 之后 mux 带游标重订成功），清掉上次的结束提示。
+			// sessions.show 的元信息刷新不改 error：它不是订阅恢复的证据。
+			error: a.stream || gap ? undefined : s.error,
 		};
 		return withMeta(chat, { k: "snapshot", snap, gap });
 	}
@@ -119,8 +137,10 @@ export function useSession(id: string | undefined): LiveView {
 			"sessions.watch",
 			{ id },
 			{
-				onReady: (result, gap) => dispatch({ k: "snapshot", snap: result as SessionSnapshot, gap }),
+				onReady: (result, gap) => dispatch({ k: "snapshot", snap: result as SessionSnapshot, gap, stream: true }),
 				onEvent: (type, data) => dispatch({ k: "ev", type, data: (data ?? {}) as Record<string, unknown> }),
+				// 服务端 end（forbidden/error/closed/shutdown/slow-consumer）不会再发 ready：不处理就会永远停在「连接中…」。
+				onEnd: (reason) => dispatch({ k: "end", reason }),
 			},
 		);
 	}, [id]);
