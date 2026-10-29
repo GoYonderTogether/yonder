@@ -10,6 +10,8 @@ task_continue({text}) 表示已有授权目标的一项具体后续步骤，使�
 
 bash增加background/yield、进程日志/输入/结束管理，保持命令、cwd、退出码和stderr语义。普通命令默认不保留可写stdin，避免非交互搜索等输入；需要进程输入时显式设置bash的stdin=true，使用process.write写入，可附eof=true结束输入（可不附text）。background只决定何时让出，不改变stdin语义。可交互进程使用原生管道；未提供PTY不得标称PTY。通用工具均走共享异步边界，不能只修bash而阻塞task_run或插件工具。权限校验和hook仍在原调用链，不增加另一层授权。
 
+模型侧另有 pi 同名的四个后台工具，bash 与 process 仍为内核能力：`bg_run({command, name?, notify?})` 立即以 bash 原生后台任务启动并返回句柄，`name` 为展示名（缺省取命令前几词），`notify:false` 不投递完成通知；`bg_status({taskId?})` 省略时列出本会话已转后台的任务，`bg_logs({taskId, maxBytes?, tail?})` 从完整日志文件按字节读取，`maxBytes` 默认且上限 50KB，`tail` 默认 true，截断时给出完整日志路径；`bg_kill({taskId})` 停止运行中的任务，已结束或未知则报错，停止后状态为 killed。taskId 接受完整 id 或无歧义前缀，只解析本会话句柄。完成通知按 pi `<background-task-notification>` 结构（task-id/task-name/status/exit-code/error/output-file/summary/guidance）只带终态元数据；有日志文件的任务不内联输出，无日志文件的结果（如 task_run）在 `<result>` 中保留结果尾部。
+
 CLI、console 和渠道的 `/bg` 列出当前会话的后台任务，`/bg logs <id>` 查看保留日志，`/bg kill <id>` 停止任务；不得访问其他会话的句柄。console 通过 session-scoped views 在 rail 和 floating 位置展示后台状态，状态变化时刷新。重启后按持久记录展示真实状态，不声称已中断的外部任务仍在运行。
 
 原limits.maxMinutes/maxTurns改为软提醒阈值，可增加maxTokens提醒；超阈值记录运行事实，提醒本session，子任务同时告知父session，不abort、不改成limit终态。真实模型输入/输出限制、显式取消、安全拒绝和防重复空转仍有效。提醒去重，不为每条日志唤醒模型；时间事实随正常输入准备写入本轮输入，不在system注入，也不重写已持久化输入；运行中的软阈值仍沿现有通知提醒，不依赖额外轮询模型。配置已设数值沿用为提醒阈值。

@@ -524,11 +524,13 @@ export class Runtime {
 				}
 			},
 			finished: async (session, id, name, value, origin) => {
+				const outputFile = (value.details as { fullOutputPath?: unknown } | undefined)?.fullOutputPath;
 				await this.options.onBackground?.(session, {
 					id,
 					name,
 					result: fromResult(value),
 					...(origin ? { origin } : {}),
+					...(typeof outputFile === "string" ? { outputFile } : {}),
 				});
 			},
 			report: (error) => this.options.onReport?.(error),
@@ -575,11 +577,16 @@ export class Runtime {
 		this.registry.install(todos);
 		this.extensions.set(todos.name, todos);
 		this.tools.set("todo", todo);
-		const processes = defineExtension({ name: "yonder.process", tools: [this.background.tool] });
-		this.capabilities.set("process", []);
+		const processes = defineExtension({
+			name: "yonder.process",
+			tools: [...this.background.tools, this.background.tool],
+		});
+		for (const tool of processes.tools ?? []) {
+			this.capabilities.set(tool.name, []);
+			this.tools.set(tool.name, tool);
+		}
 		this.registry.install(processes);
 		this.extensions.set(processes.name, processes);
-		this.tools.set("process", this.background.tool);
 		const builtins = this.adapter(
 			"yonder.tools",
 			[createGrepTool(), createFindTool(), createLsTool(), ...(this.options.tools ?? [])],

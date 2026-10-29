@@ -23,6 +23,7 @@ import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 import { clean, failed, type Input, JobDoc, JobPointer, json, outcomeResult, type State } from "./background-docs.js";
+import { createBackgroundTools, createProcessTool, startBash } from "./background-tools.js";
 import { cid } from "./docs.js";
 import { cacheToolOutput } from "./tool-output-cache.js";
 
@@ -70,8 +71,9 @@ export function createBackground(options: {
 				try {
 					await runtime.commit(async (tx) => {
 						Object.assign(await tx.doc(JobDoc, job.conversationId, key, null), {
-							name: job.input.name,
+							name: job.input.label ?? job.input.name,
 							started: Date.now(),
+							notify: job.input.notify !== false,
 						});
 						return { status: "running", checkpoint: { phase: "interrupted" } };
 					}, context);
@@ -261,6 +263,13 @@ export function createBackground(options: {
 		if (!record || record.state.status !== "terminal") return;
 		const doc = await harness().snapshot(JobDoc, record.conversationId, String(id), C);
 		if (!doc?.detached || doc.notified) return;
+		if (doc.notify === false) {
+			// The caller took over completion monitoring; still mark it so the session is not left pending forever.
+			await harness().commit(async (tx) => {
+				(await tx.doc(JobDoc, record.conversationId, String(id), null)).notified = true;
+			}, C);
+			return;
+		}
 		const outcome = record.state.outcome;
 		if (outcome.status !== "aborted") {
 			const snapshot = JSON.parse((record.input as unknown as Input).config);
@@ -299,14 +308,27 @@ export function createBackground(options: {
 			.finally(() => watchers.delete(id));
 		watchers.set(id, { controller, done });
 	};
-	const run = async (tool: ToolRegistration, args: JsonObject, api: ToolExecutionApi, context: Context) => {
+	const run = async (
+		tool: ToolRegistration,
+		args: JsonObject,
+		api: ToolExecutionApi,
+		context: Context,
+		extra?: { immediate?: boolean; label?: string; notify?: boolean },
+	) => {
 		const config = await options.config(String(api.conversationId), context);
 		const id = await api.commit(async (tx) => {
 			const pointer = await tx.doc(JobPointer, api.taskId);
 			if (!pointer.id)
 				pointer.id = await tx.createTask(
 					task,
-					{ name: tool.name, args, callId: api.callId, config },
+					{
+						name: tool.name,
+						args,
+						callId: api.callId,
+						config,
+						...(extra?.label ? { label: extra.label } : {}),
+						...(extra?.notify === false ? { notify: false } : {}),
+					},
 					{ ownership: { kind: "conversation" }, background: true, conversationId: api.conversationId },
 				);
 			return pointer.id as TaskId<ToolExecutionResult>;
@@ -314,7 +336,8 @@ export function createBackground(options: {
 		const controller = new AbortController();
 		const timer = setTimeout(
 			() => controller.abort(),
-			(tool.name === "bash" && args.background === true) ||
+			extra?.immediate === true ||
+				(tool.name === "bash" && args.background === true) ||
 				(tool.name === "task_run" && args.async === true) ||
 				args.executionMode === "background"
 				? 0
@@ -412,6 +435,14 @@ export function createBackground(options: {
 		extension: defineExtension({ name: "yonder.background", tasks: [task] }),
 		run,
 		running,
+		tools: createBackgroundTools({
+			...(options.home ? { home: options.home } : {}),
+			harness: () => harness(),
+			start: (args, api, context, extra) => startBash(run, args, api, context, extra),
+			abort: async (id: string) => {
+				await harness().abortTask(Number(id) as TaskId, C);
+			},
+		}),
 		async list(session: string, storage: SqliteStorage) {
 			const page = await storage.scanTasks(
 				{ conversationId: cid(session), kind: "yonder.background" },
@@ -454,26 +485,6 @@ export function createBackground(options: {
 		async recover(records: readonly { id: number; conversationId: number }[]) {
 			for (const row of records) watch(String(row.conversationId), row.id as TaskId<ToolExecutionResult>);
 		},
-		tool: {
-			name: "process",
-			description:
-				"Manage a background tool or command owned by this session: status, log, wait (up to 15 seconds), write stdin, or kill. Write accepts eof=true to end stdin. Logs use absolute character offset/next cursors; truncated means the requested prefix was discarded. The original tool result remains available after completion. Use the returned background id, not an OS pid or Agent id. Completion is delivered automatically; inspect only for a dependent step or a suspected stall, not in a polling loop. Read state and incremental output before claiming progress or retrying. kill stops the owned operation; it does not undo external effects, and write is stdin, not an instruction message to an Agent.",
-			parameters: Type.Object(
-				{
-					action: Type.Union(["status", "log", "wait", "write", "kill"].map((x) => Type.Literal(x))),
-					id: Type.String({ pattern: "^[0-9]+$" }),
-					offset: Type.Optional(Type.Integer({ minimum: 0 })),
-					text: Type.Optional(Type.String()),
-					eof: Type.Optional(Type.Boolean()),
-				},
-				{ additionalProperties: false },
-			),
-			deferred: true as const,
-			async execute(value: unknown, api: ToolExecutionApi, context: Context) {
-				const args = value as { action: string; id: string; offset?: number; text?: string; eof?: boolean };
-				const result = await action(String(api.conversationId), args, context);
-				return "isError" in result ? result : json(result);
-			},
-		},
+		tool: createProcessTool(action),
 	};
 }

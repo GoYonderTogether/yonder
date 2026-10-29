@@ -20,6 +20,7 @@ export const JobDoc = defineDocFamily({
 		next: 0,
 		detached: false as boolean,
 		notified: false as boolean,
+		notify: true as boolean,
 	}),
 });
 export const JobPointer = defineDoc({
@@ -28,7 +29,16 @@ export const JobPointer = defineDoc({
 	scope: "task",
 	initial: () => ({ id: 0 }),
 });
-export type Input = { name: string; args: JsonObject; callId: string; config: string };
+export type Input = {
+	name: string;
+	args: JsonObject;
+	callId: string;
+	config: string;
+	/** Model-chosen display name; falls back to the underlying tool name. */
+	label?: string;
+	/** `false` suppresses the completion notification for this job. */
+	notify?: boolean;
+};
 export type State = { phase: "start" | "interrupted" };
 export const clean = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 export const failed = (error: unknown): ToolExecutionResult => ({

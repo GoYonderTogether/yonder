@@ -72,7 +72,7 @@ export interface RuntimeOptions {
 	onBackgroundChanged?(session: string): void;
 	onBackground?(
 		session: string,
-		input: { id: string; name: string; result: ToolResult; origin?: YEvent },
+		input: { id: string; name: string; result: ToolResult; origin?: YEvent; outputFile?: string },
 	): Promise<void>;
 	onWarning?(session: string, input: { kind: string; text: string; parent?: string }): Promise<void>;
 	onAdmitted?(session: string, input: RuntimeInput): Promise<void>;
