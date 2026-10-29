@@ -1,0 +1,16 @@
+{
+  "purpose": "Illustrative photographs for a local interaction prototype; not actual inventory photos.",
+  "provider": "Unsplash",
+  "photos": {
+    "camera.jpg": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32",
+    "camera-silver.jpg": "https://images.unsplash.com/photo-1502920917128-1aa500764cbd",
+    "headphones.jpg": "https://images.unsplash.com/photo-1546435770-a3e426bf472b",
+    "bicycle.jpg": "https://images.unsplash.com/photo-1485965120184-e220f721d03e",
+    "coffee.jpg": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085",
+    "interior.jpg": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0",
+    "laptop.jpg": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8",
+    "photography.jpg": "https://images.unsplash.com/photo-1542038784456-1ea8e935640e",
+    "ceramics.jpg": "https://images.unsplash.com/photo-1493106641515-6b5631de4bb9",
+    "plants.jpg": "https://images.unsplash.com/photo-1416879595882-3373a0480b5b"
+  }
+}

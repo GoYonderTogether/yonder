@@ -22,6 +22,7 @@ import { internalState, useAppBack } from "../lib/navigation";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
 import { needsVerify } from "../lib/verify";
+import { readMarketDraft } from "../market/handoff";
 import { $session } from "../store";
 import { Avatar, Status } from "../ui/Avatar";
 import { toast } from "../ui/Toast";
@@ -472,6 +473,25 @@ function Bubble({
 export function Composer({ convId, offline, onSend }: { convId: string; offline: boolean; onSend: () => void }) {
 	const [text, setText] = useState("");
 	const ref = useRef<HTMLTextAreaElement>(null);
+	const loc = useLocation();
+	const nav = useNavigate();
+	const consumed = useRef<string | null>(null);
+	// 市场页把整理好的上下文带来时只填充输入框，发送仍由用户确认。
+	useEffect(() => {
+		const draft = readMarketDraft(loc.state, convId);
+		if (!draft || consumed.current === loc.key) return;
+		consumed.current = loc.key;
+		setText((previous) => (previous ? `${previous}\n\n${draft}` : draft));
+		const { marketDraft: _draft, ...rest } = loc.state;
+		nav(loc.pathname + loc.search, { replace: true, state: rest });
+		toast("已带入市场内容，确认后再发送给 PA");
+	}, [loc.key, loc.state, convId, nav, loc.pathname, loc.search]);
+	useEffect(() => {
+		if (consumed.current && ref.current) {
+			ref.current.style.height = "auto";
+			ref.current.style.height = `${Math.min(ref.current.scrollHeight, 160)}px`;
+		}
+	}, []);
 	const qc = useQueryClient();
 	const [sending, setSending] = useState(false);
 	const pending = useRef(false);

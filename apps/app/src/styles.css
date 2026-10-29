@@ -462,3 +462,25 @@ body {
 		background: var(--ground);
 	}
 }
+
+/* 市场沿用纸墨语言，颜色只来自照片本身。 */
+:root {
+	--market-paper: #f7f7f3;
+	--market-hero: #eeeee7;
+	--market-agent-fill: #e5ebe0;
+	--market-agent-ink: #4f6549;
+	--market-photo-white: #ffffff;
+	--market-photo-ink: #252823;
+	--market-overlay: rgb(20 23 19 / 0.42);
+	--market-radius-panel: 24px;
+	--market-radius-pill: 999px;
+}
+@media (prefers-color-scheme: dark) {
+	:root {
+		--market-paper: #121411;
+		--market-hero: #20241e;
+		--market-agent-fill: #2c3827;
+		--market-agent-ink: #bdceb5;
+		--market-overlay: rgb(0 0 0 / 0.7);
+	}
+}

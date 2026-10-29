@@ -19,7 +19,7 @@ import { useEntityId } from "../lib/useEntityId";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
 
-/** 旧 /cards、/cards/:id 地址：进通讯录并展开卡包。 */
+/** 旧 /cards、/cards/:id 地址：进入「我」中的名片管理。 */
 export function CardsRedirect() {
 	const { id } = useParams();
 	const loc = useLocation();
@@ -40,7 +40,7 @@ function SearchBox({ q, onChange }: { q: string; onChange: (q: string) => void }
 	);
 }
 
-/** 通讯录：上面是我的名片卡包，下面是联系人。 */
+/** 通讯录：仅保留新的朋友、群聊和好友。 */
 export function Contacts() {
 	const desktop = useDesktop();
 	const nav = useNavigate();

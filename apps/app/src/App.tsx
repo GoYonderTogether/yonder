@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { lazy, type ReactNode, Suspense, useEffect } from "react";
 import { Link, Navigate, Route, Routes, useLocation } from "react-router";
 import { PageLoading } from "./components/PageLoading";
+import { PersonalAgentGate } from "./components/PersonalAgentGate";
 import { $session } from "./store";
 import { Toaster } from "./ui/Toast";
 
@@ -17,8 +18,10 @@ const ChatShell = lazy(() => import("./pages/Chat").then((m) => ({ default: m.Ch
 const Connect = lazy(() => import("./pages/Connect").then((m) => ({ default: m.Connect })));
 const Install = lazy(() => import("./pages/Install").then((m) => ({ default: m.Install })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
+const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Market })));
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
+const PersonalAgent = lazy(() => import("./pages/PersonalAgent").then((m) => ({ default: m.PersonalAgent })));
 
 function Private({ children }: { children: ReactNode }) {
 	const s = useStore($session);
@@ -50,10 +53,17 @@ export function App() {
 					<Route
 						element={
 							<Private>
-								<Shell />
+								<PersonalAgentGate>
+									<Shell />
+								</PersonalAgentGate>
 							</Private>
 						}
 					>
+						<Route path="/pa" element={<PersonalAgent />} />
+						<Route path="/market" element={<Market />} />
+						<Route path="/market/search" element={<Market />} />
+						<Route path="/market/category/:channel" element={<Market />} />
+						<Route path="/me/market/:section" element={<Market />} />
 						<Route path="/cards/:id?" element={<CardsRedirect />} />
 						<Route path="/cards/:id/edit" element={<CardsRedirect />} />
 						<Route path="/friends/add" element={<AddFriend />} />

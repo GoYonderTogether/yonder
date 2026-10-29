@@ -1,5 +1,5 @@
 import { useStore } from "@nanostores/react";
-import { MessageCircle, Monitor, Users } from "lucide-react";
+import { MessageCircle, Monitor, Store, Users } from "lucide-react";
 import { Suspense } from "react";
 import { NavLink, Outlet, useMatch } from "react-router";
 import { cn } from "../lib/cn";
@@ -11,6 +11,7 @@ import { WORK_PAGES } from "../work/shell/workRoutes";
 import { PageLoading } from "./PageLoading";
 
 const chatItem = { to: "/", label: "消息", icon: MessageCircle };
+const marketItem = { to: "/market", label: "市场", icon: Store };
 const contactsItem = { to: "/contacts", label: "通讯录", icon: Users };
 const workItem = { to: "/work", label: "工作", icon: Monitor };
 const meItem = { to: "/me", label: "我", icon: null };
@@ -18,7 +19,7 @@ const meItem = { to: "/me", label: "我", icon: null };
 export function Shell() {
 	const me = useStore($session)?.actor;
 	const work = useWorkEntry();
-	const items = [chatItem, contactsItem, ...(work ? [workItem] : []), meItem];
+	const items = [chatItem, marketItem, contactsItem, ...(work ? [workItem] : []), meItem];
 	const workMatch = useMatch("/work/:id");
 	const hidden =
 		[useMatch("/c/:id"), useMatch("/contacts/:id")].some(Boolean) ||

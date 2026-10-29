@@ -1,6 +1,6 @@
 import { Settings as SettingsIcon } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, Navigate } from "react-router";
 import { mux } from "./api/stream";
 import { Chat } from "./features/Chat";
 import { NotifyHost } from "./features/notify/NotifyHost";
@@ -16,7 +16,6 @@ import { Banner } from "./ui/Banner";
 import { WorkList } from "./ui/WorkList";
 
 const Settings = lazy(() => import("./features/Settings").then((m) => ({ default: m.Settings })));
-const Market = lazy(() => import("./features/market/Market").then((m) => ({ default: m.Market })));
 const ConsoleSwitcher = lazy(() =>
 	import("./features/console/ConsoleSwitcher").then((m) => ({ default: m.ConsoleSwitcher })),
 );
@@ -39,7 +38,7 @@ export function WorkShell({ onLogout }: { onLogout(): void }) {
 		route.page === "settings" ? (
 			<Settings onLogout={onLogout} />
 		) : route.page === "market" ? (
-			<Market />
+			<Navigate to="/market" replace />
 		) : route.page === "console" ? (
 			<ConsoleSwitcher />
 		) : undefined;
@@ -60,7 +59,7 @@ export function WorkShell({ onLogout }: { onLogout(): void }) {
 				</Link>
 			</div>
 			<div className="min-h-0 flex-1">
-				<WorkList active={route.session} view={view} />
+				<WorkList active={route.session} />
 			</div>
 		</>
 	);

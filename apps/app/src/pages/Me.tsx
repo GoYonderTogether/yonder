@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
 import { AccountSecurity } from "../components/AccountSecurity";
+import { MyMarket } from "../components/market/MarketStats";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
@@ -178,6 +179,7 @@ export function Me() {
 					</>
 				) : (
 					<>
+						<MyMarket />
 						<section aria-label="我的 Agent" className="overflow-hidden rounded-card bg-raised">
 							<div className="flex items-center justify-between px-5 pt-4 pb-2">
 								<h2 className="text-small font-medium text-muted">我的 Agent</h2>
