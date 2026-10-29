@@ -14,7 +14,7 @@ import {
 	type YEvent,
 } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
-import { allowsChannelInstance, assertChannelInstance } from "../kernel/console.js";
+import { allowsChannelInstance, assertChannelInstance, CONSOLE } from "../kernel/console.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
@@ -453,9 +453,19 @@ export function createDelivery(options: DeliveryOptions) {
 				reason: run.reason,
 			});
 		const finalText = stopped ? stopNotice(run.reason ?? run.status) : run.text.trim() === "NO_REPLY" ? "" : run.text;
-		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? sources : [];
+		// The console is the owner's main dialogue: a run that carries a console input answers there only, never in the
+		// channel conversations whose pending inputs the same run merged (BUG01). Other runs keep every source.
+		const consoleTurn = actual.some((event) => channelId(event.conv ?? "") === CONSOLE);
+		const replies = consoleTurn ? sources.filter((event) => channelId(event.conv ?? "") === CONSOLE) : sources;
+		const targets = stopped || (run.text.trim() && run.text.trim() !== "NO_REPLY") ? replies : [];
 		const destination =
-			!stopped && !targets.length && !hasWaiter && run.text.trim() && run.text.trim() !== "NO_REPLY" && first
+			!stopped &&
+			!consoleTurn &&
+			!targets.length &&
+			!hasWaiter &&
+			run.text.trim() &&
+			run.text.trim() !== "NO_REPLY" &&
+			first
 				? binding(session, first, profile)?.deliver
 				: undefined;
 		const replied: RunEndData["replied"] = targets.length

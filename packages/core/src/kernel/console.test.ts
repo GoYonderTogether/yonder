@@ -151,3 +151,27 @@ test("plugins.list works with the built-in console channel loaded", async () => 
 		await rm(home, { recursive: true, force: true });
 	}
 }, 60_000);
+
+test("a console turn replies in the console even when the agent restricts channel instances", async () => {
+	const home = await homeWithProbe();
+	const file = join(home, "agents/main/agent.yaml");
+	const agent = parse(await readFile(file, "utf8"));
+	agent.defaults.channelInstances = ["feishu"];
+	await writeFile(file, stringify(agent));
+	const kernel = await openKernel(home);
+	try {
+		await kernel.bots.send("main", "你好");
+		const outs = async () =>
+			(await kernel.events.query({ type: "message.out" })).events.map((event) => [
+				event.conv,
+				(event.data as { delivery: { ok: boolean } }).delivery.ok,
+			]);
+		await expect.poll(async () => (await outs()).length, { timeout: 60_000 }).toBeGreaterThan(0);
+		expect(await outs()).toEqual([["conv:console:main", true]]);
+		const ending = (await kernel.events.query({ type: "run.end" })).events.at(-1);
+		expect(ending?.data).toMatchObject({ replied: "source", targets: ["conv:console:main"] });
+	} finally {
+		await kernel.close();
+		await rm(home, { recursive: true, force: true });
+	}
+}, 90_000);
