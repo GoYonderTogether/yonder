@@ -34,17 +34,34 @@ const transport = (error: unknown, beforeDispatch = false): boolean => {
 export const uncertain = (error: unknown): boolean => error instanceof FeishuRequestError && error.uncertain;
 
 export class FeishuApi {
-	readonly base: string;
+	private local = "";
 	private token = "";
 	private expiresAt = 0;
 	private secret = "";
 	constructor(
 		readonly config: Config,
 		private readonly api: PluginAPI,
-	) {
-		this.base = config.domain === "lark" ? "https://open.larksuite.com/open-apis" : "https://open.feishu.cn/open-apis";
+	) {}
+	get base(): string {
+		return this.config.domain === "lark" ? "https://open.larksuite.com/open-apis" : "https://open.feishu.cn/open-apis";
+	}
+	/** Adopt credentials created by one-click app registration; they never enter config or logs. */
+	adopt(appId: string, appSecret: string, domain: "feishu" | "lark"): void {
+		this.config.appId = appId;
+		this.config.domain = domain;
+		this.local = appSecret;
+		this.secret = appSecret;
+		this.token = "";
+		this.expiresAt = 0;
+	}
+	get configured(): boolean {
+		return Boolean(this.config.appId && (this.local || this.config.secret));
 	}
 	async credentials(): Promise<{ appId: string; appSecret: string }> {
+		if (this.local) {
+			this.secret = this.local;
+			return { appId: this.config.appId, appSecret: this.local };
+		}
 		const value = await this.api.credentials.get(this.config.secret);
 		if (value?.type !== "api_key" || !value.key)
 			throw new Error(`Feishu credential unavailable: ${this.config.secret}`);

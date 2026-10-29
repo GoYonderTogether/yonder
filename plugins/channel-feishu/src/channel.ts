@@ -44,6 +44,8 @@ import {
 	string,
 	textPayload,
 } from "./protocol.js";
+import { readReceipts } from "./receipts.js";
+import { FeishuRegistration } from "./registration.js";
 import { FeishuScopes } from "./scopes.js";
 import { FeishuTaskCards } from "./task-card.js";
 
@@ -71,13 +73,20 @@ export class FeishuChannel implements Channel {
 	private readonly directory: string;
 	private saveTail: Promise<void> = Promise.resolve();
 	private readonly lifetime = new AbortController();
+	private readonly registration: FeishuRegistration;
 	constructor(
 		readonly id: string,
 		readonly config: Config,
 		private readonly api: PluginAPI,
+		private readonly fetcher: typeof fetch = fetch,
 	) {
 		this.directory = join(api.paths.data, id);
 		this.client = new FeishuApi(config, api);
+		this.registration = new FeishuRegistration({
+			...{ id, api, fetcher, client: this.client, directory: this.directory },
+			signal: this.lifetime.signal,
+			restart: () => this.connection.restart(),
+		});
 		this.scopes = new FeishuScopes(this.client, this.directory);
 		this.output = { stream: config.streaming !== false, attachments: true };
 		this.features = {
@@ -93,9 +102,11 @@ export class FeishuChannel implements Channel {
 			this.rawSend(target, "interactive", card, undefined, signal),
 		);
 	}
+	readonly login = (action: "start" | "poll", signal: AbortSignal) => this.registration.login(action, signal);
 	status(): object {
 		return {
 			instance: this.id,
+			configured: this.client.configured,
 			domain: this.config.domain ?? "feishu",
 			...this.connection.status(),
 			botIdentityKnown: Boolean(this.botId),
@@ -105,19 +116,6 @@ export class FeishuChannel implements Channel {
 			renderMode: this.config.renderMode ?? "markdown",
 			recovery: this.recoveryState,
 		};
-	}
-	private async load(): Promise<void> {
-		try {
-			const rows: unknown = JSON.parse(await readFile(join(this.directory, "receipts.json"), "utf8"));
-			if (!Array.isArray(rows)) throw new Error("Invalid Feishu receipt file");
-			for (const row of rows) {
-				if (!Array.isArray(row) || row.length !== 2 || typeof row[0] !== "string" || typeof row[1] !== "string")
-					throw new Error("Invalid Feishu receipt");
-				this.seen.set(row[0], row[1]);
-			}
-		} catch (error) {
-			if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-		}
 	}
 	private save(): Promise<void> {
 		// Persist protocol receipts, never transcripts or a second run queue.
@@ -139,7 +137,7 @@ export class FeishuChannel implements Channel {
 	async start(io: ChannelIO): Promise<void> {
 		this.io = io;
 		this.stopped = false;
-		await this.load();
+		for (const [key, value] of await readReceipts(this.directory)) this.seen.set(key, value);
 		await this.loadHistory();
 		await this.taskCards.start();
 		const dispatcher = new Lark.EventDispatcher({ logger: this.connection.logger }).register({
@@ -175,6 +173,7 @@ export class FeishuChannel implements Channel {
 		this.stopped = true;
 
 		this.lifetime.abort();
+		this.registration.stop();
 		this.connection.stop();
 		await Promise.allSettled([this.recoveryWork, this.inputTail]);
 		await Promise.allSettled(this.pending.values());

@@ -796,3 +796,5 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 新增 `apps/app/src/work/features/settings/SocialSection.tsx`，挂在 `apps/app/src/work/features/Settings.tsx` 渠道分区之后：默认层是 `social.groups` 的群列表（mode/tags 为生效值），点开单个群是覆盖层，用 `social.inspect` 的 `sources` 标出每个键是「会话覆盖」还是「默认（group）」。修改走 `social.update`：reason 必填，先 `dryRun` 预览 before/after，再带 `expectedRevision` 真正写入。
 - 只提交改动过的键；改一维标签时把另一维的生效值一起带上，避免会话级 `tags` 覆盖掉另一半（`social.update` 的 patch 是整块替换）。
 - 问题（本卡不改核心，留给后续卡）：`social.inspect` 不返回 `judge.model`（只返回 policy.judge.preset），也没有任何 token 额度字段，界面这两项如实写「网关未返回」；`social.groups` 的 `mode` 缺省值写死 "batch"，与 `social.listen.mode` 的 realtime/batch/mention/digest 不是同一套枚举，因此界面的「监听模式」只呈现 policy.mode。
+
+- 主人 10-29：飞书应用创建默认全权限、智能体身份。`channels.login` 对未配凭据的 feishu 实例走官方一键创建（`archetype=PersonalAgent`，`addons` 带 36 项应用身份 + 34 项用户身份权限、事件与回调），确认一次即得 App ID/Secret，写入插件数据目录 0600 文件（SDK 暂无写凭据槽接口，未改公共契约）。调研见 yonder-lead/program/research/feishu-app-onboarding-20261029.md。

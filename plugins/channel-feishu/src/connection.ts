@@ -44,7 +44,15 @@ export class FeishuConnection {
 			})
 			.catch((error: unknown) => this.diagnostic("ready", error));
 	}
+	private dispatcher: Lark.EventDispatcher | undefined;
+	/** Reconnect with the credentials now available (one-click registration finishes after start). */
+	async restart(): Promise<void> {
+		if (this.stopped || !this.dispatcher) return;
+		this.stop();
+		await this.start(this.dispatcher);
+	}
 	async start(eventDispatcher: Lark.EventDispatcher): Promise<void> {
+		this.dispatcher = eventDispatcher;
 		this.stopped = false;
 		this.state = "connecting";
 		try {

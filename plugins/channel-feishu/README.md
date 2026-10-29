@@ -8,13 +8,21 @@
 - 出站支持引用和消息编辑；适配器没有通用撤回接口。流式输出按消息/卡片更新，具体效果取决于实例配置与平台权限。历史读取及补收需要相应权限；平台速率限制和群主身份未作统一能力声明。
 - 本次未使用真实授权测试群验证 @Bot、@主人、@全体、群主、引用、编辑和撤回。CH-01 的统一能力契约落地后再接入声明；QQ 旧游标与调度迁移依赖 CH-03。
 
+## 一键创建应用（channels.login）
+
+实例不写 appId/secret 即可。设置页「渠道」点“扫码登录”，或 `yonder channels login <实例>`：插件向飞书 `accounts.feishu.cn/oauth/v1/app/registration` 发起设备授权（`archetype=PersonalAgent`），返回一个创建链接。主人打开并确认一次，飞书即创建**智能体（PersonalAgent）应用**并开通 `src/onboarding.ts` 内置的全部权限（应用身份 36 项、用户身份 34 项）、事件 `im.message.receive_v1` 与回调 `card.action.trigger`，无需到后台逐项添加或发版。确认后插件轮询取得 App ID/Secret，写入 `<插件数据目录>/<实例>/app.json`（0600，不进入配置、事件、日志、接口返回），随即建立 WebSocket 连接；重启后自动读取。实例已有凭据时返回 `already_configured`，不覆盖。
+
+- 权限清单取自主应用已开通的 85 项，去掉 `mail:*`。链接参数 `addons`（gzip+base64url 的 JSON，与官方 node-sdk `registerApp({ addons })` 同格式）为增量：在平台默认 PersonalAgent 模板之上追加；平台目录里没有的名字会被确认页静默丢弃。
+- 身份选择：采用「智能体（PersonalAgent）」应用，而不是普通机器人应用；它仍通过应用的机器人能力收发消息（`im:message:send_as_bot`）。
+- 链接的 `addons` 参数依赖平台对额外配置的灰度开关；若未开通，确认页忽略该参数，只得到平台默认模板。此时用 `channel-feishu_scopes status` 查看缺口，并按返回的后台链接补充。
+
 ## 接入
 
 在既有 `yonder.yaml` 的 plugins 加入本地包路径或已安装包名 `@yonder/plugin-channel-feishu`，在 channels 下创建 `type: feishu` 的实例；使用现有凭据存储引用（`secret` 不是密码正文）。
 
 | 实例 config | 行为 |
 | --- | --- |
-| appId / secret | 飞书应用 ID / `api.credentials.get` 引用；secret 必须解析为 api_key，真实值不进入事件、日志或状态 |
+| appId / secret | 飞书应用 ID / `api.credentials.get` 引用；secret 必须解析为 api_key，真实值不进入事件、日志或状态。两者可省略：实例无凭据时走下文「一键创建应用」，凭据由登录写入插件数据目录 |
 | domain | feishu（默认）或 lark；每实例独立连接和 token |
 | renderMode | text、markdown（默认，原生 post md）、post（post text）、card（原生 Markdown 卡片） |
 | streaming | 默认 true，CardKit 卡片；false 收集最终文字后按 renderMode 发送 |

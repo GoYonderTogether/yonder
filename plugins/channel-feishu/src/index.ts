@@ -56,7 +56,7 @@ export default definePlugin({
 			configSchema,
 			create(id, value) {
 				if (instances.has(id)) throw new Error(`Duplicate Feishu instance ${id}`);
-				const channel = new FeishuChannel(id, value as Config, api);
+				const channel = new FeishuChannel(id, { appId: "", secret: "", ...(value as Partial<Config>) }, api);
 				instances.set(id, channel);
 				return channel;
 			},

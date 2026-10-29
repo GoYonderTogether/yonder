@@ -194,7 +194,7 @@
 - **包**：`@yonder/plugin-channel-feishu`
 - **源码**：[入口](../plugins/channel-feishu/src/index.ts)、[渠道目录](../plugins/channel-feishu/src/)
 - **贡献**：
-  - 渠道 `feishu`：type="feishu" · dm/group，官方SDK WebSocket；随Yonder启停
+  - 渠道 `feishu`：type="feishu" · dm/group，官方SDK WebSocket；随Yonder启停；`channels.login` 一键创建智能体（PersonalAgent）应用并开通全部预置权限（见插件 README）
   - 上下文 `channel-feishu.conversation`（placement=turn）：当前来源全参与者背景，与待处理输入分离
   - 工具：见下
 - **订阅事件**（内部）：

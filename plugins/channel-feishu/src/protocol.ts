@@ -34,7 +34,6 @@ const list = { type: "array", items: str };
 export const configSchema = {
 	type: "object",
 	additionalProperties: false,
-	required: ["appId", "secret"],
 	properties: {
 		appId: str,
 		secret: str,
