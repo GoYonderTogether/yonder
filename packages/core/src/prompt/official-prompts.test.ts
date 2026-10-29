@@ -1,4 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
@@ -14,7 +16,7 @@ import { scaffoldWorkspace, systemSections } from "./index.js";
 test("official resident templates load, scaffold and stay out of identity-less tasks without overwriting personal files", async () => {
 	const directory = fileURLToPath(new URL("../../../../plugins/agent-presets", import.meta.url));
 	expect(await checkPlugin(directory)).toEqual([]);
-	const home = await mkdtemp("/tmp/yonder-official-prompts-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-official-prompts-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home);
@@ -123,7 +125,7 @@ test("official resident templates load, scaffold and stay out of identity-less t
 }, 30000);
 
 test("official tasks select real tools, share work-session presets and allow short replacements without leaking resident files", async () => {
-	const home = await mkdtemp("/tmp/yonder-task-presets-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-task-presets-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home);
@@ -192,7 +194,7 @@ test("official tasks select real tools, share work-session presets and allow sho
 }, 30000);
 
 test("adding task presets keeps older homes without web-tools and customized default presets valid", async () => {
-	const home = await mkdtemp("/tmp/yonder-existing-presets-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-existing-presets-"));
 	try {
 		await initHome(home);
 		const config = await loadYonderConfig(home);

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { createStore } from "../store/index.js";
@@ -13,7 +14,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"recover() replays unsettled run receipts but skips runs whose run.end is already durable",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-settled-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-settled-"));
 		const profile = resolveProfile({ capabilities: [], tools: { offer: [] }, limits: { maxMinutes: 1 } });
 		const open = async (extra: { settled?: (session: string, run: string) => Promise<boolean> } = {}) => {
 			const db = await openDatabase(`${home}/state.db`);

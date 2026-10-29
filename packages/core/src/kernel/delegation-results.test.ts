@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { openDatabase } from "../runtime/db.js";
@@ -11,7 +12,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"same Feishu source delegates twice: both fresh results reach prepared context and continue without another input",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-delegation-results-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-delegation-results-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home);

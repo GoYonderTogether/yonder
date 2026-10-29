@@ -105,7 +105,7 @@ export class Ingest {
 		if (
 			!info.isFile() ||
 			info.isSymbolicLink() ||
-			path.split("/").some((p) => p.startsWith(".")) ||
+			path.split(/[\\/]/).some((p) => p.startsWith(".")) ||
 			/\.(part|crdownload|tmp)$/i.test(path)
 		)
 			return;
@@ -198,7 +198,8 @@ export class Ingest {
 			if (!entry.isFile()) continue;
 			const path = join(entry.parentPath, entry.name),
 				relative = path.slice((await safePath(this.config.root, "inbox")).length + 1);
-			if (relative.split("/").some((p) => p.startsWith(".")) || /\.(part|crdownload|tmp)$/i.test(relative)) continue;
+			if (relative.split(/[\\/]/).some((p) => p.startsWith(".")) || /\.(part|crdownload|tmp)$/i.test(relative))
+				continue;
 			const info = await stat(path),
 				prior = this.stable.get(relative);
 			if (prior && prior.size === info.size && prior.mtime === info.mtimeMs && Date.now() - prior.at >= 1000) {

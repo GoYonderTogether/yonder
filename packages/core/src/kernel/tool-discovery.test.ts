@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -10,7 +11,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"Chinese task discovers a deferred tool by name and the next run restores the starting tools",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-tool-discovery-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-tool-discovery-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home);

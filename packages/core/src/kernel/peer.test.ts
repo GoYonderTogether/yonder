@@ -1,4 +1,5 @@
 import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -102,8 +103,8 @@ test("isolated keeps disjoint bindings, collisions never overwrite and isolated 
 });
 
 test("init and all preset creation paths generate peer; isolated input is creation-only; old disk config stays unchanged", async () => {
-	const home = await mkdtemp("/tmp/yonder-peer-create-");
-	const isolatedHome = await mkdtemp("/tmp/yonder-peer-isolated-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-peer-create-"));
+	const isolatedHome = await mkdtemp(join(tmpdir(), "yonder-peer-isolated-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home);
@@ -189,7 +190,7 @@ test("init and all preset creation paths generate peer; isolated input is creati
 }, 30000);
 
 test("core workspace context works without plugins, loads only own two files, rejects symlink escape", async () => {
-	const home = await mkdtemp("/tmp/yonder-peer-context-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-peer-context-"));
 	try {
 		const config = { schema: 1 as const, agents: [{ id: "main", workspace: "./agents/main" }] };
 		const plugins = await loadPlugins(
@@ -236,7 +237,7 @@ test("core workspace context works without plugins, loads only own two files, re
 });
 
 test("actual router chooses generated ephemeral peer ahead of broad owner, parent-request and no-binding stay compatible", async () => {
-	const home = await mkdtemp("/tmp/yonder-peer-route-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-peer-route-"));
 	const db = await openDatabase(":memory:");
 	let runtime: Runtime | undefined;
 	try {

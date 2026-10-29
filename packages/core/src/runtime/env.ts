@@ -5,9 +5,18 @@ import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ExecutionEnv } from "@yonder/sdk";
 import type { WorkspaceFiles } from "../config/index.js";
 import { hostedProcessSpawner } from "./hosted-process.js";
+import { shellCommand } from "./windows-process.js";
 export function localEnvironment(cwd: string): ExecutionEnv {
 	const localSpawn = hostedProcessSpawner();
-	return new NodeExecutionEnv({ cwd, ...(localSpawn ? { localSpawn } : {}) });
+	const env = new NodeExecutionEnv({ cwd, ...(localSpawn ? { localSpawn } : {}) });
+	if (process.platform === "win32") {
+		const exec = env.exec.bind(env);
+		env.exec = (command, options, context) => {
+			const shell = typeof command === "string" ? shellCommand(command) : undefined;
+			return exec(shell ? [shell.program, ...shell.args] : command, options, context);
+		};
+	}
+	return env;
 }
 export const canonicalPath = async (env: ExecutionEnv, path: string): Promise<string> =>
 	getOrThrow(await env.canonicalPath(path, BACKGROUND_CONTEXT));

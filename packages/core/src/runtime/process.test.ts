@@ -1,4 +1,5 @@
 import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
@@ -12,7 +13,7 @@ afterEach(() => {
 async function fixture() {
 	vi.stubEnv("YONDER_SERVICE_REGISTRATION", undefined);
 	vi.stubEnv("YONDER_SERVICE_COMMAND_FD", undefined);
-	const home = await mkdtemp("/tmp/yonder-process-tool-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-process-tool-"));
 	const { processTool } = await import("./process.js");
 	const jobs = new Map<number, { output: string; write?: (text: string, eof?: boolean) => Promise<void> }>();
 	const tool = processTool(home, jobs);
@@ -31,7 +32,12 @@ async function fixture() {
 test("explicitly unhosted bash retains real output and nonzero exit", async () => {
 	const f = await fixture();
 	try {
-		const result = await f.run({ command: "printf actual; printf error >&2; exit 7" });
+		const result = await f.run({
+			command:
+				process.platform === "win32"
+					? "[Console]::Write('actual'); [Console]::Error.Write('error'); exit 7"
+					: "printf actual; printf error >&2; exit 7",
+		});
 		const item = result.output?.[0];
 		if (!item || item.type !== "text") throw new Error("bash returned no text result");
 		const value = JSON.parse(item.text);

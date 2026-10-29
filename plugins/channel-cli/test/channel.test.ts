@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { ChannelProvider, PluginAPI } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 
@@ -33,7 +34,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 		"--input-type=module",
 		"-e",
 		'import {createServer} from "node:net"; createServer().listen(process.argv[1], () => console.log("ready"));',
-		join(data, "test-cli.sock"),
+		localIpcPath(join(data, "test-cli.sock")),
 	]);
 	await new Promise<void>((done) => stale.stdout.once("data", () => done()));
 	const exited = new Promise<void>((done) => stale.once("exit", () => done()));
@@ -49,7 +50,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 		},
 	});
 
-	const socket = createConnection(join(data, "test-cli.sock"));
+	const socket = createConnection(localIpcPath(join(data, "test-cli.sock")));
 	socket.setEncoding("utf8");
 	const lines = createInterface({ input: socket, crlfDelay: Infinity });
 	await new Promise<void>((resolveConnect, reject) => {
@@ -80,7 +81,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	expect(await multiline).toMatchObject({ data: { kind: "dm", text: "第一行\nsecond line" } });
 	expect((await ack).type).toBe("accepted");
 
-	const second = createConnection(join(data, "test-cli.sock"));
+	const second = createConnection(localIpcPath(join(data, "test-cli.sock")));
 	second.setEncoding("utf8");
 	const secondLines = createInterface({ input: second, crlfDelay: Infinity });
 	const rejection = (async () => {

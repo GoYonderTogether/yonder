@@ -32,7 +32,7 @@ test("missing control socket rejects normally so CLI can use offline queries", a
 });
 
 test("stream acknowledges before queued updates and releases observer on disconnect", async () => {
-	const home = await mkdtemp("/tmp/ywatch-");
+	const home = await mkdtemp(join(tmpdir(), "ywatch-"));
 	homes.push(home);
 	let disconnected = false;
 	const server = await serveControl(home, async (_request, connection) => {

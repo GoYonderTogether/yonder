@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../kernel/index.js";
@@ -9,7 +10,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"manual task continues, reports native tools, survives restart and closes explicitly",
 	async () => {
-		const home = await mkdtemp("/tmp/ytu-");
+		const home = await mkdtemp(join(tmpdir(), "ytu-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home);

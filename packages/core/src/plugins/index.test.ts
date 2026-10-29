@@ -117,7 +117,7 @@ export default { configSchema: {type: "object", required: ["output"], properties
 });
 
 it("only the provider registration can allow a channel to emit target", async () => {
-	const home = await mkdtemp("/tmp/yonder-channel-target-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-channel-target-"));
 	try {
 		for (const allowed of [false, true]) {
 			const directory = join(home, `provider-${allowed}`);

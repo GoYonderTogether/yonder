@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { basename, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { basename, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { clampThinkingLevel } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import type { YEvent } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../kernel/index.js";
@@ -14,7 +16,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real agent_ask applies a per-run effort for admin callers only, records the decision and never leaks to later runs",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-effort-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-effort-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const sockets: Socket[] = [];
 		const clients: Array<{ channel: string; packets: Array<{ type: string; text?: string; event?: YEvent }> }> = [];
@@ -72,7 +74,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			kernel = await openKernel(home);
 			const running = kernel;
 			const connect = async (channel: string) => {
-				const socket = createConnection(`${home}/.yonder/plugins/channel-cli/${channel}.sock`);
+				const socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/${channel}.sock`));
 				sockets.push(socket);
 				const packets: Array<{ type: string; text?: string; event?: YEvent }> = [];
 				clients.push({ channel, packets });

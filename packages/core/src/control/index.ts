@@ -2,6 +2,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { localIpcPath } from "@yonder/sdk";
 
 export interface ControlRequest {
 	method: string;
@@ -15,7 +16,7 @@ export interface ControlConnection {
 export type ControlHandler = (request: ControlRequest, connection: ControlConnection) => Promise<unknown>;
 
 function socketPath(home: string) {
-	return join(home, ".yonder", "control.sock");
+	return localIpcPath(join(home, ".yonder", "control.sock"));
 }
 
 function message(error: unknown) {
@@ -31,7 +32,7 @@ async function write(socket: Socket, value: unknown) {
 export async function serveControl(home: string, handler: ControlHandler): Promise<{ close(): Promise<void> }> {
 	const path = socketPath(home);
 	await mkdir(join(home, ".yonder"), { recursive: true });
-	await rm(path, { force: true });
+	if (process.platform !== "win32") await rm(path, { force: true });
 	const clients = new Set<Socket>();
 	const server: Server = createServer((socket) => {
 		clients.add(socket);
@@ -85,7 +86,7 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 			for (const client of clients) client.destroy();
 			if (server.listening)
 				await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-			await rm(path, { force: true });
+			if (process.platform !== "win32") await rm(path, { force: true });
 		},
 	};
 }

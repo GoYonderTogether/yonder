@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
@@ -16,7 +17,7 @@ const real = process.env.YONDER_TEST_REAL === "1" && existsSync(auth);
 test.skipIf(!real)(
 	"manual compaction exposes the real native task and produces a stored summary",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-compact-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-compact-"));
 		const runtime = await Runtime.open({
 			home,
 			db: await openDatabase(`${home}/state.db`),
@@ -52,7 +53,7 @@ test.skipIf(!real)(
 test.skipIf(!real)(
 	"native fallback survives restart, continues tools, resets per run and exhausts each model exactly three times",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-fallback-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-fallback-"));
 		const upstream = buildModels(new FileCredentials(auth)).getModel("openai", "gpt-6.1-sol")!.baseUrl;
 		let failAll = false;
 		let transientFailures = 0;

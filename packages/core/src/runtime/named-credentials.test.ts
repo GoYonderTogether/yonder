@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { FileCredentials, storeNamedCredential } from "./credentials.js";
+import { windowsCredentialAcl } from "./windows-acl.js";
 
 const dirs: string[] = [];
 function location() {
@@ -52,7 +53,8 @@ it("creates 0600 and preserves concurrent OAuth modify under the same lock", asy
 	await Promise.all([refreshing, saving]);
 	expect((await credentials.read("openai"))?.type).toBe("oauth");
 	expect(JSON.parse(readFileSync(path, "utf8")).openai.refresh).toBe("test-new-refresh");
-	expect(statSync(path).mode & 0o777).toBe(0o600);
+	if (process.platform === "win32") windowsCredentialAcl(path);
+	else expect(statSync(path).mode & 0o777).toBe(0o600);
 	expect(await credentials.read("feishu-hermes-app-secret")).toEqual({ type: "api_key", key: "test-only-key" });
 });
 it("refuses replacement including OAuth; cancelled write changes nothing", async () => {
@@ -69,7 +71,9 @@ it("cancellation before creation leaves no store", async () => {
 	expect(existsSync(path)).toBe(false);
 });
 it("refuses symlink, hardlink, permissive file and writable parent without modifying targets", async () => {
-	for (const kind of ["symlink", "hardlink", "mode", "parent"]) {
+	for (const kind of process.platform === "win32"
+		? ["symlink", "hardlink"]
+		: ["symlink", "hardlink", "mode", "parent"]) {
 		const path = location();
 		const target = `${path}.target`;
 		writeFileSync(target, "{}", { mode: 0o600 });
@@ -84,6 +88,7 @@ it("refuses symlink, hardlink, permissive file and writable parent without modif
 it("rejects malformed stores and unsafe names without leaking parse content", async () => {
 	const path = location();
 	writeFileSync(path, "not-json-test", { mode: 0o600 });
+	if (process.platform === "win32") windowsCredentialAcl(path, true);
 	await expect(storeNamedCredential(path, "new", "test-only-key")).rejects.toThrow("cannot parse JSON");
 	await expect(storeNamedCredential(path, "__proto__", "test-only-key")).rejects.toThrow("Invalid credential name");
 });

@@ -1,3 +1,4 @@
+import { windowsCredentialAcl } from "./windows-acl.js";
 // Derived from pi coding-agent 1.3.0, MIT; see THIRD_PARTY_NOTICES.md.
 
 import { randomUUID } from "node:crypto";
@@ -57,6 +58,10 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 	}
 
 	private checkSafePath(): void {
+		if (process.platform === "win32") {
+			this.checkWindowsPath();
+			return;
+		}
 		let path = this.authPath;
 		while (true) {
 			try {
@@ -80,11 +85,27 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 		}
 	}
 
+	private checkWindowsPath(): void {
+		let path = this.authPath;
+		while (true) {
+			if (existsSync(path) && lstatSync(path).isSymbolicLink()) throw new Error("Unsafe credential symlink path");
+			const parent = dirname(path);
+			if (parent === path) break;
+			path = parent;
+		}
+		if (existsSync(this.authPath)) {
+			const file = lstatSync(this.authPath);
+			if (!file.isFile() || file.nlink !== 1) throw new Error("Unsafe credential file");
+			windowsCredentialAcl(this.authPath);
+		}
+	}
+
 	private atomicWrite(next: string): void {
 		const temporary = `${this.authPath}.${randomUUID()}.tmp`;
 		let fd: number | undefined;
 		try {
 			fd = openSync(temporary, "wx", 0o600);
+			if (process.platform === "win32") windowsCredentialAcl(temporary, true);
 			writeFileSync(fd, next, "utf8");
 			fsyncSync(fd);
 			closeSync(fd);
@@ -112,6 +133,7 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 		if (!existsSync(this.authPath)) {
 			try {
 				writeFileSync(this.authPath, "{}", { ...AUTH_FILE_WRITE_OPTIONS, flag: "wx" });
+				if (process.platform === "win32") windowsCredentialAcl(this.authPath, true);
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
 			}

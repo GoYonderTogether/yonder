@@ -3,8 +3,8 @@ import { mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
-
 import { hostedProcessSpawner } from "./hosted-process.js";
+import { killWindowsTree, shellCommand } from "./windows-process.js";
 
 export function processTool(
 	home: string,
@@ -14,6 +14,9 @@ export function processTool(
 		name: "bash",
 		deferred: true,
 		description:
+			(process.platform === "win32"
+				? "The bash tool executes Windows PowerShell commands (not Bash) on this host. "
+				: "") +
 			"Run a shell command in the execution workspace. Calls lasting 15 seconds return a background id automatically; background=true yields immediately. Use process for logs, stdin, status or cancellation. timeout is a soft elapsed-time reminder, not a kill limit. Output is bounded; full stdout/stderr is retained in the reported log file. For builds, installs and long scripts, use background=true and continue independent work; completion arrives automatically. Keep the actual handle for a development server or watcher, and stop it when no longer needed. Set cwd to the intended repository; do not confuse this process with a child Agent. Do not use shell detachment to escape lifecycle ownership. Stdin is closed by default; set stdin=true only for commands that need process.write, then finish input with eof=true. Shell pipelines are supported; this is not a PTY. Specify a search path when searching files.",
 		parameters: Type.Object(
 			{
@@ -35,19 +38,21 @@ export function processTool(
 				log = await open(path, "a", 0o600);
 			try {
 				const host = hostedProcessSpawner();
+				const shell = shellCommand(args.command);
 				return await new Promise((resolve, reject) => {
 					const hosted = host?.({
-						program: "/bin/bash",
-						args: ["-c", args.command],
+						program: shell.program,
+						args: shell.args,
 						cwd: args.cwd ?? api.env!.cwd,
 						env: process.env,
 						stdin: args.stdin ? "pipe" : "ignore",
 					});
 					const child =
 						hosted?.child ??
-						spawn("/bin/bash", ["-c", args.command], {
+						spawn(shell.program, shell.args, {
+							windowsHide: true,
 							cwd: args.cwd ?? api.env!.cwd,
-							detached: true,
+							detached: process.platform !== "win32",
 							stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
 						});
 					let result: { code: number | null; signal: NodeJS.Signals | null } | undefined;
@@ -91,7 +96,13 @@ export function processTool(
 							hosted.cancel();
 							return;
 						}
-						if (child.pid) {
+						if (child.pid && child.exitCode === null) {
+							if (process.platform === "win32") {
+								void killWindowsTree(child.pid).catch((error) => {
+									fault = error;
+								});
+								return;
+							}
 							try {
 								process.kill(-child.pid, "SIGTERM");
 							} catch (error) {
@@ -102,7 +113,7 @@ export function processTool(
 					const force = () => {
 						// Native gate owns TERM -> 1s KILL, including ACK-before-start.
 						// Never signal the original service group from Node.
-						if (host) return;
+						if (host || process.platform === "win32") return;
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGKILL");

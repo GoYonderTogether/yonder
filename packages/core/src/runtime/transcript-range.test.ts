@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { createStore } from "../store/index.js";
@@ -12,7 +13,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"transcript from/limit return the same window as slicing the full history",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-transcript-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-transcript-"));
 		try {
 			const db = await openDatabase(`${home}/state.db`);
 			const store = await createStore(db);

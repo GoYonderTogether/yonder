@@ -83,7 +83,7 @@ export async function textFiles(root: string): Promise<string[]> {
 		}
 		for (const e of entries) {
 			if (e.name.startsWith(".") || e.name === "node_modules" || e.isSymbolicLink()) continue;
-			const child = join(path, e.name);
+			const child = join(path, e.name).replaceAll("\\", "/");
 			if (e.isDirectory()) await walk(child);
 			else if (e.isFile() && /\.(md|markdown|txt)$/i.test(e.name)) found.push(child);
 		}

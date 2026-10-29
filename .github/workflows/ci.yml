@@ -33,3 +33,20 @@ jobs:
       - run: node scripts/yonder-permissions.mjs self-check
       - run: npm test -- --maxWorkers=4
       - run: npm run lint
+
+  windows:
+    name: Windows core, CLI and memory compatibility
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: choco install ripgrep --no-progress -y
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test -- packages/core packages/sdk packages/cli plugins/channel-cli plugins/context-files plugins/memory --maxWorkers=4
+      - run: npm run lint

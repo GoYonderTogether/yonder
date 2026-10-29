@@ -287,3 +287,5 @@ execution.resolve 返回可信 `ResolvedExecution`（能力与实例范围）；
 ## 2026-10-25 共享权限 API 与薄服务宿主解耦（主对话批准）
 
 复用现成共享 permissions registry、SDK/core 工具、native-automation provider 与真实 Runtime adapter 合同，从正式 .05 基线独立集成；不带入尚未收口的薄服务宿主及其清理补丁，不改服务启动链、安装或定位功能。它只统一既有权限入口与真实 ToolContext/session/profile/provider 校验，不建立新授权状态库、审批或原生架构。旧文件执行宿主任务中“不增加权限注册框架”的范围限制不再描述本次已批准的共享门面工作。发布、正式安装与真实 TCC 验收仍是分开的状态，本地专项通过不代替这些验收。
+
+**Windows 原生适配（2026-10-29）。** 维护者明确选择包含后台自启动与安装更新。沿用 pi/Yonder 单一会话与权限体系，使用命名管道、当前用户登录计划任务和目录 junction；具体平台约定见 windows.md。无管理员服务或第二套运行时；代价是用户注销后不运行，Windows junction 切换不具备 POSIX 覆盖 rename 的原子性。

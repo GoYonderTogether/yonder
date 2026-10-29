@@ -31,6 +31,7 @@ import {
 	updateRelease,
 } from "@yonder/core";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { completion } from "./completion.js";
 import { readHiddenCredential } from "./credential-input.js";
@@ -196,7 +197,7 @@ async function managed(home: string, request: { method: string; params?: unknown
 	}
 }
 async function chat(home: string, instance: string, json: boolean) {
-	const socket = createConnection(join(home, ".yonder", "plugins", "channel-cli", `${instance}.sock`));
+	const socket = createConnection(localIpcPath(join(home, ".yonder", "plugins", "channel-cli", `${instance}.sock`)));
 	socket.setEncoding("utf8");
 	const lines = createInterface({ input: socket, crlfDelay: Infinity });
 	const terminal = createInterface({ input: stdin, output: json ? stderr : stdout, terminal: stdin.isTTY });
@@ -392,7 +393,14 @@ async function run(args: string[]): Promise<number> {
 			const url = new URL(result.qrcodeUrl);
 			if (url.protocol !== "https:" || url.username || url.password)
 				throw new Error("Channel login only opens HTTPS links");
-			await promisify(execFile)(process.platform === "darwin" ? "open" : "xdg-open", [url.href]);
+			if (process.platform === "win32") {
+				const script = `Start-Process -FilePath '${url.href.replaceAll("'", "''")}'`;
+				await promisify(execFile)(
+					join(env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"),
+					["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")],
+					{ windowsHide: true },
+				);
+			} else await promisify(execFile)(process.platform === "darwin" ? "open" : "xdg-open", [url.href]);
 		}
 		return 0;
 	}

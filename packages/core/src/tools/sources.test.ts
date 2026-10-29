@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../kernel/index.js";
@@ -80,7 +82,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real agent_ask delivers the owner's earlier message to another agent unchanged and refuses foreign sources",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-sources-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-sources-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const sockets: Socket[] = [];
 		try {
@@ -129,7 +131,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			kernel = await openKernel(home);
 			const running = kernel;
 			const connect = async (channel: string) => {
-				const socket = createConnection(`${home}/.yonder/plugins/channel-cli/${channel}.sock`);
+				const socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/${channel}.sock`));
 				sockets.push(socket);
 				const packets: Array<{ type: string; text?: string; event?: YEvent }> = [];
 				createInterface({ input: socket }).on("line", (line) => packets.push(JSON.parse(line)));

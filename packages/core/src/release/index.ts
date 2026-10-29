@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import {
 	access,
 	chmod,
+	lstat,
 	mkdir,
 	readdir,
 	readFile,
@@ -16,11 +17,12 @@ import {
 } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
+import { localIpcPath } from "@yonder/sdk";
 import { requestControl } from "../control/index.js";
 import { recordUpdateResult, type UpdateResult } from "./result.js";
+import { installedWindowsService, manageWindowsService, windowsLauncher } from "./windows.js";
 
 const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const label = "dev.yonder.harness";
@@ -117,7 +119,7 @@ export async function readDocs(path?: string, list = false): Promise<string | st
 			for (const entry of await readdir(directory, { withFileTypes: true })) {
 				const child = join(directory, entry.name);
 				if (entry.isDirectory()) await walk(child);
-				else if (entry.isFile()) files.push(relative(root, child));
+				else if (entry.isFile()) files.push(relative(root, child).split("\\").join("/"));
 			}
 		};
 		const directory = path ? await realpath(resolve(root, path)) : root;
@@ -181,11 +183,19 @@ function command(
 	options: { cwd?: string; env?: NodeJS.ProcessEnv; allowFailure?: boolean } = {},
 ): Promise<CommandResult> {
 	return new Promise((resolve, reject) => {
-		const child = spawn(program, args, {
-			cwd: options.cwd,
-			env: options.env ?? process.env,
-			stdio: ["ignore", "pipe", "pipe"],
-		});
+		const windowsNpm = process.platform === "win32" && program === "npm";
+		const npmCli =
+			windowsNpm && process.env.npm_execpath?.endsWith("npm-cli.js") ? process.env.npm_execpath : undefined;
+		const child = spawn(
+			npmCli ? process.execPath : windowsNpm ? (process.env.ComSpec ?? "cmd.exe") : program,
+			npmCli ? [npmCli, ...args] : windowsNpm ? ["/d", "/s", "/c", `npm ${args.join(" ")}`] : args,
+			{
+				windowsHide: true,
+				cwd: options.cwd,
+				env: options.env ?? process.env,
+				stdio: ["ignore", "pipe", "pipe"],
+			},
+		);
 		let stdout = "",
 			stderr = "";
 		child.stdout.on("data", (chunk) => {
@@ -231,6 +241,7 @@ interface ServiceInstallation {
 	plist: string;
 }
 export async function installedService(): Promise<ServiceInstallation | undefined> {
+	if (process.platform === "win32") return installedWindowsService();
 	if (process.platform !== "darwin" || !existsSync(plistPath())) return;
 	const result = await command("plutil", ["-convert", "json", "-o", "-", plistPath()]);
 	const plist = JSON.parse(result.stdout) as {
@@ -244,9 +255,9 @@ export async function installedService(): Promise<ServiceInstallation | undefine
 	return { home, install: plist.EnvironmentVariables?.YONDER_INSTALL ?? dirname(dirname(args[0])), plist: plistPath() };
 }
 function runtimePath(install: string): string {
-	return [...new Set([join(install, "bin"), dirname(process.execPath), ...(process.env.PATH ?? "").split(":")])]
+	return [...new Set([join(install, "bin"), dirname(process.execPath), ...(process.env.PATH ?? "").split(delimiter)])]
 		.filter(Boolean)
-		.join(":");
+		.join(delimiter);
 }
 export function launcher(install: string, node = process.execPath, path = runtimePath(install)): string {
 	return `#!/bin/sh\nPATH=${shellQuote(path)}\nYONDER_INSTALL=${shellQuote(install)}\nexport PATH YONDER_INSTALL\nexec ${shellQuote(node)} ${shellQuote(join(install, "current/packages/cli/dist/index.js"))} "$@"\n`;
@@ -275,8 +286,8 @@ ${pair("StandardOutPath", join(home, ".yonder/logs/status.log"))}${pair("Standar
 }
 export type ServiceAction = "install" | "uninstall" | "start" | "stop" | "restart" | "status";
 export async function manageService(action: ServiceAction, options: { home?: string } = {}) {
-	if (process.platform !== "darwin")
-		throw new Error("Yonder Harness background services currently support macOS launchd only");
+	if (process.platform === "win32") return manageWindowsService(action, installPath(), options.home);
+	if (process.platform !== "darwin") throw new Error("Yonder Harness background services support macOS and Windows");
 	let installed = await installedService();
 	const service = `${domain()}/${label}`;
 	const loaded = async () => (await command("launchctl", ["print", service], { allowFailure: true })).code === 0;
@@ -385,9 +396,9 @@ async function currentVersion(install: string): Promise<string | undefined> {
 }
 async function runningHome(home: string | undefined): Promise<boolean> {
 	if (!home) return false;
-	const path = join(home, ".yonder/control.sock");
+	const path = localIpcPath(join(home, ".yonder/control.sock"));
 	try {
-		if (!(await stat(path)).isSocket()) return false;
+		if (process.platform !== "win32" && !(await stat(path)).isSocket()) return false;
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
 		throw error;
@@ -464,6 +475,29 @@ async function installRelease(options: UpdateOptions = {}) {
 			throw error;
 		}
 	}
+	if (process.platform === "win32") {
+		// npm creates absolute workspace junctions on Windows. A staging rename
+		// leaves them targeting the old .tmp directory, so rebind only workspace links.
+		const workspaces = (JSON.parse(await readFile(join(directory, "package.json"), "utf8")) as { workspaces: string[] })
+			.workspaces;
+		for (const workspace of workspaces) {
+			const target = resolve(directory, workspace);
+			const rel = relative(directory, target);
+			if (isAbsolute(rel) || rel === ".." || rel.startsWith("..\\"))
+				throw new Error("Workspace escapes release directory");
+			const pkg = JSON.parse(await readFile(join(target, "package.json"), "utf8")) as { name: string };
+			if (!/^(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+$/u.test(pkg.name)) throw new Error("Invalid workspace package name");
+			const junction = join(directory, "node_modules", pkg.name);
+			try {
+				if (!(await lstat(junction)).isSymbolicLink()) throw new Error("Workspace dependency is not a junction");
+				await rm(junction);
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			}
+			await mkdir(dirname(junction), { recursive: true });
+			await symlink(target, junction, "junction");
+		}
+	}
 	await access(join(directory, "packages/cli/dist/index.js"));
 	const service = await installedService();
 	const thisService = service && resolve(service.install) === install ? service : undefined;
@@ -476,15 +510,35 @@ async function installRelease(options: UpdateOptions = {}) {
 		);
 	}
 	await mkdir(join(install, "bin"), { recursive: true });
-	const wrapper = join(install, "bin/yonder"),
+	const wrapper = join(install, process.platform === "win32" ? "bin/yonder.cmd" : "bin/yonder"),
 		newWrapper = `${wrapper}.${randomUUID()}.tmp`;
 	const link = join(install, `.current.${randomUUID()}`);
 	try {
-		await writeFile(newWrapper, launcher(install), { mode: 0o755 });
+		await writeFile(newWrapper, process.platform === "win32" ? windowsLauncher(install) : launcher(install), {
+			mode: 0o755,
+		});
 		await chmod(newWrapper, 0o755);
-		await symlink(join("versions", version), link, "dir");
+		await symlink(
+			process.platform === "win32" ? directory : join("versions", version),
+			link,
+			process.platform === "win32" ? "junction" : "dir",
+		);
 		await rename(newWrapper, wrapper);
-		await rename(link, join(install, "current"));
+		if (process.platform === "win32") {
+			if (thisService) await manageService("stop");
+			const current = join(install, "current"),
+				backup = join(install, `.previous.${randomUUID()}`);
+			const hadCurrent = existsSync(current);
+			if (hadCurrent) await rename(current, backup);
+			try {
+				await rename(link, current);
+			} catch (error) {
+				if (hadCurrent) await rename(backup, current);
+				if (thisService) await manageService("start");
+				throw error;
+			}
+			if (hadCurrent) await rm(backup, { force: true });
+		} else await rename(link, join(install, "current"));
 	} finally {
 		await rm(newWrapper, { force: true });
 		await rm(link, { force: true });

@@ -2,8 +2,10 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createConnection } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { Readable } from "node:stream";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { resolveProfile } from "../config/index.js";
@@ -61,7 +63,7 @@ test("recovery retries transport/5xx/throttle errors and excludes deterministic 
 test.skipIf(!real)(
 	"real Luna resumes an in-flight model request and HTTP failures without replaying tools or source delivery",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-network-live-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-network-live-"));
 		const upstream = buildModels(new FileCredentials(auth)).getModel("openai", "gpt-6-luna")!.baseUrl;
 		let calls = 0;
 		const failed: number[] = [];
@@ -141,7 +143,7 @@ test.skipIf(!real)(
 			agent.profiles.owner.tools = { offer: ["bash"] };
 			await writeFile(path, stringify(agent));
 			kernel = await openKernel(home);
-			socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
+			socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/cli.sock`));
 			await new Promise<void>((done, reject) => {
 				socket!.once("connect", done);
 				socket!.once("error", reject);
@@ -157,7 +159,7 @@ test.skipIf(!real)(
 			await kernel.close();
 			kernel = await openKernel(home);
 			const running = kernel;
-			socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
+			socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/cli.sock`));
 			await new Promise<void>((done, reject) => {
 				socket!.once("connect", done);
 				socket!.once("error", reject);
@@ -211,7 +213,7 @@ test.skipIf(!real)(
 test.skipIf(!real)(
 	"real HTTP boundary enforces capped backoffs, retry exclusions, exhaustion and immediate abort",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-network-budget-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-network-budget-"));
 		let status = 503;
 		let errorText = "Service temporarily unavailable";
 		let calls: number[] = [];
@@ -326,7 +328,7 @@ test.skipIf(!real)(
 test.skipIf(!real)(
 	"HTTP retry checkpoints and interruption identities survive repeated restarts",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-network-restart-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-network-restart-"));
 		const requests: string[] = [];
 		const server = createServer(async (req, res) => {
 			const chunks: Buffer[] = [];

@@ -144,7 +144,10 @@ test("native background preserves results, yields at 15s, owns processes and rel
 				.map((part) => (part.type === "text" ? part.text : ""))
 				.join("") ?? "";
 		const short = await call(first, "bash", {
-			command: "printf 'real short stdout'; printf 'real short stderr' >&2; exit 7",
+			command:
+				process.platform === "win32"
+					? "[Console]::Write('real short stdout'); [Console]::Error.Write('real short stderr'); exit 7"
+					: "printf 'real short stdout'; printf 'real short stderr' >&2; exit 7",
 		});
 		expect(short.isError).toBe(true);
 		expect(JSON.parse(text(short)).output).toContain("real short stdout");
@@ -158,15 +161,27 @@ test("native background preserves results, yields at 15s, owns processes and rel
 			"real short stdout",
 		);
 		expect(internal.background.running.size).toBe(0);
-		const eof = await call(first, "bash", { command: "cat" });
+		const eof = await call(first, "bash", {
+			command: process.platform === "win32" ? "[Console]::Write([Console]::In.ReadToEnd())" : "cat",
+		});
 		expect(JSON.parse(text(eof))).toMatchObject({ output: "", exitCode: 0 });
 		await writeFile(join(home, "stdin.txt"), "native stdin file match\n");
 		// The EOF/file regression must run on hosts without optional ripgrep installed.
-		const search = await call(first, "bash", { command: "cat; grep -H 'native stdin file match' stdin.txt" });
+		const search = await call(first, "bash", {
+			command:
+				process.platform === "win32"
+					? "$null=[Console]::In.ReadToEnd(); [Console]::Write('stdin.txt:'+ [IO.File]::ReadAllText((Join-Path (Get-Location) 'stdin.txt')))"
+					: "cat; grep -H 'native stdin file match' stdin.txt",
+		});
 		expect(JSON.parse(text(search))).toMatchObject({ output: "stdin.txt:native stdin file match\n", exitCode: 0 });
 
 		const began = Date.now();
-		const yielded = await call(first, "bash", { command: "printf 'started'; sleep 16; printf 'finished'" });
+		const yielded = await call(first, "bash", {
+			command:
+				process.platform === "win32"
+					? "[Console]::Write('started'); Start-Sleep 16; [Console]::Write('finished')"
+					: "printf 'started'; sleep 16; printf 'finished'",
+		});
 		expect(Date.now() - began).toBeGreaterThanOrEqual(14900);
 		// Upper bound tolerates scheduler load; the live "not terminal" check below proves it yielded early.
 		expect(Date.now() - began).toBeLessThan(18000);
@@ -186,8 +201,15 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		expect(notifications.filter((item) => item.id === id)).toHaveLength(1);
 		await expect.poll(() => idle).toBe(1);
 
-		const input = JSON.parse(text(await call(first, "bash", { command: "cat", stdin: true, background: true })))
-			.background as string;
+		const input = JSON.parse(
+			text(
+				await call(first, "bash", {
+					command: process.platform === "win32" ? "[Console]::Write([Console]::In.ReadToEnd())" : "cat",
+					stdin: true,
+					background: true,
+				}),
+			),
+		).background as string;
 		await expect.poll(() => typeof internal.background.running.get(Number(input))?.write).toBe("function");
 		const crossEof = await start(other, "process", { action: "write", id: input, eof: true });
 		expect((await internal.harness.waitForTask(crossEof, C)).state.outcome.status).not.toBe("completed");
@@ -201,7 +223,12 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		await expect.poll(() => idle).toBe(2);
 
 		// Killing a native job before its yield must retain its actual non-completed outcome.
-		const synchronous = await start(first, "bash", { command: "printf 'synchronous start'; sleep 30" });
+		const synchronous = await start(first, "bash", {
+			command:
+				process.platform === "win32"
+					? "[Console]::Write('synchronous start'); Start-Sleep 30"
+					: "printf 'synchronous start'; sleep 30",
+		});
 		await expect
 			.poll(() => [...internal.background.running.values()].some((value) => value.output === "synchronous start"))
 			.toBe(true);
@@ -219,7 +246,10 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		const rolling = JSON.parse(
 			text(
 				await call(first, "bash", {
-					command: "head -c 70000 /dev/zero | tr '\\0' x; read line; printf '%s' \"$line\"; sleep 30",
+					command:
+						process.platform === "win32"
+							? "[Console]::Write(('x'*70000)); $line=[Console]::In.ReadLine(); [Console]::Write($line); Start-Sleep 30"
+							: "head -c 70000 /dev/zero | tr '\\0' x; read line; printf '%s' \"$line\"; sleep 30",
 					stdin: true,
 					background: true,
 				}),
@@ -251,7 +281,10 @@ test("native background preserves results, yields at 15s, owns processes and rel
 					first,
 					"bash",
 					{
-						command: "printf 'ready'; read line; printf 'received:%s' \"$line\"; sleep 30",
+						command:
+							process.platform === "win32"
+								? "[Console]::Write('ready'); $line=[Console]::In.ReadLine(); [Console]::Write('received:'+$line); Start-Sleep 30"
+								: "printf 'ready'; read line; printf 'received:%s' \"$line\"; sleep 30",
 						background: true,
 						stdin: true,
 					},
@@ -286,7 +319,15 @@ test("native background preserves results, yields at 15s, owns processes and rel
 		expect(owned?.background).toBe(true);
 
 		const abortable = JSON.parse(
-			text(await call(first, "bash", { command: "sleep 30 & echo $$:$!; wait", background: true })),
+			text(
+				await call(first, "bash", {
+					command:
+						process.platform === "win32"
+							? "$p=Start-Process (Join-Path $PSHOME 'powershell.exe') -ArgumentList '-NoProfile','-Command','Start-Sleep 30' -NoNewWindow -PassThru; [Console]::Write([string]$PID+':'+$p.Id); Wait-Process -Id $p.Id"
+							: "sleep 30 & echo $$:$!; wait",
+					background: true,
+				}),
+			),
 		).background as string;
 		await expect.poll(() => internal.background.running.get(Number(abortable))?.output.trim()).toMatch(/^\d+:\d+$/);
 		const abortPids = internal.background.running.get(Number(abortable))?.output.trim().split(":").map(Number) ?? [];
@@ -305,7 +346,15 @@ test("native background preserves results, yields at 15s, owns processes and rel
 				.toBe(false);
 
 		const shutdown = JSON.parse(
-			text(await call(first, "bash", { command: "sleep 30 & echo $$:$!; wait", background: true })),
+			text(
+				await call(first, "bash", {
+					command:
+						process.platform === "win32"
+							? "$p=Start-Process (Join-Path $PSHOME 'powershell.exe') -ArgumentList '-NoProfile','-Command','Start-Sleep 30' -NoNewWindow -PassThru; [Console]::Write([string]$PID+':'+$p.Id); Wait-Process -Id $p.Id"
+							: "sleep 30 & echo $$:$!; wait",
+					background: true,
+				}),
+			),
 		).background as string;
 		await expect.poll(() => internal.background.running.get(Number(shutdown))?.output.trim()).toMatch(/^\d+:\d+$/);
 		const pids = internal.background.running.get(Number(shutdown))?.output.trim().split(":").map(Number) ?? [];

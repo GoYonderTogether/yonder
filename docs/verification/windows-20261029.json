@@ -1,0 +1,112 @@
+{
+	"fullSuite": {
+		"passed": 599,
+		"failed": 69,
+		"skipped": 44
+	},
+	"remainingAtFullRun": [
+		{
+			"file": "tests/wechat.test.ts",
+			"failed": 2,
+			"reason": "AssertionError: expected 438 to be 384 // Object.is equality"
+		},
+		{
+			"file": "plugins/browser-skill/test/plugin.test.ts",
+			"failed": 3,
+			"reason": "AssertionError: expected '{\"source\":\"BrowserSkill/bsk\",\"error\":…' to contain 'disabled'"
+		},
+		{
+			"file": "plugins/channel-card/test/protocol.test.ts",
+			"failed": 4,
+			"reason": "AssertionError: expected 438 to be 448 // Object.is equality"
+		},
+		{
+			"file": "plugins/channel-github/test/actions.test.ts",
+			"failed": 3,
+			"reason": "AssertionError: expected \"vi.fn()\" to be called once with arguments: [ { to: 'conv:feishu:target', …(1) } ]"
+		},
+		{
+			"file": "plugins/channel-github/test/repair.test.ts",
+			"failed": 4,
+			"reason": "Error: expected [Function] to throw error including 'runner copy failed' but got 'Service-external updates require macO…'"
+		},
+		{
+			"file": "plugins/channel-qq/test/channel.test.ts",
+			"failed": 1,
+			"reason": "AssertionError: expected 438 to be 384 // Object.is equality"
+		},
+		{
+			"file": "plugins/clipboard/test/clipboard.test.ts",
+			"failed": 5,
+			"reason": "Error: unsafe_data_directory"
+		},
+		{
+			"file": "plugins/clipboard/test/http.test.ts",
+			"failed": 1,
+			"reason": "Error: spawnSync /usr/bin/openssl ENOENT"
+		},
+		{
+			"file": "plugins/cron/src/scheduler.test.ts",
+			"failed": 1,
+			"reason": "Error: expected 'running' to be 'done' // Object.is equality"
+		},
+		{
+			"file": "plugins/mcp-client/test/media.test.ts",
+			"failed": 1,
+			"reason": "AssertionError: exit code 1 signal null"
+		},
+		{
+			"file": "plugins/hermes-experience/test/learning-store.test.mjs",
+			"failed": 2,
+			"reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+		},
+		{
+			"file": "plugins/hermes-experience/test/plugin.test.mjs",
+			"failed": 2,
+			"reason": "Error: absolute_normalized_directory_required"
+		},
+		{
+			"file": "plugins/hermes-experience/test/skills.test.mjs",
+			"failed": 1,
+			"reason": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:"
+		},
+		{
+			"file": "plugins/hermes-experience/test/store.test.mjs",
+			"failed": 2,
+			"reason": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:"
+		},
+		{
+			"file": "plugins/native-automation/test/cleanup.test.ts",
+			"failed": 1,
+			"reason": "AssertionError: exit code 1 signal null"
+		},
+		{
+			"file": "plugins/native-automation/test/permission-actions.test.ts",
+			"failed": 23,
+			"reason": "AssertionError: expected \"vi.fn()\" to be called with arguments: [ { …(2) }, …(2) ]"
+		},
+		{
+			"file": "plugins/native-automation/test/permission-rpc.test.ts",
+			"failed": 11,
+			"reason": "Error: Helper exited without JSON: "
+		},
+		{
+			"file": "plugins/ui-companion/test/contract.test.ts",
+			"failed": 1,
+			"reason": "AssertionError: expected 438 to be 384 // Object.is equality"
+		},
+		{
+			"file": "packages/core/src/release/result.test.ts",
+			"failed": 1,
+			"reason": "Error: ENOENT: no such file or directory, open 'C:\\Users\\19482\\AppData\\Local\\Temp\\yonder-direct-update-cjLVeN\\install\\versions\\0.1.2026101905\\package.json'"
+		}
+	],
+	"laterScopedRun": {
+		"filesPassed": 68,
+		"filesFailed": 0,
+		"filesSkipped": 18,
+		"passed": 280,
+		"failed": 0,
+		"skipped": 36
+	}
+}

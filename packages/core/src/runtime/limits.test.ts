@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "./db.js";
@@ -10,7 +11,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna continues after turn reminders and stops repeated side effects",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-limits-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-limits-"));
 		let runtime: Runtime | undefined;
 		const warnings: Array<{ session: string; kind: string }> = [];
 		try {

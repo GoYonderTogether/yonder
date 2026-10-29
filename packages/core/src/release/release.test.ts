@@ -31,6 +31,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 	expect(await readDocs(undefined, true)).toContain("spec/09-cli-release.md");
 	await expect(readDocs("../package.json")).rejects.toThrow("inside docs/");
 	expect(typeof (await readChangelog())).toBe("string");
+	if (process.platform === "win32") return; // POSIX wrappers; Windows launcher is exercised by test-windows-install.
 	const directory = await mkdtemp(join(tmpdir(), "yonder-release & '"));
 	try {
 		const wrapper = join(directory, "yonder"),
@@ -65,7 +66,7 @@ test("release parsing, real docs and local launcher/plist files need no harness 
 test.skipIf(process.platform !== "darwin" || process.env.YONDER_TEST_LAUNCHD !== "1")(
 	"real launchd unload waits for the old process and registration before bootstrap",
 	async () => {
-		const root = await mkdtemp("/tmp/yonder-launchd-");
+		const root = await mkdtemp(join(tmpdir(), "yonder-launchd-"));
 		const label = `dev.yonder.harness.check.${process.pid}`;
 		const service = `gui/${process.getuid?.()}/${label}`;
 		const plist = `${root}/check.plist`,

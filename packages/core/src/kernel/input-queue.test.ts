@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { OutputPart, SessionUpdate, YEvent } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -13,7 +15,7 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 	test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		`real Luna merges all queued inputs in one run during ${scenario}`,
 		async () => {
-			const home = await mkdtemp("/tmp/yonder-input-queue-");
+			const home = await mkdtemp(join(tmpdir(), "yonder-input-queue-"));
 			let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 			const sockets: Socket[] = [];
 			const updates: SessionUpdate[] = [];
@@ -43,7 +45,7 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 				kernel = await openKernel(home);
 				const running = kernel;
 				const connect = async (channel: string) => {
-					const socket = createConnection(`${home}/.yonder/plugins/channel-cli/${channel}.sock`);
+					const socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/${channel}.sock`));
 					sockets.push(socket);
 					createInterface({ input: socket }).on("line", (line) => packets.push(JSON.parse(line)));
 					await new Promise<void>((done, reject) => {

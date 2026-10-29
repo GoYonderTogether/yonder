@@ -25,7 +25,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { type Kernel, observeControl, packageVersion, requestControl, type TerminalUpdate } from "@yonder/core";
 import type { SessionInfo, SessionNotification, YEvent } from "@yonder/sdk";
-import { chatCommands } from "@yonder/sdk";
+import { chatCommands, localIpcPath } from "@yonder/sdk";
 import { CommandAutocomplete } from "./autocomplete.js";
 import { CompactToolExecution, MessagePresentation } from "./message-presentation.js";
 import {
@@ -558,7 +558,7 @@ export async function runTerminal(home: string, initial: ChatTarget = {}) {
 		target = { channel: id };
 		title();
 		autocomplete();
-		const socket = createConnection(join(home, ".yonder/plugins/channel-cli", `${id}.sock`));
+		const socket = createConnection(localIpcPath(join(home, ".yonder/plugins/channel-cli", `${id}.sock`)));
 		channelSocket = socket;
 		socket.setEncoding("utf8");
 		const lines = createInterface({ input: socket, crlfDelay: Infinity });

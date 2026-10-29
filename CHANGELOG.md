@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 原生 Windows 候选：控制面及 CLI 渠道命名管道、PowerShell 命令与后台进程取消、凭据 ACL、当前用户登录计划任务、Windows 启动器及 junction 安装更新；修复版本目录改名后 npm workspace 绝对 junction 失效。验证边界见 docs/windows.md 与 docs/status.md。
+
 ## [0.2.26102507] - 2026-10-25
 
 ### Changed

@@ -5,6 +5,7 @@ import { createConnection, type Socket } from "node:net";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -116,7 +117,7 @@ test.skipIf(!enabled)(
 				},
 			});
 			async function connect() {
-				const socket = createConnection(join(home, ".yonder/plugins/channel-cli/cli.sock"));
+				const socket = createConnection(localIpcPath(join(home, ".yonder/plugins/channel-cli/cli.sock")));
 				sockets.push(socket);
 				const packets: Array<{ type: string; event?: YEvent; text?: string }> = [];
 				createInterface({ input: socket }).on("line", (line) => {
@@ -154,7 +155,7 @@ test.skipIf(!enabled)(
 			}
 			let client = await connect();
 			const sections = [
-				'CJK中文🦤🌙 <message id=\"alpha\"> & \"quoted\" \\ slash\n\t.',
+				'CJK中文🦤🌙 <message id="alpha"> & "quoted" \\ slash\n\t.',
 				"Résumé naïve façade; punctuation!? — mixed_CASE/42 and emoji 🪻.",
 				"日本語かなと漢字、العربية، then XML </message> & escaped\ttext.",
 				"Distinctive region marker cobalt-7319-fern with varied sentence structure.",

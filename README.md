@@ -12,7 +12,7 @@
 
 </div>
 
-> **Developer preview — macOS only.** The kernel, CLI and terminal UI, installer/updater and twelve official plugins run end to end. A fresh install enables only the CLI channel and workspace context files; every other capability is opt-in configuration. [docs/status.md](docs/status.md) records what is verified, what is missing and what is still untested. The specification and reference documents are currently written in Chinese.
+> **Developer preview — macOS; native Windows adaptation in review.** The kernel, CLI and terminal UI, installer/updater and twelve official plugins run end to end. A fresh install enables only the CLI channel and workspace context files; every other capability is opt-in configuration. [docs/status.md](docs/status.md) records what is verified, what is missing and what is still untested. The specification and reference documents are currently written in Chinese.
 
 ## Why Yonder Harness
 
@@ -127,3 +127,11 @@ Please read [CONTRIBUTING.md](CONTRIBUTING.md). Tests that need a model use a re
 Apache-2.0, see [LICENSE](LICENSE). Yonder Harness builds on [pi](https://github.com/earendil-works/pi) (MIT) and adapts code or protocol behavior from pi's coding-agent, [OpenClaw](https://github.com/openclaw/openclaw), [Hermes Agent](https://github.com/NousResearch/hermes-agent) and Tencent's BrowserSkill under their MIT licenses. Attributions and license texts are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and in the individual plugin directories.
 
 macOS 桌面权限使用稳定签名的 Yonder Helper.app；AI 通过 native-automation_desktop `permissions` 只读查看状态。首次桌面调用安装 helper，授权由主人使用独立 CLI 完成，见[权限与 OWNER STEP](docs/verification/mac-permissions.md)。
+
+## Native Windows (candidate)
+
+See [Windows support and validation](docs/windows.md). Install Node.js (including npm) and Git, then run `npm ci` and `npm run build` from this checkout. The existing `init`, `login`, `start`, `chat` and management commands run in PowerShell; commands invoked by the agent use Windows PowerShell.
+
+Background `service` commands use a current-user logon task. `update` builds a tagged version, installs `bin/yonder.cmd`, and switches a directory junction. Only install a reviewed tag containing this adaptation; older published tags do not acquire Windows support from the invoking CLI. Add the installed bin directory to PATH in the usual Windows settings. Login separately for this home; never copy OAuth credentials.
+
+macOS native automation, Keychain, menu bar, power protection and GitHub's launchd-based automatic update job remain platform-specific. Terminal visual/manual tests, reboot/logon and production model calls require separate verification. The current full-suite failures are recorded in docs/status.md; this candidate is not a claim of complete plugin parity.

@@ -1,6 +1,7 @@
 import { createCipheriv } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Channel, EventInput, PluginAPI, ToolContext } from "@yonder/sdk";
@@ -14,7 +15,7 @@ import { Archive } from "../plugins/wechat-archive/src/archive.js";
 import archivePlugin from "../plugins/wechat-archive/src/index.js";
 
 async function harness(id: string, config: unknown = {}) {
-	const directory = await mkdtemp("/tmp/yonder-wechat-test-");
+	const directory = await mkdtemp(join(tmpdir(), "yonder-wechat-test-"));
 	const db = await openDatabase(":memory:");
 	const store = await createStore(db, () => "person:owner");
 	const identity = store.identity();
@@ -223,7 +224,7 @@ test("QR pairing persists first owner, keeps second independent and uses per-pee
 });
 
 test("media protocol decrypts actual HTTP bytes and rejects untrusted download origins", async () => {
-	const temporary = await mkdtemp("/tmp/yonder-wechat-upload-");
+	const temporary = await mkdtemp(join(tmpdir(), "yonder-wechat-upload-"));
 	const signal = new AbortController().signal,
 		key = Buffer.alloc(16, 7),
 		plain = Buffer.from("89504e470d0a1a0a00000000", "hex");
@@ -387,7 +388,7 @@ test("archive resumes durable material after unknown admission; silence, policy 
 
 test("archive media reader rejects symlink escapes and raw XML is never exposed", async () => {
 	const { readWechatMediaFile, safeMessage } = await import("../plugins/wechat-archive/src/source.js");
-	const directory = await mkdtemp("/tmp/yonder-wechat-media-");
+	const directory = await mkdtemp(join(tmpdir(), "yonder-wechat-media-"));
 	try {
 		await mkdir(join(directory, "media"));
 		await writeFile(join(directory, "outside"), "private");
@@ -409,7 +410,7 @@ test("archive media reader rejects symlink escapes and raw XML is never exposed"
 async function kernelHome(real = false) {
 	const { initHome, inspectHome, openKernel } = await import("../packages/core/src/kernel/index.js");
 	const { parse, stringify } = await import("yaml");
-	const home = await mkdtemp("/tmp/yonder-wechat-kernel-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-wechat-kernel-"));
 	await initHome(home);
 	const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 	config.plugins.push(

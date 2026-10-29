@@ -1,11 +1,13 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseAgentConfig } from "../config/index.js";
 import { initHome, inspectHome, manageHome, offlineQuery, openKernel } from "./index.js";
 
 test("initialize, inspect, start, stop and query a real empty home", async () => {
-	const home = await mkdtemp("/tmp/yonder-kernel-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-kernel-"));
 	try {
 		await initHome(home);
 		expect(parse(await readFile(`${home}/yonder.yaml`, "utf8")).plugins).toContainEqual({
@@ -47,7 +49,7 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 });
 
 test("reload validates references, scaffolds contexts and retains an open session's preset", async () => {
-	const home = await mkdtemp("/tmp/yonder-reload-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-reload-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home);
@@ -95,7 +97,7 @@ test("reload validates references, scaffolds contexts and retains an open sessio
 }, 30000);
 
 test("offline inspection uses the common tool policy and includes preset plugin references", async () => {
-	const home = await mkdtemp("/tmp/yonder-inspect-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-inspect-"));
 	try {
 		await initHome(home);
 		const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));

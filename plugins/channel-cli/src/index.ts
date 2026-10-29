@@ -8,6 +8,7 @@ import {
 	conv,
 	defineChannel,
 	definePlugin,
+	localIpcPath,
 	type PluginAPI,
 	type PluginModule,
 	type Ref,
@@ -19,7 +20,7 @@ const channelProvider = (api: PluginAPI) =>
 		create(id: string, _config: unknown) {
 			const account = acct(id, "local");
 			const conversation = conv(id, "local");
-			const socketPath = join(api.paths.data, `${id}.sock`);
+			const socketPath = localIpcPath(join(api.paths.data, `${id}.sock`));
 			let server: Server | undefined;
 			let client: Socket | undefined;
 			let io: ChannelIO | undefined;
@@ -36,7 +37,7 @@ const channelProvider = (api: PluginAPI) =>
 				async start(channelIO) {
 					io = channelIO;
 					await mkdir(api.paths.data, { recursive: true });
-					await rm(socketPath, { force: true });
+					if (process.platform !== "win32") await rm(socketPath, { force: true });
 					server = createServer((socket) => {
 						if (client) {
 							socket.on("error", () => socket.destroy());
@@ -90,7 +91,7 @@ const channelProvider = (api: PluginAPI) =>
 					client = undefined;
 					if (server?.listening) {
 						await new Promise<void>((resolve, reject) => server?.close((error) => (error ? reject(error) : resolve())));
-						await rm(socketPath, { force: true });
+						if (process.platform !== "win32") await rm(socketPath, { force: true });
 					}
 					server = undefined;
 				},

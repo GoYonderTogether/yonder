@@ -59,6 +59,7 @@ export interface WriteContext {
 export class Store {
 	constructor(readonly root: string) {}
 	private async target(path: string): Promise<string> {
+		if (process.platform === "win32") path = path.replaceAll("\\", "/");
 		if (path === "mine" || path.startsWith("mine/")) throw new Error("mine is read-only");
 		return safePath(this.root, path);
 	}

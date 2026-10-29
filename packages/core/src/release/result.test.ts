@@ -51,6 +51,8 @@ test("real isolated update of a prepared artifact records restart-required, no-o
 	try {
 		process.env.YONDER_INSTALL = install;
 		await database(home);
+		await mkdir(directory, { recursive: true });
+		await writeFile(join(directory, "package.json"), JSON.stringify({ workspaces: [] }));
 		// Prepared artifact fixture: exercise the real link/install/receipt path, not a release build or launchd deployment.
 		await mkdir(join(directory, "packages/cli/dist"), { recursive: true });
 		await writeFile(

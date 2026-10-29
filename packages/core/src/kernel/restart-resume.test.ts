@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -10,7 +12,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna run interrupted by a restart resumes with a one-line interruption notice",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-restart-live-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-restart-live-"));
 		try {
 			await initHome(home);
 			const config = parse(await readFile(`${home}/yonder.yaml`, "utf8"));
@@ -23,7 +25,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			await writeFile(path, stringify(agent));
 
 			const first = await openKernel(home);
-			const socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
+			const socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/cli.sock`));
 			await new Promise<void>((done, reject) => {
 				socket.once("connect", done);
 				socket.once("error", reject);

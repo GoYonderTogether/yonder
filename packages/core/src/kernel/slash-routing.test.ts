@@ -1,14 +1,16 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
 
 test("native channel unknown slash reaches selected runtime hooks unchanged; builtins and unbound sources do not", async () => {
-	const home = await mkdtemp("/tmp/yonder-slash-route-");
+	const home = await mkdtemp(join(tmpdir(), "yonder-slash-route-"));
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	const sockets: Socket[] = [];
 	try {
@@ -67,7 +69,7 @@ export default { setup(api) { api.hooks.register({ id: 'probe', async beforeRequ
 		kernel = await openKernel(home);
 		const running = kernel;
 		const connect = async (channel: string) => {
-			const socket = createConnection(join(home, ".yonder/plugins/channel-cli", `${channel}.sock`));
+			const socket = createConnection(localIpcPath(join(home, ".yonder/plugins/channel-cli", `${channel}.sock`)));
 			sockets.push(socket);
 			const packets: Array<{ type: string; text?: string; event?: YEvent }> = [];
 			createInterface({ input: socket }).on("line", (line) => packets.push(JSON.parse(line)));

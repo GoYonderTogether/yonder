@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -11,7 +12,7 @@ const model = "openai/gpt-6-luna";
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real model yields long bash, continues work, receives completion, preserves soft thresholds and runs a native child",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-execution-live-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-execution-live-"));
 		const evidence = `${home}/evidence`;
 		await mkdir(evidence);
 		const logs: unknown[] = [];

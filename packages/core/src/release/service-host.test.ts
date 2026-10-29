@@ -1,4 +1,5 @@
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, vi } from "vitest";
 
@@ -13,7 +14,7 @@ import { manageService } from "./index.js";
 test.skipIf(process.platform !== "darwin")(
 	"service install/stop/start/restart/rollback contracts use one existing launchd job and wait for bootout",
 	async () => {
-		const root = await mkdtemp("/tmp/yonder-host-contract-");
+		const root = await mkdtemp(join(tmpdir(), "yonder-host-contract-"));
 		fixture.home = root;
 		const install = join(root, "install"),
 			home = join(root, "data"),

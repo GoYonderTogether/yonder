@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { OutputPart, YEvent } from "@yonder/sdk";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -12,7 +14,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna closes progress bubbles before long tools and automatically delivers background completion",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-message-live-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-message-live-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		const packets: Array<{ at: number; part: OutputPart }> = [];
@@ -29,7 +31,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			await writeFile(path, stringify(agent));
 			kernel = await openKernel(home);
 			const running = kernel;
-			socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
+			socket = createConnection(localIpcPath(`${home}/.yonder/plugins/channel-cli/cli.sock`));
 			createInterface({ input: socket }).on("line", (line) => {
 				packets.push({ at: Date.now(), part: JSON.parse(line) });
 			});

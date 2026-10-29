@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DateTime } from "luxon";
 import { afterEach, describe, expect, it } from "vitest";
 import { registerContexts } from "../src/contexts.js";
 
@@ -18,7 +19,11 @@ describe("memory contexts identity boundary", () => {
 		await mkdir(join(root, "private"));
 		await writeFile(join(root, "me/now.md"), "safe current fact");
 		await writeFile(join(root, "me/profile.md"), "---\nprivate: true\n---\nSECRET");
-		await writeFile(join(root, "timeline/2026-W43.md"), "## 本周计划\n- [ ] task\n");
+		const now = DateTime.now().toUTC();
+		await writeFile(
+			join(root, `timeline/${now.weekYear}-W${String(now.weekNumber).padStart(2, "0")}.md`),
+			"## 本周计划\n- [ ] task\n",
+		);
 		await writeFile(join(root, "private/2026-10.md"), "SECRET");
 		const contexts: any[] = [];
 		const api: any = {

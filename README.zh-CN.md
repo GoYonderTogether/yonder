@@ -125,3 +125,11 @@ source <(yonder completion zsh)      # 也支持 bash、fish；不会修改 shel
 ## 许可证与致谢
 
 Apache-2.0，见 [LICENSE](LICENSE)。Yonder Harness 构建在 [pi](https://github.com/earendil-works/pi)（MIT）之上，并按各自的 MIT 许可改编了 pi coding-agent、[OpenClaw](https://github.com/openclaw/openclaw)、[Hermes Agent](https://github.com/NousResearch/hermes-agent) 和腾讯 BrowserSkill 的代码或协议行为。来源与许可证原文见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和各插件目录。
+
+## 原生 Windows 候选
+
+平台约定和真实验证见 [Windows 适配](docs/windows.md)。安装包含 npm 的 Node.js 与 Git，在本检出执行 `npm ci`、`npm run build`。沿用 init/login/start/chat 命令；Agent 的 bash 工具在此平台实际执行 Windows PowerShell。
+
+后台 service 使用当前用户登录计划任务；update 仍从审核 tag 构建，安装生成 bin/yonder.cmd 并切换 junction。只有包含本次适配的审核版本才能用于 Windows 安装；旧发布标签不会因调用方更新而变成 Windows 版本。安装后按 Windows 常规方式把安装 bin 加入 PATH。每个 home 独立登录，禁止复制 OAuth。
+
+macOS 原生自动化、Keychain、状态栏、电源保护与 GitHub launchd 自动升级作业尚未移植。全量测试缺口、交互终端、登录/重启和真实模型未测项见 status；候选不表示所有插件已跨平台验收。

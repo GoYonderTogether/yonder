@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { localIpcPath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -15,7 +17,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna batches group inputs, reads shared memory, asks main and preserves quiet/read/recovery boundaries",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-qq-participation-");
+		const home = await mkdtemp(join(tmpdir(), "yonder-qq-participation-"));
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		let passed = false;
@@ -108,7 +110,7 @@ export default {setup(api){api.channels.register({type:'group-source',create(id)
 			await writeFile(`${home}/agents/main/memory/delegated.txt`, delegated);
 			kernel = await openKernel(home);
 			const activeKernel = kernel;
-			const connection = createConnection(`${home}/source.sock`);
+			const connection = createConnection(localIpcPath(`${home}/source.sock`));
 			socket = connection;
 			await new Promise<void>((done, reject) => {
 				connection.once("connect", done);

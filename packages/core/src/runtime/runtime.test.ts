@@ -1,6 +1,6 @@
 import { mkdtemp, rm, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "./db.js";
@@ -13,6 +13,7 @@ import {
 	workspaceFiles,
 } from "./index.js";
 import { buildModels } from "./models.js";
+import { windowsCredentialAcl } from "./windows-acl.js";
 
 test("submission outcomes preserve native failures and prioritize Yonder limits", () => {
 	const native = (value: object) => value as Parameters<typeof submissionOutcome>[0];
@@ -45,7 +46,7 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 	expect(credentialPath("/tmp/home", "~/.yonder-credentials/auth.json")).toBe(
 		join(homedir(), ".yonder-credentials/auth.json"),
 	);
-	expect(credentialPath("/tmp/home")).toBe("/tmp/home/.yonder/auth.json");
+	expect(credentialPath("/tmp/home")).toBe(join(resolve("/tmp/home"), ".yonder/auth.json"));
 	const home = await mkdtemp(join(tmpdir(), "yonder-runtime-"));
 	let runtime: Runtime | undefined;
 	try {
@@ -55,7 +56,8 @@ test("real SQLite conversation lifecycle, workspace IO, credential lock and prov
 		const credentials = new FileCredentials(join(home, ".yonder/auth.json"));
 		await Promise.all([credentials.modify("openai", async (current) => current), credentials.list()]);
 		expect(await credentials.get("openai")).toBeUndefined();
-		expect((await stat(join(home, ".yonder/auth.json"))).mode & 0o777).toBe(0o600);
+		if (process.platform === "win32") windowsCredentialAcl(join(home, ".yonder/auth.json"));
+		else expect((await stat(join(home, ".yonder/auth.json"))).mode & 0o777).toBe(0o600);
 		const models = buildModels(credentials, {
 			openai: { modelOverrides: { "gpt-6-luna": { contextWindow: 64000 } } },
 			deepseek: {
