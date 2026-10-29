@@ -639,6 +639,7 @@ async function run(args: string[]): Promise<number> {
 			output(result.ok ? "Doctor: passed" : "Doctor: issues found", false);
 			for (const issue of result.errors) stdout.write(`ERROR: ${issue}\n`);
 			for (const warning of result.warnings) stdout.write(`WARNING: ${warning}\n`);
+			for (const chain of result.modelChains ?? []) output({ modelChain: chain }, false);
 		}
 		return result.ok ? 0 : 1;
 	}
