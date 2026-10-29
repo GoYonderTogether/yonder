@@ -5,7 +5,18 @@ import { entityRef } from "../lib/entityRef";
 import { QrDialog } from "./CardShare";
 
 /** The same large-code view is used from identity pages and the card stack. */
-export function IdentityQr({ actor, cardId, card }: { actor: Actor; cardId?: string; card?: Profile["card"] }) {
+export function IdentityQr({
+	actor,
+	cardId,
+	card,
+	mine,
+}: {
+	actor: Actor;
+	cardId?: string;
+	card?: Profile["card"];
+	/** 这张名片是自己的：二维码改用服务端分享链接 */
+	mine?: boolean;
+}) {
 	const [open, setOpen] = useState(false);
 	if (actor.anonymous || (actor.kind === "agent" && !actor.public)) return null;
 	const url = `${location.origin}${actor.kind === "agent" || !cardId ? `/p/${entityRef(actor)}` : `/u/${card?.code ?? cardId}`}`;
@@ -20,7 +31,14 @@ export function IdentityQr({ actor, cardId, card }: { actor: Actor; cardId?: str
 			>
 				<QrCode size={21} strokeWidth={1.75} />
 			</button>
-			<QrDialog actor={actor} card={card} url={url} open={open} onOpenChange={setOpen} />
+			<QrDialog
+				actor={actor}
+				card={card}
+				url={url}
+				share={mine && cardId ? { kind: "card", targetId: cardId, path: url.slice(location.origin.length) } : undefined}
+				open={open}
+				onOpenChange={setOpen}
+			/>
 		</>
 	);
 }

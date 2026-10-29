@@ -3,10 +3,12 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import type { Actor, Card } from "../api/types";
 import { type CardItem, canShareCard, cardUrl, faceProps } from "../lib/cardItems";
+import { type ShareTarget, useShareUrl } from "../lib/useShareUrl";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
 import { CardQrView } from "./card/CardFace";
 import { renderCardImage } from "./card/image";
+import { ShareLinks } from "./ShareLinks";
 
 /** 同一个大码呈现和保存出口，导出不承载自定义介绍封面。 */
 export function CardShare({
@@ -73,15 +75,19 @@ export function QrDialog({
 	actor,
 	card,
 	url,
+	share,
 	open,
 	onOpenChange,
 }: {
 	actor: Actor;
 	card?: Pick<Card, "summary" | "tagline" | "face"> | null;
 	url: string;
+	/** 自己的名片：二维码改用服务端分享链接，并显示配额入口 */
+	share?: ShareTarget;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }) {
+	const shareUrl = useShareUrl(share, url, open);
 	return (
 		<Dialog.Root open={open && (actor.kind !== "agent" || actor.public === true)} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
@@ -91,7 +97,12 @@ export function QrDialog({
 					className="rise fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[min(392px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-[24px] bg-raised p-4 shadow-float outline-none"
 				>
 					<Dialog.Title className="text-small font-semibold">二维码名片</Dialog.Title>
-					<CardShare actor={actor} card={card ?? undefined} url={url} />
+					<CardShare actor={actor} card={card ?? undefined} url={shareUrl} />
+					{share && (
+						<div className="flex justify-center">
+							<ShareLinks kind={share.kind} targetId={share.targetId} label={actor.name} path={share.path} />
+						</div>
+					)}
 					<Dialog.Close asChild>
 						<Button className="h-11">关闭</Button>
 					</Dialog.Close>
@@ -111,11 +122,15 @@ export function CardShareDialog({
 	onOpenChange: (open: boolean) => void;
 }) {
 	const p = faceProps(item);
+	const url = cardUrl(item);
 	return (
 		<QrDialog
 			actor={item.actor}
 			card={{ summary: p.headline ?? null, face: p.face }}
-			url={cardUrl(item)}
+			url={url}
+			share={
+				item.card?.mine ? { kind: "card", targetId: item.card.id, path: url.slice(location.origin.length) } : undefined
+			}
 			open={open && canShareCard(item)}
 			onOpenChange={onOpenChange}
 		/>

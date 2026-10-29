@@ -104,7 +104,14 @@ export function ContactDetail({ a, desktop, embedded = false }: { a: Actor; desk
 						: profile?.agents
 			}
 			owner={profile?.owner}
-			qr={<IdentityQr actor={a} cardId={shareCard?.id} card={shareCard} />}
+			qr={
+				<IdentityQr
+					actor={a}
+					cardId={shareCard?.id}
+					card={shareCard}
+					mine={item?.card?.id === shareCard?.id && item?.card?.mine}
+				/>
+			}
 			actions={
 				!self && (
 					<Button variant="primary" className="h-11 self-start" disabled={busy} onClick={message}>

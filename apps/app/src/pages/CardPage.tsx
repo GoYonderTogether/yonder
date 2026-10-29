@@ -148,6 +148,7 @@ export function PublicIdentity({
 					actor={actor}
 					cardId={card?.status === "published" ? card.id : profile.card?.id}
 					card={card?.status === "published" ? card : profile.card}
+					mine={card?.status === "published" && card.mine}
 				/>
 			}
 			actions={

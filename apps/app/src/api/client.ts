@@ -15,6 +15,8 @@ import type {
 	ReferenceKind,
 	ResolvedReference,
 	Session,
+	ShareLink,
+	ShareLinkKind,
 	VerifyKind,
 } from "./types";
 
@@ -56,6 +58,12 @@ export interface ApiClient {
 	groupInvite(convId: string): Promise<{ token: string }>;
 	groupPreview(token: string): Promise<GroupPreview | null>;
 	joinGroup(token: string): Promise<Conversation>;
+	/** 生成（或复用未过期的）名片/群分享链接；匿名访客不能生成，服务端返回 403 */
+	createShareLink(input: { kind: ShareLinkKind; targetId: string; maxUses?: number }): Promise<ShareLink>;
+	/** 查一条分享链接的配额；不存在或不属于当前账号返回 null */
+	getShareLink(token: string): Promise<ShareLink | null>;
+	/** 吊销分享链接；已经吊销过的保持原吊销时间 */
+	revokeShareLink(token: string): Promise<void>;
 	leaveConversation(convId: string): Promise<void>;
 	markRead(convId: string, seq: number): Promise<void>;
 	subscribe(listener: (m: Message) => void): () => void;

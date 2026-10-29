@@ -187,6 +187,22 @@ export const mockApi: ApiClient = {
 		session = { actor: me };
 		return session;
 	},
+	async createShareLink(input) {
+		await wait();
+		return {
+			token: `mock-${input.targetId}`,
+			kind: input.kind,
+			targetId: input.targetId,
+			maxUses: input.maxUses ?? 50,
+			usedCount: 0,
+			expiresAt: new Date(Date.now() + 7 * 86_400_000).toISOString(),
+			revokedAt: null,
+		};
+	},
+	async getShareLink() {
+		return null;
+	},
+	async revokeShareLink() {},
 	async sendCode() {
 		await wait();
 		return { sent: true as const, retryAfter: 60 };

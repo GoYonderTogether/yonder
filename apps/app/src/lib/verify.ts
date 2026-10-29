@@ -200,3 +200,10 @@ export function canSendCode(state: VerifyFormState): boolean {
 export function canVerifyCode(state: VerifyFormState): boolean {
 	return state.sent && state.phase !== "sending" && state.phase !== "verifying";
 }
+
+/** 把任意错误变成可显示的一句话，不把空消息或非 Error 值漏到界面上。 */
+export function messageOf(error: unknown, fallback = "请求失败"): string {
+	if (error instanceof Error && error.message) return error.message;
+	if (typeof error === "string" && error.trim()) return error;
+	return fallback;
+}

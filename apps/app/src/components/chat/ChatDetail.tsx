@@ -9,11 +9,13 @@ import { cn } from "../../lib/cn";
 import { entityRef } from "../../lib/entityRef";
 import { internalState } from "../../lib/navigation";
 import { useDesktop } from "../../lib/useDesktop";
+import { useShareUrl } from "../../lib/useShareUrl";
 import { $session } from "../../store";
 import { Avatar, Status } from "../../ui/Avatar";
 import { Button } from "../../ui/Button";
 import { toast } from "../../ui/Toast";
 import { AppBar, BackButton } from "../AppBar";
+import { ShareLinks } from "../ShareLinks";
 import { AiBadge } from "./AiBadge";
 
 /** 聊天详情：手机是推入的整页，桌面是主区右侧抽屉。 */
@@ -166,6 +168,12 @@ function GroupDetail({ d, onClose }: { d: ConversationDetail; onClose: () => voi
 	const loc = useLocation();
 	const qc = useQueryClient();
 	const { data: invite } = useQuery({ queryKey: ["invite", d.id], queryFn: () => api.groupInvite(d.id) });
+	const invitePath = invite ? `/g/${invite.token}` : "";
+	const qrValue = useShareUrl(
+		{ kind: "group", targetId: d.id, path: invitePath },
+		`${location.origin}${invitePath}`,
+		!!invite,
+	);
 	const leave = async () => {
 		try {
 			await api.leaveConversation(d.id);
@@ -216,12 +224,13 @@ function GroupDetail({ d, onClose }: { d: ConversationDetail; onClose: () => voi
 			<Section className="flex flex-col items-center gap-3 p-5">
 				{invite ? (
 					<div className="rounded-control bg-white p-3">
-						<QRCodeSVG value={`${location.origin}/g/${invite.token}`} size={140} />
+						<QRCodeSVG value={qrValue} size={140} />
 					</div>
 				) : (
 					<div className="skeleton h-[164px] w-[164px] rounded-control" />
 				)}
 				<p className="text-[12px] text-muted">群二维码</p>
+				{invite && <ShareLinks kind="group" targetId={d.id} label={d.title} path={invitePath} />}
 			</Section>
 			<div className="px-3 py-4">
 				<Button className="h-11 w-full text-danger" onClick={leave}>

@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import type { Actor, Card, CodeSent, Conversation, Device, Message, MessageContent, Session } from "./types";
+import type { Actor, Card, CodeSent, Conversation, Device, Message, MessageContent, Session, ShareLink } from "./types";
 
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
 const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? "";
@@ -56,6 +56,11 @@ export const httpApi: ApiClient = {
 	createGroup: (input) => request<Conversation>("/conversations/group", json("POST", input)),
 	conversationDetail: (convId) => request(`/conversations/${encodeURIComponent(convId)}/detail`),
 	groupInvite: (convId) => request(`/conversations/${encodeURIComponent(convId)}/invite`, json("POST")),
+	createShareLink: (input) => request<ShareLink>("/share-links", json("POST", input)),
+	getShareLink: (token) => request<ShareLink | null>(`/share-links/${encodeURIComponent(token)}`, {}, true),
+	revokeShareLink: async (token) => {
+		await request(`/share-links/${encodeURIComponent(token)}/revoke`, json("POST"));
+	},
 	groupPreview: (token) => request(`/groups/${encodeURIComponent(token)}`, {}, true),
 	joinGroup: (token) => request<Conversation>(`/groups/${encodeURIComponent(token)}/join`, json("POST")),
 	leaveConversation: (convId) => request(`/conversations/${encodeURIComponent(convId)}/leave`, json("POST")),
