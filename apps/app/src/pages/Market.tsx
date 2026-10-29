@@ -65,7 +65,7 @@ export function Market() {
 				state: { ...internalState(location), marketDraft: { convId: conversation.id, text: handoff } },
 			});
 		} catch (error) {
-			toast(error instanceof Error ? error.message : "无法打开 PA 对话，请重试", true);
+			toast(error instanceof Error ? error.message : "无法打开 Bot 对话，请重试", true);
 		} finally {
 			setHandingOff(false);
 		}
@@ -281,8 +281,8 @@ export function Market() {
 								<Sparkles size={20} aria-hidden="true" />
 								<input
 									name="search"
-									aria-label="告诉 PA 你想找什么"
-									placeholder="说说你的想法，PA 帮你找"
+									aria-label="告诉 Bot 你想找什么"
+									placeholder="说说你的想法，Bot 帮你找"
 									value={query}
 									onChange={(e) => setQuery(e.target.value)}
 								/>
@@ -316,13 +316,13 @@ export function Market() {
 									<div>
 										<Sparkles size={20} />
 										<div>
-											<strong>和 PA 一起，把想法变成选择</strong>
+											<strong>和 Bot 一起，把想法变成选择</strong>
 											<p>可以先聊用途和偏好，不必知道商品叫什么。</p>
 										</div>
 									</div>
 									<div className="mk-search-actions">
 										<button type="button" className="mk-button mk-primary" onClick={askPA}>
-											继续和 PA 聊<ArrowRight size={16} />
+											继续和 Bot 聊<ArrowRight size={16} />
 										</button>
 										<button type="button" className="mk-button" onClick={() => openPanel("brief")}>
 											保存为需求
@@ -401,7 +401,7 @@ export function Market() {
 										{collection
 											? "逛到喜欢的帖子，随时留下来。"
 											: searching
-												? "换个关键词，或让 PA 帮你把想法聊清楚。"
+												? "换个关键词，或让 Bot 帮你把想法聊清楚。"
 												: "这里还没有帖子，发布第一篇吧。"}
 									</p>
 									{collection && (
@@ -564,23 +564,23 @@ export function Market() {
 					</div>
 				)}
 			</MarketDialog>
-			<MarketDialog open={handoff !== null} close={() => !handingOff && setHandoff(null)} title="交给我的 PA">
+			<MarketDialog open={handoff !== null} close={() => !handingOff && setHandoff(null)} title="交给我的 Bot">
 				<div className="mk-dialog-body">
 					<div className="mk-handoff-agent">
 						<Sparkles size={21} />
 						<div>
-							<strong>{agent?.name ?? "尚未选择 PA"}</strong>
+							<strong>{agent?.name ?? "尚未选择 Bot"}</strong>
 							<p className="mk-muted">{agent?.online ? "已连接" : "离线，发送的消息会保留"}</p>
 						</div>
 						<select
-							aria-label="选择处理此需求的 PA"
+							aria-label="选择处理此需求的 Bot"
 							value={agent?.id ?? ""}
 							onChange={(e) => {
 								if (me) {
 									try {
 										selectPersonalAgent(me.id, e.target.value);
 									} catch {
-										toast("无法保存 PA 选择", true);
+										toast("无法保存 Bot 选择", true);
 									}
 								}
 							}}
@@ -596,7 +596,7 @@ export function Market() {
 						带入对话的内容
 						<textarea rows={9} maxLength={20000} value={handoff ?? ""} onChange={(e) => setHandoff(e.target.value)} />
 					</label>
-					<p className="mk-form-hint">将回到你的 PA 对话，确认后发送。不会自动联系卖家或执行交易。</p>
+					<p className="mk-form-hint">将回到你的 Bot 对话，确认后发送。不会自动联系卖家或执行交易。</p>
 					<div className="mk-form-actions">
 						<button type="button" className="mk-button" disabled={handingOff} onClick={() => setHandoff(null)}>
 							取消
@@ -607,7 +607,7 @@ export function Market() {
 							disabled={!agent || !handoff?.trim() || handingOff}
 							onClick={() => void sendToPA()}
 						>
-							{handingOff ? "打开中…" : "带入 PA 对话"}
+							{handingOff ? "打开中…" : "带入 Bot 对话"}
 							<ArrowRight size={16} />
 						</button>
 					</div>

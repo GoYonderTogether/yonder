@@ -15,7 +15,7 @@ export function PersonalAgentGate({ children }: { children: ReactNode }) {
 	if (isError)
 		return (
 			<div role="alert" className="p-6 text-small">
-				无法读取你的 PA。
+				无法读取你的 Bot。
 				<button type="button" className="underline" onClick={() => void refetch()}>
 					重新加载
 				</button>

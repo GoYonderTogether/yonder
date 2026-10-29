@@ -130,7 +130,7 @@ export function ListingDetail({
 								onClick={() => onInquiry(listing)}
 							>
 								<MessageCircle size={17} />
-								{listing.paused ? "已下架" : "请 PA 帮我看看"}
+								{listing.paused ? "已下架" : "请 Bot 帮我看看"}
 							</button>
 						)}
 					</footer>
@@ -218,7 +218,7 @@ export function CompareDialog({
 												disabled={l.paused || l.mine}
 												onClick={() => onInquiry(l)}
 											>
-												请 PA 帮我看看
+												请 Bot 帮我看看
 												<ArrowRight size={15} />
 											</button>
 										</td>

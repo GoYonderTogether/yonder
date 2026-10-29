@@ -178,7 +178,7 @@ export function AgentBriefDialog({
 								))}
 							</div>
 						</fieldset>
-						<p className="mk-form-hint">按条件整理本机候选。需要进一步澄清时，可以把需求带入 PA 对话。</p>
+						<p className="mk-form-hint">按条件整理本机候选。需要进一步澄清时，可以把需求带入 Bot 对话。</p>
 					</>
 				)}
 				{error && (
@@ -386,7 +386,7 @@ export function AgentWorkspace({
 			)}
 			<div className="mk-task-bottom">
 				<button type="button" className="mk-button mk-primary" onClick={() => onDelegate(task)}>
-					<Sparkles size={17} />和 PA 讨论这个需求
+					<Sparkles size={17} />和 Bot 讨论这个需求
 				</button>
 			</div>
 			<details className="mk-disclosure">

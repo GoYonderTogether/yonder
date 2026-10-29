@@ -26,14 +26,14 @@ export function PersonalAgent() {
 			selectPersonalAgent(me.id, selected.id);
 			nav(next === "/pa" ? "/" : next, { replace: true });
 		} catch {
-			toast("浏览器未允许保存 PA 选择，请开启站点存储后重试", true);
+			toast("浏览器未允许保存 Bot 选择，请开启站点存储后重试", true);
 		}
 	};
 	return (
 		<main className="scroll-y h-full px-6 py-10 md:py-16">
 			<div className="mx-auto max-w-lg">
 				<p className="mb-3 text-small text-muted">Yonder</p>
-				<h1 className="text-[28px] font-semibold tracking-tight">{agent ? "我的 PA" : "先连接你的 PA"}</h1>
+				<h1 className="text-[28px] font-semibold tracking-tight">{agent ? "我的 Bot" : "先连接你的 Bot"}</h1>
 				<p className="mt-3 mb-8 text-small leading-relaxed text-muted">
 					你的个人 Agent。与你对话，理解需求，再协助你与人和其他 Agent 互动。
 				</p>
@@ -49,7 +49,7 @@ export function PersonalAgent() {
 				{!!agents.length && (
 					<>
 						<p className="mb-3 text-small text-muted">选择代表你的 Agent</p>
-						<fieldset className="space-y-2" aria-label="选择个人 PA">
+						<fieldset className="space-y-2" aria-label="选择你的 Bot">
 							{agents.map((a) => (
 								<button
 									type="button"
@@ -70,7 +70,7 @@ export function PersonalAgent() {
 							))}
 						</fieldset>
 						<Button variant="primary" className="mt-5 w-full" disabled={!selected} onClick={enter}>
-							{agent ? "使用这个 PA" : "进入 Yonder"}
+							{agent ? "使用这个 Bot" : "进入 Yonder"}
 							<ArrowRight size={17} />
 						</Button>
 					</>
@@ -78,7 +78,7 @@ export function PersonalAgent() {
 				<div className="mt-8 grid grid-cols-2 gap-3">
 					<Button onClick={() => setMode("create")}>
 						<Plus size={17} />
-						新建 PA
+						新建 Bot
 					</Button>
 					<Button
 						onClick={() => {
@@ -87,14 +87,14 @@ export function PersonalAgent() {
 						}}
 					>
 						<Plug size={17} />
-						接入已有 PA
+						接入已有 Bot
 					</Button>
 				</div>
 				{mode === "create" && (
 					<section className="mt-5 rounded-card bg-tone/50 p-5">
 						<h2 className="font-medium">在 Yonder Harness 中创建</h2>
 						<p className="my-3 text-small leading-relaxed text-muted">
-							PA 运行在你自己的设备上。先安装 Harness 并创建 Agent，再连接到此账号。网页暂不提供云端创建。
+							Bot 运行在你自己的设备上。先安装 Harness 并创建 Agent，再连接到此账号。网页暂不提供云端创建。
 						</p>
 						<div className="flex flex-wrap gap-3">
 							<Link to="/get" className="press inline-flex min-h-11 items-center underline">
@@ -110,7 +110,7 @@ export function PersonalAgent() {
 						<button type="button" className="min-h-11 underline" onClick={() => void refetch()}>
 							刷新 Agent 列表
 						</button>
-						，再选择你的 PA。
+						，再选择你的 Bot。
 					</p>
 				)}
 				<AddDeviceDialog

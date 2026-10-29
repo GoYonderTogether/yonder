@@ -798,3 +798,7 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 问题（本卡不改核心，留给后续卡）：`social.inspect` 不返回 `judge.model`（只返回 policy.judge.preset），也没有任何 token 额度字段，界面这两项如实写「网关未返回」；`social.groups` 的 `mode` 缺省值写死 "batch"，与 `social.listen.mode` 的 realtime/batch/mention/digest 不是同一套枚举，因此界面的「监听模式」只呈现 policy.mode。
 
 - 主人 10-29：飞书应用创建默认全权限、智能体身份。`channels.login` 对未配凭据的 feishu 实例走官方一键创建（`archetype=PersonalAgent`，`addons` 带 36 项应用身份 + 34 项用户身份权限、事件与回调），确认一次即得 App ID/Secret，写入插件数据目录 0600 文件（SDK 暂无写凭据槽接口，未改公共契约）。调研见 yonder-lead/program/research/feishu-app-onboarding-20261029.md。
+
+## 2026-10-29 PA→Bot 用户可见文案统一（主人 10-29）
+- 主人 10-29：用户可见的 PA 统一改为 Bot。
+- 范围取最小：只改 apps/app/src 里的用户可见文案（market 的 BuyerAgent/ListingDetail、Market 页、Chat 页 toast、PersonalAgent 页标题/按钮/说明/aria-label、PersonalAgentGate 报错）。代码标识符（`PersonalAgent`、`usePersonalAgent`、`sendToPA`、`askPA`）、路由 `/pa`、接口字段、飞书 `archetype=PersonalAgent` 一律不动，避免破坏链接与契约。`apps/desktop`、`packages/cli`、`docs/` 与 README 里没有命中 `\bPA\b`/`Personal Agent`/`个人代理`/`个人智能体` 的用户文案；`bp/THESIS.md` 命中的是行业分析与媒体转述，不是产品文案，不改。

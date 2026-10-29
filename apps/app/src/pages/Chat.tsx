@@ -517,7 +517,7 @@ export function Composer({ convId, offline, onSend }: { convId: string; offline:
 		setText((previous) => (previous ? `${previous}\n\n${draft}` : draft));
 		const { marketDraft: _draft, ...rest } = loc.state;
 		nav(loc.pathname + loc.search, { replace: true, state: rest });
-		toast("已带入市场内容，确认后再发送给 PA");
+		toast("已带入市场内容，确认后再发送给 Bot");
 	}, [loc.key, loc.state, convId, nav, loc.pathname, loc.search]);
 	useEffect(() => {
 		if (consumed.current && ref.current) {
