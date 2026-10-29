@@ -242,6 +242,11 @@ export async function inspectHome(home: string) {
 			warnings.push(
 				"SiliconFlow 不支持 developer role；在 yonder.yaml 的 models.providers.siliconflow.compat 设置 supportsDeveloperRole: false。未显式设置时已使用此默认值。",
 			);
+		const glm = config.models?.providers?.["rightapi-glm"] as { compat?: { systemAsUser?: boolean } } | undefined;
+		if (glm && glm.compat?.systemAsUser !== true)
+			warnings.push(
+				"rightapi-glm 的网关会丢弃开头的 system 消息，系统提示词到不了模型；在 yonder.yaml 的 models.providers.rightapi-glm.compat 设置 systemAsUser: true。未显式设置时已使用此默认值。",
+			);
 		const services = inspectionServices(home, config, (level, text) => {
 			if (level !== "info") warnings.push(text);
 		});

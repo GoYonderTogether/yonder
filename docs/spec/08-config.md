@@ -84,6 +84,8 @@ identity:
 `identity.persons` 只用于初始化；之后的关联变化以存储为准，并写 `identity.link` 事件。
 
 `notifications` 可整体省略，等价于 `default: all` 且没有按会话覆盖。`default` 是所有会话的级别，`conversations` 的键为 `conv:` 引用或 session id；`mention` 与 `mentions` 互为别名，读取后统一为 `mentions`，未知级别拒绝。yaml 是节点启动时读取的初始默认值；节点级运行时偏好保存在 `state.db`，覆盖 yaml，设置后立即生效。`notifications.prefs.get` 返回合并结果及各项来源（yaml 或 runtime）；详见 contracts §16。级别不改变事件接纳、绑定唤醒或未读累积（06 §9.1）。
+
+`models.providers.<id>.compat` 与每个模型的 `compat` 逐项传给 pi-ai；在此之上 Harness 另有两个请求整形标志，只增不改，缺省即 pi-ai 的行为。`systemAsUser: true` 表示该 provider/模型会丢弃请求开头的 system 消息（rightapi 的 glm 路由如此）：Harness 不发 system 角色，而把渲染好的系统提示词包成 `<system>…</system>` 放在第一条 user 消息最前面，后面接用户原文；只有第一条 user 携带该块，块内字节在各轮之间不变，压缩之后仍然保留。provider 级与模型级同时给出时模型级覆盖 provider 级；已知供应商的默认值写在代码里（SiliconFlow 的 `supportsDeveloperRole: false`、`rightapi-glm` 的 `systemAsUser: true`），显式写 `false` 可关闭。`doctor` 对已知会丢 system 的 provider 未显式开启时给出提示。
 ## 3. 重载
 
 | 文件 | 何时生效 |

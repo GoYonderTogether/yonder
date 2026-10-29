@@ -1,5 +1,7 @@
 # 决策记录
 
+**2026-10-28 SYS01 systemAsUser（主 Agent 代批）。** 新增可选 compat 标志 `systemAsUser`：不发 system 角色，把渲染好的系统提示词包成 `<system>…</system>` 放在第一条 user 消息最前面。理由是 rightapi 网关删掉请求开头的 system 消息，glm-5.3-flash 上同一约束在 system 里 0/15 遵守、放进 user 15/15，而系统提示词 53,585 字符整段未到达模型（prompt_tokens 8757）。转换每次请求按当前模型重做、只改发出去的消息，持久化上下文不动，块内字节恒定以保留前缀缓存；`rightapi-glm` 默认开启，`doctor` 对未显式开启给出提示。见 08 §2。
+
 **2026-10-28 CH-03r4 @owner 通知（主 Agent 代批）。** 已授权且命中绑定的群或频道原生 owner 提及由内核以 `system:yonder` 身份加入既有通知意图；mention 模式仅写入、不唤醒模型。按来源事件去重，发送前重验来源、会话能力及主人；无目标时写主人 main，外部目标仅接受已关联主人的账号。沿用主动通知的 off、quiet 和 digest，不复制群正文。来源配置档须有 message 能力。
 
 **2026-10-28 O49 CH-03 folded 批次（主 Agent 代批）。** folded 入站沿授权会话写入，定时以插件事件记录待整理批次和单行原文摘录，并从账本恢复；Console 会话来源显示对应 Agent 的批次。该事实不唤醒模型、不推进已读，实际整理留待受限执行入口接通。

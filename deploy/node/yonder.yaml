@@ -27,6 +27,9 @@ models:
       baseUrl: https://www.rightapi.ai/v1
       api: openai-completions
       authHeader: true
+      # rightapi 网关删掉开头的 system 消息；系统提示词改放第一条 user（spec/08 §2）。
+      compat:
+        systemAsUser: true
       models:
         - id: glm-5.3-flash
           name: GLM-5.3-Flash

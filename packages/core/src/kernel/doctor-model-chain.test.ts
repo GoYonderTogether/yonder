@@ -37,6 +37,35 @@ test("doctor advises old SiliconFlow homes to set system role compatibility", as
 	}
 }, 60000);
 
+test("doctor advises rightapi-glm homes to set systemAsUser compatibility", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-glm-"));
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const file = join(home, "yonder.yaml");
+		const config = parse(await readFile(file, "utf8"));
+		config.models = {
+			providers: {
+				"rightapi-glm": {
+					api: "openai-completions",
+					baseUrl: "https://www.rightapi.ai/v1",
+					models: [{ id: "glm-5.3-flash" }],
+				},
+			},
+		};
+		await writeFile(file, stringify(config));
+		expect((await inspectHome(home)).warnings).toEqual(
+			expect.arrayContaining([expect.stringContaining("systemAsUser: true")]),
+		);
+		config.models.providers["rightapi-glm"].compat = { systemAsUser: true };
+		await writeFile(file, stringify(config));
+		expect((await inspectHome(home)).warnings).not.toEqual(
+			expect.arrayContaining([expect.stringContaining("systemAsUser: true")]),
+		);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60000);
+
 test("doctor reports configured chain and persisted hold and quota gates", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-"));
 	try {

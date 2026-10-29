@@ -57,6 +57,16 @@ function mergeCompat(
 	return merged;
 }
 
+type Compat = NonNullable<Model<Api>["compat"]> & { systemAsUser?: boolean };
+/**
+ * 已知供应商的请求整形默认值；provider 或 model 上显式写同一键时逐项覆盖（08 §2）。
+ * SiliconFlow 拒绝 developer role；rightapi 的 glm 路由删掉开头的 system 消息，系统提示词到不了模型。
+ */
+const PROVIDER_COMPAT_DEFAULTS: Record<string, Compat> = {
+	siliconflow: { supportsDeveloperRole: false },
+	"rightapi-glm": { systemAsUser: true },
+};
+
 function mergeInputLimits(
 	base: Model<Api>["inputLimits"],
 	override: ModelsJsonModelOverride["inputLimits"],
@@ -345,8 +355,8 @@ export function buildModels(
 		if (issues.length)
 			throw new Error(`Invalid provider ${id}: ${issues.map((e) => `${e.instancePath}: ${e.message}`).join("; ")}`);
 		const input = raw as ModelsJsonProvider;
-		const config =
-			id === "siliconflow" ? { ...input, compat: mergeCompat({ supportsDeveloperRole: false }, input.compat) } : input;
+		const defaults = PROVIDER_COMPAT_DEFAULTS[id];
+		const config = defaults ? { ...input, compat: mergeCompat(defaults, input.compat) } : input;
 		const base = models.getProvider(id);
 		const getModels = (): Model<Api>[] => {
 			const values: Model<Api>[] = (base?.getModels() ?? []).map(

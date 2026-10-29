@@ -100,6 +100,7 @@ import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./rec
 import { fromResult, taskReport, toResult } from "./results.js";
 import { runtimeNote } from "./runtime-note.js";
 import type { RuntimeOptions } from "./runtime-options.js";
+import { systemAsUserHooks } from "./system-as-user.js";
 import { todoTool } from "./todo-tool.js";
 import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
 
@@ -546,6 +547,7 @@ export class Runtime {
 			hooks: [
 				...this.limits.hooks(),
 				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),
+				...systemAsUserHooks(() => this.harness),
 			],
 		});
 		this.registry.install(core);
