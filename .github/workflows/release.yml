@@ -43,12 +43,18 @@ jobs:
       - name: 同一 commit 不重复发版
         run: node scripts/release/version.mjs --assert-unreleased
       - name: 该 commit 的 CI 必须已经绿
-        run: node scripts/release/ci-status.mjs --sha "$(git rev-parse HEAD)" --wait 900
+        run: >-
+          node scripts/release/ci-status.mjs
+          --sha "$(git rev-parse HEAD)" --wait 900
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: 计算版本
         id: version
-        run: echo "version=$(node scripts/release/version.mjs --next ${INPUT_VERSION:+--version "$INPUT_VERSION"})" >> "$GITHUB_OUTPUT"
+        run: |
+          set -- --next
+          [ -n "$INPUT_VERSION" ] && set -- "$@" --version "$INPUT_VERSION"
+          next="$(node scripts/release/version.mjs "$@")"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
         env:
           INPUT_VERSION: ${{ inputs.version }}
       - run: npm ci
@@ -82,7 +88,8 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
       - name: 创建 GitHub Release
         run: |
-          node scripts/release/changelog.mjs --body "$VERSION" > release-notes.md
+          node scripts/release/changelog.mjs --body "$VERSION" \
+            > release-notes.md
           gh release create "v$VERSION" \
             --title "Yonder $VERSION" \
             --notes-file release-notes.md \
@@ -94,9 +101,11 @@ jobs:
       # 发版期间 main 可能已有新提交：把发版提交 rebase 上去再推；失败时 Release 已在，作业报错由主 Agent 手动合回
       - name: 发版提交合回 main
         run: |
-          for attempt in 1 2 3; do
+          for _ in 1 2 3; do
             git fetch origin main
-            if git rebase origin/main && git push origin "HEAD:main"; then exit 0; fi
+            if git rebase origin/main && git push origin "HEAD:main"; then
+              exit 0
+            fi
             git rebase --abort 2>/dev/null || true
             git reset --hard "v$VERSION"
             sleep 10

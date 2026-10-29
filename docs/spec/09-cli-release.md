@@ -90,7 +90,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 正式版只由 `.github/workflows/release.yml` 发布，不在本机手工改版本、打标签或建 Release。
 
-- **谁、何时触发**：主 Agent 在代码稍稳定后，每 2 到 3 个功能提交、且该提交的 CI 已经绿时触发：`gh workflow run release.yml -f ref=main`（可选 `-f version=<版本>`，须高于已有最高标签）。
+- **谁、何时触发**：主 Agent 在代码稍稳定后，每 2 到 3 个功能提交、且该提交的 CI 已经绿时触发：`gh workflow run release.yml -f ref=main`（可选 `-f version=<版本>`，须高于已有最高标签）。`ci.yml` 在同一分支上会取消进行中的旧运行，main 头部还没跑完时可把 `ref` 指向最近一个 CI 已绿的提交。
 - **前提**：`scripts/release/version.mjs --assert-unreleased` 拒绝重复发版，即目标提交已带正式标签，或它是某个 `chore(release)` 提交的父提交。`scripts/release/ci-status.mjs` 经 `gh api` 查询该提交的 check-runs，`ci.yml` 的 macOS 与 Linux 两项都要成功（同名只看最新一次，最多等 15 分钟），否则失败退出。
 - **版本**：未给版本时取 UTC 当天 YYMMDD，NN 在已有同日标签上加一。
 - **改动**：`scripts/release/bump-versions.mjs` 把根与所有 workspace 包（`packages/pi-durable` 除外）的版本和内部 `@yonder/*` 依赖改成新版本，并以 `npm install --package-lock-only` 更新 lockfile。`scripts/release/changelog.mjs` 把 `## [Unreleased]` 的手写条目连同上一标签到目标提交之间的 feat/fix/perf/refactor/revert 提交（按 Added/Fixed/Changed/Removed 分组）写成新版本小节；其他类型与无前缀提交不列。
