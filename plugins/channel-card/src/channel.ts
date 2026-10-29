@@ -66,7 +66,12 @@ export class CardChannel implements Channel {
 		private config: Config,
 		private api: PluginAPI,
 	) {
-		const url = new URL(config.endpoint ?? "https://yonder.zethai.cn");
+		let url: URL;
+		try {
+			url = new URL(config.endpoint ?? "https://yonder.zethai.cn");
+		} catch {
+			throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
+		}
 		if (
 			!["http:", "https:"].includes(url.protocol) ||
 			url.username ||
@@ -136,6 +141,15 @@ export class CardChannel implements Channel {
 			if (this.token) void this.syncAgents().catch(() => this.warn("Agent sync failed"));
 		}, 600000);
 		this.syncTimer.unref();
+	}
+
+	/** 确认返回的确认链接属于本实例 origin；非法 URL 按响应不合法处理，不把解析异常抛给调用方。 */
+	private sameOrigin(value: string): boolean {
+		try {
+			return new URL(value).origin === this.endpoint;
+		} catch {
+			return false;
+		}
 	}
 
 	private warn(message: string): void {
@@ -230,12 +244,7 @@ export class CardChannel implements Channel {
 				{ name: hostname(), kind: this.config.device?.kind ?? "desktop" },
 				signal,
 			)) as { code: string; url: string };
-			if (
-				typeof data.code !== "string" ||
-				!data.code ||
-				typeof data.url !== "string" ||
-				new URL(data.url).origin !== this.endpoint
-			)
+			if (typeof data.code !== "string" || !data.code || typeof data.url !== "string" || !this.sameOrigin(data.url))
 				throw new Error("Invalid card login response");
 			this.code = { ...data, expiresAt: new Date(Date.now() + 600000).toISOString() };
 			this.loginState = "pending";
