@@ -11,6 +11,11 @@ export function appBase(): string {
 	return base.startsWith("/") ? (base.endsWith("/") ? base : `${base}/`) : "/";
 }
 
+/** 页面是否由网关托管（网关注入了 yonder-base-path）。云端静态站没有这个标签，同源也没有网关。 */
+export function gatewayHosted(): boolean {
+	return typeof document !== "undefined" && !!document.querySelector('meta[name="yonder-base-path"]');
+}
+
 /** react-router 的 basename：不带尾斜杠，根路径为 "/"。 */
 export const routerBasename = (): string => appBase().replace(/(.)\/$/, "$1");
 

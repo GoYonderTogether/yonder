@@ -101,7 +101,7 @@ export function configurationErrors(
 			const kinds = binding.match.kind === undefined ? [] : [binding.match.kind].flat();
 			for (const id of ids) {
 				const supported = id === "agent" ? ["agent", "parent-request"] : plugins.channels.get(id)?.kinds;
-				if (!supported) {
+				if (!supported && !plugins.channelErrors.has(id)) {
 					errors.push(`${agent.id}/${binding.id}: unknown channel ${id}`);
 				}
 			}
@@ -291,6 +291,10 @@ export async function inspectHome(home: string) {
 				);
 		const agents = await loadAgents(home, config, plugins);
 		const presets = await loadPresets(home);
+		const channelFailures = [...plugins.channelErrors].map(
+			([id, reason]) =>
+				`channels.${id}: 实例已跳过，其余渠道照常启动——${reason}。修改 yonder.yaml 的 channels.${id} 后重启。`,
+		);
 		const errors = configurationErrors(
 			config,
 			agents,
@@ -298,6 +302,7 @@ export async function inspectHome(home: string) {
 			services.models,
 			new Map([...plugins.presets, ...presets]),
 		);
+		errors.push(...channelFailures);
 		const chainIssues = modelChainIssues(config, services.models);
 		errors.push(...chainIssues.errors);
 		warnings.push(...chainIssues.warnings);

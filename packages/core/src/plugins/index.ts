@@ -66,6 +66,8 @@ export type KernelServices = Omit<
 export interface LoadedPlugins {
 	views: ReturnType<typeof createViews>;
 	channels: Map<string, Channel>;
+	/** 被跳过的渠道实例（id → 原因），doctor 报告。 */
+	channelErrors: ReadonlyMap<string, string>;
 	envs: Map<string, ExecutionEnv>;
 	tools: Map<string, Tool[]>;
 	hooks: Map<string, Hook[]>;
@@ -138,10 +140,8 @@ export async function loadPlugins(
 	services: KernelServices,
 ): Promise<LoadedPlugins> {
 	const views = createViews();
-	const channels = new Map<string, Channel>();
-	const envs = new Map<string, ExecutionEnv>();
-	const tools = new Map<string, Tool[]>();
-	const hooks = new Map<string, Hook[]>();
+	const [channels, channelErrors] = [new Map<string, Channel>(), new Map<string, string>()];
+	const [envs, tools, hooks] = [new Map<string, ExecutionEnv>(), new Map<string, Tool[]>(), new Map<string, Hook[]>()];
 	const contexts = new Map<string, ContextContribution>([[peerWorkspaceContext.id, peerWorkspaceContext]]);
 	const presets = new Map<string, Preset>();
 	const skillDirs: string[] = [];
@@ -394,17 +394,22 @@ export async function loadPlugins(
 
 	if (config.channels?.[CONSOLE]) throw new Error(`channels.${CONSOLE}: reserved for the built-in console channel`);
 	channels.set(CONSOLE, consoleChannel());
+	// 单个渠道实例不合法只跳过并记错误，不让整台 Agent 起不来（JV2-J09-03）
 	for (const [id, value] of Object.entries(config.channels ?? {})) {
-		const found = channelProviders.get(value.type);
-		if (!found) throw new Error(`channels.${id}: no provider for type ${value.type}`);
-		const instance = instanceConfig(value);
-		if (found.provider.configSchema)
-			validateConfig(found.pluginId, `channels.${id} config`, found.provider.configSchema, instance);
-		const channel = await found.provider.create(id, instance);
-		if (channel.output.stream && !channel.stream)
-			throw new Error(`channels.${id}: stream output requires provider stream()`);
-		channel.multiAgent = found.provider.multiAgent === true;
-		channels.set(id, channel);
+		try {
+			const found = channelProviders.get(value.type);
+			if (!found) throw new Error(`channels.${id}: no provider for type ${value.type}`);
+			const instance = instanceConfig(value);
+			const { configSchema } = found.provider;
+			if (configSchema) validateConfig(found.pluginId, `channels.${id} config`, configSchema, instance);
+			const channel = await found.provider.create(id, instance);
+			if (channel.output.stream && !channel.stream) throw new Error(`channels.${id}: stream output requires stream()`);
+			channel.multiAgent = found.provider.multiAgent === true;
+			channels.set(id, channel);
+		} catch (error) {
+			channelErrors.set(id, String(error instanceof Error ? error.message : error));
+			services.log.error("Channel instance skipped", { instance: id, error: channelErrors.get(id) });
+		}
 	}
 	for (const [id, value] of Object.entries(config.envs ?? {})) {
 		if (id === "local" && value.type === "local") continue;
@@ -431,6 +436,7 @@ export async function loadPlugins(
 	return {
 		views,
 		channels,
+		channelErrors,
 		envs,
 		tools,
 		hooks,

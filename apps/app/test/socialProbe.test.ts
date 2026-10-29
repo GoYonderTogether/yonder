@@ -15,7 +15,10 @@ function stubPage(href: string, base?: string): void {
 function stubFetch(statuses: Record<string, number>): ReturnType<typeof vi.fn> {
 	const fn = vi.fn(async (input: RequestInfo | URL) => {
 		const path = new URL(String(input), "https://host/").pathname;
-		return new Response("", { status: statuses[path] ?? 500 });
+		const status = statuses[path] ?? 500;
+		return new Response(path.endsWith("capabilities.get") && status === 200 ? '{"ok":true,"result":{}}' : "", {
+			status,
+		});
 	});
 	vi.stubGlobal("fetch", fn);
 	return fn;
@@ -34,6 +37,13 @@ describe("probeSocialService", () => {
 		await expect(probeSocialService()).resolves.toBe("none");
 		expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain("https://host/api/session");
 		expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("https://host/console/api/session");
+	});
+
+	it("已登录的 /console/ 网关即使源站根有社交服务也判定 none（JV2-J07-05）", async () => {
+		stubPage("https://host/console/", "/console/");
+		const fetchMock = stubFetch({ "/console/api/rpc/capabilities.get": 200, "/api/session": 401 });
+		await expect(probeSocialService()).resolves.toBe("none");
+		expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("https://host/api/session");
 	});
 
 	it("源站根有社交服务时判定 present", async () => {

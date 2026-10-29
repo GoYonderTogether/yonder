@@ -170,6 +170,48 @@ it("only the provider registration can allow a channel to emit target", async ()
 	}
 });
 
+it("skips one channel instance with invalid config and keeps the others (JV2-J09-03)", async () => {
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	try {
+		const directory = join(home, "picky");
+		await mkdir(directory);
+		await writeFile(
+			join(directory, "package.json"),
+			JSON.stringify({
+				version: "1.0.0",
+				type: "module",
+				yonder: { apiVersion: 1, id: "picky", entry: "./index.mjs", contributes: { channels: ["picky"] } },
+			}),
+		);
+		await writeFile(
+			join(directory, "index.mjs"),
+			`export default { setup(api) { api.channels.register({
+  type: "picky", configSchema: { type: "object", required: ["appId"], properties: { appId: { type: "string" } } },
+  create: id => ({ id, kinds: ["dm"], output: { stream: false, attachments: false }, async start() {}, async stop() {}, async send() { return { ok: false }; } })
+}); } };`,
+		);
+		const logged: unknown[] = [];
+		const plugins = await loadPlugins(
+			home,
+			{
+				schema: 1,
+				plugins: [{ use: directory }],
+				channels: { good: { type: "picky", appId: "x" } as { type: string }, bad: { type: "picky" } },
+			},
+			{ log: { error: (...args: unknown[]) => logged.push(args) } } as unknown as KernelServices,
+		);
+		expect([...plugins.channels.keys()]).toContain("good");
+		expect(plugins.channels.has("bad")).toBe(false);
+		expect(plugins.channelErrors.get("bad")).toContain("appId");
+		expect(plugins.channelErrors.has("good")).toBe(false);
+		expect(logged).toHaveLength(1);
+		await plugins.start({ emit: unused, ask: unused });
+		await plugins.stop();
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
 it("rejects a user-declared channels.console because the id is reserved for the built-in console", async () => {
 	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {

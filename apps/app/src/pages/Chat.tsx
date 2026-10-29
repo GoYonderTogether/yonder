@@ -263,6 +263,8 @@ function ConvRow({
 	);
 }
 
+const forbidden = (error: unknown) => (error as { status?: number } | null)?.status === 403;
+
 export function Conversation() {
 	const { id: ref } = useParams();
 	const resolved = useEntityId("conversation", ref);
@@ -302,8 +304,23 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 		data: msgs = [],
 		isLoading: loadingMessages,
 		isError: messagesError,
+		error: messagesFailure,
 		refetch: refreshMessages,
-	} = useQuery({ queryKey: ["msgs", id], queryFn: () => api.messages(id) });
+	} = useQuery({ queryKey: ["msgs", id], queryFn: () => api.messages(id), retry: (n, e) => !forbidden(e) && n < 3 });
+	// /c/<id> 的 id 若是对方账号（Bot/联系人）而非会话：读消息会 403，改为打开与它的私聊再跳转（JV2-J07-01）。
+	const nav = useNavigate();
+	const [dmFailed, setDmFailed] = useState(false);
+	useEffect(() => {
+		if (!forbidden(messagesFailure)) return;
+		let live = true;
+		api
+			.openDm(id)
+			.then((c) => live && nav(`/c/${entityRef(c)}`, { replace: true }))
+			.catch(() => live && setDmFailed(true));
+		return () => {
+			live = false;
+		};
+	}, [messagesFailure, id, nav]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 按消息数量与最后序号触发已读
 	useEffect(() => {
 		const seq = msgs.at(-1)?.seq;
@@ -391,7 +408,12 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 							正在加载消息…
 						</p>
 					)}
-					{messagesError && (
+					{messagesError && forbidden(messagesFailure) && (
+						<p role="status" className="text-small text-muted">
+							{dmFailed ? "会话不存在或无法访问" : "正在打开会话…"}
+						</p>
+					)}
+					{messagesError && !forbidden(messagesFailure) && (
 						<p role="status" className="text-small text-muted">
 							消息同步失败。
 							<button type="button" className="underline" onClick={() => void refreshMessages()}>
@@ -569,6 +591,7 @@ export function Composer({ convId, offline, onSend }: { convId: string; offline:
 			setText("");
 			if (ref.current) ref.current.style.height = "";
 			onSend();
+			if (offline) toast("Bot 离线，消息已保存，上线后送达");
 		} catch (error) {
 			if (needsVerify(error)) {
 				held.current = body;
@@ -596,7 +619,7 @@ export function Composer({ convId, offline, onSend }: { convId: string; offline:
 					value={text}
 					readOnly={sending}
 					rows={1}
-					placeholder={offline ? "Bot 离线，消息会保留" : "输入消息"}
+					placeholder={offline ? "Bot 离线，消息会保留，上线后送达" : "输入消息"}
 					onChange={(e) => {
 						setText(e.target.value);
 						e.target.style.height = "auto";

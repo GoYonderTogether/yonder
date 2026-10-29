@@ -3,13 +3,17 @@ import { socialOrigin } from "../api/http";
 import { RpcError, rpc } from "../work/api/client";
 import type { NodeFacts } from "../work/api/types";
 import { featureContext, featureVisible } from "../work/capabilities/features";
+import { appBase, gatewayHosted } from "./base";
 
 /**
  * 「工作」入口是否显示：由能力表（work/capabilities/features.ts 的 work）决定。
  * 网关存在但未登录（unauthorized）也显示，让用户进去登录；没有网关（请求失败、非网关响应）则隐藏。
  */
 export function useWorkEntry(): boolean {
+	// 云端构建（VITE_API=http）且不是网关托管：同源没有网关，不去请求 /api/rpc/capabilities.get（JV2-J14-01）。
+	const noLocalGateway = import.meta.env.VITE_API === "http" && !gatewayHosted();
 	const probe = useQuery({
+		enabled: !noLocalGateway,
 		queryKey: ["work-gateway"],
 		staleTime: 5 * 60_000,
 		retry: false,
@@ -47,6 +51,9 @@ export async function probeSocialService(): Promise<SocialService> {
 	try {
 		await rpc("capabilities.get");
 		gatewayReachable = true;
+		// 已登录的网关挂在非根路径（如线上 /console/）：这是网关控制台，源站根上的同域名社交服务不是它的一部分。
+		// 否则粘贴令牌登录后会落到社交登录页（JV2-J07-05）。
+		if (appBase() !== "/") return "none";
 	} catch (error) {
 		gatewayReachable = error instanceof RpcError && error.code === "unauthorized";
 	}
