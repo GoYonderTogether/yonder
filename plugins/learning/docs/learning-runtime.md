@@ -170,3 +170,9 @@ native routing. Do not claim production/channel completeness from unit tests.
 # 复盘证据与确认
 
 后台复盘仅提议本轮成功工具结果支持的事实，提案带会话、运行、证据和低置信度。学习面板 `learning.status` 增加 owner 操作 `confirm` 和 `discard`，参数为 `{ id }`；确认后写入并可用既有 `undo` 撤销。当前复盘提案仅支持新增单条记忆和创建技能，默认仍关闭。
+
+## Default scope and conversation trust (10-29)
+
+Implementation: `src/policy.mjs`. `findScope(agent, profile)` in `src/index.mjs` returns an explicit scope first (`enabled:false` denies); an agent that appears in no explicit scope gets one cached convention scope per agent (`<home>/agents/<id>/{memories,skills}`, home derived from `api.paths.data` = `<home>/.yonder/plugins/<id>`; directories created on first use) unless `config.agents.<id>.learning === false`. An agent named by an explicit scope never falls through to the convention for another profile.
+
+`effective(scope)` merges preset and field overrides; `limit(eff, trust)` narrows it by `trustOf(api, agent, events)`, the lowest of the run's user inputs (owner DM > group > public, see README table). Applied at: `memory_read/edit/pending` and context render (ToolContext/RenderContext events), foreground `skill_store` writes, `run.end` counters and due checks (an `eff` snapshot is stored on the queued job and used by the review tool wrappers and prompt), and `/refine`. Background review output stays pending-only in every preset.

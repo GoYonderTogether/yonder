@@ -6,7 +6,12 @@ import { editMemory, LIMITS, readMemory } from "./store.mjs";
 
 const id = "learning.status";
 
+// `scopes` is a lookup (agent, profile) => scope, or a fixed scope array.
 export function createLearningViews(api, scopes, review) {
+	const findScope =
+		typeof scopes === "function"
+			? scopes
+			: (agent, profile) => scopes.find((s) => s.agent === agent && s.profiles.includes(profile));
 	const file = () => join(api.paths.data, "learning-changes.json");
 	let queue = Promise.resolve(),
 		rev = 0;
@@ -33,7 +38,7 @@ export function createLearningViews(api, scopes, review) {
 	}
 	async function scopeFor(session) {
 		const info = await api.sessions.get(session);
-		return scopes.find((s) => s.agent === info?.agent && s.profiles.includes(info.profile));
+		return info ? findScope(info.agent, info.profile) : undefined;
 	}
 	return {
 		propose(session, proposal) {

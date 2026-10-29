@@ -29,6 +29,7 @@ export async function setup(t, extra = {}, options = {}) {
 		events = new Map(),
 		history = new Map([["parent", []]]),
 		opened = [],
+		openRequests = [],
 		submitted = [],
 		aborted = [],
 		closed = [],
@@ -41,6 +42,7 @@ export async function setup(t, extra = {}, options = {}) {
 		id: "learning",
 		config,
 		paths: { data },
+		identity: { relation: async (_agent, account) => (account === "acct:test:owner" ? "owner" : "stranger") },
 		log: { warn: (...a) => warnings.push(a) },
 		events: {
 			...c.api.events,
@@ -49,6 +51,7 @@ export async function setup(t, extra = {}, options = {}) {
 		sessions: {
 			get: async (id) => sessions.get(id),
 			open: async (req) => {
+				openRequests.push(structuredClone(req));
 				const info = {
 					id: `review-${++serial}`,
 					agent: null,
@@ -178,6 +181,7 @@ export async function setup(t, extra = {}, options = {}) {
 		reviewContext,
 		counters,
 		opened,
+		openRequests,
 		submitted,
 		aborted,
 		closed,

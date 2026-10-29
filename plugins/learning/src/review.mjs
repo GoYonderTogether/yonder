@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { effective, eventsOf, limit, trustOf } from "./policy.mjs";
 import { reviewLifecycle } from "./review-lifecycle.mjs";
 import { reviewPrompt } from "./review-prompts.mjs";
 import { createSkillReadMarks } from "./skill-store.mjs";
@@ -36,7 +37,8 @@ export function createReview(api, config, resolveScope) {
 		writes = Promise.resolve();
 	const file = () => join(api.paths.data, "learning-state.json");
 	const enabled = () => !stopped && config.enabled !== false;
-	const toolCallThreshold = config.review?.toolCallThreshold ?? TOOL_CALL_THRESHOLD;
+	const thresholdOf = (scope) =>
+		scope.review?.toolCallThreshold ?? config.review?.toolCallThreshold ?? TOOL_CALL_THRESHOLD;
 	const warn = (e) => api.log?.warn("Hermes learning review failed", { error: String(e) });
 	const ready = () =>
 		(loaded ??= (async () => {
@@ -282,11 +284,12 @@ export function createReview(api, config, resolveScope) {
 			const found = (await api.events.query({ id, limit: 1 })).events[0];
 			if (found) events.push(found);
 		}
+		// Trust of this run's inputs narrows the scope's switches (owner private > group > public).
+		const eff = limit(effective(p.scope), await trustOf(api, p.info.agent, events));
 		for (const input of events.filter(isUserInput))
 			if (!c.inputs.includes(input.id)) {
 				c.inputs.push(input.id);
-				if (!c.memoryResetInputs?.includes(input.id) && (p.scope.memory !== false || p.scope.user !== false))
-					c.memory++;
+				if (!c.memoryResetInputs?.includes(input.id) && eff.reviewMemory && (eff.memory || eff.user)) c.memory++;
 			}
 		await save();
 		const s = state(d.session),
@@ -308,7 +311,7 @@ export function createReview(api, config, resolveScope) {
 		const tail = start < 0 ? [] : items.slice(start + 1);
 		// Tool calls, not turns: run.end carries no count, so the run's transcript tail is it.
 		// Interrupted runs still did the work, so count before the final-answer gate.
-		if (p.scope.learning === true && p.scope.skillDir) {
+		if (p.scope.learning === true && p.scope.skillDir && eff.reviewSkills) {
 			c.skills += tail.reduce((total, item) => total + (item.tools?.length ?? 0), 0);
 			await save();
 		}
@@ -328,10 +331,9 @@ export function createReview(api, config, resolveScope) {
 			return;
 		}
 		const memory =
-			c.memory >= 10 &&
-			p.scope.writeMode === "exclusive-yonder" &&
-			(p.scope.memory !== false || p.scope.user !== false);
-		const skills = p.scope.learning === true && !!p.scope.skillDir && c.skills >= toolCallThreshold;
+			c.memory >= 10 && p.scope.writeMode === "exclusive-yonder" && eff.reviewMemory && (eff.memory || eff.user);
+		const skills =
+			p.scope.learning === true && !!p.scope.skillDir && eff.reviewSkills && c.skills >= thresholdOf(p.scope);
 		const focus = s.explicit?.focus ?? (memory && skills ? "combined" : memory ? "memory" : skills ? "skills" : null);
 		if (focus) {
 			const old = s.pending;
@@ -342,6 +344,7 @@ export function createReview(api, config, resolveScope) {
 				created: old?.created ?? Date.now(),
 				generation,
 				scope: p.scope,
+				eff,
 				material: structuredClone({ messages: snap.messages, transcript: items.slice(start) }),
 				parent: d.session,
 				run,
@@ -388,7 +391,10 @@ export function createReview(api, config, resolveScope) {
 		try {
 			session = await api.sessions.open({
 				preset: REVIEW_PRESET,
-				modelSource: { session: id, ...(config.model ? { fallback: config.model } : {}) },
+				modelSource: {
+					session: id,
+					...(scope.review?.model || config.model ? { fallback: scope.review?.model ?? config.model } : {}),
+				},
 				capabilities: ["read", "write"],
 				close: "manual",
 			});
@@ -419,7 +425,20 @@ export function createReview(api, config, resolveScope) {
 		void api.sessions
 			.submit(
 				session.id,
-				{ text: reviewPrompt(g.focus, g.material, g.scope, api.id, { session: g.parent, run: g.run }) },
+				{
+					text: reviewPrompt(
+						g.focus,
+						g.material,
+						{
+							...g.scope,
+							memory: (g.eff ?? effective(g.scope)).memory,
+							user: (g.eff ?? effective(g.scope)).user,
+							trustNote: g.eff?.note,
+						},
+						api.id,
+						{ session: g.parent, run: g.run },
+					),
+				},
 				{ wait: true },
 			)
 			.then((result) => {
@@ -452,6 +471,7 @@ export function createReview(api, config, resolveScope) {
 		if (p.scope !== g.scope || !active(g)) fail("review_grant_expired");
 		return {
 			scope: g.scope,
+			eff: g.eff ?? limit(effective(g.scope), "owner"),
 			options: {
 				review: { id: g.id, origin: "background_review", attended: g.attended, session: g.parent, run: g.run },
 				material: g.material,
@@ -468,8 +488,9 @@ export function createReview(api, config, resolveScope) {
 		};
 	}
 	async function refine(args, ctx) {
-		await parent(ctx.session, ctx);
-		const inputs = ctx.events ?? (ctx.event ? [ctx.event] : []);
+		const { scope } = await parent(ctx.session, ctx);
+		const inputs = eventsOf(ctx);
+		if (!limit(effective(scope), await trustOf(api, ctx.agent, inputs)).refine) fail("refine_disabled");
 		if (!inputs.some((e) => isUserInput(e) && /^\/refine(?:\s|$)/i.test(e.data.text ?? "")))
 			fail("refine_requires_user_command");
 		const s = state(ctx.session);

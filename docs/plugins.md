@@ -346,6 +346,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 ## hermes-experience：可选精选记忆与静默学习
 
 - **包**：`@yonder/plugin-hermes-experience`；[安装、原 scope 迁移与验证](../plugins/hermes-experience/README.md)。
+- **默认开启**：选入的 Bot 无需 scope，按约定得到 `<home>/agents/<id>/{memories,skills}`，按会话可信度（owner/group/public）收紧写入，见[学习插件](../plugins/learning/README.md)。
 - **贡献**：前台 memory_read/edit、skill_store、memory_pending、refine；三个仅 active grant 可用的内部 review 工具；hermes-memory/behavior/core 上下文、hermes-yonder 教学技能、hermes-study 与 hermes-learning-review 预设及学习 hooks/trigger。
 - **范围**：只在明确映射的 Agent/profile 与原授权目录内操作；不自动选入其他 Agent，不搬动记忆或技能。新技能使用现有原生发现/skill_view；静默 review 不发渠道消息，不含通用 shell 或派发工具。
 - **来源**：MIT Hermes 策略的 Yonder-native 适配，精确 pin、许可、运行时差异与受控原生验收脚本随包保留；不是 Python runtime 或上游字节/cache 一致 fork。

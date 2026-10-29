@@ -3,6 +3,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { defineContext, definePlugin, defineTool } from "@yonder/sdk";
 import { coreGuidance } from "./guidance.mjs";
 import { createLearningViews } from "./learning-views.mjs";
+import { conventionScope, effective, ensureDirs, eventsOf, homeOf, limit, trustOf } from "./policy.mjs";
 import { createReview, REVIEW_PRESET, reviewTools } from "./review.mjs";
 import { listSkillArchives, skillStore } from "./skill-store.mjs";
 import {
@@ -40,15 +41,28 @@ function verifiedEvidence(args, options) {
 	return evidence;
 }
 const target = { type: "string", enum: ["memory", "user"] };
+// Sub-switches shared by explicit scopes and per-Bot convention overrides (`config.agents.<id>`).
+const switches = {
+	preset: { type: "string", enum: ["assistant", "persona", "worker"] },
+	memory: { type: "boolean" },
+	user: { type: "boolean" },
+	refine: { type: "boolean" },
+	review: obj({
+		memory: { type: "boolean" },
+		skills: { type: "boolean" },
+		model: str,
+		toolCallThreshold: { type: "integer", minimum: 1 },
+	}),
+};
 const scopeSchema = obj(
 	{
 		agent: str,
 		profiles: { type: "array", items: str, minItems: 1 },
 		memoryDir: str,
 		skillDir: str,
+		...switches,
 		learning: { type: "boolean" },
-		memory: { type: "boolean" },
-		user: { type: "boolean" },
+		enabled: { type: "boolean" },
 		writeMode: { type: "string", enum: ["readonly", "exclusive-yonder"] },
 	},
 	["agent", "profiles", "memoryDir"],
@@ -58,6 +72,11 @@ export default definePlugin({
 		enabled: { type: "boolean" },
 		model: str,
 		scopes: { type: "array", items: scopeSchema },
+		// Bots without an explicit scope get the convention scope; `learning:false` switches one off.
+		agents: {
+			type: "object",
+			additionalProperties: obj({ learning: { type: "boolean" }, enabled: { type: "boolean" }, ...switches }),
+		},
 		review: obj({ toolCallThreshold: { type: "integer", minimum: 1 } }),
 	}),
 	setup(api) {
@@ -75,37 +94,55 @@ export default definePlugin({
 			identities.add(s.agent);
 			paths.add(s.memoryDir);
 		}
-		function scope(ctx, t) {
+		// Explicit scopes win and stay exactly as configured. An agent with none gets the convention scope
+		// (<home>/agents/<id>/{memories,skills}) unless switched off; one object per agent keeps identity stable.
+		const home = homeOf(api.paths?.data, api.id),
+			defaults = new Map();
+		async function findScope(agent, profile) {
+			const explicit = scopes.find((s) => s.agent === agent && s.profiles.includes(profile));
+			if (explicit) return explicit.enabled === false ? undefined : explicit;
+			if (!agent || !home || scopes.some((s) => s.agent === agent)) return undefined;
+			if (!defaults.has(agent)) {
+				const made = conventionScope(home, agent, config);
+				defaults.set(agent, made && { scope: made, ready: ensureDirs(made) });
+			}
+			const entry = defaults.get(agent);
+			if (!entry) return undefined;
+			await entry.ready;
+			if (!entry.scope.profiles.includes(profile)) entry.scope.profiles.push(profile);
+			return entry.scope;
+		}
+		const everyScope = () => [...scopes, ...[...defaults.values()].filter(Boolean).map((d) => d.scope)];
+		const trustFor = (ctx) => trustOf(api, ctx.agent, eventsOf(ctx));
+		// Switches of this scope narrowed by the trust of the conversation that is acting.
+		const effFor = async (s, ctx) => limit(effective(s), await trustFor(ctx));
+		async function checked(ctx, t) {
 			if (config.enabled === false) fail("module_disabled");
 			if (!["memory", "user"].includes(t)) fail("invalid_target");
-			const s = scopes.find((s) => s.agent === ctx.agent && s.profiles.includes(ctx.profile));
+			const s = await findScope(ctx.agent, ctx.profile);
 			if (!s) fail("scope_denied");
-			if (s[t] === false) fail("target_disabled");
-			return s;
-		}
-		async function checked(ctx, t) {
-			const s = scope(ctx, t),
-				canonical = await directory(s.memoryDir);
+			if ((await effFor(s, ctx))[t] === false) fail("target_disabled");
+			const canonical = await directory(s.memoryDir);
 			// Refuse aliases mapped to another agent even if configuration uses distinct strings.
-			for (const other of scopes)
+			for (const other of everyScope())
 				if (other !== s && (await directory(other.memoryDir)) === canonical) fail("shared_directory_denied");
 			return s;
 		}
-		const baseScope = (ctx) => {
+		const baseScope = async (ctx) => {
 			if (config.enabled === false) fail("module_disabled");
-			const s = scopes.find((s) => s.agent === ctx.agent && s.profiles.includes(ctx.profile));
+			const s = await findScope(ctx.agent, ctx.profile);
 			if (!s) fail("scope_denied");
 			return s;
 		};
 		let changes;
 		const review = createReview(api, config, async (info) => {
-			const s = baseScope(info);
+			const s = await baseScope(info);
 			const canonical = await directory(s.memoryDir);
-			for (const other of scopes)
+			for (const other of everyScope())
 				if (other !== s && (await directory(other.memoryDir)) === canonical) fail("shared_directory_denied");
 			return s;
 		});
-		changes = createLearningViews(api, scopes, review);
+		changes = createLearningViews(api, findScope, review);
 		review.onChange = (session, change) => changes.record(session, change);
 		review.propose = (session, proposal) => changes.propose(session, proposal);
 		changes.register();
@@ -221,8 +258,12 @@ export default definePlugin({
 			"skill_store",
 			skillSchema,
 			async (a, ctx) => {
-				const s = baseScope(ctx);
+				const s = await baseScope(ctx);
 				learning(s);
+				const reads = ["read", "list_archives"];
+				// External (group/public) messages never write skills directly.
+				if (!reads.includes(a.action) && !(await effFor(s, ctx)).skillsWrite)
+					fail("skills_write_denied_for_conversation");
 				return a.action === "list_archives"
 					? listSkillArchives(s.skillDir)
 					: skillStore(s.skillDir, a, ctx.signal, { pluginId: api.id });
@@ -233,9 +274,10 @@ export default definePlugin({
 			"memory_pending",
 			obj({ action: { type: "string", enum: ["list", "read", "apply", "discard"] }, id: str }, ["action"]),
 			async (a, ctx) => {
-				const s = baseScope(ctx);
-				if (s.memory === false && s.user === false) fail("target_disabled");
-				if (a.action === "list") return (await listMemoryPending(s.memoryDir)).filter((p) => s[p.target] !== false);
+				const s = await baseScope(ctx),
+					eff = await effFor(s, ctx);
+				if (!eff.memory && !eff.user) fail("target_disabled");
+				if (a.action === "list") return (await listMemoryPending(s.memoryDir)).filter((p) => eff[p.target] !== false);
 				const record = await readMemoryPending(s.memoryDir, a.id);
 				await checked(ctx, record.target);
 				if (a.action === "read") return record;
@@ -258,8 +300,8 @@ export default definePlugin({
 				"memory_read",
 				obj({ target }, ["target"]),
 				async (a, ctx) => {
-					const { scope: s } = await review.grant(ctx, "memory");
-					if (s[a.target] === false) fail("target_disabled");
+					const { scope: s, eff } = await review.grant(ctx, "memory");
+					if (eff[a.target] === false) fail("target_disabled");
 					if (!["memory", "user"].includes(a.target)) fail("invalid_target");
 					return readMemory(s.memoryDir, a.target);
 				},
@@ -269,9 +311,9 @@ export default definePlugin({
 				"memory_edit",
 				obj({ ...memoryEdit.properties, evidence: str }, ["target", "revision", "evidence"]),
 				async (a, ctx) => {
-					const { scope: s, options } = await review.grant(ctx, "memory");
+					const { scope: s, eff, options } = await review.grant(ctx, "memory");
 					writable(s);
-					if (s[a.target] === false) fail("target_disabled");
+					if (eff[a.target] === false) fail("target_disabled");
 					if (!(await options.isActive())) fail("review_inactive");
 					if (a.action !== "add" || typeof a.content !== "string" || a.operations) fail("only_verified_add_supported");
 					const evidence = verifiedEvidence(a, options);
@@ -283,8 +325,9 @@ export default definePlugin({
 				"skill_store",
 				obj({ ...skillSchema.properties, evidence: str }),
 				async (a, ctx) => {
-					const { scope: s, options } = await review.grant(ctx, "skills");
+					const { scope: s, eff, options } = await review.grant(ctx, "skills");
 					learning(s);
+					if (!eff.reviewSkills) fail("target_disabled");
 					if (a.action === "list_archives") return listSkillArchives(s.skillDir);
 					if (a.action === "read") return skillStore(s.skillDir, a, ctx.signal, { ...options, pluginId: api.id });
 					const ops = a.operations ?? [a];
@@ -349,11 +392,12 @@ export default definePlugin({
 				placement: "system",
 				async render(ctx) {
 					if (config.enabled === false) return;
-					const s = scopes.find((s) => s.agent === ctx.agent && s.profiles.includes(ctx.profile));
+					const s = await findScope(ctx.agent, ctx.profile);
 					if (!s) return;
-					const blocks = [];
+					const eff = await effFor(s, ctx),
+						blocks = [];
 					for (const t of ["memory", "user"])
-						if (s[t] !== false) {
+						if (eff[t] !== false) {
 							await checked(ctx, t);
 							const m = await readMemory(s.memoryDir, t);
 							if (m.overBudget) fail("memory_over_budget_reduce_before_context_load");
@@ -373,9 +417,10 @@ export default definePlugin({
 				placement: "system",
 				async render(ctx) {
 					if (config.enabled === false) return;
-					const s = scopes.find((s) => s.agent === ctx.agent && s.profiles.includes(ctx.profile));
+					const s = await findScope(ctx.agent, ctx.profile);
 					if (!s) return;
-					return coreGuidance(s, api.id);
+					const eff = await effFor(s, ctx);
+					return coreGuidance({ ...s, memory: eff.memory, user: eff.user }, api.id);
 				},
 			}),
 		);
@@ -384,11 +429,7 @@ export default definePlugin({
 				id: "hermes-behavior",
 				placement: "system",
 				async render(ctx) {
-					if (
-						config.enabled === false ||
-						!scopes.some((s) => s.agent === ctx.agent && s.profiles.includes(ctx.profile))
-					)
-						return;
+					if (config.enabled === false || !(await findScope(ctx.agent, ctx.profile))) return;
 					return (
 						(await readFile(new URL("../assets/behavior.md", import.meta.url), "utf8")) +
 						"\nRuntime adaptation: You are Hermes, a Yonder resident with Hermes-derived guidance; not the upstream Python Hermes runtime. Only the tools actually offered are available. The hermes-yonder skill teaches this adapter. No session_search, upstream Python skill_manage, kanban, Python plugins or external memory providers are implemented here. Quiet plugin-owned post-turn learning and /refine use dedicated scoped tools, not upstream byte-identical cache forks. Memory is a fresh render snapshot, not a frozen session prefix; a successful edit is durable on disk, not a retroactive change to old prompt/transcript text."
