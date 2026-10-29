@@ -127,11 +127,13 @@ function Bootstrap() {
 		);
 	return (
 		<>
-			<PersistenceProvider>
-				<BrowserRouter basename={routerBasename()} useTransitions={false}>
+			{/* Router 必须在按账号换 key 的 PersistenceProvider 外面：匿名访客开聊时账号变化会让后者整棵重挂，
+			    Router 若随之重建，进行中的 navigate 推到旧 history，页面停在名片页。 */}
+			<BrowserRouter basename={routerBasename()}>
+				<PersistenceProvider>
 					<App />
-				</BrowserRouter>
-			</PersistenceProvider>
+				</PersistenceProvider>
+			</BrowserRouter>
 			{error && (
 				<div
 					role="status"
