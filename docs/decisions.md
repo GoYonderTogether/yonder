@@ -814,3 +814,4 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 微信：扫码轮询遇网络瞬时错误/5xx 曾直接终止（只留一行无原因日志），主人扫码后服务端从未确认登录；改为继续轮询到二维码过期，日志带 stage/reason/http。拉取消息遇 errcode/ret -14（服务端会话过期）此前被静默吞掉、每 5 秒重试且无日志；改为状态 `ILINK_SESSION_EXPIRED`、只告警一次、降到 60 秒重试，提示重新 `yonder channels login`。
 - QQ 群：持续在场与群分身（wake: write + group-batch、persistent per:conv、reply: none）机制早已存在，缺口是未列入 allowedGroups/groupParticipation 的群默认 `mention`，主人不 @ 说「在吗」只被记录。增补：发言账号已关联到人（identity.account().person 非空）时按 @ 处理，立即触发批次；陌生人仍需 @/关键词/`all`。不改变 `record` 与未关联账号的默认，保持只增不改。
 - 主 Bot 忙时私聊：各渠道 owner 绑定已是 `busy: steer`（新消息并入运行中的回合），群在独立 persistent 会话，不占 main 会话；未新增机制。
+- 主 Agent 代批 10-29（CH-01）：输入准备时单个附件下载失败（QQ 语音链接过期 HTTP 400）曾让整轮 `faulted`；群批次因游标不前进而反复带上这条消息，群分身永久失败。改为该附件在提示中标注 `unavailable: download failed or expired`（不回显带签名的原链接），其余内容照常；中止信号仍照常抛出。

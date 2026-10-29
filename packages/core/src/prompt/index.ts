@@ -317,14 +317,27 @@ export async function prepareInput(
 		session.resolved.model.slice(0, slash),
 		session.resolved.model.slice(slash + 1),
 	);
+	// One expired or unreachable attachment must not fail the whole turn (a stale QQ voice URL once
+	// blocked every later group batch); the model is told it could not be fetched.
+	const unavailable = new Set<Attachment>();
 	const attachments = await Promise.all(
-		(data.attachments ?? []).map((item, index) => download(item, options.home, signal, event.id, index)),
+		(data.attachments ?? []).map((item, index) =>
+			download(item, options.home, signal, event.id, index).catch((error) => {
+				if (signal.aborted) throw error;
+				unavailable.add(item);
+				return item;
+			}),
+		),
 	);
 	const images: Attachment[] = [];
 	const limits = model?.inputLimits;
 	for (const attachment of attachments) {
 		const bytes = attachment.bytes;
-		if (
+		if (unavailable.has(attachment))
+			lines.push(
+				`attachment: ${label(attachment.name ?? attachment.kind)} (${label(attachment.mime)}) unavailable: download failed or expired`,
+			);
+		else if (
 			attachment.kind === "image" &&
 			model?.input.includes("image") &&
 			images.length < Math.min(limits?.images?.maxPerMessage ?? Infinity, limits?.images?.maxPerRequest ?? Infinity)

@@ -1,4 +1,6 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -305,6 +307,54 @@ test("custom events retain complete data and message labels cannot break the tur
 		}
 		expect(source).toEqual(before);
 	} finally {
+		await db.close();
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("an expired attachment URL is reported to the model instead of failing the whole turn", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "yonder-expired-attachment-"));
+	const db = await openDatabase(join(directory, "state.db"));
+	const server = createServer((_, response) => response.writeHead(400).end());
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	try {
+		const store = await createStore(db);
+		const row = {
+			id: "1",
+			agent: null,
+			profile: "check",
+			mode: "task" as const,
+			key: "check",
+			version: "0.1.0",
+			opened: new Date().toISOString(),
+		};
+		const session = { agent: null, profile: row.profile, cwd: directory, resolved: resolveProfile({}) };
+		const options: PromptOptions = {
+			home: directory,
+			version: row.version,
+			locale: "zh-CN",
+			timezone: "Asia/Shanghai",
+			contexts: new Map(),
+			workspace: () => workspaceFiles(localEnvironment(directory)),
+			identity: store.identity(),
+			models: buildModels(new FileCredentials(join(directory, "auth.json"))),
+			setVersion: store.sessions.setVersion,
+		};
+		const { port } = server.address() as AddressInfo;
+		const event = newEvent({
+			type: "message.in",
+			data: {
+				kind: "group",
+				text: "在吗",
+				attachments: [{ kind: "audio", mime: "voice", uri: `http://127.0.0.1:${port}/expired?rkey=SECRET` }],
+			},
+		});
+		const prepared = await prepareInput(row, session, event, "write", options);
+		expect(prepared.text).toContain("在吗");
+		expect(prepared.text).toContain("unavailable: download failed or expired");
+		expect(prepared.text).not.toContain("SECRET");
+	} finally {
+		server.close();
 		await db.close();
 		await rm(directory, { recursive: true, force: true });
 	}
