@@ -1,5 +1,8 @@
 import type { PermissionProvider, PermissionRequest, PermissionsAPI, ToolContext } from "@yonder/sdk";
 
+/** 外人 profile 看不到权限提供方，也调不动它们：工具清单与权限清单都属于内部信息。 */
+const outsiderProfile = "outsider";
+
 /** One kernel registry; selection is resolved from the calling session, never the core tool's identity. */
 export function createPermissions(selected: (ctx: ToolContext) => Promise<readonly string[]>): PermissionsAPI {
 	const providers = new Map<string, PermissionProvider>();
@@ -10,6 +13,7 @@ export function createPermissions(selected: (ctx: ToolContext) => Promise<readon
 		},
 		async list(ctx) {
 			ctx.signal.throwIfAborted();
+			if (ctx.profile === outsiderProfile) return [];
 			const plugins = await selected(ctx);
 			ctx.signal.throwIfAborted();
 			return [...providers.values()]
@@ -30,6 +34,7 @@ export function createPermissions(selected: (ctx: ToolContext) => Promise<readon
 					(typeof request.timeout !== "number" || !Number.isFinite(request.timeout) || request.timeout <= 0))
 			)
 				throw new Error("Invalid permission request");
+			if (ctx.profile === outsiderProfile) throw new Error("Permission providers are not available to outsiders");
 			const provider = providers.get(request.provider);
 			if (!provider) throw new Error(`Unknown permission provider: ${request.provider}`);
 			if (!(await selected(ctx)).includes(provider.id.split(".")[0] ?? ""))

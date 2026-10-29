@@ -26,6 +26,7 @@ export function createPermissionsTool(permissions: PermissionsAPI): Tool {
 		async execute(input, ctx) {
 			try {
 				ctx.signal.throwIfAborted();
+				if (ctx.profile === "outsider") throw new Error("Permission providers are not available to outsiders");
 				if (!Value.Check(parameters, input)) throw new Error("Invalid permissions arguments");
 				const request = input as PermissionArguments;
 				if (request.action === "list") {
