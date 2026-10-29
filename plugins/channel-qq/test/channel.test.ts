@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { dispatchEvent, MediaFileType, type QQBotInboundMessage } from "@tencent-connect/qqbot-nodejs/protocol";
 import { checkPlugin, type PluginAPI } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
@@ -246,14 +246,35 @@ test("outbound local media is restricted to the allowlisted root", async () => {
 		await symlink(outside, join(root, "escape.png"));
 		const image = { kind: "image" as const, mime: "image/png" };
 		expect(mediaOf({ ...image, uri: "https://gchat.qpic.cn/a.png" }, root)).toEqual({
-			fileType: MediaFileType.IMAGE,
-			source: { url: "https://gchat.qpic.cn/a.png" },
+			ok: true,
+			media: { fileType: MediaFileType.IMAGE, source: { url: "https://gchat.qpic.cn/a.png" } },
 		});
-		expect(mediaOf({ ...image, uri: join(root, "a.png") }, root).source).toEqual({ localPath: join(root, "a.png") });
-		expect(() => mediaOf({ ...image, uri: join(home, "outside.png") }, root)).toThrow(
-			"outside the allowlisted media root",
-		);
-		expect(() => mediaOf({ ...image, uri: "../a.png" }, root)).toThrow("absolute local path");
+		expect(mediaOf({ ...image, uri: join(root, "a.png") }, root)).toEqual({
+			ok: true,
+			media: { fileType: MediaFileType.IMAGE, source: { localPath: join(root, "a.png") } },
+		});
+		// file: 引用、~/ 和相对 home 的路径都先解析成绝对路径，再按白名单判定。
+		expect(mediaOf({ ...image, uri: pathToFileURL(join(root, "a.png")).href }, root)).toMatchObject({
+			ok: true,
+			media: { source: { localPath: join(root, "a.png") } },
+		});
+		expect(mediaOf({ ...image, uri: "~/media/a.png" }, root, home)).toMatchObject({
+			ok: true,
+			media: { source: { localPath: join(root, "a.png") } },
+		});
+		expect(mediaOf({ ...image, uri: "../a.png" }, root, join(root, "nested"))).toMatchObject({
+			ok: true,
+			media: { source: { localPath: join(root, "a.png") } },
+		});
+		// 解析不了或不在白名单的附件返回原因，不抛错。
+		expect(mediaOf({ ...image, uri: join(home, "outside.png") }, root)).toMatchObject({
+			ok: false,
+			reason: expect.stringContaining("不在允许的目录"),
+		});
+		expect(mediaOf({ ...image, uri: "http://example.com/a.png" }, root)).toMatchObject({
+			ok: false,
+			reason: expect.stringContaining("只支持 https"),
+		});
 		await expect(assertInsideMediaRoot(join(root, "inside.png"), root)).resolves.toBeUndefined();
 		await expect(assertInsideMediaRoot(join(root, "escape.png"), root)).rejects.toThrow(
 			"escapes the allowlisted media root",
@@ -275,6 +296,50 @@ function testChannel(home: string, bot: unknown): QQChannel {
 	internals.state = "ready";
 	return channel;
 }
+
+test("an unresolvable attachment is skipped with a readable warning while the text still goes out", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-skip-"));
+	try {
+		const root = join(home, "qq-main", "media");
+		await mkdir(root, { recursive: true });
+		const file = join(root, "a.png");
+		await writeFile(file, "png");
+		const calls: Array<[string, unknown]> = [];
+		const warnings: Array<{ msg: string; data?: object }> = [];
+		const channel = testChannel(home, {
+			send: async (request: unknown) => {
+				calls.push(["text", request]);
+				return { id: "TEXT1" };
+			},
+			sendMedia: async (request: unknown) => {
+				calls.push(["media", request]);
+				return { message: { id: "MEDIA1" } };
+			},
+		});
+		(channel as unknown as { api: { log: { warn(msg: string, data?: object): void } } }).api.log.warn = (msg, data) =>
+			warnings.push({ msg, data });
+		const media = { kind: "image" as const, mime: "image/png" };
+		// 一条 file: 引用（可发）、一条 http 链接（发不了）：正文和可发的附件都要出去。
+		const result = await channel.send("conv:qq-main:c2c:USER", {
+			text: "看这张图",
+			attachments: [
+				{ ...media, uri: pathToFileURL(file).href },
+				{ ...media, uri: "http://example.com/b.png", name: "b.png" },
+			],
+		});
+		expect(result).toEqual({ ok: true, id: "TEXT1" });
+		expect(calls.map(([kind]) => kind)).toEqual(["text", "media"]);
+		expect(calls[1]?.[1]).toMatchObject({ localPath: file });
+		expect(warnings[0]?.msg).toContain("skipped");
+		expect(warnings[0]?.data).toMatchObject({
+			instance: "qq-main",
+			allowedRoot: root,
+			skipped: [expect.stringContaining("只支持 https")],
+		});
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
 
 test("sendMedia uploads allowlisted local files; a partial failure never resends the text", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-qq-send-"));

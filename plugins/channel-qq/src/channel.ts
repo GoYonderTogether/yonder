@@ -1,5 +1,7 @@
 import { mkdir, realpath } from "node:fs/promises";
+import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	ApiError,
 	contentSanitizer,
@@ -116,29 +118,50 @@ export class Spacing {
 	}
 }
 
+/** Outbound media either goes to the platform as an https URL or is uploaded from an allowlisted local file. */
+export interface OutboundMedia {
+	fileType: MediaFileType;
+	source: { url: string } | { localPath: string };
+}
+/** A skipped attachment: `reason` is a readable, actionable line for the owner and the log. */
+export type MediaResolution = { ok: true; media: OutboundMedia } | { ok: false; reason: string };
+
+const fileTypeOf = (attachment: Attachment): MediaFileType =>
+	attachment.kind === "image"
+		? MediaFileType.IMAGE
+		: attachment.kind === "audio"
+			? MediaFileType.VOICE
+			: attachment.kind === "video"
+				? MediaFileType.VIDEO
+				: MediaFileType.FILE;
+
+/** `~/…` and `~` mean the home directory of this harness process, never a guess. */
+const expandHome = (uri: string, home: string) =>
+	uri === "~" ? home : uri.startsWith("~/") ? join(home, uri.slice(2)) : uri;
+
 /**
- * Outbound media accepts an https URL or an absolute local path under `root`;
- * the platform uploads both. Local paths are resolved and real-pathed, so a
- * symlink that escapes the allowlisted root is rejected.
+ * Attachment references arrive as https URLs, `file:` URIs, `~/…` or home-relative paths, or absolute paths.
+ * Everything local is resolved to an absolute path first, then checked against the allowlisted media root;
+ * a reference that cannot be resolved is reported instead of thrown, so one bad attachment never drops the text.
  */
-export function mediaOf(
-	attachment: Attachment,
-	root: string,
-): { fileType: MediaFileType; source: { url: string } | { localPath: string } } {
-	const fileType =
-		attachment.kind === "image"
-			? MediaFileType.IMAGE
-			: attachment.kind === "audio"
-				? MediaFileType.VOICE
-				: attachment.kind === "video"
-					? MediaFileType.VIDEO
-					: MediaFileType.FILE;
-	if (attachment.uri.startsWith("https://")) return { fileType, source: { url: attachment.uri } };
-	if (!isAbsolute(attachment.uri)) throw new Error("QQ attachment must be an https URL or an absolute local path");
-	const resolved = resolve(attachment.uri);
-	if (relative(resolve(root), resolved).startsWith("..") || isAbsolute(relative(resolve(root), resolved)))
-		throw new Error(`QQ local attachment is outside the allowlisted media root: ${attachment.uri}`);
-	return { fileType, source: { localPath: resolved } };
+export function mediaOf(attachment: Attachment, root: string, home = homedir()): MediaResolution {
+	const fileType = fileTypeOf(attachment);
+	const uri = attachment.uri.trim();
+	if (uri.startsWith("https://")) return { ok: true, media: { fileType, source: { url: uri } } };
+	let path: string;
+	if (uri.startsWith("file:")) {
+		try {
+			path = fileURLToPath(uri);
+		} catch {
+			return { ok: false, reason: `无法解析的 file 引用 ${uri}；请改用 https 链接或本机文件路径` };
+		}
+	} else if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u.test(uri)) {
+		return { ok: false, reason: `只支持 https 链接：${uri}` };
+	} else path = resolve(home, expandHome(uri, home));
+	const rel = relative(resolve(root), resolve(path));
+	if (rel.startsWith("..") || isAbsolute(rel))
+		return { ok: false, reason: `本机文件不在允许的目录 ${root} 内：${path}` };
+	return { ok: true, media: { fileType, source: { localPath: resolve(path) } } };
 }
 
 /** Rejects a resolved local media path whose realpath leaves the allowlisted root, or that does not exist. */
@@ -335,9 +358,33 @@ export class QQChannel implements Channel {
 			if (!bot || this.state === "stopped" || this.state === "failed") throw new Error("QQ channel is not running");
 			const text = message.text.trim();
 			if (!text && !message.attachments?.length) throw new Error("QQ reply is empty");
-			const media = (message.attachments ?? []).map((item) => mediaOf(item, this.mediaRoot));
-			for (const item of media)
-				if ("localPath" in item.source) await assertInsideMediaRoot(item.source.localPath, this.mediaRoot);
+			// 一个附件失败不能丢掉整条消息：能发的照发，发不了的记一条可读警告。
+			const media: OutboundMedia[] = [];
+			const skipped: string[] = [];
+			for (const item of message.attachments ?? []) {
+				const resolution = mediaOf(item, this.mediaRoot);
+				if (!resolution.ok) {
+					skipped.push(`${item.name ?? item.uri}：${resolution.reason}`);
+					continue;
+				}
+				if ("localPath" in resolution.media.source) {
+					try {
+						await assertInsideMediaRoot(resolution.media.source.localPath, this.mediaRoot);
+					} catch (error) {
+						skipped.push(`${item.name ?? item.uri}：${error instanceof Error ? error.message : String(error)}`);
+						continue;
+					}
+				}
+				media.push(resolution.media);
+			}
+			if (skipped.length)
+				this.api.log.warn("QQ outbound attachments skipped; the text is still sent", {
+					instance: this.id,
+					skipped,
+					allowedRoot: this.mediaRoot,
+				});
+			if (!text && !media.length)
+				throw new Error(`QQ reply is empty: every attachment was skipped (${skipped.join("; ")})`);
 			const to = recipient(this.id, target);
 			const msgId = message.replyTo ?? message.sourceMessageId;
 			if (msgId) to.msgId = msgId;
