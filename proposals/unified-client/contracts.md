@@ -689,3 +689,38 @@ const NotificationIntent = Type.Object({ kind: Type.Union(['progress', 'decision
 SDK/插件另提供 `social.resume`（ResumeParams → ResumeResult，同 update 权限），不新增控制面 resume 方法。dryRun 默认 true；只允许修改既有策略和已配置 judge/映射，不修改 owner、身份 link、capabilities 或新增授权。每次更新校验、比较 revision、原子替换；失败保留旧配置。两个 `social.*` 事件是插件事件，核心路由诊断由核心追加，不能伪写。
 
 错误沿用既有协议：scope_denied → `forbidden`（403，`data.reason`），revision_conflict → `conflict`（`data.currentRevision`），unsupported_kind → `invalid_params`（`data.kind`）。gateway 使用对象错误；control.sock 现有 `error` 字符串不变，细节只能通过可选旁路字段承载。CH-06 实现时贯通并测试。CH-01 不注册占位方法，因此 registry/protocol golden 当前无此方法增量，注册后同步更新 golden。
+
+### O51 IMP-02 配置键增补（只增不改）
+
+以下键都是可选新增；旧配置照常加载，缺省值由 `parseYonderConfig` / `parseAgentConfig` 补齐（`packages/core/src/config/`）。读这些键的运行逻辑由后续卡实现（IMP-13 预算、IMP-15 判定与快照、IMP-16 标签、IMP-17 闸门接入、IMP-19/25/26 外人额度与能力）。
+
+`yonder.yaml`：
+
+| 键 | 缺省 | 说明 |
+|---|---|---|
+| `models.chain` | `[workbuddy, rightapi-glm/glm-5.3-flash]` | 兜底链，条目为 provider 或 provider/model |
+| `models.priceCapPerMTokenYuan` | `0.6` | 按量付费模型输入、输出单价（元/百万 token）都不得超过 |
+| `budget.tokens` / `maxMinutes` / `maxWakeups` | `tokens: 0`（不限），另两项不设 | 三者同时生效 |
+| `budget.overBudget` | `record` | `record` 只记录显示，`stop` 中断 |
+| `outsiders.ownerShareDailyTokens` | `500000` | 主人分享给外人的每日合计；可为 0，或 `500K`、`2M` 写法（1M = 1,000,000，用 `tokenAmount()` 换算） |
+| `outsiders.perPersonDailyTokens` | `3000000` | 每个外人每日上限，登录后才计入 |
+| `outsiders.requireLoginForQuota` | `true` | |
+| `outsiders.guestMaxRounds` | `3` | 访客（未登录）最多轮数 |
+| `outsiders.guestPerQrDailyTokens` / `guestPerSourceDailyRounds` | 不设 | 防批量开访客的上限（IMP-19 定值） |
+| `outsiders.capabilities` | `[chat, web_search, public_docs]` | 外人能力白名单 |
+| `outsiders.publicDocs` | `[]` | 主人标记为公开的资料 |
+| `defaults.channelPolicy` | `open` | 未配白名单的渠道：`open` 放行走外人额度，`closed` 只放主人与白名单 |
+
+`agent.yaml` 的 `social`（整块缺省时不补，消费者用 `socialDefaults` 兜底）：
+
+| 键 | 缺省 |
+|---|---|
+| `listen.mode` | `realtime`（全部接收；另有 `batch`、`mention`、`digest`） |
+| `listen.realtime` | `quietSec: 15`、`maxWindowSec: 120` |
+| `listen.batch` | `windowSec: 300`、`keyRules: [owner, link, image]` |
+| `listen.digest` | `windowMin: 15`（可选 30）、`minMessages: 5` |
+| `listen.mention.strong` | `true` |
+| `tags.value` / `tags.rhythm` | `medium` / `normal`；枚举 `high|medium|low` 与 `low|normal|high`；会话策略里的 `tags` 逐群覆盖 |
+| `judge.model` | `cheap`（模型槽名或 provider/model） |
+| `snapshot.enabled` | `true` |
+| `botGate` | `windowMin: 15`、`threshold: 3`、`history: 3` |

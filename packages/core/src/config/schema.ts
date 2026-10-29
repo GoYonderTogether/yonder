@@ -9,6 +9,8 @@ const choice = <const T extends [string, ...string[]]>(...values: T) =>
 	Type.Union(values.map((value) => Type.Literal(value)) as [TLiteral<T[number]>, ...TLiteral<T[number]>[]]);
 const ref = (prefix: string) => Type.String({ pattern: `^${prefix}:.+` });
 const instanceId = Type.String({ pattern: "^[a-z0-9-]+$" });
+/** token 数：整数，或 `500K` / `2M` 这样的十进制单位（1M = 1,000,000）。 */
+const tokenAmount = Type.Union([Type.Integer({ minimum: 0 }), Type.String({ pattern: "^[0-9]+(?:\\.[0-9]+)?[KM]$" })]);
 const providerConfig = Type.Object({ type: text }, { additionalProperties: true });
 export const CredentialSlotsSchema = Type.Record(Type.String({ pattern: "^.+$" }), text, {
 	additionalProperties: false,
@@ -138,7 +140,45 @@ export const YonderSchema = object({
 	plugins: Type.Optional(Type.Array(object({ use: text, config: Type.Optional(Type.Unknown()) }))),
 	channels: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	credentials: Type.Optional(text),
-	models: Type.Optional(object({ providers: Type.Optional(Type.Record(Type.String(), Type.Unknown())) })),
+	models: Type.Optional(
+		object({
+			providers: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+			/** 兜底链顺序：条目是 provider，或 provider/model（缺省见 parseYonderConfig）。 */
+			chain: Type.Optional(Type.Array(Type.String({ pattern: "^[^/]+(?:/.+)?$" }), { uniqueItems: true })),
+			/** 按量付费模型的价格上限（元/百万 token），输入与输出单价都不得超过。 */
+			priceCapPerMTokenYuan: Type.Optional(Type.Number({ minimum: 0 })),
+		}),
+	),
+	budget: Type.Optional(
+		object({
+			/** 0 表示不限。 */
+			tokens: Type.Optional(Type.Integer({ minimum: 0 })),
+			maxMinutes: Type.Optional(Type.Number({ minimum: 0 })),
+			maxWakeups: Type.Optional(Type.Integer({ minimum: 0 })),
+			/** 超预算时的处理：record 只记录并显示，stop 中断（M5 首版为 record）。 */
+			overBudget: Type.Optional(choice("record", "stop")),
+		}),
+	),
+	/** 外人（访客与登录的非主人）的额度与能力上限（Q1-Q3、C1）。 */
+	outsiders: Type.Optional(
+		object({
+			ownerShareDailyTokens: Type.Optional(tokenAmount),
+			perPersonDailyTokens: Type.Optional(tokenAmount),
+			requireLoginForQuota: Type.Optional(Type.Boolean()),
+			guestMaxRounds: Type.Optional(Type.Integer({ minimum: 0, maximum: 1000 })),
+			guestPerQrDailyTokens: Type.Optional(tokenAmount),
+			guestPerSourceDailyRounds: Type.Optional(Type.Integer({ minimum: 0 })),
+			capabilities: Type.Optional(Type.Array(choice("chat", "web_search", "public_docs"))),
+			/** 主人标记为公开的目录或条目；外人只能读这些（IMP-26）。 */
+			publicDocs: Type.Optional(Type.Array(text)),
+		}),
+	),
+	defaults: Type.Optional(
+		object({
+			/** 未配白名单的渠道：open 放行走外人额度，closed 只允许主人与白名单（C1）。 */
+			channelPolicy: Type.Optional(choice("open", "closed")),
+		}),
+	),
 	services: Type.Optional(
 		Type.Array(
 			object({

@@ -934,6 +934,44 @@
 							"dm": {
 								"type": "object",
 								"properties": {
+									"tags": {
+										"type": "object",
+										"properties": {
+											"value": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "high"
+													},
+													{
+														"type": "string",
+														"const": "medium"
+													},
+													{
+														"type": "string",
+														"const": "low"
+													}
+												]
+											},
+											"rhythm": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "low"
+													},
+													{
+														"type": "string",
+														"const": "normal"
+													},
+													{
+														"type": "string",
+														"const": "high"
+													}
+												]
+											}
+										},
+										"additionalProperties": false
+									},
 									"mode": {
 										"anyOf": [
 											{
@@ -1137,6 +1175,44 @@
 							"group": {
 								"type": "object",
 								"properties": {
+									"tags": {
+										"type": "object",
+										"properties": {
+											"value": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "high"
+													},
+													{
+														"type": "string",
+														"const": "medium"
+													},
+													{
+														"type": "string",
+														"const": "low"
+													}
+												]
+											},
+											"rhythm": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "low"
+													},
+													{
+														"type": "string",
+														"const": "normal"
+													},
+													{
+														"type": "string",
+														"const": "high"
+													}
+												]
+											}
+										},
+										"additionalProperties": false
+									},
 									"mode": {
 										"anyOf": [
 											{
@@ -1340,6 +1416,44 @@
 							"channel": {
 								"type": "object",
 								"properties": {
+									"tags": {
+										"type": "object",
+										"properties": {
+											"value": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "high"
+													},
+													{
+														"type": "string",
+														"const": "medium"
+													},
+													{
+														"type": "string",
+														"const": "low"
+													}
+												]
+											},
+											"rhythm": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "low"
+													},
+													{
+														"type": "string",
+														"const": "normal"
+													},
+													{
+														"type": "string",
+														"const": "high"
+													}
+												]
+											}
+										},
+										"additionalProperties": false
+									},
 									"mode": {
 										"anyOf": [
 											{
@@ -1549,6 +1663,44 @@
 							"^(?:conv:[a-z0-9-]+:[^\\s]+)$": {
 								"type": "object",
 								"properties": {
+									"tags": {
+										"type": "object",
+										"properties": {
+											"value": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "high"
+													},
+													{
+														"type": "string",
+														"const": "medium"
+													},
+													{
+														"type": "string",
+														"const": "low"
+													}
+												]
+											},
+											"rhythm": {
+												"anyOf": [
+													{
+														"type": "string",
+														"const": "low"
+													},
+													{
+														"type": "string",
+														"const": "normal"
+													},
+													{
+														"type": "string",
+														"const": "high"
+													}
+												]
+											}
+										},
+										"additionalProperties": false
+									},
 									"mode": {
 										"anyOf": [
 											{
@@ -1773,6 +1925,189 @@
 							},
 							"additionalProperties": false
 						}
+					},
+					"listen": {
+						"type": "object",
+						"properties": {
+							"mode": {
+								"anyOf": [
+									{
+										"type": "string",
+										"const": "realtime"
+									},
+									{
+										"type": "string",
+										"const": "batch"
+									},
+									{
+										"type": "string",
+										"const": "mention"
+									},
+									{
+										"type": "string",
+										"const": "digest"
+									}
+								]
+							},
+							"realtime": {
+								"type": "object",
+								"properties": {
+									"quietSec": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 600
+									},
+									"maxWindowSec": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 3600
+									}
+								},
+								"additionalProperties": false
+							},
+							"batch": {
+								"type": "object",
+								"properties": {
+									"windowSec": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 86400
+									},
+									"keyRules": {
+										"type": "array",
+										"items": {
+											"anyOf": [
+												{
+													"type": "string",
+													"const": "owner"
+												},
+												{
+													"type": "string",
+													"const": "link"
+												},
+												{
+													"type": "string",
+													"const": "image"
+												}
+											]
+										},
+										"maxItems": 8
+									}
+								},
+								"additionalProperties": false
+							},
+							"digest": {
+								"type": "object",
+								"properties": {
+									"windowMin": {
+										"anyOf": [
+											{
+												"type": "number",
+												"const": 15
+											},
+											{
+												"type": "number",
+												"const": 30
+											}
+										]
+									},
+									"minMessages": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 1000
+									}
+								},
+								"additionalProperties": false
+							},
+							"mention": {
+								"type": "object",
+								"properties": {
+									"strong": {
+										"type": "boolean"
+									}
+								},
+								"additionalProperties": false
+							}
+						},
+						"additionalProperties": false
+					},
+					"tags": {
+						"type": "object",
+						"properties": {
+							"value": {
+								"anyOf": [
+									{
+										"type": "string",
+										"const": "high"
+									},
+									{
+										"type": "string",
+										"const": "medium"
+									},
+									{
+										"type": "string",
+										"const": "low"
+									}
+								]
+							},
+							"rhythm": {
+								"anyOf": [
+									{
+										"type": "string",
+										"const": "low"
+									},
+									{
+										"type": "string",
+										"const": "normal"
+									},
+									{
+										"type": "string",
+										"const": "high"
+									}
+								]
+							}
+						},
+						"additionalProperties": false
+					},
+					"snapshot": {
+						"type": "object",
+						"properties": {
+							"enabled": {
+								"type": "boolean"
+							}
+						},
+						"additionalProperties": false
+					},
+					"judge": {
+						"type": "object",
+						"properties": {
+							"model": {
+								"type": "string",
+								"minLength": 1
+							}
+						},
+						"additionalProperties": false
+					},
+					"botGate": {
+						"type": "object",
+						"properties": {
+							"windowMin": {
+								"type": "integer",
+								"minimum": 1,
+								"maximum": 1440
+							},
+							"threshold": {
+								"type": "integer",
+								"minimum": 1,
+								"maximum": 100
+							},
+							"history": {
+								"type": "integer",
+								"minimum": 1,
+								"maximum": 20
+							}
+						},
+						"additionalProperties": false
 					}
 				},
 				"additionalProperties": false
@@ -2163,6 +2498,146 @@
 						"patternProperties": {
 							"^.*$": {}
 						}
+					},
+					"chain": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"pattern": "^[^/]+(?:/.+)?$"
+						},
+						"uniqueItems": true
+					},
+					"priceCapPerMTokenYuan": {
+						"type": "number",
+						"minimum": 0
+					}
+				},
+				"additionalProperties": false
+			},
+			"budget": {
+				"type": "object",
+				"properties": {
+					"tokens": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"maxMinutes": {
+						"type": "number",
+						"minimum": 0
+					},
+					"maxWakeups": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"overBudget": {
+						"anyOf": [
+							{
+								"type": "string",
+								"const": "record"
+							},
+							{
+								"type": "string",
+								"const": "stop"
+							}
+						]
+					}
+				},
+				"additionalProperties": false
+			},
+			"outsiders": {
+				"type": "object",
+				"properties": {
+					"ownerShareDailyTokens": {
+						"anyOf": [
+							{
+								"type": "integer",
+								"minimum": 0
+							},
+							{
+								"type": "string",
+								"pattern": "^[0-9]+(?:\\.[0-9]+)?[KM]$"
+							}
+						]
+					},
+					"perPersonDailyTokens": {
+						"anyOf": [
+							{
+								"type": "integer",
+								"minimum": 0
+							},
+							{
+								"type": "string",
+								"pattern": "^[0-9]+(?:\\.[0-9]+)?[KM]$"
+							}
+						]
+					},
+					"requireLoginForQuota": {
+						"type": "boolean"
+					},
+					"guestMaxRounds": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 1000
+					},
+					"guestPerQrDailyTokens": {
+						"anyOf": [
+							{
+								"type": "integer",
+								"minimum": 0
+							},
+							{
+								"type": "string",
+								"pattern": "^[0-9]+(?:\\.[0-9]+)?[KM]$"
+							}
+						]
+					},
+					"guestPerSourceDailyRounds": {
+						"type": "integer",
+						"minimum": 0
+					},
+					"capabilities": {
+						"type": "array",
+						"items": {
+							"anyOf": [
+								{
+									"type": "string",
+									"const": "chat"
+								},
+								{
+									"type": "string",
+									"const": "web_search"
+								},
+								{
+									"type": "string",
+									"const": "public_docs"
+								}
+							]
+						}
+					},
+					"publicDocs": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"minLength": 1
+						}
+					}
+				},
+				"additionalProperties": false
+			},
+			"defaults": {
+				"type": "object",
+				"properties": {
+					"channelPolicy": {
+						"anyOf": [
+							{
+								"type": "string",
+								"const": "open"
+							},
+							{
+								"type": "string",
+								"const": "closed"
+							}
+						]
 					}
 				},
 				"additionalProperties": false

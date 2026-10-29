@@ -20,8 +20,16 @@ import {
 	type YonderConfig,
 	YonderSchema,
 } from "./schema.js";
+import {
+	defaultBudget,
+	defaultModelChain,
+	defaultOutsiders,
+	defaultPriceCapPerMTokenYuan,
+	socialWithDefaults,
+} from "./defaults.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
+export { tokenAmount } from "./defaults.js";
 export { watchConfig } from "./reload.js";
 export type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 
@@ -366,7 +374,7 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 			issues.push({ file, path: `/social/mappings/${index}/profile`, message: "配置档不存在" });
 	}
 	if (issues.length) throw new ConfigError(issues);
-	return agent;
+	return agent.social ? { ...agent, social: socialWithDefaults(agent.social) } : agent;
 }
 
 export function parsePresetConfig(text: string, id: string, file = `${id}.yaml`): Preset {
@@ -386,11 +394,19 @@ const legacyDefaultModel = "openai/gpt-6-luna";
 export function parseYonderConfig(text: string, file: string): YonderConfig {
 	const parsed = parse(text, file, YonderSchema);
 	const legacy = parsed.defaultModel === undefined && (parsed.agents?.length ?? 0) > 0;
-	const config = {
+	const config: YonderConfig = {
 		...parsed,
 		...(legacy ? { defaultModel: legacyDefaultModel } : {}),
 		locale: parsed.locale ?? "zh-CN",
 		timezone: parsed.timezone ?? "Asia/Shanghai",
+		models: {
+			...parsed.models,
+			chain: parsed.models?.chain ?? [...defaultModelChain],
+			priceCapPerMTokenYuan: parsed.models?.priceCapPerMTokenYuan ?? defaultPriceCapPerMTokenYuan,
+		},
+		budget: { ...defaultBudget, ...parsed.budget },
+		outsiders: { ...defaultOutsiders, ...parsed.outsiders },
+		defaults: { channelPolicy: parsed.defaults?.channelPolicy ?? "open" },
 	};
 	const issues: ConfigIssue[] = [];
 	try {
