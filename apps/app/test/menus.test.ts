@@ -47,6 +47,7 @@ describe("taskRowMenu", () => {
 		archived: false,
 		open: noop,
 		rename: noop,
+		pin: noop,
 		fork: noop,
 		archive: noop,
 		...o,
@@ -67,12 +68,13 @@ describe("taskRowMenu", () => {
 		);
 	});
 
-	it("已置顶显示取消置顶，点选写回 prefs", async () => {
+	it("已置顶显示取消置顶，点选走调用方动作", async () => {
 		const { taskRowMenu } = await import("../src/work/lib/menus");
-		const pin = taskRowMenu(mk({ pinned: true })).find((i) => i.key === "pin");
-		expect(pin?.label).toBe("取消置顶");
-		pin?.onSelect();
-		expect(JSON.parse(localStorage.getItem("yonder.prefs") ?? "{}").pinned).toEqual(["s1"]);
+		const pin = vi.fn();
+		const item = taskRowMenu(mk({ pinned: true, pin })).find((i) => i.key === "pin");
+		expect(item?.label).toBe("取消置顶");
+		item?.onSelect();
+		expect(pin.mock.calls.length).toBe(1);
 	});
 
 	it("重命名、分出、归档走调用方动作", async () => {

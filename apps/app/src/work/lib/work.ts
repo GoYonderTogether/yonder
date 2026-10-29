@@ -99,7 +99,7 @@ export function groupWork(
 		else out.byTime[timeKey(s.opened, opts.now)].push(s);
 	}
 	const newest = (a: WorkSession, b: WorkSession) => b.opened.localeCompare(a.opened);
-	for (const list of [out.needsYou, out.running, out.done, ...Object.values(out.byTime)]) list.sort(newest);
+	for (const list of [out.needsYou, out.running, out.pinned, out.done, ...Object.values(out.byTime)]) list.sort(newest);
 	return out;
 }
 

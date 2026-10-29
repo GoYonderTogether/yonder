@@ -42,9 +42,9 @@ describe("taskStatus", () => {
 		expect(taskStatus(task("1", "2026-10-01T00:00:00.000Z", patch as Partial<WorkSession>), state)).toBe(expected);
 	});
 
-	it("archived ids from prefs count as done", async () => {
+	it("kernel archivedAt counts as done even while running", async () => {
 		const { taskStatus } = await import("../src/work/lib/work");
-		expect(taskStatus(task("1", ""), undefined, ["1"])).toBe("done");
+		expect(taskStatus(task("1", "", { archivedAt: 5 }), "running")).toBe("done");
 	});
 });
 
@@ -81,7 +81,7 @@ describe("groupWork", () => {
 		expect(g.done.map((s) => s.id)).toEqual(["t2"]);
 	});
 
-	it("routes needs-you, running, pinned and time groups; pinned follows pref order", async () => {
+	it("routes needs-you, running, pinned and time groups; pinned follows opened order", async () => {
 		const { groupWork } = await import("../src/work/lib/work");
 		const state = new Map([
 			["b", { id: "b", state: "running" as const, since: "" }],
@@ -93,11 +93,11 @@ describe("groupWork", () => {
 				task("b", at(28)),
 				task("c", at(27)),
 				task("d", at(27)),
-				task("p1", at(1)),
-				task("p2", at(2)),
+				task("p1", at(1), { pinned: true }),
+				task("p2", at(2), { pinned: true }),
 			],
 			state,
-			{ pinned: ["p2", "p1"], now },
+			{ now },
 		);
 		expect(g.running.map((s) => s.id)).toEqual(["b"]);
 		expect(g.needsYou.map((s) => s.id)).toEqual(["c"]);
@@ -120,7 +120,7 @@ describe("groupWork", () => {
 
 	it("archived tasks go to done even when pinned", async () => {
 		const { groupWork } = await import("../src/work/lib/work");
-		const g = groupWork([task("a", at(28))], new Map(), { archived: ["a"], pinned: ["a"], now });
+		const g = groupWork([task("a", at(28), { archivedAt: 1, pinned: true })], new Map(), { now });
 		expect(g.done.map((s) => s.id)).toEqual(["a"]);
 		expect(g.pinned).toEqual([]);
 	});
