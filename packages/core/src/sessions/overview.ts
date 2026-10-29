@@ -21,7 +21,7 @@ export function botOverview(
 				),
 			)
 			.map(([id, c]) => ({ id, label: id, kind: c.type }));
-		const rows = (await store.sessions.list({ agent: agentId })).filter((row) => row.parent !== undefined);
+		const rows = await store.sessions.list({ agent: agentId });
 		return { channels, sessions: await Promise.all(rows.map(withPolicy)) };
 	};
 }

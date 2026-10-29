@@ -38,7 +38,13 @@ export const sessionMethods: MethodDef[] = [
 		since: 1,
 		async handler(p, ctx) {
 			await guardSession(ctx, p.id);
-			return ctx.kernel.sessions.fork(p.id, p.at);
+			try {
+				return await ctx.kernel.sessions.fork(p.id, p.at);
+			} catch (error) {
+				if ((error as { code?: string }).code === "invalid_params")
+					throw new MethodError("invalid_params", (error as Error).message);
+				throw error;
+			}
 		},
 	}),
 	define({

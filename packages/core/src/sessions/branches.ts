@@ -3,6 +3,8 @@ import type { SessionInfo } from "@yonder/sdk";
 import type { Runtime } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 
+const invalidParams = (message: string) => Object.assign(new Error(message), { code: "invalid_params" });
+
 export function createBranches(
 	store: Store,
 	runtime: () => Runtime,
@@ -28,13 +30,17 @@ export function createBranches(
 		},
 		async fork(id: string, at: number) {
 			const parent = await store.sessions.get(id);
-			if (parent?.mode !== "task") throw new Error("Only standalone task sessions can be forked");
+			if (parent?.mode !== "task") throw invalidParams("Only standalone task sessions can be forked");
+			// Contracts §18: at most two fork layers; forking a layer-two session is the third.
+			const grand = parent.parent ? await store.sessions.get(parent.parent) : undefined;
+			if (grand?.parent) throw invalidParams("Fork depth is limited to two layers");
 			const childId = await runtime().fork(id, at);
 			const child: SessionInfo = {
 				id: childId,
 				agent: null,
 				profile: parent.profile,
 				mode: "task",
+				parent: parent.id,
 				key: randomUUID(),
 				version,
 				opened: new Date().toISOString(),
