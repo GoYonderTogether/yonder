@@ -38,7 +38,7 @@ SSH=(ssh -o BatchMode=yes)
 die() { echo "deploy-node: $*" >&2; exit 1; }
 usage() { sed -n '2,17p' "$0"; exit 2; }
 
-# Private, gitignored overrides: YONDER_DEPLOY_HOST, YONDER_SILICONFLOW_KEY_FILE, ...
+# Private, gitignored overrides: YONDER_DEPLOY_HOST, YONDER_AUTH_KEY_FILE, ...
 if [ -f "$REPO/deploy/node/local.env" ]; then
 	# shellcheck source=deploy/node/local.env.example disable=SC1091
 	. "$REPO/deploy/node/local.env"
@@ -113,22 +113,34 @@ cmd_push() {
 	echo "pushed $ver to $HOST:$REMOTE_TMP"
 }
 
-# The key is read locally (path configurable via YONDER_SILICONFLOW_KEY_FILE in local.env) and sent
-# over ssh stdin only; it is never printed, logged, or stored in the repo.
-local_siliconflow_key() {
-	python3 - "${YONDER_SILICONFLOW_KEY_FILE:-}" <<'PY'
+# Cloud auth slots are read locally (path configurable via YONDER_AUTH_KEY_FILE in local.env) and
+# sent over ssh stdin only; they are never printed, logged, or stored in the repo. The cloud chain
+# is rightapi-glm first, workbuddy (reverse tunnel) as fallback, so rightapi-glm is required and
+# workbuddy is sent only when the local auth file has it.
+local_cloud_auth() {
+	python3 - "${YONDER_AUTH_KEY_FILE:-${YONDER_SILICONFLOW_KEY_FILE:-}}" <<'PY'
 import json, os, sys
 paths = [p for p in sys.argv[1:] if p]
 paths += ["~/.local/share/yonder-harness/home/.yonder/auth.json", "~/.pi/agent/auth.json"]
+wanted = ("rightapi-glm", "workbuddy")
+out = {}
 for p in paths:
     try:
-        k = json.load(open(os.path.expanduser(p)))["siliconflow"]["key"]
+        auth = json.load(open(os.path.expanduser(p)))
     except Exception:
         continue
-    if k and not k.startswith("!"):
-        sys.stdout.write(k)
-        sys.exit(0)
-sys.exit(1)
+    for slot in wanted:
+        if slot in out:
+            continue
+        value = auth.get(slot)
+        key = value.get("key") if isinstance(value, dict) else value
+        if key and not key.startswith("!"):
+            out[slot] = {"type": "api_key", "key": key}
+    if "rightapi-glm" in out:
+        break
+if "rightapi-glm" not in out:
+    sys.exit(1)
+json.dump(out, sys.stdout)
 PY
 }
 
@@ -137,16 +149,27 @@ cmd_install() {
 	local ver; ver=$(version_of "$REF")
 	check_version "$ver"
 	local key_flag
-	if "${SSH[@]}" "$HOST" 'test -s /home/yonder/.local/share/yonder/home/.yonder/auth.json' 2>/dev/null; then key_flag=0; else key_flag=1; fi
+	# Only skip the auth write when the required rightapi-glm slot is already on the node.
+	if "${SSH[@]}" "$HOST" 'python3 -c "import json;d=json.load(open(\"/home/yonder/.local/share/yonder/home/.yonder/auth.json\"));raise SystemExit(0 if (d.get(\"rightapi-glm\") or {}).get(\"key\") else 1)"' 2>/dev/null; then key_flag=0; else key_flag=1; fi
 	if [ "$key_flag" = 1 ]; then
-		# Keep key data exclusively on the pipeline stdin
+		# Keep key data off the command line: the ssh pipe is staged to a 0600 temp file first,
+		# then merged into the node's auth.json so other slots survive.
 		remote_install_script | "${SSH[@]}" "$HOST" "VER=$ver bash -s"
 		# shellcheck disable=SC2016
-		local_siliconflow_key | "${SSH[@]}" "$HOST" 'umask 077; d=/home/yonder/.local/share/yonder/home/.yonder; install -d -o yonder -g yonder -m 700 "$d"; python3 - "$d/auth.json" <<"PY"
+		local_cloud_auth | "${SSH[@]}" "$HOST" 'umask 077; d=/home/yonder/.local/share/yonder/home/.yonder; install -d -o yonder -g yonder -m 700 "$d"; t=$(mktemp); cat > "$t"; python3 - "$d/auth.json" "$t" <<"PY"
 import json,sys
-json.dump({"siliconflow":{"type":"api_key","key":sys.stdin.read()}}, open(sys.argv[1], "w"))
+p,t=sys.argv[1],sys.argv[2]
+try:
+    data=json.load(open(p))
+except Exception:
+    data={}
+incoming=json.load(open(t))
+if not (incoming.get("rightapi-glm") or {}).get("key"):
+    sys.exit("deploy-node: missing rightapi-glm key")
+data.update(incoming)
+json.dump(data, open(p, "w"))
 PY
-chown yonder:yonder "$d/auth.json"; chmod 600 "$d/auth.json"'
+rm -f "$t"; chown yonder:yonder "$d/auth.json"; chmod 600 "$d/auth.json"'
 		"${SSH[@]}" "$HOST" "runuser -u yonder -- env XDG_RUNTIME_DIR=/run/user/\$(id -u yonder) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/\$(id -u yonder)/bus systemctl --user restart dev.yonder.service"
 	else
 		remote_install_script | "${SSH[@]}" "$HOST" "VER=$ver bash -s"
