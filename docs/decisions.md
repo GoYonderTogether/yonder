@@ -589,3 +589,7 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 ## 2026-10-29 路由从 hash 改为路径（D2）（主 Agent 代批，主人 10-29 批准移植名片站）
 
 前端随名片站原样移植改用 `react-router` 的 `BrowserRouter`，撤销 S-F03 的 hash 路由，spec/20 的冻结项随之从 `#/…` 改为路径路由（清单在 spec/20 §1.1）。`basename` 取挂载路径：网关注入 `<meta name="yonder-base-path">` 时以它为准，否则用构建时的 `BASE_URL`——云端是 `/`，本机节点网关是 `/console/`（`apps/app/src/lib/base.ts` 的 `appBase()`/`routerBasename()`）。网关对 `/console/*` 的未命中请求回退 `index.html` 并注入挂载路径（62d9c31），静态资源缓存规则不变。已发布的旧 `#/…` 链接不失效：`apps/app/src/legacyLinks.ts` 在启动时按映射表把 hash 换成真实路径并保留查询串，映射表由 `apps/app/test/legacyLinks.test.ts` 锁定。hash 路由按 spec/20 §3 弃用：至少保留 0.3、0.4 两个 minor，最早 0.5 移除。代价：路由清单多一处需同步维护（spec/20 §1.1），`docs/frontend/README.md` 的路由表仍是 hash 时代的旧事实，待前端补齐；`legacyLinks` 目前无运行时 warn，`CHANGELOG.md` 也未记弃用，这两项按 §3 第 2 点在移除前补。
+
+## 2026-10-29 IMP-19 外人额度账本与访客防批量上限（主 Agent 代批）
+
+`packages/core/src/kernel/quota.ts` 是外人额度的唯一判定与记账处：日界线按主人时区（`quotaDay`，缺省 `Asia/Shanghai`），主人分享池、每人每日上限、访客轮数与防批量上限全部按 `(day, scope, key)` 记在自建表 `y_quota_days`（首次使用 `CREATE TABLE IF NOT EXISTS`，不动 migrations 版本与 `CURRENT_SCHEMA_VERSION`）。卡里没给定值的两项按最保守取值：`outsiders.guestPerQrDailyTokens` 缺省 50 000（缺省分享池 500K 的十分之一，一张二维码最多花掉十分之一），`outsiders.guestPerSourceDailyRounds` 缺省 6（访客 3 轮的两倍，够同一台设备重进一次，挡住批量换身份白嫖）。拒绝顺序固定为 主人池 → 访客轮数 → 来源轮数 → 二维码额度 →（`requireLoginForQuota: false` 时）每人每日，保证「登录后可继续」的引导不会在池子已经耗尽时被误发。访客消耗一律计入主人分享池；未登录的访客不写入个人账，只有 `requireLoginForQuota: false` 时才按来源计入每人每日上限。接进内核（准入前 `remaining`、结束后 `charge`）在 IMP-25。
