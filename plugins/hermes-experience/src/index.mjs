@@ -11,6 +11,7 @@ export default definePlugin({
 			replacement: "@yonder/plugin-learning",
 			removal: "0.5",
 		});
-		return learning.setup(api);
+		// Views belong to the learning plugin's own namespace, so the alias does not register them.
+		return learning.setup({ ...api, views: { register() {} } });
 	},
 });

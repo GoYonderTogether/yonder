@@ -18,7 +18,11 @@ test("deprecated alias keeps legacy id, tools and contributions and logs a depre
 		manifest.contributes.tools,
 		learning.contributes.tools.map((t) => t.replace(/^learning_/, "hermes-experience_")),
 	);
-	assert.deepEqual({ ...manifest.contributes, tools: [] }, { ...learning.contributes, tools: [] });
+	// Views stay with plugins/learning: a plugin may only register views in its own namespace.
+	assert.deepEqual(
+		{ ...manifest.contributes, tools: [], views: [] },
+		{ ...learning.contributes, tools: [], views: [] },
+	);
 	const c = createRegistrationCollector(),
 		warnings = [];
 	const module = await import(join(root, "src/index.mjs"));
