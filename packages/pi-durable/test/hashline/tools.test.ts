@@ -27,11 +27,11 @@ function api(): ToolExecutionApi {
 	return { env } as unknown as ToolExecutionApi;
 }
 
-function textOf(result: ToolExecutionResult<unknown>): string {
+function textOf(result: Pick<ToolExecutionResult<never>, "output">): string {
 	return (result.output ?? []).map((part) => (part.type === "text" ? part.text : "")).join("");
 }
 
-async function rowsOf(args: { path: string; offset?: number; limit?: number }): Promise<string[]> {
+async function rowsOf(args: { path: string; offset?: number | string; limit?: number }): Promise<string[]> {
 	return textOf(await createReadTool().execute(args, api(), BACKGROUND_CONTEXT)).split("\n");
 }
 
