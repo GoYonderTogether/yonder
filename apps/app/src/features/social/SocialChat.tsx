@@ -2,12 +2,20 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUp, Ellipsis } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { qk } from "../../api/keys";
-import { httpApi, type Message } from "../../api/social";
+import { httpApi, type Message, type Session } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
 import { toast } from "../../ui/kit/Toast";
 import { ChatDetail } from "./chat/ChatDetail";
 import { MessageBubble } from "./chat/MessageBubble";
+import { needsVerify } from "./lib/session";
+import { VerifySheet } from "./VerifySheet";
+
+/** 分享链接里的配额 token；路由用 hash，query 仍留在 location.search 上。 */
+function shareToken(): string | undefined {
+	if (typeof location === "undefined") return undefined;
+	return new URLSearchParams(location.search).get("share") ?? undefined;
+}
 
 export function SocialChat({ id }: { id: string }) {
 	const qc = useQueryClient();
@@ -15,6 +23,9 @@ export function SocialChat({ id }: { id: string }) {
 	const [detail, setDetail] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [sendError, setSendError] = useState("");
+	const [verify, setVerify] = useState(false);
+	/** 额度用尽时把待发内容留住，登录后原样重发。 */
+	const pending = useRef("");
 	const end = useRef<HTMLDivElement>(null);
 	const resolved = useQuery({
 		queryKey: ["social", "resolve", "conversation", id],
@@ -41,8 +52,7 @@ export function SocialChat({ id }: { id: string }) {
 		if (messages.data?.length) end.current?.scrollIntoView({ block: "end" });
 	}, [messages.data?.length]);
 	// TODO: API department: expose subscribe on httpApi for live message updates.
-	const send = async () => {
-		const body = text.trim();
+	const send = async (body = text.trim()) => {
 		if (!convId || !body || sending) return;
 		setSending(true);
 		setSendError("");
@@ -54,10 +64,22 @@ export function SocialChat({ id }: { id: string }) {
 			void qc.invalidateQueries({ queryKey: ["social", "conversations"] });
 			setText("");
 		} catch (error) {
+			// 访客额度用尽：弹登录窗，不静默拦截；待发内容留到验证成功后重发。
+			if (needsVerify(error)) {
+				pending.current = body;
+				setVerify(true);
+				return;
+			}
 			setSendError(error instanceof Error ? error.message : "发送失败，请重试");
 		} finally {
 			setSending(false);
 		}
+	};
+	const verified = (session: Session) => {
+		qc.setQueryData(qk.socialSession, session);
+		const body = pending.current;
+		pending.current = "";
+		if (body) void send(body);
 	};
 	if (resolved.isLoading || session.isLoading || (convId && (conversation.isLoading || messages.isLoading)))
 		return (
@@ -177,6 +199,7 @@ export function SocialChat({ id }: { id: string }) {
 				</div>
 			)}
 			{detail && <ChatDetail conversation={conv} meId={me?.id} onClose={() => setDetail(false)} />}
+			<VerifySheet open={verify} onOpenChange={setVerify} shareToken={shareToken()} onSuccess={verified} />
 		</div>
 	);
 }
