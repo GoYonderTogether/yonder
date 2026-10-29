@@ -686,6 +686,20 @@
 				"type": "object"
 			}
 		},
+		"social.groups": {
+			"scope": "admin",
+			"since": 1,
+			"paramsSchema": {
+				"properties": {
+					"agent": {
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["agent"],
+				"type": "object"
+			}
+		},
 		"social.inspect": {
 			"scope": "read",
 			"since": 1,

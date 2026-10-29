@@ -725,3 +725,6 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - BE-02：正文校验只放在 `sessions/inputs.ts` 的 `notifySession`（`persistConsole` 的唯一出口），有附件即可，无正文无附件才报错；附件判定读它引用的 `message.out` 事件上的 `attachments`，因此 `persistConsole` 本身不需要改。
 - BE-03：`kernel/console.ts` 的 `allowsChannelInstance` 已覆盖投递、路由、社会档位校验；漏的是主人主动通知队列（`delivery/outbound.ts`）仍用裸数组判定 `target.via`，档位不含 console 时把发往控制台的通知当作 discarded 丢掉，已改用同一个 console 感知的判定。`kernel/social.ts` 的 social 工具仍按裸数组校验调用方与目标档位：那是社交设置读写而不是往控制台发消息，本次不动。
 - BE-08：附件解析在 `plugins/channel-qq/src/channel.ts`（卡的允许文件只列了 `src/index.ts`，解析器实体在 channel.ts）：`file:` 引用、`~/` 与相对 home 的路径先解析成绝对路径，再按 `localMediaRoot` 白名单校验；解析不了或不在白名单的附件跳过并记一条含允许目录的可读警告，正文和可发附件照常发出，整条消息不再因为一个附件作废。
+
+## 2026-10-29 FIX-social-02 social.groups 列群方法（主 Agent 代批 10-29）
+新增只读 admin 方法 social.groups：从 message.in 事件取该 agent 的群会话，标签/模式取 social.inspect 生效策略（tags 缺省 medium/normal，mode 缺省 batch），无权限会话略过；SDK SocialPolicy 暂无 tags 字段，按结构读取。protocol golden 只增补。
