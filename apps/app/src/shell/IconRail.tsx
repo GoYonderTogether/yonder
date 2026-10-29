@@ -3,7 +3,7 @@ import { Avatar } from "../ui/Avatar";
 import { href, type Route } from "./routes";
 import { NAV } from "./TabBar";
 
-/** 桌面图标栏：消息、通讯录、工作（Monitor），底部头像进入个人页与设置 */
+/** 桌面图标栏：消息、通讯录、工作（Monitor，含控制台入口），底部头像进入个人页与设置 */
 export function IconRail({ route }: { route: Route }) {
 	const act = useActivity();
 	const running = act.data?.running ?? 0;
@@ -13,11 +13,11 @@ export function IconRail({ route }: { route: Route }) {
 			aria-label="主导航"
 			data-testid="icon-rail"
 		>
-			{NAV.map(({ tab, label, icon: Icon }) => (
+			{NAV.map(({ tab, label, hint, icon: Icon }) => (
 				<a
 					key={tab}
 					href={href({ tab })}
-					title={label}
+					title={hint ?? label}
 					aria-current={route.tab === tab ? "page" : undefined}
 					className={`press relative flex w-12 flex-col items-center gap-0.5 rounded-control py-1.5 text-[11px] ${route.tab === tab ? "bg-tone text-ink" : "text-faint"}`}
 				>

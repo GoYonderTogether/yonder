@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+/** 一级导航就是三项（消息 / 通讯录 / 工作）+ 底部头像进「我」；控制台属于「工作」，不新增导航项。 */
 export type Tab = "chats" | "contacts" | "work" | "me";
 export const PAGE_NAMES = [
 	"s",
@@ -15,6 +16,7 @@ export const PAGE_NAMES = [
 	"friends/add",
 	"connect",
 	"market",
+	"console",
 ] as const;
 export type Page = (typeof PAGE_NAMES)[number];
 export type Route = { tab: Tab; session?: string; page?: Page };
@@ -23,8 +25,15 @@ export function parse(hash: string): Route {
 	const parts = hash.replace(/^#\/?/, "").split("/");
 	const page = parts[0] === "friends" && parts[1] === "add" ? "friends/add" : (parts[0] ?? "");
 	const id = page === "friends/add" ? undefined : parts[1];
+	// console 归在「工作」下：图标栏与底栏仍是三项，控制台是工作页里的入口。
 	const tab: Tab =
-		page === "contacts" || page === "cards" ? "contacts" : page === "work" ? "work" : page === "me" ? "me" : "chats";
+		page === "contacts" || page === "cards"
+			? "contacts"
+			: page === "work" || page === "console"
+				? "work"
+				: page === "me"
+					? "me"
+					: "chats";
 	if (!(PAGE_NAMES as readonly string[]).includes(page)) return { tab: "chats" };
 	try {
 		return { tab, page: page as Page, ...(id ? { session: decodeURIComponent(id) } : {}) };

@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Loader, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader, MonitorSmartphone, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { rpc } from "../api/client";
+import { useActiveNode, useNodes } from "../api/nodes";
 import type { SessionInfo } from "../api/types";
 import { badge } from "../lib/format";
 import { titleOf } from "../lib/identity";
@@ -26,6 +27,31 @@ import { Avatar } from "./Avatar";
 import { toast } from "./kit/Toast";
 
 const num = (id: string) => Number(id.replace(/\D/g, ""));
+
+/**
+ * 控制台入口：「工作」就是控制任何接入设备的地方，所以入口放在工作列表顶部，
+ * 不新增一级导航（FE-R02 / O27）。节点切换、远程打开与添加设备都在 #/console。
+ */
+function ConsoleEntry() {
+	const nodes = useNodes();
+	const active = useActiveNode();
+	const name = active.name || active.id;
+	const summary = nodes.length > 1 ? `${name} · ${nodes.length} 个节点` : "只控制本机";
+	return (
+		<a
+			href={href({ tab: "work", page: "console" })}
+			className="press mx-4 mt-2 flex items-center gap-2 rounded-card bg-raised px-3 py-2"
+			data-testid="console-entry"
+		>
+			<MonitorSmartphone size={17} className="shrink-0 text-muted" aria-hidden />
+			<span className="min-w-0 flex-1">
+				<span className="block text-small">控制台</span>
+				<span className="block truncate text-caption text-faint">{summary}</span>
+			</span>
+			<ChevronRight size={15} className="shrink-0 text-faint" aria-hidden />
+		</a>
+	);
+}
 
 function BotRow({ s, active, running }: { s: SessionInfo; active: boolean; running: boolean }) {
 	const prefs = usePrefs();
@@ -189,6 +215,7 @@ export function WorkList({ active, view }: { active?: string; view?: SessionView
 
 	return (
 		<div className="scroll-y h-full" data-testid="work-list">
+			<ConsoleEntry />
 			<div className="pt-2">
 				{sessions.isLoading && <p className="px-4 py-2 text-small text-faint">加载中…</p>}
 				{sessions.isError && <p className="px-4 py-2 text-small text-danger">会话加载失败，稍后自动重试。</p>}

@@ -86,6 +86,15 @@ export const PAGES: Record<Page, PageDef> = {
 		title: "市场",
 		load: () => import("../features/market/Market").then((m) => ({ default: m.Market })),
 	},
+	// 控制台归在「工作」下（FE-R02 的三项导航不新增条目）：工作页顶部给入口，#/console 可深链。
+	console: {
+		tab: "work",
+		title: "控制台",
+		load: () =>
+			import("../features/console/ConsoleSwitcher").then((m) => ({
+				default: () => createElement(m.ConsoleSwitcher, {}),
+			})),
+	},
 };
 
 const cache = new Map<Page, ComponentType<PageProps>>();
