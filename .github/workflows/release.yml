@@ -1,4 +1,4 @@
-# 发版走 CI：该 commit 的 CI 已经绿、且当天序号未用过时，由这里统一包版本、写 CHANGELOG、打 tag 并建 Release。
+# 发版走 CI：默认不等 CI（require_ci=true 才查）、且当天序号未用过时，由这里统一包版本、写 CHANGELOG、打 tag 并建 Release。
 # 云端部署不在这里：CI 拿不到服务器凭据，仍用 scripts/deploy-node.sh 走 SSH。
 name: Release
 
@@ -15,6 +15,11 @@ on:
         required: false
         default: ""
         type: string
+      require_ci:
+        description: 发版前等待该 commit 的 CI 全绿（默认不等，CI 在发版后再跑）
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -42,7 +47,8 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y ripgrep zsh
       - name: 同一 commit 不重复发版
         run: node scripts/release/version.mjs --assert-unreleased
-      - name: 该 commit 的 CI 必须已经绿
+      - name: 该 commit 的 CI 必须已经绿（仅 require_ci=true）
+        if: ${{ inputs.require_ci }}
         run: >-
           node scripts/release/ci-status.mjs
           --sha "$(git rev-parse HEAD)" --wait 900
