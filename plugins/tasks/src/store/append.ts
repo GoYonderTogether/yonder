@@ -72,9 +72,39 @@ export function append(
 	}
 }
 
+/** 任务树最深两层：根任务之下还能挂一层子任务。 */
+export const MAX_DEPTH = 2;
+
+/** 新任务挂在 `parent` 下时的祖先数：父任务自身算一层，再往上数。 */
+function depthUnder(db: DatabaseSync, parent: Task): number {
+	let depth = 1;
+	let cursor = parent;
+	while (cursor.parent) {
+		const next = find(db, cursor.parent);
+		if (!next) break;
+		depth += 1;
+		cursor = next;
+	}
+	return depth;
+}
+
+/** 父任务必须存在、不能落在自己子树里（成环）、且不能超过 MAX_DEPTH。 */
+function checkParent(db: DatabaseSync, parentId: string, task?: Task): Task {
+	const parent = find(db, parentId);
+	if (!parent) throw new Error("Parent task not found");
+	if (task) {
+		let cursor: Task | undefined = parent;
+		while (cursor) {
+			if (cursor.id === task.id) throw new Error("A task cannot be nested under itself");
+			cursor = cursor.parent ? find(db, cursor.parent) : undefined;
+		}
+	}
+	if (depthUnder(db, parent) > MAX_DEPTH) throw new Error(`Task nesting is limited to ${MAX_DEPTH} levels`);
+	return parent;
+}
+
 export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
-	const parent = args.parent ? find(db, args.parent) : undefined;
-	if (args.parent && !parent) throw new Error("Parent task not found");
+	const parent = args.parent ? checkParent(db, args.parent) : undefined;
 	const origin = args.origin ?? ctx.event?.conv;
 	if (origin !== undefined) {
 		try {
@@ -95,6 +125,8 @@ export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 		objective: args.objective,
 		acceptance: args.acceptance,
 		nonGoals: args.nonGoals,
+		contract: args.contract ?? args.acceptance.join("; "),
+		...(args.lightweight ? { lightweight: true } : {}),
 		budget: args.budget ?? {},
 		state: "open",
 		deliverable: null,
@@ -109,17 +141,23 @@ export function openTask(db: DatabaseSync, args: Open, ctx: ToolContext): Task {
 	return task;
 }
 
-export function changeTask(
+/** 一条 patch 的全部校验与落地；批量更新在同一条事务里复用它。 */
+function change(
 	db: DatabaseSync,
 	id: string,
 	patch: Partial<Task> & { note?: string },
 	ctx: ToolContext,
+	inTransaction: boolean,
 ): Task {
 	const task = find(db, id);
 	if (!task || !own(task, ctx)) throw new Error("Task not found for caller");
 	if (!ongoing(task)) throw new Error("Task is closed");
 	if (patch.state && patch.state !== task.state && !transitions[task.state].includes(patch.state))
 		throw new Error(`Invalid task transition: ${task.state} -> ${patch.state}`);
+	if (patch.state === "blocked" && patch.state !== task.state && !patch.note?.trim())
+		throw new Error("Blocking a task requires a note saying what blocks it");
+	if (patch.parent !== undefined && patch.parent !== null && patch.parent !== task.parent)
+		patch.parent = checkParent(db, patch.parent, task).id;
 	if (
 		patch.state === "done" &&
 		(!patch.deliverable?.trim() ||
@@ -130,9 +168,36 @@ export function changeTask(
 		throw new Error("Done requires a deliverable and one evidence entry per acceptance point");
 	patch.lastActivityAt = new Date().toISOString();
 	if (patch.deliverable?.trim()) patch.lastDeliveryAt = patch.lastActivityAt;
-	append(db, task.id, patch.state === "done" ? "done" : "update", patch);
+	append(db, task.id, patch.state === "done" ? "done" : "update", patch, Date.now(), inTransaction);
 	const { note: _, ...fields } = patch;
 	return { ...task, ...fields };
+}
+
+export function changeTask(
+	db: DatabaseSync,
+	id: string,
+	patch: Partial<Task> & { note?: string },
+	ctx: ToolContext,
+): Task {
+	return change(db, id, patch, ctx, false);
+}
+
+/** 一批更新要么全部落地、要么一条都不留：任一条不合法就回滚整批。 */
+export function changeTasks(
+	db: DatabaseSync,
+	updates: ReadonlyArray<{ id: string } & Partial<Task> & { note?: string }>,
+	ctx: ToolContext,
+): Task[] {
+	if (!updates.length) throw new Error("updates requires at least one entry");
+	db.exec("BEGIN IMMEDIATE");
+	try {
+		const changed = updates.map(({ id, ...patch }) => change(db, id, patch, ctx, true));
+		db.exec("COMMIT");
+		return changed;
+	} catch (error) {
+		db.exec("ROLLBACK");
+		throw error;
+	}
 }
 
 export function claimMoments(

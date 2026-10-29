@@ -7,7 +7,7 @@ import { renderPng, renderText, taskBoard } from "./board.js";
 import { digest } from "./digest.js";
 import { type Config, moments, stallWindow } from "./moments.js";
 import { DONE, GET, LIST, OPEN, SHOW, UPDATE } from "./prompts.js";
-import { type Open, Store, type Update } from "./store/index.js";
+import { type Open, Store, type Update, type UpdateItem } from "./store/index.js";
 import { registerTaskViews } from "./views.js";
 
 const string = { type: "string", minLength: 1, pattern: "[\\s\\S]*\\S[\\s\\S]*" };
@@ -20,6 +20,16 @@ const content = {
 	acceptance: { ...strings, minItems: 2, maxItems: 5 },
 	nonGoals: strings,
 	budget: obj({ wallMinutes: { type: "number", exclusiveMinimum: 0 }, wakeups: { type: "integer", minimum: 1 } }, []),
+	contract: string,
+	lightweight: { type: "boolean" },
+	parent: string,
+};
+const change = {
+	id: string,
+	...content,
+	state: { enum: ["active", "waiting-user", "blocked", "review", "cancelled"] },
+	deliverable: string,
+	note: string,
 };
 export default definePlugin({
 	configSchema: obj(
@@ -66,7 +76,7 @@ export default definePlugin({
 		add(
 			"open",
 			OPEN,
-			obj({ ...content, parent: string, origin: string }, ["title", "objective", "acceptance", "nonGoals"]),
+			obj({ ...content, origin: string }, ["title", "objective", "acceptance", "nonGoals"]),
 			["write"],
 			(args, ctx) => store.open(args as unknown as Open, ctx),
 		);
@@ -75,16 +85,22 @@ export default definePlugin({
 			UPDATE,
 			obj(
 				{
-					id: string,
-					...content,
-					state: { enum: ["active", "waiting-user", "blocked", "review", "cancelled"] },
-					deliverable: string,
-					note: string,
+					...change,
+					// 一批有序更新共用一个事务；给了 updates 就不再接受顶层 id。
+					updates: { type: "array", minItems: 1, maxItems: 100, items: obj(change, ["id"]) },
 				},
-				["id"],
+				[],
 			),
 			["write"],
-			({ id, ...patch }, ctx) => store.update(id as string, patch as Update, ctx),
+			(args, ctx) => {
+				const { id, updates, ...patch } = args as { id?: string; updates?: UpdateItem[] };
+				if (updates) {
+					if (id) throw new Error("Pass either id or updates, not both");
+					return store.updateMany(updates, ctx);
+				}
+				if (!id) throw new Error("update requires id or updates");
+				return store.update(id, patch as Update, ctx);
+			},
 		);
 		add(
 			"done",

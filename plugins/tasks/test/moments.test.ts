@@ -135,7 +135,7 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 			if (state === "done") {
 				f.store.update(other.id, { state: "review" }, f.ctx);
 				f.store.done(other.id, "Delivered", ["one", "two"], f.ctx);
-			} else f.store.update(other.id, { state }, f.ctx);
+			} else f.store.update(other.id, { state, ...(state === "blocked" ? { note: "Missing input" } : {}) }, f.ctx);
 		}
 		const now = Date.now() + 31 * 60000;
 		await tick(f.probe.api, f.store, {}, now);

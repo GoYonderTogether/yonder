@@ -7,6 +7,10 @@ export interface TaskContent {
 	acceptance: string[];
 	nonGoals: string[];
 	budget: { wallMinutes?: number; wakeups?: number };
+	/** Verification contract the closer must satisfy; defaults to the acceptance points joined. */
+	contract?: string;
+	/** A small child task that does not gate its parent's completion. */
+	lightweight?: boolean;
 }
 export interface Task extends TaskContent {
 	id: string;
@@ -32,7 +36,11 @@ export type Update = Partial<TaskContent> & {
 	state?: Exclude<State, "open" | "done">;
 	deliverable?: string;
 	note?: string;
+	/** 改挂父任务；校验成环与最大层数。 */
+	parent?: string | null;
 };
+/** 批量更新的一项：一条普通 update 加上目标任务 id。 */
+export type UpdateItem = Update & { id: string };
 export interface TaskEvent {
 	seq: number;
 	task: string;

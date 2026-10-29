@@ -22,7 +22,7 @@ test("board order, short refs across restart, evidence, parent visibility and pu
 		const open = f.store.open(content, f.ctx);
 		const blocked = f.store.open(content, f.ctx);
 		f.store.update(blocked.ref, { state: "active" }, f.ctx);
-		f.store.update(blocked.ref, { state: "blocked" }, f.ctx);
+		f.store.update(blocked.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		const waiting = f.store.open(content, f.ctx);
 		f.store.update(waiting.ref, { state: "active" }, f.ctx);
 		f.store.update(waiting.ref, { state: "review" }, f.ctx);
@@ -108,7 +108,7 @@ test("digest is conditional, ordered, capped, destination-scoped and persisted; 
 		const task = f.store.open(content, f.ctx);
 		f.store.update(task.ref, { state: "active" }, f.ctx);
 		expect(await hook.beforeSend!(message, f.ctx)).toBeUndefined();
-		f.store.update(task.ref, { state: "blocked" }, f.ctx);
+		f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		const waiting = f.store.open({ ...content, title: "Need the input" }, f.ctx);
 		f.store.update(waiting.ref, { state: "active" }, f.ctx);
 		f.store.update(waiting.ref, { state: "waiting-user" }, f.ctx);
@@ -129,7 +129,7 @@ test("digest is conditional, ordered, capped, destination-scoped and persisted; 
 		for (let i = 0; i < 6; i++) {
 			const t = f.store.open(content, f.ctx);
 			f.store.update(t.ref, { state: "active" }, f.ctx);
-			f.store.update(t.ref, { state: "blocked" }, f.ctx);
+			f.store.update(t.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		}
 		expect((await hook.beforeSend!(message, f.ctx))!.message.text.split("\n\n")[1]!.split("\n")).toHaveLength(5);
 		expect(
@@ -172,7 +172,7 @@ test("a tail digest repeats after the TTL instead of staying silenced forever", 
 		});
 		const task = f.store.open(content, f.ctx);
 		f.store.update(task.ref, { state: "active" }, f.ctx);
-		f.store.update(task.ref, { state: "blocked" }, f.ctx);
+		f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		const base = Date.parse(event.ts);
 		const message = { to: event.conv!, text: "Reply" };
 		const at = (offset: number) => digest(f.probe.api, f.store, {}, () => base + offset);
@@ -196,7 +196,7 @@ test("concurrent stores claim a task digest only once", async () => {
 	try {
 		const task = f.store.open(content, f.ctx);
 		f.store.update(task.ref, { state: "active" }, f.ctx);
-		const blocked = f.store.update(task.ref, { state: "blocked" }, f.ctx);
+		const blocked = f.store.update(task.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
 		const active = f.store.open(content, f.ctx);
 		f.store.update(active.ref, { state: "active" }, f.ctx);
 		const barrier = new SharedArrayBuffer(4);

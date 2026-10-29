@@ -270,6 +270,24 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 		expect((await input("second")).text).toContain(TURN_ONE_LINE(content.title, "open", "0m", 2, "0m"));
 		await call("update", { id: task.id, state: "active", objective: "Changed through loaded tool" });
 		expect((await input("third")).text).toContain("Changed through loaded tool");
+		// 批量更新共用一个事务：第二条不合法时，第一条也不落地。
+		const batched = await call("update", {
+			updates: [
+				{ id: task.id, state: "waiting-user", note: "Waiting on the reviewer" },
+				{ id: task.id, state: "active" },
+			],
+		});
+		expect(batched.isError).not.toBe(true);
+		expect(JSON.parse(batched.text).map((entry: Task) => entry.state)).toEqual(["waiting-user", "active"]);
+		const rejected = await call("update", {
+			updates: [
+				{ id: task.id, state: "review" },
+				{ id: "missing", state: "active" },
+			],
+		});
+		expect(rejected.isError).toBe(true);
+		expect(JSON.parse((await call("get", { id: task.id })).text).task.state).toBe("active");
+		expect((await call("update", { updates: [{ id: task.id, state: "review" }], id: task.id })).isError).toBe(true);
 		await call("update", { id: task.id, state: "review" });
 		expect((await call("done", { id: task.id, deliverable: "out", evidence: ["one"] })).isError).toBe(true);
 		expect((await call("done", { id: task.id, deliverable: "out", evidence: ["one", "two"] })).isError).not.toBe(true);

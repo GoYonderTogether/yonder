@@ -1,11 +1,20 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { RenderContext, ToolContext } from "@yonder/sdk";
-import { changeTask, claimDigest, claimMoments, digestSeen, momentResult, openTask, renderTurn } from "./append.js";
-import type { Moment, Open, Task, TaskEvent, Update } from "./project.js";
+import {
+	changeTask,
+	changeTasks,
+	claimDigest,
+	claimMoments,
+	digestSeen,
+	momentResult,
+	openTask,
+	renderTurn,
+} from "./append.js";
+import type { Moment, Open, Task, TaskEvent, Update, UpdateItem } from "./project.js";
 import { all, find, get, history, list, progress } from "./query.js";
 import { connect, needsBackfill, rebuild as replayInto } from "./schema.js";
 
-export type { Moment, Open, State, Task, TaskContent, TaskEvent, Update } from "./project.js";
+export type { Moment, Open, State, Task, TaskContent, TaskEvent, Update, UpdateItem } from "./project.js";
 
 export class Store {
 	// 常驻连接：每次读都重开数据库要付打开、chmod、建表三份代价。
@@ -37,6 +46,10 @@ export class Store {
 	}
 	update(id: string, args: Update, ctx: ToolContext): Task {
 		return changeTask(this.#handle, id, args, ctx);
+	}
+	/** 一批更新共用一个事务：任一条被拒就整批回滚。 */
+	updateMany(items: UpdateItem[], ctx: ToolContext): Task[] {
+		return changeTasks(this.#handle, items, ctx);
 	}
 	done(id: string, deliverable: string, evidence: string[], ctx: ToolContext): Task {
 		return changeTask(this.#handle, id, { state: "done", deliverable, evidence }, ctx);

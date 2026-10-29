@@ -1,5 +1,7 @@
 # 决策记录
 
+**2026-10-29 IMP-11 锚点工具补齐 insert/copy/move/undo、grep 锚点、write 指纹闸、摘除 edit（主 Agent 代批 10-29）。** `insert`、`copy`、`move`、`undo_last_change` 登记进 `coding-tools`，与 `replace` 共用 `hashline/edit.ts` 的同一条锚点路径（`resolveEditPath` → `resolveRange` → `assertRangeServed`），所以陈旧锚点一律按 `[E_STALE_ANCHOR]` 拒绝并回吐当前行。卡里没定的几处按最保守取值：一、undo 只有一个槽、留在内存（`Map<绝对路径, {before, after}>`，不进 SQLite），记录点放在注册层——`packages/pi-durable/src/tools/index.ts` 用 `withUndoRecorded` 包住 replace/replace_match/insert/copy/move，因为 `replace.ts` / `replace-match.ts` 不在本卡允许文件里；`write` 成功后清掉该文件的槽，撤销一次「原本不存在的文件」时删除该文件。二、`copy` 与 `move` 共用一个实现（`copy.ts` 里 `createTransferTool(kind)`，`move.ts` 只转发），因为 `copy-move.ts` 不是允许文件。三、`edit` 摘成弃用别名：仍叫 `edit`、仍接受旧参数，但不再改文件，直接回 `[E_TOOL_REPLACED]` 与迁移说明；`edit-diff.ts` 删掉模糊匹配与按 oldText 应用的一整套（H-08），只留 `detectLineEnding` / `normalizeToLF` / `restoreLineEndings` / `stripBom` / `generateDiffString`。四、`write` 增加指纹闸：内容里出现本文件已 serve 的 `abcde│` 行首即拒绝（`[E_WRITE_HASH_ECHO]`），避免把锚点抄进文件。五、`grep` 输出从 JSON 改成 `=== 路径 ===` 加 `行号:│ anchor│内容`（上下文行用 `-`），命中行一并登记为 served row，因此可以直接 insert/copy/move/replace 而不必再 read；新增可选 `context`（0..N 前后文）。工具描述随之改写（描述归工具自身，未动 `packages/core/src/prompt/**` 与插件提示词）。缺口：`outline` 未做，需要 `src/outline/` 与 tree-sitter 符号解析，留待后续卡；`packages/core/src/runtime/find.test.ts` 与 `peer-boundary.test.ts` 里解析旧 JSON 的两处断言改为解析锚点行，并加了一条「grep 的锚点不经 read 直接改文件」的真实断言。
+
 **2026-10-29 IMP-01 文件锚点工具接入（主 Agent 代批）。** `read` 每行以 `anchor│内容` 返回，`replace` / `replace_match` 按这些锚点改文件（IMP-01 已在 pi-durable 实现），本轮把两者登记进 `coding-tools` 扩展，Agent 因此真正拿到；`write` 能力映射、路径边界、受保护文件检查同步覆盖：`path` 省略时按锚点所属文件判定，锚点只属于一个文件，多文件在工具侧仍被拒绝。保留原 `edit`（按 oldText 匹配），不删工具、不改提示词文案（O52 复审中）。代价：文件工具从 4 个变成 6 个，模型侧上下文略增；`read` 输出不再是原文，工具输出缓存路径的内容同样带锚点前缀，读缓存的断言按锚点行解析（`packages/core/src/runtime/find.test.ts`）。见 07 §4。
 **2026-10-29 O54 RESUME01 传输失败不计模型健康（主 Agent 代批）。** 没有拿到供应商响应的失败（连接被拒/重置/中断、DNS 失败、请求超时、`terminated`）不再写 `<home>/.yonder/model-health.json` 的持有，也不延长已有持有；429 重置期语义不变。根因是回退时的 `attempt.error` 只按文本分类，传输层错误与 `503` 一样进了冷却，实测断流一次就把主模型排到链尾 600 秒，网络恢复后的下一次运行仍然走回退模型。探测遇到同类失败只按 `probe` 秒重排下一次探测，不清除也不延长持有，避免离线期间反复续期。代价是供应商端点真的连不上时宿主会继续尝试它，由 pi 原生重试与退避承担，不做额外离线检测。见 07 §6.1。
 
@@ -597,3 +599,12 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 ## 2026-10-29 IMP-29 fetch 识别 PDF 与 GitHub 并落库回读（主 Agent 代批）
 
 `web-tools_fetch` 在 HTML 正文之外识别 PDF 与 github.com 链接：PDF 按 `application/pdf` / `%PDF-` 魔数判定，用自研 `plugins/web-tools/src/pdf.ts`（FlateDecode + ToUnicode/Widths 解析）抽文本，不引入新依赖；github.com 的 `/blob|raw/<ref>/<path>` 走 `raw.githubusercontent.com`，仓库根走 `api.github.com/repos/<slug>` 并附 README，`/tree/<ref>/<path>` 走 contents 列表，403/429 报 `GITHUB_RATE_LIMIT`。抓取结果整份 JSON 落库到工具输出缓存并返回 `responseId`，可用 `web-tools_get_search_content` 分页或检索回读。代价：只解 FlateDecode、无扫描件 OCR、匿名 GitHub API 有速率限制；工具描述与插件提示词未改（卡里禁止改）。
+
+## 2026-10-29 IMP-27 任务 schema 与状态约束（主 Agent 代批）
+
+- `contract` 在开卡时可省，缺省取验收点的连接（`acceptance.join("; ")`）；显式给值时原样保存，`lightweight` 只在为真时写进记录。
+- 父子校验口径：`MAX_DEPTH = 2` 指任务之上的祖先最多两层，即根任务 + 子任务 + 孙任务可以开，孙任务再往下开就报 `Task nesting is limited to 2 levels`；成环（把自己挂到自己或自己的子孙下）报 `A task cannot be nested under itself`，父任务不存在报 `Parent task not found`。
+- 进入 `blocked` 必须带 `note`（去掉空白后非空），已在 `blocked` 时改别的字段不要求重复写原因，其余状态迁移语义不变。
+- `tasks_update` 的顶层 `id` 改为可选：给 `id` 走单项更新，给 `updates[]`（1–100 条，每项必须带 `id`）走同一个事务的批量更新，任一条不合法整批回滚；两者同时给报 `Pass either id or updates, not both`，都不给报 `update requires id or updates`。
+- `packages/core/src/runtime/todo.ts` 的 `completed` 只能迁到 `deleted`（C9 单向），同时只有一个进行中的报错文案改为 `Task #N is already in progress; complete or reset it before starting #M`（T3 可读化，语义不变）。
+- 改动范围说明：卡里允许路径只列了 `store/schema.ts`、`store/append.ts`、`todo.ts` 与 `plugins/tasks/test/**`，但 `contract`/`lightweight`/`parent` 的类型在 `plugins/tasks/src/store/project.ts`、存储入口在 `store/index.ts`、工具 schema 在 `plugins/tasks/src/index.ts`，C9/T3 的既有断言在 `packages/core/src/runtime/todo.test.ts`；这几处只做完成本卡所必需的追加改动。`metadata` 的工具描述与 prompts 文案未改（归 O52）。

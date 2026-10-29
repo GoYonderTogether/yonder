@@ -1,5 +1,15 @@
 import { Type } from "typebox";
 
+/** Any strict-JSON value; the session doc stores the list verbatim, so metadata must be JSON. */
+export type TodoMetadataValue =
+	| null
+	| boolean
+	| number
+	| string
+	| TodoMetadataValue[]
+	| { [key: string]: TodoMetadataValue };
+export type TodoMetadata = Record<string, TodoMetadataValue>;
+
 /** rpiv-todo task states: pending → in_progress → completed, plus the deleted tombstone. */
 export type TodoStatus = "pending" | "in_progress" | "completed" | "deleted";
 
@@ -10,6 +20,8 @@ export type TodoTask = {
 	activeForm?: string;
 	status: TodoStatus;
 	blockedBy: number[];
+	/** Arbitrary JSON attached by the model; never interpreted by the harness. */
+	metadata?: TodoMetadata;
 };
 
 /** Session-owned todo list; `next` is the next id. `clear` resets both. */
@@ -26,6 +38,7 @@ export interface TodoArgs {
 	activeForm?: string;
 	status?: TodoStatus;
 	blockedBy?: number[];
+	metadata?: TodoMetadata;
 	addBlockedBy?: number[];
 	removeBlockedBy?: number[];
 	includeDeleted?: boolean;
@@ -62,6 +75,11 @@ export const todoParameters = Type.Object(
 		activeForm: Type.Optional(Type.String({ description: "Present-continuous label shown while in_progress" })),
 		status: Type.Optional(status),
 		blockedBy: Type.Optional(ids),
+		metadata: Type.Optional(
+			Type.Record(Type.String(), Type.Unknown(), {
+				description: "Arbitrary metadata; pass null value for a key to delete that key on update",
+			}),
+		),
 		addBlockedBy: Type.Optional(ids),
 		removeBlockedBy: Type.Optional(ids),
 		includeDeleted: Type.Optional(Type.Boolean()),
@@ -75,7 +93,7 @@ export const todoDescription =
 const transitions: Record<TodoStatus, readonly TodoStatus[]> = {
 	pending: ["in_progress", "completed", "deleted"],
 	in_progress: ["pending", "completed", "deleted"],
-	completed: ["in_progress", "deleted"],
+	completed: ["deleted"],
 	deleted: [],
 };
 
@@ -98,6 +116,16 @@ function reaches(tasks: readonly TodoTask[], from: number, to: number): boolean 
 		stack.push(...(tasks.find((task) => task.id === at)?.blockedBy ?? []));
 	}
 	return false;
+}
+/** Merge a metadata patch: a null value deletes that key, anything else replaces it. */
+function mergeMetadata(current: TodoMetadata | undefined, patch: TodoMetadata | undefined): TodoMetadata | undefined {
+	if (!patch) return current;
+	const next: TodoMetadata = { ...current };
+	for (const [key, value] of Object.entries(patch)) {
+		if (value === null) delete next[key];
+		else next[key] = value;
+	}
+	return Object.keys(next).length ? next : undefined;
 }
 
 /**
@@ -133,12 +161,14 @@ export function applyTodo(list: TodoList, args: TodoArgs): { list?: TodoList; te
 					line(task),
 					...(task.description ? [task.description] : []),
 					...(task.activeForm ? [`activeForm: ${task.activeForm}`] : []),
+					...(task.metadata ? [`metadata: ${JSON.stringify(task.metadata)}`] : []),
 				].join("\n"),
 			};
 		}
 		case "clear":
 			return { list: emptyTodos(), text: "Cleared all tasks." };
 		case "create": {
+			const metadata = mergeMetadata(undefined, args.metadata);
 			if (!args.subject?.trim()) throw new Error("create requires subject");
 			const task: TodoTask = {
 				id: list.next,
@@ -147,6 +177,7 @@ export function applyTodo(list: TodoList, args: TodoArgs): { list?: TodoList; te
 				...(args.activeForm ? { activeForm: args.activeForm } : {}),
 				status: "pending",
 				blockedBy: [],
+				...(metadata ? { metadata } : {}),
 			};
 			tasks.push(task);
 			checkBlockers(task, args.blockedBy ?? []);
@@ -165,7 +196,7 @@ export function applyTodo(list: TodoList, args: TodoArgs): { list?: TodoList; te
 					const active = tasks.find((item) => item.status === "in_progress" && item.id !== task.id);
 					if (active)
 						throw new Error(
-							`Task #${active.id} is already in_progress; complete or reset it before starting #${task.id}`,
+							`Task #${active.id} is already in progress; complete or reset it before starting #${task.id}`,
 						);
 					const open = task.blockedBy.filter((n) => {
 						const status = tasks.find((item) => item.id === n)?.status;
@@ -185,7 +216,8 @@ export function applyTodo(list: TodoList, args: TodoArgs): { list?: TodoList; te
 					args.description !== undefined ||
 					args.activeForm !== undefined ||
 					args.addBlockedBy !== undefined ||
-					args.removeBlockedBy !== undefined;
+					args.removeBlockedBy !== undefined ||
+					args.metadata !== undefined;
 				if (!changed) throw new Error("update requires a field to change");
 				if (args.subject !== undefined) {
 					if (!args.subject.trim()) throw new Error("subject cannot be empty");
@@ -193,6 +225,11 @@ export function applyTodo(list: TodoList, args: TodoArgs): { list?: TodoList; te
 				}
 				if (args.description !== undefined) task.description = args.description;
 				if (args.activeForm !== undefined) task.activeForm = args.activeForm;
+				if (args.metadata !== undefined) {
+					const next = mergeMetadata(task.metadata, args.metadata);
+					if (next) task.metadata = next;
+					else delete task.metadata;
+				}
 				const removed = new Set(args.removeBlockedBy ?? []);
 				task.blockedBy = task.blockedBy.filter((n) => !removed.has(n));
 				const added = (args.addBlockedBy ?? []).filter((n) => !task.blockedBy.includes(n));

@@ -65,7 +65,7 @@ test("only one task may be in_progress at a time", () => {
 		{ action: "update", id: 1, status: "in_progress" },
 	);
 	expect(() => applyTodo(list, { action: "update", id: 2, status: "in_progress" })).toThrow(
-		"Task #1 is already in_progress; complete or reset it before starting #2",
+		"Task #1 is already in progress; complete or reset it before starting #2",
 	);
 	// Re-asserting the active task is not a second start, and finishing it frees the slot.
 	expect(() =>
@@ -97,4 +97,31 @@ test("a task with unfinished blockers cannot start, and starts once they finish 
 	expect(applyTodo(dropped, { action: "update", id: 2, status: "in_progress" }).list?.tasks[1]?.status).toBe(
 		"in_progress",
 	);
+});
+
+test("metadata is arbitrary JSON, merged on update and removed by a null value", () => {
+	const list = run(emptyTodos(), {
+		action: "create",
+		subject: "Carry context",
+		metadata: { branch: "main", attempts: 1 },
+	});
+	expect(list.tasks[0]!.metadata).toEqual({ branch: "main", attempts: 1 });
+	expect(applyTodo(list, { action: "get", id: 1 }).text).toContain('metadata: {"branch":"main","attempts":1}');
+	const updated = run(list, { action: "update", id: 1, metadata: { attempts: 2, owner: "me" } });
+	expect(updated.tasks[0]!.metadata).toEqual({ branch: "main", attempts: 2, owner: "me" });
+	const dropped = run(updated, { action: "update", id: 1, metadata: { attempts: null, owner: null, branch: null } });
+	expect(dropped.tasks[0]!.metadata).toBeUndefined();
+	expect(applyTodo(dropped, { action: "get", id: 1 }).text).not.toContain("metadata:");
+});
+
+test("completed is one-way: it can only move to the deleted tombstone", () => {
+	const done = run(
+		emptyTodos(),
+		{ action: "create", subject: "Ship" },
+		{ action: "update", id: 1, status: "completed" },
+	);
+	expect(() => applyTodo(done, { action: "update", id: 1, status: "in_progress" })).toThrow(
+		"Task #1 cannot move from completed to in_progress",
+	);
+	expect(run(done, { action: "delete", id: 1 }).tasks[0]!.status).toBe("deleted");
 });
