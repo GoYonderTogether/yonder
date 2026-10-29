@@ -9,3 +9,10 @@ HANDOFF.md
 .build/
 deploy/node/local.env
 .pi/
+
+# tsc 直接编译单文件时的误输出
+*.tsbuildinfo
+plugins/*/src/**/*.js
+plugins/*/src/**/*.js.map
+plugins/*/src/**/*.d.ts
+plugins/*/src/**/*.d.ts.map
