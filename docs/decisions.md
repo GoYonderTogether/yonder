@@ -753,3 +753,8 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 改动：`kernel/host-status.ts` 新增 `chainCredentialMissing`（本 home `models.providers` 声明过的供应商，default 槽问 pi 的 `checkAuth`，命名槽读 `<auth>.slots/<provider>/<slot>.meta.json` 元数据）与 `unusableChainError`；`kernel/home.ts` 的 `inspectHome` 给每个候选补 `credentialMissing`，一条链上没有可跑候选就 push 一条错误（逐个候选原因 + 冷却到期时间 + 修复方向 + `yonder doctor` 复查）。`yonder doctor --json` 只增字段。
 - 取舍：`credentialMissing` 只对本 home 在 `models.providers` 里声明过的供应商下结论。内建目录里没登录的供应商算「还没登录」而不是「凭据坏了」，否则所有刚初始化的 home 都会被判链断。凭据槽状态读不出来时按「不知道」处理（不报缺凭据），与运行时 `checkAuth` 不发网络请求的既有行为一致。
 - 已知影响：`doctor-model-chain.test.ts` 里那条「两个候选分别被持有与额度停用」的用例原本断言 `errors: []`，现在它确实是跑不通的链，断言改为要求出现错误（未放宽断言，改为新契约）。新增 `doctor-chain-dead.test.ts` 用真实 home + 真实凭据槽（env-ref）验证未声明供应商不误判、整条链缺凭据报错、补上槽凭据后该候选不再标缺凭据。
+
+## 2026-10-29 FIX-settings-01 通知分区改走网关 notifications.prefs（主 Agent 代批 10-29）
+- 卡里只要求「读 notifications.prefs.get、改后调 set」，但 set 的参数是 `{conv, level}` 的会话级免打扰，而通知分区的三个开关是全局的：`通知` 开关映射为默认值 `conv:"*"`（开=`all`、关=`mute`），改完立即在节点生效并跨设备一致；震动与消息预览在契约 §16 里没有字段，仍只存本机浏览器（`lib/prefs.ts` 不改）。
+- 网关不可用（无网关、未登录、方法缺失）时整块退回本机 `usePrefs` 存储，写入不发 set；文案按连接状态区分「存在节点上」与「先记在这台设备」，不再写「只保存在这台设备的浏览器里」。会话级的全部提醒/仅 @/免打扰入口保持原样（消息列表长按或右键）。
+- 未做：卡的范围不含 `Settings.tsx` 顶部那句「会话置顶、免打扰和已读位置只保存在这台设备的浏览器里」，该句与已读位置的本地存储一致（契约 §6.3），本轮不动；`useNotifyPrefs/useSetNotifyLevel` 这对契约 §17 的导出仍缺，需要改 `api/**` 时另开卡。
