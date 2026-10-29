@@ -418,7 +418,7 @@ test("prompt selection can be empty, ordered or replaced without changing capabi
 	expect(await systemSections(selected, options)).toEqual(await systemSections(selected, options));
 });
 
-test("model discipline follows the exact model id and task sessions must report STATUS", async () => {
+test("model discipline loads for every model and task sessions must report STATUS", async () => {
 	const options = {
 		contexts: new Map(),
 		workspace: () => {
@@ -429,9 +429,9 @@ test("model discipline follows the exact model id and task sessions must report 
 		["openai/gpt-6-luna", true],
 		["custom/gpt-6-sol", true],
 		["openai/gpt-6.1-sol", true],
-		["openai/gpt-6", false],
-		["custom/not-gpt-6-luna", false],
-		["openai/gpt-6-luna-preview", false],
+		["openai/gpt-6", true],
+		["rightapi-glm/glm-5.3-flash", true],
+		["workbuddy/deepseek-v4.1-flash", true],
 	] as const) {
 		const session = {
 			id: "1",

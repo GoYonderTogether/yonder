@@ -189,11 +189,8 @@ export async function systemPromptParts(
 	const prompt = session.resolved.prompt ?? {};
 	const sections: PromptPart[] = [];
 	const selected = prompt.sections ?? promptSectionIds;
-	const model = session.resolved.model.slice(session.resolved.model.indexOf("/") + 1);
 	for (const id of selected) {
 		if (id.startsWith("resident.") && !session.agent) continue;
-		// The discipline is a static base section for exactly these models, not a guess by vendor or substring.
-		if (id === "runtime.discipline" && !/^gpt-\d+(?:\.\d+)?-(?:luna|sol)$/u.test(model)) continue;
 		if (id === "cli" && !session.resolved.capabilities.includes("exec")) continue;
 		let original =
 			id === "framework"

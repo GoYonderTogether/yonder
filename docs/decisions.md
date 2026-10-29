@@ -533,3 +533,7 @@ CH-02 路由决定追加内核事件 `routing.social-decision`，以 parent 关�
 ## 2026-10-29 BUG01 console 回复只回 console（主 Agent 代批）
 
 一轮运行里含 console 输入时，最终回复与停止说明只投给 console 会话（主对话显示），不再发往同一轮合并的其他渠道来源；其他渠道触发的运行保持 spec 06 §2 第 3 步的逐来源回复。console 无需额外授权，`deliver` 兜底在这种运行里不生效。
+
+## 2026-10-29 O52 纪律段对所有模型装入（主 Agent 代批）
+
+`runtime.discipline`（`modelDiscipline`）不再只给 modelId 匹配 luna/sol 的模型，所有模型都装入；显式 `prompt.sections` 未列时仍不装入，可在 `prompt.overrides` 替换。原因：glm 等较弱模型更需要“先简短回应主人再开工、长链不沉默”等纪律，O52 第 1 轮实测 glm-5.3-flash 从不先回一句。纪律段与 `common.updates` 的“先回应、长任务汇报”在意思上相同、措辞不冲突，保留纪律段旧写法不改。代价：每个非 luna/sol 模型的稳定 system 多约 200 字。
