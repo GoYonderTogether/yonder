@@ -47,7 +47,7 @@ sloplint: 5 FAIL, 1 REFLEX, 2 WARN across 65 file(s).
 | `md h1` 无 `text-wrap: balance` (WARN F3) | **仍在** | 未处理 |
 | Connect / GroupJoin / AddFriend 三项 | **仍在** | 未处理 |
 | 新增 `features/settings/NotifySection.tsx` FAIL 10a `transition-[left]` | 新增 | 来自 T-FE-18 的提交 `ba2a975` |
-| 新增 `devtools/devtools.css` 无 stamp + 约 40 条 `#48` token 颜色字面量 | 新增 | 来自 `devtools`（`?devtools=1` 才懒加载的演示浮窗），提交在写文档期间 |
+| 新增 `devtools/devtools.css` 无 stamp + 44 条 `FAIL 48` 颜色字面量（复跑时 grep 计数） | 新增 | 来自 `devtools`（`?devtools=1` 才懒加载的演示浮窗），提交在写文档期间 |
 | 新增 `devtools/ViewSwitcher.tsx` WARN 29 `backdrop-blur-sm` | 新增 | 同上 |
 
 结论：**本文记录两次数值，不合并成一个数字**。首跑的 5 FAIL / 1 REFLEX / 2 WARN 是任务给定的基线；复跑的 49 FAIL 主要来自 devtools 的令牌块写法，不是本次范围。
