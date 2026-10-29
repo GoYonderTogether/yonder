@@ -2,12 +2,12 @@ import { useSyncExternalStore } from "react";
 import type { ActivitySummary, SessionInfo } from "../api/types";
 import { groupOf } from "./identity";
 
-// 工作列表的分组、默认折叠与折叠持久化。折叠、归档、置顶目前只存客户端，不改内核契约。
+// 工作列表的分组、默认折叠与折叠持久化。归档、置顶走内核字段（§18），只有折叠存客户端。
 export type TaskStatus = "running" | "waiting" | "idle" | "done";
 export type ActivityState = ActivitySummary["sessions"][number]["state"];
 type ActivitySession = ActivitySummary["sessions"][number];
 
-/** contracts.md §18 的 session 增补字段；后端未实现时都缺省。 */
+/** contracts.md §18 的 session 增补字段；旧会话缺字段时按缺省（未归档、未置顶、owner）。 */
 export interface WorkbenchFields {
 	owner?: { kind: "owner" | "bot"; id: string };
 	archivedAt?: number;
@@ -28,8 +28,8 @@ export const STATUS_TITLE: Record<TaskStatus, string> = {
 };
 
 /** 已关闭或已归档的任务算完成；活动摘要只区分运行中、等你回答，其余（含 error 与缺失）按待命。 */
-export function taskStatus(s: WorkSession, state?: ActivityState, archived: readonly string[] = []): TaskStatus {
-	if (s.closed || s.archivedAt || archived.includes(s.id)) return "done";
+export function taskStatus(s: WorkSession, state?: ActivityState): TaskStatus {
+	if (s.closed || s.archivedAt) return "done";
 	if (s.needsOwner || state === "waiting") return "waiting";
 	if (state === "running") return "running";
 	return "idle";
@@ -55,7 +55,7 @@ export interface WorkGroups {
 	needsYou: WorkSession[];
 	/** 进行中（运行中）。 */
 	running: WorkSession[];
-	/** 置顶的长期任务，顺序按 pinned 偏好。 */
+	/** 置顶的长期任务（内核 pinned 字段），按打开时间倒序。 */
 	pinned: WorkSession[];
 	byTime: Record<TimeKey, WorkSession[]>;
 	/** 已完成 = 关闭或归档。 */
@@ -63,8 +63,6 @@ export interface WorkGroups {
 }
 
 export interface GroupOpts {
-	pinned?: readonly string[];
-	archived?: readonly string[];
 	now?: Date;
 }
 
@@ -77,7 +75,6 @@ export function groupWork(
 	state: ReadonlyMap<string, ActivitySession> = new Map(),
 	opts: GroupOpts = {},
 ): WorkGroups {
-	const pins = opts.pinned ?? [];
 	const out: WorkGroups = {
 		bots: [],
 		needsYou: [],
@@ -93,17 +90,16 @@ export function groupWork(
 			continue;
 		}
 		if (g !== "task") continue;
-		const status = taskStatus(s, state.get(s.id)?.state, opts.archived);
+		const status = taskStatus(s, state.get(s.id)?.state);
 		if (s.owner?.kind === "bot" && !s.needsOwner) continue;
 		if (status === "done") out.done.push(s);
 		else if (status === "waiting") out.needsYou.push(s);
-		else if (pins.includes(s.id) || s.pinned) out.pinned.push(s);
+		else if (s.pinned) out.pinned.push(s);
 		else if (status === "running") out.running.push(s);
 		else out.byTime[timeKey(s.opened, opts.now)].push(s);
 	}
 	const newest = (a: WorkSession, b: WorkSession) => b.opened.localeCompare(a.opened);
 	for (const list of [out.needsYou, out.running, out.done, ...Object.values(out.byTime)]) list.sort(newest);
-	out.pinned.sort((a, b) => pins.indexOf(a.id) - pins.indexOf(b.id));
 	return out;
 }
 

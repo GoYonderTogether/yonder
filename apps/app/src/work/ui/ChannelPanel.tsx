@@ -2,35 +2,27 @@ import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router";
-import { rpc } from "../api/client";
-import type { SessionInfo } from "../api/types";
+import { qk } from "../api/keys";
+import { botOverview } from "../api/work";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
 import { titleOf } from "../lib/identity";
 import { workPath } from "../shell/workRoutes";
 
-interface Overview {
-	channels: { id: string; label: string; kind: string; lastActiveAt?: number }[];
-	sessions: { session: SessionInfo }[];
-}
-
-/** 契约 §18 bots.overview；节点未实现时如实空态，不造数据。 */
+/** 契约 §18 bots.overview：真实渠道与子会话；失败时如实显示原因，不造数据。 */
 function useOverview(bot: string) {
-	return useQuery({
-		queryKey: ["bot-overview", bot],
-		queryFn: () => rpc<Overview>("bots.overview", { bot }),
-		retry: false,
-	});
+	return useQuery({ queryKey: qk.botOverview(bot), queryFn: () => botOverview(bot), retry: false });
 }
 
 function Body({ bot }: { bot: string }) {
 	const q = useOverview(bot);
 	if (q.isLoading) return <p className="px-4 py-3 text-small text-faint">加载中…</p>;
-	if (q.isError || !q.data)
+	if (q.isError)
 		return (
 			<p className="px-4 py-3 text-small text-faint" data-testid="overview-empty">
-				此节点还没有提供渠道与子会话列表（bots.overview 未实现）。
+				读取渠道与子会话失败：{q.error instanceof Error ? q.error.message : "未知原因"}
 			</p>
 		);
+	if (!q.data) return <p className="px-4 py-3 text-small text-faint">加载中…</p>;
 	const { channels, sessions } = q.data;
 	return (
 		<div className="scroll-y min-h-0 flex-1">

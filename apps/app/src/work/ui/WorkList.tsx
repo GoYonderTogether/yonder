@@ -1,12 +1,12 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, MonitorSmartphone, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { rpc } from "../api/client";
 import { useActiveNode, useNodes } from "../api/nodes";
 import type { SessionInfo } from "../api/types";
-import { usePrefs } from "../lib/prefs";
-import { useActivity, useSessions, useTitleOf } from "../lib/queries";
+import { workSessions } from "../api/work";
+import { useActivity, useTitleOf } from "../lib/queries";
 import {
 	groupWork,
 	isOpen,
@@ -78,18 +78,14 @@ const Heading = ({ title }: { title: string }) => <h2 className="px-4 pt-3 pb-1 
  */
 export function WorkList({ active }: { active?: string }) {
 	const navigate = useNavigate();
-	const sessions = useSessions();
+	const sessions = useQuery({ queryKey: ["sessions", "work"], queryFn: workSessions, refetchInterval: 5000 });
 	const activity = useActivity();
-	const prefs = usePrefs();
 	const qc = useQueryClient();
 	const folds = useFolds();
 	const [opening, setOpening] = useState(false);
 
 	const state = useMemo(() => new Map(activity.data?.sessions.map((x) => [x.id, x])), [activity.data]);
-	const g = useMemo(
-		() => groupWork((sessions.data ?? []) as WorkSession[], state, { pinned: prefs.pinned, archived: prefs.archived }),
-		[sessions.data, state, prefs.pinned, prefs.archived],
-	);
+	const g = useMemo(() => groupWork((sessions.data ?? []) as WorkSession[], state), [sessions.data, state]);
 	const runningBots = useMemo(
 		() => new Set(g.bots.filter((s) => state.get(s.id)?.state === "running").map((s) => s.id)),
 		[g.bots, state],

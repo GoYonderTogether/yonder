@@ -1,11 +1,12 @@
 import { AtSign, Slash } from "lucide-react";
+import { archiveSession } from "../api/work";
 import { groupOf } from "../lib/identity";
-import { toggleArchive } from "../lib/prefs";
 import { useSessions, useTitleOf } from "../lib/queries";
 import { toast } from "./kit/Toast";
 
-/** 邀请 Bot 的后端（contracts §18 bot_attach / 多 Bot 参与）还没实现：入口做出来，点了如实说明。 */
-export const INVITE_PENDING = "邀请 Bot 参与需要节点支持 bot_attach（契约 §18），当前节点还没有这项能力。";
+/** 内核已有 bot_attach（契约 §18），界面还没有选 Bot 的流程：入口做出来，点了如实说明怎么走。 */
+export const INVITE_PENDING =
+	"邀请 Bot 参与还没接到界面：节点已支持 bot_attach（契约 §18），可以让助手把当前会话挂到某个 Bot 下。";
 export const invitePending = () => toast(INVITE_PENDING, true);
 
 export interface SlashCommand {
@@ -19,7 +20,7 @@ export interface SlashCommand {
 export function slashCommands(session: string): SlashCommand[] {
 	return [
 		{ key: "invite", label: "/邀请", hint: "邀请 Bot 一起做", run: invitePending },
-		{ key: "archive", label: "/归档", hint: "标为已完成", run: () => toggleArchive(session) },
+		{ key: "archive", label: "/归档", hint: "标为已完成", run: () => void archiveSession(session) },
 	];
 }
 
