@@ -10,6 +10,7 @@ import { AccountSecurity } from "../components/AccountSecurity";
 import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
+import { socialLoadError } from "../lib/socialError";
 import { useLogout } from "../lib/useLogout";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
@@ -149,11 +150,14 @@ export function Me() {
 	const nav = useNavigate();
 	const loc = useLocation();
 	const [settings, setSettings] = useState(false);
-	const { data: contacts = [] } = useQuery({
+	const contactsQuery = useQuery({
 		queryKey: ["contacts"],
 		queryFn: api.contacts,
 		enabled: !!s && !s.actor.anonymous,
 	});
+	const contacts = contactsQuery.data ?? [];
+	// 拿不到联系人时不能说成「还没有 Agent」。
+	const failure = contactsQuery.data ? null : contactsQuery.error;
 	if (!s) return null;
 	const agents = contacts.filter((a) => a.kind === "agent" && a.ownerId === s.actor.id);
 	return (
@@ -161,9 +165,17 @@ export function Me() {
 			<SelfIdentity />
 			<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 pb-24 lg:px-8 lg:pb-10">
 				{s.actor.anonymous ? (
-					<Button variant="primary" onClick={() => nav("/login")}>
-						注册 / 登录
-					</Button>
+					<>
+						<section aria-label="注册引导" className="rounded-card bg-raised p-5">
+							<h2 className="font-medium">注册后可加好友</h2>
+							<p className="mt-1 text-small text-muted">
+								你现在是访客账号，可以聊天、加入群聊；注册后还能加好友、管理 Agent 与设备，已有记录会保留。
+							</p>
+						</section>
+						<Button variant="primary" onClick={() => nav("/login")}>
+							注册 / 登录
+						</Button>
+					</>
 				) : (
 					<>
 						<section aria-label="我的 Agent" className="overflow-hidden rounded-card bg-raised">
@@ -203,12 +215,24 @@ export function Me() {
 									查看全部 {agents.length} 位<ChevronRight size={16} />
 								</Link>
 							)}
-							{!agents.length && <p className="px-5 py-4 text-small text-muted">连接设备后，Agent 会出现在这里</p>}
+							{failure ? (
+								<div className="flex items-center justify-between gap-3 px-5 py-4 text-small text-muted">
+									<p role="alert">{socialLoadError(failure, "加载 Agent 失败")}</p>
+									<Button size="sm" onClick={() => void contactsQuery.refetch()}>
+										重试
+									</Button>
+								</div>
+							) : (
+								!agents.length &&
+								!contactsQuery.isPending && (
+									<p className="px-5 py-4 text-small text-muted">连接设备后，Agent 会出现在这里</p>
+								)
+							)}
 						</section>
 						<div className="overflow-hidden rounded-card bg-raised">
 							<Item to="/contacts?tab=devices" icon={Monitor} label="设备" />
 						</div>
-						{!agents.length && (
+						{!agents.length && !failure && (
 							<div className="flex gap-2">
 								<Link to="/connect" state={internalState(loc)} className="contents">
 									<Button className="h-11 flex-1">添加设备</Button>
