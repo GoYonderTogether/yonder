@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
+import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import { createInterface } from "node:readline";
 import { MethodError } from "./method-types.js";
@@ -16,10 +17,21 @@ export interface ControlConnection {
 }
 export type ControlHandler = (request: ControlRequest, connection: ControlConnection) => Promise<unknown>;
 
+/**
+ * sun_path caps a unix socket path at ~104 bytes, and a deeper home makes bind fail with a bare EINVAL. Keep the
+ * path inside the home while it fits, then fall back to a name in $TMPDIR derived from it: server and clients
+ * hash the same path, so they still meet, and a shorter name settles the length instead of hiding the failure.
+ */
+const SOCKET_PATH_LIMIT = 100;
+function socketPath(path: string) {
+	if (Buffer.byteLength(path) <= SOCKET_PATH_LIMIT) return path;
+	return join(tmpdir(), `yonder-${createHash("sha256").update(path).digest("hex").slice(0, 24)}.sock`);
+}
+
 export function controlEndpoint(home: string, platform: NodeJS.Platform = process.platform) {
 	if (platform === "win32")
 		return `\\\\.\\pipe\\yonder-control-${createHash("sha256").update(win32.resolve(home).toLowerCase()).digest("hex").slice(0, 32)}`;
-	return join(home, ".yonder", "control.sock");
+	return socketPath(join(home, ".yonder", "control.sock"));
 }
 
 export function cliChannelEndpoint(home: string, id: string, platform: NodeJS.Platform = process.platform) {

@@ -72,7 +72,7 @@ Commands:
   plugins list|show|add|remove      插件管理 · Manage plugins
   models list                     模型目录 · Model catalog
   inspect [--agent <id>] [--profile <name>]  有效配置 · Effective configuration
-  migrate [--dry-run|--apply] | --rollback <backup> [--dry-run] [--force]  迁移旧数据目录与插件 id（默认只预览） · Migrate user data
+  migrate [--dry-run|--apply] [--no-service] | --rollback <backup> [--dry-run] [--force]  迁移旧数据目录与插件 id（默认只预览；非默认 home 自动跳过系统服务） · Migrate user data
   version                         版本与安装 · Version and installation
   changelog [--from <v>] [--to <v>]  更新记录 · Release notes
   docs [path] [--list]             文档 · Documentation
@@ -409,15 +409,14 @@ async function run(args: string[]): Promise<number> {
 		return 0;
 	}
 	if (command === "migrate") {
-		const migrateUsage = "Usage: yonder migrate [--dry-run | --apply] | --rollback <backup> [--dry-run] [--force]";
+		const migrateUsage =
+			"Usage: yonder migrate [--dry-run | --apply] [--no-service] | --rollback <backup> [--dry-run] [--force]";
 		const flagged = (name: string) => rest.includes(name);
 		const rollbackAt = rest.indexOf("--rollback");
 		const backup = rollbackAt >= 0 ? rest[rollbackAt + 1] : undefined;
-		const stray = rest.filter(
-			(arg, index) =>
-				!["--dry-run", "--apply", "--rollback", "--force"].includes(arg) &&
-				!(rollbackAt >= 0 && index === rollbackAt + 1),
-		);
+		const migrateFlags = ["--dry-run", "--apply", "--no-service", "--rollback", "--force"];
+		const isBackup = (index: number) => rollbackAt >= 0 && index === rollbackAt + 1;
+		const stray = rest.filter((arg, index) => !migrateFlags.includes(arg) && !isBackup(index));
 		if (
 			stray.length ||
 			(flagged("--force") && rollbackAt < 0) ||
@@ -426,6 +425,7 @@ async function run(args: string[]): Promise<number> {
 		)
 			throw new UsageError(migrateUsage);
 		const defaults = defaultMigrateOptions();
+		if (flagged("--no-service")) defaults.services = false;
 		if (backup) {
 			const result = await rollbackMigration(resolve(backup), {
 				apply: !flagged("--dry-run"),

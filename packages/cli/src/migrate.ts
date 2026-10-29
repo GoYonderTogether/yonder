@@ -18,7 +18,6 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { createConnection } from "node:net";
-import { homedir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { controlEndpoint, lockHome } from "@yonder/core";
@@ -40,6 +39,8 @@ export interface MigrateOptions {
 	oldInstall?: string;
 	newInstall?: string;
 	platform?: NodeJS.Platform;
+	/** launchd/systemd steps; off by default for any home that is not the real user's default one. */
+	services?: boolean;
 	now?: Date;
 	launchd?: LaunchdPaths;
 	run?: (argv: string[]) => Promise<void>;
@@ -65,19 +66,7 @@ export interface MigrationResult extends MigrationPlan {
 	launchdPending: string[][];
 }
 export class MigrateError extends Error {}
-
-export function defaultMigrateOptions(): MigrateOptions {
-	const share = join(homedir(), ".local/share");
-	return {
-		oldHome: join(share, "yonder-harness/home"),
-		newHome: join(share, "yonder/home"),
-		oldInstall: join(homedir(), ".yonder-harness"),
-		newInstall: join(share, "yonder/install"),
-		...(process.platform === "darwin"
-			? { launchd: { daemons: "/Library/LaunchDaemons", helpers: "/Library/PrivilegedHelperTools" } }
-			: {}),
-	};
-}
+export { defaultMigrateOptions } from "./migrate-defaults.js";
 
 const execFileAsync = promisify(execFile);
 const defaultRun = async (argv: string[]) => {
@@ -199,7 +188,8 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 	for (const item of found.renames) lines.push(`重命名 ${item.from} → ${item.to}`);
 
 	const commands: string[][] = [];
-	if (options.launchd) {
+	const serviceSteps = options.services !== false;
+	if (serviceSteps && options.launchd) {
 		const { daemons, helpers } = options.launchd;
 		const oldPlist = join(daemons, `${OLD_LABEL}.plist`);
 		const newPlist = join(daemons, `${NEW_LABEL}.plist`);
@@ -214,11 +204,12 @@ export async function planMigration(options: MigrateOptions): Promise<MigrationP
 			for (const command of commands) lines.push(`  ${shellLine(command)}`);
 		}
 	}
-	const services = await planServices(options, conflicts);
-	if (services.length) {
-		lines.push("迁移用户服务标签：", ...services.map((command) => `  ${shellLine(command)}`));
-		commands.push(...services);
+	const planned = serviceSteps ? await planServices(options, conflicts) : [];
+	if (planned.length) {
+		lines.push("迁移用户服务标签：", ...planned.map((command) => `  ${shellLine(command)}`));
+		commands.push(...planned);
 	}
+	if (!serviceSteps && lines.length) lines.push("跳过系统服务步骤（--no-service 或 home 不是默认安装路径）");
 	const status = conflicts.length ? "blocked" : lines.length ? "ready" : "noop";
 	return {
 		status,

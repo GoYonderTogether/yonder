@@ -16,11 +16,18 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir, userInfo } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { serveControl } from "@yonder/core";
 import { afterEach, expect, test } from "vitest";
-import { applyMigration, MigrateError, planMigration, rewriteText } from "./migrate.js";
+import {
+	applyMigration,
+	defaultMigrateOptions,
+	homeLocked,
+	MigrateError,
+	planMigration,
+	rewriteText,
+} from "./migrate.js";
 import { formatMigration, rollbackMigration } from "./migrate-rollback.js";
 
 const roots: string[] = [];
@@ -326,19 +333,12 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	expect(await readFile(join(share, "yonder/home/yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
 	expect(await readlink(join(home, ".yonder-harness"))).toBe(".local/share/yonder/install");
 	expect(await readFile(join(share, "yonder/install/version"), "utf8")).toBe("old");
-	const calls = await readFile(log, "utf8").catch(() => "");
-	// The launchd step depends on the real /Library (read-only here: mv/sed are no-ops), so it differs per machine.
-	const legacyPlist = await stat("/Library/LaunchDaemons/dev.yonder.harness.power.plist").then(
-		() => true,
-		() => false,
-	);
-	if (legacyPlist) expect(calls).toContain("launchctl bootout system/dev.yonder.harness.power");
-	else expect(calls).toBe("");
-	// Rerun: no data work left; only the (still unrenamed) launchd label remains where the old plist exists.
+	// A temp HOME is not the passwd home, so the launchd and user-service steps are skipped: no command runs.
+	expect(await readFile(log, "utf8").catch(() => "")).toBe("");
+	// Rerun: no data work is left and there is no service step to repeat.
 	const again = run("--apply");
 	expect(again).not.toContain("移动");
-	if (legacyPlist) expect(again).toContain("launchd：已全部执行");
-	else expect(again).toContain("Nothing to migrate");
+	expect(again).toContain("Nothing to migrate");
 	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
 	expect(() => run("--rollback")).toThrow();
 	expect(() => run("--force")).toThrow();
@@ -431,4 +431,56 @@ test("resuming an interrupted combined migration retains the original rollback b
 	expect((await lstat(oldInstall)).isDirectory()).toBe(true);
 	await expect(lstat(newHome)).rejects.toThrow();
 	await expect(lstat(newInstall)).rejects.toThrow();
+});
+
+test("defaults follow YONDER_HOME and skip service steps outside the real default home", () => {
+	const custom = join(tmpdir(), "ymigrate-custom/home");
+	const options = defaultMigrateOptions({ ...process.env, YONDER_HOME: custom });
+	expect(options.newHome).toBe(custom);
+	expect(options.oldHome).toBe(join(tmpdir(), "ymigrate-custom/yonder-harness/home"));
+	expect(options.oldInstall).toBeUndefined();
+	expect(options.newInstall).toBeUndefined();
+	expect(options.services).toBe(false);
+	const fallback = defaultMigrateOptions({ ...process.env, YONDER_HOME: "" });
+	expect(fallback.newHome).toBe(join(homedir(), ".local/share/yonder/home"));
+	expect(fallback.oldInstall).toBe(join(homedir(), ".yonder-harness"));
+	// Only a home that really is the passwd user's default one may touch launchd/systemd.
+	expect(fallback.services).toBe(fallback.newHome === join(userInfo().homedir, ".local/share/yonder/home"));
+});
+
+test("--no-service plans and runs no launchctl or user service command", async () => {
+	const { root, options } = await fixture();
+	const launchd = { daemons: join(root, "LaunchDaemons"), helpers: join(root, "Helpers") };
+	await mkdir(launchd.daemons, { recursive: true });
+	await writeFile(join(launchd.daemons, "dev.yonder.harness.power.plist"), "<plist/>");
+	const withServices = await planMigration({ ...options, launchd, services: true });
+	expect(withServices.commands.map((command) => command[0])).toContain("launchctl");
+	const plan = await planMigration({ ...options, launchd, services: false });
+	expect(plan.commands).toEqual([]);
+	expect(plan.lines.join("\n")).toContain("跳过系统服务步骤");
+	expect(plan.status).toBe("ready");
+	const result = await applyMigration({ ...options, launchd, services: false });
+	expect(result.launchdDone).toEqual([]);
+	expect(result.launchdErrors).toEqual([]);
+	expect(await readFile(join(options.newHome, "yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
+});
+
+test("a home long enough to overflow sun_path still binds and sees its control socket", async () => {
+	const root = await mkdtemp(join(tmpdir(), "ymigrate-long-"));
+	roots.push(root);
+	const newHome = join(root, "x".repeat(80), "y".repeat(40), "home");
+	const oldHome = join(root, "yonder-harness/home");
+	await mkdir(oldHome, { recursive: true });
+	await writeFile(join(oldHome, "yonder.yaml"), YAML);
+	const server = await serveControl(newHome, async () => null);
+	try {
+		await expect(homeLocked(newHome)).resolves.toBe(true);
+		// The migrate guard must find that server through the same shortened endpoint, not a bare EINVAL.
+		const plan = await planMigration({ oldHome, newHome, now });
+		expect(plan.status).toBe("blocked");
+		expect(plan.conflicts.join("\n")).toContain("服务正在运行");
+	} finally {
+		await server.close();
+	}
+	await expect(homeLocked(newHome)).resolves.toBe(false);
 });
