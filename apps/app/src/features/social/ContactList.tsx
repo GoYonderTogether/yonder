@@ -170,7 +170,13 @@ export function ContactList({
 					</>
 				)
 			) : (
-				<p className="py-6 text-center text-muted">暂无{tab === "friends" ? "联系人" : "Agent"}</p>
+				<div className="py-6 text-center text-muted" data-testid="contacts-empty">
+					<p>暂无{tab === "friends" ? "联系人" : "Agent"}</p>
+					{/* 空态给下一步动作；「真的空」与「加载失败」不复用同一块文案。 */}
+					<a className="mt-2 inline-block underline" href={href({ tab: "contacts", page: "friends/add" })}>
+						添加好友
+					</a>
+				</div>
 			)}
 			{device && (
 				<DeviceSheet

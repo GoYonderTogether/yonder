@@ -3,7 +3,10 @@ import { useSessions, useTitleOf } from "../lib/queries";
 import { href } from "../lib/useHash";
 import { Avatar } from "./Avatar";
 
-/** 通讯录：契约还没有联系人接口，只列出 sessions.list 里真实存在的常驻 Bot。 */
+/**
+ * 通讯录：契约还没有联系人接口，只列出 sessions.list 里真实存在的常驻 Bot。
+ * 加载失败、真的没有 Bot 是三种不同状态：失败给错误与重试，空态给出下一步动作，不把失败画成空列表。
+ */
 export function Contacts() {
 	const sessions = useSessions();
 	const titleOf = useTitleOf();
@@ -13,7 +16,22 @@ export function Contacts() {
 			<h1 className="pt-safe px-4 pt-3 pb-1 text-title font-semibold">通讯录</h1>
 			<h2 className="px-4 pt-2 pb-1 text-caption text-faint">本机 Bot</h2>
 			{sessions.isLoading && <p className="px-4 py-2 text-small text-faint">加载中…</p>}
-			{sessions.data && bots.length === 0 && <p className="px-4 py-2 text-caption text-faint">没有常驻 Bot</p>}
+			{sessions.isError && (
+				<div role="alert" className="px-4 py-2 text-small text-danger" data-testid="contacts-error">
+					加载常驻 Bot 失败{" "}
+					<button type="button" className="underline" onClick={() => void sessions.refetch()}>
+						重试
+					</button>
+				</div>
+			)}
+			{sessions.data && bots.length === 0 && (
+				<div className="px-4 py-2 text-caption text-faint" data-testid="contacts-empty">
+					<p>没有常驻 Bot</p>
+					<a className="mt-2 inline-block underline" href={href({ tab: "contacts", page: "friends/add" })}>
+						添加好友
+					</a>
+				</div>
+			)}
 			{bots.map((s) => (
 				<a
 					key={s.id}

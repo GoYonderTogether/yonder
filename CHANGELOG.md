@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- 通讯录区分「加载失败」「节点没有社交服务」「真的为空」：`ui/Contacts`（`#/contacts` 侧栏）失败时显示 `role="alert"` 与重试，不再和「没有常驻 Bot」同屏；`features/social/Contacts` 与 `ContactDetail` 把网关 404 或 fetch 直接失败（当前节点没有代理社交接口）显示为「当前节点没有提供社交服务」，其他错误显示具体原因与重试，只有接口返回空结果才说「联系人不存在」；真实空态给「添加好友」入口。分类与文案在 `features/social/lib/socialError.ts`，三种状态各有单测。
+
+- `sessions.watch` 被服务端 `end` 帧结束时，会话不再永远停在「连接中…」：`useSession` 接上 `onEnd`，`forbidden` 提示「没有权限查看这个会话」，`error` 提示连接出错并保留已有数据（mux 仍按契约带游标自动重订，重订后的 `ready` 清除提示），其他 reason（`closed`/`shutdown`/未知）给通用提示并保留数据，原始 reason 不上屏。补假 socket 喂 end 帧的单测（含重订回放）。
+
+- `capabilities.get` 补齐 `NodeFactsSchema` 的 v1.1 字段：`minor`（1）、`node`（`{id,name}` 取本机 hostname，来源见下）、`views`（与 `views.list` 无参同源）、`models.select`、`remoteSession`（`sessions.open` 能否用、当前只有 `task`、`workspaces.list` 是否在表）、`auth`（`kind` + 是否持 `owner`），`plugins[].views` 改取插件清单 `contributes.views`，`features` 的 `attachments`/`notifications`/`approvals`/`suggestions` 按注册表事实给出。此前返回缺这些字段，apps/app 添加远程节点读 `facts.node.id` 必然失败。补 `Check(NodeFactsSchema, result)` 单测。节点 id/name 的取值来源契约未定义（本机 hostname，与 spec 16 设备名同源），已记待维护者确认。
+
+- Console 分享二维码/链接改走服务端分享配额：名片页「分享名片」与群聊详情的群二维码先调 `POST /api/share-links`（`kind` + `targetId`），服务端复用同目标未过期链接，二维码与「复制链接」使用带 `?share=<token>` 的地址，访客凭它登录/加入时按链接计成功验证的新访客；只对本人或本人 Agent 的名片生成，别人的名片、访客身份、生成失败时退回原普通地址。`api/social` 新增 `ShareLink` 类型与 `createShareLink` / `getShareLink` / `revokeShareLink`。名片分享区与群聊详情新增「分享链接」窗口（复用 `Window`），列出本机生成过的链接：token 短显示、已用/上限、剩余天数，可复制、可吊销；状态按 `share_exhausted` / `share_expired` / `share_revoked` 给出中文提示。本机索引存在 localStorage `yonder.shareLinks`（服务端没有按目标列出链接的接口），换设备看不到旧记录。剩余天数与状态换算、分享地址拼接为纯函数并有单测。
+
 - Console 社交登录改为验证码：登录页只有手机 / 邮箱两个 tab，发码（按服务端 `retryAfter` 倒计时）→ 填 6 位码 → 登录，首次验证即注册，不出现密码框；字段级校验手机（`/^1[3-9]\d{9}$/`）与邮箱格式，错误按 `invalid_code` / `locked` / `share_exhausted` / `share_expired` / `share_revoked` / 429 / 502 逐类给出中文文案。访客额度用尽时发消息返回 403 `verify_required`，聊天页弹 `VerifySheet` 复用同一表单（带分享链接的 `shareToken` 透传），验证成功后关闭并原样重发那条消息，不再静默拦截。「我」页设置的「账号与安全」显示脱敏后的已绑手机 / 邮箱（`138****1234`、`a****@example.com`），可绑定或换绑，`phone_taken` / `email_taken` 提示已被占用，换绑成功后提示重新登录。`api/social` 新增 `sendCode` / `verifyCode` / `sendBindCode` / `confirmBindCode`，旧 `login` / `register` 标记 deprecated 但保留。
 
 - Console 的 Bot 与图标头像去掉渐变与光晕，改为一律平铺纯色：`.agent-orb` 只剩一条 `oklch()` 底色（亮色 `0.52 0.13`、暗色 `0.53 0.13`），色相仍按原派生逻辑取，每个 Bot 还是自己的颜色；白图标对底色按全部色相验算，最差亮色 4.87:1、暗色 4.68:1。名片页顶部的氛围光晕 `.ambient` 与星光 `.sparkle` 按「不要光晕」一并删除（含 `@keyframes twinkle` 与全仓库无引用的 `ui/kit/Aura.tsx`），开发浮窗的主题模拟同步改为纯色覆盖。名片卡面的主题渐变保持不变。

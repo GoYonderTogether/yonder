@@ -5,6 +5,7 @@ import { qk } from "../../api/keys";
 import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
 import { ContactList } from "./ContactList";
+import { socialLoadError, socialUnavailable } from "./lib/socialError";
 
 export function Contacts() {
 	const [q, setQ] = useState("");
@@ -47,9 +48,25 @@ export function Contacts() {
 					<p role="status" className="py-6 text-muted">
 						正在加载联系人…
 					</p>
+				) : (contacts.isError && socialUnavailable(contacts.error)) ||
+					(devices.isError && socialUnavailable(devices.error)) ? (
+					// 网关 404（没有代理社交接口）或 fetch 直接失败：与「真的没有联系人」分开说。
+					<div role="alert" className="py-6 text-muted" data-testid="contacts-unavailable">
+						<p>{socialLoadError(contacts.error ?? devices.error, "加载联系人失败")}</p>
+						<button
+							type="button"
+							onClick={() => {
+								void contacts.refetch();
+								void devices.refetch();
+							}}
+							className="mt-2 underline"
+						>
+							重试
+						</button>
+					</div>
 				) : contacts.isError || devices.isError ? (
-					<div role="alert" className="py-6 text-muted">
-						加载联系人失败{" "}
+					<div role="alert" className="py-6 text-muted" data-testid="contacts-error">
+						加载联系人失败：{socialLoadError(contacts.error ?? devices.error, "请求失败")}{" "}
 						<button
 							type="button"
 							onClick={() => {

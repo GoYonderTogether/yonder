@@ -8,6 +8,7 @@ import { Button } from "../../ui/kit/Button";
 import { toast } from "../../ui/kit/Toast";
 import { Switch } from "./DeviceSheet";
 import { IdentityDetail } from "./IdentityDetail";
+import { socialLoadError, socialUnavailable } from "./lib/socialError";
 export function ContactDetail({ id }: { id: string }) {
 	const qc = useQueryClient();
 	const [busy, setBusy] = useState(false);
@@ -77,15 +78,29 @@ export function ContactDetail({ id }: { id: string }) {
 					<p role="status" className="p-6">
 						正在加载联系人…
 					</p>
+				) : actor.isError && socialUnavailable(actor.error) ? (
+					// 网关 404（没有代理社交接口）或 fetch 直接失败：不能说成「资料不存在」。
+					<div role="alert" className="p-6" data-testid="contact-unavailable">
+						<p>{socialLoadError(actor.error, "加载联系人失败")}</p>
+						<button type="button" className="mt-2 underline" onClick={() => void actor.refetch()}>
+							重试
+						</button>
+					</div>
 				) : actor.isError ? (
-					<div role="alert" className="p-6">
-						加载联系人失败{" "}
+					<div role="alert" className="p-6" data-testid="contact-error">
+						加载联系人失败：{socialLoadError(actor.error, "请求失败")}{" "}
 						<button type="button" className="underline" onClick={() => void actor.refetch()}>
 							重试
 						</button>
 					</div>
 				) : !a ? (
-					<p className="p-6">联系人不存在或无法访问</p>
+					// 接口存在且返回了空结果：这个人确实找不到，和「节点没有社交服务」是两回事。
+					<div className="p-6" data-testid="contact-not-found">
+						<p>联系人不存在或无法访问</p>
+						<a className="mt-2 inline-block underline" href={href({ tab: "contacts", page: "friends/add" })}>
+							添加好友
+						</a>
+					</div>
 				) : (
 					<IdentityDetail
 						actor={a}
