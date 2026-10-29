@@ -70,6 +70,28 @@ test("leaves requests without a system message untouched", () => {
 	expect(systemAsUserMessages([user("hi"), assistant("ok")])).toBeUndefined();
 });
 
+test("renders named system sections into the block instead of dropping them", () => {
+	const shaped = systemAsUserMessages([
+		{ role: "system", content: "", sections: { 基础: "段 A", 补充: "段 B" }, timestamp: 0 },
+		user("hi"),
+	] as unknown as Message[]);
+	if (!shaped) throw new Error("system messages must be reshaped");
+	expect(shaped[0]?.content).toBe(`${systemBlock("段 A\n\n段 B")}\n\nhi`);
+});
+
+test("keeps tool declarations on a text-less system message so tools still reach the model", () => {
+	const tool = { name: "read", description: "read a file", parameters: { type: "object" } };
+	const shaped = systemAsUserMessages([
+		{ role: "system", content: "S", toolsAdded: [tool], timestamp: 0 },
+		user("hi"),
+	] as unknown as Message[]);
+	if (!shaped) throw new Error("system messages must be reshaped");
+	expect(shaped[0]).toMatchObject({ role: "system", content: "" });
+	expect((shaped[0] as { toolsAdded?: unknown[] }).toolsAdded).toEqual([tool]);
+	expect(shaped[1]?.content).toBe(`${systemBlock("S")}\n\nhi`);
+	expect(shaped.filter((message) => message.role === "system")).toHaveLength(1);
+});
+
 test("rightapi-glm models send the system prompt as user content by default", () => {
 	const credentials = new FileCredentials(join(tmpdir(), "unused-yonder-auth.json"));
 	const provider = {
