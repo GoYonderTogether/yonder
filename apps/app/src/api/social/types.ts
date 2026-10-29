@@ -162,6 +162,26 @@ export interface ResolvedReference {
 	code: string;
 }
 
+export type ShareLinkKind = "card" | "group";
+
+/**
+ * 分享链接配额（POST /api/share-links）：每次生成名片/群链接时服务端建一条记录，
+ * 计数只算凭这条链接成功验证的新访客。url 是服务端用 PUBLIC_ORIGIN 拼的 `/?share=<token>`。
+ */
+export interface ShareLink {
+	token: string;
+	kind: ShareLinkKind;
+	targetId: string;
+	maxUses: number;
+	usedCount: number;
+	/** ISO 时间 */
+	expiresAt: string;
+	/** ISO 时间；未吊销为 null */
+	revokedAt: string | null;
+	/** 服务端拼好的分享地址；个别响应不带时为 undefined，调用方需自行拼接 */
+	url?: string;
+}
+
 /** 验证码登录的两种方式：手机短信、邮箱；首次验证即注册，不设密码。 */
 export type VerifyKind = "phone" | "email";
 

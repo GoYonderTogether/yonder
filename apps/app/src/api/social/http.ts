@@ -1,5 +1,5 @@
 import type { ApiClient } from "./client";
-import type { Actor, Card, CodeSent, Conversation, Device, Message, Session } from "./types";
+import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
 
 export class SocialError extends Error {
 	constructor(
@@ -64,6 +64,11 @@ export const httpApi: Omit<ApiClient, "subscribe"> = {
 	createGroup: (input) => request<Conversation>("/conversations/group", json("POST", input)),
 	conversationDetail: (convId) => request(`/conversations/${encodeURIComponent(convId)}/detail`),
 	groupInvite: (convId) => request(`/conversations/${encodeURIComponent(convId)}/invite`, json("POST")),
+	createShareLink: (input) => request<ShareLink>("/share-links", json("POST", input)),
+	getShareLink: (token) => request<ShareLink | null>(`/share-links/${encodeURIComponent(token)}`, {}, true),
+	revokeShareLink: async (token) => {
+		await request(`/share-links/${encodeURIComponent(token)}/revoke`, json("POST"));
+	},
 	groupPreview: (token) => request(`/groups/${encodeURIComponent(token)}`, {}, true),
 	joinGroup: (token) => request<Conversation>(`/groups/${encodeURIComponent(token)}/join`, json("POST")),
 	leaveConversation: (convId) => request(`/conversations/${encodeURIComponent(convId)}/leave`, json("POST")),
