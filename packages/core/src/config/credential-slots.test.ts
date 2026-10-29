@@ -9,6 +9,13 @@ import { mergeCredentialSlots, parseAgentConfig, parsePresetConfig, presetSessio
 import { PresetSchema, ProfileSchema, SessionModelsSchema } from "./schema.js";
 import { presetProfile, resolveProfile, testModel } from "./test-support.js";
 
+test("accepts only documented fallback order values", () => {
+	for (const order of [undefined, "accounts-first", "models-first"]) {
+		expect(Check(SessionModelsSchema, { fallback: { models: [], ...(order && { order }) } })).toBe(true);
+	}
+	expect(Check(SessionModelsSchema, { fallback: { models: [], order: "legacy" } })).toBe(false);
+});
+
 const agentConfig = (defaults = {}, profile = {}) =>
 	parseAgentConfig(
 		JSON.stringify({
