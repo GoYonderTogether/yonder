@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.3.26102905] - 2026-10-29
+
+### Fixed
+
+- runtime：gateway 5xx / exhausted pool / cooldown text falls back to next candidate immediately
+- yonder：名片渠道默认给 main 工具；card 起草错误说清原因；公开开关接真接口并回滚；/get 先 yonder start；channels login 服务未启动提示；cli 会话指引 (JV2-J03-01/02/05/08, JV2-J02-01)
+- app：我的名片表单未改动时跟随服务端数据，直达 /me?card=new 也预填名字
+- app：加生产网页构建 build:web，产物仍是 mock 就失败 (JV2-J01-01)
+
+### Added
+
+- app：名片页「我也要一张」、/me 我的名片新建/编辑/发布、新用户首屏小歪与下一步
+
 ## [0.3.26102904] - 2026-10-29
 
 ### Fixed
