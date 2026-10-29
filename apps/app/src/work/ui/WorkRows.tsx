@@ -82,7 +82,7 @@ export function TaskRow({
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
 	const title = titleOf(s);
-	const isPinned = s.pinned ?? pinned;
+	const isPinned = s.pinned ?? pinned ?? false;
 	const { rename, pin, archive, fork } = useRowActions(s, title, isPinned, archived);
 	const actions = taskRowMenu({
 		session: s,
