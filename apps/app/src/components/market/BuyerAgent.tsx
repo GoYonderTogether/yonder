@@ -10,7 +10,7 @@ import {
 	SlidersHorizontal,
 	Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "../../lib/cn";
 import { CATEGORIES } from "../../market/data";
 import { findMatches, inferBrief, taskBrief, timeAgo } from "../../market/matching";
@@ -42,7 +42,6 @@ export function AgentBriefDialog({
 	const [brief, setBrief] = useState<SearchBrief>(inferBrief(""));
 	const [error, setError] = useState("");
 	const key = `${storageKey}:need:${editingTask?.id ?? "new"}`;
-	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 草稿只在对话框打开时恢复一次，输入变化不应重跑
 	useEffect(() => {
 		if (!open) return;
@@ -57,11 +56,6 @@ export function AgentBriefDialog({
 		setStep(draft?.step ?? (editingTask ? 1 : 0));
 		setError("");
 	}, [open, key]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 与 autoFocus 等价，只在进入第一步时聚焦一次，ref 不进依赖
-	useEffect(() => {
-		const node = textareaRef.current;
-		if (open && step === 0) node?.focus();
-	}, [open, step]);
 	const persist = (nextText: string, nextBrief: SearchBrief, nextStep: number) => {
 		try {
 			localStorage.setItem(key, JSON.stringify({ text: nextText, brief: nextBrief, step: nextStep }));
@@ -110,7 +104,8 @@ export function AgentBriefDialog({
 						<label className="mk-form-label">
 							描述你的需要
 							<textarea
-								ref={textareaRef}
+								// biome-ignore lint/a11y/noAutofocus: 保留伙伴原版行为，打开寻找面板即聚焦输入框
+								autoFocus
 								rows={4}
 								placeholder="想解决什么问题？预算、地点也可以一起说。"
 								value={text}
