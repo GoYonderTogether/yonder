@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Console 社交登录改为验证码：登录页只有手机 / 邮箱两个 tab，发码（按服务端 `retryAfter` 倒计时）→ 填 6 位码 → 登录，首次验证即注册，不出现密码框；字段级校验手机（`/^1[3-9]\d{9}$/`）与邮箱格式，错误按 `invalid_code` / `locked` / `share_exhausted` / `share_expired` / `share_revoked` / 429 / 502 逐类给出中文文案。访客额度用尽时发消息返回 403 `verify_required`，聊天页弹 `VerifySheet` 复用同一表单（带分享链接的 `shareToken` 透传），验证成功后关闭并原样重发那条消息，不再静默拦截。「我」页设置的「账号与安全」显示脱敏后的已绑手机 / 邮箱（`138****1234`、`a****@example.com`），可绑定或换绑，`phone_taken` / `email_taken` 提示已被占用，换绑成功后提示重新登录。`api/social` 新增 `sendCode` / `verifyCode` / `sendBindCode` / `confirmBindCode`，旧 `login` / `register` 标记 deprecated 但保留。
+
 - Console 的 Bot 与图标头像去掉渐变与光晕，改为一律平铺纯色：`.agent-orb` 只剩一条 `oklch()` 底色（亮色 `0.52 0.13`、暗色 `0.53 0.13`），色相仍按原派生逻辑取，每个 Bot 还是自己的颜色；白图标对底色按全部色相验算，最差亮色 4.87:1、暗色 4.68:1。名片页顶部的氛围光晕 `.ambient` 与星光 `.sparkle` 按「不要光晕」一并删除（含 `@keyframes twinkle` 与全仓库无引用的 `ui/kit/Aura.tsx`），开发浮窗的主题模拟同步改为纯色覆盖。名片卡面的主题渐变保持不变。
 
 - Console 新增开发/演示用「视图切换」浮窗：默认不渲染，`?devtools=1` 或 localStorage `yonder.devtools` 才懒加载这块代码。浮窗可做断点预设（390×844 / 820×1180 / 1280×800，iframe 里开完整应用，断点按 iframe 的 `window.innerWidth` 计算）、路由快捷跳转（消息、通讯录、工作、我、`#/u/:id`、`#/g/:token`、`#/connect`、`#/get`）、身份入口（社交未登录/真实创建匿名访客/去登录，网关登出并重载）、节点切换（复用 `api/nodes`，远程节点另给新标签打开）、主题预览（`html[data-devtools-theme]` 叠同一套 token）与状态模拟（直接改真实查询缓存的 pending / 带标记错误 / 空数组，页面用自己的分支渲染，退出时恢复并重取）。所有数据仍来自真实网关，不造假数据；开关解析、断点映射、状态补丁与恢复都有纯函数单测。

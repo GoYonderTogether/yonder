@@ -10,6 +10,7 @@ import { Button } from "../../ui/kit/Button";
 import { Field } from "../../ui/kit/Field";
 import { toast } from "../../ui/kit/Toast";
 import { Window } from "../../ui/kit/Window";
+import { AccountSecurity } from "./AccountSecurity";
 import { AgentPublicToggle } from "./AgentPublicToggle";
 import { messageOf, socialSessionState } from "./lib/session";
 import { SocialLogin } from "./SocialLogin";
@@ -287,6 +288,13 @@ function Me() {
 			setBusy(false);
 		}
 	};
+	/** 换绑手机/邮箱后服务端已撤销所有会话：本地不再调 logout，只清掉缓存回到登录入口。 */
+	const logoutToLogin = () => {
+		client.removeQueries({ predicate: (query) => query.queryKey[0] !== qk.socialSession[0] });
+		client.setQueryData(qk.socialSession, null);
+		setSettings(false);
+		location.hash = href({ tab: "me" });
+	};
 	return (
 		<main className="scroll-y h-full bg-ground">
 			<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
@@ -377,8 +385,14 @@ function Me() {
 				</button>
 			</div>
 			<Window open={settings && !editing} onOpenChange={setSettings} title="设置">
-				<div className="flex flex-col gap-3 p-5">
+				<div className="flex max-h-[calc(90dvh-3rem)] flex-col gap-3 overflow-y-auto p-5">
 					{!actor.anonymous && <Button onClick={startEditing}>账号昵称</Button>}
+					{!actor.anonymous && (
+						<section aria-label="账号与安全" className="flex flex-col gap-3">
+							<h2 className="text-small font-medium text-muted">账号与安全</h2>
+							<AccountSecurity actor={actor} onSignedOut={logoutToLogin} />
+						</section>
+					)}
 					<Button disabled={busy} onClick={() => void logout()}>
 						退出登录
 					</Button>
