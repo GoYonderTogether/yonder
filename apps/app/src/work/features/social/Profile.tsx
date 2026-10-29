@@ -1,17 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, Monitor, Settings } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { qk } from "../../api/keys";
 import { type Actor, httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
-import { ActorAvatar } from "../../ui/kit/ActorAvatar";
 import { Button } from "../../ui/kit/Button";
 import { Field } from "../../ui/kit/Field";
 import { toast } from "../../ui/kit/Toast";
 import { Window } from "../../ui/kit/Window";
 import { AccountSecurity } from "./AccountSecurity";
 import { AgentPublicToggle } from "./AgentPublicToggle";
+import { SocialAvatar } from "./IdentityAvatar";
 import { messageOf, socialSessionState } from "./lib/session";
 import { SocialLogin } from "./SocialLogin";
 
@@ -121,7 +122,7 @@ function PublicProfile({ accountId }: { accountId: string }) {
 					<div className="relative flex flex-col gap-4 px-5 pb-5">
 						<div className="flex items-start gap-4">
 							<div className="-mt-7 rounded-full bg-raised p-1">
-								<ActorAvatar seed={actor.id} group="bot" size={72} dot={actor.kind === "agent" && !!actor.online} />
+								<SocialAvatar actor={actor} size={72} online={actor.kind === "agent" ? !!actor.online : undefined} />
 							</div>
 							<div className="min-w-0 flex-1 pt-3">
 								<h1 className="break-words text-[22px] leading-tight font-semibold">{actor.name}</h1>
@@ -182,7 +183,7 @@ function PublicProfile({ accountId }: { accountId: string }) {
 										href={actorHref(agent)}
 										className="press flex items-center gap-3 px-5 py-4 hover:bg-tone/60 focus-visible:outline"
 									>
-										<ActorAvatar seed={agent.id} group="bot" size={40} dot={!!agent.online} />
+										<SocialAvatar actor={agent} size={40} online={!!agent.online} />
 										<span className="min-w-0 flex-1">
 											<span className="block truncate font-medium">{agent.name}</span>
 											{agent.summary && <span className="mt-1 block text-small text-muted">{agent.summary}</span>}
@@ -208,7 +209,7 @@ function PublicProfile({ accountId }: { accountId: string }) {
 					<section className="rounded-card bg-raised px-5 py-4">
 						<h2 className="mb-3 text-small font-medium text-muted">主人</h2>
 						<a href={actorHref(owner)} className="press flex items-center gap-3 focus-visible:outline">
-							<ActorAvatar seed={owner.id} group="bot" size={40} />
+							<SocialAvatar actor={owner} size={40} />
 							<span className="font-medium">{owner.name}</span>
 						</a>
 					</section>
@@ -298,11 +299,11 @@ function Me() {
 	return (
 		<main className="scroll-y h-full bg-ground">
 			<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
-				<section aria-label="我的身份" className="flex items-center gap-4 rounded-card bg-raised p-5">
-					<ActorAvatar seed={actor.id} group="bot" size={64} />
+				<section aria-label="我的身份" className="flex items-center gap-4 rounded-[24px] bg-raised p-5 shadow-soft">
+					<SocialAvatar actor={actor} size={64} />
 					<div className="min-w-0 flex-1">
-						<h1 className="text-[22px] font-semibold">{actor.name}</h1>
-						{actor.code && <p className="text-small text-muted">ID · {actor.code}</p>}
+						<h1 className="text-[22px] leading-tight font-semibold tracking-tight">{actor.name}</h1>
+						{actor.code && <p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>}
 					</div>
 					{!actor.anonymous && (
 						<Button size="sm" onClick={startEditing}>
@@ -341,9 +342,9 @@ function Me() {
 										<li key={agent.id} className="px-5 py-4">
 											<a
 												href={href({ tab: "contacts", page: "contacts", session: agent.code ?? agent.id })}
-												className="flex items-center gap-3 focus-visible:outline"
+												className="press flex items-center gap-3 hover:bg-tone/60 focus-visible:outline"
 											>
-												<ActorAvatar seed={agent.id} group="bot" size={44} dot={!!agent.online} />
+												<SocialAvatar actor={agent} size={44} online={!!agent.online} />
 												<span className="min-w-0 flex-1">
 													<span className="block truncate font-medium">{agent.name}</span>
 													<span className="block text-caption text-muted">
@@ -351,7 +352,10 @@ function Me() {
 													</span>
 													{agent.summary && <span className="block text-small text-muted">{agent.summary}</span>}
 												</span>
-												<span>管理</span>
+												<span className="flex items-center gap-1 text-small text-muted">
+													管理
+													<ChevronRight size={16} />
+												</span>
 											</a>
 											<AgentPublicToggle actor={agent} />
 										</li>
@@ -361,15 +365,26 @@ function Me() {
 								<p className="px-5 py-4 text-small text-muted">连接设备后，Agent 会出现在这里</p>
 							)}
 						</section>
-						<a href={href({ tab: "contacts" })} className="rounded-card bg-raised p-4 focus-visible:outline">
-							设备
+						<a
+							href={href({ tab: "contacts" })}
+							className="press flex min-h-14 items-center gap-3 rounded-card bg-raised px-4 py-4 text-body hover:bg-tone/60 focus-visible:outline"
+						>
+							<Monitor size={20} strokeWidth={1.75} className="text-muted" />
+							<span className="flex-1">设备</span>
+							<ChevronRight size={16} className="text-faint" />
 						</a>
 						{!contacts.isPending && !contacts.isError && !agents.length && (
 							<div className="flex gap-2">
-								<a href={href({ tab: "chats", page: "connect" })} className="rounded-control bg-raised p-3">
+								<a
+									href={href({ tab: "chats", page: "connect" })}
+									className="press flex h-11 flex-1 items-center justify-center rounded-full bg-tone text-small font-medium text-ink hover:bg-tone-2"
+								>
 									添加设备
 								</a>
-								<a href={href({ tab: "chats", page: "get" })} className="rounded-control bg-raised p-3">
+								<a
+									href={href({ tab: "chats", page: "get" })}
+									className="press flex h-11 flex-1 items-center justify-center rounded-full bg-tone text-small font-medium text-ink hover:bg-tone-2"
+								>
 									下载 Yonder
 								</a>
 							</div>
@@ -379,9 +394,11 @@ function Me() {
 				<button
 					type="button"
 					onClick={() => setSettings(true)}
-					className="rounded-card bg-raised p-4 text-left focus-visible:outline"
+					className="press flex min-h-14 items-center gap-3 rounded-card bg-raised px-4 py-4 text-left text-body hover:bg-tone/60 focus-visible:outline"
 				>
-					设置
+					<Settings size={20} strokeWidth={1.75} className="text-muted" />
+					<span className="flex-1">设置</span>
+					<ChevronRight size={16} className="text-faint" />
 				</button>
 			</div>
 			<Window open={settings && !editing} onOpenChange={setSettings} title="设置">
@@ -400,7 +417,7 @@ function Me() {
 			</Window>
 			<Window open={editing} onOpenChange={setEditing} title="资料">
 				<div className="flex flex-col gap-4 p-5">
-					<ActorAvatar seed={actor.id} group="bot" size={64} />
+					<SocialAvatar actor={actor} size={64} />
 					<Field label="昵称" value={name} onChange={(e) => setName(e.target.value)} />
 					<div className="flex gap-2">
 						<Button

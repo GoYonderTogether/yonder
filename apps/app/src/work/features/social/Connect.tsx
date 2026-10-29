@@ -77,7 +77,7 @@ export function Connect() {
 		}
 	};
 	return (
-		<main className="mx-auto flex h-full w-full max-w-xl flex-col gap-5 overflow-y-auto bg-raised p-5 md:p-7">
+		<main className="scroll-y mx-auto flex h-full w-full max-w-xl flex-col gap-5 bg-ground px-4 py-5 md:px-6 md:py-7">
 			<h1 className="text-title font-semibold tracking-tight">{code ? "连接设备" : "添加设备"}</h1>
 			{code ? (
 				<>
@@ -104,7 +104,7 @@ export function Connect() {
 						<Monitor size={28} />
 					</span>
 					<p className="text-title font-semibold">{connected.name} 已连接</p>
-					<a href={contacts} className="rounded-full bg-accent px-4 py-2 text-on-accent">
+					<a href={contacts} className="press inline-flex h-11 items-center justify-center rounded-full bg-accent px-5 text-small font-medium text-on-accent hover:opacity-90">
 						去联系人
 					</a>
 				</div>
@@ -122,12 +122,18 @@ export function Connect() {
 					) : step === 1 ? (
 						<>
 							<div className="flex items-center gap-4">
+								{/* 倒计时环：conic-gradient 走字 + 内圈 raised，与名片站 AddDeviceDialog 同一做法。 */}
 								<div
 									role="timer"
 									aria-label={`邀请码剩余 ${Math.floor(remaining / 60)} 分 ${remaining % 60} 秒`}
-									className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-tone text-caption"
+									className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-tone"
+									style={{
+										background: `conic-gradient(var(--accent) ${invite ? (remaining / 600) * 100 : 0}%, var(--tone) 0)`,
+									}}
 								>
-									{expired ? "过期" : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
+									<span className="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-caption font-medium">
+										{expired ? "过期" : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
+									</span>
 								</div>
 								<div>
 									<p className="text-body font-medium">让 Agent 帮我连接</p>
