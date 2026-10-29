@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-web-tools",
-	"version": "0.3.26102902",
+	"version": "0.3.26102903",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -18,7 +18,7 @@
 		"SOURCES.md"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.3.26102902",
+		"@yonder/sdk": "0.3.26102903",
 		"@mozilla/readability": "0.6.0",
 		"linkedom": "0.18.13",
 		"turndown": "7.2.4",

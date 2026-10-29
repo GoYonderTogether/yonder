@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.3.26102903] - 2026-10-29
+
+### Changed
+
+- channel-wechat-ilink：失败分类与消息内容解析移入 client.ts，channel.ts 回到基线内
+
+### Fixed
+
+- core：单个附件下载失败不再使整轮失败，标注为不可用
+- channel-wechat-ilink：扫码轮询遇瞬时错误继续重试；会话过期(-14)明确告警并降频
+- runtime：credential errors fall back to next model candidate
+
+### Added
+
+- channel-qq：已关联人的群发言与 @ 同等触发群分身批次
+- app：账号默认 Bot 小歪、创建只需名字、网页 Agent 统一称 Bot（主人 10-29）
+
 ## [0.3.26102902] - 2026-10-29
 
 ### Added
