@@ -25,9 +25,9 @@ describe("titleOf", () => {
 			"贾维斯 · conv:qq:group",
 		);
 	});
-	it("keeps task titles", () => {
+	it("shows profile for untitled tasks, no id suffix", () => {
 		expect(
 			titleOf({ ...base, agent: null, mode: "task", id: "abcdef123", profile: "default" }, new Map([["main", "x"]])),
-		).toBe("default · abcdef");
+		).toBe("default");
 	});
 });
