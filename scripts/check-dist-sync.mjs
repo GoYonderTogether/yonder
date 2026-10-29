@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // dist 被 .gitignore 忽略，`tsc -b` 又是增量的：dist 里的 tsbuildinfo 认为工程已是最新时，
 // 缺文件、旧文件都不会被重新产出（BE-11：dist/tools/model-route.js 少了 modelChainRefs，
@@ -92,12 +93,19 @@ export function distDrift(packages = projectDirs()) {
 	return problems;
 }
 
-const problems = distDrift();
-if (problems.length) {
-	console.error(`dist 与源码不一致（${problems.length} 处）：`);
-	for (const problem of problems.slice(0, 20)) console.error(`  ${problem}`);
-	if (problems.length > 20) console.error(`  …另有 ${problems.length - 20} 处`);
-	console.error(`\n修：${REPAIR}（删掉 dist 后重新构建）。`);
-	process.exit(1);
+/** 把一个 dist 产物路径映射回拥有它的 tsconfig 工程目录；认不出来时返回 undefined。 */
+export function owningProject(problem, packages = projectDirs()) {
+	return packages.find((path) => problem.startsWith(`${path}/dist/`));
 }
-console.log("dist 与源码一致。");
+
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+	const problems = distDrift();
+	if (problems.length) {
+		console.error(`dist 与源码不一致（${problems.length} 处）：`);
+		for (const problem of problems.slice(0, 20)) console.error(`  ${problem}`);
+		if (problems.length > 20) console.error(`  …另有 ${problems.length - 20} 处`);
+		console.error(`\n修：${REPAIR}（删掉 dist 后重新构建）。`);
+		process.exit(1);
+	}
+	console.log("dist 与源码一致。");
+}

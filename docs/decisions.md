@@ -771,3 +771,9 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 改动：`plugins/index.ts` 读 `package.json` 顶层的 `deprecated: true`，写进 `LoadedPlugins.info[].deprecated`（只增字段，消费方不用改）；`kernel/home.ts` 的 `inspectHome` 对每个弃用插件 push 一条 warning：先 `yonder stop`，`yonder migrate` 预览、`yonder migrate --apply` 执行（改写 `yonder.yaml` 与 `agents/*.yaml` 的插件 id、迁移状态目录、原文件留 `.pre-migrate` 备份），改完 `yonder doctor` 复查。
 - 取舍：弃用仍是告警而不是错误。旧 home 因为弃用插件起不来是更坏的失败；插件本身的运行期 warning 保留（它对运行时日志有意义），doctor 的这条补的是迁移路径而不只是替代品名字。
 - 验证：新增 `doctor-deprecated-plugin.test.ts`，用真实 home 把 `@yonder/plugin-learning` 换成真实的 `@yonder/plugin-hermes-experience`（连同 agent 默认插件名），断言 doctor 告警含 `yonder migrate` 与状态目录路径、`errors` 为空；换回 `learning` 后告警消失。`docs/spec/04-plugins.md` 补 §2 的弃用契约，`09-cli-release.md` 更新 doctor 行。
+
+## 2026-10-29 BE-11 构建自愈：tsc 增量产物与源码不一致时自动重建（主 Agent 代批 10-29）
+- 根因：`tsc -b` 只按 mtime 判断工程是否最新（`tsBuildInfoFile` 在 `dist/` 内），dist 被拷贝/回滚/部分恢复后产物比源码新但内容陈旧，构建照常成功，运行期才报 `does not provide an export named modelChainRefs`。
+- 新增 `scripts/build-tsc.mjs`：tsc 之后用 `distDrift()` 核对，删除受影响工程的 `dist`（含其中 tsbuildinfo）重建一次；重建后仍不一致才失败。`npm run build` 改走该入口。
+- `scripts/check-dist-sync.mjs` 增加 `owningProject()` 并在直接运行时才做检查，便于被构建脚本 import。
+- 真实验证在 /tmp 的干净 clone 里做（构建、人为制造陈旧产物后自愈、空 HOME 跑 `doctor`），完成后删除；未改 tsconfig 的 tsbuildinfo 位置（范围内最小改动）。

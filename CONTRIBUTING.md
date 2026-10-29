@@ -32,7 +32,7 @@ skills/                    随发行内置的 skill
 - `packages/cli/` 可以使用 pi-tui 及 coding-agent 的 UI/主题/键位导出，或按许可提取的界面模块；不得接入 coding-agent 的第二套运行或存储系统，不得自行重设计布局和交互（见 [spec/12](docs/spec/12-terminal-interaction.md)）。
 - 不写模拟模型、假数据、示例人设、占位功能。
 - 修改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md` 与 `AGENTS.md` 属于设计变更，需要维护者审核。
-- `dist/` 不进仓库（`.gitignore`），`tsc -b` 又是增量的：被中断的构建、手工改过的产物都不会被自动修回来，CLI 随后会加载与源码不一致的 dist（BE-11：`doctor` 报 `does not provide an export named …`）。`npm run build` 已内置 `npm run check:dist` 门禁，报「dist 与源码不一致」就执行 `npm run build:clean`；不要用旧 dist 冒充本次源码。
+- `dist/` 不进仓库（`.gitignore`），`tsc -b` 又是增量的：被中断的构建、手工改过的产物都不会被自动修回来，CLI 随后会加载与源码不一致的 dist（BE-11：`doctor` 报 `does not provide an export named …`）。`npm run build` 走 `scripts/build-tsc.mjs`：`tsc -b` 之后核对产物，把不一致的工程（产物比源码新但内容陈旧、缺模块、缺导出）删掉重建一次，仍不一致才报错；报错时执行 `npm run build:clean`。`npm run check:dist` 可单独复核，不要用旧 dist 冒充本次源码。
 
 ## 同步 pi-durable fork
 
