@@ -6,7 +6,6 @@ import { httpApi } from "../../api/social";
 import { href } from "../../shell/routes";
 import { Button } from "../../ui/kit/Button";
 import { toast } from "../../ui/kit/Toast";
-import { AgentPublicToggle } from "./AgentPublicToggle";
 import { Switch } from "./DeviceSheet";
 import { IdentityDetail } from "./IdentityDetail";
 import { socialLoadError, socialUnavailable } from "./lib/socialError";
@@ -165,7 +164,6 @@ export function ContactDetail({ id }: { id: string }) {
 								)}
 							</dl>
 						)}
-						{mine && <AgentPublicToggle actor={a} />}
 					</IdentityDetail>
 				)}
 			</div>
