@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowDown,
 	ArrowLeft,
@@ -52,6 +52,8 @@ export function Market() {
 	const [params, setParams] = useSearchParams();
 	const navigate = useNavigate();
 	const qc = useQueryClient();
+	const listingsQuery = useQuery({ queryKey: ["market-listings"], queryFn: () => api.marketListings() });
+	const listings = listingsQuery.data ?? [];
 	const { agent, agents, me } = usePersonalAgent();
 	const [handoff, setHandoff] = useState<string | null>(null);
 	const [handingOff, setHandingOff] = useState(false);
@@ -121,35 +123,32 @@ export function Market() {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 搜索只随查询词与列表变化，params 为地址快照
 	const searchResults = useMemo(() => {
 		const text = params.get("q") ?? "";
-		const literal = filterListings(state.listings, text, defaultFilters);
+		const literal = filterListings(listings, text, defaultFilters);
 		const brief = inferBrief(text);
 		const related =
 			literal.length === 0 && brief.category !== "不限"
-				? findMatches(state.listings, brief).map((match) => match.listing)
+				? findMatches(listings, brief).map((match) => match.listing)
 				: [];
 		return { listings: literal.length ? literal : related, related: related.length > 0 };
-	}, [state.listings, params.get("q")]);
+	}, [listings, params.get("q")]);
 	const shown = useMemo(
 		() =>
 			view === "saved" || view === "liked"
 				? state[view]
 						.flatMap((id) => {
-							const item = state.listings.find((l) => l.id === id);
+							const item = listings.find((l) => l.id === id);
 							return item ? [item] : [];
 						})
 						.reverse()
-				: filterListings(searching ? searchResults.listings : state.listings, "", home ? defaultFilters : filters),
-		[state, view, searching, searchResults, home, filters],
+				: filterListings(searching ? searchResults.listings : listings, "", home ? defaultFilters : filters),
+		[state, listings, view, searching, searchResults, home, filters],
 	);
 	const activeTask = state.tasks.find((t) => t.id === params.get("task"));
-	const matches = useMemo(
-		() => (activeTask ? findMatches(state.listings, activeTask) : []),
-		[state.listings, activeTask],
-	);
-	const detail = state.listings.find((l) => l.id === params.get("item")) ?? null;
-	const editing = state.listings.find((l) => l.id === params.get("edit"));
+	const matches = useMemo(() => (activeTask ? findMatches(listings, activeTask) : []), [listings, activeTask]);
+	const detail = listings.find((l) => l.id === params.get("item")) ?? null;
+	const editing = listings.find((l) => l.id === params.get("edit"));
 	const comparison = state.compare.flatMap((id) => {
-		const item = state.listings.find((l) => l.id === id);
+		const item = listings.find((l) => l.id === id);
 		return item ? [item] : [];
 	});
 	const setView = (next: View) =>
@@ -205,11 +204,38 @@ export function Market() {
 		setState((s) => ({ ...s, tasks: [task, ...s.tasks.filter((t) => t.id !== task.id)] }));
 		navigate("/me/market/needs?task=" + task.id, { replace: true });
 	};
-	const saveListing = (listing: Listing) => {
-		setState((s) => ({ ...s, listings: [listing, ...s.listings.filter((l) => l.id !== listing.id)] }));
+	const saveListing = async (listing: Listing) => {
+		if (listing.image.startsWith("data:")) {
+			toast("图片上传暂未开放，请选用内置封面", true);
+			return;
+		}
+		const input = {
+			category: listing.category,
+			title: listing.title,
+			description: listing.description,
+			price: listing.price,
+			unit: listing.unit,
+			location: listing.location,
+			delivery: listing.delivery,
+			images: listing.image ? [listing.image] : [],
+			sellerRole: listing.sellerRole,
+			discoverable: listing.discoverable !== false,
+			agent: listing.agent,
+			tags: listing.tags,
+			facts: listing.facts,
+			missing: listing.missing,
+		};
+		try {
+			if (editing) await api.updateListing(editing.id, input);
+			else await api.createListing({ ...input, kind: listing.kind });
+		} catch (error) {
+			toast(error instanceof Error ? error.message : "发布失败，请重试", true);
+			return;
+		}
+		await qc.invalidateQueries({ queryKey: ["market-listings"] });
 		setMineTab("published");
 		navigate("/me/market/posts", { replace: true });
-		toast(editing ? "修改已保存" : "已保存到本机，可在「我 · 我的发布」管理");
+		toast(editing ? "修改已保存" : "已发布，可在「我 · 我的发布」管理");
 	};
 	const refresh = (id: string) => {
 		if (refreshing) return;
@@ -218,9 +244,7 @@ export function Market() {
 			setState((s) => ({
 				...s,
 				tasks: s.tasks.map((t) =>
-					t.id === id
-						? { ...t, checkedAt: Date.now(), seenIds: findMatches(s.listings, t).map((m) => m.listing.id) }
-						: t,
+					t.id === id ? { ...t, checkedAt: Date.now(), seenIds: findMatches(listings, t).map((m) => m.listing.id) } : t,
 				),
 			}));
 			setRefreshing(undefined);
@@ -396,7 +420,15 @@ export function Market() {
 							{!shown.length && (
 								<div className="mk-empty">
 									{collection ? view === "saved" ? <Bookmark size={30} /> : <Heart size={30} /> : <Search size={30} />}
-									<h3>{collection ? (view === "saved" ? "还没有收藏" : "还没有点赞") : "暂时没有找到"}</h3>
+									<h3>
+										{collection
+											? view === "saved"
+												? "还没有收藏"
+												: "还没有点赞"
+											: listings.length === 0 && !searching
+												? "市场还没有帖子"
+												: "暂时没有找到"}
+									</h3>
 									<p>
 										{collection
 											? "逛到喜欢的帖子，随时留下来。"
@@ -409,6 +441,12 @@ export function Market() {
 											去市场逛逛
 											<ArrowRight size={16} />
 										</Link>
+									)}
+									{view === "discover" && !searching && listings.length === 0 && (
+										<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
+											<Plus size={16} />
+											发布第一条
+										</button>
 									)}
 								</div>
 							)}
@@ -426,14 +464,12 @@ export function Market() {
 							)}
 						</>
 					)}
-					{view === "stats" && (
-						<MarketStats listings={state.listings} onStats={(l) => openPanel("stats", { item: l.id })} />
-					)}
+					{view === "stats" && <MarketStats listings={listings} onStats={(l) => openPanel("stats", { item: l.id })} />}
 					{view === "agent" && (
 						<AgentWorkspace
 							tasks={state.tasks}
 							onDelegate={(task) => setHandoff(needContext(task))}
-							listings={state.listings}
+							listings={listings}
 							selectedId={activeTask?.id}
 							onSelect={(id) => setParams({ task: id })}
 							onBack={() => setParams({})}
@@ -450,17 +486,19 @@ export function Market() {
 					)}
 					{view === "selling" && (
 						<SellerWorkspace
-							listings={state.listings}
+							listings={listings}
 							saved={state.saved}
 							tab={mineTab}
 							onTab={setMineTab}
 							onEdit={(l) => openPanel("publish", { edit: l.id })}
-							onToggle={(id) =>
-								setState((s) => ({
-									...s,
-									listings: s.listings.map((l) => (l.id === id ? { ...l, paused: !l.paused } : l)),
-								}))
-							}
+							onToggle={(id) => {
+								const item = listings.find((l) => l.id === id);
+								if (!item) return;
+								api
+									.setListingPaused(id, !item.paused)
+									.then(() => qc.invalidateQueries({ queryKey: ["market-listings"] }))
+									.catch((error) => toast(error instanceof Error ? error.message : "操作失败，请重试", true));
+							}}
 							onOpen={openDetail}
 							onSave={toggleSaved}
 							onStats={(l) => openPanel("stats", { item: l.id })}

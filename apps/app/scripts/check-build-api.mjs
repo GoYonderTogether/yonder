@@ -10,8 +10,8 @@ import { join } from "node:path";
 
 const dist = process.argv[2] ?? new URL("../dist/", import.meta.url).pathname;
 
-/** 只在 mock 实现/原型横幅里出现的文案。 */
-const mockMarkers = ["本地原型模式", "（原型回复）"];
+/** 只在 mock 实现/原型横幅里出现的文案（含市场演示帖，JV2-J10-01）。 */
+const mockMarkers = ["本地原型模式", "（原型回复）", "让旅行轻一点，索尼 a6000 套机"];
 /** 真实接口才有的路径；mock 构建里被 tree-shaking 掉。 */
 const apiMarkers = ["/auth/code/verify", "/me/default-bot"];
 

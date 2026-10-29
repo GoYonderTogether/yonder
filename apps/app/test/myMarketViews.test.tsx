@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -13,7 +14,10 @@ const mk = (id: string, metricSource?: "sample") => ({
 });
 const state = vi.hoisted(() => ({ listings: [] as unknown[] }));
 vi.mock("../src/market/store", () => ({
-	useMarketState: () => ({ state: { listings: state.listings, saved: [], liked: [], tasks: [] } }),
+	useMarketState: () => ({ state: { listings: [], saved: [], liked: [], tasks: [] } }),
+}));
+vi.mock("../src/api", () => ({
+	api: { marketListings: () => Promise.resolve(state.listings) },
 }));
 
 async function render() {
@@ -26,9 +30,11 @@ async function render() {
 	const root = createRoot(el as never);
 	await act(() =>
 		root.render(
-			<MemoryRouter>
-				<MyMarket />
-			</MemoryRouter>,
+			<QueryClientProvider client={new QueryClient()}>
+				<MemoryRouter>
+					<MyMarket />
+				</MemoryRouter>
+			</QueryClientProvider>,
 		),
 	);
 	return el.textContent ?? "";

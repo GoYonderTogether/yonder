@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Bookmark, ChevronRight, Eye, Heart, Package, Sparkles } from "lucide-react";
 import { Link } from "react-router";
+import { api } from "../../api";
 import { compactCount, viewCount } from "../../market/catalog";
 import { useMarketState } from "../../market/store";
 import type { Listing } from "../../market/types";
@@ -7,7 +9,8 @@ import type { Listing } from "../../market/types";
 /** Personal market entries belong to the shared Me page, not the public feed. */
 export function MyMarket() {
 	const { state } = useMarketState();
-	const mine = state.listings.filter((l) => l.mine);
+	const { data: listings = [] } = useQuery({ queryKey: ["market-listings"], queryFn: () => api.marketListings() });
+	const mine = listings.filter((l) => l.mine);
 	// 示例数据不当真实浏览数展示（UX-04）；有真实数据的发布才显示这一行
 	const real = mine.filter((l) => l.metricSource !== "sample");
 	return (

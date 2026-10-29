@@ -7,7 +7,8 @@ import { listingContext, needContext, readMarketDraft } from "../src/market/hand
 import { findMatches, inferBrief } from "../src/market/matching.ts";
 
 test("legacy preview keeps edits, saved posts and tasks while adding new post kinds once", () => {
-	const initial = initialMarketState();
+	// 网页的初始状态不再带演示帖（JV2-J10-01）；这里用演示帖当旧缓存的种子，只测升级逻辑。
+	const initial = { ...initialMarketState(), listings: DEMO_LISTINGS.map((l) => ({ ...l, metricSource: "sample" })) };
 	const legacy = {
 		...initial,
 		version: undefined,

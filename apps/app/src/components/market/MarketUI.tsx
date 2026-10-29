@@ -57,7 +57,7 @@ export function MarketDialog({
 							<X size={21} />
 						</Dialog.Close>
 					</header>
-					<Dialog.Description className="sr-only">{title}，本地市场交互演示。</Dialog.Description>
+					<Dialog.Description className="sr-only">{title}</Dialog.Description>
 					{children}
 				</Dialog.Content>
 			</Dialog.Portal>

@@ -1,3 +1,4 @@
+import type { Category, Listing, ListingKind } from "../market/types";
 import type {
 	Actor,
 	Card,
@@ -19,6 +20,25 @@ import type {
 	ShareLinkKind,
 	VerifyKind,
 } from "./types";
+
+/** 云端 POST/PATCH 可写的帖子字段（与 server/src/market.ts listingInput 对齐）。 */
+export interface ListingInput {
+	kind: ListingKind;
+	category: Category;
+	title: string;
+	description: string;
+	price: number;
+	unit: string;
+	location: string;
+	delivery: string;
+	images: string[];
+	sellerRole: string;
+	discoverable: boolean;
+	agent: boolean;
+	tags: string[];
+	facts: { label: string; value: string }[];
+	missing: string[];
+}
 
 /**
  * 后端接口契约。每个方法对应 server/PLAN.md 中的一项接口能力。
@@ -108,4 +128,13 @@ export interface ApiClient {
 	 * 服务端在账号行锁内判断，重复登录与并发请求不会产生多个。
 	 */
 	ensureDefaultBot(input: { name: string; englishName: string }): Promise<Actor>;
+
+	// 市场：云端帖子。列表含他人公开帖与自己的全部帖（含已下架）。
+	marketListings(): Promise<Listing[]>;
+	/** 发布新帖；图片只接受 https 外链或内置 `/market/*.jpg`。 */
+	createListing(input: ListingInput): Promise<Listing>;
+	/** 修改帖子（kind 不可改）。 */
+	updateListing(id: string, input: Partial<Omit<ListingInput, "kind">>): Promise<Listing>;
+	/** 下架（paused）或重新上架（active）。 */
+	setListingPaused(id: string, paused: boolean): Promise<Listing>;
 }

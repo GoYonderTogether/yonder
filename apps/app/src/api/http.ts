@@ -1,3 +1,4 @@
+import type { Listing } from "../market/types";
 import type { ApiClient } from "./client";
 import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
 
@@ -32,6 +33,24 @@ async function request<T>(path: string, init: RequestInit = {}, missingAsNull = 
 	return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** 云端帖子视图（server/src/market.ts listingView）转成页面用的 Listing：图片取首张，状态转 paused。 */
+type CloudListing = Omit<Listing, "image" | "paused" | "metrics"> & {
+	images: string[];
+	status: "active" | "paused";
+	updatedAt: number;
+	metrics: { shortlists: number; likes?: number; humanViews?: number; agentViews?: number; inquiries?: number };
+};
+const toListing = ({ images, status, updatedAt: _updatedAt, metrics, ...rest }: CloudListing): Listing => ({
+	...rest,
+	image: images[0] ?? "",
+	paused: status === "paused",
+	metrics: {
+		shortlists: metrics.shortlists,
+		agentViews: metrics.agentViews ?? 0,
+		humanViews: metrics.humanViews ?? 0,
+		inquiries: metrics.inquiries ?? 0,
+	},
+});
 const json = (method: string, body?: unknown): RequestInit => ({
 	method,
 	...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
@@ -138,6 +157,17 @@ export const httpApi: ApiClient = {
 	contacts: () => request<Actor[]>("/contacts"),
 	createBot: (input) => request<Actor>("/bots", json("POST", input)),
 	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),
+	marketListings: async () => (await request<{ items: CloudListing[] }>("/market/listings")).items.map(toListing),
+	createListing: async (input) => toListing(await request<CloudListing>("/market/listings", json("POST", input))),
+	updateListing: async (id, input) =>
+		toListing(await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", input))),
+	setListingPaused: async (id, paused) =>
+		toListing(
+			await request<CloudListing>(
+				`/market/listings/${encodeURIComponent(id)}/${paused ? "pause" : "resume"}`,
+				json("POST"),
+			),
+		),
 	setAgentOnline: (agentId, online) =>
 		request(`/agents/${encodeURIComponent(agentId)}/online`, json("PUT", { online })),
 	deviceCode: (code) => request(`/device/code?code=${encodeURIComponent(code)}`),

@@ -1,5 +1,7 @@
 // 原型数据：仅用于前端原型演示，后端接入后整文件删除。内存实现，刷新即重置。
 
+import { DEMO_LISTINGS } from "../market/data";
+import type { Listing } from "../market/types";
 import type { ApiClient } from "./client";
 import { cardSummary } from "./summary";
 import type { Actor, Card, Conversation, Device, Message, MessageContent, Session } from "./types";
@@ -162,6 +164,19 @@ let session: Session | null = null;
 const listeners = new Set<(m: Message) => void>();
 const emit = (m: Message) => {
 	for (const l of listeners) l(m);
+};
+
+// 市场演示数据：只在 mock 构建（未设 VITE_API=http）里出现；真实构建走云端。
+// 惰性初始化：生产（http）构建里 mockApi 被摇掉，演示帖也不会进产物（JV2-J10-01）。
+let demoListings: Listing[] | undefined;
+const marketListings = () => {
+	demoListings ??= DEMO_LISTINGS.map((l) => ({ ...l }));
+	return demoListings;
+};
+const findListing = (id: string) => {
+	const listing = marketListings().find((l) => l.id === id);
+	if (!listing) throw new Error("没有这条帖子");
+	return listing;
 };
 
 export const mockApi: ApiClient = {
@@ -528,5 +543,36 @@ export const mockApi: ApiClient = {
 		if (!a) throw new Error("没有这个 Bot");
 		a.online = online;
 		return { ...a };
+	},
+	async marketListings() {
+		await wait();
+		return marketListings().map((l) => ({ ...l }));
+	},
+	async createListing(input) {
+		await wait();
+		const listing: Listing = {
+			...input,
+			id: crypto.randomUUID(),
+			image: input.images[0] ?? "",
+			seller: "我",
+			mine: true,
+			paused: false,
+			createdAt: now(),
+			metrics: { shortlists: 0, agentViews: 0, humanViews: 0, inquiries: 0 },
+		};
+		marketListings().unshift(listing);
+		return { ...listing };
+	},
+	async updateListing(id, input) {
+		await wait();
+		const listing = findListing(id);
+		Object.assign(listing, input, { image: input.images?.[0] ?? listing.image });
+		return { ...listing };
+	},
+	async setListingPaused(id, paused) {
+		await wait();
+		const listing = findListing(id);
+		listing.paused = paused;
+		return { ...listing };
 	},
 };

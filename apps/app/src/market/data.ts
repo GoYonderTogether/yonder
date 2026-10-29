@@ -372,8 +372,9 @@ export function initialMarketState(): MarketState {
 	return {
 		version: 2,
 		liked: [],
-		listings: DEMO_LISTINGS.map((l) => ({ ...l, metricSource: "sample" })),
-		tasks: [INITIAL_TASK],
+		// 帖子来自云端（api.marketListings）；演示帖只在 mock 构建里由 api/mock.ts 提供（JV2-J10-01）。
+		listings: [],
+		tasks: [],
 		saved: [],
 		compare: [],
 		inquiries: [],
