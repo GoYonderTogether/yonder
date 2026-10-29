@@ -809,3 +809,8 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 契约增补（网页 → 社交服务，见 docs/spec/16-card-plugin.md「默认 Bot 与云端创建」）：`POST /api/me/default-bot`（幂等）、`POST /api/bots`。服务端实现在 yonder-cloud 仓库，本仓库只含客户端与 mock，未做服务端。
 - 主 Agent 代批 10-29：账号内「没有任何自己的 Bot」包含设备接入的本地 Bot；已接入设备的账号不会再多出小歪。
 - 主 Agent 代批 10-29：模型链遇凭据类不可恢复错误（OAuth invalid_grant、缺 key）在模型层标记为鉴权失败，当次运行回退下一候选，该槽持有 24 小时并由现有探测在重新登录后恢复；doctor 警告提示 `yonder login <provider> --replace`。见 docs/spec/07-runtime.md §6.1。
+
+## 2026-10-29 CH-01 渠道可用性：微信扫码重试、会话过期可见、QQ 群主人发言必响应（主 Agent 代批 10-29）
+- 微信：扫码轮询遇网络瞬时错误/5xx 曾直接终止（只留一行无原因日志），主人扫码后服务端从未确认登录；改为继续轮询到二维码过期，日志带 stage/reason/http。拉取消息遇 errcode/ret -14（服务端会话过期）此前被静默吞掉、每 5 秒重试且无日志；改为状态 `ILINK_SESSION_EXPIRED`、只告警一次、降到 60 秒重试，提示重新 `yonder channels login`。
+- QQ 群：持续在场与群分身（wake: write + group-batch、persistent per:conv、reply: none）机制早已存在，缺口是未列入 allowedGroups/groupParticipation 的群默认 `mention`，主人不 @ 说「在吗」只被记录。增补：发言账号已关联到人（identity.account().person 非空）时按 @ 处理，立即触发批次；陌生人仍需 @/关键词/`all`。不改变 `record` 与未关联账号的默认，保持只增不改。
+- 主 Bot 忙时私聊：各渠道 owner 绑定已是 `busy: steer`（新消息并入运行中的回合），群在独立 persistent 会话，不占 main 会话；未新增机制。

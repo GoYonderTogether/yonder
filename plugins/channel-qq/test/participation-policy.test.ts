@@ -55,3 +55,28 @@ test("conflicting old and new mention facts do not trigger participation", () =>
 	expect(warnings).toHaveLength(1);
 	groups.stop();
 });
+
+test("a linked person's plain message in a mention-mode group triggers now; record mode stays quiet", () => {
+	const groups = new GroupParticipation({} as PluginAPI, "qq", 60, { groupParticipation: { quiet: "record" } });
+	const accept = (group: string, owner: boolean) =>
+		groups.accept(
+			{
+				id: group,
+				ts: new Date().toISOString(),
+				type: "message.in",
+				conv: `conv:qq:group:${group}`,
+				data: { kind: "group", text: "在吗", mentioned: false },
+				routes: [{ agent: "main", binding: "group", wake: "write" }],
+			} as YEvent,
+			true,
+			owner,
+		);
+	accept("stranger", false);
+	accept("owner", true);
+	accept("quiet", true);
+	const due = Object.fromEntries(groups.status().map((s) => [s.conv, s.nextAt]));
+	expect(due["conv:qq:group:stranger"]).toBeUndefined();
+	expect(due["conv:qq:group:owner"]).toBeDefined();
+	expect(due["conv:qq:group:quiet"]).toBeUndefined();
+	groups.stop();
+});

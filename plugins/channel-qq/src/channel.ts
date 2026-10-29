@@ -318,7 +318,9 @@ export class QQChannel implements Channel {
 			this.pending.add(work);
 			try {
 				const recorded = await work;
-				this.groups?.accept(recorded as import("@yonder/sdk").YEvent);
+				const sender = recorded as import("@yonder/sdk").YEvent;
+				const linked = this.groups && sender.from ? (await this.api.identity.account(sender.from))?.person : undefined;
+				this.groups?.accept(sender, true, Boolean(linked));
 				this.received++;
 			} finally {
 				this.pending.delete(work);
