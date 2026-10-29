@@ -39,6 +39,9 @@ export function PublicIdentity({
 	const nav = useNavigate();
 	const [starting, setStarting] = useState(false);
 	const [adding, setAdding] = useState(false);
+	const [collecting, setCollecting] = useState(false);
+	const member = !!session && !session.actor.anonymous;
+	const myCards = useQuery({ queryKey: ["cards"], queryFn: api.cards, enabled: member && !!cardId });
 	const cardQuery = useQuery({
 		queryKey: ["card", canonicalCardId],
 		enabled: !!canonicalCardId,
@@ -123,6 +126,20 @@ export function PublicIdentity({
 			setStarting(false);
 		}
 	};
+	const collected = !!card && !!myCards.data?.some((c) => c.id === card.id && !c.mine);
+	const collect = async () => {
+		if (!card) return;
+		setCollecting(true);
+		try {
+			await api.collectCard(card.id, source);
+			await qc.invalidateQueries({ queryKey: ["cards"] });
+			toast("已收藏，可在「我 → 收藏的名片」查看");
+		} catch (error) {
+			toast(error instanceof Error ? error.message : "收藏失败", true);
+		} finally {
+			setCollecting(false);
+		}
+	};
 	const addFriend = async () => {
 		if (!session || session.actor.anonymous) {
 			toast("注册后可加好友，聊天无需注册");
@@ -166,6 +183,11 @@ export function PublicIdentity({
 					{!self && !ownedAgent && (
 						<Button className="h-11" disabled={adding} onClick={addFriend}>
 							加好友
+						</Button>
+					)}
+					{!self && !ownedAgent && member && card && (
+						<Button className="h-11" disabled={collecting || collected} onClick={collect}>
+							{collected ? "已收藏" : "收藏"}
 						</Button>
 					)}
 				</div>
