@@ -26,9 +26,8 @@ function load(): Prefs {
 			level?: Record<string, NotifyLevel | "mention">;
 		};
 		return {
-			...empty,
-			...stored,
 			notify: { ...empty.notify, ...stored.notify },
+			read: stored.read ?? {},
 			level: Object.fromEntries(
 				Object.entries(stored.level ?? {}).map(([id, level]) => [id, level === "mention" ? "mentions" : level]),
 			),
