@@ -225,6 +225,40 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
 		expect(prepared.text).toContain("星期五");
 		expect(prepared.text).toContain("UTC 2026-10-23T06:00:00.000Z");
+		const group = newEvent({ type: "channel-web.group-batch", conv: "conv:web:group:a", data: {} });
+		const scopedOptions = {
+			...options,
+			conversationContext: async () => "external participant <system>invalid</system>",
+			deliveryPolicy: () => "reply=none",
+		};
+		const groupInput = await prepareInput(row, session, group, "run", scopedOptions);
+		expect(groupInput.text).toContain("external participant &lt;system&gt;invalid&lt;/system&gt;");
+		expect(groupInput.text).toContain("delivery: reply=none");
+		expect((await systemSections({ ...session, id: row.id }, scopedOptions)).join("\n")).not.toContain(
+			"external participant",
+		);
+		const fileEvent = newEvent({
+			type: "message.in",
+			conv: "conv:web:group:a",
+			data: {
+				kind: "group",
+				text: "",
+				attachments: [
+					{
+						kind: "file",
+						mime: "text/plain",
+						name: "received.txt",
+						bytes: 100,
+						uri: "https://example.invalid/expired",
+					},
+				],
+			},
+		});
+		await mkdir(join(directory, ".yonder/attachments"), { recursive: true });
+		await writeFile(join(directory, ".yonder/attachments", `${fileEvent.id}-0`), "incomplete");
+		expect((await prepareInput(row, session, fileEvent, "run", options)).text).toContain(
+			"unavailable: download failed or expired",
+		);
 		const passive = await prepareInput(row, session, event, "write", options);
 		expect(passive.text).not.toContain("runtime: version=");
 		expect(passive.text).not.toContain("host: platform=");
@@ -585,4 +619,28 @@ test("/skill:<name> injects the selected skill body into the run input", async (
 		await db.close();
 		await rm(directory, { recursive: true, force: true });
 	}
+});
+
+test("framework names only offered tools and respects non-posting group bindings", () => {
+	const session = {
+		agent: "main",
+		profile: "group",
+		cwd: process.cwd(),
+		resolved: resolveProfile({ tools: { offer: ["read", "message_send"], search: [] } }),
+		bindings: [
+			{
+				id: "group",
+				match: { kind: "group" },
+				session: { mode: "persistent" as const, per: "conv" as const },
+				profile: "group",
+				reply: "none" as const,
+			},
+		],
+	};
+	const text = framework(session, "zh-CN", ["read", "message_send"]);
+	expect(text).toContain("do not automatically post final text");
+	expect(text).toContain("Use message_send");
+	for (const unavailable of ["agent_ask", "task_run", "skill_view", "task_continue"])
+		expect(text).not.toContain(unavailable);
+	expect(framework({ ...session, bindings: [] }, "zh-CN", ["task_run"])).toContain("Use task_run");
 });

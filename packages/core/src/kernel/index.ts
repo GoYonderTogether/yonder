@@ -8,15 +8,7 @@ import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
-import {
-	type PromptOptions,
-	prepareInput,
-	scaffoldWorkspace,
-	systemPromptKeys,
-	systemPromptParts,
-	toolDiscoveryGuide,
-} from "../prompt/index.js";
-import { pluginTemplateDirs } from "../prompt/templates.js";
+import { prepareInput, scaffoldWorkspace, systemPromptKeys, systemPromptParts } from "../prompt/index.js";
 import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -24,14 +16,11 @@ import { Runtime } from "../runtime/index.js";
 import { closeOnRunEnd } from "../sessions/close-policy.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
-import { conversationMembers, createConversationTools } from "../tools/conversation.js";
-import { createCoreTools } from "../tools/index.js";
-import { createPermissionsTool } from "../tools/permissions.js";
-import { createSkillTool } from "../tools/skill-view.js";
 import { builtinViews } from "../views/builtin.js";
 import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
 import { migrateCardVisitor } from "./card-visitor.js";
+import { kernelPromptOptions, kernelTools } from "./conversation.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
 import { hostService } from "./host-status.js";
@@ -41,10 +30,10 @@ import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { quotaWire } from "./quota-wire.js";
 import { createSocial } from "./social.js";
-import { createSubagentTool, runSubagent } from "./subagents.js";
+import { runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
-import { credentialsAndModels, filesFor, loadAgents, projectRulesFor, skillsFor, unavailable } from "./workspace.js";
+import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { migrateCardVisitor } from "./card-visitor.js";
@@ -291,25 +280,17 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				request.replace,
 			);
 		};
-
-		const promptOptions: PromptOptions = {
-			conversationContext: async (event, agent, signal) =>
-				event.conv ? JSON.stringify(await conversationMembers(store, event.conv, agent, signal)) : undefined,
+		const promptOptions = kernelPromptOptions(
 			home,
-			version: packageVersion,
-			locale: config.locale ?? "zh-CN",
-			timezone: config.timezone ?? "Asia/Shanghai",
-			contexts: loaded.contexts,
-			workspace: (session, signal) => filesFor(home, config, loaded, session.agent ?? "", signal),
-			projectRules: (session, signal) => projectRulesFor(home, config, loaded, session, signal),
-			identity: store.identity(),
-			models: services.models,
-			setVersion: store.sessions.setVersion,
-			skillIndex: skills.index,
-			skillCommand: skills.command,
-			toolIndex: (session) => toolDiscoveryGuide(realRuntime().describeTools(session)),
-			templateDirs: (session) => pluginTemplateDirs(loaded.info ?? [], realRuntime().describeTools(session)),
-		};
+			config,
+			loaded,
+			store,
+			agents,
+			realRuntime,
+			services,
+			skills,
+			packageVersion,
+		);
 		/** 运行结束后的关闭原因：task 会话读一次运行期策略，失败的运行不关闭（见 sessions 的 closeOnRunEnd）。 */
 		const closeReason = async (id: string, mode: import("@yonder/sdk").SessionInfo["mode"], status: string) => {
 			const close = mode === "task" ? (await realRuntime().sessionState(id))?.close : undefined;
@@ -392,22 +373,22 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
 		});
-		const tools = createCoreTools({
-			store,
-			agents,
-			sessions,
-			runtime: realRuntime,
-			delivery,
-			ask: router.ask,
-			getPreset: sessions.getPreset,
-			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
-			...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
-		});
-		tools.push(...createConversationTools(store, home));
-		tools.push(createPermissionsTool(permissions));
-		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
-		// SA1：管理动作入口，与 task_run/task_control 同条件提供（权限、预设与两层嵌套限制由 task_run 判定）。
-		tools.push(createSubagentTool(realRuntime, () => tools));
+		const tools = kernelTools(
+			{
+				store,
+				agents,
+				sessions,
+				runtime: realRuntime,
+				delivery,
+				ask: router.ask,
+				getPreset: sessions.getPreset,
+				presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
+				...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
+			},
+			home,
+			permissions,
+			skills,
+		);
 		for (const { decl, provider } of builtinViews(realRuntime)) loaded.views.register("core", decl, provider);
 		runtime = await Runtime.open({
 			db,

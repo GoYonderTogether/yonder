@@ -39,12 +39,30 @@ export const escapeXml = (value: string) =>
 	value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 const label = (value: string) => escapeXml(value.replace(/[\r\n\u2028\u2029]/gu, " "));
 
-export function framework(session: RuntimeSessionConfig, locale = "zh-CN"): string {
+export function framework(
+	session: RuntimeSessionConfig,
+	locale = "zh-CN",
+	offeredTools: readonly string[] = [],
+): string {
+	const offered = new Set(offeredTools);
+	const bindings = session.bindings?.filter((binding) => binding.profile === session.profile) ?? [];
+	const noAutoReply = bindings.length > 0 && bindings.every((binding) => binding.reply === "none" && !binding.deliver);
+	const delivery = noAutoReply
+		? "This profile's bindings do not automatically post final text to the channel. Public messages require an available send tool."
+		: "Final text follows the accepted input's delivery policy shown in <turn>; do not duplicate automatic delivery with a send tool.";
+	const toolGuide = [
+		offered.has("message_send") ? "Use message_send for an explicit recipient or channel." : "",
+		session.agent && offered.has("agent_ask") ? "Use agent_ask to ask another agent." : "",
+		offered.has("task_run") ? "Use task_run to delegate a specialized task." : "",
+		offered.has("skill_view") ? "Read available skills with skill_view." : "",
+	]
+		.filter(Boolean)
+		.join(" ");
 	return `You run in Yonder Harness. Your agent ID is ${session.agent ?? "none (preset session)"}; your current profile is ${session.profile}.
 Use ${locale} as the default language for user-facing responses; follow the user's language when it is clear, and do not translate skill or source text unless asked.
-Your final response is automatically returned to the caller or delivered according to the input's reply settings; do not send it again. ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked, then actual verification evidence (commands/tests/paths), remaining items, and the exact requirement if blocked. Never end a task session with empty text or NO_REPLY."}
-Use message_send to contact another person or channel, ${session.agent ? "agent_ask to ask another agent, and " : ""}task_run to delegate a specialized task. Read available skills with skill_view.
-For unfinished work, keep using tools or use task_continue to durably queue the next step before ending a progress report. A background handle already waits and delivers its result automatically; do not queue polls. A promise in prose does not schedule work. An input of type runtime.continuation is the accepted next step: execute it now.
+${delivery} ${session.agent ? "If no reply is needed, output only NO_REPLY." : "Your final report must start with STATUS: done|partial|blocked, then actual verification evidence (commands/tests/paths), remaining items, and the exact requirement if blocked. Never end a task session with empty text or NO_REPLY."}
+${toolGuide}
+For unfinished work, keep using available tools.${offered.has("task_continue") ? " Use task_continue to durably queue the next step before ending a progress report." : ""} A background handle already waits and delivers its result automatically; do not queue polls. A promise in prose does not schedule work. An input of type runtime.continuation is the accepted next step: execute it now.
 The notice lines inside <turn> are internal information for you; do not announce them unless relevant.${session.resolved.capabilities.includes("exec") ? " Use the yonder command and yonder docs to understand and maintain your runtime environment." : ""}`;
 }
 
@@ -66,6 +84,8 @@ Use an already offered tool directly. Discover a dedicated tool before building 
 }
 
 export interface PromptOptions {
+	offeredTools?(session: RuntimeSessionConfig): string[];
+	deliveryPolicy?(event: YEvent, session: string): string | undefined;
 	conversationContext?(event: YEvent, agent: string | null, signal?: AbortSignal): Promise<string | undefined>;
 	home: string;
 	version: string;
@@ -178,7 +198,7 @@ export async function scaffoldWorkspace(
 export async function systemSections(
 	session: RuntimeSessionConfig & { id: string },
 	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal" | "projectRules"> &
-		Partial<Pick<PromptOptions, "locale">>,
+		Partial<Pick<PromptOptions, "locale" | "offeredTools">>,
 ): Promise<string[]> {
 	return (await systemPromptParts(session, options)).map((part) => part.text);
 }
@@ -187,7 +207,7 @@ export async function systemSections(
 export async function systemPromptParts(
 	session: RuntimeSessionConfig & { id: string },
 	options: Pick<PromptOptions, "contexts" | "workspace" | "skillIndex" | "toolIndex" | "signal" | "projectRules"> &
-		Partial<Pick<PromptOptions, "locale">>,
+		Partial<Pick<PromptOptions, "locale" | "offeredTools">>,
 ): Promise<PromptPart[]> {
 	const prompt = session.resolved.prompt ?? {};
 	const sections: PromptPart[] = [];
@@ -197,7 +217,7 @@ export async function systemPromptParts(
 		if (id === "cli" && !session.resolved.capabilities.includes("exec")) continue;
 		let original =
 			id === "framework"
-				? framework(session, options.locale ?? "zh-CN")
+				? framework(session, options.locale ?? "zh-CN", options.offeredTools?.(session))
 				: builtinPromptSections.find((section) => section.id === id)?.text;
 		if (id === "tool-discovery") {
 			const guide = options.toolIndex?.(session);
@@ -226,6 +246,8 @@ async function download(
 	const path = join(directory, `${event}-${index}`);
 	try {
 		const saved = await stat(path);
+		if (attachment.bytes !== undefined && saved.size !== attachment.bytes)
+			throw new Error("Attachment cache size differs from received metadata");
 		return { ...attachment, uri: pathToFileURL(path).href, bytes: saved.size };
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -233,6 +255,8 @@ async function download(
 	const response = await fetch(attachment.uri, { signal });
 	if (!response.ok) throw new Error(`Attachment download failed: HTTP ${response.status}`);
 	const bytes = new Uint8Array(await response.arrayBuffer());
+	if (attachment.bytes !== undefined && bytes.length !== attachment.bytes)
+		throw new Error("Attachment download size differs from received metadata");
 	const temporary = join(directory, randomUUID());
 	await writeFile(temporary, bytes);
 	await rename(temporary, path);
@@ -292,6 +316,10 @@ export async function prepareInput(
 	}
 	if (event.type === "session.input" && event.from?.startsWith("plugin:"))
 		lines.push("System reminder; no human authority. Act under this session's current profile and capabilities.");
+	if (wake === "run") {
+		const delivery = options.deliveryPolicy?.(event, row.id);
+		if (delivery) lines.push(`delivery: ${label(delivery)}`);
+	}
 	if (data.msgId) lines.push(`message: ${label(data.msgId)}`);
 	if (event.conv?.startsWith("conv:agent:") && data.kind === "parent-request")
 		lines.push(

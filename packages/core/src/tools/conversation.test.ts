@@ -67,6 +67,27 @@ test("conversation tools read SQLite history, preserve scope, and open only refe
 		expect(JSON.parse(result.text)).toMatchObject({ text: "Windows", next: 7 });
 		expect((await attachment.execute({ message: foreign.id, attachment: 0 }, ctx)).isError).toBe(true);
 		expect((await read.execute({}, { ...ctx, capabilities: [] })).isError).toBe(true);
+		const incomplete = await store.events.record({
+			type: "message.in",
+			conv: "conv:qq:group:a",
+			data: {
+				text: "",
+				attachments: [
+					{
+						kind: "file",
+						mime: "text/plain",
+						name: "document.txt",
+						bytes: 100,
+						uri: "https://example.invalid/expired",
+					},
+				],
+			},
+		});
+		await writeFile(join(home, ".yonder/attachments", `${incomplete.id}-0`), "incomplete");
+		expect(await attachment.execute({ message: incomplete.id, attachment: 0 }, ctx)).toMatchObject({
+			isError: true,
+			text: expect.stringContaining("大小与消息附件元数据不一致"),
+		});
 	} finally {
 		await db.close();
 		await rm(home, { recursive: true, force: true });

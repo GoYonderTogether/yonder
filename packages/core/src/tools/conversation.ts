@@ -197,6 +197,8 @@ export function createConversationTools(store: Store, home: string): Tool[] {
 				} else if (attachment.uri.startsWith("file:")) path = fileURLToPath(attachment.uri);
 				else throw new Error("附件没有可读取的已接收文件引用。");
 				const content = await workspaceFiles(ctx.env, ctx.signal).readFile(path);
+				if (attachment.bytes !== undefined && Buffer.byteLength(content, "utf8") !== attachment.bytes)
+					throw new Error("接收缓存大小与消息附件元数据不一致，未取得可验证的真实附件。");
 				if (content.length > 2 * 1024 * 1024) throw new Error("文本附件超过 2 MiB 读取上限。");
 				if (content.includes("\0")) throw new Error("附件含二进制数据；未作为文本解析。");
 				const offset = a.offset ?? 0,
