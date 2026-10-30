@@ -124,3 +124,12 @@
 - 首轮 `npm test`：435文件=373通过/3失败/59跳过；2180测试=2078通过/4失败/98跳过。两项鉴权旧文案改精确新文案，两个Web普通发送多undefined参数的回归修复后复测；不覆盖首跑记录。
 - 首轮 `npm run lint`：失败（1086 errors/1581 warnings/98 infos），主要含未跟踪.cache第三方参考；未删用户缓存或放宽检查。另跑tracked文件检查仍5个格式错误，均属既有config/delivery outsider guard/web-tools文件；行数检查另有既有6文件超限，本轮新增SDK/delivery/kernel/card行数已修回边界。
 - Web真实本地HTTP+PostgreSQL+Redis：成员@、引用、普通发送API与页面验证通过，截图 `.cache/qq-group-web-20261030/web-group.png`；card协议22/22，cloud chat/realtime18/18（0失败/取消/跳过），后续card拆分回归24/24。cloud配套提交d8432c0，未部署云端，不据此宣称线上完整生效。
+
+### 最终集成复测（发版前）
+
+- 新补Web群显式启用、身份context与Composer兼容后，完整build/typecheck通过；版本对齐远端并行正式版0.3.26103006，未手动改版本。
+- 最终全套：436文件=376通过/1失败/59跳过；2181测试=2082通过/1失败/98跳过。唯一失败为既有web-tools读取raw.githubusercontent.com测试ECONNRESET；按agent-network进程网络重跑该文件3/3通过，未修改实现或弱化断言。
+- `npm run test:node`：41通过/0失败/0取消/0跳过。
+- 本次变更范围Biome：21文件，0错误/21警告（既有非空断言等）；全仓lint的缓存、5个格式与6个行数存量失败仍如前记录，未声称全绿。
+- 两次本地与远端发版提交合并只在CHANGELOG/lock产生冲突：保留既有release条目和本轮Unreleased，按合并后的package manifests重生成lock并version:check通过；未留下冲突标记。
+- 代码提交包含独立并行任务的Web实时预览/macOS修复；本轮未回滚其他Agent改动。
