@@ -3,6 +3,8 @@ import { definePlugin, type Tool } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Check } from "typebox/value";
 import { Archive, type Config } from "./archive.js";
+import { registerWatchContext } from "./watch-context.js";
+import { registerWatchTools } from "./watch-tools.js";
 
 const str = Type.String({ minLength: 1 });
 const chat = Type.String({ pattern: "^Msg_[a-fA-F0-9]+$" });
@@ -53,12 +55,16 @@ export default definePlugin({
 						if (!ctx.capabilities.includes("admin")) throw new Error("Private WeChat archive requires admin");
 						if (write && !ctx.capabilities.includes("write")) throw new Error("WeChat policy updates require write");
 						if (!Check(parameters, input)) throw new Error("Invalid WeChat tool parameters");
-						return await archive.tool(name, input as Record<string, unknown>, ctx.signal);
+						return await archive.tool(name, input as Record<string, unknown>, ctx);
 					} catch (error) {
 						return { isError: true, text: error instanceof Error ? error.message : "WeChat operation failed" };
 					}
 				},
 			});
+		registerWatchTools(register);
+		registerWatchContext(api, async (to, owner) => {
+			await archive.watches?.beforeSend(to, owner);
+		});
 		register(
 			"status",
 			"Read archive collection readiness, catalog/sample coverage, freshness and pending counts. Collection is not model processing; incomplete local coverage is not all phone history.",

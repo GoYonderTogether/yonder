@@ -301,7 +301,7 @@ macOS 桌面通过稳定路径的签名 Yonder Helper.app 执行。permissions/s
 
 ## 微信归档与 iLink
 
-- `@yonder/plugin-wechat-archive`：7 个私密资料工具（status/sources/history/search/message/media/policy）及 wechat-archive 触发器，只读微信，不提供发送渠道、不自动回复。入站为 `wechat-archive.material`（conv `conv:wechat-archive:<chat>`，data 带 channel/conversation/senders/summary），`notifications` 级别决定是否提醒，轮询间隔与游标持久化在插件私有 SQLite 与稳定 consumer 名下。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
+- `@yonder/plugin-wechat-archive`：11 个私密资料工具（status/sources/history/search/message/media/policy 及 watch_configure/watch_inspect/watch_control/watch_test）及 wechat-archive 触发器，只读微信，不提供发送渠道、不自动回复。资料入站为 `wechat-archive.material`，按 Bot 的监听命中为 `wechat-archive.watch`；监听有独立私有绑定、规则版本和扫描位置，实际重要提醒由 message_send 私聊主人。原始资料事件（conv `conv:wechat-archive:<chat>`，data 带 channel/conversation/senders/summary），`notifications` 级别决定本机资料通知，轮询间隔与游标持久化在插件私有 SQLite 与稳定 consumer 名下。配置、入参与出参见[归档插件](../plugins/wechat-archive/README.md)。
 - `@yonder/plugin-channel-wechat-ilink`：wechat-ilink 私聊渠道及 status/login/message 工具；首个配置实例默认关联明确配置的主人，后续实例独立关联。模型权限、会话与投递沿用现有系统。详见[iLink 插件](../plugins/channel-wechat-ilink/README.md)。
 - 实现/验证/真实微信未测项见[微信迁移验收](verification/wechat-plugins.md)。
 

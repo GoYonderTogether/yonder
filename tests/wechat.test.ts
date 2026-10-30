@@ -360,10 +360,10 @@ test("archive resumes durable material after unknown admission; silence, policy 
 		expect((await h.store.events.query({ type: "wechat-archive.material" })).events).toHaveLength(1);
 		const ctx = context();
 		await expect(
-			archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 9, priority: "silent" }, ctx.signal),
+			archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 9, priority: "silent" }, ctx),
 		).rejects.toThrow("VERSION_CONFLICT");
-		await archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 1, priority: "silent" }, ctx.signal);
-		await expect(archive.tool("history", { chat: "Msg_abc" }, ctx.signal)).rejects.toThrow("OUT_OF_SCOPE");
+		await archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 1, priority: "silent" }, ctx);
+		await expect(archive.tool("history", { chat: "Msg_abc" }, ctx)).rejects.toThrow("OUT_OF_SCOPE");
 		await fixture.append(2);
 		await archive.poll(h.store.events.record);
 		expect((await h.store.events.query({ type: "wechat-archive.material" })).events).toHaveLength(1);
@@ -374,11 +374,11 @@ test("archive resumes durable material after unknown admission; silence, policy 
 		await h.registrations.triggers[0]!.stop();
 		await archive.stop();
 		archive = new Archive(h.api, { ...config, pinnedPolicies: { Msg_abc: { priority: "watch" } } });
-		expect(
-			JSON.parse((await archive.tool("policy", { op: "get", chat: "Msg_abc" }, ctx.signal)).text).policy.userPinned,
-		).toBe(true);
+		expect(JSON.parse((await archive.tool("policy", { op: "get", chat: "Msg_abc" }, ctx)).text).policy.userPinned).toBe(
+			true,
+		);
 		await expect(
-			archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 2, priority: "silent" }, ctx.signal),
+			archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 2, priority: "silent" }, ctx),
 		).rejects.toThrow("USER_PINNED");
 	} finally {
 		await archive.stop();
@@ -487,7 +487,9 @@ test("real Yonder kernel loads both plugins; readonly contacts cannot discover p
 			tools: { name: string; exposure: string }[];
 		};
 		const guest = (await h.kernel.management({ action: "inspect", agent: "main", profile: "guest" })) as typeof owner;
-		expect(owner.tools.filter((t) => t.name.startsWith("wechat-archive_"))).toHaveLength(7);
+		expect(owner.tools.filter((t) => t.name.startsWith("wechat-archive_"))).toHaveLength(11);
+		for (const name of ["configure", "inspect", "control", "test"])
+			expect(owner.tools.some((t) => t.name === `wechat-archive_watch_${name}`)).toBe(true);
 		expect(owner.tools.find((t) => t.name === "channel-wechat-ilink_login")).toMatchObject({ exposure: "offer" });
 		expect(
 			guest.tools.filter((t) => t.name.startsWith("wechat-archive_")).every((t) => t.exposure === "capability-denied"),
