@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -60,7 +60,11 @@ if (action === "prepare") {
 				try {
 					info = await requestControl(state.home, { method: "service.info" });
 					tray = JSON.parse(await readFile(join(state.home, ".yonder/windows-tray.json"), "utf8"));
-					if (info.ready && tray.started) {
+					if (
+						info.ready &&
+						tray.started &&
+						(await stat(join(state.home, ".yonder/windows-tray.json"))).mtimeMs >= Date.parse(afterBoot)
+					) {
 						process.kill(tray.pid, 0);
 						break;
 					}
