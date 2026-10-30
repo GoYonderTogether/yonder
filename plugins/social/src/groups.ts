@@ -11,7 +11,7 @@ import {
 } from "./group-history.js";
 import { GroupReview } from "./group-review.js";
 import { GroupRules, ruleMatch, validateRules } from "./group-rules.js";
-import { awaitTurn, grantTurn, releaseTurn, type TurnRoom } from "./group-turns.js";
+import { awaitTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
 
 export type { GroupJudgeConfig } from "./group-config.js";
 
@@ -250,9 +250,6 @@ export class Groups {
 		const room = this.sessions.get(c.session);
 		if (room && ![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
 	}
-	private history(room: Room) {
-		return publicHistory(this.api, room.convs);
-	}
 	private async control(source: YEvent, agent: string, session: string, room: Room) {
 		const text = String((source.data as { text?: string }).text ?? "");
 		const name = (await this.api.agents.list()).find((a) => a.id === agent)?.name ?? agent;
@@ -273,7 +270,8 @@ export class Groups {
 				["group-owner", "group-admin"].includes(
 					(source.data as { social?: { senderRole?: string } }).social?.senderRole ?? "",
 				));
-		if (resume && !manager) return;
+		if ((resume && !manager) || this.controls.has(source.id)) return;
+		this.controls.add(source.id);
 		const key = this.key(agent, source.conv!);
 		const before = this.pauses.get(key);
 		const pause: GroupPause | undefined =
@@ -314,7 +312,6 @@ export class Groups {
 			else delete c.pause;
 			if (affectsRun) delete c.willing;
 		}
-		this.controls.add(source.id);
 		if (affectsRun) room.waiting = room.waiting.filter((t) => t.session !== session);
 		if (stop && affectsRun)
 			void this.api.sessions
@@ -372,7 +369,9 @@ export class Groups {
 			if (this.active.has(c.session)) {
 				await this.api.sessions.submit(
 					c.session,
-					{ text: `群内新公开信息，检查是否仍需回应；可保持沉默：\n${JSON.stringify(await this.history(room))}` },
+					{
+						text: `群内新公开信息，检查是否仍需回应；可保持沉默：\n${JSON.stringify(await publicHistory(this.api, room.convs))}`,
+					},
 					{ busy: "steer" },
 				);
 				await this.read(c, entries, fact.id);
@@ -421,7 +420,7 @@ export class Groups {
 			data: {
 				...this.request(c, intention.entries),
 				msgId: `group:${c.agent}:${intention.through}`,
-				publicHistory: await this.history(room),
+				publicHistory: await publicHistory(this.api, room.convs),
 			},
 		};
 		this.active.add(c.session);
@@ -456,17 +455,16 @@ export class Groups {
 		this.schedule(room);
 	}
 	async beforeRequest(ctx: ToolContext) {
-		if (!this.sessions.has(ctx.session))
-			for (const event of ctx.events ?? (ctx.event ? [ctx.event] : [])) await this.observe(event);
+		for (const event of ctx.events ?? (ctx.event ? [ctx.event] : []))
+			if (event.type === "message.in") await this.observe(event);
 		const room = this.sessions.get(ctx.session);
 		if (!room || !ctx.agent || !this.official(ctx.agent, ctx.event?.conv ?? "")) return;
-		if ((ctx.events ?? (ctx.event ? [ctx.event] : [])).some((e) => this.controls.has(e.id)))
-			throw Error("Group control command handled without a model reply");
-		const pause = ctx.agent ? this.pauses.get(this.key(ctx.agent, ctx.event?.conv ?? "")) : undefined;
-		if (pause?.scope === "group") throw Error("Group Bot is paused");
+		const pause = this.pauses.get(this.key(ctx.agent, ctx.event?.conv ?? ""));
+		if (pause?.scope === "group" || (ctx.events ?? (ctx.event ? [ctx.event] : [])).some((e) => this.controls.has(e.id)))
+			await stopGroupRequest(this.api, ctx);
 		this.active.add(ctx.session);
 		await awaitTurn(room, ctx, () => this.stopped);
-		return this.history(room);
+		return publicHistory(this.api, room.convs);
 	}
 	async finished(event: YEvent) {
 		const session = (event.data as { session?: string }).session;

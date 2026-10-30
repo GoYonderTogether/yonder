@@ -1,3 +1,4 @@
+import { once } from "node:events";
 import type { PluginAPI, Ref, ToolContext } from "@yonder/sdk";
 export interface GroupTurn {
 	agent: string;
@@ -63,4 +64,16 @@ export async function awaitTurn(room: TurnRoom, ctx: ToolContext, stopped: () =>
 		ctx.signal.addEventListener("abort", wake, { once: true });
 		wake();
 	});
+}
+
+/** Native hooks report ordinary errors and continue; cancellation must reach the active signal first. */
+export async function stopGroupRequest(api: PluginAPI, ctx: ToolContext) {
+	ctx.signal.throwIfAborted();
+	const stopped = once(ctx.signal, "abort");
+	// Native abort joins this invocation, so it must run outside the hook's awaited work.
+	void api.sessions
+		.abort(ctx.session)
+		.catch((error) => api.log.warn("Group request stop failed", { error: String(error) }));
+	await stopped;
+	ctx.signal.throwIfAborted();
 }
