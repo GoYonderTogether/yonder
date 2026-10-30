@@ -12,7 +12,7 @@ export function ListHeader({ q, onChange }: { q: string; onChange: (q: string) =
 					onChange={(e) => onChange(e.target.value)}
 					placeholder="搜索"
 					aria-label="搜索列表"
-					className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint"
+					className="min-w-0 flex-1 bg-transparent text-small text-ink outline-none placeholder:text-faint"
 				/>
 			</label>
 			<PlusMenu />

@@ -9,12 +9,13 @@ import { toast } from "../ui/Toast";
 const currentPlatform = (): Platform =>
 	typeof navigator === "undefined" ? "other" : detectPlatform(navigator.userAgent, navigator.platform);
 
+/** 复制成功由按钮自己的对勾反馈（2.5 秒自熄），不再弹提示；只有失败才提示。 */
 const copyText = async (text: string) => {
 	try {
 		await navigator.clipboard.writeText(text);
-		toast("已复制");
 	} catch {
 		toast("复制失败，请长按选中文本复制");
+		throw new Error("copy failed");
 	}
 };
 
@@ -84,7 +85,7 @@ function TargetBody({ target, onPick }: { target: InstallTarget; onPick: (platfo
 					href={target.href}
 					target="_blank"
 					rel="noreferrer"
-					className="press inline-flex h-10 w-fit items-center gap-1.5 rounded-full bg-accent px-4 text-[14px] font-medium text-on-accent hover:opacity-90"
+					className="press inline-flex h-10 w-fit items-center gap-1.5 rounded-full bg-accent px-4 text-small font-medium text-on-accent hover:opacity-90"
 				>
 					<DownloadIcon size={15} />
 					{target.platform === "android" ? "下载安卓客户端" : "参加 iOS TestFlight"}

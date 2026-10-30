@@ -29,9 +29,9 @@ export function CreateBotDialog({ open, onOpenChange }: { open: boolean; onOpenC
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
-				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
-				<Dialog.Content className="rise fixed inset-x-0 bottom-0 z-50 flex flex-col gap-5 rounded-t-[24px] bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[24px]">
-					<Dialog.Title className="text-[20px] font-semibold tracking-tight">新建 Bot</Dialog.Title>
+				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
+				<Dialog.Content className="rise fixed inset-x-0 bottom-0 z-50 flex flex-col gap-5 rounded-t-panel bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-panel">
+					<Dialog.Title className="text-title font-semibold tracking-tight">新建 Bot</Dialog.Title>
 					<Dialog.Description className="sr-only">输入名字即可创建云端 Bot</Dialog.Description>
 					<form
 						className="flex flex-col gap-5"

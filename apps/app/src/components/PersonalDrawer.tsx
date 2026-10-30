@@ -86,7 +86,7 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 				}}
 			>
 				<Dialog.Portal>
-					<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
+					<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
 					<Dialog.Content
 						aria-describedby={undefined}
 						onCloseAutoFocus={(event) => {

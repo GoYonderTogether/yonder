@@ -65,7 +65,7 @@ export function AssistBar({ onInvite }: { onInvite(): void }) {
 			<button
 				type="button"
 				onClick={onInvite}
-				className="press flex items-center gap-1 rounded-full border border-hairline bg-raised px-2.5 py-1 text-caption text-muted"
+				className="press flex items-center gap-1 rounded-full bg-tone px-2.5 py-1 text-caption text-muted"
 				data-testid="invite-bot"
 			>
 				<AtSign size={12} aria-hidden /> 邀请

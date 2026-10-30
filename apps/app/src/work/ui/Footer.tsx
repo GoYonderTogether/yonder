@@ -64,11 +64,11 @@ function ModelPicker({ id, label }: { id: string; label: string }) {
 export function Footer({ v }: { v: SessionView }) {
 	const seg = footerSegments(footerStats(v));
 	const c = v.context;
-	const tone = !c ? "" : c.percent > 90 ? "text-danger" : c.percent > 70 ? "text-[#b7791f]" : "";
+	const tone = !c ? "" : c.percent > 90 ? "text-danger" : c.percent > 70 ? "text-warn" : "";
 	const empty = Object.keys(seg).length === 0;
 	return (
 		<footer
-			className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-hairline px-4 py-1.5 font-mono text-caption text-faint"
+			className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-4 py-1.5 font-mono text-caption text-faint tabular-nums"
 			data-testid="footer"
 		>
 			{seg.usage && <span>{seg.usage}</span>}

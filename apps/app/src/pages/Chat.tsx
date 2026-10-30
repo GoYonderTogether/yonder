@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Bell, BellOff, Copy, Ellipsis, Pin, Reply, Search, Users } from "lucide-react";
+import { ArrowUp, Bell, BellOff, Check, Copy, Ellipsis, Pin, Reply, Search, Users } from "lucide-react";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
@@ -62,8 +62,8 @@ const OFFLINE_HINT = "Bot 离线，消息会在上线后送达";
 function EmptyChats({ onStart, busy }: { onStart: () => void; busy: boolean }) {
 	return (
 		<div className="m-auto flex max-w-xs flex-col items-center px-6 py-10 text-center">
-			<p className="text-[18px] font-semibold tracking-tight">还没有会话</p>
-			<p className="mt-2 text-[14px] text-muted">和你的 Bot 说句话，会话会出现在这里。</p>
+			<p className="text-title font-semibold tracking-tight">还没有会话</p>
+			<p className="mt-2 text-small text-muted">和你的 Bot 说句话，会话会出现在这里。</p>
 			<Button variant="primary" className="mt-5" disabled={busy} onClick={onStart}>
 				{busy ? "正在打开…" : "开始聊天"}
 			</Button>
@@ -172,7 +172,7 @@ export function ChatShell() {
 				) : (
 					<>
 						<AppBar
-							title={<span className="text-[20px] tracking-tight">{me?.name}</span>}
+							title={<span className="text-title tracking-tight">{me?.name}</span>}
 							left={<PersonalAvatar />}
 							right={<PlusMenu />}
 						/>
@@ -184,7 +184,7 @@ export function ChatShell() {
 									onChange={(e) => setQ(e.target.value)}
 									placeholder="搜索"
 									aria-label="搜索消息"
-									className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint"
+									className="min-w-0 flex-1 bg-transparent text-small text-ink outline-none placeholder:text-faint"
 								/>
 							</label>
 						</div>
@@ -222,13 +222,13 @@ export function ChatShell() {
 					))}
 					{!isLoading && !isError && !convs?.length && <EmptyChats onStart={() => void startChat()} busy={starting} />}
 					{!isLoading && !isError && !!convs?.length && !shown.length && (
-						<p className="px-3 py-6 text-[14px] text-faint">没有匹配的会话。</p>
+						<p className="px-3 py-6 text-small text-faint">没有匹配的会话。</p>
 					)}
 				</nav>
 			</aside>
 			<main
 				className={cn(
-					"min-w-0 flex-1 flex-col bg-ground lg:my-2 lg:mr-2 lg:overflow-hidden relative lg:rounded-[24px] lg:shadow-soft lg:flex",
+					"min-w-0 flex-1 flex-col bg-ground lg:my-2 lg:mr-2 lg:overflow-hidden relative lg:rounded-panel lg:shadow-soft lg:flex",
 					id ? "flex" : "hidden",
 				)}
 			>
@@ -307,17 +307,17 @@ function ConvRow({
 				<span className="min-w-0 flex-1">
 					<span className="flex items-baseline gap-2">
 						<span className="flex min-w-0 flex-1 items-center gap-1.5">
-							<span className="truncate text-[14px] font-medium">{c.title}</span>
+							<span className="truncate text-small font-medium">{c.title}</span>
 							{other?.kind === "agent" && <AiBadge actor={other} />}
 							{level === "mute" && <BellOff size={13} className="shrink-0 text-faint" aria-label="免打扰" />}
 						</span>
 						{pinned && <Pin size={12} className="shrink-0 text-faint" aria-label="已置顶" />}
-						{c.last && <span className="text-[12px] text-faint">{clock(c.last.createdAt)}</span>}
+						{c.last && <span className="text-caption text-faint">{clock(c.last.createdAt)}</span>}
 					</span>
-					<span className="block truncate text-[13px] text-muted">{preview(c.last)}</span>
+					<span className="block truncate text-small text-muted">{preview(c.last)}</span>
 				</span>
 				{c.unread > 0 && (
-					<span className="min-w-5 rounded-full bg-accent px-1.5 text-center text-[12px] font-medium text-on-accent">
+					<span className="min-w-5 rounded-full bg-accent px-1.5 text-center text-caption font-medium text-on-accent">
 						{c.unread}
 					</span>
 				)}
@@ -512,7 +512,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 						<span className="truncate">{conv?.title}</span>
 						{other?.kind === "agent" && <AiBadge actor={other} />}
 						{other?.kind === "agent" && (
-							<span className="flex items-center gap-1.5 text-[12px] font-normal text-muted">
+							<span className="flex items-center gap-1.5 text-caption font-normal text-muted">
 								<Status online={agentOnline} />
 								{agentOnline ? "在线" : "离线"}
 							</span>
@@ -618,7 +618,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 					</div>
 				</div>
 			)}
-			{offlineAgent && <p className="mx-auto mb-2 text-center text-[13px] text-muted">{OFFLINE_HINT}</p>}
+			{offlineAgent && <p className="mx-auto mb-2 text-center text-small text-muted">{OFFLINE_HINT}</p>}
 			{conv?.kind !== "notice" && (
 				<Composer
 					key={id}
@@ -684,12 +684,19 @@ export function Bubble({
 	const loc = useLocation();
 	const c = m.content;
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	// 复制后的对勾微弹出现，2.5 秒后淡出恢复（.pop / .feedback，见 styles.css）
+	const [copied, setCopied] = useState(false);
+	useEffect(() => {
+		if (!copied) return;
+		const timer = window.setTimeout(() => setCopied(false), 2500);
+		return () => window.clearTimeout(timer);
+	}, [copied]);
 	const trigger = useMenuTrigger(setMenu);
 	const copy = () => {
 		const text = "text" in c ? c.text : "url" in c ? c.url : c.title;
 		void navigator.clipboard
 			.writeText(text)
-			.then(() => toast("已复制"))
+			.then(() => setCopied(true))
 			.catch(() => toast("复制失败", true));
 	};
 	const tight = mine
@@ -715,7 +722,7 @@ export function Bubble({
 			)}
 			<div className={cn("flex max-w-[80%] flex-col gap-1", mine && "items-end")}>
 				{group && !mine && first && sender && (
-					<span className="px-1 text-[12px] text-muted">
+					<span className="px-1 text-caption text-muted">
 						{sender.name}
 						{sender.kind === "agent" && " · Bot"}
 					</span>
@@ -734,10 +741,10 @@ export function Bubble({
 				<div
 					{...trigger}
 					style={tight}
-					className={cn("rounded-bubble px-3.5 py-2 text-[15px]", mine ? "bg-accent text-on-accent" : "bg-tone")}
+					className={cn("rounded-bubble px-3.5 py-2 text-body", mine ? "bg-accent text-on-accent" : "bg-tone")}
 				>
 					{m.replyTo && (
-						<div className="mb-2 border-l-2 border-current/30 pl-2 text-[12px] opacity-75">
+						<div className="mb-2 border-l-2 border-current/30 pl-2 text-caption opacity-75">
 							引用 {replied ? (actors.get(replied.senderId)?.name ?? "群成员") : "历史消息"}：
 							{replied && "text" in replied.content ? replied.content.text.slice(0, 100) : "附件或未加载的消息"}
 						</div>
@@ -765,7 +772,7 @@ export function Bubble({
 									<Link
 										key={a.id}
 										to={c.link ?? "#"}
-										className="press inline-flex h-8 items-center rounded-full bg-accent px-3 text-[13px] font-medium text-on-accent"
+										className="press inline-flex h-8 items-center rounded-full bg-accent px-3 text-small font-medium text-on-accent"
 									>
 										{a.label}
 									</Link>
@@ -773,10 +780,19 @@ export function Bubble({
 							</div>
 						</div>
 					)}
+					{copied && (
+						<span
+							role="status"
+							aria-label="已复制"
+							className="feedback ml-1.5 inline-flex items-center align-[-0.125em] text-caption text-faint"
+						>
+							<Check size={12} className="pop" aria-hidden />
+						</span>
+					)}
 				</div>
 				<time
 					dateTime={new Date(m.createdAt).toISOString()}
-					className="px-1 text-[11px] leading-4 text-faint opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity"
+					className="px-1 text-caption leading-4 text-faint opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity"
 				>
 					{messageClock(m.createdAt)}
 				</time>
@@ -919,7 +935,7 @@ export function Composer({
 	return (
 		<div className="shrink-0 px-4 pb-safe">
 			{(reply || quoteText) && (
-				<div className="mx-auto mb-2 flex max-w-[720px] items-center gap-2 text-[13px] text-muted">
+				<div className="mx-auto mb-2 flex max-w-[720px] items-center gap-2 text-small text-muted">
 					<span className="truncate">
 						引用：{quoteText ?? (reply && "text" in reply.content ? reply.content.text : "附件")}
 					</span>
@@ -941,7 +957,7 @@ export function Composer({
 						aria-label="艾特群成员"
 						value={mention}
 						onChange={(e) => setMention(e.target.value)}
-						className="rounded-lg bg-tone px-2 py-1 text-[13px]"
+						className="rounded-lg bg-tone px-2 py-1 text-small"
 					>
 						<option value="">@ 选择群成员</option>
 						{members.map((a) => (
@@ -953,9 +969,9 @@ export function Composer({
 				</div>
 			)}
 			{guest && guest.remaining > 0 && guest.remaining <= 3 && (
-				<p className="mx-auto mb-2 text-center text-[13px] text-muted">还可发 {guest.remaining} 条，登录后无限制</p>
+				<p className="mx-auto mb-2 text-center text-small text-muted">还可发 {guest.remaining} 条，登录后无限制</p>
 			)}
-			<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-[20px] bg-raised p-2 pl-4 shadow-float">
+			<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-field bg-raised p-2 pl-4 shadow-float">
 				<textarea
 					ref={ref}
 					value={text}
@@ -973,7 +989,7 @@ export function Composer({
 							void send();
 						}
 					}}
-					className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-[15px] outline-none placeholder:text-faint"
+					className="max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 text-body outline-none placeholder:text-faint"
 				/>
 				<button
 					type="button"
@@ -982,7 +998,7 @@ export function Composer({
 					aria-label={sending ? "发送中" : "发送"}
 					className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent disabled:bg-tone-2 disabled:text-faint"
 				>
-					{sending ? <span className="text-[11px]">发送中</span> : <ArrowUp size={18} strokeWidth={2.25} />}
+					{sending ? <span className="text-caption">发送中</span> : <ArrowUp size={18} strokeWidth={2.25} />}
 				</button>
 			</div>
 			<VerifySheet

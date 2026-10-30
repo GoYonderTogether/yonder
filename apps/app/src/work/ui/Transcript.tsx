@@ -1,4 +1,4 @@
-import { Brain, ChevronRight, Copy, Info, Layers, Reply, Wrench } from "lucide-react";
+import { Brain, Check, ChevronRight, Copy, Info, Layers, Reply, Wrench } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
@@ -8,7 +8,12 @@ import { useBotNames } from "../lib/queries";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import { ActionMenu } from "./ActionMenu";
 import { Markdown } from "./Markdown";
+import { TypingText } from "./TypingText";
 
+/**
+ * 折叠区：Grid 0fr→1fr 过渡，不量高度、不靠 JS。
+ * 收起时内容仍在 DOM 里（对读屏与 Ctrl+F 友好），只是行高为 0。
+ */
 function Fold({
 	icon: Icon,
 	title,
@@ -29,19 +34,27 @@ function Fold({
 		if (completed) setOpen(false);
 	}, [completed]);
 	return (
-		<div className="rounded-control border border-hairline bg-raised text-small" data-testid={tid}>
+		<div className="rounded-control bg-tone/70 text-small" data-testid={tid}>
 			<button
 				type="button"
 				aria-expanded={open}
 				onClick={() => setOpen(!open)}
 				className="press flex w-full items-center gap-2 px-3 py-2 text-left text-muted"
 			>
-				<ChevronRight size={14} className={`transition-transform ${open ? "rotate-90" : ""}`} aria-hidden />
+				<ChevronRight
+					size={14}
+					className={`shrink-0 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+					aria-hidden
+				/>
 				<Icon size={14} aria-hidden />
 				<span className="font-medium">{title}</span>
 				{hint && <span className="min-w-0 flex-1 truncate font-mono text-caption text-faint">{hint}</span>}
 			</button>
-			{open && <div className="border-t border-hairline px-3 py-2">{children}</div>}
+			<div className="fold" data-open={open}>
+				<div>
+					<div className="px-3 pb-2.5">{children}</div>
+				</div>
+			</div>
 		</div>
 	);
 }
@@ -119,7 +132,7 @@ function ChannelBadge({ it }: { it: ChatItem }) {
 				onMouseEnter={enter}
 				onMouseLeave={leave}
 				onFocus={enter}
-				className="absolute -bottom-1.5 -right-1.5 rounded-md border border-ground bg-raised p-0.5"
+				className="absolute -bottom-1.5 -right-1.5 rounded-md bg-raised p-0.5 shadow-soft"
 				data-testid="channel-badge"
 			>
 				<ChannelIcon channel={it.channel} size={16} />
@@ -156,17 +169,29 @@ function ChannelBadge({ it }: { it: ChatItem }) {
 function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => void }) {
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
+	// 复制反馈：对勾微弹出现，2.5s 后淡出并恢复（见 styles.css 的 .pop / .feedback）
+	const [copied, setCopied] = useState(false);
+	useEffect(() => {
+		if (!copied) return;
+		const timer = setTimeout(() => setCopied(false), 2500);
+		return () => clearTimeout(timer);
+	}, [copied]);
 	const actions: ActionItem[] = [
-		{ key: "copy", label: "复制", icon: Copy, onSelect: () => void navigator.clipboard?.writeText(it.text) },
+		{
+			key: "copy",
+			label: "复制",
+			icon: Copy,
+			onSelect: () => {
+				void navigator.clipboard?.writeText(it.text);
+				setCopied(true);
+			},
+		},
 	];
 	if (onQuote && it.text) actions.unshift({ key: "quote", label: "引用", icon: Reply, onSelect: () => onQuote(it) });
 
 	if (it.role === "summary")
 		return (
-			<div
-				className="mx-auto w-full max-w-[720px] rounded-control border border-dashed border-hairline bg-tone/50 px-3 py-2"
-				data-testid="summary"
-			>
+			<div className="mx-auto w-full max-w-[720px] rounded-control bg-tone/60 px-3 py-2" data-testid="summary">
 				<div className="mb-1 flex items-center gap-1.5 text-caption text-faint">
 					<Layers size={13} aria-hidden /> 上下文已压缩 · 摘要
 				</div>
@@ -202,7 +227,7 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 					</Fold>
 				</div>
 			)}
-			{it.text && (
+			{(it.text || (!mine && it.streaming)) && (
 				<div className="relative max-w-[85%]">
 					{it.metadata && it.metadata.length > 0 && (
 						<Popover.Root>
@@ -236,7 +261,7 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 					)}
 					<div
 						{...trigger}
-						className={`no-select rounded-bubble px-3.5 py-2 text-body break-words ${mine ? "bg-accent text-on-accent" : it.triggered ? "bg-tone/60 border border-line border-dashed" : "bg-tone"}`}
+						className={`no-select rounded-bubble px-3.5 py-2 text-body break-words ${mine ? "bg-accent text-on-accent" : it.triggered ? "bg-tone/60 border border-dashed border-hairline" : "bg-tone"}`}
 						data-testid={input ? "bubble-user" : "bubble-bot"}
 					>
 						<button
@@ -250,8 +275,23 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 						>
 							消息操作
 						</button>
-						{input ? <p className="whitespace-pre-wrap">{it.text}</p> : <Markdown text={it.text} />}
-					</div>
+						{input ? (
+							<p className="whitespace-pre-wrap">{it.text}</p>
+						) : it.streaming ? (
+							<TypingText text={it.text} />
+						) : (
+							<Markdown text={it.text} />
+						)}
+						{copied && (
+							<span
+								aria-label="已复制"
+								role="status"
+								className="feedback ml-1.5 inline-flex items-center align-[-0.125em] text-caption text-faint"
+							>
+								<Check size={12} className="pop" aria-hidden />
+							</span>
+						)}
+					</div>{" "}
 					{channel && <ChannelBadge it={it} />}
 				</div>
 			)}
@@ -260,7 +300,7 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 					<Tool t={t} />
 				</div>
 			))}
-			{it.streaming && <span className="text-caption text-faint">正在输入…</span>}
+			{it.streaming && <span className="caret" role="img" aria-label="正在回复" />}
 			{it.ts && (
 				<time
 					dateTime={new Date(it.ts).toISOString()}

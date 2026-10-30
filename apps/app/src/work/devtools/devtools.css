@@ -6,52 +6,69 @@
  */
 :root[data-devtools-theme="light"] {
 	color-scheme: light;
-	--rail: #efeeeb;
-	--list: #f1f0ed;
-	--ground: #fbfbfa;
+	--rail: #f5f5f3;
+	--list: #fcfcfb;
+	--ground: #ffffff;
 	--raised: #ffffff;
-	--tone: #e9e8e4;
-	--tone-2: #dfded9;
+	--tone: #f0efec;
+	--tone-2: #e7e6e2;
 	--ink: #111111;
 	--muted: #5f5e5a;
 	--faint: #96948e;
-	--hairline: rgb(17 17 17 / 0.08);
-	--field-focus-line: color-mix(in srgb, var(--ink) 15%, transparent);
+	--hairline: rgb(17 17 17 / 0.06);
+	--field-focus-line: color-mix(in srgb, var(--ink) 12%, transparent);
+	--field-focus-shadow:
+		inset 0 0 0 1px color-mix(in srgb, var(--ink) 13%, transparent),
+		inset 0 1px 3px color-mix(in srgb, var(--ink) 9%, transparent),
+		0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent), 0 0 0 4px color-mix(in srgb, var(--ink) 6%, transparent);
 	--accent: #111111;
 	--on-accent: #ffffff;
 	--accent-soft: #e4e3df;
 	--accent-ink: #111111;
 	--danger: #b4342c;
+	--warn: #b7791f;
 	--online: #2f9e6e;
 	--offline: #b3b1ab;
 	--shadow-float: 0 1px 2px rgb(17 17 17 / 0.05), 0 12px 32px -8px rgb(17 17 17 / 0.16);
 	--shadow-soft: 0 1px 2px rgb(17 17 17 / 0.04), 0 8px 28px -12px rgb(17 17 17 / 0.12);
 	--mist: radial-gradient(900px 520px at 18% -8%, rgb(255 255 255 / 0.85), transparent 70%);
+	--w-normal: 400;
+	--w-medium: 500;
+	--w-semibold: 600;
+	--w-bold: 650;
 }
 
 :root[data-devtools-theme="dark"] {
 	color-scheme: dark;
-	--rail: #0a0a0a;
-	--list: #0d0d0d;
-	--ground: #141414;
-	--raised: #1b1b1b;
-	--tone: #1f1f1e;
-	--tone-2: #2a2a28;
-	--ink: #f3f3f1;
-	--muted: #a6a6a1;
-	--faint: #70706b;
-	--hairline: rgb(243 243 241 / 0.1);
-	--field-focus-line: color-mix(in srgb, var(--ink) 15%, transparent);
-	--accent: #f3f3f1;
+	--rail: #0b0b0a;
+	--list: #151515;
+	--ground: #1a1a19;
+	--raised: #20201e;
+	--tone: #262625;
+	--tone-2: #302f2d;
+	--ink: #f2f2f0;
+	--muted: #a3a39e;
+	--faint: #6f6f6a;
+	--hairline: rgb(242 242 240 / 0.08);
+	--field-focus-line: color-mix(in srgb, var(--ink) 12%, transparent);
+	--field-focus-shadow:
+		inset 0 0 0 1px rgb(242 242 240 / 0.16), inset 0 1px 3px rgb(0 0 0 / 0.4), 0 0 0 1px rgb(242 242 240 / 0.13),
+		0 0 0 4px rgb(242 242 240 / 0.06);
+	--accent: #f2f2f0;
 	--on-accent: #111111;
 	--accent-soft: #262625;
-	--accent-ink: #f3f3f1;
+	--accent-ink: #f2f2f0;
 	--danger: #ea6b5f;
+	--warn: #d9a441;
 	--online: #4cc08c;
 	--offline: #5c5c58;
-	--shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -8px rgb(0 0 0 / 0.7);
-	--shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 28px -12px rgb(0 0 0 / 0.6);
-	--mist: radial-gradient(900px 520px at 18% -8%, rgb(255 255 255 / 0.06), transparent 70%);
+	--shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -12px rgb(0 0 0 / 0.72);
+	--shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px -14px rgb(0 0 0 / 0.6);
+	--mist: radial-gradient(900px 520px at 18% -8%, rgb(255 255 255 / 0.05), transparent 70%);
+	--w-normal: 360;
+	--w-medium: 460;
+	--w-semibold: 560;
+	--w-bold: 610;
 }
 
 /* agent-orb 的纯色按 prefers-color-scheme 写死，模拟主题时一并覆盖。 */

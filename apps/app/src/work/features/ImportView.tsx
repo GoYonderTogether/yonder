@@ -31,10 +31,7 @@ export function ImportBody({ id, onOlder }: { id: string; onOlder?: () => void }
 	const slash = model?.indexOf("/") ?? -1;
 	return (
 		<>
-			<p
-				className="border-b border-hairline bg-tone/50 px-4 py-1.5 text-caption text-muted"
-				data-testid="readonly-note"
-			>
+			<p className="bg-tone/50 px-4 py-1.5 text-caption text-muted" data-testid="readonly-note">
 				只读 · 从 pi 导入{d?.offset ? `（显示最近 ${d.items.length} / ${d.total} 条记录）` : ""}
 			</p>
 			<Transcript items={items} hasMore={false} onOlder={onOlder ?? (() => undefined)} />

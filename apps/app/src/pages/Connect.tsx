@@ -123,7 +123,6 @@ export function AddDeviceDialog({
 	const copy = async (text: string) => {
 		try {
 			await navigator.clipboard.writeText(text);
-			toast("已复制");
 			setCopied(true);
 		} catch {
 			toast("复制失败，请长按选中文本复制");

@@ -28,7 +28,7 @@ export function Window({
 					)}
 				>
 					<header className="flex h-12 shrink-0 items-center justify-between bg-list pr-2 pl-5">
-						<Dialog.Title className="text-[14px] font-medium">{title}</Dialog.Title>
+						<Dialog.Title className="text-small font-medium">{title}</Dialog.Title>
 						<Dialog.Close
 							aria-label="关闭"
 							className="press flex h-8 w-8 items-center justify-center rounded-full text-muted hover:bg-tone"

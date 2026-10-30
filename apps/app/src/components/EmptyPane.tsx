@@ -22,12 +22,12 @@ export function EmptyPane() {
 		);
 	return (
 		<div className="fade m-auto flex max-w-xs flex-col items-center px-6 text-center">
-			<p className="text-[20px] font-semibold tracking-tight">还没有设备</p>
-			<p className="mt-2 text-[14px] text-muted">添加设备后，电脑上的 Bot 会出现在这里。</p>
+			<p className="text-title font-semibold tracking-tight">还没有设备</p>
+			<p className="mt-2 text-small text-muted">添加设备后，电脑上的 Bot 会出现在这里。</p>
 			<Button variant="primary" className="mt-5" onClick={() => setAdding(true)}>
 				添加设备
 			</Button>
-			<Link to="/download" className="mt-3 text-[14px] text-muted underline underline-offset-4 hover:text-ink">
+			<Link to="/download" className="mt-3 text-small text-muted underline underline-offset-4 hover:text-ink">
 				下载客户端
 			</Link>
 			<Suspense fallback={<span role="status">正在加载…</span>}>

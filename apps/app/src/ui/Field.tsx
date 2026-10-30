@@ -12,13 +12,13 @@ export function Field({
 	const [visible, setVisible] = useState(false);
 	const id = useId();
 	return (
-		<div className="flex flex-col gap-1.5 text-[13px] text-muted">
+		<div className="flex flex-col gap-1.5 text-small text-muted">
 			<label htmlFor={id}>{label}</label>
 			<span className="relative">
 				<input
 					id={id}
 					className={cn(
-						"field h-11 w-full rounded-control bg-tone px-3.5 text-[15px] text-ink outline-none placeholder:text-faint",
+						"field h-11 w-full rounded-control bg-tone px-3.5 text-body text-ink outline-none placeholder:text-faint",
 						passwordToggle && "pr-12",
 						className,
 					)}

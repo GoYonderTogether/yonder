@@ -51,7 +51,7 @@ export function CardStack({ focus }: { focus?: string }) {
 					onClick={next}
 					disabled={items.length < 2}
 					aria-label={items.length > 1 ? `当前${itemName(current)}，点击查看下一张名片` : itemName(current)}
-					className="absolute inset-0 rounded-[24px] outline-offset-4 focus-visible:outline-2 focus-visible:outline-accent"
+					className="absolute inset-0 rounded-panel outline-offset-4 focus-visible:outline-2 focus-visible:outline-accent"
 					style={{ zIndex: items.length + 1 }}
 				/>
 			</div>

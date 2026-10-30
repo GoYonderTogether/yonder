@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { ShareLink, ShareLinkKind } from "../api/types";
 import { rememberShareToken, shareLinkKey, shareLinkUrl, shareLinkView, storedShareTokens } from "../lib/shareLinks";
@@ -84,16 +85,23 @@ export function ShareLinkList({ kind, targetId, path }: { kind: ShareLinkKind; t
 		setFormError("");
 		create.mutate({ maxUses: uses, expiresAt: new Date(Date.now() + dayCount * 86_400_000).toISOString() });
 	};
+	// 复制反馈自熄：对勾微弹出现，2.5 秒后淡出恢复（.pop / .feedback）
+	const [copied, setCopied] = useState<string | null>(null);
+	useEffect(() => {
+		if (!copied) return;
+		const timer = window.setTimeout(() => setCopied(null), 2500);
+		return () => window.clearTimeout(timer);
+	}, [copied]);
 	const copy = (link: ShareLink) => {
 		const url = shareLinkUrl(link, path, location.origin);
 		void navigator.clipboard.writeText(url).then(
-			() => toast("链接已复制"),
+			() => setCopied(link.token),
 			() => toast("复制失败，请手动复制", true),
 		);
 	};
 	return (
 		<div className="flex max-h-[calc(90dvh-3rem)] flex-col gap-3 overflow-y-auto p-5">
-			<p className="text-[13px] text-muted">只显示这台设备生成过的链接；每行是一份独立配额。</p>
+			<p className="text-small text-muted">只显示这台设备生成过的链接；每行是一份独立配额。</p>
 			<form onSubmit={submit} aria-label="新建分享链接" className="flex flex-col gap-3 rounded-control bg-tone p-3">
 				<div className="grid grid-cols-2 gap-3">
 					<Field
@@ -118,7 +126,7 @@ export function ShareLinkList({ kind, targetId, path }: { kind: ShareLinkKind; t
 					/>
 				</div>
 				{formError && (
-					<p role="alert" className="text-[13px] text-danger">
+					<p role="alert" className="text-small text-danger">
 						{formError}
 					</p>
 				)}
@@ -127,43 +135,50 @@ export function ShareLinkList({ kind, targetId, path }: { kind: ShareLinkKind; t
 				</Button>
 			</form>
 			{links.isPending && tokens.length > 0 ? (
-				<p role="status" className="text-[13px] text-muted">
+				<p role="status" className="text-small text-muted">
 					正在加载分享链接…
 				</p>
 			) : links.isError ? (
-				<div role="alert" className="flex items-center gap-2 text-[13px]">
+				<div role="alert" className="flex items-center gap-2 text-small">
 					加载分享链接失败
 					<Button size="sm" onClick={() => void links.refetch()}>
 						重试
 					</Button>
 				</div>
 			) : !tokens.length ? (
-				<p role="status" className="text-[13px] text-muted">
+				<p role="status" className="text-small text-muted">
 					还没有生成过分享链接。点上面的「新建分享链接」生成一条。
 				</p>
 			) : !links.data?.length ? (
-				<p role="status" className="text-[13px] text-muted">
+				<p role="status" className="text-small text-muted">
 					本机记录的链接已失效或不属于当前账号。
 				</p>
 			) : (
-				<ul aria-label="分享链接列表" className="divide-y divide-hairline">
+				<ul aria-label="分享链接列表" className="divide-y divide-hairline/60">
 					{links.data.map((link) => {
 						const view = shareLinkView(link);
 						return (
 							<li key={link.token} className="flex flex-col gap-2 py-3">
 								<div className="flex items-center justify-between gap-2">
-									<span className="font-mono text-[13px]" title={link.token}>
+									<span className="font-mono text-small" title={link.token}>
 										{view.shortToken}
 									</span>
-									<span className="text-[12px] text-muted">已用 {view.usageText}</span>
+									<span className="text-caption text-muted">已用 {view.usageText}</span>
 								</div>
 								<div className="flex items-center justify-between gap-2">
-									<span className={view.usable ? "text-[12px] text-muted" : "text-[12px] text-danger"}>
+									<span className={view.usable ? "text-caption text-muted" : "text-caption text-danger"}>
 										{view.usable ? `${view.expiryText} · 可用` : view.stateText}
 									</span>
 									<span className="flex gap-2">
 										<Button size="sm" disabled={!view.usable} onClick={() => copy(link)}>
-											复制
+											{copied === link.token ? (
+												<span className="inline-flex items-center gap-1 text-muted">
+													<Check size={13} className="pop" aria-hidden />
+													已复制
+												</span>
+											) : (
+												"复制"
+											)}
 										</Button>
 										<Button
 											size="sm"

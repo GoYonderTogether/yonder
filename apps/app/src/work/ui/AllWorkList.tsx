@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router";
 import { api } from "../../api";
 import type { Device } from "../../api/types";
@@ -45,7 +46,7 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 		...TIME_ORDER.flatMap((key) => groups.byTime[key]),
 	];
 	return (
-		<section className="border-b border-hairline px-4 py-3" aria-label={device.name}>
+		<section className="px-4 py-3" aria-label={device.name}>
 			<h2 className="text-small font-semibold">{device.name}</h2>
 			{!available && (
 				<p className="mt-1 text-caption text-muted">{device.online ? "需要更新 Yonder" : "离线 · 显示已加载内容"}</p>
@@ -107,19 +108,31 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 						</button>
 					))}
 					{groups.done.length > 0 && (
-						<details>
-							<summary className="py-2 text-caption text-muted">已完成</summary>
-							{groups.done.map((session) => (
-								<button
-									key={session.id}
-									type="button"
-									className="flex w-full items-center gap-2 py-2 text-left text-small"
-									onClick={() => onOpen(device, session.id)}
-								>
-									<span className="w-4 shrink-0" data-testid="session-icon-slot" />
-									<span className="min-w-0 truncate">{titleOf(session)}</span>
-								</button>
-							))}
+						// 折叠用 Grid 0fr→1fr，不量高度；收起时行仍在 DOM 里，只是不可见
+						<details className="group">
+							<summary className="press flex cursor-pointer items-center gap-1.5 py-2 text-caption text-muted">
+								<ChevronRight
+									size={13}
+									className="shrink-0 transition-transform duration-200 group-open:rotate-90"
+									aria-hidden
+								/>
+								已完成
+							</summary>
+							<div className="fold" data-open>
+								<div>
+									{groups.done.map((session) => (
+										<button
+											key={session.id}
+											type="button"
+											className="flex w-full items-center gap-2 py-2 text-left text-small"
+											onClick={() => onOpen(device, session.id)}
+										>
+											<span className="w-4 shrink-0" data-testid="session-icon-slot" />
+											<span className="min-w-0 truncate">{titleOf(session)}</span>
+										</button>
+									))}
+								</div>
+							</div>
 						</details>
 					)}
 					{!bots.length && !tasks.length && <p className="mt-2 text-caption text-muted">没有工作会话</p>}

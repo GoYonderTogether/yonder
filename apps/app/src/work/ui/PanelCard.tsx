@@ -55,7 +55,7 @@ export function PanelCard(p: PanelCardProps) {
 			<header
 				{...headerTrigger}
 				title={`${titleOf(p.active)}（右键或长按打开菜单）`}
-				className="flex items-center gap-1 border-b border-hairline px-1.5 py-1"
+				className="flex items-center gap-1 px-1.5 py-1"
 			>
 				<button
 					type="button"

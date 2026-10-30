@@ -73,7 +73,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 		void rpc("sessions.abort", { id: session }).catch((e) => setErr(e instanceof Error ? e.message : "中止失败"));
 
 	return (
-		<div className="border-t border-hairline bg-ground px-3 pt-2 pb-2">
+		<div className="bg-ground px-3 pt-1.5 pb-2">
 			{running && (
 				<div
 					className="mx-auto mb-2 flex max-w-[720px] items-center gap-2 text-caption text-muted"
@@ -100,7 +100,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 						type="button"
 						onClick={abort}
 						disabled={!online}
-						className="press ml-auto flex items-center gap-1 rounded-full border border-hairline px-2.5 py-0.5 text-danger"
+						className="press ml-auto flex items-center gap-1 rounded-full bg-tone px-2.5 py-0.5 text-danger"
 						data-testid="abort"
 					>
 						<Square size={11} aria-hidden /> 中止
@@ -114,7 +114,8 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					{err}
 				</p>
 			)}
-			<div className="mx-auto flex max-w-[720px] items-end gap-2">
+			{/* 输入条是一整块浮起的纸面：聚焦时整块出现双环咬合，而不是只框住 textarea */}
+			<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-field bg-tone p-1.5 pl-1">
 				<textarea
 					value={text}
 					rows={1}
@@ -127,14 +128,14 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					}}
 					placeholder={running ? "继续输入…" : "发消息"}
 					aria-label="消息输入框"
-					className="field max-h-40 min-h-10 flex-1 resize-none rounded-[20px] bg-tone px-4 py-2.5 text-body outline-none"
+					className="max-h-40 min-h-9 flex-1 resize-none rounded-field bg-transparent px-3 py-1.5 text-body outline-none placeholder:text-faint"
 				/>
 				<button
 					type="button"
 					onClick={() => void send()}
 					disabled={!online || !text.trim()}
 					aria-label="发送"
-					className="press grid size-10 shrink-0 place-items-center rounded-full bg-accent text-on-accent disabled:opacity-30"
+					className="press grid size-9 shrink-0 place-items-center rounded-full bg-accent text-on-accent transition-opacity disabled:opacity-25"
 				>
 					<ArrowUp size={18} aria-hidden />
 				</button>

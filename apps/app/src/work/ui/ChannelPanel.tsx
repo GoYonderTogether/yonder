@@ -67,7 +67,7 @@ export function ChannelPanel({ bot, wide, onClose }: { bot: string; wide: boolea
 		return () => removeEventListener("keydown", key);
 	}, [onClose]);
 	const head = (
-		<header className="flex items-center border-b border-hairline px-4 py-2">
+		<header className="flex items-center px-4 py-2">
 			<h2 className="flex-1 text-body font-semibold">渠道与子会话</h2>
 			<button
 				type="button"
@@ -81,17 +81,13 @@ export function ChannelPanel({ bot, wide, onClose }: { bot: string; wide: boolea
 	);
 	if (wide)
 		return (
-			<aside
-				className="flex w-[300px] shrink-0 flex-col border-l border-hairline bg-list"
-				data-testid="channel-panel"
-				aria-label="渠道与子会话"
-			>
+			<aside className="flex w-[300px] shrink-0 flex-col bg-list" data-testid="channel-panel" aria-label="渠道与子会话">
 				{head}
 				<Body bot={bot} />
 			</aside>
 		);
 	return (
-		<div className="fixed inset-0 z-40 flex flex-col justify-end bg-black/30" data-testid="channel-sheet">
+		<div className="fixed inset-0 z-40 flex flex-col justify-end bg-ink/30" data-testid="channel-sheet">
 			<button type="button" aria-label="关闭" className="flex-1" onClick={onClose} />
 			<div
 				role="dialog"

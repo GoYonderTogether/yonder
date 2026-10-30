@@ -18,7 +18,7 @@ export function CollectedCards() {
 			{!isLoading && !received.length && (
 				<p className="px-5 pb-4 text-small text-muted">还没有收藏。打开别人的名片，点「收藏」就会出现在这里。</p>
 			)}
-			<div className="divide-y divide-hairline">
+			<div className="divide-y divide-hairline/60">
 				{received.map((i) => (
 					<Link
 						key={i.key}

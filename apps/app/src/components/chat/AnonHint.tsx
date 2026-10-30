@@ -26,7 +26,7 @@ export function AnonHint({ sent }: { sent: number }) {
 	};
 	const next = loc.pathname + loc.search;
 	return (
-		<div className="fade mx-auto my-3 flex w-fit max-w-full items-center gap-2 rounded-full bg-tone py-1 pr-1 pl-4 text-[13px] text-muted">
+		<div className="fade mx-auto my-3 flex w-fit max-w-full items-center gap-2 rounded-full bg-tone py-1 pr-1 pl-4 text-small text-muted">
 			<span className="min-w-0">注册保存聊天记录，换设备也能找回</span>
 			<Button
 				variant="primary"
