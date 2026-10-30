@@ -1,37 +1,53 @@
 import { useStore } from "@nanostores/react";
 import { ChevronRight, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router";
 import { internalState } from "../lib/navigation";
 import { SettingsDialog } from "../pages/Me";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 
-const DrawerContext = createContext<(() => void) | null>(null);
+const DrawerContext = createContext<((trigger?: HTMLElement) => void) | null>(null);
 
 export function PersonalAvatar() {
 	const open = useContext(DrawerContext);
 	const me = useStore($session)?.actor;
 	if (!open || !me) return null;
 	return (
-		<button type="button" onClick={open} aria-label="打开个人菜单" className="press shrink-0 rounded-full lg:hidden">
+		<button
+			type="button"
+			onClick={(event) => open(event.currentTarget)}
+			aria-label="打开个人菜单"
+			className="press shrink-0 rounded-full lg:hidden"
+		>
 			<Avatar actor={me} size={32} />
 		</button>
 	);
 }
 
 export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
-	const [open, setOpen] = useState(false);
 	const [settings, setSettings] = useState(false);
 	const me = useStore($session)?.actor;
 	const location = useLocation();
+	const navigate = useNavigate();
+	const open = location.state?.personalDrawer === true;
+	const trigger = useRef<HTMLElement | null>(null);
+	const openDrawer = useCallback(
+		(element?: HTMLElement) => {
+			trigger.current = element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+			if (!open)
+				navigate(location.pathname + location.search + location.hash, {
+					state: { ...location.state, personalDrawer: true },
+				});
+		},
+		[location, navigate, open],
+	);
+	const closeDrawer = useCallback(() => {
+		if (open) navigate(-1);
+	}, [navigate, open]);
 	const touch = useRef<{ x: number; y: number } | null>(null);
 	const primary = ["/", "/work", "/market", "/contacts"].includes(location.pathname);
-	useEffect(() => {
-		void location.key;
-		setOpen(false);
-	}, [location.key]);
 	useEffect(() => {
 		const start = (event: TouchEvent) => {
 			if (event.touches.length !== 1 || window.innerWidth >= 1024) return;
@@ -44,8 +60,8 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 			const dy = event.changedTouches[0].clientY - touch.current.y;
 			touch.current = null;
 			if (Math.abs(dx) < 70 || Math.abs(dx) <= Math.abs(dy) * 1.5) return;
-			if (open && dx < 0) setOpen(false);
-			else if (!open && dx > 0) setOpen(true);
+			if (open && dx < 0) closeDrawer();
+			else if (!open && dx > 0) openDrawer();
 		};
 		document.addEventListener("touchstart", start, { passive: true });
 		document.addEventListener("touchend", end, { passive: true });
@@ -53,15 +69,26 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 			document.removeEventListener("touchstart", start);
 			document.removeEventListener("touchend", end);
 		};
-	}, [open, primary]);
+	}, [closeDrawer, open, openDrawer, primary]);
 	return (
-		<DrawerContext.Provider value={() => setOpen(true)}>
+		<DrawerContext.Provider value={openDrawer}>
 			{children}
-			<Dialog.Root open={open} onOpenChange={setOpen}>
+			<Dialog.Root
+				open={open}
+				onOpenChange={(next) => {
+					if (!next) closeDrawer();
+				}}
+			>
 				<Dialog.Portal>
 					<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
 					<Dialog.Content
 						aria-describedby={undefined}
+						onCloseAutoFocus={(event) => {
+							if (trigger.current?.isConnected) {
+								event.preventDefault();
+								trigger.current.focus();
+							}
+						}}
 						className="personal-drawer fixed inset-y-0 left-0 z-50 flex w-[min(320px,85vw)] flex-col overflow-y-auto bg-raised p-5 shadow-float outline-none"
 					>
 						<div className="flex items-center gap-3">
@@ -83,6 +110,7 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 								<Link
 									key={to}
 									to={to}
+									replace
 									state={internalState(location)}
 									className="press flex min-h-12 items-center gap-3 border-b border-hairline"
 								>
@@ -94,7 +122,7 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 								type="button"
 								className="press flex min-h-12 items-center gap-3 text-left"
 								onClick={() => {
-									setOpen(false);
+									closeDrawer();
 									setSettings(true);
 								}}
 							>
