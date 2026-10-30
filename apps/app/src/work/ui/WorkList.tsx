@@ -20,6 +20,7 @@ import {
 	useFolds,
 	type WorkSession,
 } from "../lib/work";
+import { useWorkOnline } from "../lib/workOnline";
 import { workPath } from "../shell/workRoutes";
 import { Avatar } from "./Avatar";
 import { DragScroll } from "./DragScroll";
@@ -54,6 +55,7 @@ function ConsoleEntry() {
 
 /** Bot 头像一排：只有 ≥2 个 Bot 才出现；点头像 = 进入该 Bot 主对话（不是筛选）。 */
 function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: string; running: Set<string> }) {
+	const online = useWorkOnline();
 	const titleOf = useTitleOf();
 	const navigate = useNavigate();
 	const node = useActiveNode();
@@ -75,6 +77,7 @@ function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: str
 							key={actor.id}
 							type="button"
 							title={actor.name}
+							disabled={!online && !session}
 							aria-current={session?.id === active ? "page" : undefined}
 							className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${session?.id === active ? "bg-tone" : ""}`}
 							data-testid="bot-avatar"
@@ -131,6 +134,7 @@ const Heading = ({ title }: { title: string }) => <h2 className="px-4 pt-3 pb-1 
  * 今天/昨天/更早、已完成（折叠）。不显示设备卡片、类型标签、编号、轮次、数字。
  */
 export function WorkList({ active }: { active?: string }) {
+	const online = useWorkOnline();
 	const navigate = useNavigate();
 	const sessions = useQuery({ queryKey: ["sessions", "work"], queryFn: () => workSessions(), refetchInterval: 5000 });
 	const activity = useActivity();
@@ -146,6 +150,7 @@ export function WorkList({ active }: { active?: string }) {
 	);
 
 	const openTask = async () => {
+		if (!online) return;
 		setOpening(true);
 		try {
 			const s = await rpc<SessionInfo>("sessions.open", { preset: "default", close: "manual" });
@@ -174,7 +179,7 @@ export function WorkList({ active }: { active?: string }) {
 				<button
 					type="button"
 					onClick={() => void openTask()}
-					disabled={opening}
+					disabled={opening || !online}
 					className="press flex w-full items-center gap-2 rounded-control bg-tone px-3 py-2 text-small disabled:opacity-40"
 					data-testid="new-task"
 				>

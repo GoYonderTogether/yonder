@@ -2,6 +2,7 @@ import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { RpcError, rpc } from "../api/client";
 import { useActiveNode } from "../api/nodes";
+import { useWorkOnline } from "../lib/workOnline";
 import { AssistBar, AssistMenu, parseSlash, runCommand } from "./ComposerAssist";
 
 const savedDrafts: Record<string, string> = {};
@@ -15,6 +16,7 @@ type Busy = "steer" | "followup" | "interrupt";
  * 由 Bot 自己的绑定接收（contracts.md §10），排队/打断不适用。
  */
 export function Composer({ session, running, bot }: { session: string; running: boolean; bot?: string }) {
+	const online = useWorkOnline();
 	const node = useActiveNode();
 	const draftKey = `${node.id}:${session}`;
 	const [drafts, setDrafts] = useState<Record<string, string>>(savedDrafts);
@@ -30,7 +32,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 
 	const send = async () => {
 		const t = text.trim();
-		if (!t || sending.current) return;
+		if (!online || !t || sending.current) return;
 		sending.current = true;
 		setErr("");
 		try {
@@ -97,6 +99,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 					<button
 						type="button"
 						onClick={abort}
+						disabled={!online}
 						className="press ml-auto flex items-center gap-1 rounded-full border border-hairline px-2.5 py-0.5 text-danger"
 						data-testid="abort"
 					>
@@ -129,7 +132,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 				<button
 					type="button"
 					onClick={() => void send()}
-					disabled={!text.trim()}
+					disabled={!online || !text.trim()}
 					aria-label="发送"
 					className="press grid size-10 shrink-0 place-items-center rounded-full bg-accent text-on-accent disabled:opacity-30"
 				>

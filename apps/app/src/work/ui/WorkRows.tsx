@@ -9,6 +9,7 @@ import { taskRowMenu } from "../lib/menus";
 import { useTail } from "../lib/queries";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import type { TaskStatus, WorkSession } from "../lib/work";
+import { useWorkOnline } from "../lib/workOnline";
 import { workPath } from "../shell/workRoutes";
 import { ActionMenu } from "./ActionMenu";
 import { toast } from "./kit/Toast";
@@ -78,6 +79,7 @@ export function TaskRow({
 	pinned?: boolean;
 	archived: boolean;
 }) {
+	const online = useWorkOnline();
 	const navigate = useNavigate();
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
@@ -123,7 +125,7 @@ export function TaskRow({
 					)}
 				</span>
 			</Link>
-			{menu && <ActionMenu at={menu} title={title} actions={actions} onClose={() => setMenu(null)} />}
+			{menu && <ActionMenu at={menu} title={title} actions={online ? actions : actions.filter((action) => action.key === "open")} onClose={() => setMenu(null)} />}
 		</>
 	);
 }

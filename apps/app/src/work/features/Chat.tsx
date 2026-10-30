@@ -7,6 +7,7 @@ import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, toggleFloat, useLayout } from "../lib/layout";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
+import { useWorkOnline } from "../lib/workOnline";
 import { workPath } from "../shell/workRoutes";
 import { ChannelPanel } from "../ui/ChannelPanel";
 import { Composer } from "../ui/Composer";
@@ -268,6 +269,7 @@ export function Chat({
 	onChannels(): void;
 	onCloseChannels(): void;
 }) {
+	const online = useWorkOnline();
 	return id.startsWith(IMPORT_PREFIX) ? (
 		<Imported
 			header={header}
@@ -280,7 +282,12 @@ export function Chat({
 		/>
 	) : (
 		<Live
-			header={header}
+			header={
+				<>
+					{header}
+					{!online && <p className="px-4 py-2 text-small text-muted">设备未连接，显示已加载内容</p>}
+				</>
+			}
 			key={id}
 			id={id}
 			wide={wide}
