@@ -82,7 +82,7 @@ function ViewCard({ view, session }: { view: ViewDecl; session: string }) {
 								type="button"
 								disabled={!canAct || act.isPending}
 								onClick={() => act.mutate(o.id)}
-								className="rounded border border-line px-2 py-1 text-caption hover:bg-tone disabled:opacity-50"
+								className="rounded border border-hairline px-2 py-1 text-caption hover:bg-tone disabled:opacity-50"
 							>
 								{o.label}
 							</button>
@@ -106,12 +106,12 @@ function ViewCard({ view, session }: { view: ViewDecl; session: string }) {
 							value={text}
 							onChange={(e) => setText(e.target.value)}
 							placeholder={c.placeholder}
-							className="min-w-0 flex-1 rounded border border-line px-2 py-1 text-caption"
+							className="min-w-0 flex-1 rounded border border-hairline px-2 py-1 text-caption"
 						/>
 						<button
 							type="submit"
 							disabled={!canAct || act.isPending || !text.trim()}
-							className="rounded border border-line px-2 py-1 text-caption disabled:opacity-50"
+							className="rounded border border-hairline px-2 py-1 text-caption disabled:opacity-50"
 						>
 							提交
 						</button>

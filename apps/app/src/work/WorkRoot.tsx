@@ -40,9 +40,11 @@ const qc = new QueryClient({
 export default function WorkRoot() {
 	return (
 		<QueryClientProvider client={qc}>
-			<WorkApp />
-			<UpdateNotice />
-			<DevtoolsHost />
+			<div className="work-root h-full">
+				<WorkApp />
+				<UpdateNotice />
+				<DevtoolsHost />
+			</div>
 		</QueryClientProvider>
 	);
 }

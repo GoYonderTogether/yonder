@@ -10,10 +10,10 @@
 	user-select: none;
 	-webkit-touch-callout: none;
 }
-.md pre,
-.md code {
+.work-root .md pre,
+.work-root .md code {
 	overflow-wrap: anywhere;
 }
-.md pre {
+.work-root .md pre {
 	white-space: pre-wrap;
 }
