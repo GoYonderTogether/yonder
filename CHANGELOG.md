@@ -2,7 +2,22 @@
 
 ## [Unreleased]
 
+## [0.3.26103014] - 2026-10-30
+
 - 微信只读归档增加每 Bot 的监听创建、规则回放、暂停恢复和规则回退；命中后通过现有私有绑定分析，重要信息沿 message_send 提醒主人，采集、运行及投递证据分别可查。
+
+### Added
+
+- wechat-archive：add private Bot watch lifecycle
+- core：configure private plugin bindings through scoped sdk
+
+### Changed
+
+- core：keep binding wiring within existing module budgets
+
+### Fixed
+
+- core：preserve lazy plugin services and private peer routes
 
 ## [0.3.26103013] - 2026-10-30
 
