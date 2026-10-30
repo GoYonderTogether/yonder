@@ -10,10 +10,27 @@ import { tokens } from "../lib/format";
 import { titleOf } from "../lib/identity";
 import type { PanelKind } from "../lib/layout";
 import { useSessions } from "../lib/queries";
+import { useRailAttachments } from "../lib/railContent";
 import type { SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
 
 export const Empty = ({ t }: { t: string }) => <p className="text-caption text-faint">{t}</p>;
+
+function Attachments({ session }: { session: string }) {
+	const attachments = useRailAttachments(session);
+	if (attachments.isPending) return <Empty t="正在读取附件" />;
+	if (attachments.isError) return <Empty t="附件读取失败" />;
+	if (!attachments.data?.length) return <Empty t="这个会话最近 50 条消息没有附件" />;
+	return (
+		<ul>
+			{[...new Map(attachments.data.map((item) => [item.uri, item])).values()].map((item) => (
+				<li key={item.uri} className="truncate text-small">
+					{item.name || item.kind}
+				</li>
+			))}
+		</ul>
+	);
+}
 
 function TodoRow({ item, depth }: { item: TodoItem; depth: number }) {
 	const done = item.state === "done";
@@ -220,11 +237,11 @@ export function PanelBody({
 		case "todos":
 			return v.todos.length ? <TodoTree items={v.todos} /> : <Empty t="暂无待办" />;
 		case "goal":
-			return <Empty t="还没有设定目标" />;
+			return v.goal ? <p className="text-small">{v.goal.text}</p> : <Empty t="还没有设定目标" />;
 		case "subtasks":
 			return <Subtasks v={v} session={session} />;
 		case "attachments":
-			return <Empty t="这个会话还没有附件" />;
+			return <Attachments session={session} />;
 		case "views":
 			return <ViewHost session={session} />;
 		case "context":
@@ -232,7 +249,17 @@ export function PanelBody({
 		case "background":
 			return <Background session={session} placement={placement} />;
 		case "wake":
-			return <Empty t="暂无 Bot 唤醒记录" />;
+			return v.wakes?.length ? (
+				<ul>
+					{v.wakes.map((wake) => (
+						<li key={wake.id} className="text-small">
+							{wake.summary || wake.source}
+						</li>
+					))}
+				</ul>
+			) : (
+				<Empty t="暂无 Bot 唤醒记录" />
+			);
 	}
 }
 

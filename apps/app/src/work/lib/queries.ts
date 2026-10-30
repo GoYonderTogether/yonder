@@ -12,10 +12,11 @@ import type { ImportList } from "./imports";
 
 export const useFacts = () => useQuery({ queryKey: ["facts"], queryFn: () => rpc<NodeFacts>("capabilities.get") });
 
-export const useSessions = () =>
+export const useSessions = (enabled = true) =>
 	useQuery({
 		queryKey: ["sessions"],
 		queryFn: () => rpc<SessionInfo[]>("sessions.list", {}),
+		enabled,
 		refetchInterval: 5000,
 	});
 

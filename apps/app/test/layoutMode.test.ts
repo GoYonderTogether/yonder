@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { frameOf, layoutMode, type Screen } from "../src/work/shell/layoutMode";
+import { frameOf, layoutMode, paneVisibility, phoneRailVisible, type Screen } from "../src/work/shell/layoutMode";
 import { breakpointOf } from "../src/work/shell/useBreakpoint";
 
 const SCREENS: Screen[] = ["list", "session", "settings", "page"];
@@ -38,6 +38,15 @@ describe("breakpoint → layout mode", () => {
 });
 
 describe("breakpoint × screen → shell frame", () => {
+	it("gives the right pane priority on tablet and keeps a phone user's choice", () => {
+		expect(paneVisibility("tablet", "session", true, true)).toEqual({ left: false, rail: true });
+		expect(paneVisibility("tablet", "session", true, false)).toEqual({ left: true, rail: false });
+		expect(paneVisibility("desktop", "session", false, true)).toEqual({ left: false, rail: true });
+		expect(paneVisibility("phone", "settings", true, true)).toEqual({ left: false, rail: false });
+		expect(phoneRailVisible(true, undefined)).toBe(true);
+		expect(phoneRailVisible(true, false)).toBe(false);
+		expect(phoneRailVisible(false, undefined)).toBe(false);
+	});
 	// 宽, 页型, 导航, 底栏, 宽屏 Chat, 第二列
 	it.each([
 		[390, "list", "tabbar", true, false, "main"],

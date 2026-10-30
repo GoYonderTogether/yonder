@@ -53,6 +53,15 @@ export interface ShellFrame {
 	side: Side;
 }
 
+/** 可收起的两侧栏；右栏已有内容时平板让左栏让位。 */
+export function paneVisibility(bp: Breakpoint, screen: Screen, leftOpen: boolean, railOpen: boolean) {
+	if (screen !== "session") return { left: bp === "desktop" && leftOpen, rail: false };
+	return { left: leftOpen && (bp === "desktop" || (bp === "tablet" && !railOpen)), rail: railOpen };
+}
+
+/** 手动切回内容后，后续数据刷新不重新抢走手机屏幕。 */
+export const phoneRailVisible = (hasContent: boolean, manual: boolean | undefined) => manual ?? hasContent;
+
 /**
  * 断点 × 页型 → 外壳帧，把「按需叠加」落成具体去向：
  * 桌面第二列常驻；手机列表与设置占满主区；平板列表是覆盖层，打开会话或功能页即收起。

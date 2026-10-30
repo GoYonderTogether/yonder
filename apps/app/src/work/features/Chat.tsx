@@ -1,4 +1,4 @@
-import { ChevronLeft, Layers, PanelRight, Radio } from "lucide-react";
+import { ChevronLeft, Layers, PanelLeftOpen, PanelRight, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Actor } from "../../api/types";
@@ -8,7 +8,7 @@ import { useActiveNode } from "../api/nodes";
 import { useBranchLabel } from "../lib/branch";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
-import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
+import { FLOATABLE, PANEL_TITLE, toggleFloat, useLayout } from "../lib/layout";
 import { deviceAgentMap, useDeviceAgents, useTitleOf } from "../lib/queries";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
@@ -77,6 +77,8 @@ function Header({
 	wide,
 	session,
 	onRail,
+	onList,
+	railOpen,
 	onChannels,
 }: {
 	title: string;
@@ -85,15 +87,26 @@ function Header({
 	wide: boolean;
 	session: string;
 	onRail(): void;
+	onList?(): void;
+	railOpen: boolean;
 	onChannels?(): void;
 }) {
-	const rail = useRailPref();
 	return (
 		<header className="pt-safe flex items-center gap-1 border-b border-hairline bg-ground/90 px-2 py-2 backdrop-blur">
 			{!wide && (
 				<Link to={workPath()} aria-label="返回" className="press grid size-9 place-items-center rounded-full">
 					<ChevronLeft size={22} aria-hidden />
 				</Link>
+			)}
+			{onList && (
+				<button
+					type="button"
+					aria-label="展开工作列表"
+					onClick={onList}
+					className="press grid size-9 place-items-center rounded-full"
+				>
+					<PanelLeftOpen size={19} aria-hidden />
+				</button>
 			)}
 			{actor && <Avatar actor={actor} size={32} />}
 			<div className={`min-w-0 flex-1 ${wide ? "px-2" : "text-center"}`}>
@@ -116,9 +129,9 @@ function Header({
 			<FloatMenu session={session} />
 			<button
 				type="button"
-				onClick={wide ? () => setRailPref({ open: !rail.open }) : onRail}
-				aria-label={wide ? (rail.open ? "收起右栏" : "展开右栏") : "待办与任务"}
-				aria-pressed={wide ? rail.open : undefined}
+				onClick={onRail}
+				aria-label={railOpen ? "收起右栏" : "展开右栏"}
+				aria-pressed={railOpen}
 				className="press grid size-9 place-items-center rounded-full"
 				data-testid="open-rail"
 			>
@@ -207,8 +220,21 @@ function Missing({ wide }: { wide: boolean }) {
 	);
 }
 
-function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
-	const [rail, setRail] = useState(false);
+function Live({
+	id,
+	wide,
+	v,
+	showRail,
+	onRail,
+	onList,
+}: {
+	id: string;
+	wide: boolean;
+	v: LiveView;
+	showRail: boolean;
+	onRail(): void;
+	onList?(): void;
+}) {
 	const [sourcesOpen, setSourcesOpen] = useState(false);
 	const [channels, setChannels] = useState(false);
 	const titleOf = useTitleOf();
@@ -236,7 +262,9 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 					sub={sub}
 					wide={wide}
 					session={id}
-					onRail={() => setRail(true)}
+					onRail={onRail}
+					onList={onList}
+					railOpen={showRail}
 					onChannels={isBot ? () => setChannels((o) => !o) : undefined}
 				/>
 				{v.error && (
@@ -268,11 +296,12 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 				<FloatLayer session={id} v={v} />
 			</section>
 			{channels && s?.agent && <ChannelPanel bot={s.agent} wide={wide} onClose={() => setChannels(false)} />}
-			{wide && !channels ? (
+			{wide && !channels && showRail ? (
 				<RightRail session={id} v={v} />
 			) : (
-				rail && (
-					<RailSheet onClose={() => setRail(false)}>
+				!wide &&
+				showRail && (
+					<RailSheet onClose={onRail}>
 						<CardStack session={id} v={v} />
 					</RailSheet>
 				)
@@ -281,9 +310,20 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	);
 }
 
-function Imported({ id, wide }: { id: string; wide: boolean }) {
+function Imported({
+	id,
+	wide,
+	showRail,
+	onRail,
+	onList,
+}: {
+	id: string;
+	wide: boolean;
+	showRail: boolean;
+	onRail(): void;
+	onList?(): void;
+}) {
 	const q = useImport(id);
-	const [rail, setRail] = useState(false);
 	const d = q.data;
 	const key = `${IMPORT_PREFIX}${id}`;
 	const v: SessionView = { ...emptyView, ready: true, todos: d?.todo?.items ?? [] };
@@ -295,16 +335,19 @@ function Imported({ id, wide }: { id: string; wide: boolean }) {
 					sub={d?.summary.cwd}
 					wide={wide}
 					session={key}
-					onRail={() => setRail(true)}
+					onRail={onRail}
+					onList={onList}
+					railOpen={showRail}
 				/>
 				<ImportBody id={id} />
 				<FloatLayer session={key} v={v} />
 			</section>
-			{wide ? (
+			{wide && showRail ? (
 				<RightRail session={key} v={v} />
 			) : (
-				rail && (
-					<RailSheet onClose={() => setRail(false)}>
+				!wide &&
+				showRail && (
+					<RailSheet onClose={onRail}>
 						<CardStack session={key} v={v} />
 					</RailSheet>
 				)
@@ -313,10 +356,31 @@ function Imported({ id, wide }: { id: string; wide: boolean }) {
 	);
 }
 
-export function Chat({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
+export function Chat({
+	id,
+	wide,
+	v,
+	showRail,
+	onRail,
+	onList,
+}: {
+	id: string;
+	wide: boolean;
+	v: LiveView;
+	showRail: boolean;
+	onRail(): void;
+	onList?(): void;
+}) {
 	return id.startsWith(IMPORT_PREFIX) ? (
-		<Imported key={id} id={id.slice(IMPORT_PREFIX.length)} wide={wide} />
+		<Imported
+			key={id}
+			id={id.slice(IMPORT_PREFIX.length)}
+			wide={wide}
+			showRail={showRail}
+			onRail={onRail}
+			onList={onList}
+		/>
 	) : (
-		<Live key={id} id={id} wide={wide} v={v} />
+		<Live key={id} id={id} wide={wide} v={v} showRail={showRail} onRail={onRail} onList={onList} />
 	);
 }

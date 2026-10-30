@@ -8,9 +8,10 @@ import { Transcript } from "../ui/Transcript";
 const PAGE = 400;
 
 /** 导入的 pi 会话：读最后一页，可向前翻；只读，没有输入框。 */
-export function useImport(id: string) {
+export function useImport(id: string | undefined) {
 	return useQuery({
 		queryKey: ["import", id],
+		enabled: !!id,
 		queryFn: async () => {
 			const head = await rpc<ImportShow>("imports.show", { id, limit: 1 });
 			const offset = Math.max(0, head.total - PAGE);
