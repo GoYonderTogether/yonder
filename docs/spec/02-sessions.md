@@ -52,6 +52,8 @@
 
 内部 `agent` 渠道带 `data.target` 时只允许该目标命中；其他 agent 记 `no-binding`。目标仍须通过自己的绑定，不增加 match 维度。普通渠道不得使用这个字段指定目标；唯一例外是注册时声明 `multiAgent:true` 的渠道 provider（04）：同样只求值目标 Agent，必须通过其自己的绑定，其他 Agent 记 no-binding。
 
+`channel.connected` 是渠道插件报告的授权事实，不是主人消息。内核校验报告的账号已关联到目标 Agent 的 owner，按真实渠道、私聊及账号逐条匹配既有主人消息绑定；只有首条匹配绑定进入 main 时才运行。multiAgent 渠道无匹配时沿用主人点名 main 入口。事件保留 `plugin:` 来源和真实私聊，使用绑定的回复策略，不制造原生消息 ID。回复策略为 none 且当前配置不提供 message_send 时只记录 `send-unavailable`，不唤醒模型。
+
 `parent_ask` 写内部 message.in（kind: parent-request），目标固定为调用方所属 Agent，仅允许 main 绑定命中；原会话、配置档、来源事件与发送者由内核附上。没有 main 绑定即不运行。工具不直接向常驻会话 submit；返回沿原生调用等待交给分身，包含实际 status、session 和 text，不能自动公开主会话答复。复用稳定调用身份，重启重接同一请求。
 
 ```yaml
@@ -122,7 +124,7 @@ interface Route {
   binding: string | null;   // 命中的绑定 id；未命中为 null
   session?: string;         // 进入的会话 id
   wake?: 'run' | 'write';
-  dropped?: 'no-binding' | 'agent-disabled' | 'profile-mismatch';
+  dropped?: 'no-binding' | 'agent-disabled' | 'profile-mismatch' | 'send-unavailable';
 }
 ```
 

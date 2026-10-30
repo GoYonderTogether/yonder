@@ -170,6 +170,52 @@ it("only the provider registration can allow a channel to emit target", async ()
 	}
 });
 
+it("records owner connection as the actual plugin and rejects forged connection events", async () => {
+	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	try {
+		const directory = join(home, "owner-channel");
+		await mkdir(directory);
+		await writeFile(
+			join(directory, "package.json"),
+			JSON.stringify({
+				version: "1.0.0",
+				type: "module",
+				yonder: {
+					apiVersion: 1,
+					id: "owner-channel",
+					entry: "./index.mjs",
+					contributes: { channels: ["owner-channel"] },
+				},
+			}),
+		);
+		await writeFile(
+			join(directory, "index.mjs"),
+			`export default { setup(api) { api.channels.register({ type: 'owner-channel', multiAgent: true, create(id) { return {id, kinds:['dm'], output:{stream:false,attachments:false}, async start(io) { await io.ownerConnected({account:'acct:input:main:owner',conv:'conv:input:main:room',agent:'main'}); await io.emit({type:'channel.connected',data:{}}); }, async stop(){}, async send(){return {ok:false}}}; }}); }};`,
+		);
+		const plugins = await loadPlugins(
+			home,
+			{ schema: 1, plugins: [{ use: directory }], channels: { input: { type: "owner-channel" } } },
+			{ log: { error() {} } } as unknown as KernelServices,
+		);
+		const events: import("@yonder/sdk").EventInput[] = [];
+		const emit = async (event: import("@yonder/sdk").EventInput) => {
+			events.push(event);
+			return { ...event, id: "1", ts: new Date().toISOString() };
+		};
+		await expect(plugins.start({ emit, ask: unused })).rejects.toThrow("channel.connected is a core event");
+		expect(events).toMatchObject([
+			{
+				type: "channel.connected",
+				from: "plugin:owner-channel",
+				conv: "conv:input:main:room",
+				data: { account: "acct:input:main:owner", target: "main" },
+			},
+		]);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
 it("skips one channel instance with invalid config and keeps the others (JV2-J09-03)", async () => {
 	const home = await mkdtemp(join(tmpdir(), "ya-"));
 	try {

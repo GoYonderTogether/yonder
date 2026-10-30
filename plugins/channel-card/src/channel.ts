@@ -46,6 +46,8 @@ export class CardChannel implements Channel {
 	private backoff = 1000;
 	private mappings = new Map<string, string>();
 	private pending = new Map<string, (delivery: Delivery) => void>();
+	private welcome = false;
+	private owners: Array<{ agent: string; account: Ref; actor: string }> = [];
 
 	constructor(
 		readonly id: string,
@@ -151,17 +153,24 @@ export class CardChannel implements Channel {
 		const session = (await this.request("/api/session")) as { actor?: { id?: unknown } } | undefined;
 		const actor = session?.actor?.id;
 		if (typeof actor !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(actor)) throw new Error("Invalid card session");
+		const owners: typeof this.owners = [];
 		for (const agent of agents) {
 			if (!agent.owner) continue;
 			const account = `acct:${this.id}:${agent.id}:${actor}` as Ref;
 			// 账号已存在也要看有没有 person：旧版只判存在，历史账号的 person 一直是 NULL，fromOwner 恒为 false（FIX-bots）。
-			if ((await this.api.identity.account(account))?.person) continue;
+			const existing = (await this.api.identity.account(account))?.person;
+			if (existing) {
+				if (existing === agent.owner) owners.push({ agent: agent.id, account, actor });
+				continue;
+			}
 			if (!(await this.api.identity.person(agent.owner))) {
 				this.warn(`Owner ${agent.owner} is unknown; ${agent.id} keeps its card account unlinked`);
 				continue;
 			}
 			await this.api.identity.link(account, agent.owner);
+			owners.push({ agent: agent.id, account, actor });
 		}
+		this.owners = owners;
 	}
 	async syncAgents(): Promise<void> {
 		if (!this.token || this.stopped) return;
@@ -258,6 +267,8 @@ export class CardChannel implements Channel {
 		this.code = undefined;
 		clearTimeout(this.pollTimer);
 		this.loginState = "confirmed";
+		this.owners = [];
+		this.welcome = true;
 		await this.syncAgents();
 	}
 	private schedulePoll(): void {
@@ -306,6 +317,10 @@ export class CardChannel implements Channel {
 		socket.once("open", () => {
 			this.backoff = 1000;
 			socket.send(JSON.stringify({ type: "hello" }));
+			if (this.welcome) {
+				this.welcome = false;
+				void this.greetOwners().catch(() => this.warn("Owner connection notification failed"));
+			}
 		});
 		let inputs = Promise.resolve();
 		socket.on("message", (raw) => {
@@ -340,6 +355,22 @@ export class CardChannel implements Channel {
 				this.backoff = Math.min(this.backoff * 2, 30000);
 			}
 		});
+	}
+	private async greetOwners(): Promise<void> {
+		if (!this.io?.ownerConnected) return;
+		for (const { agent, account, actor } of this.owners) {
+			try {
+				const agentId = this.mappings.get(agent);
+				if (!agentId) continue;
+				const result = (await this.request("/api/device/dm", "POST", { agentId, accountId: actor })) as {
+					convId?: unknown;
+				};
+				if (typeof result.convId !== "string" || !result.convId) throw new Error("Invalid card DM response");
+				await this.io.ownerConnected({ account, conv: `conv:${this.id}:${agent}:${result.convId}`, agent });
+			} catch {
+				this.warn(`Owner connection notification failed for ${agent}`);
+			}
+		}
 	}
 	private async incoming(socket: WebSocket, data: Record<string, unknown>): Promise<void> {
 		if (socket.readyState !== WebSocket.OPEN || this.stopped) return;

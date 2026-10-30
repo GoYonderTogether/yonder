@@ -199,6 +199,7 @@ export function createRouter({
 		const event = newEvent(eventInput);
 		const inputData = event.data as {
 			target?: unknown;
+			account?: unknown;
 			kind?: unknown;
 			agent?: unknown;
 			through?: unknown;
@@ -223,13 +224,15 @@ export function createRouter({
 				? await Promise.all(sourceIds.map((id) => store.events.get(id)))
 				: [];
 		const internalTarget =
-			event.type === "message.in" &&
+			(event.type === "message.in" || event.type === "channel.connected") &&
 			(channelOf(event.conv) === "agent" || channels?.get(channelOf(event.conv) ?? "")?.multiAgent === true) &&
 			typeof inputData.target === "string"
 				? inputData.target
 				: undefined;
 		const routes: NonNullable<YEvent["routes"]> = [];
-		const person = event.from?.startsWith("acct:") ? (await store.identity().account(event.from))?.person : undefined;
+		const account =
+			event.type === "channel.connected" && typeof inputData.account === "string" ? inputData.account : event.from;
+		const person = account?.startsWith("acct:") ? (await store.identity().account(account))?.person : undefined;
 		const instance = channelOf(event.conv);
 		const socialAgents = [...agents.values()].filter((agent) => {
 			if (!agent.social?.enabled || event.type !== "message.in" || internalTarget || instance === "agent") return false;
@@ -249,6 +252,10 @@ export function createRouter({
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
+			if (event.type === "channel.connected" && (!person || person !== agent.owner)) {
+				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
+				continue;
+			}
 			if (
 				socialBatchPlugin &&
 				agent.social?.enabled &&
@@ -356,6 +363,8 @@ export function createRouter({
 					binding = candidate;
 					break;
 				}
+			const matchedConnection = event.type === "channel.connected" && binding !== undefined;
+			if (event.type === "channel.connected" && binding?.session !== "main") binding = undefined;
 			if (
 				event.type === "social.batch-ready" &&
 				(binding?.match.type !== "social.batch-ready" ||
@@ -368,7 +377,7 @@ export function createRouter({
 				binding = undefined;
 			// 点名叫到本 Agent 却没命中任何配置绑定：multiAgent 渠道（card、console）的主人私聊走零配置
 			// 点名入口，其余情况仍然丢弃，但要留下可诊断的原因（spec 03「不可路由要留可诊断原因」）。
-			if (!binding && internalTarget === agent.id)
+			if (!binding && !matchedConnection && internalTarget === agent.id)
 				binding = targetBinding(agent, event, instance, !!person && person === agent.owner);
 			if (!binding) {
 				const reason = targetDropReason(event, agent.id, !!person && person === agent.owner);
@@ -378,8 +387,14 @@ export function createRouter({
 			}
 			const profile = binding.profile ?? agent.defaultProfile;
 			const scope = agent.profiles[profile]?.channelInstances ?? agent.defaults?.channelInstances;
-			if (decision && instance !== "console" && scope && (!instance || !scope.includes(instance))) {
-				diagnostics.push({ agent: agent.id, reason: "channel-outside-scope", revision: decision.revision });
+			if (
+				(decision || event.type === "channel.connected") &&
+				instance !== "console" &&
+				scope &&
+				(!instance || !scope.includes(instance))
+			) {
+				if (decision)
+					diagnostics.push({ agent: agent.id, reason: "channel-outside-scope", revision: decision.revision });
 				routes.push({ agent: agent.id, binding: binding.id, dropped: "no-binding" });
 				continue;
 			}
@@ -409,6 +424,16 @@ export function createRouter({
 			if (ensured.profileMismatch) {
 				routes.push({ agent: agent.id, binding: binding.id, dropped: "profile-mismatch" });
 				continue;
+			}
+			if (event.type === "channel.connected" && binding.reply === "none") {
+				const config = await sessions.resolveSession(ensured.session.id);
+				const send = runtime()
+					.describeTools(config)
+					.find((tool) => tool.name === "message_send");
+				if (!send || (send.exposure !== "offer" && send.exposure !== "search")) {
+					routes.push({ agent: agent.id, binding: binding.id, dropped: "send-unavailable" });
+					continue;
+				}
 			}
 			const data = event.data as { mentioned?: unknown; social?: { mentions?: { bot?: boolean } } };
 			const mentioned = decision ? (data.social?.mentions?.bot ?? data.mentioned) === true : data.mentioned === true;

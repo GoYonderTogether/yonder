@@ -93,7 +93,9 @@ type Lifecycle = { pluginId: string; stop(): Promise<void> };
 type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
 
 function pluginEvent(id: string, event: EventInput, channel?: string, multiAgent = false): EventInput {
-	if (["routing.social-decision", "notification.intent", "notification.final"].includes(event.type))
+	if (
+		["routing.social-decision", "notification.intent", "notification.final", "channel.connected"].includes(event.type)
+	)
 		throw new Error(`${id}: ${event.type} is a core event`);
 	if (event.type === "message.in" && channel) {
 		if (
@@ -453,6 +455,27 @@ export async function loadPlugins(
 					await channel.start({
 						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),
 						ask: (event) => io.ask(pluginEvent(owner, event, id, channel.multiAgent)),
+						ownerConnected: ({ account, conv, agent }) => {
+							if (
+								!account.startsWith(`acct:${id}:`) ||
+								!conv.startsWith(`conv:${id}:`) ||
+								(agent && !channel.multiAgent) ||
+								(channel.multiAgent &&
+									(!agent || !account.startsWith(`acct:${id}:${agent}:`) || !conv.startsWith(`conv:${id}:${agent}:`)))
+							)
+								throw new Error(`${owner}: invalid owner connection`);
+							return io.emit({
+								type: "channel.connected",
+								from: `plugin:${owner}`,
+								conv,
+								data: {
+									account,
+									kind: "dm",
+									...(agent ? { target: agent } : {}),
+									text: `渠道 ${id} 已连接主人 ${account}，私聊是 ${conv}。你可以向主人打个招呼。`,
+								},
+							});
+						},
 					});
 					started.push({ pluginId: owner, stop: () => channel.stop() });
 				}

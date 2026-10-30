@@ -61,6 +61,7 @@ async function backend() {
 			res.end(JSON.stringify(body!.map((agent) => ({ key: agent.key, id: `platform-${agent.key}` }))));
 		else if (req.method === "GET" && req.url === "/api/session")
 			res.end(JSON.stringify({ actor: { id: OWNER_ACCOUNT } }));
+		else if (req.method === "POST" && req.url === "/api/device/dm") res.end(JSON.stringify({ convId: "owner-dm" }));
 		else if (req.url === "/api/device/start")
 			res.end(JSON.stringify({ code: "contract-code", url: `${base}/connect?code=contract-code` }));
 		else if (req.url?.startsWith("/api/device/poll"))
@@ -83,7 +84,10 @@ async function backend() {
 }
 
 /** 设备授权完成后的现场：真实 store + 协议双替身，主人账号已按 G-02 关联到 agent owner。 */
-async function linked() {
+async function linked(
+	ownerConnected?: NonNullable<import("@yonder/sdk").ChannelIO["ownerConnected"]>,
+	twoAgents = false,
+) {
 	const { agent } = await scaffold();
 	const data = await mkdtemp(join(tmpdir(), "yonder-card-state-"));
 	cleanups.push(() => rm(data, { recursive: true, force: true }));
@@ -94,7 +98,12 @@ async function linked() {
 	const endpoint = await backend();
 	const api = {
 		paths: { data },
-		agents: { list: async () => [{ id: "main", name: "Main", owner: "person:owner" as Ref }] },
+		agents: {
+			list: async () => [
+				{ id: "main", name: "Main", owner: "person:owner" as Ref },
+				...(twoAgents ? [{ id: "other", name: "Other", owner: "person:owner" as Ref }] : []),
+			],
+		},
 		identity: store.identity(),
 		log: { warn: vi.fn() },
 	} as unknown as PluginAPI;
@@ -102,6 +111,7 @@ async function linked() {
 	cleanups.push(() => channel.stop());
 	await channel.start({
 		emit: async (event) => ({ ...event, id: "event", ts: new Date().toISOString() }) as YEvent,
+		...(ownerConnected ? { ownerConnected } : {}),
 		ask: async () => {
 			throw new Error("no ask");
 		},
@@ -116,6 +126,28 @@ async function linked() {
 	);
 	return { agent, store, channel, account };
 }
+
+test("device authorization reports the verified owner only once after the socket opens", async () => {
+	const ownerConnected = vi.fn(
+		async () => ({ id: "connection", ts: new Date().toISOString(), type: "channel.connected", data: {} }) as YEvent,
+	);
+	const { channel, account } = await linked(ownerConnected);
+	await vi.waitFor(() => expect(ownerConnected).toHaveBeenCalledTimes(1));
+	expect(ownerConnected).toHaveBeenCalledWith({ account, conv: "conv:card-local:main:owner-dm", agent: "main" });
+	await channel.syncAgents();
+	await new Promise((resolve) => setTimeout(resolve, 100));
+	expect(ownerConnected).toHaveBeenCalledTimes(1);
+});
+
+test("a failed owner notification does not skip the next agent", async () => {
+	const ownerConnected = vi.fn(async (input: { agent?: string }) => {
+		if (input.agent === "main") throw new Error("failed");
+		return { id: "connection", ts: new Date().toISOString(), type: "channel.connected", data: {} } as YEvent;
+	});
+	await linked(ownerConnected, true);
+	await vi.waitFor(() => expect(ownerConnected).toHaveBeenCalledTimes(2));
+	expect(ownerConnected.mock.calls[1]?.[0].agent).toBe("other");
+});
 
 test("SOC01 G-02: device authorization links the owner's own account so its DM enters main", async () => {
 	const { agent, store, account } = await linked();

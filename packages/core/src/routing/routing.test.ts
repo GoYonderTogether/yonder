@@ -7,6 +7,100 @@ import { createStore } from "../store/index.js";
 import { createRouter } from "./index.js";
 import { socialDecision } from "./social.js";
 
+test("channel connection routes only a verified owner through the first matching main binding", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:card:main:owner", "person:owner");
+		const agent = parseAgentConfig(
+			`schema: 1
+id: main
+name: Main
+owner: person:owner
+defaultProfile: owner
+profiles:
+  owner: { model: openai/gpt-6-luna }
+bindings:
+  - id: owner
+    match: { channel: card, kind: dm, from: owner }
+    session: main
+`,
+			"agent.yaml",
+			"main",
+		);
+		const runtime = {
+			create: async () => "42",
+			sessionState: async () => undefined,
+			describeTools: () => [],
+			submit: async () => ({
+				runId: "run",
+				status: "done",
+				text: "",
+				usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
+				inputs: [],
+			}),
+		} as unknown as Runtime;
+		const agents = new Map([[agent.id, agent]]);
+		const sessions = createSessions({
+			store,
+			agents,
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/yonder",
+			config: { agents: [{ id: "main", workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const channels = new Map([["card", { multiAgent: true }]]) as unknown as NonNullable<
+			import("./types.js").CreateRouterOptions["channels"]
+		>;
+		const router = createRouter({ store, sessions, runtime: () => runtime, agents, channels });
+		const event = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", text: "connected" },
+		});
+		expect(event.from).toBe("plugin:channel-card");
+		expect(event.routes).toMatchObject([{ agent: "main", binding: "owner", session: "42", wake: "run" }]);
+		const stranger = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:stranger", text: "connected" },
+		});
+		expect(stranger.routes).toMatchObject([{ agent: "main", binding: null, dropped: "no-binding" }]);
+		agent.bindings[0]!.reply = "none";
+		const unavailable = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", text: "connected" },
+		});
+		expect(unavailable.routes).toMatchObject([{ agent: "main", binding: "owner", dropped: "send-unavailable" }]);
+		agent.bindings[0]!.match.channel = "cli";
+		agent.bindings[0]!.reply = "auto";
+		const implicit = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", target: "main", text: "connected" },
+		});
+		expect(implicit.routes).toMatchObject([{ agent: "main", binding: "@target", session: "42", wake: "run" }]);
+		agent.profiles.owner!.channelInstances = ["cli"];
+		const denied = await router.emit({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { kind: "dm", account: "acct:card:main:owner", target: "main", text: "connected" },
+		});
+		expect(denied.routes).toMatchObject([{ agent: "main", binding: "@target", dropped: "no-binding" }]);
+	} finally {
+		await db.close();
+	}
+});
+
 test("routes to the first matching binding and derives its conversation key", async () => {
 	const db = await openDatabase(":memory:");
 	try {

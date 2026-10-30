@@ -21,6 +21,8 @@
 
 一个设备只建立一条 `/ws/device` 连接，复用上述映射多路收发。插件不得直接读取内核数据库、复制模型队列或绕过绑定提交给 Agent。
 
+用户授权确认后，插件在账号关联核实且 WebSocket 可发送时，通过 `/api/device/dm` 获取真实主人私聊并调用 `ownerConnected`；已有账号若关联到其他 person 则不报告主人。普通启动恢复、重连及周期同步不重复报告。
+
 ## 3 消息与补收
 
 - 下行 `{type:'message', agentId, convId, convKind:'dm'|'group'|'notice', mentioned:boolean, message}` 映射为 message.in；data.target 为映射后的 Yonder agent id；kind 和 mentioned 直接取协议字段。

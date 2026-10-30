@@ -225,6 +225,15 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
 		expect(prepared.text).toContain("星期五");
 		expect(prepared.text).toContain("UTC 2026-10-23T06:00:00.000Z");
+		const connection = newEvent({
+			type: "channel.connected",
+			from: "plugin:channel-card",
+			conv: "conv:card:main:room",
+			data: { account: "acct:card:main:owner", text: "渠道已连接" },
+		});
+		const connectionInput = await prepareInput(row, session, connection, "run", options);
+		expect(connectionInput.text).toContain("System reminder; no human authority");
+		expect(connectionInput.text).toContain("渠道已连接");
 		const group = newEvent({ type: "channel-web.group-batch", conv: "conv:web:group:a", data: {} });
 		const scopedOptions = {
 			...options,

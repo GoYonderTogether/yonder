@@ -10,17 +10,22 @@ const typeMatches = (pattern: string, type: string) =>
 
 export async function matches(binding: Binding, event: YEvent, agent: AgentConfig, store: Store): Promise<boolean> {
 	const match = binding.match;
-	if (!typeMatches(match.type ?? "message.in", event.type)) return false;
+	const connected = event.type === "channel.connected";
+	if (!typeMatches(match.type ?? "message.in", connected ? "message.in" : event.type)) return false;
 	if (match.conv && !asArray(match.conv)!.includes(event.conv ?? "")) return false;
 	const channel = channelOf(event.conv);
 	if (match.channel && !asArray(match.channel)!.includes(channel ?? "")) return false;
-	const data = event.data as { kind?: unknown; mentioned?: unknown; target?: unknown };
-	if (match.kind && (event.type !== "message.in" || !asArray(match.kind)!.includes(String(data.kind ?? ""))))
+	const data = event.data as { kind?: unknown; mentioned?: unknown; target?: unknown; account?: unknown };
+	if (
+		match.kind &&
+		((event.type !== "message.in" && !connected) || !asArray(match.kind)!.includes(String(data.kind ?? "")))
+	)
 		return false;
 	if (match.from) {
-		if (!event.from?.startsWith("acct:")) return false;
+		const from = connected && typeof data.account === "string" ? data.account : event.from;
+		if (!from?.startsWith("acct:")) return false;
 		const expected = asArray(match.from)!;
-		const account = await store.identity().account(event.from);
+		const account = await store.identity().account(from);
 		const relation = !account?.person ? "stranger" : account.person === agent.owner ? "owner" : "known";
 		for (const value of expected) {
 			if (
@@ -28,7 +33,7 @@ export async function matches(binding: Binding, event: YEvent, agent: AgentConfi
 				!(agent.social?.enabled && value === "owner" && event.type === "message.in" && data.kind !== "dm")
 			)
 				return true;
-			if (value.startsWith("acct:") && value === event.from) return true;
+			if (value.startsWith("acct:") && value === from) return true;
 			if (value.startsWith("person:") && account?.person === value) return true;
 		}
 		return false;
@@ -53,7 +58,13 @@ export function targetBinding(
 	instance: string | undefined,
 	fromOwner: boolean,
 ): Binding | undefined {
-	if (event.type !== "message.in" || !instance || instance === "agent" || !fromOwner) return undefined;
+	if (
+		(event.type !== "message.in" && event.type !== "channel.connected") ||
+		!instance ||
+		instance === "agent" ||
+		!fromOwner
+	)
+		return undefined;
 	if ((event.data as { kind?: unknown }).kind !== "dm") return undefined;
 	const main = agent.bindings.find((binding) => binding.session === "main" && binding.wake !== "write");
 	if (!main) return undefined;

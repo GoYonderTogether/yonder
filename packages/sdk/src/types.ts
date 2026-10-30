@@ -38,7 +38,7 @@ export interface Route {
 	wake?: "run" | "write";
 	busy?: "followup" | "steer" | "interrupt";
 	waiting?: boolean;
-	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch";
+	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch" | "send-unavailable";
 }
 export type * from "./event-data.js";
 export interface EventQuery {
@@ -258,6 +258,8 @@ export interface ChannelLoginResult {
 export interface ChannelIO {
 	emit(e: EventInput): Promise<YEvent>;
 	ask(e: EventInput): Promise<AskResult>;
+	/** Report an explicit owner authorization with a verified account and reachable private conversation. */
+	ownerConnected?(input: { account: Ref; conv: Ref; agent?: string }): Promise<YEvent>;
 }
 export interface AskResult {
 	event: YEvent;
