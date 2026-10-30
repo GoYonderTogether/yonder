@@ -218,3 +218,54 @@ describe("Settings 组件", () => {
 		}
 	});
 });
+
+it("云设备设置与工作列表使用统一设备授权入口", async () => {
+	const { QueryClient, QueryClientProvider } = await import("@tanstack/react-query");
+	const { parseHTML } = await import("linkedom");
+	const { act, createElement } = await import("react");
+	const { createRoot } = await import("react-dom/client");
+	const { MemoryRouter } = await import("react-router");
+	const { Settings } = await import("../src/work/features/Settings");
+	const { WorkList } = await import("../src/work/ui/WorkList");
+	const { setCloudDevice, setActiveNode } = await import("../src/work/api/nodes");
+	const { window } = parseHTML("<html><body><div id='root'></div></body></html>");
+	vi.stubGlobal("window", window);
+	vi.stubGlobal("document", window.document);
+	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+	vi.stubGlobal("localStorage", { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () => ({
+			status: 200,
+			ok: true,
+			json: async () => ({ ok: true, result: [] }),
+			text: async () => JSON.stringify({ actor: { id: "a1", name: "阿蓝", kind: "human" } }),
+		})),
+	);
+	setCloudDevice("a1", { id: "device-1", name: "我的设备" });
+	const root = createRoot(window.document.getElementById("root") as unknown as HTMLElement);
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	try {
+		await act(async () =>
+			root.render(
+				createElement(
+					QueryClientProvider,
+					{ client },
+					createElement(MemoryRouter, null, createElement(Settings, { onLogout: () => {} }), createElement(WorkList)),
+				),
+			),
+		);
+		const body = window.document.body;
+		expect(body.textContent).toContain("已登录 · 设备账号授权");
+		expect(body.textContent).toContain("我的设备");
+		expect(body.querySelector('[data-testid="settings-nodes"]')).toBeNull();
+		expect(body.querySelector('[data-testid="console-entry"]')).toBeNull();
+		expect(body.querySelector('[data-testid="current-device"]')).not.toBeNull();
+		expect(body.textContent).not.toContain("远程访问令牌");
+	} finally {
+		await act(async () => root.unmount());
+		setActiveNode("local");
+		client.clear();
+		vi.unstubAllGlobals();
+	}
+});

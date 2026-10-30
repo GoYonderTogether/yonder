@@ -30,6 +30,16 @@ function ConsoleEntry() {
 	const nodes = useNodes();
 	const active = useActiveNode();
 	const name = active.name || active.id;
+	if (active.deviceId)
+		return (
+			<div className="mx-4 mt-2 flex items-center gap-2 rounded-card bg-raised px-3 py-2" data-testid="current-device">
+				<MonitorSmartphone size={17} className="shrink-0 text-muted" aria-hidden />
+				<span className="min-w-0">
+					<span className="block text-small">当前设备</span>
+					<span className="block truncate text-caption text-faint">{name}</span>
+				</span>
+			</div>
+		);
 	const summary = nodes.length > 1 ? `${name} · ${nodes.length} 个节点` : "只控制本机";
 	return (
 		<Link

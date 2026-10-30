@@ -2,6 +2,7 @@ import { Settings as SettingsIcon } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 import { Link, Navigate } from "react-router";
 import { PersonalAvatar } from "../components/PersonalDrawer";
+import { useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
 import { Chat } from "./features/Chat";
 import { NotifyHost } from "./features/notify/NotifyHost";
@@ -27,6 +28,7 @@ const ConsoleSwitcher = lazy(() =>
  */
 export function WorkShell({ onLogout }: { onLogout(): void }) {
 	const route = useWorkRoute();
+	const cloudDevice = !!useActiveNode().deviceId;
 	const breakpoint = useBreakpoint();
 	useRefetchOnReconnect();
 	// 保持一条活动订阅：连接状态驱动断线提示与重连补齐
@@ -41,7 +43,11 @@ export function WorkShell({ onLogout }: { onLogout(): void }) {
 		) : route.page === "market" ? (
 			<Navigate to="/market" replace />
 		) : route.page === "console" ? (
-			<ConsoleSwitcher />
+			cloudDevice ? (
+				<Navigate to={workPath()} replace />
+			) : (
+				<ConsoleSwitcher />
+			)
 		) : undefined;
 	const screen: Screen = page ? "page" : route.session ? "session" : "list";
 	const frame = frameOf(breakpoint, screen);

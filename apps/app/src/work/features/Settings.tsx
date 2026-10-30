@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { LogOut } from "lucide-react";
 import { qk } from "../api/keys";
+import { useActiveNode } from "../api/nodes";
 import { httpApi } from "../api/social";
 import { useFacts } from "../lib/queries";
 import { AboutSection } from "./settings/AboutSection";
@@ -15,15 +16,21 @@ import { SocialSection } from "./settings/SocialSection";
  * 社交账号与登录态复用 api/social.ts 的 httpApi 与 qk.socialSession，不在这里另做登录。
  */
 export function Settings({ onLogout }: { onLogout(): void }) {
+	const node = useActiveNode();
 	const facts = useFacts();
 	const social = useQuery({ queryKey: qk.socialSession, queryFn: httpApi.session, retry: false });
 	const socialName = social.data?.actor.name;
-	const rows = accountRows(facts.data, socialName);
+	const rows = node.deviceId
+		? [
+				{ key: "account", label: "账号", value: socialName || "未登录" },
+				{ key: "device", label: "当前设备", value: node.name },
+			]
+		: accountRows(facts.data, socialName);
 	return (
 		<div className="scroll-y h-full">
 			<h1 className="pt-safe px-4 pt-3 pb-1 text-title font-semibold">我</h1>
 			<section className="mx-4 mt-2 rounded-card bg-raised p-4 text-small" data-testid="settings">
-				<p>已登录 · {facts.data?.kind === "local" ? "本机票据" : "远程访问令牌"}</p>
+				<p>已登录 · {node.deviceId ? "设备账号授权" : facts.data?.kind === "local" ? "本机票据" : "远程访问令牌"}</p>
 				<p className="mt-1 text-faint">会话置顶、免打扰和已读位置只保存在这台设备的浏览器里。</p>
 			</section>
 			<section className="mx-4 mt-3 rounded-card bg-raised p-4" data-testid="settings-account">
@@ -42,7 +49,7 @@ export function Settings({ onLogout }: { onLogout(): void }) {
 			<NotifySection />
 			<ChannelsSection />
 			<SocialSection />
-			<NodesSection />
+			{!node.deviceId && <NodesSection />}
 			<AboutSection />
 			<button
 				type="button"
