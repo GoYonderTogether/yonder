@@ -2,12 +2,24 @@
 
 ## [Unreleased]
 
+### Changed
+- Web 群聊支持选择成员原生 @、指定消息引用及引用显示；card 渠道保留发送者与 @ 元数据，普通语义回应不强制引用。云端成员校验配套变更需要单独部署。
+
 - 修复部分 macOS 系统上服务 Helper 启动时崩溃的问题。
 
+<<<<<<< HEAD
 - 群聊发送支持 respondTo 语义回应和经同群身份核实的 mentions，运输来源与显式引用分离；不支持真实艾特的渠道明确拒绝。
+=======
+## [0.3.26103005] - 2026-10-30
+>>>>>>> origin/main
 
 - 修正飞书凭据错误回显，提示空准入名单拒绝所有，并澄清渠道登录能力、静态检查和权限授权边界。
 - 修复微信会话过期后的重新登录和旧轮询竞态，允许同一联系人更新 Bot；更换联系人需显式确认并重新关联身份。
+
+### Fixed
+
+- recover wechat login after session expiry
+- clarify Feishu configuration and admission diagnostics
 
 ## [0.3.26103004] - 2026-10-30
 

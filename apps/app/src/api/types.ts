@@ -29,8 +29,8 @@ export interface Actor {
 }
 
 export type MessageContent =
-	| { type: "text"; text: string }
-	| { type: "markdown"; text: string }
+	| { type: "text"; text: string; mentions?: string[] }
+	| { type: "markdown"; text: string; mentions?: string[] }
 	| { type: "image"; url: string; name?: string }
 	| { type: "file"; url: string; name: string; bytes?: number }
 	| {

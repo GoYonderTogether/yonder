@@ -24,7 +24,18 @@ interface Message {
 	seq: number;
 	createdAt: number;
 	replyTo?: string;
-	content: { type: string; text?: string; url?: string; name?: string; bytes?: number; title?: string; body?: string };
+	senderName?: string;
+	senderIsBot?: boolean;
+	content: {
+		type: string;
+		text?: string;
+		mentions?: string[];
+		url?: string;
+		name?: string;
+		bytes?: number;
+		title?: string;
+		body?: string;
+	};
 }
 
 /** G-10：只透传设备帧里的 `social.mentions.bot`，其余形状（含缺失）视为未提供。 */
@@ -54,9 +65,12 @@ export class CardChannel implements Channel {
 	readonly multiAgent = true;
 	readonly kinds = ["dm", "group", "notice"];
 	readonly output = { stream: false, attachments: false };
-	readonly features = { identity: "account", quote: "id", streamMode: "none" } satisfies NonNullable<
-		Channel["features"]
-	>;
+	readonly features = {
+		identity: "account",
+		quote: "id",
+		outboundMentions: true,
+		streamMode: "none",
+	} satisfies NonNullable<Channel["features"]>;
 	readonly endpoint: string;
 	private token?: string;
 	private code: { code: string; url: string; expiresAt: string } | undefined;
@@ -413,6 +427,11 @@ export class CardChannel implements Channel {
 				msgId: m.id,
 				createdAt: String(m.createdAt),
 				...(m.replyTo ? { replyTo: m.replyTo } : {}),
+				...(m.senderName ? { name: m.senderName } : {}),
+				...(typeof m.senderIsBot === "boolean" ? { senderIsBot: m.senderIsBot } : {}),
+				...(Array.isArray(content.mentions)
+					? { mentions: content.mentions.map((id) => `acct:${this.id}:${agent}:${id}`) }
+					: {}),
 				...(attachments.length ? { attachments } : {}),
 			},
 		});
@@ -447,6 +466,13 @@ export class CardChannel implements Channel {
 		const socket = this.socket;
 		if (!socket || socket.readyState !== WebSocket.OPEN || signal?.aborted)
 			return { ok: false, error: "Card not connected" };
+		const prefix = `acct:${this.id}:${key}:`;
+		const mentions: string[] = [];
+		for (const ref of msg.mentions ?? []) {
+			if (!ref.startsWith(prefix) || !/^[0-9a-f-]{36}$/i.test(ref.slice(prefix.length)))
+				return { ok: false, error: "Invalid card mention" };
+			mentions.push(ref.slice(prefix.length));
+		}
 		return new Promise((resolve) => {
 			const ref = randomUUID();
 			const finish = (value: Delivery) => {
@@ -465,7 +491,7 @@ export class CardChannel implements Channel {
 					ref,
 					agentId,
 					convId,
-					content: { type: "markdown", text: msg.text },
+					content: { type: "markdown", text: msg.text, ...(mentions.length ? { mentions } : {}) },
 					...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
 				}),
 				(error) => {

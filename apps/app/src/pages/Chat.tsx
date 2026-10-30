@@ -399,6 +399,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 	};
 	const end = useRef<HTMLDivElement>(null);
 	const [typing, setTyping] = useState(false);
+	const [reply, setReply] = useState<Message>();
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 新消息到达时触发
 	useEffect(() => {
 		setTyping(false);
@@ -480,6 +481,9 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 							<Bubble
 								key={m.id}
 								m={m}
+								replied={msgs.find((item) => item.id === m.replyTo)}
+								actors={actors}
+								onReply={() => setReply(m)}
 								sender={actors.get(m.senderId)}
 								mine={m.senderId === me?.id}
 								group={conv?.kind === "group"}
@@ -498,6 +502,9 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 				<Composer
 					key={id}
 					convId={id}
+					members={conv?.kind === "group" ? [...actors.values()].filter((a) => a.id !== me?.id) : []}
+					reply={reply}
+					onClearReply={() => setReply(undefined)}
 					offline={offlineAgent}
 					agentId={other?.kind === "agent" ? other.id : undefined}
 					cloudBot={cloudBot}
@@ -529,6 +536,9 @@ function Typing() {
 
 function Bubble({
 	m,
+	replied,
+	actors,
+	onReply,
 	sender,
 	mine,
 	group,
@@ -536,6 +546,9 @@ function Bubble({
 	last,
 }: {
 	m: Message;
+	replied?: Message;
+	actors: Map<string, Actor>;
+	onReply: () => void;
 	sender?: Actor;
 	mine: boolean;
 	group: boolean;
@@ -573,6 +586,18 @@ function Bubble({
 					style={tight}
 					className={cn("rounded-bubble px-3.5 py-2 text-[15px]", mine ? "bg-accent text-on-accent" : "bg-tone")}
 				>
+					{m.replyTo && (
+						<div className="mb-2 border-l-2 border-current/30 pl-2 text-[12px] opacity-75">
+							引用 {replied ? (actors.get(replied.senderId)?.name ?? "群成员") : "历史消息"}：
+							{replied && "text" in replied.content ? replied.content.text.slice(0, 100) : "附件或未加载的消息"}
+						</div>
+					)}
+					{(c.type === "text" || c.type === "markdown") &&
+						c.mentions?.map((id) => (
+							<span key={id} className="mr-2 font-medium">
+								@{actors.get(id)?.name ?? "群成员"}
+							</span>
+						))}
 					{c.type === "text" && <p className="whitespace-pre-wrap">{c.text}</p>}
 					{c.type === "markdown" && <Markdown text={c.text} />}
 					{c.type === "image" && <img src={c.url} alt={c.name ?? ""} className="max-h-64 rounded-xl" />}
@@ -599,6 +624,14 @@ function Bubble({
 						</div>
 					)}
 				</div>
+				<button
+					type="button"
+					onClick={onReply}
+					aria-label="引用这条消息"
+					className="self-end px-1 text-[12px] text-muted"
+				>
+					引用
+				</button>
 			</div>
 		</div>
 	);
@@ -606,12 +639,18 @@ function Bubble({
 
 export function Composer({
 	convId,
+	members = [],
+	reply,
+	onClearReply,
 	offline,
 	agentId,
 	cloudBot,
 	onSend,
 }: {
 	convId: string;
+	members?: Actor[];
+	reply?: Message;
+	onClearReply?: () => void;
 	offline: boolean;
 	/** 对方是没有设备的云端 Bot（小歪）：只能引导，不是「离线」 */
 	cloudBot?: boolean;
@@ -620,6 +659,7 @@ export function Composer({
 	onSend: () => void;
 }) {
 	const [text, setText] = useState("");
+	const [mention, setMention] = useState("");
 	const ref = useRef<HTMLTextAreaElement>(null);
 	const loc = useLocation();
 	const nav = useNavigate();
@@ -651,12 +691,18 @@ export function Composer({
 		pending.current = true;
 		setSending(true);
 		try {
-			const message = await api.send(convId, { type: "markdown", text: body });
+			const message = await api.send(
+				convId,
+				{ type: "markdown", text: body, ...(mention ? { mentions: [mention] } : {}) },
+				reply?.id,
+			);
 			qc.setQueryData<Message[]>(["msgs", convId], (old) =>
 				old?.some((m) => m.id === message.id) ? old : [...(old ?? []), message],
 			);
 			void qc.invalidateQueries({ queryKey: ["convs"] });
 			setText("");
+			setMention("");
+			onClearReply?.();
 			const session = $session.get();
 			if (session?.guest)
 				$session.set({ ...session, guest: { ...session.guest, remaining: Math.max(0, session.guest.remaining - 1) } });
@@ -701,6 +747,31 @@ export function Composer({
 	}, [signedIn, convId]);
 	return (
 		<div className="shrink-0 px-4 pb-safe">
+			{reply && (
+				<div className="mx-auto mb-2 flex max-w-[720px] items-center gap-2 text-[13px] text-muted">
+					<span className="truncate">引用：{"text" in reply.content ? reply.content.text : "附件"}</span>
+					<button type="button" onClick={onClearReply} aria-label="取消引用">
+						取消
+					</button>
+				</div>
+			)}
+			{members.length > 0 && (
+				<div className="mx-auto mb-2 max-w-[720px]">
+					<select
+						aria-label="艾特群成员"
+						value={mention}
+						onChange={(e) => setMention(e.target.value)}
+						className="rounded-lg bg-tone px-2 py-1 text-[13px]"
+					>
+						<option value="">@ 选择群成员</option>
+						{members.map((a) => (
+							<option key={a.id} value={a.id}>
+								{a.name}
+							</option>
+						))}
+					</select>
+				</div>
+			)}
 			{guest && guest.remaining > 0 && guest.remaining <= 3 && (
 				<p className="mx-auto mb-2 text-center text-[13px] text-muted">还可发 {guest.remaining} 条，登录后无限制</p>
 			)}

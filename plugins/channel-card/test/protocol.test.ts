@@ -193,6 +193,24 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 	};
 }
 
+test("mentions use scoped account refs and semantic source does not force a visible quote", async () => {
+	const f = await fixture();
+	await f.login();
+	const id = "12345678-1234-1234-1234-123456789abc";
+	expect(
+		await f.channel.send("conv:card-local:main:room", {
+			text: "提醒",
+			sourceMessageId: "source",
+			mentions: [`acct:card-local:main:${id}`],
+		}),
+	).toMatchObject({ ok: true });
+	expect(f.frames.at(-1)).toMatchObject({ content: { type: "markdown", text: "提醒", mentions: [id] } });
+	expect(f.frames.at(-1)).not.toHaveProperty("replyTo");
+	expect(
+		await f.channel.send("conv:card-local:main:room", { text: "wrong", mentions: [`acct:card-local:other:${id}`] }),
+	).toMatchObject({ ok: false });
+});
+
 test("manifest and setup only register; provider declares multiAgent", async () => {
 	expect(await checkPlugin(resolve("plugins/channel-card"))).toEqual([]);
 	const { api, registrations } = createRegistrationCollector();
