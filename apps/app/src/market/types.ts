@@ -1,4 +1,4 @@
-export type ListingKind = "item" | "service" | "request" | "idea" | "job";
+export type ListingKind = "item" | "service" | "request" | "idea" | "job" | "other";
 export type Category = "数码好物" | "生活方式" | "创意服务" | "技能与陪伴" | "户外出行";
 
 export interface Listing {

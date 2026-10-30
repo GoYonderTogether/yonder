@@ -6,6 +6,7 @@ import {
 	Bookmark,
 	Briefcase,
 	Check,
+	Ellipsis,
 	HandHelping,
 	Heart,
 	Lightbulb,
@@ -48,7 +49,14 @@ const PERSONAL = {
 	liked: { view: "liked", label: "我的点赞" },
 	stats: { view: "stats", label: "浏览数据" },
 } as const;
-const CHANNEL_ICONS = { item: Package, service: Sparkles, idea: Lightbulb, job: Briefcase, request: HandHelping };
+const CHANNEL_ICONS = {
+	item: Package,
+	service: Sparkles,
+	idea: Lightbulb,
+	job: Briefcase,
+	request: HandHelping,
+	other: Ellipsis,
+};
 export function Market() {
 	const { state, setState, storageKey } = useMarketState();
 	const [params, setParams] = useSearchParams();

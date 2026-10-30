@@ -6,6 +6,7 @@ export const CHANNELS: { id: string; kind: ListingKind; label: string }[] = [
 	{ id: "ideas", kind: "idea", label: "创意" },
 	{ id: "jobs", kind: "job", label: "招聘" },
 	{ id: "requests", kind: "request", label: "求助" },
+	{ id: "other", kind: "other", label: "其他" },
 ];
 export const kindLabel = (kind: ListingKind) => CHANNELS.find((c) => c.kind === kind)?.label ?? "帖子";
 export const hasListingImage = (image: string) => !!image && !image.startsWith("/market/");

@@ -1,4 +1,15 @@
-import { ArrowLeft, ArrowRight, Briefcase, Check, HandHelping, Lightbulb, Package, Plus, Sparkles } from "lucide-react";
+import {
+	ArrowLeft,
+	ArrowRight,
+	Briefcase,
+	Check,
+	Ellipsis,
+	HandHelping,
+	Lightbulb,
+	Package,
+	Plus,
+	Sparkles,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { hasListingImage, kindLabel, priceLabel } from "../../market/catalog";
@@ -36,7 +47,7 @@ export function PublishDialog({
 }) {
 	const [form, setForm] = useState(BLANK);
 	const [step, setStep] = useState(0);
-	const openEnded = form.kind === "idea" || form.kind === "job";
+	const openEnded = form.kind === "idea" || form.kind === "job" || form.kind === "other";
 	const [error, setError] = useState("");
 	const [publishing, setPublishing] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -201,6 +212,7 @@ export function PublishDialog({
 									{ kind: "idea", label: "分享创意", desc: "分享一个想法，找到一起做的人", icon: Lightbulb },
 									{ kind: "job", label: "寻找伙伴", desc: "发布招聘、兼职或合作机会", icon: Briefcase },
 									{ kind: "request", label: "发布求助", desc: "公开一个需要，等合适的人回应", icon: HandHelping },
+									{ kind: "other", label: "其他", desc: "发布不属于以上类型的内容", icon: Ellipsis },
 								] as const
 							).map(({ kind, label, desc, icon: Icon }) => (
 								<button
@@ -265,11 +277,13 @@ export function PublishDialog({
 								<input
 									maxLength={60}
 									placeholder={
-										openEnded
-											? "例如：找人一起做一场小型展览"
-											: form.kind === "service"
-												? "例如：帮你拍一组有质感的产品照"
-												: "品牌、型号，或者你能提供的帮助"
+										form.kind === "other"
+											? "简要说明你想发布的内容"
+											: openEnded
+												? "例如：找人一起做一场小型展览"
+												: form.kind === "service"
+													? "例如：帮你拍一组有质感的产品照"
+													: "品牌、型号，或者你能提供的帮助"
 									}
 									aria-required="true"
 									value={form.title}
@@ -281,13 +295,15 @@ export function PublishDialog({
 								<textarea
 									rows={4}
 									placeholder={
-										openEnded
-											? "你的想法是什么？希望找到什么样的人？"
-											: form.kind === "service"
-												? "你能提供什么？交付内容、所需时间和费用包含哪些？"
-												: form.kind === "request"
-													? "想解决什么问题？期待的结果和时间要求是什么？"
-													: "使用情况、配件、瑕疵，尽量说清楚。"
+										form.kind === "other"
+											? "详细说明内容、相关要求和时间安排"
+											: openEnded
+												? "你的想法是什么？希望找到什么样的人？"
+												: form.kind === "service"
+													? "你能提供什么？交付内容、所需时间和费用包含哪些？"
+													: form.kind === "request"
+														? "想解决什么问题？期待的结果和时间要求是什么？"
+														: "使用情况、配件、瑕疵，尽量说清楚。"
 									}
 									aria-required="true"
 									value={form.description}
