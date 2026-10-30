@@ -9,7 +9,6 @@ import type {
 	ContextContribution,
 	Delivery,
 	EnvProvider,
-	EventInput,
 	ExecutionEnv,
 	Hook,
 	PluginAPI,
@@ -19,16 +18,15 @@ import type {
 	Tool,
 	ToolContext,
 	Trigger,
-	TSchema,
 	YEvent,
 } from "@yonder/sdk";
 import { API_VERSION } from "@yonder/sdk";
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
-import { Errors } from "typebox/value";
 import type { YonderConfig } from "../config/index.js";
 import { CONSOLE, consoleChannel } from "../kernel/console.js";
 import { peerWorkspaceContext } from "../prompt/index.js";
 import { createViews } from "../views/index.js";
+import { instanceConfig, pluginEvent, validateConfig } from "./validation.js";
 
 type PluginMessage = Parameters<PluginAPI["messages"]["send"]>[0];
 export type KernelServices = Omit<
@@ -92,23 +90,6 @@ export interface LoadedPlugins {
 type Lifecycle = { pluginId: string; stop(): Promise<void> };
 type Listener = { pluginId: string; type: string; handler: (event: YEvent) => void | Promise<void> };
 
-function pluginEvent(id: string, event: EventInput, channel?: string, multiAgent = false): EventInput {
-	if (
-		["routing.social-decision", "notification.intent", "notification.final", "channel.connected"].includes(event.type)
-	)
-		throw new Error(`${id}: ${event.type} is a core event`);
-	if (event.type === "message.in" && channel) {
-		if (
-			!event.from?.startsWith(`acct:${channel}:`) ||
-			!event.conv?.startsWith(`conv:${channel}:`) ||
-			("target" in event.data && !multiAgent)
-		)
-			throw new Error(`${id}: message.in must use its own channel and cannot specify target`);
-	} else if (!event.type.startsWith(`${id}.`) || event.type.length === id.length + 1)
-		throw new Error(`${id}: event type must start with ${id}.`);
-	return event;
-}
-
 /** A plugin's private state directory (`api.paths.data`). */
 export const pluginDataPath = (home: string, id: string) => join(home, ".yonder", "plugins", id);
 
@@ -124,16 +105,6 @@ export async function pluginDirectory(home: string, use: string): Promise<string
 	}
 	if (!manifest) throw new Error(`Cannot find plugin package root for ${use}`);
 	return dirname(manifest);
-}
-
-function validateConfig(pluginId: string, label: string, schema: TSchema, value: unknown): void {
-	const errors = [...Errors(schema, value)].map((error) => `${error.instancePath || "/"}: ${error.message}`);
-	if (errors.length) throw new Error(`${pluginId}: invalid ${label}: ${errors.join("; ")}`);
-}
-
-function instanceConfig(value: { type: string } & Record<string, unknown>): Record<string, unknown> {
-	const { type: _, ...config } = value;
-	return config;
 }
 
 export async function loadPlugins(
