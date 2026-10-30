@@ -41,9 +41,9 @@ export async function verifyWorkOwner(
 		!agents[0]?.owner ||
 		agents.some((agent) => !agent.owner || agent.owner !== agents[0]?.owner)
 	)
-		throw new Error("forbidden");
+		throw Object.assign(new Error("forbidden"), { code: "forbidden" });
 	for (const agent of agents) {
 		const person = (await account(`acct:${instance}:${agent.id}:${actor}`))?.person;
-		if (!person || person !== agent.owner) throw new Error("forbidden");
+		if (!person || person !== agent.owner) throw Object.assign(new Error("forbidden"), { code: "forbidden" });
 	}
 }

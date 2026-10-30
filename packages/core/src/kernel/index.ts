@@ -541,13 +541,13 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			async request(actor, method, params, signal) {
 				await verified(instance, actor);
 				signal.throwIfAborted();
-				if (!workHost) throw new Error("unavailable");
+				if (!workHost) throw Object.assign(new Error("unavailable"), { code: "unavailable" });
 				return workHost(instance).request(actor, method, params, signal);
 			},
 			async open(actor, send, signal) {
 				await verified(instance, actor);
 				signal.throwIfAborted();
-				if (!workHost) throw new Error("unavailable");
+				if (!workHost) throw Object.assign(new Error("unavailable"), { code: "unavailable" });
 				const host = workHost(instance);
 				return guardedWorkStream(
 					() => verified(instance, actor),
