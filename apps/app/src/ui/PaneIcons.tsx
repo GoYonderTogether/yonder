@@ -2,11 +2,7 @@ import type { SVGProps } from "react";
 
 type Props = SVGProps<SVGSVGElement> & { size?: number };
 /** Tabler Icons 3.46.0, MIT; see tabler/LICENSE. */
-function PaneIcon({
-	side,
-	size = 24,
-	...props
-}: Props & { side: "left" | "right" }) {
+function PaneIcon({ side, size = 24, ...props }: Props & { side: "left" | "right" }) {
 	return (
 		<svg
 			aria-hidden="true"
