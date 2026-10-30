@@ -18,6 +18,7 @@ import { PageSkeleton } from "./shell/PageSkeleton";
 import { useBreakpoint } from "./shell/useBreakpoint";
 import { useWorkRoute, workPath } from "./shell/workRoutes";
 import { Banner } from "./ui/Banner";
+import { CardStack } from "./ui/RailStack";
 import { WorkList } from "./ui/WorkList";
 
 const Settings = lazy(() => import("./features/Settings").then((m) => ({ default: m.Settings })));
@@ -25,6 +26,8 @@ const ConsoleSwitcher = lazy(() =>
 	import("./features/console/ConsoleSwitcher").then((m) => ({ default: m.ConsoleSwitcher })),
 );
 const phoneRailChoices = new Map<string, boolean>();
+type PaneMode = "auto" | "list" | "content" | "rail";
+const paneChoices = new Map<string, PaneMode>();
 
 /**
  * 「工作」区外壳：挂在名片站 Shell 的内容区里（导航由名片站提供），
@@ -38,6 +41,7 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 	const [leftOpen, setLeftOpen] = useState(true);
 	const [manualRail, setManualRail] = useState<string>();
 	const [, refreshPhoneChoice] = useState(0);
+	const [, refreshPaneChoice] = useState(0);
 	const railPref = useRailPref();
 	useRefetchOnReconnect();
 	// 保持一条活动订阅：连接状态驱动断线提示与重连补齐
@@ -51,6 +55,18 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 	const content = useRailContent(live, view);
 	const hasRail = !!(live && view.session?.id === live && content) || !!imported.data?.todo?.items.length;
 	const sessionKey = route.session ? `${node.id}:${route.session}` : "";
+	const paneChoice = paneChoices.get(sessionKey) ?? "auto";
+	const paneMode = paneChoice === "rail" && !hasRail ? "content" : paneChoice;
+	const setPaneMode = (value: PaneMode) => {
+		paneChoices.set(sessionKey, value);
+		refreshPaneChoice((n) => n + 1);
+	};
+	useEffect(() => {
+		if (paneChoice === "rail" && !hasRail) {
+			paneChoices.set(sessionKey, "content");
+			refreshPaneChoice((n) => n + 1);
+		}
+	}, [paneChoice, hasRail, sessionKey]);
 	const phoneChoice = phoneRailChoices.get(sessionKey);
 	const showRail =
 		!!route.session &&
@@ -58,16 +74,19 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 			? phoneRailVisible(hasRail, phoneChoice)
 			: railPref.open && (hasRail || manualRail === sessionKey));
 	const toggleRail = () => {
+		const next = paneMode === "auto" ? !showRail : true;
+		if (paneMode !== "auto") setPaneMode("auto");
 		if (breakpoint === "phone") {
-			phoneRailChoices.set(sessionKey, !showRail);
+			phoneRailChoices.set(sessionKey, next);
 			refreshPhoneChoice((n) => n + 1);
 		} else {
-			setRailPref({ open: !showRail });
-			setManualRail(!showRail ? sessionKey : undefined);
-			if (!showRail && breakpoint === "tablet") setLeftOpen(false);
+			setRailPref({ open: next });
+			setManualRail(next ? sessionKey : undefined);
+			if (next && breakpoint === "tablet") setLeftOpen(false);
 		}
 	};
 	const showList = () => {
+		if (paneMode !== "auto") setPaneMode("auto");
 		setLeftOpen(true);
 		if (breakpoint === "tablet" && showRail) setRailPref({ open: false });
 	};
@@ -99,7 +118,7 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 					<button
 						type="button"
 						aria-label="收起工作列表"
-						onClick={() => setLeftOpen(false)}
+						onClick={() => (paneMode === "list" ? setPaneMode("content") : setLeftOpen(false))}
 						className="press grid size-9 place-items-center rounded-full text-muted"
 					>
 						<PanelLeftClose size={19} aria-hidden />
@@ -118,46 +137,76 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 		</>
 	);
 	const sideContent = <Suspense fallback={<PageSkeleton />}>{side}</Suspense>;
-	const main = page ? (
-		<Suspense fallback={<PageSkeleton />}>{page}</Suspense>
-	) : route.session ? (
-		<Chat
-			id={route.session}
-			wide={breakpoint !== "phone"}
-			v={view}
-			showRail={showRail}
-			onRail={toggleRail}
-			onList={breakpoint !== "phone" && !panes.left ? showList : undefined}
-		/>
-	) : frame.side === "main" ? (
-		<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
-	) : (
-		<div className="relative flex min-h-0 flex-1">
-			{!leftOpen && (
-				<button
-					type="button"
-					aria-label="展开工作列表"
-					onClick={showList}
-					className="absolute top-2 left-2 z-10 grid size-9 place-items-center"
-				>
-					<PanelLeftOpen size={19} aria-hidden />
-				</button>
-			)}
-			<EmptyPane message="选择一个 Bot 或任务" />
-		</div>
-	);
+	const main =
+		paneMode === "list" && route.session ? (
+			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
+		) : paneMode === "rail" && route.session ? (
+			<main className="min-h-0 flex-1" aria-label="右栏">
+				<CardStack
+					session={route.session}
+					v={imported.data ? { ...view, todos: imported.data.todo?.items ?? [] } : view}
+				/>
+			</main>
+		) : page ? (
+			<Suspense fallback={<PageSkeleton />}>{page}</Suspense>
+		) : route.session ? (
+			<Chat
+				id={route.session}
+				wide={breakpoint !== "phone"}
+				v={view}
+				showRail={paneMode === "content" ? false : showRail}
+				onRail={toggleRail}
+				onList={breakpoint !== "phone" && (paneMode !== "auto" || !panes.left) ? showList : undefined}
+			/>
+		) : frame.side === "main" ? (
+			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
+		) : (
+			<div className="relative flex min-h-0 flex-1">
+				{!leftOpen && (
+					<button
+						type="button"
+						aria-label="展开工作列表"
+						onClick={showList}
+						className="absolute top-2 left-2 z-10 grid size-9 place-items-center"
+					>
+						<PanelLeftOpen size={19} aria-hidden />
+					</button>
+				)}
+				<EmptyPane message="选择一个 Bot 或任务" />
+			</div>
+		);
 	return (
 		<div className="flex h-full flex-col bg-list">
 			<Banner />
 			<NotifyHost />
+			{route.session && (
+				<label className="flex items-center gap-2 px-4 py-1 text-caption text-muted">
+					显示
+					<select
+						aria-label="工作区域显示"
+						value={paneMode}
+						onChange={(event) => setPaneMode(event.target.value as PaneMode)}
+						className="field"
+					>
+						<option value="auto">自动</option>
+						<option value="list">仅工作列表</option>
+						<option value="content">仅会话</option>
+						<option value="rail" disabled={!hasRail}>
+							仅右栏
+						</option>
+					</select>
+				</label>
+			)}
 			<div className="flex min-h-0 flex-1">
-				{panes.left && (
+				{paneMode === "auto" && panes.left && (
 					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">{sideContent}</aside>
 				)}
 				<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-					<div className={`flex min-h-0 min-w-0 flex-1 ${frame.chatWide ? "flex-row" : "flex-col"}`}>{main}</div>
+					<div className={`flex min-h-0 min-w-0 flex-1 ${breakpoint !== "phone" ? "flex-row" : "flex-col"}`}>
+						{main}
+					</div>
 					{/* 平板：列表按需叠成覆盖层，打开会话或功能页即收起 */}
-					{frame.side === "overlay" && leftOpen && (
+					{paneMode === "auto" && frame.side === "overlay" && leftOpen && (
 						<div className="absolute inset-0 z-20 flex flex-col bg-list" data-testid="list-overlay">
 							{sideContent}
 						</div>

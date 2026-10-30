@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, Layers, PanelLeftOpen, PanelRight, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { api } from "../../api";
 import type { Actor } from "../../api/types";
 import { Avatar } from "../../ui/Avatar";
 import { RpcError, rpc } from "../api/client";
@@ -73,6 +75,7 @@ function FloatMenu({ session }: { session: string }) {
 function Header({
 	title,
 	actor,
+	summary,
 	sub,
 	wide,
 	session,
@@ -83,6 +86,7 @@ function Header({
 }: {
 	title: string;
 	actor?: Actor;
+	summary?: string | null;
 	sub?: string;
 	wide: boolean;
 	session: string;
@@ -111,7 +115,7 @@ function Header({
 			{actor && <Avatar actor={actor} size={32} />}
 			<div className={`min-w-0 flex-1 ${wide ? "px-2" : "text-center"}`}>
 				<h1 className="truncate text-body font-semibold">{title}</h1>
-				{actor?.summary && <p className="truncate text-caption text-faint">{actor.summary}</p>}
+				{summary && <p className="truncate text-caption text-faint">{summary}</p>}
 				{sub && <p className="truncate text-caption text-faint">{sub}</p>}
 			</div>
 			{onChannels && (
@@ -246,6 +250,12 @@ function Live({
 		s?.agent && (s.mode === "main" || s.mode === "persistent") && node.deviceId
 			? deviceAgentMap(node.deviceId, agents.data ?? []).get(s.agent)
 			: undefined;
+	const profile = useQuery({
+		queryKey: ["bot-profile", node.id, actor?.id],
+		enabled: !!actor,
+		queryFn: () => api.profile(actor!.id),
+		refetchInterval: 5000,
+	});
 	const branch = useBranchLabel(s);
 	const sub =
 		[s?.mode === "persistent" ? branch : undefined, v.running ? "正在回复…" : s?.closed ? "已结束" : undefined]
@@ -259,6 +269,7 @@ function Live({
 				<Header
 					title={s ? titleOf(s) : "会话"}
 					actor={actor}
+					summary={profile.data?.summary ?? actor?.summary}
 					sub={sub}
 					wide={wide}
 					session={id}
