@@ -47,8 +47,14 @@ export type KernelServices = Omit<
 		| "models"
 		| "log"
 	>,
-	"messages" | "sessions"
+	"messages" | "sessions" | "social"
 > & {
+	social?: Omit<NonNullable<PluginAPI["social"]>, "admitBatch"> & {
+		admitBatch(
+			request: Parameters<NonNullable<PluginAPI["social"]>["admitBatch"]>[0],
+			pluginId: string,
+		): ReturnType<NonNullable<PluginAPI["social"]>["admitBatch"]>;
+	};
 	messages: { send(message: PluginMessage, pluginId: string, ctx?: ToolContext): Promise<Delivery> };
 	sessions: Omit<SessionsAPI, "submit" | "notify"> & {
 		notify(id: string, input: { event: string; text: string }, pluginId?: string): ReturnType<SessionsAPI["notify"]>;
@@ -201,6 +207,7 @@ export async function loadPlugins(
 				registrationsApi.events.on(type, handler);
 			},
 		};
+		const participation = services.social;
 		const api: PluginAPI = {
 			id: manifest.id,
 			version: JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8")).version,
@@ -212,7 +219,14 @@ export async function loadPlugins(
 				warn: (message, data) => services.log.warn(message, { ...data, plugin: manifest.id }),
 				error: (message, data) => services.log.error(message, { ...data, plugin: manifest.id }),
 			},
-			...(manifest.id === "social" && services.social ? { social: services.social } : {}),
+			...(participation
+				? {
+						social: {
+							...participation,
+							admitBatch: (request) => participation.admitBatch(request, manifest.id),
+						},
+					}
+				: {}),
 			permissions: {
 				...register("permissions", registrationsApi.permissions.register),
 				list: (ctx) => {

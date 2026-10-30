@@ -26,6 +26,7 @@ export const socialTagsSchema = object({
 	rhythm: Type.Optional(literals("low", "normal", "high")),
 });
 export const socialPolicySchema = object({
+	plugin: Type.Optional(Type.String({ pattern: "^[a-z0-9][a-z0-9-]*$" })),
 	tags: Type.Optional(socialTagsSchema),
 	mode: Type.Optional(choice("direct", "record", "mention", "batch", "folded", "mute")),
 	batch: Type.Optional(

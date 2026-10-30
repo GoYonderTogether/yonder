@@ -1,11 +1,12 @@
 import type { EventInput, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
-import type { AgentConfig, Binding } from "../config/index.js";
+import type { Binding } from "../config/index.js";
 import type { RuntimeInput, RuntimeRun } from "../runtime/index.js";
-import { newEvent, type Store } from "../store/index.js";
+import { newEvent } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey, targetBinding, targetDropReason, unknownTargetReason } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
+import { batchPlugin, isParticipationBatch } from "./participation.js";
 import { createPendingResults, createReporter } from "./pending.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
@@ -27,6 +28,10 @@ export function createRouter({
 	onCommand,
 	onReport = () => {},
 }: CreateRouterOptions) {
+	const participationPlugins =
+		typeof socialBatchPlugin === "boolean"
+			? new Set(socialBatchPlugin ? ["social"] : [])
+			: (socialBatchPlugin ?? new Set<string>());
 	const report = createReporter(onReport);
 	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
 	const { waitFor, finish } = createPendingResults();
@@ -173,23 +178,10 @@ export function createRouter({
 			policyRevision?: unknown;
 			sourceEvents?: unknown;
 		};
-		const batchSource =
-			event.type === "social.batch-ready" && event.from === "plugin:social" && typeof inputData.through === "string"
-				? await store.events.get(inputData.through)
-				: undefined;
 		const legacySource =
 			event.type === "channel-qq.group-batch" && typeof inputData.through === "string"
 				? await store.events.get(inputData.through)
 				: undefined;
-		const sourceIds = Array.isArray(inputData.sourceEvents) ? inputData.sourceEvents : [];
-		const batchSources =
-			event.type === "social.batch-ready" &&
-			sourceIds.length > 0 &&
-			sourceIds.length <= 100 &&
-			sourceIds.every((id, index) => typeof id === "string" && (!index || sourceIds[index - 1] < id)) &&
-			sourceIds.at(-1) === inputData.through
-				? await Promise.all(sourceIds.map((id) => store.events.get(id)))
-				: [];
 		const internalTarget =
 			(event.type === "message.in" || event.type === "channel.connected") &&
 			(channelOf(event.conv) === "agent" || channels?.get(channelOf(event.conv) ?? "")?.multiAgent === true) &&
@@ -231,50 +223,42 @@ export function createRouter({
 				continue;
 			}
 			if (
-				socialBatchPlugin &&
+				participationPlugins.size > 0 &&
 				agent.social?.enabled &&
 				legacySource &&
 				legacySource.conv === event.conv &&
-				(await suppressLegacyBatch(agent, event, legacySource, store, sessions, channels))
+				(await suppressLegacyBatch(agent, event, legacySource, store, sessions, channels, participationPlugins))
 			) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
 			}
-			if (event.type === "social.batch-ready") {
-				const sourceRoute = batchSource?.routes?.find(
-					(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
-				);
-				const sourcePerson = batchSource?.from?.startsWith("acct:")
-					? (await store.identity().account(batchSource.from))?.person
-					: undefined;
-				const decision =
-					batchSource &&
-					socialDecision(agent, batchSource, sourcePerson, channels?.get(channelOf(batchSource.conv) ?? ""));
-				if (
-					inputData.agent !== agent.id ||
-					!event.conv ||
-					event.conv !== batchSource?.conv ||
-					!sourceRoute?.session ||
-					batchSources.length !== sourceIds.length ||
-					!batchSources.length ||
-					batchSources.some(
-						(source) =>
-							source?.type !== "message.in" ||
-							source.conv !== event.conv ||
-							!source.routes?.some(
-								(route) =>
-									route.agent === agent.id &&
-									route.session === sourceRoute.session &&
-									route.wake === "write" &&
-									!route.dropped,
-							),
-					) ||
-					decision?.reason !== "batch" ||
-					decision.revision !== inputData.policyRevision
-				) {
+			let batchSession: string | undefined;
+			if (isParticipationBatch(event)) {
+				const plugin = batchPlugin(event);
+				const admitted =
+					plugin &&
+					inputData.agent === agent.id &&
+					event.conv &&
+					typeof inputData.through === "string" &&
+					typeof inputData.policyRevision === "string" &&
+					Array.isArray(inputData.sourceEvents)
+						? await admitBatch(
+								{
+									agent: agent.id,
+									conv: event.conv,
+									through: inputData.through,
+									sourceEvents: inputData.sourceEvents,
+									policyRevision: inputData.policyRevision,
+								},
+								{ agents, store, plugins: participationPlugins, ...(channels ? { channels } : {}) },
+								plugin,
+							)
+						: undefined;
+				if (!admitted) {
 					routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 					continue;
 				}
+				batchSession = admitted.session;
 			}
 			if (internalTarget && internalTarget !== agent.id) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
@@ -341,8 +325,8 @@ export function createRouter({
 			const matchedConnection = event.type === "channel.connected" && binding !== undefined;
 			if (event.type === "channel.connected" && binding?.session !== "main") binding = undefined;
 			if (
-				event.type === "social.batch-ready" &&
-				(binding?.match.type !== "social.batch-ready" ||
+				isParticipationBatch(event) &&
+				(binding?.match.type !== event.type ||
 					binding.reply !== "none" ||
 					binding.wake === "write" ||
 					binding.session === "main" ||
@@ -382,16 +366,7 @@ export function createRouter({
 			}
 			const { mode, key } = sessionKey(binding, event, person);
 			const ensured = await sessions.ensureAgent(agent.id, profile, key, mode);
-			if (
-				event.type === "social.batch-ready" &&
-				!batchSource?.routes?.some(
-					(route) =>
-						route.agent === agent.id &&
-						route.session === ensured.session.id &&
-						route.wake === "write" &&
-						!route.dropped,
-				)
-			) {
+			if (isParticipationBatch(event) && ensured.session.id !== batchSession) {
 				routes.push({ agent: agent.id, binding: binding.id, dropped: "no-binding" });
 				continue;
 			}
@@ -454,8 +429,8 @@ export function createRouter({
 		return { event: stored, waits };
 	}
 	return {
-		admitBatch: (request: Parameters<typeof admitBatch>[0]) =>
-			admitBatch(request, { agents, store, ...(channels ? { channels } : {}) }),
+		admitBatch: (request: Parameters<typeof admitBatch>[0], plugin: string) =>
+			admitBatch(request, { agents, store, plugins: participationPlugins, ...(channels ? { channels } : {}) }, plugin),
 		observeNotifications: routedNotifications.observe,
 		finishIdle,
 		finishRun: async (session: SessionInfo, _run: RuntimeRun) => finishIdle(session),

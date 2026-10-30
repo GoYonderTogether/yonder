@@ -105,3 +105,31 @@ test("group batch bindings cannot collide with DM profiles or disjoint explicit 
 	};
 	expect(() => parseAgentConfig(JSON.stringify(overlap))).toThrow("同一会话");
 });
+
+test("participation plugin references require loading and the matching Bot profile selection", () => {
+	const agent = parseAgentConfig(
+		JSON.stringify({
+			...base,
+			profiles: { main: { plugins: ["alternative"] } },
+			bindings: [
+				{
+					id: "batch",
+					match: { type: "alternative.batch-ready" },
+					session: { mode: "persistent", per: "conv" },
+					reply: "none",
+				},
+			],
+			social: { enabled: true, defaults: { group: { plugin: "alternative", mode: "batch" } } },
+		}),
+	);
+	const config = parseYonderConfig(JSON.stringify({ schema: 1 }), "yonder.yaml");
+	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]))).toEqual([]);
+	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set())).toContain(
+		"a/social/group: participation plugin not loaded alternative",
+	);
+	agent.profiles.main!.plugins = [];
+	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]))).toContain(
+		"a/social/group: participation plugin must be selected by a matching batch profile alternative",
+	);
+	expect(() => parse({ defaults: { group: { plugin: "plugin:not-an-id" } } })).toThrow();
+});

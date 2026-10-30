@@ -13,7 +13,7 @@ export interface CreateRouterOptions {
 	agents: Map<string, AgentConfig>;
 	notificationLevel?: (conv?: string, session?: string) => NotificationLevel;
 	notifications?: NotificationConfig;
-	socialBatchPlugin?: boolean;
+	socialBatchPlugin?: boolean | ReadonlySet<string>;
 	onOwnerMention?: (session: SessionInfo, event: YEvent) => Promise<void>;
 	onStart?: (
 		session: SessionInfo,

@@ -126,7 +126,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		const services: KernelServices = {
 			social: {
-				admitBatch: (request) => router.admitBatch(request),
+				admitBatch: (request, pluginId) => router.admitBatch(request, pluginId),
 				inspect: (request, ctx) => {
 					if (!ctx) throw new Error("Tool context required");
 					return social.inspect(request, ctx);
@@ -352,7 +352,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		router = createRouter({
 			channels: loaded.channels,
-			socialBatchPlugin: loaded.info?.some((plugin) => plugin.id === "social") ?? false,
+			socialBatchPlugin: new Set(loaded.info?.map((plugin) => plugin.id) ?? []),
 			store,
 			sessions,
 			runtime: realRuntime,

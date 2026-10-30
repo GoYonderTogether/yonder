@@ -3,6 +3,7 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
+import { participationPlugin } from "./participation.js";
 import { socialDecision } from "./social.js";
 
 export async function suppressLegacyBatch(
@@ -12,7 +13,10 @@ export async function suppressLegacyBatch(
 	store: Store,
 	sessions: Sessions,
 	channels?: Map<string, Channel>,
+	plugins: ReadonlySet<string> = new Set(),
 ): Promise<boolean> {
+	const plugin = participationPlugin(agent, legacySource);
+	if (!plugins.has(plugin)) return false;
 	const sourceRoute = legacySource.routes?.find(
 		(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
 	);
@@ -28,7 +32,7 @@ export async function suppressLegacyBatch(
 	) {
 		return true;
 	}
-	const probe = { ...event, type: "social.batch-ready", from: "plugin:social" };
+	const probe = { ...event, type: `${plugin}.batch-ready`, from: `plugin:${plugin}` };
 	let binding: Binding | undefined;
 	for (const candidate of agent.bindings) {
 		if (await matches(candidate, probe, agent, store)) {
@@ -39,7 +43,10 @@ export async function suppressLegacyBatch(
 	if (
 		sourceRoute?.session &&
 		decision?.reason === "batch" &&
-		binding?.match.type === "social.batch-ready" &&
+		binding?.match.type === `${plugin}.batch-ready` &&
+		(agent.profiles[binding.profile ?? agent.defaultProfile]?.plugins ?? agent.defaults?.plugins ?? []).includes(
+			plugin,
+		) &&
 		binding.reply === "none" &&
 		binding.wake !== "write" &&
 		binding.session !== "main" &&

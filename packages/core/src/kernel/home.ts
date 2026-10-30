@@ -72,7 +72,11 @@ export function configurationErrors(
 	models: Models,
 	presets: Map<string, Preset>,
 ): string[] {
-	const errors: string[] = socialReferenceErrors(config, agents);
+	const errors: string[] = socialReferenceErrors(
+		config,
+		agents,
+		new Set(plugins.info?.map((plugin) => plugin.id) ?? []),
+	);
 	const validateProfile = (name: string, selected: ReturnType<typeof resolveProfile>) => {
 		errors.push(...promptErrors(selected.prompt).map((error) => `${name}: ${error}`));
 		for (const ref of [selected.model, ...(selected.fallback?.models ?? [])]) {

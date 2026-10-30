@@ -3,6 +3,7 @@ import { parseAgentConfig } from "../config/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
+import { participationPlugin } from "./participation.js";
 import { socialDecision } from "./social.js";
 
 test("batch admission rechecks authorization, quiet and binding without routing an event", async () => {
@@ -16,7 +17,7 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 				name: "A",
 				owner: "person:owner",
 				defaultProfile: "group",
-				profiles: { group: {} },
+				profiles: { group: { plugins: ["social"] } },
 				social: {
 					enabled: true,
 					authorized: { conversations: ["conv:test:g"] },
@@ -53,7 +54,7 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 			sourceEvents: [source.id],
 			policyRevision: revision,
 		};
-		const deps = { agents: new Map([["a", agent]]), store };
+		const deps = { agents: new Map([["a", agent]]), store, plugins: new Set(["social", "alternative"]) };
 		expect(await admitBatch(request, deps)).toEqual({ session: "1" });
 		agent.social!.denied = ["conv:test:g"];
 		expect(await admitBatch(request, deps)).toBeUndefined();
@@ -61,9 +62,44 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 		agent.social!.defaults!.group!.quiet = { timezone: "UTC", start: "00:00", end: "23:59" };
 		expect(await admitBatch(request, deps)).toBeUndefined();
 		delete agent.social!.defaults!.group!.quiet;
+		agent.social!.defaults!.group!.plugin = "alternative";
+		agent.profiles.group!.plugins = ["alternative"];
+		agent.bindings[0]!.match.type = "alternative.batch-ready";
+		request.policyRevision = socialDecision(agent, source, undefined)?.revision ?? "";
+		expect(await admitBatch(request, deps, "alternative")).toEqual({ session: "1" });
+		expect(await admitBatch(request, deps, "social")).toBeUndefined();
+		deps.plugins.delete("alternative");
+		expect(await admitBatch(request, deps, "alternative")).toBeUndefined();
+		deps.plugins.add("alternative");
+		agent.profiles.group!.plugins = [];
+		expect(await admitBatch(request, deps, "alternative")).toBeUndefined();
 		agent.bindings = [];
-		expect(await admitBatch(request, deps)).toBeUndefined();
+		expect(await admitBatch(request, deps, "alternative")).toBeUndefined();
 	} finally {
 		await db.close();
 	}
+});
+
+test("participation provider uses exact conversation override before the group default", () => {
+	const agent = parseAgentConfig(
+		JSON.stringify({
+			schema: 1,
+			id: "a",
+			name: "A",
+			owner: "person:owner",
+			defaultProfile: "group",
+			profiles: { group: {} },
+			bindings: [],
+			social: {
+				enabled: true,
+				defaults: { group: { plugin: "alternative" } },
+				conversations: { "conv:test:override": { plugin: "social" } },
+			},
+		}),
+	);
+	const source = { id: "1", ts: "now", type: "message.in", conv: "conv:test:ordinary", data: { kind: "group" } };
+	expect(participationPlugin(agent, source)).toBe("alternative");
+	expect(participationPlugin(agent, { ...source, conv: "conv:test:override" })).toBe("social");
+	delete agent.social!.defaults!.group!.plugin;
+	expect(participationPlugin(agent, source)).toBe("social");
 });

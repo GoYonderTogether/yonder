@@ -1,11 +1,39 @@
 import type { AgentConfig, YonderConfig } from "./schema.js";
 
 /** Cross-file validation runs on the candidate before it is published. */
-export function socialReferenceErrors(config: YonderConfig, agents: Map<string, AgentConfig>): string[] {
+export function socialReferenceErrors(
+	config: YonderConfig,
+	agents: Map<string, AgentConfig>,
+	loaded?: ReadonlySet<string>,
+): string[] {
 	const errors: string[] = [];
 	for (const agent of agents.values()) {
 		const social = agent.social;
 		if (!social) continue;
+		for (const [scope, policy] of [
+			...Object.entries(social.defaults ?? {}),
+			...Object.entries(social.conversations ?? {}),
+		]) {
+			if (!policy.plugin) continue;
+			const plugin = policy.plugin;
+			if (loaded && !loaded.has(plugin))
+				errors.push(`${agent.id}/social/${scope}: participation plugin not loaded ${plugin}`);
+			const bindings = agent.bindings.filter(
+				(binding) =>
+					binding.match.type === `${plugin}.batch-ready` &&
+					(!scope.startsWith("conv:") || !binding.match.conv || [binding.match.conv].flat().includes(scope)),
+			);
+			if (
+				!bindings.some((binding) =>
+					(agent.profiles[binding.profile ?? agent.defaultProfile]?.plugins ?? agent.defaults?.plugins ?? []).includes(
+						plugin,
+					),
+				)
+			)
+				errors.push(
+					`${agent.id}/social/${scope}: participation plugin must be selected by a matching batch profile ${plugin}`,
+				);
+		}
 		const target = config.notifications?.outbound?.target;
 		if (social.enabled && target && target.via !== "console") {
 			const profile = agent.profiles[agent.defaultProfile];

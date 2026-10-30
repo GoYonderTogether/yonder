@@ -2,17 +2,25 @@ import type { Channel } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
+import { participationPlugin } from "./participation.js";
 import { socialDecision } from "./social.js";
 
 export async function admitBatch(
 	request: { agent: string; conv: string; through: string; sourceEvents: string[]; policyRevision: string },
-	{ agents, store, channels }: { agents: Map<string, AgentConfig>; store: Store; channels?: Map<string, Channel> },
+	{
+		agents,
+		store,
+		channels,
+		plugins,
+	}: { agents: Map<string, AgentConfig>; store: Store; channels?: Map<string, Channel>; plugins: ReadonlySet<string> },
+	plugin = "social",
 ) {
 	const agent = agents.get(request.agent);
 	const ids = request.sourceEvents;
 	if (
 		!agent?.social?.enabled ||
 		agent.archivedAt ||
+		!plugins.has(plugin) ||
 		!ids.length ||
 		ids.length > 100 ||
 		ids.at(-1) !== request.through ||
@@ -38,9 +46,14 @@ export async function admitBatch(
 		if (!item) return;
 		const person = item.from?.startsWith("acct:") ? (await store.identity().account(item.from))?.person : undefined;
 		const decision = socialDecision(agent, item, person, channels?.get(channelOf(item.conv) ?? ""));
-		if (decision?.reason !== "batch" || decision.revision !== request.policyRevision) return;
+		if (
+			decision?.reason !== "batch" ||
+			decision.revision !== request.policyRevision ||
+			participationPlugin(agent, item) !== plugin
+		)
+			return;
 	}
-	const probe = { ...source!, type: "social.batch-ready", from: "plugin:social" };
+	const probe = { ...source!, type: `${plugin}.batch-ready`, from: `plugin:${plugin}` };
 	let binding: Binding | undefined;
 	for (const candidate of agent.bindings)
 		if (await matches(candidate, probe, agent, store)) {
@@ -49,7 +62,7 @@ export async function admitBatch(
 		}
 	if (
 		!binding ||
-		binding.match.type !== "social.batch-ready" ||
+		binding.match.type !== `${plugin}.batch-ready` ||
 		binding.reply !== "none" ||
 		binding.wake === "write" ||
 		binding.session === "main" ||
@@ -57,6 +70,8 @@ export async function admitBatch(
 		binding.session.per !== "conv"
 	)
 		return;
+	const profile = agent.profiles[binding.profile ?? agent.defaultProfile];
+	if (!(profile?.plugins ?? agent.defaults?.plugins ?? []).includes(plugin)) return;
 	const saved = await store.sessions.get(route.session);
 	const target = sessionKey(binding, probe);
 	const scope =

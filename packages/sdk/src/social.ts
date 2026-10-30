@@ -2,6 +2,8 @@ import type { Ref, ToolContext } from "./types.js";
 export type Participation = "direct" | "record" | "mention" | "batch" | "folded" | "mute";
 export type SocialSignal = "botMention" | "ownerMention" | "groupOwner" | "everyone" | "keyword";
 export interface SocialPolicy {
+	/** Selected participation strategy plugin; defaults to the official social plugin. */
+	plugin?: string;
 	mode?: Participation;
 	batch?: { count?: number; delaySeconds?: number; maxMessages?: number; maxBytes?: number; run?: boolean };
 	minIntervalSeconds?: number;

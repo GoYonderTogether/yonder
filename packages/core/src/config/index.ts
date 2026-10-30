@@ -287,7 +287,7 @@ function sameSession(a: Binding, b: Binding): boolean {
 	if (a.session.per === "conv" && !intersects(a.match.conv, b.match.conv)) return false;
 	// Batch admission only accepts a group/channel source; it can never reuse a DM conversation.
 	const kinds = (binding: Binding) =>
-		binding.match.type === "social.batch-ready" ? ["group", "channel"] : binding.match.kind;
+		binding.match.type?.endsWith(".batch-ready") ? ["group", "channel"] : binding.match.kind;
 	return a.session.per === "person" || (intersects(a.match.channel, b.match.channel) && intersects(kinds(a), kinds(b)));
 }
 

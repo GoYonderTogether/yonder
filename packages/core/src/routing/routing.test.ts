@@ -372,7 +372,7 @@ name: Main
 owner: person:owner
 defaultProfile: guest
 profiles:
-  guest: { level: readonly }
+  guest: { level: readonly, plugins: [social] }
 social:
   enabled: true
   authorized:
@@ -397,9 +397,19 @@ bindings:
 		const agents = new Map([[agent.id, agent]]);
 		const keys = new Map<string, string>();
 		const sessions = {
-			ensureAgent: async (_agent: string, _profile: string, key: string) => {
+			ensureAgent: async (_agent: string, _profile: string, key: string, mode: "main" | "persistent" | "ephemeral") => {
 				if (!keys.has(key)) keys.set(key, String(keys.size + 1));
-				return { session: { id: keys.get(key) }, profileMismatch: false };
+				const session = {
+					id: keys.get(key)!,
+					agent: _agent,
+					profile: _profile,
+					key,
+					mode,
+					version: "1",
+					opened: new Date().toISOString(),
+				};
+				if (!(await store.sessions.get(session.id))) await store.sessions.put(session);
+				return { session, profileMismatch: false };
 			},
 		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
 		const router = createRouter({
