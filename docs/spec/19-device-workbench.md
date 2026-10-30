@@ -21,6 +21,7 @@
 ## 3. 设备通道
 
 - 设备 hello 增量宣告 workProtocol:1；未准备好控制宿主或主人核对失败时不宣告。
+- 设备令牌调用既有 GET /api/session 时，响应在 actor 外增量返回 deviceId；网页会话形状不变。插件据此固定本连接的设备身份，拒绝控制帧中的不同 deviceId，不从社交发送者或任意客户端输入推断设备归属。
 - 云端为工作连接生成不可由客户端选择的 channelId，RPC 生成 requestId，分别绑定浏览器 session、ownerId、deviceId 与具体设备 WebSocket。一个设备有多个连接时只固定一个支持 v1 的实际 peer；不广播控制请求。
 - RPC 下行 work.request 携带 requestId/ownerId/deviceId/method/params；上行 work.response 只接纳原 peer 与待处理请求，携带 requestId、ok、result 或 error。断开后的迟到回复不跨连接投递。
 - 流下行 work.open / work.frame / work.close 携带 channelId 与已核实 ownerId/deviceId；frame 为原 Gateway 客户端帧。上行 work.event 携带 channelId/frame，frame 为原服务端帧。云端不允许设备向任意浏览器指定目标。
