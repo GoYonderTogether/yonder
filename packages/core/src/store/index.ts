@@ -121,7 +121,8 @@ export async function createStore(
 				`SELECT session, text FROM (
 					SELECT json_extract(data, '$.session') AS session, json_extract(data, '$.text') AS text,
 					ROW_NUMBER() OVER (PARTITION BY json_extract(data, '$.session') ORDER BY id) AS rank
-					FROM y_events WHERE type = 'session.input' AND "from" IS NULL
+					FROM y_events WHERE type = 'session.input'
+					AND ("from" IS NULL OR ("from" LIKE 'agent:%' AND json_extract(data, '$.taskOwned') = 1))
 					AND json_extract(data, '$.session') IN (SELECT value FROM json_each(?))
 					AND json_type(data, '$.text') = 'text'
 					AND length(trim(json_extract(data, '$.text'), char(9) || char(10) || char(13) || ' ')) > 0

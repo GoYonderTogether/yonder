@@ -47,7 +47,10 @@ function Fold({
 
 const brief = (args: unknown) => {
 	if (!args || typeof args !== "object") return "";
-	const v = Object.values(args as Record<string, unknown>)[0];
+	const data = args as Record<string, unknown>;
+	const options =
+		data.options && typeof data.options === "object" ? (data.options as Record<string, unknown>) : undefined;
+	const v = data.task ?? options?.task ?? Object.values(data)[0];
 	return typeof v === "string" ? v.slice(0, 80) : "";
 };
 

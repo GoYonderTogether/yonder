@@ -54,11 +54,15 @@ test("first task inputs use owner input in event order, skipping plugin and empt
 		await store.events.record({ type: "session.input", data: { session: "1", text: "  \n" } });
 		await store.events.record({ type: "session.input", data: { session: "1", text: "first instruction" } });
 		await store.events.record({ type: "session.input", data: { session: "1", text: "later instruction" } });
-		await store.events.record({ type: "session.input", data: { session: "2", text: "other" } });
+		await store.events.record({
+			type: "session.input",
+			from: "agent:main",
+			data: { session: "2", text: "委派目标", taskOwned: true },
+		});
 		expect(await store.events.firstTaskInputs(["1", "2"])).toEqual(
 			new Map([
 				["1", "first instruction"],
-				["2", "other"],
+				["2", "委派目标"],
 			]),
 		);
 	} finally {

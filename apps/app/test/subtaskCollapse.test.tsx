@@ -5,6 +5,8 @@ import { MemoryRouter } from "react-router";
 import { expect, it, vi } from "vitest";
 import { WorkCards } from "../src/work/ui/WorkCards";
 
+vi.mock("../src/work/lib/queries", () => ({ useSessions: () => ({ data: [{ id: "child", title: "真实委派目标" }] }) }));
+
 it("已展开子任务完成时折叠，仍可重新展开", async () => {
 	const { document, window } = parseHTML("<html><body></body></html>");
 	vi.stubGlobal("window", window);
@@ -27,6 +29,7 @@ it("已展开子任务完成时折叠，仍可重新展开", async () => {
 	await act(() => button.click());
 	expect(button.getAttribute("aria-expanded")).toBe("true");
 	expect(container.textContent).toContain("打开这个子 Bot 的对话");
+	expect(container.textContent).toContain("真实委派目标");
 	await act(() => root.unmount());
 	vi.unstubAllGlobals();
 });

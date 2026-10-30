@@ -2,6 +2,7 @@ import { Bot, ChevronRight, Terminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { BackgroundRow, SubtaskRow } from "../api/types";
+import { useSessions } from "../lib/queries";
 import { workPath } from "../shell/workRoutes";
 
 const SUB_STATE: Record<SubtaskRow["state"], string> = {
@@ -58,6 +59,7 @@ function Card({
 
 /** 子 Agent / 后台任务只作为对话里的可展开卡片，不进侧边栏（WORK-UX 第三轮 4）。 */
 export function WorkCards({ subtasks, background }: { subtasks: SubtaskRow[]; background: BackgroundRow[] }) {
+	const sessions = useSessions();
 	if (subtasks.length + background.length === 0) return null;
 	return (
 		<>
@@ -65,7 +67,7 @@ export function WorkCards({ subtasks, background }: { subtasks: SubtaskRow[]; ba
 				<Card
 					key={t.id}
 					icon={Bot}
-					title={t.label}
+					title={sessions.data?.find((session) => session.id === t.session)?.title || t.label || "子任务"}
 					state={SUB_STATE[t.state]}
 					tid="subagent-card"
 					completed={t.state === "done"}
