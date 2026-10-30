@@ -1,6 +1,7 @@
 import { Settings as SettingsIcon } from "lucide-react";
 import { lazy, Suspense, useEffect } from "react";
 import { Link, Navigate } from "react-router";
+import { PersonalAvatar } from "../components/PersonalDrawer";
 import { mux } from "./api/stream";
 import { Chat } from "./features/Chat";
 import { NotifyHost } from "./features/notify/NotifyHost";
@@ -48,6 +49,9 @@ export function WorkShell({ onLogout }: { onLogout(): void }) {
 	const side = (
 		<>
 			<div className="flex items-center pr-2">
+				<div className="pl-4">
+					<PersonalAvatar />
+				</div>
 				<h1 className="pt-safe flex-1 px-4 pt-3 pb-1 text-title font-semibold">工作</h1>
 				<Link
 					to={workPath({ page: "settings" })}

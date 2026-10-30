@@ -6,6 +6,7 @@ import { api } from "../api";
 import { AppBar, BackButton } from "../components/AppBar";
 import { EmptyPane } from "../components/EmptyPane";
 import { ListHeader } from "../components/ListHeader";
+import { PersonalAvatar } from "../components/PersonalDrawer";
 import { PlusMenu } from "../components/PlusMenu";
 import { ContactDetail } from "../components/wallet/ContactDetail";
 import { ContactList } from "../components/wallet/ContactList";
@@ -104,7 +105,11 @@ export function Contacts() {
 	return (
 		<div className="flex h-full flex-col bg-ground">
 			{/* 加号菜单：添加朋友、发起群聊、添加设备、扫一扫合成一个入口（消息页不再有加号）。 */}
-			<AppBar title={<span className="text-[20px] tracking-tight">通讯录</span>} right={<PlusMenu />} />
+			<AppBar
+				title={<span className="text-[20px] tracking-tight">通讯录</span>}
+				left={<PersonalAvatar />}
+				right={<PlusMenu />}
+			/>
 			<div className="scroll-y min-h-0 flex-1 px-4 pb-6">
 				<div className="pt-2 pb-2">
 					<SearchBox q={q} onChange={setQ} />

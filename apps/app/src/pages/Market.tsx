@@ -25,6 +25,7 @@ import { CompareDialog, ListingDetail } from "../components/market/ListingDetail
 import { MarketStats } from "../components/market/MarketStats";
 import { MarketDialog } from "../components/market/MarketUI";
 import { PublishDialog, SellerWorkspace } from "../components/market/SellPanel";
+import { PersonalAvatar } from "../components/PersonalDrawer";
 import { cn } from "../lib/cn";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
@@ -284,6 +285,7 @@ export function Market() {
 			>
 				<header className="mk-market-header">
 					<div className="mk-page-heading">
+						{home && <PersonalAvatar />}
 						{!home && (
 							<Link
 								className="mk-icon-button"

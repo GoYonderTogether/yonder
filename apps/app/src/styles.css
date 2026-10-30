@@ -484,3 +484,17 @@ body {
 		--market-overlay: rgb(0 0 0 / 0.7);
 	}
 }
+
+@keyframes personal-drawer-in {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+@media (prefers-reduced-motion: no-preference) {
+	.personal-drawer {
+		animation: personal-drawer-in 180ms ease-out;
+	}
+}

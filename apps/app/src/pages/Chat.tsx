@@ -12,6 +12,7 @@ import { AnonHint } from "../components/chat/AnonHint";
 import { ChatDetail } from "../components/chat/ChatDetail";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
+import { PersonalAvatar } from "../components/PersonalDrawer";
 import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
 import { convRowMenu } from "../lib/convMenu";
@@ -162,7 +163,7 @@ export function ChatShell() {
 					<ListHeader q={q} onChange={setQ} />
 				) : (
 					<>
-						<AppBar title={<span className="text-[20px] tracking-tight">消息</span>} />
+						<AppBar title={<span className="text-[20px] tracking-tight">消息</span>} left={<PersonalAvatar />} />
 						<div className="px-3 pb-2">
 							<label className="field flex h-10 items-center gap-2 rounded-control bg-tone px-3 text-faint">
 								<Search size={16} />
