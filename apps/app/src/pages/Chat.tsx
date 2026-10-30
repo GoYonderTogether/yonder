@@ -13,6 +13,7 @@ import { ChatDetail } from "../components/chat/ChatDetail";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
 import { PersonalAvatar } from "../components/PersonalDrawer";
+import { PlusMenu } from "../components/PlusMenu";
 import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
 import { convRowMenu } from "../lib/convMenu";
@@ -163,7 +164,11 @@ export function ChatShell() {
 					<ListHeader q={q} onChange={setQ} />
 				) : (
 					<>
-						<AppBar title={<span className="text-[20px] tracking-tight">消息</span>} left={<PersonalAvatar />} />
+						<AppBar
+							title={<span className="text-[20px] tracking-tight">{me?.name}</span>}
+							left={<PersonalAvatar />}
+							right={<PlusMenu />}
+						/>
 						<div className="px-3 pb-2">
 							<label className="field flex h-10 items-center gap-2 rounded-control bg-tone px-3 text-faint">
 								<Search size={16} />
@@ -177,7 +182,7 @@ export function ChatShell() {
 						</div>
 					</>
 				)}
-				<nav className="scroll-y flex-1 px-2 pb-2">
+				<nav aria-label="消息列表" className="scroll-y flex-1 px-2 pb-2">
 					{isLoading &&
 						Array.from({ length: 4 }, (_, i) => (
 							// biome-ignore lint/suspicious/noArrayIndexKey: 固定数量的加载骨架，没有数据 id

@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -6,6 +7,8 @@ import { expect, it, vi } from "vitest";
 import { PersonalAvatar, PersonalDrawerProvider } from "../src/components/PersonalDrawer";
 import { $session } from "../src/store";
 
+vi.mock("../src/api", () => ({ api: { profile: () => Promise.resolve(null) } }));
+vi.mock("../src/components/IdentityQr", () => ({ IdentityQr: () => null }));
 vi.mock("../src/pages/Me", () => ({ SettingsDialog: () => null }));
 vi.mock("radix-ui", async () => {
 	const { createContext, createElement: h, useContext, useEffect } = await import("react");
@@ -49,13 +52,15 @@ it("关闭和浏览器返回都保留当前页，并恢复头像焦点", async (
 	const root = createRoot(node as never);
 	await act(() =>
 		root.render(
-			<MemoryRouter initialEntries={["/previous", "/"]} initialIndex={1}>
-				<PersonalDrawerProvider>
-					<PersonalAvatar />
-					<Back />
-					<input defaultValue="草稿" />
-				</PersonalDrawerProvider>
-			</MemoryRouter>,
+			<QueryClientProvider client={new QueryClient()}>
+				<MemoryRouter initialEntries={["/previous", "/"]} initialIndex={1}>
+					<PersonalDrawerProvider>
+						<PersonalAvatar />
+						<Back />
+						<input defaultValue="草稿" />
+					</PersonalDrawerProvider>
+				</MemoryRouter>
+			</QueryClientProvider>,
 		),
 	);
 	const avatar = node.querySelector('[aria-label="打开个人菜单"]') as unknown as HTMLElement;

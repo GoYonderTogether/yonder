@@ -1,12 +1,15 @@
 import { useStore } from "@nanostores/react";
-import { ChevronRight, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Bookmark, ChevronRight, ContactRound, Monitor, Package, Settings, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import { api } from "../api";
 import { internalState } from "../lib/navigation";
 import { SettingsDialog } from "../pages/Me";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
+import { IdentityQr } from "./IdentityQr";
 
 const DrawerContext = createContext<((trigger?: HTMLElement) => void) | null>(null);
 
@@ -32,6 +35,11 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 	const location = useLocation();
 	const navigate = useNavigate();
 	const open = location.state?.personalDrawer === true;
+	const { data: profile } = useQuery({
+		queryKey: ["profile", me?.id],
+		queryFn: () => api.profile(me?.id ?? ""),
+		enabled: open && !!me && !me.anonymous,
+	});
 	const trigger = useRef<HTMLElement | null>(null);
 	const openDrawer = useCallback(
 		(element?: HTMLElement) => {
@@ -89,43 +97,74 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 								trigger.current.focus();
 							}
 						}}
-						className="personal-drawer fixed inset-y-0 left-0 z-50 flex w-[min(320px,85vw)] flex-col overflow-y-auto bg-raised p-5 shadow-float outline-none"
+						className="personal-drawer fixed inset-0 z-50 flex flex-col overflow-y-auto bg-ground shadow-float outline-none"
 					>
-						<div className="flex items-center gap-3">
-							{me && <Avatar actor={me} size={48} />}
-							<Dialog.Title className="min-w-0 flex-1 truncate font-semibold">{me?.name ?? "个人"}</Dialog.Title>
-							<Dialog.Close aria-label="关闭个人菜单" className="press grid size-10 place-items-center rounded-full">
+						<div className="relative h-36 shrink-0 bg-gradient-to-br from-accent/25 via-tone-2 to-ground pt-[env(safe-area-inset-top)]">
+							<Dialog.Close
+								aria-label="关闭个人菜单"
+								className="press absolute top-[calc(env(safe-area-inset-top)+1rem)] right-4 grid size-10 place-items-center rounded-full bg-raised/80 text-ink"
+							>
 								<X size={20} />
 							</Dialog.Close>
 						</div>
-						<nav aria-label="个人菜单" className="mt-6 flex flex-col">
+						<div className="-mt-10 px-4">
+							<div className="relative rounded-card bg-raised p-5 shadow-soft">
+								<div className="flex items-start gap-4">
+									{me && <Avatar actor={me} size={64} />}
+									<div className="min-w-0 flex-1 pt-1">
+										<Dialog.Title className="truncate text-title font-semibold">{me?.name ?? "个人"}</Dialog.Title>
+										{(profile?.card?.tagline || profile?.summary || me?.summary) && (
+											<p className="mt-2 text-small text-muted">
+												{profile?.card?.tagline || profile?.summary || me?.summary}
+											</p>
+										)}
+									</div>
+									{me && <IdentityQr actor={me} cardId={profile?.card?.id} card={profile?.card} />}
+								</div>
+								{!!profile?.card?.face?.tags?.length && (
+									<div className="mt-4 flex flex-wrap gap-2">
+										{profile.card.face.tags.map((tag) => (
+											<span key={tag} className="rounded-full bg-tone px-3 py-1 text-caption text-muted">
+												{tag}
+											</span>
+										))}
+									</div>
+								)}
+							</div>
+						</div>
+						<nav
+							aria-label="个人菜单"
+							className="flex flex-1 flex-col px-4 pt-5 pb-[calc(1rem+env(safe-area-inset-bottom))]"
+						>
 							{(
 								[
-									["/me", "个人资料与名片"],
-									["/me/market/posts", "我的发布"],
-									["/me/market/saved", "我的收藏"],
-									["/connect", "添加设备"],
+									["/me", "个人资料与名片", ContactRound],
+									["/me/market/posts", "我的发布", Package],
+									["/me/market/saved", "市场收藏", Bookmark],
+									["/connect", "添加设备", Monitor],
 								] as const
-							).map(([to, label]) => (
+							).map(([to, label, Icon]) => (
 								<Link
 									key={to}
 									to={to}
 									replace
 									state={internalState(location)}
-									className="press flex min-h-12 items-center gap-3 border-b border-hairline"
+									className="press flex min-h-14 items-center gap-4 rounded-control px-2 hover:bg-tone"
 								>
+									<Icon size={21} className="text-accent-ink" />
 									<span className="flex-1">{label}</span>
 									<ChevronRight size={16} className="text-muted" />
 								</Link>
 							))}
 							<button
 								type="button"
-								className="press flex min-h-12 items-center gap-3 text-left"
+								className="press mt-auto flex min-h-14 items-center gap-4 rounded-control px-2 text-left hover:bg-tone"
 								onClick={() => {
 									closeDrawer();
 									setSettings(true);
 								}}
 							>
+								<Settings size={21} className="text-muted" />
 								<span className="flex-1">设置与账号安全</span>
 								<ChevronRight size={16} className="text-muted" />
 							</button>
