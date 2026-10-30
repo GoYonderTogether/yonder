@@ -1,9 +1,8 @@
 import type { Attachment } from "./messages.js";
 import type { WorkControl } from "./work-control.js";
 
-export type { WorkControl } from "./work-control.js";
-
 export type * from "./messages.js";
+export type { WorkControl } from "./work-control.js";
 
 import type { ChannelFeatures, NotificationIntent, SocialAPI } from "./social.js";
 
