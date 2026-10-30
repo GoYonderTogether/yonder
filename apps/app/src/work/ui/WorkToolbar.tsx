@@ -45,7 +45,7 @@ export function WorkToolbar({
 				aria-label="工作区域显示"
 				value={mode ?? "auto"}
 				onChange={(event) => onMode(event.target.value as PaneMode)}
-				className="field min-w-0"
+				className="field h-11 min-w-0"
 			>
 				<option value="auto">自动</option>
 				<option value="list">仅工作列表</option>

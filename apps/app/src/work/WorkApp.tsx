@@ -111,7 +111,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 							: "/work",
 					);
 				}}
-				className="field min-w-0 flex-1"
+				className="field h-11 min-w-0 flex-1"
 			>
 				<option value="all">全部设备</option>
 				{devices.data.map((device) => (
