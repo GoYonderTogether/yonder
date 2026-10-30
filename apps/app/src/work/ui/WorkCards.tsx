@@ -1,5 +1,5 @@
 import { Bot, ChevronRight, Terminal } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { BackgroundRow, SubtaskRow } from "../api/types";
 import { workPath } from "../shell/workRoutes";
@@ -18,14 +18,19 @@ function Card({
 	state,
 	children,
 	tid,
+	completed = false,
 }: {
 	icon: typeof Bot;
 	title: string;
 	state: string;
 	children?: React.ReactNode;
 	tid: string;
+	completed?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	useEffect(() => {
+		if (completed) setOpen(false);
+	}, [completed]);
 	return (
 		<div
 			className="mx-auto w-full max-w-[720px] rounded-card border border-hairline bg-raised text-small"
@@ -57,7 +62,14 @@ export function WorkCards({ subtasks, background }: { subtasks: SubtaskRow[]; ba
 	return (
 		<>
 			{subtasks.map((t) => (
-				<Card key={t.id} icon={Bot} title={t.label} state={SUB_STATE[t.state]} tid="subagent-card">
+				<Card
+					key={t.id}
+					icon={Bot}
+					title={t.label}
+					state={SUB_STATE[t.state]}
+					tid="subagent-card"
+					completed={t.state === "done"}
+				>
 					<Link to={workPath({ session: t.session })} className="underline">
 						打开这个子 Bot 的对话
 					</Link>

@@ -14,14 +14,19 @@ function Fold({
 	hint,
 	children,
 	tid,
+	completed = false,
 }: {
 	icon: typeof Wrench;
 	title: string;
 	hint?: string;
 	children: React.ReactNode;
 	tid: string;
+	completed?: boolean;
 }) {
 	const [open, setOpen] = useState(false);
+	useEffect(() => {
+		if (completed) setOpen(false);
+	}, [completed]);
 	return (
 		<div className="rounded-control border border-hairline bg-raised text-small" data-testid={tid}>
 			<button
@@ -48,7 +53,13 @@ const brief = (args: unknown) => {
 
 function Tool({ t }: { t: ToolCall }) {
 	return (
-		<Fold icon={Wrench} title={t.name} hint={brief(t.args)} tid="tool-card">
+		<Fold
+			icon={Wrench}
+			title={t.name}
+			hint={brief(t.args)}
+			tid="tool-card"
+			completed={t.done && ["subagent", "task_run"].includes(t.name)}
+		>
 			<pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-caption text-muted">
 				{JSON.stringify(t.args ?? {}, null, 2)}
 			</pre>
