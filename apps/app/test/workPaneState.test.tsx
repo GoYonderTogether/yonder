@@ -1,14 +1,19 @@
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { Link, MemoryRouter } from "react-router";
+import { Link, MemoryRouter, useLocation, useNavigate } from "react-router";
 import { expect, it, vi } from "vitest";
 import { WorkShell } from "../src/work/WorkShell";
 
-const state = vi.hoisted(() => ({ width: "desktop", rail: "present", node: "pane-test" }));
+const state = vi.hoisted(() => ({
+	width: "desktop",
+	rail: "present",
+	node: "pane-test",
+	device: undefined as string | undefined,
+}));
 vi.mock("../src/work/api/nodes", () => ({
-	useActiveNode: () => ({ id: state.node }),
-	activeNode: () => ({ id: state.node }),
+	useActiveNode: () => ({ id: state.node, deviceId: state.device }),
+	activeNode: () => ({ id: state.node, deviceId: state.device }),
 }));
 vi.mock("../src/work/api/stream", () => ({ mux: { subscribe: () => () => {} } }));
 vi.mock("../src/work/lib/queries", () => ({
@@ -36,7 +41,9 @@ vi.mock("../src/work/ui/RailStack", () => ({
 		</div>
 	),
 }));
-vi.mock("../src/work/ui/WorkList", () => ({ WorkList: () => <Link to="/work/s">当前会话</Link> }));
+vi.mock("../src/work/ui/WorkList", () => ({
+	WorkList: () => <Link to={state.device ? `/work/device/${state.device}/s` : "/work/s"}>当前会话</Link>,
+}));
 vi.mock("../src/work/features/Settings", () => ({ Settings: () => <div>设置页面</div> }));
 vi.mock("../src/work/ui/WorkToolbar", () => ({
 	WorkToolbar: (p: {
@@ -86,6 +93,19 @@ vi.mock("../src/work/features/Chat", () => ({
 	),
 }));
 
+function NavigationProbe() {
+	const location = useLocation();
+	const navigate = useNavigate();
+	return (
+		<>
+			<output data-testid="path">{location.pathname}</output>
+			<button type="button" onClick={() => navigate(-1)}>
+				浏览器返回
+			</button>
+		</>
+	);
+}
+
 async function render(path: string) {
 	const { document, window } = parseHTML("<html><body></body></html>");
 	vi.stubGlobal("window", window);
@@ -98,6 +118,7 @@ async function render(path: string) {
 			root.render(
 				<MemoryRouter initialEntries={[path]}>
 					<WorkShell onLogout={() => {}} />
+					<NavigationProbe />
 				</MemoryRouter>,
 			);
 		});
@@ -250,5 +271,23 @@ it("独显右栏进入子任务再返回，父会话选择保持", async () => {
 	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "返回父任务")!));
 	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("rail");
 	expect(container.querySelector('main[aria-label="右栏"]')).not.toBeNull();
+	await act(() => root.unmount());
+});
+
+it("旧深链点击当前会话进入设备规范路由，浏览器返回不覆盖列表选择", async () => {
+	state.node = "account:owner:device:device-a";
+	state.device = "device-a";
+	state.width = "desktop";
+	state.rail = "present";
+	const { container, root } = await render("/work/s");
+	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "list"));
+	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "当前会话")!));
+	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/device/device-a/s");
+	expect(container.textContent).toContain("正文");
+	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "list"));
+	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "浏览器返回")!));
+	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/s");
+	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("list");
+	state.device = undefined;
 	await act(() => root.unmount());
 });
