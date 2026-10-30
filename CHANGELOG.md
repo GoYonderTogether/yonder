@@ -2,13 +2,36 @@
 
 ## [Unreleased]
 
+## [0.3.26103010] - 2026-10-30
+
 ### Added
 
 - 手机端底部统一为消息、工作、市场、通讯录四项，个人头像打开 QQ 式全屏资料与菜单；消息顶栏显示用户名并保留加号。
 - 设备一次授权统一接入消息与工作台，网页登录后直接选择自己的设备，不再手填 Gateway 地址或令牌；设备失联、旧版本及解绑状态如实显示，解绑保留历史并撤销访问。
 - 工作控制复用原会话与权限注册表，校验主人及设备身份，拒绝管理员/本机专属操作；切设备隔离查询和草稿，未知结果重试复用原请求标识。
-
 - 渠道可报告已授权的主人连接；Card 授权完成后沿已有主人绑定提醒 Bot 打招呼。
+- bridge card device workbench to control registry
+- app：connect work through account devices
+- app：expand mobile personal drawer
+- app：add mobile personal drawer and navigation
+- route authorized channel connections to owners
+
+### Fixed
+
+- app：show unified cloud device settings
+- app：preserve request identity on unknown outcome
+- return work bridge authorization error codes
+- app：connect workbench to selected gateway
+- app：preserve page history when closing personal drawer
+- app：restore web build and work avatar
+- app：restore mobile personal page back navigation
+- app：show work entry without gateway
+
+### Changed
+
+- split work bridge and cli handlers
+- split oversized implementation modules
+- core：separate plugin validation
 
 ## [0.3.26103009] - 2026-10-30
 
