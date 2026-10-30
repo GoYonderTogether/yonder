@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- QQ/card 群升级命令经 install/current 符号链接运行时不再静默退出；保留真实路径与符号链接入口的行为一致。
+
 ## [0.3.26103007] - 2026-10-30
 
 ### Changed
