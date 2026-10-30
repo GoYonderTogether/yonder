@@ -61,6 +61,7 @@ export class Batches {
 			}
 		}
 		for await (const event of this.events({ type: "social.judge-start" })) {
+			if (event.conv && this.managed(event.conv)) continue;
 			const data = event.data as { agent?: string; through?: string; session?: string };
 			if (!event.conv || !data.agent || !data.through) continue;
 			const key = this.key(data.agent, event.conv);
@@ -72,6 +73,7 @@ export class Batches {
 			this.groups.set(key, state);
 		}
 		for await (const event of this.events({ type: "social.judge-result" })) {
+			if (event.conv && this.managed(event.conv)) continue;
 			const data = event.data as { agent?: string; through?: string; action?: string; batch?: EventInput };
 			if (
 				!event.conv ||
@@ -103,6 +105,7 @@ export class Batches {
 			this.groups.set(key, state);
 		}
 		for await (const event of this.events({ type: "social.batch-ready" })) {
+			if (event.conv && this.managed(event.conv)) continue;
 			const data = event.data as { agent?: string; through?: string };
 			if (!event.conv || !data.agent || !data.through) continue;
 			const key = this.key(data.agent, event.conv);

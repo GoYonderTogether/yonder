@@ -250,7 +250,7 @@ code-intel 工具结果统一限制在 40 KiB 内，超出时保留首尾并插�
 
 QQ 与系统内群聊（Card/Web）共用本节契约。官方 `social` 插件封装旁观、点名回复、自然参与与发言协调，复用现有 channels、triggers、contexts、tools、hooks 和 presets，不新增插件槽、第二套会话、转录或模型队列。群可以选择多个工具/上下文等不同用途的插件；每个 Bot 在每个群只选择一个参与策略提供者，安装不等于启用，选择与准入见 04、08。
 
-**硬规则触发与自主复盘。** 官方策略不按消息或批次调用判断模型。每 Bot/真实群独立使用可信点名、keywords、batch.count、quiet、minIntervalSeconds 和可选 triggers（regex、字面 exclude、minLength/maxLength）做程序筛选，命中才唤醒正常群会话并注入近期公开上下文；Bot 可以沉默。规则不改变准入、绑定、权限、群主策略或主人设置。有限正则为标准 JS 源的字面/字符类/点/锚点/或，不支持括号、量词或反向引用，最多 16 项、每项 256 字符，匹配文本最多 2048 字符；非法规则整次拒绝，旧版不变。基础策略的排除词、长度范围、最小计数不被自调规则放宽。
+**硬规则触发与自主复盘。** 官方策略不按消息或批次调用判断模型。每 Bot/真实群独立使用可信点名、keywords、batch.count、quiet、minIntervalSeconds 和可选 triggers（regex、字面 exclude、minLength/maxLength）做程序筛选，命中才唤醒正常群会话并注入近期公开上下文；Bot 可以沉默。规则不改变准入、绑定、权限、群主策略或主人设置。正则使用标准 JS Unicode 语法，最多16项、每项256字符，匹配文本最多2048字符；固定 vm.Script 仅以pattern/text数据运行正则，每条10ms预算，语法非法或复盘回放超时整次拒绝、旧版不变。运行超时只跳过该条并记录异常，不执行模型提供的代码。groupJudge.initialRules[agent] 是可自治调整的初始规则；仅既有主人显式设置的基础排除词、长度范围、最小计数以及权限/范围/quiet等硬边界不被自调规则放宽。
 
 每 Bot/群默认至多每 24 小时复盘一次，累计至少 20 条未复盘公开入站才有材料；复用 social trigger 的小时检查，空群不调用模型。隔离 task 使用本 Bot 来源群 cheap/simple、无私聊/记忆/通用工具，缺低价模型记失败，不回退主模型。输入包含触发与未触发片段、成功出站、沉默及纠正，只有公开片段和公开身份。模型输出规则提议，插件与窄工具共用验证/回放/原子提交路径；不是每条消息判断。social_rules_update 只认真实执行上下文的本 Bot/当前群，无 agent/conv 参数，只能调整 keywords/triggers/count，需版本和原因，支持回退自己的已记录版本；不授予 write/admin。review 的 intervalHours/minMessages 可显式收窄或调整，默认 24/20。
 

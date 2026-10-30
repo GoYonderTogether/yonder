@@ -83,7 +83,7 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 		],
 	] as const;
 	const responding = signals.find(([, matched, action]) => matched && action === "respond");
-	if (responding) return result(responding[0], true);
+	if (responding) return { ...result(responding[0], true), policy };
 	return { ...result(mode), policy };
 }
 

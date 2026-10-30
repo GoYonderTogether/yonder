@@ -302,9 +302,7 @@ export function createRouter({
 					agent: agent.id,
 					reason: decision.reason,
 					revision: decision.revision,
-					...((decision.reason === "batch" || decision.reason === "folded") && "policy" in decision
-						? { policy: decision.policy }
-						: {}),
+					...("policy" in decision ? { policy: decision.policy } : {}),
 				});
 			const ownerMention =
 				decision?.reason === "mention" &&

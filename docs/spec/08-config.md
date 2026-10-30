@@ -193,5 +193,5 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 群聊调度可为 Agent 设置 `social.scope`，仅该列表使用 social 准入与映射，范围外仍沿原绑定；省略保持原有全局 social 行为。SocialPolicy 新增可选 `plugin: string`，值为当前 Bot/群选择的参与策略插件 id，缺省为 social；可在现有 defaults.group 与 conversations 精确覆盖，沿现有策略合并顺序，不另建插件选择表。目标插件须实际加载并由 Bot 选择，内核按真实插件身份及 Bot/群范围检查；无效选择明确拒绝，不回退或扩大权限。
 
-social 插件既有 `config.groupJudge` 保留为兼容入口，包含复盘 preset、受管 conversations、公开 identities、已核实 rooms，以及可选 review.intervalHours（默认24）/minMessages（默认20）。受管路径使用硬规则，不再按轮调用 judge；旧 judge 配置与历史不移除。triggers 可含有限 regex、字面 exclude、minLength/maxLength；长度范围须有效，正则边界见 11。自调规则版本记录在事件账本，按 Bot/群及基础 ownerRevision 隔离，只覆盖自身触发字段，不覆盖权限/准入/群主策略。公开身份使用显式 identities 或真实名称，缺关注方向不推测。群工具/上下文复用已有插件选择，groupJudge 不代替 Bot 授权。详见 04、11。
+social 插件既有 `config.groupJudge` 保留为兼容入口，包含复盘 preset、受管 conversations、公开 identities、已核实 rooms，可自治 initialRules[agent]，以及可选 review.intervalHours（默认24）/minMessages（默认20）。受管路径使用硬规则，不再按轮调用 judge；旧 judge 配置与历史不移除。triggers 可含标准 Unicode regex、字面 exclude、minLength/maxLength；长度范围须有效，正则边界见 11。自调规则版本记录在事件账本，按 Bot/群及基础 ownerRevision 隔离，只覆盖自身触发字段，不覆盖权限/准入/群主策略。公开身份使用显式 identities 或真实名称，缺关注方向不推测。群工具/上下文复用已有插件选择，groupJudge 不代替 Bot 授权。详见 04、11。
 
