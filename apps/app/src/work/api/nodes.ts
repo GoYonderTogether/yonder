@@ -12,7 +12,6 @@ export interface NodeConfig {
 	name: string;
 	/** 绝对地址，可带挂载路径（如 https://host:7690/console）；本机节点没有。 */
 	origin?: string;
-	token?: string;
 }
 
 /** 本机（同源）节点的固定 id；query key 首段、默认节点都用它。 */
@@ -39,7 +38,16 @@ function load(): NodesState {
 	let wanted = LOCAL_NODE.id;
 	try {
 		const raw: unknown = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-		if (Array.isArray(raw)) stored = raw.filter(isNode);
+		if (Array.isArray(raw))
+			stored = raw.filter(isNode).flatMap(({ id, name, origin }) => {
+				if (id === LOCAL_NODE.id) return [LOCAL_NODE];
+				try {
+					return origin ? [{ id, name, origin: normalizeOrigin(origin) }] : [];
+				} catch {
+					return [];
+				}
+			});
+		if (Array.isArray(raw)) localStorage.setItem(KEY, JSON.stringify(stored));
 		wanted = localStorage.getItem(ACTIVE_KEY) ?? LOCAL_NODE.id;
 	} catch {
 		// 没有 localStorage（SSR、测试或隐私模式）时只保留本机节点。
@@ -126,7 +134,6 @@ export async function addNode(input: AddNodeInput): Promise<NodeConfig> {
 		id,
 		name: facts.node.name || id,
 		origin,
-		...(input.token ? { token: input.token } : {}),
 	};
 	const before = current();
 	commit({ nodes: [...before.nodes, node], active: before.active });

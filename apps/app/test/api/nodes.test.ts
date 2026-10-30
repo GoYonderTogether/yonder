@@ -69,6 +69,50 @@ describe("节点存储", () => {
 		expect(nodeList().map((node) => node.id)).toEqual(["local", "cloud-1"]);
 	});
 
+	it("旧令牌被丢弃，选中节点用于 RPC 和流", async () => {
+		localStorage.setItem(
+			"yonder.nodes",
+			JSON.stringify([{ id: "cloud-1", name: "云", origin: "https://c.example/console", token: "old-secret" }]),
+		);
+		const calls = stubFetch(() => ({}));
+		const { setActiveNode } = await import("../../src/work/api/nodes");
+		const { rpc, wsUrl } = await import("../../src/work/api/client");
+		setActiveNode("cloud-1");
+		await rpc("sessions.list");
+		expect(calls[0]?.url).toBe("https://c.example/console/api/rpc/sessions.list");
+		expect(wsUrl()).toBe("wss://c.example/console/api/stream?v=1");
+		expect(localStorage.getItem("yonder.nodes")).not.toContain("old-secret");
+	});
+
+	it("切换节点不会改变已经发出的提交目标", async () => {
+		localStorage.setItem(
+			"yonder.nodes",
+			JSON.stringify([
+				{ id: "a", name: "A", origin: "https://a.example" },
+				{ id: "b", name: "B", origin: "https://b.example" },
+			]),
+		);
+		let finish!: (value: unknown) => void;
+		const calls: string[] = [];
+		vi.stubGlobal(
+			"fetch",
+			vi.fn((url: URL) => {
+				calls.push(String(url));
+				return new Promise((resolve) => {
+					finish = resolve;
+				});
+			}),
+		);
+		const { setActiveNode } = await import("../../src/work/api/nodes");
+		const { rpc } = await import("../../src/work/api/client");
+		setActiveNode("a");
+		const submitted = rpc("sessions.submit", { id: "same", text: "test" });
+		setActiveNode("b");
+		finish({ status: 200, ok: true, json: async () => ({ ok: true, result: {} }) });
+		await submitted;
+		expect(calls).toEqual(["https://a.example/api/rpc/sessions.submit"]);
+	});
+
 	it("记录损坏时退回只有本机", async () => {
 		localStorage.setItem("yonder.nodes", "{not json");
 		const { nodeList } = await import("../../src/work/api/nodes");
@@ -95,12 +139,12 @@ describe("添加与删除节点", () => {
 			id: "cloud-1",
 			name: "云服务器",
 			origin: "https://cloud.example:7690/console",
-			token: "t",
 		});
 		expect(calls.map((call) => call.url)).toEqual([
 			"https://cloud.example:7690/console/login",
 			"https://cloud.example:7690/console/api/rpc/capabilities.get",
 		]);
+		expect(localStorage.getItem("yonder.nodes")).not.toContain('"token"');
 		// 远程节点要带 cookie
 		expect(calls[1]?.init.credentials).toBe("include");
 	});

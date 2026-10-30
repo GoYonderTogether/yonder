@@ -1,4 +1,5 @@
 import { appBase } from "../../lib/base";
+import { activeNode } from "./nodes";
 import type { ServerFrame } from "./types";
 
 export class RpcError extends Error {
@@ -28,12 +29,12 @@ export interface NodeTarget {
  * 本机 basePath="/" → /api/…；线上 /console/ → /console/api/…（反代剥掉前缀）。
  * 鉴权是网关签发的 HttpOnly cookie，前端不保存令牌。
  */
-const baseOf = (node?: NodeTarget) =>
+const baseOf = (node: NodeTarget = activeNode()) =>
 	node?.origin
 		? new URL(node.origin.endsWith("/") ? node.origin : `${node.origin}/`)
 		: new URL(appBase(), location.origin);
 
-const remote = (node?: NodeTarget) => (node?.origin ? { credentials: "include" as const } : {});
+const remote = (node: NodeTarget = activeNode()) => (node?.origin ? { credentials: "include" as const } : {});
 
 /** 未登录监听：任一请求 401 时通知外壳切到登录页。 */
 const authListeners = new Set<() => void>();

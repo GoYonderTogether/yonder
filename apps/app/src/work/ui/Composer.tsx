@@ -1,7 +1,10 @@
 import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
 import { rpc } from "../api/client";
+import { useActiveNode } from "../api/nodes";
 import { AssistBar, AssistMenu, parseSlash, runCommand } from "./ComposerAssist";
+
+const savedDrafts: Record<string, string> = {};
 
 type Busy = "steer" | "followup" | "interrupt";
 
@@ -11,7 +14,14 @@ type Busy = "steer" | "followup" | "interrupt";
  * 由 Bot 自己的绑定接收（contracts.md §10），排队/打断不适用。
  */
 export function Composer({ session, running, bot }: { session: string; running: boolean; bot?: string }) {
-	const [text, setText] = useState("");
+	const node = useActiveNode();
+	const draftKey = `${node.id}:${session}`;
+	const [drafts, setDrafts] = useState<Record<string, string>>(savedDrafts);
+	const text = drafts[draftKey] ?? "";
+	const setText = (value: string) => {
+		savedDrafts[draftKey] = value;
+		setDrafts((old) => ({ ...old, [draftKey]: value }));
+	};
 	const [mode, setMode] = useState<Busy>("steer");
 	const [err, setErr] = useState("");
 	const sending = useRef(false);
