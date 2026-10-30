@@ -86,6 +86,9 @@ describe("消息页不自动跳转", () => {
 		await render();
 		expect(pathname).toBe("/");
 		expect(container.textContent).toContain("小歪");
+		expect(container.textContent).toContain("选一个会话开始聊天");
+		expect(container.textContent).not.toContain("还没有会话");
+		expect(button("开始聊天")).toBeFalsy();
 	});
 
 	it("点「开始聊天」才开私聊并进入会话", async () => {

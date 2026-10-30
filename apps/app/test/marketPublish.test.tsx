@@ -108,3 +108,32 @@ it("本地图片上传入口禁用并说明（B1）", async () => {
 	expect(text).toContain("图片上传暂未开放");
 	expect(container.querySelector('input[type="file"]')).toBeNull();
 });
+
+it("发布确认说明可见范围和交易边界", async () => {
+	await renderDialog(vi.fn());
+	expect(container.textContent).toContain("所有人都可在市场看到，未登录访客也可查看");
+	expect(container.textContent).toContain("目前不支持站内交易");
+});
+
+it("必填标识与不同类型的校验一致", async () => {
+	await renderDialog(vi.fn(), 1);
+	expect(container.textContent).toContain("标题（必填）");
+	expect(container.textContent).toContain("描述（必填）");
+	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(2);
+	await submit();
+	expect(container.textContent).toContain("价格（元，必填）");
+	expect(container.textContent).toContain("所在城市（必填）");
+	expect(container.textContent).toContain("交付方式（必填）");
+	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(3);
+});
+
+it("创意发布的金额可选，参与方式必填", async () => {
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, kind: "idea", discoverable: false }, step: 2 }));
+	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
+	expect(container.textContent).toContain("金额（可留空，面议）");
+	expect(container.textContent).toContain("参与方式（必填）");
+	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(2);
+	await submit();
+	expect(container.textContent).toContain("不会出现在他人的市场列表中");
+	expect(container.textContent).toContain("知道详情链接的人仍可查看");
+});

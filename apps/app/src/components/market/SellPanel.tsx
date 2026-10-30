@@ -256,7 +256,7 @@ export function PublishDialog({
 								</div>
 							</div>
 							<label className="mk-form-label">
-								标题
+								标题（必填）
 								<input
 									maxLength={60}
 									placeholder={
@@ -266,12 +266,13 @@ export function PublishDialog({
 												? "例如：帮你拍一组有质感的产品照"
 												: "品牌、型号，或者你能提供的帮助"
 									}
+									aria-required="true"
 									value={form.title}
 									onChange={(e) => update("title", e.target.value)}
 								/>
 							</label>
 							<label className="mk-form-label">
-								描述
+								描述（必填）
 								<textarea
 									rows={4}
 									placeholder={
@@ -283,6 +284,7 @@ export function PublishDialog({
 													? "想解决什么问题？期待的结果和时间要求是什么？"
 													: "使用情况、配件、瑕疵，尽量说清楚。"
 									}
+									aria-required="true"
 									value={form.description}
 									onChange={(e) => update("description", e.target.value)}
 								/>
@@ -304,12 +306,17 @@ export function PublishDialog({
 						<>
 							<div className="mk-form-grid">
 								<label className="mk-form-label">
-									{openEnded ? "金额（可留空，面议）" : form.kind === "request" ? "预算（元）" : "价格（元）"}
+									{openEnded
+										? "金额（可留空，面议）"
+										: form.kind === "request"
+											? "预算（元，必填）"
+											: "价格（元，必填）"}
 									<input
 										type="number"
 										min={openEnded ? "0" : "0.01"}
 										step="0.01"
 										placeholder={openEnded ? "面议" : "0.00"}
+										aria-required={!openEnded}
 										value={form.price}
 										onChange={(e) => update("price", e.target.value)}
 									/>
@@ -324,17 +331,19 @@ export function PublishDialog({
 								</label>
 							</div>
 							<label className="mk-form-label">
-								所在城市
+								所在城市（必填）
 								<input
 									placeholder="城市或线上"
+									aria-required="true"
 									value={form.location}
 									onChange={(e) => update("location", e.target.value)}
 								/>
 							</label>
 							<label className="mk-form-label">
-								{openEnded ? "参与方式" : "交付方式"}
+								{openEnded ? "参与方式（必填）" : "交付方式（必填）"}
 								<input
 									placeholder={openEnded ? "例如：线上交流、到店面谈" : "例如：同城面交、邮寄、线上交付"}
+									aria-required="true"
 									value={form.delivery}
 									onChange={(e) => update("delivery", e.target.value)}
 								/>
@@ -367,7 +376,12 @@ export function PublishDialog({
 								{form.delivery}
 								<span>{form.discoverable ? "Bot 可发现" : "不参与 Bot 匹配"}</span>
 							</div>
-							<p className="mk-form-hint">此预览发布到当前浏览器，内容不会对外交易。</p>
+							<p className="mk-form-hint">
+								{form.discoverable
+									? "发布后，所有人都可在市场看到，未登录访客也可查看。"
+									: "发布后不会出现在他人的市场列表中，但知道详情链接的人仍可查看。"}
+								目前不支持站内交易，买卖需通过询问或 Bot 联系。
+							</p>
 						</div>
 					)}
 					{error && (

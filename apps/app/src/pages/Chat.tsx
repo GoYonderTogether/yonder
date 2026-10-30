@@ -218,7 +218,13 @@ export function ChatShell() {
 					id ? "flex" : "hidden",
 				)}
 			>
-				{id ? <Outlet /> : <EmptyChats onStart={() => void startChat()} busy={starting} />}
+				{id ? (
+					<Outlet />
+				) : convs?.length ? (
+					<p className="m-auto px-6 py-10 text-center text-[18px] font-semibold tracking-tight">选一个会话开始聊天</p>
+				) : !isLoading && !isError ? (
+					<EmptyChats onStart={() => void startChat()} busy={starting} />
+				) : null}
 			</main>
 		</div>
 	);
