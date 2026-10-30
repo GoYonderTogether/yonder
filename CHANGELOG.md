@@ -2,7 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.26103016] - 2026-10-30
+
 - 修复主会话原生快照覆盖聊天转录的问题：按真实条目 ID 保留元数据与渠道来源，并保持当前历史窗口和消息行身份。
+
+### Fixed
+
+- app：preserve transcript input details across native snapshots
+- app：align empty work pane and session icons
 
 ## [0.3.26103015] - 2026-10-30
 
