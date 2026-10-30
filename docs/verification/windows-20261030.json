@@ -69,15 +69,24 @@
 		"alternateCredentialsUsed": false
 	},
 	"reboot": {
-		"status": "prepared-pending-reboot",
-		"actualOsRestarted": false,
+		"status": "passed",
+		"actualOsRestarted": true,
 		"serviceReady": true,
-		"servicePid": 35332,
+		"servicePid": 18116,
 		"home": "%USERPROFILE%/yonder-windows-acceptance-home-20261030",
 		"report": "%USERPROFILE%/yonder-windows-acceptance-home-20261030/.yonder/reboot-20261030.json",
 		"checkTask": "Yonder Reboot Check 8bd929a6-9da2-461b-957b-628ffe77a32d",
 		"beforeBoot": "2026-10-30T07:35:44.5000000Z",
-		"expectedSessions": ["2"]
+		"expectedSessions": ["2"],
+		"beforePid": 35332,
+		"afterBoot": "2026-10-30T09:06:06.5000000Z",
+		"version": "0.2.26102507",
+		"artifactCommit": "b1e2ac9556d93b8ca674f4cc5ceaad0612ec3e17",
+		"trayPid": 18480,
+		"sessionsRecovered": ["2"],
+		"sessionsReadable": true,
+		"checkedAt": "2026-10-30T09:12:58.999Z",
+		"oneShotTasksCleaned": true
 	},
 	"install": {
 		"initial": "failed in host AppData/Yonder path: junction target existed but traversal failed",

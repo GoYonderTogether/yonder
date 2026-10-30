@@ -2,7 +2,7 @@
 
 ## Windows 桌面补齐（2026-10-30）
 
-补齐 Win32/UI Automation、DPAPI CurrentUser、托盘与运行概览、固定桌面入口、任务电源租约和 GitHub 独立计划任务。Windows 全量最终计数与真实系统专项见 [本轮记录](verification/windows-20261030.md)。保留 10-29 原始失败，不以新成功覆盖。真实 ConPTY 帮助/选择/续聊/模型状态/中文 emoji 编辑/正常退出已验证；OAuth 连续返回 login_challenge_not_found_in_session，维护者选择保留登录方式，真实模型仍未测。整机重启必须凭启动时间变化后的服务/托盘/会话回执验收。
+补齐 Win32/UI Automation、DPAPI CurrentUser、托盘与运行概览、固定桌面入口、任务电源租约和 GitHub 独立计划任务。Windows 全量最终计数与真实系统专项见 [本轮记录](verification/windows-20261030.md)。保留 10-29 原始失败，不以新成功覆盖。真实 ConPTY 帮助/选择/续聊/模型状态/中文 emoji 编辑/正常退出已验证；OAuth 连续返回 login_challenge_not_found_in_session，维护者选择保留登录方式，真实模型仍未测。实际整机重启及重新登录后自动验收 passed：启动时间确实变化，服务 ready、版本/来源一致、托盘存活、会话 #2 恢复；一次性任务已清理，登录服务保留运行。
 
 ## Windows 原生适配候选（2026-10-29）
 
