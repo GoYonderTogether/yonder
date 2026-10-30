@@ -45,26 +45,30 @@ vi.mock("../src/work/ui/WorkList", () => ({
 	WorkList: () => <Link to={state.device ? `/work/device/${state.device}/s` : "/work/s"}>当前会话</Link>,
 }));
 vi.mock("../src/work/features/Settings", () => ({ Settings: () => <div>设置页面</div> }));
+vi.mock("radix-ui", () => ({
+	DropdownMenu: {
+		Item: ({ children, onSelect }: { children: React.ReactNode; onSelect?(): void }) => (
+			<button type="button" onClick={onSelect}>
+				{children}
+			</button>
+		),
+	},
+}));
 vi.mock("../src/work/ui/WorkToolbar", () => ({
 	WorkToolbar: (p: {
 		title: React.ReactNode;
-		leftOpen: boolean;
-		onLeft(): void;
-		mode?: string;
-		onMode?(mode: string): void;
-		primary?: React.ReactNode;
+		leftOpen?: boolean;
+		onLeft?(): void;
+		rightOpen?: boolean;
+		onRight?(): void;
+		more?: React.ReactNode;
 	}) => (
 		<div data-testid="local-work-header">
-			<button type="button" aria-label={p.leftOpen ? "收起工作列表" : "展开工作列表"} onClick={p.onLeft} />
-			{p.onMode && (
-				<select aria-label="工作区域显示" value={p.mode} onChange={(event) => p.onMode?.(event.target.value)}>
-					<option value="auto">自动</option>
-					<option value="list">列表</option>
-					<option value="content">内容</option>
-					<option value="rail">右栏</option>
-				</select>
+			{p.onLeft && (
+				<button type="button" aria-label={p.leftOpen ? "收起工作列表" : "展开工作列表"} onClick={p.onLeft} />
 			)}
-			{p.primary}
+			{p.onRight && <button type="button" aria-label={p.rightOpen ? "收起右栏" : "展开右栏"} onClick={p.onRight} />}
+			{p.more}
 		</div>
 	),
 }));
@@ -132,195 +136,79 @@ async function render(path: string) {
 	await show();
 	return { container, root, show };
 }
-function change(element: Element, value: string) {
-	const key = Object.keys(element).find((k) => k.startsWith("__reactProps$"))!;
-	(element as unknown as Record<string, { onChange(e: unknown): void }>)[key].onChange({ target: { value } });
-}
-function click(element: Element) {
-	const key = Object.keys(element).find((k) => k.startsWith("__reactProps$"))!;
+function click(element: Element | null | undefined) {
+	if (!element) throw new Error("missing control");
+	const key = Object.keys(element).find((k) => k.startsWith("__reactProps$")) ?? "";
 	(element as unknown as Record<string, { onClick(e: unknown): void }>)[key].onClick({
 		button: 0,
 		preventDefault() {},
 		defaultPrevented: false,
 	});
 }
+const button = (container: HTMLElement, label: string) =>
+	[...container.querySelectorAll("button")].find(
+		(b) => b.getAttribute("aria-label") === label || b.textContent === label,
+	);
 
-it("仅列表点击当前会话恢复正文", async () => {
-	state.node = "same-session";
-	state.width = "desktop";
+it.each(["desktop", "tablet", "phone"])("%s 右栏关闭及恢复默认", async (width) => {
+	state.node = `toggle-${width}`;
+	state.width = width;
 	state.rail = "present";
 	const { container, root } = await render("/work/s");
-	await act(() => change(container.querySelector("select")!, "list"));
-	expect(container.textContent).not.toContain("正文");
-	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "当前会话")!));
-	expect(container.textContent).toContain("正文");
+	expect(container.querySelector('[data-testid="test-chat"]')?.getAttribute("data-rail")).toBe("true");
+	await act(() => click(button(container, "收起右栏")));
+	expect(container.querySelector('[data-testid="test-chat"]')?.getAttribute("data-rail")).toBe("false");
+	await act(() => click(button(container, "恢复默认视图")));
+	expect(container.querySelector('[data-testid="test-chat"]')?.getAttribute("data-rail")).toBe("true");
 	await act(() => root.unmount());
 });
-it("列表和会话操作分别位于各自的局部区域", async () => {
-	state.node = "local-headers";
-	state.width = "desktop";
-	state.rail = "present";
-	const { container, root } = await render("/work/s");
-	const headers = container.querySelectorAll('[data-testid="local-work-header"]');
-	expect(headers).toHaveLength(2);
-	expect(headers[0].closest("aside")).not.toBeNull();
-	expect(headers[1].closest("aside")).toBeNull();
-	expect(headers[0].parentElement).not.toBe(headers[1].parentElement);
-	await act(() => root.unmount());
-});
-it("平板打开渠道时列表让位，右栏加载不丢独显选择", async () => {
-	state.node = "tablet-session";
+it("平板打开渠道后左栏让位", async () => {
+	state.node = "channels";
 	state.width = "tablet";
 	state.rail = "empty";
-	const { container, root, show } = await render("/work/s");
-	expect(container.querySelector("aside")).not.toBeNull();
-	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "渠道")!));
+	const { container, root } = await render("/work/s");
+	expect(container.querySelectorAll("aside")).toHaveLength(1);
+	await act(() => click(button(container, "渠道")));
 	expect(container.querySelectorAll("aside")).toHaveLength(1);
 	expect(container.textContent).toContain("channels");
-	state.node = "loading-session";
-	state.rail = "present";
-	await show();
-	await act(() => change(container.querySelector("select")!, "rail"));
-	state.rail = "loading";
-	await show();
-	expect(container.textContent).toContain("卡片");
-	state.rail = "present";
-	await show();
-	expect((container.querySelector("select") as HTMLSelectElement).value).toBe("rail");
 	await act(() => root.unmount());
 });
-
-it("设置收起列表后仍能展开", async () => {
-	state.node = "settings-restore";
+it("设置收起列表后可以展开", async () => {
+	state.node = "settings";
 	state.width = "desktop";
 	state.rail = "empty";
 	const { container, root } = await render("/work/settings");
-	await act(() => click(container.querySelector('[aria-label="收起工作列表"]')!));
-	const restore = container.querySelector('[aria-label="展开工作列表"]');
-	expect(restore).not.toBeNull();
-	await act(() => click(restore!));
-	expect(container.querySelector('[aria-label="收起工作列表"]')).not.toBeNull();
+	await act(() => click(button(container, "收起工作列表")));
+	await act(() => click(button(container, "展开工作列表")));
+	expect(button(container, "收起工作列表")).toBeTruthy();
 	await act(() => root.unmount());
 });
-
-const widths = ["desktop", "tablet", "phone"] as const;
-const modes = ["auto", "list", "content", "rail"] as const;
-const railStates = ["loading", "error", "empty", "present"] as const;
-it.each(widths.flatMap((width) => modes.flatMap((mode) => railStates.map((rail) => ({ width, mode, rail })))))(
-	"会话 $width / $mode / $rail 保持容量和恢复入口",
-	async ({ width, mode, rail }) => {
-		state.node = `matrix-${width}-${mode}-${rail}`;
-		state.width = width;
-		state.rail = "present";
-		const { container, root, show } = await render("/work/s");
-		await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, mode));
-		state.rail = rail;
-		await show();
-		const selected = (container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value;
-		expect(selected).toBe(mode);
-		const list = !!container.querySelector("aside") && container.textContent!.includes("当前会话");
-		const chat = container.querySelector('[data-testid="test-chat"]');
-		const exclusiveRail = !!container.querySelector('main[aria-label="右栏"]');
-		const right = exclusiveRail || chat?.getAttribute("data-rail") === "true";
-		if (width === "tablet") expect(Number(list) + Number(!!chat) + Number(right)).toBeLessThanOrEqual(2);
-		if (mode === "list") {
-			expect(container.textContent).not.toContain("正文");
-			expect(container.textContent).toContain("当前会话");
-		}
-		if (mode === "content") {
-			expect(chat).not.toBeNull();
-			expect(right).toBe(false);
-		}
-		if (mode === "rail" && rail !== "empty") {
-			expect(exclusiveRail).toBe(true);
-			expect(container.textContent).toContain("浮窗");
-		}
-		if (mode === "rail" && rail === "empty") expect(chat).not.toBeNull();
-		if (mode === "auto" && rail === "empty") expect(right).toBe(false);
-		if (width === "phone" && chat?.getAttribute("data-rail") === "true") expect(list).toBe(false);
-		expect(container.querySelector('[aria-label="工作区域显示"]')).not.toBeNull();
-		await act(() => root.unmount());
-	},
-);
-
-it.each(widths.flatMap((width) => ["/work", "/work/settings"].map((path) => ({ width, path }))))(
-	"$width 非会话 $path 不显示会话右栏",
-	async ({ width, path }) => {
-		state.node = `page-${width}-${path}`;
-		state.width = width;
-		state.rail = "present";
-		const { container, root } = await render(path);
-		expect(container.querySelector('[data-testid="test-chat"]')).toBeNull();
-		expect(container.querySelector('main[aria-label="右栏"]')).toBeNull();
-		expect(container.querySelector('[aria-label="工作区域显示"]')).toBeNull();
-		await act(() => root.unmount());
-	},
-);
-
-it("跨断点往返和设备切换不篡改会话独显", async () => {
+it("会话返回再点击当前会话可进入正文", async () => {
+	state.node = "alias";
+	state.device = "device-a";
+	state.width = "phone";
+	state.rail = "empty";
+	const { container, root } = await render("/work/s");
+	await act(() => click(button(container, "打开子任务")));
+	await act(() => click(button(container, "浏览器返回")));
+	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/s");
+	expect(container.textContent).toContain("正文");
+	state.device = undefined;
+	await act(() => root.unmount());
+});
+it("切换设备与断点不复用右栏关闭意图", async () => {
 	state.node = "device-a";
 	state.width = "desktop";
 	state.rail = "present";
 	const { container, root, show } = await render("/work/s");
-	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "rail"));
-	state.width = "phone";
-	await show();
-	expect(container.querySelector('main[aria-label="右栏"]')).not.toBeNull();
+	await act(() => click(button(container, "收起右栏")));
 	state.node = "device-b";
-	await show();
-	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("auto");
-	state.node = "device-a";
 	state.width = "tablet";
 	await show();
-	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("rail");
+	expect(container.querySelector('[data-testid="test-chat"]')?.getAttribute("data-rail")).toBe("true");
+	state.node = "device-a";
 	state.width = "desktop";
 	await show();
-	expect(container.querySelector('main[aria-label="右栏"]')).not.toBeNull();
-	await act(() => root.unmount());
-});
-
-it("独显右栏进入子任务再返回，父会话选择保持", async () => {
-	state.node = "child-return";
-	state.width = "desktop";
-	state.rail = "present";
-	const { container, root } = await render("/work/s");
-	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "rail"));
-	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "子任务")!));
-	expect(container.textContent).toContain("正文");
-	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "返回父任务")!));
-	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("rail");
-	expect(container.querySelector('main[aria-label="右栏"]')).not.toBeNull();
-	await act(() => root.unmount());
-});
-
-it("旧深链点击当前会话进入设备规范路由，浏览器返回不覆盖列表选择", async () => {
-	state.node = "account:owner:device:device-a";
-	state.device = "device-a";
-	state.width = "desktop";
-	state.rail = "present";
-	const { container, root } = await render("/work/s");
-	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "list"));
-	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "当前会话")!));
-	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/device/device-a/s");
-	expect(container.textContent).toContain("正文");
-	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "list"));
-	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "浏览器返回")!));
-	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/s");
-	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("list");
-	state.device = undefined;
-	await act(() => root.unmount());
-});
-
-it("主动打开以前选过仅列表的另一会话时进入正文", async () => {
-	state.node = "saved-list-destination";
-	state.width = "desktop";
-	state.rail = "present";
-	const { container, root } = await render("/work/s");
-	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "list"));
-	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "打开子任务")!));
-	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/sub");
-	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "打开父任务")!));
-	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/s");
-	expect(container.textContent).toContain("正文");
+	expect(container.querySelector('[data-testid="test-chat"]')?.getAttribute("data-rail")).toBe("false");
 	await act(() => root.unmount());
 });

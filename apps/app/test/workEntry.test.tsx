@@ -10,6 +10,21 @@ import { WorkApp } from "../src/work/WorkApp";
 const deviceState = vi.hoisted(() => ({
 	devices: [] as Array<{ id: string; name: string; kind: "desktop"; online: boolean; workProtocol?: 1 }>,
 }));
+vi.mock("radix-ui", () => ({
+	DropdownMenu: {
+		Root: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		Trigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		Portal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		Content: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		RadioGroup: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+		RadioItem: ({ children, onSelect }: { children: React.ReactNode; onSelect(): void }) => (
+			<button type="button" onClick={onSelect}>
+				{children}
+			</button>
+		),
+		ItemIndicator: () => null,
+	},
+}));
 vi.mock("../src/api", () => ({ api: { devices: () => Promise.resolve(deviceState.devices) } }));
 vi.mock("../src/work/lib/queries", () => ({
 	useFacts: () => ({ data: { protocol: 1 } }),
@@ -96,13 +111,9 @@ it("首次进入保留任务深链，切换设备回到列表", async () => {
 		);
 		await new Promise((resolve) => setTimeout(resolve, 20));
 	});
-	const select = container.querySelector("select") as HTMLSelectElement;
-	const key = Object.keys(select).find((k) => k.startsWith("__reactProps$")) ?? "";
-	await act(async () =>
-		(select as unknown as Record<string, { onChange(event: unknown): void }>)[key]?.onChange({
-			target: { value: "second" },
-		}),
-	);
+	const target = [...container.querySelectorAll("button")].find((b) => b.textContent?.includes("第二台"));
+	const key = Object.keys(target ?? {}).find((k) => k.startsWith("__reactProps$")) ?? "";
+	await act(async () => (target as unknown as Record<string, { onClick(): void }>)[key]?.onClick());
 	expect(container.querySelector("output")?.textContent).toBe("/work");
 	await act(() => root.unmount());
 });
@@ -116,13 +127,9 @@ it("旧任务深链没有设备时，选择其设备仍保留任务", async () =
 	];
 	const { container, root } = await render("/work/161097");
 	expect(container.textContent).toContain("请选择这个会话所在的设备");
-	const select = container.querySelector("select") as HTMLSelectElement;
-	const key = Object.keys(select).find((name) => name.startsWith("__reactProps$")) ?? "";
-	await act(async () =>
-		(select as unknown as Record<string, { onChange(event: unknown): void }>)[key]?.onChange({
-			target: { value: "first" },
-		}),
-	);
+	const target = [...container.querySelectorAll("button")].find((b) => b.textContent?.includes("第一台"));
+	const key = Object.keys(target ?? {}).find((k) => k.startsWith("__reactProps$")) ?? "";
+	await act(async () => (target as unknown as Record<string, { onClick(): void }>)[key]?.onClick());
 	expect(container.querySelector("output")?.textContent).toBe("/work/device/first/161097");
 	await act(() => root.unmount());
 });
