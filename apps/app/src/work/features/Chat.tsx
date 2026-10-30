@@ -1,4 +1,4 @@
-import { ChevronLeft, Layers } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { RpcError, rpc } from "../api/client";
@@ -26,13 +26,13 @@ export function FloatMenu({ session }: { session: string }) {
 			<button
 				type="button"
 				onClick={() => setOpen((o) => !o)}
-				aria-label="悬浮窗"
+				aria-label="悬浮面板"
 				aria-expanded={open}
-				title="悬浮窗"
-				className="press grid size-9 place-items-center rounded-full"
+				title="悬浮面板"
+				className="press flex min-h-11 items-center px-2 text-small"
 				data-testid="float-menu"
 			>
-				<Layers size={19} aria-hidden />
+				悬浮面板
 			</button>
 			{open && (
 				<div

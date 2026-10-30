@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Radio } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigationType } from "react-router";
 import { api } from "../api";
@@ -180,13 +180,21 @@ export function WorkShell({
 				device={device}
 				leftOpen
 				onLeft={() => (paneMode === "list" ? setPaneMode("content") : update({ left: false, lastSide: "right" }))}
-				mode={paneMode === "list" ? intent.mode : undefined}
-				onMode={paneMode === "list" ? setPaneMode : undefined}
-				railAvailable={hasRail || intent.mode === "rail"}
 				more={
-					<Link to={workPath({ page: "settings" })} className="press flex min-h-10 items-center px-2 text-small">
-						工作设置
-					</Link>
+					<>
+						{route.session && (
+							<button
+								type="button"
+								onClick={() => update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })}
+								className="press flex min-h-11 items-center px-2 text-small"
+							>
+								恢复默认视图
+							</button>
+						)}
+						<Link to={workPath({ page: "settings" })} className="press flex min-h-10 items-center px-2 text-small">
+							工作设置
+						</Link>
+					</>
 				}
 			/>
 			<div className="min-h-0 flex-1">{allWork ?? <WorkList active={route.session} />}</div>
@@ -290,25 +298,29 @@ export function WorkShell({
 							onLeft={!panes.left ? showList : undefined}
 							rightOpen={panes.rail}
 							onRight={route.session ? toggleRail : undefined}
-							mode={route.session ? intent.mode : undefined}
-							onMode={route.session ? setPaneMode : undefined}
-							railAvailable={hasRail || intent.mode === "rail"}
-							primary={
-								session?.mode === "main" && session.agent && !isImported(session) ? (
-									<button
-										type="button"
-										onClick={openChannels}
-										aria-label="渠道与子会话"
-										title="渠道与子会话"
-										className="press grid size-10 place-items-center rounded-full"
-									>
-										<Radio size={19} aria-hidden />
-									</button>
-								) : undefined
-							}
 							more={
 								<>
+									{session?.mode === "main" && session.agent && !isImported(session) && (
+										<button
+											type="button"
+											onClick={openChannels}
+											className="press flex min-h-11 items-center px-2 text-small"
+										>
+											渠道与子会话
+										</button>
+									)}
 									{route.session && <FloatMenu session={route.session} />}
+									{route.session && (
+										<button
+											type="button"
+											onClick={() =>
+												update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })
+											}
+											className="press flex min-h-11 items-center px-2 text-small"
+										>
+											恢复默认视图
+										</button>
+									)}
 									<Link
 										to={workPath({ page: "settings" })}
 										className="press flex min-h-10 items-center px-2 text-small"

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import { WorkToolbar } from "../src/work/ui/WorkToolbar";
 
-it("工作顶栏按真实状态命名左右开关并禁止无内容的右栏独显", () => {
+it("局部标题按真实状态命名面板开关，不显示布局选择", () => {
 	const html = renderToStaticMarkup(
 		<WorkToolbar
 			phone={false}
@@ -11,26 +11,18 @@ it("工作顶栏按真实状态命名左右开关并禁止无内容的右栏独�
 			onLeft={() => {}}
 			rightOpen={false}
 			onRight={() => {}}
-			mode="auto"
-			onMode={() => {}}
-			railAvailable={false}
+			more="更多"
 		/>,
 	);
 	expect(html).toContain('aria-label="收起工作列表"');
 	expect(html).toContain('aria-label="展开右栏"');
-	expect(html).toMatch(/<option value="rail" disabled=""/);
+	expect(html).toContain('aria-label="工作区更多"');
+	expect(html).not.toContain("<select");
 });
 
-it("手机使用调用方的返回或头像入口，并将工作布局放进更多", () => {
+it("手机保留返回入口与右栏开关", () => {
 	const html = renderToStaticMarkup(
-		<WorkToolbar
-			phone
-			title="任务"
-			leading={<button type="button">返回</button>}
-			mode="auto"
-			onMode={() => {}}
-			onRight={() => {}}
-		/>,
+		<WorkToolbar phone title="任务" leading={<button type="button">返回</button>} onRight={() => {}} more="更多" />,
 	);
 	expect(html).toContain("返回");
 	expect(html).toContain('aria-label="工作区更多"');

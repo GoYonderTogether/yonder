@@ -1,5 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api";
@@ -99,29 +101,42 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 	};
 	const list = <AllWorkList accountId={accountId} devices={devices.data ?? []} onOpen={open} />;
 	const selector = !!devices.data?.length && (
-		<label className="flex items-center gap-2 px-4 py-2 text-small">
-			设备
-			<select
-				value={choice}
-				onChange={(event) => {
-					setChoice(event.target.value);
-					void navigate(
-						legacySession && !selected && event.target.value !== "all" && route.session
-							? workPath({ deviceId: event.target.value, session: route.session })
-							: "/work",
-					);
-				}}
-				className="field h-11 min-w-0 flex-1"
+		<DropdownMenu.Root modal={false}>
+			<DropdownMenu.Trigger
+				className="press flex min-h-11 max-w-36 items-center gap-1 rounded-control px-2 text-small"
+				aria-label="选择设备"
 			>
-				<option value="all">全部设备</option>
-				{devices.data.map((device) => (
-					<option key={device.id} value={device.id}>
-						{device.name}
-						{device.online ? "" : "（离线）"}
-					</option>
-				))}
-			</select>
-		</label>
+				<span className="truncate">
+					{choice === "all" ? "全部设备" : (devices.data.find((device) => device.id === choice)?.name ?? "选择设备")}
+				</span>
+				<ChevronDown size={14} aria-hidden />
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Portal>
+				<DropdownMenu.Content
+					align="end"
+					sideOffset={6}
+					className="z-50 min-w-40 rounded-card bg-raised p-1.5 shadow-float outline-none"
+				>
+					{[{ id: "all", name: "全部设备", online: true }, ...devices.data].map((device) => (
+						<DropdownMenu.Item
+							key={device.id}
+							className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+							onSelect={() => {
+								setChoice(device.id);
+								void navigate(
+									legacySession && !selected && device.id !== "all" && route.session
+										? workPath({ deviceId: device.id, session: route.session })
+										: "/work",
+								);
+							}}
+						>
+							{device.name}
+							{device.online ? "" : "（离线）"}
+						</DropdownMenu.Item>
+					))}
+				</DropdownMenu.Content>
+			</DropdownMenu.Portal>
+		</DropdownMenu.Root>
 	);
 	if (selected && node.id === targetId)
 		return <GatewayWorkApp key={node.id} cloud allWork={choice === "all" ? list : undefined} device={selector} />;
