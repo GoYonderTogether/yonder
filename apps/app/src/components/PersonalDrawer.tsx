@@ -3,6 +3,7 @@ import { ChevronRight, X } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
+import { internalState } from "../lib/navigation";
 import { SettingsDialog } from "../pages/Me";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
@@ -79,7 +80,12 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 									["/connect", "添加设备"],
 								] as const
 							).map(([to, label]) => (
-								<Link key={to} to={to} className="press flex min-h-12 items-center gap-3 border-b border-hairline">
+								<Link
+									key={to}
+									to={to}
+									state={internalState(location)}
+									className="press flex min-h-12 items-center gap-3 border-b border-hairline"
+								>
 									<span className="flex-1">{label}</span>
 									<ChevronRight size={16} className="text-muted" />
 								</Link>

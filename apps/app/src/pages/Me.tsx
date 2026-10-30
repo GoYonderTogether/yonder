@@ -7,6 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
 import { AccountSecurity } from "../components/AccountSecurity";
+import { AppBar, BackButton } from "../components/AppBar";
 import { BotCards } from "../components/BotCards";
 import { CollectedCards } from "../components/CollectedCards";
 import { CreateBotDialog } from "../components/CreateBotDialog";
@@ -168,6 +169,9 @@ export function Me() {
 	const agents = contacts.filter((a) => a.kind === "agent" && a.ownerId === s.actor.id);
 	return (
 		<div className="scroll-y h-full bg-ground lg:m-2 lg:ml-0 lg:h-[calc(100%-1rem)] lg:rounded-[24px] lg:shadow-soft">
+			<div className="lg:hidden">
+				<AppBar title="个人" left={<BackButton />} />
+			</div>
 			<SelfIdentity />
 			<div className="mx-auto flex max-w-3xl flex-col gap-5 px-4 pb-24 lg:px-8 lg:pb-10">
 				{s.actor.anonymous ? (
