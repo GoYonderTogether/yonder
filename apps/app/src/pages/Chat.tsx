@@ -146,7 +146,10 @@ export function ChatShell() {
 	);
 
 	useEffect(() => {
-		const refresh = () => void qc.invalidateQueries({ queryKey: ["actors"] });
+		const refresh = () => {
+			void qc.invalidateQueries({ queryKey: ["actors"] });
+			void qc.invalidateQueries({ queryKey: ["convs"] });
+		};
 		window.addEventListener("yonder:presence", refresh);
 		return () => window.removeEventListener("yonder:presence", refresh);
 	}, [qc]);
