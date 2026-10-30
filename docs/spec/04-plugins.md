@@ -339,6 +339,8 @@ SDK 导出 `executionContext(signal)`，以工具取消信号构造执行环境�
 
 ### 社交能力增量（CH-01）
 
+Channel 可选 `features.groupParticipation: "membership"` 声明该平台在入站前已验证目标 Bot 为真实群成员，仅该受信任事实允许派生默认群参与；不从正文推断，不授予主人权限，细节见 16。
+
 Channel 可选 `features` 描述 identity（account/person-link/unknown）、mentions（bot/owner/everyone/accounts）、quote（none/id/content）、edit、retract、streamMode（none/message/token）、rateLimit（scope、max、windowSeconds）和 history（none/recent/cursor）。声明是事实而非授权；旧 Channel 不声明仍有效，只认可既有 output 与实际 edit 方法。不支持的编辑或撤回应反馈，不用新消息冒充；未知 mention 不等于 false。
 
 可选 SDK social API 提供 inspect、update、resume；它们与控制面同用一套策略和现有能力校验，具体形状见 unified-client contracts 的 CH-01 节。插件只写自身 `social.*` 事件，内核负责路由诊断。此契约不表示渠道或社交插件已运行。

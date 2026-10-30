@@ -27,7 +27,7 @@
 
 ## 3 消息与补收
 
-- 下行 `{type:'message', agentId, convId, convKind:'dm'|'group'|'notice', mentioned:boolean, message}` 映射为 message.in；data.target 为映射后的 Yonder agent id；kind 和 mentioned 直接取协议字段。
+- 下行 `{type:'message', agentId, convId, convKind:'dm'|'group'|'notice', mentioned:boolean, message}` 映射为 message.in；data.target 为映射后的 Yonder agent id；kind 取协议字段；mentioned 与 social.mentions.bot 在适配入口以同一可信原生提及结果归一，原生字段缺失才回落旧 mentioned，不能对同一真实 @ 产生 true/false 冲突。
 - 引用嵌入接收/发言 Agent：`conv:<instance>:<agentId>:<platformConvId>`、`acct:<instance>:<agentId>:<platformAccountId>`，其中 agentId 是 Yonder id。原生 msgId、replyTo、createdAt 保留。send 从 ref 解析发言 Agent，不改 OutMessage。
 - send 上行 `{type:'send', ref, agentId, convId, content, replyTo?}`；只有匹配 ref 的 `{type:'sent',ref,message}` 才算接纳。15 秒未确认、断连或已发后取消均返回 `{ok:false,uncertain:true}`，不自动重发。标准错误 `{type:'error',error,ref?}`；真实后端当前实际错误仅 `{error}`，无法关联，按未确认超时处理，不误认成功。
 - acct 目标先 `POST /api/device/dm` `{agentId,accountId}` → `{convId}`（幂等）；Agent 须属于设备且 enabled，目标须与 Agent 同在一个会话或是其主人的好友，否则 403 forbidden。
@@ -75,7 +75,7 @@
 
 Web 群聊与 QQ 共用 01 §6 的当前来源会话只读工具及 06 的发送意图。card 入站保留真实发送者显示名、可确认身份、原生 mentions/引用与附件；出站 respondTo 不强制显示引用，replyTo 为明确引用，mentions 从当前实例 scoped acct 映射成平台真实成员账号并经服务端同群校验。只有完整服务端和客户端支持真实 mentions 时才声明 outboundMentions。新增帧字段保持可选，旧客户端兼容；不能静默丢弃模型请求的引用或艾特。成员列表区分当前可见历史参与者和平台真实成员，历史查询只覆盖实际接收记录。文件/图片沿现有附件协议，不为此引入第二套存储或跨群查询。
 
-本轮允许修改 harness Web/card 与独立 yonder-cloud 仓库的对应实现；发版及本机安装属已授权目标，云服务部署不自动包含，未部署的线上效果明确未验收。
+本轮允许修改 harness Web/card 与独立 yonder-cloud 仓库的对应实现。2026-10-30 维护者进一步要求真实平台群聊与群管理调通，授权必要的本站发布、本机安装和真实账号验收；不据源码存在宣称上线，实际部署、运行与真人消息证据分别记录。
 
 设备入站 message 可选 `senderName: string`、`senderIsBot: boolean`；text/markdown content 可选 `mentions: string[]` 为平台账号 UUID。card 按 `acct:<instance>:<agentKey>:<uuid>` 映射，不将不同 agentKey/实例的账号混同。服务端在入站与设备出站保存前校验全部 mentions 属于该群；网页使用真实成员选择并呈现 @ 名称，可见引用以 replyTo 表达。respondTo 不产生可见引用，不为其新增数据库列。
 
@@ -84,3 +84,31 @@ Web 群聊与 QQ 共用 01 §6 的当前来源会话只读工具及 06 的发送
 插件提供本机 `setup.js upgrade-groups --home <home> [--agent <id>]`：只针对已有card绑定的未归档Agent补缺少的官方群绑定，先保存备份并幂等，不覆盖已有自定义群绑定。创建card-group只读配置档，显式offer read/grep/conversation_read/conversation_members/conversation_attachment_read/message_send/parent_ask，独立persistent per:conv、wake:mention、reply:none、busy:steer。普通消息写入不逐条唤醒，@运行；自主持续参与沿每 Bot 独立选择的 social 参与策略，不新增队列；多个 Bot 共享同一平台群的公开事实和发言协调，仍保留各自会话、模型、观察游标和权限，详见 11。跨节点原子发言占位与通用群插件安装界面尚未实现，不据同节点协调宣称全群互斥。该入口仅修改已授权home配置，不写凭据；写入遵循同文件锁与原子替换。工具和提示语义与QQ一致，但不跨插件import实现。
 
 官方只读群配置显式使用已有内核 `peer-workspace` context（仅本Agent的SOUL.md与AGENTS.md），并显式重置plugins/skills，避免继承私人记忆或插件；已有自定义contexts保留。QQ精确旧官方配置升级补此context，card仅新建官方profile时设置；自定义配置不覆盖。
+
+## 平台默认群参与、公开入口与群管理（2026-10-30，维护者批准）
+
+### 默认群参与
+
+平台确认一个 Bot 已加入群，即接通其群消息、公开成员身份、独立群会话及官方参与策略，不要求主人逐群添加 social.scope、authorized.conversations、批次绑定或 groupJudge.conversations。已有群的在群 Bot 与后来新建/登记的 Bot 遵循同一默认行为。默认参与是有资格观察和按自身规则发言，不是每条必答；硬规则触发和低频复盘沿 11，不恢复逐消息模型判断。
+
+Card 声明可信能力 `features.groupParticipation: "membership"`：仅平台已校验设备/目标 Bot/同群成员的真实 group 输入可提供成员事实，普通正文、昵称、猜测 conv 不能提供。内核沿实际生效的默认或显式群绑定派生此 Bot/群的 social 默认范围/准入；官方 social 动态登记其真实 room。QQ 未声明该能力，既有授权边界不变。显式禁用、denied、record/mute、自定义 plugin 和群规则优先，不能以平台默认覆盖它们；私聊不受影响。
+
+若 Bot 尚无群配置档与绑定，有效配置层为此平台提供稳定可诊断的默认群 binding/profile，沿正常匹配、准入与事件 routes 运行，不由渠道直接 submit 或偷偷修改持久配置。默认 persistent/per:conv、reply:none、busy:steer、readonly；显式隔离 plugins/contexts/skills/tools，使用 social、peer-workspace 与当前群必要只读会话工具、message_send、parent_ask，不继承 owner 的 bypass/exec 或私人记忆上下文。已有自定义群绑定优先，不重复创建会话；主模型沿 Agent 默认，低频复盘仅沿已有 cheap/simple，缺少时明确记录不可复盘。新群持续参与使用同一默认绑定与批次准入，不新增运行队列。
+
+### 公开互动入口
+
+Bot 默认具有对外互动与入群能力，不要求先发布名片或逐个打开公开开关；新建/同步本身不自动上市场、发消息或暴露私人资料。第一次由主人创建分享链接时，服务端在实际创建成功的同一业务路径幂等启用既有 accounts.public；第一次由合法群创建/添加成员流程接纳 Bot 时，同步启用其公开互动身份并发布成员变化，使在线设备和群成员视图接上，不需等十分钟 Agent 同步或重启。群成员可看同群 Bot 的公开资料；移除、解绑、撤销仍按现有成员与访问控制执行。兼容已存在的显式撤销/关闭，不因周期同步重新打开。公开不暴露私人 DM、main、记忆、工作目录、凭据或主机权限，不自动将名片草稿改成已发布。
+
+### 群管理
+
+沿既有 conversations/members 持久化角色 owner/admin/member，不另建管理权限系统；群创建者为唯一 owner，Bot/匿名访客不能成为 owner/admin。既有群按最早的真人成员确定 owner；无真人成员时明确记为待修复，不猜 Bot 为群主。
+
+- 群主可改群名、任免管理员，并把群主身份移交给同群真人成员；移交在一个事务内将原群主降为 member，始终只保留一个群主。
+- 管理员可改群名，不可任免管理员或移交群主；普通成员、Bot 与访客不能修改这些管理字段。
+- 群名称沿既有创建名称的长度与非空校验；角色目标须是同群真人成员，不允许通过账号参数操作别的群。客户端可见入口与服务端校验使用同一事实，隐藏按钮不代替权限校验。
+- 平台复用 PATCH /api/conversations/:id 的 title 更新和 PATCH /api/conversations/:id/members/:accountId 的 role 更新；角色仅 owner/admin/member。保留既有 memberIds，Conversation 可增 members[{accountId,role}]；Detail 的 Actor 成员对象仅增可选 role，不把 Actor[] 改成另一种数组。本人权限由真实账号角色计算，不增冗余 myRole/ownerId。
+- 聊天详情页能查看群名/群主/管理员，按权限改名、任免与移交，成功后所有成员实时刷新，失败显示实际原因；修改群名或角色不删除消息历史、不改变 Bot 私人权限。
+
+### 真实验收
+
+以 IHG7CJ 的已存在真人群作为回归，并新建可识别的验收群验证无手工配名单的首次入群。分别记录单 Bot 点名、普通相关话题、明确点名多位、让话/暂停、无消息零空转、兄弟 Bot 可见及不重复；用真实模型和真实成功出站证据，不把入站记录当模型已回复。群名、管理员任免、群主移交/恢复及普通成员越权拒绝须走真实服务；无法取得已授权第二身份的场景明确未测，不借主人的会话冒充普通成员。首次分享与首次入群验证公开资料可用且私人资源仍隔离。保留原始失败/跳过、截图、消息/运行/投递 id 和真实调用用量；不为测试删除历史。
