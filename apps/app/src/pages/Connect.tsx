@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Copy, Monitor, RotateCw } from "lucide-react";
+import { Check, Copy, Monitor, RotateCw } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -62,10 +62,11 @@ export function AddDeviceDialog({
 	onConnected: () => void;
 }) {
 	const [invite, setInvite] = useState<{ code: string; expiresAt: string }>();
-	const [step, setStep] = useState(1);
+	const [copied, setCopied] = useState(false);
 	const [now, setNow] = useState(Date.now());
 	const baseline = useRef<Set<string> | null>(null);
 	const expiryToasted = useRef(false);
+	const connectedOnce = useRef(false);
 	const { data: devices, isError: devicesError } = useQuery({
 		queryKey: ["devices"],
 		queryFn: api.devices,
@@ -79,7 +80,6 @@ export function AddDeviceDialog({
 		baseline.current = new Set((devices ?? []).map((device) => device.id));
 		try {
 			setInvite(await api.createInvite());
-			setStep(1);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "邀请码生成失败";
 			toast(/limit|rate|频繁|限制/i.test(message) ? "操作太频繁，请稍后再试" : message);
@@ -95,8 +95,12 @@ export function AddDeviceDialog({
 		return () => window.clearInterval(timer);
 	}, [open]);
 	useEffect(() => {
-		if (connected) setStep(3);
-	}, [connected]);
+		if (!connected || connectedOnce.current) return;
+		connectedOnce.current = true;
+		toast("已连接");
+		onOpenChange(false);
+		onConnected();
+	}, [connected, onOpenChange, onConnected]);
 	useEffect(() => {
 		if (expired && !expiryToasted.current) {
 			expiryToasted.current = true;
@@ -104,12 +108,18 @@ export function AddDeviceDialog({
 		}
 		if (!expired) expiryToasted.current = false;
 	}, [expired]);
+	useEffect(() => {
+		if (!copied) return;
+		const timer = window.setTimeout(() => setCopied(false), 2500);
+		return () => window.clearTimeout(timer);
+	}, [copied]);
 	const prompt = invite ? connectionPrompt(invite.code) : "";
 	const remaining = invite ? Math.max(0, Math.ceil((Date.parse(invite.expiresAt) - now) / 1000)) : 0;
 	const copy = async (text: string) => {
 		try {
 			await navigator.clipboard.writeText(text);
 			toast("已复制");
+			setCopied(true);
 		} catch {
 			toast("复制失败，请长按选中文本复制");
 		}
@@ -122,119 +132,72 @@ export function AddDeviceDialog({
 				<Dialog.Content className="rise fixed inset-0 z-50 flex flex-col gap-5 overflow-y-auto bg-raised p-5 pb-safe outline-none md:inset-auto md:top-1/2 md:left-1/2 md:max-h-[90dvh] md:w-[min(560px,calc(100vw-2rem))] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:p-7 md:shadow-float">
 					<Dialog.Title className="text-title font-semibold tracking-tight">添加设备</Dialog.Title>
 					<Dialog.Description className="sr-only">复制提示词连接电脑上的 Yonder</Dialog.Description>
-					<div className="flex items-center gap-2 text-caption text-muted">
-						<span className={step === 1 ? "font-semibold text-ink" : ""}>1 · 复制提示词</span>
-						<span className="h-px flex-1 bg-tone-2" />
-						<span className={step >= 2 ? "font-semibold text-ink" : ""}>2 · 等待连接</span>
-					</div>
-					{step === 3 && connected ? (
-						<div className="flex flex-1 flex-col items-center justify-center gap-4 py-12 text-center">
-							<span className="flex h-16 w-16 items-center justify-center rounded-full bg-tone">
-								<Monitor size={28} />
+					<div className="flex items-center gap-4">
+						<div
+							role="timer"
+							aria-label={`邀请码剩余 ${Math.floor(remaining / 60)} 分 ${remaining % 60} 秒`}
+							className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-tone"
+							style={{
+								background: `conic-gradient(var(--accent) ${invite ? (remaining / 600) * 100 : 0}%, var(--tone) 0)`,
+							}}
+						>
+							<span className="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-caption font-medium">
+								{expired ? "过期" : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
 							</span>
-							<p className="text-title font-semibold">{connected.name} 已连接</p>
-							<Button
-								variant="primary"
-								onClick={() => {
-									toast("已连接");
-									onOpenChange(false);
-									onConnected();
-								}}
-							>
-								去联系人
-							</Button>
 						</div>
-					) : (
-						<>
-							{step === 1 ? (
-								<>
-									<div className="flex items-center gap-4">
-										<div
-											role="timer"
-											aria-label={`邀请码剩余 ${Math.floor(remaining / 60)} 分 ${remaining % 60} 秒`}
-											className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-tone"
-											style={{
-												background: `conic-gradient(var(--accent) ${invite ? (remaining / 600) * 100 : 0}%, var(--tone) 0)`,
-											}}
-										>
-											<span className="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-caption font-medium">
-												{expired ? "过期" : `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`}
-											</span>
-										</div>
-										<div>
-											<p className="text-body font-medium">让 Bot 帮我连接</p>
-											<p className="text-small text-muted">把下面提示词发给电脑上的 Bot</p>
-										</div>
-									</div>
-									<details>
-										<summary className="cursor-pointer text-small">查看提示词</summary>
-										<pre
-											// biome-ignore lint/a11y/noNoninteractiveTabindex: 可滚动的代码块需要键盘可达
-											tabIndex={0}
-											className="mt-3 max-h-[34dvh] select-text overflow-auto whitespace-pre-wrap rounded-control bg-ink p-4 font-mono text-caption leading-relaxed text-ground"
-										>
-											{prompt || "正在生成邀请码…"}
-										</pre>
-									</details>
-									<Button
-										variant="primary"
-										className="h-12 w-full"
-										disabled={!prompt || expired}
-										onClick={() => void copy(prompt)}
-									>
-										<Copy size={16} />
-										复制提示词
-									</Button>
-									{expired && (
-										<Button onClick={() => void generate()}>
-											<RotateCw size={15} />
-											重新生成
-										</Button>
-									)}
-									<Button variant="secondary" onClick={() => setStep(2)}>
-										我已发送，等待连接
-									</Button>
-									<details className="rounded-control bg-tone px-4 py-3">
-										<summary className="cursor-pointer text-small font-medium">其他方式</summary>
-										<div className="mt-3 flex flex-col gap-3">
-											<div className="flex items-center gap-2">
-												<code className="min-w-0 flex-1 break-all text-small">
-													yonder channels login card --verify-code {invite?.code ?? "__________"}
-												</code>
-												<Button
-													size="sm"
-													disabled={!invite || expired}
-													onClick={() => invite && void copy(`yonder channels login card --verify-code ${invite.code}`)}
-												>
-													复制命令
-												</Button>
-											</div>
-											<Link to="/get" className="text-small underline underline-offset-4">
-												前往安装页
-											</Link>
-										</div>
-									</details>
-								</>
-							) : (
-								<div className="flex flex-1 flex-col items-center justify-center gap-4 py-10 text-center">
-									<p className="text-title font-semibold">等待设备连接</p>
-									<p className="text-small text-muted">连接成功后会自动显示设备</p>
-									{expired && (
-										<>
-											<p className="text-small text-danger">邀请码已过期</p>
-											<Button variant="primary" onClick={() => void generate()}>
-												<RotateCw size={15} />
-												重新生成
-											</Button>
-										</>
-									)}
-									<Button variant="ghost" onClick={() => setStep(1)}>
-										返回提示词
-									</Button>
-								</div>
-							)}
-						</>
+						<div>
+							<p className="text-body font-medium">让 Bot 帮我连接</p>
+							<p className="text-small text-muted">
+								{expired ? "邀请码已过期，请重新生成" : "把下面提示词发给电脑上的 Bot，正在等待连接"}
+							</p>
+						</div>
+					</div>
+					<div className="relative">
+						<pre
+							// biome-ignore lint/a11y/noNoninteractiveTabindex: 可滚动的代码块需要键盘可达
+							tabIndex={0}
+							className="max-h-[34dvh] select-text overflow-auto whitespace-pre-wrap rounded-control bg-ink p-4 pr-12 font-mono text-caption leading-relaxed text-ground"
+						>
+							{prompt || "正在生成邀请码…"}
+						</pre>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							title="复制提示词"
+							aria-label="复制提示词"
+							className="absolute top-2 right-2 text-ground/70 hover:bg-ground/10 hover:text-ground"
+							disabled={!prompt || expired}
+							onClick={() => void copy(prompt)}
+						>
+							{copied ? <Check size={14} className="pop" /> : <Copy size={15} />}
+						</Button>
+					</div>
+					{expired && (
+						<Button className="self-start" onClick={() => void generate()}>
+							<RotateCw size={15} />
+							重新生成
+						</Button>
 					)}
+					<details className="rounded-control bg-tone px-4 py-3">
+						<summary className="cursor-pointer text-small font-medium">其他方式</summary>
+						<div className="mt-3 flex flex-col gap-3">
+							<div className="flex items-center gap-2">
+								<code className="min-w-0 flex-1 break-all text-small">
+									yonder channels login card --verify-code {invite?.code ?? "__________"}
+								</code>
+								<Button
+									size="sm"
+									disabled={!invite || expired}
+									onClick={() => invite && void copy(`yonder channels login card --verify-code ${invite.code}`)}
+								>
+									复制命令
+								</Button>
+							</div>
+							<Link to="/get" className="text-small underline underline-offset-4">
+								前往安装页
+							</Link>
+						</div>
+					</details>
 					<Dialog.Close asChild>
 						<Button variant="ghost" className="self-end">
 							关闭
