@@ -196,6 +196,15 @@ it("会话标题属于内容区，列表没有会话操作", async () => {
 	expect(container.textContent).not.toContain("工作设置");
 	await act(() => root.unmount());
 });
+it("空内容区保留恢复入口，工作列表没有更多操作", async () => {
+	state.node = "empty-content";
+	state.width = "desktop";
+	state.rail = "empty";
+	const { container, root } = await render("/work");
+	expect(container.querySelector("aside")?.textContent).not.toContain("恢复默认视图");
+	expect(button(container, "恢复默认视图")).toBeTruthy();
+	await act(() => root.unmount());
+});
 it("会话返回再点击当前会话可进入正文", async () => {
 	state.node = "alias";
 	state.device = "device-a";

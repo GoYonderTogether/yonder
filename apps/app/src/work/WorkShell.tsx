@@ -229,7 +229,7 @@ export function WorkShell({
 			rightOpen={panes.rail}
 			onRight={route.session ? toggleRail : undefined}
 			more={
-				paneMode !== "rail" && route.session ? (
+				paneMode !== "rail" ? (
 					<>
 						{session?.mode === "main" && session.agent && !isImported(session) && (
 							<DropdownMenu.Item
@@ -240,14 +240,12 @@ export function WorkShell({
 							</DropdownMenu.Item>
 						)}
 						{route.session && <FloatMenu session={route.session} />}
-						{route.session && (
-							<DropdownMenu.Item
-								onSelect={() => update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })}
-								className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
-							>
-								恢复默认视图
-							</DropdownMenu.Item>
-						)}
+						<DropdownMenu.Item
+							onSelect={() => update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })}
+							className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+						>
+							恢复默认视图
+						</DropdownMenu.Item>
 					</>
 				) : undefined
 			}
@@ -284,7 +282,7 @@ export function WorkShell({
 			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
 		) : (
 			<>
-				{!panes.left && <WorkToolbar phone={false} title="工作" onLeft={showList} />}
+				{contentHeader}
 				<EmptyPane message="选择一个 Bot 或任务" />
 			</>
 		);
