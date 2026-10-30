@@ -120,6 +120,7 @@ export interface ApiClient {
 
 	// 设备：Yonder 所在的电脑。多设备部署插件接入前，只有本机
 	devices(): Promise<Device[]>;
+	removeDevice(deviceId: string): Promise<void>;
 	createInvite(): Promise<{ code: string; expiresAt: string }>;
 	renameDevice(deviceId: string, name: string): Promise<Device>;
 	/** 一次开关某台设备上全部 Agent 的联网 */

@@ -159,6 +159,7 @@ export const httpApi: ApiClient = {
 	addFriend: (accountId) => request("/friends", json("POST", { accountId })),
 
 	devices: () => request<Device[]>("/devices"),
+	removeDevice: (deviceId) => request(`/devices/${encodeURIComponent(deviceId)}`, json("DELETE")),
 	createInvite: () => request("/device/invite", json("POST")),
 	renameDevice: (deviceId, name) => request(`/devices/${encodeURIComponent(deviceId)}`, json("PATCH", { name })),
 	setDeviceOnline: (deviceId, online) =>

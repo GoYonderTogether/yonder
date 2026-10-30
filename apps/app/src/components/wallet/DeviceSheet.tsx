@@ -54,6 +54,8 @@ export function DeviceSheet({
 	onChanged: () => void;
 }) {
 	const [name, setName] = useState(device.name);
+	const [confirmRemove, setConfirmRemove] = useState(false);
+	const [removing, setRemoving] = useState(false);
 	const Icon = deviceIcon[device.kind];
 	const save = async () => {
 		try {
@@ -72,6 +74,19 @@ export function DeviceSheet({
 			toast(v ? `${device.name} 上的 Bot 已联网` : `${device.name} 上的 Bot 已断开`);
 		} catch (error) {
 			toast(error instanceof Error ? error.message : "更新失败", true);
+		}
+	};
+	const remove = async () => {
+		setRemoving(true);
+		try {
+			await api.removeDevice(device.id);
+			onChanged();
+			onOpenChange(false);
+			toast("设备已解绑");
+		} catch (error) {
+			toast(error instanceof Error ? error.message : "解绑失败", true);
+		} finally {
+			setRemoving(false);
 		}
 	};
 	return (
@@ -94,6 +109,23 @@ export function DeviceSheet({
 						</span>
 						<Switch on={device.online} onChange={power} label="这台设备联网" />
 					</div>
+					{confirmRemove ? (
+						<div className="rounded-card bg-tone p-4 text-small">
+							<p>解绑后，这台设备将无法继续连接；消息历史会保留。</p>
+							<div className="mt-3 flex gap-2">
+								<Button disabled={removing} onClick={() => void remove()}>
+									确认解绑
+								</Button>
+								<Button variant="ghost" disabled={removing} onClick={() => setConfirmRemove(false)}>
+									取消
+								</Button>
+							</div>
+						</div>
+					) : (
+						<button type="button" className="text-left text-small text-danger" onClick={() => setConfirmRemove(true)}>
+							解绑设备
+						</button>
+					)}
 					<div className="flex gap-2">
 						<Button variant="primary" onClick={save} disabled={!name.trim() || name.trim() === device.name}>
 							保存

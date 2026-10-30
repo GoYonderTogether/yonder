@@ -1,3 +1,4 @@
+import { socialOrigin } from "../../api/http";
 import { appBase } from "../../lib/base";
 import { activeNode } from "./nodes";
 import type { ServerFrame } from "./types";
@@ -18,6 +19,7 @@ export class RpcError extends Error {
  */
 export interface NodeTarget {
 	id?: string;
+	deviceId?: string;
 	/** 绝对地址，可带挂载路径（如 https://host:7690/console）；缺省同源。 */
 	origin?: string;
 	/** 远程节点访问令牌，仅用于 POST <origin>/login 换 cookie。 */
@@ -49,14 +51,21 @@ export async function rpc<T>(
 	signal?: AbortSignal,
 	node?: NodeTarget,
 ): Promise<T> {
-	const res = await fetch(new URL(`api/rpc/${method}`, baseOf(node)), {
+	const target = node ?? activeNode();
+	const url = target.deviceId
+		? new URL(
+				`/api/devices/${encodeURIComponent(target.deviceId)}/work/rpc/${encodeURIComponent(method)}`,
+				socialOrigin(),
+			)
+		: new URL(`api/rpc/${method}`, baseOf(target));
+	const res = await fetch(url, {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify(params),
 		signal,
-		...remote(node),
+		...(target.deviceId ? { credentials: "include" as const } : remote(target)),
 	});
-	if (res.status === 401) {
+	if (res.status === 401 && !target.deviceId) {
 		for (const fn of authListeners) fn();
 		throw new RpcError("unauthorized", "登录已失效，请重新粘贴访问令牌", res.status);
 	}
@@ -87,9 +96,11 @@ export async function logout(): Promise<void> {
 }
 
 export function wsUrl(node?: NodeTarget): string {
-	const u = new URL("api/stream", baseOf(node));
+	const target = node ?? activeNode();
+	const u = target.deviceId ? new URL("/ws/work", socialOrigin()) : new URL("api/stream", baseOf(target));
 	u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
-	u.searchParams.set("v", "1");
+	if (target.deviceId) u.searchParams.set("device", target.deviceId);
+	else u.searchParams.set("v", "1");
 	return u.toString();
 }
 

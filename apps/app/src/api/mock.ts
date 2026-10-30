@@ -493,6 +493,9 @@ export const mockApi: ApiClient = {
 		await wait();
 		return [...devices.values()].map((d) => ({ ...d }));
 	},
+	async removeDevice(id) {
+		devices.delete(id);
+	},
 	async createInvite() {
 		await wait();
 		return { code: "0123456789", expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() };

@@ -12,6 +12,7 @@ export interface NodeConfig {
 	name: string;
 	/** 绝对地址，可带挂载路径（如 https://host:7690/console）；本机节点没有。 */
 	origin?: string;
+	deviceId?: string;
 }
 
 /** 本机（同源）节点的固定 id；query key 首段、默认节点都用它。 */
@@ -64,7 +65,7 @@ const listeners = new Set<() => void>();
 function commit(next: NodesState) {
 	state = next;
 	try {
-		localStorage.setItem(KEY, JSON.stringify(next.nodes));
+		localStorage.setItem(KEY, JSON.stringify(next.nodes.filter((node) => !node.deviceId)));
 		localStorage.setItem(ACTIVE_KEY, next.active);
 	} catch {
 		// 存储不可用（隐私模式）时只在内存里生效，页面仍可工作。
@@ -95,6 +96,14 @@ export function setActiveNode(id: string) {
 	const nodes = current().nodes;
 	if (!nodes.some((node) => node.id === id)) return;
 	commit({ nodes, active: id });
+}
+
+/** 账号设备只驻留内存，不复用其他账号的上次选择。 */
+export function setCloudDevice(accountId: string, device: { id: string; name: string }) {
+	const before = current();
+	const node: NodeConfig = { id: `account:${accountId}:device:${device.id}`, name: device.name, deviceId: device.id };
+	if (before.active === node.id) return;
+	commit({ nodes: [...before.nodes.filter((item) => !item.deviceId), node], active: node.id });
 }
 
 /** 规范化远程地址：必须 http(s)，去掉结尾斜杠，保留挂载路径。 */

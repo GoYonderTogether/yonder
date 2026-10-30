@@ -130,6 +130,7 @@ export interface Device {
 	/** 当前正在用的这台 */
 	current?: boolean;
 	online: boolean;
+	workProtocol?: 1;
 }
 
 export interface Profile {

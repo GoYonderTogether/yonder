@@ -1,10 +1,14 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useStore } from "@nanostores/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { api } from "../api";
 import { PersonalAvatar } from "../components/PersonalDrawer";
 import { gatewayHosted } from "../lib/base";
+import { useLogout } from "../lib/useLogout";
+import { $session } from "../store";
 import { logout, onUnauthorized, RpcError } from "./api/client";
-import { addNode, LOCAL_NODE, setActiveNode, useActiveNode, useNodes } from "./api/nodes";
+import { setCloudDevice, useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
 import { Login } from "./features/Login";
 import { useFacts } from "./lib/queries";
@@ -17,6 +21,13 @@ export function noGateway(error: unknown): boolean {
 
 /** 网关登录门：未登录显示令牌登录页，已登录进入工作外壳。社交账号与此无关。 */
 export function WorkApp() {
+	const account = useStore($session)?.actor;
+	if (import.meta.env.VITE_API === "http" && !gatewayHosted())
+		return account ? <CloudWorkEntry key={account.id} accountId={account.id} /> : null;
+	return <LocalWorkApp />;
+}
+
+function LocalWorkApp() {
 	const node = useActiveNode();
 	const qc = useQueryClient();
 	const navigate = useNavigate();
@@ -31,97 +42,106 @@ export function WorkApp() {
 		setReadyNode(node.id);
 	}, [node.id, qc, navigate]);
 	if (readyNode !== node.id) return null;
-	if (import.meta.env.VITE_API === "http" && !gatewayHosted() && node.id === LOCAL_NODE.id) return <WorkEntry />;
 	return <GatewayWorkApp key={node.id} />;
 }
 
-function WorkEntry() {
-	const nodes = useNodes().filter((node) => node.id !== LOCAL_NODE.id && node.origin);
-	const [origin, setOrigin] = useState("");
-	const [token, setToken] = useState("");
-	const [error, setError] = useState("");
-	const [busy, setBusy] = useState(false);
-	const connect = async () => {
-		setBusy(true);
-		setError("");
-		try {
-			const node = await addNode({ origin, token });
-			setToken("");
-			setActiveNode(node.id);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "连接失败");
-		} finally {
-			setBusy(false);
-		}
-	};
+function CloudWorkEntry({ accountId }: { accountId: string }) {
+	const qc = useQueryClient();
+	const navigate = useNavigate();
+	const node = useActiveNode();
+	const [choice, setChoice] = useState<string>();
+	const devices = useQuery({ queryKey: ["account-devices", accountId], queryFn: api.devices, refetchInterval: 5000 });
+	const available = (devices.data ?? []).filter((device) => device.online && device.workProtocol === 1);
+	const selected =
+		available.find((device) => device.id === choice) ?? (!choice && available.length === 1 ? available[0] : undefined);
+	const targetId = selected && `account:${accountId}:device:${selected.id}`;
+	useEffect(() => {
+		if (!selected || node.id === targetId) return;
+		mux.reset();
+		qc.removeQueries({ predicate: (query) => query.queryKey[0] !== "account-devices" });
+		void navigate("/work", { replace: true });
+		setCloudDevice(accountId, selected);
+	}, [accountId, selected, targetId, node.id, navigate, qc]);
+	useEffect(() => {
+		if (selected) return;
+		mux.reset();
+		qc.removeQueries({ predicate: (query) => query.queryKey[0] !== "account-devices" });
+	}, [selected, qc]);
+	if (selected && node.id === targetId)
+		return (
+			<div className="flex h-full flex-col">
+				{available.length > 1 && (
+					<label className="flex items-center gap-2 px-4 py-2 text-small">
+						设备
+						<select
+							value={selected.id}
+							onChange={(event) => setChoice(event.target.value)}
+							className="field min-w-0 flex-1"
+						>
+							{available.map((device) => (
+								<option key={device.id} value={device.id}>
+									{device.name}
+								</option>
+							))}
+						</select>
+					</label>
+				)}
+				<div className="min-h-0 flex-1">
+					<GatewayWorkApp key={node.id} cloud />
+				</div>
+			</div>
+		);
 	return (
 		<main className="relative grid h-full place-items-center p-6">
 			<div className="absolute top-0 left-0 p-4 lg:hidden">
 				<PersonalAvatar />
 			</div>
 			<div className="w-full max-w-md text-center">
-				<h1 className="text-title font-semibold">连接设备，开始工作</h1>
-				<p className="mt-2 text-small text-muted">工作台需要单独授权。消息设备连接不会自动授予工作台访问权限。</p>
-				<div className="mt-6 flex flex-col gap-2 text-left">
-					<label>
-						网关地址
-						<input
-							className="field w-full"
-							value={origin}
-							onChange={(e) => setOrigin(e.target.value)}
-							placeholder="https://host/console"
-						/>
-					</label>
-					<label>
-						访问令牌
-						<input
-							className="field w-full"
-							type="password"
-							autoComplete="off"
-							value={token}
-							onChange={(e) => setToken(e.target.value)}
-						/>
-					</label>
-					<button
-						type="button"
-						disabled={busy || !origin.trim()}
-						onClick={() => void connect()}
-						className="press rounded-full bg-accent px-4 py-2 text-on-accent"
-					>
-						{busy ? "连接中…" : "连接设备"}
-					</button>
-					{error && <p role="alert">{error}；跨域连接需要网关允许当前站点。</p>}
-				</div>
-				<div className="mt-6 flex flex-wrap justify-center gap-3">
-					<a href="/console/" className="press rounded-full bg-accent px-4 py-2 text-small text-on-accent">
-						连接工作台
-					</a>
-					<Link to="/get" className="press rounded-full bg-tone px-4 py-2 text-small">
+				<h1 className="text-title font-semibold">工作设备</h1>
+				{devices.isPending ? (
+					<p className="mt-2 text-small text-muted">正在读取设备…</p>
+				) : devices.isError ? (
+					<p role="alert" className="mt-2 text-small text-muted">
+						无法读取设备，请检查连接后重试。
+						<button type="button" className="underline" onClick={() => void devices.refetch()}>
+							重试
+						</button>
+					</p>
+				) : !devices.data?.length ? (
+					<p className="mt-2 text-small text-muted">连接设备后即可开始工作。</p>
+				) : (
+					<ul className="mt-4 text-left">
+						{devices.data.map((device) => (
+							<li key={device.id} className="flex min-h-12 items-center justify-between gap-3 border-b border-hairline">
+								<span>{device.name}</span>
+								{device.online && device.workProtocol === 1 ? (
+									<button type="button" className="underline" onClick={() => setChoice(device.id)}>
+										选择
+									</button>
+								) : (
+									<span className="text-small text-muted">{device.online ? "需要更新 Yonder" : "离线"}</span>
+								)}
+							</li>
+						))}
+					</ul>
+				)}
+				<div className="mt-6 flex justify-center gap-3">
+					<Link to="/connect" className="rounded-full bg-accent px-4 py-2 text-small text-on-accent">
+						连接设备
+					</Link>
+					<Link to="/get" className="rounded-full bg-tone px-4 py-2 text-small">
 						安装 Yonder
 					</Link>
 				</div>
-				{nodes.length > 0 && (
-					<div className="mt-6 text-left">
-						<h2 className="text-small font-medium">已保存的工作台</h2>
-						<ul className="mt-2 space-y-2">
-							{nodes.map((node) => (
-								<li key={node.id}>
-									<button type="button" onClick={() => setActiveNode(node.id)} className="text-small underline">
-										{node.name}
-									</button>
-								</li>
-							))}
-						</ul>
-					</div>
-				)}
 			</div>
 		</main>
 	);
 }
 
 /** 网关登录门：社交账号与网关授权无关。 */
-function GatewayWorkApp() {
+function GatewayWorkApp({ cloud = false }: { cloud?: boolean }) {
 	const qc = useQueryClient();
+	const cloudLogout = useLogout();
 	const facts = useFacts();
 	const [authed, setAuthed] = useState<boolean | undefined>(undefined);
 	useEffect(() => onUnauthorized(() => setAuthed(false)), []);
@@ -130,6 +150,12 @@ function GatewayWorkApp() {
 		else if (facts.error instanceof RpcError && facts.error.code === "unauthorized") setAuthed(false);
 	}, [facts.data, facts.error]);
 
+	if (authed === false && cloud)
+		return (
+			<div role="alert" className="p-6 text-small">
+				设备工作连接不可用，请检查设备状态。
+			</div>
+		);
 	if (authed === false)
 		return (
 			<Login
@@ -162,6 +188,10 @@ function GatewayWorkApp() {
 		<WorkShell
 			onLogout={() => {
 				mux.reset();
+				if (cloud) {
+					void cloudLogout();
+					return;
+				}
 				void logout().finally(() => {
 					qc.clear();
 					setAuthed(false);

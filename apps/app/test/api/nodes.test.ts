@@ -55,6 +55,20 @@ function stubFetch(handler: (url: string, init: RequestInit) => unknown) {
 }
 
 describe("节点存储", () => {
+	it("账号设备 RPC 与流指向云桥，选择不跨账号保存", async () => {
+		vi.stubGlobal("location", { href: "https://app.example/work", origin: "https://app.example" });
+		const calls = stubFetch(() => ({}));
+		const { setCloudDevice, activeNode } = await import("../../src/work/api/nodes");
+		const { rpc, wsUrl } = await import("../../src/work/api/client");
+		setCloudDevice("account-a", { id: "device-a", name: "A" });
+		await rpc("sessions.list");
+		expect(calls[0]?.url).toBe("https://app.example/api/devices/device-a/work/rpc/sessions.list");
+		expect(wsUrl()).toBe("wss://app.example/ws/work?device=device-a");
+		expect(localStorage.getItem("yonder.nodes")).not.toContain("device-a");
+		setCloudDevice("account-b", { id: "device-a", name: "A" });
+		expect(activeNode().id).toBe("account:account-b:device:device-a");
+	});
+
 	it("默认只有本机节点，本机不可删除", async () => {
 		const { nodeList, activeNode, removeNode, LOCAL_NODE } = await import("../../src/work/api/nodes");
 		expect(nodeList()).toEqual([LOCAL_NODE]);

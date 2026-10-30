@@ -204,7 +204,10 @@ export class Mux {
 	private close() {
 		clearTimeout(this.timer);
 		clearInterval(this.ping);
-		this.ws?.close();
+		if (this.ws) {
+			this.ws.onclose = null;
+			this.ws.close();
+		}
 		this.ws = undefined;
 	}
 
