@@ -38,10 +38,6 @@ jobs:
     name: Windows one-line installer
     runs-on: windows-2025
     timeout-minutes: 40
-    env:
-      # Job 级：安装与随后的幂等检查分属不同步骤，步骤内的 $env: 不会带过去。
-      YONDER_INSTALL: ${{ runner.temp }}\yonder-install
-      YONDER_HOME: ${{ runner.temp }}\yonder-home
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,9 +46,12 @@ jobs:
       - name: 解析最新正式版（不写盘）
         run: pwsh -NoProfile -File scripts/install.ps1 -DryRun
       # 真实安装：克隆正式 tag、本机构建、写安装入口、初始化 home，然后核对产物。
+      # runner.temp 不能在 job 级 env 里引用；两个步骤各自设置一次。
       - name: 在临时目录完成一次真实安装
         shell: pwsh
         run: |
+          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
+          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
           pwsh -NoProfile -File scripts/install.ps1
           if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited $LASTEXITCODE" }
           $cmd = Join-Path $env:YONDER_INSTALL 'bin\yonder.cmd'
@@ -67,6 +66,8 @@ jobs:
       - name: 重复执行不重新构建
         shell: pwsh
         run: |
+          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
+          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
           $before = (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') -Directory).Count
           pwsh -NoProfile -File scripts/install.ps1
           if ($LASTEXITCODE -ne 0) { throw "second install.ps1 exited $LASTEXITCODE" }
