@@ -1,4 +1,4 @@
-import type { Channel, YEvent } from "@yonder/sdk";
+import type { Channel, Profile, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
 import type { Store } from "../store/index.js";
 import { matches } from "./matching.js";
@@ -19,13 +19,33 @@ export function membershipGroup(agent: AgentConfig, event: YEvent, channel?: Cha
 /** Effective defaults are visible in routes; no persistent configuration is rewritten. */
 export function platformGroupBinding(agent: AgentConfig, channel: Channel): Binding {
 	const profile = `@platform-group:${channel.id}`;
-	const defaults = agent.profiles[agent.defaultProfile] ?? agent.defaults;
-	agent.profiles[profile] ??= {
+	agent.profiles[profile] ??= platformGroupProfile(
+		agent.profiles[agent.defaultProfile] ?? agent.defaults ?? {},
+		channel.id,
+	);
+	const id = `@platform-group:${channel.id}`;
+	let binding = agent.bindings.find((b) => b.id === id);
+	if (!binding) {
+		binding = {
+			id,
+			match: { channel: channel.id, kind: "group" },
+			session: { mode: "persistent", per: "conv" },
+			profile,
+			wake: "mention",
+			reply: "none",
+			busy: "steer",
+		};
+		agent.bindings.push(binding);
+	}
+	return binding;
+}
+
+export function platformGroupProfile(defaults: Profile, instance: string): Profile {
+	return {
 		...(defaults?.model ? { model: defaults.model } : {}),
 		...(defaults?.credentialSlots ? { credentialSlots: defaults.credentialSlots } : {}),
 		...(defaults?.cheap ? { cheap: defaults.cheap } : {}),
 		...(defaults?.simple ? { simple: defaults.simple } : {}),
-		level: "readonly",
 		capabilities: ["read"],
 		plugins: ["social"],
 		skills: [],
@@ -44,23 +64,8 @@ export function platformGroupBinding(agent: AgentConfig, channel: Channel): Bind
 		},
 		instructions:
 			"Participate as this Agent in the current group. Read the public conversation and join when relevant; otherwise stay silent. Public speech requires message_send to the current group. Keep private information private. Group membership does not grant owner or host authority.",
-		channelInstances: [channel.id],
+		channelInstances: [instance],
 	};
-	const id = `@platform-group:${channel.id}`;
-	let binding = agent.bindings.find((b) => b.id === id);
-	if (!binding) {
-		binding = {
-			id,
-			match: { channel: channel.id, kind: "group" },
-			session: { mode: "persistent", per: "conv" },
-			profile,
-			wake: "mention",
-			reply: "none",
-			busy: "steer",
-		};
-		agent.bindings.push(binding);
-	}
-	return binding;
 }
 
 export async function platformBatchBinding(

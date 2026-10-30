@@ -14,6 +14,7 @@ import {
 import { socialReferenceErrors } from "../config/social-validation.js";
 import { type LoadedPlugins, loadPlugins } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
+import { platformGroupProfile } from "../routing/platform-group.js";
 import { CREDENTIAL_MARK } from "../runtime/credential-failure.js";
 import { chainKey, modelChain } from "../runtime/model-chain.js";
 import { ModelGate } from "../runtime/model-gate.js";
@@ -185,10 +186,12 @@ export async function initHome(
 					...(onboarding ? ["tasks", "onboarding"] : []),
 				],
 			},
-			// 名片群只读档案（SOC01 G-01）：群会话不继承主人能力，被 @ 时只读回答。
+			// 平台群使用独立只读档案，复用 social 判断与群内发言工具，不继承主人能力。
 			profiles: {
 				owner: { level: "bypass", tools: { offer: ["*"] } },
-				...(bundle.channels.card ? { readonly: { level: "readonly" as const } } : {}),
+				...(bundle.channels.card
+					? { readonly: { level: "readonly" as const }, "card-group": platformGroupProfile({}, "card") }
+					: {}),
 			},
 			// 没有 cli 渠道实例的发行包（core）不写这条绑定，否则配置校验会报 unknown channel cli。
 			bindings: [
@@ -223,7 +226,9 @@ export async function initHome(
 								id: "card-group",
 								match: { channel: "card", kind: "group" },
 								session: { mode: "persistent" as const, per: "conv" as const },
-								profile: "readonly",
+								profile: "card-group",
+								reply: "none" as const,
+								busy: "steer" as const,
 								wake: "mention" as const,
 							},
 						]

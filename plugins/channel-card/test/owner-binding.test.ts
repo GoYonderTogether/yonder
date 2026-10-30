@@ -43,11 +43,17 @@ test("SOC01 G-01: init scaffolds the card owner and group bindings", async () =>
 	expect(agent.bindings.find((binding) => binding.id === "card-group")).toMatchObject({
 		match: { channel: "card", kind: "group" },
 		session: { mode: "persistent", per: "conv" },
-		profile: "readonly",
+		profile: "card-group",
+		reply: "none",
 		wake: "mention",
 	});
 	// 群绑定引用的只读档案必须真的存在，否则路由取不到 profile。
-	expect(agent.profiles.readonly).toMatchObject({ level: "readonly" });
+	expect(agent.profiles["card-group"]).toMatchObject({
+		capabilities: ["read"],
+		plugins: ["social"],
+		skills: [],
+		contexts: ["peer-workspace"],
+	});
 });
 
 /** 设备授权后的会话：/api/session 给出设备主人自己的账号，其余端点只走设备令牌。 */

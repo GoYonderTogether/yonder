@@ -69,6 +69,24 @@ test("own trigger rules validate standard regex and reject policy changes outsid
 		expect(() => validateRules(rules as OwnRules), JSON.stringify(rules)).toThrow();
 });
 
+test("first group rules use the real Bot name and id unless explicitly seeded", async () => {
+	const fixture = await groupFixture();
+	try {
+		const rules = new GroupRules(fixture.probe.api, (conv) => conv === mainConv);
+		await rules.start();
+		const policy = rules.effective("main", mainConv, {}, "revision");
+		expect(policy.keywords).toEqual(["贾维斯", "main"]);
+		expect(ruleMatch("贾维斯，帮我看看这个问题", policy)).toEqual({ eligible: true, match: true });
+		expect(ruleMatch("普通无关闲聊", policy)).toEqual({ eligible: true, match: false });
+		expect(policy.batch?.count).toBe(20);
+		const configured = new GroupRules(fixture.probe.api, () => true, { main: { keywords: ["自定义词"] } });
+		await configured.start();
+		expect(configured.effective("main", mainConv, {}, "revision").keywords).toEqual(["自定义词"]);
+	} finally {
+		await fixture.close();
+	}
+});
+
 test("effective own rules retain owner boundaries and use a twenty-message default count", async () => {
 	const fixture = await groupFixture();
 	try {

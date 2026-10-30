@@ -18,6 +18,7 @@ test("explicit card upgrade adds isolated read-only group route once and preserv
 		const file = join(home, "agents/main/agent.yaml");
 		const config = parse(await readFile(file, "utf8"));
 		config.bindings = config.bindings.filter((b: { id: string }) => b.id !== "card-group");
+		delete config.profiles["card-group"];
 		await writeFile(file, stringify(config));
 		const first = await upgradeGroups(home);
 		expect(first.changed).toHaveLength(1);

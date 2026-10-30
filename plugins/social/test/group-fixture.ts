@@ -27,6 +27,7 @@ export async function groupFixture(
 		social?: boolean;
 		membership?: boolean;
 		noBindings?: boolean;
+		initialGroup?: { binding: object; profile: object };
 		strategy?: string;
 		authSource?: string;
 		model?: string;
@@ -157,7 +158,13 @@ api.channels.register({
 					name: id === "main" ? "贾维斯" : "GPT 学姐",
 					owner: "person:owner",
 					defaultProfile: "group",
-					profiles: { group: profile, private: profile },
+					profiles: {
+						group: profile,
+						private: profile,
+						...(options.initialGroup
+							? { "card-group": { ...options.initialGroup.profile, channelInstances: [instance] } }
+							: {}),
+					},
 					...(options.social
 						? {
 								social: {
@@ -175,33 +182,35 @@ api.channels.register({
 								},
 							}
 						: {}),
-					bindings: options.noBindings
-						? []
-						: [
-								{
-									id: "group",
-									match: { channel: instance, kind: "group" },
-									session: { mode: "persistent", per: "conv" },
-									profile: "group",
-									wake: "mention",
-									reply: "none",
-								},
-								{
-									id: "group-batch",
-									match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
-									session: { mode: "persistent", per: "conv" },
-									profile: "group",
-									reply: "none",
-								},
-								{
-									id: "private",
-									match: { channel: instance, kind: "dm" },
-									session: { mode: "persistent", per: "conv" },
-									profile: "private",
-									wake: "write",
-									reply: "none",
-								},
-							],
+					bindings: options.initialGroup
+						? [{ ...options.initialGroup.binding, match: { channel: instance, kind: "group" } }]
+						: options.noBindings
+							? []
+							: [
+									{
+										id: "group",
+										match: { channel: instance, kind: "group" },
+										session: { mode: "persistent", per: "conv" },
+										profile: "group",
+										wake: "mention",
+										reply: "none",
+									},
+									{
+										id: "group-batch",
+										match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
+										session: { mode: "persistent", per: "conv" },
+										profile: "group",
+										reply: "none",
+									},
+									{
+										id: "private",
+										match: { channel: instance, kind: "dm" },
+										session: { mode: "persistent", per: "conv" },
+										profile: "private",
+										wake: "write",
+										reply: "none",
+									},
+								],
 				}),
 			);
 		}

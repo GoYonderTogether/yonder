@@ -89,15 +89,20 @@ export function validateRules(rules: OwnRules) {
 export class GroupRules {
 	private readonly versions = new Map<string, Revision>();
 	private writes: Promise<unknown> = Promise.resolve();
+	private readonly seeds: Record<string, OwnRules>;
 	constructor(
 		private readonly api: PluginAPI,
 		private readonly managed: (conv: string) => boolean,
-		private readonly seeds: Record<string, OwnRules> = {},
-	) {}
+		seeds: Record<string, OwnRules> = {},
+	) {
+		this.seeds = { ...seeds };
+	}
 	private key(agent: string, conv: string) {
 		return `${agent}\0${conv}`;
 	}
 	async start() {
+		for (const agent of await this.api.agents.list())
+			this.seeds[agent.id] ??= { keywords: [...new Set([agent.name.trim(), agent.id].filter(Boolean))] };
 		for await (const event of groupEvents(this.api, "social.rules-change")) {
 			const d = event.data as Revision & { agent?: string; conv?: string; after?: OwnRules };
 			if (d.agent && event.conv && d.after)

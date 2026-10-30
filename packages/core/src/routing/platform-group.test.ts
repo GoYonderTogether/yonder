@@ -38,7 +38,6 @@ test("joined platform groups derive isolated visible defaults and do not grant o
 		wake: "mention",
 	});
 	expect(a.profiles[binding.profile!]).toMatchObject({
-		level: "readonly",
 		capabilities: ["read"],
 		plugins: ["social"],
 		contexts: ["peer-workspace"],

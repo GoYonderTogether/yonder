@@ -52,6 +52,7 @@ const defaults: Bundle = {
 		...corePlugins,
 		{ use: "@yonder/plugin-channel-mcp" },
 		{ use: "@yonder/plugin-channel-card" },
+		{ use: "@yonder/plugin-social" },
 		{ use: "@yonder/plugin-cron" },
 		{ use: "@yonder/plugin-tasks" },
 		{ use: "@yonder/plugin-onboarding" },
