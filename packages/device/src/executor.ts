@@ -53,7 +53,6 @@ const covered = (resource: string, roots: string[]) =>
 		const path = relative(root, resource);
 		return path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
 	});
-
 export class DeviceExecutor {
 	readonly store: ExecutorStore;
 	private readonly requestsInFlight = new Map<string, { digest: string; response: Promise<SignedEnvelope> }>();
@@ -464,13 +463,10 @@ export class DeviceExecutor {
 		}
 		if (!response) throw new Error("INTERNAL_ERROR");
 		this.assertHealthy();
-		if (response.expiresAt <= Date.now()) {
-			const issuedAt = Date.now();
-			response = { ...response, issuedAt, expiresAt: issuedAt + 60_000 };
-		}
+		const now = Date.now();
+		if (response.expiresAt <= now) response = { ...response, issuedAt: now, expiresAt: now + 60_000 };
 		return signMessage(response, this.store.key);
 	}
-
 	/** Loopback HTTP is test-only; private-network listening requires TLS. */
 	async listenLoopback(port = 0): Promise<number> {
 		return this.listenDirect({ host: "127.0.0.1", port });
