@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
@@ -68,12 +69,12 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 const enabled =
 	process.env.YONDER_TEST_REAL === "1" &&
 	process.env.YONDER_TEST_KEYCHAIN === "1" &&
-	process.platform === "darwin" &&
+	["darwin", "win32"].includes(process.platform) &&
 	existsSync(auth);
 test.skipIf(!enabled)(
 	"Luna copies 40k awkward message by reference and sealed paste/read never expose value in transcript, ledger or the openKernel log callback",
 	async () => {
-		const home = await realpath(await mkdtemp("/private/tmp/clip-luna-")),
+		const home = await realpath(await mkdtemp(join(tmpdir(), "clip-luna-"))),
 			logs: unknown[] = [],
 			sockets: Socket[] = [];
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined,

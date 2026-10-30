@@ -8,7 +8,13 @@ import { promisify } from "node:util";
 const exec = promisify(execFile);
 export async function source(cli: string, args: string[], signal: AbortSignal): Promise<Record<string, any>> {
 	try {
-		const { stdout } = await exec(cli, args, { signal, timeout: 65000, maxBuffer: 2 * 1024 * 1024 });
+		const script = process.platform === "win32" && /\.[cm]?js$/i.test(cli);
+		const { stdout } = await exec(script ? process.execPath : cli, script ? [cli, ...args] : args, {
+			signal,
+			windowsHide: true,
+			timeout: 65000,
+			maxBuffer: 2 * 1024 * 1024,
+		});
 		const result = JSON.parse(stdout);
 		if (result.ok !== true) throw new Error();
 		return result;

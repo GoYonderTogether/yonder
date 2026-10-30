@@ -1,5 +1,9 @@
 # 项目状态
 
+## Windows 桌面补齐（2026-10-30）
+
+补齐 Win32/UI Automation、DPAPI CurrentUser、托盘与运行概览、固定桌面入口、任务电源租约和 GitHub 独立计划任务。Windows 全量最终计数与真实系统专项见 [本轮记录](verification/windows-20261030.md)。保留 10-29 原始失败，不以新成功覆盖。真实 ConPTY 帮助/选择/续聊/模型状态/中文 emoji 编辑/正常退出已验证；OAuth 连续返回 login_challenge_not_found_in_session，维护者选择保留登录方式，真实模型仍未测。整机重启必须凭启动时间变化后的服务/托盘/会话回执验收。
+
 ## Windows 原生适配候选（2026-10-29）
 
 已完成命名管道、PowerShell 与后台进程、凭据 ACL、登录计划任务服务及安装更新的源码适配。构建/类型检查/lint 通过；Windows 核心 280 passed / 0 failed / 36 skipped，68 文件通过 / 18 跳过。真实服务与隔离安装脚本通过。最后全量仍为 599 passed / 69 failed / 44 skipped，不能宣称所有插件已适配或 Windows 全量验收通过。未发布、安装生产服务或调用真实模型；详细原始失败与边界见 [Windows 验证](verification/windows-20261029.md)。

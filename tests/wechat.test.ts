@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Channel, EventInput, PluginAPI, ToolContext } from "@yonder/sdk";
+import { privatePath } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { openDatabase } from "../packages/core/src/runtime/db.js";
@@ -134,7 +135,7 @@ test("QR pairing persists first owner, keeps second independent and uses per-pee
 		expect(await h.identity.relation("main", "acct:wechat-primary:peer-1")).toBe("owner");
 		expect(await h.identity.relation("main", "acct:wechat-contact:peer-2")).toBe("stranger");
 		expect(await h.identity.relation("main", "acct:wechat-known:peer-3")).toBe("known");
-		expect((await stat(join(h.directory, "wechat-primary/account.json"))).mode & 0o777).toBe(0o600);
+		privatePath(join(h.directory, "wechat-primary/account.json"));
 		const envelope = (peer: string, id: string, token: string, bot = "bot-1") => ({
 			message_type: 1,
 			from_user_id: peer,

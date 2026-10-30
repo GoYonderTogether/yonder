@@ -1,0 +1,70 @@
+{
+	"date": "2026-10-30",
+	"platform": "win32",
+	"firstFull": {
+		"filesPassed": 149,
+		"filesFailed": 12,
+		"passed": 649,
+		"failed": 19,
+		"skipped": 44
+	},
+	"secondFull": {
+		"filesPassed": 161,
+		"filesFailed": 0,
+		"passed": 668,
+		"failed": 0,
+		"skipped": 44
+	},
+	"finalFull": {
+		"filesPassed": 162,
+		"filesFailed": 0,
+		"passed": 670,
+		"failed": 0,
+		"skipped": 44
+	},
+	"lastScoped": {
+		"filesPassed": 19,
+		"filesFailed": 0,
+		"passed": 151,
+		"failed": 0,
+		"skipped": 6
+	},
+	"privateAcl": {
+		"filesPassed": 1,
+		"filesFailed": 0,
+		"passed": 2,
+		"failed": 0,
+		"skipped": 0
+	},
+	"dpapi": {
+		"filesPassed": 1,
+		"filesFailed": 0,
+		"passed": 2,
+		"failed": 0,
+		"skipped": 1
+	},
+	"build": "passed",
+	"typecheck": "passed",
+	"lint": {
+		"errors": 0,
+		"files": 407
+	},
+	"native": {
+		"serviceLifecycleAndTray": "passed",
+		"powerLease": "passed",
+		"desktopWindowInputAndFiles": "passed",
+		"isolatedBrowser": "passed",
+		"independentUpdateTask": "passed",
+		"tuiConPty": "passed"
+	},
+	"packagedDesktopScript": true,
+	"realModel": {
+		"status": "not-tested",
+		"reason": "OAuth login_challenge_not_found_in_session; maintainer chose to retain OAuth and finish other checks",
+		"alternateCredentialsUsed": false
+	},
+	"reboot": {
+		"status": "pending-preparation",
+		"actualOsRestarted": false
+	}
+}

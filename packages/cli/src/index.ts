@@ -46,7 +46,7 @@ Commands:
   login <provider>                登录模型供应商 · Authenticate provider
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
   doctor                          检查配置 · Check configuration
-  awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS
+  awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS/Windows
   start                           前台运行 · Start harness
   stop                            停止运行 · Stop harness
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI

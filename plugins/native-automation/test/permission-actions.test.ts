@@ -1,8 +1,9 @@
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PermissionProvider, PluginAPI, Tool, ToolContext, YEvent } from "@yonder/sdk";
+import { privatePath } from "@yonder/sdk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transport = vi.hoisted(() => ({ desktop: vi.fn(), stopChildren: vi.fn() }));
@@ -369,7 +370,7 @@ describe("owner file actions, mocked transport and ordinary temp artifacts only"
 		const destinations: string[] = [];
 		transport.desktop.mockImplementation(async (args) => {
 			destinations.push(args.destination);
-			expect((await stat(args.destination.substring(0, args.destination.lastIndexOf("/")))).mode & 0o777).toBe(0o700);
+			privatePath(dirname(args.destination));
 			await writeFile(args.destination, bytes, { flag: "wx" });
 			return { path: args.destination, size: bytes.length, metadata };
 		});
@@ -420,7 +421,7 @@ describe("shared provider and legacy native entry", () => {
 			const response = await provider.invoke({ provider: provider.id, action, kind: "camera" }, ctx);
 			const call = transport.desktop.mock.calls.at(-1);
 			expect(response).toEqual({
-				platform: "darwin",
+				platform: process.platform,
 				result: { outcome: "timeout", exitCode: 1, permission: { state: "requested" } },
 			});
 			transport.desktop.mockClear();
@@ -472,12 +473,12 @@ describe("shared provider and legacy native entry", () => {
 		await expect(provider.invoke(request, { ...ctx, signal: AbortSignal.abort() })).rejects.toThrow();
 		expect(transport.desktop).not.toHaveBeenCalled();
 	});
-	it("non-macOS reports unsupported without launching any driver", async () => {
-		vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+	it("unimplemented platforms report unsupported without launching any driver", async () => {
+		vi.spyOn(process, "platform", "get").mockReturnValue("linux");
 		try {
 			const response = await provider.invoke({ provider: provider.id, action: "status", kind: "camera" }, ctx);
-			expect(response.platform).toBe("win32");
-			expect(response.result).toMatchObject({ state: "unsupported", reason: expect.stringContaining("win32") });
+			expect(response.platform).toBe("linux");
+			expect(response.result).toMatchObject({ state: "unsupported", reason: expect.stringContaining("linux") });
 			expect(transport.desktop).not.toHaveBeenCalled();
 		} finally {
 			vi.restoreAllMocks();

@@ -97,8 +97,10 @@ export async function manageWindowsService(
 			JSON.stringify({ node: process.execPath, runner, home, install, path: process.env.PATH ?? "" }),
 		).toString("base64");
 		// The task holds paths in an encoded payload; no user path becomes PowerShell code.
-		const body = `$c=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${args}'))|ConvertFrom-Json; & $c.node $c.runner $c.home $c.install $c.path; exit $LASTEXITCODE`;
-		const argument = `-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand ${Buffer.from(body, "utf16le").toString("base64")}`;
+		const nodeArgs = `"${runner.replaceAll('"', '\\"')}" --payload ${args}`;
+		// Use .NET directly: no shell command resolution or module autoload in the task bootstrap.
+		const body = `$p=[Diagnostics.ProcessStartInfo]::new();$p.FileName=${psQuote(process.execPath)};$p.Arguments=${psQuote(nodeArgs)};$p.UseShellExecute=$false;$p.CreateNoWindow=$true;$c=[Diagnostics.Process]::Start($p);$c.WaitForExit();exit $c.ExitCode`;
+		const argument = `-NoProfile -NonInteractive -EncodedCommand ${Buffer.from(body, "utf16le").toString("base64")}`;
 		await windowsCommand(
 			`$u=[Security.Principal.WindowsIdentity]::GetCurrent().Name; $a=New-ScheduledTaskAction -Execute ${psQuote(powershell())} -Argument ${psQuote(argument)}; $t=New-ScheduledTaskTrigger -AtLogOn -User $u; $p=New-ScheduledTaskPrincipal -UserId $u -LogonType Interactive -RunLevel Limited; $s=New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries; Register-ScheduledTask -TaskName ${psQuote(task)} -Action $a -Trigger $t -Principal $p -Settings $s -Force | Out-Null`,
 		);

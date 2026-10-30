@@ -7,6 +7,7 @@ import type { ChannelIO, PluginAPI } from "@yonder/sdk";
 import type { GithubChannel } from "./channel.js";
 import { nativeId, type ObjectValue, object } from "./client.js";
 import { approvedRelease, releaseData } from "./releases.js";
+import { windowsUpdateJob } from "./windows-jobs.js";
 
 const exec = promisify(execFile);
 const xml = (value: string) =>
@@ -39,8 +40,11 @@ export async function readUpdate(
 	let loaded = false,
 		job: string | undefined;
 	try {
-		job = (await launch(["print", `${domain()}/${label(instance, releaseId)}`], signal)).stdout;
-		loaded = true;
+		job =
+			process.platform === "win32"
+				? await windowsUpdateJob("status", directory, signal)
+				: (await launch(["print", `${domain()}/${label(instance, releaseId)}`], signal)).stdout;
+		loaded = process.platform === "win32" ? job === "Running" : true;
 	} catch (error) {
 		if (signal.aborted) throw error;
 	}
@@ -75,8 +79,8 @@ async function dispatchUpdate(
 	signal: AbortSignal,
 	scheduleOptions: { defer?: boolean } = {},
 ): Promise<ObjectValue> {
-	if (process.platform !== "darwin" || process.getuid?.() === undefined)
-		throw new Error("Service-external updates require macOS launchd user domain");
+	if (!["darwin", "win32"].includes(process.platform))
+		throw new Error("Service-external updates require macOS launchd or Windows Task Scheduler");
 	const options = channel.config.releases;
 	if (!options || options.policy !== "apply" || !options.updater)
 		throw new Error("Update application is not approved/configured; default policy is notify");
@@ -122,6 +126,28 @@ async function dispatchUpdate(
 		// Copy the standalone runner outside versions/current before restarting/pruning the service.
 		const script = join(directory, "update-job.mjs");
 		await copyFile(fileURLToPath(new URL("./update-job.js", import.meta.url)), script);
+		if (process.platform === "win32") {
+			signal.throwIfAborted();
+			dispatched = true;
+			try {
+				await windowsUpdateJob("start", directory, signal);
+			} catch (cause) {
+				throw new Error(
+					`Windows update dispatch failed or is uncertain; query update_status for release ${data.releaseId}; do not resubmit.`,
+					{ cause },
+				);
+			}
+			return {
+				scheduled: true,
+				verified: false,
+				repository: data.repository,
+				releaseId: data.releaseId,
+				tag: data.tag,
+				version: data.version,
+				result: request.result,
+				message: "Independent Windows task owns update; query status for verified receipt.",
+			};
+		}
 		const plist = join(directory, "job.plist"),
 			id = label(channel.id, data.releaseId);
 		const pair = (key: string, value: string) => `<key>${key}</key><string>${xml(value)}</string>`;
@@ -196,7 +222,8 @@ export async function recoverUpdates(
 		});
 		await writeFile(join(directory, "reported"), new Date().toISOString(), { mode: 0o600 });
 		try {
-			await launch(["bootout", `${domain()}/${label(instance, id)}`], signal);
+			if (process.platform === "win32") await windowsUpdateJob("remove", directory, signal);
+			else await launch(["bootout", `${domain()}/${label(instance, id)}`], signal);
 		} catch (error) {
 			if (signal.aborted) throw error;
 			api.log.warn("Finished update launchd job could not be unloaded", {

@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { open, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { TextDecoder } from "node:util";
+import { privatePath } from "@yonder/sdk";
 import { type Consumer, fail } from "./config.js";
 import { hash } from "./store.js";
 export function utf8(data: Buffer) {
@@ -16,6 +18,7 @@ export async function pasteFile(path: string, data: Buffer, signal: AbortSignal)
 	const fd = await open(path, constants.O_RDWR | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
 	let done = false;
 	try {
+		privatePath(path, true);
 		await fd.writeFile(data);
 		await fd.sync();
 		signal.throwIfAborted();
@@ -53,10 +56,18 @@ export async function consume(config: Consumer, data: Buffer, signal: AbortSigna
 	return new Promise<{ ok: boolean; exitCode: number | null }>((resolve, reject) => {
 		// Only operator-configured executable/args, no shell and no inherited provider credentials.
 		const child = spawn(config.file, config.args, {
+			windowsHide: true,
 			cwd: config.cwd,
 			shell: false,
 			stdio: "ignore",
-			env: { PATH: "/usr/bin:/bin:/usr/sbin:/sbin", [config.variable]: value },
+			env: {
+				...(process.platform === "win32" ? { SystemRoot: process.env.SystemRoot } : {}),
+				PATH:
+					process.platform === "win32"
+						? join(process.env.SystemRoot ?? "C:\\Windows", "System32")
+						: "/usr/bin:/bin:/usr/sbin:/sbin",
+				[config.variable]: value,
+			},
 		});
 		const cancel = () => child.kill("SIGKILL");
 		signal.addEventListener("abort", cancel, { once: true });

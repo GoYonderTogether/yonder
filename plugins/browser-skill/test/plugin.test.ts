@@ -7,13 +7,21 @@ import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import plugin, { daemonAbsent, imageMime } from "../src/index.js";
 import { command, validate } from "../src/operations.js";
 import { BskError, createBskRunner, parseBskJson } from "../src/runner.js";
 import { BrowserSerial, BrowserSessions, waitForCleanup } from "../src/sessions.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+// Protocol tests target BrowserSkill's supported macOS adapter; native Windows browser
+// execution is verified separately through the Playwright driver.
+beforeEach(() => {
+	vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
+});
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 describe("browser-skill SDK contract and input boundaries", () => {
 	it("matches packaged contributions without setup IO", async () => {
 		expect(await checkPlugin(root)).toEqual([]);

@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { type QrConnectCredentials, startQrConnect } from "@tencent-connect/qqbot-connector";
+import { writePrivateFile } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
 import { groupBatch, groupInstructions } from "./participation.js";
@@ -57,7 +58,7 @@ async function inspect(options: SetupOptions) {
 async function atomic(path: string, content: string, mode: number) {
 	const temporary = `${path}.${randomUUID()}.tmp`;
 	try {
-		await writeFile(temporary, content, { mode, flag: "wx" });
+		await writePrivateFile(temporary, content);
 		await rename(temporary, path);
 	} finally {
 		await rm(temporary, { force: true });
@@ -301,6 +302,17 @@ async function main() {
 		const credentials = await connect((url) => {
 			console.log(JSON.stringify({ state: "awaiting-scan", url }));
 			if (values.open) {
+				if (process.platform === "win32") {
+					if (new URL(url).protocol !== "https:") throw new Error("Only HTTPS login links can be opened");
+					const source = `$ProgressPreference='SilentlyContinue';$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules');Start-Process '${url.replaceAll("'", "''")}'`;
+					const child = spawn(
+						join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"),
+						["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(source, "utf16le").toString("base64")],
+						{ windowsHide: true, stdio: "ignore" },
+					);
+					child.on("error", () => console.error("浏览器未打开，请直接使用上方链接。"));
+					return;
+				}
 				const command = process.platform === "darwin" ? "open" : "xdg-open";
 				const child = spawn(command, [url], { stdio: "ignore", shell: false });
 				child.on("error", () => console.error("浏览器未打开，请直接使用上方链接。"));

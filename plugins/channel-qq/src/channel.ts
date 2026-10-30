@@ -20,6 +20,7 @@ import {
 	type OutMessage,
 	type PluginAPI,
 	parseRef,
+	privatePath,
 } from "@yonder/sdk";
 import { GroupParticipation } from "./participation.js";
 
@@ -133,6 +134,7 @@ export class QQChannel implements Channel {
 		this.secret = credential.key;
 		const directory = join(this.api.paths.data, this.id);
 		await mkdir(directory, { recursive: true, mode: 0o700 });
+		privatePath(directory, true);
 		this.store = new FileKVStore({ dir: directory, fileName: "gateway.json" });
 		if (this.config.groupWindowSeconds) {
 			this.groups = new GroupParticipation(this.api, this.id, this.config.groupWindowSeconds);

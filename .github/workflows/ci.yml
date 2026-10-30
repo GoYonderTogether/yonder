@@ -35,7 +35,7 @@ jobs:
       - run: npm run lint
 
   windows:
-    name: Windows core, CLI and memory compatibility
+    name: Windows build, full test and lint
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -48,5 +48,5 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run typecheck
-      - run: npm test -- packages/core packages/sdk packages/cli plugins/channel-cli plugins/context-files plugins/memory --maxWorkers=4
+      - run: npm test -- --maxWorkers=4
       - run: npm run lint

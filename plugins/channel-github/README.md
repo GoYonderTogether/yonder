@@ -1,5 +1,7 @@
 # GitHub channel
 
+Windows 独立升级使用当前用户的一次性 Task Scheduler 作业，复制 runner 到版本目录之外；不设置自动重试，调度后沿原 request/result 和真实服务来源核验恢复。执行使用现有 Node CLI，不经 cmd 拼接。后文 launchd/plist 说明适用于 macOS；Windows 的 job 字段返回实际计划任务状态。真实 Windows 任务派发专项已执行，GitHub 远端 Release 联调须另行验收。
+
 同一 SDK 包提供 GitHub.com issue/comments、PR 工具和 Release 源。只依赖 SDK、已用的 TypeBox 与 Node 标准库；直接使用固定 argv 调用 `gh api`，继承宿主进程的网络环境，gh 保管现有浏览器授权/系统安全存储，插件不执行 `gh auth token`。
 
 ## 安装与任务接纳

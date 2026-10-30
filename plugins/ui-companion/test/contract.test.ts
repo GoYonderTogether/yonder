@@ -2,6 +2,7 @@ import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { privatePath } from "@yonder/sdk";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { CompanionService } from "../src/service.js";
@@ -85,7 +86,7 @@ it("publishes one private desktop endpoint instead of launching a second applica
 	await service.start();
 	try {
 		expect(JSON.parse(await readFile(path, "utf8"))).toEqual({ url: service.url, pid: process.pid });
-		expect((await stat(path)).mode & 0o777).toBe(0o600);
+		privatePath(path);
 		expect((await fetch(service.url)).status).toBe(200);
 	} finally {
 		await service.stop();

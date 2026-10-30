@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, readdir, realpath, rm } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
-import type { ExecutionOwner } from "@yonder/sdk";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { type ExecutionOwner, privatePath } from "@yonder/sdk";
 import { bounded, type Config, fail, sameOwner } from "./config.js";
 import { Keychain } from "./keychain.js";
 export const hash = (data: Buffer) => createHash("sha256").update(data).digest("hex");
@@ -27,6 +27,7 @@ export async function writeNew(file: string, data: Buffer | string) {
 		0o600,
 	);
 	try {
+		privatePath(temporary, true);
 		await fd.writeFile(data);
 		await fd.sync();
 		await fd.close();
@@ -38,6 +39,8 @@ export async function writeNew(file: string, data: Buffer | string) {
 	}
 }
 export async function safeRead(file: string, limit: number, start = 0, end?: number) {
+	const entry = await lstat(file);
+	if (entry.isSymbolicLink() || !entry.isFile()) return fail("source_not_regular");
 	const fd = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
 	let data: Buffer | undefined;
 	try {
@@ -69,7 +72,7 @@ export async function safeRead(file: string, limit: number, start = 0, end?: num
 	}
 }
 export async function allowedPath(path: string, roots: string[], writing = false): Promise<string> {
-	if (!path.startsWith("/") || path.includes("\0")) return fail("absolute_path_required");
+	if (!isAbsolute(path) || path.includes("\0")) return fail("absolute_path_required");
 	const normalized = resolve(path);
 	const parent = await realpath(writing ? dirname(normalized) : normalized);
 	// Reject aliases, including symlinks in intermediate directories.
@@ -77,7 +80,7 @@ export async function allowedPath(path: string, roots: string[], writing = false
 	for (const root of roots) {
 		const actual = await realpath(root);
 		const delta = relative(actual, parent);
-		if (delta !== ".." && !delta.startsWith(`..${sep}`) && !delta.startsWith(sep)) return normalized;
+		if (delta !== ".." && !delta.startsWith(`..${sep}`) && !isAbsolute(delta)) return normalized;
 	}
 	return fail("path_not_granted");
 }
@@ -93,10 +96,14 @@ export class Store {
 	async ensure() {
 		for (const name of ["", "clips", "blobs", "tickets", "audit"]) {
 			const path = join(this.data, name);
-			await mkdir(path, { recursive: true, mode: 0o700 });
+			const created = await mkdir(path, { recursive: true, mode: 0o700 });
 			const s = await lstat(path);
-			if (!s.isDirectory() || s.isSymbolicLink() || s.uid !== process.getuid?.() || (s.mode & 0o077) !== 0)
+			if (!s.isDirectory() || s.isSymbolicLink()) fail("unsafe_data_directory");
+			try {
+				privatePath(path, created !== undefined);
+			} catch {
 				fail("unsafe_data_directory");
+			}
 		}
 	}
 	path(id: string, dir = "clips") {

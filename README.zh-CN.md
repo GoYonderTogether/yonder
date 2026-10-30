@@ -132,4 +132,4 @@ Apache-2.0，见 [LICENSE](LICENSE)。Yonder Harness 构建在 [pi](https://gith
 
 后台 service 使用当前用户登录计划任务；update 仍从审核 tag 构建，安装生成 bin/yonder.cmd 并切换 junction。只有包含本次适配的审核版本才能用于 Windows 安装；旧发布标签不会因调用方更新而变成 Windows 版本。安装后按 Windows 常规方式把安装 bin 加入 PATH。每个 home 独立登录，禁止复制 OAuth。
 
-macOS 原生自动化、Keychain、状态栏、电源保护与 GitHub launchd 自动升级作业尚未移植。全量测试缺口、交互终端、登录/重启和真实模型未测项见 status；候选不表示所有插件已跨平台验收。
+Windows 已补对应的 Win32/UI Automation、系统托盘与固定运行入口、DPAPI 当前用户秘密存储、电源租约和独立升级计划任务。Windows 不伪造 macOS TCC 状态，不覆盖合盖/手动休眠策略。全量、真实桌面/服务、ConPTY 及尚待 OAuth/整机重启的验收事实见 status 与 docs/verification/windows-20261030.md。BrowserSkill 外部 macOS daemon 仍属原平台，Windows 可用独立 Playwright 浏览器。

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename } from "node:fs/promises";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import type { Attachment, Channel, ChannelIO, ChannelLoginResult, Delivery, OutMessage, PluginAPI } from "@yonder/sdk";
+import { privatePath, writePrivateFile } from "@yonder/sdk";
 import WebSocket from "ws";
 
 export interface Config {
@@ -87,8 +88,9 @@ export class CardChannel implements Channel {
 	private async save(): Promise<void> {
 		await mkdir(this.api.paths.data, { recursive: true, mode: 0o700 });
 		await chmod(this.api.paths.data, 0o700);
+		privatePath(this.api.paths.data, true);
 		const temporary = `${this.file}.${randomUUID()}.tmp`;
-		await writeFile(temporary, JSON.stringify({ endpoint: this.endpoint, token: this.token }), { mode: 0o600 });
+		await writePrivateFile(temporary, JSON.stringify({ endpoint: this.endpoint, token: this.token }));
 		await rename(temporary, this.file);
 	}
 
@@ -97,6 +99,7 @@ export class CardChannel implements Channel {
 		this.stopped = false;
 		this.controller = new AbortController();
 		try {
+			privatePath(this.file);
 			const state = JSON.parse(await readFile(this.file, "utf8"));
 			if (state.endpoint !== this.endpoint || typeof state.token !== "string" || !state.token)
 				throw new Error("Invalid card credentials");

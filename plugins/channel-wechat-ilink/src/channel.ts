@@ -14,6 +14,8 @@ import {
 	type OutputPart,
 	type PluginAPI,
 	parseRef,
+	privatePath,
+	writePrivateFile,
 } from "@yonder/sdk";
 import { checkedServerBase, createClient, type Item, type Message } from "./client.js";
 
@@ -38,7 +40,7 @@ interface State {
 }
 export async function privateWrite(file: string, value: unknown): Promise<void> {
 	const temp = `${file}.${randomUUID()}.tmp`;
-	await writeFile(temp, JSON.stringify(value), { mode: 0o600 });
+	await writePrivateFile(temp, JSON.stringify(value));
 	await rename(temp, file);
 	await chmod(file, 0o600);
 }
@@ -129,6 +131,7 @@ export class IlinkChannel implements Channel {
 		this.ready ??= (async () => {
 			await mkdir(this.directory, { recursive: true, mode: 0o700 });
 			await chmod(this.directory, 0o700);
+			privatePath(this.directory, true);
 			await this.defaultPerson(); // Reserves the first configured instance even before QR login.
 			try {
 				const saved: State = JSON.parse(await readFile(join(this.directory, "account.json"), "utf8"));

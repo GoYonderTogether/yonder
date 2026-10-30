@@ -25,7 +25,7 @@ export async function awakeEnabled(home: string) {
 	return (await awakeMode(home)) !== "off";
 }
 export async function setAwake(home: string, value: boolean | AwakeMode) {
-	if (process.platform !== "darwin") throw new Error("Task awake is only supported on macOS");
+	if (!["darwin", "win32"].includes(process.platform)) throw new Error("Task awake requires macOS or Windows");
 	const mode = typeof value === "boolean" ? (value ? "tasks" : "off") : value;
 	await mkdir(join(home, ".yonder"), { recursive: true });
 	const temporary = `${file(home)}.${process.pid}.tmp`;
@@ -61,6 +61,8 @@ export function createAwakeHold() {
 }
 const quote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 export async function installPower() {
+	if (process.platform === "win32")
+		return { installed: true, provider: "SetThreadExecutionState", systemPolicyChanged: false };
 	if (process.platform !== "darwin" || !process.getuid?.()) throw new Error("Run as the macOS desktop user");
 	const source = fileURLToPath(
 		new URL("../../macos/dist/YonderStatus.app/Contents/Resources/YonderPower", import.meta.url),
@@ -112,6 +114,57 @@ export function startAwake(home: string, activity: () => Promise<{ active: numbe
 				policy.holdUntil === undefined ? undefined : Date.now() + Math.max(0, policy.holdUntil - performance.now());
 			const leaseActive = policy.holding ? Math.max(1, active) : 0;
 			snapshot = { ...snapshot, enabled, mode, active, ...policy, holdUntil };
+			if (enabled && process.platform === "win32") {
+				if (!idle) {
+					const script = await readFile(new URL("../../../scripts/yonder-windows-power.ps1", import.meta.url), "utf8");
+					if (closed) return;
+					const child = spawn(
+						join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"),
+						["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")],
+						{ windowsHide: true, stdio: ["pipe", "pipe", "ignore"] },
+					);
+					idle = child;
+					let pending = "";
+					child.stdin.on("error", () => {});
+					child.stdout.on("data", (data) => {
+						pending += data;
+						if (pending.length > 4096) {
+							child.kill();
+							return;
+						}
+						while (pending.includes("\n")) {
+							const end = pending.indexOf("\n");
+							try {
+								const reply = JSON.parse(pending.slice(0, end));
+								lastReply = Date.now();
+								snapshot = {
+									...snapshot,
+									protected: reply.protected === true && snapshot.holding === true,
+									provider: "SetThreadExecutionState",
+									error: reply.error,
+									lidProtection: false,
+								};
+							} catch {
+								child.kill();
+							}
+							pending = pending.slice(end + 1);
+						}
+					});
+					child.on("error", (error) => {
+						snapshot = { ...snapshot, protected: false, error: error.message };
+					});
+					child.on("close", () => {
+						if (idle === child) {
+							idle = undefined;
+							snapshot = { ...snapshot, protected: false };
+						}
+					});
+				}
+				if (idle.stdin?.writable) idle.stdin.write(`${JSON.stringify({ active: leaseActive })}\n`);
+				if (Date.now() - lastReply > 5000)
+					snapshot = { ...snapshot, protected: false, error: "等待 Windows 电源租约确认" };
+				return;
+			}
 			if (!enabled || process.platform !== "darwin") {
 				disconnect();
 				idle?.kill();

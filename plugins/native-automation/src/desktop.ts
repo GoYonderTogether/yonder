@@ -1,4 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 export const children = new Map<ChildProcess, string>();
 /** Cleanup deadline only: ordinary native calls have no forced duration limit. */
@@ -33,7 +35,7 @@ export function native(
 ): Promise<string> {
 	signal.throwIfAborted();
 	return new Promise((resolve, reject) => {
-		const child = spawn(command, args, { signal, stdio: ["pipe", "pipe", "pipe"] });
+		const child = spawn(command, args, { signal, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
 		children.set(child, owner);
 		child.stdin.on("error", () => {});
 		child.stdin.end(input);
@@ -60,6 +62,26 @@ export function native(
 	});
 }
 export async function desktop(args: Record<string, unknown>, signal: AbortSignal, owner: string): Promise<unknown> {
+	if (process.platform === "win32") {
+		const script = await readFile(new URL("../native/desktop.ps1", import.meta.url), "utf8");
+		return JSON.parse(
+			await native(
+				join(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe"),
+				[
+					"-NoProfile",
+					"-NonInteractive",
+					"-STA",
+					"-OutputFormat",
+					"Text",
+					"-EncodedCommand",
+					Buffer.from(script, "utf16le").toString("base64"),
+				],
+				signal,
+				owner,
+				JSON.stringify(args),
+			),
+		);
+	}
 	if (process.platform !== "darwin")
 		throw new Error("Native desktop requires macOS; no Linux/Windows driver installed");
 	return JSON.parse(

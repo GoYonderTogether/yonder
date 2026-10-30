@@ -4,12 +4,13 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { privatePath } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { capture } from "../src/capture.js";
 import { Store } from "../src/store.js";
 
 const run = promisify(execFile),
-	enabled = process.platform === "darwin" && process.env.YONDER_TEST_KEYCHAIN === "1";
+	enabled = ["darwin", "win32"].includes(process.platform) && process.env.YONDER_TEST_KEYCHAIN === "1";
 const scope = { agent: "main", profile: "owner", session: "1" };
 const signal = () => AbortSignal.timeout(60000);
 test.skipIf(!enabled)(
@@ -20,6 +21,7 @@ test.skipIf(!enabled)(
 		let clip: Awaited<ReturnType<Store["save"]>> | undefined;
 		const value = Buffer.from(`generated-${randomBytes(40).toString("hex")}\n中文🦤\r\0`);
 		try {
+			privatePath(root, true);
 			await store.ensure();
 			await store.kernel.prepare(signal());
 			clip = await store.save(value, "sealed", scope, { type: "test", ref: "generated" }, signal());
@@ -51,6 +53,7 @@ test.skipIf(!enabled)(
 			store = new Store(root, { maxBytes: 65536, ttlSeconds: 3600 });
 		let id: string | undefined;
 		try {
+			privatePath(root, true);
 			await store.ensure();
 			await store.kernel.prepare(signal());
 			const ticket = await store.ticket(scope);
@@ -76,7 +79,7 @@ test.skipIf(!enabled)(
 	},
 	120000,
 );
-test.skipIf(!enabled)(
+test.skipIf(!enabled || process.platform !== "darwin")(
 	"actual PTY hidden capture never echoes generated secret and deletes its own Keychain item",
 	async () => {
 		const { stdout } = await run(

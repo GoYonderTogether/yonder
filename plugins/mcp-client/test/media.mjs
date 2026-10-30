@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +7,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import plugin from "../dist/index.js";
 
-const audioPath = "/System/Library/Sounds/Glass.aiff";
+const audioPath =
+	process.platform === "win32"
+		? join(
+				process.env.SystemRoot ?? "C:\\Windows",
+				"Media",
+				(await readdir(join(process.env.SystemRoot ?? "C:\\Windows", "Media"))).find((x) => x.endsWith(".wav")),
+			)
+		: "/System/Library/Sounds/Glass.aiff";
+const audioMime = process.platform === "win32" ? "audio/wav" : "audio/aiff";
 const pngUrl = new URL("../../../skills/skill-creator/assets/skill-creator.png", import.meta.url);
 if (process.argv[2] === "server") {
 	const server = new McpServer({ name: "yonder-real-png-media", version: "1.0.0" });
@@ -18,7 +26,7 @@ if (process.argv[2] === "server") {
 				{ type: "text", text: "Actual local PNG file" },
 				{ type: "image", mimeType: "image/png", data: bytes.toString("base64") },
 				{ type: "resource", resource: { uri: pngUrl.href, mimeType: "image/png", blob: bytes.toString("base64") } },
-				{ type: "audio", mimeType: "audio/aiff", data: (await readFile(audioPath)).toString("base64") },
+				{ type: "audio", mimeType: audioMime, data: (await readFile(audioPath)).toString("base64") },
 			],
 			structuredContent: { uri: pngUrl.href, bytes: bytes.length },
 		};

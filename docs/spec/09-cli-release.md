@@ -142,4 +142,4 @@ CLI awake status/set/install 提供状态、布尔策略开关和用户主动授
 
 ## Windows 平台映射
 
-原生 Windows 适配遵循 [Windows](../windows.md)：channel-cli 与控制面使用命名管道，service 映射到当前用户登录计划任务；安装入口与更新结果保持不变，启动器为 yonder.cmd，current 使用 junction，切换前停止本安装服务、失败恢复。macOS 专属桌面与电源组件不在该平台启用。
+原生 Windows 适配遵循 [Windows](../windows.md)：channel-cli 与控制面使用命名管道，service 映射到当前用户登录计划任务；安装入口与更新结果保持不变，启动器为 yonder.cmd，current 使用 junction，切换前停止本安装服务、失败恢复。桌面使用 Windows 托盘与 Win32/UI Automation，电源使用进程租约；平台语义和验收见该文档。

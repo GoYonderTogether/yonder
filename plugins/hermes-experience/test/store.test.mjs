@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, readdir, readFile, stat, symlink, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { privatePath } from "@yonder/sdk";
 import { test } from "vitest";
 import { DELIMITER, editMemory, readMemory } from "../src/store.mjs";
 import { fixture } from "./helpers.mjs";
@@ -21,7 +22,7 @@ test("add/patch/remove retain original files, Unicode budget and revision", asyn
 	assert.deepEqual(m.entries, ["synthetic fact", "😀 test"]);
 	m = await editMemory(dir, { target: "memory", action: "remove", revision: m.revision, old_text: "😀" });
 	assert.equal(await readFile(join(dir, "MEMORY.md"), "utf8"), "synthetic fact");
-	assert.equal((await stat(join(dir, "MEMORY.md"))).mode & 0o777, 0o600);
+	privatePath(join(dir, "MEMORY.md"));
 	assert.deepEqual((await readdir(dir)).sort(), ["MEMORY.md", "USER.md"]);
 });
 test("budget failure, ambiguous matches, stale revisions and locks preserve bytes", async (t) => {

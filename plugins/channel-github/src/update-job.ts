@@ -25,8 +25,10 @@ interface CommandResult {
 	timedOut: boolean;
 }
 async function execute(program: string, args: string[], request: Request, timeout: number): Promise<CommandResult> {
+	if (process.platform === "win32") args = [join(request.install, "current/packages/cli/dist/index.js"), ...args];
 	return new Promise((resolve, reject) => {
 		const child = spawn(program, args, {
+			windowsHide: true,
 			stdio: ["ignore", "pipe", "pipe"],
 			env: { ...process.env, PATH: request.path, YONDER_INSTALL: request.install, YONDER_HOME: request.home },
 		});
@@ -104,7 +106,7 @@ export async function runUpdate(request: Request): Promise<void> {
 	let result: Record<string, unknown>;
 	const evidence: Record<string, unknown> = {};
 	try {
-		const executable = join(request.install, "bin/yonder");
+		const executable = process.platform === "win32" ? process.execPath : join(request.install, "bin/yonder");
 		const before = json(await execute(executable, ["version", "--home", request.home, "--json"], request, 30_000));
 		evidence.before = before;
 		const serviceBefore = json(

@@ -36,12 +36,23 @@ const ready = async () => {
 		await sleep(250);
 	}
 	throw new Error(
-		`Service not ready: ${await readFile(join(home, ".yonder/logs/harness.log"), "utf8").catch(() => "no log")}`,
+		`Service not ready: ${await readFile(join(home, ".yonder/logs/harness.log"), "utf8").catch(() => "no log")}; task ${await windowsCommand(`Get-ScheduledTaskInfo -TaskName '${task}' | Select-Object LastRunTime,LastTaskResult | ConvertTo-Json -Compress`)}`,
 	);
 };
 try {
 	await manageWindowsService("install", install, home);
 	const first = await ready();
+	let tray;
+	for (let i = 0; i < 50; i++) {
+		try {
+			tray = JSON.parse(await readFile(join(home, ".yonder/windows-tray.json"), "utf8"));
+			break;
+		} catch {
+			await sleep(100);
+		}
+	}
+	assert.equal(tray?.started, true, await readFile(join(home, ".yonder/logs/harness.log"), "utf8"));
+	process.kill(tray.pid, 0);
 	assert.equal((await manageWindowsService("status", install)).pid, first.pid);
 	await manageWindowsService("restart", install);
 	const second = await ready();

@@ -1,9 +1,10 @@
 import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { createServer } from "node:https";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test } from "vitest";
 
@@ -16,7 +17,12 @@ test("actual allowlisted HTTPS body/header injection verifies TLS, discards resp
 	let server: ReturnType<typeof createServer> | undefined;
 	try {
 		execFileSync(
-			"/usr/bin/openssl",
+			process.platform === "win32"
+				? ((process.env.PATH ?? "")
+						.split(delimiter)
+						.map((p) => resolve(p, "../usr/bin/openssl.exe"))
+						.find(existsSync) ?? "openssl")
+				: "/usr/bin/openssl",
 			[
 				"req",
 				"-x509",

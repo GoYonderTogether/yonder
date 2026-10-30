@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dispatchEvent } from "@tencent-connect/qqbot-nodejs/protocol";
+import { privatePath } from "@yonder/sdk";
 import { checkPlugin } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -85,7 +86,7 @@ test("scan completion preserves credentials and configures read-only group parti
 		const auth = JSON.parse(await readFile(authFile, "utf8"));
 		expect(auth.existing.key).toBe(before);
 		expect(auth["qq-qq-main"].key).toBe(secret);
-		expect((await stat(authFile)).mode & 0o777).toBe(0o600);
+		privatePath(authFile);
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 		expect(JSON.stringify(config)).not.toContain(secret);
 		expect(config.channels["qq-main"].allowedUsers).toEqual(["OWNER"]);

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, mkdir, open, readdir, realpath, rename, rmdir, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { privatePath } from "@yonder/sdk";
 
 // Behavior adapted from NousResearch/hermes-agent (MIT), see NOTICE.
 export const DELIMITER = "\n§\n";
@@ -27,6 +28,8 @@ export async function checkActive(signal, options = {}) {
 export async function readText(path, max = 65536, missing = "") {
 	let file;
 	try {
+		const entry = await lstat(path);
+		if (entry.isSymbolicLink() || !entry.isFile()) fail("unsafe_or_oversized_memory_file");
 		file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
 		const st = await file.stat();
 		if (!st.isFile() || st.nlink !== 1 || st.size > max) fail("unsafe_or_oversized_memory_file");
@@ -47,6 +50,7 @@ export async function atomicText(path, text, beforeCommit = async () => {}) {
 	try {
 		const out = await open(tmp, "wx", 0o600);
 		try {
+			privatePath(tmp, true);
 			await out.writeFile(text, "utf8");
 			await out.sync();
 		} finally {

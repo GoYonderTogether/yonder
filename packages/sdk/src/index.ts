@@ -51,3 +51,4 @@ export function intersectChannelInstances(a?: readonly string[], b?: readonly st
 }
 
 export { localIpcPath } from "./ipc.js";
+export { privatePath, writePrivateFile } from "./private-path.js";

@@ -4,6 +4,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
+import { privatePath, writePrivateFile } from "@yonder/sdk";
 import {
 	beginTask,
 	type Card,
@@ -35,8 +36,9 @@ export class CompanionService {
 	}
 	private async persist() {
 		await mkdir(this.directory, { recursive: true, mode: 0o700 });
+		privatePath(this.directory, true);
 		const path = join(this.directory, "interactions.json");
-		await writeFile(`${path}.tmp`, JSON.stringify(this.records), { mode: 0o600 });
+		await writePrivateFile(`${path}.tmp`, JSON.stringify(this.records));
 		await rename(`${path}.tmp`, path);
 	}
 	private mutate<T>(fn: () => Promise<T>): Promise<T> {
@@ -133,8 +135,9 @@ export class CompanionService {
 		if (this.desktop) {
 			try {
 				await mkdir(this.directory, { recursive: true, mode: 0o700 });
+				privatePath(this.directory, true);
 				const path = join(this.directory, "desktop.json");
-				await writeFile(`${path}.tmp`, JSON.stringify({ url: this.base, pid: process.pid }), { mode: 0o600 });
+				await writePrivateFile(`${path}.tmp`, JSON.stringify({ url: this.base, pid: process.pid }));
 				await rename(`${path}.tmp`, path);
 			} catch (error) {
 				await this.stop();

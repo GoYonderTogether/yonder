@@ -12,6 +12,8 @@ open blob 存插件私有 `.yonder/plugins/clipboard/blobs/<sha256>`（0700/0600
 
 每次工具调用/捕获均先追加 `clipboard.audit` intent，再执行并追加 completed/failed，包含操作、scope、handle/目的地类别和安全码，不含字节。CLI 捕获先写私有 metadata audit journal，插件下一次授权调用导入事件账本并删除已导入文件；stable audit id 支持识别重复，不虚构跨存储事务。掉电可能留下 intent/孤立内核 item，清理见文档；不声称 exactly-once。
 
+Windows 对应平台契约见 ../windows.md：sealed 使用系统 DPAPI CurrentUser 加密存储，私有路径校验当前用户 ACL；不依赖 macOS Keychain，也不将明文写文件。Mac Keychain 契约不变。
+
 ## 2. 工具与来源
 
 - `clipboard_copy({from,class?,ttlSeconds?})`：from=message(eventId)、file(path,start?,end?)、tool(transcriptId)；file 范围是字节、end 排他，不自动 trim/转码。消息按 D51 **同来源 conversation** 查询 message.in，仅复制 data.text；tool 只读当前 session 的原生 transcript tool 文本，不复制它到独立历史。message/tool 只允许 open（原文已入账本/模型，不可事后变 sealed）。file 可 sealed，需显式 grant；来源 realpath 必须在 readRoots 内，拒绝 symlink/非普通文件/超限。

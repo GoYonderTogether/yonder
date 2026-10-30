@@ -5,6 +5,7 @@
 ### Added
 
 - 原生 Windows 候选：控制面及 CLI 渠道命名管道、PowerShell 命令与后台进程取消、凭据 ACL、当前用户登录计划任务、Windows 启动器及 junction 安装更新；修复版本目录改名后 npm workspace 绝对 junction 失效。验证边界见 docs/windows.md 与 docs/status.md。
+- Windows 桌面对应能力：Win32/UI Automation 截图、键鼠、Unicode 和文件访问；系统托盘、运行概览与固定桌面入口；DPAPI 当前用户秘密存储；任务电源租约；GitHub 独立升级计划任务。统一私有文件 ACL 写入，修复 Windows NOFOLLOW 缺口与任务 WindowStyle Hidden 阻塞；Windows CI 扩为全量测试。系统授权、真实模型与重启分别按实际验收记录。
 
 ## [0.2.26102507] - 2026-10-25
 

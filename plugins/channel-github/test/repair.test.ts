@@ -62,6 +62,7 @@ function channel() {
 	);
 }
 beforeEach(async () => {
+	vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
 	directory = await mkdtemp(join(tmpdir(), "yonder-github-check-"));
 	api = {
 		paths: { data: directory },
@@ -230,7 +231,7 @@ describe("actual service evidence", () => {
 	} as Request;
 	const commit = "ae60bf2".padEnd(40, "0");
 	const actual = {
-		source: `${request.install}/versions/0.1.4`,
+		source: join(request.install, "versions", "0.1.4"),
 		install: request.install,
 		version: request.version,
 		origin: { tag: request.tag, repository: `https://github.com/${request.repository}.git`, commit },

@@ -123,6 +123,6 @@ Agent workspace允许普通文件工具创建memory目录、按日期/条目保�
 原 desktop 的 status/permissions/permission-request/permission-guide/permission-watch 为兼容入口，共用 provider 底层实现与校验。
 request/guide/watch 保留 `requireOwnerOrigin` 与可信续办来源规则；均要求 exec/read/write/message 及 node:local。
 guide/watch 支持 `0 < timeout <= 600`（默认 600 秒），status/request 不接受 timeout。
-仅 macOS 有实际原生 driver；其他平台返回实际平台与 unsupported 原因，不伪造签名或 grant。SDK 门面允许其他平台注册真实 provider。
+macOS 使用上述 Helper，Windows 使用 windows.md 定义的 Win32/UI Automation 原生 driver；Windows 没有对应全局 grant 的种类保持 unobservable，不伪造 TCC、签名或 grant。其他未实现平台返回实际平台与 unsupported 原因。
 
 共同原生提示词要求主动查询、申请/引导、检查后继续已授权任务，不让主人重复授权或代跑命令搬文件；只把 OS 必须本人完成的密码、生物识别或批准交给真人。安装和 owner 意图不是 OS grant 的证据，既有凭据、来源与隔离边界不变。

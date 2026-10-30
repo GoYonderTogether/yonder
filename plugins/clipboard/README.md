@@ -1,7 +1,7 @@
 # Clipboard and sealed handles
 
-Program-owned byte transfer, with Apple's installed Keychain as the secret
-kernel. macOS/local only; no account, master password, extra vault executable or
+Program-owned byte transfer, with Apple Keychain on macOS and DPAPI CurrentUser on Windows as the secret
+kernel. Local only; Windows stores only encrypted bytes in a private ACL-protected directory. No account, master password, extra vault executable or
 secret-returning model tool. See [spec](../../docs/spec/15-clipboard-vault.md),
 [research](../../docs/research/vault-kernel.md), and
 [verification](../../docs/verification/clipboard-vault.md).

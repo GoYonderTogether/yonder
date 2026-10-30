@@ -4,6 +4,7 @@ import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/pro
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ExecutionOwner, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
+import { privatePath } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { config } from "../src/config.js";
@@ -14,7 +15,9 @@ import { allowedPath, hash, Store } from "../src/store.js";
 const scope: ExecutionOwner = { agent: "main", profile: "owner", session: "1" };
 const signal = () => AbortSignal.timeout(20000);
 async function temporary() {
-	return realpath(await mkdtemp(join(tmpdir(), "yonder-clipboard-")));
+	const path = await realpath(await mkdtemp(join(tmpdir(), "yonder-clipboard-")));
+	privatePath(path, true);
+	return path;
 }
 
 test("manifest matches SDK registration; installation grants no access or setup side effects", async () => {
@@ -70,8 +73,7 @@ test("file destination is create-only, byte exact, 0600; roots and symlinks cann
 		expect(await allowedPath(file, [root], true)).toBe(file);
 		await pasteFile(file, value, signal());
 		expect((await readFile(file)).equals(value)).toBe(true);
-		const fd = await import("node:fs/promises");
-		expect((await fd.stat(file)).mode & 0o777).toBe(0o600);
+		privatePath(file);
 		await expect(pasteFile(file, Buffer.from("overwrite"), signal())).rejects.toThrow();
 		expect((await readFile(file)).equals(value)).toBe(true);
 		await expect(allowedPath(join(outside, "x"), [root], true)).rejects.toThrow("granted");

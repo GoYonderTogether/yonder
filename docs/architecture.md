@@ -68,4 +68,4 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 内核之外的官方插件（渠道、浏览器、搜索、cron、MCP 客户端、自动化等）放在同仓库 `plugins/` 的独立 SDK 包，清单见 [plugins.md](plugins.md)；供应商实现不进内核。
 
-通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在当前范围；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。macOS 保留完整桌面能力；Windows 原生 CLI、命名管道、登录任务服务与安装更新的适配约定见 [Windows](windows.md)。Linux 服务未支持。实现状态与已知缺口见 [status.md](status.md)。
+通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在当前范围；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。macOS 和 Windows 分别使用本机桌面、秘密存储、电源与服务机制；Windows 平台约定见 [Windows](windows.md)。Linux 服务未支持。实现状态与已知缺口见 [status.md](status.md)。

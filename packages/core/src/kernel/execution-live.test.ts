@@ -7,7 +7,7 @@ import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
 
-const auth = resolve(".yonder/auth.json");
+const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 const model = "openai/gpt-6-luna";
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real model yields long bash, continues work, receives completion, preserves soft thresholds and runs a native child",
@@ -19,9 +19,13 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let parentId: string | undefined;
 		let failure: string | undefined;
+		const command =
+			process.platform === "win32"
+				? `[Console]::WriteLine('START'); Start-Sleep -Seconds 25; [Console]::WriteLine('BACKGROUND_DONE'); [IO.File]::WriteAllText('${home.replaceAll("'", "''")}/background.done', 'BACKGROUND_DONE'+[Environment]::NewLine)`
+				: `printf 'START\\n'; sleep 25; printf 'BACKGROUND_DONE\\n'; printf 'BACKGROUND_DONE\\n' > '${home}/background.done'`;
 		const prompt = [
 			"This is one real execution acceptance task. Preserve this exact sequence and do not invent success.",
-			`First call bash with command exactly: printf 'START\\n'; sleep 25; printf 'BACKGROUND_DONE\\n'; printf 'BACKGROUND_DONE\\n' > '${home}/background.done'`,
+			`First call bash with command exactly: ${command}`,
 			"Do not set background=true: we are checking automatic 15-second yield. Do not set a kill timeout.",
 			`When bash returns a background handle, immediately use write to create '${home}/independent.marker' with content 'INDEPENDENT_WORK_DONE'. This must happen without waiting for the background command.`,
 			"Then use task_run with preset execution-child and task 'Reply exactly SUBTASK_DONE; do not call tools.' Confirm the actual child result.",
