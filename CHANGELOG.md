@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26103003] - 2026-10-30
+
+### Fixed
+
+- app：distinguish bots and show channel setup guidance
+- web：消息 403 显示无权访问，不再按账号 UUID 自动误开私聊 (FIX-FRONT B8)
+
 ## [0.3.26103002] - 2026-10-30
 
 ### Fixed
