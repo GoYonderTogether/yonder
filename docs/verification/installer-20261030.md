@@ -125,3 +125,16 @@ origin: { version, commit: ca53c71…, repository, tag: v0.3.26103020 }
 
 Windows 上未验证：`yonder service install`（计划任务）、`yonder start`、真实收发；
 这台 runner 没有模型凭据，也没有登录交互终端。
+
+## 发版后遗留的 CI 观察（2026-10-30）
+
+本轮为了验证「发版 → 网页命令 → 真实安装」这条链，跑了多次 `Release` 和 `CI`。其中两处与安装无关、
+但需要如实记录：
+
+- `packages/core/src/runtime/fallback-http.test.ts > HTTP 401 follows the native fallback policy`
+  在 CI 的 4/4 分片里偶发失败：收到 `['first','first','second']` 而不是 `['first','second']`。
+  本机连跑 6 次通过，重跑该 CI 作业也通过；在本地人为把 401 响应延迟 400ms 可以稳定复现成
+  `['first','first','first', …]`，说明它依赖「首个候选在 100ms 超时内返回」这一时序假设，
+  机器繁忙时就可能多打一次。**根因未确认**，本轮没有改这条测试。
+- `Release` 的「发版提交合回 main」步骤在 main 有新提交时会 rebase 失败（`CHANGELOG.md` 冲突），
+  Release 本身已经成功（tag 与附件都在），只是这条合回作业红。
