@@ -8,7 +8,7 @@ export function DragScroll({ children }: { children: ReactNode }) {
 		<nav
 			aria-label="Bot"
 			data-testid="bot-strip"
-			className="flex gap-3 overflow-x-auto px-4 pt-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+			className="flex select-none gap-3 overflow-x-auto px-4 pt-3 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 			onPointerDown={(event) => {
 				if (event.pointerType !== "mouse" || event.button !== 0) return;
 				suppressClick.current = false;
