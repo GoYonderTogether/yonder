@@ -2,7 +2,7 @@ import type { PluginAPI, YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { GroupParticipation } from "../src/participation.js";
 
-test("group admission schedules only configured triggers and keeps authorized groups", () => {
+test("group admission defaults to all and honors configured overrides", () => {
 	const groups = new GroupParticipation({} as PluginAPI, "qq", 60, {
 		allowedGroups: ["authorized"],
 		groupParticipation: { quiet: "record", explicit: "all", mention: "mention" },
@@ -28,6 +28,7 @@ test("group admission schedules only configured triggers and keeps authorized gr
 		.filter((state) => state.nextAt)
 		.map((state) => state.conv);
 	expect(scheduled).toEqual([
+		"conv:qq:group:default",
 		"conv:qq:group:authorized",
 		"conv:qq:group:explicit",
 		"conv:qq:group:mention",
@@ -42,6 +43,7 @@ test("conflicting old and new mention facts do not trigger participation", () =>
 		{ log: { warn: (...args: unknown[]) => warnings.push(args) } } as unknown as PluginAPI,
 		"qq",
 		60,
+		{ groupParticipation: { g: "mention" } },
 	);
 	groups.accept({
 		id: "1",
@@ -57,7 +59,9 @@ test("conflicting old and new mention facts do not trigger participation", () =>
 });
 
 test("a linked person's plain message in a mention-mode group triggers now; record mode stays quiet", () => {
-	const groups = new GroupParticipation({} as PluginAPI, "qq", 60, { groupParticipation: { quiet: "record" } });
+	const groups = new GroupParticipation({} as PluginAPI, "qq", 60, {
+		groupParticipation: { quiet: "record", stranger: "mention", owner: "mention" },
+	});
 	const accept = (group: string, owner: boolean) =>
 		groups.accept(
 			{

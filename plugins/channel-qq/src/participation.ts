@@ -86,8 +86,7 @@ export class GroupParticipation {
 		state.latest = event.id;
 		delete state.error;
 		const group = event.conv.slice(`conv:${this.instance}:group:`.length);
-		const mode =
-			this.config.groupParticipation?.[group] ?? (this.config.allowedGroups?.includes(group) ? "all" : "mention");
+		const mode = this.config.groupParticipation?.[group] ?? "all";
 		const data = event.data as { mentioned?: boolean; social?: { mentions?: { bot?: boolean } }; text?: string };
 		const socialMention = data.social?.mentions?.bot;
 		const conflict = socialMention !== undefined && data.mentioned !== undefined && socialMention !== data.mentioned;

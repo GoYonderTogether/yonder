@@ -49,7 +49,11 @@ export const configSchema = {
 		allowedUsers: { type: "array", items: str },
 		allowedGroups: { type: "array", items: str },
 		groupWindowSeconds: { type: "integer", minimum: 1, maximum: 3600 },
-		groupParticipation: { type: "object", additionalProperties: { enum: ["all", "mention", "record"] } },
+		groupParticipation: {
+			type: "object",
+			description: "Per-group participation override; unconfigured groups default to all.",
+			additionalProperties: { enum: ["all", "mention", "record"] },
+		},
 		groupKeywords: { type: "array", items: str },
 		sendIntervalMs: { type: "integer", minimum: 0, maximum: 60000 },
 		localMediaRoot: { type: "string", minLength: 1 },
