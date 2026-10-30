@@ -154,7 +154,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "message_send",
 			description:
-				"Send to a real recipient/channel or deliver actual attachments. Normal final text returns to the input source or waiting caller automatically; do not duplicate it or send a child task result separately to its parent. replyTo accepts a turn event id or native message id from the target conversation; the kernel verifies and converts it. Use owner or a verified person:/acct:/conv: reference, and via when a specific channel is intended. Attachment uri must be an actual supported reference, never a guessed path. A returned delivery result is not a read receipt; uncertain delivery must not be blindly resent.",
+				"Send to a real recipient/channel or deliver actual attachments. Normal final text returns to the input source or waiting caller automatically; do not duplicate it or send a child task result separately to its parent. respondTo accepts an internal inbound turn id to answer without forcing a visible quote. replyTo explicitly quotes a turn event id or native message id. mentions accepts verified acct: refs observed in this conversation; unsupported channels return an error. The kernel verifies IDs and converts transport sources. Use owner or a verified person:/acct:/conv: reference, and via when a specific channel is intended. Attachment uri must be an actual supported reference, never a guessed path. A returned delivery result is not a read receipt; uncertain delivery must not be blindly resent.",
 			parameters: schema({
 				to: Type.String({
 					minLength: 1,
@@ -163,6 +163,8 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				}),
 				via: Type.Optional(text()),
 				text: Type.String(),
+				respondTo: Type.Optional(text()),
+				mentions: Type.Optional(Type.Array(text())),
 				replyTo: Type.Optional(text()),
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),

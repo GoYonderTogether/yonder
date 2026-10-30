@@ -33,6 +33,8 @@ export interface MessageRequest {
 	to: string;
 	via?: string;
 	text: string;
+	respondTo?: string;
+	mentions?: string[];
 	replyTo?: string;
 	sourceMessageId?: string;
 	attachments?: Attachment[];
@@ -192,6 +194,24 @@ export function createDelivery(options: DeliveryOptions) {
 		let resolved: Awaited<ReturnType<typeof resolveTarget>>;
 		try {
 			resolved = await resolveTarget(request, session?.agent, config, scope);
+			if (request.respondTo) {
+				const event = await store.events.get(request.respondTo);
+				const source = event && sourceMessage(event);
+				if (!event || event.type !== "message.in" || event.conv !== resolved.target || !source)
+					throw new Error("respondTo 不是该目标会话已接收的真实入站事件 ID。");
+				request = { ...request, sourceMessageId: source };
+			}
+			if (request.mentions?.length) {
+				if (!resolved.channel.features?.outboundMentions) throw new Error("该渠道不支持真实账号艾特。");
+				if (!resolved.target.startsWith("conv:")) throw new Error("艾特需要明确的目标会话。");
+				for (const ref of request.mentions) {
+					const account = parseRef(ref);
+					if (account.kind !== "acct" || account.channel !== channelId(resolved.target))
+						throw new Error("艾特目标必须是当前渠道的账号。");
+					const seen = await store.events.query({ type: "message.in", conv: resolved.target, from: ref, limit: 1 });
+					if (!seen.events.length) throw new Error("艾特目标不是该会话已观察到的成员。");
+				}
+			}
 			if (session) await checkReply(session.id, resolved.target, parent);
 		} catch (error) {
 			const delivery = { ok: false, error: message(error) };
@@ -641,6 +661,23 @@ export function createDelivery(options: DeliveryOptions) {
 					after = page.next;
 				} while (!found && after);
 				if (!found) return { ok: false, error: "replyTo 不是该目标会话已接收的真实消息 ID。" };
+			}
+			if (!request.respondTo && !request.replyTo && !request.sourceMessageId) {
+				const inputs = ctx.events ?? (ctx.event ? [ctx.event] : []);
+				const candidates = inputs.filter((event) => event.type === "message.in" && event.conv === target);
+				for (const input of inputs) {
+					if (input.type !== "channel-qq.group-batch" || input.conv !== target) continue;
+					const ids = (input.data as { sourceEvents?: unknown }).sourceEvents;
+					if (!Array.isArray(ids)) continue;
+					for (const id of ids) {
+						if (typeof id !== "string") continue;
+						const event = await store.events.get(id);
+						if (event?.type === "message.in" && event.conv === target) candidates.push(event);
+					}
+				}
+				const source = candidates.sort((a, b) => b.id.localeCompare(a.id)).find((event) => sourceMessage(event));
+				const native = source && sourceMessage(source);
+				if (native) request = { ...request, sourceMessageId: native };
 			}
 			return proactive(fromSession(session), request, session, config, ctx.signal, ctx);
 		},

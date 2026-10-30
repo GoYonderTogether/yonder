@@ -289,6 +289,10 @@ export interface OutMessage {
 	deliveryId?: string;
 	notification?: NotificationIntent;
 	text: string;
+	/** Semantic reply target: verified internal inbound event ID; does not force a quote. */
+	respondTo?: string;
+	/** Verified account refs to notify in the target conversation. */
+	mentions?: Ref[];
 	/** Automatic reply source; explicit replyTo still forces a quoted reply. */
 	sourceMessageId?: string;
 	attachments?: Attachment[];
@@ -471,6 +475,8 @@ export interface PluginAPI extends PluginViewsAPI {
 				to: Ref;
 				via?: string;
 				text: string;
+				respondTo?: string;
+				mentions?: Ref[];
 				replyTo?: string;
 				attachments?: Attachment[];
 				notification?: NotificationIntent;

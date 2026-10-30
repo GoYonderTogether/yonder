@@ -105,7 +105,7 @@ async function setup(hook?: Hook) {
 		channelInstances: ["a"],
 		signal: new AbortController().signal,
 	} as ToolContext;
-	return { db, store, delivery, counters, ctx, tools, saved, config, session, notified };
+	return { db, store, delivery, counters, channels, ctx, tools, saved, config, session, notified };
 }
 
 test("generic send and message_send reject B before platform access, including admin and source B", async () => {
@@ -249,3 +249,68 @@ test.each(["scope", "program-message"])(
 		}
 	},
 );
+
+test("semantic response resolves the source without forcing a quote; batch uses only real same-room input", async () => {
+	const x = await setup();
+	try {
+		const input = await x.store.events.record({
+			type: "message.in",
+			from: "acct:a:user",
+			conv: "conv:a:chat",
+			data: { kind: "group", msgId: "native", text: "question" },
+		});
+		const other = await x.store.events.record({
+			type: "message.in",
+			from: "acct:a:user",
+			conv: "conv:a:other",
+			data: { kind: "group", msgId: "other-native", text: "other" },
+		});
+		expect(await x.delivery.sendTool(x.ctx, { to: input.conv!, text: "answer", respondTo: input.id })).toMatchObject({
+			ok: true,
+		});
+		expect(x.counters[0]!.send.mock.calls.at(-1)?.[1]).toMatchObject({
+			respondTo: input.id,
+			sourceMessageId: "native",
+		});
+		expect(x.counters[0]!.send.mock.calls.at(-1)?.[1]).not.toHaveProperty("replyTo");
+		expect(await x.delivery.sendTool(x.ctx, { to: input.conv!, text: "bad", respondTo: other.id })).toMatchObject({
+			ok: false,
+		});
+		const batch = await x.store.events.record({
+			type: "channel-qq.group-batch",
+			conv: input.conv!,
+			data: { msgId: "batch-not-native", sourceEvents: [input.id, other.id] },
+		});
+		expect(
+			await x.delivery.sendTool({ ...x.ctx, events: [batch] }, { to: input.conv!, text: "ordinary" }),
+		).toMatchObject({ ok: true });
+		expect(x.counters[0]!.send.mock.calls.at(-1)?.[1]).toMatchObject({ sourceMessageId: "native" });
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("outbound mentions require channel support and an observed same-room account", async () => {
+	const x = await setup();
+	try {
+		const request = { to: "conv:a:chat", text: "attention", mentions: ["acct:a:user"] };
+		expect(await x.delivery.sendTool(x.ctx, request)).toMatchObject({ ok: false, error: "该渠道不支持真实账号艾特。" });
+		x.channels.get("a")!.features = { outboundMentions: true };
+		expect(await x.delivery.sendTool(x.ctx, request)).toMatchObject({
+			ok: false,
+			error: "艾特目标不是该会话已观察到的成员。",
+		});
+		await x.store.events.record({
+			type: "message.in",
+			from: "acct:a:user",
+			conv: request.to,
+			data: { kind: "group", text: "hello" },
+		});
+		expect(await x.delivery.sendTool(x.ctx, request)).toMatchObject({ ok: true });
+		expect(await x.delivery.sendTool(x.ctx, { ...request, mentions: ["acct:b:user"] })).toMatchObject({ ok: false });
+	} finally {
+		await x.delivery.close();
+		await x.db.close();
+	}
+});

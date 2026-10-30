@@ -1,4 +1,5 @@
 import type { SocialMessageData } from "./social.js";
+import type { Ref } from "./types.js";
 
 export interface Attachment {
 	kind: "image" | "audio" | "video" | "file";
@@ -11,6 +12,8 @@ export interface MessageInData {
 	kind: string;
 	text: string;
 	attachments?: Attachment[];
+	mentions?: Ref[];
+	senderIsBot?: boolean;
 	mentioned?: boolean;
 	social?: SocialMessageData;
 	msgId?: string;

@@ -27,6 +27,8 @@ export interface SocialMessageData {
 	nativeKind?: string;
 }
 export interface ChannelFeatures {
+	/** Supports actual outbound account mentions, independently of inbound signals. */
+	outboundMentions?: boolean;
 	identity?: "account" | "person-link" | "unknown";
 	mentions?: Array<"bot" | "owner" | "everyone" | "accounts">;
 	quote?: "none" | "id" | "content";
