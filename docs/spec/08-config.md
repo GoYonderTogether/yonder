@@ -159,7 +159,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 每个 agent.yaml 可选 `social`：`enabled` 默认 false；`authorized` 可列 people/accounts/conversations，`friends` 为 person/acct，`denied` 为 person/acct/conv；`defaults` 按 dm/group/channel 给策略，`conversations` 按精确 conv 覆盖，`mappings` 包含 subject、agent、profile。缺少 social 保持原行为；新 init 可明确启用。字段形状及信号默认值见 [渠道社交提案 §5](../../proposals/agent-ux/channels-social.md#52-类型定义与字段约束)，以本节和 §13 裁定为准。
 
-策略字段 mode、batch、minIntervalSeconds、signals、keywords、quiet、foldedEverySeconds、judge 均可选。覆盖按字段合并：内置默认 < defaults[kind] < conv；数组整体替换，空数组清空，不接受 null。count 1–100、delaySeconds 1–3600、maxMessages 1–100、maxBytes 1024–65536、minIntervalSeconds 1–3600、foldedEverySeconds 300–86400、judge.maxCallsPerHour 1–60；keywords 最多 32 项且每项 1–64 字符。quiet 的 timezone 为 IANA、start/end 为 HH:mm，可跨午夜但相等无效。DM 仅 direct/record/mute；group/channel 禁止 direct。
+策略字段 mode、batch、minIntervalSeconds、signals、keywords、triggers、quiet、foldedEverySeconds、judge 均可选。覆盖按字段合并：内置默认 < defaults[kind] < conv；数组整体替换，空数组清空，不接受 null。count 1–100、delaySeconds 1–3600、maxMessages 1–100、maxBytes 1024–65536、minIntervalSeconds 1–3600、foldedEverySeconds 300–86400、judge.maxCallsPerHour 1–60；keywords 最多 32 项且每项 1–64 字符。quiet 的 timezone 为 IANA、start/end 为 HH:mm，可跨午夜但相等无效。DM 仅 direct/record/mute；group/channel 禁止 direct。
 
 引用须存在，目标 Agent/profile 与渠道实例须存在，目标实例须在该 Agent 的 channelInstances 内（console 例外）；同级映射冲突拒绝。静态配置未知字段按既有 config 规则校验；gateway 请求按其协议兼容未知字段。加载或热重载校验失败保留旧配置并报告路径，revision 是 agent.yaml 的内容版本；更新先校验、比较 revision，再原子替换。
 
@@ -193,4 +193,5 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 群聊调度可为 Agent 设置 `social.scope`，仅该列表使用 social 准入与映射，范围外仍沿原绑定；省略保持原有全局 social 行为。SocialPolicy 新增可选 `plugin: string`，值为当前 Bot/群选择的参与策略插件 id，缺省为 social；可在现有 defaults.group 与 conversations 精确覆盖，沿现有策略合并顺序，不另建插件选择表。目标插件须实际加载并由 Bot 选择，内核按真实插件身份及 Bot/群范围检查；无效选择明确拒绝，不回退或扩大权限。
 
-social 插件既有 `config.groupJudge` 保留为兼容入口，使用实际 `preset`、受管 `conversations`、可公开的 `identities` 和已核实同群 `rooms`。它只配置官方插件的群作用域和判断参数；每个 Bot 仍使用自己的来源群 profile 的 cheap/simple 与独立预算，不取第一位候选的模型替全群判断。公开身份默认从实际设定中选择可公开部分，identities 仅显式覆盖。群工具/上下文复用已有插件与配置档选择，群配置不代替 Bot 授权。上述为目标契约，机器 schema/SDK 与配置升级须由实现同步，旧配置不得静默改作用域或覆盖自定义策略。详见 04、11。
+social 插件既有 `config.groupJudge` 保留为兼容入口，包含复盘 preset、受管 conversations、公开 identities、已核实 rooms，以及可选 review.intervalHours（默认24）/minMessages（默认20）。受管路径使用硬规则，不再按轮调用 judge；旧 judge 配置与历史不移除。triggers 可含有限 regex、字面 exclude、minLength/maxLength；长度范围须有效，正则边界见 11。自调规则版本记录在事件账本，按 Bot/群及基础 ownerRevision 隔离，只覆盖自身触发字段，不覆盖权限/准入/群主策略。公开身份使用显式 identities 或真实名称，缺关注方向不推测。群工具/上下文复用已有插件选择，groupJudge 不代替 Bot 授权。详见 04、11。
+
