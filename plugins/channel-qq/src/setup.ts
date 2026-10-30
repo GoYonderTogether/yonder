@@ -129,9 +129,7 @@ export async function configure(
 				capabilities: ["read"],
 				tools: { offer: groupTools, search: [] },
 				plugins: [],
-				contexts: (agent.profiles[current.profile].contexts ?? agent.defaults?.contexts ?? []).filter((id: string) =>
-					["agents-md", "user-md", "soul-md", "memory-md"].includes(id),
-				),
+				contexts: ["peer-workspace"],
 				skills: [],
 				instructions: groupInstructions,
 			});
@@ -282,10 +280,11 @@ export async function upgradeGroups(home: string, agentId?: string) {
 			const profiles = doc.toJSON().profiles ?? {};
 			for (const [id, profile] of Object.entries(profiles) as [
 				string,
-				{ instructions?: string; tools?: { offer?: string[] } },
+				{ instructions?: string; contexts?: string[]; tools?: { offer?: string[] } },
 			][]) {
 				if (profile.instructions !== legacyGroupInstructions && profile.instructions !== groupInstructions) continue;
 				doc.setIn(["profiles", id, "instructions"], groupInstructions);
+				doc.setIn(["profiles", id, "contexts"], [...new Set([...(profile.contexts ?? []), "peer-workspace"])]);
 				doc.setIn(["profiles", id, "tools", "offer"], [...new Set([...(profile.tools?.offer ?? []), ...groupTools])]);
 				dirty = true;
 			}

@@ -18,7 +18,7 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 
 - 保存 AppSecret 到 home 配置的 auth.json，权限 0600；yonder.yaml 只保存凭据名。
 - 添加 `qq-main` 实例与指定 Agent 的私聊和群绑定；私聊仅允许扫码账号，进入该 Agent 的 main 会话。
-- 创建群只读配置档 `qq-main-group`：每群独立持久会话，提供 read/grep、conversation_read、conversation_members、conversation_attachment_read、当前群定向发送与受限的 parent_ask。共享所属 Agent 工作区中的可读记忆，沿用其选中的 context-files；不授予写、执行或任意跨会话发送能力。
+- 创建群只读配置档 `qq-main-group`：每群独立持久会话，提供 read/grep、conversation_read、conversation_members、conversation_attachment_read、当前群定向发送与受限的 parent_ask。用内核 peer-workspace 注入所属 Agent 的 SOUL.md 与 AGENTS.md，不自动注入私人记忆；不授予写、执行或任意跨会话发送能力。
 - 配置群原消息只写入会话、非空 60 秒批次运行、主会话接收协助请求。普通私聊和群批次使用 busy: steer；群分身决定是否公开回复，普通最终正文不自动发到群。
 
 然后由 Agent 重启目标 home 的 Yonder 服务并完成真实验证：已有托管服务用 `yonder --home <home> service restart`；手工运行则停止该 home 后重新 `yonder --home <home> start`。新增插件代码需要重启。不要重启其他 home，不自动替换正式安装。
@@ -72,7 +72,7 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 node plugins/channel-qq/dist/setup.js upgrade-groups --home /absolute/path/to/home
 ```
 
-可加 `--agent <id>` 限定 Agent。命令只识别逐字匹配的旧官方群指令，替换场景提示并合并只读会话工具；保留自定义指令、模型和其他配置，写入前创建 0600 的 `agent.yaml.pre-qq-context-<uuid>` 备份。运行后先 doctor，再重启目标 home。工具可搜索当前群真实记录、查看已观察参与者、按消息 ID/附件序号读取文本附件；成员清单不等于平台完整成员列表。
+可加 `--agent <id>` 限定 Agent。命令只识别逐字匹配的旧官方群指令，替换场景提示、合并只读会话工具，并增量加入 peer-workspace 身份上下文（保留现有 contexts）；保留自定义指令、模型和其他配置，写入前创建 0600 的 `agent.yaml.pre-qq-context-<uuid>` 备份。运行后先 doctor，再重启目标 home。工具可搜索当前群真实记录、查看已观察参与者、按消息 ID/附件序号读取文本附件；成员清单不等于平台完整成员列表。
 
 群分身可自然发言，或用 `respondTo` 选择语义回应对象而不显示引用；`replyTo` 才显式显示引用，均用真实入站 turn id，不用批次 id。共享内核提供合法被动来源，QQ 插件的 `msg_id` 与 `message_reference` 分开；有真实 `qq.msgIdx` 时优先引用该 REFIDX。旧事件缺索引时保留原生 ID 兼容路径，平台结果需实际验证。
 

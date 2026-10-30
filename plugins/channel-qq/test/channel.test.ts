@@ -107,6 +107,7 @@ test("scan completion preserves credentials and configures read-only group parti
 		expect(agent.profiles["qq-main-group"]).toMatchObject({
 			capabilities: ["read"],
 			tools: { offer: groupTools },
+			contexts: ["peer-workspace"],
 			plugins: [],
 			skills: [],
 		});
@@ -467,6 +468,7 @@ test("official group upgrade preserves custom prompts and creates a recoverable 
 		doc.profiles.official = {
 			capabilities: ["read"],
 			instructions: legacyGroupInstructions,
+			contexts: ["existing-context"],
 			tools: { offer: ["read", "grep", "message_send", "parent_ask"], search: [] },
 		};
 		doc.profiles.custom = { instructions: "Custom group instructions", tools: { offer: ["read"] } };
@@ -475,6 +477,7 @@ test("official group upgrade preserves custom prompts and creates a recoverable 
 		expect((await upgradeGroups(home, "main")).changed).toEqual([file]);
 		const updated = parse(await readFile(file, "utf8"));
 		expect(updated.profiles.official.instructions).toBe(groupInstructions);
+		expect(updated.profiles.official.contexts).toEqual(["existing-context", "peer-workspace"]);
 		expect(updated.profiles.official.tools.offer.toSorted()).toEqual(groupTools.toSorted());
 		expect(updated.profiles.custom).toEqual(doc.profiles.custom);
 		expect((await upgradeGroups(home, "main")).changed).toEqual([]);
