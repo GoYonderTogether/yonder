@@ -104,13 +104,17 @@ export function TaskRow({
 				className={`press no-select flex items-center gap-2 px-4 py-2 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
 				data-testid="task-row"
 			>
-				{status === "running" && <Loader size={13} className="shrink-0 animate-spin text-online" aria-label="进行中" />}
-				{status === "waiting" && (
-					<span role="img" aria-label="需要你" className="size-2 shrink-0 rounded-full bg-accent" />
-				)}
+				<span className="flex w-4 shrink-0 items-center justify-center" data-testid="session-icon-slot">
+					{status === "running" ? (
+						<Loader size={13} className="animate-spin text-online" aria-label="进行中" />
+					) : status === "waiting" ? (
+						<span role="img" aria-label="需要你" className="size-2 rounded-full bg-accent" />
+					) : isPinned ? (
+						<Pin size={11} className="text-faint" aria-label="已置顶" />
+					) : null}
+				</span>
 				<span className="min-w-0 flex-1">
 					<span className={`flex items-center gap-1 text-small ${status === "done" ? "text-muted" : ""}`}>
-						{isPinned && <Pin size={11} className="shrink-0 text-faint" aria-hidden />}
 						<span className="truncate">{title}</span>
 					</span>
 					{isPinned && <Progress id={s.id} />}

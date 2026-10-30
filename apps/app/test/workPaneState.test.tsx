@@ -203,6 +203,8 @@ it("空内容区保留恢复入口，工作列表没有更多操作", async () =
 	const { container, root } = await render("/work");
 	expect(container.querySelector("aside")?.textContent).not.toContain("恢复默认视图");
 	expect(button(container, "恢复默认视图")).toBeTruthy();
+	const header = [...container.querySelectorAll('[data-testid="local-work-header"]')].at(-1);
+	expect(header?.parentElement?.classList.contains("flex-col")).toBe(true);
 	await act(() => root.unmount());
 });
 it("会话返回再点击当前会话可进入正文", async () => {

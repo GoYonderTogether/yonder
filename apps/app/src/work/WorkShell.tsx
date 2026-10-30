@@ -210,7 +210,7 @@ export function WorkShell({
 				) : page ? (
 					"工作设置"
 				) : (
-					"工作"
+					""
 				)
 			}
 			subtitle={
@@ -281,10 +281,10 @@ export function WorkShell({
 		) : frame.side === "main" ? (
 			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
 		) : (
-			<>
+			<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 				{contentHeader}
 				<EmptyPane message="选择一个 Bot 或任务" />
-			</>
+			</div>
 		);
 	return (
 		<div className="flex h-full flex-col bg-rail">

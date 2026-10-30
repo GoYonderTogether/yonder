@@ -18,13 +18,14 @@ it("keeps title, subtitle and actions in a shared toolbar", () => {
 	expect(html).toContain("更多");
 });
 
-it("renders the four distinct Tabler pane actions as decorative icons", () => {
+it("renders arrow-free pane icons for both sides", () => {
 	const icons = [PaneLeftCollapse, PaneLeftExpand, PaneRightCollapse, PaneRightExpand].map((Icon) =>
 		renderToStaticMarkup(<Icon size={19} />),
 	);
-	expect(new Set(icons).size).toBe(4);
+	expect(new Set(icons).size).toBe(2);
 	for (const icon of icons) {
 		expect(icon).toContain('aria-hidden="true"');
 		expect(icon).toContain('width="19"');
+		expect(icon.match(/<path/g)).toHaveLength(3);
 	}
 });

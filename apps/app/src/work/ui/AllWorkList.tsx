@@ -95,10 +95,11 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 						<button
 							key={session.id}
 							type="button"
-							className="block w-full truncate py-2 text-left text-small"
+							className="flex w-full items-center gap-2 py-2 text-left text-small"
 							onClick={() => onOpen(device, session.id)}
 						>
-							{titleOf(session)}
+							<span className="w-4 shrink-0" data-testid="session-icon-slot" />
+							<span className="min-w-0 truncate">{titleOf(session)}</span>
 						</button>
 					))}
 					{groups.done.length > 0 && (
@@ -108,10 +109,11 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 								<button
 									key={session.id}
 									type="button"
-									className="block w-full truncate py-2 text-left text-small"
+									className="flex w-full items-center gap-2 py-2 text-left text-small"
 									onClick={() => onOpen(device, session.id)}
 								>
-									{titleOf(session)}
+									<span className="w-4 shrink-0" data-testid="session-icon-slot" />
+									<span className="min-w-0 truncate">{titleOf(session)}</span>
 								</button>
 							))}
 						</details>

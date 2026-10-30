@@ -63,6 +63,7 @@ it("opens the same session id on the device whose row was selected", async () =>
 	expect(bot?.classList.contains("flex-col")).toBe(true);
 	expect(bot?.querySelector("span.truncate")?.textContent).toBe("GPT 学姐");
 	const button = [...section!.querySelectorAll("button")].find((item) => item.textContent === "b");
+	expect(button?.querySelector('[data-testid="session-icon-slot"]')?.classList.contains("w-4")).toBe(true);
 	await act(() => button!.dispatchEvent(new window.Event("click", { bubbles: true })));
 	expect(selected).toHaveBeenCalledWith(devices[1], "42");
 	await act(() => root.unmount());
