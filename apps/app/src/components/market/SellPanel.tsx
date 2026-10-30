@@ -12,11 +12,12 @@ import {
 	Plus,
 	Sparkles,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { compactCount, hasListingImage, kindLabel, priceLabel, viewCount } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
 import type { Listing, ListingKind } from "../../market/types";
+import { uploadMarketImage } from "../../market/uploadImage";
 import { ListingCard } from "./ListingCard";
 import { MarketDialog } from "./MarketUI";
 
@@ -50,6 +51,10 @@ export function PublishDialog({
 	const openEnded = form.kind === "idea" || form.kind === "job";
 	const [error, setError] = useState("");
 	const [publishing, setPublishing] = useState(false);
+	const [uploading, setUploading] = useState(false);
+	const [uploadProgress, setUploadProgress] = useState(0);
+	const formRef = useRef(form);
+	formRef.current = form;
 	const draftKey = `${storageKey}:publish:${editing?.id ?? "new"}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 草稿只在对话框打开时恢复一次，输入变化不应重跑
 	useEffect(() => {
@@ -95,6 +100,19 @@ export function PublishDialog({
 		persist(form, next);
 	};
 	const update = <K extends keyof typeof BLANK>(key: K, value: (typeof BLANK)[K]) => persist({ ...form, [key]: value });
+	const selectImage = async (file: File) => {
+		setUploading(true);
+		setUploadProgress(0);
+		setError("");
+		try {
+			const image = await uploadMarketImage(file, setUploadProgress);
+			persist({ ...formRef.current, image });
+		} catch (error) {
+			setError(error instanceof Error ? error.message : "图片上传失败，请重试");
+		} finally {
+			setUploading(false);
+		}
+	};
 	const next = () => {
 		if (step === 1 && (!form.title.trim() || !form.description.trim())) {
 			setError("请填写标题和描述");
@@ -167,7 +185,9 @@ export function PublishDialog({
 	return (
 		<MarketDialog
 			open={open}
-			close={close}
+			close={() => {
+				if (!uploading) close();
+			}}
 			title={["发布什么？", "让人一眼了解", openEnded ? "安排与费用" : "价格与交付", "确认发布"][step]}
 		>
 			<form
@@ -226,6 +246,32 @@ export function PublishDialog({
 					)}
 					{step === 1 && (
 						<>
+							{form.kind === "item" && (
+								<div className="mk-upload-row">
+									{hasListingImage(form.image) && <img className="mk-upload-preview" src={form.image} alt="图片预览" />}
+									<div>
+										<label className="mk-form-label">
+											选择图片（JPEG、PNG、WebP，最大 5 MB）
+											<input
+												type="file"
+												accept="image/jpeg,image/png,image/webp"
+												disabled={uploading}
+												onChange={(event) => {
+													const file = event.currentTarget.files?.[0];
+													event.currentTarget.value = "";
+													if (file) void selectImage(file);
+												}}
+											/>
+										</label>
+										{uploading && <p role="status">上传中 {uploadProgress}%</p>}
+										{form.image && (
+											<button type="button" disabled={uploading} onClick={() => update("image", "")}>
+												移除图片
+											</button>
+										)}
+									</div>
+								</div>
+							)}
 							<label className="mk-form-label">
 								标题（必填）
 								<input
@@ -364,7 +410,7 @@ export function PublishDialog({
 					) : (
 						<span className="mk-form-hint">草稿自动保留</span>
 					)}
-					<button type="submit" className="mk-button mk-primary" disabled={publishing}>
+					<button type="submit" className="mk-button mk-primary" disabled={publishing || uploading}>
 						{publishing ? "发布中…" : step === 3 ? (editing ? "保存修改" : "确认发布") : "下一步"}
 						{step === 3 ? <Check size={16} /> : <ArrowRight size={16} />}
 					</button>

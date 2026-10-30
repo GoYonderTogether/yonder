@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PublishDialog, SellerWorkspace } from "../src/components/market/SellPanel";
+import { uploadMarketImage } from "../src/market/uploadImage";
 
 vi.mock("radix-ui", async () => {
 	const { createElement: h, Fragment } = await import("react");
@@ -20,6 +21,7 @@ vi.mock("radix-ui", async () => {
 	};
 });
 vi.mock("../src/ui/Toast", () => ({ toast: vi.fn() }));
+vi.mock("../src/market/uploadImage", () => ({ uploadMarketImage: vi.fn() }));
 
 const KEY = "yonder-market-demo:v1:guest";
 const DRAFT = {
@@ -102,12 +104,31 @@ describe("PublishDialog 发布失败不清草稿（B1）", () => {
 	});
 });
 
-it("无图片上传入口或示意封面，旧草稿发布时不带假图", async () => {
-	const onPublish = vi.fn().mockResolvedValue(false);
-	await renderDialog(onPublish, 1);
-	expect(container.textContent).not.toContain("图片上传");
+it("实物发布可选择图片，旧示意图不预览", async () => {
+	await renderDialog(vi.fn().mockResolvedValue(false), 1);
 	expect(container.querySelector("img")).toBeNull();
-	expect(container.querySelector('input[type="file"]')).toBeNull();
+	expect(container.querySelector('input[type="file"]')).not.toBeNull();
+});
+
+it("上传显示进度，成功后预览并可移除", async () => {
+	let finish!: (url: string) => void;
+	vi.mocked(uploadMarketImage).mockImplementation((_file, progress) => {
+		progress(42);
+		return new Promise((resolve) => {
+			finish = resolve;
+		});
+	});
+	await renderDialog(vi.fn(), 1);
+	const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+	Object.defineProperty(input, "files", { value: [{ type: "image/png", size: 10 }] });
+	await act(() => input.dispatchEvent(new win.Event("change", { bubbles: true })));
+	expect(container.textContent).toContain("上传中 42%");
+	expect(input.disabled).toBe(true);
+	await act(async () => finish("https://example.test/photo.png"));
+	expect(container.querySelector('img[alt="图片预览"]')?.getAttribute("src")).toBe("https://example.test/photo.png");
+	const remove = [...container.querySelectorAll("button")].find((button) => button.textContent === "移除图片");
+	await act(() => remove?.dispatchEvent(new win.Event("click", { bubbles: true })));
+	expect(container.querySelector('img[alt="图片预览"]')).toBeNull();
 });
 
 it("旧草稿发布不带假图，确认页无说明", async () => {
