@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
+## [0.3.26103011] - 2026-10-30
+
 - QQ与Web群可按已确认房间共享廉价模型判断，固定3秒快照、5–15秒自然静默、身份相关50%候选，发前拦截旧草稿与未选Bot；真正@优先，普通主人消息不再当@。
+
+### Changed
+
+- core：separate plugin service types
+
+### Fixed
+
+- app：include archived children in rail
+- app：fold completed subtasks in work rail
+- app：read nested gateway snapshot metadata
+- app：avoid carrying sessions across devices
+- app：allow focusing each work pane
+- social：validate group delivery through the real kernel
+- show delegated task titles in subagent cards
+- app：refresh chat list after device changes
+- app：prevent text selection while dragging bots
+- app：align work bots with device identities
+- app：collapse completed subagent details
+- app：preserve work session links on device selection
+
+### Added
+
+- bind group participation admission to selected plugin
+- app：adapt work panes to available content
+- app：aggregate work across devices
+- derive task titles without default model calls
+- social：coordinate group replies through inexpensive room judgments
+- app：drag scroll workbench bot list
 
 ## [0.3.26103010] - 2026-10-30
 
