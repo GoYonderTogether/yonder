@@ -116,7 +116,7 @@ func observationOutcome(state: String, closed: Bool, timedOut: Bool) -> String? 
         controller?.refreshPanel()
         try emit([record])
         if restart { return ObservationResult(outcome: "relaunch", exitCode: 0, permission: record) }
-        if let outcome = observationOutcome(state: record.state, closed: closed, timedOut: Date() >= deadline) {
+        if let outcome = observationOutcome(state: record.state, closed: closed, timedOut: Date().timeIntervalSinceReferenceDate >= deadline.timeIntervalSinceReferenceDate) {
             if outcome == "granted" {
                 controller?.guidanceMessage = "已授权 / Granted"
                 controller?.refreshPanel()

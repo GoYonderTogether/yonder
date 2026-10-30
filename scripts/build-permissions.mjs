@@ -16,6 +16,9 @@ if (process.platform === "darwin") {
 	}
 	process.stderr.write(run("swift", ["build", "--package-path", pkg, "-j", "4"]));
 	const bin = run("swift", ["build", "--package-path", pkg, "--show-bin-path"]).trim();
+	// Newer SDKs can weak-link Date.>= to a symbol absent on supported macOS builds.
+	if (run("nm", ["-u", `${bin}/YonderHelper`]).includes("$s10Foundation4DateV2geoiySbAC_ACtFZ"))
+		throw new Error("YonderHelper links unavailable Foundation Date.>=; compare time intervals instead");
 	const app = `${root}${pkg}/dist/Yonder Helper.app`;
 	mkdirSync(`${app}/Contents/MacOS`, { recursive: true });
 	mkdirSync(`${app}/Contents/Resources`, { recursive: true });
