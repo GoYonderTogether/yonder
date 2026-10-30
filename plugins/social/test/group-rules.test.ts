@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { SocialPolicy } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { GroupRules, type OwnRules, ruleMatch, validateRules } from "../src/group-rules.js";
@@ -20,6 +21,10 @@ test("hard rules use normalized keywords, standard regex, literal exclusions and
 	for (const text of ["", "   ", "设", "设计".repeat(13)])
 		expect(ruleMatch(text, policy)).toEqual({ eligible: false, match: false });
 	expect(ruleMatch("普通聊天", policy)).toEqual({ eligible: true, match: false });
+	expect(ruleMatch("设计".repeat(2000), { triggers: { regex: ["设计"], maxLength: 2048 } })).toEqual({
+		eligible: false,
+		match: false,
+	});
 	expect(ruleMatch("设计", {})).toEqual({ eligible: true, match: false });
 	expect(ruleMatch(`${"a".repeat(2048)}设计`, { keywords: ["设计"] })).toEqual({ eligible: true, match: false });
 });
@@ -97,6 +102,77 @@ test("effective own rules retain owner boundaries and use a twenty-message defau
 		).toBe(40);
 		expect(await fixture.kernel.events.query({ type: "social.rules-change" })).toMatchObject({ events: [] });
 		expect(fixture.probe.sent).toEqual([]);
+	} finally {
+		await fixture.close();
+	}
+});
+
+test("authorized program rule updates atomically reject bad proposals, roll back seeds and restore ledger versions", async () => {
+	const seed: OwnRules = { keywords: ["设计"], count: 20 };
+	const fixture = await groupFixture({ social: true, initialRules: { main: seed }, captureSocialApi: true });
+	const { kernel, probe } = fixture;
+	try {
+		const api = probe.socialApi;
+		if (!api) throw Error("Actual social plugin API was not captured");
+		expect(api.id).toBe("social");
+		const source = await probe.ios["qq-main"].emit({
+			type: "message.in",
+			from: "acct:qq-main:owner",
+			conv: mainConv,
+			data: { kind: "group", text: `${"a".repeat(160)}!`, msgId: randomUUID() },
+		});
+		const inspection = await kernel.social.inspect(
+			{ agent: "main", conv: mainConv },
+			{ id: "test-owner", kind: "local", transport: "socket", scopes: ["owner", "admin"] },
+		);
+		const rules = new GroupRules(api, (conv) => conv === mainConv, { main: seed });
+		const initial = rules.current("main", mainConv, inspection.revision);
+		const facts = async () => (await kernel.events.query({ type: "social.rules-change" })).events;
+		const request = { expectedRevision: inspection.revision, reason: "检查本群规则的原子应用" };
+		await expect(
+			rules.update("main", mainConv, { ...request, rules: { triggers: { regex: ["["] } } }, [source], inspection),
+		).rejects.toThrow();
+		await expect(
+			rules.update("main", mainConv, { ...request, rules: { triggers: { regex: ["^(a+)+$"] } } }, [source], inspection),
+		).rejects.toThrow("old rules retained");
+		await expect(
+			rules.update("main", mainConv, { ...request, expectedRevision: "stale", rules: {} }, [source], inspection),
+		).rejects.toThrow("changed");
+		await expect(
+			rules.update("main", "conv:qq-main:unknown", { ...request, rules: {} }, [source], inspection),
+		).rejects.toThrow("Managed current group");
+		expect(await facts()).toEqual([]);
+		expect(rules.current("main", mainConv, inspection.revision)).toEqual(initial);
+		const proposal: OwnRules = { keywords: ["界面"], count: 30, triggers: { regex: ["^(设计|界面).{0,20}$"] } };
+		const applied = await rules.update("main", mainConv, { ...request, rules: proposal }, [source], inspection);
+		expect(applied.rules).toEqual(proposal);
+		expect(applied.replay.errors).toBe(0);
+		expect(await facts()).toHaveLength(1);
+		await expect(rules.update("main", mainConv, { ...request, rules: seed }, [source], inspection)).rejects.toThrow(
+			"changed",
+		);
+		expect(await facts()).toHaveLength(1);
+		expect(rules.current("main", mainConv, inspection.revision)).toEqual(proposal);
+		const restored = new GroupRules(api, (conv) => conv === mainConv, { main: seed });
+		await restored.start();
+		expect(restored.version("main", mainConv, inspection.revision)?.id).toBe(applied.revision);
+		expect(restored.current("main", mainConv, inspection.revision)).toEqual(proposal);
+		const rolledBack = await restored.update(
+			"main",
+			mainConv,
+			{ expectedRevision: applied.revision, reason: "回退本群自主规则", rollback: true },
+			[source],
+			inspection,
+		);
+		expect(rolledBack.rules).toEqual(seed);
+		expect((await facts())[1]?.data).toMatchObject({ before: proposal, after: seed, rollback: applied.revision });
+		const restarted = new GroupRules(api, (conv) => conv === mainConv, { main: seed });
+		await restarted.start();
+		expect(restarted.version("main", mainConv, inspection.revision)?.id).toBe(rolledBack.revision);
+		expect(restarted.current("main", mainConv, inspection.revision)).toEqual(seed);
+		expect(probe.contexts).toEqual([]);
+		expect((await kernel.events.query({ type: "social.rules-review-start" })).events).toEqual([]);
+		expect(probe.sent).toEqual([]);
 	} finally {
 		await fixture.close();
 	}

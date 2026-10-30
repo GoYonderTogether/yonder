@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { ChannelIO, Delivery, PluginAPI, ToolContext } from "@yonder/sdk";
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -11,6 +12,7 @@ export const gptConv = "conv:qq-gpt:group:gpt-group";
 export const privateConv = "conv:qq-main:private";
 export interface GroupProbe {
 	api: PluginAPI;
+	socialApi?: PluginAPI;
 	ios: Record<string, ChannelIO>;
 	sent: Array<{ to: string; text: string }>;
 	contexts: ToolContext[];
@@ -21,13 +23,33 @@ export interface GroupProbe {
 
 /** Real kernel/social hooks and resident sessions; only delivery stays on a local recording transport. */
 export async function groupFixture(
-	options: { social?: boolean; authSource?: string; model?: string; allowProvider?: boolean } = {},
+	options: {
+		social?: boolean;
+		authSource?: string;
+		model?: string;
+		allowProvider?: boolean;
+		captureSocialApi?: boolean;
+		initialRules?: Record<string, unknown>;
+		identities?: Record<string, string>;
+		review?: { intervalHours?: number; minMessages?: number };
+	} = {},
 ) {
 	const home = await mkdtemp("/tmp/yonder-group-delivery-");
 	const key = `group-delivery-${randomUUID()}`;
 	const globals = globalThis as unknown as Record<string, GroupProbe>;
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
+		if (options.captureSocialApi) {
+			await mkdir(join(home, "social-capture"));
+			const manifest = JSON.parse(await readFile(resolve("plugins/social/package.json"), "utf8"));
+			manifest.yonder.entry = "index.mjs";
+			await writeFile(join(home, "social-capture/package.json"), JSON.stringify(manifest));
+			await writeFile(
+				join(home, "social-capture/index.mjs"),
+				`import plugin from ${JSON.stringify(pathToFileURL(resolve("plugins/social/src/index.ts")).href)};
+export default {...plugin,setup(api){globalThis[${JSON.stringify(`${key}:social`)}]=api;return plugin.setup(api);}};`,
+			);
+		}
 		await mkdir(join(home, "probe"));
 		await mkdir(join(home, "presets"));
 		await writeFile(
@@ -47,7 +69,7 @@ export async function groupFixture(
 		await writeFile(
 			join(home, "probe/index.mjs"),
 			`export default {setup(api){
-const state={api,ios:{},sent:[],contexts:[],releases:new Map(),results:[]}; globalThis[${JSON.stringify(key)}]=state;
+const state={api,socialApi:globalThis[${JSON.stringify(`${key}:social`)}],ios:{},sent:[],contexts:[],releases:new Map(),results:[]}; globalThis[${JSON.stringify(key)}]=state;
 api.hooks.register({id:'hold',async beforeRequest(messages,ctx){
 state.contexts.push(ctx);
 await new Promise(resolve=>{state.releases.set(ctx.session,resolve);if(ctx.signal.aborted)resolve();else ctx.signal.addEventListener('abort',resolve,{once:true});});
@@ -74,8 +96,16 @@ api.channels.register({
 				...(options.authSource ? { credentials: resolve(options.authSource) } : {}),
 				plugins: [
 					{
-						use: resolve("plugins/social"),
-						config: { groupJudge: { preset: "group-judge", rooms: [[mainConv, gptConv]] } },
+						use: options.captureSocialApi ? "./social-capture" : resolve("plugins/social"),
+						config: {
+							groupJudge: {
+								preset: "group-judge",
+								rooms: [[mainConv, gptConv]],
+								...(options.initialRules ? { initialRules: options.initialRules } : {}),
+								...(options.identities ? { identities: options.identities } : {}),
+								...(options.review ? { review: options.review } : {}),
+							},
+						},
 					},
 					{ use: "./probe" },
 				],
@@ -171,12 +201,14 @@ api.channels.register({
 				for (const release of globals[key]?.releases.values() ?? []) release();
 				await kernel?.close();
 				delete globals[key];
+				delete globals[`${key}:social`];
 				await rm(home, { recursive: true, force: true });
 			},
 		};
 	} catch (error) {
 		await kernel?.close();
 		delete globals[key];
+		delete globals[`${key}:social`];
 		await rm(home, { recursive: true, force: true });
 		throw error;
 	}
