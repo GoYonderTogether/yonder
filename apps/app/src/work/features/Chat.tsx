@@ -1,4 +1,5 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { RpcError, rpc } from "../api/client";
@@ -19,49 +20,31 @@ import { SessionSources } from "./SessionSources";
 
 /** 悬浮窗开关菜单：勾选 = 该面板现在是悬浮窗 */
 export function FloatMenu({ session }: { session: string }) {
-	const [open, setOpen] = useState(false);
 	const layout = useLayout(session);
 	return (
-		<div className="relative">
-			<button
-				type="button"
-				onClick={() => setOpen((o) => !o)}
-				aria-label="悬浮面板"
-				aria-expanded={open}
-				title="悬浮面板"
-				className="press flex min-h-11 items-center px-2 text-small"
-				data-testid="float-menu"
-			>
-				悬浮面板
-			</button>
-			{open && (
-				<div
-					className="absolute right-0 z-30 mt-1 w-44 rounded-card bg-raised p-1 shadow-float"
-					role="menu"
-					data-testid="float-menu-list"
+		<DropdownMenu.Sub>
+			<DropdownMenu.SubTrigger className="press flex min-h-11 cursor-pointer items-center justify-between rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone">
+				悬浮面板 <ChevronRight size={16} aria-hidden />
+			</DropdownMenu.SubTrigger>
+			<DropdownMenu.Portal>
+				<DropdownMenu.SubContent
+					sideOffset={6}
+					className="z-50 min-w-40 rounded-card bg-raised p-1.5 shadow-float outline-none"
 				>
-					{FLOATABLE.map((k) => {
-						const on = layout.float.some((f) => f.kind === k);
-						return (
-							<button
-								key={k}
-								type="button"
-								role="menuitemcheckbox"
-								aria-checked={on}
-								onClick={() => {
-									toggleFloat(session, k);
-									setOpen(false);
-								}}
-								className="press flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-small hover:bg-tone"
-							>
-								<span className="w-4 text-center">{on ? "✓" : ""}</span>
-								{PANEL_TITLE[k]}
-							</button>
-						);
-					})}
-				</div>
-			)}
-		</div>
+					{FLOATABLE.map((kind) => (
+						<DropdownMenu.CheckboxItem
+							key={kind}
+							checked={layout.float.some((item) => item.kind === kind)}
+							onCheckedChange={() => toggleFloat(session, kind)}
+							className="press flex min-h-11 cursor-pointer items-center gap-2 rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+						>
+							<DropdownMenu.ItemIndicator>✓</DropdownMenu.ItemIndicator>
+							{PANEL_TITLE[kind]}
+						</DropdownMenu.CheckboxItem>
+					))}
+				</DropdownMenu.SubContent>
+			</DropdownMenu.Portal>
+		</DropdownMenu.Sub>
 	);
 }
 

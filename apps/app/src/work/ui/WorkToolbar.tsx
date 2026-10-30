@@ -1,5 +1,5 @@
 import { Ellipsis } from "lucide-react";
-import { Popover } from "radix-ui";
+import { DropdownMenu } from "radix-ui";
 import type { ReactNode } from "react";
 import { AppBar } from "../../components/AppBar";
 import { PaneLeftCollapse, PaneLeftExpand, PaneRightCollapse, PaneRightExpand } from "../../ui/PaneIcons";
@@ -65,23 +65,23 @@ export function WorkToolbar({
 						</button>
 					)}
 					{more ? (
-						<Popover.Root>
-							<Popover.Trigger
+						<DropdownMenu.Root modal={false}>
+							<DropdownMenu.Trigger
 								aria-label="工作区更多"
 								className="press grid size-10 shrink-0 place-items-center rounded-full"
 							>
 								<Ellipsis size={20} aria-hidden />
-							</Popover.Trigger>
-							<Popover.Portal>
-								<Popover.Content
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Portal>
+								<DropdownMenu.Content
 									align="end"
-									sideOffset={4}
-									className="z-50 flex min-w-48 flex-col gap-3 rounded-card bg-raised p-3 shadow-float outline-none"
+									sideOffset={6}
+									className="rise z-50 min-w-40 rounded-card bg-raised p-1.5 shadow-float outline-none"
 								>
 									{more}
-								</Popover.Content>
-							</Popover.Portal>
-						</Popover.Root>
+								</DropdownMenu.Content>
+							</DropdownMenu.Portal>
+						</DropdownMenu.Root>
 					) : null}
 				</div>
 			}

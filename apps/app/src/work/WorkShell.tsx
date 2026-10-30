@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
 import { lazy, type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigationType } from "react-router";
 import { api } from "../api";
@@ -183,17 +184,21 @@ export function WorkShell({
 				more={
 					<>
 						{route.session && (
-							<button
-								type="button"
-								onClick={() => update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })}
-								className="press flex min-h-11 items-center px-2 text-small"
+							<DropdownMenu.Item
+								onSelect={() => update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })}
+								className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
 							>
 								恢复默认视图
-							</button>
+							</DropdownMenu.Item>
 						)}
-						<Link to={workPath({ page: "settings" })} className="press flex min-h-10 items-center px-2 text-small">
-							工作设置
-						</Link>
+						<DropdownMenu.Item asChild>
+							<Link
+								to={workPath({ page: "settings" })}
+								className="press flex min-h-11 items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+							>
+								工作设置
+							</Link>
+						</DropdownMenu.Item>
 					</>
 				}
 			/>
@@ -301,32 +306,32 @@ export function WorkShell({
 							more={
 								<>
 									{session?.mode === "main" && session.agent && !isImported(session) && (
-										<button
-											type="button"
-											onClick={openChannels}
-											className="press flex min-h-11 items-center px-2 text-small"
+										<DropdownMenu.Item
+											onSelect={openChannels}
+											className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
 										>
 											渠道与子会话
-										</button>
+										</DropdownMenu.Item>
 									)}
 									{route.session && <FloatMenu session={route.session} />}
 									{route.session && (
-										<button
-											type="button"
-											onClick={() =>
+										<DropdownMenu.Item
+											onSelect={() =>
 												update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })
 											}
-											className="press flex min-h-11 items-center px-2 text-small"
+											className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
 										>
 											恢复默认视图
-										</button>
+										</DropdownMenu.Item>
 									)}
-									<Link
-										to={workPath({ page: "settings" })}
-										className="press flex min-h-10 items-center px-2 text-small"
-									>
-										工作设置
-									</Link>
+									<DropdownMenu.Item asChild>
+										<Link
+											to={workPath({ page: "settings" })}
+											className="press flex min-h-11 items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+										>
+											工作设置
+										</Link>
+									</DropdownMenu.Item>
 								</>
 							}
 						/>

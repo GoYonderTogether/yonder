@@ -117,23 +117,26 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 					sideOffset={6}
 					className="z-50 min-w-40 rounded-card bg-raised p-1.5 shadow-float outline-none"
 				>
-					{[{ id: "all", name: "全部设备", online: true }, ...devices.data].map((device) => (
-						<DropdownMenu.Item
-							key={device.id}
-							className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
-							onSelect={() => {
-								setChoice(device.id);
-								void navigate(
-									legacySession && !selected && device.id !== "all" && route.session
-										? workPath({ deviceId: device.id, session: route.session })
-										: "/work",
-								);
-							}}
-						>
-							{device.name}
-							{device.online ? "" : "（离线）"}
-						</DropdownMenu.Item>
-					))}
+					<DropdownMenu.RadioGroup value={choice}>
+						{[{ id: "all", name: "全部设备", online: true }, ...devices.data].map((device) => (
+							<DropdownMenu.RadioItem
+								value={device.id}
+								key={device.id}
+								className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+								onSelect={() => {
+									setChoice(device.id);
+									void navigate(
+										legacySession && !selected && device.id !== "all" && route.session
+											? workPath({ deviceId: device.id, session: route.session })
+											: "/work",
+									);
+								}}
+							>
+								{device.name}
+								{device.online ? "" : "（离线）"}
+							</DropdownMenu.RadioItem>
+						))}
+					</DropdownMenu.RadioGroup>
 				</DropdownMenu.Content>
 			</DropdownMenu.Portal>
 		</DropdownMenu.Root>
