@@ -92,6 +92,8 @@ describe("verifyErrorText", () => {
 		[{ status: 403, code: "share_expired" }, "这个分享链接已过期，请让分享者重新生成"],
 		[{ status: 403, code: "share_revoked" }, "这个分享链接已被撤销，请让分享者重新生成"],
 		[{ status: 429, code: "rate_limited" }, "操作太频繁，请稍后再试"],
+		[{ status: 429, code: "rate_limited", retryAfter: 37 }, "操作太频繁，请 37 秒后再试"],
+		[{ status: 429, retryAfter: 600 }, "操作太频繁，请 10 分钟后再试"],
 		[{ status: 502, code: "send_failed" }, "验证码发送失败，请稍后重试"],
 		[{ status: 409, code: "phone_taken" }, "这个手机号已绑定其他账号"],
 		[{ status: 409, code: "email_taken" }, "这个邮箱已绑定其他账号"],

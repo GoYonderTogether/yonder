@@ -18,7 +18,8 @@ async function request<T>(path: string, init: RequestInit = {}, missingAsNull = 
 	});
 	const text = await response.text();
 	if (!response.ok) {
-		if (response.status === 401) window.dispatchEvent(new Event("yonder:unauthorized"));
+		// 登录接口的 401 是「验证码不正确」，不是会话失效；不能触发登出跳转。
+		if (response.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event("yonder:unauthorized"));
 		if (missingAsNull && response.status === 404) return null as T;
 		let message = response.statusText;
 		let retryAfter: number | undefined;
@@ -27,6 +28,8 @@ async function request<T>(path: string, init: RequestInit = {}, missingAsNull = 
 			message = body.error ?? message;
 			retryAfter = body.retryAfter;
 		} catch {}
+		const header = Number(response.headers.get("Retry-After"));
+		if (retryAfter === undefined && header > 0) retryAfter = header;
 		// status 让页面区分「节点没有社交服务」（404）与其他失败；retryAfter 来自锁定响应的剩余秒数。
 		throw Object.assign(new Error(message), { status: response.status, retryAfter });
 	}

@@ -8,12 +8,14 @@ import { Composer } from "../src/pages/Chat";
 import { $session } from "../src/store";
 
 const api = vi.hoisted(() => ({ send: vi.fn() }));
-const sheet = vi.hoisted(() => ({ props: undefined as undefined | { open: boolean; onSuccess(s: unknown): void } }));
+const sheet = vi.hoisted(() => ({
+	props: undefined as undefined | { open: boolean; onSuccess(s: unknown): void; onOpenChange(o: boolean): void },
+}));
 vi.mock("../src/api", () => ({ api }));
 vi.mock("../src/cache", () => ({ selectAccount: vi.fn() }));
 // 弹窗本体（Radix Dialog）在 linkedom 里不渲染；这里只验证 Composer 何时打开它、成功后做什么。
 vi.mock("../src/components/VerifySheet", () => ({
-	VerifySheet: (props: { open: boolean; onSuccess(s: unknown): void }) => {
+	VerifySheet: (props: { open: boolean; onSuccess(s: unknown): void; onOpenChange(o: boolean): void }) => {
 		sheet.props = props;
 		return null;
 	},
@@ -26,6 +28,12 @@ beforeEach(async () => {
 	vi.stubGlobal("window", window);
 	vi.stubGlobal("document", document);
 	vi.stubGlobal("location", { search: "?share=st-1" });
+	const store = new Map<string, string>();
+	vi.stubGlobal("sessionStorage", {
+		getItem: (k: string) => store.get(k) ?? null,
+		setItem: (k: string, v: string) => void store.set(k, v),
+		removeItem: (k: string) => void store.delete(k),
+	});
 	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 	container = document.createElement("div") as unknown as HTMLElement;
 	document.body.appendChild(container as never);
@@ -77,6 +85,48 @@ describe("Composer 访客额度", () => {
 		await act(async () => sheet.props?.onSuccess(session));
 		expect($session.get()).toEqual(session);
 		expect(api.send).toHaveBeenLastCalledWith("c1", { type: "markdown", text: "你好" });
+	});
+
+	it("persists the held text so it is resent after a reload once signed in", async () => {
+		api.send.mockRejectedValueOnce({ status: 403, code: "verify_required" });
+		await type("第11句话");
+		await send();
+		expect(sessionStorage.getItem("yonder:pending-send:c1")).toBe("第11句话");
+
+		// 模拟刷新 + 登录回来：重新挂载 Composer，会话已是真实账号。
+		api.send.mockResolvedValue({
+			id: "m3",
+			convId: "c1",
+			seq: 2,
+			senderId: "u1",
+			content: { type: "text", text: "x" },
+		});
+		await act(() => root.unmount());
+		$session.set({ actor: { id: "u1", name: "我", kind: "human", anonymous: false } } as never);
+		root = createRoot(container);
+		await act(() =>
+			root.render(
+				<QueryClientProvider client={new QueryClient()}>
+					<MemoryRouter>
+						<Composer convId="c1" offline={false} onSend={() => {}} />
+					</MemoryRouter>
+				</QueryClientProvider>,
+			),
+		);
+		expect(api.send).toHaveBeenLastCalledWith("c1", { type: "markdown", text: "第11句话" });
+		expect(sessionStorage.getItem("yonder:pending-send:c1")).toBeNull();
+		$session.set(null);
+	});
+
+	it("drops the held text when the sheet is closed without signing in", async () => {
+		api.send.mockRejectedValueOnce({ status: 403, code: "verify_required" });
+		await type("先不登录");
+		await send();
+		await act(async () => {
+			(sheet.props as unknown as { onOpenChange(o: boolean): void }).onOpenChange(false);
+			await Promise.resolve();
+		});
+		expect(sessionStorage.getItem("yonder:pending-send:c1")).toBeNull();
 	});
 
 	it("keeps ordinary send failures out of the login sheet", async () => {

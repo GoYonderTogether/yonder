@@ -90,6 +90,18 @@ function lockedText(error: unknown): string {
 		: `尝试次数过多，请 ${Math.ceil(retry)} 秒后再试`;
 }
 
+/** 操作太频繁：服务端给了 retryAfter 就显示还需等待的秒数。 */
+function tooFrequentText(error: unknown): string {
+	const retry =
+		error && typeof error === "object" && "retryAfter" in error
+			? Number((error as { retryAfter?: unknown }).retryAfter)
+			: NaN;
+	if (!Number.isFinite(retry) || retry <= 0) return "操作太频繁，请稍后再试";
+	return retry >= 60
+		? `操作太频繁，请 ${Math.ceil(retry / 60)} 分钟后再试`
+		: `操作太频繁，请 ${Math.ceil(retry)} 秒后再试`;
+}
+
 /**
  * 服务端错误码 → 用户能看懂的一句话。未知错误用原始信息，再退回兜底。
  * 分类来自卡站契约：invalid_code/locked 来自 verify，share_* 来自分享链接配额，
@@ -118,7 +130,7 @@ export function verifyErrorText(error: unknown, fallback = "验证失败，请�
 		case "share_revoked":
 			return "这个分享链接已被撤销，请让分享者重新生成";
 		case "rate_limited":
-			return "操作太频繁，请稍后再试";
+			return tooFrequentText(error);
 		case "send_failed":
 			return "验证码发送失败，请稍后重试";
 		case "phone_taken":
@@ -130,7 +142,7 @@ export function verifyErrorText(error: unknown, fallback = "验证失败，请�
 		case "history_merge_failed":
 			return "历史合并未完成，访客记录已保留，请重试";
 	}
-	if (status === 429) return "操作太频繁，请稍后再试";
+	if (status === 429) return tooFrequentText(error);
 	if (status === 502) return "验证码发送失败，请稍后重试";
 	if (status === 401) return "验证码不正确，请重新输入";
 	if (status === 403) return "这个分享链接不可用，请让分享者重新生成";

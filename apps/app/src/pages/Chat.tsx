@@ -20,6 +20,7 @@ import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
 import { entityRef, isShortCode } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
+import { clearPendingSend, savePendingSend, takePendingSend } from "../lib/pendingSend";
 import { usePersonalAgent } from "../lib/personalAgent";
 import { socialUnavailable } from "../lib/socialError";
 import { useDesktop } from "../lib/useDesktop";
@@ -617,9 +618,8 @@ export function Composer({
 	const [sending, setSending] = useState(false);
 	const pending = useRef(false);
 	const [verify, setVerify] = useState(false);
-	/** 访客额度用尽时把待发内容留住，登录后原样重发。 */
-	const held = useRef("");
-	const guest = useStore($session)?.guest;
+	const session = useStore($session);
+	const guest = session?.guest;
 	const send = async (body = text.trim()) => {
 		if (!body || pending.current) return;
 		pending.current = true;
@@ -643,7 +643,8 @@ export function Composer({
 			} else if (offline) toast("Bot 离线，消息已保存，上线后送达");
 		} catch (error) {
 			if (needsVerify(error)) {
-				held.current = body;
+				// 存进 sessionStorage：刷新或跳到登录页再回来，登录后仍会补发。
+				savePendingSend(convId, body);
 				setVerify(true);
 				return;
 			}
@@ -653,13 +654,24 @@ export function Composer({
 			setSending(false);
 		}
 	};
-	const verified = (session: Session) => {
-		selectAccount(session.actor.id, qc);
-		$session.set(session);
-		const body = held.current;
-		held.current = "";
-		if (body) void send(body);
+	const resend = (body: string) => {
+		toast("已为你发送");
+		void send(body);
 	};
+	const verified = (next: Session) => {
+		selectAccount(next.actor.id, qc);
+		$session.set(next);
+		const body = takePendingSend(convId);
+		if (body) resend(body);
+	};
+	// 登录后回到这个会话（刷新或从登录页返回）：补发之前没发出去的消息。
+	const signedIn = !!session && !session.actor.anonymous;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: 只在登录态或会话变化时补发一次，resend 每次渲染都会重建
+	useEffect(() => {
+		if (!signedIn) return;
+		const body = takePendingSend(convId);
+		if (body) resend(body);
+	}, [signedIn, convId]);
 	return (
 		<div className="shrink-0 px-4 pb-safe">
 			{guest && guest.remaining > 0 && guest.remaining <= 3 && (
@@ -697,7 +709,11 @@ export function Composer({
 			</div>
 			<VerifySheet
 				open={verify}
-				onOpenChange={setVerify}
+				onOpenChange={(open) => {
+					setVerify(open);
+					// 关闭时清掉待发；登录成功会在同一同步流程里先取走，所以放到微任务里。
+					if (!open) queueMicrotask(() => clearPendingSend(convId));
+				}}
 				shareToken={new URLSearchParams(location.search).get("share") ?? undefined}
 				onSuccess={verified}
 			/>
