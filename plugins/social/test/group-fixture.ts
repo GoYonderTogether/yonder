@@ -25,6 +25,7 @@ export interface GroupProbe {
 export async function groupFixture(
 	options: {
 		social?: boolean;
+		strategy?: string;
 		authSource?: string;
 		model?: string;
 		allowProvider?: boolean;
@@ -160,7 +161,14 @@ api.channels.register({
 									enabled: true,
 									scope: [conv],
 									authorized: { conversations: [conv] },
-									defaults: { group: { mode: "batch", batch: { run: true, delaySeconds: 3 }, minIntervalSeconds: 1 } },
+									defaults: {
+										group: {
+											...(options.strategy ? { plugin: options.strategy } : {}),
+											mode: "batch",
+											batch: { run: true, delaySeconds: 3 },
+											minIntervalSeconds: 1,
+										},
+									},
 								},
 							}
 						: {}),
@@ -175,7 +183,7 @@ api.channels.register({
 						},
 						{
 							id: "group-batch",
-							match: { type: "social.batch-ready", channel: instance },
+							match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
 							session: { mode: "persistent", per: "conv" },
 							profile: "group",
 							reply: "none",

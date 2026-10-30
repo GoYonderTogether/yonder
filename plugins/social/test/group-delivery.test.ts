@@ -121,3 +121,31 @@ test("real addressed residents wait their room turn and a native turn can publis
 		await fixture.close();
 	}
 }, 30000);
+
+test("installed official social hooks leave a selected alternative participation plugin's addressed delivery alone", async () => {
+	const fixture = await groupFixture({ social: true, strategy: "delivery-probe", captureSocialApi: true });
+	const { kernel, probe } = fixture;
+	try {
+		expect(probe.socialApi?.id).toBe("social");
+		const source = await probe.ios["qq-main"].emit(input("qq-main", mainConv, true));
+		const inspected = await kernel.social.inspect(
+			{ agent: "main", conv: mainConv },
+			{ id: "test-owner", kind: "local", transport: "socket", scopes: ["owner", "admin"] },
+		);
+		expect(inspected.policy.plugin).toBe("delivery-probe");
+		expect(source.routes).toContainEqual(expect.objectContaining({ agent: "main", binding: "group", wake: "run" }));
+		await expect.poll(() => probe.contexts.some((ctx) => ctx.agent === "main"), { timeout: 5000 }).toBe(true);
+		const ctx = probe.contexts.find((item) => item.agent === "main");
+		if (!ctx) throw Error("Alternative provider's actual run did not reach beforeRequest");
+		expect(ctx.profile).toBe("group");
+		expect(ctx.signal.aborted).toBe(false);
+		expect(
+			await probe.api.messages.send({ owner: owner(ctx), to: mainConv, text: "替换策略的正常回答" }),
+		).toMatchObject({ ok: true });
+		expect(probe.sent).toEqual([{ to: mainConv, text: "替换策略的正常回答" }]);
+		expect((await kernel.events.query({ type: "social.group-turn" })).events).toEqual([]);
+		expect((await kernel.events.query({ type: "social.rule-match" })).events).toEqual([]);
+	} finally {
+		await fixture.close();
+	}
+});
