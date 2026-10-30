@@ -50,18 +50,28 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 	const navigate = useNavigate();
 	const node = useActiveNode();
 	const [choice, setChoice] = useState<string>();
+	const previousDevice = useRef<string | undefined>(undefined);
 	const devices = useQuery({ queryKey: ["account-devices", accountId], queryFn: api.devices, refetchInterval: 5000 });
 	const available = (devices.data ?? []).filter((device) => device.online && device.workProtocol === 1);
 	const selected =
-		available.find((device) => device.id === choice) ?? (!choice && available.length === 1 ? available[0] : undefined);
+		available.find((device) => device.id === choice) ??
+		(!choice && node.id.startsWith(`account:${accountId}:device:`)
+			? available.find((device) => device.id === node.deviceId)
+			: undefined) ??
+		(!choice && available.length === 1 ? available[0] : undefined);
 	const targetId = selected && `account:${accountId}:device:${selected.id}`;
 	useEffect(() => {
-		if (!selected || node.id === targetId) return;
+		if (!selected) return;
+		const switched =
+			(previousDevice.current !== undefined && previousDevice.current !== selected.id) ||
+			(!!node.deviceId && node.id !== targetId);
+		previousDevice.current = selected.id;
+		if (node.id === targetId) return;
 		mux.reset();
 		qc.removeQueries({ predicate: (query) => query.queryKey[0] !== "account-devices" });
-		void navigate("/work", { replace: true });
+		if (switched) void navigate("/work", { replace: true });
 		setCloudDevice(accountId, selected);
-	}, [accountId, selected, targetId, node.id, navigate, qc]);
+	}, [accountId, selected, targetId, node.id, node.deviceId, navigate, qc]);
 	useEffect(() => {
 		if (selected) return;
 		mux.reset();

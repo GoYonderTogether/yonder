@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { $session } from "../src/store";
 import { WorkApp } from "../src/work/WorkApp";
@@ -20,7 +20,11 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 });
 
-async function render() {
+function CurrentPath() {
+	return <output>{useLocation().pathname}</output>;
+}
+
+async function render(path = "/work") {
 	vi.stubEnv("VITE_API", "http");
 	const { document, window } = parseHTML("<html><body></body></html>");
 	vi.stubGlobal("window", window);
@@ -29,11 +33,13 @@ async function render() {
 	$session.set({ actor: { id: "owner", kind: "human", name: "Owner" } });
 	const container = document.createElement("div") as unknown as HTMLElement;
 	const root = createRoot(container);
+	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	await act(async () =>
 		root.render(
-			<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-				<MemoryRouter initialEntries={["/work"]}>
+			<QueryClientProvider client={client}>
+				<MemoryRouter initialEntries={[path]}>
 					<WorkApp />
+					<CurrentPath />
 				</MemoryRouter>
 			</QueryClientProvider>,
 		),
@@ -41,7 +47,7 @@ async function render() {
 	await act(async () => {
 		await new Promise((resolve) => setTimeout(resolve, 30));
 	});
-	return { container, root };
+	return { container, root, client };
 }
 
 it("无设备提供连接和安装入口，不要求第二次授权", async () => {
@@ -69,4 +75,28 @@ it("离线与旧版设备分别提示，唯一可用设备自动进入", async (
 	const { activeNode } = await import("../src/work/api/nodes");
 	expect(activeNode().id).toBe("account:owner:device:c");
 	await act(() => second.root.unmount());
+});
+
+it("首次进入保留任务深链，切换设备回到列表", async () => {
+	const { setActiveNode } = await import("../src/work/api/nodes");
+	setActiveNode("local");
+	deviceState.devices = [{ id: "first", name: "第一台", kind: "desktop", online: true, workProtocol: 1 }];
+	const { container, root, client } = await render("/work/161097");
+	expect(container.querySelector("output")?.textContent).toBe("/work/161097");
+	await act(async () => {
+		client.setQueryData(
+			["account-devices", "owner"],
+			[...deviceState.devices, { id: "second", name: "第二台", kind: "desktop", online: true, workProtocol: 1 }],
+		);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+	});
+	const select = container.querySelector("select") as HTMLSelectElement;
+	const key = Object.keys(select).find((k) => k.startsWith("__reactProps$")) ?? "";
+	await act(async () =>
+		(select as unknown as Record<string, { onChange(event: unknown): void }>)[key]?.onChange({
+			target: { value: "second" },
+		}),
+	);
+	expect(container.querySelector("output")?.textContent).toBe("/work");
+	await act(() => root.unmount());
 });
