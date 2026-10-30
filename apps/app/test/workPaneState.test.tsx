@@ -75,6 +75,7 @@ vi.mock("../src/work/ui/WorkToolbar", () => ({
 vi.mock("../src/work/features/Chat", () => ({
 	FloatMenu: () => null,
 	Chat: (p: {
+		header?: React.ReactNode;
 		id: string;
 		wide: boolean;
 		showRail: boolean;
@@ -83,6 +84,7 @@ vi.mock("../src/work/features/Chat", () => ({
 		onList?(): void;
 	}) => (
 		<section data-testid="test-chat" data-wide={String(p.wide)} data-rail={String(p.showRail)}>
+			{p.header}
 			{p.id === "missing" ? "找不到会话" : "正文"}
 			<Link to="/work/s">返回父任务</Link>
 			<button type="button" onClick={p.onChannels}>
@@ -173,14 +175,25 @@ it("平板打开渠道后左栏让位", async () => {
 	expect(container.textContent).toContain("channels");
 	await act(() => root.unmount());
 });
-it("设置收起列表后可以展开", async () => {
+it("旧工作设置链接跳转统一设置", async () => {
 	state.node = "settings";
 	state.width = "desktop";
 	state.rail = "empty";
 	const { container, root } = await render("/work/settings");
-	await act(() => click(button(container, "收起工作列表")));
-	await act(() => click(button(container, "展开工作列表")));
-	expect(button(container, "收起工作列表")).toBeTruthy();
+	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/me/settings");
+	await act(() => root.unmount());
+});
+it("会话标题属于内容区，列表没有会话操作", async () => {
+	state.node = "header-ownership";
+	state.width = "desktop";
+	state.rail = "present";
+	const { container, root } = await render("/work/s");
+	const list = container.querySelector("aside");
+	const chat = container.querySelector('[data-testid="test-chat"]');
+	expect(list?.querySelector('[data-testid="local-work-header"]')).toBeTruthy();
+	expect(list?.textContent).not.toContain("恢复默认视图");
+	expect(chat?.querySelector('[data-testid="local-work-header"]')?.textContent).toContain("恢复默认视图");
+	expect(container.textContent).not.toContain("工作设置");
 	await act(() => root.unmount());
 });
 it("会话返回再点击当前会话可进入正文", async () => {

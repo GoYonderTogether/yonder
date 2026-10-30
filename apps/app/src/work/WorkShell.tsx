@@ -28,7 +28,6 @@ import { CardStack } from "./ui/RailStack";
 import { WorkList } from "./ui/WorkList";
 import { WorkToolbar } from "./ui/WorkToolbar";
 
-const Settings = lazy(() => import("./features/Settings").then((m) => ({ default: m.Settings })));
 const ConsoleSwitcher = lazy(() =>
 	import("./features/console/ConsoleSwitcher").then((m) => ({ default: m.ConsoleSwitcher })),
 );
@@ -56,7 +55,7 @@ const initialIntent: PaneIntent = {
  * 自己只管 工作列表 | 会话 | 右栏 的布局；功能页（控制台、市场、设置）占满主区。
  */
 export function WorkShell({
-	onLogout,
+	onLogout: _onLogout,
 	allWork,
 	device,
 }: {
@@ -151,7 +150,7 @@ export function WorkShell({
 
 	const page =
 		route.page === "settings" ? (
-			<Settings onLogout={onLogout} />
+			<Navigate to="/me/settings" replace />
 		) : route.page === "market" ? (
 			<Navigate to="/market" replace />
 		) : route.page === "console" ? (
@@ -181,8 +180,66 @@ export function WorkShell({
 				device={device}
 				leftOpen
 				onLeft={() => (paneMode === "list" ? setPaneMode("content") : update({ left: false, lastSide: "right" }))}
-				more={
+			/>
+			<div className="min-h-0 flex-1">{allWork ?? <WorkList active={route.session} />}</div>
+		</>
+	);
+	const sideContent = <Suspense fallback={<PageSkeleton />}>{side}</Suspense>;
+	const contentHeader = (
+		<WorkToolbar
+			phone={breakpoint === "phone"}
+			leading={
+				route.session || page ? (
+					<Link
+						to={workPath()}
+						aria-label="返回"
+						className="press grid size-11 shrink-0 place-items-center rounded-full"
+					>
+						<ArrowLeft size={20} aria-hidden />
+					</Link>
+				) : (
+					<PersonalAvatar />
+				)
+			}
+			title={
+				route.session ? (
+					<span className="flex min-w-0 items-center gap-2">
+						{actor && <Avatar actor={actor} size={32} />}
+						<span className="truncate">{imported.data?.summary.title || (session ? titleOf(session) : "会话")}</span>
+					</span>
+				) : page ? (
+					"工作设置"
+				) : (
+					"工作"
+				)
+			}
+			subtitle={
+				route.session
+					? [
+							session?.mode === "persistent" ? branch : undefined,
+							profile.data?.summary ?? actor?.summary,
+							view.running ? "正在回复…" : session?.closed ? "已结束" : undefined,
+						]
+							.filter(Boolean)
+							.join(" · ") || undefined
+					: undefined
+			}
+			leftOpen={paneMode === "list" || (paneMode === "auto" && panes.left)}
+			onLeft={!panes.left ? showList : undefined}
+			rightOpen={panes.rail}
+			onRight={route.session ? toggleRail : undefined}
+			more={
+				paneMode !== "rail" && route.session ? (
 					<>
+						{session?.mode === "main" && session.agent && !isImported(session) && (
+							<DropdownMenu.Item
+								onSelect={openChannels}
+								className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
+							>
+								渠道与子会话
+							</DropdownMenu.Item>
+						)}
+						{route.session && <FloatMenu session={route.session} />}
 						{route.session && (
 							<DropdownMenu.Item
 								onSelect={() => update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })}
@@ -191,26 +248,17 @@ export function WorkShell({
 								恢复默认视图
 							</DropdownMenu.Item>
 						)}
-						<DropdownMenu.Item asChild>
-							<Link
-								to={workPath({ page: "settings" })}
-								className="press flex min-h-11 items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
-							>
-								工作设置
-							</Link>
-						</DropdownMenu.Item>
 					</>
-				}
-			/>
-			<div className="min-h-0 flex-1">{allWork ?? <WorkList active={route.session} />}</div>
-		</>
+				) : undefined
+			}
+		/>
 	);
-	const sideContent = <Suspense fallback={<PageSkeleton />}>{side}</Suspense>;
 	const main =
 		paneMode === "list" && route.session ? (
 			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
 		) : paneMode === "rail" && route.session ? (
 			<main className="relative min-h-0 flex-1" aria-label="右栏">
+				{contentHeader}
 				<CardStack
 					session={route.session}
 					v={imported.data ? { ...view, todos: imported.data.todo?.items ?? [] } : view}
@@ -221,6 +269,7 @@ export function WorkShell({
 			<Suspense fallback={<PageSkeleton />}>{page}</Suspense>
 		) : route.session ? (
 			<Chat
+				header={contentHeader}
 				id={route.session}
 				wide={breakpoint !== "phone"}
 				v={view}
@@ -234,7 +283,10 @@ export function WorkShell({
 		) : frame.side === "main" ? (
 			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
 		) : (
-			<EmptyPane message="选择一个 Bot 或任务" />
+			<>
+				{!panes.left && <WorkToolbar phone={false} title="工作" onLeft={showList} />}
+				<EmptyPane message="选择一个 Bot 或任务" />
+			</>
 		);
 	return (
 		<div className="flex h-full flex-col bg-rail">
@@ -258,84 +310,6 @@ export function WorkShell({
 							update({ phoneContent: true });
 					}}
 				>
-					{!(paneMode === "list" && route.session) && !(screen === "list" && frame.side === "main") && (
-						<WorkToolbar
-							phone={breakpoint === "phone"}
-							leading={
-								route.session || page ? (
-									<Link
-										to={workPath()}
-										aria-label="返回"
-										className="press grid size-11 shrink-0 place-items-center rounded-full"
-									>
-										<ArrowLeft size={20} aria-hidden />
-									</Link>
-								) : (
-									<PersonalAvatar />
-								)
-							}
-							title={
-								route.session ? (
-									<span className="flex min-w-0 items-center gap-2">
-										{actor && <Avatar actor={actor} size={32} />}
-										<span className="truncate">
-											{imported.data?.summary.title || (session ? titleOf(session) : "会话")}
-										</span>
-									</span>
-								) : page ? (
-									"工作设置"
-								) : (
-									"工作"
-								)
-							}
-							subtitle={
-								route.session
-									? [
-											session?.mode === "persistent" ? branch : undefined,
-											profile.data?.summary ?? actor?.summary,
-											view.running ? "正在回复…" : session?.closed ? "已结束" : undefined,
-										]
-											.filter(Boolean)
-											.join(" · ") || undefined
-									: undefined
-							}
-							leftOpen={paneMode === "list" || (paneMode === "auto" && panes.left)}
-							onLeft={!panes.left ? showList : undefined}
-							rightOpen={panes.rail}
-							onRight={route.session ? toggleRail : undefined}
-							more={
-								<>
-									{session?.mode === "main" && session.agent && !isImported(session) && (
-										<DropdownMenu.Item
-											onSelect={openChannels}
-											className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
-										>
-											渠道与子会话
-										</DropdownMenu.Item>
-									)}
-									{route.session && <FloatMenu session={route.session} />}
-									{route.session && (
-										<DropdownMenu.Item
-											onSelect={() =>
-												update({ mode: "auto", left: true, right: "auto", panel: "work", phoneContent: false })
-											}
-											className="press flex min-h-11 cursor-pointer items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
-										>
-											恢复默认视图
-										</DropdownMenu.Item>
-									)}
-									<DropdownMenu.Item asChild>
-										<Link
-											to={workPath({ page: "settings" })}
-											className="press flex min-h-11 items-center rounded-control px-3 text-small outline-none data-[highlighted]:bg-tone"
-										>
-											工作设置
-										</Link>
-									</DropdownMenu.Item>
-								</>
-							}
-						/>
-					)}
 					<div className={`flex min-h-0 min-w-0 flex-1 ${breakpoint !== "phone" ? "flex-row" : "flex-col"}`}>
 						{main}
 					</div>

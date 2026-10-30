@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, Navigate, useNavigate } from "react-router";
 import { api } from "../api";
 import { PersonalAvatar } from "../components/PersonalDrawer";
 import { gatewayHosted } from "../lib/base";
@@ -142,6 +142,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 			</DropdownMenu.Portal>
 		</DropdownMenu.Root>
 	);
+	if (route.page === "settings") return <Navigate to="/me/settings" replace />;
 	if (selected && node.id === targetId)
 		return <GatewayWorkApp key={node.id} cloud allWork={choice === "all" ? list : undefined} device={selector} />;
 	if (choice === "all" && devices.data?.length && !route.deviceId && !legacySession)

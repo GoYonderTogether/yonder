@@ -100,9 +100,10 @@ function useMissingSession(id: string): boolean {
 }
 
 /** 找不到会话：用户语言的说明 + 回到列表的入口，不显示「正在重试」，也没有输入框。 */
-function Missing() {
+function Missing({ header }: { header?: React.ReactNode }) {
 	return (
 		<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="会话">
+			{header}
 			<div
 				role="alert"
 				data-testid="session-missing"
@@ -119,6 +120,7 @@ function Missing() {
 }
 
 function Live({
+	header,
 	id,
 	wide,
 	v,
@@ -129,6 +131,7 @@ function Live({
 	onChannels,
 	onCloseChannels,
 }: {
+	header?: React.ReactNode;
 	id: string;
 	wide: boolean;
 	v: LiveView;
@@ -143,10 +146,11 @@ function Live({
 
 	const s = v.session;
 	const missing = useMissingSession(id);
-	if (missing) return <Missing />;
+	if (missing) return <Missing header={header} />;
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="聊天">
+				{header}
 				{v.error && (
 					<p role="alert" className="bg-danger/10 px-4 py-1.5 text-caption text-danger">
 						{v.error}
@@ -194,12 +198,14 @@ function Live({
 }
 
 function Imported({
+	header,
 	id,
 	wide,
 	showRail,
 	onRail,
 	onList,
 }: {
+	header?: React.ReactNode;
 	id: string;
 	wide: boolean;
 	showRail: boolean;
@@ -213,6 +219,7 @@ function Imported({
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="导入的会话">
+				{header}
 				<ImportBody id={id} />
 				<FloatLayer session={key} v={v} />
 			</section>
@@ -231,6 +238,7 @@ function Imported({
 }
 
 export function Chat({
+	header,
 	id,
 	wide,
 	v,
@@ -241,6 +249,7 @@ export function Chat({
 	onChannels,
 	onCloseChannels,
 }: {
+	header?: React.ReactNode;
 	id: string;
 	wide: boolean;
 	v: LiveView;
@@ -253,6 +262,7 @@ export function Chat({
 }) {
 	return id.startsWith(IMPORT_PREFIX) ? (
 		<Imported
+			header={header}
 			key={id}
 			id={id.slice(IMPORT_PREFIX.length)}
 			wide={wide}
@@ -262,6 +272,7 @@ export function Chat({
 		/>
 	) : (
 		<Live
+			header={header}
 			key={id}
 			id={id}
 			wide={wide}
