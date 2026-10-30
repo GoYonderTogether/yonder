@@ -1,4 +1,4 @@
-import { rpc } from "./client";
+import { type NodeTarget, rpc } from "./client";
 import { queryClient } from "./queries/index.js";
 import type { SessionInfo } from "./types";
 
@@ -14,10 +14,10 @@ export const botOverview = (bot: string) => rpc<BotOverview>("bots.overview", { 
  * 工作列表要含已归档的「已完成」组，而 `sessions.list` 默认不含已归档（§18），所以两页合并。
  * 键以 `["sessions"]` 开头，归档/置顶/重命名后统一失效刷新。
  */
-export async function workSessions(): Promise<SessionInfo[]> {
+export async function workSessions(node?: NodeTarget): Promise<SessionInfo[]> {
 	const [open, archived] = await Promise.all([
-		rpc<SessionInfo[]>("sessions.list", {}),
-		rpc<SessionInfo[]>("sessions.list", { filter: { archived: true } }),
+		rpc<SessionInfo[]>("sessions.list", {}, undefined, node),
+		rpc<SessionInfo[]>("sessions.list", { filter: { archived: true } }, undefined, node),
 	]);
 	return [...open, ...archived];
 }

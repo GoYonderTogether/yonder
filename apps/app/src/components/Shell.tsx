@@ -21,8 +21,10 @@ export function Shell() {
 	const social = useSocialService();
 	const items = [chatItem, workItem, marketItem, contactsItem];
 	const workMatch = useMatch("/work/:id");
+	const deviceSession = useMatch("/work/device/:device/:session");
 	const hidden =
 		[useMatch("/c/:id"), useMatch("/contacts/:id")].some(Boolean) ||
+		!!deviceSession ||
 		(!!workMatch && !(WORK_PAGES as readonly string[]).includes(workMatch.params.id ?? ""));
 	const active = (path: string) =>
 		path === "/"

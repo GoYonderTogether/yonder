@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api";
 import { PersonalAvatar } from "../components/PersonalDrawer";
@@ -12,6 +12,8 @@ import { setCloudDevice, useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
 import { Login } from "./features/Login";
 import { useFacts } from "./lib/queries";
+import { useWorkRoute, workPath } from "./shell/workRoutes";
+import { AllWorkList } from "./ui/AllWorkList";
 import { WorkShell } from "./WorkShell";
 
 /** 请求没发出去（TypeError）或拿到的不是网关响应（unavailable）：这里没有网关，不是网关报错。 */
@@ -49,56 +51,89 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 	const qc = useQueryClient();
 	const navigate = useNavigate();
 	const node = useActiveNode();
-	const [choice, setChoice] = useState<string>();
-	const previousDevice = useRef<string | undefined>(undefined);
+	const route = useWorkRoute();
+	const [choice, setChoice] = useState("all");
 	const devices = useQuery({ queryKey: ["account-devices", accountId], queryFn: api.devices, refetchInterval: 5000 });
 	const available = (devices.data ?? []).filter((device) => device.online && device.workProtocol === 1);
+	const legacySession = !!route.session && !route.deviceId;
+	const wanted =
+		route.deviceId ?? (choice === "all" && node.id.startsWith(`account:${accountId}:device:`) ? node.deviceId : choice);
 	const selected =
-		available.find((device) => device.id === choice) ??
-		(!choice && node.id.startsWith(`account:${accountId}:device:`)
-			? available.find((device) => device.id === node.deviceId)
-			: undefined) ??
-		(!choice && available.length === 1 ? available[0] : undefined);
+		available.find((device) => device.id === wanted) ??
+		(choice === "all" && !route.deviceId && (!legacySession || available.length === 1) ? available[0] : undefined);
 	const targetId = selected && `account:${accountId}:device:${selected.id}`;
 	useEffect(() => {
 		if (!selected) return;
-		const switched =
-			(previousDevice.current !== undefined && previousDevice.current !== selected.id) ||
-			(!!node.deviceId && node.id !== targetId);
-		previousDevice.current = selected.id;
 		if (node.id === targetId) return;
 		mux.reset();
-		qc.removeQueries({ predicate: (query) => query.queryKey[0] !== "account-devices" });
-		if (switched) void navigate("/work", { replace: true });
+		void qc.cancelQueries({
+			predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
+		});
+		qc.removeQueries({
+			predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
+		});
 		setCloudDevice(accountId, selected);
-	}, [accountId, selected, targetId, node.id, node.deviceId, navigate, qc]);
+	}, [accountId, selected, targetId, node.id, qc]);
 	useEffect(() => {
 		if (selected) return;
 		mux.reset();
-		qc.removeQueries({ predicate: (query) => query.queryKey[0] !== "account-devices" });
+		qc.removeQueries({
+			predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
+		});
 	}, [selected, qc]);
+	const open = (device: { id: string; name: string }, session: string) => {
+		if (node.deviceId !== device.id) {
+			mux.reset();
+			void qc.cancelQueries({
+				predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
+			});
+			qc.removeQueries({
+				predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
+			});
+			setCloudDevice(accountId, device);
+		}
+		void navigate(workPath({ deviceId: device.id, session }));
+	};
+	const list = <AllWorkList accountId={accountId} devices={devices.data ?? []} onOpen={open} />;
+	const selector = !!devices.data?.length && (
+		<label className="flex items-center gap-2 px-4 py-2 text-small">
+			设备
+			<select
+				value={choice}
+				onChange={(event) => {
+					setChoice(event.target.value);
+					void navigate(
+						legacySession && event.target.value !== "all" && route.session
+							? workPath({ deviceId: event.target.value, session: route.session })
+							: "/work",
+					);
+				}}
+				className="field min-w-0 flex-1"
+			>
+				<option value="all">全部设备</option>
+				{devices.data.map((device) => (
+					<option key={device.id} value={device.id}>
+						{device.name}
+						{device.online ? "" : "（离线）"}
+					</option>
+				))}
+			</select>
+		</label>
+	);
 	if (selected && node.id === targetId)
 		return (
 			<div className="flex h-full flex-col">
-				{available.length > 1 && (
-					<label className="flex items-center gap-2 px-4 py-2 text-small">
-						设备
-						<select
-							value={selected.id}
-							onChange={(event) => setChoice(event.target.value)}
-							className="field min-w-0 flex-1"
-						>
-							{available.map((device) => (
-								<option key={device.id} value={device.id}>
-									{device.name}
-								</option>
-							))}
-						</select>
-					</label>
-				)}
+				{selector}
 				<div className="min-h-0 flex-1">
-					<GatewayWorkApp key={node.id} cloud />
+					<GatewayWorkApp key={node.id} cloud allWork={choice === "all" ? list : undefined} />
 				</div>
+			</div>
+		);
+	if (choice === "all" && devices.data?.length && !route.deviceId && !legacySession)
+		return (
+			<div className="flex h-full flex-col">
+				{selector}
+				<div className="min-h-0 flex-1">{list}</div>
 			</div>
 		);
 	return (
@@ -107,7 +142,11 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 				<PersonalAvatar />
 			</div>
 			<div className="w-full max-w-md text-center">
+				{selector}
 				<h1 className="text-title font-semibold">工作设备</h1>
+				{legacySession && available.length > 1 && !selected && (
+					<p className="mt-2 text-small text-muted">请选择这个会话所在的设备。</p>
+				)}
 				{devices.isPending ? (
 					<p className="mt-2 text-small text-muted">正在读取设备…</p>
 				) : devices.isError ? (
@@ -149,7 +188,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 }
 
 /** 网关登录门：社交账号与网关授权无关。 */
-function GatewayWorkApp({ cloud = false }: { cloud?: boolean }) {
+function GatewayWorkApp({ cloud = false, allWork }: { cloud?: boolean; allWork?: ReactNode }) {
 	const qc = useQueryClient();
 	const cloudLogout = useLogout();
 	const facts = useFacts();
@@ -196,6 +235,7 @@ function GatewayWorkApp({ cloud = false }: { cloud?: boolean }) {
 		);
 	return (
 		<WorkShell
+			allWork={allWork}
 			onLogout={() => {
 				mux.reset();
 				if (cloud) {

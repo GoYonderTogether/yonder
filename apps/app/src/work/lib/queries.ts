@@ -21,22 +21,21 @@ export const useSessions = () =>
 
 const NO_NAMES: ReadonlyMap<string, string> = new Map();
 
+export async function fetchDeviceAgents(deviceId: string): Promise<{ key: string; actor: Actor }[]> {
+	const response = await fetch(new URL(`api/devices/${encodeURIComponent(deviceId)}/agents`, socialOrigin()), {
+		credentials: "include",
+	});
+	if (!response.ok) throw new Error("无法读取设备 Bot 身份");
+	return response.json();
+}
+
 /** 云端映射由设备登记产生，key 是本机 agent id，actor 是聊天使用的同一个账号。 */
 export function useDeviceAgents() {
 	const node = useActiveNode();
 	return useQuery({
 		queryKey: ["device-agents", node.id],
 		enabled: !!node.deviceId,
-		queryFn: async (): Promise<{ key: string; actor: Actor }[]> => {
-			const response = await fetch(
-				new URL(`api/devices/${encodeURIComponent(node.deviceId!)}/agents`, socialOrigin()),
-				{
-					credentials: "include",
-				},
-			);
-			if (!response.ok) throw new Error("无法读取设备 Bot 身份");
-			return response.json();
-		},
+		queryFn: () => fetchDeviceAgents(node.deviceId!),
 		refetchInterval: 5000,
 	});
 }

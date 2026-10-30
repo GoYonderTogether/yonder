@@ -10,6 +10,18 @@ beforeEach(() => {
 });
 
 describe("panel layout", () => {
+	it("isolates the same session id across account and device", async () => {
+		const { setCloudDevice } = await import("../src/work/api/nodes");
+		const { getLayout, toggleFloat } = await import("../src/work/lib/layout");
+		setCloudDevice("owner-a", { id: "device-a", name: "A" });
+		toggleFloat("42", "goal");
+		setCloudDevice("owner-a", { id: "device-b", name: "B" });
+		expect(getLayout("42").float).toEqual([]);
+		setCloudDevice("owner-b", { id: "device-a", name: "A" });
+		expect(getLayout("42").float).toEqual([]);
+		setCloudDevice("owner-a", { id: "device-a", name: "A" });
+		expect(getLayout("42").float[0]?.kind).toBe("goal");
+	});
 	it.each([
 		["todos", "待办"],
 		["view:plugin.status", "插件状态"],

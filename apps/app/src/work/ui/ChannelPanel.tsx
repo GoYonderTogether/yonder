@@ -7,7 +7,7 @@ import type { SessionInfo } from "../api/types";
 import { botOverview } from "../api/work";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
 import { useBranchLabel } from "../lib/branch";
-import { titleOf } from "../lib/identity";
+import { useTitleOf } from "../lib/queries";
 import { workPath } from "../shell/workRoutes";
 
 /** 契约 §18 bots.overview：真实渠道与子会话；失败时如实显示原因，不造数据。 */
@@ -47,6 +47,7 @@ function Body({ bot }: { bot: string }) {
 
 function SessionLink({ session }: { session: SessionInfo }) {
 	const branch = useBranchLabel(session);
+	const titleOf = useTitleOf();
 	return (
 		<Link to={workPath({ session: session.id })} className="press block truncate px-4 py-2 text-small hover:bg-tone/60">
 			{session.mode === "persistent" ? branch : titleOf(session)}

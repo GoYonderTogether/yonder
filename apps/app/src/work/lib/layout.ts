@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { activeNode } from "../api/nodes";
 
 // 右栏卡片栈与悬浮窗布局：按会话存 localStorage；右栏开关与宽度全局一份。
 export type PanelKind =
@@ -71,8 +72,10 @@ function parseLayout(raw: string | null): Layout {
 const cache = new Map<string, Layout>();
 const listeners = new Set<() => void>();
 const key = (session: string) => `yonder.layout.${session}`;
+const scope = (session: string) => (activeNode().deviceId ? `${activeNode().id}:${session}` : session);
 
 export function getLayout(session: string): Layout {
+	session = scope(session);
 	let l = cache.get(session);
 	if (!l) {
 		l = parseLayout(localStorage.getItem(key(session)));
@@ -81,6 +84,7 @@ export function getLayout(session: string): Layout {
 	return l;
 }
 export function setLayout(session: string, next: Layout) {
+	session = scope(session);
 	cache.set(session, next);
 	localStorage.setItem(key(session), JSON.stringify(next));
 	for (const fn of listeners) fn();

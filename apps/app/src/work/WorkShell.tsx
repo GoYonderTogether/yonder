@@ -1,5 +1,5 @@
 import { Settings as SettingsIcon } from "lucide-react";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, type ReactNode, Suspense, useEffect } from "react";
 import { Link, Navigate } from "react-router";
 import { PersonalAvatar } from "../components/PersonalDrawer";
 import { useActiveNode } from "./api/nodes";
@@ -26,7 +26,7 @@ const ConsoleSwitcher = lazy(() =>
  * 「工作」区外壳：挂在名片站 Shell 的内容区里（导航由名片站提供），
  * 自己只管 工作列表 | 会话 | 右栏 的布局；功能页（控制台、市场、设置）占满主区。
  */
-export function WorkShell({ onLogout }: { onLogout(): void }) {
+export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: ReactNode }) {
 	const route = useWorkRoute();
 	const cloudDevice = !!useActiveNode().deviceId;
 	const breakpoint = useBreakpoint();
@@ -68,9 +68,7 @@ export function WorkShell({ onLogout }: { onLogout(): void }) {
 					<SettingsIcon size={19} aria-hidden />
 				</Link>
 			</div>
-			<div className="min-h-0 flex-1">
-				<WorkList active={route.session} />
-			</div>
+			<div className="min-h-0 flex-1">{allWork ?? <WorkList active={route.session} />}</div>
 		</>
 	);
 	const sideContent = <Suspense fallback={<PageSkeleton />}>{side}</Suspense>;

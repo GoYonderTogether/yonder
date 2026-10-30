@@ -7,6 +7,11 @@ import { parseWork, workPath } from "../src/work/shell/workRoutes";
  * 这里把这个前提钉住，别让路由层悄悄把未知 id 当成别的状态。
  */
 describe("parseWork", () => {
+	it("keeps the device when session identifiers collide", () => {
+		expect(parseWork("/work/device/phone/42")).toEqual({ deviceId: "phone", session: "42" });
+		expect(parseWork("/work/device/laptop/42")).toEqual({ deviceId: "laptop", session: "42" });
+		expect(workPath({ deviceId: "phone", session: "42" })).toBe("/work/device/phone/42");
+	});
 	it("treats the three feature pages as pages", () => {
 		expect(parseWork("/work/console")).toEqual({ page: "console" });
 		expect(parseWork("/work/market")).toEqual({ page: "market" });

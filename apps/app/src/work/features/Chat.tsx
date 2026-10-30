@@ -98,6 +98,7 @@ function Header({
 			{actor && <Avatar actor={actor} size={32} />}
 			<div className={`min-w-0 flex-1 ${wide ? "px-2" : "text-center"}`}>
 				<h1 className="truncate text-body font-semibold">{title}</h1>
+				{actor?.summary && <p className="truncate text-caption text-faint">{actor.summary}</p>}
 				{sub && <p className="truncate text-caption text-faint">{sub}</p>}
 			</div>
 			{onChannels && (
