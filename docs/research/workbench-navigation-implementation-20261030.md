@@ -24,3 +24,12 @@
 - 正式候选从 `87a1a97` 更新为 `1191369`：设备 executor 响应的 `issuedAt` 和 `expiresAt` 原先分别取 `Date.now()`，跨毫秒可能形成 60001ms、超过既有最大 60000ms 的 TTL；修复每次只取一次时间，不放宽校验。真实签名定向回归 6/6 通过。这一边界已独立复现；首次 CI 的 `UNAUTHORIZED` 未记录实际 TTL 差值，不能断言现场失败必由该边界造成。
 - 原 CI run `41047860130`：Linux 全绿；macOS 301 通过、1 失败、7 跳过。workflow 总状态为 success 不等于所有 job 通过；旧 job 重跑被新 push 策略取消，不记作通过。新全量 CI run `41048297781` 仍 pending，正式发行尚未完成。
 - 用户并行未提交的 CSS、theme 和 typewriter 改动保持原状，未暂存。最终 live 源码与正式 tag 的对应关系须分别核验；本记录没有触发版本更新或部署。
+
+## `.13` 正式发布与冷验收回执
+
+- `1191369` 候选的 CI 因文件大小检查失败；后续 `1cc286f` 的精确 lint 通过，CI run `41048724369` 的 Linux/macOS 所有 jobs 成功。此前 `87a1a97` 的 macOS 301 通过、1 失败、7 跳过和取消的重跑，以及本机全量 2200 通过、5 失败、102 跳过与定向 17 通过、1 跳过，均保留为原始结果。
+- Release run `41049238412` 成功，正式 `v0.3.26103013` tag commit `95680863979b2d4020dae4ac6870b14abcc70cc4`。标准 `yonder update` 验证通过，原 home 保持，PID 13878 ready。live 使用精确 tag 的独立发布环境 `/Users/zoran/.local/share/yonder-web-releases/v0.3.26103013-95680863979b` 和现有 runner；原 source worker plist 备份在 `~/.local/state/yonder-web-live/dev.yonder.app-live.source-20261030.plist`。其他任务的未提交改动保留。
+- 公网 build-version 返回 `.13/95680863979b2d4020dae4ac6870b14abcc70cc4`，发布 dist 与 staging 一致；服务器快照 `/opt/yonder-card/web/releases/0.3.26103013-20261030T114117Z-95680863979b` 全部 SHA256 通过并含 provenance。本次文档回执不改产品版本或再次生成快照。
+- 主 Agent 用后台浏览器 `yqxf` 冷载 `/work/settings`，约 1706ms 后可操作，单 header，收起左栏后有恢复入口；真实设备接口返回 online=true、workProtocol=1。main2 的手机右侧 dialog 约 630ms 可见；补验 CSS 320、390、639 × 844 的 auto 布局，右侧分别精确占满 320、390、639 宽，根横溢均为 0，返回可回正文。此前这三个状态未读到菜单 select 值，本次只确认实际布局，不声称读到值。capture `d21554b491831` 已停止并导出 `/tmp/yonder-release13-browser.json`（2.4 MB），会话已关闭。
+- 另用后台会话 `afwz` 冷载 `/work/161323`，model picker 约 1456ms 出现；实际观察到 QA 标题、原指令、Luna 回复“通过”和 Footer。截图 `/tmp/yonder-release13-phone.png` 已查看；会话已关闭。首次截图为加载态，已覆盖为实际 ready 页面，不作为产品失败。
+- 本轮实现、正式发布和上述浏览器组合验收完成。物理手指、真实鼠标拖动与真实双设备仍未测；键盘、单设备和合成测试不代替真人或双设备验收。
