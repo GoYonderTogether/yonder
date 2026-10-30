@@ -67,7 +67,7 @@ export class IlinkChannel implements Channel {
 	private pollAbort: AbortController | undefined;
 	private failure: string | undefined;
 	private lastPoll: string | undefined;
-	private loginState: { qr: string; url: string; at: number; base: string; replace: boolean } | undefined;
+	private loginState: { qr: string; url: string; at: number; base: string } | undefined;
 	private loginTimer: ReturnType<typeof setTimeout> | undefined;
 	private loginPolling: Promise<void> | undefined;
 	private loginStatus: string | undefined;
@@ -180,9 +180,7 @@ export class IlinkChannel implements Channel {
 				throw new Error("Configured iLink person does not exist");
 			const account = acct(this.id, this.state.peer);
 			const current = await this.api.identity.account(account);
-			if (current?.person && current.person !== this.state.person)
-				throw new Error("iLink identity conflict; use identity management explicitly");
-			if (!current?.person) await this.api.identity.link(account, this.state.person);
+			if (current?.person !== this.state.person) await this.api.identity.link(account, this.state.person);
 		}
 		this.state.linked = true;
 		await this.save();
@@ -305,12 +303,7 @@ export class IlinkChannel implements Channel {
 		this.state.seen[key] = event.id;
 		await this.save();
 	}
-	login(
-		action: "start" | "poll",
-		signal: AbortSignal,
-		verifyCode?: string,
-		replace = false,
-	): Promise<ChannelLoginResult> {
+	login(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult> {
 		const next = this.loginTail
 			.catch(() => {})
 			.then(async (): Promise<ChannelLoginResult> => {
@@ -324,7 +317,7 @@ export class IlinkChannel implements Channel {
 						person: this.state.person ?? null,
 					};
 				if (action === "start") {
-					if (this.loginState && this.loginState.replace === replace && Date.now() - this.loginState.at < 300000) {
+					if (this.loginState && Date.now() - this.loginState.at < 300000) {
 						this.scheduleLogin();
 						return {
 							status: "wait",
@@ -348,7 +341,6 @@ export class IlinkChannel implements Channel {
 						url: page.qrcode_img_content,
 						at: Date.now(),
 						base: this.state.base,
-						replace,
 					};
 					this.loginStatus = "wait";
 					this.scheduleLogin();
@@ -405,15 +397,11 @@ export class IlinkChannel implements Channel {
 					throw new Error("Invalid iLink login identity");
 				const changedPeer = Boolean(this.state.peer && this.state.peer !== page.ilink_user_id);
 				const changedBot = Boolean(this.state.bot && this.state.bot !== page.ilink_bot_id);
-				if (changedPeer && !pending.replace)
-					throw new Error(`微信账号与现有绑定不同；确认要更换请使用 yonder channels login ${this.id} --replace`);
-				const person = changedPeer
-					? null
-					: this.state.peer
-						? (this.state.person ?? null)
-						: this.config.person !== undefined
-							? this.config.person
-							: ((await this.defaultPerson()) ?? null);
+				const person = this.state.peer
+					? (this.state.person ?? null)
+					: this.config.person !== undefined
+						? this.config.person
+						: ((await this.defaultPerson()) ?? null);
 				if (person && !(await this.api.identity.person(person)))
 					throw new Error("Configured iLink person does not exist");
 				this.generation++;

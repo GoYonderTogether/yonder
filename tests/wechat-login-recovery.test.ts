@@ -261,7 +261,7 @@ test("relogin does not persist an old page cursor while its message is being del
 	}
 });
 
-test("different peer requires explicit replace and never inherits old owner", async () => {
+test("confirmed rebind replaces a different peer and keeps the instance person", async () => {
 	const original = {
 		base: "https://ilinkai.weixin.qq.com",
 		cursor: "old-cursor",
@@ -274,6 +274,9 @@ test("different peer requires explicit replace and never inherits old owner", as
 		seen: { "old-peer:1": "event" },
 	};
 	const h = await setup(original);
+	const link = vi.fn(async () => {});
+	h.api.identity.account = async () => ({ person: "person:other" }) as never;
+	h.api.identity.link = link;
 	const transport = vi.fn<typeof fetch>(async (input) => {
 		const path = new URL(String(input)).pathname;
 		if (path.endsWith("get_bot_qrcode")) return json({ qrcode: "q", qrcode_img_content: "https://example.invalid/qr" });
@@ -282,26 +285,17 @@ test("different peer requires explicit replace and never inherits old owner", as
 	const channel = new IlinkChannel("wx", {}, h.api, async () => "person:owner", { fetch: transport });
 	try {
 		await channel.login("start", new AbortController().signal);
-		await expect(channel.login("poll", new AbortController().signal)).rejects.toThrow(
-			"微信账号与现有绑定不同；确认要更换请使用 yonder channels login wx --replace",
-		);
-		expect(JSON.parse(await readFile(join(h.directory, "wx/account.json"), "utf8"))).toEqual(original);
-		await channel.login("start", new AbortController().signal, undefined, true);
-		await expect
-			.poll(
-				async () =>
-					((await channel.status()) as { peer: string; paired: boolean }).paired
-						? ((await channel.status()) as { peer: string }).peer
-						: undefined,
-				{ timeout: 4000 },
-			)
-			.toBe("new-peer");
+		expect(await channel.login("poll", new AbortController().signal)).toMatchObject({
+			status: "confirmed",
+			person: "person:owner",
+		});
+		expect(link).toHaveBeenCalledWith("acct:wx:new-peer", "person:owner");
 		const state = JSON.parse(await readFile(join(h.directory, "wx/account.json"), "utf8"));
 		expect(state).toMatchObject({
 			peer: "new-peer",
 			bot: "new-bot",
 			token: "new",
-			person: null,
+			person: "person:owner",
 			linked: true,
 			cursor: "",
 			contexts: {},

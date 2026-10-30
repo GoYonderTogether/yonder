@@ -65,7 +65,7 @@ Bot 只有在 profile 选择插件、offer/search 选择工具且能力满足时
 
 `attachments` 为 `Array<{kind:'image'|'audio'|'video'|'file', mime:string, uri:string, name?:string, bytes?:number}>`，uri 必须是 `file:///` 绝对文件 URI；上传还要经过 Yonder 的当前调用方文件权限检查。image/video 按协议媒体发送；audio 作为可下载音频文件发送，不声称支持微信原生语音气泡。单个媒体最多 100 MiB，不能靠软链绕过本地文件读取边界。文本每段最多 2000 个 Unicode 字符。
 
-常见 poll 状态：wait、scaned、scaned_but_redirect、need_verifycode、verify_code_blocked、expired、confirmed、already_connected、unknown。需要用户在微信上扫码确认，工具不会绕过确认。已配对实例可再次 start/poll 更新登录，但相同 peer 的新 bot 会更新登录；不同 peer 默认拒绝。确需更换账号时运行 `yonder channels login <实例> --replace --open`，新账号不会继承旧账号的 person 关联，需通过身份管理显式关联。
+常见 poll 状态：wait、scaned、scaned_but_redirect、need_verifycode、verify_code_blocked、expired、confirmed、already_connected、unknown。需要用户在微信上扫码确认，工具不会绕过确认。已配对实例可再次 start/poll 更新登录；用户主动扫码确认后直接覆盖原连接，新账号沿用该实例的 person 关联，无需额外参数。
 
 通用发送优先复用已有 `message_send({to,via?,text,attachments?})`。如需显式微信引用，用上述 message 工具的 replyTo。主动发给主人可用 `message_send({to:'owner',via:实际实例,text:实际正文})`；owner 经当前 Agent 的身份解析，不是插件全局默认发送对象。显式工具发完本次答案后使用 NO_REPLY，避免自动回复副本。
 
