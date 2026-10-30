@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [0.3.26103013] - 2026-10-30
+
+### Fixed
+
+- device：keep signed response lifetime within protocol limit
+- app：serve directory named routes in live preview
+- app：enlarge work toolbar select targets
+- app：unify workbench pane visibility intent
+
+### Added
+
+- app：unify workbench toolbar
+- app：share toolbar and add tabler pane icons
+
 ## [0.3.26103012] - 2026-10-30
 
 - QQ 与 Card/Web 受管群改为硬规则触发：关键词、正则、排除词、长度和计数不调用判断模型；真实 @ 优先，同节点 Bot 顺序发言。
