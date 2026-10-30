@@ -225,7 +225,14 @@ export async function loadPlugins(
 					return services.messages.send(message, manifest.id, ctx);
 				},
 			},
-			agents: services.agents,
+			agents: {
+				list: services.agents.list,
+				configureBinding: (request, ctx) => {
+					denySetupWrite("agents.configureBinding");
+					return services.agents.configureBinding(request, manifest.id, ctx);
+				},
+				inspectBinding: (request, owner) => services.agents.inspectBinding(request, manifest.id, owner),
+			},
 			host: services.host,
 			credentials: services.credentials,
 			execution: services.execution,

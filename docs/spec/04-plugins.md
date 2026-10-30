@@ -298,6 +298,8 @@ iLink 模型 login 工具省略 instance 时选择持久化首实例，省略 ac
 
 PluginAPI.agents.list(): Promise<{id:string;name:string}[]> 只读返回本实例启用 Agent 的 id 和显示名，不含 archived。ChannelProvider 和 Channel 可选 multiAgent:boolean；内核以 provider 注册值为准传给实例。普通渠道不可用 data.target，唯一例外为 multiAgent:true 的 provider：目标仍须自身绑定通过，其他 Agent 为 no-binding。此类渠道可把 agent id 嵌入不透明 ref，从 Channel.send(target) 还原发言身份；OutMessage 不变。
 
+`agents.configureBinding(request,ctx)` 为当前 Agent 安装插件自己的私有持续绑定：request 为 `{id,eventType,conv,profile,notification:{to,via}}`，事件与会话须在实际插件命名空间；绑定固定 `persistent/per:conv`、`wake:run`、`reply:none`。必须是真实主人私聊发起的有效 admin/write 上下文；只修改当前 Agent 的该插件绑定，不授予 profile、渠道或源权限。所选 profile 已选择该插件，具备 read/admin/message 与可用 message_send，且不被群聊或访客绑定复用。通知目标经既有投递解析，必须是当前主人的已链接私有账号。返回固定 binding/profile/conv、解析后的 notification 与原始 ExecutionOwner。`agents.inspectBinding(request,owner)` 供可信插件在后台重查原始执行者、当前配置、绑定与主人账号；不发送消息、不安装绑定。两者复用现有配置验证/热重载和投递目标解析。
+
 ## 统一权限门面（permissions 槽）
 
 `PluginAPI.permissions` 提供 `register(provider)`、`list(ctx)`、`invoke(request, ctx)`。

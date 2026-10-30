@@ -29,6 +29,7 @@ import { manageObjects } from "./management.js";
 import { createNotificationPrefs } from "./notifications.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
+import { createPluginBindings } from "./plugin-bindings.js";
 import { quotaWire } from "./quota-wire.js";
 import { resumeRecovered } from "./recovery.js";
 import { createSocial } from "./social.js";
@@ -110,6 +111,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		let delivery: ReturnType<typeof createDelivery>;
 		let outbound: ReturnType<typeof outboundQueue>;
 		let social: ReturnType<typeof createSocial>;
+		let pluginBindings: ReturnType<typeof createPluginBindings>;
+		let managementQueue: Promise<unknown> = Promise.resolve();
 		const resolveExecutionOwner = async (owner: { session: string; agent: string | null; profile: string }) => {
 			const session = await store.sessions.get(owner.session);
 			if (!session || session.agent !== owner.agent || session.profile !== owner.profile)
@@ -141,6 +144,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			},
 			permissions,
 			agents: {
+				configureBinding: (request, pluginId, ctx) => pluginBindings.configureBinding(request, pluginId, ctx),
+				inspectBinding: (request, pluginId, owner) => pluginBindings.inspectBinding(request, pluginId, owner),
 				list: async () =>
 					[...agents.values()]
 						.filter((a) => !a.archivedAt)
@@ -460,6 +465,46 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				}
 			if (errors.length) throw new Error(errors.join("; "));
 		};
+		pluginBindings = createPluginBindings({
+			config,
+			agents,
+			assert: (ctx) => realRuntime().assertToolContext(ctx),
+			resolve: resolveExecutionOwner,
+			owner: async (agent, account) => (await store.identity().relation(agent, account)) === "owner",
+			target: async (request, agent, config) => (await delivery.resolveTarget(request, agent, config)).target,
+			hasSend: (config) =>
+				realRuntime()
+					.describeTools(config)
+					.some((tool) => tool.name === "message_send" && ["offer", "search"].includes(tool.exposure)),
+			update: (id, binding) => {
+				const result = managementQueue.then(() =>
+					manageObjects(
+						home,
+						{
+							action: "agents.update",
+							id,
+							value: {
+								bindings: [
+									...agents.get(id)!.bindings.filter((item) => item.id !== "@console" && item.id !== binding.id),
+									binding,
+								],
+							},
+						},
+						{
+							config,
+							agents,
+							presets: new Map([...loaded.presets, ...homePresets]),
+							files: (candidate, id) => filesFor(home, candidate, loaded, id),
+							validate: validateCandidate,
+							scaffold: (candidate, agent) => scaffoldAgent(agent, candidate),
+							reload: () => watcher!.reload(),
+						},
+					),
+				);
+				managementQueue = result.catch(() => {});
+				return result;
+			},
+		});
 		social = createSocial({
 			home,
 			config,
@@ -522,7 +567,6 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		delivery.start();
 		outbound.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
-		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
 			setWorkHost: work.set,
 			social,
