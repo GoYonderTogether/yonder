@@ -201,7 +201,7 @@ function useMissingSession(id: string): boolean {
 }
 
 /** 找不到会话：用户语言的说明 + 回到列表的入口，不显示「正在重试」，也没有输入框。 */
-function Missing({ wide }: { wide: boolean }) {
+function Missing({ wide, onList }: { wide: boolean; onList?(): void }) {
 	return (
 		<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="会话">
 			<header className="pt-safe flex items-center gap-1 border-b border-hairline bg-ground/90 px-2 py-2">
@@ -209,6 +209,11 @@ function Missing({ wide }: { wide: boolean }) {
 					<Link to={workPath()} aria-label="返回" className="press grid size-9 place-items-center rounded-full">
 						<ChevronLeft size={22} aria-hidden />
 					</Link>
+				)}
+				{onList && (
+					<button type="button" aria-label="展开工作列表" onClick={onList}>
+						<PanelLeftOpen size={19} aria-hidden />
+					</button>
 				)}
 				<h1 className="min-w-0 flex-1 truncate text-center text-body font-semibold">会话</h1>
 				{!wide && <span className="size-9" />}
@@ -235,6 +240,9 @@ function Live({
 	showRail,
 	onRail,
 	onList,
+	rightPanel,
+	onChannels,
+	onCloseChannels,
 }: {
 	id: string;
 	wide: boolean;
@@ -242,9 +250,12 @@ function Live({
 	showRail: boolean;
 	onRail(): void;
 	onList?(): void;
+	rightPanel: "work" | "channels";
+	onChannels(): void;
+	onCloseChannels(): void;
 }) {
 	const [sourcesOpen, setSourcesOpen] = useState(false);
-	const [channels, setChannels] = useState(false);
+
 	const titleOf = useTitleOf();
 	const node = useActiveNode();
 	const agents = useDeviceAgents();
@@ -266,7 +277,7 @@ function Live({
 			.filter(Boolean)
 			.join(" · ") || undefined;
 	const missing = useMissingSession(id);
-	if (missing) return <Missing wide={wide} />;
+	if (missing) return <Missing wide={wide} onList={onList} />;
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="聊天">
@@ -280,7 +291,7 @@ function Live({
 					onRail={onRail}
 					onList={onList}
 					railOpen={showRail}
-					onChannels={isBot ? () => setChannels((o) => !o) : undefined}
+					onChannels={isBot ? onChannels : undefined}
 				/>
 				{v.error && (
 					<p role="alert" className="bg-danger/10 px-4 py-1.5 text-caption text-danger">
@@ -310,11 +321,14 @@ function Live({
 				<Footer v={v} />
 				<FloatLayer session={id} v={v} />
 			</section>
-			{channels && s?.agent && <ChannelPanel bot={s.agent} wide={wide} onClose={() => setChannels(false)} />}
-			{wide && !channels && showRail ? (
+			{showRail && rightPanel === "channels" && s?.agent && (
+				<ChannelPanel bot={s.agent} wide={wide} onClose={onCloseChannels} />
+			)}
+			{wide && rightPanel === "work" && showRail ? (
 				<RightRail session={id} v={v} />
 			) : (
 				!wide &&
+				rightPanel === "work" &&
 				showRail && (
 					<RailSheet onClose={onRail}>
 						<CardStack session={id} v={v} />
@@ -378,6 +392,9 @@ export function Chat({
 	showRail,
 	onRail,
 	onList,
+	rightPanel,
+	onChannels,
+	onCloseChannels,
 }: {
 	id: string;
 	wide: boolean;
@@ -385,6 +402,9 @@ export function Chat({
 	showRail: boolean;
 	onRail(): void;
 	onList?(): void;
+	rightPanel: "work" | "channels";
+	onChannels(): void;
+	onCloseChannels(): void;
 }) {
 	return id.startsWith(IMPORT_PREFIX) ? (
 		<Imported
@@ -396,6 +416,17 @@ export function Chat({
 			onList={onList}
 		/>
 	) : (
-		<Live key={id} id={id} wide={wide} v={v} showRail={showRail} onRail={onRail} onList={onList} />
+		<Live
+			key={id}
+			id={id}
+			wide={wide}
+			v={v}
+			showRail={showRail}
+			onRail={onRail}
+			onList={onList}
+			rightPanel={rightPanel}
+			onChannels={onChannels}
+			onCloseChannels={onCloseChannels}
+		/>
 	);
 }

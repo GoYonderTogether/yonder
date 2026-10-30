@@ -65,7 +65,9 @@ export function useRailAttachments(session: string | undefined) {
 	});
 }
 
-export function useRailContent(session: string | undefined, view: SessionView): boolean {
+export type RailContentState = "loading" | "error" | "empty" | "present";
+
+export function useRailContent(session: string | undefined, view: SessionView): RailContentState {
 	const node = useActiveNode();
 	const client = useQueryClient();
 	const sessions = useSessions(!!session);
@@ -80,7 +82,10 @@ export function useRailContent(session: string | undefined, view: SessionView): 
 					.filter((item) => item.placement === "rail")
 					.map((item) => rpc<{ content: unknown }>("views.data", { viewId: item.id, session })),
 			);
-			return data.some((result) => result.status === "fulfilled" && viewHasContent(result.value.content));
+			return {
+				present: data.some((result) => result.status === "fulfilled" && viewHasContent(result.value.content)),
+				failed: data.some((result) => result.status === "rejected"),
+			};
 		},
 		retry: false,
 	});
@@ -97,5 +102,9 @@ export function useRailContent(session: string | undefined, view: SessionView): 
 		);
 	}, [client, node.id, session]);
 	const children = !!session && !!sessions.data?.some((item) => item.parent === session);
-	return hasRailContent(view, children, content.data ?? false, !!attachments.data?.length);
+	if (!session) return "empty";
+	if (hasRailContent(view, children, content.data?.present ?? false, !!attachments.data?.length)) return "present";
+	if (view.error || sessions.isError || content.isError || content.data?.failed || attachments.isError) return "error";
+	if (!view.ready || sessions.isPending || content.isPending || attachments.isPending) return "loading";
+	return "empty";
 }

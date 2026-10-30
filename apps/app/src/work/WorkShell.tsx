@@ -1,6 +1,6 @@
 import { PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon } from "lucide-react";
-import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
-import { Link, Navigate } from "react-router";
+import { lazy, type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router";
 import { PersonalAvatar } from "../components/PersonalDrawer";
 import { useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
@@ -8,16 +8,16 @@ import { Chat } from "./features/Chat";
 import { useImport } from "./features/ImportView";
 import { NotifyHost } from "./features/notify/NotifyHost";
 import { IMPORT_PREFIX } from "./lib/imports";
-import { setRailPref, useRailPref } from "./lib/layout";
 import { useRefetchOnReconnect } from "./lib/queries";
 import { useRailContent } from "./lib/railContent";
 import { useSession } from "./lib/useSession";
 import { EmptyPane } from "./shell/EmptyPane";
-import { frameOf, paneVisibility, phoneRailVisible, type Screen } from "./shell/layoutMode";
+import { frameOf, type Screen } from "./shell/layoutMode";
 import { PageSkeleton } from "./shell/PageSkeleton";
 import { useBreakpoint } from "./shell/useBreakpoint";
 import { useWorkRoute, workPath } from "./shell/workRoutes";
 import { Banner } from "./ui/Banner";
+import { FloatLayer } from "./ui/FloatLayer";
 import { CardStack } from "./ui/RailStack";
 import { WorkList } from "./ui/WorkList";
 
@@ -25,9 +25,24 @@ const Settings = lazy(() => import("./features/Settings").then((m) => ({ default
 const ConsoleSwitcher = lazy(() =>
 	import("./features/console/ConsoleSwitcher").then((m) => ({ default: m.ConsoleSwitcher })),
 );
-const phoneRailChoices = new Map<string, boolean>();
 type PaneMode = "auto" | "list" | "content" | "rail";
-const paneChoices = new Map<string, PaneMode>();
+type PaneIntent = {
+	mode: PaneMode;
+	left: boolean;
+	right: "auto" | "open" | "closed";
+	panel: "work" | "channels";
+	lastSide: "left" | "right";
+	phoneContent: boolean;
+};
+const paneIntents = new Map<string, PaneIntent>();
+const initialIntent: PaneIntent = {
+	mode: "auto",
+	left: true,
+	right: "auto",
+	panel: "work",
+	lastSide: "right",
+	phoneContent: false,
+};
 
 /**
  * 「工作」区外壳：挂在名片站 Shell 的内容区里（导航由名片站提供），
@@ -38,58 +53,62 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 	const node = useActiveNode();
 	const cloudDevice = !!node.deviceId;
 	const breakpoint = useBreakpoint();
-	const [leftOpen, setLeftOpen] = useState(true);
-	const [manualRail, setManualRail] = useState<string>();
-	const [, refreshPhoneChoice] = useState(0);
-	const [, refreshPaneChoice] = useState(0);
-	const railPref = useRailPref();
+	const location = useLocation();
+	const previousLocation = useRef(location);
+	const [, refreshIntent] = useState(0);
+	const lastLeft = useRef(true);
 	useRefetchOnReconnect();
-	// 保持一条活动订阅：连接状态驱动断线提示与重连补齐
 	useEffect(() => mux.subscribe("activity.watch", {}, { onReady: () => undefined, onEvent: () => undefined }), []);
-	// 当前会话只订一次：聊天区、任务列表进度、右栏卡片、悬浮窗共用同一份
 	const live = route.session && !route.session.startsWith(IMPORT_PREFIX) ? route.session : undefined;
 	const imported = useImport(
 		route.session?.startsWith(IMPORT_PREFIX) ? route.session.slice(IMPORT_PREFIX.length) : undefined,
 	);
 	const view = useSession(live);
 	const content = useRailContent(live, view);
-	const hasRail = !!(live && view.session?.id === live && content) || !!imported.data?.todo?.items.length;
-	const sessionKey = route.session ? `${node.id}:${route.session}` : "";
-	const paneChoice = paneChoices.get(sessionKey) ?? "auto";
-	const paneMode = paneChoice === "rail" && !hasRail ? "content" : paneChoice;
-	const setPaneMode = (value: PaneMode) => {
-		paneChoices.set(sessionKey, value);
-		refreshPaneChoice((n) => n + 1);
-	};
+	const railState = live
+		? content
+		: route.session
+			? imported.isError
+				? "error"
+				: imported.isPending
+					? "loading"
+					: imported.data?.todo?.items.length
+						? "present"
+						: "empty"
+			: "empty";
+	const sessionKey = `${node.id}:${route.session ?? "__page__"}`;
+	const intent = paneIntents.get(sessionKey) ?? { ...initialIntent, left: lastLeft.current };
+	const update = useCallback(
+		(change: Partial<PaneIntent>) => {
+			const next = { ...intent, ...change };
+			paneIntents.set(sessionKey, next);
+			lastLeft.current = next.left;
+			refreshIntent((n) => n + 1);
+		},
+		[intent, sessionKey],
+	);
+	const paneMode = intent.mode === "rail" && railState === "empty" && intent.panel === "work" ? "content" : intent.mode;
+	const setPaneMode = (mode: PaneMode) => update({ mode, phoneContent: mode === "content" });
 	useEffect(() => {
-		if (paneChoice === "rail" && !hasRail) {
-			paneChoices.set(sessionKey, "content");
-			refreshPaneChoice((n) => n + 1);
+		const prev = previousLocation.current;
+		previousLocation.current = location;
+		if (route.session && prev.pathname === location.pathname && prev.key !== location.key && intent.mode === "list") {
+			update({ mode: "auto", phoneContent: true });
 		}
-	}, [paneChoice, hasRail, sessionKey]);
-	const phoneChoice = phoneRailChoices.get(sessionKey);
+	}, [location, route.session, intent.mode, update]);
+	const hasRail = railState === "present";
+	const requestedRail = intent.panel === "channels" || intent.right === "open" || (intent.right === "auto" && hasRail);
 	const showRail =
-		!!route.session &&
-		(breakpoint === "phone"
-			? phoneRailVisible(hasRail, phoneChoice)
-			: railPref.open && (hasRail || manualRail === sessionKey));
+		!!route.session && requestedRail && !(breakpoint === "phone" && intent.phoneContent && intent.right === "auto");
 	const toggleRail = () => {
-		const next = paneMode === "auto" ? !showRail : true;
-		if (paneMode !== "auto") setPaneMode("auto");
-		if (breakpoint === "phone") {
-			phoneRailChoices.set(sessionKey, next);
-			refreshPhoneChoice((n) => n + 1);
-		} else {
-			setRailPref({ open: next });
-			setManualRail(next ? sessionKey : undefined);
-			if (next && breakpoint === "tablet") setLeftOpen(false);
-		}
+		const visible = showRail && !(breakpoint === "tablet" && intent.left && intent.lastSide === "left");
+		const next = !visible || paneMode !== "auto";
+		update({ mode: "auto", right: next ? "open" : "closed", panel: "work", lastSide: "right", phoneContent: !next });
 	};
-	const showList = () => {
-		if (paneMode !== "auto") setPaneMode("auto");
-		setLeftOpen(true);
-		if (breakpoint === "tablet" && showRail) setRailPref({ open: false });
-	};
+	const showList = () => update({ mode: "auto", left: true, lastSide: "left" });
+	const openChannels = () => update({ mode: "auto", panel: "channels", lastSide: "right", phoneContent: false });
+	const closeChannels = () => update({ panel: "work", phoneContent: breakpoint === "phone" });
+	const leftOpen = intent.left;
 
 	const page =
 		route.page === "settings" ? (
@@ -105,7 +124,14 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 		) : undefined;
 	const screen: Screen = page ? "page" : route.session ? "session" : "list";
 	const frame = frameOf(breakpoint, screen);
-	const panes = paneVisibility(breakpoint, screen, leftOpen, showRail);
+	const railVisible = showRail && !(breakpoint === "tablet" && leftOpen && intent.lastSide === "left");
+	const panes = {
+		left:
+			screen !== "session"
+				? breakpoint === "desktop" && leftOpen
+				: leftOpen && (breakpoint === "desktop" || (breakpoint === "tablet" && !railVisible)),
+		rail: railVisible,
+	};
 
 	const side = (
 		<>
@@ -118,7 +144,7 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 					<button
 						type="button"
 						aria-label="收起工作列表"
-						onClick={() => (paneMode === "list" ? setPaneMode("content") : setLeftOpen(false))}
+						onClick={() => (paneMode === "list" ? setPaneMode("content") : update({ left: false, lastSide: "right" }))}
 						className="press grid size-9 place-items-center rounded-full text-muted"
 					>
 						<PanelLeftClose size={19} aria-hidden />
@@ -141,20 +167,36 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 		paneMode === "list" && route.session ? (
 			<main className="flex min-h-0 flex-1 flex-col">{sideContent}</main>
 		) : paneMode === "rail" && route.session ? (
-			<main className="min-h-0 flex-1" aria-label="右栏">
+			<main className="relative min-h-0 flex-1" aria-label="右栏">
 				<CardStack
 					session={route.session}
 					v={imported.data ? { ...view, todos: imported.data.todo?.items ?? [] } : view}
 				/>
+				<FloatLayer session={route.session} v={view} />
 			</main>
 		) : page ? (
-			<Suspense fallback={<PageSkeleton />}>{page}</Suspense>
+			<div className="relative flex min-h-0 min-w-0 flex-1">
+				{breakpoint !== "phone" && !panes.left && (
+					<button
+						type="button"
+						aria-label="展开工作列表"
+						onClick={showList}
+						className="absolute top-2 left-2 z-10 grid size-9 place-items-center"
+					>
+						<PanelLeftOpen size={19} aria-hidden />
+					</button>
+				)}
+				<Suspense fallback={<PageSkeleton />}>{page}</Suspense>
+			</div>
 		) : route.session ? (
 			<Chat
 				id={route.session}
 				wide={breakpoint !== "phone"}
 				v={view}
-				showRail={paneMode === "content" ? false : showRail}
+				showRail={paneMode === "content" ? false : panes.rail}
+				rightPanel={intent.panel}
+				onChannels={openChannels}
+				onCloseChannels={closeChannels}
 				onRail={toggleRail}
 				onList={breakpoint !== "phone" && (paneMode !== "auto" || !panes.left) ? showList : undefined}
 			/>
@@ -184,14 +226,14 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 					显示
 					<select
 						aria-label="工作区域显示"
-						value={paneMode}
+						value={intent.mode}
 						onChange={(event) => setPaneMode(event.target.value as PaneMode)}
 						className="field"
 					>
 						<option value="auto">自动</option>
 						<option value="list">仅工作列表</option>
 						<option value="content">仅会话</option>
-						<option value="rail" disabled={!hasRail}>
+						<option value="rail" disabled={!hasRail && intent.mode !== "rail"}>
 							仅右栏
 						</option>
 					</select>
@@ -201,7 +243,18 @@ export function WorkShell({ onLogout, allWork }: { onLogout(): void; allWork?: R
 				{paneMode === "auto" && panes.left && (
 					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">{sideContent}</aside>
 				)}
-				<div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+				<div
+					className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+					onFocusCapture={(event) => {
+						if (
+							breakpoint === "phone" &&
+							(event.target instanceof HTMLTextAreaElement ||
+								event.target instanceof HTMLInputElement ||
+								(event.target instanceof HTMLElement && event.target.isContentEditable))
+						)
+							update({ phoneContent: true });
+					}}
+				>
 					<div className={`flex min-h-0 min-w-0 flex-1 ${breakpoint !== "phone" ? "flex-row" : "flex-col"}`}>
 						{main}
 					</div>

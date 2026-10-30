@@ -100,7 +100,6 @@ export function CardStack({ session, v }: { session: string; v: SessionView }) {
 export function RightRail({ session, v }: { session: string; v: SessionView }) {
 	const pref = useRailPref();
 	const drag = useRef<{ x: number; w: number } | null>(null);
-	if (!pref.open) return null;
 	return (
 		<aside
 			className="relative shrink-0 border-l border-hairline bg-list"
