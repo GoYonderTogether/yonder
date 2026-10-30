@@ -107,3 +107,12 @@ Terra 分工：core/SDK/channel-card 控制桥、cloud owner 校验和 RPC/WS �
 - 正式 `.11` 的最终 CI、发布、安装和实际运行状态以发布回执为准；上述结果不替代发布或真人验收。
 - 原账号浏览器 `njtc` 在 260px 视口以四个真实 Bot 验证横向滚动：头像条 clientWidth 228、scrollWidth 381，计算样式隐藏标准及 WebKit 滚动条；原生 wheel 横向 120 后 scrollLeft 从 0 到 120，未修改 DOM 或注入数据。随后恢复 390×844，截图 `/tmp/yonder-work-device-list-preview.png`；capture `d2c8be6540806` 已停止并导出 `/tmp/yonder-work-consistency-browser.json`，浏览器会话已关闭。物理鼠标拖动和手指操作仍未测。
 - `.11` Release run `41039507667` 使用冻结基准 `08b913f`、要求 CI；发布与标准更新尚待结果，不能视为成功。
+
+### `.11` 发布与真实任务验收
+
+- Release run `41039507667` 成功，正式 tag `19b5692`，版本 `v0.3.26103011`；Linux/macOS 完整 CI 通过。标准 update 首次因 curl 18 clone 失败，重试最终 `verified=true`、`restartRequired=false`，原运行 home 和设备绑定保持。tag 与 `877` 热修复的精确 92 文件 hash 快照均通过；前端最终 `449c6fa` 快照收尾另待发布回执。
+- 原网页登录 cookie 经 `.11` 读取 `sessions.list`：四个 main 分别属于 main、z-fish、gpt-senpai、hermes，旧 maintainer 与 memory-keeper 均不在列表。522 个 task 中 499 有标题、23 无标题；不把缺少首句记录的历史任务称为已起名。
+- 创建真实 Luna 任务 `161323`，输入“检查工作台标题与设备切换。只回复「通过」，不要调用工具。”；实际回复“通过”，首句投影标题为“检查工作台标题与设备”，Footer 显示 ↑15k、↓5、openai gpt6luna medium。截图 `/tmp/yonder-work-release11-task.png` 已查看。
+- AllWork 头像修复 `a84` 后，真实四个头像宽均为 56，名称单行正常；截图 `/tmp/yonder-work-mobile-final.png` 已查看。飞书真实 persistent 会话 `1748` 的名称缺失由 `449c6fa` 回退真实 ref ID，浏览器实测 header 为“贾维斯 飞书·私聊·会话oc_719a1c50b99242eaf57c58aa0646ced8”，完整 title 可用，没有猜测名称。
+- 本轮清单中的功能实现已完成。`autoTitle:true` 的模型生成分支未测：没有更改用户配置；确定性首句投影和真实模型任务已测。物理手指、鼠标拖动以及真实双设备仍未测；相同 session ID 的合成双设备回归通过，不把它当真实双设备验收。
+- 浏览器会话 `rivm` 的 capture `de19743879890` 由主 Agent 导出并关闭；导出及会话关闭结果以其回执为准。
