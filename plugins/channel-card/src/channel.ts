@@ -297,7 +297,6 @@ export class CardChannel implements Channel {
 		if (this.socket) this.socket.close();
 		else this.connect();
 	}
-
 	private connect(): void {
 		if (this.stopped || !this.token || !this.io || this.socket) return;
 		clearTimeout(this.reconnect);
@@ -416,7 +415,6 @@ export class CardChannel implements Channel {
 		if (socket.readyState === WebSocket.OPEN)
 			socket.send(JSON.stringify({ type: "ack", agentId: data.agentId, convId: data.convId, seq: m.seq }));
 	}
-
 	async send(target: string, msg: OutMessage, signal?: AbortSignal): Promise<Delivery> {
 		const [kind, instance, key, id, extra] = target.split(":");
 		const agentId = key && this.mappings.get(key);
@@ -478,7 +476,6 @@ export class CardChannel implements Channel {
 			);
 		});
 	}
-
 	async cardPush(
 		agent: string | null,
 		data: { title: string; markdown: string; display?: { kind: "html" | "svg"; source: string } },

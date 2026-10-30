@@ -29,7 +29,13 @@
 			],
 			"tools": [
 				"social_inspect",
-				"social_update"
+				"social_update",
+				"social_group_info",
+				"social_group_tag_set",
+				"social_group_mode_set"
+			],
+			"hooks": [
+				"social.group-judge"
 			]
 		}
 	}

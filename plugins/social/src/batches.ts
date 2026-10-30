@@ -1,6 +1,5 @@
 import type { EventInput, EventQuery, PluginAPI, SocialPolicy, YEvent } from "@yonder/sdk";
 import { recoverJudgment } from "./judge-recovery.js";
-
 interface Entry {
 	source: YEvent;
 	revision: string;
@@ -15,7 +14,6 @@ export interface State {
 	failedThrough?: string;
 	direct?: Map<string, string>;
 }
-
 export class Batches {
 	private readonly groups = new Map<string, State>();
 	private readonly judging = new Map<string, YEvent>();
@@ -26,10 +24,8 @@ export class Batches {
 	private readonly legacyPending = new Map<string, string>();
 	private stopped = false;
 	private started = false;
-	constructor(
-		private readonly api: PluginAPI,
-		private readonly managed: (conv: string) => boolean = () => false,
-	) {}
+	managed = (_conv: string) => false;
+	constructor(private readonly api: PluginAPI) {}
 	private key(agent: string, conv: string) {
 		return `${agent}\0${conv}`;
 	}

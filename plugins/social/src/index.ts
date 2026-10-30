@@ -63,7 +63,8 @@ export default definePlugin({
 	setup(api) {
 		const config = (api.config as { groupJudge?: GroupJudgeConfig } | undefined)?.groupJudge;
 		const groups = config ? new Groups(api, config) : undefined;
-		const batches = new Batches(api, (conv) => groups?.managed(conv) ?? false);
+		const batches = new Batches(api);
+		batches.managed = (conv) => groups?.managed(conv) ?? false;
 		if (groups)
 			api.hooks.register({
 				id: "social.group-judge",

@@ -141,6 +141,7 @@ export class Groups {
 			if (!route.session || route.dropped) continue;
 			this.sessions.set(route.session, room);
 			if (route.wake === "run" && (data.social?.mentions?.bot ?? data.mentioned)) {
+				if (!raw.social?.room || !raw.msgId) room.direct.clear();
 				// Native addressed runs still use their existing binding, with current room visibility.
 				room.direct.set(route.session, { agent: route.agent, conv: source.conv!, source: source.id });
 			}

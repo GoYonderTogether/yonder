@@ -9,14 +9,12 @@ import { createRoutedNotifications } from "./notifications.js";
 import { createPendingResults, createReporter } from "./pending.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
-
 type Wake = "run" | "write";
 interface RoutedRun {
 	agent: string;
 	session: string;
 	wake: Wake;
 }
-
 export function createRouter({
 	channels,
 	store,
@@ -35,7 +33,6 @@ export function createRouter({
 	const report = createReporter(onReport);
 	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
 	const { waitFor, finish } = createPendingResults();
-
 	async function finishIdle(session: SessionInfo) {
 		for (const event of await store.events.waitingInputs(session.id)) {
 			let saved = await store.events.agentResult(session.id, event.id);
@@ -64,7 +61,6 @@ export function createRouter({
 			});
 		}
 	}
-
 	async function dispatch(event: YEvent, runs: RoutedRun[]): Promise<void> {
 		await Promise.all(
 			runs.map(async (routed) => {
@@ -153,7 +149,6 @@ export function createRouter({
 			}),
 		);
 	}
-
 	async function prepare(
 		eventInput: EventInput,
 		waiting: boolean,
@@ -358,8 +353,7 @@ export function createRouter({
 					binding.session.per !== "conv")
 			)
 				binding = undefined;
-			// 点名叫到本 Agent 却没命中任何配置绑定：multiAgent 渠道（card、console）的主人私聊走零配置
-			// 点名入口，其余情况仍然丢弃，但要留下可诊断的原因（spec 03「不可路由要留可诊断原因」）。
+			// multiAgent主人私聊可用零配置点名入口；其他未绑定输入仍丢弃并保留诊断。
 			if (!binding && !matchedConnection && internalTarget === agent.id)
 				binding = targetBinding(agent, event, instance, !!person && person === agent.owner);
 			if (!binding) {
@@ -462,7 +456,6 @@ export function createRouter({
 		void dispatch(stored, runs).catch(report);
 		return { event: stored, waits };
 	}
-
 	return {
 		admitBatch: (request: Parameters<typeof admitBatch>[0]) =>
 			admitBatch(request, { agents, store, ...(channels ? { channels } : {}) }),

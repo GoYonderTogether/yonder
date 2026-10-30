@@ -70,7 +70,7 @@ export function registerSocialTools(api: PluginAPI) {
 		},
 	});
 	api.tools.register({
-		name: "group_info",
+		name: "social_group_info",
 		description: "Read a group's value/rhythm tags and reply mode.",
 		capabilities: ["read"],
 		parameters: Type.Object(target, { additionalProperties: false }),
@@ -88,7 +88,7 @@ export function registerSocialTools(api: PluginAPI) {
 		},
 	});
 	api.tools.register({
-		name: "group_tag_set",
+		name: "social_group_tag_set",
 		description:
 			"Preview or apply a group's value/rhythm tags. Apply with dryRun false after the owner sends 确认 as a separate message.",
 		capabilities: ["admin"],
@@ -116,7 +116,7 @@ export function registerSocialTools(api: PluginAPI) {
 		},
 	});
 	api.tools.register({
-		name: "group_mode_set",
+		name: "social_group_mode_set",
 		description:
 			"Preview or apply a group's reply mode. Apply with dryRun false after the owner sends 确认 as a separate message.",
 		capabilities: ["admin"],

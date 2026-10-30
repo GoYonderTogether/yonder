@@ -105,19 +105,23 @@ test("工具调整后 social.inspect 返回新标签与模式", async () => {
 	expect([...registered.keys()]).toEqual([
 		"social_inspect",
 		"social_update",
-		"group_info",
-		"group_tag_set",
-		"group_mode_set",
+		"social_group_info",
+		"social_group_tag_set",
+		"social_group_mode_set",
 	]);
-	await call("group_tag_set", { agent: "main", conv, value: "high", reason: "主人关心的话题", dryRun: false }, owner);
+	await call(
+		"social_group_tag_set",
+		{ agent: "main", conv, value: "high", reason: "主人关心的话题", dryRun: false },
+		owner,
+	);
 	expect((await service.inspect({ agent: "main", conv }, owner)).policy).toMatchObject({
 		tags: { value: "high", rhythm: "normal" },
 	});
-	await call("group_tag_set", { agent: "main", conv, rhythm: "low", reason: "消息太密", dryRun: false }, owner);
-	await call("group_mode_set", { agent: "main", conv, mode: "mention", reason: "只看 @", dryRun: false }, owner);
+	await call("social_group_tag_set", { agent: "main", conv, rhythm: "low", reason: "消息太密", dryRun: false }, owner);
+	await call("social_group_mode_set", { agent: "main", conv, mode: "mention", reason: "只看 @", dryRun: false }, owner);
 	const inspected = await service.inspect({ agent: "main", conv }, owner);
 	expect(inspected.policy).toMatchObject({ mode: "mention", tags: { value: "high", rhythm: "low" } });
-	expect(await call("group_info", { agent: "main", conv }, owner)).toMatchObject({
+	expect(await call("social_group_info", { agent: "main", conv }, owner)).toMatchObject({
 		tags: { value: "high", rhythm: "low" },
 		mode: "mention",
 		revision: inspected.revision,
@@ -127,7 +131,11 @@ test("工具调整后 social.inspect 返回新标签与模式", async () => {
 test("预览不落盘，确认前的策略保持原样", async () => {
 	const { service } = socialStore();
 	const { call } = tools(service);
-	const preview = await call("group_mode_set", { agent: "main", conv, mode: "digest", reason: "先看效果" }, owner);
+	const preview = await call(
+		"social_group_mode_set",
+		{ agent: "main", conv, mode: "digest", reason: "先看效果" },
+		owner,
+	);
 	expect(preview).toMatchObject({ before: {}, after: { mode: "digest" } });
 	expect((await service.inspect({ agent: "main", conv }, owner)).policy).toEqual({});
 });
@@ -136,7 +144,7 @@ test("非主人调用被拒绝", async () => {
 	const { service } = socialStore();
 	const { call } = tools(service);
 	const result = await call(
-		"group_tag_set",
+		"social_group_tag_set",
 		{ agent: "main", conv, value: "low", reason: "降噪", dryRun: false },
 		stranger,
 	);

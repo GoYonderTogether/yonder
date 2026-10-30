@@ -128,6 +128,16 @@ test.skipIf(!enabled)(
 				["main", "gpt-senpai"],
 			);
 			console.info("group-judge-live-stop", JSON.stringify(stop));
+			if (process.env.YONDER_GROUP_EVIDENCE)
+				await writeFile(
+					process.env.YONDER_GROUP_EVIDENCE,
+					JSON.stringify(
+						{ direct, stop, model, source: "real kernel judgment; local transport; no QQ/Web send" },
+						null,
+						2,
+					),
+					{ mode: 0o600 },
+				);
 			expect(speakers(stop)).toEqual([]);
 			expect(stop.silenced).toEqual(expect.arrayContaining(["main", "gpt-senpai"]));
 			expect(stop.decisions.every((decision) => decision.action === "cancel")).toBe(true);
