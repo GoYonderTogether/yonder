@@ -366,3 +366,14 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 验证：`npm run typecheck`、`npm run lint`、`npm run build` 通过；`npx vitest run packages/core/src/routing`（42 通过 / 1 跳过，跳过项是需要 `YONDER_TEST_REAL=1` 的真实模型群批测试）、`plugins/channel-qq`（6 通过 / 1 跳过）、`plugins/wechat-archive`（2 通过）、`packages/core/src/prompt`、`packages/core/src/kernel`、`tests/wechat.test.ts` 通过。用真实编译产物 `parseYonderConfig` 读主人正在跑的 yonder.yaml：13 个渠道正常解析、`notifications` 缺省为 undefined（旧配置不需要改）；同一解析器拒绝 `default: loud` 与非 `conv:` 键。微信侧真实冒烟用本机归档：`wechat-context status` 报 540083 条/983 会话、上次同步 ok；`fetch-new --consumer lane-channels-smoke --from-now` 建立游标 540083，随后 `check-new` 报 0 条新、再次 `fetch-new` 返回 0 条并保留同一游标，证明真实增量与游标持久化可用。
 
 **未测**：QQ 真实平台联调（本机 yonder.yaml 的三个 QQ 实例已占用全部 WebSocket 连接，抢连会打断在跑的服务，交主 Agent 联调）；真实微信新消息触发的模型唤醒与提醒端到端（本线没有产生新的微信消息，不伪造）；媒体发送在平台的序号与限流实测；网页端/桌面端消费 notification 事件的节点级扇出（属 B 线）。
+
+
+## 平台新群默认参与与群管理（2026-10-30）
+
+目标契约见 16 末节；规范提交 105b69c、74a5aa6、475bb4e。平台成员事实驱动默认群参与、真实 @ 归一及可信群管理员已在 81593f0 实现；官方 init 模板与未配置 Bot 的身份触发词仍在同任务收尾，尚未据此宣称本机安装或真实模型群聊已验收。
+
+源码检查原始记录：159 项定向通过；追加管理员/路由等 30 项通过；全仓 2193 通过 / 1 失败 / 101 跳过，失败为另一条并行开发线的 packages/design/test/tokens.test.ts，未在本线修改；typecheck、build、lint 通过，lint 893 warnings / 30 infos。增量期间的测试入口错误和修正记录保留在验收报告，不用后续通过覆盖原始失败。
+
+平台服务已上线：后端 group-platform-20261030-ce509d0-r2，前端 0.3.26103016-group-5018422（在实际生产 a52c26c 基础仅合入本次社交 UI，未覆盖并行工作页）。014 迁移前已备份。云端源码 d25f345/ce509d0、回归 692f176、部署记录 c154aa0；完整后端真实 PG/Redis/HTTP/WS 135 通过 / 0 失败 / 0 跳过，精确发布快照 9 项通过，类型/构建通过。部署前发现运行源码与旧部署路径文档漂移，已按实际快照合入并记录 manifest，非整包覆盖。
+
+实际 IHG7CJ 群：真实主人 API 和页面改名/管理员任免已验证并恢复原名/原角色，主人仍 Zoran；四个本人 Bot 经主人授权公开 API 激活。非成员/管理员/群主移交权限有真实 HTTP 服务测试，不冒称已在另一位真人线上账号完成。模型群聊、零配置新群与小余首次入群尚待固定 runtime 版本安装后验收。证据目录：/Users/zoran/Documents/yonder-review-artifacts/group-default-20261030/；平台准确路径见 /Users/zoran/Documents/yonder-cloud/deploy/DEV.md。
