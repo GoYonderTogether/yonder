@@ -75,6 +75,8 @@ export interface ApiClient {
 	cardConversation(cardId: string): Promise<{ convId: string } | null>;
 	createGroup(input: { title: string; memberIds: string[] }): Promise<Conversation>;
 	conversationDetail(convId: string): Promise<ConversationDetail>;
+	renameGroup(convId: string, title: string): Promise<void>;
+	setGroupRole(convId: string, accountId: string, role: "owner" | "admin" | "member"): Promise<void>;
 	groupInvite(convId: string): Promise<{ token: string }>;
 	groupPreview(token: string): Promise<GroupPreview | null>;
 	joinGroup(token: string, share?: string): Promise<Conversation>;

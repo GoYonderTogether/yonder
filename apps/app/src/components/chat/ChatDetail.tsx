@@ -2,9 +2,10 @@ import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight, Plus, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../../api";
-import type { Actor, ConversationDetail } from "../../api/types";
+import type { ConversationDetail } from "../../api/types";
 import { appPath } from "../../lib/base";
 import { cn } from "../../lib/cn";
 import { entityRef } from "../../lib/entityRef";
@@ -22,6 +23,14 @@ import { AiBadge } from "./AiBadge";
 /** 聊天详情：手机是推入的整页，桌面是主区右侧抽屉。 */
 export function ChatDetail({ convId, onClose }: { convId: string; onClose: () => void }) {
 	const desktop = useDesktop();
+	const qc = useQueryClient();
+	useEffect(() => {
+		const refresh = () => {
+			void qc.invalidateQueries({ queryKey: ["conv-detail", convId] });
+		};
+		window.addEventListener("yonder:presence", refresh);
+		return () => window.removeEventListener("yonder:presence", refresh);
+	}, [qc, convId]);
 	const { data: detail } = useQuery({
 		queryKey: ["conv-detail", convId],
 		queryFn: () => api.conversationDetail(convId),
@@ -29,7 +38,7 @@ export function ChatDetail({ convId, onClose }: { convId: string; onClose: () =>
 	const body = !detail ? (
 		<div className="skeleton m-4 h-40 rounded-card" />
 	) : detail.kind === "group" ? (
-		<GroupDetail d={detail} onClose={onClose} />
+		<GroupDetail key={detail.id} d={detail} onClose={onClose} />
 	) : (
 		<DmDetail d={detail} />
 	);
@@ -168,6 +177,28 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 	const nav = useNavigate();
 	const loc = useLocation();
 	const qc = useQueryClient();
+	const me = useStore($session)?.actor;
+	const myRole = d.members.find((m) => m.id === me?.id)?.role;
+	const owner = myRole === "owner" && !me?.anonymous;
+	const manage = (owner || myRole === "admin") && !me?.anonymous;
+	const [title, setTitle] = useState(d.title);
+	const savedTitle = useRef(d.title);
+	useEffect(() => {
+		setTitle((current) => (current === savedTitle.current ? d.title : current));
+		savedTitle.current = d.title;
+	}, [d.title]);
+	const [busy, setBusy] = useState(false);
+	const save = async (action: () => Promise<void>) => {
+		setBusy(true);
+		try {
+			await action();
+			await Promise.all(["conv-detail", "convs"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
+		} catch (error) {
+			toast(error instanceof Error ? error.message : "保存失败", true);
+		} finally {
+			setBusy(false);
+		}
+	};
 	const { data: invite } = useQuery({ queryKey: ["invite", d.id], queryFn: () => api.groupInvite(d.id) });
 	const invitePath = invite ? `/g/${invite.token}` : "";
 	const qrValue = useShareUrl(
@@ -189,7 +220,7 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 			<Section className="p-4">
 				<p className="pb-3 text-[13px] text-muted">群成员 {d.members.length}</p>
 				<ul className="grid grid-cols-4 gap-y-4">
-					{d.members.map((m: Actor) => (
+					{d.members.map((m) => (
 						<li key={m.id} className="min-w-0">
 							<Link
 								to={`/contacts/${entityRef(m)}`}
@@ -201,6 +232,9 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 									<span className="truncate text-[12px]">{m.name}</span>
 									{m.kind === "agent" && <AiBadge />}
 								</span>
+								{m.role && m.role !== "member" && (
+									<span className="text-[11px] text-muted">{m.role === "owner" ? "群主" : "管理员"}</span>
+								)}
 							</Link>
 						</li>
 					))}
@@ -217,11 +251,68 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 				</ul>
 			</Section>
 			<Section>
-				<div className="flex h-12 items-center gap-3 px-4 text-[14px]">
-					<span className="text-muted">群名称</span>
-					<span className="ml-auto truncate">{d.title}</span>
-				</div>
+				{manage ? (
+					<form
+						className="flex flex-col gap-2 p-4"
+						onSubmit={(event) => {
+							event.preventDefault();
+							void save(() => api.renameGroup(d.id, title));
+						}}
+					>
+						<label htmlFor="group-title" className="text-[13px] text-muted">
+							群名称
+						</label>
+						<input
+							id="group-title"
+							value={title}
+							maxLength={100}
+							required
+							disabled={busy}
+							onChange={(event) => setTitle(event.target.value)}
+							className="h-10 min-w-0 rounded-control bg-ground px-3 text-[14px]"
+						/>
+						<Button type="submit" disabled={busy || !title.trim() || title.trim() === d.title}>
+							保存群名称
+						</Button>
+					</form>
+				) : (
+					<div className="flex min-h-12 items-center gap-3 px-4 text-[14px]">
+						<span className="text-muted">群名称</span>
+						<span className="ml-auto truncate">{d.title}</span>
+					</div>
+				)}
 			</Section>
+			{owner && (
+				<Section className="p-4">
+					<p className="mb-3 text-[13px] text-muted">群管理</p>
+					{d.members
+						.filter((m) => m.kind === "human" && !m.anonymous && m.id !== me?.id)
+						.map((m) => (
+							<div key={m.id} className="flex flex-col gap-2 border-t border-line py-3 first:border-0">
+								<span className="text-[14px]">{m.name}</span>
+								<div className="flex flex-wrap gap-2">
+									<Button
+										disabled={busy}
+										onClick={() =>
+											void save(() => api.setGroupRole(d.id, m.id, m.role === "admin" ? "member" : "admin"))
+										}
+									>
+										{m.role === "admin" ? "取消管理员" : "设为管理员"}
+									</Button>
+									<Button
+										disabled={busy}
+										onClick={() => {
+											if (window.confirm(`将群主移交给${m.name}？移交后你将成为普通成员。`))
+												void save(() => api.setGroupRole(d.id, m.id, "owner"));
+										}}
+									>
+										移交群主
+									</Button>
+								</div>
+							</div>
+						))}
+				</Section>
+			)}
 			<Section className="flex flex-col items-center gap-3 p-5">
 				{invite ? (
 					<div className="rounded-control bg-white p-3">

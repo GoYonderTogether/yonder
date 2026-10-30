@@ -60,6 +60,7 @@ export interface Conversation {
 	code?: string;
 	kind: ConversationKind;
 	title: string;
+	members?: { accountId: string; role: "owner" | "admin" | "member" }[];
 	memberIds: string[];
 	unread: number;
 	last?: Message;
@@ -147,7 +148,7 @@ export interface ConversationDetail {
 	code?: string;
 	kind: ConversationKind;
 	title: string;
-	members: Actor[];
+	members: (Actor & { role?: "owner" | "admin" | "member" })[];
 }
 
 export interface GroupPreview {

@@ -90,6 +90,12 @@ export const httpApi: ApiClient = {
 		request<{ convId: string } | null>(`/cards/${encodeURIComponent(cardId)}/conversation`, {}, true),
 	createGroup: (input) => request<Conversation>("/conversations/group", json("POST", input)),
 	conversationDetail: (convId) => request(`/conversations/${encodeURIComponent(convId)}/detail`),
+	renameGroup: (convId, title) => request(`/conversations/${encodeURIComponent(convId)}`, json("PATCH", { title })),
+	setGroupRole: (convId, accountId, role) =>
+		request(
+			`/conversations/${encodeURIComponent(convId)}/members/${encodeURIComponent(accountId)}`,
+			json("PATCH", { role }),
+		),
 	groupInvite: (convId) => request(`/conversations/${encodeURIComponent(convId)}/invite`, json("POST")),
 	createShareLink: (input) => request<ShareLink>("/share-links", json("POST", input)),
 	getShareLink: (token) => request<ShareLink | null>(`/share-links/${encodeURIComponent(token)}`, {}, true),

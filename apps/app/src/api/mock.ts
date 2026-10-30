@@ -332,6 +332,12 @@ export const mockApi: ApiClient = {
 		convs.unshift(c);
 		return { ...c };
 	},
+	async renameGroup() {
+		throw new Error("群管理需要连接真实服务");
+	},
+	async setGroupRole() {
+		throw new Error("群管理需要连接真实服务");
+	},
 	async conversationDetail(id) {
 		await wait();
 		const c = convs.find((x) => x.id === id);
