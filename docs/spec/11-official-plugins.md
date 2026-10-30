@@ -189,6 +189,7 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 
 - `channel-qq` 是独立 SDK 插件，优先复用腾讯 `@tencent-connect/qqbot-nodejs`；通过官方 WebSocket 接收 C2C、群 @ 与平台已开放的群普通消息，REST 发送文字与 image/audio/video/file 媒体（SDK 上传后发送，音频按文件发送，不声称原生语音气泡）。平台连接会话与 Agent 会话分开，模型唤醒、权限和转录仍归内核。不声明 Webhook 与流式输出。
 - 实例配置为 `appId`、`credential`，以及可选的 `allowedUsers`（单聊用户 OpenID）、`allowedGroups`（群 OpenID）和 `sendIntervalMs`（出站请求最小间隔，默认 500，0–60000 毫秒）；未列名单表示不限，空名单拒绝。入站生成 `message.in`，保留原生 msgId/createdAt；账号为 `acct:<instance>:<openid>`，单聊会话为 `conv:<instance>:c2c:<openid>`，群为 `conv:<instance>:group:<openid>`。接纳 GROUP_AT_MESSAGE_CREATE 与 GROUP_MESSAGE_CREATE；在清理正文前复用腾讯 mentionGate 的识别结果呈现 mentioned，passthrough 不过滤普通消息。平台须开启“接收所有消息”才能推送全量事件；Yonder 的接纳能力不代表平台已授权。新配置用 wake: write 旁观与独立群批次运行实现持续参与；旧配置的 wake: mention 仍只在 @ 时运行，需显式升级，不能通过逐条 wake: run 冒充。
+- QQ 可选插件元数据 `data.qq.msgIdx/refMsgIdx` 保留官方 SDK 提供的消息/引用索引。显式引用优先使用同群账本可证实的引用索引；官方当前字段说明与示例冲突，旧原生消息 ID 路径兼容保留，平台拒绝如实反馈，不把回执成功当客户端引用已验收。
 - 入站媒体映射为 `attachments`：`content_type` 决定 image/audio/video/file，只接纳 https URL，其他 URI 丢弃而不猜测（丢弃数量记一条 warn 日志，消息本身仍接纳）；引用回复的原文取 `msg_elements[0]` 写入 `quote.text`，参考索引本身不含正文。只有附件没有正文的消息同样接纳。出站媒体接受 https URL 或绝对本地路径，一次回复可先发文字再逐条发媒体；同一被动回复的多条消息共用 msg_seq 计数。所有请求经插件内串行间隔器发送，`sendIntervalMs` 为最小间隔；平台限流与 5xx 仍按 uncertain 处理，不盲重发。
 - 群模型自行选择普通发送、respondTo 语义回应、replyTo 可见引用、mentions 艾特；群提示禁止强制逐句引用。新建和已安装的官方群配置采用同一契约，更新只迁移可识别的旧官方指令和工具选择，保留用户定制。QQ @ 仅按官方 SDK/协议可验证身份发送，不支持则明确报错；客户端实际提醒独立验收。
 - 普通回复使用 OutMessage.sourceMessageId（显式 replyTo 优先用作被动回复目标），不借用另一次输入的消息 ID。SDK 管协议序号与恢复，内核事件账本管输入去重。发送不明返回 uncertain，不自动改成主动消息或盲重发。
