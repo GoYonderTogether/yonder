@@ -105,3 +105,5 @@ Terra 分工：core/SDK/channel-card 控制桥、cloud owner 校验和 RPC/WS �
 - 原始 `952370d` 全量测试：2124 通过、5 失败、103 跳过，另有 5 个未处理错误；夹具和跨设备问题分别由 `1b39a40`、`7720c35` 修复。`a6cc549` 全量重跑：2132 通过、0 失败、103 跳过（394 个测试文件通过、63 个跳过），build 和 typecheck 通过。
 - lint 首次有 3 个 import 错误，由 `3ed26cc` 修复；必需格式空白使两个文件到 501 行，`990b4e1` 等价整理内部类型后 build、typecheck、lint 通过，保留 807 warnings、31 infos，未提高大小基线。`0a2397d` 折叠与归档补丁定向 7/7 通过。
 - 正式 `.11` 的最终 CI、发布、安装和实际运行状态以发布回执为准；上述结果不替代发布或真人验收。
+- 原账号浏览器 `njtc` 在 260px 视口以四个真实 Bot 验证横向滚动：头像条 clientWidth 228、scrollWidth 381，计算样式隐藏标准及 WebKit 滚动条；原生 wheel 横向 120 后 scrollLeft 从 0 到 120，未修改 DOM 或注入数据。随后恢复 390×844，截图 `/tmp/yonder-work-device-list-preview.png`；capture `d2c8be6540806` 已停止并导出 `/tmp/yonder-work-consistency-browser.json`，浏览器会话已关闭。物理鼠标拖动和手指操作仍未测。
+- `.11` Release run `41039507667` 使用冻结基准 `08b913f`、要求 CI；发布与标准更新尚待结果，不能视为成功。
