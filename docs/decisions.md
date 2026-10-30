@@ -824,3 +824,5 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 ### 同轮补充：Web群聊与发版安装
 
 主人明确增加Web群聊同功能适配，额外子Agent负责card/网页/云端链路；共享conversation工具不写死QQ。完成后走release.yml正式发版并本机更新；主人亲自QQ测试普通回复/引用/@，主Agent保留逐项待验清单。QQ入站引用索引可选增量保留，兼容官方说明与示例冲突，不宣称未实测协议效果。云部署未包含在此次本机安装授权中。
+
+同轮验收补齐身份上下文：新建官方群profile显式选择既有peer-workspace，只有本Agent SOUL/AGENTS，不继承defaults私人memory或插件；QQ可识别旧官方群升级补上，card自定义既有profile不改。实际发现旧QQ group contexts=[]而常驻模板context ID不在旧过滤器中，不能只靠“保持自己身份”的文字弥补缺失。

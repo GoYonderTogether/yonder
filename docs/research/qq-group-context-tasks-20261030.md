@@ -90,10 +90,10 @@
 
 - [x] 主人批准；01/06/11 规范与 decisions 更新。
 - [x] A：SDK 和共享投递（respondTo、mentions、运输来源、兼容）。
-- [ ] B：当前群查询、参与者、附件工具、动态上下文及模型请求证据。
-- [ ] C：QQ 协议、提示词与官方配置升级、实际渠道验收入口。
+- [x] B：当前群查询、参与者、附件工具、动态上下文及模型请求证据。
+- [x] C：QQ 协议、提示词与官方配置升级、实际渠道验收入口（QQ出站@缺口单列）。
 - [ ] 集成：build/typecheck/test/lint，如实保留原始结果。
-- [ ] 真实 QQ：历史查询定位本次两份 Windows 文档。
+- [x] 真实 QQ 历史资料：查询定位本次两份 Windows 文档（开发工具直调通过）。
 - [ ] 真实 QQ：读取两份附件正文并由真实模型复述。
 - [ ] 真实 QQ：普通发送（工具/回执/客户端分别记录）。
 - [ ] 真实 QQ：指定内部 ID 引用（工具/回执/客户端分别记录）。
@@ -104,7 +104,7 @@
 ### 后续用户补充
 
 - 执行完成发版并在本机更新安装，随后主人亲自QQ测试；本Agent停止代发QQ测试消息。历史与附件的只读真实模型检查仍由主Agent验收。
-- [ ] D：Web群聊额外适配任务（子Agent web_group），覆盖card设备帧、网页与云端接收；按真实实现区分本地通过和线上未部署。
+- [x] D：Web群聊额外适配任务（子Agent web_group），覆盖card设备帧、网页与云端接收；按真实实现区分本地通过和线上未部署。
 - [ ] 正式Release工作流发布、安装更新、实际服务版本/commit/home/pid/ready核验。
 - QQ官方引用字段说明/示例冲突：保留msgIdx/refMsgIdx及旧兼容，客户端效果待主人验证。
 
@@ -117,3 +117,10 @@
 - 两份文档：conversation_attachment_read通过，正文分别1663/2615字符；真实主题为Windows原生适配及2026-10-29验证记录。文件SHA256：windows.md=828874729c21a4825794e0e457d0dadf28901f85212e9b4cb591e5b5856f0f15；windows-20261029.md=a74bbdc4e6e2e352c1b249b080a07f24914f729e1112e2d617d5dba3efc64ad0。
 - QQ普通发言/指定引用：协议测试通过，真实客户端待主人发新消息后验收；未代发。
 - QQ真实出站@：未完成，官方发送协议/当前SDK未找到可核实语法，明确outboundMentions:false并拒绝；入站@元数据保留。不将Web支持混称QQ支持。
+
+### 集成检查原始结果
+
+- 首轮 `npm run build`：通过；`npm run typecheck`：通过。
+- 首轮 `npm test`：435文件=373通过/3失败/59跳过；2180测试=2078通过/4失败/98跳过。两项鉴权旧文案改精确新文案，两个Web普通发送多undefined参数的回归修复后复测；不覆盖首跑记录。
+- 首轮 `npm run lint`：失败（1086 errors/1581 warnings/98 infos），主要含未跟踪.cache第三方参考；未删用户缓存或放宽检查。另跑tracked文件检查仍5个格式错误，均属既有config/delivery outsider guard/web-tools文件；行数检查另有既有6文件超限，本轮新增SDK/delivery/kernel/card行数已修回边界。
+- Web真实本地HTTP+PostgreSQL+Redis：成员@、引用、普通发送API与页面验证通过，截图 `.cache/qq-group-web-20261030/web-group.png`；card协议22/22，cloud chat/realtime18/18（0失败/取消/跳过），后续card拆分回归24/24。cloud配套提交d8432c0，未部署云端，不据此宣称线上完整生效。

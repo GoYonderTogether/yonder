@@ -74,3 +74,9 @@ Web 群聊与 QQ 共用 01 §6 的当前来源会话只读工具及 06 的发送
 本轮允许修改 harness Web/card 与独立 yonder-cloud 仓库的对应实现；发版及本机安装属已授权目标，云服务部署不自动包含，未部署的线上效果明确未验收。
 
 设备入站 message 可选 `senderName: string`、`senderIsBot: boolean`；text/markdown content 可选 `mentions: string[]` 为平台账号 UUID。card 按 `acct:<instance>:<agentKey>:<uuid>` 映射，不将不同 agentKey/实例的账号混同。服务端在入站与设备出站保存前校验全部 mentions 属于该群；网页使用真实成员选择并呈现 @ 名称，可见引用以 replyTo 表达。respondTo 不产生可见引用，不为其新增数据库列。
+
+### 既有Agent的显式群接入
+
+插件提供本机 `setup.js upgrade-groups --home <home> [--agent <id>]`：只针对已有card绑定的未归档Agent补缺少的官方群绑定，先保存备份并幂等，不覆盖已有自定义群绑定。创建card-group只读配置档，显式offer read/grep/conversation_read/conversation_members/conversation_attachment_read/message_send/parent_ask，独立persistent per:conv、wake:mention、reply:none、busy:steer。普通消息写入不逐条唤醒，@运行；自主持续参与沿已配置social策略，不新增队列。该入口仅修改已授权home配置，不写凭据；写入遵循同文件锁与原子替换。工具和提示语义与QQ一致，但不跨插件import实现。
+
+官方只读群配置显式使用已有内核 `peer-workspace` context（仅本Agent的SOUL.md与AGENTS.md），并显式重置plugins/skills，避免继承私人记忆或插件；已有自定义contexts保留。QQ精确旧官方配置升级补此context，card仅新建官方profile时设置；自定义配置不覆盖。
