@@ -34,3 +34,13 @@
 ```
 
 方式 A（浏览器通过 URL scheme/loopback 唤醒本地 Yonder）未实现，需要维护者批准内核设计。
+
+## 显式启用已有 Agent 的群聊
+
+安装更新后运行：
+
+```sh
+node <install>/current/plugins/channel-card/dist/setup.js upgrade-groups --home <home> [--agent <id>]
+```
+
+只处理已有 card 绑定的本地 Agent。缺少群绑定时，备份 agent.yaml 并原子写入独立 card-group 只读配置档：三个 conversation 查询工具、read/grep、message_send、parent_ask；persistent per:conv、wake:mention、reply:none、busy:steer。普通消息旁观，被 @ 时运行；持续参与仍沿已配置 social，不新增队列。自定义群绑定或同名配置档保留，重复执行不修改。群公开发言用 message_send，普通回复不强制引用。运行后用 doctor 检查并重新加载配置；平台发送成功与页面显示分开验收。

@@ -691,11 +691,8 @@ export function Composer({
 		pending.current = true;
 		setSending(true);
 		try {
-			const message = await api.send(
-				convId,
-				{ type: "markdown", text: body, ...(mention ? { mentions: [mention] } : {}) },
-				reply?.id,
-			);
+			const content = { type: "markdown" as const, text: body, ...(mention ? { mentions: [mention] } : {}) };
+			const message = reply ? await api.send(convId, content, reply.id) : await api.send(convId, content);
 			qc.setQueryData<Message[]>(["msgs", convId], (old) =>
 				old?.some((m) => m.id === message.id) ? old : [...(old ?? []), message],
 			);
