@@ -41,12 +41,12 @@ export function conversationPromptOptions(
 }
 
 export function kernelTools(
-	options: Parameters<typeof createCoreTools>[0],
+	options: Omit<Parameters<typeof createCoreTools>[0], "getPreset">,
 	home: string,
 	permissions: Parameters<typeof createPermissionsTool>[0],
 	skills: Parameters<typeof createSkillTool>[0],
 ) {
-	const tools = createCoreTools(options);
+	const tools = createCoreTools({ ...options, getPreset: options.sessions.getPreset });
 	tools.push(
 		...createConversationTools(options.store, home),
 		createPermissionsTool(permissions),

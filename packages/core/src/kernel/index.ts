@@ -381,7 +381,6 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				runtime: realRuntime,
 				delivery,
 				ask: router.ask,
-				getPreset: sessions.getPreset,
 				presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
 				...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
 			},
