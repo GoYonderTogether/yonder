@@ -1,5 +1,5 @@
-import { expect, it } from "vitest";
 import type { WorkControl } from "@yonder/sdk";
+import { expect, it } from "vitest";
 import { WorkBridge } from "../src/work.js";
 
 it("accepts only the bound owner and cancels in-flight work on disconnect", async () => {
