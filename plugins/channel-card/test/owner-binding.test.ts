@@ -82,7 +82,8 @@ async function backend() {
 	return base;
 }
 
-test("SOC01 G-02: device authorization links the owner's own account so its DM enters main", async () => {
+/** 设备授权完成后的现场：真实 store + 协议双替身，主人账号已按 G-02 关联到 agent owner。 */
+async function linked() {
 	const { agent } = await scaffold();
 	const data = await mkdtemp(join(tmpdir(), "yonder-card-state-"));
 	cleanups.push(() => rm(data, { recursive: true, force: true }));
@@ -113,6 +114,11 @@ test("SOC01 G-02: device authorization links the owner's own account so its DM e
 	await vi.waitFor(async () =>
 		expect(await store.identity().account(account)).toMatchObject({ person: "person:owner" }),
 	);
+	return { agent, store, channel, account };
+}
+
+test("SOC01 G-02: device authorization links the owner's own account so its DM enters main", async () => {
+	const { agent, store, account } = await linked();
 	const binding = agent.bindings.find((item) => item.id === "card-owner")!;
 	const dm = {
 		id: "event-1",
@@ -140,4 +146,28 @@ test("SOC01 G-02: device authorization links the owner's own account so its DM e
 		key: "conv:conv:card:group-1",
 	});
 	expect(group.wake).toBe("mention");
+});
+
+test("FIX-bots: 已有账号但 person 为空的旧数据下次 sync 补 link，已有关联不覆盖", async () => {
+	const { agent, store, channel, account } = await linked();
+	// 本机历史数据：账号早在 y_accounts 里，person 却一直是 NULL，fromOwner 因此恒为 false，主人的 DM 到不了该 Agent。
+	await store.identity().unlink(account);
+	expect((await store.identity().account(account))?.person).toBeUndefined();
+	await channel.syncAgents();
+	expect(await store.identity().account(account)).toMatchObject({ person: "person:owner" });
+	const binding = agent.bindings.find((item) => item.id === "card-owner")!;
+	const dm = {
+		id: "event-2",
+		ts: new Date().toISOString(),
+		type: "message.in",
+		from: account,
+		conv: "conv:card:room-2" as Ref,
+		data: { kind: "dm", text: "在吗" },
+	} as unknown as YEvent;
+	expect(await matches(binding, dm, agent, store)).toBe(true);
+	// 幂等且不覆盖：已经关联到别人的账号保持原样。
+	await store.identity().createPerson({ id: "other", name: "别人" });
+	await store.identity().link(account, "person:other");
+	await channel.syncAgents();
+	expect(await store.identity().account(account)).toMatchObject({ person: "person:other" });
 });

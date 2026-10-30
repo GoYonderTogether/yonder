@@ -180,7 +180,8 @@ export class CardChannel implements Channel {
 		for (const agent of agents) {
 			if (!agent.owner) continue;
 			const account = `acct:${this.id}:${agent.id}:${actor}` as Ref;
-			if (await this.api.identity.account(account)) continue;
+			// 账号已存在也要看有没有 person：旧版只判存在，历史账号的 person 一直是 NULL，fromOwner 恒为 false（FIX-bots）。
+			if ((await this.api.identity.account(account))?.person) continue;
 			if (!(await this.api.identity.person(agent.owner))) {
 				this.warn(`Owner ${agent.owner} is unknown; ${agent.id} keeps its card account unlinked`);
 				continue;
