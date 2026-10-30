@@ -96,7 +96,7 @@ export default definePlugin({
 		tool({
 			name: "channel-wechat-ilink_login",
 			description:
-				"Request WeChat access and return a clickable QR login link for the human. Omit instance/action to start pairing the primary instance. Show qrcodeUrl as a Markdown link and explain that the human scans it with WeChat; wait is not connected. The channel automatically checks confirmation without more model calls; poll is only for status or verifyCode. Later instances retain their own person/permissions. Never returns bot tokens or silently replaces a paired account.",
+				"Request WeChat access and return a clickable QR login link for the human. Omit instance/action to start pairing the primary instance. Show qrcodeUrl as a Markdown link and explain that the human scans it with WeChat; wait is not connected. The channel automatically checks confirmation without more model calls; poll is only for status or verifyCode. Later instances retain their own person/permissions. Never returns bot tokens; an explicitly initiated new scan replaces the existing pairing and keeps its person.",
 			capabilities: ["admin", "network"],
 			parameters: Type.Object(
 				{
