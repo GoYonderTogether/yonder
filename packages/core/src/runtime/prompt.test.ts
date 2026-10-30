@@ -33,7 +33,9 @@ test("runtime clocks persist in prepared inputs without changing stable system s
 			// No model provider is configured: exercise real input/section assembly without a model call.
 			const run = await runtime.submit(session, { text: source });
 			expect([run.status, run.usage.cost]).toEqual(["error", 0]);
-			expect(run.reason).toBe("model_error: Provider is not configured: openai");
+			expect(run.reason).toBe(
+				"model_error: authentication failed (credential unavailable; run `yonder login openai --replace`): Provider is not configured: openai",
+			);
 		}
 		const entries = (
 			await db.all<{ record: string }>(

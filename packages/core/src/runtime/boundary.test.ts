@@ -154,7 +154,9 @@ test("the elapsed threshold warns without cancelling context rendering before a 
 		const session = await runtime.create({ agent: null, profile: "check", cwd: home });
 		const run = await runtime.submit(session, { text: "N01 context cancellation verification" });
 		expect([run.status, run.usage.cost, cancelled]).toEqual(["error", 0, false]);
-		expect(run.reason).toBe("model_error: Provider is not configured: openai");
+		expect(run.reason).toBe(
+			"model_error: authentication failed (credential unavailable; run `yonder login openai --replace`): Provider is not configured: openai",
+		);
 		expect(raised).toBe(failure);
 		expect(warnings).toEqual(["maxMinutes"]);
 	} finally {
