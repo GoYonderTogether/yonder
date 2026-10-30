@@ -110,7 +110,11 @@ export default definePlugin({
 				const args = input as { instance?: string; action?: "start" | "poll"; verifyCode?: string };
 				const selected = channel(args.instance ?? (await primaryId()));
 				const status = await selected.status();
-				if (!args.action && (status as { paired: boolean }).paired)
+				if (
+					!args.action &&
+					(status as { paired: boolean; error: string | null }).paired &&
+					(status as { error: string | null }).error !== "ILINK_SESSION_EXPIRED"
+				)
 					return { text: JSON.stringify({ status: "already_connected", ...status }) };
 				return {
 					text: JSON.stringify(

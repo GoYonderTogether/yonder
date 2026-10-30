@@ -4,6 +4,7 @@ export interface ChannelsLoginParams {
 	instance?: string;
 	action: "start" | "poll";
 	verifyCode?: string;
+	replace?: boolean;
 }
 
 /**

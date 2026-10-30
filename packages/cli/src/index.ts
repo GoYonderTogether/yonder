@@ -54,7 +54,7 @@ const usage = `Usage: yonder <command> [options]
 
 Commands:
   init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]  初始化数据目录 · Create a home
-  channels list|login [instance] [--open]  渠道列表 / 登录操作 · List / login (list login means supported, not online)
+  channels list|login [instance] [--open] [--replace]  渠道列表 / 登录操作 · List / login (list login means supported, not online)
   login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号
   credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]  模型账号槽位
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
@@ -90,7 +90,7 @@ const sessionsUsage =
 const skillsUsage =
 	"Usage: yonder skills [show <name>|add <directory>|remove <name>] [--agent <id>] [--profile <name>]";
 const releaseUsage: Record<string, string> = {
-	channels: "Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]",
+	channels: "Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open] [--replace]",
 	plugins: "Usage: yonder plugins list|show <id>|add <directory/package>|remove <id>",
 	models: "Usage: yonder models list",
 	inspect: "Usage: yonder inspect [--agent <id>] [--profile <name>]",
@@ -387,15 +387,19 @@ async function run(args: string[]): Promise<number> {
 			return print(channelsList(homeFor(options)), options.json);
 		}
 		if (action !== "login")
-			throw new UsageError("Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]");
+			throw new UsageError(
+				"Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open] [--replace]",
+			);
 		let instance: string | undefined,
 			verifyCode: string | undefined,
 			open = false,
-			poll = false;
+			poll = false,
+			replace = false;
 		for (let index = 0; index < values.length; index++) {
 			const value = values[index]!;
 			if (value === "--open") open = true;
 			else if (value === "--poll") poll = true;
+			else if (value === "--replace") replace = true;
 			else if (value === "--verify-code") {
 				verifyCode = values[++index];
 				if (!verifyCode || !/^\d{1,12}$/.test(verifyCode)) throw new UsageError("Invalid verification code");
@@ -403,11 +407,14 @@ async function run(args: string[]): Promise<number> {
 			} else if (!value.startsWith("-") && !instance) instance = value;
 			else throw new UsageError("Invalid channels login option");
 		}
+		if (replace && poll) throw new UsageError("--replace must be used when starting channel login");
+		if (replace && !instance) throw new UsageError("--replace requires a channel instance");
 		// 服务没起来时 control.sock 的 ENOENT 由 loginChannel 翻成「先运行 yonder start」（JV2-J02-01）。
 		const result = await loginChannel(homeFor(options), {
 			...(instance ? { instance } : {}),
 			action: poll ? "poll" : "start",
 			...(verifyCode ? { verifyCode } : {}),
+			...(replace ? { replace: true } : {}),
 		});
 		output(result, options.json);
 		if (open && result.qrcodeUrl) {

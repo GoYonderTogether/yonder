@@ -63,9 +63,11 @@ export class IlinkChannel implements Channel {
 	private loginTail: Promise<unknown> = Promise.resolve();
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private polling: Promise<void> | undefined;
+	private generation = 0;
+	private pollAbort: AbortController | undefined;
 	private failure: string | undefined;
 	private lastPoll: string | undefined;
-	private loginState: { qr: string; url: string; at: number; base: string } | undefined;
+	private loginState: { qr: string; url: string; at: number; base: string; replace: boolean } | undefined;
 	private loginTimer: ReturnType<typeof setTimeout> | undefined;
 	private loginPolling: Promise<void> | undefined;
 	private loginStatus: string | undefined;
@@ -203,8 +205,10 @@ export class IlinkChannel implements Channel {
 		if (this.lifetime.signal.aborted || this.timer) return;
 		this.timer = setTimeout(() => {
 			this.timer = undefined;
+			const generation = this.generation;
 			this.polling = this.poll()
 				.catch((error) => {
+					if (generation !== this.generation) return;
 					const { diagnostic, expired } = failureInfo(error);
 					const failure = expired ? "ILINK_SESSION_EXPIRED" : "ILINK_POLL_FAILED";
 					if (this.failure !== failure)
@@ -216,7 +220,15 @@ export class IlinkChannel implements Channel {
 				})
 				.finally(() => {
 					this.polling = undefined;
-					this.schedule(this.failure === "ILINK_SESSION_EXPIRED" ? 60000 : this.failure ? 5000 : 1000);
+					this.schedule(
+						generation !== this.generation
+							? 0
+							: this.failure === "ILINK_SESSION_EXPIRED"
+								? 60000
+								: this.failure
+									? 5000
+									: 1000,
+					);
 				});
 		}, delay);
 		this.timer.unref();
@@ -224,15 +236,28 @@ export class IlinkChannel implements Channel {
 	async poll(): Promise<void> {
 		await this.initialize();
 		if (!this.state.peer || !this.state.linked || !this.io || this.lifetime.signal.aborted) return;
-		const page = await this.client.request(
-			"ilink/bot/getupdates",
-			{ get_updates_buf: this.state.cursor, base_info: this.client.baseInfo },
-			true,
-			undefined,
-			45000,
-		);
+		const generation = this.generation;
+		const controller = new AbortController();
+		this.pollAbort = controller;
+		let page: Awaited<ReturnType<typeof this.client.request>>;
+		try {
+			page = await this.client.request(
+				"ilink/bot/getupdates",
+				{ get_updates_buf: this.state.cursor, base_info: this.client.baseInfo },
+				true,
+				undefined,
+				45000,
+				controller.signal,
+			);
+		} finally {
+			if (this.pollAbort === controller) this.pollAbort = undefined;
+		}
+		if (generation !== this.generation) return;
 		if (page.msgs !== undefined && !Array.isArray(page.msgs)) throw new Error("Invalid iLink message page");
-		for (const message of (page.msgs ?? []) as Message[]) await this.receive(message);
+		for (const message of (page.msgs ?? []) as Message[]) {
+			await this.receive(message, generation);
+			if (generation !== this.generation) return;
+		}
 		if (typeof page.get_updates_buf === "string") {
 			this.state.cursor = page.get_updates_buf;
 			await this.save();
@@ -240,7 +265,7 @@ export class IlinkChannel implements Channel {
 		this.lastPoll = new Date().toISOString();
 		this.failure = undefined;
 	}
-	private async receive(message: Message): Promise<void> {
+	private async receive(message: Message, generation: number): Promise<void> {
 		const peer = message.from_user_id;
 		if (
 			!peer ||
@@ -257,8 +282,10 @@ export class IlinkChannel implements Channel {
 			this.state.contexts[peer] = message.context_token;
 			await this.save();
 		}
+		if (generation !== this.generation) return;
 		if (this.state.seen[key]) return;
 		const { text, attachments, replyTo } = await messageContent(message, this.client.download);
+		if (generation !== this.generation) return;
 		if (!text.join("").trim() && !attachments.length) text.push("[微信消息类型暂不支持]");
 		// Native msgId uses the kernel admission ledger, including after an unknown receipt.
 		const event = await this.io!.emit({
@@ -274,10 +301,16 @@ export class IlinkChannel implements Channel {
 				...(attachments.length ? { attachments } : {}),
 			},
 		});
+		if (generation !== this.generation) return;
 		this.state.seen[key] = event.id;
 		await this.save();
 	}
-	login(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult> {
+	login(
+		action: "start" | "poll",
+		signal: AbortSignal,
+		verifyCode?: string,
+		replace = false,
+	): Promise<ChannelLoginResult> {
 		const next = this.loginTail
 			.catch(() => {})
 			.then(async (): Promise<ChannelLoginResult> => {
@@ -285,13 +318,13 @@ export class IlinkChannel implements Channel {
 				await this.initialize();
 				if (this.state.peer && action === "poll" && !this.loginState)
 					return {
-						status: "already_connected",
+						status: this.failure === "ILINK_SESSION_EXPIRED" ? "expired" : "already_connected",
 						instance: this.id,
 						peer: this.state.peer!,
 						person: this.state.person ?? null,
 					};
 				if (action === "start") {
-					if (this.loginState && Date.now() - this.loginState.at < 300000) {
+					if (this.loginState && this.loginState.replace === replace && Date.now() - this.loginState.at < 300000) {
 						this.scheduleLogin();
 						return {
 							status: "wait",
@@ -310,7 +343,13 @@ export class IlinkChannel implements Channel {
 					);
 					if (typeof page.qrcode !== "string" || typeof page.qrcode_img_content !== "string")
 						throw new Error("Invalid iLink QR response");
-					this.loginState = { qr: page.qrcode, url: page.qrcode_img_content, at: Date.now(), base: this.state.base };
+					this.loginState = {
+						qr: page.qrcode,
+						url: page.qrcode_img_content,
+						at: Date.now(),
+						base: this.state.base,
+						replace,
+					};
 					this.loginStatus = "wait";
 					this.scheduleLogin();
 					return {
@@ -364,17 +403,24 @@ export class IlinkChannel implements Channel {
 					!page.bot_token
 				)
 					throw new Error("Invalid iLink login identity");
-				if (this.state.peer && (this.state.peer !== page.ilink_user_id || this.state.bot !== page.ilink_bot_id))
-					throw new Error("iLink account mismatch; existing pairing was preserved");
-				const person = this.state.peer
-					? (this.state.person ?? null)
-					: this.config.person !== undefined
-						? this.config.person
-						: ((await this.defaultPerson()) ?? null);
+				const changedPeer = Boolean(this.state.peer && this.state.peer !== page.ilink_user_id);
+				const changedBot = Boolean(this.state.bot && this.state.bot !== page.ilink_bot_id);
+				if (changedPeer && !pending.replace)
+					throw new Error(`微信账号与现有绑定不同；确认要更换请使用 yonder channels login ${this.id} --replace`);
+				const person = changedPeer
+					? null
+					: this.state.peer
+						? (this.state.person ?? null)
+						: this.config.person !== undefined
+							? this.config.person
+							: ((await this.defaultPerson()) ?? null);
 				if (person && !(await this.api.identity.person(person)))
 					throw new Error("Configured iLink person does not exist");
+				this.generation++;
 				this.state = {
 					...this.state,
+					...(changedPeer || changedBot ? { cursor: "", contexts: {} } : {}),
+					...(changedPeer ? { seen: {} } : {}),
 					base: typeof page.baseurl === "string" ? checkedServerBase(page.baseurl) : pending.base,
 					peer: page.ilink_user_id,
 					bot: page.ilink_bot_id,
@@ -384,13 +430,18 @@ export class IlinkChannel implements Channel {
 				};
 				await this.save();
 				await this.link();
+				this.pollAbort?.abort();
 				this.loginState = undefined;
 				this.loginStatus = "confirmed";
 				if (this.loginTimer) {
 					clearTimeout(this.loginTimer);
 					this.loginTimer = undefined;
 				}
-				this.schedule(0);
+				if (this.timer) {
+					clearTimeout(this.timer);
+					this.timer = undefined;
+				}
+				if (!this.polling) this.schedule(0);
 				return {
 					status: "confirmed",
 					instance: this.id,

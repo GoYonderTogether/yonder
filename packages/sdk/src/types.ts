@@ -253,7 +253,12 @@ export interface Channel {
 	kinds: string[];
 	output: { stream: boolean; attachments: boolean };
 	features?: ChannelFeatures;
-	login?(action: "start" | "poll", signal: AbortSignal, verifyCode?: string): Promise<ChannelLoginResult>;
+	login?(
+		action: "start" | "poll",
+		signal: AbortSignal,
+		verifyCode?: string,
+		replace?: boolean,
+	): Promise<ChannelLoginResult>;
 	start(io: ChannelIO): Promise<void>;
 	stop(signal?: AbortSignal): Promise<void>;
 	send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>;

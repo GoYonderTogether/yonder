@@ -262,7 +262,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		}
 		const skills = skillsFor(home, config, loaded, log);
 		const loginChannel = async (
-			request: { instance?: string; action?: "start" | "poll"; verifyCode?: string },
+			request: { instance?: string; action?: "start" | "poll"; verifyCode?: string; replace?: boolean },
 			signal: AbortSignal,
 		) => {
 			if (
@@ -272,6 +272,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				throw new Error("Invalid channel instance");
 			if (request.action !== undefined && !["start", "poll"].includes(request.action))
 				throw new Error("Invalid channel login action");
+			if (request.replace !== undefined && typeof request.replace !== "boolean")
+				throw new Error("Invalid channel replacement option");
 			if (
 				request.verifyCode !== undefined &&
 				(typeof request.verifyCode !== "string" || !/^\d{1,12}$/.test(request.verifyCode))
@@ -281,7 +283,12 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				? loaded.channels.get(request.instance)
 				: [...loaded.channels.values()].find((channel) => channel.login);
 			if (!channel?.login) throw new Error("No configured login-capable channel; configure a channel instance first");
-			return channel.login(request.action ?? (request.verifyCode ? "poll" : "start"), signal, request.verifyCode);
+			return channel.login(
+				request.action ?? (request.verifyCode ? "poll" : "start"),
+				signal,
+				request.verifyCode,
+				request.replace,
+			);
 		};
 
 		const promptOptions: PromptOptions = {
