@@ -11,7 +11,11 @@ const deviceState = vi.hoisted(() => ({
 	devices: [] as Array<{ id: string; name: string; kind: "desktop"; online: boolean; workProtocol?: 1 }>,
 }));
 vi.mock("../src/api", () => ({ api: { devices: () => Promise.resolve(deviceState.devices) } }));
-vi.mock("../src/work/lib/queries", () => ({ useFacts: () => ({ data: { protocol: 1 } }) }));
+vi.mock("../src/work/lib/queries", () => ({
+	useFacts: () => ({ data: { protocol: 1 } }),
+	deviceAgentMap: () => new Map(),
+	fetchDeviceAgents: async () => [],
+}));
 vi.mock("../src/work/WorkShell", () => ({ WorkShell: () => <div>真实工作入口</div> }));
 vi.mock("../src/components/PersonalDrawer", () => ({ PersonalAvatar: () => null }));
 afterEach(() => {
@@ -98,5 +102,25 @@ it("首次进入保留任务深链，切换设备回到列表", async () => {
 		}),
 	);
 	expect(container.querySelector("output")?.textContent).toBe("/work");
+	await act(() => root.unmount());
+});
+
+it("旧任务深链没有设备时，选择其设备仍保留任务", async () => {
+	const { setActiveNode } = await import("../src/work/api/nodes");
+	setActiveNode("local");
+	deviceState.devices = [
+		{ id: "first", name: "第一台", kind: "desktop", online: true, workProtocol: 1 },
+		{ id: "second", name: "第二台", kind: "desktop", online: true, workProtocol: 1 },
+	];
+	const { container, root } = await render("/work/161097");
+	expect(container.textContent).toContain("请选择这个会话所在的设备");
+	const select = container.querySelector("select") as HTMLSelectElement;
+	const key = Object.keys(select).find((name) => name.startsWith("__reactProps$")) ?? "";
+	await act(async () =>
+		(select as unknown as Record<string, { onChange(event: unknown): void }>)[key]?.onChange({
+			target: { value: "first" },
+		}),
+	);
+	expect(container.querySelector("output")?.textContent).toBe("/work/device/first/161097");
 	await act(() => root.unmount());
 });

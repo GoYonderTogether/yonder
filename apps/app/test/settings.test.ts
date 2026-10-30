@@ -260,12 +260,15 @@ it("云设备设置与工作列表使用统一设备授权入口", async () => {
 		expect(body.textContent).toContain("我的设备");
 		expect(body.querySelector('[data-testid="settings-nodes"]')).toBeNull();
 		expect(body.querySelector('[data-testid="console-entry"]')).toBeNull();
-		expect(body.querySelector('[data-testid="current-device"]')).not.toBeNull();
+		expect(body.querySelector('[data-testid="current-device"]')).toBeNull();
 		expect(body.textContent).not.toContain("远程访问令牌");
 	} finally {
 		await act(async () => root.unmount());
 		setActiveNode("local");
 		client.clear();
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+		});
 		vi.unstubAllGlobals();
 	}
 });

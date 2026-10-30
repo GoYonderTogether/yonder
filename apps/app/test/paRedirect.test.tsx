@@ -14,6 +14,7 @@ let root: Root;
 beforeEach(() => {
 	const { document, window } = parseHTML("<html><body></body></html>");
 	vi.stubGlobal("window", window);
+	vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
 	vi.stubGlobal("document", document);
 	vi.stubGlobal("location", { href: "http://localhost/", origin: "http://localhost", pathname: "/" });
 	vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
