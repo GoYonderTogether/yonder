@@ -6,6 +6,7 @@ import { rpc } from "../api/client";
 import { useActiveNode } from "../api/nodes";
 import { mux } from "../api/stream";
 import type { ActivitySummary, ApprovalCard, NodeFacts, SessionInfo, TranscriptItem } from "../api/types";
+import { workSessions } from "../api/work";
 import { type ChatItem, fromTranscript } from "./chat";
 import { titleOf } from "./identity";
 import type { ImportList } from "./imports";
@@ -19,6 +20,9 @@ export const useSessions = (enabled = true) =>
 		enabled,
 		refetchInterval: 5000,
 	});
+
+export const useWorkSessions = () =>
+	useQuery({ queryKey: ["sessions", "work"], queryFn: () => workSessions(), refetchInterval: 5000 });
 
 const NO_NAMES: ReadonlyMap<string, string> = new Map();
 

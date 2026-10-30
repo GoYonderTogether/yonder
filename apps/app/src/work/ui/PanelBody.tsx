@@ -9,7 +9,7 @@ import { ViewHost } from "../features/views/ViewHost";
 import { tokens } from "../lib/format";
 import { titleOf } from "../lib/identity";
 import type { PanelKind } from "../lib/layout";
-import { useSessions } from "../lib/queries";
+import { useWorkSessions } from "../lib/queries";
 import { useRailAttachments } from "../lib/railContent";
 import type { SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
@@ -128,7 +128,7 @@ function Background({ session, placement }: { session: string; placement: "rail"
 }
 
 function Subtasks({ v, session }: { v: SessionView; session: string }) {
-	const all = useSessions();
+	const all = useWorkSessions();
 	// subtask.updated 到位前，用 sessions.list 里 parent 指向本会话的子会话（真实数据）
 	const kids = (all.data ?? []).filter((s) => s.parent === session);
 	const rows = v.subtasks.length

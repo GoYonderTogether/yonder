@@ -6,7 +6,7 @@ import { emptyView } from "../src/work/lib/useSession";
 import { PanelBody } from "../src/work/ui/PanelBody";
 
 const data = vi.hoisted(() => ({ sessions: [] as Array<Record<string, unknown>> }));
-vi.mock("../src/work/lib/queries", () => ({ useSessions: () => ({ data: data.sessions }) }));
+vi.mock("../src/work/lib/queries", () => ({ useWorkSessions: () => ({ data: data.sessions }) }));
 
 it("keeps active subtasks visible and folds completed, failed, and archived ones", () => {
 	data.sessions = [{ id: "archived", parent: "parent", archivedAt: 1 }];
