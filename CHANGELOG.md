@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26103008] - 2026-10-30
+
+### Fixed
+
+- wechat：scope identity replacement to rebind
+- wechat：replace pairing on confirmed scan
+
 ## [0.3.26103007] - 2026-10-30
 
 ### Changed
