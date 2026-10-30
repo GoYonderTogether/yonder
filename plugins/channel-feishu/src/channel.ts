@@ -41,6 +41,7 @@ import {
 	parseContent,
 	recipient as recipientOf,
 	required,
+	statusDetails,
 	string,
 	textPayload,
 } from "./protocol.js";
@@ -111,18 +112,8 @@ export class FeishuChannel implements Channel {
 			...this.connection.status(),
 			botIdentityKnown: Boolean(this.botId),
 			...(this.error ? { error: this.error } : {}),
-			requiredScopes: ["im:message", "im:message:send_as_bot", "im:resource", "cardkit:card:write"],
-			transport: "websocket",
-			renderMode: this.config.renderMode ?? "markdown",
+			...statusDetails(this.config),
 			recovery: this.recoveryState,
-			admissionWarnings: [
-				...(this.config.allowedUsers?.length === 0
-					? ["allowedUsers is empty: all incoming messages are rejected"]
-					: []),
-				...(this.config.allowedChats?.length === 0
-					? ["allowedChats is empty: all incoming messages are rejected"]
-					: []),
-			],
 		};
 	}
 	private save(): Promise<void> {

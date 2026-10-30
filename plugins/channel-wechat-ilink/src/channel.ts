@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -25,29 +25,14 @@ import {
 	type Message,
 	messageContent,
 } from "./client.js";
-import { privateWrite } from "./private-write.js";
+import { type Config, queueSave, readState, type State, statusView } from "./state.js";
+
+export type { Config } from "./state.js";
+
+import { streamOutput } from "./stream.js";
 
 export { privateWrite } from "./private-write.js";
 
-export interface Config {
-	person?: string | null;
-	allowedUsers?: string[];
-	credential?: string;
-	peerId?: string;
-	botId?: string;
-	streaming?: boolean;
-}
-interface State {
-	base: string;
-	cursor: string;
-	peer?: string;
-	bot?: string;
-	token?: string;
-	person?: string | null;
-	linked?: boolean;
-	contexts: Record<string, string>;
-	seen: Record<string, string>;
-}
 export class IlinkChannel implements Channel {
 	readonly kinds = ["dm"];
 	readonly output: { stream: boolean; attachments: boolean };
@@ -143,15 +128,8 @@ export class IlinkChannel implements Channel {
 			await mkdir(this.directory, { recursive: true, mode: 0o700 });
 			await chmod(this.directory, 0o700);
 			await this.defaultPerson(); // Reserves the first configured instance even before QR login.
-			try {
-				const saved: State = JSON.parse(await readFile(join(this.directory, "account.json"), "utf8"));
-				if (typeof saved.cursor !== "string" || !saved.contexts || !saved.seen) throw new Error();
-				checkedServerBase(saved.base);
-				this.state = saved;
-			} catch (error) {
-				if ((error as NodeJS.ErrnoException).code !== "ENOENT")
-					throw new Error("Invalid private iLink state; restore it before continuing");
-			}
+			const saved = await readState(this.directory);
+			if (saved) this.state = saved;
 			if (this.config.credential && !this.state.peer) {
 				if (!this.config.peerId || !this.config.botId) throw new Error("credential requires peerId and botId");
 				this.state.peer = this.config.peerId;
@@ -166,12 +144,7 @@ export class IlinkChannel implements Channel {
 		return this.ready;
 	}
 	private save(): Promise<void> {
-		const value = JSON.stringify(this.state);
-		const next = this.saveTail
-			.catch(() => {})
-			.then(() => privateWrite(join(this.directory, "account.json"), JSON.parse(value)));
-		this.saveTail = next;
-		return next;
+		return (this.saveTail = queueSave(this.directory, this.state, this.saveTail));
 	}
 	private async link(rebind = false): Promise<void> {
 		if (!this.state.peer) throw new Error("iLink pairing missing");
@@ -541,34 +514,22 @@ export class IlinkChannel implements Channel {
 		replyTo?: string,
 		signal?: AbortSignal,
 	): Promise<Delivery> {
-		let text = "";
-		for await (const part of output) {
-			signal?.throwIfAborted();
-			if (part.type === "final") text = part.text;
-		}
-		if (!text.trim() || text.trim() === "NO_REPLY") return { ok: true };
-		return this.send(target, { text, ...(replyTo ? { replyTo } : {}) }, signal);
+		return streamOutput((peer, msg, abort) => this.send(peer, msg, abort), target, output, replyTo, signal);
 	}
 	async status(): Promise<object> {
 		const person = this.state.peer
 			? ((await this.api.identity.account(acct(this.id, this.state.peer)))?.person ?? null)
 			: null;
-		return {
-			instance: this.id,
-			paired: Boolean(this.state.peer && this.state.linked),
-			loginPending: Boolean(this.loginState),
-			loginStatus: this.loginStatus ?? null,
-			peer: this.state.peer ?? null,
+		return statusView(
+			this.id,
+			this.state,
+			this.loginState,
+			this.loginStatus,
 			person,
-			contextAvailable: Boolean(this.state.peer && this.state.contexts[this.state.peer]),
-			lastPoll: this.lastPoll ?? null,
-			error: this.failure ?? null,
-			transport: "ilink-long-poll",
-			groups: false,
-			voiceOutput: "audio-file",
-			audioInput: "silk-to-wav-or-original",
-			stopped: this.lifetime.signal.aborted,
-		};
+			this.lastPoll,
+			this.failure,
+			this.lifetime.signal.aborted,
+		);
 	}
 	async stop(): Promise<void> {
 		this.lifetime.abort();

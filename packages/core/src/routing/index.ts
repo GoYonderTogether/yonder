@@ -6,6 +6,7 @@ import { admitBatch } from "./admit-batch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey, targetBinding, targetDropReason, unknownTargetReason } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
+import { createPendingResults, createReporter } from "./pending.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
 
@@ -31,35 +32,9 @@ export function createRouter({
 	onCommand,
 	onReport = () => {},
 }: CreateRouterOptions) {
-	const pending = new Map<string, Set<(result: RunResult) => void>>();
-
-	const report = (error: unknown) => {
-		try {
-			onReport(error);
-		} catch {
-			/* Reporting cannot interrupt event delivery. */
-		}
-	};
+	const report = createReporter(onReport);
 	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
-	const resultKey = (agent: string, event: string) => `${agent}\0${event}`;
-	const waitFor = (agent: string, event: string) => {
-		const key = resultKey(agent, event);
-		let resolve!: (result: RunResult) => void;
-		const promise = new Promise<RunResult>((done) => {
-			resolve = done;
-		});
-		const group = pending.get(key) ?? new Set();
-		group.add(resolve);
-		pending.set(key, group);
-		return promise;
-	};
-	const finish = (agent: string, event: string, result: RunResult) => {
-		const key = resultKey(agent, event),
-			group = pending.get(key);
-		if (!group) return;
-		pending.delete(key);
-		for (const resolve of group) resolve(result);
-	};
+	const { waitFor, finish } = createPendingResults();
 
 	async function finishIdle(session: SessionInfo) {
 		for (const event of await store.events.waitingInputs(session.id)) {

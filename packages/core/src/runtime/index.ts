@@ -71,6 +71,7 @@ import { localEnvironment } from "./env.js";
 import { createFindTool } from "./find.js";
 import { createGrepTool } from "./grep.js";
 import { inputContent } from "./input-content.js";
+import { inputEntry } from "./input-entry.js";
 import { RunLimits } from "./limits.js";
 import { createLsTool } from "./ls.js";
 import { DEFAULT_FALLBACK_AFTER, fallbackAliases, modelChain, parseAccountProvider } from "./model-chain.js";
@@ -1045,19 +1046,7 @@ export class Runtime {
 			view = await conversation.context(context);
 		}
 	}
-	private inputEntry(input: RuntimeInput) {
-		return {
-			kind: "yonder.message",
-			data: JSON.parse(
-				JSON.stringify({
-					raw: true,
-					event: input.event?.id,
-					wake: input.wake ?? "run",
-					attachments: input.attachments ?? [],
-				}),
-			) as JsonObject,
-		};
-	}
+
 	async notificationRecorded(id: string, from: string, event: string) {
 		return Boolean(await this.storage.submissionByRequest(cid(id), notificationRequestId(from, event), C));
 	}
@@ -1101,7 +1090,7 @@ export class Runtime {
 				if (event.type === "run_end") participating = false;
 			}
 		});
-		const entry = this.inputEntry(input);
+		const entry = inputEntry(input);
 		try {
 			submission = existing
 				? await this.harness.submission(existing.id, C)
@@ -1268,7 +1257,7 @@ export class Runtime {
 					type: "input",
 					content: [{ type: "text", text: input.text }],
 					requestId: `task:${api.taskId}`,
-					entry: this.inputEntry(input),
+					entry: inputEntry(input),
 				},
 				context,
 			);

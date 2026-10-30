@@ -227,3 +227,19 @@ export function opusDuration(bytes: Buffer): number | undefined {
 	}
 	return last > 0n ? Math.round((Number(last) * 1000) / 48000) : undefined;
 }
+
+export function admissionWarnings(config: Config): string[] {
+	return [
+		...(config.allowedUsers?.length === 0 ? ["allowedUsers is empty: all incoming messages are rejected"] : []),
+		...(config.allowedChats?.length === 0 ? ["allowedChats is empty: all incoming messages are rejected"] : []),
+	];
+}
+
+export function statusDetails(config: Config) {
+	return {
+		requiredScopes: ["im:message", "im:message:send_as_bot", "im:resource", "cardkit:card:write"],
+		transport: "websocket",
+		renderMode: config.renderMode ?? "markdown",
+		admissionWarnings: admissionWarnings(config),
+	};
+}
