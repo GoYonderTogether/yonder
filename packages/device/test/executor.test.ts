@@ -15,7 +15,7 @@ import {
 	signMessage,
 	verifyMessage,
 } from "@yonder/protocol";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import type { BackendProvider } from "../src/backend-provider.js";
 import { DeviceExecutor } from "../src/executor.js";
 import { ControllerPairing } from "../src/store.js";
@@ -185,6 +185,17 @@ const command = (f: Awaited<ReturnType<typeof fixture>>, s: DeviceSession, id = 
 		action: "file.write",
 		arguments: { value },
 	});
+
+test("response remains valid when the clock advances between reads", async () => {
+	const f = await fixture();
+	let now = Date.now();
+	const clock = vi.spyOn(Date, "now").mockImplementation(() => now++);
+	try {
+		await session(f);
+	} finally {
+		clock.mockRestore();
+	}
+});
 
 test("offline two-ended pairing, signed direct/relay RPC and one durable command", async () => {
 	const f = await fixture();

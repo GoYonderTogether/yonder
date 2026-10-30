@@ -421,6 +421,7 @@ export class DeviceExecutor {
 		].includes(request.method);
 		const requestKey = `${request.principalId}:${request.requestId}`;
 		const cached = this.store.data.requests[requestKey];
+		const issuedAt = Date.now();
 		const header = {
 			protocol: "yonder.execution",
 			version: 1,
@@ -428,8 +429,8 @@ export class DeviceExecutor {
 			requestId: request.requestId,
 			principalId: request.principalId,
 			deviceId: this.deviceId,
-			issuedAt: Date.now(),
-			expiresAt: Date.now() + 60_000,
+			issuedAt,
+			expiresAt: issuedAt + 60_000,
 		} as const;
 		let response: RpcResponse | undefined;
 		let commitAttempted = false;
@@ -463,8 +464,10 @@ export class DeviceExecutor {
 		}
 		if (!response) throw new Error("INTERNAL_ERROR");
 		this.assertHealthy();
-		if (response.expiresAt <= Date.now())
-			response = { ...response, issuedAt: Date.now(), expiresAt: Date.now() + 60_000 };
+		if (response.expiresAt <= Date.now()) {
+			const issuedAt = Date.now();
+			response = { ...response, issuedAt, expiresAt: issuedAt + 60_000 };
+		}
 		return signMessage(response, this.store.key);
 	}
 
