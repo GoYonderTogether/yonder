@@ -55,7 +55,12 @@
 		"desktopWindowInputAndFiles": "passed",
 		"isolatedBrowser": "passed",
 		"independentUpdateTask": "passed",
-		"tuiConPty": "passed"
+		"tuiConPty": "passed",
+		"tuiExit": {
+			"applicationCode": 0,
+			"stdinIsRaw": false,
+			"toolPtyWrapperExit": 1
+		}
 	},
 	"packagedDesktopScript": true,
 	"realModel": {
@@ -64,7 +69,30 @@
 		"alternateCredentialsUsed": false
 	},
 	"reboot": {
-		"status": "pending-preparation",
-		"actualOsRestarted": false
+		"status": "prepared-pending-reboot",
+		"actualOsRestarted": false,
+		"serviceReady": true,
+		"servicePid": 35332,
+		"home": "%USERPROFILE%/yonder-windows-acceptance-home-20261030",
+		"report": "%USERPROFILE%/yonder-windows-acceptance-home-20261030/.yonder/reboot-20261030.json",
+		"checkTask": "Yonder Reboot Check 8bd929a6-9da2-461b-957b-628ffe77a32d",
+		"beforeBoot": "2026-10-30T07:35:44.5000000Z",
+		"expectedSessions": ["2"]
+	},
+	"install": {
+		"initial": "failed in host AppData/Yonder path: junction target existed but traversal failed",
+		"final": "passed in user-home isolated path with spaces and Chinese",
+		"tested": [
+			"source clone",
+			"npm ci",
+			"build",
+			"junction activation",
+			"yonder.cmd",
+			"same-version no-op",
+			"failed update preserves active version"
+		],
+		"retainedForReboot": true,
+		"artifactCommit": "b1e2ac9556d93b8ca674f4cc5ceaad0612ec3e17",
+		"published": false
 	}
 }

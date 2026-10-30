@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, readFile, realpath, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { updateRelease } from "../packages/core/dist/release/index.js";
 import { installedWindowsService } from "../packages/core/dist/release/windows.js";
 
 if (process.platform !== "win32") throw new Error("Requires native Windows");
 if (await installedWindowsService()) throw new Error("Existing service must remain untouched");
-const scratch = await mkdtemp(join(tmpdir(), "yonder install 中文-"));
+const keep = process.env.YONDER_KEEP_ARTIFACTS === "1";
+const parent = keep ? homedir() : tmpdir();
+await mkdir(parent, { recursive: true });
+const scratch = await mkdtemp(join(parent, "yonder install 中文-"));
 const source = join(scratch, "source"),
 	install = join(scratch, "install");
 process.env.YONDER_INSTALL = install;
@@ -58,6 +61,9 @@ try {
 	assert.equal(await realpath(join(install, "current")), await realpath(join(install, "versions", version)));
 	console.log("Windows install/build/launcher/no-op/failed-update preservation passed");
 } finally {
-	await rm(join(install, "current"), { force: true });
-	await rm(scratch, { recursive: true, force: true });
+	if (keep) console.log(JSON.stringify({ scratch, install, source, retainedForReboot: true }));
+	else {
+		await rm(join(install, "current"), { force: true });
+		await rm(scratch, { recursive: true, force: true });
+	}
 }
