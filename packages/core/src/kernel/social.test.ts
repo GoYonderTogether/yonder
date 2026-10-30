@@ -94,7 +94,7 @@ test("owner confirmation gates policy change, persists it, and records rejection
 		});
 		const saved = await readFile(file, "utf8");
 		const current = await service.inspect({ agent: "main", conv: request.conv }, ctx);
-		for (const triggers of [{ regex: ["["] }, { regex: ["(a+)+"] }, { minLength: 20, maxLength: 10 }]) {
+		for (const triggers of [{ regex: ["["] }, { regex: ["(a+"] }, { minLength: 20, maxLength: 10 }]) {
 			for (const dryRun of [true, false]) {
 				await expect(
 					service.update({ ...request, expectedRevision: current.revision, patch: { triggers }, dryRun }, ctx),

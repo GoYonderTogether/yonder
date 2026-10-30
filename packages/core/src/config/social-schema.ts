@@ -31,30 +31,16 @@ const socialTriggersSchema = object({
 	minLength: Type.Optional(Type.Integer({ minimum: 0 })),
 	maxLength: Type.Optional(Type.Integer({ minimum: 0 })),
 });
-/** Finite native regex syntax: no groups, repetition, or backreferences. */
+/** Native Unicode regex syntax; the participation matcher bounds execution time. */
 export function socialTriggerErrors(triggers?: Static<typeof socialTriggersSchema>): string[] {
 	const errors: string[] = [];
 	if (triggers?.minLength !== undefined && triggers.maxLength !== undefined && triggers.minLength > triggers.maxLength)
 		errors.push("triggers/minLength 不得大于 maxLength");
 	for (const [index, pattern] of (triggers?.regex ?? []).entries()) {
-		let characterClass = false;
-		let unsupported = false;
-		for (let i = 0; i < pattern.length; i++) {
-			const char = pattern[i];
-			if (char === "\\") {
-				const next = pattern[++i] ?? "";
-				if (!characterClass && (/[1-9]/.test(next) || (next === "k" && pattern[i + 1] === "<"))) unsupported = true;
-			} else if (char === "[") characterClass = true;
-			else if (char === "]") characterClass = false;
-			else if (!characterClass && /[()*+?{}]/.test(char ?? "")) unsupported = true;
-		}
-		if (unsupported) errors.push(`triggers/regex/${index}: 仅支持字面、字符类、.、^、$、|；禁止分组、量词和反向引用`);
-		else {
-			try {
-				new RegExp(pattern);
-			} catch {
-				errors.push(`triggers/regex/${index}: 无效正则表达式`);
-			}
+		try {
+			new RegExp(pattern, "u");
+		} catch {
+			errors.push(`triggers/regex/${index}: 无效正则表达式`);
 		}
 	}
 	return errors;

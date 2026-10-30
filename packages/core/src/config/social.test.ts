@@ -35,9 +35,20 @@ test("social configuration is optional and validates bounds and quiet time", () 
 	).toBe(5);
 });
 
-test("social trigger rules accept finite regex and literal exclusions, and reject invalid rules", () => {
+test("social trigger rules accept standard regex and literal exclusions, and reject invalid rules", () => {
 	const triggers = {
-		regex: ["^设计|界面$", "[()+?{}*]", "\\(参考\\)\\+", "文.稿"],
+		regex: [
+			"^(设计|界面).{0,20}$",
+			"[()+?{}*]",
+			"\\(参考\\)\\+",
+			"文.稿",
+			"a*",
+			"a+",
+			"a?",
+			"(?=设计)",
+			"(a)\\1",
+			"(?<name>a)\\k<name>",
+		],
 		exclude: ["[广告", "(链接).*"],
 		minLength: 0,
 		maxLength: 2048,
@@ -45,12 +56,8 @@ test("social trigger rules accept finite regex and literal exclusions, and rejec
 	expect(parse({ defaults: { group: { triggers } } }).social?.defaults?.group?.triggers).toEqual(triggers);
 	for (const triggers of [
 		{ regex: ["["] },
-		{ regex: ["(设计)"] },
-		{ regex: ["(?=设计)"] },
-		{ regex: ["a*"] },
-		{ regex: ["a+"] },
-		{ regex: ["a?"] },
-		{ regex: ["a{1,2}"] },
+		{ regex: ["(设计"] },
+		{ regex: ["a**"] },
 		{ regex: ["a\\1"] },
 		{ regex: ["\\k<name>"] },
 		{ regex: ["x".repeat(257)] },
