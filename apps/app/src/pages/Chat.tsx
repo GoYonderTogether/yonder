@@ -364,28 +364,6 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 		error: messagesFailure,
 		refetch: refreshMessages,
 	} = useQuery({ queryKey: ["msgs", id], queryFn: () => api.messages(id), retry: (n, e) => !forbidden(e) && n < 3 });
-	// /c/<id> 的 id 若是对方账号（Bot/联系人）而非会话：读消息会 403，先确认这个 id 能当账号取到，
-	// 才打开与它的私聊再跳转（JV2-J07-01）；其它 403 是权限问题，不能猜成账号 id。
-	const nav = useNavigate();
-	const [dmFailed, setDmFailed] = useState(false);
-	useEffect(() => {
-		if (!forbidden(messagesFailure)) return;
-		let live = true;
-		const open = async () => {
-			const actor = (await api.actors([id]))[0];
-			if (!live) return;
-			if (!actor) {
-				setDmFailed(true);
-				return;
-			}
-			const conv = await api.openDm(actor.id);
-			if (live) nav(`/c/${entityRef(conv)}`, { replace: true });
-		};
-		open().catch(() => live && setDmFailed(true));
-		return () => {
-			live = false;
-		};
-	}, [messagesFailure, id, nav]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 按消息数量与最后序号触发已读
 	useEffect(() => {
 		const seq = msgs.at(-1)?.seq;
@@ -477,7 +455,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					)}
 					{messagesError && forbidden(messagesFailure) && (
 						<p role="status" className="text-small text-muted">
-							{dmFailed ? "无权访问这个会话" : "正在打开会话…"}
+							无权访问这个会话
 						</p>
 					)}
 					{messagesError && !forbidden(messagesFailure) && (
