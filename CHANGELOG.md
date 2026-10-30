@@ -2,8 +2,21 @@
 
 ## [Unreleased]
 
+## [0.3.26103012] - 2026-10-30
+
 - QQ 与 Card/Web 受管群改为硬规则触发：关键词、正则、排除词、长度和计数不调用判断模型；真实 @ 优先，同节点 Bot 顺序发言。
 - Bot 可调整自己当前群的触发规则，版本、回放、原因和回退记录可查；有新公开材料时默认每 24 小时低频复盘，使用自己的 cheap/simple。
+
+### Added
+
+- social：trigger group participation with rules and periodic self review
+- social：add bounded participation trigger rules
+
+### Fixed
+
+- social：validate standard Unicode trigger regex
+- app：identify unnamed conversation branches
+- app：prevent bot labels wrapping in device list
 
 ## [0.3.26103011] - 2026-10-30
 
