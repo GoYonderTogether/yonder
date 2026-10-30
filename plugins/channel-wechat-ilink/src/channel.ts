@@ -144,7 +144,8 @@ export class IlinkChannel implements Channel {
 		return this.ready;
 	}
 	private save(): Promise<void> {
-		return (this.saveTail = queueSave(this.directory, this.state, this.saveTail));
+		this.saveTail = queueSave(this.directory, this.state, this.saveTail);
+		return this.saveTail;
 	}
 	private async link(rebind = false): Promise<void> {
 		if (!this.state.peer) throw new Error("iLink pairing missing");
