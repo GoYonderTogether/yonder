@@ -19,8 +19,20 @@ export type KernelServices = Omit<
 		| "models"
 		| "log"
 	>,
-	"messages" | "sessions" | "social"
+	"messages" | "sessions" | "social" | "agents"
 > & {
+	agents: Pick<PluginAPI["agents"], "list"> & {
+		configureBinding(
+			request: Parameters<PluginAPI["agents"]["configureBinding"]>[0],
+			pluginId: string,
+			ctx: ToolContext,
+		): ReturnType<PluginAPI["agents"]["configureBinding"]>;
+		inspectBinding(
+			request: Parameters<PluginAPI["agents"]["inspectBinding"]>[0],
+			pluginId: string,
+			owner: Parameters<PluginAPI["agents"]["inspectBinding"]>[1],
+		): ReturnType<PluginAPI["agents"]["inspectBinding"]>;
+	};
 	social?: Omit<NonNullable<PluginAPI["social"]>, "admitBatch"> & {
 		admitBatch(
 			request: Parameters<NonNullable<PluginAPI["social"]>["admitBatch"]>[0],

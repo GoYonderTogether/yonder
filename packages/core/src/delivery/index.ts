@@ -107,7 +107,7 @@ export function createDelivery(options: DeliveryOptions) {
 		report,
 	});
 	async function resolveTarget(
-		request: MessageRequest,
+		request: Pick<MessageRequest, "to" | "via">,
 		agent?: string | null,
 		config?: RuntimeSessionConfig,
 		scope: Scope = config?.resolved ?? {},
@@ -569,6 +569,7 @@ export function createDelivery(options: DeliveryOptions) {
 				`command:${event.id}`,
 			);
 		},
+		resolveTarget,
 		async sendPlugin(pluginId: string, request: MessageRequest): Promise<Delivery> {
 			if (request.to === "owner") return { ok: false, error: "插件必须使用显式 person:、acct: 或 conv: 目标。" };
 			return proactive(`plugin:${pluginId}`, request, undefined, undefined, request.signal);

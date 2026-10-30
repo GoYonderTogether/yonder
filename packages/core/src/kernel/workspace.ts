@@ -37,7 +37,7 @@ export function inspectionServices(home: string, config: YonderConfig, log: Kern
 	return {
 		...credentialsAndModels(home, config),
 		permissions: createPermissions(async () => unavailable()),
-		agents: { list: unavailable },
+		agents: { list: unavailable, configureBinding: unavailable, inspectBinding: unavailable },
 		log: { info: (m, d) => log("info", m, d), warn: (m, d) => log("warn", m, d), error: (m, d) => log("error", m, d) },
 		events: { emit: unavailable, ask: unavailable, query: unavailable, on: unavailable },
 		messages: { send: unavailable },
