@@ -4,6 +4,8 @@
 
 ## 1 登录与设备
 
+同一次设备绑定统一提供本人消息与工作访问，不要求第二次 Gateway 授权；专用工作控制、主人核对与撤销边界见 [19-device-workbench](19-device-workbench.md)。普通社交消息不因此获得控制权限。
+
 - `setup` 只注册；联网从渠道 `start` 或显式 `login` 开始。一个设备连接本实例的全部 Yonder Agent，不为每个 Agent 单独登录。
 - 方式一（插件发起）：不带 verifyCode 的 `login('start')` 调用 `POST /api/device/start`，正文 `{name, kind}`；name 取 os.hostname()，kind 取渠道配置 device.kind，默认 desktop（`laptop | desktop | server`），获得 `{code, url}`。`ChannelLoginResult.qrcodeUrl` 复用为网页确认 URL，不修改 SDK；返回链接不自动打开桌面。
 - `login('poll')` 调用 `GET /api/device/poll?code=`；实际返回 pending / used / confirmed；未知或过期码均为 404 invalid_code（不是 expired 状态），插件终止轮询并显示 invalid_code；`confirmed` 时取出只返回一次的 `deviceToken`。设备码有效期十分钟；后台程序轮询，不唤醒模型。
