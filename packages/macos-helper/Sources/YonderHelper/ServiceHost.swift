@@ -295,7 +295,7 @@ enum HelperServiceHost {
                     ending = Date().addingTimeInterval(1)
                 }
             }
-            if let ending, Date() >= ending {
+            if let ending, Date().timeIntervalSinceReferenceDate >= ending.timeIntervalSinceReferenceDate {
                 // Keep bash waitable and the anchor alive until the final group
                 // KILL. The result travels separately from anchor SIGKILL.
                 let exited = status?.si_code == CLD_EXITED
@@ -500,7 +500,7 @@ enum HelperServiceHost {
                     // service. A pending accepted identity remains owned even if
                     // a client disconnects before receiving its final ACK.
                     clients.removeAll { client in
-                        if client.frames.eof || Date() >= client.deadline || (client.candidate != nil && !same(client.candidate!)) { close(client.fd); return true }
+                        if client.frames.eof || Date().timeIntervalSinceReferenceDate >= client.deadline.timeIntervalSinceReferenceDate || (client.candidate != nil && !same(client.candidate!)) { close(client.fd); return true }
                         return false
                     }
                 }
@@ -552,7 +552,7 @@ enum HelperServiceHost {
                     }
                 } else { _ = try fromLauncher.read(socket) }
                 if fromLauncher.eof { return 143 }
-                if !started && Date() >= deadline { throw hostError("Launcher anchor registration ACK timed out") }
+                if !started && Date().timeIntervalSinceReferenceDate >= deadline.timeIntervalSinceReferenceDate { throw hostError("Launcher anchor registration ACK timed out") }
                 if let code {
                     // Exit status is independent of anchor lifetime; final cleanup
                     // runs before this frame, so the launcher cannot finish early.
