@@ -58,6 +58,15 @@ async function render() {
 }
 
 describe("通讯录的「我的 Bot」", () => {
+	it("同名 Bot 显示不同的 ID", async () => {
+		api.contacts.mockResolvedValue([
+			{ id: "device-bot-one", kind: "agent", name: "同名", ownerId: "me" },
+			{ id: "device-bot-two", kind: "agent", name: "同名", ownerId: "me" },
+		]);
+		await render();
+		expect(container.textContent).toContain("ID device-bot-one");
+		expect(container.textContent).toContain("ID device-bot-two");
+	});
 	it("在好友列表下方列出自己的 Bot，不列别人的 Bot", async () => {
 		api.contacts.mockResolvedValue([
 			{ id: "friend1", kind: "human", name: "阿明" },

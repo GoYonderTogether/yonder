@@ -210,7 +210,7 @@ export function Me() {
 										<div className="min-w-0 flex-1">
 											<p className="truncate font-medium">{a.name}</p>
 											<p className="mt-1 text-caption text-muted">
-												{a.online ? "在线" : "离线"} · {a.public ? "公开" : "仅自己可见"}
+												{a.online ? "在线" : "离线"} · {a.public ? "公开" : "仅自己可见"} · ID {a.id}
 											</p>
 											{a.summary && <p className="mt-1 line-clamp-2 text-small text-muted">{a.summary}</p>}
 										</div>
@@ -246,6 +246,24 @@ export function Me() {
 						</section>
 						<CreateBotDialog open={creatingBot} onOpenChange={setCreatingBot} />
 						<div className="overflow-hidden rounded-card bg-raised">
+							<details className="px-4 py-4">
+								<summary className="cursor-pointer text-body">渠道接入</summary>
+								<p className="mt-2 text-small text-muted">
+									网页无法读取本机渠道状态。请在运行 Yonder 的设备终端执行 <code>yonder channels list</code>{" "}
+									查看状态；授权或扫码需由主人完成。
+								</p>
+								<ul className="mt-2 space-y-2 text-small">
+									<li>
+										飞书：状态未知 · 配置后运行 <code>yonder channels login feishu</code>
+									</li>
+									<li>
+										微信：状态未知 · 配置后运行 <code>yonder channels login wechat-ilink</code>
+									</li>
+									<li>
+										QQ：状态未知 · 先运行 <code>yonder-qq setup --home /绝对路径 --agent main --open</code> 配置
+									</li>
+								</ul>
+							</details>
 							<Item to="/connect" icon={Monitor} label="设备" />
 						</div>
 						{!agents.length && !failure && (

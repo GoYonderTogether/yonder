@@ -171,7 +171,9 @@ function BotRow({ a }: { a: Actor }) {
 			<Avatar actor={a} size={40} online={!!a.online} />
 			<Link to={`/contacts/${entityRef(a)}`} state={internalState(loc)} className="press min-w-0 flex-1 py-1">
 				<span className="block truncate text-small font-medium">{a.name}</span>
-				<span className="block truncate text-caption text-muted">{a.summary || (a.online ? "在线" : "离线")}</span>
+				<span className="block break-all text-caption text-muted">
+					{a.summary || (a.online ? "在线" : "离线")} · ID {a.id}
+				</span>
 			</Link>
 			<Button size="sm" disabled={busy} onClick={() => void message()}>
 				{busy ? "打开中…" : "发消息"}
