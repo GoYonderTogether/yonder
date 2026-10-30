@@ -2,11 +2,22 @@
 
 ## [Unreleased]
 
+## [0.3.26103020] - 2026-10-30
+
 - 修复常驻群聊停止/恢复指令的模型调用竞态：请求前完成一次控制判定，并通过原生取消阻止控制输入消耗模型。
-
 - 官方初始化默认加载群聊插件并建立安全群会话；未自定义初始规则的 Bot 可由真实名称或 ID 触发首次参与。
-
 - 修复平台新群默认参与：真实入群自动启用独立只读群会话与共享发言协调，不再逐群补名单；统一原生艾特信号，保留显式禁用和自定义策略。
+
+### Fixed
+
+- core：keep platform-group bindings out of agent.yaml writes
+- cancel group control inputs before model requests
+- initialize safe group defaults and bot name triggers
+- enable default participation for platform group members
+
+### Added
+
+- app：按高定 UI 十条铁律统一前端视觉
 
 ## [0.3.26103018] - 2026-10-30
 
