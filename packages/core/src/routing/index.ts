@@ -11,11 +11,7 @@ import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
 
 type Wake = "run" | "write";
-interface RoutedRun {
-	agent: string;
-	session: string;
-	wake: Wake;
-}
+type RoutedRun = { agent: string; session: string; wake: Wake };
 export function createRouter({
 	channels,
 	store,

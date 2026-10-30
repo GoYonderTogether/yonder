@@ -1,11 +1,7 @@
 import type { EventInput, EventQuery, PluginAPI, SocialPolicy, YEvent } from "@yonder/sdk";
 import { recoverJudgment } from "./judge-recovery.js";
 
-interface Entry {
-	source: YEvent;
-	revision: string;
-	policy: SocialPolicy;
-}
+type Entry = { source: YEvent; revision: string; policy: SocialPolicy };
 export interface State {
 	entries: Entry[];
 	pending?: EventInput;
