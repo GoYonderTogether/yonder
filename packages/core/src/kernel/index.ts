@@ -24,6 +24,7 @@ import { Runtime } from "../runtime/index.js";
 import { closeOnRunEnd } from "../sessions/close-policy.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
+import { conversationMembers, createConversationTools } from "../tools/conversation.js";
 import { createCoreTools } from "../tools/index.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
@@ -292,6 +293,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		};
 
 		const promptOptions: PromptOptions = {
+			conversationContext: async (event, agent, signal) =>
+				event.conv ? JSON.stringify(await conversationMembers(store, event.conv, agent, signal)) : undefined,
 			home,
 			version: packageVersion,
 			locale: config.locale ?? "zh-CN",
@@ -400,6 +403,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			presets: () => [...new Map([...loaded.presets, ...homePresets]).values()],
 			...(config.defaultModel ? { defaultModel: config.defaultModel } : {}),
 		});
+		tools.push(...createConversationTools(store, home));
 		tools.push(createPermissionsTool(permissions));
 		tools.push(createSkillTool(skills, (id) => realRuntime().sessionConfig(id)));
 		// SA1：管理动作入口，与 task_run/task_control 同条件提供（权限、预设与两层嵌套限制由 task_run 判定）。

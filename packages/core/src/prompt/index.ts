@@ -66,6 +66,7 @@ Use an already offered tool directly. Discover a dedicated tool before building 
 }
 
 export interface PromptOptions {
+	conversationContext?(event: YEvent, agent: string | null, signal?: AbortSignal): Promise<string | undefined>;
 	home: string;
 	version: string;
 	locale: string;
@@ -311,6 +312,8 @@ export async function prepareInput(
 			`from: ${label(data.name ?? account?.name ?? event.from)} (${label(event.from)}${relation ? `, ${label(relation)}${account?.person ? `: ${label(account.person)}` : ""}` : ""})`,
 		);
 	}
+	if (data.replyTo) lines.push(`replyTo: ${label(data.replyTo)}`);
+	if (data.mentions?.length) lines.push(`mentions: ${label(JSON.stringify(data.mentions))}`);
 	if (data.quote?.text) lines.push(`quote: ${label(data.quote.text)}`);
 	const slash = session.resolved.model.indexOf("/");
 	const model = options.models.getModel(
@@ -352,6 +355,14 @@ export async function prepareInput(
 		lines.push(
 			`notice: yonder harness updated from ${row.version} to ${options.version}; details: yonder changelog --from ${row.version} --to ${options.version}`,
 		);
+	}
+	if (
+		wake === "run" &&
+		event.conv &&
+		(data.kind === "group" || data.kind === "channel" || event.type.endsWith(".group-batch"))
+	) {
+		const participants = await options.conversationContext?.(event, session.agent ?? null, signal);
+		if (participants) lines.push(`conversation: ${label(participants)}`);
 	}
 	lines.push("</turn>");
 	const preparedEvent = message ? { ...event, data: { ...event.data, attachments } } : event;
