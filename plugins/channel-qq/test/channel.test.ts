@@ -19,7 +19,8 @@ import {
 	recipient,
 	Spacing,
 } from "../src/channel.js";
-import { configure, connect } from "../src/setup.js";
+import { groupInstructions, groupTools, legacyGroupInstructions } from "../src/participation.js";
+import { configure, connect, upgradeGroups } from "../src/setup.js";
 
 test("cancelled QR setup does not contact the portal", async () => {
 	await expect(
@@ -105,7 +106,7 @@ test("scan completion preserves credentials and configures read-only group parti
 		const agent = parse(await readFile(join(home, "agents/main/agent.yaml"), "utf8"));
 		expect(agent.profiles["qq-main-group"]).toMatchObject({
 			capabilities: ["read"],
-			tools: { offer: ["read", "grep", "message_send", "parent_ask"] },
+			tools: { offer: groupTools },
 			plugins: [],
 			skills: [],
 		});
@@ -455,4 +456,111 @@ test("non-https inbound attachments are dropped with a warning", () => {
 	const event = incoming("qq-main", { appId: "1", credential: "qq" }, msg);
 	if (!event) throw new Error("message with only attachments must still be accepted");
 	expect(droppedAttachments(msg, event)).toBe(2);
+});
+
+test("official group upgrade preserves custom prompts and creates a recoverable backup", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-upgrade-"));
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const file = join(home, "agents/main/agent.yaml");
+		const doc = parse(await readFile(file, "utf8"));
+		doc.profiles.official = {
+			capabilities: ["read"],
+			instructions: legacyGroupInstructions,
+			tools: { offer: ["read", "grep", "message_send", "parent_ask"], search: [] },
+		};
+		doc.profiles.custom = { instructions: "Custom group instructions", tools: { offer: ["read"] } };
+		const before = stringify(doc);
+		await writeFile(file, before);
+		expect((await upgradeGroups(home, "main")).changed).toEqual([file]);
+		const updated = parse(await readFile(file, "utf8"));
+		expect(updated.profiles.official.instructions).toBe(groupInstructions);
+		expect(updated.profiles.official.tools.offer.toSorted()).toEqual(groupTools.toSorted());
+		expect(updated.profiles.custom).toEqual(doc.profiles.custom);
+		expect((await upgradeGroups(home, "main")).changed).toEqual([]);
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("QQ ingress retains explicit mention identities and reference indices without inferring unknown targets", () => {
+	const result = dispatchEvent(
+		"GROUP_MESSAGE_CREATE",
+		{
+			id: "received",
+			content: "需求",
+			timestamp: new Date().toISOString(),
+			author: { member_openid: "OWNER" },
+			group_openid: "GROUP",
+		},
+		"instance",
+	);
+	if (result.action !== "message") throw new Error("Tencent parser rejected input");
+	const input = incoming(
+		"qq-main",
+		{ appId: "1", credential: "qq" },
+		{
+			...result.msg,
+			replyTarget: { scope: "group", targetId: "GROUP" },
+			msgIdx: "REFIDX-current",
+			refMsgIdx: "REFIDX-quoted",
+			mentions: [
+				{ member_openid: "OWNER", nickname: "owner" },
+				{ scope: "all" },
+				{ is_you: true },
+				{ id: "invalid id" },
+			],
+		},
+	);
+	expect(input?.data).toMatchObject({
+		mentions: ["acct:qq-main:OWNER"],
+		qq: { msgIdx: "REFIDX-current", refMsgIdx: "REFIDX-quoted" },
+	});
+});
+
+test("QQ rejects unverified outbound mentions before making a platform request", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-mention-"));
+	try {
+		const channel = testChannel(home, {
+			send: async () => {
+				throw new Error("Must not send");
+			},
+		});
+		expect(channel.features.outboundMentions).toBe(false);
+		expect(
+			await channel.send("conv:qq-main:group:GROUP", { text: "需求", mentions: ["acct:qq-main:OWNER"] }),
+		).toMatchObject({ ok: false, error: expect.stringContaining("未发送") });
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("QQ transport source stays unquoted unless replyTo selects a visible reference", async () => {
+	const home = await mkdtemp(join(tmpdir(), "yonder-qq-reference-"));
+	try {
+		const sent: unknown[] = [];
+		const channel = testChannel(home, {
+			send: async (request: unknown) => {
+				sent.push(request);
+				return { id: "accepted" };
+			},
+		});
+		(channel as unknown as { api: { events: { query(): Promise<unknown> } } }).api.events = {
+			query: async () => ({ events: [{ data: { msgId: "native-message", qq: { msgIdx: "REFIDX-current" } } }] }),
+		};
+		expect(
+			await channel.send("conv:qq-main:group:GROUP", { text: "普通发言", sourceMessageId: "native-message" }),
+		).toMatchObject({ ok: true });
+		expect(sent[0]).toMatchObject({ target: { msgId: "native-message" }, content: "普通发言" });
+		expect(sent[0]).not.toHaveProperty("messageReference");
+		expect(
+			await channel.send("conv:qq-main:group:GROUP", { text: "引用发言", replyTo: "native-message" }),
+		).toMatchObject({ ok: true });
+		expect(sent[1]).toMatchObject({
+			target: { msgId: "native-message" },
+			messageReference: { message_id: "REFIDX-current" },
+		});
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
 });

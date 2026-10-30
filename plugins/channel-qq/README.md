@@ -18,7 +18,7 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 
 - 保存 AppSecret 到 home 配置的 auth.json，权限 0600；yonder.yaml 只保存凭据名。
 - 添加 `qq-main` 实例与指定 Agent 的私聊和群绑定；私聊仅允许扫码账号，进入该 Agent 的 main 会话。
-- 创建群只读配置档 `qq-main-group`：每群独立持久会话，提供 read/grep、当前群定向发送与受限的 parent_ask。共享所属 Agent 工作区中的可读记忆，沿用其选中的 context-files；不授予写、执行或任意跨会话发送能力。
+- 创建群只读配置档 `qq-main-group`：每群独立持久会话，提供 read/grep、conversation_read、conversation_members、conversation_attachment_read、当前群定向发送与受限的 parent_ask。共享所属 Agent 工作区中的可读记忆，沿用其选中的 context-files；不授予写、执行或任意跨会话发送能力。
 - 配置群原消息只写入会话、非空 60 秒批次运行、主会话接收协助请求。普通私聊和群批次使用 busy: steer；群分身决定是否公开回复，普通最终正文不自动发到群。
 
 然后由 Agent 重启目标 home 的 Yonder 服务并完成真实验证：已有托管服务用 `yonder --home <home> service restart`；手工运行则停止该 home 后重新 `yonder --home <home> start`。新增插件代码需要重启。不要重启其他 home，不自动替换正式安装。
@@ -62,3 +62,22 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 `npm run build && npm run typecheck && npm test && npm run lint`。协议与配置测试不调用模型；participation-live.test 使用真实 Luna 与本机协议入口验证批次、权限、内部请求和恢复，不冒充 QQ 平台验收。真实 QQ 验收在独立 home 扫码并登录模型，依次验证私聊、群 @、群普通消息与定向回复，核对 message.in、run.end、group-read 和成功 message.out，并让用户确认客户端收到回复。
 
 参考与依赖见 [NOTICE.md](NOTICE.md)。
+
+
+## 已有官方群配置升级与发送选择
+
+构建或安装本轮版本后运行：
+
+```sh
+node plugins/channel-qq/dist/setup.js upgrade-groups --home /absolute/path/to/home
+```
+
+可加 `--agent <id>` 限定 Agent。命令只识别逐字匹配的旧官方群指令，替换场景提示并合并只读会话工具；保留自定义指令、模型和其他配置，写入前创建 0600 的 `agent.yaml.pre-qq-context-<uuid>` 备份。运行后先 doctor，再重启目标 home。工具可搜索当前群真实记录、查看已观察参与者、按消息 ID/附件序号读取文本附件；成员清单不等于平台完整成员列表。
+
+群分身可自然发言，或用 `respondTo` 选择语义回应对象而不显示引用；`replyTo` 才显式显示引用，均用真实入站 turn id，不用批次 id。共享内核提供合法被动来源，QQ 插件的 `msg_id` 与 `message_reference` 分开；有真实 `qq.msgIdx` 时优先引用该 REFIDX。旧事件缺索引时保留原生 ID 兼容路径，平台结果需实际验证。
+
+协议依据：[腾讯发送群消息](https://bot.q.qq.com/wiki/develop/api-v2/autogen/api/v2_groups_group_openid_messages.post.html)（2026-10-28 更新）明确被动来源有效期 5 分钟、最多 5 次回复，引用字段说明使用 REFIDX；同页示例仍含 ROBOT1.0，存在文档差异。SDK 入站的 `msgIdx/refMsgIdx` 保存在 `data.qq`，收到的完整 mention 账号列表在 `data.mentions`，不从昵称猜身份。
+
+出站 @：该官方发送接口及当前 SDK 未提供已核实的群成员 @ 参数/语法；插件明确 `outboundMentions:false`，调用 `mentions` 返回不支持，未发送。入站 `<@openid>` 不是出站支持证明，不把普通 @ 文本当提醒。完整平台成员枚举亦未接入。此两项保持真实验收未完成，不宣称已支持。
+
+本轮未代用户发送 QQ 测试消息；普通气泡、引用的客户端显示、真实 @ 提醒由用户在安装后逐项测试。静态和协议测试不代替 QQ 验收。

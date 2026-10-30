@@ -212,6 +212,27 @@ export function incoming(
 			...(group ? { mentioned, social: { mentions: { bot: mentioned }, nativeKind: msg.rawEventType } } : {}),
 			...(Number.isFinite(createdAt) ? { createdAt: String(createdAt) } : {}),
 			...(msg.senderName ? { name: msg.senderName } : {}),
+			...(msg.senderIsBot !== undefined ? { senderIsBot: msg.senderIsBot } : {}),
+			...(group && msg.mentions
+				? {
+						mentions: [
+							...new Set(
+								msg.mentions.flatMap((mention) => {
+									const openid = mention.member_openid ?? mention.user_openid ?? mention.id;
+									return mention.scope !== "all" && openid && /^[A-Za-z0-9_-]+$/.test(openid) ? [acct(id, openid)] : [];
+								}),
+							),
+						],
+					}
+				: {}),
+			...(group && (msg.msgIdx || msg.refMsgIdx)
+				? {
+						qq: {
+							...(msg.msgIdx ? { msgIdx: msg.msgIdx } : {}),
+							...(msg.refMsgIdx ? { refMsgIdx: msg.refMsgIdx } : {}),
+						},
+					}
+				: {}),
 		},
 	};
 }
@@ -232,9 +253,12 @@ export function recipient(id: string, target: string): ReplyTarget {
 export class QQChannel implements Channel {
 	readonly kinds = ["dm", "group"];
 	readonly output = { stream: false, attachments: true };
-	readonly features = { identity: "account", mentions: ["bot"], streamMode: "none" } satisfies NonNullable<
-		Channel["features"]
-	>;
+	readonly features = {
+		identity: "account",
+		mentions: ["bot"],
+		outboundMentions: false,
+		streamMode: "none",
+	} satisfies NonNullable<Channel["features"]>;
 	private bot: QQBot | undefined;
 	private store: FileKVStore | undefined;
 	private work: Promise<void> | undefined;
@@ -360,6 +384,8 @@ export class QQChannel implements Channel {
 		let total = 0;
 		try {
 			signal?.throwIfAborted();
+			if (message.mentions?.length)
+				return { ok: false, error: "QQ 官方群消息接口的出站艾特格式尚未核实；未发送，不会用普通 @ 文本冒充提醒。" };
 			const bot = this.bot;
 			if (!bot || this.state === "stopped" || this.state === "failed") throw new Error("QQ channel is not running");
 			const text = message.text.trim();
@@ -394,6 +420,24 @@ export class QQChannel implements Channel {
 			const to = recipient(this.id, target);
 			const msgId = message.replyTo ?? message.sourceMessageId;
 			if (msgId) to.msgId = msgId;
+			let quoteId = message.replyTo;
+			if (quoteId && to.scope === "group") {
+				let after: string | undefined;
+				do {
+					const page = await this.api.events.query({
+						type: "message.in",
+						conv: target,
+						limit: 1000,
+						...(after ? { after } : {}),
+					});
+					const event = page.events.find((event) => (event.data as { msgId?: string }).msgId === message.replyTo);
+					if (event) {
+						quoteId = (event.data as { qq?: { msgIdx?: string } }).qq?.msgIdx ?? quoteId;
+						break;
+					}
+					after = page.next;
+				} while (after);
+			}
 			let sequence = 1;
 			if (msgId) {
 				const key = `reply:${to.scope}:${to.targetId}:${msgId}`;
@@ -408,7 +452,7 @@ export class QQChannel implements Channel {
 						target: to,
 						msgType: 0,
 						content: text,
-						...(message.replyTo ? { messageReference: { message_id: message.replyTo } } : {}),
+						...(quoteId ? { messageReference: { message_id: quoteId } } : {}),
 						extra: { msg_seq: sequence },
 					}),
 				);

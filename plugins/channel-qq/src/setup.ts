@@ -9,7 +9,7 @@ import { parseArgs } from "node:util";
 import { type QrConnectCredentials, startQrConnect } from "@tencent-connect/qqbot-connector";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
-import { groupBatch, groupInstructions } from "./participation.js";
+import { groupBatch, groupInstructions, groupTools, legacyGroupInstructions } from "./participation.js";
 
 interface SetupOptions {
 	home: string;
@@ -127,7 +127,7 @@ export async function configure(
 			current.agent.setIn(["profiles", current.groupProfile], {
 				model,
 				capabilities: ["read"],
-				tools: { offer: ["read", "grep", "message_send", "parent_ask"], search: [] },
+				tools: { offer: groupTools, search: [] },
 				plugins: [],
 				contexts: (agent.profiles[current.profile].contexts ?? agent.defaults?.contexts ?? []).filter((id: string) =>
 					["agents-md", "user-md", "soul-md", "memory-md"].includes(id),
@@ -263,6 +263,50 @@ export async function connect(onLink: (url: string) => void, signal: AbortSignal
 	});
 }
 
+/** Upgrade only byte-identical official group instructions; custom profiles remain untouched. */
+export async function upgradeGroups(home: string, agentId?: string) {
+	const config = await document(join(home, "yonder.yaml"));
+	const changed: string[] = [],
+		skipped: string[] = [];
+	for (const entry of config.toJSON().agents ?? []) {
+		if (agentId && entry.id !== agentId) continue;
+		if (entry.env && entry.env !== "local") {
+			skipped.push(entry.id);
+			continue;
+		}
+		const file = join(expand(home, entry.workspace), "agent.yaml");
+		const unlock = await lockfile.lock(file);
+		try {
+			const doc = await document(file);
+			let dirty = false;
+			const profiles = doc.toJSON().profiles ?? {};
+			for (const [id, profile] of Object.entries(profiles) as [
+				string,
+				{ instructions?: string; tools?: { offer?: string[] } },
+			][]) {
+				if (profile.instructions !== legacyGroupInstructions && profile.instructions !== groupInstructions) continue;
+				doc.setIn(["profiles", id, "instructions"], groupInstructions);
+				doc.setIn(["profiles", id, "tools", "offer"], [...new Set([...(profile.tools?.offer ?? []), ...groupTools])]);
+				dirty = true;
+			}
+			if (!dirty) {
+				skipped.push(entry.id);
+				continue;
+			}
+			const before = await readFile(file, "utf8");
+			const after = doc.toString();
+			if (before === after) continue;
+			const backup = `${file}.pre-qq-context-${randomUUID()}`;
+			await writeFile(backup, before, { mode: 0o600, flag: "wx" });
+			await atomic(file, after, 0o600);
+			changed.push(file);
+		} finally {
+			await unlock();
+		}
+	}
+	return { changed, skipped };
+}
+
 async function main() {
 	const { values, positionals } = parseArgs({
 		options: {
@@ -279,8 +323,12 @@ async function main() {
 	});
 	if (values.help) {
 		console.log(
-			"yonder-qq setup --home <Yonder home> --agent <id> [--open] [--instance qq-main] [--profile <private profile>] [--group-profile <existing profile>] [--app-id <selected bot>]",
+			"yonder-qq upgrade-groups --home <Yonder home> [--agent <id>] | setup --home <Yonder home> --agent <id> [--open] [--instance qq-main] [--profile <private profile>] [--group-profile <existing profile>] [--app-id <selected bot>]",
 		);
+		return;
+	}
+	if (positionals[0] === "upgrade-groups" && values.home) {
+		console.log(JSON.stringify(await upgradeGroups(resolve(values.home), values.agent)));
 		return;
 	}
 	if (positionals[0] !== "setup" || !values.home || !values.agent)
