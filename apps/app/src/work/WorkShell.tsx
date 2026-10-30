@@ -171,7 +171,27 @@ export function WorkShell({
 		rail: railVisible,
 	};
 
-	const side = <div className="min-h-0 flex-1">{allWork ?? <WorkList active={route.session} />}</div>;
+	const side = (
+		<>
+			<WorkToolbar
+				phone={breakpoint === "phone"}
+				leading={<PersonalAvatar />}
+				title="工作"
+				device={device}
+				leftOpen
+				onLeft={() => (paneMode === "list" ? setPaneMode("content") : update({ left: false, lastSide: "right" }))}
+				mode={paneMode === "list" ? intent.mode : undefined}
+				onMode={paneMode === "list" ? setPaneMode : undefined}
+				railAvailable={hasRail || intent.mode === "rail"}
+				more={
+					<Link to={workPath({ page: "settings" })} className="press flex min-h-10 items-center px-2 text-small">
+						工作设置
+					</Link>
+				}
+			/>
+			<div className="min-h-0 flex-1">{allWork ?? <WorkList active={route.session} />}</div>
+		</>
+	);
 	const sideContent = <Suspense fallback={<PageSkeleton />}>{side}</Suspense>;
 	const main =
 		paneMode === "list" && route.session ? (
@@ -204,89 +224,17 @@ export function WorkShell({
 			<EmptyPane message="选择一个 Bot 或任务" />
 		);
 	return (
-		<div className="flex h-full flex-col bg-list">
+		<div className="flex h-full flex-col bg-rail">
 			<Banner />
 			<NotifyHost />
-			<WorkToolbar
-				phone={breakpoint === "phone"}
-				leading={
-					route.session || page ? (
-						<Link
-							to={workPath()}
-							aria-label="返回"
-							className="press grid size-10 shrink-0 place-items-center rounded-full"
-						>
-							<ArrowLeft size={20} aria-hidden />
-						</Link>
-					) : (
-						<PersonalAvatar />
-					)
-				}
-				title={
-					route.session ? (
-						<span className="flex min-w-0 items-center gap-2">
-							{actor && <Avatar actor={actor} size={32} />}
-							<span className="truncate">{imported.data?.summary.title || (session ? titleOf(session) : "会话")}</span>
-						</span>
-					) : page ? (
-						"工作设置"
-					) : (
-						"工作"
-					)
-				}
-				subtitle={
-					route.session
-						? [
-								session?.mode === "persistent" ? branch : undefined,
-								profile.data?.summary ?? actor?.summary,
-								view.running ? "正在回复…" : session?.closed ? "已结束" : undefined,
-							]
-								.filter(Boolean)
-								.join(" · ") || undefined
-						: undefined
-				}
-				device={device}
-				leftOpen={paneMode === "list" || (paneMode === "auto" && panes.left)}
-				onLeft={() =>
-					paneMode === "list"
-						? setPaneMode("content")
-						: panes.left
-							? update({ left: false, lastSide: "right" })
-							: showList()
-				}
-				rightOpen={panes.rail}
-				onRight={route.session ? toggleRail : undefined}
-				mode={route.session ? intent.mode : undefined}
-				onMode={route.session ? setPaneMode : undefined}
-				railAvailable={hasRail || intent.mode === "rail"}
-				primary={
-					session?.mode === "main" && session.agent && !isImported(session) ? (
-						<button
-							type="button"
-							onClick={openChannels}
-							aria-label="渠道与子会话"
-							title="渠道与子会话"
-							className="press grid size-10 place-items-center rounded-full"
-						>
-							<Radio size={19} aria-hidden />
-						</button>
-					) : undefined
-				}
-				more={
-					<>
-						{route.session && <FloatMenu session={route.session} />}
-						<Link to={workPath({ page: "settings" })} className="press flex min-h-10 items-center px-2 text-small">
-							工作设置
-						</Link>
-					</>
-				}
-			/>
-			<div className="flex min-h-0 flex-1">
+			<div className="flex min-h-0 flex-1 gap-1.5 p-1.5 pt-0">
 				{paneMode === "auto" && panes.left && (
-					<aside className="flex w-[320px] shrink-0 flex-col border-r border-hairline bg-list">{sideContent}</aside>
+					<aside className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-[16px] bg-list shadow-soft">
+						{sideContent}
+					</aside>
 				)}
 				<div
-					className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+					className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[16px] bg-ground shadow-soft"
 					onFocusCapture={(event) => {
 						if (
 							breakpoint === "phone" &&
@@ -297,12 +245,89 @@ export function WorkShell({
 							update({ phoneContent: true });
 					}}
 				>
+					{!(paneMode === "list" && route.session) && !(screen === "list" && frame.side === "main") && (
+						<WorkToolbar
+							phone={breakpoint === "phone"}
+							leading={
+								route.session || page ? (
+									<Link
+										to={workPath()}
+										aria-label="返回"
+										className="press grid size-10 shrink-0 place-items-center rounded-full"
+									>
+										<ArrowLeft size={20} aria-hidden />
+									</Link>
+								) : (
+									<PersonalAvatar />
+								)
+							}
+							title={
+								route.session ? (
+									<span className="flex min-w-0 items-center gap-2">
+										{actor && <Avatar actor={actor} size={32} />}
+										<span className="truncate">
+											{imported.data?.summary.title || (session ? titleOf(session) : "会话")}
+										</span>
+									</span>
+								) : page ? (
+									"工作设置"
+								) : (
+									"工作"
+								)
+							}
+							subtitle={
+								route.session
+									? [
+											session?.mode === "persistent" ? branch : undefined,
+											profile.data?.summary ?? actor?.summary,
+											view.running ? "正在回复…" : session?.closed ? "已结束" : undefined,
+										]
+											.filter(Boolean)
+											.join(" · ") || undefined
+									: undefined
+							}
+							leftOpen={paneMode === "list" || (paneMode === "auto" && panes.left)}
+							onLeft={!panes.left ? showList : undefined}
+							rightOpen={panes.rail}
+							onRight={route.session ? toggleRail : undefined}
+							mode={route.session ? intent.mode : undefined}
+							onMode={route.session ? setPaneMode : undefined}
+							railAvailable={hasRail || intent.mode === "rail"}
+							primary={
+								session?.mode === "main" && session.agent && !isImported(session) ? (
+									<button
+										type="button"
+										onClick={openChannels}
+										aria-label="渠道与子会话"
+										title="渠道与子会话"
+										className="press grid size-10 place-items-center rounded-full"
+									>
+										<Radio size={19} aria-hidden />
+									</button>
+								) : undefined
+							}
+							more={
+								<>
+									{route.session && <FloatMenu session={route.session} />}
+									<Link
+										to={workPath({ page: "settings" })}
+										className="press flex min-h-10 items-center px-2 text-small"
+									>
+										工作设置
+									</Link>
+								</>
+							}
+						/>
+					)}
 					<div className={`flex min-h-0 min-w-0 flex-1 ${breakpoint !== "phone" ? "flex-row" : "flex-col"}`}>
 						{main}
 					</div>
 					{/* 平板：列表按需叠成覆盖层，打开会话或功能页即收起 */}
 					{paneMode === "auto" && frame.side === "overlay" && leftOpen && (
-						<div className="absolute inset-0 z-20 flex flex-col bg-list" data-testid="list-overlay">
+						<div
+							className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-[16px] bg-list shadow-float"
+							data-testid="list-overlay"
+						>
 							{sideContent}
 						</div>
 					)}

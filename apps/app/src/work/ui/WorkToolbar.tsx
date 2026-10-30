@@ -60,7 +60,7 @@ export function WorkToolbar({
 	const RightIcon = rightOpen ? PaneRightCollapse : PaneRightExpand;
 	return (
 		<AppBar
-			className="pt-safe relative z-10 flex min-h-14 shrink-0 items-center gap-2 border-b border-hairline bg-ground px-3"
+			className="pt-safe relative z-10 flex min-h-14 shrink-0 items-center gap-2 px-3"
 			title={title}
 			subtitle={subtitle}
 			left={

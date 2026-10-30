@@ -47,13 +47,14 @@ vi.mock("../src/work/ui/WorkList", () => ({
 vi.mock("../src/work/features/Settings", () => ({ Settings: () => <div>设置页面</div> }));
 vi.mock("../src/work/ui/WorkToolbar", () => ({
 	WorkToolbar: (p: {
+		title: React.ReactNode;
 		leftOpen: boolean;
 		onLeft(): void;
 		mode?: string;
 		onMode?(mode: string): void;
 		primary?: React.ReactNode;
 	}) => (
-		<div>
+		<div data-testid="local-work-header">
 			<button type="button" aria-label={p.leftOpen ? "收起工作列表" : "展开工作列表"} onClick={p.onLeft} />
 			{p.onMode && (
 				<select aria-label="工作区域显示" value={p.mode} onChange={(event) => p.onMode?.(event.target.value)}>
@@ -153,6 +154,18 @@ it("仅列表点击当前会话恢复正文", async () => {
 	expect(container.textContent).not.toContain("正文");
 	await act(() => click([...container.querySelectorAll("a")].find((a) => a.textContent === "当前会话")!));
 	expect(container.textContent).toContain("正文");
+	await act(() => root.unmount());
+});
+it("列表和会话操作分别位于各自的局部区域", async () => {
+	state.node = "local-headers";
+	state.width = "desktop";
+	state.rail = "present";
+	const { container, root } = await render("/work/s");
+	const headers = container.querySelectorAll('[data-testid="local-work-header"]');
+	expect(headers).toHaveLength(2);
+	expect(headers[0].closest("aside")).not.toBeNull();
+	expect(headers[1].closest("aside")).toBeNull();
+	expect(headers[0].parentElement).not.toBe(headers[1].parentElement);
 	await act(() => root.unmount());
 });
 it("平板打开渠道时列表让位，右栏加载不丢独显选择", async () => {
