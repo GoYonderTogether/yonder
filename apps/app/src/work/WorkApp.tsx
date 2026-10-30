@@ -2,7 +2,7 @@ import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import { api } from "../api";
 import { PersonalAvatar } from "../components/PersonalDrawer";
@@ -14,13 +14,16 @@ import { activeNode, setCloudDevice, useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
 import { Login } from "./features/Login";
 import {
+	clearWorkAccount,
 	hasWorkCache,
+	readWorkDevices,
 	reconcileWorkDevices,
 	reconcileWorkSessions,
 	removeWorkDevice,
 	restoreAllWork,
 	restoreWorkQueries,
 	saveAllWork,
+	saveWorkDevices,
 	saveWorkQueries,
 	updateStoredWork,
 } from "./lib/offlineCache";
@@ -70,22 +73,51 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 	const node = useActiveNode();
 	const route = useWorkRoute();
 	const [choice, setChoice] = useState("all");
-	const devices = useQuery({ queryKey: ["account-devices", accountId], queryFn: api.devices, refetchInterval: 5000 });
-	const available = (devices.data ?? []).filter((device) => device.online && device.workProtocol === 1);
+	const devices = useQuery({
+		queryKey: ["account-devices", accountId],
+		initialData: () => readWorkDevices(accountId),
+		initialDataUpdatedAt: 0,
+		queryFn: async () => {
+			try {
+				const result = await api.devices();
+				saveWorkDevices(accountId, result);
+				return result;
+			} catch (error) {
+				if (error && typeof error === "object" && "status" in error && (error.status === 401 || error.status === 403))
+					clearWorkAccount(accountId);
+				throw error;
+			}
+		},
+		refetchInterval: 5000,
+		retry: false,
+	});
+	const denied =
+		!!devices.error && "status" in devices.error && (devices.error.status === 401 || devices.error.status === 403);
+	const shownDevices = useMemo(
+		() => (devices.isError ? devices.data?.map((device) => ({ ...device, online: false })) : devices.data),
+		[devices.data, devices.isError],
+	);
+	const available = (shownDevices ?? []).filter((device) => device.online && device.workProtocol === 1);
+	const cachedAvailable = (shownDevices ?? []).filter((device) => !device.online && hasWorkCache(accountId, device.id));
 	const knownDevices = useRef<string[]>([]);
 	useEffect(() => {
-		if (!devices.data) return;
-		setWorkDevices(devices.data);
+		if (denied) {
+			setWorkDevices([]);
+			return;
+		}
+		if (!shownDevices) return;
+		setWorkDevices(shownDevices);
 		for (const id of knownDevices.current)
-			if (!devices.data.some((device) => device.id === id)) removeWorkDevice(accountId, id);
-		knownDevices.current = devices.data.map((device) => device.id);
+			if (!shownDevices.some((device) => device.id === id)) removeWorkDevice(accountId, id);
+		knownDevices.current = shownDevices.map((device) => device.id);
 		reconcileWorkDevices(accountId, knownDevices.current);
 		restoreAllWork(qc, accountId, knownDevices.current);
-	}, [accountId, devices.data, qc]);
+	}, [accountId, shownDevices, qc, denied]);
 	useEffect(
 		() =>
 			qc.getQueryCache().subscribe((event) => {
 				const key = event.query.queryKey;
+				if (denied) return;
 				if (key[0] !== "all-work" || key[1] !== accountId) return;
 				saveAllWork(qc, accountId);
 				if (event.type !== "updated" || event.action.type !== "success" || typeof key[2] !== "string") return;
@@ -112,16 +144,24 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 					}
 				}
 			}),
-		[accountId, qc],
+		[accountId, qc, denied],
 	);
 	const legacySession = !!route.session && !route.deviceId;
 	const wanted =
 		route.deviceId ?? (choice === "all" && node.id.startsWith(`account:${accountId}:device:`) ? node.deviceId : choice);
-	const selected =
-		(devices.data ?? []).find(
-			(device) =>
-				device.id === wanted && (device.workProtocol === 1 || (!device.online && hasWorkCache(accountId, device.id))),
-		) ?? (choice === "all" && !route.deviceId && (!legacySession || available.length === 1) ? available[0] : undefined);
+	const selected = denied
+		? undefined
+		: ((shownDevices ?? []).find(
+				(device) =>
+					device.id === wanted && (device.workProtocol === 1 || (!device.online && hasWorkCache(accountId, device.id))),
+			) ??
+			(choice === "all" && !route.deviceId
+				? legacySession
+					? available.length + cachedAvailable.length === 1
+						? (available[0] ?? cachedAvailable[0])
+						: undefined
+					: (available[0] ?? (cachedAvailable.length === 1 ? cachedAvailable[0] : undefined))
+				: undefined));
 	const targetId = selected && `account:${accountId}:device:${selected.id}`;
 	useEffect(() => {
 		if (!selected) return;
@@ -183,15 +223,15 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 		}
 		void navigate(workPath({ deviceId: device.id, session }));
 	};
-	const list = <AllWorkList accountId={accountId} devices={devices.data ?? []} onOpen={open} />;
-	const selector = !!devices.data?.length && (
+	const list = <AllWorkList accountId={accountId} devices={shownDevices ?? []} onOpen={open} />;
+	const selector = !!shownDevices?.length && (
 		<DropdownMenu.Root modal={false}>
 			<DropdownMenu.Trigger
 				className="press flex min-h-11 max-w-36 items-center gap-1 rounded-control px-2 text-small"
 				aria-label="选择设备"
 			>
 				<span className="truncate">
-					{choice === "all" ? "全部设备" : (devices.data.find((device) => device.id === choice)?.name ?? "选择设备")}
+					{choice === "all" ? "全部设备" : (shownDevices.find((device) => device.id === choice)?.name ?? "选择设备")}
 				</span>
 				<ChevronDown size={14} aria-hidden />
 			</DropdownMenu.Trigger>
@@ -202,7 +242,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 					className="z-50 min-w-40 rounded-card bg-raised p-1.5 shadow-float outline-none"
 				>
 					<DropdownMenu.RadioGroup value={choice}>
-						{[{ id: "all", name: "全部设备", online: true }, ...devices.data].map((device) => (
+						{[{ id: "all", name: "全部设备", online: true }, ...shownDevices].map((device) => (
 							<DropdownMenu.RadioItem
 								value={device.id}
 								key={device.id}
@@ -227,9 +267,15 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 		</DropdownMenu.Root>
 	);
 	if (route.page === "settings") return <Navigate to="/me/settings" replace />;
+	if (denied)
+		return (
+			<div role="alert" className="p-6 text-small">
+				设备访问权限已失效，请重新登录。
+			</div>
+		);
 	if (selected && node.id === targetId)
 		return <GatewayWorkApp key={node.id} cloud allWork={choice === "all" ? list : undefined} device={selector} />;
-	if (choice === "all" && devices.data?.length && !route.deviceId && !legacySession)
+	if (choice === "all" && shownDevices?.length && !route.deviceId && !legacySession)
 		return (
 			<div className="flex h-full flex-col">
 				<WorkToolbar phone={breakpoint === "phone"} leading={<PersonalAvatar />} title="工作" device={selector} />
@@ -254,11 +300,11 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 								重试
 							</button>
 						</p>
-					) : !devices.data?.length ? (
+					) : !shownDevices?.length ? (
 						<p className="mt-2 text-small text-muted">连接设备后即可开始工作。</p>
 					) : (
 						<ul className="mt-4 text-left">
-							{devices.data.map((device) => (
+							{shownDevices.map((device) => (
 								<li
 									key={device.id}
 									className="flex min-h-12 items-center justify-between gap-3 border-b border-hairline"

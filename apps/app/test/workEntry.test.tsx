@@ -9,6 +9,7 @@ import { WorkApp } from "../src/work/WorkApp";
 
 const deviceState = vi.hoisted(() => ({
 	devices: [] as Array<{ id: string; name: string; kind: "desktop"; online: boolean; workProtocol?: 1 }>,
+	error: null as Error | null,
 }));
 vi.mock("radix-ui", () => ({
 	DropdownMenu: {
@@ -25,7 +26,11 @@ vi.mock("radix-ui", () => ({
 		ItemIndicator: () => null,
 	},
 }));
-vi.mock("../src/api", () => ({ api: { devices: () => Promise.resolve(deviceState.devices) } }));
+vi.mock("../src/api", () => ({
+	api: {
+		devices: () => (deviceState.error ? Promise.reject(deviceState.error) : Promise.resolve(deviceState.devices)),
+	},
+}));
 vi.mock("../src/work/lib/queries", () => ({
 	useFacts: () => ({ data: { protocol: 1 } }),
 	deviceAgentMap: () => new Map(),
@@ -37,6 +42,7 @@ vi.mock("../src/work/WorkShell", () => ({
 vi.mock("../src/components/PersonalDrawer", () => ({ PersonalAvatar: () => null }));
 afterEach(() => {
 	$session.set(undefined);
+	deviceState.error = null;
 	vi.unstubAllEnvs();
 	vi.unstubAllGlobals();
 });
@@ -131,5 +137,111 @@ it("旧任务深链没有设备时，选择其设备仍保留任务", async () =
 	const key = Object.keys(target ?? {}).find((k) => k.startsWith("__reactProps$")) ?? "";
 	await act(async () => (target as unknown as Record<string, { onClick(): void }>)[key]?.onClick());
 	expect(container.querySelector("output")?.textContent).toBe("/work/device/first/161097");
+	await act(() => root.unmount());
+});
+
+it("刷新时设备读取失败可恢复缓存；没有缓存时明确报错", async () => {
+	const data: Record<string, string> = {};
+	vi.stubGlobal(
+		"sessionStorage",
+		new Proxy(
+			{
+				getItem: (key: string) => data[key] ?? null,
+				setItem: (key: string, value: string) => {
+					data[key] = value;
+				},
+				removeItem: (key: string) => {
+					delete data[key];
+				},
+			},
+			{
+				ownKeys: () => Reflect.ownKeys(data),
+				getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+			},
+		),
+	);
+	const { saveWorkDevices, saveWorkQueries, clearWorkCache } = await import("../src/work/lib/offlineCache");
+	const { setActiveNode } = await import("../src/work/api/nodes");
+	saveWorkDevices("owner", [{ id: "saved", name: "已缓存设备", kind: "desktop", online: true, workProtocol: 1 }]);
+	const cached = new QueryClient();
+	cached.setQueryData(["facts"], { protocol: 1 });
+	saveWorkQueries(cached, "owner", "saved");
+	deviceState.error = new Error("网络失败");
+	setActiveNode("local");
+	const first = await render("/work/161323");
+	expect(first.container.textContent).toContain("真实工作入口");
+	expect(first.container.textContent).toContain("已缓存设备");
+	const { deviceOnline } = await import("../src/work/lib/workOnline");
+	expect(deviceOnline("saved")).toBe(false);
+	await act(() => first.root.unmount());
+	clearWorkCache();
+	setActiveNode("local");
+	const second = await render("/work/161323");
+	expect(second.container.textContent).toContain("无法读取设备");
+	expect(second.container.textContent).not.toContain("真实工作入口");
+	await act(() => second.root.unmount());
+});
+
+it("设备授权被拒时清除账号缓存并停止显示旧设备", async () => {
+	const data: Record<string, string> = {};
+	vi.stubGlobal(
+		"sessionStorage",
+		new Proxy(
+			{
+				getItem: (key: string) => data[key] ?? null,
+				setItem: (key: string, value: string) => {
+					data[key] = value;
+				},
+				removeItem: (key: string) => {
+					delete data[key];
+				},
+			},
+			{
+				ownKeys: () => Reflect.ownKeys(data),
+				getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+			},
+		),
+	);
+	const { saveWorkDevices, readWorkDevices, saveWorkQueries } = await import("../src/work/lib/offlineCache");
+	saveWorkDevices("owner", [{ id: "saved", name: "旧设备", kind: "desktop", online: true, workProtocol: 1 }]);
+	const cached = new QueryClient();
+	cached.setQueryData(["facts"], { protocol: 1 });
+	saveWorkQueries(cached, "owner", "saved");
+	deviceState.error = Object.assign(new Error("forbidden"), { status: 403 });
+	const { container, root } = await render("/work/161323");
+	expect(container.textContent).toContain("设备访问权限已失效");
+	expect(container.textContent).not.toContain("真实工作入口");
+	expect(readWorkDevices("owner")).toBeUndefined();
+	await act(() => root.unmount());
+});
+
+it("权威设备空列表覆盖旧缓存并清除解绑设备", async () => {
+	const data: Record<string, string> = {};
+	vi.stubGlobal(
+		"sessionStorage",
+		new Proxy(
+			{
+				getItem: (key: string) => data[key] ?? null,
+				setItem: (key: string, value: string) => {
+					data[key] = value;
+				},
+				removeItem: (key: string) => {
+					delete data[key];
+				},
+			},
+			{
+				ownKeys: () => Reflect.ownKeys(data),
+				getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
+			},
+		),
+	);
+	const { saveWorkDevices, readWorkDevices, saveWorkView, readWorkView } = await import("../src/work/lib/offlineCache");
+	saveWorkDevices("owner", [{ id: "removed", name: "旧设备", kind: "desktop", online: true, workProtocol: 1 }]);
+	saveWorkView("owner", "removed", "s1", { items: ["history"] });
+	deviceState.devices = [];
+	const { container, root } = await render();
+	expect(container.textContent).toContain("连接设备后即可开始工作");
+	expect(readWorkDevices("owner")).toEqual([]);
+	expect(readWorkView("owner", "removed", "s1")).toBeNull();
 	await act(() => root.unmount());
 });

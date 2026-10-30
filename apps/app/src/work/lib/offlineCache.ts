@@ -1,4 +1,5 @@
 import { dehydrate, hydrate, type QueryClient } from "@tanstack/react-query";
+import type { Device } from "../../api/types";
 
 const PREFIX = "yonder-work-cache:";
 const key = (account: string, device: string) =>
@@ -20,6 +21,23 @@ const write = (name: string, value: unknown) => {
 export function clearWorkCache() {
 	try {
 		for (const name of Object.keys(sessionStorage)) if (name.startsWith(PREFIX)) sessionStorage.removeItem(name);
+	} catch {
+		/* Storage unavailable. */
+	}
+}
+
+export function saveWorkDevices(account: string, devices: Device[]) {
+	write(`${PREFIX}${encodeURIComponent(account)}:devices`, devices);
+}
+export function readWorkDevices(account: string): Device[] | undefined {
+	const devices = read(`${PREFIX}${encodeURIComponent(account)}:devices`);
+	if (!Array.isArray(devices)) return undefined;
+	return devices.map((device: Device) => ({ ...device, online: false }));
+}
+export function clearWorkAccount(account: string) {
+	try {
+		const prefix = `${PREFIX}${encodeURIComponent(account)}:`;
+		for (const name of Object.keys(sessionStorage)) if (name.startsWith(prefix)) sessionStorage.removeItem(name);
 	} catch {
 		/* Storage unavailable. */
 	}
@@ -97,7 +115,8 @@ export function reconcileWorkDevices(account: string, devices: readonly string[]
 		for (const name of Object.keys(sessionStorage)) {
 			if (!name.startsWith(prefix)) continue;
 			const part = name.slice(prefix.length).split(":")[0];
-			if (part && part !== "all" && !devices.includes(decodeURIComponent(part))) sessionStorage.removeItem(name);
+			if (part && part !== "all" && part !== "devices" && !devices.includes(decodeURIComponent(part)))
+				sessionStorage.removeItem(name);
 		}
 	} catch {
 		/* Storage unavailable. */
