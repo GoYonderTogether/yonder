@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
@@ -120,7 +121,7 @@ export async function upgradeGroups(home: string, agentId?: string) {
 	return { changed, skipped };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
 	const { values, positionals } = parseArgs({
 		options: { home: { type: "string" }, agent: { type: "string" } },
 		allowPositionals: true,

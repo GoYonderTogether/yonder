@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { chmod, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -374,7 +375,7 @@ async function main() {
 	}
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url)
+if (process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url)
 	main().catch((error: unknown) => {
 		console.error(error instanceof Error ? error.message : "QQ setup failed");
 		process.exitCode = 1;
