@@ -2,11 +2,38 @@ import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 import { useAppBack } from "../lib/navigation";
 
-export function AppBar({ title, left, right }: { title: ReactNode; left?: ReactNode; right?: ReactNode }) {
+export function AppBar({
+	title,
+	left,
+	right,
+	subtitle,
+	className,
+	headingClassName,
+}: {
+	title: ReactNode;
+	left?: ReactNode;
+	right?: ReactNode;
+	subtitle?: ReactNode;
+	className?: string;
+	headingClassName?: string;
+}) {
 	return (
-		<header className="relative z-10 flex h-14 shrink-0 items-center gap-2 px-4">
-			{left}
-			<h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{title}</h1>
+		<header className={className ?? "relative z-10 flex h-14 shrink-0 items-center gap-2 px-4"}>
+			{headingClassName ? (
+				<div className={headingClassName}>
+					{left}
+					<h1>{title}</h1>
+					{subtitle}
+				</div>
+			) : (
+				<>
+					{left}
+					<div className="min-w-0 flex-1">
+						<h1 className="truncate text-[15px] font-semibold">{title}</h1>
+						{subtitle && <div className="truncate text-caption text-muted">{subtitle}</div>}
+					</div>
+				</>
+			)}
 			{right}
 		</header>
 	);
@@ -21,7 +48,7 @@ export function BackButton({ to }: { to?: string }) {
 			onClick={back}
 			aria-label="返回"
 		>
-			<ArrowLeft size={20} />
+			<ArrowLeft size={20} aria-hidden />
 		</button>
 	);
 }

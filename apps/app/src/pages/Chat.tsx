@@ -174,11 +174,12 @@ export function ChatShell() {
 						/>
 						<div className="px-3 pb-2">
 							<label className="field flex h-10 items-center gap-2 rounded-control bg-tone px-3 text-faint">
-								<Search size={16} />
+								<Search size={16} aria-hidden />
 								<input
 									value={q}
 									onChange={(e) => setQ(e.target.value)}
 									placeholder="搜索"
+									aria-label="搜索消息"
 									className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint"
 								/>
 							</label>

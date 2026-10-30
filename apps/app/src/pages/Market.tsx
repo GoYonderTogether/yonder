@@ -19,6 +19,7 @@ import {
 import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
+import { AppBar } from "../components/AppBar";
 import { AgentBriefDialog, AgentWorkspace } from "../components/market/BuyerAgent";
 import { ListingCard } from "../components/market/ListingCard";
 import { CompareDialog, ListingDetail } from "../components/market/ListingDetail";
@@ -283,27 +284,32 @@ export function Market() {
 					scrolls.current[scrollKey] = e.currentTarget.scrollTop;
 				}}
 			>
-				<header className="mk-market-header">
-					<div className="mk-page-heading">
-						{home && <PersonalAvatar />}
-						{!home && (
+				<AppBar
+					className="mk-market-header"
+					headingClassName="mk-page-heading"
+					title={title}
+					left={
+						home ? (
+							<PersonalAvatar />
+						) : (
 							<Link
 								className="mk-icon-button"
 								to={personal ? "/me" : "/market"}
 								aria-label={personal ? "返回我的" : "返回市场"}
 							>
-								<ArrowLeft size={21} />
+								<ArrowLeft size={21} aria-hidden />
 							</Link>
-						)}
-						<h1>{title}</h1>
-					</div>
-					{(home || channel || view === "selling") && (
-						<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
-							<Plus size={18} />
-							发布
-						</button>
-					)}
-				</header>
+						)
+					}
+					right={
+						(home || channel || view === "selling") && (
+							<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
+								<Plus size={18} aria-hidden />
+								发布
+							</button>
+						)
+					}
+				/>
 				<main className={cn("mk-content", view === "discover" && "mk-discover")}>
 					{view === "discover" && (
 						<>

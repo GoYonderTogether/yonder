@@ -35,7 +35,7 @@ export function PlusMenu() {
 		<>
 			<DropdownMenu.Root modal={false}>
 				<DropdownMenu.Trigger
-					aria-label="更多"
+					aria-label="创建或添加"
 					className="press flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-tone data-[state=open]:bg-tone"
 				>
 					<Plus size={22} strokeWidth={1.75} />

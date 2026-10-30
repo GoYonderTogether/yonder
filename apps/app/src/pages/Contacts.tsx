@@ -27,11 +27,12 @@ export function CardsRedirect() {
 function SearchBox({ q, onChange }: { q: string; onChange: (q: string) => void }) {
 	return (
 		<label className="field flex h-10 items-center gap-2 rounded-control bg-tone px-3 text-faint">
-			<Search size={16} />
+			<Search size={16} aria-hidden />
 			<input
 				value={q}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder="搜索"
+				aria-label="搜索通讯录"
 				className="min-w-0 flex-1 bg-transparent text-small text-ink outline-none placeholder:text-faint"
 			/>
 		</label>
