@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
@@ -65,7 +66,8 @@ async function mount(id = "s1") {
 	}
 	const container = window.document.getElementById("root") as unknown as HTMLElement;
 	const root = createRoot(container);
-	await act(async () => root.render(createElement(Probe)));
+	const client = new QueryClient();
+	await act(async () => root.render(createElement(QueryClientProvider, { client }, createElement(Probe))));
 	return {
 		latest: () => seen[seen.length - 1] as SessionView,
 		/** 本次挂载使用的连接；mux 是模块级单例，beforeEach 已 reset，所以总是最新那条。 */
