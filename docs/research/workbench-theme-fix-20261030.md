@@ -14,3 +14,12 @@
 主人进一步明确移除布局原生 select：设备选择是一个 Radix 菜单按钮，不显示单独“设备”标题或图标加 select；会话右上仅保留右栏开关与更多，渠道、悬浮面板和设置收进有文字的更多菜单。此前 `.13` 验收记录里两个 44px select 是当时真实历史证据，不再作为新候选目标。采用 `components/PlusMenu.tsx` 既有 DropdownMenu 的 `bg-raised`、`rounded-card`、`shadow-float`、`data-[highlighted]:bg-tone` 和 44px 项目；设备选中状态使用 Radix 单选语义，打开、方向键、Escape 和焦点回归走同一 primitive。无需新样式库或只用一次的菜单抽象。
 
 该修正由并行负责人实施；本记录不声称已通过实际浏览器或已部署。此前共享 Button/Field/Toast、Markdown 作用域和现有 token 修复保持；正式运行时仍为 `.13`，新前端候选等待完整检查和实际 QA。
+
+## 最终前端 hotfix 与验收回执
+
+- 主人最终修正已实现：工作区不再显示布局原生下拉；设备使用单一按钮及 Radix 单选菜单；会话右上仅右栏开关和更多，渠道、悬浮面板、设置为文字菜单。之前 4c 候选的 select 检查保留为历史，不代表最终界面。
+- 已上线精确组合 `appSource=5c2a1dd`、`.13` runtime base `9568086`；快照 `/opt/yonder-card/web/releases/0.3.26103013-hotfix-5c2a1dda4d2f` 的 hash 全部通过，provenance 包含 base 与 app 归档 hash。本次为前端 hotfix，没有新增 runtime 版本。
+- 应用检查：89 个测试文件、538/538 测试通过；build、typecheck、lint 与 size 检查通过。主仓其他并行 core `0cf` 的原始 2 项失败不属于该应用检查，保留原结果，不称完整 main 全绿。
+- 主 Agent 在真实浏览器 390 宽核验 QA 标题、转录、Footer 正确；右上为右栏开关与更多，更多菜单有文字项，方向键可进入悬浮面板的 checkbox 子菜单。320 CSS px 下设备按钮 1 个、原生 select 0 个、无额外设备标签；两个 RadioItem 的 checked 分别为 true/false、各高 44px，根横溢 0。截图 `/tmp/yonder-simple-device-menu.png`、`/tmp/yonder-simple-more-menu.png` 已查看。桌面设置页收起左栏后恢复入口仍可见，根横溢 0。
+- entry 对新候选完成浅色、模拟暗色和三屏检查；系统暗色、跨页面暗色、真人触控及真实双设备仍未测。主 Agent 的 `vsdr` capture `db6c3f3e00a07` 已调用 stop，但 export 命令未核实产生文件且当前未找到文件；会话已结束，不把导出记为成功。上述实际截图和工具输出是可用证据。
+- 本次实现、前端上线及已列浏览器检查完成；未测项保持开放，键盘和单设备不替代真人触控或双设备验收。
