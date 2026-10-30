@@ -16,7 +16,9 @@ vi.mock("../src/work/lib/queries", () => ({
 	deviceAgentMap: () => new Map(),
 	fetchDeviceAgents: async () => [],
 }));
-vi.mock("../src/work/WorkShell", () => ({ WorkShell: () => <div>真实工作入口</div> }));
+vi.mock("../src/work/WorkShell", () => ({
+	WorkShell: ({ device }: { device?: React.ReactNode }) => <div>{device}真实工作入口</div>,
+}));
 vi.mock("../src/components/PersonalDrawer", () => ({ PersonalAvatar: () => null }));
 afterEach(() => {
 	$session.set(undefined);

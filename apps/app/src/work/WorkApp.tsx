@@ -12,8 +12,10 @@ import { setCloudDevice, useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
 import { Login } from "./features/Login";
 import { useFacts } from "./lib/queries";
+import { useBreakpoint } from "./shell/useBreakpoint";
 import { useWorkRoute, workPath } from "./shell/workRoutes";
 import { AllWorkList } from "./ui/AllWorkList";
+import { WorkToolbar } from "./ui/WorkToolbar";
 import { WorkShell } from "./WorkShell";
 
 /** 请求没发出去（TypeError）或拿到的不是网关响应（unavailable）：这里没有网关，不是网关报错。 */
@@ -48,6 +50,7 @@ function LocalWorkApp() {
 }
 
 function CloudWorkEntry({ accountId }: { accountId: string }) {
+	const breakpoint = useBreakpoint();
 	const qc = useQueryClient();
 	const navigate = useNavigate();
 	const node = useActiveNode();
@@ -121,74 +124,77 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 		</label>
 	);
 	if (selected && node.id === targetId)
-		return (
-			<div className="flex h-full flex-col">
-				{selector}
-				<div className="min-h-0 flex-1">
-					<GatewayWorkApp key={node.id} cloud allWork={choice === "all" ? list : undefined} />
-				</div>
-			</div>
-		);
+		return <GatewayWorkApp key={node.id} cloud allWork={choice === "all" ? list : undefined} device={selector} />;
 	if (choice === "all" && devices.data?.length && !route.deviceId && !legacySession)
 		return (
 			<div className="flex h-full flex-col">
-				{selector}
+				<WorkToolbar phone={breakpoint === "phone"} leading={<PersonalAvatar />} title="工作" device={selector} />
 				<div className="min-h-0 flex-1">{list}</div>
 			</div>
 		);
 	return (
-		<main className="relative grid h-full place-items-center p-6">
-			<div className="absolute top-0 left-0 p-4 lg:hidden">
-				<PersonalAvatar />
-			</div>
-			<div className="w-full max-w-md text-center">
-				{selector}
-				<h1 className="text-title font-semibold">工作设备</h1>
-				{legacySession && available.length > 1 && !selected && (
-					<p className="mt-2 text-small text-muted">请选择这个会话所在的设备。</p>
-				)}
-				{devices.isPending ? (
-					<p className="mt-2 text-small text-muted">正在读取设备…</p>
-				) : devices.isError ? (
-					<p role="alert" className="mt-2 text-small text-muted">
-						无法读取设备，请检查连接后重试。
-						<button type="button" className="underline" onClick={() => void devices.refetch()}>
-							重试
-						</button>
-					</p>
-				) : !devices.data?.length ? (
-					<p className="mt-2 text-small text-muted">连接设备后即可开始工作。</p>
-				) : (
-					<ul className="mt-4 text-left">
-						{devices.data.map((device) => (
-							<li key={device.id} className="flex min-h-12 items-center justify-between gap-3 border-b border-hairline">
-								<span>{device.name}</span>
-								{device.online && device.workProtocol === 1 ? (
-									<button type="button" className="underline" onClick={() => setChoice(device.id)}>
-										选择
-									</button>
-								) : (
-									<span className="text-small text-muted">{device.online ? "需要更新 Yonder" : "离线"}</span>
-								)}
-							</li>
-						))}
-					</ul>
-				)}
-				<div className="mt-6 flex justify-center gap-3">
-					<Link to="/connect" className="rounded-full bg-accent px-4 py-2 text-small text-on-accent">
-						连接设备
-					</Link>
-					<Link to="/get" className="rounded-full bg-tone px-4 py-2 text-small">
-						安装 Yonder
-					</Link>
+		<div className="flex h-full flex-col">
+			<WorkToolbar phone={breakpoint === "phone"} leading={<PersonalAvatar />} title="工作" device={selector} />
+			<main className="grid min-h-0 flex-1 place-items-center p-6">
+				<div className="w-full max-w-md text-center">
+					<h1 className="text-title font-semibold">工作设备</h1>
+					{legacySession && available.length > 1 && !selected && (
+						<p className="mt-2 text-small text-muted">请选择这个会话所在的设备。</p>
+					)}
+					{devices.isPending ? (
+						<p className="mt-2 text-small text-muted">正在读取设备…</p>
+					) : devices.isError ? (
+						<p role="alert" className="mt-2 text-small text-muted">
+							无法读取设备，请检查连接后重试。
+							<button type="button" className="underline" onClick={() => void devices.refetch()}>
+								重试
+							</button>
+						</p>
+					) : !devices.data?.length ? (
+						<p className="mt-2 text-small text-muted">连接设备后即可开始工作。</p>
+					) : (
+						<ul className="mt-4 text-left">
+							{devices.data.map((device) => (
+								<li
+									key={device.id}
+									className="flex min-h-12 items-center justify-between gap-3 border-b border-hairline"
+								>
+									<span>{device.name}</span>
+									{device.online && device.workProtocol === 1 ? (
+										<button type="button" className="underline" onClick={() => setChoice(device.id)}>
+											选择
+										</button>
+									) : (
+										<span className="text-small text-muted">{device.online ? "需要更新 Yonder" : "离线"}</span>
+									)}
+								</li>
+							))}
+						</ul>
+					)}
+					<div className="mt-6 flex justify-center gap-3">
+						<Link to="/connect" className="rounded-full bg-accent px-4 py-2 text-small text-on-accent">
+							连接设备
+						</Link>
+						<Link to="/get" className="rounded-full bg-tone px-4 py-2 text-small">
+							安装 Yonder
+						</Link>
+					</div>
 				</div>
-			</div>
-		</main>
+			</main>
+		</div>
 	);
 }
 
 /** 网关登录门：社交账号与网关授权无关。 */
-function GatewayWorkApp({ cloud = false, allWork }: { cloud?: boolean; allWork?: ReactNode }) {
+function GatewayWorkApp({
+	cloud = false,
+	allWork,
+	device,
+}: {
+	cloud?: boolean;
+	allWork?: ReactNode;
+	device?: ReactNode;
+}) {
 	const qc = useQueryClient();
 	const cloudLogout = useLogout();
 	const facts = useFacts();
@@ -236,6 +242,7 @@ function GatewayWorkApp({ cloud = false, allWork }: { cloud?: boolean; allWork?:
 	return (
 		<WorkShell
 			allWork={allWork}
+			device={device}
 			onLogout={() => {
 				mux.reset();
 				if (cloud) {

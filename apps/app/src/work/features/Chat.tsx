@@ -1,17 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, Layers, PanelLeftOpen, PanelRight, Radio } from "lucide-react";
+import { ChevronLeft, Layers } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { api } from "../../api";
-import type { Actor } from "../../api/types";
-import { Avatar } from "../../ui/Avatar";
 import { RpcError, rpc } from "../api/client";
-import { useActiveNode } from "../api/nodes";
-import { useBranchLabel } from "../lib/branch";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, toggleFloat, useLayout } from "../lib/layout";
-import { deviceAgentMap, useDeviceAgents, useTitleOf } from "../lib/queries";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
 import { ChannelPanel } from "../ui/ChannelPanel";
@@ -25,7 +18,7 @@ import { ImportBody, useImport } from "./ImportView";
 import { SessionSources } from "./SessionSources";
 
 /** 悬浮窗开关菜单：勾选 = 该面板现在是悬浮窗 */
-function FloatMenu({ session }: { session: string }) {
+export function FloatMenu({ session }: { session: string }) {
 	const [open, setOpen] = useState(false);
 	const layout = useLayout(session);
 	return (
@@ -69,83 +62,6 @@ function FloatMenu({ session }: { session: string }) {
 				</div>
 			)}
 		</div>
-	);
-}
-
-function Header({
-	title,
-	actor,
-	summary,
-	sub,
-	wide,
-	session,
-	onRail,
-	onList,
-	railOpen,
-	onChannels,
-}: {
-	title: string;
-	actor?: Actor;
-	summary?: string | null;
-	sub?: string;
-	wide: boolean;
-	session: string;
-	onRail(): void;
-	onList?(): void;
-	railOpen: boolean;
-	onChannels?(): void;
-}) {
-	return (
-		<header className="pt-safe flex items-center gap-1 border-b border-hairline bg-ground/90 px-2 py-2 backdrop-blur">
-			{!wide && (
-				<Link to={workPath()} aria-label="返回" className="press grid size-9 place-items-center rounded-full">
-					<ChevronLeft size={22} aria-hidden />
-				</Link>
-			)}
-			{onList && (
-				<button
-					type="button"
-					aria-label="展开工作列表"
-					onClick={onList}
-					className="press grid size-9 place-items-center rounded-full"
-				>
-					<PanelLeftOpen size={19} aria-hidden />
-				</button>
-			)}
-			{actor && <Avatar actor={actor} size={32} />}
-			<div className={`min-w-0 flex-1 ${wide ? "px-2" : "text-center"}`}>
-				<h1 className="truncate text-body font-semibold">{title}</h1>
-				{summary && <p className="truncate text-caption text-faint">{summary}</p>}
-				{sub && (
-					<p title={sub} className="truncate text-caption text-faint">
-						{sub}
-					</p>
-				)}
-			</div>
-			{onChannels && (
-				<button
-					type="button"
-					onClick={onChannels}
-					aria-label="渠道与子会话"
-					title="渠道与子会话"
-					className="press grid size-9 place-items-center rounded-full"
-					data-testid="open-channels"
-				>
-					<Radio size={19} aria-hidden />
-				</button>
-			)}
-			<FloatMenu session={session} />
-			<button
-				type="button"
-				onClick={onRail}
-				aria-label={railOpen ? "收起右栏" : "展开右栏"}
-				aria-pressed={railOpen}
-				className="press grid size-9 place-items-center rounded-full"
-				data-testid="open-rail"
-			>
-				<PanelRight size={19} aria-hidden />
-			</button>
-		</header>
 	);
 }
 
@@ -201,23 +117,9 @@ function useMissingSession(id: string): boolean {
 }
 
 /** 找不到会话：用户语言的说明 + 回到列表的入口，不显示「正在重试」，也没有输入框。 */
-function Missing({ wide, onList }: { wide: boolean; onList?(): void }) {
+function Missing() {
 	return (
 		<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="会话">
-			<header className="pt-safe flex items-center gap-1 border-b border-hairline bg-ground/90 px-2 py-2">
-				{!wide && (
-					<Link to={workPath()} aria-label="返回" className="press grid size-9 place-items-center rounded-full">
-						<ChevronLeft size={22} aria-hidden />
-					</Link>
-				)}
-				{onList && (
-					<button type="button" aria-label="展开工作列表" onClick={onList}>
-						<PanelLeftOpen size={19} aria-hidden />
-					</button>
-				)}
-				<h1 className="min-w-0 flex-1 truncate text-center text-body font-semibold">会话</h1>
-				{!wide && <span className="size-9" />}
-			</header>
 			<div
 				role="alert"
 				data-testid="session-missing"
@@ -256,43 +158,12 @@ function Live({
 }) {
 	const [sourcesOpen, setSourcesOpen] = useState(false);
 
-	const titleOf = useTitleOf();
-	const node = useActiveNode();
-	const agents = useDeviceAgents();
 	const s = v.session;
-	const isBot = s?.mode === "main" && !!s.agent && !isImported(s);
-	const actor =
-		s?.agent && (s.mode === "main" || s.mode === "persistent") && node.deviceId
-			? deviceAgentMap(node.deviceId, agents.data ?? []).get(s.agent)
-			: undefined;
-	const profile = useQuery({
-		queryKey: ["bot-profile", node.id, actor?.id],
-		enabled: !!actor,
-		queryFn: () => api.profile(actor!.id),
-		refetchInterval: 5000,
-	});
-	const branch = useBranchLabel(s);
-	const sub =
-		[s?.mode === "persistent" ? branch : undefined, v.running ? "正在回复…" : s?.closed ? "已结束" : undefined]
-			.filter(Boolean)
-			.join(" · ") || undefined;
 	const missing = useMissingSession(id);
-	if (missing) return <Missing wide={wide} onList={onList} />;
+	if (missing) return <Missing />;
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="聊天">
-				<Header
-					title={s ? titleOf(s) : "会话"}
-					actor={actor}
-					summary={profile.data?.summary ?? actor?.summary}
-					sub={sub}
-					wide={wide}
-					session={id}
-					onRail={onRail}
-					onList={onList}
-					railOpen={showRail}
-					onChannels={isBot ? onChannels : undefined}
-				/>
 				{v.error && (
 					<p role="alert" className="bg-danger/10 px-4 py-1.5 text-caption text-danger">
 						{v.error}
@@ -359,15 +230,6 @@ function Imported({
 	return (
 		<>
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="导入的会话">
-				<Header
-					title={d?.summary.title || "导入的 pi 会话"}
-					sub={d?.summary.cwd}
-					wide={wide}
-					session={key}
-					onRail={onRail}
-					onList={onList}
-					railOpen={showRail}
-				/>
 				<ImportBody id={id} />
 				<FloatLayer session={key} v={v} />
 			</section>
