@@ -116,3 +116,10 @@ Terra 分工：core/SDK/channel-card 控制桥、cloud owner 校验和 RPC/WS �
 - AllWork 头像修复 `a84` 后，真实四个头像宽均为 56，名称单行正常；截图 `/tmp/yonder-work-mobile-final.png` 已查看。飞书真实 persistent 会话 `1748` 的名称缺失由 `449c6fa` 回退真实 ref ID，浏览器实测 header 为“贾维斯 飞书·私聊·会话oc_719a1c50b99242eaf57c58aa0646ced8”，完整 title 可用，没有猜测名称。
 - 本轮清单中的功能实现已完成。`autoTitle:true` 的模型生成分支未测：没有更改用户配置；确定性首句投影和真实模型任务已测。物理手指、鼠标拖动以及真实双设备仍未测；相同 session ID 的合成双设备回归通过，不把它当真实双设备验收。
 - 浏览器会话 `rivm` 的 capture `de19743879890` 由主 Agent 导出并关闭；导出及会话关闭结果以其回执为准。
+
+### 最终发布回执
+
+- 本轮实现与可执行的线上验收已完成。live 使用 `.11/339fe09`；`449c6fa` 之后至该标记仅增加文档。最终快照 `/opt/yonder-card/web/releases/0.3.26103011-20261030T102807Z-339fe09cfc4d/` 的 92/92 文件 SHA256 通过，与 staging 逐文件一致；`449`、tag `19` 和 `877` 旧快照保留。
+- 主 Agent 独立执行 `yonder version` 确认版本 `.11`、tag `19b56920abfdb3c517fa6015e48b838cdcd4395d`，home 和 install 保持原位。HTTPS build-version 返回 `.11/339fe09`，builtAt 为 `2026-10-30T10:27:30.905Z`。
+- 浏览器 `rivm` 的 capture `de19743879890` 已停止并导出 `/tmp/yonder-work-release11-browser.json`（6.2 MB），会话已关闭。最终实际手机清单截图 `/tmp/yonder-work-mobile-release11.png` 已查看：四头像为同一行固定小格，任务显示首句标题。
+- 物理手指和鼠标拖动、真实双设备及 `autoTitle:true` 模型生成分支仍未测；这些未测项不由合成事件或单设备结果替代。本次文档追加不改变已验收的产品快照指纹。
