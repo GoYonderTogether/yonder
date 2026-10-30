@@ -118,7 +118,7 @@ export async function configure(
 			appId: credentials.appId,
 			credential,
 			allowedUsers: [credentials.userOpenid],
-			groupWindowSeconds: 60,
+			groupWindowSeconds: 3,
 		});
 		if (!options.groupProfile) {
 			const agent = current.agent.toJSON();

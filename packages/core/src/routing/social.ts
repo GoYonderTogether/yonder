@@ -5,8 +5,19 @@ import type { AgentConfig, Binding } from "../config/index.js";
 type Kind = "dm" | "group" | "channel";
 export function socialDecision(agent: AgentConfig, event: YEvent, person: string | undefined, channel?: Channel) {
 	const social = agent.social;
-	if (!social?.enabled || event.type !== "message.in") return undefined;
-	const data = event.data as { kind?: unknown; mentioned?: unknown; text?: unknown; social?: SocialMessageData };
+	if (
+		!social?.enabled ||
+		event.type !== "message.in" ||
+		(social.scope && (!event.conv || !social.scope.includes(event.conv)))
+	)
+		return undefined;
+	const data = event.data as {
+		kind?: unknown;
+		mentioned?: unknown;
+		text?: unknown;
+		senderIsBot?: unknown;
+		social?: SocialMessageData;
+	};
 	const kind = data.kind;
 	const revision = createHash("sha256").update(JSON.stringify(social)).digest("hex");
 	const result = (reason: string, run = false) => ({ reason, run, revision });
@@ -46,6 +57,7 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 	}
 	if (mode === "folded") return { ...result(mode), policy };
 	if (mode === "mute" || mode === "record") return result(mode);
+	if (kind !== "dm" && (event.data as { senderIsBot?: boolean }).senderIsBot === true) return result("record");
 	if (kind === "dm") return result("direct", mode === "direct");
 	const nativeMention = data.social?.mentions?.bot;
 	if (
@@ -81,7 +93,12 @@ export function socialBindingAllowed(
 	person: string | undefined,
 	binding: Binding,
 ): boolean {
-	if (!agent.social?.enabled || event.type !== "message.in") return true;
+	if (
+		!agent.social?.enabled ||
+		event.type !== "message.in" ||
+		(agent.social.scope && (!event.conv || !agent.social.scope.includes(event.conv)))
+	)
+		return true;
 	const kind = (event.data as { kind?: unknown }).kind;
 	return binding.session !== "main" || (kind === "dm" && !!person && person === agent.owner);
 }

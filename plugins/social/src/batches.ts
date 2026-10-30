@@ -26,7 +26,10 @@ export class Batches {
 	private readonly legacyPending = new Map<string, string>();
 	private stopped = false;
 	private started = false;
-	constructor(private readonly api: PluginAPI) {}
+	constructor(
+		private readonly api: PluginAPI,
+		private readonly managed: (conv: string) => boolean = () => false,
+	) {}
 	private key(agent: string, conv: string) {
 		return `${agent}\0${conv}`;
 	}
@@ -144,13 +147,14 @@ export class Batches {
 		for await (const event of this.events({ type: "run.end" })) await this.finished(event);
 		this.started = true;
 		for (const [key, state] of this.groups) {
+			if (this.managed(key.slice(key.indexOf("\0") + 1))) continue;
 			state.entries = state.entries.filter((entry) => entry.source.id > (this.read.get(key) ?? ""));
 			this.schedule(key, state);
 		}
 	}
 	async legacyRead(event: YEvent) {
 		const { through } = event.data as { through?: string };
-		if (!event.conv || !through) return;
+		if (!event.conv || !through || this.managed(event.conv)) return;
 		const source = (await this.api.events.query({ id: through, conv: event.conv, type: "message.in" })).events[0];
 		for (const route of source?.routes ?? []) {
 			if (route.wake !== "write" || route.dropped) continue;
@@ -173,7 +177,7 @@ export class Batches {
 			mentioned?: boolean;
 			social?: { mentions?: { bot?: boolean; everyone?: boolean } };
 		};
-		if (!event.conv || (data.kind !== "group" && data.kind !== "channel")) return;
+		if (!event.conv || this.managed(event.conv) || (data.kind !== "group" && data.kind !== "channel")) return;
 		const bot = data.social?.mentions?.bot ?? (data.mentioned === true && data.social?.mentions?.everyone !== true);
 		if (!bot) return;
 		for (const route of event.routes ?? []) {
@@ -240,7 +244,7 @@ export class Batches {
 			return;
 		const source = (await this.api.events.query({ id: event.parent })).events[0];
 		const route = source?.routes?.find((item) => item.agent === data.agent && item.wake === "write" && !item.dropped);
-		if (!source?.conv || !route?.session) return;
+		if (!source?.conv || !route?.session || this.managed(source.conv)) return;
 		const key = this.key(data.agent, source.conv);
 		if (source.id <= (this.read.get(key) ?? "")) return;
 		if (data.reason === "folded" && source.id <= (this.foldedThrough.get(key) ?? "")) return;

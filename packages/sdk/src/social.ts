@@ -12,6 +12,8 @@ export interface SocialPolicy {
 	judge?: { preset: string; maxCallsPerHour?: number };
 }
 export interface SocialConfig {
+	/** Only these conversations use social policy; omitted keeps the existing global behavior. */
+	scope?: Ref[];
 	enabled?: boolean;
 	authorized?: { people?: Ref[]; accounts?: Ref[]; conversations?: Ref[] };
 	friends?: Ref[];
@@ -21,6 +23,8 @@ export interface SocialConfig {
 	mappings?: Array<{ subject: Ref; agent: string; profile: string }>;
 }
 export interface SocialMessageData {
+	/** Trusted channel room identity shared by this provider's Bot routes. */
+	room?: string;
 	mentions?: { bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[] };
 	senderRole?: "group-owner" | "member" | "unknown";
 	parentConv?: Ref;

@@ -68,3 +68,40 @@ test("enabled social cannot use an outbound target outside the default profile s
 	);
 	expect(socialReferenceErrors(config, new Map([["a", agent]]))).toHaveLength(1);
 });
+
+test("group batch bindings cannot collide with DM profiles or disjoint explicit conversations", () => {
+	const base = {
+		schema: 1,
+		id: "main",
+		name: "Main",
+		owner: "person:owner",
+		defaultProfile: "visitor",
+		profiles: { visitor: {}, group: {} },
+		bindings: [
+			{
+				id: "dm",
+				match: { channel: "card", kind: "dm" },
+				session: { mode: "persistent", per: "conv" },
+				profile: "visitor",
+			},
+			{
+				id: "batch",
+				match: { type: "social.batch-ready", channel: "card", conv: "conv:card:main:group" },
+				session: { mode: "persistent", per: "conv" },
+				profile: "group",
+				reply: "none",
+			},
+		],
+	};
+	expect(() => parseAgentConfig(JSON.stringify(base))).not.toThrow();
+	const disjoint = {
+		...base,
+		bindings: [{ ...base.bindings[0], match: { channel: "card", conv: "conv:card:main:dm" } }, base.bindings[1]],
+	};
+	expect(() => parseAgentConfig(JSON.stringify(disjoint))).not.toThrow();
+	const overlap = {
+		...base,
+		bindings: [{ ...base.bindings[0], match: { channel: "card", kind: "group" } }, base.bindings[1]],
+	};
+	expect(() => parseAgentConfig(JSON.stringify(overlap))).toThrow("同一会话");
+});

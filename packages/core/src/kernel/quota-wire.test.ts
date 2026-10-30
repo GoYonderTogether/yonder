@@ -155,3 +155,14 @@ test("记过账的运行不会重复计费", async () => {
 		await ctx.db.close();
 	}
 });
+
+test("internal plugin task inputs are not parsed as outsider account refs", async () => {
+	const ctx = await setup();
+	try {
+		expect(
+			await ctx.wire.command(ctx.session, { ...inbound("plugin:social", "judge"), type: "session.input" }),
+		).toBeUndefined();
+	} finally {
+		await ctx.db.close();
+	}
+});

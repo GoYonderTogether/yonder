@@ -186,7 +186,7 @@ export function incoming(
 	const text = msg.content.trim();
 	const attachments = attachmentsOf(msg.attachments);
 	const quote = quoteOf(msg);
-	if (msg.senderIsBot || !msg.messageId || !msg.senderId || (!text && !attachments.length)) return;
+	if (!msg.messageId || !msg.senderId || (!text && !attachments.length)) return;
 	if (
 		msg.kind !== "c2c" &&
 		(msg.kind !== "group" || !["GROUP_AT_MESSAGE_CREATE", "GROUP_MESSAGE_CREATE"].includes(msg.rawEventType))
@@ -304,10 +304,8 @@ export class QQChannel implements Channel {
 		const directory = join(this.api.paths.data, this.id);
 		await mkdir(directory, { recursive: true, mode: 0o700 });
 		this.store = new FileKVStore({ dir: directory, fileName: "gateway.json" });
-		if (this.config.groupWindowSeconds) {
-			this.groups = new GroupParticipation(this.api, this.id, this.config.groupWindowSeconds, this.config);
-			await this.groups.start();
-		}
+		this.groups = new GroupParticipation(this.api, this.id, this.config.groupWindowSeconds ?? 3, this.config);
+		await this.groups.start();
 		const bot = new QQBot({
 			appId: this.config.appId,
 			appSecret: credential.key,
@@ -347,8 +345,7 @@ export class QQChannel implements Channel {
 			try {
 				const recorded = await work;
 				const sender = recorded as import("@yonder/sdk").YEvent;
-				const linked = this.groups && sender.from ? (await this.api.identity.account(sender.from))?.person : undefined;
-				this.groups?.accept(sender, true, Boolean(linked));
+				this.groups?.accept(sender);
 				this.received++;
 			} finally {
 				this.pending.delete(work);

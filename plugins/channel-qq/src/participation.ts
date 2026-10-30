@@ -87,12 +87,12 @@ export class GroupParticipation {
 		for await (const event of this.events({ type: "message.in" })) this.accept(event, false);
 		for (const [conv, state] of this.groups) this.schedule(conv, state);
 	}
-	/** `owner`: the sender's account is linked to a person, so their plain messages count like an @ (the owner is always heard). */
-	accept(event: YEvent, schedule = true, owner = false) {
+	accept(event: YEvent, schedule = true) {
 		if (
 			this.stopped ||
 			!this.own(event.conv) ||
 			event.type !== "message.in" ||
+			(event.data as { senderIsBot?: boolean }).senderIsBot === true ||
 			!(event.routes ?? []).some((route) => route.wake === "write" && !route.dropped)
 		)
 			return;
@@ -106,7 +106,7 @@ export class GroupParticipation {
 		const socialMention = data.social?.mentions?.bot;
 		const conflict = socialMention !== undefined && data.mentioned !== undefined && socialMention !== data.mentioned;
 		if (conflict) this.api.log.warn("QQ conflicting bot mention facts", { event: event.id, conv: event.conv });
-		const mentioned = owner || (!conflict && (socialMention ?? data.mentioned ?? false));
+		const mentioned = !conflict && (socialMention ?? data.mentioned ?? false);
 		if (
 			mode === "record" ||
 			(mode === "mention" && !mentioned && !this.config.groupKeywords?.some((word) => data.text?.includes(word)))

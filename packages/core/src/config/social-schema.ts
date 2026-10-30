@@ -65,6 +65,7 @@ export const socialListenSchema = object({
 	mention: Type.Optional(object({ strong: Type.Optional(Type.Boolean()) })),
 });
 export const socialSchema = object({
+	scope: Type.Optional(Type.Array(ref("conv"))),
 	enabled: Type.Optional(Type.Boolean()),
 	authorized: Type.Optional(
 		object({

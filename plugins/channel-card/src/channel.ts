@@ -397,7 +397,10 @@ export class CardChannel implements Channel {
 				target: agent,
 				mentioned: data.mentioned,
 				// G-10：设备帧可选带平台原生 @ 元数据，缺失时回落到帧里的 mentioned（服务端已按文本包含回落）。
-				social: socialMentions(data.social, data.mentioned === true),
+				social: {
+					...socialMentions(data.social, data.mentioned === true),
+					...(data.convKind === "group" ? { room: `card:${this.id}:${data.convId}` } : {}),
+				},
 				text,
 				msgId: m.id,
 				createdAt: String(m.createdAt),

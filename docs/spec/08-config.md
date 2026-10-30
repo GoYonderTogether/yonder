@@ -189,3 +189,5 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 这些键的机器可读形状由 `packages/core/src/config/schema.golden.json` 守护（20 §5），改键即改 golden。控制面通过 `config.get` 的 `home` 视图读取，通过 `config.update` 的 home 白名单写入（contracts.md「O51 IMP-34 运行期契约同步」）；home 段写入需要重启内核才生效，agent 段写入即时重载。
 
 `agents/<id>/agent.yaml` 的可选键另有：配置档或 defaults 内的 `limits.maxTokens`（正整数），以及本文件下文社交策略中的 `social` 段。
+
+群聊调度可为Agent设置 `social.scope: [conv:实际实例:实际会话]`，仅此列表使用social准入与映射，范围外仍沿原绑定；省略保持原有全局social行为。social插件的 `config.groupJudge` 使用实际 `preset`、同一受管 `conversations`、公开 `identities` 与已核实同群 `rooms` 别名列表，详见11的群聊共享判断。

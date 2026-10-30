@@ -50,7 +50,7 @@ const closedMessage = "这个渠道没有对访客开放。绑定账号登录后
  */
 function resolve(store: Store, session: SessionInfo, event: YEvent): Promise<Resolved> {
 	const from = event.from;
-	if (!from || session.owner?.kind === "bot") return Promise.resolve({ tier: "owner" });
+	if (!from?.startsWith("acct:") || session.owner?.kind === "bot") return Promise.resolve({ tier: "owner" });
 	return store
 		.identity()
 		.relation(session.agent ?? "main", from)

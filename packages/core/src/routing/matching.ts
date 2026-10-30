@@ -30,7 +30,13 @@ export async function matches(binding: Binding, event: YEvent, agent: AgentConfi
 		for (const value of expected) {
 			if (
 				value === relation &&
-				!(agent.social?.enabled && value === "owner" && event.type === "message.in" && data.kind !== "dm")
+				!(
+					agent.social?.enabled &&
+					(!agent.social.scope || (!!event.conv && agent.social.scope.includes(event.conv))) &&
+					value === "owner" &&
+					event.type === "message.in" &&
+					data.kind !== "dm"
+				)
 			)
 				return true;
 			if (value.startsWith("acct:") && value === from) return true;

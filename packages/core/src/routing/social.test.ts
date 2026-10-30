@@ -94,3 +94,23 @@ test("conversation batch and signal settings retain unspecified group defaults",
 	const everyone = message("group", "acct:chat:user", "conv:chat:group", { social: { mentions: { everyone: true } } });
 	expect(socialDecision(configured as unknown as typeof agent, everyone, undefined)?.reason).toBe("everyone");
 });
+
+test("scoped group social leaves private and other-group routing unchanged", () => {
+	const scoped = { ...agent, social: { ...agent.social, scope: ["conv:chat:group"] } } as typeof agent;
+	expect(socialDecision(scoped, message("dm", "acct:chat:user", "conv:chat:private"), undefined)).toBeUndefined();
+	expect(socialDecision(scoped, message("group", "acct:chat:user", "conv:chat:other"), undefined)).toBeUndefined();
+	expect(
+		socialBindingAllowed(scoped, message("dm", "acct:chat:user", "conv:chat:private"), undefined, {
+			id: "dm",
+			match: {},
+			session: "main",
+		}),
+	).toBe(true);
+	expect(
+		socialDecision(
+			scoped,
+			message("group", "acct:chat:user", "conv:chat:group", { senderIsBot: true, mentioned: true }),
+			undefined,
+		),
+	).toMatchObject({ reason: "record", run: false });
+});

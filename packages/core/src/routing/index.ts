@@ -210,7 +210,14 @@ export function createRouter({
 		const person = account?.startsWith("acct:") ? (await store.identity().account(account))?.person : undefined;
 		const instance = channelOf(event.conv);
 		const socialAgents = [...agents.values()].filter((agent) => {
-			if (!agent.social?.enabled || event.type !== "message.in" || internalTarget || instance === "agent") return false;
+			if (
+				!agent.social?.enabled ||
+				event.type !== "message.in" ||
+				internalTarget ||
+				instance === "agent" ||
+				(agent.social.scope && (!event.conv || !agent.social.scope.includes(event.conv)))
+			)
+				return false;
 			const scope = agent.profiles[agent.defaultProfile]?.channelInstances ?? agent.defaults?.channelInstances;
 			return instance === "console" || !scope || (!!instance && scope.includes(instance));
 		});
@@ -287,6 +294,7 @@ export function createRouter({
 			}
 			if (
 				agent.social?.enabled &&
+				(!agent.social.scope || (!!event.conv && agent.social.scope.includes(event.conv))) &&
 				event.type === "message.in" &&
 				!internalTarget &&
 				instance !== "agent" &&

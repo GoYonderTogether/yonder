@@ -284,10 +284,11 @@ const intersects = (a?: string | string[], b?: string | string[]) =>
 function sameSession(a: Binding, b: Binding): boolean {
 	if (a.session === "main" || b.session === "main") return a.session === b.session;
 	if (typeof a.session === "string" || typeof b.session === "string" || a.session.per !== b.session.per) return false;
-	return (
-		a.session.per === "person" ||
-		(intersects(a.match.channel, b.match.channel) && intersects(a.match.kind, b.match.kind))
-	);
+	if (a.session.per === "conv" && !intersects(a.match.conv, b.match.conv)) return false;
+	// Batch admission only accepts a group/channel source; it can never reuse a DM conversation.
+	const kinds = (binding: Binding) =>
+		binding.match.type === "social.batch-ready" ? ["group", "channel"] : binding.match.kind;
+	return a.session.per === "person" || (intersects(a.match.channel, b.match.channel) && intersects(kinds(a), kinds(b)));
 }
 
 function publicAvatarUrl(value: string): boolean {

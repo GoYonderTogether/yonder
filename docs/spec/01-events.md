@@ -187,3 +187,5 @@ folded 的 `routing.social-decision` 同样附策略快照；social 定时写入
 `conversation_attachment_read({message: string, attachment: integer, offset?, limit?})` 以当前 conv 入站事件 ID 和从 0 开始的附件序号定位，复用已下载附件和执行环境读取；优先支持文本文件，返回实际内容、截断/分页和失败状态，不引入新解析依赖。不接受任意文件路径；不放宽 read/grep 的工作区边界。
 
 以上工具需要 read 能力并显式 offer；来源校验依据真实 ToolContext，不能靠模型参数伪造授权。动态群上下文列明当前群、自己、历史覆盖和全部已观察参与者；外部身份名和消息内容进入 turn 数据，不能成为 system 指令。自己的成功投递可作为有来源的已发送记录呈现，不重放动作、不另存转录。
+
+`social.group-judgment` 由social插件记录本次群共享判断：`through`、目标`conversations`、`multiple`、各Agent的`probability/action`、持续停止名单`silenced`与简短reason。该事实本身不唤醒Bot；获选的实际批次仍走既有social.batch-ready准入与绑定，沉默沿social.batch-read确认观察。

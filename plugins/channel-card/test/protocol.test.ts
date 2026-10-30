@@ -252,7 +252,7 @@ test("device flow, private token, agent identity, direct metadata and ack after 
 			target: "other",
 			text: "hello",
 			mentioned: false,
-			social: { mentions: { bot: false } },
+			social: { mentions: { bot: false }, room: "card:card-local:room" },
 			msgId: "message-7",
 			replyTo: "previous",
 			createdAt: "1720000000000",

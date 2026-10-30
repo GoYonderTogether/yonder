@@ -71,7 +71,10 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 		expect(
 			incoming("qq-main", { appId: "1", credential: "qq", allowedUsers: [], allowedGroups: [] }, msg),
 		).toBeUndefined();
-		expect(incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, senderIsBot: true })).toBeUndefined();
+		expect(incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, senderIsBot: true })?.data).toMatchObject({
+			senderIsBot: true,
+			text: raw.content,
+		});
 		if (kind === "group")
 			expect(
 				incoming("qq-main", { appId: "1", credential: "qq" }, { ...msg, rawEventType: "MESSAGE_CREATE" }),
@@ -102,7 +105,7 @@ test("scan completion preserves credentials and configures read-only group parti
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
 		expect(JSON.stringify(config)).not.toContain(secret);
 		expect(config.channels["qq-main"].allowedUsers).toEqual(["OWNER"]);
-		expect(config.channels["qq-main"].groupWindowSeconds).toBe(60);
+		expect(config.channels["qq-main"].groupWindowSeconds).toBe(3);
 		const agent = parse(await readFile(join(home, "agents/main/agent.yaml"), "utf8"));
 		expect(agent.profiles["qq-main-group"]).toMatchObject({
 			capabilities: ["read"],

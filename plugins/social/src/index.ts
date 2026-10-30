@@ -1,6 +1,8 @@
 import type { PluginAPI, YEvent } from "@yonder/sdk";
 import { definePlugin } from "@yonder/sdk";
+import { Type } from "typebox";
 import { Batches } from "./batches.js";
+import { type GroupJudgeConfig, Groups } from "./groups.js";
 import { createJudge, judgeModel, queueFromEvent, Snapshots } from "./snapshots.js";
 import { registerSocialTools } from "./tools.js";
 
@@ -45,15 +47,59 @@ async function consume(api: PluginAPI, snapshots: Snapshots, event: YEvent): Pro
 }
 
 export default definePlugin({
+	configSchema: Type.Object(
+		{
+			groupJudge: Type.Optional(
+				Type.Object({
+					preset: Type.String({ minLength: 1 }),
+					conversations: Type.Optional(Type.Array(Type.String({ pattern: "^conv:" }))),
+					identities: Type.Optional(Type.Record(Type.String(), Type.String())),
+					rooms: Type.Optional(Type.Array(Type.Array(Type.String({ pattern: "^conv:" }), { minItems: 1 }))),
+				}),
+			),
+		},
+		{ additionalProperties: true },
+	),
 	setup(api) {
-		const batches = new Batches(api);
+		const config = (api.config as { groupJudge?: GroupJudgeConfig } | undefined)?.groupJudge;
+		const groups = config ? new Groups(api, config) : undefined;
+		const batches = new Batches(api, (conv) => groups?.managed(conv) ?? false);
+		if (groups)
+			api.hooks.register({
+				id: "social.group-judge",
+				beforeRequest: (_messages, ctx) => {
+					groups.beforeRequest(ctx);
+				},
+				beforeSend: (message, owner) => {
+					groups.beforeSend(message.to, owner);
+				},
+			});
 		const snapshots = new Snapshots({ judge: createJudge(api), model: judgeModel(api.config) });
 		registerSocialTools(api);
-		api.events.on("routing.social-decision", (event) => batches.accept(event));
-		api.events.on("message.in", (event) => batches.direct(event));
-		api.events.on("run.end", (event) => batches.finished(event));
+		api.events.on("routing.social-decision", async (event) => {
+			await groups?.accept(event);
+			await batches.accept(event);
+		});
+		api.events.on("message.in", (event) => {
+			groups?.observe(event);
+			batches.direct(event);
+		});
+		api.events.on("run.end", (event) => {
+			groups?.finished(event);
+			return batches.finished(event);
+		});
 		api.events.on("channel-qq.group-read", (event) => batches.legacyRead(event));
 		api.events.on("social.batch-ready", (event) => consume(api, snapshots, event));
-		api.triggers.register({ id: "social", start: () => batches.start(), stop: () => batches.stop() });
+		api.triggers.register({
+			id: "social",
+			start: async () => {
+				await groups?.start();
+				await batches.start();
+			},
+			stop: async () => {
+				groups?.stop();
+				await batches.stop();
+			},
+		});
 	},
 });

@@ -197,7 +197,7 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 - 扫码完成后命令将密钥保存到既有 auth.json 的独立 api_key 项（0600，沿用原文件锁），在 yonder.yaml 写凭据引用和渠道实例，给指定本机 Agent 加绑定，保留原配置和其他凭据。只绑定扫码用户的私聊；群默认新建只读的独立配置档，选择必要共享上下文，可显式选择既有群配置档。无扫码用户 OpenID 时不自动开放私聊；有歧义的多机器人结果要求明确选择。
 - 新插件代码通过重启加载，不冒充热加载；配置工具返回明确下一步。`channel-qq_status` 报真实连接状态与计数，连接成功不等于真实模型收发验收。
 - 必须验证真实用户扫码、官方入站、内核绑定、真实模型与官方回复回执；私聊和群 @ 分别记录，未收到对应场景的真实消息就保留未测。
-- 群持续参与：新扫码配置默认群分身 capabilities: [read]，提供 read/grep、conversation_read、conversation_members、conversation_attachment_read、message_send、parent_ask，复用所属 Agent 的 workspace 与所选 context-files，不给跨群历史管理、写、exec 或通用 message 权限。群原消息绑定 wake: write；独立 channel-qq.group-batch 事件经绑定运行同一 persistent/per:conv 会话，reply: none、busy: steer，模型显式选择发送。默认只有 @Bot、`groupKeywords` 命中，或发言账号已关联到某个人（如主人，`identity.account(from).person` 非空）才触发批次（后者与 @ 同样提前结束等待；`record` 群不受影响）；`groupParticipation` 按群 OpenID 配置 `all`（全部参与）、`mention`（@ 或关键词）、`record`（只记录），未配置时 `allowedGroups` 明确授权的群保持 `all`，其余为 `mention`。窗口默认 60 秒，@ 提前结束等待；插件只保存账本游标与批次身份，原文只在账本和原生 conversation，不建第二转录/模型队列。忙时合并待处理范围，空桶不调用模型；已接纳批次沿原生恢复重接，失败保留可见状态，不盲目重放发送。QQ 入站暂未提供可可靠识别的 @主人 信息；通用群策略、轻量判断模型留待 X01，不声称已覆盖。
+- 群持续参与：新扫码配置默认群分身 capabilities: [read]，提供 read/grep、conversation_read、conversation_members、conversation_attachment_read、message_send、parent_ask，复用所属 Agent 的 workspace 与所选 context-files，不给跨群历史管理、写、exec 或通用 message 权限。群原消息绑定 wake: write；独立 channel-qq.group-batch 事件经绑定运行同一 persistent/per:conv 会话，reply: none、busy: steer，模型显式选择发送。默认只有 @Bot、`groupKeywords` 命中，或发言账号已关联到某个人（如主人，`identity.account(from).person` 非空）才触发批次（后者与 @ 同样提前结束等待；`record` 群不受影响）；`groupParticipation` 按群 OpenID 配置 `all`（全部参与）、`mention`（@ 或关键词）、`record`（只记录），未配置时 `allowedGroups` 明确授权的群保持 `all`，其余为 `mention`。窗口默认 3 秒（既有显式配置沿用），@ 提前结束等待；插件只保存账本游标与批次身份，原文只在账本和原生 conversation，不建第二转录/模型队列。忙时合并待处理范围，空桶不调用模型；已接纳批次沿原生恢复重接，失败保留可见状态，不盲目重放发送。QQ 入站暂未提供可可靠识别的 @主人 信息；通用群策略、轻量判断模型留待 X01，不声称已覆盖。
 - 官方全量权限由最新版手机 QQ 的群主在具体群聊的机器人管理中选择该机器人，再在“设置权限 → 机器人可获取的群聊消息范围”选择；接收全量与允许主动发言是两个设置。官方 bot_state 可查询 recv_msg_setting（all/only_mention/mention_and_context），查询接口本身仅对白名单机器人开放；不能把这个接口白名单误当成全量接收必须企业认证的证据。
 
 ## UI Companion 交互窗口
@@ -245,3 +245,11 @@ code-intel 工具结果统一限制在 40 KiB 内，超出时保留首尾并插�
 `advisor_ask_advisor`（对应 pi 的 `ask_advisor`，按 20 的工具名前缀 `<pluginId>_` 命名）接收 `draft`、`followUp` 和 `question`（均可省略，空对象即上下文评审），通过 SDK 委派入口执行一次显式咨询，成功返回咨询文本和 adviceId；咨询所用 preset 由插件配置 `preset` 指定，默认 `default`。`followUp` 只接受本会话尚未记录的 adviceId 且必须带非空 `question`，不得与 `draft` 同用；缓存 payload 复用尚未实现。旧名 `advisor_consult` 保留 `preset` 和 `task` 契约作为别名。长输出使用现有工具输出缓存。`advisor_record_advisor_outcome` 接收 adviceId、adoption（followed、not-followed、unknown）和 validationStatus（passed、failed、not-run、unknown），返回 recorded 及原因。仅选中插件的会话可调用；`outcomeLogging` 默认 false，关闭时不写记录。开启后只接受当前会话、当前进程签发且尚未记录的 ID；并发记录先预留，成功后提交，写失败释放并允许重试。重启后旧 ID 失效。插件私有状态仅保存加盐 advice HMAC、时间、采纳及验证状态，记录带版本号 `v: 1`，不保存咨询全文或转录。
 
 官方只读群配置显式使用已有内核 `peer-workspace` context（仅本Agent的SOUL.md与AGENTS.md），并显式重置plugins/skills，避免继承私人记忆或插件；已有自定义contexts保留。QQ精确旧官方配置升级补此context，card仅新建官方profile时设置；自定义配置不覆盖。
+
+### 群聊共享判断（2026-10-30）
+
+`social` 插件可配置 `groupJudge: {preset, conversations?, identities?, rooms?}`。`preset` 是实际判定预设，运行时严格使用来源群会话的 cheap/simple 模型，不退回普通模型；`identities` 为 Agent id 到可公开身份/关注方向的文本；`conversations` 明确指定受管conv，`rooms` 中的conv也纳入；Agent的 `social.scope` 使用同一目标conv集合，范围外沿用原绑定，不改变访客私聊或其他群。`rooms` 为已确认同一物理群的 conv 引用数组集合，禁止按正文或昵称猜测合群。Card 在可信渠道适配层提供 `data.social.room`（实例与平台群ID），不同 Agent 的路由引用不拆分实际群。没有显式QQ映射时仅在各自conv协调。
+
+普通群消息写入原有持久会话，首条待判断消息起固定3秒取最新公开快照，不因后来消息重置计时；普通新发言在最后人类入站后等待本轮一次抽取的5–15秒静默，复用同一room计时器，@不等待；一群最多一个判定在途，不做空轮询。快照仅包含本群最近公开消息、成功出站、候选公开身份、真实提及与当前活动，不含私聊历史。判定用一个JSON描述各候选的概率和 speak/continue/steer/cancel/wait；发言价值概率至少0.5才可发言，默认最高者一个，多人仅在判定明确互补时按序。原生真正@仍按现有绑定立即调度，已关联person的普通发言不当作@。
+
+候选必须通过既有批次准入、绑定、profile与渠道范围；判断不是授权。公开发送前复用投递钩子重查当前快照和获选者，阻止新消息到达后旧回答抢发及未获选者发言。生成中的补充走原生steer，明确群内停止只取消该群未发送工作，不改变权限。明确停止名单 `silenced` 随同一条判断事实保存，后续快照和重启读取它，直到明确恢复；不依赖最近30条历史是否还包含停止原文。沉默亦提交已观察游标；判定失败记录失败事实，不伪装已读；服务重启从事件账本恢复，结果未知不重发。QQ Bot消息保留为只读背景，不能仅因Bot消息唤醒下一轮。

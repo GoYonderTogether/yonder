@@ -16,6 +16,7 @@ export function socialReferenceErrors(config: YonderConfig, agents: Map<string, 
 				errors.push(`${agent.id}/social: outbound target channel outside scope ${target.via}`);
 		}
 		const refs = [
+			...(social.scope ?? []),
 			...(social.authorized?.people ?? []),
 			...(social.authorized?.accounts ?? []),
 			...(social.authorized?.conversations ?? []),

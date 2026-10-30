@@ -58,29 +58,29 @@ test("conflicting old and new mention facts do not trigger participation", () =>
 	groups.stop();
 });
 
-test("a linked person's plain message in a mention-mode group triggers now; record mode stays quiet", () => {
-	const groups = new GroupParticipation({} as PluginAPI, "qq", 60, {
-		groupParticipation: { quiet: "record", stranger: "mention", owner: "mention" },
+test("a plain message is not an @ and bot messages remain background", () => {
+	const groups = new GroupParticipation({} as PluginAPI, "qq", 3, {
+		groupParticipation: { mention: "mention" },
 	});
-	const accept = (group: string, owner: boolean) =>
-		groups.accept(
-			{
-				id: group,
-				ts: new Date().toISOString(),
-				type: "message.in",
-				conv: `conv:qq:group:${group}`,
-				data: { kind: "group", text: "在吗", mentioned: false },
-				routes: [{ agent: "main", binding: "group", wake: "write" }],
-			} as YEvent,
-			true,
-			owner,
-		);
-	accept("stranger", false);
-	accept("owner", true);
-	accept("quiet", true);
-	const due = Object.fromEntries(groups.status().map((s) => [s.conv, s.nextAt]));
-	expect(due["conv:qq:group:stranger"]).toBeUndefined();
-	expect(due["conv:qq:group:owner"]).toBeDefined();
-	expect(due["conv:qq:group:quiet"]).toBeUndefined();
+	const timestamp = Date.now();
+	const accept = (id: string, group: string, mentioned: boolean, senderIsBot = false) =>
+		groups.accept({
+			id,
+			ts: new Date(timestamp).toISOString(),
+			type: "message.in",
+			conv: `conv:qq:group:${group}`,
+			data: { kind: "group", text: "在吗", mentioned, senderIsBot },
+			routes: [{ agent: "main", binding: "group", wake: "write" }],
+		} as YEvent);
+	accept("1", "mention", false);
+	accept("2", "ordinary", false);
+	accept("3", "bot", true, true);
+	const due = Object.fromEntries(groups.status().map((state) => [state.conv, state.nextAt]));
+	expect(due["conv:qq:group:mention"]).toBeUndefined();
+	expect(due["conv:qq:group:ordinary"]).toBe(new Date(timestamp + 3000).toISOString());
+	expect(due["conv:qq:group:bot"]).toBeUndefined();
+	accept("4", "ordinary", true);
+	const immediate = groups.status().find((state) => state.conv === "conv:qq:group:ordinary")?.nextAt;
+	expect(Date.parse(immediate ?? "")).toBeLessThan(timestamp + 3000);
 	groups.stop();
 });
