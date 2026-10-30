@@ -1,5 +1,5 @@
 import { ArrowRight, Bookmark, Check, Eye, Heart, MessageCircle, Pencil, Plus, X } from "lucide-react";
-import { kindLabel, priceLabel, viewCount } from "../../market/catalog";
+import { hasListingImage, kindLabel, priceLabel, viewCount } from "../../market/catalog";
 import type { Listing, Match } from "../../market/types";
 import { MarketDialog, SellerAvatar } from "./MarketUI";
 
@@ -39,10 +39,11 @@ export function ListingDetail({
 			{listing && (
 				<>
 					<div className="mk-detail-layout">
-						<div className="mk-detail-photo">
-							<img src={listing.image} alt={listing.title} style={{ objectPosition: listing.imagePosition }} />
-							{!listing.mine && <span>示意图片</span>}
-						</div>
+						{hasListingImage(listing.image) && (
+							<div className="mk-detail-photo">
+								<img src={listing.image} alt={listing.title} style={{ objectPosition: listing.imagePosition }} />
+							</div>
+						)}
 						<div className="mk-detail-content">
 							<p className="mk-muted">
 								{listing.category} · {listing.location}
@@ -193,7 +194,7 @@ export function CompareDialog({
 											>
 												<X size={16} />
 											</button>
-											<img src={l.image} alt="" />
+											{hasListingImage(l.image) && <img src={l.image} alt="" />}
 											<strong>{l.title}</strong>
 										</th>
 									))}

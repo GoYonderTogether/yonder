@@ -2,7 +2,7 @@ import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PublishDialog } from "../src/components/market/SellPanel";
+import { PublishDialog, SellerWorkspace } from "../src/components/market/SellPanel";
 
 vi.mock("radix-ui", async () => {
 	const { createElement: h, Fragment } = await import("react");
@@ -102,17 +102,22 @@ describe("PublishDialog 发布失败不清草稿（B1）", () => {
 	});
 });
 
-it("本地图片上传入口禁用并说明（B1）", async () => {
-	await renderDialog(vi.fn().mockResolvedValue(false), 1);
-	const text = container.textContent ?? "";
-	expect(text).toContain("图片上传暂未开放");
+it("无图片上传入口或示意封面，旧草稿发布时不带假图", async () => {
+	const onPublish = vi.fn().mockResolvedValue(false);
+	await renderDialog(onPublish, 1);
+	expect(container.textContent).not.toContain("图片上传");
+	expect(container.querySelector("img")).toBeNull();
 	expect(container.querySelector('input[type="file"]')).toBeNull();
 });
 
-it("发布确认说明可见范围和交易边界", async () => {
-	await renderDialog(vi.fn());
-	expect(container.textContent).toContain("所有人都可在市场看到，未登录访客也可查看");
-	expect(container.textContent).toContain("目前不支持站内交易");
+it("旧草稿发布不带假图，确认页无说明", async () => {
+	const onPublish = vi.fn().mockResolvedValue(false);
+	await renderDialog(onPublish);
+	expect(container.querySelector("img")).toBeNull();
+	expect(container.textContent).not.toContain("所有人都可在市场看到");
+	expect(container.textContent).not.toContain("目前不支持站内交易");
+	await submit();
+	expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ image: "" }));
 });
 
 it("必填标识与不同类型的校验一致", async () => {
@@ -134,6 +139,51 @@ it("创意发布的金额可选，参与方式必填", async () => {
 	expect(container.textContent).toContain("参与方式（必填）");
 	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(2);
 	await submit();
-	expect(container.textContent).toContain("不会出现在他人的市场列表中");
-	expect(container.textContent).toContain("知道详情链接的人仍可查看");
+	expect(container.textContent).not.toContain("不会出现在他人的市场列表中");
+});
+
+it("下架须确认，取消不操作，重新上架直接执行", async () => {
+	const onToggle = vi.fn();
+	const listing = {
+		...DRAFT,
+		id: "one",
+		price: 1200,
+		mine: true,
+		tags: [],
+		facts: [],
+		missing: [],
+		metrics: { agentViews: 0, shortlists: 0, humanViews: 0, inquiries: 0 },
+	};
+	const renderSeller = (paused = false) =>
+		root.render(
+			<SellerWorkspace
+				listings={[{ ...listing, paused } as never]}
+				saved={[]}
+				tab={paused ? "paused" : "published"}
+				onTab={vi.fn()}
+				onEdit={vi.fn()}
+				onToggle={onToggle}
+				onOpen={vi.fn()}
+				onSave={vi.fn()}
+				onStats={vi.fn()}
+				onBrowse={vi.fn()}
+			/>,
+		);
+	const click = async (label: string) => {
+		const button = [...container.querySelectorAll("button")].find((b) => b.textContent?.trim() === label);
+		expect(button).toBeTruthy();
+		await act(() => button?.click());
+	};
+	await act(() => renderSeller());
+	await click("下架");
+	expect(onToggle).not.toHaveBeenCalled();
+	await click("取消");
+	expect(onToggle).not.toHaveBeenCalled();
+	await click("下架");
+	await click("确认下架");
+	expect(onToggle).toHaveBeenCalledOnce();
+	expect(onToggle).toHaveBeenCalledWith("one");
+	await act(() => renderSeller(true));
+	await click("重新上架");
+	expect(onToggle).toHaveBeenCalledTimes(2);
 });

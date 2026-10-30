@@ -1,5 +1,5 @@
 import { Bookmark, Eye, Heart } from "lucide-react";
-import { compactCount, kindLabel, priceLabel, viewCount } from "../../market/catalog";
+import { compactCount, hasListingImage, kindLabel, priceLabel, viewCount } from "../../market/catalog";
 import type { Listing } from "../../market/types";
 import { SellerAvatar } from "./MarketUI";
 
@@ -22,7 +22,9 @@ export function ListingCard({
 		<article className="mk-listing">
 			<div className="mk-listing-visual">
 				<button type="button" className="mk-photo-button" onClick={onOpen} aria-label={`查看${listing.title}`}>
-					<img src={listing.image} alt="" loading="lazy" style={{ objectPosition: listing.imagePosition }} />
+					{hasListingImage(listing.image) && (
+						<img src={listing.image} alt="" loading="lazy" style={{ objectPosition: listing.imagePosition }} />
+					)}
 				</button>
 				{listing.kind !== "item" && <span className="mk-kind-badge">{kindLabel(listing.kind)}</span>}
 				{!onLike && (

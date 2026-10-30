@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Bookmark, ChevronRight, Eye, Heart, Package, Sparkles } from "lucide-react";
 import { Link } from "react-router";
 import { api } from "../../api";
-import { compactCount, viewCount } from "../../market/catalog";
+import { compactCount, hasListingImage, viewCount } from "../../market/catalog";
 import { useMarketState } from "../../market/store";
 import type { Listing } from "../../market/types";
 
@@ -100,7 +100,7 @@ export function MarketStats({ listings, onStats }: { listings: Listing[]; onStat
 			<div className="mk-exposure-posts">
 				{mine.map((l) => (
 					<button type="button" key={l.id} onClick={() => onStats(l)}>
-						<img src={l.image} alt="" />
+						{hasListingImage(l.image) && <img src={l.image} alt="" />}
 						<span>
 							<strong>{l.title}</strong>
 							<small>
@@ -121,13 +121,6 @@ export function MarketStats({ listings, onStats }: { listings: Listing[]; onStat
 					</Link>
 				</div>
 			)}
-			<p className="mk-form-hint">
-				当前预览未连接曝光统计服务。
-				{mine.some((l) => l.metricSource === "sample")
-					? "示例帖的数据用于展示；你新发布的帖子从 0 开始。"
-					: "暂无真实浏览记录。"}
-				浏览次数不等于独立买家人数。
-			</p>
 		</section>
 	);
 }

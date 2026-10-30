@@ -209,7 +209,7 @@ export function Market() {
 	};
 	const saveListing = async (listing: Listing): Promise<boolean> => {
 		if (listing.image.startsWith("data:")) {
-			toast("图片上传暂未开放，请选用内置封面", true);
+			toast("草稿中的图片无法发布，请重新编辑草稿", true);
 			return false;
 		}
 		const input = {

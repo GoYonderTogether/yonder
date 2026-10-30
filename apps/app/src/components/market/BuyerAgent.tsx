@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "../../lib/cn";
+import { hasListingImage } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
 import { findMatches, inferBrief, taskBrief, timeAgo } from "../../market/matching";
 import type { AgentTask, Listing, SearchBrief } from "../../market/types";
@@ -178,7 +179,6 @@ export function AgentBriefDialog({
 								))}
 							</div>
 						</fieldset>
-						<p className="mk-form-hint">按条件整理本机候选。需要进一步澄清时，可以把需求带入 Bot 对话。</p>
 					</>
 				)}
 				{error && (
@@ -268,9 +268,12 @@ export function AgentWorkspace({
 									</span>
 								</div>
 								<div className="mk-task-thumbs">
-									{found.slice(0, 3).map((m) => (
-										<img key={m.listing.id} src={m.listing.image} alt="" />
-									))}
+									{found
+										.filter((m) => hasListingImage(m.listing.image))
+										.slice(0, 3)
+										.map((m) => (
+											<img key={m.listing.id} src={m.listing.image} alt="" />
+										))}
 								</div>
 								<ChevronRight size={19} />
 							</button>
@@ -337,7 +340,7 @@ export function AgentWorkspace({
 							aria-label={`查看${m.listing.title}`}
 							onClick={() => onOpen(m.listing)}
 						>
-							<img src={m.listing.image} alt="" />
+							{hasListingImage(m.listing.image) && <img src={m.listing.image} alt="" />}
 						</button>
 						<div>
 							<span className="mk-result-kicker">

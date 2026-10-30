@@ -14,18 +14,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "../../lib/cn";
-import { compactCount, kindLabel, priceLabel, viewCount } from "../../market/catalog";
+import { compactCount, hasListingImage, kindLabel, priceLabel, viewCount } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
 import type { Listing, ListingKind } from "../../market/types";
 import { ListingCard } from "./ListingCard";
 import { MarketDialog } from "./MarketUI";
 
-const COVERS = [
-	{ name: "数码", image: "/market/camera.jpg" },
-	{ name: "服务", image: "/market/photography.jpg" },
-	{ name: "生活", image: "/market/ceramics.jpg" },
-	{ name: "植物", image: "/market/plants.jpg" },
-];
 const BLANK = {
 	kind: "item" as ListingKind,
 	category: CATEGORIES[0],
@@ -36,7 +30,7 @@ const BLANK = {
 	location: "上海",
 	delivery: "",
 	discoverable: true,
-	image: COVERS[0].image,
+	image: "",
 };
 export function PublishDialog({
 	open,
@@ -134,7 +128,7 @@ export function PublishDialog({
 			unit: form.unit.trim(),
 			location: form.location.trim(),
 			delivery: form.delivery.trim(),
-			image: form.image,
+			image: !editing && !hasListingImage(form.image) ? "" : form.image,
 			seller: "我",
 			sellerRole: "个人" + kindLabel(form.kind),
 			tags: ["个人发布"],
@@ -232,29 +226,6 @@ export function PublishDialog({
 					)}
 					{step === 1 && (
 						<>
-							<div className="mk-upload-row">
-								<div className="mk-upload-preview" aria-disabled="true">
-									<img src={form.image} alt="当前封面" />
-									<span>图片上传暂未开放</span>
-								</div>
-								<div>
-									<p className="mk-form-hint">图片上传暂未开放，请选择下面的示意封面</p>
-									<div className="mk-cover-options">
-										{COVERS.map((c) => (
-											<button
-												type="button"
-												key={c.name}
-												aria-label={`选择${c.name}封面`}
-												aria-pressed={form.image === c.image}
-												className={cn(form.image === c.image && "is-active")}
-												onClick={() => update("image", c.image)}
-											>
-												<img src={c.image} alt="" />
-											</button>
-										))}
-									</div>
-								</div>
-							</div>
 							<label className="mk-form-label">
 								标题（必填）
 								<input
@@ -365,7 +336,7 @@ export function PublishDialog({
 					)}
 					{step === 3 && (
 						<div className="mk-publish-review">
-							<img src={form.image} alt="发布封面" />
+							{hasListingImage(form.image) && <img src={form.image} alt="发布封面" />}
 							<p className="mk-muted">
 								{form.category} · {form.location}
 							</p>
@@ -376,12 +347,6 @@ export function PublishDialog({
 								{form.delivery}
 								<span>{form.discoverable ? "Bot 可发现" : "不参与 Bot 匹配"}</span>
 							</div>
-							<p className="mk-form-hint">
-								{form.discoverable
-									? "发布后，所有人都可在市场看到，未登录访客也可查看。"
-									: "发布后不会出现在他人的市场列表中，但知道详情链接的人仍可查看。"}
-								目前不支持站内交易，买卖需通过询问或 Bot 联系。
-							</p>
 						</div>
 					)}
 					{error && (
@@ -432,6 +397,7 @@ export function SellerWorkspace({
 	onStats: (l: Listing) => void;
 	onBrowse: () => void;
 }) {
+	const [confirmPause, setConfirmPause] = useState<Listing | null>(null);
 	const mine = listings.filter((l) => l.mine);
 	const items =
 		tab === "saved"
@@ -475,7 +441,7 @@ export function SellerWorkspace({
 								aria-label={`查看${l.title}`}
 								onClick={() => onOpen(l)}
 							>
-								<img src={l.image} alt="" />
+								{hasListingImage(l.image) && <img src={l.image} alt="" />}
 							</button>
 							<div className="mk-my-listing-info">
 								<button type="button" onClick={() => onOpen(l)}>
@@ -495,7 +461,11 @@ export function SellerWorkspace({
 									<Pencil size={15} />
 									编辑
 								</button>
-								<button type="button" className="mk-button" onClick={() => onToggle(l.id)}>
+								<button
+									type="button"
+									className="mk-button"
+									onClick={() => (l.paused ? onToggle(l.id) : setConfirmPause(l))}
+								>
 									{l.paused ? "重新上架" : "下架"}
 								</button>
 							</div>
@@ -520,6 +490,26 @@ export function SellerWorkspace({
 					)}
 				</div>
 			)}
+			<MarketDialog open={!!confirmPause} close={() => setConfirmPause(null)} title="确认下架？">
+				<div className="mk-dialog-body">
+					<p>{confirmPause?.title}</p>
+					<div className="mk-my-listing-actions">
+						<button type="button" className="mk-button" onClick={() => setConfirmPause(null)}>
+							取消
+						</button>
+						<button
+							type="button"
+							className="mk-button mk-primary"
+							onClick={() => {
+								if (confirmPause) onToggle(confirmPause.id);
+								setConfirmPause(null);
+							}}
+						>
+							确认下架
+						</button>
+					</div>
+				</div>
+			</MarketDialog>
 		</section>
 	);
 }

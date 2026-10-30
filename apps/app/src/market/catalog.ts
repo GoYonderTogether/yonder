@@ -8,6 +8,7 @@ export const CHANNELS: { id: string; kind: ListingKind; label: string }[] = [
 	{ id: "requests", kind: "request", label: "求助" },
 ];
 export const kindLabel = (kind: ListingKind) => CHANNELS.find((c) => c.kind === kind)?.label ?? "帖子";
+export const hasListingImage = (image: string) => !!image && !image.startsWith("/market/");
 export const priceLabel = (listing: Pick<Listing, "price" | "unit" | "kind">) =>
 	listing.price > 0
 		? `¥${listing.price.toLocaleString()}${listing.unit}`
