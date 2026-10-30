@@ -1,4 +1,5 @@
 ---
+command: codex:adversarial-review
 description: Challenge the implementation approach, design choices and assumptions with Codex
 tool: codex-companion_review
 argument-hint: "[--wait|--background] [--base ref] [--scope auto|working-tree|branch] [focus ...]"

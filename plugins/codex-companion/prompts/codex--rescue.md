@@ -1,4 +1,5 @@
 ---
+command: codex:rescue
 description: Delegate investigation or an explicitly authorized fix to Codex
 tool: codex-companion_task
 argument-hint: "[--background|--wait] [--resume|--fresh] [--model model] [--effort effort] task"

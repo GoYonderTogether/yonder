@@ -1,4 +1,5 @@
 ---
+command: codex:review
 description: Run a Codex code review against local git state
 tool: codex-companion_review
 argument-hint: "[--wait|--background] [--base ref] [--scope auto|working-tree|branch]"

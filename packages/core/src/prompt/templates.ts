@@ -41,7 +41,7 @@ async function templateDirs(
 async function readTemplate(
 	entry: TemplateDir,
 	name: string,
-): Promise<{ text: string; description: string } | undefined> {
+): Promise<{ text: string; description: string; command?: string } | undefined> {
 	const directory = typeof entry === "string" ? entry : entry.directory;
 	let content: string;
 	try {
@@ -52,16 +52,19 @@ async function readTemplate(
 	}
 	content = content.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
 	let description = "";
+	let command: string | undefined;
 	if (content.startsWith("---")) {
 		const end = content.indexOf("\n---", 3);
 		if (end !== -1) {
 			const metadata = content.slice(4, end) ? parse(content.slice(4, end)) : undefined;
 			if (typeof entry !== "string" && metadata?.tool && !entry.tools.includes(metadata.tool)) return undefined;
 			if (typeof metadata?.description === "string") description = metadata.description;
+			// 文件名里的 `:` 在 Windows 上不能存在；这类模板把真实命令名写进 frontmatter 的 `command`。
+			if (typeof metadata?.command === "string" && metadata.command) command = metadata.command;
 			content = content.slice(end + 4).trim();
 		}
 	}
-	return { text: content, description };
+	return { text: content, description, ...(command ? { command } : {}) };
 }
 
 export async function listTemplates(
@@ -82,9 +85,11 @@ export async function listTemplates(
 		for (const file of names.sort()) {
 			if (!file.endsWith(".md")) continue;
 			const name = file.slice(0, -3);
-			if (result.has(name)) continue;
 			const template = await readTemplate(entry, name);
-			if (template) result.set(name, { name, description: template.description });
+			// Windows 不允许文件名含 `:`，这类模板用 `--` 代替，并在 frontmatter 的 command 里声明真实命令名。
+			const key = template?.command ?? name;
+			if (!template || result.has(key)) continue;
+			result.set(key, { name: key, description: template.description });
 		}
 	}
 	return [...result.values()];
@@ -99,11 +104,16 @@ export async function expandTemplate(
 ): Promise<string> {
 	const match = /^\/([^\s/\\]+)(?:\s+([\s\S]*))?$/.exec(text);
 	if (!match || match[1] === "." || match[1] === "..") return text;
+	const name = match[1] as string;
+	// `codex:review` 在 Windows 上存成 `codex--review.md`，frontmatter 的 command 声明真实命令名。
+	const aliases = [name, ...(name.includes(":") ? [name.replaceAll(":", "--")] : [])];
 	for (const entry of await templateDirs(home, agent, profile, pluginDirs)) {
-		const template = await readTemplate(entry, match[1] as string);
-		if (!template) continue;
-		const rawArgs = match[2] ?? "";
-		return substituteArgs(template.text, parseCommandArgs(rawArgs), rawArgs);
+		for (const alias of aliases) {
+			const template = await readTemplate(entry, alias);
+			if (!template || (template.command && template.command !== name)) continue;
+			const rawArgs = match[2] ?? "";
+			return substituteArgs(template.text, parseCommandArgs(rawArgs), rawArgs);
+		}
 	}
 	return text;
 }
