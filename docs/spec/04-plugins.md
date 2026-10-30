@@ -69,7 +69,7 @@ interface Delivery { ok: boolean; id?: string; error?: string; uncertain?: boole
 - 实例配置里的密钥写成凭据名（例如 `credential: feishu-main`），插件用 `api.credentials.get` 读取（07 §6.2）。
 - 渠道只负责把外部消息变成 `message.in`、把输出交到外部。它**不**决定进哪个会话、要不要回复——那是绑定和投递的事（02、06）。
 - 外部系统调用 agent 并要拿到返回值（例如 MCP 服务端）时，渠道用 `io.ask`。
-- 用户首次或重新授权完成后，渠道已确认主人的账号和可发送的真实私聊时，可调用 `ownerConnected`；内核固定插件来源并写入 `channel.connected`，按该渠道已有主人私聊绑定路由到对应 Bot 的 main，提醒其自主决定是否打招呼。只有 multiAgent 渠道可指定 agent。启动恢复、重连、查询及周期同步不调用；账号未确定或渠道不能发送时不调用。
+- 用户首次或重新授权完成后，渠道已确认主人的账号和可发送的真实私聊时，可调用 `ownerConnected`；内核固定插件来源并写入 `channel.connected`，按该渠道已有主人私聊绑定或 multiAgent 主人点名入口路由到对应 Bot 的 main，提醒其自主决定是否打招呼。只有 multiAgent 渠道可指定 agent。启动恢复、重连、查询及周期同步不调用；账号未确定或渠道不能发送时不调用。
 - `login(action, signal, verifyCode)` 的纯数字 verifyCode 由具体渠道解释；card 用它兑换网页主人发起的十位一次性邀请码（start/poll 均适用），见 16 §1；不增加公共登录参数。
 
 ### 3.2 tools — 模型可调用的工具
