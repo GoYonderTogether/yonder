@@ -141,3 +141,24 @@
 - 安装验收发现通过current符号链接运行QQ/card setup静默退出；实际版本绝对路径升级成功，已修入口realpath guard并追加两项真实symlink spawn检查2/2，通过后补发修正版。
 - 三个QQ群profile均已offer七个只读/发送工具并选peer-workspace；四个Agent新增Web card-group独立只读profile与绑定，doctor errors=[]，原配置已留备份。
 - 大肥鱼原轮次只有write的实际原因：该实例无群关键词/allowedGroups覆盖，普通消息mentioned=false，发送账号在身份表person=null（仅显示名zoran不足以授予主人身份），且没有QQ DM绑定；默认mention策略只记录该条。没有根据显示名擅自link owner，@大肥鱼本人可按平台标记触发，身份绑定另需真实授权身份。
+
+### 逐项交付状态
+
+| 任务 | 实现和证据 | 保留边界 |
+|---|---|---|
+| T1 提示/引导 | 群场景、行为示例、工具引导、实际reply策略、自身SOUL/AGENTS已实现并迁移 | 模型行为的最终QQ验收交主人 |
+| T2 消息表示 | turn ID/时间/发送者/引用/@/附件及成功出站视图已实现，真实历史查询通过 | 未捕获的旧平台字段保持未知 |
+| T3 普通/引用/@ | respondTo和replyTo分离；QQ协议测试通过；Web真实本地@及引用通过 | QQ出站@尚未实现，明确拒绝；QQ显示待主人 |
+| T4 参与者 | 全部已观察参与者和当前bot入turn；真实名单包含zoran/808bass/self | 不是平台完整群名单，无权取名单不冒用human认证 |
+| T5 历史/附件 | 两份原始Windows文件恢复、同群查询/实际读取通过，损坏缓存拒绝 | 真实模型自主选择工具待主人新消息；二进制不假装理解 |
+| T6 触发/成本 | 沿既有批次/social，无第二模型/队列；大肥鱼write原因已核实 | 大肥鱼未关联owner，只能真实@等现有准入触发 |
+| T7 可观察性 | 复用pi.system/prepared/assistant/tool/model-observation；逐项检查留档 | 是harness装配，不冒充最终HTTP载荷；没有新增常驻敏感日志 |
+
+本轮真实资料核验已在安装版0.3.26103007再做一遍：conversation_read/members及两个attachment_read均成功；未向QQ发验收消息。Web配套cloud提交已推送origin/main，但未做云端部署。补发版后再核实际服务来源与符号链接入口。
+
+### 最终已安装结果
+
+- Release：[v0.3.26103009](https://github.com/GoYonderTogether/yonder/releases/tag/v0.3.26103009)，workflow41023868946成功。来源commit568810401dcf8e4ec2b8557f00521f1133158d43。
+- 本机update返回verified=true、restartRequired=false；service info版本0.3.26103009、同commit、home=/Users/zoran/.local/share/yonder/home、pid61064、ready=true、active=0，四个Agent均idle。
+- 修复后的current符号链接入口实际执行QQ/card upgrade-groups均输出JSON，changed=[]（之前已升级），幂等成功。安装后doctor ok=true、errors=[]，保留4条已有warning。
+- 后续QQ测试由主人操作：@学姐请求查808bass两份Windows文档并复述、自然无引用回复、显式引用新消息；QQ真实出站@仍不支持，已登记缺口，不能把Web@通过当QQ通过。
