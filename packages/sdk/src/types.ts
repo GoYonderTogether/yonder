@@ -40,27 +40,6 @@ export interface Route {
 	waiting?: boolean;
 	dropped?: "no-binding" | "agent-disabled" | "profile-mismatch";
 }
-export interface MessageOutData {
-	text: string;
-	attachments?: Attachment[];
-	session?: string;
-	to?: Ref;
-	delivery: Delivery;
-}
-export interface RunEndData {
-	session: string;
-	runId?: string;
-	inputs: string[];
-	status: "done" | "error" | "aborted" | "limit";
-	reason?: string;
-	replied: "source" | "caller" | "deliver" | "none";
-	model: string;
-	/** Thinking level this run actually used. */
-	thinking?: string;
-	/** Present when a delegation asked for a per-run effort (14 §5). */
-	effort?: { requested: string; effective: string; reason?: string; inputs: string[] };
-	usage: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
-}
 export type * from "./event-data.js";
 export interface EventQuery {
 	/** Exact event ID; intersected with all other filters. */
