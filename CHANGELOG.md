@@ -2,12 +2,32 @@
 
 ## [Unreleased]
 
+## [0.3.26103007] - 2026-10-30
+
 ### Changed
 
 - 微信用户主动重新扫码确认后直接覆盖实例连接并沿用原 person，无需额外确认。
 - 原网址前端预览改用统一 `apps/app`，只构建并代理前端，保留现有云端 API 与控制台；保存后刷新即可查看。
 - Web 群聊支持选择成员原生 @、指定消息引用及引用显示；card 渠道保留发送者与 @ 元数据，普通语义回应不强制引用。云端成员校验配套变更需要单独部署。
 - 群聊新增当前会话历史、参与者与附件读取工具，并加载自身身份；支持 respondTo 语义回应与独立的可见引用。不支持真实艾特的渠道明确拒绝。
+- extract card message metadata helpers
+- derive preset lookup in kernel tool assembly
+- split event types and delivery helpers within size limits
+
+### Fixed
+
+- qq：retain resident identity in official group profiles
+- scope card group context to resident identity
+- web：preview unified app without replacing cloud backend
+- align framework guidance and verify received attachment caches
+- macos：avoid unavailable Date comparison in helper
+
+### Added
+
+- add explicit card group upgrade and preserve composer calls
+- qq：guide scoped group participation and separate reply presentation
+- add scoped conversation history and attachment tools
+- separate conversation response intent from visible quote
 
 ## [0.3.26103006] - 2026-10-30
 
