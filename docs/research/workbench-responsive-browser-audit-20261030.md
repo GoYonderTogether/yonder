@@ -4,7 +4,7 @@
 
 ## 判断
 
-实际确认三个可复现的状态/布局问题，以及一个断点口径差异：
+实际确认四个可复现的状态/布局问题，以及一个断点口径差异：
 
 1. **设置页收起列表后无恢复入口。** `1440 × 844` CSS 像素，打开 `/work/settings`，键盘激活「收起工作列表」后，aside 数量为 0，页面中不再有「展开工作列表」按钮。见 `/tmp/yonder-responsive-evidence/settings-1440-collapsed.png`。
 2. **仅工作列表中再次打开当前任务不会返回内容。** `1440 × 844`，打开 `/work/161323` 并选择「仅工作列表」，键盘激活当前任务后 URL 变为带设备的 `/work/device/.../161323`，选择仍为 `list`，显示仍停留列表。见 `/tmp/yonder-responsive-evidence/current-task-list-1440.png`。
