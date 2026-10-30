@@ -33,6 +33,7 @@
 
 - ChannelIO 增量可选 control 接口，仅已获宿主支持的 channel-card 实例可用；插件不可 import core 或 Gateway 内部包。
 - control 仅接纳所属 channel 的账号 ref、method/params、AbortSignal 和事件回调；principal/scopes 不可由插件帧或模型填写。core 负责核对账号身份与实例主人并创建固定权限主体，复用 registry.prepareCall/call。
+- 实际最小 SDK 形状为 ready(ownerId):Promise<boolean>、request(ownerId,method,params,signal)、open(ownerId,send,signal)；ownerId 是该设备会话 /api/session 校验的云账号 UUID，由 core 构造所属实例各 Agent 的 acct ref 并逐一核验。ready 也必须做此核验，所有未归档 Agent 的 owner 均须非空且一致；无可核验 Agent 不宣告工作能力。流的每个输入帧及输出事件重新核验，失权终止。
 - HostCtx 在内核启动返回后才完备，采用内部延迟注册控制宿主；准备前返回不可用且不宣告 workProtocol。不得伪造 release/awake 等宿主事实。
 - Gateway 共享的快照/流适配在宿主层复用；不在插件复制第二套运行时，不为桥改变本机和原直连 Gateway 权限。
 
