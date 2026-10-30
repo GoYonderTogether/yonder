@@ -1,10 +1,11 @@
 import { ArrowUp, Square } from "lucide-react";
 import { useRef, useState } from "react";
-import { rpc } from "../api/client";
+import { RpcError, rpc } from "../api/client";
 import { useActiveNode } from "../api/nodes";
 import { AssistBar, AssistMenu, parseSlash, runCommand } from "./ComposerAssist";
 
 const savedDrafts: Record<string, string> = {};
+const unknownSends: Record<string, { text: string; method: string; params: Record<string, unknown> }> = {};
 
 type Busy = "steer" | "followup" | "interrupt";
 
@@ -19,6 +20,7 @@ export function Composer({ session, running, bot }: { session: string; running: 
 	const [drafts, setDrafts] = useState<Record<string, string>>(savedDrafts);
 	const text = drafts[draftKey] ?? "";
 	const setText = (value: string) => {
+		if (value !== savedDrafts[draftKey]) delete unknownSends[draftKey];
 		savedDrafts[draftKey] = value;
 		setDrafts((old) => ({ ...old, [draftKey]: value }));
 	};
@@ -38,14 +40,26 @@ export function Composer({ session, running, bot }: { session: string; running: 
 				await runCommand(session, cmd);
 				return;
 			}
-			if (bot) await rpc("bots.send", { agent: bot, text: t, requestId: crypto.randomUUID() });
-			else
-				await rpc("sessions.submit", {
-					id: session,
-					text: t,
-					requestId: crypto.randomUUID(),
-					...(running ? { busy: mode } : {}),
-				});
+			const pending = unknownSends[draftKey];
+			const request =
+				pending?.text === t
+					? pending
+					: {
+							text: t,
+							method: bot ? "bots.send" : "sessions.submit",
+							params: bot
+								? { agent: bot, text: t, requestId: crypto.randomUUID() }
+								: { id: session, text: t, requestId: crypto.randomUUID(), ...(running ? { busy: mode } : {}) },
+						};
+			try {
+				await rpc(request.method, request.params);
+				delete unknownSends[draftKey];
+			} catch (error) {
+				if (error instanceof RpcError && error.code === "outcome_unknown" && savedDrafts[draftKey]?.trim() === t)
+					unknownSends[draftKey] = request;
+				else delete unknownSends[draftKey];
+				throw error;
+			}
 			setText("");
 		} catch (e) {
 			setErr(e instanceof Error ? e.message : "发送失败");
