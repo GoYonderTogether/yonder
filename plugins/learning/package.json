@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/plugin-learning",
-	"version": "0.3.26103014",
+	"version": "0.3.26103015",
 	"type": "module",
 	"yonder": {
 		"apiVersion": 1,
@@ -63,7 +63,7 @@
 		"NOTICE"
 	],
 	"dependencies": {
-		"@yonder/sdk": "0.3.26103014",
+		"@yonder/sdk": "0.3.26103015",
 		"yaml": "2.9.1"
 	}
 }

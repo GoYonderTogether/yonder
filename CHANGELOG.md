@@ -2,9 +2,33 @@
 
 ## [Unreleased]
 
-- 聊天改用 bot 身份标签、右键/长按引用和悬停时间；主人设备 Bot 共享完整主会话，支持真实注入详情、渠道来源角标及有界双向历史加载。
+## [0.3.26103015] - 2026-10-30
 
+- 聊天改用 bot 身份标签、右键/长按引用和悬停时间；主人设备 Bot 共享完整主会话，支持真实注入详情、渠道来源角标及有界双向历史加载。
 - 添加设备弹窗去掉步骤指示与「我已发送」按钮：提示词默认展开、复制图标收进代码块右上角，打开即等待连接，连接成功自动关闭。
+
+### Fixed
+
+- app：retain actions in empty work content
+- app：keep work actions in session content
+- app：simplify add-device dialog to a single waiting view
+- app：meet work header touch target size
+- app：show selected device in menu
+- app：reuse accessible work action menus
+- app：simplify work controls and device menu
+- core：preserve lazy plugin services and private peer routes
+- app：reuse shared workbench ui components
+- app：place work navigation in local pane headers
+
+### Added
+
+- app：add bounded chat history and shared message details
+- wechat-archive：add private Bot watch lifecycle
+- core：configure private plugin bindings through scoped sdk
+
+### Changed
+
+- core：keep binding wiring within existing module budgets
 
 ## [0.3.26103014] - 2026-10-30
 
