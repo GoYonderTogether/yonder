@@ -72,3 +72,5 @@
 Web 群聊与 QQ 共用 01 §6 的当前来源会话只读工具及 06 的发送意图。card 入站保留真实发送者显示名、可确认身份、原生 mentions/引用与附件；出站 respondTo 不强制显示引用，replyTo 为明确引用，mentions 从当前实例 scoped acct 映射成平台真实成员账号并经服务端同群校验。只有完整服务端和客户端支持真实 mentions 时才声明 outboundMentions。新增帧字段保持可选，旧客户端兼容；不能静默丢弃模型请求的引用或艾特。成员列表区分当前可见历史参与者和平台真实成员，历史查询只覆盖实际接收记录。文件/图片沿现有附件协议，不为此引入第二套存储或跨群查询。
 
 本轮允许修改 harness Web/card 与独立 yonder-cloud 仓库的对应实现；发版及本机安装属已授权目标，云服务部署不自动包含，未部署的线上效果明确未验收。
+
+设备入站 message 可选 `senderName: string`、`senderIsBot: boolean`；text/markdown content 可选 `mentions: string[]` 为平台账号 UUID。card 按 `acct:<instance>:<agentKey>:<uuid>` 映射，不将不同 agentKey/实例的账号混同。服务端在入站与设备出站保存前校验全部 mentions 属于该群；网页使用真实成员选择并呈现 @ 名称，可见引用以 replyTo 表达。respondTo 不产生可见引用，不为其新增数据库列。

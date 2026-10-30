@@ -107,3 +107,13 @@
 - [ ] D：Web群聊额外适配任务（子Agent web_group），覆盖card设备帧、网页与云端接收；按真实实现区分本地通过和线上未部署。
 - [ ] 正式Release工作流发布、安装更新、实际服务版本/commit/home/pid/ready核验。
 - QQ官方引用字段说明/示例冲突：保留msgIdx/refMsgIdx及旧兼容，客户端效果待主人验证。
+
+### 主Agent真实资料验收（2026-10-30，开发构建）
+
+- 使用只读打开本机真实state.db、真实群会话155642/来源事件01M65SMA4MP8H4J4E9WM7TG2D7，直接调用开发构建的三个conversation工具；不是模拟群数据、未发送群消息、尚非安装版模型验收。
+- conversation_members：通过；列出zoran（owner）、808bass（stranger）及gpt-senpai自己，范围observed-history，成功出站明确last-10-confirmed-sends。
+- conversation_read(query=windows,limit=100)：通过；扫描63条事件，找到两个真实附件消息（01M645Q83CX402CF9KBK6VEQCS、01M645R4CP26DRFKKJ722M7DNV）及用户请求/已成功回复。
+- 原缓存问题：四个QQ附件缓存均为32字节过期占位，账本声明分别3083/4629字节。原始下载URL仍HTTP200，已按事件各自URL下载、验证字节数与UTF8并恢复；旧缓存备份在home/.yonder/maintenance/qq-context-20261030/expired-cache-backup，事件原文未修改。
+- 两份文档：conversation_attachment_read通过，正文分别1663/2615字符；真实主题为Windows原生适配及2026-10-29验证记录。文件SHA256：windows.md=828874729c21a4825794e0e457d0dadf28901f85212e9b4cb591e5b5856f0f15；windows-20261029.md=a74bbdc4e6e2e352c1b249b080a07f24914f729e1112e2d617d5dba3efc64ad0。
+- QQ普通发言/指定引用：协议测试通过，真实客户端待主人发新消息后验收；未代发。
+- QQ真实出站@：未完成，官方发送协议/当前SDK未找到可核实语法，明确outboundMentions:false并拒绝；入站@元数据保留。不将Web支持混称QQ支持。
