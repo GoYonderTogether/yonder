@@ -103,7 +103,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 				onChange={(event) => {
 					setChoice(event.target.value);
 					void navigate(
-						legacySession && event.target.value !== "all" && route.session
+						legacySession && !selected && event.target.value !== "all" && route.session
 							? workPath({ deviceId: event.target.value, session: route.session })
 							: "/work",
 					);
