@@ -8,6 +8,7 @@ import { channelOf, matches, sessionKey, targetBinding, targetDropReason, unknow
 import { createRoutedNotifications } from "./notifications.js";
 import { batchPlugin, isParticipationBatch } from "./participation.js";
 import { createPendingResults, createReporter } from "./pending.js";
+import { membershipGroup, platformBatchBinding, platformGroupBinding } from "./platform-group.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
 
@@ -214,7 +215,13 @@ export function createRouter({
 		}));
 		const winningSubject = subjects.find((subject) => mappings.some((item) => item.mapping?.subject === subject));
 		const winningMappings = mappings.filter((item) => item.mapping?.subject === winningSubject && item.mapping);
-		const diagnostics: Array<{ agent: string; reason: string; revision: string; policy?: object }> = [];
+		const diagnostics: Array<{
+			agent: string;
+			reason: string;
+			revision: string;
+			policy?: object;
+			membership?: boolean;
+		}> = [];
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
 		for (const agent of agents.values()) {
@@ -294,7 +301,7 @@ export function createRouter({
 				continue;
 			}
 			const selected = targeted[0] ?? own;
-			const policyAgent = selected?.owner;
+			const policyAgent = selected?.owner ?? (internalTarget === agent.id ? agent : undefined);
 			const mapping = selected?.mapping;
 			const decision = policyAgent && socialDecision(policyAgent, event, person, channels?.get(instance ?? ""));
 			if (decision)
@@ -302,6 +309,7 @@ export function createRouter({
 					agent: agent.id,
 					reason: decision.reason,
 					revision: decision.revision,
+					...(membershipGroup(agent, event, channels?.get(instance ?? "")) ? { membership: true } : {}),
 					...("policy" in decision ? { policy: decision.policy } : {}),
 				});
 			const ownerMention =
@@ -320,6 +328,19 @@ export function createRouter({
 					binding = candidate;
 					break;
 				}
+			if (!binding && agent.social?.enabled !== false && membershipGroup(agent, event, channels?.get(instance ?? "")))
+				binding = platformGroupBinding(agent, channels!.get(instance!)!);
+			if (!binding && batchSession) {
+				const source = await store.events.get(inputData.through as string);
+				if (source)
+					binding = await platformBatchBinding(
+						agent,
+						source,
+						channels?.get(instance ?? ""),
+						store,
+						batchPlugin(event)!,
+					);
+			}
 			const matchedConnection = event.type === "channel.connected" && binding !== undefined;
 			if (event.type === "channel.connected" && binding?.session !== "main") binding = undefined;
 			if (
@@ -355,7 +376,11 @@ export function createRouter({
 				continue;
 			}
 			if (
-				(decision && policyAgent && !socialBindingAllowed(policyAgent, event, person, binding)) ||
+				(decision &&
+					policyAgent &&
+					(membershipGroup(agent, event, channels?.get(instance ?? ""))
+						? binding.session === "main"
+						: !socialBindingAllowed(policyAgent, event, person, binding))) ||
 				(mapping && mapping.profile !== profile)
 			) {
 				if (decision) diagnostics.push({ agent: agent.id, reason: "unsafe-binding", revision: decision.revision });

@@ -27,6 +27,7 @@ export class CardChannel implements Channel {
 	readonly kinds = ["dm", "group", "notice"];
 	readonly output = { stream: false, attachments: false };
 	readonly features = {
+		groupParticipation: "membership",
 		identity: "account",
 		quote: "id",
 		outboundMentions: true,
@@ -180,7 +181,6 @@ export class CardChannel implements Channel {
 			this.deviceId = undefined;
 			this.warn(`Owner identity link skipped: ${(error as Error).message}`);
 		});
-		// Backend hello subscriptions are fixed for the lifetime of a connection.
 		if (this.socket) this.socket.close();
 		else this.connect();
 	}
@@ -387,6 +387,7 @@ export class CardChannel implements Channel {
 		}
 		const raw = content.type === "interactive" ? `${content.title ?? ""}\n${content.body ?? ""}` : (content.text ?? "");
 		const text = data.replayed === true ? lateNote(m.createdAt, raw) : raw;
+		const social = socialMentions(data.social, data.mentioned === true, data.convKind);
 		await this.io!.emit({
 			type: "message.in",
 			from: `acct:${this.id}:${agent}:${m.senderId}`,
@@ -394,10 +395,9 @@ export class CardChannel implements Channel {
 			data: {
 				kind: data.convKind,
 				target: agent,
-				mentioned: data.mentioned,
-				// G-10：设备帧可选带平台原生 @ 元数据，缺失时回落到帧里的 mentioned（服务端已按文本包含回落）。
+				mentioned: social.mentions.bot,
 				social: {
-					...socialMentions(data.social, data.mentioned === true),
+					...social,
 					...(data.convKind === "group" ? { room: `card:${this.id}:${data.convId}` } : {}),
 				},
 				text,

@@ -69,7 +69,7 @@ export default definePlugin({
 	),
 	setup(api) {
 		const config = (api.config as { groupJudge?: GroupJudgeConfig } | undefined)?.groupJudge;
-		const groups = config ? new Groups(api, config) : undefined;
+		const groups = new Groups(api, config ?? { preset: "default" });
 		const batches = new Batches(api);
 		batches.managed = (conv) => groups?.managed(conv) ?? false;
 		if (groups)

@@ -169,3 +169,33 @@ test("twenty eligible group messages trigger one real batch after quiet time wit
 		await fixture.close();
 	}
 }, 30000);
+
+test("a trusted same-group administrator can pause and resume without owner authority", async () => {
+	const f = await groupFixture({ social: true });
+	try {
+		const control = (text: string) => {
+			const e = input("qq-main", mainConv, text, true, "administrator");
+			e.data.social.senderRole = "group-admin";
+			return e;
+		};
+		await f.probe.ios["qq-main"].emit(control("闭嘴"));
+		await expect
+			.poll(async () => (await f.kernel.events.query({ type: "social.policy-change", conv: mainConv })).events.length)
+			.toBe(1);
+		const paused = (await f.kernel.events.query({ type: "social.policy-change", conv: mainConv })).events[0]!;
+		expect(paused.data).toMatchObject({
+			agent: "main",
+			after: { pause: { scope: "group", actor: "acct:qq-main:administrator" } },
+		});
+		expect(await f.kernel.identity.relation("main", "acct:qq-main:administrator")).toBe("stranger");
+		await f.probe.ios["qq-main"].emit(control("恢复回复"));
+		await expect
+			.poll(async () => (await f.kernel.events.query({ type: "social.policy-change", conv: mainConv })).events.length)
+			.toBe(2);
+		const resumed = (await f.kernel.events.query({ type: "social.policy-change", conv: mainConv })).events[1]!;
+		expect(resumed.data).toMatchObject({ agent: "main", after: { pause: null } });
+		expect(f.probe.sent).toEqual([]);
+	} finally {
+		await f.close();
+	}
+});

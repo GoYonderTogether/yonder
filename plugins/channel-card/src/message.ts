@@ -1,3 +1,4 @@
+import type { SocialMessageData } from "@yonder/sdk";
 export interface Message {
 	id: string;
 	senderId: string;
@@ -18,7 +19,6 @@ export interface Message {
 	};
 }
 
-/** G-10：只透传设备帧里的 `social.mentions.bot`，其余形状（含缺失）视为未提供。 */
 /** 补收消息超过这个时长才标注；刚断线几秒的补收不打扰 Bot。 */
 const LATE_MS = 5 * 60_000;
 
@@ -31,14 +31,27 @@ export function lateNote(createdAt: number, text: string, now = Date.now()): str
 	return `[补收：这条消息发于 ${new Date(createdAt).toISOString()}，设备离线期间未送达。若其中的操作已被之后的消息取代，不要再执行，先向对方确认。]\n${text}`;
 }
 
-export function socialMentions(value: unknown, mentioned: boolean): { mentions: { bot: boolean } } {
+export function socialMentions(
+	value: unknown,
+	mentioned: boolean,
+	kind?: unknown,
+): SocialMessageData & { mentions: { bot: boolean } } {
 	const record =
-		value && typeof value === "object" && !Array.isArray(value) ? (value as { mentions?: unknown }) : undefined;
+		value && typeof value === "object" && !Array.isArray(value)
+			? (value as { mentions?: unknown; senderRole?: unknown })
+			: undefined;
 	const mentions =
 		record?.mentions && typeof record.mentions === "object" && !Array.isArray(record.mentions)
 			? (record.mentions as { bot?: unknown })
 			: undefined;
-	return { mentions: { bot: typeof mentions?.bot === "boolean" ? mentions.bot : mentioned } };
+	const role = record?.senderRole;
+	return {
+		mentions: { bot: typeof mentions?.bot === "boolean" ? mentions.bot : mentioned },
+		...(kind === "group" &&
+		(role === "group-owner" || role === "group-admin" || role === "member" || role === "unknown")
+			? { senderRole: role }
+			: {}),
+	};
 }
 
 export function validateDeviceMessage(data: Record<string, unknown>, kinds: string[]): Message {

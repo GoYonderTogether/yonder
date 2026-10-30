@@ -25,6 +25,8 @@ export interface GroupProbe {
 export async function groupFixture(
 	options: {
 		social?: boolean;
+		membership?: boolean;
+		noBindings?: boolean;
 		strategy?: string;
 		authSource?: string;
 		model?: string;
@@ -78,10 +80,11 @@ ctx.signal.throwIfAborted();if(state.onRequest)await state.onRequest(ctx);
 if(!${Boolean(options.allowProvider)})throw Error('GROUP_DELIVERY_PROBE_BEFORE_PROVIDER');
 }});
 api.channels.register({
-  type:'group-delivery',
+  type:'group-delivery',multiAgent:${Boolean(options.membership)},
   create(id){
     return {
       id,kinds:['group','dm'],output:{stream:false,attachments:false},
+      ...(${Boolean(options.membership)}?{multiAgent:true,features:{groupParticipation:'membership'}}:{}),
       async start(io){state.ios[id]=io},async stop(){},
       async send(to,msg){state.sent.push({to,text:msg.text});return {ok:true,id:'local-'+state.sent.length}}
     };
@@ -172,31 +175,33 @@ api.channels.register({
 								},
 							}
 						: {}),
-					bindings: [
-						{
-							id: "group",
-							match: { channel: instance, kind: "group" },
-							session: { mode: "persistent", per: "conv" },
-							profile: "group",
-							wake: "mention",
-							reply: "none",
-						},
-						{
-							id: "group-batch",
-							match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
-							session: { mode: "persistent", per: "conv" },
-							profile: "group",
-							reply: "none",
-						},
-						{
-							id: "private",
-							match: { channel: instance, kind: "dm" },
-							session: { mode: "persistent", per: "conv" },
-							profile: "private",
-							wake: "write",
-							reply: "none",
-						},
-					],
+					bindings: options.noBindings
+						? []
+						: [
+								{
+									id: "group",
+									match: { channel: instance, kind: "group" },
+									session: { mode: "persistent", per: "conv" },
+									profile: "group",
+									wake: "mention",
+									reply: "none",
+								},
+								{
+									id: "group-batch",
+									match: { type: `${options.strategy ?? "social"}.batch-ready`, channel: instance },
+									session: { mode: "persistent", per: "conv" },
+									profile: "group",
+									reply: "none",
+								},
+								{
+									id: "private",
+									match: { channel: instance, kind: "dm" },
+									session: { mode: "persistent", per: "conv" },
+									profile: "private",
+									wake: "write",
+									reply: "none",
+								},
+							],
 				}),
 			);
 		}

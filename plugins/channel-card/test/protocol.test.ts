@@ -132,7 +132,7 @@ async function fixture(config: Omit<Config, "endpoint"> = {}) {
 		seq = 1,
 		kind = "dm",
 		mentioned = true,
-		social?: { mentions: { bot: boolean } },
+		social?: { mentions: { bot: boolean }; senderRole?: string },
 	) => {
 		const ws = [...wss.clients].find((ws) => ws.readyState === WebSocket.OPEN)!;
 		ws.send(
@@ -498,8 +498,8 @@ test("G-10 device frames carry platform mention metadata and fall back to mentio
 	expect(
 		f.events.map((event) => (event.data as { social: { mentions: { bot: boolean } } }).social.mentions.bot),
 	).toEqual([true, true, false]);
-	// 帧里的 mentioned 原样保留，旧消费方行为不变。
-	expect(f.events.map((event) => (event.data as { mentioned: boolean }).mentioned)).toEqual([false, true, true]);
+	// Normalize both consumers from the same native platform mention.
+	expect(f.events.map((event) => (event.data as { mentioned: boolean }).mentioned)).toEqual([true, true, false]);
 });
 
 test("card draft failures name the cause: no Agent identity and an unregistered Agent (JV2-J03-02)", async () => {
@@ -535,4 +535,20 @@ test("card draft failures name the cause: no Agent identity and an unregistered 
 	expect(missing.isError).toBe(true);
 	expect(missing.text).toContain('Agent "nobody" is not registered');
 	expect(missing.text).toContain("yonder channels login card");
+});
+
+test("trusted group role metadata is retained only for group frames", async () => {
+	const f = await fixture();
+	await f.login();
+	f.sendInput("main", 21, "group", true, { mentions: { bot: true }, senderRole: "group-admin" });
+	f.sendInput("main", 22, "group", true, { mentions: { bot: true }, senderRole: "group-owner" });
+	f.sendInput("main", 23, "dm", true, { mentions: { bot: true }, senderRole: "group-admin" });
+	f.sendInput("main", 24, "group", true, { mentions: { bot: true }, senderRole: "made-up-admin" });
+	await vi.waitFor(() => expect(f.events).toHaveLength(4));
+	expect(f.events.map((e) => (e.data as { social: { senderRole?: string } }).social.senderRole)).toEqual([
+		"group-admin",
+		"group-owner",
+		undefined,
+		undefined,
+	]);
 });

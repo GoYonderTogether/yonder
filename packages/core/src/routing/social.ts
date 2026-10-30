@@ -2,13 +2,18 @@ import { createHash } from "node:crypto";
 import type { Channel, SocialMessageData, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
 
+import { membershipGroup } from "./platform-group.js";
+
 type Kind = "dm" | "group" | "channel";
 export function socialDecision(agent: AgentConfig, event: YEvent, person: string | undefined, channel?: Channel) {
-	const social = agent.social;
+	const member = membershipGroup(agent, event, channel);
+	const social = agent.social ?? (member ? { enabled: true } : undefined);
 	if (
-		!social?.enabled ||
+		!social ||
+		social.enabled === false ||
+		(!social.enabled && !member) ||
 		event.type !== "message.in" ||
-		(social.scope && (!event.conv || !social.scope.includes(event.conv)))
+		(!member && social.scope && (!event.conv || !social.scope.includes(event.conv)))
 	)
 		return undefined;
 	const data = event.data as {
@@ -27,6 +32,7 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 	if (subjects.some((s) => social.denied?.includes(s))) return result("denied");
 	const owner = kind === "dm" && !!person && person === agent.owner;
 	const authorized =
+		member ||
 		owner ||
 		!!(event.conv && social.authorized?.conversations?.includes(event.conv)) ||
 		!!(event.from && social.authorized?.accounts?.includes(event.from)) ||

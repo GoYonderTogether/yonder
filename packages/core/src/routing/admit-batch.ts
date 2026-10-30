@@ -3,6 +3,7 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
 import { participationPlugin } from "./participation.js";
+import { membershipGroup, platformBatchBinding } from "./platform-group.js";
 import { socialDecision } from "./social.js";
 
 export async function admitBatch(
@@ -18,7 +19,8 @@ export async function admitBatch(
 	const agent = agents.get(request.agent);
 	const ids = request.sourceEvents;
 	if (
-		!agent?.social?.enabled ||
+		!agent ||
+		agent.social?.enabled === false ||
 		agent.archivedAt ||
 		!plugins.has(plugin) ||
 		!ids.length ||
@@ -30,6 +32,11 @@ export async function admitBatch(
 	const sources = await Promise.all(ids.map((id) => store.events.get(id)));
 	const source = sources.at(-1);
 	const route = source?.routes?.find((item) => item.agent === agent.id && item.wake === "write" && !item.dropped);
+	if (
+		!agent.social?.enabled &&
+		(!source || !membershipGroup(agent, source, channels?.get(channelOf(source.conv) ?? "")))
+	)
+		return;
 	if (
 		!route?.session ||
 		sources.some(
@@ -60,6 +67,7 @@ export async function admitBatch(
 			binding = candidate;
 			break;
 		}
+	binding ??= await platformBatchBinding(agent, source!, channels?.get(channelOf(source!.conv) ?? ""), store, plugin);
 	if (
 		!binding ||
 		binding.match.type !== `${plugin}.batch-ready` ||

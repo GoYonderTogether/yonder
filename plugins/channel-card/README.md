@@ -35,7 +35,13 @@
 
 方式 A（浏览器通过 URL scheme/loopback 唤醒本地 Yonder）未实现，需要维护者批准内核设计。
 
-## 显式启用已有 Agent 的群聊
+## 平台群默认参与
+
+Card 声明 `features.groupParticipation: membership`：平台把群消息定向投给真实成员 Bot 后，内核默认启用该 Bot 的独立群参与，不必逐群补 scope、authorized、批次绑定与 groupJudge.conversations。没有群绑定时提供可诊断的 `@platform-group:<实例>` 默认绑定与只读配置档；不继承私人上下文、skills 或主机执行权限，已有自定义绑定与明确拒绝优先。有效默认配置在会话恢复前加载，不改写 agent.yaml。
+
+原生 mentions 优先归一为同一 `mentioned` 与 `social.mentions.bot`。可信群主/管理员角色只由服务端同群成员关系提供；普通消息仍先过本 Bot 硬规则和冷却，不代表每条必回。多个 Bot 共享本群公开事实和发言协调，私人 main 与权限不共享。QQ 不因这项平台成员默认行为扩大范围。
+
+## 旧版显式群配置工具
 
 安装更新后运行：
 

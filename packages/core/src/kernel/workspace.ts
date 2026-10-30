@@ -10,6 +10,7 @@ import {
 } from "../config/index.js";
 import { createPermissions } from "../permissions.js";
 import { type KernelServices, type LoadedPlugins, loadPlugins } from "../plugins/index.js";
+import { platformGroupBinding } from "../routing/platform-group.js";
 import {
 	credentialPath,
 	FileCredentials,
@@ -121,6 +122,12 @@ export async function loadAgents(
 			),
 		});
 	}
+	// Install effective platform profiles before session recovery, also on config reload.
+	if (plugins.tools.has("social"))
+		for (const agent of agents.values())
+			for (const channel of plugins.channels.values())
+				if (channel.multiAgent && channel.features?.groupParticipation === "membership")
+					platformGroupBinding(agent, channel);
 	return agents;
 }
 

@@ -31,7 +31,7 @@ import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpd
 import { pluginAgentManagement } from "./plugin-bindings.js";
 import { quotaWire } from "./quota-wire.js";
 import { resumeRecovered } from "./recovery.js";
-import { createSocial } from "./social.js";
+import { createSocial, socialTarget } from "./social.js";
 import { runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
@@ -482,16 +482,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			agents,
 			assert: (ctx) => realRuntime().assertToolContext(ctx),
 			owner: async (agent, account) => (await store.identity().relation(agent, account)) === "owner",
-			target: async (conv) => {
-				const events = (await store.events.query({ type: "message.in", conv, limit: 1000 })).events;
-				const event = events.find((item) =>
-					["dm", "group", "channel"].includes(String((item.data as { kind?: unknown }).kind)),
-				);
-				if (!event) return undefined;
-				const kind = (event.data as { kind: "dm" | "group" | "channel" }).kind;
-				const person = event.from ? (await store.identity().account(event.from))?.person : undefined;
-				return { kind, ...(event.from ? { from: event.from } : {}), ...(person ? { person } : {}) };
-			},
+			target: (conv) => socialTarget(store, agents, loaded.channels, conv),
 			record: (event) => store.events.record(event),
 			validate: (next) => validateCandidate(config, next, homePresets),
 			reload: async () => {

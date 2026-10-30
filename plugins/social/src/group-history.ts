@@ -1,4 +1,4 @@
-import type { PluginAPI, Ref, YEvent } from "@yonder/sdk";
+import type { PluginAPI, Ref, SocialPolicy, YEvent } from "@yonder/sdk";
 /** Public ledger only. Native message IDs deduplicate trusted Card fanout, never guessed QQ aliases. */
 export async function* groupEvents(api: PluginAPI, type: string, conv?: Ref) {
 	let after: string | undefined;
@@ -88,4 +88,25 @@ export async function restoreGroupState(
 		if (data.after?.pause) pauses.set(key, data.after.pause);
 		else pauses.delete(key);
 	}
+}
+
+/** Core-owned routing facts are the authority for discovering membership rooms. */
+export async function groupPolicies(api: PluginAPI, source: YEvent) {
+	const page = await api.events.query({ type: "routing.social-decision", after: source.id, limit: 100 });
+	return page.events
+		.filter((e) => e.parent === source.id)
+		.map((e) => e.data as { agent?: string; policy?: SocialPolicy; revision?: string; membership?: boolean });
+}
+
+export function groupRoomKey(source: YEvent, aliases: Map<Ref, string>, membership: boolean) {
+	const data = source.data as { kind?: string; social?: { room?: string } };
+	if (!source.conv || data.kind !== "group") return;
+	if (!aliases.has(source.conv)) {
+		if (!membership || !data.social?.room || !source.routes?.some((r) => !r.dropped && r.session)) return;
+		aliases.set(source.conv, data.social.room);
+	}
+	const alias = aliases.get(source.conv)!;
+	const key = alias === source.conv ? (data.social?.room ?? source.conv) : alias;
+	aliases.set(source.conv, key);
+	return key;
 }

@@ -30,11 +30,13 @@ export interface SocialMessageData {
 	/** Trusted channel room identity shared by this provider's Bot routes. */
 	room?: string;
 	mentions?: { bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[] };
-	senderRole?: "group-owner" | "member" | "unknown";
+	senderRole?: "group-owner" | "group-admin" | "member" | "unknown";
 	parentConv?: Ref;
 	nativeKind?: string;
 }
 export interface ChannelFeatures {
+	/** Group delivery proves that the targeted Bot is a current platform member. */
+	groupParticipation?: "membership";
 	/** Supports actual outbound account mentions, independently of inbound signals. */
 	outboundMentions?: boolean;
 	identity?: "account" | "person-link" | "unknown";

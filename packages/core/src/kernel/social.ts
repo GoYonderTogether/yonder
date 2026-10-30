@@ -1,13 +1,15 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { SocialAPI, SocialPolicy, ToolContext } from "@yonder/sdk";
+import type { Channel, SocialAPI, SocialPolicy, ToolContext } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import { type AgentConfig, parseAgentConfig, type YonderConfig } from "../config/index.js";
 import { socialDefaults, socialPolicySchema, socialTriggerErrors } from "../config/social-schema.js";
 import type { Principal } from "../control/method-types.js";
+import { membershipGroup } from "../routing/platform-group.js";
+import type { Store } from "../store/index.js";
 
 type Inspect = Parameters<SocialAPI["inspect"]>[0];
 type Update = Parameters<SocialAPI["update"]>[0];
@@ -73,7 +75,9 @@ export function createSocial(options: {
 	agents: Map<string, AgentConfig>;
 	assert(ctx: ToolContext): void;
 	owner(agent: string, account: string): Promise<boolean>;
-	target(conv: string): Promise<{ kind: "dm" | "group" | "channel"; from?: string; person?: string } | undefined>;
+	target(
+		conv: string,
+	): Promise<{ kind: "dm" | "group" | "channel"; from?: string; person?: string; membership?: string } | undefined>;
 	record(event: { type: string; from: string; conv?: string; data: object }): Promise<unknown>;
 	validate(agents: Map<string, AgentConfig>): Promise<void>;
 	reload(): Promise<void>;
@@ -81,17 +85,20 @@ export function createSocial(options: {
 	const confirmations = new Map<string, { fingerprint: string; event: string }>();
 	const authorize = async (agent: string, conv: string, caller: Caller, write: boolean) => {
 		const target = options.agents.get(agent);
-		if (!target?.social?.enabled || !/^conv:[a-z0-9-]+:\S+$/.test(conv))
+		if (!target || target.social?.enabled === false || !/^conv:[a-z0-9-]+:\S+$/.test(conv))
 			throw new SocialError("invalid_params", "Unknown social target");
 		const instance = conv.split(":")[1]!;
 		const source = await options.target(conv);
 		if (!source) throw new SocialError("invalid_params", "Conversation kind is unknown");
+		const membership = source.membership === agent;
+		if (!target.social?.enabled && !membership) throw new SocialError("invalid_params", "Unknown social target");
 		if (
-			!(target.social.authorized?.conversations ?? []).includes(conv) &&
+			!membership &&
+			!(target.social?.authorized?.conversations ?? []).includes(conv) &&
 			!(
 				source.kind === "dm" &&
-				((source.from && target.social.authorized?.accounts?.includes(source.from)) ||
-					(source.person && target.social.authorized?.people?.includes(source.person)) ||
+				((source.from && target.social?.authorized?.accounts?.includes(source.from)) ||
+					(source.person && target.social?.authorized?.people?.includes(source.person)) ||
 					source.person === target.owner)
 			)
 		)
@@ -120,7 +127,10 @@ export function createSocial(options: {
 		}
 		const defaultScope = target.defaults?.channelInstances;
 		const profileScope = target.profiles[target.defaultProfile]?.channelInstances;
-		if ((defaultScope && !defaultScope.includes(instance)) || (profileScope && !profileScope.includes(instance)))
+		if (
+			!membership &&
+			((defaultScope && !defaultScope.includes(instance)) || (profileScope && !profileScope.includes(instance)))
+		)
 			throw new SocialError("forbidden", "Channel outside target scope", { reason: "scope_denied" });
 		return { target, kind: source.kind };
 	};
@@ -307,4 +317,27 @@ export function createSocial(options: {
 		return result;
 	};
 	return { inspect, update, auditDenied, botGate };
+}
+
+/** Resolve only the platform facts attached by a registered channel. */
+export async function socialTarget(
+	store: Store,
+	agents: Map<string, AgentConfig>,
+	channels: Map<string, Channel>,
+	conv: string,
+) {
+	const events = (await store.events.query({ type: "message.in", conv, limit: 1000 })).events;
+	const event = events.find((item) =>
+		["dm", "group", "channel"].includes(String((item.data as { kind?: unknown }).kind)),
+	);
+	if (!event) return;
+	const data = event.data as { kind: "dm" | "group" | "channel"; target?: string };
+	const bot = data.target ? agents.get(data.target) : undefined;
+	const person = event.from ? (await store.identity().account(event.from))?.person : undefined;
+	return {
+		kind: data.kind,
+		...(event.from ? { from: event.from } : {}),
+		...(person ? { person } : {}),
+		...(bot && membershipGroup(bot, event, channels.get(conv.split(":")[1]!)) ? { membership: bot.id } : {}),
+	};
 }

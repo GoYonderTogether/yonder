@@ -1,17 +1,20 @@
 import type { EventInput, PluginAPI, Ref, SocialPolicy, ToolContext, YEvent } from "@yonder/sdk";
-import { type GroupPause, groupEvents, publicEvents, publicHistory, restoreGroupState } from "./group-history.js";
-import { GroupReview, type ReviewOptions } from "./group-review.js";
-import { GroupRules, type OwnRules, ruleMatch, validateRules } from "./group-rules.js";
+import type { GroupJudgeConfig } from "./group-config.js";
+import {
+	type GroupPause,
+	groupEvents,
+	groupPolicies,
+	groupRoomKey,
+	publicEvents,
+	publicHistory,
+	restoreGroupState,
+} from "./group-history.js";
+import { GroupReview } from "./group-review.js";
+import { GroupRules, ruleMatch, validateRules } from "./group-rules.js";
 import { awaitTurn, grantTurn, releaseTurn, type TurnRoom } from "./group-turns.js";
-export interface GroupJudgeConfig {
-	preset: string;
-	conversations?: Ref[];
-	identities?: Record<string, string>;
-	rooms?: Ref[][];
-	initialRules?: Record<string, OwnRules>;
-	review?: ReviewOptions;
-}
-type Pause = GroupPause;
+
+export type { GroupJudgeConfig } from "./group-config.js";
+
 interface Candidate {
 	agent: string;
 	conv: Ref;
@@ -19,7 +22,7 @@ interface Candidate {
 	revision: string;
 	policy: SocialPolicy;
 	entries: YEvent[];
-	pause?: Pause;
+	pause?: GroupPause;
 	counter: number;
 	willing?: { through: string; entries: YEvent[]; decision: string };
 	lastSent?: number;
@@ -37,7 +40,7 @@ export class Groups {
 	private readonly reads = new Map<string, string>();
 	private readonly sessions = new Map<string, Room>();
 	private readonly active = new Set<string>();
-	private readonly pauses = new Map<string, Pause>();
+	private readonly pauses = new Map<string, GroupPause>();
 	private readonly sent = new Map<string, number>();
 	private readonly counters = new Map<string, number>();
 	private readonly policies = new Map<string, { policy: SocialPolicy; revision: string }>();
@@ -63,9 +66,6 @@ export class Groups {
 	private key(agent: string, conv: string) {
 		return `${agent}\0${conv}`;
 	}
-	private events(type: string, conv?: Ref) {
-		return groupEvents(this.api, type, conv);
-	}
 	private official(agent: string, conv: Ref) {
 		return (this.policies.get(this.key(agent, conv))?.policy.plugin ?? "social") === "social";
 	}
@@ -76,12 +76,9 @@ export class Groups {
 	managed(conv: Ref) {
 		return this.aliases.has(conv);
 	}
-	private room(source: YEvent) {
-		const data = source.data as { kind?: string; social?: { room?: string } };
-		if (!source.conv || data.kind !== "group" || !this.aliases.has(source.conv)) return;
-		const alias = this.aliases.get(source.conv)!;
-		const key = alias === source.conv ? (data.social?.room ?? source.conv) : alias;
-		this.aliases.set(source.conv, key);
+	private room(source: YEvent, membership = false) {
+		const key = groupRoomKey(source, this.aliases, membership);
+		if (!key) return;
 		let room = this.rooms.get(key);
 		if (!room) {
 			room = {
@@ -93,15 +90,15 @@ export class Groups {
 			};
 			this.rooms.set(key, room);
 		}
-		room.convs.add(source.conv);
+		room.convs.add(source.conv!);
 		return room;
 	}
 	async start() {
 		await restoreGroupState(this.api, this.reads, this.pauses, this.counters);
 		await this.rules.start();
-		for await (const event of this.events("message.in")) await this.observe(event, false);
-		for await (const event of this.events("message.out")) await this.delivered(event, false);
-		for await (const event of this.events("routing.social-decision")) await this.accept(event, false);
+		for await (const event of groupEvents(this.api, "message.in")) await this.observe(event, false);
+		for await (const event of groupEvents(this.api, "message.out")) await this.delivered(event, false);
+		for await (const event of groupEvents(this.api, "routing.social-decision")) await this.accept(event, false);
 		for (const room of this.rooms.values()) this.schedule(room);
 		await this.review.start(
 			() =>
@@ -132,15 +129,15 @@ export class Groups {
 		);
 	}
 	async observe(source: YEvent, live = true) {
-		const room = this.room(source);
+		const facts = await groupPolicies(this.api, source);
+		const room = this.room(
+			source,
+			facts.some((d) => d.membership),
+		);
 		if (!room) return;
-		const diagnostics = await this.api.events.query({ type: "routing.social-decision", after: source.id, limit: 100 });
-		for (const fact of diagnostics.events)
-			if (fact.parent === source.id) {
-				const d = fact.data as { agent?: string; policy?: SocialPolicy; revision?: string };
-				if (d.agent && d.revision)
-					this.policies.set(this.key(d.agent, source.conv!), { policy: d.policy ?? {}, revision: d.revision });
-			}
+		for (const d of facts)
+			if (d.agent && d.revision)
+				this.policies.set(this.key(d.agent, source.conv!), { policy: d.policy ?? {}, revision: d.revision });
 		const data = source.data as {
 			senderIsBot?: boolean;
 			mentioned?: boolean;
@@ -178,12 +175,18 @@ export class Groups {
 			}
 	}
 	async accept(event: YEvent, schedule = true) {
-		const data = event.data as { agent?: string; reason?: string; revision?: string; policy?: SocialPolicy };
+		const data = event.data as {
+			agent?: string;
+			reason?: string;
+			revision?: string;
+			policy?: SocialPolicy;
+			membership?: boolean;
+		};
 		if (this.stopped || data.reason !== "batch" || !data.agent || !data.revision || !event.parent) return;
 		if (data.policy?.plugin && data.policy.plugin !== "social") return;
 		const source = (await this.api.events.query({ id: event.parent })).events[0];
 		if (!source) return;
-		const room = this.room(source);
+		const room = this.room(source, data.membership === true);
 		const route = source.routes?.find((r) => r.agent === data.agent && r.wake === "write" && !r.dropped);
 		if (!room || !source.conv || !route?.session || (source.data as { senderIsBot?: boolean }).senderIsBot) return;
 		this.sessions.set(route.session, room);
@@ -267,11 +270,13 @@ export class Groups {
 		const manager =
 			!!source.from?.startsWith("acct:") &&
 			((await this.api.identity.relation(agent, source.from)) === "owner" ||
-				(source.data as { social?: { senderRole?: string } }).social?.senderRole === "group-owner");
+				["group-owner", "group-admin"].includes(
+					(source.data as { social?: { senderRole?: string } }).social?.senderRole ?? "",
+				));
 		if (resume && !manager) return;
 		const key = this.key(agent, source.conv!);
 		const before = this.pauses.get(key);
-		const pause: Pause | undefined =
+		const pause: GroupPause | undefined =
 			before?.scope === "group" && stop
 				? before
 				: stop

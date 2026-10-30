@@ -17,6 +17,11 @@ export async function matches(binding: Binding, event: YEvent, agent: AgentConfi
 	if (match.channel && !asArray(match.channel)!.includes(channel ?? "")) return false;
 	const data = event.data as { kind?: unknown; mentioned?: unknown; target?: unknown; account?: unknown };
 	if (
+		binding.id.startsWith("@platform-group:") &&
+		(agent.social?.enabled === false || data.kind !== "group" || data.target !== agent.id)
+	)
+		return false;
+	if (
 		match.kind &&
 		((event.type !== "message.in" && !connected) || !asArray(match.kind)!.includes(String(data.kind ?? "")))
 	)
