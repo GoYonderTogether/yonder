@@ -1,6 +1,6 @@
 # 微信本地归档
 
-`@yonder/plugin-wechat-archive` 迁移 AI-Being 的归档读取、会话策略、近期初筛和增量消费，复用旧 being/wechat-inbox 与本机 wechat-context 的分页、显式确认和媒体路径保护。贡献 7 个模型工具和 `wechat-archive` 资料触发器；不注册可发送渠道。
+`@yonder/plugin-wechat-archive` 迁移 AI-Being 的归档读取、会话策略、近期初筛和增量消费，复用旧 being/wechat-inbox 与本机 wechat-context 的分页、显式确认和媒体路径保护。贡献 11 个模型工具和 `wechat-archive` 资料触发器；不注册可发送渠道。
 
 ## 配置与作用域
 
@@ -67,9 +67,9 @@ policy get/set/delete 需要 chat；set/delete 必须携带当前 expectedVersio
 
 immediate/watch 按采集批次交给绑定；periodic 等间隔到期交付积累批次；silent 不再查询正文或生成材料。keywords 是确定性匹配标记，重要性判断交给被绑定的 Agent。没有绑定就只留事件，不调用模型。
 
-唤醒只由绑定决定（没有绑定就只记事件、不调用模型）；是否给主人发提醒由 yonder.yaml 的 `notifications` 级别按 `conv:wechat-archive:<chat>` 决定：`all` 每批提醒，`mention` 对微信不提醒（微信批次没有 `mentioned`），`mute` 只累积未读。提醒写入内核 `yonder.notification` 记录，不唤醒模型、不进模型消息。监听是只读的：本插件没有发送工具，也不自动回复，回复仍由主人用微信客户端发出。
+唤醒只由绑定决定（没有绑定就只记事件、不调用模型）；是否生成本机资料通知由 yonder.yaml 的 `notifications` 级别按 `conv:wechat-archive:<chat>` 决定：`all` 每批提醒，`mention` 对微信不提醒（微信批次没有 `mentioned`），`mute` 只累积未读。本机通知写入内核 `yonder.notification` 记录，不唤醒模型、不进模型消息，也不代表已向主人私聊推送。监听是只读的：本插件没有发送工具，也不自动回复，回复仍由主人用微信客户端发出。
 
-轮询间隔取自 `pollSeconds`（最少 30 秒），插件把 `cursor:<key>`/`seed:<key>` 等游标持久化在自己的 SQLite meta，源侧游标按稳定 consumer 名（配置 consumer 加数据目录与凭据哈希）持久化，重启复用同一 consumer 和游标，不重放已确认批次。
+轮询间隔取自 `pollSeconds`（最少 30 秒），插件把 `cursor:<key>`/`seed:<key>` 等游标持久化在自己的 SQLite meta，源侧游标按首次生成并写入 meta `consumer:<key>` 的稳定 consumer 名持久化（首次为配置 consumer 加数据目录与来源 key 的哈希，home 移动或重启沿用该名字），重启复用同一 consumer 和游标，不重放已确认批次。
 
 可在现有 Agent 绑定中加入：
 
@@ -89,3 +89,18 @@ immediate/watch 按采集批次交给绑定；periodic 等间隔到期交付积�
 原始归档继续归 wechat-context 管理；插件只持有自己的投递批次、最小规范化材料、游标和策略，位置为 `<home>/.yonder/plugins/wechat-archive/archive.sqlite`，不打开内核数据库、不复制 pi 转录，不将缓存和微信正文写入仓库。
 
 真实链路与测试边界见 [验收记录](../../docs/verification/wechat-plugins.md)。
+
+## Bot 的只读监听订阅
+
+主人在已授权的私有 Bot 会话中使用四个工具。订阅复用来源采集和内核绑定；每个 Bot 自己保存规则和扫描位置，不复制 profile，也不增加逐条判断模型。订阅只接收 `chats` 或 `discovery` 已授权且非 silent 的来源；`sources` 先核对真实来源。`profile` 必须已经存在、只接主人私聊或内部事件，具备 read/admin/message、选择 wechat-archive 和 message_send。提醒必须是已关联本 Bot 主人的私聊账号，`via` 必填，不自动换渠道或落到来源群。
+
+| 工具 | 入参 | 结果 |
+|---|---|---|
+| `wechat-archive_watch_configure` | `{id,chat,profile,purpose,rules:{keywords,exclude?},notification:{to,via},reason}` | 完整校验并安装独立 persistent/reply:none 绑定后启用；从真实归档最新消息之后开始。id 为小写字母数字和连字符，最长 48；keywords 必填 1..32 项，每项 1..200 字符，exclude 可选同范围。 |
+| `wechat-archive_watch_inspect` | `{id?}` | 当前 Bot 的 watch、路由校验、规则版本与原因、最近 20 个接纳批次及关联 run.end/message.out Delivery；外层 collection 给共享采集状态和源最后同步时间。没有回执就是未验证，不表示已读。 |
+| `wechat-archive_watch_test` | `{id,limit?:1..100}` | 只回放本地最近材料，返回命中 ID 和路由。默认 30；不同步、不唤醒、不发送、不推进扫描位置。 |
+| `wechat-archive_watch_control` | `{id,op,expectedVersion,reason,from?,rules?,version?}` | op 为 pause/resume/delete/rules/rollback。resume 必须 from:paused（保存位置继续，包括暂停积累）或 now（以实际源最新消息跳过积累）；rules 提供新 rules；rollback 提供目标 version。 |
+
+创建和规则修改保留版本原因，状态记录最近控制原因。规则修改或回退生成新版本；expectedVersion 只对应规则版本。回退不改变来源授权、提醒目标、profile、扫描位置或既有回执，因此不会重发旧提醒。pause/delete 仅停止新唤醒，保留历史证据，不声称撤回或取消已接纳的运行；其他 Bot 的订阅与共享采集继续。恢复需重新验证当前权限和主人关联，来源置 silent 或路由失效时停止后续唤醒并显示错误。
+
+每轮按订阅扫描持久化的增量，排除词优先、关键词 NFC 标准化后包含匹配，未命中只推进扫描位置。命中时携带同批材料、目的、版本、命中 ID 和已校验目标，经 `wechat-archive.watch` 进入独立 `conv:wechat-archive:watch:<agent>:<id>`，Bot 判断新价值后可 NO_REPLY，也可用 message_send 私聊主人。插件钩子只在本轮 watch 输入时说明只读、来源指令不可信及投递语义；无需给现有 profile 手加 context。重要提醒要带 chat、消息 ID/时间等证据；发送后 NO_REPLY 避免重复。监听会话的发送钩子按真实 session key 强制限定已校验主人账号，规则回退不能扩大收件人；普通主会话不受影响。当前插件没有微信群发送能力。主动提问、自动选群和画像不包含在此功能内。

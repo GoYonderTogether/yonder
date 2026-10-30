@@ -4,8 +4,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
-import type { EventInput, PluginAPI, ToolResult } from "@yonder/sdk";
+import type { EventInput, PluginAPI, ToolContext, ToolResult } from "@yonder/sdk";
+import { archiveConsumer } from "./consumer.js";
 import { readWechatMediaFile, safeMessage, source } from "./source.js";
+import { Watches } from "./watches.js";
 
 export interface Config {
 	cliPath?: string;
@@ -28,7 +30,6 @@ const defaults = {
 	periodicMinutes: 1440,
 	evidence: [] as number[],
 };
-/** A batch row's archived messages, as normalized by `safeMessage`. */
 interface ArchivedMessage {
 	sender?: string | null;
 	text?: string;
@@ -54,6 +55,7 @@ export function batchSummary(messages: readonly ArchivedMessage[]): string {
 }
 export class Archive {
 	private db: DatabaseSync | undefined;
+	watches: Watches | undefined;
 	private readonly lifetime = new AbortController();
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private work: Promise<void> | undefined;
@@ -82,6 +84,17 @@ export class Archive {
       CREATE INDEX IF NOT EXISTS pending ON messages(emitted,batch);`);
 		for (const chat of this.config.chats ?? [])
 			this.discover({ chat, chatType: "unknown", coverage: "configured; history on demand" });
+		this.watches = new Watches(
+			this.api,
+			this.db,
+			(chat) => this.scope(chat),
+			async (chat, signal) => {
+				const page = await this.read(["history", "--chat", chat, "--normalized", "--limit", "1"], signal);
+				if (!Array.isArray(page.messages)) throw Error("WECHAT_INVALID_MESSAGES");
+				const messages = this.store(page.messages, chat) as { id: number }[];
+				return Math.max(0, ...messages.map((m) => m.id));
+			},
+		);
 		return this.db;
 	}
 	private opening: Promise<DatabaseSync> | undefined;
@@ -191,8 +204,8 @@ export class Archive {
 				: {}),
 		};
 	}
-	async tool(name: string, args: Record<string, any>, signal: AbortSignal): Promise<ToolResult> {
-		const operation = this.handle(name, args, signal);
+	async tool(name: string, args: Record<string, any>, ctx: ToolContext): Promise<ToolResult> {
+		const operation = this.handle(name, args, ctx);
 		this.operations.add(operation);
 		try {
 			return await operation;
@@ -200,12 +213,16 @@ export class Archive {
 			this.operations.delete(operation);
 		}
 	}
-	private async handle(name: string, p: Record<string, any>, signal: AbortSignal): Promise<ToolResult> {
+	private async handle(name: string, p: Record<string, any>, ctx: ToolContext): Promise<ToolResult> {
+		const signal = ctx.signal;
 		await this.open();
 		signal.throwIfAborted();
 		const result = (value: unknown): ToolResult => ({
 			text: JSON.stringify({ externalContent: true, ...(value as object) }),
 		});
+		if (name.startsWith("watch_")) {
+			return result({ ...((await this.watches!.tool(name, p, ctx)) as object), collection: this.status() });
+		}
 		if (name === "status") return result(this.status());
 		if (name === "sources") {
 			const page = await this.read(
@@ -383,15 +400,13 @@ export class Archive {
 		}
 		this.set("scanOffset", offset + selected.length);
 		await this.flush(emit);
+		await this.watches!.flush();
 		this.lastSuccess = new Date().toISOString();
 		this.error = null;
 	}
 	private async window(chat?: string): Promise<void> {
 		const key = chat ?? "*";
-		const consumer = `${this.config.consumer ?? "yonder-wechat"}-${createHash("sha256")
-			.update(this.api.paths.data + key)
-			.digest("hex")
-			.slice(0, 16)}`;
+		const consumer = archiveConsumer(this.db!, this.api.paths.data, key, this.config.consumer);
 		const scope = chat ? ["--chat", chat] : [];
 		if (this.meta(`seed:${key}`) === undefined) {
 			if (!this.meta(`seed-intent:${key}`)) {

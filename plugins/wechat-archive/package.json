@@ -33,10 +33,17 @@
 				"wechat-archive_search",
 				"wechat-archive_message",
 				"wechat-archive_media",
-				"wechat-archive_policy"
+				"wechat-archive_policy",
+				"wechat-archive_watch_configure",
+				"wechat-archive_watch_inspect",
+				"wechat-archive_watch_control",
+				"wechat-archive_watch_test"
 			],
 			"triggers": [
 				"wechat-archive"
+			],
+			"hooks": [
+				"wechat-archive-watch"
 			]
 		}
 	}
