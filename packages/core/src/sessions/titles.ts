@@ -2,12 +2,12 @@ import type { Runtime } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 import type { Workbench } from "./workbench.js";
 
-const LIMIT = 12;
-
-/** First line of a model answer, stripped of quotes and trailing punctuation, cut to 12 characters. */
+/** 截取首行：含中文最多 10 字，否则最多 7 个单词。 */
 export function cleanTitle(text: string): string {
-	const line = text.split("\n").find((part) => part.trim()) ?? "";
-	return [...line.replace(/^["'“”‘’「『《\s#*]+|["'“”‘’」』》\s。.!！*]+$/g, "")].slice(0, LIMIT).join("").trim();
+	const line = (text.split("\n").find((part) => part.trim()) ?? "")
+		.replace(/^["'“”‘’「『《\s#*]+|["'“”‘’」』》\s。.!！*]+$/g, "")
+		.trim();
+	return /\p{Script=Han}/u.test(line) ? [...line].slice(0, 10).join("") : line.split(/\s+/).slice(0, 7).join(" ");
 }
 
 /**
@@ -36,7 +36,7 @@ export async function autoTitle({
 	const slash = ref.indexOf("/");
 	const model = runtime.models.getModel(ref.slice(0, slash), ref.slice(slash + 1));
 	if (!model) return undefined;
-	const prompt = `请为下面这段对话起一个标题，不超过 ${LIMIT} 个字，只输出标题本身，不加引号和标点。\n\n用户：${input.slice(0, 600)}\n\n回复：${reply.slice(0, 600)}`;
+	const prompt = `请为下面这段对话起一个标题，中文不超过 10 字，英文不超过 7 词，只输出标题本身，不加引号和标点。\n\n用户：${input.slice(0, 600)}\n\n回复：${reply.slice(0, 600)}`;
 	const message = await runtime.models
 		.streamSimple(
 			model,

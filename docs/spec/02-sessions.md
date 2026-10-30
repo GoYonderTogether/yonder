@@ -245,3 +245,7 @@ submit 的 wait:false（默认）返回本次实际 session.input 的 InputRecei
 ### 分叉与 Bot 会话视图（FIX-core-02）
 
 `sessions.fork` 只接受独立 task 会话，非 task 父会话返回 `invalid_params`（`Only standalone task sessions can be forked`）；分叉最多两层，父会话本身已有 `parent` 时再 fork 返回 `invalid_params`（`Fork depth is limited to two layers`）。子会话的 `parent` 记父会话 id，父会话保留。`bots.overview` 返回该 Bot 的全部会话，包括 `parent` 指向该 Bot main 会话的子会话，不再按有无 `parent` 过滤。`sessions.tree`、终端 `/tree` 与 `/fork` 的既有行为不变。
+
+### 任务标题
+
+任务有手工或模型标题时优先展示已存标题；未设置时从该任务首条非空输入取开头作为显示标题，不写入标题字段，旧任务同样适用。中文最多 10 字，英文最多 7 词。只有 `yonder.yaml` 显式设置 `autoTitle: true` 才在任务完成后沿用 cheap/simple/model 生成标题；默认不额外调用模型。生成时若主人已命名，不得覆盖。

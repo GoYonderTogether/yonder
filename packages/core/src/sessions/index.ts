@@ -17,6 +17,7 @@ import { createBranches } from "./branches.js";
 import { notifySession, recoverSessionInputs } from "./inputs.js";
 import { configureModel, modelList } from "./model-list.js";
 import { botOverview } from "./overview.js";
+import { sessionProjection } from "./projection.js";
 import { autoTitle } from "./titles.js";
 import { createWorkbench, type Forward } from "./workbench.js";
 
@@ -302,7 +303,7 @@ export function createSessions({
 				requestId: `event:${event.id}`,
 				attachments: data.attachments ?? [],
 			});
-			if (session.mode === "task" && run.status === "done")
+			if (config.autoTitle === true && session.mode === "task" && run.status === "done")
 				void autoTitle({
 					id: session.id,
 					input: data.text,
@@ -357,9 +358,7 @@ export function createSessions({
 		return { event: event.id, session: id };
 	}
 	const recover = () => recoverSessionInputs(store, runtime, submitTaskEvent, onReport);
-	async function withPolicy(row: SessionInfo): Promise<SessionInfo> {
-		return row.mode === "task" ? { ...row, close: (await runtime().sessionState(row.id))?.close ?? "run-end" } : row;
-	}
+	const { withPolicy, list } = sessionProjection(store, runtime, agents);
 
 	const notifyFrom = (id: string, input: { event: string; text: string }, from: string) =>
 		notifySession(store, runtime, closing, id, input, from);
@@ -378,7 +377,7 @@ export function createSessions({
 		activateTools: (id, names) => runtime().activateTools(id, names),
 		deactivateTools: (id, names) => runtime().deactivateTools(id, names),
 		notify: (id, input) => notifyFrom(id, input, "system:yonder"),
-		list: async (filter) => Promise.all((await store.sessions.list(filter)).map(withPolicy)),
+		list,
 		get: async (id) => {
 			const row = await store.sessions.get(id);
 			return row ? withPolicy(row) : undefined;

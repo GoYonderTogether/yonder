@@ -144,6 +144,7 @@ export const YonderSchema = object({
 	locale: Type.Optional(text),
 	timezone: Type.Optional(text),
 	defaultModel: Type.Optional(text),
+	autoTitle: Type.Optional(Type.Boolean()),
 	plugins: Type.Optional(Type.Array(object({ use: text, config: Type.Optional(Type.Unknown()) }))),
 	channels: Type.Optional(Type.Record(instanceId, providerConfig, { additionalProperties: false })),
 	credentials: Type.Optional(text),

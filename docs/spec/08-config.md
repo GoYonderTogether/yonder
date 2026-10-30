@@ -27,6 +27,7 @@ schema: 1
 locale: zh-CN                          # 可省略，默认中文；可显式覆盖为有效 Intl locale
 timezone: Asia/Shanghai                 # 可省略，默认北京时间；必须是有效 IANA 时区
 defaultModel: provider/modelId          # 全局默认模型（provider/modelId）；不写模型的预设与配置档都用它。代码不含任何模型常量
+autoTitle: false                       # 可省略；仅 true 时任务首轮完成后调用模型生成标题
 
 plugins:
   - use: "@yonder/plugin-channel-cli"

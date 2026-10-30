@@ -115,6 +115,21 @@ export async function createStore(
 			return result;
 		},
 		record: (input: EventInput, routes?: Route[]): Promise<YEvent> => events.append(newEvent(input, routes)),
+		async firstTaskInputs(sessions: string[]): Promise<Map<string, string>> {
+			if (!sessions.length) return new Map();
+			const rows = await db.all<{ session: string; text: string }>(
+				`SELECT session, text FROM (
+					SELECT json_extract(data, '$.session') AS session, json_extract(data, '$.text') AS text,
+					ROW_NUMBER() OVER (PARTITION BY json_extract(data, '$.session') ORDER BY id) AS rank
+					FROM y_events WHERE type = 'session.input' AND "from" IS NULL
+					AND json_extract(data, '$.session') IN (SELECT value FROM json_each(?))
+					AND json_type(data, '$.text') = 'text'
+					AND length(trim(json_extract(data, '$.text'), char(9) || char(10) || char(13) || ' ')) > 0
+				) WHERE rank = 1`,
+				JSON.stringify(sessions),
+			);
+			return new Map(rows.map((row) => [row.session, row.text]));
+		},
 		async runForInput(session: string, input: string): Promise<YEvent | undefined> {
 			const row = await db.get<EventRow>(
 				"SELECT * FROM y_events WHERE type = 'run.end' AND json_extract(data, '$.session') = ? AND EXISTS (SELECT 1 FROM json_each(json_extract(data, '$.inputs')) WHERE value = ?) ORDER BY id LIMIT 1",
