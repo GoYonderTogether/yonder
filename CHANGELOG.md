@@ -2,8 +2,15 @@
 
 ## [Unreleased]
 
+## [0.3.26103005] - 2026-10-30
+
 - 修正飞书凭据错误回显，提示空准入名单拒绝所有，并澄清渠道登录能力、静态检查和权限授权边界。
 - 修复微信会话过期后的重新登录和旧轮询竞态，允许同一联系人更新 Bot；更换联系人需显式确认并重新关联身份。
+
+### Fixed
+
+- recover wechat login after session expiry
+- clarify Feishu configuration and admission diagnostics
 
 ## [0.3.26103004] - 2026-10-30
 
