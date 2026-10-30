@@ -99,6 +99,12 @@ function NavigationProbe() {
 	return (
 		<>
 			<output data-testid="path">{location.pathname}</output>
+			<button type="button" onClick={() => navigate("/work/sub")}>
+				打开子任务
+			</button>
+			<button type="button" onClick={() => navigate("/work/s")}>
+				打开父任务
+			</button>
 			<button type="button" onClick={() => navigate(-1)}>
 				浏览器返回
 			</button>
@@ -289,5 +295,19 @@ it("旧深链点击当前会话进入设备规范路由，浏览器返回不覆�
 	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/s");
 	expect((container.querySelector('[aria-label="工作区域显示"]') as HTMLSelectElement).value).toBe("list");
 	state.device = undefined;
+	await act(() => root.unmount());
+});
+
+it("主动打开以前选过仅列表的另一会话时进入正文", async () => {
+	state.node = "saved-list-destination";
+	state.width = "desktop";
+	state.rail = "present";
+	const { container, root } = await render("/work/s");
+	await act(() => change(container.querySelector('[aria-label="工作区域显示"]')!, "list"));
+	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "打开子任务")!));
+	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/sub");
+	await act(() => click([...container.querySelectorAll("button")].find((b) => b.textContent === "打开父任务")!));
+	expect(container.querySelector('[data-testid="path"]')?.textContent).toBe("/work/s");
+	expect(container.textContent).toContain("正文");
 	await act(() => root.unmount());
 });
