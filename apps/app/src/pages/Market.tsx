@@ -54,6 +54,9 @@ export function Market() {
 	const qc = useQueryClient();
 	const listingsQuery = useQuery({ queryKey: ["market-listings"], queryFn: () => api.marketListings() });
 	const listings = listingsQuery.data ?? [];
+	const listingsReady = !listingsQuery.isPending && !listingsQuery.isError;
+	const staleSaved = listingsReady ? state.saved.filter((id) => !listings.some((l) => l.id === id)) : [];
+	const staleLiked = listingsReady ? state.liked.filter((id) => !listings.some((l) => l.id === id)) : [];
 	const { agent, agents, me } = usePersonalAgent();
 	const [handoff, setHandoff] = useState<string | null>(null);
 	const [handingOff, setHandingOff] = useState(false);
@@ -204,10 +207,10 @@ export function Market() {
 		setState((s) => ({ ...s, tasks: [task, ...s.tasks.filter((t) => t.id !== task.id)] }));
 		navigate("/me/market/needs?task=" + task.id, { replace: true });
 	};
-	const saveListing = async (listing: Listing) => {
+	const saveListing = async (listing: Listing): Promise<boolean> => {
 		if (listing.image.startsWith("data:")) {
 			toast("图片上传暂未开放，请选用内置封面", true);
-			return;
+			return false;
 		}
 		const input = {
 			category: listing.category,
@@ -230,12 +233,13 @@ export function Market() {
 			else await api.createListing({ ...input, kind: listing.kind });
 		} catch (error) {
 			toast(error instanceof Error ? error.message : "发布失败，请重试", true);
-			return;
+			return false;
 		}
 		await qc.invalidateQueries({ queryKey: ["market-listings"] });
 		setMineTab("published");
 		navigate("/me/market/posts", { replace: true });
 		toast(editing ? "修改已保存" : "已发布，可在「我 · 我的发布」管理");
+		return true;
 	};
 	const refresh = (id: string) => {
 		if (refreshing) return;
@@ -404,63 +408,99 @@ export function Market() {
 					)}
 					{(view === "discover" || collection) && (
 						<>
-							<div className="mk-feed-grid">
-								{shown.slice(0, visibleCount).map((l) => (
-									<ListingCard
-										key={l.id}
-										listing={l}
-										saved={state.saved.includes(l.id)}
-										liked={state.liked.includes(l.id)}
-										onOpen={() => openDetail(l)}
-										onSave={() => toggleSaved(l.id)}
-										onLike={() => toggleLiked(l.id)}
-									/>
-								))}
-							</div>
-							{!shown.length && (
-								<div className="mk-empty">
-									{collection ? view === "saved" ? <Bookmark size={30} /> : <Heart size={30} /> : <Search size={30} />}
-									<h3>
-										{collection
-											? view === "saved"
-												? "还没有收藏"
-												: "还没有点赞"
-											: listings.length === 0 && !searching
-												? "市场还没有帖子"
-												: "暂时没有找到"}
-									</h3>
-									<p>
-										{collection
-											? "逛到喜欢的帖子，随时留下来。"
-											: searching
-												? "换个关键词，或让 Bot 帮你把想法聊清楚。"
-												: "这里还没有帖子，发布第一篇吧。"}
-									</p>
-									{collection && (
-										<Link className="mk-button" to="/market">
-											去市场逛逛
-											<ArrowRight size={16} />
-										</Link>
-									)}
-									{view === "discover" && !searching && listings.length === 0 && (
-										<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
-											<Plus size={16} />
-											发布第一条
-										</button>
-									)}
+							{listingsQuery.isPending && (
+								<div className="mk-feed-grid" aria-busy="true">
+									<span className="sr-only">正在加载市场</span>
+									{["a", "b", "c", "d", "e", "f"].map((slot) => (
+										<div key={slot} className="mk-skeleton-card" />
+									))}
 								</div>
 							)}
-							{shown.length > visibleCount ? (
-								<button type="button" className="mk-load-more" onClick={() => setVisibleCount((n) => n + 12)}>
-									继续逛
-									<ArrowDown size={16} />
-								</button>
-							) : (
-								shown.length > 0 && (
-									<p className="mk-feed-end">
-										已经看到这里了<span>示例内容与浏览数据</span>
-									</p>
-								)
+							{listingsQuery.isError && (
+								<div className="mk-empty" role="alert">
+									<X size={30} />
+									<h3>加载失败</h3>
+									<p>没能连上市场服务，请检查网络后重试。</p>
+									<button type="button" className="mk-button mk-primary" onClick={() => void listingsQuery.refetch()}>
+										重试
+									</button>
+								</div>
+							)}
+							{collection && listingsReady && (view === "saved" ? staleSaved : staleLiked).length > 0 && (
+								<p className="mk-form-hint">
+									有 {(view === "saved" ? staleSaved : staleLiked).length} 条{view === "saved" ? "收藏" : "点赞"}
+									已失效（帖子已下架或删除），已从列表隐藏。
+								</p>
+							)}
+							{listingsReady && (
+								<>
+									<div className="mk-feed-grid">
+										{shown.slice(0, visibleCount).map((l) => (
+											<ListingCard
+												key={l.id}
+												listing={l}
+												saved={state.saved.includes(l.id)}
+												liked={state.liked.includes(l.id)}
+												onOpen={() => openDetail(l)}
+												onSave={() => toggleSaved(l.id)}
+												onLike={() => toggleLiked(l.id)}
+											/>
+										))}
+									</div>
+									{!shown.length && (
+										<div className="mk-empty">
+											{collection ? (
+												view === "saved" ? (
+													<Bookmark size={30} />
+												) : (
+													<Heart size={30} />
+												)
+											) : (
+												<Search size={30} />
+											)}
+											<h3>
+												{collection
+													? view === "saved"
+														? "还没有收藏"
+														: "还没有点赞"
+													: listings.length === 0 && !searching
+														? "市场还没有帖子"
+														: "暂时没有找到"}
+											</h3>
+											<p>
+												{collection
+													? "逛到喜欢的帖子，随时留下来。"
+													: searching
+														? "换个关键词，或让 Bot 帮你把想法聊清楚。"
+														: "这里还没有帖子，发布第一篇吧。"}
+											</p>
+											{collection && (
+												<Link className="mk-button" to="/market">
+													去市场逛逛
+													<ArrowRight size={16} />
+												</Link>
+											)}
+											{view === "discover" && !searching && listings.length === 0 && (
+												<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
+													<Plus size={16} />
+													发布第一条
+												</button>
+											)}
+										</div>
+									)}
+									{shown.length > visibleCount ? (
+										<button type="button" className="mk-load-more" onClick={() => setVisibleCount((n) => n + 12)}>
+											继续逛
+											<ArrowDown size={16} />
+										</button>
+									) : (
+										shown.length > 0 && (
+											<p className="mk-feed-end">
+												已经看到这里了<span>示例内容与浏览数据</span>
+											</p>
+										)
+									)}
+								</>
 							)}
 						</>
 					)}

@@ -6,25 +6,22 @@ import { appendMessage, defaultFilters, filterListings, normalizeInquiries, pric
 import { listingContext, needContext, readMarketDraft } from "../src/market/handoff.ts";
 import { findMatches, inferBrief } from "../src/market/matching.ts";
 
-test("legacy preview keeps edits, saved posts and tasks while adding new post kinds once", () => {
-	// 网页的初始状态不再带演示帖（JV2-J10-01）；这里用演示帖当旧缓存的种子，只测升级逻辑。
-	const initial = { ...initialMarketState(), listings: DEMO_LISTINGS.map((l) => ({ ...l, metricSource: "sample" })) };
+test("legacy preview keeps saved posts and tasks but drops cached listings", () => {
+	// 网页的初始状态不再带演示帖（JV2-J10-01），也不再往 localStorage 写帖子（B4）：
+	// 旧缓存里的 listings（含 base64 图片）在升级时丢弃，帖子只来自云端 api.marketListings。
+	const initial = initialMarketState();
 	const legacy = {
 		...initial,
 		version: undefined,
 		liked: undefined,
 		saved: ["camera-sony"],
-		listings: initial.listings
-			.filter((l) => l.kind !== "idea" && l.kind !== "job")
-			.map((l) => ({ ...l, title: "edited " + l.title })),
+		listings: DEMO_LISTINGS.map((l) => ({ ...l, metricSource: "sample" })),
 	};
 	const upgraded = upgradeMarketState(legacy, initial);
 	assert.deepEqual(upgraded.saved, ["camera-sony"]);
 	assert.deepEqual(upgraded.liked, []);
 	assert.equal(upgraded.tasks, legacy.tasks);
-	assert.ok(upgraded.listings.find((l) => l.id === "camera-sony").title.startsWith("edited"));
-	assert.equal(upgraded.listings.find((l) => l.id === "camera-sony").metricSource, "sample");
-	assert.equal(new Set(upgraded.listings.map((l) => l.id)).size, upgraded.listings.length);
+	assert.equal("listings" in upgraded, false);
 	assert.deepEqual(upgradeMarketState(upgraded, initial), upgraded);
 });
 

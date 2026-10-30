@@ -372,8 +372,7 @@ export function initialMarketState(): MarketState {
 	return {
 		version: 2,
 		liked: [],
-		// 帖子来自云端（api.marketListings）；演示帖只在 mock 构建里由 api/mock.ts 提供（JV2-J10-01）。
-		listings: [],
+		// 帖子只来自云端（api.marketListings）；演示帖只在 mock 构建里由 api/mock.ts 提供（JV2-J10-01）。
 		tasks: [],
 		saved: [],
 		compare: [],

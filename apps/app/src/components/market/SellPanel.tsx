@@ -6,14 +6,13 @@ import {
 	Check,
 	HandHelping,
 	Heart,
-	ImagePlus,
 	Lightbulb,
 	Package,
 	Pencil,
 	Plus,
 	Sparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "../../lib/cn";
 import { compactCount, kindLabel, priceLabel, viewCount } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
@@ -50,15 +49,13 @@ export function PublishDialog({
 	close: () => void;
 	editing?: Listing;
 	storageKey: string;
-	onPublish: (listing: Listing) => void;
+	onPublish: (listing: Listing) => Promise<boolean>;
 }) {
 	const [form, setForm] = useState(BLANK);
 	const [step, setStep] = useState(0);
 	const openEnded = form.kind === "idea" || form.kind === "job";
 	const [error, setError] = useState("");
-	const [reading, setReading] = useState(false);
-	const readerRef = useRef<FileReader | null>(null);
-	const uploadRef = useRef<HTMLInputElement>(null);
+	const [publishing, setPublishing] = useState(false);
 	const draftKey = `${storageKey}:publish:${editing?.id ?? "new"}`;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 草稿只在对话框打开时恢复一次，输入变化不应重跑
 	useEffect(() => {
@@ -88,8 +85,7 @@ export function PublishDialog({
 		);
 		setStep(draft?.step ?? (editing ? 1 : 0));
 		setError("");
-		setReading(false);
-		return () => readerRef.current?.abort();
+		setPublishing(false);
 	}, [open, draftKey]);
 	const persist = (next: typeof BLANK, nextStep = step) => {
 		setForm(next);
@@ -126,7 +122,8 @@ export function PublishDialog({
 		}
 		go(step + 1);
 	};
-	const publish = () => {
+	const publish = async () => {
+		if (publishing) return;
 		const listing: Listing = {
 			id: editing?.id ?? crypto.randomUUID(),
 			kind: form.kind,
@@ -157,32 +154,21 @@ export function PublishDialog({
 			metrics: editing?.metrics ?? { agentViews: 0, shortlists: 0, humanViews: 0, inquiries: 0 },
 			paused: editing?.paused,
 		};
+		setPublishing(true);
+		let published = false;
+		try {
+			published = await onPublish(listing);
+		} catch {
+			published = false;
+		}
+		setPublishing(false);
+		// 发布失败时保留草稿（B1）：只有服务端确认写入后才清掉本地草稿。
+		if (!published) return;
 		try {
 			localStorage.removeItem(draftKey);
 		} catch {
 			/* No stored draft. */
 		}
-		onPublish(listing);
-	};
-	const upload = (file?: File) => {
-		if (!file) return;
-		if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 1500000) {
-			setError("请选择 1.5MB 以内的 JPG、PNG 或 WebP 图片");
-			return;
-		}
-		readerRef.current?.abort();
-		const reader = new FileReader();
-		readerRef.current = reader;
-		setReading(true);
-		reader.onload = () => {
-			if (typeof reader.result === "string") update("image", reader.result);
-			setReading(false);
-		};
-		reader.onerror = () => {
-			setError("图片读取失败，请重试");
-			setReading(false);
-		};
-		reader.readAsDataURL(file);
 	};
 	return (
 		<MarketDialog
@@ -195,7 +181,7 @@ export function PublishDialog({
 				onSubmit={(e) => {
 					e.preventDefault();
 					if (step < 3) next();
-					else publish();
+					else void publish();
 				}}
 			>
 				<div className="mk-dialog-body">
@@ -247,20 +233,12 @@ export function PublishDialog({
 					{step === 1 && (
 						<>
 							<div className="mk-upload-row">
-								<button
-									type="button"
-									className="mk-upload-preview"
-									onClick={() => uploadRef.current?.click()}
-									aria-label="上传封面"
-								>
+								<div className="mk-upload-preview" aria-disabled="true">
 									<img src={form.image} alt="当前封面" />
-									<span>
-										<ImagePlus size={15} />
-										{reading ? "读取中" : "换封面"}
-									</span>
-								</button>
+									<span>图片上传暂未开放</span>
+								</div>
 								<div>
-									<p className="mk-form-hint">上传图片，或选择示意封面</p>
+									<p className="mk-form-hint">图片上传暂未开放，请选择下面的示意封面</p>
 									<div className="mk-cover-options">
 										{COVERS.map((c) => (
 											<button
@@ -275,19 +253,7 @@ export function PublishDialog({
 											</button>
 										))}
 									</div>
-									<small className="mk-form-hint">JPG、PNG、WebP · 最大 1.5MB</small>
 								</div>
-								<input
-									className="sr-only"
-									type="file"
-									ref={uploadRef}
-									accept="image/jpeg,image/png,image/webp"
-									onChange={(e) => {
-										upload(e.target.files?.[0]);
-										e.target.value = "";
-									}}
-									tabIndex={-1}
-								/>
 							</div>
 							<label className="mk-form-label">
 								标题
@@ -419,8 +385,8 @@ export function PublishDialog({
 					) : (
 						<span className="mk-form-hint">草稿自动保留</span>
 					)}
-					<button type="button" className="mk-button mk-primary" disabled={reading}>
-						{step === 3 ? (editing ? "保存修改" : "确认发布") : "下一步"}
+					<button type="submit" className="mk-button mk-primary" disabled={publishing}>
+						{publishing ? "发布中…" : step === 3 ? (editing ? "保存修改" : "确认发布") : "下一步"}
 						{step === 3 ? <Check size={16} /> : <ArrowRight size={16} />}
 					</button>
 				</div>

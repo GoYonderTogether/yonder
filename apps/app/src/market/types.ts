@@ -63,7 +63,6 @@ export interface Inquiry {
 
 export interface MarketState {
 	version: number;
-	listings: Listing[];
 	tasks: AgentTask[];
 	saved: string[];
 	liked: string[];

@@ -18,17 +18,24 @@ export const viewCount = (listing: Listing) => listing.metrics.agentViews + list
 export const compactCount = (value: number) =>
 	value >= 10000 ? `${(value / 10000).toFixed(1).replace(/\.0$/, "")}万` : value.toLocaleString();
 
-/** Extend the previous local preview without replacing personal edits or collections. */
-export function upgradeMarketState(saved: Partial<MarketState>, initial: MarketState): MarketState {
-	if (
-		!["listings", "tasks", "saved", "compare", "inquiries"].every((k) => Array.isArray(saved[k as keyof MarketState]))
-	)
+/**
+ * Extend the previous local preview without replacing personal edits or collections.
+ * 旧版本（v2 及以前）把整份帖子和 base64 图片一起写进 localStorage；帖子已改由云端接口提供，
+ * 读取旧状态时直接丢弃 `listings` 字段（B4），只保留收藏、点赞、需求、对比与咨询。
+ */
+export function upgradeMarketState(
+	saved: Partial<MarketState> & { listings?: unknown },
+	initial: MarketState,
+): MarketState {
+	if (!["tasks", "saved", "compare", "inquiries"].every((k) => Array.isArray(saved[k as keyof MarketState])))
 		return initial;
-	const seedIds = new Set(initial.listings.map((l) => l.id));
-	const listings = saved.listings!.map((l) => (seedIds.has(l.id) ? { ...l, metricSource: "sample" as const } : l));
-	if ((saved.version ?? 1) < 2) {
-		const ids = new Set(listings.map((l) => l.id));
-		listings.splice(2, 0, ...initial.listings.filter((l) => (l.kind === "idea" || l.kind === "job") && !ids.has(l.id)));
-	}
-	return { ...initial, ...saved, version: 2, listings, liked: Array.isArray(saved.liked) ? saved.liked : [] };
+	return {
+		...initial,
+		version: 2,
+		tasks: saved.tasks ?? initial.tasks,
+		saved: saved.saved ?? initial.saved,
+		liked: Array.isArray(saved.liked) ? saved.liked : [],
+		compare: saved.compare ?? initial.compare,
+		inquiries: saved.inquiries ?? initial.inquiries,
+	};
 }

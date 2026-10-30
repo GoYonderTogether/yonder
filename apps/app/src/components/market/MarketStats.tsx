@@ -9,7 +9,15 @@ import type { Listing } from "../../market/types";
 /** Personal market entries belong to the shared Me page, not the public feed. */
 export function MyMarket() {
 	const { state } = useMarketState();
-	const { data: listings = [] } = useQuery({ queryKey: ["market-listings"], queryFn: () => api.marketListings() });
+	const { data: listings = [], isPending } = useQuery({
+		queryKey: ["market-listings"],
+		queryFn: () => api.marketListings(),
+	});
+	// 收藏/点赞仍存在本机，但帖子来自服务端；只统计服务端还在的帖子（B3）。
+	const serverIds = new Set(listings.map((l) => l.id));
+	const savedCount = state.saved.filter((id) => serverIds.has(id)).length;
+	const likedCount = state.liked.filter((id) => serverIds.has(id)).length;
+	const staleSaved = isPending ? 0 : state.saved.length - savedCount;
 	const mine = listings.filter((l) => l.mine);
 	// 示例数据不当真实浏览数展示（UX-04）；有真实数据的发布才显示这一行
 	const real = mine.filter((l) => l.metricSource !== "sample");
@@ -18,8 +26,8 @@ export function MyMarket() {
 			<div className="grid grid-cols-4 gap-1 px-2 py-5">
 				{[
 					{ route: "posts", title: "发布", count: mine.length, icon: Package },
-					{ route: "saved", title: "收藏", count: state.saved.length, icon: Bookmark },
-					{ route: "liked", title: "点赞", count: state.liked.length, icon: Heart },
+					{ route: "saved", title: "收藏", count: savedCount, icon: Bookmark },
+					{ route: "liked", title: "点赞", count: likedCount, icon: Heart },
 					{ route: "needs", title: "需求", count: state.tasks.length, icon: Sparkles },
 				].map(({ route, title, count, icon: Icon }) => (
 					<Link
@@ -36,6 +44,11 @@ export function MyMarket() {
 					</Link>
 				))}
 			</div>
+			{staleSaved > 0 && (
+				<p className="border-t border-hairline px-5 py-3 text-caption text-muted">
+					有 {staleSaved} 条收藏已失效（帖子已下架或删除），不再计入。
+				</p>
+			)}
 			{real.length > 0 && (
 				<Link
 					to="/me/market/stats"

@@ -288,6 +288,26 @@
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 32px 20px;
 }
+.mk-skeleton-card {
+	aspect-ratio: 1.04;
+	border-radius: var(--radius-card);
+	background: var(--list);
+	animation: mk-skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mk-skeleton-pulse {
+	0%,
+	100% {
+		opacity: 0.55;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.mk-skeleton-card {
+		animation: none;
+	}
+}
 .mk-listing {
 	min-width: 0;
 }
