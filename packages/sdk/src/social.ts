@@ -9,6 +9,8 @@ export interface SocialPolicy {
 	minIntervalSeconds?: number;
 	signals?: Partial<Record<SocialSignal, "record" | "consider" | "respond">>;
 	keywords?: string[];
+	/** Free participation filters; exclude entries are literal words. */
+	triggers?: { regex?: string[]; exclude?: string[]; minLength?: number; maxLength?: number };
 	quiet?: { timezone: string; start: string; end: string };
 	foldedEverySeconds?: number;
 	judge?: { preset: string; maxCallsPerHour?: number };

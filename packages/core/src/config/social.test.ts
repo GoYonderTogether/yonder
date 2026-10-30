@@ -35,6 +35,38 @@ test("social configuration is optional and validates bounds and quiet time", () 
 	).toBe(5);
 });
 
+test("social trigger rules accept finite regex and literal exclusions, and reject invalid rules", () => {
+	const triggers = {
+		regex: ["^设计|界面$", "[()+?{}*]", "\\(参考\\)\\+", "文.稿"],
+		exclude: ["[广告", "(链接).*"],
+		minLength: 0,
+		maxLength: 2048,
+	};
+	expect(parse({ defaults: { group: { triggers } } }).social?.defaults?.group?.triggers).toEqual(triggers);
+	for (const triggers of [
+		{ regex: ["["] },
+		{ regex: ["(设计)"] },
+		{ regex: ["(?=设计)"] },
+		{ regex: ["a*"] },
+		{ regex: ["a+"] },
+		{ regex: ["a?"] },
+		{ regex: ["a{1,2}"] },
+		{ regex: ["a\\1"] },
+		{ regex: ["\\k<name>"] },
+		{ regex: ["x".repeat(257)] },
+		{ regex: Array(17).fill("设计") },
+		{ minLength: -1 },
+		{ maxLength: 1.5 },
+		{ minLength: 20, maxLength: 10 },
+		{ exclude: [""] },
+	]) {
+		expect(() => parse({ defaults: { group: { triggers } } }), JSON.stringify(triggers)).toThrow(/triggers/);
+		expect(() => parse({ conversations: { "conv:test:group": { triggers } } }), JSON.stringify(triggers)).toThrow(
+			/triggers/,
+		);
+	}
+});
+
 test("cross-file social references check agent, profile and channel scope", () => {
 	const agent = parse({
 		authorized: { accounts: ["acct:missing:123"] },

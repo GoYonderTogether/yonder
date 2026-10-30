@@ -44,6 +44,7 @@ export function registerSocialTools(api: PluginAPI) {
 				patch: Type.Object(
 					{
 						mode: Type.Optional(participation),
+						plugin: Type.Optional(Type.String({ pattern: "^[a-z][a-z0-9-]*$" })),
 						tags: Type.Optional(
 							Type.Object(
 								{ value: Type.Optional(tagValue), rhythm: Type.Optional(tagRhythm) },
@@ -54,6 +55,17 @@ export function registerSocialTools(api: PluginAPI) {
 						minIntervalSeconds: Type.Optional(Type.Number()),
 						signals: Type.Optional(Type.Record(Type.String(), Type.String())),
 						keywords: Type.Optional(Type.Array(text)),
+						triggers: Type.Optional(
+							Type.Object(
+								{
+									regex: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 256 }), { maxItems: 16 })),
+									exclude: Type.Optional(Type.Array(text)),
+									minLength: Type.Optional(Type.Integer({ minimum: 0 })),
+									maxLength: Type.Optional(Type.Integer({ minimum: 0 })),
+								},
+								{ additionalProperties: false },
+							),
+						),
 						quiet: Type.Optional(Type.Object({ timezone: text, start: text, end: text })),
 						foldedEverySeconds: Type.Optional(Type.Number()),
 						judge: Type.Optional(Type.Object({ preset: text, maxCallsPerHour: Type.Optional(Type.Number()) })),

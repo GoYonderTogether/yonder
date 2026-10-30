@@ -28,6 +28,7 @@ import {
 	type YonderConfig,
 	YonderSchema,
 } from "./schema.js";
+import { socialTriggerErrors } from "./social-schema.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
 export { tokenAmount } from "./defaults.js";
@@ -353,6 +354,8 @@ export function parseAgentConfig(text: string, file = "agent.yaml", expectedId?:
 	];
 	for (const [path, policy] of policies) {
 		if (!policy) continue;
+		for (const message of socialTriggerErrors(policy.triggers))
+			issues.push({ file, path: `${path}/triggers`, message });
 		if (
 			(path.endsWith("/dm") && policy.mode && !["direct", "record", "mute"].includes(policy.mode)) ||
 			((path.endsWith("/group") || path.endsWith("/channel")) && policy.mode === "direct")

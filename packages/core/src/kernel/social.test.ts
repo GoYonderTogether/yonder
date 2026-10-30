@@ -62,7 +62,10 @@ test("owner confirmation gates policy change, persists it, and records rejection
 			agent: "main",
 			conv: "conv:test:group",
 			expectedRevision: initial.revision,
-			patch: { mode: "mention" as const },
+			patch: {
+				mode: "mention" as const,
+				triggers: { regex: ["^设计|界面$"], exclude: ["广告"], minLength: 2, maxLength: 2048 },
+			},
 			reason: "owner request",
 		};
 		await service.update(request, ctx);
@@ -71,6 +74,9 @@ test("owner confirmation gates policy change, persists it, and records rejection
 		const confirmed = { ...ctx, event: { ...ctx.event!, id: "two", data: { kind: "dm", text: "确认" } } };
 		await service.update({ ...request, dryRun: false }, confirmed);
 		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.mode).toBe("mention");
+		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.triggers).toEqual(
+			request.patch.triggers,
+		);
 		expect(events.map((e) => (e.data as { result: string }).result)).toEqual(["rejected", "applied"]);
 		await expect(service.update({ ...request, dryRun: false }, confirmed)).rejects.toThrow();
 		await service.auditDenied(
@@ -86,6 +92,17 @@ test("owner confirmation gates policy change, persists it, and records rejection
 			revision: "unknown",
 			result: "rejected",
 		});
+		const saved = await readFile(file, "utf8");
+		const current = await service.inspect({ agent: "main", conv: request.conv }, ctx);
+		for (const triggers of [{ regex: ["["] }, { regex: ["(a+)+"] }, { minLength: 20, maxLength: 10 }]) {
+			for (const dryRun of [true, false]) {
+				await expect(
+					service.update({ ...request, expectedRevision: current.revision, patch: { triggers }, dryRun }, ctx),
+				).rejects.toMatchObject({ code: "invalid_params" });
+				expect(await readFile(file, "utf8")).toBe(saved);
+				expect((await service.inspect({ agent: "main", conv: request.conv }, ctx)).revision).toBe(current.revision);
+			}
+		}
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

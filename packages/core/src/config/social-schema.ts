@@ -25,6 +25,40 @@ export const socialTagsSchema = object({
 	value: Type.Optional(literals("high", "medium", "low")),
 	rhythm: Type.Optional(literals("low", "normal", "high")),
 });
+const socialTriggersSchema = object({
+	regex: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 256 }), { maxItems: 16 })),
+	exclude: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+	minLength: Type.Optional(Type.Integer({ minimum: 0 })),
+	maxLength: Type.Optional(Type.Integer({ minimum: 0 })),
+});
+/** Finite native regex syntax: no groups, repetition, or backreferences. */
+export function socialTriggerErrors(triggers?: Static<typeof socialTriggersSchema>): string[] {
+	const errors: string[] = [];
+	if (triggers?.minLength !== undefined && triggers.maxLength !== undefined && triggers.minLength > triggers.maxLength)
+		errors.push("triggers/minLength 不得大于 maxLength");
+	for (const [index, pattern] of (triggers?.regex ?? []).entries()) {
+		let characterClass = false;
+		let unsupported = false;
+		for (let i = 0; i < pattern.length; i++) {
+			const char = pattern[i];
+			if (char === "\\") {
+				const next = pattern[++i] ?? "";
+				if (!characterClass && (/[1-9]/.test(next) || (next === "k" && pattern[i + 1] === "<"))) unsupported = true;
+			} else if (char === "[") characterClass = true;
+			else if (char === "]") characterClass = false;
+			else if (!characterClass && /[()*+?{}]/.test(char ?? "")) unsupported = true;
+		}
+		if (unsupported) errors.push(`triggers/regex/${index}: 仅支持字面、字符类、.、^、$、|；禁止分组、量词和反向引用`);
+		else {
+			try {
+				new RegExp(pattern);
+			} catch {
+				errors.push(`triggers/regex/${index}: 无效正则表达式`);
+			}
+		}
+	}
+	return errors;
+}
 export const socialPolicySchema = object({
 	plugin: Type.Optional(Type.String({ pattern: "^[a-z0-9][a-z0-9-]*$" })),
 	tags: Type.Optional(socialTagsSchema),
@@ -43,6 +77,7 @@ export const socialPolicySchema = object({
 		object({ botMention: signal, ownerMention: signal, groupOwner: signal, everyone: signal, keyword: signal }),
 	),
 	keywords: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 64 }), { maxItems: 32 })),
+	triggers: Type.Optional(socialTriggersSchema),
 	quiet: Type.Optional(quietSchema),
 	foldedEverySeconds: number(300, 86400),
 	judge: Type.Optional(object({ preset: Type.String({ minLength: 1 }), maxCallsPerHour: number(1, 60) })),

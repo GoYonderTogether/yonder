@@ -6,7 +6,7 @@ import lockfile from "proper-lockfile";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
 import { type AgentConfig, parseAgentConfig, type YonderConfig } from "../config/index.js";
-import { socialDefaults, socialPolicySchema } from "../config/social-schema.js";
+import { socialDefaults, socialPolicySchema, socialTriggerErrors } from "../config/social-schema.js";
 import type { Principal } from "../control/method-types.js";
 
 type Inspect = Parameters<SocialAPI["inspect"]>[0];
@@ -171,6 +171,8 @@ export function createSocial(options: {
 			if (mappings !== undefined) throw new SocialError("invalid_params", "Mapping updates are not supported");
 			const errors = [...Errors(socialPolicySchema, patch)];
 			if (errors.length) throw new SocialError("invalid_params", errors.map((e) => e.message).join("; "));
+			const triggerErrors = socialTriggerErrors(patch.triggers);
+			if (triggerErrors.length) throw new SocialError("invalid_params", triggerErrors.join("; "));
 			if (patch.judge && patch.judge.preset !== before.judge?.preset)
 				throw new SocialError("forbidden", "Judge must already be configured", { reason: "scope_denied" });
 			after = effectivePolicy(disk.social?.defaults?.[kind], {
