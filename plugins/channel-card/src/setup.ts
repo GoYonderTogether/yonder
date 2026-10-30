@@ -79,6 +79,9 @@ export async function upgradeGroups(home: string, agentId?: string) {
 			const before = await readFile(file, "utf8");
 			doc.setIn(["profiles", "card-group"], {
 				capabilities: ["read"],
+				plugins: [],
+				skills: [],
+				contexts: ["peer-workspace"],
 				tools: { offer: tools, search: [] },
 				instructions: groupInstructions,
 			});

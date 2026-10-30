@@ -27,6 +27,9 @@ test("explicit card upgrade adds isolated read-only group route once and preserv
 		expect(binding).toMatchObject({ wake: "mention", reply: "none", busy: "steer", profile: "card-group" });
 		expect(agent.profiles["card-group"]).toMatchObject({
 			capabilities: ["read"],
+			plugins: [],
+			skills: [],
+			contexts: ["peer-workspace"],
 			tools: {
 				offer: expect.arrayContaining([
 					"conversation_read",
