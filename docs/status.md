@@ -370,10 +370,15 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 
 ## 平台新群默认参与与群管理（2026-10-30）
 
-目标契约见 16 末节；规范提交 105b69c、74a5aa6、475bb4e。平台成员事实驱动默认群参与、真实 @ 归一及可信群管理员已在 81593f0 实现；官方 init 模板与未配置 Bot 的身份触发词仍在同任务收尾，尚未据此宣称本机安装或真实模型群聊已验收。
+目标契约见 16 末节；规范提交 105b69c、74a5aa6、475bb4e。平台成员事实驱动默认群参与、真实 @ 归一及可信群管理员已在 81593f0 实现；48ed937 补官方 init 模板和真实名称/id 默认触发词；90096fb 修复常驻会话控制输入的模型请求竞态，8f8b706 保证运行时派生绑定不写回 agent.yaml。
 
 源码检查原始记录：159 项定向通过；追加管理员/路由等 30 项通过；全仓 2193 通过 / 1 失败 / 101 跳过，失败为另一条并行开发线的 packages/design/test/tokens.test.ts，未在本线修改；typecheck、build、lint 通过，lint 893 warnings / 30 infos。增量期间的测试入口错误和修正记录保留在验收报告，不用后续通过覆盖原始失败。
 
 平台服务已上线：后端 group-platform-20261030-ce509d0-r2，前端 0.3.26103016-group-5018422（在实际生产 a52c26c 基础仅合入本次社交 UI，未覆盖并行工作页）。014 迁移前已备份。云端源码 d25f345/ce509d0、回归 692f176、部署记录 c154aa0；完整后端真实 PG/Redis/HTTP/WS 135 通过 / 0 失败 / 0 跳过，精确发布快照 9 项通过，类型/构建通过。部署前发现运行源码与旧部署路径文档漂移，已按实际快照合入并记录 manifest，非整包覆盖。
 
-实际 IHG7CJ 群：真实主人 API 和页面改名/管理员任免已验证并恢复原名/原角色，主人仍 Zoran；四个本人 Bot 经主人授权公开 API 激活。非成员/管理员/群主移交权限有真实 HTTP 服务测试，不冒称已在另一位真人线上账号完成。模型群聊、零配置新群与小余首次入群尚待固定 runtime 版本安装后验收。证据目录：/Users/zoran/Documents/yonder-review-artifacts/group-default-20261030/；平台准确路径见 /Users/zoran/Documents/yonder-cloud/deploy/DEV.md。
+实际 IHG7CJ 群：真实主人 API 和页面改名/管理员任免已验证并恢复原名/原角色，主人仍 Zoran；四个本人 Bot 经主人授权公开 API 激活。非成员/管理员/群主移交权限有真实 HTTP 服务测试，不冒称已在另一位真人线上账号完成。本机已正式安装 0.3.26103020（ca53c711，父提交精确 8f8b706），ready 核验通过。真实原群 @贾维斯、无@称名大肥鱼、新小余群无 YAML 初始化、双 Bot 原生 mentions 串行与互补发言、56.8 秒零事件/运行/出站/token 增量均已验证；20 的停止/恢复控制各一条事实、零模型调用与零用量，恢复后 A5 真实回复成功，原群最终无暂停。19 的原始停止场景未覆盖在途取消且控制输入仍调用模型，已保留，不能用后续通过覆盖。额外在途取消现场观察仍在验收线收尾，不预先算通过。证据目录：/Users/zoran/Documents/yonder-review-artifacts/group-default-20261030/；平台准确路径见 /Users/zoran/Documents/yonder-cloud/deploy/DEV.md。
+
+
+本轮最终源码检查：900 控制修复后在 HEAD 8f8b706 执行默认全仓 npm test，2199 通过 / 0 失败 / 101 跳过（415 文件通过 / 62 跳过），46.26 秒；控制相关 60 通过 / 2 跳过，build/typecheck/全 lint 通过（895 warnings / 30 infos）。此前 48ed937 的并行 Transcript 全 lint 格式失败仍保留，不能合并为从未失败。实际发布期间 19 工作流最后合回 main 冲突、900 工作流推 tag 遭 GitHub 500、8f 重复发行保护均记在验收报告；实际安装 20 的来源已单独核实，不将失败工作流冒称绿色。
+
+平台最终后端为 group-platform-20261030-b3e4c79-r3，补匿名创建群在写入前 403，源与精确运行快照各 3 项真实 PG/HTTP 检查通过；保留 r2 的真实 senderName/senderIsBot/replayed 与 senderRole，前端仍为 group-5018422/base a52c26c。线上群管理 UI 已实际查看；匿名浏览器因扩展未允许未测、第二真人账号的线上越权/群主移交未测，相关权限有真实 HTTP 服务集成验证；双 Bot 点名为真实 API 场景，当前 UI 仍单选提及。完整真实场景、模型用量与原始失败见 /Users/zoran/Documents/yonder-review-artifacts/group-default-20261030/REPORT.md。小余验收群 WZGED7 保留，不删除历史。
