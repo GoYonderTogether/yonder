@@ -69,8 +69,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $Install 'versions') | Out-
 # npm installs workspace packages as junctions whose targets are absolute paths. Renaming the build directory
 # afterwards would leave every `node_modules/@yonder/*` junction dangling, so build in the final location and
 # treat the install record as the "done" marker: an interrupted build is rebuilt on the next run.
-$Record = Join-Path $Dir '.yonder-install.json'
-if (Test-Path $Record) {
+$RecordPath = Join-Path $Dir '.yonder-install.json'
+if (Test-Path $RecordPath) {
 	Say "已安装 $Tag，跳过构建"
 } else {
 	if (Test-Path $Dir) { Remove-Item -Recurse -Force $Dir }
@@ -100,13 +100,14 @@ if (Test-Path $Record) {
 	}
 	Pop-Location
 	# 不带 BOM：Windows PowerShell 5.1 的 Set-Content -Encoding utf8 会写入 BOM，Node 的 JSON.parse 会因此失败。
-	$record = @{
+	# PowerShell 变量名不区分大小写：这里不能用 $record，否则会覆盖上面的 $RecordPath。
+	$recordJson = @{
 		repository = $Repo
 		tag = $Tag
 		commit = $Commit
 		version = $Version
 	} | ConvertTo-Json
-	[System.IO.File]::WriteAllText($Record, $record, (New-Object System.Text.UTF8Encoding($false)))
+	[System.IO.File]::WriteAllText($RecordPath, $recordJson, (New-Object System.Text.UTF8Encoding($false)))
 	Remove-Item -Recurse -Force (Join-Path $Dir '.git')
 	Say "已构建 $Tag（$Commit）"
 }
