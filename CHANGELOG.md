@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26103006] - 2026-10-30
+
 - 修复部分 macOS 系统上服务 Helper 启动时崩溃的问题。
+
+### Fixed
+
+- macos：avoid unavailable Date comparison in helper
 
 ## [0.3.26103005] - 2026-10-30
 
