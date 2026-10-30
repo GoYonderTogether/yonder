@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import { execFile, spawn } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { execFile } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { createConnection } from "node:net";
@@ -34,7 +33,6 @@ import {
 	releaseInfo,
 	requestControl,
 	serveControl,
-	setAccessTokenHash,
 	setNamedCredential,
 	updateRelease,
 } from "@yonder/core";
@@ -49,6 +47,7 @@ import { formatMigration, rollbackMigration } from "./migrate-rollback.js";
 import { plainTaskChat } from "./plain-chat.js";
 import { startStatusSurface } from "./status-surface.js";
 import type { ChatTarget } from "./terminal.js";
+import { uiCommand } from "./ui-command.js";
 
 const usage = `Usage: yonder <command> [options]
 
@@ -849,34 +848,7 @@ async function run(args: string[]): Promise<number> {
 		const rotate = rest[0] === "token" && rest[1] === "--rotate" && rest.length === 2;
 		const open = rest.length === 1 && rest[0] === "--open";
 		if (!rotate && !open && rest.length) throw new UsageError("Usage: yonder ui [--open] | yonder ui token --rotate");
-		const settings = await gatewaySettings(home);
-		if (rotate) {
-			// Only the hash is stored; the token is shown once, here.
-			const token = randomBytes(32).toString("base64url");
-			await setAccessTokenHash(home, `sha256:${createHash("sha256").update(token).digest("hex")}`);
-			const origin = settings.publicOrigins[0] ?? "";
-			output(
-				{
-					token,
-					login: `${origin}${settings.basePath}login`,
-					note: "shown once; the old token is now invalid. Paste it on the login page or POST it as JSON {token} to login; never put it in a URL (only one-time tickets work there)",
-				},
-				options.json,
-			);
-			return 0;
-		}
-		const ticket = (await requestControl(home, { method: "gateway.ticket" })) as {
-			token: string;
-			port: number;
-			basePath: string;
-			expiresAt: string;
-		};
-		const url = `http://127.0.0.1:${ticket.port}/?token=${ticket.token}`;
-		if (open) {
-			const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
-			spawn(opener, [url], { stdio: "ignore", detached: true }).unref();
-		}
-		output(options.json ? { url, expiresAt: ticket.expiresAt } : url, options.json);
+		output(await uiCommand(home, rotate, open, options.json), options.json);
 		return 0;
 	}
 	if (command === "stop") {

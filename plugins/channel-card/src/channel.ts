@@ -13,8 +13,8 @@ import type {
 	Ref,
 } from "@yonder/sdk";
 import WebSocket from "ws";
-import { lateNote, type Message, socialMentions } from "./message.js";
-import { WorkBridge } from "./work.js";
+import { lateNote, socialMentions, validateDeviceMessage } from "./message.js";
+import { linkWorkOwner, openWorkBridge, parseDeviceFrame, type WorkBridge } from "./work.js";
 
 export interface Config {
 	endpoint?: string;
@@ -152,30 +152,10 @@ export class CardChannel implements Channel {
 	 * 账号取自设备令牌可见的 /api/session actor（主人本人），不取消息里的 senderId，陌生账号无法借道成为 owner。
 	 */
 	private async linkOwner(agents: Array<{ id: string; owner?: Ref }>): Promise<void> {
-		const session = (await this.request("/api/session")) as
-			| { actor?: { id?: unknown }; deviceId?: unknown }
-			| undefined;
-		const actor = session?.actor?.id;
-		if (typeof actor !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(actor)) throw new Error("Invalid card session");
-		this.deviceId = typeof session?.deviceId === "string" ? session.deviceId : undefined;
-		const owners: typeof this.owners = [];
-		for (const agent of agents) {
-			if (!agent.owner) continue;
-			const account = `acct:${this.id}:${agent.id}:${actor}` as Ref;
-			// 账号已存在也要看有没有 person：旧版只判存在，历史账号的 person 一直是 NULL，fromOwner 恒为 false（FIX-bots）。
-			const existing = (await this.api.identity.account(account))?.person;
-			if (existing) {
-				if (existing === agent.owner) owners.push({ agent: agent.id, account, actor });
-				continue;
-			}
-			if (!(await this.api.identity.person(agent.owner))) {
-				this.warn(`Owner ${agent.owner} is unknown; ${agent.id} keeps its card account unlinked`);
-				continue;
-			}
-			await this.api.identity.link(account, agent.owner);
-			owners.push({ agent: agent.id, account, actor });
-		}
-		this.owners = owners;
+		const session = (await this.request("/api/session")) as { actor?: { id?: unknown }; deviceId?: unknown };
+		const linked = await linkWorkOwner(this.id, this.api, agents, session, (message) => this.warn(message));
+		this.owners = linked.owners;
+		this.deviceId = linked.deviceId;
 	}
 	async syncAgents(): Promise<void> {
 		if (!this.token || this.stopped) return;
@@ -329,19 +309,10 @@ export class CardChannel implements Channel {
 		let work: WorkBridge | undefined;
 		socket.once("open", async () => {
 			this.backoff = 1000;
-			const actor = this.owners[0]?.actor;
-			const allowed =
-				actor &&
-				this.deviceId &&
-				this.owners.length === this.mappings.size &&
-				this.owners.every((owner) => owner.actor === actor) &&
-				this.io?.control &&
-				(await this.io.control.ready(actor));
+			work = await openWorkBridge(this.io?.control, this.owners, this.mappings.size, this.deviceId, (frame) => {
+				if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
+			});
 			if (socket.readyState !== WebSocket.OPEN) return;
-			if (allowed && this.io?.control && actor)
-				work = new WorkBridge(this.io.control, actor, this.deviceId!, (frame) => {
-					if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
-				});
 			socket.send(JSON.stringify({ type: "hello", ...(work ? { workProtocol: 1 } : {}) }));
 			if (this.welcome) {
 				this.welcome = false;
@@ -350,13 +321,8 @@ export class CardChannel implements Channel {
 		});
 		let inputs = Promise.resolve();
 		socket.on("message", (raw) => {
-			let data: Record<string, unknown>;
-			try {
-				data = JSON.parse(raw.toString());
-				if (!data || typeof data !== "object") return;
-			} catch {
-				return;
-			}
+			const data = parseDeviceFrame(raw);
+			if (!data) return;
 			if (typeof data.type === "string" && data.type.startsWith("work.")) {
 				work?.receive(data);
 				return;
@@ -407,20 +373,7 @@ export class CardChannel implements Channel {
 		if (socket.readyState !== WebSocket.OPEN || this.stopped) return;
 		const agent = [...this.mappings].find(([, platform]) => platform === data.agentId)?.[0];
 		if (!agent) return;
-		const m = data.message as Message;
-		if (
-			typeof data.convId !== "string" ||
-			!this.kinds.includes(String(data.convKind)) ||
-			typeof data.mentioned !== "boolean" ||
-			!m ||
-			typeof m.id !== "string" ||
-			typeof m.senderId !== "string" ||
-			!Number.isInteger(m.seq) ||
-			m.seq < 1 ||
-			!Number.isFinite(m.createdAt) ||
-			!m.content
-		)
-			throw new Error("Invalid device message");
+		const m = validateDeviceMessage(data, this.kinds);
 		const content = m.content;
 		const attachments: Attachment[] = [];
 		if (content.type === "image" || content.type === "file") {
@@ -444,7 +397,7 @@ export class CardChannel implements Channel {
 				target: agent,
 				mentioned: data.mentioned,
 				// G-10：设备帧可选带平台原生 @ 元数据，缺失时回落到帧里的 mentioned（服务端已按文本包含回落）。
-				social: socialMentions(data.social, data.mentioned),
+				social: socialMentions(data.social, data.mentioned === true),
 				text,
 				msgId: m.id,
 				createdAt: String(m.createdAt),

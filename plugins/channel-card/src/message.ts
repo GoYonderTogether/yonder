@@ -40,3 +40,21 @@ export function socialMentions(value: unknown, mentioned: boolean): { mentions: 
 			: undefined;
 	return { mentions: { bot: typeof mentions?.bot === "boolean" ? mentions.bot : mentioned } };
 }
+
+export function validateDeviceMessage(data: Record<string, unknown>, kinds: string[]): Message {
+	const m = data.message as Message;
+	if (
+		typeof data.convId !== "string" ||
+		!kinds.includes(String(data.convKind)) ||
+		typeof data.mentioned !== "boolean" ||
+		!m ||
+		typeof m.id !== "string" ||
+		typeof m.senderId !== "string" ||
+		!Number.isInteger(m.seq) ||
+		m.seq < 1 ||
+		!Number.isFinite(m.createdAt) ||
+		!m.content
+	)
+		throw new Error("Invalid device message");
+	return m;
+}

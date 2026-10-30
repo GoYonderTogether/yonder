@@ -1,4 +1,4 @@
-import type { WorkControl } from "@yonder/sdk";
+import type { PluginAPI, Ref, WorkControl } from "@yonder/sdk";
 
 /** One Card socket owns every request and subscription; it never replays a mutation. */
 export class WorkBridge {
@@ -89,5 +89,61 @@ export class WorkBridge {
 			this.channels.get(data.channelId)?.abort.abort();
 			this.channels.delete(data.channelId);
 		}
+	}
+}
+
+export async function linkWorkOwner(
+	instance: string,
+	api: PluginAPI,
+	agents: Array<{ id: string; owner?: Ref }>,
+	session: { actor?: { id?: unknown }; deviceId?: unknown },
+	warn: (message: string) => void,
+) {
+	const actor = session?.actor?.id;
+	if (typeof actor !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(actor)) throw new Error("Invalid card session");
+	const owners: Array<{ agent: string; account: Ref; actor: string }> = [];
+	for (const agent of agents) {
+		if (!agent.owner) continue;
+		const account = `acct:${instance}:${agent.id}:${actor}` as Ref;
+		const existing = (await api.identity.account(account))?.person;
+		if (existing) {
+			if (existing === agent.owner) owners.push({ agent: agent.id, account, actor });
+			continue;
+		}
+		if (!(await api.identity.person(agent.owner))) {
+			warn(`Owner ${agent.owner} is unknown; ${agent.id} keeps its card account unlinked`);
+			continue;
+		}
+		await api.identity.link(account, agent.owner);
+		owners.push({ agent: agent.id, account, actor });
+	}
+	return { owners, deviceId: typeof session?.deviceId === "string" ? session.deviceId : undefined };
+}
+
+export async function openWorkBridge(
+	control: WorkControl | undefined,
+	owners: Array<{ actor: string }>,
+	count: number,
+	deviceId: string | undefined,
+	send: (value: unknown) => void,
+) {
+	const actor = owners[0]?.actor;
+	if (
+		!actor ||
+		!deviceId ||
+		owners.length !== count ||
+		!owners.every((owner) => owner.actor === actor) ||
+		!control ||
+		!(await control.ready(actor))
+	)
+		return;
+	return new WorkBridge(control, actor, deviceId, send);
+}
+export function parseDeviceFrame(raw: { toString(): string }): Record<string, unknown> | undefined {
+	try {
+		const data: unknown = JSON.parse(raw.toString());
+		return data && typeof data === "object" ? (data as Record<string, unknown>) : undefined;
+	} catch {
+		return;
 	}
 }
