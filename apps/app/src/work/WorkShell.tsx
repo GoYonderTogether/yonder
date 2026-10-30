@@ -229,12 +229,12 @@ export function WorkShell({
 			<NotifyHost />
 			<div className="flex min-h-0 flex-1 gap-1.5 p-1.5 pt-0">
 				{paneMode === "auto" && panes.left && (
-					<aside className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-[16px] bg-list shadow-soft">
+					<aside className="flex w-[320px] shrink-0 flex-col overflow-hidden rounded-card bg-list shadow-soft">
 						{sideContent}
 					</aside>
 				)}
 				<div
-					className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[16px] bg-ground shadow-soft"
+					className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-card bg-ground shadow-soft"
 					onFocusCapture={(event) => {
 						if (
 							breakpoint === "phone" &&
@@ -325,7 +325,7 @@ export function WorkShell({
 					{/* 平板：列表按需叠成覆盖层，打开会话或功能页即收起 */}
 					{paneMode === "auto" && frame.side === "overlay" && leftOpen && (
 						<div
-							className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-[16px] bg-list shadow-float"
+							className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-card bg-list shadow-float"
 							data-testid="list-overlay"
 						>
 							{sideContent}
