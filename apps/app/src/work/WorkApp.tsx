@@ -132,6 +132,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 									);
 								}}
 							>
+								<DropdownMenu.ItemIndicator className="mr-2">✓</DropdownMenu.ItemIndicator>
 								{device.name}
 								{device.online ? "" : "（离线）"}
 							</DropdownMenu.RadioItem>
