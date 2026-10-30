@@ -1,6 +1,8 @@
+import type { AgentsAPI } from "./agent-bindings.js";
 import type { Attachment } from "./messages.js";
 import type { WorkControl } from "./work-control.js";
 
+export type * from "./agent-bindings.js";
 export type * from "./messages.js";
 export type { WorkControl } from "./work-control.js";
 
@@ -426,28 +428,10 @@ export interface PermissionsAPI {
 	list(ctx: ToolContext): Promise<Array<Pick<PermissionProvider, "id" | "scope" | "kinds">>>;
 	invoke(request: PermissionRequest, ctx: ToolContext): Promise<PermissionResponse>;
 }
-export interface AgentBindingRequest {
-	id: string;
-	eventType: string;
-	conv: Ref;
-	profile: string;
-	notification: { to: Ref | "owner"; via: string };
-}
-export interface AgentBindingRoute {
-	binding: string;
-	profile: string;
-	conv: Ref;
-	notification: { to: Ref; via: string };
-	owner: ExecutionOwner;
-}
 export interface PluginAPI extends PluginViewsAPI {
 	social?: SocialAPI;
 	permissions: PermissionsAPI;
-	agents: {
-		list(): Promise<{ id: string; name: string; avatarUrl?: string }[]>;
-		configureBinding(request: AgentBindingRequest, ctx: ToolContext): Promise<AgentBindingRoute>;
-		inspectBinding(request: AgentBindingRequest, owner: ExecutionOwner): Promise<AgentBindingRoute>;
-	};
+	agents: AgentsAPI;
 	readonly version: string;
 	readonly locale: string;
 	readonly timezone: string;

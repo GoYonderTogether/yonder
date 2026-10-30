@@ -1,8 +1,21 @@
 import { isDeepStrictEqual } from "node:util";
-import type { AgentBindingRequest, AgentBindingRoute, Capability, ExecutionOwner, ToolContext } from "@yonder/sdk";
+import type {
+	AgentBindingRequest,
+	AgentBindingRoute,
+	Capability,
+	ExecutionOwner,
+	IdentityAPI,
+	Preset,
+	ToolContext,
+} from "@yonder/sdk";
 import { type AgentConfig, type Binding, resolveProfile, type YonderConfig } from "../config/index.js";
 import { consoleAllowed } from "../delivery/console.js";
+import type { DeliveryService } from "../delivery/index.js";
+import type { LoadedPlugins } from "../plugins/index.js";
+import type { Runtime } from "../runtime/index.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
+import { type ManagementState, manageObjects, type ObjectRequest } from "./management.js";
+import { filesFor } from "./workspace.js";
 
 /** Private plugin inputs still enter resident Agents through ordinary, persisted bindings. */
 export function createPluginBindings(options: {
@@ -122,4 +135,63 @@ export function createPluginBindings(options: {
 			return route;
 		},
 	};
+}
+
+/** Kernel wiring for the same config writer used by control-plane management. */
+export function pluginAgentManagement(options: {
+	home: string;
+	config: YonderConfig;
+	agents: Map<string, AgentConfig>;
+	plugins: LoadedPlugins;
+	presets: Map<string, Preset>;
+	validate: ManagementState["validate"];
+	scaffold: ManagementState["scaffold"];
+	reload: () => Promise<void>;
+	runtime: () => Runtime;
+	resolve: (owner: ExecutionOwner) => Promise<RuntimeSessionConfig>;
+	identity: IdentityAPI;
+	delivery: DeliveryService;
+}) {
+	const { home, config, agents, plugins, runtime, resolve, identity, delivery } = options;
+	const state: ManagementState = {
+		config,
+		agents,
+		get presets() {
+			return new Map([...plugins.presets, ...options.presets]);
+		},
+		files: (candidate, id) => filesFor(home, candidate, plugins, id),
+		validate: options.validate,
+		scaffold: options.scaffold,
+		reload: options.reload,
+	};
+	let queue: Promise<unknown> = Promise.resolve();
+	const manage = (request: ObjectRequest) => {
+		const result = queue.then(() => manageObjects(home, request, state));
+		queue = result.catch(() => {});
+		return result;
+	};
+	const bindings = createPluginBindings({
+		config: state.config,
+		agents: state.agents,
+		assert: (ctx) => runtime().assertToolContext(ctx),
+		resolve,
+		owner: async (agent, account) => (await identity.relation(agent, account)) === "owner",
+		target: async (request, agent, config) => (await delivery.resolveTarget(request, agent, config)).target,
+		hasSend: (config) =>
+			runtime()
+				.describeTools(config)
+				.some((tool) => tool.name === "message_send" && ["offer", "search"].includes(tool.exposure)),
+		update: (id, binding) =>
+			manage({
+				action: "agents.update",
+				id,
+				value: {
+					bindings: [
+						...state.agents.get(id)!.bindings.filter((item) => item.id !== "@console" && item.id !== binding.id),
+						binding,
+					],
+				},
+			}),
+	});
+	return { bindings, manage };
 }
