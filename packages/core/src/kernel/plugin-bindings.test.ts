@@ -76,6 +76,20 @@ test("private plugin bindings validate owner routes, remain scoped and detect re
 		wake: "run",
 	});
 	expect(await service.inspectBinding(request, "archive", owner)).toEqual(route);
+	const peer: AgentConfig = { ...agent, id: "peer", bindings: [] };
+	agents.set(peer.id, peer);
+	agent.bindings.push({
+		id: "peer",
+		match: { channel: "agent", kind: ["agent", "parent-request"], from: "acct:agent:peer" },
+		session: "main",
+		profile: "owner",
+	});
+	expect(await service.inspectBinding(request, "archive", owner)).toEqual(route);
+	peer.owner = "person:another";
+	await expect(service.inspectBinding(request, "archive", owner)).rejects.toThrow("group or visitor");
+	peer.owner = agent.owner;
+	agent.bindings.pop();
+
 	await expect(service.inspectBinding(request, "archive", { ...owner, agent: "other" })).rejects.toThrow(
 		"does not match",
 	);

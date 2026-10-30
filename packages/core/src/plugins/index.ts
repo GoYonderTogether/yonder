@@ -226,7 +226,7 @@ export async function loadPlugins(
 				},
 			},
 			agents: {
-				list: services.agents.list,
+				list: () => services.agents.list(),
 				configureBinding: (request, ctx) => {
 					denySetupWrite("agents.configureBinding");
 					return services.agents.configureBinding(request, manifest.id, ctx);
