@@ -131,39 +131,53 @@ function Subtasks({ v, session }: { v: SessionView; session: string }) {
 	const all = useSessions();
 	// subtask.updated 到位前，用 sessions.list 里 parent 指向本会话的子会话（真实数据）
 	const kids = (all.data ?? []).filter((s) => s.parent === session);
-	if (v.subtasks.length)
-		return (
-			<ul className="flex flex-col gap-1">
-				{v.subtasks.map((r) => (
-					<li key={r.id} className="flex items-center gap-2 text-small">
-						<Link
-							to={workPath({ session: r.session })}
-							className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
-						>
-							{r.label}
-						</Link>
-						<span className="shrink-0 text-caption text-faint">{STATE[r.state] ?? r.state}</span>
-					</li>
-				))}
-			</ul>
-		);
-	if (kids.length)
-		return (
-			<ul className="flex flex-col gap-1">
-				{kids.map((s) => (
-					<li key={s.id} className="flex items-center gap-2 text-small">
-						<Link
-							to={workPath({ session: s.id })}
-							className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
-						>
-							{titleOf(s)}
-						</Link>
-						<span className="shrink-0 text-caption text-faint">{s.closed ? "已结束" : "进行中"}</span>
-					</li>
-				))}
-			</ul>
-		);
-	return <Empty t="没有委派的子 Bot" />;
+	const rows = v.subtasks.length
+		? v.subtasks.map((row) => {
+				const child = kids.find((item) => item.id === row.session);
+				return {
+					id: row.id,
+					session: row.session,
+					label: row.label,
+					status: STATE[row.state] ?? row.state,
+					done: ["done", "error", "aborted"].includes(row.state) || !!child?.closed || !!child?.archivedAt,
+				};
+			})
+		: kids.map((child) => ({
+				id: child.id,
+				session: child.id,
+				label: titleOf(child),
+				status: child.closed || child.archivedAt ? "已结束" : "进行中",
+				done: !!child.closed || !!child.archivedAt,
+			}));
+	if (!rows.length) return <Empty t="没有委派的子 Bot" />;
+	const list = (items: typeof rows) => (
+		<ul className="flex flex-col gap-1">
+			{items.map((row) => (
+				<li key={row.id} className="flex items-center gap-2 text-small">
+					<Link
+						to={workPath({ session: row.session })}
+						className="min-w-0 flex-1 truncate underline-offset-2 hover:underline"
+					>
+						{row.label}
+					</Link>
+					<span className="shrink-0 text-caption text-faint">{row.status}</span>
+				</li>
+			))}
+		</ul>
+	);
+	const active = rows.filter((row) => !row.done),
+		done = rows.filter((row) => row.done);
+	return (
+		<>
+			{list(active)}
+			{done.length > 0 && (
+				<details>
+					<summary className="cursor-pointer py-1 text-caption text-muted">已完成（{done.length}）</summary>
+					{list(done)}
+				</details>
+			)}
+		</>
+	);
 }
 
 function Context({ v }: { v: SessionView }) {
