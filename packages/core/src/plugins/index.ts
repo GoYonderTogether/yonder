@@ -84,7 +84,7 @@ export interface LoadedPlugins {
 		/** package.json 标了 `deprecated: true`；doctor 据此提示 `yonder migrate` 的迁移路径。 */
 		deprecated?: boolean;
 	}>;
-	start(io: ChannelIO): Promise<void>;
+	start(io: ChannelIO, workControl?: (id: string) => NonNullable<ChannelIO["control"]>): Promise<void>;
 	stop(): Promise<void>;
 	observe(event: YEvent): Promise<void>;
 }
@@ -447,7 +447,7 @@ export async function loadPlugins(
 		skillDirs,
 		skillSources,
 		info,
-		async start(io) {
+		async start(io, workControl) {
 			try {
 				for (const [id, channel] of channels) {
 					if (id === CONSOLE) continue;
@@ -455,6 +455,9 @@ export async function loadPlugins(
 					await channel.start({
 						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),
 						ask: (event) => io.ask(pluginEvent(owner, event, id, channel.multiAgent)),
+						...(owner === "channel-card" && config.channels![id]!.type === "card" && workControl
+							? { control: workControl(id) }
+							: {}),
 						ownerConnected: ({ account, conv, agent }) => {
 							if (
 								!account.startsWith(`acct:${id}:`) ||

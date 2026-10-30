@@ -1,9 +1,10 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Preset } from "@yonder/sdk";
+import type { Preset, WorkControl } from "@yonder/sdk";
 import { shippedChannelsFor } from "../bundles.js";
 import { type AgentConfig, loadPresets, loadYonderConfig, watchConfig, type YonderConfig } from "../config/index.js";
 import { lockHome } from "../control/home-lock.js";
+import { guardedWorkStream, verifyWorkOwner } from "../control/work-stream.js";
 import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import { createPermissions } from "../permissions.js";
@@ -55,6 +56,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
 	let stopDelivery: (() => Promise<void>) | undefined;
 	let closed = false;
+	let workHost: ((id: string) => WorkControl) | undefined;
 	const close = async () => {
 		if (closed) return;
 		closed = true;
@@ -519,12 +521,51 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		const pendingInputs = [...(await router.recover()), ...(await sessions.recover())];
 		runtime.resume();
 		for (const submit of pendingInputs) submit();
-		await loaded.start(router);
+		const verified = (instance: string, actor: string) =>
+			verifyWorkOwner(
+				instance,
+				actor,
+				[...agents.values()].filter((agent) => !agent.archivedAt),
+				(account) => store.identity().account(account),
+			);
+		await loaded.start(router, (instance) => ({
+			ready: async (actor) => {
+				if (!workHost) return false;
+				try {
+					await verified(instance, actor);
+					return true;
+				} catch {
+					return false;
+				}
+			},
+			async request(actor, method, params, signal) {
+				await verified(instance, actor);
+				signal.throwIfAborted();
+				if (!workHost) throw new Error("unavailable");
+				return workHost(instance).request(actor, method, params, signal);
+			},
+			async open(actor, send, signal) {
+				await verified(instance, actor);
+				signal.throwIfAborted();
+				if (!workHost) throw new Error("unavailable");
+				const host = workHost(instance);
+				return guardedWorkStream(
+					() => verified(instance, actor),
+					(emit, inner) => host.open(actor, emit, inner),
+					send,
+					signal,
+				);
+			},
+		}));
 		delivery.start();
 		outbound.start();
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		let managementQueue: Promise<unknown> = Promise.resolve();
 		return {
+			setWorkHost(host: ((id: string) => WorkControl) | undefined) {
+				workHost = host;
+				for (const channel of loaded.channels.values()) channel.controlReady?.();
+			},
 			social,
 			notifications,
 			observeNotifications: router.observeNotifications,

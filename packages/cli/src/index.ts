@@ -38,7 +38,7 @@ import {
 	setNamedCredential,
 	updateRelease,
 } from "@yonder/core";
-import { startGateway } from "@yonder/gateway";
+import { startGateway, workControl } from "@yonder/gateway";
 import type { EventQuery, OutputPart, SessionInfo } from "@yonder/sdk";
 import { installPower, setAwake, startAwake } from "./awake.js";
 import { loginChannel } from "./channels-login.js";
@@ -821,6 +821,7 @@ async function run(args: string[]): Promise<number> {
 				awakeStatus: () => awake.status(),
 				stop: () => void stop(),
 			};
+			kernel.setWorkHost((id) => workControl(host, id));
 			control = await serveControl(home, controlHandler(host));
 			if (!rest.includes("--no-gateway") && (await gatewaySettings(home)).enabled) {
 				gateway = await startGateway({ home, host });

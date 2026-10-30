@@ -239,6 +239,7 @@ export interface Channel {
 		replace?: boolean,
 	): Promise<ChannelLoginResult>;
 	start(io: ChannelIO): Promise<void>;
+	controlReady?(): void;
 	stop(signal?: AbortSignal): Promise<void>;
 	send(target: Ref, msg: OutMessage, signal?: AbortSignal): Promise<Delivery>;
 	/** Optional native edit; unknown effects must not be retried. */
@@ -255,7 +256,13 @@ export interface ChannelLoginResult {
 	person?: Ref | null;
 	contextAvailable?: boolean;
 }
+export interface WorkControl {
+	ready(ownerId: string): Promise<boolean>;
+	request(ownerId: string, method: string, params: unknown, signal: AbortSignal): Promise<unknown>;
+	open(ownerId: string, send: (frame: unknown) => void, signal: AbortSignal): Promise<{ frame(frame: unknown): void }>;
+}
 export interface ChannelIO {
+	control?: WorkControl;
 	emit(e: EventInput): Promise<YEvent>;
 	ask(e: EventInput): Promise<AskResult>;
 	/** Report an explicit owner authorization with a verified account and reachable private conversation. */

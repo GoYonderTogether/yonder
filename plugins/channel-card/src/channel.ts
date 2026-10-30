@@ -14,6 +14,7 @@ import type {
 } from "@yonder/sdk";
 import WebSocket from "ws";
 import { lateNote, type Message, socialMentions } from "./message.js";
+import { WorkBridge } from "./work.js";
 
 export interface Config {
 	endpoint?: string;
@@ -48,6 +49,7 @@ export class CardChannel implements Channel {
 	private pending = new Map<string, (delivery: Delivery) => void>();
 	private welcome = false;
 	private owners: Array<{ agent: string; account: Ref; actor: string }> = [];
+	private deviceId: string | undefined;
 
 	constructor(
 		readonly id: string,
@@ -150,9 +152,12 @@ export class CardChannel implements Channel {
 	 * 账号取自设备令牌可见的 /api/session actor（主人本人），不取消息里的 senderId，陌生账号无法借道成为 owner。
 	 */
 	private async linkOwner(agents: Array<{ id: string; owner?: Ref }>): Promise<void> {
-		const session = (await this.request("/api/session")) as { actor?: { id?: unknown } } | undefined;
+		const session = (await this.request("/api/session")) as
+			| { actor?: { id?: unknown }; deviceId?: unknown }
+			| undefined;
 		const actor = session?.actor?.id;
 		if (typeof actor !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(actor)) throw new Error("Invalid card session");
+		this.deviceId = typeof session?.deviceId === "string" ? session.deviceId : undefined;
 		const owners: typeof this.owners = [];
 		for (const agent of agents) {
 			if (!agent.owner) continue;
@@ -191,6 +196,8 @@ export class CardChannel implements Channel {
 		this.mappings = new Map(rows.map((r) => [r.key, r.id]));
 		// SOC01 G-02：授权完成后把设备主人自己的账号关联到各 Agent 的 owner，DM 才会判为 owner 进入主对话。
 		await this.linkOwner(agents).catch((error: unknown) => {
+			this.owners = [];
+			this.deviceId = undefined;
 			this.warn(`Owner identity link skipped: ${(error as Error).message}`);
 		});
 		// Backend hello subscriptions are fixed for the lifetime of a connection.
@@ -306,6 +313,11 @@ export class CardChannel implements Channel {
 		}
 	}
 
+	controlReady(): void {
+		if (this.socket) this.socket.close();
+		else this.connect();
+	}
+
 	private connect(): void {
 		if (this.stopped || !this.token || !this.io || this.socket) return;
 		clearTimeout(this.reconnect);
@@ -314,9 +326,23 @@ export class CardChannel implements Channel {
 		const socket = new WebSocket(url, { headers: { authorization: `Bearer ${this.token}` }, handshakeTimeout: 15000 });
 		this.socket = socket;
 		socket.on("error", () => this.warn("Device socket error"));
-		socket.once("open", () => {
+		let work: WorkBridge | undefined;
+		socket.once("open", async () => {
 			this.backoff = 1000;
-			socket.send(JSON.stringify({ type: "hello" }));
+			const actor = this.owners[0]?.actor;
+			const allowed =
+				actor &&
+				this.deviceId &&
+				this.owners.length === this.mappings.size &&
+				this.owners.every((owner) => owner.actor === actor) &&
+				this.io?.control &&
+				(await this.io.control.ready(actor));
+			if (socket.readyState !== WebSocket.OPEN) return;
+			if (allowed && this.io?.control && actor)
+				work = new WorkBridge(this.io.control, actor, this.deviceId!, (frame) => {
+					if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(frame));
+				});
+			socket.send(JSON.stringify({ type: "hello", ...(work ? { workProtocol: 1 } : {}) }));
 			if (this.welcome) {
 				this.welcome = false;
 				void this.greetOwners().catch(() => this.warn("Owner connection notification failed"));
@@ -329,6 +355,10 @@ export class CardChannel implements Channel {
 				data = JSON.parse(raw.toString());
 				if (!data || typeof data !== "object") return;
 			} catch {
+				return;
+			}
+			if (typeof data.type === "string" && data.type.startsWith("work.")) {
+				work?.receive(data);
 				return;
 			}
 			if (data.type === "sent" && typeof data.ref === "string") {
@@ -346,6 +376,7 @@ export class CardChannel implements Channel {
 			}
 		});
 		socket.once("close", () => {
+			work?.close();
 			if (this.socket === socket) this.socket = undefined;
 			for (const done of this.pending.values())
 				done({ ok: false, uncertain: true, error: "Card disconnected before confirmation" });
