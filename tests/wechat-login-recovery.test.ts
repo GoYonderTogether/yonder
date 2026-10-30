@@ -306,3 +306,28 @@ test("confirmed rebind replaces a different peer and keeps the instance person",
 		await h.done();
 	}
 });
+
+test("recovering an incomplete pairing does not replace an existing identity", async () => {
+	const h = await setup({
+		base: "https://ilinkai.weixin.qq.com",
+		cursor: "",
+		peer: "peer",
+		bot: "bot",
+		token: "token",
+		person: "person:owner",
+		linked: false,
+		contexts: {},
+		seen: {},
+	});
+	const link = vi.fn(async () => {});
+	h.api.identity.account = async () => ({ person: "person:other" }) as never;
+	h.api.identity.link = link;
+	const channel = new IlinkChannel("wx", {}, h.api, async () => "person:owner");
+	try {
+		await expect(channel.login("start", new AbortController().signal)).rejects.toThrow("iLink identity conflict");
+		expect(link).not.toHaveBeenCalled();
+	} finally {
+		await channel.stop();
+		await h.done();
+	}
+});

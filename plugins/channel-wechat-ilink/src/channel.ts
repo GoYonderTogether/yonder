@@ -173,13 +173,15 @@ export class IlinkChannel implements Channel {
 		this.saveTail = next;
 		return next;
 	}
-	private async link(): Promise<void> {
+	private async link(rebind = false): Promise<void> {
 		if (!this.state.peer) throw new Error("iLink pairing missing");
 		if (this.state.person) {
 			if (!(await this.api.identity.person(this.state.person)))
 				throw new Error("Configured iLink person does not exist");
 			const account = acct(this.id, this.state.peer);
 			const current = await this.api.identity.account(account);
+			if (!rebind && current?.person && current.person !== this.state.person)
+				throw new Error("iLink identity conflict; use identity management explicitly");
 			if (current?.person !== this.state.person) await this.api.identity.link(account, this.state.person);
 		}
 		this.state.linked = true;
@@ -395,6 +397,7 @@ export class IlinkChannel implements Channel {
 					!page.bot_token
 				)
 					throw new Error("Invalid iLink login identity");
+				const rebind = Boolean(this.state.peer);
 				const changedPeer = Boolean(this.state.peer && this.state.peer !== page.ilink_user_id);
 				const changedBot = Boolean(this.state.bot && this.state.bot !== page.ilink_bot_id);
 				const person = this.state.peer
@@ -416,8 +419,7 @@ export class IlinkChannel implements Channel {
 					person,
 					linked: false,
 				};
-				await this.save();
-				await this.link();
+				await this.link(rebind);
 				this.pollAbort?.abort();
 				this.loginState = undefined;
 				this.loginStatus = "confirmed";
