@@ -63,6 +63,8 @@ interface YEvent {
   kind: string;            // 会话类型：dm | group | call | mail | api，渠道可扩展
   text: string;            // 可为空串（纯附件）
   attachments?: Attachment[];
+  mentions?: Ref[];        // 平台明确提供的 @ 目标账号；未知不猜测
+  senderIsBot?: boolean;   // 仅平台或可靠本机证据确认时设置
   mentioned?: boolean;     // 本渠道实例自己的账号是否被 @
   msgId?: string;          // 渠道原生消息 id
   replyTo?: string;        // 被回复的渠道原生消息 id
@@ -175,3 +177,13 @@ folded 的 `routing.social-decision` 同样附策略快照；social 定时写入
 任务账本不自己发提醒，也不自己做跨任务的提醒限流：需要现在就让主人看到时，按上文「主动通知队列」写 `notification.intent`，是否、何时、投递到哪由队列与 `notifications.outbound` 决定；任务侧只负责把结论写回账本。旧 `claimReminder` 的「每目标 24 小时一次」只属于旧路径，新出口不继承该频率，两条路径不得对同一任务状态同时生效（见 17「提醒与自检」）。
 
 落地前，`plugins/tasks` 仍按 17 §5 的 moment 表运行；本节描述的是队列接手后的口径，不是对当前行为的追溯描述。
+
+## 6. 当前渠道会话的只读模型工具（2026-10-30）
+
+`conversation_read({id?, from?, since?, until?, query?, after?, limit?})` 查询真实运行来源的当前 conv；不接受模型选择任意 conv。单一来源不能确定时明确拒绝。复用事件账本，返回入站及成功出站，按事件 ID 顺序分页；limit 默认 50、最大 100，query 为正文/附件名的字面匹配，分页标注还有未扫描历史。消息含事件 id、原生 id、方向、发送者 Ref/显示名/已知关系、正文、时间、引用、mentions 和附件引用。失败发送不标已发送。
+
+`conversation_members({})` 返回当前 conv 已记录消息中全部可识别参与者（含成功出站的当前 bot），以账号/agent Ref 去重；明确 scope=observed-history，未知名与身份保持未知，不冒充平台全体成员。
+
+`conversation_attachment_read({message: string, attachment: integer, offset?, limit?})` 以当前 conv 入站事件 ID 和从 0 开始的附件序号定位，复用已下载附件和执行环境读取；优先支持文本文件，返回实际内容、截断/分页和失败状态，不引入新解析依赖。不接受任意文件路径；不放宽 read/grep 的工作区边界。
+
+以上工具需要 read 能力并显式 offer；来源校验依据真实 ToolContext，不能靠模型参数伪造授权。动态群上下文列明当前群、自己、历史覆盖和全部已观察参与者；外部身份名和消息内容进入 turn 数据，不能成为 system 指令。自己的成功投递可作为有来源的已发送记录呈现，不重放动作、不另存转录。

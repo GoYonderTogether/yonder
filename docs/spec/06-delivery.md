@@ -66,10 +66,12 @@ type OutputPart =
 ## 5. 主动发送
 
 ```ts
-message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string, replyTo?: string /* 消息头的 turn id 或原生消息 ID */, attachments?: Attachment[] })
+message_send({ to: 'owner' | Ref, via?: string /* 渠道实例 */, text: string, respondTo?: string /* 语义回应目标的内部 turn id */, replyTo?: string /* 显式可见引用的 turn id 或原生消息 ID */, mentions?: Ref[] /* 当前会话可验证的账号 */, attachments?: Attachment[] })
 ```
 
 - 发往本次运行的来源不需要额外能力；发往其他地方需要 `message` 能力（05 §1）。
+- `respondTo` 是语义回应对象，不强制可见引用；必须是目标会话真实入站事件的内部 ID。`mentions` 为目标会话中已观察到的 acct: 引用，不接受昵称猜测或跨渠道账号。内核核实归属后向渠道传递，不支持该能力的渠道明确拒绝，不能静默丢弃。省略新增参数维持旧行为。
+- 被动发送的运输来源与可见引用分离：respondTo 对应的原生消息 ID 可作为 sourceMessageId；没有 respondTo/replyTo 时，群批次可从真实本轮来源消息中取最新同群入站作为运输来源，禁止把 batch id 当消息。历史回应目标过期时如实返回平台错误，不更换语义目标或擅自主动发送。
 - 显式 replyTo 必须对应事件账本中该目标会话的真实 message.in；接受消息头的 turn id 并转换为该事件的原生 msgId，也接受已核实的原生 msgId，不能跨群借用来源。SDK 保留显式引用与自动 sourceMessageId 的区分；平台时效和额度失败如实返回。
 - `to` 是人（`owner` 或 `person:`）时：有 `via` 就用这个人在该渠道的账号；没有 `via` 就用这个人在授权实例中最近活跃的账号。候选选择前按 `channelInstances` 过滤，确定最终实例后共用 SDK 检查，admin/bypass 不豁免；显式 via/目标越界在平台读取或请求前拒绝。找不到账号时以错误结果返回给模型。
 - 每次发送写一条 `message.out` 事件，`delivery` 记录渠道返回的结果。
