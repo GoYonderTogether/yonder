@@ -69,6 +69,21 @@ afterEach(() => {
 });
 
 describe("session state 归约", () => {
+	it("共享状态从 Gateway 的嵌套 info 快照读取模型和用量", () => {
+		const { sockets, store } = harness();
+		const stop = store.subscribe("s1", () => undefined);
+		const ws = sockets[0] as FakeSocket;
+		ws.open();
+		ws.feed(
+			ready(true, {
+				session: { id: "s1" },
+				info: { model: { provider: "openai", id: "gpt-6-luna" }, usage: totals(15064, 6) },
+			}),
+		);
+		expect(store.get("s1").model).toMatchObject({ provider: "openai", model: "gpt-6-luna" });
+		expect(store.get("s1").usage?.self).toEqual(totals(15064, 6));
+		stop();
+	});
 	it("快照里的 usage 按 self/children/last/lsp 保留，FooterStats 由此派生", () => {
 		const { sockets, store } = harness();
 		const stop = store.subscribe("s1", () => undefined);

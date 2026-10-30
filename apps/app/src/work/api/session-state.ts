@@ -92,7 +92,9 @@ export type SessionStateAction =
 export function reduceSessionState(s: SessionState, a: SessionStateAction): SessionState {
 	if (a.k === "reset") return emptySessionState();
 	if (a.k === "snapshot") {
-		const { snap, gap } = a;
+		const { gap } = a;
+		// Gateway 的 ready 将模型与用量放在 info 中；较早客户端也接收扁平字段。
+		const snap = { ...(a.snap.info ?? {}), ...a.snap } as SessionSnapshot;
 		// gap=true：服务端丢了游标，本地增量全部作废，只按快照重建（contracts §2.3.3）。
 		const prev = gap ? undefined : s;
 		return {
