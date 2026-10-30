@@ -198,7 +198,7 @@ export const mockApi: ApiClient = {
 	},
 	async register(i) {
 		await wait();
-		me.name = i.name || i.email.split("@")[0];
+		me.name = i.name || i.email.split("@")[0] || i.email;
 		session = { actor: me };
 		return session;
 	},
@@ -370,6 +370,7 @@ export const mockApi: ApiClient = {
 		const i = convs.findIndex((x) => x.id === id);
 		if (i < 0) return;
 		const c = convs[i];
+		if (!c) return;
 		c.memberIds = c.memberIds.filter((m) => m !== s);
 		convs.splice(i, 1);
 	},

@@ -89,7 +89,7 @@ export function BotCards() {
 			className={`rounded-card bg-raised p-5${pending.length ? " ring-2 ring-accent" : ""}`}
 		>
 			<h2 className="text-small font-medium text-muted">Bot 的名片</h2>
-			{pending.length > 0 && (
+			{pending[0] && (
 				<p role="status" className="mt-2 text-small font-medium">
 					{botName(pending[0])} 起草了一张名片，去看看
 					{pending.length > 1 && `（共 ${pending.length} 张待处理）`}

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { PersonalAvatar } from "../components/PersonalDrawer";
 import { gatewayHosted } from "../lib/base";
 import { logout, onUnauthorized, RpcError } from "./api/client";
 import { LOCAL_NODE, useNodes } from "./api/nodes";
@@ -24,6 +25,9 @@ function WorkEntry() {
 	const nodes = useNodes().filter((node) => node.id !== LOCAL_NODE.id && node.origin);
 	return (
 		<main className="grid h-full place-items-center p-6">
+			<div className="absolute top-0 right-0 p-4 md:hidden">
+				<PersonalAvatar />
+			</div>
 			<div className="w-full max-w-md text-center">
 				<h1 className="text-title font-semibold">连接设备，开始工作</h1>
 				<p className="mt-2 text-small text-muted">工作台需要单独授权。消息设备连接不会自动授予工作台访问权限。</p>
