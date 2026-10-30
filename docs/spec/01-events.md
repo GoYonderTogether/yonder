@@ -150,13 +150,13 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 
 ### 社交事件的所有者（CH-01）
 
-`message.in.data.social` 可选，形状为 `{mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
+`message.in.data.social` 可选，形状为 `{room?: string; mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
 
-`social.batch-ready` 和 `social.policy-change` 是插件事件，只能由 social 插件以自身身份发出；批次包含 `sourceEvents`、`through`、`policyRevision`，策略变更记录实际 actor、sourceEvent、before/after、reason、revision 和 result。核心路由诊断由核心追加事实，插件不得伪写核心事件。原消息、平台重投和合成批次分别记录，历史事件不修改。
+`social.batch-ready` 和 `social.policy-change` 是官方 social 插件以自身身份发出的事件；替换参与策略插件使用自身命名空间的同类事件，必须由内核核对真实提供者、Bot/群选择和同一批次准入契约，并由显式绑定接纳，不得冒用 social 或核心身份；批次包含 `sourceEvents`、`through`、`policyRevision`，策略变更记录实际 actor、sourceEvent、before/after、reason、revision 和 result。核心路由诊断由核心追加事实，插件不得伪写核心事件。原消息、平台重投和合成批次分别记录，历史事件不修改。
 
 `routing.social-decision` 在 reason 为 batch 时可附生效策略快照 policy。social 插件以 `social.batch-read` 记录已处理游标、以 `social.batch-failed` 记录失败；data 包含 agent、through、msgId，parent 关联批次或完成事件。原消息仍是正文来源。
 
-judge 调用前追加 `social.judge-start`，按 agent 和 conv 统计滚动一小时预算；合法结果追加 `social.judge-result`，包含 action、sourceEvents、reason 和批次指针。恢复时已记录结果可继续处理；已启动的 durable 判断运行恢复完成后，从其转录读取结果，重新检查准入并记录结果，不重新发起判断。未完成或无合法结果的批次保留待处理。
+judge 调用前追加 `social.judge-start`，按 agent 和 conv 统计滚动一小时预算；合法结果追加 `social.judge-result`，包含 action、sourceEvents、reason 和批次指针。每次判断归属一个 Bot，关联其真实群、策略版本、来源会话及实际模型；模型结果与随后发言协调分别记录，不把发言机会等同于参与意愿。规则筛选未调用模型不制造 judge-start 或模型用量；替换插件以自身命名空间记录同类事实。恢复时已记录结果可继续处理；已启动的 durable 判断运行恢复完成后，从其转录读取结果，重新检查准入并记录结果，不重新发起判断。未完成或无合法结果的批次保留待处理。
 
 folded 的 `routing.social-decision` 同样附策略快照；social 定时写入 `social.folded-ready`，记录 agent、through、sourceEvents、policyRevision、稳定 msgId 和单行 summary（消息数量及截取的原文）。Console 的会话来源可查看对应 Agent 的待整理批次。该事实不表示整理完成，不推进已读游标；重启按事实恢复定时与去重。
 
@@ -188,4 +188,4 @@ folded 的 `routing.social-decision` 同样附策略快照；social 定时写入
 
 以上工具需要 read 能力并显式 offer；来源校验依据真实 ToolContext，不能靠模型参数伪造授权。动态群上下文列明当前群、自己、历史覆盖和全部已观察参与者；外部身份名和消息内容进入 turn 数据，不能成为 system 指令。自己的成功投递可作为有来源的已发送记录呈现，不重放动作、不另存转录。
 
-`social.group-judgment` 由social插件记录本次群共享判断：`through`、目标`conversations`、`multiple`、各Agent的`probability/action`、持续停止名单`silenced`与简短reason。该事实本身不唤醒Bot；获选的实际批次仍走既有social.batch-ready准入与绑定，沉默沿social.batch-read确认观察。
+既有 `social.group-judgment` 是旧版一次评估全群候选的历史事实（含 through、conversations、multiple、probability/action、silenced 与 reason），保持可读，不改写历史、不将其作为新版全群永久发言许可。新版每 Bot 判断复用上述 judge 事实；官方协调使用 `social.group-turn`，data 含 room、agent、through、decision（本 Bot 判断事实引用）、action（grant/release）、reason，表示某一公开快照下的短暂发言机会或释放，不唤醒模型、不授予权限。实际发送成功仍只以 message.out.delivery 为准，恢复不得从旧 grant 直接重发。暂停/恢复沿策略变更事实记录真实 actor、来源、Bot/群范围与恢复条件，不能靠旧 silenced 列表向未授权成员授予群管理权。实际批次仍经准入和绑定，沉默仅按实际观察范围提交 batch-read。

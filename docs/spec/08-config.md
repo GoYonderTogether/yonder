@@ -191,4 +191,6 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 `agents/<id>/agent.yaml` 的可选键另有：配置档或 defaults 内的 `limits.maxTokens`（正整数），以及本文件下文社交策略中的 `social` 段。
 
-群聊调度可为Agent设置 `social.scope: [conv:实际实例:实际会话]`，仅此列表使用social准入与映射，范围外仍沿原绑定；省略保持原有全局social行为。social插件的 `config.groupJudge` 使用实际 `preset`、同一受管 `conversations`、公开 `identities` 与已核实同群 `rooms` 别名列表，详见11的群聊共享判断。
+群聊调度可为 Agent 设置 `social.scope`，仅该列表使用 social 准入与映射，范围外仍沿原绑定；省略保持原有全局 social 行为。SocialPolicy 新增可选 `plugin: string`，值为当前 Bot/群选择的参与策略插件 id，缺省为 social；可在现有 defaults.group 与 conversations 精确覆盖，沿现有策略合并顺序，不另建插件选择表。目标插件须实际加载并由 Bot 选择，内核按真实插件身份及 Bot/群范围检查；无效选择明确拒绝，不回退或扩大权限。
+
+social 插件既有 `config.groupJudge` 保留为兼容入口，使用实际 `preset`、受管 `conversations`、可公开的 `identities` 和已核实同群 `rooms`。它只配置官方插件的群作用域和判断参数；每个 Bot 仍使用自己的来源群 profile 的 cheap/simple 与独立预算，不取第一位候选的模型替全群判断。公开身份默认从实际设定中选择可公开部分，identities 仅显式覆盖。群工具/上下文复用已有插件与配置档选择，群配置不代替 Bot 授权。上述为目标契约，机器 schema/SDK 与配置升级须由实现同步，旧配置不得静默改作用域或覆盖自定义策略。详见 04、11。

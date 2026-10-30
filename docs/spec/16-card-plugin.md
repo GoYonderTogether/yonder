@@ -81,6 +81,6 @@ Web 群聊与 QQ 共用 01 §6 的当前来源会话只读工具及 06 的发送
 
 ### 既有Agent的显式群接入
 
-插件提供本机 `setup.js upgrade-groups --home <home> [--agent <id>]`：只针对已有card绑定的未归档Agent补缺少的官方群绑定，先保存备份并幂等，不覆盖已有自定义群绑定。创建card-group只读配置档，显式offer read/grep/conversation_read/conversation_members/conversation_attachment_read/message_send/parent_ask，独立persistent per:conv、wake:mention、reply:none、busy:steer。普通消息写入不逐条唤醒，@运行；自主持续参与沿已配置social策略，不新增队列。该入口仅修改已授权home配置，不写凭据；写入遵循同文件锁与原子替换。工具和提示语义与QQ一致，但不跨插件import实现。
+插件提供本机 `setup.js upgrade-groups --home <home> [--agent <id>]`：只针对已有card绑定的未归档Agent补缺少的官方群绑定，先保存备份并幂等，不覆盖已有自定义群绑定。创建card-group只读配置档，显式offer read/grep/conversation_read/conversation_members/conversation_attachment_read/message_send/parent_ask，独立persistent per:conv、wake:mention、reply:none、busy:steer。普通消息写入不逐条唤醒，@运行；自主持续参与沿每 Bot 独立选择的 social 参与策略，不新增队列；多个 Bot 共享同一平台群的公开事实和发言协调，仍保留各自会话、模型、观察游标和权限，详见 11。跨节点原子发言占位与通用群插件安装界面尚未实现，不据同节点协调宣称全群互斥。该入口仅修改已授权home配置，不写凭据；写入遵循同文件锁与原子替换。工具和提示语义与QQ一致，但不跨插件import实现。
 
 官方只读群配置显式使用已有内核 `peer-workspace` context（仅本Agent的SOUL.md与AGENTS.md），并显式重置plugins/skills，避免继承私人记忆或插件；已有自定义contexts保留。QQ精确旧官方配置升级补此context，card仅新建官方profile时设置；自定义配置不覆盖。

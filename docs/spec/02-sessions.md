@@ -234,9 +234,11 @@ submit 的 wait:false（默认）返回本次实际 session.input 的 InputRecei
 
 ### 社交映射与参与边界（CH-01）
 
-可选 social 配置只收窄原事件的候选 Agent 与唤醒，不新增绕过 binding 的路径；批次只能由预先配置的 `social.batch-ready` binding 接纳。拒绝优先，映射依次为精确 conv、账号、person、默认 Agent；同级冲突拒绝配置。主人已验证 DM 可沿已有 binding 进入 main；授权人和群使用隔离会话，不进入主人 main。关系只由明确配置建立，好友或群主不自动获得权限。
+可选 social 配置只收窄原事件的候选 Agent 与唤醒，不新增绕过 binding 的路径；官方批次由预先配置的 `social.batch-ready` binding 接纳；替换参与插件使用自身命名空间的批次事件和显式 binding，沿同一准入语义，不冒用 social 来源。拒绝优先，映射依次为精确 conv、账号、person、默认 Agent；同级冲突拒绝配置。主人已验证 DM 可沿已有 binding 进入 main；授权人和群使用隔离会话，不进入主人 main。关系只由明确配置建立，好友或群主不自动获得权限。
 
 主人或授权人 DM 默认 direct，仅沿已有 binding 的唤醒语义，不能把 write 提升为 run；好友或陌生人默认 record。授权群默认 batch，其他 group/channel 默认 record。profile 改动只作用于新会话，已有会话保留固定 profile；需要立即切换时显式 `/new` 或关闭会话。
+
+群参与以 Bot 为独立判断与会话所有者，按 Bot/真实群维护策略、观察游标、参与对象、暂停及版本；共享本群公开消息不合并不同 Bot 的 durable conversation，不共享 main 或未发送草稿。发言协调只约束当前公开发言机会，不代替任一 Bot 的自主判断，不增加另一套模型队列。QQ 与系统内群聊遵循同一边界，详见 11“群聊独立参与与共享协调”。
 
 ### 运行结束与关闭原因（BE-05）
 
