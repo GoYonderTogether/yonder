@@ -52,6 +52,21 @@ export function createPluginBindings(options: {
 			if ((binding.profile ?? agent.defaultProfile) !== request.profile) continue;
 			if (binding.match.type && binding.match.type !== "message.in" && !binding.match.type.includes("*")) continue;
 			const from = [binding.match.from ?? []].flat();
+			const channels = [binding.match.channel ?? []].flat();
+			const kinds = [binding.match.kind ?? []].flat();
+			if (
+				channels.length === 1 &&
+				channels[0] === "agent" &&
+				kinds.length > 0 &&
+				kinds.every((kind) => kind === "agent" || kind === "parent-request") &&
+				from.length > 0 &&
+				from.every((ref) => {
+					const peer = ref.startsWith("acct:agent:") ? options.agents.get(ref.slice("acct:agent:".length)) : undefined;
+					return peer && !peer.archivedAt && peer.owner === agent.owner;
+				})
+			)
+				continue;
+
 			if (
 				![binding.match.kind].flat().every((kind) => kind === "dm") ||
 				!from.length ||
