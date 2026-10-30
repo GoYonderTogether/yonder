@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Bell, Ellipsis, Search, Users } from "lucide-react";
+import { ArrowUp, Bell, BellOff, Ellipsis, Pin, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
@@ -10,14 +10,11 @@ import { AppBar, BackButton } from "../components/AppBar";
 import { AiBadge } from "../components/chat/AiBadge";
 import { AnonHint } from "../components/chat/AnonHint";
 import { ChatDetail } from "../components/chat/ChatDetail";
-import { DeviceRow } from "../components/chat/DeviceRow";
-import { NextSteps } from "../components/chat/NextSteps";
-import { EmptyPane } from "../components/EmptyPane";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
-import { PlusMenu } from "../components/PlusMenu";
 import { VerifySheet } from "../components/VerifySheet";
 import { cn } from "../lib/cn";
+import { convRowMenu } from "../lib/convMenu";
 import { entityRef, isShortCode } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
 import { clearPendingSend, savePendingSend, takePendingSend } from "../lib/pendingSend";
@@ -29,8 +26,16 @@ import { needsVerify } from "../lib/verify";
 import { readMarketDraft } from "../market/handoff";
 import { $session } from "../store";
 import { Avatar, Status } from "../ui/Avatar";
+import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
-import { rpc } from "../work/api/client";
+import {
+	markRead as markReadPref,
+	setLevel as setLevelPref,
+	togglePin as togglePinPref,
+	usePrefs,
+} from "../work/lib/prefs";
+import { type MenuAnchor, useMenuTrigger } from "../work/lib/useLongPress";
+import { ActionMenu } from "../work/ui/ActionMenu";
 
 const preview = (m?: Message) => {
 	if (!m) return "还没有消息";
@@ -46,31 +51,19 @@ const preview = (m?: Message) => {
 const clock = (t: number) =>
 	new Date(t).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
 
-/** 节点没有社交服务时，「消息」列出本节点的 Bot；点进去就是「工作」里同一个主会话。 */
-function BotRows({ q }: { q: string }) {
-	const { data, isError } = useQuery({
-		queryKey: ["bots-list"],
-		queryFn: () => rpc<{ bots: { agent: string; name: string; session?: string }[] }>("bots.list"),
-		retry: false,
-	});
-	const bots = (data?.bots ?? []).filter((b) => b.session && b.name.includes(q.trim()));
-	if (isError) return <p className="px-3 py-6 text-[14px] text-faint">没有可用的社交服务，也无法读取本节点的 Bot。</p>;
-	if (!bots.length) return <p className="px-3 py-6 text-[14px] text-faint">还没有 Bot 会话。</p>;
+/** Bot 离线统一文案：横幅、输入框占位、进入会话与发送后的提示共用这一句。 */
+const OFFLINE_HINT = "Bot 离线，消息会在上线后送达";
+
+/** 没有会话时的空态：不自动跳转，点「开始聊天」才开与默认 Bot 的私聊（B5：/ 可达、可刷新）。 */
+function EmptyChats({ onStart, busy }: { onStart: () => void; busy: boolean }) {
 	return (
-		<>
-			{bots.map((b) => (
-				<Link
-					key={b.agent}
-					to={`/work/${encodeURIComponent(b.session as string)}`}
-					className="press flex items-center gap-3 rounded-control px-2.5 py-2.5 hover:bg-tone"
-				>
-					<span className="flex h-10 w-10 items-center justify-center rounded-full bg-tone text-[16px]">
-						{b.name.slice(0, 1)}
-					</span>
-					<span className="truncate text-[15px] text-ink">{b.name}</span>
-				</Link>
-			))}
-		</>
+		<div className="m-auto flex max-w-xs flex-col items-center px-6 py-10 text-center">
+			<p className="text-[18px] font-semibold tracking-tight">还没有会话</p>
+			<p className="mt-2 text-[14px] text-muted">和你的 Bot 说句话，会话会出现在这里。</p>
+			<Button variant="primary" className="mt-5" disabled={busy} onClick={onStart}>
+				{busy ? "正在打开…" : "开始聊天"}
+			</Button>
+		</div>
 	);
 }
 
@@ -102,25 +95,30 @@ export function ChatShell() {
 	const nav = useNavigate();
 	const { agent: defaultBot } = usePersonalAgent();
 	const defaultConv = defaultBot && convs?.find((c) => c.kind === "dm" && c.memberIds.includes(defaultBot.id));
-	// 桌面端进入聊天列表时默认打开自己的 Bot（小歪）；移动端保留列表。
-	useEffect(() => {
-		if (desktop && !id && defaultConv) nav(`/c/${defaultConv.id}`, { replace: true });
-	}, [desktop, id, defaultConv, nav]);
-
-	// 云端只建 Bot 账号不建会话：新用户首屏会看不到小歪，这里补开一次私聊。
+	// 不自动跳进任何会话（B5）：没有会话时显示空态，点「开始聊天」才建/开与默认 Bot 的私聊。
 	const botId = defaultBot?.id;
-	const noBotConv = !isLoading && !!convs && !!botId && !defaultConv;
-	const opened = useRef<string | undefined>(undefined);
-	useEffect(() => {
-		if (!noBotConv || !botId || opened.current === botId) return;
-		opened.current = botId;
-		api
-			.openDm(botId)
-			.then(() => qc.invalidateQueries({ queryKey: ["convs"] }))
-			.catch(() => {
-				opened.current = undefined;
-			});
-	}, [noBotConv, botId, qc]);
+	const [starting, setStarting] = useState(false);
+	const startChat = async () => {
+		if (starting) return;
+		if (defaultConv) {
+			nav(`/c/${entityRef(defaultConv)}`);
+			return;
+		}
+		if (!botId) {
+			nav("/work");
+			return;
+		}
+		setStarting(true);
+		try {
+			const conv = await api.openDm(botId);
+			await qc.invalidateQueries({ queryKey: ["convs"] });
+			nav(`/c/${entityRef(conv)}`);
+		} catch (error) {
+			toast(error instanceof Error ? error.message : "无法开始会话", true);
+		} finally {
+			setStarting(false);
+		}
+	};
 
 	useEffect(
 		() =>
@@ -152,7 +150,11 @@ export function ChatShell() {
 	}, [qc]);
 
 	const noSocial = isError && !convs && socialUnavailable(error);
-	const shown = (convs ?? []).filter((c) => c.title.includes(q.trim()));
+	// 置顶的会话排在前面，其余保持接口给的顺序。
+	const pinnedIds = usePrefs().pinned;
+	const shown = (convs ?? [])
+		.filter((c) => c.title.includes(q.trim()))
+		.sort((a, b) => Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)));
 	return (
 		<div className="flex h-full">
 			<aside className={cn("w-full shrink-0 flex-col lg:flex lg:w-80", id ? "hidden" : "flex")}>
@@ -160,7 +162,7 @@ export function ChatShell() {
 					<ListHeader q={q} onChange={setQ} />
 				) : (
 					<>
-						<AppBar title={<span className="text-[20px] tracking-tight">消息</span>} right={<PlusMenu />} />
+						<AppBar title={<span className="text-[20px] tracking-tight">消息</span>} />
 						<div className="px-3 pb-2">
 							<label className="field flex h-10 items-center gap-2 rounded-control bg-tone px-3 text-faint">
 								<Search size={16} />
@@ -174,8 +176,6 @@ export function ChatShell() {
 						</div>
 					</>
 				)}
-				<DeviceRow />
-				{!isLoading && !isError && <NextSteps />}
 				<nav className="scroll-y flex-1 px-2 pb-2">
 					{isLoading &&
 						Array.from({ length: 4 }, (_, i) => (
@@ -188,10 +188,9 @@ export function ChatShell() {
 								</span>
 							</div>
 						))}
-					{noSocial && <BotRows q={q} />}
-					{isError && !noSocial && (
+					{isError && (
 						<p role="status" className="px-3 py-2 text-small text-muted">
-							{convs ? "同步失败，仍显示已有会话。" : "会话加载失败。"}
+							{convs ? "同步失败，仍显示已有会话。" : noSocial ? "当前节点没有提供社交服务。" : "会话加载失败。"}
 							<button type="button" className="underline" onClick={() => void refetch()}>
 								重试
 							</button>
@@ -207,7 +206,8 @@ export function ChatShell() {
 							active={!!id && (c.id === id || c.code === id)}
 						/>
 					))}
-					{!isLoading && !isError && !shown.length && (
+					{!isLoading && !isError && !convs?.length && <EmptyChats onStart={() => void startChat()} busy={starting} />}
+					{!isLoading && !isError && !!convs?.length && !shown.length && (
 						<p className="px-3 py-6 text-[14px] text-faint">没有匹配的会话。</p>
 					)}
 				</nav>
@@ -218,7 +218,7 @@ export function ChatShell() {
 					id ? "flex" : "hidden",
 				)}
 			>
-				{id ? <Outlet /> : <EmptyPane />}
+				{id ? <Outlet /> : <EmptyChats onStart={() => void startChat()} busy={starting} />}
 			</main>
 		</div>
 	);
@@ -238,40 +238,72 @@ function ConvRow({
 	active: boolean;
 }) {
 	const loc = useLocation();
+	const qc = useQueryClient();
+	const prefs = usePrefs();
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
 	const other = c.kind === "dm" ? actors.get(c.memberIds.find((x) => x !== meId) ?? "") : undefined;
+	const level = prefs.level[c.id] ?? "all";
+	const pinned = prefs.pinned.includes(c.id);
+	// 标为已读同时落到服务端（未读数是服务端字段），本地偏好只记住读到哪。
+	const markRead = () => {
+		const seq = c.last?.seq;
+		if (seq === undefined) return;
+		void api
+			.markRead(c.id, seq)
+			.then(() =>
+				qc.setQueryData<Conv[]>(["convs"], (old) => old?.map((x) => (x.id === c.id ? { ...x, unread: 0 } : x))),
+			)
+			.catch((error) => toast(error instanceof Error ? error.message : "标记已读失败", true));
+		markReadPref(c.id, seq);
+	};
+	const actions = convRowMenu({
+		pinned,
+		level,
+		pin: () => togglePinPref(c.id),
+		setLevel: (next) => setLevelPref(c.id, next),
+		markRead,
+	});
 	return (
-		<Link
-			to={`/c/${entityRef(c)}`}
-			state={internalState(loc)}
-			style={{ "--i": i } as React.CSSProperties}
-			className={cn(
-				"rise-slow press flex items-center gap-3 rounded-control px-2.5 py-2.5 hover:bg-tone/60",
-				active && "bg-raised shadow-soft hover:bg-raised",
-			)}
-		>
-			{other ? (
-				<Avatar actor={other} online={other.kind === "agent" ? other.online : undefined} />
-			) : (
-				<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tone-2 text-muted">
-					{c.kind === "group" ? <Users size={18} /> : <Bell size={18} />}
-				</span>
-			)}
-			<span className="min-w-0 flex-1">
-				<span className="flex items-baseline gap-2">
-					<span className="flex min-w-0 flex-1 items-center gap-1.5">
-						<span className="truncate text-[14px] font-medium">{c.title}</span>
-						{other?.kind === "agent" && <AiBadge />}
+		<>
+			<Link
+				to={`/c/${entityRef(c)}`}
+				state={internalState(loc)}
+				style={{ "--i": i } as React.CSSProperties}
+				{...trigger}
+				className={cn(
+					"rise-slow press no-select flex items-center gap-3 rounded-control px-2.5 py-2.5 hover:bg-tone/60",
+					active && "bg-raised shadow-soft hover:bg-raised",
+					!active && pinned && "bg-tone/40",
+				)}
+			>
+				{other ? (
+					<Avatar actor={other} online={other.kind === "agent" ? other.online : undefined} />
+				) : (
+					<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tone-2 text-muted">
+						{c.kind === "group" ? <Users size={18} /> : <Bell size={18} />}
 					</span>
-					{c.last && <span className="text-[12px] text-faint">{clock(c.last.createdAt)}</span>}
+				)}
+				<span className="min-w-0 flex-1">
+					<span className="flex items-baseline gap-2">
+						<span className="flex min-w-0 flex-1 items-center gap-1.5">
+							<span className="truncate text-[14px] font-medium">{c.title}</span>
+							{other?.kind === "agent" && <AiBadge />}
+							{level === "mute" && <BellOff size={13} className="shrink-0 text-faint" aria-label="免打扰" />}
+						</span>
+						{pinned && <Pin size={12} className="shrink-0 text-faint" aria-label="已置顶" />}
+						{c.last && <span className="text-[12px] text-faint">{clock(c.last.createdAt)}</span>}
+					</span>
+					<span className="block truncate text-[13px] text-muted">{preview(c.last)}</span>
 				</span>
-				<span className="block truncate text-[13px] text-muted">{preview(c.last)}</span>
-			</span>
-			{c.unread > 0 && (
-				<span className="min-w-5 rounded-full bg-accent px-1.5 text-center text-[12px] font-medium text-on-accent">
-					{c.unread}
-				</span>
-			)}
-		</Link>
+				{c.unread > 0 && (
+					<span className="min-w-5 rounded-full bg-accent px-1.5 text-center text-[12px] font-medium text-on-accent">
+						{c.unread}
+					</span>
+				)}
+			</Link>
+			{menu && <ActionMenu at={menu} title={c.title} actions={actions} onClose={() => setMenu(null)} />}
+		</>
 	);
 }
 
@@ -332,16 +364,24 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 		error: messagesFailure,
 		refetch: refreshMessages,
 	} = useQuery({ queryKey: ["msgs", id], queryFn: () => api.messages(id), retry: (n, e) => !forbidden(e) && n < 3 });
-	// /c/<id> 的 id 若是对方账号（Bot/联系人）而非会话：读消息会 403，改为打开与它的私聊再跳转（JV2-J07-01）。
+	// /c/<id> 的 id 若是对方账号（Bot/联系人）而非会话：读消息会 403，先确认这个 id 能当账号取到，
+	// 才打开与它的私聊再跳转（JV2-J07-01）；其它 403 是权限问题，不能猜成账号 id。
 	const nav = useNavigate();
 	const [dmFailed, setDmFailed] = useState(false);
 	useEffect(() => {
 		if (!forbidden(messagesFailure)) return;
 		let live = true;
-		api
-			.openDm(id)
-			.then((c) => live && nav(`/c/${entityRef(c)}`, { replace: true }))
-			.catch(() => live && setDmFailed(true));
+		const open = async () => {
+			const actor = (await api.actors([id]))[0];
+			if (!live) return;
+			if (!actor) {
+				setDmFailed(true);
+				return;
+			}
+			const conv = await api.openDm(actor.id);
+			if (live) nav(`/c/${entityRef(conv)}`, { replace: true });
+		};
+		open().catch(() => live && setDmFailed(true));
 		return () => {
 			live = false;
 		};
@@ -386,10 +426,12 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 
 	const other = conv?.kind === "dm" ? actors.get(conv.memberIds.find((i) => i !== me?.id) ?? "") : undefined;
 	const agentOnline = other?.kind === "agent" && !!other.online;
-	const offlineAgent = other?.kind === "agent" && !other.online;
+	// 云端 Bot（小歪）没有设备，不能显示「电脑离线」：只有绑了设备的 Agent 才提示离线。
+	const cloudBot = other?.kind === "agent" && !other.deviceId && other.ownerId === me?.id;
+	const offlineAgent = other?.kind === "agent" && !other.online && !cloudBot;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 切换会话时重置
 	useEffect(() => {
-		if (offlineAgent) toast("Bot 离线，消息会保留，上线后收到");
+		if (offlineAgent) toast(OFFLINE_HINT);
 	}, [offlineAgent, id]);
 	return (
 		<>
@@ -435,7 +477,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					)}
 					{messagesError && forbidden(messagesFailure) && (
 						<p role="status" className="text-small text-muted">
-							{dmFailed ? "会话不存在或无法访问" : "正在打开会话…"}
+							{dmFailed ? "无权访问这个会话" : "正在打开会话…"}
 						</p>
 					)}
 					{messagesError && !forbidden(messagesFailure) && (
@@ -467,14 +509,14 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					<div ref={end} />
 				</div>
 			</div>
-			{offlineAgent && <p className="mx-auto mb-2 text-center text-[13px] text-muted">电脑离线，消息会在上线后处理</p>}
+			{offlineAgent && <p className="mx-auto mb-2 text-center text-[13px] text-muted">{OFFLINE_HINT}</p>}
 			{conv?.kind !== "notice" && (
 				<Composer
 					key={id}
 					convId={id}
-					offline={other?.kind === "agent" && !agentOnline}
+					offline={offlineAgent}
 					agentId={other?.kind === "agent" ? other.id : undefined}
-					cloudBot={other?.kind === "agent" && !other.deviceId && other.ownerId === me?.id}
+					cloudBot={cloudBot}
 					onSend={() => agentOnline && setTyping(true)}
 				/>
 			)}
@@ -620,8 +662,8 @@ export function Composer({
 	const [verify, setVerify] = useState(false);
 	const session = useStore($session);
 	const guest = session?.guest;
-	const send = async (body = text.trim()) => {
-		if (!body || pending.current) return;
+	const send = async (body = text.trim()): Promise<boolean> => {
+		if (!body || pending.current) return false;
 		pending.current = true;
 		setSending(true);
 		try {
@@ -639,30 +681,31 @@ export function Composer({
 			if (agentId) {
 				const [fresh] = await api.actors([agentId]).catch(() => [] as Actor[]);
 				void qc.invalidateQueries({ queryKey: ["actors"] });
-				if (fresh ? !fresh.online : offline) toast("Bot 离线，消息已保存，上线后送达");
-			} else if (offline) toast("Bot 离线，消息已保存，上线后送达");
+				if (fresh ? !fresh.online : offline) toast(OFFLINE_HINT);
+			} else if (offline) toast(OFFLINE_HINT);
+			return true;
 		} catch (error) {
 			if (needsVerify(error)) {
 				// 存进 sessionStorage：刷新或跳到登录页再回来，登录后仍会补发。
 				savePendingSend(convId, body);
 				setVerify(true);
-				return;
+				return false;
 			}
 			toast(error instanceof Error ? error.message : "发送失败，请重试", true);
+			return false;
 		} finally {
 			pending.current = false;
 			setSending(false);
 		}
 	};
-	const resend = (body: string) => {
-		toast("已为你发送");
-		void send(body);
+	const resend = async (body: string) => {
+		if (await send(body)) toast("已为你发送");
 	};
 	const verified = (next: Session) => {
 		selectAccount(next.actor.id, qc);
 		$session.set(next);
 		const body = takePendingSend(convId);
-		if (body) resend(body);
+		if (body) void resend(body);
 	};
 	// 登录后回到这个会话（刷新或从登录页返回）：补发之前没发出去的消息。
 	const signedIn = !!session && !session.actor.anonymous;
@@ -670,7 +713,7 @@ export function Composer({
 	useEffect(() => {
 		if (!signedIn) return;
 		const body = takePendingSend(convId);
-		if (body) resend(body);
+		if (body) void resend(body);
 	}, [signedIn, convId]);
 	return (
 		<div className="shrink-0 px-4 pb-safe">
@@ -683,7 +726,7 @@ export function Composer({
 					value={text}
 					readOnly={sending}
 					rows={1}
-					placeholder={cloudBot ? "小歪暂时只能帮你开始" : offline ? "Bot 离线，消息会保留，上线后送达" : "输入消息"}
+					placeholder={cloudBot ? "小歪暂时只能帮你开始" : offline ? OFFLINE_HINT : "输入消息"}
 					onChange={(e) => {
 						setText(e.target.value);
 						e.target.style.height = "auto";

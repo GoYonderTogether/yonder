@@ -33,6 +33,8 @@ describe("notification preferences", () => {
 		expect(JSON.parse(localStorage.getItem("yonder.prefs") ?? "null")).toEqual({
 			level: { a: "mentions", b: "mute" },
 			read: { a: 42 },
+			// 置顶（网页会话）沿用同一个键，旧值原样保留。
+			pinned: ["a"],
 			notify: { enabled: true, vibrate: false, previews: true },
 		});
 	});

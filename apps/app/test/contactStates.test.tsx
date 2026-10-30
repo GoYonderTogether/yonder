@@ -48,7 +48,7 @@ async function render() {
 		root.render(
 			<QueryClientProvider client={client}>
 				<MemoryRouter>
-					<ContactList q="" tab="friends" meId="me" />
+					<ContactList q="" />
 				</MemoryRouter>
 			</QueryClientProvider>,
 		),

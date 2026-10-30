@@ -22,7 +22,7 @@ export function DeviceRow() {
 	const where = online.length > 1 ? `${online[0].name} 等 ${online.length} 台设备上` : `${online[0].name} 上`;
 	return (
 		<Link
-			to="/contacts?tab=devices"
+			to="/connect"
 			className="press mx-2 mb-2 flex h-10 items-center gap-2 rounded-control bg-tone/60 px-3 text-[13px] text-muted hover:bg-tone"
 		>
 			<Status online className="h-1.5 w-1.5 shrink-0" />

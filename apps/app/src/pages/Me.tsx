@@ -223,7 +223,7 @@ export function Me() {
 							</div>
 							{agents.length > 3 && (
 								<Link
-									to="/contacts?tab=agents"
+									to="/contacts"
 									state={internalState(loc)}
 									className="press flex items-center justify-between border-t border-hairline px-5 py-3 text-small hover:bg-tone/60"
 								>
@@ -246,7 +246,7 @@ export function Me() {
 						</section>
 						<CreateBotDialog open={creatingBot} onOpenChange={setCreatingBot} />
 						<div className="overflow-hidden rounded-card bg-raised">
-							<Item to="/contacts?tab=devices" icon={Monitor} label="设备" />
+							<Item to="/connect" icon={Monitor} label="设备" />
 						</div>
 						{!agents.length && !failure && (
 							<div className="flex gap-2">

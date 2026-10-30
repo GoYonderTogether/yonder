@@ -62,14 +62,14 @@ describe("给离线 Bot 发消息", () => {
 	it("发送成功后提示上线后送达", async () => {
 		await mount(true);
 		await sendText("你好");
-		expect(toast).toHaveBeenCalledWith("Bot 离线，消息已保存，上线后送达");
+		expect(toast).toHaveBeenCalledWith("Bot 离线，消息会在上线后送达");
 	});
 	it("页面缓存仍显示在线、发送时重取到离线，也提示（JV2-J07-R2-02）", async () => {
 		api.actors.mockResolvedValue([{ id: "b1", kind: "agent", name: "Bot", online: false }]);
 		await mount(false, "b1");
 		await sendText("你好");
 		expect(api.actors).toHaveBeenCalledWith(["b1"]);
-		expect(toast).toHaveBeenCalledWith("Bot 离线，消息已保存，上线后送达");
+		expect(toast).toHaveBeenCalledWith("Bot 离线，消息会在上线后送达");
 	});
 	it("重取到在线不提示", async () => {
 		api.actors.mockResolvedValue([{ id: "b1", kind: "agent", name: "Bot", online: true }]);
