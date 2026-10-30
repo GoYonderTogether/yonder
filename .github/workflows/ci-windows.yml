@@ -38,6 +38,10 @@ jobs:
     name: Windows one-line installer
     runs-on: windows-2025
     timeout-minutes: 40
+    env:
+      # Job 级：安装与随后的幂等检查分属不同步骤，步骤内的 $env: 不会带过去。
+      YONDER_INSTALL: ${{ runner.temp }}\yonder-install
+      YONDER_HOME: ${{ runner.temp }}\yonder-home
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -49,8 +53,6 @@ jobs:
       - name: 在临时目录完成一次真实安装
         shell: pwsh
         run: |
-          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
-          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
           pwsh -NoProfile -File scripts/install.ps1
           if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited $LASTEXITCODE" }
           $cmd = Join-Path $env:YONDER_INSTALL 'bin\yonder.cmd'
@@ -59,8 +61,8 @@ jobs:
           $version = & $cmd version | Out-String
           Write-Host $version
           if ($version -notmatch 'version: 0\.3\.') { throw 'yonder version did not report the installed release' }
-          $record = Get-Content (Join-Path $env:YONDER_INSTALL 'versions' (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') | Select-Object -First 1).Name '.yonder-install.json') -Raw
-          $parsed = $record | ConvertFrom-Json
+          $recordText = Get-Content (Join-Path $env:YONDER_INSTALL 'versions' (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') | Select-Object -First 1).Name '.yonder-install.json') -Raw
+          $parsed = $recordText | ConvertFrom-Json
           if (-not $parsed.tag -or -not $parsed.commit) { throw 'install record is incomplete' }
       - name: 重复执行不重新构建
         shell: pwsh
