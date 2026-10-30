@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.3.26103018] - 2026-10-30
+
+### Added
+
+- expose group roles rename and first bot sharing
+
+### Fixed
+
+- release：upload the installer scripts as release assets
+- core：keep slash template names usable on Windows
+
 ## [0.3.26103017] - 2026-10-30
 
 - 新增一键安装脚本 `scripts/install.sh` / `install.ps1`，随正式 Release 发布；网页新增免登录的「下载客户端」页 `/download`，按系统给出安装命令或手机客户端入口，添加设备弹窗可切到「在本机安装」并跳转下载页。
