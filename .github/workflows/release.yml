@@ -105,7 +105,8 @@ jobs:
             --title "Yonder $VERSION" \
             --notes-file release-notes.md \
             --verify-tag \
-            dist-release/*.tgz dist-release/SHA256SUMS
+            dist-release/*.tgz dist-release/SHA256SUMS \
+            dist-release/install.sh dist-release/install.ps1
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
