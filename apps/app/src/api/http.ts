@@ -74,7 +74,10 @@ export const httpApi: ApiClient = {
 
 	actors: (ids) => request<Actor[]>(`/actors?${new URLSearchParams({ ids: ids.join(",") })}`),
 	conversations: () => request<Conversation[]>("/conversations"),
-	messages: (convId) => request<Message[]>(`/conversations/${encodeURIComponent(convId)}/messages?since=0`),
+	messages: (convId, page) =>
+		request<Message[]>(
+			`/conversations/${encodeURIComponent(convId)}/messages?${new URLSearchParams(page ? Object.entries(page).map(([key, value]) => [key, String(value)]) : { since: "0" })}`,
+		),
 	send: (convId, content, replyTo) =>
 		request<Message>(
 			`/conversations/${encodeURIComponent(convId)}/messages`,

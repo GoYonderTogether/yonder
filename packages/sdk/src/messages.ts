@@ -27,3 +27,16 @@ export interface MessageInData {
 	/** Source event ids quoted by agent_ask (06 §6.1). */
 	sources?: string[];
 }
+
+export interface TranscriptItem {
+	from?: string;
+	timestamp?: number;
+	/** Existing prepared-input edit, attached to its original transcript entry. */
+	target?: number;
+	prepared?: string;
+	id: number;
+	kind: string;
+	text: string;
+	tools?: Array<{ name: string; args: object }>;
+	event?: string;
+}

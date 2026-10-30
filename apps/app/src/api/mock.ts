@@ -264,9 +264,15 @@ export const mockApi: ApiClient = {
 		await wait();
 		return convs.map((c) => ({ ...c }));
 	},
-	async messages(id) {
+	async messages(id, page) {
 		await wait();
-		return msgs.filter((m) => m.convId === id);
+		const rows = msgs.filter(
+			(m) =>
+				m.convId === id &&
+				(page?.before === undefined || m.seq < page.before) &&
+				(page?.since === undefined || m.seq > page.since),
+		);
+		return page ? (page.since === undefined ? rows.slice(-page.limit) : rows.slice(0, page.limit)) : rows;
 	},
 	async send(convId, content, replyTo) {
 		const m = { ...push(convId, session?.actor.id ?? me.id, content), replyTo };

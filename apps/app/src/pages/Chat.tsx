@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Bell, BellOff, Ellipsis, Pin, Search, Users } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, Bell, BellOff, Copy, Ellipsis, Pin, Reply, Search, Users } from "lucide-react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
 import type { Actor, Conversation as Conv, Message, Session } from "../api/types";
@@ -10,6 +10,7 @@ import { AppBar, BackButton } from "../components/AppBar";
 import { AiBadge } from "../components/chat/AiBadge";
 import { AnonHint } from "../components/chat/AnonHint";
 import { ChatDetail } from "../components/chat/ChatDetail";
+import { OwnerTranscript, useOwnerConversation } from "../components/chat/OwnerTranscript";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
 import { PersonalAvatar } from "../components/PersonalDrawer";
@@ -30,6 +31,7 @@ import { $session } from "../store";
 import { Avatar, Status } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
+import { messageClock, timeBucket } from "../work/lib/chat";
 import {
 	markRead as markReadPref,
 	setLevel as setLevelPref,
@@ -126,7 +128,9 @@ export function ChatShell() {
 		() =>
 			api.subscribe((m) => {
 				qc.setQueryData<Message[]>(["msgs", m.convId], (old) =>
-					old?.some((x) => x.id === m.id) ? old : [...(old ?? []), m],
+					old?.some((x) => x.id === m.id) || (old?.length && (old.at(-1)?.seq ?? m.seq) < m.seq - 1)
+						? old
+						: [...(old ?? []), m].slice(-120),
 				);
 				const meId = $session.get()?.actor.id;
 				qc.setQueryData<Conv[]>(["convs"], (old) =>
@@ -304,7 +308,7 @@ function ConvRow({
 					<span className="flex items-baseline gap-2">
 						<span className="flex min-w-0 flex-1 items-center gap-1.5">
 							<span className="truncate text-[14px] font-medium">{c.title}</span>
-							{other?.kind === "agent" && <AiBadge />}
+							{other?.kind === "agent" && <AiBadge actor={other} />}
 							{level === "mute" && <BellOff size={13} className="shrink-0 text-faint" aria-label="免打扰" />}
 						</span>
 						{pinned && <Pin size={12} className="shrink-0 text-faint" aria-label="已置顶" />}
@@ -368,18 +372,29 @@ export function Conversation() {
 	return <ConversationBody key={resolved.id} id={resolved.id} routeRef={ref!} />;
 }
 
-function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
+export function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 	const qc = useQueryClient();
 	const me = useStore($session)?.actor;
 	const { data: convs = [] } = useQuery({ queryKey: ["convs"], queryFn: api.conversations });
 	const conv = convs.find((c) => c.id === id);
+	const [oldestSeen, setOldestSeen] = useState<number>();
 	const {
-		data: msgs = [],
+		data: messageData = [],
 		isLoading: loadingMessages,
 		isError: messagesError,
 		error: messagesFailure,
 		refetch: refreshMessages,
-	} = useQuery({ queryKey: ["msgs", id], queryFn: () => api.messages(id), retry: (n, e) => !forbidden(e) && n < 3 });
+	} = useQuery({
+		queryKey: ["msgs", id],
+		queryFn: async () => {
+			const page = await api.messages(id, { limit: 80 });
+			if (page.length < 80) setOldestSeen((oldest) => Math.min(oldest ?? Infinity, page[0]?.seq ?? 0));
+			return page.slice(-120);
+		},
+		refetchOnWindowFocus: false,
+		retry: (n, e) => !forbidden(e) && n < 3,
+	});
+	const msgs = messageData.length > 120 ? messageData.slice(-120) : messageData;
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 按消息数量与最后序号触发已读
 	useEffect(() => {
 		const seq = msgs.at(-1)?.seq;
@@ -408,18 +423,73 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 		setParams(next, { state: internalState(loc) });
 	};
 	const end = useRef<HTMLDivElement>(null);
+	const scroll = useRef<HTMLDivElement>(null);
+	const stick = useRef(true);
+	const anchor = useRef<{ id: string; top: number; messages: Message[] } | null>(null);
+	const pendingPage = useRef(false);
+	const [paging, setPaging] = useState(false);
+	const hasOlder = !!msgs.length && (oldestSeen === undefined || msgs[0].seq > oldestSeen);
+	const hasNewer = (conv?.last?.seq ?? 0) > (msgs.at(-1)?.seq ?? 0);
+	const moveWindow = async (older: boolean) => {
+		if (pendingPage.current || !msgs.length) return;
+		pendingPage.current = true;
+		stick.current = false;
+		setPaging(true);
+		const box = scroll.current;
+		const row =
+			box &&
+			[...box.querySelectorAll<HTMLElement>("[data-message-id]")].find(
+				(el) => el.getBoundingClientRect().bottom > box.getBoundingClientRect().top + 60,
+			);
+		anchor.current = row?.dataset.messageId
+			? { id: row.dataset.messageId, top: row.getBoundingClientRect().top, messages: msgs }
+			: null;
+		try {
+			const page = await api.messages(id, {
+				limit: 40,
+				...(older ? { before: msgs[0].seq } : { since: msgs[msgs.length - 1].seq }),
+			});
+			if (older && page.length < 40) setOldestSeen(page[0]?.seq ?? msgs[0].seq);
+			qc.setQueryData<Message[]>(["msgs", id], (old = []) => {
+				const merged = [...new Map([...old, ...page].map((message) => [message.id, message])).values()].sort(
+					(a, b) => a.seq - b.seq,
+				);
+				return older ? merged.slice(0, 120) : merged.slice(-120);
+			});
+		} catch (error) {
+			anchor.current = null;
+			toast(error instanceof Error ? error.message : "消息加载失败", true);
+		} finally {
+			pendingPage.current = false;
+			setPaging(false);
+		}
+	};
+	useLayoutEffect(() => {
+		const box = scroll.current;
+		if (!box || !anchor.current || anchor.current.messages === msgs) return;
+		const saved = anchor.current;
+		const row = [...box.querySelectorAll<HTMLElement>("[data-message-id]")].find(
+			(el) => el.dataset.messageId === saved.id,
+		);
+		if (row) box.scrollTop += row.getBoundingClientRect().top - saved.top;
+		anchor.current = null;
+	});
 	const [typing, setTyping] = useState(false);
 	const [reply, setReply] = useState<Message>();
+	const [quoteText, setQuoteText] = useState<string>();
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 新消息到达时触发
 	useEffect(() => {
 		setTyping(false);
 	}, [msgs.length]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 新消息或输入提示出现时滚到底
 	useEffect(() => {
-		end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+		if (stick.current && !hasNewer && !anchor.current) end.current?.scrollIntoView({ block: "end" });
 	}, [msgs.length, typing]);
 
 	const other = conv?.kind === "dm" ? actors.get(conv.memberIds.find((i) => i !== me?.id) ?? "") : undefined;
+	const owner = useOwnerConversation(other, me?.id);
+	const ownerBinding = owner.data;
+	const ownerEligible = other?.kind === "agent" && other.ownerId === me?.id && !!other.deviceId;
 	const agentOnline = other?.kind === "agent" && !!other.online;
 	// 云端 Bot（小歪）没有设备，不能显示「电脑离线」：只有绑了设备的 Agent 才提示离线。
 	const cloudBot = other?.kind === "agent" && !other.deviceId && other.ownerId === me?.id;
@@ -440,7 +510,7 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 							</span>
 						)}
 						<span className="truncate">{conv?.title}</span>
-						{other?.kind === "agent" && <AiBadge />}
+						{other?.kind === "agent" && <AiBadge actor={other} />}
 						{other?.kind === "agent" && (
 							<span className="flex items-center gap-1.5 text-[12px] font-normal text-muted">
 								<Status online={agentOnline} />
@@ -463,50 +533,91 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					)
 				}
 			/>
-			<div className="scroll-y relative z-10 flex-1 px-4">
-				<div className="mx-auto flex max-w-[720px] flex-col gap-0.5 py-4">
-					{loadingMessages && (
-						<p role="status" className="text-small text-muted">
-							正在加载消息…
-						</p>
-					)}
-					{messagesError && forbidden(messagesFailure) && (
-						<p role="status" className="text-small text-muted">
-							无权访问这个会话
-						</p>
-					)}
-					{messagesError && !forbidden(messagesFailure) && (
-						<p role="status" className="text-small text-muted">
-							消息同步失败。
-							<button type="button" className="underline" onClick={() => void refreshMessages()}>
-								重试
+			{ownerEligible && !ownerBinding && (owner.isFetching || owner.error) && (
+				<p role="status" className="px-4 py-2 text-caption text-muted">
+					{owner.isFetching ? "正在同步完整会话…" : "完整会话暂不可用，当前显示聊天消息"}
+				</p>
+			)}
+			{ownerBinding ? (
+				<OwnerTranscript binding={ownerBinding} onQuote={setQuoteText} />
+			) : (
+				<div
+					ref={scroll}
+					className="scroll-y relative z-10 flex-1 px-4"
+					onScroll={(event) => {
+						const el = event.currentTarget;
+						stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+						if (el.scrollTop < 48 && hasOlder) void moveWindow(true);
+						else if (stick.current && hasNewer) void moveWindow(false);
+					}}
+				>
+					<div className="mx-auto flex max-w-[720px] flex-col gap-0.5 py-4">
+						{loadingMessages && (
+							<p role="status" className="text-small text-muted">
+								正在加载消息…
+							</p>
+						)}
+						{messagesError && forbidden(messagesFailure) && (
+							<p role="status" className="text-small text-muted">
+								无权访问这个会话
+							</p>
+						)}
+						{messagesError && !forbidden(messagesFailure) && (
+							<p role="status" className="text-small text-muted">
+								消息同步失败。
+								<button type="button" className="underline" onClick={() => void refreshMessages()}>
+									重试
+								</button>
+							</p>
+						)}
+						{hasOlder && (
+							<button
+								disabled={paging}
+								type="button"
+								className="mx-auto py-2 text-caption text-muted"
+								onClick={() => void moveWindow(true)}
+							>
+								{paging ? "正在加载…" : "加载更早的消息"}
 							</button>
-						</p>
-					)}
-					{msgs.map((m, i) => {
-						const prev = msgs[i - 1];
-						const first = prev?.senderId !== m.senderId;
-						const last = msgs[i + 1]?.senderId !== m.senderId;
-						return (
-							<Bubble
-								key={m.id}
-								m={m}
-								replied={msgs.find((item) => item.id === m.replyTo)}
-								actors={actors}
-								onReply={() => setReply(m)}
-								sender={actors.get(m.senderId)}
-								mine={m.senderId === me?.id}
-								group={conv?.kind === "group"}
-								first={first}
-								last={last}
-							/>
-						);
-					})}
-					{typing && <Typing />}
-					{me?.anonymous && <AnonHint sent={msgs.filter((m) => m.senderId === me.id).length} />}
-					<div ref={end} />
+						)}
+						{msgs.map((m, i) => {
+							const prev = msgs[i - 1];
+							const bucket = timeBucket(m.createdAt, prev?.createdAt);
+							const first = !!bucket || prev?.senderId !== m.senderId;
+							const last = msgs[i + 1]?.senderId !== m.senderId;
+							return (
+								<Fragment key={m.id}>
+									{bucket && <p className="py-4 text-center text-caption text-faint">{bucket}</p>}
+									<Bubble
+										m={m}
+										replied={msgs.find((item) => item.id === m.replyTo)}
+										actors={actors}
+										onReply={() => setReply(m)}
+										sender={actors.get(m.senderId)}
+										mine={m.senderId === me?.id}
+										group={conv?.kind === "group"}
+										first={first}
+										last={last}
+									/>
+								</Fragment>
+							);
+						})}
+						{hasNewer && (
+							<button
+								disabled={paging}
+								type="button"
+								className="mx-auto py-2 text-caption text-muted"
+								onClick={() => void moveWindow(false)}
+							>
+								加载更新的消息
+							</button>
+						)}
+						{typing && <Typing />}
+						{me?.anonymous && <AnonHint sent={msgs.filter((m) => m.senderId === me.id).length} />}
+						<div ref={end} />
+					</div>
 				</div>
-			</div>
+			)}
 			{offlineAgent && <p className="mx-auto mb-2 text-center text-[13px] text-muted">{OFFLINE_HINT}</p>}
 			{conv?.kind !== "notice" && (
 				<Composer
@@ -514,11 +625,16 @@ function ConversationBody({ id, routeRef }: { id: string; routeRef: string }) {
 					convId={id}
 					members={conv?.kind === "group" ? [...actors.values()].filter((a) => a.id !== me?.id) : []}
 					reply={reply}
+					quoteText={quoteText}
+					onClearQuote={() => setQuoteText(undefined)}
 					onClearReply={() => setReply(undefined)}
 					offline={offlineAgent}
 					agentId={other?.kind === "agent" ? other.id : undefined}
 					cloudBot={cloudBot}
-					onSend={() => agentOnline && setTyping(true)}
+					onSend={() => {
+						stick.current = true;
+						if (agentOnline) setTyping(true);
+					}}
 				/>
 			)}
 			{detail && <ChatDetail convId={id} onClose={() => setDetail(false)} />}
@@ -544,7 +660,7 @@ function Typing() {
 	);
 }
 
-function Bubble({
+export function Bubble({
 	m,
 	replied,
 	actors,
@@ -567,11 +683,23 @@ function Bubble({
 }) {
 	const loc = useLocation();
 	const c = m.content;
+	const [menu, setMenu] = useState<MenuAnchor | null>(null);
+	const trigger = useMenuTrigger(setMenu);
+	const copy = () => {
+		const text = "text" in c ? c.text : "url" in c ? c.url : c.title;
+		void navigator.clipboard
+			.writeText(text)
+			.then(() => toast("已复制"))
+			.catch(() => toast("复制失败", true));
+	};
 	const tight = mine
 		? { borderTopRightRadius: first ? undefined : 6, borderBottomRightRadius: last ? undefined : 6 }
 		: { borderTopLeftRadius: first ? undefined : 6, borderBottomLeftRadius: last ? undefined : 6 };
 	return (
-		<div className={cn("rise flex items-end gap-2", mine && "flex-row-reverse", first && "mt-3")}>
+		<div
+			data-message-id={m.id}
+			className={cn("group/message rise flex w-full items-end gap-2", mine && "flex-row-reverse", first && "mt-3")}
+		>
 			{!mine && (
 				<span className="w-8 shrink-0">
 					{last && sender && (
@@ -592,7 +720,19 @@ function Bubble({
 						{sender.kind === "agent" && " · Bot"}
 					</span>
 				)}
+				<button
+					type="button"
+					className="sr-only focus:not-sr-only"
+					aria-label="消息操作，右键或长按也可打开"
+					onClick={(event) => {
+						const rect = event.currentTarget.getBoundingClientRect();
+						setMenu({ x: rect.left, y: rect.bottom });
+					}}
+				>
+					消息操作
+				</button>
 				<div
+					{...trigger}
 					style={tight}
 					className={cn("rounded-bubble px-3.5 py-2 text-[15px]", mine ? "bg-accent text-on-accent" : "bg-tone")}
 				>
@@ -634,14 +774,23 @@ function Bubble({
 						</div>
 					)}
 				</div>
-				<button
-					type="button"
-					onClick={onReply}
-					aria-label="引用这条消息"
-					className="self-end px-1 text-[12px] text-muted"
+				<time
+					dateTime={new Date(m.createdAt).toISOString()}
+					className="px-1 text-[11px] leading-4 text-faint opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity"
 				>
-					引用
-				</button>
+					{messageClock(m.createdAt)}
+				</time>
+				{menu && (
+					<ActionMenu
+						at={menu}
+						title="消息"
+						actions={[
+							{ key: "reply", label: "引用", icon: Reply, onSelect: onReply },
+							{ key: "copy", label: "复制", icon: Copy, onSelect: copy },
+						]}
+						onClose={() => setMenu(null)}
+					/>
+				)}
 			</div>
 		</div>
 	);
@@ -650,6 +799,8 @@ function Bubble({
 export function Composer({
 	convId,
 	members = [],
+	quoteText,
+	onClearQuote,
 	reply,
 	onClearReply,
 	offline,
@@ -659,6 +810,8 @@ export function Composer({
 }: {
 	convId: string;
 	members?: Actor[];
+	quoteText?: string;
+	onClearQuote?: () => void;
 	reply?: Message;
 	onClearReply?: () => void;
 	offline: boolean;
@@ -701,15 +854,26 @@ export function Composer({
 		pending.current = true;
 		setSending(true);
 		try {
-			const content = { type: "markdown" as const, text: body, ...(mention ? { mentions: [mention] } : {}) };
+			const content = {
+				type: "markdown" as const,
+				text: quoteText
+					? `${quoteText
+							.split("\n")
+							.map((line) => `> ${line}`)
+							.join("\n")}\n\n${body}`
+					: body,
+				...(mention ? { mentions: [mention] } : {}),
+			};
 			const message = reply ? await api.send(convId, content, reply.id) : await api.send(convId, content);
 			qc.setQueryData<Message[]>(["msgs", convId], (old) =>
-				old?.some((m) => m.id === message.id) ? old : [...(old ?? []), message],
+				old?.some((m) => m.id === message.id) ? old : [...(old ?? []), message].slice(-120),
 			);
 			void qc.invalidateQueries({ queryKey: ["convs"] });
+			void qc.invalidateQueries({ queryKey: ["msgs", convId] });
 			setText("");
 			setMention("");
 			onClearReply?.();
+			onClearQuote?.();
 			const session = $session.get();
 			if (session?.guest)
 				$session.set({ ...session, guest: { ...session.guest, remaining: Math.max(0, session.guest.remaining - 1) } });
@@ -754,10 +918,19 @@ export function Composer({
 	}, [signedIn, convId]);
 	return (
 		<div className="shrink-0 px-4 pb-safe">
-			{reply && (
+			{(reply || quoteText) && (
 				<div className="mx-auto mb-2 flex max-w-[720px] items-center gap-2 text-[13px] text-muted">
-					<span className="truncate">引用：{"text" in reply.content ? reply.content.text : "附件"}</span>
-					<button type="button" onClick={onClearReply} aria-label="取消引用">
+					<span className="truncate">
+						引用：{quoteText ?? (reply && "text" in reply.content ? reply.content.text : "附件")}
+					</span>
+					<button
+						type="button"
+						onClick={() => {
+							onClearReply?.();
+							onClearQuote?.();
+						}}
+						aria-label="取消引用"
+					>
 						取消
 					</button>
 				</div>

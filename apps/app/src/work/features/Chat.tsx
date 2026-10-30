@@ -163,7 +163,15 @@ function Live({
 				{!v.ready ? (
 					<p className="flex-1 py-16 text-center text-small text-faint">连接中…</p>
 				) : (
-					<Transcript items={v.items} hasMore={v.hasMore} onOlder={v.loadOlder}>
+					<Transcript
+						items={v.items}
+						hasMore={v.hasMore}
+						onOlder={v.loadOlder}
+						hasNewer={v.hasNewer}
+						onNewer={v.loadNewer}
+						loadingOlder={v.loadingOlder}
+						olderError={v.olderError}
+					>
 						<WorkCards subtasks={v.subtasks} background={v.background} />
 					</Transcript>
 				)}

@@ -1,8 +1,9 @@
-import { Brain, ChevronRight, Copy, Layers, Wrench } from "lucide-react";
+import { Brain, ChevronRight, Copy, Info, Layers, Reply, Wrench } from "lucide-react";
+import { Popover } from "radix-ui";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
 import type { ActionItem } from "../lib/actions";
-import { type ChatItem, channelName, type ToolCall } from "../lib/chat";
+import { type ChatItem, channelName, messageClock, type ToolCall, timeBucket } from "../lib/chat";
 import { useBotNames } from "../lib/queries";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import { ActionMenu } from "./ActionMenu";
@@ -100,12 +101,65 @@ function Notice({ it }: { it: ChatItem }) {
 	);
 }
 
-function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
+function ChannelBadge({ it }: { it: ChatItem }) {
+	const [open, setOpen] = useState(false);
+	const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+	const enter = () => {
+		clearTimeout(timer.current);
+		setOpen(true);
+	};
+	const leave = () => {
+		timer.current = setTimeout(() => setOpen(false), 150);
+	};
+	useEffect(() => () => clearTimeout(timer.current), []);
+	return (
+		<Popover.Root open={open} onOpenChange={setOpen}>
+			<Popover.Trigger
+				aria-label={`${channelName(it.channel)}消息来源`}
+				onMouseEnter={enter}
+				onMouseLeave={leave}
+				onFocus={enter}
+				className="absolute -bottom-1.5 -right-1.5 rounded-md border border-ground bg-raised p-0.5"
+				data-testid="channel-badge"
+			>
+				<ChannelIcon channel={it.channel} size={16} />
+			</Popover.Trigger>
+			<Popover.Portal>
+				<Popover.Content
+					side="top"
+					collisionPadding={12}
+					onMouseEnter={enter}
+					onMouseLeave={leave}
+					className="z-50 max-w-[min(360px,calc(100vw-24px))] rounded-control bg-raised p-3 text-small shadow-float"
+				>
+					<p>
+						{channelName(it.channel)}
+						{it.fromName ? ` · ${it.fromName}` : ""}
+					</p>
+					{it.conv && (
+						<button
+							type="button"
+							className="mt-1 break-all text-left text-caption text-muted"
+							onClick={() => {
+								void navigator.clipboard?.writeText(it.conv!);
+							}}
+						>
+							{it.conv} <Copy size={12} className="inline" />
+						</button>
+					)}
+				</Popover.Content>
+			</Popover.Portal>
+		</Popover.Root>
+	);
+}
+
+function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => void }) {
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
 	const actions: ActionItem[] = [
 		{ key: "copy", label: "复制", icon: Copy, onSelect: () => void navigator.clipboard?.writeText(it.text) },
 	];
+	if (onQuote && it.text) actions.unshift({ key: "quote", label: "引用", icon: Reply, onSelect: () => onQuote(it) });
 
 	if (it.role === "summary")
 		return (
@@ -131,15 +185,15 @@ function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
 			</div>
 		);
 
-	const mine = it.role === "user";
+	const mine = it.role === "user" && !it.triggered && (it.owner || !it.from || it.from === "acct:console:owner");
+	const input = it.role === "user";
+	const channel = input && it.channel && !["console", "cli"].includes(it.channel);
 	return (
-		<div className={`mx-auto flex w-full max-w-[720px] flex-col gap-1.5 ${mine ? "items-end" : "items-start"}`}>
-			{mine && showChannel && (
-				<span className="flex max-w-full items-center gap-1 text-caption text-faint" data-testid="channel-badge">
-					<ChannelIcon channel={it.channel} size={14} />
-					{channelName(it.channel)}
-					{it.fromName && <span className="truncate text-faint">· {it.fromName}</span>}
-				</span>
+		<div
+			className={`group/message relative mx-auto flex w-full max-w-[720px] flex-col gap-1.5 ${mine ? "items-end" : "items-start"}`}
+		>
+			{input && !mine && (
+				<span className="text-caption text-faint">{it.triggered ? "系统触发" : (it.fromName ?? "外部消息")}</span>
 			)}
 			{it.thinking && (
 				<div className="w-full max-w-[85%]">
@@ -149,12 +203,56 @@ function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
 				</div>
 			)}
 			{it.text && (
-				<div
-					{...trigger}
-					className={`no-select max-w-[85%] rounded-bubble px-3.5 py-2 text-body break-words ${mine ? "bg-accent text-on-accent" : "bg-tone"}`}
-					data-testid={mine ? "bubble-user" : "bubble-bot"}
-				>
-					{mine ? <p className="whitespace-pre-wrap">{it.text}</p> : <Markdown text={it.text} />}
+				<div className="relative max-w-[85%]">
+					{it.metadata && it.metadata.length > 0 && (
+						<Popover.Root>
+							<Popover.Trigger
+								aria-label="消息元数据"
+								className="absolute -top-6 right-0 inline-flex items-center gap-1 rounded bg-raised px-1.5 py-0.5 text-caption text-faint opacity-0 focus:opacity-100 group-hover/message:opacity-100 group-focus-within/message:opacity-100 [@media(hover:none)]:opacity-100"
+							>
+								<Info size={12} />
+								详情
+							</Popover.Trigger>
+							<Popover.Portal>
+								<Popover.Content
+									side="top"
+									align="end"
+									sideOffset={8}
+									collisionPadding={12}
+									className="z-50 max-h-[50vh] w-[min(420px,calc(100vw-24px))] overflow-auto rounded-card bg-raised p-3 shadow-float"
+									aria-label="消息元数据详情"
+								>
+									{it.metadata.map((part, index) => (
+										<section key={`${part.offset}-${part.label}`} className="mb-3 last:mb-0">
+											<p className="mb-1 text-caption text-muted">
+												{index + 1}. {part.label} · {part.offset === 0 ? "正文前" : `正文第 ${part.offset} 字后`}
+											</p>
+											<pre className="whitespace-pre-wrap break-all text-caption text-muted">{part.text}</pre>
+										</section>
+									))}
+								</Popover.Content>
+							</Popover.Portal>
+						</Popover.Root>
+					)}
+					<div
+						{...trigger}
+						className={`no-select rounded-bubble px-3.5 py-2 text-body break-words ${mine ? "bg-accent text-on-accent" : it.triggered ? "bg-tone/60 border border-line border-dashed" : "bg-tone"}`}
+						data-testid={input ? "bubble-user" : "bubble-bot"}
+					>
+						<button
+							type="button"
+							className="sr-only focus:not-sr-only"
+							aria-label="消息操作，右键或长按也可打开"
+							onClick={(event) => {
+								const rect = event.currentTarget.getBoundingClientRect();
+								setMenu({ x: rect.left, y: rect.bottom });
+							}}
+						>
+							消息操作
+						</button>
+						{input ? <p className="whitespace-pre-wrap">{it.text}</p> : <Markdown text={it.text} />}
+					</div>
+					{channel && <ChannelBadge it={it} />}
 				</div>
 			)}
 			{it.tools.map((t) => (
@@ -163,6 +261,14 @@ function Bubble({ it, showChannel }: { it: ChatItem; showChannel: boolean }) {
 				</div>
 			))}
 			{it.streaming && <span className="text-caption text-faint">正在输入…</span>}
+			{it.ts && (
+				<time
+					dateTime={new Date(it.ts).toISOString()}
+					className="pointer-events-none h-4 px-1 text-caption text-faint opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100"
+				>
+					{messageClock(it.ts)}
+				</time>
+			)}
 			{menu && <ActionMenu at={menu} title="消息" actions={actions} onClose={() => setMenu(null)} />}
 		</div>
 	);
@@ -172,21 +278,44 @@ export function Transcript({
 	items,
 	hasMore,
 	onOlder,
+	hasNewer = false,
+	onNewer,
+	loadingOlder = false,
+	olderError,
+	onQuote,
 	children,
 }: {
 	items: ChatItem[];
 	hasMore: boolean;
 	onOlder(): void;
+	hasNewer?: boolean;
+	onNewer?(): void;
+	loadingOlder?: boolean;
+	olderError?: string;
+	onQuote?(item: ChatItem): void;
 	children?: React.ReactNode;
 }) {
 	// 同一对话来自 ≥2 个渠道时才显示渠道标识
-	const channels = new Set(items.filter((i) => i.role === "user").map((i) => channelName(i.channel))).size >= 2;
 	const box = useRef<HTMLDivElement>(null);
 	const stick = useRef(true);
+	const anchor = useRef<{ id: string; top: number } | null>(null);
 	useLayoutEffect(() => {
 		const el = box.current;
-		if (el && stick.current) el.scrollTop = el.scrollHeight;
+		if (!el) return;
+		if (anchor.current) {
+			const node = [...el.querySelectorAll<HTMLElement>("[data-message-id]")].find(
+				(node) => node.dataset.messageId === anchor.current?.id,
+			);
+			if (node) el.scrollTop += node.getBoundingClientRect().top - anchor.current.top;
+			anchor.current = null;
+		} else if (stick.current && !hasNewer) el.scrollTop = el.scrollHeight;
 	});
+	const older = () => {
+		if (loadingOlder) return;
+		const node = box.current?.querySelector<HTMLElement>("[data-message-id]");
+		if (node) anchor.current = { id: node.dataset.messageId!, top: node.getBoundingClientRect().top };
+		onOlder();
+	};
 	useEffect(() => {
 		const el = box.current;
 		if (el) el.scrollTop = el.scrollHeight;
@@ -198,18 +327,45 @@ export function Transcript({
 			onScroll={(e) => {
 				const el = e.currentTarget;
 				stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+				if (el.scrollTop < 80 && hasMore && !loadingOlder && !olderError) older();
+				if (stick.current && hasNewer && !loadingOlder) onNewer?.();
 			}}
 		>
 			<div className="flex flex-col gap-3">
 				{hasMore && (
-					<button type="button" onClick={onOlder} className="press mx-auto text-caption text-muted underline">
-						加载更早的消息
+					<button
+						type="button"
+						disabled={loadingOlder}
+						onClick={older}
+						className="press mx-auto text-caption text-muted underline"
+					>
+						{loadingOlder ? "加载中…" : "加载更早的消息"}
 					</button>
 				)}
 				{items.length === 0 && <p className="py-16 text-center text-small text-faint">还没有消息</p>}
-				{items.map((it) => (
-					<Bubble key={it.id} it={it} showChannel={channels} />
+				{olderError && (
+					<p role="alert" className="text-center text-caption text-danger">
+						{olderError}
+					</p>
+				)}
+				{items.map((it, index) => (
+					<div key={it.id} data-message-id={it.id}>
+						{timeBucket(it.ts, items[index - 1]?.ts) && (
+							<p className="my-3 text-center text-caption text-faint">{timeBucket(it.ts, items[index - 1]?.ts)}</p>
+						)}
+						<Bubble it={it} onQuote={onQuote} />
+					</div>
 				))}
+				{hasNewer && (
+					<button
+						type="button"
+						disabled={loadingOlder}
+						onClick={onNewer}
+						className="press mx-auto text-caption text-muted underline"
+					>
+						加载较新的消息
+					</button>
+				)}
 				{children}
 			</div>
 		</div>

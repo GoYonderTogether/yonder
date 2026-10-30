@@ -21,6 +21,11 @@ export interface ChatItem {
 	fromName?: string;
 	from?: string;
 	streaming?: boolean;
+	ts?: number;
+	conv?: string;
+	triggered?: boolean;
+	owner?: boolean;
+	metadata?: Array<{ label: string; text: string; offset: number }>;
 }
 
 interface Block {
@@ -40,6 +45,7 @@ interface PiMessage {
 	/** T-API-19：session.update 的消息项可带来源渠道与发送者名；没有就不猜。 */
 	channel?: string;
 	fromName?: string;
+	timestamp?: number;
 }
 
 const TURN = /^<turn\b([^>]*)>[\s\S]*?<\/turn>\s*/;
@@ -48,6 +54,65 @@ export function splitTurn(text: string): { body: string; channel?: string } {
 	const m = TURN.exec(text);
 	if (!m) return { body: text };
 	return { body: text.slice(m[0].length), channel: /channel="([^"]*)"/.exec(m[1] ?? "")?.[1] };
+}
+
+/** Only runtime-owned leading wrappers are metadata; XML in the user's body stays intact. */
+export function inputDetails(text: string, original?: string) {
+	const metadata: NonNullable<ChatItem["metadata"]> = [];
+	let body = text;
+	const clock = /^<runtime_clock\b[^>]*>[\s\S]*?<\/runtime_clock>\s*/.exec(body);
+	if (clock) {
+		metadata.push({ label: "运行时钟", text: clock[0].trim(), offset: 0 });
+		body = body.slice(clock[0].length);
+	}
+	const turn = TURN.exec(body);
+	if (turn) {
+		metadata.push({ label: "消息来源", text: turn[0].trim(), offset: 0 });
+		body = body.slice(turn[0].length);
+	}
+	if (original !== undefined && body.startsWith(original)) {
+		const suffix = body.slice(original.length).trim();
+		if (suffix) metadata.push({ label: "上下文注入", text: suffix, offset: original.length });
+		body = original;
+	} else if (original !== undefined) {
+		if (body.trim()) metadata.push({ label: "准备后的输入", text: body, offset: 0 });
+		body = original;
+	}
+	const attr = (name: string) => new RegExp(`${name}="([^"]*)"`).exec(turn?.[1] ?? "")?.[1];
+	const from = /^from: .*?\(([^,)]+)(?:,|\))/m.exec(turn?.[0] ?? "")?.[1];
+	const eventType = attr("type");
+	const fromName = /^from: (.*?) \(/m.exec(turn?.[0] ?? "")?.[1];
+	return {
+		body,
+		metadata,
+		channel: attr("channel"),
+		conv: attr("conv"),
+		from,
+		fromName,
+		owner: /^from: .*\([^\n]*, owner(?:[:)]|,)/m.test(turn?.[0] ?? ""),
+		ts: attr("time") ? Date.parse(attr("time")!) : undefined,
+		triggered:
+			(!!eventType && !["message.in", "session.input"].includes(eventType)) ||
+			/System reminder; no human authority/.test(turn?.[0] ?? ""),
+	};
+}
+
+export const messageClock = (ts: number) =>
+	new Date(ts).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+
+/** A date change or five minutes of silence starts a new reading group. */
+export function timeBucket(current?: number, previous?: number): string | undefined {
+	if (!current || !Number.isFinite(current)) return undefined;
+	const date = new Date(current);
+	if (previous && date.toDateString() === new Date(previous).toDateString() && current - previous < 5 * 60_000)
+		return undefined;
+	return date.toLocaleString("zh-CN", {
+		month: "long",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false,
+	});
 }
 
 const blocks = (m: PiMessage): Block[] =>
@@ -81,8 +146,17 @@ export function applyMessage(
 	}
 	let item: ChatItem;
 	if (m.role === "user") {
-		const { body, channel } = splitTurn(textOf(m));
-		item = { id, role: "user", text: body, channel: channel ?? m.channel, fromName: m.fromName, tools: [] };
+		const details = inputDetails(textOf(m));
+		item = {
+			id,
+			role: "user",
+			text: details.body,
+			...details,
+			channel: details.channel ?? m.channel,
+			fromName: m.fromName ?? details.fromName,
+			ts: details.ts ?? m.timestamp,
+			tools: [],
+		};
 	} else if (m.role === "assistant") {
 		const bs = blocks(m);
 		item = {
@@ -101,6 +175,7 @@ export function applyMessage(
 				.filter((b) => b.type === "toolCall")
 				.map((b) => ({ id: b.id ?? "", name: b.name ?? "tool", args: b.arguments, done: false })),
 			streaming,
+			ts: m.timestamp,
 		};
 	} else if (m.role === "compactionSummary" || m.role === "branchSummary") {
 		item = { id, role: "summary", text: m.summary ?? textOf(m), tools: [] };
@@ -140,24 +215,36 @@ export function applyToolUpdate(
 /** 分页读到的 TranscriptItem：kind 以 pi. 开头，tools 只有名称与参数，无结果。 */
 export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 	const out: ChatItem[] = [];
+	const prepared = new Map(
+		items.filter((item) => item.prepared !== undefined && item.target !== undefined).map((item) => [item.target, item]),
+	);
 	for (const t of items) {
 		const id = `t${t.id}`;
-		if (t.kind === "pi.compaction") out.push({ id, role: "summary", text: t.text, tools: [] });
+		if (t.kind === "pi.compaction") out.push({ id, role: "summary", text: t.text, ts: t.timestamp, tools: [] });
 		else if (t.kind === "pi.tool-result" || t.kind === "pi.tool") {
-			if (t.text) out.push({ id, role: "tool-result", text: t.text, tools: [] });
+			if (t.text) out.push({ id, role: "tool-result", text: t.text, ts: t.timestamp, tools: [] });
 		} else if (t.kind === "pi.assistant" || t.kind === "pi.generation") {
 			if (!t.text.trim() && !t.tools?.length) continue;
 			out.push({
 				id,
 				role: "assistant",
 				text: t.text,
+				ts: t.timestamp,
 				tools: (t.tools ?? []).map((x, i) => ({ id: `${id}.${i}`, name: x.name, args: x.args, done: true })),
 			});
 		}
 		// 当前网关的 transcript 里用户输入是 yonder.message（原文，无 <turn> 包装）。
 		// T-API-19 起消息项可带 channel/fromName；没有就沿用控制台默认，不按 id 猜。
 		else if (t.kind === "pi.user" || t.kind === "pi.inbox" || t.kind === "yonder.message") {
-			const { body, channel } = splitTurn(t.text);
+			const input = prepared.get(t.id);
+			const modelInput = t.prepared ?? input?.prepared;
+			const details =
+				modelInput !== undefined
+					? inputDetails(modelInput, t.text)
+					: t.kind === "yonder.message"
+						? { body: t.text, channel: undefined, from: undefined, metadata: [], ts: undefined }
+						: inputDetails(t.text);
+			const { body, channel } = details;
 			const meta = t as TranscriptItem & { channel?: string; fromName?: string };
 			const last = out.at(-1);
 			if (last?.role === "user" && last.text === body) continue;
@@ -166,12 +253,15 @@ export function fromTranscript(items: TranscriptItem[]): ChatItem[] {
 					id,
 					role: "user",
 					text: body,
+					...details,
+					ts: details.ts ?? t.timestamp ?? input?.timestamp,
 					channel: channel ?? meta.channel,
-					fromName: meta.fromName,
-					from: t.from,
+					fromName: meta.fromName ?? ("fromName" in details ? details.fromName : undefined),
+					from: t.from ?? details.from,
 					tools: [],
 				});
-		} else if (t.from && t.text) out.push({ id, role: "notice", text: t.text, from: t.from, tools: [] });
+		} else if (t.from && t.text)
+			out.push({ id, role: "notice", text: t.text, from: t.from, ts: t.timestamp, tools: [] });
 	}
 	return out;
 }

@@ -82,6 +82,9 @@ export type SessionUpdatedEv = Static<typeof SessionUpdatedEvSchema>;
 export const TranscriptItemSchema = Type.Object(
 	{
 		from: O(T),
+		timestamp: O(N),
+		target: O(N),
+		prepared: O(T),
 		id: N,
 		kind: T,
 		text: T,

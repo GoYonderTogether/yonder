@@ -96,3 +96,54 @@ describe("useSession reduce 快照", () => {
 		expect(next.items.map((item) => item.text)).toEqual(["当前消息"]);
 	});
 });
+
+it("unloads message bodies after 200 rows and restores the next page with its cursor", () => {
+	const items = (from: number, count: number) =>
+		Array.from({ length: count }, (_, n) => ({
+			id: `t${from + n}`,
+			role: "user" as const,
+			text: String(from + n),
+			tools: [],
+		}));
+	const tail = { ...emptyView, items: items(101, 200), hasMore: true };
+	const older = reduce(tail, { k: "older", items: items(51, 50), hasMore: true });
+	expect(older.items).toHaveLength(200);
+	expect(older.items[0]?.id).toBe("t51");
+	expect(older.items.at(-1)?.id).toBe("t250");
+	expect(older.newerPages).toEqual([301]);
+	const live = reduce(older, {
+		k: "ev",
+		type: "session.update",
+		data: {
+			type: "message",
+			id: "t301",
+			message: { role: "user", content: "new" },
+		},
+	});
+	expect(live.items).toEqual(older.items);
+	const newer = reduce(older, { k: "newer", items: items(251, 50) });
+	expect(newer.items).toHaveLength(200);
+	expect(newer.items[0]?.id).toBe("t101");
+	expect(newer.items.at(-1)?.id).toBe("t300");
+	expect(newer.newerPages).toEqual([]);
+});
+
+it("advances the raw pagination cursor even when a page has no displayable messages", () => {
+	const next = reduce(
+		{ ...emptyView, items: [], beforeCursor: 100, hasMore: true },
+		{ k: "older", items: [], hasMore: true, before: 50 },
+	);
+	expect(next.beforeCursor).toBe(50);
+	expect(next.hasMore).toBe(true);
+});
+
+it("keeps native system notifications in the live transcript and deduplicates replay", () => {
+	const event = {
+		k: "ev" as const,
+		type: "session.update",
+		data: { type: "notification", notification: { id: 12, text: "后台完成", from: "plugin:tasks" } },
+	};
+	const next = reduce(emptyView, event);
+	expect(next.items).toEqual([{ id: "t12", role: "notice", text: "后台完成", from: "plugin:tasks", tools: [] }]);
+	expect(reduce(next, event).items).toHaveLength(1);
+});

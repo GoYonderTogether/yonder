@@ -71,7 +71,7 @@ export class Mux {
 	constructor(socket?: { create(url: string): StreamSocket; url(): string }, node?: NodeTarget) {
 		this.socket =
 			socket ??
-			(node?.origin
+			(node?.origin || node?.deviceId
 				? {
 						create: (url) => new WebSocket(url) as unknown as StreamSocket,
 						url: () => wsUrl(node),

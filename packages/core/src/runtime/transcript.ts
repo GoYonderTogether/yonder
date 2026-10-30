@@ -15,11 +15,28 @@ export function entryText(entry: EntryRecord | undefined): string {
 }
 export function transcriptItem(entry: EntryRecord): TranscriptItem {
 	const notification = notificationOf(entry);
+	const prepared =
+		entry.kind === "yonder.prepared" ? entry.edits?.find((edit) => edit.action === "replace") : undefined;
+	const messages = prepared && "messages" in prepared ? prepared.messages : entry.model;
+	const timestamp = messages?.find((message) => typeof message.timestamp === "number")?.timestamp;
 	return {
 		...(notification ? { from: notification.from } : {}),
 		id: Number(entry.id),
 		kind: entry.kind,
 		text: notification?.text ?? entryText(entry),
+		...(timestamp === undefined ? {} : { timestamp }),
+		...(prepared && "messages" in prepared
+			? {
+					target: Number(prepared.target),
+					prepared: prepared.messages
+						.flatMap((message) =>
+							typeof message.content === "string"
+								? [message.content]
+								: message.content.filter((block) => block.type === "text").map((block) => block.text),
+						)
+						.join("\n"),
+				}
+			: {}),
 		tools: (entry.model ?? []).flatMap((message) =>
 			message.role === "assistant"
 				? message.content
@@ -31,6 +48,32 @@ export function transcriptItem(entry: EntryRecord): TranscriptItem {
 			? { event: String(entry.data.event) }
 			: {}),
 	};
+}
+
+/** Resolve only the requested inputs. The conversation/id index stops at each matching edit. */
+async function projectEntries(entries: EntryRecord[], db?: Db): Promise<TranscriptItem[]> {
+	return Promise.all(
+		entries.map(async (entry) => {
+			const item = transcriptItem(entry);
+			if (!db || entry.kind !== "yonder.message") return item;
+			const row = await db.get<{ record: string }>(
+				`SELECT record FROM pi_entries WHERE conversation_id = ? AND id > ?
+			 AND json_extract(record, '$.kind') = 'yonder.prepared'
+			 AND json_extract(record, '$.data.target') = ? ORDER BY id ASC LIMIT 1`,
+				Number(entry.conversationId),
+				Number(entry.id),
+				Number(entry.id),
+			);
+			if (!row) return item;
+			const prepared = transcriptItem(JSON.parse(row.record) as EntryRecord);
+			const timestamp = item.timestamp ?? prepared.timestamp;
+			return {
+				...item,
+				...(prepared.prepared === undefined ? {} : { prepared: prepared.prepared }),
+				...(timestamp === undefined ? {} : { timestamp }),
+			};
+		}),
+	);
 }
 
 /** Read the pinned pi-durable 1.3.0 entry format without migrations, recovery or writes. */
@@ -55,7 +98,10 @@ export async function readTranscript(
 		range.from ?? 0,
 		range.limit ?? 100,
 	);
-	return rows.map((row) => transcriptItem(JSON.parse(row.record) as EntryRecord));
+	return projectEntries(
+		rows.map((row) => JSON.parse(row.record) as EntryRecord),
+		db,
+	);
 }
 
 /**
@@ -65,6 +111,7 @@ export async function readTranscript(
 export async function transcriptPage(
 	conversation: Conversation,
 	range: { from?: number; limit?: number; before?: number } = {},
+	db?: Db,
 ): Promise<TranscriptItem[]> {
 	if (range.before !== undefined) {
 		const page = await conversation.entries(
@@ -76,7 +123,7 @@ export async function transcriptPage(
 			undefined,
 			C,
 		);
-		return page.items.map(transcriptItem).reverse();
+		return (await projectEntries([...page.items], db)).reverse();
 	}
 	const page = await conversation.entries(
 		{ order: "ascending", ...(range.from === undefined ? {} : { minEntryId: range.from as EntryId }) },
@@ -84,5 +131,5 @@ export async function transcriptPage(
 		undefined,
 		C,
 	);
-	return page.items.map(transcriptItem);
+	return projectEntries([...page.items], db);
 }

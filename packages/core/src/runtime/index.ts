@@ -1222,7 +1222,7 @@ export class Runtime {
 		id: string,
 		range: { from?: number; limit?: number; before?: number } = {},
 	): Promise<TranscriptItem[]> {
-		return transcriptPage(await this.conversation(id), range);
+		return transcriptPage(await this.conversation(id), range, this.options.db);
 	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
 		const state = await this.harness.snapshot(UsageDoc, cid(id), C),

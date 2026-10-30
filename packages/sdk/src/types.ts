@@ -1,5 +1,5 @@
 import type { AgentsAPI } from "./agent-bindings.js";
-import type { Attachment } from "./messages.js";
+import type { Attachment, TranscriptItem } from "./messages.js";
 import type { WorkControl } from "./work-control.js";
 
 export type * from "./agent-bindings.js";
@@ -188,14 +188,7 @@ export interface RunResult {
 	reason?: string;
 	attachments?: Attachment[];
 }
-export interface TranscriptItem {
-	from?: string;
-	id: number;
-	kind: string;
-	text: string;
-	tools?: Array<{ name: string; args: object }>;
-	event?: string;
-}
+
 export interface IdentityAPI {
 	account(ref: Ref): Promise<AccountInfo | undefined>;
 	person(ref: Ref): Promise<PersonInfo | undefined>;

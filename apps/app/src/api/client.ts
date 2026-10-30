@@ -65,7 +65,7 @@ export interface ApiClient {
 	// 聊天
 	actors(ids: string[]): Promise<Actor[]>;
 	conversations(): Promise<Conversation[]>;
-	messages(convId: string): Promise<Message[]>;
+	messages(convId: string, page?: { before?: number; since?: number; limit: number }): Promise<Message[]>;
 	send(convId: string, content: MessageContent, replyTo?: string): Promise<Message>;
 	/** 与某个账号开私聊，已存在则返回原会话 */
 	openDm(actorId: string): Promise<Conversation>;
