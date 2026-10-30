@@ -60,6 +60,17 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - wrapper 将安装 bin、安装时 node 所在目录加到 PATH 前面；保留安装时的 PATH 供后台进程使用，使本机 agent 能运行 yonder、node、npm、git。凭据不写入 wrapper 或服务环境。
 - 每版保留不含秘密的安装来源（仓库、tag、commit、版本）；version 查询安装来源。维护源码、安装程序、运行 home 分离，正式运行不引用开发包。
 
+### 3.1 首次安装脚本
+
+- 两条固定地址随每个正式 Release 发布，内容是该 tag 里的 `scripts/install.sh` / `scripts/install.ps1`：
+  - `https://github.com/GoYonderTogether/yonder/releases/latest/download/install.sh`（macOS/Linux）
+  - `https://github.com/GoYonderTogether/yonder/releases/latest/download/install.ps1`（Windows）
+- 脚本只做四件事：检查 node（≥22.19）/npm/git；用 `git ls-remote --tags --refs` 取最高**正式**标签（不带 `-beta`，`YONDER_VERSION` 可显式指定）；`git clone --depth 1 --branch <tag>` 后 `npm ci && npm run build` 放进 `<install>/versions/<version>`，校验包版本与标签一致并写 `.yonder-install.json`（字段与 §4 的安装记录相同，`rm -rf .git`）；最后用这份已构建的 CLI 跑 `yonder update --to <version> --repo <repo>`。
+- 收尾交给 `update`，不在 shell 里重写 wrapper、`current` 切换与保留最近三版的逻辑；重复执行幂等，已存在的版本目录不再构建。
+- 数据目录的 `yonder.yaml` 不存在时才执行 `yonder init --model openai/gpt-6-luna`；存在则一律不改。登录模型供应商与 `service install` 不代劳，脚本只打印下一步。
+- `--dry-run` 只解析版本并打印将要执行的步骤，不下载、不写盘。
+- 只取正式标签，禁止从开发分支或未审核提交安装。
+
 ## 4. 更新
 
 `yonder update [--to <tag>|latest|beta] [--repo <url>]`（版本号与通道见 §5）：

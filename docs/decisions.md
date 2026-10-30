@@ -861,3 +861,12 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 ### 2026-10-30：聊天页共享转录与克制消息交互（主人本轮要求）
 
 主人要求 bot 身份标签、右键/长按引用、行悬停时间、时间分隔与系统消息、完整主会话、渠道角标、按插入位置查看注入元数据及有界滚动加载。复用工作桥、原生转录、已有菜单与共享消息组件；主会话只对设备主人开放，不增加社交会话权限或第二份转录。为真实详情增量投影已有准备编辑与时间，缺失信息不补造；社交分页保留旧 since 调用语义。具体边界见 [19 §6](spec/19-device-workbench.md#6-聊天消息呈现2026-10-30-主人要求)。本轮授权实现与验证，不据源码修改宣称生产后端或已安装运行时更新完成。
+
+### 2026-10-30：一键安装脚本与统一下载入口（主人批准）
+
+主人要求「添加设备」只管添加已有设备，另有一个可免登录访问、已登录也能退出的统一下载入口，弹窗顶部放「下载客户端」按钮跳过去；安卓下载与 iOS TestFlight 也在这个页面预留真实地址。
+
+- **安装脚本**：新增 `scripts/install.sh` / `scripts/install.ps1`，随每个正式 Release 发布为 `releases/latest/download/install.{sh,ps1}`。脚本只做「检查环境 → 取最高正式标签 → 本机构建进 `versions/<version>` → 写安装记录 → 交 `yonder update` 收尾 → 必要时 `init`」。不新增 CLI 命令、不在 shell 里复制 wrapper/`current` 逻辑，`update` 仍是唯一的安装入口。登录模型供应商与 `service install` 不代劳。
+- **页面**：新增公开路由 `/download`（进冻结清单 §1.1），按 UA 识别系统：macOS/Linux 给 `curl … install.sh | sh`，Windows 给 `irm … install.ps1 | iex`，安卓/iOS 给客户端下载与 TestFlight，识别不了时让人自己选。`/get` 保持为连接提示词页，不改语义。
+- **弹窗**：添加设备弹窗分「已有设备」「在本机安装」两页，后者复用下载页的同一组件；顶部「下载客户端」跳到 `/download`。空态里的「下载 Yonder」改为「下载客户端」并指向 `/download`。
+- **手机客户端**：仓库目前没有安卓/iOS 产物，下载页按发布约定预留 `releases/latest/download/yonder-android.apk` 与 TestFlight 链接；产物上线即生效，不需要再改页面。

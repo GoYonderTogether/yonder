@@ -75,6 +75,17 @@
 | gateway no（`#/connect` 是 public） | 页面可开；社交未登录时 `createInvite` 401 → 「请登录后再获取连接邀请码」 | `Install.tsx:29`；Connect 的 invite 错误走 toast `:49` | Connect 没有把 401 单独说成「先登录社交账号」 |
 | 无绑定设备 | 「只控制本机」语义在 `ConsoleSwitcher`（`:175-179`），Connect 页只显示「添加设备」 | — | 两处空态文案不统一 |
 
+### 3.3.1 下载 `/download`（2026-10-30）
+
+| 组合 | 目标显示 | 现状证据 | 缺口 |
+|---|---|---|---|
+| 识别到 macOS/Linux/Windows | 系统名 + 一条安装命令 + 复制图标（复制后变对勾） | `pages/Download.tsx` 的 `InstallPanel` / `CommandBlock`，命令来自 `lib/platform.ts` 的 `installCommand` | 命令是 `releases/latest/download/install.{sh,ps1}`，需要一次正式发版后才真正可下载 |
+| 识别到安卓/iOS | 客户端下载 / TestFlight 按钮 + 「添加到主屏幕」备选 | `installTarget` 的 `client` 分支，地址在 `clientDownload` | 仓库尚无安卓/iOS 产物，两个地址发布前 404 |
+| 识别不到系统 | 「选择要安装到哪台电脑」+ 三个按钮 | `ChoosePlatform` | — |
+| 未登录 | 页面可开（`/download` 是公开路由） | `App.tsx` 的公共路由组 | 页面不发任何 API 请求，登录态不影响内容 |
+| 弹窗内「在本机安装」 | 与下载页同一组件，默认按当前系统 | `AddDeviceDialog` 的 `install` 标签页 | — |
+| 复制失败（非安全上下文） | toast「复制失败，请长按选中文本复制」 | `CommandBlock` → `copyText` | — |
+
 ### 3.4 网关登录（`Login`，非路由页）
 
 | 组合 | 目标显示（候选） | 现状证据 | 缺口 |

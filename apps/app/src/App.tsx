@@ -18,6 +18,7 @@ const Conversation = lazy(() => import("./pages/Chat").then((m) => ({ default: m
 const ChatShell = lazy(() => import("./pages/Chat").then((m) => ({ default: m.ChatShell })));
 const Connect = lazy(() => import("./pages/Connect").then((m) => ({ default: m.Connect })));
 const Install = lazy(() => import("./pages/Install").then((m) => ({ default: m.Install })));
+const Download = lazy(() => import("./pages/Download").then((m) => ({ default: m.Download })));
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Market })));
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
@@ -50,6 +51,7 @@ export function App() {
 				<Suspense fallback={<PageLoading />}>
 					<Routes>
 						<Route path="/get" element={<Install />} />
+						<Route path="/download" element={<Download />} />
 						<Route path="/me/settings/:section?" element={<SettingsPage local />} />
 						<Route path="/work/*" element={<WorkRoot />} />
 						<Route path="*" element={<Navigate to="/work" replace />} />
@@ -67,6 +69,7 @@ export function App() {
 					<Route path="/p/:accountId" element={<CardPage />} />
 					<Route path="/g/:token" element={<GroupJoin />} />
 					<Route path="/get" element={<Install />} />
+					<Route path="/download" element={<Download />} />
 					<Route
 						element={
 							<Private>

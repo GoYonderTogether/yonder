@@ -45,8 +45,9 @@
 | `/u/:id`、`/p/:accountId` | 公开名片与资料 | 是 |
 | `/g/:token` | 入群 | 是 |
 | `/get` | 安装 | 是 |
+| `/download` | 下载客户端 | 是 |
 
-旧 `#/…` 别名由 `apps/app/src/legacyLinks.ts` 在启动时改写为真实路径，查询串一并保留：`#/`→`/`，`#/s/<id>`→`/work/<id>`，`#/work*`→`/work*`，`#/console`、`#/market`→`/work/console`、`/work/market`，`#/c`、`#/contacts`、`#/cards`、`#/me`、`#/u`、`#/p`、`#/g`、`#/get`、`#/connect`、`#/friends` 各加前导斜杠后同名映射；无法识别的 hash 原样保留。
+旧 `#/…` 别名由 `apps/app/src/legacyLinks.ts` 在启动时改写为真实路径，查询串一并保留：`#/`→`/`，`#/s/<id>`→`/work/<id>`，`#/work*`→`/work*`，`#/console`、`#/market`→`/work/console`、`/work/market`，`#/c`、`#/contacts`、`#/cards`、`#/me`、`#/u`、`#/p`、`#/g`、`#/get`、`#/connect`、`#/friends`、`#/download` 各加前导斜杠后同名映射；无法识别的 hash 原样保留。
 
 hash 路由按 §3 弃用：至少保留 0.3、0.4 两个 minor，最早 0.5 移除。移除前须补齐 §3 第 2 点的运行时 warn 与 `CHANGELOG.md` 条目，并按 §4 记一条 decisions。别名映射表本身随冻结清单一并保护，只增不删。
 

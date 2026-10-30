@@ -27,8 +27,8 @@ export function EmptyPane() {
 			<Button variant="primary" className="mt-5" onClick={() => setAdding(true)}>
 				添加设备
 			</Button>
-			<Link to="/get" className="mt-3 text-[14px] text-muted underline underline-offset-4 hover:text-ink">
-				下载 Yonder
+			<Link to="/download" className="mt-3 text-[14px] text-muted underline underline-offset-4 hover:text-ink">
+				下载客户端
 			</Link>
 			<Suspense fallback={<span role="status">正在加载…</span>}>
 				{adding && (

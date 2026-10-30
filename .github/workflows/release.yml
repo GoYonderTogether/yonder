@@ -88,6 +88,11 @@ jobs:
       - run: npm run build
       - name: 打安装附件与 SHA256SUMS
         run: node scripts/release/pack-runtime.mjs --out dist-release
+      # 一键安装脚本随 Release 发布，网页用 releases/latest/download/install.sh 取，永远指向最新正式版。
+      - name: 收入一键安装脚本
+        run: |
+          cp scripts/install.sh scripts/install.ps1 dist-release/
+          (cd dist-release && sh -n install.sh)
       - name: 推送 tag
         run: git push origin "v$VERSION"
         env:

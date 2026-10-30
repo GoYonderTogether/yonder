@@ -1,5 +1,5 @@
 /** 旧的 #/… 链接（hash 路由时代）→ 新路径。无法识别的 hash 保持原样。 */
-const SAME = new Set(["c", "contacts", "cards", "me", "u", "p", "g", "get", "connect", "friends"]);
+const SAME = new Set(["c", "contacts", "cards", "me", "u", "p", "g", "get", "connect", "friends", "download"]);
 
 export function pathOfLegacyHash(hash: string): string | undefined {
 	if (!hash.startsWith("#/")) return undefined;

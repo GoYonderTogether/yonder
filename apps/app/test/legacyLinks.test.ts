@@ -15,6 +15,7 @@ describe("legacyLinks", () => {
 		["#/friends/add", "/friends/add"],
 		["#/u/123", "/u/123"],
 		["#/connect?code=7", "/connect?code=7"],
+		["#/download", "/download"],
 	])("%s → %s", (hash, path) => {
 		expect(pathOfLegacyHash(hash)).toBe(path);
 	});

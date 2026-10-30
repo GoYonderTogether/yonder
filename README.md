@@ -37,6 +37,16 @@ Read [docs/architecture.md](docs/architecture.md) first, then the specifications
 
 Requirements: macOS, Node.js 22.19 or newer, git. Optional: [ripgrep](https://github.com/BurntSushi/ripgrep) for the `grep` tool, [`gh`](https://cli.github.com) for the GitHub plugin, Chrome or Edge for browser automation.
 
+One-line install (macOS, Linux; Windows uses `install.ps1`):
+
+```sh
+curl -fsSL https://github.com/GoYonderTogether/yonder/releases/latest/download/install.sh | sh
+```
+
+It installs the latest formal release into `~/.local/share/yonder/install`, initialises a home when there is none, and prints the next steps. The same script is offered by the web app's **下载客户端** page ([spec 09 §3.1](docs/spec/09-cli-release.md)).
+
+From source instead:
+
 ```sh
 git clone https://github.com/GoYonderTogether/yonder.git
 cd yonder
