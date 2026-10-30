@@ -20,7 +20,13 @@ vi.mock("../src/work/api/work", () => ({
 	],
 }));
 vi.mock("../src/work/api/client", () => ({ rpc: async () => ({ sessions: [] }) }));
-vi.mock("../src/work/lib/queries", () => ({ fetchDeviceAgents: async () => [], deviceAgentMap: () => new Map() }));
+vi.mock("../src/work/lib/queries", () => ({
+	fetchDeviceAgents: async (deviceId: string) => [
+		{ key: "agent", actor: { id: `bot-${deviceId}`, kind: "agent", name: "GPT 学姐", deviceId } },
+	],
+	deviceAgentMap: (_deviceId: string, rows: Array<{ key: string; actor: unknown }>) =>
+		new Map(rows.map(({ key, actor }) => [key, actor])),
+}));
 
 it("opens the same session id on the device whose row was selected", async () => {
 	const { document, window } = parseHTML("<html><body></body></html>");
@@ -52,6 +58,10 @@ it("opens the same session id on the device whose row was selected", async () =>
 			await new Promise((resolve) => setTimeout(resolve, 10));
 		});
 	const section = container.querySelector('section[aria-label="b"]');
+	const bot = section?.querySelector('button[title="GPT 学姐"]');
+	expect(bot?.classList.contains("shrink-0")).toBe(true);
+	expect(bot?.classList.contains("flex-col")).toBe(true);
+	expect(bot?.querySelector("span.truncate")?.textContent).toBe("GPT 学姐");
 	const button = [...section!.querySelectorAll("button")].find((item) => item.textContent === "b");
 	await act(() => button!.dispatchEvent(new window.Event("click", { bubbles: true })));
 	expect(selected).toHaveBeenCalledWith(devices[1], "42");

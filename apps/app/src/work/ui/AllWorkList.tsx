@@ -75,7 +75,8 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 							<button
 								key={actor.id}
 								type="button"
-								className="flex items-center gap-2 rounded-control bg-raised px-2 py-1 text-small"
+								title={actor.name}
+								className="press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1"
 								onClick={() => {
 									if (session) onOpen(device, session.id);
 									else
@@ -85,8 +86,8 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 											.catch(() => toast("无法打开 Bot 对话", true));
 								}}
 							>
-								<Avatar actor={actor} size={28} />
-								<span>{actor.name}</span>
+								<Avatar actor={actor} size={36} />
+								<span className="w-full truncate text-center text-caption text-muted">{actor.name}</span>
 							</button>
 						))}
 					</DragScroll>
