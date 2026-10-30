@@ -131,6 +131,16 @@ it("上传显示进度，成功后预览并可移除", async () => {
 	expect(container.querySelector('img[alt="图片预览"]')).toBeNull();
 });
 
+it("上传失败显示错误并允许重试", async () => {
+	vi.mocked(uploadMarketImage).mockRejectedValue(new Error("图片上传失败，请重试"));
+	await renderDialog(vi.fn(), 1);
+	const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+	Object.defineProperty(input, "files", { value: [{ type: "image/png", size: 10 }] });
+	await act(async () => input.dispatchEvent(new win.Event("change", { bubbles: true })));
+	expect(container.textContent).toContain("图片上传失败，请重试");
+	expect(input.disabled).toBe(false);
+});
+
 it("旧草稿发布不带假图，确认页无说明", async () => {
 	const onPublish = vi.fn().mockResolvedValue(false);
 	await renderDialog(onPublish);
