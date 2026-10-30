@@ -80,6 +80,7 @@ api.channels.register({
 					{ use: "./probe" },
 				],
 				channels: { "qq-main": { type: "group-delivery" }, "qq-gpt": { type: "group-delivery" } },
+				identity: { persons: [{ id: "owner", name: "Owner", accounts: ["acct:qq-main:owner", "acct:qq-gpt:owner"] }] },
 				agents: [
 					{ id: "main", workspace: "./agents/main" },
 					{ id: "gpt-senpai", workspace: "./agents/gpt-senpai" },
