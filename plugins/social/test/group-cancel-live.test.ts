@@ -1,6 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
 import { expect, test } from "vitest";
 import { gptConv, groupFixture, mainConv } from "./group-fixture.js";
 

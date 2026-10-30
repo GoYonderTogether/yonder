@@ -9,6 +9,7 @@ import { createRoutedNotifications } from "./notifications.js";
 import { createPendingResults, createReporter } from "./pending.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
 import type { CreateRouterOptions } from "./types.js";
+
 type Wake = "run" | "write";
 interface RoutedRun {
 	agent: string;
