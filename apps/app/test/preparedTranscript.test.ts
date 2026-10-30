@@ -13,6 +13,7 @@ import { buildModels } from "../../../packages/core/src/runtime/models";
 import { readTranscript, transcriptItem } from "../../../packages/core/src/runtime/transcript";
 import { createStore } from "../../../packages/core/src/store";
 import { fromTranscript, timeBucket } from "../src/work/lib/chat";
+import { emptyView, reduce } from "../src/work/lib/useSession";
 
 test("real preparation and stored edit project metadata without losing the original or page boundary", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-transcript-ui-"));
@@ -75,6 +76,25 @@ test("real preparation and stored edit project metadata without losing the origi
 		expect(item?.metadata?.at(-1)?.text).toBe("真实上下文贡献");
 		expect(item?.from).toBe("acct:console:owner");
 		expect(await readTranscript(db, id, { from: original.id, limit: 1 })).toEqual(page);
+		const ready = reduce(emptyView, {
+			k: "snapshot",
+			gap: true,
+			stream: true,
+			snap: { transcript: { items: page, hasMore: false } },
+		});
+		const raw = await db.get<{ record: string }>("SELECT record FROM pi_entries WHERE id = ?", original.id);
+		const native = JSON.parse(raw!.record) as EntryRecord;
+		const snapshot = {
+			k: "ev" as const,
+			type: "session.update",
+			data: {
+				type: "snapshot",
+				items: (native.model ?? []).map((message, index) => ({ id: `${native.id}:${index}`, message })),
+			},
+		};
+		const afterNative = reduce(ready, snapshot);
+		expect(afterNative.items).toEqual(ready.items);
+		expect(reduce(afterNative, snapshot).items).toEqual(ready.items);
 	} finally {
 		await runtime?.close();
 		await rm(home, { recursive: true, force: true });

@@ -147,3 +147,90 @@ it("keeps native system notifications in the live transcript and deduplicates re
 	expect(next.items).toEqual([{ id: "t12", role: "notice", text: "后台完成", from: "plugin:tasks", tools: [] }]);
 	expect(reduce(next, event).items).toHaveLength(1);
 });
+
+it("keeps ready input details and row identity when the queued native snapshot arrives", () => {
+	const ready = reduce(emptyView, {
+		k: "snapshot",
+		gap: true,
+		stream: true,
+		snap: {
+			transcript: {
+				hasMore: true,
+				items: [
+					{
+						id: 100,
+						kind: "yonder.message",
+						text: "正文",
+						timestamp: 1000,
+						prepared:
+							'<turn id="e100" type="message.in" time="2026-10-30T00:00:00Z" channel="feishu" conv="conv:feishu:room">\nfrom: 名称 (acct:feishu:user)\n</turn>\n\n正文\n\n上下文',
+					},
+				],
+			},
+		},
+	});
+	const input = ready.items[0];
+	const next = reduce(ready, {
+		k: "ev",
+		type: "session.update",
+		data: {
+			type: "snapshot",
+			running: true,
+			items: [
+				{ id: "1:0", message: { role: "user", content: "老历史" } },
+				{ id: "100:0", message: { role: "user", content: "正文", timestamp: 1000 } },
+				{ id: "101:0", message: { role: "assistant", content: "新回复" } },
+				{ id: "101:1", message: { role: "assistant", content: "同entry的第二条" } },
+				{ id: "102", notification: { text: "系统通知", from: "plugin:tasks" } },
+				{ id: "103:0", message: { role: "user", content: "正文" } },
+			],
+		},
+	});
+	expect(next.items.map((item) => item.id)).toEqual(["t100", "t101", "101:1", "t102", "t103"]);
+	expect(next.items[0]).toEqual(input);
+	expect(next.items[0]?.metadata).toBe(input?.metadata);
+	expect(next.items[0]?.channel).toBe("feishu");
+	expect(next.items.at(-1)?.metadata).toEqual([]);
+	expect(next.items.find((item) => item.id === "t102")?.role).toBe("notice");
+	expect(next.running).toBe(true);
+	expect(next.beforeCursor).toBe(100);
+	const message = reduce(next, {
+		k: "ev",
+		type: "session.update",
+		data: { type: "message", id: "100:0", message: { role: "user", content: "正文" } },
+	});
+	expect(message.items[0]).toEqual(input);
+	expect(message.items.filter((item) => item.id === "t100")).toHaveLength(1);
+	const notification = reduce(message, {
+		k: "ev",
+		type: "session.update",
+		data: { type: "notification", notification: { id: 102, text: "系统通知", from: "plugin:tasks" } },
+	});
+	expect(notification.items).toHaveLength(5);
+});
+
+it("does not carry metadata across a gap even when a native snapshot reuses an entry id", () => {
+	const state = {
+		...emptyView,
+		items: [
+			{
+				id: "t100",
+				role: "user" as const,
+				text: "旧输入",
+				channel: "qq",
+				metadata: [{ label: "旧来源", text: "旧来源", offset: 0 }],
+				tools: [],
+			},
+		],
+	};
+	const reset = reduce(state, { k: "snapshot", gap: true, snap: {} });
+	const next = reduce(reset, {
+		k: "ev",
+		type: "session.update",
+		data: { type: "snapshot", messages: [{ id: "100:0", message: { role: "user", content: "新输入" } }] },
+	});
+	expect(next.items[0]?.id).toBe("t100");
+	expect(next.items[0]?.text).toBe("新输入");
+	expect(next.items[0]?.metadata).toEqual([]);
+	expect(next.items[0]?.channel).toBeUndefined();
+});

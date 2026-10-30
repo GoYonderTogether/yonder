@@ -61,6 +61,20 @@ interface UpdateShape {
 	notification?: { id: number; text: string; from: string };
 }
 
+// Native model ids are entry:index; transcript rows use t<entry>. Only the first
+// model message shares that row identity; additional messages remain distinct.
+const nativeRowId = (id: string) => (/^(\d+)(?::0)?$/.test(id) ? `t${id.split(":")[0]}` : id);
+
+function retainInputs(items: ChatItem[], previous: ChatItem[]): ChatItem[] {
+	const byId = new Map(previous.map((item) => [item.id, item]));
+	return items.map((item) => {
+		const old = byId.get(item.id);
+		// A model snapshot has no original input or prepared-edit association.
+		// Keep that immutable transcript projection by entry id, never by text.
+		return item.role === "user" && old?.role === "user" ? { ...item, ...old } : item;
+	});
+}
+
 function reduceUpdate(s: SessionView, u: UpdateShape): SessionView {
 	let items = s.items;
 	switch (u.type) {
@@ -68,22 +82,29 @@ function reduceUpdate(s: SessionView, u: UpdateShape): SessionView {
 			items = [];
 			if (u.items) {
 				for (const item of u.items) {
-					if (item.message) items = applyMessage(items, item.id, item.message);
+					if (item.message) items = applyMessage(items, nativeRowId(item.id), item.message);
 					else if (item.notification)
 						items.push({
-							id: item.id,
+							id: nativeRowId(item.id),
 							role: "notice",
 							text: item.notification.text,
 							from: item.notification.from,
 							tools: [],
 						});
 				}
-			} else for (const message of u.messages ?? []) items = applyMessage(items, message.id, message.message);
-			return { ...s, items, running: u.running ?? s.running };
+			} else
+				for (const message of u.messages ?? []) items = applyMessage(items, nativeRowId(message.id), message.message);
+			// Ready contains a bounded raw-entry page. The following native snapshot
+			// can include the entire model history and must not reintroduce older rows.
+			items = items.filter((item) => {
+				const entry = /^(?:t)?(\d+)(?::\d+)?$/.exec(item.id)?.[1];
+				return !s.beforeCursor || !entry || Number(entry) >= s.beforeCursor;
+			});
+			return { ...s, items: retainInputs(items, s.items), running: u.running ?? s.running };
 		}
 		case "message":
-			if (u.message) items = applyMessage(items, u.id ?? "live", u.message, u.streaming);
-			return { ...s, items };
+			if (u.message) items = applyMessage(items, nativeRowId(u.id ?? "live"), u.message, u.streaming);
+			return { ...s, items: retainInputs(items, s.items) };
 		case "notification": {
 			const notice = u.notification;
 			if (!notice || items.some((item) => item.id === `t${notice.id}`)) return s;
@@ -208,6 +229,7 @@ export function useSession(id: string | undefined, target?: NodeTarget): LiveVie
 		setLoadingOlder(false);
 		setOlderError(undefined);
 		if (!id) return;
+
 		const unsubscribe = stream.subscribe(
 			"sessions.watch",
 			{ id },
