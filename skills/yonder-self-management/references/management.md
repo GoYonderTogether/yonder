@@ -16,6 +16,8 @@ home 内：`yonder.yaml` 是插件、模型、服务、执行环境与 agent 注
 
 owner 是 `person:<id>`，不是显示名或渠道账号。账号引用为 `acct:<channel>:<id>`；同一人的账号只有显式关联后才会跨渠道识别。相对于各 agent，发送者分为 owner/known/stranger，绑定据此路由。`yonder.yaml` 的 `identity.persons` 只供初始化，后续用 `identity lookup <ref>`、`identity person <id> <name>`、`identity link <acct> <person>` 或 `identity unlink <acct>`，不靠编辑初始化名单改变现存关系。
 
+飞书接入检查：先核对实例及 `allowedUsers`/`allowedChats` 准入（空数组拒绝全部）；通过可信途径取得并核验该实例的主人 `acct`，在授权内显式 `identity link` 到 person；核对目标 Agent 的 channel、kind、from 绑定；最后真实发消息，分别核对入站事件、路由、运行及回复。过滤前无事件不能证明平台是否投递，不自动信任首个发送者。已有 person 时，配置里追加 accounts 不会自动补关联。`channels list` 的 login 仅表示支持登录操作，不是在线状态；查询 `channel-feishu_status`，connected 或 history complete 也不证明端到端收发。
+
 ## 3. 创建常驻 Agent 或 preset
 
 常驻 Agent 有身份、owner、独立工作区和绑定，适合持续接收事件；profile 是同一个 agent 的不同运行配置，不是另一个助理。
@@ -59,6 +61,8 @@ preset 没有身份、owner、工作区或绑定：在 `<home>/presets/<id>.yaml
 
 ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。内核 `api.services.resolve(<能力>)` 按配置顺序返回第一个声明该能力的服务；调用由插件实现。配置了服务不代表已有能调用它的工具；核对已安装插件和真实贡献后再使用。services 的 credential 只引用凭据名。
 
+飞书实例 `secret` 填凭据名称，不填实际 App Secret；由主人在本机用 `yonder credentials set <name> --home <home>` 隐藏录入 api_key，不读取或代填明文。飞书租户 scope 审批不等于用户 OAuth；`channel-feishu_scopes` 不启动或证明用户授权。
+
 ## 6. 检查、生效与更新
 
 | 改动 | 真实生效边界 |
@@ -68,6 +72,8 @@ ASR/TTS/embedding/rerank 等用 `yonder.yaml.services`，不是聊天 model。�
 | yonder.yaml 其余字段、插件装卸、程序代码 | 需要重启；代码不热重载 |
 
 候选配置无效会保留旧配置并记录 `config.reload` 的 ok/errors；当前运行保持原快照。删除仍被未关闭会话引用的 profile/preset 会被拒绝，先明确处理那些会话。`doctor` 检查磁盘配置；`inspect` 包含所选配置及运行快照，不能单凭磁盘内容断言运行已切换。事件过滤语法查版本文档；用 `yonder events --type config.reload --home <home> --json` 查重载结果，用 `--type run.end` 查运行终态，并核对相关 session。插件 add/remove 改唯一加载名单，不自动重启或热卸载，也不删除外部源码和插件私有数据。
+
+`doctor` 是静态配置检查，不解析渠道运行时凭据、不验证连接或消息收发；结合渠道 status 和真实收发验收。
 
 更新前用 `yonder update --check` 查询，检查目标版本和本次授权。普通源码修复不自动授权安装、发布或换掉正式服务。已授权更新时复用既有 update/current/versions 流程；同版本会直接返回未更新，不覆盖安装目录证明代码生效。保留运行 home 与历史；回滚使用明确旧版本的 update。
 

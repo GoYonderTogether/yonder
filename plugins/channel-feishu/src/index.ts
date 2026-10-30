@@ -115,7 +115,7 @@ export default definePlugin({
 		register({
 			name: "channel-feishu_scopes",
 			description:
-				"Inspect or apply Feishu application scopes (permissions) of an instance. status lists which requested scopes are granted, pending admin approval, or not configured. apply (admin only; external effect) asks the tenant admin to approve scopes already added to the app version; it cannot add scopes, and the API ignores the scopes list (it applies all pending scopes). Scopes not configured must be added by the owner in the developer console (link in result) and published. Apply is skipped when nothing is pending and capped by a recorded attempt count (Feishu allows 10 per app version).",
+				"Inspect or apply Feishu application tenant scopes (permissions) of an instance. Tenant approval does not initiate or prove user OAuth; check the actual authorization entry provided by the capability requiring user identity. status lists which requested scopes are granted, pending admin approval, or not configured. apply (admin only; external effect) asks the tenant admin to approve scopes already added to the app version; it cannot add scopes, and the API ignores the scopes list (it applies all pending scopes). Scopes not configured must be added by the owner in the developer console (link in result) and published. Apply is skipped when nothing is pending and capped by a recorded attempt count (Feishu allows 10 per app version).",
 			parameters: {
 				type: "object",
 				additionalProperties: false,

@@ -115,6 +115,14 @@ export class FeishuChannel implements Channel {
 			transport: "websocket",
 			renderMode: this.config.renderMode ?? "markdown",
 			recovery: this.recoveryState,
+			admissionWarnings: [
+				...(this.config.allowedUsers?.length === 0
+					? ["allowedUsers is empty: all incoming messages are rejected"]
+					: []),
+				...(this.config.allowedChats?.length === 0
+					? ["allowedChats is empty: all incoming messages are rejected"]
+					: []),
+			],
 		};
 	}
 	private save(): Promise<void> {

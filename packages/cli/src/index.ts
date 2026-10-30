@@ -54,11 +54,11 @@ const usage = `Usage: yonder <command> [options]
 
 Commands:
   init [dir] [--owner <id>] [--bundle core|default|full] [--model <provider/id>] [--isolated]  初始化数据目录 · Create a home
-  channels list|login [instance] [--open]  渠道扫码接入 · Connect channel
+  channels list|login [instance] [--open]  渠道列表 / 登录操作 · List / login (list login means supported, not online)
   login <provider> [--slot <name>] [--method oauth|api_key] [--replace]  登录模型账号
   credentials slots list|status|create|remove [provider] [slot] [--env-ref <variable>]  模型账号槽位
   credentials set <name> --home <dir>  本机隐藏录入命名密钥 · Store named secret (TTY only)
-  doctor                          检查配置 · Check configuration
+  doctor                          静态配置检查，非连通验收 · Static configuration check, not connectivity
   awake status|install|set off|tasks|always  任务期间保持唤醒 · macOS
   start [--no-gateway]            前台运行 · Start harness
   stop                            停止运行 · Stop harness
@@ -382,7 +382,10 @@ async function run(args: string[]): Promise<number> {
 	}
 	if (command === "channels") {
 		const [action, ...values] = rest;
-		if (action === "list" && !values.length) return print(channelsList(homeFor(options)), options.json);
+		if (action === "list" && !values.length) {
+			if (!options.json) output("login: supports login operation, not online status", false);
+			return print(channelsList(homeFor(options)), options.json);
+		}
 		if (action !== "login")
 			throw new UsageError("Usage: yonder channels list|login [instance] [--poll] [--verify-code <code>] [--open]");
 		let instance: string | undefined,
@@ -650,6 +653,10 @@ async function run(args: string[]): Promise<number> {
 		if (options.json) output(result, true);
 		else {
 			output(result.ok ? "Doctor: passed" : "Doctor: issues found", false);
+			output(
+				"Static configuration check only; credential resolution, connection and message delivery require runtime verification.",
+				false,
+			);
 			for (const issue of result.errors) stdout.write(`ERROR: ${issue}\n`);
 			for (const warning of result.warnings) stdout.write(`WARNING: ${warning}\n`);
 			for (const chain of result.modelChains ?? []) output({ modelChain: chain }, false);

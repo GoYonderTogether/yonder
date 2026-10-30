@@ -20,6 +20,8 @@
 
 在既有 `yonder.yaml` 的 plugins 加入本地包路径或已安装包名 `@yonder/plugin-channel-feishu`，在 channels 下创建 `type: feishu` 的实例；使用现有凭据存储引用（`secret` 不是密码正文）。
 
+`secret` 填凭据名称，由主人在本机 `yonder credentials set <name> --home <home>` 隐藏录入实际 App Secret；不要把明文放进 YAML。`doctor` 仅静态检查配置，不验证凭据解析、连接或真实收发。
+
 | 实例 config | 行为 |
 | --- | --- |
 | appId / secret | 飞书应用 ID / `api.credentials.get` 引用；secret 必须解析为 api_key，真实值不进入事件、日志或状态。两者可省略：实例无凭据时走下文「一键创建应用」，凭据由登录写入插件数据目录 |
@@ -43,6 +45,8 @@ profile 必须明确选用本插件工具。`channelInstances` 未配置时保�
 
 - `channel-feishu_status`：可选 instance，查询实际内存连接状态（connected/reconnecting/not-ready 等），不触发连接或发送。
 - `channel-feishu_scopes`：instance、action=status|apply、可选 scopes。status 返回 granted/pending/notConfigured 与开发者后台链接；apply 需 admin，仅在有“已配置未授权”的 scope 时调用 `/application/v6/scopes/apply`（接口无 scope 参数），次数记在实例数据目录 scope-apply.json，达 8 次拒绝。未配置的 scope 必须由主人在后台添加并发版。
+
+租户 scope 审批不启动或证明任何用户的 OAuth 授权；需要用户身份的能力应核对其实际提供的授权入口。先 status，再决定是否 apply（会申请全部 pending 项）。
 - `channel-feishu_message`：instance、to、text、可选 attachments/replyTo；经 `api.messages.send`，由既有 message.out 记录。to 必须是同实例的 acct/conv 引用。普通回复也通过 Channel.send/stream。
 - `channel-feishu_card`：instance、to、可选 replyTo；传 card 原生 JSON，或 templateId/templateVersion/variables（缺 templateId 时使用实例默认），互斥。成功保留真实消息 id，写 channel-feishu.card-sent 事件和工具转录。事件落盘失败返回已发送 id，禁止据此重发。
 

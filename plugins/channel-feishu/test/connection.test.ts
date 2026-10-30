@@ -62,6 +62,19 @@ describe("Feishu connection lifecycle (official SDK, no model)", () => {
 		expect(start).not.toHaveBeenCalled();
 		expect(connection.status().state).toBe("stopped");
 	});
+	it("never exposes a misconfigured secret in credential lookup errors", async () => {
+		const { api } = setup();
+		const secret = "plaintext-app-secret";
+		const client = new FeishuApi({ appId: "app", secret }, api);
+		api.credentials.get = async () => undefined;
+		await expect(client.credentials()).rejects.toThrow("Feishu credential unavailable");
+		await expect(client.credentials()).rejects.not.toThrow(secret);
+		api.credentials.get = async () => {
+			throw new Error(`invalid name: ${secret}`);
+		};
+		await expect(client.credentials()).rejects.toThrow("Feishu credential lookup failed");
+		await expect(client.credentials()).rejects.not.toThrow(secret);
+	});
 	it("records only safe error fields and scrubs credentials, bearer tokens and URLs", async () => {
 		const { client } = setup();
 		await client.credentials();

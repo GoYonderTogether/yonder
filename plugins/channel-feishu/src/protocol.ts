@@ -36,7 +36,7 @@ export const configSchema = {
 	additionalProperties: false,
 	properties: {
 		appId: str,
-		secret: str,
+		secret: { ...str, description: "Credential name referencing an api_key; not the secret value" },
 		domain: { enum: ["feishu", "lark"] },
 		renderMode: { enum: ["text", "markdown", "post", "card"] },
 		streaming: { type: "boolean" },

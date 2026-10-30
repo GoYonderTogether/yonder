@@ -13,7 +13,7 @@ export const consoleUrl = (domain: string | undefined, appId: string): string =>
 
 /** Model-facing hint appended to 99991672/99991679 errors. */
 export const scopeHint = (domain: string | undefined, appId: string): string =>
-	`; call channel-feishu_scopes (action=status|apply) to inspect or apply scopes that are already added to the app, or have the owner add them and publish a version at ${consoleUrl(domain, appId)}`;
+	`; tenant scope approval does not initiate or prove user OAuth; call channel-feishu_scopes (action=status|apply) to inspect or apply scopes that are already added to the app, or have the owner add them and publish a version at ${consoleUrl(domain, appId)}`;
 
 export interface ScopeStatus {
 	granted: string[];

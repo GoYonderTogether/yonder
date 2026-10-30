@@ -62,9 +62,16 @@ export class FeishuApi {
 			this.secret = this.local;
 			return { appId: this.config.appId, appSecret: this.local };
 		}
-		const value = await this.api.credentials.get(this.config.secret);
+		let value: Awaited<ReturnType<PluginAPI["credentials"]["get"]>>;
+		try {
+			value = await this.api.credentials.get(this.config.secret);
+		} catch {
+			throw new Error("Feishu credential lookup failed; check the credential store");
+		}
 		if (value?.type !== "api_key" || !value.key)
-			throw new Error(`Feishu credential unavailable: ${this.config.secret}`);
+			throw new Error(
+				"Feishu credential unavailable: configure a credential name and store an api_key with yonder credentials set",
+			);
 		this.secret = value.key;
 		return { appId: this.config.appId, appSecret: value.key };
 	}
