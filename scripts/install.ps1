@@ -93,12 +93,14 @@ if (Test-Path $Dir) {
 	}
 	$Commit = (& git rev-parse HEAD).Trim()
 	Pop-Location
-	@{
+	# 不带 BOM：Windows PowerShell 5.1 的 Set-Content -Encoding utf8 会写入 BOM，Node 的 JSON.parse 会因此失败。
+	$record = @{
 		repository = $Repo
 		tag = $Tag
 		commit = $Commit
 		version = $Version
-	} | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $Tmp '.yonder-install.json')
+	} | ConvertTo-Json
+	[System.IO.File]::WriteAllText((Join-Path $Tmp '.yonder-install.json'), $record, (New-Object System.Text.UTF8Encoding($false)))
 	Remove-Item -Recurse -Force (Join-Path $Tmp '.git')
 	if (Test-Path $Dir) { Remove-Item -Recurse -Force $Dir }
 	Move-Item $Tmp $Dir
