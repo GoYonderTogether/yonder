@@ -3,8 +3,10 @@ import { X } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router";
 import { qk } from "../api/keys";
+import type { SessionInfo } from "../api/types";
 import { botOverview } from "../api/work";
 import { ChannelIcon } from "../features/messages/ChannelIcon";
+import { useBranchLabel } from "../lib/branch";
 import { titleOf } from "../lib/identity";
 import { workPath } from "../shell/workRoutes";
 
@@ -37,15 +39,18 @@ function Body({ bot }: { bot: string }) {
 			<h3 className="px-4 pt-3 pb-1 text-caption text-faint">子会话</h3>
 			{sessions.length === 0 && <p className="px-4 py-1 text-small text-faint">没有子会话</p>}
 			{sessions.map(({ session }) => (
-				<Link
-					key={session.id}
-					to={workPath({ session: session.id })}
-					className="press block truncate px-4 py-2 text-small hover:bg-tone/60"
-				>
-					{titleOf(session)}
-				</Link>
+				<SessionLink key={session.id} session={session} />
 			))}
 		</div>
+	);
+}
+
+function SessionLink({ session }: { session: SessionInfo }) {
+	const branch = useBranchLabel(session);
+	return (
+		<Link to={workPath({ session: session.id })} className="press block truncate px-4 py-2 text-small hover:bg-tone/60">
+			{session.mode === "persistent" ? branch : titleOf(session)}
+		</Link>
 	);
 }
 

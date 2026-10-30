@@ -2,12 +2,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, MonitorSmartphone, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { api } from "../../api";
+import { Avatar as SocialAvatar } from "../../ui/Avatar";
 import { rpc } from "../api/client";
 import { useActiveNode, useNodes } from "../api/nodes";
 import type { SessionInfo } from "../api/types";
 import { workSessions } from "../api/work";
-import { useActivity, useTitleOf } from "../lib/queries";
+import { deviceAgentMap, useActivity, useDeviceAgents, useTitleOf } from "../lib/queries";
 import {
+	cloudBotEntries,
 	groupWork,
 	isOpen,
 	type TaskStatus,
@@ -61,7 +64,56 @@ function ConsoleEntry() {
 /** Bot 头像一排：只有 ≥2 个 Bot 才出现；点头像 = 进入该 Bot 主对话（不是筛选）。 */
 function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: string; running: Set<string> }) {
 	const titleOf = useTitleOf();
-	if (bots.length < 2) return null;
+	const navigate = useNavigate();
+	const node = useActiveNode();
+	const agents = useDeviceAgents();
+	const identities = deviceAgentMap(node.deviceId ?? "", agents.data ?? []);
+	if (node.deviceId && agents.isError)
+		return (
+			<p role="alert" className="px-4 py-2 text-small text-danger">
+				无法读取设备 Bot 身份。
+			</p>
+		);
+	if (node.deviceId) {
+		if (!identities.size) return null;
+		return (
+			<DragScroll>
+				{cloudBotEntries(bots, identities).map(({ actor, session }) => {
+					return (
+						<button
+							key={actor.id}
+							type="button"
+							title={actor.name}
+							aria-current={session?.id === active ? "page" : undefined}
+							className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${session?.id === active ? "bg-tone" : ""}`}
+							data-testid="bot-avatar"
+							onClick={() => {
+								if (session) navigate(workPath({ session: session.id }));
+								else
+									void api
+										.openDm(actor.id)
+										.then((conversation) => navigate(`/c/${conversation.id}`))
+										.catch(() => toast("无法打开 Bot 对话", true));
+							}}
+						>
+							<span className="relative">
+								<SocialAvatar actor={actor} size={36} />
+								{session && running.has(session.id) && (
+									<span
+										role="img"
+										aria-label="运行中"
+										className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2 border-list bg-online"
+									/>
+								)}
+							</span>
+							<span className="w-full truncate text-center text-caption text-muted">{actor.name}</span>
+						</button>
+					);
+				})}
+			</DragScroll>
+		);
+	}
+	if (!bots.length) return null;
 	return (
 		<DragScroll>
 			{bots.map((s) => (

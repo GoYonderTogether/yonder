@@ -1,11 +1,15 @@
 import { ChevronLeft, Layers, PanelRight, Radio } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import type { Actor } from "../../api/types";
+import { Avatar } from "../../ui/Avatar";
 import { RpcError, rpc } from "../api/client";
+import { useActiveNode } from "../api/nodes";
+import { useBranchLabel } from "../lib/branch";
 import { isImported } from "../lib/identity";
 import { IMPORT_PREFIX } from "../lib/imports";
 import { FLOATABLE, PANEL_TITLE, setRailPref, toggleFloat, useLayout, useRailPref } from "../lib/layout";
-import { useTitleOf } from "../lib/queries";
+import { deviceAgentMap, useDeviceAgents, useTitleOf } from "../lib/queries";
 import { emptyView, type LiveView, type SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
 import { ChannelPanel } from "../ui/ChannelPanel";
@@ -68,6 +72,7 @@ function FloatMenu({ session }: { session: string }) {
 
 function Header({
 	title,
+	actor,
 	sub,
 	wide,
 	session,
@@ -75,6 +80,7 @@ function Header({
 	onChannels,
 }: {
 	title: string;
+	actor?: Actor;
 	sub?: string;
 	wide: boolean;
 	session: string;
@@ -89,6 +95,7 @@ function Header({
 					<ChevronLeft size={22} aria-hidden />
 				</Link>
 			)}
+			{actor && <Avatar actor={actor} size={32} />}
 			<div className={`min-w-0 flex-1 ${wide ? "px-2" : "text-center"}`}>
 				<h1 className="truncate text-body font-semibold">{title}</h1>
 				{sub && <p className="truncate text-caption text-faint">{sub}</p>}
@@ -204,9 +211,19 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 	const [sourcesOpen, setSourcesOpen] = useState(false);
 	const [channels, setChannels] = useState(false);
 	const titleOf = useTitleOf();
+	const node = useActiveNode();
+	const agents = useDeviceAgents();
 	const s = v.session;
 	const isBot = s?.mode === "main" && !!s.agent && !isImported(s);
-	const sub = v.running ? "正在回复…" : s?.closed ? "已结束" : undefined;
+	const actor =
+		s?.agent && (s.mode === "main" || s.mode === "persistent") && node.deviceId
+			? deviceAgentMap(node.deviceId, agents.data ?? []).get(s.agent)
+			: undefined;
+	const branch = useBranchLabel(s);
+	const sub =
+		[s?.mode === "persistent" ? branch : undefined, v.running ? "正在回复…" : s?.closed ? "已结束" : undefined]
+			.filter(Boolean)
+			.join(" · ") || undefined;
 	const missing = useMissingSession(id);
 	if (missing) return <Missing wide={wide} />;
 	return (
@@ -214,6 +231,7 @@ function Live({ id, wide, v }: { id: string; wide: boolean; v: LiveView }) {
 			<section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-ground" aria-label="聊天">
 				<Header
 					title={s ? titleOf(s) : "会话"}
+					actor={actor}
 					sub={sub}
 					wide={wide}
 					session={id}

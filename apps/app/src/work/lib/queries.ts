@@ -1,6 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { socialOrigin } from "../../api/http";
+import type { Actor } from "../../api/types";
 import { rpc } from "../api/client";
+import { useActiveNode } from "../api/nodes";
 import { mux } from "../api/stream";
 import type { ActivitySummary, ApprovalCard, NodeFacts, SessionInfo, TranscriptItem } from "../api/types";
 import { type ChatItem, fromTranscript } from "./chat";
@@ -17,6 +20,34 @@ export const useSessions = () =>
 	});
 
 const NO_NAMES: ReadonlyMap<string, string> = new Map();
+
+/** 云端映射由设备登记产生，key 是本机 agent id，actor 是聊天使用的同一个账号。 */
+export function useDeviceAgents() {
+	const node = useActiveNode();
+	return useQuery({
+		queryKey: ["device-agents", node.id],
+		enabled: !!node.deviceId,
+		queryFn: async (): Promise<{ key: string; actor: Actor }[]> => {
+			const response = await fetch(
+				new URL(`api/devices/${encodeURIComponent(node.deviceId!)}/agents`, socialOrigin()),
+				{
+					credentials: "include",
+				},
+			);
+			if (!response.ok) throw new Error("无法读取设备 Bot 身份");
+			return response.json();
+		},
+		refetchInterval: 5000,
+	});
+}
+
+export function deviceAgentMap(deviceId: string, agents: { key: string; actor: Actor }[]): Map<string, Actor> {
+	return new Map(
+		agents
+			.filter(({ key, actor }) => key && actor.kind === "agent" && actor.deviceId === deviceId)
+			.map(({ key, actor }) => [key, actor]),
+	);
+}
 
 /** agent id → Bot 显示名。bots.list 需要 owner scope；没有权限或失败时为空表，标题退回 agent id。 */
 export const useBotNames = () =>
@@ -36,7 +67,15 @@ export const useBotNames = () =>
 /** 会话标题：Bot 用显示名。 */
 export function useTitleOf() {
 	const names = useBotNames();
-	return (s: SessionInfo) => titleOf(s, names);
+	const node = useActiveNode();
+	const agents = useDeviceAgents();
+	const cloudNames = new Map(
+		[...deviceAgentMap(node.deviceId ?? "", agents.data ?? [])].map(([key, actor]) => [key, actor.name]),
+	);
+	return (s: SessionInfo) => {
+		const selected = node.deviceId ? cloudNames : names;
+		return s.mode === "persistent" && s.agent ? (selected.get(s.agent) ?? s.agent) : titleOf(s, selected);
+	};
 }
 
 export const useActivity = () =>

@@ -81,6 +81,17 @@ describe("groupWork", () => {
 		expect(g.done.map((s) => s.id)).toEqual(["t2"]);
 	});
 
+	it("shows one active main session per agent, excluding persistent and archived sessions", async () => {
+		const { groupWork } = await import("../src/work/lib/work");
+		const sessions = [
+			bot("main"),
+			bot("duplicate"),
+			bot("persistent", { mode: "persistent" }),
+			bot("archived", { agent: "other", archivedAt: 1 } as Partial<WorkSession>),
+		];
+		expect(groupWork(sessions).bots.map((session) => session.id)).toEqual(["main"]);
+	});
+
 	it("routes needs-you, running, pinned and time groups; pinned follows opened order", async () => {
 		const { groupWork } = await import("../src/work/lib/work");
 		const state = new Map([

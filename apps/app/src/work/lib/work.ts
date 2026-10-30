@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { Actor } from "../../api/types";
 import type { ActivitySummary, SessionInfo } from "../api/types";
 import { groupOf } from "./identity";
 
@@ -18,6 +19,11 @@ export interface WorkbenchFields {
 	title?: string;
 }
 export type WorkSession = SessionInfo & WorkbenchFields;
+
+/** 仅登记映射决定云端 Bot 名册；没有主会话时仍保留真实聊天账号。 */
+export function cloudBotEntries(bots: WorkSession[], identities: ReadonlyMap<string, Actor>) {
+	return [...identities].map(([key, actor]) => ({ key, actor, session: bots.find((bot) => bot.agent === key) }));
+}
 
 export const TASK_ORDER: TaskStatus[] = ["running", "waiting", "idle", "done"];
 export const STATUS_TITLE: Record<TaskStatus, string> = {
@@ -83,10 +89,14 @@ export function groupWork(
 		byTime: { today: [], yesterday: [], earlier: [] },
 		done: [],
 	};
+	const seenBots = new Set<string>();
 	for (const s of sessions) {
 		const g = groupOf(s);
 		if (g === "bot") {
-			if (!s.closed) out.bots.push(s);
+			if (s.mode === "main" && s.agent && !s.closed && !s.archivedAt && !seenBots.has(s.agent)) {
+				out.bots.push(s);
+				seenBots.add(s.agent);
+			}
 			continue;
 		}
 		if (g !== "task") continue;
