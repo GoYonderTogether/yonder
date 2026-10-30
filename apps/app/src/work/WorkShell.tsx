@@ -266,7 +266,7 @@ export function WorkShell({
 									<Link
 										to={workPath()}
 										aria-label="返回"
-										className="press grid size-10 shrink-0 place-items-center rounded-full"
+										className="press grid size-11 shrink-0 place-items-center rounded-full"
 									>
 										<ArrowLeft size={20} aria-hidden />
 									</Link>

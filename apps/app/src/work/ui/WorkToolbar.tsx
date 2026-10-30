@@ -44,7 +44,7 @@ export function WorkToolbar({
 								aria-label={leftOpen ? "收起工作列表" : "展开工作列表"}
 								aria-expanded={leftOpen}
 								onClick={onLeft}
-								className="press grid size-10 shrink-0 place-items-center rounded-full"
+								className="press grid size-11 shrink-0 place-items-center rounded-full"
 							>
 								<LeftIcon size={20} aria-hidden />
 							</button>
@@ -59,7 +59,7 @@ export function WorkToolbar({
 							aria-label={rightOpen ? "收起右栏" : "展开右栏"}
 							aria-expanded={rightOpen}
 							onClick={onRight}
-							className="press grid size-10 shrink-0 place-items-center rounded-full"
+							className="press grid size-11 shrink-0 place-items-center rounded-full"
 						>
 							<RightIcon size={20} aria-hidden />
 						</button>
@@ -68,7 +68,7 @@ export function WorkToolbar({
 						<DropdownMenu.Root modal={false}>
 							<DropdownMenu.Trigger
 								aria-label="工作区更多"
-								className="press grid size-10 shrink-0 place-items-center rounded-full"
+								className="press grid size-11 shrink-0 place-items-center rounded-full"
 							>
 								<Ellipsis size={20} aria-hidden />
 							</DropdownMenu.Trigger>
