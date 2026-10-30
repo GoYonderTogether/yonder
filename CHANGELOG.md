@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.26103002] - 2026-10-30
+
+### Fixed
+
+- web：消息/通讯录瘦身补齐——设备入口归 /connect、加号并入通讯录、我的 Bot 可发消息、会话行恢复置顶与免打扰 (FIX-UI-restore)
+- channel-card：已有卡片账号但 person 为空时补 link，主人 DM 才能判为 owner (FIX-bots)
+- web：市场发布失败保留草稿、列表加载/失败态、收藏点赞与服务器求交、停止把帖子写进 localStorage (FIX-market-finish B1-B4)
+
 ## [0.3.26103001] - 2026-10-30
 
 ### Fixed
