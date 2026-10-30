@@ -125,7 +125,14 @@ export function TaskRow({
 					)}
 				</span>
 			</Link>
-			{menu && <ActionMenu at={menu} title={title} actions={online ? actions : actions.filter((action) => action.key === "open")} onClose={() => setMenu(null)} />}
+			{menu && (
+				<ActionMenu
+					at={menu}
+					title={title}
+					actions={online ? actions : actions.filter((action) => action.key === "open")}
+					onClose={() => setMenu(null)}
+				/>
+			)}
 		</>
 	);
 }
