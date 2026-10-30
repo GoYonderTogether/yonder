@@ -19,6 +19,7 @@ import {
 } from "../lib/work";
 import { workPath } from "../shell/workRoutes";
 import { Avatar } from "./Avatar";
+import { DragScroll } from "./DragScroll";
 import { toast } from "./kit/Toast";
 import { TaskRow } from "./WorkRows";
 
@@ -62,7 +63,7 @@ function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: str
 	const titleOf = useTitleOf();
 	if (bots.length < 2) return null;
 	return (
-		<nav aria-label="Bot" className="flex gap-3 overflow-x-auto px-4 pt-3 pb-1" data-testid="bot-strip">
+		<DragScroll>
 			{bots.map((s) => (
 				<Link
 					key={s.id}
@@ -76,7 +77,7 @@ function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: str
 					<span className="w-full truncate text-center text-caption text-muted">{titleOf(s)}</span>
 				</Link>
 			))}
-		</nav>
+		</DragScroll>
 	);
 }
 
