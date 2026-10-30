@@ -6,6 +6,7 @@
 	"license": "Apache-2.0",
 	"scripts": {
 		"dev": "vite",
+		"dev:live": "node scripts/live-preview.mjs",
 		"build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.work.json && vite build",
 		"build:web": "VITE_API=http YONDER_APP_BASE=/ npm run build && node scripts/check-build-api.mjs",
 		"check:build": "node scripts/check-build-api.mjs",
