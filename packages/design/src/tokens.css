@@ -30,6 +30,9 @@
 	--danger: #b4342c;
 	/* 接近上限但还没阻塞：上下文用量的黄档，必须配文字说明 */
 	--warn: #b7791f;
+	/* 代码块：两种配色下都保持深底浅字，不跟着 ink 反转 */
+	--code-bg: #1c1c1a;
+	--code-ink: #f2f2f0;
 	--online: #2f9e6e;
 	--offline: #b3b1ab;
 	--shadow-float: 0 1px 2px rgb(17 17 17 / 0.05), 0 12px 32px -8px rgb(17 17 17 / 0.16);
@@ -145,6 +148,8 @@
 		--accent-ink: #f2f2f0;
 		--danger: #ea6b5f;
 		--warn: #d9a441;
+		--code-bg: #0d0d0c;
+		--code-ink: #ececea;
 		--online: #4cc08c;
 		--offline: #5c5c58;
 		--shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 16px 40px -12px rgb(0 0 0 / 0.72);

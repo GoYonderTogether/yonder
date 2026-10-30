@@ -9,13 +9,14 @@ import { toast } from "../ui/Toast";
 const currentPlatform = (): Platform =>
 	typeof navigator === "undefined" ? "other" : detectPlatform(navigator.userAgent, navigator.platform);
 
-/** 复制成功由按钮自己的对勾反馈（2.5 秒自熄），不再弹提示；只有失败才提示。 */
-const copyText = async (text: string) => {
+/** 复制成功由按钮自己的对勾反馈（2.5 秒自熄），不再弹提示；失败只提示，不抛。 */
+const copyText = async (text: string): Promise<boolean> => {
 	try {
 		await navigator.clipboard.writeText(text);
+		return true;
 	} catch {
 		toast("复制失败，请长按选中文本复制");
-		throw new Error("copy failed");
+		return false;
 	}
 };
 
@@ -32,7 +33,7 @@ export function CommandBlock({ command, label }: { command: string; label: strin
 			<pre
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: 可滚动的代码块需要键盘可达
 				tabIndex={0}
-				className="select-text overflow-auto break-all whitespace-pre-wrap rounded-control bg-ink p-4 pr-12 font-mono text-caption leading-relaxed text-ground"
+				className="select-text overflow-auto break-all whitespace-pre-wrap rounded-control bg-code-bg p-4 pr-12 font-mono text-caption leading-relaxed text-code-ink"
 			>
 				{command}
 			</pre>
@@ -41,9 +42,9 @@ export function CommandBlock({ command, label }: { command: string; label: strin
 				size="icon-sm"
 				title={label}
 				aria-label={label}
-				className="absolute top-2 right-2 text-ground/70 hover:bg-ground/10 hover:text-ground"
+				className="absolute top-2 right-2 text-code-ink/70 hover:bg-code-ink/10 hover:text-code-ink"
 				onClick={() => {
-					void copyText(command).then(() => setCopied(true));
+					void copyText(command).then((ok) => ok && setCopied(true));
 				}}
 			>
 				{copied ? <Check size={14} className="pop" /> : <Copy size={15} />}

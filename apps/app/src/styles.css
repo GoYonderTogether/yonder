@@ -22,6 +22,8 @@
 	--color-accent-ink: var(--accent-ink);
 	--color-danger: var(--danger);
 	--color-warn: var(--warn);
+	--color-code-bg: var(--code-bg);
+	--color-code-ink: var(--code-ink);
 	--color-online: var(--online);
 	--color-offline: var(--offline);
 	--font-sans:

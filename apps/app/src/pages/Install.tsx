@@ -72,7 +72,7 @@ export function Install() {
 				</div>
 				<details className="rise mt-5">
 					<summary className="cursor-pointer text-small">查看{tab === "prompt" ? "提示词" : "命令"}</summary>
-					<pre className="mt-3 max-h-[65dvh] select-text overflow-auto whitespace-pre-wrap rounded-card bg-ink p-5 font-mono text-small leading-relaxed text-ground">
+					<pre className="mt-3 max-h-[65dvh] select-text overflow-auto whitespace-pre-wrap rounded-card bg-code-bg p-5 font-mono text-small leading-relaxed text-code-ink">
 						{content}
 					</pre>
 				</details>

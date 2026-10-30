@@ -189,7 +189,7 @@ export function AddDeviceDialog({
 								<pre
 									// biome-ignore lint/a11y/noNoninteractiveTabindex: 可滚动的代码块需要键盘可达
 									tabIndex={0}
-									className="max-h-[34dvh] select-text overflow-auto whitespace-pre-wrap rounded-control bg-ink p-4 pr-12 font-mono text-caption leading-relaxed text-ground"
+									className="max-h-[34dvh] select-text overflow-auto whitespace-pre-wrap rounded-control bg-code-bg p-4 pr-12 font-mono text-caption leading-relaxed text-code-ink"
 								>
 									{prompt || "正在生成邀请码…"}
 								</pre>
@@ -198,7 +198,7 @@ export function AddDeviceDialog({
 									size="icon-sm"
 									title="复制提示词"
 									aria-label="复制提示词"
-									className="absolute top-2 right-2 text-ground/70 hover:bg-ground/10 hover:text-ground"
+									className="absolute top-2 right-2 text-code-ink/70 hover:bg-code-ink/10 hover:text-code-ink"
 									disabled={!prompt || expired}
 									onClick={() => void copy(prompt)}
 								>
