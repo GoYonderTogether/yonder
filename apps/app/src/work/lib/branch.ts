@@ -22,7 +22,7 @@ export function branchLabel(session: SessionInfo, events: Source[], conversation
 	const kind = conversation?.kind ?? source?.data?.kind;
 	const kindLabel = kind === "group" ? "群聊" : kind === "dm" ? "私聊" : "会话类型未知";
 	const name = conversation?.title || (kind === "dm" ? source?.data?.name : undefined);
-	return `${channelName(ref.channel)} · ${kindLabel} · ${name || "名称未知"}`;
+	return `${channelName(ref.channel)} · ${kindLabel} · ${name || `会话 ${ref.id}`}`;
 }
 
 export function useBranchLabel(session: SessionInfo | undefined) {

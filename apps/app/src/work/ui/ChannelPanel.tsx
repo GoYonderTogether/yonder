@@ -49,7 +49,11 @@ function SessionLink({ session }: { session: SessionInfo }) {
 	const branch = useBranchLabel(session);
 	const titleOf = useTitleOf();
 	return (
-		<Link to={workPath({ session: session.id })} className="press block truncate px-4 py-2 text-small hover:bg-tone/60">
+		<Link
+			to={workPath({ session: session.id })}
+			title={session.mode === "persistent" ? branch : titleOf(session)}
+			className="press block truncate px-4 py-2 text-small hover:bg-tone/60"
+		>
 			{session.mode === "persistent" ? branch : titleOf(session)}
 		</Link>
 	);

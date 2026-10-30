@@ -32,7 +32,7 @@ describe("工作台 Bot 身份", () => {
 		expect(cloudBotEntries([old], map)).toEqual([{ key: "local-key", actor, session: undefined }]);
 	});
 
-	it("分支展示真实渠道和会话信息；缺失名称不暴露内部 key", () => {
+	it("分支优先展示真实名称，缺失时用可区分的会话标识", () => {
 		const session = {
 			id: "42",
 			agent: "agent",
@@ -43,8 +43,15 @@ describe("工作台 Bot 身份", () => {
 			opened: "",
 		};
 		const events = [{ data: { kind: "group", name: "发送者" }, routes: [{ session: "42" }] }];
-		expect(branchLabel(session, events, [])).toContain("群聊 · 名称未知");
-		expect(branchLabel(session, events, [])).not.toContain("agent:uuid");
+		expect(branchLabel(session, events, [])).toContain("群聊 · 会话 agent:uuid");
+		expect(branchLabel(session, [], [])).toContain("会话类型未知 · 会话 agent:uuid");
+		expect(
+			branchLabel(
+				{ ...session, key: "conv:conv:feishu:oc_123" },
+				[{ data: { kind: "dm" }, routes: [{ session: "42" }] }],
+				[],
+			),
+		).toContain("私聊 · 会话 oc_123");
 		expect(
 			branchLabel(session, events, [{ id: "uuid", kind: "group", title: "真实群", memberIds: [], unread: 0 }]),
 		).toContain("群聊 · 真实群");
