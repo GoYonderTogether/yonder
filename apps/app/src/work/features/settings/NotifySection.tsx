@@ -25,11 +25,12 @@ const LOCAL_TOGGLES = [
  * 改完立即在节点生效、跨设备一致；连不上节点时退回本机浏览器存储。
  * 会话级的全部提醒 / 仅 @ / 免打扰另在消息列表长按或右键设置。
  */
-export function NotifySection() {
+export function NotifySection({ deviceAvailable = true }: { deviceAvailable?: boolean }) {
 	const prefs = usePrefs();
 	const client = useQueryClient();
 	const remote = useQuery({
 		queryKey: PREFS_KEY,
+		enabled: deviceAvailable,
 		queryFn: () => rpc<NotifyPrefsResult>("notifications.prefs.get", {}),
 		retry: false,
 	});
@@ -74,7 +75,7 @@ export function NotifySection() {
 					/>
 				))}
 			</div>
-			{remote.isLoading && <p className="mt-2 text-caption text-faint">正在读取节点上的通知偏好…</p>}
+			{deviceAvailable && remote.isLoading && <p className="mt-2 text-caption text-faint">正在读取节点上的通知偏好…</p>}
 			<p className="mt-2 text-caption text-faint">
 				{remote.isSuccess
 					? "通知开关存在节点上，其他设备同样生效；震动与消息预览只在这台设备。"

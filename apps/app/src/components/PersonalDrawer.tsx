@@ -2,11 +2,10 @@ import { useStore } from "@nanostores/react";
 import { useQuery } from "@tanstack/react-query";
 import { Bookmark, ChevronRight, ContactRound, Monitor, Package, Settings, X } from "lucide-react";
 import { Dialog } from "radix-ui";
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
 import { internalState } from "../lib/navigation";
-import { SettingsDialog } from "../pages/Me";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 import { IdentityQr } from "./IdentityQr";
@@ -30,7 +29,6 @@ export function PersonalAvatar() {
 }
 
 export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
-	const [settings, setSettings] = useState(false);
 	const me = useStore($session)?.actor;
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -156,23 +154,20 @@ export function PersonalDrawerProvider({ children }: { children: ReactNode }) {
 									<ChevronRight size={16} className="text-muted" />
 								</Link>
 							))}
-							<button
-								type="button"
+							<Link
+								to="/me/settings"
+								replace
+								state={internalState(location)}
 								className="press mt-auto flex min-h-14 items-center gap-4 rounded-control px-2 text-left hover:bg-tone"
-								onClick={() => {
-									closeDrawer();
-									setSettings(true);
-								}}
 							>
 								<Settings size={21} className="text-muted" />
 								<span className="flex-1">设置与账号安全</span>
 								<ChevronRight size={16} className="text-muted" />
-							</button>
+							</Link>
 						</nav>
 					</Dialog.Content>
 				</Dialog.Portal>
 			</Dialog.Root>
-			{settings && <SettingsDialog open onOpenChange={setSettings} />}
 		</DrawerContext.Provider>
 	);
 }

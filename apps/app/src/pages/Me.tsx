@@ -1,12 +1,10 @@
 import { useStore } from "@nanostores/react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Monitor, Settings } from "lucide-react";
 import { Dialog } from "radix-ui";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { api } from "../api";
-import { clearPersistedCache, selectAccount } from "../cache";
-import { AccountSecurity } from "../components/AccountSecurity";
 import { AppBar, BackButton } from "../components/AppBar";
 import { BotCards } from "../components/BotCards";
 import { CollectedCards } from "../components/CollectedCards";
@@ -17,7 +15,6 @@ import { SelfIdentity } from "../components/wallet/ContactDetail";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
 import { socialLoadError } from "../lib/socialError";
-import { useLogout } from "../lib/useLogout";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
@@ -80,43 +77,6 @@ export function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenCha
 	);
 }
 
-export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-	const logout = useLogout();
-	const me = useStore($session)?.actor;
-	const [profile, setProfile] = useState(false);
-	const nav = useNavigate();
-	const qc = useQueryClient();
-	/** 换绑后服务端已撤销所有会话：本地不再调 logout，只清缓存回到登录页。 */
-	const signedOut = () => {
-		clearPersistedCache(qc);
-		selectAccount(null, qc);
-		$session.set(null);
-		onOpenChange(false);
-		nav("/login");
-	};
-	return (
-		<>
-			<Sheet open={open && !profile} onOpenChange={onOpenChange} title="设置">
-				{!me?.anonymous && (
-					<Button className="h-11" onClick={() => setProfile(true)}>
-						账号昵称
-					</Button>
-				)}
-				{!me?.anonymous && me && (
-					<section aria-label="账号与安全" className="flex flex-col gap-3">
-						<h2 className="text-small font-medium text-muted">账号与安全</h2>
-						<AccountSecurity actor={me} onSignedOut={signedOut} />
-					</section>
-				)}
-				<Button className="h-11 text-danger" onClick={logout}>
-					退出登录
-				</Button>
-			</Sheet>
-			{profile && <ProfileDialog open onOpenChange={setProfile} />}
-		</>
-	);
-}
-
 function Item({
 	to,
 	onClick,
@@ -155,7 +115,6 @@ export function Me() {
 	const s = useStore($session);
 	const nav = useNavigate();
 	const loc = useLocation();
-	const [settings, setSettings] = useState(false);
 	const [creatingBot, setCreatingBot] = useState(false);
 	const contactsQuery = useQuery({
 		queryKey: ["contacts"],
@@ -283,10 +242,9 @@ export function Me() {
 					</>
 				)}
 				<div className="overflow-hidden rounded-card bg-raised">
-					<Item onClick={() => setSettings(true)} icon={Settings} label="设置" />
+					<Item to="/me/settings" icon={Settings} label="设置" />
 				</div>
 			</div>
-			<SettingsDialog open={settings} onOpenChange={setSettings} />
 		</div>
 	);
 }

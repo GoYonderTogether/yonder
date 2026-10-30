@@ -21,6 +21,7 @@ const Install = lazy(() => import("./pages/Install").then((m) => ({ default: m.I
 const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login })));
 const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Market })));
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
 
 function Private({ children }: { children: ReactNode }) {
@@ -49,6 +50,7 @@ export function App() {
 				<Suspense fallback={<PageLoading />}>
 					<Routes>
 						<Route path="/get" element={<Install />} />
+						<Route path="/me/settings/:section?" element={<SettingsPage local />} />
 						<Route path="/work/*" element={<WorkRoot />} />
 						<Route path="*" element={<Navigate to="/work" replace />} />
 					</Routes>
@@ -85,6 +87,7 @@ export function App() {
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />
 						<Route path="/me" element={<Me />} />
+						<Route path="/me/settings/:section?" element={<SettingsPage />} />
 						<Route path="/work/*" element={<WorkRoot />} />
 						<Route element={<ChatShell />}>
 							<Route path="/" element={null} />
