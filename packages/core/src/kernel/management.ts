@@ -14,7 +14,7 @@ import {
 	type YonderConfig,
 } from "../config/index.js";
 
-import { withConsoleBinding, withoutConsoleBinding } from "./console.js";
+import { withConsoleBinding, withoutRuntimeBindings } from "./console.js";
 import { withDefaultPeer } from "./peer.js";
 
 export interface ObjectRequest {
@@ -138,7 +138,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 						if (await state.files(config, id).exists("."))
 							throw new Error("New workspace already exists; directory migration/overwrite is not supported");
 					}
-					const { archivedAt: _, ...stored } = withoutConsoleBinding(prior);
+					const { archivedAt: _, ...stored } = withoutRuntimeBindings(prior);
 					const candidate = parseAgentConfig(stringify({ ...stored, ...patch }), "agent.yaml", id);
 					agents.set(
 						id,
