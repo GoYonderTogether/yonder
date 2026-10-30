@@ -41,6 +41,6 @@ curl -fsS https://yonder.zethai.cn/build-version.json # mode=live
 node apps/app/scripts/live-preview.mjs --check      # 仓库根运行，已有构建的 HTTP 边界检查
 ```
 
-线上 nginx 的 `location /` 和 `/yonder-sw.js` 指向 `http://127.0.0.1:18052`，`/api`、业务 WebSocket 和 `/console` 保留原服务器入口。停止预览前，先将根路径恢复为 `try_files $uri $uri/ /index.html`、worker 恢复为 `/opt/yonder-card/dev-tools/yonder-sw.js` 的 alias，执行 `nginx -t` 和 reload，再 `launchctl bootout gui/$(id -u)/dev.yonder.app-live`；服务器现有 `web/current` 是静态回退版本。本次静态配置备份在 `/opt/yonder-card/backups/web-live-fix-20261030T074014Z/yonder-static.conf`，恢复前核对后续部署是否改过配置，不覆盖其他站点变更。不要运行旧 `yonder-card-web/deploy/dev.mjs prod`，它会同时回退云端后端。
+线上 nginx 的 `location /` 和 `/yonder-sw.js` 指向 `http://127.0.0.1:18052`，`/api`、业务 WebSocket 和 `/console` 保留原服务器入口。停止预览前，先将根路径恢复为 `try_files $uri $uri/ /index.html`、worker 恢复为 `/opt/yonder-card/web/current/yonder-sw.js` 的 alias，执行 `nginx -t` 和 reload，再 `launchctl bootout gui/$(id -u)/dev.yonder.app-live`；服务器现有 `web/current` 是静态回退版本。本次静态配置备份在 `/opt/yonder-card/backups/web-live-fix-20261030T074014Z/yonder-static.conf`，恢复前核对后续部署是否改过配置，不覆盖其他站点变更。不要运行旧 `yonder-card-web/deploy/dev.mjs prod`，它会同时回退云端后端。
 
 上述 launchd plist 保存在 `~/Library/LaunchAgents/dev.yonder.app-live.plist`，停止后可用 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.yonder.app-live.plist` 启动；启动前先确认 nginx 已按上述只前端的代理配置就绪。单独运行 `npm run dev:live` 不会改 nginx；launchd 已运行时不要再开第二个实例。
