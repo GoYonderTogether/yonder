@@ -2,9 +2,22 @@
 
 ## [Unreleased]
 
+## [0.3.26103004] - 2026-10-30
+
 ### Fixed
 
 - web：修正市场发布可见范围与交易提示、必填标识及消息页会话空态（FIX-FRONT-AUDIT）。
+- app：confirm delisting and remove market placeholder copy
+- web：clarify market publishing and chat empty state
+- app：fold device connection prompts
+
+### Changed
+
+- app：split market seller workspace
+
+### Added
+
+- app：upload market item photos
 
 ## [0.3.26103003] - 2026-10-30
 
