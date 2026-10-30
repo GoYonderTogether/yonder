@@ -72,7 +72,10 @@ export async function fetchPage(input: string, format: PageFormat, ctx: ToolCont
 		const base = document.createElement("base");
 		base.setAttribute("href", response.url.href);
 		document.head.prepend(base);
-		if (document.querySelector('input[type="password"]') || /\/(login|signin|sign-in)(\/|$)/i.test(response.url.pathname))
+		if (
+			document.querySelector('input[type="password"]') ||
+			/\/(login|signin|sign-in)(\/|$)/i.test(response.url.pathname)
+		)
 			throw new Error(`LOGIN_REQUIRED: ${response.url.href}; use BrowserSkill with an authorized login`);
 		for (const node of document.querySelectorAll("script,style,noscript,template")) node.remove();
 		const visible = document.body.textContent?.trim() ?? "";
@@ -87,7 +90,11 @@ export async function fetchPage(input: string, format: PageFormat, ctx: ToolCont
 			throw new Error(`ARTICLE_UNAVAILABLE: ${response.url.href}; JS pages may use explicit Tavily extract`);
 		title = article.title ?? undefined;
 		content =
-			format === "html" ? (article.content ?? "") : format === "text" ? article.textContent : markdown.turndown(article.content ?? "");
+			format === "html"
+				? (article.content ?? "")
+				: format === "text"
+					? article.textContent
+					: markdown.turndown(article.content ?? "");
 	}
 	if (response.truncated)
 		content = Buffer.from(content)

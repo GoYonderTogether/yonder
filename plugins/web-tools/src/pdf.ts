@@ -323,8 +323,7 @@ function tokenize(source: string): Token[] {
 			const end = close === -1 ? source.length : close;
 			const hex = source.slice(index + 1, end).replace(/[^0-9A-Fa-f]/g, "");
 			const bytes: number[] = [];
-			for (let at = 0; at < hex.length; at += 2)
-				bytes.push(Number.parseInt(hex.slice(at, at + 2).padEnd(2, "0"), 16));
+			for (let at = 0; at < hex.length; at += 2) bytes.push(Number.parseInt(hex.slice(at, at + 2).padEnd(2, "0"), 16));
 			push({ kind: "string", bytes });
 			index = end + 1;
 			continue;
@@ -486,7 +485,8 @@ function pdfTitle(objects: Map<number, PdfObject>): string | undefined {
 		const literal = /\/Title\s*\(/.exec(object.dict);
 		const hex = /\/Title\s*<([0-9A-Fa-f\s]+)>/.exec(object.dict);
 		let title = "";
-		if (literal) title = decode({ kind: "string", bytes: literalBytes(object.dict, literal.index + 7).bytes }, null).text;
+		if (literal)
+			title = decode({ kind: "string", bytes: literalBytes(object.dict, literal.index + 7).bytes }, null).text;
 		else if (hex) title = utf16((hex[1] as string).replace(/\s+/g, ""));
 		title = [...title]
 			.map((character) => (character.charCodeAt(0) < 32 ? " " : character))

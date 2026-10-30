@@ -29,7 +29,12 @@ function context(overrides: Partial<ToolContext> = {}) {
 }
 function tools() {
 	const { api, registrations } = createRegistrationCollector();
-	plugin.setup({ ...api, id: "web-tools", config: undefined, credentials: { get: async () => undefined } } as unknown as PluginAPI);
+	plugin.setup({
+		...api,
+		id: "web-tools",
+		config: undefined,
+		credentials: { get: async () => undefined },
+	} as unknown as PluginAPI);
 	return {
 		run: (name: string, args: unknown, ctx: ToolContext = context()) => {
 			const tool = registrations.tools.find((candidate) => candidate.name === `web-tools_${name}`);

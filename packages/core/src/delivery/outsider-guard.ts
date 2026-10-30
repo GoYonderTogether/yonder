@@ -71,7 +71,9 @@ function leaks(reply: string, protectedText: string, size: number): boolean {
 export function createOutsiderGuard(options: OutsiderGuardOptions = {}): OutsiderGuard {
 	const capabilities = options.capabilities ?? ["chat"];
 	const docs = (options.publicDocs ?? []).map((doc) => doc.trim()).filter(Boolean);
-	const tools = new Set(options.tools ?? (capabilities.includes("web_search") ? ["web_search", "web-tools_search"] : []));
+	const tools = new Set(
+		options.tools ?? (capabilities.includes("web_search") ? ["web_search", "web-tools_search"] : []),
+	);
 	const maxReplyChars = options.maxReplyChars ?? outsiderGuardDefaults.maxReplyChars;
 	const maxWebSearches = options.maxWebSearches ?? outsiderGuardDefaults.maxWebSearches;
 	const maxInputChars = options.maxInputChars ?? outsiderGuardDefaults.maxInputChars;
