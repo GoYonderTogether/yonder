@@ -36,7 +36,7 @@ const server = createServer((req, res) => {
 		const path = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
 		file = resolve(published, path === "/" ? "index.html" : `.${path}`);
 		if (!file.startsWith(`${published}/`)) throw Error("Not found");
-		if (!existsSync(file) && !extname(path)) file = resolve(published, "index.html");
+		if (!extname(path) && (!existsSync(file) || !statSync(file).isFile())) file = resolve(published, "index.html");
 		if (!statSync(file).isFile()) throw Error("Not found");
 	} catch {
 		res.writeHead(404).end();
@@ -55,9 +55,11 @@ if (process.argv.includes("--check")) {
 	await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
 	try {
 		const base = `http://127.0.0.1:${server.address().port}`;
-		for (const path of ["/", "/pa", "/version.json", "/yonder-sw.js"])
+		for (const path of ["/", "/pa", "/market", "/version.json", "/yonder-sw.js", "/market/camera.jpg"])
 			assert.equal((await fetch(base + path)).status, 200, path);
-		for (const path of ["/src/main.tsx", "/assets/missing.js", "/%2e%2e%2findex.html"])
+		assert.match((await fetch(`${base}/market`)).headers.get("content-type"), /^text\/html/);
+		assert.match((await fetch(`${base}/market/camera.jpg`)).headers.get("content-type"), /^image\/jpeg/);
+		for (const path of ["/src/main.tsx", "/assets/missing.js", "/market/missing.js", "/%2e%2e%2findex.html"])
 			assert.equal((await fetch(base + path)).status, 404, path);
 		console.log("Preview HTTP check passed: SPA, public assets, missing assets and source boundary");
 	} finally {
