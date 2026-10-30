@@ -1,9 +1,13 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { type NodeTarget, rpc } from "../api/client";
+import { $session } from "../../store";
+import { type NodeTarget, RpcError, rpc } from "../api/client";
+import { activeNode } from "../api/nodes";
 import { emptySessionState, reduceSessionState, type SessionState } from "../api/session-state";
 import { Mux, mux } from "../api/stream";
 import type { SessionInfo, SessionSnapshot } from "../api/types";
 import { applyMessage, applyToolUpdate, type ChatItem, fromTranscript } from "./chat";
+import { readWorkView, removeWorkView, saveWorkView } from "./offlineCache";
 
 /** 会话视图：转录/运行态在本地维护，元信息（用量、上下文、模型、todo…）归约见 api/session-state。 */
 export interface SessionView extends SessionState {
@@ -28,6 +32,7 @@ export const emptyView: SessionView = {
 
 type Act =
 	| { k: "reset" }
+	| { k: "restore"; view: SessionView }
 	/** stream=true：来自 sessions.watch 的 ready（不是 sessions.show 的元信息刷新），成功后清掉订阅结束的提示。 */
 	| { k: "snapshot"; snap: SessionSnapshot; gap: boolean; stream?: boolean }
 	| { k: "ev"; type: string; data: Record<string, unknown> }
@@ -139,6 +144,7 @@ const rowId = (item: ChatItem | undefined) => /^t(\d+)$/.exec(item?.id ?? "")?.[
 /** 纯 reducer：导出只为本目录外的单测能直接验证 gap 重置语义。 */
 export function reduce(s: SessionView, a: Act): SessionView {
 	if (a.k === "reset") return emptyView;
+	if (a.k === "restore") return { ...a.view, running: false };
 	if (a.k === "older") {
 		const items = [...a.items, ...s.items.filter((i) => !a.items.some((o) => o.id === i.id))];
 		const removed = items.slice(MESSAGE_WINDOW);
@@ -213,10 +219,15 @@ export type LiveView = SessionView & {
 };
 export function useSession(id: string | undefined, target?: NodeTarget): LiveView {
 	const [view, dispatch] = useReducer(reduce, emptyView);
+	const client = useQueryClient();
+	const currentView = useRef(view);
+	currentView.current = view;
 	const [loadingOlder, setLoadingOlder] = useState(false);
 	const [olderError, setOlderError] = useState<string>();
 	const loading = useRef(false);
 	const pageRequest = useRef<AbortController | undefined>(undefined);
+	const account = $session.get()?.actor.id;
+	const deviceId = target?.deviceId ?? activeNode().deviceId;
 	const nodeKey = target ? `${target.origin ?? ""}|${target.deviceId ?? ""}` : "";
 	// target identity comes from the explicit node, not the caller's object allocation.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: nodeKey captures transport identity
@@ -229,7 +240,10 @@ export function useSession(id: string | undefined, target?: NodeTarget): LiveVie
 		setLoadingOlder(false);
 		setOlderError(undefined);
 		if (!id) return;
-
+		if (account && deviceId) {
+			const cached = readWorkView<SessionView>(account, deviceId, id);
+			if (cached?.ready && cached.session?.id === id) dispatch({ k: "restore", view: cached });
+		}
 		const unsubscribe = stream.subscribe(
 			"sessions.watch",
 			{ id },
@@ -237,14 +251,49 @@ export function useSession(id: string | undefined, target?: NodeTarget): LiveVie
 				onReady: (result, gap) => dispatch({ k: "snapshot", snap: result as SessionSnapshot, gap, stream: true }),
 				onEvent: (type, data) => dispatch({ k: "ev", type, data: (data ?? {}) as Record<string, unknown> }),
 				// 服务端 end（forbidden/error/closed/shutdown/slow-consumer）不会再发 ready：不处理就会永远停在「连接中…」。
-				onEnd: (reason) => dispatch({ k: "end", reason }),
+				onEnd: (reason) => {
+					if (reason === "forbidden" && account && deviceId) {
+						removeWorkView(account, deviceId, id);
+						dispatch({ k: "reset" });
+					}
+					dispatch({ k: "end", reason });
+				},
 			},
 		);
 		return () => {
 			unsubscribe();
 			pageRequest.current?.abort();
 		};
-	}, [id, stream]);
+	}, [id, stream, account, deviceId]);
+	useEffect(() => {
+		if (account && deviceId && id && view.ready && view.session?.id === id)
+			saveWorkView(account, deviceId, id, { ...view, running: false });
+	}, [account, deviceId, id, view]);
+	useEffect(() => {
+		if (!account || !deviceId || !id) return;
+		return client.getQueryCache().subscribe((event) => {
+			if (event.type !== "updated" || event.action.type !== "success") return;
+			const key = event.query.queryKey;
+			let removed = false;
+			if (key[0] === "sessions" && key[1] === "work") {
+				const sessions = event.query.state.data as { id: string }[] | undefined;
+				removed = !!sessions && !sessions.some((session) => session.id === id);
+			} else if (key[0] === "device-agents" && key[1] === `account:${account}:device:${deviceId}`) {
+				const session = currentView.current.session;
+				const agents = event.query.state.data as { key: string }[] | undefined;
+				removed =
+					!!agents &&
+					!!session?.agent &&
+					["main", "persistent"].includes(session.mode) &&
+					!agents.some((agent) => agent.key === session.agent);
+			}
+			if (removed) {
+				removeWorkView(account, deviceId, id);
+				dispatch({ k: "reset" });
+				dispatch({ k: "end", reason: "forbidden" });
+			}
+		});
+	}, [account, deviceId, id, client]);
 	// 当前网关不推 usage.updated：一轮结束后拉一次元信息刷新底栏用量
 	const { running } = view;
 	const historical = !!view.newerPages?.length;
@@ -269,9 +318,19 @@ export function useSession(id: string | undefined, target?: NodeTarget): LiveVie
 					gap: false,
 				}),
 			)
-			.catch(() => undefined);
+			.catch((error: unknown) => {
+				if (
+					error instanceof RpcError &&
+					(error.status === 401 || error.status === 403 || error.status === 404) &&
+					account &&
+					deviceId
+				) {
+					removeWorkView(account, deviceId, id);
+					dispatch({ k: "reset" });
+				}
+			});
 		return () => ctl.abort();
-	}, [id, running, node, view.ready, historical]);
+	}, [id, running, node, view.ready, historical, account, deviceId]);
 	const loadPage = async (direction: "older" | "newer") => {
 		const before =
 			direction === "older" ? (view.beforeCursor ?? Number(rowId(view.items[0]))) : view.newerPages?.at(-1);

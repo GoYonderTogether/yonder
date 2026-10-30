@@ -10,10 +10,22 @@ import { gatewayHosted } from "../lib/base";
 import { useLogout } from "../lib/useLogout";
 import { $session } from "../store";
 import { logout, onUnauthorized, RpcError } from "./api/client";
-import { setCloudDevice, useActiveNode } from "./api/nodes";
+import { activeNode, setCloudDevice, useActiveNode } from "./api/nodes";
 import { mux } from "./api/stream";
 import { Login } from "./features/Login";
+import {
+	hasWorkCache,
+	reconcileWorkDevices,
+	reconcileWorkSessions,
+	removeWorkDevice,
+	restoreAllWork,
+	restoreWorkQueries,
+	saveAllWork,
+	saveWorkQueries,
+	updateStoredWork,
+} from "./lib/offlineCache";
 import { useFacts } from "./lib/queries";
+import { setWorkDevices } from "./lib/workOnline";
 import { useBreakpoint } from "./shell/useBreakpoint";
 import { useWorkRoute, workPath } from "./shell/workRoutes";
 import { AllWorkList } from "./ui/AllWorkList";
@@ -60,25 +72,96 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 	const [choice, setChoice] = useState("all");
 	const devices = useQuery({ queryKey: ["account-devices", accountId], queryFn: api.devices, refetchInterval: 5000 });
 	const available = (devices.data ?? []).filter((device) => device.online && device.workProtocol === 1);
+	const knownDevices = useRef<string[]>([]);
+	useEffect(() => {
+		if (!devices.data) return;
+		setWorkDevices(devices.data);
+		for (const id of knownDevices.current)
+			if (!devices.data.some((device) => device.id === id)) removeWorkDevice(accountId, id);
+		knownDevices.current = devices.data.map((device) => device.id);
+		reconcileWorkDevices(accountId, knownDevices.current);
+		restoreAllWork(qc, accountId, knownDevices.current);
+	}, [accountId, devices.data, qc]);
+	useEffect(
+		() =>
+			qc.getQueryCache().subscribe((event) => {
+				const key = event.query.queryKey;
+				if (key[0] !== "all-work" || key[1] !== accountId) return;
+				saveAllWork(qc, accountId);
+				if (event.type !== "updated" || event.action.type !== "success" || typeof key[2] !== "string") return;
+				if (key[3] === "sessions") {
+					const sessions = event.query.state.data as { id: string }[] | undefined;
+					if (sessions) {
+						updateStoredWork(accountId, key[2], "sessions", sessions);
+						reconcileWorkSessions(
+							accountId,
+							key[2],
+							sessions.map((item) => item.id),
+						);
+					}
+				} else if (key[3] === "agents") {
+					const agents = event.query.state.data as { key: string }[] | undefined;
+					if (agents) {
+						updateStoredWork(accountId, key[2], "agents", agents);
+						reconcileWorkSessions(
+							accountId,
+							key[2],
+							undefined,
+							agents.map((item) => item.key),
+						);
+					}
+				}
+			}),
+		[accountId, qc],
+	);
 	const legacySession = !!route.session && !route.deviceId;
 	const wanted =
 		route.deviceId ?? (choice === "all" && node.id.startsWith(`account:${accountId}:device:`) ? node.deviceId : choice);
 	const selected =
-		available.find((device) => device.id === wanted) ??
-		(choice === "all" && !route.deviceId && (!legacySession || available.length === 1) ? available[0] : undefined);
+		(devices.data ?? []).find(
+			(device) =>
+				device.id === wanted && (device.workProtocol === 1 || (!device.online && hasWorkCache(accountId, device.id))),
+		) ?? (choice === "all" && !route.deviceId && (!legacySession || available.length === 1) ? available[0] : undefined);
 	const targetId = selected && `account:${accountId}:device:${selected.id}`;
 	useEffect(() => {
 		if (!selected) return;
 		if (node.id === targetId) return;
 		mux.reset();
+		setCloudDevice(accountId, selected);
 		void qc.cancelQueries({
 			predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
 		});
 		qc.removeQueries({
 			predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
 		});
-		setCloudDevice(accountId, selected);
+		restoreWorkQueries(qc, accountId, selected.id);
 	}, [accountId, selected, targetId, node.id, qc]);
+	useEffect(() => {
+		if (!selected || node.id !== targetId) return;
+		return qc.getQueryCache().subscribe((event) => {
+			if (activeNode().id !== targetId) return;
+			saveWorkQueries(qc, accountId, selected.id);
+			if (event.type !== "updated" || event.action.type !== "success") return;
+			if (event.query.queryKey[0] === "sessions" && event.query.queryKey[1] === "work") {
+				const sessions = event.query.state.data as { id: string }[] | undefined;
+				if (sessions)
+					reconcileWorkSessions(
+						accountId,
+						selected.id,
+						sessions.map((session) => session.id),
+					);
+			} else if (event.query.queryKey[0] === "device-agents" && event.query.queryKey[1] === targetId) {
+				const agents = event.query.state.data as { key: string }[] | undefined;
+				if (agents)
+					reconcileWorkSessions(
+						accountId,
+						selected.id,
+						undefined,
+						agents.map((agent) => agent.key),
+					);
+			}
+		});
+	}, [accountId, selected, node.id, targetId, qc]);
 	useEffect(() => {
 		if (selected) return;
 		mux.reset();
@@ -89,13 +172,14 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 	const open = (device: { id: string; name: string }, session: string) => {
 		if (node.deviceId !== device.id) {
 			mux.reset();
+			setCloudDevice(accountId, device);
 			void qc.cancelQueries({
 				predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
 			});
 			qc.removeQueries({
 				predicate: (query) => query.queryKey[0] !== "account-devices" && query.queryKey[0] !== "all-work",
 			});
-			setCloudDevice(accountId, device);
+			restoreWorkQueries(qc, accountId, device.id);
 		}
 		void navigate(workPath({ deviceId: device.id, session }));
 	};

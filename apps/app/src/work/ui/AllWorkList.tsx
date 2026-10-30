@@ -47,18 +47,22 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 	return (
 		<section className="border-b border-hairline px-4 py-3" aria-label={device.name}>
 			<h2 className="text-small font-semibold">{device.name}</h2>
-			{!available ? (
-				<p className="mt-1 text-caption text-muted">{device.online ? "需要更新 Yonder" : "离线"}</p>
-			) : sessions.isError || agents.isError ? (
-				<p role="alert" className="mt-1 text-caption text-danger">
-					读取设备工作失败
-				</p>
-			) : sessions.isPending || agents.isPending ? (
-				<p className="mt-1 text-caption text-muted">加载中…</p>
+			{!available && (
+				<p className="mt-1 text-caption text-muted">{device.online ? "需要更新 Yonder" : "离线 · 显示已加载内容"}</p>
+			)}
+			{!sessions.data || !agents.data ? (
+				available && (sessions.isError || agents.isError) ? (
+					<p role="alert" className="mt-1 text-caption text-danger">
+						读取设备工作失败
+					</p>
+				) : available ? (
+					<p className="mt-1 text-caption text-muted">加载中…</p>
+				) : null
 			) : (
 				<>
 					<button
 						type="button"
+						disabled={!available}
 						className="mt-2 rounded-control bg-tone px-3 py-1 text-small"
 						onClick={() =>
 							void rpc<{ id: string }>("sessions.open", { preset: "default", close: "manual" }, undefined, {
@@ -79,7 +83,7 @@ function DeviceWork({ accountId, device, onOpen }: { accountId: string; device: 
 								className="press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1"
 								onClick={() => {
 									if (session) onOpen(device, session.id);
-									else
+									else if (available)
 										void api
 											.openDm(actor.id)
 											.then((conversation) => navigate(`/c/${conversation.id}`))

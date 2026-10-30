@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { api } from "../api";
 import { clearPersistedCache, selectAccount } from "../cache";
@@ -17,6 +17,7 @@ import { ChannelsSection } from "../work/features/settings/ChannelsSection";
 import { NodesSection } from "../work/features/settings/NodesSection";
 import { NotifySection } from "../work/features/settings/NotifySection";
 import { SocialSection } from "../work/features/settings/SocialSection";
+import { setWorkDevices } from "../work/lib/workOnline";
 import { ProfileDialog } from "./Me";
 
 const sections = [
@@ -42,6 +43,9 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 		enabled: !local && !!session,
 		refetchInterval: 5000,
 	});
+	useEffect(() => {
+		if (!local && devices.data) setWorkDevices(devices.data);
+	}, [local, devices.data]);
 	const selected = devices.data?.find(
 		(item) => item.id === node.deviceId && node.id.startsWith(`account:${session?.actor.id}:device:`),
 	);

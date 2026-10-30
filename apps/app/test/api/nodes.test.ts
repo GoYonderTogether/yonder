@@ -60,6 +60,13 @@ describe("节点存储", () => {
 		const calls = stubFetch(() => ({}));
 		const { setCloudDevice, activeNode } = await import("../../src/work/api/nodes");
 		const { rpc, wsUrl } = await import("../../src/work/api/client");
+		const { setWorkDevices } = await import("../../src/work/lib/workOnline");
+		setWorkDevices([{ id: "device-a", online: false }]);
+		await expect(rpc("sessions.list", {}, undefined, { deviceId: "device-a" })).rejects.toMatchObject({
+			code: "device_offline",
+		});
+		expect(calls).toHaveLength(0);
+		setWorkDevices([{ id: "device-a", online: true, workProtocol: 1 }]);
 		setCloudDevice("account-a", { id: "device-a", name: "A" });
 		await rpc("sessions.list");
 		expect(calls[0]?.url).toBe("https://app.example/api/devices/device-a/work/rpc/sessions.list");

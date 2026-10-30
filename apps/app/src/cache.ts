@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import type { PersistedClient } from "@tanstack/react-query-persist-client";
 import type { Session } from "./api/types";
+import { clearWorkCache } from "./work/lib/offlineCache";
 
 export const CACHE_PREFIX = "yonder-query-cache:";
 export const CACHE_SCHEMA = "1"; // Change only when persisted data becomes incompatible.
@@ -25,6 +26,7 @@ export function readCachedSession(): Session | undefined {
 }
 
 export function clearPersistedCache(queryClient?: QueryClient) {
+	clearWorkCache();
 	queryClient?.clear();
 	for (const key of Object.keys(localStorage)) if (key.startsWith(CACHE_PREFIX)) localStorage.removeItem(key);
 	localStorage.removeItem(ACCOUNT_KEY);

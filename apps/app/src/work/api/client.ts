@@ -1,5 +1,6 @@
 import { socialOrigin } from "../../api/http";
 import { appBase } from "../../lib/base";
+import { deviceOnline } from "../lib/workOnline";
 import { activeNode } from "./nodes";
 import type { ServerFrame } from "./types";
 
@@ -52,6 +53,7 @@ export async function rpc<T>(
 	node?: NodeTarget,
 ): Promise<T> {
 	const target = node ?? activeNode();
+	if (target.deviceId && !deviceOnline(target.deviceId)) throw new RpcError("device_offline", "设备暂未连接");
 	const url = target.deviceId
 		? new URL(
 				`/api/devices/${encodeURIComponent(target.deviceId)}/work/rpc/${encodeURIComponent(method)}`,
