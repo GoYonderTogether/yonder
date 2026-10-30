@@ -104,7 +104,7 @@ Bot 默认具有对外互动与入群能力，不要求先发布名片或逐个�
 沿既有 conversations/members 持久化角色 owner/admin/member，不另建管理权限系统；群创建者为唯一 owner，Bot/匿名访客不能成为 owner/admin。既有群缺少入群时间/创建者记录时，优先按该群最早真人发言确定 owner；完全没有真人发言时按真人账号创建时间与 id 作确定性兼容回填，不宣称这是历史入群顺序。无真人成员时明确记为待修复，不猜 Bot 为群主。
 
 - 群主可改群名、任免管理员，并把群主身份移交给同群真人成员；移交在一个事务内将原群主降为 member，始终只保留一个群主。
-- 管理员可改群名，不可任免管理员或移交群主；普通成员、Bot 与访客不能修改这些管理字段。
+- 管理员可改群名，不可任免管理员或移交群主；普通成员、Bot 与访客不能修改这些管理字段。 平台从同群 members.role 下发可信 social.senderRole（group-owner/group-admin/member，未知保持 unknown；DM 不声明群角色），Card 适配保留；群主与管理员可暂停/恢复 Bot 在当前群的公开发言，不因此取得 Bot 的主机或配置权限，不能接受前端自报角色。
 - 群名称沿既有创建名称的长度与非空校验；角色目标须是同群真人成员，不允许通过账号参数操作别的群。客户端可见入口与服务端校验使用同一事实，隐藏按钮不代替权限校验。
 - 平台复用 PATCH /api/conversations/:id 的 title 更新和 PATCH /api/conversations/:id/members/:accountId 的 role 更新；角色仅 owner/admin/member。保留既有 memberIds，Conversation 可增 members[{accountId,role}]；Detail 的 Actor 成员对象仅增可选 role，不把 Actor[] 改成另一种数组。本人权限由真实账号角色计算，不增冗余 myRole/ownerId。
 - 聊天详情页能查看群名/群主/管理员，按权限改名、任免与移交，成功后所有成员实时刷新，失败显示实际原因；修改群名或角色不删除消息历史、不改变 Bot 私人权限。

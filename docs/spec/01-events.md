@@ -150,7 +150,7 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 
 ### 社交事件的所有者（CH-01）
 
-`message.in.data.social` 可选，形状为 `{room?: string; mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
+`message.in.data.social` 可选，形状为 `{room?: string; mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'group-admin'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
 
 `social.batch-ready` 和 `social.policy-change` 是官方 social 插件以自身身份发出的事件；替换参与策略插件使用自身命名空间的同类事件，必须由内核核对真实提供者、Bot/群选择和同一批次准入契约，并由显式绑定接纳，不得冒用 social 或核心身份；批次包含 `sourceEvents`、`through`、`policyRevision`，策略变更记录实际 actor、sourceEvent、before/after、reason、revision 和 result。核心路由诊断由核心追加事实，插件不得伪写核心事件。原消息、平台重投和合成批次分别记录，历史事件不修改。
 
