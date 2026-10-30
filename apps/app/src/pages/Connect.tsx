@@ -166,13 +166,16 @@ export function AddDeviceDialog({
 											<p className="text-small text-muted">把下面提示词发给电脑上的 Bot</p>
 										</div>
 									</div>
-									<pre
-										// biome-ignore lint/a11y/noNoninteractiveTabindex: 可滚动的代码块需要键盘可达
-										tabIndex={0}
-										className="max-h-[34dvh] select-text overflow-auto whitespace-pre-wrap rounded-control bg-ink p-4 font-mono text-caption leading-relaxed text-ground"
-									>
-										{prompt || "正在生成邀请码…"}
-									</pre>
+									<details>
+										<summary className="cursor-pointer text-small">查看提示词</summary>
+										<pre
+											// biome-ignore lint/a11y/noNoninteractiveTabindex: 可滚动的代码块需要键盘可达
+											tabIndex={0}
+											className="mt-3 max-h-[34dvh] select-text overflow-auto whitespace-pre-wrap rounded-control bg-ink p-4 font-mono text-caption leading-relaxed text-ground"
+										>
+											{prompt || "正在生成邀请码…"}
+										</pre>
+									</details>
 									<Button
 										variant="primary"
 										className="h-12 w-full"

@@ -63,9 +63,12 @@ export function Install() {
 						</button>
 					))}
 				</div>
-				<pre className="rise mt-5 max-h-[65dvh] select-text overflow-auto whitespace-pre-wrap rounded-card bg-ink p-5 font-mono text-small leading-relaxed text-ground">
-					{content}
-				</pre>
+				<details className="rise mt-5">
+					<summary className="cursor-pointer text-small">查看{tab === "prompt" ? "提示词" : "命令"}</summary>
+					<pre className="mt-3 max-h-[65dvh] select-text overflow-auto whitespace-pre-wrap rounded-card bg-ink p-5 font-mono text-small leading-relaxed text-ground">
+						{content}
+					</pre>
+				</details>
 				<p className="mt-3 text-small text-muted">
 					{live(invite)
 						? "邀请码十分钟内有效、只能使用一次；过期后请回到此页重新生成。"
