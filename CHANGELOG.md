@@ -8,6 +8,8 @@
 
 - 市场发布新增“其他”类型，支持草稿保留和通用内容填写；云端发布仍待接口验收。
 
+- media-tools 新增 `media-tools_audio_speak`：经阿里百炼 WebSocket 双工协议把文本合成为 mp3 并落到 artifacts，返回 audio 附件；首包约 0.5 s（硅基 HTTP 方案约 1.3 s），1 元/万字符。工具只接受 `protocol: dashscope`，其他协议建连前即拒绝。
+
 ## [0.3.26103104] - 2026-10-31
 
 ### Fixed
@@ -17,6 +19,7 @@
 ### Added
 
 - app：unify the public domain on yonderbot.net and add mobile shells
+ 4910118 (feat(media-tools): add speech synthesis over Alibaba Bailian duplex WebSocket)
 
 ## [0.3.26103103] - 2026-10-31
 

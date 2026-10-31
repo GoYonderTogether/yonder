@@ -8,4 +8,5 @@
 
 价格来自 2026-10-19 对官方模型详情页的核对：`Kwai-Kolors/Kolors` ¥0.000000/图片，L0 2 IPM/400 IPD。价格观察不代表插件内部维护价格表，也不代表真实生成已通过。
 
-- SiliconFlow ASR 官方：https://docs.siliconflow.cn/docs/api/audio-transcriptions-post 。multipart file+model，响应 text；50 MB/一小时时长平台限制。官方控制台已确认 FunAudioLLM/SenseVoiceSmall ¥0，GET /v1/models也实际列出该型号；CosyVoice2 ¥0.05/千UTF-8字符，不配置或调用。
+- SiliconFlow ASR 官方：https://docs.siliconflow.cn/docs/api/audio-transcriptions-post 。multipart file+model，响应 text；50 MB/一小时时长平台限制。官方控制台已确认 FunAudioLLM/SenseVoiceSmall ¥0，GET /v1/models也实际列出该型号。
+- 阿里百炼 TTS 官方（WebSocket 双工）：https://help.aliyun.com/zh/model-studio/cosyvoice-websocket 。协议为 `wss://dashscope.aliyuncs.com/api-ws/v1/inference`：`run-task`(task_group=audio,task=tts,function=SpeechSynthesizer) → 收到 `task-started` 后 `continue-task` 送文本 → `finish-task`；音频以二进制帧返回，JSON 事件按 `header.task_id` 对账。2026-10-31 实测 `cosyvoice-v3-flash`/`longanhuan_v3` 首包 501 ms（12 字，5 次中位数），限速参数名为 `rate`（`speed` 无效）。计费 1 元/万字符，主人 2026-10-30 授权付费调用。

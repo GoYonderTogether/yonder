@@ -3,6 +3,7 @@ import { basename, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { definePlugin, type ToolContext, type ToolResult, type TSchema } from "@yonder/sdk";
 import { Check } from "typebox/value";
+import WebSocket from "ws";
 
 class MediaError extends Error {}
 const sizes = ["1024x1024", "960x1280", "768x1024", "720x1440", "720x1280"];
@@ -69,6 +70,126 @@ const audioParameters = {
 	required: ["file"],
 	additionalProperties: false,
 } as TSchema;
+const speechParameters = {
+	type: "object",
+	properties: {
+		text: { type: "string", minLength: 1, pattern: "\\S", maxLength: 2000 },
+		model: { type: "string", minLength: 1, pattern: "\\S" },
+		voice: { type: "string", minLength: 1, pattern: "\\S" },
+		speed: { type: "number", minimum: 0.5, maximum: 2 },
+	},
+	required: ["text"],
+	additionalProperties: false,
+} as TSchema;
+/** The protocol declares only "audio", so the container is decided by the bytes. */
+function audioType(data: Buffer): { mime: string; extension: string } {
+	if (data.subarray(0, 3).toString("latin1") === "ID3" || (data[0] === 255 && (data[1] ?? 0) >= 224))
+		return { mime: "audio/mpeg", extension: "mp3" };
+	if (data.toString("ascii", 0, 4) === "RIFF" && data.toString("ascii", 8, 12) === "WAVE")
+		return { mime: "audio/wav", extension: "wav" };
+	if (data.toString("ascii", 0, 4) === "OggS") return { mime: "audio/ogg", extension: "ogg" };
+	throw new MediaError("INVALID_AUDIO");
+}
+/**
+ * DashScope duplex TTS: run-task opens the task, continue-task carries the text, and the
+ * synthesized audio arrives as binary frames. Server replies are matched by task_id, and a
+ * task that never starts is a failure rather than an empty success.
+ */
+function dashscopeSpeech(
+	base: URL,
+	key: string,
+	model: string,
+	voice: string,
+	text: string,
+	speed: number | undefined,
+	signal: AbortSignal,
+	limit: number,
+): Promise<Buffer> {
+	const url = new URL(base.href);
+	url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+	const socket = new WebSocket(url, { headers: { Authorization: `Bearer ${key}` }, handshakeTimeout: 15000 });
+	const taskId = randomUUID().replaceAll("-", "");
+	const chunks: Buffer[] = [];
+	let total = 0;
+	let started = false;
+	let settled = false;
+	return new Promise<Buffer>((settle, reject) => {
+		const finish = (error?: MediaError) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			signal.removeEventListener("abort", abort);
+			try {
+				socket.close(1000);
+			} catch {
+				// A socket the peer already tore down needs no second close.
+			}
+			if (error) reject(error);
+			else if (!started) reject(new MediaError("TTS_TASK_NOT_STARTED"));
+			else if (!total) reject(new MediaError("EMPTY_RESPONSE"));
+			else settle(Buffer.concat(chunks, total));
+		};
+		const abort = () => finish(new MediaError("CANCELLED"));
+		const timer = setTimeout(() => finish(new MediaError("REQUEST_TIMEOUT")), 120000);
+		timer.unref();
+		if (signal.aborted) {
+			finish(new MediaError("CANCELLED"));
+			return;
+		}
+		signal.addEventListener("abort", abort, { once: true });
+		const send = (action: string, payload: Record<string, unknown>) =>
+			socket.send(JSON.stringify({ header: { action, task_id: taskId, streaming: "duplex" }, payload }));
+		socket.on("open", () =>
+			send("run-task", {
+				task_group: "audio",
+				task: "tts",
+				function: "SpeechSynthesizer",
+				model,
+				parameters: {
+					text_type: "PlainText",
+					voice,
+					format: "mp3",
+					sample_rate: 24000,
+					...(speed === undefined ? {} : { rate: speed }),
+				},
+				input: {},
+			}),
+		);
+		socket.on("message", (data, isBinary) => {
+			if (isBinary) {
+				const frame = Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
+				total += frame.byteLength;
+				if (total > limit) {
+					finish(new MediaError("RESPONSE_TOO_LARGE"));
+					return;
+				}
+				chunks.push(frame);
+				return;
+			}
+			let event: { header?: { event?: string; task_id?: string } };
+			try {
+				event = JSON.parse(String(data));
+			} catch {
+				finish(new MediaError("INVALID_CAPABILITY_RESULT"));
+				return;
+			}
+			if (event.header?.task_id !== taskId) return;
+			if (event.header.event === "task-started") {
+				started = true;
+				send("continue-task", { input: { text } });
+				send("finish-task", { input: {} });
+				return;
+			}
+			if (event.header.event === "task-finished") {
+				finish();
+				return;
+			}
+			if (event.header.event === "task-failed") finish(new MediaError("TTS_TASK_FAILED"));
+		});
+		socket.on("error", () => finish(new MediaError("REQUEST_FAILED")));
+		socket.on("close", () => finish());
+	});
+}
 async function audioFile(file: string, ctx: ToolContext): Promise<{ data: Uint8Array; name: string }> {
 	const context = fileContext(ctx.signal);
 	const inputPath = file.startsWith("file:") ? fileURLToPath(file) : file;
@@ -241,6 +362,72 @@ export default definePlugin({
 					return { text: JSON.stringify({ service: endpoint.id, model, text: payload.text }) };
 				} catch (error) {
 					return failure(error, ctx.signal, stage, status);
+				}
+			},
+		});
+
+		api.tools.register({
+			name: `${api.id}_audio_speak`,
+			description:
+				"Synthesize speech from text with the configured TTS service and save it in workspace artifacts. Use for a reply that should be heard rather than read. Returns a local audio attachment; show the actual result through a supported channel, not just a description. No automatic retry. For SERVICE_NOT_CONFIGURED/API_KEY_MISSING/MODEL_NOT_CONFIGURED/VOICE_NOT_CONFIGURED inspect the tts service configuration and credential reference; do not guess a model or voice or request the secret in chat. Failure includes the stage: synthesis and save are different, so a save failure may follow a successful paid synthesis and must not be blindly retried. The request is billed per character by the provider.",
+			parameters: speechParameters,
+			capabilities: ["network", "write"],
+			async execute(args, ctx): Promise<ToolResult> {
+				let stage = "configuration";
+				try {
+					if (!Check(speechParameters, args)) return { text: "MEDIA_INVALID_ARGUMENTS", isError: true };
+					ctx.signal.throwIfAborted();
+					const input = args as { text: string; model?: string; voice?: string; speed?: number };
+					const endpoint = await api.services.resolve("tts");
+					if (!endpoint) return { text: "MEDIA_TTS_SERVICE_NOT_CONFIGURED", isError: true };
+					if (endpoint.protocol !== "dashscope")
+						return { text: "MEDIA_UNSUPPORTED_PROTOCOL: expected dashscope", isError: true };
+					if (!endpoint.apiKey) return { text: "MEDIA_API_KEY_MISSING", isError: true };
+					const model = input.model ?? endpoint.models[0];
+					if (!model || !endpoint.models.includes(model)) return { text: "MEDIA_MODEL_NOT_CONFIGURED", isError: true };
+					const voice = input.voice ?? endpoint.voices?.[0];
+					if (!voice || !endpoint.voices?.includes(voice)) return { text: "MEDIA_VOICE_NOT_CONFIGURED", isError: true };
+					stage = "synthesis";
+					// Two thousand characters of Chinese speech stays well under 20 MiB of MP3.
+					const data = await dashscopeSpeech(
+						httpUrl(endpoint.baseUrl),
+						endpoint.apiKey,
+						model,
+						voice,
+						input.text,
+						input.speed,
+						ctx.signal,
+						20 * 1024 * 1024,
+					);
+					const format = audioType(data);
+					stage = "save";
+					const context = fileContext(ctx.signal);
+					const directory = resolve(ctx.env.cwd, "artifacts");
+					const created = await ctx.env.createDir(directory, { recursive: true }, context);
+					if (!created.ok) throw new MediaError("ARTIFACT_DIRECTORY_FAILED");
+					const root = await ctx.env.canonicalPath(ctx.env.cwd, context);
+					const target = await ctx.env.canonicalPath(directory, context);
+					if (!root.ok || !target.ok) throw new MediaError("ARTIFACT_PATH_FAILED");
+					const within = relative(root.value, target.value);
+					if (within === ".." || within.startsWith("../") || isAbsolute(within))
+						throw new MediaError("ARTIFACT_OUTSIDE_WORKSPACE");
+					const name = `speech-${randomUUID()}.${format.extension}`;
+					const path = resolve(target.value, name);
+					const saved = await ctx.env.writeFile(path, data, context);
+					if (!saved.ok) throw new MediaError("ARTIFACT_WRITE_FAILED");
+					const attachment = {
+						kind: "audio" as const,
+						mime: format.mime,
+						uri: pathToFileURL(path).href,
+						name,
+						bytes: data.length,
+					};
+					return {
+						text: JSON.stringify({ service: endpoint.id, model, voice, attachment }),
+						attachments: [attachment],
+					};
+				} catch (error) {
+					return failure(error, ctx.signal, stage);
 				}
 			},
 		});

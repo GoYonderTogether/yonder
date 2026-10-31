@@ -231,22 +231,23 @@
   - 统一日志：使用共享脱敏结构化日志定位接收、运行和投递。
 - **边界**：默认随Yonder插件生命周期启动，不另开飞书服务。平台只提供机器人有权查看的历史；未知离线新私聊、删除或过期消息不能保证补齐。机器人消息可作背景，不自动当用户触发。
 
-## 09 media-tools：图片生成与音频转写
+## 09 media-tools：图片生成、音频转写与语音合成
 
 - **包**：`@yonder/plugin-media-tools`
 - **源码**：[入口](../plugins/media-tools/src/index.ts)
 - **贡献**：
-  - 工具：`media-tools_image_generate`、`media-tools_audio_transcribe`，见下
-  - 服务解析：`services.resolve(image/asr)`
+  - 工具：`media-tools_image_generate`、`media-tools_audio_transcribe`、`media-tools_audio_speak`，见下
+  - 服务解析：`services.resolve(image/asr/tts)`
   - 不贡献skill、channel或trigger。
 - **订阅事件**：无
-- **外部输入**：已配置的硅基图片模型与硅基ASR服务（经 `services.resolve` 解析）
+- **外部输入**：已配置的硅基图片模型与硅基ASR、已配置的百炼TTS服务（经 `services.resolve` 解析）
 - **可调用工具**：
   - `media-tools_image_generate`：调用已配置硅基模型生成单图，立即转存工作区artifacts并返回附件。
   - `media-tools_audio_transcribe`：按文件访问权限读取音频，经已配置硅基ASR返回识别文本。
+  - `media-tools_audio_speak`：把文本经已配置百炼TTS（WebSocket 双工）合成为mp3，转存工作区artifacts并返回audio附件。
 - **功能**：
-  - `services.resolve(image/asr)`：复用既有服务/密钥来源（现有端点、模型清单和凭据引用），不把对话模型目录冒充生成API。
-- **边界**：不启用付费TTS或视频；没有TTS/视频工具，没有新增skill、channel、trigger或模型循环。不能将已安装包当作已配置能力。
+  - `services.resolve(image/asr/tts)`：复用既有服务/密钥来源（现有端点、模型清单、音色清单和凭据引用），不把对话模型目录冒充生成API。
+- **边界**：不启用视频；没有视频工具，没有新增skill、channel、trigger或模型循环。TTS 要求 `protocol: dashscope`，其他协议在建立连接前即拒绝；是**付费**调用（cosyvoice-v3-flash 1 元/万字符，主人 2026-10-30 授权），费用由提供方按字符计，工具说明如实告知；不重试、不缓存。不能将已安装包当作已配置能力。实现、真实调用与未测项见[TTS 接入验收](verification/media-tools-tts-20261031.md)。
 
 ## 10 cron：持久调度
 
@@ -333,7 +334,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 - **源码**：[入口](../plugins/interaction/src/index.ts) · [运行和验收](../plugins/interaction/README.md)
 - **贡献**：工具 `interaction_present`、`interaction_result`；触发器 `interaction-service` 托管回环服务。
 - **使用**：在 plugins 加载本地目录或 `@yonder/plugin-interaction`，在实际 Agent/配置档选择 `interaction_*` 并授予 message、read。插件只返回真实用户交互到原 session/agent/profile；不自动唤醒其他 Agent。
-- **界面**：主仓库唯一状态栏中的 macOS 非激活小窗、可拖动悬浮 Logo、窗口历史；同一 URL 支持 `#notice` 提醒和 `#inline` 无品牌内嵌。默认完成收起，可用卡片 autoClose:false 保留。desktop:false 只运行网页入口。
+- **界面**：卡片经控制面视图 `interaction.card` 在网页控制台与桌面客户端（同一站点）的右栏呈现并接收回答，按修订号拒绝过期回答；不提供独立 HTTP 服务、回环页面或桌面悬浮窗。`desktop` 配置键只为旧 home 保留读取兼容，不产生行为。默认完成后视图收起，可用 `autoClose:false` 保留。
 
 
 ## agent-presets：官方常驻模板与任务预设

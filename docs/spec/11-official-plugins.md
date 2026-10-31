@@ -166,7 +166,7 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 
 免费音频补记：控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。
 
-付费TTS补记（主人2026-10-30明确授权）：主人要求补齐语音合成工具并实测，CosyVoice2的¥0.05/千UTF-8字符改为已获授权的付费调用，不再是拒绝理由。追加media-tools_audio_speak，参数为非空text（上限2000字符）、可选model、voice和speed（0.25–4），经services.resolve('tts')读取同协议服务，POST /audio/speech取mp3，按真实文件头校验容器，经ctx.env存到当前cwd的artifacts/并返回audio附件。声明network/write、响应ctx.signal；模型和音色只能从该端点声明清单选择，未指定取首项，缺配置/密钥/模型/音色分别返回明确错误，不自动切换供应商或收费模型。voice按硅基要求的`<模型>:<音色名>`全名声明。费用由提供方按字符计，工具说明如实告知，不隐藏价格；不重试、不缓存、不建产物数据库。视频仍不调用。
+付费TTS补记（主人2026-10-30授权，2026-10-31改为阿里百炼）：主人要求补齐语音合成工具并实测，付费调用已获授权。追加media-tools_audio_speak，参数为非空text（上限2000字符）、可选model、voice和speed（0.5–2），经services.resolve('tts')读取协议为dashscope的端点；其他协议在建立连接前即拒绝，不静默降级为HTTP。请求走百炼WebSocket双工协议：run-task开任务，task-started后由continue-task送文本、finish-task收尾，合成音频以二进制帧到达，按真实文件头判定容器后经ctx.env存到当前cwd的artifacts/并返回audio附件。声明network/write、响应ctx.signal与120秒上限；服务端每帧的task_id必须与本任务一致，task-failed与超时都报明确错误，不当作空结果。模型和音色只能从该端点声明清单选择，未指定取首项；缺配置、密钥、模型、音色分别返回明确错误，不自动切换供应商或收费模型。费用由提供方按字符计（cosyvoice-v3-flash 1元/万字符），工具说明如实告知，不隐藏价格；不重试、不缓存、不建产物数据库。视频仍不调用。
 
 ## 微信双插件
 
