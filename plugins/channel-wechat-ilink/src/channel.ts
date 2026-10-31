@@ -3,7 +3,6 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-	type Attachment,
 	acct,
 	type Channel,
 	type ChannelIO,
@@ -419,7 +418,7 @@ export class IlinkChannel implements Channel {
 					{
 						id: this.id,
 						config: this.config,
-						state: this.state,
+						state: () => this.state,
 						client: this.client,
 						ready: () => this.initialize(),
 						warn: (fields) => this.api.log.warn("iLink send failed", { instance: this.id, ...fields }),

@@ -7,7 +7,8 @@ import type { Config, State } from "./state.js";
 export interface SendContext {
 	id: string;
 	config: Config;
-	state: State;
+	/** Pairing state; read after ready() because loading may replace it. */
+	state(): State;
 	client: ReturnType<typeof createClient>;
 	/** Pairing/state load; failures are reported as a failed delivery, not a rejection. */
 	ready(): Promise<void>;
@@ -27,13 +28,14 @@ export async function sendMessage(
 	try {
 		await ctx.ready();
 		signal?.throwIfAborted();
+		const state = ctx.state();
 		const ref = parseRef(target);
 		if ((ref.kind !== "acct" && ref.kind !== "conv") || ref.channel !== ctx.id)
 			throw new Error("Target must belong to this iLink instance");
 		const peer = ref.id;
-		if (!ctx.state.peer || !ctx.state.linked || (peer !== ctx.state.peer && !ctx.config.allowedUsers?.includes(peer)))
+		if (!state.peer || !state.linked || (peer !== state.peer && !ctx.config.allowedUsers?.includes(peer)))
 			throw new Error("iLink target is not admitted");
-		const token = ctx.state.contexts[peer];
+		const token = state.contexts[peer];
 		if (!token) throw new Error("ILINK_CONTEXT_MISSING: recipient must first message this bot");
 		const outgoing: Item[] = [];
 		const characters = Array.from(msg.text);
