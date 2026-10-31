@@ -75,7 +75,7 @@ export class MarketClient {
 
 /** 云端地址跟随社交云端（yonder-cloud）默认值，末尾斜杠归一化。 */
 export function endpointOf(value: unknown): string {
-	if (value === undefined) return "https://yonder.zethai.cn";
+	if (value === undefined) return "https://yonderbot.net";
 	if (typeof value !== "string" || !value.trim()) throw new Error("endpoint must be an http(s) URL");
 	let url: URL;
 	try {

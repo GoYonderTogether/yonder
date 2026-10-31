@@ -129,7 +129,7 @@ bindings:
 - 通话绑定排在 owner 之前，否则主人的来电会进主会话。
 
 
-名片渠道 `type: card`：endpoint 默认为 https://yonder.zethai.cn，device.kind 默认为 desktop（可选 laptop/server）。令牌仅在插件私有目录，不写配置，见 16。
+名片渠道 `type: card`：endpoint 默认为 https://yonderbot.net，device.kind 默认为 desktop（可选 laptop/server）。令牌仅在插件私有目录，不写配置，见 16。
 
 `defaults`、profile 与 preset 可写 `channelInstances: [qq-main]`（上述 QQ 实例）；数组整项替换，profile 未写则沿 defaults。均未配置保持旧版无限制兼容，不自动推导 bindings；`channelInstances: []` 禁止全部实例。填写显式名单后才启用该资源隔离，admin/bypass 同样受约束；跨实例业务须明确列出所有所需实例。这不是 macOS 沙箱。
 

@@ -3,12 +3,19 @@ name = "yonder-desktop"
 version = "0.3.0"
 edition = "2021"
 
+# 移动端（Android/iOS）只构建 lib；桌面仍由 src/main.rs 生成可执行文件。
+[lib]
+name = "yonder_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
 tauri = { version = "=2.12.5", features = ["tray-icon"] }
 tauri-plugin-notification = "=2.8.0"
-tauri-plugin-updater = "=2.14.1"
 serde_json = "=1.0.145"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-updater = "=2.14.1"
 tar = "=0.4.46"

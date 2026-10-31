@@ -45,7 +45,7 @@
 
 ## 5 配置与验收
 
-渠道配置 `{endpoint?:string, device?:{kind?:'laptop'|'desktop'|'server'}}`；endpoint 默认 https://yonder.zethai.cn，不含凭据。setup 只注册，不联网。
+渠道配置 `{endpoint?:string, device?:{kind?:'laptop'|'desktop'|'server'}}`；endpoint 默认 https://yonderbot.net，不含凭据。setup 只注册，不联网。
 
 名片接口返回真实 Card（id、ownerId、respondentId、title、markdown、display?、status、rev、updatedAt 等），工具只返回非秘密结果。Agent 同步接口是 upsert，不删除未提交的远端 Agent；本地映射仅保留当前启用 Agent，不接纳已移除目标。
 

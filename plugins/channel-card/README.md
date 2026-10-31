@@ -3,7 +3,7 @@
 官方名片渠道 `@yonder/plugin-channel-card`，仅使用 SDK；一个设备令牌和一条 WS 服务本实例全部启用 Agent。
 
 在现有配置中加入插件 `@yonder/plugin-channel-card`，配置渠道 `type: card`。
-渠道字段：`endpoint` 默认 `https://yonder.zethai.cn`；`device.kind` 为 laptop/desktop/server，默认 desktop。设备名取 hostname。配置不含令牌。
+渠道字段：`endpoint` 默认 `https://yonderbot.net`；`device.kind` 为 laptop/desktop/server，默认 desktop。设备名取 hostname。配置不含令牌。
 
 用 `yonder channels login <实际实例>` 取得网页确认链接。人登录网页确认后，后台每两秒 poll，成功即登记 Agent 并连接。不自动打开浏览器。令牌私有保存在 `<home>/.yonder/plugins/channel-card/<instance>.json`，目录 0700、文件 0600，绑定 endpoint origin。setup 不联网。
 

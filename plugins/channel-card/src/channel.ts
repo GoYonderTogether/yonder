@@ -59,7 +59,7 @@ export class CardChannel implements Channel {
 	) {
 		let url: URL;
 		try {
-			url = new URL(config.endpoint ?? "https://yonder.zethai.cn");
+			url = new URL(config.endpoint ?? "https://yonderbot.net");
 		} catch {
 			throw new Error("Card endpoint must be an HTTP(S) origin without credentials");
 		}

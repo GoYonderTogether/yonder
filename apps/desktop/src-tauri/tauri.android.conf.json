@@ -1,0 +1,9 @@
+{
+	"identifier": "net.yonderbot.app",
+	"bundle": {
+		"resources": [],
+		"android": {
+			"versionCode": 26103020
+		}
+	}
+}
