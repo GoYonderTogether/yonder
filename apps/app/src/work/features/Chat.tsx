@@ -65,7 +65,7 @@ function RailSheet({ children, onClose }: { children: React.ReactNode; onClose()
 	}, []);
 	return (
 		<div className="fixed inset-0 z-40 flex flex-col bg-list" role="dialog" aria-modal="true" aria-label="待办与任务">
-			<header className="pt-safe flex items-center border-b border-hairline px-2 py-2">
+			<header className="pt-safe flex items-center px-2 py-2">
 				<button
 					type="button"
 					ref={close}
@@ -157,9 +157,22 @@ function Live({
 						{v.error}
 					</p>
 				)}
-				<details className="border-b border-hairline" onToggle={(event) => setSourcesOpen(event.currentTarget.open)}>
-					<summary className="cursor-pointer px-4 py-2 text-small text-muted">来源与路由</summary>
-					{sourcesOpen && <SessionSources session={id} agent={s?.agent ?? undefined} />}
+				<details className="group" onToggle={(event) => setSourcesOpen(event.currentTarget.open)}>
+					<summary className="press flex cursor-pointer items-center gap-1.5 px-4 py-2 text-small text-muted">
+						<ChevronRight
+							size={14}
+							className="shrink-0 text-faint transition-transform duration-200 group-open:rotate-90"
+							aria-hidden
+						/>
+						来源与路由
+					</summary>
+					<div className="fold" data-open={sourcesOpen}>
+						<div>
+							<div className="px-4 pb-2">
+								{sourcesOpen && <SessionSources session={id} agent={s?.agent ?? undefined} />}
+							</div>
+						</div>
+					</div>
 				</details>
 				{!v.ready ? (
 					<p className="flex-1 py-16 text-center text-small text-faint">连接中…</p>
@@ -177,7 +190,7 @@ function Live({
 					</Transcript>
 				)}
 				{s?.closed ? (
-					<p className="border-t border-hairline px-4 py-3 text-center text-small text-faint">会话已结束</p>
+					<p className="py-3 text-center text-small text-faint">会话已结束</p>
 				) : (
 					<Composer
 						session={id}

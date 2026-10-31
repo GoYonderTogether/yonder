@@ -12,7 +12,7 @@ export function DeviceRow() {
 	const online = devices.filter((d) => d.online);
 	if (!online.length)
 		return (
-			<p className="flex items-center gap-2 px-5 pb-2 text-[13px] text-faint">
+			<p className="flex items-center gap-2 px-5 pb-2 text-small text-faint">
 				<Status online={false} className="h-1.5 w-1.5 shrink-0" />
 				设备离线
 			</p>
@@ -23,7 +23,7 @@ export function DeviceRow() {
 	return (
 		<Link
 			to="/connect"
-			className="press mx-2 mb-2 flex h-10 items-center gap-2 rounded-control bg-tone/60 px-3 text-[13px] text-muted hover:bg-tone"
+			className="press mx-2 mb-2 flex h-10 items-center gap-2 rounded-control bg-tone/60 px-3 text-small text-muted hover:bg-tone"
 		>
 			<Status online className="h-1.5 w-1.5 shrink-0" />
 			<span className="min-w-0 flex-1 truncate">

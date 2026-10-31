@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+// Gradle's rust plugin runs `node tauri android android-studio-script` with src-tauri as the
+// working directory, so the CLI must be resolvable as `tauri` here.
+import(new URL("../node_modules/@tauri-apps/cli/tauri.js", import.meta.url).href).catch((error) => {
+	console.error(error);
+	process.exit(1);
+});

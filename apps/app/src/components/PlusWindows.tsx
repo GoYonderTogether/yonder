@@ -58,7 +58,7 @@ export function GroupWindow({ open, onOpenChange }: { open: boolean; onOpenChang
 							value={q}
 							onChange={(e) => setQ(e.target.value)}
 							placeholder="搜索"
-							className="min-w-0 flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-faint"
+							className="min-w-0 flex-1 bg-transparent text-small text-ink outline-none placeholder:text-faint"
 						/>
 					</label>
 					<ul className="scroll-y min-h-0 flex-1">
@@ -76,20 +76,20 @@ export function GroupWindow({ open, onOpenChange }: { open: boolean; onOpenChang
 										</Checkbox.Indicator>
 									</Checkbox.Root>
 									<Avatar actor={a} size={32} />
-									<span className="min-w-0 flex-1 truncate text-[14px]">{a.name}</span>
+									<span className="min-w-0 flex-1 truncate text-small">{a.name}</span>
 								</label>
 							</li>
 						))}
-						{!shown.length && <li className="px-2 py-6 text-[14px] text-faint">没有匹配的联系人。</li>}
+						{!shown.length && <li className="px-2 py-6 text-small text-faint">没有匹配的联系人。</li>}
 					</ul>
 				</div>
 				<div className="flex w-full min-w-0 flex-col bg-list p-3 lg:w-1/2">
-					<p className="px-2 pt-1 pb-2 text-[13px] text-muted">已选 {chosen.length} 人</p>
+					<p className="px-2 pt-1 pb-2 text-small text-muted">已选 {chosen.length} 人</p>
 					<ul className="scroll-y hidden min-h-0 flex-1 lg:block">
 						{chosen.map((a) => (
 							<li key={a.id} className="flex items-center gap-3 rounded-control px-2 py-2">
 								<Avatar actor={a} size={32} />
-								<span className="min-w-0 flex-1 truncate text-[14px]">{a.name}</span>
+								<span className="min-w-0 flex-1 truncate text-small">{a.name}</span>
 								<button
 									type="button"
 									aria-label={`移除 ${a.name}`}

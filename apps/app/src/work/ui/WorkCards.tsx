@@ -33,10 +33,7 @@ function Card({
 		if (completed) setOpen(false);
 	}, [completed]);
 	return (
-		<div
-			className="mx-auto w-full max-w-[720px] rounded-card border border-hairline bg-raised text-small"
-			data-testid={tid}
-		>
+		<div className="mx-auto w-full max-w-[720px] rounded-card bg-raised text-small shadow-soft" data-testid={tid}>
 			<button
 				type="button"
 				aria-expanded={open}
@@ -45,14 +42,18 @@ function Card({
 			>
 				<ChevronRight
 					size={14}
-					className={`shrink-0 text-faint transition-transform ${open ? "rotate-90" : ""}`}
+					className={`shrink-0 text-faint transition-transform duration-200 ${open ? "rotate-90" : ""}`}
 					aria-hidden
 				/>
 				<Icon size={14} className="shrink-0 text-muted" aria-hidden />
 				<span className="min-w-0 flex-1 truncate">{title}</span>
-				<span className="shrink-0 text-caption text-faint">{state}</span>
+				<span className="shrink-0 text-caption text-faint tabular-nums">{state}</span>
 			</button>
-			{open && <div className="border-t border-hairline px-3 py-2 text-caption text-muted">{children}</div>}
+			<div className="fold" data-open={open}>
+				<div>
+					<div className="px-3 pb-2.5 text-caption text-muted">{children}</div>
+				</div>
+			</div>
 		</div>
 	);
 }

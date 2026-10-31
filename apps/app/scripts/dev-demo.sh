@@ -2,7 +2,7 @@
 # 前端 dev 演示（vite dev + HMR），固定 5180；主人刷新即可看到改动。
 # 用法：dev-demo.sh [start|stop|status]（默认 start）
 #   网关接口（/api/rpc、/api/stream、/api/logout、POST /login）→ YONDER_GATEWAY（默认演示网关 http://127.0.0.1:18795）
-#   社交接口（其余 /api、/ws）→ YONDER_SOCIAL（默认云端 https://yonder.zethai.cn；本机测试后端：http://127.0.0.1:18030）
+#   社交接口（其余 /api、/ws）→ YONDER_SOCIAL（默认云端 https://yonderbot.net；本机测试后端：http://127.0.0.1:18030）
 # 免手动登录（只在本机 vite serve 生效，见 apps/app/vite.config.ts）：
 #   默认原型数据（名片站展示数据，预置成已登录的演示用户）；DEMO_SOCIAL=cloud 才走真实社交接口，主人自己登录。
 #   网关登录票据由演示实例自己的 YONDER_DEV_HOME + YONDER_DEV_CLI 签发，令牌不打印、不落日志。

@@ -162,7 +162,7 @@ export function AddFriend() {
 					</section>
 				)}
 			</section>
-			<section aria-label="我的名片与 Bot" className="mt-4 border-t border-hairline pt-6">
+			<section aria-label="我的名片与 Bot" className="mt-6 rounded-card bg-list/60 p-4">
 				<h2 className="mb-4 text-small font-medium text-muted">我的名片与 Bot</h2>
 				<CardStack />
 			</section>

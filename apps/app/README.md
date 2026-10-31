@@ -37,7 +37,7 @@ VITE_API=http npm run dev   # 真实接口；/api 与 /ws 代理到 YONDER_SOCIA
 ```sh
 launchctl print gui/$(id -u)/dev.yonder.app-live      # 本机状态
 tail -f ~/.local/state/yonder-web-live/worker.log    # 构建与隧道日志
-curl -fsS https://yonder.zethai.cn/build-version.json # mode=live
+curl -fsS https://yonderbot.net/build-version.json # mode=live
 node apps/app/scripts/live-preview.mjs --check      # 仓库根运行，已有构建的 HTTP 边界检查
 ```
 

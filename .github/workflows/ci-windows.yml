@@ -1,4 +1,5 @@
 # Windows is not green yet (see scripts/e2e/ci-failures.md); move this job back into ci.yml once it passes.
+# `installer` 单独一个 job：它不跑测试，只验收一键安装脚本，测试债不影响它。
 name: CI Windows
 
 on:
@@ -32,3 +33,43 @@ jobs:
         with:
           name: windows-failures
           path: windows-failures.json
+
+  installer:
+    name: Windows one-line installer
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 解析最新正式版（不写盘）
+        run: pwsh -NoProfile -File scripts/install.ps1 -DryRun
+      # 真实安装：克隆正式 tag、本机构建、写安装入口、初始化 home，然后核对产物。
+      # runner.temp 不能在 job 级 env 里引用；两个步骤各自设置一次。
+      - name: 在临时目录完成一次真实安装
+        shell: pwsh
+        run: |
+          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
+          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
+          pwsh -NoProfile -File scripts/install.ps1
+          if ($LASTEXITCODE -ne 0) { throw "install.ps1 exited $LASTEXITCODE" }
+          $cmd = Join-Path $env:YONDER_INSTALL 'bin\yonder.cmd'
+          if (-not (Test-Path $cmd)) { throw "missing $cmd" }
+          if (-not (Test-Path (Join-Path $env:YONDER_HOME 'yonder.yaml'))) { throw 'home was not initialised' }
+          $version = & $cmd version | Out-String
+          Write-Host $version
+          if ($version -notmatch 'version: 0\.3\.') { throw 'yonder version did not report the installed release' }
+          $recordText = Get-Content (Join-Path $env:YONDER_INSTALL 'versions' (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') | Select-Object -First 1).Name '.yonder-install.json') -Raw
+          $parsed = $recordText | ConvertFrom-Json
+          if (-not $parsed.tag -or -not $parsed.commit) { throw 'install record is incomplete' }
+      - name: 重复执行不重新构建
+        shell: pwsh
+        run: |
+          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
+          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
+          $before = (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') -Directory).Count
+          pwsh -NoProfile -File scripts/install.ps1
+          if ($LASTEXITCODE -ne 0) { throw "second install.ps1 exited $LASTEXITCODE" }
+          $after = (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') -Directory).Count
+          if ($after -ne $before) { throw "second run built another version ($before -> $after)" }

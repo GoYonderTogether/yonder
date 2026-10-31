@@ -48,7 +48,8 @@ function SortableCard({ card, session, v }: { card: RailCard; session: string; v
 			ref={s.setNodeRef}
 			style={{
 				transform: CSS.Transform.toString(s.transform),
-				transition: s.transition,
+				// 落位用过阻尼弹簧：零回弹、咬死在新位置；拖拽中仍用 dnd-kit 自己的即时跟随
+				transition: s.isDragging ? s.transition : "transform 420ms var(--spring-snap)",
 				opacity: s.isDragging ? 0.6 : 1,
 			}}
 		>
@@ -102,7 +103,7 @@ export function RightRail({ session, v }: { session: string; v: SessionView }) {
 	const drag = useRef<{ x: number; w: number } | null>(null);
 	return (
 		<aside
-			className="relative shrink-0 border-l border-hairline bg-list"
+			className="relative shrink-0 bg-rail"
 			style={{ width: pref.width }}
 			aria-label="右栏"
 			data-testid="right-rail"
@@ -116,7 +117,7 @@ export function RightRail({ session, v }: { session: string; v: SessionView }) {
 				aria-valuemax={RAIL_MAX}
 				aria-valuenow={pref.width}
 				tabIndex={0}
-				className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize touch-none hover:bg-tone-2/60"
+				className="rail-grip absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize touch-none"
 				data-testid="rail-resize"
 				onPointerDown={(e) => {
 					e.currentTarget.setPointerCapture(e.pointerId);

@@ -97,7 +97,7 @@ export function BotCards() {
 			)}
 			<ul className="mt-3 flex flex-col gap-4">
 				{cards.map((card) => (
-					<li key={card.id} className="flex flex-col gap-2 border-t border-hairline pt-3 first:border-0 first:pt-0">
+					<li key={card.id} className="flex flex-col gap-2 border-t border-hairline/60 pt-3 first:border-0 first:pt-0">
 						{editId === card.id ? (
 							<form
 								className="flex flex-col gap-3"
@@ -117,11 +117,11 @@ export function BotCards() {
 									value={form.tagline}
 									onChange={(e) => setForm({ ...form, tagline: e.target.value })}
 								/>
-								<label className="flex flex-col gap-1.5 text-[13px] text-muted">
+								<label className="flex flex-col gap-1.5 text-small text-muted">
 									给访客的介绍
 									<textarea
 										rows={5}
-										className="field rounded-control bg-tone p-3.5 text-[15px] text-ink outline-none"
+										className="field rounded-control bg-tone p-3.5 text-body text-ink outline-none"
 										value={form.markdown}
 										onChange={(e) => setForm({ ...form, markdown: e.target.value })}
 									/>

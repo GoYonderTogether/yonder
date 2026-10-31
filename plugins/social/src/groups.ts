@@ -1,4 +1,5 @@
 import type { EventInput, PluginAPI, Ref, SocialPolicy, ToolContext, YEvent } from "@yonder/sdk";
+import { GroupAttention } from "./group-attention.js";
 import type { GroupJudgeConfig } from "./group-config.js";
 import {
 	type GroupPause,
@@ -10,8 +11,8 @@ import {
 	restoreGroupState,
 } from "./group-history.js";
 import { GroupReview } from "./group-review.js";
-import { GroupRules, ruleMatch, validateRules } from "./group-rules.js";
-import { awaitTurn, grantTurn, releaseTurn, type TurnRoom } from "./group-turns.js";
+import { GroupRules, validateRules } from "./group-rules.js";
+import { awaitTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
 
 export type { GroupJudgeConfig } from "./group-config.js";
 
@@ -48,10 +49,12 @@ export class Groups {
 	readonly rules: GroupRules;
 	readonly review: GroupReview;
 	private stopped = false;
+	private readonly attention: GroupAttention;
 	constructor(
 		private readonly api: PluginAPI,
 		private readonly config: GroupJudgeConfig,
 	) {
+		this.attention = new GroupAttention(api);
 		for (const seed of Object.values(config.initialRules ?? {})) validateRules(seed);
 		this.rules = new GroupRules(api, (conv) => this.managed(conv), config.initialRules);
 		this.review = new GroupReview(api, config.preset, this.rules, config.review);
@@ -95,6 +98,7 @@ export class Groups {
 	}
 	async start() {
 		await restoreGroupState(this.api, this.reads, this.pauses, this.counters);
+		await this.attention.start();
 		await this.rules.start();
 		for await (const event of groupEvents(this.api, "message.in")) await this.observe(event, false);
 		for await (const event of groupEvents(this.api, "message.out")) await this.delivered(event, false);
@@ -207,10 +211,11 @@ export class Groups {
 			if (pause) candidate.pause = pause;
 			room.candidates.set(data.agent, candidate);
 		}
+
 		if (!candidate.entries.some((e) => e.id === source.id)) candidate.entries.push(source);
 		candidate.entries.sort((a, b) => a.id.localeCompare(b.id));
-		if (candidate.willing) {
-			candidate.willing.entries = [...candidate.entries];
+		if (candidate.willing && !(await this.attention.elsewhere(source, data.agent))) {
+			candidate.willing.entries.push(source);
 			candidate.willing.through = source.id;
 		}
 		room.quietMs ??= 5000 + Math.floor(Math.random() * 10001);
@@ -250,9 +255,6 @@ export class Groups {
 		const room = this.sessions.get(c.session);
 		if (room && ![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
 	}
-	private history(room: Room) {
-		return publicHistory(this.api, room.convs);
-	}
 	private async control(source: YEvent, agent: string, session: string, room: Room) {
 		const text = String((source.data as { text?: string }).text ?? "");
 		const name = (await this.api.agents.list()).find((a) => a.id === agent)?.name ?? agent;
@@ -273,7 +275,8 @@ export class Groups {
 				["group-owner", "group-admin"].includes(
 					(source.data as { social?: { senderRole?: string } }).social?.senderRole ?? "",
 				));
-		if (resume && !manager) return;
+		if ((resume && !manager) || this.controls.has(source.id)) return;
+		this.controls.add(source.id);
 		const key = this.key(agent, source.conv!);
 		const before = this.pauses.get(key);
 		const pause: GroupPause | undefined =
@@ -314,7 +317,6 @@ export class Groups {
 			else delete c.pause;
 			if (affectsRun) delete c.willing;
 		}
-		this.controls.add(source.id);
 		if (affectsRun) room.waiting = room.waiting.filter((t) => t.session !== session);
 		if (stop && affectsRun)
 			void this.api.sessions
@@ -326,32 +328,18 @@ export class Groups {
 	private async flush(room: Room) {
 		for (const c of room.candidates.values()) {
 			if (!c.entries.length || c.willing) continue;
-			const entries = c.entries.slice(0, 100),
-				source = entries.at(-1)!;
+			const through = room.turn?.session === c.session ? room.turn.source : "";
+			const entries = c.entries.filter((e) => e.id > through).slice(0, 100);
+			if (!entries.length) continue;
 			if ((await this.api.social?.admitBatch(this.request(c, entries)))?.session !== c.session) continue;
 			const policy = this.rules.effective(c.agent, c.conv, c.policy, c.revision);
-			let matched = false,
-				errors = 0;
-			for (const event of entries) {
-				const d = event.data as {
-					text?: string;
-					mentions?: Ref[];
-					mentioned?: boolean;
-					social?: { mentions?: { bot?: boolean } };
-				};
-				if (this.controls.has(event.id) || (d.mentions?.length && !(d.social?.mentions?.bot ?? d.mentioned))) continue;
-				const result = ruleMatch(d.text ?? "", policy, () => errors++);
-				if (result.eligible) c.counter++;
-				matched ||= result.match;
-			}
-			matched ||= c.counter >= (policy.batch?.count ?? 20);
-			if (
-				c.pause?.scope === "group" ||
-				c.pause?.actor === source.from ||
-				Date.now() < (c.lastSent ?? 0) + (policy.minIntervalSeconds ?? 60) * 1000
-			)
-				matched = false;
-			if (matched) c.counter = 0;
+			const { matched, focused, errors, relevant } = await this.attention.consider(
+				c,
+				room.id,
+				entries,
+				policy,
+				this.controls,
+			);
 			const fact = await this.api.events.emit({
 				type: "social.rule-match",
 				from: "plugin:social",
@@ -359,6 +347,7 @@ export class Groups {
 				data: {
 					...this.request(c, entries),
 					matched,
+					focused,
 					counter: c.counter,
 					regexErrors: errors,
 					rulesRevision: this.rules.version(c.agent, c.conv, c.revision)?.id ?? c.revision,
@@ -372,11 +361,13 @@ export class Groups {
 			if (this.active.has(c.session)) {
 				await this.api.sessions.submit(
 					c.session,
-					{ text: `群内新公开信息，检查是否仍需回应；可保持沉默：\n${JSON.stringify(await this.history(room))}` },
+					{
+						text: `群内新公开信息，检查是否仍需回应；可保持沉默：\n${JSON.stringify(await publicHistory(this.api, room.convs))}`,
+					},
 					{ busy: "steer" },
 				);
 				await this.read(c, entries, fact.id);
-			} else c.willing = { through: source.id, entries, decision: fact.id };
+			} else c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id };
 		}
 		await this.offer(room);
 	}
@@ -421,7 +412,7 @@ export class Groups {
 			data: {
 				...this.request(c, intention.entries),
 				msgId: `group:${c.agent}:${intention.through}`,
-				publicHistory: await this.history(room),
+				publicHistory: await publicHistory(this.api, room.convs),
 			},
 		};
 		this.active.add(c.session);
@@ -447,6 +438,7 @@ export class Groups {
 		const c = room.candidates.get(agent);
 		this.sent.set(this.key(agent, event.conv), Date.parse(event.ts));
 		if (c) c.lastSent = Date.parse(event.ts);
+		await this.attention.replied(event, room.id);
 		if (!live) return;
 		for (const peer of room.candidates.values())
 			if (peer.agent !== agent && peer.willing) {
@@ -456,17 +448,16 @@ export class Groups {
 		this.schedule(room);
 	}
 	async beforeRequest(ctx: ToolContext) {
-		if (!this.sessions.has(ctx.session))
-			for (const event of ctx.events ?? (ctx.event ? [ctx.event] : [])) await this.observe(event);
+		for (const event of ctx.events ?? (ctx.event ? [ctx.event] : []))
+			if (event.type === "message.in") await this.observe(event);
 		const room = this.sessions.get(ctx.session);
 		if (!room || !ctx.agent || !this.official(ctx.agent, ctx.event?.conv ?? "")) return;
-		if ((ctx.events ?? (ctx.event ? [ctx.event] : [])).some((e) => this.controls.has(e.id)))
-			throw Error("Group control command handled without a model reply");
-		const pause = ctx.agent ? this.pauses.get(this.key(ctx.agent, ctx.event?.conv ?? "")) : undefined;
-		if (pause?.scope === "group") throw Error("Group Bot is paused");
+		const pause = this.pauses.get(this.key(ctx.agent, ctx.event?.conv ?? ""));
+		if (pause?.scope === "group" || (ctx.events ?? (ctx.event ? [ctx.event] : [])).some((e) => this.controls.has(e.id)))
+			await stopGroupRequest(this.api, ctx);
 		this.active.add(ctx.session);
 		await awaitTurn(room, ctx, () => this.stopped);
-		return this.history(room);
+		return publicHistory(this.api, room.convs);
 	}
 	async finished(event: YEvent) {
 		const session = (event.data as { session?: string }).session;

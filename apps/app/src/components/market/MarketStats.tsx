@@ -45,14 +45,14 @@ export function MyMarket() {
 				))}
 			</div>
 			{staleSaved > 0 && (
-				<p className="border-t border-hairline px-5 py-3 text-caption text-muted">
+				<p className="mt-3 rounded-control bg-tone/60 px-5 py-3 text-caption text-muted">
 					有 {staleSaved} 条收藏已失效（帖子已下架或删除），不再计入。
 				</p>
 			)}
 			{real.length > 0 && (
 				<Link
 					to="/me/market/stats"
-					className="press flex min-h-14 items-center gap-3 border-t border-hairline px-5 hover:bg-tone"
+					className="press mt-1 flex min-h-14 items-center gap-3 rounded-control px-5 hover:bg-tone"
 				>
 					<Eye size={19} className="text-muted" />
 					<span className="flex-1 text-small">浏览数据</span>

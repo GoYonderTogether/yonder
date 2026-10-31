@@ -133,7 +133,7 @@ test.skipIf(!real)(
 			expect(gaps[3]!).toBeLessThan(gaps[2]! + 1000);
 			expect(gaps[3]!).toBeLessThan(2500);
 			expect(stopNotice(failed.reason ?? "")).toMatch(
-				/^模型都不可用（model_error），这一轮没有完成。过一会儿回我一句/u,
+				/^【系统】模型链没有跑通，这一轮没有完成。\n详情：503 controlled outage\n处理：过一会儿回我一句/u,
 			);
 			expect(events).toHaveLength(2);
 		} finally {

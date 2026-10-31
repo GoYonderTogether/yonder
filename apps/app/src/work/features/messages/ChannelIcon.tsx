@@ -46,7 +46,7 @@ export function ChannelIcon({ channel, size = 16 }: { channel?: string; size?: n
 			aria-hidden
 			data-testid="channel-icon"
 			data-channel={channelType(channel) ?? "console"}
-			className="inline-flex shrink-0 items-center justify-center rounded-[5px] bg-tone text-muted"
+			className="inline-flex shrink-0 items-center justify-center rounded-chip bg-tone text-muted"
 			style={{ width: size, height: size }}
 		>
 			<Icon size={Math.round(size * 0.68)} />

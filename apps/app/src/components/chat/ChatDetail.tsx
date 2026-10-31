@@ -49,7 +49,7 @@ export function ChatDetail({ convId, onClose }: { convId: string; onClose: () =>
 				className="rise absolute inset-y-0 right-0 z-20 flex w-80 flex-col bg-raised shadow-float"
 			>
 				<header className="flex h-14 shrink-0 items-center justify-between pr-2 pl-5">
-					<h2 className="text-[15px] font-semibold">聊天详情</h2>
+					<h2 className="text-body font-semibold">聊天详情</h2>
 					<button
 						type="button"
 						aria-label="关闭"
@@ -85,7 +85,7 @@ export function ChatDetail({ convId, onClose }: { convId: string; onClose: () =>
 
 const Row = ({ to, onClick, children }: { to?: string; onClick?: () => void; children: React.ReactNode }) => {
 	const loc = useLocation();
-	const cls = "press flex h-12 w-full items-center gap-3 px-4 text-[15px] hover:bg-tone/60";
+	const cls = "press flex h-12 w-full items-center gap-3 px-4 text-body hover:bg-tone/60";
 	return to ? (
 		<Link to={to} state={internalState(loc)} className={cls}>
 			{children}
@@ -130,10 +130,10 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 					<Avatar actor={other} size={48} online={other.kind === "agent" ? other.online : undefined} />
 					<span className="min-w-0 flex-1">
 						<span className="flex items-center gap-1.5">
-							<span className="truncate text-[15px] font-medium">{other.name}</span>
+							<span className="truncate text-body font-medium">{other.name}</span>
 							{other.kind === "agent" && <AiBadge />}
 						</span>
-						{other.note && <span className="block truncate text-[13px] text-muted">{other.note}</span>}
+						{other.note && <span className="block truncate text-small text-muted">{other.note}</span>}
 					</span>
 					<ChevronRight size={16} className="text-faint" />
 				</Link>
@@ -141,7 +141,7 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 			{other.kind === "agent" && (device || owner) && (
 				<Section>
 					{device && (
-						<div className="flex h-12 items-center gap-3 px-4 text-[14px]">
+						<div className="flex h-12 items-center gap-3 px-4 text-small">
 							<span className="text-muted">所在设备</span>
 							<span className="ml-auto flex items-center gap-2">
 								<Status online={!!other.online} className="h-1.5 w-1.5" />
@@ -167,7 +167,7 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 				<div className="rounded-control bg-white p-3">
 					<QRCodeSVG value={profile} size={140} />
 				</div>
-				<p className="text-[12px] text-muted">{other.name} 的二维码</p>
+				<p className="text-caption text-muted">{other.name} 的二维码</p>
 			</Section>
 		</>
 	);
@@ -218,7 +218,7 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 	return (
 		<>
 			<Section className="p-4">
-				<p className="pb-3 text-[13px] text-muted">群成员 {d.members.length}</p>
+				<p className="pb-3 text-small text-muted">群成员 {d.members.length}</p>
 				<ul className="grid grid-cols-4 gap-y-4">
 					{d.members.map((m) => (
 						<li key={m.id} className="min-w-0">
@@ -229,11 +229,11 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 							>
 								<Avatar actor={m} size={44} />
 								<span className="flex w-full items-center justify-center gap-1">
-									<span className="truncate text-[12px]">{m.name}</span>
+									<span className="truncate text-caption">{m.name}</span>
 									{m.kind === "agent" && <AiBadge />}
 								</span>
 								{m.role && m.role !== "member" && (
-									<span className="text-[11px] text-muted">{m.role === "owner" ? "群主" : "管理员"}</span>
+									<span className="text-caption text-muted">{m.role === "owner" ? "群主" : "管理员"}</span>
 								)}
 							</Link>
 						</li>
@@ -259,7 +259,7 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 							void save(() => api.renameGroup(d.id, title));
 						}}
 					>
-						<label htmlFor="group-title" className="text-[13px] text-muted">
+						<label htmlFor="group-title" className="text-small text-muted">
 							群名称
 						</label>
 						<input
@@ -269,14 +269,14 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 							required
 							disabled={busy}
 							onChange={(event) => setTitle(event.target.value)}
-							className="h-10 min-w-0 rounded-control bg-ground px-3 text-[14px]"
+							className="h-10 min-w-0 rounded-control bg-ground px-3 text-small"
 						/>
 						<Button type="submit" disabled={busy || !title.trim() || title.trim() === d.title}>
 							保存群名称
 						</Button>
 					</form>
 				) : (
-					<div className="flex min-h-12 items-center gap-3 px-4 text-[14px]">
+					<div className="flex min-h-12 items-center gap-3 px-4 text-small">
 						<span className="text-muted">群名称</span>
 						<span className="ml-auto truncate">{d.title}</span>
 					</div>
@@ -284,12 +284,12 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 			</Section>
 			{owner && (
 				<Section className="p-4">
-					<p className="mb-3 text-[13px] text-muted">群管理</p>
+					<p className="mb-3 text-small text-muted">群管理</p>
 					{d.members
 						.filter((m) => m.kind === "human" && !m.anonymous && m.id !== me?.id)
 						.map((m) => (
-							<div key={m.id} className="flex flex-col gap-2 border-t border-line py-3 first:border-0">
-								<span className="text-[14px]">{m.name}</span>
+							<div key={m.id} className="flex flex-col gap-2 rounded-control bg-tone/50 px-3 py-2.5">
+								<span className="text-small">{m.name}</span>
 								<div className="flex flex-wrap gap-2">
 									<Button
 										disabled={busy}
@@ -321,7 +321,7 @@ function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
 				) : (
 					<div className="skeleton h-[164px] w-[164px] rounded-control" />
 				)}
-				<p className="text-[12px] text-muted">群二维码</p>
+				<p className="text-caption text-muted">群二维码</p>
 				{invite && <ShareLinks kind="group" targetId={d.id} label={d.title} path={invitePath} />}
 			</Section>
 			<div className="px-3 py-4">

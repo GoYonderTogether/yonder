@@ -24,6 +24,7 @@ import { ownerIdentity } from "../store/sessions.js";
 import { coreToolCapabilities } from "./catalog.js";
 import { fail, requireCapability, tool, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
+import { parentSources } from "./parent-origin.js";
 import { sourceBlock } from "./sources.js";
 import { createTaskControl } from "./task-control.js";
 import { asyncSchema, attachmentSchema, effortSchema, schema, sourcesSchema, text } from "./tool-schema.js";
@@ -182,19 +183,11 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				const session = await store.sessions.get(ctx.session);
 				if (!ctx.agent || !session || session.agent !== ctx.agent || session.mode === "main")
 					throw new Error("parent_ask 仅供常驻 Agent 的非 main 分身请求所属主会话。");
-				const events = ctx.events ?? (ctx.event ? [ctx.event] : []);
-				const origins: YEvent[] = [];
-				for (const event of events) {
-					const sources = (event.data as { sourceEvents?: string[] }).sourceEvents;
-					if (!sources) {
-						origins.push(event);
-						continue;
-					}
-					for (const id of sources) {
-						const source = await store.events.get(id);
-						if (source && source.conv === event.conv) origins.push(source);
-					}
-				}
+				const inputs = [
+					...new Set([...(ctx.events ?? []).map((event) => event.id), ...(ctx.event ? [ctx.event.id] : [])]),
+				];
+				const origins = await parentSources(store, session, inputs);
+				if (!origins) throw new Error("parent_ask 缺少可核验的原始请求来源，不能代替主人授权。");
 				const reply = await withSignal(
 					ask({
 						type: "message.in",
@@ -209,6 +202,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 							requestOrigin: {
 								session: session.id,
 								profile: session.profile,
+								inputs,
 								events: origins.map((event) => ({ id: event.id, from: event.from, conv: event.conv })),
 							},
 						},
@@ -433,7 +427,8 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "identity_lookup",
-			description: "查询本轮发送者的关联账号和会话；查询其他引用需要 admin，其他 agent 的信息需要 cross-agent。",
+			description:
+				"查询一个账号或人：关联的账号、显示名、出现过的会话。不填 ref 时查本轮发送者；查其他引用需要 admin，看其他 agent 的信息需要 cross-agent。群消息里的 @ 目标同样可以查。",
 			parameters: schema({ ref: Type.Optional(text()) }),
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "read");

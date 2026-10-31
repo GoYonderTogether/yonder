@@ -13,6 +13,8 @@ export interface MessageInData {
 	text: string;
 	attachments?: Attachment[];
 	mentions?: Ref[];
+	/** Display names the platform attached to `mentions`, keyed by account ref; the kernel never infers them. */
+	mentionNames?: Record<string, string>;
 	senderIsBot?: boolean;
 	mentioned?: boolean;
 	social?: SocialMessageData;

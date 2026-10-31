@@ -8,9 +8,69 @@
 
 - 市场发布新增“其他”类型，支持草稿保留和通用内容填写；云端发布仍待接口验收。
 
-- 官方初始化默认加载群聊插件并建立安全群会话；未自定义初始规则的 Bot 可由真实名称或 ID 触发首次参与。
+## [0.3.26103104] - 2026-10-31
 
+### Fixed
+
+- social：inject the room index on batch-driven group turns too
+
+### Added
+
+- app：unify the public domain on yonderbot.net and add mobile shells
+
+## [0.3.26103103] - 2026-10-31
+
+- QQ 群唤醒词去掉泛词「在吗」：贾维斯和学姐不再因为别人闲聊一句「在吗」就被唤醒，点名、本名和各自的专业词仍会触发。
+- 新增群房间索引 `social_group_index`：把同一个真实群在各 Bot 眼里的不同 conv 合并，并在每次群对话前告诉 Bot 自己是谁、本群还有哪些 Bot、谁在这里说过话。合并只认「发送者+平台发送时间+正文」一致的同一条消息或配置登记，没有证据就不合并。
+
+### Added
+
+- social：give every group Bot a cross-Bot room index
+
+## [0.3.26103102] - 2026-10-31
+
+- QQ 群 @ 变成可读文字：正文里的 `<@openid>` 换成「@昵称」，明确 @ 到本机器人时一定唤醒；昵称随消息写入身份表，之后任何 Agent 都能按账号引用查到是谁。群分身补上 `identity_lookup`。
+- 群里的 Agent 不再被「不许发言」一刀切限制：被点名、被问到或话题相关时自行判断是否接话；公告、私信陌生人、代表主人承诺仍要先请示。
+- 截图工具在插件侧先缩小：macOS 上把截图转成 1600 长边 JPEG 再交给模型，原图保留在 artifact 目录；内核的图片出口与请求裁剪不变。
+- 工具图片统一处理：插件工具返回的图片按 1600×1600 / 1.5 MB 重新编码后再进转录；每次请求前把更早轮次的图片换成带产物路径的文字，避免截图累积把请求顶到上限。
+- 运行停止提示改为系统说明：以 `【系统】` 起头，附一段截断并遮蔽凭据的真实原因，便于直接看出失败原因；模型失败新增“请求过大”分类。
+- 群聊：成功回复后对原参与者保持五分钟关注，明确给其他 Bot 的任务不抢接；QQ 与系统内群聊共用。
+- 修复分身交接时主人被误计访客额度；核验并呈现真实请求来源，已有明确授权不因交接重复确认。
+- 域名统一到 `yonderbot.net`：channel-card、market 与前端默认社交云端改为新域名，`yonder.zethai.cn` 现只做 301 跳转。
+- App 双端壳初始化：Tauri 增加 lib 目标与 `net.yonderbot.app` 标识，移动端直接打开云端站点、不加载本机运行时；capabilities 按桌面/移动拆分。Android release 已能用正式 keystore 签名出包。
+
+### Fixed
+
+- qq：make @ mentions readable and resolvable to real accounts
+- native-automation：shrink screenshots before they reach the model
+- runtime：bound images at the tool exit and prune old ones per request
+- delivery：make the stop notice read as a system message with the real cause
+- preserve group attention task recipients and verified owner handoffs
+
+## [0.3.26103101] - 2026-10-31
+
+### Fixed
+
+- installer：stop PowerShell from overwriting the record path
+- installer：build Windows installs where they stay
+- app：keep code blocks dark in both themes and drop copy toasts
+
+## [0.3.26103020] - 2026-10-30
+
+- 修复常驻群聊停止/恢复指令的模型调用竞态：请求前完成一次控制判定，并通过原生取消阻止控制输入消耗模型。
+- 官方初始化默认加载群聊插件并建立安全群会话；未自定义初始规则的 Bot 可由真实名称或 ID 触发首次参与。
 - 修复平台新群默认参与：真实入群自动启用独立只读群会话与共享发言协调，不再逐群补名单；统一原生艾特信号，保留显式禁用和自定义策略。
+
+### Fixed
+
+- core：keep platform-group bindings out of agent.yaml writes
+- cancel group control inputs before model requests
+- initialize safe group defaults and bot name triggers
+- enable default participation for platform group members
+
+### Added
+
+- app：按高定 UI 十条铁律统一前端视觉
 
 ## [0.3.26103018] - 2026-10-30
 

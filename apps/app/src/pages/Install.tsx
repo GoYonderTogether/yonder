@@ -1,5 +1,5 @@
-import { Copy, RotateCw } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, RotateCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
 import { Button } from "../ui/Button";
@@ -17,6 +17,13 @@ export function Install() {
 	const [tab, setTab] = useState<Tab>("prompt");
 	const [invite, setInvite] = useState<Invite>();
 	const [issuing, setIssuing] = useState(false);
+	// 复制反馈自熄：对勾微弹出现，2.5 秒后淡出恢复
+	const [copied, setCopied] = useState(false);
+	useEffect(() => {
+		if (!copied) return;
+		const timer = window.setTimeout(() => setCopied(false), 2500);
+		return () => window.clearTimeout(timer);
+	}, [copied]);
 	const code = live(invite) ? (invite as Invite).code : "__________";
 	const content = tab === "prompt" ? connectionPrompt(code) : `yonder channels login card --verify-code ${code}`;
 	const issue = async () => {
@@ -40,7 +47,7 @@ export function Install() {
 			await navigator.clipboard.writeText(
 				tab === "prompt" ? connectionPrompt(current.code) : `yonder channels login card --verify-code ${current.code}`,
 			);
-			toast("已复制");
+			setCopied(true);
 		} catch {
 			toast("复制失败，请长按选中文本复制");
 		}
@@ -65,7 +72,7 @@ export function Install() {
 				</div>
 				<details className="rise mt-5">
 					<summary className="cursor-pointer text-small">查看{tab === "prompt" ? "提示词" : "命令"}</summary>
-					<pre className="mt-3 max-h-[65dvh] select-text overflow-auto whitespace-pre-wrap rounded-card bg-ink p-5 font-mono text-small leading-relaxed text-ground">
+					<pre className="mt-3 max-h-[65dvh] select-text overflow-auto whitespace-pre-wrap rounded-card bg-code-bg p-5 font-mono text-small leading-relaxed text-code-ink">
 						{content}
 					</pre>
 				</details>
@@ -78,8 +85,17 @@ export function Install() {
 				</p>
 				<div className="rise mt-4 flex items-center gap-4">
 					<Button variant="primary" onClick={copy} disabled={issuing}>
-						<Copy size={15} />
-						复制{tab === "prompt" ? "提示词" : "命令"}
+						{copied ? (
+							<>
+								<Check size={15} className="pop" aria-hidden />
+								已复制
+							</>
+						) : (
+							<>
+								<Copy size={15} aria-hidden />
+								复制{tab === "prompt" ? "提示词" : "命令"}
+							</>
+						)}
 					</Button>
 					{invite && !live(invite) && (
 						<Button onClick={() => void issue()} disabled={issuing}>

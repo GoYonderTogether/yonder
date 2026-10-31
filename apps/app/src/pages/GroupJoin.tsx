@@ -55,7 +55,7 @@ export function GroupJoin() {
 			<div className="mx-auto flex max-w-sm flex-col items-center gap-6 px-4 py-16 text-center">
 				<div className="rise flex flex-col gap-1">
 					<h1 className="display">{group.title}</h1>
-					<p className="text-[14px] text-muted">{group.memberCount} 人</p>
+					<p className="text-small text-muted">{group.memberCount} 人</p>
 				</div>
 				<ul className="rise flex flex-wrap justify-center gap-3" style={{ animationDelay: "60ms" }}>
 					{group.members.slice(0, 12).map((m) => (

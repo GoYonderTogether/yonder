@@ -72,17 +72,17 @@ export function Login() {
 					<Logo size={36} />
 					<div>
 						<h1 className="display">登录或注册</h1>
-						<p className="mt-1 text-[13px] text-muted">用手机号或邮箱收验证码，首次验证即注册，不需要密码。</p>
+						<p className="mt-1 text-small text-muted">用手机号或邮箱收验证码，首次验证即注册，不需要密码。</p>
 					</div>
 					{shareError && (
-						<p role="alert" className="text-[13px] text-danger">
+						<p role="alert" className="text-small text-danger">
 							{shareError}
 						</p>
 					)}
 					<VerifyCodeForm shareToken={shareToken} onSuccess={done} />
 					<button
 						type="button"
-						className="press self-start text-[14px] text-muted hover:text-ink"
+						className="press self-start text-small text-muted hover:text-ink"
 						onClick={() => setUsePassword(true)}
 					>
 						用邮箱和密码登录
@@ -119,20 +119,20 @@ export function Login() {
 					onChange={(e) => setPassword(e.target.value)}
 					required
 				/>
-				{error && <p className="text-[13px] text-danger">{error}</p>}
+				{error && <p className="text-small text-danger">{error}</p>}
 				<Button variant="primary" disabled={busy} className="h-11">
 					{mode === "login" ? "登录" : "创建账号"}
 				</Button>
 				<button
 					type="button"
-					className="press self-start text-[14px] text-muted hover:text-ink"
+					className="press self-start text-small text-muted hover:text-ink"
 					onClick={() => setMode(mode === "login" ? "register" : "login")}
 				>
 					{mode === "login" ? "没有账号？注册" : "已有账号？登录"}
 				</button>
 				<button
 					type="button"
-					className="press self-start text-[14px] text-muted hover:text-ink"
+					className="press self-start text-small text-muted hover:text-ink"
 					onClick={() => setUsePassword(false)}
 				>
 					用验证码登录

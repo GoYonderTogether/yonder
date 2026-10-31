@@ -19,7 +19,7 @@ export function AiBadge({ actor }: { actor?: Actor }) {
 	return (
 		<span
 			title={label}
-			className="inline-flex max-w-28 shrink-0 rounded-[6px] bg-tone-2 px-1 text-[12px] leading-[18px] font-medium text-muted"
+			className="inline-flex max-w-28 shrink-0 rounded-chip bg-tone-2 px-1 text-caption leading-[18px] font-medium text-muted"
 		>
 			{ownerName ? (
 				<>

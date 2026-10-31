@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, MonitorSmartphone, Plus } from "lucide-react";
+import { ChevronRight, MonitorSmartphone, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../../api";
@@ -40,7 +40,7 @@ function ConsoleEntry() {
 	return (
 		<Link
 			to={workPath({ page: "console" })}
-			className="press mx-4 mt-2 flex items-center gap-2 rounded-card bg-raised px-3 py-2"
+			className="press mx-3 mt-2 flex items-center gap-2 rounded-card bg-raised px-3 py-2 shadow-soft"
 			data-testid="console-entry"
 		>
 			<MonitorSmartphone size={17} className="shrink-0 text-muted" aria-hidden />
@@ -79,7 +79,7 @@ function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: str
 							title={actor.name}
 							disabled={!online && !session}
 							aria-current={session?.id === active ? "page" : undefined}
-							className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${session?.id === active ? "bg-tone" : ""}`}
+							className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${session?.id === active ? "bg-raised shadow-soft" : ""}`}
 							data-testid="bot-avatar"
 							onClick={() => {
 								if (session) navigate(workPath({ session: session.id }));
@@ -116,7 +116,7 @@ function BotStrip({ bots, active, running }: { bots: WorkSession[]; active?: str
 					to={workPath({ session: s.id })}
 					title={titleOf(s)}
 					aria-current={s.id === active ? "page" : undefined}
-					className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${s.id === active ? "bg-tone" : ""}`}
+					className={`press flex w-14 shrink-0 flex-col items-center gap-1 rounded-card py-1 ${s.id === active ? "bg-raised shadow-soft" : ""}`}
 					data-testid="bot-avatar"
 				>
 					<Avatar seed={s.agent ?? s.id} group="bot" size={36} dot={running.has(s.id)} />
@@ -175,12 +175,12 @@ export function WorkList({ active }: { active?: string }) {
 
 	return (
 		<div className="scroll-y h-full" data-testid="work-list">
-			<div className="px-4 pt-1">
+			<div className="px-3 pt-2">
 				<button
 					type="button"
 					onClick={() => void openTask()}
 					disabled={opening || !online}
-					className="press flex w-full items-center gap-2 rounded-control bg-tone px-3 py-2 text-small disabled:opacity-40"
+					className="press flex w-full items-center gap-2 rounded-control bg-accent px-3 py-2 text-small text-on-accent shadow-soft disabled:opacity-40"
 					data-testid="new-task"
 				>
 					<Plus size={16} aria-hidden /> 新任务
@@ -234,10 +234,17 @@ export function WorkList({ active }: { active?: string }) {
 						aria-expanded={doneOpen}
 						className="press mt-2 flex w-full items-center gap-1.5 px-4 py-1.5 text-caption text-faint"
 					>
-						{doneOpen ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+						<ChevronRight
+							size={14}
+							className={`shrink-0 transition-transform duration-200 ${doneOpen ? "rotate-90" : ""}`}
+							aria-hidden
+						/>
 						已完成
 					</button>
-					{doneOpen && g.done.map((s) => row(s, "done"))}
+					{/* 折叠用 Grid 0fr→1fr，不量高度；收起时行仍在 DOM 里，只是不可见 */}
+					<div className="fold" data-open={doneOpen}>
+						<div>{g.done.map((s) => row(s, "done"))}</div>
+					</div>
 				</section>
 			)}
 		</div>

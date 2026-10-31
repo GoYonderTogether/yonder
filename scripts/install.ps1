@@ -57,8 +57,8 @@ Say "数据目录 $HomeDir"
 
 if ($DryRun) {
 	Step 'dry run：以下步骤不会执行'
-	Say "git clone --depth 1 --branch $Tag $Repo $Dir.tmp"
-	Say "npm ci && npm run build（在 $Dir.tmp）"
+	Say "git clone --depth 1 --branch $Tag $Repo $Dir"
+	Say "npm ci && npm run build（在 $Dir）"
 	Say "node $Dir\packages\cli\dist\index.js update --to $Version --repo $Repo"
 	Say "$Install\bin\yonder.cmd init $HomeDir --model openai/gpt-6-luna（$HomeDir\yonder.yaml 不存在时）"
 	exit 0
@@ -66,44 +66,49 @@ if ($DryRun) {
 
 Step "准备 $Tag"
 New-Item -ItemType Directory -Force -Path (Join-Path $Install 'versions') | Out-Null
-if (Test-Path $Dir) {
+# npm installs workspace packages as junctions whose targets are absolute paths. Renaming the build directory
+# afterwards would leave every `node_modules/@yonder/*` junction dangling, so build in the final location and
+# treat the install record as the "done" marker: an interrupted build is rebuilt on the next run.
+$RecordPath = Join-Path $Dir '.yonder-install.json'
+if (Test-Path $RecordPath) {
 	Say "已安装 $Tag，跳过构建"
 } else {
-	$Tmp = "$Dir.tmp"
-	if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
+	if (Test-Path $Dir) { Remove-Item -Recurse -Force $Dir }
 	Say "下载 $Tag"
-	& git clone --depth 1 --branch $Tag $Repo $Tmp
-	if ($LASTEXITCODE -ne 0) { Die "无法下载 $Tag；请确认网络和 git 凭据。" }
-	$built = (& node -p "require('$($Tmp -replace '\\','/')/packages/cli/package.json').version").Trim()
+	& git clone --depth 1 --branch $Tag $Repo $Dir
+	if ($LASTEXITCODE -ne 0) {
+		if (Test-Path $Dir) { Remove-Item -Recurse -Force $Dir }
+		Die "无法下载 $Tag；请确认网络和 git 凭据。"
+	}
+	$built = (& node -p "require('$($Dir -replace '\\','/')/packages/cli/package.json').version").Trim()
 	if ($built -ne $Version) {
-		Remove-Item -Recurse -Force $Tmp
+		Remove-Item -Recurse -Force $Dir
 		Die "标签 $Tag 的包版本是 $built，与标签不一致。"
 	}
 	Say '安装依赖并构建（首次通常需要几分钟）'
-	Push-Location $Tmp
+	Push-Location $Dir
 	try {
 		& npm ci --no-audit --no-fund
 		if ($LASTEXITCODE -ne 0) { throw 'npm ci 失败' }
 		& npm run build
 		if ($LASTEXITCODE -ne 0) { throw 'npm run build 失败' }
+		$Commit = (& git rev-parse HEAD).Trim()
 	} catch {
 		Pop-Location
-		Remove-Item -Recurse -Force $Tmp
-		Die "$($_.Exception.Message)，已清理 $Tmp。"
+		Remove-Item -Recurse -Force $Dir
+		Die "$($_.Exception.Message)，已清理 $Dir。"
 	}
-	$Commit = (& git rev-parse HEAD).Trim()
 	Pop-Location
 	# 不带 BOM：Windows PowerShell 5.1 的 Set-Content -Encoding utf8 会写入 BOM，Node 的 JSON.parse 会因此失败。
-	$record = @{
+	# PowerShell 变量名不区分大小写：这里不能用 $record，否则会覆盖上面的 $RecordPath。
+	$recordJson = @{
 		repository = $Repo
 		tag = $Tag
 		commit = $Commit
 		version = $Version
 	} | ConvertTo-Json
-	[System.IO.File]::WriteAllText((Join-Path $Tmp '.yonder-install.json'), $record, (New-Object System.Text.UTF8Encoding($false)))
-	Remove-Item -Recurse -Force (Join-Path $Tmp '.git')
-	if (Test-Path $Dir) { Remove-Item -Recurse -Force $Dir }
-	Move-Item $Tmp $Dir
+	[System.IO.File]::WriteAllText($RecordPath, $recordJson, (New-Object System.Text.UTF8Encoding($false)))
+	Remove-Item -Recurse -Force (Join-Path $Dir '.git')
 	Say "已构建 $Tag（$Commit）"
 }
 

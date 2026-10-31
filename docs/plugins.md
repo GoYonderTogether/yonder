@@ -393,7 +393,7 @@ BrowserSkill 可选 fork 工具（D54）：`browser-skill_bookmarks`（tree/move
 
 - **包**：`@yonder/plugin-market`，id `market`；[README](../plugins/market/README.md)、[源码](../plugins/market/src/index.ts)。只在 `full` 发行包加载，`core`/`default` 不含，需显式加入 `plugins` 并配置设备令牌。
 - **贡献**：工具 `market_search`、`market_get`、`market_publish`、`market_inquire`、`market_watch`（均需 `network`）；视图 `market.panel`（rail/session）；触发器 `market`（只驱动本插件的找东西排程）。
-- **接入**：配置 `{ "endpoint": "https://yonder.zethai.cn", "credential": "market" }`；`endpoint` 缺省与 channel-card 相同的社交云端，`credential` 是 `yonder.yaml` credentials 里的设备令牌引用（缺省 `market`），须解析为 `api_key`。缺凭据时工具回 `not_signed_in` 且不发请求。
+- **接入**：配置 `{ "endpoint": "https://yonderbot.net", "credential": "market" }`；`endpoint` 缺省与 channel-card 相同的社交云端，`credential` 是 `yonder.yaml` credentials 里的设备令牌引用（缺省 `market`），须解析为 `api_key`。缺凭据时工具回 `not_signed_in` 且不发请求。
 - **可调用工具**（契约 §19.4/§19.7）：
   - `market_search`：`q`、`kind`、`category`、`city`、`min`、`max`、`sort`、`limit`（默认 10）、`cursor`；回 `{items, nextCursor?}`。
   - `market_get`：`id`；`includeInquiries` 仅对自己的发布有效，额外回 `{inquiries}`。

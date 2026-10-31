@@ -269,7 +269,7 @@ test("empty and NO_REPLY messages stay invisible; cancellation closes partial an
 		expect(x.bubbles).toHaveLength(1);
 		expect(x.bubbles[0]?.closed).toBe(true);
 		expect(x.bubbles[0]?.parts.at(-1)).toEqual({ type: "final", text: "正在检查" });
-		expect(x.sent[0]).toContain("运行已停止");
+		expect(x.sent[0]).toContain("【系统】运行已停止");
 	} finally {
 		await x.db.close();
 	}

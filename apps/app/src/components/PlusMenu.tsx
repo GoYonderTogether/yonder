@@ -52,7 +52,7 @@ export function PlusMenu() {
 								<DropdownMenu.Item
 									key={action}
 									onSelect={() => run(action)}
-									className="press flex h-11 cursor-pointer items-center gap-3 rounded-control px-3 text-[15px] outline-none data-[highlighted]:bg-tone"
+									className="press flex h-11 cursor-pointer items-center gap-3 rounded-control px-3 text-body outline-none data-[highlighted]:bg-tone"
 								>
 									<Icon size={19} strokeWidth={1.75} className="text-muted" />
 									{label}

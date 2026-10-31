@@ -1,0 +1,168 @@
+use std::io::{Read, Write};
+use std::time::Duration;
+
+/// 手机壳只连云端站点，没有本机运行时，因此不探测回环网关。
+#[cfg(desktop)]
+fn console_available(port: u16) -> bool {
+    let Ok(mut socket) = std::net::TcpStream::connect_timeout(
+        &([127, 0, 0, 1], port).into(),
+        Duration::from_secs(1),
+    ) else {
+        return false;
+    };
+    let _ = socket.set_read_timeout(Some(Duration::from_secs(1)));
+    if write!(socket, "GET /console/api/rpc/capabilities.get HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nConnection: close\r\n\r\n").is_err() { return false; }
+    let mut bytes = [0; 64];
+    socket
+        .read(&mut bytes)
+        .is_ok_and(|n| bytes[..n].starts_with(b"HTTP/1.1 401"))
+}
+
+/// 手机壳打开的云端地址；与 channel-card、market 的默认 endpoint 保持一致。
+#[cfg(mobile)]
+const MOBILE_ORIGIN: &str = "https://yonderbot.net";
+
+#[cfg(desktop)]
+use std::process::Command;
+#[cfg(desktop)]
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+#[cfg(desktop)]
+use tauri_plugin_notification::NotificationExt;
+
+#[tauri::command]
+fn set_activity(app: tauri::AppHandle, running: u32, waiting: u32) {
+    #[cfg(desktop)]
+    if let Some(tray) = app.tray_by_id("activity") {
+        let status = format!("运行中 {running} · 等待 {waiting}");
+        let _ = tray.set_title(Some(&status));
+        let _ = tray.set_tooltip(Some(&status));
+    }
+    #[cfg(mobile)]
+    let _ = (app, running, waiting);
+}
+
+#[tauri::command]
+fn show_notification(app: tauri::AppHandle, session: String, text: String) {
+    #[cfg(desktop)]
+    {
+        let _ = app.notification().builder().title("Yonder").body(text).extra("session", session).show();
+    }
+    #[cfg(mobile)]
+    let _ = (app, session, text);
+}
+
+#[tauri::command]
+fn set_offline(app: tauri::AppHandle) {
+    #[cfg(desktop)]
+    if let Some(tray) = app.tray_by_id("activity") {
+        let _ = tray.set_title(Some("离线"));
+        let _ = tray.set_tooltip(Some("离线"));
+    }
+    #[cfg(mobile)]
+    let _ = app;
+}
+
+pub fn run() {
+    let builder = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![set_activity, set_offline, show_notification])
+        .plugin(tauri_plugin_notification::init());    #[cfg(desktop)]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
+        .setup(|app| {
+            setup_desktop(app)?;
+            Ok(())
+        });
+
+    #[cfg(mobile)]
+    let builder = builder.setup(|app| {
+        setup_mobile(app)?;
+        Ok(())
+    });
+
+    builder
+        .run(tauri::generate_context!())
+        .expect("failed to run Yonder");
+}
+
+#[cfg(desktop)]
+fn setup_desktop(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let handle = app.handle().clone();
+    app.notification().on_action(move |action| {
+        let Some(session) = action.notification().and_then(|notification| notification.extra().get("session")).and_then(|value| value.as_str()) else { return; };
+        if let Some(window) = handle.get_webview_window("main") {
+            if let Ok(session) = serde_json::to_string(session) {
+                let _ = window.eval(format!("location.hash = '#/s/' + encodeURIComponent({session})"));
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }
+    })?;
+    let open = tauri::menu::MenuItem::with_id(app, "open", "打开", true, None::<&str>)?;
+    let quit = tauri::menu::MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
+    let menu = tauri::menu::Menu::with_items(app, &[&open, &quit])?;
+    let icon = tauri::image::Image::new_owned(vec![0, 100, 220, 255].repeat(16 * 16), 16, 16);
+    tauri::tray::TrayIconBuilder::with_id("activity")
+        .icon(icon).menu(&menu).title("离线").tooltip("离线")
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => { if let Some(window) = app.get_webview_window("main") { let _ = window.show(); let _ = window.set_focus(); } },
+            "quit" => app.exit(0),
+            _ => (),
+        }).build(app)?;
+    let resource_dir = app.path().resource_dir()?;
+    let hash = std::fs::read_to_string(resource_dir.join("runtime.sha256"))?;
+    if hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("invalid runtime hash".into());
+    }
+    let runtime = app.path().app_local_data_dir()?.join(format!("runtime-{hash}"));
+    if !runtime.join(".complete").exists() {
+        std::fs::create_dir_all(&runtime)?;
+        let archive = std::fs::File::open(resource_dir.join("runtime.tar"))?;
+        tar::Archive::new(archive).unpack(&runtime)?;
+        std::fs::write(runtime.join(".complete"), b"")?;
+    }
+    let output = Command::new(runtime.join("node"))
+        .arg(runtime.join("packages/cli/dist/index.js"))
+        .args(["ui", "--json"]).output();
+    let url = output.ok().filter(|o| o.status.success()).and_then(|o| {
+        let json: serde_json::Value = serde_json::from_slice(&o.stdout).ok()?;
+        let url = json["url"].as_str()?;
+        let mut parsed: tauri::Url = url.parse().ok()?;
+        if parsed.host_str()? != "127.0.0.1" || parsed.scheme() != "http" { return None; }
+        if !console_available(parsed.port()?) { return None; }
+        parsed.set_path("/console/");
+        Some(parsed)
+    });
+    let url = url.map(WebviewUrl::External).unwrap_or(WebviewUrl::App("index.html".into()));
+    let platform = std::env::consts::OS;
+    WebviewWindowBuilder::new(app, "main", url)
+        .title("Yonder")
+        .initialization_script(format!("window.__YONDER_SHELL__ = {{ kind: 'desktop', platform: '{platform}' }}; if (location.pathname === '/console/' && !location.search.includes('token=') && !location.search.includes('shell=desktop')) {{ const u = new URL(location.href); u.searchParams.set('shell', 'desktop'); location.replace(u.href); }}"))
+        .initialization_script(include_str!("activity.js"))
+        .build()?;
+    Ok(())
+}
+
+#[cfg(mobile)]
+fn setup_mobile(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let platform = std::env::consts::OS;
+    let url: tauri::Url = MOBILE_ORIGIN.parse()?;
+    let window = tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::External(url))
+        .title("Yonder")
+        .initialization_script(format!("window.__YONDER_SHELL__ = {{ kind: 'mobile', platform: '{platform}' }};"))
+        .build()?;
+    let _ = window;
+    Ok(())
+}
+
+/// Android/iOS 的入口符号；桌面不生成（桌面走 src/main.rs → run()）。
+#[cfg(mobile)]
+#[tauri::mobile_entry_point]
+fn mobile_main() {
+    run()
+}

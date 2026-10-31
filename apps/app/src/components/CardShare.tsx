@@ -91,10 +91,10 @@ export function QrDialog({
 	return (
 		<Dialog.Root open={open && (actor.kind !== "agent" || actor.public === true)} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
-				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
+				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
 				<Dialog.Content
 					aria-describedby={undefined}
-					className="rise fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[min(392px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-[24px] bg-raised p-4 shadow-float outline-none"
+					className="rise fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-[min(392px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-panel bg-raised p-4 shadow-float outline-none"
 				>
 					<Dialog.Title className="text-small font-semibold">二维码名片</Dialog.Title>
 					<CardShare actor={actor} card={card ?? undefined} url={shareUrl} />

@@ -122,7 +122,7 @@ export function ContactDetail({ a, desktop, embedded = false }: { a: Actor; desk
 			}
 		>
 			{(!!rows.length || mine) && (
-				<dl className="flex flex-col divide-y divide-hairline rounded-card bg-tone px-4">
+				<dl className="flex flex-col divide-y divide-hairline/60 rounded-card bg-tone px-4">
 					{rows.map(([k, v]) => (
 						<div key={k} className="flex gap-4 py-3 text-small">
 							<dt className="w-16 shrink-0 text-muted">{k}</dt>

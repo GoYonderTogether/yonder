@@ -88,24 +88,103 @@ export function createModelNotice(
 	};
 }
 
+/** 详情最多保留的字符数：够看清是哪个错误，又不至于把整段供应商响应搬进聊天。 */
+const DETAIL_LIMIT = 160;
+
 /**
- * What the person sees when a run stops: a safe category and what to do next, in Chinese. The raw reason (provider
- * text, URLs, internal codes) is never sent to a channel; it stays in the log and in the `run.end` event.
+ * 供应商错误里可能夹着凭据：密钥、Bearer 头、长串 token。详情行要能读，但绝不能带出这些值。
+ * 只做字符串级遮蔽，不改写错误本身的含义。值只在确实像凭据时才遮蔽：键名后面跟普通单词（
+ * “token request failed”）原样保留，否则详情会读不通。
+ */
+export function redactError(text: string): string {
+	return text
+		.replace(/\b(sk|pk|rk)-[A-Za-z0-9_-]{6,}/gi, "[密钥]")
+		.replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{6,}/gi, "Bearer [密钥]")
+		.replace(
+			/\b(?:x-api-key|api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password)["']?\s*[:=]\s*["']?([^\s"',;}]+)/gi,
+			(m, value: string) => (value.length >= 8 && /[0-9]/.test(value) ? m.replace(value, "[密钥]") : m),
+		)
+		.replace(/\b[A-Fa-f0-9]{32,}\b/g, "[密钥]")
+		.replace(/\b[A-Za-z0-9_-]{40,}\b/g, "[长串]");
+}
+
+/** 模型链耗尽时，外层包装只说明“试过了”，真正的原因在里面。 */
+function innerCause(reason: string): string {
+	return reason
+		.replace(/^(?:model_error|no_model)\s*:?\s*/i, "")
+		.replace(/^Model (?:fallback chain|retries) exhausted \([^)]*\)\s*:?\s*/i, "")
+		.trim();
+}
+
+/** 取一段能看出问题、又不含凭据和内部地址的详情。 */
+function detailOf(reason: string): string | undefined {
+	const cause = innerCause(reason);
+	if (!cause) return undefined;
+	const cleaned = redactError(cause)
+		.replace(/https?:\/\/[^\s"']+/gi, (url) => {
+			try {
+				const parsed = new URL(url);
+				return `${parsed.protocol}//${parsed.host}/…`;
+			} catch {
+				return "[地址]";
+			}
+		})
+		.replace(/\s+/g, " ")
+		.trim();
+	if (!cleaned) return undefined;
+	return cleaned.length > DETAIL_LIMIT ? `${cleaned.slice(0, DETAIL_LIMIT)}…` : cleaned;
+}
+
+/**
+ * 一次运行停下来时给人的提示。它是系统的说明，不是 Bot 说的话，所以统一带系统标记和独立的三行结构；
+ * 模型失败时附一段截断并遮蔽过的真实原因，让人一眼看出为什么，而不用去翻日志。
  */
 export function stopNotice(reason: string): string {
+	const notice = (summary: string, action: string, detail?: string) =>
+		[`【系统】${summary}`, ...(detail ? [`详情：${detail}`] : []), `处理：${action}`].join("\n");
+	const detail = detailOf(reason);
 	if (/connection error|fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket|network/i.test(reason))
-		return "网络连接中断，这一轮没有完成。网络恢复后回我一句，我接着做。";
+		return notice("网络连接中断，这一轮没有完成。", "网络恢复后回我一句，我接着做。", detail);
 	// A run that never got an answer must say so: the model chain is the one failure the person cannot see from the
 	// channel side, and silence reads as "Jarvis is ignoring me" (G1 §6.6 tier 3).
 	if (/^(model_error|no_model)\b/i.test(reason)) {
-		if (/\b(401|403)\b|unauthori[sz]ed|forbidden|invalid[ _-]?api[ _-]?key|authentication|credential/i.test(reason))
-			return "模型账号验证失败，这一轮没有完成。请管理员检查模型凭据后再回我一句。";
-		if (/\b429\b|rate[ _-]?limit|quota|too many requests|insufficient|billing/i.test(reason))
-			return "模型请求太频繁或额度用完，这一轮没有完成。过一会儿回我一句，我重试；持续出现请管理员检查额度。";
-		if (/timed? ?out|timeout/i.test(reason)) return "模型响应超时，这一轮没有完成。过一会儿回我一句，我重试。";
+		// 顺序有讲究：额度池耗尽的文案里也带 “daily token limit”，请求过大的文案里也带 “limit”，
+		// 所以先判真正更具体的 413 与请求体超限，再判额度、鉴权。
+		if (/\b413\b|payload too large|request too large|request body|too many tokens|maximum context/i.test(reason))
+			return notice(
+				"这一轮要发给模型的内容超出了上限，所以没有发出去。会话历史太大时，压缩也可能因为同一上限失败。",
+				"缩小范围后回我一句，我重做；历史太大时先开新会话。",
+				detail,
+			);
+		if (
+			/rate[ _-]?limit|quota|too many requests|insufficient|billing|usage limit|no usable account|cooling down/i.test(
+				reason,
+			)
+		)
+			return notice(
+				"模型请求太频繁或额度用完，这一轮没有完成。",
+				"过一会儿回我一句，我重试；持续出现请管理员检查额度。",
+				detail,
+			);
+		if (
+			/\b(401|403)\b|unauthori[sz]ed|forbidden|invalid[ _-]?api[ _-]?key|authentication|credential|oauth|invalid_grant/i.test(
+				reason,
+			)
+		)
+			return notice("模型账号验证失败，这一轮没有完成。", "请管理员检查模型凭据后再回我一句。", detail);
+		if (/\b429\b/i.test(reason))
+			return notice(
+				"模型请求太频繁或额度用完，这一轮没有完成。",
+				"过一会儿回我一句，我重试；持续出现请管理员检查额度。",
+				detail,
+			);
+		if (/context.{0,12}(?:length|window|limit)|token.{0,12}limit/i.test(reason))
+			return notice("这一轮要发给模型的内容超出了上限，所以没有发出去。", "缩小范围后回我一句，我重做。", detail);
+		if (/timed? ?out|timeout/i.test(reason))
+			return notice("模型响应超时，这一轮没有完成。", "过一会儿回我一句，我重试。", detail);
 		if (/\b5\d\d\b|overloaded|unavailable/i.test(reason))
-			return "模型服务暂时不可用，这一轮没有完成。过一会儿回我一句，我重试。";
-		return "模型都不可用（model_error），这一轮没有完成。过一会儿回我一句，我重试；持续出现请管理员查看日志。";
+			return notice("模型服务暂时不可用，这一轮没有完成。", "过一会儿回我一句，我重试。", detail);
+		return notice("模型链没有跑通，这一轮没有完成。", "过一会儿回我一句，我重试；持续出现请管理员查看日志。", detail);
 	}
-	return "运行已停止，这一轮没有完成。回我一句我可以重新开始；反复出现请管理员查看日志。";
+	return notice("运行已停止，这一轮没有完成。", "回我一句我可以重新开始；反复出现请管理员查看日志。", detail);
 }

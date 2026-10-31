@@ -7,7 +7,7 @@
 ```yaml
 plugins:
   market:
-    endpoint: https://yonder.zethai.cn # 缺省与 channel-card 相同的社交云端
+    endpoint: https://yonderbot.net # 缺省与 channel-card 相同的社交云端
     credential: market # yonder.yaml credentials 里的设备令牌引用
 ```
 

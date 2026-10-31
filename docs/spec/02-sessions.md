@@ -54,7 +54,7 @@
 
 `channel.connected` 是渠道插件报告的授权事实，不是主人消息。内核校验报告的账号已关联到目标 Agent 的 owner，按真实渠道、私聊及账号逐条匹配既有主人消息绑定；只有首条匹配绑定进入 main 时才运行。multiAgent 渠道无匹配时沿用主人点名 main 入口。事件保留 `plugin:` 来源和真实私聊，使用绑定的回复策略，不制造原生消息 ID。回复策略为 none 且当前配置不提供 message_send 时只记录 `send-unavailable`，不唤醒模型。
 
-`parent_ask` 写内部 message.in（kind: parent-request），目标固定为调用方所属 Agent，仅允许 main 绑定命中；原会话、配置档、来源事件与发送者由内核附上。没有 main 绑定即不运行。工具不直接向常驻会话 submit；返回沿原生调用等待交给分身，包含实际 status、session 和 text，不能自动公开主会话答复。复用稳定调用身份，重启重接同一请求。
+`parent_ask` 写内部 message.in（kind: parent-request），目标固定为调用方所属 Agent，仅允许 main 绑定命中；原会话、配置档、来源事件与发送者由内核附上。没有 main 绑定即不运行。工具不直接向常驻会话 submit；返回沿原生调用等待交给分身，包含实际 status、session 和 text，不能无条件自动公开主会话答复；原请求明确要求返回且不含新增私人材料时，分身须沿来源渠道交付所请求结果，reply:none 的群使用 message_send，不以内部完成或未投递的 final 代替交付。复用稳定调用身份，重启重接同一请求。 交接的内部发送者与原始人类请求者必须区分。内核按调用方真实输入及账本来源核验请求者、原始正文、目标群与所属 Agent；不能相信模型提交的身份文本或任意 requestOrigin。额度准入与结算使用同一组已核验原始请求者：主人不计外人额度，其他人保留各自身份与额度，多人混批不得因夹有主人消息而整体免额；逐个核验非主人额度，结算沿现有单次运行一次计费，按可信来源顺序第一位非主人记本次用量，不新增均分策略；来源缺失或伪造不提升为主人。核验后的原始正文、发送者及其关系必须实际装配进主会话本轮输入，不能仅在辅助函数或事件副本中存在。原始明确授权在同一任务、对象和范围内继续有效，交接本身不是新增授权，不因换会话再确认一次。
 
 ```yaml
 bindings:
@@ -136,7 +136,7 @@ interface Route {
 
 | 表 | 字段 | 说明 |
 |---|---|---|
-| `y_accounts` | `ref`(主键), `person`, `name`, `firstSeen`, `lastSeen` | 内核在每个入站事件上自动登记发送者账号与显示名 |
+| `y_accounts` | `ref`(主键), `person`, `name`, `firstSeen`, `lastSeen` | 内核在每个入站事件上自动登记发送者账号与显示名；事件带 `mentionNames` 时一并登记这些账号的显示名，已有名字不被空值覆盖 |
 | `y_persons` | `id`, `name`, `note` | 由人或有 `admin` 能力的 agent 创建 |
 
 账号到人的关联只能显式建立（CLI 或工具 `identity_link`），内核不猜。每次关联或解除都写一条 `identity.link` 事件。

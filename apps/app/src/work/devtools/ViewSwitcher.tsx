@@ -152,14 +152,14 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 						</button>
 					</header>
 					<div className="min-h-0 flex-1 overflow-auto p-4">
-						<div className="mx-auto w-fit rounded-[28px] bg-ink/80 p-2 shadow-float">
+						<div className="mx-auto w-fit rounded-panel bg-ink/80 p-2 shadow-float">
 							<iframe
 								key={`${viewport}-${previewKey}`}
 								title={`${preset.label}预览`}
 								src={previewUrl(location.href)}
 								width={preset.width}
 								height={preset.height}
-								className="rounded-[20px] border-0 bg-ground"
+								className="rounded-field border-0 bg-ground"
 							/>
 						</div>
 						<p className="mx-auto mt-3 max-w-2xl text-center text-caption text-faint">
@@ -174,11 +174,11 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 				<aside
 					aria-label="开发用视图切换"
 					data-testid="devtools"
-					className="fixed top-3 right-3 z-[70] flex max-h-[calc(100dvh-1.5rem)] w-[300px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-card border border-hairline bg-raised text-small shadow-float"
+					className="fixed top-3 right-3 z-[70] flex max-h-[calc(100dvh-1.5rem)] w-[300px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-card bg-raised text-small shadow-float"
 				>
-					<header className="flex shrink-0 items-center gap-2 border-b border-hairline px-3 py-2">
+					<header className="flex shrink-0 items-center gap-2 bg-tone/50 px-3 py-2">
 						<Bug size={15} aria-hidden />
-						<h2 className="flex-1 text-[13px] font-medium">视图切换 · 开发</h2>
+						<h2 className="flex-1 text-small font-medium">视图切换 · 开发</h2>
 						<button
 							type="button"
 							aria-label="收起"
@@ -365,7 +365,7 @@ export function ViewSwitcher({ onDisable }: { onDisable(): void }) {
 							</p>
 						</Section>
 					</div>
-					<footer className="flex shrink-0 items-center justify-between border-t border-hairline px-3 py-1.5 text-caption text-faint">
+					<footer className="flex shrink-0 items-center justify-between bg-tone/40 px-3 py-1.5 text-caption text-faint">
 						<span>?devtools=1 或 localStorage</span>
 						<button type="button" onClick={disable} className="press rounded-full px-2 py-1 hover:bg-tone">
 							停用

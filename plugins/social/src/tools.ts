@@ -1,5 +1,6 @@
 import type { PluginAPI, SocialAPI, SocialPolicy, ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
+import { GroupIndex } from "./room-index.js";
 import { type GroupTags, groupInfo, type TagRhythm, type TagValue, tagsPatch } from "./tags.js";
 
 const text = Type.String({ minLength: 1 });
@@ -18,11 +19,44 @@ interface PatchArgs {
 	expectedRevision?: string;
 	dryRun?: boolean;
 }
-export function registerSocialTools(api: PluginAPI) {
+export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	const service = () => {
 		if (!api.social) throw new Error("Social API unavailable");
 		return api.social;
 	};
+	if (groupIndex)
+		api.tools.register({
+			name: "social_group_index",
+			description:
+				"List the groups this machine knows, including the same real group seen by other Bots under a different conv. For the current group also returns the Bot's own identity, the other Bots that have spoken here, and everyone known to have spoken here. Facts come from this machine's event ledger: a group is merged with another only when both received the same message (sender, platform send time and text). No platform member list exists, so someone who never spoke is not listed.",
+			capabilities: ["read"],
+			parameters: Type.Object({ conv: Type.Optional(text) }, { additionalProperties: false }),
+			async execute(args, ctx) {
+				const requested = (args as { conv?: string }).conv ?? ctx.event?.conv;
+				return result(async () => {
+					const index = await groupIndex.build();
+					const room = requested ? GroupIndex.roomOf(index, requested) : undefined;
+					const self = ctx.agent ? `agent:${ctx.agent}` : undefined;
+					return {
+						self,
+						conv: requested,
+						room: room?.room,
+						convs: room?.convs,
+						instances: room?.instances,
+						evidence: room?.evidence,
+						otherAgents: room?.agents.filter((agent) => `agent:${agent.id}` !== self),
+						people: room?.people,
+						groups: [...index.values()].map((entry) => ({
+							room: entry.room,
+							convs: entry.convs,
+							instances: entry.instances,
+							agents: entry.agents,
+							people: entry.people.length,
+						})),
+					};
+				});
+			},
+		});
 	api.tools.register({
 		name: "social_inspect",
 		description: "Inspect a conversation's effective social reply policy and revision.",

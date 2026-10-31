@@ -166,3 +166,151 @@ test("internal plugin task inputs are not parsed as outsider account refs", asyn
 		await ctx.db.close();
 	}
 });
+
+async function handoff(ctx: Awaited<ReturnType<typeof setup>>, channel: string, senders: string[]) {
+	const group = { ...ctx.session, id: "2", profile: "group", key: `conv:${channel}:group` };
+	await ctx.store.sessions.put(group);
+	const originals = await Promise.all(
+		senders.map((sender, i) =>
+			ctx.store.events.record(
+				{
+					type: "message.in",
+					from: `acct:${channel}:${sender}`,
+					conv: `conv:${channel}:group`,
+					data: { text: `${sender}: original ${i}`, msgId: `${channel}:${sender}:${i}` },
+				},
+				[{ agent: "main", session: group.id, binding: "group", wake: "write" }],
+			),
+		),
+	);
+	const batch = await ctx.store.events.record(
+		{
+			type: "social.batch-ready",
+			from: "plugin:social",
+			conv: `conv:${channel}:group`,
+			data: { sourceEvents: originals.map((e) => e.id) },
+		},
+		[{ agent: "main", session: group.id, binding: "batch", wake: "run" }],
+	);
+	const event = await ctx.store.events.record({
+		type: "message.in",
+		from: "acct:agent:main",
+		conv: "conv:agent:main",
+		parent: batch.id,
+		data: {
+			kind: "parent-request",
+			target: "main",
+			text: "delegation is not authorization",
+			requestOrigin: {
+				session: group.id,
+				profile: "untrusted-copy",
+				inputs: [batch.id],
+				events: originals.map((e) => ({ id: e.id, from: "acct:cli:owner", conv: "forged-copy" })),
+			},
+		},
+	});
+	return { event, originals, batch, group };
+}
+
+test.each(["qq", "card"])(
+	"%s owner handoff bypasses exhausted outsider pool and preserves verified originals",
+	async (channel) => {
+		const ctx = await setup({ outsiders: { ownerShareDailyTokens: 1 } });
+		try {
+			await ctx.store.identity().createPerson({ id: "owner", name: "Owner" });
+			await ctx.store.identity().link(`acct:${channel}:owner`, "person:owner");
+			const guest = await ctx.store.events.record(inbound("acct:feishu:visitor", "exhaust"));
+			await ctx.wire.settle(ctx.session.id, run([guest.id], 1));
+			const { event, originals } = await handoff(ctx, channel, ["owner"]);
+			expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
+			await ctx.wire.settle(ctx.session.id, run([event.id], 500));
+			const { parentOrigins } = await import("../tools/parent-origin.js");
+			expect(await parentOrigins(ctx.store, event, "main")).toEqual(originals);
+			const { conversationPromptOptions } = await import("./conversation.js");
+			const context = await conversationPromptOptions(ctx.store, new Map(), () => {
+				throw Error("No runtime needed");
+			}).conversationContext!(event, "main");
+			expect(context).toContain('"verified":true');
+			expect(context).toContain('"relation":"owner"');
+			expect(context).toContain("owner: original 0");
+		} finally {
+			await ctx.db.close();
+		}
+	},
+);
+
+test("mixed owner and outsider handoff checks the outsider and charges the original identity once", async () => {
+	const ctx = await setup({ outsiders: { perPersonDailyTokens: 100, ownerShareDailyTokens: 1000 } });
+	try {
+		for (const id of ["owner", "friend"]) {
+			await ctx.store.identity().createPerson({ id, name: id });
+			await ctx.store.identity().link(`acct:card:${id}`, `person:${id}`);
+		}
+		const { event } = await handoff(ctx, "card", ["owner", "friend"]);
+		expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
+		await ctx.wire.settle(ctx.session.id, run([event.id], 100));
+		expect((await ctx.wire.command(ctx.session, event))?.text).toContain("额度");
+		expect(await ctx.wire.command(ctx.session, inbound("acct:card:owner", "owner-after"))).toBeUndefined();
+	} finally {
+		await ctx.db.close();
+	}
+});
+
+test("guest handoff keeps the original group/source and never trusts copied owner claims", async () => {
+	const ctx = await setup({ outsiders: { guestMaxRounds: 1 } });
+	try {
+		const { event, originals } = await handoff(ctx, "qq", ["guest"]);
+		expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
+		expect((await ctx.wire.command(ctx.session, originals[0]!))?.text).toContain("登录");
+	} finally {
+		await ctx.db.close();
+	}
+});
+
+test("forged, cross-session and incomplete legacy origin references cannot inherit owner identity", async () => {
+	const ctx = await setup({ outsiders: { ownerShareDailyTokens: 1 } });
+	try {
+		await ctx.store.identity().createPerson({ id: "owner", name: "Owner" });
+		await ctx.store.identity().link("acct:qq:owner", "person:owner");
+		const { event, batch } = await handoff(ctx, "qq", ["owner", "guest"]);
+		const { parentOrigins } = await import("../tools/parent-origin.js");
+		const data = event.data as { requestOrigin: { session: string; inputs?: string[]; events: { id: string }[] } };
+		const origin = data.requestOrigin;
+		for (const bad of [
+			{ ...event, from: "acct:qq:owner" },
+			{ ...event, parent: "missing" },
+			{ ...event, data: { ...data, requestOrigin: { ...origin, session: ctx.session.id } } },
+			{ ...event, data: { ...data, requestOrigin: { ...origin, inputs: [batch.id, "missing"] } } },
+			{
+				...event,
+				data: { ...data, requestOrigin: { ...origin, inputs: undefined, events: origin.events.slice(0, 1) } },
+			},
+		])
+			expect(await parentOrigins(ctx.store, bad, "main")).toBeUndefined();
+		const legacy = { ...event, data: { ...data, requestOrigin: { ...origin, inputs: undefined } } };
+		expect(await parentOrigins(ctx.store, legacy, "main")).toHaveLength(2);
+		const guest = await ctx.store.events.record(inbound("acct:feishu:guest", "deplete"));
+		await ctx.wire.settle(ctx.session.id, run([guest.id], 1));
+		const forged = { ...event, data: { ...data, requestOrigin: { ...origin, inputs: ["missing"] } } };
+		expect((await ctx.wire.command(ctx.session, forged))?.text).toContain("额度");
+	} finally {
+		await ctx.db.close();
+	}
+});
+
+test("plugin and channel ingress reject fabricated internal handoffs even with valid old owner references", async () => {
+	const ctx = await setup();
+	try {
+		const { event } = await handoff(ctx, "qq", ["owner"]);
+		const { pluginEvent } = await import("../plugins/validation.js");
+		expect(() => pluginEvent("third-party", event)).toThrow("event type must start");
+		for (const channel of ["qq", "card"])
+			expect(() => pluginEvent("channel-provider", event, channel, true)).toThrow("own channel");
+		const { parentOrigins } = await import("../tools/parent-origin.js");
+		const external = { ...event, from: "acct:qq:visitor", conv: "conv:qq:group" };
+		expect(pluginEvent("channel-provider", external, "qq", true)).toBe(external);
+		expect(await parentOrigins(ctx.store, external, "main")).toBeUndefined();
+	} finally {
+		await ctx.db.close();
+	}
+});

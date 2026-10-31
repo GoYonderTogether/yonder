@@ -123,7 +123,7 @@ watcher.on("event", (event) => {
 					process.exit(1);
 				});
 			});
-		console.log(`${new Date().toISOString()} Frontend published; refresh https://yonder.zethai.cn/`);
+		console.log(`${new Date().toISOString()} Frontend published; refresh https://yonderbot.net/`);
 	} catch (error) {
 		console.error("Preview build rejected; keeping previous page", error);
 	}

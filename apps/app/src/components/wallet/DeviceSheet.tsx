@@ -92,9 +92,9 @@ export function DeviceSheet({
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
-				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
-				<Dialog.Content className="rise fixed inset-x-0 bottom-0 z-50 flex max-h-[85%] flex-col gap-5 rounded-t-[24px] bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[24px]">
-					<Dialog.Title className="flex items-center gap-3 text-[20px] font-semibold tracking-tight">
+				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
+				<Dialog.Content className="rise fixed inset-x-0 bottom-0 z-50 flex max-h-[85%] flex-col gap-5 rounded-t-panel bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-panel">
+					<Dialog.Title className="flex items-center gap-3 text-title font-semibold tracking-tight">
 						<span className="flex h-10 w-10 items-center justify-center rounded-control bg-tone">
 							<Icon size={20} />
 						</span>
@@ -104,8 +104,8 @@ export function DeviceSheet({
 					{device.code && <p className="select-text text-small text-muted">设备 ID · {device.code}</p>}
 					<Field label="名称" value={name} onChange={(e) => setName(e.target.value)} />
 					<div className="flex items-center justify-between rounded-card bg-tone px-4 py-3">
-						<span className="text-[15px]">
-							联网<span className="ml-2 text-[13px] text-muted">{agents} 个 Bot</span>
+						<span className="text-body">
+							联网<span className="ml-2 text-small text-muted">{agents} 个 Bot</span>
 						</span>
 						<Switch on={device.online} onChange={power} label="这台设备联网" />
 					</div>

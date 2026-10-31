@@ -95,7 +95,7 @@ export function Contacts() {
 						<ContactList q={q} active={id} />
 					</nav>
 				</aside>
-				<main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-ground lg:my-2 lg:mr-2 lg:rounded-[24px] lg:shadow-soft">
+				<main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-ground lg:my-2 lg:mr-2 lg:rounded-panel lg:shadow-soft">
 					{ref ? detailPane : <EmptyPane />}
 				</main>
 			</div>
@@ -107,7 +107,7 @@ export function Contacts() {
 		<div className="flex h-full flex-col bg-ground">
 			{/* 加号菜单：添加朋友、发起群聊、添加设备、扫一扫合成一个入口（消息页不再有加号）。 */}
 			<AppBar
-				title={<span className="text-[20px] tracking-tight">通讯录</span>}
+				title={<span className="text-title tracking-tight">通讯录</span>}
 				left={<PersonalAvatar />}
 				right={<PlusMenu />}
 			/>

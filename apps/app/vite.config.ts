@@ -20,7 +20,7 @@ const commit: string | null = existsSync(new URL(".git", root))
 // 网关默认指向演示实例（~/Documents/yonder-demo-fe，18795）；社交服务默认云端，二选一见 deploy/DEV.md 的做法：
 // YONDER_SOCIAL=http://127.0.0.1:18030 可改用本机测试后端。
 const gateway = process.env.YONDER_GATEWAY ?? "http://127.0.0.1:18795";
-const social = process.env.YONDER_SOCIAL ?? "https://yonder.zethai.cn";
+const social = process.env.YONDER_SOCIAL ?? "https://yonderbot.net";
 /** 目标服务按 Origin 做来源检查，所以把浏览器的 Origin 改写成目标自己的。 */
 const proxyTo = (target: string, ws = false) => ({
 	target,

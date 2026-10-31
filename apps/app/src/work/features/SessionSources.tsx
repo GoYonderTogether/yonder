@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { rpc } from "../api/client";
@@ -67,7 +68,7 @@ export function SessionSources({ session, agent }: { session: string; agent?: st
 			{query.data.hasMore && <p className="text-faint">仅显示最近 50 条转录对应的来源。</p>}
 			{query.data.events.length === 0 && <p className="text-faint">最近转录没有可读取的来源事件。</p>}
 			{query.data.events.map((event) => (
-				<article key={event.id} className="rounded-control border border-hairline p-2">
+				<article key={event.id} className="rounded-control bg-tone/50 p-2">
 					<p className="break-all text-caption text-faint">
 						{event.ts} · {event.from ?? "未知来源"} · {event.conv ?? "无会话"}
 					</p>
@@ -123,14 +124,23 @@ function SessionTrace({ session }: { session: string }) {
 				<div className="space-y-2 pt-2">
 					{query.data.events.length === 0 && <p className="text-faint">本页没有会话事件。</p>}
 					{query.data.events.map((event) => (
-						<details key={event.id} className="rounded-control border border-hairline p-2">
-							<summary className="cursor-pointer break-all">
+						<details key={event.id} className="group rounded-control bg-tone/50 p-2">
+							<summary className="press flex cursor-pointer items-start gap-1.5 break-all">
+								<ChevronRight
+									size={12}
+									className="mt-0.5 shrink-0 text-faint transition-transform duration-200 group-open:rotate-90"
+									aria-hidden
+								/>
 								{event.ts} · {event.type} · {event.id}
 							</summary>
-							{event.parent && <p className="break-all text-caption text-faint">来源事件 {event.parent}</p>}
-							<pre className="overflow-auto whitespace-pre-wrap break-all text-caption">
-								{JSON.stringify(event.data, null, 2)}
-							</pre>
+							<div className="fold" data-open>
+								<div>
+									{event.parent && <p className="break-all text-caption text-faint">来源事件 {event.parent}</p>}
+									<pre className="overflow-auto whitespace-pre-wrap break-all text-caption">
+										{JSON.stringify(event.data, null, 2)}
+									</pre>
+								</div>
+							</div>
 						</details>
 					))}
 					{after && (
@@ -175,35 +185,44 @@ function BotSources({ agent }: { agent: string }) {
 				<div className="space-y-2 pt-2">
 					{query.data.events.length === 0 && <p className="text-faint">没有可读取的来源事件。</p>}
 					{query.data.events.map((event) => (
-						<details key={event.id} className="rounded-control border border-hairline p-2">
-							<summary className="cursor-pointer break-all">
+						<details key={event.id} className="group rounded-control bg-tone/50 p-2">
+							<summary className="press flex cursor-pointer items-start gap-1.5 break-all">
+								<ChevronRight
+									size={12}
+									className="mt-0.5 shrink-0 text-faint transition-transform duration-200 group-open:rotate-90"
+									aria-hidden
+								/>
 								{event.ts} · {event.conv ?? "无会话"} · {event.data.kind ?? "未知类型"}
 							</summary>
-							<p className="break-all text-caption text-faint">
-								{event.from ?? "未知来源"} · 事件 {event.id}
-								{event.data.msgId ? ` · 平台消息 ${event.data.msgId}` : ""}
-							</p>
-							<p className="whitespace-pre-wrap break-words">{event.data.text ?? ""}</p>
-							{!!event.data.attachments?.length && (
-								<p>附件 · {event.data.attachments.map((a) => a.name ?? a.kind).join("、")}</p>
-							)}
-							{event.routes
-								?.filter((route) => route.agent === agent)
-								.map((route) => (
-									<p key={route.agent} className="break-all text-caption text-muted">
-										路由 {route.binding ?? "无绑定"} · {route.dropped ?? route.wake ?? "未知"}
-										{route.busy ? ` · ${route.busy}` : ""}
-										{route.session && (
-											<>
-												{" "}
-												·{" "}
-												<Link className="underline" to={workPath({ session: route.session })}>
-													会话 {route.session}
-												</Link>
-											</>
-										)}
+							<div className="fold" data-open>
+								<div>
+									<p className="break-all text-caption text-faint">
+										{event.from ?? "未知来源"} · 事件 {event.id}
+										{event.data.msgId ? ` · 平台消息 ${event.data.msgId}` : ""}
 									</p>
-								))}
+									<p className="whitespace-pre-wrap break-words">{event.data.text ?? ""}</p>
+									{!!event.data.attachments?.length && (
+										<p>附件 · {event.data.attachments.map((a) => a.name ?? a.kind).join("、")}</p>
+									)}
+									{event.routes
+										?.filter((route) => route.agent === agent)
+										.map((route) => (
+											<p key={route.agent} className="break-all text-caption text-muted">
+												路由 {route.binding ?? "无绑定"} · {route.dropped ?? route.wake ?? "未知"}
+												{route.busy ? ` · ${route.busy}` : ""}
+												{route.session && (
+													<>
+														{" "}
+														·{" "}
+														<Link className="underline" to={workPath({ session: route.session })}>
+															会话 {route.session}
+														</Link>
+													</>
+												)}
+											</p>
+										))}
+								</div>
+							</div>
 						</details>
 					))}
 					{after && (

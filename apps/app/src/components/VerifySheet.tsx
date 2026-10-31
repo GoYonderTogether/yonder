@@ -126,7 +126,7 @@ export function CodeForm<Result>({
 							aria-selected={kind === value}
 							disabled={state.phase === "verifying"}
 							onClick={() => switchKind(value)}
-							className={`press flex-1 rounded-full py-1.5 text-[13px] ${
+							className={`press flex-1 rounded-full py-1.5 text-small ${
 								kind === value ? "bg-raised font-medium text-ink" : "text-muted hover:text-ink"
 							}`}
 						>
@@ -164,7 +164,7 @@ export function CodeForm<Result>({
 					</Button>
 				</div>
 				{fieldErrors.target && (
-					<p id={targetError} className="text-[13px] text-danger">
+					<p id={targetError} className="text-small text-danger">
 						{fieldErrors.target}
 					</p>
 				)}
@@ -187,14 +187,14 @@ export function CodeForm<Result>({
 					aria-describedby={fieldErrors.code ? codeError : undefined}
 				/>
 				{fieldErrors.code && (
-					<p id={codeError} className="text-[13px] text-danger">
+					<p id={codeError} className="text-small text-danger">
 						{fieldErrors.code}
 					</p>
 				)}
-				{state.sent && !state.error && <p className="text-[12px] text-muted">{doneHint}</p>}
+				{state.sent && !state.error && <p className="text-caption text-muted">{doneHint}</p>}
 			</div>
 			{state.error && (
-				<p id={errorId} role="alert" className="text-[13px] text-danger">
+				<p id={errorId} role="alert" className="text-small text-danger">
 					{state.error}
 				</p>
 			)}
@@ -248,7 +248,7 @@ export function VerifySheet({
 	return (
 		<Window open onOpenChange={onOpenChange} title="登录后继续聊天">
 			<div className="flex flex-col gap-4 p-5">
-				<p className="text-[13px] text-muted">访客可以免费聊几句，用完需要登录。验证码登录，首次验证即注册。</p>
+				<p className="text-small text-muted">访客可以免费聊几句，用完需要登录。验证码登录，首次验证即注册。</p>
 				<VerifyCodeForm
 					shareToken={shareToken}
 					onSuccess={(session) => {

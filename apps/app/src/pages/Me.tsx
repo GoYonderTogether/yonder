@@ -35,12 +35,12 @@ function Sheet({
 	return (
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
-				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-black/30" />
+				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
 				<Dialog.Content
 					aria-describedby={undefined}
-					className="rise fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col gap-5 overflow-y-auto rounded-t-[24px] bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[24px]"
+					className="rise fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col gap-5 overflow-y-auto rounded-t-panel bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-panel"
 				>
-					<Dialog.Title className="text-[20px] font-semibold tracking-tight">{title}</Dialog.Title>
+					<Dialog.Title className="text-title font-semibold tracking-tight">{title}</Dialog.Title>
 					{children}
 				</Dialog.Content>
 			</Dialog.Portal>
@@ -127,7 +127,7 @@ export function Me() {
 	if (!s) return null;
 	const agents = contacts.filter((a) => a.kind === "agent" && a.ownerId === s.actor.id);
 	return (
-		<div className="scroll-y h-full bg-ground lg:m-2 lg:ml-0 lg:h-[calc(100%-1rem)] lg:rounded-[24px] lg:shadow-soft">
+		<div className="scroll-y h-full bg-ground lg:m-2 lg:ml-0 lg:h-[calc(100%-1rem)] lg:rounded-panel lg:shadow-soft">
 			<div className="lg:hidden">
 				<AppBar title="个人" left={<BackButton />} />
 			</div>
@@ -161,7 +161,7 @@ export function Me() {
 									</Button>
 								</span>
 							</div>
-							<div className="divide-y divide-hairline">
+							<div className="divide-y divide-hairline/60">
 								{agents.slice(0, 3).map((a) => (
 									<Link
 										key={a.id}
@@ -188,7 +188,7 @@ export function Me() {
 								<Link
 									to="/contacts"
 									state={internalState(loc)}
-									className="press flex items-center justify-between border-t border-hairline px-5 py-3 text-small hover:bg-tone/60"
+									className="press mt-1 flex items-center justify-between rounded-control bg-tone/60 px-5 py-3 text-small hover:bg-tone"
 								>
 									查看全部 {agents.length} 位<ChevronRight size={16} />
 								</Link>

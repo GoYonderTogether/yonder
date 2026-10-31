@@ -181,7 +181,7 @@ export function ConsoleSwitcher() {
 				)}
 				<Link
 					to="/connect"
-					className="press mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-tone px-3 text-[13px] font-medium text-ink hover:bg-tone-2"
+					className="press mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-tone px-3 text-small font-medium text-ink hover:bg-tone-2"
 					data-testid="console-add-device"
 				>
 					<Plus size={15} aria-hidden /> 添加设备

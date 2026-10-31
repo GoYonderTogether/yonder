@@ -103,7 +103,7 @@ export function TaskRow({
 				{...trigger}
 				title={title}
 				aria-current={active ? "page" : undefined}
-				className={`press no-select flex items-center gap-2 px-4 py-2 hover:bg-tone/60 ${active ? "bg-tone" : ""}`}
+				className={`press no-select mx-2 flex items-center gap-2 rounded-control px-2 py-2 hover:bg-tone/70 ${active ? "bg-raised shadow-soft" : ""}`}
 				data-testid="task-row"
 			>
 				<span className="flex w-4 shrink-0 items-center justify-center" data-testid="session-icon-slot">

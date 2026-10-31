@@ -82,6 +82,62 @@ test("an owner's addressed stop aborts its actual group run, blocks old delivery
 	}
 });
 
+test("resident control sources finish observation before any model hook and record each command once", async () => {
+	const fixture = await groupFixture({ social: true, captureSocialApi: true });
+	const { kernel, probe } = fixture;
+	try {
+		await probe.ios["qq-main"].emit(input("qq-main", mainConv, "在吗", true));
+		await expect.poll(() => probe.contexts.length, { timeout: 5000 }).toBe(1);
+		const resident = probe.contexts[0]!;
+		await kernel.sessions.abort(resident.session);
+		await expect.poll(async () => (await kernel.events.query({ type: "session.settled" })).events.length).toBe(1);
+		const api = probe.socialApi!;
+		const relation = api.identity.relation;
+		for (const command of ["停止回复", "恢复回复"]) {
+			let calls = 0;
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			api.identity.relation = async (...args) => {
+				calls++;
+				await gate;
+				return relation(...args);
+			};
+			const source = probe.ios["qq-main"].emit(input("qq-main", mainConv, command, true));
+			try {
+				// Hold the asynchronous event observer while the resident request reaches the same source.
+				await expect.poll(() => calls, { timeout: 5000 }).toBeGreaterThanOrEqual(2);
+				expect(probe.contexts).toHaveLength(1);
+			} finally {
+				release();
+			}
+			const event = await source;
+			await expect
+				.poll(async () => (await kernel.events.query({ type: "run.end" })).events.some((e) => e.parent === event.id), {
+					timeout: 5000,
+				})
+				.toBe(true);
+			const facts = (await kernel.events.query({ type: "social.policy-change" })).events.filter(
+				(e) => e.parent === event.id,
+			);
+			expect(facts).toHaveLength(1);
+			expect(facts[0]?.data).toMatchObject({ after: { pause: command === "停止回复" ? { scope: "group" } : null } });
+			expect(probe.contexts).toHaveLength(1);
+			const ended = (await kernel.events.query({ type: "run.end" })).events.find((e) => e.parent === event.id);
+			expect(ended?.data).toMatchObject({ status: "aborted", usage: { input: 0, output: 0, cacheRead: 0 } });
+			api.identity.relation = relation;
+		}
+		await probe.ios["qq-main"].emit(input("qq-main", mainConv, "恢复后的新问题", true));
+		await expect.poll(() => probe.contexts.length, { timeout: 5000 }).toBe(2);
+		expect(probe.contexts[1]?.signal.aborted).toBe(false);
+		expect(modelObservations(fixture.home)).toBe(0);
+		expect(probe.sent).toEqual([]);
+	} finally {
+		await fixture.close();
+	}
+});
+
 test("a member asking not to answer pauses that interaction without banning the group", async () => {
 	const fixture = await groupFixture({ social: true });
 	const { kernel, probe } = fixture;

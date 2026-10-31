@@ -46,7 +46,7 @@ export function IdentityDetail({
 	const title = card?.title?.trim() || actor.name;
 	return (
 		<div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-4 lg:px-8 lg:py-6">
-			<section aria-label="身份资料" className="overflow-hidden rounded-[24px] bg-raised shadow-soft">
+			<section aria-label="身份资料" className="overflow-hidden rounded-panel bg-raised shadow-soft">
 				<div
 					className="relative h-32 overflow-hidden lg:h-40"
 					style={{ background: `linear-gradient(120deg,${palette.from},${palette.to})` }}
@@ -73,7 +73,7 @@ export function IdentityDetail({
 							<Avatar actor={actor} size={72} online={agent ? !!actor.online : undefined} />
 						</div>
 						<div className="min-w-0 flex-1 pt-3">
-							<h1 className="break-words text-[22px] leading-tight font-semibold tracking-tight">{title}</h1>
+							<h1 className="break-words text-title leading-tight font-semibold tracking-tight">{title}</h1>
 							{title !== actor.name && <p className="mt-1 break-words text-small text-muted">{actor.name}</p>}
 							{showCode && actor.code && <p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>}
 							{agent && (
@@ -117,7 +117,7 @@ export function IdentityDetail({
 			{!!agents.length && (
 				<section aria-label={publicView ? "公开 Bot" : "Bot"} className="overflow-hidden rounded-card bg-raised">
 					<h2 className="px-5 pt-4 pb-2 text-small font-medium text-muted">{publicView ? "公开 Bot" : "Bot"}</h2>
-					<div className="divide-y divide-hairline">
+					<div className="divide-y divide-hairline/60">
 						{visibleAgents.map((a) => (
 							<Link
 								key={a.id}
@@ -139,7 +139,7 @@ export function IdentityDetail({
 							type="button"
 							aria-expanded={expanded}
 							onClick={() => setExpandedFor(expanded ? null : actor.id)}
-							className="press w-full border-t border-hairline px-5 py-3 text-left text-small hover:bg-tone/60"
+							className="press mt-1 w-full rounded-control bg-tone/60 px-5 py-3 text-left text-small hover:bg-tone"
 						>
 							{expanded ? "收起" : `查看全部 ${agents.length} 位`}
 						</button>

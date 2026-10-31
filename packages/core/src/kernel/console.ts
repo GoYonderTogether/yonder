@@ -64,5 +64,16 @@ export const withoutConsoleBinding = (agent: AgentConfig): AgentConfig => ({
 	bindings: agent.bindings.filter((binding) => binding.id !== CONSOLE_BINDING),
 });
 
+/**
+ * Platform-group bindings (`@platform-group:<instance>`) are installed at runtime by workspace loading and are
+ * never stored in agent.yaml; `agents.update` must drop them for the same reason as the console binding.
+ */
+export const withoutRuntimeBindings = (agent: AgentConfig): AgentConfig => ({
+	...agent,
+	bindings: agent.bindings.filter(
+		(binding) => binding.id !== CONSOLE_BINDING && !binding.id.startsWith("@platform-group:"),
+	),
+});
+
 export const isConsoleBot = (agent: AgentConfig) =>
 	!agent.archivedAt && agent.bindings.some((binding) => [binding.match.channel].flat().includes(CONSOLE));

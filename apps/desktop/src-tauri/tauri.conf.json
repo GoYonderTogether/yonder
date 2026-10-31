@@ -9,7 +9,7 @@
 	"app": {
 		"windows": [],
 		"security": {
-			"capabilities": ["desktop"]
+			"capabilities": ["desktop", "mobile"]
 		}
 	},
 	"bundle": {

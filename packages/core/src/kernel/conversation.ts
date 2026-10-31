@@ -6,6 +6,7 @@ import type { Runtime } from "../runtime/index.js";
 import type { Store } from "../store/index.js";
 import { conversationMembers, createConversationTools } from "../tools/conversation.js";
 import { createCoreTools } from "../tools/index.js";
+import { parentOrigins } from "../tools/parent-origin.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
 import { createSubagentTool } from "./subagents.js";
@@ -35,8 +36,34 @@ export function conversationPromptOptions(
 						? "reply=auto; final text is automatically delivered to this input source"
 						: "final returned to caller according to accepted input policy";
 		},
-		conversationContext: async (event, agent, signal) =>
-			event.conv ? JSON.stringify(await conversationMembers(store, event.conv, agent, signal)) : undefined,
+		conversationContext: async (event, agent, signal) => {
+			const self = agent ? { agent, name: agents.get(agent)?.name } : undefined;
+			if ((event.data as { kind?: string }).kind === "parent-request") {
+				const sources = agent ? await parentOrigins(store, event, agent) : undefined;
+				return JSON.stringify({
+					self,
+					verified: !!sources,
+					originals: await Promise.all(
+						(sources ?? []).map(async (source) => ({
+							id: source.id,
+							from: source.from,
+							conv: source.conv,
+							relation: agent && source.from ? await store.identity().relation(agent, source.from) : "stranger",
+							text: (source.data as { text?: string }).text ?? "",
+							at: source.ts,
+							...Object.fromEntries(
+								["mentions", "mentioned", "replyTo", "quote", "social"]
+									.filter((key) => key in source.data)
+									.map((key) => [key, (source.data as Record<string, unknown>)[key]]),
+							),
+						})),
+					),
+				});
+			}
+			return event.conv
+				? JSON.stringify({ ...(await conversationMembers(store, event.conv, agent, signal)), self })
+				: undefined;
+		},
 	};
 }
 

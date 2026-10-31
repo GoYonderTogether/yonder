@@ -10,7 +10,7 @@ Windows 与 Linux 的一键安装脚本只在真实操作系统上跑得动，�
 | Release 带出 `install.sh` / `install.ps1` | 通过 | `v0.3.26103018` 的附件含两者；`releases/latest/download/install.sh` 302 到该附件并返回 200 |
 | Ubuntu 24.04 上 `curl … install.sh \| sh` | 通过 | 见下文「Linux 原始记录」 |
 | Ubuntu 24.04 上安装后的日常链路 | 通过 | `doctor`、`start`、网关 303、`service install/status/restart`、`update --to latest`（verified）与回退到指定版本 |
-| Windows 上 `install.ps1` | **未通过（未执行）** | 见下文「Windows 原始记录」 |
+| Windows 上 `install.ps1` | 通过 | `CI Windows` 的 `Windows one-line installer` 作业，见下文「Windows 原始记录」 |
 
 ### 修复前的两个阻断
 
@@ -86,12 +86,55 @@ Node.js 22.23.4
 | 需要绝对 `codexHome` | 1 | `Provide an absolute authorized codexHome` |
 | 子进程 CLI | 1 | `Command failed: node /D:/a/...` |
 
-这些是既有的 Windows 测试债（`scripts/e2e/ci-failures.md` 早有记录），不是本次安装脚本引入的；
-本次只修掉了让作业连 checkout 都过不去的那一个。
+这些是既有的 Windows 测试债（`scripts/e2e/ci-failures.md` 早有记录），不是本次安装脚本引入的。
+本次修掉的是让作业连 checkout 都过不去的那一个（文件名含 `:`），另加了独立安装作业绕开这些债。
 
-**安装脚本本身在 Windows 上还没有跑过**：没有 Windows 机器，CI 也没有执行 `install.ps1`。
-未验证项：脚本语法、`npm ci`/构建（CI 的 `npm run build` 已通过，但不在脚本调用路径上）、
-`.yonder-install.json` 写入、`yonder update` 生成 junction、`init`、以及 `yonder.cmd` 能否运行。
+### Windows 上的真实验收（同一 workflow 的 `installer` 作业）
 
-本轮同时改掉了一处会让 Windows 直接失败的地方：`Set-Content -Encoding utf8` 在 PowerShell 5.1 会写 BOM，
-`update` 用 `JSON.parse` 读安装记录会因此报错；改为无 BOM 写入。该修改同样未经实机运行。
+主 Windows 作业因为上面的测试债长期是红的，安装脚本在里面永远跑不到，所以新增独立作业
+`Windows one-line installer`（`windows-2025`），只做三件事：`-DryRun` 解析版本、真实安装一次、再跑一次证明幂等。
+
+运行 [41075769364](https://github.com/GoYonderTogether/yonder/actions/runs/41075769364) 的 `installer` 作业成功：
+
+```
+== 检查环境         Node.js 22.23.4
+== 确定版本         目标版本 v0.3.26103020
+== 准备 v0.3.26103020
+已构建 v0.3.26103020（ca53c71122ad7be0e915e202341f9bb00a002780）
+== 写入安装入口
+== 初始化数据目录   已初始化 D:\a\_temp\yonder-home
+== 完成
+version: 0.3.26103020
+install: D:\a\_temp\yonder-install
+source: D:\a\_temp\yonder-install\versions\0.3.26103020
+home: D:\a\_temp\yonder-home
+origin: { version, commit: ca53c71…, repository, tag: v0.3.26103020 }
+已安装 v0.3.26103020，跳过构建     ← 第二次运行
+```
+
+这一次运行暴露并修掉了三个 Windows 专属问题，都已提交：
+
+1. **构建目录改名会让 npm 的 junction 失效**。`npm ci` 把 workspace 包装成绝对路径的 junction，在
+   `<version>.tmp` 里构建完再 `Move-Item` 到 `versions/<version>`，`node_modules/@yonder/*` 全部指向旧路径，
+   CLI 报 `Cannot find package '@yonder/core'`。改为直接在最终目录构建，用 `.yonder-install.json` 作为
+   「已完成」标记（失败会清掉整个目录重来）。
+2. **PowerShell 变量名不区分大小写**。`$Record`（路径）与 `$record`（JSON 正文）是同一个变量，
+   `WriteAllText` 收到的是 JSON 当路径。改为 `$RecordPath` / `$recordJson`。
+3. **步骤间的 `$env:` 不会保留**。CI 里两个步骤各自设置 `YONDER_INSTALL`/`YONDER_HOME`；`runner.temp`
+   在 job 级 `env` 里不可用，所以只能在步骤内设置。
+
+Windows 上未验证：`yonder service install`（计划任务）、`yonder start`、真实收发；
+这台 runner 没有模型凭据，也没有登录交互终端。
+
+## 发版后遗留的 CI 观察（2026-10-30）
+
+本轮为了验证「发版 → 网页命令 → 真实安装」这条链，跑了多次 `Release` 和 `CI`。其中两处与安装无关、
+但需要如实记录：
+
+- `packages/core/src/runtime/fallback-http.test.ts > HTTP 401 follows the native fallback policy`
+  在 CI 的 4/4 分片里偶发失败：收到 `['first','first','second']` 而不是 `['first','second']`。
+  本机连跑 6 次通过，重跑该 CI 作业也通过；在本地人为把 401 响应延迟 400ms 可以稳定复现成
+  `['first','first','first', …]`，说明它依赖「首个候选在 100ms 超时内返回」这一时序假设，
+  机器繁忙时就可能多打一次。**根因未确认**，本轮没有改这条测试。
+- `Release` 的「发版提交合回 main」步骤在 main 有新提交时会 rebase 失败（`CHANGELOG.md` 冲突），
+  Release 本身已经成功（tag 与附件都在），只是这条合回作业红。

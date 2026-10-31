@@ -307,7 +307,7 @@ function CloudWorkEntry({ accountId }: { accountId: string }) {
 							{shownDevices.map((device) => (
 								<li
 									key={device.id}
-									className="flex min-h-12 items-center justify-between gap-3 border-b border-hairline"
+									className="flex min-h-12 items-center justify-between gap-3 border-b border-hairline/60"
 								>
 									<span>{device.name}</span>
 									{device.online && device.workProtocol === 1 ? (

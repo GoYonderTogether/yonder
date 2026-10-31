@@ -21,6 +21,9 @@
 	--color-accent-soft: var(--accent-soft);
 	--color-accent-ink: var(--accent-ink);
 	--color-danger: var(--danger);
+	--color-warn: var(--warn);
+	--color-code-bg: var(--code-bg);
+	--color-code-ink: var(--code-ink);
 	--color-online: var(--online);
 	--color-offline: var(--offline);
 	--font-sans:
@@ -31,8 +34,25 @@
 	--radius-card: 16px;
 	--radius-bubble: 16px;
 	--radius-bubble-tight: 6px;
+	/* 桌面内容面板与浮层的圆角；输入条与芯片各一档 */
+	--radius-panel: 24px;
+	--radius-field: 20px;
+	--radius-chip: 6px;
 	--shadow-float: var(--shadow-float);
 	--shadow-soft: var(--shadow-soft);
+	/* 字重跟着令牌走：暗色整体降 40（见 tokens.css）。
+	   所有字重工具类都收进这四档，任何一档都不能绕过暗色补偿。 */
+	--font-weight-thin: var(--w-normal);
+	--font-weight-extralight: var(--w-normal);
+	--font-weight-light: var(--w-normal);
+	--font-weight-normal: var(--w-normal);
+	--font-weight-medium: var(--w-medium);
+	--font-weight-semibold: var(--w-semibold);
+	--font-weight-bold: var(--w-bold);
+	--font-weight-extrabold: var(--w-bold);
+	--font-weight-black: var(--w-bold);
+	--ease-snap: var(--spring-snap);
+	--ease-pop: var(--spring-pop);
 	/* 五档字号 */
 	--text-caption: 12px;
 	--text-small: 14px;
@@ -53,8 +73,22 @@ body {
 	font-family: var(--font-sans);
 	font-size: 15px;
 	line-height: 1.55;
+	font-weight: var(--w-normal);
+	/* 正文防孤字 */
+	text-wrap: pretty;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+}
+/* 数字与用量一律等宽，避免跳动 */
+.tnum,
+.font-mono,
+time,
+[data-num] {
+	font-variant-numeric: tabular-nums;
+}
+/* 行内图标与文字光学居中对齐 */
+.lucide {
+	vertical-align: -0.125em;
 }
 ::selection {
 	background: color-mix(in srgb, var(--accent) 28%, transparent);
@@ -66,13 +100,23 @@ body {
 .field {
 	transition:
 		background-color var(--d1) var(--ease),
-		box-shadow var(--d1) var(--ease);
+		box-shadow var(--d2) var(--ease);
 }
+/* 聚焦不画 outline：加深的双环内阴影，做出与底面咬合的凹陷感 */
 .field:focus,
 .field:focus-within {
 	background-color: var(--raised);
-	box-shadow: inset 0 0 0 1px var(--field-focus-line);
+	box-shadow: var(--field-focus-shadow);
 	outline: none;
+}
+/* 不在 .field 里的输入控件用同一套双环，任何输入框都不留浏览器默认 outline */
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
+	outline: none;
+	box-shadow: var(--field-focus-shadow);
+}
+/* 已经由外层 .field 统一加深的，内层不再重复画一圈 */
+.field :where(input, textarea, select):focus-visible {
+	box-shadow: none;
 }
 .scroll-y {
 	overflow-y: auto;
@@ -84,7 +128,7 @@ body {
 	font-size: var(--text-display);
 	line-height: 1.05;
 	letter-spacing: -0.03em;
-	font-weight: 650;
+	font-weight: var(--w-bold);
 }
 .pb-safe {
 	padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
@@ -158,6 +202,69 @@ body {
 .press:active {
 	transform: scale(0.97);
 }
+/* 弹簧性格：确认类小动作（对勾、点赞）用欠阻尼微弹；拖拽落位用过阻尼咬死 */
+.pop {
+	animation: pop 620ms var(--spring-pop) both;
+}
+@keyframes pop {
+	from {
+		transform: scale(0.6);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+.snap {
+	transition: transform 420ms var(--spring-snap);
+}
+/* 丝滑折叠：Grid 0fr→1fr，不用 JS 量高度 */
+.fold {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition:
+		grid-template-rows var(--d3) var(--ease),
+		opacity var(--d2) var(--ease);
+	opacity: 0;
+}
+.fold > * {
+	overflow: hidden;
+	min-height: 0;
+}
+.fold[data-open="true"] {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+/* 流式打字：单字 90ms 从模糊到清晰，相邻字错开 30ms 晕开 */
+.type-in > * {
+	display: inline;
+	animation: type-in 90ms var(--ease-type) both;
+	animation-delay: calc(var(--i, 0) * 30ms);
+}
+@keyframes type-in {
+	from {
+		opacity: 0;
+		filter: blur(6px);
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+	}
+}
+/* 反馈自熄：复制后的对勾 2.5s 淡出恢复 */
+.feedback {
+	animation: feedback 2.5s var(--ease) both;
+}
+@keyframes feedback {
+	0%,
+	84% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
 @media (prefers-reduced-motion: reduce) {
 	.rise,
 	.rise-slow {
@@ -171,12 +278,28 @@ body {
 	.press:active {
 		transform: none;
 	}
+	/* 打字只保留渐显，不模糊、不位移 */
+	.type-in > * {
+		animation: fade var(--d2) var(--ease) both;
+		animation-delay: 0ms;
+	}
+	.pop,
+	.feedback {
+		animation: fade var(--d2) var(--ease) both;
+	}
+	.fold {
+		transition: opacity var(--d2) var(--ease);
+	}
+	.snap {
+		transition: none;
+	}
 }
 
 /* 名片与消息里的 Markdown：只用 currentColor，亮暗色、我的气泡里都可用 */
 .md {
 	font-size: inherit;
 	line-height: 1.6;
+	text-wrap: pretty;
 }
 .md > * + * {
 	margin-top: 0.6em;
@@ -185,17 +308,19 @@ body {
 	font-size: var(--text-title);
 	line-height: 1.2;
 	letter-spacing: -0.02em;
-	font-weight: 600;
+	font-weight: var(--w-semibold);
+	text-wrap: balance;
 }
 .md h2 {
 	font-size: 17px;
 	line-height: 1.3;
-	font-weight: 600;
+	font-weight: var(--w-semibold);
 	margin-top: 1.2em;
+	text-wrap: balance;
 }
 .md h3 {
 	font-size: var(--text-body);
-	font-weight: 600;
+	font-weight: var(--w-semibold);
 }
 .md a {
 	text-decoration: underline;
@@ -240,7 +365,7 @@ body {
 }
 .md th {
 	text-align: left;
-	font-weight: 600;
+	font-weight: var(--w-semibold);
 	opacity: 0.7;
 }
 .md th,
@@ -497,4 +622,49 @@ body {
 	.personal-drawer {
 		animation: personal-drawer-in 180ms ease-out;
 	}
+}
+
+/* 流式回复的行尾光标：一次呼吸，不跳字 */
+.caret {
+	display: inline-block;
+	width: 2px;
+	height: 1em;
+	margin-left: 1px;
+	translate: 0 0.125em;
+	border-radius: 1px;
+	background: currentColor;
+	animation: caret 1.1s var(--ease) infinite;
+}
+@keyframes caret {
+	0%,
+	45% {
+		opacity: 1;
+	}
+	55%,
+	100% {
+		opacity: 0.15;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.caret {
+		animation: none;
+		opacity: 0.5;
+	}
+}
+
+/* 右栏左缘的拖拽把手：平时不画线，悬停/聚焦时浮出一条 3px 的抓手 */
+.rail-grip::after {
+	content: "";
+	position: absolute;
+	inset-block: 0;
+	left: 3px;
+	width: 2px;
+	border-radius: 2px;
+	background: var(--ink);
+	opacity: 0;
+	transition: opacity var(--d1) var(--ease);
+}
+.rail-grip:hover::after,
+.rail-grip:focus-visible::after {
+	opacity: 0.18;
 }

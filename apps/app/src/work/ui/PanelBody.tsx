@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleDashed, Loader } from "lucide-react";
+import { Check, ChevronRight, CircleDashed, Loader } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router";
 import { rpc } from "../api/client";
@@ -171,9 +171,19 @@ function Subtasks({ v, session }: { v: SessionView; session: string }) {
 		<>
 			{list(active)}
 			{done.length > 0 && (
-				<details>
-					<summary className="cursor-pointer py-1 text-caption text-muted">已完成（{done.length}）</summary>
-					{list(done)}
+				// 折叠用 Grid 0fr→1fr，不量高度
+				<details className="group">
+					<summary className="press flex cursor-pointer items-center gap-1.5 py-1 text-caption text-muted">
+						<ChevronRight
+							size={12}
+							className="shrink-0 transition-transform duration-200 group-open:rotate-90"
+							aria-hidden
+						/>
+						已完成（{done.length}）
+					</summary>
+					<div className="fold" data-open>
+						<div>{list(done)}</div>
+					</div>
 				</details>
 			)}
 		</>
@@ -186,7 +196,7 @@ function Context({ v }: { v: SessionView }) {
 	const win = c?.window ?? v.model?.contextWindow;
 	if (!c && !u && !win) return <Empty t="上下文用量还没有上报" />;
 	const pct = c ? Math.min(100, c.percent) : 0;
-	const tone = !c ? "bg-muted" : c.percent > 90 ? "bg-danger" : c.percent > 70 ? "bg-[#b7791f]" : "bg-accent";
+	const tone = !c ? "bg-muted" : c.percent > 90 ? "bg-danger" : c.percent > 70 ? "bg-warn" : "bg-accent";
 	const rows: [string, number][] = u
 		? [
 				["输入", u.input],

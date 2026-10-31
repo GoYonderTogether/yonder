@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { access, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { basename, isAbsolute, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -15,6 +15,7 @@ import { type Browser, type BrowserContext, chromium, type Page } from "playwrig
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { desktop, stopChildren } from "./desktop.js";
+import { shrinkForModel } from "./image-size.js";
 import { requireOwnerOrigin } from "./permission-origin.js";
 
 const browserSchema = Type.Object(
@@ -200,9 +201,18 @@ export default definePlugin({
 			await mkdir(artifacts, { recursive: true });
 			const path = join(artifacts, `${randomUUID()}.png`);
 			await writeFile(path, buffer, { mode: 0o600 });
+			// 先在本机缩小再交给内核：原图仍留在 artifact 目录，进模型的是一份小得多的 JPEG。
+			const shrunk = await shrinkForModel(path);
 			return {
-				text: JSON.stringify({ source, path, bytes: buffer.byteLength, mime: "image/png" }),
-				images: [{ mime: "image/png", data: buffer.toString("base64") }],
+				text: JSON.stringify({
+					source,
+					path: shrunk.path,
+					bytes: shrunk.bytes.byteLength,
+					mime: shrunk.mime,
+					originalPath: shrunk.path === path ? undefined : path,
+					originalBytes: shrunk.original,
+				}),
+				images: [{ mime: shrunk.mime, data: shrunk.bytes.toString("base64") }],
 			};
 		}
 		function check(ctx: ToolContext, capabilities: string[]) {
@@ -514,9 +524,18 @@ export default definePlugin({
 					const path = join(artifacts, `${randomUUID()}.png`);
 					await desktop({ action: "screenshot", path }, ctx.signal, ctx.session);
 					if ((await stat(path)).size > 20 * 1024 * 1024) throw new Error("Desktop image exceeds 20MB");
+					// Retina 全屏截图常有 6–8 MB；先在插件侧缩到 1600 长边，原图仍留在 artifact 目录。
+					const shrunk = await shrinkForModel(path);
 					return {
-						text: JSON.stringify({ source: "Yonder Helper CoreGraphics (main display)", path }),
-						images: [{ mime: "image/png", data: (await readFile(path)).toString("base64") }],
+						text: JSON.stringify({
+							source: "Yonder Helper CoreGraphics (main display)",
+							path: shrunk.path,
+							bytes: shrunk.bytes.byteLength,
+							mime: shrunk.mime,
+							originalPath: shrunk.path === path ? undefined : path,
+							originalBytes: shrunk.original,
+						}),
+						images: [{ mime: shrunk.mime, data: shrunk.bytes.toString("base64") }],
 					};
 				}
 				return result({

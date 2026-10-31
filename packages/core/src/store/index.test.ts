@@ -41,6 +41,40 @@ test("appended events and identity are queried from SQLite", async () => {
 	}
 });
 
+test("mention display names from a group push are stored and queryable by ref", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const event = newEvent(
+			{
+				type: "message.in",
+				from: "acct:qq:OWNER",
+				conv: "conv:qq:group:G",
+				data: {
+					kind: "group",
+					text: "@我（小鱼） 你好",
+					name: "zoran",
+					mentionNames: { "acct:qq:BOT": "小鱼" },
+				},
+			},
+			[{ agent: "z-fish", binding: "group", session: "1", wake: "run", waiting: false }],
+		);
+		await store.events.append(event);
+		expect((await store.identity().account("acct:qq:BOT"))?.name).toBe("小鱼");
+		expect((await store.identity().account("acct:qq:OWNER"))?.name).toBe("zoran");
+		// 已经登记过的名字不会被后来的空值覆盖。
+		await store.events.append(
+			newEvent(
+				{ type: "message.in", from: "acct:qq:OWNER", conv: "conv:qq:group:G", data: { kind: "group", text: "嗯" } },
+				[{ agent: "z-fish", binding: "group", session: "1", wake: "run", waiting: false }],
+			),
+		);
+		expect((await store.identity().account("acct:qq:OWNER"))?.name).toBe("zoran");
+	} finally {
+		await db.close();
+	}
+});
+
 test("message attempts deduplicate per generation and preserve old run-wide attempts", async () => {
 	const db = await openDatabase(":memory:");
 	try {

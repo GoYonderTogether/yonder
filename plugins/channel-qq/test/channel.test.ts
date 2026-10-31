@@ -520,8 +520,51 @@ test("QQ ingress retains explicit mention identities and reference indices witho
 	);
 	expect(input?.data).toMatchObject({
 		mentions: ["acct:qq-main:OWNER"],
+		mentionNames: { "acct:qq-main:OWNER": "owner" },
 		qq: { msgIdx: "REFIDX-current", refMsgIdx: "REFIDX-quoted" },
 	});
+});
+
+test("QQ group mentions become readable text and a self mention wakes the bot", () => {
+	const base = {
+		id: "m1",
+		timestamp: new Date().toISOString(),
+		author: { member_openid: "OWNER" },
+		groupOpenid: "GROUP",
+		rawEventType: "GROUP_MESSAGE_CREATE",
+		kind: "group" as const,
+		senderId: "OWNER",
+		messageId: "msg-1",
+		replyTarget: { scope: "group" as const, targetId: "GROUP" },
+	};
+	// 平台把 @ 写成 <@openid>；这里换成昵称，模型才知道在叫谁。
+	const named = incoming(
+		"qq-main",
+		{ appId: "1", credential: "qq" },
+		{
+			...base,
+			content: "<@BOT> 你好，<@OTHER> 也在吗",
+			mentions: [
+				{ member_openid: "BOT", nickname: "小鱼", is_you: true },
+				{ member_openid: "OTHER", nickname: "小王" },
+			],
+		},
+		false,
+	);
+	expect(named?.data).toMatchObject({
+		text: "@我（小鱼） 你好，@小王 也在吗",
+		mentioned: true,
+		social: { mentions: { bot: true } },
+		mentionNames: { "acct:qq-main:BOT": "小鱼", "acct:qq-main:OTHER": "小王" },
+	});
+	// 没有昵称时保持原标记，绝不编造一个名字。
+	const unnamed = incoming(
+		"qq-main",
+		{ appId: "1", credential: "qq" },
+		{ ...base, content: "<@BOT> 在吗", mentions: [{ member_openid: "BOT" }] },
+		false,
+	);
+	expect(unnamed?.data).toMatchObject({ text: "<@BOT> 在吗", mentioned: false });
 });
 
 test("QQ rejects unverified outbound mentions before making a platform request", async () => {

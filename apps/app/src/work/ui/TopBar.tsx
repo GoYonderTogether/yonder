@@ -9,7 +9,7 @@ export function TopBar({ title }: { title: string }) {
 	if (!desktop) return null;
 	return (
 		<header
-			className="flex h-10 shrink-0 items-center border-b border-hairline bg-rail text-caption text-muted"
+			className="flex h-10 shrink-0 items-center bg-rail text-caption text-muted"
 			style={
 				{ paddingLeft: mac ? 80 : 12, paddingRight: mac ? 12 : 140, WebkitAppRegion: "drag" } as React.CSSProperties
 			}

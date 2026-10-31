@@ -37,7 +37,7 @@ export function Shell() {
 			aria-label={label}
 			title={label}
 			className={cn(
-				"press flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[12px] text-muted",
+				"press flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-muted",
 				active(to) && "font-semibold text-ink",
 			)}
 		>
@@ -89,7 +89,7 @@ export function Shell() {
 				</nav>
 				<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 					{import.meta.env.VITE_API !== "http" && social !== "none" && (
-						<div role="status" className="shrink-0 bg-tone-2 px-3 py-1 text-center text-[12px] text-muted">
+						<div role="status" className="shrink-0 bg-tone-2 px-3 py-1 text-center text-caption text-muted">
 							本地原型模式 · 展示数据仅供界面验收，不代表真实用户
 						</div>
 					)}
