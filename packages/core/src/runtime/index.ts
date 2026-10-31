@@ -1,3 +1,6 @@
+// The fields below are read and written by the modules under runtime/, through the `rt` view of this instance, so
+// Biome sees no reader in this file. Keeping them here makes this class the one owner of the mutable state.
+// biome-ignore-all lint/correctness/noUnusedPrivateClassMembers: state is used through the internals view
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
@@ -12,7 +15,7 @@ import {
 	type Extension,
 	estimateContext,
 	GenerationTask,
-	Harness,
+	type Harness,
 	hook,
 	InboxDoc,
 	type JsonObject,
@@ -21,7 +24,6 @@ import {
 	type RunReceiptState,
 	type Submission,
 	selectCut,
-	type TaskId,
 	type ToolExecutionApi,
 	type ToolRegistration,
 	ToolTask,
@@ -29,8 +31,7 @@ import {
 	watchEvents,
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
-import { createNodePhotonImages } from "@earendil-works/pi-durable/images/node";
-import { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
+import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
 import { createCodingTools, type ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type {
@@ -44,53 +45,58 @@ import type {
 	Tool,
 	ToolContext,
 	TranscriptItem,
-	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
-import { mergeCredentialSlots } from "../config/index.js";
 import { loginProvider } from "./auth.js";
 import { createBackground } from "./background.js";
 import { forkConversation, forkParent } from "./branches.js";
 import { capabilityMap, describeCatalog } from "./catalog.js";
-import { CredentialSlotStore, validateSlotPart } from "./credential-slots.js";
+import { CredentialSlotStore } from "./credential-slots.js";
 import { credentialPath, type FileCredentials } from "./credentials.js";
-import {
-	cid,
-	emptyUsage,
-	ModelBindingDoc,
-	RunDoc,
-	type RunState,
-	SessionDoc,
-	submissionOutcome,
-	sumUsage,
-} from "./docs.js";
-import { requestedEffort, resolveEffort } from "./effort.js";
-import { localEnvironment } from "./env.js";
+import { cid, emptyUsage, RunDoc, SessionDoc, submissionOutcome, sumUsage } from "./docs.js";
+import { resolveEffort } from "./effort.js";
 import { createFindTool } from "./find.js";
 import { createGrepTool } from "./grep.js";
 import { imageHistoryHooks } from "./image-history.js";
-import { inputContent } from "./input-content.js";
 import { inputEntry } from "./input-entry.js";
+import type { RuntimeInternals } from "./instance.js";
+import {
+	closeRuntime,
+	conversationOf,
+	environment,
+	imageProcessor,
+	modelsFor,
+	openRuntime,
+	pollQuota,
+	toolContext,
+} from "./lifecycle.js";
 import { RunLimits } from "./limits.js";
 import { createLsTool } from "./ls.js";
-import { DEFAULT_FALLBACK_AFTER, fallbackAliases, modelChain, parseAccountProvider } from "./model-chain.js";
+import { DEFAULT_FALLBACK_AFTER, modelChain } from "./model-chain.js";
 import { chainFallback } from "./model-chain-config.js";
 import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
-import { accountKey, ModelQuota } from "./model-quota.js";
+import { ModelQuota } from "./model-quota.js";
 import { ModelWatch, runAttempts } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { notificationRequestId, writeNotification } from "./notifications.js";
-import { Outbox } from "./outbox.js";
+import type { Outbox } from "./outbox.js";
 import { projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { processTool } from "./process.js";
 import { promptSections } from "./prompt-sections.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
-import { modelTimeouts, RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
+import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, taskReport, toResult } from "./results.js";
 import { runtimeNote } from "./runtime-note.js";
 import type { RuntimeOptions } from "./runtime-options.js";
+import {
+	applyRequestedEffort,
+	currentConfig,
+	preparePlacedInputs,
+	prepareRun,
+	sessionConfig,
+} from "./session-config.js";
 import { systemAsUserHooks } from "./system-as-user.js";
 import { todoTool } from "./todo-tool.js";
 import { defaultLazyGroups, lazyGroupOf } from "./tool-catalog.js";
@@ -126,10 +132,6 @@ export class Runtime {
 	private restartNotes = Promise.resolve();
 	private interrupted: Array<{ session: string; run: string }> = [];
 	private images?: Promise<ImageProcessor>;
-	private imageProcessor(): Promise<ImageProcessor> {
-		this.images ??= createNodePhotonImages();
-		return this.images;
-	}
 	private storage!: SqliteStorage;
 	private finishing = new Map<string, Promise<RuntimeRun>>();
 	private idleWaiters = new Map<string, Set<() => void>>();
@@ -212,266 +214,43 @@ export class Runtime {
 			denied: (name, args, config, context, session) => this.policy.denied(name, args, config, context, session),
 		});
 	}
+
+	/**
+	 * The instance typed as the state its extracted modules use. This cast is the only place the class hands its
+	 * private state out; every field is still declared here, so the class stays the one owner of the state.
+	 */
+	private get rt(): RuntimeInternals {
+		return this as unknown as RuntimeInternals;
+	}
+
+	private imageProcessor(): Promise<ImageProcessor> {
+		return imageProcessor(this.rt);
+	}
 	static async open(options: RuntimeOptions): Promise<Runtime> {
 		const runtime = new Runtime(options);
-		runtime.install();
-		const storage = await SqliteStorage.open(options.db, { prefix: "pi_" });
-		runtime.storage = storage;
-		runtime.harness = await Harness.open(
-			storage,
-			{
-				models: runtime.models,
-				resolveModels: async (target, context) => {
-					const session = String(target.conversationId);
-					const key = String(target.taskId);
-					const pinned = await target.read.snapshot(ModelBindingDoc, target.conversationId, key, context);
-					if (pinned?.config) return runtime.modelsFor(JSON.parse(pinned.config));
-					let task = await runtime.harness.getTask(target.taskId, context);
-					let run: number | undefined;
-					const seen = new Set<TaskId>();
-					while (task && !seen.has(task.id)) {
-						seen.add(task.id);
-						const input = task.input as { modelRun?: number };
-						if (typeof input.modelRun === "number") {
-							run = input.modelRun;
-							break;
-						}
-						if (task.owner === undefined) break;
-						task = await runtime.harness.getTask(task.owner, context);
-					}
-					await runtime.prepareRun(session, context);
-					const saved =
-						run === undefined
-							? undefined
-							: await target.read.snapshot(RunDoc, target.conversationId, String(run), context);
-					if (run !== undefined && !saved?.config) throw new Error("Missing frozen run model configuration");
-					const config: RuntimeSessionConfig = saved?.config
-						? JSON.parse(saved.config)
-						: await runtime.sessionConfig(session);
-					const models = await runtime.modelsFor(config);
-					await runtime.harness.commit(async (tx) => {
-						(await tx.doc(ModelBindingDoc, target.conversationId, key, null)).config = JSON.stringify(config);
-					}, context);
-					return models;
-				},
-				registry: runtime.registry,
-				settings: {
-					steeringMode: "all",
-					followUpMode: "all",
-					retry: retryPolicy(options.config.retry),
-					...(options.config.compaction ? { compaction: options.config.compaction } : {}),
-				},
-				beforeAgent: (target, context) => runtime.prepareRun(String(target.conversationId), context),
-				env: async (target) => {
-					const doc = await target.read.snapshot(SessionDoc, target.conversationId, C);
-					if (!doc) throw new Error("Missing yonder.session");
-					const config =
-						runtime.currentConfig(String(target.conversationId)) ??
-						(await options.resolveSession(String(target.conversationId)));
-					return runtime.environment(config);
-				},
-				...(options.onReport ? { onReport: options.onReport } : {}),
-			},
-			C,
-		);
-		runtime.outbox = new Outbox({
-			harness: runtime.harness,
-			storage,
-			sinks: options,
-			commit: async (session, change) => {
-				await (await runtime.conversation(session)).commit(change, C);
-			},
-		});
-		await runtime.health.load();
-		await runtime.quota.load();
-		runtime.watch.start();
+		await openRuntime(runtime.rt, options);
 		return runtime;
 	}
-	/** A run owns independent provider factories and catalog caches; selection never mutates a global Models. */
 	private modelsFor(config: RuntimeSessionConfig): Promise<Models> {
-		let pending = this.boundModels.get(config);
-		if (!pending) {
-			pending = (async () => {
-				const selection = Object.freeze({ ...config.resolved.credentialSlots });
-				const aliases = fallbackAliases(config.resolved.fallback, selection, config.resolved.model);
-				config.credentialGenerations ??= await this.credentialSlots.capture(selection, aliases);
-				const credentials = this.credentialSlots.bind(selection, config.credentialGenerations, aliases);
-				const models = buildModels(
-					credentials,
-					this.options.config.models?.providers,
-					selection,
-					aliases,
-					{
-						onProviderEvent: (provider, data) => {
-							const alias = parseAccountProvider(provider);
-							const account = alias
-								? accountKey(alias.provider, alias.slot)
-								: accountKey(provider, selection[provider] ?? "default");
-							this.quota.record(account, data);
-						},
-					},
-					modelTimeouts(this.options.config.timeouts),
-				);
-				for (const [provider, slot] of Object.entries(selection)) {
-					if (!models.getProvider(provider)) throw new Error(`Unknown model provider: ${provider}`);
-					if (slot !== "default") await credentials.read(provider);
-				}
-				for (const alias of Object.keys(aliases)) await credentials.read(alias);
-				return models;
-			})();
-			this.boundModels.set(config, pending);
-		}
-		return pending;
+		return modelsFor(this.rt, config);
 	}
 	private environment(config: RuntimeSessionConfig): ExecutionEnv {
-		if (config.resolved.env === "local") return localEnvironment(config.cwd);
-		const env = this.options.envs?.get(config.resolved.env);
-		if (!env) throw new Error(`Unknown execution environment: ${config.resolved.env}`);
-		return env;
+		return environment(this.rt, config);
 	}
 	private async context(id: string, context: Context): Promise<ToolContext> {
-		const saved = this.invocationConfigs.get(context);
-		const config = saved?.config ?? this.currentConfig(id) ?? (await this.options.resolveSession(id));
-		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		const events = saved?.events ?? (await this.sources(live?.run?.inputs ?? []));
-		const input = events[0];
-		return {
-			agent: config.agent,
-			profile: config.profile,
-			session: id,
-			capabilities: [...config.resolved.capabilities],
-			...(config.resolved.channelInstances === undefined
-				? {}
-				: { channelInstances: [...config.resolved.channelInstances] }),
-			env: this.environment(config),
-			...(input ? { event: input } : {}),
-			events,
-			signal: context.abortSignal!,
-		};
+		return toolContext(this.rt, id, context);
 	}
 	currentConfig(id: string): RuntimeSessionConfig | undefined {
-		return this.configured.get(id);
+		return currentConfig(this.rt, id);
 	}
 	async sessionConfig(id: string): Promise<RuntimeSessionConfig> {
-		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		return (live?.run ? this.currentConfig(id) : undefined) ?? this.options.resolveSession(id);
+		return sessionConfig(this.rt, id);
 	}
 	private async prepareRun(session: string, context: Context): Promise<void> {
-		await this.restartNotes;
-		const live = await this.harness.snapshot(LiveDoc, cid(session), context);
-		if (!live?.run) return;
-		const id = String(live.run.inputs[0]);
-		const active = this.limits.states.get(id);
-		if (active) {
-			if (!this.restoring) await this.preparePlacedInputs(session, active.config, active.started, context);
-			return;
-		}
-		const saved = await this.harness.snapshot(RunDoc, cid(session), id, context);
-		// beforeAgent is actual execution, unlike admission into the inbox. Also runs
-		// for a genuinely live recovered run, never for a historical receipt.
-		await this.harness.commit(async (tx) => {
-			const activity = await tx.doc(SessionDoc, cid(session));
-			activity.activityRunId = id;
-			activity.activityIssue = null;
-		}, context);
-		const started = saved?.started || Date.now();
-		const config: RuntimeSessionConfig = saved?.config
-			? JSON.parse(saved.config)
-			: structuredClone(await this.options.resolveSession(session));
-		const usageBefore = saved?.config ? saved.usageBefore : await this.usage(session);
-		if (!saved?.config) await this.applyRequestedEffort(session, config, context);
-		await this.modelsFor(config);
-		await this.applyConfiguration(session, config);
-		if (!saved?.config) {
-			await this.harness.commit(async (tx) => {
-				Object.assign(await tx.doc(RunDoc, cid(session), id, null), {
-					config: JSON.stringify(config),
-					started,
-					usageBefore,
-				});
-			}, context);
-		}
-		this.configured.set(session, config);
-		const state: RunState = {
-			visibility: new AbortController(),
-			id,
-			session,
-			config,
-			started,
-			lastToolAt: saved?.config ? Date.now() : started,
-			warnings: new Set(saved?.warnings ?? []),
-			usageBefore,
-			toolTasks: [...(saved?.toolTasks ?? [])],
-			turns: saved?.turns ?? 0,
-			repeats: saved?.repeats ?? 0,
-			...(saved?.previous ? { previous: JSON.parse(saved.previous) } : {}),
-			...(saved?.reason ? { reason: saved.reason } : {}),
-			...(saved?.error ? { error: saved.error } : {}),
-			timer: undefined,
-			deadline: started + config.resolved.limits.maxMinutes * 60000,
-		};
-		if (!this.restoring) this.limits.arm(state);
-		this.limits.states.set(id, state);
-		if (!this.restoring) await this.preparePlacedInputs(session, config, started, context);
+		await prepareRun(this.rt, session, context);
 	}
-	/** Per-run effort from authorized delegations; changes only this run's snapshot, never the profile or session. */
 	private async applyRequestedEffort(session: string, config: RuntimeSessionConfig, context: Context): Promise<void> {
-		const view = await (await this.conversation(session)).context(context);
-		const prepared = new Set(
-			view.entries
-				.filter((entry) => entry.kind === "yonder.prepared")
-				.map((entry) => (entry.data as { target: number }).target),
-		);
-		const events: YEvent[] = [];
-		for (const entry of view.entries) {
-			const data = entry.data as { raw?: boolean; event?: string } | undefined;
-			if (entry.kind !== "yonder.message" || !data?.raw || !data.event || prepared.has(entry.id)) continue;
-			const event = await this.options.readEvent?.(data.event);
-			if (event) events.push(event);
-		}
-		const overrides = events
-			.filter(
-				(event) =>
-					event.type === "session.input" &&
-					event.from?.startsWith("agent:") &&
-					(event.data as { taskOwned?: boolean }).taskOwned === true,
-			)
-			.map((event) => (event.data as { credentialSlots?: Record<string, string> }).credentialSlots)
-			.filter((value) => value !== undefined);
-		for (const override of overrides) {
-			if (!override || typeof override !== "object" || Array.isArray(override))
-				throw new Error("Invalid credential slot override");
-			for (const [provider, slot] of Object.entries(override)) {
-				validateSlotPart(provider);
-				validateSlotPart(slot);
-			}
-		}
-		config.resolved.credentialSlots = mergeCredentialSlots(config.resolved.credentialSlots, ...overrides);
-		const asked = requestedEffort(events);
-		if (!asked) return;
-		const slash = config.resolved.model.indexOf("/");
-		const model = (await this.modelsFor(config)).getModel(
-			config.resolved.model.slice(0, slash),
-			config.resolved.model.slice(slash + 1),
-		);
-		try {
-			if (!model) throw new Error("Unknown model");
-			const resolution = resolveEffort(model, config.resolved.thinking as ModelThinkingLevel, asked.requested, true);
-			config.resolved = { ...config.resolved, thinking: resolution.effective };
-			config.effort = {
-				requested: asked.requested,
-				effective: resolution.effective,
-				...(resolution.fallbackReason ? { reason: resolution.fallbackReason } : {}),
-				inputs: asked.inputs,
-			};
-		} catch {
-			config.effort = {
-				requested: asked.requested,
-				effective: config.resolved.thinking,
-				reason: "model-without-effort",
-				inputs: asked.inputs,
-			};
-		}
+		await applyRequestedEffort(this.rt, session, config, context);
 	}
 	private install() {
 		this.background = createBackground({
@@ -694,7 +473,6 @@ export class Runtime {
 			]),
 		});
 	}
-	/** Shared services may only act with the exact context of an active native tool invocation. */
 	assertToolContext(ctx: ToolContext): void {
 		if (!this.toolInvocations.has(ctx)) throw new Error("需要真实运行中的工具调用上下文。");
 		ctx.signal.throwIfAborted();
@@ -715,7 +493,6 @@ export class Runtime {
 			getOrThrow(await ctx.env.canonicalPath(path, invocation.context));
 		}
 	}
-
 	async create(meta: {
 		agent: string | null;
 		profile: string;
@@ -794,14 +571,12 @@ export class Runtime {
 			this.activeLazy,
 		);
 	}
-	/** X7：把懒加载分组提升为常驻工具；tool_search 命中同一分组时也走这里，重新配置后即可直接调用。 */
 	async activateTools(id: string, names: string[]): Promise<string[]> {
 		const activated = this.lazyGroupsOf(id, names);
 		for (const group of activated) this.activeLazy.add(group);
 		if (activated.length) await this.configure(id);
 		return activated;
 	}
-	/** X7：撤销显式激活，分组内的工具回到 tool_search 命中后才载入。 */
 	async deactivateTools(id: string, names: string[]): Promise<string[]> {
 		const deactivated = this.lazyGroupsOf(id, names);
 		for (const group of deactivated) this.activeLazy.delete(group);
@@ -983,9 +758,7 @@ export class Runtime {
 		return String(await (await this.conversation(id)).compact(instructions, C));
 	}
 	private async conversation(id: string) {
-		const value = await this.harness.conversation(cid(id), C);
-		if (!value) throw new Error(`Unknown conversation: ${id}`);
-		return value;
+		return conversationOf(this.rt, id);
 	}
 	private async preparePlacedInputs(
 		session: string,
@@ -993,69 +766,8 @@ export class Runtime {
 		started: number,
 		context: Context,
 	): Promise<void> {
-		const conversation = await this.conversation(session);
-		let view = await conversation.context(context);
-		const prepared = new Set(
-			view.entries
-				.filter((entry) => entry.kind === "yonder.prepared")
-				.map((entry) => (entry.data as { target: number }).target),
-		);
-		for (const entry of view.entries) {
-			const data = entry.data as
-				| { raw?: boolean; event?: string; wake?: "run" | "write"; attachments?: Attachment[] }
-				| undefined;
-			if (entry.kind !== "yonder.message" || !data?.raw || prepared.has(entry.id)) continue;
-			const event = data.event ? await this.options.readEvent?.(data.event) : undefined;
-			if (data.event && !event) throw new Error(`Missing input event: ${data.event}`);
-			const input =
-				event && this.options.prepareInput
-					? await this.options.prepareInput(session, event, config, data.wake ?? "run", context.abortSignal)
-					: { text: textOf(entry), ...(event ? { event } : {}), attachments: data.attachments ?? [] };
-			if (data.wake !== "write") {
-				const now = Date.now();
-				input.text = `<runtime_clock utc="${new Date(now).toISOString()}">Elapsed ${Math.round((now - started) / 1000)} seconds at input preparation. Time/turn/token thresholds are reminders; explicit cancellation and real provider limits remain effective.</runtime_clock>\n\n${input.text}`;
-			}
-			const slash = config.resolved.model.indexOf("/");
-			const model = (await this.modelsFor(config)).getModel(
-				config.resolved.model.slice(0, slash),
-				config.resolved.model.slice(slash + 1),
-			);
-			const images = view.messages.flatMap((message) =>
-				Array.isArray(message.content) ? message.content.filter((block) => block.type === "image") : [],
-			).length;
-			const content = await inputContent(
-				config,
-				input,
-				context,
-				(model?.inputLimits?.images?.maxPerRequest ?? Infinity) - images,
-				(model?.inputLimits?.maxRequestBytes ?? Infinity) - Buffer.byteLength(JSON.stringify(view.messages)),
-				(config) => this.environment(config),
-				(config) => this.modelsFor(config),
-				() => this.imageProcessor(),
-			);
-			await this.harness.commit(async (tx) => {
-				await tx.appendEntry(cid(session), {
-					kind: "yonder.prepared",
-					data: JSON.parse(
-						JSON.stringify({
-							target: entry.id,
-							event: data.event,
-							attachments:
-								(input.event?.data as { attachments?: Attachment[] } | undefined)?.attachments ??
-								input.attachments ??
-								[],
-						}),
-					),
-					edits: [
-						{ target: entry.id, action: "replace", messages: [{ role: "user", content, timestamp: Date.now() }] },
-					],
-				});
-			}, context);
-			await this.options.onAdmitted?.(session, input);
-			view = await conversation.context(context);
-		}
+		await preparePlacedInputs(this.rt, session, config, started, context);
 	}
-
 	async notificationRecorded(id: string, from: string, event: string) {
 		return Boolean(await this.storage.submissionByRequest(cid(id), notificationRequestId(from, event), C));
 	}
@@ -1147,7 +859,6 @@ export class Runtime {
 			await stream?.stop();
 		}
 	}
-	/** Resolve at durable admission; observe the eventual run without holding its caller. */
 	async enqueue(id: string, input: RuntimeInput): Promise<void> {
 		await new Promise<void>((accept, reject) => {
 			void this.submit(id, input, accept).catch((error) => {
@@ -1168,7 +879,6 @@ export class Runtime {
 	): Promise<void> {
 		this.submissions.set(String(submission.id), { event });
 	}
-
 	async abort(id: string): Promise<void> {
 		const [live, activity] = await Promise.all([
 			this.harness.snapshot(LiveDoc, cid(id), C),
@@ -1205,7 +915,6 @@ export class Runtime {
 		}
 		return result;
 	}
-
 	async observe(id: string, send: (update: TerminalUpdate) => Promise<void>) {
 		let runId: string | undefined,
 			eventIds: string[] = [];
@@ -1226,7 +935,6 @@ export class Runtime {
 		);
 		return page.items.flatMap((entry) => entry.model ?? []);
 	}
-
 	async transcript(
 		id: string,
 		range: { from?: number; limit?: number; before?: number } = {},
@@ -1445,7 +1153,6 @@ export class Runtime {
 			this.finishing.delete(finishKey);
 		}
 	}
-	/** The existing receipt observer projects only the run actually started by this core. */
 	private async settleActivity(
 		session: string,
 		runId: string,
@@ -1474,8 +1181,6 @@ export class Runtime {
 			state.activityIssue ??= { code, since: Date.now(), runId };
 		}, C);
 	}
-
-	// ponytail: scan native receipts; use an upstream lookup if long-session cost becomes measurable.
 	private async settledRun(session: string, done: Awaited<ReturnType<Submission["wait"]>>): Promise<RuntimeRun> {
 		const receipts = await this.storage.scanDocuments(
 			{ scope: { kind: "conversation", conversationId: cid(session) }, kind: "pi.run-receipt", at: "current" },
@@ -1504,7 +1209,6 @@ export class Runtime {
 		}
 		throw new Error(`submission ${done.id} 无原生回执，历史运行归属不可确定`);
 	}
-	/** Read and project durable endings before any submit/wait/resume starts scheduling. */
 	async recover(): Promise<void> {
 		this.restoring = true;
 		const conversations = await this.storage.scanConversations({}, Number.MAX_SAFE_INTEGER, undefined, C);
@@ -1611,7 +1315,6 @@ export class Runtime {
 			await this.options.onSessionSettled?.({ session, status: result.status === "limit" ? "idle" : result.status });
 		}
 	}
-
 	private async causedBy(source: import("@yonder/sdk").YEvent | undefined, input: string): Promise<boolean> {
 		const seen = new Set<string>();
 		while (source && !seen.has(source.id)) {
@@ -1650,13 +1353,11 @@ export class Runtime {
 			}
 		}
 	}
-
 	async resultText(session: string, runId: string): Promise<string> {
 		const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), runId, C);
 		const end = receipt?.settlement;
 		return end?.status === "done" ? textOf(await this.harness.commit((tx) => tx.entry(end.answer), C)) : "";
 	}
-
 	async responseText(session: string, event: string): Promise<string> {
 		const record = await this.storage.submissionByRequest(cid(session), `event:${event}`, C);
 		return record?.status === "done" && record.answer
@@ -1693,11 +1394,9 @@ export class Runtime {
 	async login(provider: string, type: "api_key" | "oauth", interaction: Parameters<Models["login"]>[2]): Promise<void> {
 		await loginProvider(this.options.home, this.options.config, provider, interaction, { method: type });
 	}
-
 	async writeNote(id: string, requestId: string, text: string): Promise<void> {
 		await (await this.conversation(id)).submit(runtimeNote(requestId, text), C);
 	}
-
 	async hasBackgroundWork(id: string, except?: number, input?: string): Promise<boolean> {
 		const tasks = await this.storage.scanTasks(
 			{ conversationId: cid(id), kind: "yonder.background" },
@@ -1728,8 +1427,6 @@ export class Runtime {
 		if (!invocation) throw new Error("Requires an active runtime tool invocation");
 		return this.hasBackgroundWork(ctx.session, invocation.api.taskId);
 	}
-
-	/** Read native state only; waiting for a UI answer is not executable work. */
 	async hasAwakeWork(id: string): Promise<boolean> {
 		const tasks = await this.storage.scanTasks(
 			{ conversationId: cid(id), kind: "yonder.background" },
@@ -1746,7 +1443,6 @@ export class Runtime {
 		const slots = live?.tools?.filter((slot) => slot.status !== "done") ?? [];
 		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "interaction_result"));
 	}
-
 	async backgroundList(session: string) {
 		return this.background.list(session, this.storage);
 	}
@@ -1760,8 +1456,6 @@ export class Runtime {
 		if (!page.items[0]) throw new Error("Child task has not started");
 		return { session: String(page.items[0].id), state: job.state };
 	}
-
-	/** Owner-local presentation, projected from native live state, never reasoning or tool payloads. */
 	async activity(id: string) {
 		const [live, inbox, background, activity] = await Promise.all([
 			this.harness.snapshot(LiveDoc, cid(id), C),
@@ -1861,7 +1555,6 @@ export class Runtime {
 			text: text.trim().slice(-240),
 		};
 	}
-
 	async hasPendingWork(id: string, input?: string): Promise<boolean> {
 		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
 		if (live?.run) {
@@ -1877,7 +1570,6 @@ export class Runtime {
 			}
 		return this.hasBackgroundWork(id, undefined, input);
 	}
-
 	async executeCommand(
 		config: RuntimeSessionConfig,
 		request: { command: string | string[]; cwd?: string; signal?: AbortSignal },
@@ -1911,42 +1603,13 @@ export class Runtime {
 			exitCode: result.exitCode,
 		};
 	}
-
-	/**
-	 * Poll only the accounts a stop line names. Without `quotaStopPercent` nothing is scheduled, so ordinary
-	 * homes keep the no-extra-request behaviour of 07 §6.1.
-	 */
 	private pollQuota(
 		fallback: RuntimeSessionConfig["resolved"]["fallback"],
 		selection: RuntimeSessionConfig["resolved"]["credentialSlots"],
 	): void {
-		const stops = fallback?.quotaStopPercent;
-		if (!stops) return;
-		const accounts: Array<{ provider: string; slot: string }> = [];
-		for (const [provider, slots] of Object.entries(fallback?.accounts ?? {}))
-			for (const slot of slots) if (stops[slot] !== undefined) accounts.push({ provider, slot });
-		for (const [provider, slot] of Object.entries(selection ?? {}))
-			if (stops[slot] !== undefined) accounts.push({ provider, slot });
-		this.quotaPoller.watch(accounts);
-		this.quotaPoller.start();
+		pollQuota(this.rt, fallback, selection);
 	}
-
 	async close(): Promise<void> {
-		for (const state of this.limits.states.values()) {
-			state.visibility.abort();
-			clearTimeout(state.timer);
-		}
-		await this.restartNotes;
-		this.quotaPoller.stop();
-		this.watch.stop();
-		await this.background.close();
-		try {
-			await this.harness.close(C);
-		} finally {
-			for (const state of this.limits.states.values()) {
-				state.visibility.abort();
-				clearTimeout(state.timer);
-			}
-		}
+		await closeRuntime(this.rt);
 	}
 }
