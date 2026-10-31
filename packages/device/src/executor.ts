@@ -1,17 +1,13 @@
-import { createHash, createPublicKey, randomUUID } from "node:crypto";
-import { createServer, type RequestListener, type Server } from "node:http";
-import { createServer as createHttpsServer, type Server as HttpsServer } from "node:https";
-import { isIP } from "node:net";
-import { isAbsolute, relative, sep } from "node:path";
+import { createPublicKey } from "node:crypto";
+import type { Server } from "node:http";
+import type { Server as HttpsServer } from "node:https";
 import {
 	type CommandReceipt,
-	commandDigest,
 	commandKey,
 	type DeviceSession,
 	decodeCommand,
 	type ExecutionCapability,
 	type Grant,
-	OriginSchema,
 	type RpcRequest,
 	type RpcResponse,
 	type SignedEnvelope,
@@ -21,38 +17,12 @@ import {
 } from "@yonder/protocol";
 import { Check } from "typebox/value";
 import type { BackendProvider } from "./backend-provider.js";
+import { operateRpc } from "./executor-commands.js";
+import type { CommandDeps } from "./executor-deps.js";
+import { serveExecution } from "./executor-http.js";
+import { covered, digest, errorCodes, fail, has, now } from "./executor-support.js";
 import { type CommandRecord, ExecutorStore } from "./store.js";
 
-const errorCodes = new Set([
-	"INVALID_REQUEST",
-	"UNSUPPORTED_VERSION",
-	"UNPAIRED",
-	"UNAUTHORIZED",
-	"WRONG_TARGET",
-	"GRANT_EXPIRED",
-	"GRANT_REVOKED",
-	"LEASE_EXPIRED",
-	"LEASE_STALE",
-	"COMMAND_CONFLICT",
-	"COMMAND_NOT_FOUND",
-	"BUSY",
-	"UNSUPPORTED_OPERATION",
-	"OUTCOME_UNKNOWN",
-	"INTERNAL_ERROR",
-]);
-const fail = (code: string): never => {
-	throw new Error(code);
-};
-const now = () => new Date().toISOString();
-const digest = (value: string) => createHash("sha256").update(value).digest("hex");
-const has = (grant: Grant, capability: ExecutionCapability) => grant.capabilities.includes(capability);
-const covered = (resource: string, roots: string[]) =>
-	isAbsolute(resource) &&
-	roots.some((root) => {
-		if (!isAbsolute(root)) return false;
-		const path = relative(root, resource);
-		return path === "" || (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path));
-	});
 export class DeviceExecutor {
 	readonly store: ExecutorStore;
 	private readonly requestsInFlight = new Map<string, { digest: string; response: Promise<SignedEnvelope> }>();
@@ -162,6 +132,23 @@ export class DeviceExecutor {
 		}
 		return receipt;
 	}
+	/** The commands table's view of this executor: same methods, read at call time. */
+	private commandDeps(): CommandDeps {
+		return {
+			store: this.store,
+			backend: this.backend,
+			deviceId: this.deviceId,
+			grant: (principalId, targetId, capability, action) => this.grant(principalId, targetId, capability, action),
+			session: (principalId, sessionId) => this.session(principalId, sessionId),
+			authorizeSession: (session, capabilities, action) => this.authorizeSession(session, capabilities, action),
+			authorizeResources: (session, readRoots, writeRoots) => this.authorizeResources(session, readRoots, writeRoots),
+			record: (principalId, commandId) => this.record(principalId, commandId),
+			query: (principalId, commandId) => this.query(principalId, commandId),
+			running: this.running,
+			busy: () => !!this.writer,
+			startDispatch: (key) => this.startDispatch(key),
+		};
+	}
 	private async dispatch(key: string): Promise<void> {
 		if (this.faulted) return;
 		const record = this.store.data.commands[key];
@@ -230,148 +217,6 @@ export class DeviceExecutor {
 		void done.catch(() => {
 			this.faulted = true;
 		});
-	}
-	private async operate(request: RpcRequest, commit: (result: unknown) => void): Promise<unknown> {
-		const p = request.principalId;
-		switch (request.method) {
-			case "device.describe": {
-				const descriptor = await this.backend.describe();
-				if (descriptor.deviceId !== this.deviceId || descriptor.checkpointRestore !== "unsupported")
-					fail("INVALID_REQUEST");
-				const targets = descriptor.targets.filter((t) => {
-					try {
-						this.grant(p, t.id, "read");
-						return true;
-					} catch {
-						return false;
-					}
-				});
-				if (!targets.length) fail("UNAUTHORIZED");
-				const visible = new Set(targets.map((t) => t.id));
-				return { ...descriptor, targets, capabilities: descriptor.capabilities.filter((c) => visible.has(c.scope)) };
-			}
-			case "device.apps.list": {
-				this.grant(p, request.params.targetId, "read");
-				const inventory = await this.backend.apps(request.params.targetId);
-				if (inventory.deviceId !== this.deviceId || inventory.targetId !== request.params.targetId)
-					fail("INVALID_REQUEST");
-				return inventory;
-			}
-			case "device.ui.snapshot": {
-				const session = this.session(p, request.params.deviceSessionId);
-				this.authorizeSession(session, ["read"]);
-				const snapshot = await this.backend.snapshot(session);
-				if (
-					snapshot.deviceId !== this.deviceId ||
-					snapshot.deviceSessionId !== session.deviceSessionId ||
-					snapshot.targetId !== session.targetId
-				)
-					fail("INVALID_REQUEST");
-				return snapshot;
-			}
-			case "device.sessions.open": {
-				const { targetId, grantId, capabilities, origin } = request.params;
-				if (!Check(OriginSchema, origin) || !capabilities.length || !capabilities.includes("read"))
-					fail("INVALID_REQUEST");
-				const grant = this.store.data.grants[grantId];
-				if (!grant || grant.principalId !== p || !grant.targetIds.includes(targetId)) throw new Error("UNAUTHORIZED");
-				this.grant(p, targetId, "read");
-				if (grant.revokedAt) fail("GRANT_REVOKED");
-				if (Date.parse(grant.expiresAt) <= Date.now()) fail("GRANT_EXPIRED");
-				if (capabilities.some((c) => !grant.capabilities.includes(c))) fail("UNAUTHORIZED");
-				const descriptor = await this.backend.describe();
-				if (!descriptor.targets.some((t) => t.id === targetId)) fail("WRONG_TARGET");
-				if (grant.revokedAt) fail("GRANT_REVOKED");
-				if (Date.parse(grant.expiresAt) <= Date.now()) fail("GRANT_EXPIRED");
-				const epoch = (this.store.data.leaseEpochs[targetId] ?? 0) + 1;
-				const session: DeviceSession = {
-					deviceSessionId: randomUUID(),
-					deviceId: this.deviceId,
-					principalId: p,
-					targetId,
-					grantId,
-					grantRevision: grant.revision,
-					leaseEpoch: epoch,
-					capabilities,
-					origin,
-					expiresAt: new Date(Math.min(Date.now() + 300_000, Date.parse(grant.expiresAt))).toISOString(),
-				};
-				this.store.data.leaseEpochs[targetId] = epoch;
-				this.store.data.sessions[session.deviceSessionId] = session;
-				commit(session);
-				return session;
-			}
-			case "device.sessions.close": {
-				const session = this.session(p, request.params.deviceSessionId);
-				this.store.data.leaseEpochs[session.targetId] = session.leaseEpoch + 1;
-				commit({ closed: true });
-				return { closed: true };
-			}
-			case "commands.submit": {
-				const command = decodeCommand(request.params.commandBase64, { deviceId: this.deviceId, principalId: p });
-				const key = commandKey(command);
-				const existing = this.store.data.commands[key];
-				if (existing) {
-					if (existing.receipt.payloadSha256 !== commandDigest(request.params.commandBase64)) fail("COMMAND_CONFLICT");
-					this.session(p, command.deviceSessionId);
-					return existing.receipt;
-				}
-				const session = this.session(p, command.deviceSessionId);
-				if (command.leaseEpoch !== session.leaseEpoch) fail("LEASE_STALE");
-				const action = this.backend.actions[command.action];
-				if (!action) throw new Error("UNSUPPORTED_OPERATION");
-				if (!action.validate(command.arguments)) fail("INVALID_REQUEST");
-				this.authorizeSession(session, action.capabilities, command.action);
-				const resources = action.resources?.(command.arguments) ?? { readRoots: [], writeRoots: [] };
-				this.authorizeResources(session, resources.readRoots, resources.writeRoots);
-				if (action.mutatesDevice && this.writer) fail("BUSY");
-				const acceptedAt = now();
-				const receipt: CommandReceipt = {
-					deviceId: this.deviceId,
-					principalId: p,
-					commandId: command.commandId,
-					deviceSessionId: command.deviceSessionId,
-					payloadSha256: commandDigest(request.params.commandBase64),
-					state: "accepted",
-					acceptedAt,
-					updatedAt: acceptedAt,
-				};
-				const acceptedGrant = this.store.data.grants[session.grantId];
-				if (!acceptedGrant) throw new Error("UNAUTHORIZED");
-				this.store.data.commands[key] = {
-					receipt,
-					commandBase64: request.params.commandBase64,
-					targetId: session.targetId,
-					action: command.action,
-					readRoots: [...resources.readRoots],
-					writeRoots: [...resources.writeRoots],
-				};
-				commit(receipt);
-				queueMicrotask(() => this.startDispatch(key));
-				return receipt;
-			}
-			case "commands.status":
-				return this.query(p, request.params.commandId);
-			case "commands.cancel": {
-				const { key, record } = this.record(p, request.params.commandId);
-				this.grant(p, record.targetId, "exec", record.action);
-				if (record.receipt.state === "accepted") {
-					record.receipt.state = "cancelled";
-					record.receipt.updatedAt = now();
-					commit(record.receipt);
-				} else if (record.receipt.state === "running") {
-					const running = this.running.get(key);
-					if (!running) throw new Error("OUTCOME_UNKNOWN");
-					running.abort.abort();
-					await running.done;
-				}
-				return record.receipt;
-			}
-			case "grants.revoke":
-				this.store.revoke(p, request.params.grantId, false);
-				commit({ revoked: true });
-				return { revoked: true };
-		}
 	}
 	/** Both direct and relay adapters call this one authenticated entry point. */
 	async handle(envelope: unknown): Promise<SignedEnvelope> {
@@ -445,7 +290,7 @@ export class DeviceExecutor {
 			response = cached.response as RpcResponse;
 		} else {
 			try {
-				const result = await this.operate(request, commit);
+				const result = await operateRpc(this.commandDeps(), request, commit);
 				if (!response) {
 					if (mutates) commit(result);
 					else response = { ...header, ok: true, result };
@@ -474,36 +319,13 @@ export class DeviceExecutor {
 	async listenDirect(options: { host: string; port: number; tls?: { key: Buffer; cert: Buffer } }): Promise<number> {
 		this.assertHealthy();
 		if (this.server) fail("BUSY");
-		if (isIP(options.host) === 0 || (options.host !== "127.0.0.1" && !options.tls)) fail("UNAUTHORIZED");
-		const handler: RequestListener = async (req, res) => {
-			if (req.method !== "POST" || req.url !== "/execution/v1") {
-				res.writeHead(404).end();
-				return;
-			}
-			try {
-				const chunks: Buffer[] = [];
-				let size = 0;
-				for await (const chunk of req) {
-					size += chunk.length;
-					if (size > 1_500_000) fail("INVALID_REQUEST");
-					chunks.push(chunk);
-				}
-				const answer = await this.handle(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-				res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(answer));
-			} catch {
-				res.writeHead(400).end();
-			}
-		};
-		const server = options.tls ? createHttpsServer(options.tls, handler) : createServer(handler);
-		this.server = server;
-		await new Promise<void>((resolve, reject) => {
-			server.once("error", reject);
-			server.listen(options.port, options.host, () => {
-				server.off("error", reject);
-				resolve();
-			});
-		});
-		return (server.address() as { port: number }).port;
+		return serveExecution(
+			(envelope) => this.handle(envelope),
+			options,
+			(server) => {
+				this.server = server;
+			},
+		);
 	}
 	async close(): Promise<void> {
 		if (this.server) {

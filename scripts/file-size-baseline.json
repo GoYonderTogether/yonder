@@ -2,9 +2,5 @@
 	"packages/core/src/runtime/index.ts": {
 		"lines": 1952,
 		"reason": "待拆分：Runtime 上帝对象，会话生命周期、工具装配、事件分发全在一个类"
-	},
-	"packages/device/src/executor.ts": {
-		"lines": 522,
-		"reason": "待拆分：DeviceExecutor 混合设备协议处理与命令调度"
 	}
 }
