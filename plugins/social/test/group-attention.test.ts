@@ -96,6 +96,38 @@ test("explicit recipients override attention, keywords and accumulated count whi
 	}
 });
 
+test("a derived default range never wakes on the count fallback without an explicit batch.run", async () => {
+	const f = await groupFixture();
+	try {
+		const attention = new GroupAttention(f.probe.api);
+		await attention.start();
+		const counter = { agent: "main", counter: 20 };
+		const policy = { keywords: ["unmatched"], minIntervalSeconds: 0 };
+		const source = await f.probe.ios["qq-main"].emit(message("普通无关闲聊"));
+		// 显式参与：count 兜底仍按原有语义唤醒。
+		expect(await attention.consider(counter, "room", [source], policy, new Set())).toMatchObject({ matched: true });
+		// 08：派生默认范围没有 batch.run: true 时，count 兜底不得自行唤醒，只记录。
+		expect(
+			await attention.consider(counter, "room", [source], policy, new Set(), { countFallback: false }),
+		).toMatchObject({ matched: false });
+		// 硬触发（关键词）仍然可运行。
+		expect(
+			await attention.consider(
+				{ agent: "main", counter: 0 },
+				"room",
+				[source],
+				{ ...policy, keywords: ["闲聊"] },
+				new Set(),
+				{
+					countFallback: false,
+				},
+			),
+		).toMatchObject({ matched: true });
+	} finally {
+		await f.close();
+	}
+});
+
 test("same-window requests for two Bots preserve each one's own source instead of consuming the earlier task", async () => {
 	const f = await groupFixture({ social: true });
 	try {

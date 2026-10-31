@@ -16,6 +16,8 @@ export interface GroupProbe {
 	ios: Record<string, ChannelIO>;
 	sent: Array<{ to: string; text: string }>;
 	contexts: ToolContext[];
+	/** The actual `messages` each request hook received after social's own hook ran. */
+	messages: Array<Array<{ role: string; content: unknown }>>;
 	releases: Map<string, () => void>;
 	results: Delivery[];
 	onRequest?: (ctx: ToolContext) => Promise<void>;
@@ -36,6 +38,8 @@ export async function groupFixture(
 		initialRules?: Record<string, unknown>;
 		identities?: Record<string, string>;
 		review?: { intervalHours?: number; minMessages?: number };
+		/** 官方 QQ 群形态：群原消息 write 旁观，运行只由 social.batch-ready 发起（spec 11 §15）。 */
+		officialGroup?: boolean;
 	} = {},
 ) {
 	const home = await mkdtemp("/tmp/yonder-group-delivery-");
@@ -73,9 +77,10 @@ export default {...plugin,setup(api){globalThis[${JSON.stringify(`${key}:social`
 		await writeFile(
 			join(home, "probe/index.mjs"),
 			`export default {setup(api){
-const state={api,socialApi:globalThis[${JSON.stringify(`${key}:social`)}],ios:{},sent:[],contexts:[],releases:new Map(),results:[]}; globalThis[${JSON.stringify(key)}]=state;
+const state={api,socialApi:globalThis[${JSON.stringify(`${key}:social`)}],ios:{},sent:[],contexts:[],messages:[],releases:new Map(),results:[]}; globalThis[${JSON.stringify(key)}]=state;
 api.hooks.register({id:'hold',async beforeRequest(messages,ctx){
 state.contexts.push(ctx);
+state.messages.push(messages.map(message=>({role:message.role,content:message.content})));
 await new Promise(resolve=>{state.releases.set(ctx.session,resolve);if(ctx.signal.aborted)resolve();else ctx.signal.addEventListener('abort',resolve,{once:true});});
 ctx.signal.throwIfAborted();if(state.onRequest)await state.onRequest(ctx);
 if(!${Boolean(options.allowProvider)})throw Error('GROUP_DELIVERY_PROBE_BEFORE_PROVIDER');
@@ -192,7 +197,8 @@ api.channels.register({
 										match: { channel: instance, kind: "group" },
 										session: { mode: "persistent", per: "conv" },
 										profile: "group",
-										wake: "mention",
+										// 官方 QQ 群是 write 旁观：内核不因 @ 启动运行，参与机会由 social 发起。
+										wake: options.officialGroup ? "write" : "mention",
 										reply: "none",
 									},
 									{

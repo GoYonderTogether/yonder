@@ -1,19 +1,25 @@
 import { createHash } from "node:crypto";
 import type { Channel, SocialMessageData, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
-
-import { membershipGroup } from "./platform-group.js";
+import { participationPlugin } from "./participation.js";
+import { membershipGroup, officialGroupBinding, officialGroupDefault } from "./platform-group.js";
 
 type Kind = "dm" | "group" | "channel";
 export function socialDecision(agent: AgentConfig, event: YEvent, person: string | undefined, channel?: Channel) {
 	const member = membershipGroup(agent, event, channel);
-	const social = agent.social ?? (member ? { enabled: true } : undefined);
+	// 官方群绑定接纳本身就授权该群（08），与是否派生默认范围无关。
+	const bound = member || officialGroupBinding(agent, event, channel);
+	// 08「官方 QQ 群的默认参与范围」：官方群绑定接纳的群在没有手写 scope 时派生的受限默认，不写回配置。
+	// 显式选择的自定义参与插件优先：不会被派生默认为运行，也不由 social 代它判断。
+	const custom = agent.social?.enabled === true && participationPlugin(agent, event) !== "social";
+	const official = !member && !custom && officialGroupDefault(agent, event, channel);
+	const social = agent.social ?? (member || official ? { enabled: true } : undefined);
 	if (
 		!social ||
 		social.enabled === false ||
-		(!social.enabled && !member) ||
+		(!social.enabled && !member && !official) ||
 		event.type !== "message.in" ||
-		(!member && social.scope && (!event.conv || !social.scope.includes(event.conv)))
+		(!member && !official && social.scope && (!event.conv || !social.scope.includes(event.conv)))
 	)
 		return undefined;
 	const data = event.data as {
@@ -31,8 +37,9 @@ export function socialDecision(agent: AgentConfig, event: YEvent, person: string
 	const subjects = [event.conv, event.from, person].filter((v): v is string => !!v);
 	if (subjects.some((s) => social.denied?.includes(s))) return result("denied");
 	const owner = kind === "dm" && !!person && person === agent.owner;
+	// 官方群绑定接纳本身就是该群的授权（08），不需要再手写 authorized。
 	const authorized =
-		member ||
+		bound ||
 		owner ||
 		!!(event.conv && social.authorized?.conversations?.includes(event.conv)) ||
 		!!(event.from && social.authorized?.accounts?.includes(event.from)) ||

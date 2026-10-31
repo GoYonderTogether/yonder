@@ -37,6 +37,9 @@ interface GroupState {
 	active?: Promise<void>;
 	timer?: ReturnType<typeof setTimeout>;
 	error?: string;
+	/** No legacy run binding accepted the batch: participation belongs to social (spec 11 §15). */
+	unbound?: boolean;
+	reported?: boolean;
 }
 
 /** Timers hold pointers only; the event ledger and native conversation own durable facts. */
@@ -101,6 +104,8 @@ export class GroupParticipation {
 		if (event.id <= (state.read ?? "") || event.id <= (state.latest ?? "")) return;
 		state.latest = event.id;
 		delete state.error;
+		// 没有旧运行绑定时，本群参与已归 social：只保留观察位置，不再反复生成无人接纳的批次。
+		if (state.unbound) return;
 		const group = event.conv.slice(`conv:${this.instance}:group:`.length);
 		const mode = this.config.groupParticipation?.[group] ?? "all";
 		const data = event.data as { mentioned?: boolean; social?: { mentions?: { bot?: boolean } }; text?: string };
@@ -182,7 +187,22 @@ export class GroupParticipation {
 		const batch = input.data as BatchData;
 		const result = await this.api.events.ask(input);
 		if (this.stopped) return; // Native recovery owns admitted input when this service stops.
-		if (!result.results.length || result.results.some((run) => run.status !== "done")) {
+		if (!result.results.length) {
+			// 没有 `channel-qq.group-batch` 运行绑定：新配置由 social 的批次接管。只记录一次诊断，不当作异常暂停。
+			delete state.pending;
+			delete state.due;
+			state.unbound = true;
+			state.read = batch.through;
+			if (!state.reported) {
+				state.reported = true;
+				this.api.log.info("QQ group batch has no legacy run binding; participation is owned by social.batch-ready", {
+					conv,
+					replacement: "social.batch-ready",
+				});
+			}
+			return;
+		}
+		if (result.results.some((run) => run.status !== "done")) {
 			delete state.pending;
 			throw new Error(result.results.map((run) => run.reason ?? run.status).join("; ") || "No group-batch run binding");
 		}

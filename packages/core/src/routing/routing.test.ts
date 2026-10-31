@@ -742,3 +742,117 @@ bindings:
 		await db.close();
 	}
 });
+
+test("official QQ groups outside social.scope get the restricted default instead of the legacy chain", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const make = (id: string) =>
+			parseAgentConfig(
+				JSON.stringify({
+					schema: 1,
+					id,
+					name: id,
+					owner: "person:owner",
+					defaultProfile: "qq-group",
+					profiles: { "qq-group": { plugins: ["social"], capabilities: ["read"] } },
+					// 有 social 配置，但 scope 不含这个群：仍应得到派生默认，而不是旧链。
+					social: {
+						enabled: true,
+						scope: ["conv:qq-main:group:other"],
+						authorized: { conversations: ["conv:qq-main:group:other"] },
+					},
+					bindings: [
+						{
+							id: "group",
+							match: { channel: "qq-main", kind: "group" },
+							session: { mode: "persistent", per: "conv" },
+							profile: "qq-group",
+							wake: "write",
+							reply: "none",
+						},
+						{
+							id: "batch",
+							match: { type: "social.batch-ready", channel: "qq-main" },
+							session: { mode: "persistent", per: "conv" },
+							profile: "qq-group",
+							reply: "none",
+						},
+					],
+				}),
+			);
+		const agent = make("main");
+		const agents = new Map([[agent.id, agent]]);
+		let next = 0;
+		const runtime = {
+			create: async () => String(++next),
+			submit: async () => ({}),
+			describeTools: () => [],
+			admitted: async () => false,
+		} as unknown as Runtime;
+		const sessions = createSessions({
+			store,
+			agents,
+			homePresets: new Map(),
+			pluginPresets: new Map(),
+			home: "/tmp/qq-default",
+			config: { agents: [{ id: agent.id, workspace: "./agents/main" }] } as YonderConfig,
+			version: "0.1.0",
+			runtime: () => runtime,
+		});
+		const warnings: Array<{ message: string; data?: object }> = [];
+		const router = createRouter({
+			store,
+			sessions,
+			agents,
+			socialBatchPlugin: new Set(["social"]),
+			channels: new Map([["qq-main", { id: "qq-main", kinds: ["dm", "group"] }]]) as unknown as NonNullable<
+				import("./types.js").CreateRouterOptions["channels"]
+			>,
+			runtime: () => runtime,
+			onWarn: (message, data) => warnings.push(data ? { message, data } : { message }),
+		});
+		const emit = (extra: object = {}) =>
+			router.emit({
+				type: "message.in",
+				from: "acct:qq-main:user",
+				conv: "conv:qq-main:group:new-group",
+				data: { kind: "group", text: "普通消息", msgId: crypto.randomUUID(), ...extra },
+			});
+		// 普通消息：只写进原生会话（旁观），运行数为 0。
+		const plain = await emit({ mentioned: false, social: { mentions: { bot: false } } });
+		expect(plain.routes?.[0]).toMatchObject({ agent: "main", binding: "group", wake: "write" });
+		const decisions = (await store.events.query({ type: "routing.social-decision" })).events.filter(
+			(event) => event.parent === plain.id,
+		);
+		expect(decisions[0]?.data).toMatchObject({ reason: "batch", derivedDefault: true });
+		// 被 @：硬触发，走官方 write 绑定写入，由批次决定运行。
+		const mention = await emit({ mentioned: true, social: { mentions: { bot: true } } });
+		expect(mention.routes?.[0]).toMatchObject({ agent: "main", binding: "group", wake: "write" });
+		expect(mention.routes?.[0]?.session).toBeDefined();
+		// 旧链不再被派生范围触发：没有旧运行绑定时只记 no-binding，绝不产生运行。
+		const legacy = await router.emit({
+			type: "channel-qq.group-batch",
+			from: "plugin:channel-qq",
+			conv: "conv:qq-main:group:new-group",
+			data: { through: mention.id },
+		});
+		expect(legacy.routes?.every((route) => !route.session)).toBe(true);
+		expect(warnings.some((item) => item.data && "deprecated" in item.data)).toBe(false);
+		// 批次准入使用派生默认范围。
+		const revision = (decisions[0]!.data as { revision: string }).revision;
+		const admitted = await router.admitBatch(
+			{
+				agent: "main",
+				conv: "conv:qq-main:group:new-group",
+				through: mention.id,
+				sourceEvents: [mention.id],
+				policyRevision: revision,
+			},
+			"social",
+		);
+		expect(admitted).toEqual({ session: mention.routes?.[0]?.session });
+	} finally {
+		await db.close();
+	}
+});

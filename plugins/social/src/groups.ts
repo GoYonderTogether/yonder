@@ -1,6 +1,9 @@
 import type { EventInput, PluginAPI, Ref, SocialPolicy, ToolContext, YEvent } from "@yonder/sdk";
 import { GroupAttention } from "./group-attention.js";
 import type { GroupJudgeConfig } from "./group-config.js";
+import { groupContext } from "./group-context.js";
+import { handleControl } from "./group-control.js";
+import { driveDirect, queueDirect, runAutonomous, steerActive, unreadEntries } from "./group-direct.js";
 import {
 	type GroupPause,
 	groupEvents,
@@ -10,9 +13,11 @@ import {
 	publicHistory,
 	restoreGroupState,
 } from "./group-history.js";
-import { GroupReview } from "./group-review.js";
+import { GroupReview, reviewEligible } from "./group-review.js";
+import { DIRECT_MERGE_MS, hasWork, quietDue, quietFor } from "./group-rhythm.js";
 import { GroupRules, validateRules } from "./group-rules.js";
-import { awaitTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
+import { sendGuard } from "./group-send-guard.js";
+import { awaitTurn, type GroupTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
 
 export type { GroupJudgeConfig } from "./group-config.js";
 
@@ -27,13 +32,18 @@ interface Candidate {
 	counter: number;
 	willing?: { through: string; entries: YEvent[]; decision: string };
 	lastSent?: number;
+	/** 08 官方群派生默认范围：没有硬触发就只记录，count 兜底不得自行唤醒。 */
+	derivedDefault?: boolean;
 }
 interface Room extends TurnRoom {
 	candidates: Map<string, Candidate>;
 	convs: Set<Ref>;
 	timer?: ReturnType<typeof setTimeout>;
+	/** 每房间固定的静默值（5–15 秒），同批各候选一致，不用随机数决定谁先说。 */
 	quietMs?: number;
 	lastHumanAt?: number;
+	/** 直接通道（明确点名与点名后的连续追问）的短合并截止时间。 */
+	directUntil?: number;
 }
 export class Groups {
 	private readonly rooms = new Map<string, Room>();
@@ -53,6 +63,10 @@ export class Groups {
 	constructor(
 		private readonly api: PluginAPI,
 		private readonly config: GroupJudgeConfig,
+		/** 房间索引只读快照：上下文只需要「同房间还有哪些 Bot」，不要每轮重扫账本。 */
+		private readonly roomIndex?: () => Promise<
+			Map<Ref, { convs: Ref[]; agents: Array<{ id: string; name?: string }> }>
+		>,
 	) {
 		this.attention = new GroupAttention(api);
 		for (const seed of Object.values(config.initialRules ?? {})) validateRules(seed);
@@ -79,8 +93,8 @@ export class Groups {
 	managed(conv: Ref) {
 		return this.aliases.has(conv);
 	}
-	private room(source: YEvent, membership = false) {
-		const key = groupRoomKey(source, this.aliases, membership);
+	private room(source: YEvent, membership = false, derived = false) {
+		const key = groupRoomKey(source, this.aliases, membership, derived);
 		if (!key) return;
 		let room = this.rooms.get(key);
 		if (!room) {
@@ -113,23 +127,7 @@ export class Groups {
 					})),
 				),
 			(t) => this.material(t.conv),
-			async (t, events) => {
-				const eligible = events.filter(
-					(e) =>
-						e.conv === t.conv &&
-						e.routes?.some((r) => r.agent === t.agent && r.session === t.session && r.wake === "write" && !r.dropped),
-				);
-				return (
-					!!eligible.length &&
-					!!(await this.api.social?.admitBatch({
-						agent: t.agent,
-						conv: t.conv,
-						through: eligible.at(-1)!.id,
-						sourceEvents: eligible.map((e) => e.id),
-						policyRevision: t.revision,
-					}))
-				);
-			},
+			(t, events) => reviewEligible(this.api, t, events),
 		);
 	}
 	async observe(source: YEvent, live = true) {
@@ -137,6 +135,7 @@ export class Groups {
 		const room = this.room(
 			source,
 			facts.some((d) => d.membership),
+			facts.some((d) => d.derivedDefault),
 		);
 		if (!room) return;
 		for (const d of facts)
@@ -162,35 +161,30 @@ export class Groups {
 				this.sessions.get(route.session) === room &&
 				!route.dropped &&
 				!this.controls.has(source.id) &&
-				route.wake === "run" &&
-				(data.social?.mentions?.bot ?? data.mentioned)
-			) {
-				if (room.turn?.session !== route.session)
-					if (!room.waiting.some((t) => t.session === route.session)) {
-						room.waiting.push({
-							agent: route.agent,
-							session: route.session,
-							source: source.id,
-							decision: source.id,
-							direct: true,
-						});
-						void this.offer(room);
-					}
-			}
+				(data.social?.mentions?.bot ?? data.mentioned) &&
+				queueDirect(room, { ...route, session: route.session }, source, DIRECT_MERGE_MS)
+			)
+				// 直接通道用约 1–1.5 秒短合并，收集同一段连续 @/追问，避免长 digest 延迟。
+				this.scheduleOffer(room, Math.max(0, (room.directUntil ?? 0) - Date.now()));
 	}
 	async accept(event: YEvent, schedule = true) {
 		const data = event.data as {
 			agent?: string;
 			reason?: string;
+			run?: boolean;
 			revision?: string;
 			policy?: SocialPolicy;
 			membership?: boolean;
+			derivedDefault?: boolean;
 		};
-		if (this.stopped || data.reason !== "batch" || !data.agent || !data.revision || !event.parent) return;
+		// 批次与自主候选走 reason=batch；官方群 write 绑定下的硬触发（@/引用/名字/关注）记 run=true，
+		// 同样需要一个带 revision 与策略的候选，才能在短合并后由 social 发起运行。
+		const eligible = data.reason === "batch" || data.run === true;
+		if (this.stopped || !eligible || !data.agent || !data.revision || !event.parent) return;
 		if (data.policy?.plugin && data.policy.plugin !== "social") return;
 		const source = (await this.api.events.query({ id: event.parent })).events[0];
 		if (!source) return;
-		const room = this.room(source, data.membership === true);
+		const room = this.room(source, data.membership === true, data.derivedDefault === true);
 		const route = source.routes?.find((r) => r.agent === data.agent && r.wake === "write" && !r.dropped);
 		if (!room || !source.conv || !route?.session || (source.data as { senderIsBot?: boolean }).senderIsBot) return;
 		this.sessions.set(route.session, room);
@@ -206,6 +200,7 @@ export class Groups {
 				entries: [],
 				counter: this.counters.get(this.key(data.agent, source.conv)) ?? 0,
 				lastSent: this.sent.get(this.key(data.agent, source.conv)) ?? 0,
+				...(data.derivedDefault === true ? { derivedDefault: true } : {}),
 			};
 			const pause = this.pauses.get(this.key(data.agent, source.conv));
 			if (pause) candidate.pause = pause;
@@ -218,17 +213,31 @@ export class Groups {
 			candidate.willing.entries.push(source);
 			candidate.willing.through = source.id;
 		}
-		room.quietMs ??= 5000 + Math.floor(Math.random() * 10001);
+		room.quietMs ??= quietFor(room.id);
 		if (schedule) this.schedule(room);
 	}
 	private schedule(room: Room, delay = 3000) {
-		if (this.stopped || room.timer || ![...room.candidates.values()].some((c) => c.entries.length || c.willing)) return;
+		if (this.stopped || room.timer || !hasWork(room.candidates.values())) return;
 		room.timer = setTimeout(() => {
 			delete room.timer;
 			void this.flush(room).catch((error) =>
 				this.api.log.warn("Group observation failed; wait for new input", { error: String(error) }),
 			);
 		}, delay);
+		room.timer.unref();
+	}
+	/** 已经算好发言机会、只等静默/短合并到期时重新排期，不再重新匹配规则。 */
+	private scheduleOffer(room: Room, delay: number) {
+		if (this.stopped || room.timer) return;
+		room.timer = setTimeout(
+			() => {
+				delete room.timer;
+				void this.offer(room).catch((error) =>
+					this.api.log.warn("Group coordination failed; wait for new input", { error: String(error) }),
+				);
+			},
+			Math.max(0, delay),
+		);
 		room.timer.unref();
 	}
 	private request(c: Candidate, entries: YEvent[]) {
@@ -256,73 +265,29 @@ export class Groups {
 		if (room && ![...room.candidates.values()].some((c) => c.entries.length)) delete room.quietMs;
 	}
 	private async control(source: YEvent, agent: string, session: string, room: Room) {
-		const text = String((source.data as { text?: string }).text ?? "");
-		const name = (await this.api.agents.list()).find((a) => a.id === agent)?.name ?? agent;
-		const native = source.data as { mentioned?: boolean; social?: { mentions?: { bot?: boolean } } };
-		const addressed = (native.social?.mentions?.bot ?? native.mentioned) || text.includes(name) || text.includes(agent);
-		if (!addressed) return;
-		const body = text
-			.replace(/<@[^>]+>/g, "")
-			.replaceAll(name, "")
-			.replaceAll(agent, "")
-			.replace(/^[\s,，:：]+|[\s。！!]+$/g, "");
-		const stop = /^(?:请)?(?:闭嘴(?:[，, ]*禁言)?|禁言|停止回复|不用回答我|不用回复|别回复了)$/.test(body);
-		const resume = /^(?:恢复回复|解除禁言|继续回复)$/.test(body);
-		if (!stop && !resume) return;
-		const manager =
-			!!source.from?.startsWith("acct:") &&
-			((await this.api.identity.relation(agent, source.from)) === "owner" ||
-				["group-owner", "group-admin"].includes(
-					(source.data as { social?: { senderRole?: string } }).social?.senderRole ?? "",
-				));
-		if ((resume && !manager) || this.controls.has(source.id)) return;
-		this.controls.add(source.id);
 		const key = this.key(agent, source.conv!);
 		const before = this.pauses.get(key);
-		const pause: GroupPause | undefined =
-			before?.scope === "group" && stop
-				? before
-				: stop
-					? {
-							source: source.id,
-							...(source.from ? { actor: source.from } : {}),
-							scope: manager && body !== "不用回答我" ? "group" : "interaction",
-						}
-					: undefined;
-		await this.api.events.emit({
-			type: "social.policy-change",
-			from: "plugin:social",
-			conv: source.conv!,
-			parent: source.id,
-			data: {
-				kind: "group-pause",
-				agent,
-				actor: source.from,
-				sourceEvent: source.id,
-				before: { pause: before ?? null },
-				after: { pause: pause ?? null },
-				reason: body,
-				result: "applied",
-				restore: "owner or group manager explicitly resumes",
+		const result = await handleControl(this.api, {
+			source,
+			agent,
+			session,
+			claimed: this.controls,
+			before,
+			awaiting: () => (room.turn?.session === session ? room.turn : room.waiting.find((t) => t.session === session)),
+			narrow: async (affects, pause) => {
+				const c = room.candidates.get(agent);
+				if (c) {
+					if (pause) c.pause = pause;
+					else delete c.pause;
+					if (affects) delete c.willing;
+				}
+				if (affects) room.waiting = room.waiting.filter((t) => t.session !== session);
+				if (affects && room.turn?.session === session) await releaseTurn(this.api, room, source.id);
 			},
 		});
-		if (pause) this.pauses.set(key, pause);
+		if (!result) return;
+		if (result.pause) this.pauses.set(key, result.pause);
 		else this.pauses.delete(key);
-		const current = room.turn?.session === session ? room.turn : room.waiting.find((t) => t.session === session);
-		const origin = current ? (await this.api.events.query({ id: current.source })).events[0]?.from : undefined;
-		const affectsRun = pause?.scope === "group" || origin === source.from;
-		const c = room.candidates.get(agent);
-		if (c) {
-			if (pause) c.pause = pause;
-			else delete c.pause;
-			if (affectsRun) delete c.willing;
-		}
-		if (affectsRun) room.waiting = room.waiting.filter((t) => t.session !== session);
-		if (stop && affectsRun)
-			void this.api.sessions
-				.abort(session)
-				.catch((error) => this.api.log.warn("Group stop failed", { session, error: String(error) }));
-		if (affectsRun && room.turn?.session === session) await releaseTurn(this.api, room, source.id);
 		await this.offer(room);
 	}
 	private async flush(room: Room) {
@@ -333,12 +298,15 @@ export class Groups {
 			if (!entries.length) continue;
 			if ((await this.api.social?.admitBatch(this.request(c, entries)))?.session !== c.session) continue;
 			const policy = this.rules.effective(c.agent, c.conv, c.policy, c.revision);
+			// 08：派生默认范围只有显式 `batch.run: true` 才允许无硬触发的批次；count 兜底不算硬触发。
+			const countFallback = !c.derivedDefault || policy.batch?.run === true;
 			const { matched, focused, errors, relevant } = await this.attention.consider(
 				c,
 				room.id,
 				entries,
 				policy,
 				this.controls,
+				{ countFallback },
 			);
 			const fact = await this.api.events.emit({
 				type: "social.rule-match",
@@ -359,35 +327,47 @@ export class Groups {
 				continue;
 			}
 			if (this.active.has(c.session)) {
-				await this.api.sessions.submit(
-					c.session,
-					{
-						text: `群内新公开信息，检查是否仍需回应；可保持沉默：\n${JSON.stringify(await publicHistory(this.api, room.convs))}`,
-					},
-					{ busy: "steer" },
-				);
-				await this.read(c, entries, fact.id);
+				// 相关补充沿原生 busy:steer 把真实新增消息与来源并入当前运行；工具运行中由原生等待边界。
+				// 只走已有的批次事件、准入与绑定，不另造队列，也不发没有来源的“请复核”。
+				const through = relevant.at(-1)!.id;
+				await steerActive(this.api, room, c, {
+					entries: relevant,
+					read: entries.filter((entry) => entry.id <= through),
+					through,
+					onRead: (covered, parent) => this.read(c, covered, parent),
+				});
 			} else c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id };
 		}
 		await this.offer(room);
 	}
 	private async offer(room: Room) {
 		if (this.stopped || room.turn) return;
-		const direct = room.waiting.shift();
+		const direct = room.waiting[0];
 		if (direct) {
+			// 直接通道：约 1–1.5 秒短合并，同一段连续 @/追问只产生一次机会。
+			const until = room.directUntil ?? 0;
+			if (until > Date.now()) {
+				this.scheduleOffer(room, until - Date.now());
+				return;
+			}
+			room.waiting.shift();
+			delete room.directUntil;
 			await grantTurn(this.api, room, direct);
+			if (direct.driver === "social") await this.drive(room, direct);
 			return;
 		}
 		const willing = [...room.candidates.values()].filter(
 			(c) => c.willing && !this.active.has(c.session) && c.pause?.scope !== "group",
 		);
 		if (!willing.length) return;
-		const due = Math.min(
-			(room.lastHumanAt ?? Date.now()) + (room.quietMs ?? 5000),
-			Date.parse(willing[0]!.willing!.entries[0]!.ts) + 120000,
+		// 自主候选：静默窗口对同批各候选一致，自首条起最长 120 秒硬顶，之后必须运行或记录沉默。
+		const due = quietDue(
+			room.lastHumanAt,
+			room.quietMs ?? quietFor(room.id),
+			willing.map((c) => c.willing!.entries[0]!.ts),
 		);
 		if (due > Date.now()) {
-			this.schedule(room, due - Date.now());
+			this.scheduleOffer(room, due - Date.now());
 			return;
 		}
 		willing.sort(
@@ -405,29 +385,33 @@ export class Groups {
 			decision: intention.decision,
 			direct: false,
 		});
-		const input: EventInput = {
-			type: "social.batch-ready",
-			from: "plugin:social",
-			conv: c.conv,
-			data: {
-				...this.request(c, intention.entries),
-				msgId: `group:${c.agent}:${intention.through}`,
-				publicHistory: await publicHistory(this.api, room.convs),
+		await runAutonomous(this.api, room, c, {
+			through: intention.through,
+			entries: intention.entries,
+			active: this.active,
+			onRead: (entries, parent) => this.read(c, entries, parent),
+			offer: () => this.offer(room),
+		});
+	}
+	private async drive(room: Room, turn: GroupTurn) {
+		const entries = await unreadEntries(this.api, turn, this.reads.get(this.key(turn.agent, turn.conv!)) ?? "");
+		await driveDirect(entries, {
+			api: this.api,
+			room,
+			turn,
+			active: this.active,
+			// 候选可能还没由 routing.social-decision 建立；修订取自同一条事实，不自行编造。
+			revision: (agent, conv) =>
+				room.candidates.get(agent)?.revision ?? this.policies.get(this.key(agent, conv))?.revision ?? "",
+			read: async (covered, parent) => {
+				const candidate = room.candidates.get(turn.agent);
+				if (candidate) await this.read(candidate, covered, parent);
 			},
-		};
-		this.active.add(c.session);
-		void this.api.events
-			.ask(input)
-			.then(async (result) => {
-				if (result.results.length && result.results.every((r) => r.status === "done"))
-					await this.read(c, intention.entries, result.event.id);
-			})
-			.catch((error) => this.api.log.warn("Group participation failed", { agent: c.agent, error: String(error) }))
-			.finally(async () => {
-				this.active.delete(c.session);
-				if (room.turn?.agent === c.agent) await releaseTurn(this.api, room, intention.through);
-				await this.offer(room);
-			});
+			release: async (reason) => {
+				if (room.turn === turn) await releaseTurn(this.api, room, turn.source, reason);
+			},
+			offer: () => this.offer(room),
+		});
 	}
 	async delivered(event: YEvent, live = true) {
 		if (!(event.data as { delivery?: { ok?: boolean } }).delivery?.ok || !event.conv) return;
@@ -448,16 +432,20 @@ export class Groups {
 		this.schedule(room);
 	}
 	async beforeRequest(ctx: ToolContext) {
-		for (const event of ctx.events ?? (ctx.event ? [ctx.event] : []))
-			if (event.type === "message.in") await this.observe(event);
+		const sources = ctx.events ?? (ctx.event ? [ctx.event] : []);
+		for (const event of sources) if (event.type === "message.in") await this.observe(event);
 		const room = this.sessions.get(ctx.session);
 		if (!room || !ctx.agent || !this.official(ctx.agent, ctx.event?.conv ?? "")) return;
 		const pause = this.pauses.get(this.key(ctx.agent, ctx.event?.conv ?? ""));
-		if (pause?.scope === "group" || (ctx.events ?? (ctx.event ? [ctx.event] : [])).some((e) => this.controls.has(e.id)))
-			await stopGroupRequest(this.api, ctx);
+		if (pause?.scope === "group" || sources.some((e) => this.controls.has(e.id))) await stopGroupRequest(this.api, ctx);
 		this.active.add(ctx.session);
 		await awaitTurn(room, ctx, () => this.stopped);
-		return publicHistory(this.api, room.convs);
+		return groupContext(this.api, {
+			room,
+			ctx,
+			sources,
+			...(this.roomIndex ? { roomIndex: this.roomIndex } : {}),
+		});
 	}
 	async finished(event: YEvent) {
 		const session = (event.data as { session?: string }).session;
@@ -472,13 +460,16 @@ export class Groups {
 	async beforeSend(to: Ref, owner?: { session: string; agent: string | null }) {
 		if (!owner?.agent || !this.official(owner.agent, to)) return;
 		const room = this.sessions.get(owner.session);
-		if (!room?.convs.has(to)) return;
+		if (!room) return;
 		const c = room.candidates.get(owner.agent);
-		if (
-			(c?.pause ?? this.pauses.get(this.key(owner.agent, to)))?.scope === "group" ||
-			room.turn?.session !== owner.session
-		)
-			throw Error("本群当前没有此Bot的发言机会或已暂停；不要重试发送，等待下一次群输入。");
+		const error = await sendGuard(this.api, {
+			to,
+			agent: owner.agent,
+			session: owner.session,
+			room,
+			paused: (c?.pause ?? this.pauses.get(this.key(owner.agent, to)))?.scope === "group",
+		});
+		if (error) throw Error(error);
 	}
 	stop() {
 		this.stopped = true;

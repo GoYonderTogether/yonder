@@ -95,15 +95,31 @@ export async function groupPolicies(api: PluginAPI, source: YEvent) {
 	const page = await api.events.query({ type: "routing.social-decision", after: source.id, limit: 100 });
 	return page.events
 		.filter((e) => e.parent === source.id)
-		.map((e) => e.data as { agent?: string; policy?: SocialPolicy; revision?: string; membership?: boolean });
+		.map(
+			(e) =>
+				e.data as {
+					agent?: string;
+					policy?: SocialPolicy;
+					revision?: string;
+					membership?: boolean;
+					derivedDefault?: boolean;
+				},
+		);
 }
 
-export function groupRoomKey(source: YEvent, aliases: Map<Ref, string>, membership: boolean) {
+/**
+ * 房间键：配置/证据合并的群用别名；平台声明成员关系的群用平台给的 room；
+ * 官方群默认范围（08）没有跨 Bot 房间证据时，conv 自身就是房间——绝不按群名或昵称猜测。
+ */
+export function groupRoomKey(source: YEvent, aliases: Map<Ref, string>, membership: boolean, derived = false) {
 	const data = source.data as { kind?: string; social?: { room?: string } };
 	if (!source.conv || data.kind !== "group") return;
 	if (!aliases.has(source.conv)) {
-		if (!membership || !data.social?.room || !source.routes?.some((r) => !r.dropped && r.session)) return;
-		aliases.set(source.conv, data.social.room);
+		if (membership) {
+			if (!data.social?.room || !source.routes?.some((r) => !r.dropped && r.session)) return;
+			aliases.set(source.conv, data.social.room);
+		} else if (derived) aliases.set(source.conv, source.conv);
+		else return;
 	}
 	const alias = aliases.get(source.conv)!;
 	const key = alias === source.conv ? (data.social?.room ?? source.conv) : alias;

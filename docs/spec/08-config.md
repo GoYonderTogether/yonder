@@ -157,7 +157,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 ## 社交策略与主动通知（CH-01）
 
-每个 agent.yaml 可选 `social`：`enabled` 默认 false；`authorized` 可列 people/accounts/conversations，`friends` 为 person/acct，`denied` 为 person/acct/conv；`defaults` 按 dm/group/channel 给策略，`conversations` 按精确 conv 覆盖，`mappings` 包含 subject、agent、profile。缺少 social 保持原行为；新 init 可明确启用。字段形状及信号默认值见 [渠道社交提案 §5](../../proposals/agent-ux/channels-social.md#52-类型定义与字段约束)，以本节和 §13 裁定为准。
+每个 agent.yaml 可选 `social`：`enabled` 默认 false；`authorized` 可列 people/accounts/conversations，`friends` 为 person/acct，`denied` 为 person/acct/conv；`defaults` 按 dm/group/channel 给策略，`conversations` 按精确 conv 覆盖，`mappings` 包含 subject、agent、profile。缺少 social 保持原行为，唯一例外是下一节的官方 QQ 群默认参与范围。字段形状及信号默认值见 [渠道社交提案 §5](../../proposals/agent-ux/channels-social.md#52-类型定义与字段约束)，以本节和 §13 裁定为准。
 
 策略字段 mode、batch、minIntervalSeconds、signals、keywords、triggers、quiet、foldedEverySeconds、judge 均可选。覆盖按字段合并：内置默认 < defaults[kind] < conv；数组整体替换，空数组清空，不接受 null。count 1–100、delaySeconds 1–3600、maxMessages 1–100、maxBytes 1024–65536、minIntervalSeconds 1–3600、foldedEverySeconds 300–86400、judge.maxCallsPerHour 1–60；keywords 最多 32 项且每项 1–64 字符。quiet 的 timezone 为 IANA、start/end 为 HH:mm，可跨午夜但相等无效。DM 仅 direct/record/mute；group/channel 禁止 direct。
 
@@ -166,6 +166,14 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 `notifications.outbound` 可选：mode 为 off/digest/immediate，默认 digest；digestEverySeconds 默认 21600、范围 300–86400；maxItems 默认 5、范围 1–20；quiet 同上；decisionRepeat 为 never；target 为 `{to: Ref, via: string}`，必须显式指定账号或会话及实例，省略为 console-only。旧 home 不启用新出口。
 
 默认 batch 为 run false、count 20、delaySeconds 60、maxMessages 100、maxBytes 16384，minIntervalSeconds 60；run 为 true 时允许无 judge 的批次直接运行，未配置或为 false 时保留未读。judge 显式配置后使用来源配置档的 cheap 或 simple，缺失或失败时保留未读，不回退主模型；foldedEverySeconds 21600，judge 关闭，启用后 maxCallsPerHour 默认 6。信号默认 botMention=respond，其余 ownerMention/groupOwner/everyone/keyword=consider；keywords 默认空，按 Unicode NFC 字面匹配。quiet 未配置时不猜时区或睡眠时间。
+
+### 官方 QQ 群的默认参与范围
+
+允许入站、且已由该 Bot 的官方群绑定（`kind: group`，`wake: write`，`persistent/per: conv`，`reply: none`）接纳的 QQ 群，在该 Bot 的 `social.scope` 未写或不含该会话时派生出受限的默认范围；这是解析期的有效默认，不写进 `agent.yaml`，也不新增配置键。默认范围只允许**硬触发**运行——可信原生 @、可核验的回复/引用、配置的名字元素与 keywords、成功回复后的 300 秒关注（11 §「群聊独立参与与共享协调」）——其余公开消息只推进旁观游标并记录。自主批次沿用本节的 `batch` 字段：缺省 `run: false` 时**不得**回落到旧「观察窗口非空就运行」，只有显式 `batch.run: true` 才允许无硬触发的批次运行。
+
+优先级从高到低：`denied` → 精确 `conversations` 覆盖 → `defaults.group` → 派生默认范围；显式 `mode: record`/`mute`、自定义参与插件（`plugin`）与自定义绑定都在默认范围之前生效，且不因默认范围被升级为运行。关闭该 Bot 的群参与用 `social.enabled: false`，不靠清空 `scope`。私聊不受本节影响：没有 `social.scope` 的私聊仍只沿原绑定，不产生 social decision。
+
+没有 social 参与插件或没有可用批次绑定时，默认范围只记录，并以路由的 `no-binding` 事实加一条可读诊断说明原因（见 11）；不得把它当作可运行批次，也不得转交旧 `channel-qq.group-batch` 链。
 
 ## 运行期预算与配置视图键（O51 IMP-02/IMP-34，只增不改）
 
@@ -191,7 +199,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 `agents/<id>/agent.yaml` 的可选键另有：配置档或 defaults 内的 `limits.maxTokens`（正整数），以及本文件下文社交策略中的 `social` 段。
 
-群聊调度可为 Agent 设置 `social.scope`，仅该列表使用 social 准入与映射，范围外仍沿原绑定；省略保持原有全局 social 行为。SocialPolicy 新增可选 `plugin: string`，值为当前 Bot/群选择的参与策略插件 id，缺省为 social；可在现有 defaults.group 与 conversations 精确覆盖，沿现有策略合并顺序，不另建插件选择表。目标插件须实际加载并由 Bot 选择，内核按真实插件身份及 Bot/群范围检查；无效选择明确拒绝，不回退或扩大权限。
+群聊调度可为 Agent 设置 `social.scope`，列出该 Bot 用 social 参与策略的会话；列表内使用 social 准入与映射。列表外的**官方群**不再沿旧批次链：只要消息允许入站且已由该 Bot 的官方群绑定接纳，就应用上文「官方 QQ 群的默认参与范围」，与「未写 `social.scope`」同义。**私聊**仍是范围外沿原绑定、不产生 social decision。`social.scope` 因此只用于把已配置参与收窄到指定会话，不能用来重新启用旧链；`denied`、`record`、自定义参与插件和自定义绑定都优先于默认范围。SocialPolicy 可选 `plugin: string`，值为当前 Bot/群选择的参与策略插件 id，缺省为 social；可在现有 defaults.group 与 conversations 精确覆盖，沿现有策略合并顺序，不另建插件选择表。目标插件须实际加载并由 Bot 选择，内核按真实插件身份及 Bot/群范围检查；无效选择明确拒绝，不回退或扩大权限。
 
 social 插件既有 `config.groupJudge` 保留为兼容入口，包含复盘 preset、受管 conversations、公开 identities、已核实 rooms，可自治 initialRules[agent]，以及可选 review.intervalHours（默认24）/minMessages（默认20）。受管路径使用硬规则，不再按轮调用 judge；旧 judge 配置与历史不移除。triggers 可含标准 Unicode regex、字面 exclude、minLength/maxLength；长度范围须有效，正则边界见 11。自调规则版本记录在事件账本，按 Bot/群及基础 ownerRevision 隔离，只覆盖自身触发字段，不覆盖权限/准入/群主策略。公开身份使用显式 identities 或真实名称，缺关注方向不推测。群工具/上下文复用已有插件选择，groupJudge 不代替 Bot 授权。详见 04、11。
 

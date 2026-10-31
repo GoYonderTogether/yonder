@@ -1,11 +1,22 @@
 import { once } from "node:events";
 import type { PluginAPI, Ref, ToolContext } from "@yonder/sdk";
-export interface GroupTurn {
+export interface GroupTurnLike {
 	agent: string;
 	session: string;
 	direct: boolean;
 	source: string;
 	decision: string;
+}
+export interface GroupTurn extends GroupTurnLike {
+	/** 直接通道短合并后的真实来源；`source` 是其中最后一条。 */
+	sources?: string[];
+	/** 本机会所属的会话；协调房间可跨多个 conv，这里必须是真实的那一个。 */
+	conv?: string;
+	/**
+	 * 谁负责发起这次运行：`kernel` 是内核已按 run 绑定启动、social 只排发言机会；
+	 * `social` 是官方群的 write 绑定，由 social 在短合并后发出 social.batch-ready。
+	 */
+	driver?: "kernel" | "social";
 }
 export interface TurnRoom {
 	id: string;
@@ -31,7 +42,7 @@ export async function grantTurn(api: PluginAPI, room: TurnRoom, turn: GroupTurn)
 		},
 	});
 }
-export async function releaseTurn(api: PluginAPI, room: TurnRoom, source: string) {
+export async function releaseTurn(api: PluginAPI, room: TurnRoom, source: string, reason?: string) {
 	const turn = room.turn;
 	if (!turn) return;
 	delete room.turn;
@@ -43,7 +54,7 @@ export async function releaseTurn(api: PluginAPI, room: TurnRoom, source: string
 			...turn,
 			room: room.id,
 			through: turn.source,
-			reason: source,
+			reason: reason ?? source,
 			conversations: [...room.convs],
 		},
 	});

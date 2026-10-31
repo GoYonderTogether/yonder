@@ -1,11 +1,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ToolContext } from "@yonder/sdk";
+import type { EventInput, ToolContext } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { localEnvironment } from "../runtime/env.js";
-import { createStore } from "../store/index.js";
+import { createStore, newEvent } from "../store/index.js";
 import { conversationMembers, createConversationTools, sourceConversation } from "./conversation.js";
 
 test("conversation tools read SQLite history, preserve scope, and open only referenced text attachments", async () => {
@@ -13,7 +13,13 @@ test("conversation tools read SQLite history, preserve scope, and open only refe
 	const db = await openDatabase(":memory:");
 	try {
 		const store = await createStore(db);
-		const event = await store.events.record({
+		// 明确的递增时间戳：成员按最近发言时间倒序，同一毫秒只由引用名决定先后，不能让夹具靠运气。
+		let tick = Date.parse("2026-10-31T00:00:00.000Z");
+		const record = (input: EventInput) => {
+			tick += 1000;
+			return store.events.append({ ...newEvent(input), ts: new Date(tick).toISOString() });
+		};
+		const event = await record({
 			type: "message.in",
 			from: "acct:qq:alice",
 			conv: "conv:qq:group:a",
@@ -23,19 +29,19 @@ test("conversation tools read SQLite history, preserve scope, and open only refe
 				attachments: [{ kind: "file", mime: "text/markdown", name: "windows.md", uri: "https://example.invalid/file" }],
 			},
 		});
-		const foreign = await store.events.record({
+		const foreign = await record({
 			type: "message.in",
 			from: "acct:qq:bob",
 			conv: "conv:qq:group:b",
 			data: { text: "private" },
 		});
-		await store.events.record({
+		await record({
 			type: "message.out",
 			from: "agent:main",
 			conv: event.conv!,
 			data: { text: "sent", delivery: { ok: true, id: "native-out" } },
 		});
-		await store.events.record({
+		await record({
 			type: "message.out",
 			from: "agent:main",
 			conv: event.conv!,
@@ -55,9 +61,10 @@ test("conversation tools read SQLite history, preserve scope, and open only refe
 		const history = JSON.parse((await read.execute({}, ctx)).text);
 		expect(history.messages.map((m: { text: string }) => m.text)).toEqual(["Windows requirement", "sent"]);
 		expect(JSON.parse((await read.execute({ id: foreign.id }, ctx)).text).messages).toEqual([]);
+		// 成员按最近一次发言时间倒序，且有界；平台没有完整成员表，这里只报观察到的。
 		expect((await conversationMembers(store, event.conv!, "main")).members.map((m) => m.ref)).toEqual([
-			"acct:qq:alice",
 			"agent:main",
+			"acct:qq:alice",
 		]);
 		expect(() => sourceConversation({ ...ctx, events: [event, foreign] })).toThrow("唯一来源");
 		await mkdir(join(home, ".yonder/attachments"), { recursive: true });

@@ -111,14 +111,14 @@ test("scan completion preserves credentials and configures read-only group parti
 			capabilities: ["read"],
 			tools: { offer: groupTools },
 			contexts: ["peer-workspace"],
-			plugins: [],
+			plugins: ["social"],
 			skills: [],
 		});
 		expect(agent.bindings[0].match.from).toBe("acct:qq-main:OWNER");
 		expect(agent.bindings[0].busy).toBe("steer");
 		expect(agent.bindings[1]).toMatchObject({ wake: "write", reply: "none" });
 		expect(agent.bindings[2]).toMatchObject({
-			match: { type: "channel-qq.group-batch" },
+			match: { type: "social.batch-ready" },
 			reply: "none",
 			profile: "qq-main-group",
 			busy: "steer",
@@ -477,13 +477,16 @@ test("official group upgrade preserves custom prompts and creates a recoverable 
 		doc.profiles.custom = { instructions: "Custom group instructions", tools: { offer: ["read"] } };
 		const before = stringify(doc);
 		await writeFile(file, before);
-		expect((await upgradeGroups(home, "main")).changed).toEqual([file]);
+		const preview = await upgradeGroups(home, "main");
+		expect(preview.changed).toEqual([]);
+		expect(preview.preview.length).toBeGreaterThan(0);
+		expect((await upgradeGroups(home, "main", { apply: true })).changed).toEqual([file]);
 		const updated = parse(await readFile(file, "utf8"));
 		expect(updated.profiles.official.instructions).toBe(groupInstructions);
 		expect(updated.profiles.official.contexts).toEqual(["existing-context", "peer-workspace"]);
 		expect(updated.profiles.official.tools.offer.toSorted()).toEqual(groupTools.toSorted());
 		expect(updated.profiles.custom).toEqual(doc.profiles.custom);
-		expect((await upgradeGroups(home, "main")).changed).toEqual([]);
+		expect((await upgradeGroups(home, "main", { apply: true })).changed).toEqual([]);
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

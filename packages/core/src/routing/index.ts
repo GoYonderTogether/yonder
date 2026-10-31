@@ -3,17 +3,27 @@ import type { Binding } from "../config/index.js";
 import type { RuntimeInput, RuntimeRun } from "../runtime/index.js";
 import { newEvent } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
+import { type DispatchDeps, dispatchRun } from "./dispatch.js";
 import { suppressLegacyBatch } from "./legacy-batch.js";
 import { channelOf, matches, sessionKey, targetBinding, targetDropReason, unknownTargetReason } from "./matching.js";
 import { createRoutedNotifications } from "./notifications.js";
 import { batchPlugin, isParticipationBatch } from "./participation.js";
 import { createPendingResults, createReporter } from "./pending.js";
-import { membershipGroup, platformBatchBinding, platformGroupBinding } from "./platform-group.js";
+import {
+	batchReadyBinding,
+	defaultRangeDiagnostic,
+	legacyGroupBatch,
+	membershipGroup,
+	officialGroupDefault,
+	participationCandidates,
+	platformBatchBinding,
+	platformGroupBinding,
+	warnLegacy,
+} from "./platform-group.js";
 import { socialBindingAllowed, socialDecision } from "./social.js";
-import type { CreateRouterOptions } from "./types.js";
+import type { CreateRouterOptions, RoutedRun } from "./types.js";
 
 type Wake = "run" | "write";
-type RoutedRun = { agent: string; session: string; wake: Wake };
 export function createRouter({
 	channels,
 	store,
@@ -28,11 +38,14 @@ export function createRouter({
 	onRun,
 	onCommand,
 	onReport = () => {},
+	onWarn,
 }: CreateRouterOptions) {
 	const participationPlugins =
 		typeof socialBatchPlugin === "boolean"
 			? new Set(socialBatchPlugin ? ["social"] : [])
 			: (socialBatchPlugin ?? new Set<string>());
+	const warnedLegacy = new Set<string>();
+	const warnedNoBatch = new Set<string>();
 	const report = createReporter(onReport);
 	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
 	const { waitFor, finish } = createPendingResults();
@@ -65,92 +78,19 @@ export function createRouter({
 		}
 	}
 	async function dispatch(event: YEvent, runs: RoutedRun[]): Promise<void> {
-		await Promise.all(
-			runs.map(async (routed) => {
-				try {
-					const session = await store.sessions.get(routed.session);
-					if (!session) throw new Error(`Missing routed session: ${routed.session}`);
-					const data = event.data as { kind?: unknown; social?: { mentions?: { owner?: boolean } } };
-					const ownerMention =
-						event.type === "message.in" &&
-						(data.kind === "group" || data.kind === "channel") &&
-						agents.get(routed.agent)?.social?.enabled === true &&
-						data.social?.mentions?.owner === true;
-					if (ownerMention) await onOwnerMention?.(session, event).catch(report);
-					const notification = routedNotifications.notify(session.id, event);
-					if (notification) await notification;
-					if (routed.wake === "run") {
-						const command = await onCommand?.(session, event);
-						if (command) {
-							finish(routed.agent, event.id, command);
-							return;
-						}
-					}
-					const inputData = event.data as { text?: string; attachments?: RuntimeInput["attachments"] };
-					const waiter = event.routes?.find((route) => route.session === session.id)?.waiting ?? false;
-					const startedOutput = routed.wake === "run" ? onStart?.(session, event, waiter) : undefined;
-					const output = (part: OutputPart, runId?: string) => {
-						try {
-							startedOutput?.(part, runId);
-						} catch (error) {
-							report(error);
-						}
-					};
-					const attachments = inputData.attachments;
-					const input: RuntimeInput = {
-						text: inputData.text ?? "",
-						event,
-						wake: routed.wake,
-						busy: event.routes?.find((route) => route.session === session.id)?.busy ?? "steer",
-						...(attachments ? { attachments } : {}),
-						requestId:
-							event.type === "runtime.tool-result"
-								? `background:${(event.data as { job: string }).job}`
-								: event.type === "runtime.continuation"
-									? `continuation:${(event.data as { job: string }).job}`
-									: `event:${event.id}`,
-						...(startedOutput ? { onOutput: output } : {}),
-					};
-					await runtime().submit(session.id, input);
-				} catch (error) {
-					report(error);
-					if (routed.wake === "write") return;
-					const run: RuntimeRun = {
-						runId: `error:${event.id}`,
-						status: "error",
-						text: "",
-						reason: error instanceof Error ? error.message : String(error),
-						usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
-						inputs: [event.id],
-					};
-					const session = await store.sessions.get(routed.session);
-					if (session) {
-						if (!(await runtime().admitted(session.id, event.id)))
-							await onRun?.(
-								session,
-								run,
-								[event],
-								event.routes?.find((route) => route.session === session.id)?.waiting ?? false,
-							);
-						finish(session.agent ?? "", event.id, {
-							agent: session.agent,
-							session: session.id,
-							status: run.status,
-							text: run.text,
-							...(run.reason ? { reason: run.reason } : {}),
-						});
-					} else
-						finish(routed.agent, event.id, {
-							agent: routed.agent,
-							session: routed.session,
-							status: "error",
-							text: "",
-							...(run.reason ? { reason: run.reason } : {}),
-						});
-				}
-				return;
-			}),
-		);
+		const deps: DispatchDeps = {
+			store,
+			agents,
+			runtime,
+			report,
+			finish,
+			notify: (session, item) => routedNotifications.notify(session, item),
+			...(onOwnerMention ? { onOwnerMention } : {}),
+			...(onCommand ? { onCommand } : {}),
+			...(onStart ? { onStart } : {}),
+			...(onRun ? { onRun } : {}),
+		};
+		await Promise.all(runs.map((routed) => dispatchRun(routed, event, deps)));
 	}
 	async function prepare(
 		eventInput: EventInput,
@@ -180,9 +120,10 @@ export function createRouter({
 			sourceEvents?: unknown;
 		};
 		const legacySource =
-			event.type === "channel-qq.group-batch" && typeof inputData.through === "string"
+			event.type === legacyGroupBatch && typeof inputData.through === "string"
 				? await store.events.get(inputData.through)
 				: undefined;
+		warnLegacy(event, agents, warnedLegacy, onWarn);
 		const internalTarget =
 			(event.type === "message.in" || event.type === "channel.connected") &&
 			(channelOf(event.conv) === "agent" || channels?.get(channelOf(event.conv) ?? "")?.multiAgent === true) &&
@@ -194,17 +135,15 @@ export function createRouter({
 			event.type === "channel.connected" && typeof inputData.account === "string" ? inputData.account : event.from;
 		const person = account?.startsWith("acct:") ? (await store.identity().account(account))?.person : undefined;
 		const instance = channelOf(event.conv);
-		const socialAgents = [...agents.values()].filter((agent) => {
-			if (
-				!agent.social?.enabled ||
-				event.type !== "message.in" ||
-				internalTarget ||
-				instance === "agent" ||
-				(agent.social.scope && (!event.conv || !agent.social.scope.includes(event.conv)))
-			)
-				return false;
-			const scope = agent.profiles[agent.defaultProfile]?.channelInstances ?? agent.defaults?.channelInstances;
-			return instance === "console" || !scope || (!!instance && scope.includes(instance));
+		const channel = channels?.get(instance ?? "");
+		const derivedDefaults = new Set<string>();
+		const socialAgents = participationCandidates(agents.values(), {
+			event,
+			channel,
+			instance,
+			internalTarget,
+			socialLoaded: participationPlugins.has("social"),
+			derived: derivedDefaults,
 		});
 		const subjects = [event.conv, event.from, person].filter((value): value is string => !!value);
 		const mappings = socialAgents.map((owner) => ({
@@ -221,6 +160,8 @@ export function createRouter({
 			revision: string;
 			policy?: object;
 			membership?: boolean;
+			derivedDefault?: boolean;
+			batchBinding?: "missing";
 		}> = [];
 		const runs: RoutedRun[] = [];
 		const waits: Promise<RunResult>[] = [];
@@ -301,17 +242,29 @@ export function createRouter({
 				continue;
 			}
 			const selected = targeted[0] ?? own;
-			const policyAgent = selected?.owner ?? (internalTarget === agent.id ? agent : undefined);
+			// 派生默认范围没有显式 social 配置，决策仍以该 Agent 自己的策略计算（08）。
+			const policyAgent =
+				selected?.owner ?? (internalTarget === agent.id || derivedDefaults.has(agent.id) ? agent : undefined);
 			const mapping = selected?.mapping;
 			const decision = policyAgent && socialDecision(policyAgent, event, person, channels?.get(instance ?? ""));
+			// 派生默认范围没有可用批次绑定时只记录观察游标，并用可读诊断说明原因（08、11）。
+			const noBatchBinding =
+				!!decision && derivedDefaults.has(agent.id) && !batchReadyBinding(agent, instance, "social");
 			if (decision)
 				diagnostics.push({
 					agent: agent.id,
 					reason: decision.reason,
+					...(decision.run ? { run: true } : {}),
 					revision: decision.revision,
 					...(membershipGroup(agent, event, channels?.get(instance ?? "")) ? { membership: true } : {}),
+					...(derivedDefaults.has(agent.id) ? { derivedDefault: true } : {}),
+					...(noBatchBinding ? { batchBinding: "missing" } : {}),
 					...("policy" in decision ? { policy: decision.policy } : {}),
 				});
+			defaultRangeDiagnostic(
+				{ warned: warnedNoBatch, ...(onWarn ? { warn: onWarn } : {}) },
+				{ agent: agent.id, conv: event.conv, missingBatch: noBatchBinding },
+			);
 			const ownerMention =
 				decision?.reason === "mention" &&
 				(event.data as { social?: { mentions?: { owner?: boolean } } }).social?.mentions?.owner === true;

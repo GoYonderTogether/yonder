@@ -236,6 +236,8 @@ submit 的 wait:false（默认）返回本次实际 session.input 的 InputRecei
 
 可选 social 配置只收窄原事件的候选 Agent 与唤醒，不新增绕过 binding 的路径；官方批次由预先配置的 `social.batch-ready` binding 接纳；替换参与插件使用自身命名空间的批次事件和显式 binding，沿同一准入语义，不冒用 social 来源。拒绝优先，映射依次为精确 conv、账号、person、默认 Agent；同级冲突拒绝配置。主人已验证 DM 可沿已有 binding 进入 main；授权人和群使用隔离会话，不进入主人 main。关系只由明确配置建立，好友或群主不自动获得权限。
 
+`social.scope` 只把已配置参与收窄到列表内的会话，不是“范围外回到旧批次链”的开关。允许入站且已由该 Bot 官方群绑定接纳的 QQ 群，即使不在 `social.scope` 中或该字段未写，也按 08“官方 QQ 群的默认参与范围”得到受限默认参与：硬触发可运行，未命中只记录，自主批次须显式启用；显式 denied/record、自定义参与插件与自定义绑定优先。私聊在 `social.scope` 外仍只沿原绑定、不产生 social decision。旧 `channel-qq.group-batch` 事件类型与字段按 20 §3 弃用，迁移前按原语义工作，不新增加入该链的绑定。
+
 主人或授权人 DM 默认 direct，仅沿已有 binding 的唤醒语义，不能把 write 提升为 run；好友或陌生人默认 record。授权群默认 batch，其他 group/channel 默认 record。profile 改动只作用于新会话，已有会话保留固定 profile；需要立即切换时显式 `/new` 或关闭会话。
 
 群参与以 Bot 为独立规则与会话所有者，按 Bot/真实群维护策略、观察游标、参与对象、暂停及版本；共享本群公开消息不合并不同 Bot 的 durable conversation，不共享 main 或未发送草稿。发言协调只约束当前公开发言机会，不代替任一 Bot 的自主判断，不增加另一套模型队列。QQ 与系统内群聊遵循同一边界，详见 11“群聊独立参与与共享协调”。 对声明 membership 的平台群，已验证成员关系可按 16 生成受限的默认群绑定/profile 和参与范围；它仍是可诊断的正常绑定，显式禁用/拒绝/自定义策略优先，不是绕过绑定的例外，不扩及 QQ 或私人 main。

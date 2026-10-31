@@ -5,6 +5,8 @@ import type { Runtime, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 
+/** 已路由的一次提交：agent、原生会话与唤醒方式。 */
+export type RoutedRun = { agent: string; session: string; wake: "run" | "write" };
 export interface CreateRouterOptions {
 	channels?: Map<string, Channel>;
 	store: Store;
@@ -23,4 +25,6 @@ export interface CreateRouterOptions {
 	onRun?: (session: SessionInfo, run: RuntimeRun, inputs: YEvent[], waiter: boolean) => void | Promise<void>;
 	onCommand?: (session: SessionInfo, event: YEvent) => Promise<RunResult | undefined>;
 	onReport?: (error: unknown) => void;
+	/** Deprecation and no-binding diagnostics that are facts, not failures (spec 20 §3). */
+	onWarn?: (message: string, data?: object) => void;
 }

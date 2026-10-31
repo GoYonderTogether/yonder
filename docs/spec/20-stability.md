@@ -99,3 +99,7 @@ home 布局、环境变量、命令名、包名、插件 id、路由（§1.1）�
 ### 社交增量兼容（CH-01）
 
 SocialConfig、SocialPolicy、Channel.features、message.in.data.social、通知元数据和 social 方法均为可选增量；旧配置、旧 Channel 与旧事件继续有效。新配置 schema、控制面方法/协议和 SDK 公共形状均须更新对应 golden；按测试支持的 `UPDATE_GOLDEN=1` 更新后，关闭该变量重跑，并确认旧字段子集未丢失。旧 QQ 事件 reader/shim 和弃用配置至少保留两个 minor，弃用时 warn 并写 CHANGELOG。
+
+### 旧 QQ 群批次（`channel-qq.group-batch`）
+
+`channel-qq.group-batch` 事件类型、其 `data` 字段与 `groupParticipation`（`all`/`mention`/`record`）按 §3 弃用，取代者是 `social.batch-ready` 与 08“官方 QQ 群的默认参与范围”。保留期至少覆盖 0.3、0.4，最早 0.5 移除；移除前必须同时具备运行时 warn（使用旧链时输出，指明 `social.batch-ready` 与移除版本）和 `CHANGELOG.md` 条目，并按 §4 记一条 decisions；缺任一项不得宣布弃用完成。旧事件与字段在保留期内保持可读，不改变其既有语义；不再新增使用它们的运行绑定。现有 home 的迁移走 `yonder-qq upgrade-groups`（可预览、逐字段校验、备份、幂等，自定义绑定不覆盖）；迁移前旧链照常工作并显示弃用警告，迁移完成前不得声称已完成。本条只定义义务，不代表运行时 warn、CHANGELOG 条目或迁移已实现。

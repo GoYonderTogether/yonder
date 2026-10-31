@@ -376,6 +376,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			onStart: delivery.onStart,
 			onRun: (session, run) => completeRun(session.id, run),
 			onReport: report,
+			onWarn: (message, data) => log("warn", message, data),
 		});
 		const tools = kernelTools(
 			{

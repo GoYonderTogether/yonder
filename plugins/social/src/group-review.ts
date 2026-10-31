@@ -13,6 +13,23 @@ export interface ReviewOptions {
 	intervalHours?: number;
 	minMessages?: number;
 }
+/** 复盘的候选范围仍走真实命中与批次准入，不由复盘模型扩大。 */
+export async function reviewEligible(api: PluginAPI, t: ReviewTarget, events: YEvent[]) {
+	const eligible = events.filter(
+		(e) =>
+			e.conv === t.conv &&
+			e.routes?.some((r) => r.agent === t.agent && r.session === t.session && r.wake === "write" && !r.dropped),
+	);
+	// 没有准入的批次不发；只认真实命中与当前策略修订。
+	if (!eligible.length) return false;
+	return !!(await api.social?.admitBatch({
+		agent: t.agent,
+		conv: t.conv,
+		through: eligible.at(-1)!.id,
+		sourceEvents: eligible.map((e) => e.id),
+		policyRevision: t.revision,
+	}));
+}
 /** One low-frequency background review per Bot/group. No per-message model observer. */
 export class GroupReview {
 	private readonly last = new Map<string, { at: number; through: string }>();

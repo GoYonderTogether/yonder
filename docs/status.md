@@ -399,3 +399,11 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 **源码检查**：`npm run build`、`npm run typecheck` 通过；`npm run test:node` 40 通过 / 0 失败；`npx vitest run scripts/check-retired.test.mjs` 7 通过；`check-retired --target interaction-http|tasks-http|companion-swift|interaction-web` 全部 exit 0；Swift 构建与 `--check`（单实例锁）、`--check-activity`（2 用例）通过；`cargo check` 与 `tauri build --debug --no-bundle` 成功。
 
 **未测 / 未做**：菜单真实鼠标点击、通知点击后的浏览器落点、登录后的页面内容核对；正式签名、公证与 Release 附件；Windows/Linux 桌面构建与运行。`npm run lint` 在并行工作留下的既有行数超限处失败（`plugins/channel-qq/src/channel.ts`、`plugins/native-automation/src/index.ts`、`packages/core/src/runtime/index.ts`），未在本轮修改，不能算本轮通过。本轮未安装/重启日用状态栏，未改动正式服务。
+
+## 2026-10-31 群参与收口：social 成为唯一参与权威（已提交）
+
+**已实现**：`channel-qq` 新配置只写 `social.batch-ready` 绑定；允许入站且由官方群绑定接纳的 QQ 群在 `social.scope` 外按 08 派生受限默认范围（硬触发可运行，其余只记录），不再落回旧「窗口非空就运行」；派生范围在没有显式 `batch.run: true` 时也不会因 `count` 兜底自行唤醒。仍保留旧 `channel-qq.group-batch` 绑定的 home 按旧语义工作并每群警告一次。`yonder-qq upgrade-groups` 默认预览，`--apply` 才写，先备份、可重复、不覆盖自定义配置档/绑定。social 的直接点名 1.5 秒短合并、静默值按房间固定、120 秒硬顶、忙时补充带真实 sourceEvents 沿原生 steer 并入、发送前失效检查；群上下文收敛为一条紧凑 user context，批次内公开历史只出现一次，内核成员列表上限 200 且始终保留本 Bot 自身。
+
+**源码检查**：`npm run typecheck` 通过；`npm run build` 通过；路由、会话工具、social、channel-qq、kernel 定向 289 通过 / 0 失败 / 35 跳过；全仓 `npm test` 2254 通过 / 1 失败 / 104 跳过，失败为既有 `apps/app/scripts/market.test.mjs`（与本改动无关，未修）；`npm run lint` 仍只在既有 `packages/core/src/runtime/index.ts` 行数基线上失败（1953 行，基线 1952，属 Phase C1 待拆分），无新增错误。真实 `openai/gpt-6-luna`：`plugins/social`、`packages/core/src/routing`、`plugins/channel-qq` 共 183 通过 / 0 失败 / 3 跳过（跳过的是需要 `YONDER_GROUP_REAL=1` 与群快照的 live 用例）；其中 `participation-live` 在默认 `TMPDIR` 下因 Unix socket 路径超长报 `EINVAL`，改用短 `TMPDIR` 后单跑与全目录均通过。
+
+**未测**：真实 QQ 平台收发、安装后的本机服务与迁移、重启后真实群的恢复行为；`group-review-live`（缺公开群快照）；大群流量下的 token 与首响对比（隔离样本只有短追问约 1.2k–2.1k 输入 tokens，不能外推）。本机 yonder.yaml 的三个 QQ 实例仍是旧配置，升级后需先 `upgrade-groups` 预览再 `--apply`。

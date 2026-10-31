@@ -60,9 +60,16 @@ export function conversationPromptOptions(
 					),
 				});
 			}
-			return event.conv
-				? JSON.stringify({ ...(await conversationMembers(store, event.conv, agent, signal)), self })
-				: undefined;
+			if (!event.conv) return undefined;
+			const data = event.data as { social?: { room?: string } };
+			// 群批次已经带着本群公开历史（含成功出站），内核不再重复一份 recentSent。
+			const batch = event.type.endsWith(".batch-ready") || event.type.endsWith(".group-batch");
+			const members = await conversationMembers(store, event.conv, agent, signal, { recentSent: !batch });
+			return JSON.stringify({
+				...members,
+				...(data.social?.room ? { room: data.social.room } : {}),
+				self,
+			});
 		},
 	};
 }

@@ -3,7 +3,7 @@ import type { AgentConfig, Binding } from "../config/index.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
 import { participationPlugin } from "./participation.js";
-import { membershipGroup, platformBatchBinding } from "./platform-group.js";
+import { membershipGroup, officialGroupDefault, platformBatchBinding } from "./platform-group.js";
 import { socialDecision } from "./social.js";
 
 export async function admitBatch(
@@ -34,7 +34,11 @@ export async function admitBatch(
 	const route = source?.routes?.find((item) => item.agent === agent.id && item.wake === "write" && !item.dropped);
 	if (
 		!agent.social?.enabled &&
-		(!source || !membershipGroup(agent, source, channels?.get(channelOf(source.conv) ?? "")))
+		(!source ||
+			!(
+				membershipGroup(agent, source, channels?.get(channelOf(source.conv) ?? "")) ||
+				officialGroupDefault(agent, source, channels?.get(channelOf(source.conv) ?? ""))
+			))
 	)
 		return;
 	if (
@@ -53,8 +57,10 @@ export async function admitBatch(
 		if (!item) return;
 		const person = item.from?.startsWith("acct:") ? (await store.identity().account(item.from))?.person : undefined;
 		const decision = socialDecision(agent, item, person, channels?.get(channelOf(item.conv) ?? ""));
+		// 批次既接纳自主批次，也接纳硬触发（08：@/引用/名字/关注）在 write 绑定下的直接机会。
 		if (
-			decision?.reason !== "batch" ||
+			!decision ||
+			!(decision.reason === "batch" || decision.run === true) ||
 			decision.revision !== request.policyRevision ||
 			participationPlugin(agent, item) !== plugin
 		)

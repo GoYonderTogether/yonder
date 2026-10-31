@@ -59,8 +59,17 @@ export async function conversationMessage(store: Store, event: YEvent, agent?: s
 	};
 }
 
+/** Observed participants only; bounded so a long group conversation cannot grow the per-turn context. */
+const MAX_MEMBERS = 200;
+const MAX_RECENT_SENT = 10;
 // ponytail: scan the current conversation once per group run; add an event-derived view only if large histories make this measurable.
-export async function conversationMembers(store: Store, conv: string, agent?: string | null, signal?: AbortSignal) {
+export async function conversationMembers(
+	store: Store,
+	conv: string,
+	agent?: string | null,
+	signal?: AbortSignal,
+	options: { recentSent?: boolean } = {},
+) {
 	const members = new Map<
 		string,
 		{
@@ -69,6 +78,7 @@ export async function conversationMembers(store: Store, conv: string, agent?: st
 			relation?: string | undefined;
 			person?: string | undefined;
 			self: boolean;
+			lastAt: string;
 		}
 	>();
 	const recentSent: Awaited<ReturnType<typeof conversationMessage>>[] = [];
@@ -79,9 +89,9 @@ export async function conversationMembers(store: Store, conv: string, agent?: st
 		for (const event of page.events) {
 			if (!visible(event) || !event.from) continue;
 			const message = await conversationMessage(store, event, agent);
-			if (event.type === "message.out") {
+			if (event.type === "message.out" && options.recentSent !== false) {
 				recentSent.push(message);
-				if (recentSent.length > 10) recentSent.shift();
+				if (recentSent.length > MAX_RECENT_SENT) recentSent.shift();
 			}
 			members.set(event.from, {
 				ref: event.from,
@@ -89,17 +99,29 @@ export async function conversationMembers(store: Store, conv: string, agent?: st
 				relation: message.relation,
 				person: message.person,
 				self: message.self,
+				lastAt: event.ts,
 			});
 		}
 		after = page.next;
 	} while (after);
-	if (agent && !members.has(`agent:${agent}`)) members.set(`agent:${agent}`, { ref: `agent:${agent}`, self: true });
+	if (agent && !members.has(`agent:${agent}`))
+		members.set(`agent:${agent}`, { ref: `agent:${agent}`, self: true, lastAt: "" });
+	// 有界且确定性：按最近发言时间倒序，同时间按引用排序；平台不提供完整成员表，这里也不假装是。
+	const bounded = [...members.values()]
+		.sort((a, b) => b.lastAt.localeCompare(a.lastAt) || a.ref.localeCompare(b.ref))
+		.slice(0, MAX_MEMBERS);
+	// 自己的条目必须留着：工具契约写明包含本 Agent，而它可能从未在公开历史里发言、被上限截掉。
+	const selfMember = agent ? members.get(`agent:${agent}`) : undefined;
+	if (selfMember && !bounded.includes(selfMember)) {
+		if (bounded.length >= MAX_MEMBERS) bounded.pop();
+		bounded.push(selfMember);
+	}
 	return {
 		conv,
 		scope: "observed-history",
-		members: [...members.values()],
-		recentSentScope: "last-10-confirmed-sends",
-		recentSent,
+		members: bounded,
+		...(bounded.length < members.size ? { membersOmitted: members.size - bounded.length } : {}),
+		...(options.recentSent === false ? {} : { recentSentScope: `last-${MAX_RECENT_SENT}-confirmed-sends`, recentSent }),
 	};
 }
 

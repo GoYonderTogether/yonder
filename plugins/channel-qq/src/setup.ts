@@ -10,7 +10,7 @@ import { parseArgs } from "node:util";
 import { type QrConnectCredentials, startQrConnect } from "@tencent-connect/qqbot-connector";
 import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
-import { groupBatch, groupInstructions, groupTools, legacyGroupInstructions } from "./participation.js";
+import { groupInstructions, groupTools, legacyGroupInstructions } from "./participation.js";
 
 interface SetupOptions {
 	home: string;
@@ -129,7 +129,8 @@ export async function configure(
 				model,
 				capabilities: ["read"],
 				tools: { offer: groupTools, search: [] },
-				plugins: [],
+				// 参与机会由 social 的批次提供（spec 11 §15），群配置档必须选中该插件。
+				plugins: ["social"],
 				contexts: ["peer-workspace"],
 				skills: [],
 				instructions: groupInstructions,
@@ -162,7 +163,7 @@ export async function configure(
 			},
 			{
 				id: `${options.instance}-batch`,
-				match: { type: groupBatch, channel: options.instance },
+				match: { type: "social.batch-ready", channel: options.instance },
 				session: { mode: "persistent", per: "conv" },
 				profile: current.groupProfile,
 				reply: "none",
@@ -262,11 +263,33 @@ export async function connect(onLink: (url: string) => void, signal: AbortSignal
 	});
 }
 
-/** Upgrade only byte-identical official group instructions; custom profiles remain untouched. */
-export async function upgradeGroups(home: string, agentId?: string) {
+/** The exact profile shape `setup` writes; anything else is a user customization and stays untouched. */
+function isOfficialGroupProfile(profile: unknown) {
+	if (!profile || typeof profile !== "object") return false;
+	const value = profile as Record<string, unknown>;
+	const instructions = value.instructions;
+	if (instructions !== legacyGroupInstructions && instructions !== groupInstructions) return false;
+	const tools = value.tools as { offer?: unknown; search?: unknown } | undefined;
+	if (!Array.isArray(tools?.offer) || !Array.isArray(tools?.search)) return false;
+	if (tools.search.length) return false;
+	if (!tools.offer.every((name) => typeof name === "string" && groupTools.includes(name))) return false;
+	return ["contexts", "skills", "plugins"].every((key) => value[key] === undefined || Array.isArray(value[key]));
+}
+
+/**
+ * Migrate only confirmable official QQ group configuration; custom bindings and custom profiles are
+ * never overwritten. Preview by default; writes one backup per file and is safe to repeat.
+ *
+ * - group profile: official instructions/tools/contexts → current instructions + `social` selected.
+ * - group binding: `wake: write` + `persistent/per: conv` + `reply: none` already match spec 11 §15.
+ * - batch binding: the deprecated `channel-qq.group-batch` run binding becomes `social.batch-ready`.
+ */
+export async function upgradeGroups(home: string, agentId?: string, options: { apply?: boolean } = {}) {
 	const config = await document(join(home, "yonder.yaml"));
+	const channels = (config.toJSON().channels ?? {}) as Record<string, { type?: unknown }>;
 	const changed: string[] = [],
-		skipped: string[] = [];
+		skipped: string[] = [],
+		preview: Array<{ file: string; binding?: string; profile?: string }> = [];
 	for (const entry of config.toJSON().agents ?? []) {
 		if (agentId && entry.id !== agentId) continue;
 		if (entry.env && entry.env !== "local") {
@@ -278,16 +301,68 @@ export async function upgradeGroups(home: string, agentId?: string) {
 		try {
 			const doc = await document(file);
 			let dirty = false;
-			const profiles = doc.toJSON().profiles ?? {};
-			for (const [id, profile] of Object.entries(profiles) as [
-				string,
-				{ instructions?: string; contexts?: string[]; tools?: { offer?: string[] } },
-			][]) {
-				if (profile.instructions !== legacyGroupInstructions && profile.instructions !== groupInstructions) continue;
-				doc.setIn(["profiles", id, "instructions"], groupInstructions);
-				doc.setIn(["profiles", id, "contexts"], [...new Set([...(profile.contexts ?? []), "peer-workspace"])]);
-				doc.setIn(["profiles", id, "tools", "offer"], [...new Set([...(profile.tools?.offer ?? []), ...groupTools])]);
-				dirty = true;
+			const value = doc.toJSON() as Record<string, unknown>;
+			const profiles = (value.profiles ?? {}) as Record<string, Record<string, unknown>>;
+			const bindings = (value.bindings ?? []) as Array<Record<string, unknown>>;
+			const qqInstances = new Set(
+				Object.entries(channels)
+					.filter(([, item]) => item.type === "qq")
+					.map(([id]) => id),
+			);
+			// 1. official group profiles: current instructions/contexts/tools and a real participation provider.
+			for (const [id, profile] of Object.entries(profiles)) {
+				if (!isOfficialGroupProfile(profile)) continue;
+				const offer = (profile.tools as { offer?: string[] } | undefined)?.offer ?? [];
+				const contexts = (profile.contexts ?? []) as string[];
+				const plugins = (profile.plugins ?? []) as string[];
+				const next = {
+					instructions: groupInstructions,
+					contexts: [...new Set([...contexts, "peer-workspace"])],
+					tools: { ...(profile.tools as object), offer: [...new Set([...offer, ...groupTools])] },
+					plugins: [...new Set([...plugins, "social"])],
+					skills: (profile.skills ?? []) as string[],
+				};
+				for (const key of Object.keys(next) as Array<keyof typeof next>) {
+					if (JSON.stringify(profile[key]) === JSON.stringify(next[key])) continue;
+					doc.setIn(["profiles", id, key], next[key]);
+					preview.push({ file, profile: id });
+					dirty = true;
+				}
+			}
+			for (const [index, binding] of bindings.entries()) {
+				const match = (binding.match ?? {}) as Record<string, unknown>;
+				const instances = match.channel === undefined ? [] : [match.channel].flat();
+				const qq = instances.some((id) => typeof id === "string" && qqInstances.has(id));
+				// 自定义绑定不覆盖：只认引用官方群配置档的绑定。
+				const referenced = typeof binding.profile === "string" ? profiles[binding.profile] : undefined;
+				if (!qq || !referenced || !isOfficialGroupProfile(referenced)) continue;
+				// 2. group write binding: only the exact official shape is accepted as already migrated.
+				if (
+					match.kind === "group" &&
+					typeof binding.session === "object" &&
+					binding.session !== null &&
+					(binding.session as Record<string, unknown>).mode === "persistent" &&
+					(binding.session as Record<string, unknown>).per === "conv" &&
+					binding.reply === "none" &&
+					binding.wake !== "write"
+				) {
+					doc.setIn(["bindings", index, "wake"], "write");
+					preview.push({ file, binding: String(binding.id ?? index) });
+					dirty = true;
+				}
+				// 3. deprecated batch run binding → social.batch-ready, same session/profile/reply.
+				if (
+					match.type === "channel-qq.group-batch" &&
+					binding.reply === "none" &&
+					typeof binding.session === "object" &&
+					binding.session !== null &&
+					(binding.session as Record<string, unknown>).mode === "persistent" &&
+					(binding.session as Record<string, unknown>).per === "conv"
+				) {
+					doc.setIn(["bindings", index, "match", "type"], "social.batch-ready");
+					preview.push({ file, binding: String(binding.id ?? index) });
+					dirty = true;
+				}
 			}
 			if (!dirty) {
 				skipped.push(entry.id);
@@ -295,7 +370,11 @@ export async function upgradeGroups(home: string, agentId?: string) {
 			}
 			const before = await readFile(file, "utf8");
 			const after = doc.toString();
-			if (before === after) continue;
+			if (before === after) {
+				skipped.push(entry.id);
+				continue;
+			}
+			if (options.apply !== true) continue;
 			const backup = `${file}.pre-qq-context-${randomUUID()}`;
 			await writeFile(backup, before, { mode: 0o600, flag: "wx" });
 			await atomic(file, after, 0o600);
@@ -304,7 +383,7 @@ export async function upgradeGroups(home: string, agentId?: string) {
 			await unlock();
 		}
 	}
-	return { changed, skipped };
+	return { changed, skipped, preview, applied: options.apply === true };
 }
 
 async function main() {
@@ -317,18 +396,21 @@ async function main() {
 			"group-profile": { type: "string" },
 			"app-id": { type: "string" },
 			open: { type: "boolean" },
+			apply: { type: "boolean" },
 			help: { type: "boolean" },
 		},
 		allowPositionals: true,
 	});
 	if (values.help) {
 		console.log(
-			"yonder-qq upgrade-groups --home <Yonder home> [--agent <id>] | setup --home <Yonder home> --agent <id> [--open] [--instance qq-main] [--profile <private profile>] [--group-profile <existing profile>] [--app-id <selected bot>]",
+			"yonder-qq upgrade-groups --home <Yonder home> [--agent <id>] [--apply] | setup --home <Yonder home> --agent <id> [--open] [--instance qq-main] [--profile <private profile>] [--group-profile <existing profile>] [--app-id <selected bot>]",
 		);
 		return;
 	}
 	if (positionals[0] === "upgrade-groups" && values.home) {
-		console.log(JSON.stringify(await upgradeGroups(resolve(values.home), values.agent)));
+		console.log(
+			JSON.stringify(await upgradeGroups(resolve(values.home), values.agent, { apply: values.apply === true })),
+		);
 		return;
 	}
 	if (positionals[0] !== "setup" || !values.home || !values.agent)
