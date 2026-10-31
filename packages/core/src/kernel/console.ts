@@ -1,18 +1,15 @@
-import { type Channel, allowsChannelInstance as sdkAllows, assertChannelInstance as sdkAssert } from "@yonder/sdk";
-import type { AgentConfig, Binding, YonderConfig } from "../config/index.js";
+import type { Channel } from "@yonder/sdk";
+import { type AgentConfig, type Binding, CONSOLE, CONSOLE_BINDING, type YonderConfig } from "../config/index.js";
 
-/** Reserved instance id of the built-in console channel (the web console / gateway). */
-export const CONSOLE = "console";
-/** Reserved binding id of the implicit console binding; agent config validation rejects it (config/index.ts). */
-export const CONSOLE_BINDING = "@console";
-
-type InstanceScope = { channelInstances?: readonly string[] };
-/** Console is always authorized for delivery; every other instance still honours `channelInstances`. */
-export const allowsChannelInstance = (scope: InstanceScope, instance: string) =>
-	instance === CONSOLE || sdkAllows(scope, instance);
-export const assertChannelInstance = (scope: InstanceScope, instance: string) => {
-	if (instance !== CONSOLE) sdkAssert(scope, instance);
-};
+// The console identity and its instance-scope predicates are pure configuration facts; they live at L0 in
+// config/console.ts so delivery, routing and tools can read them without importing this composition module.
+export {
+	allowsChannelInstance,
+	assertChannelInstance,
+	CONSOLE,
+	CONSOLE_BINDING,
+	isConsoleBot,
+} from "../config/index.js";
 
 /**
  * Built-in channel for the web console. Inbound messages are emitted by the kernel on behalf of the
@@ -74,6 +71,3 @@ export const withoutRuntimeBindings = (agent: AgentConfig): AgentConfig => ({
 		(binding) => binding.id !== CONSOLE_BINDING && !binding.id.startsWith("@platform-group:"),
 	),
 });
-
-export const isConsoleBot = (agent: AgentConfig) =>
-	!agent.archivedAt && agent.bindings.some((binding) => [binding.match.channel].flat().includes(CONSOLE));

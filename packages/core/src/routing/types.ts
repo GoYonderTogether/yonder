@@ -1,6 +1,6 @@
 import type { Channel, OutputPart, RunResult, SessionInfo, YEvent } from "@yonder/sdk";
 import type { AgentConfig } from "../config/index.js";
-import type { NotificationConfig, NotificationLevel } from "../kernel/notifications.js";
+import type { NotificationConfig, NotificationLevel } from "../config/notifications.js";
 import type { Runtime, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";

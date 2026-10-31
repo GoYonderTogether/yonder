@@ -17,6 +17,7 @@ import {
 	cliPrompt,
 	commonPrompt,
 	modelDiscipline,
+	promptSectionIds,
 	residentPrompt,
 	runtimePrompt,
 } from "./content.js";
@@ -25,6 +26,7 @@ import {
 	framework,
 	type PromptOptions,
 	prepareInput,
+	promptKey,
 	scaffoldWorkspace,
 	systemSections,
 	toolDiscoveryGuide,
@@ -666,4 +668,16 @@ test("framework names only offered tools and respects non-posting group bindings
 	for (const unavailable of ["agent_ask", "task_run", "skill_view", "task_continue"])
 		expect(text).not.toContain(unavailable);
 	expect(framework({ ...session, bindings: [] }, "zh-CN", ["task_run"])).toContain("Use task_run");
+});
+
+test("the configuration key list stays in step with the built-in sections", () => {
+	// config/prompt-sections.ts (L0) is what config validation accepts; prompt/ renders those same keys.
+	const expected = [
+		"framework",
+		...builtinPromptSections.filter((section) => section.id !== "cli").map((section) => section.id),
+		"tool-discovery",
+		"cli",
+	];
+	expect(promptSectionIds).toEqual(expected);
+	for (const id of expected) expect(promptKey(id)).toMatch(/^[a-z][a-z0-9_-]*$/);
 });

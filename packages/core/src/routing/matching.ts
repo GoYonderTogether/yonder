@@ -53,7 +53,7 @@ export async function matches(binding: Binding, event: YEvent, agent: AgentConfi
 }
 /**
  * 内置点名入口的绑定 id：不是配置里的绑定，所以配置校验把它当作保留 id。
- * 与 kernel/console.ts 的 `@console` 同一思路——零配置入口由内核合成，用户改不了也删不掉。
+ * 与 config/console.ts 的 `@console` 同一思路——零配置入口由内核合成，用户改不了也删不掉。
  */
 export const TARGET_BINDING = "@target";
 

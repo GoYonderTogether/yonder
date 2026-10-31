@@ -1,6 +1,6 @@
 import type { Delivery, ExecutionOwner, NotificationIntent } from "@yonder/sdk";
+import { allowsChannelInstance } from "../config/console.js";
 import type { AgentConfig, YonderConfig } from "../config/index.js";
-import { allowsChannelInstance } from "../kernel/console.js";
 import { channelOf, matches } from "../routing/matching.js";
 import { socialBindingAllowed, socialDecision } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";

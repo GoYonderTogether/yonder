@@ -12,8 +12,8 @@ import {
 	type ToolContext,
 	type YEvent,
 } from "@yonder/sdk";
+import { allowsChannelInstance, assertChannelInstance, CONSOLE } from "../config/console.js";
 import type { AgentConfig, Binding } from "../config/index.js";
-import { allowsChannelInstance, assertChannelInstance, CONSOLE } from "../kernel/console.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";

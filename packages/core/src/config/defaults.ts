@@ -3,6 +3,11 @@ import { socialDefaults } from "./social-schema.js";
 
 /** 兜底链缺省（QA 10-28 23:40）：免费池在前，其次 glm-5.3-flash；条目可为 provider 或 provider/model。 */
 export const defaultModelChain = ["workbuddy", "rightapi-glm/glm-5.3-flash"];
+/**
+ * 默认懒加载分组（X7）：属于这些分组的工具默认不进常驻工具表，只有 tool_search 命中或显式激活后才载入。
+ * 配置 `tools.lazyGroups` 可以增减，空数组表示全部常驻。分组到工具名的匹配在 runtime/tool-catalog.ts。
+ */
+export const defaultLazyGroups: string[] = ["code-intel"];
 /** 按量付费模型的价格上限（元/百万 token）：输入与输出单价都不得超过。 */
 export const defaultPriceCapPerMTokenYuan = 0.6;
 /** 会话预算缺省：token 不限（0），超预算只记录不中断（M3/M5）。 */

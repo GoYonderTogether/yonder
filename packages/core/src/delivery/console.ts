@@ -1,6 +1,6 @@
 import type { Delivery, OutMessage, SessionInfo } from "@yonder/sdk";
 import { parseRef, type YEvent } from "@yonder/sdk";
-import { CONSOLE } from "../kernel/console.js";
+import { CONSOLE } from "../config/console.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 

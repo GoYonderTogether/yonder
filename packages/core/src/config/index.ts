@@ -11,15 +11,15 @@ import {
 import type { Static, TSchema } from "typebox";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
-import { promptSectionIds } from "../prompt/content.js";
-import { defaultLazyGroups } from "../tools/catalog.js";
 import {
 	defaultBudget,
+	defaultLazyGroups,
 	defaultModelChain,
 	defaultOutsiders,
 	defaultPriceCapPerMTokenYuan,
 	socialWithDefaults,
 } from "./defaults.js";
+import { promptErrors } from "./prompt-sections.js";
 import {
 	type AgentConfig,
 	AgentSchema,
@@ -31,7 +31,22 @@ import {
 import { socialTriggerErrors } from "./social-schema.js";
 import { loadSubagentDefinitions } from "./subagent-definitions.js";
 
-export { tokenAmount } from "./defaults.js";
+export {
+	allowsChannelInstance,
+	assertChannelInstance,
+	CONSOLE,
+	CONSOLE_BINDING,
+	canReceivePeerAsk,
+	isConsoleBot,
+} from "./bindings.js";
+export { defaultLazyGroups, tokenAmount } from "./defaults.js";
+export {
+	type NotificationConfig,
+	type NotificationLevel,
+	notificationLevel,
+	notificationLevels,
+} from "./notifications.js";
+export { promptErrors, promptSectionIds } from "./prompt-sections.js";
 export { watchConfig } from "./reload.js";
 export type { AgentConfig, Binding, YonderConfig } from "./schema.js";
 
@@ -257,15 +272,6 @@ function parse<T extends TSchema>(text: string, file: string, schema: T): Static
 	}));
 	if (issues.length) throw new ConfigError(issues);
 	return value as Static<T>;
-}
-
-export function promptErrors(prompt: Profile["prompt"]): string[] {
-	const selected = prompt?.sections ?? [];
-	const ids = [...selected, ...Object.keys(prompt?.overrides ?? {})];
-	return [
-		...new Set(ids.filter((id) => !promptSectionIds.includes(id)).map((id) => `Unknown prompt section: ${id}`)),
-		...(new Set(selected).size !== selected.length ? ["Duplicate prompt section"] : []),
-	];
 }
 
 function profileIssues(profile: Profile, file: string, path: string): ConfigIssue[] {

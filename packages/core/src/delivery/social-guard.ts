@@ -1,7 +1,7 @@
 import type { Channel } from "@yonder/sdk";
 import { parseRef } from "@yonder/sdk";
+import { assertChannelInstance } from "../config/console.js";
 import type { AgentConfig } from "../config/index.js";
-import { assertChannelInstance } from "../kernel/console.js";
 import { socialDecision } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";

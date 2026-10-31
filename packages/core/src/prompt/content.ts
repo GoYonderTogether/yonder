@@ -335,9 +335,6 @@ export const builtinPromptSections = [
 	{ id: "cli", text: cliPrompt },
 ] as const;
 
-export const promptSectionIds: readonly string[] = [
-	"framework",
-	...builtinPromptSections.filter((section) => section.id !== "cli").map((section) => section.id),
-	"tool-discovery",
-	"cli",
-];
+// The id list is a configuration key set, so it lives at L0 (config/prompt-sections.ts) and is re-exported
+// here; prompt/index.test.ts asserts the two stay in step.
+export { promptErrors, promptSectionIds } from "../config/prompt-sections.js";

@@ -4,12 +4,12 @@ import { join } from "node:path";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parseAgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
-import { inboundNotification } from "../kernel/notifications.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { createRouter } from "./index.js";
+import { inboundNotification } from "./notifications.js";
 
 const conv = "conv:qq-main:group:G1";
 const inbound = (data: Record<string, unknown>, overrides: Partial<YEvent> = {}): YEvent => ({

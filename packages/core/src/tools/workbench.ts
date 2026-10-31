@@ -1,7 +1,7 @@
 import type { AskResult, EventInput, SessionInfo, Tool, ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
 import type { AgentConfig } from "../config/index.js";
-import { isConsoleBot } from "../kernel/console.js";
+import { isConsoleBot } from "../config/index.js";
 import type { Runtime } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
