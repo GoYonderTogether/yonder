@@ -38,10 +38,17 @@ export function Shell() {
 			title={label}
 			className={cn(
 				"press flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[12px] text-muted",
-				active(to) && "text-accent-ink",
+				active(to) && "font-semibold text-ink",
 			)}
 		>
-			{Icon ? <Icon size={22} strokeWidth={1.75} /> : me && <Avatar actor={me} size={22} />}
+			<span
+				className={cn(
+					"flex h-8 w-12 shrink-0 items-center justify-center rounded-full",
+					active(to) && "bg-accent text-on-accent",
+				)}
+			>
+				{Icon ? <Icon size={22} strokeWidth={1.75} /> : me && <Avatar actor={me} size={22} />}
+			</span>
 			{label}
 		</NavLink>
 	));
