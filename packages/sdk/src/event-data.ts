@@ -43,7 +43,7 @@ export interface RunEndData {
 	model: string;
 	/** Thinking level this run actually used. */
 	thinking?: string;
-	/** Present when a delegation asked for a per-run effort (14 §5). */
+	/** Present when a delegation asked for a per-run effort (14 §7). */
 	effort?: { requested: string; effective: string; reason?: string; inputs: string[] };
 	usage: { input: number; output: number; cacheRead: number; cacheWrite: number; cost: number };
 }

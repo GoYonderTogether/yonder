@@ -61,7 +61,8 @@
 		"test": "vitest run --exclude '**/dist/**'",
 		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs scripts/release/ci-status.test.mjs scripts/release/changelog.test.mjs scripts/release/version.test.mjs scripts/release/bump-versions.test.mjs scripts/release/pack-runtime.test.mjs",
 		"lint:size": "node scripts/check-file-size.mjs",
-		"lint": "biome check . && node scripts/check-file-size.mjs"
+		"lint:layers": "node scripts/check-layers.mjs",
+		"lint": "biome check . && node scripts/check-file-size.mjs && node scripts/check-layers.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
