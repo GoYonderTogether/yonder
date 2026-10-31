@@ -1,6 +1,6 @@
 # 内核瘦身：群聊/社交逻辑迁往插件（D 阶段设计稿，待维护者批准接口）
 
-状态：草案。D1 不需要新接口，可直接执行；D2 要新增 SDK 接缝，必须先由维护者批准本页的接口形状并改 04/11/20，才能实现。
+状态：草案。D1、D2 都要新增 SDK 接缝，必须先由维护者批准本页的接口形状并改 04/11/20，才能实现。
 
 ## 现状
 
@@ -21,10 +21,19 @@ core 里与群参与、社交、名片相关的非测试代码约 2400 行。逐
 | `config/social-schema.ts`、`config/social-validation.ts`、`kernel/social.ts` 写入半 | agent.yaml `social:` 段的 schema、默认值、跨文件校验、审计写入 | **D2**：需要 agent 配置段贡献接缝 |
 | `kernel/card-visitor.ts` | 旧 home 迁移，补 `card-visitor` 绑定 | **D2**：需要加载后迁移接缝，或并入 channel-card 已有的升级命令 |
 
-## D1（无需新接口）
+## D1 结论：不能直接迁移（2026-10-31 核实）
 
-- `delivery/social-guard.ts` 的判定改由 social 插件的 `beforeSend` 承担；core 投递路径删除该调用。行为必须一致：同样的拒绝原因写入同样的事件字段。
-- 验收：`plugins/social`、`packages/core/src/delivery` 单测；真实 Luna 群聊 live 全部通过。
+原以为 `delivery/social-guard.ts` 可由 social 插件现有 `beforeSend` 承担。逐项核对后不成立，迁移会削弱安全，已停止，未改代码：
+
+| 情形 | 现在 | 改用插件 `beforeSend` 后 |
+|---|---|---|
+| Agent 启用 social、但配置档未选任何插件 | 拦截（`delivery.test.ts` 有用例） | 钩子只对已选插件运行，**不再拦截** |
+| 依据来源入站事件判定（kind、mention、senderIsBot） | 能取到 | 钩子拿不到来源事件 |
+| denied / authorized / scope / quiet 等配置 | 能读 | 插件无读取途径（`api.social.inspect` 只返回生效策略） |
+| 被拦截的发送 | 写 `message.out` 失败记录 | 钩子抛错在发送记录之外，账本不留记录 |
+| 重试与流式中途复核 | 都复核 | 钩子不在重试与流中途运行 |
+
+因此 D1 与 D2 合并：都需要先批准下面的接缝，外加两条——钩子能拿到已核验的来源事件，以及拦截结果由内核写入与现在相同的失败记录。
 
 ## D2 接缝草案（待批准）
 

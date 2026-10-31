@@ -14,7 +14,11 @@
 | B1 文档 | spec 编号、index、architecture §6–§7 已提交 `6b35927`；本页压缩与历史移出随本次提交 |
 | B3 非 core 大文件 | 已提交：cron、native-automation、channel-wechat-ilink、channel-qq、channel-feishu、cli terminal、cli index 均 ≤500 行 |
 | B2 core 分层 | 已提交 `ae6a1de`…`ec87624`：9 处上行依赖修复，另修 routing→delivery；新增 `scripts/check-layers.mjs`（接入 `npm run lint`，基线为空）；默认 `npm test` 2264 / 1（既有 market.test）/ 104 |
-| C 拆 runtime/release/delivery/kernel、D 内核瘦身、E 干净验收 | 进行中 / 未完成；D2 的 SDK 接缝待维护者批准（[设计稿](../proposals/convergence/kernel-slimming.md)） |
+| C 拆 runtime/release/delivery/kernel/device | 已提交（runtime `4a472c0`…`9282191`；release `c25b6e9`、delivery `d3cf6d8`、kernel `614952f`、device `fe80678`）；全仓已无超过 500 行的源文件，行数基线为空 |
+| D 内核瘦身 | 未改代码：social-guard 迁入插件会削弱安全，D1/D2 都需要先批准 SDK 接缝（[设计稿](../proposals/convergence/kernel-slimming.md)）；未接线的群摘要显示与外人闸门待决定接线或删除 |
+| E 干净验收 | 进行中 |
+
+已知、早于本轮的真实模型失败（拆分前后同一组）：凭据缺 `workbuddy`、`rightapi-glm` provider；测试配置里 `cron` 插件重复列出；`unknown channel card`；`console-live`；若干模型判断类断言。
 
 ## 验证基线
 
