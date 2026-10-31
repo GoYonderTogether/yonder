@@ -16,6 +16,7 @@ import { useEntityId } from "../lib/useEntityId";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
+import { AddFriendButton } from "./Friends";
 
 /** Public-only query and actions, also embedded as the add-friend result. */
 export function PublicIdentity({
@@ -38,7 +39,6 @@ export function PublicIdentity({
 	const { busy: busyProfile, start } = useStartChat();
 	const nav = useNavigate();
 	const [starting, setStarting] = useState(false);
-	const [adding, setAdding] = useState(false);
 	const [collecting, setCollecting] = useState(false);
 	const member = !!session && !session.actor.anonymous;
 	const myCards = useQuery({ queryKey: ["cards"], queryFn: api.cards, enabled: member && !!cardId });
@@ -140,22 +140,6 @@ export function PublicIdentity({
 			setCollecting(false);
 		}
 	};
-	const addFriend = async () => {
-		if (!session || session.actor.anonymous) {
-			toast("注册后可加好友，聊天无需注册");
-			return;
-		}
-		setAdding(true);
-		try {
-			await api.addFriend(actor.ownerId ?? actor.id);
-			void qc.invalidateQueries({ queryKey: ["contacts"] });
-			toast("已添加朋友");
-		} catch (error) {
-			toast(error instanceof Error ? error.message : "添加失败", true);
-		} finally {
-			setAdding(false);
-		}
-	};
 	return (
 		<IdentityDetail
 			actor={actor}
@@ -181,9 +165,7 @@ export function PublicIdentity({
 						</Button>
 					)}
 					{!self && !ownedAgent && (
-						<Button className="h-11" disabled={adding} onClick={addFriend}>
-							加好友
-						</Button>
+						<AddFriendButton key={actor.ownerId ?? actor.id} accountId={actor.ownerId ?? actor.id} />
 					)}
 					{!self && !ownedAgent && member && card && (
 						<Button className="h-11" disabled={collecting || collected} onClick={collect}>

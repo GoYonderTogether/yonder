@@ -18,10 +18,12 @@ import { NodesSection } from "../work/features/settings/NodesSection";
 import { NotifySection } from "../work/features/settings/NotifySection";
 import { SocialSection } from "../work/features/settings/SocialSection";
 import { setWorkDevices } from "../work/lib/workOnline";
+import { PrivacySection } from "./Friends";
 import { ProfileDialog } from "./Me";
 
 const sections = [
 	["account", "账号与安全"],
+	["privacy", "隐私"],
 	["notifications", "通知"],
 	["devices", "设备"],
 	["channels", "渠道"],
@@ -80,7 +82,7 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 				{!section && (
 					<nav aria-label="设置菜单" className="mx-4 rounded-card bg-raised">
 						{sections
-							.filter(([key]) => !local || key !== "account")
+							.filter(([key]) => !local || (key !== "account" && key !== "privacy"))
 							.map(([key, label]) => (
 								<Link
 									key={key}
@@ -93,6 +95,7 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 							))}
 					</nav>
 				)}
+				{section === "privacy" && !local && <PrivacySection />}
 				{section === "account" && !local && session && (
 					<section className="mx-4 rounded-card bg-raised p-4">
 						<h2 className="mb-3 font-medium">账号与安全</h2>

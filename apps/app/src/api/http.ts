@@ -11,7 +11,7 @@ const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? 
  */
 export const socialOrigin = (): URL => new URL(SOCIAL_BASE || "/", location.href);
 
-async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
 	const response = await fetch(`${SOCIAL_BASE}/api${path}`, {
 		credentials: SOCIAL_BASE ? "include" : "same-origin",
 		...init,
