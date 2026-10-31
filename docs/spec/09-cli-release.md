@@ -126,15 +126,21 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.local/share/yonder/install`，默认数据目录 `~/.local/share/yonder/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
-macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左右键均打开同一原生管理菜单，不因点击状态栏展开交互窗口；菜单含打开悬浮窗、交互历史、逐 Agent 的实际运行状态与任务摘要、真实服务状态（只读）、检查更新、停止服务并退出。打开菜单时读取权威状态；后台查询不抢焦点。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
+macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左右键均打开同一原生管理菜单，不因点击状态栏展开交互窗口。菜单是固定骨架，启动后不按动态数据增删菜单项：首行只显示真实服务状态与当前运行数、等你数（“服务运行中 · 运行 2 · 等你 1”，空闲为“服务运行中 · 空闲”，读取失败为“服务未就绪 · 状态未知”）；随后是保持唤醒（关闭 / 任务期间保持唤醒 / 始终保持唤醒，附真实保护状态与缓冲剩余）、检查更新、停止服务并退出。菜单不列 Agent、会话、任务摘要或回复片段，不承载交互卡片窗口；动态文字单行截断，完整原因放 tooltip。打开菜单时读取权威状态；后台查询不抢焦点。图标以活动标记区分运行与空闲。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
-服务使用 dev.yonder.service；图标采用一个用户 launchd 登录项 dev.yonder.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。交互浮窗与浮球由同一状态栏进程承载，不增加第二个桌面应用、常驻管理器、自动更新机制、设置页、安装平台或特权助手。
+服务使用 dev.yonder.service；图标采用一个用户 launchd 登录项 dev.yonder.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。状态栏不承载交互窗口；交互卡片只在网页控制台以插件视图呈现。不增加第二套常驻管理器、自动更新机制、设置页、安装平台或特权助手。
 
 状态栏源码位于 packages/macos/，使用系统 swiftc；构建/安装接入既有发行流程。安装版保存构建后的 .app；程序调用安装 bin/yonder 固定 argv，不拼 shell，不读凭据。状态/更新检查需要相应真实结果，不以图标显示等价于服务运行。macOS 状态栏操作和屏幕预览需要真实运行证据。
 
-只读命令 `yonder service info --home <home> --json` 返回实际服务进程的 version/commit/home/pid/ready/active/agents；agents 按已注册且未归档的 Agent 聚合原生运行、待执行输入和后台任务，包含空闲、运行、等待交互及每个活跃会话的短摘要和可见回复片段。仅读本机控制面，不暴露思考、工具参数或工具输出，不建立第二份任务状态；状态栏后台定期读取，失败显示未知，图标以活动标记区分运行与空闲。控制面未就绪时失败，不回退磁盘版本。`yonder update --check --json` 经本机既有 gh 登录态查询仓库最新正式 GitHub Release，返回 current/latest/updateAvailable/url，缺 gh、登录或正式发布时显示实际失败。不会安装或改配置。
+只读命令 `yonder service info --home <home> --json` 返回实际服务进程的 version/commit/home/pid/ready/active/agents；agents 按已注册且未归档的 Agent 聚合原生运行、待执行输入和后台任务。仅读本机控制面，不暴露思考、工具参数或工具输出，不建立第二份任务状态；状态栏订阅网关 `activity.watch` 只取运行数与等你数，读取失败显示未知。控制面未就绪时失败，不回退磁盘版本。`yonder update --check --json` 经本机既有 gh 登录态查询仓库最新正式 GitHub Release，返回 current/latest/updateAvailable/url，缺 gh、登录或正式发布时显示实际失败。不会安装或改配置。
 
-桌面交互入口默认就绪：init 将 interaction 加入全局插件列表；CLI start 对旧 home 复用 plugins 管理入口，按实际插件 id 检查并仅在缺失时补入官方包。已有自定义来源和 desktop:false 均保留，不改任何 Agent/预设的 plugins、tools 或权限。交互插件在私有 data 目录发布 desktop.json（运行时回环 url、实际 pid），状态栏仅读取当前 home 的 .yonder/plugins/interaction/desktop.json 并验证本机地址和进程存活；插件停止清理自身描述文件，宿主关闭旧页面与窗口。desktop:false 不向状态栏发布。UI 状态不复制到内核；业务工具/队列/历史仍由 interaction 插件负责。状态栏进程使用当前 home 的文件锁阻止重复启动；不依赖 Web 内容保证单实例。
+桌面交互入口默认就绪：init 将 interaction 加入全局插件列表；CLI start 对旧 home 复用 plugins 管理入口，按实际插件 id 检查并仅在缺失时补入官方包。已有自定义来源与旧配置保留，不改任何 Agent/预设的 plugins、tools 或权限。交互卡片经控制面视图 `interaction.card` 在网页控制台呈现与回答；插件不提供独立 HTTP 服务、回环页面或桌面窗口，旧 `desktop` 配置键只为旧 home 保留读取兼容、不产生行为。UI 状态不复制到内核；业务工具/队列/历史仍由 interaction 插件负责。状态栏进程使用当前 home 的文件锁阻止重复启动；不依赖 Web 内容保证单实例。
+
+### 6.2 桌面客户端
+
+桌面客户端是独立的 Tauri 窗口壳，加载与线上完全相同的站点 `https://yonderbot.net/`：同一份前端产物、同一路由、同一数据来源；不注入客户端壳标记，不改写路径，不打包本机运行时，也不另外设计界面或布局。窗口关闭即退出，外站链接交系统浏览器。
+
+桌面客户端需要真实登录的云账号；本机 Yonder 的控制沿用设备绑定（[19](19-device-workbench.md)），网页经云端 `/ws/work` 转发。壳本身不直连本机网关、不读凭据、不提供托盘、菜单或第二条系统通知路径；系统通知仍由 macOS 状态栏进程发出。构建目标是 macOS、Windows 与 Linux，实际运行验收按平台分别记录；壳的签名、公证与分发随发行流程单独验收。
 
 ## 7. 统一诊断
 

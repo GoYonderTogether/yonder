@@ -41,7 +41,7 @@ Yonder Harness
    ├─ pi-durable — 独占转录、执行循环、恢复、子会话与压缩
    ├─ Yonder — 配置、事件、来源、上限、上下文组装、插件、投递与安装
    ├─ 统一日志 — 安全JSONL诊断，不新增日志服务
-   └─ macOS状态栏 — 状态、检查更新、退出；不是桌面客户端
+   └─ macOS状态栏 — 服务状态、在跑/等你计数、保持唤醒、检查更新、退出
 ```
 
 ### 后台执行与运行时提醒
@@ -63,7 +63,7 @@ Yonder Harness
 - `yonder-self-management`：Yonder特有目录、配置、Agent/preset、权限和更新规约；不增加通用编码/GitHub教程。
 - 核心运行：pi模型循环、原生队列/回执、会话、身份、权限、绑定及共享投递由core/runtime承担。
 - 原生工具：文件读写、Bash、grep及共享message_send/task_run/agent_ask等不重复包装成插件。
-- 用户入口：CLI/TUI、安装更新、launchd和状态栏属于产品包，不是额外渠道插件。
+- 用户入口：CLI/TUI、桌面客户端（加载线上站点）、安装更新、launchd和状态栏属于产品包，不是额外渠道插件。
 
 ## 2. CLI 命令
 

@@ -69,14 +69,18 @@ test("tasks 门禁要求看板/digest 视图", () => {
 	assert.deepEqual(missingTasksViews([view({ plugin: "interaction", id: "tasks.board" })]).length, 1);
 });
 
-test("Swift 门禁要求 WKWebView 与 shell=desktop 都在 packages/macos 源码里", () => {
+test("Swift 门禁拒绝重新引入 WKWebView 或 /console/ 页面入口", () => {
 	assert.deepEqual(missingSwiftCompanion(["import WebKit\nlet web = WKWebView(frame: .zero)"]), [
-		"packages/macos 没有 /console/?shell=desktop 入口",
+		"packages/macos 仍然加载 WKWebView 页面",
 	]);
 	assert.deepEqual(missingSwiftCompanion(['url = "/console/?shell=desktop"']), [
-		"packages/macos 没有 WKWebView 加载实现",
+		"packages/macos 仍然引用 /console/?shell=desktop",
 	]);
-	assert.deepEqual(missingSwiftCompanion(["let web = WKWebView()", 'base + "/console/?shell=desktop"']), []);
+	assert.deepEqual(missingSwiftCompanion(["let web = WKWebView()", 'base + "/console/?shell=desktop"']), [
+		"packages/macos 仍然加载 WKWebView 页面",
+		"packages/macos 仍然引用 /console/?shell=desktop",
+	]);
+	assert.deepEqual(missingSwiftCompanion(["import AppKit\nlet window = NSWorkspace.shared"]), []);
 });
 
 test("前端门禁要求 apps/app 构建产物", () => {

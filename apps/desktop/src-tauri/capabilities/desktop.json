@@ -2,6 +2,6 @@
 	"identifier": "desktop",
 	"windows": ["main"],
 	"platforms": ["macOS", "windows", "linux"],
-	"remote": { "urls": ["http://127.0.0.1:*/console/*"] },
-	"permissions": ["core:default", "notification:default", "updater:default"]
+	"remote": { "urls": ["https://yonderbot.net/*"] },
+	"permissions": ["core:default"]
 }

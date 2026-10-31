@@ -34,12 +34,15 @@ export function missingTasksViews(views) {
 	return views.some(hit) ? [] : ["views.list 缺少 tasks 的看板/digest 视图"];
 }
 
-/** Swift 侧必须已有 WKWebView 加载 /console/?shell=desktop 的实现。 */
+/**
+ * 状态栏不再承载窗口（S-R06 后续）：源码里不得再出现 WKWebView 或 `/console/` 页面入口，
+ * 否则说明悬浮窗被重新引入，而交互卡已由控制面视图承接。
+ */
 export function missingSwiftCompanion(sources) {
 	const text = sources.join("\n");
 	const missing = [];
-	if (!/WKWebView/.test(text)) missing.push("packages/macos 没有 WKWebView 加载实现");
-	if (!/shell=desktop/.test(text)) missing.push("packages/macos 没有 /console/?shell=desktop 入口");
+	if (/WKWebView/.test(text)) missing.push("packages/macos 仍然加载 WKWebView 页面");
+	if (/shell=desktop/.test(text)) missing.push("packages/macos 仍然引用 /console/?shell=desktop");
 	return missing;
 }
 
@@ -85,12 +88,6 @@ async function rpc(base, cookie, method, params = {}) {
 		body: JSON.stringify(params),
 	});
 	return await response.json();
-}
-
-/** 带登录 cookie 的静态页面探测；登录态缺失时 gateway 会 303 到 /login。 */
-async function pageStatus(env, path) {
-	const response = await fetch(`${env.base}${path}`, { headers: { cookie: env.cookie }, redirect: "manual" });
-	return { status: response.status };
 }
 
 async function login(base, home) {
@@ -189,11 +186,7 @@ async function swiftSources() {
 async function companionSwift() {
 	if (process.platform !== "darwin") return { missing: [], skipped: "companion-swift 只在 macOS 上检查" };
 	const missing = missingSwiftCompanion(await swiftSources());
-	const console = await withGateway(async (env) => {
-		const { status } = await pageStatus(env, "/console/?shell=desktop");
-		return status === 200 ? [] : [`gateway 的 /console/ 返回 ${status}，不是 200`];
-	});
-	return { missing: [...missing, ...console] };
+	return { missing };
 }
 
 async function interactionWeb() {

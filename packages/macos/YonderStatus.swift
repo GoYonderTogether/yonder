@@ -5,14 +5,11 @@ import UserNotifications
 @MainActor
 final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
     private var item: NSStatusItem!
-    private var companionWeb: CompanionWeb!
     private let gateway = GatewayClient()
     private let menu = NSMenu()
-    private let current = NSMenuItem(title: "打开悬浮窗", action: #selector(openCurrent), keyEquivalent: "")
-    private let status = NSMenuItem(title: "读取服务状态…", action: nil, keyEquivalent: "")
+    private let status = NSMenuItem(title: "服务未就绪 · 状态未知", action: nil, keyEquivalent: "")
     private var needsPowerUpdate = false
-    private var agentItems: [NSMenuItem] = []
-    private var activityKey = ""
+    private var powerGeneration = 0
     private var baseImage: NSImage!
     private let awake = NSMenuItem(title: "保持唤醒", action: nil, keyEquivalent: "")
     private let awakeOff = NSMenuItem(title: "关闭", action: #selector(selectAwakeMode(_:)), keyEquivalent: "")
@@ -42,19 +39,20 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNo
         item.menu = menu
         menu.delegate = self; menu.autoenablesItems = false
         status.isEnabled = false; powerState.isEnabled = false
-        for entry in [current, awakeOff, awakeTasks, awakeAlways, update, quit] { entry.target = self }
+        for entry in [awakeOff, awakeTasks, awakeAlways, update, quit] { entry.target = self }
         let awakeMenu = NSMenu()
         awakeMenu.autoenablesItems = false
         awakeOff.representedObject = "off"; awakeTasks.representedObject = "tasks"; awakeAlways.representedObject = "always"
         [awakeOff, awakeTasks, awakeAlways].forEach(awakeMenu.addItem)
         awake.submenu = awakeMenu
-        [current, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), status, update, NSMenuItem.separator(), quit].forEach(menu.addItem)
-        companionWeb = CompanionWeb(home: home, executable: install + "/bin/yonder")
-        refreshActivity(nil)
+        // Fixed skeleton: dynamic state only changes titles, never inserts or removes items.
+        [status, NSMenuItem.separator(), awake, powerState, NSMenuItem.separator(), update, NSMenuItem.separator(), quit]
+            .forEach(menu.addItem)
+        renderActivity(nil)
         let center = UNUserNotificationCenter.current()
         center.delegate = self
         center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
-        gateway.start(home: home, executable: install + "/bin/yonder", receive: { [weak self] in self?.refreshActivity($0) }, notify: { data in
+        gateway.start(home: home, executable: install + "/bin/yonder", receive: { [weak self] in self?.renderActivity($0) }, notify: { data in
             guard let session = data["session"] as? String, let text = data["text"] as? String else { return }
             let content = UNMutableNotificationContent()
             content.title = "Yonder"; content.body = text; content.userInfo = ["session": session]
@@ -66,10 +64,31 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNo
     }
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         let session = response.notification.request.content.userInfo["session"] as? String
-        Task { @MainActor in self.companionWeb.show(session: session); completionHandler() }
+        Task { @MainActor in self.openConsole(session: session); completionHandler() }
     }
-    @objc private func openCurrent() { companionWeb.show() }
     func applicationWillTerminate(_ notification: Notification) { gateway.stop() }
+
+    /// The status bar carries no window. A notification opens the web console (the desktop client
+    /// loads the same site) with a one-time ticket; the page itself maps `#/s/<id>` to its work route.
+    private func openConsole(session: String?) {
+        let executable = install + "/bin/yonder", home = self.home
+        DispatchQueue.global().async {
+            let process = Process(), output = Pipe()
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = ["ui", "--home", home, "--json"]
+            process.standardOutput = output; process.standardError = FileHandle.nullDevice
+            guard (try? process.run()) != nil else { return }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0,
+                  let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let address = result["url"] as? String,
+                  let session, var url = URLComponents(string: address), url.scheme == "http", url.host == "127.0.0.1" else { return }
+            url.fragment = "/s/" + (session.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "")
+            guard let target = url.url else { return }
+            DispatchQueue.main.async { NSWorkspace.shared.open(target) }
+        }
+    }
 
     private func run(_ args: [String], completion: @escaping (Result<[String: Any], Error>) -> Void) {
         let executable = install + "/bin/yonder"
@@ -100,40 +119,37 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNo
         refreshPower()
     }
 
-    private func refreshActivity(_ info: [String: Any]?) {
-        let activity = GatewayStatus(info)
-        let agents = activity.agents, known = activity.known, running = activity.running
-        self.status.title = known ? "服务运行中" : "服务未就绪 · 运行状态未知"
-        self.item.button?.toolTip = known ? (running ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
+    /// Only the running/waiting counts; the menu never lists agents or sessions.
+    private func renderActivity(_ info: [String: Any]?) {
+        let snapshot = ActivitySnapshot(info)
+        if !snapshot.known {
+            status.title = "服务未就绪 · 状态未知"
+        } else if snapshot.running == 0 && snapshot.waiting == 0 {
+            status.title = "服务运行中 · 空闲"
+        } else {
+            var parts = ["运行 \(snapshot.running)"]
+            if snapshot.waiting > 0 { parts.append("等你 \(snapshot.waiting)") }
+            status.title = "服务运行中 · " + parts.joined(separator: " · ")
+        }
+        status.toolTip = snapshot.known ? nil : "读取不到本机网关的活动状态"
+        item.button?.toolTip = snapshot.known ? (snapshot.running > 0 ? "Yonder · 任务运行中" : "Yonder · 空闲") : "Yonder · 运行状态未知"
         let image = NSImage(size: NSSize(width: 22, height: 22))
         image.lockFocus()
         self.baseImage.draw(in: NSRect(x: 0, y: 0, width: 22, height: 22))
-        if running || !known {
+        if snapshot.running > 0 || !snapshot.known {
             NSColor.labelColor.setFill()
             let dot = NSBezierPath(ovalIn: NSRect(x: 16, y: 1, width: 5, height: 5))
-            if running { dot.fill() } else { dot.lineWidth = 1; dot.stroke() }
+            if snapshot.running > 0 { dot.fill() } else { dot.lineWidth = 1; dot.stroke() }
         }
         image.unlockFocus(); image.isTemplate = true
-        self.item.button?.image = image
-        let key = "\(known):" + agents.map { $0.menuText }.joined(separator: "\n")
-        guard self.activityKey != key else { return }
-        self.activityKey = key
-        self.agentItems.forEach { self.menu.removeItem($0) }; self.agentItems = []
-        var index = 0
-        for agent in agents {
-            let title = NSMenuItem(title: agent.menuText, action: nil, keyEquivalent: "")
-            title.isEnabled = false
-            self.menu.insertItem(title, at: index); index += 1; self.agentItems.append(title)
-
-        }
-        if !self.agentItems.isEmpty {
-            let separator = NSMenuItem.separator()
-            self.menu.insertItem(separator, at: index); self.agentItems.append(separator)
-        }
+        item.button?.image = image
     }
 
     private func refreshPower() {
+        powerGeneration += 1
+        let generation = powerGeneration
         run(["awake", "status", "--home", home]) { result in
+            guard generation == self.powerGeneration else { return }
             switch result {
             case .success(let info):
                 let enabled = info["enabled"] as? Bool == true
@@ -226,33 +242,16 @@ final class StatusApp: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNo
     }
 }
 
-
-struct AgentActivity {
-    let id: String
-    let state: String
-    init?(_ data: [String: Any]) {
-        guard let id = data["id"] as? String, let state = data["state"] as? String,
-              ["running", "waiting", "idle"].contains(state) else { return nil }
-        self.id = id; self.state = state
-    }
-    var menuText: String {
-        let label = state == "running" ? "运行中" : state == "waiting" ? "等你输入" : "无执行"
-        return "\(state == "running" ? "●" : state == "waiting" ? "◐" : "○") \(id) · \(label)"
-    }
-}
-
-// Adapt the contracted session rows to the existing read-only menu renderer.
-struct GatewayStatus {
+/// The only activity facts the menu shows: whether the service is reachable and how many
+/// sessions are running or waiting. Agent ids, task summaries and reply fragments stay out.
+struct ActivitySnapshot {
     let known: Bool
-    let running: Bool
-    let agents: [AgentActivity]
+    let running: Int
+    let waiting: Int
     init(_ summary: [String: Any]?) {
         known = summary != nil
-        running = (summary?["running"] as? Int ?? 0) > 0
-        agents = (summary?["sessions"] as? [[String: Any]] ?? []).compactMap { row in
-            guard let id = row["id"] as? String, let state = row["state"] as? String else { return nil }
-            return AgentActivity(["id": id, "name": id, "state": state])
-        }
+        running = summary?["running"] as? Int ?? 0
+        waiting = summary?["waiting"] as? Int ?? 0
     }
 }
 
@@ -270,10 +269,10 @@ func checkGatewayActivityCases(_ path: String) {
                 catch { summary = nil }
             }
         }
-        let status = GatewayStatus(summary)
-        precondition(status.known == expected["known"] as! Bool, item["name"] as! String)
-        precondition(status.running == expected["running"] as! Bool, item["name"] as! String)
-        precondition(status.agents.map { $0.id } == expected["ids"] as! [String], item["name"] as! String)
+        let snapshot = ActivitySnapshot(summary)
+        precondition(snapshot.known == expected["known"] as! Bool, item["name"] as! String)
+        precondition(snapshot.running == expected["running"] as! Int, item["name"] as! String)
+        precondition(snapshot.waiting == expected["waiting"] as! Int, item["name"] as! String)
         checked += 1
     }
     precondition(checked == 2)

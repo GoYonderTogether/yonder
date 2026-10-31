@@ -3,5 +3,5 @@
 	"windows": ["main"],
 	"platforms": ["android", "iOS"],
 	"remote": { "urls": ["https://yonderbot.net/*"] },
-	"permissions": ["core:default", "notification:default"]
+	"permissions": ["core:default"]
 }

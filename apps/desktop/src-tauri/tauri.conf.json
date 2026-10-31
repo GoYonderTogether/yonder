@@ -3,9 +3,7 @@
 	"productName": "Yonder",
 	"version": "0.3.0",
 	"identifier": "dev.yonder.desktop",
-	"build": {
-		"frontendDist": "../src"
-	},
+	"build": {},
 	"app": {
 		"windows": [],
 		"security": {
@@ -15,12 +13,6 @@
 	"bundle": {
 		"active": true,
 		"targets": ["app"],
-		"resources": ["runtime.tar", "runtime.sha256"]
-	},
-	"plugins": {
-		"updater": {
-			"pubkey": "",
-			"endpoints": []
-		}
+		"resources": []
 	}
 }

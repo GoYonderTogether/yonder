@@ -1,6 +1,6 @@
 # Yonder Interaction
 
-interaction 插件通过 `interaction.card` 视图呈现交互卡，并保存用户的真实回答。旧的独立 HTTP 服务、网页和桌面悬浮窗已退役。
+interaction 插件通过 `interaction.card` 视图呈现交互卡，并保存用户的真实回答。旧的独立 HTTP 服务、网页和桌面悬浮窗已退役；卡片只在网页控制台与桌面客户端（同一站点）的右栏显示。`desktop` 配置键只为旧 home 保留读取兼容，不再产生行为。
 
 ## 加载
 
