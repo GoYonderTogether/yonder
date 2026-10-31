@@ -1,0 +1,98 @@
+import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { inspectSkills } from "@yonder/core";
+import { homeFor, managed, namedOptions, type Options, print, skillsUsage, UsageError } from "./context.js";
+
+/** `agents`/`presets`, `plugins`/`models`/`inspect` and `skills`: management over the control socket. */
+export async function runConfig(command: string, options: Options, rest: string[]): Promise<number | undefined> {
+	if (command === "agents" || command === "presets") {
+		const operation = rest[0];
+		const usage = `Usage: yonder ${command} list|show <id>|create <id> --file <json> [--preset <id>]|update <id> --file <json>|validate <id> --file <json>|${command === "agents" ? "archive|remove|restore" : "remove"} <id>`;
+		if (
+			!operation ||
+			!["list", "show", "create", "update", "validate", "archive", "remove", "restore"].includes(operation)
+		)
+			throw new UsageError(usage);
+		if (operation === "list" && rest.length !== 1) throw new UsageError(usage);
+		const id = operation === "list" ? undefined : rest[1];
+		if (operation !== "list" && (!id || id.startsWith("--"))) throw new UsageError(usage);
+		const flags = namedOptions(rest.slice(operation === "list" ? 1 : 2), ["--file", "--preset"], usage);
+		if (["create", "update", "validate"].includes(operation) && !flags["--file"]) throw new UsageError(usage);
+		const value = flags["--file"] ? JSON.parse(await readFile(resolve(flags["--file"]), "utf8")) : undefined;
+		return print(
+			managed(
+				homeFor(options),
+				{ method: "management", params: { action: `${command}.${operation}`, id, preset: flags["--preset"], value } },
+				true,
+			),
+			options.json,
+		);
+	}
+	if (["plugins", "models", "inspect"].includes(command)) {
+		let action: string, id: string | undefined, source: string | undefined;
+		let flags: Record<string, string> = {};
+		if (command === "inspect") {
+			action = "inspect";
+			flags = namedOptions(rest, ["--agent", "--profile"], "Usage: yonder inspect [--agent <id>] [--profile <name>]");
+		} else if (command === "models") {
+			if (rest.length !== 1 || rest[0] !== "list") throw new UsageError("Usage: yonder models list");
+			action = "models.list";
+		} else {
+			const operation = rest[0];
+			if (
+				!operation ||
+				!["list", "show", "add", "remove"].includes(operation) ||
+				rest.length !== (operation === "list" ? 1 : 2)
+			)
+				throw new UsageError("Usage: yonder plugins list|show <id>|add <directory/package>|remove <id>");
+			action = `plugins.${operation}`;
+			if (operation === "add") source = rest[1]?.startsWith(".") || existsSync(rest[1]!) ? resolve(rest[1]!) : rest[1];
+			else id = rest[1];
+		}
+		return print(
+			managed(
+				homeFor(options),
+				{
+					method: "management",
+					params: {
+						action,
+						...(id ? { id } : {}),
+						...(source ? { source } : {}),
+						...(flags["--agent"] ? { agent: flags["--agent"] } : {}),
+						...(flags["--profile"] ? { profile: flags["--profile"] } : {}),
+					},
+				},
+				true,
+			),
+			options.json,
+		);
+	}
+	if (command !== "skills") return undefined;
+	const operation = rest[0] && ["show", "add", "remove"].includes(rest[0]) ? rest[0] : undefined;
+	const target = operation ? rest[1] : undefined;
+	if (operation && (!target || target.startsWith("--"))) throw new UsageError(skillsUsage);
+	const flags = namedOptions(
+		operation ? rest.slice(2) : rest,
+		operation && operation !== "show" ? ["--agent"] : ["--agent", "--profile"],
+		skillsUsage,
+	);
+	if (!operation)
+		return print(inspectSkills(homeFor(options), flags["--agent"] ?? "main", flags["--profile"]), options.json);
+	return print(
+		managed(
+			homeFor(options),
+			{
+				method: "management",
+				params: {
+					action: `skills.${operation}`,
+					...(operation === "add" ? { source: resolve(target!) } : { id: target }),
+					...(flags["--agent"] ? { agent: flags["--agent"] } : {}),
+					...(flags["--profile"] ? { profile: flags["--profile"] } : {}),
+				},
+			},
+			true,
+		),
+		options.json,
+	);
+}

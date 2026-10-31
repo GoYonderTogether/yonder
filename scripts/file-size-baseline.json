@@ -3,10 +3,6 @@
 		"lines": 1952,
 		"reason": "待拆分：Runtime 上帝对象，会话生命周期、工具装配、事件分发全在一个类"
 	},
-	"packages/cli/src/index.ts": {
-		"lines": 1063,
-		"reason": "待拆分：main() 里所有子命令的参数解析与装配堆在一起，应按命令拆成独立模块"
-	},
 	"packages/core/src/release/index.ts": {
 		"lines": 938,
 		"reason": "待拆分：版本比较、发布检查、文档读取、服务启停与 launcher 生成混在一个模块"
