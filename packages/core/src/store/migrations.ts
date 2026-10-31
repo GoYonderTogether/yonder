@@ -1,6 +1,6 @@
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { Db } from "../runtime/db.js";
+import type { Db } from "./db.js";
 
 export interface Migration {
 	version: number;

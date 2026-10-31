@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { AccountInfo, EventInput, EventPage, EventQuery, IdentityAPI, Ref, Route, YEvent } from "@yonder/sdk";
 import { parseRef, person } from "@yonder/sdk";
-import type { Db, DbExecutor, DbValue } from "../runtime/db.js";
+import type { Db, DbExecutor, DbValue } from "./db.js";
 import { migrate } from "./migrations.js";
 import { sessionStore } from "./sessions.js";
 

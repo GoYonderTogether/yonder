@@ -1,5 +1,5 @@
 import type { SessionInfo, SessionOwner } from "@yonder/sdk";
-import type { Db, DbValue } from "../runtime/db.js";
+import type { Db, DbValue } from "./db.js";
 
 /** Workbench fields a stored row can carry: absent leaves the column alone, `null` clears it (contracts §18). */
 export type SessionWorkbench = {
