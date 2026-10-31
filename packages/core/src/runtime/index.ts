@@ -70,6 +70,7 @@ import { requestedEffort, resolveEffort } from "./effort.js";
 import { localEnvironment } from "./env.js";
 import { createFindTool } from "./find.js";
 import { createGrepTool } from "./grep.js";
+import { imageHistoryHooks } from "./image-history.js";
 import { inputContent } from "./input-content.js";
 import { inputEntry } from "./input-entry.js";
 import { RunLimits } from "./limits.js";
@@ -93,9 +94,8 @@ import { fromResult, taskReport, toResult } from "./results.js";
 import { runtimeNote } from "./runtime-note.js";
 import type { RuntimeOptions } from "./runtime-options.js";
 import { systemAsUserHooks } from "./system-as-user.js";
-import { imageHistoryHooks } from "./image-history.js";
-import { normalizeToolImages, prepareWith } from "./tool-images.js";
 import { todoTool } from "./todo-tool.js";
+import { normalizeToolImages, prepareWith } from "./tool-images.js";
 import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
 
 export { attachmentFromPath } from "./attachments.js";
@@ -512,7 +512,10 @@ export class Runtime {
 							}
 					// 插件工具可以塞任意大小的图片；统一按工具图片上限重新编码，避免大块 base64 进入转录和历史请求。
 					if ((result.output ?? []).some((block) => block.type === "image"))
-						result = await normalizeToolImages(result, prepareWith(() => this.imageProcessor()));
+						result = await normalizeToolImages(
+							result,
+							prepareWith(() => this.imageProcessor()),
+						);
 					if (this.sdkToolNames.has(input.name) && ctx.env.id === "node:local")
 						result = await cacheSdkResult(result, ctx, input, this.options);
 					return result;
