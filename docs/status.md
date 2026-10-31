@@ -387,3 +387,15 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 ## 2026-10-30 群聊关注与交接来源修复
 
 已实现每 Bot/群/参与者成功回复后五分钟关注、明确任务对象排除、可信原始请求身份贯穿交接与额度，以及主会话原文/自身名称装配。QQ/Card共用；最终全仓2209通过、0失败、104跳过，最后相关定向与真实Luna关注/交接均通过，原始失败和后续小修分别保留于[验收记录](verification/group-attention-handoff-20261030.md)。本轮未安装/重启日用服务，未向真实QQ/Card客户端发送；不冒充平台验收。
+
+## 2026-10-31 状态栏菜单固定骨架、删除悬浮窗、桌面端加载线上站点
+
+按维护者批准的设计（[decisions](decisions.md) 顶部 2026-10-31 条、[09 §6.1/§6.2](spec/09-cli-release.md)）落地，提交 `bc9f780`：
+
+- 状态栏菜单改为固定骨架（服务状态/计数、保持唤醒、唤醒状态、检查更新、停止服务并退出），启动后不再增删菜单项；只显示 `activity.watch` 的运行数与等你数，断线显示“服务未就绪 · 状态未知”。`ActivitySnapshot` 自检按 `known/running/waiting` 断言，`activity-cases.json` 只保留断线/重连两条用例。
+- 删除 `packages/macos/CompanionWeb.swift`、菜单里“打开悬浮窗”入口；`companion-swift` 门禁改为反向检查源码里不得再出现 `WKWebView` 或 `shell=desktop`。通知点击改为用 `yonder ui` 的一次性票据在系统浏览器打开 `#/s/<id>`。
+- 桌面端 `apps/desktop` 改为 Tauri 薄壳加载 `https://yonderbot.net/`，删除 `activity.js`/`activity.test.cjs`/`prepare-runtime.mjs`、本机运行时解包、托盘、通知/更新插件与 `runtime.tar` 资源；capabilities 只允许该站点与 `core:default`。
+
+**源码检查**：`npm run build`、`npm run typecheck` 通过；`npm run test:node` 40 通过 / 0 失败；`npx vitest run scripts/check-retired.test.mjs` 7 通过；`check-retired --target interaction-http|tasks-http|companion-swift|interaction-web` 全部 exit 0；Swift 构建与 `--check`（单实例锁）、`--check-activity`（2 用例）通过；`cargo check` 与 `tauri build --debug --no-bundle` 成功。
+
+**未测 / 未做**：菜单真实鼠标点击、通知点击后的浏览器落点、登录后的页面内容核对；正式签名、公证与 Release 附件；Windows/Linux 桌面构建与运行。`npm run lint` 在并行工作留下的既有行数超限处失败（`plugins/channel-qq/src/channel.ts`、`plugins/native-automation/src/index.ts`、`packages/core/src/runtime/index.ts`），未在本轮修改，不能算本轮通过。本轮未安装/重启日用状态栏，未改动正式服务。
