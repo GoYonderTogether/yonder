@@ -2,7 +2,7 @@
 
 > 文档就是代码的目标。代码与文档不一致时，以文档为准；要改设计，先改文档。
 
-当前版本 0.1，开发者预览。实现状态、已知缺口与未关闭的真实验收见 [status.md](status.md)；参与开发见仓库根的 [CONTRIBUTING.md](../CONTRIBUTING.md)。
+当前为 0.3 系列开发者预览（精确版本见根 `package.json`）。实现状态、已知缺口与未关闭的真实验收见 [status.md](status.md)；参与开发见仓库根的 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 
 ## 阅读顺序（渐进式披露）
 
@@ -23,12 +23,13 @@
 | 1 | [spec/12-terminal-interaction.md](spec/12-terminal-interaction.md) | 沿用 pi 原生 TUI、Yonder 内容适配、双语与补全 | 改终端交互 |
 | 1 | [spec/13-observation-and-management.md](spec/13-observation-and-management.md) | 被动观察、附件、plugins / skills / models / inspect 管理命令 | 改 CLI 或内核 |
 | 1 | [spec/14-execution-capabilities.md](spec/14-execution-capabilities.md) | 后台任务与软提醒、cron、MCP 客户端、Agent 热管理、独立自动化、手工 memory | 改内核或相关插件 |
-| 1 | [spec/15-clipboard-vault.md](spec/15-clipboard-vault.md) | 引用剪贴板、Keychain 秘密与类型化目的地 | 改剪贴板或秘密消费者 |
+| 1 | [spec/15-memory.md](spec/15-memory.md) | 用户记忆库（memory 插件）：存储、引用、召回边界 | 改记忆插件或其消费者 |
 | 1 | [spec/16-card-plugin.md](spec/16-card-plugin.md) | 名片渠道：设备授权、全部 Agent 登记、多路消息、补收与名片草稿 | 写 card 插件 |
 | 1 | [spec/17-task-ledger.md](spec/17-task-ledger.md) | 统一任务账本：对象与状态、工具、可见范围、时点机制、展示分层 | 写 tasks 插件或用它 |
 | 1 | [spec/18-device-execution.md](spec/18-device-execution.md) | 无模型设备执行契约、双端身份、命令状态与工作包边界（W0，后端待实现） | 设备执行相关开发 |
 | 1 | [spec/19-device-workbench.md](spec/19-device-workbench.md) | 一次设备授权、工作控制桥、主人身份与撤销 | 设备工作台与云端接入 |
 | 1 | [spec/20-stability.md](spec/20-stability.md) | 0.3 起不可破坏的冻结清单、弃用与破坏性变更流程、golden 检查 | 改任何公共契约 |
+| 1 | [spec/21-clipboard-vault.md](spec/21-clipboard-vault.md) | 引用剪贴板、Keychain 秘密与类型化目的地（原 15 号，2026-10-31 改号） | 改剪贴板或秘密消费者 |
 | 2 | [plugins.md](plugins.md) | 官方插件清单：贡献、事件、工具 | 用或写插件 |
 | 2 | [prompts/README.md](prompts/README.md) | 系统底座、两类官方常驻模板、来源映射与小上下文配置入口 | 调整 Agent 提示词 |
 | 2 | [reference.md](reference.md) | 核心工具、CLI 命令、SDK 接口的注册名参考 | 查名字时 |
@@ -44,4 +45,4 @@
 
 ## 版本目标
 
-0.1：内核完整、能用真实模型跑起来、接口冻结到足以让外部开始写插件。范围与边界见 [architecture.md](architecture.md) 第 6 节。
+0.1：内核完整、能用真实模型跑起来、接口冻结到足以让外部开始写插件。范围与边界见 [architecture.md](architecture.md) 第 8 节；内核分层见第 6 节。

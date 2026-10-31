@@ -103,7 +103,7 @@ AI 的 native-automation_desktop `permissions` / `status` 只执行非提示式�
 
 Agent workspace允许普通文件工具创建memory目录、按日期/条目保存及索引资料；初始化提供memory/README.md说明用途、来源、日期与事实/假设区分。仅按需读取，不新增上下文贡献、不自动注入、不自动总结/删除/清理。说明必须指出这只是临时记录约定，需结合真实场景参考成熟方法迭代，不能将简单目录当作长期记忆引擎。不得覆盖现有用户目录或文件。
 
-## 5 按次 effort
+## 7 按次 effort
 
 `agent_ask` 与 `task_run` 可选 `effort`（pi 思考等级之一：off、minimal、low、medium、high、xhigh、max）。它只作用于由这条委派启动的那一次运行，不改配置档、Agent 或会话的长期设置；下一次运行恢复配置档默认。
 
