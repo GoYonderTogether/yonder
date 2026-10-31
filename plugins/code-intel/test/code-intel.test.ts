@@ -60,7 +60,8 @@ test.skipIf(!codegraphAvailable)(
 		const dir = await mkdtemp(join(tmpdir(), "yonder-codegraph-"));
 		try {
 			await cp(resolve("packages/core/src/runtime/grep.ts"), join(dir, "grep.ts"));
-			await cp(resolve("packages/core/src/runtime/index.ts"), join(dir, "index.ts"));
+			// The runtime facade delegates tool assembly; the greps live in the extension installer.
+			await cp(resolve("packages/core/src/runtime/tool-activation.ts"), join(dir, "tool-activation.ts"));
 			const tool = await loadTool();
 			const ctx = {
 				agent: null,
@@ -75,13 +76,13 @@ test.skipIf(!codegraphAvailable)(
 			const result = await tool.execute({ query: "createGrepTool", maxFiles: 2 }, ctx);
 			expect(result.text).toContain("createGrepTool");
 			expect(result.text).toContain("grep.ts");
-			expect(result.text).toContain("2 callers in `index.ts`");
+			expect(result.text).toContain("2 callers in `tool-activation.ts`");
 			const callers = execFileSync("codegraph", ["callers", "--path", dir, "createGrepTool"], { encoding: "utf8" });
-			expect(callers).toContain("method      install");
-			expect(callers).toContain("index.ts:");
+			expect(callers).toContain("function    installExtensions");
+			expect(callers).toContain("tool-activation.ts:");
 			expect(callers).toContain("grep.ts:");
-			const source = await readFile(join(dir, "index.ts"), "utf8");
-			expect(source).toContain("private install()");
+			const source = await readFile(join(dir, "tool-activation.ts"), "utf8");
+			expect(source).toContain("function installExtensions(");
 			expect(source).toContain("[createGrepTool(),");
 			await appendFile(join(dir, "grep.ts"), "\n// changed\n");
 			await expect(tool.execute({ query: "createGrepTool" }, ctx)).rejects.toThrow("codegraph sync");
