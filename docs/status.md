@@ -13,7 +13,8 @@
 | A 群参与收口提交 | 已提交 `c400a8d`：默认 `npm test` 2254 通过 / 1 失败 / 104 跳过（失败为既有无关的 `apps/app/scripts/market.test.mjs`）；真实 Luna live 183 / 0 / 3 跳过 |
 | B1 文档 | spec 编号、index、architecture §6–§7 已提交 `6b35927`；本页压缩与历史移出随本次提交 |
 | B3 非 core 大文件 | 已提交：cron、native-automation、channel-wechat-ilink、channel-qq、channel-feishu、cli terminal、cli index 均 ≤500 行 |
-| B2 core 分层、C 拆 runtime/release/delivery/kernel、D 内核瘦身、E 干净验收 | 未完成 |
+| B2 core 分层 | 已提交 `ae6a1de`…`ec87624`：9 处上行依赖修复，另修 routing→delivery；新增 `scripts/check-layers.mjs`（接入 `npm run lint`，基线为空）；默认 `npm test` 2264 / 1（既有 market.test）/ 104 |
+| C 拆 runtime/release/delivery/kernel、D 内核瘦身、E 干净验收 | 进行中 / 未完成；D2 的 SDK 接缝待维护者批准（[设计稿](../proposals/convergence/kernel-slimming.md)） |
 
 ## 验证基线
 

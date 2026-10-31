@@ -29,6 +29,7 @@ skills/                    随发行内置的 skill
 
 - 架构不变量见 [docs/architecture.md](docs/architecture.md) 第 5 节，任何时候都不能违反。
 - pi 的模型/会话运行包只能在 `packages/core/src/runtime/` 里 import；`@yonder/sdk` 只能 `import type`。插件只依赖 `@yonder/sdk`，不 import core、pi 或兄弟插件的内部代码。
+- `packages/core/src` 按 [architecture §6](docs/architecture.md#6-内核分层与规模预算) 分层，只能依赖本层或更低层（含 `import type`），由 `scripts/check-layers.mjs` 检查；单文件不超过 500 行，由 `scripts/check-file-size.mjs` 检查。两者都在 `npm run lint` 里，基线只减不增。
 - `packages/cli/` 可以使用 pi-tui 及 coding-agent 的 UI/主题/键位导出，或按许可提取的界面模块；不得接入 coding-agent 的第二套运行或存储系统，不得自行重设计布局和交互（见 [spec/12](docs/spec/12-terminal-interaction.md)）。
 - 不写模拟模型、假数据、示例人设、占位功能。
 - 修改 `docs/spec/`、`docs/architecture.md`、`docs/decisions.md` 与 `AGENTS.md` 属于设计变更，需要维护者审核。
