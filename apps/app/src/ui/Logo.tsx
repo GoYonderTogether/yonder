@@ -8,7 +8,7 @@ const inline = (svg: string) =>
 		.replace(/fill="#[0-9a-f]{6}"/i, 'fill="currentColor"')
 		.replace(/<title>.*?<\/title>/, "");
 
-/** 墨色圆角方块里的白色标志；24px 及以下用简化版。 */
+/** 品牌蓝圆角底的白色标志；24px 及以下用简化版。 */
 export function Logo({ size = 28, radius = 0.22 }: { size?: number; radius?: number }) {
 	return (
 		<span

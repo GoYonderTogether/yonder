@@ -29,8 +29,8 @@ export interface Actor {
 }
 
 export type MessageContent =
-	| { type: "text"; text: string; mentions?: string[] }
-	| { type: "markdown"; text: string; mentions?: string[] }
+	| { type: "text"; text: string; mentions?: string[]; mentionAll?: boolean }
+	| { type: "markdown"; text: string; mentions?: string[]; mentionAll?: boolean }
 	| { type: "image"; url: string; name?: string }
 	| { type: "file"; url: string; name: string; bytes?: number }
 	| {
@@ -55,6 +55,9 @@ export interface Message {
 export type ConversationKind = "dm" | "group" | "notice";
 
 export interface Conversation {
+	avatarUrl?: string | null;
+	mentionUnread?: boolean;
+	selfMutedUntil?: number | null;
 	id: string;
 	/** Stable public reference; UUID id remains the internal API identity. */
 	code?: string;
@@ -143,12 +146,18 @@ export interface Profile {
 }
 
 export interface ConversationDetail {
+	selfNickname?: string | null;
+	avatarUrl?: string | null;
+	selfRole?: "owner" | "admin" | "member";
+	selfMutedUntil?: number | null;
+	pinnedMessages?: Message[];
+	announcement?: Message | null;
 	id: string;
 	/** Stable public reference; UUID id remains the internal API identity. */
 	code?: string;
 	kind: ConversationKind;
 	title: string;
-	members: (Actor & { role?: "owner" | "admin" | "member" })[];
+	members: (Actor & { role?: "owner" | "admin" | "member"; mutedUntil?: number | null; nickname?: string | null })[];
 }
 
 export interface GroupPreview {

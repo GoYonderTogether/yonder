@@ -312,7 +312,11 @@ export function Market() {
 					}
 					right={
 						(home || channel || view === "selling") && (
-							<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
+							<button
+								type="button"
+								className="mk-button mk-primary mk-publish-action"
+								onClick={() => openPanel("publish")}
+							>
 								<Plus size={18} aria-hidden />
 								发布
 							</button>

@@ -39,7 +39,7 @@ export function Shell() {
 			title={label}
 			className={cn(
 				"press flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-caption text-muted",
-				active(to) && "font-semibold text-ink",
+				active(to) && "font-semibold text-accent-ink",
 			)}
 		>
 			<span
@@ -54,7 +54,12 @@ export function Shell() {
 		</NavLink>
 	));
 	return (
-		<div className="flex h-full flex-col lg:flex-row">
+		<div
+			data-social-surface={
+				location.pathname === "/" || /^\/(c|contacts|me|friends)(\/|$)/.test(location.pathname) ? "" : undefined
+			}
+			className="flex h-full flex-col lg:flex-row"
+		>
 			<nav aria-label="主导航" className="hidden w-16 shrink-0 flex-col items-center gap-1 bg-rail py-4 lg:flex">
 				<NavLink
 					to="/"
@@ -75,15 +80,23 @@ export function Shell() {
 								aria-label={label}
 								className={cn(
 									"press relative flex h-11 w-11 items-center justify-center rounded-control text-muted hover:bg-tone-2 hover:text-ink",
-									active(to) && "bg-raised text-accent-ink shadow-sm",
+									active(to) && "bg-accent text-on-accent hover:bg-accent-hover hover:text-on-accent",
 								)}
 							>
-								{active(to) && <span className="absolute -left-2.5 h-5 w-[3px] rounded-full bg-accent" />}
 								{Icon && <Icon size={20} strokeWidth={1.75} />}
 							</NavLink>
 						))}
 				</div>
-				<NavLink to="/me" state={internalState(loc)} aria-label="我" title="我" className="press mt-auto rounded-full">
+				<NavLink
+					to="/me"
+					state={internalState(loc)}
+					aria-label="我"
+					title="我"
+					className={cn(
+						"press mt-auto rounded-full",
+						active("/me") && "ring-2 ring-accent ring-offset-2 ring-offset-rail",
+					)}
+				>
 					{me && <Avatar actor={me} size={32} />}
 				</NavLink>
 			</nav>

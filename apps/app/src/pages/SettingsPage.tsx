@@ -124,7 +124,7 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 								{devices.data?.length === 0 && (
 									<p className="text-small text-muted">
 										尚未绑定设备。
-										<Link to="/connect" className="text-accent underline">
+										<Link to="/connect" className="text-accent-ink underline">
 											添加设备
 										</Link>
 									</p>

@@ -17,9 +17,13 @@
 	--color-faint: var(--faint);
 	--color-hairline: var(--hairline);
 	--color-accent: var(--accent);
+	--color-accent-hover: var(--accent-hover);
 	--color-on-accent: var(--on-accent);
 	--color-accent-soft: var(--accent-soft);
 	--color-accent-ink: var(--accent-ink);
+	--color-highlight: var(--highlight);
+	--color-on-highlight: var(--on-highlight);
+	--color-focus-ring: var(--focus-ring);
 	--color-danger: var(--danger);
 	--color-warn: var(--warn);
 	--color-code-bg: var(--code-bg);
@@ -93,9 +97,20 @@ time,
 ::selection {
 	background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
-:where(button, a, [role="button"], [role="switch"]):focus-visible {
-	outline: 2px solid color-mix(in srgb, var(--ink) 40%, transparent);
+:where(
+	button,
+	a,
+	[role="button"],
+	[role="switch"],
+	input[type="checkbox"],
+	input[type="radio"],
+	input[type="range"]
+):focus-visible {
+	outline: 2px solid var(--focus-ring);
 	outline-offset: 2px;
+}
+:where(input[type="checkbox"], input[type="radio"], input[type="range"]) {
+	accent-color: var(--accent);
 }
 .field {
 	transition:
@@ -521,8 +536,8 @@ time,
 	inset: 0;
 	z-index: 50;
 	height: 100dvh;
-	background: var(--accent);
-	color: var(--on-accent);
+	background: var(--ground);
+	color: var(--ink);
 }
 @media (min-width: 768px) {
 	.card-face {
@@ -653,4 +668,196 @@ time,
 .rail-grip:hover::after,
 .rail-grip:focus-visible::after {
 	opacity: 0.18;
+}
+
+/* Social motion is deliberately isolated from workbench and market views. */
+@keyframes social-message-in {
+	from {
+		opacity: 0;
+		transform: translate3d(0, 6px, 0);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes social-panel-in {
+	from {
+		opacity: 0;
+		transform: translate3d(18px, 0, 0);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes social-panel-out {
+	from {
+		opacity: 1;
+		transform: none;
+	}
+	to {
+		opacity: 0;
+		transform: translate3d(12px, 0, 0);
+	}
+}
+@keyframes social-popup-in {
+	from {
+		opacity: 0;
+		transform: translate3d(0, 5px, 0) scale(0.985);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+@keyframes social-popup-out {
+	from {
+		opacity: 1;
+		transform: none;
+	}
+	to {
+		opacity: 0;
+		transform: translate3d(0, 3px, 0) scale(0.99);
+	}
+}
+[data-social-surface] {
+	--social-ease: cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+[data-social-surface] .press {
+	transition:
+		transform 120ms var(--social-ease),
+		opacity 120ms var(--social-ease);
+}
+[data-social-surface] .press:active {
+	transform: scale(0.985);
+}
+[data-social-surface] .social-conv-row {
+	position: relative;
+	isolation: isolate;
+	animation: none;
+}
+[data-social-surface] .social-conv-row > span {
+	position: relative;
+}
+[data-social-surface] .social-conv-row::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--accent);
+	opacity: 0;
+	transform: scale(0.985);
+	transition:
+		opacity 160ms var(--social-ease),
+		transform 180ms var(--social-ease);
+	z-index: -1;
+}
+[data-social-surface] .social-conv-row[data-selected]::before {
+	opacity: 1;
+	transform: none;
+}
+[data-social-surface] .social-message {
+	animation: none;
+}
+[data-social-surface] .social-message[data-new-message] {
+	animation: social-message-in 220ms var(--social-ease) both;
+}
+[data-social-presence="panel"][data-state="open"] > * {
+	animation: social-panel-in 240ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+[data-social-presence="panel"][data-state="closed"] > * {
+	animation: social-panel-out 160ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+	pointer-events: none;
+}
+[data-social-presence="popup"][data-state="open"] > * {
+	transform-origin: 50% 100%;
+	animation: social-popup-in 160ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+[data-social-presence="popup"][data-state="closed"] > * {
+	transform-origin: 50% 100%;
+	animation: social-popup-out 120ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+	pointer-events: none;
+}
+.social-chat-canvas[data-chat-background="image"] .social-message[data-mine="false"] > div > div {
+	background-color: var(--raised);
+	color: var(--ink);
+}
+.social-chat-canvas[data-chat-background="image"] .social-message time {
+	background: var(--raised);
+	border-radius: var(--radius-control);
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-social-surface] .press,
+	[data-social-surface] .social-conv-row::before {
+		transition: none;
+	}
+	[data-social-surface] .press:active {
+		transform: none;
+	}
+	[data-social-surface] .social-message[data-new-message],
+	[data-social-presence][data-state] > * {
+		animation: none;
+		transform: none;
+	}
+}
+@media (prefers-contrast: more) {
+	[data-social-surface] .social-conv-row[data-selected]::before {
+		outline: 2px solid var(--ink);
+		outline-offset: -2px;
+	}
+	.social-chat-canvas[data-chat-background="image"] .social-message[data-mine="false"] > div > div {
+		outline: 1px solid var(--ink);
+	}
+}
+
+.social-chat-canvas[data-chat-background="image"] :is(.social-date-label, .social-sender-label) {
+	width: fit-content;
+	background: var(--raised);
+	color: var(--muted);
+	border-radius: var(--radius-control);
+	padding: 4px 8px;
+}
+.social-chat-canvas[data-chat-background="image"] .social-date-label {
+	margin: 12px auto;
+}
+@media (prefers-reduced-motion: reduce) {
+	[data-social-presence][data-state="closed"] > * {
+		visibility: hidden;
+	}
+}
+
+.social-dialog[data-state="open"] {
+	animation: social-popup-in 180ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+.social-dialog[data-state="closed"] {
+	animation: social-popup-out 140ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+	.social-dialog[data-state] {
+		animation: none;
+	}
+}
+
+/* Only the social owner's transcript receives personal backgrounds. Work defaults stay unchanged. */
+.social-owner-transcript[data-chat-background="image"]
+:is(
+	.rounded-bubble,
+	[data-testid="summary"],
+	[data-testid="thinking"],
+	[data-testid="tool-card"],
+	[data-testid="tool-result"]
+):not(.bg-accent) {
+	background-color: var(--raised);
+}
+.social-owner-transcript[data-chat-background="image"] :is([data-testid="notice"], [data-message-id] > p) {
+	width: fit-content;
+	align-self: center;
+	background: var(--raised);
+	color: var(--muted);
+	border-radius: var(--radius-control);
+	padding: 4px 8px;
+}
+.social-owner-transcript[data-chat-background="image"] [role="status"] {
+	background: var(--raised);
 }

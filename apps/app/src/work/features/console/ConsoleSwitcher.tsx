@@ -129,7 +129,7 @@ export function ConsoleSwitcher() {
 							>
 								<span className="flex items-center gap-1.5">
 									<span className="truncate text-small">{row.name}</span>
-									{row.current && <span className="shrink-0 text-caption text-accent">当前</span>}
+									{row.current && <span className="shrink-0 text-caption text-accent-ink">当前</span>}
 									{row.remote && (
 										<span className="shrink-0 rounded-full bg-tone px-1.5 text-caption text-muted">远程</span>
 									)}

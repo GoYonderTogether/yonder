@@ -4,6 +4,7 @@ import { ArrowUp, Bell, BellOff, Check, Copy, Ellipsis, Pin, Reply, Search, User
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
+import { chatApi, chatError } from "../api/chat";
 import type { Actor, Conversation as Conv, Message, Session } from "../api/types";
 import { selectAccount } from "../cache";
 import { AppBar, BackButton } from "../components/AppBar";
@@ -11,15 +12,22 @@ import { AiBadge } from "../components/chat/AiBadge";
 import { AnonHint } from "../components/chat/AnonHint";
 import { ChatDetail } from "../components/chat/ChatDetail";
 import { OwnerTranscript, useOwnerConversation } from "../components/chat/OwnerTranscript";
+import { PinnedMessages } from "../components/chat/PinnedMessages";
+import { SocialPresence } from "../components/chat/SocialPresence";
 import { ListHeader } from "../components/ListHeader";
 import { Markdown } from "../components/Markdown";
 import { PersonalAvatar } from "../components/PersonalDrawer";
 import { PlusMenu } from "../components/PlusMenu";
 import { VerifySheet } from "../components/VerifySheet";
+import { useChatBackground } from "../lib/chatBackground";
+import { readConversation } from "../lib/chatRead";
 import { cn } from "../lib/cn";
 import { convRowMenu } from "../lib/convMenu";
 import { entityRef, isShortCode } from "../lib/entityRef";
+import { groupMemberName } from "../lib/groupMemberName";
+import { editedMentions, type MentionToken, mentionMetadata, mentionQuery } from "../lib/mentions";
 import { internalState, useAppBack } from "../lib/navigation";
+import { historyScrollBehavior, useNewMessages } from "../lib/newMessages";
 import { clearPendingSend, savePendingSend, takePendingSend } from "../lib/pendingSend";
 import { usePersonalAgent } from "../lib/personalAgent";
 import { socialUnavailable } from "../lib/socialError";
@@ -28,7 +36,7 @@ import { useEntityId } from "../lib/useEntityId";
 import { needsVerify } from "../lib/verify";
 import { readMarketDraft } from "../market/handoff";
 import { $session } from "../store";
-import { Avatar, Status } from "../ui/Avatar";
+import { Avatar, GroupAvatar, Status } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
 import { messageClock, timeBucket } from "../work/lib/chat";
@@ -210,15 +218,8 @@ export function ChatShell() {
 							</button>
 						</p>
 					)}
-					{shown.map((c, i) => (
-						<ConvRow
-							key={c.id}
-							c={c}
-							i={i}
-							actors={actors}
-							meId={me?.id}
-							active={!!id && (c.id === id || c.code === id)}
-						/>
+					{shown.map((c) => (
+						<ConvRow key={c.id} c={c} actors={actors} meId={me?.id} active={!!id && (c.id === id || c.code === id)} />
 					))}
 					{!isLoading && !isError && !convs?.length && <EmptyChats onStart={() => void startChat()} busy={starting} />}
 					{!isLoading && !isError && !!convs?.length && !shown.length && (
@@ -244,19 +245,7 @@ export function ChatShell() {
 	);
 }
 
-function ConvRow({
-	c,
-	i,
-	actors,
-	meId,
-	active,
-}: {
-	c: Conv;
-	i: number;
-	actors: Map<string, Actor>;
-	meId?: string;
-	active: boolean;
-}) {
+function ConvRow({ c, actors, meId, active }: { c: Conv; actors: Map<string, Actor>; meId?: string; active: boolean }) {
 	const loc = useLocation();
 	const qc = useQueryClient();
 	const prefs = usePrefs();
@@ -272,7 +261,7 @@ function ConvRow({
 		void api
 			.markRead(c.id, seq)
 			.then(() =>
-				qc.setQueryData<Conv[]>(["convs"], (old) => old?.map((x) => (x.id === c.id ? { ...x, unread: 0 } : x))),
+				qc.setQueryData<Conv[]>(["convs"], (old) => old?.map((x) => (x.id === c.id ? readConversation(x, seq) : x))),
 			)
 			.catch((error) => toast(error instanceof Error ? error.message : "标记已读失败", true));
 		markReadPref(c.id, seq);
@@ -289,11 +278,11 @@ function ConvRow({
 			<Link
 				to={`/c/${entityRef(c)}`}
 				state={internalState(loc)}
-				style={{ "--i": i } as React.CSSProperties}
+				data-selected={active || undefined}
 				{...trigger}
 				className={cn(
-					"rise-slow press no-select flex items-center gap-3 rounded-control px-2.5 py-2.5 hover:bg-tone/60",
-					active && "bg-raised shadow-soft hover:bg-raised",
+					"social-conv-row press no-select flex items-center gap-3 rounded-control px-3 py-3",
+					active ? "bg-accent text-on-accent hover:bg-accent" : "hover:bg-tone/60",
 					!active && pinned && "bg-tone/40",
 				)}
 			>
@@ -301,23 +290,51 @@ function ConvRow({
 					<Avatar actor={other} online={other.kind === "agent" ? other.online : undefined} />
 				) : (
 					<span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tone-2 text-muted">
-						{c.kind === "group" ? <Users size={18} /> : <Bell size={18} />}
+						{c.kind === "group" ? <GroupAvatar url={c.avatarUrl} title={c.title} size={40} /> : <Bell size={18} />}
 					</span>
 				)}
 				<span className="min-w-0 flex-1">
 					<span className="flex items-baseline gap-2">
 						<span className="flex min-w-0 flex-1 items-center gap-1.5">
 							<span className="truncate text-small font-medium">{c.title}</span>
-							{other?.kind === "agent" && <AiBadge actor={other} />}
-							{level === "mute" && <BellOff size={13} className="shrink-0 text-faint" aria-label="免打扰" />}
+							{other?.kind === "agent" && (
+								<AiBadge actor={other} className={active ? "bg-on-accent/20 text-on-accent" : undefined} />
+							)}
+							{level === "mute" && (
+								<BellOff
+									size={13}
+									className={cn("shrink-0", active ? "text-on-accent/80" : "text-faint")}
+									aria-label="免打扰"
+								/>
+							)}
 						</span>
-						{pinned && <Pin size={12} className="shrink-0 text-faint" aria-label="已置顶" />}
-						{c.last && <span className="text-caption text-faint">{clock(c.last.createdAt)}</span>}
+						{pinned && (
+							<Pin
+								size={12}
+								className={cn("shrink-0", active ? "text-on-accent/80" : "text-faint")}
+								aria-label="已置顶"
+							/>
+						)}
+						{c.last && (
+							<span className={cn("text-caption", active ? "text-on-accent/80" : "text-faint")}>
+								{clock(c.last.createdAt)}
+							</span>
+						)}
 					</span>
-					<span className="block truncate text-small text-muted">{preview(c.last)}</span>
+					<span className={cn("block truncate text-small", active ? "text-on-accent/90" : "text-muted")}>
+						{c.mentionUnread && (
+							<span className={cn("mr-1 font-medium", active ? "text-on-accent" : "text-danger")}>[有人@我]</span>
+						)}
+						{preview(c.last)}
+					</span>
 				</span>
 				{c.unread > 0 && (
-					<span className="min-w-5 rounded-full bg-accent px-1.5 text-center text-caption font-medium text-on-accent">
+					<span
+						className={cn(
+							"min-w-5 rounded-full px-1.5 text-center text-caption font-medium",
+							active ? "bg-ground text-accent-ink" : "bg-accent text-on-accent",
+						)}
+					>
 						{c.unread}
 					</span>
 				)}
@@ -377,6 +394,34 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 	const me = useStore($session)?.actor;
 	const { data: convs = [] } = useQuery({ queryKey: ["convs"], queryFn: api.conversations });
 	const conv = convs.find((c) => c.id === id);
+	const { data: groupDetail } = useQuery({
+		queryKey: ["conv-detail", id],
+		queryFn: () => api.conversationDetail(id),
+		enabled: conv?.kind === "group",
+	});
+	const role = groupDetail?.members.find((m) => m.id === me?.id)?.role;
+	const manageGroup = conv?.kind === "group" && !me?.anonymous && (role === "owner" || role === "admin");
+	const [groupSaving, setGroupSaving] = useState(false);
+	const groupPending = useRef(false);
+	const saveGroup = async (action: () => Promise<void>) => {
+		if (groupPending.current) return;
+		groupPending.current = true;
+		setGroupSaving(true);
+		try {
+			await action();
+			await qc.invalidateQueries({ queryKey: ["conv-detail", id] });
+		} catch (e) {
+			toast(chatError(e), true);
+		} finally {
+			groupPending.current = false;
+			setGroupSaving(false);
+		}
+	};
+	useEffect(() => {
+		const refresh = () => void qc.invalidateQueries({ queryKey: ["conv-detail", id] });
+		window.addEventListener("yonder:presence", refresh);
+		return () => window.removeEventListener("yonder:presence", refresh);
+	}, [qc, id]);
 	const [oldestSeen, setOldestSeen] = useState<number>();
 	const {
 		data: messageData = [],
@@ -395,6 +440,8 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 		retry: (n, e) => !forbidden(e) && n < 3,
 	});
 	const msgs = messageData.length > 120 ? messageData.slice(-120) : messageData;
+	const newMessages = useNewMessages(messageData);
+	const background = useChatBackground(me?.id, id);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 按消息数量与最后序号触发已读
 	useEffect(() => {
 		const seq = msgs.at(-1)?.seq;
@@ -403,12 +450,19 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 				.markRead(id, seq)
 				.then(() =>
 					qc.setQueryData<Conv[]>(["convs"], (old) =>
-						old?.map((item) => (item.id === id ? { ...item, unread: 0 } : item)),
+						old?.map((item) => (item.id === id ? readConversation(item, seq) : item)),
 					),
 				)
 				.catch((error) => toast(error instanceof Error ? error.message : "标记已读失败"));
 	}, [id, msgs.length, msgs.at(-1)?.seq, qc]);
-	const actors = useActors(conv?.memberIds ?? []);
+	const globalActors = useActors(conv?.memberIds ?? []);
+	const actors = useMemo(() => {
+		if (conv?.kind !== "group" || !groupDetail) return globalActors;
+		const scoped = new Map(globalActors);
+		for (const member of groupDetail.members)
+			scoped.set(member.id, { ...(globalActors.get(member.id) ?? member), name: groupMemberName(member) });
+		return scoped;
+	}, [globalActors, groupDetail, conv?.kind]);
 	const loc = useLocation();
 	const [params, setParams] = useSearchParams();
 	const detail = params.get("detail") === "1";
@@ -474,6 +528,33 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 		if (row) box.scrollTop += row.getBoundingClientRect().top - saved.top;
 		anchor.current = null;
 	});
+	const [focusedMessage, setFocusedMessage] = useState<string>();
+	const jumpToMessage = async (message: Message) => {
+		stick.current = false;
+		anchor.current = null;
+		try {
+			if (!msgs.some((m) => m.id === message.id)) {
+				const [before, after] = await Promise.all([
+					api.messages(id, { before: message.seq, limit: 40 }),
+					api.messages(id, { since: message.seq - 1, limit: 40 }),
+				]);
+				qc.setQueryData<Message[]>(
+					["msgs", id],
+					[...new Map([...before, ...after].map((m) => [m.id, m])).values()].sort((a, b) => a.seq - b.seq),
+				);
+			}
+			setFocusedMessage(message.id);
+		} catch (e) {
+			toast(e instanceof Error ? e.message : "无法定位消息", true);
+		}
+	};
+	useEffect(() => {
+		if (!focusedMessage) return;
+		const row = scroll.current?.querySelector<HTMLElement>(`[data-message-id="${focusedMessage}"]`);
+		row?.scrollIntoView({ block: "center", behavior: historyScrollBehavior() });
+		const timer = setTimeout(() => setFocusedMessage(undefined), 3000);
+		return () => clearTimeout(timer);
+	}, [focusedMessage]);
 	const [typing, setTyping] = useState(false);
 	const [reply, setReply] = useState<Message>();
 	const [quoteText, setQuoteText] = useState<string>();
@@ -509,6 +590,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 								<Avatar actor={other} size={32} />
 							</span>
 						)}
+						{conv?.kind === "group" && <GroupAvatar url={conv.avatarUrl} title={conv.title} size={32} />}
 						<span className="truncate">{conv?.title}</span>
 						{other?.kind === "agent" && <AiBadge actor={other} />}
 						{other?.kind === "agent" && (
@@ -533,17 +615,29 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 					)
 				}
 			/>
+			{groupDetail && (
+				<PinnedMessages
+					messages={groupDetail.pinnedMessages ?? []}
+					announcement={groupDetail.announcement}
+					manage={!!manageGroup && !groupSaving}
+					onSelect={(m) => void jumpToMessage(m)}
+					onRemove={(m) => void saveGroup(() => chatApi.unpinMessage(id, m.id))}
+					onClear={() => void saveGroup(() => chatApi.setAnnouncement(id, null))}
+				/>
+			)}
 			{ownerEligible && !ownerBinding && (owner.isFetching || owner.error) && (
 				<p role="status" className="px-4 py-2 text-caption text-muted">
 					{owner.isFetching ? "正在同步完整会话…" : "完整会话暂不可用，当前显示聊天消息"}
 				</p>
 			)}
 			{ownerBinding ? (
-				<OwnerTranscript binding={ownerBinding} onQuote={setQuoteText} />
+				<OwnerTranscript binding={ownerBinding} onQuote={setQuoteText} backgroundStyle={background.style} />
 			) : (
 				<div
 					ref={scroll}
-					className="scroll-y relative z-10 flex-1 px-4"
+					style={background.style}
+					data-chat-background={background.style.backgroundImage ? "image" : undefined}
+					className="social-chat-canvas scroll-y relative z-10 flex-1 px-4"
 					onScroll={(event) => {
 						const el = event.currentTarget;
 						stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -587,9 +681,30 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 							const last = msgs[i + 1]?.senderId !== m.senderId;
 							return (
 								<Fragment key={m.id}>
-									{bucket && <p className="py-4 text-center text-caption text-faint">{bucket}</p>}
+									{bucket && <p className="social-date-label py-4 text-center text-caption text-faint">{bucket}</p>}
 									<Bubble
 										m={m}
+										animate={newMessages.has(m.id)}
+										highlighted={focusedMessage === m.id}
+										pinned={groupDetail?.pinnedMessages?.some((p) => p.id === m.id)}
+										onPin={
+											manageGroup && !groupSaving
+												? () =>
+														void saveGroup(() =>
+															groupDetail?.pinnedMessages?.some((p) => p.id === m.id)
+																? chatApi.unpinMessage(id, m.id)
+																: chatApi.pinMessage(id, m.id),
+														)
+												: undefined
+										}
+										onAnnounce={
+											manageGroup && !groupSaving
+												? () => {
+														if (window.confirm("将这条消息设为群公告？"))
+															void saveGroup(() => chatApi.setAnnouncement(id, m.id));
+													}
+												: undefined
+										}
 										replied={msgs.find((item) => item.id === m.replyTo)}
 										actors={actors}
 										onReply={() => setReply(m)}
@@ -623,6 +738,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 				<Composer
 					key={id}
 					convId={id}
+					mutedUntil={groupDetail?.selfMutedUntil ?? conv?.selfMutedUntil}
 					members={conv?.kind === "group" ? [...actors.values()].filter((a) => a.id !== me?.id) : []}
 					reply={reply}
 					quoteText={quoteText}
@@ -637,7 +753,13 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 					}}
 				/>
 			)}
-			{detail && <ChatDetail convId={id} onClose={() => setDetail(false)} />}
+			<SocialPresence open={detail}>
+				<ChatDetail
+					convId={id}
+					onClose={() => setDetail(false)}
+					onSelectMessage={(m: Message) => void jumpToMessage(m)}
+				/>
+			</SocialPresence>
 		</>
 	);
 }
@@ -670,7 +792,17 @@ export function Bubble({
 	group,
 	first,
 	last,
+	animate,
+	highlighted,
+	pinned,
+	onPin,
+	onAnnounce,
 }: {
+	animate?: boolean;
+	highlighted?: boolean;
+	pinned?: boolean;
+	onPin?: () => void;
+	onAnnounce?: () => void;
 	m: Message;
 	replied?: Message;
 	actors: Map<string, Actor>;
@@ -683,6 +815,9 @@ export function Bubble({
 }) {
 	const loc = useLocation();
 	const c = m.content;
+	const selfId = useStore($session)?.actor.id;
+	const mentioned =
+		!mine && (c.type === "text" || c.type === "markdown") && (c.mentionAll || c.mentions?.includes(selfId ?? ""));
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	// 复制后的对勾微弹出现，2.5 秒后淡出恢复（.pop / .feedback，见 styles.css）
 	const [copied, setCopied] = useState(false);
@@ -705,7 +840,14 @@ export function Bubble({
 	return (
 		<div
 			data-message-id={m.id}
-			className={cn("group/message rise flex w-full items-end gap-2", mine && "flex-row-reverse", first && "mt-3")}
+			data-new-message={animate || undefined}
+			data-mine={mine}
+			className={cn(
+				"social-message group/message flex w-full items-end gap-2",
+				mine && "flex-row-reverse",
+				first && "mt-3",
+				highlighted && "rounded-control bg-tone-2 ring-2 ring-accent/30",
+			)}
 		>
 			{!mine && (
 				<span className="w-8 shrink-0">
@@ -722,7 +864,7 @@ export function Bubble({
 			)}
 			<div className={cn("flex max-w-[80%] flex-col gap-1", mine && "items-end")}>
 				{group && !mine && first && sender && (
-					<span className="px-1 text-caption text-muted">
+					<span className="social-sender-label px-1 text-caption text-muted">
 						{sender.name}
 						{sender.kind === "agent" && " · Bot"}
 					</span>
@@ -741,7 +883,11 @@ export function Bubble({
 				<div
 					{...trigger}
 					style={tight}
-					className={cn("rounded-bubble px-3.5 py-2 text-body", mine ? "bg-accent text-on-accent" : "bg-tone")}
+					className={cn(
+						"rounded-bubble px-3.5 py-2 text-body",
+						mine ? "bg-accent text-on-accent" : "bg-tone",
+						mentioned && "ring-2 ring-orange-400/60",
+					)}
 				>
 					{m.replyTo && (
 						<div className="mb-2 border-l-2 border-current/30 pl-2 text-caption opacity-75">
@@ -749,12 +895,19 @@ export function Bubble({
 							{replied && "text" in replied.content ? replied.content.text.slice(0, 100) : "附件或未加载的消息"}
 						</div>
 					)}
+					{mentioned && (
+						<span className="mb-1 block text-caption font-medium text-orange-600">
+							{(c.type === "text" || c.type === "markdown") && c.mentionAll ? "@所有人" : "有人@你"}
+						</span>
+					)}
 					{(c.type === "text" || c.type === "markdown") &&
-						c.mentions?.map((id) => (
-							<span key={id} className="mr-2 font-medium">
-								@{actors.get(id)?.name ?? "群成员"}
-							</span>
-						))}
+						c.mentions
+							?.filter((id) => !c.text.includes(`@${actors.get(id)?.name ?? "群成员"}`))
+							.map((id) => (
+								<span key={id} className="mr-2 text-small font-medium">
+									@{actors.get(id)?.name ?? "群成员"}
+								</span>
+							))}
 					{c.type === "text" && <p className="whitespace-pre-wrap">{c.text}</p>}
 					{c.type === "markdown" && <Markdown text={c.text} />}
 					{c.type === "image" && <img src={c.url} alt={c.name ?? ""} className="max-h-64 rounded-xl" />}
@@ -803,6 +956,8 @@ export function Bubble({
 						actions={[
 							{ key: "reply", label: "引用", icon: Reply, onSelect: onReply },
 							{ key: "copy", label: "复制", icon: Copy, onSelect: copy },
+							...(onPin ? [{ key: "pin", label: pinned ? "取消置顶" : "置顶消息", icon: Pin, onSelect: onPin }] : []),
+							...(onAnnounce ? [{ key: "announce", label: "设为群公告", icon: Bell, onSelect: onAnnounce }] : []),
 						]}
 						onClose={() => setMenu(null)}
 					/>
@@ -814,6 +969,7 @@ export function Bubble({
 
 export function Composer({
 	convId,
+	mutedUntil,
 	members = [],
 	quoteText,
 	onClearQuote,
@@ -825,6 +981,7 @@ export function Composer({
 	onSend,
 }: {
 	convId: string;
+	mutedUntil?: number | null;
 	members?: Actor[];
 	quoteText?: string;
 	onClearQuote?: () => void;
@@ -838,7 +995,53 @@ export function Composer({
 	onSend: () => void;
 }) {
 	const [text, setText] = useState("");
-	const [mention, setMention] = useState("");
+	const [mentionTokens, setMentionTokens] = useState<MentionToken[]>([]);
+	const [caret, setCaret] = useState(0),
+		[dismissed, setDismissed] = useState(false),
+		[composition, setComposition] = useState(false),
+		[choice, setChoice] = useState(0);
+	const [now, setNow] = useState(Date.now());
+	const muted = !!mutedUntil && mutedUntil > now;
+	useEffect(() => {
+		if (!muted) return;
+		const timer = setInterval(() => setNow(Date.now()), 1000);
+		return () => clearInterval(timer);
+	}, [muted]);
+	const query = !dismissed && !composition && members.length ? mentionQuery(text, caret) : null;
+	const options = query
+		? [{ id: "all", name: "所有人" }, ...members]
+				.filter((m) => m.name.toLowerCase().includes(query.query.toLowerCase()))
+				.slice(0, 32)
+		: [];
+	const chooseMention = (member: { id: string; name: string }) => {
+		if (!query) return;
+		if (
+			member.id !== "all" &&
+			!mentionTokens.some((t) => t.id === member.id) &&
+			new Set(mentionTokens.flatMap((t) => (t.id ? [t.id] : []))).size >= 32
+		) {
+			toast("每条消息最多提及 32 位成员");
+			return;
+		}
+		const label = `@${member.name}`,
+			next = `${text.slice(0, query.start) + label} ${text.slice(query.end)}`;
+		setMentionTokens([
+			...editedMentions(text, next, mentionTokens),
+			{
+				start: query.start,
+				end: query.start + label.length,
+				label,
+				...(member.id === "all" ? { all: true } : { id: member.id }),
+			},
+		]);
+		setText(next);
+		setCaret(query.start + label.length + 1);
+		setDismissed(true);
+		requestAnimationFrame(() => {
+			ref.current?.focus();
+			ref.current?.setSelectionRange(query.start + label.length + 1, query.start + label.length + 1);
+		});
+	};
 	const ref = useRef<HTMLTextAreaElement>(null);
 	const loc = useLocation();
 	const nav = useNavigate();
@@ -866,7 +1069,7 @@ export function Composer({
 	const session = useStore($session);
 	const guest = session?.guest;
 	const send = async (body = text.trim()): Promise<boolean> => {
-		if (!body || pending.current) return false;
+		if (!body || pending.current || muted) return false;
 		pending.current = true;
 		setSending(true);
 		try {
@@ -878,7 +1081,7 @@ export function Composer({
 							.map((line) => `> ${line}`)
 							.join("\n")}\n\n${body}`
 					: body,
-				...(mention ? { mentions: [mention] } : {}),
+				...(body === text.trim() ? mentionMetadata(text, mentionTokens) : {}),
 			};
 			const message = reply ? await api.send(convId, content, reply.id) : await api.send(convId, content);
 			qc.setQueryData<Message[]>(["msgs", convId], (old) =>
@@ -887,7 +1090,8 @@ export function Composer({
 			void qc.invalidateQueries({ queryKey: ["convs"] });
 			void qc.invalidateQueries({ queryKey: ["msgs", convId] });
 			setText("");
-			setMention("");
+			setMentionTokens([]);
+			setDismissed(true);
 			onClearReply?.();
 			onClearQuote?.();
 			const session = $session.get();
@@ -908,7 +1112,11 @@ export function Composer({
 				setVerify(true);
 				return false;
 			}
-			toast(error instanceof Error ? error.message : "发送失败，请重试", true);
+			if (error instanceof Error && error.message === "muted") {
+				toast("你已被禁言，草稿已保留", true);
+				void qc.invalidateQueries({ queryKey: ["conv-detail", convId] });
+				void qc.invalidateQueries({ queryKey: ["convs"] });
+			} else toast(error instanceof Error ? error.message : "发送失败，请重试", true);
 			return false;
 		} finally {
 			pending.current = false;
@@ -951,39 +1159,88 @@ export function Composer({
 					</button>
 				</div>
 			)}
-			{members.length > 0 && (
-				<div className="mx-auto mb-2 max-w-[720px]">
-					<select
-						aria-label="艾特群成员"
-						value={mention}
-						onChange={(e) => setMention(e.target.value)}
-						className="rounded-lg bg-tone px-2 py-1 text-small"
-					>
-						<option value="">@ 选择群成员</option>
-						{members.map((a) => (
-							<option key={a.id} value={a.id}>
-								{a.name}
-							</option>
-						))}
-					</select>
-				</div>
+			{muted && (
+				<p role="status" className="mx-auto mb-2 max-w-[720px] text-center text-caption text-muted">
+					禁言至 {new Date(mutedUntil ?? 0).toLocaleString()}，草稿已保留
+				</p>
 			)}
+			<SocialPresence open={!!query && options.length > 0} kind="popup">
+				<div
+					role="listbox"
+					id="chat-mention-options"
+					aria-label="选择要提及的成员"
+					className="scroll-y mx-auto mb-2 max-h-48 max-w-[720px] rounded-control border border-hairline bg-raised p-1 shadow-float"
+				>
+					{options.map((m, i) => (
+						<button
+							type="button"
+							role="option"
+							aria-selected={i === Math.min(choice, options.length - 1)}
+							id={`mention-option-${i}`}
+							key={m.id}
+							onMouseDown={(e) => e.preventDefault()}
+							onClick={() => chooseMention(m)}
+							className={cn(
+								"press block min-h-10 w-full rounded-control px-3 text-left text-small",
+								i === choice && "bg-tone",
+							)}
+						>
+							@{m.name}
+						</button>
+					))}
+				</div>
+			</SocialPresence>
 			{guest && guest.remaining > 0 && guest.remaining <= 3 && (
 				<p className="mx-auto mb-2 text-center text-small text-muted">还可发 {guest.remaining} 条，登录后无限制</p>
 			)}
 			<div className="field mx-auto flex max-w-[720px] items-end gap-2 rounded-field bg-raised p-2 pl-4 shadow-float">
 				<textarea
 					ref={ref}
+					aria-label="输入消息"
+					onBlur={() => setDismissed(true)}
+					aria-controls={query && options.length ? "chat-mention-options" : undefined}
+					aria-activedescendant={
+						query && options.length ? `mention-option-${Math.min(choice, options.length - 1)}` : undefined
+					}
+					onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+					onCompositionStart={() => setComposition(true)}
+					onCompositionEnd={(e) => {
+						setComposition(false);
+						setCaret(e.currentTarget.selectionStart);
+						setDismissed(false);
+					}}
 					value={text}
 					readOnly={sending}
 					rows={1}
 					placeholder={cloudBot ? "小歪暂时只能帮你开始" : offline ? OFFLINE_HINT : "输入消息"}
 					onChange={(e) => {
+						setMentionTokens(editedMentions(text, e.target.value, mentionTokens));
 						setText(e.target.value);
+						setCaret(e.target.selectionStart);
+						setDismissed(false);
+						setChoice(0);
 						e.target.style.height = "auto";
 						e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
 					}}
 					onKeyDown={(e) => {
+						if (e.nativeEvent.isComposing || composition) return;
+						if (query && options.length) {
+							if (e.key === "Escape") {
+								e.preventDefault();
+								setDismissed(true);
+								return;
+							}
+							if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+								e.preventDefault();
+								setChoice((n) => (n + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length);
+								return;
+							}
+							if (e.key === "Enter" && !e.shiftKey) {
+								e.preventDefault();
+								chooseMention(options[Math.min(choice, options.length - 1)]);
+								return;
+							}
+						}
 						if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
 							e.preventDefault();
 							void send();
@@ -994,7 +1251,7 @@ export function Composer({
 				<button
 					type="button"
 					onClick={() => void send()}
-					disabled={!text.trim() || sending}
+					disabled={!text.trim() || sending || muted}
 					aria-label={sending ? "发送中" : "发送"}
 					className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent disabled:bg-tone-2 disabled:text-faint"
 				>
