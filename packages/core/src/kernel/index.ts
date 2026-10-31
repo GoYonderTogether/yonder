@@ -14,6 +14,7 @@ import { type UpdateResult, updateResultEvent } from "../release/result.js";
 import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
+import { checkBudget } from "../sessions/budget.js";
 import { closeOnRunEnd } from "../sessions/close-policy.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
@@ -412,6 +413,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				if (input.version) await store.sessions.setVersion(id, input.version);
 			},
 			...ticks(store, delivery, options.test),
+			// Budgets are a session concern; the kernel injects them so the runtime stays below sessions.
+			onUsageSettled: (id, usage) => checkBudget({ db: db!, config }, id, { input: usage.input, output: usage.output }),
 			onRun: completeRun,
 			onSessionSettled: async (data) => {
 				await store.events.record({ type: "session.settled", data });

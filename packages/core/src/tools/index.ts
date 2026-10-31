@@ -12,16 +12,15 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
-import { type AgentConfig, presetSession, resolveProfile } from "../config/index.js";
+import { type AgentConfig, canReceivePeerAsk, presetSession, resolveProfile } from "../config/index.js";
 import { CredentialSlotsSchema } from "../config/schema.js";
-import type { DeliveryService } from "../delivery/index.js";
-import { canReceivePeerAsk } from "../kernel/peer.js";
 import type { Runtime, RuntimeInput } from "../runtime/index.js";
 import { modelProfiles } from "../runtime/model-profile.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { ownerIdentity } from "../store/sessions.js";
 import { coreToolCapabilities } from "./catalog.js";
+import type { DeliveryPort } from "./delivery-port.js";
 import { fail, requireCapability, tool, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
 import { parentSources } from "./parent-origin.js";
@@ -36,7 +35,7 @@ interface CoreToolsOptions {
 	agents: Map<string, AgentConfig>;
 	sessions: Sessions;
 	runtime: () => Runtime;
-	delivery: DeliveryService;
+	delivery: DeliveryPort;
 	ask(input: EventInput): Promise<AskResult>;
 	getPreset(id: string): Preset | undefined;
 	presets?: () => Preset[];
@@ -170,7 +169,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),
 			execute: async (args, ctx) => {
-				const sent = await delivery.sendTool(ctx, args as Parameters<DeliveryService["sendTool"]>[1]);
+				const sent = await delivery.sendTool(ctx, args as Parameters<DeliveryPort["sendTool"]>[1]);
 				return { ...result(sent), ...(!sent.ok ? { isError: true } : {}) };
 			},
 		}),

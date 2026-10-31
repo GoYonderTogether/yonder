@@ -110,6 +110,8 @@ test.skipIf(!real)(
 				models: { providers: { workbuddy: providers.workbuddy } },
 			},
 			resolveSession: async () => ({ agent: null, profile: "budget", cwd: home, resolved: profile }),
+			// Session budgets are a session concern the kernel injects; this test wires the same check.
+			onUsageSettled: (id, usage) => checkBudget({ db, config }, id, { input: usage.input, output: usage.output }),
 			// The kernel's delivery writes run.end for every finished run; this sink mirrors it so the session's own
 			// history (usage, wakeups, start time) is what the budget check reads.
 			onRun: async (id, run) => {

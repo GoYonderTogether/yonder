@@ -68,6 +68,11 @@ export interface RuntimeOptions {
 	): Promise<number | undefined>;
 	tickIntervalMs?: number | undefined;
 	onRun?(session: string, run: RuntimeRun): Promise<void>;
+	/**
+	 * A finished run's usage, settled before `onRun` records it. The kernel checks session budgets here; the
+	 * runtime itself stays below sessions (architecture §6, L1 < L2).
+	 */
+	onUsageSettled?(session: string, usage: RuntimeRun["usage"]): Promise<void>;
 	onIdle?(session: string): Promise<void>;
 	onBackgroundChanged?(session: string): void;
 	onBackground?(
