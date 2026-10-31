@@ -27,10 +27,6 @@
 		"lines": 621,
 		"reason": "待拆分：openKernel 装配全部服务，凭证与 provider 登录逻辑应移出"
 	},
-	"plugins/native-automation/src/index.ts": {
-		"lines": 571,
-		"reason": "待拆分：浏览器与应用自动化工具集散落在单一入口，应按目标平台拆分"
-	},
 	"plugins/channel-wechat-ilink/src/channel.ts": {
 		"lines": 542,
 		"reason": "待拆分：IlinkChannel 网络层与消息处理未分离，应抽出协议客户端"
