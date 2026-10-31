@@ -70,7 +70,7 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder",
-	"version": "0.3.26103103",
+	"version": "0.3.26103104",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai",
 		"body-parser": "2.4.0",

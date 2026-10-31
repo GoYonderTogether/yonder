@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.3.26103104] - 2026-10-31
+
+### Fixed
+
+- social：inject the room index on batch-driven group turns too
+
+### Added
+
+- app：unify the public domain on yonderbot.net and add mobile shells
+
 ## [0.3.26103103] - 2026-10-31
 
 - QQ 群唤醒词去掉泛词「在吗」：贾维斯和学姐不再因为别人闲聊一句「在吗」就被唤醒，点名、本名和各自的专业词仍会触发。
