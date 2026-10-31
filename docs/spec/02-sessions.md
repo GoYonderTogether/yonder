@@ -136,7 +136,7 @@ interface Route {
 
 | 表 | 字段 | 说明 |
 |---|---|---|
-| `y_accounts` | `ref`(主键), `person`, `name`, `firstSeen`, `lastSeen` | 内核在每个入站事件上自动登记发送者账号与显示名 |
+| `y_accounts` | `ref`(主键), `person`, `name`, `firstSeen`, `lastSeen` | 内核在每个入站事件上自动登记发送者账号与显示名；事件带 `mentionNames` 时一并登记这些账号的显示名，已有名字不被空值覆盖 |
 | `y_persons` | `id`, `name`, `note` | 由人或有 `admin` 能力的 agent 创建 |
 
 账号到人的关联只能显式建立（CLI 或工具 `identity_link`），内核不猜。每次关联或解除都写一条 `identity.link` 事件。

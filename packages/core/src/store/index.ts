@@ -54,15 +54,21 @@ export async function createStore(
 			event.routes ? JSON.stringify(event.routes) : null,
 		);
 		if (event.routes && event.from?.startsWith("acct:")) {
-			const name = (event.data as { name?: string }).name ?? null;
-			await tx.run(
-				`INSERT INTO y_accounts(ref, name, firstSeen, lastSeen) VALUES (?, ?, ?, ?)
-				ON CONFLICT(ref) DO UPDATE SET name = COALESCE(excluded.name, name), lastSeen = excluded.lastSeen`,
-				event.from,
-				name,
-				event.ts,
-				event.ts,
-			);
+			const data = event.data as { name?: string; mentionNames?: Record<string, string> };
+			// 群消息随推送带来的 @ 昵称是这些账号唯一的显示名来源，落地后才能被任何人按引用查到。
+			const names = new Map<string, string>();
+			if (data.name) names.set(event.from, data.name);
+			for (const [ref, name] of Object.entries(data.mentionNames ?? {}))
+				if (ref.startsWith("acct:") && name) names.set(ref, name);
+			for (const [ref, name] of names)
+				await tx.run(
+					`INSERT INTO y_accounts(ref, name, firstSeen, lastSeen) VALUES (?, ?, ?, ?)
+					ON CONFLICT(ref) DO UPDATE SET name = COALESCE(excluded.name, name), lastSeen = excluded.lastSeen`,
+					ref,
+					name,
+					event.ts,
+					event.ts,
+				);
 		}
 		return event;
 	}

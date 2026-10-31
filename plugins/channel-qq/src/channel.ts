@@ -176,6 +176,44 @@ export async function assertInsideMediaRoot(localPath: string, root: string): Pr
 		throw new Error(`QQ local attachment escapes the allowlisted media root: ${localPath}`);
 }
 
+/**
+ * QQ 群 @ 在推送里带 nickname/username，这是本机唯一能知道「被 @ 的是谁」的来源：openid 是每个机器人
+ * 各自一套的不透明 ID，换了机器人就变，也没有公开接口反查昵称。只照抄平台给的字段，不推断、不编造。
+ */
+function mentionNames(id: string, mentions: NonNullable<QQBotInboundMessage["mentions"]>) {
+	const names: Record<string, string> = {};
+	for (const mention of mentions) {
+		const openid = mention.member_openid ?? mention.user_openid ?? mention.id;
+		const name = mention.nickname ?? mention.username;
+		if (mention.scope === "all" || !openid || !name) continue;
+		if (!/^[A-Za-z0-9_-]+$/.test(openid)) continue;
+		names[acct(id, openid)] = name;
+	}
+	return Object.keys(names).length ? { mentionNames: names } : {};
+}
+
+/** 平台把 @ 写成 `<@openid>` 或 `<@!openid>`，正文里只剩标记；能对上昵称的就换成 `@昵称`。 */
+function readableMentions(
+	text: string,
+	id: string,
+	mentions: NonNullable<QQBotInboundMessage["mentions"]>,
+): { text: string; selfMentions?: string[] } {
+	const byOpenid = new Map<string, { ref: string; name?: string; self: boolean }>();
+	for (const mention of mentions) {
+		const openid = mention.member_openid ?? mention.user_openid ?? mention.id;
+		if (mention.scope === "all" || !openid || !/^[A-Za-z0-9_-]+$/.test(openid)) continue;
+		const name = mention.nickname ?? mention.username;
+		byOpenid.set(openid, { ref: acct(id, openid), ...(name ? { name } : {}), self: mention.is_you === true });
+	}
+	const selfMentions = [...new Set([...byOpenid.values()].filter((entry) => entry.self).map((entry) => entry.ref))];
+	const readable = text.replace(/<@!?([A-Za-z0-9_-]+)>/g, (marker, openid: string) => {
+		const entry = byOpenid.get(openid);
+		if (!entry?.name) return marker;
+		return entry.self ? `@我（${entry.name}）` : `@${entry.name}`;
+	});
+	return { text: readable, ...(selfMentions.length ? { selfMentions } : {}) };
+}
+
 export function incoming(
 	id: string,
 	config: Config,
@@ -199,17 +237,24 @@ export function incoming(
 	const allowed = group ? config.allowedGroups : config.allowedUsers;
 	if (allowed && !allowed.includes(targetId)) return;
 	const createdAt = Date.parse(msg.timestamp);
+	// 群消息里 @ 只剩 `<@openid>` 标记；先换成可读昵称，模型才知道这条在说谁、是不是在叫自己。
+	const readable = group && msg.mentions ? readableMentions(text, id, msg.mentions) : { text };
+	// 平台的 @ 事实以推送为准；正文里明确 @ 到本机器人也算一次点名，两者取或，不互相否定。
+	const selfMentioned = (readable.selfMentions?.length ?? 0) > 0;
+	const botMentioned = mentioned || selfMentioned;
 	return {
 		type: "message.in",
 		from: acct(id, msg.senderId),
 		conv: conv(id, `${group ? "group" : "c2c"}:${targetId}`),
 		data: {
 			kind: group ? "group" : "dm",
-			text,
+			text: readable.text,
 			...(attachments.length ? { attachments } : {}),
 			...(quote ? { quote } : {}),
 			msgId: msg.messageId,
-			...(group ? { mentioned, social: { mentions: { bot: mentioned }, nativeKind: msg.rawEventType } } : {}),
+			...(group
+				? { mentioned: botMentioned, social: { mentions: { bot: botMentioned }, nativeKind: msg.rawEventType } }
+				: {}),
 			...(Number.isFinite(createdAt) ? { createdAt: String(createdAt) } : {}),
 			...(msg.senderName ? { name: msg.senderName } : {}),
 			...(msg.senderIsBot !== undefined ? { senderIsBot: msg.senderIsBot } : {}),
@@ -223,6 +268,8 @@ export function incoming(
 								}),
 							),
 						],
+						// 平台给的昵称/用户名只随本条消息到达一次，内核之后无法再查；照原样带出，不推断。
+						...mentionNames(id, msg.mentions),
 					}
 				: {}),
 			...(group && (msg.msgIdx || msg.refMsgIdx)

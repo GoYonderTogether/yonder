@@ -64,6 +64,7 @@ interface YEvent {
   text: string;            // 可为空串（纯附件）
   attachments?: Attachment[];
   mentions?: Ref[];        // 平台明确提供的 @ 目标账号；未知不猜测
+  mentionNames?: Record<Ref, string>; // 平台随该条消息给的 @ 目标显示名，按账号引用索引；没有就不写
   senderIsBot?: boolean;   // 仅平台或可靠本机证据确认时设置
   mentioned?: boolean;     // 本渠道实例自己的账号是否被 @
   msgId?: string;          // 渠道原生消息 id
@@ -149,6 +150,8 @@ message.attempt 对普通 send 保存 outgoing 与 from；确定未发送的瞬�
 多 Agent 渠道同一原生消息可分别投给不同 Agent；入站去重身份为渠道实例 + type + msgId + data.target（普通渠道无 target）。保留原生 msgId，不把 Agent 拼入原生 id。
 
 ### 社交事件的所有者（CH-01）
+
+`mentionNames` 只由渠道照抄平台随消息给出的昵称/用户名，供内核写入身份表并在 `<turn>` 里显示成「名字（引用）」；内核不从正文、显示名或引用格式推断，也不把它当作身份关联（账号到人的关联仍只能显式建立，02 §4）。
 
 `message.in.data.social` 可选，形状为 `{room?: string; mentions?: {bot?: boolean; owner?: boolean; everyone?: boolean; accounts?: Ref[]}; senderRole?: 'group-owner'|'group-admin'|'member'|'unknown'; parentConv?: Ref; nativeKind?: string}`。它只记录受信任适配器提供的原生事实，不从正文或显示名推断。旧 `data.mentioned` 保持 bot mention 含义；新旧矛盾时记诊断且不提升该信号。
 

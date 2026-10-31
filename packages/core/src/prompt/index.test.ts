@@ -246,6 +246,20 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect((await systemSections({ ...session, id: row.id }, scopedOptions)).join("\n")).not.toContain(
 			"external participant",
 		);
+		const mention = newEvent({
+			type: "message.in",
+			from: "acct:qq:OWNER",
+			conv: "conv:qq:group:G",
+			data: {
+				kind: "group",
+				text: "@我（小鱼） 在吗",
+				mentions: ["acct:qq:BOT", "acct:qq:UNKNOWN"],
+				mentionNames: { "acct:qq:BOT": "小鱼" },
+			},
+		});
+		const mentionInput = await prepareInput(row, session, mention, "run", options);
+		// 平台给的昵称优先；身份库里登记过的显示名其次；都没有时只写引用，不编造。
+		expect(mentionInput.text).toContain(`mentions: [&quot;小鱼 (acct:qq:BOT)&quot;,&quot;acct:qq:UNKNOWN&quot;]`);
 		const fileEvent = newEvent({
 			type: "message.in",
 			conv: "conv:web:group:a",

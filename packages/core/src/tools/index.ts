@@ -427,7 +427,8 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		}),
 		tool({
 			name: "identity_lookup",
-			description: "查询本轮发送者的关联账号和会话；查询其他引用需要 admin，其他 agent 的信息需要 cross-agent。",
+			description:
+				"查询一个账号或人：关联的账号、显示名、出现过的会话。不填 ref 时查本轮发送者；查其他引用需要 admin，看其他 agent 的信息需要 cross-agent。群消息里的 @ 目标同样可以查。",
 			parameters: schema({ ref: Type.Optional(text()) }),
 			execute: async (args, ctx) => {
 				requireCapability(ctx, "read");

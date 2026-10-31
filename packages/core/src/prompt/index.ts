@@ -287,6 +287,22 @@ async function messageText(options: PromptOptions, session: RuntimeSessionConfig
 	return expandTemplate(options.home, session.agent, skill ?? text, options.templateDirs?.(session), session.profile);
 }
 
+/**
+ * @ 目标在事件里只有账号引用；模型看到一串 `acct:qq:72FD78…` 既不知道是谁，也无法判断是否与自己有关。
+ * 这里把它写成「名字（引用）」，名字优先用平台随消息给的昵称，其次用身份库登记过的显示名。
+ * 两者都没有时只写引用，绝不猜测。
+ */
+async function mentionLabels(options: PromptOptions, data: Partial<MessageInData>) {
+	const mentions = data.mentions ?? [];
+	const given = data.mentionNames ?? {};
+	return Promise.all(
+		mentions.map(async (ref) => {
+			const known = given[ref] ?? (await options.identity.account(ref))?.name;
+			return known ? `${known} (${ref})` : ref;
+		}),
+	);
+}
+
 export async function prepareInput(
 	row: SessionInfo,
 	session: RuntimeSessionConfig,
@@ -341,7 +357,7 @@ export async function prepareInput(
 		);
 	}
 	if (data.replyTo) lines.push(`replyTo: ${label(data.replyTo)}`);
-	if (data.mentions?.length) lines.push(`mentions: ${label(JSON.stringify(data.mentions))}`);
+	if (data.mentions?.length) lines.push(`mentions: ${label(JSON.stringify(await mentionLabels(options, data)))}`);
 	if (data.quote?.text) lines.push(`quote: ${label(data.quote.text)}`);
 	const slash = session.resolved.model.indexOf("/");
 	const model = options.models.getModel(
