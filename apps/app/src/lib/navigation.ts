@@ -20,3 +20,11 @@ export function useAppBack(fallback: string) {
 	const loc = useLocation();
 	return () => (hasInternalOrigin(loc.state) ? nav(-1) : nav(fallback, { replace: true }));
 }
+
+/** Personal market pages return to their actual Me history entry, or replace a deep link. */
+export function usePersonalMarketBack() {
+	const nav = useNavigate();
+	const loc = useLocation();
+	return () =>
+		hasInternalOrigin(loc.state) && /^\/me(?:\?|$)/.test(loc.state.appFrom) ? nav(-1) : nav("/me", { replace: true });
+}

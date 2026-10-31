@@ -610,20 +610,6 @@ time,
 	}
 }
 
-@keyframes personal-drawer-in {
-	from {
-		transform: translateX(-100%);
-	}
-	to {
-		transform: translateX(0);
-	}
-}
-@media (prefers-reduced-motion: no-preference) {
-	.personal-drawer {
-		animation: personal-drawer-in 180ms ease-out;
-	}
-}
-
 /* 流式回复的行尾光标：一次呼吸，不跳字 */
 .caret {
 	display: inline-block;

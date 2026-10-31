@@ -30,7 +30,7 @@ import { PublishDialog, SellerWorkspace } from "../components/market/SellPanel";
 import { PersonalAvatar } from "../components/PersonalDrawer";
 import { cn } from "../lib/cn";
 import { entityRef } from "../lib/entityRef";
-import { internalState } from "../lib/navigation";
+import { internalState, usePersonalMarketBack } from "../lib/navigation";
 import { selectPersonalAgent, usePersonalAgent } from "../lib/personalAgent";
 import { CHANNELS } from "../market/catalog";
 import { defaultFilters, filterListings, type MarketFilters, priceError } from "../market/flows";
@@ -58,6 +58,7 @@ const CHANNEL_ICONS = {
 	other: Ellipsis,
 };
 export function Market() {
+	const backToMe = usePersonalMarketBack();
 	const { state, setState, storageKey } = useMarketState();
 	const [params, setParams] = useSearchParams();
 	const navigate = useNavigate();
@@ -299,12 +300,12 @@ export function Market() {
 					left={
 						home ? (
 							<PersonalAvatar />
+						) : personal ? (
+							<button type="button" className="mk-icon-button" aria-label="返回我的" onClick={backToMe}>
+								<ArrowLeft size={21} aria-hidden />
+							</button>
 						) : (
-							<Link
-								className="mk-icon-button"
-								to={personal ? "/me" : "/market"}
-								aria-label={personal ? "返回我的" : "返回市场"}
-							>
+							<Link className="mk-icon-button" to="/market" aria-label="返回市场">
 								<ArrowLeft size={21} aria-hidden />
 							</Link>
 						)
