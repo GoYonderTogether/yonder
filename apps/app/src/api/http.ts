@@ -14,6 +14,8 @@ export const socialOrigin = (): URL => new URL(SOCIAL_BASE || "/", location.href
 export async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
 	const response = await fetch(`${SOCIAL_BASE}/api${path}`, {
 		credentials: SOCIAL_BASE ? "include" : "same-origin",
+		// 开发预览绕过旧重定向缓存；生产沿用默认行为，调用方仍可通过 init 覆盖。
+		...(import.meta.env.DEV ? { cache: "no-store" as const } : {}),
 		...init,
 	});
 	const text = await response.text();
