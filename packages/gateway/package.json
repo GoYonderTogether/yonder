@@ -1,6 +1,6 @@
 {
 	"name": "@yonder/gateway",
-	"version": "0.3.26103101",
+	"version": "0.3.26103102",
 	"type": "module",
 	"license": "Apache-2.0",
 	"engines": {
@@ -20,10 +20,10 @@
 		"dist"
 	],
 	"dependencies": {
-		"@yonder/core": "0.3.26103101",
+		"@yonder/core": "0.3.26103102",
 		"typebox": "1.3.27",
 		"ws": "8.22.0",
-		"@yonder/protocol": "0.3.26103101"
+		"@yonder/protocol": "0.3.26103102"
 	},
 	"devDependencies": {
 		"@types/ws": "8.18.2"

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26103102] - 2026-10-31
+
 - QQ 群 @ 变成可读文字：正文里的 `<@openid>` 换成「@昵称」，明确 @ 到本机器人时一定唤醒；昵称随消息写入身份表，之后任何 Agent 都能按账号引用查到是谁。群分身补上 `identity_lookup`。
 - 群里的 Agent 不再被「不许发言」一刀切限制：被点名、被问到或话题相关时自行判断是否接话；公告、私信陌生人、代表主人承诺仍要先请示。
 - 截图工具在插件侧先缩小：macOS 上把截图转成 1600 长边 JPEG 再交给模型，原图保留在 artifact 目录；内核的图片出口与请求裁剪不变。
@@ -9,6 +11,14 @@
 - 运行停止提示改为系统说明：以 `【系统】` 起头，附一段截断并遮蔽凭据的真实原因，便于直接看出失败原因；模型失败新增“请求过大”分类。
 - 群聊：成功回复后对原参与者保持五分钟关注，明确给其他 Bot 的任务不抢接；QQ 与系统内群聊共用。
 - 修复分身交接时主人被误计访客额度；核验并呈现真实请求来源，已有明确授权不因交接重复确认。
+
+### Fixed
+
+- qq：make @ mentions readable and resolvable to real accounts
+- native-automation：shrink screenshots before they reach the model
+- runtime：bound images at the tool exit and prune old ones per request
+- delivery：make the stop notice read as a system message with the real cause
+- preserve group attention task recipients and verified owner handoffs
 
 ## [0.3.26103101] - 2026-10-31
 
