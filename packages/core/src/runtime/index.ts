@@ -15,8 +15,6 @@ import {
 	type Submission,
 	type ToolExecutionApi,
 	type ToolRegistration,
-	UsageDoc,
-	watchEvents,
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
@@ -38,8 +36,8 @@ import type { createBackground } from "./background.js";
 import { capabilityMap } from "./catalog.js";
 import { CredentialSlotStore } from "./credential-slots.js";
 import { credentialPath, type FileCredentials } from "./credentials.js";
-import { cid, emptyUsage, RunDoc, SessionDoc, submissionOutcome, sumUsage } from "./docs.js";
-import { inputEntry } from "./input-entry.js";
+import { runTask } from "./delegation.js";
+import { cid, RunDoc, SessionDoc, submissionOutcome } from "./docs.js";
 import type { RuntimeInternals } from "./instance.js";
 import {
 	closeRuntime,
@@ -56,15 +54,14 @@ import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
 import { ModelQuota } from "./model-quota.js";
 import { compact, modelStatus } from "./model-status.js";
-import { ModelWatch, runAttempts } from "./model-watch.js";
+import { ModelWatch } from "./model-watch.js";
 import { buildModels } from "./models.js";
-import { notificationRequestId, writeNotification } from "./notifications.js";
+import { observe, sessionUsage, terminalHistory, transcript } from "./observe.js";
 import type { Outbox } from "./outbox.js";
-import { projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
+import { receiptRun, settleActivity, settledRun, sources } from "./receipts.js";
 import { RESTART_NOTICE } from "./recovery.js";
-import { taskReport } from "./results.js";
 import { runtimeNote } from "./runtime-note.js";
 import type { RuntimeOptions } from "./runtime-options.js";
 import {
@@ -75,6 +72,16 @@ import {
 	sessionConfig,
 } from "./session-config.js";
 import { createSession, fork, parentOf, sessionState, setSessionState } from "./session-lifecycle.js";
+import {
+	abort,
+	attachSubmission,
+	enqueue,
+	invocationId,
+	notificationRecorded,
+	notify,
+	queued,
+	submit,
+} from "./submit.js";
 import {
 	adapter,
 	assertToolContext,
@@ -96,8 +103,8 @@ export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
 export { submissionOutcome } from "./docs.js";
 
-import { observeTerminal, type TerminalUpdate } from "./terminal.js";
-import { entryText as textOf, transcriptPage } from "./transcript.js";
+import type { TerminalUpdate } from "./terminal.js";
+import { entryText as textOf } from "./transcript.js";
 import type {
 	RuntimeActivityExecution,
 	RuntimeInput,
@@ -319,389 +326,56 @@ export class Runtime {
 		await preparePlacedInputs(this.rt, session, config, started, context);
 	}
 	async notificationRecorded(id: string, from: string, event: string) {
-		return Boolean(await this.storage.submissionByRequest(cid(id), notificationRequestId(from, event), C));
+		return notificationRecorded(this.rt, id, from, event);
 	}
 	async notify(id: string, input: { from: string; event: string; text: string }) {
-		return writeNotification(await this.conversation(id), input);
+		return notify(this.rt, id, input);
 	}
 	async submit(id: string, input: RuntimeInput, accepted?: () => void): Promise<RuntimeRun> {
-		const conversation = await this.conversation(id);
-		const requestId = input.requestId ?? (input.event ? `event:${input.event.id}` : undefined);
-		const existing = requestId ? await this.storage.submissionByRequest(cid(id), requestId, C) : undefined;
-		const content = [{ type: "text" as const, text: input.text }];
-		let stream = input.onOutput ? await watchEvents(this.harness, cid(id), C) : undefined;
-		let submission: Submission | undefined;
-		let submitted!: () => void;
-		const ready = new Promise<void>((resolve) => {
-			submitted = resolve;
-		});
-		let participating = false;
-		let outputRun: string | undefined;
-		const textBlocks = new Map<number, string>();
-		stream?.start(async (events) => {
-			await ready;
-			for (const event of events) {
-				if (event.type === "run_start" || event.type === "snapshot")
-					participating =
-						!!submission &&
-						(event.type === "run_start" ? event.inputs : (event.run?.inputs ?? [])).includes(submission.id);
-				if (event.type === "run_start" || event.type === "snapshot")
-					outputRun = String((event.type === "run_start" ? event.inputs : event.run?.inputs)?.[0] ?? "");
-				if (
-					event.type === "submission" &&
-					submission &&
-					event.record.id === submission.id &&
-					event.record.status === "placed"
-				)
-					participating = true;
-				if (participating) {
-					if (!outputRun) outputRun = String((await this.harness.snapshot(LiveDoc, cid(id), C))?.run?.inputs[0] ?? "");
-					projectOutput(event, { ...input, onOutput: (part) => input.onOutput?.(part, outputRun) }, textBlocks);
-				}
-				if (event.type === "run_end") participating = false;
-			}
-		});
-		const entry = inputEntry(input);
-		try {
-			submission = existing
-				? await this.harness.submission(existing.id, C)
-				: await conversation.submit(
-						input.wake === "write"
-							? {
-									type: "write",
-									...(requestId ? { requestId } : {}),
-									entry: { ...entry, model: [{ role: "user", content, timestamp: Date.now() }] },
-								}
-							: {
-									type: "input",
-									...(requestId ? { requestId } : {}),
-									content,
-									entry,
-									whenBusy: input.busy === "followup" ? "followUp" : (input.busy ?? "steer"),
-								},
-						C,
-					);
-			if (!submission) throw new Error("Previously admitted submission disappeared");
-			await this.attachSubmission(submission, input.event, id);
-			try {
-				await this.options.onAdmitted?.(id, input);
-			} catch (error) {
-				this.options.onReport?.(error);
-			}
-			accepted?.();
-			submitted();
-			const done = await submission.wait(C);
-			await stream?.stop();
-			stream = undefined;
-			if (input.wake === "write") {
-				this.submissions.delete(String(submission.id));
-				return {
-					runId: String(submission.id),
-					...submissionOutcome(done),
-					text: "",
-					usage: emptyUsage(),
-					inputs: input.event ? [input.event.id] : [],
-				};
-			}
-			return await this.settledRun(id, done);
-		} finally {
-			submitted();
-			await stream?.stop();
-		}
+		return submit(this.rt, id, input, accepted);
 	}
 	async enqueue(id: string, input: RuntimeInput): Promise<void> {
-		await new Promise<void>((accept, reject) => {
-			void this.submit(id, input, accept).catch((error) => {
-				reject(error);
-				this.options.onReport?.(error);
-			});
-		});
+		await enqueue(this.rt, id, input);
 	}
 	invocationId(ctx: ToolContext): string {
-		const invocation = this.toolInvocations.get(ctx);
-		if (!invocation) throw new Error("Requires an active runtime tool invocation");
-		return `${ctx.session}:${invocation.api.taskId}`;
+		return invocationId(this.rt, ctx);
 	}
 	private async attachSubmission(
 		submission: Submission,
 		event: RuntimeInput["event"],
 		_session: string,
 	): Promise<void> {
-		this.submissions.set(String(submission.id), { event });
+		await attachSubmission(this.rt, submission, event, _session);
 	}
 	async abort(id: string): Promise<void> {
-		const [live, activity] = await Promise.all([
-			this.harness.snapshot(LiveDoc, cid(id), C),
-			this.harness.snapshot(SessionDoc, cid(id), C),
-		]);
-		const cancelledRun = live?.run ? String(live.run.inputs[0]) : (activity?.activityRunId ?? null);
-		await (await this.conversation(id)).abort(C, { background: true });
-		await this.harness.commit(async (tx) => {
-			const state = await tx.doc(SessionDoc, cid(id));
-			// A later input can already have started while cancellation joined its old scope.
-			if ((state.activityRunId ?? null) !== cancelledRun) return;
-			state.activityIssue = null;
-			state.activityRunId = null;
-		}, C);
+		await abort(this.rt, id);
 	}
 	async queued(id: string, withdraw = false) {
-		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
-		const result: Array<{ id: string; mode: string; text: string; event?: string }> = [];
-		for (const item of inbox?.items ?? []) {
-			if (item.mode === "write") continue;
-			if (withdraw && (await this.harness.abortSubmission(item.id, C, cid(id))) !== "aborted") continue;
-			const content =
-				typeof item.content === "string"
-					? item.content
-					: item.content
-							.filter((block) => block.type === "text")
-							.map((block) => block.text)
-							.join("\n");
-			const event =
-				item.entry?.data && typeof item.entry.data === "object" && "event" in item.entry.data
-					? String(item.entry.data.event)
-					: undefined;
-			result.push({ id: String(item.id), mode: item.mode, text: content, ...(event ? { event } : {}) });
-		}
-		return result;
+		return queued(this.rt, id, withdraw);
 	}
 	async observe(id: string, send: (update: TerminalUpdate) => Promise<void>) {
-		let runId: string | undefined,
-			eventIds: string[] = [];
-		return observeTerminal(this.harness, id, async (update) => {
-			if (update.inputs) {
-				runId = update.inputs[0];
-				eventIds = (await this.sources(update.inputs.map(Number))).map((event) => event.id);
-			}
-			await send({ ...update, session: id, ...(runId ? { runId } : {}), eventIds });
-		});
+		return observe(this.rt, id, send);
 	}
 	async terminalHistory(id: string) {
-		const page = await (await this.conversation(id)).entries(
-			{ order: "ascending" },
-			Number.MAX_SAFE_INTEGER,
-			undefined,
-			C,
-		);
-		return page.items.flatMap((entry) => entry.model ?? []);
+		return terminalHistory(this.rt, id);
 	}
 	async transcript(
 		id: string,
 		range: { from?: number; limit?: number; before?: number } = {},
 	): Promise<TranscriptItem[]> {
-		return transcriptPage(await this.conversation(id), range, this.options.db);
+		return transcript(this.rt, id, range);
 	}
 	async usage(id: string): Promise<RuntimeRun["usage"]> {
-		const state = await this.harness.snapshot(UsageDoc, cid(id), C),
-			sum = emptyUsage();
-		for (const usage of [...Object.values(state?.models ?? {}), ...Object.values(state?.tools ?? {})]) {
-			sum.input += usage.input;
-			sum.output += usage.output;
-			sum.cacheRead += usage.cacheRead;
-			sum.cacheWrite += usage.cacheWrite;
-			sum.cost += usage.cost.total;
-		}
-		return sum;
+		return sessionUsage(this.rt, id);
 	}
 	async runTask(ctx: ToolContext, initialize: (childId: string) => Promise<RuntimeInput>): Promise<RuntimeRun> {
-		const invocation = this.toolInvocations.get(ctx);
-		if (!invocation) throw new Error("task_run requires an active runtime tool invocation");
-		const { api, context } = invocation;
-		const child = await api.commit(async (tx) => {
-			const existing = await tx.scanConversations({ ownerTaskId: api.taskId }, 1);
-			if (existing.items[0]) return existing.items[0].id;
-			const created = await tx.createConversation({ ownership: { kind: "task", taskId: api.taskId } });
-			await tx.doc(SessionDoc, created.id);
-			return created.id;
-		}, context);
-		const input = await initialize(String(child));
-		try {
-			const handle = await api.conversation(child, context);
-			if (!handle) throw new Error("Child conversation is missing");
-			// Invocation-bound submit preserves pi task ownership and idempotent task request IDs.
-			const submission = await handle.submit(
-				{
-					type: "input",
-					content: [{ type: "text", text: input.text }],
-					requestId: `task:${api.taskId}`,
-					entry: inputEntry(input),
-				},
-				context,
-			);
-			await this.attachSubmission(submission, input.event, String(child));
-			try {
-				await this.options.onAdmitted?.(String(child), input);
-			} catch (error) {
-				this.options.onReport?.(error);
-			}
-			// Observe the admitted child outside the parent invocation; native ownership still cancels it.
-			const admitted = await this.harness.submission(submission.id, C);
-			if (!admitted) throw new Error("Admitted child input is missing");
-			const done = await admitted.wait(C);
-			await this.settledRun(String(child), done);
-			while (true) {
-				let changed!: () => void;
-				const next = new Promise<void>((resolve) => {
-					changed = resolve;
-				});
-				const waiters = this.idleWaiters.get(String(child)) ?? new Set();
-				waiters.add(changed);
-				this.idleWaiters.set(String(child), waiters);
-				context.abortSignal?.addEventListener("abort", changed, { once: true });
-				try {
-					context.abortSignal?.throwIfAborted();
-					if (!(await this.hasPendingWork(String(child)))) break;
-					await next;
-					context.abortSignal?.throwIfAborted();
-				} finally {
-					context.abortSignal?.removeEventListener("abort", changed);
-					waiters.delete(changed);
-					if (!waiters.size) this.idleWaiters.delete(String(child));
-				}
-			}
-			const last = await this.lastResult(String(child));
-			if (!last) throw new Error("Child task has no terminal receipt");
-			const receipt = await this.harness.snapshot(RunReceiptDoc, child, last.runId, C);
-			const result = await this.receiptRun(String(child), last.runId, receipt!);
-			return { ...result, text: taskReport(result.text) };
-		} catch (error) {
-			if (input.event && !(await this.admitted(String(child), input.event.id)))
-				await this.options.onRun?.(String(child), {
-					runId: `error:${input.event.id}`,
-					session: String(child),
-					status: "error",
-					text: "",
-					reason: error instanceof Error ? error.message : String(error),
-					usage: emptyUsage(),
-					inputs: [input.event.id],
-				});
-			throw error;
-		}
+		return runTask(this.rt, ctx, initialize);
 	}
 	private async sources(ids: readonly number[]): Promise<import("@yonder/sdk").YEvent[]> {
-		const events: import("@yonder/sdk").YEvent[] = [];
-		for (const id of ids) {
-			const record = await this.storage.submission(id as import("@earendil-works/pi-durable").SubmissionId, C);
-			const entry = record?.entry ? await this.harness.commit((tx) => tx.entry(record.entry!), C) : undefined;
-			let data = entry?.data as { event?: string; attachments?: import("@yonder/sdk").Attachment[] } | undefined;
-			if (entry) {
-				// The prepared entry that targets an input is written before that input is answered, so an answered
-				// input never needs the rest of the conversation. Unbounded, this was measurable: recover() visits every
-				// historical run and startup grew to about two minutes for a few dozen runs of one long conversation.
-				const history = await this.storage.scanEntries(
-					{
-						conversationId: entry.conversationId,
-						minEntryId: entry.id,
-						...(record?.status === "done" ? { maxEntryId: record.answer } : {}),
-					},
-					Number.MAX_SAFE_INTEGER,
-					undefined,
-					C,
-				);
-				const prepared = history.items.find(
-					(item) => item.kind === "yonder.prepared" && (item.data as { target?: number })?.target === entry.id,
-				);
-				if (prepared) data = prepared.data as typeof data;
-			}
-			const event =
-				(data?.event ? await this.options.readEvent?.(data.event) : undefined) ??
-				this.submissions.get(String(id))?.event;
-			if (data?.event && !event) throw new Error(`submission ${id} 的来源事件 ${data.event} 不可恢复`);
-			if (event)
-				events.push(data?.attachments ? { ...event, data: { ...event.data, attachments: data.attachments } } : event);
-		}
-		return events;
+		return sources(this.rt, ids);
 	}
 	private async receiptRun(session: string, key: string, receipt: Readonly<RunReceiptState>): Promise<RuntimeRun> {
-		const finishKey = `${session}\0${key}`;
-		const existing = this.finishing.get(finishKey);
-		if (existing) return existing;
-		const promise = (async () => {
-			const saved = await this.harness.snapshot(RunDoc, cid(session), key, C);
-			await this.settleActivity(session, key, receipt, {
-				error: saved?.error ?? null,
-				reason: saved?.reason ?? null,
-			});
-			if (!saved?.config || !receipt.settlement)
-				throw new Error(`运行 ${session}/${key} 缺少开始配置或终结凭据，历史结果不可确定`);
-			const config: RuntimeSessionConfig = JSON.parse(saved.config);
-			const usage = sumUsage(receipt.usage);
-			for (const field of Object.keys(usage) as Array<keyof typeof usage>) usage[field] -= saved.usageBefore[field];
-			const settlement = receipt.settlement;
-			const answer =
-				settlement.status === "done" ? await this.harness.commit((tx) => tx.entry(settlement.answer), C) : undefined;
-			const inputs = (await this.sources(receipt.inputs)).map((event) => event.id);
-			// Tool results of this run lie between its first input entry and its answer entry. recover() settles every
-			// historical receipt, so reading the whole conversation here made startup grow with runs x entries
-			// (about two minutes for a few dozen runs of a long conversation).
-			const placed = (await Promise.all(receipt.inputs.map((input) => this.storage.submission(input, C))))
-				.map((record) => record?.entry)
-				.filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
-			const entries = (saved.toolTasks ?? []).length
-				? await this.storage.scanEntries(
-						{
-							conversationId: cid(session),
-							...(placed.length ? { minEntryId: Math.min(...placed) as (typeof placed)[number] } : {}),
-							...(settlement.status === "done" ? { maxEntryId: settlement.answer } : {}),
-						},
-						Number.MAX_SAFE_INTEGER,
-						undefined,
-						C,
-					)
-				: { items: [] };
-			const attachments = entries.items.flatMap((entry) =>
-				(entry.model ?? []).flatMap((message) =>
-					message.role === "toolResult" &&
-					entry.byTaskId !== undefined &&
-					(saved.toolTasks ?? []).includes(entry.byTaskId)
-						? ((message.details as { attachments?: Attachment[] } | undefined)?.attachments ?? [])
-						: [],
-				),
-			);
-			const run: RuntimeRun = {
-				runId: key,
-				session,
-				...(attachments.length ? { attachments } : {}),
-				config,
-				...(answer?.model?.[0]?.role === "assistant"
-					? { model: `${answer.model[0].provider}/${answer.model[0].model}` }
-					: {}),
-				...(saved.error
-					? { status: "error" as const, reason: saved.error }
-					: submissionOutcome(settlement, saved.reason ?? undefined)),
-				text: textOf(answer),
-				...(answer?.model?.[0]?.role === "assistant" ? { message: String(answer.model[0].timestamp) } : {}),
-				inputs,
-				usage,
-			};
-			const attempts = await runAttempts(this.storage, session, placed, answer?.id);
-			await this.options.onUsageSettled?.(session, usage);
-			await this.watch.record(config, run, attempts);
-			await this.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
-			const active = this.limits.states.get(key);
-			active?.visibility.abort();
-			clearTimeout(active?.timer);
-			try {
-				await this.options.onRun?.(session, run);
-				await this.idleChanged(session);
-			} finally {
-				const state = this.limits.states.get(key);
-				if (state) {
-					state.visibility.abort();
-					clearTimeout(state.timer);
-					this.limits.states.delete(key);
-				}
-				for (const input of receipt.inputs) this.submissions.delete(String(input));
-				if (this.configured.get(session) === state?.config) this.configured.delete(session);
-			}
-			return run;
-		})();
-		this.finishing.set(finishKey, promise);
-		try {
-			return await promise;
-		} finally {
-			this.finishing.delete(finishKey);
-		}
+		return receiptRun(this.rt, session, key, receipt);
 	}
 	private async settleActivity(
 		session: string,
@@ -709,55 +383,10 @@ export class Runtime {
 		receipt: Readonly<RunReceiptState>,
 		saved: { error: string | null; reason: string | null },
 	): Promise<void> {
-		const end = receipt.settlement;
-		if (!end) return;
-		// Native continuation remains executable work, not a terminal blocker.
-		const pending = await this.hasPendingWork(session);
-		await this.harness.commit(async (tx) => {
-			const state = await tx.doc(SessionDoc, cid(session));
-			if (state.activityRunId !== runId) return;
-			if (end.status === "done" || (!saved.error && !saved.reason && end.reason === "aborted")) {
-				state.activityIssue = null;
-				return;
-			}
-			if (pending || end.status !== "unanswered" || end.reason === "reset") return;
-			const code = saved.error
-				? "execution_error"
-				: saved.reason
-					? "runtime_limit"
-					: ["model_error", "no_model", "faulted", "orphaned"].includes(end.reason)
-						? end.reason
-						: "execution_failed";
-			state.activityIssue ??= { code, since: Date.now(), runId };
-		}, C);
+		await settleActivity(this.rt, session, runId, receipt, saved);
 	}
 	private async settledRun(session: string, done: Awaited<ReturnType<Submission["wait"]>>): Promise<RuntimeRun> {
-		const receipts = await this.storage.scanDocuments(
-			{ scope: { kind: "conversation", conversationId: cid(session) }, kind: "pi.run-receipt", at: "current" },
-			Number.MAX_SAFE_INTEGER,
-			undefined,
-			C,
-		);
-		for (const doc of receipts.items) {
-			const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), doc.key!, C);
-			if (receipt?.inputs.includes(done.id)) return this.receiptRun(session, doc.key!, receipt);
-		}
-		if (done.status === "unanswered" && !done.entry) {
-			const source =
-				this.submissions.get(String(done.id))?.event ??
-				(done.requestId?.startsWith("event:") ? await this.options.readEvent?.(done.requestId.slice(6)) : undefined);
-			const run: RuntimeRun = {
-				runId: `unplaced:${done.id}`,
-				...submissionOutcome(done),
-				text: "",
-				usage: emptyUsage(),
-				inputs: source ? [source.id] : [],
-			};
-			await this.options.onRun?.(session, run);
-			this.submissions.delete(String(done.id));
-			return run;
-		}
-		throw new Error(`submission ${done.id} 无原生回执，历史运行归属不可确定`);
+		return settledRun(this.rt, session, done);
 	}
 	async recover(): Promise<void> {
 		this.restoring = true;
