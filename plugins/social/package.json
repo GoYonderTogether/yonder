@@ -29,6 +29,7 @@
 			],
 			"tools": [
 				"social_inspect",
+				"social_group_index",
 				"social_update",
 				"social_rules_update",
 				"social_group_info",

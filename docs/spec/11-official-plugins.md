@@ -164,7 +164,9 @@ setup 只做注册，不联网/启动服务。缺凭据、daemon/扩展未连接
 - 本次配置与真实验收仅用控制台已核实¥0/图片的Kwai-Kolors/Kolors，保存价格日期/证据；免费配额仍可能限流，429如实返回。源码契约检查、真实免费API调用与渠道客户端验收分别记录，不以其中一个代替其余。不得为通过而更换成收费模型。
 - 新插件及共享打包接线按独立任务执行；正式安装/发版沿已有流程，当前接入批准不自动发布。
 
-免费音频补记：控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。CosyVoice2控制台为¥0.05/千UTF-8字符，未获付费调用授权，不配置或调用TTS；视频仍不调用。
+免费音频补记：控制台已核实FunAudioLLM/SenseVoiceSmall在线推理¥0，GET /v1/models也列出该模型。追加media-tools_audio_transcribe，参数file和可选model，经services.resolve('asr')读取同协议服务，multipart file+model调用/audio/transcriptions并返回真实text。声明read/network、响应ctx.signal；文件经ctx.env读取，无exec时只允许cwd内真实路径或本轮来源明确附件，沿平台50MB输入上限，不上传任意猜测的工作区外文件。
+
+付费TTS补记（主人2026-10-30明确授权）：主人要求补齐语音合成工具并实测，CosyVoice2的¥0.05/千UTF-8字符改为已获授权的付费调用，不再是拒绝理由。追加media-tools_audio_speak，参数为非空text（上限2000字符）、可选model、voice和speed（0.25–4），经services.resolve('tts')读取同协议服务，POST /audio/speech取mp3，按真实文件头校验容器，经ctx.env存到当前cwd的artifacts/并返回audio附件。声明network/write、响应ctx.signal；模型和音色只能从该端点声明清单选择，未指定取首项，缺配置/密钥/模型/音色分别返回明确错误，不自动切换供应商或收费模型。voice按硅基要求的`<模型>:<音色名>`全名声明。费用由提供方按字符计，工具说明如实告知，不隐藏价格；不重试、不缓存、不建产物数据库。视频仍不调用。
 
 ## 微信双插件
 
@@ -197,7 +199,7 @@ channel-wechat-ilink 注册 wechat-ilink 渠道，独立实例，私聊 kind=dm�
 - 实例配置为 `appId`、`credential`，以及可选的 `allowedUsers`（单聊用户 OpenID）、`allowedGroups`（群 OpenID）和 `sendIntervalMs`（出站请求最小间隔，默认 500，0–60000 毫秒）；未列名单表示不限，空名单拒绝。入站生成 `message.in`，保留原生 msgId/createdAt；账号为 `acct:<instance>:<openid>`，单聊会话为 `conv:<instance>:c2c:<openid>`，群为 `conv:<instance>:group:<openid>`。接纳 GROUP_AT_MESSAGE_CREATE 与 GROUP_MESSAGE_CREATE；在清理正文前复用腾讯 mentionGate 的识别结果呈现 mentioned，passthrough 不过滤普通消息。平台须开启“接收所有消息”才能推送全量事件；Yonder 的接纳能力不代表平台已授权。新配置用 wake: write 旁观与独立群批次运行实现持续参与；旧配置的 wake: mention 仍只在 @ 时运行，需显式升级，不能通过逐条 wake: run 冒充。
 - QQ 可选插件元数据 `data.qq.msgIdx/refMsgIdx` 保留官方 SDK 提供的消息/引用索引。显式引用优先使用同群账本可证实的引用索引；官方当前字段说明与示例冲突，旧原生消息 ID 路径兼容保留，平台拒绝如实反馈，不把回执成功当客户端引用已验收。
 - 入站媒体映射为 `attachments`：`content_type` 决定 image/audio/video/file，只接纳 https URL，其他 URI 丢弃而不猜测（丢弃数量记一条 warn 日志，消息本身仍接纳）；引用回复的原文取 `msg_elements[0]` 写入 `quote.text`，参考索引本身不含正文。只有附件没有正文的消息同样接纳。出站媒体接受 https URL 或绝对本地路径，一次回复可先发文字再逐条发媒体；同一被动回复的多条消息共用 msg_seq 计数。所有请求经插件内串行间隔器发送，`sendIntervalMs` 为最小间隔；平台限流与 5xx 仍按 uncertain 处理，不盲重发。
-- 群模型自行选择普通发送、respondTo 语义回应、replyTo 可见引用、mentions 艾特；群提示禁止强制逐句引用。新建和已安装的官方群配置采用同一契约，更新只迁移可识别的旧官方指令和工具选择，保留用户定制。QQ @ 仅按官方 SDK/协议可验证身份发送，不支持则明确报错；客户端实际提醒独立验收。
+- 群模型自行选择普通发送、respondTo 语义回应、replyTo 可见引用、mentions 艾特；群提示禁止强制逐句引用。同一真实群在各渠道实例里是不同的 conv；插件维护一个只读的群房间索引（`social_group_index`），按配置登记或「发送者、平台发送时间、正文」一致的同一条消息合并，绝不按显示名或时间接近推断，并在群对话的请求上下文里给出本机已知的兄弟 Bot 与发言人；平台不提供成员列表，未发言的人不在其中。新建和已安装的官方群配置采用同一契约，更新只迁移可识别的旧官方指令和工具选择，保留用户定制。QQ @ 仅按官方 SDK/协议可验证身份发送，不支持则明确报错；客户端实际提醒独立验收。
 - 普通回复使用 OutMessage.sourceMessageId（显式 replyTo 优先用作被动回复目标），不借用另一次输入的消息 ID。SDK 管协议序号与恢复，内核事件账本管输入去重。发送不明返回 uncertain，不自动改成主动消息或盲重发。
 - 插件附带本机配置命令 `yonder-qq setup --home <home> --agent <id> [--open]`，仅在用户授权的目标 home 操作；它不是运行中 PluginAPI 的凭据写接口。命令调用腾讯公开发布的扫码连接器，输出官方绑定链接与终端二维码，可显式打开系统浏览器；用户自行登录、扫码、选取或创建机器人，凭据不进入模型输出。取消/失败不修改配置。
 - 扫码完成后命令将密钥保存到既有 auth.json 的独立 api_key 项（0600，沿用原文件锁），在 yonder.yaml 写凭据引用和渠道实例，给指定本机 Agent 加绑定，保留原配置和其他凭据。只绑定扫码用户的私聊；群默认新建只读的独立配置档，选择必要共享上下文，可显式选择既有群配置档。无扫码用户 OpenID 时不自动开放私聊；有歧义的多机器人结果要求明确选择。
