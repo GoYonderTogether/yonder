@@ -63,6 +63,13 @@ export function ListingDetail({
 								</div>
 							</div>
 							<p className="mk-description">{listing.description}</p>
+							{listing.tags.length > 0 && (
+								<section className="mk-publish-tags" aria-label="帖子标签">
+									{listing.tags.map((tag) => (
+										<span key={tag}>#{tag}</span>
+									))}
+								</section>
+							)}
 							<dl className="mk-facts">
 								{listing.facts.map((f) => (
 									<div key={f.label}>

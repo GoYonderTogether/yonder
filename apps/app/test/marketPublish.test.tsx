@@ -218,3 +218,75 @@ it("下架须确认，取消不操作，重新上架直接执行", async () => {
 	await click("重新上架");
 	expect(onToggle).toHaveBeenCalledTimes(2);
 });
+
+it("旧草稿兼容标签字段，未确认标签随下一步和发布保存", async () => {
+	const onPublish = vi.fn().mockResolvedValue(false);
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, tagInput: " #旅 行 " }, step: 1 }));
+	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={onPublish} />));
+	expect(container.querySelector("select")).toBeNull();
+	await submit();
+	const saved = JSON.parse(store.get(draftKey) as string);
+	expect(saved.form.tags).toEqual(["旅行"]);
+	expect(saved.form.tagInput).toBe("");
+	expect(saved.form.category).toBe(DRAFT.category);
+	await submit();
+	expect(container.textContent).toContain("#旅行");
+	expect(container.textContent).not.toContain(DRAFT.category);
+	await submit();
+	expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ tags: ["旅行"], category: DRAFT.category }));
+});
+
+it("标签添加去重，删除后保存到草稿", async () => {
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, tags: ["旅行"], tagInput: "#旅行" }, step: 1 }));
+	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
+	const add = [...container.querySelectorAll("button")].find(
+		(button) => button.textContent === "添加",
+	) as HTMLButtonElement;
+	await act(() => add.dispatchEvent(new win.Event("click", { bubbles: true })));
+	expect(JSON.parse(store.get(draftKey) as string).form.tags).toEqual(["旅行"]);
+	expect(JSON.parse(store.get(draftKey) as string).form.tagInput).toBe("");
+	const remove = container.querySelector('button[aria-label="删除标签 旅行"]') as HTMLButtonElement;
+	await act(() => remove.dispatchEvent(new win.Event("click", { bubbles: true })));
+	expect(JSON.parse(store.get(draftKey) as string).form.tags).toEqual([]);
+});
+
+it.each([
+	{ tags: [], tagInput: "标".repeat(25), message: "每个标签最多 24 个字" },
+	{ tags: Array.from({ length: 10 }, (_, i) => String(i)), tagInput: "新标签", message: "最多添加 10 个标签" },
+])("标签超出限制时阻止下一步并保留输入 $message", async ({ tags, tagInput, message }) => {
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, tags, tagInput }, step: 1 }));
+	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
+	await submit();
+	expect(container.textContent).toContain(message);
+	expect(JSON.parse(store.get(draftKey) as string).step).toBe(1);
+	expect(JSON.parse(store.get(draftKey) as string).form.tagInput).toBe(tagInput);
+});
+
+it("编辑保留原标签与分类，旧草稿缺标签时也不覆盖原值", async () => {
+	const listing = {
+		...DRAFT,
+		id: "tagged",
+		price: 1200,
+		tags: ["摄影", "同城"],
+		facts: [],
+		missing: [],
+		seller: "我",
+		sellerRole: "个人",
+		agent: false,
+		createdAt: 1,
+		metrics: { agentViews: 0, shortlists: 0, humanViews: 0, inquiries: 0 },
+	};
+	store.set(`${KEY}:publish:tagged`, JSON.stringify({ form: DRAFT, step: 1 }));
+	const onPublish = vi.fn().mockResolvedValue(false);
+	await act(() =>
+		root.render(
+			<PublishDialog open close={() => {}} editing={listing as never} storageKey={KEY} onPublish={onPublish} />,
+		),
+	);
+	expect(container.textContent).toContain("#摄影");
+	expect(container.textContent).toContain("#同城");
+	await submit();
+	await submit();
+	await submit();
+	expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ tags: ["摄影", "同城"], category: DRAFT.category }));
+});

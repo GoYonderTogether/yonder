@@ -9,8 +9,9 @@ import {
 	Package,
 	Plus,
 	Sparkles,
+	X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { hasListingImage, kindLabel, priceLabel } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
@@ -31,6 +32,8 @@ const BLANK = {
 	delivery: "",
 	discoverable: true,
 	image: "",
+	tags: [] as string[],
+	tagInput: "",
 };
 export function PublishDialog({
 	open,
@@ -45,6 +48,8 @@ export function PublishDialog({
 	storageKey: string;
 	onPublish: (listing: Listing) => Promise<boolean>;
 }) {
+	const tagInputId = useId();
+	const composing = useRef(false);
 	const [form, setForm] = useState(BLANK);
 	const [step, setStep] = useState(0);
 	const openEnded = form.kind === "idea" || form.kind === "job" || form.kind === "other";
@@ -58,29 +63,32 @@ export function PublishDialog({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 草稿只在对话框打开时恢复一次，输入变化不应重跑
 	useEffect(() => {
 		if (!open) return;
+		composing.current = false;
 		let draft: { form: typeof BLANK; step: number } | undefined;
 		try {
 			draft = JSON.parse(localStorage.getItem(draftKey) ?? "null");
 		} catch {
 			/* Start without a draft. */
 		}
-		setForm(
-			draft?.form ??
-				(editing
-					? {
-							kind: editing.kind,
-							category: editing.category,
-							title: editing.title,
-							description: editing.description,
-							price: String(editing.price),
-							unit: editing.unit,
-							location: editing.location,
-							delivery: editing.delivery,
-							discoverable: editing.discoverable !== false,
-							image: editing.image,
-						}
-					: { ...BLANK }),
-		);
+		setForm({
+			...BLANK,
+			...(editing
+				? {
+						kind: editing.kind,
+						category: editing.category,
+						title: editing.title,
+						description: editing.description,
+						price: String(editing.price),
+						unit: editing.unit,
+						location: editing.location,
+						delivery: editing.delivery,
+						discoverable: editing.discoverable !== false,
+						image: editing.image,
+						tags: editing.tags,
+					}
+				: {}),
+			...draft?.form,
+		});
 		setStep(draft?.step ?? (editing ? 1 : 0));
 		setError("");
 		setPublishing(false);
@@ -99,6 +107,30 @@ export function PublishDialog({
 		persist(form, next);
 	};
 	const update = <K extends keyof typeof BLANK>(key: K, value: (typeof BLANK)[K]) => persist({ ...form, [key]: value });
+	const withPendingTag = () => {
+		const tag = form.tagInput.trim().replace(/^#+/, "").replace(/\s+/g, "");
+		if (!tag) {
+			if (form.tagInput.trim()) {
+				setError("请在 # 后填写标签内容");
+				return null;
+			}
+			return { ...form, tagInput: "" };
+		}
+		if ([...tag].length > 24) {
+			setError("每个标签最多 24 个字");
+			return null;
+		}
+		if (!form.tags.includes(tag) && form.tags.length >= 10) {
+			setError("最多添加 10 个标签，请先删除不需要的标签");
+			return null;
+		}
+		return { ...form, tags: form.tags.includes(tag) ? form.tags : [...form.tags, tag], tagInput: "" };
+	};
+	const addTag = () => {
+		if (composing.current) return;
+		const next = withPendingTag();
+		if (next) persist(next);
+	};
 	const selectImage = async (file: File) => {
 		setUploading(true);
 		setUploadProgress(0);
@@ -131,7 +163,12 @@ export function PublishDialog({
 				return;
 			}
 		}
-		go(step + 1);
+		if (step === 1) {
+			const next = withPendingTag();
+			if (!next) return;
+			setStep(step + 1);
+			persist(next, step + 1);
+		} else go(step + 1);
 	};
 	const publish = async () => {
 		if (publishing) return;
@@ -148,7 +185,7 @@ export function PublishDialog({
 			image: !editing && !hasListingImage(form.image) ? "" : form.image,
 			seller: "我",
 			sellerRole: "个人" + kindLabel(form.kind),
-			tags: ["个人发布"],
+			tags: form.tags,
 			agent: editing?.agent ?? false,
 			discoverable: form.discoverable,
 			mine: true,
@@ -193,6 +230,7 @@ export function PublishDialog({
 				className="mk-publish-form"
 				onSubmit={(e) => {
 					e.preventDefault();
+					if (composing.current) return;
 					if (step < 3) next();
 					else void publish();
 				}}
@@ -310,17 +348,54 @@ export function PublishDialog({
 									onChange={(e) => update("description", e.target.value)}
 								/>
 							</label>
-							<label className="mk-form-label">
-								分类
-								<select
-									value={form.category}
-									onChange={(e) => update("category", e.target.value as typeof form.category)}
-								>
-									{CATEGORIES.map((c) => (
-										<option key={c}>{c}</option>
-									))}
-								</select>
-							</label>
+							<div className="mk-form-label">
+								<label htmlFor={tagInputId}>标签（可选）</label>
+								<div className="mk-tag-input-row">
+									<input
+										id={tagInputId}
+										placeholder="#添加标签"
+										value={form.tagInput}
+										onChange={(e) => update("tagInput", e.target.value)}
+										onCompositionStart={() => {
+											composing.current = true;
+										}}
+										onCompositionEnd={() => {
+											composing.current = false;
+										}}
+										onKeyDown={(e) => {
+											if (e.key !== "Enter") return;
+											if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
+											e.preventDefault();
+											addTag();
+										}}
+									/>
+									<button type="button" className="mk-button" onClick={addTag}>
+										添加
+									</button>
+								</div>
+								<p className="mk-form-hint">回车或点击添加，最多 10 个，每个 24 字</p>
+								{form.tags.length > 0 && (
+									<section className="mk-publish-tags" aria-label="已添加标签">
+										{form.tags.map((tag) => (
+											<span key={tag}>
+												#{tag}
+												<button
+													type="button"
+													aria-label={`删除标签 ${tag}`}
+													onClick={() =>
+														update(
+															"tags",
+															form.tags.filter((value) => value !== tag),
+														)
+													}
+												>
+													<X size={14} />
+												</button>
+											</span>
+										))}
+									</section>
+								)}
+							</div>
 						</>
 					)}
 					{step === 2 && (
@@ -387,12 +462,17 @@ export function PublishDialog({
 					{step === 3 && (
 						<div className="mk-publish-review">
 							{hasListingImage(form.image) && <img src={form.image} alt="发布封面" />}
-							<p className="mk-muted">
-								{form.category} · {form.location}
-							</p>
+							<p className="mk-muted">{form.location}</p>
 							<h2>{form.title}</h2>
 							<p className="mk-price">{priceLabel({ ...form, price: Number(form.price) })}</p>
 							<p className="mk-description">{form.description}</p>
+							{form.tags.length > 0 && (
+								<section className="mk-publish-tags" aria-label="发布标签">
+									{form.tags.map((tag) => (
+										<span key={tag}>#{tag}</span>
+									))}
+								</section>
+							)}
 							<div className="mk-review-delivery">
 								{form.delivery}
 								<span>{form.discoverable ? "Bot 可发现" : "不参与 Bot 匹配"}</span>
