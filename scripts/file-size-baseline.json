@@ -35,10 +35,6 @@
 		"lines": 542,
 		"reason": "待拆分：IlinkChannel 网络层与消息处理未分离，应抽出协议客户端"
 	},
-	"plugins/cron/src/index.ts": {
-		"lines": 530,
-		"reason": "待拆分：Scheduler 兼做 cron 解析、任务执行与持久化"
-	},
 	"packages/device/src/executor.ts": {
 		"lines": 522,
 		"reason": "待拆分：DeviceExecutor 混合设备协议处理与命令调度"
