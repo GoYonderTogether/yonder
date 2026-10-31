@@ -382,3 +382,8 @@ UI Companion 0.2.26102302 候选：基于最新主线完成 npm ci、build/typec
 本轮最终源码检查：900 控制修复后在 HEAD 8f8b706 执行默认全仓 npm test，2199 通过 / 0 失败 / 101 跳过（415 文件通过 / 62 跳过），46.26 秒；控制相关 60 通过 / 2 跳过，build/typecheck/全 lint 通过（895 warnings / 30 infos）。此前 48ed937 的并行 Transcript 全 lint 格式失败仍保留，不能合并为从未失败。实际发布期间 19 工作流最后合回 main 冲突、900 工作流推 tag 遭 GitHub 500、8f 重复发行保护均记在验收报告；实际安装 20 的来源已单独核实，不将失败工作流冒称绿色。
 
 平台最终后端为 group-platform-20261030-b3e4c79-r3，补匿名创建群在写入前 403，源与精确运行快照各 3 项真实 PG/HTTP 检查通过；保留 r2 的真实 senderName/senderIsBot/replayed 与 senderRole，前端仍为 group-5018422/base a52c26c。线上群管理 UI 已实际查看；匿名浏览器因扩展未允许未测、第二真人账号的线上越权/群主移交未测，相关权限有真实 HTTP 服务集成验证；双 Bot 点名为真实 API 场景，当前 UI 仍单选提及。完整真实场景、模型用量与原始失败见 /Users/zoran/Documents/yonder-review-artifacts/group-default-20261030/REPORT.md。小余验收群 WZGED7 保留，不删除历史。
+
+
+## 2026-10-30 群聊关注与交接来源修复
+
+已实现每 Bot/群/参与者成功回复后五分钟关注、明确任务对象排除、可信原始请求身份贯穿交接与额度，以及主会话原文/自身名称装配。QQ/Card共用；最终全仓2209通过、0失败、104跳过，最后相关定向与真实Luna关注/交接均通过，原始失败和后续小修分别保留于[验收记录](verification/group-attention-handoff-20261030.md)。本轮未安装/重启日用服务，未向真实QQ/Card客户端发送；不冒充平台验收。

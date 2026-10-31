@@ -7,6 +7,7 @@ import type { RuntimeRun, RuntimeSessionConfig } from "../runtime/index.js";
 import type { createSessions } from "../sessions/index.js";
 import type { SkillsReport } from "../skills/index.js";
 import type { Store } from "../store/index.js";
+import { parentOrigins } from "../tools/parent-origin.js";
 import { createQuota, type OutsiderSubject, type QuotaRejectionReason } from "./quota.js";
 
 /** 主人、已绑定账号的人、未绑定账号的访客。额度与能力按这个分层决定（IMP-25）。 */
@@ -48,18 +49,27 @@ const closedMessage = "这个渠道没有对访客开放。绑定账号登录后
  * 把每一轮的来源映射成额度层。
  * 来源身份只来自事件的 from，不来自会话行：同一个会话可能是主人接着访客在用。
  */
-function resolve(store: Store, session: SessionInfo, event: YEvent): Promise<Resolved> {
-	const from = event.from;
-	if (!from?.startsWith("acct:") || session.owner?.kind === "bot") return Promise.resolve({ tier: "owner" });
-	return store
-		.identity()
-		.relation(session.agent ?? "main", from)
-		.then(async (relation) => {
-			if (relation === "owner") return { tier: "owner" };
-			const person = (await store.identity().account(from))?.person;
-			if (person) return { tier: "person", subject: { kind: "person", person } };
-			return { tier: "guest", subject: { kind: "guest", qr: event.conv ?? from, source: from } };
-		});
+async function resolve(store: Store, session: SessionInfo, event: YEvent): Promise<Resolved[]> {
+	const parent = (event.data as { kind?: string }).kind === "parent-request";
+	const origins = parent ? await parentOrigins(store, event, session.agent ?? "main") : undefined;
+	const inputs = origins ?? [event];
+	const subjects = new Map<string, Resolved>();
+	for (const input of inputs) {
+		const from = input.from;
+		if (!parent && (!from?.startsWith("acct:") || session.owner?.kind === "bot")) continue;
+		if (
+			(!parent || origins) &&
+			from?.startsWith("acct:") &&
+			(await store.identity().relation(session.agent ?? "main", from)) === "owner"
+		)
+			continue;
+		const person = from?.startsWith("acct:") ? (await store.identity().account(from))?.person : undefined;
+		const subject: OutsiderSubject = person
+			? { kind: "person", person }
+			: { kind: "guest", qr: input.conv ?? event.conv ?? "unknown", source: from ?? "unknown" };
+		subjects.set(JSON.stringify(subject), { tier: person ? "person" : "guest", subject });
+	}
+	return [...subjects.values()];
 }
 
 export function quotaWire(options: QuotaWireOptions): QuotaWire {
@@ -115,14 +125,15 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 				if (command) return command;
 			}
 			if (event.type !== "message.in") return undefined;
-			const { tier, subject } = await resolve(store, session, event);
-			if (tier === "owner" || !subject) return undefined;
-			if (config.defaults?.channelPolicy === "closed")
-				return reject(session, event, tier, "channel_closed", closedMessage);
-			const decision = await quota.remaining(subject);
-			if (!decision.ok) return reject(session, event, tier, decision.reason, decision.message, decision.remaining);
-			// 访客放行时记一轮，被拒的那一轮不占轮数；用量在运行结束后按实际 tokens 记。
-			if (tier === "guest") await quota.charge(subject, 0, 1);
+			const resolved = await resolve(store, session, event);
+			for (const { tier, subject } of resolved) {
+				if (!subject) continue;
+				if (config.defaults?.channelPolicy === "closed")
+					return reject(session, event, tier, "channel_closed", closedMessage);
+				const decision = await quota.remaining(subject);
+				if (!decision.ok) return reject(session, event, tier, decision.reason, decision.message, decision.remaining);
+			}
+			for (const { tier, subject } of resolved) if (tier === "guest" && subject) await quota.charge(subject, 0, 1);
 			return undefined;
 		},
 		async settle(id, run) {
@@ -133,8 +144,8 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 			for (const input of run.inputs) {
 				const event = await store.events.get(input);
 				if (!event) continue;
-				const { tier, subject } = await resolve(store, session, event);
-				if (tier === "owner" || !subject) continue;
+				const { subject } = (await resolve(store, session, event))[0] ?? {};
+				if (!subject) continue;
 				await quota.charge(subject, tokens);
 				return;
 			}
