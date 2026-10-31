@@ -13,18 +13,9 @@ import {
 	type OutMessage,
 	type OutputPart,
 	type PluginAPI,
-	parseRef,
 } from "@yonder/sdk";
-import {
-	checkedServerBase,
-	createClient,
-	failureInfo,
-	IlinkRequestError,
-	type IlinkStage,
-	type Item,
-	type Message,
-	messageContent,
-} from "./client.js";
+import { checkedServerBase, createClient, failureInfo, type Message, messageContent } from "./client.js";
+import { sendMessage } from "./send.js";
 import { type Config, queueSave, readState, type State, statusView } from "./state.js";
 
 export type { Config } from "./state.js";
@@ -422,89 +413,21 @@ export class IlinkChannel implements Channel {
 		const next = this.sendTail
 			.catch(() => {})
 			.then(async (): Promise<Delivery> => {
-				let attempted = false,
-					sent = 0;
-				let stage: IlinkStage | "preflight" = "preflight";
-				const id = `yonder-wechat-${randomUUID()}`;
-				try {
-					await this.initialize();
-					signal?.throwIfAborted();
-					this.lifetime.signal.throwIfAborted();
-					const ref = parseRef(target);
-					if ((ref.kind !== "acct" && ref.kind !== "conv") || ref.channel !== this.id)
-						throw new Error("Target must belong to this iLink instance");
-					const peer = ref.id;
-					if (
-						!this.state.peer ||
-						!this.state.linked ||
-						(peer !== this.state.peer && !this.config.allowedUsers?.includes(peer))
-					)
-						throw new Error("iLink target is not admitted");
-					const token = this.state.contexts[peer];
-					if (!token) throw new Error("ILINK_CONTEXT_MISSING: recipient must first message this bot");
-					const outgoing: Item[] = [];
-					const characters = Array.from(msg.text);
-					for (let offset = 0; offset < characters.length; offset += 2000)
-						outgoing.push({ type: 1, text_item: { text: characters.slice(offset, offset + 2000).join("") } });
-					for (const attachment of msg.attachments ?? []) {
-						stage = "attachment-read";
-						outgoing.push(await this.client.upload(attachment, peer, signal));
-					}
-					if (!outgoing.length) throw new Error("Empty iLink message");
-					for (let index = 0; index < outgoing.length; index++) {
-						stage = "sendmessage";
-						signal?.throwIfAborted();
-						const item = outgoing[index]!;
-						if (msg.replyTo && index === 0) Object.assign(item, { ref_msg: { svr_id: msg.replyTo } });
-						attempted = true;
-						await this.client.request(
-							"ilink/bot/sendmessage",
-							{
-								msg: {
-									from_user_id: "",
-									to_user_id: peer,
-									client_id: `${id}-${index + 1}`,
-									message_type: 2,
-									message_state: 2,
-									context_token: token,
-									item_list: [item],
-								},
-								base_info: this.client.baseInfo,
-							},
-							true,
-							undefined,
-							undefined,
-							signal,
-						);
-						sent++;
-					}
-					return { ok: true, id };
-				} catch (error) {
-					// Upload preparation is not a message attempt. A confirmed earlier part must
-					// remain uncertain even if a later part receives a definite rejection.
-					const rejected =
-						sent === 0 && error instanceof IlinkRequestError && error.stage === "sendmessage" && error.rejected;
-					const diagnostic = error instanceof IlinkRequestError ? error.diagnostic : { stage };
-					this.api.log.warn("iLink send failed", {
-						instance: this.id,
-						...diagnostic,
-						attempted,
-						confirmedParts: sent,
-						uncertain: attempted && !rejected,
-					});
-					const detail = `; ${JSON.stringify(diagnostic)}`;
-					return {
-						ok: false,
-						...(attempted && !rejected ? { uncertain: true, id } : {}),
-						error: rejected
-							? `ILINK_SEND_REJECTED${detail}`
-							: attempted
-								? `ILINK_DELIVERY_UNCERTAIN: ${sent} parts confirmed; do not resend${detail}`
-								: error instanceof Error && /^(?:ILINK_|Target |iLink |Empty )/.test(error.message)
-									? error.message
-									: `ILINK_SEND_FAILED${detail}`,
-					};
-				}
+				signal?.throwIfAborted();
+				this.lifetime.signal.throwIfAborted();
+				return sendMessage(
+					{
+						id: this.id,
+						config: this.config,
+						state: this.state,
+						client: this.client,
+						ready: () => this.initialize(),
+						warn: (fields) => this.api.log.warn("iLink send failed", { instance: this.id, ...fields }),
+					},
+					target,
+					msg,
+					signal,
+				);
 			});
 		this.sendTail = next;
 		return next;

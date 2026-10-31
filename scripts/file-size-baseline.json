@@ -27,10 +27,6 @@
 		"lines": 621,
 		"reason": "待拆分：openKernel 装配全部服务，凭证与 provider 登录逻辑应移出"
 	},
-	"plugins/channel-wechat-ilink/src/channel.ts": {
-		"lines": 542,
-		"reason": "待拆分：IlinkChannel 网络层与消息处理未分离，应抽出协议客户端"
-	},
 	"packages/device/src/executor.ts": {
 		"lines": 522,
 		"reason": "待拆分：DeviceExecutor 混合设备协议处理与命令调度"
