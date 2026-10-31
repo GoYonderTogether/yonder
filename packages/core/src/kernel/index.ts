@@ -15,28 +15,29 @@ import { createRouter } from "../routing/index.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { checkBudget } from "../sessions/budget.js";
-import { closeOnRunEnd } from "../sessions/close-policy.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { builtinViews } from "../views/builtin.js";
 import { backgroundHandlers } from "./background.js";
 import { createBots } from "./bots.js";
 import { migrateCardVisitor } from "./card-visitor.js";
+import { createChannelLogin } from "./channel-login.js";
+import { watchAgents } from "./config-watch.js";
 import { kernelPromptOptions, kernelTools } from "./conversation.js";
 import { configurationErrors, profileContexts, protectSessions } from "./home.js";
 import { type ManagementRequest, manageHome } from "./home-management.js";
-import { hostService } from "./host-status.js";
 import { createNotificationPrefs } from "./notifications.js";
 import { createObservability } from "./observability.js";
 import { observedRuntimeEvents, sessionObserver, type TerminalSends, terminalUpdates } from "./observation-events.js";
 import { pluginAgentManagement } from "./plugin-bindings.js";
 import { quotaWire } from "./quota-wire.js";
 import { resumeRecovered } from "./recovery.js";
+import { createRunCompletion } from "./run-completion.js";
+import { createKernelServices } from "./services-wiring.js";
 import { createSocial, socialTarget } from "./social.js";
-import { runSubagent } from "./subagents.js";
 import { terminalApi } from "./terminal.js";
 import { type KernelOptions, ticks } from "./tick.js";
-import { credentialsAndModels, filesFor, loadAgents, skillsFor, unavailable } from "./workspace.js";
+import { credentialsAndModels, filesFor, loadAgents, skillsFor } from "./workspace.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { migrateCardVisitor } from "./card-visitor.js";
@@ -125,104 +126,27 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				throw new Error("Permission context does not match stored session");
 			return (await realRuntime().sessionConfig(ctx.session)).resolved.plugins;
 		});
-		const services: KernelServices = {
-			social: {
-				admitBatch: (request, pluginId) => router.admitBatch(request, pluginId),
-				inspect: (request, ctx) => {
-					if (!ctx) throw new Error("Tool context required");
-					return social.inspect(request, ctx);
-				},
-				update: (request, ctx) => {
-					if (!ctx) throw new Error("Tool context required");
-					return social.update(request, ctx);
-				},
-				resume: async () => {
-					throw new Error("Social resume unavailable");
-				},
-			},
-			permissions,
-			agents: {
-				configureBinding: (...args) => objectManagement.bindings.configureBinding(...args),
-				inspectBinding: (...args) => objectManagement.bindings.inspectBinding(...args),
-				list: async () =>
-					[...agents.values()]
-						.filter((a) => !a.archivedAt)
-						.map(({ id, name, owner, avatarUrl }) => ({ id, name, owner, ...(avatarUrl ? { avatarUrl } : {}) })),
-			},
+		const services: KernelServices = createKernelServices({
+			home,
+			config,
+			store,
+			agents,
+			log,
 			...credentialsAndModels(home, config),
-			log: {
-				info: (m, d) => log("info", m, d),
-				warn: (m, d) => log("warn", m, d),
-				error: (m, d) => log("error", m, d),
-			},
-			events: {
-				emit: (event) => router.emit(event),
-				ask: (event) => router.ask(event),
-				query: (query) => store.events.query(query),
-				on: unavailable,
-			},
-			messages: {
-				send: async (request, pluginId, ctx) => {
-					const { owner, ...message } = request;
-					if (ctx) return delivery.sendTool(ctx, message);
-					if (message.notification && owner && agents.get(owner.agent ?? "")?.social?.enabled) {
-						try {
-							const current = await resolveExecutionOwner(owner);
-							if (!current.resolved.capabilities.includes("message"))
-								return { ok: false, error: "Program delivery requires current message capability" };
-							return outbound.enqueue(owner, pluginId, message.text, message.notification);
-						} catch (error) {
-							return { ok: false, error: error instanceof Error ? error.message : String(error) };
-						}
-					}
-					if (!owner) return delivery.sendPlugin(pluginId, message);
-					try {
-						const config = await resolveExecutionOwner(owner);
-						const session = await store.sessions.get(owner.session);
-						return delivery.sendOwned(pluginId, message, config, session!);
-					} catch (error) {
-						return { ok: false, error: error instanceof Error ? error.message : String(error) };
-					}
-				},
-			},
-			sessions: {
-				command: (id, command) => sessions.api.command(id, command),
-				notify: (id: string, input: { event: string; text: string }, pluginId?: string) =>
-					sessions.notifyFrom(id, input, pluginId ? `plugin:${pluginId}` : "system:yonder"),
-				list: (filter) => sessions.api.list(filter),
-				get: (id) => sessions.api.get(id),
-				open: (req) => sessions.api.open(req),
-				submit: (id, input, opts, pluginId) =>
-					pluginId ? sessions.submitFrom(id, input, opts, `plugin:${pluginId}`) : sessions.api.submit(id, input, opts),
-				abort: (id) => sessions.api.abort(id),
-				close: (id) => sessions.api.close(id),
-				transcript: (id, range) => sessions.api.transcript(id, range),
-				observe: observeSession,
-			},
-			subagents: { run: (request, ctx) => runSubagent(realRuntime(), tools, request, ctx) },
-			execution: {
-				resolve: async (owner) => {
-					const { resolved } = await resolveExecutionOwner(owner);
-					return {
-						capabilities: [...resolved.capabilities],
-						...(resolved.channelInstances === undefined ? {} : { channelInstances: [...resolved.channelInstances] }),
-					};
-				},
-				run: async (request) => {
-					const active = await resolveExecutionOwner(request.owner);
-					if (!active.resolved.capabilities.includes("exec") || !request.capabilities.includes("exec"))
-						throw new Error("Command execution requires current and creator exec capability");
-					return realRuntime().executeCommand(active, {
-						command: request.command,
-						...(request.cwd ? { cwd: request.cwd } : {}),
-						...(request.signal ? { signal: request.signal } : {}),
-					});
-				},
-			},
-			identity: store.identity(),
-			services: { resolve: (capability) => realRuntime().resolveService(capability) },
-			host: hostService(home, config, () => ({ runtime: realRuntime(), loaded, agents, services })),
-		};
+			permissions,
+			observeSession,
+			resolveExecutionOwner,
+			runtime: realRuntime,
+			loaded: () => loaded,
+			tools: () => tools,
+			router: () => router,
+			social: () => social,
+			delivery: () => delivery,
+			outbound: () => outbound,
+			sessions: () => sessions,
+			objectManagement: () => objectManagement,
+			services: () => services,
+		});
 		plugins = await loadPlugins(home, config, services);
 		const loaded = plugins;
 		// 升级迁移：老 home 补 card-visitor 绑定（幂等，先写 .bak）；失败只记警告，不挡启动。
@@ -256,35 +180,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				if (!(await store.identity().account(account))) await store.identity().link(account, `person:${person.id}`);
 		}
 		const skills = skillsFor(home, config, loaded, log);
-		const loginChannel = async (
-			request: { instance?: string; action?: "start" | "poll"; verifyCode?: string; replace?: boolean },
-			signal: AbortSignal,
-		) => {
-			if (
-				request.instance !== undefined &&
-				(typeof request.instance !== "string" || !/^[a-z0-9-]+$/.test(request.instance))
-			)
-				throw new Error("Invalid channel instance");
-			if (request.action !== undefined && !["start", "poll"].includes(request.action))
-				throw new Error("Invalid channel login action");
-			if (request.replace !== undefined && typeof request.replace !== "boolean")
-				throw new Error("Invalid channel replacement option");
-			if (
-				request.verifyCode !== undefined &&
-				(typeof request.verifyCode !== "string" || !/^\d{1,12}$/.test(request.verifyCode))
-			)
-				throw new Error("Invalid channel verification code");
-			const channel = request.instance
-				? loaded.channels.get(request.instance)
-				: [...loaded.channels.values()].find((channel) => channel.login);
-			if (!channel?.login) throw new Error("No configured login-capable channel; configure a channel instance first");
-			return channel.login(
-				request.action ?? (request.verifyCode ? "poll" : "start"),
-				signal,
-				request.verifyCode,
-				request.replace,
-			);
-		};
+		const loginChannel = createChannelLogin(loaded);
 		const promptOptions = kernelPromptOptions(
 			home,
 			config,
@@ -296,24 +192,14 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			skills,
 			packageVersion,
 		);
-		/** 运行结束后的关闭原因：task 会话读一次运行期策略，失败的运行不关闭（见 sessions 的 closeOnRunEnd）。 */
-		const closeReason = async (id: string, mode: import("@yonder/sdk").SessionInfo["mode"], status: string) => {
-			const close = mode === "task" ? (await realRuntime().sessionState(id))?.close : undefined;
-			return closeOnRunEnd(mode, status as import("@yonder/sdk").RunResult["status"], close);
-		};
-		const completeRun = async (id: string, run: import("../runtime/index.js").RuntimeRun) => {
-			const session = await store.sessions.get(id);
-			if (!session) throw new Error(`Missing runtime session: ${id}`);
-			const completion = await delivery.onRun(session, run, []);
-			await gate.settle(id, run);
-			await store.events.recordRun(completion.ending);
-			completion.deliver();
-			await router.finishRun(session, run);
-			if (!(await realRuntime().hasPendingWork(id))) {
-				const close = await closeReason(id, session.mode, run.status);
-				if (close) await sessions.closeSession(id, close);
-			}
-		};
+		const { closeReason, completeRun } = createRunCompletion({
+			store,
+			runtime: realRuntime,
+			delivery: () => delivery,
+			gate: () => gate,
+			router: () => router,
+			sessions: () => sessions,
+		});
 		sessions = createSessions({
 			store,
 			agents,
@@ -494,34 +380,16 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 				await watcher.reload();
 			},
 		});
-		let pendingRestart = "";
-		watcher = await watchConfig({
+		watcher = await watchAgents({
 			home,
+			config,
 			agents,
 			presets: homePresets,
-			workspaceFiles: (id) => filesFor(home, config, loaded, id),
-			candidate: async () => {
-				const disk = await loadYonderConfig(home);
-				const { agents: _diskAgents, ...diskRest } = disk;
-				const { agents: _runningAgents, ...activeRest } = config;
-				const signature = JSON.stringify(diskRest);
-				if (signature !== JSON.stringify(activeRest) && signature !== pendingRestart)
-					log("warn", "Non-agent yonder.yaml changes require restart");
-				pendingRestart = signature;
-				const candidate = { ...config, agents: disk.agents ?? [] };
-				return { config: candidate, agents: await loadAgents(home, candidate, loaded) };
-			},
-			validate: async (nextAgents, nextPresets, nextConfig) => {
-				await validateCandidate(nextConfig ?? config, nextAgents, nextPresets);
-				for (const agent of nextAgents.values())
-					if (!agent.archivedAt) await scaffoldAgent(agent, nextConfig ?? config);
-			},
-			publish: (candidate) => {
-				config.agents = candidate.agents ?? [];
-			},
-			onReload: async (event) => {
-				await store.events.record(event);
-			},
+			loaded,
+			store,
+			log,
+			validateCandidate,
+			scaffoldAgent,
 		});
 		stopDelivery = async () => {
 			await outbound.stop();
