@@ -3,20 +3,17 @@
 // biome-ignore-all lint/correctness/noUnusedPrivateClassMembers: state is used through the internals view
 import { join } from "node:path";
 import type { Context } from "@earendil-works/chord";
-import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
+import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import {
 	createRegistry,
 	type Extension,
 	type Harness,
-	InboxDoc,
 	LiveDoc,
-	RunReceiptDoc,
 	type RunReceiptState,
 	type Submission,
 	type ToolExecutionApi,
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
-import { getOrThrow } from "@earendil-works/pi-durable/env";
 import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
 import type { ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type {
@@ -31,13 +28,21 @@ import type {
 	ToolContext,
 	TranscriptItem,
 } from "@yonder/sdk";
-import { loginProvider } from "./auth.js";
 import type { createBackground } from "./background.js";
+import {
+	activity,
+	backgroundAction,
+	backgroundChild,
+	backgroundList,
+	hasAwakeWork,
+	hasBackgroundWork,
+	hasOtherBackgroundWork,
+} from "./background-query.js";
 import { capabilityMap } from "./catalog.js";
 import { CredentialSlotStore } from "./credential-slots.js";
 import { credentialPath, type FileCredentials } from "./credentials.js";
 import { runTask } from "./delegation.js";
-import { cid, RunDoc, SessionDoc, submissionOutcome } from "./docs.js";
+import { cid } from "./docs.js";
 import type { RuntimeInternals } from "./instance.js";
 import {
 	closeRuntime,
@@ -61,9 +66,18 @@ import type { Outbox } from "./outbox.js";
 import { ToolPolicy } from "./policy.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
 import { receiptRun, settleActivity, settledRun, sources } from "./receipts.js";
-import { RESTART_NOTICE } from "./recovery.js";
-import { runtimeNote } from "./runtime-note.js";
+import {
+	admitted,
+	causedBy,
+	idleChanged,
+	lastResult,
+	recover,
+	responseText,
+	resultText,
+	resume,
+} from "./recovery-resume.js";
 import type { RuntimeOptions } from "./runtime-options.js";
+import { executeCommand, hasPendingWork, login, resolveService, writeNote } from "./services.js";
 import {
 	applyRequestedEffort,
 	currentConfig,
@@ -104,14 +118,7 @@ export { inspectToolCatalog } from "./catalog.js";
 export { submissionOutcome } from "./docs.js";
 
 import type { TerminalUpdate } from "./terminal.js";
-import { entryText as textOf } from "./transcript.js";
-import type {
-	RuntimeActivityExecution,
-	RuntimeInput,
-	RuntimeRun,
-	RuntimeSessionConfig,
-	RuntimeSessionState,
-} from "./types.js";
+import type { RuntimeInput, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "./types.js";
 
 export { type LoginInteraction, loginProvider } from "./auth.js";
 export { credentialPath, FileCredentials } from "./credentials.js";
@@ -389,398 +396,67 @@ export class Runtime {
 		return settledRun(this.rt, session, done);
 	}
 	async recover(): Promise<void> {
-		this.restoring = true;
-		const conversations = await this.storage.scanConversations({}, Number.MAX_SAFE_INTEGER, undefined, C);
-		for (const conversation of conversations.items) {
-			const covered = new Set<number>();
-			const docs = await this.storage.scanDocuments(
-				{ scope: { kind: "conversation", conversationId: conversation.id }, kind: "pi.run-receipt", at: "current" },
-				Number.MAX_SAFE_INTEGER,
-				undefined,
-				C,
-			);
-			let skipped = false;
-			for (const doc of docs.items) {
-				const receipt = await this.harness.snapshot(RunReceiptDoc, conversation.id, doc.key!, C);
-				for (const input of receipt?.inputs ?? []) covered.add(input);
-				if (receipt) {
-					// A run whose run.end is durable was fully settled before this start. Replaying every historical run
-					// made startup grow with runs x conversation size (about two minutes for Jarvis' main session).
-					if (await this.options.settled?.(String(conversation.id), doc.key!)) {
-						this.settledEvents.set(String(conversation.id), doc.key!);
-						skipped = true;
-						continue;
-					}
-					try {
-						await this.receiptRun(String(conversation.id), doc.key!, receipt);
-					} catch (error) {
-						this.options.onReport?.(error);
-					}
-				}
-			}
-			// Settled runs skipped their idle hook; let waiters and sessions re-evaluate once per conversation.
-			if (skipped) await this.idleChanged(String(conversation.id)).catch((error) => this.options.onReport?.(error));
-			await this.outbox.deliver(String(conversation.id)).catch((error) => this.options.onReport?.(error));
-			const live = await this.harness.snapshot(LiveDoc, conversation.id, C);
-			if (live?.run) {
-				try {
-					await this.prepareRun(String(conversation.id), C);
-				} catch (error) {
-					// A revoked binding faults only its native task on resume, not unrelated conversations/startup.
-					this.options.onReport?.(error);
-				}
-				this.interrupted.push({ session: String(conversation.id), run: String(live.run.inputs[0]) });
-			}
-			const records = await this.storage.scanSubmissions(
-				{ conversationId: conversation.id },
-				Number.MAX_SAFE_INTEGER,
-				undefined,
-				C,
-			);
-			for (const record of records.items) {
-				if (record.type !== "input") continue;
-				if (record.status === "queued" || record.status === "placed")
-					this.recovering.push({ session: String(conversation.id), id: record.id });
-				else if (!record.entry) {
-					try {
-						await this.settledRun(String(conversation.id), record);
-					} catch (error) {
-						this.options.onReport?.(error);
-					}
-				} else if (!covered.has(record.id))
-					this.options.onReport?.(
-						new Error(`历史 submission ${record.id} 无原生回执，归属/结束用量不可确定；不重新执行`),
-					);
-			}
-		}
+		await recover(this.rt);
 	}
 	resume(): void {
-		this.restoring = false;
-		for (const state of this.limits.states.values()) if (!state.timer) this.limits.arm(state);
-		// Admit notes before a recovered request can pass beforeAgent, including
-		// requests whose checkpoint is already in the request phase.
-		this.restartNotes = Promise.all(
-			this.interrupted.splice(0).map(({ session, run }) =>
-				(async () => {
-					const state = await this.harness.snapshot(RunDoc, cid(session), run, C);
-					if (state?.networkInterrupted) return;
-					await this.writeNote(session, `restart:${run}`, RESTART_NOTICE);
-					await this.harness.commit(async (tx) => {
-						(await tx.doc(RunDoc, cid(session), run, null)).networkInterrupted = true;
-					}, C);
-				})().catch((error) => this.options.onReport?.(error)),
-			),
-		).then(() => {});
-		for (const item of this.recovering.splice(0)) {
-			void (async () => {
-				const submission = await this.harness.submission(item.id, C);
-				if (submission) await this.settledRun(item.session, await submission.wait(C));
-			})().catch(this.options.onReport ?? (() => {}));
-		}
-		void this.storage
-			.scanTasks({ kind: "yonder.background" }, Number.MAX_SAFE_INTEGER, undefined, C)
-			.then((page) => this.background.recover(page.items))
-			.catch((error) => this.options.onReport?.(error));
-
-		this.harness.resume();
+		resume(this.rt);
 	}
 	private async idleChanged(session: string): Promise<void> {
-		for (const changed of this.idleWaiters.get(session) ?? []) changed();
-		await this.options.onIdle?.(session);
-		if (!this.options.onSessionSettled || (await this.hasPendingWork(session))) return;
-		const result = await this.lastResult(session);
-		if (result && this.settledEvents.get(session) !== result.runId) {
-			this.settledEvents.set(session, result.runId);
-			await this.options.onSessionSettled?.({ session, status: result.status === "limit" ? "idle" : result.status });
-		}
+		await idleChanged(this.rt, session);
 	}
 	private async causedBy(source: import("@yonder/sdk").YEvent | undefined, input: string): Promise<boolean> {
-		const seen = new Set<string>();
-		while (source && !seen.has(source.id)) {
-			if (source.id === input) return true;
-			seen.add(source.id);
-			source = source.parent ? await this.options.readEvent?.(source.parent) : undefined;
-		}
-		return false;
+		return causedBy(this.rt, source, input);
 	}
 	async lastResult(session: string, input?: string) {
-		const docs = await this.storage.scanDocuments(
-			{ scope: { kind: "conversation", conversationId: cid(session) }, kind: "pi.run-receipt", at: "current" },
-			Number.MAX_SAFE_INTEGER,
-			undefined,
-			C,
-		);
-		for (const doc of [...docs.items].sort((a, b) => b.id - a.id)) {
-			const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), doc.key!, C);
-			if (!receipt?.settlement) continue;
-			let matches = input === undefined;
-			if (input)
-				for (const source of await this.sources(receipt.inputs)) {
-					if (await this.causedBy(source, input)) {
-						matches = true;
-						break;
-					}
-				}
-			if (matches) {
-				const state = await this.harness.snapshot(RunDoc, cid(session), doc.key!, C);
-				return {
-					runId: doc.key!,
-					...(state?.error
-						? { status: "error" as const, reason: state.error }
-						: submissionOutcome(receipt.settlement, state?.reason ?? undefined)),
-				};
-			}
-		}
+		return lastResult(this.rt, session, input);
 	}
 	async resultText(session: string, runId: string): Promise<string> {
-		const receipt = await this.harness.snapshot(RunReceiptDoc, cid(session), runId, C);
-		const end = receipt?.settlement;
-		return end?.status === "done" ? textOf(await this.harness.commit((tx) => tx.entry(end.answer), C)) : "";
+		return resultText(this.rt, session, runId);
 	}
 	async responseText(session: string, event: string): Promise<string> {
-		const record = await this.storage.submissionByRequest(cid(session), `event:${event}`, C);
-		return record?.status === "done" && record.answer
-			? textOf(await this.harness.commit((tx) => tx.entry(record.answer!), C))
-			: "";
+		return responseText(this.rt, session, event);
 	}
 	async admitted(session: string, event: string): Promise<boolean> {
-		if (await this.storage.submissionByRequest(cid(session), `event:${event}`, C)) return true;
-		const inbox = await this.harness.snapshot(InboxDoc, cid(session), C);
-		if (inbox?.items.some((item) => (item.entry?.data as { event?: string } | undefined)?.event === event)) return true;
-		const entries = await this.storage.scanEntries(
-			{ conversationId: cid(session) },
-			Number.MAX_SAFE_INTEGER,
-			undefined,
-			C,
-		);
-		return entries.items.some((entry) => (entry.data as { event?: string } | undefined)?.event === event);
+		return admitted(this.rt, session, event);
 	}
 	async resolveService(capability: string): Promise<ServiceEndpoint | undefined> {
-		for (const service of this.options.config.services ?? []) {
-			const selected = service.capabilities[capability];
-			if (!selected) continue;
-			const credential = service.credential ? await this.credentials.get(service.credential) : undefined;
-			return {
-				id: service.id,
-				protocol: service.protocol,
-				baseUrl: service.baseUrl,
-				models: selected.models,
-				...(selected.voices ? { voices: selected.voices } : {}),
-				...(credential?.type === "api_key" && credential.key ? { apiKey: credential.key } : {}),
-			};
-		}
+		return resolveService(this.rt, capability);
 	}
 	async login(provider: string, type: "api_key" | "oauth", interaction: Parameters<Models["login"]>[2]): Promise<void> {
-		await loginProvider(this.options.home, this.options.config, provider, interaction, { method: type });
+		await login(this.rt, provider, type, interaction);
 	}
 	async writeNote(id: string, requestId: string, text: string): Promise<void> {
-		await (await this.conversation(id)).submit(runtimeNote(requestId, text), C);
+		await writeNote(this.rt, id, requestId, text);
 	}
 	async hasBackgroundWork(id: string, except?: number, input?: string): Promise<boolean> {
-		const tasks = await this.storage.scanTasks(
-			{ conversationId: cid(id), kind: "yonder.background" },
-			Number.MAX_SAFE_INTEGER,
-			undefined,
-			C,
-		);
-		for (const task of tasks.items) {
-			if (task.id === except) continue;
-			if (input) {
-				const config = (task.input as { config?: string }).config;
-				const events = config ? (JSON.parse(config) as { events: import("@yonder/sdk").YEvent[] }).events : [];
-				let belongs = false;
-				for (const event of events)
-					if (await this.causedBy(event, input)) {
-						belongs = true;
-						break;
-					}
-				if (!belongs) continue;
-			}
-			if (task.state.status !== "terminal") return true;
-			if (await this.background.pending(task.id)) return true;
-		}
-		return false;
+		return hasBackgroundWork(this.rt, id, except, input);
 	}
 	async hasOtherBackgroundWork(ctx: ToolContext) {
-		const invocation = this.toolInvocations.get(ctx);
-		if (!invocation) throw new Error("Requires an active runtime tool invocation");
-		return this.hasBackgroundWork(ctx.session, invocation.api.taskId);
+		return hasOtherBackgroundWork(this.rt, ctx);
 	}
 	async hasAwakeWork(id: string): Promise<boolean> {
-		const tasks = await this.storage.scanTasks(
-			{ conversationId: cid(id), kind: "yonder.background" },
-			Number.MAX_SAFE_INTEGER,
-			undefined,
-			C,
-		);
-		const pending = tasks.items.filter((task) => task.state.status !== "terminal");
-
-		if (pending.some((task) => (task.input as { name?: string }).name !== "interaction_result")) return true;
-		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
-		if (inbox?.items.some((item) => item.mode !== "write")) return true;
-		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		const slots = live?.tools?.filter((slot) => slot.status !== "done") ?? [];
-		return !!live?.run && !(slots.length > 0 && slots.every((slot) => slot.name === "interaction_result"));
+		return hasAwakeWork(this.rt, id);
 	}
 	async backgroundList(session: string) {
-		return this.background.list(session, this.storage);
+		return backgroundList(this.rt, session);
 	}
 	async backgroundAction(session: string, args: { action: "status" | "log" | "kill"; id: string; offset?: number }) {
-		return this.background.manage(session, args);
+		return backgroundAction(this.rt, session, args);
 	}
 	async backgroundChild(session: string, id: string) {
-		const job = await this.background.manage(session, { action: "status", id });
-		if (!("name" in job) || job.name !== "task_run") throw new Error("Not a delegated task");
-		const page = await this.harness.commit((tx) => tx.scanConversations({ ownerTaskId: Number(id) as never }, 1), C);
-		if (!page.items[0]) throw new Error("Child task has not started");
-		return { session: String(page.items[0].id), state: job.state };
+		return backgroundChild(this.rt, session, id);
 	}
 	async activity(id: string) {
-		const [live, inbox, background, activity] = await Promise.all([
-			this.harness.snapshot(LiveDoc, cid(id), C),
-			this.harness.snapshot(InboxDoc, cid(id), C),
-			this.storage.scanTasks(
-				{ conversationId: cid(id), kind: "yonder.background" },
-				Number.MAX_SAFE_INTEGER,
-				undefined,
-				C,
-			),
-			this.harness.snapshot(SessionDoc, cid(id), C),
-		]);
-		const tools = [...(live?.tools ?? []), ...(live?.nestedTools ?? [])]
-			.filter((slot) => slot.status !== "done")
-			.map((slot) => slot.name);
-		tools.push(
-			...background.items
-				.filter((task) => task.state.status !== "terminal")
-				.map((task) => (task.input as { name: string }).name),
-		);
-		const queued = inbox?.items.some((item) => item.mode !== "write");
-		const busy = !!live?.run || !!queued || tools.length > 0 || !!live?.compactions?.length;
-		const waiting =
-			busy &&
-			!queued &&
-			!live?.compactions?.length &&
-			tools.length > 0 &&
-			tools.every((name) => name === "interaction_result");
-		const runId = live?.run ? String(live.run.inputs[0]) : undefined;
-		const generationRetry = live?.run ? live.generation?.retry?.at : undefined;
-		const compactions = live?.compactions ?? [];
-		const compactionRetry =
-			compactions.length > 0 && compactions.every((task) => task.retry)
-				? Math.min(...compactions.map((task) => task.retry?.at ?? Infinity))
-				: undefined;
-		const retryAt = generationRetry ?? compactionRetry;
-		const retrying =
-			retryAt !== undefined &&
-			tools.length === 0 &&
-			(!live?.run || generationRetry !== undefined || compactions.some((task) => task.blocking)) &&
-			compactions.every((task) => task.retry);
-		const execution: RuntimeActivityExecution = {
-			phase: waiting
-				? "waiting-input"
-				: busy
-					? retrying
-						? "retrying"
-						: "running"
-					: activity?.activityIssue
-						? "blocked"
-						: "idle",
-			...(runId ? { runId } : {}),
-			...(retryAt === undefined ? {} : { retryAt }),
-			...(activity?.activityIssue ? { issue: activity.activityIssue } : {}),
-		};
-		let summary = "";
-		const input = live?.run?.inputs.at(-1);
-		if (input !== undefined) {
-			const submission = await this.storage.submission(input, C);
-			const entry = submission?.entry ? await this.harness.commit((tx) => tx.entry(submission.entry!), C) : undefined;
-			const message = entry?.model?.find((message) => message.role === "user");
-			if (message)
-				summary =
-					typeof message.content === "string"
-						? message.content
-						: message.content
-								.filter((block) => block.type === "text")
-								.map((block) => block.text)
-								.join(" ");
-		}
-		const text =
-			live?.generation?.message?.content
-				.filter((block) => block.type === "text")
-				.map((block) => block.text)
-				.join(" ") ?? "";
-		const detail =
-			execution.phase === "retrying"
-				? "重试中"
-				: execution.phase === "blocked"
-					? "执行受阻"
-					: waiting
-						? "等待交互"
-						: live?.compactions?.length
-							? "整理上下文"
-							: tools.length
-								? `执行 ${[...new Set(tools)].join(" · ")}`
-								: queued && !live?.run
-									? "排队中"
-									: busy
-										? "生成回复"
-										: "空闲";
-		return {
-			execution,
-			state: waiting ? ("waiting" as const) : busy ? ("running" as const) : ("idle" as const),
-			summary: summary.replace(/\s+/g, " ").trim().slice(0, 160),
-			detail: detail.slice(0, 160),
-			text: text.trim().slice(-240),
-		};
+		return activity(this.rt, id);
 	}
 	async hasPendingWork(id: string, input?: string): Promise<boolean> {
-		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		if (live?.run) {
-			if (!input) return true;
-			for (const source of await this.sources(live.run.inputs)) if (await this.causedBy(source, input)) return true;
-		}
-		const inbox = await this.harness.snapshot(InboxDoc, cid(id), C);
-		for (const item of inbox?.items ?? [])
-			if (item.mode !== "write") {
-				if (!input) return true;
-				const event = (item.entry?.data as { event?: string } | undefined)?.event;
-				if (event && (await this.causedBy(await this.options.readEvent?.(event), input))) return true;
-			}
-		return this.hasBackgroundWork(id, undefined, input);
+		return hasPendingWork(this.rt, id, input);
 	}
 	async executeCommand(
 		config: RuntimeSessionConfig,
 		request: { command: string | string[]; cwd?: string; signal?: AbortSignal },
 	): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-		let stdout = "",
-			stderr = "",
-			truncated = false;
-		const context = request.signal ? withAbortSignal(request.signal, C) : C;
-		const result = getOrThrow(
-			await this.environment(config).exec(
-				request.command,
-				{
-					...(request.cwd ? { cwd: request.cwd } : {}),
-					spill: { afterBytes: 65536, afterLines: 2000 },
-					onOutput(text, _context, info) {
-						if (info.stream === "stderr") {
-							truncated ||= stderr.length + text.length > 65536;
-							stderr = (stderr + text).slice(-65536);
-						} else {
-							truncated ||= stdout.length + text.length > 65536;
-							stdout = (stdout + text).slice(-65536);
-						}
-					},
-				},
-				context,
-			),
-		);
-		return {
-			stdout: stdout + (truncated ? `\n[Output tail retained; full log: ${result.spillPath ?? "unavailable"}]` : ""),
-			stderr,
-			exitCode: result.exitCode,
-		};
+		return executeCommand(this.rt, config, request);
 	}
 	private pollQuota(
 		fallback: RuntimeSessionConfig["resolved"]["fallback"],
