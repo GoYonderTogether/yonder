@@ -1,9 +1,10 @@
 import type { Capability, Tool } from "@yonder/sdk";
 import { expect, test } from "vitest";
+import { defaultLazyGroups } from "../config/defaults.js";
 import { resolveProfile } from "../config/test-support.js";
 import { inspectToolCatalog } from "../runtime/catalog.js";
+import { lazyGroupOf } from "../runtime/tool-catalog.js";
 import type { RuntimeSessionConfig } from "../runtime/types.js";
-import { defaultLazyGroups, lazyGroupOf } from "./catalog.js";
 
 const codeIntelNames = [
 	"code-intel_read_symbol",

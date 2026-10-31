@@ -1,7 +1,7 @@
 import { createCodingTools } from "@earendil-works/pi-durable/tools";
 import type { Capability, Tool } from "@yonder/sdk";
 import { matchesGlob } from "../config/index.js";
-import { coreToolCapabilities, lazyGroupOf } from "../tools/catalog.js";
+import { coreToolCapabilities, lazyGroupOf } from "./tool-catalog.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
 export const capabilityMap: Record<string, Capability[]> = {

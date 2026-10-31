@@ -3,7 +3,7 @@ import { shippedChannelsFor } from "../bundles.js";
 import { gatewaySettings } from "../config/gateway.js";
 import { type AgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import type { LoadedPlugins } from "../plugins/index.js";
-import { modelChainRefs } from "../tools/model-route.js";
+import { modelChainRefs } from "../runtime/model-chain.js";
 import { manageCredentialSlots } from "./credentials.js";
 
 /** `provider/id`; a value without "/" has no model id, so it is never a known model. */

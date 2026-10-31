@@ -27,6 +27,42 @@ export const DEFAULT_MODEL_HOLD_SECONDS = 600;
 export const DEFAULT_MODEL_PROBE_SECONDS = 60;
 export const MIN_MODEL_PROBE_SECONDS = 15;
 
+/** A configured provider's first model id; a bare `models.chain` entry means exactly this model. */
+const firstModelId = (provider: unknown): string | undefined => {
+	const models = (provider as { models?: unknown } | undefined)?.models;
+	if (!Array.isArray(models)) return undefined;
+	for (const entry of models) {
+		const id = typeof entry === "string" ? entry : (entry as { id?: unknown } | undefined)?.id;
+		if (typeof id === "string" && id.length) return id;
+	}
+	return undefined;
+};
+
+/**
+ * `models.chain` (M2) as `provider/model` refs for the fallback chain. A bare provider means its first
+ * configured model. Only configured providers take part (S2: a model can only come from a provider the home
+ * already has), so a home without the chain's providers keeps its single model instead of failing on unknown
+ * models. The primary model is dropped: the runtime already starts there.
+ */
+export function modelChainRefs(
+	chain: readonly string[],
+	providers: Readonly<Record<string, unknown>> | undefined,
+	primary?: string,
+): string[] {
+	const refs: string[] = [];
+	for (const entry of chain) {
+		const slash = entry.indexOf("/");
+		const provider = slash < 0 ? entry : entry.slice(0, slash);
+		if (!providers || !(provider in providers)) continue;
+		const modelId = slash < 0 ? firstModelId(providers[provider]) : entry.slice(slash + 1);
+		if (!modelId) continue;
+		const ref = `${provider}/${modelId}`;
+		if (ref === primary || refs.includes(ref)) continue;
+		refs.push(ref);
+	}
+	return refs;
+}
+
 export function splitModelRef(ref: string): { provider: string; modelId: string } {
 	const at = ref.indexOf("/");
 	if (at <= 0 || at === ref.length - 1) throw new Error(`Invalid model reference: ${ref}`);

@@ -48,8 +48,6 @@ import type {
 } from "@yonder/sdk";
 import { Type } from "typebox";
 import { mergeCredentialSlots } from "../config/index.js";
-import { checkBudget } from "../sessions/budget.js";
-import { defaultLazyGroups, lazyGroupOf } from "../tools/catalog.js";
 import { loginProvider } from "./auth.js";
 import { createBackground } from "./background.js";
 import { forkConversation, forkParent } from "./branches.js";
@@ -95,6 +93,7 @@ import { runtimeNote } from "./runtime-note.js";
 import type { RuntimeOptions } from "./runtime-options.js";
 import { systemAsUserHooks } from "./system-as-user.js";
 import { todoTool } from "./todo-tool.js";
+import { defaultLazyGroups, lazyGroupOf } from "./tool-catalog.js";
 import { normalizeToolImages, prepareWith } from "./tool-images.js";
 import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
 
@@ -1418,7 +1417,7 @@ export class Runtime {
 				usage,
 			};
 			const attempts = await runAttempts(this.storage, session, placed, answer?.id);
-			await checkBudget(this.options, session, usage);
+			await this.options.onUsageSettled?.(session, usage);
 			await this.watch.record(config, run, attempts);
 			await this.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
 			const active = this.limits.states.get(key);

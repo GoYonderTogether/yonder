@@ -1,5 +1,5 @@
 import type { ResolvedProfile } from "../config/index.js";
-import { modelChainRefs } from "../tools/model-route.js";
+import { modelChainRefs } from "./model-chain.js";
 
 /**
  * `models.chain` (M2) as an effective fallback chain. A profile that declares fallback models or accounts of its

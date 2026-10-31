@@ -1,4 +1,5 @@
 import type { Capability } from "@yonder/sdk";
+import { defaultLazyGroups } from "../config/defaults.js";
 
 export const coreToolCapabilities: Record<string, Capability[]> = {
 	permissions: [],
@@ -29,8 +30,8 @@ export const coreToolCapabilities: Record<string, Capability[]> = {
 export const lazyGroupMatchers: Record<string, (name: string) => boolean> = {
 	"code-intel": (name) => name.startsWith("code-intel_"),
 };
-/** 默认懒加载的分组；配置 `tools.lazyGroups` 可以增减，空数组表示全部常驻。 */
-export const defaultLazyGroups: string[] = ["code-intel"];
+/** 默认懒加载的分组；配置 `tools.lazyGroups` 可以增减，空数组表示全部常驻。默认值在 config/defaults.ts。 */
+export { defaultLazyGroups };
 /** 工具名所属的懒加载分组；不属于任何分组时返回 `undefined`。 */
 export function lazyGroupOf(name: string, groups: readonly string[] = defaultLazyGroups): string | undefined {
 	return groups.find((group) => lazyGroupMatchers[group]?.(name));

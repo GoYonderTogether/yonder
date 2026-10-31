@@ -4,11 +4,12 @@ import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
 import { afterAll, expect, test } from "vitest";
 import { FileCredentials } from "../runtime/credentials.js";
+import { modelChainRefs } from "../runtime/model-chain.js";
 import { type ModelProfile, modelProfile } from "../runtime/model-profile.js";
 import { buildModels } from "../runtime/models.js";
 import { coreToolCapabilities } from "./catalog.js";
 import { createCoreTools } from "./index.js";
-import { createModelRouteTool, modelChainRefs, routeModel } from "./model-route.js";
+import { createModelRouteTool, routeModel } from "./model-route.js";
 
 // Real offline catalog entries; only selection metadata is varied to exercise ordering.
 const home = mkdtempSync(join(tmpdir(), "yonder-model-route-"));
