@@ -2,38 +2,25 @@
 // Biome sees no reader in this file. Keeping them here makes this class the one owner of the mutable state.
 // biome-ignore-all lint/correctness/noUnusedPrivateClassMembers: state is used through the internals view
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT as C, withAbortSignal } from "@earendil-works/chord/context";
-import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import {
-	AgentDoc,
 	createRegistry,
-	DEFAULT_COMPACTION_POLICY,
-	defineExtension,
-	defineTool,
 	type Extension,
-	estimateContext,
-	GenerationTask,
 	type Harness,
-	hook,
 	InboxDoc,
-	type JsonObject,
 	LiveDoc,
 	RunReceiptDoc,
 	type RunReceiptState,
 	type Submission,
-	selectCut,
 	type ToolExecutionApi,
 	type ToolRegistration,
-	ToolTask,
 	UsageDoc,
 	watchEvents,
 } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import type { SqliteStorage } from "@earendil-works/pi-durable/storage/sqlite";
-import { createToolSearchExtension } from "@earendil-works/pi-durable/tool-search";
-import { createCodingTools, type ImageProcessor } from "@earendil-works/pi-durable/tools";
+import type { ImageProcessor } from "@earendil-works/pi-durable/tools";
 import type {
 	Attachment,
 	Capability,
@@ -46,18 +33,12 @@ import type {
 	ToolContext,
 	TranscriptItem,
 } from "@yonder/sdk";
-import { Type } from "typebox";
 import { loginProvider } from "./auth.js";
-import { createBackground } from "./background.js";
-import { forkConversation, forkParent } from "./branches.js";
-import { capabilityMap, describeCatalog } from "./catalog.js";
+import type { createBackground } from "./background.js";
+import { capabilityMap } from "./catalog.js";
 import { CredentialSlotStore } from "./credential-slots.js";
 import { credentialPath, type FileCredentials } from "./credentials.js";
 import { cid, emptyUsage, RunDoc, SessionDoc, submissionOutcome, sumUsage } from "./docs.js";
-import { resolveEffort } from "./effort.js";
-import { createFindTool } from "./find.js";
-import { createGrepTool } from "./grep.js";
-import { imageHistoryHooks } from "./image-history.js";
 import { inputEntry } from "./input-entry.js";
 import type { RuntimeInternals } from "./instance.js";
 import {
@@ -71,23 +52,19 @@ import {
 	toolContext,
 } from "./lifecycle.js";
 import { RunLimits } from "./limits.js";
-import { createLsTool } from "./ls.js";
-import { DEFAULT_FALLBACK_AFTER, modelChain } from "./model-chain.js";
-import { chainFallback } from "./model-chain-config.js";
 import { ModelGate } from "./model-gate.js";
 import { ModelHealth } from "./model-health.js";
 import { ModelQuota } from "./model-quota.js";
+import { compact, modelStatus } from "./model-status.js";
 import { ModelWatch, runAttempts } from "./model-watch.js";
 import { buildModels } from "./models.js";
 import { notificationRequestId, writeNotification } from "./notifications.js";
 import type { Outbox } from "./outbox.js";
 import { projectOutput } from "./output.js";
 import { ToolPolicy } from "./policy.js";
-import { processTool } from "./process.js";
-import { promptSections } from "./prompt-sections.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
-import { RESTART_NOTICE, recoveryHooks, retryPolicy } from "./recovery.js";
-import { fromResult, taskReport, toResult } from "./results.js";
+import { RESTART_NOTICE } from "./recovery.js";
+import { taskReport } from "./results.js";
 import { runtimeNote } from "./runtime-note.js";
 import type { RuntimeOptions } from "./runtime-options.js";
 import {
@@ -97,11 +74,23 @@ import {
 	prepareRun,
 	sessionConfig,
 } from "./session-config.js";
-import { systemAsUserHooks } from "./system-as-user.js";
-import { todoTool } from "./todo-tool.js";
-import { defaultLazyGroups, lazyGroupOf } from "./tool-catalog.js";
-import { normalizeToolImages, prepareWith } from "./tool-images.js";
-import { cacheSdkResult, toolOutputWriter } from "./tool-output-cache.js";
+import { createSession, fork, parentOf, sessionState, setSessionState } from "./session-lifecycle.js";
+import {
+	adapter,
+	assertToolContext,
+	authorizeAttachments,
+	backgroundTool,
+	installExtensions,
+} from "./tool-activation.js";
+import {
+	activateTools,
+	applyConfiguration,
+	configure,
+	configureModels,
+	deactivateTools,
+	describeTools,
+	lazyGroupsOf,
+} from "./tool-config.js";
 
 export { attachmentFromPath } from "./attachments.js";
 export { inspectToolCatalog } from "./catalog.js";
@@ -253,245 +242,19 @@ export class Runtime {
 		await applyRequestedEffort(this.rt, session, config, context);
 	}
 	private install() {
-		this.background = createBackground({
-			home: this.options.home,
-			cacheOutput: (snapshot) => this.environment(JSON.parse(snapshot).config).id === "node:local",
-			harness: () => this.harness,
-			changed: (session) => this.options.onBackgroundChanged?.(session),
-			config: async (session, context) => {
-				const ctx = await this.context(session, context);
-				return JSON.stringify({
-					config: this.currentConfig(session) ?? (await this.options.resolveSession(session)),
-					events: ctx.events ?? [],
-				});
-			},
-			execute: async (input, api, context) => {
-				const snapshot = JSON.parse(input.config);
-				this.invocationConfigs.set(context, snapshot);
-				try {
-					const tool = this.rawTools.get(input.name);
-					if (!tool) throw new Error(`Unavailable tool: ${input.name}`);
-					let result: ReturnType<typeof toResult>;
-					try {
-						result = await tool.execute(input.args, { ...api, env: this.environment(snapshot.config) }, context);
-					} catch (error) {
-						result = toResult({ text: error instanceof Error ? error.message : String(error), isError: true });
-					}
-					const ctx = await this.context(String(api.conversationId), context);
-					for (const plugin of this.options.plugins ?? [])
-						if (snapshot.config.resolved.plugins.includes(plugin.id))
-							for (const hook of plugin.hooks) {
-								const changed = await hook.afterTool?.(
-									{ id: api.callId, name: input.name, args: input.args },
-									fromResult(result),
-									ctx,
-								);
-								if (changed) result = toResult(changed.result);
-							}
-					// 插件工具可以塞任意大小的图片；统一按工具图片上限重新编码，避免大块 base64 进入转录和历史请求。
-					if ((result.output ?? []).some((block) => block.type === "image"))
-						result = await normalizeToolImages(
-							result,
-							prepareWith(() => this.imageProcessor()),
-						);
-					if (this.sdkToolNames.has(input.name) && ctx.env.id === "node:local")
-						result = await cacheSdkResult(result, ctx, input, this.options);
-					return result;
-				} finally {
-					this.invocationConfigs.delete(context);
-				}
-			},
-			finished: async (session, id, name, value, origin) => {
-				const outputFile = (value.details as { fullOutputPath?: unknown } | undefined)?.fullOutputPath;
-				await this.options.onBackground?.(session, {
-					id,
-					name,
-					result: fromResult(value),
-					...(origin ? { origin } : {}),
-					...(typeof outputFile === "string" ? { outputFile } : {}),
-				});
-			},
-			report: (error) => this.options.onReport?.(error),
-			settled: (session) => this.idleChanged(session),
-		});
-		this.registry.install(this.background.extension);
-		this.extensions.set(this.background.extension.name, this.background.extension);
-
-		const core = defineExtension({
-			name: "yonder.core",
-			sections: promptSections(
-				this.options,
-				(id) => this.currentConfig(id),
-				(name) => this.toolGuidelines.get(name),
-			),
-			hooks: [
-				// 图片裁剪必须在 limits 的图片数量检查之前：旧图先变成文字，检查才不会被历史图片挡住。
-				...imageHistoryHooks(),
-				...this.limits.hooks(),
-				...recoveryHooks(() => this.harness, retryPolicy(this.options.config.retry).maxRetries),
-				...systemAsUserHooks(() => this.harness),
-			],
-		});
-		this.registry.install(core);
-		this.extensions.set(core.name, core);
-		const codingTools = createCodingTools({
-			images: { prepare: async (...args) => (await this.imageProcessor()).prepare(...args) },
-		});
-		const coding = defineExtension({
-			...codingTools,
-			name: "yonder.files",
-			tools: [
-				...(codingTools.tools ?? []).filter((t) => t.name !== "bash"),
-				processTool(this.options.home, this.background.running),
-			].map((t) => this.backgroundTool({ ...t, deferred: true })),
-		});
-		this.registry.install(coding);
-		this.extensions.set(coding.name, coding);
-		const search = createToolSearchExtension();
-		this.registry.install(search);
-		this.extensions.set(search.name, search);
-		for (const extension of [coding, search]) for (const tool of extension.tools ?? []) this.tools.set(tool.name, tool);
-		const todo = todoTool((session) => this.outbox.deliver(session));
-		const todos = defineExtension({ name: "yonder.todo", tools: [todo] });
-		this.capabilities.set("todo", []);
-		this.registry.install(todos);
-		this.extensions.set(todos.name, todos);
-		this.tools.set("todo", todo);
-		const processes = defineExtension({
-			name: "yonder.process",
-			tools: [...this.background.tools, this.background.tool],
-		});
-		for (const tool of processes.tools ?? []) {
-			this.capabilities.set(tool.name, []);
-			this.tools.set(tool.name, tool);
-		}
-		this.registry.install(processes);
-		this.extensions.set(processes.name, processes);
-		const builtins = this.adapter(
-			"yonder.tools",
-			[createGrepTool(), createFindTool(), createLsTool(), ...(this.options.tools ?? [])],
-			[],
-		);
-		this.registry.install(builtins);
-		this.extensions.set(builtins.name, builtins);
-		for (const plugin of this.options.plugins ?? []) {
-			const extension = this.adapter(`plugin:${plugin.id}`, plugin.tools, plugin.hooks);
-			this.registry.install(extension);
-			this.extensions.set(extension.name, extension);
-		}
+		return installExtensions(this.rt);
 	}
 	private backgroundTool(tool: ToolRegistration): ToolRegistration {
-		this.rawTools.set(tool.name, tool);
-		const registration = {
-			...tool,
-			...(tool.structuredOutputSchema
-				? {
-						structuredOutputSchema: Type.Union([
-							tool.structuredOutputSchema,
-							Type.Object({ background: Type.String() }),
-						]),
-					}
-				: {}),
-		};
-		return {
-			...registration,
-			execute: (args, api, context) => this.background.run(tool, args as JsonObject, api, context),
-		};
+		return backgroundTool(this.rt, tool);
 	}
 	private adapter(name: string, tools: Tool[], hooks: Hook[]): Extension {
-		const registrations = tools.map((tool) => {
-			this.sdkToolNames.add(tool.name);
-			if (tool.guidelines) this.toolGuidelines.set(tool.name, tool.guidelines);
-			this.capabilities.set(tool.name, tool.capabilities);
-			const registration = this.backgroundTool(
-				defineTool({
-					name: tool.name,
-					description: tool.description,
-					parameters: tool.parameters,
-					deferred: true,
-					...(["task_run", "agent_ask", "parent_ask", "task_continue"].includes(tool.name)
-						? { replay: "safe" as const }
-						: {}),
-					execute: async (args, api, context) => {
-						const ctx = await this.context(String(api.conversationId), context);
-						if (ctx.env.id === "node:local") {
-							const writer = toolOutputWriter(ctx, tool.name, args as object, this.options.home);
-							ctx.cacheToolOutput = writer;
-							ctx.cacheToolOutputStream = writer;
-						}
-						ctx.authorizeFileWrite = async (path) => {
-							this.assertToolContext(ctx);
-							const config = this.invocationConfigs.get(context)?.config ?? this.currentConfig(ctx.session);
-							if (!config) throw new Error("当前运行配置不存在。");
-							if (!config.resolved.capabilities.includes("write")) throw new Error("缺少能力：write");
-							const denied = await this.policy.denied("write", { path }, config, context, ctx.session);
-							if (denied) throw new Error(denied);
-						};
-						this.toolInvocations.set(ctx, { api, context });
-						try {
-							return toResult(await tool.execute(args, ctx));
-						} finally {
-							this.toolInvocations.delete(ctx);
-						}
-					},
-				}),
-			);
-			this.tools.set(tool.name, registration);
-			return registration;
-		});
-		return defineExtension({
-			name,
-			tools: registrations,
-			hooks: hooks.flatMap((plugin) => [
-				hook(ToolTask, {
-					afterTool: async (call, result, api, context) => {
-						// Process management is native, not a background-wrapped SDK tool.
-						if (call.name !== "process") return;
-						const changed = await plugin.afterTool?.(
-							{ id: call.id, name: call.name, args: call.arguments },
-							fromResult(result),
-							await this.context(String(api.conversationId), context),
-						);
-						return changed ? toResult(changed.result) : undefined;
-					},
-					beforeTool: async (call, api, context) => {
-						const result = await plugin.beforeTool?.(
-							{ id: call.id, name: call.name, args: call.arguments },
-							await this.context(String(api.conversationId), context),
-						);
-						return result
-							? "block" in result
-								? { block: result.block }
-								: { arguments: result.args as JsonObject }
-							: undefined;
-					},
-				}),
-				hook(GenerationTask, {
-					beforeRequest: async (request, api, context) =>
-						plugin.beforeRequest?.([...request.messages], await this.context(String(api.conversationId), context)),
-				}),
-			]),
-		});
+		return adapter(this.rt, name, tools, hooks);
 	}
 	assertToolContext(ctx: ToolContext): void {
-		if (!this.toolInvocations.has(ctx)) throw new Error("需要真实运行中的工具调用上下文。");
-		ctx.signal.throwIfAborted();
+		assertToolContext(this.rt, ctx);
 	}
 	async authorizeAttachments(ctx: ToolContext, attachments: Attachment[] = []): Promise<void> {
-		const invocation = this.toolInvocations.get(ctx);
-		if (!invocation) throw new Error("需要真实运行中的工具调用上下文。");
-		ctx.signal.throwIfAborted();
-		if (!attachments.length) return;
-		const config = this.currentConfig(ctx.session);
-		if (!config) throw new Error("当前运行配置不存在。");
-		if (ctx.env.id !== "node:local") throw new Error("渠道附件暂不支持远程执行环境。");
-		for (const attachment of attachments) {
-			if (!attachment.uri.startsWith("file:")) throw new Error("发送附件必须是可验证的本地文件 URI。");
-			const path = fileURLToPath(attachment.uri);
-			const denied = await this.policy.denied("read", { path }, config, invocation.context, ctx.session);
-			if (denied) throw new Error(denied);
-			getOrThrow(await ctx.env.canonicalPath(path, invocation.context));
-		}
+		await authorizeAttachments(this.rt, ctx, attachments);
 	}
 	async create(meta: {
 		agent: string | null;
@@ -503,259 +266,46 @@ export class Runtime {
 		inherit?: RuntimeSessionState["inherit"];
 		close?: "run-end" | "manual";
 	}): Promise<string> {
-		const conversation = await this.harness.createConversation(
-			{
-				ownership: { kind: "ownerless" },
-				init: async (tx, id) => {
-					Object.assign(await tx.doc(SessionDoc, id), {
-						agent: meta.agent,
-						profile: meta.profile,
-						cwd: meta.cwd,
-						env: meta.env ?? "local",
-						capabilities: meta.capabilities ?? null,
-						channelInstances: meta.channelInstances ?? null,
-						inherit: meta.inherit ?? null,
-						close: meta.close ?? "run-end",
-					});
-				},
-			},
-			C,
-		);
-		return String(conversation.id);
+		return createSession(this.rt, meta);
 	}
 	async fork(id: string, at: number): Promise<string> {
-		if (await this.hasPendingWork(id)) throw new Error("Cannot fork a session with pending work");
-		return forkConversation(await this.conversation(id), id, at);
+		return fork(this.rt, id, at);
 	}
 	async forkParent(id: string): Promise<{ id: string; at: number } | undefined> {
-		return forkParent(this.options.db, id);
+		return parentOf(this.rt, id);
 	}
 	async sessionState(id: string): Promise<RuntimeSessionState | undefined> {
-		const state = await this.harness.snapshot(SessionDoc, cid(id), C);
-		if (!state) return;
-		return {
-			...(state.judgment ? { judgment: true } : {}),
-			...(state.models ? { models: structuredClone(state.models) } : {}),
-			agent: state.agent,
-			profile: state.profile,
-			close: state.close ?? "run-end",
-			cwd: state.cwd,
-			env: state.env,
-			...(state.capabilities ? { capabilities: [...state.capabilities] } : {}),
-			...(state.channelInstances ? { channelInstances: [...state.channelInstances] } : {}),
-			...(state.inherit ? { inherit: structuredClone(state.inherit) } : {}),
-		};
+		return sessionState(this.rt, id);
 	}
 	async setSessionState(id: string, state: RuntimeSessionState): Promise<void> {
-		await (await this.conversation(id)).commit(async (tx) => {
-			Object.assign(await tx.doc(SessionDoc, cid(id)), {
-				...state,
-				capabilities: state.capabilities ?? null,
-				channelInstances: state.channelInstances ?? null,
-				inherit: state.inherit ?? null,
-			});
-		}, C);
-		this.configured.delete(id);
+		await setSessionState(this.rt, id, state);
 	}
 	describeTools(config: RuntimeSessionConfig) {
-		return describeCatalog(
-			config,
-			[...this.tools.values()].map((tool) => {
-				const extension = [...this.extensions.values()].find((item) => item.tools?.includes(tool));
-				return {
-					name: tool.name,
-					capabilities: this.capabilities.get(tool.name) ?? [],
-					...(extension?.name.startsWith("plugin:") ? { plugin: extension.name.slice(7) } : {}),
-				};
-			}),
-			this.activeLazy,
-		);
+		return describeTools(this.rt, config);
 	}
 	async activateTools(id: string, names: string[]): Promise<string[]> {
-		const activated = this.lazyGroupsOf(id, names);
-		for (const group of activated) this.activeLazy.add(group);
-		if (activated.length) await this.configure(id);
-		return activated;
+		return activateTools(this.rt, id, names);
 	}
 	async deactivateTools(id: string, names: string[]): Promise<string[]> {
-		const deactivated = this.lazyGroupsOf(id, names);
-		for (const group of deactivated) this.activeLazy.delete(group);
-		if (deactivated.length) await this.configure(id);
-		return deactivated;
+		return deactivateTools(this.rt, id, names);
 	}
 	private lazyGroupsOf(id: string, names: string[]): string[] {
-		const groups = this.configured.get(id)?.resolved.tools.lazyGroups ?? defaultLazyGroups;
-		return [...new Set(names.flatMap((name) => lazyGroupOf(name, groups) ?? []))];
+		return lazyGroupsOf(this.rt, id, names);
 	}
 	async configure(id: string): Promise<void> {
-		if ((await this.harness.snapshot(LiveDoc, cid(id), C))?.run) return;
-		await this.applyConfiguration(id, await this.options.resolveSession(id));
+		await configure(this.rt, id);
 	}
 	private async applyConfiguration(id: string, config: RuntimeSessionConfig): Promise<void> {
-		const profile = config.resolved;
-		const selected = [
-			"yonder.core",
-			"yonder.files",
-			"yonder.tools",
-			"yonder.background",
-			"yonder.todo",
-			"yonder.process",
-			...profile.plugins.map((id) => `plugin:${id}`),
-		];
-		const exposure = this.describeTools(config);
-		const offered = exposure.filter((tool) => tool.exposure === "offer").map((tool) => this.tools.get(tool.name)!);
-		const deferred = exposure.filter((tool) => tool.exposure === "search").map((tool) => this.tools.get(tool.name)!);
-		if (deferred.length) {
-			const search = [...this.extensions.values()].find((extension) =>
-				extension.tools?.some((tool) => tool.name === "tool_search"),
-			);
-			if (search) selected.push(search.name);
-		}
-		const tools = [...new Set([...offered, ...deferred])];
-		const conversation = await this.conversation(id);
-		const fallback = chainFallback(profile, this.options.config.models);
-		this.pollQuota(fallback, profile.credentialSlots);
-		// Held or over-quota entries are not a starting model: they move to the back of the chain.
-		const chain = this.watch.order(
-			modelChain(profile.model, fallback, profile.credentialSlots),
-			fallback?.quotaStopPercent,
-		);
-		const primary = chain[0];
-		if (!primary) throw new Error("All models are rate limited until reset");
-		const model = { provider: primary.provider, modelId: primary.modelId };
-		const modelInfo = (await this.modelsFor(config)).getModel(model.provider, model.modelId);
-		const thinking = modelInfo
-			? resolveEffort(modelInfo, profile.thinking as ModelThinkingLevel).effective
-			: profile.thinking;
-		const alternatives = chain.slice(1);
-		const modelFallbacks = alternatives.length
-			? {
-					models: alternatives.map((entry) => ({ provider: entry.provider, modelId: entry.modelId })),
-					after: fallback?.after ?? DEFAULT_FALLBACK_AFTER,
-				}
-			: null;
-		const current = await this.harness.snapshot(AgentDoc, cid(id), C);
-		const same =
-			current &&
-			JSON.stringify(current.model) === JSON.stringify(model) &&
-			JSON.stringify(current.modelFallbacks ?? null) === JSON.stringify(modelFallbacks) &&
-			current.thinkingLevel === thinking &&
-			JSON.stringify(current.extensions) === JSON.stringify(selected) &&
-			JSON.stringify(current.tools) === JSON.stringify(tools.map((t) => t.name)) &&
-			JSON.stringify(current.modelTools) === JSON.stringify(offered.map((t) => t.name)) &&
-			current.instructions === profile.instructions &&
-			current.cwd === config.cwd;
-		if (!same)
-			await conversation.configure(
-				{
-					model,
-					modelFallbacks,
-					thinkingLevel: thinking,
-					extensions: selected.map((name) => {
-						const e = this.extensions.get(name);
-						if (!e) throw new Error(`Unknown runtime extension: ${name}`);
-						return e;
-					}),
-					tools,
-					modelTools: offered,
-					instructions: profile.instructions,
-					cwd: config.cwd,
-				},
-				C,
-			);
-		const metadata = await this.harness.snapshot(SessionDoc, cid(id), C);
-		if (metadata?.agent !== config.agent || metadata?.profile !== config.profile)
-			await conversation.commit(async (tx) => {
-				Object.assign(await tx.doc(SessionDoc, cid(id)), { agent: config.agent, profile: config.profile });
-			}, C);
-		this.configured.set(id, config);
+		await applyConfiguration(this.rt, id, config);
 	}
 	async configureModels(id: string, models: SessionModels | null): Promise<void> {
-		await (await this.conversation(id)).commit(async (tx) => {
-			(await tx.doc(SessionDoc, cid(id))).models = models;
-		}, C);
-		await this.configure(id);
+		await configureModels(this.rt, id, models);
 	}
 	async modelStatus(id: string) {
-		await this.configure(id);
-		const conversation = await this.conversation(id);
-		const agent = await conversation.agent(C);
-		const config = await this.sessionConfig(id);
-		const ref = agent.model;
-		const model = ref ? (await this.modelsFor(config)).getModel(ref.provider, ref.modelId) : undefined;
-		const view = await conversation.context(C);
-		const live = await this.harness.snapshot(LiveDoc, cid(id), C);
-		const policy = { ...DEFAULT_COMPACTION_POLICY, ...this.options.config.compaction };
-		const compactable = selectCut(view, policy.keepRecentTokens) !== undefined;
-		const graph = await this.harness.taskGraph(C);
-		try {
-			const all = Object.values(graph.value.tasks);
-			const scope = new Set([Number(id)]);
-			for (let changed = true; changed; ) {
-				changed = false;
-				for (const task of all)
-					if (scope.has(task.conversationId))
-						for (const child of task.conversations)
-							if (!scope.has(child)) {
-								scope.add(child);
-								changed = true;
-							}
-			}
-			return {
-				model: model
-					? { provider: model.provider, id: model.id, contextWindow: model.contextWindow, maxTokens: model.maxTokens }
-					: null,
-				thinking: agent.thinkingLevel,
-				primary: config.resolved.model,
-				fallback: config.resolved.fallback,
-				failures: live?.run?.modelFallback?.failures ?? 0,
-				running: !!live?.run,
-				contextTokens: estimateContext(view, []),
-				compact: {
-					available: !live?.compactions?.length && compactable,
-					reason: live?.compactions?.length ? "压缩进行中" : !compactable ? "尚无可压缩的较早上下文" : "可压缩",
-					tasks: (live?.compactions ?? []).map((task) => String(task.taskId)),
-					failure: live?.compactionFailure?.error,
-				},
-				tasks: await Promise.all(
-					all
-						.filter((task) => scope.has(task.conversationId))
-						.map(async (task) => {
-							const record = await this.harness.getTask(task.id, C);
-							const conversation = await this.harness.conversation(task.conversationId, C);
-							const native = await conversation?.agent(C);
-							const checkpoint =
-								record && record.state.status !== "terminal"
-									? (record.state.checkpoint as {
-											model?: { provider: string; modelId: string };
-											thinkingLevel?: string;
-										})
-									: undefined;
-							const selected = checkpoint?.model ?? native?.model;
-							const input = record?.input as { name?: string; args?: { agent?: string } } | undefined;
-							return {
-								name: input?.name,
-								model: selected ? `${selected.provider}/${selected.modelId}` : undefined,
-								thinking: checkpoint?.thinkingLevel ?? native?.thinkingLevel,
-								targetAgent: input?.name === "agent_ask" ? input.args?.agent : undefined,
-								id: String(task.id),
-								session: String(task.conversationId),
-								kind: task.kind,
-								owner: task.owner ? String(task.owner) : undefined,
-								background: task.background,
-								state: task.state.status,
-							};
-						}),
-				),
-			};
-		} finally {
-			graph.dispose();
-		}
+		return modelStatus(this.rt, id);
 	}
 	async compact(id: string, instructions?: string): Promise<string> {
-		const status = await this.modelStatus(id);
-		if (!status.compact.available) throw new Error(status.compact.reason);
-		return String(await (await this.conversation(id)).compact(instructions, C));
+		return compact(this.rt, id, instructions);
 	}
 	private async conversation(id: string) {
 		return conversationOf(this.rt, id);
