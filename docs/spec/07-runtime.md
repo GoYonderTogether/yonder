@@ -136,6 +136,11 @@ interface ServiceEndpoint { id: string; protocol: string; baseUrl: string; apiKe
 
 `await api.services.resolve('asr')` 按 `services` 的顺序返回第一个声明了该能力的服务（`models`、`voices` 取自该能力，`apiKey` 取自 `credential` 指向的当前 api_key 凭据），没有则返回 `undefined`；不缓存凭据。
 
+**工具图片与历史图片。** 插件工具可以把图片放进 `ToolResult.images`，pi 会把它连同 base64 写进转录，之后每次请求都重新发送。为此设两道统一处理，任何工具都不需要自己实现：
+
+- 结果出口：工具结果里带图片块时，内核按工具图片上限（1600×1600、base64 1.5 MB，比模型输入上限更严）重新编码；每个结果最多保留 4 张，无法处理的图片换成一行文字并写出工具自己记录的产物路径。`read` 工具本来受 pi 的 4.5 MB 限制保护，同样走这条出口。
+- 请求入口：generation 每次请求前，把**更早轮次**的图片换成一行文字（保留本轮最多 4 张、单张不超过 4.5 MB），占位文字带产物路径。转录本身不改，恢复与审计仍看到原始结果；压缩只读文字，不受影响。这条裁剪排在 `limits` 的图片数量检查之前，历史图片不会再把请求挡住。
+
 ## 7. 模型能看到的工具结果
 
 pi-durable 的工具结果原样进入转录。Yonder 内置工具（`message_send`、`task_run`、`session_*`、`identity.*`）的结果必须简短、结构化，失败时给出可执行的原因。被 `beforeTool` 拦下的调用，模型看到的是 `Tool call blocked: <原因>`。
