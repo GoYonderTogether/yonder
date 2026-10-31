@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.3.26103101] - 2026-10-31
+
+### Fixed
+
+- installer：stop PowerShell from overwriting the record path
+- installer：build Windows installs where they stay
+- app：keep code blocks dark in both themes and drop copy toasts
+
 ## [0.3.26103020] - 2026-10-30
 
 - 修复常驻群聊停止/恢复指令的模型调用竞态：请求前完成一次控制判定，并通过原生取消阻止控制输入消耗模型。
