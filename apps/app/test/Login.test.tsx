@@ -34,6 +34,9 @@ beforeEach(async () => {
 		),
 	);
 });
+beforeEach(async () => {
+	await act(async () => button("验证码登录 / 忘记密码")?.dispatchEvent(new window.Event("click", { bubbles: true })));
+});
 afterEach(async () => {
 	await act(() => root.unmount());
 	vi.unstubAllGlobals();
@@ -69,9 +72,9 @@ describe("Login 验证码登录", () => {
 	it("renders phone and email tabs and no password field", () => {
 		expect(container.textContent).toContain("手机号");
 		expect(container.textContent).toContain("邮箱");
-		expect(container.textContent).toContain("登录或注册");
+		expect(container.textContent).toContain("首次验证可创建账号");
 		expect(container.querySelector('input[type="password"]')).toBeNull();
-		// 只有目标 + 验证码两个输入框，没有密码框（文案里可以提“不需要密码”，但不能有密码输入）。
+		// 验证码模式只包含联系方式与验证码；密码登录另有入口。
 		expect(container.querySelectorAll("input")).toHaveLength(2);
 		expect([...container.querySelectorAll("label")].some((el) => el.textContent === "密码")).toBe(false);
 	});

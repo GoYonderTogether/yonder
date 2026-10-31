@@ -19,7 +19,7 @@ export async function request<T>(path: string, init: RequestInit = {}, missingAs
 	const text = await response.text();
 	if (!response.ok) {
 		// 登录接口的 401 是「验证码不正确」，不是会话失效；不能触发登出跳转。
-		if (response.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event("yonder:unauthorized"));
+
 		if (missingAsNull && response.status === 404) return null as T;
 		let message = response.statusText;
 		let retryAfter: number | undefined;
@@ -28,6 +28,12 @@ export async function request<T>(path: string, init: RequestInit = {}, missingAs
 			message = body.error ?? message;
 			retryAfter = body.retryAfter;
 		} catch {}
+		if (
+			response.status === 401 &&
+			!path.startsWith("/auth/") &&
+			!(path === "/me/password/reset" && message === "invalid_code")
+		)
+			window.dispatchEvent(new Event("yonder:unauthorized"));
 		const header = Number(response.headers.get("Retry-After"));
 		if (retryAfter === undefined && header > 0) retryAfter = header;
 		// status 让页面区分「节点没有社交服务」（404）与其他失败；retryAfter 来自锁定响应的剩余秒数。
