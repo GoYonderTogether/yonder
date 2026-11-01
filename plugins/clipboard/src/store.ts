@@ -69,7 +69,9 @@ export async function safeRead(file: string, limit: number, start = 0, end?: num
 	}
 }
 export async function allowedPath(path: string, roots: string[], writing = false): Promise<string> {
-	if (!path.startsWith("/") || path.includes("\0")) return fail("absolute_path_required");
+	// Windows 的绝对路径从盘符开始；POSIX 只认 "/"。
+	if (!path.includes("\0") && !(path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path) || path.startsWith("\\\\")))
+		return fail("absolute_path_required");
 	const normalized = resolve(path);
 	const parent = await realpath(writing ? dirname(normalized) : normalized);
 	// Reject aliases, including symlinks in intermediate directories.
@@ -95,7 +97,9 @@ export class Store {
 			const path = join(this.data, name);
 			await mkdir(path, { recursive: true, mode: 0o700 });
 			const s = await lstat(path);
-			if (!s.isDirectory() || s.isSymbolicLink() || s.uid !== process.getuid?.() || (s.mode & 0o077) !== 0)
+			// Windows 没有 uid 与 POSIX 权限位，只校验它是真实目录。
+			const posix = process.platform !== "win32";
+			if (!s.isDirectory() || s.isSymbolicLink() || (posix && (s.uid !== process.getuid?.() || (s.mode & 0o077) !== 0)))
 				fail("unsafe_data_directory");
 		}
 	}
