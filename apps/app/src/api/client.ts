@@ -1,4 +1,4 @@
-import type { Category, Listing, ListingKind } from "../market/types";
+import type { Category, Coordinates, Listing, ListingKind, ListingVisibility } from "../market/types";
 import type {
 	Actor,
 	Card,
@@ -25,6 +25,9 @@ import type {
 
 /** 云端 POST/PATCH 可写的帖子字段（与 server/src/market.ts listingInput 对齐）。 */
 export interface ListingInput {
+	visibility?: ListingVisibility;
+	expiresAt?: number | null;
+	coordinates?: Coordinates | null;
 	kind: ListingKind;
 	category: Category;
 	title: string;
@@ -43,6 +46,8 @@ export interface ListingInput {
 }
 
 export interface ListingQuery {
+	sellerId?: string;
+	status?: "active" | "paused" | "expired";
 	q?: string;
 	kind?: ListingKind;
 	category?: Category;
@@ -168,4 +173,5 @@ export interface ApiClient {
 	updateListing(id: string, input: Partial<Omit<ListingInput, "kind">>): Promise<Listing>;
 	/** 下架（paused）或重新上架（active）。 */
 	setListingPaused(id: string, paused: boolean): Promise<Listing>;
+	deleteListing(id: string): Promise<void>;
 }

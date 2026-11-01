@@ -1,7 +1,17 @@
 export type ListingKind = "item" | "service" | "request" | "idea" | "job" | "other";
 export type Category = "数码好物" | "生活方式" | "创意服务" | "技能与陪伴" | "户外出行";
 
+export type ListingVisibility = "public" | "friends" | "private";
+export interface Coordinates {
+	latitude: number;
+	longitude: number;
+}
+
 export interface Listing {
+	sellerId?: string;
+	visibility?: ListingVisibility;
+	expiresAt?: number | null;
+	coordinates?: Coordinates | null;
 	id: string;
 	kind: ListingKind;
 	category: Category;

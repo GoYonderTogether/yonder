@@ -1,5 +1,8 @@
 import { Bookmark, Eye, Heart } from "lucide-react";
+import { Link, useLocation } from "react-router";
+import { internalState } from "../../lib/navigation";
 import { compactCount, hasListingImage, kindLabel, priceLabel, viewCount } from "../../market/catalog";
+import { isExpired, locationLabel } from "../../market/listingPolicy";
 import type { Listing } from "../../market/types";
 import { SellerAvatar } from "./MarketUI";
 
@@ -18,6 +21,7 @@ export function ListingCard({
 	onSave: () => void;
 	onLike?: () => void;
 }) {
+	const location = useLocation();
 	return (
 		<article className="mk-listing">
 			<div className="mk-listing-visual">
@@ -45,11 +49,17 @@ export function ListingCard({
 				</button>
 				<div className="mk-price-row">
 					<p className="mk-price mk-card-price">{priceLabel(listing)}</p>
-					<span className="mk-muted">{listing.location}</span>
+					<span className="mk-muted">{locationLabel(listing)}</span>
 				</div>
 				<div className="mk-seller-row">
 					<SellerAvatar name={listing.seller} />
-					<span>{listing.seller}</span>
+					{listing.sellerId ? (
+						<Link to={`/shop/${encodeURIComponent(listing.sellerId)}`} state={internalState(location)}>
+							{listing.seller}
+						</Link>
+					) : (
+						<span>{listing.seller}</span>
+					)}
 				</div>
 				<div className="mk-card-meta">
 					<span title={listing.metricSource === "sample" ? "示例浏览量，包含 Bot 与用户浏览" : "Bot 与用户浏览合计"}>
@@ -67,7 +77,9 @@ export function ListingCard({
 						</button>
 					)}
 				</div>
-				{listing.paused && <p className="mk-form-hint">已下架</p>}
+				{(listing.paused || isExpired(listing)) && (
+					<p className="mk-form-hint">{listing.paused ? "已隐藏" : "已到期"}</p>
+				)}
 			</div>
 		</article>
 	);

@@ -94,6 +94,7 @@ export function ContactDetail({ a, desktop, embedded = false }: { a: Actor; desk
 	const body = (
 		<IdentityDetail
 			actor={a}
+			showShop={!(self && embedded)}
 			card={card}
 			summary={profile?.summary}
 			agents={

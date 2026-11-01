@@ -69,6 +69,7 @@ async function render(entry: string, state?: unknown) {
 					<Routes>
 						<Route path="/me" element={<Personal />} />
 						<Route path="/me/market/:section" element={<Market />} />
+						<Route path="/me/shop" element={<Market />} />
 						<Route path="*" element={<PersonalAvatar />} />
 					</Routes>
 				</MemoryRouter>
@@ -85,15 +86,15 @@ async function click(selector: string) {
 }
 const current = () => node.querySelector('[data-testid="location"]')?.textContent;
 it.each(["/", "/market?sort=new", "/contacts?q=Lin", "/work"])(
-	"头像从 %s 直达个人页，发布返回个人后再回原入口",
+	"头像从 %s 直达个人页，小店返回个人后再回原入口",
 	async (origin) => {
 		await render(origin);
 		expect(node.querySelector('[aria-label="打开个人页"]')).not.toBeNull();
 		await click('[aria-label="打开个人页"]');
 		expect(current()).toBe("/me");
 		expect(node.querySelector('[role="dialog"]')).toBeNull();
-		await click('a[aria-label="我的发布"]');
-		expect(current()).toBe("/me/market/posts");
+		await click('a[href="/me/shop"]');
+		expect(current()).toBe("/me/shop");
 		await click("button");
 		expect(current()).toBe("/me");
 		await click("button");

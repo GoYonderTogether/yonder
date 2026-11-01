@@ -1,12 +1,13 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Camera, ImagePlus } from "lucide-react";
+import { ArrowLeft, Camera, ChevronRight, ImagePlus } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { Navigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { api } from "../api";
 import type { Actor, Card, Profile, ProfileUpdateInput } from "../api/types";
 import { AppBar } from "../components/AppBar";
 import { CardCover } from "../components/card/CardCover";
+import { PhotoPicker, type PhotoPickerHandle } from "../components/PhotoPicker";
 import { usePersonalMarketBack } from "../lib/navigation";
 import { profileError, profileForm, profileSaveError } from "../lib/profileEditor";
 import { uploadMarketImage, validateMarketImage } from "../market/uploadImage";
@@ -76,8 +77,8 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 	const [coverFile, setCoverFile] = useState<File | null>(null);
 	const avatarPreview = useImagePreview(avatarFile);
 	const coverPreview = useImagePreview(coverFile);
-	const avatarInput = useRef<HTMLInputElement>(null);
-	const coverInput = useRef<HTMLInputElement>(null);
+	const picker = useRef<PhotoPickerHandle>(null);
+	const baseline = useRef(JSON.stringify(profileForm(actor, card)));
 	const pending = useRef(false);
 	const alive = useRef(true);
 	const uploads = useRef(new Map<File, string>());
@@ -174,12 +175,23 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 		}
 	};
 	const invalid = profileError(form);
+	const dirty = !!avatarFile || !!coverFile || JSON.stringify(form) !== baseline.current;
+	const mayLeave = () => !dirty || window.confirm("有尚未保存的修改，确定离开吗？");
 	return (
 		<div className="relative flex h-full min-h-0 flex-col overflow-hidden bg-ground lg:m-2 lg:ml-0 lg:h-[calc(100%-1rem)] lg:rounded-panel lg:shadow-soft">
 			<AppBar
 				title="编辑个人资料"
 				left={
-					<Button type="button" size="icon" variant="ghost" aria-label="返回我的" onClick={back} disabled={busy}>
+					<Button
+						type="button"
+						size="icon"
+						variant="ghost"
+						aria-label="返回我的"
+						onClick={() => {
+							if (mayLeave()) back();
+						}}
+						disabled={busy}
+					>
 						<ArrowLeft size={20} />
 					</Button>
 				}
@@ -206,7 +218,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 									type="button"
 									className="bg-raised text-ink"
 									disabled={busy}
-									onClick={() => coverInput.current?.click()}
+									onClick={() => picker.current?.open("cover")}
 								>
 									<ImagePlus size={16} />
 									更换背景
@@ -223,7 +235,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 								type="button"
 								disabled={busy}
 								aria-label="更换头像"
-								onClick={() => avatarInput.current?.click()}
+								onClick={() => picker.current?.open("avatar")}
 								className="press relative -mt-9 shrink-0 rounded-full bg-raised p-1"
 							>
 								<span className="relative block size-20 overflow-hidden rounded-full">
@@ -248,21 +260,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 								</Button>
 							)}
 						</div>
-						{(["avatar", "cover"] as const).map((kind) => (
-							<input
-								key={kind}
-								type="file"
-								hidden
-								ref={kind === "avatar" ? avatarInput : coverInput}
-								aria-label={kind === "avatar" ? "选择头像" : "选择背景"}
-								accept="image/jpeg,image/png,image/webp"
-								disabled={busy}
-								onChange={(event) => {
-									select(kind, event.target.files?.[0]);
-									event.currentTarget.value = "";
-								}}
-							/>
-						))}
+						<PhotoPicker ref={picker} disabled={busy} onApply={select} onError={setError} />
 					</section>
 					<fieldset disabled={busy} className="flex flex-col gap-5">
 						<Field
@@ -277,18 +275,6 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 							value={form.tagline}
 							onChange={(event) => setForm({ ...form, tagline: event.target.value })}
 						/>
-						<label className="flex flex-col gap-1.5 text-small text-muted">
-							<span className="flex justify-between">
-								<span>访客开场白</span>
-								<span className="text-caption">{[...form.markdown].length}/2000</span>
-							</span>
-							<textarea
-								rows={4}
-								value={form.markdown}
-								onChange={(event) => setForm({ ...form, markdown: event.target.value })}
-								className="field w-full resize-y rounded-control bg-tone px-3.5 py-3 text-body text-ink outline-none"
-							/>
-						</label>
 					</fieldset>
 					<fieldset disabled={busy} className="rounded-card bg-raised">
 						<legend className="mb-2 text-small font-medium text-muted">名片展示</legend>
@@ -296,7 +282,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 							[
 								{ key: "signature", label: "个性签名" },
 								{ key: "code", label: "账号 ID" },
-								{ key: "greeting", label: "访客开场白" },
+								{ key: "shop", label: "个人小店" },
 							] as const
 						).map(({ key, label }) => (
 							<label
@@ -326,6 +312,20 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 							</label>
 						))}
 					</fieldset>
+					<Link
+						to="/me/shop"
+						aria-disabled={busy}
+						onClick={(event) => {
+							if (busy || !mayLeave()) event.preventDefault();
+						}}
+						className="press flex min-h-14 items-center justify-between rounded-card bg-raised px-4 hover:bg-tone"
+					>
+						<span className="font-medium">我的小店</span>
+						<span className="flex items-center gap-1 text-small text-accent-ink">
+							管理
+							<ChevronRight size={16} />
+						</span>
+					</Link>
 					{(error || invalid) && (
 						<p role="alert" className="text-small text-danger">
 							{error ?? invalid}

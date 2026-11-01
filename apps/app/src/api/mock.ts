@@ -568,6 +568,7 @@ export const mockApi: ApiClient = {
 		return { ...a };
 	},
 	async marketListings(query = {}) {
+		if (query.sellerId || query.status) throw new Error("小店需要连接真实市场服务");
 		await wait();
 		const all = marketListings().filter((l) => !query.mine || l.mine);
 		const filtered = query.mine
@@ -595,6 +596,8 @@ export const mockApi: ApiClient = {
 		return listing && (!listing.paused || listing.mine) ? { ...listing } : null;
 	},
 	async createListing(input) {
+		if (input.visibility !== undefined || input.expiresAt !== undefined || input.coordinates !== undefined)
+			throw new Error("发布权限与有效期需要连接真实市场服务");
 		await wait();
 		const listing: Listing = {
 			...input,
@@ -610,10 +613,15 @@ export const mockApi: ApiClient = {
 		return { ...listing };
 	},
 	async updateListing(id, input) {
+		if (input.visibility !== undefined || input.expiresAt !== undefined || input.coordinates !== undefined)
+			throw new Error("发布权限与有效期需要连接真实市场服务");
 		await wait();
 		const listing = findListing(id);
 		Object.assign(listing, input, { image: input.images?.[0] ?? listing.image });
 		return { ...listing };
+	},
+	async deleteListing() {
+		throw new Error("本地原型不支持删除发布，请连接真实市场服务");
 	},
 	async setListingPaused(id, paused) {
 		await wait();

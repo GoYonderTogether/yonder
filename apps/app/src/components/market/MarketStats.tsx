@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bookmark, ChevronRight, Eye, Heart, Package, Sparkles } from "lucide-react";
+import { ArrowUpRight, Bookmark, ChevronRight, Eye, Heart, Sparkles, Store } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { internalState } from "../../lib/navigation";
 import { compactCount, hasListingImage, viewCount } from "../../market/catalog";
@@ -15,14 +15,45 @@ export function MyMarket() {
 	const savedCount = state.saved.filter((id) => !lookup.missing.includes(id)).length;
 	const likedCount = state.liked.filter((id) => !lookup.missing.includes(id)).length;
 	const staleSaved = state.saved.filter((id) => lookup.missing.includes(id)).length;
-	const mine = feed.items;
-	// 示例数据不当真实浏览数展示（UX-04）；有真实数据的发布才显示这一行
-	const real = mine.filter((l) => l.metricSource !== "sample");
+	const real = feed.items.filter((listing) => listing.metricSource !== "sample");
 	return (
 		<section aria-label="我的市场" className="overflow-hidden rounded-card bg-raised">
-			<div className="grid grid-cols-4 gap-1 px-2 py-5">
+			<Link to="/me/shop" state={internalState(location)} className="press block px-5 py-4 hover:bg-tone">
+				<div className="flex items-center gap-3">
+					<Store size={21} className="text-muted" />
+					<span className="flex-1 font-medium">我的小店</span>
+					<ChevronRight size={17} className="text-faint" />
+				</div>
+				{feed.isPending ? (
+					<p className="mt-3 text-caption text-muted">正在加载发布…</p>
+				) : feed.isError ? (
+					<p className="mt-3 text-caption text-muted">发布暂时无法加载，进入小店重试</p>
+				) : (
+					<>
+						<div className="mt-3 flex items-center gap-2">
+							{feed.items
+								.slice(0, 3)
+								.filter((listing) => hasListingImage(listing.image))
+								.map((listing) => (
+									<img key={listing.id} src={listing.image} alt="" className="size-14 rounded-control object-cover" />
+								))}
+							<span className="text-caption text-muted">
+								{feed.items.length
+									? `已加载 ${feed.items.length} 条发布${feed.hasNextPage ? "，还有更多" : ""}`
+									: "还没有发布"}
+							</span>
+						</div>
+						{real.length > 0 && (
+							<p className="mt-2 text-caption text-muted">
+								{compactCount(real.reduce((total, listing) => total + viewCount(listing), 0))} 次浏览
+								{feed.hasNextPage ? "（已加载）" : ""}
+							</p>
+						)}
+					</>
+				)}
+			</Link>
+			<div className="grid grid-cols-3 border-t border-hairline/60 px-2 py-3">
 				{[
-					{ route: "posts", title: "发布", count: `${mine.length}${feed.hasNextPage ? "+" : ""}`, icon: Package },
 					{ route: "saved", title: "收藏", count: savedCount, icon: Bookmark },
 					{ route: "liked", title: "点赞", count: likedCount, icon: Heart },
 					{ route: "needs", title: "需求", count: state.tasks.length, icon: Sparkles },
@@ -43,23 +74,9 @@ export function MyMarket() {
 				))}
 			</div>
 			{staleSaved > 0 && (
-				<p className="mt-3 rounded-control bg-tone/60 px-5 py-3 text-caption text-muted">
+				<p className="px-5 pb-3 text-caption text-muted">
 					有 {staleSaved} 条收藏已失效（帖子已下架或删除），不再计入。
 				</p>
-			)}
-			{real.length > 0 && (
-				<Link
-					to="/me/market/stats"
-					state={internalState(location)}
-					className="press mt-1 flex min-h-14 items-center gap-3 rounded-control px-5 hover:bg-tone"
-				>
-					<Eye size={19} className="text-muted" />
-					<span className="flex-1 text-small">浏览数据</span>
-					<span className="text-small text-muted">
-						{compactCount(real.reduce((n, l) => n + viewCount(l), 0))} 次浏览{feed.hasNextPage ? "（已加载）" : ""}
-					</span>
-					<ChevronRight size={15} className="text-faint" />
-				</Link>
 			)}
 		</section>
 	);

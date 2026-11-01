@@ -25,7 +25,13 @@ const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Mar
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const ProfileEdit = lazy(() => import("./pages/ProfileEdit").then((m) => ({ default: m.ProfileEdit })));
+const Shop = lazy(() => import("./pages/Shop").then((m) => ({ default: m.Shop })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
+
+function MarketPostsRedirect() {
+	const location = useLocation();
+	return <Navigate to={"/me/shop" + location.search} replace state={location.state} />;
+}
 
 function Private({ children }: { children: ReactNode }) {
 	const s = useStore($session);
@@ -68,6 +74,7 @@ export function App() {
 				<Routes>
 					<Route path="/login" element={<Login />} />
 					<Route path="/u/:id" element={<CardPage />} />
+					<Route path="/shop/:accountId" element={<Shop />} />
 					<Route path="/p/:accountId" element={<CardPage />} />
 					<Route path="/g/:token" element={<GroupJoin />} />
 					<Route path="/get" element={<Install />} />
@@ -85,6 +92,7 @@ export function App() {
 						<Route path="/market" element={<Market />} />
 						<Route path="/market/search" element={<Market />} />
 						<Route path="/market/category/:channel" element={<Market />} />
+						<Route path="/me/market/posts" element={<MarketPostsRedirect />} />
 						<Route path="/me/market/:section" element={<Market />} />
 						<Route path="/cards/:id?" element={<CardsRedirect />} />
 						<Route path="/cards/:id/edit" element={<CardsRedirect />} />
@@ -93,6 +101,7 @@ export function App() {
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />
 						<Route path="/me" element={<Me />} />
+						<Route path="/me/shop" element={<Shop />} />
 						<Route path="/me/edit" element={<ProfileEdit />} />
 						<Route path="/me/settings/:section?" element={<SettingsPage />} />
 						<Route path="/work/*" element={<WorkRoot />} />

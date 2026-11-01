@@ -49,6 +49,7 @@ export async function request<T>(path: string, init: RequestInit = {}, missingAs
 /** 云端帖子视图（server/src/market.ts listingView）转成页面用的 Listing：图片取首张，状态转 paused。 */
 type CloudListing = Omit<Listing, "image" | "paused" | "metrics"> & {
 	images: string[];
+	sellerId: string;
 	status: "active" | "paused";
 	updatedAt: number;
 	metrics: { shortlists: number; likes?: number; humanViews?: number; agentViews?: number; inquiries?: number };
@@ -68,6 +69,17 @@ const json = (method: string, body?: unknown): RequestInit => ({
 	method,
 	...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
 });
+
+async function ensureMarketSupport(capability: "listingPolicy" | "sellerShops") {
+	let support: { listingPolicy?: boolean; sellerShops?: boolean } | null;
+	try {
+		support = await request("/market/capabilities", { cache: "no-store" });
+	} catch (error) {
+		if ((error as { status?: number }).status !== 404) throw error;
+		throw new Error("市场服务尚未升级，小店与发布设置暂不可用。");
+	}
+	if (support?.[capability] !== true) throw new Error("市场服务尚未升级，小店与发布设置暂不可用。");
+}
 
 export const httpApi: ApiClient = {
 	resolve: (kind, reference) => request(`/resolve/${kind}/${encodeURIComponent(reference)}`, {}, true),
@@ -191,6 +203,7 @@ export const httpApi: ApiClient = {
 	createBot: (input) => request<Actor>("/bots", json("POST", input)),
 	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),
 	marketListings: async (query = {}) => {
+		if (query.sellerId || query.status) await ensureMarketSupport("sellerShops");
 		const params = new URLSearchParams();
 		for (const [key, value] of Object.entries(query)) {
 			if (value !== undefined && value !== "")
@@ -203,16 +216,27 @@ export const httpApi: ApiClient = {
 		const item = await request<CloudListing | null>(`/market/listings/${encodeURIComponent(id)}`, {}, true);
 		return item ? toListing(item) : null;
 	},
-	createListing: async (input) => toListing(await request<CloudListing>("/market/listings", json("POST", input))),
-	updateListing: async (id, input) =>
-		toListing(await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", input))),
-	setListingPaused: async (id, paused) =>
-		toListing(
+	createListing: async (input) => {
+		await ensureMarketSupport("listingPolicy");
+		return toListing(await request<CloudListing>("/market/listings", json("POST", input)));
+	},
+	updateListing: async (id, input) => {
+		await ensureMarketSupport("listingPolicy");
+		return toListing(await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", input)));
+	},
+	deleteListing: async (id) => {
+		await ensureMarketSupport("listingPolicy");
+		return request(`/market/listings/${encodeURIComponent(id)}`, json("DELETE"));
+	},
+	setListingPaused: async (id, paused) => {
+		await ensureMarketSupport("listingPolicy");
+		return toListing(
 			await request<CloudListing>(
 				`/market/listings/${encodeURIComponent(id)}/${paused ? "pause" : "resume"}`,
 				json("POST"),
 			),
-		),
+		);
+	},
 	setAgentOnline: (agentId, online) =>
 		request(`/agents/${encodeURIComponent(agentId)}/online`, json("PUT", { online })),
 	deviceCode: (code) => request(`/device/code?code=${encodeURIComponent(code)}`),

@@ -52,7 +52,7 @@ export function CardFaceView({
 	const configuredCover = face?.coverUrl !== undefined;
 	const tags = face?.tags ?? [];
 	const section =
-		face?.visibility?.greeting === false || !(face?.section?.title?.trim() || face?.section?.body?.trim())
+		!agent || face?.visibility?.greeting === false || !(face?.section?.title?.trim() || face?.section?.body?.trim())
 			? undefined
 			: face.section;
 	const sticker = face?.sticker;

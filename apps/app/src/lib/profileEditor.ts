@@ -6,6 +6,7 @@ export const cardVisibility = (face?: CardFace): CardVisibility => ({
 	code: true,
 	greeting: true,
 	...face?.visibility,
+	shop: face?.visibility?.shop !== false,
 });
 
 /** Explicit profile preferences never fall back to an older face headline or summary. */

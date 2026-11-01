@@ -24,7 +24,7 @@ export function Shell() {
 	const workMatch = useMatch("/work/:id");
 	const deviceSession = useMatch("/work/device/:device/:session");
 	const hidden =
-		[useMatch("/c/:id"), useMatch("/contacts/:id"), useMatch("/me/edit")].some(Boolean) ||
+		[useMatch("/c/:id"), useMatch("/contacts/:id"), useMatch("/me/edit"), useMatch("/me/shop")].some(Boolean) ||
 		!!deviceSession ||
 		(!!workMatch && !(WORK_PAGES as readonly string[]).includes(workMatch.params.id ?? ""));
 	const active = (path: string) =>

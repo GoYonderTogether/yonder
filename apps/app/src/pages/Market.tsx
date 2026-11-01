@@ -35,6 +35,7 @@ import { selectPersonalAgent, usePersonalAgent } from "../lib/personalAgent";
 import { CHANNELS } from "../market/catalog";
 import { defaultFilters, type MarketFilters, priceError } from "../market/flows";
 import { listingContext, needContext } from "../market/handoff";
+import { listingInput, marketError } from "../market/listingPolicy";
 import { findMatches, taskTitle } from "../market/matching";
 import { listingFilters, useListingFeed, useListingLookup } from "../market/queries";
 import { useMarketState } from "../market/store";
@@ -165,6 +166,14 @@ export function Market() {
 	const matches = useMemo(() => (activeTask ? findMatches(listings, activeTask) : []), [listings, activeTask]);
 	const detail = referenced.find((l) => l.id === params.get("item")) ?? null;
 	const editing = referenced.find((l) => l.id === params.get("edit"));
+	useEffect(() => {
+		if (panel !== "assist" || !detail) return;
+		setHandoff(listingContext(detail));
+		const next = new URLSearchParams(params);
+		next.delete("panel");
+		next.delete("item");
+		setParams(next, { replace: true, state: location.state });
+	}, [panel, detail, params, setParams, location.state]);
 	const comparison = state.compare.flatMap((id) => {
 		const item = referenced.find((l) => l.id === id);
 		return item ? [item] : [];
@@ -227,33 +236,18 @@ export function Market() {
 			toast("草稿中的图片无法发布，请重新编辑草稿", true);
 			return false;
 		}
-		const input = {
-			category: listing.category,
-			title: listing.title,
-			description: listing.description,
-			price: listing.price,
-			unit: listing.unit,
-			location: listing.location,
-			delivery: listing.delivery,
-			images: listing.image ? [listing.image] : [],
-			sellerRole: listing.sellerRole,
-			discoverable: listing.discoverable !== false,
-			agent: listing.agent,
-			tags: listing.tags,
-			facts: listing.facts,
-			missing: listing.missing,
-		};
+		const { kind: listingKind, ...input } = listingInput(listing, editing);
 		try {
 			if (editing) await api.updateListing(editing.id, input);
-			else await api.createListing({ ...input, kind: listing.kind });
+			else await api.createListing({ ...input, kind: listingKind });
 		} catch (error) {
-			toast(error instanceof Error ? error.message : "发布失败，请重试", true);
+			toast(marketError(error), true);
 			return false;
 		}
 		await qc.invalidateQueries({ queryKey: ["market-listings"] });
 		setMineTab("published");
-		navigate("/me/market/posts", { replace: true });
-		toast(editing ? "修改已保存" : "已发布，可在「我 · 我的发布」管理");
+		navigate("/me/shop", { replace: true, state: location.state });
+		toast(editing ? "修改已保存" : "已发布，可在「我的小店」管理");
 		return true;
 	};
 	const refresh = (id: string) => {
@@ -285,6 +279,7 @@ export function Market() {
 	if (home && params.get("view") === "agent")
 		return <Navigate to={"/me/market/needs" + (params.get("task") ? "?task=" + params.get("task") : "")} replace />;
 	if (home && params.get("view") === "selling") return <Navigate to="/me/market/posts" replace />;
+	if (route.section === "posts") return <Navigate to={"/me/shop" + location.search} replace state={location.state} />;
 	if ((route.channel && !channel) || (route.section && !personal))
 		return <Navigate to={route.section ? "/me" : "/market"} replace />;
 	const collection = view === "saved" || view === "liked";
@@ -507,12 +502,6 @@ export function Market() {
 													去市场逛逛
 													<ArrowRight size={16} />
 												</Link>
-											)}
-											{view === "discover" && !searching && listings.length === 0 && (
-												<button type="button" className="mk-button mk-primary" onClick={() => openPanel("publish")}>
-													<Plus size={16} />
-													发布第一条
-												</button>
 											)}
 										</div>
 									)}

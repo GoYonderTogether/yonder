@@ -76,6 +76,7 @@ export interface CardDisplay {
 
 /** 卡面结构（card-form.md §8），全部可选；只有名字必须。 */
 export interface CardVisibility {
+	shop?: boolean;
 	signature: boolean;
 	code: boolean;
 	greeting: boolean;

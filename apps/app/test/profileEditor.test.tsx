@@ -16,6 +16,35 @@ import { $session } from "../src/store";
 
 const api = vi.hoisted(() => ({ cards: vi.fn(), saveProfile: vi.fn(), contacts: vi.fn() }));
 vi.mock("../src/api", () => ({ api }));
+vi.mock("../src/components/PhotoPicker", async () => {
+	const { useImperativeHandle } = await import("react");
+	return {
+		PhotoPicker: ({
+			ref,
+			onApply,
+		}: {
+			ref: React.Ref<unknown>;
+			onApply(kind: "avatar" | "cover", file: File): void;
+		}) => {
+			useImperativeHandle(ref, () => ({ open() {} }));
+			return (
+				<>
+					{(["avatar", "cover"] as const).map((kind) => (
+						<input
+							key={kind}
+							type="file"
+							aria-label={kind === "avatar" ? "选择头像" : "选择背景"}
+							onChange={(event) => {
+								const file = event.target.files?.[0];
+								if (file) onApply(kind, file);
+							}}
+						/>
+					))}
+				</>
+			);
+		},
+	};
+});
 vi.mock("../src/market/uploadImage", async (actual) => ({
 	...(await actual<typeof import("../src/market/uploadImage")>()),
 	uploadMarketImage: vi.fn(),
@@ -122,7 +151,7 @@ it("loads the default card, preserves greeting whitespace, and saves the complet
 		tagline: "签名",
 		markdown: " 开场白 ",
 		coverUrl: null,
-		visibility: { signature: false, code: true, greeting: true },
+		visibility: { signature: false, code: true, greeting: true, shop: true },
 	});
 	expect($session.get()?.actor.name).toBe("新昵称");
 	expect(qc.getQueryData<Card>(["card", "card"])?.title).toBe("新昵称");
@@ -251,7 +280,8 @@ describe("validation and public display", () => {
 			</MemoryRouter>,
 		);
 		expect(html).toContain(actor.name);
-		for (const hidden of ["旧签名", "旧摘要", "隐私开场白", "ABC123", "iframe"]) expect(html).not.toContain(hidden);
+		for (const hidden of ["旧签名", "旧摘要", "隐私开场白", "iframe"]) expect(html).not.toContain(hidden);
+		expect(html).not.toContain("ID · ABC123");
 		const qr = renderToStaticMarkup(
 			<CardQrView actor={actor} url="https://yonderbot.net/u/abc123" headline="旧签名" face={face} />,
 		);
@@ -326,7 +356,7 @@ it("an upload failure retains the file and text for retry without sending a part
 	expect(api.saveProfile).toHaveBeenCalledTimes(1);
 });
 
-it("rejects unsupported files and removes failed preview images safely", async () => {
+it("rejects invalid crop output and removes failed preview images safely", async () => {
 	await render();
 	await act(() =>
 		props(required('[aria-label="选择头像"]')).onChange({
@@ -346,4 +376,31 @@ it("rejects unsupported files and removes failed preview images safely", async (
 	await act(() => props(required('img[src="blob:preview"]')).onError({}));
 	expect(el.querySelector("img")).toBeNull();
 	expect(el.textContent).toContain(actor.name);
+});
+
+it("removes the opening controls while preserving existing hidden content and greeting preference", async () => {
+	api.cards.mockResolvedValue([
+		{ ...card, face: { theme: "mist", visibility: { signature: true, code: true, greeting: false } } },
+	]);
+	await render();
+	expect(el.querySelector("textarea")).toBeNull();
+	expect(el.querySelector('[aria-label="展示访客开场白"]')).toBeNull();
+	expect(el.querySelector('[aria-label="展示个人小店"]')).toBeTruthy();
+	await submit();
+	expect(api.saveProfile.mock.calls[0][0]).toMatchObject({
+		markdown: " 开场白 ",
+		visibility: { greeting: false, shop: true },
+	});
+});
+it("asks before opening shop management with unsaved profile edits", async () => {
+	const confirm = vi.fn().mockReturnValue(false);
+	window.confirm = confirm;
+	await render();
+	await name("未保存");
+	await act(() =>
+		required('a[href="/me/shop"]').dispatchEvent(new window.Event("click", { bubbles: true, cancelable: true })),
+	);
+	expect(confirm).toHaveBeenCalledOnce();
+	expect(required("output").textContent).toBe("/me/edit");
+	expect(required("input[required]").getAttribute("value")).toBe("未保存");
 });

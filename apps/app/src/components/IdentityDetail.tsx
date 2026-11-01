@@ -1,3 +1,4 @@
+import { ChevronRight, Store } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router";
 import type { Actor, Profile } from "../api/types";
@@ -21,6 +22,7 @@ export function IdentityDetail({
 	children,
 	publicView = false,
 	showCode = true,
+	showShop = true,
 }: {
 	actor: Actor;
 	/** 名片页传完整名片（含 title）；个人页只有 Profile 的摘要卡，没有 title */
@@ -34,6 +36,7 @@ export function IdentityDetail({
 	publicView?: boolean;
 	/** 名片页的地址用名片码，账号码与之不同，在名片页隐藏以免两个码混淆 */
 	showCode?: boolean;
+	showShop?: boolean;
 }) {
 	const loc = useLocation();
 	const [expandedFor, setExpandedFor] = useState<string | null>(null);
@@ -109,7 +112,7 @@ export function IdentityDetail({
 					{actions}
 				</div>
 			</section>
-			{visibility.greeting && (card?.markdown?.trim() || section) && (
+			{agent && visibility.greeting && (card?.markdown?.trim() || section) && (
 				<section aria-label="介绍" className="flex flex-col gap-4 rounded-card bg-raised p-5">
 					<h2 className="text-small font-medium text-muted">介绍</h2>
 					{section && (
@@ -124,6 +127,17 @@ export function IdentityDetail({
 						</article>
 					)}
 				</section>
+			)}
+			{showShop && !agent && !actor.anonymous && visibility.shop !== false && (
+				<Link
+					to={`/shop/${entityRef(actor)}`}
+					state={internalState(loc)}
+					className="press flex min-h-16 items-center gap-3 rounded-card bg-raised px-5 hover:bg-tone"
+				>
+					<Store size={21} className="text-muted" />
+					<span className="flex-1 font-medium">小店</span>
+					<ChevronRight size={17} className="text-muted" />
+				</Link>
 			)}
 			{!!agents.length && (
 				<section aria-label={publicView ? "公开 Bot" : "Bot"} className="overflow-hidden rounded-card bg-raised">

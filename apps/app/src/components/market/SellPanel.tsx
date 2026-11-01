@@ -15,9 +15,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "../../lib/cn";
 import { hasListingImage, kindLabel, priceLabel } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
-import type { Listing, ListingKind } from "../../market/types";
+import { locationLabel, selectedExpiry, VISIBILITY_LABEL } from "../../market/listingPolicy";
+import type { Coordinates, Listing, ListingKind, ListingVisibility } from "../../market/types";
 import { uploadMarketImage } from "../../market/uploadImage";
 import { MarketDialog } from "./MarketUI";
+import { PublishPolicyFields } from "./PublishPolicyFields";
 
 export { SellerWorkspace } from "./SellerWorkspace";
 
@@ -28,7 +30,10 @@ const BLANK = {
 	description: "",
 	price: "",
 	unit: "",
-	location: "上海",
+	location: "",
+	coordinates: null as Coordinates | null,
+	visibility: "public" as ListingVisibility,
+	duration: "forever",
 	delivery: "",
 	discoverable: true,
 	image: "",
@@ -56,6 +61,7 @@ export function PublishDialog({
 	const [error, setError] = useState("");
 	const [publishing, setPublishing] = useState(false);
 	const [uploading, setUploading] = useState(false);
+	const [locating, setLocating] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState(0);
 	const formRef = useRef(form);
 	formRef.current = form;
@@ -64,6 +70,7 @@ export function PublishDialog({
 	useEffect(() => {
 		if (!open) return;
 		composing.current = false;
+		setLocating(false);
 		let draft: { form: typeof BLANK; step: number } | undefined;
 		try {
 			draft = JSON.parse(localStorage.getItem(draftKey) ?? "null");
@@ -81,6 +88,9 @@ export function PublishDialog({
 						price: String(editing.price),
 						unit: editing.unit,
 						location: editing.location,
+						coordinates: editing.coordinates ?? null,
+						visibility: editing.visibility ?? "public",
+						duration: "keep",
 						delivery: editing.delivery,
 						discoverable: editing.discoverable !== false,
 						image: editing.image,
@@ -145,6 +155,7 @@ export function PublishDialog({
 		}
 	};
 	const next = () => {
+		if (publishing || uploading || locating) return;
 		if (step === 1 && (!form.title.trim() || !form.description.trim())) {
 			setError("请填写标题和描述");
 			return;
@@ -158,8 +169,8 @@ export function PublishDialog({
 				setError(openEnded ? "金额不能为负数" : "请填写大于 0 的价格");
 				return;
 			}
-			if (!form.location.trim() || !form.delivery.trim()) {
-				setError("请填写地点和交付方式");
+			if (!form.delivery.trim()) {
+				setError("请填写交付方式");
 				return;
 			}
 		}
@@ -171,7 +182,7 @@ export function PublishDialog({
 		} else go(step + 1);
 	};
 	const publish = async () => {
-		if (publishing) return;
+		if (publishing || uploading || locating) return;
 		const listing: Listing = {
 			id: editing?.id ?? crypto.randomUUID(),
 			kind: form.kind,
@@ -181,6 +192,10 @@ export function PublishDialog({
 			price: Number(form.price),
 			unit: form.unit.trim(),
 			location: form.location.trim(),
+			coordinates: form.coordinates,
+			visibility: form.visibility,
+			expiresAt: selectedExpiry(form.duration, editing?.expiresAt),
+			sellerId: editing?.sellerId,
 			delivery: form.delivery.trim(),
 			image: !editing && !hasListingImage(form.image) ? "" : form.image,
 			seller: "我",
@@ -222,7 +237,7 @@ export function PublishDialog({
 		<MarketDialog
 			open={open}
 			close={() => {
-				if (!uploading) close();
+				if (!uploading && !publishing && !locating) close();
 			}}
 			title={["发布什么？", "让人一眼了解", openEnded ? "安排与费用" : "价格与交付", "确认发布"][step]}
 		>
@@ -426,15 +441,14 @@ export function PublishDialog({
 									/>
 								</label>
 							</div>
-							<label className="mk-form-label">
-								所在城市（必填）
-								<input
-									placeholder="城市或线上"
-									aria-required="true"
-									value={form.location}
-									onChange={(e) => update("location", e.target.value)}
-								/>
-							</label>
+							<PublishPolicyFields
+								value={form}
+								editing={!!editing}
+								disabled={publishing || uploading}
+								onBusy={setLocating}
+								onError={setError}
+								onChange={(patch) => persist({ ...formRef.current, ...patch })}
+							/>
 							<label className="mk-form-label">
 								{openEnded ? "参与方式（必填）" : "交付方式（必填）"}
 								<input
@@ -462,7 +476,23 @@ export function PublishDialog({
 					{step === 3 && (
 						<div className="mk-publish-review">
 							{hasListingImage(form.image) && <img src={form.image} alt="发布封面" />}
-							<p className="mk-muted">{form.location}</p>
+							<p className="mk-muted">
+								{locationLabel(form)} · {VISIBILITY_LABEL[form.visibility]}
+							</p>
+							{form.coordinates && (
+								<p className="mk-form-hint">
+									将随发布展示近似定位：{form.coordinates.latitude}, {form.coordinates.longitude}
+								</p>
+							)}
+							<p className="mk-form-hint">
+								{form.duration === "keep"
+									? editing?.expiresAt
+										? `有效至 ${new Date(editing.expiresAt).toLocaleString()}`
+										: "长期有效"
+									: form.duration === "forever"
+										? "长期有效"
+										: `发布后 ${form.duration} 天到期`}
+							</p>
 							<h2>{form.title}</h2>
 							<p className="mk-price">{priceLabel({ ...form, price: Number(form.price) })}</p>
 							<p className="mk-description">{form.description}</p>
@@ -487,14 +517,19 @@ export function PublishDialog({
 				</div>
 				<div className="mk-wizard-footer">
 					{step > 0 ? (
-						<button type="button" className="mk-button" onClick={() => go(step - 1)}>
+						<button
+							type="button"
+							className="mk-button"
+							disabled={publishing || uploading || locating}
+							onClick={() => go(step - 1)}
+						>
 							<ArrowLeft size={16} />
 							上一步
 						</button>
 					) : (
 						<span className="mk-form-hint">草稿自动保留</span>
 					)}
-					<button type="submit" className="mk-button mk-primary" disabled={publishing || uploading}>
+					<button type="submit" className="mk-button mk-primary" disabled={publishing || uploading || locating}>
 						{publishing ? "发布中…" : step === 3 ? (editing ? "保存修改" : "确认发布") : "下一步"}
 						{step === 3 ? <Check size={16} /> : <ArrowRight size={16} />}
 					</button>

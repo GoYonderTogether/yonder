@@ -158,9 +158,9 @@ it("必填标识与不同类型的校验一致", async () => {
 	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(2);
 	await submit();
 	expect(container.textContent).toContain("价格（元，必填）");
-	expect(container.textContent).toContain("所在城市（必填）");
+	expect(container.textContent).toContain("地点（可选）");
 	expect(container.textContent).toContain("交付方式（必填）");
-	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(3);
+	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(2);
 });
 
 it("创意发布的金额可选，参与方式必填", async () => {
@@ -168,7 +168,7 @@ it("创意发布的金额可选，参与方式必填", async () => {
 	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
 	expect(container.textContent).toContain("金额（可留空，面议）");
 	expect(container.textContent).toContain("参与方式（必填）");
-	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(2);
+	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(1);
 	await submit();
 	expect(container.textContent).not.toContain("不会出现在他人的市场列表中");
 });

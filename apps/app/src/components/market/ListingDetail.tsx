@@ -1,5 +1,8 @@
 import { ArrowRight, Bookmark, Check, Eye, Heart, MessageCircle, Pencil, Plus, X } from "lucide-react";
+import { Link, useLocation } from "react-router";
+import { internalState } from "../../lib/navigation";
 import { hasListingImage, kindLabel, priceLabel, viewCount } from "../../market/catalog";
+import { isExpired, locationLabel } from "../../market/listingPolicy";
 import type { Listing, Match } from "../../market/types";
 import { MarketDialog, SellerAvatar } from "./MarketUI";
 
@@ -15,7 +18,9 @@ export function ListingDetail({
 	onCompare,
 	onInquiry,
 	onEdit,
+	canCompare = true,
 }: {
+	canCompare?: boolean;
 	listing: Listing | null;
 	match?: Match;
 	liked: boolean;
@@ -28,6 +33,7 @@ export function ListingDetail({
 	onInquiry: (listing: Listing) => void;
 	onEdit: (listing: Listing) => void;
 }) {
+	const location = useLocation();
 	return (
 		<MarketDialog
 			open={!!listing}
@@ -46,8 +52,8 @@ export function ListingDetail({
 						)}
 						<div className="mk-detail-content">
 							<p className="mk-muted">
-								{listing.category} · {listing.location}
-								{listing.paused && " · 已下架"}
+								{listing.category} · {locationLabel(listing)}
+								{listing.paused ? " · 已隐藏" : isExpired(listing) ? " · 已到期" : ""}
 							</p>
 							<h2>{listing.title}</h2>
 							<p className="mk-price mk-detail-price">{priceLabel(listing)}</p>
@@ -58,10 +64,30 @@ export function ListingDetail({
 							<div className="mk-detail-seller">
 								<SellerAvatar name={listing.seller} />
 								<div>
-									<strong>{listing.seller}</strong>
+									{listing.sellerId ? (
+										<Link
+											to={`/shop/${encodeURIComponent(listing.sellerId)}`}
+											state={internalState(location)}
+											className="font-semibold text-accent-ink"
+										>
+											{listing.seller}的小店
+										</Link>
+									) : (
+										<strong>{listing.seller}</strong>
+									)}
 									<p>{listing.sellerRole}</p>
 								</div>
 							</div>
+							{listing.coordinates && (
+								<a
+									className="text-small text-accent-ink"
+									href={`https://www.openstreetmap.org/?mlat=${listing.coordinates.latitude}&mlon=${listing.coordinates.longitude}#map=15/${listing.coordinates.latitude}/${listing.coordinates.longitude}`}
+									target="_blank"
+									rel="noreferrer"
+								>
+									在地图查看定位
+								</a>
+							)}
 							<p className="mk-description">{listing.description}</p>
 							{listing.tags.length > 0 && (
 								<section className="mk-publish-tags" aria-label="帖子标签">
@@ -119,7 +145,7 @@ export function ListingDetail({
 						>
 							<Bookmark size={21} fill={saved ? "currentColor" : "none"} />
 						</button>
-						{!listing.mine && (
+						{!listing.mine && canCompare && (
 							<button type="button" className="mk-button" onClick={onCompare} aria-pressed={compared}>
 								{compared ? <Check size={17} /> : <Plus size={17} />}
 								{compared ? "已选对比" : "加入对比"}
@@ -134,11 +160,11 @@ export function ListingDetail({
 							<button
 								type="button"
 								className="mk-button mk-primary"
-								disabled={listing.paused}
+								disabled={listing.paused || isExpired(listing)}
 								onClick={() => onInquiry(listing)}
 							>
 								<MessageCircle size={17} />
-								{listing.paused ? "已下架" : "请 Bot 帮我看看"}
+								{listing.paused ? "已隐藏" : isExpired(listing) ? "已到期" : "请 Bot 帮我看看"}
 							</button>
 						)}
 					</footer>
