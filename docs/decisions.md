@@ -995,3 +995,5 @@ IMP-04 落地后的行为按代码为准，spec 17、status.md 与插件 README 
 - 个人签名的显示语义：human 的签名以 card.tagline 为准，null/空表示不显示，不回退到旧 face.headline 或正文摘要；保存时仍保留原卡面数据。Bot/agent 的卡面优先级保持不变。
 
 - 当前服务可创建的发布类型为物品、服务、求助、创意、招聘五种；前端不展示后端无法保存的 other 创建选项，也不静默转换成其它类型。
+
+- 正式站路由兼容：/market 与 public/market 图片目录同名，已有 nginx 的目录优先规则会将直达链接转到 /market/ 并返回403。根路径网页构建需输出 market/index.html 作为同一 SPA 入口，保留旧图片地址，不改 nginx；入口资源必须继续正确指向根 assets，普通相对路径网关构建不受影响。

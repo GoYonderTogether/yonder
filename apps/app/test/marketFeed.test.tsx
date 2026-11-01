@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Market } from "../src/pages/Market";
 
@@ -50,7 +50,9 @@ async function render(path = "/market") {
 		root.render(
 			<QueryClientProvider client={client}>
 				<MemoryRouter initialEntries={[path]}>
-					<Market />
+					<Routes>
+						<Route path="/market/*" element={<Market />} />
+					</Routes>
 				</MemoryRouter>
 			</QueryClientProvider>,
 		);
@@ -102,4 +104,11 @@ it("loads an explicit next page and sends search to the server", async () => {
 	expect(api.marketListings).toHaveBeenLastCalledWith(
 		expect.objectContaining({ q: "outside-first-page", cursor: "next-page" }),
 	);
+});
+
+it("renders the market route when the static host canonicalizes its directory URL with a trailing slash", async () => {
+	api.marketListings.mockResolvedValue({ items: [] });
+	const text = await render("/market/");
+	expect(text).toContain("市场还没有帖子");
+	expect(api.marketListings).toHaveBeenCalled();
 });

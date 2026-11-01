@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { marketSpaEntry } from "./scripts/market-spa-entry";
 
 // base 由 YONDER_APP_BASE 决定：云端 "/"；默认 "./"，让网关在任意挂载路径（本机 "/"、对外 "/console/"）下都能用。
 // 路由是 BrowserRouter，basename 取网关注入的 yonder-base-path（见 src/lib/base.ts）。
@@ -125,6 +126,7 @@ export default defineConfig({
 	plugins: [
 		react(),
 		tailwindcss(),
+		marketSpaEntry(),
 		{
 			name: "build-version",
 			generateBundle() {

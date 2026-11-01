@@ -125,3 +125,5 @@
 - 旧后端的昵称/签名保存沿用已有 draft/publish 与 updateProfile，保留 markdown/face/display。只有实际完成才更新成功状态；多次请求部分成功时明确提示并同步真实缓存，不假称原子成功。新后端仍使用原子保存。
 - 本人小店在旧后端沿用 mine=1 服务端分页，不发送旧服会忽略的 status/sellerId；只对已加载内容作在售/隐藏展示，提供更多页入口并避免把当前页为空当成总量为空。他人小店入口等到服务支持 sellerShops 才开放。
 - 通过现有 CI → release.yml（require_ci=true）→ Deploy web 发布，核验真实网页版本；高级能力和后端部署仍单独交接。
+
+- 正式站路由兼容：/market 与 public/market 图片目录同名，已有 nginx 的目录优先规则会将直达链接转到 /market/ 并返回403。根路径网页构建需输出 market/index.html 作为同一 SPA 入口，保留旧图片地址，不改 nginx；入口资源必须继续正确指向根 assets，普通相对路径网关构建不受影响。
