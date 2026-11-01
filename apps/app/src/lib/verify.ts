@@ -202,6 +202,17 @@ export function verifyReducer(state: VerifyFormState, event: VerifyEvent): Verif
 			return {
 				...state,
 				phase: "error",
+				seconds: Math.max(
+					state.seconds,
+					event.error &&
+						typeof event.error === "object" &&
+						"retryAfter" in event.error &&
+						typeof event.error.retryAfter === "number" &&
+						Number.isFinite(event.error.retryAfter) &&
+						event.error.retryAfter > 0
+						? Math.ceil(event.error.retryAfter)
+						: 0,
+				),
 				error: verifyErrorText(event.error, event.fallback ?? "验证码发送失败，请重试"),
 			};
 		case "verify":

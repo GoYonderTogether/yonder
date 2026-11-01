@@ -5,7 +5,7 @@ import type { Actor } from "../../api/types";
 import { $session } from "../../store";
 
 /** 只在他人的 bot 上附上主人名称；完整名称保留在 tooltip。 */
-export function AiBadge({ actor }: { actor?: Actor }) {
+export function AiBadge({ actor, className }: { actor?: Actor; className?: string }) {
 	const me = useStore($session)?.actor.id;
 	const ownerId = actor?.ownerId;
 	const foreign = !!ownerId && ownerId !== me;
@@ -19,7 +19,7 @@ export function AiBadge({ actor }: { actor?: Actor }) {
 	return (
 		<span
 			title={label}
-			className="inline-flex max-w-28 shrink-0 rounded-chip bg-tone-2 px-1 text-caption leading-[18px] font-medium text-muted"
+			className={`inline-flex max-w-28 shrink-0 rounded-chip px-1 text-caption leading-[18px] font-medium ${className ?? "bg-tone-2 text-muted"}`}
 		>
 			{ownerName ? (
 				<>

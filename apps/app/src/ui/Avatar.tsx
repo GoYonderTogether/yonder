@@ -1,3 +1,4 @@
+import { Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { isAvatarUrl } from "../api/avatarUrl";
 import type { Actor } from "../api/types";
@@ -56,5 +57,23 @@ export function Avatar({
 export function Status({ online, className }: { online: boolean; className?: string }) {
 	return (
 		<span className={cn("inline-block h-2.5 w-2.5 rounded-full", online ? "bg-online" : "bg-offline", className)} />
+	);
+}
+
+/** 群头像沿用云端图片，缺省显示成员图标。 */
+export function GroupAvatar({ url, title, size = 40 }: { url?: string | null; title: string; size?: number }) {
+	return (
+		<span
+			role="img"
+			aria-label={`${title} 群头像`}
+			className="inline-flex shrink-0 overflow-hidden rounded-control bg-tone-2"
+			style={{ width: size, height: size }}
+		>
+			<AvatarImage url={url ?? undefined}>
+				<span className="flex h-full w-full items-center justify-center text-muted">
+					<Users size={size * 0.48} />
+				</span>
+			</AvatarImage>
+		</span>
 	);
 }

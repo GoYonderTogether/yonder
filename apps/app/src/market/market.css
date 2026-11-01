@@ -97,8 +97,8 @@
 	align-items: center;
 	justify-content: center;
 	gap: 8px;
-	background: var(--accent);
-	color: var(--on-accent);
+	background: var(--highlight);
+	color: var(--on-highlight);
 	border-radius: var(--market-radius-pill);
 	min-height: 48px;
 	margin-top: 24px;
@@ -480,6 +480,10 @@
 .mk-button.mk-primary {
 	background: var(--accent);
 	color: var(--on-accent);
+}
+.mk-button.mk-publish-action {
+	background: var(--highlight);
+	color: var(--on-highlight);
 }
 .mk-button.mk-primary:hover {
 	opacity: 0.84;
@@ -2090,7 +2094,7 @@
 }
 .mk-unified-search > svg {
 	flex-shrink: 0;
-	color: var(--ink);
+	color: var(--accent-ink);
 }
 .mk-unified-search input {
 	flex: 1;
@@ -2139,7 +2143,8 @@
 		transform var(--d1);
 }
 .mk-channel-row a:hover > span {
-	background: var(--tone);
+	background: var(--accent-soft);
+	color: var(--accent-ink);
 	transform: translateY(-2px);
 }
 .mk-search-assist {

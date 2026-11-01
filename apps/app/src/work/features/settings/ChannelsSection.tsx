@@ -79,7 +79,7 @@ export function ChannelsSection() {
 									{link ? (
 										<>
 											{" · "}
-											<a href={link} target="_blank" rel="noreferrer" className="text-accent underline">
+											<a href={link} target="_blank" rel="noreferrer" className="text-accent-ink underline">
 												打开二维码链接
 											</a>
 										</>

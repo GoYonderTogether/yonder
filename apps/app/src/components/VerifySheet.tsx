@@ -1,10 +1,11 @@
-import { useEffect, useId, useReducer, useState } from "react";
+import { type ReactNode, useEffect, useId, useReducer, useState } from "react";
 import { api } from "../api";
 import type { CodeSent, Session, VerifyKind } from "../api/types";
 import {
 	canSendCode,
 	canVerifyCode,
 	initialVerifyForm,
+	maskTarget,
 	normalizeTarget,
 	resendLabel,
 	validateCode,
@@ -32,6 +33,9 @@ export interface CodeFormValue {
  */
 export function CodeForm<Result>({
 	kinds = ["phone", "email"],
+	children,
+	fixedTarget,
+	onBusyChange,
 	send,
 	confirm,
 	onSuccess,
@@ -39,14 +43,17 @@ export function CodeForm<Result>({
 	doneHint = "验证码已发送，首次登录会自动创建账号",
 }: {
 	kinds?: VerifyKind[];
+	children?: ReactNode;
+	fixedTarget?: { kind: VerifyKind; target: string };
+	onBusyChange?(busy: boolean): void;
 	send(input: { kind: VerifyKind; target: string }): Promise<CodeSent>;
 	confirm(input: CodeFormValue): Promise<Result>;
 	onSuccess(result: Result): void;
 	submitLabel?: string;
 	doneHint?: string;
 }) {
-	const [kind, setKind] = useState<VerifyKind>(kinds[0] ?? "phone");
-	const [target, setTarget] = useState("");
+	const [kind, setKind] = useState<VerifyKind>(fixedTarget?.kind ?? kinds[0] ?? "phone");
+	const [target, setTarget] = useState(fixedTarget?.target ?? "");
 	const [code, setCode] = useState("");
 	const [state, dispatch] = useReducer(verifyReducer, initialVerifyForm);
 	const [fieldErrors, setFieldErrors] = useState<{ target?: string; code?: string }>({});
@@ -54,6 +61,10 @@ export function CodeForm<Result>({
 	const codeError = useId();
 	const errorId = useId();
 	const counting = state.seconds > 0;
+	const busy = state.phase === "sending" || state.phase === "verifying";
+	useEffect(() => {
+		onBusyChange?.(busy);
+	}, [onBusyChange, busy]);
 
 	useEffect(() => {
 		if (!counting) return;
@@ -116,91 +127,99 @@ export function CodeForm<Result>({
 	const targetLabel = kind === "phone" ? "手机号" : "邮箱";
 	return (
 		<form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-			{kinds.length > 1 && (
-				<div role="tablist" aria-label="登录方式" className="flex gap-1 rounded-full bg-tone p-1">
-					{TABS.filter((tab) => kinds.includes(tab.kind)).map(({ kind: value, label }) => (
-						<button
-							key={value}
-							type="button"
-							role="tab"
-							aria-selected={kind === value}
-							disabled={state.phase === "verifying"}
-							onClick={() => switchKind(value)}
-							className={`press flex-1 rounded-full py-1.5 text-small ${
-								kind === value ? "bg-raised font-medium text-ink" : "text-muted hover:text-ink"
-							}`}
-						>
-							{label}
-						</button>
-					))}
-				</div>
-			)}
-			<div className="flex flex-col gap-1">
-				<div className="flex items-end gap-2">
-					<div className="min-w-0 flex-1">
-						<Field
-							label={targetLabel}
-							type={kind === "phone" ? "tel" : "email"}
-							inputMode={kind === "phone" ? "numeric" : "email"}
-							autoComplete={kind === "phone" ? "tel" : "email"}
-							placeholder={kind === "phone" ? "11 位手机号" : "name@example.com"}
-							value={target}
-							onChange={(e) => {
-								setTarget(e.target.value);
-								if (fieldErrors.target) setFieldErrors({ ...fieldErrors, target: undefined });
-							}}
-							disabled={state.phase === "verifying"}
-							aria-invalid={!!fieldErrors.target}
-							aria-describedby={fieldErrors.target ? targetError : undefined}
-						/>
+			<fieldset disabled={busy} className="contents">
+				{kinds.length > 1 && (
+					<div role="tablist" aria-label="登录方式" className="flex gap-1 rounded-full bg-tone p-1">
+						{TABS.filter((tab) => kinds.includes(tab.kind)).map(({ kind: value, label }) => (
+							<button
+								key={value}
+								type="button"
+								role="tab"
+								aria-selected={kind === value}
+								disabled={state.phase === "verifying"}
+								onClick={() => switchKind(value)}
+								className={`press flex-1 rounded-full py-1.5 text-small ${
+									kind === value ? "bg-raised font-medium text-ink" : "text-muted hover:text-ink"
+								}`}
+							>
+								{label}
+							</button>
+						))}
 					</div>
-					<Button
-						type="button"
-						className="h-11 shrink-0"
-						disabled={!canSendCode(state)}
-						onClick={() => void sendCode()}
-					>
-						{state.phase === "sending" ? "发送中…" : state.sent ? resendLabel(state.seconds) : "发送验证码"}
-					</Button>
+				)}
+				<div className="flex flex-col gap-1">
+					<div className="flex items-end gap-2">
+						<div className="min-w-0 flex-1">
+							<Field
+								label={targetLabel}
+								type={kind === "phone" ? "tel" : "email"}
+								inputMode={kind === "phone" ? "numeric" : "email"}
+								autoComplete={kind === "phone" ? "tel" : "email"}
+								placeholder={kind === "phone" ? "11 位手机号" : "name@example.com"}
+								value={fixedTarget ? (maskTarget(kind, target) ?? "") : target}
+								readOnly={!!fixedTarget}
+								onChange={(e) => {
+									setTarget(e.target.value);
+									if (fieldErrors.target) setFieldErrors({ ...fieldErrors, target: undefined });
+								}}
+								disabled={state.phase === "verifying"}
+								aria-invalid={!!fieldErrors.target}
+								aria-describedby={fieldErrors.target ? targetError : undefined}
+							/>
+						</div>
+						<Button
+							type="button"
+							className="h-11 shrink-0"
+							disabled={!canSendCode(state)}
+							onClick={() => void sendCode()}
+						>
+							{state.phase === "sending"
+								? "发送中…"
+								: state.sent || state.seconds > 0
+									? resendLabel(state.seconds)
+									: "发送验证码"}
+						</Button>
+					</div>
+					{fieldErrors.target && (
+						<p id={targetError} className="text-small text-danger">
+							{fieldErrors.target}
+						</p>
+					)}
 				</div>
-				{fieldErrors.target && (
-					<p id={targetError} className="text-small text-danger">
-						{fieldErrors.target}
+				<div className="flex flex-col gap-1">
+					<Field
+						label="验证码"
+						type="text"
+						inputMode="numeric"
+						autoComplete="one-time-code"
+						placeholder="6 位数字"
+						maxLength={6}
+						value={code}
+						onChange={(e) => {
+							setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+							if (fieldErrors.code) setFieldErrors({ ...fieldErrors, code: undefined });
+						}}
+						disabled={state.phase === "verifying"}
+						aria-invalid={!!fieldErrors.code}
+						aria-describedby={fieldErrors.code ? codeError : undefined}
+					/>
+					{fieldErrors.code && (
+						<p id={codeError} className="text-small text-danger">
+							{fieldErrors.code}
+						</p>
+					)}
+					{state.sent && !state.error && <p className="text-caption text-muted">{doneHint}</p>}
+				</div>
+				{children}
+				{state.error && (
+					<p id={errorId} role="alert" className="text-small text-danger">
+						{state.error}
 					</p>
 				)}
-			</div>
-			<div className="flex flex-col gap-1">
-				<Field
-					label="验证码"
-					type="text"
-					inputMode="numeric"
-					autoComplete="one-time-code"
-					placeholder="6 位数字"
-					maxLength={6}
-					value={code}
-					onChange={(e) => {
-						setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
-						if (fieldErrors.code) setFieldErrors({ ...fieldErrors, code: undefined });
-					}}
-					disabled={state.phase === "verifying"}
-					aria-invalid={!!fieldErrors.code}
-					aria-describedby={fieldErrors.code ? codeError : undefined}
-				/>
-				{fieldErrors.code && (
-					<p id={codeError} className="text-small text-danger">
-						{fieldErrors.code}
-					</p>
-				)}
-				{state.sent && !state.error && <p className="text-caption text-muted">{doneHint}</p>}
-			</div>
-			{state.error && (
-				<p id={errorId} role="alert" className="text-small text-danger">
-					{state.error}
-				</p>
-			)}
-			<Button variant="primary" className="h-11" disabled={!state.sent || state.phase === "verifying"} type="submit">
-				{state.phase === "verifying" ? "验证中…" : submitLabel}
-			</Button>
+				<Button variant="primary" className="h-11" disabled={!state.sent || state.phase === "verifying"} type="submit">
+					{state.phase === "verifying" ? "验证中…" : submitLabel}
+				</Button>
+			</fieldset>
 		</form>
 	);
 }
@@ -213,8 +232,10 @@ export function VerifyCodeForm({
 	shareToken,
 	onSuccess,
 	submitLabel = "登录 / 注册",
+	onBusyChange,
 }: {
 	shareToken?: string;
+	onBusyChange?(busy: boolean): void;
 	onSuccess(session: Session): void;
 	submitLabel?: string;
 }) {
@@ -223,6 +244,7 @@ export function VerifyCodeForm({
 			send={(input) => api.sendCode({ ...input, ...(shareToken ? { shareToken } : {}) })}
 			confirm={(input) => api.verifyCode({ ...input, ...(shareToken ? { shareToken } : {}) })}
 			onSuccess={onSuccess}
+			onBusyChange={onBusyChange}
 			submitLabel={submitLabel}
 		/>
 	);

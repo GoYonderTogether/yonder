@@ -1,59 +1,188 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, Plus, X } from "lucide-react";
+import { ArrowLeft, ChevronRight, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { api } from "../../api";
-import type { ConversationDetail } from "../../api/types";
+import { chatError } from "../../api/chat";
+import type { ConversationDetail, Message } from "../../api/types";
 import { appPath } from "../../lib/base";
 import { cn } from "../../lib/cn";
 import { entityRef } from "../../lib/entityRef";
 import { internalState } from "../../lib/navigation";
 import { useDesktop } from "../../lib/useDesktop";
-import { useShareUrl } from "../../lib/useShareUrl";
 import { $session } from "../../store";
 import { Avatar, Status } from "../../ui/Avatar";
 import { Button } from "../../ui/Button";
-import { toast } from "../../ui/Toast";
+import { togglePin, usePrefs } from "../../work/lib/prefs";
 import { AppBar } from "../AppBar";
-import { ShareLinks } from "../ShareLinks";
 import { AiBadge } from "./AiBadge";
+import { ChatBackgroundSettings } from "./ChatBackgroundSettings";
+import { ChatHistory } from "./ChatHistory";
+import { type GroupPanel, GroupSettings } from "./GroupSettings";
 
-/** 聊天详情：手机是推入的整页，桌面是主区右侧抽屉。 */
-export function ChatDetail({ convId, onClose }: { convId: string; onClose: () => void }) {
-	const desktop = useDesktop();
-	const qc = useQueryClient();
+type ChatDetailProps = { convId: string; onClose: () => void; onSelectMessage?: (message: Message) => void };
+/** 每个账号和会话都有独立的详情草稿与操作状态。 */
+export function ChatDetail(props: ChatDetailProps) {
+	const accountId = useStore($session)?.actor.id;
+	return <ChatDetailContent key={JSON.stringify([accountId, props.convId])} {...props} />;
+}
+/** 聊天详情与记录复用一个容器：手机整页，桌面右侧面板。 */
+function ChatDetailContent({
+	convId,
+	onClose,
+	onSelectMessage,
+}: {
+	convId: string;
+	onClose: () => void;
+	onSelectMessage?: (message: Message) => void;
+}) {
+	const desktop = useDesktop(),
+		qc = useQueryClient();
+	const accountId = useStore($session)?.actor.id;
+	const [screen, setScreen] = useState<"detail" | "history" | "background">("detail");
+	const [groupPanel, setGroupPanel] = useState<GroupPanel>("home");
+	const [busy, setBusy] = useState(false);
+	const [historyMessage, setHistoryMessage] = useState<Message | null>(null);
 	useEffect(() => {
-		const refresh = () => {
-			void qc.invalidateQueries({ queryKey: ["conv-detail", convId] });
-		};
+		const refresh = () => void qc.invalidateQueries({ queryKey: ["conv-detail", convId] });
 		window.addEventListener("yonder:presence", refresh);
 		return () => window.removeEventListener("yonder:presence", refresh);
 	}, [qc, convId]);
-	const { data: detail } = useQuery({
+	const query = useQuery({
 		queryKey: ["conv-detail", convId],
 		queryFn: () => api.conversationDetail(convId),
+		retry: false,
 	});
-	const body = !detail ? (
-		<div className="skeleton m-4 h-40 rounded-card" />
-	) : detail.kind === "group" ? (
-		<GroupDetail key={detail.id} d={detail} onClose={onClose} />
-	) : (
-		<DmDetail d={detail} />
+	const detail = query.data;
+	const common = (
+		<CommonDetails
+			convId={convId}
+			disabled={busy}
+			onBackground={() => {
+				setGroupPanel("home");
+				setScreen("background");
+			}}
+			onSearch={() => {
+				setGroupPanel("home");
+				setHistoryMessage(null);
+				setScreen("history");
+			}}
+		/>
 	);
-	if (desktop) {
+	const body = query.isPending ? (
+		<div className="skeleton m-4 h-40 rounded-card" />
+	) : !detail ? (
+		<div className="flex flex-col gap-3 p-4">
+			<p role="alert" className="text-small text-danger">
+				{chatError(query.error, "无法读取聊天详情")}
+			</p>
+			<Button onClick={() => void query.refetch()}>重试</Button>
+		</div>
+	) : screen === "background" ? (
+		<ChatBackgroundSettings
+			accountId={accountId}
+			convId={convId}
+			busy={busy}
+			onBusyChange={setBusy}
+			onApplied={onClose}
+		/>
+	) : screen !== "detail" ? (
+		<ChatHistory
+			key={screen}
+			d={detail}
+			preview={historyMessage}
+			onPreviewChange={setHistoryMessage}
+			onSelectMessage={
+				onSelectMessage
+					? (message) => {
+							onSelectMessage(message);
+							onClose();
+						}
+					: undefined
+			}
+		/>
+	) : detail.kind === "group" ? (
+		<GroupSettings
+			key={detail.id}
+			d={detail}
+			panel={groupPanel}
+			onPanelChange={setGroupPanel}
+			busy={busy}
+			onBusyChange={setBusy}
+		>
+			{common}
+		</GroupSettings>
+	) : (
+		<>
+			<DmDetail d={detail} />
+			{common}
+		</>
+	);
+	const groupSubpage = detail?.kind === "group" && groupPanel !== "home";
+	const titles: Record<GroupPanel, string> = {
+		home: "聊天详情",
+		nickname: "我在本群的昵称",
+		identity: "群名称",
+		members: "群成员",
+		member: "成员设置",
+		transfer: "移交群主",
+		invite: "邀请入群",
+		leave: "退出群聊",
+		dissolve: "解散群聊",
+	};
+	const title =
+		screen === "background"
+			? "聊天背景"
+			: screen === "history"
+				? historyMessage
+					? historyMessage.content.type === "image"
+						? "图片预览"
+						: "消息预览"
+					: "聊天记录"
+				: detail?.kind === "group"
+					? titles[groupPanel]
+					: "聊天详情";
+	const back = () => {
+		if (busy) return;
+		if (screen === "background") {
+			setScreen("detail");
+			setGroupPanel("home");
+		} else if (screen === "history" && historyMessage) {
+			setHistoryMessage(null);
+		} else if (screen === "history") {
+			setScreen("detail");
+			setGroupPanel("home");
+		} else if (groupSubpage) {
+			setGroupPanel(groupPanel === "transfer" ? "member" : groupPanel === "member" ? "members" : "home");
+		} else onClose();
+	};
+	const backButton = (
+		<button
+			type="button"
+			className="press -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-tone"
+			onClick={back}
+			disabled={busy}
+			aria-label={screen === "detail" ? "返回" : historyMessage ? "返回查询结果" : "返回聊天详情"}
+		>
+			<ArrowLeft size={20} />
+		</button>
+	);
+	if (desktop)
 		return (
 			<aside
-				aria-label="聊天详情"
-				className="rise absolute inset-y-0 right-0 z-20 flex w-80 flex-col bg-raised shadow-float"
+				aria-label={title}
+				className="absolute inset-y-0 right-0 z-20 flex w-96 max-w-full flex-col bg-raised shadow-float"
 			>
-				<header className="flex h-14 shrink-0 items-center justify-between pr-2 pl-5">
-					<h2 className="text-body font-semibold">聊天详情</h2>
+				<header className="flex h-14 shrink-0 items-center gap-2 pr-2 pl-4">
+					{(screen !== "detail" || groupSubpage) && backButton}
+					<h2 className="flex-1 text-body font-semibold">{title}</h2>
 					<button
 						type="button"
 						aria-label="关闭"
 						onClick={onClose}
+						disabled={busy}
 						className="press flex h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-tone"
 					>
 						<X size={18} />
@@ -62,28 +191,66 @@ export function ChatDetail({ convId, onClose }: { convId: string; onClose: () =>
 				<div className="scroll-y flex-1">{body}</div>
 			</aside>
 		);
-	}
 	return (
-		<div className="rise fixed inset-0 z-30 flex flex-col bg-ground">
-			<AppBar
-				left={
-					<button
-						type="button"
-						className="press -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-muted hover:bg-tone"
-						onClick={onClose}
-						aria-label="返回"
-					>
-						<ArrowLeft size={20} />
-					</button>
-				}
-				title="聊天详情"
-			/>
+		<div className="fixed inset-0 z-30 flex flex-col bg-ground">
+			<AppBar left={backButton} title={title} />
 			<div className="scroll-y flex-1 pb-safe">{body}</div>
 		</div>
 	);
 }
+function CommonDetails({
+	convId,
+	onSearch,
+	onBackground,
+	disabled,
+}: {
+	convId: string;
+	onSearch: () => void;
+	onBackground: () => void;
+	disabled: boolean;
+}) {
+	const pinned = usePrefs().pinned.includes(convId);
+	return (
+		<Section>
+			<Row disabled={disabled} onClick={onSearch}>
+				查找聊天记录
+				<ChevronRight size={16} className="ml-auto text-faint" />
+			</Row>
+			<Row disabled={disabled} onClick={onBackground}>
+				聊天背景
+				<ChevronRight size={16} className="ml-auto text-faint" />
+			</Row>
+			<button
+				type="button"
+				role="switch"
+				disabled={disabled}
+				aria-checked={pinned}
+				onClick={() => togglePin(convId)}
+				className="press flex h-12 w-full items-center justify-between px-4 text-body hover:bg-tone/60"
+			>
+				<span>置顶聊天</span>
+				<span
+					aria-hidden
+					className={`flex h-6 w-10 items-center rounded-full p-0.5 ${pinned ? "bg-accent justify-end" : "bg-tone-2"}`}
+				>
+					<span className="h-5 w-5 rounded-full bg-white shadow-sm" />
+				</span>
+			</button>
+		</Section>
+	);
+}
 
-const Row = ({ to, onClick, children }: { to?: string; onClick?: () => void; children: React.ReactNode }) => {
+const Row = ({
+	to,
+	onClick,
+	children,
+	disabled,
+}: {
+	to?: string;
+	onClick?: () => void;
+	children: React.ReactNode;
+	disabled?: boolean;
+}) => {
 	const loc = useLocation();
 	const cls = "press flex h-12 w-full items-center gap-3 px-4 text-body hover:bg-tone/60";
 	return to ? (
@@ -91,7 +258,7 @@ const Row = ({ to, onClick, children }: { to?: string; onClick?: () => void; chi
 			{children}
 		</Link>
 	) : (
-		<button type="button" onClick={onClick} className={cls}>
+		<button type="button" disabled={disabled} onClick={onClick} className={cls}>
 			{children}
 		</button>
 	);
@@ -169,166 +336,6 @@ function DmDetail({ d }: { d: ConversationDetail }) {
 				</div>
 				<p className="text-caption text-muted">{other.name} 的二维码</p>
 			</Section>
-		</>
-	);
-}
-
-function GroupDetail({ d }: { d: ConversationDetail; onClose: () => void }) {
-	const nav = useNavigate();
-	const loc = useLocation();
-	const qc = useQueryClient();
-	const me = useStore($session)?.actor;
-	const myRole = d.members.find((m) => m.id === me?.id)?.role;
-	const owner = myRole === "owner" && !me?.anonymous;
-	const manage = (owner || myRole === "admin") && !me?.anonymous;
-	const [title, setTitle] = useState(d.title);
-	const savedTitle = useRef(d.title);
-	useEffect(() => {
-		setTitle((current) => (current === savedTitle.current ? d.title : current));
-		savedTitle.current = d.title;
-	}, [d.title]);
-	const [busy, setBusy] = useState(false);
-	const save = async (action: () => Promise<void>) => {
-		setBusy(true);
-		try {
-			await action();
-			await Promise.all(["conv-detail", "convs"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
-		} catch (error) {
-			toast(error instanceof Error ? error.message : "保存失败", true);
-		} finally {
-			setBusy(false);
-		}
-	};
-	const { data: invite } = useQuery({ queryKey: ["invite", d.id], queryFn: () => api.groupInvite(d.id) });
-	const invitePath = invite ? `/g/${invite.token}` : "";
-	const qrValue = useShareUrl(
-		{ kind: "group", targetId: d.id, path: invitePath },
-		`${location.origin}${appPath(invitePath)}`,
-		!!invite,
-	);
-	const leave = async () => {
-		try {
-			await api.leaveConversation(d.id);
-			void qc.invalidateQueries({ queryKey: ["convs"] });
-			nav("/", { replace: true });
-		} catch (error) {
-			toast(error instanceof Error ? error.message : "退出失败", true);
-		}
-	};
-	return (
-		<>
-			<Section className="p-4">
-				<p className="pb-3 text-small text-muted">群成员 {d.members.length}</p>
-				<ul className="grid grid-cols-4 gap-y-4">
-					{d.members.map((m) => (
-						<li key={m.id} className="min-w-0">
-							<Link
-								to={`/contacts/${entityRef(m)}`}
-								state={internalState(loc)}
-								className="press flex flex-col items-center gap-1.5 px-1"
-							>
-								<Avatar actor={m} size={44} />
-								<span className="flex w-full items-center justify-center gap-1">
-									<span className="truncate text-caption">{m.name}</span>
-									{m.kind === "agent" && <AiBadge />}
-								</span>
-								{m.role && m.role !== "member" && (
-									<span className="text-caption text-muted">{m.role === "owner" ? "群主" : "管理员"}</span>
-								)}
-							</Link>
-						</li>
-					))}
-					<li className="flex flex-col items-center gap-1.5 px-1">
-						<button
-							type="button"
-							aria-label="添加成员"
-							onClick={() => toast("即将推出")}
-							className="press flex h-11 w-11 items-center justify-center rounded-full bg-tone-2 text-muted hover:text-ink"
-						>
-							<Plus size={20} />
-						</button>
-					</li>
-				</ul>
-			</Section>
-			<Section>
-				{manage ? (
-					<form
-						className="flex flex-col gap-2 p-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void save(() => api.renameGroup(d.id, title));
-						}}
-					>
-						<label htmlFor="group-title" className="text-small text-muted">
-							群名称
-						</label>
-						<input
-							id="group-title"
-							value={title}
-							maxLength={100}
-							required
-							disabled={busy}
-							onChange={(event) => setTitle(event.target.value)}
-							className="h-10 min-w-0 rounded-control bg-ground px-3 text-small"
-						/>
-						<Button type="submit" disabled={busy || !title.trim() || title.trim() === d.title}>
-							保存群名称
-						</Button>
-					</form>
-				) : (
-					<div className="flex min-h-12 items-center gap-3 px-4 text-small">
-						<span className="text-muted">群名称</span>
-						<span className="ml-auto truncate">{d.title}</span>
-					</div>
-				)}
-			</Section>
-			{owner && (
-				<Section className="p-4">
-					<p className="mb-3 text-small text-muted">群管理</p>
-					{d.members
-						.filter((m) => m.kind === "human" && !m.anonymous && m.id !== me?.id)
-						.map((m) => (
-							<div key={m.id} className="flex flex-col gap-2 rounded-control bg-tone/50 px-3 py-2.5">
-								<span className="text-small">{m.name}</span>
-								<div className="flex flex-wrap gap-2">
-									<Button
-										disabled={busy}
-										onClick={() =>
-											void save(() => api.setGroupRole(d.id, m.id, m.role === "admin" ? "member" : "admin"))
-										}
-									>
-										{m.role === "admin" ? "取消管理员" : "设为管理员"}
-									</Button>
-									<Button
-										disabled={busy}
-										onClick={() => {
-											if (window.confirm(`将群主移交给${m.name}？移交后你将成为普通成员。`))
-												void save(() => api.setGroupRole(d.id, m.id, "owner"));
-										}}
-									>
-										移交群主
-									</Button>
-								</div>
-							</div>
-						))}
-				</Section>
-			)}
-			<Section className="flex flex-col items-center gap-3 p-5">
-				{invite ? (
-					<div className="rounded-control bg-white p-3">
-						<QRCodeSVG value={qrValue} size={140} />
-					</div>
-				) : (
-					<div className="skeleton h-[164px] w-[164px] rounded-control" />
-				)}
-				<p className="text-caption text-muted">群二维码</p>
-				{invite && <ShareLinks kind="group" targetId={d.id} label={d.title} path={invitePath} />}
-			</Section>
-			<div className="px-3 py-4">
-				<Button className="h-11 w-full text-danger" onClick={leave}>
-					退出群聊
-				</Button>
-			</div>
 		</>
 	);
 }

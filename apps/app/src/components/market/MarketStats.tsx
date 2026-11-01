@@ -1,13 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Bookmark, ChevronRight, Eye, Heart, Package, Sparkles } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { api } from "../../api";
+import { internalState } from "../../lib/navigation";
 import { compactCount, hasListingImage, viewCount } from "../../market/catalog";
 import { useMarketState } from "../../market/store";
 import type { Listing } from "../../market/types";
 
 /** Personal market entries belong to the shared Me page, not the public feed. */
 export function MyMarket() {
+	const location = useLocation();
 	const { state } = useMarketState();
 	const { data: listings = [], isPending } = useQuery({
 		queryKey: ["market-listings"],
@@ -33,6 +35,7 @@ export function MyMarket() {
 					<Link
 						key={route}
 						to={"/me/market/" + route}
+						state={internalState(location)}
 						aria-label={"我的" + title}
 						className="press flex flex-col items-center gap-2 rounded-control py-2 hover:bg-tone"
 					>
@@ -52,6 +55,7 @@ export function MyMarket() {
 			{real.length > 0 && (
 				<Link
 					to="/me/market/stats"
+					state={internalState(location)}
 					className="press mt-1 flex min-h-14 items-center gap-3 rounded-control px-5 hover:bg-tone"
 				>
 					<Eye size={19} className="text-muted" />

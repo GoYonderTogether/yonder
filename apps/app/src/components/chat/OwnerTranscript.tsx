@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { CSSProperties } from "react";
 import type { Actor } from "../../api/types";
 import { type NodeTarget, rpc } from "../../work/api/client";
 import type { SessionInfo } from "../../work/api/types";
@@ -35,24 +36,38 @@ export function useOwnerConversation(bot: Actor | undefined, ownerId: string | u
 	});
 }
 
-export function OwnerTranscript({ binding, onQuote }: { binding: OwnerBinding; onQuote(text: string): void }) {
+export function OwnerTranscript({
+	binding,
+	onQuote,
+	backgroundStyle,
+}: {
+	binding: OwnerBinding;
+	onQuote(text: string): void;
+	backgroundStyle?: CSSProperties;
+}) {
 	const view = useSession(binding.sessionId, binding.target);
-	if (!view.ready)
-		return (
-			<p role="status" className="flex-1 p-4 text-small text-muted">
-				{view.error ?? "正在加载完整会话…"}
-			</p>
-		);
 	return (
-		<Transcript
-			items={view.items}
-			hasMore={view.hasMore}
-			onOlder={view.loadOlder}
-			hasNewer={view.hasNewer}
-			onNewer={view.loadNewer}
-			loadingOlder={view.loadingOlder}
-			olderError={view.olderError}
-			onQuote={(item) => onQuote(item.text)}
-		/>
+		<div
+			className="social-owner-transcript flex min-h-0 flex-1 flex-col"
+			style={backgroundStyle}
+			data-chat-background={backgroundStyle?.backgroundImage ? "image" : undefined}
+		>
+			{!view.ready ? (
+				<p role="status" className="flex-1 p-4 text-small text-muted">
+					{view.error ?? "正在加载完整会话…"}
+				</p>
+			) : (
+				<Transcript
+					items={view.items}
+					hasMore={view.hasMore}
+					onOlder={view.loadOlder}
+					hasNewer={view.hasNewer}
+					onNewer={view.loadNewer}
+					loadingOlder={view.loadingOlder}
+					olderError={view.olderError}
+					onQuote={(item) => onQuote(item.text)}
+				/>
+			)}
+		</div>
 	);
 }

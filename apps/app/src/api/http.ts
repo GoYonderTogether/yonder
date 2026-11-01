@@ -11,15 +11,17 @@ const SOCIAL_BASE = (import.meta.env.VITE_SOCIAL_BASE as string | undefined) ?? 
  */
 export const socialOrigin = (): URL => new URL(SOCIAL_BASE || "/", location.href);
 
-async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}, missingAsNull = false): Promise<T> {
 	const response = await fetch(`${SOCIAL_BASE}/api${path}`, {
 		credentials: SOCIAL_BASE ? "include" : "same-origin",
+		// 开发预览绕过旧重定向缓存；生产沿用默认行为，调用方仍可通过 init 覆盖。
+		...(import.meta.env.DEV ? { cache: "no-store" as const } : {}),
 		...init,
 	});
 	const text = await response.text();
 	if (!response.ok) {
 		// 登录接口的 401 是「验证码不正确」，不是会话失效；不能触发登出跳转。
-		if (response.status === 401 && !path.startsWith("/auth/")) window.dispatchEvent(new Event("yonder:unauthorized"));
+
 		if (missingAsNull && response.status === 404) return null as T;
 		let message = response.statusText;
 		let retryAfter: number | undefined;
@@ -28,6 +30,12 @@ async function request<T>(path: string, init: RequestInit = {}, missingAsNull = 
 			message = body.error ?? message;
 			retryAfter = body.retryAfter;
 		} catch {}
+		if (
+			response.status === 401 &&
+			!path.startsWith("/auth/") &&
+			!(path === "/me/password/reset" && message === "invalid_code")
+		)
+			window.dispatchEvent(new Event("yonder:unauthorized"));
 		const header = Number(response.headers.get("Retry-After"));
 		if (retryAfter === undefined && header > 0) retryAfter = header;
 		// status 让页面区分「节点没有社交服务」（404）与其他失败；retryAfter 来自锁定响应的剩余秒数。

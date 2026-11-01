@@ -3,6 +3,7 @@ import { api } from "../api";
 import type { Actor, VerifyKind } from "../api/types";
 import { maskTarget } from "../lib/verify";
 import { Button } from "../ui/Button";
+import { PasswordReset } from "./PasswordReset";
 import { CodeForm } from "./VerifySheet";
 
 const KINDS: { kind: VerifyKind; label: string }[] = [
@@ -67,7 +68,8 @@ export function AccountSecurity({ actor, onSignedOut }: { actor: Actor; onSigned
 					</section>
 				);
 			})}
-			<p className="text-caption text-faint">登录只使用验证码，不设密码。换绑后所有设备需要重新登录。</p>
+			<PasswordReset key={actor.id} actor={actor} />
+			<p className="text-caption text-faint">换绑联系方式后，需要重新登录。</p>
 		</div>
 	);
 }

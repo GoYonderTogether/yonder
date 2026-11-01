@@ -9,6 +9,7 @@ import { $session } from "./store";
 import { Toaster } from "./ui/Toast";
 
 const Shell = lazy(() => import("./components/Shell").then((m) => ({ default: m.Shell })));
+const NewFriends = lazy(() => import("./pages/Friends").then((m) => ({ default: m.NewFriends })));
 const AddFriend = lazy(() => import("./pages/AddFriend").then((m) => ({ default: m.AddFriend })));
 const Contacts = lazy(() => import("./pages/Contacts").then((m) => ({ default: m.Contacts })));
 const CardsRedirect = lazy(() => import("./pages/Contacts").then((m) => ({ default: m.CardsRedirect })));
@@ -86,6 +87,7 @@ export function App() {
 						<Route path="/me/market/:section" element={<Market />} />
 						<Route path="/cards/:id?" element={<CardsRedirect />} />
 						<Route path="/cards/:id/edit" element={<CardsRedirect />} />
+						<Route path="/friends/new" element={<NewFriends />} />
 						<Route path="/friends/add" element={<AddFriend />} />
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />

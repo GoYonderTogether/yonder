@@ -10,6 +10,7 @@ import { contactRowMenu } from "../../lib/contactMenu";
 import { entityRef } from "../../lib/entityRef";
 import { internalState } from "../../lib/navigation";
 import { socialLoadError } from "../../lib/socialError";
+import { useFriendRequests } from "../../lib/useFriendRequests";
 import { $session } from "../../store";
 import { Avatar } from "../../ui/Avatar";
 import { Button } from "../../ui/Button";
@@ -198,6 +199,8 @@ function MyBots({ list }: { list: Actor[] }) {
 /** 通讯录：好友（按首字母分组）+ 我的 Bot。群聊在「消息」，名片与设备在「我」。 */
 export function ContactList({ q, active }: { q: string; active?: string }) {
 	const me = useStore($session)?.actor;
+	const { data: requests = [] } = useFriendRequests();
+	const pending = requests.filter((r) => r.direction === "incoming" && r.status === "pending").length;
 	const { data, error, refetch } = useQuery({ queryKey: ["contacts"], queryFn: api.contacts });
 	// 已有数据时后台刷新失败不打断列表；只有拿不到联系人才显示失败。
 	const failure = data ? null : error;
@@ -214,6 +217,25 @@ export function ContactList({ q, active }: { q: string; active?: string }) {
 		);
 	return (
 		<>
+			{!me?.anonymous && (
+				<Link
+					to="/friends/new"
+					className="press flex min-h-14 items-center gap-3 rounded-control px-2.5 py-2 hover:bg-tone/60"
+				>
+					<Icon>
+						<UserPlus size={20} />
+					</Icon>
+					<span className="flex-1 text-small font-medium">新的朋友</span>
+					{pending > 0 && (
+						<span
+							className="rounded-full bg-accent px-2 py-0.5 text-caption text-on-accent"
+							title={`${pending}条待处理申请`}
+						>
+							{pending}
+						</span>
+					)}
+				</Link>
+			)}
 			<Friends list={friends} active={active} />
 			<MyBots list={bots} />
 		</>

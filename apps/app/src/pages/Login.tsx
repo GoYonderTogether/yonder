@@ -2,32 +2,34 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { api } from "../api";
+import { ensureRegistrationSupported, passwordApi } from "../api/password";
 import type { Session } from "../api/types";
 import { selectAccount } from "../cache";
-import { VerifyCodeForm } from "../components/VerifySheet";
+import { CodeForm, VerifyCodeForm } from "../components/VerifySheet";
+import { normalizeLoginIdentifier, passwordError, validateNewPassword } from "../lib/password";
 import { verifyErrorText } from "../lib/verify";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Logo } from "../ui/Logo";
-import { toast } from "../ui/Toast";
 
 export function Login() {
-	const nav = useNavigate();
-	const qc = useQueryClient();
-	const loc = useLocation();
-	const query = new URLSearchParams(loc.search);
-	const next =
-		(loc.state as { next?: string } | null)?.next ?? (query.get("next")?.match(/^\/(?!\/)/) ? query.get("next")! : "/");
-	const [usePassword, setUsePassword] = useState(false);
-	const [mode, setMode] = useState<"login" | "register">(query.get("mode") === "register" ? "register" : "login");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [name, setName] = useState("");
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState("");
+	const nav = useNavigate(),
+		qc = useQueryClient(),
+		loc = useLocation(),
+		query = new URLSearchParams(loc.search);
+	const candidate = (loc.state as { next?: string } | null)?.next ?? query.get("next") ?? "/";
+	const next = /^\/(?!\/)/.test(candidate) && !/[\\\r\n]/.test(candidate) ? candidate : "/";
+	const [mode, setMode] = useState<"password" | "code" | "register">(
+		query.get("mode") === "register" ? "register" : "password",
+	);
+	const [identifier, setIdentifier] = useState(""),
+		[password, setPassword] = useState(""),
+		[confirmation, setConfirmation] = useState(""),
+		[name, setName] = useState(""),
+		[busy, setBusy] = useState(false),
+		[error, setError] = useState("");
 	const shareToken = query.get("share") ?? undefined;
-	// 打开链接就查一次配额状态：已过期/吊销/用完时立刻提示，不等访客点「发送验证码」。
 	const shareStatus = useQuery({
 		queryKey: ["share-status", shareToken],
 		queryFn: () => api.shareLinkStatus(shareToken ?? ""),
@@ -36,108 +38,180 @@ export function Login() {
 	});
 	const shareError =
 		shareStatus.data && shareStatus.data.state !== "active" ? verifyErrorText({ code: shareStatus.data.state }) : "";
-
-	const submit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setBusy(true);
+	const done = (session: Session) => {
+		setBusy(false);
+		selectAccount(session.actor.id, qc);
+		$session.set(session);
+		nav(next, { replace: true });
+	};
+	const changeMode = (value: typeof mode) => {
+		setMode(value);
+		setPassword("");
+		setConfirmation("");
 		setError("");
+	};
+	const submit = async (event: React.FormEvent) => {
+		event.preventDefault();
+		if (busy) return;
+		setError("");
+		if (!identifier.trim() || !password) {
+			setError("请输入账号和密码");
+			return;
+		}
+		setBusy(true);
 		try {
-			const s = mode === "login" ? await api.login({ email, password }) : await api.register({ email, password, name });
-			selectAccount(s.actor.id, qc);
-			$session.set(s);
-			nav(next, { replace: true });
-		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message.includes("history_merge_failed")
-						? "历史合并未完成，访客记录已保留，请重试"
-						: err.message
-					: "失败",
-			);
+			done(await passwordApi.login(normalizeLoginIdentifier(identifier), password));
+		} catch (caught) {
+			setError(passwordError(caught));
 		} finally {
 			setBusy(false);
 		}
 	};
-
-	const done = (s: Session) => {
-		selectAccount(s.actor.id, qc);
-		$session.set(s);
-		nav(next, { replace: true });
-	};
-
-	if (!usePassword) {
-		return (
-			<div className="flex h-full items-center justify-center p-4">
-				<div className="rise flex w-full max-w-sm flex-col gap-5">
-					<Logo size={36} />
-					<div>
-						<h1 className="display">登录或注册</h1>
-						<p className="mt-1 text-small text-muted">用手机号或邮箱收验证码，首次验证即注册，不需要密码。</p>
-					</div>
-					{shareError && (
-						<p role="alert" className="text-small text-danger">
-							{shareError}
-						</p>
-					)}
-					<VerifyCodeForm shareToken={shareToken} onSuccess={done} />
-					<button
-						type="button"
-						className="press self-start text-small text-muted hover:text-ink"
-						onClick={() => setUsePassword(true)}
-					>
-						用邮箱和密码登录
-					</button>
-				</div>
-			</div>
-		);
-	}
-
 	return (
-		<div className="flex h-full items-center justify-center p-4">
-			<form onSubmit={submit} className="rise flex w-full max-w-sm flex-col gap-5">
+		<div className="scroll-y h-full p-4">
+			<div className="rise mx-auto flex min-h-full w-full max-w-sm flex-col justify-center gap-5 py-8">
 				<Logo size={36} />
 				<div>
-					<h1 className="display">{mode === "login" ? "登录" : "注册"}</h1>
+					<h1 className="display">{mode === "register" ? "注册" : "登录"}</h1>
+					<p className="mt-2 text-small leading-relaxed text-muted">
+						{mode === "register"
+							? "验证手机号或邮箱，并设置登录密码。已有账号请直接登录。"
+							: mode === "password"
+								? "使用手机号、邮箱或账号 ID 登录。"
+								: "使用手机号或邮箱接收验证码，首次验证可创建账号。"}
+					</p>
 				</div>
-				{mode === "register" && <Field label="昵称" value={name} onChange={(e) => setName(e.target.value)} />}
-				<Field
-					label="邮箱"
-					onFocus={() => toast("邮箱只当登录名，不验证，也不发验证码")}
-					type="text"
-					inputMode="email"
-					autoComplete="username"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					required
-				/>
-				<Field
-					label="密码"
-					type="password"
-					passwordToggle
-					autoComplete={mode === "login" ? "current-password" : "new-password"}
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					required
-				/>
-				{error && <p className="text-small text-danger">{error}</p>}
-				<Button variant="primary" disabled={busy} className="h-11">
-					{mode === "login" ? "登录" : "创建账号"}
-				</Button>
-				<button
-					type="button"
-					className="press self-start text-small text-muted hover:text-ink"
-					onClick={() => setMode(mode === "login" ? "register" : "login")}
-				>
-					{mode === "login" ? "没有账号？注册" : "已有账号？登录"}
-				</button>
-				<button
-					type="button"
-					className="press self-start text-small text-muted hover:text-ink"
-					onClick={() => setUsePassword(false)}
-				>
-					用验证码登录
-				</button>
-			</form>
+				{shareError && (
+					<p role="alert" className="text-small text-danger">
+						{shareError}
+					</p>
+				)}
+				{mode === "password" ? (
+					<form onSubmit={submit} className="flex flex-col gap-4">
+						<Field
+							label="手机号 / 邮箱 / 账号 ID"
+							autoComplete="username"
+							type="text"
+							value={identifier}
+							onChange={(e) => setIdentifier(e.target.value)}
+							maxLength={254}
+							required
+							disabled={busy}
+						/>
+						<Field
+							label="密码"
+							type="password"
+							passwordToggle
+							autoComplete="current-password"
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							maxLength={128}
+							required
+							disabled={busy}
+						/>
+						{error && (
+							<p role="alert" className="text-small text-danger">
+								{error}
+							</p>
+						)}
+						<Button type="submit" variant="primary" className="h-11" disabled={busy}>
+							{busy ? "登录中…" : "登录"}
+						</Button>
+					</form>
+				) : mode === "code" ? (
+					<VerifyCodeForm shareToken={shareToken} onSuccess={done} onBusyChange={setBusy} />
+				) : (
+					<CodeForm
+						key="registration"
+						onBusyChange={setBusy}
+						send={async (input) => {
+							try {
+								await ensureRegistrationSupported();
+							} catch (error) {
+								throw Object.assign(new Error(passwordError(error)), {
+									retryAfter:
+										error && typeof error === "object" && "retryAfter" in error ? error.retryAfter : undefined,
+								});
+							}
+							return api.sendCode({ ...input, ...(shareToken ? { shareToken } : {}) });
+						}}
+						confirm={(input) => {
+							const invalid = validateNewPassword(password, confirmation);
+							if (invalid) throw new Error(invalid);
+							return passwordApi
+								.register({
+									...input,
+									password,
+									...(name.trim() ? { name: name.trim() } : {}),
+									...(shareToken ? { shareToken } : {}),
+								})
+								.catch((error) => {
+									throw Object.assign(new Error(passwordError(error)), {
+										retryAfter:
+											error && typeof error === "object" && "retryAfter" in error ? error.retryAfter : undefined,
+									});
+								});
+						}}
+						onSuccess={done}
+						submitLabel="验证并注册"
+						doneHint="验证码已发送，验证成功后创建账号。"
+					>
+						<Field
+							label="昵称（选填）"
+							value={name}
+							maxLength={80}
+							autoComplete="nickname"
+							onChange={(e) => setName(e.target.value)}
+						/>
+						<Field
+							label="设置密码"
+							type="password"
+							passwordToggle
+							autoComplete="new-password"
+							minLength={8}
+							maxLength={128}
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							placeholder="8–128 位"
+							required
+						/>
+						<Field
+							label="确认密码"
+							type="password"
+							passwordToggle
+							autoComplete="new-password"
+							minLength={8}
+							maxLength={128}
+							value={confirmation}
+							onChange={(e) => setConfirmation(e.target.value)}
+							required
+						/>
+					</CodeForm>
+				)}
+				<div className="flex flex-wrap justify-between gap-3 text-small">
+					<button
+						type="button"
+						className="press min-h-11 text-muted hover:text-ink"
+						disabled={busy}
+						onClick={() => changeMode(mode === "password" ? "code" : "password")}
+					>
+						{mode === "password" ? "验证码登录 / 忘记密码" : "密码登录"}
+					</button>
+					<button
+						type="button"
+						className="press min-h-11 text-muted hover:text-ink"
+						disabled={busy}
+						onClick={() => changeMode(mode === "register" ? "password" : "register")}
+					>
+						{mode === "register" ? "已有账号？登录" : "注册新账号"}
+					</button>
+				</div>
+				{mode === "code" && (
+					<p className="text-caption leading-relaxed text-muted">
+						忘记密码？验证码登录后，可在「设置 → 账号与安全」重置密码。
+					</p>
+				)}
+			</div>
 		</div>
 	);
 }
