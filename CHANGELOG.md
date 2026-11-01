@@ -2,21 +2,27 @@
 
 ## [Unreleased]
 
+## [0.3.26110109] - 2026-11-01
+
 ### Added
 
 - app：个人资料使用独立编辑页，可上传或恢复默认头像与名片背景，修改昵称和个性签名；可选择名片展示内容，头像与昵称始终保留。保存成功后返回个人页，并同步公开资料和分享名片。
-
 - app：头像与名片背景支持相册、主动拍照及移动缩放裁剪；取消保留原图，确认后预览，保存时再上传。移除访客开场白编辑和个人首页的收藏名片板块，保留旧正文与收藏数据。
 - app：个人发布统一归入「我的小店」，支持访问他人小店、本人的在售与隐藏管理、到期自动归隐藏、续期与删除、所有人/仅好友/仅自己可见、有效期和可选定位。发布前检查后端能力，旧服务不支持时停止操作。
 - market：Agent 市场工具同步小店筛选、可见范围、有效期、定位与删除，继续遵循主人批准，后端能力缺失时拒绝新增操作。
+- market：support shop policies in agent tools
+- app：add photo cropping and personal shops
+- app：add dedicated personal profile editor
 
 ### Fixed
 
 - app：前端可兼容旧服务先行上线，保留公开发布、普通编辑、隐藏/恢复和昵称/签名保存；头像背景保存、新权限、期限、定位、删除及访客小店按服务能力开放，不降级受限发布。
 - app：个人签名保存或清空后不会再被旧卡面文字覆盖，Bot 卡面保持原有显示逻辑。
-
 - build：网页产物校验正确处理 Windows 盘符和带空格的目录，继续拒绝包含原型数据的正式包。
 - test：名片收藏回归等待实际页面就绪，避免并发运行时过早判断加载结果。
+- app：keep legacy social services usable during rollout
+- app：simplify profile and shop states
+- build：resolve web bundle paths on Windows
 
 ## [0.3.26110108] - 2026-11-01
 
