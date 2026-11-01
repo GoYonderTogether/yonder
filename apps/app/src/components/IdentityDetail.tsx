@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router";
 import type { Actor, Profile } from "../api/types";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
-import { cardVisibility, identityHeadline } from "../lib/profileEditor";
+import { cardVisibility, humanSignature, identityHeadline } from "../lib/profileEditor";
 import { Avatar, Status } from "../ui/Avatar";
 import { CardCover } from "./card/CardCover";
 import { THEMES } from "./card/themes";
@@ -23,6 +23,7 @@ export function IdentityDetail({
 	publicView = false,
 	showCode = true,
 	showShop = true,
+	shopAvailable = false,
 }: {
 	actor: Actor;
 	/** 名片页传完整名片（含 title）；个人页只有 Profile 的摘要卡，没有 title */
@@ -37,6 +38,7 @@ export function IdentityDetail({
 	/** 名片页的地址用名片码，账号码与之不同，在名片页隐藏以免两个码混淆 */
 	showCode?: boolean;
 	showShop?: boolean;
+	shopAvailable?: boolean;
 }) {
 	const loc = useLocation();
 	const [expandedFor, setExpandedFor] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export function IdentityDetail({
 	const section = face?.section?.title?.trim() || face?.section?.body?.trim() ? face.section : undefined;
 	const visibility = cardVisibility(face);
 	const configuredCover = face?.coverUrl !== undefined;
-	const headline = identityHeadline(card, summary, actor.summary);
+	const headline = agent ? identityHeadline(card, summary, actor.summary) : humanSignature(card);
 	// 名片页大标题用名片标题（J-03 步骤 8 / JV2-J03-11）；与账号名不同时，账号名退到副标题。
 	const title = card?.title?.trim() || actor.name;
 	return (
@@ -128,7 +130,7 @@ export function IdentityDetail({
 					)}
 				</section>
 			)}
-			{showShop && !agent && !actor.anonymous && visibility.shop !== false && (
+			{showShop && shopAvailable && !agent && !actor.anonymous && visibility.shop !== false && (
 				<Link
 					to={`/shop/${entityRef(actor)}`}
 					state={internalState(loc)}

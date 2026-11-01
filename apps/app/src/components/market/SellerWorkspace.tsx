@@ -17,6 +17,7 @@ export function SellerWorkspace({
 	onDelete,
 	loading = false,
 	error = false,
+	hasMore = false,
 }: {
 	listings: Listing[];
 	saved?: string[];
@@ -31,6 +32,7 @@ export function SellerWorkspace({
 	onDelete?: (id: string) => Promise<void>;
 	loading?: boolean;
 	error?: boolean;
+	hasMore?: boolean;
 }) {
 	const [confirmation, setConfirmation] = useState<{ listing: Listing; action: "pause" | "delete" } | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -150,7 +152,13 @@ export function SellerWorkspace({
 			{!items.length && !loading && !error && (
 				<div className="mk-empty">
 					<Package size={30} />
-					<h3>{selectedTab === "paused" ? "没有隐藏的发布" : "还没有在售发布"}</h3>
+					<h3>
+						{hasMore
+							? "已加载的发布中暂无此类内容，可继续加载"
+							: selectedTab === "paused"
+								? "没有隐藏的发布"
+								: "还没有在售发布"}
+					</h3>
 				</div>
 			)}
 			{failure && !confirmation && (

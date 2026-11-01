@@ -19,7 +19,9 @@ export function ListingDetail({
 	onInquiry,
 	onEdit,
 	canCompare = true,
+	shopAvailable = false,
 }: {
+	shopAvailable?: boolean;
 	canCompare?: boolean;
 	listing: Listing | null;
 	match?: Match;
@@ -66,11 +68,12 @@ export function ListingDetail({
 								<div>
 									{listing.sellerId ? (
 										<Link
-											to={`/shop/${encodeURIComponent(listing.sellerId)}`}
+											to={`${shopAvailable ? "/shop" : "/p"}/${encodeURIComponent(listing.sellerId)}`}
 											state={internalState(location)}
 											className="font-semibold text-accent-ink"
 										>
-											{listing.seller}的小店
+											{listing.seller}
+											{shopAvailable ? "的小店" : ""}
 										</Link>
 									) : (
 										<strong>{listing.seller}</strong>

@@ -10,6 +10,7 @@ export interface PublishPolicy {
 }
 export function PublishPolicyFields({
 	value,
+	policyAvailable,
 	editing,
 	disabled,
 	onChange,
@@ -17,6 +18,7 @@ export function PublishPolicyFields({
 	onBusy,
 }: {
 	value: PublishPolicy;
+	policyAvailable: boolean;
 	editing: boolean;
 	disabled: boolean;
 	onChange: (patch: Partial<PublishPolicy>) => void;
@@ -32,6 +34,7 @@ export function PublishPolicyFields({
 		[],
 	);
 	const locate = () => {
+		if (!policyAvailable) return;
 		if (!navigator.geolocation) {
 			onError("当前浏览器无法定位，可手动填写地点。");
 			return;
@@ -62,64 +65,71 @@ export function PublishPolicyFields({
 	return (
 		<>
 			<label className="mk-form-label">
-				地点（可选）
+				{policyAvailable ? "地点（可选）" : "地点（必填）"}
 				<input
 					placeholder="城市、附近地点或线上"
+					aria-required={!policyAvailable}
 					value={value.location}
 					disabled={disabled || locating}
 					onChange={(event) => onChange({ location: event.target.value })}
 				/>
 			</label>
-			<div className="flex flex-wrap items-center gap-3 text-small">
-				<button type="button" className="mk-button" disabled={disabled || locating} onClick={locate}>
-					{locating ? "定位中…" : "附上当前位置"}
-				</button>
-				{value.coordinates && (
-					<>
-						<span>已附近似定位</span>
-						<button
-							type="button"
-							className="mk-button"
+			{policyAvailable && (
+				<div className="flex flex-wrap items-center gap-3 text-small">
+					<button type="button" className="mk-button" disabled={disabled || locating} onClick={locate}>
+						{locating ? "定位中…" : "附上当前位置"}
+					</button>
+					{value.coordinates && (
+						<>
+							<span>已附近似定位</span>
+							<button
+								type="button"
+								className="mk-button"
+								disabled={disabled || locating}
+								onClick={() => onChange({ coordinates: null })}
+							>
+								移除定位
+							</button>
+						</>
+					)}
+				</div>
+			)}
+			{policyAvailable ? (
+				<div className="mk-form-grid">
+					<label className="mk-form-label">
+						谁可以看
+						<select
+							value={value.visibility}
 							disabled={disabled || locating}
-							onClick={() => onChange({ coordinates: null })}
+							onChange={(event) => onChange({ visibility: event.target.value as ListingVisibility })}
 						>
-							移除定位
-						</button>
-					</>
-				)}
-			</div>
-			<div className="mk-form-grid">
-				<label className="mk-form-label">
-					谁可以看
-					<select
-						value={value.visibility}
-						disabled={disabled || locating}
-						onChange={(event) => onChange({ visibility: event.target.value as ListingVisibility })}
-					>
-						{Object.entries(VISIBILITY_LABEL).map(([key, label]) => (
-							<option key={key} value={key}>
-								{label}
-							</option>
-						))}
-					</select>
-				</label>
-				<label className="mk-form-label">
-					有效期
-					<select
-						value={value.duration}
-						disabled={disabled || locating}
-						onChange={(event) => onChange({ duration: event.target.value })}
-					>
-						{editing && <option value="keep">保持原有效期</option>}
-						<option value="forever">长期有效</option>
-						{[1, 3, 7, 30].map((day) => (
-							<option key={day} value={String(day)}>
-								{day} 天
-							</option>
-						))}
-					</select>
-				</label>
-			</div>
+							{Object.entries(VISIBILITY_LABEL).map(([key, label]) => (
+								<option key={key} value={key}>
+									{label}
+								</option>
+							))}
+						</select>
+					</label>
+					<label className="mk-form-label">
+						有效期
+						<select
+							value={value.duration}
+							disabled={disabled || locating}
+							onChange={(event) => onChange({ duration: event.target.value })}
+						>
+							{editing && <option value="keep">保持原有效期</option>}
+							<option value="forever">长期有效</option>
+							{[1, 3, 7, 30].map((day) => (
+								<option key={day} value={String(day)}>
+									{day} 天
+								</option>
+							))}
+						</select>
+					</label>
+				</div>
+			) : (
+				<p className="mk-form-hint">市场服务正在更新，可见范围、有效期与定位暂未开放。普通公开发布可继续使用。</p>
+			)}
 		</>
 	);
 }

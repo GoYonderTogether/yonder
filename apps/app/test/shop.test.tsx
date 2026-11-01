@@ -11,6 +11,7 @@ import { Shop } from "../src/pages/Shop";
 import { $session } from "../src/store";
 
 const api = vi.hoisted(() => ({
+	marketCapabilities: vi.fn(),
 	profile: vi.fn(),
 	resolve: vi.fn(),
 	marketListings: vi.fn(),
@@ -73,6 +74,7 @@ beforeEach(() => {
 	node = dom.document.createElement("div") as unknown as HTMLElement;
 	dom.document.body.appendChild(node as never);
 	root = createRoot(node);
+	api.marketCapabilities.mockResolvedValue({ listingPolicy: true, sellerShops: true });
 	api.profile.mockResolvedValue({ actor, card: null, agents: [], owner: null, summary: null });
 	api.resolve.mockResolvedValue({ id: actor.id, code: actor.code });
 	api.marketListing.mockResolvedValue(null);
@@ -185,7 +187,7 @@ it("shop visibility hides only the profile entry and humans no longer render vis
 	expect(html).not.toContain("旧开场白");
 	html = renderToStaticMarkup(
 		<MemoryRouter>
-			<IdentityDetail actor={actor} card={{ ...card, face: { theme: "mist" } }} />
+			<IdentityDetail shopAvailable actor={actor} card={{ ...card, face: { theme: "mist" } }} />
 		</MemoryRouter>,
 	);
 	expect(html).toContain('href="/shop/ABC123"');
@@ -200,6 +202,7 @@ it("asks for geolocation only on explicit action and keeps denied permission opt
 	await act(() =>
 		root.render(
 			<PublishPolicyFields
+				policyAvailable
 				value={value}
 				editing={false}
 				disabled={false}
@@ -241,4 +244,42 @@ it("canonicalizes the legacy expiry URL to hidden and keeps expired posts visibl
 	expect(node.querySelector('[data-testid="shop-location"]')?.textContent).toContain("panel=publish");
 	expect(node.querySelector('[data-testid="shop-location"]')?.textContent).toContain("edit=post-id");
 	expect(api.setListingPaused).not.toHaveBeenCalled();
+});
+
+it("uses only legacy mine pagination and does not confuse an empty loaded tab with the complete shop", async () => {
+	$session.set({ actor });
+	api.marketCapabilities.mockResolvedValue({ listingPolicy: false, sellerShops: false });
+	api.marketListings.mockImplementation(async ({ cursor }: { cursor?: string }) =>
+		cursor
+			? { items: [{ ...item, id: "hidden", title: "隐藏的发布", mine: true, paused: true }] }
+			: { items: [{ ...item, mine: true }], nextCursor: "legacy-2" },
+	);
+	await render("/me/shop?status=paused");
+	expect(api.marketListings).toHaveBeenCalledWith({ mine: true, cursor: undefined });
+	expect(node.textContent).toContain("已加载的发布中暂无此类内容，可继续加载");
+	expect(node.textContent).not.toContain("没有隐藏的发布");
+	await click("加载更多");
+	expect(api.marketListings).toHaveBeenLastCalledWith({ mine: true, cursor: "legacy-2" });
+	expect(node.textContent).toContain("隐藏的发布");
+	expect([...node.querySelectorAll("button")].some((button) => button.textContent?.trim() === "删除")).toBe(false);
+	api.setListingPaused.mockResolvedValue({ ...item, paused: false });
+	await click("重新上架");
+	expect(api.setListingPaused).toHaveBeenCalledWith("hidden", false);
+});
+it("does not query a mixed feed or open a listing overlay when legacy public shops are unavailable", async () => {
+	api.marketCapabilities.mockResolvedValue({ listingPolicy: false, sellerShops: false });
+	await render("/shop/seller-id?panel=detail&item=post-id");
+	expect(node.textContent).toContain("小店浏览暂未开放");
+	expect(api.marketListings).not.toHaveBeenCalled();
+	expect(api.marketListing).not.toHaveBeenCalled();
+	expect(node.textContent).not.toContain("正在加载发布");
+});
+it("waits for capability confirmation and treats a capability network error as a retryable error", async () => {
+	$session.set({ actor });
+	api.marketCapabilities.mockRejectedValue(new Error("offline"));
+	await render("/me/shop");
+	expect(node.textContent).toContain("无法确认小店服务");
+	expect(api.marketListings).not.toHaveBeenCalled();
+	const publish = [...node.querySelectorAll("button")].find((button) => button.textContent?.trim() === "发布");
+	expect(publish?.disabled).toBe(true);
 });

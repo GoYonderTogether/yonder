@@ -12,10 +12,10 @@ import { SellerWorkspace } from "../components/market/SellerWorkspace";
 import { PublishDialog } from "../components/market/SellPanel";
 import { entityRef } from "../lib/entityRef";
 import { internalState, useAppBack } from "../lib/navigation";
-import { identityHeadline } from "../lib/profileEditor";
+import { humanSignature, identityHeadline } from "../lib/profileEditor";
 import { useEntityId } from "../lib/useEntityId";
 import { listingInput, marketError, type ShopTab } from "../market/listingPolicy";
-import { useListingFeed, useListingLookup } from "../market/queries";
+import { useListingFeed, useListingLookup, useMarketCapabilities } from "../market/queries";
 import { useMarketState } from "../market/store";
 import type { Listing } from "../market/types";
 import { useListingExpiry } from "../market/useListingExpiry";
@@ -65,6 +65,9 @@ function ShopContent({
 	const publicBack = useAppBack(id ? `/p/${id}` : "/market");
 	const [params, setParams] = useSearchParams();
 	const { state, setState, storageKey } = useMarketState();
+	const marketSupport = useMarketCapabilities();
+	const capabilityReady = !!marketSupport.data && !marketSupport.isError;
+	const canBrowse = owner || marketSupport.data?.sellerShops === true;
 	const profile = useQuery({
 		queryKey: ["profile", id],
 		queryFn: () => {
@@ -80,9 +83,16 @@ function ShopContent({
 		next.set("status", "paused");
 		setParams(next, { replace: true, state: location.state });
 	}, [owner, params, setParams, location.state]);
-	const feed = useListingFeed(owner ? { mine: true, status: tab } : { sellerId: id }, !!id && !pending);
+	const feed = useListingFeed(
+		owner ? (marketSupport.data?.sellerShops ? { mine: true, status: tab } : { mine: true }) : { sellerId: id },
+		!!id && !pending && capabilityReady && canBrowse,
+	);
 	useListingExpiry(feed.items, owner && tab === "active");
-	const lookup = useListingLookup([params.get("item"), params.get("edit")].filter((value): value is string => !!value));
+	const lookup = useListingLookup(
+		capabilityReady && canBrowse
+			? [params.get("item"), params.get("edit")].filter((value): value is string => !!value)
+			: [],
+	);
 	const referenced = [...feed.items, ...lookup.items];
 	const editing = owner ? referenced.find((item) => item.id === params.get("edit") && item.mine) : undefined;
 	const detail = referenced.find((item) => item.id === params.get("item"));
@@ -143,6 +153,8 @@ function ShopContent({
 		}));
 	};
 	const actor = profile.data?.actor;
+	const headline =
+		actor?.kind === "human" ? humanSignature(profile.data?.card) : identityHeadline(profile.data?.card, actor?.summary);
 	const unavailable = !pending && !resolveError && !id;
 	return (
 		<div className="mk-app flex-col">
@@ -164,6 +176,7 @@ function ShopContent({
 						<Button
 							type="button"
 							className="bg-highlight text-on-highlight hover:bg-highlight/90"
+							disabled={!capabilityReady}
 							onClick={() => open("publish")}
 						>
 							<Plus size={17} />
@@ -179,11 +192,7 @@ function ShopContent({
 							<Avatar actor={actor} size={52} />
 							<div className="min-w-0 flex-1">
 								<h1 className="truncate text-title font-semibold">{actor.name}的小店</h1>
-								{identityHeadline(profile.data?.card, actor.summary) && (
-									<p className="mt-1 break-words text-small text-muted">
-										{identityHeadline(profile.data?.card, actor.summary)}
-									</p>
-								)}
+								{headline && <p className="mt-1 break-words text-small text-muted">{headline}</p>}
 							</div>
 							{!owner && (
 								<Link
@@ -216,7 +225,23 @@ function ShopContent({
 							)}
 						</div>
 					)}
-					{actor && (
+					{!marketSupport.data && marketSupport.isPending && (
+						<p role="status" className="py-5 text-muted">
+							正在确认小店服务…
+						</p>
+					)}
+					{marketSupport.isError && (
+						<div role="alert" className="flex flex-col items-start gap-3 py-5">
+							<p>无法确认小店服务，请检查网络后重试。</p>
+							<Button onClick={() => void marketSupport.refetch()}>重试</Button>
+						</div>
+					)}
+					{actor && capabilityReady && !canBrowse && (
+						<p role="status" className="py-8 text-muted">
+							小店浏览暂未开放，市场服务正在更新。
+						</p>
+					)}
+					{actor && capabilityReady && canBrowse && (
 						<>
 							{owner ? (
 								<SellerWorkspace
@@ -228,21 +253,27 @@ function ShopContent({
 									onStats={setStats}
 									loading={feed.isPending}
 									error={feed.isError}
+									hasMore={feed.hasNextPage}
 									onToggle={async (itemId) => {
 										const item = feed.items.find((item) => item.id === itemId);
 										if (!item) throw new Error("发布不存在，请刷新");
 										await api.setListingPaused(itemId, !item.paused);
 										await changed();
 									}}
-									onDelete={async (itemId) => {
-										await api.deleteListing(itemId);
-										await changed();
-									}}
+									onDelete={
+										marketSupport.data?.listingPolicy
+											? async (itemId) => {
+													await api.deleteListing(itemId);
+													await changed();
+												}
+											: undefined
+									}
 								/>
 							) : (
 								<div className="mk-feed-grid">
 									{feed.items.map((item) => (
 										<ListingCard
+											shopAvailable={marketSupport.data?.sellerShops === true}
 											key={item.id}
 											listing={item}
 											saved={state.saved.includes(item.id)}
@@ -284,6 +315,9 @@ function ShopContent({
 				</div>
 			</main>
 			<PublishDialog
+				capabilities={capabilityReady ? marketSupport.data : undefined}
+				capabilityError={marketSupport.isError}
+				retryCapabilities={() => void marketSupport.refetch()}
 				open={owner && panel === "publish" && (!params.get("edit") || !!editing)}
 				close={close}
 				editing={editing}
@@ -291,7 +325,8 @@ function ShopContent({
 				onPublish={save}
 			/>
 			<ListingDetail
-				listing={panel === "detail" ? (detail ?? null) : null}
+				shopAvailable={marketSupport.data?.sellerShops === true}
+				listing={capabilityReady && canBrowse && panel === "detail" ? (detail ?? null) : null}
 				liked={!!detail && state.liked.includes(detail.id)}
 				saved={!!detail && state.saved.includes(detail.id)}
 				compared={false}
@@ -316,7 +351,7 @@ function ShopContent({
 					)
 				}
 			/>
-			{panel && (params.get("edit") || params.get("item")) && !editing && !detail && (
+			{capabilityReady && canBrowse && panel && (params.get("edit") || params.get("item")) && !editing && !detail && (
 				<MarketDialog open close={close} title="发布">
 					{lookup.isPending ? (
 						<p className="mk-dialog-body" role="status">

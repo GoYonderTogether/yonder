@@ -45,6 +45,11 @@ export interface ListingInput {
 	missing: string[];
 }
 
+export interface MarketCapabilities {
+	listingPolicy: boolean;
+	sellerShops: boolean;
+}
+
 export interface ListingQuery {
 	sellerId?: string;
 	status?: "active" | "paused" | "expired";
@@ -165,6 +170,7 @@ export interface ApiClient {
 	ensureDefaultBot(input: { name: string; englishName: string }): Promise<Actor>;
 
 	// 市场：云端帖子。列表含他人公开帖与自己的全部帖（含已下架）。
+	marketCapabilities(): Promise<MarketCapabilities>;
 	marketListings(query?: ListingQuery): Promise<ListingPage>;
 	marketListing(id: string): Promise<Listing | null>;
 	/** 发布新帖；图片只接受 https 外链或内置 `/market/*.jpg`。 */

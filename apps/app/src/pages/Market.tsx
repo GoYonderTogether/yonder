@@ -37,7 +37,7 @@ import { defaultFilters, type MarketFilters, priceError } from "../market/flows"
 import { listingContext, needContext } from "../market/handoff";
 import { listingInput, marketError } from "../market/listingPolicy";
 import { findMatches, taskTitle } from "../market/matching";
-import { listingFilters, useListingFeed, useListingLookup } from "../market/queries";
+import { listingFilters, useListingFeed, useListingLookup, useMarketCapabilities } from "../market/queries";
 import { useMarketState } from "../market/store";
 import type { AgentTask, Listing, SearchBrief } from "../market/types";
 import { toast } from "../ui/Toast";
@@ -65,6 +65,7 @@ export function Market() {
 	const [params, setParams] = useSearchParams();
 	const navigate = useNavigate();
 	const qc = useQueryClient();
+	const marketSupport = useMarketCapabilities();
 	const { agent, agents, me } = usePersonalAgent();
 	const [handoff, setHandoff] = useState<string | null>(null);
 	const [handingOff, setHandingOff] = useState(false);
@@ -460,6 +461,7 @@ export function Market() {
 									<div className="mk-feed-grid">
 										{shown.slice(0, visibleCount).map((l) => (
 											<ListingCard
+												shopAvailable={marketSupport.data?.sellerShops === true && !marketSupport.isError}
 												key={l.id}
 												listing={l}
 												saved={state.saved.includes(l.id)}
@@ -628,6 +630,9 @@ export function Market() {
 				onSave={saveTask}
 			/>
 			<PublishDialog
+				capabilities={marketSupport.isError ? undefined : marketSupport.data}
+				capabilityError={marketSupport.isError}
+				retryCapabilities={() => void marketSupport.refetch()}
 				open={panel === "publish"}
 				close={closePanel}
 				editing={editing}
@@ -635,6 +640,7 @@ export function Market() {
 				onPublish={saveListing}
 			/>
 			<ListingDetail
+				shopAvailable={marketSupport.data?.sellerShops === true && !marketSupport.isError}
 				listing={panel === "detail" ? detail : null}
 				match={matches.find((m) => m.listing.id === detail?.id)}
 				liked={!!detail && state.liked.includes(detail.id)}

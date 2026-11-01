@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Market } from "../src/pages/Market";
 
 const api = vi.hoisted(() => ({
+	marketCapabilities: vi.fn(),
 	marketListings: vi.fn(),
 	marketListing: vi.fn(),
 	contacts: vi.fn().mockResolvedValue([]),
@@ -31,6 +32,7 @@ beforeEach(() => {
 		removeItem: (key: string) => void store.delete(key),
 	});
 	api.contacts.mockResolvedValue([]);
+	api.marketCapabilities.mockResolvedValue({ listingPolicy: true, sellerShops: true });
 	container = document.createElement("div") as unknown as HTMLElement;
 	document.body.appendChild(container as never);
 	root = createRoot(container);

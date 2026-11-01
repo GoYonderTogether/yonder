@@ -567,6 +567,9 @@ export const mockApi: ApiClient = {
 		a.online = online;
 		return { ...a };
 	},
+	async marketCapabilities() {
+		return { listingPolicy: false, sellerShops: false };
+	},
 	async marketListings(query = {}) {
 		if (query.sellerId || query.status) throw new Error("小店需要连接真实市场服务");
 		await wait();

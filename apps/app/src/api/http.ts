@@ -1,5 +1,5 @@
 import type { Listing } from "../market/types";
-import type { ApiClient } from "./client";
+import type { ApiClient, ListingInput, MarketCapabilities } from "./client";
 import type { Actor, Card, CodeSent, Conversation, Device, Message, Session, ShareLink } from "./types";
 
 /** 社交服务的基址：缺省同源；挂在本机网关下时由 VITE_SOCIAL_BASE 指向云端或测试后端。 */
@@ -70,15 +70,31 @@ const json = (method: string, body?: unknown): RequestInit => ({
 	...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
 });
 
-async function ensureMarketSupport(capability: "listingPolicy" | "sellerShops") {
-	let support: { listingPolicy?: boolean; sellerShops?: boolean } | null;
+async function marketCapabilities(): Promise<MarketCapabilities> {
+	let support: Partial<MarketCapabilities> | null;
 	try {
 		support = await request("/market/capabilities", { cache: "no-store" });
 	} catch (error) {
 		if ((error as { status?: number }).status !== 404) throw error;
-		throw new Error("市场服务尚未升级，小店与发布设置暂不可用。");
+		return { listingPolicy: false, sellerShops: false };
 	}
-	if (support?.[capability] !== true) throw new Error("市场服务尚未升级，小店与发布设置暂不可用。");
+	return { listingPolicy: support?.listingPolicy === true, sellerShops: support?.sellerShops === true };
+}
+async function ensureMarketSupport(capability: keyof MarketCapabilities) {
+	if (!(await marketCapabilities())[capability]) throw new Error("市场服务正在更新，此项功能暂未开放。");
+}
+async function compatibleListingInput<T extends Partial<ListingInput>>(input: T): Promise<T> {
+	const support = await marketCapabilities();
+	if (support.listingPolicy) return input;
+	if (
+		(input.visibility !== undefined && input.visibility !== "public") ||
+		input.expiresAt != null ||
+		input.coordinates != null
+	)
+		throw new Error("市场服务正在更新，暂不支持可见范围、有效期或定位设置；未保存此次发布。");
+	if ("location" in input && !input.location?.trim()) throw new Error("请填写地点，线上可填「线上」。");
+	const { visibility: _, expiresAt: __, coordinates: ___, ...legacy } = input;
+	return legacy as T;
 }
 
 export const httpApi: ApiClient = {
@@ -202,6 +218,7 @@ export const httpApi: ApiClient = {
 	contacts: () => request<Actor[]>("/contacts"),
 	createBot: (input) => request<Actor>("/bots", json("POST", input)),
 	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),
+	marketCapabilities,
 	marketListings: async (query = {}) => {
 		if (query.sellerId || query.status) await ensureMarketSupport("sellerShops");
 		const params = new URLSearchParams();
@@ -217,19 +234,20 @@ export const httpApi: ApiClient = {
 		return item ? toListing(item) : null;
 	},
 	createListing: async (input) => {
-		await ensureMarketSupport("listingPolicy");
-		return toListing(await request<CloudListing>("/market/listings", json("POST", input)));
+		const compatible = await compatibleListingInput(input);
+		return toListing(await request<CloudListing>("/market/listings", json("POST", compatible)));
 	},
 	updateListing: async (id, input) => {
-		await ensureMarketSupport("listingPolicy");
-		return toListing(await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", input)));
+		const compatible = await compatibleListingInput(input);
+		return toListing(
+			await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", compatible)),
+		);
 	},
 	deleteListing: async (id) => {
 		await ensureMarketSupport("listingPolicy");
 		return request(`/market/listings/${encodeURIComponent(id)}`, json("DELETE"));
 	},
 	setListingPaused: async (id, paused) => {
-		await ensureMarketSupport("listingPolicy");
 		return toListing(
 			await request<CloudListing>(
 				`/market/listings/${encodeURIComponent(id)}/${paused ? "pause" : "resume"}`,

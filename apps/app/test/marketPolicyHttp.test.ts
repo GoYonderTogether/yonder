@@ -68,14 +68,14 @@ describe("fail closed on legacy markets", () => {
 				),
 			);
 		vi.stubGlobal("fetch", fetch);
-		await expect(httpApi.createListing(input)).rejects.toThrow("尚未升级");
+		await expect(httpApi.createListing(input)).rejects.toThrow("市场服务正在更新");
 		expect(fetch).toHaveBeenCalledOnce();
 		expect(fetch.mock.calls[0][1].method).not.toBe("POST");
 	});
 	it("does not fall back to the general feed when seller filter support is missing", async () => {
 		const fetch = vi.fn().mockResolvedValue(response({ listingPolicy: true, sellerShops: false }));
 		vi.stubGlobal("fetch", fetch);
-		await expect(httpApi.marketListings({ sellerId: "seller-id" })).rejects.toThrow("尚未升级");
+		await expect(httpApi.marketListings({ sellerId: "seller-id" })).rejects.toThrow("市场服务正在更新");
 		expect(fetch).toHaveBeenCalledOnce();
 	});
 	it("checks support again before each write and sends real DELETE without a request body", async () => {
@@ -96,16 +96,92 @@ describe("fail closed on legacy markets", () => {
 		]);
 		expect(fetch.mock.calls[3][1].body).toBeUndefined();
 	});
-	it.each(["pause", "delete", "patch"] as const)("blocks %s without policy support", async (action) => {
+	it.each(["delete", "patch"] as const)("blocks %s without policy support", async (action) => {
 		const fetch = vi.fn().mockResolvedValue(response({ listingPolicy: false }));
 		vi.stubGlobal("fetch", fetch);
 		const task =
-			action === "pause"
-				? httpApi.setListingPaused("p", true)
-				: action === "delete"
-					? httpApi.deleteListing("p")
-					: httpApi.updateListing("p", { title: "修改" });
-		await expect(task).rejects.toThrow("尚未升级");
+			action === "delete" ? httpApi.deleteListing("p") : httpApi.updateListing("p", { visibility: "friends" });
+		await expect(task).rejects.toThrow("市场服务正在更新");
 		expect(fetch).toHaveBeenCalledOnce();
+	});
+});
+
+it("reports 404 or malformed capability flags as unsupported but keeps network failures explicit", async () => {
+	const fetch = vi
+		.fn()
+		.mockResolvedValueOnce(response({ error: "not_found" }, 404))
+		.mockResolvedValueOnce(response({ listingPolicy: "true", sellerShops: false }))
+		.mockRejectedValueOnce(new Error("offline"));
+	vi.stubGlobal("fetch", fetch);
+	await expect(httpApi.marketCapabilities()).resolves.toEqual({ listingPolicy: false, sellerShops: false });
+	await expect(httpApi.marketCapabilities()).resolves.toEqual({ listingPolicy: false, sellerShops: false });
+	await expect(httpApi.marketCapabilities()).rejects.toThrow("offline");
+});
+it("keeps ordinary legacy public publication and editing while stripping unsupported default policy fields", async () => {
+	const ordinary = { ...input, visibility: "public" as const, location: "线上" };
+	const fetch = vi
+		.fn()
+		.mockResolvedValueOnce(response({ error: "not_found" }, 404))
+		.mockResolvedValueOnce(response({ ...cloud, ...ordinary }))
+		.mockResolvedValueOnce(response({ listingPolicy: false }))
+		.mockResolvedValueOnce(response({ ...cloud, ...ordinary }));
+	vi.stubGlobal("fetch", fetch);
+	await httpApi.createListing(ordinary);
+	await httpApi.updateListing("post-id", {
+		title: "修改",
+		location: "线上",
+		visibility: "public",
+		expiresAt: null,
+		coordinates: null,
+	});
+	for (const index of [1, 3]) {
+		const body = JSON.parse(fetch.mock.calls[index][1].body);
+		expect(body).not.toHaveProperty("visibility");
+		expect(body).not.toHaveProperty("expiresAt");
+		expect(body).not.toHaveProperty("coordinates");
+		expect(body.location).toBe("线上");
+	}
+	expect(fetch.mock.calls[1][1].method).toBe("POST");
+	expect(fetch.mock.calls[3][1].method).toBe("PATCH");
+});
+it.each([
+	{ visibility: "friends" },
+	{ visibility: "private" },
+	{ expiresAt: 123456 },
+	{ coordinates: { latitude: 31, longitude: 121 } },
+])("never silently drops requested new policy values %j", async (policy) => {
+	const fetch = vi.fn().mockResolvedValue(response({ error: "not_found" }, 404));
+	vi.stubGlobal("fetch", fetch);
+	await expect(httpApi.updateListing("post-id", policy as never)).rejects.toThrow("未保存");
+	expect(fetch).toHaveBeenCalledOnce();
+});
+it("requires an honest manual location on old backends", async () => {
+	const fetch = vi.fn().mockResolvedValue(response({ error: "not_found" }, 404));
+	vi.stubGlobal("fetch", fetch);
+	await expect(httpApi.createListing({ ...input, visibility: "public" })).rejects.toThrow("请填写地点");
+	expect(fetch).toHaveBeenCalledOnce();
+});
+it("allows existing pause and resume endpoints without any capability preflight", async () => {
+	const fetch = vi.fn().mockImplementation(async () => response(cloud));
+	vi.stubGlobal("fetch", fetch);
+	await httpApi.setListingPaused("post-id", true);
+	await httpApi.setListingPaused("post-id", false);
+	expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+		"/api/market/listings/post-id/pause",
+		"/api/market/listings/post-id/resume",
+	]);
+});
+it("keeps supported policy fields unchanged on new backends", async () => {
+	const next = { ...input, expiresAt: 123456, coordinates: { latitude: 31.123, longitude: 121.123 } };
+	const fetch = vi
+		.fn()
+		.mockResolvedValueOnce(response({ listingPolicy: true, sellerShops: true }))
+		.mockResolvedValueOnce(response({ ...cloud, ...next }));
+	vi.stubGlobal("fetch", fetch);
+	await httpApi.createListing(next);
+	expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchObject({
+		visibility: "private",
+		expiresAt: 123456,
+		coordinates: next.coordinates,
 	});
 });

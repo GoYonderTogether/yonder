@@ -69,7 +69,17 @@ afterEach(async () => {
 
 async function renderDialog(onPublish: (listing: unknown) => Promise<boolean>, step = 3) {
 	store.set(draftKey, JSON.stringify({ form: DRAFT, step }));
-	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={onPublish as never} />));
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={onPublish as never}
+			/>,
+		),
+	);
 }
 
 async function submit() {
@@ -165,7 +175,17 @@ it("必填标识与不同类型的校验一致", async () => {
 
 it("创意发布的金额可选，参与方式必填", async () => {
 	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, kind: "idea", discoverable: false }, step: 2 }));
-	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={vi.fn()}
+			/>,
+		),
+	);
 	expect(container.textContent).toContain("金额（可留空，面议）");
 	expect(container.textContent).toContain("参与方式（必填）");
 	expect(container.querySelectorAll('[aria-required="true"]')).toHaveLength(1);
@@ -222,7 +242,17 @@ it("下架须确认，取消不操作，重新上架直接执行", async () => {
 it("旧草稿兼容标签字段，未确认标签随下一步和发布保存", async () => {
 	const onPublish = vi.fn().mockResolvedValue(false);
 	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, tagInput: " #旅 行 " }, step: 1 }));
-	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={onPublish} />));
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={onPublish}
+			/>,
+		),
+	);
 	expect(container.querySelector("select")).toBeNull();
 	await submit();
 	const saved = JSON.parse(store.get(draftKey) as string);
@@ -238,7 +268,17 @@ it("旧草稿兼容标签字段，未确认标签随下一步和发布保存", a
 
 it("标签添加去重，删除后保存到草稿", async () => {
 	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, tags: ["旅行"], tagInput: "#旅行" }, step: 1 }));
-	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={vi.fn()}
+			/>,
+		),
+	);
 	const add = [...container.querySelectorAll("button")].find(
 		(button) => button.textContent === "添加",
 	) as HTMLButtonElement;
@@ -255,7 +295,17 @@ it.each([
 	{ tags: Array.from({ length: 10 }, (_, i) => String(i)), tagInput: "新标签", message: "最多添加 10 个标签" },
 ])("标签超出限制时阻止下一步并保留输入 $message", async ({ tags, tagInput, message }) => {
 	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, tags, tagInput }, step: 1 }));
-	await act(() => root.render(<PublishDialog open close={() => {}} storageKey={KEY} onPublish={vi.fn()} />));
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={vi.fn()}
+			/>,
+		),
+	);
 	await submit();
 	expect(container.textContent).toContain(message);
 	expect(JSON.parse(store.get(draftKey) as string).step).toBe(1);
@@ -280,7 +330,14 @@ it("编辑保留原标签与分类，旧草稿缺标签时也不覆盖原值", a
 	const onPublish = vi.fn().mockResolvedValue(false);
 	await act(() =>
 		root.render(
-			<PublishDialog open close={() => {}} editing={listing as never} storageKey={KEY} onPublish={onPublish} />,
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				editing={listing as never}
+				storageKey={KEY}
+				onPublish={onPublish}
+			/>,
 		),
 	);
 	expect(container.textContent).toContain("#摄影");
@@ -289,4 +346,108 @@ it("编辑保留原标签与分类，旧草稿缺标签时也不覆盖原值", a
 	await submit();
 	await submit();
 	expect(onPublish).toHaveBeenCalledWith(expect.objectContaining({ tags: ["摄影", "同城"], category: DRAFT.category }));
+});
+
+it("legacy publication keeps a required manual location without offering unsupported policy or GPS controls", async () => {
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, location: "" }, step: 2 }));
+	const onPublish = vi.fn();
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: false, sellerShops: false }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={onPublish}
+			/>,
+		),
+	);
+	expect(container.textContent).toContain("地点（必填）");
+	expect(container.textContent).not.toContain("附上当前位置");
+	expect(container.querySelector("select")).toBeNull();
+	await submit();
+	expect(container.textContent).toContain("请填写地点");
+	expect(onPublish).not.toHaveBeenCalled();
+	expect(JSON.parse(store.get(draftKey)!).form.location).toBe("");
+});
+it("legacy ordinary public publication remains usable", async () => {
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, location: "线上" }, step: 3 }));
+	const onPublish = vi.fn().mockResolvedValue(true);
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: false, sellerShops: false }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={onPublish}
+			/>,
+		),
+	);
+	await submit();
+	expect(onPublish).toHaveBeenCalledWith(
+		expect.objectContaining({ location: "线上", visibility: "public", expiresAt: null, coordinates: null }),
+	);
+});
+it("unknown capabilities and old-server edits of existing restricted data never submit", async () => {
+	store.set(draftKey, JSON.stringify({ form: DRAFT, step: 3 }));
+	const onPublish = vi.fn();
+	await act(() =>
+		root.render(
+			<PublishDialog capabilities={undefined} open close={() => {}} storageKey={KEY} onPublish={onPublish} />,
+		),
+	);
+	await submit();
+	expect(onPublish).not.toHaveBeenCalled();
+	const editing = {
+		...DRAFT,
+		id: "restricted",
+		price: 1,
+		visibility: "private",
+		expiresAt: null,
+		coordinates: null,
+		tags: [],
+		facts: [],
+		missing: [],
+		metrics: { agentViews: 0, humanViews: 0, shortlists: 0, inquiries: 0 },
+	} as never;
+	store.set(
+		KEY + ":publish:restricted",
+		JSON.stringify({ form: { ...DRAFT, visibility: "public", duration: "forever", coordinates: null }, step: 3 }),
+	);
+	await act(() =>
+		root.render(
+			<PublishDialog
+				key="restricted"
+				capabilities={{ listingPolicy: false, sellerShops: false }}
+				editing={editing}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={onPublish}
+			/>,
+		),
+	);
+	await submit();
+	expect(onPublish).not.toHaveBeenCalled();
+	expect(container.textContent).toContain("此发布包含尚未开放的设置");
+});
+it("does not offer the unsupported Other creation kind and rejects old Other drafts before mutation", async () => {
+	store.set(draftKey, JSON.stringify({ form: { ...DRAFT, kind: "other" }, step: 0 }));
+	const onPublish = vi.fn();
+	await act(() =>
+		root.render(
+			<PublishDialog
+				capabilities={{ listingPolicy: true, sellerShops: true }}
+				open
+				close={() => {}}
+				storageKey={KEY}
+				onPublish={onPublish}
+			/>,
+		),
+	);
+	expect(container.querySelectorAll(".mk-kind-options button")).toHaveLength(5);
+	await submit();
+	expect(container.textContent).toContain("此类型暂不支持发布");
+	expect(onPublish).not.toHaveBeenCalled();
 });

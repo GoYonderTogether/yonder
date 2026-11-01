@@ -3,7 +3,6 @@ import {
 	ArrowRight,
 	Briefcase,
 	Check,
-	Ellipsis,
 	HandHelping,
 	Lightbulb,
 	Package,
@@ -12,10 +11,11 @@ import {
 	X,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import type { MarketCapabilities } from "../../api/client";
 import { cn } from "../../lib/cn";
 import { hasListingImage, kindLabel, priceLabel } from "../../market/catalog";
 import { CATEGORIES } from "../../market/data";
-import { locationLabel, selectedExpiry, VISIBILITY_LABEL } from "../../market/listingPolicy";
+import { hasListingPolicy, locationLabel, selectedExpiry, VISIBILITY_LABEL } from "../../market/listingPolicy";
 import type { Coordinates, Listing, ListingKind, ListingVisibility } from "../../market/types";
 import { uploadMarketImage } from "../../market/uploadImage";
 import { MarketDialog } from "./MarketUI";
@@ -46,7 +46,13 @@ export function PublishDialog({
 	editing,
 	storageKey,
 	onPublish,
+	capabilities,
+	capabilityError = false,
+	retryCapabilities,
 }: {
+	capabilities: MarketCapabilities | undefined;
+	capabilityError?: boolean;
+	retryCapabilities?: () => void;
 	open: boolean;
 	close: () => void;
 	editing?: Listing;
@@ -54,6 +60,8 @@ export function PublishDialog({
 	onPublish: (listing: Listing) => Promise<boolean>;
 }) {
 	const tagInputId = useId();
+	const capabilityReady = !!capabilities && !capabilityError;
+	const policyAvailable = capabilities?.listingPolicy === true;
 	const composing = useRef(false);
 	const [form, setForm] = useState(BLANK);
 	const [step, setStep] = useState(0);
@@ -155,7 +163,11 @@ export function PublishDialog({
 		}
 	};
 	const next = () => {
-		if (publishing || uploading || locating) return;
+		if (publishing || uploading || locating || !capabilityReady) return;
+		if (form.kind === "other") {
+			setError("此类型暂不支持发布，请返回选择其它类型。");
+			return;
+		}
 		if (step === 1 && (!form.title.trim() || !form.description.trim())) {
 			setError("请填写标题和描述");
 			return;
@@ -167,6 +179,10 @@ export function PublishDialog({
 				(openEnded ? Number(form.price) < 0 : Number(form.price) <= 0)
 			) {
 				setError(openEnded ? "金额不能为负数" : "请填写大于 0 的价格");
+				return;
+			}
+			if (!policyAvailable && !form.location.trim()) {
+				setError("请填写地点，线上可填「线上」。");
 				return;
 			}
 			if (!form.delivery.trim()) {
@@ -182,7 +198,11 @@ export function PublishDialog({
 		} else go(step + 1);
 	};
 	const publish = async () => {
-		if (publishing || uploading || locating) return;
+		if (publishing || uploading || locating || !capabilityReady) return;
+		if (form.kind === "other") {
+			setError("此类型暂不支持发布，请返回选择其它类型。");
+			return;
+		}
 		const listing: Listing = {
 			id: editing?.id ?? crypto.randomUUID(),
 			kind: form.kind,
@@ -217,6 +237,14 @@ export function PublishDialog({
 			metrics: editing?.metrics ?? { agentViews: 0, shortlists: 0, humanViews: 0, inquiries: 0 },
 			paused: editing?.paused,
 		};
+		if (!policyAvailable && (hasListingPolicy(listing) || (editing && hasListingPolicy(editing)))) {
+			setError("此发布包含尚未开放的设置，请等待市场服务更新后再保存。");
+			return;
+		}
+		if (!policyAvailable && !listing.location.trim()) {
+			setError("请填写地点，线上可填「线上」。");
+			return;
+		}
 		setPublishing(true);
 		let published = false;
 		try {
@@ -251,6 +279,16 @@ export function PublishDialog({
 				}}
 			>
 				<div className="mk-dialog-body">
+					{!capabilityReady && (
+						<div role={capabilityError ? "alert" : "status"} className="mk-form-hint">
+							{capabilityError ? "无法确认发布服务，请重试后再发布。" : "正在确认发布服务…"}
+							{capabilityError && (
+								<button type="button" className="mk-button" onClick={retryCapabilities}>
+									重试
+								</button>
+							)}
+						</div>
+					)}
 					<div className="mk-steps">
 						{[0, 1, 2, 3].map((i) => (
 							<span key={i} className={cn(i <= step && "is-active")} />
@@ -265,7 +303,6 @@ export function PublishDialog({
 									{ kind: "idea", label: "分享创意", desc: "分享一个想法，找到一起做的人", icon: Lightbulb },
 									{ kind: "job", label: "寻找伙伴", desc: "发布招聘、兼职或合作机会", icon: Briefcase },
 									{ kind: "request", label: "发布求助", desc: "公开一个需要，等合适的人回应", icon: HandHelping },
-									{ kind: "other", label: "其他", desc: "发布不属于以上类型的内容", icon: Ellipsis },
 								] as const
 							).map(({ kind, label, desc, icon: Icon }) => (
 								<button
@@ -308,7 +345,7 @@ export function PublishDialog({
 											<input
 												type="file"
 												accept="image/jpeg,image/png,image/webp"
-												disabled={uploading}
+												disabled={uploading || !capabilityReady}
 												onChange={(event) => {
 													const file = event.currentTarget.files?.[0];
 													event.currentTarget.value = "";
@@ -442,9 +479,10 @@ export function PublishDialog({
 								</label>
 							</div>
 							<PublishPolicyFields
+								policyAvailable={policyAvailable}
 								value={form}
 								editing={!!editing}
-								disabled={publishing || uploading}
+								disabled={publishing || uploading || !capabilityReady}
 								onBusy={setLocating}
 								onError={setError}
 								onChange={(patch) => persist({ ...formRef.current, ...patch })}
@@ -529,7 +567,11 @@ export function PublishDialog({
 					) : (
 						<span className="mk-form-hint">草稿自动保留</span>
 					)}
-					<button type="submit" className="mk-button mk-primary" disabled={publishing || uploading || locating}>
+					<button
+						type="submit"
+						className="mk-button mk-primary"
+						disabled={publishing || uploading || locating || !capabilityReady}
+					>
 						{publishing ? "发布中…" : step === 3 ? (editing ? "保存修改" : "确认发布") : "下一步"}
 						{step === 3 ? <Check size={16} /> : <ArrowRight size={16} />}
 					</button>

@@ -2,6 +2,10 @@ import type { ListingInput } from "../api/client";
 import type { Coordinates, Listing } from "./types";
 
 export type ShopTab = "active" | "paused";
+export const hasListingPolicy = (listing: Pick<Listing, "visibility" | "expiresAt" | "coordinates">) =>
+	(listing.visibility !== undefined && listing.visibility !== "public") ||
+	listing.expiresAt != null ||
+	listing.coordinates != null;
 export const VISIBILITY_LABEL = { public: "所有人", friends: "仅好友", private: "仅自己" } as const;
 export function isExpired(listing: Pick<Listing, "expiresAt">, now = Date.now()) {
 	return typeof listing.expiresAt === "number" && listing.expiresAt <= now;

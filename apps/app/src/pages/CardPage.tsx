@@ -13,6 +13,7 @@ import { entityRef } from "../lib/entityRef";
 import { wantCardLogin } from "../lib/myCard";
 import { useAppBack } from "../lib/navigation";
 import { useEntityId } from "../lib/useEntityId";
+import { useMarketCapabilities } from "../market/queries";
 import { $session } from "../store";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
@@ -35,6 +36,7 @@ export function PublicIdentity({
 	const cardRef = useEntityId("card", cardId);
 	const canonicalCardId = cardRef.id;
 	const qc = useQueryClient();
+	const marketSupport = useMarketCapabilities();
 	const session = useStore($session);
 	const { busy: busyProfile, start } = useStartChat();
 	const nav = useNavigate();
@@ -147,6 +149,7 @@ export function PublicIdentity({
 			summary={profile.summary}
 			agents={profile.agents}
 			owner={profile.owner}
+			shopAvailable={marketSupport.data?.sellerShops === true && !marketSupport.isError}
 			publicView
 			showCode={!cardId}
 			qr={

@@ -13,7 +13,9 @@ export function ListingCard({
 	onOpen,
 	onSave,
 	onLike,
+	shopAvailable = false,
 }: {
+	shopAvailable?: boolean;
 	listing: Listing;
 	saved: boolean;
 	liked?: boolean;
@@ -54,7 +56,10 @@ export function ListingCard({
 				<div className="mk-seller-row">
 					<SellerAvatar name={listing.seller} />
 					{listing.sellerId ? (
-						<Link to={`/shop/${encodeURIComponent(listing.sellerId)}`} state={internalState(location)}>
+						<Link
+							to={`${shopAvailable ? "/shop" : "/p"}/${encodeURIComponent(listing.sellerId)}`}
+							state={internalState(location)}
+						>
 							{listing.seller}
 						</Link>
 					) : (

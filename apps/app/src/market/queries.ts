@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import type { ListingQuery } from "../api/client";
 import type { MarketFilters } from "./flows";
@@ -50,4 +50,13 @@ export function useListingLookup(ids: string[]) {
 		isError: queries.some((query) => query.isError),
 		refetch: () => Promise.all(queries.map((query) => query.refetch())),
 	};
+}
+
+export function useMarketCapabilities() {
+	return useQuery({
+		queryKey: ["market-capabilities"],
+		queryFn: api.marketCapabilities,
+		retry: false,
+		refetchOnWindowFocus: true,
+	});
 }

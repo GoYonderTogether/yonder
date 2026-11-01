@@ -6,7 +6,7 @@ import type { CardFaceProps } from "../components/card/CardFace";
 import { $session } from "../store";
 import { appPath } from "./base";
 import { entityRef } from "./entityRef";
-import { identityHeadline } from "./profileEditor";
+import { humanSignature, identityHeadline } from "./profileEditor";
 
 /** 名片页的一行 / 一张卡：我的名片、我的 Agent（有无名片都有）、收到的名片。 */
 export interface CardItem {
@@ -28,7 +28,11 @@ export const itemName = (i: CardItem) =>
 const shown = (i: CardItem) =>
 	i.card && (i.section !== "agent" || i.card.status === "published") ? i.card : undefined;
 export const itemSummary = (i: CardItem) =>
-	shown(i)?.face?.visibility ? (identityHeadline(shown(i)) ?? null) : (shown(i)?.summary ?? null);
+	i.actor.kind === "human"
+		? (humanSignature(shown(i)) ?? null)
+		: shown(i)?.face?.visibility
+			? (identityHeadline(shown(i)) ?? null)
+			: (shown(i)?.summary ?? null);
 
 export function faceProps(i: CardItem): CardFaceProps {
 	const c = shown(i);
@@ -37,7 +41,7 @@ export function faceProps(i: CardItem): CardFaceProps {
 		name: i.actor.name,
 		avatarUrl: i.actor.avatarUrl,
 		agent,
-		headline: identityHeadline(c, i.actor.summary),
+		headline: agent ? identityHeadline(c, i.actor.summary) : humanSignature(c),
 		face: c?.face,
 		display: c?.display,
 		online: agent ? !!i.actor.online : undefined,

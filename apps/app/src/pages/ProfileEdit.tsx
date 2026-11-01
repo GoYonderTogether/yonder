@@ -4,12 +4,14 @@ import { ArrowLeft, Camera, ChevronRight, ImagePlus } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, Navigate } from "react-router";
 import { api } from "../api";
-import type { Actor, Card, Profile, ProfileUpdateInput } from "../api/types";
+import type { MarketCapabilities } from "../api/client";
+import type { Actor, Card, Profile, ProfileUpdateInput, ProfileUpdateResult } from "../api/types";
 import { AppBar } from "../components/AppBar";
 import { CardCover } from "../components/card/CardCover";
 import { PhotoPicker, type PhotoPickerHandle } from "../components/PhotoPicker";
+import { saveLegacyProfile } from "../lib/legacyProfile";
 import { usePersonalMarketBack } from "../lib/navigation";
-import { profileError, profileForm, profileSaveError } from "../lib/profileEditor";
+import { profileError, profileForm, profileSaveError, profileTextError } from "../lib/profileEditor";
 import { uploadMarketImage, validateMarketImage } from "../market/uploadImage";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
@@ -41,6 +43,12 @@ export function ProfileEdit() {
 function ProfileLoader({ actor }: { actor: Actor }) {
 	const back = usePersonalMarketBack();
 	const query = useQuery({ queryKey: ["cards"], queryFn: api.cards });
+	const capabilities = useQuery({
+		queryKey: ["market-capabilities"],
+		queryFn: api.marketCapabilities,
+		retry: false,
+		refetchOnWindowFocus: false,
+	});
 	if (!query.data)
 		return (
 			<div className="flex h-full flex-col bg-ground">
@@ -63,12 +71,30 @@ function ProfileLoader({ actor }: { actor: Actor }) {
 	return (
 		<ProfileForm
 			actor={actor}
+			capabilities={capabilities.isSuccess && !capabilities.isFetching ? capabilities.data : undefined}
+			capabilityError={capabilities.isError}
+			checking={capabilities.isFetching}
+			retryCapabilities={() => void capabilities.refetch()}
 			card={query.data.find((item) => item.mine && item.ownerId === actor.id && item.kind === "default")}
 		/>
 	);
 }
 
-function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
+function ProfileForm({
+	actor,
+	card,
+	capabilities,
+	capabilityError,
+	checking,
+	retryCapabilities,
+}: {
+	actor: Actor;
+	card?: Card;
+	capabilities?: MarketCapabilities;
+	capabilityError: boolean;
+	checking: boolean;
+	retryCapabilities(): void;
+}) {
 	const qc = useQueryClient();
 	const back = usePersonalMarketBack();
 	const formId = useId();
@@ -78,7 +104,9 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 	const avatarPreview = useImagePreview(avatarFile);
 	const coverPreview = useImagePreview(coverFile);
 	const picker = useRef<PhotoPickerHandle>(null);
-	const baseline = useRef(JSON.stringify(profileForm(actor, card)));
+	const original = useRef(profileForm(actor, card));
+	const baseline = useRef(JSON.stringify(original.current));
+	const legacyDraft = useRef<Card | undefined>(undefined);
 	const pending = useRef(false);
 	const alive = useRef(true);
 	const uploads = useRef(new Map<File, string>());
@@ -91,8 +119,40 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 			alive.current = false;
 		};
 	}, []);
+	const ready = !!capabilities && !capabilityError && !checking;
+	const advanced = ready && capabilities.listingPolicy && capabilities.sellerShops;
+	const advancedChanged =
+		!!avatarFile ||
+		!!coverFile ||
+		form.avatarUrl !== original.current.avatarUrl ||
+		form.coverUrl !== original.current.coverUrl ||
+		JSON.stringify(form.visibility) !== JSON.stringify(original.current.visibility);
+	const blocked = ready && !advanced && advancedChanged;
+	const refresh = () =>
+		$session.get()?.actor.id === actor.id
+			? Promise.all(
+					["cards", "card", "profile", "actors", "contacts"].map((key) => qc.invalidateQueries({ queryKey: [key] })),
+				)
+			: Promise.resolve([]);
+	const acknowledgeActor = (updated: Actor) => {
+		const current = $session.get();
+		if (current?.actor.id !== actor.id) return;
+		$session.set({ ...current, actor: updated });
+		qc.setQueriesData<Profile>({ queryKey: ["profile"] }, (old) =>
+			old?.actor.id === actor.id ? { ...old, actor: updated } : old,
+		);
+		for (const key of ["actors", "contacts"])
+			qc.setQueriesData<Actor[]>({ queryKey: [key] }, (old) =>
+				old?.map((item) => (item.id === actor.id ? updated : item)),
+			);
+	};
+	const acknowledgeDraft = (draft: Card) => {
+		if ($session.get()?.actor.id !== actor.id) return;
+		legacyDraft.current = draft;
+		qc.setQueryData<Card[]>(["cards"], (old) => old?.map((item) => (item.id === draft.id ? draft : item)));
+	};
 	const select = (kind: "avatar" | "cover", file?: File) => {
-		if (!file || pending.current) return;
+		if (!file || pending.current || !advanced) return;
 		try {
 			validateMarketImage(file);
 			(kind === "avatar" ? setAvatarFile : setCoverFile)(file);
@@ -102,13 +162,14 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 		}
 	};
 	const restore = (kind: "avatar" | "cover") => {
+		if (!advanced || pending.current) return;
 		(kind === "avatar" ? setAvatarFile : setCoverFile)(null);
 		setForm((old) => ({ ...old, [kind === "avatar" ? "avatarUrl" : "coverUrl"]: null }));
 		setError(undefined);
 	};
 	const save = async () => {
-		if (pending.current || $session.get()?.actor.id !== actor.id) return;
-		const invalid = profileError(form);
+		if (pending.current || $session.get()?.actor.id !== actor.id || !ready || blocked) return;
+		const invalid = advanced ? profileError(form) : profileTextError(form);
 		if (invalid) {
 			setError(invalid);
 			return;
@@ -117,33 +178,46 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 		setBusy(true);
 		setError(undefined);
 		try {
-			const image = async (file: File | null, original: string | null, label: string) => {
-				if (!alive.current || $session.get()?.actor.id !== actor.id) throw new Error("账号已变化，请重新打开个人资料");
-				if (!file) return original;
-				const previous = uploads.current.get(file);
-				if (previous) return previous;
-				setStage(`正在上传${label}…`);
-				const url = await uploadMarketImage(
-					file,
-					(progress) => alive.current && setStage(`正在上传${label} ${progress}%`),
-				);
-				uploads.current.set(file, url);
-				return url;
-			};
-			const avatarUrl = await image(avatarFile, form.avatarUrl, "头像");
-			const coverUrl = await image(coverFile, form.coverUrl, "背景");
-			const input: ProfileUpdateInput = {
-				...form,
-				name: form.name.trim(),
-				tagline: form.tagline.trim(),
-				avatarUrl,
-				coverUrl,
-			};
-			const imageError = profileError(input);
-			if (imageError) throw new Error(imageError);
-			if (!alive.current || $session.get()?.actor.id !== actor.id) return;
-			setStage("正在保存…");
-			const result = await api.saveProfile(input);
+			let result: ProfileUpdateResult;
+			if (!advanced) {
+				setStage("正在保存…");
+				result = await saveLegacyProfile(api, actor, card, form, {
+					active: () => alive.current && $session.get()?.actor.id === actor.id,
+					onActor: acknowledgeActor,
+					onCard: acknowledgeDraft,
+					pendingDraft: legacyDraft.current,
+				});
+			} else {
+				const image = async (file: File | null, original: string | null, label: string) => {
+					if (!alive.current || $session.get()?.actor.id !== actor.id)
+						throw new Error("账号已变化，请重新打开个人资料");
+					if (!file) return original;
+					const previous = uploads.current.get(file);
+					if (previous) return previous;
+					setStage(`正在上传${label}…`);
+					const url = await uploadMarketImage(
+						file,
+						(progress) => alive.current && setStage(`正在上传${label} ${progress}%`),
+					);
+					uploads.current.set(file, url);
+					return url;
+				};
+				const avatarUrl = await image(avatarFile, form.avatarUrl, "头像");
+				const coverUrl = await image(coverFile, form.coverUrl, "背景");
+				const input: ProfileUpdateInput = {
+					...form,
+					name: form.name.trim(),
+					tagline: form.tagline.trim(),
+					avatarUrl,
+					coverUrl,
+				};
+				const imageError = profileError(input);
+				if (imageError) throw new Error(imageError);
+				if (!alive.current || $session.get()?.actor.id !== actor.id) return;
+				setStage("正在保存…");
+				result = await api.saveProfile(input);
+			}
+			legacyDraft.current = undefined;
 			const current = $session.get();
 			if (current?.actor.id !== actor.id || result.actor.id !== actor.id) return;
 			$session.set({ ...current, actor: result.actor });
@@ -152,9 +226,11 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 					? old.map((item) => (item.id === result.card.id ? result.card : item))
 					: [result.card, ...(old ?? [])],
 			);
-			qc.setQueryData(["card", result.card.id], result.card);
+			if (result.card.status === "published") qc.setQueryData(["card", result.card.id], result.card);
 			qc.setQueriesData<Profile>({ queryKey: ["profile"] }, (old) =>
-				old?.actor.id === actor.id ? { ...old, actor: result.actor, card: result.card } : old,
+				old?.actor.id === actor.id
+					? { ...old, actor: result.actor, ...(result.card.status === "published" ? { card: result.card } : {}) }
+					: old,
 			);
 			for (const key of ["actors", "contacts"])
 				qc.setQueriesData<Actor[]>({ queryKey: [key] }, (old) =>
@@ -165,6 +241,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 			);
 			if (alive.current) back();
 		} catch (failure) {
+			if (!advanced) await refresh();
 			if (alive.current) setError(profileSaveError(failure));
 		} finally {
 			pending.current = false;
@@ -174,7 +251,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 			}
 		}
 	};
-	const invalid = profileError(form);
+	const invalid = advanced ? profileError(form) : profileTextError(form);
 	const dirty = !!avatarFile || !!coverFile || JSON.stringify(form) !== baseline.current;
 	const mayLeave = () => !dirty || window.confirm("有尚未保存的修改，确定离开吗？");
 	return (
@@ -196,7 +273,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 					</Button>
 				}
 				right={
-					<Button type="submit" variant="primary" form={formId} disabled={busy || !!invalid}>
+					<Button type="submit" variant="primary" form={formId} disabled={busy || !!invalid || !ready || blocked}>
 						{busy ? "保存中…" : "保存"}
 					</Button>
 				}
@@ -217,14 +294,19 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 								<Button
 									type="button"
 									className="bg-raised text-ink"
-									disabled={busy}
+									disabled={busy || !advanced}
 									onClick={() => picker.current?.open("cover")}
 								>
 									<ImagePlus size={16} />
 									更换背景
 								</Button>
 								{(coverFile || form.coverUrl) && (
-									<Button type="button" className="bg-raised text-ink" disabled={busy} onClick={() => restore("cover")}>
+									<Button
+										type="button"
+										className="bg-raised text-ink"
+										disabled={busy || !advanced}
+										onClick={() => restore("cover")}
+									>
 										恢复默认背景
 									</Button>
 								)}
@@ -233,7 +315,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 						<div className="relative flex items-center gap-4 px-5 pt-4 pb-5">
 							<button
 								type="button"
-								disabled={busy}
+								disabled={busy || !advanced}
 								aria-label="更换头像"
 								onClick={() => picker.current?.open("avatar")}
 								className="press relative -mt-9 shrink-0 rounded-full bg-raised p-1"
@@ -255,12 +337,18 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 								<p className="mt-1 text-caption text-muted">头像与昵称始终展示</p>
 							</div>
 							{(avatarFile || form.avatarUrl) && (
-								<Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => restore("avatar")}>
+								<Button
+									type="button"
+									size="sm"
+									variant="ghost"
+									disabled={busy || !advanced}
+									onClick={() => restore("avatar")}
+								>
 									恢复默认头像
 								</Button>
 							)}
 						</div>
-						<PhotoPicker ref={picker} disabled={busy} onApply={select} onError={setError} />
+						<PhotoPicker ref={picker} disabled={busy || !advanced} onApply={select} onError={setError} />
 					</section>
 					<fieldset disabled={busy} className="flex flex-col gap-5">
 						<Field
@@ -276,7 +364,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 							onChange={(event) => setForm({ ...form, tagline: event.target.value })}
 						/>
 					</fieldset>
-					<fieldset disabled={busy} className="rounded-card bg-raised">
+					<fieldset disabled={busy || !advanced} className="rounded-card bg-raised">
 						<legend className="mb-2 text-small font-medium text-muted">名片展示</legend>
 						{(
 							[
@@ -293,6 +381,7 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 								<input
 									type="checkbox"
 									role="switch"
+									disabled={busy || !advanced}
 									aria-checked={form.visibility[key]}
 									aria-label={`展示${label}`}
 									checked={form.visibility[key]}
@@ -326,6 +415,25 @@ function ProfileForm({ actor, card }: { actor: Actor; card?: Card }) {
 							<ChevronRight size={16} />
 						</span>
 					</Link>
+					{!ready ? (
+						<div className="flex items-center justify-between gap-3 text-small text-muted">
+							<p role={capabilityError ? "alert" : "status"}>
+								{capabilityError ? "暂时无法确认资料服务，请重试" : "正在检查资料服务…"}
+							</p>
+							{capabilityError && (
+								<Button type="button" size="sm" disabled={checking} onClick={retryCapabilities}>
+									重试
+								</Button>
+							)}
+						</div>
+					) : !advanced ? (
+						<p className="text-caption text-muted">头像、背景与展示设置将在服务更新后开放</p>
+					) : null}
+					{blocked && (
+						<p role="alert" className="text-small text-danger">
+							服务版本已变化，请刷新后再保存图片与展示设置
+						</p>
+					)}
 					{(error || invalid) && (
 						<p role="alert" className="text-small text-danger">
 							{error ?? invalid}

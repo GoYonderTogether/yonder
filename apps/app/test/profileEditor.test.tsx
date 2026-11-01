@@ -14,7 +14,15 @@ import { Me } from "../src/pages/Me";
 import { ProfileEdit } from "../src/pages/ProfileEdit";
 import { $session } from "../src/store";
 
-const api = vi.hoisted(() => ({ cards: vi.fn(), saveProfile: vi.fn(), contacts: vi.fn() }));
+const api = vi.hoisted(() => ({
+	cards: vi.fn(),
+	saveProfile: vi.fn(),
+	contacts: vi.fn(),
+	marketCapabilities: vi.fn(),
+	updateProfile: vi.fn(),
+	saveDraft: vi.fn(),
+	publish: vi.fn(),
+}));
 vi.mock("../src/api", () => ({ api }));
 vi.mock("../src/components/PhotoPicker", async () => {
 	const { useImperativeHandle } = await import("react");
@@ -77,6 +85,10 @@ beforeEach(() => {
 	document.body.appendChild(el as never);
 	root = createRoot(el);
 	qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	api.marketCapabilities.mockResolvedValue({ listingPolicy: true, sellerShops: true });
+	api.updateProfile.mockImplementation(async (input) => ({ ...actor, name: input.name }));
+	api.saveDraft.mockImplementation(async (_id, input) => ({ ...card, ...input, status: "draft", rev: 2 }));
+	api.publish.mockResolvedValue(card);
 	api.cards.mockResolvedValue([card]);
 	api.contacts.mockResolvedValue([]);
 	api.saveProfile.mockResolvedValue({ actor: { ...actor, name: "新昵称" }, card: { ...card, title: "新昵称" } });
@@ -403,4 +415,115 @@ it("asks before opening shop management with unsaved profile edits", async () =>
 	expect(confirm).toHaveBeenCalledOnce();
 	expect(required("output").textContent).toBe("/me/edit");
 	expect(required("input[required]").getAttribute("value")).toBe("未保存");
+});
+
+async function signature(value: string) {
+	const label = [...el.querySelectorAll("label")].find(
+		(item) => item.getAttribute("for") && item.textContent?.startsWith("个性签名"),
+	);
+	const input = label && document.getElementById(label.getAttribute("for") ?? "");
+	if (!input) throw new Error("Missing signature field");
+	await act(() => props(input).onChange({ target: { value } }));
+}
+const legacy = () => api.marketCapabilities.mockResolvedValue({ listingPolicy: false, sellerShops: false });
+it("keeps legacy nickname/signature saving functional and preserves all old card content", async () => {
+	legacy();
+	const original: Card = {
+		...card,
+		face: { theme: "ink", headline: "自定义卡面", tags: ["原标签"] },
+		display: { kind: "svg", source: "<svg/>" },
+	};
+	const published: Card = { ...original, tagline: "新的签名" };
+	api.cards.mockResolvedValue([original]);
+	api.publish.mockImplementation(async () => {
+		api.cards.mockResolvedValue([published]);
+		return published;
+	});
+	await render();
+	expect(el.textContent).toContain("头像、背景与展示设置将在服务更新后开放");
+	expect(required('[aria-label="更换头像"]').hasAttribute("disabled")).toBe(true);
+	expect(required('[aria-label="展示个人小店"]').hasAttribute("disabled")).toBe(true);
+	await name(" 新昵称 ");
+	await signature(" 新的签名 ");
+	await submit();
+	expect(api.updateProfile).toHaveBeenCalledWith({ name: "新昵称" });
+	expect(api.saveDraft).toHaveBeenCalledWith(card.id, {
+		title: original.title,
+		tagline: "新的签名",
+		markdown: original.markdown,
+		face: original.face,
+		display: original.display,
+	});
+	expect(api.publish).toHaveBeenCalledWith(card.id);
+	expect(api.saveProfile).not.toHaveBeenCalled();
+	expect(uploadMarketImage).not.toHaveBeenCalled();
+	expect(required("output").textContent).toBe("/me");
+});
+it("legacy mode cannot select, preview, upload or silently save unsupported photos", async () => {
+	legacy();
+	await render();
+	const file = new File([new Uint8Array([1])], "avatar.png", { type: "image/png" });
+	await act(() => props(required('[aria-label="选择头像"]')).onChange({ target: { files: [file] } }));
+	expect(el.querySelector('img[src="blob:preview"]')).toBeNull();
+	await name("新昵称");
+	await submit();
+	expect(uploadMarketImage).not.toHaveBeenCalled();
+	expect(api.saveProfile).not.toHaveBeenCalled();
+});
+it("acknowledges a real legacy nickname write and reports a partial failure without pretending success", async () => {
+	legacy();
+	api.saveDraft.mockRejectedValueOnce(new Error("网络已断开"));
+	await render();
+	await name("新昵称");
+	await signature("新的签名");
+	await submit();
+	expect($session.get()?.actor.name).toBe("新昵称");
+	expect(el.textContent).toContain("部分修改可能已保存，请重试");
+	expect(el.textContent).toContain("昵称已保存");
+	expect(required("output").textContent).toBe("/me/edit");
+	expect(api.publish).not.toHaveBeenCalled();
+	expect(api.saveProfile).not.toHaveBeenCalled();
+});
+it("does not publish an existing unrelated draft or expose it through public profile caches", async () => {
+	legacy();
+	const draft = { ...card, status: "draft" as const, markdown: "未发布内容" };
+	api.cards.mockResolvedValue([draft]);
+	qc.setQueryData(["profile", actor.id], { actor, card, summary: null, agents: [], owner: null });
+	qc.setQueryData(["card", card.id], card);
+	await render();
+	await name("新昵称");
+	await submit();
+	expect(api.updateProfile).toHaveBeenCalledOnce();
+	expect(api.saveDraft).not.toHaveBeenCalled();
+	expect(api.publish).not.toHaveBeenCalled();
+	expect(qc.getQueryData<{ card: Card }>(["profile", actor.id])?.card.markdown).toBe(card.markdown);
+	expect(qc.getQueryData<Card>(["card", card.id])?.markdown).toBe(card.markdown);
+});
+it("does not downgrade an unexpected atomic-save error to legacy writes", async () => {
+	api.saveProfile.mockRejectedValueOnce(Object.assign(new Error("not_found"), { status: 404 }));
+	await render();
+	await name("新昵称");
+	await submit();
+	expect(el.textContent).toContain("资料服务尚不可用");
+	expect(api.updateProfile).not.toHaveBeenCalled();
+	expect(api.saveDraft).not.toHaveBeenCalled();
+	expect(api.publish).not.toHaveBeenCalled();
+});
+it("capability lookup errors block writes and retry preserves the text draft", async () => {
+	api.marketCapabilities.mockRejectedValueOnce(new Error("offline"));
+	await render();
+	await name("等待保存");
+	await submit();
+	expect(el.textContent).toContain("暂时无法确认资料服务");
+	expect(api.saveProfile).not.toHaveBeenCalled();
+	expect(api.updateProfile).not.toHaveBeenCalled();
+	api.marketCapabilities.mockResolvedValue({ listingPolicy: false, sellerShops: false });
+	const retry = [...el.querySelectorAll("button")].find((item) => item.textContent === "重试");
+	if (!retry) throw new Error("Missing retry");
+	await act(() => retry.dispatchEvent(new window.Event("click", { bubbles: true })));
+	await vi.waitFor(async () => {
+		await act(async () => {});
+		expect(el.textContent).toContain("头像、背景与展示设置将在服务更新后开放");
+	});
+	expect(required("input[required]").getAttribute("value")).toBe("等待保存");
 });

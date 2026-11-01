@@ -46,7 +46,7 @@ export function CardFaceView({
 	const line =
 		face?.visibility?.signature === false
 			? ""
-			: face?.visibility
+			: !agent || face?.visibility
 				? headline?.trim() || ""
 				: face?.headline?.trim() || headline?.trim() || "";
 	const configuredCover = face?.coverUrl !== undefined;

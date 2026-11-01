@@ -30,11 +30,16 @@ export function profileForm(actor: Actor, card?: Card): ProfileUpdateInput {
 	};
 }
 
-export function profileError(form: ProfileUpdateInput): string | undefined {
+export function profileTextError(form: Pick<ProfileUpdateInput, "name" | "tagline">): string | undefined {
 	if (/\p{Cc}/u.test(form.name)) return "昵称不能包含换行或控制字符";
 	const name = [...form.name.trim()].length;
 	if (!name || name > 40) return "昵称需要 1–40 个字";
 	if ([...form.tagline.trim()].length > 120) return "个性签名最多 120 个字";
+}
+
+export function profileError(form: ProfileUpdateInput): string | undefined {
+	const textError = profileTextError(form);
+	if (textError) return textError;
 	if ([...form.markdown].length > 2000) return "访客开场白最多 2000 个字";
 	if ([form.avatarUrl, form.coverUrl].some((url) => url !== null && (!isAvatarUrl(url) || url.length > 2048)))
 		return "图片地址无效，请重新选择图片";
@@ -47,4 +52,9 @@ export function profileSaveError(error: unknown): string {
 	if (status === 404) return "资料服务尚不可用，请稍后重试";
 	if (status === 503) return "资料服务暂不可用，请稍后重试";
 	return error instanceof Error ? error.message : "保存失败，请重试";
+}
+
+/** Personal signatures use the canonical text field, including an explicit empty value. */
+export function humanSignature(card?: Pick<Card, "face" | "tagline"> | null): string | undefined {
+	return cardVisibility(card?.face).signature ? card?.tagline?.trim() || undefined : undefined;
 }

@@ -3,7 +3,7 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import type { Actor, Card } from "../api/types";
 import { type CardItem, canShareCard, cardUrl, faceProps } from "../lib/cardItems";
-import { identityHeadline } from "../lib/profileEditor";
+import { humanSignature, identityHeadline } from "../lib/profileEditor";
 import { type ShareTarget, useShareUrl } from "../lib/useShareUrl";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
@@ -23,7 +23,7 @@ export function CardShare({
 }) {
 	const qr = useRef<HTMLCanvasElement>(null);
 	const [image, setImage] = useState("");
-	const headline = identityHeadline(card, actor.summary);
+	const headline = actor.kind === "human" ? humanSignature(card) : identityHeadline(card, actor.summary);
 	const allowed = actor.kind !== "agent" || actor.public === true;
 	const sig = JSON.stringify([
 		actor.name,
