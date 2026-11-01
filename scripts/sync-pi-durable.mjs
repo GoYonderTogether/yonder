@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -22,6 +22,20 @@ const scratch = mkdtempSync(join(tmpdir(), "sync-pi-durable-"));
 const git = (...args) => execFileSync("git", args, { cwd: scratch, encoding: "utf8" }).trim();
 try {
 	git("init", "--quiet");
+	const recorded = JSON.parse(readFileSync(join(target, "FORK_SOURCE.json"), "utf8"));
+	if (recorded.repository !== repository || !/^[a-f0-9]{40}$/u.test(recorded.commit))
+		throw new Error("Cannot verify existing pi-durable source provenance; sync refused");
+	git("fetch", "--quiet", "--depth=1", localSource ?? repository, recorded.commit);
+	git("checkout", "--quiet", "--detach", "FETCH_HEAD");
+	const comparison = spawnSync(
+		"git",
+		["diff", "--no-index", "--quiet", "--", join(scratch, "packages/durable/src"), join(target, "src")],
+		{ encoding: "utf8" },
+	);
+	if (comparison.status !== 0)
+		throw new Error(
+			`Existing pi-durable src differs from or cannot be verified against recorded commit ${recorded.commit}; sync refused before replacement. Preserve and reconcile local changes in the Pi fork first (see CONTRIBUTING.md).`,
+		);
 	git("fetch", "--quiet", "--depth=1", localSource ?? repository, ref);
 	git("checkout", "--quiet", "--detach", "FETCH_HEAD");
 	const commit = git("rev-parse", "HEAD");

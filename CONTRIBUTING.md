@@ -49,7 +49,9 @@ npm ci && npm run build && npm test
 
 本地未 push 的 fork 提交可用 `YONDER_PI_SOURCE=/absolute/fork-checkout node scripts/sync-pi-durable.mjs <完整40位commit>`；脚本核对 checkout 的 origin 是上述 fork 并 fetch 精确已提交对象，仍生成相同 repository/commit provenance，不读取未提交文件。这不代表该 SHA 已在远端发布。
 
-同步替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
+同步前先取当前 `FORK_SOURCE.json` 记录的 commit，逐文件核对现有 `src`；内容、文件集合不同或无法核对时，脚本在删除任何目标文件之前拒绝同步，不提供强制覆盖。核对通过才替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
+
+当前例外：`5414b87ae1909d708d4e188ba582d12486ebb0c5` 是基础来源，不是现有 durable 源码的完整快照。`docs/decisions.md` 中 2026-10-29 IMP-01 / IMP-11 决策 的 anchor 文件工具在 Harness 内另有 5 个修改文件、9 个新增文件，清单见 `packages/pi-durable/FORK.md`；因此当前同步会被上述保护拒绝。不要删除这些实现来通过检查。后续须先在 Pi fork 合入并验证这些改动，保留现有 overlay，明确完成来源迁移后再同步，并重建同 commit 的 pi-ai artifact；本次修复不进行这项跨仓迁移。`check-pi-ai-bundle.mjs` 核对基础 commit 和 artifact integrity，不证明 durable 源码与基础 commit 完全一致。
 
 ## 打包匹配的 pi-ai fork
 
