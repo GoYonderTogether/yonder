@@ -173,3 +173,14 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 正式版公开后把工作台前端推到 yonderbot.net。私有仓只接受「tag + 提交 sha」，
+      # 不接收构建产物；那边从公开仓按 sha 取源码重建，两个仓都不需要额外凭据交叉授权。
+      - name: 派发网页部署
+        run: |
+          gh api "repos/GoYonderTogether/yonder-cloud/dispatches" \
+            -f event_type=deploy-web \
+            -f "client_payload[tag]=v$VERSION" \
+            -f "client_payload[sha]=$(git rev-parse HEAD)"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
