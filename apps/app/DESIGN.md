@@ -93,3 +93,11 @@
 - **光点**：名片页顶部 6 个 3px 的灰点，5 秒一次缓慢明灭，减弱动效下静止。
 - **不做**：普通界面全面染色、会话光晕、跟随品牌色改变在线点、用户选主题色、登录页和空状态的无意义装饰。品牌黄色不替代警告/运行中的状态语义。
 
+
+
+### 2026-11-01：独立个人资料编辑页（主人本轮要求）
+
+- 从「我的」进入 `/me/edit`，单页编辑头像、名片背景、昵称、个性签名与访客开场白；保存后返回「我的」，不再在概览内展开表单或自动弹出二维码。旧 `?card=new` 入口兼容跳转。用户头像与昵称始终展示；图片未选或恢复默认时使用现有默认头像与中性背景。
+- 名片展示开关只控制个性签名、账号 ID、访客开场白；明确为展示偏好，不改变既有访问权限。图片沿用真实 OSS 上传接口（JPEG/PNG/WebP，最大 5 MiB），失败保留表单，不伪造成功。
+- 社交后端新增 `PUT /api/me/profile` 原子保存账户与默认名片并发布，返回 `{actor,card}`。输入为 `{name,avatarUrl,tagline,markdown,coverUrl,visibility}`，图片字段为公开 HTTPS URL 或 null；visibility 三个布尔字段为 `signature/code/greeting`。昵称 1–40 字，签名最多 120 字，开场白最多 2000 字。图片上传先完成，后端事务后才更新会话与缓存。
+- CardFace 追加可选 `coverUrl: string|null`、`visibility`；undefined 保留旧卡片背景行为，null 明确恢复默认。保留原卡的 theme、tags、section、sticker、display 与其它字段，不修改 Bot 名片工作流。不需要数据库迁移。头像归账户 avatar_url，名片展示设置归已有 face JSONB/published snapshot。

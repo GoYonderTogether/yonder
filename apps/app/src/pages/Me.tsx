@@ -1,9 +1,8 @@
 import { useStore } from "@nanostores/react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Monitor, Settings } from "lucide-react";
-import { Dialog } from "radix-ui";
-import { type ReactNode, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useState } from "react";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api";
 import { AppBar, BackButton } from "../components/AppBar";
 import { BotCards } from "../components/BotCards";
@@ -18,64 +17,6 @@ import { socialLoadError } from "../lib/socialError";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
-import { Field } from "../ui/Field";
-import { toast } from "../ui/Toast";
-
-function Sheet({
-	open,
-	onOpenChange,
-	title,
-	children,
-}: {
-	open: boolean;
-	onOpenChange: (v: boolean) => void;
-	title: string;
-	children: ReactNode;
-}) {
-	return (
-		<Dialog.Root open={open} onOpenChange={onOpenChange}>
-			<Dialog.Portal>
-				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
-				<Dialog.Content
-					aria-describedby={undefined}
-					className="rise fixed inset-x-0 bottom-0 z-50 flex max-h-[90dvh] flex-col gap-5 overflow-y-auto rounded-t-panel bg-raised p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] shadow-float outline-none md:inset-auto md:top-1/2 md:left-1/2 md:w-[420px] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-panel"
-				>
-					<Dialog.Title className="text-title font-semibold tracking-tight">{title}</Dialog.Title>
-					{children}
-				</Dialog.Content>
-			</Dialog.Portal>
-		</Dialog.Root>
-	);
-}
-
-export function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
-	const s = useStore($session);
-	const [name, setName] = useState(s?.actor.name ?? "");
-	if (!s) return null;
-	const save = async () => {
-		try {
-			$session.set({ actor: await api.updateProfile({ name: name.trim() }) });
-			toast("已保存");
-			onOpenChange(false);
-		} catch (error) {
-			toast(error instanceof Error ? error.message : "保存失败", true);
-		}
-	};
-	return (
-		<Sheet open={open} onOpenChange={onOpenChange} title="资料">
-			<Avatar actor={s.actor} size={64} />
-			<Field label="昵称" value={name} onChange={(e) => setName(e.target.value)} />
-			<div className="flex gap-2">
-				<Button variant="primary" disabled={!name.trim() || name.trim() === s.actor.name} onClick={save}>
-					保存
-				</Button>
-				<Dialog.Close asChild>
-					<Button variant="ghost">关闭</Button>
-				</Dialog.Close>
-			</div>
-		</Sheet>
-	);
-}
 
 function Item({
 	to,
@@ -115,6 +56,7 @@ export function Me() {
 	const s = useStore($session);
 	const nav = useNavigate();
 	const loc = useLocation();
+	const [params] = useSearchParams();
 	const [creatingBot, setCreatingBot] = useState(false);
 	const contactsQuery = useQuery({
 		queryKey: ["contacts"],
@@ -125,6 +67,7 @@ export function Me() {
 	// 拿不到联系人时不能说成「还没有 Agent」。
 	const failure = contactsQuery.data ? null : contactsQuery.error;
 	if (!s) return null;
+	if (params.get("card") === "new") return <Navigate to="/me/edit" replace />;
 	const agents = contacts.filter((a) => a.kind === "agent" && a.ownerId === s.actor.id);
 	return (
 		<div className="scroll-y h-full bg-ground lg:m-2 lg:ml-0 lg:h-[calc(100%-1rem)] lg:rounded-panel lg:shadow-soft">

@@ -22,12 +22,7 @@ export function BigCard({
 	const p = faceProps(item);
 	return variant === "qr" ? (
 		canShareCard(item) ? (
-			<CardQrView
-				actor={item.actor}
-				url={cardUrl(item)}
-				headline={p.face?.headline || p.headline}
-				theme={p.face?.theme}
-			/>
+			<CardQrView actor={item.actor} url={cardUrl(item)} headline={p.headline} theme={p.face?.theme} face={p.face} />
 		) : (
 			<p className="p-4 text-small text-muted">此名片暂不可公开分享</p>
 		)

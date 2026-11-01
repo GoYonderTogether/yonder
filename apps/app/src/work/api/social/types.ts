@@ -71,7 +71,29 @@ export interface CardDisplay {
 }
 
 /** 卡面结构（card-form.md §8），全部可选；只有名字必须。 */
+export interface CardVisibility {
+	signature: boolean;
+	code: boolean;
+	greeting: boolean;
+}
+
+export interface ProfileUpdateInput {
+	name: string;
+	avatarUrl: string | null;
+	tagline: string;
+	markdown: string;
+	coverUrl: string | null;
+	visibility: CardVisibility;
+}
+
+export interface ProfileUpdateResult {
+	actor: Actor;
+	card: Card;
+}
+
 export interface CardFace {
+	coverUrl?: string | null;
+	visibility?: CardVisibility;
 	theme: "mist" | "night" | "paper" | "ink";
 	headline?: string;
 	tags?: string[];

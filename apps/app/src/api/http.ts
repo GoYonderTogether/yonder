@@ -33,6 +33,8 @@ export async function request<T>(path: string, init: RequestInit = {}, missingAs
 		if (
 			response.status === 401 &&
 			!path.startsWith("/auth/") &&
+			// The profile editor keeps its local image/text draft when saving needs a fresh login.
+			path !== "/me/profile" &&
 			!(path === "/me/password/reset" && message === "invalid_code")
 		)
 			window.dispatchEvent(new Event("yonder:unauthorized"));
@@ -79,6 +81,7 @@ export const httpApi: ApiClient = {
 	createAnonymous: () => request("/auth/anonymous", json("POST")),
 	logout: () => request("/auth/logout", json("POST")),
 	updateProfile: (input) => request<Actor>("/me", json("PATCH", input)),
+	saveProfile: (input) => request("/me/profile", json("PUT", input)),
 
 	actors: (ids) => request<Actor[]>(`/actors?${new URLSearchParams({ ids: ids.join(",") })}`),
 	conversations: () => request<Conversation[]>("/conversations"),

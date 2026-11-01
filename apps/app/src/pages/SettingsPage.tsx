@@ -19,7 +19,6 @@ import { NotifySection } from "../work/features/settings/NotifySection";
 import { SocialSection } from "../work/features/settings/SocialSection";
 import { setWorkDevices } from "../work/lib/workOnline";
 import { PrivacySection } from "./Friends";
-import { ProfileDialog } from "./Me";
 
 const sections = [
 	["account", "账号与安全"],
@@ -38,7 +37,6 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 	const qc = useQueryClient();
 	const navigate = useNavigate();
 	const logout = useLogout();
-	const [profile, setProfile] = useState(false);
 	const devices = useQuery({
 		queryKey: ["account-devices", session?.actor.id],
 		queryFn: api.devices,
@@ -101,7 +99,9 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 						<h2 className="mb-3 font-medium">账号与安全</h2>
 						{!session.actor.anonymous && (
 							<>
-								<Button onClick={() => setProfile(true)}>账号昵称</Button>
+								<Link to="/me/edit" className="text-accent-ink">
+									编辑个人资料
+								</Link>
 								<div className="mt-4">
 									<AccountSecurity actor={session.actor} onSignedOut={signedOut} />
 								</div>
@@ -110,7 +110,6 @@ export function SettingsPage({ local = false }: { local?: boolean }) {
 						<Button className="mt-4 text-danger" onClick={logout}>
 							退出登录
 						</Button>
-						{profile && <ProfileDialog open onOpenChange={setProfile} />}
 					</section>
 				)}
 				{["notifications", "devices", "channels", "social", "about"].includes(section ?? "") && (

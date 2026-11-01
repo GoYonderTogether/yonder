@@ -24,6 +24,7 @@ const Login = lazy(() => import("./pages/Login").then((m) => ({ default: m.Login
 const Market = lazy(() => import("./pages/Market").then((m) => ({ default: m.Market })));
 const WorkRoot = lazy(() => import("./work/WorkRoot"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+const ProfileEdit = lazy(() => import("./pages/ProfileEdit").then((m) => ({ default: m.ProfileEdit })));
 const Me = lazy(() => import("./pages/Me").then((m) => ({ default: m.Me })));
 
 function Private({ children }: { children: ReactNode }) {
@@ -92,6 +93,7 @@ export function App() {
 						<Route path="/contacts/:id?" element={<Contacts />} />
 						<Route path="/connect" element={<Connect />} />
 						<Route path="/me" element={<Me />} />
+						<Route path="/me/edit" element={<ProfileEdit />} />
 						<Route path="/me/settings/:section?" element={<SettingsPage />} />
 						<Route path="/work/*" element={<WorkRoot />} />
 						<Route element={<ChatShell />}>

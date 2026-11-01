@@ -3,7 +3,9 @@ import { Link, useLocation } from "react-router";
 import type { Actor, Profile } from "../api/types";
 import { entityRef } from "../lib/entityRef";
 import { internalState } from "../lib/navigation";
+import { cardVisibility, identityHeadline } from "../lib/profileEditor";
 import { Avatar, Status } from "../ui/Avatar";
+import { CardCover } from "./card/CardCover";
 import { THEMES } from "./card/themes";
 import { Markdown } from "./Markdown";
 
@@ -41,7 +43,10 @@ export function IdentityDetail({
 	const href = (a: Actor) => `${publicView ? "/p" : "/contacts"}/${entityRef(a)}`;
 	const face = card?.face;
 	const palette = THEMES[face?.theme ?? "mist"];
-	const headline = face?.headline?.trim() || card?.tagline || card?.summary || summary || actor.summary;
+	const section = face?.section?.title?.trim() || face?.section?.body?.trim() ? face.section : undefined;
+	const visibility = cardVisibility(face);
+	const configuredCover = face?.coverUrl !== undefined;
+	const headline = identityHeadline(card, summary, actor.summary);
 	// 名片页大标题用名片标题（J-03 步骤 8 / JV2-J03-11）；与账号名不同时，账号名退到副标题。
 	const title = card?.title?.trim() || actor.name;
 	return (
@@ -49,9 +54,13 @@ export function IdentityDetail({
 			<section aria-label="身份资料" className="overflow-hidden rounded-panel bg-raised shadow-soft">
 				<div
 					className="relative h-32 overflow-hidden lg:h-40"
-					style={{ background: `linear-gradient(120deg,${palette.from},${palette.to})` }}
+					style={{
+						background: configuredCover ? "var(--tone)" : `linear-gradient(120deg,${palette.from},${palette.to})`,
+					}}
 				>
-					{card?.display ? (
+					{configuredCover ? (
+						<CardCover url={face?.coverUrl} />
+					) : card?.display ? (
 						<iframe
 							title="资料背景"
 							sandbox=""
@@ -75,7 +84,9 @@ export function IdentityDetail({
 						<div className="min-w-0 flex-1 pt-3">
 							<h1 className="break-words text-title leading-tight font-semibold tracking-tight">{title}</h1>
 							{title !== actor.name && <p className="mt-1 break-words text-small text-muted">{actor.name}</p>}
-							{showCode && actor.code && <p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>}
+							{showCode && visibility.code && actor.code && (
+								<p className="mt-1 select-text text-caption text-muted">ID · {actor.code}</p>
+							)}
 							{agent && (
 								<p className="mt-1 flex items-center gap-1.5 text-caption text-muted">
 									<Status online={!!actor.online} />
@@ -98,13 +109,13 @@ export function IdentityDetail({
 					{actions}
 				</div>
 			</section>
-			{(card?.markdown || face?.section) && (
+			{visibility.greeting && (card?.markdown?.trim() || section) && (
 				<section aria-label="介绍" className="flex flex-col gap-4 rounded-card bg-raised p-5">
 					<h2 className="text-small font-medium text-muted">介绍</h2>
-					{face?.section && (
+					{section && (
 						<div className="break-words">
-							<h3 className="font-medium">{face.section.title}</h3>
-							<p className="mt-1 whitespace-pre-wrap text-body text-muted">{face.section.body}</p>
+							<h3 className="font-medium">{section.title}</h3>
+							<p className="mt-1 whitespace-pre-wrap text-body text-muted">{section.body}</p>
 						</div>
 					)}
 					{card?.markdown && (

@@ -253,6 +253,9 @@ export const mockApi: ApiClient = {
 	async logout() {
 		session = null;
 	},
+	async saveProfile() {
+		throw new Error("个人资料编辑需要连接真实服务");
+	},
 	async updateProfile(i) {
 		me.name = i.name;
 		return { ...me };

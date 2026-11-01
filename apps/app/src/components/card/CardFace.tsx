@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import type { Actor, CardDisplay, CardFace } from "../../api/types";
 import mark from "../../assets/brand/yonder-mark.svg?raw";
 import { AvatarImage } from "../../ui/Avatar";
+import { CardCover } from "./CardCover";
 import { THEMES } from "./themes";
 
 const inline = mark
@@ -42,9 +43,18 @@ export function CardFaceView({
 	className,
 }: CardFaceProps) {
 	const t = THEMES[face?.theme ?? "mist"];
-	const line = face?.headline?.trim() || headline?.trim() || "";
+	const line =
+		face?.visibility?.signature === false
+			? ""
+			: face?.visibility
+				? headline?.trim() || ""
+				: face?.headline?.trim() || headline?.trim() || "";
+	const configuredCover = face?.coverUrl !== undefined;
 	const tags = face?.tags ?? [];
-	const section = face?.section;
+	const section =
+		face?.visibility?.greeting === false || !(face?.section?.title?.trim() || face?.section?.body?.trim())
+			? undefined
+			: face.section;
 	const sticker = face?.sticker;
 	const bare = !line && !tags.length && !section;
 	const style: CSSProperties = {
@@ -70,12 +80,14 @@ export function CardFaceView({
 			<div
 				className="relative grid place-items-center overflow-hidden"
 				style={{
-					height: bare && !display && !sticker?.url ? "100%" : "42%",
+					height: bare && (configuredCover || (!display && !sticker?.url)) ? "100%" : "42%",
 					flexShrink: 1,
-					background: `linear-gradient(${t.from}, ${t.to})`,
+					background: configuredCover ? "var(--tone)" : `linear-gradient(${t.from}, ${t.to})`,
 				}}
 			>
-				{display ? (
+				{configuredCover ? (
+					<CardCover url={face?.coverUrl} />
+				) : display ? (
 					<iframe
 						title="展示卡片"
 						sandbox=""
@@ -189,17 +201,19 @@ export function CardFaceView({
 	);
 }
 
-/** 扫码版与保存图使用相同字段；介绍封面不进入二维码名片。 */
+/** 扫码版与保存图使用相同字段；图片背景与展示开关保留，不嵌入自定义 HTML/SVG。 */
 export function CardQrView({
 	actor,
 	url,
 	headline,
 	theme = "mist",
+	face,
 }: {
 	actor: Actor;
 	url: string;
 	headline?: string | null;
 	theme?: CardFace["theme"];
+	face?: CardFace;
 }) {
 	if (actor.kind === "agent" && actor.public !== true)
 		return <p className="p-6 text-small text-muted">此 Bot 未公开，无法分享二维码</p>;
@@ -210,6 +224,12 @@ export function CardQrView({
 			className="relative aspect-[3/4.3] w-full overflow-hidden text-center shadow-soft"
 			style={{ background: t.bg, color: t.fg, containerType: "inline-size", borderRadius: "8% / 5.58%" }}
 		>
+			{face?.coverUrl && (
+				<div className="absolute inset-x-0 top-0 overflow-hidden" style={{ height: u(38) }}>
+					<CardCover url={face.coverUrl} />
+					<div className="absolute inset-0" style={{ background: t.bg, opacity: 0.86 }} />
+				</div>
+			)}
 			<span
 				className="absolute flex items-center justify-center overflow-hidden font-bold"
 				style={{
@@ -245,7 +265,7 @@ export function CardQrView({
 				className="absolute inset-x-[8%] line-clamp-2 break-words opacity-80"
 				style={{ top: u(28), fontSize: u(4), lineHeight: 1.4 }}
 			>
-				{headline}
+				{face?.visibility?.signature === false ? null : headline}
 			</p>
 			<div
 				className="absolute bg-white"

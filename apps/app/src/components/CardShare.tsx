@@ -3,6 +3,7 @@ import { Dialog } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import type { Actor, Card } from "../api/types";
 import { type CardItem, canShareCard, cardUrl, faceProps } from "../lib/cardItems";
+import { identityHeadline } from "../lib/profileEditor";
 import { type ShareTarget, useShareUrl } from "../lib/useShareUrl";
 import { Button } from "../ui/Button";
 import { toast } from "../ui/Toast";
@@ -10,7 +11,7 @@ import { CardQrView } from "./card/CardFace";
 import { renderCardImage } from "./card/image";
 import { ShareLinks } from "./ShareLinks";
 
-/** 同一个大码呈现和保存出口，导出不承载自定义介绍封面。 */
+/** 同一个大码呈现和保存出口；图片背景与签名展示同步，不导出自定义 HTML/SVG。 */
 export function CardShare({
 	url,
 	card,
@@ -22,7 +23,7 @@ export function CardShare({
 }) {
 	const qr = useRef<HTMLCanvasElement>(null);
 	const [image, setImage] = useState("");
-	const headline = card?.face?.headline?.trim() || card?.tagline || card?.summary || actor.summary;
+	const headline = identityHeadline(card, actor.summary);
 	const allowed = actor.kind !== "agent" || actor.public === true;
 	const sig = JSON.stringify([
 		actor.name,
@@ -30,7 +31,7 @@ export function CardShare({
 		actor.kind,
 		actor.online,
 		headline,
-		card?.face?.theme,
+		card?.face,
 		url,
 		allowed,
 	]);
@@ -61,7 +62,7 @@ export function CardShare({
 			<div hidden>
 				<QRCodeCanvas ref={qr} value={url} size={720} marginSize={0} bgColor="#ffffff" fgColor="#000000" />
 			</div>
-			<CardQrView actor={actor} url={url} headline={headline} theme={card?.face?.theme} />
+			<CardQrView actor={actor} url={url} headline={headline} theme={card?.face?.theme} face={card?.face} />
 			<a href={image || undefined} download={`${actor.name}-二维码名片.png`} className="contents">
 				<Button variant="primary" className="h-11" disabled={!image}>
 					保存二维码名片
@@ -126,7 +127,7 @@ export function CardShareDialog({
 	return (
 		<QrDialog
 			actor={item.actor}
-			card={{ summary: p.headline ?? null, face: p.face }}
+			card={{ tagline: p.headline ?? null, summary: p.headline ?? null, face: p.face }}
 			url={url}
 			share={
 				item.card?.mine ? { kind: "card", targetId: item.card.id, path: url.slice(location.origin.length) } : undefined

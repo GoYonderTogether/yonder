@@ -13,6 +13,8 @@ import type {
 	Message,
 	MessageContent,
 	Profile,
+	ProfileUpdateInput,
+	ProfileUpdateResult,
 	ReferenceKind,
 	ResolvedReference,
 	Session,
@@ -77,6 +79,7 @@ export interface ApiClient {
 	createAnonymous(): Promise<Session>;
 	logout(): Promise<void>;
 	updateProfile(input: { name: string }): Promise<Actor>;
+	saveProfile(input: ProfileUpdateInput): Promise<ProfileUpdateResult>;
 
 	// 聊天
 	actors(ids: string[]): Promise<Actor[]>;

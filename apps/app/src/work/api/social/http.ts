@@ -47,6 +47,7 @@ export const httpApi: Omit<ApiClient, "subscribe"> = {
 	createAnonymous: () => request("/auth/anonymous", json("POST")),
 	logout: () => request("/auth/logout", json("POST")),
 	updateProfile: (input) => request<Actor>("/me", json("PATCH", input)),
+	saveProfile: (input) => request("/me/profile", json("PUT", input)),
 
 	actors: (ids) => request<Actor[]>(`/actors?${new URLSearchParams({ ids: ids.join(",") })}`),
 	conversations: () => request<Conversation[]>("/conversations"),

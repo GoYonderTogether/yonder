@@ -1,9 +1,13 @@
 import { socialOrigin } from "../api/http";
 
-export async function uploadMarketImage(file: File, progress: (value: number) => void): Promise<string> {
+export function validateMarketImage(file: File): void {
 	if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size < 1 || file.size > 5 * 1024 * 1024) {
 		throw new Error("请选择不超过 5 MB 的 JPEG、PNG 或 WebP 图片");
 	}
+}
+
+export async function uploadMarketImage(file: File, progress: (value: number) => void): Promise<string> {
+	validateMarketImage(file);
 	const response = await fetch(new URL("/api/market/uploads", socialOrigin()), {
 		method: "POST",
 		credentials: "include",
@@ -22,6 +26,9 @@ export async function uploadMarketImage(file: File, progress: (value: number) =>
 	await new Promise<void>((resolve, reject) => {
 		const xhr = new XMLHttpRequest();
 		xhr.open("POST", uploadUrl);
+		xhr.timeout = 120_000;
+		xhr.ontimeout = () => reject(new Error("图片上传超时，请重试"));
+		xhr.onabort = () => reject(new Error("图片上传已取消，请重试"));
 		xhr.upload.onprogress = (event) => {
 			if (event.lengthComputable) progress(Math.round((event.loaded / event.total) * 100));
 		};

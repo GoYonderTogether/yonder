@@ -14,7 +14,7 @@ export interface CardImageInput {
 	qr: HTMLCanvasElement;
 }
 
-/** 保存二维码名片，与 CardQrView 相同字段、尺寸和位置，不导出介绍封面。 */
+/** 保存二维码名片，与 CardQrView 同步图片背景、签名展示、尺寸和位置。 */
 export async function renderCardImage({
 	name,
 	avatarUrl,
@@ -68,6 +68,31 @@ export async function renderCardImage({
 			URL.revokeObjectURL(objectUrl);
 		}
 	};
+	if (face?.coverUrl && isAvatarUrl(face.coverUrl)) {
+		try {
+			const cover = await loadImage(face.coverUrl);
+			if (!cover.naturalWidth || !cover.naturalHeight) throw new Error("Cover unavailable");
+			const height = 38 * u;
+			ctx.save();
+			ctx.beginPath();
+			ctx.rect(0, 0, W, height);
+			ctx.clip();
+			const scale = Math.max(W / cover.naturalWidth, height / cover.naturalHeight);
+			ctx.drawImage(
+				cover,
+				(W - cover.naturalWidth * scale) / 2,
+				(height - cover.naturalHeight * scale) / 2,
+				cover.naturalWidth * scale,
+				cover.naturalHeight * scale,
+			);
+			ctx.globalAlpha = 0.86;
+			ctx.fillStyle = t.bg;
+			ctx.fillRect(0, 0, W, height);
+			ctx.restore();
+		} catch {
+			/* The default background stays visible when a cover cannot be loaded. */
+		}
+	}
 	let avatar: HTMLImageElement | undefined;
 	if (avatarUrl && isAvatarUrl(avatarUrl)) {
 		try {
@@ -113,7 +138,7 @@ export async function renderCardImage({
 	text(name, 9, 7, 700, 1, true);
 	text(agent ? `Bot · ${online ? "在线" : "离线"}` : "个人名片", 20, 3.8, 400, 0.7, true);
 	ctx.font = `400 ${4 * u}px ${family}`;
-	const words = [...(headline ?? "")];
+	const words = [...(face?.visibility?.signature === false ? "" : (headline ?? ""))];
 	let line = "",
 		y = 28;
 	for (const char of words) {
