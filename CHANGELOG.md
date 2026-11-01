@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26110106] - 2026-11-01
+
+### Fixed
+
+- test：use a short, cross-platform temp home in tests
+
 ## [0.3.26110105] - 2026-11-01
 
 ### Fixed
