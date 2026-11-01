@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26110104] - 2026-11-01
+
+### Added
+
+- release：publish the web bundle after a release, and release automatically once CI is green
+
 ## [0.3.26110103] - 2026-11-01
 
 - 修复迁移命令经 macOS 临时目录软链接或 Windows junction 启动时静默退出的问题，以双方真实路径判断入口并验证两种 Node 软链接模式。
