@@ -1,12 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { archiveConsumer } from "../src/consumer.js";
 
 test("source consumer survives database restart and home path changes without changing its cursor", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "wechat-consumer-"));
+	const directory = await tempHome("wechat-consumer-");
 	const filename = join(directory, "archive.sqlite");
 	let db = new DatabaseSync(filename);
 	try {

@@ -1,14 +1,13 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { registerContexts } from "../src/contexts.js";
 import { event } from "./harness.js";
 
 it("fails closed on private/malformed metadata, symlinks and traversal; admits public markdown", async () => {
-	const root = await mkdtemp(join(tmpdir(), "memory-context-security-"));
-	const outside = await mkdtemp(join(tmpdir(), "memory-context-outside-"));
+	const root = await tempHome("memory-context-security-");
+	const outside = await tempHome("memory-context-outside-");
 	try {
 		await mkdir(join(root, "me"));
 		await mkdir(join(root, "private"));

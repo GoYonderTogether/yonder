@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { stopNotice } from "../delivery/index.js";
@@ -57,7 +58,7 @@ test.skipIf(!real)(
 		});
 		await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
 		const { port } = server.address() as { port: number };
-		const home = await mkdtemp("/tmp/yonder-fallback-events-");
+		const home = await tempHome("yonder-fallback-events-");
 		const events: ModelFallbackEvent[] = [];
 		const profile = resolveProfile({
 			model: "workbuddy/deepseek-v4.1-flash",

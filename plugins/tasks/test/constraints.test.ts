@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { Store } from "../src/store/index.js";
 
@@ -23,7 +23,7 @@ function caller(agent = "main", session = "1"): ToolContext {
 	};
 }
 async function temporary() {
-	return mkdtemp(join(tmpdir(), "yonder-tasks-constraints-"));
+	return tempHome("yonder-tasks-constraints-");
 }
 
 test("parent chains stop at two levels and reject cycles", async () => {

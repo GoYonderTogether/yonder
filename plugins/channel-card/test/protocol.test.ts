@@ -2,10 +2,10 @@
 
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { createServer } from "node:http";
-import { hostname, tmpdir } from "node:os";
+import { hostname } from "node:os";
 import { join, resolve } from "node:path";
 import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebSocket, WebSocketServer } from "ws";
 import { CardChannel, type Config } from "../src/channel.js";
@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 const signal = () => new AbortController().signal;
 async function fixture(config: Omit<Config, "endpoint"> = {}) {
-	const data = await mkdtemp(join(tmpdir(), "yonder-card-contract-"));
+	const data = await tempHome("yonder-card-contract-");
 	cleanups.push(() => rm(data, { recursive: true, force: true }));
 	const calls: { path: string; body: unknown; auth: string | undefined }[] = [];
 	let poll = "pending";

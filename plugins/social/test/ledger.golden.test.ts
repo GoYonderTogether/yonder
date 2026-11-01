@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EventInput, PluginAPI } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
 import { createRouter } from "../../../packages/core/src/routing/index.js";
@@ -21,7 +21,7 @@ function shape(value: unknown): unknown {
 }
 
 test("SQLite routing facts rebuild a pending batch across restart and retain their event shapes", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-social-ledger-"));
+	const root = await tempHome("yonder-social-ledger-");
 	vi.useFakeTimers();
 	try {
 		let db = await openDatabase(join(root, "state.db"));

@@ -1,9 +1,8 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
 import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
@@ -48,7 +47,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 		await plugin.setup(api as never);
 		const tool = registrations.tools.find((item) => item.name === "code-intel_lsp_navigation");
 		if (!tool) throw new Error("missing tool");
-		const dir = await mkdtemp(join(tmpdir(), "yonder-lsp-"));
+		const dir = await tempHome("yonder-lsp-");
 		try {
 			await writeFile(join(dir, "value.h"), "int calculate(int x);\n");
 			await writeFile(

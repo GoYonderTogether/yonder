@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { builtinModels, getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { FileCredentials } from "./credentials.js";
 import { modelProfile, modelProfiles } from "./model-profile.js";
@@ -44,7 +45,7 @@ test("projects every real builtin chat entry without hard-coded model choices", 
 });
 
 test("provider declarations use the existing merged catalog and credential availability", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-model-profile-"));
+	const home = await tempHome("yonder-model-profile-");
 	try {
 		const models = buildModels(new FileCredentials(join(home, "auth.json")), {
 			[model.provider]: { modelOverrides: { [model.id]: { contextWindow: model.contextWindow - 1 } } },

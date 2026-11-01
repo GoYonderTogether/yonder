@@ -1,15 +1,15 @@
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { callLens, stopLens } from "../src/lens-mcp.js";
 
 test.skipIf(!process.env.YONDER_LENS_REAL)(
 	"real pi-lens connection builds its index between queued calls",
 	async () => {
-		const dir = await mkdtemp(join(tmpdir(), "yonder-lens-real-"));
+		const dir = await tempHome("yonder-lens-real-");
 		try {
 			await copyFile(resolve("packages/sdk/src/index.ts"), join(dir, "index.ts"));
 			const ctx = { env: new NodeExecutionEnv({ cwd: dir }), signal: new AbortController().signal } as ToolContext;

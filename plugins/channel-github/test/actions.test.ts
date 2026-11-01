@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { PluginAPI, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { describe, expect, it, vi } from "vitest";
 import { applyRelease, notifyUpdate } from "../src/actions.js";
 import { GithubChannel } from "../src/channel.js";
@@ -87,7 +87,7 @@ describe("program release consumer", () => {
 
 describe("program update notifications", () => {
 	it("retains unknown delivery and does not resend the same update", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "yonder-actions-"));
+		const directory = await tempHome("yonder-actions-");
 		try {
 			const { channel, channels } = input();
 			Object.assign(channel.config.releases ?? {}, { notifyUpdates: true, notifyTarget: "conv:feishu:target" });
@@ -127,7 +127,7 @@ describe("program update notifications", () => {
 		}
 	});
 	it.each(["failed-or-unknown", "restart-required"])("does not claim verified success for %s", async (status) => {
-		const directory = await mkdtemp(join(tmpdir(), "yonder-actions-"));
+		const directory = await tempHome("yonder-actions-");
 		try {
 			const { channel, channels } = input();
 			Object.assign(channel.config.releases ?? {}, { notifyUpdates: true, notifyTarget: "conv:feishu:target" });

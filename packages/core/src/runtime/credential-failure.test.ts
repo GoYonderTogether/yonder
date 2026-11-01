@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { type AssistantMessage, createAssistantMessageEventStream } from "@earendil-works/pi-ai";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { modelRecovery } from "../../../../node_modules/@earendil-works/pi-durable/dist/harness/model-recovery.js";
 import { resolveProfile } from "../config/test-support.js";
@@ -42,7 +43,7 @@ test("invalid_grant stopped the run before the mark and advances the chain after
 });
 
 test("the credential-failed candidate is held, other candidates run, and a recovered credential restores it", async () => {
-	const dir = await mkdtemp("/tmp/yonder-credfail-");
+	const dir = await tempHome("yonder-credfail-");
 	try {
 		const health = new ModelHealth(join(dir, "health.json"));
 		const gate = new ModelGate(health, new ModelQuota(join(dir, "quota.json")));

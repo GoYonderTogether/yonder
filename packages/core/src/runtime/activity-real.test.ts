@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
 import { resolveProfile } from "../config/test-support.js";
@@ -21,7 +22,7 @@ const real = process.env.YONDER_TEST_REAL === "1" && existsSync(auth);
 test.skipIf(!real)(
 	"real retry, parallel normal priority, success, fallback and cancellation project current facts only",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-activity-http-");
+		const home = await tempHome("yonder-activity-http-");
 		const upstream = buildModels(new FileCredentials(auth)).getModel("openai", "gpt-6-luna")!.baseUrl;
 		let mode: "retry" | "fallback" | "fail" | "success" = "retry";
 		let calls = 0;

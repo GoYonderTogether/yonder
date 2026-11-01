@@ -1,8 +1,7 @@
 import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { initialize } from "../src/files.js";
 import plugin from "../src/index.js";
@@ -13,7 +12,7 @@ afterEach(async () => {
 	await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 async function setup(capture?: { enabled?: boolean }) {
-	const base = await mkdtemp(join(tmpdir(), "memory-archive-optin-"));
+	const base = await tempHome("memory-archive-optin-");
 	const root = join(base, "root");
 	roots.push(base);
 	const { api, registrations } = createRegistrationCollector();

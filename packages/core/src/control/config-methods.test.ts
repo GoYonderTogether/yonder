@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, expect, it } from "vitest";
 import { parse } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -21,7 +21,7 @@ const admin = {
 };
 
 async function open() {
-	const home = await mkdtemp("/tmp/yonder-config-methods-");
+	const home = await tempHome("yonder-config-methods-");
 	homes.push(home);
 	await initHome(home, "owner", { model: testModel });
 	const kernel = await openKernel(home);

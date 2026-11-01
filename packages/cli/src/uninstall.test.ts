@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { stdout } from "node:process";
 import { installedService, manageService } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { uninstall } from "./uninstall.js";
 
@@ -16,7 +16,7 @@ vi.mock("@yonder/core", async (original) => ({
 let root: string, install: string, home: string, helper: string;
 let output: ReturnType<typeof vi.spyOn>;
 beforeEach(async () => {
-	root = await mkdtemp(join(tmpdir(), "yonder-uninstall-"));
+	root = await tempHome("yonder-uninstall-");
 	install = join(root, "install");
 	home = join(root, ".local/share/yonder/home");
 	helper = join(root, ".local/share/yonder/helper");

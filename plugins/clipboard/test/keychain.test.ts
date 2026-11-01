@@ -1,9 +1,9 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { capture } from "../src/capture.js";
 import { Store } from "../src/store.js";
@@ -15,7 +15,7 @@ const signal = () => AbortSignal.timeout(60000);
 test.skipIf(!enabled)(
 	"actual Keychain binary bytes, restart redaction and exact 0600 sealed file; no plaintext metadata",
 	async () => {
-		const root = await realpath(await mkdtemp(join(tmpdir(), "yonder-keychain-"))),
+		const root = await realpath(await tempHome("yonder-keychain-")),
 			store = new Store(root, { maxBytes: 65536, ttlSeconds: 3600 });
 		let clip: Awaited<ReturnType<Store["save"]>> | undefined;
 		const value = Buffer.from(`generated-${randomBytes(40).toString("hex")}\n中文🦤\r\0`);
@@ -47,7 +47,7 @@ test.skipIf(!enabled)(
 test.skipIf(!enabled)(
 	"capture tickets bind scope, store through real Keychain, expire and reject reuse",
 	async () => {
-		const root = await realpath(await mkdtemp(join(tmpdir(), "yonder-capture-"))),
+		const root = await realpath(await tempHome("yonder-capture-")),
 			store = new Store(root, { maxBytes: 65536, ttlSeconds: 3600 });
 		let id: string | undefined;
 		try {

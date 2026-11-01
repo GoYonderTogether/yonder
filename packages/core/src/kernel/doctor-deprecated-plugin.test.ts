@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -10,7 +10,7 @@ const DEPRECATED = "@yonder/plugin-hermes-experience";
 const CURRENT = "@yonder/plugin-learning";
 
 async function homeWithLearning() {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-deprecated-"));
+	const home = await tempHome("yonder-doctor-deprecated-");
 	await initHome(home, "owner", { model: testModel });
 	return home;
 }

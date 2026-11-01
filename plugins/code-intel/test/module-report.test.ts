@@ -1,9 +1,8 @@
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../src/index.js";
 
@@ -22,7 +21,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 		await plugin.setup(api as never);
 		const tool = registrations.tools.find((item) => item.name === "code-intel_module_report");
 		if (!tool) throw new Error("missing tool");
-		const dir = await mkdtemp(join(tmpdir(), "yonder-lens-"));
+		const dir = await tempHome("yonder-lens-");
 		try {
 			await copyFile(resolve("packages/core/src/runtime/grep.ts"), join(dir, "grep.ts"));
 			const ctx = {

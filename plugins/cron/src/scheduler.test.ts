@@ -1,16 +1,16 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import type { PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { Scheduler } from "./index.js";
 
 // Real filesystem/process integration; no model is started. Kernel permission
 // re-resolution and channel delivery remain separate end-to-end acceptance.
 test("persists owned jobs, executes a real command, prevents overlap and recovers without replay", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "yonder-cron-"));
+	const dir = await tempHome("yonder-cron-");
 	const events: YEvent[] = [];
 	const ctx = {
 		agent: null,
@@ -189,7 +189,7 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 });
 
 test("Agent jobs require the owning profile and history retains the newest bounded page", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "yonder-cron-profile-"));
+	const dir = await tempHome("yonder-cron-profile-");
 	const owner = {
 		agent: "main",
 		session: "1",

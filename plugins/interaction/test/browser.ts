@@ -1,14 +1,14 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
+import { tempHome } from "@yonder/sdk/testing";
 
 export const chromePath =
 	process.env.YONDER_TEST_CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 export async function browser() {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-board-browser-"));
+	const directory = await tempHome("yonder-board-browser-");
 	const child = spawn(
 		chromePath,
 		[

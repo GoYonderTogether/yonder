@@ -1,6 +1,6 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ChainEntry, chainKey } from "./model-chain.js";
 import { ModelGate } from "./model-gate.js";
@@ -12,7 +12,7 @@ afterEach(() => {
 	for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 function root() {
-	const dir = mkdtempSync(join(tmpdir(), "yonder-quota-"));
+	const dir = tempHomeSync("yonder-quota-");
 	roots.push(dir);
 	return dir;
 }

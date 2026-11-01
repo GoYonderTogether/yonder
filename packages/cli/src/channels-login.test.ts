@@ -1,9 +1,9 @@
 import { execFile, execFileSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { initHome, serveControl } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { testModel } from "../../core/src/config/test-support.js";
 
@@ -11,7 +11,7 @@ const cli = resolve("packages/cli/dist/index.js");
 const execFileAsync = promisify(execFile);
 
 test("channels login card names the missing service instead of a bare ENOENT (JV2-J02-01)", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		let stderr = "";
@@ -30,7 +30,7 @@ test("channels login card names the missing service instead of a bare ENOENT (JV
 });
 
 test("channels login --replace forwards explicit replacement to the service", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const requests: unknown[] = [];
 	const server = await serveControl(home, async (request) => {
 		requests.push(request);

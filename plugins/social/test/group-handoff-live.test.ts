@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { ChannelIO, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -15,7 +16,7 @@ const enabled = process.env.YONDER_TEST_REAL === "1" && existsSync(auth);
 test.skipIf(!enabled).each(["other Bot assignment", "authorized owner handoff"])(
 	"real Luna %s",
 	async (scenario) => {
-		const home = await mkdtemp("/tmp/yonder-group-handoff-live-");
+		const home = await tempHome("yonder-group-handoff-live-");
 		const key = `group-handoff-${randomUUID()}`;
 		const globals = globalThis as unknown as Record<string, { ios: Record<string, ChannelIO>; sent: string[] }>;
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;

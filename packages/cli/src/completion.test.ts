@@ -1,13 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { completion } from "./completion.js";
 
 const cli = resolve("packages/cli/dist/index.js");
 test("shell-native scripts load and offer actual command/subcommand candidates", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "ya-"));
+	const directory = await tempHome("ya-");
 	try {
 		await writeFile(`${directory}/bash`, completion("bash"));
 		await writeFile(`${directory}/zsh`, completion("zsh"));

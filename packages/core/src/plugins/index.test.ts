@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import type { KernelServices } from "./index.js";
 import { loadPlugins } from "./index.js";
@@ -10,7 +10,7 @@ const unused = async (): Promise<never> => {
 };
 
 it("loads both first-party plugins through the manifest and registration checks", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		const services = {
 			events: { emit: unused, ask: unused, query: unused },
@@ -69,7 +69,7 @@ it("loads both first-party plugins through the manifest and registration checks"
 });
 
 it("resolves home packages and serializes each plugin's observers without exposing mutable events", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const directory = join(home, "node_modules/audit-plugin");
 	const output = join(home, "observed.jsonl");
 	try {
@@ -117,7 +117,7 @@ export default { configSchema: {type: "object", required: ["output"], properties
 });
 
 it("only the provider registration can allow a channel to emit target", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		for (const allowed of [false, true]) {
 			const directory = join(home, `provider-${allowed}`);
@@ -171,7 +171,7 @@ it("only the provider registration can allow a channel to emit target", async ()
 });
 
 it("records owner connection as the actual plugin and rejects forged connection events", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		const directory = join(home, "owner-channel");
 		await mkdir(directory);
@@ -217,7 +217,7 @@ it("records owner connection as the actual plugin and rejects forged connection 
 });
 
 it("skips one channel instance with invalid config and keeps the others (JV2-J09-03)", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		const directory = join(home, "picky");
 		await mkdir(directory);
@@ -259,7 +259,7 @@ it("skips one channel instance with invalid config and keeps the others (JV2-J09
 });
 
 it("rejects a user-declared channels.console because the id is reserved for the built-in console", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		const services = {} as unknown as KernelServices;
 		await expect(

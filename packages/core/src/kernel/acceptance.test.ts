@@ -4,6 +4,7 @@ import { createConnection, type Socket } from "node:net";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -13,7 +14,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real channel sources retain their replies, guest policy, agent questions and newly authored skills",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-p5-acceptance-");
+		const home = await tempHome("yonder-p5-acceptance-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const sockets: Socket[] = [];
 		try {

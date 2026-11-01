@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { access, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { createLinuxGuestProvider } from "../../src/backends/linux.js";
 import { desktopEntry, linuxApps } from "../../src/backends/linux-apps.js";
@@ -42,7 +42,7 @@ describe("Linux guest provider boundary", () => {
 	it.skipIf(process.platform === "win32")(
 		"reads installed launchers only and honors a hidden user override",
 		async () => {
-			const root = await mkdtemp(join(tmpdir(), "w5-app-inventory-"));
+			const root = await tempHome("w5-app-inventory-");
 			try {
 				const user = join(root, "user", "applications");
 				const system = join(root, "system", "applications");
@@ -84,7 +84,7 @@ describe("Linux guest provider boundary", () => {
 	});
 	it("kills the owned process group before an aborted action settles", async () => {
 		if (process.platform === "win32") return;
-		const root = await mkdtemp(join(tmpdir(), "w5-abort-"));
+		const root = await tempHome("w5-abort-");
 		const marker = join(root, "late");
 		try {
 			const controller = new AbortController();

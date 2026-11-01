@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { cp, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -11,7 +10,7 @@ import {
 	publicKeyId,
 	type ToolContext,
 } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { executeCapabilities } from "../src/controller.js";
 import plugin, { createDevicesPlugin, DeviceController } from "../src/index.js";
@@ -23,7 +22,7 @@ afterEach(async () => {
 	for (const dispose of disposals.splice(0).reverse()) await dispose();
 });
 async function directory() {
-	const path = await mkdtemp(join(tmpdir(), "yonder-devices-w2-"));
+	const path = await tempHome("yonder-devices-w2-");
 	disposals.push(() => rm(path, { recursive: true, force: true }));
 	return path;
 }

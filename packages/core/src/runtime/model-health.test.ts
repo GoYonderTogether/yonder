@@ -1,12 +1,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { ModelHealth } from "./model-health.js";
 
 const roots: string[] = [];
 function setup(now = { value: 1_000_000 }) {
-	const root = mkdtempSync(join(tmpdir(), "yonder-health-"));
+	const root = tempHomeSync("yonder-health-");
 	roots.push(root);
 	const path = join(root, ".yonder", "model-health.json");
 	return { path, now, health: new ModelHealth(path, () => now.value) };

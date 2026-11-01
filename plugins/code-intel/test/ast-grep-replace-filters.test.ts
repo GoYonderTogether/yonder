@@ -1,9 +1,8 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { astGrepReplace } from "../src/ast-grep-replace.js";
 import plugin from "../src/index.js";
@@ -44,7 +43,7 @@ const cases: [string, Record<string, string>, string[]][] = [
 
 // Real ast-grep CLI: skips where it is missing or not executable (install @ast-grep/cli 0.51.0).
 test.skipIf(!executable("ast-grep"))("structural filters narrow preview and apply the latest preview", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "ast-replace-filter-"));
+	const dir = await tempHome("ast-replace-filter-");
 	const path = join(dir, "a.ts");
 	const ctx: ToolContext = {
 		agent: null,
@@ -86,7 +85,7 @@ test.skipIf(!executable("ast-grep"))("registered results are capped at 40 KiB wi
 	await plugin.setup(api as never);
 	const tool = registrations.tools.find((item) => item.name === "code-intel_ast_grep_replace");
 	if (!tool) throw new Error("missing tool");
-	const dir = await mkdtemp(join(tmpdir(), "ast-replace-cap-"));
+	const dir = await tempHome("ast-replace-cap-");
 	const ctx: ToolContext = {
 		agent: null,
 		profile: "test",

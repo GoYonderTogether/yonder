@@ -1,13 +1,13 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig, type YonderConfig } from "../config/index.js";
 import { createSocial } from "./social.js";
 
 test("owner confirmation gates policy change, persists it, and records rejection and application", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-social-policy-"));
+	const home = await tempHome("yonder-social-policy-");
 	try {
 		const file = join(home, "agent.yaml");
 		const raw = JSON.stringify({
@@ -109,7 +109,7 @@ test("owner confirmation gates policy change, persists it, and records rejection
 });
 
 test("bot gate injects a low-weight hint only after bot chatter crosses the window threshold", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-social-gate-"));
+	const home = await tempHome("yonder-social-gate-");
 	try {
 		const raw = JSON.stringify({
 			schema: 1,

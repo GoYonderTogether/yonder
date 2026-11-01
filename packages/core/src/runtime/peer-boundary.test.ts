@@ -1,10 +1,10 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { HASH_SEP } from "@earendil-works/pi-durable/tools";
 import type { ToolContext, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createSkills } from "../skills/index.js";
@@ -15,7 +15,7 @@ import { ToolPolicy } from "./policy.js";
 
 // Real filesystem and execution environment; no model is involved in policy checks.
 test("peer read/grep canonical boundary rejects traversal, absolute and symlink escape; quoted source attachments confer no exception", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	const root = await tempHome("ya-");
 	try {
 		const cwd = join(root, "workspace");
 		await mkdir(cwd);
@@ -94,7 +94,7 @@ test("peer read/grep canonical boundary rejects traversal, absolute and symlink 
 });
 
 test("recursive grep never follows workspace symlinks into external files or directories", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	const root = await tempHome("ya-");
 	try {
 		const cwd = join(root, "workspace");
 		await mkdir(cwd);
@@ -138,7 +138,7 @@ test("recursive grep never follows workspace symlinks into external files or dir
 
 test("anchor edits are checked against the file that served the anchors, with or without a path", async () => {
 	const { createReadTool } = await import("@earendil-works/pi-durable/tools");
-	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	const root = await tempHome("ya-");
 	try {
 		const cwd = join(root, "workspace");
 		await mkdir(cwd);

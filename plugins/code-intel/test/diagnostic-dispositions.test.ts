@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { diagnosticMark, diagnostics } from "../src/diagnostic-mark.js";
 import { callLens } from "../src/lens-mcp.js";
@@ -9,7 +10,7 @@ import { callLens } from "../src/lens-mcp.js";
 test.skipIf(process.env.YONDER_LENS_REAL !== "1")(
 	"real diagnostic dispositions and moved lines",
 	async () => {
-		const dir = await mkdtemp("/tmp/yonder-diagnostic-");
+		const dir = await tempHome("yonder-diagnostic-");
 		const ctx = {
 			session: "1",
 			env: new NodeExecutionEnv({ cwd: dir }),

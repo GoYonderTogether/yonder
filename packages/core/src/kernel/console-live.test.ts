@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -13,7 +14,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real model replies cross channels: console and CLI share the main session, replies return to each origin",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-console-live-");
+		const home = await tempHome("yonder-console-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		const cli: string[] = [];
@@ -62,7 +63,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"console replies are delivered with a restricted channel scope",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-console-scope-");
+		const home = await tempHome("yonder-console-scope-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: testModel });

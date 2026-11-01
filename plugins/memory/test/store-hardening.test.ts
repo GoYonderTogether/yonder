@@ -1,12 +1,12 @@
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { Store } from "../src/store.js";
 
 it("serializes appends from independent plugin processes without losing records", async () => {
-	const root = await mkdtemp(join(tmpdir(), "memory-lock-test-"));
+	const root = await tempHome("memory-lock-test-");
 	try {
 		const storeUrl = new URL("../dist/store.js", import.meta.url).href;
 		const script = `
@@ -33,7 +33,7 @@ it("serializes appends from independent plugin processes without losing records"
 });
 
 it("refuses a synthetic symlink write target without touching its referent", async () => {
-	const root = await mkdtemp(join(tmpdir(), "memory-symlink-test-"));
+	const root = await tempHome("memory-symlink-test-");
 	const outside = join(root, "outside.txt"),
 		link = join(root, "inside.txt");
 	try {

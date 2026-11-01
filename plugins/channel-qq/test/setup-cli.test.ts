@@ -1,16 +1,16 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { groupInstructions, groupTools, legacyGroupInstructions } from "../src/participation.js";
 import { upgradeGroups } from "../src/setup.js";
 
 test("upgrade-groups runs through the installed setup symlink instead of silently exiting", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-cli-"));
+	const home = await tempHome("yonder-qq-cli-");
 	try {
 		await writeFile(join(home, "yonder.yaml"), "schema: 1\nagents: []\n");
 		const cli = join(home, "setup.js");
@@ -35,7 +35,7 @@ const officialProfile = (extra: object = {}) => ({
 
 /** A home with one migrated candidate and one custom profile/binding that must never be touched. */
 async function legacyHome() {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-migrate-"));
+	const home = await tempHome("yonder-qq-migrate-");
 	await mkdir(join(home, "agents/main"), { recursive: true });
 	await writeFile(
 		join(home, "yonder.yaml"),
@@ -139,7 +139,7 @@ test("upgrade-groups previews first, then writes one backup and migrates only of
 });
 
 test("upgrade-groups never rewrites a custom group profile that merely mentions the group", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-migrate-custom-"));
+	const home = await tempHome("yonder-qq-migrate-custom-");
 	try {
 		await mkdir(join(home, "agents/main"), { recursive: true });
 		await writeFile(

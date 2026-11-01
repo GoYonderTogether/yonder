@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it, vi } from "vitest";
 import { FeishuApi, FeishuRequestError } from "../src/client.js";
 import { FeishuTaskCards } from "../src/task-card.js";
@@ -23,7 +23,7 @@ const event = {
 } as YEvent;
 const ctx = { agent: "agent", session: "session", signal: new AbortController().signal, event } as ToolContext;
 async function setup() {
-	const home = await mkdtemp(join(tmpdir(), "feishu-task-card-"));
+	const home = await tempHome("feishu-task-card-");
 	homes.push(home);
 	const emit = vi.fn().mockResolvedValue({ id: "event" });
 	const api = { paths: { data: home }, log: { warn: vi.fn() }, events: { emit } } as unknown as PluginAPI;

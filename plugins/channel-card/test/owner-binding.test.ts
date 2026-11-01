@@ -4,9 +4,9 @@
 
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, Ref, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { WebSocketServer } from "ws";
 import { parseAgentConfig, parseYonderConfig } from "../../../packages/core/src/config/index.js";
@@ -24,7 +24,7 @@ afterEach(async () => {
 });
 
 async function scaffold() {
-	const home = await mkdtemp(join(tmpdir(), "yonder-card-init-"));
+	const home = await tempHome("yonder-card-init-");
 	cleanups.push(() => rm(home, { recursive: true, force: true }));
 	await initHome(home, "owner", { model: MODEL });
 	const agent = parseAgentConfig(await readFile(join(home, "agents/main/agent.yaml"), "utf8"), "agent.yaml", "main");
@@ -95,7 +95,7 @@ async function linked(
 	twoAgents = false,
 ) {
 	const { agent } = await scaffold();
-	const data = await mkdtemp(join(tmpdir(), "yonder-card-state-"));
+	const data = await tempHome("yonder-card-state-");
 	cleanups.push(() => rm(data, { recursive: true, force: true }));
 	const db = await openDatabase(join(data, "state.db"));
 	cleanups.push(() => db.close());

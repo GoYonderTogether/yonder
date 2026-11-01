@@ -1,7 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkPlugin } from "@yonder/sdk/testing";
+import { checkPlugin, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { checklist, ITEMS, MAX_WAKES, missingTodo, StateFile, shouldWake, WAKE_INTERVAL_MS } from "../src/index.js";
 
@@ -68,7 +67,7 @@ test("recorded todo tasks that vanished or were deleted count as missing", () =>
 });
 
 test("state file is resumable, serializes updates and rejects path-like agent ids", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "onboarding-state-"));
+	const directory = await tempHome("onboarding-state-");
 	try {
 		const states = new StateFile(directory);
 		expect(await states.read("main")).toEqual({ tasks: {} });

@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../../core/src/config/test-support.js";
@@ -15,7 +16,7 @@ afterAll(async () => {
 
 /** 真实网关 + 真实 home：remoteAdmin 关闭时远端不能改配置，打开后可以（G-08）。 */
 async function start(remoteAdmin: boolean) {
-	const home = await mkdtemp("/tmp/yonder-gateway-config-");
+	const home = await tempHome("yonder-gateway-config-");
 	cleanup.push(() => rm(home, { recursive: true, force: true }));
 	await initHome(home, "owner", { model: testModel });
 	await setAccessTokenHash(home, tokenHash(ACCESS));

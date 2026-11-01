@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -95,7 +95,7 @@ test("the social history used by a batch stays bounded", async () => {
 }, 40000);
 
 test("agent config parsing is untouched by the context convergence", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-context-"));
+	const home = await tempHome("yonder-context-");
 	try {
 		const file = join(home, "agent.yaml");
 		await writeFile(

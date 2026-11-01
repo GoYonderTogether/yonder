@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
 import type { EventPage } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../../core/src/config/test-support.js";
@@ -16,7 +17,7 @@ afterAll(async () => {
 });
 
 async function start(remoteOwner: boolean) {
-	const home = await mkdtemp("/tmp/yonder-gateway-scope-");
+	const home = await tempHome("yonder-gateway-scope-");
 	cleanup.push(() => rm(home, { recursive: true, force: true }));
 	await initHome(home, "owner", { model: testModel });
 	await setAccessTokenHash(home, tokenHash(ACCESS));

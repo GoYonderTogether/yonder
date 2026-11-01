@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createSkills } from "./index.js";
@@ -11,7 +11,7 @@ const skill = async (path: string, name: string, description: string, body = nam
 };
 
 test("user .agents, Yonder home and project .agents shadow in order; index carries readable absolute paths", async () => {
-	const root = await realpath(await mkdtemp(join(tmpdir(), "yonder-skill-layers-")));
+	const root = await realpath(await tempHome("yonder-skill-layers-"));
 	const userHome = join(root, "user"),
 		home = join(root, "home"),
 		repo = join(root, "repo"),
@@ -52,7 +52,7 @@ test("user .agents, Yonder home and project .agents shadow in order; index carri
 });
 
 test("discovery stops at SKILL.md, accepts root .md files, skips dot, node_modules and ignored entries", async () => {
-	const root = await realpath(await mkdtemp(join(tmpdir(), "yonder-skill-walk-")));
+	const root = await realpath(await tempHome("yonder-skill-walk-"));
 	const home = join(root, "home"),
 		base = join(home, "skills");
 	try {
@@ -82,7 +82,7 @@ test("discovery stops at SKILL.md, accepts root .md files, skips dot, node_modul
 });
 
 test("/skill:name force-loads the selected skill and keeps the trailing request", async () => {
-	const root = await realpath(await mkdtemp(join(tmpdir(), "yonder-skill-command-")));
+	const root = await realpath(await tempHome("yonder-skill-command-"));
 	const home = join(root, "home");
 	try {
 		await skill(join(home, "skills", "notes", "SKILL.md"), "notes", "Notes", "Follow the notes procedure.");

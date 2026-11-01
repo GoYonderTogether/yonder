@@ -1,12 +1,14 @@
 // Live, non-prompting acceptance. Run after npm run build on macOS, never grants permissions.
+
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import plugin from "../dist/index.js";
 
-const data = await mkdtemp(join(tmpdir(), "yonder-helper-check-"));
+const data = await tempHome("yonder-helper-check-");
 const tools = new Map(),
 	triggers = [];
 const ctx = {

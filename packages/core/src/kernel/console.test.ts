@@ -1,6 +1,6 @@
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -9,7 +9,7 @@ import { initHome, openKernel } from "./index.js";
 // Real kernel, router and runtime. A real selected hook cancels the run before the provider request, so no model
 // (and no model stub) is involved: this verifies admission and routing, not model output.
 async function homeWithProbe(gateway?: { enabled: boolean }) {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	await initHome(home, "owner", { model: testModel });
 	await writeFile(
 		join(home, "package.json"),

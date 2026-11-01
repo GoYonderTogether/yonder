@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseYonderConfig } from "../config/index.js";
 import { createNotificationPrefs } from "../kernel/notifications.js";
@@ -9,7 +9,7 @@ import { migrate } from "../store/migrations.js";
 import { type HostCtx, registry, socketPrincipal } from "./methods.js";
 
 test("notification preferences merge startup defaults, persist, normalize and apply immediately", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-prefs-"));
+	const home = await tempHome("yonder-prefs-");
 	const db = await openDatabase(join(home, "state.db"));
 	try {
 		await migrate(db);

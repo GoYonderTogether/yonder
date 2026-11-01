@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { describeCatalog } from "../runtime/catalog.js";
@@ -94,7 +94,7 @@ test("tool discovery guidance follows effective exposure for residents and prese
 });
 
 test("system sections are deterministic and only selected contexts render", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-prompt-"));
+	const directory = await tempHome("yonder-prompt-");
 	try {
 		const files = workspaceFiles(localEnvironment(directory));
 		let selected = 0,
@@ -180,7 +180,7 @@ test("task identity and CLI guidance follow actual identity and capabilities", a
 });
 
 test("custom events retain complete data and message labels cannot break the turn header", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-event-prompt-"));
+	const directory = await tempHome("yonder-event-prompt-");
 	const db = await openDatabase(join(directory, "state.db"));
 	try {
 		const store = await createStore(db);
@@ -372,7 +372,7 @@ test("custom events retain complete data and message labels cannot break the tur
 });
 
 test("an expired attachment URL is reported to the model instead of failing the whole turn", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-expired-attachment-"));
+	const directory = await tempHome("yonder-expired-attachment-");
 	const db = await openDatabase(join(directory, "state.db"));
 	const server = createServer((_, response) => response.writeHead(400).end());
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -586,7 +586,7 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 });
 
 test("/skill:<name> injects the selected skill body into the run input", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-skill-command-"));
+	const directory = await tempHome("yonder-skill-command-");
 	const db = await openDatabase(join(directory, "state.db"));
 	try {
 		const body = "Step one: open the ledger and record the date.";

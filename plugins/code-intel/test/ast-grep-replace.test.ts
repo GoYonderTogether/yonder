@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { astGrepReplace } from "../src/ast-grep-replace.js";
 import { executable } from "./cli.js";
@@ -11,7 +11,7 @@ import { executable } from "./cli.js";
 test.skipIf(!executable("ast-grep"))(
 	"preview does not write, changed files are rejected, unchanged preview applies",
 	async () => {
-		const dir = await mkdtemp(join(tmpdir(), "ast-replace-"));
+		const dir = await tempHome("ast-replace-");
 		const path = join(dir, "a.ts");
 		const ctx: ToolContext = {
 			agent: null,

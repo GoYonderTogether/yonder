@@ -1,12 +1,12 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "../kernel/index.js";
 
 test("session model commands persist, remain isolated, validate input and report native compact availability without inference", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	await initHome(home, "owner", { model: testModel });
 	await writeFile(
 		`${home}/presets/command-owner.yaml`,
@@ -65,7 +65,7 @@ test("session model commands persist, remain isolated, validate input and report
 });
 
 test("reading effort requires read, changing it requires admin", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	await initHome(home, "owner", { model: testModel });
 	await writeFile(
 		`${home}/presets/command-reader.yaml`,

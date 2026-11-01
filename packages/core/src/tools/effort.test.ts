@@ -6,6 +6,7 @@ import { createInterface } from "node:readline";
 import { clampThinkingLevel } from "@earendil-works/pi-ai";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -15,7 +16,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real agent_ask applies a per-run effort for admin callers only, records the decision and never leaks to later runs",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-effort-");
+		const home = await tempHome("yonder-effort-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const sockets: Socket[] = [];
 		const clients: Array<{ channel: string; packets: Array<{ type: string; text?: string; event?: YEvent }> }> = [];

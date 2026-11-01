@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { WebSocketServer } from "ws";
 import { parse, stringify } from "yaml";
@@ -11,7 +12,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real model greets a newly authorized Card owner through the actual kernel and loopback transport",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-channel-connected-live-");
+		const home = await tempHome("yonder-channel-connected-live-");
 		const frames: Array<{ type?: string; ref?: string; content?: { text?: string } }> = [];
 		const server = createServer(async (request, response) => {
 			let raw = "";

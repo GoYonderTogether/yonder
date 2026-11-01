@@ -1,14 +1,13 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../src/index.js";
 
 /** Run one `connect` whose header credential resolves to `credential`; the error is returned, not thrown. */
 async function connectWith(credential: unknown) {
-	const dir = await mkdtemp(join(tmpdir(), "mcp-client-credentials-"));
+	const dir = await tempHome("mcp-client-credentials-");
 	try {
 		const collector = createRegistrationCollector();
 		const api = {

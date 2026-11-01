@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 
 const fixture = vi.hoisted(() => ({ home: "" }));
@@ -15,7 +15,7 @@ import { manageService } from "./index.js";
 test.skipIf(process.platform !== "darwin")(
 	"service install/stop/start/restart/rollback contracts use one existing launchd job and wait for bootout",
 	async () => {
-		const root = await mkdtemp(join(tmpdir(), "ya-"));
+		const root = await tempHome("ya-");
 		fixture.home = root;
 		const install = join(root, "install"),
 			home = join(root, "data"),
@@ -100,7 +100,7 @@ fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(jobs));
 );
 
 test("service host executes its entry point through the installed current symlink", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	const root = await tempHome("ya-");
 	try {
 		await symlink(resolve("scripts"), join(root, "current"), "dir");
 		const result = spawnSync(process.execPath, [join(root, "current/yonder-service-host.mjs")], { encoding: "utf8" });

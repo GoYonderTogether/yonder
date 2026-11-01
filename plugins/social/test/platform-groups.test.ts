@@ -1,5 +1,6 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse } from "yaml";
 import { initHome } from "../../../packages/core/src/kernel/home.js";
@@ -11,7 +12,7 @@ test.each([false, true])(
 	async (initialized) => {
 		let initialGroup: { binding: object; profile: object } | undefined;
 		if (initialized) {
-			const home = await mkdtemp("/tmp/yonder-platform-init-");
+			const home = await tempHome("yonder-platform-init-");
 			try {
 				await initHome(home, "owner", { model: "openai/gpt-6-luna" });
 				const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));

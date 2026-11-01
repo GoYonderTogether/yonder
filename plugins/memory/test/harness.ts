@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { initialize } from "../src/files.js";
 import plugin from "../src/index.js";
 export const context = (event?: YEvent): ToolContext =>
@@ -23,7 +22,7 @@ export function event(
 	return { id: randomUUID(), ts: new Date().toISOString(), type, from, conv: "conv:test:owner", data };
 }
 export async function harness(extra = {}, overrides: Partial<PluginAPI> = {}) {
-	const root = await mkdtemp(join(tmpdir(), "memory-test-"));
+	const root = await tempHome("memory-test-");
 	await initialize(root);
 	const { api, registrations } = createRegistrationCollector(),
 		events: EventInput[] = [];

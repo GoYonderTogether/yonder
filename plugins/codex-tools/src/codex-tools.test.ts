@@ -1,8 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { PluginAPI } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { Check } from "typebox/value";
 import { describe, expect, it, vi } from "vitest";
 import { AppServer, DeadlineError } from "./app-server.js";
@@ -94,7 +93,7 @@ it("cleans pending RPC requests on cancellation, deadline and write failure with
 });
 
 it("connection cleanup is idempotent and removes only its owned temporary directory", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-codex-cleanup-"));
+	const root = await tempHome("yonder-codex-cleanup-");
 	try {
 		const cwd = join(root, "owned");
 		await mkdir(cwd);

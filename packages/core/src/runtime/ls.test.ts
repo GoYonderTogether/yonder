@@ -1,14 +1,14 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { localEnvironment } from "./env.js";
 import { createLsTool } from "./ls.js";
 import { cacheToolOutput } from "./tool-output-cache.js";
 
 test("ls uses the execution environment, includes hidden entries, sorts and caches truncated output", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-ls-"));
+	const root = await tempHome("yonder-ls-");
 	try {
 		await mkdir(join(root, "Empty"));
 		await writeFile(join(root, ".hidden"), "");

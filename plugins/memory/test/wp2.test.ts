@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { DateTime } from "luxon";
 import { afterEach, expect, it } from "vitest";
 import { heading, moment, weekInfo } from "../src/calendar.js";
@@ -17,7 +16,7 @@ afterEach(async () => {
 	await Promise.all(dirs.splice(0).map((p) => rm(p, { recursive: true, force: true })));
 });
 async function temp() {
-	const root = await mkdtemp(join(tmpdir(), "memory-wp2-"));
+	const root = await tempHome("memory-wp2-");
 	dirs.push(root);
 	await initialize(root);
 	return root;

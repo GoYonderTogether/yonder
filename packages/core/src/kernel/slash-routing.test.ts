@@ -1,16 +1,16 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("native channel unknown slash reaches selected runtime hooks unchanged; builtins and unbound sources do not", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	const sockets: Socket[] = [];
 	try {

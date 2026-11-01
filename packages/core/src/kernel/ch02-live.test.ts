@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -7,7 +8,7 @@ import { initHome, openKernel } from "./index.js";
 test.skipIf(process.env.YONDER_CH02_REAL !== "1")(
 	"social group session excludes the owner's main conversation",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-ch02-live-");
+		const home = await tempHome("yonder-ch02-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		const key = `ch02-${home}`;
 		const globals = globalThis as unknown as Record<

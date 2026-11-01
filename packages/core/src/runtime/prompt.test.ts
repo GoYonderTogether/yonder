@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { systemPromptKeys, systemPromptParts } from "../prompt/index.js";
@@ -8,7 +8,7 @@ import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("runtime clocks persist in prepared inputs without changing stable system sections or source text", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-runtime-prompt-"));
+	const home = await tempHome("yonder-runtime-prompt-");
 	const db = await openDatabase(join(home, "state.db"));
 	const config = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) };
 	const runtime = await Runtime.open({

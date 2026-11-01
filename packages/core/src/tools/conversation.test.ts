@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EventInput, ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { localEnvironment } from "../runtime/env.js";
@@ -9,7 +9,7 @@ import { createStore, newEvent } from "../store/index.js";
 import { conversationMembers, createConversationTools, sourceConversation } from "./conversation.js";
 
 test("conversation tools read SQLite history, preserve scope, and open only referenced text attachments", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-conversation-"));
+	const home = await tempHome("yonder-conversation-");
 	const db = await openDatabase(":memory:");
 	try {
 		const store = await createStore(db);

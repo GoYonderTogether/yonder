@@ -1,5 +1,4 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import {
@@ -12,6 +11,7 @@ import {
 	type ToolExecutionResult,
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
@@ -20,7 +20,7 @@ import { Runtime } from "./index.js";
 // A native task driver stands in only for the model choosing tool names and arguments;
 // the real Yonder tools, pi task scheduler, SQLite and OS bash all run.
 test("bg_run/bg_status/bg_logs/bg_kill drive a real sleep+echo background job", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-bg-tools-"));
+	const home = await tempHome("yonder-bg-tools-");
 	const notifications: Array<{ id: string; name: string; outputFile?: string }> = [];
 	let runtime: Runtime | undefined;
 	try {

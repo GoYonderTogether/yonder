@@ -4,6 +4,7 @@ import { createConnection, type Socket } from "node:net";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { OutputPart, SessionUpdate, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -14,7 +15,7 @@ for (const scenario of ["generation", "tools", "interrupt"] as const) {
 	test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 		`real Luna merges all queued inputs in one run during ${scenario}`,
 		async () => {
-			const home = await mkdtemp("/tmp/yonder-input-queue-");
+			const home = await tempHome("yonder-input-queue-");
 			let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 			const sockets: Socket[] = [];
 			const updates: SessionUpdate[] = [];

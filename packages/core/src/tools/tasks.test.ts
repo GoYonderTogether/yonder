@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -11,8 +12,8 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real task_run forwards explicit input, returns native artifacts and rejects attachment scope escape",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-task-repair-");
-		const outside = await mkdtemp("/tmp/yonder-outside-");
+		const home = await tempHome("yonder-task-repair-");
+		const outside = await tempHome("yonder-outside-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: testModel });
@@ -109,7 +110,7 @@ export default {async setup(api) {
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"parent abort projects its admitted child's native terminal receipt",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-child-abort-");
+		const home = await tempHome("yonder-child-abort-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: testModel });

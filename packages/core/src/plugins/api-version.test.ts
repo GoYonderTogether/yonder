@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { API_VERSION } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import type { KernelServices } from "./index.js";
 import { loadPlugins } from "./index.js";
@@ -23,7 +23,7 @@ async function writePlugin(home: string, id: string, apiVersion: number | undefi
 
 it("loads apiVersion 1 and missing apiVersion, and skips a newer apiVersion without blocking other plugins", async () => {
 	expect(API_VERSION).toBe(1);
-	const home = await mkdtemp(join(tmpdir(), "ya-api-"));
+	const home = await tempHome("ya-api-");
 	try {
 		const current = await writePlugin(home, "api-current", 1);
 		const future = await writePlugin(home, "api-future", 2);

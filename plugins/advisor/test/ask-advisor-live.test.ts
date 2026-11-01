@@ -1,5 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -14,7 +15,7 @@ const model = "workbuddy/deepseek-v4.1-flash";
 test.skipIf(process.env.YONDER_ADVISOR_REAL !== "1")(
 	"advisor_ask_advisor starts a consultation from an empty object and the old name still works",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-advisor-");
+		const home = await tempHome("yonder-advisor-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model });

@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { applyMigration, planMigration } from "./migrate.js";
 
@@ -13,7 +13,7 @@ afterEach(async () => {
 test.each(["darwin", "linux"] as const)(
 	"%s user services are planned, migrated, and not repeated",
 	async (platform) => {
-		const home = await mkdtemp(join(tmpdir(), "yonder-service-migrate-"));
+		const home = await tempHome("yonder-service-migrate-");
 		roots.push(home);
 		vi.stubEnv("XDG_CONFIG_HOME", join(home, ".config"));
 		const dir = platform === "darwin" ? join(home, "Library/LaunchAgents") : join(home, ".config/systemd/user");
@@ -46,7 +46,7 @@ test.each(["darwin", "linux"] as const)(
 );
 
 test("failed service installation retains old unit for retry", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-service-migrate-"));
+	const home = await tempHome("yonder-service-migrate-");
 	roots.push(home);
 	const dir = join(home, "Library/LaunchAgents");
 	await mkdir(dir, { recursive: true });
@@ -79,7 +79,7 @@ test("failed service installation retains old unit for retry", async () => {
 });
 
 test("existing new service definitions block migration without being overwritten", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-service-migrate-"));
+	const home = await tempHome("yonder-service-migrate-");
 	roots.push(home);
 	const dir = join(home, "Library/LaunchAgents");
 	await mkdir(dir, { recursive: true });

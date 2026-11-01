@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 
 test("status install root honors override and falls back only during migration", {
 	skip: process.platform !== "darwin",
 }, () => {
-	const directory = mkdtempSync(join(tmpdir(), "yonder-status-install-"));
+	const directory = tempHomeSync("yonder-status-install-");
 	try {
 		const source = readFileSync(new URL("../YonderStatus.swift", import.meta.url), "utf8");
 		const expression = source.match(/private let install: String = (\{[\s\S]*?\}\(\))/u)?.[1];

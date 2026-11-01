@@ -1,9 +1,8 @@
 import { mkdtemp, readFile, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { PluginAPI } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import type { FeishuChannel } from "../src/channel.js";
 import plugin from "../src/index.js";
@@ -16,7 +15,7 @@ const decode = (value: string) =>
 
 async function setup(polls: object[], existing?: string) {
 	const collector = createRegistrationCollector();
-	const data = existing ?? (await mkdtemp(join(tmpdir(), "feishu-onboarding-")));
+	const data = existing ?? (await tempHome("feishu-onboarding-"));
 	const api = {
 		...collector.api,
 		paths: { data },

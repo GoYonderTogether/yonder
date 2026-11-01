@@ -1,9 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
 import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
@@ -45,7 +44,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 		const tool = registered.find((item) => item.name === "code-intel_read_symbol");
 		const report = registered.find((item) => item.name === "code-intel_module_report");
 		if (!tool || !report) throw new Error("missing tools");
-		const dir = await mkdtemp(join(tmpdir(), "yonder-read-symbol-"));
+		const dir = await tempHome("yonder-read-symbol-");
 		try {
 			const source =
 				'export function hello() {\n  return "hello";\n}\n\nexport class Greeter {\n  greet() { return "hi"; }\n}\n\nsetTimeout(() => { console.log("later"); }, 10);\n\nclass Other { greet() { return "other"; } }\n';

@@ -2,11 +2,10 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createConnection } from "node:net";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { ChannelProvider, PluginAPI } from "@yonder/sdk";
-import { checkPlugin } from "@yonder/sdk/testing";
+import { checkPlugin, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 
 it("passes plugin contracts and exchanges messages over its Unix socket", async () => {
@@ -14,7 +13,7 @@ it("passes plugin contracts and exchanges messages over its Unix socket", async 
 	expect(await checkPlugin(resolve(root, "plugins/channel-cli"))).toEqual([]);
 	expect(await checkPlugin(resolve(root, "plugins/context-files"))).toEqual([]);
 
-	const data = await mkdtemp(join(tmpdir(), "yonder-channel-cli-"));
+	const data = await tempHome("yonder-channel-cli-");
 	const filePath = join(data, "test-cli.sock");
 	const socketPath =
 		process.platform === "win32"

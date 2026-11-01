@@ -1,11 +1,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { expandTemplate, listTemplates, pluginTemplateDirs } from "./templates.js";
 
 test("prompt templates follow pi argument expansion and agent overrides", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-templates-"));
+	const home = await tempHome("yonder-templates-");
 	try {
 		await mkdir(join(home, "prompts"));
 		await mkdir(join(home, "agents", "main", "prompts"), { recursive: true });
@@ -26,7 +26,7 @@ test("prompt templates follow pi argument expansion and agent overrides", async 
 });
 
 test("plugin rescue template is discovered only when its directory is selected", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-rescue-"));
+	const home = await tempHome("yonder-rescue-");
 	try {
 		const directory = join(process.cwd(), "plugins/codex-companion");
 		const plugins = [{ id: "codex-companion", directory }];
@@ -53,7 +53,7 @@ test("plugin rescue template is discovered only when its directory is selected",
 });
 
 test("task templates use subagent then executor then home and list the same visible commands", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-task-templates-"));
+	const home = await tempHome("yonder-task-templates-");
 	try {
 		for (const path of ["agents/scout/prompts", "presets/scout/prompts", "prompts", "plugin/prompts"])
 			await mkdir(join(home, path), { recursive: true });

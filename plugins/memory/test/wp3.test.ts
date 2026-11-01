@@ -1,9 +1,8 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { capture } from "../src/capture.js";
 import { initialize } from "../src/files.js";
@@ -15,7 +14,7 @@ afterEach(async () => {
 	await Promise.all(dirs.splice(0).map((p) => rm(p, { recursive: true, force: true })));
 });
 async function temp() {
-	const dir = await mkdtemp(join(tmpdir(), "memory-wp3-"));
+	const dir = await tempHome("memory-wp3-");
 	dirs.push(dir);
 	return dir;
 }

@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { type AgentConfig, parseAgentConfig } from "../config/index.js";
@@ -26,7 +26,7 @@ test("an older agent without a peer binding is reported and the fix matches what
 });
 
 test("init 建出来的 agent 自带 peer 绑定，老 agent 缺少时 doctor 说清影响与修法", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-peer-"));
+	const home = await tempHome("yonder-doctor-peer-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "agents/main/agent.yaml");

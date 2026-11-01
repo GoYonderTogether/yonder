@@ -1,10 +1,11 @@
 import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { boundToolOutput, cacheToolOutput } from "./tool-output-cache.js";
 
 test("caches truncated output with a searchable path and removes expired files", async () => {
-	const home = await mkdtemp("/tmp/yonder-output-");
+	const home = await tempHome("yonder-output-");
 	try {
 		const streamed = await cacheToolOutput(
 			home,
@@ -57,7 +58,9 @@ test("caches truncated output with a searchable path and removes expired files",
 		await expect(readFile(path)).rejects.toMatchObject({ code: "ENOENT" });
 		const index = await readFile(join(home, "cache/tool-output/1/index.jsonl"), "utf8");
 		expect(index).toContain('"args":[]');
-		expect(index).not.toContain("private");
+		// 只断言“参数值没有进索引”：临时目录的绝对路径里可能含有 private（macOS 的 /private/var），
+		// 直接匹配子串会误报。值出现在 JSON 里必然带引号。
+		expect(index).not.toContain('"private"');
 		expect(
 			await boundToolOutput("small", () => {
 				throw new Error("unexpected");

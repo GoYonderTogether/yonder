@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseYonderConfig } from "../config/index.js";
 import { resolveProfile } from "../config/test-support.js";
@@ -42,7 +43,7 @@ test("only configured limits count as a breach, and 0 means unlimited", () => {
 });
 
 test("each breached limit is recorded once from the session's own usage", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-budget-"));
+	const home = await tempHome("yonder-budget-");
 	const db = await openDatabase(join(home, "state.db"));
 	try {
 		await createStore(db);
@@ -91,7 +92,7 @@ test.skipIf(!real)(
 		const providers = (
 			JSON.parse(readFileSync(catalog, "utf8")) as { providers: Record<string, Record<string, unknown>> }
 		).providers;
-		const home = await mkdtemp("/tmp/yonder-budget-live-");
+		const home = await tempHome("yonder-budget-live-");
 		const db = await openDatabase(join(home, "state.db"));
 		const store = await createStore(db);
 		const config = parseYonderConfig(

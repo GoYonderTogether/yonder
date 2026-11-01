@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { type HostCtx, registry } from "../control/methods.js";
@@ -13,7 +14,7 @@ test.skipIf(
 )(
 	"real model and gateway preserve forked conversation history",
 	async () => {
-		const home = await mkdtemp("/tmp/yb-");
+		const home = await tempHome("yb-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: "siliconflow/deepseek-ai/DeepSeek-V3.2" });

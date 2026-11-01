@@ -1,12 +1,12 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { localEnvironment } from "./env.js";
 import { projectRules } from "./project-rules.js";
 
 test("loads global and ancestor rules in priority order, deduplicates and bounds content", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-rules-"));
+	const root = await tempHome("yonder-rules-");
 	try {
 		const global = join(root, "global");
 		const project = join(root, "project");

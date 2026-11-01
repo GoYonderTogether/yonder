@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createStore } from "../store/index.js";
@@ -14,7 +14,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real queued runs take their configuration at start and survive the preceding run's reminder",
 	async () => {
-		const home = await mkdtemp(join(tmpdir(), "ya-"));
+		const home = await tempHome("ya-");
 		const db = await openDatabase(`${home}/state.db`);
 		const store = await createStore(db);
 		const preparations: string[] = [];
@@ -123,7 +123,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 );
 
 test("the elapsed threshold warns without cancelling context rendering before a model request", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const failure = new Error("context-render-check-complete");
 	let raised: Error | undefined;
 	const db = await openDatabase(`${home}/state.db`);
@@ -168,7 +168,7 @@ test("the elapsed threshold warns without cancelling context rendering before a 
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"new images share the request budget while incompatible old image history is retained",
 	async () => {
-		const home = await mkdtemp(join(tmpdir(), "ya-"));
+		const home = await tempHome("ya-");
 		let runtime: Runtime | undefined;
 		try {
 			const { writeFile } = await import("node:fs/promises");
@@ -253,7 +253,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 );
 
 test("the elapsed threshold warns without cancelling input preparation before a model request", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const warnings: string[] = [];
 	let cancelled: boolean | undefined;
 	const db = await openDatabase(`${home}/state.db`);
@@ -303,7 +303,7 @@ test("the elapsed threshold warns without cancelling input preparation before a 
 });
 
 test("explicit abort still cancels context rendering before a model request", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	let entered = false;
 	let cancelled = false;
 	const runtime = await Runtime.open({

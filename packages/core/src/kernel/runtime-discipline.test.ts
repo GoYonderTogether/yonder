@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -17,7 +18,7 @@ const catalog = process.env.YONDER_TEST_MODELS ?? resolve(homedir(), ".pi/agent/
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna: task report, one silent background fallback and deterministic interactive heartbeat",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-runtime-discipline-");
+		const home = await tempHome("yonder-runtime-discipline-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		const logs: unknown[] = [];

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { pathToFileURL } from "node:url";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../../../packages/core/src/config/test-support.js";
@@ -17,7 +18,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna batches group inputs, reads shared memory, asks main and preserves quiet/read/recovery boundaries",
 	async () => {
-		const home = await mkdtemp(join(tmpdir(), "yonder-qq-participation-"));
+		const home = await tempHome("yonder-qq-participation-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		let passed = false;

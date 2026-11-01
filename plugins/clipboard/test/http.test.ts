@@ -2,13 +2,13 @@ import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { createServer } from "node:https";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 
 test("actual allowlisted HTTPS body/header injection verifies TLS, discards response secrets and refuses redirect", async () => {
-	const root = await realpath(await mkdtemp(join(tmpdir(), "clip-tls-"))),
+	const root = await realpath(await tempHome("clip-tls-")),
 		key = join(root, "key.pem"),
 		cert = join(root, "cert.pem");
 	const secret = randomBytes(40).toString("hex"),

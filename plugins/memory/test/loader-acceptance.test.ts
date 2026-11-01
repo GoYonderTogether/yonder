@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { type KernelServices, loadPlugins } from "../../../packages/core/src/plugins/index.js";
 
@@ -8,7 +8,7 @@ const unused = async (): Promise<never> => {
 	throw new Error("unexpected service call");
 };
 it("loads built memory plugin and enforces owner, agent and approved-conversation boundaries in real handlers", async () => {
-	const base = await mkdtemp(join(tmpdir(), "memory-loader-"));
+	const base = await tempHome("memory-loader-");
 	const home = join(base, "home"),
 		root = join(base, "root");
 	await mkdir(join(home, "node_modules/@yonder"), { recursive: true });

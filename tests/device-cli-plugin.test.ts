@@ -2,11 +2,10 @@ import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Grant, PluginAPI, ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../plugins/devices/src/index.js";
 
@@ -108,7 +107,7 @@ export function createBackendProvider() { return {
 }
 
 test("standalone executor CLI and default devices plugin complete a paired direct command", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-device-product-"));
+	const root = await tempHome("yonder-device-product-");
 	const deviceHome = join(root, "device"),
 		controllerHome = join(root, "controller");
 	const key = join(root, "tls-key.pem"),
@@ -208,7 +207,7 @@ test.skipIf(!cardRoot)(
 	"default devices plugin reaches the actual executor CLI through Card and recovers across routes",
 	async () => {
 		if (!cardRoot) throw new Error("YONDER_CARD_ROOT required");
-		const root = await mkdtemp(join(tmpdir(), "yonder-device-card-product-"));
+		const root = await tempHome("yonder-device-card-product-");
 		const dispose: Array<() => Promise<unknown>> = [() => rm(root, { recursive: true, force: true })];
 		try {
 			const load = (path: string) => import(pathToFileURL(path).href);

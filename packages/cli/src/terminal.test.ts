@@ -3,12 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getMarkdownTheme, UserMessageComponent } from "@earendil-works/pi-coding-agent";
 import { stripTerminalSequences, Text, visibleWidth } from "@earendil-works/pi-tui";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { MessagePresentation } from "./message-presentation.js";
 import { hideReplyMarker, sameDirectory } from "./terminal.js";
 
 test("current-folder session filter accepts real directory aliases and keeps other paths separate", () => {
-	const root = mkdtempSync(join(tmpdir(), "yonder-cwd-"));
+	const root = tempHomeSync("yonder-cwd-");
 	try {
 		const alias = join(root, "alias");
 		symlinkSync(root, alias);

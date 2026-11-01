@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
@@ -26,7 +27,7 @@ test.skipIf(!real)(
 		await new Promise<void>((done) => probe.listen(0, "127.0.0.1", done));
 		const closed = (probe.address() as { port: number }).port;
 		await new Promise<void>((done) => probe.close(() => done()));
-		const home = await mkdtemp("/tmp/yonder-chain-config-");
+		const home = await tempHome("yonder-chain-config-");
 		// The profile names no fallback of its own, so the home-wide models.chain is what makes this work.
 		const profile = resolveProfile({ model: "workbuddy/deepseek-v4.1-flash", thinking: "low", level: "readonly" });
 		const runtime = await Runtime.open({

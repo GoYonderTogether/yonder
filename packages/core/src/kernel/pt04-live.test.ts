@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -9,7 +10,7 @@ import { initHome, openKernel } from "./index.js";
 test.skipIf(!process.env.YONDER_PT04_AUTH_SOURCE)(
 	"supervisor answers CLI while a delegated task continues and delivers to gateway",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-pt04-");
+		const home = await tempHome("yonder-pt04-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		const cli: { text: string; at: number }[] = [];

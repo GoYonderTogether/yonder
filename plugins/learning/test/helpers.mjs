@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
+import { checkRegistrations, createRegistrationCollector, readPluginManifest, tempHome } from "@yonder/sdk/testing";
 export const ctx = (agent = "alpha", profile = "owner", session = "1") => ({
 	agent,
 	profile,
@@ -13,7 +12,7 @@ export const ctx = (agent = "alpha", profile = "owner", session = "1") => ({
 });
 export async function fixture(t) {
 	// macOS tmpdir can include a /var symlink; exercise canonical trusted scope.
-	const dir = await realpath(await mkdtemp(join(tmpdir(), "yonder-hermes-test-")));
+	const dir = await realpath(await tempHome("yonder-hermes-test-"));
 	t?.onTestFinished(() => rm(dir, { recursive: true, force: true }));
 	for (const p of ["memories", "profiles/work/memories", "skills", "sessions"])
 		await mkdir(join(dir, p), { recursive: true });

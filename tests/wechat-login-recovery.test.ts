@@ -1,13 +1,14 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ChannelIO, PluginAPI } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { IlinkChannel } from "../plugins/channel-wechat-ilink/src/channel.js";
 
 // Mock transport only; no network, live account or model.
 const json = (value: unknown) => new Response(JSON.stringify(value));
 async function setup(saved?: object) {
-	const directory = await mkdtemp("/tmp/yonder-ilink-recovery-test-");
+	const directory = await tempHome("yonder-ilink-recovery-test-");
 	if (saved) {
 		await mkdir(join(directory, "wx"));
 		await writeFile(join(directory, "wx/account.json"), JSON.stringify(saved));

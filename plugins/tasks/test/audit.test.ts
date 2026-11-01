@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Hook, Message, PluginAPI, RenderContext, Tool, ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import tasks from "../src/index.js";
 import { Store } from "../src/store/index.js";
@@ -18,7 +18,7 @@ type Reply = { status?: string; text?: string; reason?: string } | Error;
 
 /** 假 sessions API：审计接线用假会话，模型回复由用例直接给定，不冒充真实模型。 */
 async function fixture(reply: Reply | ((index: number) => Reply), config: object = {}) {
-	const data = await mkdtemp(join(tmpdir(), "yonder-tasks-audit-"));
+	const data = await tempHome("yonder-tasks-audit-");
 	const tools: Tool[] = [];
 	const hooks: Hook[] = [];
 	const opened: string[] = [];

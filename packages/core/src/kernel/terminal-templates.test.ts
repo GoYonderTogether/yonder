@@ -1,12 +1,12 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("terminal template discovery matches a task preset before and after opening", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yt-"));
+	const home = await tempHome("yt-");
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
 		await initHome(home, "owner", { model: testModel });

@@ -19,6 +19,7 @@ import { createServer } from "node:net";
 import { homedir, tmpdir, userInfo } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
 import { serveControl } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test } from "vitest";
 import {
 	applyMigration,
@@ -38,7 +39,7 @@ const YAML =
 const now = new Date("2026-10-28T08:00:00Z");
 
 async function fixture() {
-	const root = await mkdtemp(join(tmpdir(), "ymigrate-"));
+	const root = await tempHome("ymigrate-");
 	roots.push(root);
 	const oldHome = join(root, "yonder-harness/home");
 	const newHome = join(root, "yonder/home");
@@ -299,7 +300,7 @@ test("rollback refuses when the old path is not the symlink to new", async () =>
 });
 
 test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ymigrate-cli-"));
+	const home = await tempHome("ymigrate-cli-");
 	roots.push(home);
 	const share = join(home, ".local/share");
 	await mkdir(join(home, ".yonder-harness"), { recursive: true });
@@ -382,7 +383,7 @@ test("install conflict refuses migration and rollback", async () => {
 });
 
 test("installation-only migration and rollback, including Windows link target", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ymigrate-install-"));
+	const root = await tempHome("ymigrate-install-");
 	roots.push(root);
 	const oldInstall = join(root, ".yonder-harness");
 	const newInstall = join(root, ".local/share/yonder/install");
@@ -466,7 +467,7 @@ test("--no-service plans and runs no launchctl or user service command", async (
 });
 
 test("a home long enough to overflow sun_path still binds and sees its control socket", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ymigrate-long-"));
+	const root = await tempHome("ymigrate-long-");
 	roots.push(root);
 	const newHome = join(root, "x".repeat(80), "y".repeat(40), "home");
 	const oldHome = join(root, "yonder-harness/home");

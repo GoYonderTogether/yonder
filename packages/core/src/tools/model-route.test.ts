@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterAll, expect, test } from "vitest";
 import { FileCredentials } from "../runtime/credentials.js";
 import { modelChainRefs } from "../runtime/model-chain.js";
@@ -12,7 +12,7 @@ import { createCoreTools } from "./index.js";
 import { createModelRouteTool, routeModel } from "./model-route.js";
 
 // Real offline catalog entries; only selection metadata is varied to exercise ordering.
-const home = mkdtempSync(join(tmpdir(), "yonder-model-route-"));
+const home = tempHomeSync("yonder-model-route-");
 afterAll(() => rmSync(home, { recursive: true, force: true }));
 const profiles = buildModels(new FileCredentials(join(home, "auth.json")))
 	.getModels()

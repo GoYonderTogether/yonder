@@ -4,6 +4,7 @@ import { createConnection, type Socket } from "node:net";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { OutputPart, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -13,7 +14,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna closes progress bubbles before long tools and automatically delivers background completion",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-message-live-");
+		const home = await tempHome("yonder-message-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let socket: Socket | undefined;
 		const packets: Array<{ at: number; part: OutputPart }> = [];

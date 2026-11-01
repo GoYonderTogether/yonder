@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { CURRENT_SCHEMA_VERSION, MIGRATIONS, migrate } from "./migrations.js";
@@ -46,7 +46,7 @@ test("a newer database is refused", async () => {
 });
 
 test("pending migration backs up first and then applies", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "yonder-mig-"));
+	const dir = await tempHome("yonder-mig-");
 	const db = await openDatabase(join(dir, "state.db"));
 	try {
 		await migrate(db);

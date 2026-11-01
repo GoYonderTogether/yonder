@@ -1,10 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ExecutionOwner, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { config } from "../src/config.js";
 import { consume, pasteFile } from "../src/consumers.js";
@@ -14,7 +13,7 @@ import { allowedPath, hash, Store } from "../src/store.js";
 const scope: ExecutionOwner = { agent: "main", profile: "owner", session: "1" };
 const signal = () => AbortSignal.timeout(20000);
 async function temporary() {
-	return realpath(await mkdtemp(join(tmpdir(), "yonder-clipboard-")));
+	return realpath(await tempHome("yonder-clipboard-"));
 }
 
 test("manifest matches SDK registration; installation grants no access or setup side effects", async () => {

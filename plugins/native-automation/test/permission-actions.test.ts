@@ -1,8 +1,8 @@
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PermissionProvider, PluginAPI, Tool, ToolContext, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const transport = vi.hoisted(() => ({ desktop: vi.fn(), stopChildren: vi.fn() }));
@@ -29,7 +29,7 @@ beforeEach(async () => {
 	vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
 	persisted = new Map();
 	query = vi.fn(async ({ id }: { id: string }) => ({ events: persisted.has(id) ? [persisted.get(id)] : [] }));
-	data = await mkdtemp(join(tmpdir(), "yonder-permission-unit-"));
+	data = await tempHome("yonder-permission-unit-");
 	relation = vi.fn(async (_agent: string, account: string) => (account === ownerInput.from ? "owner" : "stranger"));
 	ctx = {
 		agent: "main",

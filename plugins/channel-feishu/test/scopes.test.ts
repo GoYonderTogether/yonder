@@ -1,8 +1,7 @@
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import type { FeishuChannel } from "../src/channel.js";
 import plugin from "../src/index.js";
@@ -11,7 +10,7 @@ afterEach(() => vi.restoreAllMocks());
 const reply = (body: object, status = 200) => new Response(JSON.stringify(body), { status });
 async function setup(scopes: object[], capabilities = ["read", "network", "admin"]) {
 	const collector = createRegistrationCollector();
-	const data = await mkdtemp(join(tmpdir(), "feishu-scopes-"));
+	const data = await tempHome("feishu-scopes-");
 	const api = {
 		...collector.api,
 		paths: { data },

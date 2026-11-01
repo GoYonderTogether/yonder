@@ -1,15 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../src/index.js";
 
 test("review selects real git state and isolates Codex login", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "codex-review-"));
+	const dir = await tempHome("codex-review-");
 	try {
 		const repo = join(dir, "repo");
 		const home = join(dir, "login");

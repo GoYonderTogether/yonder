@@ -1,5 +1,4 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import {
@@ -13,6 +12,7 @@ import {
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
 import type { PermissionProvider, PermissionRequest, ToolContext, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createPermissions } from "../permissions.js";
@@ -37,7 +37,7 @@ const text = (result: ToolExecutionResult) =>
 // it supplies the ToolExecutionApi commit fixture and input snapshot, but executes the real
 // registered tool, background task and Runtime.adapter. It never writes toolInvocations.
 async function fixture(invoke: PermissionProvider["invoke"] = async () => raw) {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	let runtime: Runtime | undefined;
 	try {
 		const boundary: ToolContext[] = [];

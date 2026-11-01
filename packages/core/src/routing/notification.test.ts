@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -72,7 +72,7 @@ test("only message.in and summary opt-ins notify, never internal run events", ()
 });
 
 test("routed inbound messages record one notification per session at the configured level", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-notify-policy-"));
+	const home = await tempHome("yonder-notify-policy-");
 	let runtime: Runtime | undefined;
 	try {
 		const db = await openDatabase(join(home, "state.db"));

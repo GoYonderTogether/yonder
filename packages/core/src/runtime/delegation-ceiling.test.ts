@@ -1,5 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { presetSession } from "../config/index.js";
 import { presetProfile, resolveProfile } from "../config/test-support.js";
@@ -8,7 +9,7 @@ import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("child scope survives runtime restart and a broader preset", async () => {
-	const home = await mkdtemp("/tmp/yonder-scope-restart-");
+	const home = await tempHome("yonder-scope-restart-");
 	const parent = resolveProfile({
 		plugins: ["web-tools"],
 		tools: { offer: ["read"], search: [] },

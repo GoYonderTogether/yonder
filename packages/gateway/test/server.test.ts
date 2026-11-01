@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { request } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initHome, openKernel, registry, releaseInfo } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { testModel } from "../../core/src/config/test-support.js";
@@ -50,7 +50,7 @@ const rpc = async (method: string, params: unknown = {}, headers: Record<string,
 	).json()) as { ok: boolean; result?: Record<string, unknown>; error?: { code: string } };
 
 beforeAll(async () => {
-	home = await mkdtemp(join(tmpdir(), "yg-"));
+	home = await tempHome("yg-");
 	await initHome(home, "owner", { model: testModel });
 	kernel = await openKernel(home);
 	gateway = await startGateway({

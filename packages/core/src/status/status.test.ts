@@ -1,12 +1,12 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createStatusSurface, type StatusSource } from "./index.js";
 
 let home = "";
 beforeEach(async () => {
-	home = await mkdtemp(join(tmpdir(), "yonder-status-"));
+	home = await tempHome("yonder-status-");
 });
 afterEach(async () => {
 	await rm(home, { recursive: true, force: true });

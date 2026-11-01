@@ -2,7 +2,6 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -17,6 +16,7 @@ import {
 	signMessage,
 	verifyMessage,
 } from "@yonder/protocol";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import type { BackendProvider } from "../src/backend-provider.js";
 import { DeviceExecutor } from "../src/executor.js";
@@ -36,7 +36,7 @@ afterEach(async () => {
 	for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 const root = () => {
-	const path = mkdtempSync(join(tmpdir(), "w1-regression-"));
+	const path = tempHomeSync("w1-regression-");
 	roots.push(path);
 	return path;
 };

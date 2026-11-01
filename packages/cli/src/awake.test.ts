@@ -1,11 +1,11 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { awakeEnabled, awakeGraceMs, awakeMode, createAwakeHold, setAwake, startAwake } from "./awake.js";
 
 test("awake policy persists per home, defaults off and reports unreadable policy without protection", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-awake-"));
+	const home = await tempHome("yonder-awake-");
 	try {
 		expect(await awakeEnabled(home)).toBe(false);
 		if (process.platform !== "darwin") return;

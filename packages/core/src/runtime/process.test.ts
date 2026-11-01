@@ -1,8 +1,8 @@
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import type { ToolExecutionApi } from "@earendil-works/pi-durable";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 
 // Transport/API contract fixtures execute the actual tool and OS bash, no model.
@@ -13,7 +13,7 @@ afterEach(() => {
 async function fixture() {
 	vi.stubEnv("YONDER_SERVICE_REGISTRATION", undefined);
 	vi.stubEnv("YONDER_SERVICE_COMMAND_FD", undefined);
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const { processTool } = await import("./process.js");
 	const jobs = new Map<number, { output: string; write?: (text: string, eof?: boolean) => Promise<void> }>();
 	const tool = processTool(home, jobs);

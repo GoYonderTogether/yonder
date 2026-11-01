@@ -1,8 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionSettledEv, ViewDecl, ViewProvider } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { type KernelServices, loadPlugins } from "../plugins/index.js";
@@ -120,7 +119,7 @@ it("coalesces invalidations per placement, scopes ids to the plugin and closes w
 });
 
 it("uses the plugin loader claim/register boundary for conflicts and namespace checks", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-views-plugin-"));
+	const home = await tempHome("yonder-views-plugin-");
 	try {
 		for (const [name, duplicate, foreign] of [
 			["duplicate", true, false],
@@ -155,7 +154,7 @@ it("uses the plugin loader claim/register boundary for conflicts and namespace c
 });
 
 it("records session.settled once for a native failed run, including recovery and restart", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-views-settled-"));
+	const home = await tempHome("yonder-views-settled-");
 	const events: SessionSettledEv[] = [];
 	let runtime: Runtime | undefined;
 	let store: Awaited<ReturnType<typeof createStore>>;
@@ -200,7 +199,7 @@ it("records session.settled once for a native failed run, including recovery and
 });
 
 it("a loaded provider invalidates through its setup context closure", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-views-closure-"));
+	const home = await tempHome("yonder-views-closure-");
 	try {
 		await writeFile(
 			join(home, "package.json"),

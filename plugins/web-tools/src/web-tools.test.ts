@@ -1,8 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 
 const source = "./index.ts";
@@ -225,7 +224,7 @@ test("provider config rejects unknown and duplicate suppliers", () => {
 });
 
 test("search stores results and get_search_content reads the same content back", async () => {
-	const root = await mkdtemp(join(tmpdir(), "web-tools-"));
+	const root = await tempHome("web-tools-");
 	const directory = join(root, "cache", "tool-output", "7");
 	await mkdir(directory, { recursive: true });
 	const path = join(directory, "1.json");

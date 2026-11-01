@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
@@ -13,7 +13,7 @@ import { Store } from "../src/store/index.js";
 const auth = process.env.YONDER_TASKS_AUTH_SOURCE;
 
 async function fixture(config: Config = {}, real = true) {
-	const home = await mkdtemp(join(tmpdir(), "yonder-task-moments-"));
+	const home = await tempHome("yonder-task-moments-");
 	if (!auth) throw new Error("missing auth source");
 	const source = JSON.parse(await readFile(auth, "utf8"));
 	if (source.siliconflow?.type !== "api_key" || typeof source.siliconflow.key !== "string")

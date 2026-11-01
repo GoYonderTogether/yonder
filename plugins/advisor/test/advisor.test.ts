@@ -1,13 +1,12 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../src/index.js";
 
 test("outcome reservation is session scoped, retryable and expires on restart", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "advisor-"));
+	const dir = await tempHome("advisor-");
 	try {
 		const collector = createRegistrationCollector();
 		const api = {
@@ -50,7 +49,7 @@ test("outcome reservation is session scoped, retryable and expires on restart", 
 });
 
 test("advisor_ask_advisor defaults the preset, composes the request and validates follow-ups", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "advisor-"));
+	const dir = await tempHome("advisor-");
 	try {
 		const collector = createRegistrationCollector();
 		const requests: { preset: string; task: string }[] = [];

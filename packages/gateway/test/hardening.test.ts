@@ -1,7 +1,7 @@
 import { appendFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { testModel } from "../../core/src/config/test-support.js";
@@ -39,7 +39,7 @@ const settled = async (check: () => boolean) => {
 };
 
 beforeAll(async () => {
-	home = await mkdtemp(join(tmpdir(), "ygh-"));
+	home = await tempHome("ygh-");
 	await initHome(home, "owner", { model: testModel });
 	await appendFile(`${home}/yonder.yaml`, "gateway:\n  basePath: /console/\n  trustProxy: true\n");
 	await setAccessTokenHash(home, tokenHash(ACCESS));

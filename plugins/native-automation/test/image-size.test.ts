@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { MAX_EDGE, shrinkForModel } from "../src/image-size.js";
 
@@ -9,7 +9,7 @@ const darwin = process.platform === "darwin";
 let dir = "";
 
 beforeAll(async () => {
-	dir = await mkdtemp(join(tmpdir(), "yonder-image-size-"));
+	dir = await tempHome("yonder-image-size-");
 });
 
 afterAll(async () => {

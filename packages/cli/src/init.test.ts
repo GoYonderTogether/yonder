@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse } from "yaml";
 
@@ -12,7 +12,7 @@ function invoke(args: string[]) {
 }
 
 test("init generates the peer binding by default and omits it with --isolated", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	const root = await tempHome("ya-");
 	try {
 		const normalHome = join(root, "normal");
 		const isolatedHome = join(root, "isolated");

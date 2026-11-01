@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import plugin from "../dist/index.js";
 
-const data = await mkdtemp(join(tmpdir(), "yonder-native-check-"));
+const data = await tempHome("yonder-native-check-");
 const tools = new Map(),
 	triggers = [],
 	handlers = new Map();

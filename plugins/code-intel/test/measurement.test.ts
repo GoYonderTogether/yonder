@@ -2,7 +2,7 @@ import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
 import { inspectToolCatalog } from "../../../packages/core/src/runtime/catalog.js";
@@ -40,7 +40,7 @@ test.skipIf(!process.env.YONDER_LENS_REAL)(
 		await plugin.setup(api as never);
 		const tool = registrations.tools.find((x) => x.name === "code-intel_module_report");
 		if (!tool) throw new Error("tool missing");
-		const dir = await mkdtemp("/tmp/yonder-lens-cache-");
+		const dir = await tempHome("yonder-lens-cache-");
 		try {
 			await copyFile(resolve("packages/core/src/runtime/index.ts"), join(dir, "index.ts"));
 			const ctx = {

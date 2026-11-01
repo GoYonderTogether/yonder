@@ -1,6 +1,6 @@
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { describe, expect, it } from "vitest";
 import { Limiter, Sessions, Tickets, tokenHash } from "../src/auth.js";
 import { Feed, RING_BYTES } from "../src/stream.js";
@@ -14,7 +14,7 @@ describe("auth", () => {
 		expect(tickets.consume("other")).toBe(false);
 	});
 	it("remote cookies die when the access token hash changes", async () => {
-		const sessions = await Sessions.open(await mkdtemp(join(tmpdir(), "gw-")));
+		const sessions = await Sessions.open(await tempHome("gw-"));
 		const hash = tokenHash("a");
 		const cookie = sessions.sign("remote", hash);
 		expect(sessions.verify(cookie, hash)).toBe("remote");
@@ -23,7 +23,7 @@ describe("auth", () => {
 		expect(sessions.verify(sessions.sign("local"), undefined)).toBe("local");
 	});
 	it("exposes the cookie expiry and honours a custom lifetime", async () => {
-		const sessions = await Sessions.open(await mkdtemp(join(tmpdir(), "gw-")));
+		const sessions = await Sessions.open(await tempHome("gw-"));
 		const before = Date.now();
 		const info = sessions.inspect(sessions.sign("local", undefined, 5000), undefined);
 		expect(info?.login).toBe("local");

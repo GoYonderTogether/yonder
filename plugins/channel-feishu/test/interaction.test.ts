@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it, vi } from "vitest";
 import { FeishuApi } from "../src/client.js";
 import { FeishuInteraction } from "../src/interaction.js";
@@ -11,7 +11,7 @@ afterEach(async () => {
 	await Promise.all(homes.splice(0).map((home) => rm(home, { recursive: true, force: true })));
 });
 async function setup() {
-	const home = await mkdtemp(join(tmpdir(), "feishu-interaction-"));
+	const home = await tempHome("feishu-interaction-");
 	homes.push(home);
 	const api = { paths: { data: home }, log: { info: vi.fn(), warn: vi.fn() } } as unknown as PluginAPI;
 	const client = new FeishuApi({ appId: "test", secret: "unused" }, api);

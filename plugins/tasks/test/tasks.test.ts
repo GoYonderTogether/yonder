@@ -1,10 +1,9 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RenderContext, ToolContext } from "@yonder/sdk";
-import { checkPlugin } from "@yonder/sdk/testing";
+import { checkPlugin, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
@@ -42,7 +41,7 @@ function renderContext(event = "1", session = "1"): RenderContext {
 	};
 }
 async function temporary() {
-	return mkdtemp(join(tmpdir(), "yonder-tasks-"));
+	return tempHome("yonder-tasks-");
 }
 
 test("built manifest matches registration without creating a store at setup", async () => {

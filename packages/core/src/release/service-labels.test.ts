@@ -1,6 +1,6 @@
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 
 const fixture = vi.hoisted(() => ({ home: "" }));
@@ -40,7 +40,7 @@ const calls = async (log: string) =>
 test.skipIf(process.platform !== "darwin")(
 	"macOS service commands follow the legacy launchd label that is installed and loaded",
 	async () => {
-		const root = await mkdtemp(join(tmpdir(), "ya-"));
+		const root = await tempHome("ya-");
 		fixture.home = root;
 		const before = { path: process.env.PATH, install: process.env.YONDER_INSTALL };
 		try {
@@ -93,7 +93,7 @@ test.skipIf(process.platform !== "darwin")(
 test.skipIf(process.platform !== "darwin")(
 	"macOS install replaces the legacy jobs with the new labels only",
 	async () => {
-		const root = await mkdtemp(join(tmpdir(), "ya-"));
+		const root = await tempHome("ya-");
 		fixture.home = root;
 		const before = { path: process.env.PATH, install: process.env.YONDER_INSTALL };
 		try {
@@ -145,7 +145,7 @@ test.skipIf(process.platform !== "darwin")(
 );
 
 test("Linux service commands follow the legacy systemd unit name that is installed", async () => {
-	const root = await mkdtemp(join(tmpdir(), "ya-"));
+	const root = await tempHome("ya-");
 	fixture.home = root;
 	const platform = Object.getOwnPropertyDescriptor(process, "platform");
 	const before = { path: process.env.PATH, config: process.env.XDG_CONFIG_HOME };

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { describe, expect, it } from "vitest";
 import { defaultPiSessionsDir, listPiSessions, parsePiSession, showPiSession } from "./pi-sessions.js";
 
@@ -51,7 +51,7 @@ describe("pi session import limits (temp files)", () => {
 		`${JSON.stringify({ type: "message", id: `m${n}`, message: { role: "user", content: [{ type: "text", text: "x".repeat(900) }] } })}\n`;
 
 	it("truncates files over the byte cap at a line boundary and says so", async () => {
-		const root = await mkdtemp(join(tmpdir(), "yonder-imports-"));
+		const root = await tempHome("yonder-imports-");
 		try {
 			await writeFile(join(root, "small.jsonl"), line(0));
 			await writeFile(join(root, "big.jsonl"), line(1).repeat(Math.ceil((33 * 1024 * 1024) / line(1).length)));
@@ -69,8 +69,8 @@ describe("pi session import limits (temp files)", () => {
 	}, 60_000);
 
 	it("does not follow a symlink that points outside the sessions directory", async () => {
-		const root = await mkdtemp(join(tmpdir(), "yonder-imports-"));
-		const outside = await mkdtemp(join(tmpdir(), "yonder-outside-"));
+		const root = await tempHome("yonder-imports-");
+		const outside = await tempHome("yonder-outside-");
 		try {
 			await writeFile(join(outside, "secret.jsonl"), line(0));
 			await mkdir(join(root, "d"));

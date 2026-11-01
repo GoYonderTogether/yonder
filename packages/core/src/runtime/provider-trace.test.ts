@@ -1,13 +1,13 @@
 import { mkdtempSync, readdirSync, readFileSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Api, CredentialStore, Model } from "@earendil-works/pi-ai";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { enableProviderTrace, traceCredentials, traceModel } from "./provider-trace.js";
 
 test("provider trace is opt-in, redacts credentials and records SSE", async () => {
-	const directory = mkdtempSync(join(tmpdir(), "yonder-trace-"));
+	const directory = tempHomeSync("yonder-trace-");
 	delete process.env.YONDER_PROVIDER_TRACE;
 	expect(enableProviderTrace()).toBe(false);
 	expect(readdirSync(directory)).toEqual([]);

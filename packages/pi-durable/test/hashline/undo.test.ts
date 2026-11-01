@@ -1,5 +1,5 @@
+import { tempHome } from "@yonder/sdk/testing";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
@@ -29,7 +29,7 @@ let env: NodeExecutionEnv;
 beforeEach(async () => {
 	clearHashlineState();
 	clearUndoHistory();
-	root = await mkdtemp(join(tmpdir(), "yonder-hashline-undo-"));
+	root = await tempHome("yonder-hashline-undo-");
 	env = new NodeExecutionEnv({ cwd: root });
 });
 

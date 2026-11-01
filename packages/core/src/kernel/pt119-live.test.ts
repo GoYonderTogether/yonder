@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -8,7 +9,7 @@ import { initHome, openKernel } from "./index.js";
 test.skipIf(process.env.YONDER_PT119_REAL !== "1")(
 	"advisor consultation and outcome through real kernel",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-pt119-");
+		const home = await tempHome("yonder-pt119-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: "siliconflow/deepseek-ai/DeepSeek-V3.2" });
@@ -133,7 +134,7 @@ test("advisor truncation points to the shared output cache", async () => {
 	const { cacheToolOutput } = await import("../runtime/tool-output-cache.js");
 	const pluginPath = resolve("plugins/advisor/dist/index.js");
 	const plugin = (await import(pluginPath)).default;
-	const home = await mkdtemp("/tmp/yonder-pt119-cache-");
+	const home = await tempHome("yonder-pt119-cache-");
 	try {
 		const text = `${"x".repeat(31_000)}CACHE_END`;
 		const ref = await cacheToolOutput(home, "1", "task_run", {}, text);

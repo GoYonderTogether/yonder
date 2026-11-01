@@ -1,14 +1,14 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("a real stored session is not enough to forge an active permission ToolContext", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	let runtime: Runtime | undefined;
 	try {
 		runtime = await Runtime.open({

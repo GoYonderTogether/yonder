@@ -1,6 +1,6 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { parseAgentConfig, type YonderConfig } from "../config/index.js";
 import { createSocial, SocialError } from "../kernel/social.js";
@@ -53,7 +53,7 @@ test("pre-handler social update rejections are audited and never reach the handl
 });
 
 test("social.groups lists group conversations with mode and tags from the real store and social service", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-social-groups-"));
+	const home = await tempHome("yonder-social-groups-");
 	try {
 		const raw = JSON.stringify({
 			schema: 1,

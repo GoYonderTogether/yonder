@@ -2,12 +2,12 @@ import { execFile, execFileSync } from "node:child_process";
 import { createHash, randomUUID, X509Certificate } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { arch, platform, release, tmpdir } from "node:os";
+import { arch, platform, release } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { Grant, PluginAPI, ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { WebSocket } from "ws";
 import { configuredRegistry } from "../src/connections.js";
@@ -33,7 +33,7 @@ const ctx = (session = "real-component-test"): ToolContext => ({
 it.skipIf(!w1 || !card)(
 	"default configured plugin talks to real W1 TLS and real W3 ticket/WS/PG/Redis without duplicate dispatch",
 	async () => {
-		const root = await mkdtemp(join(tmpdir(), "yonder-w2-real-"));
+		const root = await tempHome("yonder-w2-real-");
 		disposals.push(() => rm(root, { recursive: true, force: true }));
 		const load = (path: string) => import(pathToFileURL(path).href);
 		const sourceFiles = [

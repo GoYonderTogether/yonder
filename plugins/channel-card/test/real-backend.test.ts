@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { CardChannel } from "../src/channel.js";
 
@@ -39,7 +39,7 @@ test("real backend: device authorization → agents → hello → human DM → m
 	const exited = new Promise<number | null>((r) => child.once("exit", r));
 	const lines = createInterface({ input: child.stdout });
 	let endpoint: string;
-	const data = await mkdtemp(join(tmpdir(), "yonder-card-real-"));
+	const data = await tempHome("yonder-card-real-");
 	let channel: CardChannel | undefined;
 	try {
 		endpoint = await new Promise<string>((resolveEndpoint, reject) => {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { access, mkdir, mkdtemp, readFile, realpath, rm, stat, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
@@ -16,7 +16,7 @@ async function database(home: string) {
 }
 
 test("offline update completion uses the existing ledger once and leaves no model runs", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-result-"));
+	const home = await tempHome("yonder-result-");
 	try {
 		await database(home);
 		const data: UpdateResult = {
@@ -43,7 +43,7 @@ test("offline update completion uses the existing ledger once and leaves no mode
 });
 
 test("real isolated update of a prepared artifact records restart-required, no-op emits nothing, and failure stays failed", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-direct-update-"));
+	const home = await tempHome("yonder-direct-update-");
 	const previous = process.env.YONDER_INSTALL;
 	const install = join(home, "install"),
 		version = "0.1.2026101905",
@@ -87,7 +87,7 @@ test("real isolated update of a prepared artifact records restart-required, no-o
 });
 
 test("a starting kernel's fresh lock is never taken over, a long-dead lock is", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-result-lock-"));
+	const home = await tempHome("yonder-result-lock-");
 	try {
 		await database(home);
 		const data: UpdateResult = {

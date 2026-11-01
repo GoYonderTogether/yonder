@@ -1,13 +1,13 @@
 import { execFile } from "node:child_process";
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 
 test("upgrade-groups runs through the installed setup symlink instead of silently exiting", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-card-cli-"));
+	const home = await tempHome("yonder-card-cli-");
 	try {
 		await writeFile(join(home, "yonder.yaml"), "schema: 1\nagents: []\n");
 		const cli = join(home, "setup.js");

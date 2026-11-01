@@ -1,7 +1,7 @@
 import { mkdtemp, open, rm, stat } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { navigationNotice, settledDownload } from "../src/index.js";
 import { BskError, parseBskJson } from "../src/runner.js";
@@ -53,7 +53,7 @@ afterAll(async () => {
 
 describe("download completion and navigation on a real local site", () => {
 	it("waits for the file to stop growing instead of trusting bsk's own timeout", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "yonder-bsk-download-"));
+		const directory = await tempHome("yonder-bsk-download-");
 		const path = join(directory, "file.bin");
 		try {
 			// 真实分块下载：先观察到「还没写完」，收完再观察到「完整」，而不是只信一次超时。

@@ -1,9 +1,8 @@
 import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { cacheToolOutput } from "../../../packages/core/src/runtime/tool-output-cache.js";
 import plugin from "../src/index.js";
@@ -65,7 +64,7 @@ test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript 
 				item.name.includes("Runtime") && item.symbolType === "class" && item.isExported,
 		),
 	).toBe(true);
-	const dir = await mkdtemp(join(tmpdir(), "outline-"));
+	const dir = await tempHome("outline-");
 	try {
 		for (let i = 0; i < 51; i++) await cp("plugins/code-intel/src/index.ts", join(dir, `${i}.ts`));
 		let cached = "";

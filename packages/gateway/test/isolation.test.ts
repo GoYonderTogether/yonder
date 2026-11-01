@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { initHome, openKernel, releaseInfo, setAccessTokenHash } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { testModel } from "../../core/src/config/test-support.js";
@@ -18,7 +19,7 @@ type Body = { ok: boolean; result?: any; error?: { code: string } };
 type Observer = (update: unknown) => Promise<void>;
 
 async function start() {
-	const home = await mkdtemp("/tmp/yonder-gateway-isolation-");
+	const home = await tempHome("yonder-gateway-isolation-");
 	await initHome(home, "owner", { model: testModel });
 	await setAccessTokenHash(home, tokenHash(ACCESS));
 	const kernel = await openKernel(home);

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { tempHome } from "@yonder/sdk/testing";
 import plugin from "../dist/index.js";
 
 const pngUrl = new URL("../../../skills/skill-creator/assets/skill-creator.png", import.meta.url);
@@ -28,7 +28,7 @@ if (process.argv[2] === "server") {
 	}));
 	await server.connect(new StdioServerTransport());
 } else {
-	const data = await mkdtemp(join(tmpdir(), "yonder-mcp-media-"));
+	const data = await tempHome("yonder-mcp-media-");
 	const audioPath = join(data, "fixture.wav");
 	const audio = Buffer.alloc(44 + 800, 128);
 	audio.write("RIFF", 0);

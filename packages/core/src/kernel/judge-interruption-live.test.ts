@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -10,7 +11,7 @@ import { initHome, openKernel } from "./index.js";
 test.skipIf(process.env.YONDER_JUDGE_REAL !== "1")(
 	"real judge resumes after an interrupted model request",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-ch03r4-live-");
+		const home = await tempHome("yonder-ch03r4-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let calls = 0;
 		const server = createServer(async (req, res) => {

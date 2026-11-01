@@ -1,8 +1,8 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { Store } from "../src/store/index.js";
 import { replay, type Task, type TaskEvent } from "../src/store/project.js";
@@ -80,7 +80,7 @@ async function seed(store: Store) {
 }
 
 test("projection rows equal a full replay of the same ledger", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-projection-"));
+	const root = await tempHome("yonder-projection-");
 	const store = new Store(root);
 	try {
 		const { main, child } = await seed(store);
@@ -107,7 +107,7 @@ test("projection rows equal a full replay of the same ledger", async () => {
 });
 
 test("rebuild restores a damaged projection and backfill fills an empty one", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-rebuild-"));
+	const root = await tempHome("yonder-rebuild-");
 	const store = new Store(root);
 	try {
 		const { main, active, done } = await seed(store);
@@ -144,7 +144,7 @@ test("rebuild restores a damaged projection and backfill fills an empty one", as
 });
 
 test("list and get read the projection, never the whole ledger", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-scan-"));
+	const root = await tempHome("yonder-scan-");
 	const store = new Store(root);
 	const spy = probe();
 	try {
@@ -167,7 +167,7 @@ test("list and get read the projection, never the whole ledger", async () => {
 });
 
 test("panel takes progress in one query instead of one get per task", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-panel-n1-"));
+	const root = await tempHome("yonder-panel-n1-");
 	const store = new Store(root);
 	const spy = probe();
 	try {
@@ -195,7 +195,7 @@ test("panel takes progress in one query instead of one get per task", async () =
 });
 
 test("a closed store reopens on next use", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-reopen-"));
+	const root = await tempHome("yonder-reopen-");
 	try {
 		const store = new Store(root);
 		const { main } = await seed(store);

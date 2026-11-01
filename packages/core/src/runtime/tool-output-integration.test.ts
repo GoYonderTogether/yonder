@@ -11,6 +11,7 @@ import {
 	type ToolExecutionResult,
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
+import { tempHome } from "@yonder/sdk/testing";
 import { Type } from "typebox";
 import { expect, test, vi } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
@@ -18,7 +19,7 @@ import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
 test("SDK context cache and automatic cache run through the native background wrapper", async () => {
-	const home = await mkdtemp("/tmp/yonder-cache-runtime-");
+	const home = await tempHome("yonder-cache-runtime-");
 	let runtime: Runtime | undefined;
 	try {
 		const full = `${"line\n".repeat(2100)}last line`;

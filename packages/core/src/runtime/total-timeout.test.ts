@@ -1,9 +1,9 @@
 import { once } from "node:events";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { isRetryableAssistantError } from "@earendil-works/pi-ai/utils/retry";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { FileCredentials } from "./credentials.js";
 import { buildModels } from "./models.js";
@@ -60,7 +60,7 @@ function modelsFor(baseUrl: string, home: string, timeouts: { firstTokenMs?: num
 
 test("a stream that stalls after its first token fails retryably at totalMs", async () => {
 	const server = await stalledServer();
-	const home = mkdtempSync(join(tmpdir(), "yonder-total-"));
+	const home = tempHomeSync("yonder-total-");
 	try {
 		const models = modelsFor(server.baseUrl, home, { firstTokenMs: 60000, totalMs: 1500 });
 		const model = models.getModel("local", "m");
@@ -79,7 +79,7 @@ test("a stream that stalls after its first token fails retryably at totalMs", as
 
 test("a caller abort ends as aborted and the guard leaves no listener on the caller signal", async () => {
 	const server = await stalledServer();
-	const home = mkdtempSync(join(tmpdir(), "yonder-total-"));
+	const home = tempHomeSync("yonder-total-");
 	try {
 		const models = modelsFor(server.baseUrl, home, { totalMs: 60000 });
 		const model = models.getModel("local", "m");
@@ -109,7 +109,7 @@ test("a caller abort ends as aborted and the guard leaves no listener on the cal
 });
 
 test("a finished request removes its caller-signal listener", async () => {
-	const home = mkdtempSync(join(tmpdir(), "yonder-total-"));
+	const home = tempHomeSync("yonder-total-");
 	const server = createServer((request, response) => {
 		request.resume();
 		response.writeHead(200, { "content-type": "text/event-stream" });

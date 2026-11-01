@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../kernel/index.js";
@@ -7,7 +8,7 @@ import { initHome, openKernel } from "../kernel/index.js";
 test.skipIf(!process.env.YONDER_TEMPLATE_AUTH)(
 	"real console input expands a Bot template",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-template-live-");
+		const home = await tempHome("yonder-template-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: "siliconflow/deepseek-ai/DeepSeek-V3.2" });

@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { test } from "vitest";
 import { acct, agent, conv, definePlugin, parseRef, person, plugin, session } from "../src/index.js";
 import { checkPlugin } from "../src/testing.js";
@@ -15,7 +15,7 @@ test("SDK references, identity helpers and real plugin registration contract", a
 	assert.throws(() => session("not-an-integer"));
 	const value = { setup() {} };
 	assert.equal(definePlugin(value), value);
-	const dir = await mkdtemp(join(tmpdir(), "yonder-sdk-"));
+	const dir = await tempHome("yonder-sdk-");
 	const manifest = {
 		apiVersion: 1,
 		id: "contract-check",

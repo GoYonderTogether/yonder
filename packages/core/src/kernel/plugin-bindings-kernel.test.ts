@@ -1,13 +1,13 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentBindingRequest, PluginAPI, ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { openKernel } from "./index.js";
 
 test("real kernel revalidates persisted private plugin binding after restart and rejects fabricated tool context", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-binding-"));
+	const home = await tempHome("yonder-binding-");
 	const key = `binding-probe-${home}`;
 	const globals = globalThis as unknown as Record<string, PluginAPI>;
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;

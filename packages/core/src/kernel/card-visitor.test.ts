@@ -1,6 +1,6 @@
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { loadYonderConfig } from "../config/index.js";
@@ -9,7 +9,7 @@ import { cardVisitorGaps, migrateCardVisitor } from "./card-visitor.js";
 import { initHome, inspectHome } from "./home.js";
 
 test("已有 home 缺 card-visitor 时 doctor 报告，迁移补上、先写 .bak、再跑不动", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-card-visitor-"));
+	const home = await tempHome("yonder-card-visitor-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const config = await loadYonderConfig(home);

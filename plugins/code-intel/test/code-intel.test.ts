@@ -1,10 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { appendFile, cp, mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../src/index.js";
 
@@ -27,7 +26,7 @@ async function loadTool() {
 }
 
 test("CodeGraph tool tells the user how to install the missing CLI", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "yonder-codegraph-"));
+	const dir = await tempHome("yonder-codegraph-");
 	try {
 		const tool = await loadTool();
 		expect(tool.name).toBe("code-intel_codegraph_explore");
@@ -57,7 +56,7 @@ test("CodeGraph tool tells the user how to install the missing CLI", async () =>
 test.skipIf(!codegraphAvailable)(
 	"CodeGraph tool uses the selected execution environment and an actual index",
 	async () => {
-		const dir = await mkdtemp(join(tmpdir(), "yonder-codegraph-"));
+		const dir = await tempHome("yonder-codegraph-");
 		try {
 			await cp(resolve("packages/core/src/runtime/grep.ts"), join(dir, "grep.ts"));
 			// The runtime facade delegates tool assembly; the greps live in the extension installer.

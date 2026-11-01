@@ -1,6 +1,6 @@
 import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { MarketClient } from "../src/client.js";
 import plugin from "../src/index.js";
@@ -14,7 +14,7 @@ let harness: Harness;
 
 async function setup(options: { signedOut?: boolean } = {}): Promise<Harness> {
 	const created = fakeApi({
-		data: await mkdtemp(join(tmpdir(), "market-test-")),
+		data: await tempHome("market-test-"),
 		config: { endpoint: cloud.base },
 		...(options.signedOut === true ? { signedOut: true } : {}),
 	});

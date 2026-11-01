@@ -3,9 +3,9 @@ import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { initHome, openKernel } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 
@@ -53,7 +53,7 @@ async function start(home: string) {
 }
 
 test("init --bundle core writes no channel, no channel binding and model-free presets", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		invoke(["init", home, "--bundle", "core", "--model", "openai/gpt-6-luna", "--json"]);
 		const config = parse(await readFile(join(home, "yonder.yaml"), "utf8"));
@@ -86,7 +86,7 @@ test("init rejects an unknown bundle id and advertises --bundle", () => {
 });
 
 test("channels list reports shipped third-party channels as not enabled", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	let stop: (() => Promise<void>) | undefined;
 	try {
 		invoke(["init", home, "--model", "openai/gpt-6-luna", "--json"]);
@@ -114,7 +114,7 @@ test("channels list reports shipped third-party channels as not enabled", async 
 }, 30000);
 
 test("channel-mcp opens no port until an mcp channel instance is enabled", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const port = await freePort();
 	let stop: (() => Promise<void>) | undefined;
 	try {
@@ -145,7 +145,7 @@ test("channel-mcp opens no port until an mcp channel instance is enabled", async
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"a core-bundle home started with --no-gateway still converses",
 	async () => {
-		const home = await mkdtemp(join(tmpdir(), "ya-"));
+		const home = await tempHome("ya-");
 		let stop: (() => Promise<void>) | undefined;
 		try {
 			invoke(["init", home, "--bundle", "core", "--model", "openai/gpt-6-luna", "--json"]);
@@ -164,7 +164,7 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 );
 
 test("a non-default configured model reaches new tasks and resident templates", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const model = "openai/gpt-6.1-sol";
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 	try {
@@ -198,7 +198,7 @@ test("a non-default configured model reaches new tasks and resident templates", 
 }, 30000);
 
 test("init refuses a home without a model and the default bundle carries the §5.4 plugins", async () => {
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	try {
 		expect(() => invoke(["init", join(home, "none"), "--json"])).toThrow();
 		invoke(["init", join(home, "ok"), "--model", "openai/gpt-6-luna", "--json"]);

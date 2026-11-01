@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ChannelIO, PluginAPI } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
 import { openKernel } from "./index.js";
 
 test("real plugin caller identity and selected batch namespace govern replaceable participation admission", async () => {
-	const home = await mkdtemp("/tmp/yonder-participation-plugin-");
+	const home = await tempHome("yonder-participation-plugin-");
 	const key = `participation-${randomUUID()}`;
 	const globals = globalThis as unknown as Record<string, { chosen?: PluginAPI; other?: PluginAPI; io?: ChannelIO }>;
 	globals[key] = {};

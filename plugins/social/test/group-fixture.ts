@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { ChannelIO, Delivery, PluginAPI, ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { stringify } from "yaml";
 import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { groupInstructions } from "../../channel-qq/src/participation.js";
@@ -42,7 +43,7 @@ export async function groupFixture(
 		officialGroup?: boolean;
 	} = {},
 ) {
-	const home = await mkdtemp("/tmp/yonder-group-delivery-");
+	const home = await tempHome("yonder-group-delivery-");
 	const key = `group-delivery-${randomUUID()}`;
 	const globals = globalThis as unknown as Record<string, GroupProbe>;
 	let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;

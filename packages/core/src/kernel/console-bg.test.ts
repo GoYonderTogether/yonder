@@ -1,10 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("background commands use the console channel and session command without invoking a model", async () => {
-	const home = await mkdtemp("/tmp/ya-bg-");
+	const home = await tempHome("ya-bg-");
 	await initHome(home, "owner", { model: testModel });
 	const kernel = await openKernel(home);
 	try {

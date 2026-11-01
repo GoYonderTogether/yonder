@@ -1,5 +1,5 @@
+import { tempHome } from "@yonder/sdk/testing";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
@@ -16,7 +16,7 @@ let env: NodeExecutionEnv;
 
 beforeEach(async () => {
 	clearHashlineState();
-	root = await mkdtemp(join(tmpdir(), "yonder-hashline-transfer-"));
+	root = await tempHome("yonder-hashline-transfer-");
 	env = new NodeExecutionEnv({ cwd: root });
 });
 

@@ -1,7 +1,7 @@
 import { access, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 
 afterEach(() => {
@@ -12,7 +12,7 @@ test("explicitly unhosted local exec keeps string and literal argv Result/stream
 	vi.stubEnv("YONDER_SERVICE_REGISTRATION", undefined);
 	vi.stubEnv("YONDER_SERVICE_COMMAND_FD", undefined);
 	const { localEnvironment } = await import("./env.js");
-	const home = await mkdtemp(join(tmpdir(), "ya-"));
+	const home = await tempHome("ya-");
 	const env = localEnvironment(home);
 	try {
 		let text = "";
@@ -36,7 +36,7 @@ test("explicitly unhosted local exec keeps string and literal argv Result/stream
 test.skipIf(process.platform !== "darwin")(
 	"hosted capability failure is shared and sticky across local exec and bash",
 	async () => {
-		const home = await mkdtemp(join(tmpdir(), "ya-"));
+		const home = await tempHome("ya-");
 		try {
 			vi.stubEnv("YONDER_SERVICE_REGISTRATION", join(home, "missing-registration"));
 			vi.stubEnv("YONDER_SERVICE_COMMAND_FD", undefined);

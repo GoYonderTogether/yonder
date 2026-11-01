@@ -1,14 +1,14 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ChannelIO, PluginAPI, RenderContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it, vi } from "vitest";
 import { releaseAvailability } from "../src/availability.js";
 import { Github } from "../src/client.js";
 import { compareVersions, Releases, releaseData } from "../src/releases.js";
 
 it("caches approved baseline metadata; selected turn context only suggests a strictly newer version without requests", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-availability-"));
+	const directory = await tempHome("yonder-availability-");
 	try {
 		const api = { paths: { data: directory }, log: { warn: vi.fn() } } as unknown as PluginAPI;
 		const releases = new Releases("project", "GoYonderTogether/yonder", { approvedAuthors: ["GoYonderTogether"] }, api);

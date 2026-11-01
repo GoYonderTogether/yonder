@@ -1,10 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dispatchEvent, MediaFileType, type QQBotInboundMessage } from "@tencent-connect/qqbot-nodejs/protocol";
-import { checkPlugin, type PluginAPI } from "@yonder/sdk/testing";
+import { checkPlugin, type PluginAPI, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../../../packages/core/src/config/test-support.js";
@@ -86,7 +85,7 @@ test("QQ protocol events preserve reply identity and separate DM, group @, full-
 });
 
 test("scan completion preserves credentials and configures read-only group participation through bindings", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-config-"));
+	const home = await tempHome("yonder-qq-config-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const options = { home, agent: "main", instance: "qq-main" };
@@ -240,7 +239,7 @@ test("quoted replies are dropped without a reference index", () => {
 });
 
 test("outbound local media is restricted to the allowlisted root", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-media-"));
+	const home = await tempHome("yonder-qq-media-");
 	try {
 		const root = join(home, "media");
 		await mkdir(root, { recursive: true });
@@ -303,7 +302,7 @@ function testChannel(home: string, bot: unknown): QQChannel {
 }
 
 test("an unresolvable attachment is skipped with a readable warning while the text still goes out", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-skip-"));
+	const home = await tempHome("yonder-qq-skip-");
 	try {
 		const root = join(home, "qq-main", "media");
 		await mkdir(root, { recursive: true });
@@ -347,7 +346,7 @@ test("an unresolvable attachment is skipped with a readable warning while the te
 });
 
 test("a textless reply whose every attachment is skipped fails with the reason instead of sending nothing", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-empty-"));
+	const home = await tempHome("yonder-qq-empty-");
 	try {
 		const calls: string[] = [];
 		const channel = testChannel(home, {
@@ -376,7 +375,7 @@ test("a textless reply whose every attachment is skipped fails with the reason i
 });
 
 test("sendMedia uploads allowlisted local files; a partial failure never resends the text", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-send-"));
+	const home = await tempHome("yonder-qq-send-");
 	try {
 		const root = join(home, "qq-main", "media");
 		await mkdir(root, { recursive: true });
@@ -463,7 +462,7 @@ test("non-https inbound attachments are dropped with a warning", () => {
 });
 
 test("official group upgrade preserves custom prompts and creates a recoverable backup", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-upgrade-"));
+	const home = await tempHome("yonder-qq-upgrade-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "agents/main/agent.yaml");
@@ -571,7 +570,7 @@ test("QQ group mentions become readable text and a self mention wakes the bot", 
 });
 
 test("QQ rejects unverified outbound mentions before making a platform request", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-mention-"));
+	const home = await tempHome("yonder-qq-mention-");
 	try {
 		const channel = testChannel(home, {
 			send: async () => {
@@ -588,7 +587,7 @@ test("QQ rejects unverified outbound mentions before making a platform request",
 });
 
 test("QQ transport source stays unquoted unless replyTo selects a visible reference", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-qq-reference-"));
+	const home = await tempHome("yonder-qq-reference-");
 	try {
 		const sent: unknown[] = [];
 		const channel = testChannel(home, {

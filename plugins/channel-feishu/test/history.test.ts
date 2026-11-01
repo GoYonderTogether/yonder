@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EventInput, PluginAPI, YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeishuChannel } from "../src/channel.js";
 import { FeishuConnection } from "../src/connection.js";
@@ -22,7 +22,7 @@ const item = (id: string, time: number, sender = "user-a", extra = {}) => ({
 	...extra,
 });
 async function harness(ledger: YEvent[] = [], options: { preserveWatermarks?: boolean; history?: object } = {}) {
-	const root = await mkdtemp(join(tmpdir(), "yonder-feishu-history-"));
+	const root = await tempHome("yonder-feishu-history-");
 	roots.push(root);
 	const api = {
 		paths: { data: root },

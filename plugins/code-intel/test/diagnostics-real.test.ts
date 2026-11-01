@@ -1,8 +1,8 @@
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { SessionsAPI, ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { sessionDiagnostics } from "../src/diagnostic-mark.js";
 import { stopLens } from "../src/lens-mcp.js";
@@ -10,7 +10,7 @@ import { stopLens } from "../src/lens-mcp.js";
 test.skipIf(!process.env.YONDER_LENS_REAL)(
 	"session diagnostics reaches clangd through a symlinked cwd",
 	async () => {
-		const root = await mkdtemp(join(tmpdir(), "p153-real-"));
+		const root = await tempHome("p153-real-");
 		const workspace = join(root, "workspace");
 		const alias = join(root, "alias");
 		const { mkdir } = await import("node:fs/promises");

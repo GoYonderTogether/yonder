@@ -2,7 +2,6 @@ import { execFileSync, spawn } from "node:child_process";
 import { createHash, createPrivateKey, randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -17,6 +16,7 @@ import {
 	signMessage,
 	verifyMessage,
 } from "@yonder/protocol";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test } from "vitest";
 import { WebSocket } from "ws";
 import { ControllerPairing, ExecutorStore } from "../src/store.js";
@@ -32,7 +32,7 @@ test.skipIf(!cardRoot)(
 	"actual CLI binds W3 ticket/WS and direct to one ledger; revoked Card does not stop direct",
 	async () => {
 		if (!cardRoot) throw Error("YONDER_CARD_ROOT required");
-		const root = await mkdtemp(join(tmpdir(), "w1-card-daemon-"));
+		const root = await tempHome("w1-card-daemon-");
 		disposals.push(() => rm(root, { recursive: true, force: true }));
 		const sources = ["server/src/execution-relay.ts", "server/src/realtime.ts"];
 		const hashes = () =>

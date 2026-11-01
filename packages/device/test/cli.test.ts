@@ -3,7 +3,6 @@ import { createHash, createPrivateKey, createPublicKey, randomUUID } from "node:
 import { once } from "node:events";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { request } from "node:https";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TLSSocket } from "node:tls";
 import { fileURLToPath } from "node:url";
@@ -15,6 +14,7 @@ import {
 	signMessage,
 	verifyMessage,
 } from "@yonder/protocol";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterEach, expect, test } from "vitest";
 import { type PairOffer, readDeviceTrust } from "../src/store.js";
 
@@ -66,7 +66,7 @@ function post(url: string, packet: SignedEnvelope, fingerprint: string): Promise
 }
 
 test("independent CLI pairs both homes, starts HTTPS daemon, serves signed RPC and stops", async () => {
-	const root = mkdtempSync(join(tmpdir(), "yonder-w1-cli-"));
+	const root = tempHomeSync("yonder-w1-cli-");
 	homes.push(root);
 	const deviceHome = join(root, "device"),
 		controllerHome = join(root, "controller");

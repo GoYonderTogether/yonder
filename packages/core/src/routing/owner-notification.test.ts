@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseAgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
@@ -14,7 +14,7 @@ import { createRouter } from "./index.js";
 const participationHooks = await socialPluginHooks();
 
 test("authorized owner mentions reach owner main once and revoked sources are discarded", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-owner-notify-"));
+	const home = await tempHome("yonder-owner-notify-");
 	let runtime: Runtime | undefined;
 	try {
 		const db = await openDatabase(join(home, "state.db"));

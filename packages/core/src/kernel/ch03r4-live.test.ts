@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "./index.js";
@@ -8,7 +9,7 @@ import { initHome, openKernel } from "./index.js";
 test.skipIf(process.env.YONDER_CH03R4_REAL !== "1")(
 	"mention replay and completed social batches are not repeated after restart",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-ch03r4-live-");
+		const home = await tempHome("yonder-ch03r4-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		let stage = "setup";
 		let failed = false;

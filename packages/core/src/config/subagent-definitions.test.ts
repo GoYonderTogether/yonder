@@ -1,11 +1,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { loadPresets } from "./index.js";
 
 test("loads pi agent definitions and ignores resident agent workspace files", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-agents-"));
+	const home = await tempHome("yonder-agents-");
 	try {
 		await mkdir(join(home, "agents/nested"), { recursive: true });
 		await mkdir(join(home, "agents/main/skills/example"), { recursive: true });

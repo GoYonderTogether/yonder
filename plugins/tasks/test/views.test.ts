@@ -1,13 +1,13 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, ToolContext, ViewDecl, ViewProvider } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { Store } from "../src/store/index.js";
 import { registerTaskViews } from "../src/views.js";
 
 test("task board shows only the requested session and advances its revision", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "yonder-task-views-"));
+	const dir = await tempHome("yonder-task-views-");
 	const store = new Store(dir);
 	let decl!: ViewDecl;
 	let provider!: ViewProvider;

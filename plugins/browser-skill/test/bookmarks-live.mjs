@@ -1,13 +1,14 @@
 // Real built-plugin -> installed fork CLI -> isolated extension acceptance.
 // Run only with a verified disposable browser instance and isolated BSK_HOME.
+
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import plugin from "../dist/index.js";
 
 assert(process.env.BSK_HOME && process.argv[2], "Requires isolated BSK_HOME and browser ID");
-const directory = await mkdtemp(join(tmpdir(), "yonder-bsk-accept-"));
+const directory = await tempHome("yonder-bsk-accept-");
 const tools = new Map();
 let lifecycle;
 plugin.setup({

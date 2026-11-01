@@ -1,5 +1,4 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import {
@@ -13,6 +12,7 @@ import {
 	type ToolRegistration,
 } from "@earendil-works/pi-durable";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { newEvent } from "../store/index.js";
@@ -26,7 +26,7 @@ import type { RuntimeSessionConfig } from "./types.js";
 test.each(["scope", "full"])(
 	"native background %s",
 	async (scenario) => {
-		const home = await mkdtemp(join(tmpdir(), "yonder-background-"));
+		const home = await tempHome("yonder-background-");
 		const reports: unknown[] = [];
 		let failedAdmission = false;
 		const notifications: Array<{ session: string; id: string; origin?: YEvent }> = [];

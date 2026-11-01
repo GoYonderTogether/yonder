@@ -1,15 +1,14 @@
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../src/index.js";
 
 test("task registration enforces write authority and isolates login", async () => {
-	const dir = await mkdtemp(join(tmpdir(), "codex-task-"));
+	const dir = await tempHome("codex-task-");
 	try {
 		const home = join(dir, "login");
 		await mkdir(home);

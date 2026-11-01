@@ -1,5 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { ModelHealth } from "./model-health.js";
@@ -8,7 +9,7 @@ import { ModelWatch, rateLimitReset } from "./model-watch.js";
 import type { RuntimeRun, RuntimeSessionConfig } from "./types.js";
 
 test("records only failed candidates and clears the candidate that answered", async () => {
-	const home = await mkdtemp("/tmp/yonder-watch-");
+	const home = await tempHome("yonder-watch-");
 	try {
 		const health = new ModelHealth(join(home, "health.json"));
 		const watch = new ModelWatch({ health } as ModelWatchOptions);
@@ -40,7 +41,7 @@ test("records only failed candidates and clears the candidate that answered", as
 });
 
 test("transport failures hold no candidate while provider answers still do", async () => {
-	const home = await mkdtemp("/tmp/yonder-watch-offline-");
+	const home = await tempHome("yonder-watch-offline-");
 	try {
 		const health = new ModelHealth(join(home, "health.json"));
 		const watch = new ModelWatch({ health } as ModelWatchOptions);
@@ -88,7 +89,7 @@ test("transport failures hold no candidate while provider answers still do", asy
 });
 
 test("account aliases have separate holds and failed probes preserve the long hold", async () => {
-	const home = await mkdtemp("/tmp/yonder-watch-slots-");
+	const home = await tempHome("yonder-watch-slots-");
 	try {
 		const health = new ModelHealth(join(home, "health.json"));
 		let healthy = false;
@@ -119,7 +120,7 @@ test("account aliases have separate holds and failed probes preserve the long ho
 });
 
 test("honors reset response metadata and delays probing until reset", async () => {
-	const home = await mkdtemp("/tmp/yonder-reset-");
+	const home = await tempHome("yonder-reset-");
 	try {
 		const now = Date.now();
 		expect(rateLimitReset('429 rate_limit_headers: {"retry-after":"120"}', now)).toBe(now + 120000);

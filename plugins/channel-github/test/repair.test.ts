@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { ChannelIO, PluginAPI, Tool, ToolContext } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GithubChannel, marker } from "../src/channel.js";
 import { Github } from "../src/client.js";
@@ -62,7 +62,7 @@ function channel() {
 	);
 }
 beforeEach(async () => {
-	directory = await mkdtemp(join(tmpdir(), "yonder-github-check-"));
+	directory = await tempHome("yonder-github-check-");
 	api = {
 		paths: { data: directory },
 		log: { warn: vi.fn() },

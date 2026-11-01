@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SessionUpdate } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { createSessions } from "../sessions/index.js";
@@ -10,7 +10,7 @@ import { openDatabase } from "./db.js";
 import { Runtime, readTranscript } from "./index.js";
 
 test("native program notifications persist once without model messages and replay in transcript order", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-notifications-"));
+	const home = await tempHome("yonder-notifications-");
 	const path = join(home, "state.db");
 	let runtime: Runtime | undefined;
 	let stop: (() => Promise<void>) | undefined;
@@ -125,7 +125,7 @@ test("native program notifications persist once without model messages and repla
 });
 
 test("an attachment-only notification is recorded while an empty one still fails", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-notifications-media-"));
+	const home = await tempHome("yonder-notifications-media-");
 	const path = join(home, "state.db");
 	let runtime: Runtime | undefined;
 	try {

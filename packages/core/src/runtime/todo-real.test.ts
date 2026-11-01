@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/index.js";
 import { openDatabase } from "./db.js";
@@ -16,7 +17,7 @@ const real = process.env.YONDER_TEST_REAL === "1" && existsSync(auth) && existsS
 test.skipIf(!real)(
 	"real model drives the todo tool; the list survives restart and each change emits todo.updated",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-todo-");
+		const home = await tempHome("yonder-todo-");
 		const provider = model.slice(0, model.indexOf("/"));
 		const providers = JSON.parse(readFileSync(catalog, "utf8")).providers;
 		const events: TodoUpdatedEvent[] = [];

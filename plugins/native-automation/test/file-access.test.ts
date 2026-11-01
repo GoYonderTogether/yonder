@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 
 // Compile only the Foundation/POSIX file implementation with a temp-file test
@@ -10,7 +10,7 @@ import { expect, it } from "vitest";
 it.skipIf(process.platform !== "darwin")(
 	"Swift file host: ordinary temporary files only",
 	async () => {
-		const scratch = await mkdtemp(join(tmpdir(), "yonder-file-test-"));
+		const scratch = await tempHome("yonder-file-test-");
 		const root = fileURLToPath(new URL("../../../", import.meta.url));
 		try {
 			const binary = join(scratch, "file-test");

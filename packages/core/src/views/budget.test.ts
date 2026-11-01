@@ -1,6 +1,6 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parseYonderConfig } from "../config/index.js";
 import { openDatabase } from "../runtime/db.js";
@@ -9,7 +9,7 @@ import { createStore } from "../store/index.js";
 import { budgetView, budgetViewId } from "./budget.js";
 
 test("budget view reports usage against the configured limits without changing state", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-budget-view-"));
+	const home = await tempHome("yonder-budget-view-");
 	const db = await openDatabase(join(home, "state.db"));
 	try {
 		await createStore(db);
@@ -71,7 +71,7 @@ test("budget view reports usage against the configured limits without changing s
 });
 
 test("budget view without a session is rejected and unlimited limits say so", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-budget-view-"));
+	const home = await tempHome("yonder-budget-view-");
 	const db = await openDatabase(join(home, "state.db"));
 	try {
 		await createStore(db);

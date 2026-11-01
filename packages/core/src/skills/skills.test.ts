@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { presetSession } from "../config/index.js";
 import { presetProfile, resolveProfile } from "../config/test-support.js";
@@ -9,7 +9,7 @@ import { createSkills } from "./index.js";
 import { addLocalSkill, removeLocalSkill } from "./manage.js";
 
 test("child skill selection and skill_view cannot escape a saved parent ceiling", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-skill-ceiling-"));
+	const home = await tempHome("yonder-skill-ceiling-");
 	try {
 		for (const name of ["notes-public", "private"]) {
 			await mkdir(join(home, "skills", name), { recursive: true });
@@ -37,7 +37,7 @@ test("child skill selection and skill_view cannot escape a saved parent ceiling"
 });
 
 test("workspace skill shadows home and skill_view stays inside its directory", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-skills-"));
+	const root = await tempHome("yonder-skills-");
 	const home = join(root, "home"),
 		workspaceRoot = join(root, "workspace");
 	try {
@@ -86,7 +86,7 @@ test("workspace skill shadows home and skill_view stays inside its directory", a
 });
 
 test("local import preserves resources, rejects overwrite, and removal preserves the source", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-skills-manage-"));
+	const root = await tempHome("yonder-skills-manage-");
 	try {
 		const source = join(root, "source"),
 			home = join(root, "home");
@@ -106,7 +106,7 @@ test("local import preserves resources, rejects overwrite, and removal preserves
 });
 
 test("management rejects linked roots/resources and never follows removal links", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-skills-links-"));
+	const root = await tempHome("yonder-skills-links-");
 	try {
 		const home = join(root, "home"),
 			source = join(root, "source"),
@@ -132,7 +132,7 @@ test("management rejects linked roots/resources and never follows removal links"
 });
 
 test("home shadows plugin with actual source id; selection and disabled invocation remain separate", async () => {
-	const root = await mkdtemp(join(tmpdir(), "yonder-skills-sources-"));
+	const root = await tempHome("yonder-skills-sources-");
 	try {
 		const home = join(root, "home"),
 			plugin = join(root, "plugin");
@@ -168,7 +168,7 @@ test("home shadows plugin with actual source id; selection and disabled invocati
 });
 
 test("bundled skills expose only an index until requested", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-builtin-skills-"));
+	const home = await tempHome("yonder-builtin-skills-");
 	try {
 		const skills = createSkills({ home, pluginDirs: [] });
 		for (const agent of ["main", "operator", null]) {

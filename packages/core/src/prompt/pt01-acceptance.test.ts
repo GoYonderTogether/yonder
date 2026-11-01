@@ -1,5 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { initHome, openKernel } from "../kernel/index.js";
@@ -7,7 +8,7 @@ import { initHome, openKernel } from "../kernel/index.js";
 test.skipIf(process.env.YONDER_TEST_REAL !== "1").each(["default", "coding"])(
 	"PT-01 real supervisor delegates to %s and accepts its result",
 	async (preset) => {
-		const home = await mkdtemp("/tmp/yonder-pt01-");
+		const home = await tempHome("yonder-pt01-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;
 		try {
 			await initHome(home, "owner", { model: "siliconflow/deepseek-ai/DeepSeek-V3.2" });

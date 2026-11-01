@@ -1,6 +1,7 @@
 import { once } from "node:events";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
@@ -17,7 +18,7 @@ test.each([
 ])(
 	"HTTP %i follows the native fallback policy",
 	async (status, attempts, switches, held) => {
-		const home = await mkdtemp("/tmp/yonder-http-fallback-");
+		const home = await tempHome("yonder-http-fallback-");
 		const calls: string[] = [];
 		let recovered = false;
 		const server = createServer(async (req, res) => {

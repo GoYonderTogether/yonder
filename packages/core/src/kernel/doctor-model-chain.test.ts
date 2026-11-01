@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
@@ -9,7 +9,7 @@ import { ModelQuota } from "../runtime/model-quota.js";
 import { initHome, inspectHome } from "./home.js";
 
 test("doctor advises old SiliconFlow homes to set system role compatibility", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-siliconflow-"));
+	const home = await tempHome("yonder-doctor-siliconflow-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");
@@ -38,7 +38,7 @@ test("doctor advises old SiliconFlow homes to set system role compatibility", as
 }, 60000);
 
 test("doctor advises rightapi-glm homes to set systemAsUser compatibility", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-glm-"));
+	const home = await tempHome("yonder-doctor-glm-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");
@@ -67,7 +67,7 @@ test("doctor advises rightapi-glm homes to set systemAsUser compatibility", asyn
 }, 60000);
 
 test("doctor reports configured chain and persisted hold and quota gates", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-"));
+	const home = await tempHome("yonder-doctor-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "agents/main/agent.yaml");
@@ -127,7 +127,7 @@ test("doctor reports configured chain and persisted hold and quota gates", async
 }, 60000);
 
 test("doctor rejects SiliconFlow in models.chain and warns above the price cap", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-chain-"));
+	const home = await tempHome("yonder-doctor-chain-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");

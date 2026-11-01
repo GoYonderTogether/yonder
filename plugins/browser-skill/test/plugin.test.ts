@@ -1,12 +1,11 @@
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { describe, expect, it } from "vitest";
 import plugin, { daemonAbsent, imageMime } from "../src/index.js";
 import { command, validate } from "../src/operations.js";
@@ -115,7 +114,7 @@ describe("browser-skill SDK contract and input boundaries", () => {
 
 describe("ownership and cancellation (no browser/model simulations)", () => {
 	it("only resolves the native request owned by this Yonder conversation", async () => {
-		const directory = await mkdtemp(join(tmpdir(), "yonder-bsk-owner-test-"));
+		const directory = await tempHome("yonder-bsk-owner-test-");
 		try {
 			const requestId = `1000000000000:00000000-0000-0000-0000-000000000001`;
 			await writeFile(
@@ -222,7 +221,7 @@ describe("optional bookmarks", () => {
 		expect(result.text).toContain(process.platform === "darwin" ? "disabled" : "supports only the macOS");
 	});
 	it("rejects foreign and remote calls without touching a browser", async () => {
-		const dir = await mkdtemp(join(tmpdir(), "yonder-bookmarks-denied-"));
+		const dir = await tempHome("yonder-bookmarks-denied-");
 		try {
 			await writeFile(
 				join(dir, "requests.json"),

@@ -1,8 +1,7 @@
 import { access, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import plugin from "../src/index.js";
 import { Ingest } from "../src/ingest.js";
@@ -30,7 +29,7 @@ async function setup(root: string, triggers?: { inbox?: boolean; bootstrap?: boo
 
 it("leaves the configured root untouched when both automatic triggers are omitted or disabled", async () => {
 	for (const settings of [undefined, { inbox: false, bootstrap: false }]) {
-		const base = await mkdtemp(join(tmpdir(), "memory-optout-"));
+		const base = await tempHome("memory-optout-");
 		const root = join(base, "not-created");
 		const instance = await setup(root, settings);
 		try {
@@ -46,7 +45,7 @@ it("leaves the configured root untouched when both automatic triggers are omitte
 });
 
 it("does not inspect attachments or create a root for message events unless capture is explicitly enabled", async () => {
-	const base = await mkdtemp(join(tmpdir(), "memory-capture-optout-"));
+	const base = await tempHome("memory-capture-optout-");
 	const root = join(base, "not-created");
 	const { api } = createRegistrationCollector();
 	const ingest = new Ingest(api, { root, owner: "person:test", timezone: "UTC" } as never, []);
@@ -66,7 +65,7 @@ it("does not inspect attachments or create a root for message events unless capt
 });
 
 it("starts and stops explicitly enabled inbox and bootstrap triggers in a synthetic temp root", async () => {
-	const base = await mkdtemp(join(tmpdir(), "memory-optin-"));
+	const base = await tempHome("memory-optin-");
 	const root = join(base, "synthetic-memory");
 	const instance = await setup(root, { inbox: true, bootstrap: true });
 	try {

@@ -1,16 +1,15 @@
 import { mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { checkPlugin, createRegistrationCollector } from "@yonder/sdk/testing";
+import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, it } from "vitest";
 import { validateConfig } from "../src/config.js";
 import plugin from "../src/index.js";
 
 const temps: string[] = [];
 async function temp() {
-	const p = await mkdtemp(join(tmpdir(), "memory-wp1-"));
+	const p = await tempHome("memory-wp1-");
 	temps.push(p);
 	return p;
 }

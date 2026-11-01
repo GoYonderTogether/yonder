@@ -1,13 +1,13 @@
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
 import { Runtime, readTranscript } from "./index.js";
 
 test("offline transcript matches the live conversation over an actual read-only SQLite connection", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-offline-"));
+	const home = await tempHome("yonder-offline-");
 	const path = join(home, "state.db");
 	let runtime: Runtime | undefined;
 	try {

@@ -19,6 +19,8 @@ import type {
 } from "./types.js";
 import { API_VERSION } from "./version.js";
 
+export { tempHome, tempHomeSync, tempRoot } from "./testing-temp.js";
+
 const slots = [
 	"views",
 	"channels",

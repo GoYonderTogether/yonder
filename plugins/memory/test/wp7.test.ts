@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerContexts } from "../src/contexts.js";
 
@@ -14,7 +14,7 @@ describe("memory contexts identity boundary", () => {
 	it("keeps private facts out and only renders the weekly context for the configured owner", async () => {
 		vi.useFakeTimers({ toFake: ["Date"] });
 		vi.setSystemTime(new Date("2026-10-21T12:00:00Z"));
-		const root = await mkdtemp(join(tmpdir(), "memory-wp7-"));
+		const root = await tempHome("memory-wp7-");
 		roots.push(root);
 		await mkdir(join(root, "me"));
 		await mkdir(join(root, "timeline/2026-10"), { recursive: true });

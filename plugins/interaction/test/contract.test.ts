@@ -1,8 +1,7 @@
 import { mkdtemp, readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkPlugin } from "@yonder/sdk/testing";
+import { checkPlugin, tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { CompanionService } from "../src/interaction-store.js";
 
@@ -10,7 +9,7 @@ it("satisfies the actual SDK plugin contract", async () => {
 	expect(await checkPlugin(fileURLToPath(new URL("..", import.meta.url)))).toEqual([]);
 });
 it("serves cards, returns actual answers only to their owner, and recovers persisted history", async () => {
-	const directory = await mkdtemp(join(tmpdir(), "yonder-ui-"));
+	const directory = await tempHome("yonder-ui-");
 	const service = new CompanionService(directory);
 	const owner = { agent: "ui-test", session: "ui-test-session", profile: "default" };
 	const signal = new AbortController().signal;
@@ -67,7 +66,7 @@ it("serves cards, returns actual answers only to their owner, and recovers persi
 it("exposes the current session card, answers it and invalidates the view", async () => {
 	const { createRegistrationCollector } = await import("@yonder/sdk/testing");
 	const { registerViews } = await import("../src/views.js");
-	const directory = await mkdtemp(join(tmpdir(), "yonder-ui-view-"));
+	const directory = await tempHome("yonder-ui-view-");
 	const service = new CompanionService(directory);
 	const { api, registrations } = createRegistrationCollector();
 	const invalidations: string[][] = [];

@@ -2,14 +2,14 @@
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 
 const root = process.cwd();
 // app.ts resolves package metadata relative to the release layout (not source).
 // Compile unchanged real sources into that layout outside the sibling checkout.
-const build = mkdtempSync(join(tmpdir(), "yonder-card-backend-build-"));
+const build = tempHomeSync("yonder-card-backend-build-");
 try {
 	execFileSync(
 		process.execPath,

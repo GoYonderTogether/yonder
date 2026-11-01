@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { YEvent } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
@@ -12,7 +12,7 @@ import { createStore } from "../../../packages/core/src/store/index.js";
 import { upgradeGroups } from "../src/setup.js";
 
 test("explicit card upgrade adds isolated read-only group route once and preserves custom bindings", async () => {
-	const home = await mkdtemp(join(tmpdir(), "card-groups-"));
+	const home = await tempHome("card-groups-");
 	try {
 		await initHome(home, "owner", { model: "openai/gpt-6-luna" });
 		const file = join(home, "agents/main/agent.yaml");

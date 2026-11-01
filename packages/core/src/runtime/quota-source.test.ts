@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { accountKey, ModelQuota } from "./model-quota.js";
 import { QuotaPoller, QuotaSource } from "./quota-source.js";
@@ -11,7 +11,7 @@ afterEach(() => {
 	for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 function root() {
-	const dir = mkdtempSync(join(tmpdir(), "yonder-quota-source-"));
+	const dir = tempHomeSync("yonder-quota-source-");
 	roots.push(dir);
 	return dir;
 }

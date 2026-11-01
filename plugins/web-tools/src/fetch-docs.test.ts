@@ -1,8 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PluginAPI, ToolContext } from "@yonder/sdk";
-import { createRegistrationCollector } from "@yonder/sdk/testing";
+import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterAll, expect, test } from "vitest";
 import { githubTarget } from "./github.js";
 
@@ -12,7 +11,7 @@ const { default: plugin } = await import(source);
 // Real public requests: no fetch stub and no model stand-in, so a network failure fails the test.
 const PDF_URL = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
 const GITHUB_FILE = "https://github.com/nodejs/node/blob/main/README.md";
-const root = await mkdtemp(join(tmpdir(), "web-tools-docs-"));
+const root = await tempHome("web-tools-docs-");
 const directory = join(root, "cache", "tool-output", "7");
 await mkdir(directory, { recursive: true });
 afterAll(() => rm(root, { recursive: true, force: true }));

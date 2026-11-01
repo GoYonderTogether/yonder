@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { resolve } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { type AgentConfig, resolveProfile } from "../config/index.js";
 import { testModel } from "../config/test-support.js";
@@ -163,7 +164,7 @@ const real = process.env.YONDER_TEST_REAL === "1" && existsSync(auth);
 test.skipIf(!real)(
 	"真实模型拿不到系统提示词与工具清单，出口再拦一次",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-outsider-");
+		const home = await tempHome("yonder-outsider-");
 		// 卡里要求的真实模型；本机没有 workbuddy / rightapi-glm 的凭据时整条跳过。
 		const model = "workbuddy/deepseek-v4.1-flash";
 		const profile = withDefaultOutsider(base(), { capabilities: ["chat"] }, "local", model).profiles.outsider!;

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { OutputPart } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
@@ -11,7 +12,7 @@ const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	"real Luna tool run emits process output before its answer",
 	async () => {
-		const home = await mkdtemp("/tmp/yonder-stream-");
+		const home = await tempHome("yonder-stream-");
 		let runtime: Runtime | undefined;
 		try {
 			runtime = await Runtime.open({

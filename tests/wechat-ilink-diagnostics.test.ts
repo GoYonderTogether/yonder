@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Attachment, PluginAPI } from "@yonder/sdk";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
 import { IlinkChannel } from "../plugins/channel-wechat-ilink/src/channel.js";
 import { createClient, IlinkRequestError } from "../plugins/channel-wechat-ilink/src/client.js";
@@ -22,7 +23,7 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 type Stage = "upload-url" | "cdn-upload" | "sendmessage";
 type Failure = "http" | "ret" | "errcode" | "transport" | "invalid-ret";
 async function harness(stage: Stage, failure: Failure, status = 403, failPart = 1) {
-	const directory = await mkdtemp("/tmp/yonder-ilink-diagnostics-test-");
+	const directory = await tempHome("yonder-ilink-diagnostics-test-");
 	await mkdir(join(directory, "mock-wechat"));
 	await writeFile(
 		join(directory, "mock-wechat/account.json"),

@@ -1,10 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { testModel } from "../config/test-support.js";
 import { initHome, openKernel } from "./index.js";
 
 test("console sends effort commands through the shared channel without a model run", async () => {
-	const home = await mkdtemp("/tmp/ya-effort-");
+	const home = await tempHome("ya-effort-");
 	await initHome(home, "owner", { model: testModel });
 	const kernel = await openKernel(home);
 	try {

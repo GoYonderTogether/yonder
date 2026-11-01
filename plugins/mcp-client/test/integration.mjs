@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer as createHttpServer } from "node:http";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { tempHome } from "@yonder/sdk/testing";
 import plugin from "../dist/index.js";
 import { createServer } from "./server.mjs";
 
-const data = await mkdtemp(join(tmpdir(), "yonder-mcp-check-"));
+const data = await tempHome("yonder-mcp-check-");
 const tools = new Map();
 const contexts = [];
 const triggers = [];

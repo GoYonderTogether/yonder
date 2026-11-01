@@ -1,13 +1,13 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
 import { initHome, inspectHome } from "./home.js";
 
 test("doctor reports a channel instance with invalid config instead of failing startup (JV2-J09-03)", async () => {
-	const home = await mkdtemp(join(tmpdir(), "yonder-doctor-channel-"));
+	const home = await tempHome("yonder-doctor-channel-");
 	try {
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");
