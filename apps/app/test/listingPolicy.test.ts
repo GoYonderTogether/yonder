@@ -49,9 +49,9 @@ describe("listing policy", () => {
 		expect(selectedExpiry("forever", 50)).toBeNull();
 		expect(() => selectedExpiry("5")).toThrow();
 	});
-	it("separates hidden and expired without treating hidden past-expiry posts as active", () => {
+	it("groups every expired listing under hidden instead of a separate expiry tab", () => {
 		expect(listingTab({ paused: true, expiresAt: 10 }, 20)).toBe("paused");
-		expect(listingTab({ paused: false, expiresAt: 10 }, 20)).toBe("expired");
+		expect(listingTab({ paused: false, expiresAt: 10 }, 20)).toBe("paused");
 		expect(listingTab({ expiresAt: null }, 20)).toBe("active");
 		expect(isExpired({ expiresAt: 20 }, 20)).toBe(true);
 	});

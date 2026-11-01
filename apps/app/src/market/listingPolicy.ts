@@ -1,13 +1,13 @@
 import type { ListingInput } from "../api/client";
 import type { Coordinates, Listing } from "./types";
 
-export type ShopTab = "active" | "paused" | "expired";
+export type ShopTab = "active" | "paused";
 export const VISIBILITY_LABEL = { public: "所有人", friends: "仅好友", private: "仅自己" } as const;
 export function isExpired(listing: Pick<Listing, "expiresAt">, now = Date.now()) {
 	return typeof listing.expiresAt === "number" && listing.expiresAt <= now;
 }
 export function listingTab(listing: Pick<Listing, "paused" | "expiresAt">, now = Date.now()): ShopTab {
-	return listing.paused ? "paused" : isExpired(listing, now) ? "expired" : "active";
+	return listing.paused || isExpired(listing, now) ? "paused" : "active";
 }
 export function selectedExpiry(duration: string, previous?: number | null, now = Date.now()) {
 	if (duration === "keep") return previous ?? null;

@@ -51,11 +51,13 @@ it("forwards shop and owner status filters without widening discovery permission
 	expect(cloud.calls[1]?.query.get("sellerId")).toBe(sellerId);
 	expect(cloud.calls[1]?.query.get("mine")).toBeNull();
 	expect(cloud.calls[1]?.query.get("cursor")).toBe("next-page");
-	await result(harness.run("search", { mine: true, status: "expired" }));
+	await result(harness.run("search", { mine: true, status: "paused" }));
 	expect(cloud.calls[3]?.query.get("mine")).toBe("1");
-	expect(cloud.calls[3]?.query.get("status")).toBe("expired");
+	expect(cloud.calls[3]?.query.get("status")).toBe("paused");
 	await result(harness.run("search", { mine: false }));
 	expect(cloud.calls[5]?.query.get("mine")).toBe("0");
+	await expect(harness.run("search", { mine: true, status: "expired" })).rejects.toThrow("Invalid search arguments");
+	expect(cloud.calls).toHaveLength(6);
 });
 
 it("publishes opt-in visibility and location without inventing a default city, then clears nullable fields", async () => {
@@ -130,7 +132,7 @@ it("fails closed on old or incompatible clouds before policy writes, deletion or
 		const calls = cloud.calls.length;
 		for (const [name, args] of [
 			["search", { sellerId: "owner" }],
-			["search", { mine: true, status: "expired" }],
+			["search", { mine: true, status: "paused" }],
 			[
 				"publish",
 				{

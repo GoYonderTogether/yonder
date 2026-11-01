@@ -91,12 +91,17 @@ async function flush() {
 			await new Promise((resolve) => setTimeout(resolve, 0));
 		});
 }
+function CurrentPath() {
+	const location = useLocation();
+	return <output data-testid="shop-location">{location.pathname + location.search}</output>;
+}
 async function render(path: string) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	await act(() =>
 		root.render(
 			<QueryClientProvider client={client}>
 				<MemoryRouter initialEntries={[path]}>
+					<CurrentPath />
 					<Routes>
 						<Route path="/shop/:accountId" element={<Shop />} />
 						<Route path="/me/shop" element={<Shop />} />
@@ -146,8 +151,8 @@ it("owner tabs request the appropriate server status and deletion remains pendin
 	await click("确认删除");
 	expect(api.deleteListing).toHaveBeenLastCalledWith(item.id);
 	expect(node.textContent).not.toContain("确认删除");
-	await click("已到期");
-	expect(api.marketListings).toHaveBeenLastCalledWith({ mine: true, status: "expired", cursor: undefined });
+	await click("已隐藏");
+	expect(api.marketListings).toHaveBeenLastCalledWith({ mine: true, status: "paused", cursor: undefined });
 });
 it("a listing load error is not presented as an empty shop", async () => {
 	api.marketListings.mockRejectedValue(new Error("offline"));
@@ -210,4 +215,30 @@ it("asks for geolocation only on explicit action and keeps denied permission opt
 	expect(onError).toHaveBeenCalledWith(expect.stringContaining("未获定位权限"));
 	expect(onChange).not.toHaveBeenCalled();
 	expect(onBusy).toHaveBeenLastCalledWith(false);
+});
+
+it("canonicalizes the legacy expiry URL to hidden and keeps expired posts visible with renewal", async () => {
+	$session.set({ actor });
+	api.marketListings.mockResolvedValue({
+		items: [
+			{ ...item, mine: true, paused: false, expiresAt: 1 },
+			{ ...item, id: "hidden-expired", title: "隐藏后到期的发布", mine: true, paused: true, expiresAt: 1 },
+		],
+	});
+	await render("/me/shop?status=expired&source=legacy");
+	expect(node.querySelector('[data-testid="shop-location"]')?.textContent).toBe("/me/shop?status=paused&source=legacy");
+	expect(api.marketListings).toHaveBeenLastCalledWith({ mine: true, status: "paused", cursor: undefined });
+	expect(api.marketListings.mock.calls.every(([query]) => query.status !== "expired")).toBe(true);
+	expect([...node.querySelectorAll(".mk-personal-tabs button")].map((button) => button.textContent)).toEqual([
+		"在售",
+		"已隐藏",
+	]);
+	expect(node.textContent).toContain("自己的发布");
+	expect(node.textContent).toContain("隐藏后到期的发布");
+	expect(node.textContent).toContain("已到期");
+	expect(node.textContent).not.toContain("没有隐藏的发布");
+	await click("续期");
+	expect(node.querySelector('[data-testid="shop-location"]')?.textContent).toContain("panel=publish");
+	expect(node.querySelector('[data-testid="shop-location"]')?.textContent).toContain("edit=post-id");
+	expect(api.setListingPaused).not.toHaveBeenCalled();
 });

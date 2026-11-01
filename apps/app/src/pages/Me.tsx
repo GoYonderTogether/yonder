@@ -6,7 +6,6 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react
 import { api } from "../api";
 import { AppBar, BackButton } from "../components/AppBar";
 import { BotCards } from "../components/BotCards";
-import { CollectedCards } from "../components/CollectedCards";
 import { CreateBotDialog } from "../components/CreateBotDialog";
 import { MyCard } from "../components/MyCard";
 import { MyMarket } from "../components/market/MarketStats";
@@ -92,7 +91,6 @@ export function Me() {
 					<>
 						<BotCards />
 						<MyCard />
-						<CollectedCards />
 						<MyMarket />
 						<section aria-label="我的 Bot" className="overflow-hidden rounded-card bg-raised">
 							<div className="flex items-center justify-between px-5 pt-4 pb-2">

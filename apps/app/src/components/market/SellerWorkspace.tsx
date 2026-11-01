@@ -35,7 +35,7 @@ export function SellerWorkspace({
 	const [confirmation, setConfirmation] = useState<{ listing: Listing; action: "pause" | "delete" } | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [failure, setFailure] = useState("");
-	const selectedTab = tab === "published" ? "active" : tab;
+	const selectedTab = tab === "paused" || tab === "expired" ? "paused" : "active";
 	const items = listings.filter((l) => l.mine && listingTab(l) === selectedTab);
 	const perform = async (run: () => void | Promise<void>) => {
 		if (busy) return;
@@ -56,7 +56,6 @@ export function SellerWorkspace({
 				{[
 					{ id: "active", label: "在售" },
 					{ id: "paused", label: "已隐藏" },
-					{ id: "expired", label: "已到期" },
 				].map((t) => (
 					<button
 						type="button"
@@ -91,7 +90,11 @@ export function SellerWorkspace({
 							</p>
 							<p className="mk-muted">
 								{VISIBILITY_LABEL[l.visibility ?? "public"]}
-								{l.expiresAt ? ` · ${new Date(l.expiresAt).toLocaleDateString()} 到期` : ""}
+								{isExpired(l)
+									? ` · 已到期（${new Date(l.expiresAt ?? 0).toLocaleDateString()}）`
+									: l.expiresAt
+										? ` · ${new Date(l.expiresAt).toLocaleDateString()} 到期`
+										: ""}
 							</p>
 						</div>
 						<details className="relative shrink-0">
@@ -147,13 +150,7 @@ export function SellerWorkspace({
 			{!items.length && !loading && !error && (
 				<div className="mk-empty">
 					<Package size={30} />
-					<h3>
-						{selectedTab === "paused"
-							? "没有隐藏的发布"
-							: selectedTab === "expired"
-								? "没有到期的发布"
-								: "还没有在售发布"}
-					</h3>
+					<h3>{selectedTab === "paused" ? "没有隐藏的发布" : "还没有在售发布"}</h3>
 				</div>
 			)}
 			{failure && !confirmation && (

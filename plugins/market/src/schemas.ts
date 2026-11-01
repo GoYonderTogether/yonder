@@ -65,7 +65,7 @@ export const searchParameters: TSchema = Type.Object(
 		cursor: Type.Optional(Type.String()),
 		sellerId: Type.Optional(Id),
 		mine: Type.Optional(Type.Boolean()),
-		status: Type.Optional(Type.Union(["active", "paused", "expired"].map((value) => Type.Literal(value)))),
+		status: Type.Optional(Type.Union(["active", "paused"].map((value) => Type.Literal(value)))),
 	},
 	{ additionalProperties: false },
 );

@@ -15,7 +15,7 @@ plugins:
 
 ## 工具
 
-- `market_search`：`q`、`kind`、`category`、`city`、`min`、`max`、`sort`、`limit`（1–50，默认 10）、`cursor`；可传 `sellerId`（账号 UUID）主动查看小店，或 `mine: true` 配合 `status: active/paused/expired` 分页管理本人发布；回 `{items, nextCursor?}`。可见性由云端按主人身份校验；小店直访不受 discoverable 发现开关限制。
+- `market_search`：`q`、`kind`、`category`、`city`、`min`、`max`、`sort`、`limit`（1–50，默认 10）、`cursor`；可传 `sellerId`（账号 UUID）主动查看小店，或 `mine: true` 配合 `status: active/paused` 分页管理本人发布；active 为在售，paused 为已隐藏（含自动到期），按云端当前时间查询，不依赖客户端在线或后台改状态；回 `{items, nextCursor?}`。可见性由云端按主人身份校验；小店直访不受 discoverable 发现开关限制。
 - `market_get`：`id`；`includeInquiries` 只对自己的发布生效，额外回 `{inquiries}`。
 - `market_publish`：`action` create/update/pause/resume/delete。全部 action 要求 `ownerApproved: true`；false 回 `{ "ok": false, "error": "approval_required" }`，缺失则参数校验拒绝，均不调云端。create 先本地校验 kind/category/title/description/price；`location` 可不传（云端缺省空），不自动填城市。
 - listing 可附 `visibility: public/friends/private`（缺省 public；friends 要求互为好友）、`expiresAt`（未来 UTC 毫秒整数或 null 长期）、`coordinates: {latitude,longitude}` 或 null。坐标仅可来自主人明确提供的数据，不主动定位；云端约整至 3 位小数。update 未传字段保留，null 清除到期时间/定位。恢复过期发布应先更新有效期；resume 不自动续期。delete 是本人软删除，接受云端 204 空响应并回 `{ok:true,id,deleted:true}`；既有询问沟通保留。

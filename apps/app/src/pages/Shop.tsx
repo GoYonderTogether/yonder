@@ -1,7 +1,7 @@
 import { useStore } from "@nanostores/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api";
 import { AppBar } from "../components/AppBar";
@@ -18,6 +18,7 @@ import { listingInput, marketError, type ShopTab } from "../market/listingPolicy
 import { useListingFeed, useListingLookup } from "../market/queries";
 import { useMarketState } from "../market/store";
 import type { Listing } from "../market/types";
+import { useListingExpiry } from "../market/useListingExpiry";
 import { $session } from "../store";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
@@ -72,10 +73,15 @@ function ShopContent({
 		},
 		enabled: !!id && !pending,
 	});
-	const tab: ShopTab = ["paused", "expired"].includes(params.get("status") ?? "")
-		? (params.get("status") as ShopTab)
-		: "active";
+	const tab: ShopTab = ["paused", "expired"].includes(params.get("status") ?? "") ? "paused" : "active";
+	useEffect(() => {
+		if (!owner || params.get("status") !== "expired") return;
+		const next = new URLSearchParams(params);
+		next.set("status", "paused");
+		setParams(next, { replace: true, state: location.state });
+	}, [owner, params, setParams, location.state]);
 	const feed = useListingFeed(owner ? { mine: true, status: tab } : { sellerId: id }, !!id && !pending);
+	useListingExpiry(feed.items, owner && tab === "active");
 	const lookup = useListingLookup([params.get("item"), params.get("edit")].filter((value): value is string => !!value));
 	const referenced = [...feed.items, ...lookup.items];
 	const editing = owner ? referenced.find((item) => item.id === params.get("edit") && item.mine) : undefined;
