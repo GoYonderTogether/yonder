@@ -6,6 +6,7 @@ const checks = [
 	["registry", "node_modules/vitest/vitest.mjs", "run", "packages/core/src/control/registry.golden.test.ts"],
 	["events", "node_modules/vitest/vitest.mjs", "run", "packages/gateway/src/events.golden.test.ts"],
 	["views", "node_modules/vitest/vitest.mjs", "run", "packages/sdk/src/views.golden.test.ts"],
+	["participation", "node_modules/vitest/vitest.mjs", "run", "packages/sdk/src/participation.golden.test.ts"],
 	["config", "node_modules/vitest/vitest.mjs", "run", "packages/core/src/config/schema.golden.test.ts"],
 	["plugin API version", "node_modules/vitest/vitest.mjs", "run", "packages/core/src/plugins/api-version.test.ts"],
 	["store migrations", "node_modules/vitest/vitest.mjs", "run", "packages/core/src/store/migrations.test.ts"],
