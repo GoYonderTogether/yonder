@@ -23,6 +23,7 @@ const { Conversation } = await import("../src/pages/Chat");
 
 let container: HTMLElement;
 let root: Root;
+let client: QueryClient;
 beforeEach(() => {
 	const { document, window } = parseHTML("<html><body></body></html>");
 	vi.stubGlobal("window", window);
@@ -32,6 +33,7 @@ beforeEach(() => {
 	container = document.createElement("div") as unknown as HTMLElement;
 	document.body.appendChild(container as never);
 	root = createRoot(container);
+	client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	const owner = { id: "agent-1", kind: "agent" as const, name: "E2E Bot", ownerId: "human-1", public: true };
 	api.card.mockResolvedValue({
 		id: CARD,
@@ -48,12 +50,22 @@ beforeEach(() => {
 });
 afterEach(async () => {
 	await act(() => root.unmount());
+	client.clear();
 	$session.set(undefined);
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
 });
 
-const settle = () => act(async () => new Promise((r) => setTimeout(r, 30)));
+// Resolve alias → card → owner profile requires separate query notifications and renders.
+// Wait for the actual UI, flushing React updates between bounded observable retries.
+const waitForUI = (assertion: () => void) =>
+	vi.waitFor(
+		async () => {
+			await act(async () => {});
+			assertion();
+		},
+		{ timeout: 2000 },
+	);
 const button = (label: string) =>
 	[...container.querySelectorAll("button")].find((b) => b.textContent === label) as HTMLButtonElement | undefined;
 
@@ -62,36 +74,36 @@ describe("JV2-J12-01 名片页收藏", () => {
 		api.resolve.mockResolvedValue({ id: CARD, code: "3W0LX3" });
 		await act(async () =>
 			root.render(
-				<QueryClientProvider client={new QueryClient()}>
+				<QueryClientProvider client={client}>
 					<MemoryRouter>
 						<PublicIdentity cardId="3W0LX3" />
 					</MemoryRouter>
 				</QueryClientProvider>,
 			),
 		);
-		await settle();
+		await waitForUI(() => expect(button("收藏")).toBeDefined());
 		const collect = button("收藏");
 		expect(collect).toBeDefined();
 		api.cards.mockResolvedValue([{ id: CARD, mine: false, ownerId: "agent-1" }]);
 		await act(async () => collect!.click());
-		await settle();
-		expect(api.collectCard).toHaveBeenCalledWith(CARD, "link");
-		expect(button("已收藏")?.disabled).toBe(true);
+		await waitForUI(() => {
+			expect(api.collectCard).toHaveBeenCalledWith(CARD, "link");
+			expect(button("已收藏")?.disabled).toBe(true);
+		});
 	});
 
 	it("匿名访客不显示收藏按钮", async () => {
 		$session.set({ actor: { id: "anon", kind: "human", name: "访客", anonymous: true } });
 		await act(async () =>
 			root.render(
-				<QueryClientProvider client={new QueryClient()}>
+				<QueryClientProvider client={client}>
 					<MemoryRouter>
 						<PublicIdentity cardId={CARD} />
 					</MemoryRouter>
 				</QueryClientProvider>,
 			),
 		);
-		await settle();
-		expect(button("和 TA 聊天")).toBeDefined();
+		await waitForUI(() => expect(button("和 TA 聊天")).toBeDefined());
 		expect(button("收藏")).toBeUndefined();
 	});
 });
@@ -100,7 +112,7 @@ describe("JV2-J13-04 /c/not-exist", () => {
 	it("显示会话不存在和返回入口，不查接口", async () => {
 		await act(async () =>
 			root.render(
-				<QueryClientProvider client={new QueryClient()}>
+				<QueryClientProvider client={client}>
 					<MemoryRouter initialEntries={["/c/not-exist"]}>
 						<Routes>
 							<Route path="/c/:id" element={<Conversation />} />
@@ -109,8 +121,7 @@ describe("JV2-J13-04 /c/not-exist", () => {
 				</QueryClientProvider>,
 			),
 		);
-		await settle();
-		expect(container.textContent).toContain("会话不存在");
+		await waitForUI(() => expect(container.textContent).toContain("会话不存在"));
 		expect(container.querySelector('a[href="/"]')?.textContent).toBe("回到消息");
 		expect(api.resolve).not.toHaveBeenCalled();
 	});
