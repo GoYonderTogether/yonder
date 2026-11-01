@@ -37,6 +37,14 @@ function composed(value: MarketResult): ToolResult {
 	return json({ ok: true, ...record(value.body) });
 }
 
+/** Old clouds silently ignore new fields; never send a policy-bearing write to them. */
+async function supportsListingPolicy(client: MarketClient, signal: AbortSignal): Promise<boolean> {
+	const result = await client.call({ method: "GET", path: "/capabilities" }, signal);
+	if (!result.ok) return false;
+	const flags = record(result.body);
+	return flags.listingPolicy === true && flags.sellerShops === true;
+}
+
 export function registerMarketTools(api: PluginAPI, deps: MarketDeps): void {
 	const register = (
 		name: string,
@@ -60,10 +68,15 @@ export function registerMarketTools(api: PluginAPI, deps: MarketDeps): void {
 
 	register(
 		"search",
-		"Search public market listings on the configured social cloud.",
+		"Search accessible market listings or a seller's shop; mine and status filter your own listings.",
 		searchParameters,
-		async (args, ctx, client) =>
-			composed(
+		async (args, ctx, client) => {
+			if (
+				(args.sellerId !== undefined || args.mine !== undefined || args.status !== undefined) &&
+				!(await supportsListingPolicy(client, ctx.signal))
+			)
+				return failure("capability_unavailable");
+			return composed(
 				await client.call(
 					{
 						method: "GET",
@@ -78,11 +91,15 @@ export function registerMarketTools(api: PluginAPI, deps: MarketDeps): void {
 							sort: args.sort as string | undefined,
 							limit: (args.limit as number | undefined) ?? 10,
 							cursor: args.cursor as string | undefined,
+							sellerId: args.sellerId as string | undefined,
+							mine: args.mine === undefined ? undefined : args.mine === true ? 1 : 0,
+							status: args.status as string | undefined,
 						},
 					},
 					ctx.signal,
 				),
-			),
+			);
+		},
 	);
 
 	register(
@@ -106,22 +123,35 @@ export function registerMarketTools(api: PluginAPI, deps: MarketDeps): void {
 
 	register(
 		"publish",
-		"Create, update, pause or resume your own market listing; requires owner approval.",
+		"Create, update, pause, resume or delete your own listing; requires owner approval. Coordinates must be explicitly provided by the owner.",
 		publishParameters,
 		async (args, ctx, client) => {
 			if (args.ownerApproved !== true) return failure("approval_required");
 			const action = args.action as string;
 			const id = args.id as string | undefined;
 			const listing = args.listing === undefined ? undefined : record(args.listing);
+			if (
+				(action === "delete" ||
+					(listing && ["visibility", "expiresAt", "coordinates"].some((key) => listing[key] !== undefined))) &&
+				!(await supportsListingPolicy(client, ctx.signal))
+			)
+				return failure("capability_unavailable");
 			if (action === "create") {
 				if (!listing) return failure("invalid_request", { missing: ["listing"] });
-				const missing = ["kind", "category", "title", "description", "price", "location"].filter(
+				const missing = ["kind", "category", "title", "description", "price"].filter(
 					(key) => listing[key] === undefined,
 				);
 				if (missing.length) return failure("invalid_request", { missing });
 				return composed(await client.call({ method: "POST", path: "/listings", body: listing }, ctx.signal));
 			}
 			if (!id) return failure("invalid_request", { missing: ["id"] });
+			if (action === "delete") {
+				const removed = await client.call(
+					{ method: "DELETE", path: `/listings/${encodeURIComponent(id)}` },
+					ctx.signal,
+				);
+				return removed.ok ? json({ ok: true, id, deleted: true }) : failure(removed.error);
+			}
 			if (action === "update") {
 				if (!listing || !Object.keys(listing).length) return failure("invalid_request", { missing: ["listing"] });
 				return composed(

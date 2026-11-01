@@ -34,6 +34,20 @@ const Listing = Type.Object(
 		delivery: Type.Optional(Type.String({ maxLength: 200 })),
 		missing: Type.Optional(Type.Array(Type.String(), { maxItems: 10 })),
 		discoverable: Type.Optional(Type.Boolean()),
+		visibility: Type.Optional(Type.Union(["public", "friends", "private"].map((value) => Type.Literal(value)))),
+		expiresAt: Type.Optional(Type.Union([Type.Integer({ minimum: 1, maximum: 8640000000000000 }), Type.Null()])),
+		coordinates: Type.Optional(
+			Type.Union([
+				Type.Object(
+					{
+						latitude: Type.Number({ minimum: -90, maximum: 90 }),
+						longitude: Type.Number({ minimum: -180, maximum: 180 }),
+					},
+					{ additionalProperties: false },
+				),
+				Type.Null(),
+			]),
+		),
 	},
 	{ additionalProperties: false },
 );
@@ -49,6 +63,9 @@ export const searchParameters: TSchema = Type.Object(
 		sort: Type.Optional(Type.Union(["relevance", "newest", "price_asc", "price_desc"].map((v) => Type.Literal(v)))),
 		limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
 		cursor: Type.Optional(Type.String()),
+		sellerId: Type.Optional(Id),
+		mine: Type.Optional(Type.Boolean()),
+		status: Type.Optional(Type.Union(["active", "paused", "expired"].map((value) => Type.Literal(value)))),
 	},
 	{ additionalProperties: false },
 );
@@ -60,7 +77,7 @@ export const getParameters: TSchema = Type.Object(
 
 export const publishParameters: TSchema = Type.Object(
 	{
-		action: Type.Union(["create", "update", "pause", "resume"].map((value) => Type.Literal(value))),
+		action: Type.Union(["create", "update", "pause", "resume", "delete"].map((value) => Type.Literal(value))),
 		id: Type.Optional(Id),
 		listing: Type.Optional(Listing),
 		ownerApproved: Type.Boolean(),

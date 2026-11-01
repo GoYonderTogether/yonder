@@ -13,7 +13,7 @@ export interface Call {
 export interface FakeCloud {
 	base: string;
 	calls: Call[];
-	state: { checkItems: unknown[] };
+	state: { checkItems: unknown[]; capabilities: unknown; capabilitiesStatus: number };
 	close(): Promise<void>;
 }
 
@@ -22,8 +22,10 @@ const json = (value: unknown) => JSON.stringify(value ?? {});
 /** 只监听回环的假云端：按契约 §19.4 的路径回应，并记录每次请求。 */
 export async function fakeCloud(): Promise<FakeCloud> {
 	const calls: Call[] = [];
-	const state: { checkItems: unknown[] } = {
+	const state: FakeCloud["state"] = {
 		checkItems: [{ id: "l9", title: "二手相机", price: 900, location: "上海" }],
+		capabilities: { listingPolicy: true, sellerShops: true },
+		capabilitiesStatus: 200,
 	};
 	const server = createServer(async (request, response) => {
 		const chunks: Buffer[] = [];
@@ -45,6 +47,7 @@ export async function fakeCloud(): Promise<FakeCloud> {
 		};
 		const route = `${method} ${url.pathname}`;
 		const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+		if (route === "GET /api/market/capabilities") return send(state.capabilitiesStatus, state.capabilities);
 		if (route === "GET /api/market/listings")
 			return send(200, {
 				items: [{ id: "l1", title: "相机", price: 1200, unit: "元", location: "上海" }],
@@ -60,6 +63,11 @@ export async function fakeCloud(): Promise<FakeCloud> {
 		if (route === "PATCH /api/market/listings/l1") return send(200, { ...body, id: "l1" });
 		if (route === "POST /api/market/listings/l1/pause") return send(200, { id: "l1", status: "paused" });
 		if (route === "POST /api/market/listings/l1/resume") return send(200, { id: "l1", status: "active" });
+		if (route === "DELETE /api/market/listings/l1") {
+			response.writeHead(204);
+			return response.end();
+		}
+		if (route === "DELETE /api/market/listings/missing") return send(404, { error: "not_found" });
 		if (route === "GET /api/market/watch-tasks")
 			return send(200, {
 				items: [{ id: "w1", title: "找相机", frequency: "hourly", active: true, checkedAt: Date.now() }],

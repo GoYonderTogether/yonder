@@ -1,5 +1,3 @@
-import { mkdtemp } from "node:fs/promises";
-import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { MarketClient } from "../src/client.js";
@@ -44,6 +42,119 @@ it("searches the cloud with the device token", async () => {
 	expect(call).toMatchObject({ method: "GET", path: "/api/market/listings", authorization: "Bearer device-token" });
 	expect(call?.query.get("q")).toBe("相机");
 	expect(call?.query.get("limit")).toBe("10");
+});
+
+it("forwards shop and owner status filters without widening discovery permissions", async () => {
+	const sellerId = "5ee44002-1346-455d-b67e-b5d4c3b51a27";
+	await result(harness.run("search", { sellerId, limit: 2, cursor: "next-page" }));
+	expect(cloud.calls[0]?.path).toBe("/api/market/capabilities");
+	expect(cloud.calls[1]?.query.get("sellerId")).toBe(sellerId);
+	expect(cloud.calls[1]?.query.get("mine")).toBeNull();
+	expect(cloud.calls[1]?.query.get("cursor")).toBe("next-page");
+	await result(harness.run("search", { mine: true, status: "expired" }));
+	expect(cloud.calls[3]?.query.get("mine")).toBe("1");
+	expect(cloud.calls[3]?.query.get("status")).toBe("expired");
+	await result(harness.run("search", { mine: false }));
+	expect(cloud.calls[5]?.query.get("mine")).toBe("0");
+});
+
+it("publishes opt-in visibility and location without inventing a default city, then clears nullable fields", async () => {
+	const expiresAt = Date.now() + 86400000;
+	const listing = {
+		kind: "item",
+		category: "数码好物",
+		title: "相机",
+		description: "含充电器",
+		price: 1200,
+		visibility: "friends",
+		expiresAt,
+		coordinates: { latitude: 31.235, longitude: 121.457 },
+	};
+	expect(await result(harness.run("publish", { action: "create", ownerApproved: true, listing }))).toMatchObject({
+		ok: true,
+	});
+	expect(cloud.calls[1]?.body).toEqual(listing);
+	expect(cloud.calls[1]?.body).not.toHaveProperty("location");
+	const clear = { visibility: "private", expiresAt: null, coordinates: null, location: "" };
+	expect(
+		await result(harness.run("publish", { action: "update", id: "l1", ownerApproved: true, listing: clear })),
+	).toMatchObject({ ok: true });
+	expect(cloud.calls[3]?.body).toEqual(clear);
+	for (const invalid of [
+		{ visibility: "selected" },
+		{ expiresAt: "tomorrow" },
+		{ coordinates: { latitude: 91, longitude: 0 } },
+		{ coordinates: { latitude: 0 } },
+	]) {
+		await expect(
+			harness.run("publish", { action: "update", id: "l1", ownerApproved: true, listing: invalid }),
+		).rejects.toThrow("Invalid publish arguments");
+	}
+	expect(cloud.calls).toHaveLength(4);
+});
+
+it("deletes only with owner approval, handles an empty 204 response, and preserves cloud errors", async () => {
+	expect(await result(harness.run("publish", { action: "delete", id: "l1", ownerApproved: false }))).toEqual({
+		ok: false,
+		error: "approval_required",
+	});
+	await expect(harness.run("publish", { action: "delete", id: "l1" })).rejects.toThrow("Invalid publish arguments");
+	expect(cloud.calls).toHaveLength(0);
+	expect(await result(harness.run("publish", { action: "delete", id: "l1", ownerApproved: true }))).toEqual({
+		ok: true,
+		id: "l1",
+		deleted: true,
+	});
+	expect(cloud.calls[1]).toMatchObject({
+		method: "DELETE",
+		path: "/api/market/listings/l1",
+		authorization: "Bearer device-token",
+	});
+	expect(cloud.calls[1]?.body).toBeUndefined();
+	expect(await result(harness.run("publish", { action: "delete", id: "missing", ownerApproved: true }))).toEqual({
+		ok: false,
+		error: "not_found",
+	});
+});
+
+it("fails closed on old or incompatible clouds before policy writes, deletion or shop reads", async () => {
+	for (const [status, flags] of [
+		[404, {}],
+		[200, {}],
+		[200, { listingPolicy: false, sellerShops: true }],
+		[200, { listingPolicy: true, sellerShops: false }],
+		[200, { listingPolicy: "true", sellerShops: true }],
+	] as const) {
+		cloud.state.capabilitiesStatus = status;
+		cloud.state.capabilities = flags;
+		const calls = cloud.calls.length;
+		for (const [name, args] of [
+			["search", { sellerId: "owner" }],
+			["search", { mine: true, status: "expired" }],
+			[
+				"publish",
+				{
+					action: "create",
+					ownerApproved: true,
+					listing: {
+						kind: "item",
+						category: "数码好物",
+						title: "相机",
+						description: "内容",
+						price: 1,
+						visibility: "private",
+					},
+				},
+			],
+			["publish", { action: "update", ownerApproved: true, id: "l1", listing: { expiresAt: null, coordinates: null } }],
+			["publish", { action: "delete", ownerApproved: true, id: "l1" }],
+		] as const) {
+			expect(await result(harness.run(name, args))).toEqual({ ok: false, error: "capability_unavailable" });
+		}
+		expect(cloud.calls.slice(calls).map((call) => `${call.method} ${call.path}`)).toEqual(
+			Array(5).fill("GET /api/market/capabilities"),
+		);
+	}
 });
 
 it("reads one listing and its inquiries when asked", async () => {
