@@ -63,6 +63,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run test:node
+      - run: node --test scripts/release/auto-release.test.mjs
       - run: node scripts/check-stability.mjs
 
   linux-test:
@@ -101,7 +102,6 @@ jobs:
   macos:
     name: macOS typecheck, build, test, lint
     runs-on: macos-latest
-    continue-on-error: true
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -117,3 +117,4 @@ jobs:
       - run: node scripts/yonder-permissions.mjs self-check
       - run: npm test -- --maxWorkers=4 packages/macos packages/device packages/cli plugins/native-automation plugins/clipboard plugins/devices
       - run: npm run test:node
+      - run: node --test scripts/release/auto-release.test.mjs

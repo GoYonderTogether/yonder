@@ -2,7 +2,6 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const PASSING = new Set(["success", "neutral", "skipped"]);
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 // ci.yml 的两个 job；发版 job 自己也会作为 check-run 挂在同一 commit 上，必须排除
@@ -24,7 +23,7 @@ export function evaluateCheckRuns(payload, required = REQUIRED_CHECKS) {
 		const names = running.map((run) => `${run.name}=${run.status}`).join(", ");
 		return { state: "pending", message: `还有未完成的检查：${names}` };
 	}
-	const failed = runs.filter((run) => !PASSING.has(run.conclusion));
+	const failed = runs.filter((run) => run.conclusion !== "success");
 	if (failed.length > 0) {
 		const names = failed.map((run) => `${run.name}=${run.conclusion}`).join(", ");
 		return { state: "fail", message: `检查未通过：${names}` };
