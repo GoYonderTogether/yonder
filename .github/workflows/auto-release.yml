@@ -1,96 +1,39 @@
-# 主仓每次推 main、CI 全绿之后，如果自上一个正式版以来合并了前端改动，就自动发一个正式版。
-# 「自动」只到发版这一层：release.yml 本身仍是 main-only、原子推送、草稿 Release 核对后再公开；
-# 这里做的只是在 CI 已绿的前提下决定「要不要发」并触发它，不绕过任何一条发版检查。
-# 手动：在 Actions 页 Run workflow（可 force 一次）。
+# Only a successful CI on a same-repository main push can request an official release.
 name: Auto release
 
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-  workflow_dispatch:
-    inputs:
-      force:
-        description: 即使没有前端改动也发一版
-        required: false
-        default: false
-        type: boolean
+    branches: [main]
 
 permissions:
   contents: read
   actions: write
-  checks: read
 
 concurrency:
-  group: auto-release
+  group: auto-release-main
   cancel-in-progress: false
 
 jobs:
-  decide:
-    name: 判断是否发版
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    outputs:
-      release: ${{ steps.decide.outputs.release }}
-      note: ${{ steps.decide.outputs.note }}
-    steps:
-      # 发版不挑提交：发版点永远是触发这次判断的那个 main 提交（工作流运行所在的分支快照）。
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: 判断
-        id: decide
-        run: |
-          set -eu
-          head=$(git rev-parse HEAD)
-          # 这个提交上有一次成功的 CI 才发版；定时/手动触发的 CI 不产生发版。
-          conclusion=$(gh api "repos/$GITHUB_REPOSITORY/commits/$head/check-runs" --jq '[.check_runs[] | select(.name=="Linux typecheck, build, test, lint")] | sort_by(.id) | last | .conclusion // "missing"' 2>/dev/null || echo missing)
-          if [ "$conclusion" != "success" ]; then
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "note=main $(printf '%s' "$head" | cut -c1-8) 的 CI 结论是 $conclusion，不发版" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          last=$(git tag --list 'v0.*' --sort=-v:refname | head -1)
-          if [ -z "$last" ]; then
-            echo "release=true" >> "$GITHUB_OUTPUT"
-            echo "note=还没有正式版，发第一个" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # 发布的是工作台前端与服务端交互；只有 apps/app 变了才值得发一版，
-          # 纯文档/内核/插件的改动等下一次凑一起发，避免一天几十个版本。
-          changed=$(git diff --name-only "$last"..HEAD -- apps/app | head -1)
-          if [ "$FORCE" = "true" ]; then
-            echo "release=true" >> "$GITHUB_OUTPUT"
-            echo "note=手动要求发版（上次 $last）" >> "$GITHUB_OUTPUT"
-          elif [ -n "$changed" ]; then
-            echo "release=true" >> "$GITHUB_OUTPUT"
-            echo "note=自 $last 起 apps/app 有改动，发版" >> "$GITHUB_OUTPUT"
-          else
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            echo "note=自 $last 起 apps/app 没有改动，不发版" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FORCE: ${{ inputs.force || 'false' }}
-
-      - name: 结论
-        run: echo "$NOTE"
-        env:
-          NOTE: ${{ steps.decide.outputs.note }}
-
-  release:
-    name: 触发 release.yml
-    needs: decide
-    if: ${{ needs.decide.outputs.release == 'true' }}
+  dispatch:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_branch == 'main' &&
+          github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      # --ref 用当前提交：release.yml 会先确认它属于 main，再 fast-forward 到 main 的 tip 上发版。
-      - name: 派发发版
-        run: gh workflow run release.yml --ref "$SHA" -f ref="$SHA"
+      # Never download artifacts or execute code from a PR/fork run.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Recheck CI identity, current main and duplicate releases
+        run: node scripts/release/auto-release.mjs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}

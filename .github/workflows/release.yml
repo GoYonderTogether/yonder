@@ -19,10 +19,15 @@ on:
         default: ""
         type: string
       require_ci:
-        description: 发版前等待该 commit 的 CI 全绿（默认不等；发版提交推送后由本工作流补跑 CI）
+        description: 发版前等待该 commit 的 CI 全部成功（自动发版始终检查）
         required: false
-        default: false
+        default: true
         type: boolean
+      expected_sha:
+        description: 自动发版锁定的已验证提交；main 已变化则拒绝发版
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: write
@@ -64,9 +69,18 @@ jobs:
       # 发版提交直接落在 origin/main 当前 tip 上，之后到 main 的推送必然是快进，不会冲突。
       # 发出去的内容就是 main 的 tip，所以下面两道检查（CI 门禁与重复发版）都针对这个 tip。
       - name: 对齐到最新 main
-        run: git merge --ff-only origin/main
-      - name: 该 commit 的 CI 必须已经绿（仅 require_ci=true）
-        if: ${{ inputs.require_ci }}
+        run: |
+          if [ -n "$EXPECTED_SHA" ]; then
+            node scripts/release/auto-release.mjs --assert-target "$EXPECTED_SHA" "$(git rev-parse origin/main)"
+          fi
+          git merge --ff-only origin/main
+          if [ -n "$EXPECTED_SHA" ]; then
+            node scripts/release/auto-release.mjs --assert-target "$EXPECTED_SHA" "$(git rev-parse HEAD)"
+          fi
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+      - name: 该 commit 的 CI 必须全部成功
+        if: ${{ inputs.require_ci || inputs.expected_sha != '' }}
         run: >-
           node scripts/release/ci-status.mjs
           --sha "$(git rev-parse HEAD)" --wait 900

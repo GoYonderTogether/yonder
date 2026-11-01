@@ -101,15 +101,17 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 
 正式版只由 `.github/workflows/release.yml` 发布，不在本机手工改版本、打标签或建 Release。
 
-- **谁、何时触发**：主 Agent 在代码稍稳定后，每 2 到 3 个功能提交时触发，不等 CI（CI 在发版提交推送后补跑，出问题再修）：`gh workflow run release.yml -R GoYonderTogether/yonder -f ref=main`（可选 `-f version=<版本>`，须高于已有最高标签）。任何对该仓库有写权限的人都能在 Actions 页面「Run workflow」或用同一条命令触发，不需要发版凭据。`ci.yml` 在同一分支上会取消进行中的旧运行，需要门禁时加 `-f require_ci=true`。
-- **前提**：`ref` 必须是 main 的历史（脚本用 `git merge-base --is-ancestor` 拒绝分叉分支，见下一条）；随后作业 `git merge --ff-only origin/main`，在 main 当前 tip 上做发版提交。`scripts/release/version.mjs --assert-unreleased` 拒绝重复发版，即目标提交已带正式标签，或它是某个 `chore(release)` 提交的父提交。默认不等 CI；仅 `require_ci=true` 时 `scripts/release/ci-status.mjs` 经 `gh api` 查询该提交的 check-runs，要求 macOS 与 Linux 两项都成功（macOS job 为 continue-on-error，失败也记为成功；同名只看最新一次，最多等 15 分钟），否则失败退出。
+- **自动触发**：main 的 push 所触发的正式 `CI` 成功后，由 `Auto release` 复核同仓库、工作流身份、事件来源、main 当前 SHA 与本次 CI 的 head SHA，拒绝 fork、PR、失败、标签复验和过时提交。已正式发布的提交直接跳过；其余只派发唯一的 `release.yml`，不自行改版本、标签或 Release。
+- **手动触发**：任何有仓库写权限的人都能在 Actions 页面运行，或用 `gh workflow run release.yml -R GoYonderTogether/yonder -f ref=main`；可选 `-f version=<版本>`，须高于已有最高标签。`require_ci` 默认 true；维护者明确给 false 时仅手动路径允许关闭，自动路径始终开启。
+- **前提**：`ref` 必须是 main 的历史，随后只快进到 main 当前 tip。自动请求携带可选 `expected_sha`（完整 40 位提交 SHA）；对齐时 main 不再等于该 SHA 就停止，不把旧 CI 的结果用于新提交。提供 `expected_sha` 时强制 CI 门禁，即便 `require_ci=false` 也不可绕过。`version.mjs --assert-unreleased` 继续拒绝已带正式标签或已作为发版提交父提交的来源。
+- **CI 门禁**：`ci-status.mjs` 经 `gh api` 查询目标提交的 check-runs，要求 macOS 与 Linux 两个必需汇总检查均以 success 完成，同名只看最新一次。缺失或运行中最多等 15 分钟，失败、取消、neutral、skipped 都不放行；macOS 不再 continue-on-error。构建期间 main 若前进，仍由既有原子推送拒绝发布。
 - **版本**：未给版本时取 UTC 当天 YYMMDD，NN 在已有同日标签上加一。
 - **改动**：`scripts/release/bump-versions.mjs` 把根与所有 workspace 包（`packages/pi-durable` 除外）的版本和内部 `@yonder/*` 依赖改成新版本，并以 `npm install --package-lock-only` 更新 lockfile。`scripts/release/changelog.mjs` 把 `## [Unreleased]` 的手写条目连同上一标签到目标提交之间的 feat/fix/perf/refactor/revert 提交（按 Added/Fixed/Changed/Removed 分组）写成新版本小节；其他类型与无前缀提交不列。
 - **提交与标签**：CI 提交 `chore(release): <版本>`，打 `v<版本>`，`version-check.mjs --tag` 核对后构建、打包，再以 `git push --atomic` 把 tag 与 main 一次推上去。因为发版提交直接落在 main tip 上，这次推送必然快进，不需要 rebase；原子推送保证 tag 与 main 要么都在、要么都不在，重跑发版即可，不会出现只有 tag 没有 main 的状态。
 - **Release**：在 tag 与 main 都推送成功之后才创建，并且先建成草稿、核对附件齐全再公开（`--draft` → 核对 → `--draft=false --latest`）。草稿阶段失败时 tag 与 main 已在远端，不会出现孤儿版本；报出后按提示补建即可，不要重新触发发版。正文是 CHANGELOG 的该版本小节；附件是 `scripts/release/pack-runtime.mjs` 对每个非 private workspace 包 `npm pack` 生成的 `.tgz`、`SHA256SUMS` 与两个安装脚本，数量与可打包包数 + 3 不符就不公开。`yonder update` 与首次安装按 §3/§4 从标签 `git clone` 并本机构建，不读取附件；附件供离线核对与按包安装。
 - **发版后的 CI**：GITHUB_TOKEN 推送的提交不会触发 `push` 事件，所以发版提交与 tag 本身从不产生 CI 运行。公开 Release 后，工作流用 `gh workflow run ci.yml --ref v<版本>` 以 tag 为 ref 派发一次（`ci.yml` 因此声明 `workflow_dispatch`），让 CI 跑在发布的那个提交上。该次运行失败不回滚已发布的版本，按缺陷修好后发下一版。
 - **本机预演**：上述脚本都支持 `--dry-run`，只打印将改的文件、CHANGELOG 小节或打包清单，不写入。
-- **云端部署不进 CI**：CI 没有服务器凭据。Release 发布后，云端仍由维护者在本机用 `scripts/deploy-node.sh build/push/install <host> <tag>` 经 SSH 部署，失败用 `rollback` 回退。
+- **网站部署**：GitHub Release 是正式安装版本，不等于更新 `yonderbot.net`。当前仓库尚未配置网站的 Actions 部署凭据、生产环境或运行器；现有 SSH 部署仍需维护者访问。网站自动部署须接入实际入口、目标、必要迁移与健康检查后再启用，接入完成前不得把自动 Release 报成网站已上线。
 
 ## 6. 后台服务
 

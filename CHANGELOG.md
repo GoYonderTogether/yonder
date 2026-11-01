@@ -2,9 +2,25 @@
 
 ## [Unreleased]
 
-- 修正设备崩溃回归的签名时效：以同一时刻派生开始与到期时间，并验证真实发布前后崩溃检查点，避免鉴权失败被误判为崩溃。
+## [0.3.26110103] - 2026-11-01
 
+- 修复迁移命令经 macOS 临时目录软链接或 Windows junction 启动时静默退出的问题，以双方真实路径判断入口并验证两种 Node 软链接模式。
+- main 的 CI 全部成功后自动派发官方正式 Release；默认启用严格 CI 门禁，锁定已验证提交并排除过时或重复发布，macOS 失败也会阻止发布。
+- 修复 Windows 名称迁移的受保护路径识别、含空格及特殊字符路径的命令入口和可选目标目录，保持预演、幂等与历史文件保护。
+- 固定仓库文本以 LF 检出并保护二进制资源，避免 Windows 的 CRLF 转换导致全量格式检查失败。
+- 修正设备崩溃回归的签名时效：以同一时刻派生开始与到期时间，并验证真实发布前后崩溃检查点，避免鉴权失败被误判为崩溃。
 - 修正市场分类回归测试：精确校验分类与首页帖子集合，并覆盖合法空分类，不再假定每个分类都有供给。
+
+### Fixed
+
+- migrate：resolve both CLI paths through directory aliases
+- migrate：respect protected paths and CLI roots on Windows
+- repo：keep text checkouts on LF across platforms
+- app：give the new market "other" channel a demo listing
+
+### Added
+
+- release：publish current main automatically after successful CI
 
 ## [0.3.26110102] - 2026-11-01
 

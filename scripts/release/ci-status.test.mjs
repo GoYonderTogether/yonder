@@ -40,8 +40,18 @@ test("同名检查重跑后以最新一次为准", () => {
 		check_runs: [
 			run(5, MAC, "completed", "success"),
 			run(1, MAC, "completed", "failure"),
-			run(2, LINUX, "completed", "skipped"),
+			run(2, LINUX, "completed", "success"),
 		],
 	});
 	assert.equal(result.state, "pass");
 });
+
+for (const conclusion of ["neutral", "skipped", "cancelled", "timed_out", "failure", null]) {
+	test(`必需检查不以 success 完成时拒绝发版：${conclusion}`, () => {
+		assert.equal(
+			evaluateCheckRuns({ check_runs: [run(1, MAC, "completed", "success"), run(2, LINUX, "completed", conclusion)] })
+				.state,
+			"fail",
+		);
+	});
+}

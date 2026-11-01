@@ -1,0 +1,30 @@
+# Keep text identical across Windows, macOS and Linux, independent of core.autocrlf.
+* text=auto eol=lf
+
+# Binary assets must never undergo newline conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.gz binary
+*.tgz binary
+*.tar binary
+*.7z binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.mp3 binary
+*.wav binary
+*.mp4 binary
+*.mov binary

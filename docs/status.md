@@ -1,6 +1,6 @@
 # 项目状态
 
-更新：2026-11-01。版本 0.3.26110101（已发布），开发者预览。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-01。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
@@ -20,7 +20,7 @@
 
 收敛前后：core 模块之间的双向值依赖 9 对 → 2 对（剩 `control↔kernel`、`kernel↔plugins`，同在 L4）；层级违规 0；超过 500 行的源文件（不含 vendored pi-durable）22 → 10，剩下的都在行数门禁范围外（`apps/app` 前端、`.mjs` 脚本、Swift）；core 非测试代码 27,052 → 28,556 行（含群参与收口新增与拆分开销）。
 
-**发版与 CI（2026-11-01）**：`v0.3.26110101` 已由 `release.yml` 从 `cb70364` 发布（41 个附件，非草稿），包含本轮全部改动。`main` 的 CI 从 2026-10-31 03:36 起连续红，早于本轮：其中 `packages/core/src/runtime/fallback-http.test.ts`「HTTP 401 follows the native fallback policy」在 Linux 上多调用一次首个 provider（期望 `first, second`，实际 `first, first, second`），本机重复 5 次全过；`apps/app/scripts/market.test.mjs` 为前端既有失败。两项都不是本轮引入，未修；发版不因此回滚。
+**发版与 CI（2026-11-01）**：`v0.3.26110102` 已由官方 Release 作业发布（41 个附件、非草稿），main/tag 同提交。此前市场分类断言与设备崩溃夹具的时效问题已修复；`06b44b01` 的 [CI](https://github.com/GoYonderTogether/yonder/actions/runs/41279589830) 九个 job 均实际成功。现已接入 main push 的 CI 成功后自动派发正式 Release，默认启用严格门禁并锁定已验证 SHA，见 09 §5.1；运行结果以 Actions 记录为准，不把 GitHub 安装版本当作网站部署。Windows 本机换行与迁移检查已修复：完整 build/typecheck 通过，`test:node` 52 通过 / 0 失败 / 1 平台跳过，自动发布策略 20 / 0 / 0，完整 lint 0 errors（937 warnings、30 infos）。首次严格 macOS CI 的 Node 检查为 48 通过 / 2 失败 / 0 跳过，新增 CLI 入口漏掉 /var 到真实目录的软链接；随后以真实 Windows junction 复现并补修双方 realpath，迁移定向 8/8。失败记录保留在 CI 41282064380，不以本机成功覆盖跨平台结果。这些结果不等同于完整 Windows Vitest、真实模型或服务器部署验收。
 
 待维护者决定：未接线的群摘要显示（`routing/group-session.ts`、`views/social-group.ts`）与外人闸门（`delivery/outsider-guard.ts`）是接线还是删除；云端部署需维护者用 `scripts/deploy-node.sh` 在本机执行。
 
@@ -28,7 +28,7 @@
 
 ## 验证基线
 
-- 最新默认全仓（`c400a8d`，2026-10-31）：2254 通过 / 1 失败 / 104 跳过；失败为既有无关的 `apps/app/scripts/market.test.mjs`。更早的基线见 [status-history-2026-10](verification/status-history-2026-10.md)。
+- 最近已完成的官方 CI：`06b44b01` 的 Linux 四个全仓测试分片、类型、构建、Node 检查、lint、Linux 汇总与 macOS 子集均成功，合计 9/9 job。历史全仓原始计数保留在上表与 [status-history-2026-10](verification/status-history-2026-10.md)，不使用子集结果覆盖旧记录。
 - 产品目录 lint 0 错误（保留警告）。
 - 有实际运行证据的平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 已有完整程序平台适配代码，真实安装与运行验收待做。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
