@@ -3,6 +3,7 @@ import { definePlugin } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Batches } from "./batches.js";
 import { type GroupJudgeConfig, Groups } from "./groups.js";
+import { decideParticipation } from "./participation.js";
 import { GroupIndex } from "./room-index.js";
 import { createJudge, judgeModel, queueFromEvent, Snapshots } from "./snapshots.js";
 import { registerSocialTools } from "./tools.js";
@@ -79,6 +80,7 @@ export default definePlugin({
 		if (groups)
 			api.hooks.register({
 				id: "social.group-judge",
+				participation: decideParticipation,
 				beforeRequest: async (messages, ctx) => {
 					const context = await groups.beforeRequest(ctx);
 					if (!context) return;
