@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110101] - 2026-11-01
+
 - 群聊参与统一到 `social`：`channel-qq` 只负责收发与消息规范化，`social` 是官方群参与的唯一权威，同一 home 下为多个 Bot 做确定性组批与发言协调；它不替其他 Bot 判断、生成或分配机会，各 Bot 的绑定、会话、权限与游标仍各自独立。
 - 新 QQ 官方群配置向 `social.batch-ready` 绑定；不再新增使用 `channel-qq.group-batch` 的运行绑定。旧事件类型与字段继续可读，按稳定性规范弃用并至少保留 0.3、0.4 两个 minor，使用旧链时输出运行时警告。
 - 新 QQ 群不再要求逐群手写 `social.scope`：允许入站且已由官方群绑定接纳的群得到受限默认参与范围，只有可信 @、可核验引用、名字/关键词与 300 秒关注等硬触发会运行，其余消息只记录；不再回落到旧「观察窗口非空就运行」。显式拒绝/记录、自定义参与插件与自定义绑定优先，私聊行为不变。
@@ -24,11 +26,46 @@
 
 - sdk：新增可选 `Hook.participation`（`ParticipationInput` / `ParticipationDecision` / `ParticipationReason`），参与判定成为 hooks 槽的扩展，不新增插件槽；形状由 `participation.golden.test.ts` 与 `golden/participation.json` 守护，原因集合只增不删。
 - social：点名、授权名单、quiet、模式与关键词等参与策略从内核搬到官方 `social` 插件，按 `SocialPolicy.plugin` 选择实现；未加载、抛错或返回非法结果时失败关闭（入站只记录并诊断 `no-participation-plugin`，出站拒绝为 `Social delivery blocked: participation-unavailable`）。内核保留平台事实、绑定安全、批次复核与发送前强制。
+- social：provide the moved participation policy through Hook.participation
+- sdk：add the Hook.participation seam and its golden
+- app：complete group chat controls and blue-yellow social theme
+- scripts：add the core layering gate and fix the effort spec reference
+- social：channel-qq only transports, social is the single participation authority
+- app：add password login registration and verified reset
+- app：add privacy and friend request verification
+- macos：fixed status menu, drop the companion window, desktop loads the cloud site
 
 ### Fixed
 
 - 开发预览的社交 API 默认绕过浏览器缓存，避免旧接口重定向造成同步与市场加载失败；生产请求策略保持不变。
 - 头像直接进入个人页，移除重复个人菜单；发布、收藏、点赞和需求返回个人页后，可继续回到原入口，避免重复历史导致返回循环。
+- release：push tag and main atomically, publish the release last
+- app：bypass stale social API caches in development
+- channel-wechat-ilink：read pairing state after initialization
+- app：simplify profile entry and market return navigation
+
+### Changed
+
+- core：resolve participation through the selected plugin, fail closed
+- runtime：move recovery, services and background queries out of Runtime
+- runtime：move submission, observation, delegation and receipts out of Runtime
+- runtime：move tool assembly, session lifecycle and tool config out of Runtime
+- runtime：split runtime state, lifecycle and session config out of Runtime
+- device：split executor.ts into protocol, command table and transport
+- kernel：move service wiring, run completion and config watch out of openKernel
+- delivery：split delivery/index.ts into send, replies and tool-send
+- release：split release/index.ts into cohesive modules
+- core：inject session budgets and declare the delivery ports tools need
+- runtime：move the tool catalog and model-chain expansion to L1
+- config：move pure console, binding, notification and prompt-key facts to L0
+- store：move the database types to L0 store/db.ts
+- cli：split subcommand parsing into per-command modules
+- cli：separate the terminal rendering and input layers
+- channel-feishu：extract the send client and history recovery
+- channel-qq：split config, inbound translation and outbound media
+- channel-wechat-ilink：extract the outgoing protocol client
+- native-automation：split tools by target platform
+- cron：split scheduling, execution and persistence
 
 ## [0.3.26103105] - 2026-10-31
 
