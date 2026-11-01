@@ -1,5 +1,5 @@
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
@@ -8,16 +8,18 @@ import { openDatabase } from "./db.js";
 import { Runtime } from "./index.js";
 
 test.each([
-	[401, 1, true, true],
-	[404, 1, true, true],
-	[429, 1, true, true],
-	[500, 1, true, true],
+	[401, 0, 1, true, true],
+	// A controlled response can be delayed by ordinary loopback/event-loop scheduling.
+	[401, 200, 1, true, true],
+	[404, 0, 1, true, true],
+	[429, 0, 1, true, true],
+	[500, 0, 1, true, true],
 	// A request that never got an answer says nothing about the candidate: it switches and records no hold.
-	[0, 3, true, false],
-	[400, 1, false, false],
+	[0, 0, 3, true, false],
+	[400, 0, 1, false, false],
 ])(
-	"HTTP %i follows the native fallback policy",
-	async (status, attempts, switches, held) => {
+	"HTTP %i follows the native fallback policy after %i ms",
+	async (status, responseDelayMs, attempts, switches, held) => {
 		const home = await tempHome("yonder-http-fallback-");
 		const calls: string[] = [];
 		let recovered = false;
@@ -28,8 +30,14 @@ test.each([
 			calls.push(model);
 			if (model === "first" && !recovered) {
 				if (status === 0) return;
-				res.writeHead(status, { "content-type": "application/json", "retry-after": status === 429 ? "1" : "120" });
-				res.end(JSON.stringify({ error: { message: `${status} controlled failure` } }));
+				const respond = () => {
+					res.writeHead(status, { "content-type": "application/json", "retry-after": status === 429 ? "1" : "120" });
+					res.end(JSON.stringify({ error: { message: `${status} controlled failure` } }));
+				};
+				if (responseDelayMs && calls.length === 1) {
+					const timer = setTimeout(respond, responseDelayMs);
+					res.once("close", () => clearTimeout(timer));
+				} else respond();
 				return;
 			}
 			res.writeHead(200, { "content-type": "text/event-stream" });
@@ -54,7 +62,9 @@ test.each([
 				schema: 1,
 				credentials: auth,
 				compaction: { enabled: false },
-				timeouts: { firstTokenMs: 100 },
+				// Only the silent-response case tests the 100 ms guard. HTTP status cases
+				// must classify their actual response rather than race CI scheduling.
+				timeouts: { firstTokenMs: status === 0 ? 100 : 5000 },
 				retry: { maxRetries: 0, baseDelayMs: 10, maxDelayMs: 10 },
 				models: {
 					providers: {
