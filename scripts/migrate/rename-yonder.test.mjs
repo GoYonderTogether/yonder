@@ -182,3 +182,49 @@ test("importing the CLI from an encoded path does not execute a migration", (t) 
 	assert.equal(result.stderr, "");
 	assert.equal(fs.readFileSync(path.join(root, "package.json"), "utf8"), '{"name":"@yonder/executor"}');
 });
+
+for (const preserveMain of [false, true]) {
+	test(`CLI follows a real directory alias (preserve main symlink: ${preserveMain})`, (t) => {
+		const { sandbox, root, script } = cliFixture(t);
+		const alias = path.join(sandbox, "tool alias space % # 测试");
+		fs.symlinkSync(path.dirname(script), alias, process.platform === "win32" ? "junction" : "dir");
+		const aliasScript = path.join(alias, path.basename(script));
+		assert.notEqual(pathToFileURL(aliasScript).href, pathToFileURL(fs.realpathSync(aliasScript)).href);
+		const run = (args) => {
+			const result = spawnSync(
+				process.execPath,
+				[...(preserveMain ? ["--preserve-symlinks-main"] : []), aliasScript, ...args],
+				{ cwd: root, encoding: "utf8", timeout: 10_000 },
+			);
+			assert.ifError(result.error);
+			return result;
+		};
+		const preview = run(["--dry-run", root]);
+		assert.equal(preview.status, 0, preview.stderr);
+		assert.match(preview.stdout, /would change: package\.json/);
+		assert.equal(fs.readFileSync(path.join(root, "package.json"), "utf8"), '{"name":"@yonder/executor"}');
+		const invalid = run(["--invalid"]);
+		assert.equal(invalid.status, 2, invalid.stderr);
+		assert.match(invalid.stderr, /Usage:/);
+		const applied = run(["--apply", root]);
+		assert.equal(applied.status, 0, applied.stderr);
+		assert.match(applied.stdout, /changed: package\.json/);
+		assert.equal(fs.readFileSync(path.join(root, "package.json"), "utf8"), '{"name":"@yonder/device"}');
+		assert.equal(fs.readFileSync(path.join(root, "docs/verification/kept.md"), "utf8"), "yonder-harness");
+	});
+}
+
+test("importing the CLI from stdin does not require an entry file or run a migration", (t) => {
+	const { root, script } = cliFixture(t);
+	const result = spawnSync(process.execPath, ["--input-type=module", "-"], {
+		cwd: root,
+		input: `await import(${JSON.stringify(pathToFileURL(script).href)});`,
+		encoding: "utf8",
+		timeout: 10_000,
+	});
+	assert.ifError(result.error);
+	assert.equal(result.status, 0, result.stderr);
+	assert.equal(result.stdout, "");
+	assert.equal(result.stderr, "");
+	assert.equal(fs.readFileSync(path.join(root, "package.json"), "utf8"), '{"name":"@yonder/executor"}');
+});

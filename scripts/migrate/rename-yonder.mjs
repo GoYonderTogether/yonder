@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 export const MAPPINGS = [
 	["packages/execution-protocol", "packages/protocol"],
@@ -114,7 +114,13 @@ export function migrate(root, { apply = false } = {}) {
 	return { changes, ambiguous };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+// Resolve both sides: argv may traverse a directory alias while ESM resolves the real file.
+const entryFile = process.argv[1];
+if (
+	entryFile &&
+	fs.existsSync(entryFile) &&
+	fs.realpathSync(entryFile) === fs.realpathSync(fileURLToPath(import.meta.url))
+) {
 	const mode = process.argv[2];
 	if (!["--dry-run", "--apply"].includes(mode) || process.argv.length > 4) {
 		console.error("Usage: node scripts/migrate/rename-yonder.mjs --dry-run|--apply [root]");

@@ -20,7 +20,7 @@
 
 收敛前后：core 模块之间的双向值依赖 9 对 → 2 对（剩 `control↔kernel`、`kernel↔plugins`，同在 L4）；层级违规 0；超过 500 行的源文件（不含 vendored pi-durable）22 → 10，剩下的都在行数门禁范围外（`apps/app` 前端、`.mjs` 脚本、Swift）；core 非测试代码 27,052 → 28,556 行（含群参与收口新增与拆分开销）。
 
-**发版与 CI（2026-11-01）**：`v0.3.26110102` 已由官方 Release 作业发布（41 个附件、非草稿），main/tag 同提交。此前市场分类断言与设备崩溃夹具的时效问题已修复；`06b44b01` 的 [CI](https://github.com/GoYonderTogether/yonder/actions/runs/41279589830) 九个 job 均实际成功。现已接入 main push 的 CI 成功后自动派发正式 Release，默认启用严格门禁并锁定已验证 SHA，见 09 §5.1；运行结果以 Actions 记录为准，不把 GitHub 安装版本当作网站部署。Windows 本机换行与迁移检查已修复：完整 build/typecheck 通过，`test:node` 49 通过 / 0 失败 / 1 平台跳过，自动发布策略 20 / 0 / 0，完整 lint 0 errors（937 warnings、30 infos）。这些结果不等同于完整 Windows Vitest、真实模型或服务器部署验收。
+**发版与 CI（2026-11-01）**：`v0.3.26110102` 已由官方 Release 作业发布（41 个附件、非草稿），main/tag 同提交。此前市场分类断言与设备崩溃夹具的时效问题已修复；`06b44b01` 的 [CI](https://github.com/GoYonderTogether/yonder/actions/runs/41279589830) 九个 job 均实际成功。现已接入 main push 的 CI 成功后自动派发正式 Release，默认启用严格门禁并锁定已验证 SHA，见 09 §5.1；运行结果以 Actions 记录为准，不把 GitHub 安装版本当作网站部署。Windows 本机换行与迁移检查已修复：完整 build/typecheck 通过，`test:node` 52 通过 / 0 失败 / 1 平台跳过，自动发布策略 20 / 0 / 0，完整 lint 0 errors（937 warnings、30 infos）。首次严格 macOS CI 的 Node 检查为 48 通过 / 2 失败 / 0 跳过，新增 CLI 入口漏掉 /var 到真实目录的软链接；随后以真实 Windows junction 复现并补修双方 realpath，迁移定向 8/8。失败记录保留在 CI 41282064380，不以本机成功覆盖跨平台结果。这些结果不等同于完整 Windows Vitest、真实模型或服务器部署验收。
 
 待维护者决定：未接线的群摘要显示（`routing/group-session.ts`、`views/social-group.ts`）与外人闸门（`delivery/outsider-guard.ts`）是接线还是删除；云端部署需维护者用 `scripts/deploy-node.sh` 在本机执行。
 
