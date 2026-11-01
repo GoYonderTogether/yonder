@@ -92,6 +92,7 @@ hash 路由按 §3 弃用：至少保留 0.3、0.4 两个 minor，最早 0.5 移
 | `state.db` schema | `y_meta.schema_version` 与迁移执行器测试（随该卡） | S-C06 |
 | views 协议 | `packages/sdk/src/views.golden.test.ts` ↔ `packages/sdk/golden/views.json` | S-C07 |
 | SDK 工具输出缓存 API | `packages/sdk/src/tool-context.golden.test.ts` ↔ `packages/sdk/golden/tool-context.json` | O49 T05 |
+| SDK 参与判定钩子 | `packages/sdk/src/participation.golden.test.ts` ↔ `packages/sdk/golden/participation.json`：`Hook.participation`、`ParticipationInput/Decision`、`ParticipationReason` 的形状；`ParticipationReason` 只增不删 | 2026-10-31 |
 | 聚合入口 | `scripts/check-stability.mjs` 一条命令跑全部冻结检查，进 CI | S-C08 |
 
 home 布局、环境变量、命令名、包名、插件 id、路由（§1.1）目前没有独立 golden，由 S-C08 的聚合脚本或各自卡片补充；补齐前，改动这些项按 §4 走评审。路由的旧 `#/…` 别名由 `apps/app/test/legacyLinks.test.ts` 守护，缺 warn 与 CHANGELOG 两条待补。

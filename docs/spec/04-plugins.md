@@ -166,6 +166,34 @@ type HookResult<T> = T | undefined | Promise<T | undefined>;
 
 beforeSend 只对该会话选中的插件执行，在发送 attempt/事件账本前过滤完整消息；选中它的 profile 按单条 message_end 缓冲流式文本，避免跨片段泄漏。无会话的插件发送不借用其他 profile。具体使用见 [21 §4](21-clipboard-vault.md#4-防泄漏与边界)。
 
+#### participation — 参与判定（Hook 的可选方法，2026-10-31 维护者批准）
+
+```ts
+interface Hook {
+  participation?(input: ParticipationInput): ParticipationDecision | undefined;   // 同步，无 IO、无模型
+}
+interface ParticipationInput {
+  agent: { id: string; owner?: Ref; social?: SocialConfig };   // 只读视图
+  event: YEvent;                                               // message.in
+  person?: Ref;                                                // 发送者账号已关联的人
+  channel?: { kinds?: string[]; features?: ChannelFeatures };
+  facts: { member: boolean; bound: boolean; officialDefault: boolean; custom: boolean };  // 内核据可信渠道事实与绑定算出，插件不能改
+  now: string;                                                 // ISO 时间，quiet 判定用，便于确定性测试
+}
+interface ParticipationDecision { reason: ParticipationReason; run: boolean; revision: string; policy?: SocialPolicy }
+type ParticipationReason =
+  | "unsupported-kind" | "channel-kind-mismatch" | "denied" | "not-authorized" | "quiet" | "invalid-timezone"
+  | "mention-conflict" | "bot-mention" | "owner-mention" | "group-owner" | "everyone" | "keyword" | Participation;
+```
+
+内核在路由、批次复核、回复发送前复核和主动通知准入处调用它，替代原来写在内核里的策略计算。规则：
+
+- **选择。** 按 SocialPolicy 的 `plugin`（省略为 `social`）找到唯一的参与策略插件，与会话 profile 是否选入该插件无关；它不是 beforeSend 那样的 profile 钩子。
+- **事实留在内核。** 平台成员、官方群绑定、派生默认范围、绑定安全（群事件不进 main、渠道范围）、批次复核 `admitBatch`、外人额度仍由内核计算和强制；插件只在这些事实之上给出策略判定，只能收窄，不能放宽内核已判定不运行的事件。
+- **原因集合封闭。** `reason` 取上列字面量；未知值按 `record` 处理。内核对每个原因的后果（拦截回复、拦截通知、是否唤醒）保持与原内核策略完全一致。
+- **不可用时失败关闭。** 所选插件未加载、没有该方法、抛错或返回非法结果：入站只记录并写诊断 `no-participation-plugin`（08）；出站回复与主动通知按拒绝处理，错误为 `Social delivery blocked: participation-unavailable`，与其他拦截一样写入 `message.out` 失败记录。
+- **账本不变。** 路由诊断（`routing.social-decision`）、拦截的失败记录与原因字符串与迁移前相同；只增不删（20）。
+
 ### 3.7 presets — 预设（数据贡献）
 
 插件可以贡献预设（03 §4），格式与 `presets/*.yaml` 相同：`api.presets.register({ id, ...字段 })`。
