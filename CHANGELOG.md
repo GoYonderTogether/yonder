@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.3.26110107] - 2026-11-01
+
+### Fixed
+
+- clipboard：accept Windows absolute paths and skip POSIX mode checks there
+- test：make credential safety, sockets and launchd recovery platform-aware
+
 ## [0.3.26110106] - 2026-11-01
 
 ### Fixed
