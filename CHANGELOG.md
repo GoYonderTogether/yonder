@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110108] - 2026-11-01
+
 ### Fixed
 
 - runtime：重复读取已完成回执不再重复结算；额度与 `run.end` 原子写入，失败可重试，模型健康记录失败不再阻断运行收尾。
@@ -10,6 +12,10 @@
 - app：市场筛选与翻页使用服务端查询，收藏和详情按 ID 加载，不再把未出现在当前页的帖子误判为失效；个人统计明确标注已加载范围。
 - app：聊天重连和消息序号缺口触发 HTTP 补收，浏览历史时保留当前窗口，避免实时消息覆盖历史位置。
 - build：同步 pi-durable 前核对记录来源与当前源码，存在未归档改动或来源无法验证时拒绝覆盖，保留现有 anchor 工具实现。
+- build：refuse pi-durable sync over unarchived source changes
+- app：paginate market data and reconcile realtime message gaps
+- channels：enforce instance scopes and isolate QQ startup failures
+- runtime：make receipt and quota settlement retry-safe
 
 ## [0.3.26110107] - 2026-11-01
 
