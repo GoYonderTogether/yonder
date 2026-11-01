@@ -7,8 +7,9 @@
 // 用法：node scripts/check-build-api.mjs [dist 目录]，默认 ../dist。
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const dist = process.argv[2] ?? new URL("../dist/", import.meta.url).pathname;
+const dist = process.argv[2] ?? fileURLToPath(new URL("../dist/", import.meta.url));
 
 /** 只在 mock 实现/原型横幅里出现的文案（含市场演示帖，JV2-J10-01）。 */
 const mockMarkers = ["本地原型模式", "（原型回复）", "让旅行轻一点，索尼 a6000 套机"];
