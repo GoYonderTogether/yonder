@@ -10,7 +10,7 @@ import { createStore } from "../store/index.js";
 import { quotaWire } from "./quota-wire.js";
 
 const skills = async () => ({ skills: [], issues: [], index: "", estimatedTokens: 0 });
-const run = (inputs: string[], tokens: number): RuntimeRun => ({
+const run = (inputs: string[], tokens: number): RuntimeRun & { runId: string } => ({
 	runId: `run:${inputs[0]}`,
 	status: "done",
 	text: "",
@@ -55,6 +55,13 @@ async function setup(overrides: Partial<YonderConfig> = {}) {
 	return { db, store, session, sends, wire };
 }
 
+async function settle(ctx: Awaited<ReturnType<typeof setup>>, result: RuntimeRun & { runId: string }) {
+	await ctx.wire.settle(ctx.session.id, result, {
+		type: "run.end",
+		data: { session: ctx.session.id, runId: result.runId, usage: result.usage, inputs: result.inputs },
+	});
+}
+
 function inbound(from: string, msgId: string): YEvent {
 	return {
 		id: `e-${msgId}`,
@@ -94,7 +101,7 @@ test("已绑定账号的外人超出每人每日额度后被拒，主人额度�
 		await ctx.store.identity().link("acct:cli:local", "person:owner");
 		const first = await ctx.store.events.record(inbound("acct:feishu:friend", "f1"));
 		expect(await ctx.wire.command(ctx.session, first)).toBeUndefined();
-		await ctx.wire.settle(ctx.session.id, run([first.id], 1_000));
+		await settle(ctx, run([first.id], 1_000));
 		const rejected = await ctx.wire.command(ctx.session, inbound("acct:feishu:friend", "f2"));
 		expect(rejected?.text).toContain("额度");
 		const page = await ctx.store.events.query({ type: "outsider.rejected" });
@@ -102,7 +109,7 @@ test("已绑定账号的外人超出每人每日额度后被拒，主人额度�
 		// 主人不受份额与每人额度限制：额度已经用完也照常进入模型。
 		const owner = await ctx.store.events.record(inbound("acct:cli:local", "o1"));
 		expect(await ctx.wire.command(ctx.session, owner)).toBeUndefined();
-		await ctx.wire.settle(ctx.session.id, run([owner.id], 5_000));
+		await settle(ctx, run([owner.id], 5_000));
 		expect(await ctx.wire.command(ctx.session, inbound("acct:cli:local", "o2"))).toBeUndefined();
 		expect(await ctx.store.events.query({ type: "outsider.rejected" })).toMatchObject({ events: [expect.any(Object)] });
 	} finally {
@@ -135,7 +142,7 @@ test("记过账的运行不会重复计费", async () => {
 		await ctx.store.identity().createPerson({ id: "friend", name: "Friend" });
 		await ctx.store.identity().link("acct:feishu:friend", "person:friend");
 		const first = await ctx.store.events.record(inbound("acct:feishu:friend", "r1"));
-		await ctx.wire.settle(ctx.session.id, run([first.id], 900));
+		await settle(ctx, run([first.id], 900));
 		await ctx.store.events.recordRun({
 			type: "run.end",
 			data: {
@@ -148,7 +155,7 @@ test("记过账的运行不会重复计费", async () => {
 				usage: { input: 900, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 },
 			},
 		});
-		await ctx.wire.settle(ctx.session.id, run([first.id], 900));
+		await settle(ctx, run([first.id], 900));
 		// 900 用量只记一次：重复记账会变成 1800，下一轮就会被每人额度挡住。
 		expect(await ctx.wire.command(ctx.session, inbound("acct:feishu:friend", "r2"))).toBeUndefined();
 	} finally {
@@ -220,10 +227,10 @@ test.each(["qq", "card"])(
 			await ctx.store.identity().createPerson({ id: "owner", name: "Owner" });
 			await ctx.store.identity().link(`acct:${channel}:owner`, "person:owner");
 			const guest = await ctx.store.events.record(inbound("acct:feishu:visitor", "exhaust"));
-			await ctx.wire.settle(ctx.session.id, run([guest.id], 1));
+			await settle(ctx, run([guest.id], 1));
 			const { event, originals } = await handoff(ctx, channel, ["owner"]);
 			expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
-			await ctx.wire.settle(ctx.session.id, run([event.id], 500));
+			await settle(ctx, run([event.id], 500));
 			const { parentOrigins } = await import("../tools/parent-origin.js");
 			expect(await parentOrigins(ctx.store, event, "main")).toEqual(originals);
 			const { conversationPromptOptions } = await import("./conversation.js");
@@ -248,7 +255,7 @@ test("mixed owner and outsider handoff checks the outsider and charges the origi
 		}
 		const { event } = await handoff(ctx, "card", ["owner", "friend"]);
 		expect(await ctx.wire.command(ctx.session, event)).toBeUndefined();
-		await ctx.wire.settle(ctx.session.id, run([event.id], 100));
+		await settle(ctx, run([event.id], 100));
 		expect((await ctx.wire.command(ctx.session, event))?.text).toContain("额度");
 		expect(await ctx.wire.command(ctx.session, inbound("acct:card:owner", "owner-after"))).toBeUndefined();
 	} finally {
@@ -290,7 +297,7 @@ test("forged, cross-session and incomplete legacy origin references cannot inher
 		const legacy = { ...event, data: { ...data, requestOrigin: { ...origin, inputs: undefined } } };
 		expect(await parentOrigins(ctx.store, legacy, "main")).toHaveLength(2);
 		const guest = await ctx.store.events.record(inbound("acct:feishu:guest", "deplete"));
-		await ctx.wire.settle(ctx.session.id, run([guest.id], 1));
+		await settle(ctx, run([guest.id], 1));
 		const forged = { ...event, data: { ...data, requestOrigin: { ...origin, inputs: ["missing"] } } };
 		expect((await ctx.wire.command(ctx.session, forged))?.text).toContain("额度");
 	} finally {
@@ -310,6 +317,26 @@ test("plugin and channel ingress reject fabricated internal handoffs even with v
 		const external = { ...event, from: "acct:qq:visitor", conv: "conv:qq:group" };
 		expect(pluginEvent("channel-provider", external, "qq", true)).toBe(external);
 		expect(await parentOrigins(ctx.store, external, "main")).toBeUndefined();
+	} finally {
+		await ctx.db.close();
+	}
+});
+
+test("quota and run.end roll back together, then concurrent retries charge once", async () => {
+	const ctx = await setup();
+	try {
+		const event = await ctx.store.events.record(inbound("acct:feishu:guest", "atomic"));
+		const result = run([event.id], 900);
+		await ctx.db.exec(`CREATE TRIGGER fail_run_end BEFORE INSERT ON y_events
+			WHEN NEW.type = 'run.end' BEGIN SELECT RAISE(ABORT, 'injected completion failure'); END`);
+		await expect(settle(ctx, result)).rejects.toThrow("injected completion failure");
+		expect(await ctx.store.events.runEnd(ctx.session.id, result.runId)).toBeUndefined();
+		expect(await ctx.db.all("SELECT * FROM y_quota_days")).toEqual([]);
+		await ctx.db.exec("DROP TRIGGER fail_run_end");
+		await Promise.all([settle(ctx, result), settle(ctx, result)]);
+		await settle(ctx, result);
+		expect(await ctx.db.get("SELECT tokens FROM y_quota_days WHERE scope = 'owner'")).toEqual({ tokens: 900 });
+		expect((await ctx.store.events.query({ type: "run.end" })).events).toHaveLength(1);
 	} finally {
 		await ctx.db.close();
 	}

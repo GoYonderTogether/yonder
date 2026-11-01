@@ -201,8 +201,10 @@ export async function createStore(
 			);
 			return row ? eventRow(row) : undefined;
 		},
+		/** Settlement and the completion marker share one transaction; duplicate runs do neither. */
 		async recordRun(
 			input: EventInput & { data: { session: string; runId: string; [key: string]: unknown } },
+			settle?: (tx: DbExecutor) => Promise<void>,
 		): Promise<boolean> {
 			const event = newEvent(input);
 			const added = await db.transaction(async (tx) => {
@@ -212,6 +214,7 @@ export async function createStore(
 					input.data.runId,
 				);
 				if (found) return false;
+				await settle?.(tx);
 				await insert(tx, event);
 				return true;
 			});

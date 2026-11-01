@@ -35,8 +35,7 @@ export function createRunCompletion({
 		const session = await store.sessions.get(id);
 		if (!session) throw new Error(`Missing runtime session: ${id}`);
 		const completion = await delivery().onRun(session, run, []);
-		await gate().settle(id, run);
-		await store.events.recordRun(completion.ending);
+		await gate().settle(id, run, completion.ending);
 		completion.deliver();
 		await router().finishRun(session, run);
 		if (!(await runtime().hasPendingWork(id))) {

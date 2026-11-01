@@ -44,7 +44,7 @@ export interface RuntimeOptions {
 	/** Every key `sections` may return, in default order. Keys must match `^[a-z][a-z0-9_-]*$`. */
 	sectionKeys?: readonly string[];
 	readEvent?(id: string): Promise<YEvent | undefined>;
-	/** True when this run already has its durable `run.end`; recover() then does not replay it. */
+	/** True when this run already has its durable `run.end`; receipt reads must not settle it again. */
 	settled?(session: string, run: string): Promise<boolean>;
 	prepareInput?(
 		id: string,

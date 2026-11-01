@@ -2,10 +2,12 @@ import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { resolveProfile } from "../config/test-support.js";
 import { openDatabase } from "./db.js";
+import type { RunState } from "./docs.js";
 import { Runtime } from "./index.js";
+import { RunLimits } from "./limits.js";
 
 const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
@@ -38,11 +40,11 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 			expect(warnings.filter((item) => item.session === denied && item.kind === "maxTurns")).toHaveLength(1);
 			const transcript = await runtime.transcript(denied);
 			expect(transcript.some((item) => item.text?.includes("文件路径超出当前工作区"))).toBe(true);
-			// BE-07：上限只提醒、不截断，主人要看到中文说明并能接着说「继续」。
+			// 软阈值只提醒，不暗示运行已经截断或需要主人续办。
 			const reminder = warnings.find((item) => item.session === denied && item.kind === "maxTurns");
 			expect(reminder?.text).toContain("maxTurns");
-			expect(reminder?.text).toContain("回复「继续」可以接着做");
-			expect(transcript.some((item) => item.text?.includes("回复「继续」可以接着做"))).toBe(true);
+			expect(reminder?.text).toContain("运行仍在继续");
+			expect(transcript.some((item) => item.text?.includes("运行仍在继续"))).toBe(true);
 			const continued = await runtime.submit(denied, { text: "Reply with the single word OK." });
 			expect(continued.status, JSON.stringify(continued)).toBe("done");
 			expect(transcript.filter((item) => item.kind === "pi.assistant").length).toBeGreaterThanOrEqual(2);
@@ -86,3 +88,36 @@ test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
 	},
 	150000,
 );
+
+test("elapsed-time soft reminder says execution continues without requiring a reply", async () => {
+	vi.useFakeTimers();
+	try {
+		const warning = vi.fn(async () => {});
+		const limits = new RunLimits({
+			harness: () => ({
+				commit: async (callback: (tx: unknown) => Promise<void>) => callback({ doc: async () => ({}) }),
+			}),
+			onWarning: warning,
+		} as unknown as ConstructorParameters<typeof RunLimits>[0]);
+		const state = {
+			id: "1",
+			session: "1",
+			deadline: Date.now(),
+			warnings: new Set(),
+			visibility: new AbortController(),
+			config: { resolved: resolveProfile({ limits: { maxMinutes: 1 } }) },
+		} as RunState;
+		limits.states.set(state.id, state);
+		limits.arm(state);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(warning).toHaveBeenCalledTimes(1);
+		const text = (warning.mock.calls[0] as unknown as [string, { text: string }])[1].text;
+		expect(text).toContain("运行仍在继续");
+		expect(text).toContain("无需回复");
+		expect(text).not.toContain("被截断");
+		expect(state.visibility.signal.aborted).toBe(false);
+		expect(limits.states.has(state.id)).toBe(true);
+	} finally {
+		vi.useRealTimers();
+	}
+});

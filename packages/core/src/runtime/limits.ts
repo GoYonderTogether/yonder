@@ -64,7 +64,7 @@ export class RunLimits {
 	private limitText(kind: "maxTurns" | "maxTokens" | "maxMinutes", state: RunState, used: string): string {
 		const limits = state.config.resolved.limits;
 		const limit = kind === "maxTurns" ? limits.maxTurns : kind === "maxTokens" ? limits.maxTokens : limits.maxMinutes;
-		return `这次回复因为达到 ${kind} 上限（${used}，上限 ${limit}）被截断，回复「继续」可以接着做。目标已完成就直接交付；没完成就继续做，并在交付时说明还剩什么。`;
+		return `本次运行已达到 ${kind} 提醒阈值（${used}，阈值 ${limit}），运行仍在继续，无需回复「继续」。目标已完成就直接交付；没完成就继续做，并在交付时说明还剩什么。`;
 	}
 	private async warn(state: RunState, kind: string, text: string): Promise<void> {
 		if (state.warnings.has(kind)) return;

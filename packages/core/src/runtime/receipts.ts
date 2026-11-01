@@ -50,73 +50,80 @@ export async function receiptRun(
 	const existing = rt.finishing.get(finishKey);
 	if (existing) return existing;
 	const promise = (async () => {
-		const saved = await rt.harness.snapshot(RunDoc, cid(session), key, C);
-		await rt.settleActivity(session, key, receipt, {
-			error: saved?.error ?? null,
-			reason: saved?.reason ?? null,
-		});
-		if (!saved?.config || !receipt.settlement)
-			throw new Error(`运行 ${session}/${key} 缺少开始配置或终结凭据，历史结果不可确定`);
-		const config: RuntimeSessionConfig = JSON.parse(saved.config);
-		const usage = sumUsage(receipt.usage);
-		for (const field of Object.keys(usage) as Array<keyof typeof usage>) usage[field] -= saved.usageBefore[field];
-		const settlement = receipt.settlement;
-		const answer =
-			settlement.status === "done" ? await rt.harness.commit((tx) => tx.entry(settlement.answer), C) : undefined;
-		const inputs = (await rt.sources(receipt.inputs)).map((event) => event.id);
-		// Tool results of this run lie between its first input entry and its answer entry. recover() settles every
-		// historical receipt, so reading the whole conversation here made startup grow with runs x entries
-		// (about two minutes for a few dozen runs of a long conversation).
-		const placed = (await Promise.all(receipt.inputs.map((input) => rt.storage.submission(input, C))))
-			.map((record) => record?.entry)
-			.filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
-		const entries = (saved.toolTasks ?? []).length
-			? await rt.storage.scanEntries(
-					{
-						conversationId: cid(session),
-						...(placed.length ? { minEntryId: Math.min(...placed) as (typeof placed)[number] } : {}),
-						...(settlement.status === "done" ? { maxEntryId: settlement.answer } : {}),
-					},
-					Number.MAX_SAFE_INTEGER,
-					undefined,
-					C,
-				)
-			: { items: [] };
-		const attachments = entries.items.flatMap((entry) =>
-			(entry.model ?? []).flatMap((message) =>
-				message.role === "toolResult" &&
-				entry.byTaskId !== undefined &&
-				(saved.toolTasks ?? []).includes(entry.byTaskId)
-					? ((message.details as { attachments?: Attachment[] } | undefined)?.attachments ?? [])
-					: [],
-			),
-		);
-		const run: RuntimeRun = {
-			runId: key,
-			session,
-			...(attachments.length ? { attachments } : {}),
-			config,
-			...(answer?.model?.[0]?.role === "assistant"
-				? { model: `${answer.model[0].provider}/${answer.model[0].model}` }
-				: {}),
-			...(saved.error
-				? { status: "error" as const, reason: saved.error }
-				: submissionOutcome(settlement, saved.reason ?? undefined)),
-			text: textOf(answer),
-			...(answer?.model?.[0]?.role === "assistant" ? { message: String(answer.model[0].timestamp) } : {}),
-			inputs,
-			usage,
-		};
-		const attempts = await runAttempts(rt.storage, session, placed, answer?.id);
-		await rt.options.onUsageSettled?.(session, usage);
-		await rt.watch.record(config, run, attempts);
-		await rt.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
 		const active = rt.limits.states.get(key);
 		active?.visibility.abort();
 		clearTimeout(active?.timer);
 		try {
-			await rt.options.onRun?.(session, run);
+			const saved = await rt.harness.snapshot(RunDoc, cid(session), key, C);
+			await rt.settleActivity(session, key, receipt, {
+				error: saved?.error ?? null,
+				reason: saved?.reason ?? null,
+			});
+			if (!saved?.config || !receipt.settlement)
+				throw new Error(`运行 ${session}/${key} 缺少开始配置或终结凭据，历史结果不可确定`);
+			const config: RuntimeSessionConfig = JSON.parse(saved.config);
+			const usage = sumUsage(receipt.usage);
+			for (const field of Object.keys(usage) as Array<keyof typeof usage>) usage[field] -= saved.usageBefore[field];
+			const settlement = receipt.settlement;
+			const answer =
+				settlement.status === "done" ? await rt.harness.commit((tx) => tx.entry(settlement.answer), C) : undefined;
+			const inputs = (await rt.sources(receipt.inputs)).map((event) => event.id);
+			// Tool results of this run lie between its first input entry and its answer entry. recover() settles every
+			// historical receipt, so reading the whole conversation here made startup grow with runs x entries
+			// (about two minutes for a few dozen runs of a long conversation).
+			const placed = (await Promise.all(receipt.inputs.map((input) => rt.storage.submission(input, C))))
+				.map((record) => record?.entry)
+				.filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
+			const entries = (saved.toolTasks ?? []).length
+				? await rt.storage.scanEntries(
+						{
+							conversationId: cid(session),
+							...(placed.length ? { minEntryId: Math.min(...placed) as (typeof placed)[number] } : {}),
+							...(settlement.status === "done" ? { maxEntryId: settlement.answer } : {}),
+						},
+						Number.MAX_SAFE_INTEGER,
+						undefined,
+						C,
+					)
+				: { items: [] };
+			const attachments = entries.items.flatMap((entry) =>
+				(entry.model ?? []).flatMap((message) =>
+					message.role === "toolResult" &&
+					entry.byTaskId !== undefined &&
+					(saved.toolTasks ?? []).includes(entry.byTaskId)
+						? ((message.details as { attachments?: Attachment[] } | undefined)?.attachments ?? [])
+						: [],
+				),
+			);
+			const run: RuntimeRun = {
+				runId: key,
+				session,
+				...(attachments.length ? { attachments } : {}),
+				config,
+				...(answer?.model?.[0]?.role === "assistant"
+					? { model: `${answer.model[0].provider}/${answer.model[0].model}` }
+					: {}),
+				...(saved.error
+					? { status: "error" as const, reason: saved.error }
+					: submissionOutcome(settlement, saved.reason ?? undefined)),
+				text: textOf(answer),
+				...(answer?.model?.[0]?.role === "assistant" ? { message: String(answer.model[0].timestamp) } : {}),
+				inputs,
+				usage,
+			};
+			if (!(await rt.options.settled?.(session, key))) {
+				await rt.options.onUsageSettled?.(session, usage);
+				try {
+					const attempts = await runAttempts(rt.storage, session, placed, answer?.id);
+					await rt.watch.record(config, run, attempts);
+				} catch (error) {
+					rt.options.onReport?.(error);
+				}
+				await rt.outbox.note(session, config, run, placed.length ? Math.min(...placed) : undefined);
+				await rt.options.onRun?.(session, run);
+			}
 			await rt.idleChanged(session);
+			return run;
 		} finally {
 			const state = rt.limits.states.get(key);
 			if (state) {
@@ -127,7 +134,6 @@ export async function receiptRun(
 			for (const input of receipt.inputs) rt.submissions.delete(String(input));
 			if (rt.configured.get(session) === state?.config) rt.configured.delete(session);
 		}
-		return run;
 	})();
 	rt.finishing.set(finishKey, promise);
 	try {

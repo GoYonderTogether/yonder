@@ -34,8 +34,8 @@ export interface QuotaWireOptions extends ChannelServices {
 export interface QuotaWire {
 	/** 渠道命令与外人额度闸门：返回结果表示这一轮已经处理完毕，不再交给模型。 */
 	command(session: SessionInfo, event: YEvent): Promise<RunResult | undefined>;
-	/** 运行结束后按实际用量记账；主人与 bot 自己的会话不记账。 */
-	settle(id: string, run: RuntimeRun): Promise<void>;
+	/** 将实际用量与 run.end 原子写入；主人与 bot 自己的会话只记录 run.end。 */
+	settle(id: string, run: RuntimeRun, ending: Parameters<Store["events"]["recordRun"]>[0]): Promise<void>;
 }
 
 interface Resolved {
@@ -136,19 +136,28 @@ export function quotaWire(options: QuotaWireOptions): QuotaWire {
 			for (const { tier, subject } of resolved) if (tier === "guest" && subject) await quota.charge(subject, 0, 1);
 			return undefined;
 		},
-		async settle(id, run) {
+		async settle(id, run, ending) {
 			const tokens = run.usage.input + run.usage.output + run.usage.cacheRead + run.usage.cacheWrite;
-			if (!tokens || (run.runId && (await store.events.runEnd(id, run.runId)))) return;
+			let subject: OutsiderSubject | undefined;
 			const session = await store.sessions.get(id);
-			if (!session) return;
-			for (const input of run.inputs) {
-				const event = await store.events.get(input);
-				if (!event) continue;
-				const { subject } = (await resolve(store, session, event))[0] ?? {};
-				if (!subject) continue;
-				await quota.charge(subject, tokens);
-				return;
+			if (tokens && session) {
+				for (const input of run.inputs) {
+					const event = await store.events.get(input);
+					if (!event) continue;
+					subject = (await resolve(store, session, event))[0]?.subject;
+					if (subject) break;
+				}
 			}
+			await store.events.recordRun(ending, async (tx) => {
+				if (subject) {
+					await createQuota({
+						db: tx,
+						outsiders: config.outsiders ?? {},
+						...(config.timezone ? { timezone: config.timezone } : {}),
+						...(options.now ? { now: options.now } : {}),
+					}).charge(subject, tokens);
+				}
+			});
 		},
 	};
 }

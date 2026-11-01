@@ -1,4 +1,4 @@
-import type { Db } from "./db.js";
+import type { DbExecutor } from "./db.js";
 
 /** 账本里一天一格：`day` 是主人时区下的 `YYYY-MM-DD`，`scope`+`key` 是被计量的对象（IMP-19）。 */
 export type QuotaScope = "guest_qr" | "guest_rounds" | "guest_source" | "owner" | "person";
@@ -19,7 +19,7 @@ const DDL = `CREATE TABLE IF NOT EXISTS y_quota_days (
 )`;
 
 /** 外人额度账本的持久化：只做当天累加与读取，判定留在 `kernel/quota.ts`。 */
-export function quotaStore(db: Db) {
+export function quotaStore(db: DbExecutor) {
 	const ready = db.exec(DDL);
 	const count = (value: number) => (Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0);
 	return {

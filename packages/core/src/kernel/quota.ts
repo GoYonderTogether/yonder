@@ -1,6 +1,6 @@
 import { defaultOutsiders } from "../config/defaults.js";
 import { tokenAmount, type YonderConfig } from "../config/index.js";
-import type { Db } from "../runtime/db.js";
+import type { DbExecutor } from "../runtime/db.js";
 import { quotaStore } from "../store/quota.js";
 
 type Outsiders = NonNullable<YonderConfig["outsiders"]>;
@@ -39,7 +39,7 @@ export function quotaDay(now: number, timezone: string): string {
 }
 
 export interface QuotaOptions {
-	db: Db;
+	db: DbExecutor;
 	outsiders: Outsiders;
 	/** 主人时区；缺省与配置缺省一致。 */
 	timezone?: string;
