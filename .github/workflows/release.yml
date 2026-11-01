@@ -187,14 +187,27 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # 正式版公开后把工作台前端推到 yonderbot.net。私有仓只接受「tag + 提交 sha」，
-      # 不接收构建产物；那边从公开仓按 sha 取源码重建，两个仓都不需要额外凭据交叉授权。
+      # 正式版公开后通知网页部署。本仓的 GITHUB_TOKEN 只覆盖本仓（向私有仓派发会 404），
+      # 而除正式发版外没有别的跨仓写入需求，因此不在两仓之间长期放一把 App/PAT 凭据：
+      # 这一步在「拿到 GitHub App 的跨仓派发凭据之前」是显式的未完成项，失败不让发版本身变红，
+      # 结束语里如实写明失败原因。
       - name: 派发网页部署
+        id: dispatch
+        continue-on-error: true
         run: |
+          {
+            echo "tag=v$VERSION"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "result=failed"
+          } > "$GITHUB_STEP_SUMMARY"
           gh api "repos/GoYonderTogether/yonder-cloud/dispatches" \
-            -f event_type=deploy-web \
+            -f event_type=agent-web-deploy \
             -f "client_payload[tag]=v$VERSION" \
             -f "client_payload[sha]=$(git rev-parse HEAD)"
+          echo "result=dispatched" > "$GITHUB_STEP_SUMMARY"
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CLOUD_DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: 网页部署未派发时说明
+        if: ${{ steps.dispatch.outcome == 'failure' }}
+        run: echo "::warning::未派发网页部署：GITHUB_TOKEN 不能访问私有仓 yonder-cloud；需要跨仓 App 凭据（见 docs/spec/09 §5.1）"
