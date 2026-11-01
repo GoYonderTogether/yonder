@@ -23,7 +23,13 @@ export type ControlHandler = (request: ControlRequest, connection: ControlConnec
  * hash the same path, so they still meet, and a shorter name settles the length instead of hiding the failure.
  */
 const SOCKET_PATH_LIMIT = 100;
-function socketPath(path: string) {
+/**
+ * Windows 没有 unix 域套接字文件；`net.connect(path)` 指向普通文件会失败（EACCES/ENOENT），
+ * 必须用命名管道。两端都用同一条 home 派生，所以名字一致。
+ */
+function socketPath(path: string, platform: NodeJS.Platform) {
+	if (platform === "win32")
+		return `\\\\.\\pipe\\yonder-sock-${createHash("sha256").update(path).digest("hex").slice(0, 32)}`;
 	if (Buffer.byteLength(path) <= SOCKET_PATH_LIMIT) return path;
 	return join(tmpdir(), `yonder-${createHash("sha256").update(path).digest("hex").slice(0, 24)}.sock`);
 }
@@ -31,17 +37,14 @@ function socketPath(path: string) {
 export function controlEndpoint(home: string, platform: NodeJS.Platform = process.platform) {
 	if (platform === "win32")
 		return `\\\\.\\pipe\\yonder-control-${createHash("sha256").update(win32.resolve(home).toLowerCase()).digest("hex").slice(0, 32)}`;
-	return socketPath(join(home, ".yonder", "control.sock"));
+	return socketPath(join(home, ".yonder", "control.sock"), platform);
 }
 
 export function cliChannelEndpoint(home: string, id: string, platform: NodeJS.Platform = process.platform) {
-	const path =
-		platform === "win32"
-			? win32.join(home, ".yonder", "plugins", "channel-cli", `${id}.sock`)
-			: join(home, ".yonder", "plugins", "channel-cli", `${id}.sock`);
+	const path = join(home, ".yonder", "plugins", "channel-cli", `${id}.sock`);
 	if (platform === "win32")
 		return `\\\\.\\pipe\\yonder-cli-${createHash("sha256").update(win32.resolve(path).toLowerCase()).digest("hex").slice(0, 32)}`;
-	return path;
+	return socketPath(path, platform);
 }
 
 function message(error: unknown) {

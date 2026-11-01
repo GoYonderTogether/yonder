@@ -71,11 +71,12 @@ export class CredentialSlotStore {
 		for (const directory of [`${this.authPath}.slots`, resolve(`${this.authPath}.slots`, provider)]) {
 			try {
 				const stat = lstatSync(directory);
+				// Windows 没有 uid 与 POSIX 权限位，只校验它是真实目录。
+				const posix = process.platform !== "win32";
 				if (
 					!stat.isDirectory() ||
 					stat.isSymbolicLink() ||
-					stat.uid !== process.getuid?.() ||
-					(stat.mode & 0o777) !== 0o700
+					(posix && (stat.uid !== process.getuid?.() || (stat.mode & 0o777) !== 0o700))
 				)
 					throw new Error("Unsafe credential slot directory");
 			} catch (error) {

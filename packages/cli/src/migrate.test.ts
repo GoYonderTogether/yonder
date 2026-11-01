@@ -146,28 +146,31 @@ test("launchd commands are printed in the plan and only run on apply", async () 
 	expect(ran).toEqual(plan.commands);
 });
 
-test("a launchd failure is reported apart from the finished data migration, with exact recovery commands", async () => {
-	const { root, options, oldHome, newHome } = await fixture();
-	const daemons = join(root, "LaunchDaemons");
-	await mkdir(daemons);
-	await writeFile(join(daemons, "dev.yonder.harness.power.plist"), "x");
-	let n = 0;
-	const run = async () => {
-		if (++n === 2) throw new Error("boom");
-	};
-	const result = await applyMigration({ ...options, launchd: { daemons, helpers: join(root, "none") }, run });
-	expect(result.applied).toBe(true);
-	expect(await realpath(oldHome)).toBe(await realpath(newHome));
-	expect(result.launchdDone).toHaveLength(1);
-	expect(result.launchdPending.map((c) => c[0])).toEqual(["sed", "mv", "launchctl"]);
-	const text = formatMigration(result);
-	expect(text).toContain("数据迁移：已完成");
-	expect(text).toContain("launchd：已执行 1/4 条，失败：");
-	expect(text).toContain(
-		`sudo sed -i '' 's/dev\\.yonder\\.harness\\.power/dev.yonder.power/g' ${join(daemons, "dev.yonder.harness.power.plist")}`,
-	);
-});
-
+// 恢复命令用 POSIX shell 写法（sudo sed；Windows 上没有 launchd）。
+test.skipIf(process.platform === "win32")(
+	"a launchd failure is reported apart from the finished data migration, with exact recovery commands",
+	async () => {
+		const { root, options, oldHome, newHome } = await fixture();
+		const daemons = join(root, "LaunchDaemons");
+		await mkdir(daemons);
+		await writeFile(join(daemons, "dev.yonder.harness.power.plist"), "x");
+		let n = 0;
+		const run = async () => {
+			if (++n === 2) throw new Error("boom");
+		};
+		const result = await applyMigration({ ...options, launchd: { daemons, helpers: join(root, "none") }, run });
+		expect(result.applied).toBe(true);
+		expect(await realpath(oldHome)).toBe(await realpath(newHome));
+		expect(result.launchdDone).toHaveLength(1);
+		expect(result.launchdPending.map((c) => c[0])).toEqual(["sed", "mv", "launchctl"]);
+		const text = formatMigration(result);
+		expect(text).toContain("数据迁移：已完成");
+		expect(text).toContain("launchd：已执行 1/4 条，失败：");
+		expect(text).toContain(
+			`sudo sed -i '' 's/dev\\.yonder\\.harness\\.power/dev.yonder.power/g' ${join(daemons, "dev.yonder.harness.power.plist")}`,
+		);
+	},
+);
 test("conflicts block: both homes real, or plugin state target present", async () => {
 	const { options, newHome } = await fixture();
 	await mkdir(newHome, { recursive: true });

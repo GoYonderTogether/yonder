@@ -57,6 +57,17 @@ export class FileAuthStorageBackend implements AuthStorageBackend {
 	}
 
 	private checkSafePath(): void {
+		// Windows 没有 POSIX 权限位与 uid：NTFS 上 stat.mode 恒为 0o666/0o777，getuid() 也不存在，
+		// 照 POSIX 规则比较会永远判为不安全。凭据文件的保护改由「仅当前用户可读的目录」承担，
+		// 那里由 atomicWrite 的独占创建保证；这里只拒绝符号链接。
+		if (process.platform === "win32") {
+			try {
+				if (lstatSync(this.authPath).isSymbolicLink()) throw new Error("Unsafe credential storage path or permissions");
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+			}
+			return;
+		}
 		let path = this.authPath;
 		while (true) {
 			try {
