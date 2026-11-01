@@ -1,6 +1,13 @@
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type Attachment, definePlugin, type Tool, type ToolContext } from "@yonder/sdk";
+import {
+	type Attachment,
+	allowsChannelInstance,
+	assertChannelInstance,
+	definePlugin,
+	type Tool,
+	type ToolContext,
+} from "@yonder/sdk";
 import { type Static, Type } from "typebox";
 import { Check } from "typebox/value";
 import { type Config, IlinkChannel, privateWrite } from "./channel.js";
@@ -57,7 +64,8 @@ export default definePlugin({
 				return channel;
 			},
 		});
-		function channel(instance: string): IlinkChannel {
+		function channel(instance: string, ctx: ToolContext): IlinkChannel {
+			assertChannelInstance(ctx, instance);
 			const result = instances.get(instance);
 			if (!result) throw new Error("Unknown iLink instance");
 			return result;
@@ -82,13 +90,15 @@ export default definePlugin({
 				"Read cached iLink pairing, per-instance identity and context readiness. No credentials, network requests, or sending. Check pairing and recipient-context readiness separately. Missing inbound context is not repaired by re-pairing or borrowing another peer context; ask the intended peer to contact this instance. Use login only for the reported pairing need, not as a generic retry.",
 			capabilities: ["read"],
 			parameters: Type.Object({ instance: Type.Optional(str) }, { additionalProperties: false }),
-			async execute(input) {
+			async execute(input, ctx) {
 				const { instance } = input as { instance?: string };
 				return {
 					text: JSON.stringify(
 						instance
-							? await channel(instance).status()
-							: await Promise.all([...instances.values()].map((c) => c.status())),
+							? await channel(instance, ctx).status()
+							: await Promise.all(
+									[...instances.values()].filter((c) => allowsChannelInstance(ctx, c.id)).map((c) => c.status()),
+								),
 					),
 				};
 			},
@@ -108,7 +118,7 @@ export default definePlugin({
 			),
 			async execute(input, ctx) {
 				const args = input as { instance?: string; action?: "start" | "poll"; verifyCode?: string };
-				const selected = channel(args.instance ?? (await primaryId()));
+				const selected = channel(args.instance ?? (await primaryId()), ctx);
 				const status = await selected.status();
 				if (
 					!args.action &&
@@ -159,7 +169,7 @@ export default definePlugin({
 					replyTo?: string;
 					attachments?: Attachment[];
 				};
-				const c = channel(args.instance);
+				const c = channel(args.instance, ctx);
 				if (!args.to.startsWith(`acct:${c.id}:`) && !args.to.startsWith(`conv:${c.id}:`))
 					throw new Error("Target belongs to another iLink instance");
 				const delivery = await api.messages.send(

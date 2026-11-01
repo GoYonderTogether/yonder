@@ -87,8 +87,12 @@ export class QQChannel implements Channel {
 	}
 	async start(io: ChannelIO): Promise<void> {
 		const credential = await this.api.credentials.get(this.config.credential);
-		if (credential?.type !== "api_key" || !credential.key)
-			throw new Error(`QQ credential unavailable: ${this.config.credential}`);
+		if (credential?.type !== "api_key" || !credential.key) {
+			this.state = "unavailable";
+			this.error = `QQ credential unavailable: ${this.config.credential}`;
+			this.api.log.error("QQ transport unavailable", { instance: this.id, error: this.error });
+			return;
+		}
 		this.secret = credential.key;
 		const directory = join(this.api.paths.data, this.id);
 		await mkdir(directory, { recursive: true, mode: 0o700 });

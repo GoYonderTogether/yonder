@@ -113,8 +113,10 @@ export function configurationErrors(
 			}
 			for (const kind of kinds)
 				if (
-					!ids.some((id) =>
-						(id === "agent" ? ["agent", "parent-request"] : plugins.channels.get(id)?.kinds)?.includes(kind),
+					!ids.some(
+						(id) =>
+							plugins.channelErrors.has(id) ||
+							(id === "agent" ? ["agent", "parent-request"] : plugins.channels.get(id)?.kinds)?.includes(kind),
 					)
 				)
 					errors.push(`${agent.id}/${binding.id}: no selected channel declares kind ${kind}`);

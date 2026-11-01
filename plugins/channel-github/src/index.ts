@@ -1,4 +1,4 @@
-import { defineChannel, definePlugin, defineTool, type ToolContext } from "@yonder/sdk";
+import { assertChannelInstance, defineChannel, definePlugin, defineTool, type ToolContext } from "@yonder/sdk";
 import { type Static, Type } from "typebox";
 import { applyRelease, notifyUpdate } from "./actions.js";
 import { releaseAvailability } from "./availability.js";
@@ -30,8 +30,9 @@ export default definePlugin({
 				},
 			}),
 		);
-		function channel(value: unknown): GithubChannel {
+		function channel(value: unknown, ctx: ToolContext): GithubChannel {
 			const id = String(object(value).instance);
+			assertChannelInstance(ctx, id);
 			const result = channels.get(id);
 			if (!result) throw new Error(`GitHub instance not configured: ${id}`);
 			return result;
@@ -47,7 +48,7 @@ export default definePlugin({
 					text: JSON.stringify({
 						provider: "github",
 						externalContent: true,
-						result: await action(channel(value), object(value)),
+						result: await action(channel(value, ctx), object(value)),
 					}),
 				};
 			} catch (error) {

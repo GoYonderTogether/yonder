@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { definePlugin, type TSchema } from "@yonder/sdk";
+import { allowsChannelInstance, definePlugin, type TSchema } from "@yonder/sdk";
 import { type Config, configSchema, QQChannel } from "./channel.js";
 
 export default definePlugin({
@@ -20,10 +20,10 @@ export default definePlugin({
 			description:
 				"Read QQ bot transport state, actual counts and group batch/read positions. To configure QQ, run the returned setup executable with --home <Yonder home> --agent <agent id> [--open] using authorized local exec. Forward its official binding link/QR immediately while it waits; credentials are saved without display. It configures owner DM and read-only group participation. The group owner must also open that specific group's robot management in mobile QQ, select this bot, and set its message scope to all. The bot's own global settings do not grant group access. A ready connection is not receive/reply acceptance.",
 			parameters: { type: "object", additionalProperties: false, properties: {} } as TSchema,
-			async execute() {
+			async execute(_input, ctx) {
 				return {
 					text: JSON.stringify({
-						instances: [...instances.values()].map((c) => c.status()),
+						instances: [...instances.values()].filter((c) => allowsChannelInstance(ctx, c.id)).map((c) => c.status()),
 						setup: {
 							executable: process.execPath,
 							args: [fileURLToPath(new URL("./setup.js", import.meta.url)), "setup"],
