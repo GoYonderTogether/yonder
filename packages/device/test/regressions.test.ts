@@ -5,17 +5,19 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 import {
 	type DeviceDescriptor,
 	type DeviceSession,
 	type Grant,
+	MAX_MESSAGE_AGE_MS,
 	publicKeyId,
 	type RpcRequest,
 	type RpcResponse,
 	signMessage,
 	verifyMessage,
 } from "@yonder/protocol";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import type { BackendProvider } from "../src/backend-provider.js";
 import { DeviceExecutor } from "../src/executor.js";
 import { ExecutorStore } from "../src/store.js";
@@ -147,8 +149,9 @@ function fixture() {
 	executor.store.data.peers[principalId] = keys.publicKey.export({ format: "der", type: "spki" }).toString("base64");
 	executor.store.data.grants[grant.grantId] = grant;
 	executor.store.save();
-	const envelope = (method: RpcRequest["method"], params: RpcRequest["params"]) =>
-		signMessage(
+	const envelope = (method: RpcRequest["method"], params: RpcRequest["params"]) => {
+		const issuedAt = Date.now();
+		return signMessage(
 			{
 				protocol: "yonder.execution",
 				version: 1,
@@ -156,13 +159,14 @@ function fixture() {
 				requestId: randomUUID(),
 				principalId,
 				deviceId: executor.deviceId,
-				issuedAt: Date.now(),
-				expiresAt: Date.now() + 60_000,
+				issuedAt,
+				expiresAt: issuedAt + MAX_MESSAGE_AGE_MS,
 				method,
 				params,
 			} as RpcRequest,
 			keys.privateKey,
 		);
+	};
 	const decode = (packet: Parameters<typeof verifyMessage>[0]): RpcResponse =>
 		verifyMessage(packet, keysForDevice(), {
 			kind: "response",
@@ -182,6 +186,24 @@ function fixture() {
 		});
 	return { home, executor, provider, descriptor, grant, envelope, open, decode };
 }
+
+test("request fixture remains valid when the clock ticks between timestamp reads", async () => {
+	const f = fixture();
+	const issuedAt = Date.now();
+	const clock = vi
+		.spyOn(Date, "now")
+		.mockReturnValueOnce(issuedAt)
+		.mockReturnValue(issuedAt + 1);
+	let packet: ReturnType<typeof signMessage>;
+	try {
+		packet = f.envelope("device.describe", {});
+	} finally {
+		clock.mockRestore();
+	}
+	const request = JSON.parse(Buffer.from(packet.payloadBase64, "base64").toString()) as RpcRequest;
+	expect(request.expiresAt - request.issuedAt).toBe(MAX_MESSAGE_AGE_MS);
+	expect(f.decode(await f.executor.handle(packet)).ok).toBe(true);
+});
 
 test("describe filters targets and scoped capabilities using current effective read grants", async () => {
 	const f = fixture();
@@ -259,17 +281,34 @@ for (const method of ["device.sessions.open", "device.sessions.close", "grants.r
 			const descriptor = f.descriptor();
 			await f.executor.close();
 			executors.delete(f.executor);
-			const code = `import { DeviceExecutor } from ${JSON.stringify(executorUrl)}; const executor = new DeviceExecutor(process.argv[1], {describe:async()=>JSON.parse(process.argv[3]),actions:{}}); const save = executor.store.save.bind(executor.store); executor.store.save = () => { if(process.argv[4] === "before") process.kill(process.pid,"SIGKILL"); save(); process.kill(process.pid,"SIGKILL"); }; await executor.handle(JSON.parse(process.argv[2]));`;
 			const child = spawn(
 				process.execPath,
-				["--input-type=module", "-e", code, f.home, JSON.stringify(packet), JSON.stringify(descriptor), window],
-				{ stdio: "ignore" },
+				[
+					fileURLToPath(new URL("./fixtures/crash-publication.mjs", import.meta.url)),
+					executorUrl,
+					f.home,
+					JSON.stringify(packet),
+					JSON.stringify(descriptor),
+					window,
+				],
+				{ stdio: ["ignore", "pipe", "pipe"] },
 			);
+			let stdout = "",
+				stderr = "";
+			child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+				stdout = (stdout + chunk).slice(-16_384);
+			});
+			child.stderr.setEncoding("utf8").on("data", (chunk: string) => {
+				stderr = (stderr + chunk).slice(-16_384);
+			});
 			children.push(child);
-			const [exitCode, signal] = await once(child, "exit");
+			const [exitCode, signal] = await once(child, "close");
+			const diagnostic = `Crash child (${method}, ${window}) exited ${exitCode}/${signal}: ${stderr}`;
 			// A self-terminated process reports an exit code rather than a signal on Windows.
-			if (process.platform === "win32") expect(exitCode).toBe(1);
-			else expect(signal).toBe("SIGKILL");
+			if (process.platform === "win32") expect(exitCode, diagnostic).toBe(1);
+			else expect(signal, diagnostic).toBe("SIGKILL");
+			// Startup/auth failures can also exit 1 on Windows: require the actual crash checkpoint.
+			expect(stdout.trim(), diagnostic).toBe(`crash:${window}`);
 			const recovered = new DeviceExecutor(f.home, f.provider);
 			executors.add(recovered);
 			const key = `${request.principalId}:${request.requestId}`;
