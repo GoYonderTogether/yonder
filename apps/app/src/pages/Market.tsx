@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
 	ArrowDown,
 	ArrowLeft,
@@ -33,9 +33,10 @@ import { entityRef } from "../lib/entityRef";
 import { internalState, usePersonalMarketBack } from "../lib/navigation";
 import { selectPersonalAgent, usePersonalAgent } from "../lib/personalAgent";
 import { CHANNELS } from "../market/catalog";
-import { defaultFilters, filterListings, type MarketFilters, priceError } from "../market/flows";
+import { defaultFilters, type MarketFilters, priceError } from "../market/flows";
 import { listingContext, needContext } from "../market/handoff";
-import { findMatches, inferBrief, taskTitle } from "../market/matching";
+import { findMatches, taskTitle } from "../market/matching";
+import { listingFilters, useListingFeed, useListingLookup } from "../market/queries";
 import { useMarketState } from "../market/store";
 import type { AgentTask, Listing, SearchBrief } from "../market/types";
 import { toast } from "../ui/Toast";
@@ -63,11 +64,6 @@ export function Market() {
 	const [params, setParams] = useSearchParams();
 	const navigate = useNavigate();
 	const qc = useQueryClient();
-	const listingsQuery = useQuery({ queryKey: ["market-listings"], queryFn: () => api.marketListings() });
-	const listings = listingsQuery.data ?? [];
-	const listingsReady = !listingsQuery.isPending && !listingsQuery.isError;
-	const staleSaved = listingsReady ? state.saved.filter((id) => !listings.some((l) => l.id === id)) : [];
-	const staleLiked = listingsReady ? state.liked.filter((id) => !listings.some((l) => l.id === id)) : [];
 	const { agent, agents, me } = usePersonalAgent();
 	const [handoff, setHandoff] = useState<string | null>(null);
 	const [handingOff, setHandingOff] = useState(false);
@@ -105,6 +101,27 @@ export function Market() {
 		}),
 		[params, channel],
 	);
+	const ownFeed = view === "selling" || view === "stats";
+	const collectionView = view === "saved" || view === "liked";
+	const listingsQuery = useListingFeed(
+		ownFeed
+			? { mine: true }
+			: listingFilters(searching ? (params.get("q") ?? "") : "", home ? defaultFilters : filters),
+		!collectionView,
+	);
+	const lookup = useListingLookup([
+		...state.saved,
+		...state.liked,
+		...state.compare,
+		...[params.get("item"), params.get("edit")].filter((id): id is string => !!id),
+	]);
+	const listings = listingsQuery.items;
+	const referenced = [...lookup.items, ...listings];
+	const listingsReady = collectionView
+		? !lookup.isPending && !lookup.isError
+		: !listingsQuery.isPending && !listingsQuery.isError;
+	const staleSaved = state.saved.filter((id) => lookup.missing.includes(id));
+	const staleLiked = state.liked.filter((id) => lookup.missing.includes(id));
 	const setFilters = (next: MarketFilters) => {
 		const p = new URLSearchParams(params);
 		Object.entries(next).forEach(([k, v]) => {
@@ -134,35 +151,22 @@ export function Market() {
 	}, [scrollKey, title]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: 筛选或路由变化即重置分页，hook 体只重置计数
 	useEffect(() => setVisibleCount(12), [params.get("q"), location.pathname, filters]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: 搜索只随查询词与列表变化，params 为地址快照
-	const searchResults = useMemo(() => {
-		const text = params.get("q") ?? "";
-		const literal = filterListings(listings, text, defaultFilters);
-		const brief = inferBrief(text);
-		const related =
-			literal.length === 0 && brief.category !== "不限"
-				? findMatches(listings, brief).map((match) => match.listing)
-				: [];
-		return { listings: literal.length ? literal : related, related: related.length > 0 };
-	}, [listings, params.get("q")]);
-	const shown = useMemo(
-		() =>
-			view === "saved" || view === "liked"
-				? state[view]
-						.flatMap((id) => {
-							const item = listings.find((l) => l.id === id);
-							return item ? [item] : [];
-						})
-						.reverse()
-				: filterListings(searching ? searchResults.listings : listings, "", home ? defaultFilters : filters),
-		[state, listings, view, searching, searchResults, home, filters],
-	);
+	const shown =
+		view === "saved" || view === "liked"
+			? state[view]
+					.flatMap((id) => {
+						const item = referenced.find((listing) => listing.id === id);
+						return item ? [item] : [];
+					})
+					.reverse()
+			: listings.filter((listing) => !listing.paused && (filters.kind !== "other" || listing.kind === "other"));
+
 	const activeTask = state.tasks.find((t) => t.id === params.get("task"));
 	const matches = useMemo(() => (activeTask ? findMatches(listings, activeTask) : []), [listings, activeTask]);
-	const detail = listings.find((l) => l.id === params.get("item")) ?? null;
-	const editing = listings.find((l) => l.id === params.get("edit"));
+	const detail = referenced.find((l) => l.id === params.get("item")) ?? null;
+	const editing = referenced.find((l) => l.id === params.get("edit"));
 	const comparison = state.compare.flatMap((id) => {
-		const item = listings.find((l) => l.id === id);
+		const item = referenced.find((l) => l.id === id);
 		return item ? [item] : [];
 	});
 	const setView = (next: View) =>
@@ -382,8 +386,7 @@ export function Market() {
 							{!home && (
 								<div className="mk-browse-controls">
 									<span className="mk-muted">
-										{searching ? (searchResults.related ? "相关线索 · 本机条件匹配" : "搜索结果") : channel?.label} ·{" "}
-										{shown.length}
+										{searching ? "搜索结果" : channel?.label} · {shown.length}
 									</span>
 									<div className="mk-feed-tools">
 										<label>
@@ -429,7 +432,7 @@ export function Market() {
 					)}
 					{(view === "discover" || collection) && (
 						<>
-							{listingsQuery.isPending && (
+							{(collectionView ? lookup.isPending : listingsQuery.isPending) && (
 								<div className="mk-feed-grid" aria-busy="true">
 									<span className="sr-only">正在加载市场</span>
 									{["a", "b", "c", "d", "e", "f"].map((slot) => (
@@ -437,12 +440,16 @@ export function Market() {
 									))}
 								</div>
 							)}
-							{listingsQuery.isError && (
+							{(collectionView ? lookup.isError : listingsQuery.isError) && (
 								<div className="mk-empty" role="alert">
 									<X size={30} />
 									<h3>加载失败</h3>
 									<p>没能连上市场服务，请检查网络后重试。</p>
-									<button type="button" className="mk-button mk-primary" onClick={() => void listingsQuery.refetch()}>
+									<button
+										type="button"
+										className="mk-button mk-primary"
+										onClick={() => void (collectionView ? lookup.refetch() : listingsQuery.refetch())}
+									>
 										重试
 									</button>
 								</div>
@@ -509,17 +516,22 @@ export function Market() {
 											)}
 										</div>
 									)}
-									{shown.length > visibleCount ? (
-										<button type="button" className="mk-load-more" onClick={() => setVisibleCount((n) => n + 12)}>
+									{shown.length > visibleCount || (!collectionView && listingsQuery.hasNextPage) ? (
+										<button
+											type="button"
+											className="mk-load-more"
+											disabled={listingsQuery.isFetchingNextPage}
+											onClick={() => {
+												setVisibleCount((n) => n + 12);
+												if (shown.length <= visibleCount && listingsQuery.hasNextPage)
+													void listingsQuery.fetchNextPage();
+											}}
+										>
 											继续逛
 											<ArrowDown size={16} />
 										</button>
 									) : (
-										shown.length > 0 && (
-											<p className="mk-feed-end">
-												已经看到这里了<span>示例内容与浏览数据</span>
-											</p>
-										)
+										shown.length > 0 && <p className="mk-feed-end">已经看到这里了</p>
 									)}
 								</>
 							)}
@@ -545,7 +557,8 @@ export function Market() {
 							onCompare={compareMany}
 						/>
 					)}
-					{view === "selling" && (
+					{ownFeed && listingsQuery.hasNextPage && <p className="mk-muted">以下为已加载发布，可继续加载</p>}
+					{view === "selling" && listingsReady && (
 						<SellerWorkspace
 							listings={listings}
 							saved={state.saved}
@@ -553,7 +566,7 @@ export function Market() {
 							onTab={setMineTab}
 							onEdit={(l) => openPanel("publish", { edit: l.id })}
 							onToggle={(id) => {
-								const item = listings.find((l) => l.id === id);
+								const item = referenced.find((l) => l.id === id);
 								if (!item) return;
 								api
 									.setListingPaused(id, !item.paused)
@@ -565,6 +578,26 @@ export function Market() {
 							onStats={(l) => openPanel("stats", { item: l.id })}
 							onBrowse={() => setView("discover")}
 						/>
+					)}
+					{ownFeed && listingsQuery.isPending && (
+						<p role="status" aria-busy="true">
+							正在加载发布
+						</p>
+					)}
+					{ownFeed && listingsQuery.hasNextPage && (
+						<button
+							type="button"
+							className="mk-load-more"
+							disabled={listingsQuery.isFetchingNextPage}
+							onClick={() => void listingsQuery.fetchNextPage()}
+						>
+							加载更多发布
+						</button>
+					)}
+					{ownFeed && listingsQuery.isError && (
+						<button type="button" onClick={() => void (collectionView ? lookup.refetch() : listingsQuery.refetch())}>
+							加载失败，重试
+						</button>
 					)}
 				</main>
 			</div>

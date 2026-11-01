@@ -1,9 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Bookmark, ChevronRight, Eye, Heart, Package, Sparkles } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import { api } from "../../api";
 import { internalState } from "../../lib/navigation";
 import { compactCount, hasListingImage, viewCount } from "../../market/catalog";
+import { useListingFeed, useListingLookup } from "../../market/queries";
 import { useMarketState } from "../../market/store";
 import type { Listing } from "../../market/types";
 
@@ -11,23 +10,19 @@ import type { Listing } from "../../market/types";
 export function MyMarket() {
 	const location = useLocation();
 	const { state } = useMarketState();
-	const { data: listings = [], isPending } = useQuery({
-		queryKey: ["market-listings"],
-		queryFn: () => api.marketListings(),
-	});
-	// 收藏/点赞仍存在本机，但帖子来自服务端；只统计服务端还在的帖子（B3）。
-	const serverIds = new Set(listings.map((l) => l.id));
-	const savedCount = state.saved.filter((id) => serverIds.has(id)).length;
-	const likedCount = state.liked.filter((id) => serverIds.has(id)).length;
-	const staleSaved = isPending ? 0 : state.saved.length - savedCount;
-	const mine = listings.filter((l) => l.mine);
+	const feed = useListingFeed({ mine: true });
+	const lookup = useListingLookup([...state.saved, ...state.liked]);
+	const savedCount = state.saved.filter((id) => !lookup.missing.includes(id)).length;
+	const likedCount = state.liked.filter((id) => !lookup.missing.includes(id)).length;
+	const staleSaved = state.saved.filter((id) => lookup.missing.includes(id)).length;
+	const mine = feed.items;
 	// 示例数据不当真实浏览数展示（UX-04）；有真实数据的发布才显示这一行
 	const real = mine.filter((l) => l.metricSource !== "sample");
 	return (
 		<section aria-label="我的市场" className="overflow-hidden rounded-card bg-raised">
 			<div className="grid grid-cols-4 gap-1 px-2 py-5">
 				{[
-					{ route: "posts", title: "发布", count: mine.length, icon: Package },
+					{ route: "posts", title: "发布", count: `${mine.length}${feed.hasNextPage ? "+" : ""}`, icon: Package },
 					{ route: "saved", title: "收藏", count: savedCount, icon: Bookmark },
 					{ route: "liked", title: "点赞", count: likedCount, icon: Heart },
 					{ route: "needs", title: "需求", count: state.tasks.length, icon: Sparkles },
@@ -61,7 +56,7 @@ export function MyMarket() {
 					<Eye size={19} className="text-muted" />
 					<span className="flex-1 text-small">浏览数据</span>
 					<span className="text-small text-muted">
-						{compactCount(real.reduce((n, l) => n + viewCount(l), 0))} 次浏览
+						{compactCount(real.reduce((n, l) => n + viewCount(l), 0))} 次浏览{feed.hasNextPage ? "（已加载）" : ""}
 					</span>
 					<ChevronRight size={15} className="text-faint" />
 				</Link>
@@ -84,7 +79,7 @@ export function MarketStats({ listings, onStats }: { listings: Listing[]; onStat
 	return (
 		<section className="mk-narrow mk-exposure">
 			<div className="mk-exposure-total">
-				<span>发布累计浏览</span>
+				<span>已加载发布浏览</span>
 				<strong>{(totals.agent + totals.human).toLocaleString()}</strong>
 				<p>包含 Bot 发现与用户浏览</p>
 			</div>

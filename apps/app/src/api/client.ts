@@ -40,6 +40,22 @@ export interface ListingInput {
 	missing: string[];
 }
 
+export interface ListingQuery {
+	q?: string;
+	kind?: ListingKind;
+	category?: Category;
+	city?: string;
+	min?: string;
+	max?: string;
+	sort?: "relevance" | "newest" | "price_asc" | "price_desc";
+	mine?: boolean;
+	cursor?: string;
+}
+export interface ListingPage {
+	items: Listing[];
+	nextCursor?: string;
+}
+
 /**
  * 后端接口契约。每个方法对应 server/PLAN.md 中的一项接口能力。
  * 实时消息用 subscribe：返回取消订阅函数。
@@ -96,7 +112,7 @@ export interface ApiClient {
 	): Promise<{ state: "active" | "share_exhausted" | "share_expired" | "share_revoked" } | null>;
 	leaveConversation(convId: string): Promise<void>;
 	markRead(convId: string, seq: number): Promise<void>;
-	subscribe(listener: (m: Message) => void): () => void;
+	subscribe(listener: (m: Message) => void, onReconnect?: () => void): () => void;
 
 	// 名片：卡包里有多张，我的（Agent 与分身）和收到的
 	cards(): Promise<Card[]>;
@@ -141,7 +157,8 @@ export interface ApiClient {
 	ensureDefaultBot(input: { name: string; englishName: string }): Promise<Actor>;
 
 	// 市场：云端帖子。列表含他人公开帖与自己的全部帖（含已下架）。
-	marketListings(): Promise<Listing[]>;
+	marketListings(query?: ListingQuery): Promise<ListingPage>;
+	marketListing(id: string): Promise<Listing | null>;
 	/** 发布新帖；图片只接受 https 外链或内置 `/market/*.jpg`。 */
 	createListing(input: ListingInput): Promise<Listing>;
 	/** 修改帖子（kind 不可改）。 */

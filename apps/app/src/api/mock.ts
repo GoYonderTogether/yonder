@@ -1,3 +1,4 @@
+import { defaultFilters, filterListings } from "../market/flows";
 // 原型数据：仅用于前端原型演示，后端接入后整文件删除。内存实现，刷新即重置。
 
 import { DEMO_LISTINGS } from "../market/data";
@@ -563,9 +564,32 @@ export const mockApi: ApiClient = {
 		a.online = online;
 		return { ...a };
 	},
-	async marketListings() {
+	async marketListings(query = {}) {
 		await wait();
-		return marketListings().map((l) => ({ ...l }));
+		const all = marketListings().filter((l) => !query.mine || l.mine);
+		const filtered = query.mine
+			? all
+			: filterListings(all, query.q ?? "", {
+					...defaultFilters,
+					kind: query.kind ?? "全部",
+					category: query.category ?? "全部",
+					city: query.city ?? "不限",
+					min: query.min ?? "",
+					max: query.max ?? "",
+					sort: { newest: "最新", price_asc: "价格从低到高", price_desc: "价格从高到低", relevance: "综合排序" }[
+						query.sort ?? "relevance"
+					],
+				});
+		const offset = Number(query.cursor ?? 0);
+		return {
+			items: filtered.slice(offset, offset + 20).map((l) => ({ ...l })),
+			...(offset + 20 < filtered.length ? { nextCursor: String(offset + 20) } : {}),
+		};
+	},
+	async marketListing(id) {
+		await wait();
+		const listing = marketListings().find((l) => l.id === id);
+		return listing && (!listing.paused || listing.mine) ? { ...listing } : null;
 	},
 	async createListing(input) {
 		await wait();

@@ -4,9 +4,16 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { useSocialRealtime } from "../src/lib/socialRealtime";
 import { ConversationBody } from "../src/pages/Chat";
 
-const api = vi.hoisted(() => ({ messages: vi.fn(), conversations: vi.fn(), actors: vi.fn(), markRead: vi.fn() }));
+const api = vi.hoisted(() => ({
+	messages: vi.fn(),
+	conversations: vi.fn(),
+	actors: vi.fn(),
+	markRead: vi.fn(),
+	subscribe: vi.fn(() => () => {}),
+}));
 vi.mock("../src/api", () => ({ api }));
 vi.mock("../src/components/chat/OwnerTranscript", () => ({
 	useOwnerConversation: () => ({}),
@@ -45,11 +52,16 @@ afterEach(async () => {
 	vi.clearAllMocks();
 	vi.unstubAllGlobals();
 });
+function Realtime() {
+	useSocialRealtime();
+	return null;
+}
 async function mount() {
 	await act(async () => {
 		root.render(
 			<QueryClientProvider client={client}>
 				<MemoryRouter>
+					<Realtime />
 					<ConversationBody id="c1" routeRef="c1" />
 				</MemoryRouter>
 			</QueryClientProvider>,
@@ -84,4 +96,47 @@ test("an empty older page terminates history without repeatedly requesting a mis
 	expect(box.textContent).not.toContain("加载更早的消息");
 	expect(api.messages).toHaveBeenCalledTimes(2);
 	expect(api.messages).toHaveBeenLastCalledWith("c1", { before: 100, limit: 40 });
+});
+
+test("gap and socket-only reconnect reconcile the active message window", async () => {
+	api.messages
+		.mockResolvedValueOnce([message(1)])
+		.mockResolvedValueOnce([message(1), message(2), message(3)])
+		.mockResolvedValue([message(1), message(2), message(3), message(4)]);
+	await mount();
+	const [receive, reconnect] = api.subscribe.mock.calls.at(-1) as unknown as [(m: unknown) => void, () => void];
+	await act(async () => {
+		receive(message(3));
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	});
+	expect(client.getQueryData(["msgs", "c1"])).toEqual([message(1), message(2), message(3)]);
+	await act(async () => {
+		reconnect();
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	});
+	expect(box.textContent).toContain("消息4");
+	expect(api.messages).toHaveBeenCalledTimes(3);
+});
+
+test("reconnect preserves a manually paged historical window", async () => {
+	api.messages
+		.mockResolvedValueOnce(Array.from({ length: 80 }, (_, i) => message(100 + i)))
+		.mockResolvedValueOnce(Array.from({ length: 40 }, (_, i) => message(60 + i)));
+	await mount();
+	await act(async () => {
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	});
+	const older = [...box.querySelectorAll("button")].find((el) => el.textContent === "加载更早的消息");
+	await act(async () => {
+		older?.dispatchEvent(new window.Event("click", { bubbles: true }));
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	});
+	const historical = client.getQueryData(["msgs", "c1"]);
+	const [, reconnect] = api.subscribe.mock.calls.at(-1) as unknown as [unknown, () => void];
+	await act(async () => {
+		reconnect();
+		await new Promise((resolve) => setTimeout(resolve, 30));
+	});
+	expect(client.getQueryData(["msgs", "c1"])).toEqual(historical);
+	expect(api.messages).toHaveBeenCalledTimes(2);
 });

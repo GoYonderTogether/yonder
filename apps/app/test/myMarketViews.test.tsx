@@ -17,7 +17,11 @@ vi.mock("../src/market/store", () => ({
 	useMarketState: () => ({ state: { saved: state.saved, liked: state.liked, tasks: [] } }),
 }));
 vi.mock("../src/api", () => ({
-	api: { marketListings: () => Promise.resolve(state.listings) },
+	api: {
+		marketListings: () => Promise.resolve({ items: state.listings }),
+		marketListing: (id: string) =>
+			Promise.resolve(state.listings.find((item) => (item as { id: string }).id === id) ?? null),
+	},
 }));
 
 async function render() {
@@ -62,4 +66,16 @@ it("收藏/点赞只统计服务端还在的帖子，并提示失效收藏（B3�
 	expect(text).toContain("收藏1");
 	expect(text).toContain("点赞1");
 	expect(text).toContain("有 1 条收藏已失效");
+});
+
+it("a saved listing outside the loaded feed is not called deleted", async () => {
+	state.listings = [];
+	state.saved = ["outside-page"];
+	state.liked = [];
+	const { api } = await import("../src/api");
+	vi.spyOn(api, "marketListing").mockResolvedValueOnce(mk("outside-page") as never);
+	const text = await render();
+	expect(text).toContain("收藏1");
+	expect(text).not.toContain("已失效");
+	vi.restoreAllMocks();
 });

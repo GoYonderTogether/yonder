@@ -9,7 +9,9 @@ import { PersonalAvatar } from "../src/components/PersonalDrawer";
 import { useAppBack, usePersonalMarketBack } from "../src/lib/navigation";
 import { $session } from "../src/store";
 
-vi.mock("../src/api", () => ({ api: { marketListings: () => Promise.resolve([]) } }));
+vi.mock("../src/api", () => ({
+	api: { marketListings: () => Promise.resolve({ items: [] }), marketListing: () => Promise.resolve(null) },
+}));
 let root: Root, node: HTMLElement, window: ReturnType<typeof parseHTML>["window"];
 beforeEach(() => {
 	const dom = parseHTML("<html><body></body></html>");

@@ -124,8 +124,9 @@ export const httpApi: ApiClient = {
 		),
 	leaveConversation: (convId) => request(`/conversations/${encodeURIComponent(convId)}/leave`, json("POST")),
 	markRead: (convId, seq) => request(`/conversations/${encodeURIComponent(convId)}/read`, json("POST", { seq })),
-	subscribe(listener) {
+	subscribe(listener, onReconnect) {
 		let active = true;
+		let opened = false;
 		let delay = 1000;
 		let retry: number | undefined;
 		let socket: WebSocket | undefined;
@@ -137,6 +138,8 @@ export const httpApi: ApiClient = {
 			socket = ws;
 			ws.onopen = () => {
 				delay = 1000;
+				if (opened) onReconnect?.();
+				opened = true;
 			};
 			ws.onmessage = ({ data }) => {
 				try {
@@ -184,7 +187,19 @@ export const httpApi: ApiClient = {
 	contacts: () => request<Actor[]>("/contacts"),
 	createBot: (input) => request<Actor>("/bots", json("POST", input)),
 	ensureDefaultBot: (input) => request<Actor>("/me/default-bot", json("POST", input)),
-	marketListings: async () => (await request<{ items: CloudListing[] }>("/market/listings")).items.map(toListing),
+	marketListings: async (query = {}) => {
+		const params = new URLSearchParams();
+		for (const [key, value] of Object.entries(query)) {
+			if (value !== undefined && value !== "")
+				params.set(key, typeof value === "boolean" ? (value ? "1" : "0") : value);
+		}
+		const page = await request<{ items: CloudListing[]; nextCursor?: string }>(`/market/listings?${params}`);
+		return { ...page, items: page.items.map(toListing) };
+	},
+	marketListing: async (id) => {
+		const item = await request<CloudListing | null>(`/market/listings/${encodeURIComponent(id)}`, {}, true);
+		return item ? toListing(item) : null;
+	},
 	createListing: async (input) => toListing(await request<CloudListing>("/market/listings", json("POST", input))),
 	updateListing: async (id, input) =>
 		toListing(await request<CloudListing>(`/market/listings/${encodeURIComponent(id)}`, json("PATCH", input))),

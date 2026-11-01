@@ -31,6 +31,7 @@ import { historyScrollBehavior, useNewMessages } from "../lib/newMessages";
 import { clearPendingSend, savePendingSend, takePendingSend } from "../lib/pendingSend";
 import { usePersonalAgent } from "../lib/personalAgent";
 import { socialUnavailable } from "../lib/socialError";
+import { useSocialRealtime } from "../lib/socialRealtime";
 import { useDesktop } from "../lib/useDesktop";
 import { useEntityId } from "../lib/useEntityId";
 import { needsVerify } from "../lib/verify";
@@ -132,30 +133,7 @@ export function ChatShell() {
 		}
 	};
 
-	useEffect(
-		() =>
-			api.subscribe((m) => {
-				qc.setQueryData<Message[]>(["msgs", m.convId], (old) =>
-					old?.some((x) => x.id === m.id) || (old?.length && (old.at(-1)?.seq ?? m.seq) < m.seq - 1)
-						? old
-						: [...(old ?? []), m].slice(-120),
-				);
-				const meId = $session.get()?.actor.id;
-				qc.setQueryData<Conv[]>(["convs"], (old) =>
-					old?.map((conv) =>
-						conv.id === m.convId
-							? {
-									...conv,
-									last: !conv.last || m.seq > conv.last.seq ? m : conv.last,
-									unread: m.senderId === meId ? conv.unread : conv.unread + 1,
-								}
-							: conv,
-					),
-				);
-				qc.invalidateQueries({ queryKey: ["convs"] });
-			}),
-		[qc],
-	);
+	useSocialRealtime();
 
 	useEffect(() => {
 		const refresh = () => {
@@ -422,6 +400,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 		window.addEventListener("yonder:presence", refresh);
 		return () => window.removeEventListener("yonder:presence", refresh);
 	}, [qc, id]);
+	const historicalWindow = useRef(false);
 	const [oldestSeen, setOldestSeen] = useState<number>();
 	const {
 		data: messageData = [],
@@ -432,7 +411,10 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 	} = useQuery({
 		queryKey: ["msgs", id],
 		queryFn: async () => {
-			const page = await api.messages(id, { limit: 80 });
+			const cached = qc.getQueryData<Message[]>(["msgs", id]);
+			// 保留正在阅读的历史页；会话 last 更新后由“加载较新的消息”补收。
+			if (historicalWindow.current && cached?.length) return cached;
+			const page = await api.messages(id, { limit: cached?.length ? Math.min(120, Math.max(80, cached.length)) : 80 });
 			if (page.length < 80) setOldestSeen((oldest) => Math.min(oldest ?? Infinity, page[0]?.seq ?? 0));
 			return page.slice(-120);
 		},
@@ -503,6 +485,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 				limit: 40,
 				...(older ? { before: msgs[0].seq } : { since: msgs[msgs.length - 1].seq }),
 			});
+			historicalWindow.current = older || (page.at(-1)?.seq ?? msgs.at(-1)?.seq ?? 0) < (conv?.last?.seq ?? 0);
 			if (older && page.length < 40) setOldestSeen(page[0]?.seq ?? msgs[0].seq);
 			qc.setQueryData<Message[]>(["msgs", id], (old = []) => {
 				const merged = [...new Map([...old, ...page].map((message) => [message.id, message])).values()].sort(
@@ -538,6 +521,7 @@ export function ConversationBody({ id, routeRef }: { id: string; routeRef: strin
 					api.messages(id, { before: message.seq, limit: 40 }),
 					api.messages(id, { since: message.seq - 1, limit: 40 }),
 				]);
+				historicalWindow.current = true;
 				qc.setQueryData<Message[]>(
 					["msgs", id],
 					[...new Map([...before, ...after].map((m) => [m.id, m])).values()].sort((a, b) => a.seq - b.seq),

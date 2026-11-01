@@ -6,7 +6,11 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Market } from "../src/pages/Market";
 
-const api = vi.hoisted(() => ({ marketListings: vi.fn(), contacts: vi.fn().mockResolvedValue([]) }));
+const api = vi.hoisted(() => ({
+	marketListings: vi.fn(),
+	marketListing: vi.fn(),
+	contacts: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("../src/api", () => ({ api }));
 vi.mock("../src/ui/Toast", () => ({ toast: vi.fn() }));
 
@@ -38,12 +42,12 @@ afterEach(async () => {
 	vi.resetAllMocks();
 });
 
-async function render() {
+async function render(path = "/market") {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	await act(async () => {
 		root.render(
 			<QueryClientProvider client={client}>
-				<MemoryRouter initialEntries={["/market"]}>
+				<MemoryRouter initialEntries={[path]}>
 					<Market />
 				</MemoryRouter>
 			</QueryClientProvider>,
@@ -77,8 +81,23 @@ describe("市场列表加载态（B2）", () => {
 	});
 
 	it("空市场才显示「市场还没有帖子」", async () => {
-		api.marketListings.mockResolvedValue([]);
+		api.marketListings.mockResolvedValue({ items: [] });
 		const text = await render();
 		expect(text).toContain("市场还没有帖子");
 	});
+});
+
+it("loads an explicit next page and sends search to the server", async () => {
+	api.marketListings.mockResolvedValueOnce({ items: [], nextCursor: "next-page" }).mockResolvedValueOnce({ items: [] });
+	await render("/market/search?q=outside-first-page");
+	expect(api.marketListings).toHaveBeenCalledWith(expect.objectContaining({ q: "outside-first-page" }));
+	const more = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("继续逛"));
+	expect(more).toBeDefined();
+	await act(async () => {
+		more?.dispatchEvent(new window.Event("click", { bubbles: true }));
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	});
+	expect(api.marketListings).toHaveBeenLastCalledWith(
+		expect.objectContaining({ q: "outside-first-page", cursor: "next-page" }),
+	);
 });
