@@ -6,7 +6,15 @@
 
 保留既有自动版本、main/tag 原子推送、草稿附件核对后公开的顺序。自动入口不处理 PR、fork、失败、过时或 tag 的复验事件，防止重复发版和循环。代价是 CI 失败时暂停正式发布，维护者需修复后推送；明确的手动关闭仅供维护，不适用于自动入口。
 
-网站部署是另一条链：目前两个仓库都没有网站部署接入，不能把安装版本发布当作 yonderbot.net 已更新；需要维护者配置现有部署访问后再接服务器阶段。见 09 §5.1。
+**同日补记：网站部署已接入（主人要求「做跑通」）。** 两个仓库原来都没有网站部署通道，所以安装版本发布会被误当成 `yonderbot.net` 已更新。现有网页 artifact 的发布方式是手工 SSH 上传 tarball 到 `/opt/yonder-card/web/releases` 再切 `web/current`（见 `apps/app/README.md` 与 `verification/workbench-offline-hotfix-20261030.md`），因此按同样形状接入而不引入新系统：
+
+- `yonder-cloud` 新增 `.github/workflows/deploy-web.yml`：接受 `repository_dispatch`（主仓发版后派发）、`workflow_dispatch`（手工）与每日巡检；从主仓**公开**仓按 SHA 取源码，在 runner 上跑 `build:web`（含真实 API 守卫）、打包、上传，**不接收主仓产出的二进制**，因此主仓不需要访问私有仓的凭据，私有仓的密钥也不外流。
+- 服务器上新增受限执行器 `/opt/yonder-card/bin/yonder-web-deploy`：`authorized_keys` 用 `command=` 固定到它、`restrict` 禁掉转发，它只读 stdin 的「版本 + tar SHA256 + tar 流」，校验后解包到新 `web/releases/<版本>-<提交前 12 位>`，原子切 `web/current`/`web/previous`，保留最近 5 版；不重启服务、不改 nginx、不碰后端与数据库。重跑同一版本只允许同一份 tar。
+- 凭据：专用 ed25519 key 只存在服务器 `authorized_keys` 与 `yonder-cloud` 的仓库 secret `DEPLOY_SSH_KEY`，不进本机配置、不进 Actions 日志；未使用密码或私钥粘贴。
+- **公网核对只能在服务器本地做**：托管 runner 在境外直连 `yonderbot.net` 会被这台阿里云的 TLS 直接 reset（实测 `curl` 35），所以执行器在服务器本机 `curl --resolve` 核对线上 `build-version.json` 后才返回成功；工作流不再用 runner 探测公网，避免把不可达误报成部署失败。
+- 未接入的部分：后端与数据库迁移仍走 `yonder-cloud` 自己的 `deploy/` 流程；网站本机的 nginx/systemd 配置在此步骤中保持不变。
+
+验收：`v0.3.26110102` 的前端已由这条链发布到线上，`web/current` 指向 `0.3.26110102-8dff0783cfe8`，服务器本地核对 `build-version.json` 通过；重复派发与手工触发的跳过路径均实测。见 09 §5.1。
 
 ## 2026-10-31 发版只在 main 上做，Release 最后创建（主人要求）
 

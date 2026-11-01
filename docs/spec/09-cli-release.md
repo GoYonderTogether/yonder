@@ -111,7 +111,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - **Release**：在 tag 与 main 都推送成功之后才创建，并且先建成草稿、核对附件齐全再公开（`--draft` → 核对 → `--draft=false --latest`）。草稿阶段失败时 tag 与 main 已在远端，不会出现孤儿版本；报出后按提示补建即可，不要重新触发发版。正文是 CHANGELOG 的该版本小节；附件是 `scripts/release/pack-runtime.mjs` 对每个非 private workspace 包 `npm pack` 生成的 `.tgz`、`SHA256SUMS` 与两个安装脚本，数量与可打包包数 + 3 不符就不公开。`yonder update` 与首次安装按 §3/§4 从标签 `git clone` 并本机构建，不读取附件；附件供离线核对与按包安装。
 - **发版后的 CI**：GITHUB_TOKEN 推送的提交不会触发 `push` 事件，所以发版提交与 tag 本身从不产生 CI 运行。公开 Release 后，工作流用 `gh workflow run ci.yml --ref v<版本>` 以 tag 为 ref 派发一次（`ci.yml` 因此声明 `workflow_dispatch`），让 CI 跑在发布的那个提交上。该次运行失败不回滚已发布的版本，按缺陷修好后发下一版。
 - **本机预演**：上述脚本都支持 `--dry-run`，只打印将改的文件、CHANGELOG 小节或打包清单，不写入。
-- **网站部署**：GitHub Release 是正式安装版本，不等于更新 `yonderbot.net`。当前仓库尚未配置网站的 Actions 部署凭据、生产环境或运行器；现有 SSH 部署仍需维护者访问。网站自动部署须接入实际入口、目标、必要迁移与健康检查后再启用，接入完成前不得把自动 Release 报成网站已上线。
+- **网站部署**：GitHub 正式 Release 会自动把工作台前端发布到 `yonderbot.net`，由私有仓 `GoYonderTogether/yonder-cloud` 的 `Deploy web` 完成。`release.yml` 公开 Release 后以 `repository_dispatch`（`deploy-web`，载荷只有 tag 与提交 SHA，不含产物）派发；对方按 SHA 从本公开仓取源码，跑本仓的 `build:web` 生产构建与真实 API 守卫，打包后经服务器上的受限执行器 `/opt/yonder-card/bin/yonder-web-deploy` 上传：执行器由 `authorized_keys` 的 `command=` 固定，只接受「版本 + tar SHA256 + tar 流」，解包到新的 `web/releases/<版本>-<提交前 12 位>`，原子切换 `web/current` 与 `web/previous`，保留最近 5 个版本；不重启服务、不改 nginx、不碰后端与数据库。执行器在服务器本地核对线上 `build-version.json` 后才返回成功——托管 runner 在境外直连该站会被 TLS reset（实测），因此公网可用性不能由 runner 探测。线上版本与目标一致时（含每日巡检）跳过上传。网站与后端是两条链：本步骤只换静态前端，后端与迁移仍由 `yonder-cloud` 自己的流程发布。
 
 ## 6. 后台服务
 
