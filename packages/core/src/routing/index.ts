@@ -20,7 +20,7 @@ import {
 	platformGroupBinding,
 	warnLegacy,
 } from "./platform-group.js";
-import { socialBindingAllowed, socialDecision } from "./social.js";
+import { decideParticipation, socialBindingAllowed } from "./social.js";
 import type { CreateRouterOptions, RoutedRun } from "./types.js";
 
 type Wake = "run" | "write";
@@ -33,6 +33,7 @@ export function createRouter({
 	notificationLevel,
 	notifications,
 	socialBatchPlugin,
+	participationHooks,
 	onOwnerMention,
 	onStart,
 	onRun,
@@ -46,6 +47,7 @@ export function createRouter({
 			: (socialBatchPlugin ?? new Set<string>());
 	const warnedLegacy = new Set<string>();
 	const warnedNoBatch = new Set<string>();
+	const warnedNoParticipation = new Set<string>();
 	const report = createReporter(onReport);
 	const routedNotifications = createRoutedNotifications(runtime, report, notificationLevel, notifications);
 	const { waitFor, finish } = createPendingResults();
@@ -175,7 +177,16 @@ export function createRouter({
 				agent.social?.enabled &&
 				legacySource &&
 				legacySource.conv === event.conv &&
-				(await suppressLegacyBatch(agent, event, legacySource, store, sessions, channels, participationPlugins))
+				(await suppressLegacyBatch(
+					agent,
+					event,
+					legacySource,
+					store,
+					sessions,
+					channels,
+					participationPlugins,
+					participationHooks,
+				))
 			) {
 				routes.push({ agent: agent.id, binding: null, dropped: "no-binding" });
 				continue;
@@ -198,7 +209,13 @@ export function createRouter({
 									sourceEvents: inputData.sourceEvents,
 									policyRevision: inputData.policyRevision,
 								},
-								{ agents, store, plugins: participationPlugins, ...(channels ? { channels } : {}) },
+								{
+									agents,
+									store,
+									plugins: participationPlugins,
+									...(channels ? { channels } : {}),
+									...(participationHooks ? { participationHooks } : {}),
+								},
 								plugin,
 							)
 						: undefined;
@@ -246,7 +263,26 @@ export function createRouter({
 			const policyAgent =
 				selected?.owner ?? (internalTarget === agent.id || derivedDefaults.has(agent.id) ? agent : undefined);
 			const mapping = selected?.mapping;
-			const decision = policyAgent && socialDecision(policyAgent, event, person, channels?.get(instance ?? ""));
+			// 参与策略由所选插件给出（04 §3.6）；插件不可用时入站只记录并写诊断 no-participation-plugin（08）。
+			let unavailable: string | undefined;
+			const decision =
+				policyAgent &&
+				decideParticipation(policyAgent, event, person, channels?.get(instance ?? ""), participationHooks, {
+					onUnavailable: (plugin) => {
+						unavailable = plugin;
+					},
+				});
+			if (unavailable) {
+				const key = `${agent.id}\0${unavailable}`;
+				if (!warnedNoParticipation.has(key)) {
+					warnedNoParticipation.add(key);
+					onWarn?.("没有可用的参与策略插件：入站只记录，不唤醒", {
+						diagnostic: "no-participation-plugin",
+						agent: agent.id,
+						plugin: unavailable,
+					});
+				}
+			}
 			// 派生默认范围没有可用批次绑定时只记录观察游标，并用可读诊断说明原因（08、11）。
 			const noBatchBinding =
 				!!decision && derivedDefaults.has(agent.id) && !batchReadyBinding(agent, instance, "social");
@@ -406,7 +442,17 @@ export function createRouter({
 	}
 	return {
 		admitBatch: (request: Parameters<typeof admitBatch>[0], plugin: string) =>
-			admitBatch(request, { agents, store, plugins: participationPlugins, ...(channels ? { channels } : {}) }, plugin),
+			admitBatch(
+				request,
+				{
+					agents,
+					store,
+					plugins: participationPlugins,
+					...(channels ? { channels } : {}),
+					...(participationHooks ? { participationHooks } : {}),
+				},
+				plugin,
+			),
 		observeNotifications: routedNotifications.observe,
 		finishIdle,
 		finishRun: async (session: SessionInfo, _run: RuntimeRun) => finishIdle(session),

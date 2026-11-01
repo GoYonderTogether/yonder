@@ -1,11 +1,14 @@
 import { expect, test } from "vitest";
 import { parseAgentConfig, type YonderConfig } from "../config/index.js";
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { createRouter } from "./index.js";
-import { socialDecision } from "./social.js";
+
+// 真实加载官方 social 插件：路由里的参与判定由它提供（04 §3.6）。
+const participationHooks = await socialPluginHooks();
 
 test("channel connection routes only a verified owner through the first matching main binding", async () => {
 	const db = await openDatabase(":memory:");
@@ -55,7 +58,7 @@ bindings:
 		const channels = new Map([["card", { multiAgent: true }]]) as unknown as NonNullable<
 			import("./types.js").CreateRouterOptions["channels"]
 		>;
-		const router = createRouter({ store, sessions, runtime: () => runtime, agents, channels });
+		const router = createRouter({ participationHooks, store, sessions, runtime: () => runtime, agents, channels });
 		const event = await router.emit({
 			type: "channel.connected",
 			from: "plugin:channel-card",
@@ -156,7 +159,13 @@ bindings:
 			version: "0.1.0",
 			runtime: () => runtime,
 		});
-		const router = createRouter({ store, sessions, runtime: () => runtime, agents: new Map([[agent.id, agent]]) });
+		const router = createRouter({
+			participationHooks,
+			store,
+			sessions,
+			runtime: () => runtime,
+			agents: new Map([[agent.id, agent]]),
+		});
 		let submitDone!: () => void;
 		let submits = 0;
 		const wasSubmitted = new Promise<void>((resolve) => {
@@ -259,6 +268,7 @@ bindings:
 		});
 		const commandSessions: string[] = [];
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			runtime: () => runtime,
@@ -329,6 +339,7 @@ test("multiAgent targets only its own bound agent; ordinary channels cannot targ
 		]);
 		// wake:write never calls a model; no runtime is needed to inspect durable routes.
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			agents,
@@ -413,6 +424,7 @@ bindings:
 			},
 		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			agents,
@@ -429,7 +441,7 @@ bindings:
 		const group2 = await emit("acct:chat:user", "conv:chat:group2", "group", { mentioned: true });
 		const batched = await emit("acct:chat:user", "conv:chat:group", "group");
 		expect(batched.routes?.[0]?.wake).toBe("write");
-		const revision = socialDecision(agent, batched, undefined)?.revision;
+		const revision = (await import("./social.js")).socialRevision(agent.social!);
 		const batch = (extra = {}) =>
 			router.emit({
 				type: "social.batch-ready",
@@ -457,6 +469,7 @@ bindings:
 		});
 		expect(unboundLegacy.routes?.[0]?.binding).toBe("qq-legacy");
 		const legacyRouter = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			socialBatchPlugin: true,
@@ -527,6 +540,7 @@ test("social mapping limits the candidates without bypassing their bindings", as
 			ensureAgent: async (id: string) => ({ session: { id }, profileMismatch: false }),
 		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			agents,
@@ -591,7 +605,7 @@ test("social scope does not steal other instances or legacy fan-out with real se
 			version: "0.1.0",
 			runtime: () => runtime,
 		});
-		const router = createRouter({ store, sessions, agents, runtime: () => runtime });
+		const router = createRouter({ participationHooks, store, sessions, agents, runtime: () => runtime });
 		const send = (instance: string) =>
 			router.emit({
 				type: "message.in",
@@ -629,6 +643,7 @@ test("social decision and input roll back together when audit storage fails", as
 			}),
 		);
 		const router = createRouter({
+			participationHooks,
 			store,
 			agents: new Map([[agent.id, agent]]),
 			sessions: {} as Parameters<typeof createRouter>[0]["sessions"],
@@ -687,6 +702,7 @@ bindings:
 		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
 		const reported: string[] = [];
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			agents: new Map([
@@ -802,6 +818,7 @@ test("official QQ groups outside social.scope get the restricted default instead
 		});
 		const warnings: Array<{ message: string; data?: object }> = [];
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			agents,
@@ -852,6 +869,65 @@ test("official QQ groups outside social.scope get the restricted default instead
 			"social",
 		);
 		expect(admitted).toEqual({ session: mention.routes?.[0]?.session });
+	} finally {
+		await db.close();
+	}
+});
+
+test("an unavailable participation plugin only records inbound and writes the no-participation-plugin diagnostic", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const agent = parseAgentConfig(
+			JSON.stringify({
+				schema: 1,
+				id: "main",
+				name: "main",
+				owner: "person:owner",
+				defaultProfile: "guest",
+				profiles: { guest: {} },
+				social: { enabled: true, authorized: { conversations: ["conv:chat:group"] } },
+				bindings: [{ id: "group", match: { kind: "group" }, session: { mode: "persistent", per: "conv" } }],
+			}),
+		);
+		const warnings: Array<{ message: string; data?: object }> = [];
+		const router = createRouter({
+			store,
+			agents: new Map([[agent.id, agent]]),
+			sessions: {
+				ensureAgent: async (id: string) => ({ session: { id }, profileMismatch: false }),
+			} as unknown as Parameters<typeof createRouter>[0]["sessions"],
+			runtime: () => {
+				throw new Error("No model");
+			},
+			// 该 agent 选中的参与策略插件没有加载（social 未注册任何钩子）。
+			participationHooks: new Map(),
+			onWarn: (message, data) => warnings.push(data ? { message, data } : { message }),
+		});
+		const event = await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true, text: "hello" },
+		});
+		expect(event.routes).toMatchObject([{ agent: "main", binding: null, dropped: "no-binding" }]);
+		const fact = (await store.events.query({ type: "routing.social-decision" })).events.find(
+			(item) => item.parent === event.id,
+		);
+		expect(fact?.data).toMatchObject({ agent: "main", reason: "record" });
+		expect(fact?.data).not.toHaveProperty("run");
+		expect(warnings).toContainEqual({
+			message: expect.stringContaining("参与策略插件"),
+			data: expect.objectContaining({ diagnostic: "no-participation-plugin", agent: "main", plugin: "social" }),
+		});
+		// 只记录一次诊断，不按消息刷屏。
+		await router.emit({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", mentioned: true, text: "again" },
+		});
+		expect(warnings.filter((item) => (item.data as { diagnostic?: string })?.diagnostic)).toHaveLength(1);
 	} finally {
 		await db.close();
 	}

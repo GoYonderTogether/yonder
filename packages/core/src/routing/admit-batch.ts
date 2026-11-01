@@ -2,9 +2,8 @@ import type { Channel } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
-import { participationPlugin } from "./participation.js";
 import { membershipGroup, officialGroupDefault, platformBatchBinding } from "./platform-group.js";
-import { socialDecision } from "./social.js";
+import { decideParticipation, hasParticipation, type ParticipationHooks } from "./social.js";
 
 export async function admitBatch(
 	request: { agent: string; conv: string; through: string; sourceEvents: string[]; policyRevision: string },
@@ -13,7 +12,14 @@ export async function admitBatch(
 		store,
 		channels,
 		plugins,
-	}: { agents: Map<string, AgentConfig>; store: Store; channels?: Map<string, Channel>; plugins: ReadonlySet<string> },
+		participationHooks,
+	}: {
+		agents: Map<string, AgentConfig>;
+		store: Store;
+		channels?: Map<string, Channel>;
+		plugins: ReadonlySet<string>;
+		participationHooks?: ParticipationHooks;
+	},
 	plugin = "social",
 ) {
 	const agent = agents.get(request.agent);
@@ -22,6 +28,7 @@ export async function admitBatch(
 		!agent ||
 		agent.social?.enabled === false ||
 		agent.archivedAt ||
+		!plugin ||
 		!plugins.has(plugin) ||
 		!ids.length ||
 		ids.length > 100 ||
@@ -56,15 +63,18 @@ export async function admitBatch(
 	for (const item of sources) {
 		if (!item) return;
 		const person = item.from?.startsWith("acct:") ? (await store.identity().account(item.from))?.person : undefined;
-		const decision = socialDecision(agent, item, person, channels?.get(channelOf(item.conv) ?? ""));
+		// 只有实际被选中、且真的提供参与判定的插件才能放行批次（04 §3.6，失败关闭）。
+		if (!hasParticipation(agent, item, plugin, participationHooks)) return;
+		const decision = decideParticipation(
+			agent,
+			item,
+			person,
+			channels?.get(channelOf(item.conv) ?? ""),
+			participationHooks,
+		);
 		// 批次既接纳自主批次，也接纳硬触发（08：@/引用/名字/关注）在 write 绑定下的直接机会。
-		if (
-			!decision ||
-			!(decision.reason === "batch" || decision.run === true) ||
-			decision.revision !== request.policyRevision ||
-			participationPlugin(agent, item) !== plugin
-		)
-			return;
+		if (!decision || !(decision.reason === "batch" || decision.run === true)) return;
+		if (decision.revision !== request.policyRevision) return;
 	}
 	const probe = { ...source!, type: `${plugin}.batch-ready`, from: `plugin:${plugin}` };
 	let binding: Binding | undefined;

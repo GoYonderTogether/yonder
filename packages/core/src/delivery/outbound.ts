@@ -2,10 +2,13 @@ import type { Delivery, ExecutionOwner, NotificationIntent } from "@yonder/sdk";
 import { allowsChannelInstance } from "../config/console.js";
 import type { AgentConfig, YonderConfig } from "../config/index.js";
 import { channelOf, matches } from "../routing/matching.js";
-import { socialBindingAllowed, socialDecision } from "../routing/social.js";
+import { decideParticipation, type ParticipationHooks, socialBindingAllowed } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import type { createDelivery } from "./index.js";
+
+/** Reasons that block a proactive notification (04 §3.6). */
+const blocked = ["denied", "not-authorized", "unsupported-kind", "quiet", "invalid-timezone", "record", "mute"];
 
 type Intent = {
 	owner: ExecutionOwner;
@@ -21,12 +24,14 @@ export function outboundQueue({
 	agents,
 	config,
 	delivery,
+	participationHooks,
 }: {
 	store: Store;
 	sessions: Sessions;
 	agents: Map<string, AgentConfig>;
 	config: YonderConfig;
 	delivery: () => ReturnType<typeof createDelivery>;
+	participationHooks?: ParticipationHooks;
 }) {
 	let tail = Promise.resolve();
 	let timer: ReturnType<typeof setInterval> | undefined;
@@ -175,16 +180,22 @@ export function outboundQueue({
 						const person = source?.from?.startsWith("acct:")
 							? (await store.identity().account(source.from))?.person
 							: undefined;
-						const decision = source && socialDecision(agent, source, person);
+						// 主动通知按拒绝处理（04 §3.6）：不可用同样只丢弃这条意图，与其他拦截一致。
+						let decision: ReturnType<typeof decideParticipation>;
+						try {
+							decision = source
+								? decideParticipation(agent, source, person, undefined, participationHooks, { outbound: true })
+								: undefined;
+						} catch {
+							decision = undefined;
+						}
 						const instance = channelOf(source?.conv);
 						const scope = agent.profiles[row.profile]?.channelInstances ?? agent.defaults?.channelInstances;
 						if (
 							!source ||
 							!binding ||
 							!decision ||
-							["denied", "not-authorized", "unsupported-kind", "quiet", "invalid-timezone", "record", "mute"].includes(
-								decision.reason,
-							) ||
+							blocked.includes(decision.reason) ||
 							!socialBindingAllowed(agent, source, person, binding) ||
 							!(await matches(binding, source, agent, store)) ||
 							(scope && (!instance || !scope.includes(instance)))

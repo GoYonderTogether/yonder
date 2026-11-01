@@ -29,7 +29,13 @@ export function createDelivery(options: DeliveryOptions) {
 	});
 	const binding = bindingFor(agents);
 	const resolveTarget = createTargetResolver({ store, agents, channels });
-	const checkReply = createReplyGuard({ sessions, agents, store, channels });
+	const checkReply = createReplyGuard({
+		sessions,
+		agents,
+		store,
+		channels,
+		...(options.participationHooks ? { participationHooks: options.participationHooks } : {}),
+	});
 	const visibility = createVisibility({
 		store,
 		sessions,

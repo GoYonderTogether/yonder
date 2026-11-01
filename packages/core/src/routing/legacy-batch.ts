@@ -4,7 +4,7 @@ import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
 import { channelOf, matches, sessionKey } from "./matching.js";
 import { participationPlugin } from "./participation.js";
-import { socialDecision } from "./social.js";
+import { decideParticipation, hasParticipation, type ParticipationHooks } from "./social.js";
 
 export async function suppressLegacyBatch(
 	agent: AgentConfig,
@@ -14,16 +14,24 @@ export async function suppressLegacyBatch(
 	sessions: Sessions,
 	channels?: Map<string, Channel>,
 	plugins: ReadonlySet<string> = new Set(),
+	participationHooks?: ParticipationHooks,
 ): Promise<boolean> {
 	const plugin = participationPlugin(agent, legacySource);
-	if (!plugins.has(plugin)) return false;
+	// 旧链只在所选参与策略真的可用时被抑制；插件缺失或不可用时保留旧链原语义（失败关闭不扩大范围）。
+	if (!plugins.has(plugin) || !hasParticipation(agent, legacySource, plugin, participationHooks)) return false;
 	const sourceRoute = legacySource.routes?.find(
 		(route) => route.agent === agent.id && route.wake === "write" && !route.dropped,
 	);
 	const sourcePerson = legacySource.from?.startsWith("acct:")
 		? (await store.identity().account(legacySource.from))?.person
 		: undefined;
-	const decision = socialDecision(agent, legacySource, sourcePerson, channels?.get(channelOf(legacySource.conv) ?? ""));
+	const decision = decideParticipation(
+		agent,
+		legacySource,
+		sourcePerson,
+		channels?.get(channelOf(legacySource.conv) ?? ""),
+		participationHooks,
+	);
 	if (
 		sourceRoute?.session &&
 		decision?.reason === "batch" &&

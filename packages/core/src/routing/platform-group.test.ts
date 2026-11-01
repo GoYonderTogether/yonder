@@ -1,6 +1,7 @@
 import type { Channel, YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import {
 	batchReadyBinding,
 	legacyGroupChain,
@@ -9,7 +10,15 @@ import {
 	officialGroupDefault,
 	platformGroupBinding,
 } from "./platform-group.js";
-import { socialDecision } from "./social.js";
+import { decideParticipation } from "./social.js";
+
+const hooks = await socialPluginHooks();
+const decide = (
+	agent: Parameters<typeof decideParticipation>[0],
+	event: Parameters<typeof decideParticipation>[1],
+	person: string | undefined,
+	channel: Channel | undefined,
+) => decideParticipation(agent, event, person, channel, hooks);
 
 const channel = { id: "card", multiAgent: true, features: { groupParticipation: "membership" } } as Channel;
 const event: YEvent = {
@@ -36,7 +45,7 @@ const agent = () =>
 
 test("joined platform groups derive isolated visible defaults and do not grant owner tools", () => {
 	const a = agent();
-	expect(socialDecision(a, event, undefined, channel)).toMatchObject({ reason: "batch", run: false });
+	expect(decide(a, event, undefined, channel)).toMatchObject({ reason: "batch", run: false });
 	const binding = platformGroupBinding(a, channel);
 	expect(binding).toMatchObject({
 		id: "@platform-group:card",
@@ -67,14 +76,29 @@ test("membership defaults cover new groups only and preserve explicit denials an
 	};
 	const configured = (patch: object) =>
 		parseAgentConfig(JSON.stringify({ ...agent(), social: { ...social, ...patch } }));
-	expect(socialDecision(configured({}), event, undefined, channel)).toMatchObject({ reason: "record" });
-	expect(
-		socialDecision(configured({ defaults: { group: { mode: "batch" } } }), event, undefined, channel),
-	).toMatchObject({ reason: "batch" });
-	expect(socialDecision(configured({ denied: [event.conv] }), event, undefined, channel)).toMatchObject({
-		reason: "denied",
+	expect(decide(configured({}), event, undefined, channel)).toMatchObject({ reason: "record" });
+	expect(decide(configured({ defaults: { group: { mode: "batch" } } }), event, undefined, channel)).toMatchObject({
+		reason: "batch",
 	});
-	expect(socialDecision(configured({ enabled: false }), event, undefined, channel)).toBeUndefined();
+	// 自定义参与插件在配置里被选中但未加载：按 04 §3.6 失败关闭，只记录。
+	expect(decide(configured({ denied: [event.conv] }), event, undefined, channel)).toMatchObject({
+		reason: "record",
+		run: false,
+	});
+	// 由官方 social 承担时可照常给出 denied。
+	expect(
+		decide(
+			configured({
+				plugin: undefined,
+				defaults: { group: { denied: undefined, mode: "batch" } },
+				denied: [event.conv],
+			}),
+			event,
+			undefined,
+			channel,
+		),
+	).toMatchObject({ reason: "denied" });
+	expect(decide(configured({ enabled: false }), event, undefined, channel)).toBeUndefined();
 	const a = agent();
 	expect(membershipGroup(a, { ...event, data: { kind: "group", target: "other" } }, channel)).toBe(false);
 	expect(membershipGroup(a, { ...event, data: { kind: "dm", target: "main" } }, channel)).toBe(false);
@@ -127,8 +151,8 @@ test("official QQ group bindings derive a restricted default range without rewri
 	expect(batchReadyBinding(agent, "qq-main", "social")).toBe(true);
 	expect(legacyGroupChain(agent, qqEvent())).toBe(false);
 	// 没有 social 配置时默认范围只做硬触发：普通消息只记录，不运行。
-	expect(socialDecision(agent, qqEvent(), undefined, qqChannel)).toMatchObject({ reason: "batch", run: false });
-	expect(socialDecision(agent, qqEvent({ mentioned: true }), undefined, qqChannel)).toMatchObject({ run: true });
+	expect(decide(agent, qqEvent(), undefined, qqChannel)).toMatchObject({ reason: "batch", run: false });
+	expect(decide(agent, qqEvent({ mentioned: true }), undefined, qqChannel)).toMatchObject({ run: true });
 	// 派生是解析期默认，不写进配置。
 	expect(agent.social).toBeUndefined();
 });
@@ -136,10 +160,10 @@ test("official QQ group bindings derive a restricted default range without rewri
 test("explicit denied, record, custom plugin and custom bindings keep priority over the derived default", () => {
 	const event = qqEvent({ mentioned: true });
 	expect(
-		socialDecision(official({ social: { enabled: true, denied: [event.conv] } }), event, undefined, qqChannel),
+		decide(official({ social: { enabled: true, denied: [event.conv] } }), event, undefined, qqChannel),
 	).toMatchObject({ reason: "denied" });
 	expect(
-		socialDecision(
+		decide(
 			official({ social: { enabled: true, defaults: { group: { mode: "record" } } } }),
 			event,
 			undefined,
@@ -147,19 +171,19 @@ test("explicit denied, record, custom plugin and custom bindings keep priority o
 		),
 	).toMatchObject({ reason: "record" });
 	expect(
-		socialDecision(
+		decide(
 			official({ social: { enabled: true, defaults: { group: { plugin: "other", mode: "record" } } } }),
 			event,
 			undefined,
 			qqChannel,
 		),
 	).toMatchObject({ reason: "record" });
-	expect(socialDecision(official({ social: { enabled: false } }), event, undefined, qqChannel)).toBeUndefined();
-	// 自定义参与插件优先：派生范围不替它判断，也不把普通消息升级为运行。
+	expect(decide(official({ social: { enabled: false } }), event, undefined, qqChannel)).toBeUndefined();
+	// 自定义参与插件优先：派生范围不替它判断。它未加载时失败关闭，只记录、不运行。
 	const customPlugin = official({
 		social: { enabled: true, defaults: { group: { plugin: "alternative", mode: "batch", batch: { run: false } } } },
 	});
-	expect(socialDecision(customPlugin, qqEvent(), undefined, qqChannel)).toMatchObject({ reason: "batch", run: false });
+	expect(decide(customPlugin, qqEvent(), undefined, qqChannel)).toMatchObject({ reason: "record", run: false });
 	// 自定义绑定：不是官方 write 形态，就没有派生范围。
 	const custom = parseAgentConfig(
 		JSON.stringify({
@@ -181,7 +205,7 @@ test("explicit denied, record, custom plugin and custom bindings keep priority o
 		}),
 	);
 	expect(officialGroupDefault(custom, event, qqChannel)).toBe(false);
-	expect(socialDecision(custom, event, undefined, qqChannel)).toBeUndefined();
+	expect(decide(custom, event, undefined, qqChannel)).toBeUndefined();
 });
 
 test("an un-migrated home keeps the deprecated chain and does not also derive the default range", () => {
@@ -207,7 +231,7 @@ test("an un-migrated home keeps the deprecated chain and does not also derive th
 	expect(legacyGroupChain(agent, qqEvent())).toBe(true);
 	expect(officialGroupDefault(agent, qqEvent(), qqChannel)).toBe(false);
 	expect(batchReadyBinding(agent, "qq-main", "social")).toBe(false);
-	expect(socialDecision(agent, qqEvent({ mentioned: true }), undefined, qqChannel)).toBeUndefined();
+	expect(decide(agent, qqEvent({ mentioned: true }), undefined, qqChannel)).toBeUndefined();
 });
 
 test("private chats and other instances never get the official group default", () => {

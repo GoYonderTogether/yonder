@@ -1,8 +1,11 @@
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
 import { createRouter } from "./index.js";
+
+const participationHooks = await socialPluginHooks();
 
 test("folded group mentions remain write-only and retain the effective policy", async () => {
 	const db = await openDatabase(":memory:");
@@ -25,6 +28,7 @@ test("folded group mentions remain write-only and retain the effective policy", 
 			}),
 		);
 		const router = createRouter({
+			participationHooks,
 			store,
 			agents: new Map([[agent.id, agent]]),
 			sessions: {

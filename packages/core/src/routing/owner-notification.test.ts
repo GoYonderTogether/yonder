@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { expect, test } from "vitest";
 import { parseAgentConfig, resolveProfile, type YonderConfig } from "../config/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import { Runtime } from "../runtime/index.js";
 import { createSessions } from "../sessions/index.js";
 import { createStore } from "../store/index.js";
 import { createRouter } from "./index.js";
+
+const participationHooks = await socialPluginHooks();
 
 test("authorized owner mentions reach owner main once and revoked sources are discarded", async () => {
 	const home = await mkdtemp(join(tmpdir(), "yonder-owner-notify-"));
@@ -64,12 +67,14 @@ bindings:
 			store,
 			sessions,
 			agents,
+			participationHooks,
 			config: { notifications: { outbound: { mode: "immediate" } } } as YonderConfig,
 			delivery: () => {
 				throw new Error("unexpected external delivery");
 			},
 		});
 		const router = createRouter({
+			participationHooks,
 			store,
 			sessions,
 			runtime: () => current,

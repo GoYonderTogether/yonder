@@ -1,10 +1,11 @@
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
 import { admitBatch } from "./admit-batch.js";
 import { participationPlugin } from "./participation.js";
-import { socialDecision } from "./social.js";
+import { socialRevision } from "./social.js";
 
 test("batch admission rechecks authorization, quiet and binding without routing an event", async () => {
 	const db = await openDatabase(":memory:");
@@ -46,7 +47,7 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 			{ type: "message.in", from: "acct:test:u", conv: "conv:test:g", data: { kind: "group", text: "hello" } },
 			[{ agent: "a", binding: "group", session: "1", wake: "write" }],
 		);
-		const revision = socialDecision(agent, source, undefined)?.revision ?? "";
+		const revision = socialRevision(agent.social!);
 		const request = {
 			agent: "a",
 			conv: "conv:test:g",
@@ -54,7 +55,20 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 			sourceEvents: [source.id],
 			policyRevision: revision,
 		};
-		const deps = { agents: new Map([["a", agent]]), store, plugins: new Set(["social", "alternative"]) };
+		// 真实加载官方 social 插件；批次用到的自定义参与插件按同一接口注册。
+		const loaded = await socialPluginHooks();
+		const hooks = new Map(loaded);
+		const alternative = loaded.get("social")!;
+		hooks.set(
+			"alternative",
+			alternative.map((hook) => ({ ...hook, id: `alternative.${hook.id}` })),
+		);
+		const deps = {
+			agents: new Map([["a", agent]]),
+			store,
+			plugins: new Set(["social", "alternative"]),
+			participationHooks: hooks,
+		};
 		expect(await admitBatch(request, deps)).toEqual({ session: "1" });
 		agent.social!.denied = ["conv:test:g"];
 		expect(await admitBatch(request, deps)).toBeUndefined();
@@ -65,7 +79,7 @@ test("batch admission rechecks authorization, quiet and binding without routing 
 		agent.social!.defaults!.group!.plugin = "alternative";
 		agent.profiles.group!.plugins = ["alternative"];
 		agent.bindings[0]!.match.type = "alternative.batch-ready";
-		request.policyRevision = socialDecision(agent, source, undefined)?.revision ?? "";
+		request.policyRevision = socialRevision(agent.social!);
 		expect(await admitBatch(request, deps, "alternative")).toEqual({ session: "1" });
 		expect(await admitBatch(request, deps, "social")).toBeUndefined();
 		deps.plugins.delete("alternative");

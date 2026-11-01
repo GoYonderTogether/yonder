@@ -10,6 +10,7 @@ import { createRouter } from "../../../packages/core/src/routing/index.js";
 import { openDatabase } from "../../../packages/core/src/runtime/db.js";
 import { createStore } from "../../../packages/core/src/store/index.js";
 import { Batches } from "../src/batches.js";
+import { decideParticipation } from "../src/participation.js";
 
 const golden = new URL("./events.golden.json", import.meta.url);
 function shape(value: unknown): unknown {
@@ -44,10 +45,12 @@ test("SQLite routing facts rebuild a pending batch across restart and retain the
 		const sessions = {
 			ensureAgent: async () => ({ session: { id: "group-session" }, profileMismatch: false }),
 		} as unknown as Parameters<typeof createRouter>[0]["sessions"];
+		// 路由里的参与判定来自真实 social 插件注册的钩子（04 §3.6）。
 		const router = createRouter({
 			store,
 			sessions,
 			agents: new Map([["main", agent]]),
+			participationHooks: new Map([["social", [{ id: "social.group-judge", participation: decideParticipation }]]]),
 			runtime: () => {
 				throw new Error("No model invoked");
 			},

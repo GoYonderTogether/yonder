@@ -70,7 +70,7 @@ export default {...plugin,setup(api){globalThis[${JSON.stringify(`${key}:social`
 					apiVersion: 1,
 					id: "delivery-probe",
 					entry: "index.mjs",
-					contributes: { channels: ["group-delivery"], hooks: ["hold"] },
+					contributes: { channels: ["group-delivery"], hooks: ["hold", "strategy"] },
 				},
 			}),
 		);
@@ -78,6 +78,13 @@ export default {...plugin,setup(api){globalThis[${JSON.stringify(`${key}:social`
 			join(home, "probe/index.mjs"),
 			`export default {setup(api){
 const state={api,socialApi:globalThis[${JSON.stringify(`${key}:social`)}],ios:{},sent:[],contexts:[],messages:[],releases:new Map(),results:[]}; globalThis[${JSON.stringify(key)}]=state;
+// 可选的自定义参与策略插件（04 §3.6）：内核按 SocialPolicy.plugin 调它，不由官方 social 代判。
+api.hooks.register({id:'strategy',participation(input){
+  const {createHash}=process.getBuiltinModule('node:crypto');
+  const social=input.agent.social??{};
+  const revision=createHash('sha256').update(JSON.stringify(social)).digest('hex');
+  return {reason:'bot-mention',run:true,revision,policy:{...social.defaults?.group,mode:'batch'}};
+}});
 api.hooks.register({id:'hold',async beforeRequest(messages,ctx){
 state.contexts.push(ctx);
 state.messages.push(messages.map(message=>({role:message.role,content:message.content})));

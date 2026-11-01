@@ -10,7 +10,11 @@ const shape = (value: unknown): unknown =>
 			? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shape(item)]))
 			: typeof value;
 
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import { outboundQueue } from "./outbound.js";
+
+// 真实加载官方 social 插件：主动通知准入读的是它给出的判定（04 §3.6）。
+const participationHooks = await socialPluginHooks();
 
 test("digest survives restart and rechecks every queued owner's capability", async () => {
 	const events: Array<{ id: string; type: string; ts: string; data: unknown }> = [];
@@ -45,6 +49,7 @@ test("digest survives restart and rechecks every queued owner's capability", asy
 		agents,
 		config: { notifications: { outbound: { mode: "immediate" } } },
 		delivery: () => ({}),
+		participationHooks,
 	} as unknown as Parameters<typeof outboundQueue>[0];
 	await store.events.record({ type: "source", data: {} });
 	const owner = { agent: "bot", session: "1", profile: "main" };
@@ -107,6 +112,7 @@ test("the console stays an allowed owner notification target under a channel sco
 		sessions,
 		agents: new Map([["bot", agent]]),
 		config: { notifications: { outbound: { mode: "immediate", target: { to: "conv:console:main", via: "console" } } } },
+		participationHooks,
 		delivery: () => delivery,
 	} as unknown as Parameters<typeof outboundQueue>[0]);
 	await store.events.record({ type: "source", data: {} });
@@ -118,4 +124,86 @@ test("the console stays an allowed owner notification target under a channel sco
 	await queue.flush();
 	expect(sent).toEqual([{ to: "conv:console:main", text: "需要决定" }]);
 	expect(events.find((event) => event.type === "notification.final")?.data).toMatchObject({ status: "attempted" });
+});
+
+test("an unavailable participation plugin rejects the source-based proactive notification", async () => {
+	const events: Array<{
+		id: string;
+		type: string;
+		ts: string;
+		data: unknown;
+		from?: string;
+		conv?: string;
+		routes?: unknown;
+	}> = [];
+	const agent = {
+		id: "bot",
+		social: { enabled: true, authorized: { conversations: ["conv:chat:group"] } },
+		owner: "person:owner",
+		bindings: [
+			{ id: "group", match: { channel: "chat", kind: "group" }, session: { mode: "persistent", per: "conv" } },
+		],
+		profiles: {},
+	};
+	const store = {
+		events: {
+			query: async ({ type }: { type: string }) => ({ events: events.filter((event) => event.type === type) }),
+			get: async (id: string) => events.find((event) => event.id === id),
+			record: async (input: Record<string, unknown> & { type: string; data: unknown }) => {
+				const event = { ...input, id: String(events.length + 1), ts: new Date(0).toISOString() };
+				events.push(event);
+				return event;
+			},
+		},
+		sessions: {
+			get: async (id: string) => ({ id, agent: "bot", profile: "main" }),
+			list: async () => [{ id: "9", mode: "main" }],
+		},
+		identity: () => ({ account: async () => undefined }),
+	};
+	const sessions = {
+		resolveSession: async () => ({ resolved: { capabilities: ["message"] } }),
+		notifyFrom: async () => {},
+	};
+	const delivery = { sendOwned: async () => ({ ok: true }) };
+	const config = { notifications: { outbound: { mode: "immediate" } } };
+	await store.events.record({ type: "source", data: {} });
+	await store.events.record({
+		type: "message.in",
+		from: "acct:chat:user",
+		conv: "conv:chat:group",
+		data: { kind: "group", msgId: "one", text: "hello", social: { mentions: { owner: true } } },
+		routes: [{ agent: "bot", binding: "group", session: "1", wake: "write" }],
+	});
+	for (const [label, hooks, expected] of [
+		["available", participationHooks, ["attempted"]],
+		["unavailable", new Map(), ["attempted", "discarded"]],
+	] as const) {
+		// 每次都用一条新的来源入站事件，避免去重键相同。
+		const source = await store.events.record({
+			type: "message.in",
+			from: "acct:chat:user",
+			conv: "conv:chat:group",
+			data: { kind: "group", msgId: label, text: "hello", social: { mentions: { owner: true } } },
+			routes: [{ agent: "bot", binding: "group", session: "1", wake: "write" }],
+		});
+		const queue = outboundQueue({
+			store,
+			sessions,
+			agents: new Map([["bot", agent]]),
+			config,
+			delivery: () => delivery,
+			participationHooks: hooks,
+		} as unknown as Parameters<typeof outboundQueue>[0]);
+		await queue.enqueue({ agent: "bot", session: "1", profile: "main" }, "yonder", "群消息提及了主人", {
+			kind: "decision",
+			key: `owner-mention:${source.id}`,
+			sourceEvents: [source.id],
+		});
+		await queue.flush();
+		const finals = (await store.events.query({ type: "notification.final" })).events.map(
+			(event) => (event.data as { status: string }).status,
+		);
+		expect(finals, label).toEqual(expected);
+	}
 });

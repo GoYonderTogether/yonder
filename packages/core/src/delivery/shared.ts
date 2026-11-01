@@ -1,5 +1,6 @@
 import { type Channel, type Delivery, type Hook, parseRef, type SessionInfo, type YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
+import type { ParticipationHooks } from "../routing/social.js";
 import type { Runtime, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
@@ -8,6 +9,8 @@ import type { MessageRequest } from "./request.js";
 
 export interface DeliveryOptions {
 	hooks?: Map<string, Hook[]>;
+	/** Registered hooks by plugin id; the participation policy plugin is chosen by `SocialPolicy.plugin`. */
+	participationHooks?: ParticipationHooks;
 	store: Store;
 	agents: Map<string, AgentConfig>;
 	channels: Map<string, Channel>;

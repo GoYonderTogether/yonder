@@ -2,7 +2,13 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { Preset } from "@yonder/sdk";
 import { shippedChannelsFor } from "../bundles.js";
-import { type AgentConfig, loadPresets, loadYonderConfig, watchConfig, type YonderConfig } from "../config/index.js";
+import {
+	type AgentConfig,
+	loadPresets,
+	loadYonderConfig,
+	type watchConfig,
+	type YonderConfig,
+} from "../config/index.js";
 import { lockHome } from "../control/home-lock.js";
 import { createKernelWorkHost } from "../control/work-stream.js";
 import { createDelivery } from "../delivery/index.js";
@@ -215,6 +221,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		});
 		delivery = createDelivery({
 			hooks: loaded.hooks,
+			participationHooks: loaded.hooks,
 			store,
 			agents,
 			channels: loaded.channels,
@@ -223,7 +230,14 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			onReport: report,
 			log,
 		});
-		outbound = outboundQueue({ store, sessions, agents, config, delivery: () => delivery });
+		outbound = outboundQueue({
+			store,
+			sessions,
+			agents,
+			config,
+			delivery: () => delivery,
+			participationHooks: loaded.hooks,
+		});
 		const gate = quotaWire({
 			db,
 			config,
@@ -242,6 +256,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		router = createRouter({
 			channels: loaded.channels,
 			socialBatchPlugin: new Set(loaded.info?.map((plugin) => plugin.id) ?? []),
+			participationHooks: loaded.hooks,
 			store,
 			sessions,
 			runtime: realRuntime,

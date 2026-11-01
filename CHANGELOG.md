@@ -11,6 +11,11 @@
 - 群上下文收敛为内核 `<turn>` 加一条紧凑 user context（自己、被指向的人、本批覆盖、已观察的其他 Bot 与当前机会），公开历史有界且每轮只出现一次；人设仍只来自 SOUL/AGENTS。
 - 群配置迁移统一走 `yonder-qq upgrade-groups`：可预览、逐字段校验、写备份、可重复执行，只迁移可确认的官方群配置，自定义绑定不覆盖。
 
+### Added
+
+- sdk：新增可选 `Hook.participation`（`ParticipationInput` / `ParticipationDecision` / `ParticipationReason`），参与判定成为 hooks 槽的扩展，不新增插件槽；形状由 `participation.golden.test.ts` 与 `golden/participation.json` 守护，原因集合只增不删。
+- social：点名、授权名单、quiet、模式与关键词等参与策略从内核搬到官方 `social` 插件，按 `SocialPolicy.plugin` 选择实现；未加载、抛错或返回非法结果时失败关闭（入站只记录并诊断 `no-participation-plugin`，出站拒绝为 `Social delivery blocked: participation-unavailable`）。内核保留平台事实、绑定安全、批次复核与发送前强制。
+
 ## [0.3.26103105] - 2026-10-31
 
 - 窄屏底部导航以高对比图标胶囊和加粗文字突出当前选中项。

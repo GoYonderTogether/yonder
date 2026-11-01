@@ -1,103 +1,142 @@
 import { createHash } from "node:crypto";
-import type { Channel, SocialMessageData, YEvent } from "@yonder/sdk";
+import type { Channel, Hook, ParticipationDecision, ParticipationReason, SocialConfig, YEvent } from "@yonder/sdk";
 import type { AgentConfig, Binding } from "../config/index.js";
 import { participationPlugin } from "./participation.js";
 import { membershipGroup, officialGroupBinding, officialGroupDefault } from "./platform-group.js";
 
-type Kind = "dm" | "group" | "channel";
-export function socialDecision(agent: AgentConfig, event: YEvent, person: string | undefined, channel?: Channel) {
+export type ParticipationHooks = ReadonlyMap<string, readonly Hook[]>;
+
+/** Closed reason set (04 §3.6); any other value is an invalid plugin answer and fails closed. */
+const reasons = new Set<string>([
+	"unsupported-kind",
+	"channel-kind-mismatch",
+	"denied",
+	"not-authorized",
+	"quiet",
+	"invalid-timezone",
+	"mention-conflict",
+	"bot-mention",
+	"owner-mention",
+	"group-owner",
+	"everyone",
+	"keyword",
+	"direct",
+	"record",
+	"mention",
+	"batch",
+	"folded",
+	"mute",
+]);
+
+/** The social config's content version (01 §3, same algorithm as `kernel/social.ts`). */
+export const socialRevision = (social: SocialConfig) =>
+	createHash("sha256").update(JSON.stringify(social)).digest("hex");
+
+const valid = (value: unknown): value is ParticipationDecision => {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+	const decision = value as Record<string, unknown>;
+	return (
+		typeof decision.reason === "string" &&
+		reasons.has(decision.reason) &&
+		typeof decision.run === "boolean" &&
+		typeof decision.revision === "string" &&
+		(decision.policy === undefined ||
+			(typeof decision.policy === "object" && decision.policy !== null && !Array.isArray(decision.policy)))
+	);
+};
+
+/**
+ * Kernel-side facts and gating for one inbound event (04 §3.6, 08). Nothing here is policy: membership,
+ * official group acceptance, the derived default range and scope decide only whether a participation
+ * policy applies at all. The decision itself belongs to the selected plugin.
+ */
+function applicable(agent: AgentConfig, event: YEvent, channel: Channel | undefined) {
 	const member = membershipGroup(agent, event, channel);
-	// 官方群绑定接纳本身就授权该群（08），与是否派生默认范围无关。
+	// An official group binding already authorizes its group (08), whether or not a default range is derived.
 	const bound = member || officialGroupBinding(agent, event, channel);
-	// 08「官方 QQ 群的默认参与范围」：官方群绑定接纳的群在没有手写 scope 时派生的受限默认，不写回配置。
-	// 显式选择的自定义参与插件优先：不会被派生默认为运行，也不由 social 代它判断。
+	// A custom participation plugin takes precedence: the derived default never speaks for it.
 	const custom = agent.social?.enabled === true && participationPlugin(agent, event) !== "social";
-	const official = !member && !custom && officialGroupDefault(agent, event, channel);
-	const social = agent.social ?? (member || official ? { enabled: true } : undefined);
+	const officialDefault = !member && !custom && officialGroupDefault(agent, event, channel);
+	const social = agent.social ?? (member || officialDefault ? { enabled: true } : undefined);
 	if (
 		!social ||
 		social.enabled === false ||
-		(!social.enabled && !member && !official) ||
+		(!social.enabled && !member && !officialDefault) ||
 		event.type !== "message.in" ||
-		(!member && !official && social.scope && (!event.conv || !social.scope.includes(event.conv)))
+		(!member && !officialDefault && social.scope && (!event.conv || !social.scope.includes(event.conv)))
 	)
 		return undefined;
-	const data = event.data as {
-		kind?: unknown;
-		mentioned?: unknown;
-		text?: unknown;
-		senderIsBot?: unknown;
-		social?: SocialMessageData;
-	};
-	const kind = data.kind;
-	const revision = createHash("sha256").update(JSON.stringify(social)).digest("hex");
-	const result = (reason: string, run = false) => ({ reason, run, revision });
-	if (kind !== "dm" && kind !== "group" && kind !== "channel") return result("unsupported-kind");
-	if (channel?.kinds && !channel.kinds.includes(kind)) return result("channel-kind-mismatch");
-	const subjects = [event.conv, event.from, person].filter((v): v is string => !!v);
-	if (subjects.some((s) => social.denied?.includes(s))) return result("denied");
-	const owner = kind === "dm" && !!person && person === agent.owner;
-	// 官方群绑定接纳本身就是该群的授权（08），不需要再手写 authorized。
-	const authorized =
-		bound ||
-		owner ||
-		!!(event.conv && social.authorized?.conversations?.includes(event.conv)) ||
-		!!(event.from && social.authorized?.accounts?.includes(event.from)) ||
-		!!(person && social.authorized?.people?.includes(person));
-	if (!authorized) return result("not-authorized");
-	const defaults = social.defaults?.[kind as Kind];
-	const override = event.conv ? social.conversations?.[event.conv] : undefined;
-	const policy = {
-		...defaults,
-		...override,
-		...(defaults?.batch || override?.batch ? { batch: { ...defaults?.batch, ...override?.batch } } : {}),
-		...(defaults?.signals || override?.signals ? { signals: { ...defaults?.signals, ...override?.signals } } : {}),
-	};
-	const mode: string = policy.mode ?? (kind === "dm" ? "direct" : "batch");
-	if (policy.quiet) {
+	return { member, bound, officialDefault, custom, social };
+}
+
+/**
+ * The participation decision for one event (04 §3.6): the kernel resolves the selected plugin from
+ * `SocialPolicy.plugin` (default `social`) and calls it synchronously, then validates the answer.
+ * A missing plugin, a thrown error or a malformed answer fails closed: outbound delivery is blocked,
+ * inbound only records. `onUnavailable` lets callers write the `no-participation-plugin` diagnostic.
+ */
+export function decideParticipation(
+	agent: AgentConfig,
+	event: YEvent,
+	person: string | undefined,
+	channel: Channel | undefined,
+	hooks: ParticipationHooks | undefined,
+	options: { outbound?: boolean; onUnavailable?: (plugin: string) => void } = {},
+): ParticipationDecision | undefined {
+	const facts = applicable(agent, event, channel);
+	if (!facts) return undefined;
+	const plugin = participationPlugin(agent, event);
+	const hook = hooks?.get(plugin)?.find((item) => typeof item.participation === "function");
+	let decision: ParticipationDecision | undefined;
+	if (hook?.participation) {
 		try {
-			const time = new Intl.DateTimeFormat("en-GB", {
-				timeZone: policy.quiet.timezone,
-				hour: "2-digit",
-				minute: "2-digit",
-				hourCycle: "h23",
-			}).format(new Date());
-			const { start, end } = policy.quiet;
-			if (start < end ? time >= start && time < end : time >= start || time < end) return result("quiet");
+			decision = hook.participation({
+				agent: {
+					id: agent.id,
+					...(agent.owner ? { owner: agent.owner } : {}),
+					social: facts.social,
+				},
+				event,
+				...(person ? { person } : {}),
+				...(channel
+					? {
+							channel: {
+								kinds: channel.kinds,
+								...(channel.features ? { features: channel.features } : {}),
+							},
+						}
+					: {}),
+				facts: {
+					member: facts.member,
+					bound: facts.bound,
+					officialDefault: facts.officialDefault,
+					custom: facts.custom,
+				},
+				now: new Date().toISOString(),
+			});
 		} catch {
-			return result("invalid-timezone");
+			decision = undefined;
 		}
 	}
-	if (mode === "folded") return { ...result(mode), policy };
-	if (mode === "mute" || mode === "record") return result(mode);
-	if (kind !== "dm" && (event.data as { senderIsBot?: boolean }).senderIsBot === true) return result("record");
-	if (kind === "dm") return result("direct", mode === "direct");
-	const nativeMention = data.social?.mentions?.bot;
-	if (
-		typeof nativeMention === "boolean" &&
-		typeof data.mentioned === "boolean" &&
-		nativeMention !== data.mentioned &&
-		!(nativeMention === false && data.mentioned && data.social?.mentions?.everyone === true)
-	)
-		return result("mention-conflict");
-	const mention =
-		nativeMention === true ||
-		(nativeMention === undefined && data.mentioned === true && data.social?.mentions?.everyone !== true);
-	const signals = [
-		["bot-mention", mention, policy.signals?.botMention ?? "respond"],
-		["owner-mention", data.social?.mentions?.owner === true, policy.signals?.ownerMention ?? "consider"],
-		["group-owner", data.social?.senderRole === "group-owner", policy.signals?.groupOwner ?? "consider"],
-		["everyone", data.social?.mentions?.everyone === true, policy.signals?.everyone ?? "consider"],
-		[
-			"keyword",
-			typeof data.text === "string" &&
-				policy.keywords?.some((word) => (data.text as string).normalize("NFC").includes(word.normalize("NFC"))),
-			policy.signals?.keyword ?? "consider",
-		],
-	] as const;
-	const responding = signals.find(([, matched, action]) => matched && action === "respond");
-	if (responding) return { ...result(responding[0], true), policy };
-	return { ...result(mode), policy };
+	if (valid(decision)) return decision;
+	options.onUnavailable?.(plugin);
+	if (options.outbound) throw new Error("Social delivery blocked: participation-unavailable");
+	return { reason: "record" satisfies ParticipationReason, run: false, revision: socialRevision(facts.social) };
+}
+
+/**
+ * Whether `plugin` really provides participation for this source event: loaded, exposes the hook, and is
+ * the plugin `SocialPolicy.plugin` selects there. Only a real policy may admit a batch or suppress the
+ * deprecated chain; a missing one fails closed.
+ */
+export function hasParticipation(
+	agent: AgentConfig,
+	source: Pick<YEvent, "type" | "conv" | "from" | "data">,
+	plugin: string,
+	hooks: ParticipationHooks | undefined,
+): boolean {
+	if (!hooks?.get(plugin)?.some((hook) => typeof hook.participation === "function")) return false;
+	return participationPlugin(agent, source as YEvent) === plugin;
 }
 
 export function socialBindingAllowed(

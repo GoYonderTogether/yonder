@@ -4,6 +4,7 @@ import type { NotificationConfig, NotificationLevel } from "../config/notificati
 import type { Runtime, RuntimeRun } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/index.js";
+import type { ParticipationHooks } from "./social.js";
 
 /** 已路由的一次提交：agent、原生会话与唤醒方式。 */
 export type RoutedRun = { agent: string; session: string; wake: "run" | "write" };
@@ -13,6 +14,8 @@ export interface CreateRouterOptions {
 	sessions: Sessions;
 	runtime: () => Runtime;
 	agents: Map<string, AgentConfig>;
+	/** Registered hooks by plugin id: the participation policy plugin is selected by `SocialPolicy.plugin`. */
+	participationHooks?: ParticipationHooks;
 	notificationLevel?: (conv?: string, session?: string) => NotificationLevel;
 	notifications?: NotificationConfig;
 	socialBatchPlugin?: boolean | ReadonlySet<string>;

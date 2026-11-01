@@ -25,7 +25,7 @@ test("real plugin caller identity and selected batch namespace govern replaceabl
 						apiVersion: 1,
 						id,
 						entry: "index.mjs",
-						contributes: id === "chosen" ? { channels: ["participation-test"] } : {},
+						contributes: id === "chosen" ? { channels: ["participation-test"], hooks: ["advance"] } : {},
 					},
 				}),
 			);
@@ -34,6 +34,16 @@ test("real plugin caller identity and selected batch namespace govern replaceabl
 				id === "chosen"
 					? `export default {setup(api){
  globalThis[${JSON.stringify(key)}].chosen=api;
+ // 真实的参与策略插件：内核按 SocialPolicy.plugin 选它，并由它给出判定（04 §3.6）。
+ api.hooks.register({id:'advance',participation(input){
+   const social=input.agent.social??{};
+   const {createHash}=process.getBuiltinModule('node:crypto');
+   const revision=createHash('sha256').update(JSON.stringify(social)).digest('hex');
+   if((social.denied??[]).includes(input.event.conv)) return {reason:'denied',run:false,revision};
+   return input.facts.bound||(social.authorized?.conversations??[]).includes(input.event.conv)
+     ? {reason:'batch',run:false,revision,policy:{mode:'batch'}}
+     : {reason:'not-authorized',run:false,revision};
+ }});
  api.channels.register({type:'participation-test',create(id){return {id,kinds:['group'],output:{stream:false,attachments:false},async start(io){globalThis[${JSON.stringify(key)}].io=io},async stop(){},async send(){throw Error('No platform sends in participation contract test')}}}});
 }};`
 					: `export default {setup(api){globalThis[${JSON.stringify(key)}].other=api}};`,

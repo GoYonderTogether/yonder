@@ -18,11 +18,15 @@ test("NO_REPLY fragments stay private, ordinary progress is released without los
 // Protocol driver only: real SQLite receipts and delivery, no simulated model.
 import type { Channel, Hook, OutputPart, SessionInfo } from "@yonder/sdk";
 import { resolveProfile } from "../config/test-support.js";
+import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
 import { openDatabase } from "../runtime/db.js";
 import type { Runtime, RuntimeSessionConfig } from "../runtime/index.js";
 import type { Sessions } from "../sessions/index.js";
 import { createStore, newEvent } from "../store/index.js";
 import { createDelivery } from "./index.js";
+
+// 真实加载官方 social 插件：回复拦截读的是它给出的判定（04 §3.6）。
+const participationHooks = await socialPluginHooks();
 
 async function setup(hooks?: Map<string, Hook[]>, selected: string[] = [], social = false) {
 	const db = await openDatabase(":memory:");
@@ -81,6 +85,7 @@ async function setup(hooks?: Map<string, Hook[]>, selected: string[] = [], socia
 		: new Map();
 	const delivery = createDelivery({
 		...(hooks ? { hooks } : {}),
+		participationHooks,
 		store,
 		agents,
 		channels: new Map([["test", channel]]),
@@ -886,6 +891,35 @@ test("retry rechecks social mute before dispatch", async () => {
 		expect(calls).toBe(1);
 	} finally {
 		await x.delivery.close();
+		await x.db.close();
+	}
+});
+
+test("an unavailable participation plugin blocks the reply and records the same message.out failure", async () => {
+	const x = await setup(undefined, [], true);
+	// 该 agent 的参与策略插件不可用：出站按拒绝处理（04 §3.6）。
+	await x.delivery.close();
+	try {
+		const unavailable = createDelivery({
+			store: x.store,
+			agents: x.agents,
+			channels: new Map([["test", x.channel]]),
+			runtime: () => ({ currentConfig: () => x.config }) as unknown as Runtime,
+			sessions: { resolveSession: async () => x.config } as unknown as Sessions,
+			participationHooks: new Map(),
+		});
+		unavailable.start();
+		x.agents.set("main", { owner: "person:owner", social: { enabled: true } } as never);
+		await unavailable.sendCommand(x.session, x.event, "blocked by missing policy");
+		const out = (await x.store.events.query({ type: "message.out" })).events;
+		expect(out).toHaveLength(1);
+		expect(out[0]?.data).toMatchObject({
+			text: "blocked by missing policy",
+			delivery: { ok: false, error: "Social delivery blocked: participation-unavailable" },
+		});
+		expect(x.sent).toEqual([]);
+		await unavailable.close();
+	} finally {
 		await x.db.close();
 	}
 });
