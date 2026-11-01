@@ -15,7 +15,7 @@
 | B3 非 core 大文件 | 已提交：cron、native-automation、channel-wechat-ilink、channel-qq、channel-feishu、cli terminal、cli index 均 ≤500 行 |
 | B2 core 分层 | 已提交 `ae6a1de`…`ec87624`：9 处上行依赖修复，另修 routing→delivery；新增 `scripts/check-layers.mjs`（接入 `npm run lint`，基线为空）；默认 `npm test` 2264 / 1（既有 market.test）/ 104 |
 | C 拆 runtime/release/delivery/kernel/device | 已提交（runtime `4a472c0`…`9282191`；release `c25b6e9`、delivery `d3cf6d8`、kernel `614952f`、device `fe80678`）；全仓已无超过 500 行的源文件，行数基线为空 |
-| D 内核瘦身 | 未改代码：social-guard 迁入插件会削弱安全，D1/D2 都需要先批准 SDK 接缝（[设计稿](../proposals/convergence/kernel-slimming.md)）；未接线的群摘要显示与外人闸门待决定接线或删除 |
+| D 内核瘦身 | D2a 参与判定接缝已提交（`2c30644`、`ddd3ed9`、`f2d4e3b`、`c2b9b1a`）：`Hook.participation` 进 SDK 与 golden，策略代码搬进 social 插件，所选插件不可用时入站只记录、出站失败关闭。实测：`npm test` 2279 / 1（既有 market.test）/ 104；`check-stability` 9 项通过；真实模型对照父提交无回归（`participation-live` 在两侧都偶发失败，属模型相关的既有抖动）。**core 非测试行数 28,556 → 28,733（+177）**：接缝管线比搬走的策略代码（约 60 行）多，所以这一步的收益是边界清楚（策略在插件、强制在内核），不是内核变小。agent 配置段贡献与显式迁移钩子获批但暂缓：能搬走的代码少（约 240 行、101 行），而 core 路由仍要读 `social` 段的 `enabled/scope/plugin`、迁移钩子会改变老 home 的运行时机，按收益不做；未接线的群摘要显示（`routing/group-session.ts`、`views/social-group.ts`）与外人闸门（`delivery/outsider-guard.ts`）仍待决定接线或删除 |
 | E 干净验收 | `7d1d374` 与收敛前 `8b60bee` 各自干净 `npm ci` 后对照：build、typecheck、`test:node`（40/0/0）两边通过；`npm test` 2263 / 1 / 105（仅既有 `apps/app/scripts/market.test.mjs`），收敛前 2231 / 2 / 105；`npm run lint` 现在通过，收敛前因行数门禁失败。真实模型全集 825 / 28 / 17，收敛前 802 / 29 / 17，**无回归**（失败集合是收敛前的子集）；剩余失败多为凭据缺 `workbuddy`、`rightapi-glm` 与轮询超时 |
 
 收敛前后：core 模块之间的双向值依赖 9 对 → 2 对（剩 `control↔kernel`、`kernel↔plugins`，同在 L4）；层级违规 0；超过 500 行的源文件（不含 vendored pi-durable）22 → 10，剩下的都在行数门禁范围外（`apps/app` 前端、`.mjs` 脚本、Swift）；core 非测试代码 27,052 → 28,556 行（含群参与收口新增与拆分开销）。

@@ -173,7 +173,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 优先级从高到低：`denied` → 精确 `conversations` 覆盖 → `defaults.group` → 派生默认范围；显式 `mode: record`/`mute`、自定义参与插件（`plugin`）与自定义绑定都在默认范围之前生效，且不因默认范围被升级为运行。关闭该 Bot 的群参与用 `social.enabled: false`，不靠清空 `scope`。私聊不受本节影响：没有 `social.scope` 的私聊仍只沿原绑定，不产生 social decision。
 
-没有 social 参与插件或没有可用批次绑定时，默认范围只记录，并以路由的 `no-binding` 事实加一条可读诊断说明原因（见 11）；不得把它当作可运行批次，也不得转交旧 `channel-qq.group-batch` 链。
+没有 social 参与插件（所选插件未加载、没有 `participation` 方法、抛错或返回非法结果，诊断 `no-participation-plugin`）或没有可用批次绑定时，默认范围只记录，并以路由的 `no-binding` 事实加一条可读诊断说明原因（见 11）；出站回复与主动通知此时失败关闭（04 §3.6）；不得把它当作可运行批次，也不得转交旧 `channel-qq.group-batch` 链。
 
 ## 运行期预算与配置视图键（O51 IMP-02/IMP-34，只增不改）
 
