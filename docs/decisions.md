@@ -1,5 +1,17 @@
 # 决策记录
 
+## 2026-10-31 发版只在 main 上做，Release 最后创建（主人要求）
+
+排查协作者「有 owner 权限也发不了版」时发现：发版本来已完全在 `.github/workflows/release.yml`，协作者 `zhaoyuxi07-lang` 是 org 与仓库 admin，权限足够，失败来自本机环境；但工作流本身有两个实证缺陷——2026-10-30 有一次从分叉分支 `release/media-tools-tts` 发版，rebase 回 main 冲突后留下 `v0.3.26103014`、`v0.3.26103019` 两个 main 里不存在的正式 Release，CHANGELOG 至今缺少 `.19` 小节；且 GITHUB_TOKEN 推送的提交不触发 `push`，发版提交 `b32040d` 的 check-runs 为空，规范写的「CI 在发版后再跑」从未发生。
+
+- **发版点必须是 main 的历史**：工作流先 `git merge-base --is-ancestor HEAD origin/main`，拒绝任何分叉分支输入，再 `git merge --ff-only origin/main`，在 main 当前 tip 上提交版本。这样发版提交天然接在 main 上，不需要 rebase，也就不存在「rebase 失败留下孤儿版本」。
+- **顺序固定为：提交 → 构建 → 打包 → `git push --atomic` tag 与 main → 草稿 Release → 核对附件 → 公开**。原子推送让 tag 与 main 要么都在要么都不在；Release 最后建且先草稿后公开，任何一步失败都不会出现「正式版已对外可见但 main 没有该提交」或「公开了但附件不全」。删除原「main 同步失败时 Release 照常创建、由主 Agent 手动合回」的路径。
+- **发版后派发 CI**：公开后 `gh workflow run ci.yml --ref v<版本>`（`ci.yml` 增加 `workflow_dispatch`，release 作业增加 `actions: write`），让 CI 跑在发布的那个提交上。失败不回滚已发布版本，按缺陷修下一版。
+- **触发方式不变且无需本机凭据**：`gh workflow run release.yml -R GoYonderTogether/yonder -f ref=main`，或在 Actions 页面手动运行；任何有写权限的人都能执行。
+- **不做**：不引入 PAT/App 机器人（GITHUB_TOKEN 已足够）、不加分支保护（维护者直接推 main 是现行工作方式）、不自动部署（云端部署仍需服务器凭据，见 09 §5.1 末条）。
+
+历史遗留的 `.14`/`.19` 孤儿 Release 不追改，`v0.3.26103020` 已包含 `.19` 的内容，保持事件不可变。见 09 §5.1。
+
 ## 2026-10-31 内核分层、规模预算与宿主记录事实（维护者要求）
 
 审查发现 core 18 个模块之间有多处双向依赖、`runtime/index.ts` 近 2000 行、约 2400 行群聊/社交/名片逻辑写在内核、spec 15 号两份文件冲突、status.md 变成流水账。维护者在本会话要求按收敛方案（`proposals/convergence/plan.md`）整体优化。

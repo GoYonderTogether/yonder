@@ -6,6 +6,8 @@ on:
       - main
       - yonder/memory-integration-20261022
   pull_request:
+  # GITHUB_TOKEN 推送的提交不会触发 push；发版工作流用 workflow_dispatch 在发版提交上补跑一次。
+  workflow_dispatch:
 
 permissions:
   contents: read

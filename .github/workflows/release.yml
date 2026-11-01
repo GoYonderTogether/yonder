@@ -1,4 +1,7 @@
-# 发版走 CI：默认不等 CI（require_ci=true 才查）、且当天序号未用过时，由这里统一包版本、写 CHANGELOG、打 tag 并建 Release。
+# 发版走 CI：由这里统一包版本、写 CHANGELOG、打 tag、推 main 并建 Release。
+# 顺序固定：发版提交直接接在 main tip 上 → 构建打包 → 原子推送 tag 与 main → 最后建 Release。
+# 任何一步失败都不会留下一个 main 里不存在的正式 Release（2026-10-31 之前从分叉分支发版、
+# rebase 失败留下过 v0.3.26103014/.19 这样的孤儿）。
 # 云端部署不在这里：CI 拿不到服务器凭据，仍用 scripts/deploy-node.sh 走 SSH。
 name: Release
 
@@ -6,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 要发版的 commit、分支或标签
+        description: 执行发版的起点；必须是 main 的历史（作业随后 fast-forward 到 main 当前 tip）
         required: false
         default: main
         type: string
@@ -16,7 +19,7 @@ on:
         default: ""
         type: string
       require_ci:
-        description: 发版前等待该 commit 的 CI 全绿（默认不等，CI 在发版后再跑）
+        description: 发版前等待该 commit 的 CI 全绿（默认不等；发版提交推送后由本工作流补跑 CI）
         required: false
         default: false
         type: boolean
@@ -24,6 +27,7 @@ on:
 permissions:
   contents: write
   checks: read
+  actions: write
 
 concurrency:
   group: release
@@ -45,8 +49,22 @@ jobs:
           node-version: "22"
           cache: npm
       - run: sudo apt-get update && sudo apt-get install -y ripgrep zsh
-      - name: 同一 commit 不重复发版
-        run: node scripts/release/version.mjs --assert-unreleased
+      # 发版点只能是 main 上的提交。从分叉分支发版会让发版提交带着整条分支历史 rebase 进 main，
+      # 冲突后留下的就是「Release 已建、main 没有」的孤儿版本；这里提前拒绝，不给任何副作用。
+      # 比较的是提交对象：ref=main 时 HEAD 是分支名，--is-ancestor 拿它当提交查会失败。
+      - name: ref 必须是 main 的历史
+        run: |
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main; then
+            echo "::error::$INPUT_REF 不在 origin/main 的历史里；先把它合进 main 再发版"
+            exit 1
+          fi
+        env:
+          INPUT_REF: ${{ inputs.ref || 'main' }}
+      # 发版提交直接落在 origin/main 当前 tip 上，之后到 main 的推送必然是快进，不会冲突。
+      # 发出去的内容就是 main 的 tip，所以下面两道检查（CI 门禁与重复发版）都针对这个 tip。
+      - name: 对齐到最新 main
+        run: git merge --ff-only origin/main
       - name: 该 commit 的 CI 必须已经绿（仅 require_ci=true）
         if: ${{ inputs.require_ci }}
         run: >-
@@ -54,6 +72,8 @@ jobs:
           --sha "$(git rev-parse HEAD)" --wait 900
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 同一 commit 不重复发版
+        run: node scripts/release/version.mjs --assert-unreleased
       - name: 计算版本
         id: version
         run: |
@@ -93,35 +113,63 @@ jobs:
         run: |
           cp scripts/install.sh scripts/install.ps1 dist-release/
           (cd dist-release && sh -n install.sh)
-      - name: 推送 tag
-        run: git push origin "v$VERSION"
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-      - name: 创建 GitHub Release
+      # main 与 tag 一次原子推送：要么都成功，要么都没落地。重试只处理瞬时失败；若 main 在发版期间
+      # 被别人推送，推送会一直非快进而失败，此时什么都没有落地（没有 tag、没有 Release），重跑发版即可。
+      - name: 推送 tag 与 main
         run: |
-          node scripts/release/changelog.mjs --body "$VERSION" \
-            > release-notes.md
-          gh release create "v$VERSION" \
-            --title "Yonder $VERSION" \
-            --notes-file release-notes.md \
-            --verify-tag \
-            dist-release/*.tgz dist-release/SHA256SUMS \
-            dist-release/install.sh dist-release/install.ps1
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # 发版期间 main 可能已有新提交：把发版提交 rebase 上去再推；失败时 Release 已在，作业报错由主 Agent 手动合回
-      - name: 发版提交合回 main
-        run: |
-          for _ in 1 2 3; do
-            git fetch origin main
-            if git rebase origin/main && git push origin "HEAD:main"; then
-              exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            git reset --hard "v$VERSION"
+          for attempt in 1 2 3; do
+            git push --atomic origin "HEAD:main" "refs/tags/v$VERSION" && exit 0
             sleep 10
           done
+          echo "::error::推送失败。tag 与 main 都没有更新、也没有 Release；确认 main 后重新触发发版"
           exit 1
         env:
           VERSION: ${{ steps.version.outputs.version }}
+      # Release 最后创建，而且先建成草稿、核对附件后再公开：正式版一旦公开，releases/latest、
+      # 自动更新和发布 watcher 都会立刻读到它，附件缺一件就是一次对外的不完整发版。
+      # 这里失败时 tag 与 main 都已在远端（因此不会出现孤儿版本），按提示补建/修好这一版即可；
+      # 不要重新触发发版，那会多发一版。
+      - name: 创建 GitHub Release（草稿）
+        run: |
+          node scripts/release/changelog.mjs --body "$VERSION" \
+            > release-notes.md
+          for attempt in 1 2 3; do
+            gh release create "v$VERSION" \
+              --title "Yonder $VERSION" \
+              --notes-file release-notes.md \
+              --draft --verify-tag \
+              dist-release/*.tgz dist-release/SHA256SUMS \
+              dist-release/install.sh dist-release/install.ps1 && exit 0
+            sleep 15
+          done
+          echo "::error::草稿 Release 创建失败。tag v$VERSION 与 main 已推送，不要重新发版；修好原因后手工执行 gh release create 补建"
+          exit 1
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # 附件数量 = 可打包 workspace 包数 + SHA256SUMS + install.sh + install.ps1，少一件就不公开。
+      - name: 核对附件齐全
+        run: |
+          expected=$(node --input-type=module -e "import { packablePackages } from './scripts/release/pack-runtime.mjs'; console.log(packablePackages(process.cwd()).length + 3)")
+          actual=$(gh release view "v$VERSION" --json assets --jq '.assets | length')
+          echo "附件 $actual 个，期望 $expected 个"
+          test "$actual" -eq "$expected" || {
+            echo "::error::附件不全（$actual/$expected）。草稿保留在 v$VERSION，补齐后执行 gh release edit v$VERSION --draft=false --latest"
+            exit 1
+          }
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 公开 Release
+        run: gh release edit "v$VERSION" --draft=false --latest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # GITHUB_TOKEN 推送的提交不会再触发 push 事件，发版提交与 tag 因此从来没有跑过 CI。
+      # 这里以 tag 为 ref 显式派发一次，让 CI 跑在发布出来的那个提交上；结论在 Actions 里看，
+      # 红的话不回滚已发布的版本，修好后再发下一版。
+      - name: 在发版提交上派发 CI
+        run: gh workflow run ci.yml --ref "v$VERSION"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
