@@ -1,4 +1,4 @@
-import type { Ref, ToolContext } from "./types.js";
+import type { Ref, ToolContext, YEvent } from "./types.js";
 export type Participation = "direct" | "record" | "mention" | "batch" | "folded" | "mute";
 export type SocialSignal = "botMention" | "ownerMention" | "groupOwner" | "everyone" | "keyword";
 export interface SocialPolicy {
@@ -53,6 +53,43 @@ export interface NotificationIntent {
 	key: string;
 	sourceEvents: string[];
 	expiresAt?: string;
+}
+
+/** Closed reason set for a participation decision; kernel consequences are fixed per reason (04 §3.6). */
+export type ParticipationReason =
+	| "unsupported-kind"
+	| "channel-kind-mismatch"
+	| "denied"
+	| "not-authorized"
+	| "quiet"
+	| "invalid-timezone"
+	| "mention-conflict"
+	| "bot-mention"
+	| "owner-mention"
+	| "group-owner"
+	| "everyone"
+	| "keyword"
+	| Participation;
+
+export interface ParticipationInput {
+	/** Read-only view of the target agent; the plugin cannot change facts or the kernel's answer. */
+	agent: { id: string; owner?: Ref; social?: SocialConfig };
+	/** The `message.in` being decided. */
+	event: YEvent;
+	/** Person the sender account is linked to, when the kernel resolved one. */
+	person?: Ref;
+	channel?: { kinds?: string[]; features?: ChannelFeatures };
+	/** Kernel-computed facts from trusted channel transport and bindings; the plugin cannot change them. */
+	facts: { member: boolean; bound: boolean; officialDefault: boolean; custom: boolean };
+	/** ISO time used for quiet hours, so the decision is deterministic in tests. */
+	now: string;
+}
+
+export interface ParticipationDecision {
+	reason: ParticipationReason;
+	run: boolean;
+	revision: string;
+	policy?: SocialPolicy;
 }
 
 export interface SocialAPI {

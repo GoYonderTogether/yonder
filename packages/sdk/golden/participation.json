@@ -1,0 +1,47 @@
+{
+	"hook": "participation?(input: ParticipationInput): ParticipationDecision | undefined;",
+	"objects": {
+		"ParticipationInput": {
+			"required": ["agent", "event", "facts", "now"],
+			"optional": ["channel", "person"]
+		},
+		"ParticipationInput.agent": {
+			"required": ["id"],
+			"optional": ["owner", "social"]
+		},
+		"ParticipationInput.channel": {
+			"required": [],
+			"optional": ["features", "kinds"]
+		},
+		"ParticipationInput.facts": {
+			"required": ["bound", "custom", "member", "officialDefault"],
+			"optional": []
+		},
+		"ParticipationDecision": {
+			"required": ["reason", "revision", "run"],
+			"optional": ["policy"]
+		}
+	},
+	"reasons": {
+		"ParticipationReason": [
+			"batch",
+			"bot-mention",
+			"channel-kind-mismatch",
+			"denied",
+			"direct",
+			"everyone",
+			"folded",
+			"group-owner",
+			"invalid-timezone",
+			"keyword",
+			"mention",
+			"mention-conflict",
+			"mute",
+			"not-authorized",
+			"owner-mention",
+			"quiet",
+			"record",
+			"unsupported-kind"
+		]
+	}
+}

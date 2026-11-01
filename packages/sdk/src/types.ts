@@ -6,7 +6,13 @@ export type * from "./agent-bindings.js";
 export type * from "./messages.js";
 export type { WorkControl } from "./work-control.js";
 
-import type { ChannelFeatures, NotificationIntent, SocialAPI } from "./social.js";
+import type {
+	ChannelFeatures,
+	NotificationIntent,
+	ParticipationDecision,
+	ParticipationInput,
+	SocialAPI,
+} from "./social.js";
 
 export type * from "./social.js";
 
@@ -358,6 +364,7 @@ export interface Hook {
 	beforeTool?(call: ToolCall, ctx: ToolContext): HookResult<{ block: string } | { args: object }>;
 	afterTool?(call: ToolCall, result: ToolResult, ctx: ToolContext): HookResult<{ result: ToolResult }>;
 	beforeRequest?(messages: Message[], ctx: ToolContext): HookResult<{ messages: Message[] }>;
+	participation?(input: ParticipationInput): ParticipationDecision | undefined;
 }
 export interface ToolCall {
 	id: string;
