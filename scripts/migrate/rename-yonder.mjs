@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 export const MAPPINGS = [
 	["packages/execution-protocol", "packages/protocol"],
@@ -60,14 +61,16 @@ const PROTECTED = [
 ];
 
 function shouldSkip(relative) {
-	const parts = relative.split(path.sep);
+	// Protection rules are repository paths, independent of the host separator.
+	const normalized = relative.split(path.sep).join("/");
+	const parts = normalized.split("/");
 	return (
 		parts.some((part) => SKIP_DIRS.has(part)) ||
-		relative === "docs/archive.md" ||
-		relative === "docs/decisions.md" ||
-		SKIP_PREFIXES.some((prefix) => relative.startsWith(prefix)) ||
-		/(^|\/)CHANGELOG(?:\.[^/]*)?$/.test(relative) ||
-		SKIP_FILES.has(path.basename(relative))
+		normalized === "docs/archive.md" ||
+		normalized === "docs/decisions.md" ||
+		SKIP_PREFIXES.some((prefix) => normalized.startsWith(prefix)) ||
+		/(^|\/)CHANGELOG(?:\.[^/]*)?$/.test(normalized) ||
+		SKIP_FILES.has(path.posix.basename(normalized))
 	);
 }
 function transform(source) {
@@ -111,9 +114,9 @@ export function migrate(root, { apply = false } = {}) {
 	return { changes, ambiguous };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
 	const mode = process.argv[2];
-	if (!["--dry-run", "--apply"].includes(mode) || process.argv.length > 3) {
+	if (!["--dry-run", "--apply"].includes(mode) || process.argv.length > 4) {
 		console.error("Usage: node scripts/migrate/rename-yonder.mjs --dry-run|--apply [root]");
 		process.exitCode = 2;
 	} else {
