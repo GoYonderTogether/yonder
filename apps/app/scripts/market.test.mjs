@@ -25,13 +25,25 @@ test("legacy preview keeps saved posts and tasks but drops cached listings", () 
 	assert.deepEqual(upgradeMarketState(upgraded, initial), upgraded);
 });
 
-test("each category selects its own kind while the home feed includes every kind", () => {
+test("category filters preserve exact listing sets, empty categories and the mixed home feed", () => {
+	const available = DEMO_LISTINGS.filter((listing) => !listing.paused);
 	for (const channel of CHANNELS) {
-		const results = filterListings(DEMO_LISTINGS, "", { ...defaultFilters, kind: channel.kind });
-		assert.ok(results.length > 0);
-		assert.ok(results.every((l) => l.kind === channel.kind));
+		const filters = { ...defaultFilters, kind: channel.kind };
+		const results = filterListings(DEMO_LISTINGS, "", filters);
+		const expectedIds = available.filter((listing) => listing.kind === channel.kind).map((listing) => listing.id);
+		assert.deepEqual(
+			results.map((listing) => listing.id),
+			expectedIds,
+			channel.kind,
+		);
+		// A valid category may have no supply; it must not fall back to unrelated posts.
+		const otherKinds = DEMO_LISTINGS.filter((listing) => listing.kind !== channel.kind);
+		assert.deepEqual(filterListings(otherKinds, "", filters), [], channel.kind);
 	}
-	assert.equal(new Set(filterListings(DEMO_LISTINGS, "", defaultFilters).map((l) => l.kind)).size, CHANNELS.length);
+	assert.deepEqual(
+		filterListings(DEMO_LISTINGS, "", defaultFilters).map((listing) => listing.id),
+		available.map((listing) => listing.id),
+	);
 	const brief = { ...inferBrief("找些灵感"), category: "不限", budget: 10000 };
 	assert.ok(findMatches(DEMO_LISTINGS, brief).every((m) => ["item", "service"].includes(m.listing.kind)));
 	assert.equal(priceLabel(DEMO_LISTINGS.find((l) => l.kind === "job")), "面议");
