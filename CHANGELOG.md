@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.26110105] - 2026-11-01
+
+### Fixed
+
+- release：do not fail the release when the cross-repository web dispatch is unavailable
+
 ## [0.3.26110104] - 2026-11-01
 
 ### Added
