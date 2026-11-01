@@ -352,6 +352,33 @@ export const DEMO_LISTINGS: Listing[] = [
 		createdAt: now - 86400000,
 		metrics: { agentViews: 2486, shortlists: 186, humanViews: 328, inquiries: 12 },
 	},
+	{
+		// 「其他」通道的演示帖：发布类型（a62ea30）新增 other 后，每个通道都要有内容，
+		// 否则该通道的空列表既无法演示、也与「所有通道都有帖子」的校验不一致。
+		id: "community-table",
+		kind: "other",
+		category: "生活方式",
+		title: "周末想把这墙旧书桌免费送出去",
+		description:
+			"木桌用了三年，桌面完好，桌腿有一处掉漆。搬家带不走，希望同城的朋友自己来取；如果顺手的话，也想听听你打算用它做什么。",
+		price: 0,
+		unit: "自取",
+		image: photo("interior"),
+		seller: "小满",
+		sellerRole: "搬家整理中",
+		location: "上海",
+		tags: ["自取", "免费", "本周末前"],
+		facts: [
+			{ label: "尺寸", value: "120 × 60 cm" },
+			{ label: "状态", value: "桌面完好，桌腿有一处掉漆" },
+			{ label: "时间", value: "本周末白天自取" },
+		],
+		delivery: "上海自取，需自备搬运",
+		missing: ["是否需要电梯搬运协助"],
+		agent: false,
+		createdAt: now - 5 * 3600000,
+		metrics: { agentViews: 132, shortlists: 9, humanViews: 64, inquiries: 3 },
+	},
 ];
 
 export const INITIAL_TASK: AgentTask = {
