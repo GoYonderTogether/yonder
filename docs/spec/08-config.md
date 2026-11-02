@@ -189,6 +189,8 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 没有 social 参与插件（所选插件未加载、没有 `participation` 方法、抛错或返回非法结果，诊断 `no-participation-plugin`）或没有可用批次绑定时，默认范围只记录，并以路由的 `no-binding` 事实加一条可读诊断说明原因（见 11）；出站回复与主动通知此时失败关闭（04 §3.6）；不得把它当作可运行批次，也不得转交旧 `channel-qq.group-batch` 链。
 
+批次链的可用性须按当前来源事件、策略插件、目标会话与实际 profile 精确证明；同渠道或其他群存在 `social.batch-ready` 绑定不构成本群可消费的证据。显式及派生策略要进入 batch 时，须先有匹配消费者，或沿既有机制从已选择该插件的来源 profile 派生机械伴随绑定；folded 按所选插件自身的实际消费契约核对，不等同于模型批次。缺链时保留原输入并给出可读的 `no-binding` 原因及修复入口，不保存成可运行批次；不自动为 profile 增选插件，不升级 write、record、disabled 或自定义策略的权限。
+
 ## 运行期预算与配置视图键（O51 IMP-02/IMP-34，只增不改）
 
 `yonder.yaml` 在前文之外还有以下可选键，全部缺省即旧行为，默认值不写进示例人设：

@@ -5,22 +5,22 @@
 <rect width="1240" height="920" fill="#f8fafc"/>
 <g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">
 <text x="48" y="52" font-size="27" font-weight="700">配置写入成功，不等于运行时接纳，更不等于交付</text>
-<text x="48" y="84" font-size="16" fill="#475569">2026-11-02 · v0.3.26110206 已安装；飞书复验仍未通过，QQ 新一轮待测</text>
+<text x="48" y="84" font-size="16" fill="#475569">2026-11-02 · v0.3.26110207 已安装；热重载通过，飞书执行链与 QQ 接办仍未通过</text>
 <text x="48" y="137" font-size="22" font-weight="700">实际暴露的旧路径</text>
 <rect x="48" y="160" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="197" font-size="17">用户用自然语言提出需求</text>
 <path d="M319,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="247" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="284" font-size="17">Agent 查工具、猜权限与配置入口</text>
+<text x="66" y="284" font-size="17">Agent 找到入口，却混淆主会话职责与群上下文</text>
 <path d="M319,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="334" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="371" font-size="17">脚本写盘成功，读回 YAML</text>
+<text x="66" y="371" font-size="17">候选被接纳，真实群公告也已发送</text>
 <path d="M319,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="421" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="458" font-size="17">watcher 校验拒绝，旧配置继续运行</text>
+<text x="66" y="458" font-size="17">普通消息进批次，但当前群缺少执行消费者</text>
 <path d="M319,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="508" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="545" font-size="17">接纳未确认，模型仍称“配置好了”</text>
+<text x="66" y="545" font-size="17">只入账、没有模型运行，完整需求仍未交付</text>
 <text x="650" y="137" font-size="22" font-weight="700">目标：共享 Harness 闭环</text>
 <rect x="650" y="160" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="197" font-size="17">用户原话 + 渠道可信身份／目标</text>
@@ -40,7 +40,7 @@
 <text x="68" y="649" font-size="18" font-weight="700">失败恢复属于同一条链</text>
 <text x="68" y="677" font-size="17">拒绝时给出可操作错误；修复 patch 后重新完整校验。保留旧有效配置、历史与并发修改。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
-<text x="68" y="790" font-size="18" fill="#166534">/work 再复现：设备 GET 200，能力 RPC 400；运行态查询误读被拒绝候选</text>
+<text x="68" y="790" font-size="18" fill="#166534">/work：v6 曾复现能力 RPC 400，v7 修运行态读取；用户确认入口已恢复</text>
 <text x="68" y="824" font-size="18" fill="#991b1b">/console/ 是另一入口：旧 Gateway 返回 403 host not allowed，与 /work 故障分开</text>
 <text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；不提升权限；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
 </g></svg>
