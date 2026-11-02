@@ -285,8 +285,11 @@ function Bubble({ it, onQuote, session }: { it: ChatItem; onQuote?: (item: ChatI
 						)}
 						{!!it.attachments?.length && (
 							<ul aria-label="消息附件" className="mt-1 space-y-1 text-small">
-								{it.attachments.map((attachment, index) => (
-									<li key={`${attachment.uri}-${index}`} className="flex items-center gap-2 break-all">
+								{it.attachments.map((attachment) => (
+									<li
+										key={`${attachment.uri}|${attachment.kind}|${attachment.name ?? ""}`}
+										className="flex items-center gap-2 break-all"
+									>
 										{session ? (
 											<MessageAttachment attachment={attachment} session={session} />
 										) : (

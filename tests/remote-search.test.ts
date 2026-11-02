@@ -5,10 +5,10 @@ import { join } from "node:path";
 import type { DeviceSession } from "@yonder/protocol";
 import type { ToolContext } from "@yonder/sdk";
 import { afterEach, expect, test } from "vitest";
-import { createHostProvider, HOST_TARGET } from "../packages/device/src/backends/host.js";
 import { createFindTool } from "../packages/core/src/runtime/find.js";
 import { createGrepTool } from "../packages/core/src/runtime/grep.js";
 import { createRemoteEnvironment } from "../packages/core/src/runtime/remote-env.js";
+import { createHostProvider, HOST_TARGET } from "../packages/device/src/backends/host.js";
 
 const homes: string[] = [];
 afterEach(async () => {

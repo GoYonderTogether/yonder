@@ -243,6 +243,7 @@ export function SessionOptions({
 	const resources = value.resources ?? [];
 	const [modelSearch, setModelSearch] = useState("");
 	const allModels = models.data?.providers.flatMap((provider) => provider.models) ?? [];
+	const cloudIssues = models.data?.cloud?.issues ?? [];
 	const chosen = allModels.find((model) => modelKey(model) === value.model);
 	const permission = models.data?.permissions.find((item) => item.id === value.permission);
 	const title = resources.length
@@ -374,6 +375,23 @@ export function SessionOptions({
 							<p className="px-2 pt-2 text-caption text-faint">
 								{source === "cloud" ? "云端模型服务" : "运行宿主模型"}
 							</p>
+							{source === "cloud" && cloudIssues.length > 0 && (
+								<div className="px-2 py-2 text-caption">
+									{cloudIssues.map((issue) => (
+										<p key={`${issue.instance}:${issue.code}`} role="alert" className="mb-1 text-danger">
+											{issue.message}
+										</p>
+									))}
+									<button
+										type="button"
+										disabled={models.isFetching}
+										className="press min-h-10 text-accent-ink underline disabled:opacity-40"
+										onClick={() => void models.refetch()}
+									>
+										{models.isFetching ? "正在重试…" : "重试云端模型连接"}
+									</button>
+								</div>
+							)}
 							{choices.map((model) => (
 								<button
 									key={modelKey(model)}
@@ -393,7 +411,9 @@ export function SessionOptions({
 									{value.model === modelKey(model) && "✓"}
 								</button>
 							))}
-							{!choices.length && <p className="px-2 py-2 text-caption text-muted">暂无可用模型</p>}
+							{!choices.length && !(source === "cloud" && cloudIssues.length > 0) && (
+								<p className="px-2 py-2 text-caption text-muted">暂无可用模型</p>
+							)}
 						</div>
 					);
 				})}

@@ -31,6 +31,13 @@ export interface PermissionChoice {
 export interface ModelCatalog {
 	providers: { id: string; name: string; models: ModelChoice[] }[];
 	permissions: PermissionChoice[];
+	cloud?: {
+		issues: {
+			instance: string;
+			code: "not_connected" | "http_error" | "network_error" | "invalid_catalog";
+			message: string;
+		}[];
+	};
 }
 export interface WorkspaceDevice {
 	deviceId: string;
