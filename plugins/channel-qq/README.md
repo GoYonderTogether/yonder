@@ -35,15 +35,15 @@ yonder-qq setup --home /absolute/path/to/home --agent main --open
 
 `channel-qq_status` 返回最近连接状态、实际接纳/发送计数和配置入口。Agent 需要在配置档的 `plugins` 中选择 `channel-qq` 才能调用该工具；渠道收发本身由 channels 和 bindings 启用。发送使用内核 `message_send`，不另设插件发送接口。
 
-入站媒体映射为 `message.in` 的 `attachments`（`content_type` 决定 image/audio/video/file，只接纳 https URL），引用回复的原文取 `msg_elements[0]` 写入 `quote.text`；只有附件没有正文的消息同样接纳。出站媒体用 `message_send` 的附件，接受 https URL 或绝对本地路径，一次回复先发文字再逐条发媒体，音频按文件发送。所有请求按 `sendIntervalMs`（实例配置，默认 500 毫秒，0–60000）串行间隔发送，避免平台限流；平台限流或 5xx 仍是 uncertain，不盲重发。不支持流式、频道或 Webhook。接纳 QQ 官方 `GROUP_AT_MESSAGE_CREATE` 与 `GROUP_MESSAGE_CREATE`；后者需要在平台开启“接收所有消息”，见[官方群全量事件说明](https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/group_message_create.html)。平台未开放时，代码无法取得普通消息。
+入站媒体映射为 `message.in` 的 `attachments`（`content_type` 决定 image/audio/video/file，只接纳 https URL），引用回复的原文取 `msg_elements[0]` 写入 `quote.text`；只有附件没有正文的消息同样接纳。出站媒体用 `message_send` 的附件，接受 https URL 或绝对本地路径，一次回复先发文字再逐条发媒体，音频按文件发送。所有请求按 `sendIntervalMs`（实例配置，默认 500 毫秒，0–60000）串行间隔发送，避免平台限流；平台限流或 5xx 仍是 uncertain，不盲重发。不支持流式、频道或 Webhook。适配器接纳 QQ 官方 `GROUP_AT_MESSAGE_CREATE` 与 `GROUP_MESSAGE_CREATE`。QQ 平台按群和机器人控制普通群消息的接收；`channel-qq_status` 不查询平台接收范围，会把范围列为 unknown，并按精确群展示最近记录到的原生入站类型。普通消息事件已到达只能证明该事件当时到达，不能证明持续接收或其他群也已开放。见[官方群全量事件说明](https://bot.q.qq.com/wiki/develop/api-v2/autogen/event/group_message_create.html)。
 
-## 群主必须在具体群聊内设置
+## 群消息范围
 
-**入口属于“这个群里的这个机器人”，不是机器人的全局管理页。** 请使用群主账号的最新版 iOS/Android QQ，在目标群聊中进入群内机器人管理，选择这个机器人，再设置 **“机器人可获取的群聊消息范围” → 全部消息**。每个群、每个机器人分别配置；直接打开机器人自己的资料页或开发者管理端，不能代替这一步。添加机器人入群时的提示也有“设置权限”入口。
+只有明确的平台状态或相关错误表明接收受限时，才要求修改 QQ 平台设置。单纯没有看到普通消息只能说明暂无该群的普通入站样本，不能证明平台范围受限。需要核对时，群主可在目标群的群内机器人管理中检查“机器人可获取的群聊消息范围”；范围设为“全部消息”后，平台才可能向机器人推送 `GROUP_MESSAGE_CREATE`。每个群、每个机器人分别管理；机器人的全局设置不代表某个群的状态。
 
-“机器人主动在群聊内发言”是另一项权限，按持续参与需求开启。普通成员或管理员身份不能代替群主授权；全量接收不要求把机器人设为群管理员。群管理员身份对应撤回群成员消息等管理能力。
+“机器人主动在群聊内发言”是另一项平台设置。群消息接收范围、主动发言与 Yonder 本地群策略各自独立。`channel-qq_status` 对每个已知群显示平台范围 unknown；普通消息确实到达时，它只记录该实例和群最近收到的原生事件及时间，不宣称范围持续为“全部消息”。本插件不调用平台 `bot_state` 查询；官方接口可返回 `recv_msg_setting`，但仅对白名单机器人开放，不能把未查询到状态说成需要用户修改。
 
-依据：[腾讯官方 FAQ](https://bot.q.qq.com/wiki/bot_FAQ/#q-在群里-机器人不回复-但私聊可以-机器人在群中主动发送消息失败)、[官方设置截图](https://qq-ai.cdn-go.cn/web/bot-docs/-/v1.38.0/assets/img/image66.f40b82c2.png)。群内入口已由本次真实测试的群主确认。官方 [bot_state 接口](https://bot.q.qq.com/wiki/develop/api-v2/autogen/api/v2_groups_group_openid_bot_state.get.html)可查询 recv_msg_setting（all/only_mention/mention_and_context）；该查询接口本身仅对白名单机器人开放，不能据此推断所有接收者都需要企业认证。
+依据：[腾讯官方 FAQ](https://bot.q.qq.com/wiki/bot_FAQ/#q-在群里-机器人不回复-但私聊可以-机器人在群中主动发送消息失败)、[官方设置截图](https://qq-ai.cdn-go.cn/web/bot-docs/-/v1.38.0/assets/img/image66.f40b82c2.png)。官方 [bot_state 接口](https://bot.q.qq.com/wiki/develop/api-v2/autogen/api/v2_groups_group_openid_bot_state.get.html)可查询 `recv_msg_setting`（all/only_mention/mention_and_context）；该接口仅对白名单机器人开放，本插件未实现该查询。
 
 ## 群持续参与
 
