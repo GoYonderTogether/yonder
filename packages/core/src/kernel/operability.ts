@@ -11,7 +11,17 @@ export type SessionOperabilityFact = {
 	status: "observed" | "unknown";
 	selector: OperabilitySelector;
 	reason?: string;
-	sample?: { eventId: string; conv: string; kind?: string };
+	sample?: {
+		eventId: string;
+		conv: string;
+		kind?: string;
+		from?: string;
+		relation?: "owner" | "known" | "stranger" | "unknown";
+		senderIsBot?: boolean;
+		mentioned?: boolean;
+		nativeKind?: string;
+		mentions?: { bot?: boolean; owner?: boolean; everyone?: boolean };
+	};
 	management?: {
 		paths: ["agents.validate", "agents.update", "inspect", "agents.show"];
 		authority: "existing local agent management authorization required";
@@ -53,6 +63,7 @@ export type SessionOperabilityFact = {
 		};
 		consumer?: {
 			state: "available" | "unavailable" | "not-applicable";
+			reason?: string;
 			binding?: string;
 			issue?: string;
 			profile?: string;
@@ -144,6 +155,20 @@ export async function projectConversationOperability(options: {
 	if (selector.conv && selector.conv !== event.conv)
 		return { status: "unknown", selector, reason: "event and conversation selectors do not match" };
 	const conv = event.conv!;
+	const sampleData = event.data as {
+		kind?: unknown;
+		senderIsBot?: unknown;
+		mentioned?: unknown;
+		social?: { nativeKind?: unknown; mentions?: { bot?: unknown; owner?: unknown; everyone?: unknown } };
+	};
+	let relation: NonNullable<SessionOperabilityFact["sample"]>["relation"];
+	if (event.from?.startsWith("acct:")) {
+		try {
+			relation = await store.identity().relation(agent.id, event.from);
+		} catch {
+			relation = "unknown";
+		}
+	}
 	const storedRoute = event.routes?.find((route) => route.agent === agent.id);
 	const storedSession = storedRoute?.session ? await store.sessions.get(storedRoute.session) : undefined;
 	const eventsPage = await store.events.query({ conv, after: event.id, limit: 1000 });
@@ -236,7 +261,11 @@ export async function projectConversationOperability(options: {
 			const participation = decideParticipation(currentAgent, event, person, channel, options.hooks, {
 				sourceBinding: match,
 			});
-			let consumer: NonNullable<SessionOperabilityFact["prediction"]>["consumer"] = { state: "not-applicable" };
+			const outsideScope = currentAgent.social?.scope?.includes(conv) === false;
+			let consumer: NonNullable<SessionOperabilityFact["prediction"]>["consumer"] = {
+				state: "not-applicable",
+				...(outsideScope ? { reason: "outside-social-scope" } : {}),
+			};
 			if (participation?.reason === "batch") {
 				const result = await batchConsumerForSource(currentAgent, event, match, channel, store, plugin);
 				consumer =
@@ -344,8 +373,24 @@ export async function projectConversationOperability(options: {
 		sample: {
 			eventId: event.id,
 			conv,
-			...(typeof (event.data as { kind?: unknown }).kind === "string"
-				? { kind: (event.data as { kind: string }).kind }
+			...(typeof sampleData.kind === "string" ? { kind: sampleData.kind } : {}),
+			...(event.from ? { from: event.from } : {}),
+			...(relation ? { relation } : {}),
+			...(typeof sampleData.senderIsBot === "boolean" ? { senderIsBot: sampleData.senderIsBot } : {}),
+			...(typeof sampleData.mentioned === "boolean" ? { mentioned: sampleData.mentioned } : {}),
+			...(typeof sampleData.social?.nativeKind === "string" ? { nativeKind: sampleData.social.nativeKind } : {}),
+			...(sampleData.social?.mentions
+				? {
+						mentions: {
+							...(typeof sampleData.social.mentions.bot === "boolean" ? { bot: sampleData.social.mentions.bot } : {}),
+							...(typeof sampleData.social.mentions.owner === "boolean"
+								? { owner: sampleData.social.mentions.owner }
+								: {}),
+							...(typeof sampleData.social.mentions.everyone === "boolean"
+								? { everyone: sampleData.social.mentions.everyone }
+								: {}),
+						},
+					}
 				: {}),
 		},
 		history: {

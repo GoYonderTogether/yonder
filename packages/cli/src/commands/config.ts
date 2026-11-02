@@ -51,19 +51,52 @@ function operabilitySummary(value: unknown) {
 			const defaults = scope?.defaults as Record<string, unknown> | undefined;
 			const override = scope?.conversationOverride as Record<string, unknown> | undefined;
 			const consumer = prediction?.consumer as Record<string, unknown> | undefined;
+			const consumerReason = short(consumer?.reason, 72);
 			const capabilities = prediction?.capabilities as Record<string, unknown> | undefined;
 			const tools = capabilities?.tools as Record<string, unknown> | undefined;
 			const execution = history?.execution as { state?: string; runs?: Array<Record<string, unknown>> } | undefined;
 			const delivery = history?.delivery as { state?: string; receipts?: Array<Record<string, unknown>> } | undefined;
+			const sample = item.sample as Record<string, unknown> | undefined;
+			const sampleMentions = sample?.mentions as Record<string, unknown> | undefined;
+			const processing = () => {
+				const reason = short(predictedParticipation?.reason, 48);
+				const senderFact = typeof sample?.senderIsBot === "boolean" ? `; senderIsBot=${sample.senderIsBot}` : "";
+				if (prediction?.route === "dropped")
+					return `route dropped${reason ? ` (participation reason=${reason})` : ""}${senderFact}; see route/history facts`;
+				if (
+					prediction?.wake === "write" &&
+					(consumerReason === "outside-social-scope" || scope?.includesConversation === false)
+				)
+					return `record-only: wake=write; social consumer not applicable because scope excludes this conversation; no social batch path selected${senderFact}`;
+				if (reason === "batch" || reason === "folded")
+					return `policy-controlled ${reason} candidate; final route/run unproven${senderFact}`;
+				if (reason && predictedParticipation?.run === false)
+					return `record-only: participation reason=${reason}; no model run on this input${senderFact}`;
+				if (prediction?.wake === "write")
+					return `wake=write records input without direct model execution; later batch processing unproven${senderFact}`;
+				return `wake=run configuration; current admission/execution unproven${senderFact}`;
+			};
 			return {
 				status: item.status ?? "unknown",
 				reason: short(item.reason),
 				management: item.management,
-				sample: item.sample
+				sample: sample
 					? {
-							eventId: short((item.sample as Record<string, unknown>).eventId),
-							conv: short((item.sample as Record<string, unknown>).conv, 120),
-							kind: short((item.sample as Record<string, unknown>).kind, 32),
+							eventId: short(sample.eventId),
+							conv: short(sample.conv, 120),
+							kind: short(sample.kind, 32),
+							from: short(sample.from, 120),
+							relation: sample.relation,
+							senderIsBot: sample.senderIsBot,
+							mentioned: sample.mentioned,
+							nativeKind: short(sample.nativeKind, 48),
+							mentions: sampleMentions
+								? {
+										bot: sampleMentions.bot,
+										owner: sampleMentions.owner,
+										everyone: sampleMentions.everyone,
+									}
+								: undefined,
 						}
 					: undefined,
 				history: {
@@ -104,14 +137,7 @@ function operabilitySummary(value: unknown) {
 							state: prediction.state,
 							route: prediction.route,
 							dropReason: prediction.dropReason,
-							processing:
-								prediction.route === "dropped"
-									? "dropped"
-									: predictedParticipation?.reason === "batch" || predictedParticipation?.reason === "folded"
-										? "policy-controlled batch/folded candidate; final route/run unproven"
-										: prediction.wake === "write"
-											? "write wake configuration; final admission/execution unproven"
-											: "run wake configuration; final admission/execution unproven",
+							processing: processing(),
 							binding: short(prediction.binding),
 							profile: short(prediction.profile),
 							wake: prediction.wake,

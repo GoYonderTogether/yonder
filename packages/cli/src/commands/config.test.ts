@@ -7,6 +7,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../../../core/src/config/test-support.js";
 import { runConfig } from "./config.js";
+import * as context from "./context.js";
 
 const contextEnv = "YONDER_RUNTIME_INSPECT_CONTEXT";
 afterEach(() => vi.unstubAllEnvs());
@@ -123,5 +124,91 @@ test("agents show keeps raw JSON stdout and reports unavailable runtime facts se
 		out.mockRestore();
 		err.mockRestore();
 		await Promise.all([rm(home, { recursive: true, force: true }), rm(otherHome, { recursive: true, force: true })]);
+	}
+});
+
+test("agents show summarizes scope and bot source facts without changing config JSON", async () => {
+	const home = await configuredHome();
+	let stdoutText = "";
+	let stderrText = "";
+	const out = vi.spyOn(stdout, "write").mockImplementation(((chunk: string | Uint8Array) => {
+		stdoutText += String(chunk);
+		return true;
+	}) as typeof stdout.write);
+	const err = vi.spyOn(stderr, "write").mockImplementation(((chunk: string | Uint8Array) => {
+		stderrText += String(chunk);
+		return true;
+	}) as typeof stderr.write);
+	const config = { id: "main", profiles: { private: {} }, bindings: [] };
+	const inspection = {
+		runtimeLoaded: [],
+		operability: {
+			status: "observed",
+			limit: 8,
+			truncated: false,
+			conversations: [
+				{
+					status: "observed",
+					sample: {
+						eventId: "p1-event",
+						conv: "conv:feishu:group:p1",
+						kind: "group",
+						from: "acct:feishu:owner",
+						relation: "owner",
+					},
+					history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+					prediction: {
+						state: "matched",
+						binding: "p1-source",
+						wake: "write",
+						participationScope: { includesConversation: false },
+						consumer: { state: "not-applicable", reason: "outside-social-scope" },
+					},
+				},
+				{
+					status: "observed",
+					sample: {
+						eventId: "echo-event",
+						conv: "conv:qq:group:jarvis",
+						from: "acct:qq:jarvis",
+						relation: "stranger",
+						senderIsBot: true,
+						nativeKind: "GROUP_MESSAGE_CREATE",
+					},
+					history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+					prediction: {
+						state: "matched",
+						route: "dropped",
+						dropReason: "no-binding",
+						participation: { reason: "record", run: false },
+						participationScope: { includesConversation: true },
+					},
+				},
+			],
+		},
+	};
+	const managed = vi
+		.spyOn(context, "managed")
+		.mockResolvedValueOnce(config as never)
+		.mockResolvedValueOnce(inspection as never);
+	vi.stubEnv(contextEnv, JSON.stringify({ home, agent: "main", profile: "private" }));
+	try {
+		await runConfig("agents", { home, json: true, help: false, rest: [] }, ["show", "main"]);
+		expect(JSON.parse(stdoutText)).toEqual(config);
+		expect(JSON.parse(stdoutText)).not.toHaveProperty("operability");
+		expect(stderrText).toContain(
+			"record-only: wake=write; social consumer not applicable because scope excludes this conversation",
+		);
+		expect(stderrText).toContain("consumer");
+		expect(stderrText).toContain("senderIsBot=true");
+		expect(stderrText).toContain("nativeKind");
+		expect(stderrText).toContain("participation reason=record");
+		expect(stderrText).toContain("relation");
+		expect(stderrText).not.toContain("bot sender caused");
+	} finally {
+		managed.mockRestore();
+		out.mockRestore();
+		err.mockRestore();
+		await rm(home, { recursive: true, force: true });
 	}
 });

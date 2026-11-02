@@ -11,7 +11,10 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 	const outside = "conv:feishu:group:private";
 	const db = await openDatabase(":memory:");
 	try {
-		const store = await createStore(db);
+		const store = await createStore(db, () => "person:owner");
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:qq:user", "person:owner");
+		await store.identity().link("acct:feishu:user", "person:owner");
 		const hooks = await socialPluginHooks();
 		const channel: Channel = {
 			id: "qq",
@@ -115,7 +118,17 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 			opened: "now",
 		});
 		const qq = await store.events.record(
-			{ type: "message.in", from: "acct:qq:user", conv, data: { kind: "group", text: "QQ private body" } },
+			{
+				type: "message.in",
+				from: "acct:qq:user",
+				conv,
+				data: {
+					kind: "group",
+					text: "QQ private body",
+					mentioned: false,
+					social: { mentions: { bot: false, owner: true, everyone: false }, nativeKind: "GROUP_MESSAGE_CREATE" },
+				},
+			},
 			[{ agent: "main", binding: "qq-source", session: "101", wake: "write" }],
 		);
 		const feishu = await store.events.record(
@@ -196,7 +209,15 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 		const feishuFact = report.conversations.find((item) => item.selector.conv === outside);
 		expect(report).toMatchObject({ status: "observed", truncated: false });
 		expect(qqFact).toMatchObject({
-			sample: { eventId: qq.id, kind: "group" },
+			sample: {
+				eventId: qq.id,
+				kind: "group",
+				from: "acct:qq:user",
+				relation: "owner",
+				mentioned: false,
+				nativeKind: "GROUP_MESSAGE_CREATE",
+				mentions: { bot: false, owner: true, everyone: false },
+			},
 			history: {
 				route: { binding: "qq-source", session: "101", profile: "group", wake: "write" },
 				participation: { reason: "batch", plugin: "social" },
@@ -213,10 +234,16 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 			},
 		});
 		expect(feishuFact).toMatchObject({
-			sample: { eventId: feishu.id, kind: "group" },
+			sample: { eventId: feishu.id, kind: "group", relation: "owner" },
 			history: { route: { binding: "feishu-source", wake: "write" }, execution: { state: "not-observed" } },
-			prediction: { binding: "feishu-source", wake: "write", participationScope: { includesConversation: false } },
+			prediction: {
+				binding: "feishu-source",
+				wake: "write",
+				participationScope: { includesConversation: false },
+				consumer: { state: "not-applicable", reason: "outside-social-scope" },
+			},
 		});
+		expect(feishuFact?.sample).not.toHaveProperty("senderIsBot");
 		expect(JSON.stringify(report)).not.toContain("private body");
 		const recordAgent = parseAgentConfig(
 			JSON.stringify({
@@ -249,6 +276,70 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 		expect(recordFact.prediction).toMatchObject({ route: "dropped", dropReason: "no-binding" });
 		expect(recordFact.prediction?.participationScope?.includesConversation).toBe(true);
 		expect(recordFact.prediction).not.toHaveProperty("wake");
+		const botEcho = await store.events.record(
+			{
+				type: "message.in",
+				from: "acct:qq:bot",
+				conv,
+				data: {
+					kind: "group",
+					senderIsBot: true,
+					mentioned: false,
+					social: { mentions: { bot: false }, nativeKind: "GROUP_MESSAGE_CREATE" },
+				},
+			},
+			[{ agent: "main", binding: "qq-source", session: "101", wake: "write" }],
+		);
+		const botFact = await projectConversationOperability({
+			agent,
+			agents: agents.values(),
+			selector: { conv, eventId: botEcho.id },
+			store,
+			channels: new Map([["qq", channel]]),
+			hooks,
+		});
+		expect(botFact).toMatchObject({
+			sample: {
+				eventId: botEcho.id,
+				from: "acct:qq:bot",
+				relation: "stranger",
+				senderIsBot: true,
+				nativeKind: "GROUP_MESSAGE_CREATE",
+			},
+			prediction: { route: "dropped", participation: { reason: "record", run: false } },
+		});
+		expect(botFact.history?.execution.state).toBe("not-observed");
+		const latestBotFact = await projectConversationOperability({
+			agent,
+			agents: agents.values(),
+			selector: { conv },
+			store,
+			channels: new Map([["qq", channel]]),
+			hooks,
+		});
+		expect(latestBotFact.sample).toMatchObject({ eventId: botEcho.id, senderIsBot: true });
+
+		const noBindingConv = "conv:qq:group:no-binding";
+		const ownerNoBinding = await store.events.record({
+			type: "message.in",
+			from: "acct:qq:user",
+			conv: noBindingConv,
+			data: { kind: "group", text: "owner input" },
+		});
+		const noBindingFact = await projectConversationOperability({
+			agent,
+			agents: agents.values(),
+			selector: { conv: noBindingConv, eventId: ownerNoBinding.id },
+			store,
+			channels: new Map([["qq", channel]]),
+			hooks,
+		});
+		expect(noBindingFact).toMatchObject({
+			sample: { eventId: ownerNoBinding.id, relation: "owner" },
+			prediction: { state: "no-match" },
+			history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+		});
+		expect(noBindingFact.sample).not.toHaveProperty("relation", "unknown");
 		expect(
 			await projectConversationOperability({
 				agent,
