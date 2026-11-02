@@ -164,9 +164,13 @@ async function auditChange(ctx: HostCtx, data: Record<string, unknown>) {
 	}
 }
 
-function checked(patch: unknown, schema: TSchema): Record<string, unknown> {
+function checked(patch: unknown, schema: TSchema, guidance = ""): Record<string, unknown> {
 	const errors = Errors(schema, patch ?? {});
-	if (errors.length) throw new MethodError("invalid_params", errors.map((error) => error.message).join("; "));
+	if (errors.length)
+		throw new MethodError(
+			"invalid_params",
+			[errors.map((error) => error.message).join("; "), guidance].filter(Boolean).join(" "),
+		);
 	if (!Object.keys(patch as Record<string, unknown>).length)
 		throw new MethodError("invalid_params", "patch: at least one whitelisted field is required");
 	return patch as Record<string, unknown>;
@@ -273,7 +277,13 @@ export const configMethods: MethodDef[] = [
 						`config.get/update is a redacted narrow view and cannot write ${unsupported.join(", ")}; workspace/env/profiles/defaultProfile/bindings/tools/plugins require the full Agent management view. Use yonder agents show/validate/update --home <active home>, then read back with agents show and inspect.`,
 					);
 			}
-			const patch = checked(params.patch, scope === "home" ? homePatch : agentPatch);
+			const patch = checked(
+				params.patch,
+				scope === "home" ? homePatch : agentPatch,
+				scope === "agent"
+					? "config.update only handles model, cheap, simple, limits.maxTokens, and social; use yonder agents show/validate/update to manage other Agent fields."
+					: "config.update home scope only handles the default model and outsider quota settings.",
+			);
 			const result =
 				scope === "home"
 					? await applyHomePatch(ctx, patch)

@@ -56,7 +56,7 @@ function toolResultEvidence(result: object | undefined) {
 }
 
 test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
-	"real Luna validates and applies a separate group profile through the local CLI, then runs it with host model facts",
+	"historical guided smoke: real Luna applies a separate group profile through the local CLI",
 	async () => {
 		const home = await tempHome("yonder-self-config-live-");
 		let kernel: Awaited<ReturnType<typeof openKernel>> | undefined;

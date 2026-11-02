@@ -102,6 +102,7 @@ api.channels.register({
   create(id){
     return {
       id,kinds:['group','dm'],output:{stream:false,attachments:false},
+      ...(${Boolean(options.officialGroup)}?{features:{identity:'account',mentions:['bot'],outboundMentions:false,streamMode:'none'}}:{}),
       ...(${Boolean(options.membership)}?{multiAgent:true,features:{groupParticipation:'membership'}}:{}),
       async start(io){state.ios[id]=io},async stop(){},
       async send(to,msg){state.sent.push({to,text:msg.text});return {ok:true,id:'local-'+state.sent.length}}
@@ -171,7 +172,13 @@ api.channels.register({
 				tools: { offer: ["message_send"], search: [] },
 			};
 			const ownerProfile = options.ownerHandoff
-				? { ...profile, level: "bypass", instructions: "", tools: { offer: ["*"], search: [] } }
+				? {
+						...Object.fromEntries(Object.entries(profile).filter(([key]) => key !== "capabilities")),
+						level: "bypass",
+						skills: ["*"],
+						instructions: "",
+						tools: { offer: ["*"], search: [] },
+					}
 				: profile;
 			const agentConfig = {
 				schema: 1,
@@ -238,7 +245,7 @@ api.channels.register({
 									match: { channel: instance, kind: "dm" },
 									session: options.ownerHandoff ? "main" : { mode: "persistent", per: "conv" },
 									profile: "private",
-									wake: "write",
+									wake: options.ownerHandoff ? "run" : "write",
 									reply: "none",
 								},
 							],
