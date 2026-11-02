@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -14,7 +14,7 @@ const OUT = join(ROOT, "packages/windows-status/dist");
 const BRAND = join(ROOT, "brand/assets/png");
 
 /** `dotnet build` 的参数：框架依赖（不打包运行时），关掉 ReadyToRun，两个架构产物一致。 */
-export function dotnetArgs(project = PROJECT, output = join(OUT, "build")) {
+export function dotnetArgs(project = PROJECT, output = OUT) {
 	return ["build", project, "-c", "Release", "-o", output];
 }
 
@@ -47,12 +47,10 @@ export function buildWindowsStatus() {
 	const build = spawnSync("dotnet", dotnetArgs(), { cwd: ROOT, stdio: "inherit" });
 	if (build.error) throw build.error;
 	if (build.status !== 0) throw new Error("Windows 状态栏构建失败");
-	const built = join(OUT, "build/YonderStatus.exe");
+	const built = join(OUT, "YonderStatus.exe");
 	if (!existsSync(built)) throw new Error(`Windows 状态栏构建没有产出 ${built}`);
 	mkdirSync(OUT, { recursive: true });
-	copyFileSync(built, join(OUT, "YonderStatus.exe"));
 	copyBrandAssets();
-	rmSync(join(OUT, "build"), { recursive: true, force: true });
 	console.log("Windows 状态栏已构建：packages/windows-status/dist/YonderStatus.exe");
 	return "built";
 }
