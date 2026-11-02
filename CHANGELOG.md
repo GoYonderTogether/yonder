@@ -2,10 +2,18 @@
 
 ## [Unreleased]
 
+## [0.3.26110209] - 2026-11-02
+
 ### Fixed
 
 - 工作台不再为不支持思考强度的模型显示无效档位。
 - 工作台模型按钮优先显示模型名称和供应商显示名。
+- core：include parent operability types
+- android：publish the APK download URL through GitHub
+- android：make the release workflow self-sufficient on old tags
+- app：show model and provider names in workbench
+- app：hide effort for non-reasoning models
+- android：expose the tauri script for the Gradle rust plugin
 
 ## [0.3.26110208] - 2026-11-02
 
