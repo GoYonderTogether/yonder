@@ -59,7 +59,13 @@ export function RuntimeSettings() {
 						<p className="truncate text-small font-medium">{runtime.name}</p>
 						<p className="text-caption text-faint">
 							{runtime.kind === "cloud" ? "云端" : "设备"} ·{" "}
-							{runtime.online ? "在线" : runtime.state === "stopped" ? "已停止" : "不可用"}
+							{runtime.online
+								? runtime.workProtocol === 1
+									? "在线"
+									: "在线 · 工作台未就绪"
+								: runtime.state === "stopped"
+									? "已停止"
+									: "不可用"}
 						</p>
 					</div>
 					{runtime.kind === "cloud" && (

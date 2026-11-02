@@ -8,6 +8,7 @@ import { useBotNames } from "../lib/queries";
 import { type MenuAnchor, useMenuTrigger } from "../lib/useLongPress";
 import { ActionMenu } from "./ActionMenu";
 import { Markdown } from "./Markdown";
+import { MessageAttachment } from "./MessageAttachment";
 import { TypingText } from "./TypingText";
 
 /**
@@ -166,7 +167,7 @@ function ChannelBadge({ it }: { it: ChatItem }) {
 	);
 }
 
-function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => void }) {
+function Bubble({ it, onQuote, session }: { it: ChatItem; onQuote?: (item: ChatItem) => void; session?: string }) {
 	const [menu, setMenu] = useState<MenuAnchor | null>(null);
 	const trigger = useMenuTrigger(setMenu);
 	// 复制反馈：对勾微弹出现，2.5s 后淡出并恢复（见 styles.css 的 .pop / .feedback）
@@ -286,8 +287,14 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 							<ul aria-label="消息附件" className="mt-1 space-y-1 text-small">
 								{it.attachments.map((attachment, index) => (
 									<li key={`${attachment.uri}-${index}`} className="flex items-center gap-2 break-all">
-										<FileText size={16} className="shrink-0" aria-hidden />
-										<span>{attachment.name ?? attachment.kind}</span>
+										{session ? (
+											<MessageAttachment attachment={attachment} session={session} />
+										) : (
+											<>
+												<FileText size={16} className="shrink-0" aria-hidden />
+												<span>{attachment.name ?? attachment.kind}</span>
+											</>
+										)}
 									</li>
 								))}
 							</ul>
@@ -325,6 +332,7 @@ function Bubble({ it, onQuote }: { it: ChatItem; onQuote?: (item: ChatItem) => v
 }
 
 export function Transcript({
+	session,
 	items,
 	hasMore,
 	onOlder,
@@ -335,6 +343,7 @@ export function Transcript({
 	onQuote,
 	children,
 }: {
+	session?: string;
 	items: ChatItem[];
 	hasMore: boolean;
 	onOlder(): void;
@@ -403,7 +412,7 @@ export function Transcript({
 						{timeBucket(it.ts, items[index - 1]?.ts) && (
 							<p className="my-3 text-center text-caption text-faint">{timeBucket(it.ts, items[index - 1]?.ts)}</p>
 						)}
-						<Bubble it={it} onQuote={onQuote} />
+						<Bubble it={it} onQuote={onQuote} session={session} />
 					</div>
 				))}
 				{hasNewer && (

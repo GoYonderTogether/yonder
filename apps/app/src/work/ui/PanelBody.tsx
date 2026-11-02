@@ -13,6 +13,7 @@ import { useWorkSessions } from "../lib/queries";
 import { useRailAttachments } from "../lib/railContent";
 import type { SessionView } from "../lib/useSession";
 import { workPath } from "../shell/workRoutes";
+import { MessageAttachment } from "./MessageAttachment";
 
 export const Empty = ({ t }: { t: string }) => <p className="text-caption text-faint">{t}</p>;
 
@@ -24,8 +25,8 @@ function Attachments({ session }: { session: string }) {
 	return (
 		<ul>
 			{[...new Map(attachments.data.map((item) => [item.uri, item])).values()].map((item) => (
-				<li key={item.uri} className="truncate text-small">
-					{item.name || item.kind}
+				<li key={item.uri} className="text-small">
+					<MessageAttachment attachment={item} session={session} />
 				</li>
 			))}
 		</ul>

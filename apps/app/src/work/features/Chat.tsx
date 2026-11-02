@@ -178,6 +178,7 @@ function Live({
 					<p className="flex-1 py-16 text-center text-small text-faint">连接中…</p>
 				) : (
 					<Transcript
+						session={id}
 						items={v.items}
 						hasMore={v.hasMore}
 						onOlder={v.loadOlder}

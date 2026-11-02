@@ -96,7 +96,15 @@ export function RuntimePicker({
 				>
 					<span className="min-w-0 flex-1 truncate">{item.name}</span>
 					<span className="shrink-0 text-caption text-faint">
-						{item.online === false ? "离线" : item.kind === "cloud" ? "云端" : item.deviceId ? "设备" : "当前网关"}
+						{item.online === false
+							? "离线"
+							: item.deviceId && item.workProtocol !== 1
+								? "工作台未就绪"
+								: item.kind === "cloud"
+									? "云端"
+									: item.deviceId
+										? "设备"
+										: "当前网关"}
 					</span>
 					{item.id === value.id && <span title="当前">✓</span>}
 				</button>
