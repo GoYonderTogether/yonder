@@ -1,6 +1,7 @@
 import type { Channel } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
+import { platformGroupBinding } from "../routing/platform-group.js";
 import { openDatabase } from "../runtime/db.js";
 import { createStore } from "../store/index.js";
 import { projectAgentOperability } from "./agent-operability.js";
@@ -316,6 +317,64 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 		await expect(
 			batchPreflightData("main", conv, { mode: "batch", batch: { run: true } }, qqMentionAgent, async () => ({
 				operability: qqMentionFact,
+			})),
+		).resolves.toMatchObject({ state: "ready" });
+		const memberConv = "conv:membership:group:private";
+		const memberChannel: Channel = {
+			...channel,
+			id: "membership",
+			multiAgent: true,
+			features: { groupParticipation: "membership" },
+		};
+		const memberDiskAgent = parseAgentConfig(
+			JSON.stringify({
+				schema: 1,
+				id: "main",
+				name: "Main",
+				owner: "person:owner",
+				defaultProfile: "default",
+				profiles: { default: {} },
+				bindings: [],
+				social: {
+					enabled: true,
+					scope: [outside],
+					defaults: { group: { mode: "batch", batch: { run: true } } },
+					conversations: { [memberConv]: { mode: "batch", batch: { run: true } } },
+				},
+			}),
+		);
+		const memberRuntimeAgent = parseAgentConfig(JSON.stringify(memberDiskAgent));
+		platformGroupBinding(memberRuntimeAgent, memberChannel);
+		const memberMessage = await store.events.record({
+			type: "message.in",
+			from: "acct:qq:user",
+			conv: memberConv,
+			data: { kind: "group", target: "main", mentioned: false },
+		});
+		const memberCandidate = {
+			...memberDiskAgent,
+			profiles: { ...memberRuntimeAgent.profiles, ...memberDiskAgent.profiles },
+			bindings: memberRuntimeAgent.bindings,
+		};
+		const memberFact = await projectConversationOperability({
+			agent: memberCandidate,
+			agents: [memberCandidate],
+			selector: { conv: memberConv, eventId: memberMessage.id },
+			store,
+			channels: new Map([["membership", memberChannel]]),
+			hooks,
+			batchRequested: true,
+		});
+		expect(memberDiskAgent.bindings).toHaveLength(0);
+		expect(memberDiskAgent.profiles).not.toHaveProperty("@platform-group:membership");
+		expect(memberFact.prediction).toMatchObject({
+			participation: { reason: "batch" },
+			participationScope: { includesConversation: false },
+			consumer: { state: "available", derived: true },
+		});
+		await expect(
+			batchPreflightData("main", memberConv, { mode: "batch", batch: { run: true } }, memberCandidate, async () => ({
+				operability: memberFact,
 			})),
 		).resolves.toMatchObject({ state: "ready" });
 		const recordAgent = parseAgentConfig(

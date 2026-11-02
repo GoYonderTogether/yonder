@@ -215,7 +215,11 @@ export function createSocial(options: {
 			}
 			const candidate = parseAgentConfig(document.toString(), file, request.agent);
 			const agents = new Map(options.agents);
-			agents.set(request.agent, { ...candidate, bindings: agent.bindings });
+			agents.set(request.agent, {
+				...candidate,
+				profiles: { ...agent.profiles, ...candidate.profiles },
+				bindings: agent.bindings,
+			});
 			let preflight: { state: "ready" | "unknown"; reason?: string } | undefined;
 			if (
 				after.mode === "batch" &&
