@@ -233,3 +233,6 @@ v12后源码收口：15add313以内部必填类型把focused贯穿willing→Grou
 另从默认分支发现可复现程序缺陷（不是声称当前P1已触发）：social未写时revision(undefined)会hash TypeError；conversation batch/signals局部patch会丢同级值。db2facfd/04072660复用既有effectivePolicy合并已声明的batch/signals，保留YAML其他键与注释、可初始化首条policy；重载后返回独立postcondition，配置接受、当前静态source/consumer与历史执行分栏，读取失败unknown而不撤销已成功重载。314f59d5/79acd0be重写公共功能语义：Agent判断需获准模型处理而非只存储，batch只是可用路径之一，显式模式与准入/权限不被改掉；不改Bot persona或在user message塞配置步骤。
 
 最终当前源树build-tsc通过，整合23文件118项全通过（76.38秒，排除.cache），typecheck、size、相关Biome/diff通过，原7300词预算保持。source-only QQ测试22项与social/相关prompt23项独立通过；早期QQ镜像误跑失败来自.cache，未算作source结果。下一正式版、本机更新与真实原话重验仍待执行，不以源码/平台发布通过冒完整交付。
+
+
+同批补修358122c3：公共goal句“任何时间/context提醒就wrap up”与已有14§1软阈值契约相反。v13实际warning01M6EVGKRZNWETTFMSKXVM52NW（main2，19:24:24，285250tokens）、01M6EVH8ANJ9KRBZZW8GJ6CCZ0（gpt155642，19:24:45，398730）、01M6EVP85SZQCG5B8NK4HWGHPK（19:27:28，204981）文本均明确继续工作。改公共句保持目标续办，不改真实limits；不能据此认定全部失败因果已确认。定向prompt/limits18通过1真实模型跳过、typecheck/Biome/diff通过，原7300预算保持。此前e564候选尚在CI，下一候选包含此补修后推送，由正常并发淘汰旧run，不安装缺补修的候选。

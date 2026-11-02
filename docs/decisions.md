@@ -1119,3 +1119,8 @@ v12实测owner prepared约52k字符，其中owner-private frame原始18k、escap
 ### 2026-11-03：现有配置事务与外部能力事实
 
 v13主会话群发已真实完成，群普通消息已进入GPT模型，但仍错误要求先改未查询的QQ平台范围，P1仍未配置可参与链。复核现有social.update标准路径已有derived consumer与CAS/验证/回滚，不另造配置DSL、任务判官或第二runtime；先修optional social revision崩溃、batch浅覆盖丢已有配置，并把既有inspect接到重载后回执。QQ status/README的无条件平台设置指令改为known/unknown与实测入站分层，不加虚构平台API或扩大权限。见08/11。
+
+
+### 2026-11-03：软提醒与持续目标一致
+
+v13 main/GPT真实运行均触发maxTokens软提醒，而公共goal段仍要求任何time/context reminder即wrap up，与14§1软阈值不abort/不limit终态矛盾。只替换该句，使软提醒/压缩保留目标并续办，仅真实硬限制、取消或阻塞部分交付；不改runtime limits执行、不宣称该矛盾单独解释所有失败。358122c3相关18项通过1项真实模型未测，7300预算不变。
