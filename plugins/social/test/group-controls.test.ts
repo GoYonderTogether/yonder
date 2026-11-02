@@ -142,17 +142,20 @@ test("a member asking not to answer pauses that interaction without banning the 
 	const fixture = await groupFixture({ social: true });
 	const { kernel, probe } = fixture;
 	try {
-		await probe.ios["qq-main"].emit(input("qq-main", mainConv, "在吗", true, "member"));
+		const settledBefore = (await kernel.events.query({ type: "session.settled" })).events.length;
+		const firstInput = await probe.ios["qq-main"].emit(input("qq-main", mainConv, "在吗", true, "member"));
 		await expect.poll(() => probe.contexts.length, { timeout: 5000 }).toBe(1);
 		const first = probe.contexts[0];
 		if (!first) throw Error("Real member interaction did not start");
-		await probe.ios["qq-main"].emit(input("qq-main", mainConv, "不用回答我", true, "member"));
+		const stop = await probe.ios["qq-main"].emit(input("qq-main", mainConv, "不用回答我", true, "member"));
 		await expect.poll(() => first.signal.aborted, { timeout: 5000 }).toBe(true);
 		await expect
 			.poll(
 				async () =>
 					(await kernel.events.query({ type: "run.end" })).events.some(
-						(e) => (e.data as { session?: string }).session === first.session,
+						(e) =>
+							(e.data as { session?: string; inputs?: string[] }).session === first.session &&
+							(e.data as { inputs?: string[] }).inputs?.includes(firstInput.id),
 					),
 				{ timeout: 5000 },
 			)
@@ -165,10 +168,38 @@ test("a member asking not to answer pauses that interaction without banning the 
 			agent: "main",
 			after: { pause: { scope: "interaction", actor: "acct:qq-main:member" } },
 		});
-		await probe.ios["qq-main"].emit(input("qq-main", mainConv, "请回答我的问题", true));
-		await expect.poll(() => probe.contexts.length, { timeout: 5000 }).toBe(2);
+		await expect
+			.poll(
+				async () =>
+					(await kernel.events.query({ type: "session.settled" })).events.filter(
+						(event) => (event.data as { session?: string }).session === first.session,
+					).length,
+				{ timeout: 5000 },
+			)
+			.toBeGreaterThan(settledBefore);
+		const nextInput = await probe.ios["qq-main"].emit(input("qq-main", mainConv, "请回答我的问题", true));
+		try {
+			await expect.poll(() => probe.contexts.length, { timeout: 5000 }).toBe(2);
+		} catch (cause) {
+			const inputEvent = (await kernel.events.query({ id: nextInput.id })).events[0];
+			const { events } = await kernel.events.query({ after: stop.id, limit: 1000 });
+			const evidence = events
+				.filter((event) =>
+					["routing.social-decision", "run.end", "agent.result", "session.settled", "social.group-turn"].includes(
+						event.type,
+					),
+				)
+				.map((event) => ({
+					id: event.id,
+					type: event.type,
+					parent: event.parent,
+					data: event.data,
+				}));
+			throw new Error(JSON.stringify({ input: inputEvent, evidence }), { cause });
+		}
 		const next = probe.contexts[1];
 		if (!next) throw Error("Another person's addressed interaction was blocked");
+		expect(next.events?.some((event) => event.id === nextInput.id)).toBe(true);
 		expect(next.signal.aborted).toBe(false);
 		expect(await probe.api.messages.send({ owner: owner(next), to: mainConv, text: "回应另一位的点名" })).toMatchObject(
 			{ ok: true },
