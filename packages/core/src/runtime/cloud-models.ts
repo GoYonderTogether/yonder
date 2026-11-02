@@ -6,6 +6,12 @@ import type { RuntimeInternals } from "./instance.js";
 import type { ModelsJsonProvider } from "./models.js";
 import { buildModels } from "./models.js";
 
+export interface CloudModelIssue {
+	instance: string;
+	code: "not_connected" | "http_error" | "network_error" | "invalid_catalog";
+	message: string;
+}
+
 /** Only the selected runtime's own Card credential grants access to its owner's cloud catalog. */
 export async function refreshCloudModels(
 	home: string,
@@ -13,26 +19,42 @@ export async function refreshCloudModels(
 ): Promise<{
 	providers: Record<string, ModelsJsonProvider>;
 	apiKeys: Map<string, string>;
+	issues: CloudModelIssue[];
 }> {
 	const providers: Record<string, ModelsJsonProvider> = {};
 	const apiKeys = new Map<string, string>();
+	const issues: CloudModelIssue[] = [];
 	for (const [instance, channel] of Object.entries(config.channels ?? {})) {
 		const configured = channel as { type: string; enabled?: boolean; endpoint?: string };
 		if (configured.type !== "card" || configured.enabled === false || !/^[\w.-]+$/.test(instance)) continue;
+		let code: CloudModelIssue["code"] = "not_connected";
+		let message = "尚未连接云端账号，请在名片渠道设置中登录后重试。";
 		try {
 			const endpoint = new URL(configured.endpoint ?? "https://yonderbot.net").origin;
 			const saved = JSON.parse(
 				await readFile(join(home, ".yonder", "plugins", "channel-card", `${instance}.json`), "utf8"),
 			);
-			if (saved.endpoint !== endpoint || typeof saved.token !== "string" || !saved.token) continue;
+			if (saved.endpoint !== endpoint || typeof saved.token !== "string" || !saved.token)
+				throw new Error("Cloud account is not connected");
+			code = "network_error";
+			message = "云端模型目录连接失败，请检查名片渠道连接与网络后重试；本机模型仍可使用。";
 			const response = await fetch(`${endpoint}/api/model-connections/catalog`, {
 				headers: { authorization: `Bearer ${saved.token}` },
 				signal: AbortSignal.timeout(5000),
 				redirect: "error",
 			});
-			if (!response.ok) continue;
+			if (!response.ok) {
+				code = "http_error";
+				message =
+					response.status === 401 || response.status === 403
+						? "云端模型账号授权失效，请在名片渠道设置中重新登录。"
+						: `云端模型目录返回 HTTP ${response.status}，请检查云端服务状态后重试。`;
+				throw new Error("Cloud catalog request failed");
+			}
+			code = "invalid_catalog";
+			message = "云端模型目录格式不可用，请更新云端服务后重试。";
 			const catalog = (await response.json()) as { providers?: unknown };
-			if (!Array.isArray(catalog.providers)) continue;
+			if (!Array.isArray(catalog.providers)) throw new Error("Invalid cloud catalog");
 			for (const item of catalog.providers) {
 				if (
 					!item ||
@@ -57,10 +79,11 @@ export async function refreshCloudModels(
 				apiKeys.set(item.id, saved.token);
 			}
 		} catch {
-			// An unavailable cloud must not prevent local models from loading. Missing cloud models remain unavailable.
+			// Report failure without exposing response bodies, URLs containing credentials, or tokens.
+			issues.push({ instance, code, message });
 		}
 	}
-	return { providers, apiKeys };
+	return { providers, apiKeys, issues };
 }
 
 export async function refreshRuntimeCloudModels(rt: RuntimeInternals): Promise<void> {
@@ -69,6 +92,7 @@ export async function refreshRuntimeCloudModels(rt: RuntimeInternals): Promise<v
 	for (const id of Object.keys(rt.cloud.providers)) rt.models.deleteProvider(id);
 	rt.cloud.providers = next.providers;
 	rt.cloud.apiKeys = next.apiKeys;
+	rt.cloud.issues = next.issues;
 	for (const id of Object.keys(next.providers)) {
 		const provider = catalog.getProvider(id);
 		if (provider) rt.models.setProvider(provider);

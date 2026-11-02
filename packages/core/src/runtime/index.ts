@@ -132,6 +132,7 @@ export class Runtime {
 	readonly cloud = {
 		providers: {} as Record<string, import("./models.js").ModelsJsonProvider>,
 		apiKeys: new Map<string, string>(),
+		issues: [] as import("./cloud-models.js").CloudModelIssue[],
 	};
 	private settledEvents = new Map<string, string>();
 	private harness!: Harness;

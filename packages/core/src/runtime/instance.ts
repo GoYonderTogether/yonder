@@ -99,7 +99,11 @@ export interface Activity {
  * through one typed getter, so the cast lives in exactly one place.
  */
 export interface RuntimeInternals {
-	cloud: { providers: Record<string, import("./models.js").ModelsJsonProvider>; apiKeys: Map<string, string> };
+	cloud: {
+		providers: Record<string, import("./models.js").ModelsJsonProvider>;
+		apiKeys: Map<string, string>;
+		issues: import("./cloud-models.js").CloudModelIssue[];
+	};
 	settledEvents: Map<string, string>;
 	harness: Harness;
 	outbox: Outbox;

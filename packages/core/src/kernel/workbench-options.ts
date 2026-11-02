@@ -132,6 +132,7 @@ export function createWorkbenchOptions(
 					...(config.defaultModel ? [config.defaultModel.split("/")[0]!] : []),
 				]),
 				permissions: permissions(),
+				cloud: { issues: structuredClone(runtime().cloud.issues) },
 			};
 		},
 		workspaces: async (request: { id?: string; deviceId?: string; path?: string }, signal: AbortSignal) => ({

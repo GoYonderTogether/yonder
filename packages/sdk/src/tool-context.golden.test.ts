@@ -6,7 +6,7 @@ import { expect, test } from "vitest";
 const GOLDEN = new URL("../golden/tool-context.json", import.meta.url);
 
 test("ToolContext cache API keeps its golden signature", () => {
-	const source = readFileSync(new URL("./types.ts", import.meta.url), "utf8");
+	const source = readFileSync(new URL("./tool-context.ts", import.meta.url), "utf8");
 	const context = source.match(/export interface ToolContext \{([\s\S]*?)\n\}/)?.[1];
 	const current = context?.match(/\bcacheToolOutput\??\([^\n]+/)?.[0];
 	const stream = context?.match(/\bcacheToolOutputStream\??\([^\n]+/)?.[0];
