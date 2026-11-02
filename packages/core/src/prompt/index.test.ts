@@ -672,11 +672,13 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	]) {
 		expect(commonPrompt).toContain(line);
 	}
-	expect(runtimePrompt).toContain("A resident Agent spans main/group sessions");
+	expect(runtimePrompt).toContain("Same Agent spans main/group sessions");
 	expect(runtimePrompt).toContain("profiles select capabilities, not identity");
-	expect(runtimePrompt).toContain("Group context and private-main history stay separate");
+	expect(runtimePrompt).toContain("Group/private-main histories stay separate");
+	expect(runtimePrompt).toContain("not every group message must enter private main");
+	expect(runtimePrompt).toContain("Rejected private-main binding does not block supported work");
 	expect(runtimePrompt).toContain(
-		"Report unsupported routing or private-history sharing only when required by the owner",
+		"Report unsupported routing or private-history sharing only if the owner requires it",
 	);
 	expect(runtimePrompt).toContain(
 		"Non-main sessions of a resident Agent use parent_ask when work needs the same Agent's main",
