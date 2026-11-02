@@ -259,6 +259,35 @@ test("inspect projects bounded exact-conversation facts and follows QQ batch sou
 				hooks,
 			}),
 		).toMatchObject({ status: "unknown", reason: "event is not a stored message.in for the selected conversation" });
+
+		for (let index = 0; index < 1001; index++)
+			await store.events.record(
+				{
+					type: "message.in",
+					from: "acct:qq:owner",
+					conv,
+					data: { kind: "group", text: `recent message ${index}` },
+				},
+				[{ agent: "main", binding: "qq-source", session: "101", wake: "write" }],
+			);
+		const latest = await store.events.record(
+			{
+				type: "message.in",
+				from: "acct:qq:owner",
+				conv,
+				data: { kind: "group", text: "latest message" },
+			},
+			[{ agent: "main", binding: "qq-source", session: "101", wake: "write" }],
+		);
+		const latestFact = await projectConversationOperability({
+			agent,
+			agents: agents.values(),
+			selector: { conv },
+			store,
+			channels: new Map([["qq", channel]]),
+			hooks,
+		});
+		expect(latestFact).toMatchObject({ status: "observed", sample: { eventId: latest.id, kind: "group" } });
 	} finally {
 		await db.close();
 	}

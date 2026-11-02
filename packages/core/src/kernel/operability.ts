@@ -109,9 +109,8 @@ async function sampleFor(store: Store, selector: OperabilitySelector): Promise<{
 		return { event };
 	}
 	if (!selector.conv) return { unknown: "no sample selector" };
-	const page = await store.events.query({ type: "message.in", conv: selector.conv, limit: 1000 });
-	if (page.next) return { unknown: "sample history exceeds the 1000 event bound; latest sample is unknown" };
-	const event = page.events.at(-1);
+	const page = await store.events.query({ type: "message.in", conv: selector.conv, order: "desc", limit: 1 });
+	const event = page.events[0];
 	return event ? { event } : { unknown: "no stored message.in for the selected conversation" };
 }
 
