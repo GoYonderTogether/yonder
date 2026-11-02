@@ -2,7 +2,7 @@ import { createCipheriv } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Channel, EventInput, PluginAPI, ToolContext } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
@@ -134,7 +134,9 @@ test("QR pairing persists first owner, keeps second independent and uses per-pee
 		expect(await h.identity.relation("main", "acct:wechat-primary:peer-1")).toBe("owner");
 		expect(await h.identity.relation("main", "acct:wechat-contact:peer-2")).toBe("stranger");
 		expect(await h.identity.relation("main", "acct:wechat-known:peer-3")).toBe("known");
-		expect((await stat(join(h.directory, "wechat-primary/account.json"))).mode & 0o777).toBe(0o600);
+		const accountFile = join(h.directory, "wechat-primary/account.json");
+		expect(JSON.parse(await readFile(accountFile, "utf8"))).toMatchObject({ token: "test-token-1" });
+		if (process.platform !== "win32") expect((await stat(accountFile)).mode & 0o777).toBe(0o600);
 		const envelope = (peer: string, id: string, token: string, bot = "bot-1") => ({
 			message_type: 1,
 			from_user_id: peer,
@@ -276,7 +278,7 @@ test("media protocol decrypts actual HTTP bytes and rejects untrusted download o
 		const file = join(temporary, "test.bin");
 		await writeFile(file, plain);
 		const uploaded = await client.upload(
-			{ kind: "audio", mime: "audio/wav", uri: new URL(`file://${file}`).href, name: "test.wav" },
+			{ kind: "audio", mime: "audio/wav", uri: pathToFileURL(file).href, name: "test.wav" },
 			"test-peer",
 		);
 		expect(uploaded).toMatchObject({ type: 4, file_item: { file_name: "test.wav" } });
@@ -297,9 +299,9 @@ async function archiveSource(directory: string) {
 	await writeFile(data, JSON.stringify({ messages: [], cursor: 0, ack: 0, calls: [] }));
 	await writeFile(
 		script,
-		`#!/usr/bin/env node
-import{readFileSync,writeFileSync}from'node:fs';
-const file=${JSON.stringify(data)},state=JSON.parse(readFileSync(file,'utf8')),args=process.argv.slice(2),cmd=args[0],get=k=>args[args.indexOf(k)+1];
+		`import{readFileSync,writeFileSync}from'node:fs';
+import{basename}from'node:path';
+const file=${JSON.stringify(data)},state=JSON.parse(readFileSync(file,'utf8')),args=[basename(process.argv[1]),...process.argv.slice(2)],cmd=args[0],get=k=>args[args.indexOf(k)+1];
 state.calls.push(args);let result={ok:true};
 if(cmd==='status')result.last_sync={at:Date.now()/1000};
 if(cmd==='catalog')Object.assign(result,{catalog:[{chat:'Msg_abc',displayName:'Protocol fixture',chatType:'p2p'}],nextOffset:null,total:1});
@@ -308,9 +310,8 @@ else if(cmd==='check-new'){if(args.includes('--ack'))state.ack=Number(get('--ack
 else if(cmd==='window'||cmd==='fetch-new')Object.assign(result,{cursor:state.cursor,messages:state.messages.filter(m=>m.id>state.ack)});
 if(cmd==='history'||cmd==='search')Object.assign(result,{messages:state.messages,nextBefore:null});
 if(cmd==='message')result.message=state.messages.find(m=>m.id===Number(args[1]));
-writeFileSync(file,JSON.stringify(state));console.log(JSON.stringify(result));
+writeFileSync(file,JSON.stringify(state));console.log(JSON.stringify(result));process.exit(0);
 `,
-		{ mode: 0o700 },
 	);
 	return {
 		script,
@@ -336,7 +337,9 @@ test("archive resumes durable material after unknown admission; silence, policy 
 }, async () => {
 	const h = await harness("wechat-archive");
 	const fixture = await archiveSource(h.directory);
-	const config = { cliPath: fixture.script, discovery: true };
+	// A native Node executable works on Windows too; preload handles the fixture command before main-file resolution.
+	vi.stubEnv("NODE_OPTIONS", `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(fixture.script).href}`);
+	const config = { cliPath: process.execPath, discovery: true };
 	let archive = new Archive(h.api, config);
 	try {
 		await archive.poll(h.store.events.record);
@@ -381,6 +384,7 @@ test("archive resumes durable material after unknown admission; silence, policy 
 			archive.tool("policy", { op: "set", chat: "Msg_abc", expectedVersion: 2, priority: "silent" }, ctx),
 		).rejects.toThrow("USER_PINNED");
 	} finally {
+		vi.unstubAllEnvs();
 		await archive.stop();
 		await h.close();
 	}

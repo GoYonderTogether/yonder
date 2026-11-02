@@ -148,7 +148,18 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 		}
 		const now = Date.now() + 31 * 60000;
 		await tick(f.probe.api, f.store, {}, now);
-		await expect.poll(() => f.probe.requests.length).toBe(1);
+		try {
+			await expect.poll(() => f.probe.requests.length).toBe(1);
+		} catch (cause) {
+			throw new Error(
+				JSON.stringify({
+					reminder: f.store.get(task.id, f.ctx).history.at(-1),
+					runEnds: (await f.kernel().events.query({ type: "run.end" })).events,
+					logs: f.logs,
+				}),
+				{ cause },
+			);
+		}
 		const inputs = () => f.kernel().events.query({ type: "session.input", from: "plugin:tasks" });
 		expect((await inputs()).events).toHaveLength(1);
 		expect((await inputs()).events[0]?.data).toMatchObject({
