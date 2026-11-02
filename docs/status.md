@@ -1,8 +1,26 @@
 # 项目状态
 
-更新：2026-11-01。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
+更新：2026-11-02。开发者预览，精确当前版本见根 `package.json` 与最新正式 Release。本页只记录“现在到哪了”：规范（`spec/`）是目标，本页记录现实与差距。按时间累积的验收记录移到 [verification/](verification/)，10 月的分节见 [status-history-2026-10](verification/status-history-2026-10.md)。
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
+
+## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
+
+设计见 [09 §3.1、§6.1–§6.4](spec/09-cli-release.md)：安装分“只装核心”与 `--desktop` 两种形态；桌面壳启动时先探测本机核心，可达直连本机控制面，否则回落 `https://yonderbot.net/`；状态栏扩展到 Windows（`Yonder Status` 托盘），Linux 不做；安卓 APK 与桌面 dmg/nsis 由 Release 后的 CI 构建，连同 OSS 清单一起分发到 bucket `yonder-release`。
+
+| 项 | 现实 |
+|---|---|
+| `install.sh` / `install.ps1` 的 `--desktop` / `-Desktop` | 已接线：核心装完后取同一 Release 的 dmg 装进 `/Applications`（Windows 为 nsis `/S`），再执行 `yonder service install`。`install.sh` 本机通过 `sh -n`、shellcheck 与 `--dry-run`，并实测挂载 dmg、替换 `/Applications/Yonder.app`；`install.ps1 -Desktop` **未执行**（本机无 PowerShell，也没有 Windows 实机） |
+| 桌面壳本机优先加载 | 已接线：`local.rs` 跑 `yonder ui --json` 并短超时探测本机网关，可达用它、否则云端；导航白名单为回环 + yonderbot.net。7 个 Rust 单测通过，`cargo check`/`clippy` 干净；**真实窗口两条路径未端到端跑过** |
+| Windows `Yonder Status` 托盘 | 已接线：`packages/windows-status`（WinForms，单实例，固定菜单骨架），由 `service install` 经登录任务 `Yonder Status` 注册、`service uninstall` 移除；TS 侧 26 项单测通过（1 项跳过）。**C# 未编译验证，托盘外观与实机自启未测**（本机无 dotnet，留给 Windows CI） |
+| `android-release.yml` / `desktop-release.yml` | 已写入并接到 `release.yml` 的派发步骤（派发失败只记警告，不回滚已发布版本）。两个工作流**尚未在 Actions 上跑过** |
+| 安卓 APK | 本机 `tauri android build --apk` 成功，`apksigner` 核对为 release 证书（SHA-256 `5f9106f2…498b`），`aapt2` 显示 versionCode/versionName 与注入版本一致；App 内更新代码有 5 项 Rust 单测。**真机安装、系统确认框与从 OSS 拉清单未测** |
+| 桌面安装包 | 本机 `tauri build --bundles app,dmg` 产出 `Yonder_<version>_aarch64.dmg`，ad-hoc 签名通过 `codesign --verify`；**nsis 与 CI 构建未测** |
+| OSS 上传 | `scripts/release/oss.mjs` 用真实凭据上传并公网读取成功（`android/smoke/oss-cli.txt` 返回 200）；18 项签名/清单单测通过 |
+| bucket `yonder-release` | 阿里云 OSS，cn-hangzhou，public-read（已关闭 public access block），生命周期只清 7 天未完成分片。本机操作走 `scripts/cloud/aliyun.sh`，凭据取自 agent-vault，不落盘 |
+| 签名与公证 | macOS 无 Developer ID，ad-hoc；Windows 未签名。Gatekeeper 右键打开与 SmartScreen 警告未在干净机器上验证 |
+
+未测汇总：桌面壳两条加载路径的端到端、Windows 托盘的安装/自启/卸载与外观、`install.ps1 -Desktop`、安卓真机安装与 App 内更新、nsis 产物、两个分发工作流在 Actions 上的实际运行、签名与公证。
 
 ## Harness 自配置闭环（2026-11-01，本地实现，未发布）
 
@@ -34,7 +52,7 @@
 
 - 最近已完成的官方 CI：`06b44b01` 的 Linux 四个全仓测试分片、类型、构建、Node 检查、lint、Linux 汇总与 macOS 子集均成功，合计 9/9 job。历史全仓原始计数保留在上表与 [status-history-2026-10](verification/status-history-2026-10.md)，不使用子集结果覆盖旧记录。
 - 产品目录 lint 0 错误（保留警告）。
-- 有实际运行证据的平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 已有完整程序平台适配代码，真实安装与运行验收待做。
+- 有实际运行证据的平台：macOS（launchd 服务、状态栏、桌面自动化）。Linux、Windows 已有完整程序平台适配代码，真实安装与运行验收待做；Windows 状态栏已接线，实机验收待做。
 - 不使用模拟模型：需要模型的检查用真实模型 `openai/gpt-6-luna`，缺凭据则标“未测”。
 
 ## 已实现并有真实运行记录
@@ -60,7 +78,7 @@
 - PTY 交互进程（process 管理使用管道，不标称 PTY）。
 - 沙箱或容器隔离的执行环境（环境槽已定义；本机 exec 不是沙箱）。
 - MCP 客户端的交互式 OAuth 登录（已有授权可用凭据 header）。
-- Linux/Windows 的实际安装、启动、控制、重启与卸载验收；Web 控制台；交互式安装向导。
+- Linux/Windows 的实际安装、启动、控制、重启与卸载验收；Web 控制台；交互式安装向导。Windows 状态栏与安卓分发见上节「安装与分发」。
 - 官方常驻模板已提供 Jarvis 与普通常驻 Agent；任务预设新增 default/coding/research，接线与实际验证见 [任务预设](verification/task-presets.md)。更专门的购物等 Agent 尚未提供。
 - 文档/PDF 解析、TTS、视频生成；ASR 随包但默认未启用。
 ## 未关闭的真实验收

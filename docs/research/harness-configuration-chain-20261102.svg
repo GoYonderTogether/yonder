@@ -26,7 +26,7 @@
 <text x="668" y="197" font-size="17">用户原话 + 渠道可信身份／目标</text>
 <path d="M921,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="247" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="284" font-size="17">共享默认链 + 实际权限／CLI 入口</text>
+<text x="668" y="284" font-size="17">默认链逐群核对消费者 + 实际权限／CLI 入口</text>
 <path d="M921,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="334" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="371" font-size="17">候选完整校验 → 版本核对 → 写入</text>

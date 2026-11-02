@@ -92,4 +92,4 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 多设备执行契约见[18](spec/18-device-execution.md)。当前已有 execution-only、持久命令账本、设备插件、私网/云中继及 Linux 桌面后端；源码能力不等于各平台和生产真实验收。主人批准的云端运行、多资源工作区与模型来源实现契约见[19 §7](spec/19-device-workbench.md#7-运行位置资源工作区与模型2026-11-02-主人批准实施)，进展与验收分别记录。
 
-通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、通用沙箱管理与自动 PR 审核合并不在当前范围；远程执行环境按 19 §7 的已批准工作台范围实现与验收；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。完整主程序的 CLI/TUI 安装目标扩至 macOS、Linux 与 Windows；平台服务与本机 IPC 见 [09](spec/09-cli-release.md)，桌面 Helper/状态栏仍限 macOS，桌面客户端按平台各自构建与验收（[09 §6.2](spec/09-cli-release.md)）。平台适配代码不代表各平台安装与运行已验收；实际状态见 [status.md](status.md)。
+通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、通用沙箱管理与自动 PR 审核合并不在当前范围；远程执行环境按 19 §7 的已批准工作台范围实现与验收；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。完整主程序的 CLI/TUI 安装目标扩至 macOS、Linux 与 Windows；平台服务与本机 IPC 见 [09](spec/09-cli-release.md)，macOS Helper 仍限 macOS，状态栏在 macOS 与 Windows 提供、Linux 不做，桌面客户端按平台各自构建与验收（[09 §6.2](spec/09-cli-release.md)）。平台适配代码不代表各平台安装与运行已验收；实际状态见 [status.md](status.md)。

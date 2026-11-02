@@ -65,7 +65,9 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - 两条固定地址随每个正式 Release 发布，内容是该 tag 里的 `scripts/install.sh` / `scripts/install.ps1`：
   - `https://github.com/GoYonderTogether/yonder/releases/latest/download/install.sh`（macOS/Linux）
   - `https://github.com/GoYonderTogether/yonder/releases/latest/download/install.ps1`（Windows）
-- 脚本只做四件事：检查 node（≥22.19）/npm/git；用 `git ls-remote --tags --refs` 取最高**正式**标签（不带 `-beta`，`YONDER_VERSION` 可显式指定）；`git clone --depth 1 --branch <tag>` 后 `npm ci && npm run build` 放进 `<install>/versions/<version>`，校验包版本与标签一致并写 `.yonder-install.json`（字段与 §4 的安装记录相同，`rm -rf .git`）；最后用这份已构建的 CLI 跑 `yonder update --to <version> --repo <repo>`。
+- 默认只安装核心：CLI、内核与服务。交互方式可以是微信/QQ 等渠道、云端连接或 CLI/TUI。
+- `--desktop`（Windows：`-Desktop`）：核心安装完成后再安装桌面应用——macOS 取 dmg 装到 `/Applications/Yonder.app`，Windows 静默运行 nsis `setup.exe`。桌面应用依赖本机核心先安装，但可以在核心服务停止时单独运行，此时回落到云端站点（§6.2）。关掉桌面窗口即退出桌面应用，本机核心服务与状态栏继续运行，等于回到只装核心。
+- 脚本只做四件事（带 `--desktop` 时核心装完后再装桌面应用，见上条）：检查 node（≥22.19）/npm/git；用 `git ls-remote --tags --refs` 取最高**正式**标签（不带 `-beta`，`YONDER_VERSION` 可显式指定）；`git clone --depth 1 --branch <tag>` 后 `npm ci && npm run build` 放进 `<install>/versions/<version>`，校验包版本与标签一致并写 `.yonder-install.json`（字段与 §4 的安装记录相同，`rm -rf .git`）；最后用这份已构建的 CLI 跑 `yonder update --to <version> --repo <repo>`。
 - 收尾交给 `update`，不在 shell 里重写 wrapper、`current` 切换与保留最近三版的逻辑；重复执行幂等，已存在的版本目录不再构建。
 - 数据目录的 `yonder.yaml` 不存在时才执行 `yonder init --model openai/gpt-6-luna`；存在则一律不改。登录模型供应商与 `service install` 不代劳，脚本只打印下一步。
 - `--dry-run` 只解析版本并打印将要执行的步骤，不下载、不写盘。
@@ -109,6 +111,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - **改动**：`scripts/release/bump-versions.mjs` 把根与所有 workspace 包（`packages/pi-durable` 除外）的版本和内部 `@yonder/*` 依赖改成新版本，并以 `npm install --package-lock-only` 更新 lockfile。`scripts/release/changelog.mjs` 把 `## [Unreleased]` 的手写条目连同上一标签到目标提交之间的 feat/fix/perf/refactor/revert 提交（按 Added/Fixed/Changed/Removed 分组）写成新版本小节；其他类型与无前缀提交不列。
 - **提交与标签**：CI 提交 `chore(release): <版本>`，打 `v<版本>`，`version-check.mjs --tag` 核对后构建、打包，再以 `git push --atomic` 把 tag 与 main 一次推上去。因为发版提交直接落在 main tip 上，这次推送必然快进，不需要 rebase；原子推送保证 tag 与 main 要么都在、要么都不在，重跑发版即可，不会出现只有 tag 没有 main 的状态。
 - **Release**：在 tag 与 main 都推送成功之后才创建，并且先建成草稿、核对附件齐全再公开（`--draft` → 核对 → `--draft=false --latest`）。草稿阶段失败时 tag 与 main 已在远端，不会出现孤儿版本；报出后按提示补建即可，不要重新触发发版。正文是 CHANGELOG 的该版本小节；附件是 `scripts/release/pack-runtime.mjs` 对每个非 private workspace 包 `npm pack` 生成的 `.tgz`、`SHA256SUMS` 与两个安装脚本，数量与可打包包数 + 3 不符就不公开。`yonder update` 与首次安装按 §3/§4 从标签 `git clone` 并本机构建，不读取附件；附件供离线核对与按包安装。
+- **发版后的分发构建**：Release 公开后，`release.yml` 以发版 tag 派发 `android-release.yml` 与 `desktop-release.yml`（载荷为 version 与完整提交 SHA）。派发失败只记警告与步骤摘要（`packages=pending:<工作流>`），不回滚已公开的版本，也不重新发版；按提示在 tag 上对这两个工作流手动 `workflow_dispatch` 补跑。构建完成前 Release 正文与附件里没有 apk/dmg/nsis，这是允许的中间状态。见 §6.3–§6.4。
 - **发版后的 CI**：GITHUB_TOKEN 推送的提交不会触发 `push` 事件，所以发版提交与 tag 本身从不产生 CI 运行。公开 Release 后，工作流用 `gh workflow run ci.yml --ref v<版本>` 以 tag 为 ref 派发一次（`ci.yml` 因此声明 `workflow_dispatch`），让 CI 跑在发布的那个提交上。该次运行失败不回滚已发布的版本，按缺陷修好后发下一版。
 - **本机预演**：上述脚本都支持 `--dry-run`，只打印将改的文件、CHANGELOG 小节或打包清单，不写入。
 - **网站部署**：私有仓 `GoYonderTogether/yonder-cloud` 的 `Deploy web` 从公开正式 Release 协调工作台前端到 `yonderbot.net`。已配置跨仓派发凭据时，`release.yml` 公开 Release 后以 `repository_dispatch`（`deploy-web`，载荷只有 tag 与提交 SHA，不含产物）通知；没有凭据时不回退本仓 GITHUB_TOKEN 发起必然无权的请求，明确记录网页仍待协调。Cloud 沿既有定时拉取公开 latest Release/tag SHA 的路径及手工 workflow_dispatch 收敛，不新增凭据或工作流。定时配置不是执行延迟保证，Release公开、部署派发、服务器部署验收分别记状态。对方按 SHA 从本公开仓取源码，跑本仓的 `build:web` 生产构建与真实 API 守卫，打包后经服务器上的受限执行器 `/opt/yonder-card/bin/yonder-web-deploy` 上传：执行器由 `authorized_keys` 的 `command=` 固定，只接受「版本 + tar SHA256 + tar 流」，解包到新的 `web/releases/<版本>-<提交前 12 位>`，原子切换 `web/current` 与 `web/previous`，保留最近 5 个版本；不重启服务、不改 nginx、不碰后端与数据库。执行器在服务器本地核对线上 `build-version.json` 后才返回成功——托管 runner 在境外直连该站会被 TLS reset（实测），因此公网可用性不能由 runner 探测。线上版本与目标一致时（含定时巡检）跳过上传。网站与后端是两条链：本步骤只换静态前端，后端与迁移仍由 `yonder-cloud` 自己的流程发布。
@@ -123,15 +126,17 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - Linux 使用 systemd **用户**单元 `dev.yonder.service`，放在 `$XDG_CONFIG_HOME/systemd/user`（缺省 `~/.config/systemd/user`）。`service install` 写单元并 `daemon-reload`、`enable --now`；start/stop/restart/status/uninstall 对该用户单元操作。ExecStart 使用已安装 wrapper、固定 home；日志由 journald 保管。无需 root，不安装系统级服务。
 - Windows 使用当前用户的 Task Scheduler 登录任务 `Yonder Harness` 作为后台入口；不注册需要管理员权限的 SCM 服务。`service install` 在 `<install>/bin` 保存只含 home/install/node 路径的启动脚本，并在 `%LOCALAPPDATA%\\YonderHarness` 保存注册记录；start/stop/restart/status/uninstall 使用 `schtasks`，卸载保留 home 与版本。任务在当前用户会话启动，不承诺注销后运行或崩溃后自动重启。Windows 控制面与 CLI 渠道使用本机命名管道，管道名由规范化 home 路径摘要决定，不暴露 TCP 端口。
 - Windows 管道当前显式关闭 Node 的 `readableAll`/`writableAll`，但跨账户隔离尚无实机证明。验收门槛：Windows ARM64 上同一普通用户可连控制面和 CLI 渠道，另一独立普通用户对两条管道均被拒绝，且任务重启后仍成立；若默认 DACL 不满足，需在创建管道时将 DACL 限定为安装用户 SID（及系统必需主体）并在无法施加时拒绝启动，或增加绑定仅该用户可读本地凭据的认证。未完成前不得将 Windows 本机控制面标为多用户安全通过。
-- Linux/Windows 的 full 首版是 CLI/TUI 与内核；macOS Helper、状态栏、屏幕/电源辅助能力仅在 macOS 启用。实际安装、启动、Agent 创建、控制、重启连接、卸载按 OS 与架构单独验收，构建成功不等于运行通过。
+- Linux/Windows 的 full 首版是 CLI/TUI 与内核；macOS Helper、屏幕/电源辅助能力仅在 macOS 启用。macOS 与 Windows 有状态栏（§6.1），Linux 不做状态栏。实际安装、启动、Agent 创建、控制、重启连接、卸载按 OS 与架构单独验收，构建成功不等于运行通过。
 
-### 6.1 macOS 状态栏
+### 6.1 macOS 与 Windows 状态栏
 
-复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链。默认安装目录 `~/.local/share/yonder/install`，默认数据目录 `~/.local/share/yonder/home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
+macOS 复用 §3–§4 的 git 标签→本机构建→版本目录→current→独立 home→launchd 安装链；Windows 复用同一套安装版本目录，托盘随 §6 的登录任务自启。macOS/Linux 默认安装目录 `~/.local/share/yonder/install`、数据目录 `~/.local/share/yonder/home`，Windows 为 `%LOCALAPPDATA%\\YonderHarness\\install` 与 `home`；不从开发仓库运行日用服务，不复制其他应用 OAuth。
 
 macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home 只有一个状态栏宿主，无 Dock 图标或客户端框架。左右键均打开同一原生管理菜单，不因点击状态栏展开交互窗口。菜单是固定骨架，启动后不按动态数据增删菜单项：首行只显示真实服务状态与当前运行数、等你数（“服务运行中 · 运行 2 · 等你 1”，空闲为“服务运行中 · 空闲”，读取失败为“服务未就绪 · 状态未知”）；随后是保持唤醒（关闭 / 任务期间保持唤醒 / 始终保持唤醒，附真实保护状态与缓冲剩余）、检查更新、停止服务并退出。菜单不列 Agent、会话、任务摘要或回复片段，不承载交互卡片窗口；动态文字单行截断，完整原因放 tooltip。打开菜单时读取权威状态；后台查询不抢焦点。图标以活动标记区分运行与空闲。检查更新只查询当前批准仓库实际最新正式 Release 并显示当前/可用版本和失败，不自动安装，不发消息。退出停止既有 harness launchd 服务，再退出图标；保留服务定义、版本与数据，下一次登录仍自启。若停止失败，显示实际错误并保留图标。
 
 服务使用 dev.yonder.service；图标采用一个用户 launchd 登录项 dev.yonder.status，RunAtLoad=true、KeepAlive=false，避免用户退出后被重拉。状态栏不承载交互窗口；交互卡片只在网页控制台以插件视图呈现。不增加第二套常驻管理器、自动更新机制、设置页、安装平台或特权助手。
+
+Windows 状态栏是一个常驻托盘 `Yonder Status`，用户级登录自启，菜单是同一套固定骨架：服务状态、检查更新、停止服务并退出；不承载交互窗口。它由 `service install` 注册、`service uninstall` 移除。Linux 明确不做状态栏。状态栏只读本机控制面，读取失败显示未知，不以图标等价于服务运行。
 
 状态栏源码位于 packages/macos/，使用系统 swiftc；构建/安装接入既有发行流程。安装版保存构建后的 .app；程序调用安装 bin/yonder 固定 argv，不拼 shell，不读凭据。状态/更新检查需要相应真实结果，不以图标显示等价于服务运行。macOS 状态栏操作和屏幕预览需要真实运行证据。
 
@@ -141,9 +146,22 @@ macOS 状态栏用原生 Swift/AppKit NSStatusItem、LSUIElement，一个 home �
 
 ### 6.2 桌面客户端
 
-桌面客户端是独立的 Tauri 窗口壳，加载与线上完全相同的站点 `https://yonderbot.net/`：同一份前端产物、同一路由、同一数据来源；不注入客户端壳标记，不改写路径，不打包本机运行时，也不另外设计界面或布局。窗口关闭即退出，外站链接交系统浏览器。
+桌面客户端是独立的 Tauri 窗口壳。启动时先探测本机核心：经已安装的 `yonder ui --json` 取本机网关地址，短超时探测可达性。可达则本机直连控制面，不绕云端；不可达则加载与线上完全相同的站点 `https://yonderbot.net/`。两种情况都是同一份前端产物、同一路由、同一数据来源；不注入客户端壳标记，不改写路径，不打包本机运行时，也不另外设计界面或布局。窗口内导航白名单为本机回环地址与 yonderbot.net，其他外链交系统浏览器。窗口关闭即退出。
 
-桌面客户端需要真实登录的云账号；本机 Yonder 的控制沿用设备绑定（[19](19-device-workbench.md)），网页经云端 `/ws/work` 转发。壳本身不直连本机网关、不读凭据、不提供托盘、菜单或第二条系统通知路径；系统通知仍由 macOS 状态栏进程发出。构建目标是 macOS、Windows 与 Linux，实际运行验收按平台分别记录；壳的签名、公证与分发随发行流程单独验收。
+桌面应用依赖本机核心先安装（§3.1），但可以在核心服务停止时单独运行，此时回落到云端站点；本机 Yonder 的控制在云端路径下仍沿用设备绑定（[19](19-device-workbench.md)），网页经云端 `/ws/work` 转发。壳不读凭据、不提供托盘、菜单或第二条系统通知路径；系统通知仍由状态栏进程发出。UI 入口允许三种来源——应用内置、云端站点、用户本地打包——但都读同一数据面。构建目标是 macOS、Windows 与 Linux，实际运行验收按平台分别记录；壳的签名、公证与分发见 §6.4。
+
+### 6.3 安卓分发与更新
+
+- CI 由 `android-release.yml` 在正式 Release 发布后构建签名 APK，上传 GitHub Release 资产 `yonder-android.apk`，并上传 OSS `https://yonder-release.oss-cn-hangzhou.aliyuncs.com/android/yonder-<version>.apk` 与清单 `.../android/latest.json`（字段：version、versionCode、url、sha256、size、publishedAt）。
+- App 内更新：拉 `latest.json` 比较 versionCode，下载后校验 sha256，再交 Android 系统安装器。系统确认框必须由用户点击，不声称静默安装；安装完成后系统重启应用。
+
+### 6.4 桌面安装包分发
+
+由 `desktop-release.yml` 在正式 Release 后构建 macOS dmg、Windows nsis，上传同一 GitHub Release 与 OSS `desktop/<version>/`。macOS 在没有 Developer ID 时 ad-hoc 签名，Gatekeeper 需右键打开；Windows 未签名，出现 SmartScreen 警告。签名与公证另立验收。
+
+发布产物统一放在对象存储 bucket `yonder-release`（阿里云 OSS，cn-hangzhou，public-read），只放发布产物。凭据经 CI secrets `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` 提供，不进仓库。安卓签名 secrets 为 `ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`（workflow 还原到临时目录后以 `--keystore` / `--alias` 与 `YONDER_ANDROID_KEYSTORE_PASSWORD` 交给 `apps/desktop/prepare-android.mjs`，构建后删除 keystore；本地构建可直接用脚本的同名环境变量 `YONDER_ANDROID_KEYSTORE` / `YONDER_ANDROID_KEYSTORE_PASSWORD`）。
+
+发布相关操作可以经本机阿里云 CLI（3.5.2）直接对 bucket 执行；bot 使用同一 CLI 与 agent-vault 中登记的凭据，凭据不进仓库、不进文档。
 
 ## 7. 统一诊断
 

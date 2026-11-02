@@ -17,7 +17,7 @@
 | 1 | [spec/06-delivery.md](spec/06-delivery.md) | 回复、流式、主动发送、不回复 | 写渠道插件 |
 | 1 | [spec/07-runtime.md](spec/07-runtime.md) | 与 pi 的对接、模型与密钥配置、压缩、防空转 | 改内核 |
 | 1 | [spec/08-config.md](spec/08-config.md) | 配置文件全貌与示例 | 所有人 |
-| 1 | [spec/09-cli-release.md](spec/09-cli-release.md) | CLI 命令、安装、更新、服务、版本通知、发布 | 改 CLI 或发布 |
+| 1 | [spec/09-cli-release.md](spec/09-cli-release.md) | CLI 命令、安装（核心/带桌面的两种形态）、更新、服务、状态栏、版本通知、桌面客户端与安卓分发、发布 | 改 CLI 或发布 |
 | 1 | [spec/10-runtime-guarantees.md](spec/10-runtime-guarantees.md) | 运行事实与恢复、配置快照与运行上限、发布更新闭环 | 改内核 |
 | 1 | [spec/11-official-plugins.md](spec/11-official-plugins.md) | 官方插件与常规工具的契约（MCP、浏览器、Web、GitHub、飞书、媒体） | 改官方插件 |
 | 1 | [spec/12-terminal-interaction.md](spec/12-terminal-interaction.md) | 沿用 pi 原生 TUI、Yonder 内容适配、双语与补全 | 改终端交互 |

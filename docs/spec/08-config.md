@@ -185,7 +185,7 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 允许入站、且已由该 Bot 的官方群绑定（`kind: group`，`wake: write`，`persistent/per: conv`，`reply: none`）接纳的 QQ 群，在该 Bot 的 `social.scope` 未写或不含该会话时派生出受限的默认范围；这是解析期的有效默认，不写进 `agent.yaml`，也不新增配置键。默认范围只允许**硬触发**运行——可信原生 @、可核验的回复/引用、配置的名字元素与 keywords、成功回复后的 300 秒关注（11 §「群聊独立参与与共享协调」）——其余公开消息只推进旁观游标并记录。自主批次沿用本节的 `batch` 字段：缺省 `run: false` 时**不得**回落到旧「观察窗口非空就运行」，只有显式 `batch.run: true` 才允许无硬触发的批次运行。
 
-优先级从高到低：`denied` → 精确 `conversations` 覆盖 → `defaults.group` → 派生默认范围；显式 `mode: record`/`mute`、自定义参与插件（`plugin`）与自定义绑定都在默认范围之前生效，且不因默认范围被升级为运行。关闭该 Bot 的群参与用 `social.enabled: false`，不靠清空 `scope`。私聊不受本节影响：没有 `social.scope` 的私聊仍只沿原绑定，不产生 social decision。
+优先级从高到低：`denied` → 精确 `conversations` 覆盖 → `defaults.group` → 派生默认范围；显式 `mode: record`/`mute`、自定义参与插件（`plugin`）与自定义绑定都在默认范围之前生效，且不因默认范围被升级为运行。 派生范围必须以实际顺序匹配的首个来源绑定为依据：后置同渠道的官方群绑定不能替前置精确自定义绑定证明默认接纳。复用该来源匹配结果决定参与候选与最终路由，不另造匹配规则。关闭该 Bot 的群参与用 `social.enabled: false`，不靠清空 `scope`。私聊不受本节影响：没有 `social.scope` 的私聊仍只沿原绑定，不产生 social decision。
 
 没有 social 参与插件（所选插件未加载、没有 `participation` 方法、抛错或返回非法结果，诊断 `no-participation-plugin`）或没有可用批次绑定时，默认范围只记录，并以路由的 `no-binding` 事实加一条可读诊断说明原因（见 11）；出站回复与主动通知此时失败关闭（04 §3.6）；不得把它当作可运行批次，也不得转交旧 `channel-qq.group-batch` 链。
 
