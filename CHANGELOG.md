@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.26110201] - 2026-11-02
+
 ### Fixed
 
 - Windows：后台命令使用本机 Git Bash/MSYS2，取消时清理进程树；修复命名管道、文件路径、迁移与服务测试的跨平台语义及资源释放，保留真实失败与权限边界检查。
@@ -14,6 +16,14 @@
 - Windows：控制面与 CLI 渠道改用第一方原生管道创建器，创建时将受保护 DACL 限定为当前用户 SID 与 SYSTEM；不支持的架构或缺少原生组件时拒绝启动，不退回默认管道权限。
 - build：随源码与 SDK 分发经过双架构、Node 22.19/24/26 验证的原生二进制，构建离线校验来源和哈希，CI 继续验证实际随包文件；跨用户拒绝访问仍须单独实机验收。
 - 验收边界：上述为兼容性修复与 CI 覆盖，不代表真实模型、Windows 跨用户命名管道隔离或完整安装生命周期已验收；跨用户隔离仍须单独实机证明。
+- windows：enforce owner-only IPC with verified native artifacts
+- cli：own all startup listeners before accepting shutdown
+- cron：retry transient Windows receipt replacement without replay
+- windows：correct paths, Bash startup and child process teardown
+- browser：discover Windows installations and normalize helper fixtures
+- codex：resolve Windows launchers without weakening login isolation
+- storage：preserve credential and private path guards across platforms
+- runtime：support Windows Bash processes and pipe fixtures
 
 ## [0.3.26110110] - 2026-11-01
 
