@@ -1,10 +1,10 @@
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
 import { join, resolve } from "node:path";
-import { initHome, openKernel } from "@yonder/core";
+import { initHome, openKernel, requestControl } from "@yonder/core";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
@@ -30,26 +30,78 @@ function listening(port: number) {
 
 async function freePort() {
 	const server = createServer();
-	await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+	await new Promise<void>((done, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", done);
+	});
 	const address = server.address();
 	if (!address || typeof address === "string") throw new Error("Missing loopback address");
 	await new Promise<void>((done) => server.close(() => done()));
 	return address.port;
 }
 
-/** 前台 `yonder start`，等到控制套接字出现；返回停止函数。 */
+/** Start the real CLI and stop through its control plane so Windows also releases the home lock. */
 async function start(home: string) {
-	const child = spawn(process.execPath, [cli, "start", "--home", home, "--no-gateway", "--json"], { stdio: "ignore" });
-	const exited = once(child, "exit");
-	await expect
-		.poll(async () => (await stat(join(home, ".yonder/control.sock")).catch(() => null))?.isSocket() ?? false, {
-			timeout: 15000,
-		})
-		.toBe(true);
-	return async () => {
-		child.kill("SIGTERM");
-		await exited;
+	const child = spawn(process.execPath, [cli, "start", "--home", home, "--no-gateway", "--json"], {
+		stdio: ["ignore", "pipe", "pipe"],
+	});
+	const exited = once(child, "close");
+	let output = "";
+	child.stdout.on("data", (chunk) => {
+		output += chunk;
+	});
+	child.stderr.on("data", (chunk) => {
+		output += chunk;
+	});
+	const diagnostics = () => `CLI pid=${child.pid} exit=${child.exitCode} signal=${child.signalCode}\n${output}`;
+	let ready = false;
+	const stop = async () => {
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		try {
+			await Promise.race([
+				(async () => {
+					if (child.exitCode === null && child.signalCode === null) await requestControl(home, { method: "stop" });
+					const [code] = await exited;
+					if (ready) {
+						expect(code, diagnostics()).toBe(0);
+						await expect(lstat(join(home, ".yonder/lock"))).rejects.toMatchObject({ code: "ENOENT" });
+					}
+				})(),
+				new Promise<never>((_, reject) => {
+					timer = setTimeout(() => reject(new Error(`CLI did not exit after stop. ${diagnostics()}`)), 5000);
+				}),
+			]);
+		} finally {
+			clearTimeout(timer);
+			if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+			await exited;
+		}
 	};
+	try {
+		await expect
+			.poll(
+				async () => {
+					if (child.exitCode !== null || child.signalCode !== null) return "exited";
+					return requestControl(home, { method: "terminal.channels" }).then(
+						() => "ready",
+						() => "starting",
+					);
+				},
+				{ timeout: 15000 },
+			)
+			.not.toBe("starting");
+		expect(child.exitCode, diagnostics()).toBeNull();
+		expect(child.signalCode, diagnostics()).toBeNull();
+		ready = true;
+		return stop;
+	} catch (error) {
+		try {
+			await stop();
+		} catch (cleanup) {
+			throw new AggregateError([error, cleanup], `CLI startup and cleanup failed. ${diagnostics()}`);
+		}
+		throw new Error(`CLI control endpoint did not become ready. ${diagnostics()}`, { cause: error });
+	}
 }
 
 test("cron CLI updates the running scheduler and keeps the update after restart", async () => {

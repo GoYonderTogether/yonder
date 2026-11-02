@@ -16,6 +16,7 @@ export default defineConfig({
 			"scripts/test/names-consistency.test.mjs",
 			"packages/macos/test/install-root.test.mjs",
 			"scripts/release/**/*.test.mjs",
+			"scripts/windows-native/**/*.test.mjs",
 		],
 	},
 });

@@ -39,8 +39,10 @@ describe("credential slots", () => {
 		expect(a).toEqual({ type: "api_key", key: "a" });
 		expect(b).toEqual({ type: "api_key", key: "b" });
 		expect(readFileSync(path, "utf8")).toBe(before);
-		expect(statSync(`${path}.slots/openai/a.auth.json`).mode & 0o777).toBe(0o600);
-		expect(statSync(`${path}.slots/openai`).mode & 0o777).toBe(0o700);
+		if (process.platform !== "win32") {
+			expect(statSync(`${path}.slots/openai/a.auth.json`).mode & 0o777).toBe(0o600);
+			expect(statSync(`${path}.slots/openai`).mode & 0o777).toBe(0o700);
+		}
 		expect(JSON.stringify(await slots.list())).not.toContain('"key"');
 	});
 	it("rejects unknown, unconfigured, traversal and reserved names rather than falling back", async () => {

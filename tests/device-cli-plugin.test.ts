@@ -1,15 +1,15 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Grant, PluginAPI, ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import plugin from "../plugins/devices/src/index.js";
 
-const cli = new URL("../packages/device/dist/cli.js", import.meta.url).pathname;
+const cli = fileURLToPath(new URL("../packages/device/dist/cli.js", import.meta.url));
 const run = (args: string[], input?: unknown): Record<string, unknown> =>
 	JSON.parse(
 		execFileSync(process.execPath, [cli, ...args], {
@@ -144,6 +144,18 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 		};
 		const confirmation = run(["pair", "approve", "--home", deviceHome], { proof, code: offer.code, grants: [grant] });
 		const started = await startDaemon(deviceHome, provider, key, cert);
+		const executorDiagnostics = () =>
+			started
+				.cardState()
+				.split("\n")
+				.flatMap((line) => {
+					try {
+						const value = JSON.parse(line);
+						return value.executionDiagnostic ? [value.executionDiagnostic] : [];
+					} catch {
+						return [];
+					}
+				});
 		child = started.child;
 		expect(started.ready.deviceId).toBe(deviceId);
 		expect(started.ready.tlsFingerprint).toBe(offer.tlsFingerprint);
@@ -153,8 +165,10 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 			direct: { url: started.ready.url, tlsFingerprint: started.ready.tlsFingerprint },
 		});
 		const { api, registrations } = createRegistrationCollector();
+		const diagnostics: object[] = [];
 		plugin.setup({
 			...api,
+			log: { ...api.log, warn: (_message: string, data?: object) => diagnostics.push(data ?? {}) },
 			config: { pairingHome: controllerHome, devices: [{ deviceId, name: "test executor", grants: [grant] }] },
 			paths: { data: join(root, "plugin") },
 		} as PluginAPI);
@@ -172,8 +186,29 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 		const tool = async (name: string, args: object) => {
 			const registered = registrations.tools.find((t) => t.name === `devices_${name}`);
 			if (!registered) throw new Error(`Missing devices_${name} tool`);
+			const startedAt = Date.now();
 			const result = await registered.execute(args, context);
-			if (result.isError) throw new Error(result.text);
+			if (result.isError) {
+				const error = JSON.parse(result.text);
+				// Read only this isolated executor's receipt metadata, never its keys or request/result bodies.
+				const state = await readFile(join(deviceHome, "state.json"), "utf8")
+					.then((text) => JSON.parse(text))
+					.catch(() => null);
+				const receipt = state?.requests[`${proof.controllerFingerprint}:${error.requestId}`]?.response;
+				throw new Error(
+					JSON.stringify({
+						...error,
+						tool: name,
+						elapsedMs: Date.now() - startedAt,
+						aborted: context.signal.aborted,
+						diagnostics,
+						executorDiagnostics: executorDiagnostics(),
+						persistedReceipt:
+							state === null ? "unreadable" : receipt ? { ok: receipt.ok, errorCode: receipt.error?.code } : null,
+						exitCode: child?.exitCode,
+					}),
+				);
+			}
 			return JSON.parse(result.text);
 		};
 		expect((await tool("list", {})).devices).toHaveLength(1);
@@ -192,6 +227,7 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 		await tool("execute", args);
 		expect(await readFile(effect, "utf8")).toBe("once");
 		expect(await tool("close", { deviceId, deviceSessionId: session.deviceSessionId })).toEqual({ closed: true });
+		for (const diagnostic of executorDiagnostics()) console.info("Executor diagnostic", diagnostic);
 	} finally {
 		await stopPlugin?.();
 		if (child && child.exitCode === null && child.signalCode === null) {

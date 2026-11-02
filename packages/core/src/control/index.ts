@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
-import { createConnection, createServer, type Server, type Socket } from "node:net";
+import { createConnection, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import { createInterface } from "node:readline";
+import { createLocalServer, type LocalServer } from "@yonder/sdk/node-ipc";
 import { MethodError } from "./method-types.js";
 
 export interface ControlRequest {
@@ -57,12 +58,16 @@ async function write(socket: Socket, value: unknown) {
 	);
 }
 
-export async function serveControl(home: string, handler: ControlHandler): Promise<{ close(): Promise<void> }> {
+export async function serveControl(
+	home: string,
+	handler: ControlHandler,
+	onError: (error: Error) => void = (error) => console.error("Local control listener failed", error),
+): Promise<{ close(): Promise<void> }> {
 	const path = controlEndpoint(home);
 	await mkdir(join(home, ".yonder"), { recursive: true });
 	if (process.platform !== "win32") await rm(path, { force: true });
 	const clients = new Set<Socket>();
-	const server: Server = createServer((socket) => {
+	const server: LocalServer = createLocalServer((socket) => {
 		clients.add(socket);
 		const controller = new AbortController();
 		socket.once("close", () => {
@@ -106,21 +111,34 @@ export async function serveControl(home: string, handler: ControlHandler): Promi
 			}
 		})().catch(() => socket.destroy());
 	});
-	await new Promise<void>((resolve, reject) => {
-		server.once("error", reject);
-		server.listen({ path, readableAll: false, writableAll: false }, () => {
-			server.off("error", reject);
-			resolve();
-		});
-	});
-	return {
-		async close() {
+	let closing: Promise<void> | undefined;
+	const close = () => {
+		closing ??= (async () => {
 			for (const client of clients) client.destroy();
 			if (server.listening)
 				await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 			if (process.platform !== "win32") await rm(path, { force: true });
-		},
+		})();
+		return closing;
 	};
+	let failed = false;
+	const fail = (error: Error) => {
+		if (failed) return;
+		failed = true;
+		void close().then(
+			() => onError(error),
+			(cleanupError) => onError(new AggregateError([error, cleanupError], "Control listener failed during cleanup")),
+		);
+	};
+	await new Promise<void>((resolve, reject) => {
+		server.once("error", reject);
+		server.listen({ path, readableAll: false, writableAll: false }, () => {
+			server.off("error", reject);
+			server.on("error", fail);
+			resolve();
+		});
+	});
+	return { close };
 }
 
 export function requestControl(home: string, request: ControlRequest): Promise<unknown> {

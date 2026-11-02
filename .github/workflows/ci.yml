@@ -16,7 +16,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# 发版门禁（scripts/release/ci-status.mjs REQUIRED_CHECKS）只认下面两个汇总 job 的名字；
+# 发版门禁（scripts/release/ci-status.mjs REQUIRED_CHECKS）只认下面四个平台 job 的名字；
 # 其余并行 job 只是它们的 needs，改名或删除汇总 job 会让发版永远等不到。
 env:
   NODE_OPTIONS: --no-warnings
@@ -118,3 +118,68 @@ jobs:
       - run: npm test -- --maxWorkers=4 packages/macos packages/device packages/cli plugins/native-automation plugins/clipboard plugins/devices
       - run: npm run test:node
       - run: node --test scripts/release/auto-release.test.mjs
+
+  windows:
+    name: Windows ${{ matrix.arch }} typecheck, build, test, lint
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            node_arch: x64
+            runner: windows-2025
+          - arch: ARM64
+            node_arch: arm64
+            runner: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.19.0"
+          architecture: ${{ matrix.node_arch }}
+          cache: npm
+      - name: Verify native Node architecture
+        run: node -e "if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1); console.log(process.platform, process.arch)"
+        env:
+          EXPECTED_ARCH: ${{ matrix.node_arch }}
+      - run: choco install ripgrep -y --no-progress
+      - run: npm ci
+      - run: node scripts/check-pi-durable-workspace.mjs
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Smoke committed native pipe on minimum Node 22.19
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
+      - name: Verify paired device RPC with five fresh fixtures (stop on first failure)
+        shell: pwsh
+        run: |
+          for ($i = 1; $i -le 5; $i++) {
+            $report = Join-Path $env:RUNNER_TEMP "device-rpc-$i.json"
+            node node_modules/vitest/vitest.mjs run tests/device-cli-plugin.test.ts -t '^standalone executor CLI and default devices plugin complete a paired direct command$' --maxWorkers=1 --reporter=default --reporter=json --outputFile.json="$report"
+            if ($LASTEXITCODE -ne 0) { throw "Fresh device RPC fixture $i failed; no retry performed" }
+          }
+      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json="${{ runner.temp }}/windows-failures.json"
+      - run: npm run test:node
+      - run: node --test scripts/release/auto-release.test.mjs
+      - run: npm run lint
+      # Load the checked-in binary, not a freshly compiled substitute.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          architecture: ${{ matrix.node_arch }}
+      - name: Smoke committed native pipe on Node 24
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          architecture: ${{ matrix.node_arch }}
+      - name: Smoke committed native pipe on Node 26
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-failures-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/windows-failures.json
+            ${{ runner.temp }}/device-rpc-*.json

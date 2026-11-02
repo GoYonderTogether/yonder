@@ -1,34 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { completion } from "./completion.js";
 
 const cli = resolve("packages/cli/dist/index.js");
-test("shell-native scripts load and offer actual command/subcommand candidates", async () => {
+test("all shell scripts and CLI expose actual command/subcommand candidates", async () => {
 	const directory = await tempHome("ya-");
 	try {
-		await writeFile(`${directory}/bash`, completion("bash"));
-		await writeFile(`${directory}/zsh`, completion("zsh"));
-		const bash = execFileSync(
-			"bash",
-			[
-				"-c",
-				`source '${directory}/bash'; COMP_WORDS=(yonder se); COMP_CWORD=1; _yonder; printf '%s\\n' "\${COMPREPLY[@]}"`,
-			],
-			{ encoding: "utf8" },
-		);
-		expect(bash).toContain("sessions");
-		const zsh = execFileSync(
-			"zsh",
-			[
-				"-c",
-				`autoload -Uz compinit; compinit -D -d '${directory}/zcomp'; source '${directory}/zsh'; compadd() { print -rl -- "$@"; }; words=(yonder service ''); CURRENT=3; _yonder`,
-			],
-			{ encoding: "utf8" },
-		);
-		expect(zsh).toContain("restart");
 		for (const shell of ["bash", "zsh", "fish"]) {
 			expect(completion(shell)).toContain("submit notify");
 			expect(completion(shell)).toContain("channels");
@@ -53,4 +33,33 @@ test("chat target conflicts are usage errors and help remains bilingual", () => 
 		expect((error as { status: number }).status).toBe(2);
 	}
 	expect(execFileSync(process.execPath, [cli, "help"], { encoding: "utf8" })).toContain("原生终端聊天");
+});
+
+// These integration checks require the corresponding POSIX shell, not a Windows cmd shim.
+test.skipIf(process.platform === "win32")("native bash and zsh load completion scripts", async () => {
+	const directory = await tempHome("ya-");
+	try {
+		await writeFile(`${directory}/bash`, completion("bash"));
+		await writeFile(`${directory}/zsh`, completion("zsh"));
+		const bash = execFileSync(
+			"bash",
+			[
+				"-c",
+				`source '${directory}/bash'; COMP_WORDS=(yonder se); COMP_CWORD=1; _yonder; printf '%s\\n' "\${COMPREPLY[@]}"`,
+			],
+			{ encoding: "utf8" },
+		);
+		expect(bash).toContain("sessions");
+		const zsh = execFileSync(
+			"zsh",
+			[
+				"-c",
+				`autoload -Uz compinit; compinit -D -d '${directory}/zcomp'; source '${directory}/zsh'; compadd() { print -rl -- "$@"; }; words=(yonder service ''); CURRENT=3; _yonder`,
+			],
+			{ encoding: "utf8" },
+		);
+		expect(zsh).toContain("restart");
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
 });

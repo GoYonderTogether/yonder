@@ -83,6 +83,50 @@ describe("paired endpoint signatures (isolated ephemeral keys)", () => {
 			verifyMessage(signMessage({ ...request, ...times }, controller.privateKey), controller.publicKey, expected),
 		).toThrow("UNAUTHORIZED");
 	});
+	it.each([
+		["invalid-now", {}, Number.NaN, undefined],
+		["future", { issuedAt: now + 1 }, now, 1],
+		["expired", { issuedAt: now - 10_000, expiresAt: now }, now, 0],
+		["expired", { issuedAt: now - 10_000, expiresAt: now - 1 }, now, -1],
+		["invalid-window", { expiresAt: now + 60_001 }, now, undefined],
+		["invalid-window", { expiresAt: now }, now - 1, undefined],
+	] as const)(
+		"classifies rejected time windows without relaxing authorization: %s",
+		(verification, times, clock, offsetMs) => {
+			const message = { ...request, ...times };
+			expect(() =>
+				verifyMessage(signMessage(message, controller.privateKey), controller.publicKey, { ...expected, now: clock }),
+			).toThrow(
+				expect.objectContaining({
+					message: "UNAUTHORIZED",
+					cause: { verification, ...(offsetMs === undefined ? {} : { offsetMs }) },
+				}),
+			);
+		},
+	);
+	it("classifies key, principal and signature rejection without exposing signed content", () => {
+		const foreignEnvelope = signMessage(request, foreign.privateKey);
+		expect(() => verifyMessage(foreignEnvelope, controller.publicKey, expected)).toThrow(
+			expect.objectContaining({ cause: { verification: "key-id" } }),
+		);
+		expect(() => verifyMessage(foreignEnvelope, foreign.publicKey, expected)).toThrow(
+			expect.objectContaining({ cause: { verification: "principal" } }),
+		);
+		const modified = signMessage(request, controller.privateKey);
+		modified.payloadBase64 = Buffer.from(JSON.stringify({ ...request, deviceId: randomUUID() })).toString("base64");
+		expect(() => verifyMessage(modified, controller.publicKey, expected)).toThrow(
+			expect.objectContaining({ cause: { verification: "signature" } }),
+		);
+	});
+	it("signs a byte snapshot unaffected by later mutation of the original result", () => {
+		const { method: _method, params: _params, ...header } = request;
+		const result = { state: "running" };
+		const envelope = signMessage({ ...header, kind: "response", ok: true, result }, executor.privateKey);
+		result.state = "succeeded";
+		expect(
+			verifyMessage(envelope, executor.publicKey, { ...expected, kind: "response", requestId: request.requestId }),
+		).toMatchObject({ ok: true, result: { state: "running" } });
+	});
 	it("authenticates a response with the expected executor key and request binding", () => {
 		const { method: _method, params: _params, ...header } = request;
 		const response: RpcResponse = { ...header, kind: "response", ok: true, result: { state: "unknown" } };

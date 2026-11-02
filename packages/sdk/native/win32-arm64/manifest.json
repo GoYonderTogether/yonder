@@ -1,0 +1,30 @@
+{
+	"format": 1,
+	"interfaceVersion": 1,
+	"platform": "win32",
+	"arch": "arm64",
+	"napiVersion": 8,
+	"nodeVersion": "22.19.0",
+	"repository": "https://github.com/GoYonderTogether/yonder",
+	"sourceCommit": "505bedbb7d0c1c63914d94b6698674795199684e",
+	"sourceSha256": "630593ae6048f3aa8f533e49f0192aebd91460aab220f91aea1429a414a0e417",
+	"sources": [
+		{
+			"path": "packages/sdk/native/windows-pipe.cc",
+			"sha256": "c70812a081bf8adcef1eb1bbe97587065fe6d9e97aadca37fd15da71de623415"
+		},
+		{
+			"path": "scripts/windows-native/artifacts.mjs",
+			"sha256": "14321747e7e5783fce144b45f9cf9d9380d457b8cc630e144ede7d4b94f3fb43"
+		},
+		{
+			"path": "scripts/windows-native/build.ps1",
+			"sha256": "cf60dae7a87da24cf41764fb262854e55651fc961d81306ad80feeaad97068aa"
+		}
+	],
+	"binarySha256": "1009faddcef92aea37131f5833f304f4dc57ade7a2aa51b8ff766851dea8642f",
+	"windowsSdkVersion": "10.0.26100.0",
+	"headersSha256": "183bdc17092336ad21e01a425d238e85db4ee077ae3caa0547ff1fbda07d9bd8",
+	"nodeLibrarySha256": "c174ae3348a4a59c9d61629a7a73a38679fd27c55b2a7d85a2ea3e65de2beb13",
+	"msvcVersion": "14.51.36231"
+}

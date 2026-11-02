@@ -1,5 +1,5 @@
-import { spawn } from "node:child_process";
-import { mkdir, open, readFile } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { access, mkdir, open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolRegistration } from "@earendil-works/pi-durable";
 import { Type } from "typebox";
@@ -9,6 +9,34 @@ import { cacheToolOutput } from "./tool-output-cache.js";
 import type { RuntimeSessionConfig } from "./types.js";
 
 export const inspectContextEnv = "YONDER_RUNTIME_INSPECT_CONTEXT";
+
+// Keep the bash contract on Windows; cmd.exe cannot interpret the same commands.
+async function bashPath() {
+	if (process.platform !== "win32") return "/bin/bash";
+	const candidates = [process.env.ProgramFiles, process.env["ProgramFiles(x86)"]]
+		.filter((path): path is string => Boolean(path))
+		.map((path) => join(path, "Git", "bin", "bash.exe"));
+	for (const candidate of candidates) {
+		try {
+			await access(candidate);
+			return candidate;
+		} catch {}
+	}
+	const onPath = await new Promise<string>((resolve) => {
+		execFile("where.exe", ["bash.exe"], { windowsHide: true, timeout: 5000 }, (_error, stdout) =>
+			resolve(stdout ?? ""),
+		);
+	});
+	for (const candidate of onPath.trim().split(/\r?\n/).filter(Boolean)) {
+		// WSL's launcher has different cwd/stdin/PID semantics, not a local Bash process.
+		if (/^[a-z]:\\windows\\(?:system32|sysnative)\\bash\.exe$/i.test(candidate.replaceAll("/", "\\"))) continue;
+		try {
+			await access(candidate);
+			return candidate;
+		} catch {}
+	}
+	throw new Error("No local bash shell found. Install Git for Windows or add Git Bash/MSYS2 bash.exe to PATH.");
+}
 
 export function processTool(
 	home: string,
@@ -45,9 +73,10 @@ export function processTool(
 				log = await open(path, "a", 0o600);
 			try {
 				const host = hostedProcessSpawner();
+				const shell = await bashPath();
 				return await new Promise((resolve, reject) => {
 					const hosted = host?.({
-						program: "/bin/bash",
+						program: shell,
 						args: ["-c", args.command],
 						cwd: args.cwd ?? api.env!.cwd,
 						env: childEnv,
@@ -55,10 +84,11 @@ export function processTool(
 					});
 					const child =
 						hosted?.child ??
-						spawn("/bin/bash", ["-c", args.command], {
+						spawn(shell, ["-c", args.command], {
 							cwd: args.cwd ?? api.env!.cwd,
 							env: childEnv,
-							detached: true,
+							detached: process.platform !== "win32",
+							windowsHide: true,
 							stdio: [args.stdin ? "pipe" : "ignore", "pipe", "pipe"],
 						});
 					let result: { code: number | null; signal: NodeJS.Signals | null } | undefined;
@@ -106,6 +136,17 @@ export function processTool(
 							hosted.cancel();
 							return;
 						}
+						if (child.pid && process.platform === "win32") {
+							execFile(
+								join(process.env.SystemRoot ?? "C:\\Windows", "System32", "taskkill.exe"),
+								["/F", "/T", "/PID", String(child.pid)],
+								{ windowsHide: true },
+								(error) => {
+									if (error && child.exitCode === null && child.signalCode === null) fault = error;
+								},
+							);
+							return;
+						}
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGTERM");
@@ -117,7 +158,7 @@ export function processTool(
 					const force = () => {
 						// Native gate owns TERM -> 1s KILL, including ACK-before-start.
 						// Never signal the original service group from Node.
-						if (host) return;
+						if (host || process.platform === "win32") return;
 						if (child.pid) {
 							try {
 								process.kill(-child.pid, "SIGKILL");

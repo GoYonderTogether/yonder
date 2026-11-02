@@ -13,7 +13,7 @@ import {
 	TARGETS,
 } from "./check-retired.mjs";
 
-const { test } = await import(process.env.VITEST ? "vitest" : "node:test");
+const { test } = process.env.VITEST ? await import("vitest") : await import("node:test");
 
 const view = (overrides) => ({
 	id: "x.one",

@@ -1,5 +1,7 @@
+import { posix, win32 } from "node:path";
 import { definePlugin, executionContext, type ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
+import { codexCommandProbe } from "./resolve-command.js";
 import { candidateTool, taskTool } from "./task.js";
 
 export async function run(ctx: ToolContext, args: string[], env?: Record<string, string>) {
@@ -25,6 +27,39 @@ export async function run(ctx: ToolContext, args: string[], env?: Record<string,
 				: result.error.message,
 		);
 	return { ...result.value, stdout, stderr };
+}
+
+export async function runCodex(ctx: ToolContext, args: string[], env: Record<string, string>) {
+	const probe = await run(ctx, ["node", "-e", codexCommandProbe], env);
+	if (probe.exitCode !== 0) throw new Error(probe.stderr || "Codex executable discovery failed.");
+	const command = JSON.parse(probe.stdout) as string[];
+	return run(ctx, [...command, ...args], env);
+}
+
+export function validateCodexHome(home: string): void {
+	if (!home || !(posix.isAbsolute(home) || win32.isAbsolute(home)))
+		throw new Error("Provide an absolute authorized codexHome.");
+}
+
+export async function codexEnvironment(ctx: ToolContext, home: string): Promise<Record<string, string>> {
+	// Resolve against the execution host, not the machine running this plugin.
+	const probe = await run(ctx, [
+		"node",
+		"-e",
+		`
+const fs = require("node:fs"), path = require("node:path");
+const home = process.argv[1];
+if (!path.isAbsolute(home)) process.exit(2);
+try { if (!fs.statSync(home).isDirectory()) process.exit(3); } catch { process.exit(3); }
+if (!process.env.PATH) process.exit(4);
+process.stdout.write(JSON.stringify({PATH: process.env.PATH, ...(process.platform === "win32" ? { ...(process.env.SystemRoot ? {SystemRoot: process.env.SystemRoot} : {}), ...(process.env.PATHEXT ? {PATHEXT: process.env.PATHEXT} : {}) } : {})}));
+`,
+		home,
+	]);
+	if (probe.exitCode === 2) throw new Error("Provide an absolute authorized codexHome.");
+	if (probe.exitCode === 3) throw new Error("codexHome must exist.");
+	if (probe.exitCode !== 0) throw new Error("Execution environment PATH is unavailable.");
+	return { ...JSON.parse(probe.stdout), CODEX_HOME: home, HOME: home, USERPROFILE: home };
 }
 
 export default definePlugin({
@@ -63,13 +98,10 @@ export default definePlugin({
 					adversarial?: boolean;
 					focus?: string;
 				};
-				if (!codexHome?.startsWith("/")) throw new Error("Provide an absolute authorized codexHome.");
+				validateCodexHome(codexHome);
 				if (focus && !adversarial) throw new Error("focus requires adversarial review.");
 				if (base?.startsWith("-")) throw new Error("Invalid base ref.");
-				const home = await run(ctx, ["test", "-d", codexHome]);
-				if (home.exitCode !== 0) throw new Error("codexHome must exist.");
-				const path = await run(ctx, ["printenv", "PATH"]);
-				if (path.exitCode !== 0) throw new Error("Execution environment PATH is unavailable.");
+				const env = await codexEnvironment(ctx, codexHome);
 				const status = await run(ctx, ["git", "status", "--short", "--untracked-files=all"]);
 				if (status.exitCode !== 0) throw new Error("Review requires a Git repository.");
 				let branch = base;
@@ -93,10 +125,9 @@ export default definePlugin({
 					if (diff.exitCode === 0) return { text: "Nothing to review: branch diff is empty." };
 					if (diff.exitCode !== 1) throw new Error("Unable to compare the requested base branch.");
 				} else if (!status.stdout.trim()) return { text: "Nothing to review: working tree is clean." };
-				const result = await run(
+				const result = await runCodex(
 					ctx,
 					[
-						"codex",
 						...(adversarial ? ["exec"] : ["review"]),
 						"-c",
 						'sandbox_mode="read-only"',
@@ -110,7 +141,7 @@ export default definePlugin({
 								? ["--base", branch]
 								: ["--uncommitted"]),
 					],
-					{ CODEX_HOME: codexHome, HOME: codexHome, PATH: path.stdout.trim() },
+					env,
 				);
 				if (result.exitCode !== 0)
 					throw new Error("Codex review failed; check the authorized login and Codex CLI configuration.");

@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Tool, ToolContext } from "@yonder/sdk";
 import { Type } from "typebox";
-import { run } from "./index.js";
+import { codexEnvironment, runCodex, validateCodexHome } from "./index.js";
 
 const pathFor = (data: string, session: string) =>
 	join(data, `${createHash("sha256").update(session).digest("hex")}.json`);
@@ -58,18 +58,14 @@ export const taskTool = (data: string, writeEnabled: boolean): Tool => ({
 			model,
 			effort,
 		} = value as { codexHome: string; task: string; write?: boolean; resume?: string; model?: string; effort?: string };
-		if (!codexHome?.startsWith("/")) throw new Error("Provide an absolute authorized codexHome.");
+		validateCodexHome(codexHome);
 		if (!task?.trim()) throw new Error("Provide a task for Codex.");
 		if (write && (!writeEnabled || !ctx.capabilities.includes("write")))
 			throw new Error("Codex write tasks require writeEnabled and the write capability.");
 		if (resume && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resume))
 			throw new Error("Invalid Codex thread ID.");
-		const home = await run(ctx, ["test", "-d", codexHome]);
-		if (home.exitCode !== 0) throw new Error("codexHome must exist.");
-		const path = await run(ctx, ["printenv", "PATH"]);
-		if (path.exitCode !== 0) throw new Error("Execution environment PATH is unavailable.");
+		const env = await codexEnvironment(ctx, codexHome);
 		const args = [
-			"codex",
 			"exec",
 			"--json",
 			"-s",
@@ -81,7 +77,7 @@ export const taskTool = (data: string, writeEnabled: boolean): Tool => ({
 			...(resume ? ["resume", resume] : []),
 			task,
 		];
-		const result = await run(ctx, args, { CODEX_HOME: codexHome, HOME: codexHome, PATH: path.stdout.trim() });
+		const result = await runCodex(ctx, args, env);
 		if (result.exitCode !== 0)
 			throw new Error(
 				"Codex task failed; log in with `CODEX_HOME=<authorized-directory> codex login` in the execution environment and check the CLI configuration.",

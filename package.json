@@ -53,16 +53,17 @@
 		"ci:remote": "node scripts/ci-remote.mjs",
 		"test:changed": "node scripts/test-changed.mjs",
 		"release:pack": "node scripts/release/pack-runtime.mjs",
-		"build": "node scripts/check-pi-ai-bundle.mjs && node scripts/build-tsc.mjs && node scripts/check-dist-sync.mjs && node plugins/devices/build.mjs && node scripts/build-macos.mjs && npm run build:app",
+		"build": "node scripts/windows-native/artifacts.mjs verify && node scripts/check-pi-ai-bundle.mjs && node scripts/build-tsc.mjs && node scripts/check-dist-sync.mjs && node plugins/devices/build.mjs && node scripts/build-macos.mjs && npm run build:app",
 		"build:app": "npm run build -w @yonder/app",
 		"typecheck": "tsc -b --force",
-		"build:clean": "rm -rf packages/*/dist plugins/*/dist apps/app/dist && npm run build",
+		"build:clean": "node scripts/clean-build.mjs && npm run build",
 		"check:dist": "node scripts/check-dist-sync.mjs",
 		"test": "vitest run --exclude '**/dist/**'",
-		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs scripts/release/ci-status.test.mjs scripts/release/changelog.test.mjs scripts/release/version.test.mjs scripts/release/bump-versions.test.mjs scripts/release/pack-runtime.test.mjs",
+		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs scripts/release/ci-status.test.mjs scripts/release/changelog.test.mjs scripts/release/version.test.mjs scripts/release/bump-versions.test.mjs scripts/release/pack-runtime.test.mjs scripts/windows-native/artifacts.test.mjs",
 		"lint:size": "node scripts/check-file-size.mjs",
 		"lint:layers": "node scripts/check-layers.mjs",
-		"lint": "biome check . && node scripts/check-file-size.mjs && node scripts/check-layers.mjs"
+		"lint": "biome check . && node scripts/check-file-size.mjs && node scripts/check-layers.mjs",
+		"check:windows-native": "node scripts/windows-native/artifacts.mjs verify"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
@@ -71,7 +72,7 @@
 		"vitest": "5.0.5"
 	},
 	"repository": "https://github.com/GoYonderTogether/yonder",
-	"version": "0.3.26110110",
+	"version": "0.3.26110203",
 	"overrides": {
 		"@earendil-works/pi-ai": "$@earendil-works/pi-ai",
 		"body-parser": "2.4.0",

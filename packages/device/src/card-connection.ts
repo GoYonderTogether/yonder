@@ -22,7 +22,7 @@ export class CardDaemonConnection {
 	private readonly abort = new AbortController();
 	constructor(
 		private readonly config: CardConnectionConfig,
-		private readonly handle: (envelope: unknown) => Promise<SignedEnvelope>,
+		private readonly handle: (envelope: unknown, signal: AbortSignal) => Promise<SignedEnvelope>,
 		private readonly state: (state: "connected" | "disconnected") => void = () => {},
 	) {
 		this.base = new URL(config.baseUrl);
@@ -102,9 +102,12 @@ export class CardDaemonConnection {
 			perMessageDeflate: false,
 			followRedirects: false,
 		});
+		const connection = new AbortController();
+		const signal = AbortSignal.any([connection.signal, this.abort.signal]);
 		this.socket = socket;
 		socket.on("error", () => {});
 		socket.once("close", () => {
+			connection.abort();
 			if (this.socket === socket) {
 				this.socket = undefined;
 				this.reconnect();
@@ -127,7 +130,7 @@ export class CardDaemonConnection {
 					!Check(RelayFrameSchema, message.frame)
 				)
 					throw new Error("INVALID_REQUEST");
-				const envelope = await this.handle(message.frame.envelope);
+				const envelope = await this.handle(message.frame.envelope, signal);
 				// A lost connection never replays a request or transfers its reply to a new socket.
 				if (!this.stopped && this.socket === socket && socket.readyState === WebSocket.OPEN)
 					socket.send(

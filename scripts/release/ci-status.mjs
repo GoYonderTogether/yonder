@@ -4,8 +4,13 @@ import { fileURLToPath } from "node:url";
 
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-// ci.yml 的两个 job；发版 job 自己也会作为 check-run 挂在同一 commit 上，必须排除
-export const REQUIRED_CHECKS = ["macOS typecheck, build, test, lint", "Linux typecheck, build, test, lint"];
+// ci.yml 的四个平台 job；发版 job 自己也会作为 check-run 挂在同一 commit 上，必须排除
+export const REQUIRED_CHECKS = [
+	"macOS typecheck, build, test, lint",
+	"Linux typecheck, build, test, lint",
+	"Windows x64 typecheck, build, test, lint",
+	"Windows ARM64 typecheck, build, test, lint",
+];
 
 /** check-runs 响应 → pass / pending / fail；同名检查只看最新一次。 */
 export function evaluateCheckRuns(payload, required = REQUIRED_CHECKS) {

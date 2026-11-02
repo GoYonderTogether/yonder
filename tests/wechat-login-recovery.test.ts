@@ -89,6 +89,8 @@ test("relogin wakes the expired retry timer and immediately polls with the new c
 		seen: {},
 	});
 	const updates: string[] = [];
+	// Request entry is not recovery: the response must be consumed and its cursor persisted first.
+	const response = Promise.withResolvers<void>();
 	const transport = vi.fn<typeof fetch>(async (input, init) => {
 		const path = new URL(String(input)).pathname;
 		if (path.endsWith("get_bot_qrcode")) return json({ qrcode: "q", qrcode_img_content: "https://example.invalid/qr" });
@@ -96,7 +98,9 @@ test("relogin wakes the expired retry timer and immediately polls with the new c
 			return json({ status: "confirmed", ilink_bot_id: "bot", ilink_user_id: "peer", bot_token: "new" });
 		const auth = new Headers(init?.headers).get("Authorization") ?? "";
 		updates.push(auth);
-		return auth === "Bearer old" ? json({ errcode: -14 }) : json({ msgs: [], get_updates_buf: "cursor" });
+		if (auth === "Bearer old") return json({ errcode: -14 });
+		await response.promise;
+		return json({ msgs: [], get_updates_buf: "recovered-cursor" });
 	});
 	const channel = new IlinkChannel("wx", {}, h.api, async () => undefined, { fetch: transport });
 	try {
@@ -105,9 +109,22 @@ test("relogin wakes the expired retry timer and immediately polls with the new c
 		expect((await channel.login("poll", new AbortController().signal)).status).toBe("expired");
 		await channel.login("start", new AbortController().signal);
 		await channel.login("poll", new AbortController().signal);
-		await expect.poll(() => updates.includes("Bearer new"), { timeout: 3000 }).toBe(true);
-		expect(((await channel.status()) as { error: string | null }).error).toBeNull();
+		await expect
+			.poll(
+				async () => {
+					const started = updates.includes("Bearer new");
+					if (started) response.resolve();
+					return { started, ...(await channel.status()) };
+				},
+				{ timeout: 3000 },
+			)
+			.toMatchObject({ started: true, error: null, lastPoll: expect.any(String) });
+		expect(JSON.parse(await readFile(join(h.directory, "wx/account.json"), "utf8"))).toMatchObject({
+			token: "new",
+			cursor: "recovered-cursor",
+		});
 	} finally {
+		response.resolve();
 		await channel.stop();
 		await h.done();
 	}

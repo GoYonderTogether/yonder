@@ -1,12 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import { initHome, openKernel, releaseInfo } from "@yonder/core";
+import { tempHome } from "@yonder/sdk/testing";
 import { expect, it } from "vitest";
 import { testModel } from "../../core/src/config/test-support.js";
 import { workControl } from "../src/work-control.js";
 
 it("uses the real registry and stream snapshots without admin or local methods", async () => {
-	const home = await mkdtemp(join("/tmp", "yw-"));
+	const home = await tempHome("yw-");
 	await initHome(home, "owner", { model: testModel });
 	const kernel = await openKernel(home);
 	try {

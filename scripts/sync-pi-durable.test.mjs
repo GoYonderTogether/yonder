@@ -4,7 +4,7 @@ import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writ
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-const { test } = await import(process.env.VITEST ? "vitest" : "node:test");
+const { test } = process.env.VITEST ? await import("vitest") : await import("node:test");
 const repository = "https://github.com/GoYonderTogether/pi.git";
 
 function fixture(run) {
@@ -18,6 +18,8 @@ function fixture(run) {
 	};
 	const git = (...args) => execFileSync("git", args, { cwd: fork, encoding: "utf8" }).trim();
 	try {
+		// Keep exact source bytes stable when the fixture is checked out with Windows autocrlf.
+		put(join(fork, ".gitattributes"), "* text eol=lf\n");
 		put(join(fork, "packages/durable/src/index.ts"), "export const revision = 1;\n");
 		put(
 			join(fork, "packages/durable/package.json"),

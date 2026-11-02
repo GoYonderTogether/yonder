@@ -1,4 +1,5 @@
 import { access } from "node:fs/promises";
+import { win32 } from "node:path";
 import type { ToolContext, ToolResult } from "@yonder/sdk";
 import { chromium } from "playwright-core";
 import { Type } from "typebox";
@@ -50,16 +51,27 @@ type Args = {
 	tab?: number;
 	fullPage?: boolean;
 };
-const candidates = [
-	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-	"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-	"/Applications/Chromium.app/Contents/MacOS/Chromium",
-	"/usr/bin/google-chrome",
-	"/usr/bin/chromium",
-	"/usr/bin/chromium-browser",
-	chromium.executablePath(),
-];
 export async function detectBrowser() {
+	const candidates = [
+		...(process.platform === "win32"
+			? [process.env.PROGRAMFILES, process.env["PROGRAMFILES(X86)"], process.env.LOCALAPPDATA].flatMap((root) =>
+					root
+						? [
+								win32.join(root, "Google", "Chrome", "Application", "chrome.exe"),
+								win32.join(root, "Microsoft", "Edge", "Application", "msedge.exe"),
+							]
+						: [],
+				)
+			: [
+					"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+					"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+					"/Applications/Chromium.app/Contents/MacOS/Chromium",
+					"/usr/bin/google-chrome",
+					"/usr/bin/chromium",
+					"/usr/bin/chromium-browser",
+				]),
+		chromium.executablePath(),
+	];
 	for (const path of candidates) {
 		try {
 			await access(path);

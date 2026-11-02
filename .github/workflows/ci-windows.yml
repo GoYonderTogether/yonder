@@ -1,9 +1,19 @@
-# Windows is not green yet (see scripts/e2e/ci-failures.md); move this job back into ci.yml once it passes.
-# `installer` 单独一个 job：它不跑测试，只验收一键安装脚本，测试债不影响它。
+# Exact-release installer acceptance stays separate from source CI.
 name: CI Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Exact release version or tag; empty resolves latest once
+        required: false
+        default: ""
+        type: string
+      expected_commit:
+        description: Expected full commit SHA for the selected release
+        required: false
+        default: ""
+        type: string
   schedule:
     - cron: "17 19 * * *"
 
@@ -11,43 +21,67 @@ permissions:
   contents: read
 
 jobs:
-  windows:
-    name: Windows typecheck, build, test, lint
-    runs-on: windows-2025
-    timeout-minutes: 40
+  target:
+    name: Resolve one release for both architectures
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.target.outputs.version }}
+      commit: ${{ steps.target.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-      - run: choco install ripgrep -y --no-progress
-      - run: npm ci
-      - run: node scripts/check-pi-durable-workspace.mjs
-      - run: npm run typecheck
-      - run: npm run build
-      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json=windows-failures.json
-      - run: npm run lint
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: windows-failures
-          path: windows-failures.json
+      - name: Pin release tag and commit
+        id: target
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "$EXPECTED_COMMIT" ] && ! [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'Invalid expected commit'; exit 1
+          fi
+          tag="$INPUT_VERSION"
+          if [ -z "$tag" ]; then tag="$(gh release view --json tagName --jq .tagName)"; fi
+          tag="v${tag#v}"
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Invalid release version'; exit 1; }
+          commit="$(gh api "repos/{owner}/{repo}/commits/$tag" --jq .sha)"
+          [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid release commit'; exit 1; }
+          if [ -n "$EXPECTED_COMMIT" ] && [ "$commit" != "$EXPECTED_COMMIT" ]; then
+            echo 'Release tag does not match expected commit'; exit 1
+          fi
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
   installer:
-    name: Windows one-line installer
-    runs-on: windows-2025
+    name: Windows ${{ matrix.arch }} one-line installer
+    needs: target
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+          - arch: arm64
+            runner: windows-11-arm
+    env:
+      YONDER_VERSION: ${{ needs.target.outputs.version }}
+      EXPECTED_COMMIT: ${{ needs.target.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - name: 解析最新正式版（不写盘）
+          node-version: "22.19.0"
+          architecture: ${{ matrix.arch }}
+      - name: Verify native Node architecture
+        run: node -e "if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1); console.log(process.platform, process.arch)"
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+      - run: node --test scripts/windows-native/installed-smoke.test.mjs
+      - name: 解析固定正式版（不写盘）
         run: pwsh -NoProfile -File scripts/install.ps1 -DryRun
-      # 真实安装：克隆正式 tag、本机构建、写安装入口、初始化 home，然后核对产物。
-      # runner.temp 不能在 job 级 env 里引用；两个步骤各自设置一次。
-      - name: 在临时目录完成一次真实安装
+      - name: 在临时目录完成一次真实安装并核对精确版本
         shell: pwsh
         run: |
           $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
@@ -57,19 +91,32 @@ jobs:
           $cmd = Join-Path $env:YONDER_INSTALL 'bin\yonder.cmd'
           if (-not (Test-Path $cmd)) { throw "missing $cmd" }
           if (-not (Test-Path (Join-Path $env:YONDER_HOME 'yonder.yaml'))) { throw 'home was not initialised' }
-          $version = & $cmd version | Out-String
-          Write-Host $version
-          if ($version -notmatch 'version: 0\.3\.') { throw 'yonder version did not report the installed release' }
-          $recordText = Get-Content (Join-Path $env:YONDER_INSTALL 'versions' (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') | Select-Object -First 1).Name '.yonder-install.json') -Raw
-          $parsed = $recordText | ConvertFrom-Json
-          if (-not $parsed.tag -or -not $parsed.commit) { throw 'install record is incomplete' }
+          $info = (& $cmd version --json | Out-String) | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'installed version command failed' }
+          $installed = Join-Path $env:YONDER_INSTALL "versions\$env:YONDER_VERSION"
+          $record = Get-Content (Join-Path $installed '.yonder-install.json') -Raw | ConvertFrom-Json
+          if ($record.tag -ne "v$env:YONDER_VERSION" -or $record.version -ne $env:YONDER_VERSION -or $record.commit -ne $env:EXPECTED_COMMIT) { throw 'install record does not match pinned tag/commit' }
+          if ($info.version -ne $env:YONDER_VERSION -or $info.origin.commit -ne $env:EXPECTED_COMMIT -or $info.source -ne $installed) { throw 'installed CLI is not running the pinned release' }
+          Write-Host "Verified $($record.tag) $($record.commit) on $env:PROCESSOR_ARCHITECTURE"
       - name: 重复执行不重新构建
         shell: pwsh
         run: |
           $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
           $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
+          $installed = Join-Path $env:YONDER_INSTALL "versions\$env:YONDER_VERSION"
+          $record = Join-Path $installed '.yonder-install.json'
           $before = (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') -Directory).Count
+          $stamp = (Get-Item $record).LastWriteTimeUtc
+          $hash = (Get-FileHash $record).Hash
           pwsh -NoProfile -File scripts/install.ps1
           if ($LASTEXITCODE -ne 0) { throw "second install.ps1 exited $LASTEXITCODE" }
           $after = (Get-ChildItem (Join-Path $env:YONDER_INSTALL 'versions') -Directory).Count
-          if ($after -ne $before) { throw "second run built another version ($before -> $after)" }
+          if ($after -ne $before -or (Get-Item $record).LastWriteTimeUtc -ne $stamp -or (Get-FileHash $record).Hash -ne $hash) { throw 'second install rebuilt or changed the pinned release' }
+      - name: Installed product start, control status, stop and restart (no model)
+        shell: pwsh
+        run: |
+          $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-install'
+          $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-home'
+          $installed = Join-Path $env:YONDER_INSTALL "versions\$env:YONDER_VERSION"
+          node scripts/windows-native/installed-smoke.mjs $installed $env:YONDER_HOME
+          if ($LASTEXITCODE -ne 0) { throw 'installed product lifecycle failed' }

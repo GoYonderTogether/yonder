@@ -1,3 +1,4 @@
+import { EventEmitter, once } from "node:events";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -31,17 +32,29 @@ async function fixture(config: Config = {}, real = false) {
 	// before a provider call in protocol tests. The opt-in test uses the real provider.
 	await writeFile(
 		join(home, "probe.mjs"),
-		`import tasks from ${JSON.stringify(pathToFileURL(resolve("plugins/tasks/dist/index.js")).href)};
+		`import { EventEmitter } from "node:events";
+import tasks from ${JSON.stringify(pathToFileURL(resolve("plugins/tasks/dist/index.js")).href)};
 export let api;
+export const requestEvents = new EventEmitter();
+let requestGate = Promise.resolve();
+export function holdRequest() {
+  let release;
+  requestGate = new Promise(resolve => { release = resolve; });
+  return release;
+}
 export const tools = [], requests = [], sent = [], triggers = [];
 export default { configSchema: tasks.configSchema, setup(value) {
   api = value;
+  api.events.on('run.end', event => requestEvents.emit('run.end', event));
   tasks.setup({...api,
     tools: {register(tool) {tools.push(tool); api.tools.register(tool);}},
     triggers: {register(trigger) {triggers.push(trigger); api.triggers.register(trigger);}}
   });
   api.hooks.register({id:'hold', async beforeRequest(messages, ctx) {
+    requestEvents.emit('entered');
+    await requestGate;
     requests.push({messages, ctx});
+    requestEvents.emit('request');
     if (${real}) return;
     await new Promise(resolve => ctx.signal.aborted ? resolve() : ctx.signal.addEventListener('abort', resolve, {once:true}));
   }});
@@ -89,6 +102,8 @@ export default { configSchema: tasks.configSchema, setup(value) {
 	let kernel = await openKernel(home, { log });
 	const probe = (await import(pathToFileURL(join(home, "probe.mjs")).href)) as {
 		api: PluginAPI;
+		requestEvents: EventEmitter;
+		holdRequest(): () => void;
 		tools: Tool[];
 		requests: Array<{ messages: unknown[]; ctx: ToolContext }>;
 		sent: Array<{ text: string }>;
@@ -127,7 +142,22 @@ export default { configSchema: tasks.configSchema, setup(value) {
 	};
 }
 
-test("stall uses ledger windows, skips other states and survives a kernel restart", async () => {
+async function waitForRequest(events: EventEmitter, signal: AbortSignal) {
+	const stopped = new AbortController();
+	const waiting = AbortSignal.any([signal, stopped.signal]);
+	try {
+		await Promise.race([
+			once(events, "request", { signal: waiting }),
+			once(events, "run.end", { signal: waiting }).then(([event]) => {
+				throw new Error(`Run ended before the request hook: ${JSON.stringify(event)}`);
+			}),
+		]);
+	} finally {
+		stopped.abort();
+	}
+}
+
+test("stall uses ledger windows, skips other states and survives a kernel restart", async ({ signal }) => {
 	const f = await fixture();
 	try {
 		const task = f.store.open(content, f.ctx);
@@ -147,8 +177,22 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 			} else f.store.update(other.id, { state }, f.ctx);
 		}
 		const now = Date.now() + 31 * 60000;
-		await tick(f.probe.api, f.store, {}, now);
-		await expect.poll(() => f.probe.requests.length).toBe(1);
+		// Admission/rendering precedes the durable request phase; synchronize with the hook, not a 1s poll budget.
+		const requested = waitForRequest(f.probe.requestEvents, signal);
+		try {
+			await tick(f.probe.api, f.store, {}, now);
+			await requested;
+			expect(f.probe.requests).toHaveLength(1);
+		} catch (cause) {
+			const diagnostics = JSON.stringify({
+				requests: f.probe.requests.length,
+				reminder: f.store.get(task.id, f.ctx).history.at(-1),
+				runEnds: (await f.kernel().events.query({ type: "run.end" })).events,
+				logs: f.logs,
+			});
+			if (signal.aborted) console.error("Stall request diagnostics:", diagnostics);
+			throw new Error(diagnostics, { cause });
+		}
 		const inputs = () => f.kernel().events.query({ type: "session.input", from: "plugin:tasks" });
 		expect((await inputs()).events).toHaveLength(1);
 		expect((await inputs()).events[0]?.data).toMatchObject({
@@ -186,6 +230,43 @@ test("stall uses ledger windows, skips other states and survives a kernel restar
 		await f.close();
 	}
 }, 30000);
+
+test("request synchronization rejects an ended run or test cancellation and removes listeners", async () => {
+	const events = new EventEmitter();
+	const controller = new AbortController();
+	const ended = waitForRequest(events, controller.signal);
+	events.emit("run.end", { data: { status: "failed", error: "preparation failed" } });
+	await expect(ended).rejects.toThrow("preparation failed");
+	expect(events.eventNames()).toEqual([]);
+	const cancelled = waitForRequest(events, controller.signal);
+	controller.abort();
+	await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+	expect(events.eventNames()).toEqual([]);
+});
+
+test("request synchronization waits for the real hook across an asynchronous preparation gate", async ({ signal }) => {
+	const f = await fixture();
+	const release = f.probe.holdRequest();
+	try {
+		const task = f.store.open(content, f.ctx);
+		f.store.update(task.id, { state: "active" }, f.ctx);
+		const entered = once(f.probe.requestEvents, "entered", { signal });
+		let reached = false;
+		const requested = waitForRequest(f.probe.requestEvents, signal).then(() => {
+			reached = true;
+		});
+		await tick(f.probe.api, f.store, {}, Date.now() + 31 * 60000);
+		await entered;
+		expect(f.probe.requests).toHaveLength(0);
+		expect(reached).toBe(false);
+		release();
+		await requested;
+		expect(f.probe.requests).toHaveLength(1);
+	} finally {
+		release();
+		await f.close();
+	}
+});
 
 test("user-wait submits one self-check per waiting state without sending reminders", async () => {
 	const f = await fixture();

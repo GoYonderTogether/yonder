@@ -3,7 +3,7 @@ import { type Capability, definePlugin, type ToolContext, type TSchema } from "@
 import { Check } from "typebox/value";
 import { configSchema, configuredRegistry } from "./connections.js";
 import { DeviceController, executeCapabilities, toolError } from "./controller.js";
-import { type DeviceRegistry, RemoteError } from "./transport.js";
+import { type DeviceRegistry, RemoteError, UnconfirmedRequest } from "./transport.js";
 
 export { DeviceController } from "./controller.js";
 export type { DeviceRegistry, RegisteredDevice } from "./transport.js";
@@ -64,6 +64,12 @@ export function createDevicesPlugin(registry?: DeviceRegistry) {
 							}
 							return { text: JSON.stringify(result) };
 						} catch (error) {
+							if (error instanceof UnconfirmedRequest)
+								api.log.warn("Device RPC outcome unconfirmed", {
+									tool: name,
+									requestId: error.requestId,
+									...error.diagnostic,
+								});
 							return { text: JSON.stringify(toolError(error)), isError: true };
 						}
 					},

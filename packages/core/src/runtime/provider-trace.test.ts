@@ -44,8 +44,10 @@ test("provider trace is opt-in, redacts credentials and records SSE", async () =
 		await new Promise((resolve) => setTimeout(resolve, 30));
 		const files = readdirSync(directory);
 		expect(files).toHaveLength(1);
-		expect(statSync(directory).mode & 0o777).toBe(0o700);
-		expect(statSync(join(directory, files[0]!)).mode & 0o777).toBe(0o600);
+		if (process.platform !== "win32") {
+			expect(statSync(directory).mode & 0o777).toBe(0o700);
+			expect(statSync(join(directory, files[0]!)).mode & 0o777).toBe(0o600);
+		}
 		const content = readFileSync(join(directory, files[0]!), "utf8");
 		for (const secret of [
 			"headersecret",

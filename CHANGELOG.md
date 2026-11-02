@@ -14,6 +14,44 @@
 - config：按指定既有 profile 更新并保留未涉及字段，管理写入在锁内核对原文版本；失败按当前文件内容恢复本次改动并同步恢复有效快照，不覆盖并发更改。保留自定义参与插件与私聊的既有隔离语义。
 
 
+## [0.3.26110203] - 2026-11-02
+
+### Fixed
+
+- device：bound authenticated request clock waits to connections
+- devices：await local clock before verifying future responses
+- devices：classify authenticated response rejection safely
+- windows：invoke npm command shim from installer
+
+## [0.3.26110202] - 2026-11-02
+
+### Fixed
+
+- devices：retain safe diagnostics for unconfirmed RPC outcomes
+
+## [0.3.26110201] - 2026-11-02
+
+### Fixed
+
+- Windows：后台命令使用本机 Git Bash/MSYS2，取消时清理进程树；修复命名管道、文件路径、迁移与服务测试的跨平台语义及资源释放，保留真实失败与权限边界检查。
+- security：Windows 凭据存储继续拒绝符号链接、目录 junction 与硬链接；记忆读取按规范化目标路径判断 private，防止分隔符或相对路径绕过私有内容授权。
+- plugins：补全 Windows Chrome/Edge 发现、Codex 授权目录与 npm 启动器兼容；协议测试隔离真实 Codex 和登录凭据。
+- build：清理构建产物改用 Node 文件接口；Windows x64 与 ARM64 全量检查并入主 CI 和正式发版门禁，不再仅作定时旁路检查。
+- test：CLI 夹具通过控制面正常停止并核对锁释放，拆分独立配置用例、保留子进程故障诊断；修复 Windows 文件 URL、Git 换行与 JSON 路径断言。
+- cron：Windows 遇到短暂文件占用时仅有限重试同一份运行回执的原子替换；不重跑任务、不删除旧回执，持续失败仍返回原始错误。
+- cli：控制面在网关启动完成后才发布就绪；启动中的停止请求等待资源归属确定再统一关闭，避免留下 HTTP 服务阻止进程退出。
+- Windows：控制面与 CLI 渠道改用第一方原生管道创建器，创建时将受保护 DACL 限定为当前用户 SID 与 SYSTEM；不支持的架构或缺少原生组件时拒绝启动，不退回默认管道权限。
+- build：随源码与 SDK 分发经过双架构、Node 22.19/24/26 验证的原生二进制，构建离线校验来源和哈希，CI 继续验证实际随包文件；跨用户拒绝访问仍须单独实机验收。
+- 验收边界：上述为兼容性修复与 CI 覆盖，不代表真实模型、Windows 跨用户命名管道隔离或完整安装生命周期已验收；跨用户隔离仍须单独实机证明。
+- windows：enforce owner-only IPC with verified native artifacts
+- cli：own all startup listeners before accepting shutdown
+- cron：retry transient Windows receipt replacement without replay
+- windows：correct paths, Bash startup and child process teardown
+- browser：discover Windows installations and normalize helper fixtures
+- codex：resolve Windows launchers without weakening login isolation
+- storage：preserve credential and private path guards across platforms
+- runtime：support Windows Bash processes and pipe fixtures
+
 ## [0.3.26110110] - 2026-11-01
 
 ### Fixed

@@ -12,8 +12,9 @@ import {
 } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { executeCapabilities } from "../src/controller.js";
+import { executeCapabilities, toolError } from "../src/controller.js";
 import plugin, { createDevicesPlugin, DeviceController } from "../src/index.js";
+import { rpc } from "../src/transport.js";
 import { protocolPeer } from "./peer.js";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -358,10 +359,99 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		).rejects.toThrow();
 		expect(peer.state.dispatches).toBe(0);
 	});
+	it.each([
+		[new Error("Execution HTTP status 400"), "Execution HTTP status 400"],
+		[Object.assign(new Error("private transport detail"), { code: "ECONNRESET" }), "ECONNRESET"],
+		[new Error("private transport detail"), "unconfirmed"],
+		[
+			new Error("UNAUTHORIZED", {
+				cause: { verification: "future", offsetMs: 1, payload: "private transport detail" },
+			}),
+			"UNAUTHORIZED",
+		],
+	])(
+		"keeps unconfirmed mutations unknown without replay and logs only safe diagnostics: %s",
+		async (failure, reason) => {
+			const { peer, ctx } = await setup();
+			let sends = 0;
+			const route = {
+				kind: "direct" as const,
+				exchange: async () => {
+					sends++;
+					throw failure;
+				},
+			};
+			const device = { ...peer.device, routes: [route, { ...route, kind: "card" as const }] };
+			const error = await rpc(
+				device,
+				"device.sessions.open",
+				{
+					targetId: "process",
+					grantId: peer.grant.grantId,
+					capabilities: ["read"],
+					origin: { agentId: ctx.agent, profileId: ctx.profile, modelSessionId: ctx.session },
+				},
+				ctx.signal,
+			).catch((error) => error);
+			expect(error).toMatchObject({ diagnostic: { stage: "exchange", reason } });
+			expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN", connectivity: "unknown" });
+			expect(JSON.stringify(error)).not.toContain("private transport detail");
+			expect(error.diagnostic.verification).toBeUndefined();
+			expect(sends).toBe(1);
+		},
+	);
+	it("does not copy extra fields from a forged verification cause", async () => {
+		const { peer, ctx } = await setup();
+		const device = {
+			...peer.device,
+			routes: [
+				{
+					kind: "direct" as const,
+					exchange: async () => ({
+						algorithm: "Ed25519",
+						payloadBase64: "YQ==",
+						signatureBase64: "YQ==",
+						get keyId() {
+							throw new Error("UNAUTHORIZED", {
+								cause: {
+									verification: "future",
+									offsetMs: 1,
+									payload: "private transport detail",
+									key: "private transport detail",
+								},
+							});
+						},
+					}),
+				},
+			],
+		};
+		const error = await rpc(device, "device.describe", {}, ctx.signal).catch((error) => error);
+		expect(error.diagnostic).toEqual({
+			stage: "exchange",
+			reason: "UNAUTHORIZED",
+		});
+		expect(JSON.stringify(error)).not.toContain("private transport detail");
+		expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+	});
+	it("retains only safe timing diagnostics from authenticated response verification", async () => {
+		const { peer, controller, ctx } = await setup();
+		peer.state.alterResponse = (r) => ({ ...r, issuedAt: Date.now() - 30_000, expiresAt: Date.now() - 1 });
+		const error = await controller.describe(peer.device.deviceId, ctx).catch((error) => error);
+		expect(error.diagnostic).toEqual({
+			stage: "authentication",
+			reason: "UNAUTHORIZED",
+			verification: "expired",
+			offsetMs: expect.any(Number),
+		});
+		expect(error.diagnostic.offsetMs).toBeLessThan(0);
+		expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+	});
 	it("rejects wrong signed response identity and wrong result target, keeping unknown honest", async () => {
 		const { peer, controller, ctx } = await setup();
 		peer.state.alterResponse = (r) => ({ ...r, requestId: randomUUID() });
-		await expect(controller.describe(peer.device.deviceId, ctx)).rejects.toThrow("No authenticated response");
+		await expect(controller.describe(peer.device.deviceId, ctx)).rejects.toMatchObject({
+			diagnostic: { stage: "authentication", reason: "WRONG_TARGET" },
+		});
 		peer.state.alterResponse = (r) =>
 			r.ok ? { ...r, result: { ...(r.result as object), deviceId: randomUUID() } } : r;
 		await expect(controller.describe(peer.device.deviceId, ctx)).rejects.toThrow("WRONG_TARGET");

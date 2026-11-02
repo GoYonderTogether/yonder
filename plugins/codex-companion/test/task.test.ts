@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import plugin from "../src/index.js";
 
 test("task registration enforces write authority and isolates login", async () => {
@@ -24,6 +24,15 @@ test("task registration enforces write authority and isolates login", async () =
 			env: new NodeExecutionEnv({ cwd: dir }),
 			signal: new AbortController().signal,
 		} as ToolContext;
+		const exec = ctx.env.exec.bind(ctx.env);
+		vi.spyOn(ctx.env, "exec").mockImplementation((args, options, context) => {
+			if (options?.inheritEnv === false && !(Array.isArray(args) && args[0] === "node" && args[1] === "-e")) {
+				expect(options?.inheritEnv).toBe(false);
+				expect(options?.env).toMatchObject({ CODEX_HOME: home, HOME: home, USERPROFILE: home });
+				throw new Error("Codex invocation intentionally blocked in protocol test");
+			}
+			return exec(args, options, context);
+		});
 		const candidates = registrations.tools.find((entry) => entry.name === "codex-companion_candidates");
 		if (!candidates) throw new Error("candidates tool missing");
 		const candidatePath = join(dir, `${createHash("sha256").update(ctx.session).digest("hex")}.json`);

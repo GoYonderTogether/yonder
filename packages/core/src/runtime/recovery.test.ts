@@ -8,6 +8,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { resolveProfile, testModel } from "../config/test-support.js";
+import { cliChannelEndpoint } from "../control/index.js";
 import { initHome, openKernel } from "../kernel/index.js";
 import { FileCredentials } from "./credentials.js";
 import { openDatabase } from "./db.js";
@@ -142,7 +143,7 @@ test.skipIf(!real)(
 			agent.profiles.owner.tools = { offer: ["bash"] };
 			await writeFile(path, stringify(agent));
 			kernel = await openKernel(home);
-			socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
+			socket = createConnection(cliChannelEndpoint(home, "cli"));
 			await new Promise<void>((done, reject) => {
 				socket!.once("connect", done);
 				socket!.once("error", reject);
@@ -158,7 +159,7 @@ test.skipIf(!real)(
 			await kernel.close();
 			kernel = await openKernel(home);
 			const running = kernel;
-			socket = createConnection(`${home}/.yonder/plugins/channel-cli/cli.sock`);
+			socket = createConnection(cliChannelEndpoint(home, "cli"));
 			await new Promise<void>((done, reject) => {
 				socket!.once("connect", done);
 				socket!.once("error", reject);

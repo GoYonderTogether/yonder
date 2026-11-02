@@ -7,6 +7,7 @@ import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../config/test-support.js";
+import { cliChannelEndpoint } from "../control/index.js";
 import { initHome, openKernel } from "./index.js";
 
 test("native channel unknown slash reaches selected runtime hooks unchanged; builtins and unbound sources do not", async () => {
@@ -69,7 +70,7 @@ export default { setup(api) { api.hooks.register({ id: 'probe', async beforeRequ
 		kernel = await openKernel(home);
 		const running = kernel;
 		const connect = async (channel: string) => {
-			const socket = createConnection(join(home, ".yonder/plugins/channel-cli", `${channel}.sock`));
+			const socket = createConnection(cliChannelEndpoint(home, channel));
 			sockets.push(socket);
 			const packets: Array<{ type: string; text?: string; event?: YEvent }> = [];
 			createInterface({ input: socket }).on("line", (line) => packets.push(JSON.parse(line)));

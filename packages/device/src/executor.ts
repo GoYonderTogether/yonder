@@ -13,10 +13,10 @@ import {
 	type SignedEnvelope,
 	SignedEnvelopeSchema,
 	signMessage,
-	verifyMessage,
 } from "@yonder/protocol";
 import { Check } from "typebox/value";
 import type { BackendProvider } from "./backend-provider.js";
+import { type ExecutorDiagnostic, ExecutorDiagnostics, verifyRequest } from "./executor-auth.js";
 import { operateRpc } from "./executor-commands.js";
 import type { CommandDeps } from "./executor-deps.js";
 import { serveExecution } from "./executor-http.js";
@@ -30,10 +30,14 @@ export class DeviceExecutor {
 	private writer: string | undefined;
 	private server: Server | HttpsServer | undefined;
 	private faulted = false;
+	private readonly verifying = new AbortController();
+	private readonly diagnostics: ExecutorDiagnostics;
 	constructor(
 		home: string,
 		readonly backend: BackendProvider,
+		onDiagnostic: (diagnostic: ExecutorDiagnostic) => void = () => {},
 	) {
+		this.diagnostics = new ExecutorDiagnostics(onDiagnostic);
 		this.store = new ExecutorStore(home);
 		queueMicrotask(() => {
 			for (const [key, record] of Object.entries(this.store.data.commands))
@@ -53,6 +57,7 @@ export class DeviceExecutor {
 		} catch (error) {
 			// The mutable in-memory state may now differ from durable state. Only a new daemon may reload it.
 			this.faulted = true;
+			this.diagnostics.persistence(error);
 			throw error;
 		}
 	}
@@ -219,8 +224,11 @@ export class DeviceExecutor {
 		});
 	}
 	/** Both direct and relay adapters call this one authenticated entry point. */
-	async handle(envelope: unknown): Promise<SignedEnvelope> {
+	async handle(envelope: unknown, signal?: AbortSignal): Promise<SignedEnvelope> {
+		const budget = AbortSignal.any([this.verifying.signal, AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]);
+		budget.throwIfAborted();
 		this.assertHealthy();
+		envelope = structuredClone(envelope);
 		if (!Check(SignedEnvelopeSchema, envelope)) throw new Error("INVALID_REQUEST");
 		const untrusted = JSON.parse(
 			Buffer.from((envelope as SignedEnvelope).payloadBase64, "base64").toString("utf8"),
@@ -229,11 +237,15 @@ export class DeviceExecutor {
 			throw new Error("WRONG_TARGET");
 		const peer = this.store.data.peers[untrusted.principalId];
 		if (!peer) throw new Error("UNPAIRED");
-		const verified = verifyMessage(
+		const verified = await verifyRequest(
 			envelope,
 			createPublicKey({ key: Buffer.from(peer, "base64"), format: "der", type: "spki" }),
 			{ kind: "request", principalId: untrusted.principalId, deviceId: this.deviceId, now: Date.now() },
+			budget,
+			this.diagnostics,
 		);
+		budget.throwIfAborted();
+		this.assertHealthy();
 		if (verified.kind !== "request") throw new Error("INVALID_REQUEST");
 		const request = verified as RpcRequest;
 		const requestKey = `${request.principalId}:${request.requestId}`;
@@ -320,7 +332,7 @@ export class DeviceExecutor {
 		this.assertHealthy();
 		if (this.server) fail("BUSY");
 		return serveExecution(
-			(envelope) => this.handle(envelope),
+			(envelope, signal) => this.handle(envelope, signal),
 			options,
 			(server) => {
 				this.server = server;
@@ -328,6 +340,7 @@ export class DeviceExecutor {
 		);
 	}
 	async close(): Promise<void> {
+		this.verifying.abort();
 		if (this.server) {
 			const server = this.server;
 			await new Promise<void>((resolve) => server.close(() => resolve()));

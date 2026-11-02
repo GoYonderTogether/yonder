@@ -3,10 +3,8 @@ import {
 	chmod,
 	lstat,
 	mkdir,
-	mkdtemp,
 	readdir,
 	readFile,
-	readlink,
 	realpath,
 	rename,
 	rm,
@@ -18,7 +16,7 @@ import {
 import { createServer } from "node:net";
 import { homedir, tmpdir, userInfo } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
-import { serveControl } from "@yonder/core";
+import { controlEndpoint, serveControl } from "@yonder/core";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test } from "vitest";
 import {
@@ -182,30 +180,39 @@ test("secret file modes survive apply and rollback", async () => {
 	const { options, oldHome, newHome } = await fixture();
 	await writeFile(join(oldHome, "auth.json"), "{}", { mode: 0o600 });
 	await chmod(join(oldHome, "auth.json"), 0o600);
+	const originalMode = (await stat(join(oldHome, "auth.json"))).mode & 0o777;
+	if (process.platform !== "win32") expect(originalMode).toBe(0o600);
 	const { backup } = await applyMigration(options);
-	expect((await stat(join(newHome, "auth.json"))).mode & 0o777).toBe(0o600);
+	expect((await stat(join(newHome, "auth.json"))).mode & 0o777).toBe(originalMode);
 	expect((await stat(join(newHome, "yonder.yaml"))).mode & 0o777).toBe(
 		(await stat(join(newHome, "yonder.yaml.pre-migrate-20261028"))).mode & 0o777,
 	);
 	await rollbackMigration(backup as string, { apply: true });
-	expect((await stat(join(oldHome, "auth.json"))).mode & 0o777).toBe(0o600);
+	expect((await stat(join(oldHome, "auth.json"))).mode & 0o777).toBe(originalMode);
 });
 
 test("runtime sockets are left out of the backup on purpose", async () => {
 	const { options, oldHome } = await fixture();
 	// Bind in a short path (unix socket limit), then move the bound node into the home.
-	const short = join("/tmp", `ym-${process.pid}.sock`);
+	const short =
+		process.platform === "win32"
+			? controlEndpoint(join(oldHome, "migration-backup"))
+			: join(tmpdir(), `ym-${process.pid}.sock`);
 	const server = createServer();
-	await new Promise<void>((done) => server.listen(short, done));
+	await new Promise<void>((done, reject) => {
+		server.once("error", reject);
+		server.listen(short, done);
+	});
 	await mkdir(join(oldHome, ".yonder"), { recursive: true });
-	await rename(short, join(oldHome, ".yonder/runtime.sock"));
+	if (process.platform !== "win32") await rename(short, join(oldHome, ".yonder/runtime.sock"));
 	try {
-		expect((await lstat(join(oldHome, ".yonder/runtime.sock"))).isSocket()).toBe(true);
+		if (process.platform !== "win32")
+			expect((await lstat(join(oldHome, ".yonder/runtime.sock"))).isSocket()).toBe(true);
 		const { backup } = await applyMigration(options);
 		await expect(lstat(join(backup as string, "home/.yonder/runtime.sock"))).rejects.toThrow();
 		expect(await readFile(join(backup as string, "home/yonder.yaml"), "utf8")).toBe(YAML);
 	} finally {
-		server.close();
+		await new Promise<void>((done, reject) => server.close((error) => (error ? reject(error) : done())));
 	}
 });
 
@@ -252,14 +259,17 @@ test("journal left before the move (nothing moved) is cleared and the move proce
 
 test("a failure mid-apply puts the home back at the old path", async () => {
 	const { options, oldHome, newHome } = await fixture();
-	// The plugin-state rename is the last step; a read-only parent makes it fail after the yaml rewrites.
-	await chmod(join(oldHome, ".yonder/plugins"), 0o555);
-	try {
-		await expect(applyMigration(options)).rejects.toThrow("迁移中断");
-	} finally {
-		await chmod(join(oldHome, ".yonder/plugins"), 0o755);
-		await chmod(join(dirname(oldHome), "home.backup-20261028/home/.yonder/plugins"), 0o755);
-	}
+	// Create a conflicting nonempty destination after planning, before the final rename.
+	// chmod cannot force rename failure on Windows (or when the tests run as root).
+	let checks = 0;
+	const running = async () => {
+		if (++checks === 5) {
+			await mkdir(join(oldHome, ".yonder/plugins/learning"));
+			await writeFile(join(oldHome, ".yonder/plugins/learning/conflict"), "keep");
+		}
+		return false;
+	};
+	await expect(applyMigration({ ...options, running })).rejects.toThrow("迁移中断");
 	expect((await lstat(oldHome)).isDirectory()).toBe(true);
 	await expect(lstat(newHome)).rejects.toThrow();
 	expect(await readFile(join(oldHome, "yonder.yaml"), "utf8")).toBe(YAML);
@@ -324,6 +334,7 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 			env: {
 				...process.env,
 				HOME: home,
+				USERPROFILE: home,
 				XDG_CONFIG_HOME: join(home, ".config"),
 				YONDER_HOME: "",
 				PATH: bin + delimiter + dirname(process.execPath),
@@ -333,9 +344,9 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	expect((await lstat(join(share, "yonder-harness/home"))).isSymbolicLink()).toBe(false);
 	const out = run("--apply");
 	expect(out).toContain("数据迁移：已完成");
-	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
+	expect(await realpath(join(share, "yonder-harness/home"))).toBe(await realpath(join(share, "yonder/home")));
 	expect(await readFile(join(share, "yonder/home/yonder.yaml"), "utf8")).toContain("@yonder/plugin-learning");
-	expect(await readlink(join(home, ".yonder-harness"))).toBe(".local/share/yonder/install");
+	expect(await realpath(join(home, ".yonder-harness"))).toBe(await realpath(join(share, "yonder/install")));
 	expect(await readFile(join(share, "yonder/install/version"), "utf8")).toBe("old");
 	// A temp HOME is not the passwd home, so the launchd and user-service steps are skipped: no command runs.
 	expect(await readFile(log, "utf8").catch(() => "")).toBe("");
@@ -343,7 +354,7 @@ test("CLI --apply end to end in a temp HOME with a real no-op launchctl on PATH"
 	const again = run("--apply");
 	expect(again).not.toContain("移动");
 	expect(again).toContain("Nothing to migrate");
-	expect(await readlink(join(share, "yonder-harness/home"))).toBe(join(share, "yonder/home"));
+	expect(await realpath(join(share, "yonder-harness/home"))).toBe(await realpath(join(share, "yonder/home")));
 	expect(() => run("--rollback")).toThrow();
 	expect(() => run("--force")).toThrow();
 });
@@ -359,7 +370,7 @@ test("install root dry-run, repeated apply and rollback restore both roots", asy
 	expect((await planMigration(opts)).installMoving).toBe(true);
 	expect(await snapshot(root)).toEqual(before);
 	const { backup } = await applyMigration(opts);
-	expect(await readlink(oldInstall)).toBe(".local/share/yonder/install");
+	expect(await realpath(oldInstall)).toBe(await realpath(newInstall));
 	expect(await readFile(join(newInstall, "version"), "utf8")).toBe("old");
 	expect((await applyMigration(opts)).status).toBe("noop");
 	await rollbackMigration(backup as string, { apply: true });
@@ -400,7 +411,7 @@ test("installation-only migration and rollback, including Windows link target", 
 		platform: "win32" as const,
 	};
 	const { backup } = await applyMigration(options);
-	expect(await readlink(oldInstall)).toBe(newInstall);
+	expect(await realpath(oldInstall)).toBe(await realpath(newInstall));
 	await rollbackMigration(backup as string, { apply: true });
 	expect(await readFile(join(oldInstall, "version"), "utf8")).toBe("old");
 	await expect(lstat(newInstall)).rejects.toThrow();

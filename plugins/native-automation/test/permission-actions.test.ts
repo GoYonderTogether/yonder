@@ -10,6 +10,8 @@ vi.mock("../src/desktop.js", () => transport);
 
 import plugin from "../src/index.js";
 
+const hostPlatform = process.platform;
+
 const ownerInput: YEvent = {
 	id: "owner-input",
 	ts: "2026-10-24T14:00:00Z",
@@ -372,7 +374,7 @@ describe("owner file actions, mocked transport and ordinary temp artifacts only"
 		transport.desktop.mockImplementation(async (args) => {
 			destinations.push(args.destination);
 			// POSIX permission bits only: Windows reports every directory as 0o666.
-			if (process.platform !== "win32") expect((await stat(dirname(args.destination))).mode & 0o777).toBe(0o700);
+			if (hostPlatform !== "win32") expect((await stat(dirname(args.destination))).mode & 0o777).toBe(0o700);
 			await writeFile(args.destination, bytes, { flag: "wx" });
 			return { path: args.destination, size: bytes.length, metadata };
 		});

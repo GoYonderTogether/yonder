@@ -77,6 +77,18 @@ test("bash carries only the resolved active session context and clears stale amb
 		await f.close();
 	}
 });
+test("bash preserves an explicit workspace containing spaces", async () => {
+	const f = await fixture();
+	try {
+		const cwd = join(f.home, "workspace with spaces");
+		await mkdir(cwd);
+		const result = await f.run({ command: "printf 'cwd preserved' > result.txt", cwd });
+		expect(result.isError).toBe(false);
+		expect(await readFile(join(cwd, "result.txt"), "utf8")).toBe("cwd preserved");
+	} finally {
+		await f.close();
+	}
+});
 test("truncated bash output is indexed with its complete original", async () => {
 	const f = await fixture();
 	try {
@@ -87,7 +99,11 @@ test("truncated bash output is indexed with its complete original", async () => 
 		const path = value.cache.split("; ")[0];
 		expect(value.cache).toContain("lines 1-2");
 		expect(await readFile(path, "utf8")).toBe(`BEGIN\n${"x".repeat(70000)}END\n`);
-		expect(await readFile(join(f.home, "cache/tool-output/1/index.jsonl"), "utf8")).toContain(path);
+		const index = (await readFile(join(f.home, "cache/tool-output/1/index.jsonl"), "utf8"))
+			.trim()
+			.split("\n")
+			.map((line) => JSON.parse(line));
+		expect(index).toContainEqual(expect.objectContaining({ path }));
 	} finally {
 		await f.close();
 	}

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import plugin from "../src/index.js";
 
 test("review selects real git state and isolates Codex login", async () => {
@@ -33,6 +33,15 @@ test("review selects real git state and isolates Codex login", async () => {
 			env: new NodeExecutionEnv({ cwd: repo }),
 			signal: new AbortController().signal,
 		} as ToolContext;
+		const exec = ctx.env.exec.bind(ctx.env);
+		vi.spyOn(ctx.env, "exec").mockImplementation((args, options, context) => {
+			if (options?.inheritEnv === false && !(Array.isArray(args) && args[0] === "node" && args[1] === "-e")) {
+				expect(options?.inheritEnv).toBe(false);
+				expect(options?.env).toMatchObject({ CODEX_HOME: home, HOME: home, USERPROFILE: home });
+				throw new Error("Codex invocation intentionally blocked in protocol test");
+			}
+			return exec(args, options, context);
+		});
 		expect((await tool.execute({ codexHome: home, scope: "working-tree" }, ctx)).text).toContain("clean");
 		expect((await tool.execute({ codexHome: home, base: "main" }, ctx)).text).toContain("empty");
 		await expect(tool.execute({ codexHome: join(dir, "missing") }, ctx)).rejects.toThrow("codexHome must exist");

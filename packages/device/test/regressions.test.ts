@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import {
 	type DeviceDescriptor,
@@ -20,12 +21,14 @@ import { tempHome, tempHomeSync } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import type { BackendProvider } from "../src/backend-provider.js";
 import { DeviceExecutor } from "../src/executor.js";
+import type { ExecutorDiagnostic } from "../src/executor-auth.js";
 import { ExecutorStore } from "../src/store.js";
 
 const roots: string[] = [];
 const children: ChildProcess[] = [];
 const executors = new Set<DeviceExecutor>();
 afterEach(async () => {
+	vi.restoreAllMocks();
 	for (const child of children.splice(0))
 		if (child.exitCode === null && child.signalCode === null) {
 			child.kill("SIGKILL");
@@ -128,7 +131,8 @@ function fixture() {
 		},
 		actions: {},
 	};
-	executor = new DeviceExecutor(home, provider);
+	const diagnostics: ExecutorDiagnostic[] = [];
+	executor = new DeviceExecutor(home, provider, (value) => diagnostics.push(value));
 	executors.add(executor);
 	const keys = generateKeyPairSync("ed25519");
 	const principalId = publicKeyId(keys.publicKey);
@@ -184,7 +188,18 @@ function fixture() {
 			capabilities: ["read"],
 			origin: { agentId: null, profileId: "test", modelSessionId: "test" },
 		});
-	return { home, executor, provider, descriptor, grant, envelope, open, decode };
+	return {
+		home,
+		executor,
+		provider,
+		descriptor,
+		grant,
+		envelope,
+		open,
+		decode,
+		diagnostics,
+		sign: (request: RpcRequest) => signMessage(request, keys.privateKey),
+	};
 }
 
 test("request fixture remains valid when the clock ticks between timestamp reads", async () => {
@@ -246,6 +261,7 @@ test("failed publication fences direct and relay retries until durable state is 
 		body: JSON.stringify(packet),
 	});
 	expect(direct.status).toBe(400);
+	expect(f.diagnostics).toEqual([{ stage: "persistence", reason: "failed" }]);
 	expect(f.executor.store.data.grants[f.grant.grantId]?.revokedAt).not.toBeNull();
 	expect(durable().grants[f.grant.grantId]?.revokedAt).toBeNull();
 	expect(durable().requests[requestKey]).toBeUndefined();
@@ -327,3 +343,99 @@ for (const method of ["device.sessions.open", "device.sessions.close", "grants.r
 		});
 	}
 }
+
+test.each([1, 2, 3])(
+	"future request %ims ahead waits for real verifier time before its single session effect",
+	async (offset) => {
+		const f = fixture(),
+			base = Date.now();
+		let clock = base + offset;
+		vi.spyOn(Date, "now").mockImplementation(() => clock);
+		const packet = f.open();
+		clock = base;
+		const response = f.executor.handle(packet);
+		await delay(10);
+		expect(Object.keys(f.executor.store.data.sessions)).toHaveLength(0);
+		clock = base + offset;
+		expect(f.decode(await response).ok).toBe(true);
+		expect(f.decode(await f.executor.handle(packet)).ok).toBe(true);
+		expect(Object.keys(f.executor.store.data.sessions)).toHaveLength(1);
+		expect(f.executor.store.data.leaseEpochs.local).toBe(1);
+		expect(f.diagnostics).toEqual([{ stage: "authentication", reason: "future", offsetMs: offset }]);
+	},
+);
+
+test.each(["caller", "close", "budget"])(
+	"future request cancelled by %s never reaches session acceptance",
+	async (owner) => {
+		const f = fixture(),
+			base = Date.now();
+		let clock = base + 3_000_000_000;
+		vi.spyOn(Date, "now").mockImplementation(() => clock);
+		const packet = f.open();
+		clock = base;
+		const caller = new AbortController(),
+			budget = new AbortController();
+		const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(budget.signal);
+		const result = f.executor.handle(packet, caller.signal).catch((error) => error);
+		await delay(10);
+		if (owner === "close") await f.executor.close();
+		else (owner === "caller" ? caller : budget).abort();
+		expect(await result).toBeInstanceOf(Error);
+		expect(timeout).toHaveBeenCalledExactlyOnceWith(15_000);
+		expect(Object.keys(f.executor.store.data.sessions)).toHaveLength(0);
+		expect(Object.keys(f.executor.store.data.requests)).toHaveLength(0);
+	},
+);
+
+test("bad signatures and invalid future windows reject immediately with bounded safe diagnostics", async () => {
+	const f = fixture(),
+		base = Date.now();
+	vi.spyOn(Date, "now").mockReturnValue(base + 30_000);
+	const packet = f.open();
+	vi.spyOn(Date, "now").mockReturnValue(base);
+	const request = JSON.parse(Buffer.from(packet.payloadBase64, "base64").toString()) as RpcRequest;
+	for (let n = 0; n < 20; n++) {
+		await expect(
+			f.executor.handle({ ...packet, signatureBase64: Buffer.alloc(64).toString("base64") }),
+		).rejects.toThrow("UNAUTHORIZED");
+		await expect(f.executor.handle(f.sign({ ...request, expiresAt: request.issuedAt }))).rejects.toThrow(
+			"UNAUTHORIZED",
+		);
+	}
+	expect(f.diagnostics).toEqual([
+		{ stage: "authentication", reason: "signature" },
+		{ stage: "authentication", reason: "invalid-window" },
+	]);
+	const malicious = {
+		get algorithm() {
+			throw new Error("private path/key", { cause: { verification: "future", offsetMs: 1 } });
+		},
+	};
+	await expect(f.executor.handle(malicious)).rejects.toThrow("private path/key");
+	expect(f.diagnostics).toHaveLength(2);
+	expect(Object.keys(f.executor.store.data.sessions)).toHaveLength(0);
+});
+
+test("HTTP disconnect cancels a future request before acceptance", async () => {
+	const f = fixture(),
+		base = Date.now();
+	let clock = base + 30_000;
+	vi.spyOn(Date, "now").mockImplementation(() => clock);
+	const packet = f.open();
+	clock = base;
+	const port = await f.executor.listenLoopback();
+	const cancelled = new AbortController();
+	const result = fetch(`http://127.0.0.1:${port}/execution/v1`, {
+		method: "POST",
+		body: JSON.stringify(packet),
+		signal: cancelled.signal,
+	}).catch((error) => error);
+	await expect.poll(() => f.diagnostics.length).toBe(1);
+	cancelled.abort();
+	expect(await result).toBeInstanceOf(Error);
+	await delay(10);
+	clock = base + 30_000;
+	await delay(10);
+	expect(Object.keys(f.executor.store.data.sessions)).toHaveLength(0);
+});

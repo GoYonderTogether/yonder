@@ -105,3 +105,18 @@ test("workflow wiring retains a forced CI gate and the official atomic/draft pub
 	assert.doesNotMatch(read("ci.yml"), /continue-on-error: true/);
 	assert.match(read("ci.yml"), /node --test scripts\/release\/auto-release.test.mjs/);
 });
+
+test("published release dispatches both Windows installers with the exact version and SHA", () => {
+	const read = (file) => readFileSync(new URL(`../../.github/workflows/${file}`, import.meta.url), "utf8");
+	const release = read("release.yml");
+	assert.ok(release.indexOf("--draft=false --latest") < release.indexOf("gh workflow run ci-windows.yml"));
+	assert.match(release, /gh workflow run ci-windows\.yml --ref "v\$VERSION"/);
+	assert.match(release, /-f "version=\$VERSION" -f "expected_commit=\$\(git rev-parse HEAD\)"/);
+	const installer = read("ci-windows.yml");
+	assert.match(installer, /runner: windows-2025/);
+	assert.match(installer, /runner: windows-11-arm/);
+	assert.match(installer, /YONDER_VERSION: \$\{\{ needs\.target\.outputs\.version \}\}/);
+	assert.match(installer, /EXPECTED_COMMIT: \$\{\{ needs\.target\.outputs\.commit \}\}/);
+	assert.match(installer, /installed-smoke\.mjs \$installed \$env:YONDER_HOME/);
+	assert.doesNotMatch(installer, /continue-on-error|service install|--no-gateway/);
+});
