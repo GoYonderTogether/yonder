@@ -1,0 +1,9 @@
+
+ RUN  v5.0.5 /Users/zoran/Documents/worktrees/yonder-shared-core
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  06:13:27
+   Duration  8.16s (tests 45%, transform 36%, import 19%)
+

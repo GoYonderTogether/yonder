@@ -32,7 +32,7 @@ final-lifecycle.log / final-load-lifecycle-gate.json 中最新生命周期退出
 
 ## 保留的开发失败
 
-- PG/storage 首轮 47/3、次轮 44/6、第三轮 50/0；扩展组合 54/1 后修 tasks storage guard，最终 artifact/guard 16/0：../review-storage-focused-{first,2,3,4}.log、../review-artifact-focused-final-2.log。没有把中间版本的成功冒充最终源码。
+- PG/storage 首轮 47/3、次轮 44/6、第三轮 50/0；扩展组合 54/1 后修 tasks storage guard，最终 artifact/guard 16/0：../review-storage-focused-{first,3}.log、../review-artifact-focused-final-2.log（-2/-4完整raw在清理误删后仅剩已记录工具输出片段，见下）。没有把中间版本的成功冒充最终源码。
 - 移动 core 测试初轮 778/2/61，修共享 speech 的 anchor-updated 兼容及 vendored pi-durable 版本误改，保留原断言：local-host-migration.log；main 重点迁移 focused-main-migration-2.log，speech-regression-3.log，layer-tests.log。
 - 新 PG before/order 回归初轮 fixture 缺 name 为 8/1，修后 2/0，typecheck 0：../review-events-focused.log、../review-events-focused-2.log、../review-events-typecheck.log。
 - 关闭收尾负对照与最终定向在 [main 审计](main-content-audit.md) 中引用：../review-shutdown-negative-control.log、../review-shutdown-focused-final.log、../review-shutdown-build-final.log。
@@ -51,3 +51,9 @@ PG原实现没有复用Node已有的Runtime.boundModels：有效修前诊断707�
 - 最终生命周期 verified-lifecycle.log 退出0：真实PG锁证明租户间激活不阻塞，实际idle74257ms后释放（总脚本76.99s），再激活成功，completed3/pending0。
 
 结构化汇总 [verified-results.json](verified-results.json) 保存实际模型/卡片/设备目录及RSS/查询数据，不含模型key；[final-main-check.json](final-main-check.json) 记录两仓末尾main核对、提名iOS/SessionOptions blob一致、版本、core零文件、gate后无源码变化，以及101份交付证据中模型key缺席的布尔核对。真实Luna未测：YONDER_TEST_AUTH未设、仓库.yonder/auth.json不存在；113默认skip含平台/显式live，不都归因于缺凭据。生产部署、2核2GB长期共存与日常硬件组合未测。
+
+## 清理误删与恢复记录
+
+清理器曾错误处理`../review-*.log`，并用任意文件名后缀作匹配，导致9份已引用的定向日志被误删。该动作不是正确的scratch清理，已撤回旧审计“155份均未引用/0问题”的结论。主Agent从本任务父/子会话的原始工具stdout直接取回7份完整原文（验证对应cat/tail命令、文件边界与原stat长度，无手工重写或重跑），并将原文提交；SHA256及来源说明见[log-recovery.json](log-recovery.json)。
+
+两份旧定向完整raw无法全恢复：review-storage-focused-2.log原7187B（44 pass/6 fail），review-storage-focused-4.log原1497B（54 pass/1 fail）。只保留实际已捕获片段：[第二轮命令stdout](../review-storage-focused-2.captured-output.log)（包含原tail及后续命令诊断，不冒充原完整log）、[第四轮已捕获开头](../review-storage-focused-4.captured-head.log)和[第四轮已捕获结尾](../review-storage-focused-4.captured-tail.log)。原计数与失败原因仍在本总账，未拼造缺失内容。最终完整gate、GLM/A12以及两轮完整测试的原始失败日志全部已提交保留，此损失局限于两份开发期定向raw。

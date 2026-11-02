@@ -1,0 +1,71 @@
+
+ RUN  v5.0.5 /Users/zoran/Documents/worktrees/yonder-shared-core
+
+Sourcemap for "/Users/zoran/Documents/worktrees/yonder-shared-core/packages/bot-core/dist/tools/catalog.js" points to missing source files
+ ❯ packages/cloud-host/src/plugin-storage.test.ts (6 tests | 1 failed) 1287ms
+   × filesystem storage binds without side effects and retains existing files, formats and transactional updates 7ms
+ ❯ packages/cloud-host/src/source.test.ts (4 tests | 1 failed) 1167ms
+   × PG source supplies presets, Markdown children, prompt templates and selected skills 16ms
+(node:99795) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:99795) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ❯ packages/cloud-host/src/storage-conformance.test.ts (24 tests | 1 failed) 1024ms
+   × keeps indexed string identities lossless 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/cloud-host/src/plugin-storage.test.ts > filesystem storage binds without side effects and retains existing files, formats and transactional updates
+TypeError: files.writeAttachment is not a function
+ ❯ contract packages/cloud-host/src/plugin-storage.test.ts:27:26
+     25| async function contract(files: PluginFiles) {
+     26|  const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+     27|  const uri = await files.writeAttachment("artifact.png", bytes, "image…
+       |                          ^
+     28|  const stored = uri.startsWith("file:")
+     29|   ? await readFile(new URL(uri))
+ ❯ packages/cloud-host/src/plugin-storage.test.ts:70:8
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  packages/cloud-host/src/source.test.ts > PG source supplies presets, Markdown children, prompt templates and selected skills
+Error: Virtual workspace path escapes Bot
+ ❯ directory packages/cloud-host/src/source.ts:13:54
+     11|  const directory = (workspace: string) => {
+     12|   const path = posix.normalize(posix.isAbsolute(workspace) ? posix.rel…
+     13|   if (path === ".." || path.startsWith("../")) throw new Error("Virtua…
+       |                                                      ^
+     14|   return postgresDirectory(pool, tenant, bot, posix.join(root, path), …
+     15|  };
+ ❯ skill packages/cloud-host/src/source.ts:17:17
+ ❯ Object.skills packages/cloud-host/src/source.ts:37:26
+ ❯ sourceFor packages/bot-core/src/skills/index.ts:167:17
+ ❯ inspectInternal packages/bot-core/src/skills/index.ts:185:35
+ ❯ Object.inspect packages/bot-core/src/skills/index.ts:257:24
+ ❯ packages/cloud-host/src/source.test.ts:133:30
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  packages/cloud-host/src/storage-conformance.test.ts > keeps indexed string identities lossless
+error: invalid input syntax for type json
+ ❯ node_modules/pg/lib/client.js:694:17
+ ❯ prepare packages/runtime-adapter/src/postgres/projection.ts:55:15
+ ❯ packages/runtime-adapter/src/postgres/storage.ts:70:19
+ ❯ PostgresStorage.transaction packages/runtime-adapter/src/postgres/storage.ts:54:51
+ ❯ packages/pi-durable/src/testing/storage-conformance.ts:1545:4
+ ❯ Object.withStorage packages/cloud-host/src/storage-conformance.test.ts:31:4
+     29|   const storage = await PostgresStorage.open(database.pool, "conforman…
+     30|   try {
+     31|    await use(storage);
+       |    ^
+     32|   } finally {
+     33|    await storage.close(context);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  3 failed | 3 passed (6)
+      Tests  3 failed | 47 passed (50)
+   Start at  06:02:08
+   Duration  9.67s (tests 73%, import 15%, transform 11%)
+

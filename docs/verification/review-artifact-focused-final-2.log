@@ -1,0 +1,13 @@
+
+ RUN  v5.0.5 /Users/zoran/Documents/worktrees/yonder-shared-core
+
+(node:8642) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:8642) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  3 passed (3)
+      Tests  16 passed (16)
+   Start at  06:10:13
+   Duration  12.33s (tests 79%, transform 13%, import 8%)
+

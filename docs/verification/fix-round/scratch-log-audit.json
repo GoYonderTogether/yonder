@@ -1,8 +1,8 @@
 {
-	"phase": "correction of erroneous cleanup audit; deletion stopped",
+	"phase": "corrected cleanup and recovery; two original focused raw logs remain partial-only",
 	"previousConclusionsWithdrawn": ["155 logs were all unreferenced scratch", "Remaining unreferenced scratch logs = 0"],
-	"deletionActionCount": 155,
-	"correctUnreferencedScratchDeletionCount": 146,
+	"deletionActionCount": 165,
+	"correctUnreferencedScratchDeletionCount": 156,
 	"mistakenReferencedDeletionCount": 9,
 	"mistakenReferencedBytes": 16508,
 	"recoverySummary": {
@@ -1376,5 +1376,79 @@
 		}
 	],
 	"recoveryProvenance": "Root copied seven complete files directly from the original tool stdout captured during this task, checking original command/file boundaries and byte lengths. Two complete original stdout files were never captured; only genuine portions and the committed original pass/fail summaries survive. Fragment files must not be represented as the complete original logs.",
-	"noFurtherDeletion": true
+	"noFurtherDeletion": false,
+	"postCorrectionExplicitCleanup": [
+		{
+			"repo": "yonder",
+			"path": "docs/verification/fix-round/closeout-lint.log",
+			"bytes": 13941,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/review-storage-typecheck-final.log",
+			"bytes": 0,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-11-focused-local-typecheck.log",
+			"bytes": 0,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-build.log",
+			"bytes": 65,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-cloud-build.log",
+			"bytes": 5792,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-cloud-typecheck.log",
+			"bytes": 58,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/shared-bot-core/stage-9-server-typecheck.log",
+			"bytes": 78,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "yonder",
+			"path": "docs/verification/stage-11-focused-host-request-typecheck-1.log",
+			"bytes": 0,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-server-typecheck.log",
+			"bytes": 78,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		},
+		{
+			"repo": "cloud",
+			"path": "docs/verification/fix-round/cloud-web-typecheck.log",
+			"bytes": 58,
+			"tracked": false,
+			"basis": "corrected audit exact normalized reference pass: no committed verification reference"
+		}
+	],
+	"restoredOriginalEvidenceManifest": "docs/verification/fix-round/log-recovery.json",
+	"finalRawEvidenceLimitation": "Two development-focused full raw logs (7187B and1497B) could not be fully recovered; exact captured fragments and original counts are preserved. Final full-gate/GLM/A12 and original full-suite failure evidence remain intact."
 }

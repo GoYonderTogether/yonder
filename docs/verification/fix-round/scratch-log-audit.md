@@ -42,3 +42,9 @@ The corrected pass found the following 10 logs without a committed verification 
 | cloud | `docs/verification/fix-round/cloud-web-typecheck.log` | 58 |
 
 The JSON retains every prior deletion action with its corrected classification, the seven complete recoveries, the two partial-only originals, and parser check results. No source, report, BRIEF or unrelated evidence was changed by this correction.
+
+## Primary-agent recovery and explicit follow-up cleanup
+
+The primary agent recovered seven complete originals directly from the recorded stdout of this task's original commands, without manual transcription or rerunning a test. SHA256 and exact artifact sizes are committed in [log-recovery.json](log-recovery.json). The two unrecoverable complete raw files retain only explicitly named captured-output/head/tail artifacts and their original 44/6 and 54/1 counts; they are not represented as full originals. All final acceptance raw evidence and both original full-suite failure logs remain committed.
+
+After the corrected exact-reference pass, the primary agent explicitly removed the ten untracked logs in the above correction snapshot. Thus **165 deletion actions comprise 156 valid scratch removals and 9 mistaken removals; seven mistaken originals are restored and two full originals are only partially recoverable**. The earlier clean-zero conclusions remain withdrawn; the missing raw originals are an explicit delivery limitation. The ten follow-up removals total 20,070 bytes; full file-by-file provenance remains in the JSON.

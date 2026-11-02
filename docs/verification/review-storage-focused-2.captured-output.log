@@ -1,0 +1,112 @@
+packages/cloud-host/src/runtime-services.test.ts:22:		const env = a.environment({ cwd: "/bots/bot-a", resolved: { env: "local" } });
+packages/cloud-host/src/state.test.ts:34:			cwd: home,
+packages/cloud-host/src/state.test.ts:44:		const id = await runtime.create({ agent: null, profile: "default", cwd: home, close: "manual" });
+packages/cloud-host/src/source.test.ts:59:			cwd: `${source.home.root}/${entry.workspace}`,
+packages/cloud-host/src/source.test.ts:129:		cwd: `${postgres.home.root}/agents/main`,
+packages/cloud-host/src/source.test.ts:59:			cwd: `${source.home.root}/${entry.workspace}`,
+packages/cloud-host/src/source.test.ts:129:		cwd: `${postgres.home.root}/agents/main`,
+-   "version": 1,
++   "value": undefined,
++   "version": undefined,
+  }
+
+ ❯ Object.partialDeepEqual packages/cloud-host/src/storage-conformance.test.ts:22:58
+     20|   strictEqual: (actual, expected) => expect(actual).toBe(expected),
+     21|   deepEqual: (actual, expected) => expect(actual).toEqual(expected),
+     22|   partialDeepEqual: (actual, expected) => expect(actual).toMatchObject…
+       |                                                          ^
+     23|   greaterThan: (actual, expected) => expect(actual).toBeGreaterThan(ex…
+     24|   rejects: async (operation, message) => {
+ ❯ Object.toMatchObject packages/pi-durable/src/testing/storage-conformance.ts:80:43
+ ❯ packages/pi-durable/src/testing/storage-conformance.ts:827:64
+ ❯ Object.withStorage packages/cloud-host/src/storage-conformance.test.ts:31:4
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  packages/cloud-host/src/storage-conformance.test.ts > streams long document tails across root replacement deltas
+Error: Document crosses a version boundary without a base
+ ❯ PostgresStorage.documentFrom packages/runtime-adapter/src/postgres/storage.ts:329:11
+ ❯ prepare packages/runtime-adapter/src/postgres/projection.ts:147:30
+ ❯ packages/runtime-adapter/src/postgres/storage.ts:145:21
+ ❯ PostgresStorage.transaction packages/runtime-adapter/src/postgres/storage.ts:116:19
+ ❯ packages/pi-durable/src/testing/storage-conformance.ts:941:27
+ ❯ Object.withStorage packages/cloud-host/src/storage-conformance.test.ts:31:4
+     29|   const storage = await PostgresStorage.open(database.pool, "conforman…
+     30|   try {
+     31|    await use(storage);
+       |    ^
+     32|   } finally {
+     33|    await storage.close(context);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  packages/cloud-host/src/storage-conformance.test.ts > copies stored document bases independently and rejects ambiguous sources
+Error: Document 4 version transition requires a base
+ ❯ MemoryStorage.checkDocumentActions packages/pi-durable/src/storage/memory.ts:799:12
+ ❯ MemoryStorage.prepareCommit packages/pi-durable/src/storage/memory.ts:276:8
+ ❯ prepare packages/runtime-adapter/src/postgres/projection.ts:157:26
+ ❯ packages/runtime-adapter/src/postgres/storage.ts:145:21
+ ❯ PostgresStorage.transaction packages/runtime-adapter/src/postgres/storage.ts:116:19
+ ❯ packages/pi-durable/src/testing/storage-conformance.ts:1042:5
+ ❯ Object.withStorage packages/cloud-host/src/storage-conformance.test.ts:31:4
+     29|   const storage = await PostgresStorage.open(database.pool, "conforman…
+     30|   try {
+     31|    await use(storage);
+       |    ^
+     32|   } finally {
+     33|    await storage.close(context);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  packages/cloud-host/src/storage-conformance.test.ts > uses bases for version transitions and rejects historical reads of current-only documents
+Error: Document crosses a version boundary without a base
+ ❯ PostgresStorage.documentFrom packages/runtime-adapter/src/postgres/storage.ts:329:11
+ ❯ prepare packages/runtime-adapter/src/postgres/projection.ts:147:30
+ ❯ packages/runtime-adapter/src/postgres/storage.ts:145:21
+ ❯ PostgresStorage.transaction packages/runtime-adapter/src/postgres/storage.ts:116:19
+ ❯ packages/pi-durable/src/testing/storage-conformance.ts:1230:24
+ ❯ Object.withStorage packages/cloud-host/src/storage-conformance.test.ts:31:4
+     29|   const storage = await PostgresStorage.open(database.pool, "conforman…
+     30|   try {
+     31|    await use(storage);
+       |    ^
+     32|   } finally {
+     33|    await storage.close(context);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  packages/cloud-host/src/storage-conformance.test.ts > keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime
+AssertionError: expected undefined to deeply equal { value: 1 }
+
+- Expected:
+{
+  "value": 1,
+}
+
++ Received:
+undefined
+
+ ❯ Object.deepEqual packages/cloud-host/src/storage-conformance.test.ts:21:51
+     19|   ok: (value, message) => expect(value, message).toBeTruthy(),
+     20|   strictEqual: (actual, expected) => expect(actual).toBe(expected),
+     21|   deepEqual: (actual, expected) => expect(actual).toEqual(expected),
+       |                                                   ^
+     22|   partialDeepEqual: (actual, expected) => expect(actual).toMatchObject…
+     23|   greaterThan: (actual, expected) => expect(actual).toBeGreaterThan(ex…
+ ❯ Object.toEqual packages/pi-durable/src/testing/storage-conformance.ts:78:37
+ ❯ packages/pi-durable/src/testing/storage-conformance.ts:1419:74
+ ❯ Object.withStorage packages/cloud-host/src/storage-conformance.test.ts:31:4
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  2 failed | 4 passed (6)
+      Tests  6 failed | 44 passed (50)
+   Start at  06:04:14
+   Duration  11.11s (tests 73%, import 16%, transform 11%)
+
+ packages/bot-core/src/kernel/services-wiring.ts | 88 +++++++++++++++----------
+ packages/cloud-host/src/open-bot.ts             | 48 ++++++--------
+ packages/local-host/src/kernel/index.ts         | 59 +++++------------
+ 3 files changed, 91 insertions(+), 104 deletions(-)
+148:            async writeAttachment(path, bytes, _mime) {
