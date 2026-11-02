@@ -67,6 +67,8 @@ export interface RuntimeOptions {
 	/** Every key `sections` may return, in default order. Keys must match `^[a-z][a-z0-9_-]*$`. */
 	sectionKeys?: readonly string[];
 	readEvent?(id: string): Promise<YEvent | undefined>;
+	/** Group a routed input only by its verified original conversation; the runtime uses an event-local fallback. */
+	sourceGroup?(session: string, eventId: string): Promise<string | undefined>;
 	/** True when this run already has its durable `run.end`; receipt reads must not settle it again. */
 	settled?(session: string, run: string): Promise<boolean>;
 	prepareInput?(

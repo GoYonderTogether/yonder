@@ -11,6 +11,7 @@ import { checkBudget } from "../sessions/budget.js";
 import { createSessions } from "../sessions/index.js";
 import type { createSkills } from "../skills/index.js";
 import type { Store } from "../store/contracts.js";
+import { requestSourceGroupForSession } from "../tools/parent-origin.js";
 import { builtinViews } from "../views/builtin.js";
 import { backgroundHandlers } from "./background.js";
 import type { createChannelLogin } from "./channel-login.js";
@@ -74,7 +75,7 @@ export async function createBot(options: CreateBotOptions) {
 	let router: ReturnType<typeof createRouter>;
 	let delivery: ReturnType<typeof createDelivery>;
 	let outbound: ReturnType<typeof outboundQueue>;
-	const { closeReason, completeRun } = createRunCompletion({
+	const { completeRun, finishIdle } = createRunCompletion({
 		store,
 		runtime: realRuntime,
 		delivery: () => delivery,
@@ -175,6 +176,7 @@ export async function createBot(options: CreateBotOptions) {
 		tools,
 
 		readEvent: store.events.get,
+		sourceGroup: (id, eventId) => requestSourceGroupForSession(store, id, eventId),
 		settled: async (session, run) => Boolean(await store.events.runEnd(session, run)),
 		prepareInput: async (id, event, config, wake, signal) => {
 			const row = await store.sessions.get(id);
@@ -195,16 +197,7 @@ export async function createBot(options: CreateBotOptions) {
 		onSessionSettled: async (data) => {
 			await store.events.record({ type: "session.settled", data });
 		},
-		onIdle: async (id) => {
-			const session = await store.sessions.get(id);
-			if (!session) return;
-			await router.finishIdle(session);
-			if (!session.closed && !(await realRuntime().hasPendingWork(id))) {
-				const end = await realRuntime().lastResult(id);
-				const close = end ? await closeReason(id, session.mode, end.status) : undefined;
-				if (close) await sessions.closeSession(id, close);
-			}
-		},
+		onIdle: finishIdle,
 		...backgroundHandlers({
 			store,
 			runtime: realRuntime,

@@ -11,6 +11,8 @@ export type InboxItem =
 			id: SubmissionId;
 			mode: "steer" | "followUp";
 			content: JsonRepresentation<UserInput>;
+			sourceGroup?: string;
+			interrupt?: true;
 			entry?: JsonRepresentation<InputEntry>;
 	  }
 	/** `entry` is an `EntryDraft`, stored as plain JSON. */
@@ -38,12 +40,14 @@ export type Boundary = {
 	readonly inbox: Draft<InboxState>;
 	readonly steeringMode: QueueMode;
 	readonly followUpMode: QueueMode;
+	/** Source of the active run; matching steers and explicit interrupts may join at `postTools`. */
+	readonly activeSourceGroup?: string;
 	/** Start of the active range, the newest head marker's `head`; advanced by heads written in this commit. */
 	head: EntryId | undefined;
 };
 
 /** Selected user items, in ID order, and whether a `head: "self"` write (a reset) was placed. */
-export type BoundaryResult = { readonly users: SubmissionId[]; readonly reset: boolean };
+export type BoundaryResult = { readonly users: SubmissionId[]; readonly reset: boolean; readonly sourceGroup?: string };
 
 /**
  * Read what a boundary needs. Table reads must precede the commit's first table write, so callers prepare the
@@ -52,11 +56,13 @@ export type BoundaryResult = { readonly users: SubmissionId[]; readonly reset: b
 export async function prepareBoundary(tx: Tx, conversationId: ConversationId, modes: QueueModes): Promise<Boundary> {
 	const head = (await tx.latestHeadMarker(conversationId))?.head;
 	const inbox = await tx.doc(InboxDoc, conversationId);
+	const activeSourceGroup = (await tx.doc(LiveDoc, conversationId)).run?.sourceGroup;
 	return {
 		conversationId,
 		inbox,
 		steeringMode: modes.steeringMode,
 		followUpMode: modes.followUpMode,
+		...(activeSourceGroup === undefined ? {} : { activeSourceGroup }),
 		head,
 	};
 }
@@ -78,12 +84,23 @@ export async function applyBoundary(
 	const items = inbox.items;
 	const reset = hasQueuedReset(items);
 	const final = at === "final" || reset;
-	const pick = (mode: "steer" | "followUp", queueMode: QueueMode): number[] => {
-		const indexes = items.flatMap((item, index) => (item.mode === mode ? [index] : []));
+	const firstUser = items.find((item) => item.mode !== "write");
+	const sourceGroup = final ? firstUser?.sourceGroup : boundary.activeSourceGroup;
+	const pick = (mode: "steer" | "followUp", queueMode: QueueMode, allowForeignInterrupt = false): number[] => {
+		const indexes = items.flatMap((item, index) => {
+			if (item.mode !== mode) return [];
+			return item.sourceGroup === sourceGroup ||
+				(mode === "steer" && allowForeignInterrupt && item.interrupt === true)
+				? [index]
+				: [];
+		});
 		return queueMode === "all" ? indexes : indexes.slice(0, 1);
 	};
 	const writes = items.flatMap((item, index) => (item.mode === "write" ? [index] : []));
-	const users = [...pick("steer", boundary.steeringMode), ...(final ? pick("followUp", boundary.followUpMode) : [])];
+	const users = [
+		...pick("steer", boundary.steeringMode, at === "postTools" && !reset),
+		...(final ? pick("followUp", boundary.followUpMode) : []),
+	];
 	users.sort((a, b) => a - b);
 
 	// `appendEntry()` copies the drafts' values; the items are removed only afterwards.
@@ -107,7 +124,11 @@ export async function applyBoundary(
 	}
 	const removed = [...writes, ...users].sort((a, b) => b - a);
 	for (const index of removed) items.splice(index, 1);
-	return { users: placed, reset };
+	return {
+		users: placed,
+		reset,
+		...(placed.length > 0 && sourceGroup !== undefined ? { sourceGroup } : {}),
+	};
 }
 
 /** Append the entry an input is placed as: `entry`'s kind and data, or `pi.user`, with the user message of `content`. */

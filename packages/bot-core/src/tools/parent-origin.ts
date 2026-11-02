@@ -78,6 +78,26 @@ export async function requestSources(
 	return sources.size ? [...sources.values()] : undefined;
 }
 
+/** One canonical group only when every verified source of the admitted input shares a conversation. */
+export async function requestSourceGroup(
+	store: Store,
+	session: SessionInfo,
+	eventId: string,
+): Promise<string | undefined> {
+	const sources = await requestSources(store, session, [eventId]);
+	const conv = sources?.[0]?.conv;
+	return conv && sources?.every((source) => source.conv === conv) ? conv : undefined;
+}
+
+export async function requestSourceGroupForSession(
+	store: Store,
+	sessionId: string,
+	eventId: string,
+): Promise<string | undefined> {
+	const session = await store.sessions.get(sessionId);
+	return session ? requestSourceGroup(store, session, eventId) : undefined;
+}
+
 export async function parentOrigins(store: Store, event: YEvent, agent: string): Promise<YEvent[] | undefined> {
 	const data = event.data as {
 		kind?: string;

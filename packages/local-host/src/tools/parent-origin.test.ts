@@ -2,7 +2,12 @@ import type { DeliveryService } from "@yonder/bot-core/delivery/index";
 import type { SessionOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import type { Sessions } from "@yonder/bot-core/sessions/index";
 import { createCoreTools } from "@yonder/bot-core/tools/index";
-import { parentOrigins, requestSources } from "@yonder/bot-core/tools/parent-origin";
+import {
+	parentOrigins,
+	requestSourceGroup,
+	requestSourceGroupForSession,
+	requestSources,
+} from "@yonder/bot-core/tools/parent-origin";
 import type { AgentConfig } from "@yonder/local-host/config/index";
 import { resolveProfile } from "@yonder/local-host/config/test-support";
 import { conversationPromptOptions } from "@yonder/local-host/kernel/conversation";
@@ -469,6 +474,8 @@ test("requestSources follows trusted QQ parent requests and native continuations
 			route,
 		);
 		expect(await requestSources(store, session, [continuation.id])).toEqual([ownerA, ownerB]);
+		expect(await requestSourceGroup(store, session, continuation.id)).toBe(conv);
+		expect(await requestSourceGroupForSession(store, session.id, continuation.id)).toBe(conv);
 
 		const badRoute = [{ agent: "main", session: "other", binding: "other", wake: "run" as const }];
 		const crossSession = await store.events.record(
@@ -502,6 +509,8 @@ test("requestSources follows trusted QQ parent requests and native continuations
 		expect(await requestSources(store, session, [crossSession.id])).toBeUndefined();
 		expect(await requestSources(store, session, [crossConv.id])).toBeUndefined();
 		expect(await requestSources(store, session, [forged.id])).toBeUndefined();
+		expect(await requestSourceGroup(store, session, crossSession.id)).toBeUndefined();
+		expect(await requestSourceGroup(store, session, forged.id)).toBeUndefined();
 		expect(await requestSources(store, { ...session, id: "other" }, [continuation.id])).toBeUndefined();
 		const cycleA: YEvent = {
 			id: "cycle-a",

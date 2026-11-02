@@ -28,7 +28,7 @@ import type {
 } from "../types.ts";
 import { addTools } from "./agent.ts";
 import { createCompaction, estimateContext, selectCut } from "./compaction.ts";
-import { applyBoundary, prepareBoundary } from "./inbox.ts";
+import { applyBoundary, hasQueuedReset, prepareBoundary } from "./inbox.ts";
 import { assignJson } from "./json.ts";
 import { endRun, LiveDoc, type LiveState, type ToolSlot } from "./live.ts";
 import { abortModelObservation, type ObservationCheckpoint, observeModelAttempt } from "./model-observation.ts";
@@ -327,7 +327,7 @@ export const GenerationTask = defineTask<GenerationInput, GenerationCheckpoint, 
 			}
 			if (ownsRun && live.run?.resumeOnInterrupt) {
 				delete live.run.resumeOnInterrupt;
-				const { users, reset } = await applyBoundary(tx, boundary, "postTools", runtime.now());
+				const { users, reset, sourceGroup } = await applyBoundary(tx, boundary, "postTools", runtime.now());
 				if (!reset) {
 					live.run.inputs.push(...users);
 					delete live.generation;
@@ -337,13 +337,13 @@ export const GenerationTask = defineTask<GenerationInput, GenerationCheckpoint, 
 					return { status: "terminal", outcome: { status: "aborted" } };
 				}
 				await endRun(tx, live, conversationId, runtime.taskId, { status: "unanswered", reason: "reset" });
-				if (users.length > 0) await startRun(tx, conversationId, live, users);
+				if (users.length > 0) await startRun(tx, conversationId, live, users, sourceGroup);
 				return { status: "terminal", outcome: { status: "aborted" } };
 			}
 			await endRun(tx, live, conversationId, runtime.taskId, { status: "unanswered", reason: "aborted" });
 			if (ownsRun) {
-				const { users } = await applyBoundary(tx, boundary, "final", runtime.now());
-				if (users.length > 0) await startRun(tx, conversationId, live, users);
+				const { users, sourceGroup } = await applyBoundary(tx, boundary, "final", runtime.now());
+				if (users.length > 0) await startRun(tx, conversationId, live, users, sourceGroup);
 			}
 			return { status: "terminal", outcome: { status: "aborted" } };
 		}, context);
@@ -490,15 +490,22 @@ async function streamResponse(
 	};
 	try {
 		let resetHeaders: Record<string, string> | undefined;
-		const events = runtime.models.streamSimple(model, { messages: [...messages] }, {
-			...options,
-			onResponse: async (response, responseModel) => {
-				await options.onResponse?.(response, responseModel);
-				if (response.status === 429) resetHeaders = Object.fromEntries(
-					Object.entries(response.headers).filter(([key]) => /^(retry-after|retry-after-ms|x-ratelimit-reset)$/i.test(key)),
-				);
+		const events = runtime.models.streamSimple(
+			model,
+			{ messages: [...messages] },
+			{
+				...options,
+				onResponse: async (response, responseModel) => {
+					await options.onResponse?.(response, responseModel);
+					if (response.status === 429)
+						resetHeaders = Object.fromEntries(
+							Object.entries(response.headers).filter(([key]) =>
+								/^(retry-after|retry-after-ms|x-ratelimit-reset)$/i.test(key),
+							),
+						);
+				},
 			},
-		});
+		);
 		for await (const event of events) {
 			// A partial without content, such as pi-ai's opening `start` event, shows nothing; a deferred response
 			// never gets past it, so it never leaves a partial.
@@ -663,12 +670,18 @@ async function answer(runtime: Runtime, message: AssistantMessage, context: Cont
 		// Queue modes are read on the Session line, when the boundary is decided.
 		const boundary = await prepareBoundary(tx, conversationId, runtime.settings);
 		const live = await tx.doc(LiveDoc, conversationId);
-		if (boundary.inbox.items.some((item) => item.mode === "steer")) {
+		if (
+			!hasQueuedReset(boundary.inbox.items) &&
+			boundary.inbox.items.some(
+				(item) =>
+					item.mode === "steer" && (item.interrupt === true || item.sourceGroup === boundary.activeSourceGroup),
+			)
+		) {
 			const superseded = await appendAssistant(tx, conversationId, { ...message, stopReason: "aborted" });
-			const { users, reset } = await applyBoundary(tx, boundary, "postTools", runtime.now());
+			const { users, reset, sourceGroup } = await applyBoundary(tx, boundary, "postTools", runtime.now());
 			if (reset) {
 				await endRun(tx, live, conversationId, runtime.taskId, { status: "unanswered", reason: "reset" });
-				if (users.length > 0) await startRun(tx, conversationId, live, users);
+				if (users.length > 0) await startRun(tx, conversationId, live, users, sourceGroup);
 			} else {
 				if (live.run?.taskId === runtime.taskId) live.run.inputs.push(...users);
 				delete live.generation;
@@ -678,7 +691,7 @@ async function answer(runtime: Runtime, message: AssistantMessage, context: Cont
 		}
 		const entry = await appendAssistant(tx, conversationId, message);
 		const result: Next = { status: "terminal", outcome: { status: "completed", result: { entryId: entry.id } } };
-		const { users, reset } = await applyBoundary(tx, boundary, "final", runtime.now());
+		const { users, reset, sourceGroup } = await applyBoundary(tx, boundary, "final", runtime.now());
 		if (continuation !== undefined && users.length === 0 && !reset) {
 			const user = { role: "user", content: continuation, timestamp: runtime.now() } as const;
 			await tx.appendEntry(UserEntry, conversationId, { model: [user] });
@@ -687,7 +700,7 @@ async function answer(runtime: Runtime, message: AssistantMessage, context: Cont
 			return result;
 		}
 		await endRun(tx, live, conversationId, runtime.taskId, { status: "done", answer: entry.id });
-		if (users.length > 0) await startRun(tx, conversationId, live, users);
+		if (users.length > 0) await startRun(tx, conversationId, live, users, sourceGroup);
 		return result;
 	}, context);
 }
@@ -797,15 +810,15 @@ async function finishToolRound(
 				const entry = await tx.appendEntry(ResetEntry, conversationId, { head: "self", model: [message] });
 				boundary.head = entry.id;
 			}
-			const { users } = await applyBoundary(tx, boundary, "final", now);
+			const { users, sourceGroup } = await applyBoundary(tx, boundary, "final", now);
 			await endRun(tx, live, conversationId, runtime.taskId, { status: "done", answer: assistant });
-			if (users.length > 0) await startRun(tx, conversationId, live, users);
+			if (users.length > 0) await startRun(tx, conversationId, live, users, sourceGroup);
 		} else {
-			const { users, reset } = await applyBoundary(tx, boundary, "postTools", now);
+			const { users, reset, sourceGroup } = await applyBoundary(tx, boundary, "postTools", now);
 			if (reset) {
 				// The queued reset cut the run's context before an answer.
 				await endRun(tx, live, conversationId, runtime.taskId, { status: "unanswered", reason: "reset" });
-				if (users.length > 0) await startRun(tx, conversationId, live, users);
+				if (users.length > 0) await startRun(tx, conversationId, live, users, sourceGroup);
 			} else {
 				delete live.tools;
 				delete live.nestedTools;
@@ -840,8 +853,13 @@ export async function startRun(
 	conversationId: ConversationId,
 	live: Draft<LiveState>,
 	inputs: SubmissionId[],
+	sourceGroup?: string,
 ): Promise<void> {
-	live.run = { taskId: await createGeneration(tx, conversationId, inputs[0]), inputs };
+	live.run = {
+		taskId: await createGeneration(tx, conversationId, inputs[0]),
+		inputs,
+		...(sourceGroup === undefined ? {} : { sourceGroup }),
+	};
 }
 
 /** A generation owned by its conversation. */
