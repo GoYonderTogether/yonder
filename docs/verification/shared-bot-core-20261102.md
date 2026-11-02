@@ -86,3 +86,15 @@ HostFacts 在本机组合根采集后必填注入；纯系统段装配位于 pro
 | import 排序后完整 lint（子 Agent） | 退出 0，Biome、size、layers 均通过；未重跑已通过的 build/typecheck/test | 子 Agent 工具输出 |
 
 最终相对固定基线无新增失败，多 1 项 golden 测试。未运行真实模型或 PG；A2 的 fs/PG 来源一致性留到来源实现后验收。
+
+## 云端原始提交补充基线
+
+cloud worktree 保持 `52692f57835032cb3a71b476d421f158293b0c94`，未改源码。根目录 build/typecheck、server build/typecheck 均退出 0。server 默认测试使用仓库现有 services() 启动独立临时 PostgreSQL 与 Redis，并在每组结束关闭；197 通过 / 0 失败 / 0 取消 / 0 跳过 / 0 todo，22 suites，52.88 秒，退出 0。证据：shared-bot-core/cloud-baseline-build.log、cloud-baseline-typecheck.log、cloud-baseline-server-build.log、cloud-baseline-server-typecheck.log、cloud-baseline-server-test.log。没有调用模型或连接生产。
+
+## 阶段 3：唯一 Bot 定义包
+
+`@yonder/bot-definition` 承载原 config 的 schema、解析、profile/权限求值、默认值及纯校验；旧 config 路径只兼容导出，index 另保留宿主 load/reload。9 份 helper/schema 源文件与原提交逐字相同，index 仅删掉宿主导出；没有修改默认值、schema 或新加接口。新增 workspace/TS references/依赖及 npm 生成的 lock，未改安装/发版流程或新增外部依赖。
+
+定向检查：配置 11 文件 / 55 项通过；prompt golden 1 项通过、同文件 14 项按名字过滤跳过；typecheck、改动文件 Biome、size/layer、diff check 通过。最初并行跑两条 Vitest 导致共享 .vitest-cache 的 ENOTEMPTY 启动错误，配置测试当次未完成；后改为顺序运行通过，不修改测试或断言。该初次启动错误只有子 Agent 工具输出，没有独立日志。
+
+完整 gate：build/typecheck/lint 均退出 0；默认测试 2661 通过 / 0 失败 / 112 跳过，文件 494 通过 / 0 失败 / 67 跳过，259.67 秒。size 扫描 562、layers 扫描 257，无违规。证据：shared-bot-core/stage-3-{build,typecheck,test,lint}.log。相对固定基线无新增失败；本阶段没有运行模型。

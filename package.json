@@ -11,6 +11,7 @@
 		"packages/pi-durable",
 		"packages/protocol",
 		"packages/device",
+		"packages/bot-definition",
 		"packages/sdk",
 		"packages/core",
 		"packages/gateway",

@@ -10,6 +10,7 @@
 packages/
   pi-durable/            MIT fork 的 durable 源码（构建先于 SDK/core）
   sdk/      @yonder/sdk    插件 API 类型、define* 辅助函数、testing/checkPlugin
+  bot-definition/ @yonder/bot-definition  宿主无关的 Bot schema、解析与配置求值
   core/     @yonder/core   内核；pi 运行时仅经唯一适配层访问（当前 src/runtime/）
   cli/      @yonder/cli    yonder 命令与终端界面
   macos/                   macOS 状态栏

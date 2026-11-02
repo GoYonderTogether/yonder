@@ -13,7 +13,7 @@
 
 ### 2.1 位置
 
-Bot 定义由同一个 schema 与解析器处理，来源接口提供 Agent 列表、agent.yaml 原文、presets、prompt 模板、子 Agent 定义、skills 条目及工作区文件。本机目录来源沿用既有加载语义；云端 PostgreSQL 来源按租户与 Bot 隔离，不能另写一套解析或提示词装配。
+Bot 定义的 schema、解析、配置默认值与 profile 求值以 `packages/bot-definition`（`@yonder/bot-definition`）为唯一实现，旧 core/config 路径仅兼容导出；文件加载与监听留在宿主。Bot 定义由同一个 schema 与解析器处理，来源接口提供 Agent 列表、agent.yaml 原文、presets、prompt 模板、子 Agent 定义、skills 条目及工作区文件。本机目录来源沿用既有加载语义；云端 PostgreSQL 来源按租户与 Bot 隔离，不能另写一套解析或提示词装配。
 
 目录工作区 = **执行环境 + 路径**（05 §4）。本机 home 的 `yonder.yaml` 登记每个 agent：
 

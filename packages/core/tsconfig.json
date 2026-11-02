@@ -8,6 +8,9 @@
 			"path": "../sdk"
 		},
 		{
+			"path": "../bot-definition"
+		},
+		{
 			"path": "../protocol"
 		}
 	]
