@@ -102,7 +102,7 @@ export class GroupAttention {
 			eligible = 0;
 		const relevant: YEvent[] = [];
 		for (const event of entries) {
-			if (controls.has(event.id) || (await this.elsewhere(event, c.agent))) continue;
+			if (controls.has(event.id) || (options.runEligible !== true && (await this.elsewhere(event, c.agent)))) continue;
 			const result = ruleMatch((event.data as MessageData).text ?? "", policy, () => errors++);
 			if (!result.eligible) continue;
 			if (c.pause?.scope === "group" || c.pause?.actor === event.from) continue;

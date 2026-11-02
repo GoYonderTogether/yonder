@@ -80,15 +80,12 @@ export class Groups {
 				this.aliases.set(conv, `configured:${i}`);
 			}
 	}
-	private key(agent: string, conv: string) {
-		return `${agent}\0${conv}`;
-	}
+	private key = (agent: string, conv: string) => `${agent}\0${conv}`;
 	private official(agent: string, conv: Ref) {
 		return (this.policies.get(this.key(agent, conv))?.policy.plugin ?? "social") === "social";
 	}
 	async material(conv: string) {
-		const room = this.rooms.get(this.aliases.get(conv) ?? "");
-		return publicEvents(this.api, room?.convs ?? new Set([conv]));
+		return publicEvents(this.api, this.rooms.get(this.aliases.get(conv) ?? "")?.convs ?? new Set([conv]));
 	}
 	managed(conv: Ref) {
 		return this.aliases.has(conv);
@@ -208,15 +205,22 @@ export class Groups {
 		}
 		if (!candidate.entries.some((e) => e.id === source.id)) candidate.entries.push(source);
 		candidate.entries.sort((a, b) => a.id.localeCompare(b.id));
-		const deferredEligible =
-			candidate.willing?.notBefore === undefined ||
-			(candidate.pause?.scope !== "group" &&
-				candidate.pause?.actor !== source.from &&
-				ruleEligible(
-					(source.data as { text?: unknown }).text,
-					this.rules.effective(data.agent, source.conv, candidate.policy, candidate.revision),
-				));
-		if (candidate.willing && deferredEligible && !(await this.attention.elsewhere(source, data.agent))) {
+		const runEligible = candidate.policy.batch?.run === true;
+		const filtered = () =>
+			candidate.pause?.scope !== "group" &&
+			candidate.pause?.actor !== source.from &&
+			ruleEligible(
+				(source.data as { text?: unknown }).text,
+				this.rules.effective(candidate.agent, candidate.conv, candidate.policy, candidate.revision),
+			);
+		const deferredEligible = runEligible
+			? !this.controls.has(source.id) && filtered()
+			: candidate.willing?.notBefore === undefined || filtered();
+		if (
+			candidate.willing &&
+			deferredEligible &&
+			(runEligible || !(await this.attention.elsewhere(source, data.agent)))
+		) {
 			candidate.willing.entries.push(source);
 			candidate.willing.through = source.id;
 		}
@@ -438,7 +442,7 @@ export class Groups {
 		await this.attention.replied(event, room.id);
 		if (!live) return;
 		for (const peer of room.candidates.values())
-			if (peer.agent !== agent && peer.willing && !peer.willing.focused) {
+			if (peer.agent !== agent && peer.willing && !peer.willing.focused && peer.policy.batch?.run !== true) {
 				delete peer.willing;
 				await this.read(peer, peer.entries, event.id);
 			}
