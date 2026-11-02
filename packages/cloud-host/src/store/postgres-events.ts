@@ -232,6 +232,8 @@ export function postgresEvents(pool: Pool, tenant: string, bot: string, onEvent?
 			const limit = query.limit ?? 100;
 			if (!Number.isInteger(limit) || limit < 1 || limit > 1000)
 				throw new Error("event limit must be an integer from 1 to 1000");
+			const order = query.order ?? "asc";
+			if (order !== "asc" && order !== "desc") throw new Error("event order must be asc or desc");
 			const clauses = ["tenant_id=$1", "bot_id=$2"];
 			const values: unknown[] = [tenant, bot];
 			const add = (field: string, value: unknown) => {
@@ -251,10 +253,11 @@ export function postgresEvents(pool: Pool, tenant: string, bot: string, onEvent?
 			if (query.since) add("ts>=", query.since);
 			if (query.until) add("ts<", query.until);
 			if (query.after) add("id>", query.after);
+			if (query.before) add("id<", query.before);
 			values.push(limit + 1);
 			const result = (
 				await pool.query<EventRow>(
-					`SELECT * FROM bot_events WHERE ${clauses.join(" AND ")} ORDER BY id LIMIT $${values.length}`,
+					`SELECT * FROM bot_events WHERE ${clauses.join(" AND ")} ORDER BY id ${order === "asc" ? "ASC" : "DESC"} LIMIT $${values.length}`,
 					values,
 				)
 			).rows.map(postgresEventRow);
