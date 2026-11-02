@@ -25,15 +25,9 @@
 
 ## 真实平台输入
 
-QQ目标为“智能眼镜 × personal AI”，GPT学姐来源conv:qq-gpt-senpai:group:3F857A37F7CB110F543049522FE3D3EF；另外两个Bot所见镜像不是三次主人输入。本人客户端已登录且历史原话可见。原话分开发送：
+在已授权的真实QQ工作群和飞书验收群，以主人原有口语提出“工作群接办”“每条接收但不必回复”“改好后发一条消息”等需求，分开发送；QQ使用客户端真实成员选择@，不写假@文本。普通非@消息继续使用同一语言风格，不包含CLI、字段、路径、回执标记或配置算法，不发送虚构的工作安排。
 
-1. 你去申请吧，我们这个群是工作群，你也可以直接让主会话接入进来，不用你做分身了
-2. 首先，第一个需求就是把这个群改成你是每条消息都能够接收，而不是用什么策略来管，然后但是接收了不一定要回复，这个要标注一下，你是有主动发言的权限的
-3. 改好配置和自动重载之后，其实需求你能够发一条消息最好，通过主会话
-
-真实@仅用客户端成员选择，不写假@文本。普通非@验证用主人已有原话“你们都在吗”，不在真实工作群发送虚构的会议改期。用户消息不包含CLI、字段、路径、回执标记或配置算法。
-
-飞书已有“Yonder P1渠道验收 2026-10-19”群（conv:feishu:oc_c75c3c6f6f9919f28c18750a3aaf96cf），历史owner输入和observer会话2017证明曾接收，但原绑定wake:write仅记录，不代表模型参与或可发送；不能预先替Agent配好目标再宣称自然需求成功。
+完整原话、私人群名、目标引用、原生消息ID及本机证据另存本机0600验收记录，不随源码发布。原始观察群绑定只记录，不预先替Agent配置目标后宣称自然需求成功。
 
 ## 检查与失败保留
 
@@ -62,7 +56,7 @@ QQ目标为“智能眼镜 × personal AI”，GPT学姐来源conv:qq-gpt-senpai
 
 ## 真实QQ：授权接办与执行路径失败
 
-上述三句原话分别发送，另经原生成员选择真实@GPT学姐唤醒。入站01M6DFMDW5RRYT1RV1DGB6SPYG、01M6DFPNEWZM1WBJC33CVMKCTV、01M6DFRWCRQ2AJ6BQWJPT7Q83T及01M6DFV1RXZY8GZ3DSEYBD2KMW进入既有155642群会话；普通消息经过write与batch，不是丢失入站。
+上述三句原话分别发送，另经原生成员选择真实@GPT学姐唤醒。入站01M6DFMDW5RRYT1RV1DGB6SPYG、01M6DFPN…KCTV、01M6DFRWCRQ2AJ6BQWJPT7Q83T及01M6DFV1RXZY8GZ3DSEYBD2KMW进入既有155642群会话；普通消息经过write与batch，不是丢失入站。
 
 parent_ask正确进入同一Agent的main150858/default，而不是全局main Agent。该主档standard具exec且实际提供bash，但模型没有选用CLI管理路径，仍把不支持的群→私人main共享解释为需要再确认隐私，未完成其余可行配置；配置保持基线。跨会话通知还错误沿用了另一目标的消息引用，不能用未送达通知证明平台不支持主动发言。保存证据于.cache/qq-real-acceptance-20261102/evidence.json（目录0700、文件0600），不提交原会话秘密。
 
@@ -72,11 +66,11 @@ parent_ask正确进入同一Agent的main150858/default，而不是全局main Age
 
 用已登录主人飞书网页版从Jarvis私聊发送：
 
-> Yonder P1渠道验收 2026-10-19 这个群，首先，第一个需求就是把这个群改成你是每条消息都能够接收，而不是用什么策略来管，然后但是接收了不一定要回复，这个要标注一下，你是有主动发言的权限的
+> （真实群名与主人原话保留于本机验收记录；公开文档不复制私人对话。）
 
 输入01M6DH3JE0T23MF6D5NRGDM2QF进入main/session2/owner。模型自行搜索并调用channel-feishu_chats，唯一匹配真实群名、chatId和conv，真实目录发现通过；用户消息没有提供技术操作知识。原生桌面输入中已有用户草稿，保留草稿，后续采用后台网页版，不覆盖用户输入。
 
-模型随后直接写agent.yaml，新增精确群binding及profile，没有调用官方validate/update。config.reload事件01M6DH5E5PSAAQDKZMNQ492RM9明确ok:false：与泛用feishu-observer可能同会话却不同profile；运行时仍保留observer/session2017。模型仍向主人成功发出“配置好了”（om_x100b61b72ca8b4b4b328959fe4752b6），故判定失败，没有目标群新的run/送达验收。限范围证据.cache/feishu-real-acceptance-20261102/evidence.json（0700/0600）。
+模型随后直接写agent.yaml，新增精确群binding及profile，没有调用官方validate/update。config.reload事件01M6DH5E5PSAAQDKZMNQ492RM9明确ok:false：与泛用feishu-observer可能同会话却不同profile；运行时仍保留observer/session2017。模型仍向主人成功发出“配置好了”（<native-message-id>），故判定失败，没有目标群新的run/送达验收。限范围证据.cache/feishu-real-acceptance-20261102/evidence.json（0700/0600）。
 
 新根因：每轮模型缺少原生接纳状态；管理patch在合并前解析被拒绝的磁盘配置，连撤销修复也被同一语义错误阻止；顺序路由与跨profile冲突校验对精确群覆盖的契约存在缺口。正在补共享状态与修复路径，不靠预先配好群伪造自然需求通过。
 
