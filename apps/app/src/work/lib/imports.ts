@@ -1,7 +1,7 @@
 import type { TodoItem, UsageTotals } from "../api/types";
 import type { ChatItem } from "./chat";
 
-// imports.list / imports.show 的返回形状（packages/core/src/imports/pi-sessions.ts）。
+// imports.list / imports.show 的返回形状（packages/local-host/src/imports/pi-sessions.ts）。
 export interface ImportSummary {
 	id: string;
 	sessionId?: string;

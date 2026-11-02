@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
-import { manageService, requestControl } from "@yonder/core";
+import { manageService, requestControl } from "@yonder/local-host";
 import { loginChannel } from "../channels-login.js";
 import { applyMigration, defaultMigrateOptions, planMigration } from "../migrate.js";
 import { formatMigration, rollbackMigration } from "../migrate-rollback.js";

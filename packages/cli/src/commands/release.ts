@@ -7,7 +7,7 @@ import {
 	releaseInfo,
 	requestControl,
 	updateRelease,
-} from "@yonder/core";
+} from "@yonder/local-host";
 import type { SessionInfo } from "@yonder/sdk";
 import { completion } from "../completion.js";
 import {

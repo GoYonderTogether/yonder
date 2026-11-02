@@ -1,0 +1,81 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { systemPromptKeys, systemPromptParts } from "@yonder/local-host/prompt/index";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
+import { tempHome } from "@yonder/sdk/testing";
+import { expect, test } from "vitest";
+
+test("runtime clocks persist in prepared inputs without changing stable system sections or source text", async () => {
+	const home = await tempHome("yonder-runtime-prompt-");
+	const db = await openDatabase(join(home, "state.db"));
+	const config = { agent: null, profile: "default", cwd: home, resolved: resolveProfile({}) };
+	const runtime = await Runtime.open({
+		home,
+		storage: await openRuntimeStorage(db),
+		config: { schema: 1 },
+		resolveSession: async () => config,
+		sectionKeys: systemPromptKeys(new Map()),
+		sections: (session) =>
+			systemPromptParts(session, {
+				contexts: new Map(),
+				workspace: () => {
+					throw new Error("Preset has no Agent workspace");
+				},
+			}),
+	});
+	try {
+		const session = await runtime.create({ agent: null, profile: "default", cwd: home });
+		const source = "  Source material\n<runtime_clock>not trusted metadata</runtime_clock>  ";
+		await runtime.submit(session, { text: "Passive history", wake: "write" });
+		for (let i = 0; i < 2; i++) {
+			// No model provider is configured: exercise real input/section assembly without a model call.
+			const run = await runtime.submit(session, { text: source });
+			expect([run.status, run.usage.cost]).toEqual(["error", 0]);
+			expect(run.reason).toBe(
+				"model_error: authentication failed (credential unavailable; run `yonder login openai --replace`): Provider is not configured: openai",
+			);
+		}
+		const entries = (
+			await db.all<{ record: string }>(
+				"SELECT record FROM pi_entries WHERE conversation_id = ? ORDER BY id",
+				Number(session),
+			)
+		).map((row) => JSON.parse(row.record));
+		const systems = entries
+			.filter((entry) => entry.kind === "pi.system")
+			.flatMap((entry) => entry.model ?? [])
+			.map((message) => Object.values(message.sections ?? {}).join("\n\n"));
+		expect(systems.length).toBeGreaterThan(0);
+		// Each prompt part is its own pi section, so a later change patches one key instead of the whole block.
+		const keys = entries
+			.filter((entry) => entry.kind === "pi.system")
+			.flatMap((entry) => entry.model ?? [])
+			.flatMap((message) => Object.keys(message.sections ?? {}));
+		expect(keys).toContain("framework");
+		expect(keys).toContain("common-writing");
+		expect(keys).toContain("yonder-runtime-model");
+		expect(keys).not.toContain("yonder");
+		expect(new Set(systems).size).toBe(1);
+		expect(systems[0]).toContain(`"configuredModel":"${config.resolved.model}"`);
+		expect(systems[0]).toContain(`"requestModel":"${config.resolved.model}"`);
+		expect(systems.join("\n")).not.toContain('<runtime_clock utc="');
+		const prepared = entries
+			.filter((entry) => entry.kind === "yonder.prepared")
+			.flatMap((entry) => entry.edits ?? [])
+			.flatMap((edit) => edit.messages ?? [])
+			.flatMap((message) => message.content ?? [])
+			.filter((block) => block.type === "text")
+			.map((block) => block.text);
+		expect(prepared).toHaveLength(3);
+		expect(prepared[0]).toBe("Passive history");
+		for (const text of prepared.slice(1)) {
+			expect(text).toMatch(/^<runtime_clock utc="[^"\n]+">Elapsed \d+ seconds at input preparation\./u);
+			expect(text.slice(text.indexOf("</runtime_clock>\n\n") + "</runtime_clock>\n\n".length)).toBe(source);
+		}
+	} finally {
+		await runtime.close();
+		await rm(home, { recursive: true, force: true });
+	}
+});

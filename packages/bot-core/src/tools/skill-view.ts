@@ -1,8 +1,8 @@
+import { coreToolCapabilities } from "@yonder/runtime-adapter/runtime/tool-catalog";
 import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import type { Tool } from "@yonder/sdk";
 import { Type } from "typebox";
 import type { Skills } from "../skills/index.js";
-import { coreToolCapabilities } from "./catalog.js";
 
 export function createSkillTool(skills: Skills, resolveSession: (id: string) => Promise<RuntimeSessionConfig>): Tool {
 	return {

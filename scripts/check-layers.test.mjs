@@ -6,6 +6,7 @@ import {
 	findPurityViolations,
 	findRuntimeImportViolations,
 	findViolations,
+	findWorkspaceViolations,
 	importedSpecifiers,
 	MODULE_LAYERS,
 	moduleOf,
@@ -83,7 +84,7 @@ test("模块与目标文件按 bot-core 目录映射，根文件自成模块", (
 test("只把上行边算作违规，同层与下行不算", () => {
 	const found = violationsOf({
 		// tools(L2) → delivery(L4)：上行
-		"packages/bot-core/src/tools/send.ts": 'import type { Delivery } from "../delivery/index.js";\n',
+		"packages/bot-core/src/tools/send.ts": 'import { createDelivery } from "../delivery/index.js";\n',
 		// tools(L2) → config(L0)：下行
 		"packages/bot-core/src/tools/ok.ts": 'import { CONSOLE } from "../config/console.js";\n',
 		// routing(L3) → delivery(L4)：上行（routing 在 delivery 之下）
@@ -106,8 +107,8 @@ test("只把上行边算作违规，同层与下行不算", () => {
 test("同一对模块的多次 import 合并成一条，并逐个列出位置", () => {
 	const found = violationsOf({
 		"packages/bot-core/src/tools/a.ts":
-			'import type { D } from "../delivery/index.js";\nimport type { E } from "../delivery/request.js";\n',
-		"packages/bot-core/src/tools/b.ts": 'import type { F } from "../delivery/index.js";\n',
+			'import { createDelivery as D } from "../delivery/index.js";\nimport { createTargetResolver as E } from "../delivery/target.js";\n',
+		"packages/bot-core/src/tools/b.ts": 'import { createDelivery as F } from "../delivery/index.js";\n',
 	});
 	assert.equal(found.length, 1);
 	assert.equal(found[0].from, "tools");
@@ -115,7 +116,7 @@ test("同一对模块的多次 import 合并成一条，并逐个列出位置", 
 	assert.equal(found[0].count, 3, "每一处 import 都计数");
 	assert.deepEqual(found[0].files, [
 		"packages/bot-core/src/tools/a.ts → ../delivery/index.js",
-		"packages/bot-core/src/tools/a.ts → ../delivery/request.js",
+		"packages/bot-core/src/tools/a.ts → ../delivery/target.js",
 		"packages/bot-core/src/tools/b.ts → ../delivery/index.js",
 	]);
 });
@@ -306,4 +307,26 @@ test("命令行在没有违规与基线时通过；基线腐烂时失败", () =>
 	assert.deepEqual(report.added, []);
 	assert.deepEqual(report.stale, []);
 	assert.ok(report.scanned > 0);
+});
+
+test("concrete delivery service types need no forwarding ports, while runtime imports stay layered", () => {
+	assert.deepEqual(
+		violationsOf({
+			"packages/bot-core/src/tools/a.ts": 'import type { DeliveryService } from "../delivery/index.js";',
+			"packages/bot-core/src/routing/a.ts": 'import type { DeliveryService } from "../delivery/index.js";',
+		}),
+		[],
+	);
+});
+test("workspace layers cover host, runtime, SDK and plugin sources", () => {
+	const sources = {
+		"packages/runtime-adapter/src/probe.ts": 'import "@yonder/cloud-host";',
+		"packages/sdk/src/probe.ts": 'import "@yonder/bot-core";',
+		"plugins/social/src/probe.ts": 'import "@yonder/local-host";',
+		"packages/cloud-host/src/probe.ts": 'import "@yonder/bot-core";',
+	};
+	assert.deepEqual(
+		findWorkspaceViolations(Object.keys(sources), (file) => sources[file]).map((item) => item.file),
+		Object.keys(sources).slice(0, 3),
+	);
 });

@@ -11,7 +11,7 @@ const value = (used: number, limit: number | undefined, unit: string) =>
 
 /**
  * 预算只读视图：三项预算的已用量与上限。数据来自会话事件（`run.end` 的用量、`budget.exceeded` 的超限事实）
- * 与 `y_sessions.opened`，不改任何状态。注册点在 `packages/core/src/kernel/index.ts`（本卡未放开该路径），
+ * 与 `y_sessions.opened`，不改任何状态。注册点在 `packages/local-host/src/kernel/index.ts`（本卡未放开该路径），
  * 前端渲染与「超限红点」留给控制台卡。
  */
 export const budgetViewDecl: ViewDecl = {

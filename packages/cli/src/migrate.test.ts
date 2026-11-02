@@ -16,7 +16,7 @@ import {
 import { createServer } from "node:net";
 import { homedir, tmpdir, userInfo } from "node:os";
 import { delimiter, dirname, join, resolve } from "node:path";
-import { controlEndpoint, serveControl } from "@yonder/core";
+import { controlEndpoint, serveControl } from "@yonder/local-host";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test } from "vitest";
 import {
@@ -218,7 +218,7 @@ test("runtime sockets are left out of the backup on purpose", async () => {
 
 test("a held home lock (the service's own) blocks apply", async () => {
 	const { options, oldHome } = await fixture();
-	const { lockHome } = await import("@yonder/core");
+	const { lockHome } = await import("@yonder/local-host");
 	await mkdir(join(oldHome, ".yonder"), { recursive: true });
 	const unlock = await lockHome(oldHome);
 	try {

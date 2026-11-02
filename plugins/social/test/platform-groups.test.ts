@@ -1,10 +1,10 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { initHome } from "@yonder/local-host/kernel/home";
+import { openKernel } from "@yonder/local-host/kernel/index";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse } from "yaml";
-import { initHome } from "../../../packages/core/src/kernel/home.js";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { groupFixture } from "./group-fixture.js";
 
 test.each([false, true])(

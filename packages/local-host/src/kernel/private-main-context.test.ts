@@ -1,9 +1,9 @@
+import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
+import { conversationPromptOptions } from "@yonder/local-host/kernel/conversation";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db.js";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
-import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db.js";
-import { createStore } from "@yonder/local-host/store/index";
-import { conversationPromptOptions } from "@yonder/local-host/kernel/conversation";
-import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
 
 const agent = (id: string, name: string) =>
 	parseAgentConfig(

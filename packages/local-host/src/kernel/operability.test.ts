@@ -1,12 +1,12 @@
+import { projectAgentOperability } from "@yonder/bot-core/kernel/agent-operability";
+import { projectConversationOperability } from "@yonder/bot-core/kernel/operability";
+import { platformGroupBinding } from "@yonder/bot-core/routing/platform-group.js";
+import { socialPluginHooks } from "@yonder/local-host/kernel/social-plugin.test-support";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db.js";
 import type { Channel } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parseAgentConfig } from "../config/index.js";
-import { platformGroupBinding } from "@yonder/bot-core/routing/platform-group.js";
-import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db.js";
-import { createStore } from "@yonder/local-host/store/index";
-import { projectAgentOperability } from "@yonder/bot-core/kernel/agent-operability";
-import { projectConversationOperability } from "@yonder/bot-core/kernel/operability";
-import { socialPluginHooks } from "@yonder/local-host/kernel/social-plugin.test-support";
 import { batchPreflightData } from "./social-preflight.js";
 
 test("inspect projects bounded exact-conversation facts and follows QQ batch source edges", async () => {

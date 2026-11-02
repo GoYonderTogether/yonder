@@ -5,10 +5,10 @@
 			"path": "../sdk"
 		},
 		{
-			"path": "../core"
+			"path": "../gateway"
 		},
 		{
-			"path": "../gateway"
+			"path": "../local-host"
 		}
 	]
 }

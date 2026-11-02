@@ -1,4 +1,4 @@
-import { requestControl } from "@yonder/core";
+import { requestControl } from "@yonder/local-host";
 
 export interface ChannelsLoginParams {
 	instance?: string;

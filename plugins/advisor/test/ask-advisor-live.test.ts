@@ -1,9 +1,9 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { initHome, openKernel } from "@yonder/local-host/kernel/index";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
 
 const model = "workbuddy/deepseek-v4.1-flash";
 

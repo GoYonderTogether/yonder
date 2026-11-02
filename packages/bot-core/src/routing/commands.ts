@@ -7,11 +7,11 @@ import {
 	type SessionInfo,
 	type YEvent,
 } from "@yonder/sdk";
+import type { DeliveryService } from "../delivery/index.js";
 import type { createSessions } from "../sessions/index.js";
 import type { SkillsReport } from "../skills/index.js";
 import type { Store } from "../store/contracts.js";
 import { newEvent } from "../store/index.js";
-import type { CommandDeliveryPort } from "./command-delivery.js";
 
 /** Extra slash commands and background aliases (X14/B6). `argumentHint` feeds autocomplete. */
 export const extraSlashCommands = [
@@ -37,7 +37,7 @@ export async function runChannelCommand(
 	services: {
 		store: Store;
 		sessions: ReturnType<typeof createSessions>;
-		delivery: CommandDeliveryPort;
+		delivery: Pick<DeliveryService, "sendCommand">;
 		skills: (profile: RuntimeSessionConfig) => Promise<SkillsReport>;
 		login?: (instance?: string) => Promise<ChannelLoginResult>;
 		reload?: () => Promise<unknown>;

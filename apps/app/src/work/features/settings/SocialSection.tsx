@@ -38,7 +38,7 @@ interface SocialUpdateResult {
 	revision: string;
 }
 
-/** policy.mode 的取值（packages/core/src/config/social-schema.ts）。 */
+/** policy.mode 的取值（packages/bot-definition/src/social-schema.ts）。 */
 const MODES = [
 	{ value: "mention", label: "只看 @" },
 	{ value: "batch", label: "打包合并" },

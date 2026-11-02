@@ -1,11 +1,11 @@
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
 import { createRegistrationCollector } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse } from "yaml";
-import { resolveProfile } from "../../../packages/core/src/config/test-support.js";
-import { openDatabase, openRuntimeStorage } from "../../../packages/core/src/runtime/db.js";
-import { Runtime } from "../../../packages/core/src/runtime/index.js";
 import plugin from "../src/index.js";
 
 test.skipIf(process.env.YONDER_ENCLOSING_REAL !== "1")(
@@ -18,7 +18,7 @@ test.skipIf(process.env.YONDER_ENCLOSING_REAL !== "1")(
 		await writeFile(join(home, "auth.json"), JSON.stringify({ siliconflow: auth.siliconflow }), { mode: 0o600 });
 		const workspace = join(home, "workspace");
 		await mkdir(workspace);
-		await cp(resolve("packages/core/src/runtime/grep.ts"), join(workspace, "grep.ts"));
+		await cp(resolve("packages/runtime-adapter/src/runtime/grep.ts"), join(workspace, "grep.ts"));
 		const { api, registrations } = createRegistrationCollector();
 		plugin.setup(api as never);
 		const profile = resolveProfile({

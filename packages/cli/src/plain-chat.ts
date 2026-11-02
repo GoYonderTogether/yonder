@@ -1,6 +1,6 @@
 import { env, stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
-import { observeControl, requestControl, type TerminalUpdate } from "@yonder/core";
+import { observeControl, requestControl, type TerminalUpdate } from "@yonder/local-host";
 import type { SessionInfo, YEvent } from "@yonder/sdk";
 import type { ChatTarget } from "./terminal.js";
 

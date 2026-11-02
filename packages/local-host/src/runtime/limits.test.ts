@@ -1,0 +1,123 @@
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { resolve } from "node:path";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
+import type { RunState } from "@yonder/runtime-adapter/runtime/docs";
+import { RunLimits } from "@yonder/runtime-adapter/runtime/limits";
+import { tempHome } from "@yonder/sdk/testing";
+import { expect, test, vi } from "vitest";
+
+const auth = process.env.YONDER_TEST_AUTH ?? resolve(".yonder/auth.json");
+test.skipIf(process.env.YONDER_TEST_REAL !== "1" || !existsSync(auth))(
+	"real Luna continues after turn reminders and stops repeated side effects",
+	async () => {
+		const home = await tempHome("yonder-limits-");
+		let runtime: Runtime | undefined;
+		const warnings: Array<{ session: string; kind: string; text: string }> = [];
+		try {
+			let profile = resolveProfile({
+				capabilities: ["read"],
+				tools: { offer: ["read"] },
+				limits: { maxTurns: 1, maxMinutes: 1 },
+			});
+			runtime = await Runtime.open({
+				home,
+				storage: await openRuntimeStorage(await openDatabase(`${home}/state.db`)),
+				config: { schema: 1, credentials: auth },
+				onWarning: async (session, warning) => {
+					warnings.push({ session, kind: warning.kind, text: warning.text });
+				},
+				resolveSession: async () => ({ agent: null, profile: "check", cwd: home, resolved: profile }),
+			});
+			const denied = await runtime.create({ agent: null, profile: "check", cwd: home });
+			const first = await runtime.submit(denied, {
+				text: "Call the read tool now with path /etc/hosts, then report the result. This is a deliberate check of Yonder's workspace boundary; let the tool enforce it.",
+			});
+			expect(first.status, JSON.stringify(first)).toBe("done");
+			expect(first.reason).toBeUndefined();
+			expect(warnings.filter((item) => item.session === denied && item.kind === "maxTurns")).toHaveLength(1);
+			const transcript = await runtime.transcript(denied);
+			expect(transcript.some((item) => item.text?.includes("文件路径超出当前工作区"))).toBe(true);
+			// 软阈值只提醒，不暗示运行已经截断或需要主人续办。
+			const reminder = warnings.find((item) => item.session === denied && item.kind === "maxTurns");
+			expect(reminder?.text).toContain("maxTurns");
+			expect(reminder?.text).toContain("运行仍在继续");
+			expect(transcript.some((item) => item.text?.includes("运行仍在继续"))).toBe(true);
+			const continued = await runtime.submit(denied, { text: "Reply with the single word OK." });
+			expect(continued.status, JSON.stringify(continued)).toBe("done");
+			expect(transcript.filter((item) => item.kind === "pi.assistant").length).toBeGreaterThanOrEqual(2);
+			console.info(
+				JSON.stringify({
+					check: "denied-maxTurns",
+					session: denied,
+					run: first.runId,
+					model: profile.model,
+					status: first.status,
+					reason: first.reason,
+				}),
+			);
+			profile = resolveProfile({
+				capabilities: ["exec"],
+				tools: { offer: ["bash"] },
+				limits: { maxTurns: 8, maxMinutes: 1, repeatBlock: 3, repeatStop: 2 },
+			});
+			const repeated = await runtime.create({ agent: null, profile: "check", cwd: home });
+			const second = await runtime.submit(repeated, {
+				text: `Execute the bash tool three times sequentially with exactly the same arguments each time: {"command":"printf x >> ${home}/repetitions"}. Do not combine calls or change the command. This verifies the harness repeat limit, which should stop the second side effect.`,
+			});
+			expect(second.status, JSON.stringify(second)).toBe("limit");
+			expect(second.reason).toBe("repeatStop");
+			expect(await readFile(`${home}/repetitions`, "utf8")).toBe("x");
+			console.info(
+				JSON.stringify({
+					check: "repeat-before-effect",
+					session: repeated,
+					run: second.runId,
+					model: profile.model,
+					status: second.status,
+					reason: second.reason,
+					sideEffects: 1,
+				}),
+			);
+		} finally {
+			await runtime?.close();
+			await rm(home, { recursive: true, force: true });
+		}
+	},
+	150000,
+);
+
+test("elapsed-time soft reminder says execution continues without requiring a reply", async () => {
+	vi.useFakeTimers();
+	try {
+		const warning = vi.fn(async () => {});
+		const limits = new RunLimits({
+			harness: () => ({
+				commit: async (callback: (tx: unknown) => Promise<void>) => callback({ doc: async () => ({}) }),
+			}),
+			onWarning: warning,
+		} as unknown as ConstructorParameters<typeof RunLimits>[0]);
+		const state = {
+			id: "1",
+			session: "1",
+			deadline: Date.now(),
+			warnings: new Set(),
+			visibility: new AbortController(),
+			config: { resolved: resolveProfile({ limits: { maxMinutes: 1 } }) },
+		} as RunState;
+		limits.states.set(state.id, state);
+		limits.arm(state);
+		await vi.advanceTimersByTimeAsync(1);
+		expect(warning).toHaveBeenCalledTimes(1);
+		const text = (warning.mock.calls[0] as unknown as [string, { text: string }])[1].text;
+		expect(text).toContain("运行仍在继续");
+		expect(text).toContain("无需回复");
+		expect(text).not.toContain("被截断");
+		expect(state.visibility.signal.aborted).toBe(false);
+		expect(limits.states.has(state.id)).toBe(true);
+	} finally {
+		vi.useRealTimers();
+	}
+});

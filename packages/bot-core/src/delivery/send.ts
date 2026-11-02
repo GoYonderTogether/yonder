@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
+import type { MessageRequest } from "@yonder/bot-core/delivery/index";
 import type { AgentConfig } from "@yonder/bot-definition";
 import { assertChannelInstance } from "@yonder/bot-definition/console";
 import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
@@ -16,7 +17,6 @@ import type { Store } from "../store/contracts.js";
 import { persistConsole, type Scope } from "./console.js";
 import type { createLedger } from "./ledger.js";
 import { sourceMessage } from "./model-notice.js";
-import type { MessageRequest } from "./request.js";
 import { channelId, type DeliveryOptions, message, selectedHooks } from "./shared.js";
 import type { createReplyGuard } from "./social-guard.js";
 

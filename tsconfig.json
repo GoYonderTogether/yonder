@@ -32,9 +32,6 @@
 			"path": "packages/cloud-host"
 		},
 		{
-			"path": "packages/core"
-		},
-		{
 			"path": "packages/gateway"
 		},
 		{

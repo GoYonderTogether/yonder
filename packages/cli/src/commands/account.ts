@@ -1,6 +1,6 @@
 import { stderr, stdin, stdout } from "node:process";
 import { createInterface } from "node:readline";
-import type { LoginInteraction } from "@yonder/core";
+import type { LoginInteraction } from "@yonder/local-host";
 import {
 	bundleIds,
 	initHome,
@@ -9,7 +9,7 @@ import {
 	manageCredentialSlots,
 	migrateCardVisitor,
 	setNamedCredential,
-} from "@yonder/core";
+} from "@yonder/local-host";
 import { readHiddenCredential } from "../credential-input.js";
 import { homeFor, loginMessage, type Options, output, print, UsageError } from "./context.js";
 

@@ -1,3 +1,4 @@
+import type { MessageRequest } from "@yonder/bot-core/delivery/index";
 import type { AgentConfig, Binding } from "@yonder/bot-definition";
 import type { Runtime, RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import { type Channel, type Delivery, type Hook, parseRef, type SessionInfo, type YEvent } from "@yonder/sdk";
@@ -5,7 +6,6 @@ import type { ParticipationHooks } from "../routing/social.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/contracts.js";
 import type { OutputQueue, ReplyText } from "./reply-text.js";
-import type { MessageRequest } from "./request.js";
 
 export interface DeliveryOptions {
 	hooks?: Map<string, Hook[]>;

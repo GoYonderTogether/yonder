@@ -1,4 +1,4 @@
-import type { DbExecutor } from "@yonder/bot-core/store/db";
+import type { DbExecutor } from "@yonder/runtime-adapter/contracts";
 
 /** 账本里一天一格：`day` 是主人时区下的 `YYYY-MM-DD`，`scope`+`key` 是被计量的对象（IMP-19）。 */
 export type QuotaScope = "guest_qr" | "guest_rounds" | "guest_source" | "owner" | "person";

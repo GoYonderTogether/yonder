@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { lstat, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection, createServer } from "node:net";
 import { join, resolve } from "node:path";
-import { initHome, openKernel, requestControl } from "@yonder/core";
+import { initHome, openKernel, requestControl } from "@yonder/local-host";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";

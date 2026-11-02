@@ -6,9 +6,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Channel, EventInput, PluginAPI, ToolContext } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test, vi } from "vitest";
-import { testModel } from "../packages/core/src/config/test-support.js";
-import { openDatabase } from "../packages/core/src/runtime/db.js";
-import { createStore } from "../packages/core/src/store/index.js";
+import { testModel } from "@yonder/local-host/config/test-support";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
+import { createStore } from "@yonder/local-host/store/index";
 import { createClient } from "../plugins/channel-wechat-ilink/src/client.js";
 import ilink from "../plugins/channel-wechat-ilink/src/index.js";
 import { Archive } from "../plugins/wechat-archive/src/archive.js";
@@ -412,7 +412,7 @@ test("archive media reader rejects symlink escapes and raw XML is never exposed"
 });
 
 async function kernelHome(real = false) {
-	const { initHome, inspectHome, openKernel } = await import("../packages/core/src/kernel/index.js");
+	const { initHome, inspectHome, openKernel } = await import("@yonder/local-host/kernel/index");
 	const { parse, stringify } = await import("yaml");
 	const home = await tempHome("yonder-wechat-kernel-");
 	await initHome(home, "owner", { model: testModel });

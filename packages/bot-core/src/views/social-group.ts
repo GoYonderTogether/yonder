@@ -5,7 +5,7 @@ import type { GroupDisplay } from "../routing/group-session.js";
 export const socialDisplayViewId = "core.social.display";
 
 /**
- * 群显示视图。注册点在 `packages/core/src/kernel/index.ts`（本卡未放开该路径），
+ * 群显示视图。注册点在 `packages/local-host/src/kernel/index.ts`（本卡未放开该路径），
  * 群会话列表前端另卡（SOC01 G-03）；这里只提供与 `builtinViews` 同形的声明与数据源。
  */
 export function socialDisplayView(display: GroupDisplay): { decl: ViewDecl; provider: ViewProvider } {

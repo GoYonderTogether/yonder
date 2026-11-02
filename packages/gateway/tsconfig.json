@@ -5,10 +5,10 @@
 			"path": "../sdk"
 		},
 		{
-			"path": "../core"
+			"path": "../protocol"
 		},
 		{
-			"path": "../protocol"
+			"path": "../local-host"
 		}
 	]
 }

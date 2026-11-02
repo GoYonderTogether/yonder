@@ -1,9 +1,9 @@
+import type { MessageRequest } from "@yonder/bot-core/delivery/index";
 import type { Runtime, RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import type { Channel, Delivery, SessionInfo, ToolContext } from "@yonder/sdk";
 import type { Store } from "../store/contracts.js";
 import type { Scope } from "./console.js";
 import { sourceMessage } from "./model-notice.js";
-import type { MessageRequest } from "./request.js";
 import { fromSession, message } from "./shared.js";
 
 /** Everything a tool's `message.send` needs: runtime checks, reply binding and the final proactive send. */

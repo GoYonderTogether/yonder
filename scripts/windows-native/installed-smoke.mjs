@@ -20,7 +20,7 @@ export async function smokeInstalled(root, home) {
 	home = resolve(home);
 	const record = JSON.parse(await readFile(join(root, ".yonder-install.json"), "utf8"));
 	const cli = join(root, "packages/cli/dist/index.js");
-	const { requestControl } = await import(pathToFileURL(join(root, "packages/core/dist/index.js")).href);
+	const { requestControl } = await import(pathToFileURL(join(root, "packages/local-host/dist/index.js")).href);
 	for (let round = 1; round <= 2; round++) {
 		const child = spawn(process.execPath, [cli, "--home", home, "--json", "start"], {
 			cwd: root,

@@ -197,7 +197,7 @@ test("views protocol keeps every golden shape (golden ⊆ current)", async () =>
 });
 
 test("builtin views conform to the frozen ViewDecl shape", async () => {
-	const { builtinViews } = await import(source("../../core/src/views/builtin.ts"));
+	const { builtinViews } = await import(source("../../bot-core/src/views/builtin.ts"));
 	const decl = split((await currentShapes()).ViewDecl);
 	const placements = sdk.enums.Placement;
 	for (const { decl: view } of builtinViews() as { decl: ViewDecl }[]) {

@@ -1,10 +1,10 @@
 import { cp, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
+import { cacheToolOutput } from "@yonder/runtime-adapter/node/runtime/tool-output-cache";
 import type { ToolContext } from "@yonder/sdk";
 import { createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { cacheToolOutput } from "../../../packages/core/src/runtime/tool-output-cache.js";
 import plugin from "../src/index.js";
 import { executable } from "./cli.js";
 
@@ -42,8 +42,12 @@ test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript 
 	expect(result.text).toContain('"read":');
 	const structure = JSON.parse(
 		withoutFooter(
-			(await tool.execute({ paths: ["packages/core/src/runtime/outbox.ts"], items: "all", view: "expanded" }, ctx))
-				.text,
+			(
+				await tool.execute(
+					{ paths: ["packages/runtime-adapter/src/runtime/outbox.ts"], items: "all", view: "expanded" },
+					ctx,
+				)
+			).text,
 		),
 	).outline[0].items;
 	expect(structure.some((item: { isExported: boolean }) => item.isExported)).toBe(true);
@@ -53,7 +57,12 @@ test.skipIf(!executable("ast-grep"))("outline uses real ast-grep for TypeScript 
 	const filtered = JSON.parse(
 		(
 			await tool.execute(
-				{ paths: ["packages/core/src/runtime/index.ts"], items: "exports", type: ["class"], match: "Runtime" },
+				{
+					paths: ["packages/runtime-adapter/src/node/runtime/index.ts"],
+					items: "exports",
+					type: ["class"],
+					match: "Runtime",
+				},
 				ctx,
 			)
 		).text.replace(/\nusage tokens=.*$/, ""),

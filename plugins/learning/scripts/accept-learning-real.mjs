@@ -12,7 +12,7 @@ assert.match(await readFile(join(home, ".verify-copy"), "utf8"), /^pool\/t09r5\s
 process.env.YONDER_PROVIDER_TRACE = join(home, "trace");
 process.env.NO_PROXY = `${process.env.NO_PROXY ?? ""},localhost,127.0.0.1,api.siliconflow.cn`;
 process.env.no_proxy = process.env.NO_PROXY;
-const { openKernel } = await import("@yonder/core");
+const { openKernel } = await import("@yonder/local-host");
 const evidence = { started: new Date().toISOString(), home, turns: [], checkpoints: [] };
 const evidenceFile = join(home, "learning-ab-evidence.json");
 const save = () => writeFile(evidenceFile, JSON.stringify(evidence, null, 2), { mode: 0o600 });

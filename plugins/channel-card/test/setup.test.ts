@@ -1,14 +1,14 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { matches, sessionKey } from "@yonder/bot-core/routing/matching";
+import { initHome } from "@yonder/local-host/kernel/home";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db";
 import type { YEvent } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { parseAgentConfig } from "../../../packages/core/src/config/index.js";
-import { initHome } from "../../../packages/core/src/kernel/home.js";
-import { matches, sessionKey } from "../../../packages/core/src/routing/matching.js";
-import { openDatabase } from "../../../packages/core/src/runtime/db.js";
-import { createStore } from "../../../packages/core/src/store/index.js";
+import { parseAgentConfig } from "../../../packages/local-host/src/config/index.js";
 import { upgradeGroups } from "../src/setup.js";
 
 test("explicit card upgrade adds isolated read-only group route once and preserves custom bindings", async () => {

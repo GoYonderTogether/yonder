@@ -1,10 +1,10 @@
+import type { MessageRequest } from "@yonder/bot-core/delivery/index";
 import type { AgentConfig } from "@yonder/bot-definition";
 import { allowsChannelInstance, assertChannelInstance } from "@yonder/bot-definition/console";
 import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import { type Channel, parseRef } from "@yonder/sdk";
 import type { Store } from "../store/contracts.js";
 import { consoleAllowed, type Scope } from "./console.js";
-import type { MessageRequest } from "./request.js";
 import { channelId } from "./shared.js";
 
 export function createTargetResolver({

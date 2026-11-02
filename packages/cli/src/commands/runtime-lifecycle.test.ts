@@ -10,7 +10,7 @@ const lifecycle = vi.hoisted(() => ({
 	startGateway: vi.fn(),
 	serveControl: vi.fn(),
 }));
-vi.mock("@yonder/core", () => ({
+vi.mock("@yonder/local-host", () => ({
 	offlineQuery: async () => [{ id: "interaction" }],
 	openKernel: async () => ({ close: lifecycle.kernelClose, setWorkHost: () => {} }),
 	gatewaySettings: async () => ({ enabled: true }),

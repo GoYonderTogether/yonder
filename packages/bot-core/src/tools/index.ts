@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type AgentConfig, canReceivePeerAsk, presetSession, resolveProfile } from "@yonder/bot-definition";
 import { CredentialSlotsSchema } from "@yonder/bot-definition/schema";
 import { modelProfiles } from "@yonder/runtime-adapter/runtime/model-profile.js";
+import { coreToolCapabilities } from "@yonder/runtime-adapter/runtime/tool-catalog";
 import type { Runtime, RuntimeInput } from "@yonder/runtime-adapter/types";
 import type {
 	AskResult,
@@ -16,12 +17,11 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
+import type { DeliveryService } from "../delivery/index.js";
 import { captureExecutionOwner } from "../sessions/execution-source.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/contracts.js";
 import { ownerIdentity } from "../store/sessions.js";
-import { coreToolCapabilities } from "./catalog.js";
-import type { DeliveryPort } from "./delivery-port.js";
 import { fail, requireCapability, tool, withSignal } from "./helpers.js";
 import { createModelRouteTool } from "./model-route.js";
 import { parentSources } from "./parent-origin.js";
@@ -36,7 +36,7 @@ interface CoreToolsOptions {
 	agents: Map<string, AgentConfig>;
 	sessions: Sessions;
 	runtime: () => Runtime;
-	delivery: DeliveryPort;
+	delivery: Pick<DeliveryService, "sendTool">;
 	ask(input: EventInput): Promise<AskResult>;
 	getPreset(id: string): Preset | undefined;
 	presets?: () => Preset[];
@@ -173,7 +173,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				attachments: Type.Optional(Type.Array(attachmentSchema)),
 			}),
 			execute: async (args, ctx) => {
-				const sent = await delivery.sendTool(ctx, args as Parameters<DeliveryPort["sendTool"]>[1]);
+				const sent = await delivery.sendTool(ctx, args as Parameters<DeliveryService["sendTool"]>[1]);
 				return { ...result(sent), ...(!sent.ok ? { isError: true } : {}) };
 			},
 		}),

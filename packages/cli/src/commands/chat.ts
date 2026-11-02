@@ -1,5 +1,5 @@
 import { stdin, stdout } from "node:process";
-import { attachmentFromPath, requestControl } from "@yonder/core";
+import { attachmentFromPath, requestControl } from "@yonder/local-host";
 import type { Attachment, EventQuery, SessionInfo } from "@yonder/sdk";
 import { plainTaskChat } from "../plain-chat.js";
 import type { ChatTarget } from "../terminal.js";

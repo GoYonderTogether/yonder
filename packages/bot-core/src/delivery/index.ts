@@ -1,9 +1,8 @@
 import type { Runtime, RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
-import type { Delivery, SessionInfo, ToolContext, YEvent } from "@yonder/sdk";
+import type { Delivery, OutMessage, SessionInfo, ToolContext, YEvent } from "@yonder/sdk";
 import { createLedger } from "./ledger.js";
 import { sourceMessage } from "./model-notice.js";
 import { createReplies } from "./replies.js";
-import type { MessageRequest } from "./request.js";
 import { createSender } from "./send.js";
 import { bindingFor, channelId, type DeliveryOptions, fromSession, type StreamEntry, waiting } from "./shared.js";
 import { createReplyGuard } from "./social-guard.js";
@@ -13,7 +12,7 @@ import { createVisibility } from "./visibility.js";
 
 export { sourceMessage, stopNotice } from "./model-notice.js";
 export { ReplyText } from "./reply-text.js";
-export type { MessageRequest } from "./request.js";
+export type MessageRequest = OutMessage & { to: string; via?: string; signal?: AbortSignal };
 export type { DeliveryOptions } from "./shared.js";
 
 export function createDelivery(options: DeliveryOptions) {

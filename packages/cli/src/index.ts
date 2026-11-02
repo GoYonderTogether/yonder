@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { env, stdin, stdout } from "node:process";
 import { pathToFileURL } from "node:url";
-import { installedService } from "@yonder/core";
+import { installedService } from "@yonder/local-host";
 import { runAccount } from "./commands/account.js";
 import { runChannels } from "./commands/channels.js";
 import { runChat } from "./commands/chat.js";

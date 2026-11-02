@@ -18,8 +18,8 @@ import {
 	type TextLineReader,
 } from "@earendil-works/pi-durable/env";
 import { localEnvironment } from "./env.js";
-import type { RuntimeInternals } from "./instance.js";
-import type { RuntimeSessionConfig } from "./types.js";
+import type { RuntimeInternals } from "@yonder/runtime-adapter/runtime/instance";
+import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 
 type Operation = (action: string, args: Record<string, unknown>, context: Context) => Promise<unknown>;
 export function remoteEnvironment(rt: RuntimeInternals, config: RuntimeSessionConfig, deviceId: string): ExecutionEnv {

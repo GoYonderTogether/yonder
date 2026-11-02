@@ -7,7 +7,7 @@ import { Type } from "typebox";
 
 import { hostedProcessSpawner } from "./hosted-process.js";
 import { cacheToolOutput } from "./tool-output-cache.js";
-import type { RuntimeSessionConfig } from "./types.js";
+import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 
 export const inspectContextEnv = "YONDER_RUNTIME_INSPECT_CONTEXT";
 

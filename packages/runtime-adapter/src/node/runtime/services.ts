@@ -3,8 +3,8 @@ import { InboxDoc, LiveDoc } from "@earendil-works/pi-durable";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import type { Models, ServiceEndpoint } from "@yonder/sdk";
 import { loginProvider } from "./auth.js";
-import type { RuntimeInternals } from "./instance.js";
-import type { RuntimeSessionConfig } from "./types.js";
+import type { RuntimeInternals } from "@yonder/runtime-adapter/runtime/instance";
+import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 
 export { hasPendingWork, writeNote } from "../../runtime/services.js";
 

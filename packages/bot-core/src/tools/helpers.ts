@@ -1,5 +1,5 @@
+import { coreToolCapabilities } from "@yonder/runtime-adapter/runtime/tool-catalog";
 import type { Tool, ToolContext, ToolResult } from "@yonder/sdk";
-import { coreToolCapabilities } from "./catalog.js";
 
 export const fail = (e: unknown): ToolResult => ({ text: e instanceof Error ? e.message : String(e), isError: true });
 /** Capability metadata comes from the catalog; every failure becomes a tool result instead of a thrown call. */

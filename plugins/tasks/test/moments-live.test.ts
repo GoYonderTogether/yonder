@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { openKernel } from "@yonder/local-host/kernel/index";
 import type { PluginAPI, Tool, ToolContext, Trigger } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
 import { stringify } from "yaml";
-import { openKernel } from "../../../packages/core/src/kernel/index.js";
 import { type Config, tick } from "../src/moments.js";
 import { Store } from "../src/store/index.js";
 

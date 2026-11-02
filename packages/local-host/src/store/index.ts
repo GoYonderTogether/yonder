@@ -1,8 +1,8 @@
-import type { Db, DbExecutor, DbValue } from "@yonder/bot-core/store/db";
 import { newEvent } from "@yonder/bot-core/store/event";
 import { migrate } from "@yonder/local-host/store/migrations";
 import { type QuotaStore, quotaStore } from "@yonder/local-host/store/quota";
 import { sessionStore } from "@yonder/local-host/store/sessions";
+import type { Db, DbExecutor, DbValue } from "@yonder/runtime-adapter/contracts";
 import type { AccountInfo, EventInput, EventPage, EventQuery, IdentityAPI, Ref, Route, YEvent } from "@yonder/sdk";
 import { parseRef, person } from "@yonder/sdk";
 import { budgetStore, notificationStore } from "./state.js";

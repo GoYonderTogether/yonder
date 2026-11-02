@@ -1,6 +1,6 @@
 import { mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { Db } from "@yonder/bot-core/store/db";
+import type { Db } from "@yonder/runtime-adapter/contracts";
 
 export interface Migration {
 	version: number;

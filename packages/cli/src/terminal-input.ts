@@ -6,7 +6,7 @@ import {
 	SessionSelectorComponent,
 } from "@earendil-works/pi-coding-agent";
 import { Markdown } from "@earendil-works/pi-tui";
-import { cliChannelEndpoint, type Kernel } from "@yonder/core";
+import { cliChannelEndpoint, type Kernel } from "@yonder/local-host";
 import { chatCommands, type SessionInfo, type YEvent } from "@yonder/sdk";
 import { branchCommand } from "./branch-commands.js";
 import type { Channels, Info, Input, Presets, TerminalRuntime, View } from "./terminal-context.js";

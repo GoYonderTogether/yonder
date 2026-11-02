@@ -1,7 +1,7 @@
+import { coreToolCapabilities } from "@yonder/runtime-adapter/runtime/tool-catalog";
 import type { PermissionRequest, PermissionsAPI, Tool } from "@yonder/sdk";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { coreToolCapabilities } from "./catalog.js";
 
 type PermissionAction = "list" | "status" | "request" | "guide" | "watch";
 type PermissionArguments = { action: PermissionAction; provider?: string; kind?: string; timeout?: number };

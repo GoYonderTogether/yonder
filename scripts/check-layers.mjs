@@ -176,19 +176,17 @@ export function resolveSpecifier(fromFile, specifier, exists = (file) => existsS
 	return toPosix(`${base}/index.ts`);
 }
 
-const WORKSPACE_PACKAGES = {
-	"@yonder/bot-definition": "bot-definition",
-	"@yonder/bot-core": "bot-core",
-	"@yonder/sdk": "sdk",
-	"@yonder/runtime-adapter": "runtime-adapter",
-	"@yonder/local-host": "local-host",
-	"@yonder/core": "core",
-};
+const WORKSPACE_PACKAGES = Object.fromEntries(
+	JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")).workspaces.map((directory) => [
+		JSON.parse(readFileSync(resolve(ROOT, directory, "package.json"), "utf8")).name,
+		directory,
+	]),
+);
 
 function packageTarget(specifier, exists = existsSync, readMetadata = (file) => readFileSync(file, "utf8")) {
 	for (const [name, directory] of Object.entries(WORKSPACE_PACKAGES)) {
 		if (specifier !== name && !specifier.startsWith(`${name}/`)) continue;
-		const manifest = resolve(ROOT, `packages/${directory}/package.json`);
+		const manifest = resolve(ROOT, `${directory}/package.json`);
 		if (exists(manifest)) {
 			const text = readMetadata(manifest);
 			const exports = text === undefined ? undefined : JSON.parse(text).exports;
@@ -208,12 +206,12 @@ function packageTarget(specifier, exists = existsSync, readMetadata = (file) => 
 			}
 			const output = typeof entry === "string" ? entry : (entry?.import ?? entry?.default ?? entry?.types);
 			if (output?.startsWith("./dist/")) {
-				const target = resolve(ROOT, `packages/${directory}/src`, output.slice(7).replace(/\.d\.ts$|\.js$/, ".ts"));
+				const target = resolve(ROOT, `${directory}/src`, output.slice(7).replace(/\.d\.ts$|\.js$/, ".ts"));
 				if (exists(target)) return target;
 			}
 		}
 		const subpath = (specifier.slice(name.length).replace(/^\//, "") || "index").replace(/\.js$/, "");
-		const base = resolve(ROOT, `packages/${directory}/src`, subpath);
+		const base = resolve(ROOT, `${directory}/src`, subpath);
 		for (const candidate of [`${base}.ts`, `${base}/index.ts`]) if (exists(candidate)) return candidate;
 		return undefined;
 	}
@@ -284,6 +282,48 @@ export function findRuntimeImportViolations(files, readFile = (file) => readFile
 	return violations;
 }
 
+/** Check every workspace, including host packages and plugins, rather than one package's modules alone. */
+export function findWorkspaceViolations(files, readFile = (file) => readFileSync(resolve(ROOT, file), "utf8")) {
+	const entries = Object.entries(WORKSPACE_PACKAGES);
+	const owner = (file) => entries.find(([, directory]) => toPosix(file).startsWith(`${directory}/`));
+	const rank = (directory) => {
+		if (directory.startsWith("plugins/")) return 1;
+		return {
+			"pi-durable": 0,
+			protocol: 0,
+			design: 0,
+			sdk: 1,
+			device: 1,
+			"bot-definition": 2,
+			"runtime-adapter": 3,
+			"bot-core": 4,
+			"local-host": 5,
+			"cloud-host": 5,
+			gateway: 6,
+			cli: 7,
+			app: 7,
+		}[directory.split("/").at(-1)];
+	};
+	const violations = [];
+	for (const file of files) {
+		const source = owner(file);
+		if (!source) throw new Error(`Workspace owner missing: ${file}`);
+		for (const specifier of importedSpecifiers(readFile(file))) {
+			const targetFile = specifier.startsWith(".") ? resolveSpecifier(file, specifier) : packageTarget(specifier);
+			if (!targetFile) continue;
+			const target = owner(toPosix(relative(ROOT, resolve(ROOT, targetFile))));
+			if (!target || source[0] === target[0]) continue;
+			const sourceRank = rank(source[1]),
+				targetRank = rank(target[1]);
+			if (sourceRank === undefined || targetRank === undefined)
+				throw new Error(`Workspace layer missing: ${source[1]} -> ${target[1]}`);
+			if ((source[1].startsWith("plugins/") && target[0] !== "@yonder/sdk") || targetRank > sourceRank)
+				violations.push({ file, specifier, reason: "workspace 包分层" });
+		}
+	}
+	return violations;
+}
+
 /** Recursively check pure workspace roots, following both relative and package-barrel imports. */
 export function findPurityViolations(roots, readFile = (file) => readFileSync(file, "utf8"), exists = existsSync) {
 	const violations = [];
@@ -337,7 +377,8 @@ export function findViolations(
 		const from = moduleOf(file);
 		const fromInfo = MODULE_LAYERS[from];
 		if (!fromInfo) throw new Error(`未知模块（请补进 scripts/check-layers.mjs 的层级表）：${file}`);
-		for (const specifier of importedSpecifiers(readFile(file))) {
+		for (const ref of moduleReferences(readFile(file))) {
+			const specifier = ref.specifier;
 			const relativeTarget = specifier.startsWith(".") ? resolveSpecifier(file, specifier, exists) : undefined;
 			const target = relativeTarget
 				? resolve(ROOT, relativeTarget)
@@ -349,6 +390,8 @@ export function findViolations(
 			if (!toInfo)
 				throw new Error(`未知模块（请补进 scripts/check-layers.mjs 的层级表）：${to}（${file} → ${specifier}）`);
 			if (toInfo.level <= fromInfo.level) continue;
+			// Concrete delivery service types avoid single-implementation ports; runtime imports still obey layering.
+			if (ref.typeOnly && to === "delivery" && ["tools", "routing"].includes(from)) continue;
 			const key = `${from} -> ${to}`;
 			const existing = violations.get(key);
 			if (existing) {
@@ -415,7 +458,11 @@ function main() {
 		if (workspace === "packages/pi-durable") continue;
 		collectSourceFiles(resolve(ROOT, workspace, "src"), production);
 	}
-	const purity = [...findPurityViolations(purityRoots), ...findRuntimeImportViolations(production)];
+	const purity = [
+		...findPurityViolations(purityRoots),
+		...findRuntimeImportViolations(production),
+		...findWorkspaceViolations(production),
+	];
 
 	const added = [];
 	const within = [];
@@ -434,7 +481,16 @@ function main() {
 	if (wantJson) {
 		console.log(
 			JSON.stringify(
-				{ ok, scanned: files.length, baselineEntries: within.length + stale.length, added, within, stale, purity },
+				{
+					ok,
+					scanned: files.length,
+					workspaceScanned: production.length,
+					baselineEntries: within.length + stale.length,
+					added,
+					within,
+					stale,
+					purity,
+				},
 				null,
 				2,
 			),
@@ -444,7 +500,9 @@ function main() {
 
 	const out = [];
 	out.push("分层依赖检查（architecture §6：只允许依赖本层或更低层，含 import type；基线只减不增）");
-	out.push(`扫描 ${files.length} 个 .ts 文件，基线登记 ${within.length + stale.length} 条`);
+	out.push(
+		`扫描 ${files.length} 个共享模块 / ${production.length} 个 workspace .ts 文件，基线登记 ${within.length + stale.length} 条`,
+	);
 
 	if (added.length > 0) {
 		out.push("");

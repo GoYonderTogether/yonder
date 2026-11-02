@@ -1,3 +1,4 @@
+import type { MessageRequest } from "@yonder/bot-core/delivery/index";
 import type { Binding } from "@yonder/bot-definition";
 import { allowsChannelInstance, CONSOLE } from "@yonder/bot-definition/console";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
@@ -8,7 +9,6 @@ import { cloudFailure } from "./cloud-result.js";
 import type { createLedger } from "./ledger.js";
 import { sourceMessage, stopNotice } from "./model-notice.js";
 import { OutputQueue, ReplyText } from "./reply-text.js";
-import type { MessageRequest } from "./request.js";
 import type { createSender } from "./send.js";
 import { channelId, type DeliveryOptions, message, type StreamEntry, selectedHooks } from "./shared.js";
 import type { createReplyGuard } from "./social-guard.js";

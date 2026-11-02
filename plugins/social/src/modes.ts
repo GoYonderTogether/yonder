@@ -22,7 +22,7 @@ export interface ListenConfig {
 	mention: { strong: boolean };
 }
 
-/** 与 `packages/core/src/config/social-schema.ts` 的 `socialDefaults.listen` 一致；插件只依赖 SDK，故本地保留一份。 */
+/** 与 `packages/bot-definition/src/social-schema.ts` 的 `socialDefaults.listen` 一致；插件只依赖 SDK，故本地保留一份。 */
 export const listenDefaults: ListenConfig = {
 	mode: "realtime",
 	realtime: { quietSec: 15, maxWindowSec: 120 },

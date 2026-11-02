@@ -17,7 +17,6 @@
 		"packages/bot-core",
 		"packages/local-host",
 		"packages/cloud-host",
-		"packages/core",
 		"packages/gateway",
 		"packages/cli",
 		"apps/app",

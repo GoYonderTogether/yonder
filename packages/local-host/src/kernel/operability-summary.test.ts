@@ -1,6 +1,6 @@
-import { expect, test } from "vitest";
 import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import { summarizeAgentOperability } from "@yonder/bot-core/kernel/operability-summary";
+import { expect, test } from "vitest";
 
 test("summarizes exact current-Agent evidence without turning it into membership or permission claims", () => {
 	const summary = summarizeAgentOperability("helper", {

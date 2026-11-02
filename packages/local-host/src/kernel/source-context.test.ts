@@ -1,8 +1,8 @@
+import { batchSourceFrame } from "@yonder/bot-core/kernel/source-context";
+import { createStore } from "@yonder/local-host/store/index";
+import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db.js";
 import type { SessionInfo } from "@yonder/sdk";
 import { expect, test } from "vitest";
-import { openDatabase } from "@yonder/runtime-adapter/node/runtime/db.js";
-import { createStore } from "@yonder/local-host/store/index";
-import { batchSourceFrame } from "@yonder/bot-core/kernel/source-context";
 
 test("batch source frame verifies current sources and marks owner separately from ambient members", async () => {
 	const conv = "conv:qq:group:source-frame";

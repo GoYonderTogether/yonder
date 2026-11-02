@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { CredentialStore } from "@earendil-works/pi-ai";
 import type { YonderConfig } from "@yonder/bot-definition";
-import type { RuntimeInternals } from "./instance.js";
+import type { RuntimeInternals } from "@yonder/runtime-adapter/runtime/instance";
 import type { ModelsJsonProvider } from "./models.js";
 import { buildModels } from "./models.js";
 

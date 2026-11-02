@@ -4,11 +4,11 @@ import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createConnection, type Socket } from "node:net";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
+import { testModel } from "@yonder/local-host/config/test-support";
+import { initHome, openKernel } from "@yonder/local-host/kernel/index";
 import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { parse, stringify } from "yaml";
-import { testModel } from "../../../packages/core/src/config/test-support.js";
-import { initHome, openKernel } from "../../../packages/core/src/kernel/index.js";
 import { Store } from "../src/store.js";
 import { containsBodyFragment } from "./body-leakage.js";
 
@@ -155,7 +155,7 @@ test.skipIf(!enabled)(
 			}
 			let client = await connect();
 			const sections = [
-				'CJK中文🦤🌙 <message id=\"alpha\"> & \"quoted\" \\ slash\n\t.',
+				'CJK中文🦤🌙 <message id="alpha"> & "quoted" \\ slash\n\t.',
 				"Résumé naïve façade; punctuation!? — mixed_CASE/42 and emoji 🪻.",
 				"日本語かなと漢字、العربية، then XML </message> & escaped\ttext.",
 				"Distinctive region marker cobalt-7319-fern with varied sentence structure.",

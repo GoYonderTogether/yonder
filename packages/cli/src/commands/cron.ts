@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { requestControl } from "@yonder/core";
+import { requestControl } from "@yonder/local-host";
 import { type Options, optionalHome, output, UsageError } from "./context.js";
 
 export const cronUsage =
