@@ -1099,3 +1099,8 @@ v09原话复验发现：合法shell重定向可过滤stderr，private DM又未�
 ### 2026-11-03：诊断保留来源身份与处理断点
 
 v10已确认私聊来源帧正确装配，模型仍把P1 write旁观误认完整办理，并将最近Bot回声的no-binding当主人消息接入故障。保持真实样本与路由，不按成功/群名筛选；在共享operability投影保留已核验sender/bot/关系事实，由同一CLI摘要解释已有scope/participation造成的record-only断点，历史执行继续独立。修公共main/非main术语，不改权限、参与策略或合法旁观配置。详见08 §3.2-3.3。
+
+
+### 2026-11-03：保留关注候选的来源与消费边界
+
+v10 GPT原生账号第三条原话与探针成为focused候选，但Zfish一句普通“在。”成功出站后，social delivered()清除了GPT willing并推进其batch-read，GPT从未获得该批模型运行。flush已算focused却未随willing保存，导致普通候选与关注候选生命周期混用。复用既有focused事实与offer流程，只让兄弟成功回复结束普通候选；关注候选保留来源至自身既有准入/运行，暂停/对象/权限/发送协调不变。不用正文猜任务、不新增调度器或任务判官，batch-read仍不得冒充模型已读。见11的发言协调。

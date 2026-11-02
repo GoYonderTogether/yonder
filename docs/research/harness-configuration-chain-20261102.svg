@@ -20,7 +20,7 @@
 <text x="66" y="458" font-size="17">入账／旧公告误当完成，P1 目标转成 QQ 接入</text>
 <path d="M319,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="508" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="545" font-size="17">源码检查过关，仍不等于自然原话验收过关</text>
+<text x="66" y="545" font-size="17">兄弟发言成功，吞掉未处理的关注请求</text>
 <text x="650" y="137" font-size="22" font-weight="700">目标：共享 Harness 闭环</text>
 <rect x="650" y="160" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="197" font-size="17">用户原话 + 账号／渠道／原始事件</text>
@@ -37,8 +37,8 @@
 <rect x="650" y="508" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
 <text x="668" y="545" font-size="17">原生配置／重载 → 新输入运行 → 送达证据</text>
 <rect x="48" y="620" width="1144" height="90" rx="12" fill="#fef3c7"/>
-<text x="68" y="649" font-size="18" font-weight="700">来源连续，保留用户明确配置的调度模式</text>
-<text x="68" y="677" font-size="17">宿主不按词猜权限或群类型；原始输入和历史保留，截断、未知和未测明确记录。</text>
+<text x="68" y="649" font-size="18" font-weight="700">来源与关注状态连续，发言机会不冒充模型消费</text>
+<text x="68" y="677" font-size="17">保留原始来源与关注状态；兄弟 Bot 发言不消耗关注请求，旁观游标不代表模型已读。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
 <text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；v10 浏览器／本机同版，真实历史与输入框核验通过</text>
 <text x="68" y="824" font-size="18" fill="#475569">旧 RPC 400 已有修复证据；用户更早那次中断是否同因，仍无法确认</text>

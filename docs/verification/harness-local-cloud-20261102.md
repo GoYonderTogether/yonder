@@ -185,3 +185,12 @@ v10后续发布最终状态：44资产齐备，Android signed APK41490752050、D
 v10后的源码收口：a090f517/82d82b25重写公共main/非main身份、群独立历史与完整配置验收语义，不改权限/调度/绑定；bd8f1df8共享样本保留from、可信relation、senderIsBot及原生mention事实，scope外的consumer附outside-social-scope原因，CLI据此解释record-only并并列真实bot/参与原因；9fc8a784只将no-run文案明确为当前参与决策的预测，2b413934修未知prediction缺wake时被误报为run。最新样本不筛选、不拿成功原件替代失败，未给Bot手配目标。
 
 最新当前树组合验证9文件/34项全通过，明确排除**/.cache/**；全量typecheck、相关Biome、size/diff通过。子任务早期定向3文件/5项包含.cache/release-20261102-merge/candidate-758aae8c下CLI测试镜像，校正后的实际源文件定向为2文件/4项，不把镜像重复项当覆盖增加。原7300词预算保持，未削弱完整候选/acceptance/真实新入站→模型→投递条件。下一正式版及两端原话重验待执行，源码通过不计交付。
+
+
+v10进一步查到实际消费链缺陷：GPT第三条原话01M6EMWXCK1KADQPD7R6BA55VC和probe01M6EMZ44D8SFD7V6N6EE8QDW3进入rule-match01M6EMZ71XDAHH99K8ET235MQ8（focused=1），却未产生GPT batch-ready/run。Zfish成功说“在。”（01M6EMZEEJ9MYM015Z28GP47RA）后，GPT batch-read01M6EMZEET8GQ6HAH35ZZ9ADVQ以该出站为parent推进了through。该read只是程序协调游标，不能叫模型已读。源码flush丢失了已算出的focused，delivered把所有peer.willing都作为普通候选清掉；规范只允许普通候选因成功回答结束，已关注者不应丢未处理来源。复用原focused与offer，不按正文猜管理任务，不新建调度器；下一候选纳入修复，因此未安装缺此修复的并行v11或旧候选。私有v10原文追加了三条准确事件白名单证据。
+
+
+发布候选25b13bae（合并并行v11版本记录后的候选）CI41494601938因随后确认focused丢失缺陷被root主动淘汰：Linux已通过，macOS/Windows取消；不是测试失败，未安装、未触发本候选AutoRelease。保留六个已完成修复提交和并行v11元数据，等待加入关注生命周期修复后作为完整候选重新发布；没有force push、stash或开发分支。
+
+
+79ae89ca完成关注候选修复：运行代码6行，flush保存已算出的focused，delivered只结束非focused兄弟候选；继续复用offer/batch-ready。没有新增任务模型、文本分类器、调度器或权限。真实Groups+GroupAttention单元行为覆盖replied→flush→delivered→offer；不会把手填willing标记或plugin测试出站假称真实Agent回复，保留普通候选结束语义。关注/节奏13项通过。加入投递、恢复、来源上下文、parent与提示词的最终组合13文件/54项全通过（65.04秒，排除.cache），全量typecheck、size、diff通过；相关Biome无错误，保留既有non-null assertion warnings。SVG已重新渲染核对。下一正式版本更新及原话真人渠道验收仍待执行，不能把这些单元检查算作真实交付。
