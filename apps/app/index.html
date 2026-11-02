@@ -2,7 +2,13 @@
 <html lang="zh-CN">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<!-- 页面缩放锁死：手机点开表单时不应把整页放大。iOS 10+ 会忽略 user-scalable，
+		     双击与双指另由 styles.css 的 touch-action 和 src/lib/viewport.ts 拦。
+		     interactive-widget=resizes-content：Chrome 键盘弹出时收布局视口；iOS 走 visualViewport 补偿。 -->
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+		/>
 		<meta name="theme-color" content="#efeeeb" />
 		<link rel="icon" type="image/svg+xml" href="./favicon.svg" />
 		<link rel="manifest" href="%BASE_URL%manifest.webmanifest" />

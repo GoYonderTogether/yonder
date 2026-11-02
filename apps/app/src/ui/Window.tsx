@@ -23,7 +23,7 @@ export function Window({
 				<Dialog.Overlay className="fade fixed inset-0 z-40 bg-ink/30" />
 				<Dialog.Content
 					className={cn(
-						"rise fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card bg-raised shadow-float outline-none",
+						"rise keyboard-center fixed top-1/2 left-1/2 z-50 flex max-h-[90dvh] w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-card bg-raised shadow-float outline-none",
 						className,
 					)}
 				>

@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- app：手机与手机壳内的网页锁定页面缩放，点开表单填入内容时不再把整页放大（视图端口 + 双指手势 + 触屏双击 + 输入框 16px）；键盘弹出时布局收进可见区，登录页、会话输入条与居中 / 贴底窗口不再被输入法盖住，安卓壳使用 `adjustResize`。
+
+### Added
+
+- 安装脚本新增 `--desktop` / `-Desktop`：在核心装完后一并安装桌面应用，关掉桌面窗口即回到只装核心。
+- 桌面应用启动时先连接本机 Yonder，服务未运行时才打开 yonderbot.net。
+- Windows 新增 `Yonder Status` 托盘，随 `service install` 注册，显示服务状态、检查更新、停止服务并退出。
+- 正式 Release 后提供安卓 APK 与桌面安装包（macOS dmg、Windows 安装程序），并给出应用内更新清单。
+
+### Changed
+
+- 发布产物同步上传到阿里云 OSS `yonder-release`，供下载页与应用内更新读取。
+- macOS 安装包在无 Developer ID 时使用 ad-hoc 签名，需右键打开；Windows 安装包未签名，会出现 SmartScreen 提示。
+- 安卓应用内更新会校验安装包摘要后交系统安装器确认，不静默安装。
+
 ## [0.3.26110206] - 2026-11-02
 
 ### Fixed

@@ -196,7 +196,7 @@ export function CardPage() {
 	const [params] = useSearchParams();
 	const back = useAppBack("/");
 	return (
-		<div className="flex h-dvh flex-col bg-ground">
+		<div className="app-frame flex flex-col bg-ground">
 			<AppBar
 				title="资料"
 				left={

@@ -135,11 +135,9 @@ export async function serveStatic(
 }
 
 export const loginPage = (basePath: string, message?: string) => `<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Yonder 登录</title>
-<style>body{font:16px system-ui,sans-serif;max-width:24rem;margin:18vh auto;padding:0 1rem}
-label,input,button{display:block;width:100%;box-sizing:border-box;margin-top:.6rem;font:inherit}
-input,button{padding:.6rem}[role=alert]{color:#b00020}</style></head>
+<style>*{box-sizing:border-box;-webkit-text-size-adjust:100%;text-size-adjust:100%}body{font:16px system-ui,sans-serif;max-width:24rem;margin:18vh auto;padding:0 1rem;touch-action:manipulation}label,input,button{display:block;width:100%;margin-top:.6rem;font:inherit}input,button{padding:.6rem}[role=alert]{color:#b00020}</style></head>
 <body><main><h1>Yonder</h1>
 <form method="post" action="${escapeAttr(basePath)}login">
 <label for="token">访问令牌 · Access token</label>

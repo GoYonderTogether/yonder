@@ -19,6 +19,7 @@ import {
 } from "./cache";
 import { upgradeLegacyLocation } from "./legacyLinks";
 import { appBase, routerBasename } from "./lib/base";
+import { lockZoom, watchKeyboard } from "./lib/viewport";
 import { $session } from "./store";
 import { registerConsoleWorker } from "./work/pwa";
 import "./styles.css";
@@ -75,6 +76,9 @@ function PersistenceProvider({ children }: { children: React.ReactNode }) {
 
 upgradeLegacyLocation(appBase());
 $session.set(readCachedSession());
+// 页面缩放锁死；手机输入法弹出时把可见高度写进 --app-height（见 lib/viewport.ts）。
+lockZoom();
+watchKeyboard();
 
 function Bootstrap() {
 	const session = useStore($session);

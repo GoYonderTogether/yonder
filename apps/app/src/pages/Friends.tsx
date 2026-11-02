@@ -211,7 +211,7 @@ export function AddFriendButton({ accountId }: { accountId: string }) {
 				<Dialog.Overlay className="fixed inset-0 z-40 bg-black/30" />
 				<Dialog.Content
 					aria-describedby={undefined}
-					className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-card bg-raised p-6 shadow-float"
+					className="keyboard-center fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-card bg-raised p-6 shadow-float"
 				>
 					<Dialog.Title className="text-title font-semibold">申请添加好友</Dialog.Title>
 					<p className="mt-2 text-small text-muted">如果对方开启验证，以下消息将随申请发送。</p>

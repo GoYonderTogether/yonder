@@ -71,6 +71,11 @@ body,
 #root {
 	height: 100%;
 }
+/* 手机输入法：--app-height 由 lib/viewport.ts 在键盘弹出时写入（visualViewport 的可见高度）。
+   键盘收起时不写，回落到 100%。根布局跟着可见区收缩，输入条与贴底面板不会被键盘盖住。 */
+html {
+	height: var(--app-height, 100%);
+}
 body {
 	background: var(--rail) var(--mist) no-repeat;
 	color: var(--ink);
@@ -82,6 +87,18 @@ body {
 	text-wrap: pretty;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+	/* 锁定缩放：双击放大不触发（Safari 与 Chrome 都认 touch-action）。
+	   双指缩放由 lib/viewport.ts 拦 gesture 事件；viewport 的 user-scalable 也写了。 */
+	touch-action: manipulation;
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
+}
+/* 点开表单不放大：iOS Safari 在输入框字号小于 16px 时聚焦会自动放大整页。
+   只在触屏设备上把输入控件提到 16px；桌面保持原字号。 */
+@media (hover: none) and (pointer: coarse) {
+	html :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+		font-size: 16px;
+	}
 }
 /* 数字与用量一律等宽，避免跳动 */
 .tnum,
@@ -132,6 +149,23 @@ time,
 /* 已经由外层 .field 统一加深的，内层不再重复画一圈 */
 .field :where(input, textarea, select):focus-visible {
 	box-shadow: none;
+}
+/* 全屏页与面板：键盘弹出时按可见区收缩（--app-height 见 lib/viewport.ts），否则 iOS 上会被键盘盖住。 */
+.app-frame {
+	height: var(--app-height, 100dvh);
+}
+/* 内容较短的整页（如工作区登录）：至少铺满可见区，键盘弹出时不再撑出视口。 */
+.app-frame-min {
+	min-height: var(--app-height, 100dvh);
+}
+/* 贴底面板：键盘弹出时抬到键盘上沿，不再压在键盘下面。 */
+.keyboard-sheet {
+	bottom: var(--keyboard-inset, 0px);
+}
+/* 居中窗口：在可见区里居中，并限制在可见高度内；键盘收起时回到原来的居中位置。 */
+.keyboard-center {
+	top: calc((100dvh - var(--keyboard-inset, 0px)) / 2);
+	max-height: min(90dvh, calc(100dvh - var(--keyboard-inset, 0px) - 2rem));
 }
 .scroll-y {
 	overflow-y: auto;

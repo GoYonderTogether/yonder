@@ -192,7 +192,7 @@ function ChatDetailContent({
 			</aside>
 		);
 	return (
-		<div className="fixed inset-0 z-30 flex flex-col bg-ground">
+		<div className="keyboard-sheet fixed inset-0 z-30 flex flex-col bg-ground">
 			<AppBar left={backButton} title={title} />
 			<div className="scroll-y flex-1 pb-safe">{body}</div>
 		</div>

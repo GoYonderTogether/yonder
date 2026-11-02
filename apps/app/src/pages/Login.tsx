@@ -68,7 +68,7 @@ export function Login() {
 		}
 	};
 	return (
-		<div className="scroll-y h-full p-4">
+		<div className="scroll-y app-frame p-4">
 			<div className="rise mx-auto flex min-h-full w-full max-w-sm flex-col justify-center gap-5 py-8">
 				<Logo size={36} />
 				<div>

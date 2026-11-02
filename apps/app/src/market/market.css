@@ -849,14 +849,15 @@
 	background: var(--market-overlay);
 	animation: fade var(--d2) var(--ease);
 }
+/* 键盘弹出时（--keyboard-inset 由 lib/viewport.ts 写入）只盖住可见区，窗口在可见区里居中。 */
 .mk-dialog {
 	position: fixed;
 	z-index: 71;
 	left: 50%;
-	top: 50%;
+	top: calc((100dvh - var(--keyboard-inset, 0px)) / 2);
 	transform: translate(-50%, -50%);
 	width: min(560px, calc(100vw - 48px));
-	max-height: min(860px, calc(100dvh - 64px));
+	max-height: min(860px, calc(100dvh - var(--keyboard-inset, 0px) - 64px));
 	background: var(--raised);
 	border-radius: var(--market-radius-panel);
 	box-shadow: var(--shadow-float);
@@ -1395,7 +1396,7 @@
 .mk-conversation {
 	display: flex;
 	flex-direction: column;
-	height: calc(100dvh - 120px);
+	height: calc(100dvh - var(--keyboard-inset, 0px) - 120px);
 	min-height: 360px;
 	background: var(--raised);
 	border-radius: var(--radius-card);
@@ -1843,8 +1844,8 @@
 	.mk-dialog,
 	.mk-dialog-wide {
 		width: 100%;
-		max-height: 100dvh;
-		height: 100dvh;
+		max-height: calc(100dvh - var(--keyboard-inset, 0px));
+		height: calc(100dvh - var(--keyboard-inset, 0px));
 		inset: 0;
 		transform: none;
 		border-radius: 0;

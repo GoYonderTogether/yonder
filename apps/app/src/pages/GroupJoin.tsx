@@ -51,7 +51,7 @@ export function GroupJoin() {
 		}
 	};
 	return (
-		<div className="scroll-y h-dvh bg-ground">
+		<div className="scroll-y app-frame bg-ground">
 			<div className="mx-auto flex max-w-sm flex-col items-center gap-6 px-4 py-16 text-center">
 				<div className="rise flex flex-col gap-1">
 					<h1 className="display">{group.title}</h1>

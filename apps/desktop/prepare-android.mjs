@@ -13,6 +13,9 @@
  *      the default `google()`/`mavenCentral()` fail with a TLS handshake error. The mirrors
  *      are prepended and fall back to the originals, so machines that can reach Google are
  *      unaffected. Skip with `--no-mirrors`.
+ *   3. Keyboard resize — without `adjustResize` the soft keyboard overlays the WebView and the
+ *      page cannot shrink to the visible area. `windowSoftInputMode` and the matching
+ *      `windowSoftInputMode` line are re-applied here because the manifest is regenerated.
  *
  *   node apps/desktop/prepare-android.mjs [--keystore <path>] [--alias <name>] [--no-mirrors]
  *
@@ -31,6 +34,7 @@ const appGradle = join(android, "app/build.gradle.kts");
 const rootGradle = join(android, "build.gradle.kts");
 const buildSrcGradle = join(android, "buildSrc/build.gradle.kts");
 const gradleProperties = join(android, "gradle.properties");
+const manifest = join(android, "app/src/main/AndroidManifest.xml");
 const propertiesFile = join(android, "keystore.properties");
 
 const args = process.argv.slice(2);
@@ -169,5 +173,32 @@ val keystoreProperties = Properties().apply {
 	console.log(`prepare-android: release signing wired to ${keystore} (alias ${alias})`);
 }
 
+/**
+ * Soft keyboard: `adjustResize` shrinks the activity so the WebView (and the page's
+ * visualViewport) follow the visible area. The default for a Tauri activity leaves the
+ * keyboard overlaying the WebView, which covered the message input and the login form.
+ */
+function applyKeyboardResize() {
+	if (!existsSync(manifest)) {
+		console.log("prepare-android: no AndroidManifest.xml yet; keyboard resize not applied");
+		return;
+	}
+	const source = readFileSync(manifest, "utf8");
+	if (source.includes("android:windowSoftInputMode")) {
+		console.log("prepare-android: keyboard resize already present in AndroidManifest.xml");
+		return;
+	}
+	const activity = /<activity\b[^>]*android:name="\.MainActivity"/.exec(source);
+	if (!activity) {
+		console.error("prepare-android: unexpected layout in AndroidManifest.xml (no .MainActivity element)");
+		process.exit(1);
+	}
+	const insertAt = activity.index + activity[0].length;
+	const next = `${source.slice(0, insertAt)}\n            android:windowSoftInputMode="adjustResize"${source.slice(insertAt)}`;
+	writeFileSync(manifest, next);
+	console.log("prepare-android: MainActivity uses adjustResize so the keyboard shrinks the page");
+}
+
 if (mirrors) applyMirrors();
 applySigning();
+applyKeyboardResize();
