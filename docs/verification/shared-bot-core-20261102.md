@@ -162,3 +162,9 @@ root 后续核对 App 路由：monorepo app 已有 `/download` 独立页面；cl
 详细实现、全部开发失败与后续修复、启动/迁移契约见 [Worker验证](shared-bot-worker-20261103.md)。共享createBot补默认system sections，真实GLM两个租户回复各自PG SOUL独有token，另有暖轮；首轮SOUL失败保留。实际本机零环境与PG Worker共用createBot/Runtime；隔离、六类错误/中断、cron逐出/ACK/重启与owner统一模型额度均通过。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB，active上限20，连接/timer不随Bot增长；cold均值161.8 query，warm83，逐轮JSON已保存。旧缺主系统段负载不作为最终证据。
 
 Root完整build/typecheck成功；默认2703通过/0失败/112跳过，文件506通过/67跳过，105.13秒。首次lint3个证据JSON格式错误，只格式化文档后重跑lint成功：0error/1322warning/34info，size923/layer108、基线0。源码未变，不重复成功的完整测试。日志shared-bot-core/stage-8-final-*，最终lint为stage-8-final-lint-corrected.log。Cloud配套eed0b17完整根/server build/typecheck通过，全server206通过/0失败/0取消/0跳过。阶段9–11后续仍待实施，不将Worker结果冒充客户端/卡片/设备工具完成。
+
+## 阶段9：客户端错误与链接（完整gate通过）
+
+详见[客户端验证](shared-bot-app-20261103.md)。app Bubble/History/Composer与两份类型已接线，cloud/download复用Install。真实本机Chrome+PG/Redis/server证明error为红色rolealert、无普通气泡、placeholder/列表预览正确，cloud/get与/download实际同Install；无截图/桌面/生产操作。聚焦首轮13通过/1失败（SSR location），修后14/0；浏览器首轮选错搜索框，正确选择textarea后通过，原失败分别保留。
+
+Root两仓完整gate：Yonder build/typecheck成功，2707通过/0失败/112跳过，506文件通过/67跳过，107.08秒；lint首轮仅测试import排序1error，窄格式修复后0error/1322warning/34info，size923/layer108基线0。Cloud root/server build/typecheck成功，server206通过/0失败/0取消/0跳过，110.256秒；SSR3/0/0/0，0.663秒。原始日志stage-9-app-final-*与stage-9-alias-*；修后lint为stage-9-app-final-lint-corrected.log。阶段10工具/提示词、11设备仍待完成。

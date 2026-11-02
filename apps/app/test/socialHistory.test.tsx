@@ -2,8 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { parseHTML } from "linkedom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { ConversationDetail, Message } from "../src/api/types";
+import { ChatHistory, historySummary } from "../src/components/chat/ChatHistory";
 import { useSocialRealtime } from "../src/lib/socialRealtime";
 import { ConversationBody } from "../src/pages/Chat";
 
@@ -139,4 +142,26 @@ test("reconnect preserves a manually paged historical window", async () => {
 	});
 	expect(client.getQueryData(["msgs", "c1"])).toEqual(historical);
 	expect(api.messages).toHaveBeenCalledTimes(2);
+});
+
+test("history search and preview keep the server error text accessible and outside a message bubble", () => {
+	const errorMessage: Message = {
+		id: "error-1",
+		convId: "c1",
+		seq: 1,
+		senderId: "bot",
+		content: { type: "error", text: "云端 Bot 当前不可用" },
+		createdAt: 1000,
+	};
+	const detail = { id: "c1", kind: "dm", title: "Bot", members: [] } as ConversationDetail;
+	const html = renderToStaticMarkup(
+		<QueryClientProvider client={new QueryClient()}>
+			<ChatHistory d={detail} preview={errorMessage} onPreviewChange={() => {}} />
+		</QueryClientProvider>,
+	);
+	expect(historySummary(errorMessage)).toBe("云端 Bot 当前不可用");
+	expect(html).toContain('role="alert"');
+	expect(html).toContain("text-danger");
+	expect(html).toContain("云端 Bot 当前不可用");
+	expect(html).not.toContain("rounded-card bg-tone");
 });

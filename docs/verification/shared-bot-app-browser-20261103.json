@@ -1,0 +1,45 @@
+{
+	"conversation": {
+		"path": "/c/653f6024-2d39-4d2e-8f4c-3e608d55a893",
+		"offlineError": "云端 Bot Worker 不在线",
+		"alertRole": "alert",
+		"alertClass": "max-w-[80%] whitespace-pre-wrap text-small text-danger",
+		"computedColor": "rgb(180, 52, 44)",
+		"noBubble": true,
+		"placeholder": "云端 Bot 当前不可用",
+		"offlineStatus": true
+	},
+	"listPreview": "云端 Bot Worker 不在线",
+	"installRoutes": [
+		{
+			"path": "/get",
+			"heading": "拥有自己的 Agent",
+			"tabs": ["提示词", "终端命令"],
+			"links": [
+				{
+					"text": "先逛逛",
+					"href": "/"
+				}
+			]
+		},
+		{
+			"path": "/download",
+			"heading": "拥有自己的 Agent",
+			"tabs": ["提示词", "终端命令"],
+			"links": [
+				{
+					"text": "先逛逛",
+					"href": "/"
+				}
+			]
+		}
+	],
+	"execution": {
+		"browser": "Chrome headless, independent temporary profile",
+		"backend": "real local PostgreSQL, Redis and cloud server",
+		"account": "temporary verification owner",
+		"screenshots": false,
+		"productionAccess": false,
+		"cleanup": "temporary backend, proxy, Vite, Chrome and PG/Redis closed"
+	}
+}
