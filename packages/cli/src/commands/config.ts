@@ -74,7 +74,9 @@ function operabilitySummary(value: unknown) {
 					return `record-only: participation reason=${reason}; no model run predicted by this participation decision${senderFact}`;
 				if (prediction?.wake === "write")
 					return `wake=write records input without direct model execution; later batch processing unproven${senderFact}`;
-				return `wake=run configuration; current admission/execution unproven${senderFact}`;
+				if (prediction?.wake === "run")
+					return `wake=run configuration; current admission/execution unproven${senderFact}`;
+				return `wake/run path unknown${prediction?.state ? ` (prediction=${prediction.state})` : ""}${reason ? `; participation reason=${reason}` : ""}; current admission/execution unproven${senderFact}`;
 			};
 			return {
 				status: item.status ?? "unknown",

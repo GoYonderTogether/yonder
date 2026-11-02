@@ -196,6 +196,12 @@ test("agents show summarizes scope and bot source facts without changing config 
 						participationScope: { includesConversation: true },
 					},
 				},
+				{
+					status: "unknown",
+					reason: "profile unavailable",
+					sample: { eventId: "unknown-event", conv: "conv:qq:group:unknown" },
+					prediction: { state: "unknown" },
+				},
 			],
 		},
 	};
@@ -216,6 +222,8 @@ test("agents show summarizes scope and bot source facts without changing config 
 		expect(stderrText).toContain("nativeKind");
 		expect(stderrText).toContain("participation reason=record");
 		expect(stderrText).toContain("no model run predicted by this participation decision");
+		expect(stderrText).toContain("wake/run path unknown (prediction=unknown)");
+		expect(stderrText).not.toContain("wake=run configuration");
 		expect(stderrText).toContain("relation");
 		expect(stderrText).not.toContain("bot sender caused");
 	} finally {
