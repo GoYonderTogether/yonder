@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Channel, ToolContext, YEvent } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
+import { parseDocument } from "yaml";
 import { parseAgentConfig, type YonderConfig } from "../config/index.js";
 import type { Principal } from "../control/method-types.js";
 import type { Store } from "../store/index.js";
@@ -321,6 +322,108 @@ test("verified owner requests preview or apply directly and preserve revision co
 				);
 			}
 		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("YAML nested setIn requires an explicit collection node", () => {
+	const conv = "conv:test:group";
+	const document = parseDocument("social:\n  enabled: true\n");
+	document.setIn(["social", "conversations"], document.createNode({}));
+	document.setIn(["social", "conversations", conv], { mode: "batch", batch: { run: true } });
+	expect(document.getIn(["social", "conversations", conv])).toMatchObject({ mode: "batch", batch: { run: true } });
+});
+
+test("social update initializes a missing conversations collection before writing the exact conversation", async () => {
+	const home = await tempHome("yonder-social-missing-conversations-");
+	try {
+		const conv = "conv:test:group";
+		const file = join(home, "agent.yaml");
+		const raw = [
+			"schema: 1",
+			"id: main",
+			"name: Main",
+			"owner: person:owner",
+			"defaultProfile: default",
+			"profiles:",
+			"  default: {}",
+			"bindings: []",
+			"social:",
+			"  enabled: true",
+			"  authorized:",
+			"    conversations:",
+			`      - ${conv}`,
+			"  defaults:",
+			"    group:",
+			"      mode: batch",
+			"      batch:",
+			"        run: false",
+			"  # preserve this existing social comment",
+			"",
+		].join("\n");
+		await writeFile(file, raw);
+		await writeFile(join(home, "yonder.yaml"), "{}");
+		const agents = new Map([["main", parseAgentConfig(raw)]]);
+		const service = createSocial({
+			home,
+			config: { agents: [{ id: "main", workspace: "." }] } as YonderConfig,
+			agents,
+			assert: () => {},
+			owner: async () => true,
+			ownerInput: async () => true,
+			target: async () => ({ kind: "group" }),
+			record: async () => {},
+			validate: async () => {},
+			reload: async () => {
+				agents.set("main", parseAgentConfig(await readFile(file, "utf8")));
+			},
+			inspectRoute: async () => ({
+				detail: "candidate route",
+				capabilityGaps: [],
+				operability: {
+					status: "observed",
+					prediction: {
+						state: "matched",
+						consumer: { state: "available" },
+					},
+				},
+			}),
+		});
+		const owner = {
+			agent: "main",
+			session: "s",
+			profile: "default",
+			capabilities: ["read", "admin"],
+			channelInstances: ["test"],
+			event: {
+				id: "owner-request",
+				ts: "2026-11-03T00:00:00.000Z",
+				type: "message.in",
+				from: "acct:console:owner",
+				conv: "conv:console:main",
+				data: { kind: "dm", text: "enable group batch" },
+			},
+		} as unknown as ToolContext;
+		const initial = await service.inspect({ agent: "main", conv }, owner);
+		const applied = await service.update(
+			{
+				agent: "main",
+				conv,
+				expectedRevision: initial.revision,
+				patch: { mode: "batch", batch: { run: true } },
+				reason: "owner request",
+				dryRun: false,
+			},
+			owner,
+		);
+		const saved = await readFile(file, "utf8");
+		expect(applied.after).toMatchObject({ mode: "batch", batch: { run: true } });
+		expect(parseAgentConfig(saved).social?.conversations?.[conv]).toMatchObject({
+			mode: "batch",
+			batch: { run: true },
+		});
+		expect(saved).toContain("# preserve this existing social comment");
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

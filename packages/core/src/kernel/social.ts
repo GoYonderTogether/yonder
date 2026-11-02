@@ -210,7 +210,7 @@ export function createSocial(options: {
 			if (disk.social === undefined) {
 				document.set("social", { conversations: { [request.conv]: conversationPolicy } });
 			} else {
-				if (!disk.social.conversations) document.setIn(["social", "conversations"], {});
+				if (!disk.social.conversations) document.setIn(["social", "conversations"], document.createNode({}));
 				document.setIn(["social", "conversations", request.conv], conversationPolicy);
 			}
 			const candidate = parseAgentConfig(document.toString(), file, request.agent);
