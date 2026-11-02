@@ -126,7 +126,13 @@ test("private main context is per-agent, same-origin, owner-only, and keeps oper
 			if (!serialized) throw new Error("owner private context was not produced");
 			const value = JSON.parse(serialized);
 			expect(value.scope).toBe("owner-private-main");
-			expect(value.identity).toMatchObject({ agent: id, profile, sameAgentAcrossProfiles: true });
+			expect(value.identity).toMatchObject({
+				agent: id,
+				profile,
+				identityBasis: "agent-id",
+				profileChangesIdentity: false,
+				historyScope: "session",
+			});
 			expect(value.history.items).toEqual([
 				{
 					id: prior.id,
@@ -188,6 +194,27 @@ test("visitors, group messages, non-main sessions, and missing projection do not
 		expect(groupContext).toBeDefined();
 		expect(groupContext).not.toContain("owner-private-main");
 		expect(groupContext).not.toContain('"current request"');
+		if (!groupContext) throw new Error("group context was not produced");
+		expect(JSON.parse(groupContext).self).toMatchObject({
+			agent: "helper",
+			identityBasis: "agent-id",
+			profileChangesIdentity: false,
+			historyScope: "session",
+		});
+		const parent = await store.events.record({
+			type: "message.in",
+			from: "acct:agent:helper",
+			conv: "conv:agent:helper",
+			data: { kind: "parent-request", target: "helper", text: "delegated request" },
+		});
+		const parentContext = await contextFor(parent, "helper");
+		if (!parentContext) throw new Error("parent context was not produced");
+		expect(JSON.parse(parentContext).self).toMatchObject({
+			agent: "helper",
+			identityBasis: "agent-id",
+			profileChangesIdentity: false,
+			historyScope: "session",
+		});
 		const nonMain = await store.events.record(
 			{
 				type: "message.in",
