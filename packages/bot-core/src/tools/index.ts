@@ -16,6 +16,7 @@ import type {
 	YEvent,
 } from "@yonder/sdk";
 import { Type } from "typebox";
+import { captureExecutionOwner } from "../sessions/execution-source.js";
 import type { Sessions } from "../sessions/index.js";
 import type { Store } from "../store/contracts.js";
 import { ownerIdentity } from "../store/sessions.js";
@@ -75,7 +76,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 	): Promise<{ session: SessionInfo; event: YEvent; input: RuntimeInput }> {
 		const selected = getPreset(presetId);
 		if (!selected) throw new Error(`未知预设：${presetId}`);
-		const parent = await runtime().sessionConfig(ctx.session);
+		const parent = await runtime().invocationConfig(ctx);
 		const resolved = resolveProfile(selected, {}, parent.resolved.env, options.defaultModel);
 		// A background invocation can outlive its run; keep its captured scope, just like capabilities.
 		const { channelInstances: _currentScope, ...parentResolved } = parent.resolved;
@@ -122,6 +123,7 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				...(retain ? { close: "manual" as const } : {}),
 				...(channelInstances === undefined ? {} : { channelInstances }),
 				...(inherit ? { inherit } : {}),
+				...(ctx.resources ? { workbench: { resources: structuredClone(ctx.resources) } } : {}),
 			});
 		let event: YEvent | undefined;
 		// Replay-safe task tools reacquire the prior input event for their existing owned conversation.
@@ -141,6 +143,8 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 				waiting: true,
 				busy: "followup",
 				taskOwned: true,
+				executionOwner: await captureExecutionOwner(store, agents, runtime(), ctx),
+				...(ctx.resources ? { resources: structuredClone(ctx.resources) } : {}),
 				...(effort !== undefined ? { effort } : {}),
 				...(credentialSlots !== undefined ? { credentialSlots } : {}),
 				...(attachments?.length ? { attachments } : {}),

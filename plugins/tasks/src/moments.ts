@@ -42,7 +42,11 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 				result = await api.sessions.submit(
 					target.session,
 					{ text: STALL_NOTICE(target.title, target.state, minutes) },
-					{ busy: "followup" },
+					{
+						busy: "followup",
+						...(target.executionOwner ? { executionOwner: target.executionOwner } : {}),
+						...(target.resources ? { resources: target.resources } : {}),
+					},
 				);
 			} else if (moment === "user-wait") {
 				result = await api.sessions.submit(
@@ -50,7 +54,11 @@ export async function tick(api: PluginAPI, store: Store, config: Config = {}, no
 					{
 						text: `请自检任务 ${task.ref}（${task.title}）。先调用 tasks_get，id 为 ${task.id}，读取任务和历史；再核对实际证据并使用任务工具记录结果：已完成则调用 tasks_done 并提供每项验收的证据；已过期则调用 tasks_update 设为 cancelled 并记录原因；能自己处理则调用 tasks_update 设为 active 并继续执行；确实需要主人决定则调用 tasks_update 保留 waiting-user，用 note 改写为“需要你决定：<一句话问题>（选项 A/B）”，不超过 120 字，不使用任务内部术语。不要发送提醒，也不要只用文字回答代替工具记录。`,
 					},
-					{ busy: "followup" },
+					{
+						busy: "followup",
+						...(task.executionOwner ? { executionOwner: task.executionOwner } : {}),
+						...(task.resources ? { resources: task.resources } : {}),
+					},
 				);
 			} else {
 				result = await api.sessions.command(task.session, "compact");

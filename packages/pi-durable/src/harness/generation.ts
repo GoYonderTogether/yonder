@@ -218,10 +218,17 @@ export const GenerationTask = defineTask<GenerationInput, GenerationCheckpoint, 
 			if (model === undefined) return failNoModel(runtime, ref, context);
 			const view = await runtime.context(conversationId, context, { at: cutoff });
 			let messages = view.messages;
+			const toolsRemoved = new Set<string>();
 			await runtime.hooks.each("beforeRequest", async (hook) => {
 				const replaced = await hook({ messages }, runtime, context);
-				if (replaced !== undefined) messages = replaced.messages;
+				if (replaced?.messages !== undefined) messages = replaced.messages;
+				for (const name of replaced?.toolsRemoved ?? []) toolsRemoved.add(name);
 			});
+			if (toolsRemoved.size) {
+				const offered = new Set((await runtime.agent(context)).tools.map((tool) => tool.name));
+				const removed = [...toolsRemoved].filter((name) => offered.has(name));
+				if (removed.length) messages = [...messages, { role: "system", content: "", toolsRemoved: removed.map((name) => ({ name })), timestamp: runtime.now() }];
+			}
 			const options: SimpleStreamOptions = {
 				...streamOptions,
 				maxRetries: 0,
@@ -761,9 +768,12 @@ async function finishToolRound(
 	tools.forEach((id, index) => {
 		const outcome = outcomes[index]!;
 		// Version 1 results have no kind; every result a generation's round reads is a model-issued call's.
+		const result = outcome.result as { kind?: string; control?: ToolControl };
 		controls.set(
 			id,
-			outcome.status === "completed" && outcome.result.kind !== "nested" ? outcome.result.control : undefined,
+			outcome.status === "completed" && result.kind !== "nested" && result.kind !== "program"
+				? result.control
+				: undefined,
 		);
 	});
 	const slots = (await runtime.snapshot(LiveDoc, conversationId, context))?.tools ?? [];

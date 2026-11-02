@@ -7,6 +7,7 @@ import type { Attachment, YEvent } from "@yonder/sdk";
 import { validateSlotPart } from "./credential-slots.js";
 import { cid, RunDoc, type RunState, SessionDoc } from "./docs.js";
 import { requestedEffort, resolveEffort } from "./effort.js";
+import { refreshHostTools } from "./host-tools.js";
 import { inputContent } from "./input-content.js";
 import type { RuntimeInternals } from "./instance.js";
 import { entryText as textOf } from "./transcript.js";
@@ -27,6 +28,8 @@ export async function prepareRun(rt: RuntimeInternals, session: string, context:
 	const id = String(live.run.inputs[0]);
 	const active = rt.limits.states.get(id);
 	if (active) {
+		await refreshHostTools(rt, active.config, context.abortSignal);
+		if (active.config.hostTools) await rt.applyConfiguration(session, active.config);
 		if (!rt.restoring) await rt.preparePlacedInputs(session, active.config, active.started, context);
 		return;
 	}
@@ -39,10 +42,11 @@ export async function prepareRun(rt: RuntimeInternals, session: string, context:
 		activity.activityIssue = null;
 	}, context);
 	const started = saved?.started || Date.now();
+	const inputs = saved?.config ? undefined : await rt.sources(live.run.inputs);
 	let config: RuntimeSessionConfig = saved?.config
 		? JSON.parse(saved.config)
-		: structuredClone(await rt.options.resolveSession(session));
-	const inputs = saved?.config ? undefined : await rt.sources(live.run.inputs);
+		: structuredClone(await rt.options.resolveSession(session, inputs));
+	if (saved?.config) await refreshHostTools(rt, config, context.abortSignal);
 	if (!saved?.config && config.sessionMode !== "task") {
 		if (inputs?.length && inputs.every(isOwnerWorkbenchInput)) {
 			const state = await rt.harness.snapshot(SessionDoc, cid(session), context);

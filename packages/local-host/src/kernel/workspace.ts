@@ -43,7 +43,7 @@ export function inspectionServices(home: string, config: YonderConfig, log: Kern
 		log: { info: (m, d) => log("info", m, d), warn: (m, d) => log("warn", m, d), error: (m, d) => log("error", m, d) },
 		events: { emit: unavailable, ask: unavailable, query: unavailable, on: unavailable },
 		messages: { send: unavailable },
-		execution: { run: unavailable, resolve: unavailable },
+		execution: { capture: unavailable, run: unavailable, resolve: unavailable },
 		subagents: { run: unavailable },
 		services: { resolve: unavailable },
 		host: { status: unavailable, modelReady: unavailable },

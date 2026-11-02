@@ -15,6 +15,11 @@ import type {
 import type { RuntimeServices } from "./contracts.js";
 import type { TodoUpdatedEvent } from "./runtime/todo.js";
 export interface RuntimeSessionConfig {
+	/** Allowed host tools, frozen from this run's verified source. */
+	hostTools?: Array<{ name: string; signature: string; capabilities: Capability[] }>;
+	hostFacts?: string;
+	hostToolInputs?: string[];
+	onlineHostTools?: string[];
 	ownerWorkbench?: boolean;
 	sessionId?: string;
 	resources?: import("@yonder/sdk").WorkspaceResource[];
@@ -52,7 +57,9 @@ export interface RuntimeOptions {
 		args: Record<string, unknown>,
 		signal: AbortSignal,
 	): Promise<unknown>;
-	resolveSession(id: string): Promise<RuntimeSessionConfig>;
+	resolveSession(id: string, inputs?: YEvent[]): Promise<RuntimeSessionConfig>;
+	/** Refresh current availability; it may only remove this run's frozen host names. */
+	refreshHostTools?(config: RuntimeSessionConfig, signal?: AbortSignal): Promise<string[]>;
 	/** System prompt parts in order; keyed parts become their own pi section when `sectionKeys` declares the key. */
 	sections?(session: RuntimeSessionConfig & { id: string }, signal?: AbortSignal): Promise<Array<string | PromptPart>>;
 	/** Every key `sections` may return, in default order. Keys must match `^[a-z][a-z0-9_-]*$`. */

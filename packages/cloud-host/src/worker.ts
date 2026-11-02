@@ -212,6 +212,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 			used: Date.now(),
 			ready: openCloudBot({
 				pool,
+				deviceBridge: { endpoint: options.endpoint, token },
 				identity,
 				descriptors,
 				channels: card.channels,

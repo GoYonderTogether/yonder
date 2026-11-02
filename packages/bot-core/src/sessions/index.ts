@@ -11,9 +11,20 @@ import {
 import { taskReport } from "@yonder/runtime-adapter/runtime/results.js";
 import { configuredWorkbenchSession } from "@yonder/runtime-adapter/runtime/workbench-options.js";
 import type { Runtime, RuntimeRun, RuntimeSessionConfig, RuntimeSessionState } from "@yonder/runtime-adapter/types";
-import type { Capability, Input, InputReceipt, Preset, RunResult, SessionInfo, SessionsAPI, YEvent } from "@yonder/sdk";
+import type {
+	Capability,
+	Input,
+	InputReceipt,
+	Preset,
+	RunResult,
+	SessionInfo,
+	SessionsAPI,
+	SubmissionMetadata,
+	YEvent,
+} from "@yonder/sdk";
 import type { Store } from "../store/contracts.js";
 import { createBranches } from "./branches.js";
+import { recordSessionInput } from "./execution-source.js";
 import { notifySession, recoverSessionInputs } from "./inputs.js";
 import { configureModel, modelList } from "./model-list.js";
 import { botOverview } from "./overview.js";
@@ -316,6 +327,7 @@ export function createSessions({
 		busy?: "followup" | "steer" | "interrupt",
 		accepted?: (event: string) => void,
 		from?: string,
+		metadata?: SubmissionMetadata,
 	): Promise<RunResult | InputReceipt> {
 		const session = await store.sessions.get(id);
 		if (
@@ -325,17 +337,7 @@ export function createSessions({
 			closing.has(id)
 		)
 			throw new Error(`Not an open task session: ${id}`);
-		const event = await store.events.record({
-			type: "session.input",
-			...(from ? { from } : {}),
-			data: {
-				session: id,
-				text: input.text,
-				waiting: wait,
-				busy: busy ?? "steer",
-				...(input.attachments ? { attachments: input.attachments } : {}),
-			},
-		});
+		const event = await recordSessionInput(store, agents, id, input, wait, busy, from, metadata);
 		accepted?.(event.id);
 		const run = submitTaskEvent(session, event);
 		if (wait) return run;
@@ -444,7 +446,15 @@ export function createSessions({
 			return withPolicy(session);
 		},
 		submit: ((id, input, options) =>
-			runTask(id, input, options?.wait === true, options?.busy)) as SessionsAPI["submit"],
+			runTask(
+				id,
+				input,
+				options?.wait === true,
+				options?.busy,
+				undefined,
+				undefined,
+				options,
+			)) as SessionsAPI["submit"],
 		abort: async (id) => {
 			await runtime().abort(id);
 		},
@@ -469,10 +479,10 @@ export function createSessions({
 		submitFrom(
 			id: string,
 			input: Input,
-			options: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" } | undefined,
+			options: ({ wait?: boolean; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata) | undefined,
 			from: string,
 		) {
-			return runTask(id, input, options?.wait === true, options?.busy, undefined, from);
+			return runTask(id, input, options?.wait === true, options?.busy, undefined, from, options);
 		},
 		resolveSession,
 		ensureAgent: createAgentSession,

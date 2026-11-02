@@ -54,6 +54,9 @@ test("persists owned jobs, executes a real command, prevents overlap and recover
 			},
 		},
 		execution: {
+			async capture(value: ToolContext) {
+				return { session: value.session, agent: value.agent, profile: value.profile };
+			},
 			async resolve() {
 				return { capabilities: ctx.capabilities };
 			},
@@ -218,7 +221,7 @@ test("Agent jobs require the owning profile and history retains the newest bound
 		agent: "main",
 		session: "1",
 		profile: "owner",
-		capabilities: ["write", "exec", "admin"],
+		capabilities: ["write", "exec", "admin", "message"],
 	} as ToolContext;
 	const lower = { ...owner, session: "2", profile: "readonly", capabilities: ["read", "write"] } as ToolContext;
 	const api = {
@@ -226,6 +229,9 @@ test("Agent jobs require the owning profile and history retains the newest bound
 		storage: createFilePluginStorage(dir),
 		log: { error: () => {} },
 		execution: {
+			async capture(value: ToolContext) {
+				return { session: value.session, agent: value.agent, profile: value.profile };
+			},
 			async resolve(identity: { agent: string | null; profile: string; session: string }) {
 				if (identity.agent !== owner.agent) throw new Error("Unknown Agent identity");
 				if (identity.profile === owner.profile) return { capabilities: owner.capabilities };
@@ -310,6 +316,191 @@ test("Agent jobs require the owning profile and history retains the newest bound
 		expect(await scheduler.manage({ action: "history", id: job.id, limit: 1 }, owner, false)).toHaveLength(1);
 	} finally {
 		await stopHost();
+		await rm(dir, { recursive: true, force: true });
+	}
+});
+
+test("cron captures a fresh source for manual runs and automatic ticks keep the saved source", async () => {
+	const dir = await tempHome("yonder-cron-source-");
+	const ctx = {
+		agent: "main",
+		session: "1",
+		profile: "owner",
+		capabilities: ["write", "exec", "admin", "message"],
+		resources: [{ deviceId: "local", paths: ["/workspace/owner"] }],
+	} as ToolContext;
+	const events: YEvent[] = [];
+	let captures = 0;
+	const submissions: unknown[] = [];
+	const api = {
+		paths: { data: dir },
+		storage: createFilePluginStorage(dir),
+		log: { error: () => {} },
+		execution: {
+			async capture(value: ToolContext) {
+				captures++;
+				return {
+					session: value.session,
+					agent: value.agent,
+					profile: value.profile,
+					...(value.session === "1" ? { inputs: ["owner-dm-source"] } : {}),
+				};
+			},
+			async resolve() {
+				return { capabilities: ctx.capabilities };
+			},
+			async run() {
+				return { stdout: "ok", stderr: "", exitCode: 0 };
+			},
+		},
+		events: {
+			async emit(input: object) {
+				const event = { ...input, id: String(events.length + 1), ts: new Date().toISOString() } as YEvent;
+				events.push(event);
+				return event;
+			},
+			async ask(input: object) {
+				return { event: await this.emit(input), results: [] };
+			},
+		},
+		sessions: {
+			async open() {
+				return { id: "cron-program-session" };
+			},
+			async submit(_id: string, _input: object, options: object) {
+				submissions.push(options);
+				return { status: "done", text: "ok" };
+			},
+			async close() {},
+		},
+	} as unknown as PluginAPI;
+	const scheduler = new Scheduler(api);
+	const stop = await startScheduler(scheduler, api.events.emit);
+	try {
+		const job = (await scheduler.manage(
+			{
+				action: "create",
+				job: {
+					name: "manual source refresh",
+					enabled: false,
+					schedule: { kind: "every", milliseconds: 60000, anchor: new Date().toISOString(), timezone: "UTC" },
+					payload: { kind: "preset", preset: "default", text: "inspect source" },
+				},
+			},
+			ctx,
+			true,
+		)) as { id: string };
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+			resources: [{ deviceId: "local", paths: ["/workspace/owner"] }],
+		});
+		expect(
+			((await scheduler.manage({ action: "get", id: job.id }, ctx, true)) as { executionOwner: { inputs?: string[] } })
+				.executionOwner.inputs,
+		).toEqual(["owner-dm-source"]);
+		ctx.resources = [{ deviceId: "local", paths: ["/outside"] }];
+		await expect(scheduler.manage({ action: "run", id: job.id }, ctx, true)).rejects.toThrow(
+			"No shared execution resources",
+		);
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+			resources: [{ deviceId: "local", paths: ["/workspace/owner"] }],
+		});
+		ctx.resources = [{ deviceId: "local", paths: ["/workspace/owner/cron"] }];
+		expect(await scheduler.manage({ action: "run", id: job.id }, ctx, true)).toMatchObject({ status: "done" });
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+		});
+		expect(
+			(
+				(await scheduler.manage({ action: "get", id: job.id }, ctx, true)) as {
+					executionOwner: { inputs?: string[] };
+				}
+			).executionOwner.inputs,
+		).toEqual(["owner-dm-source"]);
+		expect(submissions[0]).toMatchObject({
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+			resources: [{ deviceId: "local", paths: ["/workspace/owner/cron"] }],
+		});
+		const groupCtx = {
+			...ctx,
+			session: "group-session",
+			resources: [{ deviceId: "local", paths: ["/workspace/owner/cron"] }],
+		} as ToolContext;
+		await scheduler.manage(
+			{ action: "update", id: job.id, job: { delivery: { to: "acct:card:cloud-bot:owner", via: "card" } } },
+			groupCtx,
+			true,
+		);
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			owner: { session: "1", agent: "main", profile: "owner" },
+			executionOwner: { session: "group-session", agent: "main", profile: "owner" },
+			resources: [{ deviceId: "local", paths: ["/workspace/owner/cron"] }],
+		});
+		expect(
+			((await scheduler.manage({ action: "get", id: job.id }, ctx, true)) as { executionOwner: object }).executionOwner,
+		).not.toHaveProperty("inputs");
+		await scheduler.manage({ action: "run", id: job.id }, undefined, true);
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			owner: { session: "1", agent: "main", profile: "owner" },
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+		});
+		expect(
+			((await scheduler.manage({ action: "get", id: job.id }, ctx, true)) as { executionOwner: object }).executionOwner,
+		).not.toHaveProperty("inputs");
+		await scheduler.manage({ action: "enable", id: job.id }, groupCtx, true);
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			owner: { session: "1", agent: "main", profile: "owner" },
+			executionOwner: { session: "group-session", agent: "main", profile: "owner" },
+		});
+		expect(
+			((await scheduler.manage({ action: "get", id: job.id }, ctx, true)) as { executionOwner: object }).executionOwner,
+		).not.toHaveProperty("inputs");
+		await scheduler.manage(
+			{ action: "update", id: job.id, job: { name: "updated without native source" } },
+			undefined,
+			true,
+		);
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			owner: { session: "1", agent: "main", profile: "owner" },
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+		});
+		expect(
+			((await scheduler.manage({ action: "get", id: job.id }, ctx, true)) as { executionOwner: object }).executionOwner,
+		).not.toHaveProperty("inputs");
+		await scheduler.manage({ action: "enable", id: job.id }, undefined, true);
+		expect(await scheduler.manage({ action: "get", id: job.id }, ctx, true)).toMatchObject({
+			owner: { session: "1", agent: "main", profile: "owner" },
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+		});
+
+		const scheduled = (await scheduler.manage(
+			{
+				action: "create",
+				job: {
+					name: "automatic source retention",
+					schedule: { kind: "at", at: new Date(Date.now() + 60_000).toISOString(), timezone: "UTC" },
+					payload: { kind: "event", type: "cron.source-check", target: "conv:cli:local", data: {} },
+				},
+			},
+			ctx,
+			false,
+		)) as { id: string };
+		await scheduler.tick(Date.now() + 61_000);
+		await expect
+			.poll(
+				async () =>
+					(
+						(await scheduler.manage({ action: "history", id: scheduled.id }, ctx, false)) as Array<{ status: string }>
+					)[0]?.status,
+			)
+			.toBe("done");
+		expect(captures).toBe(6);
+		expect(await scheduler.manage({ action: "get", id: scheduled.id }, ctx, false)).toMatchObject({
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+		});
+	} finally {
+		await stop();
 		await rm(dir, { recursive: true, force: true });
 	}
 });

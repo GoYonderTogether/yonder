@@ -241,6 +241,8 @@ export async function registerPlugins(
 						{
 							...(options?.wait !== undefined ? { wait: options.wait } : {}),
 							...(options?.busy ? { busy: options.busy } : {}),
+							...(options?.executionOwner ? { executionOwner: options.executionOwner } : {}),
+							...(options?.resources ? { resources: options.resources } : {}),
 						},
 						manifest.id,
 					);

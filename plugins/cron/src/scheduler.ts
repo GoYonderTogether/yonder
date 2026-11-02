@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { PluginAPI, ToolContext, TriggerIO } from "@yonder/sdk";
+import { intersectResources, type PluginAPI, type ToolContext, type TriggerIO } from "@yonder/sdk";
 import { Check } from "typebox/value";
 import { executeRun } from "./execute.js";
 import {
@@ -77,6 +77,17 @@ export class Scheduler {
 	}
 	private validate(job: Job) {
 		validateJob(job);
+	}
+	private async refreshExecutionSource(job: Job, ctx: ToolContext | undefined) {
+		if (!ctx) {
+			return { executionOwner: { ...job.owner } };
+		}
+		const executionOwner = await this.api.execution.capture(ctx);
+		const resources = intersectResources(
+			job.resources,
+			ctx.resources === undefined ? undefined : structuredClone(ctx.resources),
+		);
+		return { executionOwner, resources };
 	}
 	private async scheduleNext() {
 		if (this.stopped || this.running.size >= this.concurrency) {
@@ -205,8 +216,13 @@ export class Scheduler {
 			)
 				throw new Error("Use cron_exec with exec capability for command/script jobs");
 			let result: Promise<RecordRun> | undefined;
+			const source = await this.refreshExecutionSource(job as Job, ctx);
 			await this.exclusive(async () => {
 				if (!this.jobs.includes(job as Job)) throw new Error("Job changed; read current job before running");
+				if (ctx || source.executionOwner) {
+					Object.assign(job as Job, source, { updated: new Date().toISOString() });
+					await this.save();
+				}
 				result = (await this.launch(job as Job, null)).completion;
 			});
 			return result;
@@ -222,6 +238,7 @@ export class Scheduler {
 				return { deleted: a.id };
 			}
 			if (a.action === "disable" || a.action === "enable") {
+				if (a.action === "enable") Object.assign(job as Job, await this.refreshExecutionSource(job as Job, ctx));
 				(job as Job).enabled = a.action === "enable";
 				if (a.action === "enable") (job as Job).next = next((job as Job).schedule, Date.now(), job?.start, job?.end);
 				await this.save();
@@ -233,11 +250,33 @@ export class Scheduler {
 			if (a.action === "create" && (!a.job.name || !a.job.schedule || !a.job.payload))
 				throw new Error("name, schedule, payload required");
 			const now = new Date().toISOString();
+			let sourceFields: Pick<Job, "executionOwner" | "resources"> = {};
+			if (job && ctx) {
+				const executionOwner = await this.api.execution.capture(ctx);
+				const resources = intersectResources(
+					job.resources,
+					ctx.resources === undefined ? undefined : structuredClone(ctx.resources),
+				);
+				sourceFields = { executionOwner, ...(resources === undefined ? {} : { resources }) };
+			} else if (job) {
+				sourceFields = { executionOwner: job.owner };
+			} else if (ctx) {
+				const executionOwner = await this.api.execution.capture(ctx);
+				const resources = intersectResources(
+					undefined,
+					ctx.resources === undefined ? undefined : structuredClone(ctx.resources),
+				);
+				sourceFields = { executionOwner, ...(resources === undefined ? {} : { resources }) };
+			}
 			const authority = !job && !ctx && hostOwner ? await this.api.execution.resolve(hostOwner) : undefined;
+			const owner =
+				job?.owner ?? hostOwner ?? (ctx ? { session: ctx.session, agent: ctx.agent, profile: ctx.profile } : undefined);
+			const capabilities = job?.capabilities ?? authority?.capabilities ?? (ctx ? [...ctx.capabilities] : undefined);
+			if (!owner || !capabilities) throw new Error("Creating a job requires an execution owner");
 			const updated: Job = {
 				id: randomUUID(),
-				owner: job?.owner ?? hostOwner ?? { session: ctx!.session, agent: ctx!.agent, profile: ctx!.profile },
-				capabilities: job?.capabilities ?? authority?.capabilities ?? [...ctx!.capabilities],
+				owner,
+				capabilities,
 				name: "",
 				schedule: a.job.schedule as Schedule,
 				payload: a.job.payload as Payload,
@@ -249,6 +288,7 @@ export class Scheduler {
 				next: null,
 				...job,
 				...a.job,
+				...sourceFields,
 			};
 			for (const key of ["delivery", "start", "end", "maxRuns"] as const)
 				if (updated[key] === null) delete updated[key];

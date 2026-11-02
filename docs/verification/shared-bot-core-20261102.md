@@ -176,3 +176,13 @@ Root两仓完整gate：Yonder build/typecheck成功，2707通过/0失败/112跳�
 首次full2713通过/2失败/112跳过（授权prompt golden与7309>7300）；仅压原段60词使总7297并重算golden，不抬上限，15项prompt通过。corrected full2715/0/112成功后又发现并修复真实reply:none源永等回执的队列挂起；四边界单元、真实连续两输入error与后prompt过滤均过。最终complete full build/typecheck/lint0、**2719通过/0失败/112跳过**，508文件通过/67跳过，89.51秒；size924/layer108基线0，Biome0error/1325warning/34info。原始日志stage-10-final-*、stage-10-corrected-*、stage-10-complete-*全部保留。
 
 其它开发夹具失败、manifest漏hook、旧dist、背景测试误改LiveDoc、错误SSR命令和transport call-ID/last-user/retry/迁移顺序逐条保留在详细记录，不把它们改称环境豁免。设备真实tool调用/动态目录仍待阶段11，模型卡片body不是设备能力验收。
+
+## 阶段11：设备工具与最终验收（完整gate通过）
+
+源基线6bed1bc6；Cloud设备桥提交ccbd42edc3682467b644932fb97858e5929f29e5。实现及开发过程、全部原始失败/修复计数见[设备工具验证](shared-bot-device-tools-20261103.md)。真实worker身份、DB owner/source/mapping校验和原work-bridge调用本机默认profile；唯一adapter原生program ToolTask、持久幂等/每task权限及资源快照、真实creator refs与cron/tasks继承。SDK路径边界实际错误放行经最小修复与回归拒绝，普通模型工具原语义保留。
+
+Root最终complete gate：build/typecheck/lint0；2733pass/0fail/112skip，515files pass/67skip，582files/2845tests，106.11秒；Biome2048files、0error/1322warning/34info，size930/layer109基线0。首轮full2730/3/112（2旧scope fixture缺冻结配置方法、1网关文档漏同步），保断言窄修后完整重跑；两轮raw分别stage-11-final-*、stage-11-complete-*，未覆盖原失败。
+
+A9真实GLM官方memory/实际独立设备进程已通过，在线冻结目录2工具/离线0；同来源collector与实际HTTP严格一致、真实owner cron来源另由transport回环验证。A6新公开SOUL事实两租户+暖轮共3run通过，首个内部token提取请求被模型拒绝的失败原样保留，不改生产prompt。A12最终100Bot+暖1、active20：idle139.362MB/采样peak318.996MB，PG2/TCP3/Timeout2稳定，cold168–169/mean168.8、warm90（仅Worker Client.query）。结构化证据为shared-bot-{device-live,device-program,worker-live-final,worker-load-final}-20261103.json。
+
+相对原tip2660/0/112无新增失败；真实Luna缺CONTRIBUTING凭据未测，未push/部署/安装/连接生产/截图。原Docker删除范围与新worker配置/systemd仅在未提交报告中写草案。

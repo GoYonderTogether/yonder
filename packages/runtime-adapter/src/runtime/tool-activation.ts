@@ -21,9 +21,11 @@ import type { RemoteFind } from "./find.js";
 import { createFindTool } from "./find.js";
 import type { RemoteGrep } from "./grep.js";
 import { createGrepTool } from "./grep.js";
+import { allowedHostTool, refreshHostTools } from "./host-tools.js";
 import { imageHistoryHooks } from "./image-history.js";
 import type { RuntimeInternals } from "./instance.js";
 import { createLsTool } from "./ls.js";
+import { programSnapshot } from "./program.js";
 import { promptSections } from "./prompt-sections.js";
 import { recoveryHooks, retryPolicy } from "./recovery.js";
 import { fromResult, toResult } from "./results.js";
@@ -101,10 +103,12 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 		changed: (session) => rt.options.onBackgroundChanged?.(session),
 		config: async (session, context) => {
 			const ctx = await rt.context(session, context);
+			const invocation = rt.invocationConfigs.get(context);
+			const runId = invocation?.runId ?? ctx.runId;
 			return JSON.stringify({
-				config: rt.currentConfig(session) ?? (await rt.options.resolveSession(session)),
-				events: ctx.events ?? [],
-				...(ctx.runId ? { runId: ctx.runId } : {}),
+				config: invocation?.config ?? rt.currentConfig(session) ?? (await rt.options.resolveSession(session)),
+				events: invocation?.events ?? ctx.events ?? [],
+				...(runId ? { runId } : {}),
 			});
 		},
 		execute: async (input, api, context) => {
@@ -171,6 +175,28 @@ export function installExtensions(rt: RuntimeInternals, host: RuntimeToolHost) {
 			(name) => rt.toolGuidelines.get(name),
 		),
 		hooks: [
+			hook(ToolTask, {
+				beforeTool: async (_call, api, context) => {
+					const snapshot = await programSnapshot(rt, api.taskId, context);
+					if (snapshot)
+						rt.invocationConfigs.set(context, {
+							...snapshot,
+							operationPrefix: `program:${api.conversationId}:${api.taskId}`,
+							operationSequence: 0,
+						});
+				},
+			}),
+			hook(GenerationTask, {
+				beforeRequest: async (_request, api, context) => {
+					const config = rt.currentConfig(String(api.conversationId));
+					if (!config?.hostTools) return;
+					const frozen = config.hostTools.map((entry) => entry.name);
+					await refreshHostTools(rt, config, context.abortSignal);
+					const removed = frozen.filter((name) => !allowedHostTool(rt, config, name));
+					if (!removed.length) return;
+					return { toolsRemoved: removed };
+				},
+			}),
 			// 图片裁剪必须在 limits 的图片数量检查之前：旧图先变成文字，检查才不会被历史图片挡住。
 			...imageHistoryHooks(),
 			...rt.limits.hooks(),
@@ -250,7 +276,11 @@ export function backgroundTool(rt: RuntimeInternals, tool: ToolRegistration): To
 	};
 	return {
 		...registration,
-		execute: (args, api, context) => rt.background.run(tool, args as JsonObject, api, context),
+		execute: (args, api, context) =>
+			// Program roots and their nested ToolTasks already have durable execution and output handling.
+			rt.invocationConfigs.get(context)?.allowedTools !== undefined
+				? tool.execute(args, api, context)
+				: rt.background.run(tool, args as JsonObject, api, context),
 	};
 }
 export function adapter(

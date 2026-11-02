@@ -42,7 +42,9 @@ MessageContent 增加 `{type:'error',text:string}`，仅服务端或 worker 可�
 
 ## 5 远程设备工具
 
-设备上线时发现其插件工具，按当前 owner、scope、能力与 grant 暴露给云端 Bot。通用 tools.call 进入现有 control registry，经 work-bridge/设备执行协议执行并返回结果，不新开通道。离线工具移出列表，调用中断如实报错；未知副作用不自动重放。不得因通用工具入口绕过原权限检查。
+设备工具按19 §8沿现工作桥暴露，使用真实worker身份、DB Bot owner/设备/映射核验与本机已接纳defaultProfile/ToolPolicy。资格仅真实owner DM或可核owner程序来源；一次绑定不等于全scope，实际cap/resources/grant求交，默认cloud不新增exec。owner设备内多Agent工具以稳定namespace和真实schema进入同Runtime模型目录；访客/群不取私密目录或facts。
+
+无模型程序入口复用同pi-durable ToolTask的program分支及真实SDK context；按可信来源会话复用program conversation、每invocation持久Task指针，不合成模型/user/nested entry、不污染主人活动会话。原grant与未知副作用规则保持。动态host集合与每run允许目标/名称/权限/facts快照在唯一adapter管理，不增第二运行循环或每Bot常驻资源；离线目录移除、执行实时重核。程序capture/来源refs与resources继承见04，精确接口、私密来源和验收见19 §8。
 
 ## 6 实施门槛
 

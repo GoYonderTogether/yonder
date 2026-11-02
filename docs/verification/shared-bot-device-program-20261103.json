@@ -1,0 +1,170 @@
+{
+	"mode": "loopback-tool-transport",
+	"temporaryHome": true,
+	"independentOfficialMemoryRoot": true,
+	"realCardLoginAndMapping": true,
+	"workProtocolBridge": "tools.catalog + tools.call through openKernel/workControl",
+	"onlineProgramTool": "official memory plugin",
+	"ownerDmSource": true,
+	"cronManageOwnerDmSource": true,
+	"cronPresetNativeSourceReused": true,
+	"offlineNextRunDoesNotReadDeviceMemory": true,
+	"providerDeviceTools": {
+		"online": ["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"],
+		"offline": []
+	},
+	"providerRunDocs": {
+		"online": {
+			"matched": true,
+			"runCount": 1,
+			"kind": "yonder.run",
+			"keys": [
+				"agent",
+				"bindings",
+				"cwd",
+				"hostFacts",
+				"hostToolInputs",
+				"hostTools",
+				"owner",
+				"profile",
+				"protectedFiles",
+				"resolved",
+				"sessionId",
+				"sessionMode"
+			],
+			"started": 1793651446391,
+			"tools": ["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+		},
+		"offline": {
+			"matched": true,
+			"runCount": 1,
+			"kind": "yonder.run",
+			"keys": [
+				"agent",
+				"bindings",
+				"cwd",
+				"hostFacts",
+				"hostToolInputs",
+				"hostTools",
+				"owner",
+				"profile",
+				"protectedFiles",
+				"resolved",
+				"sessionId",
+				"sessionMode"
+			],
+			"started": 1793651462061,
+			"tools": []
+		}
+	},
+	"workerCredentialAbsentFromPersistedCommits": true,
+	"modelCredentialAbsentFromPersistedCommits": true,
+	"modelCredentialAbsentFromWorkerLogs": true,
+	"catalogueAssertions": {
+		"providerRunDocs": {
+			"online": {
+				"matched": true,
+				"runCount": 1,
+				"kind": "yonder.run",
+				"keys": [
+					"agent",
+					"bindings",
+					"cwd",
+					"hostFacts",
+					"hostToolInputs",
+					"hostTools",
+					"owner",
+					"profile",
+					"protectedFiles",
+					"resolved",
+					"sessionId",
+					"sessionMode"
+				],
+				"started": 1793651446391,
+				"tools": ["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+			},
+			"cronCreate": {
+				"matched": true,
+				"runCount": 1,
+				"kind": "yonder.run",
+				"keys": [
+					"agent",
+					"bindings",
+					"cwd",
+					"hostFacts",
+					"hostToolInputs",
+					"hostTools",
+					"owner",
+					"profile",
+					"protectedFiles",
+					"resolved",
+					"sessionId",
+					"sessionMode"
+				],
+				"started": 1793651446758,
+				"tools": ["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+			},
+			"cronRun": {
+				"matched": true,
+				"runCount": 1,
+				"kind": "yonder.run",
+				"keys": [
+					"agent",
+					"cwd",
+					"hostFacts",
+					"hostToolInputs",
+					"hostTools",
+					"profile",
+					"protectedFiles",
+					"resolved",
+					"sessionId",
+					"sessionMode"
+				],
+				"started": 1793651461841,
+				"tools": ["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+			},
+			"offline": {
+				"matched": true,
+				"runCount": 1,
+				"kind": "yonder.run",
+				"keys": [
+					"agent",
+					"bindings",
+					"cwd",
+					"hostFacts",
+					"hostToolInputs",
+					"hostTools",
+					"owner",
+					"profile",
+					"protectedFiles",
+					"resolved",
+					"sessionId",
+					"sessionMode"
+				],
+				"started": 1793651462061,
+				"tools": []
+			}
+		},
+		"loopbackProviderTools": {
+			"online": [
+				["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"],
+				["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+			],
+			"cronCreate": [
+				["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"],
+				["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+			],
+			"cronRun": [
+				["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"],
+				["device_197290e0fe39b1db_memory_search", "device_80d5e88d43a7b14e_memory_read"]
+			],
+			"offline": [[]]
+		},
+		"loopbackRunDocMatch": {
+			"online": true,
+			"cronCreate": true,
+			"cronRun": true,
+			"offline": true
+		}
+	}
+}

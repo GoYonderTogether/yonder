@@ -9,6 +9,7 @@ import type { RuntimeInternals } from "./instance.js";
 import { fallbackAliases, parseAccountProvider } from "./model-chain.js";
 import { accountKey } from "./model-quota.js";
 import { Outbox } from "./outbox.js";
+import { programSnapshot } from "./program.js";
 import { modelTimeouts, retryPolicy } from "./recovery.js";
 
 export async function openRuntime<T extends RuntimeInternals>(rt: T, options: RuntimeOptions): Promise<T> {
@@ -20,6 +21,8 @@ export async function openRuntime<T extends RuntimeInternals>(rt: T, options: Ru
 		{
 			models: rt.models,
 			resolveModels: async (target, context) => {
+				const program = await programSnapshot(rt, target.taskId, context);
+				if (program) return rt.modelsFor(program.config);
 				const session = String(target.conversationId);
 				const key = String(target.taskId);
 				const pinned = await target.read.snapshot(ModelBindingDoc, target.conversationId, key, context);
@@ -58,10 +61,13 @@ export async function openRuntime<T extends RuntimeInternals>(rt: T, options: Ru
 				...(options.config.compaction ? { compaction: options.config.compaction } : {}),
 			},
 			beforeAgent: (target, context) => rt.prepareRun(String(target.conversationId), context),
-			env: async (target) => {
-				const doc = await target.read.snapshot(SessionDoc, target.conversationId, C);
+			env: async (target, context) => {
+				const program = target.taskId === undefined ? undefined : await programSnapshot(rt, target.taskId, context);
+				if (program) return rt.environment(program.config);
+				const doc = await target.read.snapshot(SessionDoc, target.conversationId, context);
 				if (!doc) throw new Error("Missing yonder.session");
 				const config =
+					rt.invocationConfigs.get(context)?.config ??
 					rt.currentConfig(String(target.conversationId)) ??
 					(await options.resolveSession(String(target.conversationId)));
 				return rt.environment(config);

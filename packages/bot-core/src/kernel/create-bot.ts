@@ -1,6 +1,6 @@
 import type { AgentConfig, YonderConfig } from "@yonder/bot-definition";
 import type { Runtime, RuntimeOptions } from "@yonder/runtime-adapter";
-import type { Preset } from "@yonder/sdk";
+import { intersectResources, type Preset } from "@yonder/sdk";
 import { createDelivery } from "../delivery/index.js";
 import { outboundQueue } from "../delivery/outbound.js";
 import type { createPermissions } from "../permissions.js";
@@ -214,15 +214,24 @@ export async function createBot(options: CreateBotOptions) {
 			report: options.report,
 			views: loaded.views,
 		}),
-		resolveSession: async (id) => {
-			const session = await sessions.resolveSession(id);
+		resolveSession: async (id, inputs) => {
+			let session = await sessions.resolveSession(id);
+			for (const input of inputs ?? []) {
+				if (input.type !== "session.input") continue;
+				const data = input.data as import("@yonder/sdk").SessionInputData;
+				const resources = intersectResources(session.resources, data.resources);
+				session = { ...session, ...(resources ? { resources } : {}) };
+			}
 			const protectedFiles = session.resolved.contexts
 				.flatMap((id) => loaded.contexts.get(id)?.files ?? [])
 				.flatMap((file) => (file.protect ? [{ path: file.path, capability: file.protect }] : []));
 			return { ...session, protectedFiles };
 		},
-		sections: (session, signal) => systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) }),
-		sectionKeys: systemPromptKeys(loaded.contexts),
+		sections: async (session, signal) => {
+			const parts = await systemPromptParts(session, { ...promptOptions, ...(signal ? { signal } : {}) });
+			return session.hostFacts ? [...parts, { key: "host-tools", text: session.hostFacts }] : parts;
+		},
+		sectionKeys: [...systemPromptKeys(loaded.contexts), "host-tools"],
 		...prepared.runtimeOptions,
 		onModelHealth: (event) => log(event.state === "recovered" ? "info" : "warn", "Model health", event),
 		...observedRuntimeEvents(store, forwardUpdate, delivery.modelNotice),

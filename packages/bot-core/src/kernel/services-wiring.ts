@@ -5,6 +5,7 @@ import type { createSessions } from "@yonder/bot-core/sessions/index";
 import type { AgentConfig, YonderConfig } from "@yonder/bot-definition";
 import type { Runtime, RuntimeSessionConfig } from "@yonder/runtime-adapter";
 import type { KernelServices, LoadedPlugins } from "../plugins/index.js";
+import { captureExecutionOwner } from "../sessions/execution-source.js";
 import type { Store } from "../store/contracts.js";
 import { runSubagent } from "./subagents.js";
 
@@ -144,10 +145,12 @@ export function createKernelServices(wiring: ServicesWiring): KernelServices {
 		},
 		subagents: { run: (request, ctx) => runSubagent(wiring.runtime(), wiring.tools(), request, ctx) },
 		execution: {
+			capture: (ctx) => captureExecutionOwner(store, agents, wiring.runtime(), ctx),
 			resolve: async (owner) => {
-				const { resolved } = await wiring.resolveExecutionOwner(owner);
+				const { resolved, resources } = await wiring.resolveExecutionOwner(owner);
 				return {
 					capabilities: [...resolved.capabilities],
+					...(resources ? { resources: structuredClone(resources) } : {}),
 					...(resolved.channelInstances === undefined ? {} : { channelInstances: [...resolved.channelInstances] }),
 				};
 			},

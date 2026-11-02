@@ -58,3 +58,5 @@ export function intersectChannelInstances(a?: readonly string[], b?: readonly st
 export * from "@yonder/protocol";
 
 export type { PluginFileEntry, PluginFileStat, PluginFiles, PluginStorage } from "./plugin-storage.js";
+
+export { intersectResources } from "./resource-scope.js";

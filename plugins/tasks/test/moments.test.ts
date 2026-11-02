@@ -47,6 +47,7 @@ export default { configSchema: tasks.configSchema, setup(value) {
   api = value;
   api.events.on('run.end', event => requestEvents.emit('run.end', event));
   tasks.setup({...api,
+    execution: {...api.execution, async capture(ctx) {return {session:ctx.session, agent:ctx.agent, profile:ctx.profile};}},
     tools: {register(tool) {tools.push(tool); api.tools.register(tool);}},
     triggers: {register(trigger) {triggers.push(trigger); api.triggers.register(trigger);}}
   });

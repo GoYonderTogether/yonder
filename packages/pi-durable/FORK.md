@@ -115,3 +115,20 @@ verify this durable overlay. `sync-pi-durable.mjs` refuses to replace a source t
 that differs from the recorded base. Preserve these changes; reconcile and verify
 them in the Pi fork before an explicit provenance migration and coherent artifact
 rebuild. There is no force-overwrite or automatic overlay replay path.
+
+## Harness-local native program ToolTask overlay
+
+The Harness adds a `program` root input to the existing `pi.tool` task in
+`src/harness/tool.ts`. It reuses native tool lookup, argument validation,
+`beforeTool`/`afterTool` hooks, durable execution intent, replay policy, output
+limits, and terminal task outcomes. Program calls do not append transcript
+entries or create a nested parent. The adapter persists invocation pointers and
+per-task authority snapshots alongside task creation. This overlay is not part
+of the recorded Pi fork commit and must remain protected by the sync guard until
+it is migrated and verified in the Pi fork.
+
+Stage 11 request tool availability: `src/harness/types.ts` allows `GenerationHooks.beforeRequest` to return `toolsRemoved`; `src/harness/generation.ts` unions all hook removals, restricts them to that phase's offered names and applies them after message hooks for the current provider request only. It cannot add tools or clear another hook's removal.
+
+Stage 11 native program execution also changes `src/harness/types.ts`, `src/harness/scheduler.ts` and `src/harness/harness.ts` to carry the actual task ID to `HarnessOptions.env` through `EnvTarget.taskId`; `TaskScheduler` supplies its active invocation ID to `Harness.buildEnv`. The task agent callback awaits `beforeAgent` and then resolves against the current registry snapshot. These changes let the adapter recover a program task's own frozen environment and agent scope without substituting mutable conversation state.
+
+Program ToolTasks execute the existing SDK registration within their native task instead of starting a separate `yonder.background` task; ordinary model calls retain the background wrapper. The program task still runs the same registered `ToolTask` hooks, argument checks, intent/replay policy, output handling and owned-child cancellation.

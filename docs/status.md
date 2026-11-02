@@ -4,13 +4,17 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
-## 共享 Bot 核心重构（2026-11-02，实施中）
+## 共享 Bot 核心重构（2026-11-02–03，阶段1–11完成）
 
-目标已获维护者授权，见 [22](spec/22-shared-bot-core.md)。阶段1–10已完成：共享定义/来源/工作区、SQLite/PG运行状态、FS/PG插件存储、单一createBot与Runtime、无环境本机组合、单进程PG Worker、20实例LRU及统一持久deadline调度。共享createBot默认接主系统sections，实际GLM证明PG SOUL生效；本机保留配置诊断扩展，旧core兼容导出。
+维护者授权目标见[22](spec/22-shared-bot-core.md)。本机与云端共用createBot/唯一Runtime及提示词装配；定义/工作区、运行状态和插件数据使用真实FS/SQLite或租户隔离PG实现。本机零环境组合与PG单进程Worker已验证，旧core兼容导出保留。Worker按消息激活、20实例LRU和唯一持久deadline调度；原Docker/安装/发版路径未改。
 
-阶段10最新完整build/typecheck/lint通过，默认2719通过/0失败/112跳过；size924/layer108、基线均0，相对a6a6c0b5无新增失败。真实PG/Redis/server/Worker两租户隔离、三个真实GLM轮次、错误唯一结果与后续prompt过滤、在途/排队取消、cron逐出/重启均已验证。修后100Bot+暖轮空载136.135MB、采样峰值312.459MB、active上限20，连接与timer资源不随Bot增长；cold query均值161.8、warm83。数据是本机验证，不是生产2核主机实测。
+最终完整build/typecheck/lint通过；默认**2733通过/0失败/112跳过**，515files通过/67skip，106.11秒；size930/layer109、基线0，相对固定a6a6c0b5无新增失败。Cloud根/server build/typecheck通过，后端207通过/0失败/0取消/0跳过。既有1322 lint warning/34 info保留，真实gpt-6-luna缺规约凭据仍未测。
 
-cloud阶段9服务端/主动投递/cloud界面先行提交63b5a99、107ce7e，配套程序模型准入提交eed0b17，根/server build/typecheck通过，后端206/0/0/0；cloud组件SSR3项为前阶段证据。阶段9补齐monorepo app红色error/历史预览/独立按钮链接与实际云Bot状态，cloud /download复用Install已由真实Chrome验证；官方最终卡片已真实GLM调用并投递/connect与/download，FS/PG共用一张run意图和原发送账本；reply:none单结果回执不再堵队列，普通本机/ask不变。远程设备插件仍待阶段11；不据已有worker证明这些完成。真实Luna缺仓库规约凭据，记未测。证据见[阶段检查](verification/shared-bot-core-20261102.md)、[包边界](verification/shared-bot-boundaries-20261103.md)、[Worker验证](verification/shared-bot-worker-20261103.md)、[客户端验证](verification/shared-bot-app-20261103.md)与[卡片验证](verification/shared-bot-card-20261103.md)，逐项进度见未提交REFACTOR-REPORT.md。不推送、不部署、不连接生产。
+真实GLM证明两租户PG SOUL生效、最终卡片/connect与/download，以及本机临时设备官方memory插件读取。worker/server错误唯一结果、后续prompt排除、红色气泡外UI和真实Chrome路由已有证据；reply:none不堵队列。设备通过原work-bridge与原生program ToolTask执行，按真实owner DM/可核程序refs授权，per-run/per-task名单和资源冻结，离线移除工具；cron继承及逐次HTTP目录一致性用明确transport回环独立验证。默认cloud不新增exec，不据memory往返宣称物理grant、硬件或所有设备组合已测。
+
+新版100Bot+1暖轮：idle139.362MB、50ms采样peak318.996MB，active/highWater20、101完成/pending0；PG2/TCP3/Timeout2不随Bot增长。cold Worker Client.query168–169（mean168.8），warm90，不含server SQL。另有新版3run真实GLM及其独立RSS记录；无强制GC。数据来自本机macOS，不等于2核2GB生产共存/长期驻留验收。
+
+证据：[阶段总账](verification/shared-bot-core-20261102.md)、[包边界](verification/shared-bot-boundaries-20261103.md)、[Worker](verification/shared-bot-worker-20261103.md)、[客户端](verification/shared-bot-app-20261103.md)、[卡片](verification/shared-bot-card-20261103.md)、[设备工具与最终gate](verification/shared-bot-device-tools-20261103.md)。各阶段哈希、A1–A12、未测与部署草案在根目录未提交REFACTOR-REPORT.md。未推送、部署、连接生产或操作桌面。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 

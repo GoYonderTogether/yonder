@@ -22,11 +22,32 @@ import {
 	writeHistory,
 	writeProjection,
 } from "./ledger.js";
-import type { AuditResult, Moment, Open, Projected, Task, TaskEvent, Update, UpdateItem } from "./project.js";
+import type {
+	AuditResult,
+	Moment,
+	Open,
+	Projected,
+	Task,
+	TaskEvent,
+	TaskExecutionMetadata,
+	Update,
+	UpdateItem,
+} from "./project.js";
 import { replay } from "./project.js";
 import { all, get, history, list, moments, progress } from "./query.js";
 
-export type { AuditResult, Moment, Open, State, Task, TaskContent, TaskEvent, Update, UpdateItem } from "./project.js";
+export type {
+	AuditResult,
+	Moment,
+	Open,
+	State,
+	Task,
+	TaskContent,
+	TaskEvent,
+	TaskExecutionMetadata,
+	Update,
+	UpdateItem,
+} from "./project.js";
 
 function historiesByTask(events: TaskEvent[]): Map<string, TaskEvent[]> {
 	const histories = new Map<string, TaskEvent[]>();
@@ -126,15 +147,15 @@ export class Store {
 		});
 	}
 
-	open(args: Open, ctx: ToolContext): Promise<Task> {
-		return this.#initialize((ledger) => openTask(ledger, args, ctx));
+	open(args: Open, ctx: ToolContext, metadata?: TaskExecutionMetadata): Promise<Task> {
+		return this.#initialize((ledger) => openTask(ledger, args, ctx, metadata));
 	}
-	update(id: string, patch: Update, ctx: ToolContext): Promise<Task> {
-		return this.#initialize((ledger) => changeTask(ledger, id, patch, ctx), [id]);
+	update(id: string, patch: Update, ctx: ToolContext, metadata?: TaskExecutionMetadata): Promise<Task> {
+		return this.#initialize((ledger) => changeTask(ledger, id, patch, ctx, metadata), [id]);
 	}
-	updateMany(items: UpdateItem[], ctx: ToolContext): Promise<Task[]> {
+	updateMany(items: UpdateItem[], ctx: ToolContext, metadata?: TaskExecutionMetadata): Promise<Task[]> {
 		return this.#initialize(
-			(ledger) => changeTasks(ledger, items, ctx),
+			(ledger) => changeTasks(ledger, items, ctx, metadata),
 			items.map(({ id }) => id),
 		);
 	}

@@ -16,8 +16,16 @@ import { renderPng, renderText, taskBoard } from "./board.js";
 import { digest } from "./digest.js";
 import { type Config, moments, stallWindow } from "./moments.js";
 import { DONE, GET, LIST, OPEN, SHOW, UPDATE } from "./prompts.js";
-import { type AuditResult, type Open, Store, type Task, type Update, type UpdateItem } from "./store/index.js";
-import { ongoing, own } from "./store/project.js";
+import {
+	type AuditResult,
+	type Open,
+	Store,
+	type Task,
+	type TaskExecutionMetadata,
+	type Update,
+	type UpdateItem,
+} from "./store/index.js";
+import { instructionFields, ongoing, own } from "./store/project.js";
 import { auditPrompt, budgetReached, parseAuditVerdict, registerTaskViews } from "./views.js";
 
 const string = { type: "string", minLength: 1, pattern: "[\\s\\S]*\\S[\\s\\S]*" };
@@ -49,6 +57,12 @@ const change = {
 	deliverable: string,
 	note: string,
 };
+async function captureExecution(api: PluginAPI, ctx: ToolContext): Promise<TaskExecutionMetadata> {
+	return {
+		executionOwner: await api.execution.capture(ctx),
+		...(ctx.resources === undefined ? {} : { resources: structuredClone(ctx.resources) }),
+	};
+}
 /** 完成审计：另开一个只读会话复核，末行 `<approved/>` 才算通过；审计的不是被审计的会话，所以不会死等自己。 */
 async function auditCompletion(
 	api: PluginAPI,
@@ -159,7 +173,7 @@ export default definePlugin({
 			obj({ ...content, origin: string }, ["title", "objective", "acceptance", "nonGoals"]),
 			["write"],
 			// SAFETY: typebox 已按 Open 校验参数，这里只需把校验过的对象交给存储层。
-			(args, ctx) => store.open(args as unknown as Open, ctx),
+			async (args, ctx) => store.open(args as unknown as Open, ctx, await captureExecution(api, ctx)),
 		);
 		add(
 			"update",
@@ -177,10 +191,15 @@ export default definePlugin({
 				const { id, updates, ...patch } = args as { id?: string; updates?: UpdateItem[] };
 				if (updates) {
 					if (id) throw new Error("Pass either id or updates, not both");
-					return store.updateMany(updates, ctx);
+					const changedInstructions = updates.some((item) => instructionFields.some((field) => field in item));
+					return changedInstructions
+						? captureExecution(api, ctx).then((metadata) => store.updateMany(updates, ctx, metadata))
+						: store.updateMany(updates, ctx);
 				}
 				if (!id) throw new Error("update requires id or updates");
-				return store.update(id, patch as Update, ctx);
+				return instructionFields.some((field) => field in patch)
+					? captureExecution(api, ctx).then((metadata) => store.update(id, patch as Update, ctx, metadata))
+					: store.update(id, patch as Update, ctx);
 			},
 		);
 		add(

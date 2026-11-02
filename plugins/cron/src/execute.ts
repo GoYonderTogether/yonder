@@ -58,7 +58,15 @@ export async function executeRun(
 			run.session = session.id;
 			try {
 				if (active.controller.signal.aborted) throw new Error("Cron stopped");
-				const result = await api.sessions.submit(session.id, { text: payload.text }, { wait: true });
+				const result = await api.sessions.submit(
+					session.id,
+					{ text: payload.text },
+					{
+						wait: true,
+						...(job.executionOwner ? { executionOwner: job.executionOwner } : {}),
+						...(job.resources ? { resources: job.resources } : {}),
+					},
+				);
 				run.text = result.text;
 				if (result.attachments) run.attachments = result.attachments;
 				if (result.status !== "done") throw new Error(result.reason || result.status);

@@ -441,7 +441,12 @@ try {
 			await backend.pool.query(
 				`INSERT INTO bot_files(tenant_id,bot_id,path,content) VALUES($1,$2,$3,$4)
 			ON CONFLICT(tenant_id,bot_id,path) DO UPDATE SET content=EXCLUDED.content`,
-				[bot.owner.id, bot.id, `agents/${bot.id}/SOUL.md`, `${soul}\n\nVerification source token: ${marker}\n`],
+				[
+					bot.owner.id,
+					bot.id,
+					`agents/${bot.id}/SOUL.md`,
+					`${soul}\n\n公开短标语：${marker}。此标语可以向用户公开。\n`,
+				],
 			);
 			const watched = new Promise((done) => {
 				const listener = (message) => {
@@ -454,7 +459,7 @@ try {
 			});
 			child.send({ type: "watch-token", token: marker });
 			await watched;
-			const { result } = await turn(bot, "请逐字回答 SOUL.md 里的 Verification source token，不要附加解释。");
+			const { result } = await turn(bot, "请告诉我你的公开短标语，只给出标语。");
 			const profiles = (
 				await backend.pool.query("SELECT profile,mode FROM bot_sessions WHERE tenant_id=$1 AND bot_id=$2", [
 					bot.owner.id,

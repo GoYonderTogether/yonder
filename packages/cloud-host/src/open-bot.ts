@@ -20,6 +20,7 @@ import { PostgresStorage } from "@yonder/runtime-adapter/postgres";
 import type { Channel, Credential, Preset } from "@yonder/sdk";
 import type { Pool } from "pg";
 import { type CloudBotIdentity, ensureCloudDefinition } from "./definitions.js";
+import { createDeviceTools } from "./device-tools.js";
 import { createPostgresPluginStorage } from "./plugin-storage.js";
 import type { createPostgresScheduler } from "./scheduler.js";
 import { createPostgresBotSource } from "./source.js";
@@ -27,6 +28,7 @@ import { createPostgresStore } from "./store/postgres.js";
 
 export interface CloudBotOptions {
 	pool: Pool;
+	deviceBridge?: { endpoint: string; token: string };
 	identity: CloudBotIdentity;
 	descriptors: PluginDescriptor[];
 	channels: ReadonlyMap<string, Channel>;
@@ -67,6 +69,9 @@ export async function openCloudBot(options: CloudBotOptions) {
 			void loaded?.observe(event).catch(options.report);
 		},
 	);
+	const devices = options.deviceBridge
+		? createDeviceTools({ ...options.deviceBridge, botId: identity.id, store, agents, runtime: realRuntime })
+		: undefined;
 	const resolve = async (owner: { session: string; agent: string | null; profile: string }) => {
 		const row = await store.sessions.get(owner.session);
 		if (!row || row.agent !== owner.agent || row.profile !== owner.profile)
@@ -224,6 +229,13 @@ export async function openCloudBot(options: CloudBotOptions) {
 				runtime = await Runtime.open({
 					...runtimeOptions,
 					services: runtimeServices,
+					...(devices
+						? {
+								resolveSession: async (id: string, inputs?: import("@yonder/sdk").YEvent[]) =>
+									devices.resolve({ ...(await runtimeOptions.resolveSession(id, inputs)), sessionId: id }, inputs),
+								refreshHostTools: devices.refresh,
+							}
+						: {}),
 					storage: await PostgresStorage.open(pool, identity.ownerId, identity.id),
 					admitRun: options.admitRun,
 					onIdle: async (id) => {

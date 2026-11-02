@@ -33,6 +33,8 @@ async function setup() {
 	let child = "2";
 	const runtime = {
 		sessionConfig: async () => parent,
+		invocationConfig: async () => parent,
+		invocationContext: async (ctx: ToolContext) => ctx,
 		authorizeAttachments: async () => {},
 		sessionState: async (id: string) => saved.get(id),
 		setSessionState: async (id: string, state: RuntimeSessionState) => {

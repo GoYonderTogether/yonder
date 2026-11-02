@@ -5,6 +5,7 @@ import type { SessionModels } from "@yonder/sdk";
 import { describeCatalog } from "./catalog.js";
 import { cid, SessionDoc } from "./docs.js";
 import { resolveEffort } from "./effort.js";
+import { allowedHostTool } from "./host-tools.js";
 import type { RuntimeInternals } from "./instance.js";
 import { DEFAULT_FALLBACK_AFTER, modelChain } from "./model-chain.js";
 import { chainFallback } from "./model-chain-config.js";
@@ -14,14 +15,16 @@ import type { RuntimeSessionConfig } from "./types.js";
 export function describeTools(rt: RuntimeInternals, config: RuntimeSessionConfig) {
 	return describeCatalog(
 		config,
-		[...rt.tools.values()].map((tool) => {
-			const extension = [...rt.extensions.values()].find((item) => item.tools?.includes(tool));
-			return {
-				name: tool.name,
-				capabilities: rt.capabilities.get(tool.name) ?? [],
-				...(extension?.name.startsWith("plugin:") ? { plugin: extension.name.slice(7) } : {}),
-			};
-		}),
+		[...rt.tools.values()]
+			.filter((tool) => !rt.hostTools.has(tool.name) || allowedHostTool(rt, config, tool.name))
+			.map((tool) => {
+				const extension = [...rt.extensions.values()].find((item) => item.tools?.includes(tool));
+				return {
+					name: tool.name,
+					capabilities: rt.capabilities.get(tool.name) ?? [],
+					...(extension?.name.startsWith("plugin:") ? { plugin: extension.name.slice(7) } : {}),
+				};
+			}),
 		rt.activeLazy,
 	);
 }
@@ -60,6 +63,7 @@ export async function applyConfiguration(
 		"yonder.background",
 		"yonder.todo",
 		"yonder.process",
+		...(config.hostTools?.length ? ["yonder.host"] : []),
 		...profile.plugins.map((id) => `plugin:${id}`),
 	];
 	const exposure = rt.describeTools(config);

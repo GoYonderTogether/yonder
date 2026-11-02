@@ -58,6 +58,7 @@ import type { Preset, TriggerIO } from "@yonder/sdk";
 import { createFilePluginStorage } from "@yonder/sdk/node-storage";
 import { createTriggerScheduler } from "@yonder/sdk/trigger-scheduler";
 import { pluginDataPath, resolvePlugins } from "../plugins/index.js";
+import { createProgramTools } from "./program-tools.js";
 export const packageVersion = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"))
 	.version as string;
 export { migrateCardVisitor } from "@yonder/local-host/kernel/card-visitor";
@@ -368,6 +369,15 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 		log("info", "Yonder Harness started", { home, version: packageVersion });
 		const workbench = createWorkbenchOptions(home, config, realRuntime, sessions.api, presets, loaded.tools);
 		return {
+			programTools: createProgramTools({
+				agents,
+				config,
+				home,
+				store,
+				version: packageVersion,
+				runtime: realRuntime,
+				contexts: loaded.contexts,
+			}),
 			workbench,
 			setWorkHost: work.set,
 			social,

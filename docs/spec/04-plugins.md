@@ -257,7 +257,7 @@ interface PluginAPI {
     on(type: string, handler: (e: YEvent) => void | Promise<void>): void;   // type 可为 'prefix.*'；见下
   };
   messages: { send(m: { to: Ref; via?: string; text: string; attachments?: Attachment[]; owner?: ExecutionOwner }, ctx?: ToolContext): Promise<Delivery> }; // ctx 为模型调用；owner 为代表真实执行者的程序发送，06 §5
-  execution: { resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
+  execution: { capture(ctx: ToolContext): Promise<ExecutionOwner>; resolve(owner: ExecutionOwner): Promise<ResolvedExecution>; /* run 见 SDK */ };
   credentials: { get(name: string): Promise<Credential | undefined> };   // 凭据文件里的一项，只读（07 §6.2）
   sessions: SessionsAPI;               // 02 §5
   subagents: { run(request: SubagentTaskRequest, ctx: ToolContext): Promise<ToolResult> }; // task_run 语义
@@ -403,6 +403,14 @@ interface PermissionProvider {
 `list` 仅返回已选择 provider 的静态描述，不执行权限探测。setup/检查不得调用 list/invoke 或触发申请。
 `status` 只查询，不可升级为 request；requested、unknown、denied 不可转换为 granted。
 门面平台无关，provider 自己保持平台、执行环境、OS 身份、外部服务及凭据边界，不另建授权数据库或审批队列。
+
+### 程序来源的可核引用
+
+ExecutionOwner保留session、agent、profile，新增可选inputs:string[]，只引用creator原生run的实际YEvent ID。execution.capture(ctx)先核验真实native ToolContext，再复核Store来源/route/session与identity；只有全部实际叶子是经核验的owner DM或已保存的同类可信委派时返回inputs。普通、访客、群或缺证仍返回原三字段，不因profile名、Agent身份、admin能力或后来identity变化追认旧来源。使用设备工具前还要从真实Store重新复核；inputs不是新权限，也不是模型参数。
+
+SDK程序submit可带executionOwner与resources元数据，由core验证后只写自己创建的session.input。插件不能伪造该事件；模型工具schema不能接受这些字段。cron/tasks分别保存独立executionOwner及真实资源上限，不替换旧owner归属三字段；创建/显式改程序执行参数/手动run从当前真实ctx捕获；cron更新（含payload、schedule、delivery）及启用均重新捕获，不能只改结果投递位置却继续借旧owner设备资格。tasks只对程序指令变更重新捕获，整体替换新来源对象。未合格时去掉旧inputs，不能JSON merge残留；内部spend/wake/digest不重写授权。旧无引用记录保持普通任务功能，不获得新增设备目录/调用资格。
+
+task_run保留原事件parent，并继承同一真实来源元数据与ctx.resources，不能只传capabilities/channelInstances而丢资源。程序运行capabilities、渠道范围与资源仍受原创建上限、当前配置及实际目标grant约束；来源资格不增加权限，没有共同授权资源则拒绝设备执行，不将空交集解释为“未指定”。细节见19 §8。
 
 ### 执行环境调用上下文
 

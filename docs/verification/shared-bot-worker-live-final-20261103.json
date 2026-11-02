@@ -1,0 +1,83 @@
+{
+	"mode": "real-glm-5.3-flash",
+	"scenario": "reply",
+	"results": [
+		{
+			"bot": 1,
+			"type": "markdown",
+			"reply": "PG-SOUL-8fea94b9-4162-4f59-8dc3-f7d92ea40962",
+			"soulTokenMatched": true
+		},
+		{
+			"bot": 2,
+			"type": "markdown",
+			"reply": "PG-SOUL-f1165174-12eb-4922-80ff-44ef551279d4",
+			"soulTokenMatched": true
+		}
+	],
+	"rounds": [
+		{
+			"bot": "120a7d2b-3df2-4a17-ba30-7669544abdcf",
+			"queries": 195,
+			"active": 1,
+			"rss": 100155392
+		},
+		{
+			"bot": "39e8c08c-928b-464a-a07f-9d0e7659af23",
+			"queries": 209,
+			"active": 2,
+			"rss": 115064832
+		},
+		{
+			"bot": "39e8c08c-928b-464a-a07f-9d0e7659af23",
+			"queries": 94,
+			"active": 2,
+			"rss": 103464960
+		}
+	],
+	"idle": {
+		"active": 0,
+		"highWater": 0,
+		"activeIds": [],
+		"databaseConnections": 2,
+		"busy": 0,
+		"completed": 0,
+		"pendingSources": 0,
+		"rss": 143245312,
+		"queries": 8,
+		"resources": {
+			"PipeWrap": 1,
+			"TCPSocketWrap": 3,
+			"Timeout": 2
+		}
+	},
+	"warm": {
+		"type": "markdown",
+		"queries": 94
+	},
+	"final": {
+		"active": 2,
+		"highWater": 2,
+		"activeIds": ["120a7d2b-3df2-4a17-ba30-7669544abdcf", "39e8c08c-928b-464a-a07f-9d0e7659af23"],
+		"databaseConnections": 2,
+		"busy": 0,
+		"completed": 3,
+		"pendingSources": 0,
+		"rss": 103497728,
+		"queries": 507,
+		"resources": {
+			"PipeWrap": 2,
+			"TCPSocketWrap": 3,
+			"Timeout": 2
+		}
+	},
+	"rssPeakBytes": 208519168,
+	"rssPeakMB": 208.519168,
+	"isolation": {
+		"tenants": 2,
+		"virtualFiles": true,
+		"sessionGetAndFind": true,
+		"pluginFiles": true
+	},
+	"keyAbsentFromLogsAndTranscript": true
+}

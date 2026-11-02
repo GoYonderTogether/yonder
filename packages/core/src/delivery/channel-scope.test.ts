@@ -33,10 +33,13 @@ async function setup(hook?: Hook) {
 		owner: "person:owner",
 		resolved: resolveProfile({ level: "bypass", channelInstances: ["a"], plugins: hook ? ["scope-hook"] : [] }),
 	};
+	const invocationConfig = structuredClone(config);
 	const saved = new Map<string, RuntimeSessionState>();
 	const runtime = {
 		currentConfig: () => config,
 		sessionConfig: async () => config,
+		invocationConfig: async () => invocationConfig,
+		invocationContext: async (ctx: ToolContext) => ctx,
 		authorizeAttachments: vi.fn(async () => {}),
 		sessionState: async (id: string) => saved.get(id),
 		setSessionState: async (id: string, state: RuntimeSessionState) => {

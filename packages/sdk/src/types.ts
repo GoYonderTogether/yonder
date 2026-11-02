@@ -1,5 +1,5 @@
 import type { AgentsAPI } from "./agent-bindings.js";
-import type { RunEndData } from "./event-data.js";
+import type { RunEndData, SubmissionMetadata } from "./event-data.js";
 import type { Attachment, Delivery, OutMessage, OutputPart, TranscriptItem } from "./messages.js";
 import type { PluginStorage } from "./plugin-storage.js";
 import type { ToolContext } from "./tool-context.js";
@@ -139,16 +139,20 @@ export interface SessionsAPI {
 		close?: "run-end" | "manual";
 	}): Promise<SessionInfo>;
 	/** Plugins may also submit system reminders to open main/persistent sessions, under their current profile. No human authority is implied. */
-	submit(id: string, input: Input, opts: { wait: true; busy?: "followup" | "steer" | "interrupt" }): Promise<RunResult>;
 	submit(
 		id: string,
 		input: Input,
-		opts: { wait?: false; busy?: "followup" | "steer" | "interrupt" },
+		opts: { wait: true; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata,
+	): Promise<RunResult>;
+	submit(
+		id: string,
+		input: Input,
+		opts: { wait?: false; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata,
 	): Promise<InputReceipt>;
 	submit(
 		id: string,
 		input: Input,
-		opts?: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" },
+		opts?: { wait?: boolean; busy?: "followup" | "steer" | "interrupt" } & SubmissionMetadata,
 	): Promise<RunResult | InputReceipt>;
 	abort(id: string): Promise<void>;
 	close(id: string): Promise<void>;
@@ -369,12 +373,15 @@ export interface ServiceEndpoint {
 }
 
 export interface ExecutionOwner {
+	/** Creator native input event IDs, captured and revalidated by core. Never model parameters. */
+	inputs?: string[];
 	session: string;
 	agent: string | null;
 	profile: string;
 }
 
 export interface ResolvedExecution {
+	resources?: import("./workbench.js").WorkspaceResource[];
 	capabilities: Capability[];
 	channelInstances?: string[];
 }
@@ -450,6 +457,7 @@ export interface PluginAPI extends PluginViewsAPI {
 		): Promise<Delivery>;
 	};
 	execution: {
+		capture(ctx: ToolContext): Promise<ExecutionOwner>;
 		resolve(owner: ExecutionOwner): Promise<ResolvedExecution>;
 		run(request: {
 			owner: ExecutionOwner;

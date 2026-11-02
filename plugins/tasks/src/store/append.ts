@@ -1,17 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { parseRef, type RenderContext, type ToolContext } from "@yonder/sdk";
+import { intersectResources, parseRef, type RenderContext, type ToolContext } from "@yonder/sdk";
 import { TURN_ONE_LINE } from "../prompts.js";
 import { auditorRejection } from "../views.js";
 import { applyLedgerEvent, type TaskLedger } from "./ledger.js";
 import {
 	type AuditResult,
 	countsAsActivity,
+	instructionFields,
 	type Moment,
 	type Open,
 	ongoing,
 	own,
 	type Task,
 	type TaskEvent,
+	type TaskExecutionMetadata,
 	transitions,
 } from "./project.js";
 import { all, count, digests, find, history, moments, rendered } from "./query.js";
@@ -84,7 +86,7 @@ function blockerRounds(events: TaskLedger, id: string, note: string): number {
 	return rounds;
 }
 
-export function openTask(events: TaskLedger, args: Open, ctx: ToolContext): Task {
+export function openTask(events: TaskLedger, args: Open, ctx: ToolContext, metadata?: TaskExecutionMetadata): Task {
 	const parent = args.parent ? checkParent(events, args.parent) : undefined;
 	const origin = args.origin ?? ctx.event?.conv;
 	if (origin !== undefined) {
@@ -101,6 +103,7 @@ export function openTask(events: TaskLedger, args: Open, ctx: ToolContext): Task
 		ref: `T${count(events) + 1}`,
 		ownerAgent: ctx.agent,
 		session: ctx.session,
+		...metadata,
 		parent: parent?.id ?? null,
 		title: args.title,
 		objective: args.objective,
@@ -123,7 +126,13 @@ export function openTask(events: TaskLedger, args: Open, ctx: ToolContext): Task
 }
 
 /** 一条 patch 的全部校验与落地；批量更新在同一条事务里复用它。 */
-function change(events: TaskLedger, id: string, patch: Partial<Task> & { note?: string }, ctx: ToolContext): Task {
+function change(
+	events: TaskLedger,
+	id: string,
+	patch: Partial<Task> & { note?: string },
+	ctx: ToolContext,
+	metadata?: TaskExecutionMetadata,
+): Task {
 	const task = find(events, id);
 	if (!task || !own(task, ctx)) throw new Error("Task not found for caller");
 	if (!ongoing(task)) throw new Error("Task is closed");
@@ -149,6 +158,13 @@ function change(events: TaskLedger, id: string, patch: Partial<Task> & { note?: 
 	)
 		throw new Error("Done requires a deliverable and one evidence entry per acceptance point");
 	patch.lastActivityAt = new Date().toISOString();
+	if (metadata) {
+		const resources = intersectResources(task.resources, metadata.resources);
+		Object.assign(patch, {
+			executionOwner: metadata.executionOwner,
+			...(resources === undefined ? {} : { resources }),
+		});
+	}
 	if (patch.deliverable?.trim()) patch.lastDeliveryAt = patch.lastActivityAt;
 	append(events, task.id, patch.state === "done" ? "done" : "update", patch);
 	const { note: _, ...fields } = patch;
@@ -160,8 +176,9 @@ export function changeTask(
 	id: string,
 	patch: Partial<Task> & { note?: string },
 	ctx: ToolContext,
+	metadata?: TaskExecutionMetadata,
 ): Task {
-	return change(events, id, patch, ctx);
+	return change(events, id, patch, ctx, metadata);
 }
 
 /** 一批更新要么全部落地、要么一条都不留：任一条不合法就回滚整批。 */
@@ -169,9 +186,12 @@ export function changeTasks(
 	events: TaskLedger,
 	updates: ReadonlyArray<{ id: string } & Partial<Task> & { note?: string }>,
 	ctx: ToolContext,
+	metadata?: TaskExecutionMetadata,
 ): Task[] {
 	if (!updates.length) throw new Error("updates requires at least one entry");
-	return updates.map(({ id, ...patch }) => change(events, id, patch, ctx));
+	return updates.map(({ id, ...patch }) =>
+		change(events, id, patch, ctx, instructionFields.some((field) => field in patch) ? metadata : undefined),
+	);
 }
 
 export function claimMoments(

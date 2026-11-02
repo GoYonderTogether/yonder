@@ -1,0 +1,62 @@
+{
+	"mode": "real-glm-5.3-flash",
+	"temporaryHome": true,
+	"independentOfficialMemoryRoot": true,
+	"realCardLoginAndMapping": true,
+	"workProtocolBridge": "tools.catalog + tools.call through openKernel/workControl",
+	"onlineProgramTool": "official memory plugin",
+	"ownerDmSource": true,
+	"offlineNextRunDoesNotReadDeviceMemory": true,
+	"providerDeviceTools": {
+		"online": ["device_d11a2653f9b39626_memory_search", "device_e83187701eeca04d_memory_read"],
+		"offline": []
+	},
+	"providerRunDocs": {
+		"online": {
+			"matched": true,
+			"runCount": 1,
+			"kind": "yonder.run",
+			"keys": [
+				"agent",
+				"bindings",
+				"cwd",
+				"hostFacts",
+				"hostToolInputs",
+				"hostTools",
+				"owner",
+				"profile",
+				"protectedFiles",
+				"resolved",
+				"sessionId",
+				"sessionMode"
+			],
+			"started": 1793651489703,
+			"tools": ["device_d11a2653f9b39626_memory_search", "device_e83187701eeca04d_memory_read"]
+		},
+		"offline": {
+			"matched": true,
+			"runCount": 1,
+			"kind": "yonder.run",
+			"keys": [
+				"agent",
+				"bindings",
+				"cwd",
+				"hostFacts",
+				"hostToolInputs",
+				"hostTools",
+				"owner",
+				"profile",
+				"protectedFiles",
+				"resolved",
+				"sessionId",
+				"sessionMode"
+			],
+			"started": 1793651530519,
+			"tools": []
+		}
+	},
+	"workerCredentialAbsentFromPersistedCommits": true,
+	"modelCredentialAbsentFromPersistedCommits": true,
+	"modelCredentialAbsentFromWorkerLogs": true,
+	"catalogueEvidence": "Persisted native RunDoc frozen allowed tools, associated by actual source UUID; loopback independently checked actual HTTP tool lists."
+}

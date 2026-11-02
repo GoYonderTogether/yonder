@@ -127,6 +127,93 @@ test("rebuild restores a damaged projection and first use backfills an empty one
 	}
 });
 
+test("execution source metadata survives reopen, is replaced without stale inputs, and ignores ledger ticks", async () => {
+	const root = await tempHome("yonder-task-source-");
+	const first = makeStore(root);
+	const ctx = caller();
+	try {
+		const task = await first.open(content, ctx, {
+			executionOwner: { session: "1", agent: "main", profile: "owner", inputs: ["native-event-1"] },
+			resources: [{ deviceId: "local", paths: ["/workspace/first"] }],
+		});
+		await first.close();
+		const reopened = makeStore(root);
+		try {
+			expect((await reopened.get(task.id, ctx)).task).toMatchObject({
+				executionOwner: { session: "1", agent: "main", profile: "owner", inputs: ["native-event-1"] },
+				resources: [{ deviceId: "local", paths: ["/workspace/first"] }],
+			});
+			await expect(
+				reopened.update(task.id, { objective: "Rejected instruction" }, ctx, {
+					executionOwner: { session: "1", agent: "main", profile: "owner" },
+					resources: [{ deviceId: "local", paths: ["/outside"] }],
+				}),
+			).rejects.toThrow("No shared execution resources");
+			expect((await reopened.get(task.id, ctx)).task).toMatchObject({
+				objective: content.objective,
+				executionOwner: { inputs: ["native-event-1"] },
+				resources: [{ deviceId: "local", paths: ["/workspace/first"] }],
+			});
+			await reopened.update(task.id, { objective: "Revised instruction" }, ctx, {
+				executionOwner: { session: "1", agent: "main", profile: "owner" },
+				resources: [{ deviceId: "local", paths: ["/workspace/first/revised"] }],
+			});
+			await reopened.spend(task.id, 12, false);
+			expect((await reopened.get(task.id, ctx)).task).toMatchObject({
+				objective: "Revised instruction",
+				executionOwner: { session: "1", agent: "main", profile: "owner" },
+				resources: [{ deviceId: "local", paths: ["/workspace/first/revised"] }],
+			});
+			expect((await reopened.get(task.id, ctx)).task.executionOwner).not.toHaveProperty("inputs");
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		await first.close();
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test("batch instruction updates replace only the updated task source", async () => {
+	const root = await tempHome("yonder-task-source-batch-");
+	const store = makeStore(root);
+	const ctx = caller();
+	const original = {
+		executionOwner: { session: "1", agent: "main", profile: "owner", inputs: ["captured-event-old"] },
+		resources: [{ deviceId: "local", paths: ["/workspace/shared"] }],
+	};
+	try {
+		const revised = await store.open({ ...content, title: "Revised task" }, ctx, original);
+		const statusOnly = await store.open({ ...content, title: "Status-only task" }, ctx, original);
+		await store.updateMany(
+			[
+				{ id: revised.id, objective: "New instruction" },
+				{ id: statusOnly.id, state: "active", note: "Progress only" },
+			],
+			ctx,
+			{
+				executionOwner: { session: "1", agent: "main", profile: "owner" },
+				resources: [{ deviceId: "local", paths: ["/workspace/shared/narrow"] }],
+			},
+		);
+		expect((await store.get(revised.id, ctx)).task).toMatchObject({
+			objective: "New instruction",
+			executionOwner: { session: "1", agent: "main", profile: "owner" },
+			resources: [{ deviceId: "local", paths: ["/workspace/shared/narrow"] }],
+		});
+		const statusResult = await store.get(statusOnly.id, ctx);
+		expect(statusResult.task).toMatchObject({
+			state: "active",
+			executionOwner: original.executionOwner,
+			resources: original.resources,
+		});
+		expect(statusResult.history.at(-1)?.data.note).toBe("Progress only");
+	} finally {
+		await store.close();
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test("list and get read the projection and only the requested task history", async () => {
 	const root = await tempHome("yonder-projection-reads-");
 	const reads: string[] = [];

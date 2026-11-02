@@ -230,7 +230,16 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 		kernel = await openKernel(home, { log() {} });
 		const inspection = await kernel.management({ action: "inspect", agent: "main", profile: "owner" });
 		expect(JSON.stringify(inspection)).toContain("tasks_open");
-		const services = inspectionServices(home, config, () => {});
+		const baseServices = inspectionServices(home, config, () => {});
+		const services = {
+			...baseServices,
+			execution: {
+				...baseServices.execution,
+				async capture(ctx: ToolContext) {
+					return { session: ctx.session, agent: ctx.agent, profile: ctx.profile };
+				},
+			},
+		};
 		const loaded = await loadPlugins(home, config, services);
 		await loaded.start({
 			emit: async () => {

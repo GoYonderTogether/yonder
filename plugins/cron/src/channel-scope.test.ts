@@ -22,7 +22,13 @@ async function setup() {
 	const api = {
 		paths: { data: home },
 		storage: createFilePluginStorage(home),
-		execution: { resolve, run },
+		execution: {
+			resolve,
+			run,
+			async capture(ctx: ToolContext) {
+				return { session: ctx.session, agent: ctx.agent, profile: ctx.profile };
+			},
+		},
 		messages: { send },
 		events: { emit: vi.fn(async () => ({ id: "event" })) },
 		log: { error: vi.fn() },

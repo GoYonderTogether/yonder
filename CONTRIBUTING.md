@@ -54,9 +54,15 @@ npm ci && npm run build && npm test
 
 本地未 push 的 fork 提交可用 `YONDER_PI_SOURCE=/absolute/fork-checkout node scripts/sync-pi-durable.mjs <完整40位commit>`；脚本核对 checkout 的 origin 是上述 fork 并 fetch 精确已提交对象，仍生成相同 repository/commit provenance，不读取未提交文件。这不代表该 SHA 已在远端发布。
 
-同步前先取当前 `FORK_SOURCE.json` 记录的 commit，逐文件核对现有 `src`；内容、文件集合不同或无法核对时，脚本在删除任何目标文件之前拒绝同步，不提供强制覆盖。核对通过才替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。不要直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
+同步前先取当前 `FORK_SOURCE.json` 记录的 commit，逐文件核对现有 `src`；内容、文件集合不同或无法核对时，脚本在删除任何目标文件之前拒绝同步，不提供强制覆盖。核对通过才替换 `packages/pi-durable` 的 src、README、CHANGELOG、FORK、MIT LICENSE，`FORK_SOURCE.json` 记录精确来源。除下述明确任务例外外，不直接修改 vendored 源码。脚本仅转换 workspace 构建元数据：使用根 TypeScript 工具、保留上游编译语义、移除未复制的 benchmark/test 脚本与开发依赖；chord、codemode 等未改依赖继续取 npm，导出路径不变。pi-ai 必须接同一 fork 提交的完整编译 tarball，按下节收进源码发行；不允许新 durable 配旧 npm ai。第三方源码保留上游格式，由 fork 的 Biome 与测试检查；本仓库 Biome 排除该目录。上游测试和大型 fixtures 留在 fork，不复制到本仓库；构建不需要它们。同步后更新 THIRD_PARTY_NOTICES 的 commit 并按影响执行真实模型检查。没有 postinstall 补丁，干净安装不依赖本地 fork checkout。
 
 当前例外：`5414b87ae1909d708d4e188ba582d12486ebb0c5` 是基础来源，不是现有 durable 源码的完整快照。`docs/decisions.md` 中 2026-10-29 IMP-01 / IMP-11 决策 的 anchor 文件工具在 Harness 内另有 5 个修改文件、9 个新增文件，清单见 `packages/pi-durable/FORK.md`；因此当前同步会被上述保护拒绝。不要删除这些实现来通过检查。后续须先在 Pi fork 合入并验证这些改动，保留现有 overlay，明确完成来源迁移后再同步，并重建同 commit 的 pi-ai artifact；本次修复不进行这项跨仓迁移。`check-pi-ai-bundle.mjs` 核对基础 commit 和 artifact integrity，不证明 durable 源码与基础 commit 完全一致。
+
+### 本次共享Bot任务的受控program ToolTask例外
+
+维护者2026-11-02 BRIEF §2.3明确允许修改本仓自有pi-durable，且本轮只允许两个指定worktree，禁止push/访问原checkout。阶段11可直接在packages/pi-durable/src为现ToolTask增加受控program根调用：复用原schema、hooks、durable intent、输出和replay，不合成assistant/user entry或nested parent，不另起运行循环。另允许Harness的Agent解析回调在await beforeAgent完成后读取当时registry.snapshot，供本轮真实动态工具进入首次Agent目录；phase任务定义/执行调度仍保原快照，adapter继续按本run冻结名单/目标/权限求交。环境回调另可接收可选的真实invocation taskId，由scheduler经buildEnv传递，供program在beforeTool前选择该task权限/环境快照；普通conversation级调用不带taskId仍兼容。Generation现有beforeRequest返回值可另带toolsRemoved:string[]，仅为本次provider请求累积删除既有Agent工具，不可增加工具/权限；未提供时原行为不变。只改上述入口、Agent解析、task身份传递与请求工具删除所必需的源码/导出/版本迁移；不改pi-ai artifact、来源base commit、同步/安装/发布脚本或降低保护。
+
+实际文件与验证写入packages/pi-durable/FORK.md及本次verification，明确它是本仓新增overlay而非上游已提交快照。原anchor overlay保留，未来同步保护仍须因未合入fork的差异拒绝覆盖；之后由维护者另行迁回fork，不在本任务访问第三仓或push。
 
 ## 打包匹配的 pi-ai fork
 

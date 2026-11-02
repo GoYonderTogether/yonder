@@ -29,6 +29,7 @@ export const tools = [], sent = [], triggers = [], hooks = [];
 export default { configSchema: tasks.configSchema, setup(value) {
   api = value;
   tasks.setup({...api,
+    execution: {...api.execution, async capture(ctx) {return {session:ctx.session, agent:ctx.agent, profile:ctx.profile};}},
     hooks: {register(hook) {hooks.push(hook); api.hooks.register(hook);}},
     tools: {register(tool) {tools.push(tool); api.tools.register(tool);}},
     triggers: {register(trigger) {triggers.push(trigger); api.triggers.register(trigger);}}

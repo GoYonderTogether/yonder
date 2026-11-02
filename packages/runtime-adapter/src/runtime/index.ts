@@ -41,6 +41,7 @@ import {
 import { capabilityMap } from "./catalog.js";
 import { runTask } from "./delegation.js";
 import { cid } from "./docs.js";
+import { allowedHostTool, setHostTools } from "./host-tools.js";
 import type { RuntimeInternals } from "./instance.js";
 import { closeRuntime, conversationOf, openRuntime, pollQuota, toolContext } from "./lifecycle.js";
 import { RunLimits } from "./limits.js";
@@ -48,6 +49,7 @@ import { compact, modelStatus } from "./model-status.js";
 import { observe, sessionUsage, terminalHistory, transcript } from "./observe.js";
 import type { Outbox } from "./outbox.js";
 import { ToolPolicy } from "./policy.js";
+import { callProgramTool, catalogProgramTools, programConversationId, programSnapshot } from "./program.js";
 import { receiptRun, settleActivity, settledRun, sources } from "./receipts.js";
 import {
 	admitted,
@@ -134,6 +136,7 @@ export class Runtime {
 		{
 			config: RuntimeSessionConfig;
 			operationPrefix?: string;
+			allowedTools?: readonly string[];
 			operationSequence: number;
 			events: import("@yonder/sdk").YEvent[];
 			runId?: string;
@@ -143,6 +146,7 @@ export class Runtime {
 	private tools = new Map<string, ToolRegistration>();
 	private capabilities = new Map<string, Capability[]>(Object.entries(capabilityMap));
 	private configured = new Map<string, RuntimeSessionConfig>();
+	private hostTools = new Map<string, Tool>();
 	private activeLazy = new Set<string>();
 	private submissions = new Map<string, { event?: RuntimeInput["event"] }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
@@ -194,7 +198,16 @@ export class Runtime {
 				});
 			},
 			usage: (session) => this.usage(session),
-			denied: (name, args, config, context, session) => this.policy.denied(name, args, config, context, session),
+			programConfig: async (taskId, context) => {
+				const saved = await programSnapshot(this.rt, taskId, context);
+				if (!saved) return;
+				this.invocationConfigs.set(context, { ...saved, operationPrefix: `program:${taskId}`, operationSequence: 0 });
+				return saved;
+			},
+			denied: (name, args, config, context, session) =>
+				this.hostTools.has(name) && !allowedHostTool(this.rt, config, name)
+					? Promise.resolve("Host tool is outside this run's frozen authority")
+					: this.policy.denied(name, args, config, context, session),
 		});
 	}
 
@@ -248,6 +261,31 @@ export class Runtime {
 	}
 	private adapter(name: string, tools: Tool[], hooks: Hook[]): Extension {
 		return adapter(this.rt, this.options.services.toolHost, name, tools, hooks);
+	}
+	setHostTools(tools: Tool[]) {
+		setHostTools(this.rt, tools);
+	}
+	catalogProgramTools(config: RuntimeSessionConfig) {
+		return catalogProgramTools(this.rt, config);
+	}
+	callProgramTool(request: Parameters<typeof callProgramTool>[1], signal: AbortSignal) {
+		return callProgramTool(this.rt, request, signal);
+	}
+	async programConversationId(scope: string, config: RuntimeSessionConfig) {
+		return String(await programConversationId(this.rt, scope, config));
+	}
+	async invocationConfig(ctx: ToolContext): Promise<RuntimeSessionConfig> {
+		const invocation = this.toolInvocations.get(ctx);
+		if (!invocation) throw new Error("An active native tool invocation is required");
+		return (
+			this.invocationConfigs.get(invocation.context)?.config ??
+			this.sessionConfig(String(invocation.api.conversationId))
+		);
+	}
+	async invocationContext(ctx: ToolContext): Promise<ToolContext> {
+		const invocation = this.toolInvocations.get(ctx);
+		if (!invocation) throw new Error("Requires an active runtime tool invocation");
+		return this.context(String(invocation.api.conversationId), invocation.context);
 	}
 	assertToolContext(ctx: ToolContext): void {
 		assertToolContext(this.rt, ctx);

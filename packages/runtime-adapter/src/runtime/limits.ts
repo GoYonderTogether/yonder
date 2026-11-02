@@ -7,6 +7,7 @@ import {
 	hook,
 	type JsonObject,
 	LiveDoc,
+	type TaskId,
 	ToolTask,
 } from "@earendil-works/pi-durable";
 import type { Models } from "@yonder/sdk";
@@ -21,6 +22,10 @@ export interface LimitsDeps {
 	onTick?(state: RunState): Promise<number | undefined>;
 	tickIntervalMs?: number | undefined;
 	usage(session: string): Promise<RuntimeRun["usage"]>;
+	programConfig(
+		taskId: TaskId,
+		context: Context,
+	): Promise<{ config: RuntimeSessionConfig; allowedTools: readonly string[] } | undefined>;
 	denied(
 		name: string,
 		args: JsonObject,
@@ -175,6 +180,19 @@ export class RunLimits {
 			}),
 			hook(ToolTask, {
 				beforeTool: async (call, api, context) => {
+					const program = await this.deps.programConfig(api.taskId, context);
+					if (program) {
+						if (!program.allowedTools.includes(call.name))
+							return { block: `Tool ${call.name} is outside this program invocation's frozen tool set` };
+						const denied = await this.deps.denied(
+							call.name,
+							call.arguments as JsonObject,
+							program.config,
+							context,
+							String(api.conversationId),
+						);
+						return denied ? { block: denied } : undefined;
+					}
 					const state = await this.runState(api, context);
 					if (!state.toolTasks.includes(api.taskId)) {
 						state.toolTasks.push(api.taskId);

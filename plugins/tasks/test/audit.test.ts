@@ -71,6 +71,11 @@ async function fixture(reply: Reply | ((index: number) => Reply), config: object
 			},
 		},
 		messages: { send: async () => ({ ok: true }) },
+		execution: {
+			async capture(ctx: ToolContext) {
+				return { session: ctx.session, agent: ctx.agent, profile: ctx.profile };
+			},
+		},
 	};
 	tasks.setup(api as unknown as PluginAPI);
 	const store = new Store(createFilePluginStorage(data).open());

@@ -120,6 +120,7 @@ export interface RuntimeInternals {
 	registry: Registry<ToolRegistration>;
 	background: RuntimeBackground;
 	rawTools: Map<string, ToolRegistration>;
+	hostTools: Map<string, Tool>;
 	sdkToolNames: Set<string>;
 	toolGuidelines: Map<string, readonly string[]>;
 	invocationConfigs: WeakMap<
@@ -127,6 +128,7 @@ export interface RuntimeInternals {
 		{
 			config: RuntimeSessionConfig;
 			operationPrefix?: string;
+			allowedTools?: readonly string[];
 			operationSequence: number;
 			events: YEvent[];
 			runId?: string;
