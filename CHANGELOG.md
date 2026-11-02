@@ -2,10 +2,23 @@
 
 ## [Unreleased]
 
+## [0.3.26110206] - 2026-11-02
+
 ### Fixed
 
 - gateway：Windows 上临时 rename EPERM 有界重试；hardening 测试在失败路径也关闭已连接的 WebSocket。
 - config：自配置按本次请求记录真实接纳与动态状态，语义候选修复沿原生 patch；有限精确 conv 前置接收绑定可遮蔽普通消息 fallback，batch/custom 事件仍须共享 profile，profile 改变时要求显式关闭 open session、保留历史后重开。
+- gateway：preserve rotation cleanup errors
+- gateway：retry transient Windows config rename
+- config：unify exact conversation session protection
+- config：protect sessions on explicit message input override
+- config：validate exact conversation profile overrides
+- core：report restart-required config candidate
+- core：resolve config watcher when rendering facts
+- core：expose runtime config acceptance state
+- management：allow repair of semantic config errors
+- release：reconcile web deploy notification
+- core：clarify local CLI access and cross-session sends
 
 ## [0.3.26110205] - 2026-11-02
 
