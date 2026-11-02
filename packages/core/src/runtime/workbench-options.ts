@@ -8,7 +8,7 @@ export function applyWorkbenchOptions(
 	options?: SessionWorkbenchOptions,
 ): RuntimeSessionConfig {
 	if (!options) return base;
-	const selected = options.resources?.[0];
+	const selected = options.resources?.find((resource) => resource.deviceId === "local") ?? options.resources?.[0];
 	const cwd = selected
 		? (selected.paths[0] ??
 			(options.defaultWorkspace?.deviceId === selected.deviceId ? options.defaultWorkspace.path : undefined))

@@ -80,7 +80,7 @@ export function createWorkbenchOptions(
 			throw new Error("Finish or cancel pending work before changing resources");
 		const scope = session.parent ? await runtime().sessionConfig(session.parent) : undefined;
 		const { permission, resources } = await validate(options, signal, scope);
-		const selected = resources?.[0];
+		const selected = resources?.find((resource) => resource.deviceId === "local") ?? resources?.[0];
 		const defaultPath = selected
 			? (selected.paths[0] ??
 				(await workspaces.devices(signal, scope)).find((device) => device.deviceId === selected.deviceId)?.paths[0])

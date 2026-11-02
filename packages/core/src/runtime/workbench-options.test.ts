@@ -20,6 +20,15 @@ test("clearing explicit resources restores the base cwd and readonly can read bo
 		expect(
 			applyWorkbenchOptions(base, { resources: [], defaultWorkspace: { deviceId: "remote", path: "/remote" } }).cwd,
 		).toBe(a);
+		const mixed = applyWorkbenchOptions(base, {
+			resources: [
+				{ deviceId: "remote", paths: ["/remote"] },
+				{ deviceId: "local", paths: [b] },
+			],
+		});
+		expect(mixed.cwd).toBe(b);
+		expect(mixed.resolved.env).toBe("local");
+		expect(mixed.resolved.tools.offer).toContain("devices_operation");
 		const selected = applyWorkbenchOptions(base, { resources: [{ deviceId: "local", paths: [a, b] }] });
 		const policy = new ToolPolicy({
 			home,
