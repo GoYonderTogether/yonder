@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Channel, Hook, SocialAPI, SocialPolicy, ToolContext } from "@yonder/sdk";
+import type { Channel, Hook, SocialAPI, SocialPolicy, SocialUpdatePostcondition, ToolContext } from "@yonder/sdk";
 import lockfile from "proper-lockfile";
 import { Errors } from "typebox/value";
 import { parseDocument } from "yaml";
@@ -11,7 +11,7 @@ import type { Principal } from "../control/method-types.js";
 import { membershipGroup } from "../routing/platform-group.js";
 import type { Store } from "../store/index.js";
 import { requestSources } from "../tools/parent-origin.js";
-import { projectConversationOperability } from "./operability.js";
+import { projectConversationOperability, type SessionOperabilityFact } from "./operability.js";
 
 type Inspect = Parameters<SocialAPI["inspect"]>[0];
 type Update = Parameters<SocialAPI["update"]>[0];
@@ -25,7 +25,11 @@ export class SocialError extends Error {
 		super(message);
 	}
 }
-const revision = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+// Missing optional social config is the canonical empty policy for revision/CAS purposes.
+const revision = (value: unknown) =>
+	createHash("sha256")
+		.update(JSON.stringify(value ?? {}))
+		.digest("hex");
 const effectivePolicy = (defaults?: SocialPolicy, override?: SocialPolicy): SocialPolicy => ({
 	...defaults,
 	...override,
@@ -95,6 +99,8 @@ export function createSocial(options: {
 		policySource?: string;
 		cursor?: string;
 		nextAt?: string;
+		operability?: Pick<SessionOperabilityFact, "status" | "reason" | "sample" | "history" | "prediction">;
+		acceptedConfiguration?: { state: string; revision?: string; acceptedRevision?: string };
 	}>;
 }) {
 	const authorize = async (agent: string, conv: string, caller: Caller, write: boolean) => {
@@ -197,14 +203,19 @@ export function createSocial(options: {
 			if (triggerErrors.length) throw new SocialError("invalid_params", triggerErrors.join("; "));
 			if (patch.judge && patch.judge.preset !== before.judge?.preset)
 				throw new SocialError("forbidden", "Judge must already be configured", { reason: "scope_denied" });
-			after = effectivePolicy(disk.social?.defaults?.[kind], {
-				...disk.social?.conversations?.[request.conv],
+			const previousConversationPolicy = disk.social?.conversations?.[request.conv];
+			const conversationPolicy = {
+				...previousConversationPolicy,
 				...patch,
-			});
+				...(previousConversationPolicy?.batch || patch.batch
+					? { batch: { ...previousConversationPolicy?.batch, ...patch.batch } }
+					: {}),
+			};
+			after = effectivePolicy(disk.social?.defaults?.[kind], conversationPolicy);
 			if (request.dryRun !== false) return { before, after, affected: [request.conv], revision: current };
-			document.setIn(["social", "conversations", request.conv], {
-				...disk.social?.conversations?.[request.conv],
-				...patch,
+			document.set("social", {
+				...disk.social,
+				conversations: { ...disk.social?.conversations, [request.conv]: conversationPolicy },
 			});
 			const candidate = parseAgentConfig(document.toString(), file, request.agent);
 			const agents = new Map(options.agents);
@@ -231,6 +242,66 @@ export function createSocial(options: {
 				throw error;
 			}
 			current = revision(candidate.social);
+			const acceptedAgent = options.agents.get(request.agent);
+			let route: Awaited<ReturnType<NonNullable<typeof options.inspectRoute>>> | undefined;
+			try {
+				route = await options.inspectRoute?.(request.agent, request.conv, undefined, after);
+			} catch {
+				// Readback failure does not undo a successfully reloaded policy; report unknown below.
+			}
+			const configuration = route?.acceptedConfiguration;
+			const acceptedConfiguration = configuration
+				? {
+						state: configuration.state,
+						...(configuration.revision ? { revision: configuration.revision } : {}),
+						...(configuration.acceptedRevision ? { acceptedRevision: configuration.acceptedRevision } : {}),
+					}
+				: undefined;
+			const operability = route?.operability;
+			const configurationAccepted =
+				acceptedAgent &&
+				revision(acceptedAgent.social) === current &&
+				configuration?.state === "effective" &&
+				!!configuration.revision &&
+				configuration.revision === configuration.acceptedRevision;
+			const postconditionGaps = [...(route?.capabilityGaps ?? ["unknown: post-update route inspection unavailable"])];
+			if (!configurationAccepted)
+				postconditionGaps.push("unknown: accepted Agent configuration revision is not confirmed effective");
+			if (operability?.status === "unknown")
+				postconditionGaps.push(operability.reason ?? "unknown: no trusted target conversation sample");
+			const postcondition: SocialUpdatePostcondition = {
+				status: configurationAccepted && operability?.status === "observed" ? "observed" : "unknown",
+				policyRevision: acceptedAgent ? revision(acceptedAgent.social) : current,
+				...(acceptedConfiguration ? { acceptedConfiguration } : {}),
+				...(operability?.sample ? { sample: operability.sample } : {}),
+				...(operability?.history
+					? {
+							history: {
+								...(operability.history.route ? { route: operability.history.route } : {}),
+								execution: { state: operability.history.execution.state },
+								delivery: { state: operability.history.delivery.state },
+							},
+						}
+					: {}),
+				...(operability?.prediction
+					? {
+							prediction: {
+								state: operability.prediction.state,
+								...(operability.prediction.binding ? { binding: operability.prediction.binding } : {}),
+								...(operability.prediction.profile ? { profile: operability.prediction.profile } : {}),
+								...(operability.prediction.wake ? { wake: operability.prediction.wake } : {}),
+								...(operability.prediction.reply ? { reply: operability.prediction.reply } : {}),
+								...(operability.prediction.consumer ? { consumer: operability.prediction.consumer } : {}),
+							},
+						}
+					: {}),
+				capabilityGaps: [...new Set(postconditionGaps)],
+				...(operability?.reason
+					? { reason: operability.reason }
+					: postconditionGaps.length
+						? { reason: postconditionGaps[0] }
+						: {}),
+			};
 			await options.record({
 				type: "social.policy-change",
 				from: "plugin:social",
@@ -245,7 +316,7 @@ export function createSocial(options: {
 					result: "applied",
 				},
 			});
-			return { before, after, affected: [request.conv], revision: current };
+			return { before, after, affected: [request.conv], revision: current, postcondition };
 		} catch (error) {
 			await options.record({
 				type: "social.policy-change",
@@ -309,6 +380,9 @@ export function createSocialSupport(
 	agents: Map<string, AgentConfig>,
 	channels: Map<string, Channel>,
 	hooks: ReadonlyMap<string, readonly Hook[]> = new Map(),
+	configStatus?: (
+		agentId: string,
+	) => Promise<{ agent?: { state: string; revision?: string; acceptedRevision?: string } } | undefined>,
 ) {
 	return {
 		ownerInput: async (agent: string, caller: ToolContext) => {
@@ -333,15 +407,24 @@ export function createSocialSupport(
 		},
 		inspectRoute: async (agentId: string, conv: string, requestedEvent: string | undefined, policy: SocialPolicy) => {
 			const agent = agents.get(agentId);
-			if (!agent) return { detail: "unknown: Agent is unavailable", capabilityGaps: ["unknown: Agent is unavailable"] };
-			const fact = await projectConversationOperability({
-				agent,
-				agents: agents.values(),
-				selector: { conv, ...(requestedEvent ? { eventId: requestedEvent } : {}) },
-				store,
-				channels,
-				hooks,
-			});
+			if (!agent)
+				return {
+					detail: "unknown: Agent is unavailable",
+					capabilityGaps: ["unknown: Agent is unavailable"],
+					policySource: "unknown: Agent is unavailable",
+					operability: { status: "unknown" as const, reason: "Agent is unavailable" },
+				};
+			const [fact, config] = await Promise.all([
+				projectConversationOperability({
+					agent,
+					agents: agents.values(),
+					selector: { conv, ...(requestedEvent ? { eventId: requestedEvent } : {}) },
+					store,
+					channels,
+					hooks,
+				}),
+				configStatus?.(agentId) ?? Promise.resolve(undefined),
+			]);
 			const history = fact.history;
 			const gaps = fact.status === "unknown" ? [fact.reason ?? "unknown: no trusted sample"] : [];
 			const instance = conv.split(":")[1];
@@ -371,6 +454,14 @@ export function createSocialSupport(
 				}),
 				capabilityGaps: gaps,
 				policySource,
+				operability: {
+					status: fact.status,
+					...(fact.reason ? { reason: fact.reason } : {}),
+					...(fact.sample ? { sample: fact.sample } : {}),
+					...(fact.history ? { history: fact.history } : {}),
+					...(fact.prediction ? { prediction: fact.prediction } : {}),
+				},
+				...(config?.agent ? { acceptedConfiguration: config.agent } : {}),
 			};
 		},
 	};

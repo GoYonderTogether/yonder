@@ -123,7 +123,13 @@ export interface SocialAPI {
 			dryRun?: boolean;
 		},
 		ctx?: ToolContext,
-	): Promise<{ before: SocialPolicy; after: SocialPolicy; affected: Ref[]; revision: string }>;
+	): Promise<{
+		before: SocialPolicy;
+		after: SocialPolicy;
+		affected: Ref[];
+		revision: string;
+		postcondition?: SocialUpdatePostcondition;
+	}>;
 	resume(
 		request: {
 			agent: string;
@@ -133,4 +139,27 @@ export interface SocialAPI {
 		},
 		ctx?: ToolContext,
 	): Promise<{ accepted: boolean; revision: string }>;
+}
+
+/** Facts read back after a social policy write and config reload; history is not the new input's outcome. */
+export interface SocialUpdatePostcondition {
+	status: "observed" | "unknown";
+	policyRevision: string;
+	acceptedConfiguration?: { state: string; revision?: string; acceptedRevision?: string };
+	sample?: { eventId: string; conv: Ref };
+	history?: {
+		route?: { binding: string | null; session?: string; profile?: string; wake?: string; dropped?: string };
+		execution: { state: string };
+		delivery: { state: string };
+	};
+	prediction?: {
+		state: "matched" | "no-match" | "unknown";
+		binding?: string;
+		profile?: string;
+		wake?: string;
+		reply?: "auto" | "none";
+		consumer?: { state: string; reason?: string; binding?: string; profile?: string; plugin?: string };
+	};
+	capabilityGaps: string[];
+	reason?: string;
 }

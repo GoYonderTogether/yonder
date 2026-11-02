@@ -67,6 +67,8 @@ test("social inspection separates stored route facts from configured match predi
 				{ id: "test", kinds: ["dm", "group"], output: { stream: false, attachments: false } } as unknown as Channel,
 			],
 		]),
+		new Map(),
+		async () => ({ agent: { state: "effective", revision: "accepted-1", acceptedRevision: "accepted-1" } }),
 	);
 	const policy = agent.social?.defaults?.group;
 	if (!policy) throw new Error("Expected group policy");
@@ -78,6 +80,17 @@ test("social inspection separates stored route facts from configured match predi
 		"unknown: channel capabilities for test are not declared",
 		"unknown: inbound bot mention capability for test is not declared",
 	]);
+	expect(result.acceptedConfiguration).toEqual({
+		state: "effective",
+		revision: "accepted-1",
+		acceptedRevision: "accepted-1",
+	});
+	expect(result.operability).toMatchObject({
+		status: "observed",
+		sample: { eventId: "event-1" },
+		history: { route: { binding: "group", session: "session-1" } },
+		prediction: { binding: "group" },
+	});
 	expect(result.policySource).toContain("reason=batch; plugin=social");
 	const diagnosed = await inspect.inspectRoute("main", "conv:test:group", input.id, policy);
 	expect(diagnosed.policySource).toContain("reason=batch; plugin=social");
@@ -147,6 +160,9 @@ test("verified owner requests preview or apply directly and preserve revision co
 				enabled: true,
 				authorized: { conversations: ["conv:test:group"] },
 				defaults: { group: { mode: "batch" } },
+				conversations: {
+					"conv:test:group": { batch: { count: 9, delaySeconds: 17, maxMessages: 23, maxBytes: 8192 } },
+				},
 			},
 		});
 		await writeFile(file, raw);
@@ -154,6 +170,7 @@ test("verified owner requests preview or apply directly and preserve revision co
 		const agents = new Map([["main", parseAgentConfig(raw)]]);
 		const events: Array<{ data: object }> = [];
 		const ownerInputs = new Set(["one", "continued"]);
+		let failReloadOnce = false;
 		const service = createSocial({
 			home,
 			config: { agents: [{ id: "main", workspace: "." }] } as YonderConfig,
@@ -170,6 +187,10 @@ test("verified owner requests preview or apply directly and preserve revision co
 			},
 			validate: async () => {},
 			reload: async () => {
+				if (failReloadOnce) {
+					failReloadOnce = false;
+					throw new Error("reload receipt failed");
+				}
 				agents.set("main", parseAgentConfig(await readFile(file, "utf8")));
 			},
 		});
@@ -202,7 +223,12 @@ test("verified owner requests preview or apply directly and preserve revision co
 		};
 		const preview = await service.update(request, ctx);
 		expect(preview.before.mode).toBe("batch");
-		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]).toBeUndefined();
+		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.batch).toEqual({
+			count: 9,
+			delaySeconds: 17,
+			maxMessages: 23,
+			maxBytes: 8192,
+		});
 		const visitor = {
 			...ctx,
 			event: { ...ownerEvent, id: "visitor", from: "acct:test:visitor" },
@@ -233,17 +259,179 @@ test("verified owner requests preview or apply directly and preserve revision co
 			revision: "unknown",
 			result: "rejected",
 		});
-		const saved = await readFile(file, "utf8");
 		const current = await service.inspect({ agent: "main", conv: request.conv }, ctx);
+		const beforeFailedReload = await readFile(file, "utf8");
+		failReloadOnce = true;
+		await expect(
+			service.update(
+				{
+					...request,
+					expectedRevision: current.revision,
+					patch: { mode: "batch", batch: { run: true } },
+					reason: "enable bounded ordinary batches",
+					dryRun: false,
+				},
+				ctx,
+			),
+		).rejects.toThrow("reload receipt failed");
+		expect(await readFile(file, "utf8")).toBe(beforeFailedReload);
+		expect((await service.inspect({ agent: "main", conv: request.conv }, ctx)).revision).toBe(current.revision);
+		await service.update(
+			{
+				...request,
+				expectedRevision: current.revision,
+				patch: { mode: "batch", batch: { run: true } },
+				reason: "enable bounded ordinary batches",
+				dryRun: false,
+			},
+			ctx,
+		);
+		expect(parseAgentConfig(await readFile(file, "utf8")).social?.conversations?.[request.conv]?.batch).toEqual({
+			count: 9,
+			delaySeconds: 17,
+			maxMessages: 23,
+			maxBytes: 8192,
+			run: true,
+		});
+		const currentAfterBatch = await service.inspect({ agent: "main", conv: request.conv }, ctx);
+		const saved = await readFile(file, "utf8");
 		for (const triggers of [{ regex: ["["] }, { regex: ["(a+"] }, { minLength: 20, maxLength: 10 }]) {
 			for (const dryRun of [true, false]) {
 				await expect(
-					service.update({ ...request, expectedRevision: current.revision, patch: { triggers }, dryRun }, ctx),
+					service.update(
+						{ ...request, expectedRevision: currentAfterBatch.revision, patch: { triggers }, dryRun },
+						ctx,
+					),
 				).rejects.toMatchObject({ code: "invalid_params" });
 				expect(await readFile(file, "utf8")).toBe(saved);
-				expect((await service.inspect({ agent: "main", conv: request.conv }, ctx)).revision).toBe(current.revision);
+				expect((await service.inspect({ agent: "main", conv: request.conv }, ctx)).revision).toBe(
+					currentAfterBatch.revision,
+				);
 			}
 		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
+test("social policy can initialize from an absent optional block and reports accepted versus historical facts", async () => {
+	const home = await tempHome("yonder-social-initialize-");
+	try {
+		const file = join(home, "agent.yaml");
+		const raw = JSON.stringify({
+			schema: 1,
+			id: "main",
+			name: "Main",
+			owner: "person:owner",
+			defaultProfile: "default",
+			profiles: { default: {} },
+			bindings: [],
+		});
+		await writeFile(file, raw);
+		await writeFile(join(home, "yonder.yaml"), "{}");
+		const agents = new Map([["main", parseAgentConfig(raw)]]);
+		let configuration = { state: "effective", revision: "accepted-r1", acceptedRevision: "accepted-r1" };
+		const validatedRuns: boolean[] = [];
+		const service = createSocial({
+			home,
+			config: { agents: [{ id: "main", workspace: "." }] } as YonderConfig,
+			agents,
+			assert: () => {},
+			owner: async () => true,
+			ownerInput: async () => true,
+			target: async () => ({ kind: "group", membership: "main" }),
+			record: async () => {},
+			validate: async (next) => {
+				const policy = next.get("main")?.social?.conversations?.["conv:test:group"];
+				if (typeof policy?.batch?.run === "boolean") validatedRuns.push(policy.batch.run);
+			},
+			reload: async () => {
+				agents.set("main", parseAgentConfig(await readFile(file, "utf8")));
+			},
+			inspectRoute: async () => ({
+				detail: "historical sample only",
+				capabilityGaps: [],
+				acceptedConfiguration: configuration,
+				operability: {
+					status: "observed",
+					sample: { eventId: "old-input", conv: "conv:test:group" },
+					history: {
+						route: { binding: "source", session: "session-1", profile: "group", wake: "write" },
+						execution: { state: "not-observed" },
+						delivery: { state: "not-observed" },
+					},
+					prediction: {
+						state: "matched",
+						binding: "source",
+						profile: "group",
+						wake: "write",
+						consumer: { state: "available", binding: "batch", profile: "group", plugin: "social" },
+					},
+				},
+			}),
+		});
+		const ownerEvent = {
+			id: "owner-request",
+			ts: "2026-11-03T00:00:00.000Z",
+			type: "message.in",
+			from: "acct:test:owner",
+			conv: "conv:test:owner",
+			data: { kind: "dm", text: "enable ordinary group batches" },
+		} as YEvent;
+		const ctx = {
+			agent: "main",
+			session: "main-session",
+			profile: "default",
+			capabilities: ["read", "admin"],
+			channelInstances: ["test"],
+			event: ownerEvent,
+		} as unknown as ToolContext;
+		const initial = await service.inspect({ agent: "main", conv: "conv:test:group" }, ctx);
+		const applied = await service.update(
+			{
+				agent: "main",
+				conv: "conv:test:group",
+				expectedRevision: initial.revision,
+				patch: { batch: { run: true } },
+				reason: "verified owner request",
+				dryRun: false,
+			},
+			ctx,
+		);
+		expect(validatedRuns[0]).toBe(true);
+		expect(applied.postcondition).toMatchObject({
+			status: "observed",
+			policyRevision: applied.revision,
+			acceptedConfiguration: { state: "effective", revision: "accepted-r1", acceptedRevision: "accepted-r1" },
+			sample: { eventId: "old-input", conv: "conv:test:group" },
+			history: {
+				route: { binding: "source", profile: "group", wake: "write" },
+				execution: { state: "not-observed" },
+				delivery: { state: "not-observed" },
+			},
+			prediction: { consumer: { state: "available", binding: "batch" } },
+		});
+		expect(applied.postcondition).not.toHaveProperty("newInputRun");
+		configuration = { state: "pending", revision: "disk-r2", acceptedRevision: "accepted-r1" };
+		const fresh = await service.inspect({ agent: "main", conv: "conv:test:group" }, ctx);
+		const pending = await service.update(
+			{
+				agent: "main",
+				conv: "conv:test:group",
+				expectedRevision: fresh.revision,
+				patch: { batch: { run: false } },
+				reason: "pending acceptance fixture",
+				dryRun: false,
+			},
+			ctx,
+		);
+		expect(validatedRuns[1]).toBe(false);
+		expect(pending.postcondition).toMatchObject({
+			status: "unknown",
+			acceptedConfiguration: { state: "pending", revision: "disk-r2", acceptedRevision: "accepted-r1" },
+			history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+		});
+		expect(pending.postcondition?.reason).toContain("accepted Agent configuration revision");
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

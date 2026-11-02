@@ -407,7 +407,7 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			record: (event) => store.events.record(event),
 			validate: (next) => validateCandidate(config, next, homePresets),
 			reload: reloadConfig,
-			...createSocialSupport(store, agents, loaded.channels, loaded.hooks),
+			...createSocialSupport(store, agents, loaded.channels, loaded.hooks, agentStatus),
 		});
 		watcher = await watchAgents({
 			home,
