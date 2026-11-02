@@ -57,3 +57,5 @@ PG原实现没有复用Node已有的Runtime.boundModels：有效修前诊断707�
 清理器曾错误处理`../review-*.log`，并用任意文件名后缀作匹配，导致9份已引用的定向日志被误删。该动作不是正确的scratch清理，已撤回旧审计“155份均未引用/0问题”的结论。主Agent从本任务父/子会话的原始工具stdout直接取回7份完整原文（验证对应cat/tail命令、文件边界与原stat长度，无手工重写或重跑），并将原文提交；SHA256及来源说明见[log-recovery.json](log-recovery.json)。
 
 两份旧定向完整raw无法全恢复：review-storage-focused-2.log原7187B（44 pass/6 fail），review-storage-focused-4.log原1497B（54 pass/1 fail）。只保留实际已捕获片段：[第二轮命令stdout](../review-storage-focused-2.captured-output.log)（包含原tail及后续命令诊断，不冒充原完整log）、[第四轮已捕获开头](../review-storage-focused-4.captured-head.log)和[第四轮已捕获结尾](../review-storage-focused-4.captured-tail.log)。原计数与失败原因仍在本总账，未拼造缺失内容。最终完整gate、GLM/A12以及两轮完整测试的原始失败日志全部已提交保留，此损失局限于两份开发期定向raw。
+
+最终只读引用检查（更正后）：Yonder现存357份日志、Cloud16份；未引用untracked scratch=0、未知tracked orphan=0、pending例外=0。该“现存引用覆盖”不等于无历史损失：上述两份完整开发期raw仍缺失。156份真正未引用scratch已删除，9份错误删除中7份完整恢复、2份仅有真实片段。源代码自658713ed后未改变，完整gate/真实模型/负载无需因这些文档与恢复操作重复运行。
