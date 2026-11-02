@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           architecture: ${{ matrix.node_arch }}
           cache: npm
       - name: Verify native Node architecture
@@ -149,12 +149,27 @@ jobs:
       - run: node scripts/check-pi-durable-workspace.mjs
       - run: npm run typecheck
       - run: npm run build
-      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json=windows-failures.json
+      - name: Smoke committed native pipe on minimum Node 22.19
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
+      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json="${{ runner.temp }}/windows-failures.json"
       - run: npm run test:node
       - run: node --test scripts/release/auto-release.test.mjs
       - run: npm run lint
+      # Load the checked-in binary, not a freshly compiled substitute.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          architecture: ${{ matrix.node_arch }}
+      - name: Smoke committed native pipe on Node 24
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          architecture: ${{ matrix.node_arch }}
+      - name: Smoke committed native pipe on Node 26
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: windows-failures-${{ matrix.arch }}
-          path: windows-failures.json
+          path: ${{ runner.temp }}/windows-failures.json

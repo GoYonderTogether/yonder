@@ -69,6 +69,7 @@ async function start(options: Options, rest: string[]): Promise<number> {
 	// 状态面：服务自己把"现在怎么样"写成一份小文件，读取方读文件而不是派生进程。
 	const status = startStatusSurface(home, kernel);
 	let closing: Promise<void> | undefined;
+	let controlFailure: Error | undefined;
 	let control: Awaited<ReturnType<typeof serveControl>> | undefined;
 	let gateway: Awaited<ReturnType<typeof startGateway>> | undefined;
 	let finish!: () => void;
@@ -108,7 +109,20 @@ async function start(options: Options, rest: string[]): Promise<number> {
 			output({ gateway: `http://127.0.0.1:${gateway.port}/` }, options.json);
 		}
 		// Publishing control is the startup-ready boundary, after every listener is owned.
-		control = await serveControl(home, controlHandler(host));
+		control = await serveControl(home, controlHandler(host), (error) => {
+			controlFailure = error;
+			output(
+				{ level: "error", message: "Local control listener failed", data: { error: String(error) } },
+				options.json,
+			);
+			void stop().catch((cleanupError) => {
+				output(
+					{ level: "error", message: "Runtime shutdown failed", data: { error: String(cleanupError) } },
+					options.json,
+				);
+				finish();
+			});
+		});
 	} catch (error) {
 		finishStartup();
 		await stop();
@@ -122,6 +136,7 @@ async function start(options: Options, rest: string[]): Promise<number> {
 	await stopped;
 	process.off("SIGINT", signal);
 	process.off("SIGTERM", signal);
+	if (controlFailure) throw controlFailure;
 	return 0;
 }
 

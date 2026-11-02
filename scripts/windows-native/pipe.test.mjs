@@ -13,6 +13,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 import { createPipeListener } from "../../packages/sdk/native/listener.mjs";
+import { createNativeServer } from "../../packages/sdk/native/server.mjs";
 
 const binary = resolve(
 	process.argv[2] ??
@@ -240,4 +241,89 @@ test("repeated create, accept and close does not grow native HANDLE count", { ti
 	await sleep(50);
 	const after = native.handleCount();
 	assert.ok(after <= before + 2, `native HANDLEs grew: ${before} -> ${after}`);
+});
+
+function startFacade(path, onConnection) {
+	const server = createNativeServer(native, onConnection);
+	return new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen({ path, readableAll: false, writableAll: false }, () => {
+			server.off("error", reject);
+			resolve(server);
+		});
+	});
+}
+function closeFacade(server) {
+	return new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+}
+
+test("production facade keeps real Socket framing and waits for connected close", async () => {
+	const path = endpoint();
+	let acceptedClosed = false;
+	const server = await startFacade(path, (socket) => {
+		socket.on("error", () => {});
+		socket.once("close", () => {
+			acceptedClosed = true;
+		});
+		socket.pipe(socket);
+	});
+	const client = createConnection(path);
+	client.on("error", () => {});
+	try {
+		await once(client, "connect");
+		const response = once(client, "data");
+		client.write('{"method":"sessions.list"}\n');
+		assert.equal(String((await response)[0]), '{"method":"sessions.list"}\n');
+		assert.equal(server.listening, true);
+		await closeFacade(server);
+		assert.equal(server.listening, false);
+		assert.equal(acceptedClosed, true);
+	} finally {
+		client.destroy();
+		if (server.listening) await closeFacade(server);
+	}
+});
+
+test("production facade emits bind failures without reporting listening", async () => {
+	const path = endpoint();
+	const owner = await startFacade(path, (socket) => socket.destroy());
+	try {
+		await assert.rejects(
+			startFacade(path, () => {}),
+			/CreateNamedPipe/,
+		);
+	} finally {
+		await closeFacade(owner);
+	}
+});
+
+test("production facade exposes asynchronous failures after releasing sockets", async () => {
+	const path = endpoint();
+	let socketClosed = false;
+	const server = await startFacade(path, (socket) => {
+		socket.on("error", () => {});
+		socket.once("close", () => {
+			socketClosed = true;
+		});
+		throw new Error("intentional facade callback failure");
+	});
+	const failed = once(server, "error");
+	const client = createConnection(path);
+	client.on("error", () => {});
+	try {
+		assert.match((await failed)[0].message, /intentional facade callback failure/);
+		assert.equal(socketClosed, true);
+		assert.equal(server.listening, false);
+	} finally {
+		client.destroy();
+		if (server.listening) await closeFacade(server);
+	}
+});
+
+test("production facade cannot opt out of owner-only access", () => {
+	for (const flag of ["readableAll", "writableAll"]) {
+		const server = createNativeServer(native, () => {});
+		assert.throws(() => server.listen({ path: endpoint(), [flag]: true }, () => {}), /owner-only/);
+		assert.equal(server.listening, false);
+	}
 });

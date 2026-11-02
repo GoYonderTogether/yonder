@@ -3,7 +3,7 @@
 import { closeSync } from "node:fs";
 import { Socket } from "node:net";
 export function createPipeListener(native) {
-	return function listen(path, onConnection) {
+	return function listen(path, onConnection, onFailure) {
 		const handle = native.create(path);
 		let descriptor;
 		try {
@@ -54,6 +54,7 @@ export function createPipeListener(native) {
 				closed = true;
 				native.close(handle);
 				await destroyClients();
+				if (failure && onFailure) queueMicrotask(() => onFailure(failure));
 			}
 		})();
 		return {

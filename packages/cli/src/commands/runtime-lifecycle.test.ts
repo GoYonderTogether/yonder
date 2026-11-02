@@ -101,3 +101,31 @@ test("control startup failure closes the already-started gateway and kernel", as
 	expect(lifecycle.statusStop).toHaveBeenCalledTimes(1);
 	expect(lifecycle.awakeClose).toHaveBeenCalledTimes(1);
 });
+
+test("late control failure shuts down owned resources and reports failure", async () => {
+	vi.stubEnv("YONDER_HOME", process.env.YONDER_HOME);
+	const published = deferred<(error: Error) => void>();
+	lifecycle.startGateway.mockResolvedValue({ port: 7690, close: lifecycle.gatewayClose });
+	lifecycle.serveControl.mockImplementation(async (_home, _host, onError) => {
+		published.resolve(onError);
+		return { close: lifecycle.controlClose };
+	});
+	const running = runRuntime("start", options, []);
+	const failure = new Error("native accept failed");
+	(await published.promise)(failure);
+	await expect(running).rejects.toBe(failure);
+	for (const close of [
+		lifecycle.awakeClose,
+		lifecycle.statusStop,
+		lifecycle.gatewayClose,
+		lifecycle.controlClose,
+		lifecycle.kernelClose,
+	])
+		expect(close).toHaveBeenCalledTimes(1);
+	expect(lifecycle.gatewayClose.mock.invocationCallOrder[0]).toBeLessThan(
+		lifecycle.controlClose.mock.invocationCallOrder[0] ?? 0,
+	);
+	expect(lifecycle.controlClose.mock.invocationCallOrder[0]).toBeLessThan(
+		lifecycle.kernelClose.mock.invocationCallOrder[0] ?? 0,
+	);
+});

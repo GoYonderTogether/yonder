@@ -45,5 +45,12 @@ content identity stays the same. The release tag contains the exact manifests
 and binaries that source installation and `npm pack` use; the release workflow
 and installer do not need an additional download path.
 
-Bootstrap status: runtime integration and the mandatory build guard are enabled
-only after both real Windows build/smoke artifacts have been checked in.
+The root build verifies both committed prebuilds offline before compiling the
+TypeScript. Required Windows CI jobs smoke the committed binary on Node 22.19,
+24 and 26; the separate bootstrap workflow rebuilds from native sources.
+
+Initial prebuild provenance: successful main workflow run
+[41379100526](https://github.com/GoYonderTogether/yonder/actions/runs/41379100526),
+commit `505bedbb7d0c1c63914d94b6698674795199684e`. Both architectures passed all
+nine smoke tests on all three Node versions. This component-level validation
+does not replace the control/channel integration or cross-account acceptance.

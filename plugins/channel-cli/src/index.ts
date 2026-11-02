@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
-import { createServer, type Server, type Socket } from "node:net";
+import type { Socket } from "node:net";
 import { join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import {
@@ -14,6 +14,8 @@ import {
 	type Ref,
 } from "@yonder/sdk";
 
+import { createLocalServer, type LocalServer } from "@yonder/sdk/node-ipc";
+
 const channelProvider = (api: PluginAPI) =>
 	defineChannel({
 		type: "cli",
@@ -25,9 +27,23 @@ const channelProvider = (api: PluginAPI) =>
 				process.platform === "win32"
 					? `\\\\.\\pipe\\yonder-cli-${createHash("sha256").update(resolve(filePath).toLowerCase()).digest("hex").slice(0, 32)}`
 					: filePath;
-			let server: Server | undefined;
+			let server: LocalServer | undefined;
 			let client: Socket | undefined;
 			let io: ChannelIO | undefined;
+
+			let closing: Promise<void> | undefined;
+			const stop = () => {
+				closing ??= (async () => {
+					client?.destroy();
+					client = undefined;
+					if (server?.listening) {
+						await new Promise<void>((resolve, reject) => server?.close((error) => (error ? reject(error) : resolve())));
+						if (process.platform !== "win32") await rm(socketPath, { force: true });
+					}
+					server = undefined;
+				})();
+				return closing;
+			};
 
 			const write = (socket: Socket, value: unknown) =>
 				new Promise<void>((resolve, reject) => {
@@ -40,10 +56,11 @@ const channelProvider = (api: PluginAPI) =>
 				output: { stream: true, attachments: false },
 				features: { identity: "account", streamMode: "token" },
 				async start(channelIO) {
+					closing = undefined;
 					io = channelIO;
 					await mkdir(api.paths.data, { recursive: true });
 					if (process.platform !== "win32") await rm(socketPath, { force: true });
-					server = createServer((socket) => {
+					server = createLocalServer((socket) => {
 						if (client) {
 							socket.on("error", () => socket.destroy());
 							void write(socket, { type: "error", message: "client already connected" }).then(
@@ -87,19 +104,17 @@ const channelProvider = (api: PluginAPI) =>
 						server?.once("error", onError);
 						server?.listen({ path: socketPath, readableAll: false, writableAll: false }, () => {
 							server?.off("error", onError);
+							server?.on("error", (error) => {
+								api.log.error("CLI channel listener failed", { channel: id, error: String(error) });
+								void stop().catch((cleanupError) =>
+									api.log.error("CLI channel cleanup failed", { channel: id, error: String(cleanupError) }),
+								);
+							});
 							resolve();
 						});
 					});
 				},
-				async stop() {
-					client?.destroy();
-					client = undefined;
-					if (server?.listening) {
-						await new Promise<void>((resolve, reject) => server?.close((error) => (error ? reject(error) : resolve())));
-						if (process.platform !== "win32") await rm(socketPath, { force: true });
-					}
-					server = undefined;
-				},
+				stop,
 				async send(target: Ref, message) {
 					if (target !== account && target !== conversation) return { ok: false, error: "unsupported target" };
 					if (!client || client.destroyed) return { ok: false, error: "no client" };
