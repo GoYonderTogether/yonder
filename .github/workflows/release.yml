@@ -187,6 +187,16 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 在精确发版提交上验收 Windows x64 与 ARM64 安装
+        run: |
+          if ! gh workflow run ci-windows.yml --ref "v$VERSION" \
+            -f "version=$VERSION" -f "expected_commit=$(git rev-parse HEAD)"; then
+            echo "::error::Release v$VERSION is already public, but Windows installer acceptance was not dispatched; installation is not verified. Do not create another release."
+            exit 1
+          fi
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # 正式版公开后通知网页部署。本仓的 GITHUB_TOKEN 只覆盖本仓（向私有仓派发会 404），
       # 而除正式发版外没有别的跨仓写入需求，因此不在两仓之间长期放一把 App/PAT 凭据：
       # 这一步在「拿到 GitHub App 的跨仓派发凭据之前」是显式的未完成项，失败不让发版本身变红，
