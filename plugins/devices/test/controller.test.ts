@@ -12,8 +12,9 @@ import {
 } from "@yonder/sdk";
 import { checkPlugin, createRegistrationCollector, tempHome } from "@yonder/sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { executeCapabilities } from "../src/controller.js";
+import { executeCapabilities, toolError } from "../src/controller.js";
 import plugin, { createDevicesPlugin, DeviceController } from "../src/index.js";
+import { rpc } from "../src/transport.js";
 import { protocolPeer } from "./peer.js";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -358,10 +359,46 @@ describe("W2 device controller (loopback protocol peer; no model or W1 E2E)", ()
 		).rejects.toThrow();
 		expect(peer.state.dispatches).toBe(0);
 	});
+	it.each([
+		[new Error("Execution HTTP status 400"), "Execution HTTP status 400"],
+		[Object.assign(new Error("private transport detail"), { code: "ECONNRESET" }), "ECONNRESET"],
+		[new Error("private transport detail"), "unconfirmed"],
+	])(
+		"keeps unconfirmed mutations unknown without replay and logs only safe diagnostics: %s",
+		async (failure, reason) => {
+			const { peer, ctx } = await setup();
+			let sends = 0;
+			const route = {
+				kind: "direct" as const,
+				exchange: async () => {
+					sends++;
+					throw failure;
+				},
+			};
+			const device = { ...peer.device, routes: [route, { ...route, kind: "card" as const }] };
+			const error = await rpc(
+				device,
+				"device.sessions.open",
+				{
+					targetId: "process",
+					grantId: peer.grant.grantId,
+					capabilities: ["read"],
+					origin: { agentId: ctx.agent, profileId: ctx.profile, modelSessionId: ctx.session },
+				},
+				ctx.signal,
+			).catch((error) => error);
+			expect(error).toMatchObject({ diagnostic: { stage: "exchange", reason } });
+			expect(toolError(error)).toMatchObject({ code: "OUTCOME_UNKNOWN", connectivity: "unknown" });
+			expect(JSON.stringify(error)).not.toContain("private transport detail");
+			expect(sends).toBe(1);
+		},
+	);
 	it("rejects wrong signed response identity and wrong result target, keeping unknown honest", async () => {
 		const { peer, controller, ctx } = await setup();
 		peer.state.alterResponse = (r) => ({ ...r, requestId: randomUUID() });
-		await expect(controller.describe(peer.device.deviceId, ctx)).rejects.toThrow("No authenticated response");
+		await expect(controller.describe(peer.device.deviceId, ctx)).rejects.toMatchObject({
+			diagnostic: { stage: "authentication", reason: "WRONG_TARGET" },
+		});
 		peer.state.alterResponse = (r) =>
 			r.ok ? { ...r, result: { ...(r.result as object), deviceId: randomUUID() } } : r;
 		await expect(controller.describe(peer.device.deviceId, ctx)).rejects.toThrow("WRONG_TARGET");

@@ -1,7 +1,7 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { Grant, PluginAPI, ToolContext } from "@yonder/sdk";
@@ -153,8 +153,10 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 			direct: { url: started.ready.url, tlsFingerprint: started.ready.tlsFingerprint },
 		});
 		const { api, registrations } = createRegistrationCollector();
+		const diagnostics: object[] = [];
 		plugin.setup({
 			...api,
+			log: { ...api.log, warn: (_message: string, data?: object) => diagnostics.push(data ?? {}) },
 			config: { pairingHome: controllerHome, devices: [{ deviceId, name: "test executor", grants: [grant] }] },
 			paths: { data: join(root, "plugin") },
 		} as PluginAPI);
@@ -172,8 +174,28 @@ test("standalone executor CLI and default devices plugin complete a paired direc
 		const tool = async (name: string, args: object) => {
 			const registered = registrations.tools.find((t) => t.name === `devices_${name}`);
 			if (!registered) throw new Error(`Missing devices_${name} tool`);
+			const startedAt = Date.now();
 			const result = await registered.execute(args, context);
-			if (result.isError) throw new Error(result.text);
+			if (result.isError) {
+				const error = JSON.parse(result.text);
+				// Read only this isolated executor's receipt metadata, never its keys or request/result bodies.
+				const state = await readFile(join(deviceHome, "state.json"), "utf8")
+					.then((text) => JSON.parse(text))
+					.catch(() => null);
+				const receipt = state?.requests[`${proof.controllerFingerprint}:${error.requestId}`]?.response;
+				throw new Error(
+					JSON.stringify({
+						...error,
+						tool: name,
+						elapsedMs: Date.now() - startedAt,
+						aborted: context.signal.aborted,
+						diagnostics,
+						persistedReceipt:
+							state === null ? "unreadable" : receipt ? { ok: receipt.ok, errorCode: receipt.error?.code } : null,
+						exitCode: child?.exitCode,
+					}),
+				);
+			}
 			return JSON.parse(result.text);
 		};
 		expect((await tool("list", {})).devices).toHaveLength(1);

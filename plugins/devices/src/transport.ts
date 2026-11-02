@@ -37,6 +37,7 @@ export class UnconfirmedRequest extends Error {
 	constructor(
 		readonly requestId: string,
 		readonly connectivity: "offline" | "unknown",
+		readonly diagnostic?: { stage: "exchange" | "authentication"; reason: string },
 	) {
 		super("No authenticated response; inspect the existing operation before retrying");
 	}
@@ -72,12 +73,16 @@ export async function rpc<M extends RpcRequest["method"]>(
 		params,
 	} as RpcRequest;
 	const envelope = signMessage(request, device.controllerKey);
+	let diagnostic: UnconfirmedRequest["diagnostic"];
 	// Only queries can fall through to another route. Lost submit ACKs are queried by command ID.
 	for (const route of queries.has(method) ? device.routes : device.routes.slice(0, 1)) {
 		const budget = AbortSignal.any([signal, AbortSignal.timeout(15_000)]);
+		let stage: "exchange" | "authentication" = "exchange";
 		try {
 			budget.throwIfAborted();
-			const response = verifyMessage(await route.exchange(envelope, budget), device.deviceKey, {
+			const answer = await route.exchange(envelope, budget);
+			stage = "authentication";
+			const response = verifyMessage(answer, device.deviceKey, {
 				kind: "response",
 				principalId,
 				deviceId: device.deviceId,
@@ -89,8 +94,32 @@ export async function rpc<M extends RpcRequest["method"]>(
 			return response.result;
 		} catch (error) {
 			if (error instanceof RemoteError) throw error;
+			// Never log arbitrary transport messages: they may contain credentials or response bodies.
+			const code = (error as NodeJS.ErrnoException | undefined)?.code;
+			const message = error instanceof Error ? error.message : "";
+			diagnostic = {
+				stage,
+				reason: budget.aborted
+					? "aborted"
+					: typeof code === "string" &&
+							[
+								"ECONNRESET",
+								"ECONNREFUSED",
+								"EPIPE",
+								"ETIMEDOUT",
+								"ENOTFOUND",
+								"EAI_AGAIN",
+								"EHOSTUNREACH",
+								"ENETUNREACH",
+								"ABORT_ERR",
+							].includes(code)
+						? code
+						: /^(?:Execution HTTP status [0-9]{3}|INVALID_REQUEST|UNAUTHORIZED|WRONG_TARGET)$/.test(message)
+							? message
+							: "unconfirmed",
+			};
 			if (signal.aborted) break;
 		}
 	}
-	throw new UnconfirmedRequest(requestId, device.routes.length ? "unknown" : "offline");
+	throw new UnconfirmedRequest(requestId, device.routes.length ? "unknown" : "offline", diagnostic);
 }
