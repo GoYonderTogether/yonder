@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { env } from "node:process";
-import { inspectSkills } from "@yonder/core";
-import { homeFor, managed, namedOptions, type Options, print, skillsUsage, UsageError } from "./context.js";
+import { env, stderr } from "node:process";
+import { inspectSkills, summarizeAgentOperability } from "@yonder/core";
+import { homeFor, managed, namedOptions, type Options, output, print, skillsUsage, UsageError } from "./context.js";
 
 function currentInspectContext(home: string) {
 	try {
@@ -51,9 +51,36 @@ export async function runConfig(command: string, options: Options, rest: string[
 		const flags = namedOptions(rest.slice(operation === "list" ? 1 : 2), ["--file", "--preset"], usage);
 		if (["create", "update", "validate"].includes(operation) && !flags["--file"]) throw new UsageError(usage);
 		const value = flags["--file"] ? JSON.parse(await readFile(resolve(flags["--file"]), "utf8")) : undefined;
+		const home = homeFor(options);
+		if (command === "agents" && operation === "show") {
+			const config = await managed(home, { method: "management", params: { action: "agents.show", id } }, true);
+			output(config, options.json);
+			const runtime = currentInspectContext(home);
+			if (runtime && runtime.agent === id) {
+				try {
+					const inspection = (await managed(
+						home,
+						{
+							method: "management",
+							params: { action: "inspect", agent: id, profile: runtime.profile },
+						},
+						true,
+					)) as { operability?: unknown; runtimeLoaded?: unknown };
+					if (!Array.isArray(inspection.runtimeLoaded))
+						stderr.write("Session operability: unknown (runtime evidence unavailable; config stdout remains valid)\n");
+					else
+						stderr.write(
+							`Session operability (current runtime; may differ from config stdout): ${JSON.stringify(summarizeAgentOperability(id ?? "unknown", (inspection.operability ?? { status: "unknown", limit: 0, truncated: false, conversations: [] }) as Parameters<typeof summarizeAgentOperability>[1]))}\n`,
+						);
+				} catch {
+					stderr.write("Session operability: unknown (runtime inspection unavailable)\n");
+				}
+			}
+			return 0;
+		}
 		return print(
 			managed(
-				homeFor(options),
+				home,
 				{ method: "management", params: { action: `${command}.${operation}`, id, preset: flags["--preset"], value } },
 				true,
 			),
@@ -65,7 +92,11 @@ export async function runConfig(command: string, options: Options, rest: string[
 		let flags: Record<string, string> = {};
 		if (command === "inspect") {
 			action = "inspect";
-			flags = namedOptions(rest, ["--agent", "--profile"], "Usage: yonder inspect [--agent <id>] [--profile <name>]");
+			flags = namedOptions(
+				rest,
+				["--agent", "--profile", "--conv", "--event"],
+				"Usage: yonder inspect [--agent <id>] [--profile <name>] [--conv <ref>] [--event <id>]",
+			);
 		} else if (command === "models") {
 			if (rest.length !== 1 || rest[0] !== "list") throw new UsageError("Usage: yonder models list");
 			action = "models.list";
@@ -99,6 +130,8 @@ export async function runConfig(command: string, options: Options, rest: string[
 					...(source ? { source } : {}),
 					...(agent ? { agent } : {}),
 					...(profile ? { profile } : {}),
+					...(flags["--conv"] ? { conv: flags["--conv"] } : {}),
+					...(flags["--event"] ? { eventId: flags["--event"] } : {}),
 				},
 			},
 			true,

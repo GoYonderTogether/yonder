@@ -1,3 +1,4 @@
+import type { AgentOperabilityFact } from "@yonder/bot-core/kernel/operability";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -32,6 +33,15 @@ export interface ManagementState {
 	validate(config: YonderConfig, agents: Map<string, AgentConfig>, presets: Map<string, Preset>): Promise<void>;
 	scaffold(config: YonderConfig, agent: AgentConfig): Promise<void>;
 	reload?: () => Promise<void>;
+	projectOperability?: (
+		agentId: string,
+		input: {
+			config: YonderConfig;
+			agents: Map<string, AgentConfig>;
+			basis: "accepted" | "candidate";
+			revision?: string;
+		},
+	) => Promise<AgentOperabilityFact>;
 }
 async function replace(file: string, text: string) {
 	const temp = `${file}.${randomUUID()}.tmp`;
@@ -50,6 +60,20 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 			entry = state.config.agents?.find((a) => a.id === id);
 		if (!value || !entry) throw new Error(`Unknown agent: ${id}`);
 		return { ...value, workspace: resolve(home, entry.workspace), env: entry.env ?? "local" };
+	};
+	const operability = async (
+		agentId: string,
+		config: YonderConfig,
+		agents: Map<string, AgentConfig>,
+		basis: "accepted" | "candidate",
+		revision?: string,
+	) => {
+		if (!state.projectOperability) return undefined;
+		try {
+			return await state.projectOperability(agentId, { config, agents, basis, ...(revision ? { revision } : {}) });
+		} catch {
+			return { status: "unknown" as const, limit: 20, truncated: false, conversations: [] };
+		}
 	};
 	if (action === "list")
 		return kind === "agents" ? [...state.agents.keys()].map(showAgent) : [...state.presets.values()];
@@ -190,7 +214,23 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 		}
 		parseYonderConfig(stringify(config), join(home, "yonder.yaml"));
 		await state.validate(config, agents, presets);
-		if (action === "validate") return { valid: true, accepted: false, saved: false };
+		if (action === "validate")
+			return {
+				valid: true,
+				accepted: false,
+				saved: false,
+				...(kind === "agents" && state.projectOperability
+					? {
+							operability: await operability(
+								id,
+								config,
+								agents,
+								"candidate",
+								createHash("sha256").update(text).digest("hex"),
+							),
+						}
+					: {}),
+			};
 		if ((await readFile(configFile, "utf8")) !== yonderText)
 			throw new Error("yonder.yaml changed while updating; retry with agents.show");
 		const rollback: Array<() => Promise<void>> = [];
@@ -274,6 +314,16 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 				: action === "remove"
 					? `removed:${id}`
 					: await readFile(file, "utf8");
+		const acceptedOperability =
+			kind === "agents" && action === "update" && state.projectOperability
+				? await operability(
+						id,
+						state.config,
+						state.agents,
+						"accepted",
+						createHash("sha256").update(revisionText).digest("hex"),
+					)
+				: undefined;
 		return {
 			id,
 			valid: true,
@@ -281,6 +331,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 			accepted: !!state.reload,
 			restartRequired,
 			revision: createHash("sha256").update(revisionText).digest("hex"),
+			...(acceptedOperability ? { operability: acceptedOperability } : {}),
 			...(kind === "agents"
 				? {
 						workspace: resolve(home, config.agents!.find((a) => a.id === id)!.workspace),

@@ -1,6 +1,9 @@
-import type { YEvent } from "@yonder/sdk";
+import type { EventInput, PluginAPI, ToolContext, YEvent } from "@yonder/sdk";
 import { expect, test, vi } from "vitest";
 import { GroupAttention } from "../src/group-attention.js";
+import { groupContext } from "../src/group-context.js";
+import type { GroupTurnLike } from "../src/group-turns.js";
+import { Groups } from "../src/groups.js";
 import { gptConv, groupFixture, mainConv } from "./group-fixture.js";
 
 const message = (text: string, sender = "owner", extra = {}) => ({
@@ -9,6 +12,166 @@ const message = (text: string, sender = "owner", extra = {}) => ({
 	conv: mainConv,
 	data: { kind: "group", text, msgId: crypto.randomUUID(), ...extra },
 });
+
+function floorCandidate() {
+	const source: YEvent = {
+		id: "source-event",
+		ts: new Date().toISOString(),
+		type: "message.in",
+		from: "acct:qq-gpt:owner",
+		conv: gptConv,
+		data: {
+			kind: "group",
+			text: "首先，第一个需求就是把这个群改成你是每条消息都能够接收，而不是用什么策略来管，然后但是接收了不一定要回复，这个要标注一下，你是有主动发言的权限的",
+			mentioned: false,
+			senderIsBot: false,
+			social: { mentions: { bot: false }, nativeKind: "group" },
+		},
+	};
+	const emitted: EventInput[] = [];
+	const batches: EventInput[] = [];
+	const contexts: string[] = [];
+	const sources = [source];
+	let holdAsk = false;
+	let resolveAsk: ((result: { event: YEvent; results: Array<{ status: string }> }) => void) | undefined;
+	let pendingAsk: YEvent | undefined;
+	let room: {
+		id: string;
+		convs: Set<string>;
+		waiting: unknown[];
+		wake: Set<() => void>;
+		turn?: GroupTurnLike;
+		candidates: Map<string, unknown>;
+		quietMs: number;
+		lastHumanAt: number;
+		timer?: NodeJS.Timeout;
+	};
+	const api = {
+		id: "social",
+		config: {},
+		log: { info() {}, warn() {}, error() {} },
+		agents: {
+			async list() {
+				return [
+					{ id: "gpt-senpai", name: "GPT 学姐" },
+					{ id: "main", name: "贾维斯" },
+				];
+			},
+		},
+		identity: {
+			async relation(_agent: string, account: string) {
+				return account === source.from ? "owner" : "known";
+			},
+		},
+		events: {
+			async emit(event: EventInput) {
+				emitted.push(event);
+				return { ...event, id: `emitted-${emitted.length}`, ts: new Date().toISOString() };
+			},
+			async ask(event: EventInput) {
+				batches.push(event);
+				const batch = { ...event, id: `asked-${batches.length}`, ts: new Date().toISOString() } as YEvent;
+				pendingAsk = batch;
+				if (holdAsk)
+					return new Promise<{ event: YEvent; results: Array<{ status: string }> }>(
+						(resolve) => (resolveAsk = resolve),
+					);
+				const turn = room.turn ? { ...room.turn } : undefined;
+				contexts.push(await contextFor(turn));
+				return { event: batch, results: [] };
+			},
+			async query(query: { id?: string; type?: string; conv?: string }) {
+				const match = query.id ? sources.find((event) => event.id === query.id) : undefined;
+				return {
+					events: match ? [match] : query.type === "message.in" && query.conv === source.conv ? sources : [],
+					next: null,
+				};
+			},
+		},
+		social: {
+			async admitBatch() {
+				return { session: "gpt-session" };
+			},
+		},
+	} as unknown as PluginAPI;
+	const contextFor = async (turn?: GroupTurnLike) => {
+		const batch: YEvent = {
+			id: "batch-event",
+			ts: new Date().toISOString(),
+			type: "social.batch-ready",
+			from: "plugin:social",
+			conv: gptConv,
+			data: { agent: "gpt-senpai", sourceEvents: [source.id], through: source.id },
+		};
+		const context = await groupContext(api, {
+			room: { id: room.id, convs: room.convs, turn },
+			ctx: { agent: "gpt-senpai", session: "gpt-session", event: batch } as ToolContext,
+			sources: [batch],
+		});
+		return context?.compact ?? "";
+	};
+	const groups = new Groups(api, { preset: "test" });
+	const candidate = {
+		agent: "gpt-senpai",
+		conv: gptConv,
+		session: "gpt-session",
+		revision: "r1",
+		policy: { batch: { run: true } },
+		entries: [source],
+		counter: 0,
+	};
+	room = {
+		id: "shared-room",
+		convs: new Set([mainConv, gptConv]),
+		waiting: [],
+		wake: new Set(),
+		turn: {
+			agent: "main",
+			session: "main-session",
+			direct: false,
+			focused: false,
+			source: "main-source",
+			decision: "main-source",
+		},
+		candidates: new Map([[candidate.agent, candidate]]),
+		quietMs: 0,
+		lastHumanAt: Date.now() - 60000,
+	};
+	const internal = groups as unknown as {
+		aliases: Map<string, string>;
+		rooms: Map<string, typeof room>;
+		sessions: Map<string, typeof room>;
+		attention: GroupAttention;
+		flush(room: typeof room): Promise<void>;
+		offer(room: typeof room): Promise<void>;
+	};
+	internal.aliases.set(mainConv, room.id);
+	internal.aliases.set(gptConv, room.id);
+	internal.rooms.set(room.id, room);
+	internal.sessions.set(candidate.session, room);
+	return {
+		api,
+		groups,
+		internal,
+		source,
+		candidate,
+		room,
+		emitted,
+		batches,
+		contexts,
+		contextFor,
+		addSource(event: YEvent) {
+			sources.push(event);
+		},
+		holdModelRun() {
+			holdAsk = true;
+		},
+		completeModelRun(status = "done") {
+			if (!resolveAsk || !pendingAsk) throw new Error("No held model run to complete");
+			resolveAsk({ event: pendingAsk, results: [{ status }] });
+		},
+	};
+}
 
 test("successful replies focus the actual participant for five minutes without extending on incoming messages", async () => {
 	const f = await groupFixture();
@@ -81,7 +244,16 @@ test("explicit recipients override attention, keywords and accumulated count whi
 					new Set(),
 					{ runEligible: true },
 				),
-			).toMatchObject({ matched: false });
+			).toMatchObject({ matched: true, relevant: [source] });
+			expect(
+				await attention.consider(
+					{ agent: "main", counter: 0 },
+					"room",
+					[source],
+					{ keywords: ["无匹配词"], batch: { run: false } },
+					new Set(),
+				),
+			).toMatchObject({ matched: false, relevant: [] });
 		}
 		for (const text of ["GPT 学姐和贾维斯，你们看看", "贾维斯和GPT 学姐，你们看看", "我刚看到 GPT 学姐的消息"]) {
 			const source = await f.probe.ios["qq-main"].emit(message(text));
@@ -98,6 +270,37 @@ test("explicit recipients override attention, keywords and accumulated count whi
 		expect(await attention.elsewhere(quoted, "main")).toBe(true);
 		const qqQuoted = { ...quoted, data: { text: "任务规划", qq: { refMsgIdx: "unresolved" } } };
 		expect(await attention.elsewhere(qqQuoted, "main")).toBe(false);
+		const excluded = { ...mentioned, data: { ...mentioned.data, text: "屏蔽内容" } };
+		expect(
+			await attention.consider(
+				{ agent: "main", counter: 0 },
+				"room",
+				[excluded],
+				{ batch: { run: true }, triggers: { exclude: ["屏蔽"] } },
+				new Set(),
+				{ runEligible: true },
+			),
+		).toMatchObject({ matched: false, relevant: [] });
+		expect(
+			await attention.consider(
+				{ agent: "main", counter: 0, pause: { scope: "group" } },
+				"room",
+				[mentioned],
+				{ batch: { run: true } },
+				new Set(),
+				{ runEligible: true },
+			),
+		).toMatchObject({ matched: false, relevant: [] });
+		expect(
+			await attention.consider(
+				{ agent: "main", counter: 0 },
+				"room",
+				[mentioned],
+				{ batch: { run: true } },
+				new Set([mentioned.id]),
+				{ runEligible: true },
+			),
+		).toMatchObject({ matched: false, relevant: [] });
 	} finally {
 		await f.close();
 	}
@@ -193,7 +396,7 @@ test("batch.run true defers a matched opportunity until the real cooldown expire
 	}
 });
 
-test("batch.run true admits one ordinary eligible message after its window", async () => {
+test("batch.run true admits a peer-directed eligible message into its own batch", async () => {
 	const f = await groupFixture({
 		social: true,
 		officialGroup: true,
@@ -202,7 +405,7 @@ test("batch.run true admits one ordinary eligible message after its window", asy
 		initialRules: { main: { keywords: ["只有关键词才能触发"], count: 20 } },
 	});
 	try {
-		const source = await f.probe.ios["qq-main"].emit(message("今天下午天气不错", "other"));
+		const source = await f.probe.ios["qq-main"].emit(message("GPT 学姐，请帮我看下今天下午的安排", "other"));
 		await expect
 			.poll(
 				async () =>
@@ -233,11 +436,182 @@ test("batch.run true admits one ordinary eligible message after its window", asy
 	}
 }, 30000);
 
-test("same-window requests for two Bots preserve each one's own source instead of consuming the earlier task", async () => {
+test("a peer reply consumes ordinary candidates but preserves focused candidates for their own batch", async () => {
+	const ordinary = floorCandidate();
+	try {
+		ordinary.candidate.policy = { keywords: ["首先"], batch: { run: false } };
+		await ordinary.internal.flush(ordinary.room);
+		expect(ordinary.candidate.willing).toMatchObject({ focused: false });
+		await ordinary.groups.delivered({
+			id: "peer-reply",
+			ts: new Date().toISOString(),
+			type: "message.out",
+			from: "agent:main",
+			conv: mainConv,
+			data: { delivery: { ok: true } },
+		});
+		expect(ordinary.emitted.find((event) => event.type === "social.batch-read")).toMatchObject({
+			parent: "peer-reply",
+			conv: gptConv,
+			data: { agent: "gpt-senpai", through: ordinary.source.id },
+		});
+		expect(ordinary.candidate.willing).toBeUndefined();
+		expect(ordinary.candidate.entries).toEqual([]);
+	} finally {
+		ordinary.groups.stop();
+	}
+
+	const focused = floorCandidate();
+	try {
+		await focused.internal.attention.replied(
+			{
+				id: "prior-reply",
+				ts: new Date().toISOString(),
+				type: "message.out",
+				from: "agent:gpt-senpai",
+				conv: gptConv,
+				data: { respondTo: focused.source.id, delivery: { ok: true } },
+			},
+			focused.room.id,
+		);
+		await focused.internal.flush(focused.room);
+		expect(focused.emitted.find((event) => event.type === "social.rule-match")?.data).toMatchObject({
+			focused: true,
+		});
+		expect(focused.candidate.willing).toMatchObject({ focused: true });
+		await focused.groups.delivered({
+			id: "peer-reply",
+			ts: new Date().toISOString(),
+			type: "message.out",
+			from: "agent:main",
+			conv: mainConv,
+			data: { delivery: { ok: true } },
+		});
+		expect(focused.emitted.find((event) => event.type === "social.batch-read")).toBeUndefined();
+		expect(focused.candidate.willing).toMatchObject({ focused: true, entries: [focused.source] });
+		if (focused.room.timer) clearTimeout(focused.room.timer);
+		delete focused.room.timer;
+		delete focused.room.turn;
+		await focused.internal.offer(focused.room);
+		expect(focused.batches.find((event) => event.type === "social.batch-ready")).toMatchObject({
+			conv: gptConv,
+			data: { agent: "gpt-senpai", sourceEvents: [focused.source.id], through: focused.source.id },
+		});
+		await expect.poll(() => focused.contexts.length).toBe(1);
+		expect(focused.contexts[0]).toContain("your opportunity: recent interaction follow-up");
+		expect(focused.contexts[0]).toContain("not a task assignment, authorization");
+		expect(focused.contexts[0]).not.toContain("addressedTo");
+		expect(focused.emitted.find((event) => event.type === "social.group-turn")?.data).toMatchObject({
+			direct: false,
+			focused: true,
+			reason: "recent interaction follow-up",
+		});
+	} finally {
+		focused.groups.stop();
+	}
+
+	const autonomous = floorCandidate();
+	try {
+		await autonomous.internal.flush(autonomous.room);
+		expect(autonomous.candidate.willing).toMatchObject({ focused: false, entries: [autonomous.source] });
+		await autonomous.groups.delivered({
+			id: "peer-reply",
+			ts: new Date().toISOString(),
+			type: "message.out",
+			from: "agent:main",
+			conv: mainConv,
+			data: { delivery: { ok: true } },
+		});
+		expect(autonomous.emitted.find((event) => event.type === "social.batch-read")).toBeUndefined();
+		expect(autonomous.candidate.willing).toMatchObject({ entries: [autonomous.source] });
+		if (autonomous.room.timer) clearTimeout(autonomous.room.timer);
+		delete autonomous.room.timer;
+		delete autonomous.room.turn;
+		autonomous.holdModelRun();
+		await autonomous.internal.offer(autonomous.room);
+		expect(autonomous.batches.find((event) => event.type === "social.batch-ready")).toMatchObject({
+			conv: gptConv,
+			data: { agent: "gpt-senpai", sourceEvents: [autonomous.source.id], through: autonomous.source.id },
+		});
+		expect(autonomous.emitted.find((event) => event.type === "social.batch-read")).toBeUndefined();
+		autonomous.completeModelRun();
+		await expect
+			.poll(() => autonomous.emitted.find((event) => event.type === "social.batch-read"))
+			.toMatchObject({ parent: "asked-1", data: { agent: "gpt-senpai", through: autonomous.source.id } });
+	} finally {
+		autonomous.groups.stop();
+	}
+});
+
+test("accept appends peer-directed eligible input to a batch.run candidate without crossing explicit filters", async () => {
+	const f = floorCandidate();
+	try {
+		await f.internal.attention.start();
+		f.candidate.policy = { batch: { run: true }, triggers: { exclude: ["屏蔽"] } };
+		await f.internal.flush(f.room);
+		const append = async (id: string, text: string) => {
+			const source = {
+				...f.source,
+				id,
+				data: { ...f.source.data, text },
+				routes: [{ agent: "gpt-senpai", session: "gpt-session", wake: "write" }],
+			} as YEvent;
+			f.addSource(source);
+			await f.groups.accept(
+				{
+					id: `decision-${id}`,
+					ts: new Date().toISOString(),
+					type: "routing.social-decision",
+					from: "plugin:routing",
+					conv: gptConv,
+					parent: id,
+					data: { agent: "gpt-senpai", run: true, revision: "r1", policy: f.candidate.policy },
+				} as YEvent,
+				false,
+			);
+			return source;
+		};
+		const directed = await append("source-event-2", "main，请看这个任务");
+		const excluded = await append("source-event-3", "main 屏蔽内容");
+		expect(await f.internal.attention.elsewhere(directed, "gpt-senpai")).toBe(true);
+		expect(f.candidate.willing).toMatchObject({ entries: [f.source, directed], through: directed.id });
+		expect(f.candidate.willing?.entries).not.toContain(excluded);
+	} finally {
+		f.groups.stop();
+	}
+});
+
+test("ordinary and legacy group turns keep their context labels", async () => {
+	const ordinary = floorCandidate();
+	try {
+		await ordinary.internal.flush(ordinary.room);
+		expect(ordinary.candidate.willing).toMatchObject({ focused: false });
+		if (ordinary.room.timer) clearTimeout(ordinary.room.timer);
+		delete ordinary.room.timer;
+		delete ordinary.room.turn;
+		await ordinary.internal.offer(ordinary.room);
+		await expect.poll(() => ordinary.contexts.length).toBe(1);
+		expect(ordinary.contexts[0]).toContain("your opportunity: independent contribution");
+		expect(ordinary.contexts[0]).toContain("not a task assignment, authorization");
+		const legacy = await ordinary.contextFor({
+			agent: "gpt-senpai",
+			session: "gpt-session",
+			direct: false,
+			source: ordinary.source.id,
+			decision: "legacy",
+		});
+		expect(legacy).toContain("your opportunity: unknown (legacy turn without attention fact)");
+		expect(legacy).not.toContain("recent interaction follow-up");
+	} finally {
+		ordinary.groups.stop();
+	}
+});
+
+test("same-window requests preserve per-conversation sources while peer-directed inputs remain processable", async () => {
 	const f = await groupFixture({ social: true });
 	try {
 		const first = await f.probe.ios["qq-main"].emit(message("贾维斯，请看看任务规划"));
-		await f.probe.ios["qq-gpt"].emit({
+		const peerDirected = await f.probe.ios["qq-gpt"].emit({
 			...message("贾维斯，请看看任务规划"),
 			conv: gptConv,
 			from: "acct:qq-gpt:owner",
@@ -252,8 +626,8 @@ test("same-window requests for two Bots preserve each one's own source instead o
 		const ctx = f.probe.contexts[0]!;
 		expect(ctx.agent).toBe("main");
 		const ownBatch = (await f.kernel.events.query({ type: "social.batch-ready", conv: mainConv })).events[0]!;
-		expect(ownBatch.data).toMatchObject({ sourceEvents: [first.id], through: first.id });
-		expect((ownBatch.data as { sourceEvents: string[] }).sourceEvents).not.toContain(other.id);
+		expect(ownBatch.data).toMatchObject({ sourceEvents: [first.id, other.id], through: other.id });
+		expect((ownBatch.data as { sourceEvents: string[] }).sourceEvents).not.toContain(second.id);
 		const later = await f.probe.ios["qq-main"].emit(message("GPT 学姐，请补充开发细节"));
 		await expect
 			.poll(
@@ -265,14 +639,18 @@ test("same-window requests for two Bots preserve each one's own source instead o
 			)
 			.toBe(true);
 		const last = (await f.kernel.events.query({ type: "social.rule-match", conv: mainConv })).events.at(-1)!;
-		expect(last.data).toMatchObject({ matched: false });
+		expect(last.data).toMatchObject({ matched: true });
 		expect((last.data as { sourceEvents: string[] }).sourceEvents).not.toContain(first.id);
-		expect(ctx.signal.aborted).toBe(false);
+		// The peer-directed message is still an eligible input for the same Agent's own session.
+		expect(ctx.signal.aborted).toBe(true);
 		f.probe.releases.get(ctx.session)?.();
 		await expect.poll(() => f.probe.contexts.length, { timeout: 5000 }).toBe(2);
-		expect(f.probe.contexts[1]?.agent).toBe("gpt-senpai");
+		expect(f.probe.contexts[1]?.agent).toBe("main");
+		f.probe.releases.get(ctx.session)?.();
+		await expect.poll(() => f.probe.contexts.length, { timeout: 5000 }).toBe(3);
+		expect(f.probe.contexts[2]?.agent).toBe("gpt-senpai");
 		const peerBatch = (await f.kernel.events.query({ type: "social.batch-ready", conv: gptConv })).events[0]!;
-		expect(peerBatch.data).toMatchObject({ sourceEvents: [second.id], through: second.id });
+		expect(peerBatch.data).toMatchObject({ sourceEvents: [peerDirected.id, second.id], through: second.id });
 	} finally {
 		await f.close();
 	}

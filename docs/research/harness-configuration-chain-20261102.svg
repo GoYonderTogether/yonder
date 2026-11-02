@@ -1,46 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1240" height="920" viewBox="0 0 1240 920" role="img" aria-labelledby="title desc">
 <title id="title">Yonder 配置闭环：真实失败与共享修复</title>
-<desc id="desc">比较飞书真实失败的旧路径与目标共享闭环。图中目标并不代表真实群验收已通过。另列Cloud两个入口的当前证据。</desc>
+<desc id="desc">比较真实失败路径与共享来源连续闭环。目标不代表真实群验收已通过；另列work入口的核验状态。</desc>
 <defs><marker id="arr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker></defs>
 <rect width="1240" height="920" fill="#f8fafc"/>
 <g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#0f172a">
-<text x="48" y="52" font-size="27" font-weight="700">配置写入成功，不等于运行时接纳，更不等于交付</text>
-<text x="48" y="84" font-size="16" fill="#475569">2026-11-02 · v0.3.26110207 已安装；热重载通过，飞书执行链与 QQ 接办仍未通过</text>
+<text x="48" y="52" font-size="27" font-weight="700">从写入配置，到可核验的配置与交付闭环</text>
+<text x="48" y="84" font-size="16" fill="#475569">2026-11-03 · v0.3.26110214 已安装核验；发布／Cloud 通过，群配置闭环仍未通过</text>
 <text x="48" y="137" font-size="22" font-weight="700">实际暴露的旧路径</text>
 <rect x="48" y="160" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
 <text x="66" y="197" font-size="17">用户用自然语言提出需求</text>
 <path d="M319,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="247" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="284" font-size="17">Agent 找到入口，却混淆主会话职责与群上下文</text>
+<text x="66" y="284" font-size="17">靠旧对话／YAML 片段推断已经配置完成</text>
 <path d="M319,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="334" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="371" font-size="17">候选被接纳，真实群公告也已发送</text>
+<text x="66" y="371" font-size="17">把程序入账当看过，把平台未知当缺权限</text>
 <path d="M319,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="421" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="458" font-size="17">普通消息进批次，但当前群缺少执行消费者</text>
+<text x="66" y="458" font-size="17">共享发言机会推进了别人的处理游标</text>
 <path d="M319,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="48" y="508" width="542" height="62" rx="12" fill="#fee2e2" stroke="#cbd5e1"/>
-<text x="66" y="545" font-size="17">只入账、没有模型运行，完整需求仍未交付</text>
-<text x="650" y="137" font-size="22" font-weight="700">目标：共享 Harness 闭环</text>
+<text x="66" y="545" font-size="17">不同来源并成同一轮，答了 QQ 却漏办 P1</text>
+<text x="650" y="137" font-size="22" font-weight="700">共享 Harness 新约束（实施／验收中）</text>
 <rect x="650" y="160" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="197" font-size="17">用户原话 + 渠道可信身份／目标</text>
+<text x="668" y="197" font-size="17">核验原始来源 → 同源续办，异源分别执行</text>
 <path d="M921,224 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="247" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="284" font-size="17">默认链逐群核对消费者 + 实际权限／CLI 入口</text>
+<text x="668" y="284" font-size="17">完整依赖预检；缺件指向现有配置入口</text>
 <path d="M921,311 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="334" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="371" font-size="17">候选完整校验 → 版本核对 → 写入</text>
+<text x="668" y="371" font-size="17">保留权限与独立历史 → 校验／原子重载</text>
 <path d="M921,398 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="421" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="458" font-size="17">原生接纳事实：有效／待接纳／拒绝／待重启</text>
+<text x="668" y="458" font-size="17">模型处理 ≠ 发言竞争；别人先答不能吞输入</text>
 <path d="M921,485 v19" stroke="#64748b" stroke-width="2" marker-end="url(#arr)"/>
 <rect x="650" y="508" width="542" height="62" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
-<text x="668" y="545" font-size="17">路由 → 实际运行 → 送达回执／明确不回复</text>
+<text x="668" y="545" font-size="17">新输入 → 本 Agent 真实运行 → 实际送达</text>
 <rect x="48" y="620" width="1144" height="90" rx="12" fill="#fef3c7"/>
-<text x="68" y="649" font-size="18" font-weight="700">失败恢复属于同一条链</text>
-<text x="68" y="677" font-size="17">拒绝时给出可操作错误；修复 patch 后重新完整校验。保留旧有效配置、历史与并发修改。</text>
+<text x="68" y="649" font-size="18" font-weight="700">程序维护边界，不能靠一句“已完成”跨过</text>
+<text x="68" y="677" font-size="17">权限与历史隔离；来源与关注连续；平台状态、入账、运行、投递分层，未知和省略显式记录。</text>
 <text x="48" y="754" font-size="22" font-weight="700">Cloud：按真实入口判断，不能只比较产品版本号</text>
-<text x="68" y="790" font-size="18" fill="#166534">/work：v6 曾复现能力 RPC 400，v7 修运行态读取；用户确认入口已恢复</text>
-<text x="68" y="824" font-size="18" fill="#991b1b">/console/ 是另一入口：旧 Gateway 返回 403 host not allowed，与 /work 故障分开</text>
-<text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；不提升权限；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
+<text x="68" y="790" font-size="18" fill="#166534">/work 已恢复；v14 浏览器／本机同版，真实历史与输入框核验通过</text>
+<text x="68" y="824" font-size="18" fill="#475569">旧 RPC 400 已有修复证据；用户更早那次中断是否同因，仍无法确认</text>
+<text x="48" y="880" font-size="15" fill="#475569">边界：不教用户写配置；不按 Bot 打补丁；保留授权边界；群上下文独立；宿主记录事实，模型决定行动与完成。</text>
 </g></svg>

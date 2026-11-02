@@ -45,6 +45,7 @@ export {
 	packageVersion,
 	setNamedCredential,
 } from "@yonder/local-host/kernel/index";
+export { summarizeAgentOperability } from "@yonder/bot-core/kernel/operability-summary";
 export {
 	checkRelease,
 	compareVersions,

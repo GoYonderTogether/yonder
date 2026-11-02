@@ -180,12 +180,12 @@ export function createCoreTools(options: CoreToolsOptions): Tool[] {
 		tool({
 			name: "parent_ask",
 			description:
-				"向所属 Agent 的主会话请求代查、配置或执行超出当前会话能力的工作；群仍保留独立上下文，不合并私人 main 历史。仅分身可用；真实来源自动附上，请求不等于主人授权，主会话核验原始主人请求后沿授权执行。15秒未完成返回后台句柄，实际结果自动送回；取得结果后再决定是否对群公开。",
+				"向所属 Agent 的主会话请求代查、配置或执行超出当前会话能力的工作；群仍保留独立上下文，不合并私人 main 历史。工具目录仅向同一常驻 Agent 的非 main 会话开放；真实来源自动附上，请求不等于主人授权，主会话核验原始主人请求后沿授权执行。15秒未完成返回后台句柄，实际结果自动送回；取得结果后再决定是否对群公开。",
 			parameters: schema({ text: text() }),
 			execute: async (args, ctx) => {
 				const session = await store.sessions.get(ctx.session);
 				if (!ctx.agent || !session || session.agent !== ctx.agent || session.mode === "main")
-					throw new Error("parent_ask 仅供常驻 Agent 的非 main 分身请求所属主会话。");
+					throw new Error("parent_ask 仅供同一常驻 Agent 的非 main 会话请求所属主会话。");
 				const inputs = [
 					...new Set([...(ctx.events ?? []).map((event) => event.id), ...(ctx.event ? [ctx.event.id] : [])]),
 				];

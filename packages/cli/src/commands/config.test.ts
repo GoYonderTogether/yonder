@@ -1,12 +1,13 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { stdout } from "node:process";
+import { stderr, stdout } from "node:process";
 import { initHome } from "@yonder/core";
 import { tempHome } from "@yonder/sdk/testing";
 import { afterEach, expect, test, vi } from "vitest";
 import { parse, stringify } from "yaml";
 import { testModel } from "../../../core/src/config/test-support.js";
 import { runConfig } from "./config.js";
+import * as context from "./context.js";
 
 const contextEnv = "YONDER_RUNTIME_INSPECT_CONTEXT";
 afterEach(() => vi.unstubAllEnvs());
@@ -82,7 +83,161 @@ test("inspect uses matching runtime context only for unspecified compatible targ
 		const terminal = await inspect(home, []);
 		expect(terminal).toMatchObject({ agent: "main", profile: "group" });
 		expect(terminal).not.toHaveProperty("inspectionContext");
+
+		const selected = await inspect(home, ["--conv", "conv:feishu:group", "--event", "inbound-1"], home);
+		expect(selected.operability).toMatchObject({
+			status: "unknown",
+			selector: { conv: "conv:feishu:group", eventId: "inbound-1" },
+		});
 	} finally {
 		await Promise.all([rm(home, { recursive: true, force: true }), rm(otherHome, { recursive: true, force: true })]);
+	}
+});
+
+test("agents show keeps raw JSON stdout and reports unavailable runtime facts separately", async () => {
+	const home = await configuredHome();
+	const otherHome = await configuredHome();
+	let stdoutText = "";
+	let stderrText = "";
+	const out = vi.spyOn(stdout, "write").mockImplementation(((chunk: string | Uint8Array) => {
+		stdoutText += String(chunk);
+		return true;
+	}) as typeof stdout.write);
+	const err = vi.spyOn(stderr, "write").mockImplementation(((chunk: string | Uint8Array) => {
+		stderrText += String(chunk);
+		return true;
+	}) as typeof stderr.write);
+	vi.stubEnv(contextEnv, JSON.stringify({ home, agent: "main", profile: "private" }));
+	try {
+		await runConfig("agents", { home, json: true, help: false, rest: [] }, ["show", "main"]);
+		const shown = JSON.parse(stdoutText) as Record<string, unknown>;
+		expect(shown).toMatchObject({ id: "main", workspace: expect.any(String), env: "local" });
+		expect(shown).not.toHaveProperty("operability");
+		expect(stderrText).toContain("Session operability: unknown");
+		stdoutText = "";
+		stderrText = "";
+		vi.stubEnv(contextEnv, JSON.stringify({ home: otherHome, agent: "main", profile: "private" }));
+		await runConfig("agents", { home, json: true, help: false, rest: [] }, ["show", "main"]);
+		expect(JSON.parse(stdoutText)).toMatchObject({ id: "main", workspace: expect.any(String), env: "local" });
+		expect(stderrText).toBe("");
+	} finally {
+		out.mockRestore();
+		err.mockRestore();
+		await Promise.all([rm(home, { recursive: true, force: true }), rm(otherHome, { recursive: true, force: true })]);
+	}
+});
+
+test("agents show summarizes scope and bot source facts without changing config JSON", async () => {
+	const home = await configuredHome();
+	let stdoutText = "";
+	let stderrText = "";
+	const out = vi.spyOn(stdout, "write").mockImplementation(((chunk: string | Uint8Array) => {
+		stdoutText += String(chunk);
+		return true;
+	}) as typeof stdout.write);
+	const err = vi.spyOn(stderr, "write").mockImplementation(((chunk: string | Uint8Array) => {
+		stderrText += String(chunk);
+		return true;
+	}) as typeof stderr.write);
+	const config = { id: "main", profiles: { private: {} }, bindings: [] };
+	const inspection = {
+		runtimeLoaded: [],
+		operability: {
+			status: "observed",
+			limit: 8,
+			truncated: false,
+			conversations: [
+				{
+					status: "observed",
+					sample: {
+						eventId: "p1-event",
+						conv: "conv:feishu:group:p1",
+						kind: "group",
+						from: "acct:feishu:owner",
+						relation: "owner",
+					},
+					history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+					prediction: {
+						state: "matched",
+						binding: "p1-source",
+						wake: "write",
+						participationScope: { includesConversation: false },
+						consumer: { state: "not-applicable", reason: "outside-social-scope" },
+					},
+				},
+				{
+					status: "observed",
+					sample: {
+						eventId: "echo-event",
+						conv: "conv:qq:group:jarvis",
+						from: "acct:qq:jarvis",
+						relation: "stranger",
+						senderIsBot: true,
+						nativeKind: "GROUP_MESSAGE_CREATE",
+					},
+					history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+					prediction: {
+						state: "matched",
+						route: "dropped",
+						dropReason: "no-binding",
+						participation: { reason: "record", run: false },
+						participationScope: { includesConversation: true },
+					},
+				},
+				{
+					status: "observed",
+					sample: { eventId: "owner-mention", conv: "conv:qq:group:owner", relation: "owner" },
+					history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+					prediction: {
+						state: "matched",
+						route: "not-evaluated",
+						wake: "write",
+						participation: { reason: "mention", run: false },
+						participationScope: { includesConversation: true },
+					},
+				},
+				{
+					status: "unknown",
+					reason: "profile unavailable",
+					sample: { eventId: "unknown-event", conv: "conv:qq:group:unknown" },
+					prediction: { state: "unknown" },
+				},
+			],
+		},
+	};
+	const managed = vi
+		.spyOn(context, "managed")
+		.mockResolvedValueOnce(config as never)
+		.mockResolvedValueOnce(inspection as never);
+	vi.stubEnv(contextEnv, JSON.stringify({ home, agent: "main", profile: "private" }));
+	try {
+		await runConfig("agents", { home, json: true, help: false, rest: [] }, ["show", "main"]);
+		expect(JSON.parse(stdoutText)).toEqual(config);
+		expect(JSON.parse(stdoutText)).not.toHaveProperty("operability");
+		expect(stderrText).toContain(
+			"record-only: wake=write; social consumer not applicable because scope excludes this conversation",
+		);
+		expect(stderrText).toContain("consumer");
+		expect(stderrText).toContain("senderIsBot=true");
+		expect(stderrText).toContain("nativeKind");
+		expect(stderrText).toContain("participation reason=record");
+		expect(stderrText).toContain("no model run predicted by this participation decision");
+		expect(stderrText).toContain("wake/run path unknown (prediction=unknown)");
+		expect(stderrText).not.toContain("wake=run configuration");
+		expect(stderrText).toContain("relation");
+		expect(stderrText).not.toContain("bot sender caused");
+		const summaryText = stderrText.slice(stderrText.indexOf(": {") + 2).trim();
+		const summary = JSON.parse(summaryText);
+		expect(summary).toMatchObject({
+			agent: "main",
+			scope: { basis: "current-agent-exact-binding-conversations", globalMembershipDirectory: false },
+		});
+		expect(summaryText).not.toContain('"values"');
+		expect(summaryText).not.toContain('"plugins"');
+	} finally {
+		managed.mockRestore();
+		out.mockRestore();
+		err.mockRestore();
+		await rm(home, { recursive: true, force: true });
 	}
 });

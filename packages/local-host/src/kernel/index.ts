@@ -1,3 +1,4 @@
+import { agentOperabilityProjector, conversationOperabilityProjector, extendKernelInspection, managementOperabilityProjector } from "./operability-adapters.js";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createBot } from "@yonder/bot-core";
@@ -24,7 +25,7 @@ import {
 	scaffoldAgentWorkspace,
 	seedIdentities,
 } from "@yonder/local-host/kernel/config-sources";
-import { watchAgents } from "@yonder/local-host/kernel/config-watch";
+import { reloadWatcher, watchAgents } from "@yonder/local-host/kernel/config-watch";
 import { kernelPromptOptions, kernelTools } from "@yonder/local-host/kernel/conversation";
 import { deviceOperation } from "@yonder/local-host/kernel/device-operation";
 import { configurationErrors, protectSessions } from "@yonder/local-host/kernel/home";
@@ -75,6 +76,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 	let runtime: Runtime | undefined;
 	let plugins: LoadedPlugins | undefined;
 	let watcher: Awaited<ReturnType<typeof watchAgents>> | undefined;
+	const reloadConfig = () => reloadWatcher(watcher);
+	const agentStatus = (id: string) => watcher?.status(id) ?? Promise.resolve(undefined);
 	let db: Awaited<ReturnType<typeof openDatabase>> | undefined;
 	let stopDelivery: (() => Promise<void>) | undefined;
 	let stopMaintenance: (() => Promise<void>) | undefined;
@@ -236,6 +239,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					skills,
 					packageVersion,
 					source,
+					conversationOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
+					agentOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
 				);
 
 				return {
@@ -323,11 +328,17 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			presets: homePresets,
 			validate: validateCandidate,
 			scaffold: (candidate, agent) => scaffoldAgent(agent, candidate),
-			reload: () => watcher!.reload(),
+			reload: reloadConfig,
 			runtime: realRuntime,
 			resolve: resolveExecutionOwner,
 			identity: store.identity(),
 			delivery,
+			projectOperability: managementOperabilityProjector({
+				agents,
+				store,
+				loaded,
+				configStatus: agentStatus,
+			}),
 		});
 		social = createSocial({
 			home,
@@ -338,11 +349,8 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 			target: (conv) => socialTarget(store, agents, loaded.channels, conv),
 			record: (event) => store.events.record(event),
 			validate: (next) => validateCandidate(config, next, homePresets),
-			reload: async () => {
-				if (!watcher) throw new Error("Config watcher unavailable");
-				await watcher.reload();
-			},
-			...createSocialSupport(store, agents, loaded.channels),
+			reload: reloadConfig,
+			...createSocialSupport(store, agents, loaded.channels, loaded.hooks, agentStatus),
 		});
 		watcher = await watchAgents({
 			home,
@@ -407,25 +415,15 @@ export async function openKernel(home: string, options: KernelOptions = {}) {
 					return objectManagement.manage(request);
 				const result = await manageHome(home, request, loaded, { config, agents, presets: homePresets });
 				if (request.action !== "inspect") return result;
-				const agent = agents.get(request.agent ?? "main");
-				if (!agent) throw new Error("Unknown agent");
-				return {
-					...(result as object),
-					tools: (result as { tools: unknown }).tools,
-					runningSnapshots: (await store.sessions.list({ agent: agent.id, open: true })).flatMap((session) => {
-						const snapshot = realRuntime().currentConfig(session.id);
-						return snapshot
-							? [
-									{
-										session: session.id,
-										profile: snapshot.profile,
-										model: snapshot.resolved.model,
-										capabilities: snapshot.resolved.capabilities,
-									},
-								]
-							: [];
-					}),
-				};
+				return extendKernelInspection({
+					result,
+					request,
+					agents,
+					store,
+					loaded,
+					currentConfig: (session) => realRuntime().currentConfig(session),
+					configStatus: (id) => watcher!.status(id),
+				});
 			},
 			bots: await createBots(agents, store, (event) => router.emit(event as never), log),
 			close,

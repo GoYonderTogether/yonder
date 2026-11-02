@@ -111,6 +111,33 @@ identity:
 
 工作区读取沿执行环境，事实只投影当前 Agent 与 home 的安全状态和复查入口，不展示配置正文、凭据、其他 Agent 的私密内容或未经筛选的解析错误。脚本退出成功、文件读回、接纳、路由、运行与送达互不替代；宿主不根据工具命令或模型措辞猜测写入者、不自动回滚，也不替模型宣告任务完成。
 
+social 的首条目标策略可以从完全未写social的Agent初始化：缺省policy有稳定revision，inspect与CAS update不得因可选字段缺失抛类型错误。conversation patch对已知嵌套batch字段做局部合并，保留未指定的同级窗口、count与限制；完整替换/删除仍沿已声明契约，不发明递归合并任意对象。update成功重载后复用既有target inspect返回本次policy revision、配置接纳与source/consumer后置事实；接纳、静态路径可用和新输入实际运行/送达继续分开，未知显式unknown。未选plugin、scope排除或source不支持派生时给准确缺口与既有修复入口，不默认扩大profile权限。
+
+### 3.2 自管理的会话运行事实
+
+复用全局 `inspect` 与运行中已接纳快照，提供一份共享的只读会话运行投影；管理反馈、social 路由检查与已验证的 parent-request 上下文共用它，不各自重写匹配、参与策略或权限规则，不新增执行系统、意图匹配器或任务完成判官。
+
+- 样本来自存储中真实 `message.in`。显式 event 与 conv 必须一致；仅 conv 时取该目标的有界可信样本。无 selector 时只检查当前 Agent 已配置的有限精确 conv 来源，明确数量上限及截断；不枚举所有聊天、不输出样本正文、不从 opaque conv 猜 kind；内部仅为复用既有确定性匹配/策略读取必要的可信样本，不新增内容搜索或模型调用。无样本、离线或证据范围不足均标 unknown。
+- 历史 route/session/profile/wake 是历史事实；当前已接纳配置的首匹配、参与策略、consumer、实际 profile 能力与工具/渠道范围是预测，必须分栏。复用既有顺序匹配与精确 consumer resolver。 来源匹配不代表已经过完整 router 准入，正向预测标未核验，实际接纳以存储的路由事件为准。`--profile` 只选择检查档，不替换目标绑定的实际 profile。磁盘候选、accepted revision 与当前运行快照继续区分，未知历史 revision 不借用当前值。
+- 明确区分仅入账、直接运行与策略控制的批次/折叠路径。`wake:write` 本身不证明运行，也不否定后续批次运行；`batch-read` 不证明模型已经执行。运行证明须关联真实 run 输入；批次按同一 Agent、插件、conv 的 `sourceEvents` 关联 batch-ready/folded-ready，再关联 run，不只搜索原消息 id。只凭同群、同会话或相近时间不能关联其他 Bot 的运行。
+- 发送能力与实际送达分别列出；`reply:none` 只关闭自动投递。只有具有来源关联的真实发送结果才能证明该次送达，旧公告、未关联的 message.out 或配置前发送均不能代替新配置验证。有界查询未发现只记未观察到，不宣称永远未执行。投影不替模型宣告完成，不写事件、创建/唤醒会话或发送消息。
+- 原生 validate/update 的既有结果可附独立运行 metadata；不把 derived 字段写回 AgentConfig。`agents show --json` 保持原 stdout 往返契约；仅本机 runtime inspect context 的 home、Agent 与目标吻合时，复用同一 inspect 将简短运行事实输出到独立 stderr。普通终端、其他 Agent 或跨 home 不自动追加；第二次查询失败或与磁盘版本分歧明确显示，不能冒充原子快照，不因此让成功的原始配置读取变失败。
+- parent 上下文只对既有 `parentOrigins` 验证通过且具备主人关系的原件投影目标 source conv/event；从 kernel 组合层注入共享查询，不在 prompt 层重算路由。事实不授予权限、不携带私有转录/正文/凭据，不改变群 profile、主人授权范围或私人 main 隔离。主会话可沿既有原生管理能力承办主人任务；不能因不能直绑私人 main 就宣称所有可行配置也不支持，也不能将 default 的 exec 能力自动开放给群成员。
+
+投影的样本还须保留已核验的来源身份事实（from、已知的owner关系、渠道提供的senderIsBot及原生提及事实），未知不猜测。最近样本是Bot回声时仍保留样本，不筛选成功原件来掩盖失败；展示其真实参与原因，将合法防互刷记录与主人入站缺路由区分。CLI与宿主沿同一投影解释当前仅入账、scope排除或未形成模型处理路径，不能仅以consumer=not-applicable或write配置冒充已处理；历史执行/投递证据继续独立，不从预测宣布已运行。旁观配置保持合法，不强制所有群启用模型，不凭群名映射账号或扩大权限。
+
+主人宿主上下文与CLI的默认运行事实视图使用同一核心有界摘要，不把完整profile工具目录、重复scope数组或每会话重复的管理/revision对象全部内联。原始projector与inspect详细查询保持可用。摘要明确agent与current-agent/exact-binding范围，不是全局群成员目录；未出现另一Agent或conversation只能表示本视图未覆盖，不能推出未入群。保留样本身份、来源binding/profile/wake/reply、当前scope/参与/consumer原因、实际run/delivery状态及少量可核验ID、显式发送能力和既有修复入口；相同元数据去重，不把不同revision合并成同一快照。默认仍最多8个精确conv，序列化摘要最多8000字符；超额整项省略并标记omitted/truncated，不截断ID或权限约束后假称完整。完整原话与Pi历史不删改，细节沿真实inspect按需取。
+
+### 3.3 原始来源上下文连续
+
+关键自管理事实不能只依赖命令的 stderr；Agent 合法使用管道或丢弃错误流时，原 stdout/命令语义不变，宿主仍须沿既有动态 conversationContext 提供可信来源事实。所有内容仍在稳定提示词之后，不生成新用户输入，不新增意图解析器、任务状态判官、第二存储或运行系统。
+
+- 私聊门控须验证真实 `message.in` 的 kind=dm、from 的 owner 关系、该 Agent 的实际 route.session，以及存储 session 的 agent 相同且 mode/key 均为 main；不按 Agent id 或 profile 名猜身份。只在这条主人私有 main 上附该 Agent 的有限精确 conversation operability 摘要，复用3.2投影与accepted revision；不能只检查当前DM本身而漏掉其管理的群。群、访客、其他Agent不收到这份私有摘要。
+- 同一main跨渠道保留私有历史，不等于不同来源是同一任务。对主人私聊附当前origin conv的有界近期主人原件窗口，按01 §4的反向查询读取，再按时间顺序呈现。事件ID、from、conv、owner关系和必要原文来自真实存储且与当前Agent/session核验；不读取其他conv/Agent正文，不用模型概括代替原件。正文过长或窗口截断明确标缺失，不能截去约束后当成完整授权；既有Pi原文/历史不删改。历史窗口只帮助理解当前请求，不把旧命令自动变成新的授权。
+- 批次触发文本可为空，但必须将已准入的sourceEvents还原为有界的当前来源帧：复用原始source的真实conv、agent/session route和批次准入校验，逐条用identity关系标记owner、保留原mentions/引用；来自plugin的触发不冒充原始发言者。非owner成员仍为ambient来源，不从昵称、引用或转述获得owner权限。原文已写入Pi时不声称正文丢失；来源帧明确哪些原件属于当前批次，遗漏/截断显式报告，不因事实注入唤醒其他会话或发送消息。
+- parent仍只沿既有验证后的originals取来源；包装时的 `conv:agent:<id>` 不能取代真实origin conv。profile限定当前能力，不另造Agent身份；同Agent的群上下文与私有main是不同会话范围，私人转录不合并、群权限不扩张，主会话承办经验证的主人任务的能力保持。 需求以Agent身份与授权功能为准，profile/session是内部实现，不是另一Agent或完整能力开关；未要求共享私人历史时，由同一Agent在独立群会话中办理完整的已授权功能。不能将某一种直接main绑定不支持扩展成整个功能不可实现。
+- 保留现有busy/steer/followup/interrupt契约及显式binding配置，不因新上下文元数据默改输入模式。route.busy仅是所选策略，waiting仅为调用方等结果；实际run.inputs仍是输入组合事实。合并输入须保持各自来源帧，当前输入及其同origin窗口与另一parent任务分栏，不能把共享会话当成目标相同的证明。
+
 ## 4. 一个完整的 agent.yaml（QQ 场景）
 
 ```yaml

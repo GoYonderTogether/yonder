@@ -233,7 +233,9 @@ test("participation plugin references require loading and the matching Bot profi
 	mainProfile.plugins = [];
 	const missingSelection = socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]));
 	expect(missingSelection.join(" ")).toContain("no matching alternative.batch-ready binding");
-	expect(missingSelection.join(" ")).toContain("run yonder agents validate");
+	expect(missingSelection.join(" ")).toContain("yonder agents validate a --file <candidate.json>");
+	expect(missingSelection.join(" ")).toContain("yonder inspect --agent a --conv <conversation>");
+	expect(missingSelection.join(" ")).not.toContain("agents.inspect");
 	expect(() => parse({ defaults: { group: { plugin: "plugin:not-an-id" } } })).toThrow();
 });
 
@@ -381,6 +383,20 @@ test("default social batch profiles need the same plugin admission checks as exp
 	expect(missingPlugin.join(" ")).toContain("load its actual package/source and restart");
 });
 
+test("social batch scope repair points to global inspect, not an agents inspect command", () => {
+	const agent = parseAgentConfig(
+		JSON.stringify({
+			...base,
+			social: { enabled: true, defaults: { group: { plugin: "social", mode: "batch" } } },
+		}),
+	);
+	const config = parseYonderConfig(JSON.stringify({ schema: 1 }), "yonder.yaml");
+	const errors = socialReferenceErrors(config, new Map([[agent.id, agent]]), new Set(["social"]));
+	expect(errors.join(" ")).toContain("yonder agents validate a --file <candidate.json>");
+	expect(errors.join(" ")).toContain("yonder inspect --agent a --conv <conversation>");
+	expect(errors.join(" ")).not.toContain("agents.inspect");
+});
+
 test("explicit group batch defaults require an exact profile consumer even outside social scope", () => {
 	const agent = parseAgentConfig(`schema: 1
 id: main
@@ -435,6 +451,8 @@ bindings:
 	const strictErrors = socialReferenceErrors(config, new Map([["main", knownGroup]]), new Set(["social"]), channels);
 	expect(strictErrors.join(" ")).toContain("p1-source");
 	expect(strictErrors.join(" ")).toContain("source profile main must select social");
+	expect(strictErrors.join(" ")).toContain("yonder agents validate main --file <candidate.json>");
+	expect(strictErrors.join(" ")).toContain("yonder inspect --agent main --conv conv:feishu:p1");
 	const repaired = structuredClone(knownGroup);
 	repaired.profiles.main = { plugins: ["social"] };
 	expect(socialReferenceErrors(config, new Map([["main", repaired]]), new Set(["social"]), channels)).toEqual([]);

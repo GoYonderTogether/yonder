@@ -69,6 +69,9 @@ test("tool discovery guidance follows effective exposure for residents and prese
 		]);
 		const guide = toolDiscoveryGuide(catalog) ?? "";
 		expect(guide).toContain("cron_manage, write");
+		expect(guide).toContain("Do not invent tools or enable plugins merely to discover a tool");
+		expect(guide).toContain("authorized configuration changes use the existing management path");
+		expect(guide).not.toContain("Do not invent tools or enable plugins.");
 		expect(guide).not.toContain("native-automation");
 		expect(guide).not.toContain("memory_search");
 		const options = {
@@ -450,6 +453,72 @@ test("custom events retain complete data and message labels cannot break the tur
 	}
 });
 
+test("owner, parent, and late tool inputs keep distinct host contexts", async () => {
+	const directory = await tempHome("yonder-turn-context-");
+	const db = await openDatabase(join(directory, "state.db"));
+	try {
+		const store = await createStore(db);
+		const row = {
+			id: "1",
+			agent: "helper",
+			profile: "default",
+			mode: "main" as const,
+			key: "main",
+			version: "0.1.0",
+			opened: new Date().toISOString(),
+		};
+		const session = { agent: "helper", profile: "default", cwd: directory, resolved: resolveProfile({}) };
+		const owner = newEvent({
+			type: "message.in",
+			from: "acct:feishu:owner",
+			conv: "conv:feishu:private",
+			data: { kind: "dm", text: "owner input" },
+		});
+		const parent = newEvent({
+			type: "message.in",
+			from: "acct:agent:helper",
+			conv: "conv:agent:helper",
+			data: { kind: "parent-request", text: "parent input" },
+		});
+		const tool = newEvent({
+			type: "runtime.tool-result",
+			conv: "conv:qq:group",
+			data: { session: "1", job: "old-qq-job", text: "late result" },
+		});
+		const options: PromptOptions = {
+			home: directory,
+			version: row.version,
+			locale: "zh-CN",
+			timezone: "Asia/Shanghai",
+			contexts: new Map(),
+			workspace: () => workspaceFiles(localEnvironment(directory)),
+			identity: store.identity(),
+			models: buildModels(new FileCredentials(join(directory, "auth.json"))),
+			setVersion: store.sessions.setVersion,
+			conversationContext: async (event) => {
+				if (event.id === owner.id) return JSON.stringify({ source: owner.id, conv: owner.conv, contextOnly: true });
+				if (event.id === parent.id)
+					return JSON.stringify({ source: parent.id, conv: parent.conv, verifiedParent: true });
+				return undefined;
+			},
+		};
+		const ownerPrepared = await prepareInput(row, session, owner, "run", options);
+		const parentPrepared = await prepareInput(row, session, parent, "run", options);
+		const toolPrepared = await prepareInput(row, session, tool, "run", options);
+		expect(ownerPrepared.text).toContain(owner.id);
+		expect(ownerPrepared.text).toContain("conv:feishu:private");
+		expect(ownerPrepared.text).not.toContain("conv:agent:helper");
+		expect(parentPrepared.text).toContain(parent.id);
+		expect(parentPrepared.text).toContain("conv:agent:helper");
+		expect(parentPrepared.text).not.toContain("conv:feishu:private");
+		expect(toolPrepared.text).not.toContain("conversation:");
+		expect(toolPrepared.text).toContain("late result");
+	} finally {
+		await db.close();
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
 test("an expired attachment URL is reported to the model instead of failing the whole turn", async () => {
 	const directory = await tempHome("yonder-expired-attachment-");
 	const db = await openDatabase(join(directory, "state.db"));
@@ -648,7 +717,7 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 		"Never give the person a command, script or approval step you can run yourself",
 		"Work that takes under half an hour needs no research first; do it.",
 		"If two goals conflict, pick one and say why.",
-		"When a reminder about time or context arrives, wrap up: deliver what exists and say what remains.",
+		"Soft reminders/context compaction preserve goals; continue unfinished work unless hard limits, cancellation or real blockers require partial delivery.",
 		"Keep at most two lines of work moving at once.",
 		"Never spend a model turn only to append a ledger line; batch notes.",
 		"Give commands explicit paths or a timeout so they cannot wait on stdin.",
@@ -657,6 +726,23 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	]) {
 		expect(commonPrompt).toContain(line);
 	}
+	expect(runtimePrompt).toContain("Same Agent spans main/group sessions");
+	expect(runtimePrompt).toContain("profiles select capabilities, not identity");
+	expect(runtimePrompt).toContain("Group/private-main histories stay separate");
+	expect(runtimePrompt).toContain("not every group message must enter private main");
+	expect(runtimePrompt).toContain("Rejected private-main binding does not block supported work");
+	expect(runtimePrompt).toContain("authorized model processing, not storage");
+	expect(runtimePrompt).toContain("Batches need mode=batch, batch.run=true, selected plugin and consumer");
+	expect(runtimePrompt).toContain("wake:write stores; admitted triggers/batches may run");
+	expect(runtimePrompt).toContain("wake:run follows policy/admission");
+	expect(runtimePrompt).toContain("reply:none blocks auto-replies");
+	expect(runtimePrompt).toContain(
+		"Report unsupported routing or private-history sharing only if the owner requires it",
+	);
+	expect(runtimePrompt).toContain(
+		"Non-main sessions of a resident Agent use parent_ask when work needs the same Agent's main",
+	);
+	expect(runtimePrompt).not.toContain("within its own profile");
 	// No persona or product names in the built-in base.
 	for (const forbidden of ["Jarvis", "Luna", "SYSTEM.md"]) {
 		expect(all).not.toContain(forbidden);

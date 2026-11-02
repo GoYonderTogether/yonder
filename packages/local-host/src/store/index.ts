@@ -282,6 +282,8 @@ export async function createStore(
 			const limit = query.limit ?? 100;
 			if (!Number.isInteger(limit) || limit < 1 || limit > 1000)
 				throw new Error("event limit must be an integer from 1 to 1000");
+			const order = query.order ?? "asc";
+			if (order !== "asc" && order !== "desc") throw new Error("event order must be asc or desc");
 			const where: string[] = [],
 				values: DbValue[] = [];
 			const add = (sql: string, value: DbValue) => {
@@ -299,8 +301,9 @@ export async function createStore(
 			if (query.since) add("ts >= ?", query.since);
 			if (query.until) add("ts < ?", query.until);
 			if (query.after) add("id > ?", query.after);
+			if (query.before) add("id < ?", query.before);
 			const rows = await db.all<EventRow>(
-				`SELECT * FROM y_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id LIMIT ?`,
+				`SELECT * FROM y_events ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY id ${order === "asc" ? "ASC" : "DESC"} LIMIT ?`,
 				...values,
 				limit + 1,
 			);

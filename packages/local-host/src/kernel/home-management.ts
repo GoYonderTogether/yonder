@@ -28,6 +28,8 @@ export interface ManagementRequest {
 	source?: string;
 	agent?: string;
 	profile?: string;
+	conv?: string;
+	eventId?: string;
 	preset?: string;
 	expectedFileRevision?: string;
 	value?: unknown;
@@ -38,7 +40,8 @@ export async function manageHome(
 	running?: LoadedPlugins,
 	accepted?: { config: YonderConfig; agents: Map<string, AgentConfig>; presets: Map<string, Preset> },
 ): Promise<unknown> {
-	const runtimeSnapshot = request.action === "plugins.list" && running ? accepted : undefined;
+	const runtimeSnapshot =
+		(request.action === "plugins.list" || request.action === "inspect") && running ? accepted : undefined;
 	const config = runtimeSnapshot?.config ?? (await loadYonderConfig(home));
 	if (request.action === "skills.add" || request.action === "skills.remove") {
 		const entry = request.agent ? config.agents?.find((item) => item.id === request.agent) : undefined;
@@ -125,7 +128,7 @@ export async function manageHome(
 		const session = profileFor(home, config, selectedAgent(), request.profile);
 		const { instructions: _instructions, ...profile } = session.resolved;
 		return {
-			source: "disk configuration; runtime acceptance not implied",
+			source: runtimeSnapshot ? "accepted runtime configuration" : "disk configuration; runtime acceptance not implied",
 			agent: session.agent,
 			profile: session.profile,
 			configurationFile: join(session.cwd, "agent.yaml"),
@@ -137,6 +140,14 @@ export async function manageHome(
 				tools.map((tool) => ({ plugin, name: tool.name, capabilities: tool.capabilities })),
 			),
 			...(running ? { runtimeLoaded: (running.info ?? []).map((item) => item.id) } : { runtimeLoaded: null }),
+			operability: {
+				status: "unknown",
+				selector: {
+					...(request.conv ? { conv: request.conv } : {}),
+					...(request.eventId ? { eventId: request.eventId } : {}),
+				},
+				reason: "runtime session evidence is unavailable",
+			},
 		};
 	}
 	if (request.action === "skills.show")

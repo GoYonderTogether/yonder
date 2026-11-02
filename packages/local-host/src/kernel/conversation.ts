@@ -22,6 +22,8 @@ export function kernelPromptOptions(
 	skills: Args[7],
 	version: Args[8],
 	source?: BotSource,
+	projectOperability?: Args[11],
+	projectAgentOperability?: Args[12],
 ) {
 	const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
 	return create(
@@ -52,5 +54,7 @@ export function kernelPromptOptions(
 					tools: entry.tools,
 				})),
 		},
+		projectOperability,
+		projectAgentOperability,
 	);
 }

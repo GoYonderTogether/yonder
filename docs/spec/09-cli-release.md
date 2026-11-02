@@ -111,7 +111,7 @@ CLI 同时给人和 agent 用：agent 在 bash 里运行 `yonder`，配合 `yond
 - **改动**：`scripts/release/bump-versions.mjs` 把根与所有 workspace 包（`packages/pi-durable` 除外）的版本和内部 `@yonder/*` 依赖改成新版本，并以 `npm install --package-lock-only` 更新 lockfile。`scripts/release/changelog.mjs` 把 `## [Unreleased]` 的手写条目连同上一标签到目标提交之间的 feat/fix/perf/refactor/revert 提交（按 Added/Fixed/Changed/Removed 分组）写成新版本小节；其他类型与无前缀提交不列。
 - **提交与标签**：CI 提交 `chore(release): <版本>`，打 `v<版本>`，`version-check.mjs --tag` 核对后构建、打包，再以 `git push --atomic` 把 tag 与 main 一次推上去。因为发版提交直接落在 main tip 上，这次推送必然快进，不需要 rebase；原子推送保证 tag 与 main 要么都在、要么都不在，重跑发版即可，不会出现只有 tag 没有 main 的状态。
 - **Release**：在 tag 与 main 都推送成功之后才创建，并且先建成草稿、核对附件齐全再公开（`--draft` → 核对 → `--draft=false --latest`）。草稿阶段失败时 tag 与 main 已在远端，不会出现孤儿版本；报出后按提示补建即可，不要重新触发发版。正文是 CHANGELOG 的该版本小节；附件是 `scripts/release/pack-runtime.mjs` 对每个非 private workspace 包 `npm pack` 生成的 `.tgz`、`SHA256SUMS` 与两个安装脚本，数量与可打包包数 + 3 不符就不公开。`yonder update` 与首次安装按 §3/§4 从标签 `git clone` 并本机构建，不读取附件；附件供离线核对与按包安装。
-- **发版后的分发构建**：Release 公开后，`release.yml` 以发版 tag 派发 `android-release.yml` 与 `desktop-release.yml`（载荷为 version 与完整提交 SHA）。派发失败只记警告与步骤摘要（`packages=pending:<工作流>`），不回滚已公开的版本，也不重新发版；按提示在 tag 上对这两个工作流手动 `workflow_dispatch` 补跑。构建完成前 Release 正文与附件里没有 apk/dmg/nsis，这是允许的中间状态。见 §6.3–§6.4。
+- **发版后的分发构建**：Release 公开后，`release.yml` 以发版 tag 派发 `android-release.yml`、`ios-release.yml` 与 `desktop-release.yml`（载荷为 version 与完整提交 SHA）。派发失败只记警告与步骤摘要（`packages=pending:<工作流>`），不回滚已公开的版本，也不重新发版；按提示在 tag 上对这些工作流手动 `workflow_dispatch` 补跑。构建完成前 Release 正文与附件里没有 apk/ipa/dmg/nsis，这是允许的中间状态。见 §6.3–§6.5。
 - **发版后的 CI**：GITHUB_TOKEN 推送的提交不会触发 `push` 事件，所以发版提交与 tag 本身从不产生 CI 运行。公开 Release 后，工作流用 `gh workflow run ci.yml --ref v<版本>` 以 tag 为 ref 派发一次（`ci.yml` 因此声明 `workflow_dispatch`），让 CI 跑在发布的那个提交上。该次运行失败不回滚已发布的版本，按缺陷修好后发下一版。
 - **本机预演**：上述脚本都支持 `--dry-run`，只打印将改的文件、CHANGELOG 小节或打包清单，不写入。
 - **网站部署**：私有仓 `GoYonderTogether/yonder-cloud` 的 `Deploy web` 从公开正式 Release 协调工作台前端到 `yonderbot.net`。已配置跨仓派发凭据时，`release.yml` 公开 Release 后以 `repository_dispatch`（`deploy-web`，载荷只有 tag 与提交 SHA，不含产物）通知；没有凭据时不回退本仓 GITHUB_TOKEN 发起必然无权的请求，明确记录网页仍待协调。Cloud 沿既有定时拉取公开 latest Release/tag SHA 的路径及手工 workflow_dispatch 收敛，不新增凭据或工作流。定时配置不是执行延迟保证，Release公开、部署派发、服务器部署验收分别记状态。对方按 SHA 从本公开仓取源码，跑本仓的 `build:web` 生产构建与真实 API 守卫，打包后经服务器上的受限执行器 `/opt/yonder-card/bin/yonder-web-deploy` 上传：执行器由 `authorized_keys` 的 `command=` 固定，只接受「版本 + tar SHA256 + tar 流」，解包到新的 `web/releases/<版本>-<提交前 12 位>`，原子切换 `web/current` 与 `web/previous`，保留最近 5 个版本；不重启服务、不改 nginx、不碰后端与数据库。执行器在服务器本地核对线上 `build-version.json` 后才返回成功——托管 runner 在境外直连该站会被 TLS reset（实测），因此公网可用性不能由 runner 探测。线上版本与目标一致时（含定时巡检）跳过上传。网站与后端是两条链：本步骤只换静态前端，后端与迁移仍由 `yonder-cloud` 自己的流程发布。
@@ -152,8 +152,16 @@ Windows 状态栏是一个常驻托盘 `Yonder Status`，用户级登录自启�
 
 ### 6.3 安卓分发与更新
 
-- CI 由 `android-release.yml` 在正式 Release 发布后构建签名 APK，上传 GitHub Release 资产 `yonder-android.apk`，并上传 OSS `https://yonder-release.oss-cn-hangzhou.aliyuncs.com/android/yonder-<version>.apk` 与清单 `.../android/latest.json`（字段：version、versionCode、url、sha256、size、publishedAt）。
+- CI 由 `android-release.yml` 在正式 Release 发布后构建签名 APK，上传 GitHub Release 资产 `yonder-android.apk`，并上传 OSS `https://yonder-release.oss-cn-hangzhou.aliyuncs.com/android/yonder-<version>.apk` 与清单 `.../android/latest.json`（字段：version、versionCode、url、sha256、size、publishedAt）。清单的 `url` 指向同一 Release 的 GitHub 资产：阿里云不允许经 OSS 默认域名对外分发 APK（`ApkDownloadForbidden`，需绑定 CNAME），OSS 上的 APK 保留给已绑定域名的镜像；修正已发布清单时只允许同 versionCode、同摘要的覆盖。
 - App 内更新：拉 `latest.json` 比较 versionCode，下载后校验 sha256，再交 Android 系统安装器。系统确认框必须由用户点击，不声称静默安装；安装完成后系统重启应用。
+
+### 6.4 桌面安装包分发
+
+### 6.5 iOS 与 TestFlight
+
+由 `ios-release.yml` 在正式 Release 后从 secrets 还原 Apple Distribution 证书与 App Store 分发 profile，`tauri ios build --archive-only` 归档，再用带 `provisioningProfiles` 映射的 ExportOptions 执行 `xcodebuild -exportArchive` 导出 IPA（Tauri 自带的导出步骤不带这个映射，实测报 `exportArchive requires a provisioning profile`）。IPA 经 App Store Connect API Key 用 `altool --upload-app` 上传 TestFlight，并作为附件追加到同一 Release。
+
+`apps/desktop/prepare-ios.mjs` 负责重放 `tauri ios init` 之后被覆盖的设置：团队、手动签名、profile 名，以及把 `iPhone Developer` 改成 `iPhone Distribution`。App 图标必须是 1024 无 alpha（上传报 90717），由 `scripts/flatten-icon.swift` 铺白底后重出整套尺寸。签名 secrets 为 `IOS_DISTRIBUTION_CERT_P12_BASE64`、`IOS_DISTRIBUTION_CERT_PASSWORD`、`IOS_PROVISIONING_PROFILE_BASE64`、`IOS_TEAM_ID`；上传用 `ASC_API_KEY_ID`、`ASC_API_ISSUER_ID`、`ASC_API_PRIVATE_KEY_BASE64`。
 
 ### 6.4 桌面安装包分发
 

@@ -29,7 +29,7 @@ test("a group turn injects one compact context block with self, senders, coverag
 		expect(block).toContain("senders:");
 		expect(block).toContain("covered:");
 		expect(block).toContain("otherBots observed here:");
-		expect(block).toContain("your opportunity:");
+		expect(block).toContain("your opportunity: explicit address");
 		// 批次自己带一份公开历史（就在本轮的批次 JSON 里），social 不再追加第二份。
 		const history = blocks.filter((text) => text.includes("本群最近公开消息"));
 		expect(history).toHaveLength(0);

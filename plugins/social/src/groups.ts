@@ -17,7 +17,7 @@ import { GroupReview, reviewEligible } from "./group-review.js";
 import { DIRECT_MERGE_MS, hasWork, quietDue, quietFor } from "./group-rhythm.js";
 import { GroupRules, ruleEligible, validateRules } from "./group-rules.js";
 import { sendGuard } from "./group-send-guard.js";
-import { awaitTurn, type GroupTurn, grantTurn, releaseTurn, stopGroupRequest, type TurnRoom } from "./group-turns.js";
+import * as turns from "./group-turns.js";
 
 export type { GroupJudgeConfig } from "./group-config.js";
 
@@ -30,12 +30,12 @@ interface Candidate {
 	entries: YEvent[];
 	pause?: GroupPause;
 	counter: number;
-	willing?: { through: string; entries: YEvent[]; decision: string; notBefore?: number };
+	willing?: { through: string; entries: YEvent[]; decision: string; focused: boolean; notBefore?: number };
 	lastSent?: number;
 	/** 08 官方群派生默认范围：没有硬触发就只记录，count 兜底不得自行唤醒。 */
 	derivedDefault?: boolean;
 }
-interface Room extends TurnRoom {
+interface Room extends turns.TurnRoom {
 	candidates: Map<string, Candidate>;
 	convs: Set<Ref>;
 	timer?: ReturnType<typeof setTimeout>;
@@ -80,15 +80,12 @@ export class Groups {
 				this.aliases.set(conv, `configured:${i}`);
 			}
 	}
-	private key(agent: string, conv: string) {
-		return `${agent}\0${conv}`;
-	}
+	private key = (agent: string, conv: string) => `${agent}\0${conv}`;
 	private official(agent: string, conv: Ref) {
 		return (this.policies.get(this.key(agent, conv))?.policy.plugin ?? "social") === "social";
 	}
 	async material(conv: string) {
-		const room = this.rooms.get(this.aliases.get(conv) ?? "");
-		return publicEvents(this.api, room?.convs ?? new Set([conv]));
+		return publicEvents(this.api, this.rooms.get(this.aliases.get(conv) ?? "")?.convs ?? new Set([conv]));
 	}
 	managed(conv: Ref) {
 		return this.aliases.has(conv);
@@ -208,15 +205,22 @@ export class Groups {
 		}
 		if (!candidate.entries.some((e) => e.id === source.id)) candidate.entries.push(source);
 		candidate.entries.sort((a, b) => a.id.localeCompare(b.id));
-		const deferredEligible =
-			candidate.willing?.notBefore === undefined ||
-			(candidate.pause?.scope !== "group" &&
-				candidate.pause?.actor !== source.from &&
-				ruleEligible(
-					(source.data as { text?: unknown }).text,
-					this.rules.effective(data.agent, source.conv, candidate.policy, candidate.revision),
-				));
-		if (candidate.willing && deferredEligible && !(await this.attention.elsewhere(source, data.agent))) {
+		const runEligible = candidate.policy.batch?.run === true;
+		const filtered = () =>
+			candidate.pause?.scope !== "group" &&
+			candidate.pause?.actor !== source.from &&
+			ruleEligible(
+				(source.data as { text?: unknown }).text,
+				this.rules.effective(candidate.agent, candidate.conv, candidate.policy, candidate.revision),
+			);
+		const deferredEligible = runEligible
+			? !this.controls.has(source.id) && filtered()
+			: candidate.willing?.notBefore === undefined || filtered();
+		if (
+			candidate.willing &&
+			deferredEligible &&
+			(runEligible || !(await this.attention.elsewhere(source, data.agent)))
+		) {
 			candidate.willing.entries.push(source);
 			candidate.willing.through = source.id;
 		}
@@ -295,7 +299,7 @@ export class Groups {
 					if (affects) delete c.willing;
 				}
 				if (affects) room.waiting = room.waiting.filter((t) => t.session !== session);
-				if (affects && room.turn?.session === session) await releaseTurn(this.api, room, source.id);
+				if (affects && room.turn?.session === session) await turns.releaseTurn(this.api, room, source.id);
 			},
 		});
 		if (!result) return;
@@ -336,9 +340,10 @@ export class Groups {
 			});
 			this.counters.set(this.key(c.agent, c.conv), c.counter);
 			if (!matched) {
-				if (deferredUntil && relevant.length)
-					c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id, notBefore: deferredUntil };
-				else await this.read(c, entries, fact.id);
+				if (deferredUntil && relevant.length) {
+					const through = relevant.at(-1)!.id;
+					c.willing = { through, entries: relevant, decision: fact.id, focused, notBefore: deferredUntil };
+				} else await this.read(c, entries, fact.id);
 				continue;
 			}
 			if (this.active.has(c.session)) {
@@ -351,7 +356,7 @@ export class Groups {
 					through,
 					onRead: (covered, parent) => this.read(c, covered, parent),
 				});
-			} else c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id };
+			} else c.willing = { through: relevant.at(-1)!.id, entries: relevant, decision: fact.id, focused };
 		}
 		await this.offer(room);
 	}
@@ -367,7 +372,7 @@ export class Groups {
 			}
 			room.waiting.shift();
 			delete room.directUntil;
-			await grantTurn(this.api, room, direct);
+			await turns.grantTurn(this.api, room, direct);
 			if (direct.driver === "social") await this.drive(room, direct);
 			return;
 		}
@@ -396,13 +401,7 @@ export class Groups {
 		const intention = c.willing!;
 		delete c.willing;
 		if (!(await this.api.social?.admitBatch(this.request(c, intention.entries)))) return;
-		await grantTurn(this.api, room, {
-			agent: c.agent,
-			session: c.session,
-			source: intention.through,
-			decision: intention.decision,
-			direct: false,
-		});
+		await turns.grantAutonomousTurn(this.api, room, c, intention);
 		await runAutonomous(this.api, room, c, {
 			through: intention.through,
 			entries: intention.entries,
@@ -411,7 +410,7 @@ export class Groups {
 			offer: () => this.offer(room),
 		});
 	}
-	private async drive(room: Room, turn: GroupTurn) {
+	private async drive(room: Room, turn: turns.GroupTurn) {
 		const entries = await unreadEntries(this.api, turn, this.reads.get(this.key(turn.agent, turn.conv!)) ?? "");
 		await driveDirect(entries, {
 			api: this.api,
@@ -426,7 +425,7 @@ export class Groups {
 				if (candidate) await this.read(candidate, covered, parent);
 			},
 			release: async (reason) => {
-				if (room.turn === turn) await releaseTurn(this.api, room, turn.source, reason);
+				if (room.turn === turn) await turns.releaseTurn(this.api, room, turn.source, reason);
 			},
 			offer: () => this.offer(room),
 		});
@@ -443,7 +442,7 @@ export class Groups {
 		await this.attention.replied(event, room.id);
 		if (!live) return;
 		for (const peer of room.candidates.values())
-			if (peer.agent !== agent && peer.willing) {
+			if (peer.agent !== agent && peer.willing && !peer.willing.focused && peer.policy.batch?.run !== true) {
 				delete peer.willing;
 				await this.read(peer, peer.entries, event.id);
 			}
@@ -455,9 +454,10 @@ export class Groups {
 		const room = this.sessions.get(ctx.session);
 		if (!room || !ctx.agent || !this.official(ctx.agent, ctx.event?.conv ?? "")) return;
 		const pause = this.pauses.get(this.key(ctx.agent, ctx.event?.conv ?? ""));
-		if (pause?.scope === "group" || sources.some((e) => this.controls.has(e.id))) await stopGroupRequest(this.api, ctx);
+		if (pause?.scope === "group" || sources.some((e) => this.controls.has(e.id)))
+			await turns.stopGroupRequest(this.api, ctx);
 		this.active.add(ctx.session);
-		await awaitTurn(room, ctx, () => this.stopped);
+		await turns.awaitTurn(room, ctx, () => this.stopped);
 		return groupContext(this.api, {
 			room,
 			ctx,
@@ -471,7 +471,7 @@ export class Groups {
 		this.active.delete(session);
 		const room = this.sessions.get(session);
 		if (room?.turn?.session === session) {
-			await releaseTurn(this.api, room, event.id);
+			await turns.releaseTurn(this.api, room, event.id);
 			await this.offer(room);
 		}
 	}

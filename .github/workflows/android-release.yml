@@ -137,6 +137,18 @@ jobs:
         run: |
           cd apps/desktop
           node prepare-android.mjs --keystore "$YONDER_ANDROID_KEYSTORE" --alias "$YONDER_ANDROID_KEY_ALIAS"
+      # tauri android init 生成的 Gradle 构建任务会回调 `npm run tauri android android-studio-script`。
+      # 已发布的旧 tag 可能还没有这个脚本，这里补上（幂等）；包内脚本缺失时 APK 构建会以
+      # "Missing script: tauri" 失败，而补这一行不改动产物内容。
+      - name: 确保桌面包暴露 tauri 脚本
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const file = "apps/desktop/package.json";
+            const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
+            manifest.scripts = { ...manifest.scripts, tauri: manifest.scripts.tauri ?? "tauri" };
+            fs.writeFileSync(file, `${JSON.stringify(manifest, null, "\t")}\n`);
+          '
       # versionName/versionCode 只从本次 Release 版本推导：versionCode = YYMMDDNN（235/26103020 同量纲），
       # 用 --config 覆盖，不回写仓库文件。tauri.android.conf.json 的静态值只是本地 debug 的占位。
       - name: 计算 versionCode

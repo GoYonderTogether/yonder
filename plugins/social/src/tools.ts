@@ -204,6 +204,18 @@ async function result(action: () => Promise<unknown>) {
 	try {
 		return { text: JSON.stringify(await action()) };
 	} catch (error) {
-		return { text: error instanceof Error ? error.message : String(error), isError: true };
+		const message = error instanceof Error ? error.message : String(error);
+		const data = error && typeof error === "object" && "data" in error ? (error as { data?: unknown }).data : undefined;
+		if (data && typeof data === "object" && "preflight" in data && typeof data.preflight === "string") {
+			try {
+				return {
+					text: JSON.stringify({ error: message, details: { ...data, preflight: JSON.parse(data.preflight) } }),
+					isError: true,
+				};
+			} catch {
+				// Preserve the original details if a different producer uses a non-JSON preflight string.
+			}
+		}
+		return { text: data ? JSON.stringify({ error: message, details: data }) : message, isError: true };
 	}
 }

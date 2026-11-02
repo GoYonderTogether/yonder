@@ -1,3 +1,4 @@
+import type { YEvent } from "@yonder/sdk";
 import { expect, test } from "vitest";
 import { openDatabase } from "../runtime/db.js";
 import { createStore, newEvent } from "./index.js";
@@ -36,6 +37,73 @@ test("appended events and identity are queried from SQLite", async () => {
 		expect((await store.events.query({ type: "message.*", agent: "main" })).events).toEqual([event]);
 		expect(await identity.relation("main", "acct:cli:local")).toBe("owner");
 		expect((await identity.lookup("person:owner")).convs).toEqual(["conv:cli:local"]);
+	} finally {
+		await db.close();
+	}
+});
+
+test("event queries preserve ascending pages and support bounded descending pages", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db);
+		const events: YEvent[] = [];
+		for (const [from, conv] of [
+			["acct:qq:owner", "conv:qq:group:a"],
+			["acct:qq:owner", "conv:qq:group:a"],
+			["acct:qq:other", "conv:qq:group:a"],
+			["acct:qq:owner", "conv:qq:group:b"],
+			["acct:qq:owner", "conv:qq:group:a"],
+		] as const) {
+			events.push(
+				await store.events.record({
+					type: "message.in",
+					from,
+					conv,
+					data: { kind: "group", text: String(events.length) },
+				}),
+			);
+		}
+		const eventAt = (index: number) => {
+			const event = events[index];
+			if (!event) throw new Error(`Missing event ${index}`);
+			return event;
+		};
+		const ascending = await store.events.query({ conv: "conv:qq:group:a", limit: 2 });
+		expect(ascending.events.map((event) => event.id)).toEqual(events.slice(0, 2).map((event) => event.id));
+		expect(ascending.next).toBe(eventAt(1).id);
+		const ascendingCursor = ascending.next;
+		if (!ascendingCursor) throw new Error("Missing ascending cursor");
+		expect(
+			(await store.events.query({ conv: "conv:qq:group:a", after: ascendingCursor })).events.map((event) => event.id),
+		).toEqual([eventAt(2).id, eventAt(4).id]);
+
+		const newest = await store.events.query({
+			conv: "conv:qq:group:a",
+			from: "acct:qq:owner",
+			order: "desc",
+			limit: 1,
+		});
+		expect(newest.events.map((event) => event.id)).toEqual([eventAt(4).id]);
+		expect(newest.next).toBe(eventAt(4).id);
+		const newestCursor = newest.next;
+		if (!newestCursor) throw new Error("Missing descending cursor");
+		const older = await store.events.query({
+			conv: "conv:qq:group:a",
+			from: "acct:qq:owner",
+			before: newestCursor,
+			order: "desc",
+			limit: 1,
+		});
+		expect(older.events.map((event) => event.id)).toEqual([eventAt(1).id]);
+		expect(
+			await store.events.query({ conv: "conv:qq:group:a", after: eventAt(0).id, before: eventAt(4).id, limit: 10 }),
+		).toMatchObject({
+			events: [eventAt(1), eventAt(2)],
+		});
+		await expect(store.events.query({ order: "desc; DROP TABLE y_events" as never })).rejects.toThrow(
+			"event order must be asc or desc",
+		);
+		expect((await store.events.get(eventAt(0).id))?.id).toBe(eventAt(0).id);
 	} finally {
 		await db.close();
 	}

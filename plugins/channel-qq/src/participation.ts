@@ -32,6 +32,14 @@ interface BatchData {
 interface GroupState {
 	read?: string;
 	latest?: string;
+	lastNativeIngress?: {
+		basis: "recorded-event";
+		eventId: string;
+		ts: string;
+		nativeKind: string;
+		mentioned: boolean;
+		senderIsBot?: boolean;
+	};
 	due?: number;
 	pending?: EventInput;
 	active?: Promise<void>;
@@ -92,15 +100,32 @@ export class GroupParticipation {
 		for (const [conv, state] of this.groups) this.schedule(conv, state);
 	}
 	accept(event: YEvent, schedule = true) {
-		if (
-			this.stopped ||
-			!this.own(event.conv) ||
-			event.type !== "message.in" ||
-			(event.data as { senderIsBot?: boolean }).senderIsBot === true ||
-			!(event.routes ?? []).some((route) => route.wake === "write" && !route.dropped)
-		)
-			return;
+		if (this.stopped || !this.own(event.conv) || event.type !== "message.in") return;
+		const data = event.data as {
+			kind?: unknown;
+			senderIsBot?: unknown;
+			mentioned?: unknown;
+			social?: { nativeKind?: unknown };
+		};
+		const nativeKind = data.social?.nativeKind;
+		const nativeIngress =
+			event.from?.startsWith(`acct:${this.instance}:`) &&
+			data.kind === "group" &&
+			(nativeKind === "GROUP_AT_MESSAGE_CREATE" || nativeKind === "GROUP_MESSAGE_CREATE");
+		const routed = (event.routes ?? []).some((route) => route.wake === "write" && !route.dropped);
+		if (!nativeIngress && !routed) return;
 		const state = this.state(event.conv);
+		if (nativeIngress && event.id > (state.lastNativeIngress?.eventId ?? "")) {
+			state.lastNativeIngress = {
+				basis: "recorded-event",
+				eventId: event.id,
+				ts: event.ts,
+				nativeKind,
+				mentioned: data.mentioned === true,
+				...(typeof data.senderIsBot === "boolean" ? { senderIsBot: data.senderIsBot } : {}),
+			};
+		}
+		if (data.senderIsBot === true || !routed) return;
 		if (event.id <= (state.read ?? "") || event.id <= (state.latest ?? "")) return;
 		state.latest = event.id;
 		delete state.error;
@@ -108,14 +133,23 @@ export class GroupParticipation {
 		if (state.unbound) return;
 		const group = event.conv.slice(`conv:${this.instance}:group:`.length);
 		const mode = this.config.groupParticipation?.[group] ?? "all";
-		const data = event.data as { mentioned?: boolean; social?: { mentions?: { bot?: boolean } }; text?: string };
-		const socialMention = data.social?.mentions?.bot;
-		const conflict = socialMention !== undefined && data.mentioned !== undefined && socialMention !== data.mentioned;
+		const participationData = event.data as {
+			mentioned?: boolean;
+			social?: { mentions?: { bot?: boolean } };
+			text?: string;
+		};
+		const socialMention = participationData.social?.mentions?.bot;
+		const conflict =
+			socialMention !== undefined &&
+			participationData.mentioned !== undefined &&
+			socialMention !== participationData.mentioned;
 		if (conflict) this.api.log.warn("QQ conflicting bot mention facts", { event: event.id, conv: event.conv });
-		const mentioned = !conflict && (socialMention ?? data.mentioned ?? false);
+		const mentioned = !conflict && (socialMention ?? participationData.mentioned ?? false);
 		if (
 			mode === "record" ||
-			(mode === "mention" && !mentioned && !this.config.groupKeywords?.some((word) => data.text?.includes(word)))
+			(mode === "mention" &&
+				!mentioned &&
+				!this.config.groupKeywords?.some((word) => participationData.text?.includes(word)))
 		)
 			return;
 		const at = mentioned ? Date.now() : Date.parse(event.ts) + this.seconds * 1000;
@@ -219,15 +253,24 @@ export class GroupParticipation {
 		else if (!state.latest || state.latest <= state.read) delete state.due;
 	}
 	status() {
-		return [...this.groups].map(([conv, state]) => ({
-			conv,
-			receivedThrough: state.latest,
-			readThrough: state.read,
-			processing: !!state.active,
-			pending: !!state.pending,
-			nextAt: state.due ? new Date(state.due).toISOString() : undefined,
-			...(state.error ? { error: state.error } : {}),
-		}));
+		return [...this.groups].map(([conv, state]) => {
+			const group = conv.slice(`conv:${this.instance}:group:`.length);
+			return {
+				conv,
+				platformReceiveScope: "unknown" as const,
+				...(state.lastNativeIngress ? { lastNativeIngress: state.lastNativeIngress } : {}),
+				localPolicy: {
+					allowedByConfig: !this.config.allowedGroups || this.config.allowedGroups.includes(group),
+					participation: this.config.groupParticipation?.[group] ?? "all",
+				},
+				receivedThrough: state.latest,
+				readThrough: state.read,
+				processing: !!state.active,
+				pending: !!state.pending,
+				nextAt: state.due ? new Date(state.due).toISOString() : undefined,
+				...(state.error ? { error: state.error } : {}),
+			};
+		});
 	}
 	stop() {
 		this.stopped = true;

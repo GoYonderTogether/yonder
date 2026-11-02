@@ -186,7 +186,7 @@ jobs:
             node node_modules/vitest/vitest.mjs run tests/device-cli-plugin.test.ts -t '^standalone executor CLI and default devices plugin complete a paired direct command$' --maxWorkers=1 --reporter=default --reporter=json --outputFile.json="$report"
             if ($LASTEXITCODE -ne 0) { throw "Fresh device RPC fixture $i failed; no retry performed" }
           }
-      - run: npm test -- --maxWorkers=4 --reporter=default --reporter=json --outputFile.json="${{ runner.temp }}/windows-failures.json"
+      - run: npm test -- --maxWorkers=2 --reporter=default --reporter=json --outputFile.json="${{ runner.temp }}/windows-failures.json"
       - run: npm run test:node
       - run: node --test scripts/release/auto-release.test.mjs
       - name: Lint

@@ -85,6 +85,50 @@ test("a plain message is not an @ and bot messages remain background", () => {
 	groups.stop();
 });
 
+test("status separates unknown QQ scope, exact recorded native ingress, and local group policy", () => {
+	const groups = new GroupParticipation({} as PluginAPI, "qq-main", 60, {
+		allowedGroups: ["observed"],
+		groupParticipation: { observed: "mention" },
+	});
+	const accept = (instance: string, group: string, id: string, routed = true) =>
+		groups.accept({
+			id,
+			ts: "2026-11-03T10:00:00.000Z",
+			type: "message.in",
+			from: `acct:${instance}:owner`,
+			conv: `conv:${instance}:group:${group}`,
+			data: {
+				kind: "group",
+				text: "ordinary message",
+				mentioned: false,
+				social: { nativeKind: "GROUP_MESSAGE_CREATE", mentions: { bot: false } },
+			},
+			routes: routed ? [{ agent: "main", binding: "group", wake: "write" }] : [],
+		} as YEvent);
+	accept("qq-main", "observed", "10");
+	accept("qq-main", "formerly-allowed", "11", false);
+	accept("qq-other", "observed", "12");
+	const states = Object.fromEntries(groups.status().map((state) => [state.conv, state]));
+	expect(Object.keys(states)).toEqual(["conv:qq-main:group:observed", "conv:qq-main:group:formerly-allowed"]);
+	expect(states["conv:qq-main:group:observed"]).toMatchObject({
+		platformReceiveScope: "unknown",
+		lastNativeIngress: {
+			basis: "recorded-event",
+			eventId: "10",
+			ts: "2026-11-03T10:00:00.000Z",
+			nativeKind: "GROUP_MESSAGE_CREATE",
+			mentioned: false,
+		},
+		localPolicy: { allowedByConfig: true, participation: "mention" },
+	});
+	expect(states["conv:qq-main:group:formerly-allowed"]).toMatchObject({
+		platformReceiveScope: "unknown",
+		lastNativeIngress: { basis: "recorded-event", eventId: "11", nativeKind: "GROUP_MESSAGE_CREATE" },
+		localPolicy: { allowedByConfig: false, participation: "all" },
+	});
+	groups.stop();
+});
+
 test("a group without any legacy run binding records one diagnostic instead of pausing or erroring", async () => {
 	const logs: Array<{ level: string; message: string }> = [];
 	const asks: unknown[] = [];

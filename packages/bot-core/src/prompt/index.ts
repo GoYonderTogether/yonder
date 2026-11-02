@@ -356,6 +356,7 @@ export async function prepareInput(
 		event.conv &&
 		(data.kind === "group" ||
 			data.kind === "channel" ||
+			(event.type === "message.in" && data.kind === "dm") ||
 			data.kind === "parent-request" ||
 			event.type.endsWith(".group-batch") ||
 			event.type.endsWith(".batch-ready"))

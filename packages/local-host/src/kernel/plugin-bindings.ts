@@ -32,6 +32,7 @@ export function pluginAgentManagement(options: {
 	resolve: (owner: ExecutionOwner) => Promise<RuntimeSessionConfig>;
 	identity: IdentityAPI;
 	delivery: DeliveryService;
+	projectOperability?: ManagementState["projectOperability"];
 }) {
 	const { home, config, agents, plugins, runtime, resolve, identity, delivery } = options;
 	const state: ManagementState = {
@@ -44,6 +45,7 @@ export function pluginAgentManagement(options: {
 		validate: options.validate,
 		scaffold: options.scaffold,
 		reload: options.reload,
+		...(options.projectOperability ? { projectOperability: options.projectOperability } : {}),
 	};
 	let queue: Promise<unknown> = Promise.resolve();
 	const manage = (request: ObjectRequest) => {

@@ -1,0 +1,1145 @@
+commit ae197ecbf97ab23da3262c63c607b15e4e259364
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:53:42 2026 +0800
+
+    initialize conversation policy YAML mapping
+
+ CHANGELOG.md                            |   1 +
+ packages/core/src/kernel/social.test.ts | 103 ++++++++++++++++++++++++++++++++
+ packages/core/src/kernel/social.ts      |   2 +-
+ 3 files changed, 105 insertions(+), 1 deletion(-)
+
+commit 6189a34eec40bcd59aa0b12621766785e6ce4556
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:53:30 2026 +0800
+
+    capture bounded social update failure evidence
+
+ .../test/self-configuration-natural-live.test.ts   | 125 +++++++++++++++++++--
+ 1 file changed, 113 insertions(+), 12 deletions(-)
+
+commit bd63bc2c0aec20f56b1079270125b210c4525853
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:49:38 2026 +0800
+
+    docs: record exact Pi provenance and batch activation checks
+
+ CONTRIBUTING.md                  | 2 +-
+ THIRD_PARTY_NOTICES.md           | 4 ++--
+ docs/decisions.md                | 4 ++--
+ docs/spec/11-official-plugins.md | 2 +-
+ 4 files changed, 6 insertions(+), 6 deletions(-)
+
+commit 4acb0ca764b0fa3435d6cac47d4bc2ab36f90c42
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:38:34 2026 +0800
+
+    Preserve accepted group runtime profiles in preflight
+
+ packages/core/src/kernel/operability.test.ts | 59 ++++++++++++++++++++++++++++
+ packages/core/src/kernel/social.ts           |  6 ++-
+ 2 files changed, 64 insertions(+), 1 deletion(-)
+
+commit 46583e145efaee433a9b8e1276e22607401b3b1c
+Merge: e2577e3b 554ba68e
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:37:46 2026 +0800
+
+    Merge remote-tracking branch 'origin/main'
+    
+    # Conflicts:
+    #       CHANGELOG.md
+
+commit e2577e3b28651e5bbe11be051ac2802328f34d70
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:36:49 2026 +0800
+
+    Report ordinary batch preflight confidence
+
+ packages/core/src/kernel/operability.test.ts | 43 +++++++++++++++++++++++++++-
+ packages/core/src/kernel/social-preflight.ts | 20 +++++++++----
+ packages/core/src/kernel/social.test.ts      |  7 ++++-
+ packages/core/src/kernel/social.ts           | 26 +++++++++++------
+ packages/sdk/src/social.ts                   |  1 +
+ 5 files changed, 82 insertions(+), 15 deletions(-)
+
+commit 095ca9412c6026fec2c0ccd5d3c2e014ecb7a654
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:35:28 2026 +0800
+
+    clarify authorized plugin configuration in tool discovery
+
+ CHANGELOG.md                           | 1 +
+ packages/core/src/prompt/index.test.ts | 3 +++
+ packages/core/src/prompt/index.ts      | 2 +-
+ 3 files changed, 5 insertions(+), 1 deletion(-)
+
+commit a80b6e51e819e43e88d6d21c10594d4ecf8fbdef
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:33:53 2026 +0800
+
+    Preflight ordinary social batch configuration
+
+ CHANGELOG.md                                     |   1 +
+ packages/core/src/kernel/agent-operability.ts    |  86 ++++++++++++
+ packages/core/src/kernel/operability-adapters.ts |   8 +-
+ packages/core/src/kernel/operability.test.ts     |  34 ++++-
+ packages/core/src/kernel/operability.ts          |  65 +---------
+ packages/core/src/kernel/social-preflight.ts     |  83 ++++++++++++
+ packages/core/src/kernel/social-support.ts       | 128 ++++++++++++++++++
+ packages/core/src/kernel/social.test.ts          | 158 ++++++++++++++++++++++-
+ packages/core/src/kernel/social.ts               | 153 +++++-----------------
+ plugins/social/src/tools.ts                      |  14 +-
+ plugins/social/test/tags.test.ts                 |  28 ++++
+ 11 files changed, 562 insertions(+), 196 deletions(-)
+
+commit a472f9256713bde9797ea105004f9212709cc66c
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:30:48 2026 +0800
+
+    docs: align self-configuration plan with execution boundaries
+
+ docs/research/harness-self-configuration-20261101.md | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 476b44fb15db0ceeedaffae70febab7af9002059
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:29:48 2026 +0800
+
+    fix social batch processing before speaking coordination
+
+ CHANGELOG.md                                |   4 +
+ plugins/social/src/group-attention.ts       |   2 +-
+ plugins/social/src/groups.ts                |  34 +++---
+ plugins/social/test/group-attention.test.ts | 183 +++++++++++++++++++++++++---
+ 4 files changed, 191 insertions(+), 32 deletions(-)
+
+commit b11b337359dafc9bf280ead60cf2ff0c5b5dc31c
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 05:22:29 2026 +0800
+
+    docs: separate processing, source execution and configuration evidence
+
+ CONTRIBUTING.md                                        |  2 +-
+ docs/decisions.md                                      | 18 ++++++++++++++++++
+ docs/research/harness-configuration-chain-20261102.svg | 16 ++++++++--------
+ docs/spec/02-sessions.md                               |  6 +++---
+ docs/spec/07-runtime.md                                |  2 +-
+ docs/spec/11-official-plugins.md                       |  6 ++++--
+ docs/verification/harness-local-cloud-20261102.md      | 17 +++++++++++++++++
+ 7 files changed, 52 insertions(+), 15 deletions(-)
+
+commit 554ba68e3afbfe52509cb721714d407e8ff88e16
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 20:23:40 2026 +0000
+
+    chore(release): 0.3.26110214
+
+ CHANGELOG.md                              |   2 +
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 167 insertions(+), 165 deletions(-)
+
+commit 5043338dd62e36da875f3ae24b06de3ebb1121e1
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 04:02:16 2026 +0800
+
+    docs: align soft-reminder evidence with runtime guarantees
+
+ docs/decisions.md                                 | 5 +++++
+ docs/verification/harness-local-cloud-20261102.md | 3 +++
+ 2 files changed, 8 insertions(+)
+
+commit 358122c39695f3e3f9f3f8d5be3af782b88a2b3f
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 04:01:33 2026 +0800
+
+    Keep soft reminders from ending goals
+
+ packages/core/src/prompt/content.ts    | 2 +-
+ packages/core/src/prompt/index.test.ts | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+commit e564ded0125d60c63cb95034f32d560049f130ae
+Merge: b91b6059 f41f484f
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:57:25 2026 +0800
+
+    Merge remote-tracking branch 'origin/main'
+
+commit b91b6059044d23539de45d5373fdedbe557ef7cf
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:56:58 2026 +0800
+
+    docs: define configuration readback and platform evidence boundaries
+
+ docs/decisions.md                                  |  5 ++++
+ .../harness-configuration-chain-20261102.svg       | 30 +++++++++++-----------
+ docs/spec/08-config.md                             |  2 ++
+ docs/spec/11-official-plugins.md                   |  4 ++-
+ docs/verification/harness-local-cloud-20261102.md  | 17 ++++++++++++
+ 5 files changed, 42 insertions(+), 16 deletions(-)
+
+commit 79acd0be6db43506aa4fd47b6fe2abdd11b261e8
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:49:42 2026 +0800
+
+    Clarify model participation across wake modes
+
+ packages/core/src/prompt/content.ts    | 2 +-
+ packages/core/src/prompt/index.test.ts | 7 ++++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+commit 0407266001711c9b2c10a0138ab7612e1296d480
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:49:42 2026 +0800
+
+    Preserve social policy siblings and YAML formatting
+
+ packages/core/src/kernel/social.test.ts | 48 ++++++++++++++++++++-------------
+ packages/core/src/kernel/social.ts      | 18 +++++--------
+ 2 files changed, 36 insertions(+), 30 deletions(-)
+
+commit 314f59d5205667c60249aa794651b82d7edb9832
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:47:54 2026 +0800
+
+    Clarify group participation wake semantics
+
+ packages/core/src/prompt/content.ts    | 2 +-
+ packages/core/src/prompt/index.test.ts | 4 ++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+commit db2facfdeb7f7e9b4ca47ea2eca62bc1f1c7a206
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:45:50 2026 +0800
+
+    Close social update acceptance gaps
+
+ packages/core/src/kernel/index.ts       |   2 +-
+ packages/core/src/kernel/social.test.ts | 196 +++++++++++++++++++++++++++++++-
+ packages/core/src/kernel/social.ts      | 129 +++++++++++++++++----
+ packages/sdk/src/social.ts              |  31 ++++-
+ 4 files changed, 333 insertions(+), 25 deletions(-)
+
+commit f139c906d8c1a1e33644ec6a92b9decffb987dd1
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:44:18 2026 +0800
+
+    Report QQ group receive scope as unknown
+
+ plugins/channel-qq/README.md                       | 10 +--
+ plugins/channel-qq/src/index.ts                    |  2 +-
+ plugins/channel-qq/src/participation.ts            | 87 ++++++++++++++++------
+ .../channel-qq/test/participation-policy.test.ts   | 44 +++++++++++
+ 4 files changed, 115 insertions(+), 28 deletions(-)
+
+commit f41f484f3bc7f2d046db1fbcd3b9faefaaf6b4df
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 19:20:08 2026 +0000
+
+    chore(release): 0.3.26110213
+
+ CHANGELOG.md                              |   2 +
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 167 insertions(+), 165 deletions(-)
+
+commit 2ddb5f1199b972b5117255c25a892c10b9c08039
+Merge: 4be4b38d 5e94c920
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:03:18 2026 +0800
+
+    Merge remote-tracking branch 'origin/main'
+
+commit 4be4b38da34b16430952c4e6cd7898a714785d2a
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 03:02:36 2026 +0800
+
+    docs: define scoped context and interaction continuity contracts
+
+ docs/decisions.md                                  | 10 ++++++++++
+ .../harness-configuration-chain-20261102.svg       |  4 ++--
+ docs/spec/08-config.md                             |  2 ++
+ docs/spec/11-official-plugins.md                   |  2 +-
+ docs/verification/harness-local-cloud-20261102.md  | 22 ++++++++++++++++++++++
+ 5 files changed, 37 insertions(+), 3 deletions(-)
+
+commit f2790622d0670f93468c21ed9e98915a1fc8d803
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 02:58:55 2026 +0800
+
+    Share compact operability summary with host context
+
+ packages/cli/src/commands/config.test.ts           |   8 +
+ packages/cli/src/commands/config.ts                | 149 +------------
+ packages/core/src/index.ts                         |   1 +
+ packages/core/src/kernel/conversation.ts           |   4 +-
+ .../core/src/kernel/operability-summary.test.ts    |  96 +++++++++
+ packages/core/src/kernel/operability-summary.ts    | 237 +++++++++++++++++++++
+ .../core/src/kernel/private-main-context.test.ts   |   6 +-
+ 7 files changed, 352 insertions(+), 149 deletions(-)
+
+commit 15add313403e5b59b976f6d925e9047145b6c01b
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 02:53:12 2026 +0800
+
+    Carry group attention into turn context
+
+ plugins/social/src/group-context.ts         |  13 +-
+ plugins/social/src/group-turns.ts           |  31 +++-
+ plugins/social/src/groups.ts                |  36 ++---
+ plugins/social/test/group-attention.test.ts | 217 ++++++++++++++++++++--------
+ plugins/social/test/group-context.test.ts   |   2 +-
+ 5 files changed, 217 insertions(+), 82 deletions(-)
+
+commit 5e94c9204c92e3c7c895f44bbc8bb299685773ec
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 18:23:45 2026 +0000
+
+    chore(release): 0.3.26110212
+
+ CHANGELOG.md                              |   2 +
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 167 insertions(+), 165 deletions(-)
+
+commit 11c492b8d5981204f9ae300e7dc8bb465223baa5
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 02:02:33 2026 +0800
+
+    docs: preserve focused candidate consumption boundaries
+
+ docs/decisions.md                                      | 5 +++++
+ docs/research/harness-configuration-chain-20261102.svg | 6 +++---
+ docs/spec/11-official-plugins.md                       | 2 +-
+ docs/verification/harness-local-cloud-20261102.md      | 9 +++++++++
+ 4 files changed, 18 insertions(+), 4 deletions(-)
+
+commit 79ae89ca080d95de70fc0e77d86109ad7425463c
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 02:00:43 2026 +0800
+
+    Preserve focused group candidates after peer replies
+
+ plugins/social/src/groups.ts                |   6 +-
+ plugins/social/test/group-attention.test.ts | 126 +++++++++++++++++++++++++++-
+ 2 files changed, 128 insertions(+), 4 deletions(-)
+
+commit 25b13baec918f6456d2ea14c2f1721dca5356907
+Merge: 85a1df5b 9d6947a1
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:48:06 2026 +0800
+
+    Merge remote-tracking branch 'origin/main'
+
+commit 85a1df5b11d662ec1573d86e8ad151d9269ca466
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:46:59 2026 +0800
+
+    docs: record v10 channel failures and source-aware diagnostics
+
+ docs/decisions.md                                  |  5 +++++
+ .../harness-configuration-chain-20261102.svg       |  4 ++--
+ .../harness-self-configuration-20261101.md         |  2 +-
+ docs/spec/08-config.md                             |  2 ++
+ docs/verification/harness-local-cloud-20261102.md  | 25 ++++++++++++++++++++++
+ 5 files changed, 35 insertions(+), 3 deletions(-)
+
+commit 2b4139341a15060239c36f6b88326331f815baab
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:46:29 2026 +0800
+
+    Keep unknown operability predictions unknown
+
+ packages/cli/src/commands/config.test.ts | 8 ++++++++
+ packages/cli/src/commands/config.ts      | 4 +++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+commit 9fc8a7844ada4abf6b8e60c6740ade9a5bf7b283
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:45:28 2026 +0800
+
+    Clarify predicted participation summary
+
+ packages/cli/src/commands/config.test.ts | 13 +++++++++++++
+ packages/cli/src/commands/config.ts      |  2 +-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+commit 9d6947a16a5fef79c5c6f1723974432a7a1cb80f
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 17:44:41 2026 +0000
+
+    chore(release): 0.3.26110211
+
+ CHANGELOG.md                              |   2 +
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 167 insertions(+), 165 deletions(-)
+
+commit bd8f1df8acbe5621e08eef3d4181fd5b1e6761cd
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:43:48 2026 +0800
+
+    Clarify session operability source facts
+
+ packages/cli/src/commands/config.test.ts     |  87 +++++++++++++++++++++++
+ packages/cli/src/commands/config.ts          |  50 +++++++++----
+ packages/core/src/kernel/operability.test.ts | 101 +++++++++++++++++++++++++--
+ packages/core/src/kernel/operability.ts      |  53 ++++++++++++--
+ 4 files changed, 270 insertions(+), 21 deletions(-)
+
+commit 82d82b258855800aad68c8793d086b14b606c48d
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:40:21 2026 +0800
+
+    Restore configuration verification prompt detail
+
+ packages/core/src/prompt/content.ts    | 4 ++--
+ packages/core/src/prompt/index.test.ts | 8 +++++---
+ 2 files changed, 7 insertions(+), 5 deletions(-)
+
+commit a090f517cf45f206789c503109b3b989ce251dfb
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:38:34 2026 +0800
+
+    Clarify same-agent session language
+
+ packages/core/src/prompt/content.ts           | 12 ++++++------
+ packages/core/src/prompt/index.test.ts        | 10 ++++++++++
+ packages/core/src/tools/index.ts              |  4 ++--
+ packages/core/src/tools/parent-origin.test.ts |  9 +++++++++
+ 4 files changed, 27 insertions(+), 8 deletions(-)
+
+commit 48282619ef642eb0743e598550f781e4d5fd64de
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:26:43 2026 +0800
+
+    docs: record the iOS release channel and TestFlight distribution
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ docs/decisions.md           | 11 +++++++++++
+ docs/spec/09-cli-release.md | 10 +++++++++-
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+commit 88e953b40e8ec7ee3f232eadf810828aed9fb2cf
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 17:23:06 2026 +0000
+
+    chore(release): 0.3.26110210
+
+ CHANGELOG.md                              |  19 ++++
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 184 insertions(+), 165 deletions(-)
+
+commit 4f9fe4880ae446e9706ab22034807667b1a8c164
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:05:52 2026 +0800
+
+    style: format iOS preparation script
+
+ apps/desktop/prepare-ios.mjs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 2b4a2ef5aead163bcea669568cfffe106facff91
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 01:05:36 2026 +0800
+
+    fix(release): let altool find the API key in its default location
+    
+    altool 只认固定几处目录里的 AuthKey_<id>.p8；--api-key-path 指文件仍报 -43。
+    按本地实测的结果，写到 ~/.appstoreconnect/private_keys 并在清理步骤删除。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/ios-release.yml | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit 0058fdb4fd109f2f202c4eec696341cead213dbc
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:59:17 2026 +0800
+
+    docs: clarify shared agent identity and source continuity evidence
+
+ docs/decisions.md                                  |  2 +-
+ .../harness-configuration-chain-20261102.svg       | 28 +++++++++++-----------
+ docs/spec/02-sessions.md                           |  2 +-
+ docs/spec/08-config.md                             |  2 +-
+ docs/verification/harness-local-cloud-20261102.md  | 16 +++++++++++++
+ .../references/management.md                       |  2 +-
+ 6 files changed, 34 insertions(+), 18 deletions(-)
+
+commit 89c910a57b71ded6b939a28e0187dbff4388d445
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:54:14 2026 +0800
+
+    fix(release): use an absolute archive path for the iOS export
+    
+    归档步骤在 apps/desktop 下，导出步骤在仓库根目录；相对路径让 xcodebuild 找不到
+    xcarchive（archive not found ... /yonder/src-tauri/...）。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/ios-release.yml | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit caf1b27d1fce74d75bca10858a22d5aea4defb34
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:52:31 2026 +0800
+
+    test: match shared self identity context
+
+ packages/core/src/tools/parent-origin.test.ts | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit faa2b202c2ef429cc4879e2d973342718814697b
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:45:50 2026 +0800
+
+    feat: state shared agent identity in context
+
+ packages/core/src/kernel/conversation.ts           | 12 +++++++--
+ .../core/src/kernel/private-main-context.test.ts   | 29 +++++++++++++++++++++-
+ 2 files changed, 38 insertions(+), 3 deletions(-)
+
+commit b2121e8a064c72b3c88952e3e4ceca32505c4a28
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:42:55 2026 +0800
+
+    fix(release): check out the dispatched ref for manual iOS builds
+    
+    手工派发时 checkout 仍然优先取 v<version> tag，于是拿到的是旧 tag 里没有
+    prepare-ios.mjs 的树。改为 Release 触发取发布 tag、手工派发取所选 ref。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/ios-release.yml | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit 59f8b9eeff884970cdbfc2d929d4a90a552b255b
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:30:48 2026 +0800
+
+    fix: sample latest event in long conversations
+
+ packages/core/src/kernel/operability.test.ts | 29 ++++++++++++++++++++++++++++
+ packages/core/src/kernel/operability.ts      |  5 ++---
+ 2 files changed, 31 insertions(+), 3 deletions(-)
+
+commit 29ac2a7749c4dce42ae0585a931a5917d561a116
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:23:58 2026 +0800
+
+    feat: add private main owner context
+
+ packages/core/src/kernel/conversation.ts           | 139 ++++++++++++-
+ .../core/src/kernel/private-main-context.test.ts   | 229 +++++++++++++++++++++
+ packages/core/src/prompt/index.test.ts             |  66 ++++++
+ packages/core/src/prompt/index.ts                  |   1 +
+ 4 files changed, 433 insertions(+), 2 deletions(-)
+
+commit 877029ef49773c31dc7cb2d36549a2697cfd7310
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:22:50 2026 +0800
+
+    feat: project verified batch source context
+
+ packages/core/src/kernel/index.ts                |   2 +
+ packages/core/src/kernel/operability-adapters.ts |  29 ++++
+ packages/core/src/kernel/source-context.test.ts  | 171 ++++++++++++++++++++
+ packages/core/src/kernel/source-context.ts       | 191 +++++++++++++++++++++++
+ 4 files changed, 393 insertions(+)
+
+commit f07b750d0b2bf2bb1248fd83e771584ba264a2df
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:17:18 2026 +0800
+
+    feat: add bounded descending event queries
+
+ packages/core/src/store/index.test.ts | 68 +++++++++++++++++++++++++++++++++++
+ packages/core/src/store/index.ts      |  5 ++-
+ packages/sdk/src/types.test.ts        |  2 ++
+ packages/sdk/src/types.ts             |  2 ++
+ 4 files changed, 76 insertions(+), 1 deletion(-)
+
+commit 16c2e2a7c648847a6cc6a38c4119544322fc8de8
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Tue Nov 3 00:13:36 2026 +0800
+
+    docs: preserve verified input origins in host context
+
+ docs/decisions.md      |  5 +++++
+ docs/spec/01-events.md |  7 +++++--
+ docs/spec/08-config.md | 10 ++++++++++
+ 3 files changed, 20 insertions(+), 2 deletions(-)
+
+commit 13a99ab827168aec06ff65f738b52c6c3c71a551
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 23:59:38 2026 +0800
+
+    fix(release): keep iOS workflow log lines ASCII
+    
+    中文提示里的全角冒号后接 $变量时，runner 的 shell 把它解析成别的变量名
+    （version…: unbound variable）。错误与提示一律用英文，注释仍可中文。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/ios-release.yml | 26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+commit 3bc3792a7a3ca52b3d7d0f8064aa713283cbc509
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 23:56:44 2026 +0800
+
+    fix(release): allow a manual iOS build without a tag check
+    
+    在 main 上手工派发时 ref 不是 tag，expected_commit 校验必然失败；留空表示
+    在所选 ref 上直接构建，供发版前在 CI 上验证整条签名与上传链。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/ios-release.yml | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+commit 1b17ba68c9d12330053f33b1e2cb44cce3d51736
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 23:55:25 2026 +0800
+
+    feat(release): build and upload the iOS app to TestFlight
+    
+    正式 Release 之后补上 iOS 这一路的签名构建与 TestFlight 上传，与安卓、桌面安装包同一条派发链。
+    
+    - `.github/workflows/ios-release.yml`：在 macos runner 上从 secrets 还原分发证书与
+      App Store profile，`tauri ios build --archive-only` 归档，再用带 provisioningProfiles
+      映射的 ExportOptions 跑 `xcodebuild -exportArchive`（tauri 自带的导出步骤实测报
+      "requires a provisioning profile"），最后用 App Store Connect API Key 走
+      `altool --upload-app`。IPA 同时作为 Release 资产。
+    - `release.yml` 的派发列表加入 ios-release.yml，失败只记警告，不回滚已发布版本。
+    - `apps/desktop/prepare-ios.mjs`：重放 `tauri ios init` 之后被覆盖的设置——团队、
+      手动签名、profile 名，以及把 `iPhone Developer` 改成 `iPhone Distribution`。
+      同时用 `scripts/flatten-icon.swift` 把品牌 PNG 铺白底重出整套图标：App Store 拒绝
+      带 alpha 的 1024 图标（上传报 90717）。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/ios-release.yml       | 205 ++++++++++++++++++++++++++++++++
+ .github/workflows/release.yml           |   4 +-
+ apps/desktop/prepare-ios.mjs            |  80 +++++++++++++
+ apps/desktop/scripts/flatten-icon.swift |  32 +++++
+ 4 files changed, 319 insertions(+), 2 deletions(-)
+
+commit f1637176351ca751e4401b25223154a7abef9081
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 23:35:10 2026 +0800
+
+    docs(workbench): record v09 production and multi-device acceptance [skip ci]
+
+ docs/status.md                                     |  6 +-
+ .../verification/workspace-multidevice-20261102.md | 72 ++++++++++++++++------
+ 2 files changed, 57 insertions(+), 21 deletions(-)
+
+commit dc45befdc126e2c4fc5acfcca18b02c819b21522
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 15:20:17 2026 +0000
+
+    chore(release): 0.3.26110209
+
+ CHANGELOG.md                              |   8 ++
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 173 insertions(+), 165 deletions(-)
+
+commit 41cccfed7a5dd5f8cfc049aafec06f9951b46fc4
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 23:00:23 2026 +0800
+
+    docs: align native management with operability evidence
+
+ .../harness-configuration-chain-20261102.svg       | 24 +++++++++++-----------
+ docs/spec/08-config.md                             |  2 +-
+ docs/verification/harness-local-cloud-20261102.md  | 17 +++++++++++++++
+ .../references/management.md                       |  8 ++++----
+ 4 files changed, 34 insertions(+), 17 deletions(-)
+
+commit a6823f7b3dfa5f2753cf2eaad503641e592cbeb1
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:59:21 2026 +0800
+
+    Fix social validation repair guidance
+
+ packages/core/src/config/social-validation.ts |  4 ++--
+ packages/core/src/config/social.test.ts       | 20 +++++++++++++++++++-
+ packages/core/src/kernel/operability.test.ts  |  1 +
+ packages/core/src/kernel/operability.ts       |  2 +-
+ 4 files changed, 23 insertions(+), 4 deletions(-)
+
+commit e124ba74091991c860cb1cedaa8b7a2feaace162
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:52:44 2026 +0800
+
+    Add shared session operability projection
+
+ packages/cli/src/commands/config.test.ts         |  41 ++-
+ packages/cli/src/commands/config.ts              | 158 ++++++++-
+ packages/core/src/kernel/config-watch.ts         |   5 +
+ packages/core/src/kernel/home-management.ts      |  15 +-
+ packages/core/src/kernel/index.ts                |  58 ++--
+ packages/core/src/kernel/kernel.test.ts          |  11 +
+ packages/core/src/kernel/management.ts           |  53 ++-
+ packages/core/src/kernel/operability-adapters.ts | 157 +++++++++
+ packages/core/src/kernel/operability.test.ts     | 264 +++++++++++++++
+ packages/core/src/kernel/operability.ts          | 389 ++++++++++++++++++++++-
+ packages/core/src/kernel/plugin-bindings.ts      |   2 +
+ packages/core/src/kernel/social.test.ts          |  13 +-
+ packages/core/src/kernel/social.ts               | 102 ++----
+ 13 files changed, 1156 insertions(+), 112 deletions(-)
+
+commit 14cc0083ed1f6a4a5303c51132e6ae1b859f611f
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:48:34 2026 +0800
+
+    docs: record the current main CI blocker
+    
+    Two upstream commits reference packages/core/src/kernel/operability.ts
+    without adding it, so every platform fails typecheck; the local fix commit is
+    not pushed yet. This is another lane's work, kept separate from the install
+    and distribution record above it.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ docs/status.md | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit fa3028a8ca8e9f3cbc1b339d82561be41bd6f78a
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:47:07 2026 +0800
+
+    fix(core): include parent operability types
+
+ packages/core/src/kernel/operability.ts | 69 +++++++++++++++++++++++++++++++++
+ 1 file changed, 69 insertions(+)
+
+commit 22cfcc09a4fb0410d03a5b4f458fb78e6cbb133b
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:38:50 2026 +0800
+
+    test(tasks): allow Windows PNG cold start
+
+ plugins/tasks/test/board.test.ts | 32 ++++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 14 deletions(-)
+
+commit 0a93b1f34c920d481f715e7e07fe39597bcf830a
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:31:04 2026 +0800
+
+    Bound parent operability projection
+
+ packages/core/src/kernel/conversation.ts      | 45 ++++++++++-------
+ packages/core/src/tools/parent-origin.test.ts | 72 ++++++++++++++++-----------
+ 2 files changed, 71 insertions(+), 46 deletions(-)
+
+commit c14b2313247fc730db63f72dec6d24fe4ef635cd
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:26:38 2026 +0800
+
+    Add verified operability facts to parent context
+
+ packages/core/src/kernel/conversation.ts      |  59 +++++++---
+ packages/core/src/tools/parent-origin.test.ts | 151 ++++++++++++++++++++++++++
+ 2 files changed, 194 insertions(+), 16 deletions(-)
+
+commit c3d46ae744374e0a24ced4ae527c87f850cca074
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:23:28 2026 +0800
+
+    docs: record the real Android and desktop release outcomes
+    
+    Both distribution workflows ran on v0.3.26110208: the desktop dmg and Windows
+    installer shipped, and Android needed the tagged tree to expose the `tauri`
+    script. Alibaba Cloud refuses APK downloads from an OSS default endpoint, so
+    the update manifest points at the release asset and only same-digest manifests
+    may be corrected in place.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ docs/spec/09-cli-release.md |  2 +-
+ docs/status.md              | 24 +++++++++++++++---------
+ 2 files changed, 16 insertions(+), 10 deletions(-)
+
+commit 5a0c97f31476aba48631b1942cb5da7422b485c2
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:19:06 2026 +0800
+
+    fix(android): publish the APK download URL through GitHub
+    
+    Alibaba Cloud refuses to serve APKs from an OSS default endpoint without a
+    CNAME (`ApkDownloadForbidden`), so `latest.json` now points at the same
+    release's GitHub asset while the APK is still uploaded to OSS for mirrors.
+    `--repair` allows rewriting a published manifest only when its versionCode and
+    APK digest are unchanged, which is what fixing an address requires.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ scripts/release/android.mjs      | 21 +++++++++++++++++++--
+ scripts/release/android.test.mjs |  3 ++-
+ 2 files changed, 21 insertions(+), 3 deletions(-)
+
+commit 558173a25141a6c18d34fca3ec621b782eb5c8bb
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:15:50 2026 +0800
+
+    docs: define shared conversation operability facts
+
+ docs/decisions.md                          |  5 +++++
+ docs/spec/08-config.md                     | 11 +++++++++++
+ docs/spec/13-observation-and-management.md |  2 +-
+ 3 files changed, 17 insertions(+), 1 deletion(-)
+
+commit 709368ab173f08d24f0c2d4f4040336260aea63b
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 22:05:51 2026 +0800
+
+    fix(android): make the release workflow self-sufficient on old tags
+    
+    `tauri android init` regenerates a Gradle task that calls
+    `npm run tauri android android-studio-script`. Tags cut before the desktop
+    package exposed that script cannot build an APK, so the workflow adds it when
+    missing instead of relying on the tagged tree.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ .github/workflows/android-release.yml | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+commit 642485cea5befc2b6c5a2edb6a80fc4f9d1c7ee8
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 21:58:21 2026 +0800
+
+    fix(app): show model and provider names in workbench
+
+ CHANGELOG.md                                |  1 +
+ apps/app/src/work/ui/SessionOptions.tsx     | 13 ++++++++++---
+ apps/app/test/sessionOptionsEffort.test.tsx | 10 +++++++---
+ 3 files changed, 18 insertions(+), 6 deletions(-)
+
+commit 48d54ef945301af819ed1c628c336ab718a2c406
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 21:57:28 2026 +0800
+
+    fix(app): hide effort for non-reasoning models
+
+ CHANGELOG.md                                |  4 +++
+ apps/app/src/work/ui/SessionOptions.tsx     |  2 +-
+ apps/app/test/sessionOptionsEffort.test.tsx | 40 +++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+), 1 deletion(-)
+
+commit 9e1281caecd2e3d53a8f80002e76bdfa6d73250c
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 21:51:24 2026 +0800
+
+    fix(android): expose the tauri script for the Gradle rust plugin
+    
+    安卓发布的实际构建在 `tauri android build` 里先跑 cargo，再由 Gradle 的 rust 插件
+    回调 `npm run tauri android android-studio-script`；apps/desktop 的 package.json 没有
+    `tauri` 脚本，正式发版在 `npm error Missing script: "tauri"` 处失败（本地因为能直接
+    解析 CLI 二进制没暴露这一点）。
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+ apps/desktop/package.json | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 92c30164fef621b82fe7a79ec41a6b42c5a67a9d
+Author: yonder-release <release@yonder.local>
+Date:   Mon Nov 2 13:41:40 2026 +0000
+
+    chore(release): 0.3.26110208
+
+ CHANGELOG.md                              |  33 ++++++
+ apps/app/package.json                     |   4 +-
+ package-lock.json                         | 166 +++++++++++++++---------------
+ package.json                              |   2 +-
+ packages/cli/package.json                 |   8 +-
+ packages/core/package.json                |   6 +-
+ packages/design/package.json              |   2 +-
+ packages/device/package.json              |   4 +-
+ packages/gateway/package.json             |   6 +-
+ packages/protocol/package.json            |   2 +-
+ packages/sdk/package.json                 |   4 +-
+ plugins/advisor/package.json              |   4 +-
+ plugins/agent-presets/package.json        |   4 +-
+ plugins/browser-skill/package.json        |   4 +-
+ plugins/channel-card/package.json         |   4 +-
+ plugins/channel-cli/package.json          |   4 +-
+ plugins/channel-feishu/package.json       |   4 +-
+ plugins/channel-github/package.json       |   4 +-
+ plugins/channel-mcp/package.json          |   4 +-
+ plugins/channel-qq/package.json           |   4 +-
+ plugins/channel-wechat-ilink/package.json |   4 +-
+ plugins/clipboard/package.json            |   4 +-
+ plugins/code-intel/package.json           |   4 +-
+ plugins/codex-companion/package.json      |   4 +-
+ plugins/codex-tools/package.json          |   4 +-
+ plugins/context-files/package.json        |   4 +-
+ plugins/cron/package.json                 |   4 +-
+ plugins/devices/package.json              |   4 +-
+ plugins/hermes-experience/package.json    |   6 +-
+ plugins/interaction/package.json          |   4 +-
+ plugins/learning/package.json             |   4 +-
+ plugins/market/package.json               |   4 +-
+ plugins/mcp-client/package.json           |   4 +-
+ plugins/media-tools/package.json          |   4 +-
+ plugins/memory/package.json               |   4 +-
+ plugins/native-automation/package.json    |   4 +-
+ plugins/onboarding/package.json           |   4 +-
+ plugins/secrets/package.json              |   4 +-
+ plugins/social/package.json               |   4 +-
+ plugins/tasks/package.json                |   4 +-
+ plugins/web-tools/package.json            |   4 +-
+ plugins/wechat-archive/package.json       |   4 +-
+ 42 files changed, 198 insertions(+), 165 deletions(-)
+
+commit 7d5b2b7ae90767edc77b323e02a1f5d6cab91cbf
+Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
+Date:   Mon Nov 2 21:23:17 2026 +0800
+
+    fix(ci): reduce Windows test worker contention
+
+ .github/workflows/ci.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)

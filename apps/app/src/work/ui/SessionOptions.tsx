@@ -245,6 +245,7 @@ export function SessionOptions({
 	const allModels = models.data?.providers.flatMap((provider) => provider.models) ?? [];
 	const cloudIssues = models.data?.cloud?.issues ?? [];
 	const chosen = allModels.find((model) => modelKey(model) === value.model);
+	const chosenProvider = models.data?.providers.find((provider) => provider.id === chosen?.provider);
 	const permission = models.data?.permissions.find((item) => item.id === value.permission);
 	const title = resources.length
 		? resources
@@ -343,10 +344,15 @@ export function SessionOptions({
 				disabled={disabled}
 				label={
 					<>
-						<span className="max-w-48 truncate font-medium text-ink">
-							{chosen ? `${chosen.provider} · ${chosen.name}` : (value.model ?? "选择模型")}
+						<span className="max-w-48 shrink-0 truncate font-medium text-ink">
+							{chosen?.name ?? value.model ?? "选择模型"}
 						</span>
-						<span className="shrink-0 text-faint">{value.effort ?? "auto"}</span>
+						{chosenProvider && (
+							<span className="max-w-24 truncate text-faint" title={chosenProvider.name}>
+								{chosenProvider.name}
+							</span>
+						)}
+						{chosen?.reasoning !== false && <span className="shrink-0 text-faint">{value.effort ?? "auto"}</span>}
 					</>
 				}
 			>
@@ -404,7 +410,8 @@ export function SessionOptions({
 									<span className="min-w-0 flex-1">
 										<span className="block truncate">{model.name}</span>
 										<span className="block truncate text-caption text-faint">
-											{model.provider}
+											{models.data?.providers.find((provider) => provider.id === model.provider)?.name ??
+												model.provider}
 											{model.available === false ? " · 未配置凭据" : ""}
 										</span>
 									</span>

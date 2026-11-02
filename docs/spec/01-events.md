@@ -101,7 +101,7 @@ interface Attachment { kind: 'image' | 'audio' | 'video' | 'file'; mime: string;
 
 - 事件存在 home 的 SQLite 文件里，表前缀 `y_`（见 07 §2）。
 - 必须建立的索引：`ts`、`type`、`from`、`conv`、`parent`。
-- 内核对插件和工具提供查询，所有条件取交集，结果按 `id` 升序（即时间顺序）分页：
+- 内核对插件和工具提供查询，所有条件取交集，缺省按 `id` 升序（即时间顺序）分页；可显式降序进行有界尾部读取：
 
 ```ts
 interface EventQuery {
@@ -112,11 +112,14 @@ interface EventQuery {
   agent?: string;       // routes 中出现该 agent（命中或 dropped 都算）
   since?: string;       // ISO-8601，含
   until?: string;       // ISO-8601，不含
-  after?: string;       // 上一页最后一条的 id
+  after?: string;       // id > after，升序翻页使用上一页最后一条 id
+  before?: string;      // id < before，降序翻页使用上一页最后一条 id
+  order?: "asc" | "desc"; // 默认 asc；必须为这两个值之一，不接受SQL片段
   limit?: number;       // 默认 100，最大 1000
 }
 interface EventPage { events: YEvent[]; next?: string }   // next：还有下一页时为本页最后一条的 id
 ```
+- `after`、`before` 与其余条件仍取交集，边界均不含；返回顺序遵循 order。next 仍为本页最后一条 id，升序用 after、降序用 before 续页。旧调用未设 order/before 时行为完全不变；参数化查询、limit 上限与现有身份/作用域检查保留，不为取最近上下文全表扫描或另建索引账本。
 - "某个账号出现在哪些群""哪些 agent 和某人有过会话"都由事件表回答，不另建关系表（见 02 §4）。
 
 ## 5. 兼容规则

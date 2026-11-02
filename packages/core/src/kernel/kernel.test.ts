@@ -40,6 +40,17 @@ test("initialize, inspect, start, stop and query a real empty home", async () =>
 				"acct:console:owner",
 			]);
 			expect(await kernel.sessions.list({})).toEqual([]);
+			const selected = (await kernel.management({
+				action: "inspect",
+				conv: "conv:qq:group",
+				eventId: "unknown-event",
+			})) as {
+				operability: { status: string; conversations: Array<{ selector: { conv?: string; eventId?: string } }> };
+			};
+			expect(selected.operability).toMatchObject({
+				status: "unknown",
+				conversations: [{ selector: { conv: "conv:qq:group", eventId: "unknown-event" } }],
+			});
 			expect(await kernel.awakeActivity()).toEqual({ active: 0 });
 			expect(await kernel.terminal.activity()).toEqual([
 				{ id: "main", name: expect.any(String), state: "idle", execution: { phase: "idle" }, tasks: [] },

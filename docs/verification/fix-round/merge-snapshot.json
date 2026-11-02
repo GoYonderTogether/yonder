@@ -1,0 +1,24 @@
+{
+  "strategy": "merge",
+  "base": "a6a6c0b5",
+  "main": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+  "branchBefore": "bb8bc7d830f52c9c2cb97fe186300edbfdb791ef",
+  "mainVersion": "0.3.26110214",
+  "workingVersion": "0.3.26110214",
+  "coreMainMigrations": {
+    "config/social-validation.ts": "bot-definition/src/social-validation.ts",
+    "kernel/conversation.ts": "bot-core/src/kernel/conversation.ts + local-host/src/kernel/conversation.ts",
+    "kernel/agent-operability.ts": "bot-core/src/kernel/agent-operability.ts",
+    "kernel/operability.ts": "bot-core/src/kernel/operability.ts",
+    "kernel/operability-summary.ts": "bot-core/src/kernel/operability-summary.ts",
+    "kernel/source-context.ts": "bot-core/src/kernel/source-context.ts",
+    "kernel/* host management + tests": "local-host/src/kernel/",
+    "prompt/content.ts": "bot-core/src/prompt/content.ts",
+    "prompt/index.ts": "bot-core/src/prompt/index.ts + prompt/system.ts",
+    "store/index.ts": "local-host/src/store/index.ts",
+    "tools/index.ts": "bot-core/src/tools/index.ts"
+  },
+  "checks": [
+    "tsc -b packages/bot-core packages/local-host --force: exit 0"
+  ]
+}
