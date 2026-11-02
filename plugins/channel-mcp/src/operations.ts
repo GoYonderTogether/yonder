@@ -49,6 +49,13 @@ export function createControlServer(api: PluginAPI, io: ChannelIO, channel: stri
 	) =>
 		server.registerTool(`${api.id}_${name}`, { description, inputSchema: schema }, (async (args: z.output<T>) =>
 			json(await call(args))) as ToolCallback<T>);
+	if (io.ownerViewAct)
+		add(
+			"cron_manage",
+			"Manage scheduled jobs as the authenticated owner; existing jobs retain their execution owner and authority.",
+			z.object({ request: z.record(z.string(), z.unknown()) }).strict(),
+			(args) => io.ownerViewAct!("cron.manage", "manage", args.request),
+		);
 	const event = z.union([
 		z
 			.object({

@@ -170,11 +170,12 @@ export class Scheduler {
 		// Do not await execution under the scheduler mutation lock.
 		return { completion: active.promise };
 	}
-	async manage(args: unknown, ctx: ToolContext, exec: boolean) {
+	async manage(args: unknown, ctx: ToolContext | undefined, exec: boolean, hostOwner?: Job["owner"]) {
 		if (!Check(parameters, args)) throw new Error("Invalid cron arguments");
 		const a = args as { action: string; id?: string; job?: Partial<Job>; limit?: number };
-		if (a.action === "list") return this.jobs.filter((j) => sameOwner(j, ctx));
-		const job = this.jobs.find((j) => j.id === a.id && sameOwner(j, ctx));
+		const accessible = (job: Job) => !ctx || sameOwner(job, ctx) || ctx.capabilities.includes("admin");
+		if (a.action === "list") return this.jobs.filter(accessible);
+		const job = this.jobs.find((j) => j.id === a.id && accessible(j));
 		if (a.action !== "create" && !job) throw new Error("Job not found for caller");
 		if (a.action === "get") return job;
 		if (a.action === "history") {
@@ -189,7 +190,10 @@ export class Scheduler {
 			return history;
 		}
 		if (a.action === "run") {
-			if (["command", "script"].includes((job as Job).payload.kind) && (!exec || !ctx.capabilities.includes("exec")))
+			if (
+				["command", "script"].includes((job as Job).payload.kind) &&
+				(!exec || (ctx && !ctx.capabilities.includes("exec")))
+			)
 				throw new Error("Use cron_exec with exec capability for command/script jobs");
 			let result: Promise<RecordRun> | undefined;
 			await this.exclusive(async () => {
@@ -216,13 +220,15 @@ export class Scheduler {
 				return job;
 			}
 			if (!a.job) throw new Error("job required");
+			if (!job && !ctx && !hostOwner) throw new Error("Creating a job requires an execution owner");
 			if (a.action === "create" && (!a.job.name || !a.job.schedule || !a.job.payload))
 				throw new Error("name, schedule, payload required");
 			const now = new Date().toISOString();
+			const authority = !job && !ctx && hostOwner ? await this.api.execution.resolve(hostOwner) : undefined;
 			const updated: Job = {
 				id: randomUUID(),
-				owner: { session: ctx.session, agent: ctx.agent, profile: ctx.profile },
-				capabilities: [...ctx.capabilities],
+				owner: job?.owner ?? hostOwner ?? { session: ctx!.session, agent: ctx!.agent, profile: ctx!.profile },
+				capabilities: job?.capabilities ?? authority?.capabilities ?? [...ctx!.capabilities],
 				name: "",
 				schedule: a.job.schedule as Schedule,
 				payload: a.job.payload as Payload,
@@ -237,14 +243,19 @@ export class Scheduler {
 			};
 			for (const key of ["delivery", "start", "end", "maxRuns"] as const)
 				if (updated[key] === null) delete updated[key];
-			if (["command", "script"].includes(updated.payload.kind) && (!exec || !ctx.capabilities.includes("exec")))
+			if (
+				["command", "script"].includes(updated.payload.kind) &&
+				(!exec || (ctx && !ctx.capabilities.includes("exec")))
+			)
 				throw new Error("Use cron_exec with exec capability for command/script jobs");
-			if (updated.delivery && !ctx.capabilities.includes("message")) throw new Error("message capability required");
-			// Updates cannot preserve old privileges after the caller loses them.
-			updated.capabilities = updated.capabilities.filter((c) => ctx.capabilities.includes(c));
+			if (updated.delivery && ctx && !ctx.capabilities.includes("message"))
+				throw new Error("message capability required");
+			// Other owners' jobs keep their original ceiling; execution rechecks their current authority.
+			if (ctx && (!job || sameOwner(job, ctx)))
+				updated.capabilities = updated.capabilities.filter((c) => ctx.capabilities.includes(c));
 			this.validate(updated);
 			if (updated.delivery) {
-				checkDelivery(updated.delivery, ctx);
+				if (ctx) checkDelivery(updated.delivery, ctx);
 				const authority = await this.api.execution.resolve(updated.owner);
 				if (!authority.capabilities.includes("message")) throw new Error("Creator message capability revoked");
 				checkDelivery(updated.delivery, authority);

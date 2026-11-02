@@ -119,3 +119,53 @@ test("revocation during command blocks the final notification; current message c
 		await x.close();
 	}
 });
+
+test("admin can manage another owner's job without changing its authority", async () => {
+	const x = await setup();
+	try {
+		const original = (await x.scheduler.manage({ action: "create", job: x.job("a") }, x.ctx, true)) as {
+			id: string;
+			owner: object;
+			capabilities: string[];
+		};
+		const other = {
+			...x.ctx,
+			agent: "scope-b",
+			session: "2",
+			capabilities: ["write", "exec", "message"],
+		} as ToolContext;
+		expect(await x.scheduler.manage({ action: "list" }, other, true)).toEqual([]);
+		await expect(x.scheduler.manage({ action: "get", id: original.id }, other, true)).rejects.toThrow("not found");
+		const admin = { ...other, capabilities: [...other.capabilities, "admin"] } as ToolContext;
+		expect(await x.scheduler.manage({ action: "list" }, admin, true)).toHaveLength(1);
+		expect(
+			await x.scheduler.manage({ action: "update", id: original.id, job: { name: "Updated" } }, admin, true),
+		).toMatchObject({ name: "Updated", owner: original.owner, capabilities: original.capabilities });
+		x.authority.channelInstances = [];
+		await expect(
+			x.scheduler.manage({ action: "update", id: original.id, job: { name: "Denied" } }, admin, true),
+		).rejects.toThrow("not authorized");
+	} finally {
+		await x.close();
+	}
+});
+
+test("owner control uses the real execution owner's authority for new and existing jobs", async () => {
+	const x = await setup();
+	try {
+		const owner = { agent: x.ctx.agent, session: x.ctx.session, profile: x.ctx.profile };
+		const job = (await x.scheduler.manage({ action: "create", job: x.job("a") }, undefined, true, owner)) as {
+			id: string;
+		};
+		expect(await x.scheduler.manage({ action: "get", id: job.id }, undefined, true)).toMatchObject({
+			owner,
+			capabilities: x.authority.capabilities,
+		});
+		x.authority.channelInstances = [];
+		await expect(
+			x.scheduler.manage({ action: "update", id: job.id, job: { name: "Denied" } }, undefined, true),
+		).rejects.toThrow("not authorized");
+	} finally {
+		await x.close();
+	}
+});

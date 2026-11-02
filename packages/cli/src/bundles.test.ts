@@ -52,6 +52,60 @@ async function start(home: string) {
 	};
 }
 
+test("cron CLI updates the running scheduler and keeps the update after restart", async () => {
+	const home = await tempHome("ya-cron-cli-");
+	let stop: (() => Promise<void>) | undefined;
+	try {
+		await initHome(home, "owner", { model: "openai/gpt-6-luna" });
+		const configPath = join(home, "yonder.yaml");
+		const config = parse(await readFile(configPath, "utf8"));
+		if (!config.plugins.some((p: { use: string }) => p.use === "@yonder/plugin-cron"))
+			config.plugins.push({ use: "@yonder/plugin-cron" });
+		await writeFile(configPath, stringify(config));
+		const data = join(home, ".yonder/plugins/cron");
+		await import("node:fs/promises").then(({ mkdir }) => mkdir(data, { recursive: true }));
+		const owner = { session: "1", agent: "main", profile: "owner" };
+		await writeFile(
+			join(data, "jobs.json"),
+			JSON.stringify([
+				{
+					id: "job",
+					owner,
+					capabilities: ["read"],
+					name: "before",
+					schedule: { kind: "at", at: "2099-01-01T00:00:00Z", timezone: "UTC" },
+					payload: { kind: "preset", preset: "simple", text: "before" },
+					runs: 0,
+					enabled: false,
+					missed: "skip",
+					created: new Date().toISOString(),
+					updated: new Date().toISOString(),
+					next: null,
+				},
+			]),
+		);
+		const patch = join(home, "patch.json");
+		await writeFile(patch, JSON.stringify({ name: "after" }));
+		stop = await start(home);
+		expect(JSON.parse(invoke(["cron", "update", "job", "--file", patch, "--home", home, "--json"]))).toMatchObject({
+			name: "after",
+			owner,
+			capabilities: ["read"],
+		});
+		await stop();
+		stop = undefined;
+		stop = await start(home);
+		expect(JSON.parse(invoke(["cron", "get", "job", "--home", home, "--json"]))).toMatchObject({
+			name: "after",
+			owner,
+			capabilities: ["read"],
+		});
+	} finally {
+		if (stop) await stop();
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
 test("init --bundle core writes no channel, no channel binding and model-free presets", async () => {
 	const home = await tempHome("ya-");
 	try {

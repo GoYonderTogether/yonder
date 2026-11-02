@@ -27,6 +27,9 @@
 		"id": "cron",
 		"entry": "./dist/index.js",
 		"contributes": {
+			"views": [
+				"cron.manage"
+			],
 			"tools": [
 				"cron_manage",
 				"cron_exec"

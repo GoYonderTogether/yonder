@@ -1,6 +1,8 @@
 # cron
 
-官方独立持久调度插件。工具 `cron_manage` 管理事件/preset，`cron_exec` 另要求 exec 才能管理命令/脚本。每项作业归创建者 Agent（预设作业归创建 session），无法通过另一个 Agent 查询或修改。
+官方独立持久调度插件。工具 `cron_manage` 管理事件/preset，`cron_exec` 另要求 exec 才能管理命令/脚本。普通调用者只能管理自己的作业；有 admin 能力的 Agent 可管理其他作业，仍保留原执行 owner 和能力上限。
+
+本机主人可用 `yonder cron list|get|history|update|enable|disable|delete|run` 管理运行中作业；`update <id> --file <json>` 的 JSON 是要修改的 job 字段。`yonder cron create --file <json>` 接收 `{ "owner": { "session": "...", "agent": "...", "profile": "..." }, "job": { ... } }`，owner 必须是可解析的实际执行身份。已关联主人的 MCP 账号可调用 `channel-mcp_cron_manage`，request 为同样的 action、id、job，创建时带 owner。MCP 登录凭据本身不代表主人身份。
 
 `action`: create/get/list/update/enable/disable/delete/run/history。create 的 job 必须有 name、schedule、payload。update 接收相同 job 字段，可用null清空delivery/start/end/maxRuns。调度必须明确 timezone；at 使用带 UTC offset 的 ISO 时间，every 使用 milliseconds（至少1000）与 anchor，cron 使用5或6字段 expression。可设 start/end（带 offset）、maxRuns、missed=coalesce|skip 和 enabled。立即运行计入次数，不改变周期锚点。
 

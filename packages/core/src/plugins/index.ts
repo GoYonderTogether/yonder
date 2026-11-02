@@ -18,7 +18,7 @@ import type {
 	Trigger,
 	YEvent,
 } from "@yonder/sdk";
-import { API_VERSION } from "@yonder/sdk";
+import { API_VERSION, acct } from "@yonder/sdk";
 import { checkRegistrations, createRegistrationCollector, readPluginManifest } from "@yonder/sdk/testing";
 import type { YonderConfig } from "../config/index.js";
 import { CONSOLE, consoleChannel } from "../kernel/console.js";
@@ -409,6 +409,24 @@ export async function loadPlugins(
 					await channel.start({
 						emit: (event) => io.emit(pluginEvent(owner, event, id, channel.multiAgent)),
 						ask: (event) => io.ask(pluginEvent(owner, event, id, channel.multiAgent)),
+						...(owner === "channel-mcp" && config.channels![id]!.type === "mcp"
+							? {
+									ownerViewAct: async (viewId: string, action: string, input?: unknown) => {
+										const account = (config.channels![id] as { account?: unknown }).account;
+										if (
+											typeof account !== "string" ||
+											(await services.identity.relation("main", acct(id, account))) !== "owner"
+										)
+											throw new Error("MCP account is not an owner");
+										if (
+											viewId !== "cron.manage" ||
+											!views.list().some((view) => view.id === viewId && view.actScope === "owner")
+										)
+											throw new Error("Owner management view unavailable");
+										return views.act(viewId, action, input);
+									},
+								}
+							: {}),
 						...(owner === "channel-card" && config.channels![id]!.type === "card" && workControl
 							? { control: workControl(id) }
 							: {}),

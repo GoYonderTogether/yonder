@@ -68,6 +68,67 @@ it("loads both first-party plugins through the manifest and registration checks"
 	}
 });
 
+it("exposes cron management only to an MCP account linked as the owner", async () => {
+	const home = await tempHome("ya-mcp-owner-");
+	const states = globalThis as typeof globalThis & {
+		cronTestChannels?: Record<string, import("@yonder/sdk").ChannelIO>;
+	};
+	states.cronTestChannels = {};
+	try {
+		for (const [name, source, contributes] of [
+			[
+				"channel-mcp",
+				`export default { setup(api) { api.channels.register({ type: "mcp", configSchema: {type:"object"}, create(id) { return { id, kinds: [], output: {stream:false,attachments:false}, start(io) { globalThis.cronTestChannels[id] = io }, stop() {} } } }) } }`,
+				{ channels: ["mcp"] },
+			],
+			[
+				"cron",
+				`export default { setup(api) { api.views.register({id:"cron.manage",plugin:"cron",title:"Cron",placement:"page",scope:"node",actions:["manage"],actScope:"owner"}, { data() { return {viewId:"cron.manage",rev:0,content:{type:"markdown",text:"Cron"}} }, act(action,input) { return {content:{type:"markdown",text:JSON.stringify(input)}} } }) } }`,
+				{ views: ["cron.manage"] },
+			],
+		] as const) {
+			const dir = join(home, name);
+			await mkdir(dir, { recursive: true });
+			await writeFile(
+				join(dir, "package.json"),
+				JSON.stringify({
+					version: "1.0.0",
+					type: "module",
+					yonder: { apiVersion: 1, id: name, entry: "index.mjs", contributes },
+				}),
+			);
+			await writeFile(join(dir, "index.mjs"), source);
+		}
+		const plugins = await loadPlugins(
+			home,
+			{
+				schema: 1,
+				plugins: [{ use: join(home, "channel-mcp") }, { use: join(home, "cron") }],
+				channels: { owner: { type: "mcp", account: "owner" }, stranger: { type: "mcp", account: "stranger" } } as never,
+			},
+			{
+				identity: {
+					relation: async (_agent: string, account: string) => (account === "acct:owner:owner" ? "owner" : "stranger"),
+				},
+				log: console,
+			} as unknown as KernelServices,
+		);
+		await plugins.start({ emit: unused, ask: unused });
+		const owner = states.cronTestChannels.owner?.ownerViewAct;
+		const stranger = states.cronTestChannels.stranger?.ownerViewAct;
+		expect(owner).toBeDefined();
+		expect(await owner?.("cron.manage", "manage", { action: "list" })).toMatchObject({
+			content: { text: '{"action":"list"}' },
+		});
+		await expect(stranger?.("cron.manage", "manage", { action: "list" })).rejects.toThrow("not an owner");
+		await expect(owner?.("another.view", "manage", {})).rejects.toThrow("unavailable");
+		await plugins.stop();
+	} finally {
+		delete states.cronTestChannels;
+		await rm(home, { recursive: true, force: true });
+	}
+});
+
 it("resolves home packages and serializes each plugin's observers without exposing mutable events", async () => {
 	const home = await tempHome("ya-");
 	const directory = join(home, "node_modules/audit-plugin");

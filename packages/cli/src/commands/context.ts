@@ -19,6 +19,7 @@ Commands:
   ui token --rotate               生成新的远程访问令牌 · Rotate the remote access token
   chat [--preset <id>|--session <id>|--channel <instance>] [--plain]  原生终端聊天 · Native TUI
   sessions list|show|open|submit|notify|abort|close  会话管理 · Manage sessions
+  cron list|get|history|update|enable|disable|delete|run  定时任务管理 · Manage scheduled jobs
   events                          查询事件 · Query events
   identity lookup|link|unlink|person  身份管理 · Manage identities
   skills [show|add|remove] [--agent <id>] [--profile <name>]  技能管理 · Manage skills

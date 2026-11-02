@@ -21,6 +21,7 @@ import {
 	UsageError,
 	usage,
 } from "./commands/context.js";
+import { cronUsage, runCron } from "./commands/cron.js";
 import { runRelease } from "./commands/release.js";
 import { runRuntime } from "./commands/runtime.js";
 
@@ -41,19 +42,21 @@ async function run(args: string[]): Promise<number> {
 	const [command, ...rest] = options.rest;
 	if (options.help) {
 		output(
-			command === "skills"
-				? skillsUsage
-				: command === "chat"
-					? chatUsage
-					: command === "sessions"
-						? sessionsUsage
-						: (releaseUsage[command ?? ""] ?? usage),
+			command === "cron"
+				? cronUsage
+				: command === "skills"
+					? skillsUsage
+					: command === "chat"
+						? chatUsage
+						: command === "sessions"
+							? sessionsUsage
+							: (releaseUsage[command ?? ""] ?? usage),
 			options.json,
 		);
 		return 0;
 	}
 	if (!command) throw new UsageError(usage);
-	const handlers = [runRelease, runChannels, runAccount, runConfig, runRuntime];
+	const handlers = [runRelease, runChannels, runAccount, runConfig, runRuntime, runCron];
 	for (const handler of handlers) {
 		const result = await handler(command, options, rest);
 		if (result !== undefined) return result;

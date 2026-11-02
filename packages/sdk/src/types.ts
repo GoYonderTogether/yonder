@@ -261,6 +261,7 @@ export interface ChannelLoginResult {
 }
 export interface ChannelIO {
 	control?: WorkControl;
+	ownerViewAct?(viewId: string, action: string, input?: unknown): Promise<unknown>;
 	emit(e: EventInput): Promise<YEvent>;
 	ask(e: EventInput): Promise<AskResult>;
 	/** Report an explicit owner authorization with a verified account and reachable private conversation. */
@@ -402,7 +403,6 @@ export interface ResolvedExecution {
 	capabilities: Capability[];
 	channelInstances?: string[];
 }
-
 /** Platform-neutral permission operations. Providers must never return credentials or infer grants. */
 export interface PermissionRequest {
 	provider: string;
