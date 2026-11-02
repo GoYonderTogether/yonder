@@ -15,6 +15,7 @@ import { noEnvironment } from "../runtime/no-environment.js";
 import { modelTimeouts } from "../runtime/recovery.js";
 import { fromResult, toResult } from "../runtime/results.js";
 import type { RuntimeBackgroundOptions, RuntimeToolHost } from "../runtime/tool-activation.js";
+import type { RuntimeSessionConfig } from "../types.js";
 
 function glmModelDefinition(): ModelsJsonModel {
 	const zai = builtinProviders().find((provider) => provider.id === "zai");
@@ -291,12 +292,12 @@ export async function createPostgresRuntimeServices(options: {
 	await Promise.all([health.load(), quota.load()]);
 	const gate = new ModelGate(health, quota);
 	const providers = providerConfig(options.baseUrl ?? "https://api.site/v1", glmModelDefinition());
-	let runtime: RuntimeInternals | undefined;
 	const modelsForSelection = (
 		selection: Readonly<Record<string, string>> = {},
 		telemetry?: import("../runtime/models.js").ModelsTelemetry,
+		timeouts = modelTimeouts(),
 	) =>
-		buildModels(credential, providers, selection, {}, telemetry, modelTimeouts(runtime?.options.config.timeouts), {
+		buildModels(credential, providers, selection, {}, telemetry, timeouts, {
 			providers: [],
 		});
 	const models = modelsForSelection();
@@ -311,6 +312,8 @@ export async function createPostgresRuntimeServices(options: {
 	let closed = false;
 	return {
 		forBot(tenant, bot): RuntimeServices {
+			let timeouts = modelTimeouts();
+			let boundModels: RuntimeInternals["boundModels"] = new WeakMap();
 			const slots: RuntimeServices["credentialSlots"] = {
 				defaults: credential,
 				async capture(selection) {
@@ -345,10 +348,22 @@ export async function createPostgresRuntimeServices(options: {
 					stop() {},
 				},
 				models,
-				async modelsFor(config) {
-					return modelsForSelection(config.resolved.credentialSlots, {
-						onProviderEvent: (_provider, data) => quota.record("rightapi-glm@default", data),
-					});
+				modelsFor(config) {
+					const key = config as RuntimeSessionConfig;
+					let pending = boundModels.get(key);
+					if (!pending) {
+						pending = Promise.resolve().then(() =>
+							modelsForSelection(
+								config.resolved.credentialSlots,
+								{
+									onProviderEvent: (_provider, data) => quota.record("rightapi-glm@default", data),
+								},
+								timeouts,
+							),
+						);
+						boundModels.set(key, pending);
+					}
+					return pending;
 				},
 				environment: ({ cwd }) => noEnvironment(cwd),
 				async readAttachment() {
@@ -375,7 +390,8 @@ export async function createPostgresRuntimeServices(options: {
 					throw new Error("Cloud model credentials are platform-managed");
 				},
 				attachRuntime(value) {
-					runtime = value;
+					timeouts = modelTimeouts(value.options.config.timeouts);
+					boundModels = value.boundModels;
 				},
 			};
 			return services;

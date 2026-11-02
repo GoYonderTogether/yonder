@@ -142,7 +142,7 @@ export interface RuntimeInternals {
 	submissions: Map<string, { event?: RuntimeInput["event"] }>;
 	toolInvocations: WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>;
 	readonly credentialSlots: RuntimeCredentialSlots;
-	readonly boundModels: WeakMap<RuntimeSessionConfig, Promise<Models>>;
+	readonly boundModels: WeakMap<RuntimeSessionConfig, Promise<RuntimeModels>>;
 	readonly health: RuntimeModelHealth;
 	readonly quota: RuntimeModelQuota;
 	readonly gate: RuntimeModelGate;

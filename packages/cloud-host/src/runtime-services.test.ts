@@ -1,6 +1,9 @@
 import { createPostgresRuntimeServices } from "@yonder/runtime-adapter/postgres";
+import type { RuntimeInternals } from "@yonder/runtime-adapter/runtime/instance";
+import * as modelConstruction from "@yonder/runtime-adapter/runtime/models";
+import type { RuntimeSessionConfig } from "@yonder/runtime-adapter/types";
 import { executionContext, type ToolContext } from "@yonder/sdk";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { testPostgres } from "./test-postgres.js";
 
 let database: Awaited<ReturnType<typeof testPostgres>>;
@@ -69,5 +72,41 @@ test("shared platform health and usage persist across reopening, while closing a
 		expect(services.quota.window("rightapi-glm@default")?.usedPercent).toBe(10);
 	} finally {
 		await reopened.close();
+	}
+});
+
+test("PG model binding reuses each runtime config and keeps attached Bot timeouts isolated", async () => {
+	const build = vi.spyOn(modelConstruction, "buildModels");
+	const host = await createPostgresRuntimeServices({ pool: database.pool, apiKey: "transport-test-only" });
+	try {
+		const a = host.forBot("tenant-a", "bot-a");
+		const b = host.forBot("tenant-b", "bot-b");
+		const runtime = (firstTokenMs: number) =>
+			({
+				options: { config: { timeouts: { firstTokenMs, totalMs: 1000 } } },
+				boundModels: new WeakMap(),
+			}) as RuntimeInternals;
+		const first = runtime(30),
+			second = runtime(120);
+		a.attachRuntime!(first);
+		b.attachRuntime!(second);
+		build.mockClear();
+		const config = { resolved: { model: "rightapi-glm/glm-5.3-flash", credentialSlots: {} } };
+		const pending = a.modelsFor(config);
+		expect(a.modelsFor(config)).toBe(pending);
+		const modelsA = await pending;
+		expect(await a.modelsFor(config)).toBe(modelsA);
+		expect(first.boundModels.get(config as RuntimeSessionConfig)).toBe(pending);
+		expect(await b.modelsFor(config)).not.toBe(modelsA);
+		expect(await a.modelsFor(structuredClone(config))).not.toBe(modelsA);
+		expect(build.mock.calls.map((call) => call[5])).toEqual([
+			{ firstTokenMs: 30, totalMs: 1000 },
+			{ firstTokenMs: 120, totalMs: 1000 },
+			{ firstTokenMs: 30, totalMs: 1000 },
+		]);
+		expect(modelsA.getModel("rightapi-glm", "glm-5.3-flash")?.id).toBe("glm-5.3-flash");
+	} finally {
+		build.mockRestore();
+		await host.close();
 	}
 });

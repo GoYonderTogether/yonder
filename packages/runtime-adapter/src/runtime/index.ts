@@ -151,7 +151,7 @@ export class Runtime {
 	private submissions = new Map<string, { event?: RuntimeInput["event"] }>();
 	private toolInvocations = new WeakMap<ToolContext, { api: ToolExecutionApi; context: Context }>();
 	private readonly credentialSlots: RuntimeServices["credentialSlots"];
-	private readonly boundModels = new WeakMap<RuntimeSessionConfig, Promise<Models>>();
+	private readonly boundModels = new WeakMap<RuntimeSessionConfig, Promise<RuntimeModels>>();
 	private readonly health: RuntimeServices["health"];
 	private readonly quota: RuntimeServices["quota"];
 	private readonly gate: RuntimeServices["gate"];
