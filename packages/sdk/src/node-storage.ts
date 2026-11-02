@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { pathToFileURL } from "node:url";
 import lockfile from "proper-lockfile";
 import type { PluginFiles, PluginStorage } from "./plugin-storage.js";
 
@@ -19,7 +20,7 @@ const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === "E
 const kind = Symbol("directory");
 type Change = string | null | typeof kind;
 
-async function atomic(path: string, text: string, mode = 0o600): Promise<void> {
+async function atomic(path: string, text: string | Uint8Array, mode = 0o600): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	const temporary = `${path}.${randomUUID()}.tmp`;
 	try {
@@ -43,7 +44,7 @@ async function atomic(path: string, text: string, mode = 0o600): Promise<void> {
 	}
 }
 
-function fileTree(directory: string, preserveMode: boolean): PluginFiles {
+function fileTree(directory: string, preserveMode: boolean) {
 	const root = resolve(directory);
 	const journalName = ".yonder-storage-transaction.json";
 	const journal = join(root, journalName);
@@ -257,20 +258,29 @@ function fileTree(directory: string, preserveMode: boolean): PluginFiles {
 		};
 		return files;
 	}
-	return handle();
+	return {
+		files: handle(),
+		async writeAttachment(path: string, bytes: Uint8Array) {
+			const file = await target(path);
+			await atomic(file, bytes);
+			return pathToFileURL(file).href;
+		},
+	};
 }
 
 export function createFilePluginStorage(dataDirectory: string): PluginStorage {
-	const opened = new Map<string, PluginFiles>();
+	const opened = new Map<string, ReturnType<typeof fileTree>>();
+	function tree(root?: string) {
+		const path = resolve(root ?? dataDirectory);
+		let value = opened.get(path);
+		if (!value) {
+			value = fileTree(path, root !== undefined);
+			opened.set(path, value);
+		}
+		return value;
+	}
 	return {
-		open(root?: string) {
-			const path = resolve(root ?? dataDirectory);
-			let files = opened.get(path);
-			if (!files) {
-				files = fileTree(path, root !== undefined);
-				opened.set(path, files);
-			}
-			return files;
-		},
+		open: (root) => tree(root).files,
+		writeAttachment: (path, bytes, _mime) => tree().writeAttachment(path, bytes),
 	};
 }

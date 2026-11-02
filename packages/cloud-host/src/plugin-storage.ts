@@ -13,7 +13,12 @@ export async function migratePluginStorage(pool: Pool): Promise<void> {
 
 export function createPostgresPluginStorage(pool: Pool, tenant: string, bot: string, plugin: string): PluginStorage {
 	const opened = new Map<string, PluginFiles>();
-	return {
+	const storage: PluginStorage = {
+		async writeAttachment(path, bytes, mime) {
+			const uri = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+			await storage.open().write(path, uri);
+			return uri;
+		},
 		open(root = "") {
 			const existing = opened.get(root);
 			if (existing) return existing;
@@ -25,7 +30,7 @@ export function createPostgresPluginStorage(pool: Pool, tenant: string, bot: str
 				return normalized === "." ? "" : normalized;
 			};
 			const scopeWhere = "tenant_id=$1 AND bot_id=$2 AND plugin_id=$3 AND root=$4";
-			function handle(db: Pool | PoolClient, bound = false): PluginFiles {
+			function handle(db: Pool | PoolClient): PluginFiles {
 				const files: PluginFiles = {
 					async read(path) {
 						const row = (
@@ -38,7 +43,6 @@ export function createPostgresPluginStorage(pool: Pool, tenant: string, bot: str
 						return row?.content;
 					},
 					async write(path, text) {
-						if (!bound) return files.transaction((tx) => tx.write(path, text));
 						path = pathOf(path);
 						if (!path) throw new Error("Plugin file path is required");
 						await db.query(
@@ -81,7 +85,6 @@ export function createPostgresPluginStorage(pool: Pool, tenant: string, bot: str
 						return child ? { type: "directory", size: 0, mtimeMs: 0 } : undefined;
 					},
 					async mkdir(path) {
-						if (!bound) return files.transaction((tx) => tx.mkdir(path));
 						path = pathOf(path);
 						if (path)
 							await db.query(
@@ -90,35 +93,43 @@ export function createPostgresPluginStorage(pool: Pool, tenant: string, bot: str
 							);
 					},
 					async remove(path) {
-						if (!bound) return files.transaction((tx) => tx.remove(path));
 						path = pathOf(path);
 						if (!path) throw new Error("Cannot remove plugin storage root");
 						await db.query(`DELETE FROM plugin_files WHERE ${scopeWhere} AND path=$5`, [...scope, path]);
 					},
-					async transaction<T>(change: (tx: PluginFiles) => Promise<T>): Promise<T> {
-						if (bound) return change(files);
-						const client = await pool.connect();
-						try {
-							await client.query("BEGIN");
-							await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
-								JSON.stringify(["plugin", ...scope]),
-							]);
-							const result = await change(handle(client, true));
-							await client.query("COMMIT");
-							return result;
-						} catch (error) {
-							await client.query("ROLLBACK");
-							throw error;
-						} finally {
-							client.release();
-						}
-					},
+					transaction: (change) => change(files),
 				};
+
 				return files;
 			}
 			const files = handle(pool);
+			files.transaction = async (change) => {
+				const client = await pool.connect();
+				try {
+					await client.query("BEGIN");
+					await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
+						JSON.stringify(["plugin", ...scope]),
+					]);
+					const result = await change(handle(client));
+					await client.query("COMMIT");
+					return result;
+				} catch (error) {
+					await client.query("ROLLBACK");
+					throw error;
+				} finally {
+					client.release();
+				}
+			};
+			for (const method of ["write", "mkdir", "remove"] as const) {
+				const mutation = files[method] as (...args: string[]) => Promise<void>;
+				Object.assign(files, {
+					[method]: (...args: string[]) => files.transaction((tx) => (tx[method] as typeof mutation)(...args)),
+				});
+			}
+
 			opened.set(root, files);
 			return files;
 		},
 	};
+	return storage;
 }

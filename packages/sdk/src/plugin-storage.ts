@@ -23,6 +23,9 @@ export interface PluginFiles {
 	transaction<T>(change: (files: PluginFiles) => Promise<T>): Promise<T>;
 }
 export interface PluginStorage {
+	/** Atomically persist a binary artifact and return its host-readable attachment URI. */
+	writeAttachment(path: string, bytes: Uint8Array, mime: string): Promise<string>;
+
 	/** Defaults to the existing plugin data directory; custom roots preserve configured local libraries. */
 	open(root?: string): PluginFiles;
 }

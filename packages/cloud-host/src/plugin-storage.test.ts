@@ -2,11 +2,12 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import type { PluginAPI, PluginFiles, ToolContext, Trigger } from "@yonder/sdk";
+import type { PluginAPI, PluginFiles, PluginStorage, ToolContext, Trigger } from "@yonder/sdk";
 import { createFilePluginStorage, createRegistrationCollector, createTriggerScheduler } from "@yonder/sdk/testing";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { initialize } from "../../../plugins/memory/src/files.js";
 import memory from "../../../plugins/memory/src/index.js";
+import tasks from "../../../plugins/tasks/src/index.js";
 import { createPostgresPluginStorage, migratePluginStorage } from "./plugin-storage.js";
 import { testPostgres } from "./test-postgres.js";
 
@@ -21,6 +22,15 @@ afterAll(async () => {
 	await database?.close();
 	if (directory) await rm(directory, { recursive: true, force: true });
 });
+
+async function artifact(storage: PluginStorage) {
+	const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+	const uri = await storage.writeAttachment("artifact.png", bytes, "image/png");
+	const stored = uri.startsWith("file:")
+		? await readFile(new URL(uri))
+		: new Uint8Array(await (await fetch(uri)).arrayBuffer());
+	expect([...stored]).toEqual([...bytes]);
+}
 
 async function contract(files: PluginFiles) {
 	await files.write("counter.json", "0");
@@ -61,6 +71,7 @@ test("filesystem storage binds without side effects and retains existing files, 
 	await mkdir(root);
 	await writeFile(join(root, "watch.json"), '{"tasks":[]}\r\n');
 	expect(await files.read("watch.json")).toBe('{"tasks":[]}\r\n');
+	await artifact(storage);
 	await contract(files);
 	expect(await readFile(join(root, "watch.json"), "utf8")).toBe('{"tasks":[]}\r\n');
 });
@@ -69,6 +80,7 @@ test("PG private storage shares the file contract and isolates plugin, tenant, B
 	const storage = createPostgresPluginStorage(database.pool, "owner-a", "bot-a", "memory");
 	const files = storage.open("/library");
 	expect(files.localRoot).toBeUndefined();
+	await artifact(storage);
 	await contract(files);
 	for (const other of [
 		createPostgresPluginStorage(database.pool, "owner-b", "bot-a", "memory"),
@@ -239,4 +251,44 @@ test("official memory reads and writes a PG virtual library without touching a c
 	await expect(run("memory_read", { path: "private/hidden.md" })).rejects.toThrow("includePrivate");
 	expect((await run("memory_search", { terms: ["私密内容"] })).files).toEqual([]);
 	await expect(access(root)).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+test("official tasks_show uses the PG ledger and a text board without creating cloud file attachments", async () => {
+	const storage = createPostgresPluginStorage(database.pool, "owner-a", "tasks-bot", "tasks");
+	const { api, registrations } = createRegistrationCollector();
+	const sent: Array<{ text: string; attachments?: unknown[] }> = [];
+	const data = `/unavailable-cloud-task-files-${Date.now()}`;
+	await tasks.setup({
+		...api,
+		storage,
+		paths: { data },
+		config: { audit: { enabled: false } },
+		messages: {
+			send: async (message) => {
+				sent.push(message);
+				return { ok: true };
+			},
+		},
+	});
+	const show = registrations.tools.find((tool) => tool.name === "tasks_show")!;
+	const result = await show.execute({}, {
+		agent: "main",
+		profile: "default",
+		session: "2",
+		capabilities: ["read"],
+		event: {
+			id: "show",
+			ts: new Date().toISOString(),
+			type: "message.in",
+			conv: "conv:card:room",
+			data: { text: "Show the board" },
+		},
+		signal: new AbortController().signal,
+	} as ToolContext);
+	expect(result.isError).not.toBe(true);
+	expect(sent).toHaveLength(1);
+	expect(sent[0]!.text.length).toBeGreaterThan(0);
+	expect(sent[0]!.attachments).toBeUndefined();
+	expect((await storage.open().list()).some((file) => file.name.endsWith(".png"))).toBe(false);
+	await expect(access(data)).rejects.toMatchObject({ code: "ENOENT" });
 });

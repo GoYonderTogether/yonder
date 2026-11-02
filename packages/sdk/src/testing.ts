@@ -135,7 +135,10 @@ export async function checkPlugin(dir: string): Promise<string[]> {
 			},
 			models: new Proxy({} as PluginAPI["models"], { get: unavailable }),
 			paths: { data: resolve(dir, ".yonder-contract-data") },
-			storage: { open: () => new Proxy({} as import("./plugin-storage.js").PluginFiles, { get: unavailable }) },
+			storage: {
+				open: () => new Proxy({} as import("./plugin-storage.js").PluginFiles, { get: unavailable }),
+				writeAttachment: unavailable,
+			},
 		});
 		return await checkRegistrations(manifest, registrations, dir);
 	} catch (error) {

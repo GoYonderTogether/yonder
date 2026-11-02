@@ -1,13 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import {
 	type Attachment,
 	type Capability,
 	definePlugin,
 	type Hook,
-	type Message,
 	type PluginAPI,
 	type ToolContext,
 	type TSchema,
@@ -264,14 +260,13 @@ export default definePlugin({
 				let attachments: Attachment[] | undefined;
 				let text = "";
 				try {
+					const files = api.storage.open();
+					if (!files.localRoot)
+						return api.messages.send({ to, text: renderText(board, api.locale), signal: ctx.signal });
 					const bytes = await renderPng(board, api.locale);
-					await mkdir(api.paths.data, { recursive: true });
-					const name = `tasks-${randomUUID()}.png`,
-						path = join(api.paths.data, name);
-					await writeFile(path, bytes);
-					attachments = [
-						{ kind: "image" as const, mime: "image/png", uri: pathToFileURL(path).href, name, bytes: bytes.length },
-					];
+					const name = `tasks-${randomUUID()}.png`;
+					const uri = await api.storage.writeAttachment(name, bytes, "image/png");
+					attachments = [{ kind: "image" as const, mime: "image/png", uri, name, bytes: bytes.length }];
 				} catch (error) {
 					api.log.warn("Task image unavailable; using text", { error: String(error) });
 					text = renderText(board, api.locale);

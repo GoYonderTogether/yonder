@@ -4,6 +4,10 @@ import type { PluginFiles, PluginStorage } from "@yonder/sdk";
 export function guardStorage(storage: PluginStorage, deny: (operation: string) => void): PluginStorage {
 	const handles = new WeakMap<PluginFiles, PluginFiles>();
 	return {
+		writeAttachment(path, bytes, mime) {
+			deny("storage.writeAttachment");
+			return storage.writeAttachment(path, bytes, mime);
+		},
 		open(root?: string) {
 			const files = storage.open(root);
 			let guarded = handles.get(files);
