@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
-import { expect, test } from "vitest";
+import { expect, onTestFailed, test } from "vitest";
 import { renderPng, renderSvg, renderText, taskBoard } from "../src/board.js";
 import { digest } from "../src/digest.js";
 import { DIGEST_TTL_MS } from "../src/store/append.js";
@@ -16,26 +16,45 @@ const content = {
 	nonGoals: [],
 };
 
-test("board order, short refs across restart, evidence, parent visibility and pure renderers", async () => {
+// Keep native renderer cold-start and kernel restart out of the board projection's budget.
+function boardRecords(f: Awaited<ReturnType<typeof fixture>>) {
+	const open = f.store.open(content, f.ctx);
+	const blocked = f.store.open(content, f.ctx);
+	f.store.update(blocked.ref, { state: "active" }, f.ctx);
+	f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+	f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
+	f.store.update(blocked.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
+	const waiting = f.store.open(content, f.ctx);
+	f.store.update(waiting.ref, { state: "active" }, f.ctx);
+	f.store.update(waiting.ref, { state: "review" }, f.ctx);
+	const done = f.store.open(content, f.ctx);
+	f.store.update(done.ref, { state: "active" }, f.ctx);
+	f.store.update(done.ref, { state: "review" }, f.ctx);
+	f.store.done(done.ref, "Delivered", ["SQLite rows", "PNG bytes"], f.ctx);
+	const child = f.store.open({ ...content, parent: open.ref }, { ...f.ctx, agent: "child" });
+	const foreign = f.store.open(content, { ...f.ctx, agent: "foreign" });
+	const own = { ...f.ctx, capabilities: ["read"] };
+	const board = taskBoard(f.store.list(own), Date.now());
+	return { open, done, child, foreign, own, board };
+}
+
+function phases() {
+	const started = performance.now();
+	const timings: string[] = [];
+	onTestFailed(() =>
+		console.error(`Board phases: ${timings.join(", ")}; failed at ${Math.round(performance.now() - started)}ms`),
+	);
+	return (stage: string) => timings.push(`${stage} at ${Math.round(performance.now() - started)}ms`);
+}
+
+test("board order, evidence, parent visibility and text/SVG renderers", async () => {
+	const mark = phases();
+	mark("fixture start");
 	const f = await fixture();
 	try {
-		const open = f.store.open(content, f.ctx);
-		const blocked = f.store.open(content, f.ctx);
-		f.store.update(blocked.ref, { state: "active" }, f.ctx);
-		f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(blocked.ref, { note: "Waiting on the upstream ledger" }, f.ctx);
-		f.store.update(blocked.ref, { state: "blocked", note: "Waiting on the upstream ledger" }, f.ctx);
-		const waiting = f.store.open(content, f.ctx);
-		f.store.update(waiting.ref, { state: "active" }, f.ctx);
-		f.store.update(waiting.ref, { state: "review" }, f.ctx);
-		const done = f.store.open(content, f.ctx);
-		f.store.update(done.ref, { state: "active" }, f.ctx);
-		f.store.update(done.ref, { state: "review" }, f.ctx);
-		f.store.done(done.ref, "Delivered", ["SQLite rows", "PNG bytes"], f.ctx);
-		const child = f.store.open({ ...content, parent: open.ref }, { ...f.ctx, agent: "child" });
-		const foreign = f.store.open(content, { ...f.ctx, agent: "foreign" });
-		const own = { ...f.ctx, capabilities: ["read"] };
-		const board = taskBoard(f.store.list(own), Date.now());
+		mark("ledger start");
+		const { child, foreign, own, board } = boardRecords(f);
+		mark("projection and renderers start");
 		expect(board.groups.map((g) => g.id)).toEqual(["waiting", "inProgress", "blocked", "done"]);
 		expect(board.counts).toEqual({ waiting: 1, inProgress: 2, blocked: 1 });
 		expect(board.groups[3]!.items[0]!.acceptance).toEqual({ met: 2, total: 2 });
@@ -48,14 +67,49 @@ test("board order, short refs across restart, evidence, parent visibility and pu
 		const svg = renderSvg(board, "zh");
 		expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
 		expect(svg).toContain("Check ledger &lt;&amp;&gt; 中文");
-		expect((await renderPng(board, "zh")).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-		await f.restart();
-		const reopened = new Store(f.probe.api.paths.data);
-		expect(reopened.get(open.ref, own).task.id).toBe(open.id);
-		expect(reopened.get(done.id, own).task.ref).toBe(done.ref);
-		expect(reopened.open(content, own).ref).toBe("T7");
-		reopened.close();
 	} finally {
+		mark("cleanup start");
+		await f.close();
+	}
+});
+
+test("short refs and evidence survive a kernel restart", async () => {
+	const mark = phases();
+	mark("fixture start");
+	const f = await fixture();
+	try {
+		mark("ledger start");
+		const { open, done, own } = boardRecords(f);
+		f.store.close();
+		mark("kernel restart start");
+		await f.restart();
+		mark("reopened ledger start");
+		const reopened = new Store(f.probe.api.paths.data);
+		try {
+			expect(reopened.get(open.ref, own).task.id).toBe(open.id);
+			expect(reopened.get(done.id, own).task.ref).toBe(done.ref);
+			expect(reopened.get(done.id, own).task.evidence).toEqual(["SQLite rows", "PNG bytes"]);
+			expect(reopened.open(content, own).ref).toBe("T7");
+		} finally {
+			reopened.close();
+		}
+	} finally {
+		mark("cleanup start");
+		await f.close();
+	}
+});
+
+test("the real PNG renderer handles the populated board", async () => {
+	const mark = phases();
+	mark("fixture start");
+	const f = await fixture();
+	try {
+		mark("ledger start");
+		const { board } = boardRecords(f);
+		mark("native PNG start");
+		expect((await renderPng(board, "zh")).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+	} finally {
+		mark("cleanup start");
 		await f.close();
 	}
 });
