@@ -231,15 +231,17 @@ export async function watchAgents({
 					.map(({ path }) => ({ scope: "home" as const, ...(path ? { path } : {}) }));
 				const acceptedHome = accepted.get("home");
 				const acceptedAgent = agentId ? accepted.get(`agent:${agentId}`) : undefined;
+				const rejectedHomeRevision = revision && rejected.get("home") === revision ? revision : undefined;
 				return {
 					home: {
-						state: revision && rejected.get("home") === revision ? ("rejected" as const) : ("unknown" as const),
+						state: rejectedHomeRevision ? "rejected" : "unknown",
 						file: "yonder.yaml",
-						...(revision && rejected.get("home") === revision ? { revision: revision.slice(0, 12) } : {}),
+						...(rejectedHomeRevision ? { revision: rejectedHomeRevision.slice(0, 12) } : {}),
 						...(acceptedHome ? { acceptedRevision: acceptedHome.slice(0, 12) } : {}),
 					},
 					candidate: {
-						state: "unknown" as const,
+						state: rejectedHomeRevision ? "rejected" : "unknown",
+						...(rejectedHomeRevision ? { revision: rejectedHomeRevision.slice(0, 12) } : {}),
 						...(acceptedCandidate ? { acceptedRevision: acceptedCandidate.slice(0, 12) } : {}),
 					},
 					...(issues.length ? { issues } : {}),

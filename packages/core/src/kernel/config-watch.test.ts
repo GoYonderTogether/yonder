@@ -194,3 +194,33 @@ test("runtime config facts read remote Agent files through its configured worksp
 		await Promise.all([rm(home, { recursive: true, force: true }), rm(remote, { recursive: true, force: true })]);
 	}
 });
+
+test("root parse rejection rejects the disk candidate while an unreadable root remains unknown", async () => {
+	const home = await tempHome("yonder-config-root-rejection-");
+	try {
+		await initHome(home, "owner", { model: "openai/gpt-6-luna" });
+		const { watcher } = await watcherFor(home, plugins());
+		try {
+			await watcher.reload();
+			const rootFile = join(home, "yonder.yaml");
+			await writeFile(rootFile, "broken: [SECRET_ROOT_PARSE\n");
+			await expect(watcher.reload()).rejects.toThrow();
+			const rejected = await watcher.status("main");
+			expect(rejected.home.state).toBe("rejected");
+			expect(rejected.candidate.state).toBe("rejected");
+			expect(rejected.issues).toContainEqual({ scope: "home", path: "/" });
+			expect(JSON.stringify(rejected)).not.toContain("SECRET_ROOT_PARSE");
+
+			await rm(rootFile);
+			await expect(watcher.reload()).rejects.toThrow();
+			const unreadable = await watcher.status("main");
+			expect(unreadable.home.state).toBe("unknown");
+			expect(unreadable.candidate.state).toBe("unknown");
+			expect(unreadable.issues).toBeUndefined();
+		} finally {
+			watcher.close();
+		}
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+});
