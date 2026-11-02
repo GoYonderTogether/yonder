@@ -1,6 +1,6 @@
 # 18 设备执行契约 v1（W0）
 
-2026-10-26 父会话接受准入审查后的 W0。这里只实现无模型契约和针对性检查；daemon、设备插件、relay、安装、真实配对及 VM 均待后续工作包。W0 通过不代表 A1–A12 产品验收通过。
+本契约于 2026-10-26 的 W0 接受。W0 本身只验证无模型协议；后续已存在 daemon、设备插件、relay、配对和 Linux 桌面后端源码，具体组件验证见各包 README，不能将下文 W0 工作包历史当成当前未实现清单，也不把组件验证等同 A1–A12 全产品验收。2026-11-02 主人批准扩展工作台实现，行为见 19 §7。
 
 ## 1. 包与身份
 
@@ -116,6 +116,6 @@ protocol导出 `schema/execution-v1.json` 和只含外层信封的 `schema/relay
 
 ## 7. 本轮检查与产品验收界限
 
-W0针对性检查：schema拒绝错误字段/版本、status无需session、签名验证双端身份/方向/受众/过期与篡改、同command字节摘要稳定/冲突、running→unknown、restore unsupported、独立packed产物无模型依赖。SDK重导出兼容性和repo规定检查另记结果。W1的持久账本、进程kill、双daemon、真实配对/Agent/网络/六端安装仍未实现，不借W0测试宣布通过。
+W0针对性检查：schema拒绝错误字段/版本、status无需session、签名验证双端身份/方向/受众/过期与篡改、同command字节摘要稳定/冲突、running→unknown、restore unsupported、独立packed产物无模型依赖。SDK重导出兼容性和repo规定检查另记结果。后续 W1 持久账本、进程kill、双daemon及网络组件检查已有实现与记录；真实 Agent、多平台安装和生产配对仍须各自验收，不借 W0 或组件测试宣布通过。
 
 A9修正：首版仅inventory/UI；checkpoint restore明确unsupported，本产品不提供已配对镜像恢复/克隆后自动ready的入口。管理员在产品外手工复制完整已配对磁盘不属于本版支持范围，不能声称软件已经检测或阻止所有外部克隆。A6/A11补controller先持久、跨新session只读查旧command、同home双daemon拒启。A2最终仍需execution-only独立产物检查，W0仅证明protocol包闭包。
