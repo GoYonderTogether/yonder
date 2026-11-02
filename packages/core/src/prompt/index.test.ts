@@ -672,6 +672,16 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 	]) {
 		expect(commonPrompt).toContain(line);
 	}
+	expect(runtimePrompt).toContain("A resident Agent spans main/group sessions");
+	expect(runtimePrompt).toContain("profiles select capabilities, not identity");
+	expect(runtimePrompt).toContain("Group context and private-main history stay separate");
+	expect(runtimePrompt).toContain(
+		"Report unsupported routing or private-history sharing only when required by the owner",
+	);
+	expect(runtimePrompt).toContain(
+		"Non-main sessions of a resident Agent use parent_ask when work needs the same Agent's main",
+	);
+	expect(runtimePrompt).not.toContain("within its own profile");
 	// No persona or product names in the built-in base.
 	for (const forbidden of ["Jarvis", "Luna", "SYSTEM.md"]) {
 		expect(all).not.toContain(forbidden);
