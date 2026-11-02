@@ -21,7 +21,11 @@ export function dotnetArgs(project = PROJECT, output = join(OUT, "build")) {
 /** 把仓库 brand 资源拷到 exe 旁边：托盘按系统主题在墨色/白色 mark 之间选择。 */
 export function copyBrandAssets(from = BRAND, to = OUT) {
 	mkdirSync(to, { recursive: true });
-	for (const name of ["yonder-mark.png", "yonder-mark-white.png"]) copyFileSync(join(from, name), join(to, name));
+	for (const [source, output] of [
+		["yonder-mark-512.png", "yonder-mark.png"],
+		["yonder-mark-white-512.png", "yonder-mark-white.png"],
+	])
+		copyFileSync(join(from, source), join(to, output));
 }
 
 export function buildWindowsStatus() {
