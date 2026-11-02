@@ -2,13 +2,14 @@ import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/conte
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 import type { Tool } from "@yonder/sdk";
 import { Type } from "typebox";
+import { remoteFind } from "./remote-search.js";
 
 // Search behavior follows pi-coding-agent's MIT-licensed core/tools/find.js.
 export function createFindTool(): Tool {
 	return {
 		name: "find",
 		description:
-			"Search by glob, respecting .gitignore and including hidden files. Paths are relative to the search directory. Defaults to 1000 results or 50KB.",
+			"Search by glob, including hidden files. Paths are relative to the search directory. Defaults to 1000 results or 50KB. Local searches use fd and respect .gitignore. Remote device searches use read-only directory operations, Node glob syntax, and basic glob/negation ignore rules at or below the search root; they skip .git and symlinks and stop above 10000 visited entries, requiring a narrower path.",
 		parameters: Type.Object(
 			{
 				pattern: Type.String({ minLength: 1, description: "Glob pattern, e.g. '*.ts' or 'src/**/*.ts'" }),
@@ -20,6 +21,7 @@ export function createFindTool(): Tool {
 		capabilities: ["read"],
 		async execute(value, ctx) {
 			const { pattern, path, limit = 1000 } = value as { pattern: string; path?: string; limit?: number };
+			if (ctx.env.id.startsWith("device:")) return remoteFind({ pattern, ...(path ? { path } : {}), limit }, ctx);
 			const context = withAbortSignal(ctx.signal, BACKGROUND_CONTEXT);
 			const dir = getOrThrow(await ctx.env.absolutePath(path || ".", context));
 			const info = await ctx.env.fileInfo(dir, context);

@@ -10,6 +10,7 @@ import {
 } from "@earendil-works/pi-durable/tools";
 import type { Tool } from "@yonder/sdk";
 import { Type } from "typebox";
+import { remoteGrep } from "./remote-search.js";
 
 /** A matched line is shown as a fragment around the hit once it is longer than this; its anchor still covers it all. */
 const MAX_SHOWN_LINE = 500;
@@ -21,7 +22,7 @@ export function createGrepTool(): Tool {
 	return {
 		name: "grep",
 		description:
-			"Search text files with ripgrep. Hits come back as `lineNumber:│ anchor│content` rows and context lines as `lineNumber-│ anchor│content`, editable with replace, insert, copy, or move without a new read. A row returned by `grep` is already a served row, so you do not need to `read` the file to edit that line. The `=== path ===` header and line numbers locate the match. Patterns use ripgrep's Rust regex syntax (no backreferences or look-around) through a linear-time engine. Searches respect `.gitignore`, always skip `.git`, and skip binary and image files silently. A match over 500 bytes is shown as a `...` fragment around the hit, but its anchor still covers the whole line. When output is cut by the match limit, raise `limit`; when cut by rows or bytes, refine `pattern` or narrow `path`.",
+			"Search text files. Local searches use ripgrep's Rust regex syntax (no backreferences or look-around) and respect .gitignore. Remote device searches use read-only file operations and JavaScript regex (or literal=true), with a one-second regex deadline per file; files over 512 KiB are reported as skipped. Remote ignore rules cover basic glob/negation rules in .gitignore/.ignore/.fdignore at or below the search root. Both skip .git, symlinks, hidden paths and binary files. Hits are `lineNumber:│ anchor│content`, context rows use `lineNumber-│ anchor│content`; these are served rows, editable without another read. The `=== path ===` header identifies the file. Long rows are clipped at 500 bytes but anchors cover the full line. Increase limit or narrow pattern/path when output is limited.",
 		parameters: Type.Object(
 			{
 				pattern: Type.String(),
@@ -48,6 +49,7 @@ export function createGrepTool(): Tool {
 				limit?: number;
 			};
 			const limit = args.limit ?? 100;
+			if (ctx.env.id.startsWith("device:")) return remoteGrep(args, ctx);
 			const contextLines = args.context ?? 0;
 			const stop = new AbortController();
 			const signal = AbortSignal.any([ctx.signal, stop.signal]);
