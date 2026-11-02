@@ -4,6 +4,10 @@
 
 状态用词：**已实现**＝功能体、调用方与打包接线齐全；**已验证**＝有记录的真实调用结果。接口存在、工具注册成功、API 返回消息 ID 都不等于验收通过；一次成功也不覆盖未试过的组合。
 
+## Harness 自配置闭环（2026-11-01，本地实现，未发布）
+
+共享管理链已补目标 profile 定位、候选路由可接纳性、锁内版本核对、同步热重载及失败恢复；可信 owner 来源跨分身/续办、社交原授权直接应用、真实路由诊断、实际请求模型与附件受限读取导航已接通。完整默认测试 2491 通过 / 0 失败 / 105 跳过，build/typecheck/lint 通过；真实 Luna 自行生成候选并 validate→update→读回→目标 profile 实际运行的本机 CLI 场景 1/1 通过。原始失败、实现边界和证据见[验收记录](verification/harness-self-configuration-20261101.md)，设计见[方案](research/harness-self-configuration-20261101.md)。正式 home/install 未改，真实 QQ/飞书及正式安装验收未执行。
+
 ## 本轮收敛（2026-10-31，已随 0.3.26110101 发布）
 
 按 [收敛方案](../proposals/convergence/plan.md) 执行：文档收敛、core 分层（[architecture §6](architecture.md#6-内核分层与规模预算)）、大文件拆分、内核瘦身。各阶段完成后在此更新，原始命令结果写在对应提交说明里。
