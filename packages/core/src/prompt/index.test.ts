@@ -663,7 +663,7 @@ test("built-in prompt states autonomy, goal-first and stop-when-enough within a 
 		"Never give the person a command, script or approval step you can run yourself",
 		"Work that takes under half an hour needs no research first; do it.",
 		"If two goals conflict, pick one and say why.",
-		"When a reminder about time or context arrives, wrap up: deliver what exists and say what remains.",
+		"Soft reminders/context compaction preserve goals; continue unfinished work unless hard limits, cancellation or real blockers require partial delivery.",
 		"Keep at most two lines of work moving at once.",
 		"Never spend a model turn only to append a ledger line; batch notes.",
 		"Give commands explicit paths or a timeout so they cannot wait on stdin.",
