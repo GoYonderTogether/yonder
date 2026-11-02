@@ -1,61 +1,66 @@
 # Shared Bot fix-round verification — 2026-11-03
 
-本轮只操作两个 shared-core worktree；不 push、不部署、不访问 zeth-root，不输出模型 key。源码与默认检查、真实 PG/Redis、真实 GLM、transport 故障注入、RSS 负载分别记录。根 REFACTOR-REPORT.md 保持未提交。
+仅操作两个 shared-core worktree；不 push、不部署、不访问 zeth-root，不输出模型 key。根 REFACTOR-REPORT.md 按任务书保持未提交。最终清理按维护者要求移除机器原始日志/JSON/TSV/文本转储；本文保留实际命令、计数、失败与短摘录，不以新成功覆盖旧失败。
 
-## Main 合入
+## Main 合入与命令
 
-采用 merge。第一次 990bef27 合入 ae197ecb；关闭收尾 6dc3fa3a 后，31215dd2 合入最新 4e58ceb8（包括 e423078f D3 Pi 来源）。75 条 main 提交逐项内容保留见 [审计表](main-content-audit.md)、[详细审计](main-content-audit.json)、[新增两条审计](main-refresh-audit.json)，原始 git log --stat 见 main-log-stat.txt / main-refresh-log-stat.txt。Cloud main 仍为原基线 52692f5，没有新增需搬移的 main 提交。
+采用 merge：990bef27 合 ae197ecb，31215dd2 合 4e58ceb8；最终清理 add9b951 合 0fcaf613，061b284c 再合 fe09dfae（含26110215版本及渠道身份/原始目标规范）。79 条 main 提交内容保留见 [逐项审计](main-content-audit.md)。Cloud main 仍 52692f5，无新增提交。
 
-## 完整 gate 的原始结果
+完整 Yonder gate：`npm run build`、`npm run typecheck`、`npm run lint`、`npm test -- --maxWorkers=4`、`npm run test:node`。Cloud 根/server build/typecheck、真实 PG/Redis 全量 server tests、deploy、market、SSR 的具体命令和结果见 [Cloud 总账](../../../../yonder-cloud-shared-core/docs/verification/fix-round/verification.md)。
 
-| 轮次 | 实际结果 | 原始证据 |
-|---|---|---|
-| 初轮默认 gate | build/typecheck 2，lint 1；Vitest 2780 pass / 4 fail / 112 skip，520 files pass / 2 fail / 67 skip，179.14s；Node 83/0/0/0 | yonder-first-{build,typecheck,lint,tests,node-tests}.log；yonder-gate-first.json |
-| 夹具与 imports 修后默认 gate | build/typecheck 0；lint 1（两个新验收 JSON 格式）；Vitest 2785 pass / 1 fail / 112 skip，522 files pass / 1 fail / 67 skip，141.83s；Node 83/0/0/0 | yonder-final-{build,typecheck,lint,tests,node-tests}.log；yonder-gate-final.json |
-| shutdown 修复及 D3 合入后 | build/typecheck/lint 0；Vitest 2763 pass / 0 fail / 113 skip，518 files pass / 67 skip，137.17s；Node 83/0/0/0 | yonder-complete-{build,typecheck,lint,tests,node-tests}.log；yonder-gate-complete.json |
+## 先前完整 gate 与失败
 
-初轮三项 remote-search 失败是移除 wrapper 后未显式注入已有真实实现，281772c2 修 fixture，断言保留。另一次 gateway ready poll 失败未归因，两次 focused 均通过，没有改 gateway 或 timeout。第二轮唯一失败为 console 结束后 rm 报 channel-card 目录 ENOTEMPTY；已接纳的 run.end observer 尚在写文件。6dc3fa3a 在共享 Runtime 存储关闭前 join 最终投递与插件观察，并用真实延迟 remove 的负对照证明原实现会失败，没有给 rm 加重试。后一次完整 Vitest 使用已有 --maxWorkers=4 参数跑全部用例，未删测试或放宽断言。D3 main 明确删除五个上游 hashline 测试文件，导致文件/用例总数变化；真实 Luna 未启用及平台跳过按原样保留。
+| 轮次 | 实际结果 |
+|---|---|
+| 初轮 | build/typecheck exit2；lint exit1；Vitest 2780 pass /4 fail /112 skip，520 files pass /2 fail /67 skip，179.14s；Node83/0/0/0/0 |
+| imports/夹具修后 | build/typecheck exit0；lint exit1（两个验收 JSON 格式）；Vitest2785/1/112，522 files pass /1 fail /67 skip，141.83s；Node83/0/0/0/0 |
+| shutdown/D3后 | build/typecheck/lint exit0；Vitest2763/0/113，518 files pass /67 skip，137.17s；Node83/0/0/0/0 |
+| 模型缓存修后，源码658713ed | 全部exit0；Vitest2764/0/113，518 files pass /67 skip，167.20s；Node83/0/0/0/0 |
 
-Cloud 在最新源码上重新执行根/server build/typecheck、真实 PG/Redis 全 server tests、deploy、market、SSR：208/0/0/0、19/0/0/0、13/0/0/0、3/0/0/0，全退出 0。无 lint script，不冒称执行。命令、源码快照与原始日志见 [Cloud 最终总账](../../../../yonder-cloud-shared-core/docs/verification/fix-round/verification.md)。
+初轮 remote-search 三失败是移除wrapper后未注入已有真实实现，由281772c2修fixture。另一次gateway ready poll失败未归因，定向复跑通过，未改timeout。第二轮console在close后清目录报ENOTEMPTY：已接纳run.end观察尚在写文件。6dc3fa3a在底层storage.close前等待最终投递和观察，用延迟FS remove负对照证明原逻辑失败，未加rm重试。D3 main明确删除五个上游hashline测试文件，解释文件/用例数变化。113默认skip含平台及显式live，不能全归因于凭据。
 
-## 实际模型与错误路径（修前原始记录）
+## 真实模型、故障与生命周期
 
-命令、退出码、耗时见 [模型与错误检查](final-model-errors-gate.json)。真实 GLM A6 / A8 / A9 均退出 0：两租户 PG SOUL 事实进入 provider 并在回复出现；卡片两个按钮分别 /connect、/download；临时本机设备的官方 memory 经既有 work bridge / program ToolTask 读取，离线下一轮目录为空。验收日志 final-A6-live.log、final-A8-live.log、final-A9-live.log。没有将临时设备往返称为生产/物理硬件验收。
+修后真实GLM命令（源码3a428de5，其后至最终清理前无产品源码变化）：
 
-A7 使用真实 PG/Redis/server/worker 与明确的本机 HTTP transport 故障端，不冒称让真实上游产生 503。final-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log 全退出 0；唯一结果、后续 provider prompt 不含 error、反射凭据在转录前脱敏、在途/排队中断收尾均有断言。final-A8-loopback.log 另验证卡片已准备后失败只投递 error、不预发卡、下一轮不复用卡片。
+| 命令 | 实际结果 |
+|---|---|
+| `agent-network run -- node scripts/cloud-worker/verify.mjs --live` | A6 exit0，73.18s；两租户PG SOUL标识分别进入真实glm-5.3-flash回复 |
+| `agent-network run -- node scripts/cloud-worker/verify.mjs --card --live` | A8 exit0，48.53s；真实interactive卡片含/connect、/download；原生转录有工具、结果唯一 |
+| `agent-network run -- node scripts/cloud-worker/device.mjs --live` | A9 exit0，139.79s；临时真实local kernel/Card/device调用官方memory工具，online2/offline0；非生产或物理硬件验收 |
+| `node scripts/cloud-worker/verify.mjs --card` | 卡片准备后失败回环exit0，2.91s；仅error、不预发卡且下一轮不复用 |
+| `node scripts/cloud-worker/verify.mjs --case=<case>` | timeout/503/empty/503-reflect/send-then-503/reply-none/interrupt均exit0，依次2.58/2.04/2.00/2.11/2.38/2.25/1.98s |
+| `node scripts/cloud-worker/lifecycle.mjs` | exit0，76.99s；PG advisory锁A时B先完成；idle74257ms释放未满LRU实例，再激活成功，completed3/pending0 |
 
-## A12 与生命周期
+故障检查使用真实PG/Redis/server/worker与明确HTTP transport故障端，不冒称真实上游产生503。断言唯一结果、后续prompt排除error、转录前脱敏及中断收尾。生产模型/worker凭据未进入持久转录或日志（布尔核对），未记录任何值。
 
-[本轮资源检查](final-load-lifecycle-gate.json)：100 Bot 各 500 条 durable 历史，共 50,000 条（每条至少 4096 字节）及每 Bot 10 个 rewindable 文档 delta；归档会话不塞进当前新 turn。首次完整负载所有 100 Bot 已回复，但 idle RSS 141,131,776 B、peak 361,267,200 B，超过 350 MB，退出 1。原始 final-A12-load.log 保留，不能记为通过，也未以手动 GC、降低负载或提高预算掩盖。该失败的实际根因已由后续诊断和 b14d7cdf 修复，最终结果见下。
+## 长历史 A12
 
-final-lifecycle.log / final-load-lifecycle-gate.json 中最新生命周期退出 0（76.63s）：真实 PG advisory 锁阻塞租户 A 时 B 先完成；未满 LRU 的两个实例空闲超时后释放，再激活成功，completed=3/pending=0。此前开发失败与修复见 [生命周期原始记录](../review-worker-lifecycle.md)。
+命令 `node scripts/cloud-worker/verify.mjs --load`，修后exit0，30.97s。单worker，真实PG/Redis/server，明确HTTP模型transport stub；100Bot各500条≥4096B durable归档消息及10个rewindable文档delta，共50000条，101轮（100cold+1warm）。idle141328384B，50ms采样peak300548096B，末尾300056576B；150/350MB预算通过。active/highWater20、opened100/closed80、completed101/pending0。707次modelsFor仅202个unique Models，归档正文entries/bytes读取0，PG连接2/TCP3/Timeout2。冷轮worker Client.query473–477、mean474.62，warm341；不含server/父进程seed SQL。未手动GC、减样本或提高预算，不把此transport负载称为100Bot真实GLM压力测试。
 
-## 保留的开发失败
+原始负载peak361267200B失败，有效修前诊断idle140476416B/peak350453760B失败且707调用创建707Models；首个探针因PG callback不返回Promise失败，非产品结论。b14d7cdf复用已有Runtime.boundModels WeakMap，去service全局Runtime强引用，各Bot独立timeout；658713ed只增加真实分配与归档读取观测。Agent修后同负载idle139935744B/peak315326464B成功；主Agent最终结果如上。保留这些差异，不以单次成功抹掉超预算记录。
 
-- PG/storage 首轮 47/3、次轮 44/6、第三轮 50/0；扩展组合 54/1 后修 tasks storage guard，最终 artifact/guard 16/0：../review-storage-focused-{first,3}.log、../review-artifact-focused-final-2.log（-2/-4完整raw在清理误删后仅剩已记录工具输出片段，见下）。没有把中间版本的成功冒充最终源码。
-- 移动 core 测试初轮 778/2/61，修共享 speech 的 anchor-updated 兼容及 vendored pi-durable 版本误改，保留原断言：local-host-migration.log；main 重点迁移 focused-main-migration-2.log，speech-regression-3.log，layer-tests.log。
-- 新 PG before/order 回归初轮 fixture 缺 name 为 8/1，修后 2/0，typecheck 0：../review-events-focused.log、../review-events-focused-2.log、../review-events-typecheck.log。
-- 关闭收尾负对照与最终定向在 [main 审计](main-content-audit.md) 中引用：../review-shutdown-negative-control.log、../review-shutdown-focused-final.log、../review-shutdown-build-final.log。
+## 从原始文件摘取的短原文
 
-只保留本总账或其他已提交 verification 文档明确引用的原始日志；纯格式检查、重复中间构建等 scratch 清单由 scratch-log-audit.json / .md 记录，最终验证完成后刷新并清理。JSON 内容格式调整不改原始退出码或计数。
+下列行在删除原始产物前直接读取，没有拼造缺失内容；顺序为最终Vitest、第二轮关闭失败、A6、A8、idle释放及A12计数：
 
-## 最终源码复核（b14d7cdf / 658713ed）
+```text
+ Test Files  518 passed | 67 skipped (585)
+      Tests  2764 passed | 113 skipped (2877)
+Error: ENOTEMPTY: directory not empty, rmdir '/private/tmp/ya-1MTztR/.yonder/plugins/channel-card'
+      "soulTokenMatched": true
+          "link": "/connect",
+          "link": "/download",
+  "idleReleaseMs": 74257,
+	"idleBytes": 141328384,
+	"peakBytes": 300548096,
+	"completedRounds": 101,
+```
 
-PG原实现没有复用Node已有的Runtime.boundModels：有效修前诊断707次modelsFor创建707个新Models，且service全局runtime引用把最后一个Bot的timeout用于其他Bot。b14d7cdf复用既有WeakMap，并仅按Bot保存timeouts与绑定缓存；不再强持Runtime，无cache class、无新token系统。658713ed仅增加heap/unique Models/归档读取观测，失败也先输出report，原150/350MB断言保留。
+## 开发失败与证据限制
 
-- 原始第一探针错误是PG callback API不返回Promise（非产品负载结论）：A12-diagnostic-before-fix.log；有效修前A12-diagnostic-before-fix-2.log为idle140476416B / peak350453760B，707/707 Models，archive正文0。开发期类型错误A12-model-binding-typecheck.log与修后A12-model-binding-typecheck-2.log保留；真实factory focused A12-model-binding-focused.log为3/0。
-- Agent同负载修后 A12-model-binding-load-after-fix.log：idle139935744B / peak315326464B，exit0。
-- 主Agent最终完整gate全部退出0，命令/源码快照见 [yonder-gate-verified.json](yonder-gate-verified.json)：yonder-verified-{build,typecheck,lint,tests,node-tests}.log。Vitest全部用例--maxWorkers=4：**2764 pass / 0 fail / 113 skip**，518 files pass / 67 skip，167.20s；Node **83/0/0/0/0**。没有改timeout、跳过失败用例或降低断言。
-- 主Agent修后真实GLM A6/A8/A9全部退出0，及全部7故障场景、卡片失败回环均退出0，命令/耗时见 [verified-model-errors-gate.json](verified-model-errors-gate.json)：verified-A6-live.log、verified-A8-live.log、verified-A9-live.log、verified-A8-loopback.log、verified-A7-{timeout,503,empty,503-reflect,send-then-503,reply-none,interrupt}.log。真实模型与transport故障证据仍分开。
-- 最终A12：verified-A12-load.log / [verified-load-lifecycle-gate.json](verified-load-lifecycle-gate.json)，100 Bot / 每Bot500条>=4096B归档消息 / 共50000条及每Bot10文档delta；101轮完成/pending0，active/highWater20，opened100/closed80。**idle141328384B、50ms采样peak300548096B、末尾300056576B**；707次modelsFor仅202个unique Models，archive entries/bytes均0。PG连接2、TCP3、Timeout2，没有手动GC。冷轮worker Client.query473–477、mean474.62，warm341，明确不包含server SQL或父进程seed SQL；没有沿用旧168.8/90往返数据。
-- 最终生命周期 verified-lifecycle.log 退出0：真实PG锁证明租户间激活不阻塞，实际idle74257ms后释放（总脚本76.99s），再激活成功，completed3/pending0。
+PG/storage首轮47/3、次轮44/6、第三轮50/0；扩展54/1后修tasks storage guard，最终artifact/guard16/0。移动core测试初轮778/2/61，修共享speech的anchor-updated兼容及vendor版本误改，保留断言。PG before/order初轮fixture缺name为8/1，修后2/0。shutdown负对照1fail/7skip，恢复实现后focused22/0。真实factory模型绑定focused3/0。
 
-结构化汇总 [verified-results.json](verified-results.json) 保存实际模型/卡片/设备目录及RSS/查询数据，不含模型key；[final-main-check.json](final-main-check.json) 记录两仓末尾main核对、提名iOS/SessionOptions blob一致、版本、core零文件、gate后无源码变化，以及101份交付证据中模型key缺席的布尔核对。真实Luna未测：YONDER_TEST_AUTH未设、仓库.yonder/auth.json不存在；113默认skip含平台/显式live，不都归因于缺凭据。生产部署、2核2GB长期共存与日常硬件组合未测。
+上一轮清理误删9份已引用定向日志，7份从本任务原始工具stdout完整恢复；两份完整raw（原44/6、7187B；54/1、1497B）只恢复真实片段。这是历史损失，不能称无损。当前维护者明确要求删除全部机器原始产物，保留本文的真实计数、原因及必要摘录；恢复过程简述见 [清理更正](scratch-log-audit.md)。
 
-## 清理误删与恢复记录
-
-清理器曾错误处理`../review-*.log`，并用任意文件名后缀作匹配，导致9份已引用的定向日志被误删。该动作不是正确的scratch清理，已撤回旧审计“155份均未引用/0问题”的结论。主Agent从本任务父/子会话的原始工具stdout直接取回7份完整原文（验证对应cat/tail命令、文件边界与原stat长度，无手工重写或重跑），并将原文提交；SHA256及来源说明见[log-recovery.json](log-recovery.json)。
-
-两份旧定向完整raw无法全恢复：review-storage-focused-2.log原7187B（44 pass/6 fail），review-storage-focused-4.log原1497B（54 pass/1 fail）。只保留实际已捕获片段：[第二轮命令stdout](../review-storage-focused-2.captured-output.log)（包含原tail及后续命令诊断，不冒充原完整log）、[第四轮已捕获开头](../review-storage-focused-4.captured-head.log)和[第四轮已捕获结尾](../review-storage-focused-4.captured-tail.log)。原计数与失败原因仍在本总账，未拼造缺失内容。最终完整gate、GLM/A12以及两轮完整测试的原始失败日志全部已提交保留，此损失局限于两份开发期定向raw。
-
-最终只读引用检查（更正后）：Yonder现存357份日志、Cloud16份；未引用untracked scratch=0、未知tracked orphan=0、pending例外=0。该“现存引用覆盖”不等于无历史损失：上述两份完整开发期raw仍缺失。156份真正未引用scratch已删除，9份错误删除中7份完整恢复、2份仅有真实片段。源代码自658713ed后未改变，完整gate/真实模型/负载无需因这些文档与恢复操作重复运行。
+真实Luna未测：YONDER_TEST_AUTH未设且默认.yonder/auth.json不存在。未部署，未验证2核2GB同机PG/Redis/nginx长期共存和日常设备全部硬件grant组合。
