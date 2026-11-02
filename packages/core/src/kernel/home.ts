@@ -94,7 +94,9 @@ export function protectSessions(
 			const before = config.agents?.find((a) => a.id === session.agent),
 				after = candidate.agents?.find((a) => a.id === session.agent);
 			if (!nextAgents.get(session.agent)?.profiles[session.profile])
-				errors.push(`session ${session.id}: close session before removing agent/profile ${session.profile}`);
+				errors.push(
+					`session ${session.id}: close session before removing agent/profile ${session.profile}; the profile is still used by an open session. Finish or close it through the session workflow, then rerun agents validate and read back with agents show`,
+				);
 			const previous = agents.get(session.agent),
 				next = nextAgents.get(session.agent);
 			const oldProfile = previous?.profiles[session.profile],
@@ -102,7 +104,7 @@ export function protectSessions(
 			const changedRoute = changedSessionRouteProfile(previous, next, session);
 			if (changedRoute)
 				errors.push(
-					`session ${session.id}: close before changing binding profile ${changedRoute.oldProfile} to ${changedRoute.nextProfile}`,
+					`session ${session.id}: close before changing binding profile ${changedRoute.oldProfile} to ${changedRoute.nextProfile}; this open session would keep its existing profile. Finish or close session ${session.id} first, then rerun agents validate/update and inspect the next session's profile`,
 				);
 			const envChanged =
 				oldProfile &&
@@ -110,9 +112,13 @@ export function protectSessions(
 				resolveProfile(oldProfile, previous?.defaults, before?.env, config.defaultModel).env !==
 					resolveProfile(newProfile, next?.defaults, after?.env, candidate.defaultModel).env;
 			if (before?.workspace !== after?.workspace || before?.env !== after?.env || envChanged)
-				errors.push(`session ${session.id}: close before changing workspace/env`);
+				errors.push(
+					`session ${session.id}: close before changing workspace/env; they are fixed for this open session. Finish or close the session first, then rerun agents validate/update and inspect the new session's cwd/env`,
+				);
 		} else if (presets.has(session.profile) && !nextPresets.has(session.profile))
-			errors.push(`session ${session.id}: close session before removing preset ${session.profile}`);
+			errors.push(
+				`session ${session.id}: close session before removing preset ${session.profile}; it is still used by an open session. Finish or close it first, then rerun presets validate and read back with presets show`,
+			);
 	}
 	for (const id of agents.keys()) if (!nextAgents.has(id)) errors.push(`agent ${id}: archive instead of unregistering`);
 }
@@ -134,12 +140,25 @@ export function configurationErrors(
 		errors.push(...promptErrors(selected.prompt).map((error) => `${name}: ${error}`));
 		for (const ref of [selected.model, ...(selected.fallback?.models ?? [])]) {
 			const slash = ref.indexOf("/");
-			if (!models.getModel(ref.slice(0, slash), ref.slice(slash + 1))) errors.push(`${name}: unknown model ${ref}`);
+			if (!models.getModel(ref.slice(0, slash), ref.slice(slash + 1)))
+				errors.push(
+					`${name}: unknown model ${ref}; use yonder models list --home <active home> to confirm a real provider/modelId, correct this profile or fallback, then rerun agents validate and inspect`,
+				);
 		}
 		if (selected.env !== "local" && !plugins.envs.has(selected.env))
-			errors.push(`${name}: unknown environment ${selected.env}`);
-		for (const id of selected.contexts) if (!plugins.contexts.has(id)) errors.push(`${name}: unknown context ${id}`);
-		for (const id of selected.plugins) if (!plugins.tools.has(id)) errors.push(`${name}: unknown plugin ${id}`);
+			errors.push(
+				`${name}: environment ${selected.env} is not provided by a loaded plugin; check yonder plugins list and the active home's plugins, select the actual contributed environment id, then rerun agents validate and inspect`,
+			);
+		for (const id of selected.contexts)
+			if (!plugins.contexts.has(id))
+				errors.push(
+					`${name}: context ${id} is unavailable; check yonder plugins list/show for its contributing plugin and select an actual context id, then rerun agents validate and inspect`,
+				);
+		for (const id of selected.plugins)
+			if (!plugins.tools.has(id))
+				errors.push(
+					`${name}: plugin ${id} is not loaded with tools in this home; check yonder plugins list/show, load its actual package/source if needed and restart, then rerun agents validate and inspect`,
+				);
 	};
 	for (const agent of agents.values()) {
 		if (agent.archivedAt) continue;
@@ -474,6 +493,30 @@ export async function inspectHome(home: string) {
 				warnings.push(
 					`${agent.id}: 别的 agent 用 agent_ask 问它时永远送不到——它没有 channel=agent、kind=agent 的绑定，peer 协作链在这里断开（调用方只会拿到「这是配置缺口」，不是它拒绝）。有意隔离可以忽略。修复：在 ${file} 里补上下面这段，然后运行 yonder doctor 复查。${fix ? `\n${fix}` : "它已有同名 peer 配置，请检查绑定。"}`,
 				);
+			}
+			const includesOrOmits = (value: string | string[] | undefined, target: string) =>
+				value === undefined || (Array.isArray(value) ? value.includes(target) : value === target);
+			const parentBindings = agent.bindings.filter(
+				(binding) =>
+					includesOrOmits(binding.match.channel, "agent") &&
+					includesOrOmits(binding.match.kind, "parent-request") &&
+					includesOrOmits(binding.match.type, "message.in"),
+			);
+			if (!parentBindings.length) {
+				warnings.push(
+					`${agent.id}: 分身的 parent_ask 没有通往所属主会话的 parent-request 绑定；这不授予调用方新权限。用 yonder agents show ${agent.id} --home <active home> 查看绑定；若需要主会话协助，添加仅匹配 channel=agent、kind=parent-request、from=acct:agent:${agent.id} 且 session=main 的路由，再运行 agents validate 并用 agents show 读回。`,
+				);
+			} else {
+				for (const binding of parentBindings) {
+					const from = binding.match.from;
+					const hasExactFrom = Array.isArray(from)
+						? from.includes(`acct:agent:${agent.id}`)
+						: from === `acct:agent:${agent.id}`;
+					if (binding.session !== "main" || !hasExactFrom)
+						warnings.push(
+							`${agent.id}/${binding.id}: 自定义 parent-request 路由的 type/from/session 不匹配 parent_ask 的所属主会话请求（需要 type=message.in、from=acct:agent:${agent.id} 且 session=main）。保留其他自定义范围；若这条路由本应接收 parent_ask，用 yonder agents show ${agent.id} --home <active home> 检查后只修正该 binding，再运行 agents validate 并用 agents show 读回。`,
+						);
+				}
 			}
 		}
 		return { ok: errors.length === 0, errors, warnings: [...new Set(warnings)], modelChains };

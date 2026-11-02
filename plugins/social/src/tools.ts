@@ -59,7 +59,8 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 		});
 	api.tools.register({
 		name: "social_inspect",
-		description: "Inspect a conversation's effective social reply policy and revision.",
+		description:
+			"Read a conversation's effective social reply policy, its source and current revision; use the same agent/conv to preview or apply a change, then inspect again to verify.",
 		capabilities: ["read"],
 		parameters: Type.Object({ ...target, event: Type.Optional(text) }, { additionalProperties: false }),
 		async execute(args, ctx) {
@@ -69,7 +70,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_update",
 		description:
-			"Preview or apply a social reply policy change. dryRun defaults to true; set dryRun false to apply an owner-authorized request directly. For @-only replies set mode to mention and signals botMention to respond, ownerMention/groupOwner/everyone/keyword to record.",
+			"First call social_inspect for this agent/conv and pass its revision as expectedRevision. Preview with dryRun omitted/true; set dryRun:false only when the current owner request authorizes applying it. Then call social_inspect again to verify the effective policy and revision. If the revision conflicts, inspect fresh state and rebuild the patch; if denied, report the actual capability/authorization gap without changing permissions or retrying unchanged. For @-only replies set mode=mention and signals botMention=respond, ownerMention/groupOwner/everyone/keyword=record.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{
@@ -164,7 +165,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_group_mode_set",
 		description:
-			"Preview or apply a group's reply mode. dryRun defaults to true; set dryRun false to apply an owner-authorized request directly.",
+			"Inspect this agent/conv first to see the effective mode and revision. This tool reads the current revision internally; preview by default, or set dryRun:false only for a currently owner-authorized request. Inspect again after applying to verify. If denied, report the capability/authorization gap; do not change profile permissions or retry unchanged.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{

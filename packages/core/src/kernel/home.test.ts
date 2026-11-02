@@ -60,6 +60,7 @@ test("candidate binding profile changes cannot strand an open persistent session
 			[session],
 			errors,
 		);
-		expect(errors.join(" "), item.per).toContain("binding profile owner to group");
+		expect(errors.join(" "), item.per).toContain("close before changing binding profile owner to group");
+		expect(errors.join(" "), item.per).toContain("agents validate/update");
 	}
 });

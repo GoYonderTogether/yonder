@@ -58,14 +58,15 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		);
 		let sent: YEvent | undefined;
 		let invocation = 0;
+		let noParentBinding = false;
 		let answerStatus: "done" | "error" = "done";
 		const ask = async (input: EventInput) => {
 			sent = await store.events.record(input);
 			return {
 				event: sent,
-				results: [
-					{ agent: "main", session: "1", status: answerStatus, reason: "guest_rounds", text: "quota rejected" },
-				],
+				results: noParentBinding
+					? []
+					: [{ agent: "main", session: "1", status: answerStatus, reason: "guest_rounds", text: "quota rejected" }],
 			};
 		};
 		const tool = createCoreTools({
@@ -95,6 +96,20 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		if (!sent) throw Error("No actual handoff");
 		expect((sent.data as { requestOrigin: { inputs: string[] } }).requestOrigin.inputs).toEqual([visitor.id]);
 		expect(await parentOrigins(store, sent, "main")).toEqual([visitor]);
+		noParentBinding = true;
+		const noBinding = await tool.execute({ text: "same scoped request" }, ctx);
+		expect(noBinding.isError).toBe(true);
+		expect(noBinding.text).toMatch(/from=acct:agent:main.*session=main.*不授予主人权限/u);
+		const missingOrigin = {
+			...ctx,
+			event: { ...visitor, id: "missing-original-event" },
+			events: [{ ...visitor, id: "missing-original-event" }],
+		};
+		const noSource = await tool.execute({ text: "unverifiable" }, missingOrigin as ToolContext);
+		expect(noSource.isError).toBe(true);
+		expect(noSource.text).toMatch(/缺少可核验的原始请求来源.*不能把它当作主人授权/u);
+		expect(noSource.text).toContain("请主人从已认证的原会话重新提出或确认目标请求");
+		noParentBinding = false;
 		const actors = new Map([["main", { id: "main", name: "贾维斯", bindings: [] } as unknown as AgentConfig]]);
 		const context = conversationPromptOptions(store, actors, () => ({ describeTools: () => [] }) as unknown as Runtime);
 		const options = {
@@ -159,6 +174,7 @@ test("agent_ask admits a plain request but reports optional effort denial before
 		const store = await createStore(db);
 		const helper = { id: "helper", name: "helper", bindings: [] } as unknown as AgentConfig;
 		const sent: EventInput[] = [];
+		let noRoute = false;
 		const tool = createCoreTools({
 			store,
 			agents: new Map([["helper", helper]]),
@@ -169,7 +185,7 @@ test("agent_ask admits a plain request but reports optional effort denial before
 				sent.push(event);
 				return {
 					event: { id: "handoff", ts: new Date().toISOString(), ...event },
-					results: [{ agent: "helper", session: "2", status: "done", text: "received" }],
+					results: noRoute ? [] : [{ agent: "helper", session: "2", status: "done", text: "received" }],
 				};
 			},
 			getPreset: () => undefined,
@@ -191,6 +207,10 @@ test("agent_ask admits a plain request but reports optional effort denial before
 		expect(denied.text).toContain("capabilities=message");
 		expect(denied.text).toContain("省略");
 		expect(sent).toHaveLength(1);
+		noRoute = true;
+		const missingBinding = await tool.execute({ agent: "helper", text: "Plain request" }, ctx);
+		expect(missingBinding.isError).toBe(true);
+		expect(missingBinding.text).toMatch(/没有接收 agent_ask 的 binding.*agents validate.*agents show/u);
 	} finally {
 		await db.close();
 	}

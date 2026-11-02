@@ -28,14 +28,16 @@ export function socialBindingIssues(agent: AgentConfig, file: string): ConfigIss
 				binding.reply !== "none" ||
 				binding.wake === "write")
 		)
-			message = "参与批次必须使用 persistent/per: conv、reply: none 和可运行的 wake；不能进入私人 main";
+			message =
+				"参与批次必须使用 persistent/per: conv、reply: none 和 wake: run/mention；不能进入私人 main。按这三项修正此 binding 后，运行 yonder agents validate 再 update，并用 agents show 读回";
 		else if (
 			binding.session === "main" &&
 			agent.social?.enabled &&
 			scoped &&
 			(kinds.includes("group") || kinds.includes("channel"))
 		)
-			message = "social 群/频道不能进入私人 main；使用独立 per: conv 会话并以 parent_ask 交办执行";
+			message =
+				"social 群/频道不能进入私人 main；改用独立 persistent/per: conv 会话，并在需要主人权限时沿 parent_ask 交办。运行 yonder agents validate 再 update，并用 agents show 读回";
 		return message ? [{ file, path: `/bindings/${index}`, message: `${binding.id}: ${message}` }] : [];
 	});
 }
@@ -80,10 +82,12 @@ export function socialReferenceErrors(
 				const profile = binding.profile ?? agent.defaultProfile;
 				if (!(agent.profiles[profile]?.plugins ?? agent.defaults?.plugins ?? []).includes("social"))
 					errors.push(
-						`${agent.id}/${binding.id}: participation plugin must be selected by batch profile ${profile}: social`,
+						`${agent.id}/${binding.id}: participation plugin social is not selected by batch profile ${profile}; add social to that profile's plugins (or inherited defaults.plugins), then run yonder agents validate/update and inspect the profile`,
 					);
 				if (loaded && !loaded.has("social"))
-					errors.push(`${agent.id}/${binding.id}: participation plugin not loaded social`);
+					errors.push(
+						`${agent.id}/${binding.id}: participation plugin social is not loaded; check yonder plugins list and the active home's plugins, load its actual package/source and restart, then run yonder agents validate`,
+					);
 			}
 		for (const [scope, policy] of [
 			...Object.entries(social.defaults ?? {}),
@@ -92,7 +96,9 @@ export function socialReferenceErrors(
 			if (!policy.plugin) continue;
 			const plugin = policy.plugin;
 			if (loaded && !loaded.has(plugin))
-				errors.push(`${agent.id}/social/${scope}: participation plugin not loaded ${plugin}`);
+				errors.push(
+					`${agent.id}/social/${scope}: participation plugin ${plugin} is not loaded; check yonder plugins list and the active home's plugins, load its actual package/source and restart, then run yonder agents validate`,
+				);
 			const bindings = agent.bindings.filter(
 				(binding) =>
 					binding.match.type === `${plugin}.batch-ready` &&
@@ -106,7 +112,7 @@ export function socialReferenceErrors(
 				)
 			)
 				errors.push(
-					`${agent.id}/social/${scope}: participation plugin must be selected by a matching batch profile ${plugin}`,
+					`${agent.id}/social/${scope}: no matching ${plugin}.batch-ready binding uses a profile that selects ${plugin}; add the loaded plugin to that profile's plugins and a matching persistent/per: conv, reply: none batch binding, then run yonder agents validate and inspect the profile`,
 				);
 		}
 		const target = config.notifications?.outbound?.target;

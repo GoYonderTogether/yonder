@@ -75,7 +75,11 @@ async function agentTarget(home: string, id: string, profile?: string): Promise<
 		const source = await readFile(file, "utf8");
 		const agent = parseAgentConfig(source, file, id);
 		const selected = profile ?? agent.defaultProfile;
-		if (!agent.profiles[selected]) throw new MethodError("not_found", `unknown profile: ${id}/${selected}`);
+		if (!agent.profiles[selected])
+			throw new MethodError(
+				"not_found",
+				`unknown profile: ${id}/${selected}; use yonder agents show ${id} --home <active home> to read existing profile names. config.get/update can target existing profiles only; use agents validate/update to create or change a profile, then read back with agents show and inspect.`,
+			);
 		return { config, file, agent, profile: selected, source };
 	} catch (error) {
 		throw configError(error);
@@ -252,6 +256,23 @@ export const configMethods: MethodDef[] = [
 			const current = scope === "home" ? before.home.revision : before.agent.revision;
 			if (params.expectedRevision !== current)
 				throw new MethodError("conflict", "Config revision changed", { currentRevision: current });
+			if (scope === "agent") {
+				const managedElsewhere = new Set([
+					"workspace",
+					"env",
+					"profiles",
+					"defaultProfile",
+					"bindings",
+					"tools",
+					"plugins",
+				]);
+				const unsupported = Object.keys(params.patch).filter((key) => managedElsewhere.has(key));
+				if (unsupported.length)
+					throw new MethodError(
+						"invalid_params",
+						`config.get/update is a redacted narrow view and cannot write ${unsupported.join(", ")}; workspace/env/profiles/defaultProfile/bindings/tools/plugins require the full Agent management view. Use yonder agents show/validate/update --home <active home>, then read back with agents show and inspect.`,
+					);
+			}
 			const patch = checked(params.patch, scope === "home" ? homePatch : agentPatch);
 			const result =
 				scope === "home"

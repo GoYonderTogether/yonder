@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
@@ -49,6 +49,59 @@ test("init 建出来的 agent 自带 peer 绑定，老 agent 缺少时 doctor �
 		expect(warning).toContain("agents/main/agent.yaml");
 		expect(warning).toContain("yonder doctor");
 		expect(warning).toContain("channel: agent");
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60000);
+
+test("doctor explains custom parent-request mismatch without replacing the user's route", async () => {
+	const home = await tempHome("yonder-doctor-parent-request-");
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const file = join(home, "agents/main/agent.yaml");
+		const agent = parseAgentConfig(await readFile(file, "utf8"), file, "main");
+		const binding = agent.bindings.find((item) => item.id === "parent-request");
+		if (!binding) throw new Error("Default parent-request binding missing");
+		binding.match.from = "acct:agent:someone-else";
+		binding.session = "ephemeral";
+		await writeFile(file, stringify(agent));
+
+		const warning = (await inspectHome(home)).warnings.find((item) => item.includes("自定义 parent-request 路由"));
+		expect(warning).toContain("from=acct:agent:main");
+		expect(warning).toContain("session=main");
+		expect(warning).toContain("agents validate");
+		const after = parseAgentConfig(await readFile(file, "utf8"), file, "main");
+		expect(after.bindings.find((item) => item.id === "parent-request")).toMatchObject({
+			match: { from: "acct:agent:someone-else" },
+			session: "ephemeral",
+		});
+	} finally {
+		await rm(home, { recursive: true, force: true });
+	}
+}, 60000);
+
+test("doctor identifies when parent_ask has no main binding and gives a bounded repair path", async () => {
+	const home = await tempHome("yonder-doctor-parent-request-missing-");
+	try {
+		await initHome(home, "owner", { model: testModel });
+		const file = join(home, "agents/main/agent.yaml");
+		const agent = parseAgentConfig(await readFile(file, "utf8"), file, "main");
+		await writeFile(
+			file,
+			stringify({ ...agent, bindings: agent.bindings.filter((item) => item.id !== "parent-request") }),
+		);
+
+		const report = await inspectHome(home);
+		const warning = report.warnings.find((item) => item.includes("parent_ask 没有通往所属主会话"));
+		expect(warning, JSON.stringify(report)).toBeDefined();
+		expect(warning).toContain("from=acct:agent:main");
+		expect(warning).toContain("session=main");
+		expect(warning).toContain("agents validate");
+		expect(
+			parseAgentConfig(await readFile(file, "utf8"), file, "main").bindings.some(
+				(item) => item.id === "parent-request",
+			),
+		).toBe(false);
 	} finally {
 		await rm(home, { recursive: true, force: true });
 	}

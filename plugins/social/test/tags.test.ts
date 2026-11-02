@@ -5,6 +5,7 @@ import { registerSocialTools } from "../src/tools.js";
 
 interface Registered {
 	name: string;
+	description?: string;
 	capabilities?: string[];
 	execute(args: unknown, ctx: ToolContext): Promise<{ text: string; isError?: boolean }>;
 }
@@ -109,6 +110,9 @@ test("工具调整后 social.inspect 返回新标签与模式", async () => {
 		"social_group_tag_set",
 		"social_group_mode_set",
 	]);
+	expect(registered.get("social_update")?.description).toContain("expectedRevision");
+	expect(registered.get("social_update")?.description).toContain("inspect again to verify");
+	expect(registered.get("social_group_mode_set")?.description).toContain("do not change profile permissions");
 	await call(
 		"social_group_tag_set",
 		{ agent: "main", conv, value: "high", reason: "主人关心的话题", dryRun: false },

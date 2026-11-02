@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rename, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { access, mkdir, rename, stat, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
 	type Attachment,
 	type ContextContribution,
@@ -324,6 +324,19 @@ export async function prepareInput(
 	if (wake === "run") {
 		lines.push(`runtime: version=${label(options.version)} home=${label(options.home)}`);
 		lines.push(`execution: env=${label(session.resolved.env)} cwd=${label(session.cwd)}`);
+		const cli = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
+		let cliAvailable = true;
+		try {
+			await access(cli);
+		} catch {
+			cliAvailable = false;
+		}
+		const local = session.resolved.env === "local";
+		lines.push(
+			local
+				? `management: scope=local home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${cliAvailable ? label(cli) : "unknown"}`
+				: `management: scope=host-only home=${label(options.home)} version=${label(options.version)} node=${label(process.execPath)} nodeVersion=${label(process.version)} cli=${cliAvailable ? label(cli) : "unknown"} remoteHome=unknown remoteNode=unknown remoteCli=unknown`,
+		);
 		const clock = formatClock((options.now ?? Date.now)(), options.locale, options.timezone);
 		lines.push(
 			`host: platform=${process.platform} prepared=${clock.utc} locale=${label(options.locale)} timezone=${label(options.timezone)}`,

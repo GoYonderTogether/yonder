@@ -163,13 +163,13 @@ test("participation plugin references require loading and the matching Bot profi
 	);
 	const config = parseYonderConfig(JSON.stringify({ schema: 1 }), "yonder.yaml");
 	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]))).toEqual([]);
-	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set())).toContain(
-		"a/social/group: participation plugin not loaded alternative",
-	);
+	const missingPlugin = socialReferenceErrors(config, new Map([["a", agent]]), new Set());
+	expect(missingPlugin.join(" ")).toContain("participation plugin alternative is not loaded");
+	expect(missingPlugin.join(" ")).toContain("load its actual package/source and restart");
 	agent.profiles.main!.plugins = [];
-	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]))).toContain(
-		"a/social/group: participation plugin must be selected by a matching batch profile alternative",
-	);
+	const missingSelection = socialReferenceErrors(config, new Map([["a", agent]]), new Set(["alternative"]));
+	expect(missingSelection.join(" ")).toContain("no matching alternative.batch-ready binding");
+	expect(missingSelection.join(" ")).toContain("run yonder agents validate");
 	expect(() => parse({ defaults: { group: { plugin: "plugin:not-an-id" } } })).toThrow();
 });
 
@@ -289,12 +289,12 @@ test("default social batch profiles need the same plugin admission checks as exp
 		}),
 	);
 	const config = parseYonderConfig(JSON.stringify({ schema: 1 }), "yonder.yaml");
-	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["social"]))).toContain(
-		"a/batch: participation plugin must be selected by batch profile main: social",
-	);
+	const missingSelection = socialReferenceErrors(config, new Map([["a", agent]]), new Set(["social"]));
+	expect(missingSelection.join(" ")).toContain("participation plugin social is not selected by batch profile main");
+	expect(missingSelection.join(" ")).toContain("run yonder agents validate/update");
 	agent.profiles.main = { plugins: ["social"] };
 	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set(["social"]))).toEqual([]);
-	expect(socialReferenceErrors(config, new Map([["a", agent]]), new Set())).toContain(
-		"a/batch: participation plugin not loaded social",
-	);
+	const missingPlugin = socialReferenceErrors(config, new Map([["a", agent]]), new Set());
+	expect(missingPlugin.join(" ")).toContain("participation plugin social is not loaded");
+	expect(missingPlugin.join(" ")).toContain("load its actual package/source and restart");
 });

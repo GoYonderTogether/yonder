@@ -223,6 +223,9 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.event).toEqual(event);
 		expect(prepared.text).toContain(`runtime: version=${row.version} home=${directory}`);
 		expect(prepared.text).toContain(`execution: env=local cwd=${directory}`);
+		expect(prepared.text).toContain(`management: scope=local home=${directory} version=${row.version}`);
+		expect(prepared.text).toContain(`node=${process.execPath} nodeVersion=${process.version}`);
+		expect(prepared.text).toMatch(/management: .*cli=.*packages\/cli\/dist\/index\.js/u);
 		expect(prepared.text).toContain(`host: platform=${process.platform} prepared=`);
 		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
 		expect(prepared.text).toContain("星期五");
@@ -287,6 +290,16 @@ test("custom events retain complete data and message labels cannot break the tur
 		const passive = await prepareInput(row, session, event, "write", options);
 		expect(passive.text).not.toContain("runtime: version=");
 		expect(passive.text).not.toContain("host: platform=");
+		expect(passive.text).not.toContain("management: ");
+		const remote = await prepareInput(
+			row,
+			{ ...session, resolved: resolveProfile({ env: "remote" }) },
+			event,
+			"run",
+			options,
+		);
+		expect(remote.text).toContain("management: scope=host-only");
+		expect(remote.text).toContain("remoteHome=unknown remoteNode=unknown remoteCli=unknown");
 		const input = newEvent({
 			type: "message.in",
 			from: "acct:cli:local",

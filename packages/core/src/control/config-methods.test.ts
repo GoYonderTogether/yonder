@@ -48,6 +48,8 @@ it("config.get is redacted: routing, limits and social only, never a credential"
 		expect(typeof view.revision).toBe("string");
 		expect(view).toHaveProperty("limits");
 		expect(view).toHaveProperty("social");
+		for (const field of ["workspace", "env", "profiles", "defaultProfile", "bindings", "plugins", "tools"])
+			expect(view).not.toHaveProperty(field);
 		// 脱敏：任何凭据/密钥/提供方块都不出现在读视图里。
 		const json = JSON.stringify(view);
 		expect(json).not.toMatch(/apiKey|api_key|secret|credential|"sk-/i);
@@ -66,7 +68,10 @@ it("config.update writes agent.yaml atomically, reloads, audits and shows up in 
 		).rejects.toMatchObject({ code: "conflict" });
 		await expect(
 			call("config.update", { expectedRevision: before.revision, patch: { nope: true } }),
-		).rejects.toMatchObject({ code: "invalid_params" });
+		).rejects.toMatchObject({
+			code: "invalid_params",
+			message: expect.stringContaining("yonder agents show/validate/update"),
+		});
 		await expect(call("config.update", { expectedRevision: before.revision, patch: {} })).rejects.toMatchObject({
 			code: "invalid_params",
 		});
@@ -134,7 +139,10 @@ it("config.get/update target only the requested existing profile", async () => {
 			revision: string;
 		};
 		expect(before.profile).toBe("secondary");
-		await expect(call("config.get", { profile: "missing" })).rejects.toMatchObject({ code: "not_found" });
+		await expect(call("config.get", { profile: "missing" })).rejects.toMatchObject({
+			code: "not_found",
+			message: expect.stringContaining("existing profile names"),
+		});
 		const updated = (await call("config.update", {
 			profile: "secondary",
 			expectedRevision: before.revision,
