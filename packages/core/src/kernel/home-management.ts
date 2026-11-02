@@ -6,11 +6,11 @@ import lockfile from "proper-lockfile";
 import { parseDocument } from "yaml";
 import {
 	type AgentConfig,
-	type YonderConfig,
 	loadPresets,
 	loadYonderConfig,
 	parseYonderConfig,
 	resolveProfile,
+	type YonderConfig,
 } from "../config/index.js";
 import { type LoadedPlugins, loadPlugins, pluginDirectory } from "../plugins/index.js";
 import { scaffoldWorkspace } from "../prompt/index.js";
