@@ -1,0 +1,205 @@
+# iOS 构建与 TestFlight 分发（docs/spec/09 §6.5）。
+#
+# 触发方式与 android-release.yml 相同：release.yml 在正式 Release 公开后以发版 tag 显式派发
+# （`gh workflow run ios-release.yml --ref v$VERSION -f version=… -f expected_commit=…`）。
+# 不依赖 `release: published`：本仓 Release 由 release.yml 用 GITHUB_TOKEN 创建，GITHUB_TOKEN
+# 产生的事件不会再触发任何工作流；那个触发器只为手工在网页上公开 Release 的场合保留。
+#
+# 签名材料全部来自 secrets，构建后立即删除：
+#   IOS_DISTRIBUTION_CERT_P12_BASE64  Apple Distribution 证书 + 私钥（p12，导出密码见下）
+#   IOS_DISTRIBUTION_CERT_PASSWORD    p12 的导出密码
+#   IOS_PROVISIONING_PROFILE_BASE64   App Store 分发 profile（profiles 资源，IOS_APP_STORE）
+#   IOS_TEAM_ID                       团队 ID（D4UZU32UN9）
+#   ASC_API_KEY_ID / ASC_API_ISSUER_ID / ASC_API_PRIVATE_KEY_BASE64
+#                                     App Store Connect API Key，用于上传 TestFlight
+#
+# 导出用 xcodebuild -exportArchive 而不是 tauri 的导出步骤：后者生成的 ExportOptions 不带
+# provisioningProfiles 映射，实测报 `exportArchive requires a provisioning profile`。
+# 上传用 `xcrun altool --upload-app`：同一份 API Key 既导出又上传，不需要 App 专用密码。
+name: iOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 本次发布版本 0.<minor>.<YYMMDDNN>（不带 v）
+        required: true
+        type: string
+      expected_commit:
+        description: 发版 tag 应指向的完整 40 位提交 SHA；不一致就拒绝
+        required: true
+        type: string
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-release-${{ inputs.version || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: iOS TestFlight upload
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version && format('v{0}', inputs.version) || github.event.release.tag_name }}
+          fetch-depth: 1
+
+      # 版本只在这里确定：apps/desktop 不在 npm workspaces，bump-versions.mjs 不改它的
+      # package.json / tauri.ios.conf.json，所以不从仓库文件读版本。
+      - name: 核对 tag → 提交并确定版本
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -eu
+          tag="${INPUT_VERSION:-$RELEASE_TAG}"
+          tag="v${tag#v}"
+          version="${tag#v}"
+          [[ "$version" =~ ^0\.[0-9]+\.[0-9]{8}$ ]] || {
+            echo "::error::版本不是 0.<minor>.<YYMMDDNN>：$version"
+            exit 1
+          }
+          head_sha="$(git rev-parse HEAD)"
+          if [ -n "$EXPECTED_COMMIT" ]; then
+            [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::expected_commit 不是 40 位 SHA"; exit 1; }
+            [ "$head_sha" = "$EXPECTED_COMMIT" ] || {
+              echo "::error::$tag 指向 $head_sha，不是预期的 $EXPECTED_COMMIT"
+              exit 1
+            }
+          fi
+          # CFBundleVersion 只接受点分整数；0.3.26110208 → 26110208，与安卓 versionCode 同量纲。
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=${version##*.}" >> "$GITHUB_ENV"
+          echo "版本 $version，tag $tag，提交 $head_sha"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # 工具链与 apps/desktop/rust-toolchain.toml 一致；iOS 目标一次装齐。
+      - uses: dtolnay/rust-toolchain@1.99.0
+        with:
+          targets: aarch64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: 安装 apps/desktop 依赖
+        run: cd apps/desktop && npm install
+
+      - name: 还原签名材料
+        env:
+          CERT_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
+          PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -eu
+          [ -n "${CERT_BASE64:-}" ] || { echo "::error::缺少 secret IOS_DISTRIBUTION_CERT_P12_BASE64"; exit 1; }
+          [ -n "${CERT_PASSWORD:-}" ] || { echo "::error::缺少 secret IOS_DISTRIBUTION_CERT_PASSWORD"; exit 1; }
+          [ -n "${PROFILE_BASE64:-}" ] || { echo "::error::缺少 secret IOS_PROVISIONING_PROFILE_BASE64"; exit 1; }
+          [ -n "${TEAM_ID:-}" ] || { echo "::error::缺少 secret IOS_TEAM_ID"; exit 1; }
+          dir="$RUNNER_TEMP/yonder-signing"
+          mkdir -p "$dir" "$HOME/Library/MobileDevice/Provisioning Profiles"
+          keychain="$dir/yonder.keychain-db"
+          keychain_password="$(openssl rand -hex 16)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$CERT_BASE64" | base64 --decode > "$dir/dist.p12"
+          printf '%s' "$PROFILE_BASE64" | base64 --decode > "$dir/yonder.mobileprovision"
+          # 分区列表不设的话 codesign 报 errSecInternalComponent（本地实测过）。
+          security import "$dir/dist.p12" -k "$keychain" -P "$CERT_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          cp "$dir/yonder.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$(uuidgen).mobileprovision"
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+          security find-identity -v -p codesigning "$keychain"
+
+      - name: 初始化 iOS 工程并重放图标与签名设置
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_PROFILE_NAME: Yonder App Store
+        run: |
+          set -eu
+          cd apps/desktop
+          npx --no-install tauri ios init --ci
+          node prepare-ios.mjs
+
+      - name: 归档
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -eu
+          cd apps/desktop
+          npx --no-install tauri ios build --target aarch64 --archive-only --build-number "$BUILD_NUMBER"
+          archive="$(find src-tauri/gen/apple/build -maxdepth 1 -name '*.xcarchive' | head -1)"
+          [ -n "$archive" ] || { echo "::error::没有生成 xcarchive"; exit 1; }
+          echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
+
+      # tauri 生成的 ExportOptions 不带 provisioningProfiles，导出会失败；这里写一份完整的。
+      - name: 导出 IPA
+        run: |
+          set -eu
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>iPhone Distribution</string>
+            <key>destination</key><string>export</string>
+            <key>uploadSymbols</key><true/>
+            <key>provisioningProfiles</key>
+            <dict><key>net.yonderbot.app</key><string>Yonder App Store</string></dict>
+          </dict>
+          </plist>
+          PLIST
+          mkdir -p dist-ios
+          xcodebuild -exportArchive -archivePath "$ARCHIVE" \
+            -exportPath "$PWD/dist-ios" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist"
+          ipa="$(find dist-ios -name '*.ipa' | head -1)"
+          [ -n "$ipa" ] || { echo "::error::没有导出 IPA"; exit 1; }
+          mv "$ipa" dist-ios/yonder-ios.ipa
+          ls -l dist-ios/yonder-ios.ipa
+
+      - name: 上传 TestFlight
+        env:
+          KEY_BASE64: ${{ secrets.ASC_API_PRIVATE_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+        run: |
+          set -eu
+          [ -n "${KEY_BASE64:-}" ] || { echo "::error::缺少 secret ASC_API_PRIVATE_KEY_BASE64"; exit 1; }
+          [ -n "${KEY_ID:-}" ] || { echo "::error::缺少 secret ASC_API_KEY_ID"; exit 1; }
+          [ -n "${ISSUER_ID:-}" ] || { echo "::error::缺少 secret ASC_API_ISSUER_ID"; exit 1; }
+          keydir="$RUNNER_TEMP/asc/private_keys"
+          mkdir -p "$keydir"
+          printf '%s' "$KEY_BASE64" | base64 --decode > "$keydir/AuthKey_$KEY_ID.p8"
+          chmod 600 "$keydir/AuthKey_$KEY_ID.p8"
+          # altool 会在 HOME 下的 private_keys 目录找 key：--api-key-path 必须给文件本身。
+          xcrun altool --upload-app -f dist-ios/yonder-ios.ipa -t ios \
+            --api-key "$KEY_ID" --api-issuer "$ISSUER_ID" \
+            --api-key-path "$keydir/AuthKey_$KEY_ID.p8"
+
+      - name: 上传 GitHub Release 资产
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" dist-ios/yonder-ios.ipa --clobber
+
+      - name: 清理签名材料
+        if: ${{ always() }}
+        run: |
+          rm -rf "$RUNNER_TEMP/yonder-signing" "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist"
+          rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles"
+          rm -f apps/desktop/src-tauri/gen/apple/.icon-opaque.png
