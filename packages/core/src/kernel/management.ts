@@ -147,7 +147,7 @@ export async function manageObjects(home: string, request: ObjectRequest, state:
 					) {
 						if (await state.files(config, id).exists("."))
 							throw new Error(
-								"New workspace already exists; choose a path that does not exist, run agents.validate, retry agents.update, then verify with agents.show",
+								"New workspace already exists; workspace/env request a location or environment change. If the request only changes the model or group policy, omit workspace/env from agents.update and keep only the requested fields, then run agents.validate/update and verify with agents.show. Only when the original request explicitly asks for a migration, choose an unused workspace path, handle open sessions, then validate/update and read back with agents.show; never overwrite or move the existing workspace implicitly.",
 							);
 					}
 					const { archivedAt: _, ...stored } = withoutRuntimeBindings(
