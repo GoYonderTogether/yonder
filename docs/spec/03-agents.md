@@ -180,6 +180,8 @@ notice: yonder harness updated from 0.1.0 to 0.1.1; details: yonder changelog --
 
 每次原生模型请求可在稳定 system 前缀之后追加独立的模型事实段，只含本请求由运行时实际选择的 provider/model/thinking 及配置首选。fallback 后随实际选择更新，不从当前 YAML 猜历史模型；这一段不混入稳定底座、时间或外部正文。输入时刻的 `<turn>` 无法预知之后的 fallback。附件行同时给出来源 message/index；本轮提供 `conversation_attachment_read` 时指明受限入口，不把缓存路径暗示为任意文件读取权限。
 
+配置操作的入口定位由宿主事实提供：本机执行环境中给出实际可用的 CLI 入口、Node 与 home；入口未知时明确未知，不要求用户提供开发路径。远程执行环境只说明这是宿主管理入口，不冒充远端可执行文件。配置方法沿真实工具、随包 skill/docs 发现，测试不得用 user message 补产品缺失的操作知识。
+
 ### 5.4 SOUL.md 与 AGENTS.md 模板
 
 context-files 的 `soul-md`、`agents-md` 保持通用文件读取和空模板语义；未经编辑的空模板不注入提示词。

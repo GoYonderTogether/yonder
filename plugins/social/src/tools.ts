@@ -70,7 +70,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_update",
 		description:
-			"First call social_inspect for this agent/conv and pass its revision as expectedRevision. Preview with dryRun omitted/true; set dryRun:false only when the current owner request authorizes applying it. Then call social_inspect again to verify the effective policy and revision. If the revision conflicts, inspect fresh state and rebuild the patch; if denied, report the actual capability/authorization gap without changing permissions or retrying unchanged. For @-only replies set mode=mention and signals botMention=respond, ownerMention/groupOwner/everyone/keyword=record.",
+			"First call social_inspect for this agent/conv and pass its revision as expectedRevision. Preview with dryRun omitted/true; set dryRun:false only when the current owner request authorizes applying it. Then call social_inspect again to verify the effective policy and revision. If the revision conflicts, inspect fresh state and rebuild the patch; if denied, report the actual capability/authorization gap without changing permissions or retrying unchanged. For @-only participation set mode=mention and signals botMention=respond, ownerMention/groupOwner/everyone/keyword=record. For an owner request to watch ordinary messages and decide whether to reply, use mode=batch with batch.run=true, preserving the existing batch window and explicit limits. This enables ordinary batches, not a reply to every message. listen=realtime only describes intake and does not enable model participation. Use mode=record for recording only and mode=mute to pause participation.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{
@@ -165,7 +165,7 @@ export function registerSocialTools(api: PluginAPI, groupIndex?: GroupIndex) {
 	api.tools.register({
 		name: "social_group_mode_set",
 		description:
-			"Inspect this agent/conv first to see the effective mode and revision. This tool reads the current revision internally; preview by default, or set dryRun:false only for a currently owner-authorized request. Inspect again after applying to verify. If denied, report the capability/authorization gap; do not change profile permissions or retry unchanged.",
+			"Inspect this agent/conv first to see the effective mode and revision. This tool reads the current revision internally; preview by default, or set dryRun:false only for a currently owner-authorized request. Inspect again after applying to verify. mode=batch alone does not enable ordinary model batches: use social_update with batch.run=true when the owner wants all ordinary messages considered. If denied, report the capability/authorization gap; do not change profile permissions or retry unchanged.",
 		capabilities: ["admin"],
 		parameters: Type.Object(
 			{

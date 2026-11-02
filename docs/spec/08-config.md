@@ -173,6 +173,8 @@ Agent defaults/profile 与 preset 都可通过 `prompt.sections` 选择内置段
 
 默认 batch 为 run false、count 20、delaySeconds 60、maxMessages 100、maxBytes 16384，minIntervalSeconds 60；run 为 true 时允许无 judge 的批次直接运行，未配置或为 false 时保留未读。judge 显式配置后使用来源配置档的 cheap 或 simple，缺失或失败时保留未读，不回退主模型；foldedEverySeconds 21600，judge 关闭，启用后 maxCallsPerHour 默认 6。信号默认 botMention=respond，其余 ownerMention/groupOwner/everyone/keyword=consider；keywords 默认空，按 Unicode NFC 字面匹配。quiet 未配置时不猜时区或睡眠时间。
 
+明确 `batch.run: true` 表示普通的已获准批次在既有窗口/显式限制满足后可交模型判断；群发言协调不得再以关键词、关注或未满 count 阈值把这些消息标为模型已处理而跳过运行。显式 denied/mute/record/quiet、被明确指向其他人的任务、Bot 不自触发与群机会/冷却边界仍有效。`listen: realtime` 只描述接收，不自动启用模型参与；`mode: batch` 单独也不替代 `batch.run: true`。无明确授权的普通默认保持 run:false。
+
 ### 官方 QQ 群的默认参与范围
 
 允许入站、且已由该 Bot 的官方群绑定（`kind: group`，`wake: write`，`persistent/per: conv`，`reply: none`）接纳的 QQ 群，在该 Bot 的 `social.scope` 未写或不含该会话时派生出受限的默认范围；这是解析期的有效默认，不写进 `agent.yaml`，也不新增配置键。默认范围只允许**硬触发**运行——可信原生 @、可核验的回复/引用、配置的名字元素与 keywords、成功回复后的 300 秒关注（11 §「群聊独立参与与共享协调」）——其余公开消息只推进旁观游标并记录。自主批次沿用本节的 `batch` 字段：缺省 `run: false` 时**不得**回落到旧「观察窗口非空就运行」，只有显式 `batch.run: true` 才允许无硬触发的批次运行。
