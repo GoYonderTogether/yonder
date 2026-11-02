@@ -75,9 +75,15 @@ async function start(options: Options, rest: string[]): Promise<number> {
 	const stopped = new Promise<void>((resolve) => {
 		finish = resolve;
 	});
+	let finishStartup!: () => void;
+	const startup = new Promise<void>((resolve) => {
+		finishStartup = resolve;
+	});
 	const stop = () => {
 		if (closing) return closing;
 		closing = (async () => {
+			// A stop can arrive while the gateway is still creating its listener/descriptor.
+			await startup;
 			awake.close();
 			await status.stop();
 			await gateway?.close();
@@ -96,19 +102,19 @@ async function start(options: Options, rest: string[]): Promise<number> {
 			stop: () => void stop(),
 		};
 		kernel.setWorkHost((id) => workControl(host, id));
-		control = await serveControl(home, controlHandler(host));
 		if (!rest.includes("--no-gateway") && (await gatewaySettings(home)).enabled) {
 			gateway = await startGateway({ home, host });
 			host.gateway = gateway;
 			output({ gateway: `http://127.0.0.1:${gateway.port}/` }, options.json);
 		}
+		// Publishing control is the startup-ready boundary, after every listener is owned.
+		control = await serveControl(home, controlHandler(host));
 	} catch (error) {
-		awake.close();
-		await status.stop();
-		await gateway?.close();
-		await control?.close();
-		await kernel.close();
+		finishStartup();
+		await stop();
 		throw error;
+	} finally {
+		finishStartup();
 	}
 	const signal = () => void stop();
 	process.once("SIGINT", signal);
