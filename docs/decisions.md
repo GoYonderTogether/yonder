@@ -1,5 +1,16 @@
 # 决策记录
 
+## 2026-11-02 iOS 接入发版与 TestFlight（主人要求）
+
+主人要求安卓与 iOS 都真实提交源码、真实发版，并在本机模拟器与 iPhone 17 Pro 上实测。iOS 侧最初完全没有发布通道：仓库中没有 iOS 工作流，App Store Connect 里也没有 `net.yonderbot.app` 的 App 记录。
+
+- **App 记录与 profile 用 API 与网页后台补齐**：App 记录只能从 App Store Connect 网页创建（API 无此能力），已在后台建好（App ID 6829804055，SKU `net.yonderbot.app`）；App Store 分发 profile 用 App Store Connect API 创建。Bundle ID 早已注册，分发证书与私钥配对，缺的只是 profile 与 App。
+- **发版链**：新增 `ios-release.yml`，与安卓、桌面同一套「Release 公开后按 tag 派发」的模式。归档用 `tauri ios build --archive-only`，导出必须用带 `provisioningProfiles` 映射的 ExportOptions（Tauri 自带的导出不带映射，实测失败），上传用 App Store Connect API Key 走 `altool --upload-app`。签名材料全在 secrets，构建后删除。
+- **生成目录的可靠重放**：`gen/apple` 与 `gen/android` 一样不入库，`tauri ios init` 会重置签名设置与图标。`prepare-ios.mjs` 重放团队/手动签名/profile，并把品牌 PNG 铺白底重出无 alpha 的整套图标（App Store 拒绝带 alpha 的 1024 图标，上传报 90717）。
+- **不做**：不引入 fastlane、不上传 App Store 正式审核（只到 TestFlight）；不把证书或 API Key 写入仓库。
+
+代价：macOS runner 排队常超过十分钟，iOS 构建在 CI 上比安卓慢；App 记录、profile 与 secrets 是一次性外部状态，丢失证书私钥会导致无法继续用同一签名升级。见 09 §6.5。
+
 ## 2026-11-02 默认 Bot 中文名改为「小未」（主人要求）
 
 主人 2026-11-02 要求新账号默认 Bot 的中文名从「小歪」改为「小未」，取自 Yonder 的中文名「未至之境」；英文名 `Yonder Bot` 不变。网页端发送的默认名（`apps/app/src/lib/personalAgent.ts` 的 `DEFAULT_BOT`）与云端创建时的缺省名同步改，规范见 16 §「默认 Bot 与云端创建」。已有账号保持原名：服务端本来就在账号名下已有默认 Bot 时原样返回，不写数据库迁移，不批量改名。
