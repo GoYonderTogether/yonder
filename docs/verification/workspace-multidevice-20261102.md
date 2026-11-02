@@ -33,15 +33,15 @@
 |---|---|---|
 | W01 | 新会话运行位置真实，已有会话不暗中迁移 | 本机真实新会话、云登录导航和草稿保留通过；升级云内核后的选择待验收 |
 | W02 | 未指定/设备/多目录/多设备选择在运行中生效 | 浏览器设备与两目录、双TLS executor及完整kernel远程调用通过；混合本机资源回归已补 |
-| W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 本机Luna、云proxy DeepSeek真实成功；本机读取云目录和云内核回合待完成 |
+| W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 本机Luna、云proxy DeepSeek、本机完整Runtime经云目录调用DeepSeek均成功；云内核回合待完成 |
 | W04 | effort按模型能力展示、下一运行生效并恢复 | 结构化API与浏览器菜单通过；真实模型按实际目录能力展示 |
 | W05 | 主人默认bypass、readonly和自定义，渠道隔离 | owner真实Luna运行快照、访客伪造及steer隔离、child权限边界通过 |
 | W06 | 文件/图片/拖拽通过真实宿主附件进入模型 | 真实上传、拖放、Luna读原PNG、刷新持久化、授权下载逐字节核对通过 |
 | W07 | 设备失联、撤销、重复命令无重复副作用 | controller20例，双真实TLS取消、重启账本去重，多Card同账本真实4/4；云设备失联场景待验收 |
 | W08 | 桌面/窄屏真实页面可操作并有截图 | 1440与390真实Gateway验收通过，无pageerror/横向溢出；生产静态待发布 |
-| W09 | Linux完整内核和execution-only实际安装 | 待实现验证 |
+| W09 | Linux完整内核和execution-only实际安装 | Linux ARM64裸容器离线四包安装execution-only及真实配对/工具已通过；amd64完整内核构建中 |
 | W10 | 真实模型本机/云端与远程设备链 | 本机Luna双设备、完整kernel、owner隔离均通过；用户批准云端改用DeepSeek/GLM，proxy成功，完整云回合待完成 |
-| W11 | 完整build/typecheck/test/lint及发布版本 | 待实现验证 |
+| W11 | 完整build/typecheck/test/lint及发布版本 | 固定8f620a0a全门禁通过；后续服务补丁28610177 build/typecheck/lint与定向通过；Windows CI一处路径断言待修，正式发布待完成 |
 | W12 | 线上静态/后端/本机安装状态分别核对 | 待实现验证 |
 
 ## 初始事实与边界
@@ -103,6 +103,15 @@
 - `19eb6451`真实浏览器验证图片820×121、下载PNG SHA256与用户原附件相同，txt逐字匹配；刷新后可查看。390×844无横向溢出、无pageerror；截图为 `attachments-preview-download-desktop.png` 与 `attachments-preview-download-mobile.png`。
 - 云端发布前预览仅覆盖真实新静态，API/WS仍为生产真实服务：owner模型连接GET与名称PUT200后恢复，key输入始终为空，实例页真实展示“工作台未就绪”。这不是新静态已上线或云模型浏览器回合验收。
 - Docker Hub的amd64镜像首轮拉取未完整，报缺layer，尚未进入Linux构建；正在使用已验证Linux工具链准备替代构建路径，不混用Mac原生产物。
+
+## 完整门禁复验与本机云模型
+
+- 固定 `8f620a0a` 的完整build/typecheck/test/test:node/lint最终均通过。Vitest：488文件通过、67跳过；2633测试通过、112跳过，566.47s；Node65/65。lint零error，1247 warning/35 info；大小及分层检查均零基线。默认跳过的真实模型用例另有前述实际运行证据，不把跳过计为通过。
+- 后续 `49b08716` 保留显式配置的macOS服务标准代理环境，安装与重装优先保留已有值，不继承其他shell秘密、不写本机地址为产品默认。实现者3文件6例通过；主Agent干净检出 `28610177` 后build/typecheck/lint与2文件3个匹配回归通过。
+- 本机真实Runtime经正式账号目录、cloud provider凭据wrapper、session.submit，实际DeepSeek返回完成及 `CLOUD_RUNTIME_CONFIRMED`；日志 `/tmp/yonder-runtime-cloud-real.log`。目录为1个cloud provider、issues为空。首次裸fetch/临时网络失败已记录；显式Node环境代理路径成功。安装服务原来没有代理环境，本轮已备份plist并设置进程级网络，待正式update后验证常驻服务，不修改系统Clash。
+- `28610177` CI的Linux和macOS通过；Windows x64首次2614通过、1失败、131跳过，失败为remote-search完整路径断言使用本地反斜杠而输出统一正斜杠。正在修正跨平台预期，保留真实路径和anchor断言；Windows ARM64尚未完成。
+- Linux ARM64、Node24.22.2裸容器 `--network none`：独立安装device/protocol/typebox/ws四包，真实TLS双向配对、默认provider读写、重复commandId append仅一次、真实process stdout/exit7、只读写拒绝及授权根外读取拒绝均通过。未启动Agent/model、未复制Mac原生库；临时容器/配对材料已清理。证据 `yonder-review-artifacts/workbench-20261102/LINUX-EXECUTION-ONLY.md` 与同目录日志。
+- Linux amd64完整构建：镜像回传过慢后改用服务器独立Docker，限制1CPU、1536MiB RAM/1792MiB含swap。npm ci成功565包/53秒；首轮原生TypeScript编译器被cgroup OOM终止，只有构建容器受影响，前后线上健康。下一次保持硬限制，按已证实的Go编译器内存问题设置GOMEMLIMIT/GOGC再验证，不提高生产资源配额。
 
 ## 已知实现边界
 
