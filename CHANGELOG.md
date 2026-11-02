@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- channel：主人私有 main 摘要为已绑定群会话补充精确平台名称；未知标签不证明成员资格或权限。
+- kernel：`parent_ask`主会话输入以已核验的主人原文为目标，分身转述仅作辅助说明。
 - runtime：原生持久 Inbox 按核验来源分轮，同源 steer 续办，异源独立交付；显式 interrupt 保留跨源取消并入当前轮，保持群历史隔离。
 - social：创建缺省 conversations 时写入 YAML mapping 节点，允许 social.update 写入精确会话策略。
 - prompt：明确工具搜索不能扩权，但主人授权的配置变更可走现有管理路径。
