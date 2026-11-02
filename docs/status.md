@@ -8,11 +8,11 @@
 
 运行位置与资源工作区已分开实现：会话选择实际云端或设备Harness，工作区可指定多设备/多目录、仅设备或沿用Bot授权集合。供应商/模型/effort合并选择，模型来源限云端及运行宿主；主人工作台权限覆盖、运行快照、文件图片上传与持久查看/下载已接通，普通渠道不继承主人bypass。设计见[19 §7](spec/19-device-workbench.md#7-运行位置资源工作区与模型2026-11-02-主人批准实施)。
 
-已验证本机真实Luna、云端真实DeepSeek、Linux完整Harness与独立execution-only安装，以及物理云Linux→Mac的模型read/bash和结果回读；设备离线明确返回unknown，重连原commandId的测试副作用仅一次。云端后端已部署，现有云Runtime实际构建来源为 `8f620a0`，不是新版静态的正式发行身份。WorkBuddy测试模型仍依赖Mac在线。`7d5b2b7a` 全平台CI通过，正式 **v0.3.26110208** 已公开；线上静态精确对应tag92c30164，本机正式升级重验verified且真实云模型调用通过。生产浏览器闭环通过后发现模型按钮的effort和原始供应商ID显示问题，已修源码，等待后续正常发版与定向复验。发行后的tag CI与桌面/安卓追加构建另记，不以派发代替完成。原始失败、实际计数、部署来源和剩余清单见[完整验收记录](verification/workspace-multidevice-20261102.md)。
+已验证本机真实Luna、云端真实DeepSeek、Linux完整Harness与独立execution-only安装，以及物理云Linux→Mac的模型read/bash和结果回读；设备离线明确返回unknown，重连原commandId的测试副作用仅一次。正式 **v0.3.26110209** 已公开，网页静态与本机正式服务均精确对应tag `dc45befd`，本机原始升级回执verified、真实云模型回合通过。生产桌面和390px复验确认模型名优先、真实供应商名可见，目录确认不支持effort调整时隐藏无效档位，无横向溢出或pageerror。临时设备、授权及验收登录已清理，云端历史保留。云后端仍为 `52692f5`，云Runtime保留已验收Linux构建 `8f620a0`；WorkBuddy测试模型依赖Mac在线。完整计数、原始失败与发行后检查快照见[验收记录](verification/workspace-multidevice-20261102.md)。
 
-## 当前 main 的 CI 状态（2026-11-02 核对）
+## v09发布门禁与安装证据（2026-11-02）
 
-`v0.3.26110208` 由 `7d5b2b7a` 全平台通过的 CI 门禁发布，本轮安装与分发改动包含在该 tag 里。此后 main 上的 `0a93b1f3` / `c14b2313`（父会话可操作性投影）提交了引用 `packages/core/src/kernel/operability.ts` 的代码，但没有提交该文件，导致后续 CI 在所有平台报 `TS2307: Cannot find module './operability.js'`。修复提交 `fa3028a8` 只存在于本机、尚未推送；这属于另一条在途工作，本页不代它宣布已修复。
+`41cccfed` 的发布前CI `41467977328` 全平台成功，正常Release `41470496669` 公开v09。先前漏交operability类型导致的TS2307已补齐并推送，随后完整实现由原任务合入；原失败保留在验收记录。Windows x64/ARM64源码检查各2646通过/0失败/131跳过；v09两架构的一行安装、启动/控制状态/停止/重启CI均成功。桌面macOS/Windows与签名Android APK构建、上传作业成功，仍不代表干净实机GUI或安卓真机验收。精确发行tag的追加CI最后快照仅ARM64全量回归仍运行，其余任务成功，不以派发当作完成。
 
 ## 安装与分发（2026-11-02，代码已接线，验收只做了一部分）
 

@@ -31,18 +31,18 @@
 
 | ID | 必须证明的行为 | 当前证据 |
 |---|---|---|
-| W01 | 新会话运行位置真实，已有会话不暗中迁移 | 本机真实新会话、云登录导航和草稿保留通过；云Linux实际新会话与持久化通过，正式网页选择待验收 |
+| W01 | 新会话运行位置真实，已有会话不暗中迁移 | 本机真实新会话、云登录导航和草稿保留通过；生产UI在实际cloud Runtime创建session113，资源/模型/权限回读匹配，历史不迁移 |
 | W02 | 未指定/设备/多目录/多设备选择在运行中生效 | 浏览器设备与两目录、双TLS executor及完整kernel远程调用通过；混合本机资源回归已补 |
 | W03 | 宿主模型与云模型真实调用，其他设备模型不可选 | 本机Luna、云proxy DeepSeek、本机及云端完整Runtime真实DeepSeek会话均成功 |
-| W04 | effort按模型能力展示、下一运行生效并恢复 | 结构化API与浏览器菜单通过；真实模型按实际目录能力展示 |
+| W04 | effort按模型能力展示、下一运行生效并恢复 | API/本机Luna及菜单通过；v09生产复验实际off-only云模型隐藏存量medium，真实模型名和provider展示名正确，支持effort的既有行为保留 |
 | W05 | 主人默认bypass、readonly和自定义，渠道隔离 | owner真实Luna运行快照、访客伪造及steer隔离、child权限边界通过 |
 | W06 | 文件/图片/拖拽通过真实宿主附件进入模型 | 真实上传、拖放、Luna读原PNG、刷新持久化、授权下载逐字节核对通过 |
-| W07 | 设备失联、撤销、重复命令无重复副作用 | controller20例，双真实TLS取消、重启账本去重，多Card同账本真实4/4；云设备失联场景待验收 |
-| W08 | 桌面/窄屏真实页面可操作并有截图 | 1440与390真实Gateway验收通过，无pageerror/横向溢出；生产静态待发布 |
+| W07 | 设备失联、撤销、重复命令无重复副作用 | controller20例，双真实TLS取消、重启账本去重，多Card同账本真实4/4；续办中物理云→Mac离线明确unknown、重连原commandId副作用仅一次通过 |
+| W08 | 桌面/窄屏真实页面可操作并有截图 | 本机与生产v09桌面1440/手机390真实页面通过，无pageerror/横向溢出，已保存最终截图 |
 | W09 | Linux完整内核和execution-only实际安装 | Linux ARM64裸容器离线四包execution-only通过；Linux amd64完整Harness实际安装且online/workProtocol=1 |
-| W10 | 真实模型本机/云端与远程设备链 | 本机Luna双TLS executor、完整kernel、owner隔离通过；云DeepSeek真实session通过。物理云Linux→Mac配对/中继通过，工具回合未通过，见下文 |
-| W11 | 完整build/typecheck/test/lint及发布版本 | 固定8f620a0a全门禁通过；后续服务补丁28610177 build/typecheck/lint与定向通过；Windows CI一处路径断言待修，正式发布待完成 |
-| W12 | 线上静态/后端/本机安装状态分别核对 | 待实现验证 |
+| W10 | 真实模型本机/云端与远程设备链 | 本机Luna双TLS executor、完整kernel、owner隔离通过；云DeepSeek真实session通过。续办物理云Linux→Mac模型read/bash及回读通过，见下文 |
+| W11 | 完整build/typecheck/test/lint及发布版本 | 最新联合源码41cccfed全平台CI41467977328成功；正式v0.3.26110209已公开，tagdc45befd、41个核心附件；原始失败/跳过另记 |
+| W12 | 线上静态/后端/本机安装状态分别核对 | 网页v09/dc45befd、后端52692f5、云Runtime8f620a0、本机v09/dc45befd分别确认；本机原始verified+真实云模型、生产浏览器闭环及按钮复验通过 |
 
 ## 初始事实与边界
 
@@ -52,19 +52,21 @@
 
 目录资源选择约束文件工具和执行目标，不宣称任意shell被cwd隔离；云端凭据受信服务能在调用时解密。设备保留最小命令账本，会话权威仍在所属Harness的pi-durable。
 
-## 当前阶段与后续清单
+## 当前交付与发行后检查
 
-核心功能已实现并推送；云端后端与Linux内核已部署，真实模型会话与附件通过。**尚未完成本轮正式Harness发版、新静态网页发布、本机正式服务升级以及物理云Linux→Mac工具回合。** 此文档是阶段证据，不是全部验收通过声明。
+本轮工作台基本组合、物理多端闭环、正式发版、网页上线与本机升级已落地。最终正式版 **v0.3.26110209** / `dc45befdc126e2c4fc5acfcca18b02c819b21522`，网页和本机实际匹配；云后端与云Runtime来源保持独立记录。v08验收发现的两处模型按钮显示问题已随v09发布并通过生产桌面/窄屏定向复验。临时执行设备和网页登录均已撤销，用户数据与云会话历史保留。
 
-下一步按顺序完成：
+原阶段清单的完成情况：
 
-1. 主分支并发群聊/Windows任务修复各自发布门禁，等待精确提交的完整CI通过。本轮不扩大修复范围。
-2. 沿既有Release流程正式发版，再触发云仓Deploy web，核对线上build-version与正式tag/SHA。
-3. 按正常 `yonder update --to <正式tag>` 更新本机，核home、source、PID/ready以及已准备的进程代理环境，验证常驻服务读取云模型。
-4. 重新创建短期验收登录，验证正式网页运行位置、工作区、模型/effort与附件后立即撤销。
-5. 物理Mac工具回合单列未通过项：先解决真实时钟/会话有效期条件，再进行一次云Linux→Mac实际工具与断线验收；不放宽签名、不把同机测试充当物理多机成功。
+1. 已完成：联合源码 `41cccfed` 全平台发布前CI成功，未绕过门禁。
+2. 已完成：正式v09公开；Cloud Deploy web `41470908882` success，线上build-version精确匹配v09/完整dc45befd提交。
+3. 已完成：检测并等待已有正常v09更新进程，避免重复安装。原始回执verified=true，正式服务PID88649、ready=true、active0，真实云模型返回 `CLOUD_V09_CONFIRMED`。
+4. 已完成：v08实际UI创建cloud/local资源会话113，真实DeepSeek读取上传附件，刷新/下载SHA一致；v09只读复验两个按钮显示修复，桌面及390px无溢出/pageerror。各次临时登录已logout204、原cookie查询session为null，私有profile/token/helper已清理。
+5. 物理Mac工具回合已在主人授权校时后完成，断线与原命令重连不重放通过；保留云session41历史，临时设备和配对已撤销。不放宽签名、不把同机测试充当物理多机成功。
 
-2026-11-02用户要求阶段汇报、避免在不重要过程耗时，并将子Agent改用Terra/Luna。已按此交接；临时执行器和验收登录已清理，正式云实例/模型/历史保留，可据本清单继续。
+发行后追加检查最后快照：tag CI `41470708514` 的Linux/macOS/x64成功，ARM64仍在全量测试，尚无失败；Windows安装CI `41470713008` 两架构全成功；Desktop `41470723544` 和Android `41470717706` 构建及上传作业成功。构建不代表真实GUI/安卓设备安装验收；这些状态不覆盖先前失败记录。
+
+2026-11-02用户要求避免无关耗时、子Agent改Terra/Luna；本轮按此执行。没有发送跨聊天协调消息。WorkBuddy验收模型依赖Mac在线，独立云上游应由用户明确配置BYOK；官方模型订阅/支付仍是后续方向。设备持久接入按实际配对授权管理，不把已清理的临时Mac测试授权当作生产授权。
 
 ## 首批实现与定向检查
 
@@ -123,7 +125,7 @@
 - Linux ARM64、Node24.22.2裸容器 `--network none`：独立安装device/protocol/typebox/ws四包，真实TLS双向配对、默认provider读写、重复commandId append仅一次、真实process stdout/exit7、只读写拒绝及授权根外读取拒绝均通过。未启动Agent/model、未复制Mac原生库；临时容器/配对材料已清理。证据 `yonder-review-artifacts/workbench-20261102/LINUX-EXECUTION-ONLY.md` 与同目录日志。
 - Linux amd64完整构建：镜像回传过慢后改用服务器独立Docker，限制1CPU、1536MiB RAM/1792MiB含swap。npm ci成功565包/53秒；首轮原生TypeScript编译器被cgroup OOM终止，只有构建容器受影响，前后线上健康。下一次保持硬限制，按已证实的Go编译器内存问题设置GOMEMLIMIT/GOGC再验证，不提高生产资源配额。
 
-## 云端完成项与物理多端未通过项
+## 初轮云端完成项与物理多端未通过项
 
 - 在原硬限制下，Go编译器内存参数修正后Linux amd64完整build、prune、打包成功。实际包 `yonder-0.3.26110207-8f620a0.tar.gz`，SHA256 `532dd55737427d97fb54dba27ebbd245cc667e5b46c61b1787400f037e096f0d`，Node24.21.0；原服务前后健康。已安装到云Runtime，running/online/workProtocol=1，owner HTTPS work bridge查询bots/models/workspaces成功。
 - 云Linux真实session2使用cloud DeepSeek，返回done和 `ATTACHMENT_RECEIVED`；95,381字节真实PNG经HTTPS工作桥上传、提交、取回，字节长度与SHA256一致。证明附件传输及模型接受，不声称视觉识别质量。会话宿主是Linux容器 `/home/node/harness`。
@@ -132,7 +134,7 @@
 - 按用户“不钻牛角尖、减少无关耗时”要求停止深入时钟排查。Mac临时executor、Card设备、云配对/auth slot与本机临时材料已清理；正式云Runtime、模型连接、原WorkBuddy通道与会话保留。临时owner网页登录待正式网页验收后显式撤销。
 - 用户要求子Agent改用Terra/Luna后，原实现Agent停止工作并交接；剩余云部署由Terra完成，发布故障的有限定位由Luna执行。既有成功用例未重新扩大运行。
 
-## 阶段发布阻塞与清理
+## 初轮发布阻塞与清理
 
 - 共享主分支随后合入群聊路由及桌面分发改动。最近核对CI为 `41443608695`，源码 `84c1833e`：群聊 `admit-batch.test.ts`、`participation-plugin.test.ts`、`plugins/social/test/ledger.golden.test.ts` 各1项失败；lint为social batches507行、kernel home504行、kernel index501行。Windows已编译成功，但托盘smoke缺产物 `YonderStatus.dll`。这是本轮正式发布的当前前置阻塞，不改断言或关闭门禁绕过。
 - 之前Windows尾逗号、Disposable/Timer/构造可见性与品牌资源引用已作最小修复；ARM SDK bootstrap曾崩溃，主分支已改用runner预装SDK。上述修复不等于最新整仓CI通过；后续由对应改动收敛后重新核验。
@@ -141,3 +143,37 @@
 ## 已知实现边界
 
 远程完整读文件当前上限512 KiB；超限明确报错或在搜索结果报告跳过数。只读远程grep/find使用受限文件API与JS正则、基础ignore语义（非本机rg/fd完全等价），正则worker超时1秒，扫描上限10000项。远程进程不支持stdin；输出在进程完成时返回，大输出溢写文件。权限目录限定不等于shell沙箱。云端WorkBuddy测试连接依赖Mac在线，正式独立云模型需使用云端可达供应商API连接。
+
+## 续办记录（2026-11-02）
+
+- 共享主分支已补 `b69d1483` 群聊测试契约、`dd0236c7` Windows产物和 `a9082d43` 文件行数修复。`a9082d43` 的CI `41446131473` 中Linux与macOS通过，Windows x64失败为PowerShell未等待GUI进程、未取到退出码，实际self-check随后打印PASS；不能将它直接算门禁通过。
+- `110b03bc` 将两处托盘smoke改为等待实际进程并检查ExitCode，未关闭检查；新CI为 `41447029296`。正式发版、网页部署和本机升级继续走原门禁，结果另记。
+- `110b03bc` 的Windows x64全量测试通过，lint为3 errors/1246 warnings/34 infos，诊断上限未显示3项具体路径。`7221d095` 排除确定属于构建中间产物的Windows status obj目录，并在Windows lint失败时单独输出error，不修改失败门禁；本机模拟obj验证被忽略，但不据此认定原3项错误来源。该提交的x64随后因既有真实PNG渲染20秒超时失败：488文件通过/1失败/69跳过，2628测试通过/1失败/131跳过；上一CI同项通过。未调超时或削弱断言，后续当前main的CI结果单独记录。
+- 远端main随后前进 `a6a6c0b5`，其CI `41450183041` attempt2的Windows x64为2636通过/5失败/131跳过，5项均为20秒超时，分布于gateway/tasks/wechat/core，未到lint；整套371秒，前轮约270秒。资源争用是待验证假设，不认定五个模块各有业务缺陷。`7d5b2b7a` 仅将Windows全量测试并发从4降至2，原测试、断言与20秒不变，新CI `41452545670` 验证；没有无变化重跑同配置或扩大业务修改。
+- `7d5b2b7a` 的CI `41452545670` 最终全平台success，包括Linux、macOS、Windows x64与ARM64实际测试、lint及设备RPC。Auto release `41455066053` success，正常正式Release `41455103019` 自动执行；未手工绕过CI或复用旧tag。正式版本、附件、线上静态与本机安装结果另记。
+- 正式Release `41455103019` 已公开 `v0.3.26110208`，tag commit `92c30164fef621b82fe7a79ec41a6b42c5a67a9d`，41个核心附件。发布源为已全绿的 `7d5b2b7a`，Release commit另含正常版本与CHANGELOG更新。静态和本机更新独立验收，不以Release公开代替上线或安装。
+- 最新成功计数：`7d5b2b7a` Windows x64、ARM64各492文件通过/0失败/69跳过，2641测试通过/0失败/131跳过。Linux四分片分别654/746/613/630测试通过、20/45/35/29跳过，均0失败（共2643通过/129跳过）；macOS任务成功。原失败和跳过仍保留，不以此覆盖固定8f620a0a或早期CI的计数。
+- 本机正常update切换前旧PID21468、ready=true、active0、四个Agent idle。更新至v08/92c30164后首次回执 `6f1c3216-ee75-4817-a000-acc6aadb90e8` 为failed-or-unknown，具体错误为重启期间control.sock ECONNREFUSED。按既有verifyRelease重验，新回执 `a258d755-dddd-42a1-afd5-741fafcb08fb` verified=true，事件 `01M6E84ENTMS7VS990KPTD48TZ`，PID83640、ready=true、active0；未篡改原回执。正式服务models.list显示云模型available、issues=[]，新session188452以readonly实际调用DeepSeek返回 `CLOUD_INSTALLED_CONFIRMED`，running=false，验收session正常关闭。外部证据 `RELEASE-CONTINUE.md`。
+- Cloud正常Deploy web `41455429274` success。真实隔离Chrome读取 `/build-version.json` HTTP200、版本0.3.26110208/完整commit92c30164；`/api/version` HTTP200、后端commit52692f5。真实cloud Runtime仍为原已验证8f620a0，running/online/workProtocol1；浏览器可查看保留session41，模型目录为cloud来源。没有将这三种部署身份混淆，生产交互验收结果另记。
+- 发行后追加任务快照：精确tag CI `41455287342` 仍运行，Linux/macOS成功、Windows尚无失败；Windows安装CI `41455291727` x64成功/ARM64运行中；桌面构建 `41455300016` 两平台作业成功。Android `41455296088` 在签名APK构建步骤失败，属于并发原生分发任务，本轮未扩大修复范围，不将它记为成功；这不影响已核对的网页静态与本机核心安装。
+- v08生产浏览器闭环：真实human owner、cloud Runtime在线且workProtocol1；保留session41只读历史可见；新cloud/local资源会话真实DeepSeek读取上传文本并返回确认，刷新后附件仍可预览/下载且SHA一致，真实WebSocket、pageerror0，390px无横向溢出。截图 `web-production-desktop.png`、`web-production-mobile-390.png`；临时登录logout204、原cookie查询session为null，私有profile/token/脚本目录已删。使用管理员临时验收登录，不声称普通OTP登录流程已验收。初轮脚本定位Portal失败发生在sessions.open之前，注销后修脚本再验，没有修改应用绕过流程。
+- 生产视觉复查发现：目录标记reasoning=false/off-only的DeepSeek在运行后显示配置fallback medium，且云供应商原始UUID前缀挤掉模型名。实际运行配置已有按模型能力clamp，修复限于Footer/NewTask共用的SessionOptions：`48d54ef9` 对已知非推理模型隐藏effort，`642485ce` 模型名优先、真实provider.name单独限宽显示及完整title，模型API ID不改。真实cloud目录组件回归先失败后通过1/1、app typecheck及主Agent针对两文件Biome error级检查通过。待正常新CI/正式发版后只复验此视觉项；原v08其他生产证据继续有效。
+- 后续共享main连续前进，`642485ce`、`709368ab`、`5a0c97f3` 的未完成Windows作业被新push取消；没有把取消记成功或重跑旧源。`c3d46ae7` x64再次仅PNG冷启动超时：492文件通过/1失败/69跳过、2641测试通过/1失败/131跳过，477.57秒；相位日志fixture177ms、native PNG约750ms开始、29267ms进入cleanup，定位在真实Resvg冷启动而非fixture。20秒来自通用Vitest预算，规范没有PNG20秒性能契约。
+- `22cfcc09` 仅为这一个真实PNG测试设置Windows60秒预算，其他平台仍20秒，真实Resvg与PNG字节断言保留，不改业务渲染/不全局加时/不skip。最初本机前后各2通过/14跳过包含.cache副本；排除.cache后当前源码为1文件通过、1测试通过/7跳过，Biome error级通过。该提交按主人明确main并行规约正常推送，包含并发Agent已经提交的parent operability改动，未推送任何dirty草稿；联合tip仍须完整CI通过后才能正式发行。
+- 联合tip构建检出前置parent operability提交漏交 `operability.ts`：两处已提交调用仅type-import，完整runtime实现仍在另一任务工作区编辑且超过500行。`fa3028a8` 以Git部分暂存只补齐现成两种类型（69行），保留工作区完整实现与其他dirty，不纳入未完成runtime函数或新设计。固定提交独立目录 `npm ci/build/typecheck` 全通过后正常推送；实际远端包含随后并发文档提交 `14cc0083`，按联合精确tip继续CI，未将先前缺依赖的失败算通过。
+
+## 最终v09发布与生产复验
+
+- 联合源码 `41cccfed` 的[发布前全平台CI41467977328](https://github.com/GoYonderTogether/yonder/actions/runs/41467977328) success，包含并发任务最终合入的完整operability实现。Windows x64/ARM64各494文件通过/0失败/69跳过、2646测试通过/0失败/131跳过；Linux四分片655/747/616/630测试通过，20/45/35/29跳过，合计2648通过/0失败/129跳过。macOS、build/typecheck/Node检查/lint均通过；原始失败/取消保留在前文。
+- 正常[Release41470496669](https://github.com/GoYonderTogether/yonder/actions/runs/41470496669)公开[v0.3.26110209](https://github.com/GoYonderTogether/yonder/releases/tag/v0.3.26110209)，完整tag提交 `dc45befdc126e2c4fc5acfcca18b02c819b21522`，41个核心附件。没有跳过CI、伪造tag或把源码预览当正式版本。
+- 本机已有正常同版本更新进程，未并发启动第二次安装。原始事件 `01M6EDRJK7TTHVN7W6J1T593XC` 直接verified=true；正式服务v09/dc45befd、PID88649、ready=true、active0。本机main安全ff-only至正式提交，其他dirty保留。正式服务云目录issues=[]、DeepSeek available=true；readonly session188853实际返回 `CLOUD_V09_CONFIRMED`，已正常关闭。
+- 正常Cloud [Deploy web41470908882](https://github.com/GoYonderTogether/yonder-cloud/actions/runs/41470908882) success。真实后台Chrome读取线上build-version为v09/完整dc45befd；后端仍52692f5，Cloud Runtime仍已验收8f620a0且未因本次静态发布重建/重启。三种版本身份分别记录。
+- 只读打开云端生产附件历史session113，options仍有存量medium，而真实目录reasoning=false、effortLevels仅off。v09桌面与390px均显示 `DeepSeek V4.1 Flash (WorkBuddy free)` 和实际provider展示名 `WorkBuddy 反向映射（依赖本机在线，验收） · workbuddy`，完整provider title存在，按钮不显示内部cloud UUID或无效medium。侧栏筛选实际Cloud数据，pageerror0；clientWidth/scrollWidth分别1440/1440与390/390。没有重复模型回合或修改会话选项来制造显示通过。
+- 主Agent独立查看最终真实截图：`web-production-model-fix-desktop.png`、`web-production-model-fix-mobile-390.png`，位于 `/Users/zoran/Documents/yonder-review-artifacts/workbench-20261102/`；v08前态截图保留供比较。临时管理员验收登录logout204，同cookie再查session为null，浏览器关闭/清cookie，私有token/helper目录删除。普通OTP登录未作为本轮验收结论。
+- 发行后检查由主Agent通过GitHub连接器另取快照：Windows两架构正式一行安装、重复运行不重建、实际产品启动/控制状态/停止/重启均success；Android签名APK构建/验证/上传GitHub与OSS、清签名材料success；Desktop macOS dmg与Windows nsis构建/上传success。精确tag追加CI仅ARM64全量回归仍运行，其余平台success，未发现新失败。Windows真实桌面外观、干净GUI安装与安卓真机安装/更新不在本轮宣称通过的范围。
+- 物理链新增诊断：Mac比标准时间慢约10.36秒。每次云侧请求都按当时云时钟重新签名，因此在调用前先等待15秒不能消除下一次请求的未来时间；现有验签逐次等待，消耗路由预算。不能据此断言前次租期过期的唯一根因，也未改时钟或放宽签名。Mac校时需要管理员权限，当前进程无免交互权限；已提示主人在系统设置同步，物理工具及重连验收仍未完成。外部证据 `DEVICE-CONTINUE.md` 保留这项边界。
+- 本机CLI健康检查曾返回TLS错误curl35，但独立后台浏览器真实打开生产 `/work` 登录页，说明浏览器路径可用；不把CLI路径失败推断为整个站点不可用。新版静态上线前不把旧登录页计作本轮前端验收。
+- 主人随后明确授权用命令行弹管理员认证设置自动校时。系统认证成功后，`systemsetup` 确认 Network Time On、服务器 `time.apple.com`；`sntp -sS` 成功样本偏差0.024秒，独立复测成功样本0.158秒（中间有NTP超时）。主人也确认同步完成；物理链按新环境重新验收，不再把旧10秒偏差当当前阻塞。
+- 正式云Runtime保留已验证的 `8f620a0` Linux构建来源；现有管理入口只有创建、启停和状态，无按tag升级。本轮不为源码版本对齐新增管理接口或手工重建运行中容器；线上静态、后端和Runtime来源分别记录。
+- 物理链续验通过：云Runtime session41使用真实DeepSeek，read得到Mac的darwin/arm64与验证文本；bash在Mac写入 `CLOUD_MAC_EXEC_OK`，exitCode0，模型随后read及Mac本地读回一致。停executor后返回UnconfirmedRequest/OUTCOME_UNKNOWN，云历史保留；恢复后以原commandId再次执行追加操作，文件仍恰好1字节X。临时设备DELETE204、网页登录logout204且原cookie查session为null，临时配对/控制器/目录/进程清理，云配置恢复、实例running；session41及既有业务历史保留。外部证据 `DEVICE-CONTINUE.md`。
+- 本次物理联调首次重启云Runtime前未查活跃run，是操作遗漏；清理重启前后实际running0/waiting0、旧session2已完成和session20为idle，但缺少首次重启前快照，不能确认当时完全无影响。已记录，不以清理后健康覆盖此前未知。
