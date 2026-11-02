@@ -1,4 +1,4 @@
-import { Script } from "node:vm";
+import { createContext, Script } from "node:vm";
 import type { PluginAPI, SocialPolicy, ToolContext, YEvent } from "@yonder/sdk";
 import { Type } from "typebox";
 import { groupEvents } from "./group-history.js";
@@ -27,9 +27,11 @@ export function ruleMatch(text: string, policy: SocialPolicy, onError?: (pattern
 		return { eligible: false, match: false };
 	const keyword = policy.keywords?.some((s) => value.includes(s.normalize("NFC"))) ?? false;
 	let regex = false;
+	const context = createContext({ pattern: "", text: value });
 	for (const pattern of filter?.regex ?? [])
 		try {
-			if (testRegex.runInNewContext({ pattern, text: value }, { timeout: 10 })) {
+			context.pattern = pattern;
+			if (testRegex.runInContext(context, { timeout: 10 })) {
 				regex = true;
 				break;
 			}
