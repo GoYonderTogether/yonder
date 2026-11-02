@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { access, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -23,6 +25,7 @@ import {
 	runtimePrompt,
 } from "./content.js";
 import {
+	assembleSystemPromptParts,
 	formatClock,
 	framework,
 	type PromptOptions,
@@ -32,6 +35,17 @@ import {
 	systemSections,
 	toolDiscoveryGuide,
 } from "./index.js";
+
+const testHostFacts = () => {
+	const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
+	return {
+		nodePath: process.execPath,
+		nodeVersion: process.version,
+		platform: process.platform,
+		cliPath,
+		cliAvailable: existsSync(cliPath),
+	};
+};
 
 test("tool discovery guidance follows effective exposure for residents and presets", async () => {
 	for (const agent of ["main", null]) {
@@ -152,6 +166,20 @@ test("system sections are deterministic and only selected contexts render", asyn
 	}
 });
 
+test("pure system prompt assembly matches the default resident golden", () => {
+	const session = {
+		id: "golden",
+		agent: "main",
+		profile: "default",
+		cwd: "/workspace",
+		resolved: resolveProfile({}),
+	};
+	const parts = assembleSystemPromptParts(session, { contexts: [] });
+	expect(createHash("sha256").update(JSON.stringify(parts)).digest("hex")).toBe(
+		"e7449b1ff1c38a3214b5503b007562da45698aae331f370bdf652fe95aa6c8ac",
+	);
+});
+
 test("task identity and CLI guidance follow actual identity and capabilities", async () => {
 	const cwd = process.cwd();
 	const options = {
@@ -209,6 +237,7 @@ test("custom events retain complete data and message labels cannot break the tur
 		const options: PromptOptions = {
 			home: directory,
 			version: row.version,
+			hostFacts: testHostFacts(),
 			locale: "zh-CN",
 			timezone: "Asia/Shanghai",
 			now: () => Date.parse("2026-10-23T06:00:00.000Z"),
@@ -233,7 +262,7 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(prepared.text).toContain("locale=zh-CN timezone=Asia/Shanghai");
 		expect(prepared.text).toContain("星期五");
 		expect(prepared.text).toContain("UTC 2026-10-23T06:00:00.000Z");
-		const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
+		const cliPath = testHostFacts().cliPath;
 		await access(cliPath);
 		const cliInput = await prepareInput(
 			row,
@@ -245,6 +274,27 @@ test("custom events retain complete data and message labels cannot break the tur
 		expect(cliInput.text).toContain(
 			`management: scope=local access=cli-via-exec home=${directory} version=${row.version} node=${process.execPath} nodeVersion=${process.version} cli=${cliPath}`,
 		);
+		const injected = await prepareInput(
+			row,
+			{ ...session, resolved: resolveProfile({ capabilities: ["exec"] }) },
+			event,
+			"run",
+			{
+				...options,
+				hostFacts: {
+					nodePath: "/injected/node",
+					nodeVersion: "injected-version",
+					platform: "injected-platform",
+					cliPath: "/injected/cli.js",
+					cliAvailable: true,
+				},
+				offeredTools: () => ["bash"],
+			},
+		);
+		expect(injected.text).toContain(
+			`management: scope=local access=cli-via-exec home=${directory} version=${row.version} node=/injected/node nodeVersion=injected-version cli=/injected/cli.js`,
+		);
+		expect(injected.text).toContain("host: platform=injected-platform prepared=");
 		const connection = newEvent({
 			type: "channel.connected",
 			from: "plugin:channel-card",
@@ -420,6 +470,7 @@ test("an expired attachment URL is reported to the model instead of failing the 
 		const options: PromptOptions = {
 			home: directory,
 			version: row.version,
+			hostFacts: testHostFacts(),
 			locale: "zh-CN",
 			timezone: "Asia/Shanghai",
 			contexts: new Map(),
@@ -640,6 +691,7 @@ test("/skill:<name> injects the selected skill body into the run input", async (
 		const options: PromptOptions = {
 			home: directory,
 			version: row.version,
+			hostFacts: testHostFacts(),
 			locale: "zh-CN",
 			timezone: "Asia/Shanghai",
 			contexts: new Map(),

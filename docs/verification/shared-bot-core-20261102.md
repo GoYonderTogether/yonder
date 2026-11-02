@@ -67,3 +67,22 @@
 此固定基线没有允许保留的失败。旧运行的 sandbox、EMFILE 与壁纸测试失败保留为历史记录，不作为本次最终基线失败。后续每阶段必须无新增失败，build/typecheck/lint 必须通过。
 
 阶段 1 续接检查：仅文档改动，复用上述相同产品源码的完整 build/test 结果；恢复并更新文档后，npm run typecheck 退出 0（stage-1-resumed-typecheck.log），npm run lint 退出 0（stage-1-resumed-lint.log，size/layers 通过），git diff --check 通过。
+
+## 阶段 2：HostFacts 与纯提示词装配
+
+HostFacts 在本机组合根采集后必填注入；纯系统段装配位于 prompt/system.ts，原异步入口仍收集所选 contexts/skills，再交纯函数装配。正文、段落 key 和顺序不变；增加完整 parts JSON 的 SHA-256 golden 及显式宿主事实注入检查。附件缓存和模板 IO 留给后续宿主拆分。
+
+| 检查 | 原始结果 | 证据 |
+|---|---|---|
+| 首轮定向测试（子 Agent） | 19 通过 / 1 失败，3 文件通过 / 1 文件失败；golden 临时期望未填，随后改为实际固定哈希 | 子 Agent 工具输出，未单独落日志 |
+| 首轮 typecheck（子 Agent） | TS2379，exact optional 参数展开不匹配；修复后通过 | 子 Agent 工具输出，未单独落日志 |
+| 最终原四文件定向测试 | 20 通过 / 0 失败 | 子 Agent 工具输出 |
+| 首次完整 build/typecheck | 均退出 0 | shared-bot-core/stage-2-build.log、stage-2-typecheck.log |
+| 首次完整默认测试 | 2660 通过 / 1 失败 / 112 跳过；文件 493 通过 / 1 失败 / 67 跳过；tasks 测试直接调用 prepareInput，缺 HostFacts | shared-bot-core/stage-2-test.log |
+| 补齐 tasks 与 app 调用后定向测试 | 26 通过 / 0 失败，5 文件通过 | 子 Agent 工具输出 |
+| 重跑完整 build/typecheck | 均退出 0 | shared-bot-core/stage-2-final-build.log、stage-2-final-typecheck.log |
+| 重跑完整默认测试 | 2661 通过 / 0 失败 / 112 跳过；文件 494 通过 / 0 失败 / 67 跳过；96.08 秒 | shared-bot-core/stage-2-final-test.log |
+| 完整 lint 首次 | 1 error（tasks 测试 import 排序），1246 warnings / 34 infos；随后仅调整 import 顺序 | shared-bot-core/stage-2-final-lint.log |
+| import 排序后完整 lint（子 Agent） | 退出 0，Biome、size、layers 均通过；未重跑已通过的 build/typecheck/test | 子 Agent 工具输出 |
+
+最终相对固定基线无新增失败，多 1 项 golden 测试。未运行真实模型或 PG；A2 的 fs/PG 来源一致性留到来源实现后验收。

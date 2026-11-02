@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import type { RenderContext, ToolContext } from "@yonder/sdk";
 import { checkPlugin, tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
@@ -256,9 +257,17 @@ test("real loader tools, kernel profile selection and native turn preparation wo
 		expect((await call("get", { id: task.id }, caller("foreign"))).isError).toBe(true);
 		expect((await call("open", content, { ...caller(), signal: AbortSignal.abort() })).isError).toBe(true);
 		const session = { id: "1", agent: "main", profile: "owner", cwd: home, resolved: resolveProfile(profile) };
+		const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../packages/cli/dist/index.js");
 		const options = {
 			home,
 			version: "test",
+			hostFacts: {
+				nodePath: process.execPath,
+				nodeVersion: process.version,
+				platform: process.platform,
+				cliPath,
+				cliAvailable: existsSync(cliPath),
+			},
 			locale: "en",
 			timezone: "UTC",
 			contexts: loaded.contexts,

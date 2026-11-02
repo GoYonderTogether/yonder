@@ -1,6 +1,8 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { EntryRecord } from "@earendil-works/pi-durable";
 import { expect, test } from "vitest";
 import { resolveProfile } from "../../../packages/core/src/config/test-support";
@@ -29,6 +31,7 @@ test("real preparation and stored edit project metadata without losing the origi
 		await runtime.submit(id, { text, event, wake: "write" });
 		const [original] = await runtime.transcript(id);
 		if (!original) throw new Error("missing original input");
+		const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../packages/cli/dist/index.js");
 		const prepared = await prepareInput(
 			{ id, agent: null, profile: "default", mode: "task", key: "check", version: "check", opened: event.ts },
 			session,
@@ -37,6 +40,13 @@ test("real preparation and stored edit project metadata without losing the origi
 			{
 				home,
 				version: "check",
+				hostFacts: {
+					nodePath: process.execPath,
+					nodeVersion: process.version,
+					platform: process.platform,
+					cliPath,
+					cliAvailable: existsSync(cliPath),
+				},
 				locale: "zh-CN",
 				timezone: "UTC",
 				contexts: new Map([["context", { id: "context", placement: "turn", render: () => "真实上下文贡献" }]]),

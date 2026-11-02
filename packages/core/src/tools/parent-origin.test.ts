@@ -116,6 +116,13 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 			...context,
 			home: process.cwd(),
 			version: "test",
+			hostFacts: {
+				nodePath: process.execPath,
+				nodeVersion: process.version,
+				platform: process.platform,
+				cliPath: "",
+				cliAvailable: false,
+			},
 			locale: "zh-CN",
 			timezone: "UTC",
 			contexts: new Map(),

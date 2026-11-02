@@ -50,6 +50,13 @@ test("received attachment references lead to the offered scoped reader without o
 		const options: PromptOptions = {
 			home,
 			version: row.version,
+			hostFacts: {
+				nodePath: process.execPath,
+				nodeVersion: process.version,
+				platform: process.platform,
+				cliPath: "",
+				cliAvailable: false,
+			},
 			locale: "zh-CN",
 			timezone: "Asia/Shanghai",
 			contexts: new Map(),

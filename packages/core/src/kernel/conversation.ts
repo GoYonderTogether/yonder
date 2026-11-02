@@ -1,3 +1,6 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AgentConfig } from "../config/index.js";
 import type { PromptOptions } from "../prompt/index.js";
 import { toolDiscoveryGuide } from "../prompt/index.js";
@@ -101,10 +104,18 @@ export function kernelPromptOptions(
 	skills: Pick<ReturnType<typeof import("./workspace.js").skillsFor>, "index" | "command">,
 	version: string,
 ): PromptOptions {
+	const cliPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../cli/dist/index.js");
 	return {
 		...conversationPromptOptions(store, agents, runtime),
 		home,
 		version,
+		hostFacts: {
+			nodePath: process.execPath,
+			nodeVersion: process.version,
+			platform: process.platform,
+			cliPath,
+			cliAvailable: existsSync(cliPath),
+		},
 		locale: config.locale ?? "zh-CN",
 		timezone: config.timezone ?? "Asia/Shanghai",
 		contexts: loaded.contexts,
