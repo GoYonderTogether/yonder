@@ -99,6 +99,10 @@ test("resolves only confirmed npm Node targets on the execution host and preserv
 			});
 		}
 	} finally {
-		await rm(root, { recursive: true, force: true });
+		await rm(root, {
+			recursive: true,
+			force: true,
+			...(process.platform === "win32" ? { maxRetries: 5, retryDelay: 50 } : {}),
+		});
 	}
 });
