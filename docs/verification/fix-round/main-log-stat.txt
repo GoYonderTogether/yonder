@@ -46,7 +46,7 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Tue Nov 3 05:37:46 2026 +0800
 
     Merge remote-tracking branch 'origin/main'
-    
+
     # Conflicts:
     #       CHANGELOG.md
 
@@ -572,7 +572,7 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Tue Nov 3 01:26:43 2026 +0800
 
     docs: record the iOS release channel and TestFlight distribution
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  docs/decisions.md           | 11 +++++++++++
@@ -643,10 +643,10 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Tue Nov 3 01:05:36 2026 +0800
 
     fix(release): let altool find the API key in its default location
-    
+
     altool 只认固定几处目录里的 AuthKey_<id>.p8；--api-key-path 指文件仍报 -43。
     按本地实测的结果，写到 ~/.appstoreconnect/private_keys 并在清理步骤删除。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/ios-release.yml | 10 +++++-----
@@ -671,10 +671,10 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Tue Nov 3 00:54:14 2026 +0800
 
     fix(release): use an absolute archive path for the iOS export
-    
+
     归档步骤在 apps/desktop 下，导出步骤在仓库根目录；相对路径让 xcodebuild 找不到
     xcarchive（archive not found ... /yonder/src-tauri/...）。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/ios-release.yml | 3 ++-
@@ -704,10 +704,10 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Tue Nov 3 00:42:55 2026 +0800
 
     fix(release): check out the dispatched ref for manual iOS builds
-    
+
     手工派发时 checkout 仍然优先取 v<version> tag，于是拿到的是旧 tag 里没有
     prepare-ios.mjs 的树。改为 Release 触发取发布 tag、手工派发取所选 ref。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/ios-release.yml | 4 +++-
@@ -775,10 +775,10 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 23:59:38 2026 +0800
 
     fix(release): keep iOS workflow log lines ASCII
-    
+
     中文提示里的全角冒号后接 $变量时，runner 的 shell 把它解析成别的变量名
     （version…: unbound variable）。错误与提示一律用英文，注释仍可中文。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/ios-release.yml | 26 +++++++++++++-------------
@@ -789,10 +789,10 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 23:56:44 2026 +0800
 
     fix(release): allow a manual iOS build without a tag check
-    
+
     在 main 上手工派发时 ref 不是 tag，expected_commit 校验必然失败；留空表示
     在所选 ref 上直接构建，供发版前在 CI 上验证整条签名与上传链。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/ios-release.yml | 12 ++++++++----
@@ -803,9 +803,9 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 23:55:25 2026 +0800
 
     feat(release): build and upload the iOS app to TestFlight
-    
+
     正式 Release 之后补上 iOS 这一路的签名构建与 TestFlight 上传，与安卓、桌面安装包同一条派发链。
-    
+
     - `.github/workflows/ios-release.yml`：在 macos runner 上从 secrets 还原分发证书与
       App Store profile，`tauri ios build --archive-only` 归档，再用带 provisioningProfiles
       映射的 ExportOptions 跑 `xcodebuild -exportArchive`（tauri 自带的导出步骤实测报
@@ -816,7 +816,7 @@ Date:   Mon Nov 2 23:55:25 2026 +0800
       手动签名、profile 名，以及把 `iPhone Developer` 改成 `iPhone Distribution`。
       同时用 `scripts/flatten-icon.swift` 把品牌 PNG 铺白底重出整套图标：App Store 拒绝
       带 alpha 的 1024 图标（上传报 90717）。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/ios-release.yml       | 205 ++++++++++++++++++++++++++++++++
@@ -935,12 +935,12 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 22:48:34 2026 +0800
 
     docs: record the current main CI blocker
-    
+
     Two upstream commits reference packages/core/src/kernel/operability.ts
     without adding it, so every platform fails typecheck; the local fix commit is
     not pushed yet. This is another lane's work, kept separate from the install
     and distribution record above it.
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  docs/status.md | 4 ++++
@@ -989,13 +989,13 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 22:23:28 2026 +0800
 
     docs: record the real Android and desktop release outcomes
-    
+
     Both distribution workflows ran on v0.3.26110208: the desktop dmg and Windows
     installer shipped, and Android needed the tagged tree to expose the `tauri`
     script. Alibaba Cloud refuses APK downloads from an OSS default endpoint, so
     the update manifest points at the release asset and only same-digest manifests
     may be corrected in place.
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  docs/spec/09-cli-release.md |  2 +-
@@ -1007,13 +1007,13 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 22:19:06 2026 +0800
 
     fix(android): publish the APK download URL through GitHub
-    
+
     Alibaba Cloud refuses to serve APKs from an OSS default endpoint without a
     CNAME (`ApkDownloadForbidden`), so `latest.json` now points at the same
     release's GitHub asset while the APK is still uploaded to OSS for mirrors.
     `--repair` allows rewriting a published manifest only when its versionCode and
     APK digest are unchanged, which is what fixing an address requires.
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  scripts/release/android.mjs      | 21 +++++++++++++++++++--
@@ -1036,12 +1036,12 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 22:05:51 2026 +0800
 
     fix(android): make the release workflow self-sufficient on old tags
-    
+
     `tauri android init` regenerates a Gradle task that calls
     `npm run tauri android android-studio-script`. Tags cut before the desktop
     package exposed that script cannot build an APK, so the workflow adds it when
     missing instead of relying on the tagged tree.
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  .github/workflows/android-release.yml | 12 ++++++++++++
@@ -1074,12 +1074,12 @@ Author: zoran-xc <103060641+zoran-xc@users.noreply.github.com>
 Date:   Mon Nov 2 21:51:24 2026 +0800
 
     fix(android): expose the tauri script for the Gradle rust plugin
-    
+
     安卓发布的实际构建在 `tauri android build` 里先跑 cargo，再由 Gradle 的 rust 插件
     回调 `npm run tauri android android-studio-script`；apps/desktop 的 package.json 没有
     `tauri` 脚本，正式发版在 `npm error Missing script: "tauri"` 处失败（本地因为能直接
     解析 CLI 二进制没暴露这一点）。
-    
+
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
 
  apps/desktop/package.json | 3 ++-

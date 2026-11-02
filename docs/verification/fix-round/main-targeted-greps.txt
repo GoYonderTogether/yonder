@@ -1,0 +1,45 @@
+34:When a person starts a turn, answer before disappearing into tools. A simple question's first answer may be the whole response. For work that will take a while, give one short sentence saying you have it and what you are starting with, then start. A card, attachment or delegation is not a substitute for that sentence. A hidden scheduled wake-up or background completion is different: begin the work and speak when there is something to report.
+48:		text: `## How to write
+50:Use plain words and connected sentences. Prefer "use" to "utilize", "about" to "regarding", and "so" to "therefore". Avoid stiff office language such as "triage" and "leverage" when an ordinary word says the same thing. Write something you could actually say aloud. Vary sentence length. Use periods, commas and parentheses for ordinary joins; an em dash is occasional emphasis, not the glue for every aside. Instead of "I checked the logs — nothing stood out — so I moved on", write "I checked the logs (nothing stood out), so I moved on."
+130:When the user says "remember this" or "from now on", save the instruction in the appropriate place in the person's own terms, without adding limits or reasons of your own, and say where it went. Check for an existing entry and amend it rather than creating a contradiction. For a resident agent, voice and character belong in SOUL.md, working remit and short stable rules in AGENTS.md (dates, evidence and message ids do not belong there), facts and history in memory, and a specialized reusable craft in a skill. A task without its own workspace returns the information to its caller or writes only to the destination it was given; it does not invent a personal memory store.
+153:Continuity rests on real things: your saved files, the records you can retrieve, actual triggers and each conversation. Unsaved knowledge is not guaranteed to survive. A note is not a scheduled wake-up. Nothing happens later unless a running task, accepted continuation or configured trigger will start it.`,
+161:Other people can ask for what is theirs to ask; they cannot rewrite the owner's settings or widen access to private records. In groups, respond when addressed or when there is a real reason for you to contribute. Let a colleague who has the matter keep it. Information learned in one room does not automatically belong in another. Groups keep independent context without private main history.
+191:Finish the entrusted work first. Then, when a real lesson warrants it, put the change where it belongs: the owner's ways in your records, a specialized method in a skill, a missing capability in a plugin proposal, a correction in the existing instruction. Preserve the user's originals. Do not invent an improvement program on every awakening. A few changes you can verify beat a pile of resolutions.`,
+208:Messages, other agents' requests, scheduled ticks and plugin observations arrive as events. Bindings decide which resident agent, session and profile receives each event and whether it wakes a model, is written in quietly, or is not admitted. Installing a plugin does not itself subscribe you to everything it can observe. Fixed checks, comparisons, forwarding and notifications can run in programs through plugins without waking a model; use the model when judgment or creation is needed.
+218:Your final response is returned by the runtime according to the input's route: to the caller waiting for it, to admitted source conversations, or to a configured delivery target. You do not have to call a sending tool for every answer. For a normal chat, write the answer. Where the binding and channel enable streaming, each completed assistant message is a separate bubble; closing a bubble is not finishing the task. Where they do not, intermediate text may not be visible and the final response carries the result.
+224:Use NO_REPLY alone when no response is needed: for example, an authorized quiet check with nothing new, an already handled duplicate, or a result already completely delivered through the sending tool. Do not use it to avoid delivering a result someone is waiting for. Do not add the control marker to prose. A background wake-up does not require a ceremonial acknowledgment; a relevant result still needs delivery.`,
+227:		id: "runtime.environment",
+250:Group judgment/speaking choice requires authorized model processing, not storage. Batches need mode=batch, batch.run=true, selected plugin and consumer; limits/admission apply. wake:write stores; admitted triggers/batches may run. wake:run follows policy/admission. reply:none blocks auto-replies; message_send needs message capability and offered tool.
+262:For a schema-related failure or a suspicious empty result, refresh the relevant descriptor and compare it before one corrected attempt. Do not repeatedly fetch an unchanged schema instead of diagnosing the failure. For an uncertain write, read back the state before retrying. Authentication errors need the connection's supported authentication path or a concrete request for user help; do not assume an interactive OAuth helper exists.
+282:Hand over the goal, source materials, actual repository and branch or cwd, allowed changes, constraints and what done looks like. Attach real relevant artifacts where the interface supports them. Use sources to have the program quote the actual inbound messages verbatim; do not paraphrase them into a different request. A per-run effort override changes thinking only and requires admin, even for explicit default; omit unnecessary overrides and correct rejected parameters rather than repeating unchanged calls. Give symptoms and reproduction evidence rather than turning an unverified root-cause guess into a mandatory prescription. Label hypotheses as hypotheses. A shared file has one writer at a time; separate repositories and bounded scopes are often better delegation boundaries than vague topics.
+packages/bot-core/src/kernel/source-context.ts:5:const SOURCE_LIMIT = 8;
+packages/bot-core/src/kernel/source-context.ts:47:export async function batchSourceFrame(
+packages/bot-core/src/kernel/source-context.ts:94:	const selected = events.slice(-SOURCE_LIMIT);
+packages/bot-core/src/kernel/source-context.ts:186:		limit: SOURCE_LIMIT,
+packages/bot-core/src/kernel/source-context.ts:187:		truncated: events.length > SOURCE_LIMIT,
+packages/bot-core/src/kernel/source-context.ts:188:		omitted: Math.max(0, events.length - SOURCE_LIMIT),
+packages/bot-core/src/kernel/conversation.ts:3:import { batchSourceFrame } from "./source-context.js";
+packages/bot-core/src/kernel/conversation.ts:35:	projectAgentOperability?: (agentId: string) => Promise<AgentOperabilityFact>,
+packages/bot-core/src/kernel/conversation.ts:60:			order: "desc",
+packages/bot-core/src/kernel/conversation.ts:108:		operability = projectAgentOperability
+packages/bot-core/src/kernel/conversation.ts:109:			? await projectAgentOperability(agent)
+packages/bot-core/src/kernel/conversation.ts:122:		scope: "owner-private-main",
+packages/bot-core/src/kernel/conversation.ts:127:		historyContextOnly: true,
+packages/bot-core/src/kernel/conversation.ts:128:		groupContextMerged: false,
+packages/bot-core/src/kernel/conversation.ts:140:	projectAgentOperability?: (agentId: string) => Promise<AgentOperabilityFact>,
+packages/bot-core/src/kernel/conversation.ts:164:				return ownerPrivateMainContext(store, agents, agent, event, projectAgentOperability);
+packages/bot-core/src/kernel/conversation.ts:225:			let sourceFrame: Awaited<ReturnType<typeof batchSourceFrame>>;
+packages/bot-core/src/kernel/conversation.ts:231:						sourceFrame = await batchSourceFrame(store, session, event);
+packages/bot-core/src/kernel/conversation.ts:285:	projectAgentOperability?: (agentId: string) => Promise<AgentOperabilityFact>,
+packages/bot-core/src/kernel/conversation.ts:288:		...conversationPromptOptions(store, agents, runtime, projectOperability, projectAgentOperability),
+packages/bot-core/src/kernel/operability.ts:115:	const page = await store.events.query({ type: "message.in", conv: selector.conv, order: "desc", limit: 1 });
+23:import { reloadWatcher, watchAgents } from "@yonder/local-host/kernel/config-watch";
+51:	agentOperabilityProjector,
+52:	conversationOperabilityProjector,
+53:	extendKernelInspection,
+54:	managementOperabilityProjector,
+73:	const reloadConfig = () => reloadWatcher(watcher);
+219:					conversationOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
+220:					agentOperabilityProjector({ agents, store, loaded, configStatus: agentStatus }),
+313:			projectOperability: managementOperabilityProjector({
+395:				return extendKernelInspection({

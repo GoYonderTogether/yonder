@@ -1,0 +1,4721 @@
+{
+	"main": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+	"base": "a6a6c0b5",
+	"commits": [
+		{
+			"commit": "7d5b2b7ae90767edc77b323e02a1f5d6cab91cbf",
+			"title": "fix(ci): reduce Windows test worker contention",
+			"files": [
+				{
+					"source": ".github/workflows/ci.yml",
+					"targets": [".github/workflows/ci.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				}
+			]
+		},
+		{
+			"commit": "92c30164fef621b82fe7a79ec41a6b42c5a67a9d",
+			"title": "chore(release): 0.3.26110208",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 30,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "9e1281caecd2e3d53a8f80002e76bdfa6d73250c",
+			"title": "fix(android): expose the tauri script for the Gradle rust plugin",
+			"files": [
+				{
+					"source": "apps/desktop/package.json",
+					"targets": ["apps/desktop/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				}
+			]
+		},
+		{
+			"commit": "48d54ef945301af819ed1c628c336ab718a2c406",
+			"title": "fix(app): hide effort for non-reasoning models",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "apps/app/src/work/ui/SessionOptions.tsx",
+					"targets": ["apps/app/src/work/ui/SessionOptions.tsx"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "apps/app/test/sessionOptionsEffort.test.tsx",
+					"targets": ["apps/app/test/sessionOptionsEffort.test.tsx"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 36
+				}
+			]
+		},
+		{
+			"commit": "642485cea5befc2b6c5a2edb6a80fc4f9d1c7ee8",
+			"title": "fix(app): show model and provider names in workbench",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/src/work/ui/SessionOptions.tsx",
+					"targets": ["apps/app/src/work/ui/SessionOptions.tsx"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 10
+				},
+				{
+					"source": "apps/app/test/sessionOptionsEffort.test.tsx",
+					"targets": ["apps/app/test/sessionOptionsEffort.test.tsx"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 7
+				}
+			]
+		},
+		{
+			"commit": "709368ab173f08d24f0c2d4f4040336260aea63b",
+			"title": "fix(android): make the release workflow self-sufficient on old tags",
+			"files": [
+				{
+					"source": ".github/workflows/android-release.yml",
+					"targets": [".github/workflows/android-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 12
+				}
+			]
+		},
+		{
+			"commit": "558173a25141a6c18d34fca3ec621b782eb5c8bb",
+			"title": "docs: define shared conversation operability facts",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/13-observation-and-management.md",
+					"targets": ["docs/spec/13-observation-and-management.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				}
+			]
+		},
+		{
+			"commit": "5a0c97f31476aba48631b1942cb5da7422b485c2",
+			"title": "fix(android): publish the APK download URL through GitHub",
+			"files": [
+				{
+					"source": "scripts/release/android.mjs",
+					"targets": ["scripts/release/android.mjs"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 18
+				},
+				{
+					"source": "scripts/release/android.test.mjs",
+					"targets": ["scripts/release/android.test.mjs"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				}
+			]
+		},
+		{
+			"commit": "c3d46ae744374e0a24ced4ae527c87f850cca074",
+			"title": "docs: record the real Android and desktop release outcomes",
+			"files": [
+				{
+					"source": "docs/spec/09-cli-release.md",
+					"targets": ["docs/spec/09-cli-release.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "docs/status.md",
+					"targets": ["docs/status.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 11,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "c14b2313247fc730db63f72dec6d24fe4ef635cd",
+			"title": "Add verified operability facts to parent context",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/conversation.ts",
+					"targets": [
+						"packages/bot-core/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 40,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/tools/parent-origin.test.ts",
+					"targets": ["packages/local-host/src/tools/parent-origin.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 125,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "0a93b1f34c920d481f715e7e07fe39597bcf830a",
+			"title": "Bound parent operability projection",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/conversation.ts",
+					"targets": [
+						"packages/bot-core/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 27,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/tools/parent-origin.test.ts",
+					"targets": ["packages/local-host/src/tools/parent-origin.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 44,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "22cfcc09a4fb0410d03a5b4f458fb78e6cbb133b",
+			"title": "test(tasks): allow Windows PNG cold start",
+			"files": [
+				{
+					"source": "plugins/tasks/test/board.test.ts",
+					"targets": ["plugins/tasks/test/board.test.ts"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 18,
+					"transformations": [
+						{
+							"mainLine": "const { board } = boardRecords(f);",
+							"refactorLine": "const { board } = await boardRecords(f);",
+							"reason": "async plugin storage"
+						}
+					]
+				}
+			]
+		},
+		{
+			"commit": "fa3028a8ca8e9f3cbc1b339d82561be41bd6f78a",
+			"title": "fix(core): include parent operability types",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/operability.ts",
+					"targets": ["packages/bot-core/src/kernel/operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 67,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "14cc0083ed1f6a4a5303c51132e6ae1b859f611f",
+			"title": "docs: record the current main CI blocker",
+			"files": [
+				{
+					"source": "docs/status.md",
+					"targets": ["docs/status.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "e124ba74091991c860cb1cedaa8b7a2feaace162",
+			"title": "Add shared session operability projection",
+			"files": [
+				{
+					"source": "packages/cli/src/commands/config.test.ts",
+					"targets": ["packages/cli/src/commands/config.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 38,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/src/commands/config.ts",
+					"targets": ["packages/cli/src/commands/config.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 59,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/config-watch.ts",
+					"targets": ["packages/local-host/src/kernel/config-watch.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/home-management.ts",
+					"targets": ["packages/local-host/src/kernel/home-management.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 13,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/index.ts",
+					"targets": [
+						"packages/local-host/src/kernel/index.ts",
+						"packages/bot-core/src/kernel/create-bot.ts",
+						"packages/bot-core/src/kernel/services-wiring.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 27,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/kernel.test.ts",
+					"targets": ["packages/local-host/src/kernel/kernel.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 11,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/management.ts",
+					"targets": ["packages/local-host/src/kernel/management.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 52,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability-adapters.ts",
+					"targets": ["packages/local-host/src/kernel/operability-adapters.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 151,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 256,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.ts",
+					"targets": ["packages/bot-core/src/kernel/operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 332,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/plugin-bindings.ts",
+					"targets": ["packages/local-host/src/kernel/plugin-bindings.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.test.ts",
+					"targets": ["packages/local-host/src/kernel/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "a6823f7b3dfa5f2753cf2eaad503641e592cbeb1",
+			"title": "Fix social validation repair guidance",
+			"files": [
+				{
+					"source": "packages/core/src/config/social-validation.ts",
+					"targets": ["packages/bot-definition/src/social-validation.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "packages/core/src/config/social.test.ts",
+					"targets": ["packages/local-host/src/config/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 18,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.ts",
+					"targets": ["packages/bot-core/src/kernel/operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "41cccfed7a5dd5f8cfc049aafec06f9951b46fc4",
+			"title": "docs: align native management with operability evidence",
+			"files": [
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 9
+				},
+				{
+					"source": "skills/yonder-self-management/references/management.md",
+					"targets": ["skills/yonder-self-management/references/management.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 3
+				}
+			]
+		},
+		{
+			"commit": "dc45befdc126e2c4fc5acfcca18b02c819b21522",
+			"title": "chore(release): 0.3.26110209",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "f1637176351ca751e4401b25223154a7abef9081",
+			"title": "docs(workbench): record v09 production and multi-device acceptance [skip ci]",
+			"files": [
+				{
+					"source": "docs/status.md",
+					"targets": ["docs/status.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/workspace-multidevice-20261102.md",
+					"targets": ["docs/verification/workspace-multidevice-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 49
+				}
+			]
+		},
+		{
+			"commit": "1b17ba68c9d12330053f33b1e2cb44cce3d51736",
+			"title": "feat(release): build and upload the iOS app to TestFlight",
+			"files": [
+				{
+					"source": ".github/workflows/ios-release.yml",
+					"targets": [".github/workflows/ios-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 169
+				},
+				{
+					"source": ".github/workflows/release.yml",
+					"targets": [".github/workflows/release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "apps/desktop/prepare-ios.mjs",
+					"targets": ["apps/desktop/prepare-ios.mjs"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 73
+				},
+				{
+					"source": "apps/desktop/scripts/flatten-icon.swift",
+					"targets": ["apps/desktop/scripts/flatten-icon.swift"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 31
+				}
+			]
+		},
+		{
+			"commit": "3bc3792a7a3ca52b3d7d0f8064aa713283cbc509",
+			"title": "fix(release): allow a manual iOS build without a tag check",
+			"files": [
+				{
+					"source": ".github/workflows/ios-release.yml",
+					"targets": [".github/workflows/ios-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 8
+				}
+			]
+		},
+		{
+			"commit": "13a99ab827168aec06ff65f738b52c6c3c71a551",
+			"title": "fix(release): keep iOS workflow log lines ASCII",
+			"files": [
+				{
+					"source": ".github/workflows/ios-release.yml",
+					"targets": [".github/workflows/ios-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 13
+				}
+			]
+		},
+		{
+			"commit": "16c2e2a7c648847a6cc6a38c4119544322fc8de8",
+			"title": "docs: preserve verified input origins in host context",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/01-events.md",
+					"targets": ["docs/spec/01-events.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 5
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "f07b750d0b2bf2bb1248fd83e771584ba264a2df",
+			"title": "feat: add bounded descending event queries",
+			"files": [
+				{
+					"source": "packages/core/src/store/index.test.ts",
+					"targets": ["packages/local-host/src/store/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 66,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/store/index.ts",
+					"targets": ["packages/local-host/src/store/index.ts", "packages/bot-core/src/store/contracts.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": []
+				},
+				{
+					"source": "packages/sdk/src/types.test.ts",
+					"targets": ["packages/sdk/src/types.test.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "packages/sdk/src/types.ts",
+					"targets": ["packages/sdk/src/types.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "877029ef49773c31dc7cb2d36549a2697cfd7310",
+			"title": "feat: project verified batch source context",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/index.ts",
+					"targets": [
+						"packages/local-host/src/kernel/index.ts",
+						"packages/bot-core/src/kernel/create-bot.ts",
+						"packages/bot-core/src/kernel/services-wiring.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability-adapters.ts",
+					"targets": ["packages/local-host/src/kernel/operability-adapters.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 28,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/source-context.test.ts",
+					"targets": ["packages/local-host/src/kernel/source-context.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 167,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/source-context.ts",
+					"targets": ["packages/bot-core/src/kernel/source-context.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 188,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "29ac2a7749c4dce42ae0585a931a5917d561a116",
+			"title": "feat: add private main owner context",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/conversation.ts",
+					"targets": [
+						"packages/bot-core/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 133,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/private-main-context.test.ts",
+					"targets": ["packages/local-host/src/kernel/private-main-context.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 223,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 65,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.ts",
+					"targets": [
+						"packages/bot-core/src/prompt/index.ts",
+						"packages/bot-core/src/prompt/system.ts",
+						"packages/local-host/src/prompt/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "59f8b9eeff884970cdbfc2d929d4a90a552b255b",
+			"title": "fix: sample latest event in long conversations",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 28,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.ts",
+					"targets": ["packages/bot-core/src/kernel/operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "b2121e8a064c72b3c88952e3e4ceca32505c4a28",
+			"title": "fix(release): check out the dispatched ref for manual iOS builds",
+			"files": [
+				{
+					"source": ".github/workflows/ios-release.yml",
+					"targets": [".github/workflows/ios-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 3
+				}
+			]
+		},
+		{
+			"commit": "faa2b202c2ef429cc4879e2d973342718814697b",
+			"title": "feat: state shared agent identity in context",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/conversation.ts",
+					"targets": [
+						"packages/bot-core/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 9,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/private-main-context.test.ts",
+					"targets": ["packages/local-host/src/kernel/private-main-context.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 28,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "caf1b27d1fce74d75bca10858a22d5aea4defb34",
+			"title": "test: match shared self identity context",
+			"files": [
+				{
+					"source": "packages/core/src/tools/parent-origin.test.ts",
+					"targets": ["packages/local-host/src/tools/parent-origin.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "89c910a57b71ded6b939a28e0187dbff4388d445",
+			"title": "fix(release): use an absolute archive path for the iOS export",
+			"files": [
+				{
+					"source": ".github/workflows/ios-release.yml",
+					"targets": [".github/workflows/ios-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				}
+			]
+		},
+		{
+			"commit": "0058fdb4fd109f2f202c4eec696341cead213dbc",
+			"title": "docs: clarify shared agent identity and source continuity evidence",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "docs/spec/02-sessions.md",
+					"targets": ["docs/spec/02-sessions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 7
+				},
+				{
+					"source": "skills/yonder-self-management/references/management.md",
+					"targets": ["skills/yonder-self-management/references/management.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				}
+			]
+		},
+		{
+			"commit": "2b4a2ef5aead163bcea669568cfffe106facff91",
+			"title": "fix(release): let altool find the API key in its default location",
+			"files": [
+				{
+					"source": ".github/workflows/ios-release.yml",
+					"targets": [".github/workflows/ios-release.yml"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 5
+				}
+			]
+		},
+		{
+			"commit": "4f9fe4880ae446e9706ab22034807667b1a8c164",
+			"title": "style: format iOS preparation script",
+			"files": [
+				{
+					"source": "apps/desktop/prepare-ios.mjs",
+					"targets": ["apps/desktop/prepare-ios.mjs"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				}
+			]
+		},
+		{
+			"commit": "88e953b40e8ec7ee3f232eadf810828aed9fb2cf",
+			"title": "chore(release): 0.3.26110210",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 14,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "48282619ef642eb0743e598550f781e4d5fd64de",
+			"title": "docs: record the iOS release channel and TestFlight distribution",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/09-cli-release.md",
+					"targets": ["docs/spec/09-cli-release.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 5
+				}
+			]
+		},
+		{
+			"commit": "a090f517cf45f206789c503109b3b989ce251dfb",
+			"title": "Clarify same-agent session language",
+			"files": [
+				{
+					"source": "packages/core/src/prompt/content.ts",
+					"targets": ["packages/bot-core/src/prompt/content.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/tools/index.ts",
+					"targets": ["packages/bot-core/src/tools/index.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/tools/parent-origin.test.ts",
+					"targets": ["packages/local-host/src/tools/parent-origin.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 9,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "82d82b258855800aad68c8793d086b14b606c48d",
+			"title": "Restore configuration verification prompt detail",
+			"files": [
+				{
+					"source": "packages/core/src/prompt/content.ts",
+					"targets": ["packages/bot-core/src/prompt/content.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 5,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "bd8f1df8acbe5621e08eef3d4181fd5b1e6761cd",
+			"title": "Clarify session operability source facts",
+			"files": [
+				{
+					"source": "packages/cli/src/commands/config.test.ts",
+					"targets": ["packages/cli/src/commands/config.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 86,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/src/commands/config.ts",
+					"targets": ["packages/cli/src/commands/config.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 5,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 95,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.ts",
+					"targets": ["packages/bot-core/src/kernel/operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 49,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "9d6947a16a5fef79c5c6f1723974432a7a1cb80f",
+			"title": "chore(release): 0.3.26110211",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "9fc8a7844ada4abf6b8e60c6740ade9a5bf7b283",
+			"title": "Clarify predicted participation summary",
+			"files": [
+				{
+					"source": "packages/cli/src/commands/config.test.ts",
+					"targets": ["packages/cli/src/commands/config.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 13,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/src/commands/config.ts",
+					"targets": ["packages/cli/src/commands/config.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "2b4139341a15060239c36f6b88326331f815baab",
+			"title": "Keep unknown operability predictions unknown",
+			"files": [
+				{
+					"source": "packages/cli/src/commands/config.test.ts",
+					"targets": ["packages/cli/src/commands/config.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 8,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/src/commands/config.ts",
+					"targets": ["packages/cli/src/commands/config.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "85a1df5b11d662ec1573d86e8ad151d9269ca466",
+			"title": "docs: record v10 channel failures and source-aware diagnostics",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "docs/research/harness-self-configuration-20261101.md",
+					"targets": ["docs/research/harness-self-configuration-20261101.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 11
+				}
+			]
+		},
+		{
+			"commit": "25b13baec918f6456d2ea14c2f1721dca5356907",
+			"title": "Merge remote-tracking branch 'origin/main'",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "79ae89ca080d95de70fc0e77d86109ad7425463c",
+			"title": "Preserve focused group candidates after peer replies",
+			"files": [
+				{
+					"source": "plugins/social/src/groups.ts",
+					"targets": ["plugins/social/src/groups.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "plugins/social/test/group-attention.test.ts",
+					"targets": ["plugins/social/test/group-attention.test.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 90
+				}
+			]
+		},
+		{
+			"commit": "11c492b8d5981204f9ae300e7dc8bb465223baa5",
+			"title": "docs: preserve focused candidate consumption boundaries",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "docs/spec/11-official-plugins.md",
+					"targets": ["docs/spec/11-official-plugins.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 3
+				}
+			]
+		},
+		{
+			"commit": "5e94c9204c92e3c7c895f44bbc8bb299685773ec",
+			"title": "chore(release): 0.3.26110212",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "15add313403e5b59b976f6d925e9047145b6c01b",
+			"title": "Carry group attention into turn context",
+			"files": [
+				{
+					"source": "plugins/social/src/group-context.ts",
+					"targets": ["plugins/social/src/group-context.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 12
+				},
+				{
+					"source": "plugins/social/src/group-turns.ts",
+					"targets": ["plugins/social/src/group-turns.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 28
+				},
+				{
+					"source": "plugins/social/src/groups.ts",
+					"targets": ["plugins/social/src/groups.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 16
+				},
+				{
+					"source": "plugins/social/test/group-attention.test.ts",
+					"targets": ["plugins/social/test/group-attention.test.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 154
+				},
+				{
+					"source": "plugins/social/test/group-context.test.ts",
+					"targets": ["plugins/social/test/group-context.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "f2790622d0670f93468c21ed9e98915a1fc8d803",
+			"title": "Share compact operability summary with host context",
+			"files": [
+				{
+					"source": "packages/cli/src/commands/config.test.ts",
+					"targets": ["packages/cli/src/commands/config.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 8,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/src/commands/config.ts",
+					"targets": ["packages/cli/src/commands/config.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/index.ts",
+					"targets": ["packages/local-host/src/index.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/conversation.ts",
+					"targets": [
+						"packages/bot-core/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/conversation.ts",
+						"packages/local-host/src/kernel/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability-summary.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability-summary.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 94,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability-summary.ts",
+					"targets": ["packages/bot-core/src/kernel/operability-summary.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 230,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/private-main-context.test.ts",
+					"targets": ["packages/local-host/src/kernel/private-main-context.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 5,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "4be4b38da34b16430952c4e6cd7898a714785d2a",
+			"title": "docs: define scoped context and interaction continuity contracts",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": []
+				},
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/11-official-plugins.md",
+					"targets": ["docs/spec/11-official-plugins.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 10
+				}
+			]
+		},
+		{
+			"commit": "2ddb5f1199b972b5117255c25a892c10b9c08039",
+			"title": "Merge remote-tracking branch 'origin/main'",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "f41f484f3bc7f2d046db1fbcd3b9faefaaf6b4df",
+			"title": "chore(release): 0.3.26110213",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "f139c906d8c1a1e33644ec6a92b9decffb987dd1",
+			"title": "Report QQ group receive scope as unknown",
+			"files": [
+				{
+					"source": "plugins/channel-qq/README.md",
+					"targets": ["plugins/channel-qq/README.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 5
+				},
+				{
+					"source": "plugins/channel-qq/src/index.ts",
+					"targets": ["plugins/channel-qq/src/index.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "plugins/channel-qq/src/participation.ts",
+					"targets": ["plugins/channel-qq/src/participation.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 65
+				},
+				{
+					"source": "plugins/channel-qq/test/participation-policy.test.ts",
+					"targets": ["plugins/channel-qq/test/participation-policy.test.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 43
+				}
+			]
+		},
+		{
+			"commit": "db2facfdeb7f7e9b4ca47ea2eca62bc1f1c7a206",
+			"title": "Close social update acceptance gaps",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/index.ts",
+					"targets": [
+						"packages/local-host/src/kernel/index.ts",
+						"packages/bot-core/src/kernel/create-bot.ts",
+						"packages/bot-core/src/kernel/services-wiring.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.test.ts",
+					"targets": ["packages/local-host/src/kernel/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 190,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 77,
+					"missing": []
+				},
+				{
+					"source": "packages/sdk/src/social.ts",
+					"targets": ["packages/sdk/src/social.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 29
+				}
+			]
+		},
+		{
+			"commit": "314f59d5205667c60249aa794651b82d7edb9832",
+			"title": "Clarify group participation wake semantics",
+			"files": [
+				{
+					"source": "packages/core/src/prompt/content.ts",
+					"targets": ["packages/bot-core/src/prompt/content.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "0407266001711c9b2c10a0138ab7612e1296d480",
+			"title": "Preserve social policy siblings and YAML formatting",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/social.test.ts",
+					"targets": ["packages/local-host/src/kernel/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 29,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 6,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "79acd0be6db43506aa4fd47b6fe2abdd11b261e8",
+			"title": "Clarify model participation across wake modes",
+			"files": [
+				{
+					"source": "packages/core/src/prompt/content.ts",
+					"targets": ["packages/bot-core/src/prompt/content.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 4,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "b91b6059044d23539de45d5373fdedbe557ef7cf",
+			"title": "docs: define configuration readback and platform evidence boundaries",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 7
+				},
+				{
+					"source": "docs/spec/08-config.md",
+					"targets": ["docs/spec/08-config.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/11-official-plugins.md",
+					"targets": ["docs/spec/11-official-plugins.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 8
+				}
+			]
+		},
+		{
+			"commit": "e564ded0125d60c63cb95034f32d560049f130ae",
+			"title": "Merge remote-tracking branch 'origin/main'",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 0
+				}
+			]
+		},
+		{
+			"commit": "358122c39695f3e3f9f3f8d5be3af782b88a2b3f",
+			"title": "Keep soft reminders from ending goals",
+			"files": [
+				{
+					"source": "packages/core/src/prompt/content.ts",
+					"targets": ["packages/bot-core/src/prompt/content.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "5043338dd62e36da875f3ae24b06de3ebb1121e1",
+			"title": "docs: align soft-reminder evidence with runtime guarantees",
+			"files": [
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				}
+			]
+		},
+		{
+			"commit": "554ba68e3afbfe52509cb721714d407e8ff88e16",
+			"title": "chore(release): 0.3.26110214",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 83,
+					"transformations": [
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						},
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						}
+					]
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 4,
+					"transformations": [
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						}
+					]
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 3,
+					"transformations": [
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						}
+					]
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 3
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				}
+			]
+		},
+		{
+			"commit": "b11b337359dafc9bf280ead60cf2ff0c5b5dc31c",
+			"title": "docs: separate processing, source execution and configuration evidence",
+			"files": [
+				{
+					"source": "CONTRIBUTING.md",
+					"targets": ["CONTRIBUTING.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 0,
+					"missing": []
+				},
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 7,
+					"missing": []
+				},
+				{
+					"source": "docs/research/harness-configuration-chain-20261102.svg",
+					"targets": ["docs/research/harness-configuration-chain-20261102.svg"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 8
+				},
+				{
+					"source": "docs/spec/02-sessions.md",
+					"targets": ["docs/spec/02-sessions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/07-runtime.md",
+					"targets": ["docs/spec/07-runtime.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/11-official-plugins.md",
+					"targets": ["docs/spec/11-official-plugins.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/verification/harness-local-cloud-20261102.md",
+					"targets": ["docs/verification/harness-local-cloud-20261102.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 8
+				}
+			]
+		},
+		{
+			"commit": "476b44fb15db0ceeedaffae70febab7af9002059",
+			"title": "fix social batch processing before speaking coordination",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "plugins/social/src/group-attention.ts",
+					"targets": ["plugins/social/src/group-attention.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "plugins/social/src/groups.ts",
+					"targets": ["plugins/social/src/groups.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 19
+				},
+				{
+					"source": "plugins/social/test/group-attention.test.ts",
+					"targets": ["plugins/social/test/group-attention.test.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 165
+				}
+			]
+		},
+		{
+			"commit": "a472f9256713bde9797ea105004f9212709cc66c",
+			"title": "docs: align self-configuration plan with execution boundaries",
+			"files": [
+				{
+					"source": "docs/research/harness-self-configuration-20261101.md",
+					"targets": ["docs/research/harness-self-configuration-20261101.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 4
+				}
+			]
+		},
+		{
+			"commit": "a80b6e51e819e43e88d6d21c10594d4ecf8fbdef",
+			"title": "Preflight ordinary social batch configuration",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/agent-operability.ts",
+					"targets": ["packages/bot-core/src/kernel/agent-operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 84,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability-adapters.ts",
+					"targets": ["packages/local-host/src/kernel/operability-adapters.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 32,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/operability.ts",
+					"targets": ["packages/bot-core/src/kernel/operability.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social-preflight.ts",
+					"targets": ["packages/local-host/src/kernel/social-preflight.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 75,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social-support.ts",
+					"targets": ["packages/local-host/src/kernel/social-support.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 126,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.test.ts",
+					"targets": ["packages/local-host/src/kernel/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 153,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 22,
+					"missing": []
+				},
+				{
+					"source": "plugins/social/src/tools.ts",
+					"targets": ["plugins/social/src/tools.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 13
+				},
+				{
+					"source": "plugins/social/test/tags.test.ts",
+					"targets": ["plugins/social/test/tags.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 27,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "095ca9412c6026fec2c0ccd5d3c2e014ecb7a654",
+			"title": "clarify authorized plugin configuration in tool discovery",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.test.ts",
+					"targets": ["packages/local-host/src/prompt/index.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/prompt/index.ts",
+					"targets": [
+						"packages/bot-core/src/prompt/index.ts",
+						"packages/bot-core/src/prompt/system.ts",
+						"packages/local-host/src/prompt/index.ts"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "e2577e3b28651e5bbe11be051ac2802328f34d70",
+			"title": "Report ordinary batch preflight confidence",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 42,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social-preflight.ts",
+					"targets": ["packages/local-host/src/kernel/social-preflight.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 15,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.test.ts",
+					"targets": ["packages/local-host/src/kernel/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 6,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 17,
+					"missing": []
+				},
+				{
+					"source": "packages/sdk/src/social.ts",
+					"targets": ["packages/sdk/src/social.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				}
+			]
+		},
+		{
+			"commit": "46583e145efaee433a9b8e1276e22607401b3b1c",
+			"title": "Merge remote-tracking branch 'origin/main'",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "apps/app/package.json",
+					"targets": ["apps/app/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "package-lock.json",
+					"targets": ["package-lock.json"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 83,
+					"transformations": [
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						},
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						}
+					]
+				},
+				{
+					"source": "package.json",
+					"targets": ["package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/cli/package.json",
+					"targets": ["packages/cli/package.json"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 4,
+					"transformations": [
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						}
+					]
+				},
+				{
+					"source": "packages/core/package.json",
+					"targets": [
+						"packages/local-host/package.json",
+						"packages/bot-core/package.json",
+						"packages/runtime-adapter/package.json",
+						"package.json"
+					],
+					"status": "surviving additions present",
+					"survivingAddedLines": 3,
+					"missing": []
+				},
+				{
+					"source": "packages/design/package.json",
+					"targets": ["packages/design/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "packages/device/package.json",
+					"targets": ["packages/device/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "packages/gateway/package.json",
+					"targets": ["packages/gateway/package.json"],
+					"status": "explicit equivalent migration verified",
+					"survivingAddedLines": 3,
+					"transformations": [
+						{
+							"mainLine": "\"@yonder/core\": \"0.3.26110214\",",
+							"refactorLine": "\"@yonder/local-host\": \"0.3.26110214\",",
+							"reason": "removed compatibility package; direct dependency version preserved"
+						}
+					]
+				},
+				{
+					"source": "packages/protocol/package.json",
+					"targets": ["packages/protocol/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 1
+				},
+				{
+					"source": "packages/sdk/package.json",
+					"targets": ["packages/sdk/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "plugins/advisor/package.json",
+					"targets": ["plugins/advisor/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/agent-presets/package.json",
+					"targets": ["plugins/agent-presets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/browser-skill/package.json",
+					"targets": ["plugins/browser-skill/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-card/package.json",
+					"targets": ["plugins/channel-card/package.json"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "plugins/channel-cli/package.json",
+					"targets": ["plugins/channel-cli/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-feishu/package.json",
+					"targets": ["plugins/channel-feishu/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-github/package.json",
+					"targets": ["plugins/channel-github/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-mcp/package.json",
+					"targets": ["plugins/channel-mcp/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-qq/package.json",
+					"targets": ["plugins/channel-qq/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/channel-wechat-ilink/package.json",
+					"targets": ["plugins/channel-wechat-ilink/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/clipboard/package.json",
+					"targets": ["plugins/clipboard/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/code-intel/package.json",
+					"targets": ["plugins/code-intel/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/codex-companion/package.json",
+					"targets": ["plugins/codex-companion/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/codex-tools/package.json",
+					"targets": ["plugins/codex-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/context-files/package.json",
+					"targets": ["plugins/context-files/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/cron/package.json",
+					"targets": ["plugins/cron/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/devices/package.json",
+					"targets": ["plugins/devices/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/hermes-experience/package.json",
+					"targets": ["plugins/hermes-experience/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 3
+				},
+				{
+					"source": "plugins/interaction/package.json",
+					"targets": ["plugins/interaction/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/learning/package.json",
+					"targets": ["plugins/learning/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/market/package.json",
+					"targets": ["plugins/market/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/mcp-client/package.json",
+					"targets": ["plugins/mcp-client/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/media-tools/package.json",
+					"targets": ["plugins/media-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/memory/package.json",
+					"targets": ["plugins/memory/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/native-automation/package.json",
+					"targets": ["plugins/native-automation/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/onboarding/package.json",
+					"targets": ["plugins/onboarding/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/secrets/package.json",
+					"targets": ["plugins/secrets/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/social/package.json",
+					"targets": ["plugins/social/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/tasks/package.json",
+					"targets": ["plugins/tasks/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/web-tools/package.json",
+					"targets": ["plugins/web-tools/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "plugins/wechat-archive/package.json",
+					"targets": ["plugins/wechat-archive/package.json"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				}
+			]
+		},
+		{
+			"commit": "4acb0ca764b0fa3435d6cac47d4bc2ab36f90c42",
+			"title": "Preserve accepted group runtime profiles in preflight",
+			"files": [
+				{
+					"source": "packages/core/src/kernel/operability.test.ts",
+					"targets": ["packages/local-host/src/kernel/operability.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 59,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 5,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "bd63bc2c0aec20f56b1079270125b210c4525853",
+			"title": "docs: record exact Pi provenance and batch activation checks",
+			"files": [
+				{
+					"source": "CONTRIBUTING.md",
+					"targets": ["CONTRIBUTING.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "THIRD_PARTY_NOTICES.md",
+					"targets": ["THIRD_PARTY_NOTICES.md"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 2
+				},
+				{
+					"source": "docs/decisions.md",
+					"targets": ["docs/decisions.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 2,
+					"missing": []
+				},
+				{
+					"source": "docs/spec/11-official-plugins.md",
+					"targets": ["docs/spec/11-official-plugins.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		},
+		{
+			"commit": "6189a34eec40bcd59aa0b12621766785e6ce4556",
+			"title": "capture bounded social update failure evidence",
+			"files": [
+				{
+					"source": "plugins/social/test/self-configuration-natural-live.test.ts",
+					"targets": ["plugins/social/test/self-configuration-natural-live.test.ts"],
+					"status": "final main blob identical",
+					"survivingAddedLines": 110
+				}
+			]
+		},
+		{
+			"commit": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+			"title": "initialize conversation policy YAML mapping",
+			"files": [
+				{
+					"source": "CHANGELOG.md",
+					"targets": ["CHANGELOG.md"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.test.ts",
+					"targets": ["packages/local-host/src/kernel/social.test.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 101,
+					"missing": []
+				},
+				{
+					"source": "packages/core/src/kernel/social.ts",
+					"targets": ["packages/local-host/src/kernel/social.ts"],
+					"status": "surviving additions present",
+					"survivingAddedLines": 1,
+					"missing": []
+				}
+			]
+		}
+	],
+	"method": "For each of 73 main commits, compare additions with latest main, excluding later superseded additions; compare exact final main blobs when possible, otherwise verify surviving additions as whitespace-normalized substrings in mapped real packages. Imports/re-exports are relocated and excluded from line-substring matching; fragments under 12 non-whitespace characters are ignored. Explicit async/plugin-package transformations are asserted separately. Detailed source/target paths and counts retained per commit.",
+	"mainRecheck": "ae197ecbf97ab23da3262c63c607b15e4e259364",
+	"branchContainsMain": true
+}
