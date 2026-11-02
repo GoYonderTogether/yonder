@@ -61,7 +61,7 @@ import {
 	resultText,
 	resume,
 } from "./recovery-resume.js";
-import { hasPendingWork, writeNote } from "./services.js";
+import { busy, hasPendingWork, writeNote } from "./services.js";
 import {
 	applyRequestedEffort,
 	currentConfig,
@@ -472,6 +472,9 @@ export class Runtime {
 	async activity(id: string) {
 		return activity(this.rt, id);
 	}
+	async busy(): Promise<boolean> {
+		return busy(this.rt);
+	}
 	async hasPendingWork(id: string, input?: string): Promise<boolean> {
 		return hasPendingWork(this.rt, id, input);
 	}
@@ -488,7 +491,7 @@ export class Runtime {
 		pollQuota(this.rt, fallback, selection);
 	}
 	async maintenance(now = Date.now()): Promise<void> {
-		await Promise.all([this.watch.tick(now), this.quotaPoller.tick(now)]);
+		await Promise.all([this.watch.tick(now), this.quotaPoller?.tick(now)]);
 	}
 	async close(): Promise<void> {
 		await closeRuntime(this.rt);

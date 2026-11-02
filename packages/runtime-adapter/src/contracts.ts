@@ -100,6 +100,7 @@ export interface RuntimeQuotaPoller {
 }
 
 export interface RuntimeBackground {
+	busy(): boolean;
 	extension: import("@earendil-works/pi-durable").Extension;
 	running: Map<number, RuntimeLiveOutput>;
 	tools: import("@earendil-works/pi-durable").ToolRegistration[];
@@ -168,7 +169,7 @@ export interface RuntimeServices {
 	quota: RuntimeModelQuota;
 	gate: RuntimeModelGate;
 	watch: RuntimeModelWatch;
-	quotaPoller: RuntimeQuotaPoller;
+	quotaPoller?: RuntimeQuotaPoller;
 	models: RuntimeModels;
 	modelsFor(config: {
 		resolved: { model: string; fallback?: unknown; credentialSlots: Readonly<Record<string, string>> };

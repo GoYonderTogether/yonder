@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { expect, test } from "vitest";
+import { createTriggerScheduler } from "@yonder/sdk/trigger-scheduler";
+import { expect, test, vi } from "vitest";
 
 const shape = (value: unknown): unknown =>
 	Array.isArray(value)
@@ -10,8 +11,8 @@ const shape = (value: unknown): unknown =>
 			? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, shape(item)]))
 			: typeof value;
 
-import { socialPluginHooks } from "../kernel/social-plugin.test-support.js";
-import { outboundQueue } from "./outbound.js";
+import { outboundQueue } from "@yonder/bot-core/delivery/outbound";
+import { socialPluginHooks } from "@yonder/local-host/kernel/social-plugin.test-support";
 
 // 真实加载官方 social 插件：主动通知准入读的是它给出的判定（04 §3.6）。
 const participationHooks = await socialPluginHooks();
@@ -54,27 +55,42 @@ test("digest survives restart and rechecks every queued owner's capability", asy
 	await store.events.record({ type: "source", data: {} });
 	const owner = { agent: "bot", session: "1", profile: "main" };
 	const queue = outboundQueue(args);
-	await queue.enqueue(owner, "tasks", "需要决定", { kind: "decision", key: "task:1", sourceEvents: ["1"] });
-	await outboundQueue(args).flush();
-	expect(notices).toEqual(["需要决定"]);
-	await queue.enqueue(owner, "tasks", "已撤权", { kind: "decision", key: "task:2", sourceEvents: ["1"] });
-	allowed = false;
-	await queue.flush();
-	allowed = true;
-	await queue.flush();
-	expect(notices).toEqual(["需要决定"]);
-	const actual = Object.fromEntries(
-		["notification.intent", "notification.final"].map((type) => [
-			type,
-			shape(events.find((event) => event.type === type)?.data),
-		]),
-	);
-	const golden = new URL("./outbound.golden.json", import.meta.url);
-	if (process.env.UPDATE_GOLDEN === "1") {
-		writeFileSync(golden, `${JSON.stringify(actual, null, "\t")}\n`);
-		execFileSync("npx", ["biome", "format", "--write", fileURLToPath(golden)]);
+	const scheduler = createTriggerScheduler(() => {});
+	const scheduled = vi.spyOn(globalThis, "setTimeout");
+	const cleared = vi.spyOn(globalThis, "clearTimeout");
+	try {
+		await queue.start(scheduler);
+		expect(scheduled).not.toHaveBeenCalled();
+		await queue.enqueue(owner, "tasks", "需要决定", { kind: "decision", key: "task:1", sourceEvents: ["1"] });
+		const timer = scheduled.mock.results.at(-1)!.value;
+		await outboundQueue(args).flush();
+		await queue.flush();
+		expect(cleared).toHaveBeenCalledWith(timer);
+		expect(notices).toEqual(["需要决定"]);
+		await queue.enqueue(owner, "tasks", "已撤权", { kind: "decision", key: "task:2", sourceEvents: ["1"] });
+		allowed = false;
+		await queue.flush();
+		allowed = true;
+		await queue.flush();
+		expect(notices).toEqual(["需要决定"]);
+		const actual = Object.fromEntries(
+			["notification.intent", "notification.final"].map((type) => [
+				type,
+				shape(events.find((event) => event.type === type)?.data),
+			]),
+		);
+		const golden = new URL("./outbound.golden.json", import.meta.url);
+		if (process.env.UPDATE_GOLDEN === "1") {
+			writeFileSync(golden, `${JSON.stringify(actual, null, "\t")}\n`);
+			execFileSync("npx", ["biome", "format", "--write", fileURLToPath(golden)]);
+		}
+		expect(actual).toEqual(JSON.parse(readFileSync(golden, "utf8")));
+	} finally {
+		await queue.stop();
+		await scheduler.stop();
+		scheduled.mockRestore();
+		cleared.mockRestore();
 	}
-	expect(actual).toEqual(JSON.parse(readFileSync(golden, "utf8")));
 });
 
 test("the console stays an allowed owner notification target under a channel scope", async () => {

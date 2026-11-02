@@ -35,6 +35,7 @@ export function outboundQueue({
 }) {
 	let tail = Promise.resolve();
 	let dispose: (() => Promise<void>) | undefined;
+	let io: TriggerIO | undefined;
 	const serialized = <T>(fn: () => Promise<T>): Promise<T> => {
 		const next = tail.then(fn);
 		tail = next.then(
@@ -81,11 +82,17 @@ export function outboundQueue({
 				from: plugin === "yonder" ? "system:yonder" : `plugin:${plugin}`,
 				data: { owner, plugin, text, notification, ownerRef: agent.owner },
 			});
+			await io?.schedule(Date.now() + 60000);
 			return { ok: true };
 		});
 	}
 	async function flush() {
 		return serialized(async () => {
+			const finals = await events("notification.final");
+			const done = new Set(finals.flatMap((e) => (e.data as { intents: string[] }).intents));
+			const pending = (await events("notification.intent")).filter((e) => !done.has(e.id));
+			let remaining = pending.length;
+			await io?.schedule(remaining ? Date.now() + 60000 : undefined);
 			const settings = config.notifications?.outbound;
 			if (settings?.enabled === false || settings?.mode === "off") return;
 			if (settings?.quiet) {
@@ -98,9 +105,6 @@ export function outboundQueue({
 				}).format(new Date());
 				if (start < end ? time >= start && time < end : time >= start || time < end) return;
 			}
-			const finals = await events("notification.final");
-			const done = new Set(finals.flatMap((e) => (e.data as { intents: string[] }).intents));
-			const pending = (await events("notification.intent")).filter((e) => !done.has(e.id));
 			const groups = new Map<string, typeof pending>();
 			for (const event of pending) {
 				const intent = event.data as Intent;
@@ -224,11 +228,13 @@ export function outboundQueue({
 						? (await store.sessions.list({ agent: intent.owner.agent, mode: "main", open: true }))[0]
 						: undefined;
 				const discarded = group.filter((event) => !active.includes(event));
-				if (discarded.length)
+				if (discarded.length) {
 					await store.events.record({
 						type: "notification.final",
 						data: { intents: discarded.map((e) => e.id), status: "discarded" },
 					});
+					remaining -= discarded.length;
+				}
 				if (!sender || !selected.length || (!target && !main)) continue;
 				const text = selected.map((e) => (e.data as Intent).text).join("\n");
 				// A claimed send may be unknown after a crash; never automatically duplicate it.
@@ -236,17 +242,18 @@ export function outboundQueue({
 					type: "notification.final",
 					data: { intents: selected.map((e) => e.id), agent: intent.owner.agent, status: "attempted" },
 				});
+				remaining -= selected.length;
 				if (target) await delivery().sendOwned(intent.plugin, { ...target, text }, sender.resolved, sender.row);
 				else if (main)
 					await sessions.notifyFrom(main.id, { event: selected[0]!.id, text }, `agent:${intent.owner.agent}`);
 			}
+			await io?.schedule(remaining ? Date.now() + 60000 : undefined);
 		});
 	}
 	return {
 		enqueue,
 		flush,
 		start: async (scheduler: ReturnType<typeof import("@yonder/sdk/trigger-scheduler").createTriggerScheduler>) => {
-			let io: TriggerIO;
 			dispose = await scheduler.start(
 				"core:outbound",
 				{
@@ -254,17 +261,13 @@ export function outboundQueue({
 					async start(value) {
 						io = value;
 						await flush();
-						await io.schedule(Date.now() + 60000);
 					},
-					async tick(now) {
-						try {
-							await flush();
-						} finally {
-							await io.schedule(now + 60000);
-						}
+					async tick() {
+						await flush();
 					},
 					async stop() {
-						await io.schedule(undefined);
+						await io?.schedule(undefined);
+						io = undefined;
 					},
 				},
 				async (event) => store.events.record(event),

@@ -34,7 +34,6 @@ export interface RuntimeOutputCapture {
 	finish(): Promise<string>;
 	cleanup(): Promise<void>;
 }
-
 export interface RuntimeBackgroundOptions {
 	home?: string;
 	cacheOutput?(config: string): boolean;
@@ -442,6 +441,7 @@ export function createBackground(options: RuntimeBackgroundOptions) {
 		extension: defineExtension({ name: "yonder.background", tasks: [task] }),
 		run,
 		running,
+		busy: () => watchers.size > 0 || running.size > 0,
 		tools: createBackgroundTools({
 			...(options.home ? { home: options.home } : {}),
 			...(options.logs ? { logs: options.logs } : {}),

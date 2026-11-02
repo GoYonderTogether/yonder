@@ -8,6 +8,13 @@ export async function writeNote(rt: RuntimeInternals, id: string, requestId: str
 	await (await rt.conversation(id)).submit(runtimeNote(requestId, text), C);
 }
 
+/** One native work snapshot for host eviction; no per-session storage scan. */
+export async function busy(rt: RuntimeInternals): Promise<boolean> {
+	if (rt.finishing.size || rt.recovering.length || rt.background.busy()) return true;
+	const work = await rt.harness.inspect(C);
+	return work.tasks.length > 0 || work.submissions.length > 0;
+}
+
 export async function hasPendingWork(rt: RuntimeInternals, id: string, input?: string): Promise<boolean> {
 	const live = await rt.harness.snapshot(LiveDoc, cid(id), C);
 	if (live?.run) {

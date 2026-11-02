@@ -12,6 +12,8 @@ import { createPostgresScheduler, migrateScheduler } from "./scheduler.js";
 import { migrateDefinitions } from "./schema.js";
 import { migratePostgresStore } from "./store/postgres.js";
 
+export const CLOUD_BOT_IDLE_MS = 60_000;
+
 async function privateFile(path: string) {
 	if ((await stat(path)).mode & 0o077) throw new Error("Worker key file must have private permissions");
 	return readFile(path);
@@ -58,7 +60,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 		onReport: report,
 	});
 	type Bot = Awaited<ReturnType<typeof openCloudBot>>;
-	type Entry = { ready: Promise<Bot>; busy: boolean; used: number };
+	type Entry = { ready: Promise<Bot>; busy: boolean; used: number; closing?: Promise<void> };
 	const identities = new Map<string, CloudBotIdentity>();
 	const active = new Map<string, Entry>();
 	const queues = new Map<string, Promise<unknown>>();
@@ -90,6 +92,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 		release();
 		disconnection = Promise.all(
 			[...active.values()].map(async (entry) => {
+				if (entry.closing) return entry.closing;
 				const bot = await entry.ready;
 				for (const session of await bot.store.sessions.list({ open: true })) await bot.runtime.abort(session.id);
 			}),
@@ -109,7 +112,8 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 			enabled: (tenant, bot) => identities.get(bot)?.ownerId === tenant,
 			async maintenance(now) {
 				const services = runtimeHost.forBot("worker", "worker");
-				await Promise.all([services.watch.tick(now), services.quotaPoller.tick(now)]);
+				await services.watch.tick(now);
+				await releaseIdle(now);
 			},
 		},
 	);
@@ -167,42 +171,47 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 		},
 	});
 	const descriptors = await cloudPluginDescriptors(card.plugin);
-	let activation = Promise.resolve();
-	function acquire(id: string, signal?: AbortSignal): Promise<Entry> {
-		const result = activation.then(() => {
-			signal?.throwIfAborted();
-			return acquireNow(id, signal);
+	function retire(id: string, entry: Entry, bot: Bot) {
+		entry.closing = bot.close().finally(() => {
+			active.delete(id);
+			release();
 		});
-		activation = result.then(
-			() => {},
-			() => {},
-		);
-		return result;
+		return entry.closing;
 	}
-	async function acquireNow(id: string, signal?: AbortSignal): Promise<Entry> {
-		const previous = active.get(id);
-		if (previous) {
-			previous.busy = true;
-			return previous;
+	async function releaseIdle(now: number) {
+		for (const [id, entry] of active) {
+			if (entry.busy || entry.closing || now - entry.used < CLOUD_BOT_IDLE_MS) continue;
+			const bot = await entry.ready;
+			if (await bot.busy()) continue;
+			// A message may have acquired this Bot while its native state was being read.
+			if (!entry.busy && !entry.closing && now - entry.used >= CLOUD_BOT_IDLE_MS) await retire(id, entry, bot);
 		}
-		while (active.size >= 20) {
-			let idle: [string, Entry] | undefined;
-			for (const candidate of [...active.entries()]
-				.filter(([, entry]) => !entry.busy)
-				.sort((a, b) => a[1].used - b[1].used)) {
-				if (!(await (await candidate[1].ready).busy())) {
-					idle = candidate;
-					break;
-				}
-			}
-			if (idle) {
-				active.delete(idle[0]);
-				await (await idle[1].ready).close();
-				break;
-			}
-			await new Promise<void>((resolve) => available.add(resolve));
+	}
+	async function acquire(id: string, signal?: AbortSignal): Promise<Entry> {
+		for (;;) {
 			signal?.throwIfAborted();
 			if (closed) throw new Error("Cloud worker stopped");
+			const previous = active.get(id);
+			if (previous?.closing) {
+				await previous.closing;
+				continue;
+			}
+			if (previous) {
+				previous.busy = true;
+				return previous;
+			}
+			if (active.size < 20) break;
+			let retired = false;
+			for (const [candidateId, entry] of [...active.entries()].sort((a, b) => a[1].used - b[1].used)) {
+				if (entry.busy || entry.closing) continue;
+				const bot = await entry.ready;
+				if (await bot.busy()) continue;
+				if (entry.busy || entry.closing) continue;
+				await retire(candidateId, entry, bot);
+				retired = true;
+				break;
+			}
+			if (!retired) await new Promise<void>((resolve) => available.add(resolve));
 		}
 		const identity = identities.get(id);
 		if (!identity) throw new Error("Cloud Bot is unavailable or paused");
@@ -217,7 +226,11 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 				descriptors,
 				channels: card.channels,
 				scheduler: scoped,
-				onIdle: release,
+				onIdle() {
+					const entry = active.get(id);
+					if (entry) entry.used = Date.now();
+					release();
+				},
 				runtimeServices: runtimeHost.forBot(identity.ownerId, id),
 				environment,
 				version,
@@ -250,13 +263,6 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 		};
 		active.set(id, entry);
 		highWater = Math.max(highWater, active.size);
-		try {
-			await entry.ready;
-		} catch (error) {
-			active.delete(id);
-			release();
-			throw error;
-		}
 		return entry;
 	}
 	function enqueue<T>(
@@ -269,24 +275,25 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 			.catch(() => {})
 			.then(async () => {
 				if (signal?.aborted) return;
-				if (closed) throw new Error("Cloud worker stopped");
 				const entry = await acquire(id, signal);
+				let bot: Bot | undefined;
 				try {
+					bot = await entry.ready;
 					if (signal?.aborted) return;
-					const bot = await entry.ready;
 					return await operation({ bot, scheduler: bot.scheduler });
 				} finally {
+					if (!bot) active.delete(id);
 					entry.busy = false;
-					entry.used = Date.now();
+					// Only source-message leases carry a signal; idle plugin scans must not renew the Bot.
+					if (signal) entry.used = Date.now();
 					release();
 				}
 			});
 		queues.set(id, task);
-		void task
-			.finally(() => {
-				if (queues.get(id) === task) queues.delete(id);
-			})
-			.catch(() => {});
+		const settled = () => {
+			if (queues.get(id) === task) queues.delete(id);
+		};
+		void task.then(settled, settled);
 		return task;
 	}
 	await card.start();
@@ -309,7 +316,7 @@ export async function startCloudWorker(options: CloudWorkerOptions) {
 			const stoppedScheduling = scheduler.stop();
 			await disconnect("Cloud worker stopped");
 			await card.stop();
-			for (const entry of active.values()) await (await entry.ready).close();
+			for (const entry of active.values()) await (entry.closing ?? entry.ready.then((bot) => bot.close()));
 			await Promise.allSettled([...queues.values()]);
 			await stoppedScheduling;
 			active.clear();

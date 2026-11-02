@@ -2,13 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT as C } from "@earendil-works/chord/context";
 import type { Harness } from "@earendil-works/pi-durable";
+import { resolveProfile } from "@yonder/local-host/config/test-support";
+import { openDatabase, openRuntimeStorage } from "@yonder/runtime-adapter/node/runtime/db";
+import { Runtime } from "@yonder/runtime-adapter/node/runtime/index";
+import { aggregateExecution } from "@yonder/runtime-adapter/runtime/activity";
+import { cid, SessionDoc } from "@yonder/runtime-adapter/runtime/docs";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
-import { resolveProfile } from "../config/test-support.js";
-import { aggregateExecution } from "./activity.js";
-import { openDatabase, openRuntimeStorage } from "./db.js";
-import { cid, SessionDoc } from "./docs.js";
-import { Runtime } from "./index.js";
 
 // Real Runtime.submit -> prompt section fault -> native scheduler settlement and receipt.
 // No provider or model response is simulated, and the failure occurs before any model request.
@@ -98,10 +98,12 @@ test("actual next run start clears old issue before the model request", async ()
 		hold = true;
 		const pending = runtime.submit(session, { text: "Begin a genuinely new run." });
 		await prepared;
+		expect(await runtime.busy()).toBe(true);
 		expect((await runtime.activity(session)).execution).toMatchObject({ phase: "running", runId: expect.any(String) });
 		expect((await runtime.activity(session)).execution.issue).toBeUndefined();
 		release();
 		await pending;
+		expect(await runtime.busy()).toBe(false);
 	} finally {
 		release();
 		await runtime.close();
@@ -122,9 +124,9 @@ test("normal parallel execution wins over retry, current input wait wins over se
 // This calls the production terminal activity endpoint over real Runtime + Store.
 // Other terminal dependencies are not used by activity(), so no model or service is mocked.
 test("terminal activity includes open blocked sessions, preserves legacy idle, and excludes closed or identity-less sessions", async () => {
-	const { terminalApi } = await import("../kernel/terminal.js");
-	const { createStore } = await import("../store/index.js");
-	const { parseAgentConfig } = await import("../config/index.js");
+	const { terminalApi } = await import("@yonder/local-host/kernel/terminal");
+	const { createStore } = await import("@yonder/local-host/store/index");
+	const { parseAgentConfig } = await import("@yonder/local-host/config/index");
 	const home = await tempHome("ya-");
 	const db = await openDatabase(`${home}/state.db`);
 	const store = await createStore(db);
