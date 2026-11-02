@@ -190,14 +190,14 @@ jobs:
           [ -n "${KEY_BASE64:-}" ] || { echo "::error::missing secret ASC_API_PRIVATE_KEY_BASE64"; exit 1; }
           [ -n "${KEY_ID:-}" ] || { echo "::error::missing secret ASC_API_KEY_ID"; exit 1; }
           [ -n "${ISSUER_ID:-}" ] || { echo "::error::missing secret ASC_API_ISSUER_ID"; exit 1; }
-          keydir="$RUNNER_TEMP/asc/private_keys"
+          # altool 只在自己固定的几处目录里找 AuthKey_<id>.p8，--api-key-path 给目录也要是它认得的那种；
+          # 本地实测把它放到 ~/.appstoreconnect/private_keys 最稳（--api-key-path 传文件本身仍然报 -43）。
+          keydir="$HOME/.appstoreconnect/private_keys"
           mkdir -p "$keydir"
           printf '%s' "$KEY_BASE64" | base64 --decode > "$keydir/AuthKey_$KEY_ID.p8"
           chmod 600 "$keydir/AuthKey_$KEY_ID.p8"
-          # altool 会在 HOME 下的 private_keys 目录找 key：--api-key-path 必须给文件本身。
           xcrun altool --upload-app -f dist-ios/yonder-ios.ipa -t ios \
-            --api-key "$KEY_ID" --api-issuer "$ISSUER_ID" \
-            --api-key-path "$keydir/AuthKey_$KEY_ID.p8"
+            --api-key "$KEY_ID" --api-issuer "$ISSUER_ID"
 
       - name: 上传 GitHub Release 资产
         env:
@@ -207,6 +207,6 @@ jobs:
       - name: 清理签名材料
         if: ${{ always() }}
         run: |
-          rm -rf "$RUNNER_TEMP/yonder-signing" "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist"
+          rm -rf "$RUNNER_TEMP/yonder-signing" "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist" "$HOME/.appstoreconnect"
           rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles"
           rm -f apps/desktop/src-tauri/gen/apple/.icon-opaque.png
