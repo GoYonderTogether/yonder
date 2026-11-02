@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { cliChannelEndpoint, initHome, requestControl } from "@yonder/core";
@@ -95,8 +95,9 @@ test("global CLI discovers the default user home and preserves explicit override
 	}
 });
 
-test("CLI start preserves interaction configuration and Agent tools without publishing a retired desktop endpoint", async () => {
-	for (const disabled of [false, true]) {
+test.each([false, true])(
+	"CLI start preserves interaction configuration (desktop disabled: %s) and Agent tools without publishing a retired desktop endpoint",
+	async (disabled) => {
 		const home = await tempHome("ya-");
 		await initHome(home, "owner", { model: testModel });
 		const file = join(home, "yonder.yaml");
@@ -106,19 +107,37 @@ test("CLI start preserves interaction configuration and Agent tools without publ
 		await writeFile(file, stringify(config));
 		const agent = await readFile(join(home, "agents/main/agent.yaml"), "utf8");
 		const cli = resolve("packages/cli/dist/index.js");
-		const child = spawn(process.execPath, [cli, "start", "--home", home, "--json"], { stdio: "ignore" });
-		const exited = once(child, "exit");
+		const child = spawn(process.execPath, [cli, "start", "--home", home, "--json"], {
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		const exited = once(child, "close");
+		let output = "";
+		child.stdout.on("data", (chunk) => {
+			output += chunk;
+		});
+		child.stderr.on("data", (chunk) => {
+			output += chunk;
+		});
+		const diagnostics = () => `CLI pid=${child.pid} exit=${child.exitCode} signal=${child.signalCode}\n${output}`;
 		try {
-			await expect
-				.poll(
-					() =>
-						requestControl(home, { method: "sessions.list" }).then(
-							() => true,
-							() => false,
-						),
-					{ timeout: 10000 },
-				)
-				.toBe(true);
+			try {
+				await expect
+					.poll(
+						async () => {
+							if (child.exitCode !== null || child.signalCode !== null) return "exited";
+							return requestControl(home, { method: "sessions.list" }).then(
+								() => "ready",
+								() => "starting",
+							);
+						},
+						{ timeout: 10000 },
+					)
+					.not.toBe("starting");
+				expect(child.exitCode, diagnostics()).toBeNull();
+				expect(child.signalCode, diagnostics()).toBeNull();
+			} catch (error) {
+				throw new Error(`CLI control endpoint did not become ready. ${diagnostics()}`, { cause: error });
+			}
 			const updated = parse(await readFile(file, "utf8"));
 			expect(updated.plugins.filter((entry: { use: string }) => entry.use === "@yonder/plugin-interaction")).toEqual([
 				disabled
@@ -129,9 +148,25 @@ test("CLI start preserves interaction configuration and Agent tools without publ
 			const descriptor = join(home, ".yonder/plugins/interaction/desktop.json");
 			await expect(readFile(descriptor, "utf8")).rejects.toMatchObject({ code: "ENOENT" });
 		} finally {
-			await requestControl(home, { method: "stop" }).catch(() => child.kill("SIGTERM"));
-			await exited;
-			await rm(home, { recursive: true, force: true });
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			try {
+				await Promise.race([
+					(async () => {
+						if (child.exitCode === null && child.signalCode === null)
+							await requestControl(home, { method: "stop" }).catch(() => child.kill("SIGTERM"));
+						await exited;
+					})(),
+					new Promise<never>((_, reject) => {
+						timer = setTimeout(() => reject(new Error(`CLI did not exit after stop. ${diagnostics()}`)), 5000);
+					}),
+				]);
+			} finally {
+				clearTimeout(timer);
+				if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+				await exited;
+				await rm(home, { recursive: true, force: true });
+			}
 		}
-	}
-}, 20000);
+	},
+	20000,
+);
