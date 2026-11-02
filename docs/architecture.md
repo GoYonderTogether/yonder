@@ -90,6 +90,6 @@ Yonder Harness 是一个常驻的 agent 内核：**任何消息都是事件，�
 
 内核之外的官方插件（渠道、浏览器、搜索、cron、MCP 客户端、自动化等）放在同仓库 `plugins/` 的独立 SDK 包，清单见 [plugins.md](plugins.md)；供应商实现不进内核。
 
-本轮新增多设备执行契约W0，见[18](spec/18-device-execution.md)；execution-only、远程设备后端与Card执行relay尚未实现，不能据契约宣称可运行。
+多设备执行契约见[18](spec/18-device-execution.md)。当前已有 execution-only、持久命令账本、设备插件、私网/云中继及 Linux 桌面后端；源码能力不等于各平台和生产真实验收。主人批准的云端运行、多资源工作区与模型来源实现契约见[19 §7](spec/19-device-workbench.md#7-运行位置资源工作区与模型2026-11-02-主人批准实施)，进展与验收分别记录。
 
-通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、沙箱、远程执行环境与自动 PR 审核合并不在当前范围；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。完整主程序的 CLI/TUI 安装目标扩至 macOS、Linux 与 Windows；平台服务与本机 IPC 见 [09](spec/09-cli-release.md)，桌面 Helper/状态栏仍限 macOS，桌面客户端按平台各自构建与验收（[09 §6.2](spec/09-cli-release.md)）。平台适配代码不代表各平台安装与运行已验收；实际状态见 [status.md](status.md)。
+通用记忆引擎（语义召回、自动画像）、通用工作流、审批平台、通用沙箱管理与自动 PR 审核合并不在当前范围；远程执行环境按 19 §7 的已批准工作台范围实现与验收；用户个人记忆库由官方插件 memory 提供（[15](spec/15-memory.md)），不进内核。04 §8 仅标明这些能力可使用的槽，不代表已实现或已验证。完整主程序的 CLI/TUI 安装目标扩至 macOS、Linux 与 Windows；平台服务与本机 IPC 见 [09](spec/09-cli-release.md)，桌面 Helper/状态栏仍限 macOS，桌面客户端按平台各自构建与验收（[09 §6.2](spec/09-cli-release.md)）。平台适配代码不代表各平台安装与运行已验收；实际状态见 [status.md](status.md)。
