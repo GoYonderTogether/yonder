@@ -26,8 +26,9 @@ on:
         required: true
         type: string
       expected_commit:
-        description: 发版 tag 应指向的完整 40 位提交 SHA；不一致就拒绝
-        required: true
+        description: 发版 tag 应指向的完整 40 位提交 SHA；留空表示在所选 ref 上直接构建（手工验证用，不核对 tag）
+        required: false
+        default: ""
         type: string
   release:
     types: [published]
@@ -59,8 +60,11 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -eu
-          tag="${INPUT_VERSION:-$RELEASE_TAG}"
-          tag="v${tag#v}"
+          if [ -n "${RELEASE_TAG:-}" ]; then
+            tag="$RELEASE_TAG"
+          else
+            tag="v${INPUT_VERSION#v}"
+          fi
           version="${tag#v}"
           [[ "$version" =~ ^0\.[0-9]+\.[0-9]{8}$ ]] || {
             echo "::error::版本不是 0.<minor>.<YYMMDDNN>：$version"
