@@ -101,7 +101,7 @@ identity:
 
 ### 3.1 自配置的可接纳性与回执
 
-启动、管理写入与 watcher 共用可接纳性校验：拒绝运行时已知禁止的 social 群到私人 main 绑定、默认参与插件缺选及可确定的既有会话 profile 冲突。错误指出 binding/profile 与实际原因，不自动改变目标或扩大权限。管理写入等待 reload；失败恢复本次写入、保留旧有效状态，恢复失败明确报告。saved、accepted、下一轮运行和送达分别是事实。
+启动、管理写入与 watcher 共用可接纳性校验：拒绝运行时已知禁止的 social 群到私人 main 绑定、默认参与插件缺选及可确定的既有会话 profile 冲突。 兼容窗口内仍会发出的 `channel-qq.group-batch` 与 `*.batch-ready` 一样受群上下文隔离约束，须为独立 `persistent/per:conv` 且 `reply:none`；合法旧批次的 `wake:write` 保持兼容，新参与批次不得以 write 吞掉运行。错误指出 binding/profile 与实际原因，不自动改变目标或扩大权限。管理写入等待 reload；失败恢复本次写入、保留旧有效状态，恢复失败明确报告。saved、accepted、下一轮运行和送达分别是事实。
 
 配置控制面可选 profile 定位只影响指定的既有配置档；省略保持 defaultProfile。修改前核对绑定与共享影响范围，不把改 default 称为私聊和所有群已分别配置。当前运行快照及既有会话 profile 不被偷偷替换。完整实施与验收见[自配置闭环](../research/harness-self-configuration-20261101.md)。
 
