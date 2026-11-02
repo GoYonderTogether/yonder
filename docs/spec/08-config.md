@@ -122,6 +122,16 @@ identity:
 - 原生 validate/update 的既有结果可附独立运行 metadata；不把 derived 字段写回 AgentConfig。`agents show --json` 保持原 stdout 往返契约；仅本机 runtime inspect context 的 home、Agent 与目标吻合时，复用同一 inspect 将简短运行事实输出到独立 stderr。普通终端、其他 Agent 或跨 home 不自动追加；第二次查询失败或与磁盘版本分歧明确显示，不能冒充原子快照，不因此让成功的原始配置读取变失败。
 - parent 上下文只对既有 `parentOrigins` 验证通过且具备主人关系的原件投影目标 source conv/event；从 kernel 组合层注入共享查询，不在 prompt 层重算路由。事实不授予权限、不携带私有转录/正文/凭据，不改变群 profile、主人授权范围或私人 main 隔离。主会话可沿既有原生管理能力承办主人任务；不能因不能直绑私人 main 就宣称所有可行配置也不支持，也不能将 default 的 exec 能力自动开放给群成员。
 
+### 3.3 原始来源上下文连续
+
+关键自管理事实不能只依赖命令的 stderr；Agent 合法使用管道或丢弃错误流时，原 stdout/命令语义不变，宿主仍须沿既有动态 conversationContext 提供可信来源事实。所有内容仍在稳定提示词之后，不生成新用户输入，不新增意图解析器、任务状态判官、第二存储或运行系统。
+
+- 私聊门控须验证真实 `message.in` 的 kind=dm、from 的 owner 关系、该 Agent 的实际 route.session，以及存储 session 的 agent 相同且 mode/key 均为 main；不按 Agent id 或 profile 名猜身份。只在这条主人私有 main 上附该 Agent 的有限精确 conversation operability 摘要，复用3.2投影与accepted revision；不能只检查当前DM本身而漏掉其管理的群。群、访客、其他Agent不收到这份私有摘要。
+- 同一main跨渠道保留私有历史，不等于不同来源是同一任务。对主人私聊附当前origin conv的有界近期主人原件窗口，按01 §4的反向查询读取，再按时间顺序呈现。事件ID、from、conv、owner关系和必要原文来自真实存储且与当前Agent/session核验；不读取其他conv/Agent正文，不用模型概括代替原件。正文过长或窗口截断明确标缺失，不能截去约束后当成完整授权；既有Pi原文/历史不删改。历史窗口只帮助理解当前请求，不把旧命令自动变成新的授权。
+- 批次触发文本可为空，但必须将已准入的sourceEvents还原为有界的当前来源帧：复用原始source的真实conv、agent/session route和批次准入校验，逐条用identity关系标记owner、保留原mentions/引用；来自plugin的触发不冒充原始发言者。非owner成员仍为ambient来源，不从昵称、引用或转述获得owner权限。原文已写入Pi时不声称正文丢失；来源帧明确哪些原件属于当前批次，遗漏/截断显式报告，不因事实注入唤醒其他会话或发送消息。
+- parent仍只沿既有验证后的originals取来源；包装时的 `conv:agent:<id>` 不能取代真实origin conv。profile限定当前能力，不另造Agent身份；同Agent的群上下文与私有main是不同会话范围，私人转录不合并、群权限不扩张，主会话承办经验证的主人任务的能力保持。
+- 保留现有busy/steer/followup/interrupt契约及显式binding配置，不因新上下文元数据默改输入模式。route.busy仅是所选策略，waiting仅为调用方等结果；实际run.inputs仍是输入组合事实。合并输入须保持各自来源帧，当前输入及其同origin窗口与另一parent任务分栏，不能把共享会话当成目标相同的证明。
+
 ## 4. 一个完整的 agent.yaml（QQ 场景）
 
 ```yaml

@@ -1078,3 +1078,8 @@ v7飞书精确自定义来源被后置同渠道observer错误地证明为官方�
 ### 2026-11-02：自管理统一会话运行事实
 
 v08真人原话复验继续失败：飞书将v7旧write入账当成新版本执行验证；QQ主会话把私人main不可直绑误当作没有管理路径。按主人要求继续修共享架构，复用现有全局inspect、首来源/consumer resolver与accepted快照建立一份运行事实投影，供自管理反馈、social检查和已验证parent上下文使用。区分历史/预测、入账/策略批次/实际run/送达，保留raw show stdout、离线unknown及权限边界；不新增agents.inspect别名、runAs、第二runtime、意图正则或完成判官。参数与语义见08 §3.2、13 §2.3。实现仍交Luna，正式发布与原话真实群验收继续分层记录。
+
+
+### 2026-11-03：来源帧与有界同源上下文
+
+v09原话复验发现：合法shell重定向可过滤stderr，private DM又未注入同一运行事实；同一main的一次run包含QQ parent、飞书短句及QQ工具结果，实际操作/答复目标仍为QQ。另QQ原文已在Pi，空batch trigger不等于正文丢失，但触发上下文未关联当前sourceEvents的身份/原件。沿主人通用Harness要求，复用共享投影与现有conversationContext补owner私聊事实、同origin近期原件和已准入batch来源帧；为此扩展01的可选before/order有界查询，旧正序行为不变。保留既有显式steer，不以配置值冒称实际调度事实，不加新runtime、意图parser或任务状态判官，不改Bot配置或向真实user message塞操作提示。边界见08 §3.3。
