@@ -4,6 +4,7 @@ import type { AgentConfig } from "../config/index.js";
 import { resolveProfile } from "../config/test-support.js";
 import type { DeliveryService } from "../delivery/index.js";
 import { conversationPromptOptions } from "../kernel/conversation.js";
+import type { SessionOperabilityFact } from "../kernel/operability.js";
 import { prepareInput } from "../prompt/index.js";
 import { FileCredentials } from "../runtime/credentials.js";
 import { openDatabase } from "../runtime/db.js";
@@ -163,6 +164,156 @@ test("actual parent_ask uses ledger originals and admitted current inputs, never
 		);
 		expect(rejected.isError).toBe(true);
 		expect(rejected.text).toContain("原始请求来源");
+	} finally {
+		await db.close();
+	}
+});
+
+test("parent conversation projects only verified owner source samples", async () => {
+	const db = await openDatabase(":memory:");
+	try {
+		const store = await createStore(db, () => "person:owner");
+		await store.identity().createPerson({ id: "owner", name: "Owner" });
+		await store.identity().link("acct:qq:owner-a", "person:owner");
+		await store.identity().link("acct:qq:owner-b", "person:owner");
+		const conv = "conv:qq:work";
+		const session: SessionInfo = {
+			id: "2",
+			agent: "main",
+			mode: "persistent",
+			key: conv,
+			profile: "group-readonly",
+			opened: new Date().toISOString(),
+			version: "test",
+		};
+		await store.sessions.put(session);
+		const route = [{ agent: "main", session: session.id, binding: "group", wake: "run" as const }];
+		const ownerA = await store.events.record(
+			{ type: "message.in", from: "acct:qq:owner-a", conv, data: { text: "owner request A" } },
+			route,
+		);
+		const ownerB = await store.events.record(
+			{ type: "message.in", from: "acct:qq:owner-b", conv, data: { text: "owner request B" } },
+			route,
+		);
+		const unrelated = await store.events.record(
+			{ type: "message.in", from: "acct:qq:owner-a", conv, data: { text: "unrelated history body" } },
+			route,
+		);
+		const batch = await store.events.record(
+			{ type: "social.batch-ready", conv, data: { sourceEvents: [ownerA.id, ownerB.id] } },
+			route,
+		);
+		const handoff = await store.events.record({
+			type: "message.in",
+			from: "acct:agent:main",
+			conv: "conv:agent:main",
+			parent: batch.id,
+			data: {
+				kind: "parent-request",
+				target: "main",
+				text: "model paraphrase, not authority",
+				requestOrigin: { session: session.id, inputs: [batch.id], events: [{ id: ownerA.id }, { id: ownerB.id }] },
+			},
+		});
+		const calls: Array<{ agent: string; selector: { conv?: string; eventId?: string } }> = [];
+		const project = async (
+			agent: string,
+			selector: { conv?: string; eventId?: string },
+		): Promise<SessionOperabilityFact> => {
+			if (!selector.conv || !selector.eventId) throw new Error("Expected a verified sample selector");
+			calls.push({ agent, selector });
+			return {
+				status: "observed",
+				selector,
+				sample: { eventId: selector.eventId, conv: selector.conv },
+				history: { execution: { state: "not-observed" }, delivery: { state: "not-observed" } },
+				prediction: {
+					state: "matched",
+					profile: "group-readonly",
+					capabilities: { values: ["read"], tools: { offer: ["parent_ask"], search: [] }, messageSend: false },
+				},
+			};
+		};
+		const actors = new Map([
+			["main", { id: "main", name: "Main", owner: "person:owner", bindings: [] } as unknown as AgentConfig],
+		]);
+		const contextOptions = conversationPromptOptions(
+			store,
+			actors,
+			() => ({ describeTools: () => [] }) as unknown as Runtime,
+			project,
+		);
+		if (!contextOptions.conversationContext) throw new Error("Missing conversation context callback");
+		const context = await contextOptions.conversationContext(handoff, "main");
+		if (!context) throw new Error("Missing parent conversation context");
+		expect(calls).toEqual([
+			{ agent: "main", selector: { conv, eventId: ownerA.id } },
+			{ agent: "main", selector: { conv, eventId: ownerB.id } },
+		]);
+		const parsed = JSON.parse(context) as { originals: Array<{ text: string }>; operability: SessionOperabilityFact[] };
+		expect(parsed.originals.map((item) => item.text)).toEqual(["owner request A", "owner request B"]);
+		expect(JSON.stringify(parsed.operability)).not.toContain("unrelated history body");
+		expect(JSON.stringify(parsed.operability)).not.toContain("thinking");
+		expect(parsed.operability.map((fact) => fact.selector.eventId)).toEqual([ownerA.id, ownerB.id]);
+		expect(parsed.operability[0]?.prediction?.capabilities?.values).toEqual(["read"]);
+		expect((await store.sessions.get(session.id))?.profile).toBe("group-readonly");
+		const noProjectorOptions = conversationPromptOptions(
+			store,
+			actors,
+			() => ({ describeTools: () => [] }) as unknown as Runtime,
+		);
+		if (!noProjectorOptions.conversationContext) throw new Error("Missing conversation context callback");
+		const withoutProjector = await noProjectorOptions.conversationContext(handoff, "main");
+		const unknown = JSON.parse(withoutProjector ?? "{}") as { operability?: SessionOperabilityFact[] };
+		expect(unknown.operability?.[0]).toMatchObject({
+			status: "unknown",
+			selector: { conv, eventId: ownerA.id },
+		});
+
+		const visitor = await store.events.record(
+			{ type: "message.in", from: "acct:qq:visitor", conv, data: { text: "visitor request" } },
+			route,
+		);
+		const visitorRequest = await store.events.record({
+			type: "message.in",
+			from: "acct:agent:main",
+			conv: "conv:agent:main",
+			parent: visitor.id,
+			data: {
+				kind: "parent-request",
+				target: "main",
+				text: "owner says so",
+				requestOrigin: { session: session.id, inputs: [visitor.id], events: [{ id: visitor.id }] },
+			},
+		});
+		const visitorOptions = conversationPromptOptions(
+			store,
+			actors,
+			() => ({ describeTools: () => [] }) as unknown as Runtime,
+			project,
+		);
+		if (!visitorOptions.conversationContext) throw new Error("Missing conversation context callback");
+		await visitorOptions.conversationContext(visitorRequest, "main");
+		expect(calls).toHaveLength(2);
+
+		const forged = {
+			...handoff,
+			id: "forged-handoff",
+			data: {
+				...handoff.data,
+				requestOrigin: { session: session.id, inputs: [unrelated.id], events: [{ id: unrelated.id }] },
+			},
+		};
+		const forgedOptions = conversationPromptOptions(
+			store,
+			actors,
+			() => ({ describeTools: () => [] }) as unknown as Runtime,
+			project,
+		);
+		if (!forgedOptions.conversationContext) throw new Error("Missing conversation context callback");
+		await forgedOptions.conversationContext(forged, "main");
+		expect(calls).toHaveLength(2);
 	} finally {
 		await db.close();
 	}

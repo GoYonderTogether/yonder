@@ -9,6 +9,7 @@ import { createCoreTools } from "../tools/index.js";
 import { parentOrigins } from "../tools/parent-origin.js";
 import { createPermissionsTool } from "../tools/permissions.js";
 import { createSkillTool } from "../tools/skill-view.js";
+import type { OperabilitySelector, SessionOperabilityFact } from "./operability.js";
 import { createSubagentTool } from "./subagents.js";
 import { filesFor, projectRulesFor } from "./workspace.js";
 
@@ -16,6 +17,7 @@ export function conversationPromptOptions(
 	store: Store,
 	agents: Map<string, AgentConfig>,
 	runtime: () => Runtime,
+	projectOperability?: (agentId: string, selector: OperabilitySelector) => Promise<SessionOperabilityFact>,
 ): Pick<PromptOptions, "offeredTools" | "deliveryPolicy" | "conversationContext"> {
 	return {
 		offeredTools: (session) =>
@@ -40,24 +42,48 @@ export function conversationPromptOptions(
 			const self = agent ? { agent, name: agents.get(agent)?.name } : undefined;
 			if ((event.data as { kind?: string }).kind === "parent-request") {
 				const sources = agent ? await parentOrigins(store, event, agent) : undefined;
+				const originals = await Promise.all(
+					(sources ?? []).map(async (source) => ({
+						id: source.id,
+						from: source.from,
+						conv: source.conv,
+						relation: agent && source.from ? await store.identity().relation(agent, source.from) : "stranger",
+						text: (source.data as { text?: string }).text ?? "",
+						at: source.ts,
+						...Object.fromEntries(
+							["mentions", "mentioned", "replyTo", "quote", "social"]
+								.filter((key) => key in source.data)
+								.map((key) => [key, (source.data as Record<string, unknown>)[key]]),
+						),
+					})),
+				);
+				const ownerSourceIds = new Set(
+					originals.filter((original) => original.relation === "owner").map((source) => source.id),
+				);
+				const operability = await Promise.all(
+					(sources ?? [])
+						.filter((source) => ownerSourceIds.has(source.id))
+						.map(async (source) => {
+							const selector: OperabilitySelector = {
+								eventId: source.id,
+								...(source.conv ? { conv: source.conv } : {}),
+							};
+							if (!source.conv)
+								return { status: "unknown" as const, selector, reason: "verified source conversation unavailable" };
+							if (!projectOperability || !agent)
+								return { status: "unknown" as const, selector, reason: "shared projection unavailable" };
+							try {
+								return await projectOperability(agent, selector);
+							} catch {
+								return { status: "unknown" as const, selector, reason: "shared projection unavailable" };
+							}
+						}),
+				);
 				return JSON.stringify({
 					self,
 					verified: !!sources,
-					originals: await Promise.all(
-						(sources ?? []).map(async (source) => ({
-							id: source.id,
-							from: source.from,
-							conv: source.conv,
-							relation: agent && source.from ? await store.identity().relation(agent, source.from) : "stranger",
-							text: (source.data as { text?: string }).text ?? "",
-							at: source.ts,
-							...Object.fromEntries(
-								["mentions", "mentioned", "replyTo", "quote", "social"]
-									.filter((key) => key in source.data)
-									.map((key) => [key, (source.data as Record<string, unknown>)[key]]),
-							),
-						})),
-					),
+					originals,
+					...(operability.length ? { operability } : {}),
 				});
 			}
 			if (!event.conv) return undefined;
@@ -100,9 +126,10 @@ export function kernelPromptOptions(
 	services: Pick<import("../plugins/index.js").KernelServices, "models">,
 	skills: Pick<ReturnType<typeof import("./workspace.js").skillsFor>, "index" | "command">,
 	version: string,
+	projectOperability?: (agentId: string, selector: OperabilitySelector) => Promise<SessionOperabilityFact>,
 ): PromptOptions {
 	return {
-		...conversationPromptOptions(store, agents, runtime),
+		...conversationPromptOptions(store, agents, runtime, projectOperability),
 		home,
 		version,
 		locale: config.locale ?? "zh-CN",
