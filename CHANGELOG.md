@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [0.3.26110210] - 2026-11-02
+
+### Fixed
+
+- release：let altool find the API key in its default location
+- release：use an absolute archive path for the iOS export
+- release：check out the dispatched ref for manual iOS builds
+- sample latest event in long conversations
+- release：keep iOS workflow log lines ASCII
+- release：allow a manual iOS build without a tag check
+
+### Added
+
+- state shared agent identity in context
+- add private main owner context
+- project verified batch source context
+- add bounded descending event queries
+- release：build and upload the iOS app to TestFlight
+
 ## [0.3.26110209] - 2026-11-02
 
 ### Fixed
