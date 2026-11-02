@@ -1,13 +1,34 @@
 import { randomUUID } from "node:crypto";
-import { readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { PluginAPI } from "@yonder/sdk";
 import type { Job, RecordRun } from "./job.js";
 
 export async function atomic(path: string, value: unknown) {
 	const temp = `${path}.${randomUUID()}.tmp`;
-	await writeFile(temp, JSON.stringify(value, null, 2), { mode: 0o600 });
-	await rename(temp, path);
+	try {
+		await writeFile(temp, JSON.stringify(value, null, 2), { mode: 0o600 });
+		for (let attempt = 0; ; attempt++) {
+			try {
+				await rename(temp, path);
+				return;
+			} catch (error) {
+				// Windows readers/scanners can briefly block replacement; retry only rename (5 waits, 620ms total).
+				// Never unlink the durable target.
+				if (
+					process.platform !== "win32" ||
+					!["EPERM", "EACCES", "EBUSY"].includes((error as NodeJS.ErrnoException).code ?? "") ||
+					attempt >= 5
+				)
+					throw error;
+				await delay(20 * 2 ** attempt);
+			}
+		}
+	} catch (error) {
+		await rm(temp, { force: true }).catch(() => {});
+		throw error;
+	}
 }
 export const saveJobs = (api: PluginAPI, jobs: Job[]) => atomic(join(api.paths.data, "jobs.json"), jobs);
 export const recordRun = (api: PluginAPI, run: RecordRun) =>
