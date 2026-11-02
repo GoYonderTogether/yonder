@@ -1,9 +1,9 @@
 import { copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, relative } from "node:path";
-import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { ToolContext } from "@yonder/sdk";
 import { tempHome } from "@yonder/sdk/testing";
 import { expect, test } from "vitest";
+import { localEnvironment } from "../../../packages/core/src/runtime/env.js";
 import { codexEnvironment, run, runCodex } from "../src/index.js";
 import { npmCodexEntrySource } from "../src/resolve-command.js";
 
@@ -30,7 +30,7 @@ endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\${ta
 test("resolves only confirmed npm Node targets on the execution host and preserves literal argv", async () => {
 	const root = await tempHome("companion-shim-");
 	try {
-		const ctx = { env: new NodeExecutionEnv({ cwd: root }), signal: new AbortController().signal } as ToolContext;
+		const ctx = { env: localEnvironment(root), signal: new AbortController().signal } as ToolContext;
 		const env = await codexEnvironment(ctx, root);
 		const literal = 'space & echo BAD | < > %PATH% !value! "quote"';
 		for (const local of [false, true]) {
@@ -83,14 +83,20 @@ test("resolves only confirmed npm Node targets on the execution host and preserv
 			]);
 			expect(unknown.exitCode).not.toBe(0);
 			expect(unknown.stderr).toContain("Unsupported Codex shim");
-			if (process.platform === "win32") {
-				await copyFile(process.execPath, join(bin, "codex.exe"));
-				const native = await runCodex(ctx, ["-e", "process.stdout.write('native-node')"], {
+			await copyFile(process.execPath, join(bin, process.platform === "win32" ? "codex.exe" : "codex"));
+			const native = await runCodex(
+				ctx,
+				["-e", "process.stdout.write(JSON.stringify({text:'native-node',pid:process.pid}))"],
+				{
 					...isolated,
 					PATHEXT: ".EXE;.CMD",
-				});
-				expect(native.stdout).toBe("native-node");
-			}
+				},
+			);
+			const nativeResult = JSON.parse(native.stdout) as { text: string; pid: number };
+			expect(nativeResult.text).toBe("native-node");
+			await expect(Promise.resolve().then(() => process.kill(nativeResult.pid, 0))).rejects.toMatchObject({
+				code: "ESRCH",
+			});
 		}
 	} finally {
 		await rm(root, { recursive: true, force: true });
