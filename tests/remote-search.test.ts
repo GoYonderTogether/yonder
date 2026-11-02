@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DeviceSession } from "@yonder/protocol";
 import { createRemoteEnvironment } from "@yonder/runtime-adapter/node/runtime/remote-env";
+import { remoteFind, remoteGrep } from "@yonder/runtime-adapter/node/runtime/remote-search";
 import { createFindTool } from "@yonder/runtime-adapter/runtime/find";
 import { createGrepTool } from "@yonder/runtime-adapter/runtime/grep";
 import type { ToolContext } from "@yonder/sdk";
@@ -62,9 +63,12 @@ test("remote readonly find/grep read real files, preserve anchors and ignore nes
 	await writeFile(join(home, ".hidden/b.ts"), "Hello");
 	await writeFile(join(home, ".git/secret.ts"), "Hello");
 	await writeFile(join(home, "binary.bin"), Buffer.from([0, 72, 101, 108, 108, 111]));
-	const found = await createFindTool().execute({ pattern: "*.ts" }, ctx);
+	const found = await createFindTool(remoteFind).execute({ pattern: "*.ts" }, ctx);
 	expect(found.text.split("\n").sort()).toEqual([".hidden/b.ts", "src/a.ts"]);
-	const grep = await createGrepTool().execute({ pattern: "hello", ignoreCase: true, context: 1, glob: "*.ts" }, ctx);
+	const grep = await createGrepTool(remoteGrep).execute(
+		{ pattern: "hello", ignoreCase: true, context: 1, glob: "*.ts" },
+		ctx,
+	);
 	// Display headers use forward slashes; filesystem operations and anchor keys retain native canonical paths.
 	expect(grep.text.split("\n")[0]).toBe(`=== ${join(home, "src/a.ts").replaceAll("\\", "/")} ===`);
 	expect(grep.text).toMatch(/2:│ [a-z]{5}│Hello 世界/);
@@ -73,9 +77,11 @@ test("remote readonly find/grep read real files, preserve anchors and ignore nes
 	expect(grep.text).not.toContain(".hidden");
 	expect(calls).not.toContain("process.exec");
 	expect(
-		(await createGrepTool().execute({ pattern: "Hello 世界", literal: true, path: "src/a.ts" }, ctx)).text,
+		(await createGrepTool(remoteGrep).execute({ pattern: "Hello 世界", literal: true, path: "src/a.ts" }, ctx)).text,
 	).toContain("Hello 世界");
-	expect((await createFindTool().execute({ pattern: "*.ts", limit: 1 }, ctx)).text).toContain("output limited");
+	expect((await createFindTool(remoteFind).execute({ pattern: "*.ts", limit: 1 }, ctx)).text).toContain(
+		"output limited",
+	);
 });
 
 test("remote searches enforce grant scope, skip symlinks and report bounded files", async () => {
@@ -85,16 +91,18 @@ test("remote searches enforce grant scope, skip symlinks and report bounded file
 	await writeFile(join(outside, "secret.txt"), "secret");
 	await symlink(outside, join(home, "escape"), process.platform === "win32" ? "junction" : "dir");
 	await writeFile(join(home, "large.txt"), "x".repeat(512 * 1024 + 1));
-	expect((await createGrepTool().execute({ pattern: "secret" }, ctx)).text).toContain("skipped 1 files");
-	await expect(createGrepTool().execute({ pattern: "secret", path: join(home, "escape") }, ctx)).rejects.toThrow();
-	await expect(createFindTool().execute({ pattern: "*", path: outside }, ctx)).rejects.toThrow();
+	expect((await createGrepTool(remoteGrep).execute({ pattern: "secret" }, ctx)).text).toContain("skipped 1 files");
+	await expect(
+		createGrepTool(remoteGrep).execute({ pattern: "secret", path: join(home, "escape") }, ctx),
+	).rejects.toThrow();
+	await expect(createFindTool(remoteFind).execute({ pattern: "*", path: outside }, ctx)).rejects.toThrow();
 	const aborted = { ...ctx, signal: AbortSignal.abort() };
-	await expect(createFindTool().execute({ pattern: "*" }, aborted)).rejects.toBeDefined();
+	await expect(createFindTool(remoteFind).execute({ pattern: "*" }, aborted)).rejects.toBeDefined();
 });
 
 test("remote regex errors and expensive expressions fail explicitly without blocking runtime", async () => {
 	const { home, ctx } = await setup();
 	await writeFile(join(home, "bad.txt"), "a".repeat(10000) + "!");
-	await expect(createGrepTool().execute({ pattern: "[" }, ctx)).rejects.toThrow();
-	await expect(createGrepTool().execute({ pattern: "(a+)+$" }, ctx)).rejects.toThrow("exceeded 1 second");
+	await expect(createGrepTool(remoteGrep).execute({ pattern: "[" }, ctx)).rejects.toThrow();
+	await expect(createGrepTool(remoteGrep).execute({ pattern: "(a+)+$" }, ctx)).rejects.toThrow("exceeded 1 second");
 }, 10000);
