@@ -25,6 +25,7 @@
 		"@earendil-works/chord": "1.3.0"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"native"
 	]
 }

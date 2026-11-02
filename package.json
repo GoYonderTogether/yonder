@@ -59,10 +59,11 @@
 		"build:clean": "node scripts/clean-build.mjs && npm run build",
 		"check:dist": "node scripts/check-dist-sync.mjs",
 		"test": "vitest run --exclude '**/dist/**'",
-		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs scripts/release/ci-status.test.mjs scripts/release/changelog.test.mjs scripts/release/version.test.mjs scripts/release/bump-versions.test.mjs scripts/release/pack-runtime.test.mjs",
+		"test:node": "node --test scripts/export-model-observations.test.mjs scripts/migrate/rename-yonder.test.mjs scripts/test/names-consistency.test.mjs packages/macos/test/install-root.test.mjs scripts/release/ci-status.test.mjs scripts/release/changelog.test.mjs scripts/release/version.test.mjs scripts/release/bump-versions.test.mjs scripts/release/pack-runtime.test.mjs scripts/windows-native/artifacts.test.mjs",
 		"lint:size": "node scripts/check-file-size.mjs",
 		"lint:layers": "node scripts/check-layers.mjs",
-		"lint": "biome check . && node scripts/check-file-size.mjs && node scripts/check-layers.mjs"
+		"lint": "biome check . && node scripts/check-file-size.mjs && node scripts/check-layers.mjs",
+		"check:windows-native": "node scripts/windows-native/artifacts.mjs verify"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",

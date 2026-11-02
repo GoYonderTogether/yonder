@@ -1,0 +1,74 @@
+# Bootstrap/rebuild our own addon; ordinary installs never run a compiler.
+name: Windows native prebuild
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - packages/sdk/native/**
+      - scripts/windows-native/**
+      - .github/workflows/windows-native.yml
+  pull_request:
+    paths:
+      - packages/sdk/native/**
+      - scripts/windows-native/**
+      - .github/workflows/windows-native.yml
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Windows native ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-2025
+          - arch: arm64
+            runner: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          architecture: ${{ matrix.arch }}
+      - name: Check native architecture and verifier tests
+        shell: pwsh
+        run: |
+          node -e "if (process.arch !== process.env.EXPECTED_ARCH) process.exit(1)"
+          if ($LASTEXITCODE -ne 0) { throw 'Node architecture mismatch' }
+          node --test scripts/windows-native/artifacts.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact verifier tests failed' }
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+      - name: Build using official Node headers and Windows SDK
+        shell: pwsh
+        run: ./scripts/windows-native/build.ps1 -Arch '${{ matrix.arch }}'
+      - name: Native pipe smoke on minimum Node 22.19
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.arch }}/owner-pipe.node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          architecture: ${{ matrix.arch }}
+      - name: Native pipe smoke on Node 24
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.arch }}/owner-pipe.node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+          architecture: ${{ matrix.arch }}
+      - name: Native pipe smoke on Node 26
+        run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.arch }}/owner-pipe.node
+      - name: Verify source and binary provenance
+        run: node scripts/windows-native/artifacts.mjs verify ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-native-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            packages/sdk/native/win32-${{ matrix.arch }}/owner-pipe.node
+            packages/sdk/native/win32-${{ matrix.arch }}/manifest.json
+          if-no-files-found: error

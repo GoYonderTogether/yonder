@@ -8,6 +8,8 @@
 - security：Windows 凭据存储继续拒绝符号链接、目录 junction 与硬链接；记忆读取按规范化目标路径判断 private，防止分隔符或相对路径绕过私有内容授权。
 - plugins：补全 Windows Chrome/Edge 发现、Codex 授权目录与 npm 启动器兼容；协议测试隔离真实 Codex 和登录凭据。
 - build：清理构建产物改用 Node 文件接口；Windows x64 与 ARM64 全量检查并入主 CI 和正式发版门禁，不再仅作定时旁路检查。
+- test：CLI 夹具通过控制面正常停止并核对锁释放，拆分独立配置用例、保留子进程故障诊断；修复 Windows 文件 URL、Git 换行与 JSON 路径断言。
+- build：增加第一方 Windows owner-only pipe 原生组件的双架构构建、来源校验与生命周期测试流程；本阶段仅提供 bootstrap，尚未切换生产 IPC 或声明跨用户隔离通过。
 - 验收边界：上述为兼容性修复与 CI 覆盖，不代表真实模型、Windows 跨用户命名管道隔离或完整安装生命周期已验收；跨用户隔离仍须单独实机证明。
 
 ## [0.3.26110110] - 2026-11-01
