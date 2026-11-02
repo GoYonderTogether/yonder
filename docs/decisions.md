@@ -2,7 +2,7 @@
 
 ## 2026-11-03 普通批次配置复用完整依赖预检（主人要求）
 
-不新增目标解释模型、reconcile API或配置DSL。现有social.update仍负责会话policy局部补丁，完整scope/profile/binding由既有agents.update原子处理；明确mode=batch与batch.run=true的候选必须在写入前检查真实处理依赖，可确定缺件一次给出具体路径与现有修复入口，不保存已知无效的普通处理目标。不自动修改共享profile、权限或群历史；模型从原话选择既有工具执行，宿主负责候选校验、重载、事实回读。代价是实际存在跨字段缺口时需要Agent形成完整候选，而不是对多个Bot的home打预置补丁。见11配置入口契约。
+不新增目标解释模型、reconcile API或配置DSL。现有social.update仍负责会话policy局部补丁，完整scope/profile/binding由既有agents.update原子处理；明确启用普通批次处理（设置mode=batch或batch.run=true，合并后两者均生效）的候选必须在写入前检查真实处理依赖，可确定缺件一次给出具体路径与现有修复入口，不保存已知无效的普通处理目标。不自动修改共享profile、权限或群历史；模型从原话选择既有工具执行，宿主负责候选校验、重载、事实回读。代价是实际存在跨字段缺口时需要Agent形成完整候选，而不是对多个Bot的home打预置补丁。见11配置入口契约。
 
 ## 2026-11-03 共享main按可信来源分别执行与交付（主人要求）
 
@@ -10,7 +10,7 @@ v14真实run.end将QQ parent请求与Feishu P1私聊合在一轮，最终QQ答�
 
 可信来源复用持久原事件/parent来源核验；同源steer保持及时补充，异源不取消当前生成并持久排队，最终边界只取一个来源组。明确interrupt保留原调用方跨源取消选择；内部工具结果和续办继承原来源，write-only提醒不变。旧无来源元数据的Pi调用兼容，旧转录不迁移、不重放。代价是异源请求要等待当前轮，但不再收到另一个来源的同一最终答复。见02 §1.2、07对接busy映射。
 
-实现须先在GoYonderTogether/pi正式fork完成原生Inbox分组并测试，再按CONTRIBUTING同步；先迁回现有anchor overlay、核对来源并重建同commit pi-ai包，不绕过同步保护或直接修改vendored源码。配置、授权、发言与任务完成仍由原模型/工具边界负责，来源键不构成权限或“完成”判定。
+实现已沿GoYonderTogether/pi正式fork归源：D1 `4e37df84c2929fb46e86b58d7b18a189bf8825d9`迁回14个anchor源文件，Harness现存93文件逐字节核对0差异；原同步guard通过后同步D2 `ec1b66ed370b7d1fa707f49def9127fe2b0df1c2`，并从干净D2重建匹配pi-ai包。原hashline断言迁回fork，Harness保留core消费者集成检查。没有绕过同步保护或直接修改vendored源码。配置、授权、发言与任务完成仍由原模型/工具边界负责，来源键不构成权限或“完成”判定。
 
 ## 2026-11-03 普通群模型处理与发言机会分离（主人要求）
 
