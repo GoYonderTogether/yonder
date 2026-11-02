@@ -170,14 +170,12 @@ jobs:
           $log = Join-Path $env:RUNNER_TEMP 'yonder-status-check.log'
           $env:YONDER_INSTALL = Join-Path $env:RUNNER_TEMP 'yonder-missing-install'
           $env:YONDER_HOME = Join-Path $env:RUNNER_TEMP 'yonder-missing-home'
-          & $exe --check --log $log
-          $check = $LASTEXITCODE
+          $check = Start-Process -FilePath $exe -ArgumentList @('--check', '--log', "`"$log`"") -Wait -PassThru
           if (Test-Path $log) { Get-Content $log | Write-Host }
-          if ($check -ne 0) { throw "status reader self-check failed ($check)" }
-          & $exe --smoke --log $log
-          $smoke = $LASTEXITCODE
+          if ($check.ExitCode -ne 0) { throw "status reader self-check failed ($($check.ExitCode))" }
+          $smoke = Start-Process -FilePath $exe -ArgumentList @('--smoke', '--log', "`"$log`"") -Wait -PassThru
           if (Test-Path $log) { Get-Content $log | Write-Host }
-          if ($smoke -ne 0) { throw "tray host smoke failed ($smoke)" }
+          if ($smoke.ExitCode -ne 0) { throw "tray host smoke failed ($($smoke.ExitCode))" }
       - name: Smoke committed native pipe on minimum Node 22.19
         run: node scripts/windows-native/pipe.test.mjs packages/sdk/native/win32-${{ matrix.node_arch }}/owner-pipe.node
       - name: Verify paired device RPC with five fresh fixtures (stop on first failure)
